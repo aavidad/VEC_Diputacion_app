@@ -2095,3 +2095,1106 @@ h2 {
 .cronos-table-view tr:nth-child(even) {
   background: #f8fbfd;
 }
+
+/* ============================================================
+   Pantalla "Anadir dieta o comision" (rediseno por dominio)
+   ============================================================ */
+.dietas-create {
+  font-family: inherit;
+  background: var(--surface);
+  padding: 22px 24px 28px;
+  border-radius: var(--radius);
+}
+
+.dietas-create-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+  border-bottom: 2px solid var(--brand);
+}
+
+.dietas-create-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--brand);
+}
+
+.dietas-create-head .eyebrow {
+  margin: 0 0 2px;
+  color: var(--muted);
+}
+
+.dietas-back-btn,
+.dietas-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  color: var(--muted-strong);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.dietas-back-btn:hover { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
+.dietas-lock { cursor: default; }
+
+.dietas-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  background: var(--audit-soft);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--audit);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+}
+.dietas-meta span { display: block; color: var(--muted); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+.dietas-meta strong { font-size: 0.98rem; color: var(--text); }
+
+.dietas-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  margin-bottom: 22px;
+  background: var(--success-soft);
+  border: 1px solid color-mix(in srgb, var(--success), white 55%);
+  border-radius: var(--radius);
+}
+.dietas-total .label { font-weight: 700; color: var(--muted-strong); }
+.dietas-total .total-acumulado-val { font-size: 1.5rem; font-weight: 800; color: var(--success); }
+
+.dietas-create form { display: flex; flex-direction: column; gap: 18px; }
+
+/* Tarjeta de seccion con tono por dominio */
+.dietas-section {
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--sec-accent, var(--brand));
+  border-radius: var(--radius);
+  padding: 0;
+  margin: 0;
+  background: var(--sec-soft, var(--surface));
+  overflow: hidden;
+}
+.dietas-section > legend,
+.dietas-section > .sec-legend {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 11px 16px;
+  background: color-mix(in srgb, var(--sec-soft, var(--surface-muted)), white 30%);
+  border-bottom: 1px solid var(--line);
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--sec-accent, var(--brand));
+  box-sizing: border-box;
+}
+.dietas-section > .sec-body { padding: 16px; }
+
+/* fieldset usa padding/borde nativo: lo anulamos para que la franja
+   de la leyenda llegue a los bordes */
+fieldset.dietas-section { padding: 0; min-width: 0; }
+
+/* Acentos por dominio */
+.sec-obligatorios { --sec-accent: var(--brand);     --sec-soft: var(--brand-soft); }
+.sec-dietas       { --sec-accent: var(--merit);     --sec-soft: var(--merit-soft); }
+.sec-km           { --sec-accent: var(--deadline);  --sec-soft: var(--deadline-soft); }
+.sec-medios       { --sec-accent: var(--document);  --sec-soft: var(--document-soft); }
+.sec-gastos       { --sec-accent: var(--notice);    --sec-soft: var(--notice-soft); }
+.sec-lineas       { --sec-accent: var(--audit);     --sec-soft: var(--audit-soft); }
+
+/* Rejilla uniforme de campos */
+.dietas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.dietas-grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+.dietas-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted-strong);
+}
+.dietas-field input,
+.dietas-field select {
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+}
+.dietas-field input:focus,
+.dietas-field select:focus {
+  outline: 3px solid color-mix(in srgb, var(--focus), white 60%);
+  border-color: var(--focus);
+}
+
+.dietas-radio-row { display: flex; gap: 16px; margin-top: 4px; }
+.dietas-radio-row label { font-weight: 600; display: flex; align-items: center; gap: 5px; color: var(--text); }
+
+/* Botones internos */
+.dietas-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--sec-accent, var(--line-strong));
+  background: var(--surface);
+  color: var(--sec-accent, var(--text));
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dietas-btn:hover { background: var(--sec-soft, var(--surface-muted)); }
+.dietas-btn.is-primary { background: var(--sec-accent, var(--brand)); color: #fff; border-color: transparent; }
+
+/* Tabla interna (tipos de dieta, lineas) */
+.dietas-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; background: var(--surface); border-radius: 6px; overflow: hidden; margin-top: 12px; }
+.dietas-table th { background: var(--surface-muted); color: var(--muted-strong); padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--line); }
+.dietas-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.dietas-table td.num { text-align: right; font-weight: 700; }
+.dietas-table td.center, .dietas-table th.center { text-align: center; }
+.dietas-table tr:last-child td { border-bottom: none; }
+
+.dietas-km-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 14px;
+  margin-top: 6px;
+  background: var(--surface);
+  border: 1px dashed var(--deadline);
+  border-radius: 6px;
+  font-weight: 700;
+}
+.dietas-km-summary .km-importe-display { color: var(--success); }
+
+.dietas-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.dietas-actions .btn-cancel {
+  padding: 10px 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dietas-actions .btn-save {
+  padding: 10px 26px;
+  border: none;
+  border-radius: 6px;
+  background: var(--brand);
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.dietas-actions .btn-save:hover { background: color-mix(in srgb, var(--brand), black 12%); }
+
+/* ============================================================
+   Paneles de tramite del empleado (dietas / permisos / etc.)
+   Estas clases se usaban en el JS pero no tenian estilo:
+   el formulario salia blanco, en una sola columna y apelotonado.
+   ============================================================ */
+.workspace .employee-flow-panel {
+  margin: 14px 12px 4px;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--flow-accent, var(--brand));
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* ============================================================
+   Acento de color por dominio: cada modulo tine su tono y todo
+   lo que cuelga de #module-portal lo hereda via --flow-accent.
+   ============================================================ */
+#module-portal { --flow-accent: var(--brand); --flow-soft: var(--brand-soft); }
+#module-portal[data-module="personal"]       { --flow-accent: var(--brand);     --flow-soft: var(--brand-soft); }
+#module-portal[data-module="nominas"]        { --flow-accent: var(--success);   --flow-soft: var(--success-soft); }
+#module-portal[data-module="cronos"]         { --flow-accent: var(--merit);     --flow-soft: var(--merit-soft); }
+#module-portal[data-module="dietas"]         { --flow-accent: var(--deadline);  --flow-soft: var(--deadline-soft); }
+#module-portal[data-module="rutas"]          { --flow-accent: var(--deadline);  --flow-soft: var(--deadline-soft); }
+#module-portal[data-module="bolsa"]          { --flow-accent: var(--procedure); --flow-soft: var(--procedure-soft); }
+#module-portal[data-module="documentos"]     { --flow-accent: var(--document);  --flow-soft: var(--document-soft); }
+#module-portal[data-module="notificaciones"] { --flow-accent: var(--notice);    --flow-soft: var(--notice-soft); }
+#module-portal[data-module="aprobaciones"]   { --flow-accent: var(--success);   --flow-soft: var(--success-soft); }
+#module-portal[data-module="auditoria"]      { --flow-accent: var(--audit);     --flow-soft: var(--audit-soft); }
+#module-portal[data-module="administracion"] { --flow-accent: var(--audit);     --flow-soft: var(--audit-soft); }
+
+/* Dietas y Cronos ya tenian su tono explicito; lo mantenemos coherente
+   pero ahora derivan del acento del modulo cuando aplique. */
+.workspace .employee-dietas-panel { --flow-accent: var(--deadline); }
+.workspace .employee-leave-panel  { --flow-accent: var(--merit); }
+
+/* Acento generico de la cabecera de panel: usa el del modulo si el panel
+   no fija el suyo (--flow-accent ya cae en cascada desde #module-portal). */
+.workspace .employee-flow-head { background: color-mix(in srgb, var(--flow-accent, var(--brand)), white 90%); }
+.workspace .employee-flow-panel { border-top-color: var(--flow-accent, var(--brand)); }
+/* Tarjetas del portal-grid: barra lateral con el acento del modulo */
+.workspace .portal-grid article { border-left-color: var(--flow-accent, var(--procedure)); }
+
+/* El panel de "Nueva dieta" es UN solo apartado: mismo fondo ambar
+   de principio a fin (cabecera, formulario y "Ruta del dia"). */
+.workspace .employee-dietas-panel { background: var(--deadline-soft); }
+.workspace .employee-dietas-panel .employee-flow-head { background: var(--deadline-soft); }
+.workspace .employee-dietas-panel .employee-flow-form { background: transparent; }
+/* "Ruta del dia" deja de ser una tarjeta separada: se integra en el bloque */
+.workspace .employee-dietas-panel .employee-fieldset {
+  border: none;
+  border-top: 1px solid color-mix(in srgb, var(--deadline), white 55%);
+  border-radius: 0;
+  background: transparent;
+  padding-top: 6px;
+}
+.workspace .employee-dietas-panel .employee-fieldset > legend {
+  padding: 4px 0 8px;
+  background: transparent;
+  border-bottom: none;
+}
+.workspace .employee-dietas-panel .employee-fieldset > *:not(legend) { margin-left: 0; margin-right: 0; }
+
+.workspace .employee-flow-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--flow-accent, var(--brand)), white 90%);
+  border-bottom: 1px solid var(--line);
+}
+.workspace .employee-flow-head h3 {
+  margin: 0 0 2px;
+  font-size: 1.05rem;
+  color: color-mix(in srgb, var(--flow-accent, var(--brand)), black 12%);
+}
+.workspace .employee-flow-head span {
+  color: var(--muted-strong);
+  font-size: 0.86rem;
+}
+
+/* Rejilla de formulario uniforme: 2 columnas, campos anchos a todo el ancho */
+.workspace .employee-flow-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  padding: 18px 16px;
+}
+.workspace .employee-flow-form > label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 750;
+  color: var(--muted-strong);
+}
+.workspace .employee-flow-form > label.employee-field-wide,
+.workspace .employee-flow-form > .employee-field-wide,
+.workspace .employee-flow-form > fieldset {
+  grid-column: 1 / -1;
+}
+.workspace .employee-flow-form input,
+.workspace .employee-flow-form select,
+.workspace .employee-flow-form textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+}
+.workspace .employee-flow-form input:focus,
+.workspace .employee-flow-form select:focus,
+.workspace .employee-flow-form textarea:focus {
+  outline: 3px solid color-mix(in srgb, var(--focus), white 60%);
+  border-color: var(--focus);
+}
+.workspace .employee-flow-form label.employee-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--text);
+}
+.workspace .employee-flow-form label.employee-check input { width: auto; }
+
+/* Fieldset "Ruta del dia" resaltado dentro del formulario */
+.workspace .employee-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--deadline);
+  border-radius: var(--radius);
+  background: var(--deadline-soft);
+  min-width: 0;
+}
+.workspace .employee-fieldset > legend {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--deadline-soft), white 35%);
+  border-bottom: 1px solid var(--line);
+  font-weight: 800;
+  color: var(--deadline);
+  box-sizing: border-box;
+}
+.workspace .employee-fieldset > *:not(legend) { margin: 0 14px; }
+.workspace .employee-fieldset > *:not(legend):first-of-type { margin-top: 14px; }
+.workspace .employee-fieldset > *:last-child { margin-bottom: 14px; }
+
+.workspace .employee-route-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.workspace .employee-route-list .route-row,
+.workspace .employee-route-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.workspace .employee-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.workspace .employee-flow-note {
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--deadline-soft), white 30%);
+  border: 1px dashed color-mix(in srgb, var(--deadline), white 40%);
+  border-radius: 6px;
+  color: var(--muted-strong);
+  font-size: 0.82rem;
+}
+
+.workspace .employee-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 6px;
+}
+
+/* Banda resumen reutilizada por el panel de empleado: la fijamos al
+   acento del modulo y a un grid que respira */
+.workspace .employee-dietas-panel .employee-summary-strip {
+  border-left: 4px solid var(--deadline);
+  border-radius: 6px;
+}
+
+/* Resultado de itinerario y mapa, como tarjetas claras */
+.workspace .employee-route-result,
+.workspace .route-result {
+  margin: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.workspace .employee-route-map,
+.workspace .route-map-panel {
+  margin: 0 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.workspace .employee-dietas-month-panel { padding: 0 16px; }
+
+@media (max-width: 720px) {
+  .workspace .employee-flow-form { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   Estadistica anual de dietas (meses como columnas)
+   ============================================================ */
+.workspace .employee-dietas-history { margin-top: 14px; }
+.workspace .employee-dietas-history-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.workspace .employee-dietas-history-head strong {
+  font-size: 1rem;
+  color: var(--deadline);
+}
+.workspace .employee-dietas-history-head span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.workspace .dietas-annual-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.workspace .dietas-annual-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.workspace .dietas-annual-table th,
+.workspace .dietas-annual-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+}
+.workspace .dietas-annual-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--deadline-soft);
+  color: var(--deadline);
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  letter-spacing: .02em;
+}
+/* primera columna (concepto) fija y a la izquierda */
+.workspace .dietas-annual-table th.metric-col,
+.workspace .dietas-annual-table tbody th[scope="row"] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  background: var(--surface);
+  color: var(--muted-strong);
+  font-weight: 750;
+  border-right: 1px solid var(--line);
+}
+.workspace .dietas-annual-table thead th.metric-col {
+  z-index: 2;
+  background: var(--deadline-soft);
+}
+.workspace .dietas-annual-table tbody tr:nth-child(even) th[scope="row"],
+.workspace .dietas-annual-table tbody tr:nth-child(even) td {
+  background: var(--surface-muted);
+}
+.workspace .dietas-annual-table td.is-zero { color: var(--line-strong); }
+
+/* mes en curso resaltado */
+.workspace .dietas-annual-table .is-current { background: color-mix(in srgb, var(--deadline-soft), white 8%) !important; }
+.workspace .dietas-annual-table thead th.is-current {
+  background: var(--deadline) !important;
+  color: #fff;
+}
+.workspace .dietas-annual-table td.is-current { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--deadline), white 55%); font-weight: 700; }
+.workspace .dietas-annual-table thead th.is-empty { color: color-mix(in srgb, var(--deadline), white 45%); }
+
+/* columna total del ano */
+.workspace .dietas-annual-table .annual-total {
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 800;
+  border-left: 2px solid color-mix(in srgb, var(--brand), white 55%);
+}
+.workspace .dietas-annual-table thead th.annual-total { background: var(--brand); color: #fff; }
+
+/* primera fila (Importe total) destacada */
+.workspace .dietas-annual-table tbody tr[data-metric="total"] td,
+.workspace .dietas-annual-table tbody tr[data-metric="total"] th { font-weight: 800; font-size: 0.9rem; }
+
+/* Botones de la ruta (anadir parada / calcular ruta): deben destacar */
+.workspace .employee-fieldset .employee-inline-actions .quiet-action {
+  border: 1px solid transparent;
+  background: var(--deadline);
+  color: #fff;
+  font-weight: 750;
+}
+.workspace .employee-fieldset .employee-inline-actions .quiet-action:hover {
+  background: color-mix(in srgb, var(--deadline), black 12%);
+}
+/* "Calcular ruta" como accion primaria del bloque */
+.workspace .employee-fieldset .employee-inline-actions [data-estimate-dietas-route] {
+  background: var(--brand);
+}
+.workspace .employee-fieldset .employee-inline-actions [data-estimate-dietas-route]:hover {
+  background: color-mix(in srgb, var(--brand), black 12%);
+}
+.workspace .employee-fieldset .employee-inline-actions [data-add-dietas-stop]::before { content: "+ "; font-weight: 900; }
+
+/* Botones de exportacion de la estadistica anual */
+.workspace .employee-dietas-history-head { align-items: center; }
+.workspace .dietas-annual-exports { display: flex; gap: 8px; flex-shrink: 0; }
+.workspace .dietas-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 750;
+  font-size: 0.85rem;
+  color: #fff;
+  cursor: pointer;
+}
+.workspace .dietas-export-btn.is-pdf { background: var(--danger); }
+.workspace .dietas-export-btn.is-pdf:hover { background: color-mix(in srgb, var(--danger), black 12%); }
+.workspace .dietas-export-btn.is-xls { background: var(--success); }
+.workspace .dietas-export-btn.is-xls:hover { background: color-mix(in srgb, var(--success), black 12%); }
+.workspace .dietas-export-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--focus), white 40%); }
+
+/* ============================================================
+   Justificantes con adjunto (imagen / PDF)
+   ============================================================ */
+.workspace .justificante-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--document);
+  border-radius: var(--radius);
+  background: var(--document-soft);
+}
+.workspace .justificante-field > label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 750;
+  color: var(--muted-strong);
+}
+.workspace .justificante-upload { display: flex; flex-direction: column; gap: 8px; }
+
+.workspace .justificante-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: 1px dashed var(--document);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--document);
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+.workspace .justificante-btn:hover {
+  background: color-mix(in srgb, var(--document-soft), white 20%);
+  border-style: solid;
+}
+
+.workspace .justificante-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.workspace .justificante-thumb {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-muted);
+}
+.workspace .justificante-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.workspace .justificante-thumb.is-pdf {
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-weight: 900;
+  font-size: 0.8rem;
+}
+.workspace .justificante-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.workspace .justificante-meta strong { font-size: 0.85rem; overflow-wrap: anywhere; }
+.workspace .justificante-meta span { color: var(--muted); font-size: 0.78rem; }
+.workspace .justificante-link {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--document);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--document);
+  font-weight: 750;
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+.workspace .justificante-link:hover { background: var(--document-soft); }
+.workspace .justificante-remove {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--danger);
+  font: inherit;
+  font-weight: 750;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.workspace .justificante-remove:hover { background: var(--danger-soft); border-color: var(--danger); }
+
+/* Panel de consulta (resumen + estadistica anual), separado del tramite */
+.workspace .employee-dietas-history-panel { --flow-accent: var(--deadline); }
+
+/* ============================================================
+   Calendario mensual de dietas (dietas por dia)
+   ============================================================ */
+.workspace .dietas-month-calendar { margin-top: 12px; }
+.workspace .dietas-cal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.workspace .dietas-cal-head strong { font-size: 1rem; color: var(--deadline); }
+.workspace .dietas-cal-head span { color: var(--muted); font-size: 0.84rem; font-weight: 700; }
+
+.workspace .dietas-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px;
+  background: var(--surface);
+}
+.workspace .dietas-cal-weekday {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding-bottom: 2px;
+}
+.workspace .dietas-cal-cell {
+  position: relative;
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+.workspace .dietas-cal-cell.is-empty {
+  background: transparent;
+  border-color: transparent;
+}
+.workspace .dietas-cal-day {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted-strong);
+}
+.workspace .dietas-cal-cell.has-diet {
+  background: var(--deadline-soft);
+  border-color: color-mix(in srgb, var(--deadline), white 45%);
+}
+.workspace .dietas-cal-cell.has-diet .dietas-cal-day { color: var(--deadline); }
+.workspace .dietas-cal-place {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.15;
+}
+.workspace .dietas-cal-amount {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--deadline);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.workspace .dietas-cal-count {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  min-width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--deadline);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+.workspace .dietas-cal-cell.is-today {
+  outline: 2px solid var(--brand);
+  outline-offset: -1px;
+}
+.workspace .dietas-cal-cell.is-today .dietas-cal-day { color: var(--brand); }
+
+@media (max-width: 560px) {
+  .workspace .dietas-cal-cell { min-height: 46px; }
+  .workspace .dietas-cal-amount { font-size: 0.74rem; }
+}
+
+/* Celda seleccionada del calendario */
+.workspace .dietas-cal-cell.has-diet { cursor: pointer; }
+.workspace .dietas-cal-cell.has-diet:hover { border-color: var(--deadline); }
+.workspace .dietas-cal-cell.is-selected {
+  outline: 2px solid var(--deadline);
+  outline-offset: -1px;
+  background: color-mix(in srgb, var(--deadline-soft), white 5%);
+}
+
+/* Detalle de rutas del dia (al pulsar un dia con dieta) */
+.workspace .dietas-day-detail[hidden] { display: none; }
+.workspace .dietas-day-detail {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--deadline);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.workspace .dietas-day-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--deadline-soft);
+  border-bottom: 1px solid var(--line);
+}
+.workspace .dietas-day-detail-head strong { display: block; font-size: 0.98rem; color: var(--deadline); text-transform: capitalize; }
+.workspace .dietas-day-close {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted-strong);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.workspace .dietas-day-close:hover { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+
+.workspace .dietas-day-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  padding: 14px;
+}
+.workspace .dietas-day-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.workspace .dietas-day-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.workspace .dietas-day-card-head strong { display: block; font-size: 0.9rem; }
+.workspace .dietas-day-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.workspace .dietas-day-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.workspace .dietas-day-metrics > div {
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.workspace .dietas-day-metrics span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.workspace .dietas-day-metrics strong { font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.workspace .dietas-day-attachments { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Desglose automatico de dietas en viajes de varios dias */
+.workspace .dietas-multiday[hidden] { display: none; }
+.workspace .dietas-multiday {
+  border: 1px solid color-mix(in srgb, var(--deadline), white 45%);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.workspace .dietas-multiday-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--deadline-soft), white 25%);
+  border-bottom: 1px solid var(--line);
+}
+.workspace .dietas-multiday-head strong { color: var(--deadline); font-size: 0.95rem; }
+.workspace .dietas-multiday-head span { color: var(--muted-strong); font-size: 0.82rem; font-weight: 700; }
+.workspace .dietas-multiday-error { padding: 12px 14px; color: var(--danger); font-weight: 700; }
+.workspace .dietas-multiday-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.workspace .dietas-multiday-table th { background: var(--surface-muted); color: var(--muted-strong); padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--line); }
+.workspace .dietas-multiday-table td { padding: 8px 12px; border-bottom: 1px solid var(--line); text-transform: capitalize; }
+.workspace .dietas-multiday-table td.num { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; text-transform: none; }
+.workspace .dietas-multiday-table td.center, .workspace .dietas-multiday-table th.center { text-align: center; text-transform: none; }
+.workspace .dietas-multiday-table tfoot td { background: var(--surface-muted); border-top: 2px solid var(--line); }
+.workspace .dieta-kind { display: inline-block; padding: 2px 8px; border-radius: 999px; font-weight: 700; font-size: 0.78rem; }
+.workspace .dieta-kind.is-full { background: var(--success-soft); color: var(--success); }
+.workspace .dieta-kind.is-half { background: var(--notice-soft); color: var(--notice); }
+.workspace .dieta-night { color: var(--document); font-weight: 700; }
+.workspace .dietas-multiday-note { margin: 0; padding: 10px 14px; color: var(--muted); font-size: 0.8rem; background: var(--surface); }
+
+/* Editar/completar borrador de dieta */
+.workspace .dietas-day-card-actions { display: flex; justify-content: flex-end; }
+.workspace .dietas-day-edit {
+  padding: 7px 14px;
+  border: 1px solid var(--deadline);
+  border-radius: 6px;
+  background: var(--deadline);
+  color: #fff;
+  font: inherit;
+  font-weight: 750;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+.workspace .dietas-day-edit:hover { background: color-mix(in srgb, var(--deadline), black 12%); }
+.workspace .dietas-editing-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 4px;
+  padding: 10px 16px;
+  background: var(--notice-soft);
+  border-bottom: 1px solid color-mix(in srgb, var(--notice), white 55%);
+  color: var(--notice);
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.workspace .dietas-cancel-edit {
+  padding: 6px 12px;
+  border: 1px solid var(--notice);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--notice);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ====== Ciclo de vida de la dieta (stepper) ====== */
+.workspace .dieta-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 2px;
+  margin: 0;
+  padding: 10px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.workspace .dieta-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.workspace .dieta-step .dot {
+  width: 12px; height: 12px; flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  background: var(--surface);
+}
+.workspace .dieta-step .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace .dieta-step.is-done { color: var(--success); }
+.workspace .dieta-step.is-done .dot { background: var(--success); border-color: var(--success); }
+.workspace .dieta-step.is-current { color: var(--deadline); }
+.workspace .dieta-step.is-current .dot { background: var(--deadline); border-color: var(--deadline); box-shadow: 0 0 0 3px var(--deadline-soft); }
+
+/* ====== Pago (en la tarjeta del dia) ====== */
+.workspace .dietas-day-payment {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--success-soft);
+  border: 1px solid color-mix(in srgb, var(--success), white 55%);
+  border-radius: 6px;
+}
+.workspace .dietas-pay-badge { font-weight: 800; color: var(--success); white-space: nowrap; }
+.workspace .dietas-day-payment strong { display: block; color: var(--success); }
+
+/* ====== Timeline del expediente ====== */
+.workspace .dietas-day-timeline { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.workspace .dietas-day-timeline > summary { padding: 8px 12px; cursor: pointer; font-weight: 700; font-size: 0.84rem; color: var(--muted-strong); }
+.workspace .dietas-day-timeline ol { margin: 0; padding: 4px 12px 12px 28px; }
+.workspace .dietas-day-timeline li { padding: 4px 0; }
+.workspace .dietas-day-timeline .tl-state { font-weight: 700; }
+.workspace .dietas-day-timeline .tl-meta { display: block; color: var(--muted); font-size: 0.78rem; }
+
+/* ====== Estadistica anual + Pagos por nomina (bloque) ====== */
+.workspace .dietas-annual-body { padding: 14px 16px; display: grid; gap: 16px; }
+.workspace .dietas-payments-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.workspace .dietas-payments-head strong { color: var(--brand); font-size: 1rem; }
+.workspace .dietas-payments-head span { color: var(--muted); font-size: 0.82rem; font-weight: 700; }
+.workspace .dietas-payments-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.workspace .dietas-payments-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--success);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.workspace .dietas-pay-month strong { display: block; }
+.workspace .dietas-pay-amount { font-weight: 800; color: var(--success); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+
+/* Fecha/hora de la dieta: fila compacta, sin ocupar media pantalla */
+.workspace .dietas-datetime {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px 14px;
+}
+.workspace .dietas-datetime > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-weight: 750;
+  color: var(--muted-strong);
+}
+.workspace .dietas-datetime input[type="date"] { width: 150px; }
+.workspace .dietas-datetime input[type="time"] { width: 100px; }
+.workspace .dietas-datetime input {
+  padding: 7px 9px;
+}
+/* separador visual entre el bloque "inicio" y "fin" */
+.workspace .dietas-datetime > label:nth-child(2) { margin-right: 8px; }
+
+@media (max-width: 520px) {
+  .workspace .dietas-datetime input[type="date"] { width: 130px; }
+  .workspace .dietas-datetime input[type="time"] { width: 88px; }
+}
+
+/* ====== Grafica anual de dietas (SVG) ====== */
+.workspace .dietas-annual-chart {
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 12px 14px;
+}
+.workspace .chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.workspace .chart-toolbar > strong { color: var(--deadline); font-size: 0.95rem; }
+.workspace .chart-metric-toggle { display: flex; flex-wrap: wrap; gap: 6px; }
+.workspace .chart-metric-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted-strong);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.workspace .chart-metric-btn:hover { background: var(--surface-muted); }
+.workspace .chart-metric-btn.is-active {
+  background: var(--deadline);
+  border-color: var(--deadline);
+  color: #fff;
+}
+.workspace .chart-svg {
+  width: 100%;
+  height: auto;
+  max-height: 170px;
+  display: block;
+  overflow: visible;
+}
+.workspace .chart-grid { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; }
+.workspace .chart-grid-label { fill: var(--muted); font-size: 9px; }
+.workspace .chart-axis-label { fill: var(--muted-strong); font-size: 10px; font-weight: 700; text-anchor: middle; }
+.workspace .chart-bar-value { fill: var(--deadline); font-size: 9px; font-weight: 800; text-anchor: middle; }
+.workspace .chart-bar { fill: color-mix(in srgb, var(--deadline), white 35%); transition: fill .15s; }
+.workspace .chart-bar:hover { fill: var(--deadline); }
+.workspace .chart-bar.is-current { fill: var(--deadline); }
+.workspace .chart-bar.is-zero { fill: var(--line); }

@@ -7,7 +7,7 @@ const PERSONAL_RPT_STATS_API = "/api/vec/personal/rpt/stats";
 const PERSONAL_CATEGORIES_API = "/api/vec/personal/categories";
 const PERSONAL_CATALOGS_API = "/api/vec/personal/catalogs";
 const DIETAS_ROAD_ROUTE_API = "/api/vec/dietas/road-route";
-const DIETAS_SHEETS_STORAGE_KEY = "vec_demo_dietas_sheets";
+const DIETAS_SHEETS_STORAGE_KEY = "vec_demo_dietas_sheets_v2";
 const BOLSA_PORTAL_API = "/api/portal";
 const ADMIN_STATUS_API = "/api/admin/status";
 const ADMIN_CAPABILITIES_API = "/api/admin/capabilities";
@@ -666,13 +666,157 @@ function writeStoredArray(key, value) {
   }
 }
 
+// Ciclo de vida de una dieta, en orden. El indice marca el avance.
+const DIETA_FLOW = [
+  "Borrador",
+  "Pendiente jefe de servicio",
+  "Aprobada",
+  "Enviada a RRHH",
+  "Enviada a nomina",
+  "Pagada",
+];
+
+function dietaFlowIndex(estado) {
+  const text = String(estado || "").toLowerCase();
+  // Tolerancia con estados antiguos ("Liquidada" ~ pagada/enviada a nomina).
+  if (/pagad/.test(text)) return 5;
+  if (/liquidad/.test(text)) return 4;
+  if (/nomina/.test(text)) return 4;
+  if (/rrhh/.test(text)) return 3;
+  if (/aprob/.test(text)) return 2;
+  if (/pendiente|jefe|servicio|revision/.test(text)) return 1;
+  if (/borrador/.test(text)) return 0;
+  const idx = DIETA_FLOW.findIndex((s) => s.toLowerCase() === text);
+  return idx >= 0 ? idx : 1;
+}
+
+function dietasPaymentsByPayroll(records) {
+  // Agrupa las dietas pagadas por mes de nomina.
+  const map = new Map();
+  (records || []).forEach((record) => {
+    if (dietaFlowIndex(record.estado || record.state) < 5 && !record.payroll_month) return;
+    const key = record.payroll_month || "sin-asignar";
+    const current = map.get(key) || { key, label: record.payroll_label || (key === "sin-asignar" ? "Sin nomina asignada" : dietasMonthLabel(key)), count: 0, total: 0, items: [] };
+    current.count += 1;
+    current.total += moneyNumber(record.paid_amount ?? record.importe ?? record.amount);
+    current.items.push(record);
+    map.set(key, current);
+  });
+  return Array.from(map.values()).sort((a, b) => String(b.key).localeCompare(String(a.key)));
+}
+
+function renderDietasAnnualAndPayments(view) {
+  const records = ensureDietasSheets();
+  const annual = dietasAnnualStats(aggregateDietasByMonth(records), todayISODate().slice(0, 7), {});
+  const payments = dietasPaymentsByPayroll(records);
+  const section = document.createElement("section");
+  section.className = "employee-flow-panel employee-dietas-history-panel dietas-annual-section";
+  section.innerHTML = `
+    <div class="employee-flow-head">
+      <div>
+        <h3>Estadistica anual y pagos</h3>
+        <span>Resumen anual de tus dietas y en que nomina se han pagado.</span>
+      </div>
+    </div>
+    <div class="dietas-annual-body">
+      <div class="employee-dietas-history">
+        <div class="employee-dietas-history-head">
+          <div>
+            <strong>Estadistica anual ${annual.year}</strong>
+            <span>${formatCount(annual.activeMonths)} meses con actividad · ${formatCurrency(annual.totals.total)} total</span>
+          </div>
+          <div class="dietas-annual-exports">
+            <button type="button" class="dietas-export-btn is-pdf" data-export-annual="pdf"><span aria-hidden="true">&#128196;</span> PDF</button>
+            <button type="button" class="dietas-export-btn is-xls" data-export-annual="excel"><span aria-hidden="true">&#128202;</span> Excel</button>
+          </div>
+        </div>
+        ${renderDietasAnnualChart(annual, "total")}
+        ${renderDietasAnnualTable(annual)}
+      </div>
+      <div class="dietas-payments">
+        <div class="dietas-payments-head">
+          <strong>Pagos por nomina</strong>
+          <span>${formatCount(payments.length)} mensualidad(es) con dietas pagadas</span>
+        </div>
+        ${payments.length ? `
+          <ul class="dietas-payments-list">
+            ${payments.map((p) => `
+              <li>
+                <div class="dietas-pay-month">
+                  <strong>${escapeHTML(p.label)}</strong>
+                  <span class="small-text">${formatCount(p.count)} dieta(s)${p.items[0]?.payment_ref ? ` · Ref. ${escapeHTML(p.items[0].payment_ref)}` : ""}</span>
+                </div>
+                <span class="dietas-pay-amount">${formatCurrency(p.total)}</span>
+              </li>`).join("")}
+          </ul>` : `<p class="empty-state">Todavia no tienes dietas pagadas en nomina.</p>`}
+      </div>
+    </div>
+  `;
+  $$("[data-export-annual]", section).forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.dataset.exportAnnual === "pdf") exportDietasAnnualPDF(annual);
+      else exportDietasAnnualExcel(annual);
+    });
+  });
+  // Cambio de metrica de la grafica sin re-renderizar todo el panel.
+  section.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-chart-metric]");
+    if (!btn) return;
+    const chart = section.querySelector("[data-annual-chart]");
+    const wrap = document.createElement("div");
+    wrap.innerHTML = renderDietasAnnualChart(annual, btn.dataset.chartMetric);
+    chart.replaceWith(wrap.firstElementChild);
+  });
+  return section;
+}
+
+function renderDietaFlowTracker(record) {
+  const current = dietaFlowIndex(record.estado || record.state);
+  const steps = DIETA_FLOW.map((label, index) => {
+    const cls = index < current ? "is-done" : index === current ? "is-current" : "is-todo";
+    return `<li class="dieta-step ${cls}"><span class="dot"></span><span class="lbl">${escapeHTML(label)}</span></li>`;
+  }).join("");
+  return `<ol class="dieta-flow" aria-label="Estado del expediente">${steps}</ol>`;
+}
+
 function defaultEmployeeDietasSheets() {
   return [
-    { id: "DIET-2026-0084", fecha: "19/06/2026", travelDate: "2026-06-19", ruta: "Granada - Albolote - Granada", estado: "Aprobada", importe: 28.40, km: 21.6, mileage_amount: 5.62 },
-    { id: "DIET-2026-0091", fecha: "21/06/2026", travelDate: "2026-06-21", ruta: "Granada - Motril - Granada", estado: "Borrador", importe: 0, km: 0, mileage_amount: 0 },
-    { id: "DIET-2026-0073", fecha: "27/05/2026", travelDate: "2026-05-27", ruta: "Granada - Guadix - Granada", estado: "Liquidada", importe: 61.88, km: 107.2, mileage_amount: 27.87 },
-    { id: "DIET-2026-0061", fecha: "18/04/2026", travelDate: "2026-04-18", ruta: "Granada - Loja - Granada", estado: "Aprobada", importe: 48.54, km: 112.6, mileage_amount: 29.28 },
-    { id: "DIET-2026-0048", fecha: "12/03/2026", travelDate: "2026-03-12", ruta: "Granada - Baza - Granada", estado: "Liquidada", importe: 92.36, km: 216.8, mileage_amount: 56.37 },
+    { id: "DIET-2026-0084", fecha: "19/06/2026", travelDate: "2026-06-19", ruta: "Granada - Albolote - Granada", estado: "Aprobada", importe: 28.40, km: 21.6, mileage_amount: 5.62,
+      timeline: [
+        ["Borrador", "17/06/2026 09:10", "Empleado demo"],
+        ["Pendiente jefe de servicio", "17/06/2026 09:12", "Empleado demo"],
+        ["Aprobada", "18/06/2026 11:40", "Jefe Area Obras"],
+      ] },
+    { id: "DIET-2026-0091", fecha: "21/06/2026", travelDate: "2026-06-21", ruta: "Granada - Motril - Granada", estado: "Borrador", importe: 0, km: 0, mileage_amount: 0,
+      timeline: [["Borrador", "21/06/2026 08:00", "Empleado demo"]] },
+    { id: "DIET-2026-0073", fecha: "27/05/2026", travelDate: "2026-05-27", ruta: "Granada - Guadix - Granada", estado: "Pagada", importe: 61.88, km: 107.2, mileage_amount: 27.87,
+      payroll_month: "2026-06", payroll_label: "Nomina de junio 2026", paid_amount: 61.88, paid_date: "28/06/2026", payment_ref: "LIQ-2026-0337",
+      timeline: [
+        ["Borrador", "27/05/2026 18:30", "Empleado demo"],
+        ["Pendiente jefe de servicio", "27/05/2026 18:31", "Empleado demo"],
+        ["Aprobada", "28/05/2026 10:05", "Jefe Area Obras"],
+        ["Enviada a RRHH", "30/05/2026 09:00", "Tecnico RRHH"],
+        ["Enviada a nomina", "05/06/2026 12:20", "Tecnico RRHH"],
+        ["Pagada", "28/06/2026 00:00", "Nomina junio 2026 - LIQ-2026-0337"],
+      ] },
+    { id: "DIET-2026-0061", fecha: "18/04/2026", travelDate: "2026-04-18", ruta: "Granada - Loja - Granada", estado: "Enviada a nomina", importe: 48.54, km: 112.6, mileage_amount: 29.28,
+      timeline: [
+        ["Borrador", "18/04/2026 17:00", "Empleado demo"],
+        ["Pendiente jefe de servicio", "18/04/2026 17:01", "Empleado demo"],
+        ["Aprobada", "21/04/2026 09:30", "Jefe Area Obras"],
+        ["Enviada a RRHH", "24/04/2026 08:45", "Tecnico RRHH"],
+        ["Enviada a nomina", "02/05/2026 11:00", "Tecnico RRHH"],
+      ] },
+    { id: "DIET-2026-0048", fecha: "12/03/2026", travelDate: "2026-03-12", ruta: "Granada - Baza - Granada", estado: "Pagada", importe: 92.36, km: 216.8, mileage_amount: 56.37,
+      payroll_month: "2026-05", payroll_label: "Nomina de mayo 2026", paid_amount: 92.36, paid_date: "28/05/2026", payment_ref: "LIQ-2026-0298",
+      timeline: [
+        ["Borrador", "12/03/2026 19:00", "Empleado demo"],
+        ["Pendiente jefe de servicio", "12/03/2026 19:02", "Empleado demo"],
+        ["Aprobada", "13/03/2026 10:00", "Jefe Area Obras"],
+        ["Enviada a RRHH", "18/03/2026 09:15", "Tecnico RRHH"],
+        ["Enviada a nomina", "10/04/2026 12:00", "Tecnico RRHH"],
+        ["Pagada", "28/05/2026 00:00", "Nomina mayo 2026 - LIQ-2026-0298"],
+      ] },
   ];
 }
 
@@ -762,40 +906,512 @@ function updateEmployeeDietasMonthlyPanel(panel, selectedDate, draftTotals = {})
   const draftTotal = moneyNumber(draftTotals.total);
   const draftKM = moneyNumber(draftTotals.km);
   const currentTotal = base.total + draftTotal;
-  const historyRows = previousDietasMonthKeys(currentKey, records).map((key) => monthly.get(key) || {
-    key,
-    count: 0,
-    km: 0,
-    mileage: 0,
-    allowances: 0,
-    total: 0,
-    pending: 0,
-  });
+  const annual = dietasAnnualStats(monthly, currentKey, draftTotals);
   target.innerHTML = `
     <div class="employee-dietas-month-total">
       <span>Total del mes</span>
       <strong>${formatCurrency(currentTotal)}</strong>
       <small>${escapeHTML(dietasMonthLabel(currentKey))} · ${formatPoints(base.km + draftKM)} km · ${formatCount(base.count)} expedientes${draftTotal ? " + solicitud actual" : ""}</small>
     </div>
-    <div class="employee-dietas-month-breakdown">
-      <span><b>Registrado</b>${formatCurrency(base.total)}</span>
-      <span><b>Solicitud actual</b>${formatCurrency(draftTotal)}</span>
-      <span><b>Pendientes</b>${formatCount(base.pending)}</span>
+    ${renderDietasMonthCalendar(dietasDailyStats(records, currentKey), currentKey)}
+    <div class="dietas-day-detail" data-dietas-day-detail aria-live="polite"></div>
+  `;
+
+  const detailContainer = $("[data-dietas-day-detail]", target);
+  const selectDay = (day) => {
+    state.dietasSelectedDay = state.dietasSelectedDay === day ? null : day;
+    $$(".dietas-cal-cell[data-cal-day]", target).forEach((cell) => {
+      const isSel = Number(cell.dataset.calDay) === state.dietasSelectedDay;
+      cell.classList.toggle("is-selected", isSel);
+      cell.setAttribute("aria-pressed", isSel ? "true" : "false");
+    });
+    renderDietasDayDetail(detailContainer, records, currentKey, state.dietasSelectedDay);
+  };
+  $$(".dietas-cal-cell[data-cal-day]", target).forEach((cell) => {
+    const day = Number(cell.dataset.calDay);
+    cell.addEventListener("click", () => selectDay(day));
+    cell.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        selectDay(day);
+      }
+    });
+  });
+  // Re-pintar el detalle si ya habia un dia seleccionado (tras re-render).
+  if (state.dietasSelectedDay) {
+    renderDietasDayDetail(detailContainer, records, currentKey, state.dietasSelectedDay);
+  }
+}
+
+function dietasDayRecords(records, monthKey, day) {
+  const target = `${monthKey}-${String(day).padStart(2, "0")}`;
+  return (records || []).filter((record) => dietasRecordISODate(record) === target);
+}
+
+function renderDietasDayDetail(container, records, monthKey, day) {
+  if (!container) return;
+  if (!day) {
+    container.hidden = true;
+    container.replaceChildren();
+    return;
+  }
+  const dayRecords = dietasDayRecords(records, monthKey, day);
+  const [year, month] = monthKey.split("-").map(Number);
+  const dateLabel = new Date(year, month - 1, day).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const totalDia = dayRecords.reduce((sum, r) => sum + moneyNumber(r.importe ?? r.amount ?? r.total), 0);
+  const kmDia = dayRecords.reduce((sum, r) => sum + moneyNumber(r.km), 0);
+
+  const cards = dayRecords.map((record) => {
+    const places = dietasRouteDestinations(record);
+    const routeText = String(record.ruta || record.route || record.motivo || "Comision de servicio");
+    const importe = moneyNumber(record.importe ?? record.amount ?? record.total);
+    const mileage = moneyNumber(record.mileage_amount ?? record.mileageAmount);
+    const km = moneyNumber(record.km);
+    const tone = stateTone(record.estado || record.state || "");
+    return `
+      <article class="dietas-day-card">
+        <div class="dietas-day-card-head">
+          <div>
+            <strong>${escapeHTML(record.id || "DIETA")}</strong>
+            <span class="small-text">${escapeHTML(record.motivo || "Comision de servicio")}</span>
+          </div>
+          <span class="status-chip ${tone}">${escapeHTML(record.estado || record.state || "Pendiente")}</span>
+        </div>
+        <div class="dietas-day-route">
+          <span class="dietas-day-route-pin" aria-hidden="true">&#128205;</span>
+          <span>${escapeHTML(routeText)}</span>
+        </div>
+        <div class="dietas-day-metrics">
+          <div><span>Destino(s)</span><strong>${escapeHTML(places.join(", ") || "-")}</strong></div>
+          <div><span>Km</span><strong>${escapeHTML(km ? `${formatPoints(km)} km` : "-")}</strong></div>
+          <div><span>Kilometraje</span><strong>${escapeHTML(mileage ? formatCurrency(mileage) : "-")}</strong></div>
+          <div><span>Importe</span><strong>${escapeHTML(formatCurrency(importe))}</strong></div>
+        </div>
+        ${renderDietaFlowTracker(record)}
+        ${record.payroll_month ? `
+          <div class="dietas-day-payment">
+            <span class="dietas-pay-badge">&#9989; Pagada</span>
+            <div>
+              <strong>${escapeHTML(record.payroll_label || dietasMonthLabel(record.payroll_month))}</strong>
+              <span class="small-text">${escapeHTML(formatCurrency(record.paid_amount ?? importe))} · ${escapeHTML(record.paid_date || "")} · Ref. ${escapeHTML(record.payment_ref || "-")}</span>
+            </div>
+          </div>` : ""}
+        ${Array.isArray(record.timeline) && record.timeline.length ? `
+          <details class="dietas-day-timeline">
+            <summary>Seguimiento del expediente (${formatCount(record.timeline.length)} pasos)</summary>
+            <ol>
+              ${record.timeline.map(([estado, fecha, actor]) => `
+                <li>
+                  <span class="tl-state">${escapeHTML(estado)}</span>
+                  <span class="tl-meta">${escapeHTML(fecha || "")}${actor ? ` · ${escapeHTML(actor)}` : ""}</span>
+                </li>`).join("")}
+            </ol>
+          </details>` : ""}
+        ${Array.isArray(record.attachments) && record.attachments.length ? `
+          <div class="dietas-day-attachments">
+            ${record.attachments.map((att) => `<a class="justificante-link" href="${att.dataUrl || "#"}" target="_blank" rel="noopener">${escapeHTML(att.concept || "Justificante")}: ${escapeHTML(att.name || "archivo")}</a>`).join("")}
+          </div>` : ""}
+        ${/borrador/i.test(record.estado || record.state || "") ? `
+          <div class="dietas-day-card-actions">
+            <button type="button" class="dietas-day-edit" data-edit-diet="${escapeHTML(record.id || "")}">Completar / editar</button>
+          </div>` : ""}
+      </article>`;
+  }).join("");
+
+  container.hidden = false;
+  container.innerHTML = `
+    <div class="dietas-day-detail-head">
+      <div>
+        <strong>Rutas del ${escapeHTML(dateLabel)}</strong>
+        <span class="small-text">${formatCount(dayRecords.length)} dieta(s) · ${formatPoints(kmDia)} km · total del dia ${formatCurrency(totalDia)}</span>
+      </div>
+      <button type="button" class="dietas-day-close" data-close-day title="Cerrar detalle">&times;</button>
     </div>
-    <div class="employee-dietas-history">
-      <div class="employee-dietas-history-head">
-        <strong>Historico meses pasados</strong>
-        <span>${formatCount(historyRows.length)} meses</span>
+    <div class="dietas-day-cards">${cards || `<p class="empty-state">Sin rutas registradas este dia.</p>`}</div>
+  `;
+  const closeBtn = $("[data-close-day]", container);
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      state.dietasSelectedDay = null;
+      const cell = document.querySelector(`.dietas-cal-cell[data-cal-day="${day}"]`);
+      if (cell) { cell.classList.remove("is-selected"); cell.setAttribute("aria-pressed", "false"); }
+      container.hidden = true;
+      container.replaceChildren();
+    });
+  }
+  $$("[data-edit-diet]", container).forEach((button) => {
+    button.addEventListener("click", () => startEditDieta(button.dataset.editDiet));
+  });
+  container.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function startEditDieta(id) {
+  const sheets = ensureDietasSheets();
+  const record = sheets.find((item) => item.id === id);
+  if (!record) return;
+  state.dietasEditingId = id;
+  // Fijar las paradas de la ruta ANTES de re-renderizar para que el form las pinte.
+  const stops = String(record.ruta || "").split(/\s*(?:->|-|→)\s*/).map((s) => s.trim()).filter(Boolean);
+  if (stops.length >= 2) state.employeeDietasStops = stops;
+  setStatus(`Editando borrador ${id}: completa los datos y guarda.`, "ready");
+  renderModulePortal(state.portal);
+  window.requestAnimationFrame(() => {
+    const form = document.querySelector(".employee-dietas-panel form");
+    if (!form) return;
+    prefillDietaForm(form, record);
+    document.querySelector(".employee-dietas-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+function prefillDietaForm(form, record) {
+  const setVal = (name, value) => { const el = $(`[name='${name}']`, form); if (el != null && value != null) el.value = value; };
+  const iso = isoDateFromDietasValue(record.travelDate || record.fecha) || todayISODate();
+  setVal("start_date", iso);
+  setVal("end_date", iso);
+  setVal("purpose", record.motivo || "Comision de servicio");
+  setVal("km", record.km || 0);
+  setVal("allowance_amount", record.allowance_amount || 0);
+  setVal("lodging_amount", record.lodging_amount || 0);
+  setVal("lodging_reference", record.lodging_reference || "");
+  setVal("other_expenses", record.other_expenses || 0);
+  setVal("expense_reference", record.expense_reference || "");
+  setVal("compensation_km", record.compensation_km || 0);
+  setVal("compensation_reason", record.compensation_reason || "");
+  form.dispatchEvent(new Event("input", { bubbles: true })); // recalcular totales
+
+  // Banner "editando" + cambiar el texto del boton de envio.
+  const panel = form.closest(".employee-dietas-panel");
+  if (panel && !$(".dietas-editing-banner", panel)) {
+    const banner = document.createElement("div");
+    banner.className = "dietas-editing-banner";
+    banner.innerHTML = `<span>Editando borrador <strong>${escapeHTML(record.id)}</strong></span><button type="button" class="dietas-cancel-edit">Cancelar edicion</button>`;
+    panel.querySelector(".employee-flow-head")?.after(banner);
+    $(".dietas-cancel-edit", banner).addEventListener("click", () => {
+      state.dietasEditingId = null;
+      renderModulePortal(state.portal);
+    });
+  }
+  const submitBtn = $(".employee-form-actions button[type='submit']", form);
+  if (submitBtn) submitBtn.textContent = "Guardar cambios del borrador";
+}
+
+function dietasRecordISODate(record) {
+  return isoDateFromDietasValue(record?.travelDate || record?.dateISO || record?.fecha || record?.date);
+}
+
+function dietasRouteDestinations(record) {
+  // De "Granada - Motril - Granada" saca el destino "Motril".
+  // Toma los puntos intermedios; si solo hay origen-destino, el ultimo.
+  const raw = String(record?.ruta || record?.route || record?.motivo || "").trim();
+  if (!raw) return [];
+  const stops = raw.split(/\s*(?:->|-|→|,)\s*/).map((part) => part.trim()).filter(Boolean);
+  if (stops.length <= 1) return stops;
+  const origin = stops[0];
+  let middles = stops.slice(1, -1);
+  if (!middles.length) middles = [stops[stops.length - 1]]; // origen-destino directo
+  // Quitar duplicados y el propio origen (vuelta a casa)
+  const seen = new Set();
+  return middles.filter((stop) => {
+    const key = stop.toLowerCase();
+    if (key === origin.toLowerCase() || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function dietasDailyStats(records, monthKey) {
+  // Agrega importe, km, nº de dietas y destinos por dia del mes indicado.
+  const map = new Map();
+  (records || []).forEach((record) => {
+    const iso = dietasRecordISODate(record);
+    if (!iso || iso.slice(0, 7) !== monthKey) return;
+    const day = Number(iso.slice(8, 10));
+    const current = map.get(day) || { day, count: 0, km: 0, total: 0, places: [] };
+    current.count += 1;
+    current.km += moneyNumber(record.km);
+    current.total += moneyNumber(record.importe ?? record.amount ?? record.total);
+    dietasRouteDestinations(record).forEach((place) => {
+      if (!current.places.some((existing) => existing.toLowerCase() === place.toLowerCase())) {
+        current.places.push(place);
+      }
+    });
+    map.set(day, current);
+  });
+  return map;
+}
+
+function renderDietasMonthCalendar(daily, monthKey) {
+  const [year, month] = String(monthKey).split("-").map(Number);
+  const firstDay = new Date(year, month - 1, 1);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  // getDay(): 0=domingo..6=sabado -> lo paso a lunes=0..domingo=6
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const todayISO = todayISODate();
+  const weekDays = ["L", "M", "X", "J", "V", "S", "D"];
+
+  const cells = [];
+  for (let i = 0; i < startOffset; i += 1) cells.push(`<div class="dietas-cal-cell is-empty" aria-hidden="true"></div>`);
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const iso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const data = daily.get(day);
+    const isToday = iso === todayISO;
+    const classes = ["dietas-cal-cell"];
+    if (data) classes.push("has-diet");
+    if (isToday) classes.push("is-today");
+    if (data && state.dietasSelectedDay === day) classes.push("is-selected");
+    const places = data ? data.places : [];
+    const placeLabel = places.length ? (places.length > 1 ? `${places[0]} +${places.length - 1}` : places[0]) : "";
+    const tip = data
+      ? [
+          `${day}/${String(month).padStart(2, "0")}/${year}`,
+          places.length ? `Sitios: ${places.join(", ")}` : "Sitio: sin especificar",
+          `Dietas: ${formatCount(data.count)}`,
+          `Total del dia: ${formatCurrency(data.total)}`,
+        ].join("\n")
+      : `${day}/${String(month).padStart(2, "0")}/${year} · sin dietas`;
+    const interactive = data ? `role="button" tabindex="0" data-cal-day="${day}" aria-pressed="${state.dietasSelectedDay === day ? "true" : "false"}"` : "";
+    cells.push(`
+      <div class="${classes.join(" ")}" ${interactive} title="${escapeHTML(tip)}">
+        <span class="dietas-cal-day">${day}</span>
+        ${data ? `
+          ${placeLabel ? `<span class="dietas-cal-place">${escapeHTML(placeLabel)}</span>` : ""}
+          <span class="dietas-cal-amount">${escapeHTML(formatEuroCompact(data.total))}</span>
+          <span class="dietas-cal-count">${formatCount(data.count)}</span>` : ""}
+      </div>`);
+  }
+
+  const totalDays = daily.size;
+  const totalImporte = Array.from(daily.values()).reduce((sum, item) => sum + item.total, 0);
+  return `
+    <div class="dietas-month-calendar">
+      <div class="dietas-cal-head">
+        <strong>Calendario del mes</strong>
+        <span>${escapeHTML(dietasMonthLabel(monthKey))} · ${formatCount(totalDays)} dia(s) con dieta · ${formatCurrency(totalImporte)}</span>
       </div>
-      <div class="employee-dietas-history-list">
-        ${historyRows.map((row) => `
-          <article>
-            <span>${escapeHTML(dietasMonthLabel(row.key))}</span>
-            <b>${formatCurrency(row.total)}</b>
-            <small>${formatCount(row.count)} solicitudes · ${formatPoints(row.km)} km</small>
-          </article>
-        `).join("")}
+      <div class="dietas-cal-grid">
+        ${weekDays.map((wd) => `<div class="dietas-cal-weekday">${wd}</div>`).join("")}
+        ${cells.join("")}
       </div>
+    </div>
+  `;
+}
+
+function dietasAnnualMatrix(annual) {
+  // Devuelve cabeceras y filas listas para exportar (mismo orden que la tabla).
+  const headers = ["Concepto", ...annual.months.map((m) => dietasMonthLabel(m.key)), `Total ${annual.year}`];
+  const rows = DIETAS_ANNUAL_METRICS.map((metric) => [
+    metric.label,
+    ...annual.months.map((m) => formatDietasMetric(metric.kind, m.data[metric.key] || 0)),
+    formatDietasMetric(metric.kind, annual.totals[metric.key] || 0),
+  ]);
+  return { headers, rows };
+}
+
+function exportDietasAnnualExcel(annual) {
+  const { headers, rows } = dietasAnnualMatrix(annual);
+  const cell = (value, tag) => `<${tag}>${escapeHTML(String(value))}</${tag}>`;
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+    <x:Name>Dietas ${annual.year}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+    </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+    <body><table border="1">
+      <caption style="font-weight:bold">Estadistica anual de dietas ${annual.year}</caption>
+      <thead><tr>${headers.map((h) => cell(h, "th")).join("")}</tr></thead>
+      <tbody>${rows.map((row) => `<tr>${row.map((c) => cell(c, "td")).join("")}</tr>`).join("")}</tbody>
+    </table></body></html>`;
+  downloadTextFile(html, `dietas-anual-${annual.year}.xls`, "application/vnd.ms-excel;charset=utf-8");
+  recordReceipt("Exportacion estadistica anual", `Excel ${annual.year} - ${formatCurrency(annual.totals.total)}`, "dietas");
+}
+
+function exportDietasAnnualPDF(annual) {
+  const { headers, rows } = dietasAnnualMatrix(annual);
+  const win = window.open("", "_blank");
+  if (!win) {
+    setStatus("Permite las ventanas emergentes para generar el PDF.", "error");
+    return;
+  }
+  const thead = `<tr>${headers.map((h) => `<th>${escapeHTML(h)}</th>`).join("")}</tr>`;
+  const tbody = rows.map((row, rowIndex) =>
+    `<tr class="${rowIndex === 0 ? "total-row" : ""}">${row.map((c, colIndex) =>
+      `<td class="${colIndex === 0 ? "concept" : ""} ${colIndex === headers.length - 1 ? "year" : ""}">${escapeHTML(c)}</td>`).join("")}</tr>`).join("");
+  win.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8">
+    <title>Estadistica anual de dietas ${annual.year}</title>
+    <style>
+      /* margin:0 elimina la cabecera/pie automaticos del navegador
+         (titulo, URL, "1 de 1" y fecha). El margen real lo da el body. */
+      @page { size: A4 landscape; margin: 0; }
+      html, body { margin: 0; }
+      body { font-family: Arial, sans-serif; color: #17202a; padding: 12mm 14mm; }
+      h1 { font-size: 16px; margin: 0 0 2px; color: #c2410c; }
+      .sub { color: #5e6978; font-size: 11px; margin: 0 0 14px; }
+      table { width: 100%; border-collapse: collapse; font-size: 10px; }
+      th, td { border: 1px solid #cbd5e1; padding: 5px 6px; text-align: right; }
+      thead th { background: #ffedd5; color: #c2410c; text-transform: uppercase; font-size: 9px; }
+      td.concept, th:first-child { text-align: left; font-weight: bold; }
+      td.year, thead th:last-child { background: #e8f0ff; color: #2457a7; font-weight: bold; }
+      tr.total-row td { font-weight: bold; }
+      .foot { margin-top: 12px; color: #5e6978; font-size: 9px; }
+    </style></head><body>
+    <h1>Estadistica anual de dietas - ${annual.year}</h1>
+    <p class="sub">Diputacion de Granada - VEC - Generado el ${new Date().toLocaleString("es-ES")}</p>
+    <table><thead>${thead}</thead><tbody>${tbody}</tbody></table>
+    <p class="foot">Total ${annual.year}: ${escapeHTML(formatCurrency(annual.totals.total))} en ${formatCount(annual.activeMonths)} meses con actividad.</p>
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  win.addEventListener("load", () => { win.print(); });
+  // fallback si load ya ha pasado
+  setTimeout(() => { try { win.print(); } catch (_) {} }, 400);
+  recordReceipt("Exportacion estadistica anual", `PDF ${annual.year} - ${formatCurrency(annual.totals.total)}`, "dietas");
+}
+
+function downloadTextFile(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+const DIETAS_ANNUAL_METRICS = [
+  { key: "total", label: "Importe total", kind: "money" },
+  { key: "mileage", label: "Kilometraje", kind: "money" },
+  { key: "allowances", label: "Dietas / gastos", kind: "money" },
+  { key: "km", label: "Km recorridos", kind: "km" },
+  { key: "count", label: "Expedientes", kind: "count" },
+  { key: "pending", label: "Pendientes", kind: "count" },
+];
+
+function dietasAnnualStats(monthly, currentKey, draftTotals = {}) {
+  const year = Number(String(currentKey).split("-")[0]) || new Date().getFullYear();
+  const empty = { count: 0, km: 0, mileage: 0, allowances: 0, total: 0, pending: 0 };
+  const months = [];
+  const totals = { ...empty };
+  let activeMonths = 0;
+  for (let month = 1; month <= 12; month += 1) {
+    const key = `${year}-${String(month).padStart(2, "0")}`;
+    const data = { ...empty, ...(monthly.get(key) || {}) };
+    // El borrador en curso suma a su mes para que el dato sea util en vivo.
+    if (key === currentKey) {
+      data.total += moneyNumber(draftTotals.total);
+      data.km += moneyNumber(draftTotals.km);
+      data.mileage += moneyNumber(draftTotals.mileage);
+      data.allowances += moneyNumber(draftTotals.allowances);
+    }
+    const hasActivity = data.count > 0 || data.total > 0;
+    if (hasActivity) activeMonths += 1;
+    DIETAS_ANNUAL_METRICS.forEach((metric) => { totals[metric.key] += data[metric.key] || 0; });
+    months.push({
+      key,
+      month,
+      short: new Date(year, month - 1, 1).toLocaleDateString("es-ES", { month: "short" }).replace(".", ""),
+      isCurrent: key === currentKey,
+      hasActivity,
+      data,
+    });
+  }
+  return { year, months, totals, activeMonths };
+}
+
+function formatDietasMetric(kind, value) {
+  if (kind === "money") return formatCurrency(value);
+  if (kind === "km") return value ? `${formatPoints(value)}` : "-";
+  return value ? formatCount(value) : "-";
+}
+
+function dietasChartMetricValue(month, metricKey) {
+  return month.data[metricKey] || 0;
+}
+
+function renderDietasAnnualChart(annual, metricKey = "total") {
+  const metric = DIETAS_ANNUAL_METRICS.find((m) => m.key === metricKey) || DIETAS_ANNUAL_METRICS[0];
+  const values = annual.months.map((m) => dietasChartMetricValue(m, metric.key));
+  const maxVal = Math.max(1, ...values);
+  // Geometria del SVG
+  const W = 720, H = 140, padL = 8, padR = 8, padT = 14, padB = 20;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const n = annual.months.length;
+  const slot = plotW / n;
+  const barW = Math.min(40, slot * 0.6);
+  const fmt = (v) => formatDietasMetric(metric.kind, v);
+
+  // Lineas de referencia (3 marcas)
+  const gridLines = [0.25, 0.5, 0.75, 1].map((f) => {
+    const y = padT + plotH - plotH * f;
+    return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" class="chart-grid"/>
+            <text x="${padL}" y="${(y - 3).toFixed(1)}" class="chart-grid-label">${escapeHTML(fmt(maxVal * f))}</text>`;
+  }).join("");
+
+  const bars = annual.months.map((month, index) => {
+    const v = values[index];
+    const h = v > 0 ? Math.max(2, (v / maxVal) * plotH) : 0;
+    const x = padL + slot * index + (slot - barW) / 2;
+    const y = padT + plotH - h;
+    const cls = month.isCurrent ? "chart-bar is-current" : v > 0 ? "chart-bar" : "chart-bar is-zero";
+    const label = month.short.charAt(0).toUpperCase() + month.short.slice(1);
+    const valueLabel = v > 0
+      ? `<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" class="chart-bar-value">${escapeHTML(fmt(v))}</text>`
+      : "";
+    return `
+      <g>
+        <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="3" class="${cls}">
+          <title>${escapeHTML(dietasMonthLabel(month.key))}: ${escapeHTML(fmt(v))}</title>
+        </rect>
+        ${valueLabel}
+        <text x="${(x + barW / 2).toFixed(1)}" y="${(H - 9).toFixed(1)}" class="chart-axis-label">${escapeHTML(label)}</text>
+      </g>`;
+  }).join("");
+
+  const toggles = DIETAS_ANNUAL_METRICS
+    .filter((m) => ["total", "mileage", "allowances", "km", "count"].includes(m.key))
+    .map((m) => `<button type="button" class="chart-metric-btn${m.key === metric.key ? " is-active" : ""}" data-chart-metric="${m.key}">${escapeHTML(m.label)}</button>`)
+    .join("");
+
+  return `
+    <div class="dietas-annual-chart" data-annual-chart data-chart-current="${metric.key}">
+      <div class="chart-toolbar">
+        <strong>Grafica anual</strong>
+        <div class="chart-metric-toggle">${toggles}</div>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" class="chart-svg" role="img" aria-label="Grafica anual de ${escapeHTML(metric.label)} por mes">
+        ${gridLines}
+        ${bars}
+      </svg>
+    </div>
+  `;
+}
+
+function renderDietasAnnualTable(annual) {
+  const head = annual.months.map((month) => `
+    <th class="${month.isCurrent ? "is-current" : ""} ${month.hasActivity ? "" : "is-empty"}" title="${escapeHTML(dietasMonthLabel(month.key))}">
+      ${escapeHTML(month.short.charAt(0).toUpperCase() + month.short.slice(1))}
+    </th>`).join("");
+  const body = DIETAS_ANNUAL_METRICS.map((metric) => `
+    <tr data-metric="${metric.key}">
+      <th scope="row">${escapeHTML(metric.label)}</th>
+      ${annual.months.map((month) => {
+        const raw = month.data[metric.key] || 0;
+        return `<td class="${month.isCurrent ? "is-current" : ""} ${raw ? "" : "is-zero"}">${escapeHTML(formatDietasMetric(metric.kind, raw))}</td>`;
+      }).join("")}
+      <td class="annual-total">${escapeHTML(formatDietasMetric(metric.kind, annual.totals[metric.key] || 0))}</td>
+    </tr>`).join("");
+  return `
+    <div class="dietas-annual-wrap">
+      <table class="dietas-annual-table">
+        <thead>
+          <tr>
+            <th scope="col" class="metric-col">Concepto</th>
+            ${head}
+            <th scope="col" class="annual-total">Ano</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
     </div>
   `;
 }
@@ -1645,11 +2261,14 @@ function renderModulePortal(view) {
   if (state.activeModule === "dashboard") {
     target.hidden = true;
     delete target.dataset.mode;
+    delete target.dataset.module;
     target.replaceChildren();
     return;
   }
   target.hidden = false;
   target.replaceChildren();
+  // Acento de color por dominio: todo el modulo hereda su tono.
+  target.dataset.module = MODULE_PARENT[state.activeModule] || state.activeModule;
 
   if (state.activeModule === "nominas") {
     target.dataset.mode = "custom-nominas";
@@ -1702,7 +2321,6 @@ function renderEmployeeSelfServiceModule(target, view, moduleID) {
     /borrador/i.test(item.estado || item.state || "") ? "Completar" : "Ver liquidacion",
   ]);
   if (moduleID === "personal") {
-    target.append(modulePortalHeader("Mis datos personales", "Consulta de tus datos propios de personal y expedientes asociados.", []));
     const eligibleOffers = renderEmployeeEligibleBolsaPanel(view, { compact: true });
     if (eligibleOffers) target.append(eligibleOffers);
     target.append(portalGrid([
@@ -1725,7 +2343,6 @@ function renderEmployeeSelfServiceModule(target, view, moduleID) {
     const asuntos = findPermission("ASUNTOS");
     const vacaciones = findPermission("VACACIONES");
     const conciliacion = findPermission("CONCILIACION");
-    target.append(modulePortalHeader("Mi Cronos", "Consulta de tus fichajes, saldos, permisos y vacaciones.", []));
     target.append(portalGrid([
       ["Jornada de hoy", `Teoricas ${summary.theoretical || "07:30"} · trabajadas ${summary.worked || "00:00"}`],
       ["Saldo del periodo", `${summary.period_balance || "-04:34"} · desde ${summary.period_from || "01/06/2026"}`],
@@ -1740,14 +2357,15 @@ function renderEmployeeSelfServiceModule(target, view, moduleID) {
   }
 
   if (moduleID === "dietas" || moduleID === "rutas") {
-    target.append(modulePortalHeader("Mis dietas y comisiones", "Consulta y tramitacion de tus propias comisiones de servicio.", []));
     target.append(portalGrid([
       ["Borradores", String(ownDietRows.filter((row) => /borrador/i.test(row[3])).length)],
       ["Pendientes", String(ownDietRows.filter((row) => /pendiente|validar/i.test(row[3])).length)],
       ["Aprobadas", String(ownDietRows.filter((row) => /aprob/i.test(row[3])).length)],
       ["Liquidacion", "Solo tus importes y justificantes"],
     ]));
+    target.append(renderEmployeeDietasHistoryPanel(view));
     target.append(renderEmployeeDietasRequestPanel(view));
+    target.append(renderDietasAnnualAndPayments(view));
     target.append(portalTable("Mis comisiones de servicio", ["Expediente", "Fecha", "Ruta / motivo", "Estado", "Importe", "Accion"], ownDietRows, { actionColumn: true }));
     return;
   }
@@ -1758,7 +2376,6 @@ function renderEmployeeSelfServiceModule(target, view, moduleID) {
   }
 
   if (moduleID === "documentos") {
-    target.append(modulePortalHeader("Mis documentos", "Documentos, justificantes, certificados y CSV vinculados a tus expedientes.", []));
     target.append(portalGrid([
       ["Certificados", "2 disponibles"],
       ["Justificantes", "3 aportados"],
@@ -1774,7 +2391,6 @@ function renderEmployeeSelfServiceModule(target, view, moduleID) {
   }
 
   if (moduleID === "notificaciones") {
-    target.append(modulePortalHeader("Mis notificaciones", "Avisos y tareas pendientes asociados a tus expedientes.", []));
     target.append(portalGrid([
       ["Pendientes de lectura", "1"],
       ["Firmas pendientes", "0"],
@@ -1789,7 +2405,6 @@ function renderEmployeeSelfServiceModule(target, view, moduleID) {
     return;
   }
 
-  target.append(modulePortalHeader("Mis datos VEC", "Consulta de tus datos y expedientes propios.", []));
   target.append(portalTable("Mis expedientes", ["Expediente", "Modulo", "Estado", "Accion"], [
     ["EMP-PROP-2026", "Personal", "Verificado", "Consultar"],
     ["NOM-2026-06", "Nominas", "Recibo publicado", "Descargar"],
@@ -1932,6 +2547,221 @@ function renderEmployeeLeaveRequestPanel(view) {
   return panel;
 }
 
+// Reglas de dieta multi-dia (RD 462/2002 simplificado segun politica acordada):
+// - Primer dia: completa si sale <=15:00, media si despues.
+// - Dias intermedios: completa.
+// - Ultimo dia: completa si vuelve >=17:00, media si antes.
+// - Una pernocta por noche, salvo el ultimo dia (alojamiento contra factura).
+const DIETA_FIRST_DAY_FULL_BEFORE = 15 * 60; // minutos: salida <=15:00 -> completa
+const DIETA_LAST_DAY_FULL_FROM = 17 * 60;    // minutos: vuelta >=17:00 -> completa
+
+function minutesOfTime(value) {
+  const [h, m] = String(value || "").split(":").map(Number);
+  if (!Number.isFinite(h)) return null;
+  return h * 60 + (Number.isFinite(m) ? m : 0);
+}
+
+function eachDayISO(startISO, endISO) {
+  const days = [];
+  const parse = (v) => { const [y, mo, d] = String(v).split("-").map(Number); return Date.UTC(y, mo - 1, d); };
+  let cur = parse(startISO);
+  const end = parse(endISO);
+  if (!Number.isFinite(cur) || !Number.isFinite(end) || end < cur) return [];
+  while (cur <= end) {
+    const d = new Date(cur);
+    days.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`);
+    cur += 86400000;
+    if (days.length > 366) break;
+  }
+  return days;
+}
+
+function computeDietasBreakdown(startDate, startTime, endDate, endTime, fullAmount, halfAmount) {
+  const days = eachDayISO(startDate, endDate);
+  if (!days.length) return { days: [], nights: 0, mealsTotal: 0, error: days.length ? null : "Revisa las fechas: el fin no puede ser anterior al inicio." };
+  const startMin = minutesOfTime(startTime);
+  const endMin = minutesOfTime(endTime);
+  const lastIndex = days.length - 1;
+  const result = days.map((iso, index) => {
+    let kind = "completa";
+    if (days.length === 1) {
+      // Un solo dia: completa si la franja cubre la comida; si no, media.
+      const coversLunch = (startMin == null || startMin <= DIETA_FIRST_DAY_FULL_BEFORE)
+        && (endMin == null || endMin >= DIETA_LAST_DAY_FULL_FROM);
+      kind = coversLunch ? "completa" : "media";
+    } else if (index === 0) {
+      kind = (startMin == null || startMin <= DIETA_FIRST_DAY_FULL_BEFORE) ? "completa" : "media";
+    } else if (index === lastIndex) {
+      kind = (endMin != null && endMin >= DIETA_LAST_DAY_FULL_FROM) ? "completa" : "media";
+    } else {
+      kind = "completa";
+    }
+    const overnight = index < lastIndex; // pernocta todas las noches salvo la ultima
+    const meal = kind === "completa" ? fullAmount : halfAmount;
+    return { iso, kind, meal, overnight };
+  });
+  const nights = result.filter((d) => d.overnight).length;
+  const round2 = (n) => Math.round(n * 100) / 100;
+  result.forEach((d) => { d.meal = round2(d.meal); });
+  const mealsTotal = round2(result.reduce((sum, d) => sum + d.meal, 0));
+  return { days: result, nights, mealsTotal, error: null };
+}
+
+function renderDietasMultidayPanel(box, breakdown, rates) {
+  if (!box) return;
+  if (!breakdown || breakdown.days.length <= 1) {
+    // Un solo dia: no mostramos el desglose multi-dia.
+    box.hidden = true;
+    box.replaceChildren();
+    return;
+  }
+  if (breakdown.error) {
+    box.hidden = false;
+    box.innerHTML = `<div class="dietas-multiday-error">${escapeHTML(breakdown.error)}</div>`;
+    return;
+  }
+  const dayLabel = (iso) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
+  };
+  const rows = breakdown.days.map((day) => `
+    <tr>
+      <td>${escapeHTML(dayLabel(day.iso))}</td>
+      <td><span class="dieta-kind ${day.kind === "completa" ? "is-full" : "is-half"}">${day.kind === "completa" ? "Dieta completa" : "Media dieta"}</span></td>
+      <td class="num">${formatCurrency(day.meal)}</td>
+      <td class="center">${day.overnight ? '<span class="dieta-night">🛏 Pernocta</span>' : "—"}</td>
+    </tr>`).join("");
+  box.hidden = false;
+  box.innerHTML = `
+    <div class="dietas-multiday-head">
+      <strong>Desglose automatico de dietas</strong>
+      <span>${formatCount(breakdown.days.length)} dias · ${formatCount(breakdown.nights)} pernocta(s) · manutencion ${formatCurrency(breakdown.mealsTotal)}</span>
+    </div>
+    <table class="dietas-multiday-table">
+      <thead><tr><th>Dia</th><th>Manutencion</th><th style="text-align:right;">Importe</th><th class="center">Alojamiento</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr>
+          <td colspan="2"><strong>Total manutencion</strong></td>
+          <td class="num"><strong>${formatCurrency(breakdown.mealsTotal)}</strong></td>
+          <td class="center">${formatCount(breakdown.nights)} noche(s)</td>
+        </tr>
+      </tfoot>
+    </table>
+    <p class="dietas-multiday-note">El alojamiento de cada pernocta se liquida contra factura del hotel (anade el justificante mas abajo). La manutencion se aplica automaticamente: completa el primer dia si sale antes de las 15:00, completa el ultimo si vuelve a las 17:00 o despues, y completa los dias intermedios.</p>
+  `;
+}
+
+function renderEmployeeDietasHistoryPanel(view) {
+  // Consulta de histórico: total del mes y estadística anual.
+  // Es independiente del trámite "Nueva dieta" y no refleja el borrador en curso.
+  const panel = document.createElement("section");
+  panel.className = "employee-flow-panel employee-dietas-history-panel";
+  panel.innerHTML = `
+    <div class="employee-flow-head">
+      <div>
+        <h3>Resumen de mis dietas</h3>
+        <span>Total del mes y estadistica anual de tus comisiones liquidadas.</span>
+      </div>
+    </div>
+    <div class="employee-dietas-month-panel" data-dietas-month-panel aria-live="polite"></div>
+  `;
+  updateEmployeeDietasMonthlyPanel(panel, todayISODate(), {});
+  return panel;
+}
+
+const JUSTIFICANTE_MAX_BYTES = 8 * 1024 * 1024; // 8 MB
+
+function formatFileSize(bytes) {
+  if (!bytes) return "0 KB";
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function setupJustificanteUploads(form) {
+  if (!state.dietasAttachments) state.dietasAttachments = {};
+  $$(".justificante-field", form).forEach((field) => {
+    const slot = field.dataset.justificante;
+    const fileInput = $(`input[type="file"]`, field);
+    const button = $(".justificante-btn", field);
+    const preview = $(".justificante-preview", field);
+
+    const clearAttachment = () => {
+      delete state.dietasAttachments[slot];
+      fileInput.value = "";
+      preview.hidden = true;
+      preview.replaceChildren();
+      button.hidden = false;
+    };
+
+    const showPreview = (file, dataUrl) => {
+      const isImage = file.type.startsWith("image/");
+      preview.replaceChildren();
+      const thumb = document.createElement("div");
+      thumb.className = "justificante-thumb";
+      if (isImage) {
+        const img = document.createElement("img");
+        img.src = dataUrl;
+        img.alt = file.name;
+        thumb.append(img);
+      } else {
+        thumb.classList.add("is-pdf");
+        thumb.textContent = "PDF";
+      }
+      const meta = document.createElement("div");
+      meta.className = "justificante-meta";
+      meta.innerHTML = `<strong></strong><span></span>`;
+      $("strong", meta).textContent = file.name;
+      $("span", meta).textContent = `${isImage ? "Imagen" : "PDF"} · ${formatFileSize(file.size)}`;
+      const view = document.createElement("a");
+      view.className = "justificante-link";
+      view.href = dataUrl;
+      view.target = "_blank";
+      view.rel = "noopener";
+      view.textContent = "Ver";
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "justificante-remove";
+      remove.textContent = "Quitar";
+      remove.addEventListener("click", clearAttachment);
+      preview.append(thumb, meta, view, remove);
+      preview.hidden = false;
+      button.hidden = true;
+    };
+
+    button.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      const okType = file.type.startsWith("image/") || file.type === "application/pdf";
+      if (!okType) {
+        setStatus("Solo se admite imagen o PDF como justificante.", "error");
+        fileInput.value = "";
+        return;
+      }
+      if (file.size > JUSTIFICANTE_MAX_BYTES) {
+        setStatus(`El justificante supera el limite de ${formatFileSize(JUSTIFICANTE_MAX_BYTES)}.`, "error");
+        fileInput.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        state.dietasAttachments[slot] = { name: file.name, type: file.type, size: file.size, dataUrl: reader.result };
+        showPreview(file, reader.result);
+        setStatus(`Justificante adjuntado: ${file.name}`, "ready");
+      };
+      reader.onerror = () => setStatus("No se pudo leer el archivo.", "error");
+      reader.readAsDataURL(file);
+    });
+
+    // Restaurar si ya habia adjunto en sesion (p.ej. tras re-render).
+    const existing = state.dietasAttachments[slot];
+    if (existing) {
+      showPreview({ name: existing.name, type: existing.type, size: existing.size }, existing.dataUrl);
+    }
+  });
+}
+
 function renderEmployeeDietasRequestPanel(view) {
   const stopOptions = routeSelectableStops(view);
   const points = routeSelectableViaPoints(view.workspace?.province_route_points || []);
@@ -1951,14 +2781,25 @@ function renderEmployeeDietasRequestPanel(view) {
         <span>Registra el dia, la ruta, kilometraje, manutencion, alojamiento y gastos para validacion.</span>
       </div>
     </div>
-    <div class="employee-dietas-month-panel" data-dietas-month-panel aria-live="polite"></div>
     <form class="employee-flow-form">
-      <label>Dia del viaje
-        <input name="travel_date" type="date" value="${todayISODate()}" required>
-      </label>
+      <div class="employee-field-wide dietas-datetime">
+        <label>Inicio
+          <input name="start_date" type="date" value="${todayISODate()}" required>
+        </label>
+        <label>Hora
+          <input name="start_time" type="time" value="08:00" required>
+        </label>
+        <label>Fin
+          <input name="end_date" type="date" value="${todayISODate()}" required>
+        </label>
+        <label>Hora
+          <input name="end_time" type="time" value="15:00" required>
+        </label>
+      </div>
       <label class="employee-field-wide">Motivo del desplazamiento
         <input name="purpose" value="Comision de servicio" required>
       </label>
+      <div class="employee-field-wide dietas-multiday" data-dietas-multiday hidden></div>
       <fieldset class="employee-fieldset employee-field-wide">
         <legend>Ruta del dia</legend>
         <div class="employee-route-list"></div>
@@ -1993,15 +2834,33 @@ function renderEmployeeDietasRequestPanel(view) {
       <label>Alojamiento
         <input name="lodging_amount" type="number" min="0" step="0.01" value="0">
       </label>
-      <label class="employee-field-wide">Justificante alojamiento
-        <input name="lodging_reference" placeholder="Factura/CSV si hay alojamiento">
-      </label>
+      <div class="employee-field-wide justificante-field" data-justificante="lodging">
+        <label>Justificante alojamiento
+          <input name="lodging_reference" placeholder="Factura/CSV si hay alojamiento">
+        </label>
+        <div class="justificante-upload">
+          <input type="file" name="lodging_file" accept="image/*,application/pdf" hidden>
+          <button type="button" class="justificante-btn" data-upload="lodging">
+            <span aria-hidden="true">&#128206;</span> Adjuntar factura (imagen o PDF)
+          </button>
+          <div class="justificante-preview" data-preview="lodging" hidden></div>
+        </div>
+      </div>
       <label>Otros gastos
         <input name="other_expenses" type="number" min="0" step="0.01" value="0">
       </label>
-      <label class="employee-field-wide">Justificante otros gastos
-        <input name="expense_reference" placeholder="Parking, peaje, transporte publico...">
-      </label>
+      <div class="employee-field-wide justificante-field" data-justificante="expense">
+        <label>Justificante otros gastos
+          <input name="expense_reference" placeholder="Parking, peaje, transporte publico...">
+        </label>
+        <div class="justificante-upload">
+          <input type="file" name="expense_file" accept="image/*,application/pdf" hidden>
+          <button type="button" class="justificante-btn" data-upload="expense">
+            <span aria-hidden="true">&#128206;</span> Adjuntar factura (imagen o PDF)
+          </button>
+          <div class="justificante-preview" data-preview="expense" hidden></div>
+        </div>
+      </div>
       <div class="employee-summary-strip employee-field-wide" aria-live="polite">
         <span>Km liquidables</span><b data-dietas-own-summary="km">0,0 km</b>
         <span>Kilometraje</span><b data-dietas-own-summary="mileage">0,00 €</b>
@@ -2021,6 +2880,8 @@ function renderEmployeeDietasRequestPanel(view) {
   routeResult.className = "route-result employee-route-result";
   $(".employee-fieldset", form).append(routeResult, mapPanel);
 
+  setupJustificanteUploads(form);
+
   const selectAllowance = $("select[name='allowance_type']", form);
   allowanceTypes.forEach((allowance) => {
     const option = document.createElement("option");
@@ -2032,6 +2893,35 @@ function renderEmployeeDietasRequestPanel(view) {
   const defaultAllowance = allowanceTypes.find((item) => item.id === "no_dieta") || allowanceTypes[0];
   selectAllowance.value = defaultAllowance?.id || "";
   $("input[name='allowance_amount']", form).value = String(defaultAllowance?.amount || 0);
+
+  // --- Calculo automatico de dietas en viajes de varios dias ---
+  const fullAmount = (allowanceTypes.find((a) => /completa/i.test(a.id) || /completa/i.test(a.label)) || {}).amount || 53.34;
+  const halfAmount = (allowanceTypes.find((a) => /media/i.test(a.id) || /media/i.test(a.label)) || {}).amount || 26.67;
+  const multidayBox = $("[data-dietas-multiday]", form);
+  const refreshMultiday = () => {
+    const startDate = $("input[name='start_date']", form).value;
+    const startTime = $("input[name='start_time']", form).value;
+    const endDate = $("input[name='end_date']", form).value;
+    const endTime = $("input[name='end_time']", form).value;
+    // Si fin < inicio, igualar fin a inicio para no romper.
+    if (endDate && startDate && endDate < startDate) {
+      $("input[name='end_date']", form).value = startDate;
+    }
+    state.dietasBreakdown = computeDietasBreakdown(
+      startDate, startTime,
+      $("input[name='end_date']", form).value, endTime,
+      fullAmount, halfAmount,
+    );
+    renderDietasMultidayPanel(multidayBox, state.dietasBreakdown, { fullAmount, halfAmount });
+  };
+  ["start_date", "start_time", "end_date", "end_time"].forEach((name) => {
+    const input = $(`input[name='${name}']`, form);
+    if (input) {
+      input.addEventListener("change", refreshMultiday);
+      input.addEventListener("input", refreshMultiday);
+    }
+  });
+  refreshMultiday();
 
   const readStops = () => $$(".employee-route-stop select", panel)
     .map((select) => select.value.trim())
@@ -2083,9 +2973,19 @@ function renderEmployeeDietasRequestPanel(view) {
     }));
   };
 
+  // Almacen de ajustes por tramo (km de compensacion y ruta alternativa).
+  const legAdjustmentStore = new Map();
+  let currentCalculation = null;
+
   const syncDietasTotal = () => {
-    const baseKM = moneyNumber($("input[name='km']", form).value);
-    const compensationKM = moneyNumber($("input[name='compensation_km']", form).value);
+    // Km base por tramos del ultimo calculo (incluye compensacion de cada tramo);
+    // si no hay calculo aun, se usa el campo manual "Km ruta".
+    const tramoBaseKM = currentCalculation ? currentCalculation.totalBaseKM : null;
+    const tramoCompKM = currentCalculation ? (currentCalculation.totalCompensationKM || 0) : 0;
+    const manualBaseKM = moneyNumber($("input[name='km']", form).value);
+    const baseKM = tramoBaseKM != null && tramoBaseKM > 0 ? tramoBaseKM : manualBaseKM;
+    const globalCompKM = moneyNumber($("input[name='compensation_km']", form).value);
+    const compensationKM = tramoCompKM + globalCompKM;
     const ownCar = $("input[name='own_car']", form).checked;
     const km = ownCar ? baseKM + compensationKM : 0;
     const mileage = km * moneyNumber($("input[name='rate']", form).value);
@@ -2100,13 +3000,45 @@ function renderEmployeeDietasRequestPanel(view) {
     setSummary("mileage", formatCurrency(mileage));
     setSummary("allowances", formatCurrency(allowances));
     setSummary("total", formatCurrency(mileage + allowances));
-    updateEmployeeDietasMonthlyPanel(panel, $("input[name='travel_date']", form).value, { km, mileage, allowances, total: mileage + allowances });
     return { km, mileage, allowances, total: mileage + allowances };
   };
 
+  // Recalcula el itinerario con los ajustes por tramo guardados.
+  const recalcItinerary = (refreshMap = false) => {
+    syncStopsState();
+    const stops = readStops();
+    if (stops.length < 2) return null;
+    const calculation = calculateItinerary(stops, moneyNumber($("input[name='rate']", form).value), view, legAdjustmentStore);
+    currentCalculation = calculation;
+    renderItineraryResult(routeResult, calculation, handleRouteAdjustment, points);
+    if (calculation.totalBaseKM > 0) $("input[name='km']", form).value = calculation.totalBaseKM.toFixed(1);
+    syncDietasTotal();
+    if (refreshMap) renderRouteMap(mapPanel, calculation, view);
+    return calculation;
+  };
+
+  // Handler de ajuste de un tramo: guarda km comp./ruta y recalcula.
+  function handleRouteAdjustment(leg, nextAdjustment) {
+    const adjustment = normalizeRouteAdjustment(nextAdjustment);
+    if (adjustment.compensationKM <= 0 && !adjustment.compensationReason && !adjustment.viaName && !adjustment.viaReason) {
+      legAdjustmentStore.delete(leg.adjustmentKey);
+    } else {
+      legAdjustmentStore.set(leg.adjustmentKey, adjustment);
+    }
+    const updated = recalcItinerary(nextAdjustment?.routeChanged === true);
+    if (mapPanel._leafletMap && nextAdjustment?.routeChanged !== true) {
+      setupRouteResultLegSelection(mapPanel);
+    }
+    if (updated) {
+      const status = routeItineraryStatus(updated);
+      setStatus(status.message, status.tone);
+    }
+  }
+
   mapPanel._onRoadRouteCalculated = (updatedCalculation) => {
+    currentCalculation = updatedCalculation;
     $("input[name='km']", form).value = Number(updatedCalculation.totalBaseKM || 0).toFixed(1);
-    renderItineraryResult(routeResult, updatedCalculation, null, []);
+    renderItineraryResult(routeResult, updatedCalculation, handleRouteAdjustment, points);
     const note = $("[data-route-note]", panel);
     if (note) {
       note.textContent = `Ruta calculada con OSRM interno: ${formatPoints(updatedCalculation.totalBaseKM)} km base. Puedes sumar compensacion justificada.`;
@@ -2125,20 +3057,15 @@ function renderEmployeeDietasRequestPanel(view) {
       setStatus("Ruta incompleta para calcular kilometraje", "error");
       return null;
     }
-    const calculation = calculateItinerary(stops, moneyNumber($("input[name='rate']", form).value), view, new Map());
-    renderItineraryResult(routeResult, calculation, null, []);
+    const calculation = recalcItinerary(true);
+    if (!calculation) return null;
     if (calculation.missing.length || calculation.totalKM <= 0) {
       note.textContent = `No hay matriz completa para: ${calculation.missing.join(", ") || stops.join(" - ")}. Indica los km liquidables manualmente.`;
       setStatus("Ruta pendiente de matriz interna; introduce km manuales", "warning");
-      syncDietasTotal();
-      renderRouteMap(mapPanel, calculation, view);
       return calculation;
     }
-    $("input[name='km']", form).value = calculation.totalBaseKM.toFixed(1);
-    note.textContent = `Ruta calculada con matriz interna: ${formatPoints(calculation.totalBaseKM)} km base. Puedes sumar compensacion justificada.`;
+    note.textContent = `Ruta calculada con matriz interna: ${formatPoints(calculation.totalBaseKM)} km base. Anade km de compensacion por tramo si procede.`;
     setStatus("Kilometraje calculado con matriz interna", "ready");
-    syncDietasTotal();
-    renderRouteMap(mapPanel, calculation, view);
     return calculation;
   };
 
@@ -2164,19 +3091,8 @@ function renderEmployeeDietasRequestPanel(view) {
   });
   syncDietasTotal();
   window.requestAnimationFrame(() => {
-    syncStopsState();
-    const initialCalculation = calculateItinerary(
-      readStops(),
-      moneyNumber($("input[name='rate']", form).value),
-      view,
-      new Map(),
-    );
-    if (initialCalculation.totalBaseKM > 0) {
-      $("input[name='km']", form).value = initialCalculation.totalBaseKM.toFixed(1);
-      syncDietasTotal();
-    }
-    renderItineraryResult(routeResult, initialCalculation, null, []);
-    renderRouteMap(mapPanel, initialCalculation, view);
+    const initialCalculation = recalcItinerary(false);
+    if (initialCalculation) renderRouteMap(mapPanel, initialCalculation, view);
   });
 
   form.addEventListener("submit", (event) => {
@@ -2195,41 +3111,158 @@ function renderEmployeeDietasRequestPanel(view) {
       $("input[name='compensation_reason']", form).focus();
       return;
     }
+    const attachments = state.dietasAttachments || {};
     const lodgingAmount = moneyNumber($("input[name='lodging_amount']", form).value);
     const lodgingReference = String($("input[name='lodging_reference']", form).value || "").trim();
-    if (lodgingAmount > 0 && !lodgingReference) {
-      setStatus("Indica justificante para el alojamiento", "error");
+    if (lodgingAmount > 0 && !lodgingReference && !attachments.lodging) {
+      setStatus("Indica justificante o adjunta la factura del alojamiento", "error");
       $("input[name='lodging_reference']", form).focus();
       return;
     }
     const totals = syncDietasTotal();
     const sheets = ensureDietasSheets();
-    const id = nextEmployeeFlowID("DIET", sheets);
     const allowanceOption = selectAllowance.selectedOptions[0];
-    const travelDate = $("input[name='travel_date']", form).value;
+    const startDate = $("input[name='start_date']", form).value;
+    const endDate = $("input[name='end_date']", form).value;
+    const motivo = String($("input[name='purpose']", form).value || "Comision de servicio").trim();
+
+    // --- Edicion de un borrador existente: actualizar en sitio y salir ---
+    if (state.dietasEditingId) {
+      const idx = sheets.findIndex((item) => item.id === state.dietasEditingId);
+      if (idx >= 0) {
+        const prev = sheets[idx];
+        sheets[idx] = {
+          ...prev,
+          fecha: formatDateForDisplay(startDate),
+          travelDate: startDate,
+          motivo,
+          ruta: stops.join(" - "),
+          estado: "Pendiente jefe de servicio",
+          importe: totals.total,
+          amount: totals.total,
+          km: totals.km,
+          mileage_amount: totals.mileage,
+          allowance: allowanceOption?.textContent || prev.allowance || "Sin dieta",
+          lodging_amount: lodgingAmount,
+          other_expenses: moneyNumber($("input[name='other_expenses']", form).value),
+          compensation_km: compensationKM,
+          compensation_reason: compensationReason,
+          lodging_reference: lodgingReference,
+          expense_reference: String($("input[name='expense_reference']", form).value || "").trim(),
+          attachments: ["lodging", "expense"]
+            .filter((slot) => attachments[slot])
+            .map((slot) => ({
+              slot,
+              concept: slot === "lodging" ? "Alojamiento" : "Otros gastos",
+              name: attachments[slot].name,
+              type: attachments[slot].type,
+              size: attachments[slot].size,
+              dataUrl: attachments[slot].dataUrl,
+            })),
+        };
+        saveDietasSheets(sheets);
+        recordReceipt("Borrador completado", `${prev.id} - ${stops.join(" - ")} - ${formatCurrency(totals.total)}`, "dietas");
+        setStatus(`Borrador ${prev.id} completado y enviado a validacion`, "ready");
+      }
+      state.dietasEditingId = null;
+      state.dietasAttachments = {};
+      renderModulePortal(view);
+      return;
+    }
     const routeText = stops.join(" - ");
-    const record = {
-      id,
-      fecha: formatDateForDisplay(travelDate),
-      travelDate,
-      motivo: String($("input[name='purpose']", form).value || "Comision de servicio").trim(),
-      ruta: routeText,
-      estado: "Pendiente jefe de servicio",
-      importe: totals.total,
-      amount: totals.total,
-      km: totals.km,
-      mileage_amount: totals.mileage,
-      allowance: allowanceOption?.textContent || "Sin dieta",
-      lodging_amount: lodgingAmount,
-      other_expenses: moneyNumber($("input[name='other_expenses']", form).value),
-      compensation_km: compensationKM,
-      compensation_reason: compensationReason,
-      workflow: ["Empleado", "Jefe de servicio", "Tecnico RRHH"],
-    };
-    sheets.unshift(record);
-    saveDietasSheets(sheets);
-    recordReceipt("Solicitud dieta enviada", `${id} - ${routeText} - ${formatCurrency(totals.total)}`, "dietas");
-    setStatus(`Dieta enviada a jefe de servicio: ${id}`, "ready");
+    const breakdown = state.dietasBreakdown && state.dietasBreakdown.days.length
+      ? state.dietasBreakdown
+      : computeDietasBreakdown(startDate, $("input[name='start_time']", form).value, endDate, $("input[name='end_time']", form).value, fullAmount, halfAmount);
+    const commonAttachments = ["lodging", "expense"]
+      .filter((slot) => attachments[slot])
+      .map((slot) => ({
+        slot,
+        concept: slot === "lodging" ? "Alojamiento" : "Otros gastos",
+        name: attachments[slot].name,
+        type: attachments[slot].type,
+        size: attachments[slot].size,
+        dataUrl: attachments[slot].dataUrl,
+      }));
+
+    const createdIDs = [];
+    if (breakdown.days.length > 1) {
+      // Viaje de varios dias: un expediente por dia, con su dieta calculada.
+      // El kilometraje y gastos puntuales se imputan al primer dia para no duplicar.
+      breakdown.days.forEach((day, index) => {
+        const isFirst = index === 0;
+        const id = nextEmployeeFlowID("DIET", sheets);
+        createdIDs.push(id);
+        const mealLabel = day.kind === "completa" ? "Dieta completa" : "Media dieta";
+        const record = {
+          id,
+          fecha: formatDateForDisplay(day.iso),
+          travelDate: day.iso,
+          motivo,
+          ruta: isFirst ? routeText : `${motivo} (dia ${index + 1} de ${breakdown.days.length})`,
+          estado: "Pendiente jefe de servicio",
+          importe: day.meal + (isFirst ? totals.mileage + moneyNumber($("input[name='other_expenses']", form).value) : 0),
+          amount: day.meal,
+          km: isFirst ? totals.km : 0,
+          mileage_amount: isFirst ? totals.mileage : 0,
+          allowance: mealLabel,
+          allowance_amount: day.meal,
+          overnight: day.overnight,
+          lodging_amount: day.overnight ? lodgingAmount : 0,
+          lodging_pending: day.overnight,
+          other_expenses: isFirst ? moneyNumber($("input[name='other_expenses']", form).value) : 0,
+          compensation_km: isFirst ? compensationKM : 0,
+          compensation_reason: isFirst ? compensationReason : "",
+          lodging_reference: day.overnight ? lodgingReference : "",
+          expense_reference: isFirst ? String($("input[name='expense_reference']", form).value || "").trim() : "",
+          attachments: isFirst ? commonAttachments : [],
+          trip_group: createdIDs[0],
+          timeline: [
+            ["Borrador", new Date().toLocaleString("es-ES"), "Empleado demo"],
+            ["Pendiente jefe de servicio", new Date().toLocaleString("es-ES"), "Empleado demo"],
+          ],
+          workflow: ["Empleado", "Jefe de servicio", "Tecnico RRHH"],
+        };
+        sheets.unshift(record);
+      });
+      saveDietasSheets(sheets);
+      const totalViaje = breakdown.mealsTotal + totals.mileage + moneyNumber($("input[name='other_expenses']", form).value);
+      recordReceipt("Solicitud dieta enviada", `${createdIDs.length} dias (${createdIDs[0]}...) - ${routeText} - ${formatCurrency(totalViaje)}`, "dietas");
+      setStatus(`Viaje de ${createdIDs.length} dias enviado: ${createdIDs[0]} y siguientes`, "ready");
+    } else {
+      const id = nextEmployeeFlowID("DIET", sheets);
+      const record = {
+        id,
+        fecha: formatDateForDisplay(startDate),
+        travelDate: startDate,
+        motivo,
+        ruta: routeText,
+        estado: "Pendiente jefe de servicio",
+        importe: totals.total,
+        amount: totals.total,
+        km: totals.km,
+        mileage_amount: totals.mileage,
+        allowance: allowanceOption?.textContent || "Sin dieta",
+        lodging_amount: lodgingAmount,
+        other_expenses: moneyNumber($("input[name='other_expenses']", form).value),
+        compensation_km: compensationKM,
+        compensation_reason: compensationReason,
+        lodging_reference: lodgingReference,
+        expense_reference: String($("input[name='expense_reference']", form).value || "").trim(),
+        attachments: commonAttachments,
+        timeline: [
+          ["Borrador", new Date().toLocaleString("es-ES"), "Empleado demo"],
+          ["Pendiente jefe de servicio", new Date().toLocaleString("es-ES"), "Empleado demo"],
+        ],
+        workflow: ["Empleado", "Jefe de servicio", "Tecnico RRHH"],
+      };
+      sheets.unshift(record);
+      saveDietasSheets(sheets);
+      const attachmentNote = record.attachments.length ? ` - ${record.attachments.length} justificante(s) adjunto(s)` : "";
+      recordReceipt("Solicitud dieta enviada", `${id} - ${routeText} - ${formatCurrency(totals.total)}${attachmentNote}`, "dietas");
+      setStatus(`Dieta enviada a jefe de servicio: ${id}`, "ready");
+    }
+    state.dietasAttachments = {};
+    state.dietasBreakdown = null;
     renderModulePortal(view);
   });
 
@@ -2522,7 +3555,6 @@ function renderEmployeeBolsaModule(target, view) {
   const activeApplications = applications.filter((item) => !/desistida|retirada|cerrada|anulada/i.test(item.state || ""));
   const selectedOffer = offers.find((offer) => offer.id === state.bolsaSelectedOfferID);
   const selectedApplication = selectedOffer ? activeBolsaApplicationForOffer(applications, selectedOffer.id) : null;
-  target.append(modulePortalHeader("Mis bolsas y ofertas", "Consulta ofertas abiertas y tramita tus propias solicitudes de Bolsa.", []));
   target.append(portalGrid([
     ["Ofertas abiertas", String(openOffers.length)],
     ["Mis solicitudes", String(applications.length)],
@@ -4676,321 +5708,255 @@ function renderDietasMainMenu(container, view) {
 
 function renderDietasCreateForm(container, view) {
   const wrapper = document.createElement("div");
-  wrapper.style.fontFamily = "sans-serif";
-  wrapper.style.background = "#fff";
-  wrapper.style.padding = "20px";
-  wrapper.style.minHeight = "480px";
+  wrapper.className = "dietas-create";
 
   const headerDiv = document.createElement("div");
-  headerDiv.style.display = "flex";
-  headerDiv.style.justifyContent = "space-between";
-  headerDiv.style.alignItems = "center";
-  headerDiv.style.marginBottom = "20px";
+  headerDiv.className = "dietas-create-head";
 
-  const iconHome = document.createElement("span");
-  iconHome.textContent = "🏠";
-  iconHome.style.fontSize = "1.5rem";
-  iconHome.style.cursor = "pointer";
-  iconHome.addEventListener("click", () => {
+  const backBtn = document.createElement("button");
+  backBtn.type = "button";
+  backBtn.className = "dietas-back-btn";
+  backBtn.innerHTML = `<span aria-hidden="true">&larr;</span> Volver`;
+  backBtn.addEventListener("click", () => {
     state.dietasScreen = "menu-dietas";
     renderModulePortal(view);
   });
 
-  const title = document.createElement("h2");
-  title.style.margin = "0";
-  title.style.fontSize = "1.3rem";
-  title.style.fontWeight = "bold";
-  title.textContent = ":: Añadir Dietas y Gastos de Locomoción ::";
+  const titleBox = document.createElement("div");
+  titleBox.innerHTML = `<p class="eyebrow">Dietas y gastos de locomocion</p><h2></h2>`;
+  $("h2", titleBox).textContent = "Anadir dieta o comision";
 
-  const iconLock = document.createElement("span");
-  iconLock.textContent = "🔓";
-  iconLock.style.fontSize = "1.5rem";
+  const lock = document.createElement("span");
+  lock.className = "dietas-lock";
+  lock.innerHTML = `<span aria-hidden="true">&#128275;</span> Editable`;
 
-  headerDiv.append(iconHome, title, iconLock);
+  headerDiv.append(backBtn, titleBox, lock);
   wrapper.append(headerDiv);
 
   const metaBlock = document.createElement("div");
-  metaBlock.style.border = "1px solid #777";
-  metaBlock.style.padding = "10px 16px";
-  metaBlock.style.marginBottom = "20px";
-  metaBlock.style.fontSize = "0.9rem";
+  metaBlock.className = "dietas-meta";
   metaBlock.innerHTML = `
-    <div><strong>Documento:</strong> 81158 - NUEVAS TECNOLOGIAS</div>
-    <div style="margin-top:4px;"><strong>Fecha:</strong> ${new Date().toLocaleDateString("es-ES")} ${new Date().toLocaleTimeString("es-ES")}</div>
+    <div><span>Documento</span><strong>81158 - Nuevas Tecnologias</strong></div>
+    <div><span>Fecha</span><strong>${new Date().toLocaleDateString("es-ES")} ${new Date().toLocaleTimeString("es-ES")}</strong></div>
   `;
   wrapper.append(metaBlock);
 
   const totalHeader = document.createElement("div");
-  totalHeader.style.display = "flex";
-  totalHeader.style.justifyContent = "flex-end";
-  totalHeader.style.alignItems = "center";
-  totalHeader.style.gap = "12px";
-  totalHeader.style.marginBottom = "20px";
-  totalHeader.style.fontSize = "1.2rem";
-  totalHeader.style.fontWeight = "bold";
-  totalHeader.style.color = "blue";
-
-  const totalText = document.createElement("span");
-  totalText.textContent = "Importe Total Acumulado:";
-  const totalVal = document.createElement("span");
-  totalVal.className = "total-acumulado-val";
-  totalVal.textContent = "0.00 €";
-  totalHeader.append(totalText, totalVal);
+  totalHeader.className = "dietas-total";
+  totalHeader.innerHTML = `<span class="label">Importe total acumulado</span><span class="total-acumulado-val">0,00 &euro;</span>`;
   wrapper.append(totalHeader);
 
   const form = document.createElement("form");
-  form.style.display = "flex";
-  form.style.flexDirection = "column";
-  form.style.gap = "20px";
 
   const sectObligatory = document.createElement("fieldset");
-  sectObligatory.style.border = "1px solid #ccc";
-  sectObligatory.style.borderRadius = "4px";
-  sectObligatory.style.padding = "16px";
+  sectObligatory.className = "dietas-section is-fieldset sec-obligatorios";
   sectObligatory.innerHTML = `
-    <legend style="font-weight:bold; padding:0 8px;">Datos Obligatorios:</legend>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        Fecha de Inicio:
-        <input type="date" required class="form-fecha-inicio" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-      </label>
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        Hora Inicio:
-        <input type="time" value="08:00" required class="form-hora-inicio" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-      </label>
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        Fecha de Fin:
-        <input type="date" required class="form-fecha-fin" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-      </label>
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        Hora Fin:
-        <input type="time" value="15:00" required class="form-hora-fin" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-      </label>
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        Motivo:
-        <input type="text" placeholder="Ej. Instalación de red en sede comarcal" required class="form-motivo" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-      </label>
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        Localidades:
-        <input type="text" placeholder="Ej. Motril, Salobreña" required class="form-localidades" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-      </label>
+    <legend>Datos obligatorios</legend>
+    <div class="sec-body">
+      <div class="dietas-grid">
+        <label class="dietas-field">Fecha de inicio
+          <input type="date" required class="form-fecha-inicio">
+        </label>
+        <label class="dietas-field">Hora inicio
+          <input type="time" value="08:00" required class="form-hora-inicio">
+        </label>
+        <label class="dietas-field">Fecha de fin
+          <input type="date" required class="form-fecha-fin">
+        </label>
+        <label class="dietas-field">Hora fin
+          <input type="time" value="15:00" required class="form-hora-fin">
+        </label>
+        <label class="dietas-field">Motivo
+          <input type="text" placeholder="Ej. Instalacion de red en sede comarcal" required class="form-motivo">
+        </label>
+        <label class="dietas-field">Localidades
+          <input type="text" placeholder="Ej. Motril, Salobrena" required class="form-localidades">
+        </label>
+      </div>
     </div>
   `;
   form.append(sectObligatory);
 
   const sectDietas = document.createElement("fieldset");
-  sectDietas.style.border = "1px solid #ccc";
-  sectDietas.style.borderRadius = "4px";
-  sectDietas.style.padding = "16px";
+  sectDietas.className = "dietas-section is-fieldset sec-dietas";
   sectDietas.innerHTML = `
-    <legend style="font-weight:bold; padding:0 8px;">Calculo de Dietas:</legend>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:center; margin-bottom:12px;">
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        País:
-        <select class="form-pais" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-          <option value="España">España</option>
-          <option value="Francia">Francia</option>
-          <option value="Portugal">Portugal</option>
-        </select>
-      </label>
-      <div style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        <span>Nivel de Detalle:</span>
-        <div style="display:flex; gap:12px; margin-top:6px;">
-          <label style="font-weight:normal; display:flex; align-items:center; gap:4px;">
-            <input type="radio" name="dietas-nivel" value="bajo"> Bajo
-          </label>
-          <label style="font-weight:normal; display:flex; align-items:center; gap:4px;">
-            <input type="radio" name="dietas-nivel" value="medio" checked> Medio
-          </label>
-          <label style="font-weight:normal; display:flex; align-items:center; gap:4px;">
-            <input type="radio" name="dietas-nivel" value="alto"> Alto
-          </label>
+    <legend>Calculo de dietas</legend>
+    <div class="sec-body">
+      <div class="dietas-grid">
+        <label class="dietas-field">Pais
+          <select class="form-pais">
+            <option value="España">Espana</option>
+            <option value="Francia">Francia</option>
+            <option value="Portugal">Portugal</option>
+          </select>
+        </label>
+        <div class="dietas-field">Nivel de detalle
+          <div class="dietas-radio-row">
+            <label><input type="radio" name="dietas-nivel" value="bajo"> Bajo</label>
+            <label><input type="radio" name="dietas-nivel" value="medio" checked> Medio</label>
+            <label><input type="radio" name="dietas-nivel" value="alto"> Alto</label>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div style="display:flex; justify-content:flex-start; margin-bottom:16px;">
-      <button type="button" class="calcular-dietas-btn" style="padding:6px 12px; background:#fc0; border:1px solid #c90; font-weight:bold; border-radius:4px; cursor:pointer;">Calcular Dietas</button>
-    </div>
+      <div style="margin-top:14px;">
+        <button type="button" class="calcular-dietas-btn dietas-btn is-primary">Calcular dietas</button>
+      </div>
 
-    <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:8px;">
-      <thead>
-        <tr style="background:#eee;">
-          <th style="border:1px solid #ccc; padding:6px; text-align:left;">Tipo De Dieta</th>
-          <th style="border:1px solid #ccc; padding:6px; text-align:center;">Intervalo Correspondiente</th>
-          <th style="border:1px solid #ccc; padding:6px; text-align:right;">Importe</th>
-          <th style="border:1px solid #ccc; padding:6px; text-align:center;">Aceptar</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td style="border:1px solid #ccc; padding:6px;">MEDIA DIETA</td>
-          <td style="border:1px solid #ccc; padding:6px; text-align:center;">Almuerzo</td>
-          <td style="border:1px solid #ccc; padding:6px; text-align:right; font-weight:bold;">18.50 €</td>
-          <td style="border:1px solid #ccc; padding:6px; text-align:center;">
-            <input type="checkbox" class="aceptar-media-dieta">
-          </td>
-        </tr>
-        <tr>
-          <td style="border:1px solid #ccc; padding:6px;">DIETA COMPLETA</td>
-          <td style="border:1px solid #ccc; padding:6px; text-align:center;">Manutención completa</td>
-          <td style="border:1px solid #ccc; padding:6px; text-align:right; font-weight:bold;">37.40 €</td>
-          <td style="border:1px solid #ccc; padding:6px; text-align:center;">
-            <input type="checkbox" class="aceptar-dieta-completa">
-          </td>
-        </tr>
-      </tbody>
-    </table>
+      <table class="dietas-table">
+        <thead>
+          <tr>
+            <th>Tipo de dieta</th>
+            <th class="center">Intervalo correspondiente</th>
+            <th style="text-align:right;">Importe</th>
+            <th class="center">Aceptar</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Media dieta</td>
+            <td class="center">Almuerzo</td>
+            <td class="num">18,50 &euro;</td>
+            <td class="center"><input type="checkbox" class="aceptar-media-dieta"></td>
+          </tr>
+          <tr>
+            <td>Dieta completa</td>
+            <td class="center">Manutencion completa</td>
+            <td class="num">37,40 &euro;</td>
+            <td class="center"><input type="checkbox" class="aceptar-dieta-completa"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   `;
   form.append(sectDietas);
 
   const sectKm = document.createElement("fieldset");
-  sectKm.style.border = "1px solid #ccc";
-  sectKm.style.borderRadius = "4px";
-  sectKm.style.padding = "16px";
+  sectKm.className = "dietas-section is-fieldset sec-km";
   sectKm.innerHTML = `
-    <legend style="font-weight:bold; padding:0 8px;">Calculo de Kilometraje:</legend>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:12px;">
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        Con vehículo propio:
-        <select class="form-vehiculo-propio" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-          <option value="No">No</option>
-          <option value="Si">Si</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="vehiculo-propio-fields" style="display:none; flex-direction:column; gap:12px;">
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-          Salida (Origen):
-          <select class="form-km-salida" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-            <option value="Granada">Granada</option>
-            <option value="Motril">Motril</option>
-            <option value="Baza">Baza</option>
-          </select>
-        </label>
-        <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-          Llegada (Destino):
-          <select class="form-km-llegada" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-            <option value="Motril">Motril</option>
-            <option value="Granada">Granada</option>
-            <option value="Almuñécar">Almuñécar</option>
+    <legend>Calculo de kilometraje</legend>
+    <div class="sec-body">
+      <div class="dietas-grid">
+        <label class="dietas-field">Con vehiculo propio
+          <select class="form-vehiculo-propio">
+            <option value="No">No</option>
+            <option value="Si">Si</option>
           </select>
         </label>
       </div>
 
-      <div style="display:flex; align-items:center; gap:20px; font-size:0.9rem; font-weight:bold; margin-top:8px;">
-        <span>Kilómetros: <span class="km-number-display">70</span> km</span>
-        <label style="display:flex; align-items:center; gap:6px;">
-          Ajuste (km):
-          <input type="number" value="0" class="form-km-ajuste" style="width:60px; padding:4px; border:1px solid #ccc; border-radius:4px;">
-        </label>
-        <span style="color:blue;">Importe Kilometraje: <span class="km-importe-display">18.20 €</span></span>
-      </div>
+      <div class="vehiculo-propio-fields" style="display:none; flex-direction:column; gap:14px; margin-top:14px;">
+        <div class="dietas-grid">
+          <label class="dietas-field">Salida (origen)
+            <select class="form-km-salida">
+              <option value="Granada">Granada</option>
+              <option value="Motril">Motril</option>
+              <option value="Baza">Baza</option>
+            </select>
+          </label>
+          <label class="dietas-field">Llegada (destino)
+            <select class="form-km-llegada">
+              <option value="Motril">Motril</option>
+              <option value="Granada">Granada</option>
+              <option value="Almuñécar">Almunecar</option>
+            </select>
+          </label>
+        </div>
 
-      <div style="display:flex; justify-content:flex-start; margin-top:8px;">
-        <button type="button" class="btn-anadir-ruta" style="padding:6px 12px; background:#fff; border:1px solid #777; border-radius:4px; font-weight:bold; cursor:pointer;">➕ Añadir ruta</button>
+        <div class="dietas-km-summary">
+          <span>Kilometros: <span class="km-number-display">70</span> km</span>
+          <label style="display:flex; align-items:center; gap:6px;">Ajuste (km)
+            <input type="number" value="0" class="form-km-ajuste" style="width:64px;">
+          </label>
+          <span>Importe kilometraje: <span class="km-importe-display">18,20 &euro;</span></span>
+        </div>
+
+        <div>
+          <button type="button" class="btn-anadir-ruta dietas-btn"><span aria-hidden="true">+</span> Anadir ruta</button>
+        </div>
       </div>
     </div>
   `;
   form.append(sectKm);
 
   const sectOtrosMedios = document.createElement("fieldset");
-  sectOtrosMedios.style.border = "1px solid #ccc";
-  sectOtrosMedios.style.borderRadius = "4px";
-  sectOtrosMedios.style.padding = "16px";
+  sectOtrosMedios.className = "dietas-section is-fieldset sec-medios";
   sectOtrosMedios.innerHTML = `
-    <legend style="font-weight:bold; padding:0 8px;">Otros Medios:</legend>
-    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; align-items:flex-end;">
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        Otros Medios:
-        <select class="form-otros-medios" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-          <option value="">::Elija el medio::</option>
-          <option value="Autobus">Autobús / Tren</option>
-          <option value="Taxi">Taxi</option>
-          <option value="Avion">Avión</option>
-        </select>
-      </label>
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        Gastos Justificados:
-        <input type="text" placeholder="Ej. Billete de autobús" class="form-gastos-justificados" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-      </label>
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        Importe (€):
-        <input type="number" min="0" value="0" step="0.01" class="form-otros-medios-importe" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-      </label>
-    </div>
-
-    <div style="display:flex; justify-content:flex-start; margin-top:12px;">
-      <button type="button" class="btn-anadir-otro-medio" style="padding:6px 12px; background:#fff; border:1px solid #777; border-radius:4px; font-weight:bold; cursor:pointer;">➕ Añadir otro medio</button>
+    <legend>Otros medios</legend>
+    <div class="sec-body">
+      <div class="dietas-grid cols-3">
+        <label class="dietas-field">Otros medios
+          <select class="form-otros-medios">
+            <option value="">Elija el medio</option>
+            <option value="Autobus">Autobus / Tren</option>
+            <option value="Taxi">Taxi</option>
+            <option value="Avion">Avion</option>
+          </select>
+        </label>
+        <label class="dietas-field">Gastos justificados
+          <input type="text" placeholder="Ej. Billete de autobus" class="form-gastos-justificados">
+        </label>
+        <label class="dietas-field">Importe (&euro;)
+          <input type="number" min="0" value="0" step="0.01" class="form-otros-medios-importe">
+        </label>
+      </div>
+      <div style="margin-top:14px;">
+        <button type="button" class="btn-anadir-otro-medio dietas-btn"><span aria-hidden="true">+</span> Anadir otro medio</button>
+      </div>
     </div>
   `;
   form.append(sectOtrosMedios);
 
   const sectOtrosGastos = document.createElement("fieldset");
-  sectOtrosGastos.style.border = "1px solid #ccc";
-  sectOtrosGastos.style.borderRadius = "4px";
-  sectOtrosGastos.style.padding = "16px";
+  sectOtrosGastos.className = "dietas-section is-fieldset sec-gastos";
   sectOtrosGastos.innerHTML = `
-    <legend style="font-weight:bold; padding:0 8px;">Otros Gastos:</legend>
-    <div style="display:grid; grid-template-columns:2fr 1fr; gap:16px; align-items:flex-end;">
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        Motivo Gasto:
-        <input type="text" placeholder="Ej. Parking zona azul" class="form-otros-gastos-motivo" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-      </label>
-      <label style="display:flex; flex-direction:column; gap:4px; font-weight:bold; font-size:0.85rem;">
-        Importe Gasto (€):
-        <input type="number" min="0" value="0" step="0.01" class="form-otros-gastos-importe" style="padding:6px; border:1px solid #ccc; border-radius:4px;">
-      </label>
-    </div>
-
-    <div style="display:flex; justify-content:flex-start; margin-top:12px;">
-      <button type="button" class="btn-anadir-otro-gasto" style="padding:6px 12px; background:#fff; border:1px solid #777; border-radius:4px; font-weight:bold; cursor:pointer;">➕ Añadir gasto</button>
+    <legend>Otros gastos</legend>
+    <div class="sec-body">
+      <div class="dietas-grid">
+        <label class="dietas-field">Motivo gasto
+          <input type="text" placeholder="Ej. Parking zona azul" class="form-otros-gastos-motivo">
+        </label>
+        <label class="dietas-field">Importe gasto (&euro;)
+          <input type="number" min="0" value="0" step="0.01" class="form-otros-gastos-importe">
+        </label>
+      </div>
+      <div style="margin-top:14px;">
+        <button type="button" class="btn-anadir-otro-gasto dietas-btn"><span aria-hidden="true">+</span> Anadir gasto</button>
+      </div>
     </div>
   `;
   form.append(sectOtrosGastos);
 
   const sectLineas = document.createElement("section");
-  sectLineas.className = "dietas-draft-lines";
-  sectLineas.style.border = "1px solid #cbd5e1";
-  sectLineas.style.borderRadius = "6px";
-  sectLineas.style.padding = "12px";
-  sectLineas.style.background = "#f8fafc";
+  sectLineas.className = "dietas-section dietas-draft-lines sec-lineas";
   sectLineas.innerHTML = `
-    <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:8px;">
-      <strong>Lineas anadidas a la solicitud</strong>
-      <span class="small-text" data-dietas-lines-count>0 lineas</span>
+    <div class="sec-legend">Lineas anadidas a la solicitud</div>
+    <div class="sec-body">
+      <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+        <span class="small-text" data-dietas-lines-count>0 lineas</span>
+      </div>
+      <div class="dietas-lines-empty small-text">Todavia no hay rutas, medios o gastos anadidos.</div>
+      <table class="dietas-lines-table dietas-table" style="display:none;">
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Detalle</th>
+            <th style="text-align:right;">Importe</th>
+            <th class="center">Accion</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
-    <div class="dietas-lines-empty small-text">Todavia no hay rutas, medios o gastos anadidos.</div>
-    <table class="dietas-lines-table" style="width:100%; border-collapse:collapse; display:none;">
-      <thead>
-        <tr style="background:#e2e8f0;">
-          <th style="text-align:left; padding:6px;">Tipo</th>
-          <th style="text-align:left; padding:6px;">Detalle</th>
-          <th style="text-align:right; padding:6px;">Importe</th>
-          <th style="text-align:center; padding:6px;">Accion</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
   `;
   form.append(sectLineas);
 
   const actionDiv = document.createElement("div");
-  actionDiv.style.display = "flex";
-  actionDiv.style.justifyContent = "center";
-  actionDiv.style.gap = "16px";
-  actionDiv.style.marginTop = "24px";
+  actionDiv.className = "dietas-actions";
 
   const btnCancel = document.createElement("button");
   btnCancel.type = "button";
-  btnCancel.style.padding = "10px 24px";
-  btnCancel.style.border = "1px solid #777";
-  btnCancel.style.borderRadius = "4px";
-  btnCancel.style.background = "#fff";
-  btnCancel.style.fontWeight = "bold";
-  btnCancel.style.cursor = "pointer";
+  btnCancel.className = "btn-cancel";
   btnCancel.textContent = "Cancelar";
   btnCancel.addEventListener("click", () => {
     state.dietasScreen = "menu-dietas";
@@ -4999,14 +5965,8 @@ function renderDietasCreateForm(container, view) {
 
   const btnSave = document.createElement("button");
   btnSave.type = "submit";
-  btnSave.style.padding = "10px 24px";
-  btnSave.style.border = "none";
-  btnSave.style.borderRadius = "4px";
-  btnSave.style.background = "orange";
-  btnSave.style.color = "#000";
-  btnSave.style.fontWeight = "bold";
-  btnSave.style.cursor = "pointer";
-  btnSave.textContent = "Guardar Documento";
+  btnSave.className = "btn-save";
+  btnSave.textContent = "Guardar documento";
 
   actionDiv.append(btnCancel, btnSave);
   form.append(actionDiv);
