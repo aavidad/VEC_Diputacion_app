@@ -1,0 +1,1116 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VEC Diputacion Granada</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+      :root {
+        --workspace-bg: #f4f6f8;
+        --workspace-panel: #ffffff;
+        --workspace-panel-muted: #f8fafc;
+        --workspace-line: #d8e0e8;
+        --workspace-text: #13202d;
+        --workspace-muted: #607080;
+        --module-blue: #1d4f91;
+        --module-indigo: #4b4f9f;
+        --module-teal: #0f766e;
+        --module-cyan: #087990;
+        --module-amber: #9a5b00;
+        --module-orange: #b45309;
+        --module-green: #287344;
+        --module-red: #ad2f2f;
+        --module-slate: #475569;
+      }
+
+      body {
+        background: var(--workspace-bg);
+      }
+
+      .workspace {
+        display: grid;
+        min-height: 100vh;
+        grid-template-columns: 264px minmax(0, 1fr);
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+        background: #111827;
+        color: #e5edf5;
+        border-right: 1px solid #253244;
+      }
+
+      .sidebar-header {
+        padding: 18px;
+        border-bottom: 1px solid #253244;
+      }
+
+      .sidebar .brand-mark {
+        background: #e5edf5;
+        color: #111827;
+      }
+
+      .sidebar h1 {
+        font-size: 1.05rem;
+      }
+
+      .module-group {
+        padding: 14px;
+      }
+
+      .module-title {
+        margin: 14px 4px 8px;
+        color: #9fb1c6;
+        font-size: 0.73rem;
+        font-weight: 800;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .module-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+        min-height: 38px;
+        margin: 3px 0;
+        padding: 8px 10px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #d7e2ee;
+        font: inherit;
+        text-align: left;
+      }
+
+      .module-link[aria-current="page"],
+      .module-link:hover,
+      .module-link:focus-visible {
+        background: #1f2937;
+        color: #ffffff;
+        outline: 2px solid transparent;
+      }
+
+      .module-count {
+        min-width: 28px;
+        padding: 2px 7px;
+        border-radius: 999px;
+        background: #334155;
+        color: #f8fafc;
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-align: center;
+      }
+
+      .workspace-main {
+        min-width: 0;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) minmax(280px, 440px) auto;
+        gap: 16px;
+        padding: 12px 20px;
+      }
+
+      .context-block {
+        min-width: 0;
+      }
+
+      .context-block h2 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+
+      .search-form {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+      }
+
+      .search-form label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+      }
+
+      .search-form input,
+      .filter-bar select {
+        min-height: 40px;
+        width: 100%;
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--workspace-text);
+        font: inherit;
+      }
+
+      .search-form input {
+        padding: 0 12px;
+      }
+
+      .search-form button,
+      .quiet-action,
+      .table-action {
+        min-height: 40px;
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--workspace-text);
+        cursor: pointer;
+        font: inherit;
+        font-weight: 750;
+      }
+
+      .search-form button {
+        padding: 0 14px;
+      }
+
+      .operator-tools {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+
+      .workspace-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 18px;
+        padding: 18px 20px 22px;
+      }
+
+      .summary-panel {
+        gap: 18px;
+        padding: 16px;
+        box-shadow: none;
+      }
+
+      .summary-panel h2 {
+        margin-bottom: 2px;
+      }
+
+      .lead {
+        color: var(--workspace-muted);
+      }
+
+      .primary-action {
+        align-self: center;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin: 14px 0;
+      }
+
+      .metrics article {
+        padding: 14px;
+      }
+
+      .metrics strong {
+        display: block;
+        font-size: 1.1rem;
+      }
+
+      .metric-note {
+        color: var(--workspace-muted);
+        font-size: 0.82rem;
+      }
+
+      .filter-bar {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+        gap: 10px;
+        margin-bottom: 14px;
+        padding: 12px;
+        background: var(--workspace-panel);
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+      }
+
+      .filter-bar label {
+        display: grid;
+        gap: 4px;
+        color: var(--workspace-muted);
+        font-size: 0.82rem;
+        font-weight: 750;
+      }
+
+      .queue-panel,
+      .detail-panel,
+      .timeline-panel,
+      .listing {
+        background: var(--workspace-panel);
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        background: var(--workspace-panel-muted);
+        border-bottom: 1px solid var(--workspace-line);
+      }
+
+      .panel-header h2,
+      .panel-header h3 {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.92rem;
+      }
+
+      th,
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--workspace-line);
+        text-align: left;
+        vertical-align: top;
+        white-space: nowrap;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        background: #eef3f8;
+        color: #334155;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+      }
+
+      td:first-child,
+      th:first-child {
+        position: sticky;
+        left: 0;
+        background: inherit;
+      }
+
+      tbody tr {
+        background: #fff;
+      }
+
+      tbody tr[aria-selected="true"] {
+        background: #eef6ff;
+      }
+
+      .candidate-ref {
+        display: grid;
+        gap: 2px;
+      }
+
+      .candidate-ref strong,
+      .candidate-ref span {
+        overflow-wrap: anywhere;
+        white-space: normal;
+      }
+
+      .candidate-ref span,
+      .small-text {
+        color: var(--workspace-muted);
+        font-size: 0.82rem;
+      }
+
+      .status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 26px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid currentColor;
+        font-size: 0.78rem;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .status-chip::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .chip-blue { color: var(--module-blue); }
+      .chip-indigo { color: var(--module-indigo); }
+      .chip-teal { color: var(--module-teal); }
+      .chip-cyan { color: var(--module-cyan); }
+      .chip-amber { color: var(--module-amber); }
+      .chip-orange { color: var(--module-orange); }
+      .chip-green { color: var(--module-green); }
+      .chip-red { color: var(--module-red); }
+      .chip-slate { color: var(--module-slate); }
+
+      .right-column {
+        display: grid;
+        gap: 14px;
+        align-content: start;
+      }
+
+      .detail-body,
+      .timeline-list {
+        padding: 14px;
+      }
+
+      .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin: 12px 0;
+      }
+
+      .detail-grid div {
+        padding: 10px;
+        background: var(--workspace-panel-muted);
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+      }
+
+      .detail-grid span {
+        display: block;
+        color: var(--workspace-muted);
+        font-size: 0.78rem;
+        font-weight: 750;
+      }
+
+      .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 12px 0;
+      }
+
+      .tabs button {
+        min-height: 32px;
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--workspace-text);
+        font: inherit;
+        font-size: 0.84rem;
+        font-weight: 750;
+      }
+
+      .tabs button[aria-selected="true"] {
+        border-color: var(--module-blue);
+        color: var(--module-blue);
+      }
+
+      .doc-list,
+      .timeline-list,
+      .alert-list {
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        padding-left: 0;
+        list-style: none;
+      }
+
+      .doc-list li,
+      .timeline-list li,
+      .alert-list li {
+        display: grid;
+        gap: 2px;
+        padding: 9px 10px;
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .workspace-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 14px;
+      }
+
+      .listing-header {
+        padding: 12px 14px;
+      }
+
+      .ranking-row {
+        padding: 12px 14px;
+      }
+
+      .workspace-status {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 0 20px 18px;
+        padding: 10px 12px;
+        color: var(--workspace-muted);
+        background: #fff;
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+        font-size: 0.86rem;
+      }
+
+      @media (max-width: 1180px) {
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+        }
+
+        .module-group {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .module-title {
+          grid-column: 1 / -1;
+        }
+
+        .workspace-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 820px) {
+        .topbar,
+        .summary-panel,
+        .filter-bar,
+        .metrics,
+        .workspace-row {
+          grid-template-columns: 1fr;
+        }
+
+        .operator-tools,
+        .workspace-status {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .module-group {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .module-group,
+        .detail-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .workspace-grid,
+        .topbar {
+          padding-left: 12px;
+          padding-right: 12px;
+        }
+
+        th,
+        td {
+          padding: 9px 10px;
+        }
+      }
+      /* --- Pantalla operativa de modulo (rediseno) --- */
+      .screen-nav {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        padding: 4px 0 10px;
+        margin-bottom: 4px;
+        border-bottom: 1px solid var(--workspace-line);
+        scrollbar-width: thin;
+      }
+
+      .screen-nav button {
+        flex: 0 0 auto;
+        min-height: 34px;
+        padding: 0 14px;
+        border: 1px solid var(--workspace-line);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--workspace-muted);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .screen-nav button[aria-current="page"] {
+        background: var(--module-blue);
+        border-color: var(--module-blue);
+        color: #fff;
+      }
+
+      .screen-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin: 14px 0 12px;
+      }
+
+      .screen-head .screen-title h2 {
+        margin: 0 0 2px;
+        font-size: 1.15rem;
+      }
+
+      .screen-head .screen-title p {
+        margin: 0;
+        max-width: 60ch;
+        color: var(--workspace-muted);
+        font-size: 0.88rem;
+      }
+
+      .screen-head .screen-primary {
+        display: flex;
+        flex-shrink: 0;
+        gap: 8px;
+      }
+
+      .screen-counters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .screen-counter {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 34px;
+        padding: 4px 12px;
+        border: 1px solid var(--workspace-line);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--workspace-text);
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 700;
+      }
+
+      .screen-counter[aria-pressed="true"] {
+        border-color: var(--module-blue);
+        background: #eef6ff;
+        color: var(--module-blue);
+      }
+
+      .screen-counter b {
+        min-width: 20px;
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: #eef3f8;
+        color: var(--workspace-text);
+        font-size: 0.78rem;
+        text-align: center;
+      }
+
+      .screen-counter[aria-pressed="true"] b {
+        background: var(--module-blue);
+        color: #fff;
+      }
+
+      .work-table {
+        background: var(--workspace-panel);
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .work-table .panel-header h3 {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      .work-table .table-wrap {
+        overflow-x: auto;
+      }
+
+      .work-table tbody tr {
+        cursor: pointer;
+      }
+
+      .work-table tbody tr[aria-selected="true"] {
+        background: #eef6ff;
+      }
+
+      .row-action {
+        min-height: 32px;
+        padding: 0 12px;
+        border: 1px solid var(--module-blue);
+        border-radius: 8px;
+        background: var(--module-blue);
+        color: #fff;
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.82rem;
+        font-weight: 750;
+        white-space: nowrap;
+      }
+
+      .row-action.is-quiet {
+        border-color: var(--workspace-line);
+        background: #fff;
+        color: var(--workspace-text);
+      }
+
+      .screen-meta-toggle {
+        margin: 14px 0 0;
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+        background: var(--workspace-panel-muted);
+        overflow: hidden;
+      }
+
+      .screen-meta-toggle > summary {
+        padding: 10px 14px;
+        color: var(--workspace-muted);
+        font-size: 0.85rem;
+        font-weight: 750;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .screen-meta-toggle > summary::-webkit-details-marker { display: none; }
+
+      .screen-meta-toggle > summary::before {
+        content: "\25B8  ";
+        color: var(--workspace-muted);
+      }
+
+      .screen-meta-toggle[open] > summary::before { content: "\25BE  "; }
+
+      .screen-meta-body {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 10px;
+        padding: 0 14px 14px;
+      }
+
+      .screen-meta-body article {
+        padding: 10px;
+        background: #fff;
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+      }
+
+      .screen-meta-body strong {
+        display: block;
+        margin-bottom: 3px;
+        font-size: 0.82rem;
+      }
+
+      .screen-meta-body span {
+        color: var(--workspace-muted);
+        font-size: 0.84rem;
+      }
+
+      .module-portal[data-mode="screen"] ~ .filter-bar,
+      .module-portal[data-mode="screen"] ~ .queue-panel,
+      .module-portal[data-mode="screen"] ~ .workspace-row,
+      .module-portal[data-mode="custom-cronos"] ~ .filter-bar,
+      .module-portal[data-mode="custom-cronos"] ~ .queue-panel,
+      .module-portal[data-mode="custom-cronos"] ~ .workspace-row,
+      .module-portal[data-mode="custom-dietas"] ~ .filter-bar,
+      .module-portal[data-mode="custom-dietas"] ~ .queue-panel,
+      .module-portal[data-mode="custom-dietas"] ~ .workspace-row,
+      .module-portal[data-mode="custom-nominas"] ~ .filter-bar,
+      .module-portal[data-mode="custom-nominas"] ~ .queue-panel,
+      .module-portal[data-mode="custom-nominas"] ~ .workspace-row {
+        display: none;
+      }
+    </style>
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="workspace">
+      <aside class="sidebar" aria-label="Modulos VEC">
+        <div class="sidebar-header">
+          <div class="brand">
+            <span class="brand-mark" aria-hidden="true">VEC</span>
+            <div>
+              <p class="eyebrow">Diputacion de Granada</p>
+              <h1>VEC Diputacion de Granada</h1>
+            </div>
+          </div>
+        </div>
+
+        <nav class="module-group" aria-label="Navegacion principal">
+          <p class="module-title">Portal unificado</p>
+          <button class="module-link" type="button" aria-current="page">
+            <span>Tablero VEC</span><span class="module-count">12</span>
+          </button>
+          <button class="module-link" type="button">
+            <span>Personal</span><span class="module-count">6</span>
+          </button>
+          <button class="module-link" type="button">
+            <span>Nominas</span><span class="module-count">3</span>
+          </button>
+          <button class="module-link" type="button">
+            <span>Cronos</span><span class="module-count">4</span>
+          </button>
+          <button class="module-link" type="button">
+            <span>Horarios y turnos</span><span class="module-count">12</span>
+          </button>
+          <button class="module-link" type="button">
+            <span>Permisos y vacaciones</span><span class="module-count">17</span>
+          </button>
+
+          <p class="module-title">Gastos y expediente</p>
+          <button class="module-link" type="button">
+            <span>Dietas</span><span class="module-count">11</span>
+          </button>
+          <button class="module-link" type="button">
+            <span>Mapa kilometraje</span><span class="module-count">5</span>
+          </button>
+          <button class="module-link" type="button">
+            <span>Bolsa</span><span class="module-count">5</span>
+          </button>
+          <button class="module-link" type="button">
+            <span>Documentos</span><span class="module-count">18</span>
+          </button>
+
+          <p class="module-title">Control VEC</p>
+          <button class="module-link" type="button">
+            <span>Aprobaciones</span><span class="module-count">8</span>
+          </button>
+          <button class="module-link" type="button">
+            <span>Auditoria</span><span class="module-count">44</span>
+          </button>
+          <button class="module-link" type="button">
+            <span>Administracion</span><span class="module-count">3</span>
+          </button>
+        </nav>
+      </aside>
+
+      <div class="workspace-main">
+        <header class="topbar">
+          <div class="context-block">
+            <p class="eyebrow">Workspace administrativo</p>
+            <h2>Tablero operativo VEC</h2>
+            <span class="small-text">Sesion personal interno - shell modular demo</span>
+          </div>
+
+          <form class="search-form" role="search">
+            <label for="global-search">Buscar expediente, DNI parcial o solicitud</label>
+            <input id="global-search" name="q" type="search" placeholder="Buscar expediente, DNI parcial o solicitud">
+            <button type="submit">Buscar</button>
+          </form>
+
+          <div class="operator-tools">
+            <p class="status" id="connection-status" role="status">Preparando demo</p>
+            <button class="quiet-action" type="button" aria-label="Abrir aprobaciones">Aprobaciones 8</button>
+          </div>
+        </header>
+
+        <main class="workspace-grid">
+          <section aria-label="Bandeja principal">
+            <section class="summary-panel" aria-labelledby="summary-title">
+              <div>
+                <p class="eyebrow">Cola VEC de tramitacion</p>
+                <h2 id="summary-title">Expedientes, modulos y acciones pendientes</h2>
+                <p class="lead">
+                  Vista interna para controlar horarios, fichajes, permisos, vacaciones,
+                  dietas, kilometraje provincial y expedientes desde un unico portal.
+                </p>
+              </div>
+              <button class="primary-action" id="reload-demo" type="button">Actualizar tablero</button>
+            </section>
+
+            <section class="metrics" aria-label="Resumen operativo">
+              <article>
+                <span class="metric-label">Personas activas</span>
+                <strong id="call-id">-</strong>
+                <span class="metric-note">Puestos, situaciones y nomina</span>
+              </article>
+              <article>
+                <span class="metric-label">Perfiles horarios</span>
+                <strong id="call-state">-</strong>
+                <span class="metric-note">Flexibles y turnos fijos</span>
+              </article>
+              <article>
+                <span class="metric-label">Registros VEC</span>
+                <strong id="request-count">-</strong>
+                <span class="metric-note">Definitivo publicado</span>
+              </article>
+              <article>
+                <span class="metric-label">Dietas pendientes</span>
+                <strong>12</strong>
+                <span class="metric-note">5 alegaciones - 7 evidencias</span>
+              </article>
+            </section>
+
+            <section id="module-portal" class="module-portal" aria-live="polite" hidden></section>
+
+            <form class="filter-bar" aria-label="Filtros de expedientes">
+              <label>
+                Ambito
+                <select name="scope">
+                  <option>Horarios del personal</option>
+                  <option>Expediente de empleado</option>
+                  <option>Nomina e incidencias</option>
+                  <option>Antiguedad y trienios</option>
+                  <option>Servicios prestados</option>
+                  <option>Fichajes e incidencias</option>
+                  <option>Permisos y vacaciones</option>
+                  <option>Comision de servicio</option>
+                  <option>Mapa provincial</option>
+                  <option>Convocatorias abiertas</option>
+                  <option>Expediente candidato</option>
+                </select>
+              </label>
+              <label>
+                Estado
+                <select name="state">
+                  <option>Pendiente de accion</option>
+                  <option>En revision</option>
+                  <option>Subsanacion requerida</option>
+                  <option>Definitivo publicado</option>
+                </select>
+              </label>
+              <label>
+                Riesgo plazo
+                <select name="deadline">
+                  <option>Vence en 72 h</option>
+                  <option>Sin vencimiento critico</option>
+                  <option>Plazo vencido</option>
+                </select>
+              </label>
+              <label>
+                Unidad
+                <select name="unit">
+                  <option>Personal</option>
+                  <option>Nominas</option>
+                  <option>Cronos</option>
+                  <option>Dietas</option>
+                  <option>Bolsa</option>
+                  <option>Registro y documentos</option>
+                </select>
+              </label>
+              <button class="quiet-action" type="button">Aplicar</button>
+            </form>
+
+            <section class="queue-panel" aria-labelledby="queue-title">
+              <div class="panel-header">
+                <div>
+                  <h2 id="queue-title">Cola de expedientes VEC</h2>
+                  <span class="small-text">Horarios, permisos, dietas y expedientes - orden por riesgo</span>
+                </div>
+                <button class="table-action" type="button">Exportar</button>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <caption class="small-text">Registros administrativos con modulo, estado, plazo, magnitud y accion siguiente.</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Expediente</th>
+                      <th scope="col">Estado</th>
+                      <th scope="col">Plazo</th>
+                      <th scope="col">Magnitud</th>
+                      <th scope="col">Justificante</th>
+                      <th scope="col">Accion</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr aria-selected="true">
+                      <td>
+                        <span class="candidate-ref">
+                          <strong>SOL-2026-0142</strong>
+                          <span>CAND-0007 - DNI ***4567*</span>
+                        </span>
+                      </td>
+                      <td><span class="status-chip chip-orange">Subsanacion requerida</span></td>
+                      <td>22/06/2026 14:00</td>
+                      <td>61,4 pt</td>
+                      <td><span class="status-chip chip-red">CSV pendiente</span></td>
+                      <td><button class="table-action" type="button">Revisar</button></td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <span class="candidate-ref">
+                          <strong>SOL-2026-0118</strong>
+                          <span>CAND-0011 - DNI ***2190*</span>
+                        </span>
+                      </td>
+                      <td><span class="status-chip chip-indigo">Alegacion presentada</span></td>
+                      <td>24/06/2026 09:30</td>
+                      <td>58,0 pt</td>
+                      <td><span class="status-chip chip-cyan">3 evidencias</span></td>
+                      <td><button class="table-action" type="button">Resolver</button></td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <span class="candidate-ref">
+                          <strong>SOL-2026-0094</strong>
+                          <span>CAND-0003 - DNI ***8044*</span>
+                        </span>
+                      </td>
+                      <td><span class="status-chip chip-teal">Meritos en revision</span></td>
+                      <td>25/06/2026 12:00</td>
+                      <td>47,5 pt</td>
+                      <td><span class="status-chip chip-cyan">Metadatos presentes</span></td>
+                      <td><button class="table-action" type="button">Validar</button></td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <span class="candidate-ref">
+                          <strong>SOL-2026-0081</strong>
+                          <span>CAND-0005 - DNI ***6621*</span>
+                        </span>
+                      </td>
+                      <td><span class="status-chip chip-blue">Admitida provisional</span></td>
+                      <td>Sin accion</td>
+                      <td>44,2 pt</td>
+                      <td><span class="status-chip chip-slate">Archivado</span></td>
+                      <td><button class="table-action" type="button">Abrir</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="workspace-row" aria-label="Control Cronos y Dietas">
+              <article class="listing">
+                <div class="listing-header">
+                  <h2>Cronos: saldo horario y permisos</h2>
+                  <span id="cronos-period">Junio 2026</span>
+                </div>
+                <div id="cronos-panel" class="ranking-list" aria-live="polite"></div>
+              </article>
+
+              <article class="listing">
+                <div class="listing-header">
+                  <h2>Dietas: mapa provincial de kilometraje</h2>
+                  <span id="dietas-period">Rutas demo</span>
+                </div>
+                <div id="dietas-panel" class="ranking-list" aria-live="polite"></div>
+              </article>
+            </section>
+          </section>
+
+          <aside class="right-column" aria-label="Detalle del expediente seleccionado">
+            <section class="detail-panel" aria-labelledby="detail-title">
+              <div class="panel-header">
+                <div>
+                  <h2 id="detail-title">SOL-2026-0142</h2>
+                  <span class="small-text">Seleccion actual - registro VEC</span>
+                </div>
+                <span class="status-chip chip-orange">Accion requerida</span>
+              </div>
+              <div class="detail-body">
+                <div class="detail-grid" aria-label="Datos clave">
+                  <div>
+                    <span>Persona / ref.</span>
+                    <strong>CAND-0007</strong>
+                  </div>
+                  <div>
+                    <span>Magnitud</span>
+                    <strong>61,4 pt</strong>
+                  </div>
+                  <div>
+                    <span>Justificante</span>
+                    <strong>CSV-GR-2026-8841</strong>
+                  </div>
+                  <div>
+                    <span>Ultimo cambio</span>
+                    <strong>19/06/2026 09:42</strong>
+                  </div>
+                </div>
+
+                <div class="tabs" role="tablist" aria-label="Secciones del expediente">
+                  <button type="button" role="tab" aria-selected="true">Resumen</button>
+                  <button type="button" role="tab" aria-selected="false">Meritos</button>
+                  <button type="button" role="tab" aria-selected="false">Docs</button>
+                  <button type="button" role="tab" aria-selected="false">Auditoria</button>
+                </div>
+
+                <ul class="alert-list" aria-label="Alertas del expediente">
+                  <li>
+                    <strong>Documento sin CSV verificable</strong>
+                    <span class="small-text">Experiencia misma categoria - requiere subsanacion</span>
+                  </li>
+                  <li>
+                    <strong>Tope de formacion aplicado</strong>
+                    <span class="small-text">30,0 pt computados - 4,5 pt no computan por regla</span>
+                  </li>
+                </ul>
+              </div>
+            </section>
+
+            <section class="detail-panel" aria-labelledby="docs-title">
+              <div class="panel-header">
+                <h3 id="docs-title">Evidencias y documentos</h3>
+                <span class="status-chip chip-cyan">4 items</span>
+              </div>
+              <div class="detail-body">
+                <ul class="doc-list">
+                  <li>
+                    <strong>Servicios prestados</strong>
+                    <span class="small-text">Pendiente CSV - SHA-256 no confirmado</span>
+                  </li>
+                  <li>
+                    <strong>Titulo formacion</strong>
+                    <span class="small-text">Metadatos presentes - firma externa pendiente</span>
+                  </li>
+                  <li>
+                    <strong>Justificante registro</strong>
+                    <span class="small-text">CSV-GR-2026-8841 - descargable</span>
+                  </li>
+                </ul>
+              </div>
+            </section>
+
+            <section class="timeline-panel" aria-labelledby="timeline-title">
+              <div class="panel-header">
+                <h3 id="timeline-title">Historial y auditoria</h3>
+                <span class="status-chip chip-slate">Trazado</span>
+              </div>
+              <ol class="timeline-list">
+                <li>
+                  <strong>Subsanacion requerida</strong>
+                  <span class="small-text">19/06/2026 09:42 - personal interno - AUD-4421</span>
+                </li>
+                <li>
+                  <strong>Autobaremo recalculado</strong>
+                  <span class="small-text">18/06/2026 16:10 - reglas v1 - AUD-4388</span>
+                </li>
+                <li>
+                  <strong>Solicitud registrada</strong>
+                  <span class="small-text">17/06/2026 11:25 - CSV-GR-2026-8841</span>
+                </li>
+              </ol>
+            </section>
+          </aside>
+        </main>
+
+        <footer class="workspace-status">
+          <span>Ultima sincronizacion local: 19/06/2026 10:15 - adaptador demo en memoria</span>
+          <span>Refs opacas preservadas: worktree-bolsa-diputacion-existing-app - branch-bolsa-profesional-002</span>
+        </footer>
+      </div>
+    </div>
+  </body>
+</html>

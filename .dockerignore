@@ -1,0 +1,17 @@
+.git
+.gitignore
+.agents
+.codex
+.orquesta-runtime
+tmp
+runtime
+var
+*.log
+bin
+dist
+coverage.out
+agent_packet.json
+agent_ack.json
+director_decisions.json
+orquesta_shutdown_request.json
+agent_shutdown_checkpoint_ack.json

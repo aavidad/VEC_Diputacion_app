@@ -1,0 +1,126 @@
+{
+  "request_id": "req-vec-shell-20260619-003",
+  "correlation_id": "corr-vec-shell-20260619-003",
+  "requested_by": "codex-vec-orquesta",
+  "max_bursts": 4,
+  "max_steps_per_burst": 4,
+  "max_dispatches_per_wait": 2,
+  "max_commands": 12,
+  "max_outbox_per_cycle": 8,
+  "autoprogramming_request": {
+    "request_ref": "vec-shell-20260619-003",
+    "project_ref": "vec-diputacion-granada",
+    "worktree_ref": "worktree-vec-diputacion-app",
+    "worktree_isolated": true,
+    "branch_ref": "vec-orquesta-20260619",
+    "max_write_set_entries": 40,
+    "write_set": [
+      "go.mod",
+      "README.md",
+      "Dockerfile",
+      "docker-compose.yml",
+      "cmd/vec-server/main.go",
+      "config/config.go",
+      "internal/vec/**",
+      "internal/modules/bolsa/**",
+      "internal/app/bootstrap/**",
+      "internal/app/server/**",
+      "docs/portal_vec/desarrollo_vec_orquesta.md",
+      "web/static/**",
+      "locales/es.json"
+    ],
+    "required_tests": [
+      "go test ./..."
+    ],
+    "tasks": [
+      {
+        "task_ref": "vec-core-shell",
+        "area": "vec-core",
+        "title": "VEC core y shell hexagonal minimo",
+        "objective": "Use skill admin-data-web. Implementa un core VEC minimo y hexagonal en internal/vec con dominio, puertos y casos de uso para Principal, ModuleManifest, MenuEntry, AuditEntry, Event, registro de modulos, construccion de menu por permisos y auditoria encadenada. No uses HTTP, SQL ni adaptadores concretos en domain/application. Incluye adaptador memory y tests. Bolsa debe tratarse como modulo VEC, no como app raiz.",
+        "write_set": [
+          "internal/vec/**"
+        ],
+        "required_tests": [
+          "go test ./internal/vec/..."
+        ],
+        "acceptance_criteria": [
+          "internal/vec/domain y internal/vec/application no importan net/http, database/sql ni paquetes de adaptadores",
+          "BuildMenu filtra entradas por permisos del Principal",
+          "AuditEntry queda encadenada con seq y prev_signature/signature en memoria"
+        ]
+      },
+      {
+        "task_ref": "vec-module-bolsa",
+        "area": "vec-module-bolsa",
+        "title": "Bolsa como primer modulo VEC",
+        "objective": "Use skill admin-data-web. Crea internal/modules/bolsa con un manifiesto VEC para vec.module.bolsa que declare menu, permisos y una accion demo de integracion. Reutiliza el dominio candidato existente como modulo funcional; no muevas ni rompas internal/candidate. Debe demostrar que Bolsa es un modulo conectado al shell VEC.",
+        "write_set": [
+          "internal/modules/bolsa/**"
+        ],
+        "required_tests": [
+          "go test ./internal/modules/bolsa/..."
+        ],
+        "depends_on": [
+          "vec-core-shell"
+        ],
+        "acceptance_criteria": [
+          "El manifiesto usa ModuleID vec.module.bolsa",
+          "El menu declara permisos namespaced bolsa.*",
+          "No existe acoplamiento inverso de internal/candidate hacia internal/vec"
+        ]
+      },
+      {
+        "task_ref": "vec-http-bootstrap",
+        "area": "vec-shell-http",
+        "title": "API HTTP y bootstrap del shell VEC",
+        "objective": "Use skill admin-data-web. Integra el core VEC y el modulo Bolsa en bootstrap. Expone rutas REST finas /api/vec/session, /api/vec/modules, /api/vec/menu, /api/vec/audit y /api/vec/modules/bolsa/action sin logica de dominio en handlers. Mantiene las rutas demo existentes de Bolsa para compatibilidad, pero el portal raiz debe presentarse como VEC.",
+        "write_set": [
+          "cmd/vec-server/main.go",
+          "config/config.go",
+          "internal/app/bootstrap/**",
+          "internal/app/server/**"
+        ],
+        "required_tests": [
+          "go test ./internal/app/..."
+        ],
+        "depends_on": [
+          "vec-core-shell",
+          "vec-module-bolsa"
+        ],
+        "acceptance_criteria": [
+          "GET /api/vec/modules lista vec.module.bolsa",
+          "GET /api/vec/menu filtra por permisos del usuario autenticado demo",
+          "POST /api/vec/modules/bolsa/action registra auditoria/evento"
+        ]
+      },
+      {
+        "task_ref": "vec-docs-ui",
+        "area": "docs-ui",
+        "title": "Documentacion y UI: VEC raiz, Bolsa modulo",
+        "objective": "Use skill admin-data-web. Corrige README, documento de desarrollo y UI visible para que VEC sea la aplicacion raiz y Bolsa aparezca como modulo inicial. Arregla erratas obvias del documento, especialmente referencias que presenten Bolsa como app raiz productiva. Mantiene un workspace administrativo denso, no landing page.",
+        "write_set": [
+          "README.md",
+          "Dockerfile",
+          "docker-compose.yml",
+          "docs/portal_vec/desarrollo_vec_orquesta.md",
+          "web/static/index.html",
+          "web/static/app.js",
+          "web/static/styles.css",
+          "locales/es.json"
+        ],
+        "required_tests": [
+          "go test ./..."
+        ],
+        "depends_on": [
+          "vec-http-bootstrap"
+        ],
+        "acceptance_criteria": [
+          "README declara VEC Diputacion Granada y Bolsa como modulo",
+          "La UI inicial dice VEC/portal del empleado, no app Bolsa raiz",
+          "El documento de desarrollo mantiene alcance minimo y no sobredimensiona"
+        ]
+      }
+    ]
+  }
+}

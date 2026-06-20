@@ -1,0 +1,152 @@
+{
+  "request_id": "req-bolsa-nucleo-001",
+  "correlation_id": "corr-bolsa-nucleo-001",
+  "requested_by": "operador-bolsa-diputacion",
+  "max_bursts": 8,
+  "max_steps_per_burst": 8,
+  "max_dispatches_per_wait": 6,
+  "max_commands": 32,
+  "max_outbox_per_cycle": 16,
+  "autoprogramming_request": {
+    "request_ref": "bolsa-nucleo-001",
+    "project_ref": "vec-diputacion-granada",
+    "worktree_ref": "worktree-bolsa-nucleo-001",
+    "worktree_isolated": true,
+    "branch_ref": "branch-bolsa-nucleo-001",
+    "max_write_set_entries": 40,
+    "write_set": [
+      "go.mod",
+      "internal/candidate/domain/candidate.go",
+      "internal/candidate/domain/merit.go",
+      "internal/candidate/domain/baremo.go",
+      "internal/candidate/ports/outbound.go",
+      "internal/candidate/ports/auth.go",
+      "internal/candidate/usecases/baremo.go",
+      "internal/candidate/adapters/repository/memory.go",
+      "internal/candidate/adapters/auth/fake.go",
+      "internal/candidate/adapters/handler/http.go",
+      "internal/shared/i18n/i18n.go",
+      "locales/es.json"
+    ],
+    "required_tests": [
+      "go test ./..."
+    ],
+    "tasks": [
+      {
+        "task_ref": "bolsa-base",
+        "area": "base",
+        "title": "Modulo Go y dominio Candidato/Merito",
+        "objective": "Crea go.mod (module vec-diputacion-granada, Go 1.22+) y el dominio en internal/candidate/domain: candidate.go (entidad Candidate con id, dni, nombre, email) y merit.go (entidad Merit con id, tipo {experiencia_misma_categoria, experiencia_otra_categoria, formacion_titulo, formacion_curso, otros}, datos {meses, horas, puntos_fijos} y estado con maquina de estados estricta Borrador->Presentado->Validado|Rechazado|Subsanacion, Subsanacion->Presentado, con transiciones validadas que rechazan saltos invalidos). Arquitectura hexagonal pura: el dominio NO importa nada de infraestructura. Incluye tests de la maquina de estados.",
+        "write_set": [
+          "go.mod",
+          "internal/candidate/domain/candidate.go",
+          "internal/candidate/domain/merit.go"
+        ],
+        "required_tests": ["go test ./internal/candidate/domain/..."],
+        "acceptance_criteria": [
+          "go.mod con module vec-diputacion-granada",
+          "Merit.Transition rechaza transiciones invalidas y permite las del statechart",
+          "dominio sin imports de infraestructura (hexagonal)"
+        ]
+      },
+      {
+        "task_ref": "bolsa-baremo",
+        "area": "baremo",
+        "title": "Motor de baremo versionado + desempate determinista",
+        "objective": "En internal/candidate/domain/baremo.go: define BaremoRuleSet VERSIONADO y CONFIGURABLE por convocatoria (NO hardcodear los valores en logica): tipos de merito con puntos por unidad (ej. experiencia 0.2 ptos/mes misma categoria, 0.1 otra; formacion 0.05 ptos/hora; titulos puntos fijos) y topes por seccion (ej. experiencia 50, formacion 30). Funcion CalcularAutobaremo(merits, ruleSet) que aplica reglas y topes y es determinista. Funcion Desempate(a, b) determinista y auditable por criterios en orden (mayor experiencia, luego formacion, luego letra de sorteo). El ruleSet es un dato inmutable (snapshot por convocatoria), no constantes en codigo. Tests del calculo, los topes y el desempate.",
+        "write_set": ["internal/candidate/domain/baremo.go"],
+        "required_tests": ["go test ./internal/candidate/domain/..."],
+        "depends_on": ["bolsa-base"],
+        "acceptance_criteria": [
+          "BaremoRuleSet es dato versionado, no constantes hardcodeadas",
+          "CalcularAutobaremo respeta topes por seccion y es determinista",
+          "Desempate determinista y reproducible por criterios en orden"
+        ]
+      },
+      {
+        "task_ref": "bolsa-ports",
+        "area": "ports",
+        "title": "Puerto de salida (repositorio)",
+        "objective": "En internal/candidate/ports/outbound.go define la interfaz CandidateRepository (Save, GetByID, ListByCall) y MeritRepository (Save, ListByCandidate) como PUERTOS de salida del dominio, sin acoplarse a ninguna tecnologia concreta. Solo interfaces y tipos de error de puerto.",
+        "write_set": ["internal/candidate/ports/outbound.go"],
+        "required_tests": ["go build ./..."],
+        "depends_on": ["bolsa-base"],
+        "acceptance_criteria": [
+          "Interfaces de repositorio sin dependencia de PostgreSQL ni infraestructura concreta"
+        ]
+      },
+      {
+        "task_ref": "bolsa-usecase",
+        "area": "usecase",
+        "title": "Caso de uso de autobaremacion",
+        "objective": "En internal/candidate/usecases/baremo.go implementa el caso de uso PresentarSolicitud/CalcularAutobaremo que: carga los meritos del candidato via el puerto MeritRepository, aplica el BaremoRuleSet de la convocatoria con el motor del dominio, persiste el resultado via puerto, y devuelve la puntuacion provisional. Depende del dominio y de los puertos (no de adaptadores concretos). Incluye tests con un repositorio fake en memoria.",
+        "write_set": ["internal/candidate/usecases/baremo.go"],
+        "required_tests": ["go test ./internal/candidate/usecases/..."],
+        "depends_on": ["bolsa-baremo", "bolsa-ports"],
+        "acceptance_criteria": [
+          "El caso de uso usa puertos, no adaptadores concretos",
+          "Tests con repositorio fake en memoria pasan"
+        ]
+      },
+      {
+        "task_ref": "bolsa-repo-mem",
+        "area": "repomem",
+        "title": "Adaptador de persistencia en memoria",
+        "objective": "En internal/candidate/adapters/repository/memory.go implementa CandidateRepository y MeritRepository en memoria (mapas con mutex), cumpliendo los puertos definidos. Es el adaptador que permite correr la app sin PostgreSQL (deja la puerta abierta a un adaptador postgres futuro). Tests de contrato del repositorio.",
+        "write_set": ["internal/candidate/adapters/repository/memory.go"],
+        "required_tests": ["go test ./internal/candidate/adapters/..."],
+        "depends_on": ["bolsa-ports"],
+        "acceptance_criteria": [
+          "Implementa los puertos sin filtrar detalles de implementacion al dominio",
+          "Seguro para uso concurrente"
+        ]
+      },
+      {
+        "task_ref": "bolsa-auth-port",
+        "area": "authport",
+        "title": "Puerto de autenticacion + adaptador fake",
+        "objective": "Arquitectura hexagonal de autenticacion flexible (estudio 4.1: personal interno por Kerberos/AD; ciudadanos por DNIe/Cl@ve). En internal/candidate/ports/auth.go define el puerto Authenticator (Authenticate(credentials) -> Identity{Subject, Roles, Method} , error) neutral al mecanismo, con roles del estudio (candidate, validator_l1, validator_l2, system_admin). En internal/candidate/adapters/auth/fake.go un adaptador fake/memoria para el prototipo (usuarios y roles en memoria). Deja la puerta abierta a adaptadores futuros Kerberos/AD (gokrb5) y certificado digital sobre el MISMO puerto, sin tocar el dominio. Tests del puerto con el fake.",
+        "write_set": [
+          "internal/candidate/ports/auth.go",
+          "internal/candidate/adapters/auth/fake.go"
+        ],
+        "required_tests": ["go test ./internal/candidate/..."],
+        "depends_on": ["bolsa-base"],
+        "acceptance_criteria": [
+          "Puerto Authenticator neutral al mecanismo (Kerberos/DNIe son adaptadores futuros)",
+          "Roles del estudio modelados; adaptador fake en memoria con tests"
+        ]
+      },
+      {
+        "task_ref": "bolsa-i18n",
+        "area": "i18n",
+        "title": "i18n con locales (es por defecto)",
+        "objective": "En internal/shared/i18n/i18n.go un cargador de traducciones simple que lee locales/*.json y resuelve claves a mensajes, con es por defecto y preparado para anadir idiomas (en.json, etc.) sin tocar codigo. Crea locales/es.json con las claves de mensajes del sistema (errores de validacion, estados de merito, respuestas de la API) en castellano. Sin dependencias externas pesadas. Tests del cargador y fallback de idioma.",
+        "write_set": [
+          "internal/shared/i18n/i18n.go",
+          "locales/es.json"
+        ],
+        "required_tests": ["go test ./internal/shared/..."],
+        "depends_on": ["bolsa-base"],
+        "acceptance_criteria": [
+          "Carga locales/es.json y resuelve claves; es por defecto",
+          "Anadir un idioma es anadir un JSON, no tocar codigo"
+        ]
+      },
+      {
+        "task_ref": "bolsa-http",
+        "area": "http",
+        "title": "Adaptador HTTP REST",
+        "objective": "En internal/candidate/adapters/handler/http.go implementa un handler HTTP con net/http (sin frameworks pesados) que expone: POST /candidates (alta), POST /candidates/{id}/merits (agregar merito), POST /candidates/{id}/baremo (calcular autobaremo y devolver puntuacion). Protege los endpoints con el puerto Authenticator (usa el adaptador fake) y respeta roles. Los mensajes de respuesta y error salen por el helper i18n (es por defecto). El handler invoca el caso de uso, no toca el dominio directamente. Respuestas JSON. Tests con httptest incluyendo un caso autenticado.",
+        "write_set": ["internal/candidate/adapters/handler/http.go"],
+        "required_tests": ["go test ./internal/candidate/adapters/..."],
+        "depends_on": ["bolsa-usecase", "bolsa-repo-mem", "bolsa-auth-port", "bolsa-i18n"],
+        "acceptance_criteria": [
+          "Endpoints REST funcionan con httptest",
+          "El handler usa el caso de uso, no el dominio directo",
+          "Endpoints protegidos por el puerto Authenticator y mensajes por i18n"
+        ]
+      }
+    ]
+  }
+}
