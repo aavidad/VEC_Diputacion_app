@@ -637,8 +637,53 @@ h2 {
   white-space: normal;
 }
 
+.workspace .demo-user-switch {
+  display: grid;
+  gap: 3px;
+  min-width: 190px;
+  max-width: 260px;
+}
+
+.workspace .demo-user-switch span {
+  overflow: hidden;
+  color: var(--workspace-muted, var(--muted));
+  font-size: 0.72rem;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace .demo-user-switch select {
+  width: 100%;
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid var(--workspace-line, var(--line));
+  border-radius: 6px;
+  background: #fff;
+  color: var(--workspace-text, var(--text));
+  font: inherit;
+  font-size: 0.82rem;
+}
+
 .workspace .table-wrap table {
   min-width: 980px;
+}
+
+.workspace table tbody tr:not([data-route-leg-index]):nth-child(odd) td {
+  background: #fff;
+}
+
+.workspace table tbody tr:not([data-route-leg-index]):nth-child(even) td {
+  background: #f5f8fc;
+}
+
+.workspace table tbody tr:not([data-route-leg-index]):hover td {
+  background: #eef5ff;
+}
+
+.workspace table tbody tr[aria-selected="true"]:not([data-route-leg-index]) td {
+  background: #e6f0fb;
+  box-shadow: inset 4px 0 0 var(--module-blue);
 }
 
 .workspace .queue-panel th:nth-child(1),
@@ -956,6 +1001,531 @@ h2 {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.workspace .dietas-claim-panel {
+  display: grid;
+  gap: 8px;
+  margin: 0 12px 10px;
+  padding: 10px;
+  border: 1px solid var(--workspace-line, var(--line));
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.workspace .dietas-day-grid,
+.workspace .dietas-expense-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.workspace .dietas-policy-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--workspace-muted, var(--muted));
+  font-size: 0.8rem;
+}
+
+.workspace .dietas-policy-line span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace .dietas-submit-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding-top: 2px;
+}
+
+.workspace .dietas-summary {
+  display: grid;
+  grid-template-columns: repeat(4, auto minmax(72px, auto));
+  gap: 4px 8px;
+  align-items: baseline;
+  min-width: 0;
+  font-size: 0.78rem;
+}
+
+.workspace .dietas-summary span {
+  color: var(--workspace-muted, var(--muted));
+}
+
+.workspace .dietas-summary b {
+  font-size: 1.29rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace .employee-dietas-panel .employee-dietas-month-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(180px, 0.7fr) minmax(280px, 1.4fr);
+  gap: 12px;
+  align-items: stretch;
+  padding: 12px;
+  border-top: 1px solid var(--workspace-line, var(--line));
+  border-bottom: 1px solid var(--workspace-line, var(--line));
+  background: #f8fafc;
+}
+
+.workspace .employee-dietas-month-total,
+.workspace .employee-dietas-month-breakdown,
+.workspace .employee-dietas-history {
+  min-width: 0;
+}
+
+.workspace .employee-dietas-month-total {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+}
+
+.workspace .employee-dietas-month-total span,
+.workspace .employee-dietas-month-breakdown b,
+.workspace .employee-dietas-history-head span,
+.workspace .employee-dietas-history small {
+  color: var(--workspace-muted, var(--muted));
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.workspace .employee-dietas-month-total strong {
+  color: #9a3412;
+  font-size: 1.6rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+}
+
+.workspace .employee-dietas-month-total small {
+  color: var(--workspace-muted, var(--muted));
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.workspace .employee-dietas-month-breakdown {
+  display: grid;
+  gap: 6px;
+}
+
+.workspace .employee-dietas-month-breakdown span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 7px 8px;
+  border: 1px solid var(--workspace-line, var(--line));
+  background: #fff;
+}
+
+.workspace .employee-dietas-month-breakdown span {
+  color: var(--workspace-text, var(--text));
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace .employee-dietas-history {
+  display: grid;
+  gap: 7px;
+}
+
+.workspace .employee-dietas-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.workspace .employee-dietas-history-head strong {
+  font-size: 0.88rem;
+}
+
+.workspace .employee-dietas-history-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.workspace .employee-dietas-history article {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--workspace-line, var(--line));
+  background: #fff;
+}
+
+.workspace .employee-dietas-history article span,
+.workspace .employee-dietas-history article b,
+.workspace .employee-dietas-history article small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.workspace .employee-dietas-history article span {
+  color: var(--workspace-text, var(--text));
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.workspace .employee-dietas-history article b {
+  color: #0f766e;
+  font-size: 1rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace .employee-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, auto minmax(92px, auto));
+  gap: 6px 10px;
+  align-items: baseline;
+  padding: 10px;
+  border: 1px solid var(--workspace-line, var(--line));
+  background: #fff7ed;
+}
+
+.workspace .employee-summary-strip span {
+  color: #7c2d12;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.workspace .employee-summary-strip b {
+  color: #9a3412;
+  font-size: 1.29rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace .route-result .panel-header strong {
+  color: #9a3412;
+  font-size: 1.35rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace .route-result tbody td:nth-child(5),
+.workspace .route-result tbody td:nth-child(6),
+.workspace .route-result tbody td:nth-child(7),
+.workspace .route-result tbody td:nth-child(8) {
+  font-size: 1.2rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace .dietas-approval-chain {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.workspace .dietas-approval-chain span {
+  padding: 4px 7px;
+  border: 1px solid var(--workspace-line, var(--line));
+  border-radius: 999px;
+  background: var(--workspace-panel-muted, var(--surface-muted));
+  color: var(--workspace-muted, var(--muted));
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.workspace .dietas-approval-chain .is-current {
+  border-color: var(--module-orange);
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.workspace .dietas-approval-chain .is-done {
+  border-color: var(--module-green);
+  background: #ecfdf3;
+  color: #166534;
+}
+
+.workspace .route-stop-builder {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--workspace-line, var(--line));
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.workspace .route-workspace {
+  display: grid;
+  grid-template-columns: minmax(520px, 1.15fr) minmax(420px, 0.85fr);
+  gap: 12px;
+  align-items: start;
+  padding: 0 12px 12px;
+}
+
+.workspace .route-editor-column,
+.workspace .route-map-column {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.workspace .route-workspace .leave-form,
+.workspace .route-workspace .work-table,
+.workspace .route-workspace .route-map-card {
+  margin: 0;
+}
+
+.workspace .employee-route-result {
+  margin-top: 10px;
+}
+
+.workspace .employee-route-result .work-table {
+  margin: 0;
+}
+
+.workspace .route-stop-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.workspace .route-stop-toolbar strong {
+  font-size: 0.9rem;
+}
+
+.workspace .route-stop-list {
+  display: grid;
+  gap: 8px;
+}
+
+.workspace .route-stop-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.workspace .route-stop-row label {
+  min-width: 0;
+}
+
+.workspace .route-stop-row select {
+  min-width: 0;
+}
+
+.workspace .route-map-card {
+  margin: 0 12px 12px;
+  border: 1px solid var(--workspace-line, var(--line));
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #fff;
+}
+
+.workspace .route-map-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--workspace-line, var(--line));
+  background: var(--workspace-panel-muted, var(--surface-muted));
+}
+
+.workspace .route-map-head h3 {
+  margin: 0 0 3px;
+  font-size: 0.95rem;
+}
+
+.workspace .route-map-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.workspace .route-map-actions a {
+  text-decoration: none;
+}
+
+.workspace .route-map-canvas {
+  width: 100%;
+  height: 340px;
+  min-height: 280px;
+  background: #e8edf3;
+}
+
+.workspace .route-map-canvas.is-local-route {
+  background: #eef4f7;
+}
+
+.workspace .route-map-canvas.is-local-route svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.workspace .route-leg-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 12px;
+  border-top: 1px solid var(--workspace-line, var(--line));
+  background: #fff;
+}
+
+.workspace .route-leg-legend-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 2px;
+}
+
+.workspace .route-leg-legend strong {
+  font-size: 0.82rem;
+}
+
+.workspace .route-leg-chip,
+.workspace .route-leg-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.workspace .route-leg-chip {
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid var(--workspace-line, var(--line));
+  border-radius: 6px;
+  background: var(--workspace-panel-muted, var(--surface-muted));
+  color: var(--workspace-text, var(--text));
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.workspace .route-leg-chip.is-active {
+  border-color: var(--module-blue);
+  background: #e8f0fb;
+}
+
+.workspace .route-leg-all.is-active {
+  border-color: var(--module-teal);
+  background: #e6f5f2;
+  color: #0f4f49;
+}
+
+.workspace .route-leg-swatch {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  border-radius: 999px;
+}
+
+.workspace tr[data-route-leg-index] {
+  cursor: pointer;
+  --route-leg-color: var(--module-blue);
+}
+
+.workspace tr[data-route-leg-index] td {
+  background: color-mix(in srgb, var(--route-leg-color) 11%, #fff);
+}
+
+.workspace tr[data-route-leg-index]:hover td {
+  background: color-mix(in srgb, var(--route-leg-color) 17%, #fff);
+}
+
+.workspace tr[data-route-leg-index].is-selected td {
+  background: color-mix(in srgb, var(--route-leg-color) 24%, #fff);
+  box-shadow: inset 4px 0 0 var(--route-leg-color);
+}
+
+.workspace .route-comp-input {
+  width: 72px;
+  min-width: 64px;
+  padding: 5px 6px;
+  border: 1px solid var(--workspace-line, var(--line));
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+}
+
+.workspace .route-via-cell,
+.workspace .route-state-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.workspace .route-via-select {
+  width: 150px;
+  min-width: 130px;
+  padding: 5px 6px;
+  border: 1px solid var(--workspace-line, var(--line));
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+}
+
+.workspace .route-reason-input {
+  width: 132px;
+  min-width: 110px;
+  padding: 5px 6px;
+  border: 1px solid var(--workspace-line, var(--line));
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+}
+
+.workspace .route-reason-input[hidden] {
+  display: none;
+}
+
+.workspace .route-alternatives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 12px;
+  border-top: 1px solid var(--workspace-line, var(--line));
+  background: #fff;
+}
+
+.workspace .route-alternatives strong {
+  font-size: 0.82rem;
+}
+
+.workspace .route-alt-button {
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid var(--workspace-line, var(--line));
+  border-radius: 6px;
+  background: var(--workspace-panel-muted, var(--surface-muted));
+  color: var(--workspace-text, var(--text));
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.workspace .route-alt-button.is-active {
+  border-color: var(--module-teal);
+  background: #e6f5f2;
+  color: #0f4f49;
+}
+
+.workspace .route-map-fallback {
+  margin: 0;
+  padding: 9px 12px;
+  border-top: 1px solid var(--workspace-line, var(--line));
+  color: var(--workspace-muted, var(--muted));
+  font-size: 0.82rem;
+}
+
 .workspace .module-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1053,6 +1623,57 @@ h2 {
   .workspace .flow-actions button,
   .workspace .flow-form button {
     width: 100%;
+  }
+
+  .workspace .route-stop-row,
+  .workspace .route-stop-toolbar {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .workspace .route-stop-toolbar {
+    flex-direction: column;
+  }
+
+  .workspace .route-workspace {
+    grid-template-columns: 1fr;
+    padding: 0 10px 10px;
+  }
+
+  .workspace .dietas-day-grid,
+  .workspace .dietas-expense-grid,
+  .workspace .dietas-submit-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace .dietas-summary {
+    grid-template-columns: repeat(2, auto minmax(72px, 1fr));
+  }
+
+  .workspace .employee-dietas-panel .employee-dietas-month-panel,
+  .workspace .employee-dietas-history-list {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace .employee-summary-strip {
+    grid-template-columns: repeat(2, auto minmax(92px, 1fr));
+  }
+
+  .workspace .dietas-approval-chain {
+    flex-wrap: wrap;
+  }
+
+  .workspace .route-map-head {
+    flex-direction: column;
+  }
+
+  .workspace .route-map-actions,
+  .workspace .route-map-actions .table-action {
+    width: 100%;
+  }
+
+  .workspace .route-map-canvas {
+    height: 300px;
   }
 }
 

@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>VEC Diputacion Granada</title>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <link rel="stylesheet" href="/styles.css?v=20260620-dietas-mensual">
     <style>
       :root {
         --workspace-bg: #f4f6f8;
@@ -26,6 +27,37 @@
 
       body {
         background: var(--workspace-bg);
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      body[data-access-profile="empleado"] .summary-panel,
+      body[data-access-profile="empleado"] .metrics,
+      body[data-access-profile="empleado"] .filter-bar,
+      body[data-access-profile="empleado"] .queue-panel,
+      body[data-access-profile="empleado"] .workspace-row,
+      body[data-access-profile="empleado"] .right-column,
+      body[data-access-profile="empleado"] #flow-panel {
+        display: none !important;
+      }
+
+      body[data-access-profile="empleado"] .workspace-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      body[data-access-profile="empleado"] .module-portal {
+        grid-column: 1 / -1;
+      }
+
+      body[data-access-profile="empleado"] .topbar {
+        grid-template-columns: minmax(220px, 1fr) auto;
+      }
+
+      body[data-access-profile="empleado"] .search-form,
+      body[data-access-profile="empleado"] .operator-tools > .quiet-action {
+        display: none !important;
       }
 
       .workspace {
@@ -727,6 +759,167 @@
         font-size: 0.84rem;
       }
 
+      .employee-flow-panel {
+        margin: 12px 0 14px;
+        border: 1px solid var(--workspace-line);
+        border-radius: 8px;
+        background: #fbfcfe;
+        overflow: hidden;
+      }
+
+      .employee-flow-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--workspace-line);
+        background: #eef6ff;
+      }
+
+      .employee-flow-head h3 {
+        margin: 0;
+        color: var(--workspace-text);
+        font-size: 0.98rem;
+      }
+
+      .employee-flow-head span,
+      .employee-flow-note {
+        color: var(--workspace-muted);
+        font-size: 0.82rem;
+      }
+
+      .employee-flow-form {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(150px, 1fr));
+        gap: 10px;
+        padding: 12px;
+      }
+
+      .employee-flow-form label,
+      .employee-fieldset {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 0;
+        color: var(--workspace-text);
+        font-size: 0.8rem;
+        font-weight: 750;
+      }
+
+      .employee-flow-form input,
+      .employee-flow-form select {
+        min-height: 36px;
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--workspace-line);
+        border-radius: 6px;
+        background: #fff;
+        color: var(--workspace-text);
+        font: inherit;
+        font-weight: 500;
+        padding: 0 9px;
+      }
+
+      .employee-field-wide {
+        grid-column: span 2;
+      }
+
+      .employee-fieldset {
+        margin: 0;
+        padding: 10px;
+        border: 1px solid #c7d4e2;
+        border-radius: 7px;
+        background: #fff;
+      }
+
+      .employee-fieldset legend {
+        padding: 0 5px;
+        color: var(--module-blue);
+        font-size: 0.78rem;
+      }
+
+      .employee-route-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .employee-route-stop {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 6px;
+        align-items: end;
+      }
+
+      .employee-inline-actions,
+      .employee-form-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .employee-check {
+        align-self: end;
+        min-height: 36px;
+        flex-direction: row !important;
+        align-items: center;
+        padding: 0 10px;
+        border: 1px solid var(--workspace-line);
+        border-radius: 6px;
+        background: #fff;
+      }
+
+      .employee-check input {
+        width: auto;
+        min-height: 0;
+      }
+
+      .employee-summary-strip {
+        display: grid;
+        grid-template-columns: repeat(4, auto minmax(72px, 1fr));
+        align-items: center;
+        gap: 6px 8px;
+        padding: 8px 10px;
+        border: 1px solid #b7d4ca;
+        border-radius: 7px;
+        background: #effaf5;
+        color: var(--workspace-muted);
+        font-size: 0.8rem;
+      }
+
+      .employee-summary-strip b {
+        color: var(--module-green);
+        text-align: right;
+      }
+
+      @media (max-width: 1100px) {
+        .employee-flow-form {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .employee-summary-strip {
+          grid-template-columns: repeat(2, auto minmax(72px, 1fr));
+        }
+      }
+
+      @media (max-width: 640px) {
+        .employee-flow-form,
+        .employee-route-list {
+          grid-template-columns: 1fr;
+        }
+
+        .employee-field-wide,
+        .employee-summary-strip {
+          grid-column: auto;
+        }
+
+        .employee-summary-strip {
+          grid-template-columns: auto minmax(72px, 1fr);
+        }
+      }
+
       .module-portal[data-mode="screen"] ~ .filter-bar,
       .module-portal[data-mode="screen"] ~ .queue-panel,
       .module-portal[data-mode="screen"] ~ .workspace-row,
@@ -742,7 +935,8 @@
         display: none;
       }
     </style>
-    <script src="/app.js" defer></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
+    <script src="/app.js?v=20260620-dietas-mensual" defer></script>
   </head>
   <body>
     <div class="workspace">
@@ -758,10 +952,7 @@
         </div>
 
         <nav class="module-group" aria-label="Navegacion principal">
-          <p class="module-title">Portal unificado</p>
-          <button class="module-link" type="button" aria-current="page">
-            <span>Tablero VEC</span><span class="module-count">12</span>
-          </button>
+          <p class="module-title">Portal empleado</p>
           <button class="module-link" type="button">
             <span>Personal</span><span class="module-count">6</span>
           </button>
@@ -769,30 +960,19 @@
             <span>Nominas</span><span class="module-count">3</span>
           </button>
           <button class="module-link" type="button">
-            <span>Cronos</span><span class="module-count">4</span>
+            <span>Cronos</span><span class="module-count">12</span>
           </button>
           <button class="module-link" type="button">
-            <span>Horarios y turnos</span><span class="module-count">12</span>
-          </button>
-          <button class="module-link" type="button">
-            <span>Permisos y vacaciones</span><span class="module-count">17</span>
-          </button>
-
-          <p class="module-title">Gastos y expediente</p>
-          <button class="module-link" type="button">
-            <span>Dietas</span><span class="module-count">11</span>
-          </button>
-          <button class="module-link" type="button">
-            <span>Mapa kilometraje</span><span class="module-count">5</span>
+            <span>Dietas</span><span class="module-count">16</span>
           </button>
           <button class="module-link" type="button">
             <span>Bolsa</span><span class="module-count">5</span>
           </button>
+
+          <p class="module-title">Expediente y control</p>
           <button class="module-link" type="button">
             <span>Documentos</span><span class="module-count">18</span>
           </button>
-
-          <p class="module-title">Control VEC</p>
           <button class="module-link" type="button">
             <span>Aprobaciones</span><span class="module-count">8</span>
           </button>
@@ -810,7 +990,7 @@
           <div class="context-block">
             <p class="eyebrow">Workspace administrativo</p>
             <h2>Tablero operativo VEC</h2>
-            <span class="small-text">Sesion personal interno - shell modular demo</span>
+            <span class="small-text">Sesion personal interno - contexto del modulo activo</span>
           </div>
 
           <form class="search-form" role="search">
@@ -827,7 +1007,7 @@
 
         <main class="workspace-grid">
           <section aria-label="Bandeja principal">
-            <section class="summary-panel" aria-labelledby="summary-title">
+            <section class="summary-panel" aria-labelledby="summary-title" hidden>
               <div>
                 <p class="eyebrow">Cola VEC de tramitacion</p>
                 <h2 id="summary-title">Expedientes, modulos y acciones pendientes</h2>
@@ -839,7 +1019,7 @@
               <button class="primary-action" id="reload-demo" type="button">Actualizar tablero</button>
             </section>
 
-            <section class="metrics" aria-label="Resumen operativo">
+            <section class="metrics" aria-label="Resumen operativo" hidden>
               <article>
                 <span class="metric-label">Personas activas</span>
                 <strong id="call-id">-</strong>
