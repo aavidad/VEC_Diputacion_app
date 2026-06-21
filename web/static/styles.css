@@ -2977,3 +2977,138 @@ h2 {
 .workspace .chart-bar:hover { fill: var(--deadline); }
 .workspace .chart-bar.is-current { fill: var(--deadline); }
 .workspace .chart-bar.is-zero { fill: var(--line); }
+
+/* ====== Modal de detalle de fila (Ver solicitud / desistimiento) ====== */
+.vec-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(13, 20, 30, 0.55);
+}
+.vec-modal {
+  width: min(520px, 100%);
+  max-height: 85vh;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(13, 20, 30, 0.35);
+}
+.vec-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-muted);
+  border-radius: 12px 12px 0 0;
+}
+.vec-modal-head h3 { margin: 2px 0 0; font-size: 1.1rem; }
+.vec-modal-close {
+  flex-shrink: 0;
+  width: 32px; height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted-strong);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.vec-modal-close:hover { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+.vec-modal-body {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+}
+.vec-modal-field {
+  display: grid;
+  grid-template-columns: 40% 1fr;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+.vec-modal-field span { color: var(--muted); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; align-self: center; }
+.vec-modal-field strong { font-size: 0.92rem; overflow-wrap: anywhere; }
+.vec-modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+}
+.vec-modal-foot .primary-action {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  background: var(--flow-accent, var(--brand));
+  color: #fff;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+/* ====== Ofertas compatibles (panel en Personal) y tarjeta de oferta ====== */
+.workspace .bolsa-recommendation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  padding: 14px 16px;
+}
+.workspace .bolsa-offer-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--flow-accent, var(--procedure));
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.workspace .bolsa-offer-card > div:first-child strong {
+  display: block;
+  font-size: 1rem;
+  color: var(--flow-accent, var(--procedure));
+}
+.workspace .bolsa-offer-card > div:first-child span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+/* Los 3 datos (Plazo/Tasa/Estado) en fila, no apilados */
+.workspace .bolsa-offer-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.workspace .bolsa-offer-card dl > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.workspace .bolsa-offer-card dt {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.workspace .bolsa-offer-card dd { margin: 0; font-size: 0.9rem; font-weight: 700; overflow-wrap: anywhere; }
+.workspace .bolsa-offer-card > p {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: 0.84rem;
+}
+.workspace .bolsa-offer-card .row-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}

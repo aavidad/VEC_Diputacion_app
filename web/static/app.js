@@ -6803,7 +6803,7 @@ function portalTable(title, headers, rows, options = {}) {
         button.type = "button";
         button.className = "table-action portal-row-action";
         button.textContent = value;
-        button.addEventListener("click", () => handlePortalRowAction(title, row, value));
+        button.addEventListener("click", () => handlePortalRowAction(title, row, value, headers));
         td.append(button);
       } else {
         td.textContent = value;
@@ -7020,7 +7020,48 @@ function handleBolsaPortalApplicationAction(row, action) {
   return false;
 }
 
-function handlePortalRowAction(title, row, action) {
+function openRowDetailModal(title, row, headers = [], action = "Ver detalle") {
+  // Cerrar uno previo si lo hubiera
+  document.querySelector(".vec-modal-overlay")?.remove();
+  const cols = (Array.isArray(headers) && headers.length ? headers : row.map((_, i) => `Campo ${i + 1}`))
+    .filter((h) => String(h || "").toLowerCase() !== "accion");
+  const overlay = document.createElement("div");
+  overlay.className = "vec-modal-overlay";
+  const modal = document.createElement("div");
+  modal.className = "vec-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-label", `${action}: ${row?.[0] || title}`);
+  const rowsHTML = cols.map((label, index) => {
+    const value = row[index] == null || row[index] === "" ? "-" : row[index];
+    return `<div class="vec-modal-field"><span>${escapeHTML(String(label))}</span><strong>${escapeHTML(String(value))}</strong></div>`;
+  }).join("");
+  modal.innerHTML = `
+    <div class="vec-modal-head">
+      <div>
+        <p class="eyebrow">${escapeHTML(title || "Detalle")}</p>
+        <h3>${escapeHTML(String(row?.[0] || action))}</h3>
+      </div>
+      <button type="button" class="vec-modal-close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="vec-modal-body">${rowsHTML}</div>
+    <div class="vec-modal-foot">
+      <span class="small-text">Consulta de autoservicio · ${escapeHTML(new Date().toLocaleString("es-ES"))}</span>
+      <button type="button" class="primary-action vec-modal-ok">Cerrar</button>
+    </div>
+  `;
+  overlay.append(modal);
+  document.body.append(overlay);
+  const close = () => overlay.remove();
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  $(".vec-modal-close", modal).addEventListener("click", close);
+  $(".vec-modal-ok", modal).addEventListener("click", close);
+  const onKey = (e) => { if (e.key === "Escape") { close(); document.removeEventListener("keydown", onKey); } };
+  document.addEventListener("keydown", onKey);
+  $(".vec-modal-close", modal).focus();
+}
+
+function handlePortalRowAction(title, row, action, headers = []) {
   const ref = String(row?.[0] || title || "Expediente propio");
   const detail = `${title}: ${ref}`;
   if (state.activeModule === "bolsa" && /mis solicitudes/i.test(String(title || ""))) {
@@ -7028,6 +7069,14 @@ function handlePortalRowAction(title, row, action) {
   }
   if (state.activeModule === "personal" && /solicitar certificado/i.test(String(action || ""))) {
     downloadPersonalCertificate(row, action);
+    return;
+  }
+  // "Ver solicitud / desistimiento / detalle / resolucion-en-pantalla":
+  // abre un panel con los datos de la fila en vez de no hacer nada.
+  if (/ver solicitud|ver desistimiento|ver detalle|consultar/i.test(String(action || ""))) {
+    openRowDetailModal(title, row, headers, action);
+    recordReceipt(action, detail, state.activeModule || "portal-empleado");
+    setStatus(`${action}: ${ref}`, "ready");
     return;
   }
   if (/descargar|ver recibo|ver justificante|ver certificado|ver resolucion|ver liquidacion/i.test(String(action || ""))) {
