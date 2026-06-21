@@ -5320,6 +5320,54 @@ function renderLocalRouteMap(panel, canvas, legend, alternatives, fallback, acti
   setupRouteResultLegSelection(panel);
 }
 
+// Mapa Leaflet real con lineas rectas entre paradas (cuando el OSRM por
+// carretera no esta disponible pero si hay coordenadas y Leaflet cargado).
+function renderStraightLineLeafletMap(panel, canvas, legend, alternatives, fallback, actions, calculation, coords, reason = "") {
+  canvas.hidden = false;
+  actions.replaceChildren();
+  const fullRouteButton = document.createElement("button");
+  fullRouteButton.type = "button";
+  fullRouteButton.className = "table-action";
+  fullRouteButton.textContent = "Todos";
+  fullRouteButton.addEventListener("click", () => {
+    if (panel._activeRouteBounds) panel._leafletMap.fitBounds(panel._activeRouteBounds.pad(0.15));
+  });
+  actions.append(fullRouteButton);
+  addOpenStreetMapButton(actions, coords);
+
+  panel._leafletMap = window.L.map(canvas, { scrollWheelZoom: false });
+  window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors",
+  }).addTo(panel._leafletMap);
+
+  coords.forEach((coord, index) => {
+    window.L.marker([coord.lat, coord.lon])
+      .addTo(panel._leafletMap)
+      .bindPopup(`${index + 1}. ${coord.name}`);
+  });
+
+  // Polilineas rectas por tramo, coloreadas como en la tabla de itinerario.
+  const latLngs = coords.map((c) => [c.lat, c.lon]);
+  for (let i = 0; i < latLngs.length - 1; i += 1) {
+    const color = routeLegColor(i);
+    window.L.polyline([latLngs[i], latLngs[i + 1]], {
+      color,
+      weight: 4,
+      opacity: 0.85,
+      dashArray: "6 6", // discontinua: indica estimacion, no ruta por carretera
+    }).addTo(panel._leafletMap);
+  }
+
+  panel._activeRouteBounds = window.L.latLngBounds(latLngs);
+  panel._leafletMap.fitBounds(panel._activeRouteBounds.pad(0.15));
+  // Leaflet necesita recalcular tamano si el contenedor estaba oculto.
+  window.requestAnimationFrame(() => { try { panel._leafletMap.invalidateSize(); } catch (_) {} });
+
+  fallback.hidden = false;
+  fallback.textContent = `Mapa con trazado recto entre paradas (estimacion). La ruta por carretera no esta disponible${reason ? `: ${reason}` : ""}. No valido para liquidacion de kilometraje.`;
+}
+
 async function renderRouteMap(panel, calculation, view) {
   const canvas = $(".route-map-canvas", panel);
   const legend = $(".route-leg-legend", panel);
@@ -5428,18 +5476,24 @@ async function renderRouteMap(panel, calculation, view) {
       return;
     }
     destroyRouteMap(panel);
-    renderLocalRouteMap(
-      panel,
-      canvas,
-      legend,
-      alternatives,
-      fallback,
-      actions,
-      calculation,
-      coords,
-      [],
-      `No se ha podido calcular la ruta por carretera con el OSRM interno: ${error.message}. Se muestra croquis local no liquidable en el mismo apartado de rutas.`,
-    );
+    // Si Leaflet esta disponible, mostramos un mapa real con lineas rectas
+    // (estimacion entre paradas) aunque el OSRM por carretera no responda.
+    if (window.L && coords.length >= 2) {
+      renderStraightLineLeafletMap(panel, canvas, legend, alternatives, fallback, actions, calculation, coords, error.message);
+    } else {
+      renderLocalRouteMap(
+        panel,
+        canvas,
+        legend,
+        alternatives,
+        fallback,
+        actions,
+        calculation,
+        coords,
+        [],
+        `No se ha podido calcular la ruta por carretera con el OSRM interno: ${error.message}. Se muestra croquis local no liquidable en el mismo apartado de rutas.`,
+      );
+    }
   }
 
   if (missing.length) {
