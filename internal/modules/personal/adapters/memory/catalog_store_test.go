@@ -18,7 +18,7 @@ func TestCatalogStoreListsFiltersAndStats(t *testing.T) {
 			t.Fatalf("UpsertPosition() error = %v", err)
 		}
 	}
-	if err := store.UpsertCategory(ctx, domain.ProfessionalCategory{Slug: "administrativo", Name: "Administrativo", Area: "administracion_general"}); err != nil {
+	if err := store.UpsertCategory(ctx, domain.ProfessionalCategory{Slug: "administrativo", Name: "Administrativo", Area: "administracion_general", State: "vigente"}); err != nil {
 		t.Fatalf("UpsertCategory() error = %v", err)
 	}
 	page, err := store.ListPositions(ctx, domain.RPTPositionFilter{Query: "admin", Limit: 10})
@@ -40,7 +40,7 @@ func TestCatalogStoreListsFiltersAndStats(t *testing.T) {
 func TestCatalogStoreImportReplace(t *testing.T) {
 	store := NewCatalogStore()
 	ctx := context.Background()
-	if err := store.UpsertPosition(ctx, domain.RPTPosition{Code: "old", Name: "Old", Dot: 1}); err != nil {
+	if err := store.UpsertPosition(ctx, domain.RPTPosition{Code: "old", Name: "Old", State: "vigente", Dot: 1}); err != nil {
 		t.Fatalf("UpsertPosition() error = %v", err)
 	}
 	receipt, err := store.ImportPositions(ctx, domain.RPTImportCommand{
@@ -48,7 +48,7 @@ func TestCatalogStoreImportReplace(t *testing.T) {
 		Version: "v1",
 		Replace: true,
 		Positions: []domain.RPTPosition{
-			{Code: "new", Name: "New", Dot: 1},
+			{Code: "new", Name: "New", State: "vigente", Dot: 1},
 		},
 	})
 	if err != nil {
@@ -68,7 +68,7 @@ func TestCatalogStoreImportReplace(t *testing.T) {
 func TestCatalogStoreDeletesPositionsAndCategories(t *testing.T) {
 	store := NewCatalogStore()
 	ctx := context.Background()
-	if err := store.UpsertPosition(ctx, domain.RPTPosition{Code: "1", Name: "Puesto", Dot: 1}); err != nil {
+	if err := store.UpsertPosition(ctx, domain.RPTPosition{Code: "1", Name: "Puesto", State: "vigente", Dot: 1}); err != nil {
 		t.Fatalf("UpsertPosition() error = %v", err)
 	}
 	deleted, err := store.DeletePosition(ctx, "1")
@@ -78,7 +78,7 @@ func TestCatalogStoreDeletesPositionsAndCategories(t *testing.T) {
 	if _, ok, err := store.GetPosition(ctx, "1"); err != nil || ok {
 		t.Fatalf("GetPosition() after delete = ok %v err %v", ok, err)
 	}
-	if err := store.UpsertCategory(ctx, domain.ProfessionalCategory{Slug: "cat", Name: "Categoria"}); err != nil {
+	if err := store.UpsertCategory(ctx, domain.ProfessionalCategory{Slug: "cat", Name: "Categoria", State: "vigente"}); err != nil {
 		t.Fatalf("UpsertCategory() error = %v", err)
 	}
 	deleted, err = store.DeleteCategory(ctx, "cat")

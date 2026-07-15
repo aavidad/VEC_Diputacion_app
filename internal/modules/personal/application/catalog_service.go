@@ -15,6 +15,11 @@ var (
 	ErrCategoryNotFound     = errors.New("personal professional category not found")
 )
 
+const (
+	maxRPTPositionPageSize = 2000
+	maxCategoryPageSize    = 500
+)
+
 type CatalogService struct {
 	store ports.CatalogStore
 }
@@ -30,7 +35,8 @@ func (s *CatalogService) UpsertPosition(ctx context.Context, position domain.RPT
 	if err := position.Validate(); err != nil {
 		return domain.RPTPosition{}, err
 	}
-	if err := s.store.UpsertPosition(ctx, normalizePosition(position)); err != nil {
+	position = normalizePosition(position)
+	if err := s.store.UpsertPosition(ctx, position); err != nil {
 		return domain.RPTPosition{}, err
 	}
 	stored, ok, err := s.store.GetPosition(ctx, position.Code)
@@ -67,11 +73,10 @@ func (s *CatalogService) ImportPositions(ctx context.Context, cmd domain.RPTImpo
 	cmd.Source = strings.TrimSpace(cmd.Source)
 	cmd.Version = strings.TrimSpace(cmd.Version)
 	for i := range cmd.Positions {
-		position := normalizePosition(cmd.Positions[i])
-		if err := position.Validate(); err != nil {
+		if err := cmd.Positions[i].Validate(); err != nil {
 			return domain.RPTImportReceipt{}, err
 		}
-		cmd.Positions[i] = position
+		cmd.Positions[i] = normalizePosition(cmd.Positions[i])
 	}
 	return s.store.ImportPositions(ctx, cmd)
 }
@@ -80,7 +85,8 @@ func (s *CatalogService) UpsertCategory(ctx context.Context, category domain.Pro
 	if err := category.Validate(); err != nil {
 		return err
 	}
-	return s.store.UpsertCategory(ctx, normalizeCategory(category))
+	category = normalizeCategory(category)
+	return s.store.UpsertCategory(ctx, category)
 }
 
 func (s *CatalogService) GetCategory(ctx context.Context, slug string) (domain.ProfessionalCategory, error) {
@@ -101,7 +107,7 @@ func (s *CatalogService) DeleteCategory(ctx context.Context, slug string) (bool,
 func (s *CatalogService) ListCategories(ctx context.Context, filter domain.ProfessionalCategoryFilter) (domain.ProfessionalCategoryPage, error) {
 	filter.Query = strings.TrimSpace(filter.Query)
 	filter.Area = strings.TrimSpace(filter.Area)
-	if filter.Limit <= 0 || filter.Limit > 500 {
+	if filter.Limit <= 0 || filter.Limit > maxCategoryPageSize {
 		filter.Limit = 100
 	}
 	if filter.Offset < 0 {
@@ -114,7 +120,8 @@ func (s *CatalogService) UpsertCatalogEntry(ctx context.Context, entry domain.Ca
 	if err := entry.Validate(); err != nil {
 		return err
 	}
-	return s.store.UpsertCatalogEntry(ctx, normalizeCatalogEntry(entry))
+	entry = normalizeCatalogEntry(entry)
+	return s.store.UpsertCatalogEntry(ctx, entry)
 }
 
 func (s *CatalogService) ListCatalogEntries(ctx context.Context) ([]domain.CatalogEntry, error) {
@@ -137,9 +144,6 @@ func normalizePosition(position domain.RPTPosition) domain.RPTPosition {
 	position.CategoryCode = strings.TrimSpace(position.CategoryCode)
 	position.CategorySlug = strings.TrimSpace(position.CategorySlug)
 	position.State = strings.TrimSpace(position.State)
-	if position.State == "" {
-		position.State = "Vigente"
-	}
 	return position
 }
 
@@ -149,7 +153,7 @@ func normalizePositionFilter(filter domain.RPTPositionFilter) domain.RPTPosition
 	filter.CenterCode = strings.TrimSpace(filter.CenterCode)
 	filter.Provision = strings.TrimSpace(filter.Provision)
 	filter.State = strings.TrimSpace(filter.State)
-	if filter.Limit <= 0 || filter.Limit > 500 {
+	if filter.Limit <= 0 || filter.Limit > maxRPTPositionPageSize {
 		filter.Limit = 100
 	}
 	if filter.Offset < 0 {
@@ -163,9 +167,6 @@ func normalizeCategory(category domain.ProfessionalCategory) domain.Professional
 	category.Name = strings.TrimSpace(category.Name)
 	category.Area = strings.TrimSpace(category.Area)
 	category.State = strings.TrimSpace(category.State)
-	if category.State == "" {
-		category.State = "Vigente"
-	}
 	return category
 }
 
@@ -174,8 +175,5 @@ func normalizeCatalogEntry(entry domain.CatalogEntry) domain.CatalogEntry {
 	entry.Code = strings.TrimSpace(entry.Code)
 	entry.Label = strings.TrimSpace(entry.Label)
 	entry.State = strings.TrimSpace(entry.State)
-	if entry.State == "" {
-		entry.State = "Vigente"
-	}
 	return entry
 }

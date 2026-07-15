@@ -46,6 +46,9 @@ func (p RPTPosition) Validate() error {
 	if strings.TrimSpace(p.Code) == "" || strings.TrimSpace(p.Name) == "" {
 		return ErrRPTPositionInvalid
 	}
+	if p.State == "" || p.State != strings.TrimSpace(p.State) {
+		return ErrRPTPositionInvalid
+	}
 	if p.Dot < 0 || p.DestinationLevel < 0 || p.AnnualAmountCents < 0 {
 		return ErrRPTPositionInvalid
 	}
@@ -67,6 +70,9 @@ func (c ProfessionalCategory) Validate() error {
 	if strings.TrimSpace(c.Slug) == "" || strings.TrimSpace(c.Name) == "" {
 		return ErrProfessionalCategoryInvalid
 	}
+	if c.State == "" || c.State != strings.TrimSpace(c.State) {
+		return ErrProfessionalCategoryInvalid
+	}
 	return nil
 }
 
@@ -82,6 +88,9 @@ type CatalogEntry struct {
 
 func (e CatalogEntry) Validate() error {
 	if strings.TrimSpace(e.Catalog) == "" || strings.TrimSpace(e.Code) == "" || strings.TrimSpace(e.Label) == "" {
+		return ErrCatalogEntryInvalid
+	}
+	if e.State == "" || e.State != strings.TrimSpace(e.State) {
 		return ErrCatalogEntryInvalid
 	}
 	return nil
