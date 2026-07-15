@@ -1,0 +1,39 @@
+services:
+  osrm-extract:
+    image: ${OSRM_IMAGE:-osrm/osrm-backend:latest}
+    profiles: ["build"]
+    working_dir: /data
+    volumes:
+      - ./data:/data
+    command: sh -c "osrm-extract -p /opt/car.lua /data/${OSRM_DATA_BASENAME:-granada-buffer}.osm.pbf"
+
+  osrm-partition:
+    image: ${OSRM_IMAGE:-osrm/osrm-backend:latest}
+    profiles: ["build"]
+    working_dir: /data
+    volumes:
+      - ./data:/data
+    command: sh -c "osrm-partition /data/${OSRM_DATA_BASENAME:-granada-buffer}.osrm"
+    depends_on:
+      osrm-extract:
+        condition: service_completed_successfully
+
+  osrm-customize:
+    image: ${OSRM_IMAGE:-osrm/osrm-backend:latest}
+    profiles: ["build"]
+    working_dir: /data
+    volumes:
+      - ./data:/data
+    command: sh -c "osrm-customize /data/${OSRM_DATA_BASENAME:-granada-buffer}.osrm"
+    depends_on:
+      osrm-partition:
+        condition: service_completed_successfully
+
+  osrm:
+    image: ${OSRM_IMAGE:-osrm/osrm-backend:latest}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - ./data:/data:ro
+    command: sh -c "osrm-routed --algorithm mld --max-table-size 50000 /data/${OSRM_DATA_BASENAME:-granada-buffer}.osrm"
