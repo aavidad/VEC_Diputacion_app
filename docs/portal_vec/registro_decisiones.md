@@ -1654,3 +1654,53 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   hasta KMS y PostgreSQL, llamada unica donde proceda, consumo CAS, cancelacion,
   reinicio, carreras, denegacion por defecto y ausencia de capacidades en todas
   las fronteras externas. Dobles unitarios no acreditan esta puerta.
+
+## DEC-048 — Ambito y formula verificable de idempotencia de baremacion
+
+- Estado: refinamiento de DEC-045 adoptado el 15 de julio de 2026. Los
+  contratos nominales pueden implantarse, pero el flujo productivo permanece
+  cerrado hasta que el servicio privado, KMS/HSM y persistencia prueben esta
+  formula de extremo a extremo.
+- Sujeto autoritativo: la clave aportada por el cliente nunca identifica a la
+  persona. El servicio resuelve el sujeto desde sesion, expediente y relaciones
+  internas y lo transforma con el dominio criptografico `sujeto`; DNI, nombre,
+  correo y referencias libres del cliente no entran en el indice ni se
+  persisten como material de idempotencia. El testimonio liga el seudonimo y
+  las referencias opacas de proceso, solicitud y baremacion utilizadas para
+  resolverlo.
+- Principal estable: por cada generacion vigente del llavero `principal` se
+  deriva `HMAC(clave_principal, esquema + seudonimo_canonico)`. No incluye la
+  clave idempotente del cliente, sesion, autorizacion, intento ni expediente;
+  por ello el mismo sujeto conserva principal durante reintentos y una rotacion
+  puede cotejar historicos sin confundir personas.
+- Indice de operacion: por cada combinacion de principal e historico vigente
+  del llavero `indice` se deriva
+  `HMAC(clave_indice, esquema + despliegue + modulo + accion + principal +
+  clave_cliente)`. La clave de cliente solo admite UUIDv4 canonico o material
+  binario opaco de alta entropia, se entrega de forma efimera y nunca se guarda
+  en claro. Misma persona y clave recuperan la misma operacion; otra persona o
+  accion produce indices distintos.
+- Formula homologada: el testimonio fija esquema, version, referencia y revision
+  de politica de derivacion, instantaneas completas y ordenadas de ambos
+  llaveros, matriz cartesiana completa, preimagen contextual comprometida y
+  evidencia de atestacion. Una firma valida sobre hashes arbitrarios no prueba
+  la formula. La raiz independiente debe rederivar y comparar o verificar una
+  atestacion HSM que identifique de forma inequívoca operacion, politica y
+  material comprometido.
+- Fuentes efimeras: productor y verificador reciben copias de un solo uso del
+  minimo material necesario, creadas dentro del servicio y destruidas al
+  finalizar. Son implementaciones distintas fijadas por composicion; ni HTTP,
+  CLI, MCP ni un modulo seleccionan una de ellas. El resultado publico sigue
+  siendo nominal y no habilita persistencia ni efectos.
+- Separacion de dominios: la comprobacion comprende todos los historicos
+  vigentes de `sujeto`, `principal`, `indice`, `motivo`, `manifiesto` e
+  `intencion`, no una referencia representativa por dominio. Cada dominio
+  conserva de una a ocho generaciones ordenadas. El KMS resuelve alias a
+  identidades fisicas y politicas y deniega cualquier reutilizacion cruzada,
+  aunque las referencias textuales sean diferentes.
+- Casos de aceptacion: mismo sujeto con dos claves de cliente mantiene principal
+  y cambia indices; dos sujetos con la misma clave cambian ambos; cruzar
+  solicitud, sujeto, accion, politica, topologia, fila, columna o atestacion
+  falla cerrado. Tambien se prueban omisiones autoconsistentes primera,
+  intermedia y ultima, matriz 1x1 frente a historicos 8x8, alias fisico entre
+  dominios, cancelacion, `typed nil`, redaccion y adaptadores desde otro paquete.
