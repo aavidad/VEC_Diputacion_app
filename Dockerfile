@@ -27,12 +27,16 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime
 
-RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app
+RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+  && install -d --owner=app --group=app /app /data/bolsa
 
 COPY --from=build /src/bin/vec-server /usr/local/bin/vec-server
 COPY --from=build /src/config /app/config
 COPY --from=build /src/locales /app/locales
 COPY --from=build /src/web /app/web
+# Fuente sintética, pública y versionada: se copia de forma explícita para no
+# ampliar el contexto admitido por la imagen a ningún otro fichero de datos.
+COPY --chown=app:app data/demo/convocatorias_publicas.demo.json /app/data/demo/convocatorias_publicas.demo.json
 
 USER app
 WORKDIR /app
@@ -40,6 +44,7 @@ ENV VEC_HTTP_ADDR=:8080
 ENV VEC_AUTH_MODE=disabled
 ENV VEC_BOLSA_STORAGE_MODE=local_durable
 ENV VEC_BOLSA_DATA_DIR=/data/bolsa
+ENV VEC_BOLSA_PUBLIC_SOURCE_PATH=/app/data/demo/convocatorias_publicas.demo.json
 # La imagen no acepta identidades hasta configurar el futuro adaptador de
 # aserciones protegidas. Las cabeceras heredadas quedan solo para pruebas
 # locales expresamente habilitadas y nunca son el valor de la imagen.
