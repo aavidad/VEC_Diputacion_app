@@ -2,9 +2,12 @@
 
 ## Estado y alcance
 
-Decisión de arquitectura adoptada el 15 de julio de 2026. Su implementación
-está pendiente y es un requisito de la migración de baremación a idempotencia
-semántica V2.
+Decisión de arquitectura adoptada el 15 de julio de 2026. El contrato común
+del recibo de escritura y sus pruebas adversarias están implementados desde
+el commit `f456e3b`. Continúan pendientes el recibo de retención, los recibos
+específicos de Bolsa, la persistencia durable y los adaptadores productivos;
+por ello el flujo completo permanece en NO-GO y sigue siendo un requisito de
+la migración de baremación a idempotencia semántica V2.
 
 Los recibos V1 continúan siendo válidos para autorización y auditoría del
 intento que los produjo. No se reinterpretan como evidencia material estable.
@@ -16,6 +19,35 @@ El contrato se divide en dos capas:
   decisiones ni firmas;
 - Bolsa encadena esos efectos con la recuperación del PDF firmado y el plan
   administrativo durable.
+
+## Avance verificable del contrato común
+
+El primer corte está aislado en:
+
+- `internal/vec/ports/recibo_escritura_objeto_material_v2.go`;
+- `internal/vec/ports/recibo_escritura_objeto_material_v2_test.go`.
+
+Este corte ya exige:
+
+- plan material publicado y ligado autoritativamente a módulo, operación,
+  carga, efecto, clasificación y conector lógico;
+- perfil de capacidades atestado, homologado y revalidado en cada emisión,
+  de modo que una revocación posterior impide crear nuevos recibos;
+- referencia original reservada o recuperada por un registro durable y
+  confirmada por una segunda frontera autoritativa;
+- atestación criptográfica verificable del perfil y del recibo;
+- referencias lógicas en ASCII canónico, sin rutas, URL, ARN, ETag, KMS ni
+  identificadores personales evidentes;
+- cancelación y dependencias nulas con fallo cerrado antes y después de cada
+  frontera autoritativa;
+- bytes TLV deterministas, vector dorado, copias defensivas, redacción de
+  registros y prohibición de serialización genérica.
+
+La implementación deliberadamente no ofrece todavía restauración del recibo,
+diario durable, adaptador de referencias, catálogo de planes, homologador ni
+atestador productivos. Las dobles de prueba acreditan el contrato, no su
+despliegue. Tampoco convierte una huella V1 de autorización en plan material:
+ambos dominios deben ser distintos.
 
 ## Por qué V1 no es reutilizable
 
@@ -35,13 +67,15 @@ del intento. No se promoverá a manifiesto material V2.
 
 ## Contratos del núcleo común
 
-Se crearán tipos nominales independientes en `internal/vec/ports`:
+Los tipos nominales se incorporan por cortes independientes en
+`internal/vec/ports`:
 
-- `InstantaneaObjetoMaterialV2`;
-- `PerfilCapacidadesAlmacenMaterialV2`;
-- `ReciboEscrituraObjetoMaterialV2`;
-- `ReciboRetencionObjetoMaterialV2`;
-- fábricas y verificadores criptográficos de cada recibo.
+- `InstantaneaObjetoMaterialV2`, implementado;
+- `PerfilCapacidadesAlmacenMaterialV2`, implementado;
+- `ReciboEscrituraObjetoMaterialV2`, implementado;
+- `ReciboRetencionObjetoMaterialV2`, pendiente;
+- fábricas y verificadores criptográficos de escritura, implementados como
+  contrato; los de retención siguen pendientes.
 
 El contrato nunca expone operaciones de listado ni detalles del soporte
 físico. Un conector puede usar MinIO, S3, una cabina, un gestor documental,
