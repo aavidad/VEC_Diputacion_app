@@ -15,3 +15,22 @@ agent_ack.json
 director_decisions.json
 orquesta_shutdown_request.json
 agent_shutdown_checkpoint_ack.json
+
+# El contexto de compilacion de la aplicacion no debe incluir estudios, copias
+# historicas, material de entrada ni datos reales/de referencia.
+Baremador
+Bolsa_Diputacion
+Bolsa_Diputacion_app
+cegid_peoplenet_aapp
+convoca_dipgra
+docs
+fotos
+Peticion.pdf
+deploy/osrm-granada/data
+
+# Cachés, bases y artefactos locales.
+**/__pycache__
+**/*.pyc
+**/*.db
+**/*.sqlite
+**/*.sqlite3

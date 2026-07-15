@@ -7,3 +7,25 @@ coverage.out
 tmp/
 runtime/
 var/
+
+# Herramientas, copias y fuentes de referencia que pueden contener datos
+# personales o tener un historial Git independiente. Se conservan en el puesto
+# de trabajo, pero nunca deben entrar en este repositorio.
+/Baremador/
+/Bolsa_Diputacion/
+/Bolsa_Diputacion_app/
+/cegid_peoplenet_aapp/
+/convoca_dipgra/
+/fotos/
+/Peticion.pdf
+
+# Los resúmenes comparativos sí se versionan; los manuales originales se
+# conservan como fuentes locales para evitar binarios pesados en Git.
+/docs/referencias_portales_aapp/manuales/
+
+# Datos geograficos derivados: se regeneran siguiendo deploy/osrm-granada/README.md.
+/deploy/osrm-granada/data/
+
+# Cachés locales.
+__pycache__/
+*.py[cod]
