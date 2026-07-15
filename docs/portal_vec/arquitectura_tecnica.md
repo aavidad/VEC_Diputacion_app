@@ -24,11 +24,29 @@ autenticacion fake y configuracion canonica en `config`.
 - Persistencia sustituible: memoria por defecto en prototipo; almacenamiento
   duradero solo como adaptador, sin contaminar el nucleo.
 
+### Invariante de autorizacion
+
+Toda superficie —HTTP/web, CLI, MCP, tareas programadas y servicio a
+servicio— invoca los mismos casos de uso protegidos. Solo una concesion
+positiva, exacta, vigente y emitida por el PDP central autoriza una operacion.
+Ausencia, lista vacia, ambiguedad, valor desconocido, caducidad, error o
+dependencia no disponible producen denegacion.
+
+RBAC es una condicion necesaria y ABAC solo puede restringirla. No existen
+herencia o suma de perfiles, comodines positivos, permisos implicitos ni un
+administrador universal. Menu, ruta, rol, `claim`, cabecera o manifiesto solo
+sirven para presentacion y contexto: nunca conceden acceso. Cada caso de uso
+exige accion, recurso, ambito, finalidad, campos y obligaciones expresamente
+publicados, y vuelve a validar la autoridad antes del efecto.
+
+La definicion normativa completa esta en `matriz_roles_y_ambitos.md` y
+DEC-020 de `registro_decisiones.md`.
+
 ## Estructura propuesta
 
 ```text
 cmd/
-  bolsa-server/
+  vec-server/
     main.go
 config/
   config.go
@@ -67,7 +85,9 @@ docs/
 capacidades transversales de pantalla, navegacion y resumen si crecen mas alla
 de la demo actual. `internal/app/bootstrap` construye dependencias demo y
 elige adaptadores; ningun paquete de dominio debe importar composicion.
-`cmd/bolsa-server/main.go` solo arranca el servidor devuelto por bootstrap.
+`cmd/vec-server/main.go` es la unica entrada que arranca el servidor devuelto
+por bootstrap. `cmd/bolsa-server` permanece como centinela retirado y falla
+cerrado para impedir una composicion o transporte alternativos.
 La composicion actual conecta repositorios en memoria, autenticacion fake de
 demo, catalogo i18n, casos de uso y handler HTTP sin que el binario conozca
 detalles de dominio o adaptadores concretos.
@@ -147,7 +167,12 @@ el servidor sirve fallback a `index.html`.
 
 ## API y rutas
 
-Rutas publicas actuales:
+Superficie HTTP del prototipo, no autorizada para producto:
+
+Que una ruta figure en esta tabla o pueda alcanzarse por red no la convierte
+en publica ni autorizada. Salvo los recursos anonimos declarados expresamente,
+estas rutas permanecen cerradas hasta que su caso de uso aplique la invariante
+anterior y la composicion productiva aporte identidad y PDP autoritativos.
 
 | Metodo | Ruta | Uso |
 | --- | --- | --- |
@@ -184,18 +209,20 @@ Superficie canonica actual:
 
 | Variable | Default | Uso |
 | --- | --- | --- |
-| `BOLSA_HTTP_ADDR` | `:8080` | Direccion de escucha HTTP |
+| `VEC_HTTP_ADDR` | `127.0.0.1:8080` | Direccion de escucha HTTP; loopback por defecto |
+| `VEC_HTTP_ALLOWED_CIDRS` | loopback IPv4 e IPv6 | Redes cliente enumeradas expresamente |
+| `VEC_AUTH_MODE` | `disabled` | Identidad desactivada hasta configurar una frontera admitida |
+| `VEC_TLS_CERT_FILE` / `VEC_TLS_KEY_FILE` | vacio | Pareja TLS; configurar solo uno impide arrancar |
 
 Superficie propuesta, a incorporar solo cuando exista adaptador real:
 
 | Variable | Default | Uso |
 | --- | --- | --- |
-| `BOLSA_HTTP_ADDR` | `:8080` | Direccion HTTP |
-| `BOLSA_API_BASE_PATH` | `/api` | Prefijo API |
-| `BOLSA_READ_HEADER_TIMEOUT` | `5s` | Timeout de cabeceras |
-| `BOLSA_STORAGE_DRIVER` | `memory` | `memory` o adaptador duradero |
-| `BOLSA_DATABASE_URL` | vacio | DSN solo si `BOLSA_STORAGE_DRIVER` lo requiere |
-| `BOLSA_I18N_DIR` | `web/static/locales` | Catalogos de mensajes |
+| `VEC_API_BASE_PATH` | `/api` | Futuro prefijo API configurable |
+| `VEC_READ_HEADER_TIMEOUT` | `5s` | Futuro timeout de cabeceras configurable |
+| `VEC_STORAGE_DRIVER` | sin valor productivo implicito | Conector duradero aprobado |
+| `VEC_DATABASE_URL` | vacio | DSN solo si el conector lo requiere |
+| `VEC_I18N_DIR` | `locales` | Futuro directorio configurable de catalogos |
 
 Regla: cada variable se define, normaliza y documenta en `config`. Ningun
 adaptador lee `os.Getenv` directamente.

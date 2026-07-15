@@ -162,7 +162,10 @@ type VECModuleProvider interface {
 }
 ```
 
-`VECPrincipal` lo crea el shell desde Kerberos/AD:
+El siguiente `VECPrincipal` es una proyeccion historica de presentacion y
+traza. Su modelo de autorizacion ha sido sustituido por DEC-009, DEC-020 y
+DEC-037: aunque el shell lo cree desde Kerberos/AD, ninguno de sus campos es
+una concesion ejecutable.
 
 ```go
 type VECPrincipal struct {
@@ -180,13 +183,21 @@ type VECPrincipal struct {
 
 Reglas:
 
-- `VECPrincipal` llega ya autenticado al modulo.
-- El modulo puede autorizar por permisos, unidad, rol o regla de negocio, pero
-  no puede pedir credenciales.
+- `VECPrincipal` llega autenticado al modulo, pero autenticacion no equivale a
+  autorizacion.
+- El modulo nunca autoriza usando roles, permisos, unidades o `claims`
+  transportados por el cliente o por el shell. Solicita al PDP central una
+  decision positiva y exacta para cada caso de uso; menu y manifiesto solo
+  controlan presentacion.
+- Un dato ausente, desconocido, ambiguo, caducado o no verificable deniega. No
+  hay suma de perfiles, herencia, comodines positivos ni administrador
+  universal.
 - Las reglas de dominio viven en casos de uso del modulo.
 - Los handlers HTTP del modulo solo adaptan transporte, DTOs e i18n.
-- Los permisos se expresan como claves: `bolsa.solicitud.read`,
-  `nomina.recibo.download`, `permisos.solicitud.submit`, etc.
+- Las acciones de politica se expresan como claves concretas:
+  `bolsa.solicitud.read`, `nomina.recibo.download`,
+  `permisos.solicitud.submit`, etc.; una clave no concede por existir en el
+  manifiesto.
 
 ## Frontend: interfaz comun
 
