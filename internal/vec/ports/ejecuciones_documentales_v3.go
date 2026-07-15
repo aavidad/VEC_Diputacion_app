@@ -1,11 +1,13 @@
 package ports
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"reflect"
 	"strconv"
 	"strings"
@@ -22,6 +24,8 @@ var (
 	ErrReconciliacionDocumentalV3Invalida      = errors.New("vec: reconciliacion documental v3 invalida")
 	ErrSelloEvidenciaDocumentalV3Invalido      = errors.New("vec: sello de evidencia documental v3 invalido")
 	ErrSerializacionSecretoDocumentalV3        = errors.New("vec: serializacion de secreto documental v3 prohibida")
+	ErrReciboInicioDocumentalV3Invalido        = errors.New("vec: recibo durable de inicio documental v3 invalido")
+	ErrOrdenDespachoDocumentalV3Invalida       = errors.New("vec: orden de despacho documental v3 invalida")
 )
 
 const (
@@ -30,10 +34,18 @@ const (
 	AlgoritmoSelloEvidenciaHMACSHA256V3    = "hmac-sha256"
 	AudienciaSelloEvidenciaRenderizadoV3   = "vec.documentos.evidencia-renderizado.v3"
 	AudienciaAtestacionTokenCercadoV3      = "vec.documentos.token-cercado.v3"
+	AudienciaAtestacionInicioEfectoV3      = "vec.documentos.inicio-efecto.v3"
+	AudienciaAtestacionReclamacionV3       = "vec.documentos.reclamacion-despacho.v3"
+	AudienciaComprobacionOrdenDespachoV3   = "vec.documentos.comprobacion-orden-despacho.v3"
+	ContextoAtestacionTokenCercadoV3       = "cercado"
+	ContextoAtestacionInicioEfectoV3       = "inicio"
+	ContextoAtestacionReclamacionV3        = "reclamacion"
+	ContextoComprobacionOrdenDespachoV3    = "inicio-reclamacion-cercada"
 
 	duracionMaximaReservaEjecucionDocumentalV3 = 15 * time.Minute
 	tamanoMaximoSalidaEjecucionDocumentalV3    = uint64(256 * 1024 * 1024)
 	tamanoFirmaHMACSHA256V3                    = sha256.Size
+	duracionMaximaReclamacionDespachoV3        = 10 * time.Minute
 )
 
 // DatosManifiestoEjecucionDocumentalV3 compromete una resolucion completa y
@@ -52,6 +64,35 @@ type DatosManifiestoEjecucionDocumentalV3 struct {
 	HuellaEntradaHMAC     string
 	LimiteEfectivoBytes   uint64
 	HuellaPlanSHA256      string
+}
+
+func (DatosManifiestoEjecucionDocumentalV3) String() string {
+	return "[DATOS-MANIFIESTO-EJECUCION-DOCUMENTAL-V3-HMAC-REDACTADOS]"
+}
+func (d DatosManifiestoEjecucionDocumentalV3) GoString() string { return d.String() }
+func (d DatosManifiestoEjecucionDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, d.String())
+}
+func (d DatosManifiestoEjecucionDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(d.String())
+}
+func (DatosManifiestoEjecucionDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosManifiestoEjecucionDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosManifiestoEjecucionDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosManifiestoEjecucionDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosManifiestoEjecucionDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosManifiestoEjecucionDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
 }
 
 // ManifiestoEjecucionDocumentalV3 es inmutable y opaco. Su huella SHA-256
@@ -156,6 +197,9 @@ func (m ManifiestoEjecucionDocumentalV3) GoString() string { return m.String() }
 func (m ManifiestoEjecucionDocumentalV3) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, m.String())
 }
+func (m ManifiestoEjecucionDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(m.String())
+}
 func (ManifiestoEjecucionDocumentalV3) MarshalJSON() ([]byte, error) {
 	return nil, ErrSerializacionSecretoDocumentalV3
 }
@@ -164,6 +208,15 @@ func (*ManifiestoEjecucionDocumentalV3) UnmarshalJSON([]byte) error {
 }
 func (ManifiestoEjecucionDocumentalV3) MarshalText() ([]byte, error) {
 	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ManifiestoEjecucionDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ManifiestoEjecucionDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ManifiestoEjecucionDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
 }
 
 type SolicitudPrepararEjecucionDocumentalV3 struct {
@@ -187,6 +240,35 @@ func (s SolicitudPrepararEjecucionDocumentalV3) Validar() error {
 		return ErrReservaEjecucionDocumentalV3Invalida
 	}
 	return nil
+}
+
+func (SolicitudPrepararEjecucionDocumentalV3) String() string {
+	return "[SOLICITUD-PREPARAR-EJECUCION-DOCUMENTAL-V3-HMAC-REDACTADA]"
+}
+func (s SolicitudPrepararEjecucionDocumentalV3) GoString() string { return s.String() }
+func (s SolicitudPrepararEjecucionDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, s.String())
+}
+func (s SolicitudPrepararEjecucionDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+func (SolicitudPrepararEjecucionDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudPrepararEjecucionDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudPrepararEjecucionDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudPrepararEjecucionDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudPrepararEjecucionDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudPrepararEjecucionDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
 }
 
 type EstadoEjecucionDocumentalV3 string
@@ -230,7 +312,7 @@ func (e EstadoEjecucionDocumentalV3) PuedeTransicionarA(siguiente EstadoEjecucio
 	}
 }
 
-type PreparacionEjecucionDocumentalV3 struct {
+type PreparacionEjecucionDocumentalV3Nominal struct {
 	ReservaRef  string
 	BorradorRef string
 	EfectoRef   string
@@ -238,7 +320,7 @@ type PreparacionEjecucionDocumentalV3 struct {
 	Estado      EstadoEjecucionDocumentalV3
 }
 
-func (p PreparacionEjecucionDocumentalV3) ValidarContra(
+func (p PreparacionEjecucionDocumentalV3Nominal) ValidarContra(
 	s SolicitudPrepararEjecucionDocumentalV3,
 ) error {
 	datos, err := s.Manifiesto.Datos()
@@ -276,122 +358,221 @@ func (c ConsumoDecisionEjecucionDocumentalV3) ValidarContra(
 	return nil
 }
 
-// TokenCercadoEjecucionDocumentalV3 combina un secreto aleatorio con una
-// secuencia monotona. La secuencia de cercado es distinta de la secuencia
-// operativa del perfil, aunque la huella liga ambas de forma inseparable.
-type TokenCercadoEjecucionDocumentalV3 struct {
+// VinculoEstableActivacionDocumentalV3 es el DTO nominal unico que compromete
+// la intencion estable de activacion. Excluye ActivadaEn deliberadamente para
+// que un reintento posterior recupere el mismo cercado. Sus campos son
+// inspeccionables, pero su forma y huella no conceden autoridad: el registro
+// debe reconstruirlo desde las filas V3/V4 durables y compararlo dentro de la
+// transaccion que autoriza el efecto.
+type VinculoEstableActivacionDocumentalV3 struct {
+	ReservaRef               string
+	IndiceIdempotenciaHMAC   string
+	HuellaSolicitudHMAC      string
+	Manifiesto               ManifiestoEjecucionDocumentalV3
+	ConsumoDecision          ConsumoDecisionEjecucionDocumentalV3
+	OrdenConsumoDurableV4Ref string
+}
+
+func (v VinculoEstableActivacionDocumentalV3) Validar() error {
+	datos, err := v.Manifiesto.Datos()
+	if !referenciaEjecucionDocumentalV3Valida(v.ReservaRef) ||
+		!hmacSHA256PuertoValido(v.IndiceIdempotenciaHMAC) ||
+		!hmacSHA256PuertoValido(v.HuellaSolicitudHMAC) || err != nil ||
+		!clavesHMACDocumentalesV3Distintas(
+			v.IndiceIdempotenciaHMAC, v.HuellaSolicitudHMAC, datos.HuellaEntradaHMAC,
+		) || v.ConsumoDecision.ValidarContra(v.Manifiesto) != nil ||
+		!referenciaEjecucionDocumentalV3Valida(v.OrdenConsumoDurableV4Ref) ||
+		v.OrdenConsumoDurableV4Ref != v.ConsumoDecision.EfectoRef ||
+		v.OrdenConsumoDurableV4Ref != datos.EfectoRef {
+		return ErrReservaEjecucionDocumentalV3Invalida
+	}
+	return nil
+}
+
+func (v VinculoEstableActivacionDocumentalV3) HuellaSHA256() (string, error) {
+	if v.Validar() != nil {
+		return "", ErrReservaEjecucionDocumentalV3Invalida
+	}
+	huellaManifiesto, err := v.Manifiesto.HuellaSHA256()
+	if err != nil {
+		return "", ErrReservaEjecucionDocumentalV3Invalida
+	}
+	return huellaCanonicaFormatoDocumental([]string{
+		"vec.documentos.vinculo-estable-activacion.v3",
+		v.ReservaRef, v.IndiceIdempotenciaHMAC, v.HuellaSolicitudHMAC,
+		huellaManifiesto, v.OrdenConsumoDurableV4Ref,
+		v.ConsumoDecision.DecisionRef, v.ConsumoDecision.EfectoRef,
+		v.ConsumoDecision.EsquemaHuellaDecision,
+		v.ConsumoDecision.HuellaDecisionSHA256,
+		v.ConsumoDecision.HuellaPlanSHA256,
+	}), nil
+}
+
+func (VinculoEstableActivacionDocumentalV3) String() string {
+	return "[VINCULO-ESTABLE-ACTIVACION-DOCUMENTAL-V3-NOMINAL-REDACTADO]"
+}
+func (v VinculoEstableActivacionDocumentalV3) GoString() string { return v.String() }
+func (v VinculoEstableActivacionDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, v.String())
+}
+func (v VinculoEstableActivacionDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(v.String())
+}
+func (VinculoEstableActivacionDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*VinculoEstableActivacionDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (VinculoEstableActivacionDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*VinculoEstableActivacionDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (VinculoEstableActivacionDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*VinculoEstableActivacionDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// TokenCercadoEjecucionDocumentalV3Nominal combina un valor aleatorio con una
+// secuencia monotona y una MAC restaurable. La secuencia de cercado es distinta
+// de la secuencia operativa del perfil, aunque la huella liga ambas de forma
+// inseparable. Su construccion publica solo acredita forma nominal: el servicio
+// privado debe verificar la MAC con la clave gestionada antes de cualquier uso.
+type TokenCercadoEjecucionDocumentalV3Nominal struct {
 	valor                 string
 	secuencia             uint64
+	vinculoEstable        VinculoEstableActivacionDocumentalV3
+	huellaVinculoEstable  string
 	huellaVinculo         string
 	claveAtestacionRef    string
+	revisionClave         uint64
 	macAtestacion         []byte
 	evidenciaOperacionRef string
 }
 
-// NuevoTokenCercadoEjecucionDocumentalV3 queda reservado al adaptador de
+// NuevoTokenCercadoEjecucionDocumentalV3Nominal queda reservado al adaptador de
 // RegistroEjecucionesDocumentalesV3. Solo construye el sobre: NO autentica el
-// token. Antes de iniciar, confirmar o reconciliar es obligatorio obtener un
-// ResultadoVerificacionTokenCercadoDocumentalV3 del verificador configurado.
-func NuevoTokenCercadoEjecucionDocumentalV3(
+// token. El MAC compromete la huella canonica del vinculo estable; el registro
+// debe comprobarlo con su clave gestionada antes de cualquier efecto.
+func NuevoTokenCercadoEjecucionDocumentalV3Nominal(
 	valor string,
 	secuencia uint64,
-	reservaRef string,
-	manifiesto ManifiestoEjecucionDocumentalV3,
-	consumo ConsumoDecisionEjecucionDocumentalV3,
+	vinculo VinculoEstableActivacionDocumentalV3,
 	claveAtestacionRef string,
+	revisionClave uint64,
 	macAtestacion []byte,
 	evidenciaOperacionRef string,
-) (TokenCercadoEjecucionDocumentalV3, error) {
+) (TokenCercadoEjecucionDocumentalV3Nominal, error) {
+	huellaVinculoEstable, errVinculo := vinculo.HuellaSHA256()
+	datosManifiesto, errManifiesto := vinculo.Manifiesto.Datos()
 	if !referenciaEjecucionDocumentalV3Valida(valor) || secuencia == 0 ||
-		!referenciaEjecucionDocumentalV3Valida(reservaRef) || consumo.ValidarContra(manifiesto) != nil ||
-		!referenciaEjecucionDocumentalV3Valida(claveAtestacionRef) ||
+		errVinculo != nil || errManifiesto != nil ||
+		!referenciaEjecucionDocumentalV3Valida(claveAtestacionRef) || revisionClave == 0 ||
+		claveAtestacionRef == claveHMACDocumentalV3(datosManifiesto.HuellaEntradaHMAC) ||
 		!referenciaEjecucionDocumentalV3Valida(evidenciaOperacionRef) ||
 		len(macAtestacion) != tamanoFirmaHMACSHA256V3 {
-		return TokenCercadoEjecucionDocumentalV3{}, ErrTokenCercadoDocumentalV3Invalido
+		return TokenCercadoEjecucionDocumentalV3Nominal{}, ErrTokenCercadoDocumentalV3Invalido
 	}
-	token := TokenCercadoEjecucionDocumentalV3{
+	token := TokenCercadoEjecucionDocumentalV3Nominal{
 		valor: valor, secuencia: secuencia,
+		vinculoEstable:       vinculo,
+		huellaVinculoEstable: huellaVinculoEstable,
 		huellaVinculo: huellaVinculoCercadoEjecucionDocumentalV3(
-			reservaRef, secuencia, manifiesto, consumo,
+			secuencia, huellaVinculoEstable,
 		),
 		claveAtestacionRef:    claveAtestacionRef,
+		revisionClave:         revisionClave,
 		macAtestacion:         append([]byte(nil), macAtestacion...),
 		evidenciaOperacionRef: evidenciaOperacionRef,
 	}
-	if token.ValidarPara(reservaRef, manifiesto, consumo) != nil {
-		return TokenCercadoEjecucionDocumentalV3{}, ErrTokenCercadoDocumentalV3Invalido
+	if token.ValidarPara(vinculo) != nil {
+		return TokenCercadoEjecucionDocumentalV3Nominal{}, ErrTokenCercadoDocumentalV3Invalido
 	}
 	return token, nil
 }
 
-func (t TokenCercadoEjecucionDocumentalV3) ValidarPara(
-	reservaRef string,
-	manifiesto ManifiestoEjecucionDocumentalV3,
-	consumo ConsumoDecisionEjecucionDocumentalV3,
+func (t TokenCercadoEjecucionDocumentalV3Nominal) ValidarPara(
+	vinculo VinculoEstableActivacionDocumentalV3,
 ) error {
-	datos, err := manifiesto.Datos()
+	datos, err := vinculo.Manifiesto.Datos()
+	huellaVinculoEstable, errVinculo := vinculo.HuellaSHA256()
+	huellaVinculoInterno, errVinculoInterno := t.vinculoEstable.HuellaSHA256()
 	if !referenciaEjecucionDocumentalV3Valida(t.valor) || t.secuencia == 0 ||
+		!esSHA256Hexadecimal(t.huellaVinculoEstable) ||
 		!esSHA256Hexadecimal(t.huellaVinculo) ||
-		!referenciaEjecucionDocumentalV3Valida(reservaRef) || err != nil ||
-		consumo.ValidarContra(manifiesto) != nil ||
-		!referenciaEjecucionDocumentalV3Valida(t.claveAtestacionRef) ||
+		err != nil || errVinculo != nil || errVinculoInterno != nil ||
+		t.huellaVinculoEstable != huellaVinculoEstable ||
+		t.huellaVinculoEstable != huellaVinculoInterno ||
+		!referenciaEjecucionDocumentalV3Valida(t.claveAtestacionRef) || t.revisionClave == 0 ||
 		t.claveAtestacionRef == claveHMACDocumentalV3(datos.HuellaEntradaHMAC) ||
 		len(t.macAtestacion) != tamanoFirmaHMACSHA256V3 ||
 		bytesEjecucionDocumentalNulos(t.macAtestacion) ||
 		!referenciaEjecucionDocumentalV3Valida(t.evidenciaOperacionRef) ||
 		t.huellaVinculo != huellaVinculoCercadoEjecucionDocumentalV3(
-			reservaRef, t.secuencia, manifiesto, consumo,
+			t.secuencia, huellaVinculoEstable,
 		) {
 		return ErrTokenCercadoDocumentalV3Invalido
 	}
 	return nil
 }
 
-func (t TokenCercadoEjecucionDocumentalV3) Secuencia() uint64 { return t.secuencia }
-func (t TokenCercadoEjecucionDocumentalV3) HuellaVinculoSHA256() string {
+func (t TokenCercadoEjecucionDocumentalV3Nominal) Secuencia() uint64 { return t.secuencia }
+func (t TokenCercadoEjecucionDocumentalV3Nominal) RevisionClaveGestionada() uint64 {
+	return t.revisionClave
+}
+func (t TokenCercadoEjecucionDocumentalV3Nominal) HuellaVinculoSHA256() string {
 	return t.huellaVinculo
 }
-func (TokenCercadoEjecucionDocumentalV3) String() string {
-	return "[TOKEN-CERCADO-DOCUMENTAL-V3-CONFIDENCIAL]"
+func (TokenCercadoEjecucionDocumentalV3Nominal) String() string {
+	return "[TOKEN-CERCADO-DOCUMENTAL-V3-NOMINAL-NO-AUTORITATIVO-REDACTADO]"
 }
-func (t TokenCercadoEjecucionDocumentalV3) GoString() string { return t.String() }
-func (t TokenCercadoEjecucionDocumentalV3) Format(estado fmt.State, _ rune) {
+func (t TokenCercadoEjecucionDocumentalV3Nominal) GoString() string { return t.String() }
+func (t TokenCercadoEjecucionDocumentalV3Nominal) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, t.String())
 }
-func (TokenCercadoEjecucionDocumentalV3) MarshalJSON() ([]byte, error) {
+func (t TokenCercadoEjecucionDocumentalV3Nominal) LogValue() slog.Value {
+	return slog.StringValue(t.String())
+}
+func (TokenCercadoEjecucionDocumentalV3Nominal) MarshalJSON() ([]byte, error) {
 	return nil, ErrSerializacionSecretoDocumentalV3
 }
-func (TokenCercadoEjecucionDocumentalV3) MarshalText() ([]byte, error) {
+func (TokenCercadoEjecucionDocumentalV3Nominal) MarshalText() ([]byte, error) {
 	return nil, ErrSerializacionSecretoDocumentalV3
 }
-func (*TokenCercadoEjecucionDocumentalV3) UnmarshalJSON([]byte) error {
+func (TokenCercadoEjecucionDocumentalV3Nominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*TokenCercadoEjecucionDocumentalV3Nominal) UnmarshalJSON([]byte) error {
 	return ErrSerializacionSecretoDocumentalV3
 }
-func (*TokenCercadoEjecucionDocumentalV3) UnmarshalText([]byte) error {
+func (*TokenCercadoEjecucionDocumentalV3Nominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (*TokenCercadoEjecucionDocumentalV3Nominal) UnmarshalBinary([]byte) error {
 	return ErrSerializacionSecretoDocumentalV3
 }
 
 type SolicitudVerificacionTokenCercadoDocumentalV3 struct {
-	reservaRef string
-	manifiesto ManifiestoEjecucionDocumentalV3
-	consumo    ConsumoDecisionEjecucionDocumentalV3
-	token      TokenCercadoEjecucionDocumentalV3
-	mensaje    []byte
-	huella     string
+	vinculo VinculoEstableActivacionDocumentalV3
+	token   TokenCercadoEjecucionDocumentalV3Nominal
+	mensaje []byte
+	huella  string
 }
 
 func NuevaSolicitudVerificacionTokenCercadoDocumentalV3(
-	reservaRef string,
-	manifiesto ManifiestoEjecucionDocumentalV3,
-	consumo ConsumoDecisionEjecucionDocumentalV3,
-	token TokenCercadoEjecucionDocumentalV3,
+	vinculo VinculoEstableActivacionDocumentalV3,
+	token TokenCercadoEjecucionDocumentalV3Nominal,
 ) (SolicitudVerificacionTokenCercadoDocumentalV3, error) {
-	if token.ValidarPara(reservaRef, manifiesto, consumo) != nil {
+	if token.ValidarPara(vinculo) != nil {
 		return SolicitudVerificacionTokenCercadoDocumentalV3{}, ErrTokenCercadoDocumentalV3Invalido
 	}
-	mensaje := serializarAtestacionTokenCercadoDocumentalV3(reservaRef, manifiesto, consumo, token)
+	mensaje := serializarAtestacionTokenCercadoDocumentalV3(vinculo, token)
 	solicitud := SolicitudVerificacionTokenCercadoDocumentalV3{
-		reservaRef: reservaRef, manifiesto: manifiesto, consumo: consumo, token: token,
+		vinculo: vinculo, token: token,
 		mensaje: append([]byte(nil), mensaje...),
 		huella:  huellaSolicitudVerificacionTokenCercadoDocumentalV3(mensaje, token.macAtestacion),
 	}
@@ -402,13 +583,13 @@ func NuevaSolicitudVerificacionTokenCercadoDocumentalV3(
 }
 
 func (s SolicitudVerificacionTokenCercadoDocumentalV3) Validar() error {
-	if s.token.ValidarPara(s.reservaRef, s.manifiesto, s.consumo) != nil ||
+	if s.token.ValidarPara(s.vinculo) != nil ||
 		len(s.mensaje) == 0 || !esSHA256Hexadecimal(s.huella) ||
 		huellaSolicitudVerificacionTokenCercadoDocumentalV3(
 			s.mensaje, s.token.macAtestacion,
 		) != s.huella ||
 		string(s.mensaje) != string(serializarAtestacionTokenCercadoDocumentalV3(
-			s.reservaRef, s.manifiesto, s.consumo, s.token,
+			s.vinculo, s.token,
 		)) {
 		return ErrTokenCercadoDocumentalV3Invalido
 	}
@@ -436,30 +617,202 @@ func (s SolicitudVerificacionTokenCercadoDocumentalV3) ClaveAtestacionRef() (str
 	return s.token.claveAtestacionRef, nil
 }
 
-type ResultadoVerificacionTokenCercadoDocumentalV3 struct {
+func (SolicitudVerificacionTokenCercadoDocumentalV3) String() string {
+	return "[SOLICITUD-VERIFICACION-TOKEN-CERCADO-V3-CONFIDENCIAL]"
+}
+func (s SolicitudVerificacionTokenCercadoDocumentalV3) GoString() string { return s.String() }
+func (s SolicitudVerificacionTokenCercadoDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, s.String())
+}
+func (s SolicitudVerificacionTokenCercadoDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+func (SolicitudVerificacionTokenCercadoDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudVerificacionTokenCercadoDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudVerificacionTokenCercadoDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudVerificacionTokenCercadoDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudVerificacionTokenCercadoDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudVerificacionTokenCercadoDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// PruebaCrudaAtestacionDespachoDocumentalV3 transporta material suficiente
+// para que un adaptador criptografico real compruebe una HMAC. Es restaurable
+// y, por tanto, nunca acredita por si misma que la comprobacion haya ocurrido.
+type PruebaCrudaAtestacionDespachoDocumentalV3 struct {
+	algoritmo               string
+	audiencia               string
+	contexto                string
+	claveGestionadaRef      string
+	revisionClaveGestionada uint64
+	evidenciaOperacionRef   string
+	mensajeCanonico         []byte
+	sobreCriptografico      []byte
+	huellaMensajeSHA256     string
+	huellaSobreSHA256       string
+}
+
+func NuevaPruebaCrudaAtestacionDespachoDocumentalV3(
+	algoritmo, audiencia, contexto, claveGestionadaRef string,
+	revisionClaveGestionada uint64,
+	evidenciaOperacionRef string,
+	mensajeCanonico, sobreCriptografico []byte,
+) (PruebaCrudaAtestacionDespachoDocumentalV3, error) {
+	prueba := PruebaCrudaAtestacionDespachoDocumentalV3{
+		algoritmo: algoritmo, audiencia: audiencia, contexto: contexto,
+		claveGestionadaRef:      claveGestionadaRef,
+		revisionClaveGestionada: revisionClaveGestionada,
+		evidenciaOperacionRef:   evidenciaOperacionRef,
+		mensajeCanonico:         append([]byte(nil), mensajeCanonico...),
+		sobreCriptografico:      append([]byte(nil), sobreCriptografico...),
+		huellaMensajeSHA256:     huellaBytesFormatoDocumental(mensajeCanonico),
+		huellaSobreSHA256:       huellaBytesFormatoDocumental(sobreCriptografico),
+	}
+	if prueba.Validar() != nil {
+		return PruebaCrudaAtestacionDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return prueba, nil
+}
+
+func (p PruebaCrudaAtestacionDespachoDocumentalV3) Validar() error {
+	perfilValido := p.algoritmo == AlgoritmoSelloEvidenciaHMACSHA256V3 &&
+		((p.audiencia == AudienciaAtestacionTokenCercadoV3 &&
+			p.contexto == ContextoAtestacionTokenCercadoV3) ||
+			(p.audiencia == AudienciaAtestacionInicioEfectoV3 &&
+				p.contexto == ContextoAtestacionInicioEfectoV3) ||
+			(p.audiencia == AudienciaAtestacionReclamacionV3 &&
+				p.contexto == ContextoAtestacionReclamacionV3))
+	if !perfilValido || !referenciaEjecucionDocumentalV3Valida(p.claveGestionadaRef) ||
+		p.revisionClaveGestionada == 0 ||
+		!referenciaEjecucionDocumentalV3Valida(p.evidenciaOperacionRef) ||
+		len(p.mensajeCanonico) == 0 || len(p.mensajeCanonico) > 64*1024 ||
+		len(p.sobreCriptografico) != tamanoFirmaHMACSHA256V3 ||
+		bytesEjecucionDocumentalNulos(p.sobreCriptografico) ||
+		!esSHA256Hexadecimal(p.huellaMensajeSHA256) ||
+		p.huellaMensajeSHA256 != huellaBytesFormatoDocumental(p.mensajeCanonico) ||
+		!esSHA256Hexadecimal(p.huellaSobreSHA256) ||
+		p.huellaSobreSHA256 != huellaBytesFormatoDocumental(p.sobreCriptografico) {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return nil
+}
+
+func (p PruebaCrudaAtestacionDespachoDocumentalV3) Perfil() (
+	algoritmo, audiencia, contexto, claveGestionadaRef string,
+	revisionClaveGestionada uint64,
+	err error,
+) {
+	if p.Validar() != nil {
+		return "", "", "", "", 0, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return p.algoritmo, p.audiencia, p.contexto, p.claveGestionadaRef,
+		p.revisionClaveGestionada, nil
+}
+
+func (p PruebaCrudaAtestacionDespachoDocumentalV3) MensajeCanonico() ([]byte, error) {
+	if p.Validar() != nil {
+		return nil, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return append([]byte(nil), p.mensajeCanonico...), nil
+}
+
+func (p PruebaCrudaAtestacionDespachoDocumentalV3) SobreCriptografico() ([]byte, error) {
+	if p.Validar() != nil {
+		return nil, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return append([]byte(nil), p.sobreCriptografico...), nil
+}
+
+func (p PruebaCrudaAtestacionDespachoDocumentalV3) EvidenciaOperacionRef() (string, error) {
+	if p.Validar() != nil {
+		return "", ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return p.evidenciaOperacionRef, nil
+}
+
+func (p PruebaCrudaAtestacionDespachoDocumentalV3) HuellasSHA256() (
+	mensaje, sobre string,
+	err error,
+) {
+	if p.Validar() != nil {
+		return "", "", ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return p.huellaMensajeSHA256, p.huellaSobreSHA256, nil
+}
+
+func (p PruebaCrudaAtestacionDespachoDocumentalV3) huellaSHA256() string {
+	return huellaCanonicaFormatoDocumental([]string{
+		"vec.documentos.prueba-cruda-atestacion-despacho.v3", p.algoritmo,
+		p.audiencia, p.contexto, p.claveGestionadaRef,
+		strconvu64(p.revisionClaveGestionada), p.evidenciaOperacionRef,
+		p.huellaMensajeSHA256, p.huellaSobreSHA256,
+	})
+}
+
+func (PruebaCrudaAtestacionDespachoDocumentalV3) String() string {
+	return "[PRUEBA-CRUDA-ATESTACION-DESPACHO-V3-NOMINAL-NO-AUTORITATIVA-REDACTADA]"
+}
+func (p PruebaCrudaAtestacionDespachoDocumentalV3) GoString() string { return p.String() }
+func (p PruebaCrudaAtestacionDespachoDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, p.String())
+}
+func (p PruebaCrudaAtestacionDespachoDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(p.String())
+}
+func (PruebaCrudaAtestacionDespachoDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*PruebaCrudaAtestacionDespachoDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (PruebaCrudaAtestacionDespachoDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*PruebaCrudaAtestacionDespachoDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (PruebaCrudaAtestacionDespachoDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*PruebaCrudaAtestacionDespachoDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+type MetadatosComprobacionTokenCercadoDocumentalV3Nominal struct {
 	huellaSolicitud string
 	verificacionRef string
 	verificadaEn    time.Time
 }
 
-// NuevoResultadoVerificacionTokenCercadoDocumentalV3 queda reservado al
-// adaptador de VerificadorTokensCercadoDocumentalV3. El producto no puede
-// invocarlo como sustituto de la comprobacion MAC con la clave gestionada.
-func NuevoResultadoVerificacionTokenCercadoDocumentalV3(
+// NuevosMetadatosComprobacionTokenCercadoDocumentalV3Nominal solo correlaciona una
+// solicitud con referencia e instante. Es una fabrica publica autocreable y,
+// por tanto, estos metadatos son nominales y NO acreditan que se
+// verificara el MAC. Nunca habilitan el inicio ni otro efecto por si solos.
+func NuevosMetadatosComprobacionTokenCercadoDocumentalV3Nominal(
 	solicitud SolicitudVerificacionTokenCercadoDocumentalV3,
 	verificacionRef string,
 	verificadaEn time.Time,
-) (ResultadoVerificacionTokenCercadoDocumentalV3, error) {
+) (MetadatosComprobacionTokenCercadoDocumentalV3Nominal, error) {
 	if solicitud.Validar() != nil || !referenciaEjecucionDocumentalV3Valida(verificacionRef) ||
 		!instanteEjecucionDocumentalV3Valido(verificadaEn) {
-		return ResultadoVerificacionTokenCercadoDocumentalV3{}, ErrTokenCercadoDocumentalV3Invalido
+		return MetadatosComprobacionTokenCercadoDocumentalV3Nominal{}, ErrTokenCercadoDocumentalV3Invalido
 	}
-	return ResultadoVerificacionTokenCercadoDocumentalV3{
+	return MetadatosComprobacionTokenCercadoDocumentalV3Nominal{
 		huellaSolicitud: solicitud.huella, verificacionRef: verificacionRef, verificadaEn: verificadaEn,
 	}, nil
 }
 
-func (r ResultadoVerificacionTokenCercadoDocumentalV3) ValidarPara(
+func (r MetadatosComprobacionTokenCercadoDocumentalV3Nominal) ValidarPara(
 	solicitud SolicitudVerificacionTokenCercadoDocumentalV3,
 ) error {
 	if solicitud.Validar() != nil || r.huellaSolicitud != solicitud.huella ||
@@ -470,11 +823,33 @@ func (r ResultadoVerificacionTokenCercadoDocumentalV3) ValidarPara(
 	return nil
 }
 
-type VerificadorTokensCercadoDocumentalV3 interface {
-	VerificarTokenCercadoDocumentalV3(
-		context.Context,
-		SolicitudVerificacionTokenCercadoDocumentalV3,
-	) (ResultadoVerificacionTokenCercadoDocumentalV3, error)
+func (MetadatosComprobacionTokenCercadoDocumentalV3Nominal) String() string {
+	return "[METADATOS-COMPROBACION-TOKEN-CERCADO-V3-NOMINALES-NO-AUTORITATIVOS]"
+}
+func (m MetadatosComprobacionTokenCercadoDocumentalV3Nominal) GoString() string { return m.String() }
+func (m MetadatosComprobacionTokenCercadoDocumentalV3Nominal) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, m.String())
+}
+func (m MetadatosComprobacionTokenCercadoDocumentalV3Nominal) LogValue() slog.Value {
+	return slog.StringValue(m.String())
+}
+func (MetadatosComprobacionTokenCercadoDocumentalV3Nominal) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*MetadatosComprobacionTokenCercadoDocumentalV3Nominal) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (MetadatosComprobacionTokenCercadoDocumentalV3Nominal) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*MetadatosComprobacionTokenCercadoDocumentalV3Nominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (MetadatosComprobacionTokenCercadoDocumentalV3Nominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*MetadatosComprobacionTokenCercadoDocumentalV3Nominal) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
 }
 
 type SolicitudActivarEjecucionDocumentalV3 struct {
@@ -483,57 +858,1432 @@ type SolicitudActivarEjecucionDocumentalV3 struct {
 	HuellaSolicitudHMAC    string
 	Manifiesto             ManifiestoEjecucionDocumentalV3
 	ConsumoDecision        ConsumoDecisionEjecucionDocumentalV3
-	ActivadaEn             time.Time
+	// OrdenConsumoDurableV4Ref es una referencia nominal, nunca autoridad.
+	// El registro debe releer la orden V4 y adoptarla en su propio COMMIT.
+	OrdenConsumoDurableV4Ref string
+	ActivadaEn               time.Time
 }
 
 func (s SolicitudActivarEjecucionDocumentalV3) Validar() error {
-	datos, err := s.Manifiesto.Datos()
-	if !referenciaEjecucionDocumentalV3Valida(s.ReservaRef) ||
-		!hmacSHA256PuertoValido(s.IndiceIdempotenciaHMAC) ||
-		!hmacSHA256PuertoValido(s.HuellaSolicitudHMAC) || err != nil ||
-		!clavesHMACDocumentalesV3Distintas(
-			s.IndiceIdempotenciaHMAC, s.HuellaSolicitudHMAC, datos.HuellaEntradaHMAC,
-		) || s.ConsumoDecision.ValidarContra(s.Manifiesto) != nil ||
+	if _, err := s.VinculoEstable(); err != nil ||
 		!instanteEjecucionDocumentalV3Valido(s.ActivadaEn) {
 		return ErrReservaEjecucionDocumentalV3Invalida
 	}
 	return nil
 }
 
-type ActivacionEjecucionDocumentalV3 struct {
-	Token    TokenCercadoEjecucionDocumentalV3
+func (s SolicitudActivarEjecucionDocumentalV3) VinculoEstable() (
+	VinculoEstableActivacionDocumentalV3,
+	error,
+) {
+	vinculo := VinculoEstableActivacionDocumentalV3{
+		ReservaRef: s.ReservaRef, IndiceIdempotenciaHMAC: s.IndiceIdempotenciaHMAC,
+		HuellaSolicitudHMAC: s.HuellaSolicitudHMAC, Manifiesto: s.Manifiesto,
+		ConsumoDecision:          s.ConsumoDecision,
+		OrdenConsumoDurableV4Ref: s.OrdenConsumoDurableV4Ref,
+	}
+	if vinculo.Validar() != nil {
+		return VinculoEstableActivacionDocumentalV3{}, ErrReservaEjecucionDocumentalV3Invalida
+	}
+	return vinculo, nil
+}
+
+func (SolicitudActivarEjecucionDocumentalV3) String() string {
+	return "[SOLICITUD-ACTIVAR-EJECUCION-DOCUMENTAL-V3-REDACTADA]"
+}
+
+func (s SolicitudActivarEjecucionDocumentalV3) GoString() string { return s.String() }
+func (s SolicitudActivarEjecucionDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, s.String())
+}
+func (s SolicitudActivarEjecucionDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+func (SolicitudActivarEjecucionDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudActivarEjecucionDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudActivarEjecucionDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudActivarEjecucionDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudActivarEjecucionDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudActivarEjecucionDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+type ActivacionEjecucionDocumentalV3Nominal struct {
+	Token    TokenCercadoEjecucionDocumentalV3Nominal
 	Repetida bool
 }
 
-func (a ActivacionEjecucionDocumentalV3) ValidarContra(s SolicitudActivarEjecucionDocumentalV3) error {
-	if s.Validar() != nil || a.Token.ValidarPara(s.ReservaRef, s.Manifiesto, s.ConsumoDecision) != nil {
+func (a ActivacionEjecucionDocumentalV3Nominal) ValidarContra(s SolicitudActivarEjecucionDocumentalV3) error {
+	vinculo, err := s.VinculoEstable()
+	if s.Validar() != nil || err != nil || a.Token.ValidarPara(vinculo) != nil {
 		return ErrReservaEjecucionDocumentalV3Invalida
 	}
 	return nil
 }
 
 type SolicitudIniciarEfectoDocumentalV3 struct {
-	ReservaRef          string
-	Manifiesto          ManifiestoEjecucionDocumentalV3
-	ConsumoDecision     ConsumoDecisionEjecucionDocumentalV3
-	Token               TokenCercadoEjecucionDocumentalV3
-	VerificacionCercado ResultadoVerificacionTokenCercadoDocumentalV3
-	IniciadoEn          time.Time
+	VinculoActivacion VinculoEstableActivacionDocumentalV3
+	Token             TokenCercadoEjecucionDocumentalV3Nominal
+	IniciadoEn        time.Time
 }
 
 func (s SolicitudIniciarEfectoDocumentalV3) Validar() error {
 	if !instanteEjecucionDocumentalV3Valido(s.IniciadoEn) ||
-		!verificacionTokenCercadoDocumentalV3Valida(
-			s.ReservaRef, s.Manifiesto, s.ConsumoDecision, s.Token, s.VerificacionCercado,
-		) {
+		s.VinculoActivacion.Validar() != nil || s.Token.ValidarPara(s.VinculoActivacion) != nil {
 		return ErrTransicionEjecucionDocumentalV3Invalida
 	}
 	return nil
 }
 
-// ResultadoEfectoRenderizadoDocumentalV3 conserva una referencia exacta y
+func (SolicitudIniciarEfectoDocumentalV3) String() string {
+	return "[SOLICITUD-INICIAR-EFECTO-DOCUMENTAL-V3-ESTRUCTURAL-REDACTADA]"
+}
+func (s SolicitudIniciarEfectoDocumentalV3) GoString() string { return s.String() }
+func (s SolicitudIniciarEfectoDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, s.String())
+}
+func (s SolicitudIniciarEfectoDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+func (SolicitudIniciarEfectoDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudIniciarEfectoDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudIniciarEfectoDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudIniciarEfectoDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudIniciarEfectoDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudIniciarEfectoDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// DatosReciboInicioEfectoDocumentalV3Nominal es la proyeccion nominal del COMMIT que
+// hizo el CAS activa -> iniciada. Puede persistirse como columnas, pero una
+// copia construida por el llamador nunca concede autoridad de despacho.
+type DatosReciboInicioEfectoDocumentalV3Nominal struct {
+	InicioRef                  string
+	ReservaRef                 string
+	HuellaVinculoEstableSHA256 string
+	SecuenciaCercado           uint64
+	HuellaVinculoCercadoSHA256 string
+	OrdenConsumoDurableV4Ref   string
+	VersionInicioCAS           uint64
+	AuditoriaInicioRef         string
+	OutboxInicioRef            string
+	AtestacionInicio           PruebaCrudaAtestacionDespachoDocumentalV3
+	IniciadoEn                 time.Time
+}
+
+func (DatosReciboInicioEfectoDocumentalV3Nominal) String() string {
+	return "[DATOS-RECIBO-INICIO-EFECTO-V3-NOMINALES-HMAC-REDACTADOS]"
+}
+func (d DatosReciboInicioEfectoDocumentalV3Nominal) GoString() string { return d.String() }
+func (d DatosReciboInicioEfectoDocumentalV3Nominal) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, d.String())
+}
+func (d DatosReciboInicioEfectoDocumentalV3Nominal) LogValue() slog.Value {
+	return slog.StringValue(d.String())
+}
+func (DatosReciboInicioEfectoDocumentalV3Nominal) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosReciboInicioEfectoDocumentalV3Nominal) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosReciboInicioEfectoDocumentalV3Nominal) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosReciboInicioEfectoDocumentalV3Nominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosReciboInicioEfectoDocumentalV3Nominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosReciboInicioEfectoDocumentalV3Nominal) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// ReciboInicioEfectoDocumentalV3Nominal es un recibo durable nominal y atestado. Lo
+// devuelve el registro en el mismo COMMIT del inicio, pero solo la posterior
+// relectura y reclamacion CAS de su outbox puede convertirlo en candidato a
+// despacho. Su fabrica publica restaura datos; no certifica su procedencia.
+type ReciboInicioEfectoDocumentalV3Nominal struct {
+	datos *DatosReciboInicioEfectoDocumentalV3Nominal
+}
+
+func MensajeCanonicoAtestacionInicioEfectoDocumentalV3(
+	solicitud SolicitudIniciarEfectoDocumentalV3,
+	inicioRef string,
+	versionInicioCAS uint64,
+	auditoriaInicioRef, outboxInicioRef, evidenciaOperacionRef string,
+) ([]byte, error) {
+	huellaVinculo, err := solicitud.VinculoActivacion.HuellaSHA256()
+	if solicitud.Validar() != nil || err != nil ||
+		!referenciaEjecucionDocumentalV3Valida(inicioRef) || versionInicioCAS == 0 ||
+		!referenciaEjecucionDocumentalV3Valida(auditoriaInicioRef) ||
+		!referenciaEjecucionDocumentalV3Valida(outboxInicioRef) ||
+		!referenciaEjecucionDocumentalV3Valida(evidenciaOperacionRef) {
+		return nil, ErrReciboInicioDocumentalV3Invalido
+	}
+	return serializarCamposCanonicosEjecucionDocumentalV3([]string{
+		"vec.documentos.atestacion-inicio-efecto.v3", inicioRef,
+		solicitud.VinculoActivacion.ReservaRef, huellaVinculo,
+		strconvu64(solicitud.Token.Secuencia()), solicitud.Token.HuellaVinculoSHA256(),
+		solicitud.VinculoActivacion.OrdenConsumoDurableV4Ref,
+		strconvu64(versionInicioCAS), auditoriaInicioRef, outboxInicioRef,
+		AlgoritmoSelloEvidenciaHMACSHA256V3, AudienciaAtestacionInicioEfectoV3,
+		ContextoAtestacionInicioEfectoV3, solicitud.Token.claveAtestacionRef,
+		strconvu64(solicitud.Token.revisionClave), evidenciaOperacionRef,
+		solicitud.IniciadoEn.Format(time.RFC3339Nano),
+	}), nil
+}
+
+func NuevoReciboInicioEfectoDocumentalV3Nominal(
+	solicitud SolicitudIniciarEfectoDocumentalV3,
+	inicioRef string,
+	versionInicioCAS uint64,
+	auditoriaInicioRef, outboxInicioRef string,
+	atestacionInicio PruebaCrudaAtestacionDespachoDocumentalV3,
+) (ReciboInicioEfectoDocumentalV3Nominal, error) {
+	huellaVinculo, err := solicitud.VinculoActivacion.HuellaSHA256()
+	evidenciaRef, errEvidencia := atestacionInicio.EvidenciaOperacionRef()
+	mensajeEsperado, errMensaje := MensajeCanonicoAtestacionInicioEfectoDocumentalV3(
+		solicitud, inicioRef, versionInicioCAS, auditoriaInicioRef, outboxInicioRef,
+		evidenciaRef,
+	)
+	algoritmo, audiencia, contexto, claveRef, revisionClave, errPerfil := atestacionInicio.Perfil()
+	mensajeAtestacion, errMaterial := atestacionInicio.MensajeCanonico()
+	if solicitud.Validar() != nil || err != nil || errEvidencia != nil || errMensaje != nil ||
+		errPerfil != nil || errMaterial != nil ||
+		algoritmo != AlgoritmoSelloEvidenciaHMACSHA256V3 ||
+		audiencia != AudienciaAtestacionInicioEfectoV3 ||
+		contexto != ContextoAtestacionInicioEfectoV3 ||
+		claveRef != solicitud.Token.claveAtestacionRef ||
+		revisionClave != solicitud.Token.revisionClave ||
+		!bytesEjecucionDocumentalV3Iguales(mensajeAtestacion, mensajeEsperado) {
+		return ReciboInicioEfectoDocumentalV3Nominal{}, ErrReciboInicioDocumentalV3Invalido
+	}
+	datos := &DatosReciboInicioEfectoDocumentalV3Nominal{
+		InicioRef: inicioRef, ReservaRef: solicitud.VinculoActivacion.ReservaRef,
+		HuellaVinculoEstableSHA256: huellaVinculo,
+		SecuenciaCercado:           solicitud.Token.Secuencia(),
+		HuellaVinculoCercadoSHA256: solicitud.Token.HuellaVinculoSHA256(),
+		OrdenConsumoDurableV4Ref:   solicitud.VinculoActivacion.OrdenConsumoDurableV4Ref,
+		VersionInicioCAS:           versionInicioCAS, AuditoriaInicioRef: auditoriaInicioRef,
+		OutboxInicioRef:  outboxInicioRef,
+		AtestacionInicio: clonarPruebaCrudaAtestacionDespachoDocumentalV3(atestacionInicio),
+		IniciadoEn:       solicitud.IniciadoEn,
+	}
+	recibo := ReciboInicioEfectoDocumentalV3Nominal{datos: datos}
+	if recibo.ValidarContra(solicitud) != nil {
+		return ReciboInicioEfectoDocumentalV3Nominal{}, ErrReciboInicioDocumentalV3Invalido
+	}
+	return recibo, nil
+}
+
+func (r ReciboInicioEfectoDocumentalV3Nominal) Validar() error {
+	if r.datos == nil {
+		return ErrReciboInicioDocumentalV3Invalido
+	}
+	d := r.datos
+	evidenciaRef, errEvidencia := d.AtestacionInicio.EvidenciaOperacionRef()
+	referencias := []string{
+		d.InicioRef, d.ReservaRef, d.OrdenConsumoDurableV4Ref, d.AuditoriaInicioRef,
+		d.OutboxInicioRef, evidenciaRef,
+	}
+	for indice, referencia := range referencias {
+		if !referenciaEjecucionDocumentalV3Valida(referencia) {
+			return ErrReciboInicioDocumentalV3Invalido
+		}
+		for otra := indice + 1; otra < len(referencias); otra++ {
+			if referencia == referencias[otra] {
+				return ErrReciboInicioDocumentalV3Invalido
+			}
+		}
+	}
+	if errEvidencia != nil || !esSHA256Hexadecimal(d.HuellaVinculoEstableSHA256) || d.SecuenciaCercado == 0 ||
+		!esSHA256Hexadecimal(d.HuellaVinculoCercadoSHA256) || d.VersionInicioCAS == 0 ||
+		d.AtestacionInicio.Validar() != nil ||
+		!instanteEjecucionDocumentalV3Valido(d.IniciadoEn) {
+		return ErrReciboInicioDocumentalV3Invalido
+	}
+	return nil
+}
+
+func (r ReciboInicioEfectoDocumentalV3Nominal) ValidarContra(
+	solicitud SolicitudIniciarEfectoDocumentalV3,
+) error {
+	// Validar primero el receptor opaco evita desreferenciar datos restaurados
+	// nulos. El valor cero debe fallar cerrado igual que cualquier recibo
+	// malformado, nunca provocar panic en un adaptador o registro.
+	if r.Validar() != nil || solicitud.Validar() != nil {
+		return ErrReciboInicioDocumentalV3Invalido
+	}
+	datos := r.datos
+	huellaVinculo, err := solicitud.VinculoActivacion.HuellaSHA256()
+	evidenciaRef, errEvidencia := datos.AtestacionInicio.EvidenciaOperacionRef()
+	mensajeEsperado, errMensaje := MensajeCanonicoAtestacionInicioEfectoDocumentalV3(
+		solicitud, datos.InicioRef, datos.VersionInicioCAS,
+		datos.AuditoriaInicioRef, datos.OutboxInicioRef, evidenciaRef,
+	)
+	mensajeAtestacion, errMaterial := datos.AtestacionInicio.MensajeCanonico()
+	if err != nil ||
+		errEvidencia != nil || errMensaje != nil || errMaterial != nil ||
+		!bytesEjecucionDocumentalV3Iguales(mensajeAtestacion, mensajeEsperado) ||
+		datos.ReservaRef != solicitud.VinculoActivacion.ReservaRef ||
+		datos.HuellaVinculoEstableSHA256 != huellaVinculo ||
+		datos.SecuenciaCercado != solicitud.Token.Secuencia() ||
+		datos.HuellaVinculoCercadoSHA256 != solicitud.Token.HuellaVinculoSHA256() ||
+		datos.OrdenConsumoDurableV4Ref != solicitud.VinculoActivacion.OrdenConsumoDurableV4Ref ||
+		!datos.IniciadoEn.Equal(solicitud.IniciadoEn) {
+		return ErrReciboInicioDocumentalV3Invalido
+	}
+	return nil
+}
+
+func (r ReciboInicioEfectoDocumentalV3Nominal) Datos() (DatosReciboInicioEfectoDocumentalV3Nominal, error) {
+	if r.Validar() != nil {
+		return DatosReciboInicioEfectoDocumentalV3Nominal{}, ErrReciboInicioDocumentalV3Invalido
+	}
+	datos := *r.datos
+	datos.AtestacionInicio = clonarPruebaCrudaAtestacionDespachoDocumentalV3(r.datos.AtestacionInicio)
+	return datos, nil
+}
+
+func (r ReciboInicioEfectoDocumentalV3Nominal) HuellaSHA256() (string, error) {
+	if r.Validar() != nil {
+		return "", ErrReciboInicioDocumentalV3Invalido
+	}
+	d := r.datos
+	return huellaCanonicaFormatoDocumental([]string{
+		"vec.documentos.recibo-inicio-efecto.v3", d.InicioRef, d.ReservaRef,
+		d.HuellaVinculoEstableSHA256, strconvu64(d.SecuenciaCercado),
+		d.HuellaVinculoCercadoSHA256, d.OrdenConsumoDurableV4Ref,
+		strconvu64(d.VersionInicioCAS), d.AuditoriaInicioRef, d.OutboxInicioRef,
+		d.AtestacionInicio.huellaSHA256(),
+		d.IniciadoEn.Format(time.RFC3339Nano),
+	}), nil
+}
+
+func (ReciboInicioEfectoDocumentalV3Nominal) String() string {
+	return "[RECIBO-INICIO-EFECTO-DOCUMENTAL-V3-NOMINAL-REDACTADO]"
+}
+func (r ReciboInicioEfectoDocumentalV3Nominal) GoString() string { return r.String() }
+func (r ReciboInicioEfectoDocumentalV3Nominal) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, r.String())
+}
+func (r ReciboInicioEfectoDocumentalV3Nominal) LogValue() slog.Value {
+	return slog.StringValue(r.String())
+}
+func (ReciboInicioEfectoDocumentalV3Nominal) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ReciboInicioEfectoDocumentalV3Nominal) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ReciboInicioEfectoDocumentalV3Nominal) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ReciboInicioEfectoDocumentalV3Nominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ReciboInicioEfectoDocumentalV3Nominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ReciboInicioEfectoDocumentalV3Nominal) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// SolicitudReclamarOrdenDespachoDocumentalV3 identifica una unica reclamacion
+// CAS del evento outbox de inicio. El llamador solo aporta referencias opacas;
+// nunca un resultado de verificacion ni un token.
+type SolicitudReclamarOrdenDespachoDocumentalV3 struct {
+	ReclamacionRef string
+	InicioRef      string
+	OutboxRef      string
+	ConsumidorRef  string
+	ReclamadaEn    time.Time
+	ExpiraEn       time.Time
+}
+
+func (s SolicitudReclamarOrdenDespachoDocumentalV3) Validar() error {
+	referencias := []string{s.ReclamacionRef, s.InicioRef, s.OutboxRef, s.ConsumidorRef}
+	for indice, referencia := range referencias {
+		if !referenciaEjecucionDocumentalV3Valida(referencia) {
+			return ErrOrdenDespachoDocumentalV3Invalida
+		}
+		for otra := indice + 1; otra < len(referencias); otra++ {
+			if referencia == referencias[otra] {
+				return ErrOrdenDespachoDocumentalV3Invalida
+			}
+		}
+	}
+	if !instanteEjecucionDocumentalV3Valido(s.ReclamadaEn) ||
+		!instanteEjecucionDocumentalV3Valido(s.ExpiraEn) || !s.ExpiraEn.After(s.ReclamadaEn) ||
+		s.ExpiraEn.Sub(s.ReclamadaEn) > duracionMaximaReclamacionDespachoV3 {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return nil
+}
+
+func (SolicitudReclamarOrdenDespachoDocumentalV3) String() string {
+	return "[SOLICITUD-RECLAMAR-DESPACHO-DOCUMENTAL-V3-REDACTADA]"
+}
+func (s SolicitudReclamarOrdenDespachoDocumentalV3) GoString() string { return s.String() }
+func (s SolicitudReclamarOrdenDespachoDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, s.String())
+}
+func (s SolicitudReclamarOrdenDespachoDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+func (SolicitudReclamarOrdenDespachoDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudReclamarOrdenDespachoDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudReclamarOrdenDespachoDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudReclamarOrdenDespachoDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudReclamarOrdenDespachoDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudReclamarOrdenDespachoDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+type DatosOrdenDespachoDocumentalV3Nominal struct {
+	ReciboInicio             DatosReciboInicioEfectoDocumentalV3Nominal
+	HuellaReciboInicioSHA256 string
+	ReclamacionRef           string
+	ConsumidorRef            string
+	VersionReclamacionCAS    uint64
+	AuditoriaReclamacionRef  string
+	AtestacionReclamacion    PruebaCrudaAtestacionDespachoDocumentalV3
+	ReclamadaEn              time.Time
+	ExpiraEn                 time.Time
+}
+
+func (DatosOrdenDespachoDocumentalV3Nominal) String() string {
+	return "[DATOS-ORDEN-DESPACHO-V3-NOMINALES-HMAC-REDACTADOS]"
+}
+func (d DatosOrdenDespachoDocumentalV3Nominal) GoString() string { return d.String() }
+func (d DatosOrdenDespachoDocumentalV3Nominal) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, d.String())
+}
+func (d DatosOrdenDespachoDocumentalV3Nominal) LogValue() slog.Value {
+	return slog.StringValue(d.String())
+}
+func (DatosOrdenDespachoDocumentalV3Nominal) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosOrdenDespachoDocumentalV3Nominal) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosOrdenDespachoDocumentalV3Nominal) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosOrdenDespachoDocumentalV3Nominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosOrdenDespachoDocumentalV3Nominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosOrdenDespachoDocumentalV3Nominal) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// OrdenDespachoDocumentalV3Nominal es la salida restaurable de la reclamacion
+// CAS. Aunque contenga atestaciones, su fabrica publica nunca la promueve a
+// autoridad. Solo sirve como entrada cruda al servicio de aplicacion privado.
+type OrdenDespachoDocumentalV3Nominal struct {
+	datos *DatosOrdenDespachoDocumentalV3Nominal
+}
+
+func MensajeCanonicoAtestacionReclamacionDespachoDocumentalV3(
+	recibo ReciboInicioEfectoDocumentalV3Nominal,
+	solicitud SolicitudReclamarOrdenDespachoDocumentalV3,
+	versionReclamacionCAS uint64,
+	auditoriaReclamacionRef, evidenciaOperacionRef string,
+) ([]byte, error) {
+	datosRecibo, errDatos := recibo.Datos()
+	huellaRecibo, errHuella := recibo.HuellaSHA256()
+	algoritmo, _, _, claveRef, revisionClave, errPerfil := datosRecibo.AtestacionInicio.Perfil()
+	if solicitud.Validar() != nil || errDatos != nil || errHuella != nil || errPerfil != nil ||
+		algoritmo != AlgoritmoSelloEvidenciaHMACSHA256V3 || versionReclamacionCAS == 0 ||
+		!referenciaEjecucionDocumentalV3Valida(auditoriaReclamacionRef) ||
+		!referenciaEjecucionDocumentalV3Valida(evidenciaOperacionRef) ||
+		solicitud.InicioRef != datosRecibo.InicioRef ||
+		solicitud.OutboxRef != datosRecibo.OutboxInicioRef ||
+		solicitud.ReclamadaEn.Before(datosRecibo.IniciadoEn) {
+		return nil, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return serializarCamposCanonicosEjecucionDocumentalV3([]string{
+		"vec.documentos.atestacion-reclamacion-despacho.v3", huellaRecibo,
+		datosRecibo.InicioRef, solicitud.ReclamacionRef, solicitud.ConsumidorRef,
+		strconvu64(versionReclamacionCAS), auditoriaReclamacionRef,
+		AlgoritmoSelloEvidenciaHMACSHA256V3, AudienciaAtestacionReclamacionV3,
+		ContextoAtestacionReclamacionV3, claveRef, strconvu64(revisionClave),
+		evidenciaOperacionRef, strconvu64(datosRecibo.SecuenciaCercado),
+		datosRecibo.HuellaVinculoEstableSHA256,
+		datosRecibo.HuellaVinculoCercadoSHA256,
+		datosRecibo.OrdenConsumoDurableV4Ref,
+		solicitud.ReclamadaEn.Format(time.RFC3339Nano),
+		solicitud.ExpiraEn.Format(time.RFC3339Nano),
+	}), nil
+}
+
+func NuevaOrdenDespachoDocumentalV3Nominal(
+	recibo ReciboInicioEfectoDocumentalV3Nominal,
+	solicitud SolicitudReclamarOrdenDespachoDocumentalV3,
+	versionReclamacionCAS uint64,
+	auditoriaReclamacionRef string,
+	atestacionReclamacion PruebaCrudaAtestacionDespachoDocumentalV3,
+) (OrdenDespachoDocumentalV3Nominal, error) {
+	datosRecibo, errDatos := recibo.Datos()
+	huellaRecibo, errHuella := recibo.HuellaSHA256()
+	evidenciaRef, errEvidencia := atestacionReclamacion.EvidenciaOperacionRef()
+	mensajeEsperado, errMensaje := MensajeCanonicoAtestacionReclamacionDespachoDocumentalV3(
+		recibo, solicitud, versionReclamacionCAS, auditoriaReclamacionRef, evidenciaRef,
+	)
+	algoritmo, audiencia, contexto, claveRef, revisionClave, errPerfil := atestacionReclamacion.Perfil()
+	algoritmoInicio, _, _, claveInicioRef, revisionInicio, errPerfilInicio := datosRecibo.AtestacionInicio.Perfil()
+	mensajeAtestacion, errMaterial := atestacionReclamacion.MensajeCanonico()
+	if solicitud.Validar() != nil || errDatos != nil || errHuella != nil ||
+		errEvidencia != nil || errMensaje != nil || errPerfil != nil || errPerfilInicio != nil ||
+		errMaterial != nil || algoritmo != AlgoritmoSelloEvidenciaHMACSHA256V3 ||
+		algoritmoInicio != algoritmo || audiencia != AudienciaAtestacionReclamacionV3 ||
+		contexto != ContextoAtestacionReclamacionV3 || claveRef != claveInicioRef ||
+		revisionClave != revisionInicio ||
+		!bytesEjecucionDocumentalV3Iguales(mensajeAtestacion, mensajeEsperado) ||
+		solicitud.InicioRef != datosRecibo.InicioRef || solicitud.OutboxRef != datosRecibo.OutboxInicioRef ||
+		solicitud.ReclamadaEn.Before(datosRecibo.IniciadoEn) {
+		return OrdenDespachoDocumentalV3Nominal{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	datos := &DatosOrdenDespachoDocumentalV3Nominal{
+		ReciboInicio: datosRecibo, HuellaReciboInicioSHA256: huellaRecibo,
+		ReclamacionRef: solicitud.ReclamacionRef, ConsumidorRef: solicitud.ConsumidorRef,
+		VersionReclamacionCAS:   versionReclamacionCAS,
+		AuditoriaReclamacionRef: auditoriaReclamacionRef,
+		AtestacionReclamacion:   clonarPruebaCrudaAtestacionDespachoDocumentalV3(atestacionReclamacion),
+		ReclamadaEn:             solicitud.ReclamadaEn, ExpiraEn: solicitud.ExpiraEn,
+	}
+	orden := OrdenDespachoDocumentalV3Nominal{datos: datos}
+	if orden.Validar() != nil {
+		return OrdenDespachoDocumentalV3Nominal{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return orden, nil
+}
+
+func (o OrdenDespachoDocumentalV3Nominal) Validar() error {
+	if o.datos == nil {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	d := o.datos
+	recibo := ReciboInicioEfectoDocumentalV3Nominal{datos: &d.ReciboInicio}
+	huellaRecibo, err := recibo.HuellaSHA256()
+	evidenciaRef, errEvidencia := d.AtestacionReclamacion.EvidenciaOperacionRef()
+	solicitud := SolicitudReclamarOrdenDespachoDocumentalV3{
+		ReclamacionRef: d.ReclamacionRef, InicioRef: d.ReciboInicio.InicioRef,
+		OutboxRef: d.ReciboInicio.OutboxInicioRef, ConsumidorRef: d.ConsumidorRef,
+		ReclamadaEn: d.ReclamadaEn, ExpiraEn: d.ExpiraEn,
+	}
+	mensajeEsperado, errMensaje := MensajeCanonicoAtestacionReclamacionDespachoDocumentalV3(
+		recibo, solicitud, d.VersionReclamacionCAS, d.AuditoriaReclamacionRef,
+		evidenciaRef,
+	)
+	mensajeAtestacion, errMaterial := d.AtestacionReclamacion.MensajeCanonico()
+	referencias := []string{
+		d.ReclamacionRef, d.ConsumidorRef, d.AuditoriaReclamacionRef,
+		evidenciaRef,
+	}
+	for indice, referencia := range referencias {
+		if !referenciaEjecucionDocumentalV3Valida(referencia) {
+			return ErrOrdenDespachoDocumentalV3Invalida
+		}
+		for otra := indice + 1; otra < len(referencias); otra++ {
+			if referencia == referencias[otra] {
+				return ErrOrdenDespachoDocumentalV3Invalida
+			}
+		}
+	}
+	if err != nil || errEvidencia != nil || errMensaje != nil || errMaterial != nil ||
+		!bytesEjecucionDocumentalV3Iguales(mensajeAtestacion, mensajeEsperado) ||
+		d.HuellaReciboInicioSHA256 != huellaRecibo ||
+		d.VersionReclamacionCAS == 0 || d.AtestacionReclamacion.Validar() != nil ||
+		!instanteEjecucionDocumentalV3Valido(d.ReclamadaEn) ||
+		!instanteEjecucionDocumentalV3Valido(d.ExpiraEn) || !d.ExpiraEn.After(d.ReclamadaEn) ||
+		d.ExpiraEn.Sub(d.ReclamadaEn) > duracionMaximaReclamacionDespachoV3 ||
+		d.ReclamadaEn.Before(d.ReciboInicio.IniciadoEn) {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return nil
+}
+
+func (o OrdenDespachoDocumentalV3Nominal) Datos() (DatosOrdenDespachoDocumentalV3Nominal, error) {
+	if o.Validar() != nil {
+		return DatosOrdenDespachoDocumentalV3Nominal{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	datos := *o.datos
+	datos.ReciboInicio.AtestacionInicio = clonarPruebaCrudaAtestacionDespachoDocumentalV3(
+		o.datos.ReciboInicio.AtestacionInicio,
+	)
+	datos.AtestacionReclamacion = clonarPruebaCrudaAtestacionDespachoDocumentalV3(
+		o.datos.AtestacionReclamacion,
+	)
+	return datos, nil
+}
+
+func (o OrdenDespachoDocumentalV3Nominal) HuellaSHA256() (string, error) {
+	if o.Validar() != nil {
+		return "", ErrOrdenDespachoDocumentalV3Invalida
+	}
+	d := o.datos
+	return huellaCanonicaFormatoDocumental([]string{
+		"vec.documentos.orden-despacho-nominal.v3", d.HuellaReciboInicioSHA256,
+		d.ReclamacionRef, d.ConsumidorRef, strconvu64(d.VersionReclamacionCAS),
+		d.AuditoriaReclamacionRef, d.AtestacionReclamacion.huellaSHA256(),
+		d.ReclamadaEn.Format(time.RFC3339Nano),
+		d.ExpiraEn.Format(time.RFC3339Nano),
+	}), nil
+}
+
+func (OrdenDespachoDocumentalV3Nominal) String() string {
+	return "[ORDEN-DESPACHO-DOCUMENTAL-V3-NOMINAL-REDACTADA]"
+}
+func (o OrdenDespachoDocumentalV3Nominal) GoString() string { return o.String() }
+func (o OrdenDespachoDocumentalV3Nominal) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, o.String())
+}
+func (o OrdenDespachoDocumentalV3Nominal) LogValue() slog.Value {
+	return slog.StringValue(o.String())
+}
+func (OrdenDespachoDocumentalV3Nominal) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*OrdenDespachoDocumentalV3Nominal) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (OrdenDespachoDocumentalV3Nominal) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*OrdenDespachoDocumentalV3Nominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (OrdenDespachoDocumentalV3Nominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*OrdenDespachoDocumentalV3Nominal) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+type VinculosCrudosVerificacionOrdenDespachoDocumentalV3 struct {
+	InicioRef                  string
+	AtestacionInicioRef        string
+	ReclamacionRef             string
+	AtestacionReclamacionRef   string
+	OrdenConsumoDurableV4Ref   string
+	HuellaOrdenDespachoSHA256  string
+	HuellaReciboInicioSHA256   string
+	HuellaVinculoEstableSHA256 string
+	HuellaVinculoCercadoSHA256 string
+	SecuenciaCercado           uint64
+	VersionInicioCAS           uint64
+	VersionReclamacionCAS      uint64
+}
+
+func (VinculosCrudosVerificacionOrdenDespachoDocumentalV3) String() string {
+	return "[VINCULOS-CRUDOS-VERIFICACION-DESPACHO-V3-NOMINALES-NO-AUTORITATIVOS-REDACTADOS]"
+}
+func (v VinculosCrudosVerificacionOrdenDespachoDocumentalV3) GoString() string {
+	return v.String()
+}
+func (v VinculosCrudosVerificacionOrdenDespachoDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, v.String())
+}
+func (v VinculosCrudosVerificacionOrdenDespachoDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(v.String())
+}
+func (VinculosCrudosVerificacionOrdenDespachoDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*VinculosCrudosVerificacionOrdenDespachoDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (VinculosCrudosVerificacionOrdenDespachoDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*VinculosCrudosVerificacionOrdenDespachoDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (VinculosCrudosVerificacionOrdenDespachoDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*VinculosCrudosVerificacionOrdenDespachoDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// MaterialCrudoVerificacionOrdenDespachoDocumentalV3 agrupa el mensaje
+// canonico, tres pruebas HMAC y todos los vinculos durables que debe cotejar un
+// adaptador. Es material nominal autocreable: verificarlo no concede autoridad
+// fuera del servicio de aplicacion que ejecuta despues el consumo CAS.
+type MaterialCrudoVerificacionOrdenDespachoDocumentalV3 struct {
+	orden       OrdenDespachoDocumentalV3Nominal
+	vinculo     VinculoEstableActivacionDocumentalV3
+	token       TokenCercadoEjecucionDocumentalV3Nominal
+	cercado     PruebaCrudaAtestacionDespachoDocumentalV3
+	inicio      PruebaCrudaAtestacionDespachoDocumentalV3
+	reclamacion PruebaCrudaAtestacionDespachoDocumentalV3
+	vinculos    VinculosCrudosVerificacionOrdenDespachoDocumentalV3
+	mensaje     []byte
+	huella      string
+}
+
+func nuevoMaterialCrudoVerificacionOrdenDespachoDocumentalV3(
+	orden OrdenDespachoDocumentalV3Nominal,
+	vinculo VinculoEstableActivacionDocumentalV3,
+	token TokenCercadoEjecucionDocumentalV3Nominal,
+) (MaterialCrudoVerificacionOrdenDespachoDocumentalV3, error) {
+	datos, errDatos := orden.Datos()
+	huellaOrden, errOrden := orden.HuellaSHA256()
+	huellaVinculo, errVinculo := vinculo.HuellaSHA256()
+	huellaRecibo := datos.HuellaReciboInicioSHA256
+	if errDatos != nil || errOrden != nil || errVinculo != nil || token.ValidarPara(vinculo) != nil ||
+		datos.ReciboInicio.ReservaRef != vinculo.ReservaRef ||
+		datos.ReciboInicio.HuellaVinculoEstableSHA256 != huellaVinculo ||
+		datos.ReciboInicio.HuellaVinculoCercadoSHA256 != token.HuellaVinculoSHA256() ||
+		datos.ReciboInicio.SecuenciaCercado != token.Secuencia() ||
+		datos.ReciboInicio.OrdenConsumoDurableV4Ref != vinculo.OrdenConsumoDurableV4Ref {
+		return MaterialCrudoVerificacionOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	solicitudToken, err := NuevaSolicitudVerificacionTokenCercadoDocumentalV3(vinculo, token)
+	if err != nil {
+		return MaterialCrudoVerificacionOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	mensajeToken, _ := solicitudToken.Mensaje()
+	macToken, _ := solicitudToken.MAC()
+	cercado, err := NuevaPruebaCrudaAtestacionDespachoDocumentalV3(
+		AlgoritmoSelloEvidenciaHMACSHA256V3, AudienciaAtestacionTokenCercadoV3,
+		ContextoAtestacionTokenCercadoV3, token.claveAtestacionRef,
+		token.revisionClave, token.evidenciaOperacionRef, mensajeToken, macToken,
+	)
+	if err != nil {
+		return MaterialCrudoVerificacionOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	inicioRef, _ := datos.ReciboInicio.AtestacionInicio.EvidenciaOperacionRef()
+	reclamacionRef, _ := datos.AtestacionReclamacion.EvidenciaOperacionRef()
+	vinculos := VinculosCrudosVerificacionOrdenDespachoDocumentalV3{
+		InicioRef: datos.ReciboInicio.InicioRef, AtestacionInicioRef: inicioRef,
+		ReclamacionRef: datos.ReclamacionRef, AtestacionReclamacionRef: reclamacionRef,
+		OrdenConsumoDurableV4Ref:  datos.ReciboInicio.OrdenConsumoDurableV4Ref,
+		HuellaOrdenDespachoSHA256: huellaOrden, HuellaReciboInicioSHA256: huellaRecibo,
+		HuellaVinculoEstableSHA256: huellaVinculo,
+		HuellaVinculoCercadoSHA256: datos.ReciboInicio.HuellaVinculoCercadoSHA256,
+		SecuenciaCercado:           datos.ReciboInicio.SecuenciaCercado,
+		VersionInicioCAS:           datos.ReciboInicio.VersionInicioCAS,
+		VersionReclamacionCAS:      datos.VersionReclamacionCAS,
+	}
+	mensaje := serializarMaterialCrudoVerificacionOrdenDespachoDocumentalV3(
+		vinculos, cercado, datos.ReciboInicio.AtestacionInicio, datos.AtestacionReclamacion,
+	)
+	material := MaterialCrudoVerificacionOrdenDespachoDocumentalV3{
+		orden: orden, vinculo: vinculo, token: token,
+		cercado:     cercado,
+		inicio:      clonarPruebaCrudaAtestacionDespachoDocumentalV3(datos.ReciboInicio.AtestacionInicio),
+		reclamacion: clonarPruebaCrudaAtestacionDespachoDocumentalV3(datos.AtestacionReclamacion),
+		vinculos:    vinculos, mensaje: append([]byte(nil), mensaje...),
+		huella: huellaBytesFormatoDocumental(mensaje),
+	}
+	if material.Validar() != nil {
+		return MaterialCrudoVerificacionOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return material, nil
+}
+
+func (m MaterialCrudoVerificacionOrdenDespachoDocumentalV3) Validar() error {
+	datos, errDatos := m.orden.Datos()
+	huellaOrden, errOrden := m.orden.HuellaSHA256()
+	huellaVinculo, errVinculo := m.vinculo.HuellaSHA256()
+	perfiles := []PruebaCrudaAtestacionDespachoDocumentalV3{m.cercado, m.inicio, m.reclamacion}
+	for _, prueba := range perfiles {
+		if prueba.Validar() != nil || prueba.claveGestionadaRef != m.token.claveAtestacionRef ||
+			prueba.revisionClaveGestionada != m.token.revisionClave {
+			return ErrOrdenDespachoDocumentalV3Invalida
+		}
+	}
+	mensajeEsperado := serializarMaterialCrudoVerificacionOrdenDespachoDocumentalV3(
+		m.vinculos, m.cercado, m.inicio, m.reclamacion,
+	)
+	if errDatos != nil || errOrden != nil || errVinculo != nil ||
+		m.token.ValidarPara(m.vinculo) != nil ||
+		m.cercado.audiencia != AudienciaAtestacionTokenCercadoV3 ||
+		m.inicio.audiencia != AudienciaAtestacionInicioEfectoV3 ||
+		m.reclamacion.audiencia != AudienciaAtestacionReclamacionV3 ||
+		m.vinculos.HuellaOrdenDespachoSHA256 != huellaOrden ||
+		m.vinculos.HuellaReciboInicioSHA256 != datos.HuellaReciboInicioSHA256 ||
+		m.vinculos.HuellaVinculoEstableSHA256 != huellaVinculo ||
+		m.vinculos.HuellaVinculoCercadoSHA256 != m.token.HuellaVinculoSHA256() ||
+		m.vinculos.SecuenciaCercado != m.token.Secuencia() ||
+		m.vinculos.VersionInicioCAS != datos.ReciboInicio.VersionInicioCAS ||
+		m.vinculos.VersionReclamacionCAS != datos.VersionReclamacionCAS ||
+		m.inicio.huellaSHA256() != datos.ReciboInicio.AtestacionInicio.huellaSHA256() ||
+		m.reclamacion.huellaSHA256() != datos.AtestacionReclamacion.huellaSHA256() ||
+		!bytesEjecucionDocumentalV3Iguales(m.mensaje, mensajeEsperado) ||
+		!esSHA256Hexadecimal(m.huella) || m.huella != huellaBytesFormatoDocumental(m.mensaje) {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return nil
+}
+
+func (m MaterialCrudoVerificacionOrdenDespachoDocumentalV3) MensajeCanonico() ([]byte, error) {
+	if m.Validar() != nil {
+		return nil, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return append([]byte(nil), m.mensaje...), nil
+}
+
+func (m MaterialCrudoVerificacionOrdenDespachoDocumentalV3) Pruebas() (
+	cercado, inicio, reclamacion PruebaCrudaAtestacionDespachoDocumentalV3,
+	err error,
+) {
+	if m.Validar() != nil {
+		return PruebaCrudaAtestacionDespachoDocumentalV3{},
+			PruebaCrudaAtestacionDespachoDocumentalV3{},
+			PruebaCrudaAtestacionDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return clonarPruebaCrudaAtestacionDespachoDocumentalV3(m.cercado),
+		clonarPruebaCrudaAtestacionDespachoDocumentalV3(m.inicio),
+		clonarPruebaCrudaAtestacionDespachoDocumentalV3(m.reclamacion), nil
+}
+
+func (m MaterialCrudoVerificacionOrdenDespachoDocumentalV3) Vinculos() (
+	VinculosCrudosVerificacionOrdenDespachoDocumentalV3,
+	error,
+) {
+	if m.Validar() != nil {
+		return VinculosCrudosVerificacionOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return m.vinculos, nil
+}
+
+func (m MaterialCrudoVerificacionOrdenDespachoDocumentalV3) HuellaSHA256() (string, error) {
+	if m.Validar() != nil {
+		return "", ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return m.huella, nil
+}
+
+func (MaterialCrudoVerificacionOrdenDespachoDocumentalV3) String() string {
+	return "[MATERIAL-CRUDO-VERIFICACION-DESPACHO-V3-NOMINAL-NO-AUTORITATIVO-REDACTADO]"
+}
+func (m MaterialCrudoVerificacionOrdenDespachoDocumentalV3) GoString() string { return m.String() }
+func (m MaterialCrudoVerificacionOrdenDespachoDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, m.String())
+}
+func (m MaterialCrudoVerificacionOrdenDespachoDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(m.String())
+}
+func (MaterialCrudoVerificacionOrdenDespachoDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*MaterialCrudoVerificacionOrdenDespachoDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (MaterialCrudoVerificacionOrdenDespachoDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*MaterialCrudoVerificacionOrdenDespachoDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (MaterialCrudoVerificacionOrdenDespachoDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*MaterialCrudoVerificacionOrdenDespachoDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+type SolicitudComprobarOrdenDespachoDocumentalV3 struct {
+	orden    OrdenDespachoDocumentalV3Nominal
+	vinculo  VinculoEstableActivacionDocumentalV3
+	token    TokenCercadoEjecucionDocumentalV3Nominal
+	material MaterialCrudoVerificacionOrdenDespachoDocumentalV3
+	mensaje  []byte
+	huella   string
+}
+
+func NuevaSolicitudComprobarOrdenDespachoDocumentalV3(
+	orden OrdenDespachoDocumentalV3Nominal,
+	vinculo VinculoEstableActivacionDocumentalV3,
+	token TokenCercadoEjecucionDocumentalV3Nominal,
+) (SolicitudComprobarOrdenDespachoDocumentalV3, error) {
+	material, err := nuevoMaterialCrudoVerificacionOrdenDespachoDocumentalV3(orden, vinculo, token)
+	if err != nil {
+		return SolicitudComprobarOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	mensaje, _ := material.MensajeCanonico()
+	huella, _ := material.HuellaSHA256()
+	solicitud := SolicitudComprobarOrdenDespachoDocumentalV3{
+		orden: orden, vinculo: vinculo, token: token,
+		material: clonarMaterialCrudoVerificacionOrdenDespachoDocumentalV3(material),
+		mensaje:  append([]byte(nil), mensaje...), huella: huella,
+	}
+	if solicitud.Validar() != nil {
+		return SolicitudComprobarOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return solicitud, nil
+}
+
+func (s SolicitudComprobarOrdenDespachoDocumentalV3) Validar() error {
+	huellaOrden, errOrden := s.orden.HuellaSHA256()
+	huellaOrdenMaterial, errOrdenMaterial := s.material.orden.HuellaSHA256()
+	huellaVinculo, errVinculo := s.vinculo.HuellaSHA256()
+	huellaVinculoMaterial, errVinculoMaterial := s.material.vinculo.HuellaSHA256()
+	solicitudToken, errToken := NuevaSolicitudVerificacionTokenCercadoDocumentalV3(s.vinculo, s.token)
+	mensajeToken, errMensajeToken := solicitudToken.Mensaje()
+	macToken, errMACToken := solicitudToken.MAC()
+	if s.material.Validar() != nil || errOrden != nil || errOrdenMaterial != nil ||
+		errVinculo != nil || errVinculoMaterial != nil ||
+		errToken != nil || errMensajeToken != nil || errMACToken != nil ||
+		huellaOrden != huellaOrdenMaterial || huellaVinculo != huellaVinculoMaterial ||
+		!bytesEjecucionDocumentalV3Iguales(mensajeToken, s.material.cercado.mensajeCanonico) ||
+		!bytesEjecucionDocumentalV3Iguales(macToken, s.material.cercado.sobreCriptografico) ||
+		s.token.ValidarPara(s.vinculo) != nil || len(s.mensaje) == 0 ||
+		!esSHA256Hexadecimal(s.huella) || s.huella != huellaBytesFormatoDocumental(s.mensaje) ||
+		s.huella != s.material.huella ||
+		!bytesEjecucionDocumentalV3Iguales(s.mensaje, s.material.mensaje) {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return nil
+}
+
+func (s SolicitudComprobarOrdenDespachoDocumentalV3) MaterialCrudo() (
+	MaterialCrudoVerificacionOrdenDespachoDocumentalV3,
+	error,
+) {
+	if s.Validar() != nil {
+		return MaterialCrudoVerificacionOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return clonarMaterialCrudoVerificacionOrdenDespachoDocumentalV3(s.material), nil
+}
+
+func (s SolicitudComprobarOrdenDespachoDocumentalV3) Mensaje() ([]byte, error) {
+	if s.Validar() != nil {
+		return nil, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return append([]byte(nil), s.mensaje...), nil
+}
+
+func (SolicitudComprobarOrdenDespachoDocumentalV3) String() string {
+	return "[SOLICITUD-COMPROBAR-ORDEN-DESPACHO-V3-CRUDA-REDACTADA]"
+}
+func (s SolicitudComprobarOrdenDespachoDocumentalV3) GoString() string { return s.String() }
+func (s SolicitudComprobarOrdenDespachoDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, s.String())
+}
+func (s SolicitudComprobarOrdenDespachoDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+func (SolicitudComprobarOrdenDespachoDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudComprobarOrdenDespachoDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudComprobarOrdenDespachoDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudComprobarOrdenDespachoDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudComprobarOrdenDespachoDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudComprobarOrdenDespachoDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// ResultadoCrudoVerificacionOrdenDespachoDocumentalV3 es la respuesta nominal
+// del conector KMS. Su fabrica publica permite restaurarla y, por eso, nunca es
+// autoridad aislada.
+type ResultadoCrudoVerificacionOrdenDespachoDocumentalV3 struct {
+	huellaSolicitud         string
+	huellaMaterialCrudo     string
+	comprobacionRef         string
+	algoritmo               string
+	audiencia               string
+	contexto                string
+	claveGestionadaRef      string
+	revisionClaveGestionada uint64
+	evidenciaOperacionRef   string
+	huellaAtestacionSHA256  string
+	comprobadaEn            time.Time
+}
+
+// DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3 permite que un
+// adaptador externo persista y enlace la respuesta nominal del KMS. Los campos
+// son material crudo restaurable: no prueban por si solos que la comprobacion
+// criptografica haya ocurrido ni autorizan a ejecutar un efecto.
+type DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3 struct {
+	HuellaSolicitudSHA256      string
+	HuellaMaterialCrudoSHA256  string
+	ComprobacionRef            string
+	Algoritmo                  string
+	Audiencia                  string
+	Contexto                   string
+	ClaveGestionadaRef         string
+	RevisionClaveGestionada    uint64
+	EvidenciaOperacionRef      string
+	HuellaAtestacionSHA256     string
+	ComprobadaEn               time.Time
+	HuellaResultadoCrudoSHA256 string
+}
+
+func (DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3) String() string {
+	return "[DATOS-CRUDOS-RESULTADO-VERIFICACION-DESPACHO-V3-NO-AUTORITATIVOS-REDACTADOS]"
+}
+func (d DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3) GoString() string {
+	return d.String()
+}
+func (d DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3) Format(
+	estado fmt.State,
+	_ rune,
+) {
+	_, _ = io.WriteString(estado, d.String())
+}
+func (d DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(d.String())
+}
+func (DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+func NuevoResultadoCrudoVerificacionOrdenDespachoDocumentalV3(
+	solicitud SolicitudComprobarOrdenDespachoDocumentalV3,
+	comprobacionRef, evidenciaOperacionRef string,
+	huellaAtestacionSHA256 string,
+	comprobadaEn time.Time,
+) (ResultadoCrudoVerificacionOrdenDespachoDocumentalV3, error) {
+	huellaMaterial, errMaterial := solicitud.material.HuellaSHA256()
+	algoritmo, _, _, claveGestionadaRef, revisionClave, errPerfil := solicitud.material.cercado.Perfil()
+	resultado := ResultadoCrudoVerificacionOrdenDespachoDocumentalV3{
+		huellaSolicitud: solicitud.huella, huellaMaterialCrudo: huellaMaterial,
+		comprobacionRef: comprobacionRef,
+		algoritmo:       algoritmo, audiencia: AudienciaComprobacionOrdenDespachoV3,
+		contexto:           ContextoComprobacionOrdenDespachoV3,
+		claveGestionadaRef: claveGestionadaRef, revisionClaveGestionada: revisionClave,
+		evidenciaOperacionRef:  evidenciaOperacionRef,
+		huellaAtestacionSHA256: huellaAtestacionSHA256, comprobadaEn: comprobadaEn,
+	}
+	if errMaterial != nil || errPerfil != nil || resultado.ValidarPara(solicitud) != nil {
+		return ResultadoCrudoVerificacionOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return resultado, nil
+}
+
+func (r ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) ValidarPara(
+	solicitud SolicitudComprobarOrdenDespachoDocumentalV3,
+) error {
+	if solicitud.Validar() != nil || r.huellaSolicitud != solicitud.huella ||
+		r.huellaMaterialCrudo != solicitud.material.huella ||
+		r.claveGestionadaRef != solicitud.material.cercado.claveGestionadaRef ||
+		r.revisionClaveGestionada != solicitud.material.cercado.revisionClaveGestionada ||
+		r.validarEstructuraParaOrden(solicitud.orden) != nil {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return nil
+}
+
+// DatosCrudos devuelve una copia agrupada para adaptadores KMS y de
+// persistencia. La operacion solo valida forma nominal; el servicio de
+// aplicacion conserva la obligacion de llamar ValidarPara y efectuar la
+// relectura/CAS dentro de su frontera privada.
+func (r ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) DatosCrudos() (
+	DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3,
+	error,
+) {
+	if r.validarEstructuraNominal() != nil {
+		return DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3{},
+			ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return DatosCrudosResultadoVerificacionOrdenDespachoDocumentalV3{
+		HuellaSolicitudSHA256:      r.huellaSolicitud,
+		HuellaMaterialCrudoSHA256:  r.huellaMaterialCrudo,
+		ComprobacionRef:            r.comprobacionRef,
+		Algoritmo:                  r.algoritmo,
+		Audiencia:                  r.audiencia,
+		Contexto:                   r.contexto,
+		ClaveGestionadaRef:         r.claveGestionadaRef,
+		RevisionClaveGestionada:    r.revisionClaveGestionada,
+		EvidenciaOperacionRef:      r.evidenciaOperacionRef,
+		HuellaAtestacionSHA256:     r.huellaAtestacionSHA256,
+		ComprobadaEn:               r.comprobadaEn,
+		HuellaResultadoCrudoSHA256: r.huellaSHA256(),
+	}, nil
+}
+
+func (r ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) validarEstructuraNominal() error {
+	referencias := []string{r.comprobacionRef, r.claveGestionadaRef, r.evidenciaOperacionRef}
+	for indice, referencia := range referencias {
+		if !referenciaEjecucionDocumentalV3Valida(referencia) {
+			return ErrOrdenDespachoDocumentalV3Invalida
+		}
+		for otra := indice + 1; otra < len(referencias); otra++ {
+			if referencia == referencias[otra] {
+				return ErrOrdenDespachoDocumentalV3Invalida
+			}
+		}
+	}
+	if !esSHA256Hexadecimal(r.huellaSolicitud) ||
+		!esSHA256Hexadecimal(r.huellaMaterialCrudo) ||
+		r.algoritmo != AlgoritmoSelloEvidenciaHMACSHA256V3 ||
+		r.audiencia != AudienciaComprobacionOrdenDespachoV3 ||
+		r.contexto != ContextoComprobacionOrdenDespachoV3 ||
+		r.revisionClaveGestionada == 0 ||
+		!esSHA256Hexadecimal(r.huellaAtestacionSHA256) ||
+		!instanteEjecucionDocumentalV3Valido(r.comprobadaEn) {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return nil
+}
+
+func (r ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) validarEstructuraParaOrden(
+	orden OrdenDespachoDocumentalV3Nominal,
+) error {
+	datos, err := orden.Datos()
+	if err != nil || r.validarEstructuraNominal() != nil ||
+		r.comprobadaEn.Before(datos.ReclamadaEn) || !r.comprobadaEn.Before(datos.ExpiraEn) {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return nil
+}
+
+func (r ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) huellaSHA256() string {
+	return huellaCanonicaFormatoDocumental([]string{
+		"vec.documentos.resultado-crudo-verificacion-despacho.v3", r.huellaSolicitud,
+		r.huellaMaterialCrudo, r.comprobacionRef, r.algoritmo, r.audiencia,
+		r.contexto, r.claveGestionadaRef, strconvu64(r.revisionClaveGestionada),
+		r.evidenciaOperacionRef,
+		r.huellaAtestacionSHA256, r.comprobadaEn.Format(time.RFC3339Nano),
+	})
+}
+
+func (ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) String() string {
+	return "[RESULTADO-CRUDO-VERIFICACION-DESPACHO-V3-NO-AUTORITATIVO-REDACTADO]"
+}
+func (r ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) GoString() string { return r.String() }
+func (r ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, r.String())
+}
+func (r ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(r.String())
+}
+func (ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// EstadoCrudoOrdenDespachoDocumentalV3 es la relectura nominal del registro
+// privado posterior a la reclamacion. Nunca concede autoridad por si solo.
+type EstadoCrudoOrdenDespachoDocumentalV3 struct {
+	huellaOrdenSHA256        string
+	huellaResultadoKMSSHA256 string
+	estadoRef                string
+	auditoriaRef             string
+	consumoRef               string
+	outboxConsumoRef         string
+	versionReclamacionCAS    uint64
+	versionConsumoCAS        uint64
+	consumidaEn              time.Time
+}
+
+func NuevoEstadoCrudoOrdenDespachoDocumentalV3(
+	solicitud SolicitudComprobarOrdenDespachoDocumentalV3,
+	resultado ResultadoCrudoVerificacionOrdenDespachoDocumentalV3,
+	estadoRef, auditoriaRef, consumoRef, outboxConsumoRef string,
+	versionConsumoCAS uint64,
+	consumidaEn time.Time,
+) (EstadoCrudoOrdenDespachoDocumentalV3, error) {
+	// La correlacion solicitud/resultado debe cerrarse antes de formar cualquier
+	// estado que represente el CAS. Así un resultado KMS valido para B nunca se
+	// puede aplicar a la orden A y descubrirse solo despues de consumirla.
+	if solicitud.Validar() != nil || resultado.ValidarPara(solicitud) != nil {
+		return EstadoCrudoOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	orden := solicitud.orden
+	huellaOrden, err := orden.HuellaSHA256()
+	datosOrden, errDatos := orden.Datos()
+	estado := EstadoCrudoOrdenDespachoDocumentalV3{
+		huellaOrdenSHA256: huellaOrden, huellaResultadoKMSSHA256: resultado.huellaSHA256(),
+		estadoRef: estadoRef, auditoriaRef: auditoriaRef,
+		consumoRef: consumoRef, outboxConsumoRef: outboxConsumoRef,
+		versionConsumoCAS: versionConsumoCAS,
+		consumidaEn:       consumidaEn,
+	}
+	if errDatos == nil {
+		estado.versionReclamacionCAS = datosOrden.VersionReclamacionCAS
+	}
+	if err != nil || errDatos != nil ||
+		estado.validarEstructuraPara(orden, resultado) != nil {
+		return EstadoCrudoOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return estado, nil
+}
+
+func (e EstadoCrudoOrdenDespachoDocumentalV3) validarEstructuraPara(
+	orden OrdenDespachoDocumentalV3Nominal,
+	resultado ResultadoCrudoVerificacionOrdenDespachoDocumentalV3,
+) error {
+	datos, errDatos := orden.Datos()
+	huellaOrden, errHuella := orden.HuellaSHA256()
+	referencias := []string{
+		e.estadoRef, e.auditoriaRef, e.consumoRef, e.outboxConsumoRef,
+		resultado.comprobacionRef, resultado.evidenciaOperacionRef,
+	}
+	for indice, referencia := range referencias {
+		if !referenciaEjecucionDocumentalV3Valida(referencia) {
+			return ErrOrdenDespachoDocumentalV3Invalida
+		}
+		for otra := indice + 1; otra < len(referencias); otra++ {
+			if referencia == referencias[otra] {
+				return ErrOrdenDespachoDocumentalV3Invalida
+			}
+		}
+	}
+	if errDatos != nil || errHuella != nil || e.huellaOrdenSHA256 != huellaOrden ||
+		e.huellaResultadoKMSSHA256 != resultado.huellaSHA256() ||
+		e.versionReclamacionCAS != datos.VersionReclamacionCAS ||
+		e.versionConsumoCAS <= e.versionReclamacionCAS ||
+		!instanteEjecucionDocumentalV3Valido(e.consumidaEn) ||
+		e.consumidaEn.Before(resultado.comprobadaEn) || !e.consumidaEn.Before(datos.ExpiraEn) {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return nil
+}
+
+func (e EstadoCrudoOrdenDespachoDocumentalV3) ValidarPara(
+	solicitud SolicitudComprobarOrdenDespachoDocumentalV3,
+	resultado ResultadoCrudoVerificacionOrdenDespachoDocumentalV3,
+) error {
+	if solicitud.Validar() != nil || resultado.ValidarPara(solicitud) != nil ||
+		e.validarEstructuraPara(solicitud.orden, resultado) != nil {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return nil
+}
+
+func (e EstadoCrudoOrdenDespachoDocumentalV3) huellaSHA256() string {
+	return huellaCanonicaFormatoDocumental([]string{
+		"vec.documentos.estado-crudo-despacho.v3", e.huellaOrdenSHA256,
+		e.huellaResultadoKMSSHA256, e.estadoRef, e.auditoriaRef, e.consumoRef,
+		e.outboxConsumoRef,
+		strconvu64(e.versionReclamacionCAS), strconvu64(e.versionConsumoCAS),
+		e.consumidaEn.Format(time.RFC3339Nano),
+	})
+}
+
+func (EstadoCrudoOrdenDespachoDocumentalV3) String() string {
+	return "[ESTADO-CRUDO-ORDEN-DESPACHO-V3-NOMINAL-REDACTADO]"
+}
+func (e EstadoCrudoOrdenDespachoDocumentalV3) GoString() string { return e.String() }
+func (e EstadoCrudoOrdenDespachoDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, e.String())
+}
+func (e EstadoCrudoOrdenDespachoDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(e.String())
+}
+func (EstadoCrudoOrdenDespachoDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*EstadoCrudoOrdenDespachoDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (EstadoCrudoOrdenDespachoDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*EstadoCrudoOrdenDespachoDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (EstadoCrudoOrdenDespachoDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*EstadoCrudoOrdenDespachoDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// VerificadorOrdenDespachoDocumentalV3 es un puerto intercambiable de KMS.
+// Devuelve un resultado crudo nominal; no puede promover capacidades.
+type VerificadorOrdenDespachoDocumentalV3 interface {
+	VerificarOrdenDespachoDocumentalV3(
+		context.Context,
+		SolicitudComprobarOrdenDespachoDocumentalV3,
+	) (ResultadoCrudoVerificacionOrdenDespachoDocumentalV3, error)
+}
+
+// ConsumidorPrivadoOrdenDespachoDocumentalV3 relee y consume por CAS la orden
+// reclamada dentro de una unica transaccion que incrementa VersionConsumoCAS,
+// inmoviliza un ConsumoDespachoRef UNIQUE y escribe auditoria y outbox. Debe
+// ejecutar Resultado.ValidarPara(Solicitud) antes de mutar la fila y repetir
+// esa correlacion dentro de la transaccion, junto con la relectura durable. No
+// existe una operacion publica read-then-use: el segundo consumo o un resultado
+// KMS perteneciente a otra solicitud deben fallar sin ejecutar el CAS.
+type ConsumidorPrivadoOrdenDespachoDocumentalV3 interface {
+	ReleerYConsumirOrdenDespachoDocumentalV3(
+		context.Context,
+		SolicitudComprobarOrdenDespachoDocumentalV3,
+		ResultadoCrudoVerificacionOrdenDespachoDocumentalV3,
+	) (EstadoCrudoOrdenDespachoDocumentalV3, error)
+}
+
+// OrdenDespachoDocumentalV3ConsumidaNominal es el comando restaurable que el
+// servicio de aplicacion crea despues de verificar por KMS y consumir por CAS.
+// Su fabrica publica solo coteja forma y correlacion: NO acredita que esas dos
+// operaciones ocurrieran y nunca concede autoridad por si sola. HTTP, CLI, MCP
+// y handlers no deben recibirla ni poseer el despachador que la consume.
+type OrdenDespachoDocumentalV3ConsumidaNominal struct {
+	solicitud     SolicitudComprobarOrdenDespachoDocumentalV3
+	resultado     ResultadoCrudoVerificacionOrdenDespachoDocumentalV3
+	estado        EstadoCrudoOrdenDespachoDocumentalV3
+	huellaConsumo string
+}
+
+func NuevaOrdenDespachoDocumentalV3ConsumidaNominal(
+	solicitud SolicitudComprobarOrdenDespachoDocumentalV3,
+	resultado ResultadoCrudoVerificacionOrdenDespachoDocumentalV3,
+	estado EstadoCrudoOrdenDespachoDocumentalV3,
+) (OrdenDespachoDocumentalV3ConsumidaNominal, error) {
+	orden := OrdenDespachoDocumentalV3ConsumidaNominal{
+		solicitud: solicitud, resultado: resultado, estado: estado,
+		huellaConsumo: huellaCanonicaFormatoDocumental([]string{
+			"vec.documentos.orden-despacho-consumida-nominal.v3", solicitud.huella,
+			resultado.huellaSHA256(), estado.huellaSHA256(),
+		}),
+	}
+	if orden.ValidarEn(estado.consumidaEn) != nil {
+		return OrdenDespachoDocumentalV3ConsumidaNominal{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return orden, nil
+}
+
+func (o OrdenDespachoDocumentalV3ConsumidaNominal) ValidarEn(instante time.Time) error {
+	if o.solicitud.Validar() != nil ||
+		o.resultado.ValidarPara(o.solicitud) != nil ||
+		o.estado.ValidarPara(o.solicitud, o.resultado) != nil ||
+		!esSHA256Hexadecimal(o.huellaConsumo) ||
+		o.huellaConsumo != huellaCanonicaFormatoDocumental([]string{
+			"vec.documentos.orden-despacho-consumida-nominal.v3", o.solicitud.huella,
+			o.resultado.huellaSHA256(), o.estado.huellaSHA256(),
+		}) {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	datos, err := o.solicitud.orden.Datos()
+	if err != nil || !instanteEjecucionDocumentalV3Valido(instante) ||
+		instante.Before(o.estado.consumidaEn) || !instante.Before(datos.ExpiraEn) {
+		return ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return nil
+}
+
+func (o OrdenDespachoDocumentalV3ConsumidaNominal) VinculoActivacion() (
+	VinculoEstableActivacionDocumentalV3,
+	error,
+) {
+	if o.ValidarEn(o.estado.consumidaEn) != nil {
+		return VinculoEstableActivacionDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return o.solicitud.vinculo, nil
+}
+
+func (o OrdenDespachoDocumentalV3ConsumidaNominal) DatosOrden() (
+	DatosOrdenDespachoDocumentalV3Nominal,
+	error,
+) {
+	if o.ValidarEn(o.estado.consumidaEn) != nil {
+		return DatosOrdenDespachoDocumentalV3Nominal{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return o.solicitud.orden.Datos()
+}
+
+func (OrdenDespachoDocumentalV3ConsumidaNominal) String() string {
+	return "[ORDEN-DESPACHO-DOCUMENTAL-V3-CONSUMIDA-NOMINAL-NO-AUTORITATIVA-REDACTADA]"
+}
+func (o OrdenDespachoDocumentalV3ConsumidaNominal) GoString() string { return o.String() }
+func (o OrdenDespachoDocumentalV3ConsumidaNominal) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, o.String())
+}
+func (o OrdenDespachoDocumentalV3ConsumidaNominal) LogValue() slog.Value {
+	return slog.StringValue(o.String())
+}
+func (OrdenDespachoDocumentalV3ConsumidaNominal) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*OrdenDespachoDocumentalV3ConsumidaNominal) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (OrdenDespachoDocumentalV3ConsumidaNominal) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*OrdenDespachoDocumentalV3ConsumidaNominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (OrdenDespachoDocumentalV3ConsumidaNominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*OrdenDespachoDocumentalV3ConsumidaNominal) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// ResultadoEfectoRenderizadoDocumentalV3Crudo conserva una referencia exacta y
 // versionada del objeto; nunca una URL temporal ni los bytes del documento.
-type ResultadoEfectoRenderizadoDocumentalV3 struct {
+type ResultadoEfectoRenderizadoDocumentalV3Crudo struct {
 	BorradorRef           string
 	EfectoRef             string
 	ContenidoRef          string
@@ -545,7 +2295,7 @@ type ResultadoEfectoRenderizadoDocumentalV3 struct {
 	EvidenciaOperacionRef string
 }
 
-func (r ResultadoEfectoRenderizadoDocumentalV3) ValidarContra(
+func (r ResultadoEfectoRenderizadoDocumentalV3Crudo) ValidarContra(
 	manifiesto ManifiestoEjecucionDocumentalV3,
 ) error {
 	datos, err := manifiesto.Datos()
@@ -562,10 +2312,39 @@ func (r ResultadoEfectoRenderizadoDocumentalV3) ValidarContra(
 	return nil
 }
 
-// HuellasRecibosEjecucionDocumentalV3 es la proyeccion persistible de los
-// tres recibos COSE ya verificados. No concede autoridad por si sola: la
-// confirmacion exige tambien los valores tipados devueltos por el verificador
-// criptografico de recibos.
+func (ResultadoEfectoRenderizadoDocumentalV3Crudo) String() string {
+	return "[RESULTADO-EFECTO-RENDERIZADO-DOCUMENTAL-V3-CRUDO-REFERENCIAS-REDACTADAS]"
+}
+func (r ResultadoEfectoRenderizadoDocumentalV3Crudo) GoString() string { return r.String() }
+func (r ResultadoEfectoRenderizadoDocumentalV3Crudo) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, r.String())
+}
+func (r ResultadoEfectoRenderizadoDocumentalV3Crudo) LogValue() slog.Value {
+	return slog.StringValue(r.String())
+}
+func (ResultadoEfectoRenderizadoDocumentalV3Crudo) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ResultadoEfectoRenderizadoDocumentalV3Crudo) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ResultadoEfectoRenderizadoDocumentalV3Crudo) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ResultadoEfectoRenderizadoDocumentalV3Crudo) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ResultadoEfectoRenderizadoDocumentalV3Crudo) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ResultadoEfectoRenderizadoDocumentalV3Crudo) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// HuellasRecibosEjecucionDocumentalV3 es la proyeccion persistible de tres
+// sobres COSE nominalmente correlacionados. No acredita su comprobacion ni
+// concede autoridad: el registro debe releer y comprobar los recibos mediante
+// dependencias privadas antes del CAS de confirmacion.
 type HuellasRecibosEjecucionDocumentalV3 struct {
 	ReciboRenderRef               string
 	HuellaSobreRenderSHA256       string
@@ -609,41 +2388,43 @@ func (h HuellasRecibosEjecucionDocumentalV3) Validar() error {
 }
 
 type RecibosEjecucionDocumentalV3 struct {
-	Render      ReciboEjecucionComponenteDocumentalVerificado
-	Estructural ReciboEjecucionComponenteDocumentalVerificado
-	Semantico   ReciboEjecucionComponenteDocumentalVerificado
+	Render      ReciboEjecucionComponenteDocumentalNominal
+	Estructural ReciboEjecucionComponenteDocumentalNominal
+	Semantico   ReciboEjecucionComponenteDocumentalNominal
 }
 
 func (r RecibosEjecucionDocumentalV3) ValidarContra(
 	manifiesto ManifiestoEjecucionDocumentalV3,
-	resultado ResultadoEfectoRenderizadoDocumentalV3,
+	resultado ResultadoEfectoRenderizadoDocumentalV3Crudo,
 	reservaRef string,
 	consumo ConsumoDecisionEjecucionDocumentalV3,
-	token TokenCercadoEjecucionDocumentalV3,
-	verificacion ResultadoVerificacionTokenCercadoDocumentalV3,
+	ordenConsumida OrdenDespachoDocumentalV3ConsumidaNominal,
+	instante time.Time,
 ) error {
 	datosManifiesto, errManifiesto := manifiesto.Datos()
-	solicitudCercado, errCercado := NuevaSolicitudVerificacionTokenCercadoDocumentalV3(
-		reservaRef, manifiesto, consumo, token,
-	)
+	vinculo, errVinculo := ordenConsumida.VinculoActivacion()
+	datosOrden, errOrden := ordenConsumida.DatosOrden()
 	datosRender, errRender := r.Render.Datos()
 	datosEstructural, errEstructural := r.Estructural.Datos()
 	datosSemantico, errSemantico := r.Semantico.Datos()
-	if errManifiesto != nil || errCercado != nil || verificacion.ValidarPara(solicitudCercado) != nil ||
+	if errManifiesto != nil || errVinculo != nil || errOrden != nil ||
+		ordenConsumida.ValidarEn(instante) != nil || vinculo.ReservaRef != reservaRef ||
+		!manifiestosEjecucionDocumentalV3Coinciden(vinculo.Manifiesto, manifiesto) ||
+		vinculo.ConsumoDecision != consumo ||
 		resultado.ValidarContra(manifiesto) != nil ||
 		errRender != nil || errEstructural != nil || errSemantico != nil ||
 		!reciboEjecucionDocumentalV3Coincide(
 			datosRender, OperacionRenderizadoDocumental,
 			datosManifiesto.ComponenteRender, datosManifiesto, resultado,
-			reservaRef, consumo, token, solicitudCercado, verificacion,
+			reservaRef, consumo, datosOrden, ordenConsumida,
 		) || !reciboEjecucionDocumentalV3Coincide(
 		datosEstructural, OperacionValidacionEstructuralDocumental,
 		datosManifiesto.ComponenteVerificador, datosManifiesto, resultado,
-		reservaRef, consumo, token, solicitudCercado, verificacion,
+		reservaRef, consumo, datosOrden, ordenConsumida,
 	) || !reciboEjecucionDocumentalV3Coincide(
 		datosSemantico, OperacionVerificacionSemanticaDocumental,
 		datosManifiesto.ComponenteSemantico, datosManifiesto, resultado,
-		reservaRef, consumo, token, solicitudCercado, verificacion,
+		reservaRef, consumo, datosOrden, ordenConsumida,
 	) || !r.Render.IndependienteDe(r.Estructural) ||
 		!r.Render.IndependienteDe(r.Semantico) || !r.Estructural.IndependienteDe(r.Semantico) {
 		return ErrTransicionEjecucionDocumentalV3Invalida
@@ -676,14 +2457,12 @@ func (r RecibosEjecucionDocumentalV3) Huellas() (HuellasRecibosEjecucionDocument
 }
 
 type SolicitudAbandonarEjecucionDocumentalV3 struct {
-	ReservaRef          string
-	Manifiesto          ManifiestoEjecucionDocumentalV3
-	EstadoEsperado      EstadoEjecucionDocumentalV3
-	ConsumoDecision     ConsumoDecisionEjecucionDocumentalV3
-	Token               TokenCercadoEjecucionDocumentalV3
-	VerificacionCercado ResultadoVerificacionTokenCercadoDocumentalV3
-	MotivoRef           string
-	AbandonadaEn        time.Time
+	ReservaRef      string
+	Manifiesto      ManifiestoEjecucionDocumentalV3
+	EstadoEsperado  EstadoEjecucionDocumentalV3
+	ConsumoDecision ConsumoDecisionEjecucionDocumentalV3
+	MotivoRef       string
+	AbandonadaEn    time.Time
 }
 
 func (s SolicitudAbandonarEjecucionDocumentalV3) Validar() error {
@@ -694,15 +2473,13 @@ func (s SolicitudAbandonarEjecucionDocumentalV3) Validar() error {
 	}
 	switch s.EstadoEsperado {
 	case EstadoEjecucionDocumentalV3Preparada:
-		if !tokenCercadoDocumentalV3EsCero(s.Token) ||
-			s.ConsumoDecision != (ConsumoDecisionEjecucionDocumentalV3{}) ||
-			s.VerificacionCercado != (ResultadoVerificacionTokenCercadoDocumentalV3{}) {
+		if s.ConsumoDecision != (ConsumoDecisionEjecucionDocumentalV3{}) {
 			return ErrTransicionEjecucionDocumentalV3Invalida
 		}
 	case EstadoEjecucionDocumentalV3Activa:
-		if !verificacionTokenCercadoDocumentalV3Valida(
-			s.ReservaRef, s.Manifiesto, s.ConsumoDecision, s.Token, s.VerificacionCercado,
-		) {
+		// La solicitud es estructural. El registro debe releer la activacion,
+		// adopcion V4 y version CAS dentro de la transaccion de abandono.
+		if s.ConsumoDecision.ValidarContra(s.Manifiesto) != nil {
 			return ErrTransicionEjecucionDocumentalV3Invalida
 		}
 	default:
@@ -712,18 +2489,17 @@ func (s SolicitudAbandonarEjecucionDocumentalV3) Validar() error {
 }
 
 type SolicitudMarcarEjecucionDocumentalV3Indeterminada struct {
-	ReservaRef          string
-	Manifiesto          ManifiestoEjecucionDocumentalV3
-	ConsumoDecision     ConsumoDecisionEjecucionDocumentalV3
-	Token               TokenCercadoEjecucionDocumentalV3
-	VerificacionCercado ResultadoVerificacionTokenCercadoDocumentalV3
-	IncidenteRef        string
-	MarcadaEn           time.Time
+	ReservaRef             string
+	Manifiesto             ManifiestoEjecucionDocumentalV3
+	ConsumoDecision        ConsumoDecisionEjecucionDocumentalV3
+	OrdenDespachoConsumida OrdenDespachoDocumentalV3ConsumidaNominal
+	IncidenteRef           string
+	MarcadaEn              time.Time
 }
 
 func (s SolicitudMarcarEjecucionDocumentalV3Indeterminada) Validar() error {
-	if !verificacionTokenCercadoDocumentalV3Valida(
-		s.ReservaRef, s.Manifiesto, s.ConsumoDecision, s.Token, s.VerificacionCercado,
+	if !ordenDespachoDocumentalV3ConsumidaNominalCoincide(
+		s.OrdenDespachoConsumida, s.ReservaRef, s.Manifiesto, s.ConsumoDecision, s.MarcadaEn,
 	) ||
 		!referenciaEjecucionDocumentalV3Valida(s.IncidenteRef) ||
 		!instanteEjecucionDocumentalV3Valido(s.MarcadaEn) {
@@ -750,7 +2526,36 @@ func (c ConsultaEjecucionDocumentalV3) Validar() error {
 	return nil
 }
 
-type InstantaneaEjecucionDocumentalV3 struct {
+func (ConsultaEjecucionDocumentalV3) String() string {
+	return "[CONSULTA-EJECUCION-DOCUMENTAL-V3-HMAC-REDACTADA]"
+}
+func (c ConsultaEjecucionDocumentalV3) GoString() string { return c.String() }
+func (c ConsultaEjecucionDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, c.String())
+}
+func (c ConsultaEjecucionDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(c.String())
+}
+func (ConsultaEjecucionDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ConsultaEjecucionDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ConsultaEjecucionDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ConsultaEjecucionDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ConsultaEjecucionDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ConsultaEjecucionDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+type InstantaneaEjecucionDocumentalV3Nominal struct {
 	ReservaRef                 string
 	IndiceIdempotenciaHMAC     string
 	HuellaSolicitudHMAC        string
@@ -759,7 +2564,8 @@ type InstantaneaEjecucionDocumentalV3 struct {
 	SecuenciaCercado           uint64
 	HuellaVinculoSHA256        string
 	ConsumoDecision            ConsumoDecisionEjecucionDocumentalV3
-	Resultado                  ResultadoEfectoRenderizadoDocumentalV3
+	OrdenConsumoDurableV4Ref   string
+	Resultado                  ResultadoEfectoRenderizadoDocumentalV3Crudo
 	IncidenteRef               string
 	EvidenciaRef               string
 	HuellaEvidenciaSHA256      string
@@ -770,7 +2576,7 @@ type InstantaneaEjecucionDocumentalV3 struct {
 	ActualizadaEn              time.Time
 }
 
-func (i InstantaneaEjecucionDocumentalV3) Validar() error {
+func (i InstantaneaEjecucionDocumentalV3Nominal) Validar() error {
 	datos, err := i.Manifiesto.Datos()
 	if err != nil || !referenciaEjecucionDocumentalV3Valida(i.ReservaRef) ||
 		!hmacSHA256PuertoValido(i.IndiceIdempotenciaHMAC) ||
@@ -784,7 +2590,8 @@ func (i InstantaneaEjecucionDocumentalV3) Validar() error {
 	case EstadoEjecucionDocumentalV3Preparada:
 		if i.SecuenciaCercado != 0 || i.HuellaVinculoSHA256 != "" ||
 			i.ConsumoDecision != (ConsumoDecisionEjecucionDocumentalV3{}) ||
-			i.Resultado != (ResultadoEfectoRenderizadoDocumentalV3{}) || i.IncidenteRef != "" ||
+			i.OrdenConsumoDurableV4Ref != "" ||
+			i.Resultado != (ResultadoEfectoRenderizadoDocumentalV3Crudo{}) || i.IncidenteRef != "" ||
 			i.EvidenciaRef != "" || i.HuellaEvidenciaSHA256 != "" ||
 			!camposOrigenAbandonoInstantaneaDocumentalV3Vacios(i) ||
 			!camposReconciliacionInstantaneaDocumentalV3Vacios(i) {
@@ -792,7 +2599,7 @@ func (i InstantaneaEjecucionDocumentalV3) Validar() error {
 		}
 	case EstadoEjecucionDocumentalV3Activa, EstadoEjecucionDocumentalV3EfectoIniciado:
 		if !vinculoCercadoProyectadoDocumentalV3Valido(i) ||
-			i.Resultado != (ResultadoEfectoRenderizadoDocumentalV3{}) || i.IncidenteRef != "" ||
+			i.Resultado != (ResultadoEfectoRenderizadoDocumentalV3Crudo{}) || i.IncidenteRef != "" ||
 			i.EvidenciaRef != "" || i.HuellaEvidenciaSHA256 != "" ||
 			!camposOrigenAbandonoInstantaneaDocumentalV3Vacios(i) ||
 			!camposReconciliacionInstantaneaDocumentalV3Vacios(i) {
@@ -801,7 +2608,7 @@ func (i InstantaneaEjecucionDocumentalV3) Validar() error {
 	case EstadoEjecucionDocumentalV3Indeterminada:
 		if !vinculoCercadoProyectadoDocumentalV3Valido(i) ||
 			!referenciaEjecucionDocumentalV3Valida(i.IncidenteRef) ||
-			i.Resultado != (ResultadoEfectoRenderizadoDocumentalV3{}) ||
+			i.Resultado != (ResultadoEfectoRenderizadoDocumentalV3Crudo{}) ||
 			i.EvidenciaRef != "" || i.HuellaEvidenciaSHA256 != "" ||
 			!camposOrigenAbandonoInstantaneaDocumentalV3Vacios(i) ||
 			!camposReconciliacionInstantaneaDocumentalV3Vacios(i) {
@@ -816,7 +2623,7 @@ func (i InstantaneaEjecucionDocumentalV3) Validar() error {
 			return ErrReservaEjecucionDocumentalV3Invalida
 		}
 	case EstadoEjecucionDocumentalV3AbandonadaSinEfecto:
-		if i.Resultado != (ResultadoEfectoRenderizadoDocumentalV3{}) ||
+		if i.Resultado != (ResultadoEfectoRenderizadoDocumentalV3Crudo{}) ||
 			i.EvidenciaRef != "" || i.HuellaEvidenciaSHA256 != "" ||
 			!referenciaEjecucionDocumentalV3Valida(i.MotivoAbandonoRef) {
 			return ErrReservaEjecucionDocumentalV3Invalida
@@ -847,6 +2654,35 @@ func (i InstantaneaEjecucionDocumentalV3) Validar() error {
 	return nil
 }
 
+func (InstantaneaEjecucionDocumentalV3Nominal) String() string {
+	return "[INSTANTANEA-EJECUCION-DOCUMENTAL-V3-NOMINAL-HMAC-REDACTADA]"
+}
+func (i InstantaneaEjecucionDocumentalV3Nominal) GoString() string { return i.String() }
+func (i InstantaneaEjecucionDocumentalV3Nominal) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, i.String())
+}
+func (i InstantaneaEjecucionDocumentalV3Nominal) LogValue() slog.Value {
+	return slog.StringValue(i.String())
+}
+func (InstantaneaEjecucionDocumentalV3Nominal) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*InstantaneaEjecucionDocumentalV3Nominal) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (InstantaneaEjecucionDocumentalV3Nominal) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*InstantaneaEjecucionDocumentalV3Nominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (InstantaneaEjecucionDocumentalV3Nominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*InstantaneaEjecucionDocumentalV3Nominal) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
 type DatosEvidenciaRenderizadoDocumentalV3 struct {
 	Esquema                       string
 	ReservaRef                    string
@@ -861,7 +2697,7 @@ type DatosEvidenciaRenderizadoDocumentalV3 struct {
 	VerificacionCercadoRef        string
 	VerificadoCercadoEn           time.Time
 	ConsumoDecision               ConsumoDecisionEjecucionDocumentalV3
-	Resultado                     ResultadoEfectoRenderizadoDocumentalV3
+	Resultado                     ResultadoEfectoRenderizadoDocumentalV3Crudo
 	Recibos                       HuellasRecibosEjecucionDocumentalV3
 	GeneradoEn                    time.Time
 	ConfirmadoEn                  time.Time
@@ -874,6 +2710,13 @@ type DatosEvidenciaRenderizadoDocumentalV3 struct {
 
 func (d DatosEvidenciaRenderizadoDocumentalV3) Validar() error {
 	datosManifiesto, err := d.Manifiesto.Datos()
+	vinculo := VinculoEstableActivacionDocumentalV3{
+		ReservaRef: d.ReservaRef, IndiceIdempotenciaHMAC: d.IndiceIdempotenciaHMAC,
+		HuellaSolicitudHMAC: d.HuellaSolicitudHMAC, Manifiesto: d.Manifiesto,
+		ConsumoDecision:          d.ConsumoDecision,
+		OrdenConsumoDurableV4Ref: d.ConsumoDecision.EfectoRef,
+	}
+	huellaVinculoEstable, errVinculo := vinculo.HuellaSHA256()
 	if d.Esquema != EsquemaEvidenciaRenderizadoV3 || err != nil ||
 		!referenciaEjecucionDocumentalV3Valida(d.ReservaRef) ||
 		!hmacSHA256PuertoValido(d.IndiceIdempotenciaHMAC) ||
@@ -886,9 +2729,9 @@ func (d DatosEvidenciaRenderizadoDocumentalV3) Validar() error {
 		!referenciaEjecucionDocumentalV3Valida(d.EvidenciaAtestacionCercadoRef) ||
 		!referenciaEjecucionDocumentalV3Valida(d.VerificacionCercadoRef) ||
 		!instanteEjecucionDocumentalV3Valido(d.VerificadoCercadoEn) ||
-		d.ConsumoDecision.ValidarContra(d.Manifiesto) != nil ||
+		errVinculo != nil ||
 		d.HuellaVinculoSHA256 != huellaVinculoCercadoEjecucionDocumentalV3(
-			d.ReservaRef, d.SecuenciaCercado, d.Manifiesto, d.ConsumoDecision,
+			d.SecuenciaCercado, huellaVinculoEstable,
 		) || d.Resultado.ValidarContra(d.Manifiesto) != nil ||
 		d.Recibos.Validar() != nil ||
 		!instanteEjecucionDocumentalV3Valido(d.GeneradoEn) ||
@@ -912,6 +2755,35 @@ func (d DatosEvidenciaRenderizadoDocumentalV3) Validar() error {
 		return ErrSelloEvidenciaDocumentalV3Invalido
 	}
 	return nil
+}
+
+func (DatosEvidenciaRenderizadoDocumentalV3) String() string {
+	return "[DATOS-EVIDENCIA-RENDERIZADO-V3-CONFIDENCIALES-REDACTADOS]"
+}
+func (d DatosEvidenciaRenderizadoDocumentalV3) GoString() string { return d.String() }
+func (d DatosEvidenciaRenderizadoDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, d.String())
+}
+func (d DatosEvidenciaRenderizadoDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(d.String())
+}
+func (DatosEvidenciaRenderizadoDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosEvidenciaRenderizadoDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosEvidenciaRenderizadoDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosEvidenciaRenderizadoDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosEvidenciaRenderizadoDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosEvidenciaRenderizadoDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
 }
 
 type PerfilSelloEvidenciaDocumentalV3 struct {
@@ -938,6 +2810,35 @@ func (p PerfilSelloEvidenciaDocumentalV3) Validar() error {
 		return ErrSelloEvidenciaDocumentalV3Invalido
 	}
 	return nil
+}
+
+func (PerfilSelloEvidenciaDocumentalV3) String() string {
+	return "[PERFIL-SELLO-EVIDENCIA-V3-HMAC-REDACTADO]"
+}
+func (p PerfilSelloEvidenciaDocumentalV3) GoString() string { return p.String() }
+func (p PerfilSelloEvidenciaDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, p.String())
+}
+func (p PerfilSelloEvidenciaDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(p.String())
+}
+func (PerfilSelloEvidenciaDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*PerfilSelloEvidenciaDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (PerfilSelloEvidenciaDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*PerfilSelloEvidenciaDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (PerfilSelloEvidenciaDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*PerfilSelloEvidenciaDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
 }
 
 type SolicitudFirmaEvidenciaRenderizadoDocumentalV3 struct {
@@ -1001,7 +2902,36 @@ func (s SolicitudFirmaEvidenciaRenderizadoDocumentalV3) Perfil() (PerfilSelloEvi
 	return s.perfil, nil
 }
 
-type DatosSelloEvidenciaDocumentalV3 struct {
+func (SolicitudFirmaEvidenciaRenderizadoDocumentalV3) String() string {
+	return "[SOLICITUD-FIRMA-EVIDENCIA-RENDERIZADO-V3-CONFIDENCIAL]"
+}
+func (s SolicitudFirmaEvidenciaRenderizadoDocumentalV3) GoString() string { return s.String() }
+func (s SolicitudFirmaEvidenciaRenderizadoDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, s.String())
+}
+func (s SolicitudFirmaEvidenciaRenderizadoDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+func (SolicitudFirmaEvidenciaRenderizadoDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudFirmaEvidenciaRenderizadoDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudFirmaEvidenciaRenderizadoDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudFirmaEvidenciaRenderizadoDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudFirmaEvidenciaRenderizadoDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudFirmaEvidenciaRenderizadoDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+type DatosSelloEvidenciaDocumentalV3Crudos struct {
 	Algoritmo             string
 	ClaveID               string
 	Audiencia             string
@@ -1011,33 +2941,62 @@ type DatosSelloEvidenciaDocumentalV3 struct {
 	FirmadoEn             time.Time
 }
 
-type SelloEvidenciaDocumentalV3 struct {
-	datos DatosSelloEvidenciaDocumentalV3
+func (DatosSelloEvidenciaDocumentalV3Crudos) String() string {
+	return "[DATOS-SELLO-EVIDENCIA-V3-CONFIDENCIALES-REDACTADOS]"
+}
+func (d DatosSelloEvidenciaDocumentalV3Crudos) GoString() string { return d.String() }
+func (d DatosSelloEvidenciaDocumentalV3Crudos) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, d.String())
+}
+func (d DatosSelloEvidenciaDocumentalV3Crudos) LogValue() slog.Value {
+	return slog.StringValue(d.String())
+}
+func (DatosSelloEvidenciaDocumentalV3Crudos) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosSelloEvidenciaDocumentalV3Crudos) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosSelloEvidenciaDocumentalV3Crudos) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosSelloEvidenciaDocumentalV3Crudos) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosSelloEvidenciaDocumentalV3Crudos) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosSelloEvidenciaDocumentalV3Crudos) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
 }
 
-func NuevoSelloEvidenciaDocumentalV3(
+type SelloEvidenciaDocumentalV3Nominal struct {
+	datos DatosSelloEvidenciaDocumentalV3Crudos
+}
+
+func NuevoSelloEvidenciaDocumentalV3Nominal(
 	solicitud SolicitudFirmaEvidenciaRenderizadoDocumentalV3,
 	firma []byte,
 	evidenciaOperacionRef string,
 	firmadoEn time.Time,
-) (SelloEvidenciaDocumentalV3, error) {
+) (SelloEvidenciaDocumentalV3Nominal, error) {
 	perfil, errPerfil := solicitud.Perfil()
 	huella, errHuella := solicitud.HuellaMensajeSHA256()
 	if errPerfil != nil || errHuella != nil {
-		return SelloEvidenciaDocumentalV3{}, ErrSelloEvidenciaDocumentalV3Invalido
+		return SelloEvidenciaDocumentalV3Nominal{}, ErrSelloEvidenciaDocumentalV3Invalido
 	}
-	sello := SelloEvidenciaDocumentalV3{datos: DatosSelloEvidenciaDocumentalV3{
+	sello := SelloEvidenciaDocumentalV3Nominal{datos: DatosSelloEvidenciaDocumentalV3Crudos{
 		Algoritmo: perfil.Algoritmo, ClaveID: perfil.ClaveID, Audiencia: perfil.Audiencia,
 		HuellaMensajeSHA256: huella, Firma: append([]byte(nil), firma...),
 		EvidenciaOperacionRef: evidenciaOperacionRef, FirmadoEn: firmadoEn,
 	}}
 	if sello.ValidarPara(solicitud) != nil {
-		return SelloEvidenciaDocumentalV3{}, ErrSelloEvidenciaDocumentalV3Invalido
+		return SelloEvidenciaDocumentalV3Nominal{}, ErrSelloEvidenciaDocumentalV3Invalido
 	}
 	return sello, nil
 }
 
-func (s SelloEvidenciaDocumentalV3) ValidarPara(
+func (s SelloEvidenciaDocumentalV3Nominal) ValidarPara(
 	solicitud SolicitudFirmaEvidenciaRenderizadoDocumentalV3,
 ) error {
 	perfil, errPerfil := solicitud.Perfil()
@@ -1049,46 +3008,57 @@ func (s SelloEvidenciaDocumentalV3) ValidarPara(
 	return nil
 }
 
-func (s SelloEvidenciaDocumentalV3) Datos() (DatosSelloEvidenciaDocumentalV3, error) {
+func (s SelloEvidenciaDocumentalV3Nominal) Datos() (DatosSelloEvidenciaDocumentalV3Crudos, error) {
 	perfil := PerfilSelloEvidenciaDocumentalV3{
 		Algoritmo: s.datos.Algoritmo, ClaveID: s.datos.ClaveID, Audiencia: s.datos.Audiencia,
 	}
 	if !datosSelloEvidenciaDocumentalV3ValidosPara(
 		s.datos, perfil, s.datos.HuellaMensajeSHA256,
 	) {
-		return DatosSelloEvidenciaDocumentalV3{}, ErrSelloEvidenciaDocumentalV3Invalido
+		return DatosSelloEvidenciaDocumentalV3Crudos{}, ErrSelloEvidenciaDocumentalV3Invalido
 	}
 	datos := s.datos
 	datos.Firma = append([]byte(nil), s.datos.Firma...)
 	return datos, nil
 }
-func (SelloEvidenciaDocumentalV3) String() string     { return "[SELLO-EVIDENCIA-DOCUMENTAL-V3-OPACO]" }
-func (s SelloEvidenciaDocumentalV3) GoString() string { return s.String() }
-func (s SelloEvidenciaDocumentalV3) Format(estado fmt.State, _ rune) {
+func (SelloEvidenciaDocumentalV3Nominal) String() string {
+	return "[SELLO-EVIDENCIA-DOCUMENTAL-V3-NOMINAL-NO-AUTORITATIVO-REDACTADO]"
+}
+func (s SelloEvidenciaDocumentalV3Nominal) GoString() string { return s.String() }
+func (s SelloEvidenciaDocumentalV3Nominal) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, s.String())
 }
-func (SelloEvidenciaDocumentalV3) MarshalJSON() ([]byte, error) {
+func (s SelloEvidenciaDocumentalV3Nominal) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+func (SelloEvidenciaDocumentalV3Nominal) MarshalJSON() ([]byte, error) {
 	return nil, ErrSerializacionSecretoDocumentalV3
 }
-func (SelloEvidenciaDocumentalV3) MarshalText() ([]byte, error) {
+func (SelloEvidenciaDocumentalV3Nominal) MarshalText() ([]byte, error) {
 	return nil, ErrSerializacionSecretoDocumentalV3
 }
-func (*SelloEvidenciaDocumentalV3) UnmarshalJSON([]byte) error {
+func (SelloEvidenciaDocumentalV3Nominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SelloEvidenciaDocumentalV3Nominal) UnmarshalJSON([]byte) error {
 	return ErrSerializacionSecretoDocumentalV3
 }
-func (*SelloEvidenciaDocumentalV3) UnmarshalText([]byte) error {
+func (*SelloEvidenciaDocumentalV3Nominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (*SelloEvidenciaDocumentalV3Nominal) UnmarshalBinary([]byte) error {
 	return ErrSerializacionSecretoDocumentalV3
 }
 
 type SolicitudVerificacionEvidenciaDocumentalV3 struct {
 	firma  SolicitudFirmaEvidenciaRenderizadoDocumentalV3
-	sello  SelloEvidenciaDocumentalV3
+	sello  SelloEvidenciaDocumentalV3Nominal
 	huella string
 }
 
 func NuevaSolicitudVerificacionEvidenciaDocumentalV3(
 	firma SolicitudFirmaEvidenciaRenderizadoDocumentalV3,
-	sello SelloEvidenciaDocumentalV3,
+	sello SelloEvidenciaDocumentalV3Nominal,
 ) (SolicitudVerificacionEvidenciaDocumentalV3, error) {
 	solicitud := SolicitudVerificacionEvidenciaDocumentalV3{
 		firma: firma, sello: sello,
@@ -1102,14 +3072,15 @@ func NuevaSolicitudVerificacionEvidenciaDocumentalV3(
 
 // NuevaSolicitudVerificacionEvidenciaDocumentalV3DesdeDatos permite restaurar
 // un sobre persistido, pero no lo convierte en evidencia confiable: el unico
-// resultado con autoridad lo emite VerificadorEvidenciasRenderizadoDocumentalV3.
+// la salida del conector tambien es nominal. Solo el servicio de aplicacion
+// precompuesto puede cotejarla con relectura durable y CAS dentro de su llamada.
 func NuevaSolicitudVerificacionEvidenciaDocumentalV3DesdeDatos(
 	firma SolicitudFirmaEvidenciaRenderizadoDocumentalV3,
-	datos DatosSelloEvidenciaDocumentalV3,
+	datos DatosSelloEvidenciaDocumentalV3Crudos,
 ) (SolicitudVerificacionEvidenciaDocumentalV3, error) {
 	datos.Firma = append([]byte(nil), datos.Firma...)
 	return NuevaSolicitudVerificacionEvidenciaDocumentalV3(
-		firma, SelloEvidenciaDocumentalV3{datos: datos},
+		firma, SelloEvidenciaDocumentalV3Nominal{datos: datos},
 	)
 }
 
@@ -1125,38 +3096,67 @@ func (s SolicitudVerificacionEvidenciaDocumentalV3) Validar() error {
 func (s SolicitudVerificacionEvidenciaDocumentalV3) Mensaje() ([]byte, error) {
 	return s.firma.Mensaje()
 }
-func (s SolicitudVerificacionEvidenciaDocumentalV3) Sello() (DatosSelloEvidenciaDocumentalV3, error) {
+func (s SolicitudVerificacionEvidenciaDocumentalV3) Sello() (DatosSelloEvidenciaDocumentalV3Crudos, error) {
 	if s.Validar() != nil {
-		return DatosSelloEvidenciaDocumentalV3{}, ErrSelloEvidenciaDocumentalV3Invalido
+		return DatosSelloEvidenciaDocumentalV3Crudos{}, ErrSelloEvidenciaDocumentalV3Invalido
 	}
 	return s.sello.Datos()
 }
 
-type ResultadoVerificacionEvidenciaDocumentalV3 struct {
+func (SolicitudVerificacionEvidenciaDocumentalV3) String() string {
+	return "[SOLICITUD-VERIFICACION-EVIDENCIA-V3-CONFIDENCIAL]"
+}
+func (s SolicitudVerificacionEvidenciaDocumentalV3) GoString() string { return s.String() }
+func (s SolicitudVerificacionEvidenciaDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, s.String())
+}
+func (s SolicitudVerificacionEvidenciaDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+func (SolicitudVerificacionEvidenciaDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudVerificacionEvidenciaDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudVerificacionEvidenciaDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudVerificacionEvidenciaDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudVerificacionEvidenciaDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudVerificacionEvidenciaDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+type MetadatosComprobacionEvidenciaDocumentalV3Nominal struct {
 	huellaSolicitud string
 	verificacionRef string
 	verificadaEn    time.Time
 }
 
-// NuevoResultadoVerificacionEvidenciaDocumentalV3 queda reservado al
-// adaptador de VerificadorEvidenciasRenderizadoDocumentalV3. Construir un
-// valor estructuralmente correcto no sustituye la comprobacion criptografica.
-func NuevoResultadoVerificacionEvidenciaDocumentalV3(
+// NuevosMetadatosComprobacionEvidenciaDocumentalV3Nominal restaura la salida
+// nominal del conector. No sustituye la comprobacion criptografica privada del
+// servicio de aplicacion ni autoriza una confirmacion.
+func NuevosMetadatosComprobacionEvidenciaDocumentalV3Nominal(
 	solicitud SolicitudVerificacionEvidenciaDocumentalV3,
 	verificacionRef string,
 	verificadaEn time.Time,
-) (ResultadoVerificacionEvidenciaDocumentalV3, error) {
+) (MetadatosComprobacionEvidenciaDocumentalV3Nominal, error) {
 	if solicitud.Validar() != nil || !referenciaEjecucionDocumentalV3Valida(verificacionRef) ||
 		!instanteEjecucionDocumentalV3Valido(verificadaEn) {
-		return ResultadoVerificacionEvidenciaDocumentalV3{}, ErrSelloEvidenciaDocumentalV3Invalido
+		return MetadatosComprobacionEvidenciaDocumentalV3Nominal{}, ErrSelloEvidenciaDocumentalV3Invalido
 	}
-	resultado := ResultadoVerificacionEvidenciaDocumentalV3{
+	resultado := MetadatosComprobacionEvidenciaDocumentalV3Nominal{
 		huellaSolicitud: solicitud.huella, verificacionRef: verificacionRef, verificadaEn: verificadaEn,
 	}
 	return resultado, nil
 }
 
-func (r ResultadoVerificacionEvidenciaDocumentalV3) ValidarPara(
+func (r MetadatosComprobacionEvidenciaDocumentalV3Nominal) ValidarPara(
 	solicitud SolicitudVerificacionEvidenciaDocumentalV3,
 ) error {
 	if solicitud.Validar() != nil || r.huellaSolicitud != solicitud.huella ||
@@ -1167,54 +3167,78 @@ func (r ResultadoVerificacionEvidenciaDocumentalV3) ValidarPara(
 	return nil
 }
 
+func (MetadatosComprobacionEvidenciaDocumentalV3Nominal) String() string {
+	return "[METADATOS-COMPROBACION-EVIDENCIA-V3-NOMINALES-NO-AUTORITATIVOS]"
+}
+func (r MetadatosComprobacionEvidenciaDocumentalV3Nominal) GoString() string { return r.String() }
+func (r MetadatosComprobacionEvidenciaDocumentalV3Nominal) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, r.String())
+}
+func (r MetadatosComprobacionEvidenciaDocumentalV3Nominal) LogValue() slog.Value {
+	return slog.StringValue(r.String())
+}
+func (MetadatosComprobacionEvidenciaDocumentalV3Nominal) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*MetadatosComprobacionEvidenciaDocumentalV3Nominal) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (MetadatosComprobacionEvidenciaDocumentalV3Nominal) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*MetadatosComprobacionEvidenciaDocumentalV3Nominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (MetadatosComprobacionEvidenciaDocumentalV3Nominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*MetadatosComprobacionEvidenciaDocumentalV3Nominal) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
 type FirmanteEvidenciasRenderizadoDocumentalV3 interface {
 	FirmarEvidenciaRenderizadoDocumentalV3(
 		context.Context,
 		SolicitudFirmaEvidenciaRenderizadoDocumentalV3,
-	) (SelloEvidenciaDocumentalV3, error)
+	) (SelloEvidenciaDocumentalV3Nominal, error)
 }
 
-// VerificadorEvidenciasRenderizadoDocumentalV3 es la unica frontera que
-// convierte datos persistidos en una verificacion utilizable. No existe una
-// funcion global de restauracion que acepte un mero SHA-256 autorreferente.
+// VerificadorEvidenciasRenderizadoDocumentalV3 es un conector intercambiable.
+// Su salida es nominal; solo el servicio precompuesto puede usarla junto con
+// relectura durable y CAS, sin exponerla como autoridad a handlers.
 type VerificadorEvidenciasRenderizadoDocumentalV3 interface {
 	VerificarEvidenciaRenderizadoDocumentalV3(
 		context.Context,
 		SolicitudVerificacionEvidenciaDocumentalV3,
-	) (ResultadoVerificacionEvidenciaDocumentalV3, error)
+	) (MetadatosComprobacionEvidenciaDocumentalV3Nominal, error)
 }
 
 type SolicitudConfirmarEjecucionDocumentalV3 struct {
-	ReservaRef          string
-	Manifiesto          ManifiestoEjecucionDocumentalV3
-	ConsumoDecision     ConsumoDecisionEjecucionDocumentalV3
-	Token               TokenCercadoEjecucionDocumentalV3
-	VerificacionCercado ResultadoVerificacionTokenCercadoDocumentalV3
-	Resultado           ResultadoEfectoRenderizadoDocumentalV3
-	Recibos             RecibosEjecucionDocumentalV3
-	Evidencia           DatosEvidenciaRenderizadoDocumentalV3
-	Sello               SelloEvidenciaDocumentalV3
-	Verificacion        ResultadoVerificacionEvidenciaDocumentalV3
+	ReservaRef             string
+	Manifiesto             ManifiestoEjecucionDocumentalV3
+	ConsumoDecision        ConsumoDecisionEjecucionDocumentalV3
+	OrdenDespachoConsumida OrdenDespachoDocumentalV3ConsumidaNominal
+	Resultado              ResultadoEfectoRenderizadoDocumentalV3Crudo
+	Recibos                RecibosEjecucionDocumentalV3
+	Evidencia              DatosEvidenciaRenderizadoDocumentalV3
+	Sello                  SelloEvidenciaDocumentalV3Nominal
 }
 
 func (s SolicitudConfirmarEjecucionDocumentalV3) Validar() error {
-	if !verificacionTokenCercadoDocumentalV3Valida(
-		s.ReservaRef, s.Manifiesto, s.ConsumoDecision, s.Token, s.VerificacionCercado,
+	datosOrden, errOrden := s.OrdenDespachoConsumida.DatosOrden()
+	if errOrden != nil || !ordenDespachoDocumentalV3ConsumidaNominalCoincide(
+		s.OrdenDespachoConsumida, s.ReservaRef, s.Manifiesto, s.ConsumoDecision,
+		s.Evidencia.ConfirmadoEn,
 	) ||
 		s.Resultado.ValidarContra(s.Manifiesto) != nil || s.Evidencia.Validar() != nil ||
 		s.Recibos.ValidarContra(
 			s.Manifiesto, s.Resultado, s.ReservaRef, s.ConsumoDecision,
-			s.Token, s.VerificacionCercado,
+			s.OrdenDespachoConsumida, s.Evidencia.ConfirmadoEn,
 		) != nil ||
 		s.Evidencia.ReservaRef != s.ReservaRef ||
 		!manifiestosEjecucionDocumentalV3Coinciden(s.Evidencia.Manifiesto, s.Manifiesto) ||
-		s.Evidencia.SecuenciaCercado != s.Token.Secuencia() ||
-		s.Evidencia.HuellaVinculoSHA256 != s.Token.HuellaVinculoSHA256() ||
-		s.Evidencia.ClaveAtestacionCercadoRef != s.Token.claveAtestacionRef ||
-		s.Evidencia.HuellaMACCercadoSHA256 != huellaBytesFormatoDocumental(s.Token.macAtestacion) ||
-		s.Evidencia.EvidenciaAtestacionCercadoRef != s.Token.evidenciaOperacionRef ||
-		s.Evidencia.VerificacionCercadoRef != s.VerificacionCercado.verificacionRef ||
-		!s.Evidencia.VerificadoCercadoEn.Equal(s.VerificacionCercado.verificadaEn) ||
+		s.Evidencia.SecuenciaCercado != datosOrden.ReciboInicio.SecuenciaCercado ||
+		s.Evidencia.HuellaVinculoSHA256 != datosOrden.ReciboInicio.HuellaVinculoCercadoSHA256 ||
 		s.Evidencia.ConsumoDecision != s.ConsumoDecision || s.Evidencia.Resultado != s.Resultado {
 		return ErrTransicionEjecucionDocumentalV3Invalida
 	}
@@ -1228,10 +3252,6 @@ func (s SolicitudConfirmarEjecucionDocumentalV3) Validar() error {
 	}
 	firma, err := NuevaSolicitudFirmaEvidenciaRenderizadoDocumentalV3(perfil, s.Evidencia)
 	if err != nil || s.Sello.ValidarPara(firma) != nil {
-		return ErrTransicionEjecucionDocumentalV3Invalida
-	}
-	verificacion, err := NuevaSolicitudVerificacionEvidenciaDocumentalV3(firma, s.Sello)
-	if err != nil || s.Verificacion.ValidarPara(verificacion) != nil {
 		return ErrTransicionEjecucionDocumentalV3Invalida
 	}
 	return nil
@@ -1254,41 +3274,41 @@ func (e EstadoResultadoReconciliacionDocumentalV3) Valido() bool {
 }
 
 type SolicitudConsultarEfectoDocumentalV3 struct {
-	ReservaRef          string
-	Manifiesto          ManifiestoEjecucionDocumentalV3
-	ConsumoDecision     ConsumoDecisionEjecucionDocumentalV3
-	Token               TokenCercadoEjecucionDocumentalV3
-	VerificacionCercado ResultadoVerificacionTokenCercadoDocumentalV3
+	ReservaRef             string
+	Manifiesto             ManifiestoEjecucionDocumentalV3
+	ConsumoDecision        ConsumoDecisionEjecucionDocumentalV3
+	OrdenDespachoConsumida OrdenDespachoDocumentalV3ConsumidaNominal
+	SolicitadaEn           time.Time
 }
 
 func (s SolicitudConsultarEfectoDocumentalV3) Validar() error {
-	if !verificacionTokenCercadoDocumentalV3Valida(
-		s.ReservaRef, s.Manifiesto, s.ConsumoDecision, s.Token, s.VerificacionCercado,
+	if !ordenDespachoDocumentalV3ConsumidaNominalCoincide(
+		s.OrdenDespachoConsumida, s.ReservaRef, s.Manifiesto, s.ConsumoDecision, s.SolicitadaEn,
 	) {
 		return ErrReconciliacionDocumentalV3Invalida
 	}
 	return nil
 }
 
-type SobreAtestacionReconciliacionDocumentalV3 struct {
+type SobreAtestacionReconciliacionDocumentalV3Crudo struct {
 	coseSign1 []byte
 	huella    string
 }
 
-func NuevoSobreAtestacionReconciliacionDocumentalV3(
+func NuevoSobreAtestacionReconciliacionDocumentalV3Crudo(
 	coseSign1 []byte,
-) (SobreAtestacionReconciliacionDocumentalV3, error) {
-	sobre := SobreAtestacionReconciliacionDocumentalV3{
+) (SobreAtestacionReconciliacionDocumentalV3Crudo, error) {
+	sobre := SobreAtestacionReconciliacionDocumentalV3Crudo{
 		coseSign1: append([]byte(nil), coseSign1...),
 	}
 	sobre.huella = huellaBytesFormatoDocumental(sobre.coseSign1)
 	if sobre.Validar() != nil {
-		return SobreAtestacionReconciliacionDocumentalV3{}, ErrReconciliacionDocumentalV3Invalida
+		return SobreAtestacionReconciliacionDocumentalV3Crudo{}, ErrReconciliacionDocumentalV3Invalida
 	}
 	return sobre, nil
 }
 
-func (s SobreAtestacionReconciliacionDocumentalV3) Validar() error {
+func (s SobreAtestacionReconciliacionDocumentalV3Crudo) Validar() error {
 	if len(s.coseSign1) < minimoBytesSobreCOSEDocumental ||
 		len(s.coseSign1) > maximoBytesSobreCOSEDocumental ||
 		bytesEjecucionDocumentalNulos(s.coseSign1) || !esSHA256Hexadecimal(s.huella) ||
@@ -1298,61 +3318,72 @@ func (s SobreAtestacionReconciliacionDocumentalV3) Validar() error {
 	return nil
 }
 
-func (s SobreAtestacionReconciliacionDocumentalV3) COSESign1() ([]byte, error) {
+func (s SobreAtestacionReconciliacionDocumentalV3Crudo) COSESign1() ([]byte, error) {
 	if s.Validar() != nil {
 		return nil, ErrReconciliacionDocumentalV3Invalida
 	}
 	return append([]byte(nil), s.coseSign1...), nil
 }
 
-func (s SobreAtestacionReconciliacionDocumentalV3) HuellaSHA256() (string, error) {
+func (s SobreAtestacionReconciliacionDocumentalV3Crudo) HuellaSHA256() (string, error) {
 	if s.Validar() != nil {
 		return "", ErrReconciliacionDocumentalV3Invalida
 	}
 	return s.huella, nil
 }
 
-func (SobreAtestacionReconciliacionDocumentalV3) String() string {
-	return "[ATESTACION-RECONCILIACION-DOCUMENTAL-V3-OPACA]"
+func (SobreAtestacionReconciliacionDocumentalV3Crudo) String() string {
+	return "[ATESTACION-RECONCILIACION-DOCUMENTAL-V3-CRUDA-NO-AUTORITATIVA-REDACTADA]"
 }
-func (s SobreAtestacionReconciliacionDocumentalV3) GoString() string { return s.String() }
-func (s SobreAtestacionReconciliacionDocumentalV3) Format(estado fmt.State, _ rune) {
+func (s SobreAtestacionReconciliacionDocumentalV3Crudo) GoString() string { return s.String() }
+func (s SobreAtestacionReconciliacionDocumentalV3Crudo) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, s.String())
 }
-func (SobreAtestacionReconciliacionDocumentalV3) MarshalJSON() ([]byte, error) {
+func (s SobreAtestacionReconciliacionDocumentalV3Crudo) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+func (SobreAtestacionReconciliacionDocumentalV3Crudo) MarshalJSON() ([]byte, error) {
 	return nil, ErrSerializacionSecretoDocumentalV3
 }
-func (*SobreAtestacionReconciliacionDocumentalV3) UnmarshalJSON([]byte) error {
+func (*SobreAtestacionReconciliacionDocumentalV3Crudo) UnmarshalJSON([]byte) error {
 	return ErrSerializacionSecretoDocumentalV3
 }
-func (SobreAtestacionReconciliacionDocumentalV3) MarshalText() ([]byte, error) {
+func (SobreAtestacionReconciliacionDocumentalV3Crudo) MarshalText() ([]byte, error) {
 	return nil, ErrSerializacionSecretoDocumentalV3
 }
-func (*SobreAtestacionReconciliacionDocumentalV3) UnmarshalText([]byte) error {
+func (SobreAtestacionReconciliacionDocumentalV3Crudo) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SobreAtestacionReconciliacionDocumentalV3Crudo) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (*SobreAtestacionReconciliacionDocumentalV3Crudo) UnmarshalBinary([]byte) error {
 	return ErrSerializacionSecretoDocumentalV3
 }
 
-type ResultadoConsultaEfectoDocumentalV3 struct {
+type ResultadoConsultaEfectoDocumentalV3Crudo struct {
 	ReservaRef             string
 	EfectoRef              string
 	SecuenciaCercado       uint64
 	HuellaVinculoSHA256    string
 	HuellaPlanSHA256       string
 	Estado                 EstadoResultadoReconciliacionDocumentalV3
-	Resultado              ResultadoEfectoRenderizadoDocumentalV3
+	Resultado              ResultadoEfectoRenderizadoDocumentalV3Crudo
 	AtestacionRef          string
 	HuellaAtestacionSHA256 string
-	SobreAtestacion        SobreAtestacionReconciliacionDocumentalV3
+	SobreAtestacion        SobreAtestacionReconciliacionDocumentalV3Crudo
 	ConsultadaEn           time.Time
 }
 
-func (r ResultadoConsultaEfectoDocumentalV3) ValidarContra(
+func (r ResultadoConsultaEfectoDocumentalV3Crudo) ValidarContra(
 	s SolicitudConsultarEfectoDocumentalV3,
 ) error {
 	datos, err := s.Manifiesto.Datos()
+	datosOrden, errOrden := s.OrdenDespachoConsumida.DatosOrden()
 	if s.Validar() != nil || err != nil || r.ReservaRef != s.ReservaRef ||
-		r.EfectoRef != datos.EfectoRef || r.SecuenciaCercado != s.Token.Secuencia() ||
-		r.HuellaVinculoSHA256 != s.Token.HuellaVinculoSHA256() ||
+		errOrden != nil || r.EfectoRef != datos.EfectoRef ||
+		r.SecuenciaCercado != datosOrden.ReciboInicio.SecuenciaCercado ||
+		r.HuellaVinculoSHA256 != datosOrden.ReciboInicio.HuellaVinculoCercadoSHA256 ||
 		r.HuellaPlanSHA256 != datos.HuellaPlanSHA256 || !r.Estado.Valido() ||
 		!referenciaEjecucionDocumentalV3Valida(r.AtestacionRef) ||
 		!esSHA256Hexadecimal(r.HuellaAtestacionSHA256) || r.SobreAtestacion.Validar() != nil ||
@@ -1363,7 +3394,7 @@ func (r ResultadoConsultaEfectoDocumentalV3) ValidarContra(
 		if r.Resultado.ValidarContra(s.Manifiesto) != nil {
 			return ErrReconciliacionDocumentalV3Invalida
 		}
-	} else if r.Resultado != (ResultadoEfectoRenderizadoDocumentalV3{}) {
+	} else if r.Resultado != (ResultadoEfectoRenderizadoDocumentalV3Crudo{}) {
 		return ErrReconciliacionDocumentalV3Invalida
 	}
 	huellaSobre, _ := r.SobreAtestacion.HuellaSHA256()
@@ -1373,16 +3404,45 @@ func (r ResultadoConsultaEfectoDocumentalV3) ValidarContra(
 	return nil
 }
 
+func (ResultadoConsultaEfectoDocumentalV3Crudo) String() string {
+	return "[RESULTADO-CONSULTA-EFECTO-DOCUMENTAL-V3-CRUDO-COSE-Y-REFERENCIAS-REDACTADOS]"
+}
+func (r ResultadoConsultaEfectoDocumentalV3Crudo) GoString() string { return r.String() }
+func (r ResultadoConsultaEfectoDocumentalV3Crudo) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, r.String())
+}
+func (r ResultadoConsultaEfectoDocumentalV3Crudo) LogValue() slog.Value {
+	return slog.StringValue(r.String())
+}
+func (ResultadoConsultaEfectoDocumentalV3Crudo) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ResultadoConsultaEfectoDocumentalV3Crudo) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ResultadoConsultaEfectoDocumentalV3Crudo) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ResultadoConsultaEfectoDocumentalV3Crudo) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ResultadoConsultaEfectoDocumentalV3Crudo) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ResultadoConsultaEfectoDocumentalV3Crudo) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
 type SolicitudVerificacionReconciliacionDocumentalV3 struct {
 	consulta  SolicitudConsultarEfectoDocumentalV3
-	resultado ResultadoConsultaEfectoDocumentalV3
+	resultado ResultadoConsultaEfectoDocumentalV3Crudo
 	mensaje   []byte
 	huella    string
 }
 
 func NuevaSolicitudVerificacionReconciliacionDocumentalV3(
 	consulta SolicitudConsultarEfectoDocumentalV3,
-	resultado ResultadoConsultaEfectoDocumentalV3,
+	resultado ResultadoConsultaEfectoDocumentalV3Crudo,
 ) (SolicitudVerificacionReconciliacionDocumentalV3, error) {
 	if resultado.ValidarContra(consulta) != nil {
 		return SolicitudVerificacionReconciliacionDocumentalV3{}, ErrReconciliacionDocumentalV3Invalida
@@ -1429,30 +3489,58 @@ func (s SolicitudVerificacionReconciliacionDocumentalV3) Sobre() ([]byte, error)
 	return s.resultado.SobreAtestacion.COSESign1()
 }
 
-type ResultadoVerificacionReconciliacionDocumentalV3 struct {
+func (SolicitudVerificacionReconciliacionDocumentalV3) String() string {
+	return "[SOLICITUD-VERIFICACION-RECONCILIACION-V3-CONFIDENCIAL]"
+}
+func (s SolicitudVerificacionReconciliacionDocumentalV3) GoString() string { return s.String() }
+func (s SolicitudVerificacionReconciliacionDocumentalV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, s.String())
+}
+func (s SolicitudVerificacionReconciliacionDocumentalV3) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+func (SolicitudVerificacionReconciliacionDocumentalV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudVerificacionReconciliacionDocumentalV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudVerificacionReconciliacionDocumentalV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudVerificacionReconciliacionDocumentalV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (SolicitudVerificacionReconciliacionDocumentalV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*SolicitudVerificacionReconciliacionDocumentalV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+type MetadatosComprobacionReconciliacionDocumentalV3Nominal struct {
 	huellaSolicitud string
 	verificacionRef string
 	verificadaEn    time.Time
 }
 
-// NuevoResultadoVerificacionReconciliacionDocumentalV3 queda reservado al
-// adaptador de VerificadorAtestacionesReconciliacionDocumentalV3. El producto
-// no puede usar este constructor como sustituto de la verificacion COSE.
-func NuevoResultadoVerificacionReconciliacionDocumentalV3(
+// NuevosMetadatosComprobacionReconciliacionDocumentalV3Nominal restaura una
+// salida nominal del conector. Nunca sustituye la verificacion COSE privada.
+func NuevosMetadatosComprobacionReconciliacionDocumentalV3Nominal(
 	solicitud SolicitudVerificacionReconciliacionDocumentalV3,
 	verificacionRef string,
 	verificadaEn time.Time,
-) (ResultadoVerificacionReconciliacionDocumentalV3, error) {
+) (MetadatosComprobacionReconciliacionDocumentalV3Nominal, error) {
 	if solicitud.Validar() != nil || !referenciaEjecucionDocumentalV3Valida(verificacionRef) ||
 		!instanteEjecucionDocumentalV3Valido(verificadaEn) {
-		return ResultadoVerificacionReconciliacionDocumentalV3{}, ErrReconciliacionDocumentalV3Invalida
+		return MetadatosComprobacionReconciliacionDocumentalV3Nominal{}, ErrReconciliacionDocumentalV3Invalida
 	}
-	return ResultadoVerificacionReconciliacionDocumentalV3{
+	return MetadatosComprobacionReconciliacionDocumentalV3Nominal{
 		huellaSolicitud: solicitud.huella, verificacionRef: verificacionRef, verificadaEn: verificadaEn,
 	}, nil
 }
 
-func (r ResultadoVerificacionReconciliacionDocumentalV3) ValidarPara(
+func (r MetadatosComprobacionReconciliacionDocumentalV3Nominal) ValidarPara(
 	solicitud SolicitudVerificacionReconciliacionDocumentalV3,
 ) error {
 	if solicitud.Validar() != nil || r.huellaSolicitud != solicitud.huella ||
@@ -1463,17 +3551,47 @@ func (r ResultadoVerificacionReconciliacionDocumentalV3) ValidarPara(
 	return nil
 }
 
+func (MetadatosComprobacionReconciliacionDocumentalV3Nominal) String() string {
+	return "[METADATOS-COMPROBACION-RECONCILIACION-V3-NOMINALES-NO-AUTORITATIVOS]"
+}
+func (r MetadatosComprobacionReconciliacionDocumentalV3Nominal) GoString() string {
+	return r.String()
+}
+func (r MetadatosComprobacionReconciliacionDocumentalV3Nominal) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, r.String())
+}
+func (r MetadatosComprobacionReconciliacionDocumentalV3Nominal) LogValue() slog.Value {
+	return slog.StringValue(r.String())
+}
+func (MetadatosComprobacionReconciliacionDocumentalV3Nominal) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*MetadatosComprobacionReconciliacionDocumentalV3Nominal) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (MetadatosComprobacionReconciliacionDocumentalV3Nominal) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*MetadatosComprobacionReconciliacionDocumentalV3Nominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (MetadatosComprobacionReconciliacionDocumentalV3Nominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*MetadatosComprobacionReconciliacionDocumentalV3Nominal) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
 type VerificadorAtestacionesReconciliacionDocumentalV3 interface {
 	VerificarAtestacionReconciliacionDocumentalV3(
 		context.Context,
 		SolicitudVerificacionReconciliacionDocumentalV3,
-	) (ResultadoVerificacionReconciliacionDocumentalV3, error)
+	) (MetadatosComprobacionReconciliacionDocumentalV3Nominal, error)
 }
 
 type SolicitudAplicarReconciliacionDocumentalV3 struct {
 	Consulta          SolicitudConsultarEfectoDocumentalV3
-	ResultadoConsulta ResultadoConsultaEfectoDocumentalV3
-	Verificacion      ResultadoVerificacionReconciliacionDocumentalV3
+	ResultadoConsulta ResultadoConsultaEfectoDocumentalV3Crudo
 	TieneConfirmacion bool
 	Confirmacion      SolicitudConfirmarEjecucionDocumentalV3
 }
@@ -1482,7 +3600,7 @@ func (s SolicitudAplicarReconciliacionDocumentalV3) Validar() error {
 	solicitudVerificacion, err := NuevaSolicitudVerificacionReconciliacionDocumentalV3(
 		s.Consulta, s.ResultadoConsulta,
 	)
-	if err != nil || s.Verificacion.ValidarPara(solicitudVerificacion) != nil {
+	if err != nil || solicitudVerificacion.Validar() != nil {
 		return ErrReconciliacionDocumentalV3Invalida
 	}
 	if s.ResultadoConsulta.Estado == ResultadoReconciliacionDocumentalV3AplicadoExacto {
@@ -1494,9 +3612,7 @@ func (s SolicitudAplicarReconciliacionDocumentalV3) Validar() error {
 				s.ResultadoConsulta.HuellaAtestacionSHA256 ||
 			!s.Confirmacion.Evidencia.ReconciliacionConsultadaEn.Equal(
 				s.ResultadoConsulta.ConsultadaEn,
-			) || s.Confirmacion.Evidencia.VerificacionReconciliacionRef !=
-			s.Verificacion.verificacionRef ||
-			!s.Confirmacion.Evidencia.ReconciliacionVerificadaEn.Equal(s.Verificacion.verificadaEn) {
+			) {
 			return ErrReconciliacionDocumentalV3Invalida
 		}
 	} else if s.TieneConfirmacion || !solicitudConfirmacionDocumentalV3EsCero(s.Confirmacion) {
@@ -1509,23 +3625,71 @@ type ReconciliadorEfectosRenderizadoDocumentalV3 interface {
 	ConsultarEfectoRenderizadoDocumentalV3(
 		context.Context,
 		SolicitudConsultarEfectoDocumentalV3,
-	) (ResultadoConsultaEfectoDocumentalV3, error)
+	) (ResultadoConsultaEfectoDocumentalV3Crudo, error)
 }
 
 // RegistroEjecucionesDocumentalesV3 debe ser durable y transaccional. Las
 // restricciones UNIQUE de indice HMAC, borrador, efecto y DecisionRef son
 // permanentes. Confirmacion, manifiesto, evidencia, auditoria y outbox se
 // confirman juntos; no se ofrece una implementacion en memoria productiva.
+//
+// ActivarEjecucionDocumentalV3AdoptandoOrdenV4 es la unica frontera de
+// adopcion. El adaptador PostgreSQL debe abrir una sola transaccion, bloquear
+// y releer por OrdenConsumoDurableV4Ref la fila V4 autoritativa, exigir que su
+// orden_ref sea el EfectoRef y cotejar DecisionRef, HuellaDecisionSHA256,
+// HuellaPlanSHA256, estado pendiente y contexto comun completos. En el mismo
+// COMMIT debe: insertar una adopcion durable 1:1/UNIQUE que referencie la orden
+// V4 sin mutarla; guardar en la adopcion sus huellas autoritativas de
+// aplicacion, orden y contexto; reclamar UNIQUE por orden, DecisionRef, efecto
+// y reserva; activar la reserva; incrementar el cercado; y escribir
+// auditoria/outbox. Cualquier cero, cruce, discordancia o replay revierte todo.
+// Un reintento con la misma intencion estable (reserva, HMAC, manifiesto,
+// orden, terna y huellas) y otro ActivadaEn recupera el mismo token con
+// Repetida=true; la marca temporal efimera no crea otra activacion.
+//
+// MarcarInicioEfectoDocumentalV3 debe, en una sola transaccion, bloquear y
+// releer el registro V3 activo, su adopcion durable y la orden V4 autoritativa;
+// reconstruir y comparar el VinculoEstableActivacionDocumentalV3 completo;
+// verificar el MAC del token con la clave gestionada indicada por su referencia
+// (nunca mediante MetadatosComprobacion autocreables); y solo entonces ejecutar
+// el CAS activa -> iniciada junto con auditoria y outbox. Cualquier ausencia,
+// cruce o discordancia revierte toda la transaccion y no inicia el efecto.
+// Devuelve el ReciboInicioEfectoDocumentalV3Nominal creado en ese mismo COMMIT.
+//
+// ReclamarOrdenDespachoDocumentalV3 debe bloquear el evento outbox y releer el
+// recibo de inicio, V3, adopcion y V4. En una sola transaccion ejecuta CAS
+// pendiente -> reclamada, incrementa VersionReclamacionCAS y escribe auditoria
+// y atestacion. Una segunda reclamacion, incluso identica, falla cerrada. La
+// orden devuelta sigue siendo nominal. El servicio de aplicacion privado debe
+// verificarla una vez por KMS y entregarla al consumo CAS transaccional; solo
+// entonces crea un comando ConsumidaNominal y lo usa dentro de la misma llamada.
+//
+// ConfirmarEjecucionDocumentalV3 y AplicarReconciliacionDocumentalV3 no pueden
+// confiar en comandos nominales, metadatos publicos ni recibos restaurados. El
+// registro debe releer inicio, reclamacion, consumo, adopcion V3/V4 y versiones;
+// verificar criptograficamente COSE/firmas con dependencias privadas; ejecutar
+// el CAS de estado; y confirmar evidencia, auditoria y outbox en un solo COMMIT.
+// Abandono e indeterminacion aplican la misma regla de relectura y CAS cerrado.
+// El sistema permanece NO-GO hasta existir y probar el servicio application
+// precompuesto que mantenga KMS, consumidor, despachador y almacen fuera de
+// HTTP, CLI, MCP y modulos funcionales.
 type RegistroEjecucionesDocumentalesV3 interface {
 	PrepararEjecucionDocumentalV3(
 		context.Context,
 		SolicitudPrepararEjecucionDocumentalV3,
-	) (PreparacionEjecucionDocumentalV3, error)
-	ActivarEjecucionDocumentalV3(
+	) (PreparacionEjecucionDocumentalV3Nominal, error)
+	ActivarEjecucionDocumentalV3AdoptandoOrdenV4(
 		context.Context,
 		SolicitudActivarEjecucionDocumentalV3,
-	) (ActivacionEjecucionDocumentalV3, error)
-	MarcarInicioEfectoDocumentalV3(context.Context, SolicitudIniciarEfectoDocumentalV3) error
+	) (ActivacionEjecucionDocumentalV3Nominal, error)
+	MarcarInicioEfectoDocumentalV3(
+		context.Context,
+		SolicitudIniciarEfectoDocumentalV3,
+	) (ReciboInicioEfectoDocumentalV3Nominal, error)
+	ReclamarOrdenDespachoDocumentalV3(
+		context.Context,
+		SolicitudReclamarOrdenDespachoDocumentalV3,
+	) (OrdenDespachoDocumentalV3Nominal, error)
 	ConfirmarEjecucionDocumentalV3(context.Context, SolicitudConfirmarEjecucionDocumentalV3) error
 	AbandonarEjecucionDocumentalV3(context.Context, SolicitudAbandonarEjecucionDocumentalV3) error
 	MarcarEjecucionDocumentalV3Indeterminada(
@@ -1535,7 +3699,7 @@ type RegistroEjecucionesDocumentalesV3 interface {
 	ObtenerEjecucionDocumentalV3(
 		context.Context,
 		ConsultaEjecucionDocumentalV3,
-	) (InstantaneaEjecucionDocumentalV3, error)
+	) (InstantaneaEjecucionDocumentalV3Nominal, error)
 	AplicarReconciliacionDocumentalV3(context.Context, SolicitudAplicarReconciliacionDocumentalV3) error
 }
 
@@ -1559,31 +3723,40 @@ func manifiestosEjecucionDocumentalV3Coinciden(
 }
 
 func reciboEjecucionDocumentalV3Coincide(
-	recibo DatosReciboEjecucionComponenteDocumentalVerificado,
+	recibo DatosReciboEjecucionComponenteDocumentalNominal,
 	operacion OperacionComponenteDocumental,
 	componente DescriptorComponenteDocumentalAtestado,
 	manifiesto DatosManifiestoEjecucionDocumentalV3,
-	resultado ResultadoEfectoRenderizadoDocumentalV3,
+	resultado ResultadoEfectoRenderizadoDocumentalV3Crudo,
 	reservaRef string,
 	consumo ConsumoDecisionEjecucionDocumentalV3,
-	token TokenCercadoEjecucionDocumentalV3,
-	solicitudCercado SolicitudVerificacionTokenCercadoDocumentalV3,
-	verificacion ResultadoVerificacionTokenCercadoDocumentalV3,
+	datosOrden DatosOrdenDespachoDocumentalV3Nominal,
+	ordenConsumida OrdenDespachoDocumentalV3ConsumidaNominal,
 ) bool {
+	huellaOrden, errHuella := ordenConsumida.solicitud.orden.HuellaSHA256()
 	if !esSHA256Hexadecimal(recibo.HuellaCompromisoSHA256) || recibo.Operacion != operacion ||
+		errHuella != nil ||
 		recibo.DescriptorPerfil != manifiesto.DescriptorPerfil ||
 		recibo.SituacionOperativa != manifiesto.SituacionOperativa ||
 		recibo.DescriptorComponente != componente || recibo.BorradorRef != manifiesto.BorradorRef ||
 		recibo.ReservaRef != reservaRef || recibo.EfectoRef != manifiesto.EfectoRef ||
 		recibo.HuellaPlanSHA256 != manifiesto.HuellaPlanSHA256 ||
-		recibo.SecuenciaCercado != token.Secuencia() ||
-		recibo.HuellaVinculoCercadoSHA256 != token.HuellaVinculoSHA256() ||
+		recibo.SecuenciaCercado != datosOrden.ReciboInicio.SecuenciaCercado ||
+		recibo.HuellaVinculoCercadoSHA256 != datosOrden.ReciboInicio.HuellaVinculoCercadoSHA256 ||
 		recibo.DecisionRef != consumo.DecisionRef ||
 		recibo.EsquemaHuellaDecision != consumo.EsquemaHuellaDecision ||
 		recibo.HuellaDecisionSHA256 != consumo.HuellaDecisionSHA256 ||
-		recibo.HuellaSolicitudCercadoSHA256 != solicitudCercado.huella ||
-		recibo.VerificacionCercadoRef != verificacion.verificacionRef ||
-		!recibo.VerificacionCercadoEn.Equal(verificacion.verificadaEn) ||
+		recibo.InicioEfectoRef != datosOrden.ReciboInicio.InicioRef ||
+		recibo.OutboxInicioRef != datosOrden.ReciboInicio.OutboxInicioRef ||
+		recibo.ReclamacionDespachoRef != datosOrden.ReclamacionRef ||
+		recibo.ConsumoDespachoRef != ordenConsumida.estado.consumoRef ||
+		recibo.OutboxConsumoRef != ordenConsumida.estado.outboxConsumoRef ||
+		recibo.VersionInicioCAS != datosOrden.ReciboInicio.VersionInicioCAS ||
+		recibo.VersionReclamacionCAS != datosOrden.VersionReclamacionCAS ||
+		recibo.VersionConsumoCAS != ordenConsumida.estado.versionConsumoCAS ||
+		recibo.HuellaOrdenDespachoSHA256 != huellaOrden ||
+		recibo.ComprobacionKMSRef != ordenConsumida.resultado.comprobacionRef ||
+		!recibo.ConsumidaEn.Equal(ordenConsumida.estado.consumidaEn) ||
 		recibo.HuellaContenidoNeutralHMAC != manifiesto.HuellaEntradaHMAC ||
 		recibo.LimiteBytes != manifiesto.LimiteEfectivoBytes ||
 		recibo.HuellaSalidaSHA256 != resultado.HuellaSalidaSHA256 ||
@@ -1622,45 +3795,41 @@ func huellaManifiestoEjecucionDocumentalV3(d DatosManifiestoEjecucionDocumentalV
 }
 
 func huellaVinculoCercadoEjecucionDocumentalV3(
-	reservaRef string,
 	secuencia uint64,
-	manifiesto ManifiestoEjecucionDocumentalV3,
-	consumo ConsumoDecisionEjecucionDocumentalV3,
+	huellaVinculoEstable string,
 ) string {
-	datos, err := manifiesto.Datos()
-	if err != nil {
+	if secuencia == 0 || !esSHA256Hexadecimal(huellaVinculoEstable) {
 		return ""
 	}
 	return huellaCanonicaFormatoDocumental([]string{
-		"vec.documentos.cercado-ejecucion.v3", reservaRef, strconvu64(secuencia),
-		datos.HuellaPlanSHA256, datos.DescriptorPerfil.Perfil().DigestSHA256(),
-		strconvu64(datos.SituacionOperativa.RevisionOperativa()),
-		datos.SituacionOperativa.HuellaSHA256(),
-		datos.ComponenteRender.DigestDeclaracionSHA256(),
-		datos.ComponenteVerificador.DigestDeclaracionSHA256(),
-		datos.ComponenteSemantico.DigestDeclaracionSHA256(),
-		consumo.DecisionRef, consumo.EfectoRef, consumo.EsquemaHuellaDecision,
-		consumo.HuellaDecisionSHA256, consumo.HuellaPlanSHA256,
+		"vec.documentos.cercado-ejecucion.v3", strconvu64(secuencia),
+		huellaVinculoEstable,
 	})
 }
 
-func vinculoCercadoProyectadoDocumentalV3Valido(i InstantaneaEjecucionDocumentalV3) bool {
-	return i.SecuenciaCercado > 0 && esSHA256Hexadecimal(i.HuellaVinculoSHA256) &&
-		i.ConsumoDecision.ValidarContra(i.Manifiesto) == nil &&
+func vinculoCercadoProyectadoDocumentalV3Valido(i InstantaneaEjecucionDocumentalV3Nominal) bool {
+	vinculo := VinculoEstableActivacionDocumentalV3{
+		ReservaRef: i.ReservaRef, IndiceIdempotenciaHMAC: i.IndiceIdempotenciaHMAC,
+		HuellaSolicitudHMAC: i.HuellaSolicitudHMAC, Manifiesto: i.Manifiesto,
+		ConsumoDecision:          i.ConsumoDecision,
+		OrdenConsumoDurableV4Ref: i.OrdenConsumoDurableV4Ref,
+	}
+	huellaVinculoEstable, err := vinculo.HuellaSHA256()
+	return err == nil && i.SecuenciaCercado > 0 && esSHA256Hexadecimal(i.HuellaVinculoSHA256) &&
 		i.HuellaVinculoSHA256 == huellaVinculoCercadoEjecucionDocumentalV3(
-			i.ReservaRef, i.SecuenciaCercado, i.Manifiesto, i.ConsumoDecision,
+			i.SecuenciaCercado, huellaVinculoEstable,
 		)
 }
 
-func camposOrigenAbandonoInstantaneaDocumentalV3Vacios(i InstantaneaEjecucionDocumentalV3) bool {
+func camposOrigenAbandonoInstantaneaDocumentalV3Vacios(i InstantaneaEjecucionDocumentalV3Nominal) bool {
 	return i.EstadoOrigenAbandono == "" && i.MotivoAbandonoRef == ""
 }
 
-func camposReconciliacionInstantaneaDocumentalV3Vacios(i InstantaneaEjecucionDocumentalV3) bool {
+func camposReconciliacionInstantaneaDocumentalV3Vacios(i InstantaneaEjecucionDocumentalV3Nominal) bool {
 	return i.ReconciliacionRef == "" && i.HuellaReconciliacionSHA256 == ""
 }
 
-func camposReconciliacionConfirmadaDocumentalV3Validos(i InstantaneaEjecucionDocumentalV3) bool {
+func camposReconciliacionConfirmadaDocumentalV3Validos(i InstantaneaEjecucionDocumentalV3Nominal) bool {
 	return camposReconciliacionInstantaneaDocumentalV3Vacios(i) ||
 		(referenciaEjecucionDocumentalV3Valida(i.ReconciliacionRef) &&
 			esSHA256Hexadecimal(i.HuellaReconciliacionSHA256))
@@ -1701,19 +3870,19 @@ func serializarEvidenciaRenderizadoDocumentalV3(d DatosEvidenciaRenderizadoDocum
 }
 
 func serializarAtestacionTokenCercadoDocumentalV3(
-	reservaRef string,
-	manifiesto ManifiestoEjecucionDocumentalV3,
-	consumo ConsumoDecisionEjecucionDocumentalV3,
-	token TokenCercadoEjecucionDocumentalV3,
+	vinculo VinculoEstableActivacionDocumentalV3,
+	token TokenCercadoEjecucionDocumentalV3Nominal,
 ) []byte {
-	huellaManifiesto, _ := manifiesto.HuellaSHA256()
+	huellaVinculoEstable, err := vinculo.HuellaSHA256()
+	if err != nil || token.ValidarPara(vinculo) != nil {
+		return nil
+	}
 	valores := []string{
-		"vec.documentos.atestacion-token-cercado.v3", token.valor, reservaRef,
-		strconvu64(token.secuencia), token.huellaVinculo, huellaManifiesto,
-		consumo.DecisionRef, consumo.EfectoRef, consumo.EsquemaHuellaDecision,
-		consumo.HuellaDecisionSHA256, consumo.HuellaPlanSHA256,
+		"vec.documentos.atestacion-token-cercado.v3", token.valor,
+		strconvu64(token.secuencia), huellaVinculoEstable, token.huellaVinculo,
 		AlgoritmoSelloEvidenciaHMACSHA256V3, AudienciaAtestacionTokenCercadoV3,
-		token.claveAtestacionRef, token.evidenciaOperacionRef,
+		ContextoAtestacionTokenCercadoV3, token.claveAtestacionRef,
+		strconvu64(token.revisionClave), token.evidenciaOperacionRef,
 	}
 	var salida []byte
 	for _, valor := range valores {
@@ -1725,8 +3894,97 @@ func serializarAtestacionTokenCercadoDocumentalV3(
 	return salida
 }
 
+func serializarMaterialCrudoVerificacionOrdenDespachoDocumentalV3(
+	v VinculosCrudosVerificacionOrdenDespachoDocumentalV3,
+	cercado, inicio, reclamacion PruebaCrudaAtestacionDespachoDocumentalV3,
+) []byte {
+	return serializarCamposCanonicosEjecucionDocumentalV3([]string{
+		"vec.documentos.material-crudo-verificacion-despacho.v3",
+		AlgoritmoSelloEvidenciaHMACSHA256V3, AudienciaComprobacionOrdenDespachoV3,
+		ContextoComprobacionOrdenDespachoV3,
+		v.InicioRef, v.AtestacionInicioRef, v.ReclamacionRef,
+		v.AtestacionReclamacionRef, v.OrdenConsumoDurableV4Ref,
+		v.HuellaOrdenDespachoSHA256, v.HuellaReciboInicioSHA256,
+		v.HuellaVinculoEstableSHA256, v.HuellaVinculoCercadoSHA256,
+		strconvu64(v.SecuenciaCercado), strconvu64(v.VersionInicioCAS),
+		strconvu64(v.VersionReclamacionCAS), cercado.huellaSHA256(),
+		inicio.huellaSHA256(), reclamacion.huellaSHA256(),
+	})
+}
+
+func serializarCamposCanonicosEjecucionDocumentalV3(valores []string) []byte {
+	var salida []byte
+	for _, valor := range valores {
+		salida = strconv.AppendInt(salida, int64(len(valor)), 10)
+		salida = append(salida, ':')
+		salida = append(salida, valor...)
+		salida = append(salida, '\n')
+	}
+	return salida
+}
+
+func bytesEjecucionDocumentalV3Iguales(primero, segundo []byte) bool {
+	return bytes.Equal(primero, segundo)
+}
+
+func clonarPruebaCrudaAtestacionDespachoDocumentalV3(
+	p PruebaCrudaAtestacionDespachoDocumentalV3,
+) PruebaCrudaAtestacionDespachoDocumentalV3 {
+	p.mensajeCanonico = append([]byte(nil), p.mensajeCanonico...)
+	p.sobreCriptografico = append([]byte(nil), p.sobreCriptografico...)
+	return p
+}
+
+func clonarMaterialCrudoVerificacionOrdenDespachoDocumentalV3(
+	m MaterialCrudoVerificacionOrdenDespachoDocumentalV3,
+) MaterialCrudoVerificacionOrdenDespachoDocumentalV3 {
+	m.orden = clonarOrdenDespachoDocumentalV3Nominal(m.orden)
+	m.vinculo = clonarVinculoEstableActivacionDocumentalV3(m.vinculo)
+	m.token = clonarTokenCercadoEjecucionDocumentalV3(m.token)
+	m.cercado = clonarPruebaCrudaAtestacionDespachoDocumentalV3(m.cercado)
+	m.inicio = clonarPruebaCrudaAtestacionDespachoDocumentalV3(m.inicio)
+	m.reclamacion = clonarPruebaCrudaAtestacionDespachoDocumentalV3(m.reclamacion)
+	m.mensaje = append([]byte(nil), m.mensaje...)
+	return m
+}
+
+func clonarVinculoEstableActivacionDocumentalV3(
+	v VinculoEstableActivacionDocumentalV3,
+) VinculoEstableActivacionDocumentalV3 {
+	if v.Manifiesto.datos != nil {
+		datos := *v.Manifiesto.datos
+		v.Manifiesto.datos = &datos
+	}
+	return v
+}
+
+func clonarTokenCercadoEjecucionDocumentalV3(
+	t TokenCercadoEjecucionDocumentalV3Nominal,
+) TokenCercadoEjecucionDocumentalV3Nominal {
+	t.vinculoEstable = clonarVinculoEstableActivacionDocumentalV3(t.vinculoEstable)
+	t.macAtestacion = append([]byte(nil), t.macAtestacion...)
+	return t
+}
+
+func clonarOrdenDespachoDocumentalV3Nominal(
+	o OrdenDespachoDocumentalV3Nominal,
+) OrdenDespachoDocumentalV3Nominal {
+	if o.datos == nil {
+		return o
+	}
+	datos := *o.datos
+	datos.ReciboInicio.AtestacionInicio = clonarPruebaCrudaAtestacionDespachoDocumentalV3(
+		o.datos.ReciboInicio.AtestacionInicio,
+	)
+	datos.AtestacionReclamacion = clonarPruebaCrudaAtestacionDespachoDocumentalV3(
+		o.datos.AtestacionReclamacion,
+	)
+	o.datos = &datos
+	return o
+}
+
 func serializarResultadoReconciliacionDocumentalV3(
-	r ResultadoConsultaEfectoDocumentalV3,
+	r ResultadoConsultaEfectoDocumentalV3Crudo,
 ) []byte {
 	valores := []string{
 		"vec.documentos.resultado-reconciliacion.v3", r.ReservaRef, r.EfectoRef,
@@ -1758,7 +4016,7 @@ func huellaSolicitudVerificacionTokenCercadoDocumentalV3(
 
 func huellaSolicitudVerificacionEvidenciaDocumentalV3(
 	firma SolicitudFirmaEvidenciaRenderizadoDocumentalV3,
-	sello SelloEvidenciaDocumentalV3,
+	sello SelloEvidenciaDocumentalV3Nominal,
 ) string {
 	huellaMensaje, _ := firma.HuellaMensajeSHA256()
 	datos, _ := sello.Datos()
@@ -1770,23 +4028,24 @@ func huellaSolicitudVerificacionEvidenciaDocumentalV3(
 	})
 }
 
-func verificacionTokenCercadoDocumentalV3Valida(
+func ordenDespachoDocumentalV3ConsumidaNominalCoincide(
+	orden OrdenDespachoDocumentalV3ConsumidaNominal,
 	reservaRef string,
 	manifiesto ManifiestoEjecucionDocumentalV3,
 	consumo ConsumoDecisionEjecucionDocumentalV3,
-	token TokenCercadoEjecucionDocumentalV3,
-	verificacion ResultadoVerificacionTokenCercadoDocumentalV3,
+	instante time.Time,
 ) bool {
-	solicitud, err := NuevaSolicitudVerificacionTokenCercadoDocumentalV3(
-		reservaRef, manifiesto, consumo, token,
-	)
-	return err == nil && verificacion.ValidarPara(solicitud) == nil
+	vinculo, err := orden.VinculoActivacion()
+	return err == nil && orden.ValidarEn(instante) == nil &&
+		vinculo.ReservaRef == reservaRef &&
+		manifiestosEjecucionDocumentalV3Coinciden(vinculo.Manifiesto, manifiesto) &&
+		vinculo.ConsumoDecision == consumo
 }
 
-func tokenCercadoDocumentalV3EsCero(token TokenCercadoEjecucionDocumentalV3) bool {
-	return token.valor == "" && token.secuencia == 0 && token.huellaVinculo == "" &&
-		token.claveAtestacionRef == "" && len(token.macAtestacion) == 0 &&
-		token.evidenciaOperacionRef == ""
+func ordenDespachoDocumentalV3ConsumidaNominalEsCero(
+	orden OrdenDespachoDocumentalV3ConsumidaNominal,
+) bool {
+	return reflect.ValueOf(orden).IsZero()
 }
 
 func referenciaEjecucionDocumentalV3Valida(valor string) bool {
@@ -1836,20 +4095,18 @@ func solicitudConfirmacionDocumentalV3EsCero(
 ) bool {
 	return s.ReservaRef == "" && s.Manifiesto.datos == nil &&
 		s.ConsumoDecision == (ConsumoDecisionEjecucionDocumentalV3{}) &&
-		tokenCercadoDocumentalV3EsCero(s.Token) &&
-		s.VerificacionCercado == (ResultadoVerificacionTokenCercadoDocumentalV3{}) &&
-		s.Resultado == (ResultadoEfectoRenderizadoDocumentalV3{}) &&
+		ordenDespachoDocumentalV3ConsumidaNominalEsCero(s.OrdenDespachoConsumida) &&
+		s.Resultado == (ResultadoEfectoRenderizadoDocumentalV3Crudo{}) &&
 		reflect.ValueOf(s.Recibos).IsZero() &&
 		s.Evidencia == (DatosEvidenciaRenderizadoDocumentalV3{}) &&
 		s.Sello.datos.Algoritmo == "" && s.Sello.datos.ClaveID == "" &&
 		s.Sello.datos.Audiencia == "" && s.Sello.datos.HuellaMensajeSHA256 == "" &&
 		len(s.Sello.datos.Firma) == 0 && s.Sello.datos.EvidenciaOperacionRef == "" &&
-		s.Sello.datos.FirmadoEn.IsZero() &&
-		s.Verificacion == (ResultadoVerificacionEvidenciaDocumentalV3{})
+		s.Sello.datos.FirmadoEn.IsZero()
 }
 
 func datosSelloEvidenciaDocumentalV3ValidosPara(
-	datos DatosSelloEvidenciaDocumentalV3,
+	datos DatosSelloEvidenciaDocumentalV3Crudos,
 	perfil PerfilSelloEvidenciaDocumentalV3,
 	huellaMensaje string,
 ) bool {

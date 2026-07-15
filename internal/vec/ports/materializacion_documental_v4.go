@@ -57,33 +57,33 @@ type datosPreparacionEntradaNeutralDocumental struct {
 	tamano              uint64
 }
 
-// PreparacionEntradaNeutralDocumental fija el contenido y su codec antes de
+// PreparacionEntradaNeutralDocumentalNominal fija el contenido y su codec antes de
 // solicitar la HMAC al servicio interno. Es opaca, no autoritativa y no puede
 // serializarse por mecanismos genericos porque puede contener datos personales.
-type PreparacionEntradaNeutralDocumental struct {
+type PreparacionEntradaNeutralDocumentalNominal struct {
 	datos *datosPreparacionEntradaNeutralDocumental
 }
 
-func PrepararEntradaNeutralDocumental(
+func NuevaPreparacionEntradaNeutralDocumentalNominal(
 	contenido domain.ContenidoDocumento,
-) (PreparacionEntradaNeutralDocumental, error) {
+) (PreparacionEntradaNeutralDocumentalNominal, error) {
 	canonico, err := canonizarContenidoEntradaNeutralDocumental(contenido)
 	if err != nil {
-		return PreparacionEntradaNeutralDocumental{}, ErrEntradaNeutralDocumentalInvalida
+		return PreparacionEntradaNeutralDocumentalNominal{}, ErrEntradaNeutralDocumentalInvalida
 	}
-	preparacion := PreparacionEntradaNeutralDocumental{datos: &datosPreparacionEntradaNeutralDocumental{
+	preparacion := PreparacionEntradaNeutralDocumentalNominal{datos: &datosPreparacionEntradaNeutralDocumental{
 		canonicalizacionRef: EsquemaCanonizacionEntradaNeutralDocumentalV1,
 		contenido:           clonarContenidoEntradaNeutralDocumental(contenido),
 		contenidoCanonico:   append([]byte(nil), canonico...),
 		tamano:              uint64(len(canonico)),
 	}}
 	if preparacion.Validar() != nil {
-		return PreparacionEntradaNeutralDocumental{}, ErrEntradaNeutralDocumentalInvalida
+		return PreparacionEntradaNeutralDocumentalNominal{}, ErrEntradaNeutralDocumentalInvalida
 	}
 	return preparacion, nil
 }
 
-func (p PreparacionEntradaNeutralDocumental) Validar() error {
+func (p PreparacionEntradaNeutralDocumentalNominal) Validar() error {
 	if p.datos == nil ||
 		validarDatosCanonicosEntradaNeutralDocumental(
 			p.datos.canonicalizacionRef, p.datos.contenido,
@@ -94,51 +94,55 @@ func (p PreparacionEntradaNeutralDocumental) Validar() error {
 	return nil
 }
 
-func (p PreparacionEntradaNeutralDocumental) Contenido() (domain.ContenidoDocumento, error) {
+func (p PreparacionEntradaNeutralDocumentalNominal) Contenido() (domain.ContenidoDocumento, error) {
 	if p.Validar() != nil {
 		return domain.ContenidoDocumento{}, ErrEntradaNeutralDocumentalInvalida
 	}
 	return clonarContenidoEntradaNeutralDocumental(p.datos.contenido), nil
 }
 
-func (p PreparacionEntradaNeutralDocumental) ContenidoCanonico() ([]byte, error) {
+func (p PreparacionEntradaNeutralDocumentalNominal) ContenidoCanonico() ([]byte, error) {
 	if p.Validar() != nil {
 		return nil, ErrEntradaNeutralDocumentalInvalida
 	}
 	return append([]byte(nil), p.datos.contenidoCanonico...), nil
 }
 
-func (PreparacionEntradaNeutralDocumental) String() string {
-	return "[PREPARACION-ENTRADA-NEUTRAL-DOCUMENTAL-OPACA-NO-VERIFICADA]"
+func (PreparacionEntradaNeutralDocumentalNominal) String() string {
+	return "[PREPARACION-ENTRADA-NEUTRAL-DOCUMENTAL-OPACA-NOMINAL-NO-AUTORITATIVA-REDACTADA]"
 }
 
-func (p PreparacionEntradaNeutralDocumental) GoString() string { return p.String() }
+func (p PreparacionEntradaNeutralDocumentalNominal) GoString() string { return p.String() }
 
-func (p PreparacionEntradaNeutralDocumental) Format(estado fmt.State, _ rune) {
+func (p PreparacionEntradaNeutralDocumentalNominal) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, p.String())
 }
 
-func (PreparacionEntradaNeutralDocumental) MarshalJSON() ([]byte, error) {
+func (p PreparacionEntradaNeutralDocumentalNominal) LogValue() slog.Value {
+	return slog.StringValue(p.String())
+}
+
+func (PreparacionEntradaNeutralDocumentalNominal) MarshalJSON() ([]byte, error) {
 	return nil, ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (*PreparacionEntradaNeutralDocumental) UnmarshalJSON([]byte) error {
+func (*PreparacionEntradaNeutralDocumentalNominal) UnmarshalJSON([]byte) error {
 	return ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (PreparacionEntradaNeutralDocumental) MarshalText() ([]byte, error) {
+func (PreparacionEntradaNeutralDocumentalNominal) MarshalText() ([]byte, error) {
 	return nil, ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (*PreparacionEntradaNeutralDocumental) UnmarshalText([]byte) error {
+func (*PreparacionEntradaNeutralDocumentalNominal) UnmarshalText([]byte) error {
 	return ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (PreparacionEntradaNeutralDocumental) MarshalBinary() ([]byte, error) {
+func (PreparacionEntradaNeutralDocumentalNominal) MarshalBinary() ([]byte, error) {
 	return nil, ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (*PreparacionEntradaNeutralDocumental) UnmarshalBinary([]byte) error {
+func (*PreparacionEntradaNeutralDocumentalNominal) UnmarshalBinary([]byte) error {
 	return ErrSerializacionMaterialDocumentalProhibida
 }
 
@@ -150,24 +154,24 @@ type datosEntradaNeutralDocumental struct {
 	tamano              uint64
 }
 
-// EntradaNeutralDocumental es opaca e inmutable. Puede contener datos
+// EntradaNeutralDocumentalNominal es opaca e inmutable. Puede contener datos
 // personales, por lo que no ofrece serializacion generica ni representaciones
 // de depuracion que revelen el contenido.
-type EntradaNeutralDocumental struct {
+type EntradaNeutralDocumentalNominal struct {
 	datos *datosEntradaNeutralDocumental
 }
 
-// NuevaEntradaNeutralDocumental asocia una HMAC declarada a la preparacion ya
-// fijada, sin verificarla criptograficamente. Solo el conector homologado puede
-// convertir en el futuro preparacion+HMAC comprobada en una capacidad de uso.
-func NuevaEntradaNeutralDocumental(
-	preparacion PreparacionEntradaNeutralDocumental,
+// NuevaEntradaNeutralDocumentalNominal asocia una HMAC declarada a la preparacion ya
+// fijada, sin verificarla criptograficamente. Ni esta fabrica ni la salida
+// nominal de un conector conceden por si solas capacidad de uso.
+func NuevaEntradaNeutralDocumentalNominal(
+	preparacion PreparacionEntradaNeutralDocumentalNominal,
 	huellaHMACDeclarada string,
-) (EntradaNeutralDocumental, error) {
+) (EntradaNeutralDocumentalNominal, error) {
 	if preparacion.Validar() != nil || !hmacSHA256PuertoValido(huellaHMACDeclarada) {
-		return EntradaNeutralDocumental{}, ErrEntradaNeutralDocumentalInvalida
+		return EntradaNeutralDocumentalNominal{}, ErrEntradaNeutralDocumentalInvalida
 	}
-	entrada := EntradaNeutralDocumental{datos: &datosEntradaNeutralDocumental{
+	entrada := EntradaNeutralDocumentalNominal{datos: &datosEntradaNeutralDocumental{
 		canonicalizacionRef: preparacion.datos.canonicalizacionRef,
 		contenido:           clonarContenidoEntradaNeutralDocumental(preparacion.datos.contenido),
 		contenidoCanonico:   append([]byte(nil), preparacion.datos.contenidoCanonico...),
@@ -175,12 +179,12 @@ func NuevaEntradaNeutralDocumental(
 		tamano:              preparacion.datos.tamano,
 	}}
 	if entrada.Validar() != nil {
-		return EntradaNeutralDocumental{}, ErrEntradaNeutralDocumentalInvalida
+		return EntradaNeutralDocumentalNominal{}, ErrEntradaNeutralDocumentalInvalida
 	}
 	return entrada, nil
 }
 
-func (e EntradaNeutralDocumental) Validar() error {
+func (e EntradaNeutralDocumentalNominal) Validar() error {
 	if e.datos == nil || validarDatosCanonicosEntradaNeutralDocumental(
 		e.datos.canonicalizacionRef, e.datos.contenido,
 		e.datos.contenidoCanonico, e.datos.tamano,
@@ -191,14 +195,14 @@ func (e EntradaNeutralDocumental) Validar() error {
 	return nil
 }
 
-func (e EntradaNeutralDocumental) Contenido() (domain.ContenidoDocumento, error) {
+func (e EntradaNeutralDocumentalNominal) Contenido() (domain.ContenidoDocumento, error) {
 	if e.Validar() != nil {
 		return domain.ContenidoDocumento{}, ErrEntradaNeutralDocumentalInvalida
 	}
 	return clonarContenidoEntradaNeutralDocumental(e.datos.contenido), nil
 }
 
-func (e EntradaNeutralDocumental) ContenidoCanonico() ([]byte, error) {
+func (e EntradaNeutralDocumentalNominal) ContenidoCanonico() ([]byte, error) {
 	if e.Validar() != nil {
 		return nil, ErrEntradaNeutralDocumentalInvalida
 	}
@@ -206,60 +210,65 @@ func (e EntradaNeutralDocumental) ContenidoCanonico() ([]byte, error) {
 }
 
 // HuellaHMACDeclarada es una vinculacion nominal pendiente de comprobacion por
-// de confianza. Su formato valido no demuestra que se haya
-// calculado con una clave confiable ni habilita por si solo ningun efecto.
-func (e EntradaNeutralDocumental) HuellaHMACDeclarada() (string, error) {
+// el servicio de aplicacion mediante su conector criptografico privado. Su
+// formato valido no demuestra que se haya calculado con una clave confiable ni
+// habilita por si solo ningun efecto.
+func (e EntradaNeutralDocumentalNominal) HuellaHMACDeclarada() (string, error) {
 	if e.Validar() != nil {
 		return "", ErrEntradaNeutralDocumentalInvalida
 	}
 	return e.datos.huellaHMACDeclarada, nil
 }
 
-func (e EntradaNeutralDocumental) Tamano() (uint64, error) {
+func (e EntradaNeutralDocumentalNominal) Tamano() (uint64, error) {
 	if e.Validar() != nil {
 		return 0, ErrEntradaNeutralDocumentalInvalida
 	}
 	return e.datos.tamano, nil
 }
 
-func (e EntradaNeutralDocumental) CanonicalizacionRef() (string, error) {
+func (e EntradaNeutralDocumentalNominal) CanonicalizacionRef() (string, error) {
 	if e.Validar() != nil {
 		return "", ErrEntradaNeutralDocumentalInvalida
 	}
 	return e.datos.canonicalizacionRef, nil
 }
 
-func (EntradaNeutralDocumental) String() string {
-	return "[ENTRADA-NEUTRAL-DOCUMENTAL-OPACA]"
+func (EntradaNeutralDocumentalNominal) String() string {
+	return "[ENTRADA-NEUTRAL-DOCUMENTAL-OPACA-NOMINAL-NO-AUTORITATIVA-REDACTADA]"
 }
 
-func (e EntradaNeutralDocumental) GoString() string { return e.String() }
+func (e EntradaNeutralDocumentalNominal) GoString() string { return e.String() }
 
-func (e EntradaNeutralDocumental) Format(estado fmt.State, _ rune) {
+func (e EntradaNeutralDocumentalNominal) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, e.String())
 }
 
-func (EntradaNeutralDocumental) MarshalJSON() ([]byte, error) {
+func (e EntradaNeutralDocumentalNominal) LogValue() slog.Value {
+	return slog.StringValue(e.String())
+}
+
+func (EntradaNeutralDocumentalNominal) MarshalJSON() ([]byte, error) {
 	return nil, ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (*EntradaNeutralDocumental) UnmarshalJSON([]byte) error {
+func (*EntradaNeutralDocumentalNominal) UnmarshalJSON([]byte) error {
 	return ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (EntradaNeutralDocumental) MarshalText() ([]byte, error) {
+func (EntradaNeutralDocumentalNominal) MarshalText() ([]byte, error) {
 	return nil, ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (*EntradaNeutralDocumental) UnmarshalText([]byte) error {
+func (*EntradaNeutralDocumentalNominal) UnmarshalText([]byte) error {
 	return ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (EntradaNeutralDocumental) MarshalBinary() ([]byte, error) {
+func (EntradaNeutralDocumentalNominal) MarshalBinary() ([]byte, error) {
 	return nil, ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (*EntradaNeutralDocumental) UnmarshalBinary([]byte) error {
+func (*EntradaNeutralDocumentalNominal) UnmarshalBinary([]byte) error {
 	return ErrSerializacionMaterialDocumentalProhibida
 }
 
@@ -427,8 +436,8 @@ func (s *SumideroLimitadoSalidaDocumental) cerrarConFallo(err error) {
 // como WORM ni como bloqueo legal: Retencion y BloqueoLegal son requisitos
 // independientes y solo producen esos estados cuando la politica los exige.
 //
-// Este valor sigue siendo declarativo. Su autoridad y la atestacion de las
-// capacidades de arranque pertenecen al conector de confianza instalado.
+// Este valor sigue siendo declarativo. La salida del conector de capacidades
+// tambien es nominal y debe cotejarse en la composicion privada de aplicacion.
 type VinculoPoliticaInmutabilidadDocumental struct {
 	PoliticaRef                string
 	Version                    uint64
@@ -504,6 +513,20 @@ func (v VinculoPoliticaInmutabilidadDocumental) validarContra(
 }
 
 type datosVinculoEjecucionEscrituraAlmacenDocumental struct {
+	vinculoActivacion          VinculoEstableActivacionDocumentalV3
+	ordenDespachoConsumida     OrdenDespachoDocumentalV3ConsumidaNominal
+	HuellaVinculoEstableSHA256 string
+	HuellaOrdenDespachoSHA256  string
+	InicioEfectoRef            string
+	OutboxInicioRef            string
+	ReclamacionDespachoRef     string
+	ConsumoDespachoRef         string
+	OutboxConsumoRef           string
+	VersionInicioCAS           uint64
+	VersionReclamacionCAS      uint64
+	VersionConsumoCAS          uint64
+	ComprobacionKMSRef         string
+	ConsumidaEn                time.Time
 	ReservaRef                 string
 	BorradorRef                string
 	EfectoRef                  string
@@ -512,42 +535,51 @@ type datosVinculoEjecucionEscrituraAlmacenDocumental struct {
 	HuellaDecisionSHA256       string
 	SecuenciaCercado           uint64
 	HuellaVinculoCercadoSHA256 string
-	VerificacionCercadoRef     string
-	VerificacionCercadoEn      time.Time
 }
 
-// VinculoEjecucionEscrituraAlmacenDocumental proyecta, sin secretos, la
-// reserva, el manifiesto, la decision consumida y el cercado V3 exactos. Es
-// opaco para que un adaptador no pueda recomponer ni alterar la proyeccion.
-// Sigue siendo dato nominal no autoritativo: al consumir un recibo debe
-// cotejarse de nuevo contra los valores tipados originales.
+// VinculoEjecucionEscrituraAlmacenDocumental conserva la orden consumida
+// nominal y su vinculo estable. Solo acredita correlacion estructural: la
+// autoridad procede del servicio de aplicacion que posee KMS, registro CAS y
+// conector de almacen; este valor nunca debe cruzar una frontera de entrada.
 type VinculoEjecucionEscrituraAlmacenDocumental struct {
 	datos *datosVinculoEjecucionEscrituraAlmacenDocumental
 }
 
 func NuevoVinculoEjecucionEscrituraAlmacenDocumental(
-	reservaRef string,
-	manifiesto ManifiestoEjecucionDocumentalV3,
-	consumo ConsumoDecisionEjecucionDocumentalV3,
-	token TokenCercadoEjecucionDocumentalV3,
-	verificacion ResultadoVerificacionTokenCercadoDocumentalV3,
+	ordenConsumida OrdenDespachoDocumentalV3ConsumidaNominal,
 ) (VinculoEjecucionEscrituraAlmacenDocumental, error) {
-	if !verificacionTokenCercadoDocumentalV3Valida(
-		reservaRef, manifiesto, consumo, token, verificacion,
-	) {
+	vinculoActivacion, errVinculo := ordenConsumida.VinculoActivacion()
+	datosOrden, errOrden := ordenConsumida.DatosOrden()
+	huellaOrden, errHuellaOrden := ordenConsumida.solicitud.orden.HuellaSHA256()
+	if errVinculo != nil || errOrden != nil || errHuellaOrden != nil ||
+		ordenConsumida.ValidarEn(ordenConsumida.estado.consumidaEn) != nil {
 		return VinculoEjecucionEscrituraAlmacenDocumental{}, ErrPruebaEscrituraAlmacenInvalida
 	}
-	datos, err := manifiesto.Datos()
-	if err != nil {
+	datos, err := vinculoActivacion.Manifiesto.Datos()
+	huellaVinculoEstable, errHuellaVinculo := vinculoActivacion.HuellaSHA256()
+	if err != nil || errHuellaVinculo != nil {
 		return VinculoEjecucionEscrituraAlmacenDocumental{}, ErrPruebaEscrituraAlmacenInvalida
 	}
+	consumo := vinculoActivacion.ConsumoDecision
 	datosVinculo := &datosVinculoEjecucionEscrituraAlmacenDocumental{
-		ReservaRef: reservaRef, BorradorRef: datos.BorradorRef, EfectoRef: datos.EfectoRef,
+		vinculoActivacion: vinculoActivacion, ordenDespachoConsumida: ordenConsumida,
+		HuellaVinculoEstableSHA256: huellaVinculoEstable,
+		HuellaOrdenDespachoSHA256:  huellaOrden,
+		InicioEfectoRef:            datosOrden.ReciboInicio.InicioRef,
+		OutboxInicioRef:            datosOrden.ReciboInicio.OutboxInicioRef,
+		ReclamacionDespachoRef:     datosOrden.ReclamacionRef,
+		ConsumoDespachoRef:         ordenConsumida.estado.consumoRef,
+		OutboxConsumoRef:           ordenConsumida.estado.outboxConsumoRef,
+		VersionInicioCAS:           datosOrden.ReciboInicio.VersionInicioCAS,
+		VersionReclamacionCAS:      datosOrden.VersionReclamacionCAS,
+		VersionConsumoCAS:          ordenConsumida.estado.versionConsumoCAS,
+		ComprobacionKMSRef:         ordenConsumida.resultado.comprobacionRef,
+		ConsumidaEn:                ordenConsumida.estado.consumidaEn,
+		ReservaRef:                 vinculoActivacion.ReservaRef, BorradorRef: datos.BorradorRef, EfectoRef: datos.EfectoRef,
 		HuellaPlanSHA256: datos.HuellaPlanSHA256,
 		DecisionRef:      consumo.DecisionRef, HuellaDecisionSHA256: consumo.HuellaDecisionSHA256,
-		SecuenciaCercado: token.Secuencia(), HuellaVinculoCercadoSHA256: token.HuellaVinculoSHA256(),
-		VerificacionCercadoRef: verificacion.verificacionRef,
-		VerificacionCercadoEn:  verificacion.verificadaEn,
+		SecuenciaCercado:           datosOrden.ReciboInicio.SecuenciaCercado,
+		HuellaVinculoCercadoSHA256: datosOrden.ReciboInicio.HuellaVinculoCercadoSHA256,
 	}
 	vinculo := VinculoEjecucionEscrituraAlmacenDocumental{datos: datosVinculo}
 	if vinculo.Validar() != nil {
@@ -561,9 +593,16 @@ func (v VinculoEjecucionEscrituraAlmacenDocumental) Validar() error {
 		return ErrPruebaEscrituraAlmacenInvalida
 	}
 	datos := v.datos
+	huellaVinculoEstable, errVinculo := datos.vinculoActivacion.HuellaSHA256()
+	datosOrden, errOrden := datos.ordenDespachoConsumida.DatosOrden()
+	huellaOrden, errHuellaOrden := datos.ordenDespachoConsumida.solicitud.orden.HuellaSHA256()
+	datosManifiesto, errManifiesto := datos.vinculoActivacion.Manifiesto.Datos()
+	consumo := datos.vinculoActivacion.ConsumoDecision
 	referencias := []string{
 		datos.ReservaRef, datos.BorradorRef, datos.EfectoRef,
-		datos.DecisionRef, datos.VerificacionCercadoRef,
+		datos.DecisionRef, datos.InicioEfectoRef, datos.OutboxInicioRef,
+		datos.ReclamacionDespachoRef, datos.ConsumoDespachoRef,
+		datos.OutboxConsumoRef, datos.ComprobacionKMSRef,
 	}
 	for indice, referencia := range referencias {
 		if !referenciaMaterialDocumentalV4Valida(referencia) {
@@ -575,35 +614,58 @@ func (v VinculoEjecucionEscrituraAlmacenDocumental) Validar() error {
 			}
 		}
 	}
-	if !huellasMaterialDocumentalV4Distintas(
-		datos.HuellaPlanSHA256, datos.HuellaDecisionSHA256, datos.HuellaVinculoCercadoSHA256,
-	) || datos.SecuenciaCercado == 0 ||
-		!instanteEjecucionDocumentalV3Valido(datos.VerificacionCercadoEn) {
+	if errVinculo != nil || errOrden != nil || errHuellaOrden != nil || errManifiesto != nil ||
+		datos.ordenDespachoConsumida.ValidarEn(datos.ConsumidaEn) != nil ||
+		datos.HuellaVinculoEstableSHA256 != huellaVinculoEstable ||
+		datos.HuellaOrdenDespachoSHA256 != huellaOrden ||
+		datos.InicioEfectoRef != datosOrden.ReciboInicio.InicioRef ||
+		datos.OutboxInicioRef != datosOrden.ReciboInicio.OutboxInicioRef ||
+		datos.ReclamacionDespachoRef != datosOrden.ReclamacionRef ||
+		datos.ConsumoDespachoRef != datos.ordenDespachoConsumida.estado.consumoRef ||
+		datos.OutboxConsumoRef != datos.ordenDespachoConsumida.estado.outboxConsumoRef ||
+		datos.VersionInicioCAS != datosOrden.ReciboInicio.VersionInicioCAS ||
+		datos.VersionReclamacionCAS != datosOrden.VersionReclamacionCAS ||
+		datos.VersionConsumoCAS != datos.ordenDespachoConsumida.estado.versionConsumoCAS ||
+		datos.ComprobacionKMSRef != datos.ordenDespachoConsumida.resultado.comprobacionRef ||
+		!datos.ConsumidaEn.Equal(datos.ordenDespachoConsumida.estado.consumidaEn) ||
+		datos.ReservaRef != datos.vinculoActivacion.ReservaRef ||
+		datos.BorradorRef != datosManifiesto.BorradorRef ||
+		datos.EfectoRef != datosManifiesto.EfectoRef ||
+		datos.HuellaPlanSHA256 != datosManifiesto.HuellaPlanSHA256 ||
+		datos.DecisionRef != consumo.DecisionRef ||
+		datos.HuellaDecisionSHA256 != consumo.HuellaDecisionSHA256 ||
+		datos.SecuenciaCercado != datosOrden.ReciboInicio.SecuenciaCercado ||
+		datos.HuellaVinculoCercadoSHA256 != datosOrden.ReciboInicio.HuellaVinculoCercadoSHA256 ||
+		!huellasMaterialDocumentalV4Distintas(
+			datos.HuellaPlanSHA256, datos.HuellaDecisionSHA256, datos.HuellaVinculoCercadoSHA256,
+		) || !esSHA256Hexadecimal(datos.HuellaVinculoEstableSHA256) ||
+		!esSHA256Hexadecimal(datos.HuellaOrdenDespachoSHA256) || datos.SecuenciaCercado == 0 ||
+		datos.VersionInicioCAS == 0 || datos.VersionReclamacionCAS == 0 ||
+		datos.VersionConsumoCAS <= datos.VersionReclamacionCAS ||
+		!instanteEjecucionDocumentalV3Valido(datos.ConsumidaEn) {
 		return ErrPruebaEscrituraAlmacenInvalida
 	}
 	return nil
 }
 
 func (v VinculoEjecucionEscrituraAlmacenDocumental) ValidarContra(
-	manifiesto ManifiestoEjecucionDocumentalV3,
-	consumo ConsumoDecisionEjecucionDocumentalV3,
-	token TokenCercadoEjecucionDocumentalV3,
-	verificacion ResultadoVerificacionTokenCercadoDocumentalV3,
+	ordenConsumida OrdenDespachoDocumentalV3ConsumidaNominal,
 ) error {
 	if v.Validar() != nil {
 		return ErrPruebaEscrituraAlmacenInvalida
 	}
 	esperado, err := NuevoVinculoEjecucionEscrituraAlmacenDocumental(
-		v.datos.ReservaRef, manifiesto, consumo, token, verificacion,
+		ordenConsumida,
 	)
-	if err != nil || esperado.Validar() != nil || *v.datos != *esperado.datos {
+	if err != nil || esperado.Validar() != nil ||
+		!vinculosEjecucionEscrituraAlmacenDocumentalV4Coinciden(v, esperado) {
 		return ErrPruebaEscrituraAlmacenInvalida
 	}
 	return nil
 }
 
 func (VinculoEjecucionEscrituraAlmacenDocumental) String() string {
-	return "[VINCULO-EJECUCION-ESCRITURA-ALMACEN-V4-OPACO-NO-VERIFICADO]"
+	return "[VINCULO-EJECUCION-ESCRITURA-ALMACEN-V4-OPACO-NOMINAL-NO-AUTORITATIVO]"
 }
 
 func (v VinculoEjecucionEscrituraAlmacenDocumental) GoString() string { return v.String() }
@@ -661,26 +723,26 @@ type datosPreparacionEscrituraAlmacenDocumentalV4 struct {
 	huellaEvidenciaOperacionSHA256 string
 }
 
-// PreparacionEscrituraAlmacenDocumentalV4 es una instantanea opaca y no
+// PreparacionEscrituraAlmacenDocumentalV4Nominal es una instantanea opaca y no
 // autoritativa. Solo nace tras cotejar la solicitud semantica completa, el
 // resultado del conector, sus capacidades exactas, los bytes observados, la
 // ejecucion cercada y la politica. No es un recibo ni confirma el efecto.
-type PreparacionEscrituraAlmacenDocumentalV4 struct {
+type PreparacionEscrituraAlmacenDocumentalV4Nominal struct {
 	datos *datosPreparacionEscrituraAlmacenDocumentalV4
 }
 
-func PrepararEscrituraAlmacenDocumentalV4(
+func NuevaPreparacionEscrituraAlmacenDocumentalV4Nominal(
 	solicitud SolicitudEscribirObjeto,
 	resultado ResultadoOperacionObjeto,
 	capacidades CapacidadesAlmacenObjetos,
 	salida SalidaObservadaDocumental,
 	vinculo VinculoEjecucionEscrituraAlmacenDocumental,
 	politica VinculoPoliticaInmutabilidadDocumental,
-) (PreparacionEscrituraAlmacenDocumentalV4, error) {
+) (PreparacionEscrituraAlmacenDocumentalV4Nominal, error) {
 	// Preflight previo a cualquier copia o canonizacion: el contrato heredado
 	// limita el numero de origenes, pero no sus bytes agregados.
 	if !origenesCapacidadesAlmacenDocumentalV4Validos(capacidades) {
-		return PreparacionEscrituraAlmacenDocumentalV4{}, ErrPruebaEscrituraAlmacenInvalida
+		return PreparacionEscrituraAlmacenDocumentalV4Nominal{}, ErrPruebaEscrituraAlmacenInvalida
 	}
 	proyeccion, err := solicitud.Contexto.Proyeccion()
 	datosSalida, errSalida := salida.Datos()
@@ -689,7 +751,7 @@ func PrepararEscrituraAlmacenDocumentalV4(
 		Zona: solicitud.Zona, MIME: solicitud.MIME, Tamano: solicitud.Tamano,
 		HuellaSHA256: solicitud.HuellaSHA256,
 	}
-	preparacion := PreparacionEscrituraAlmacenDocumentalV4{
+	preparacion := PreparacionEscrituraAlmacenDocumentalV4Nominal{
 		datos: &datosPreparacionEscrituraAlmacenDocumentalV4{
 			contexto: solicitud.Contexto, solicitud: instantanea,
 			huellaSolicitudSHA256: huellaSolicitudEscrituraAlmacenDocumentalV4(instantanea),
@@ -701,53 +763,53 @@ func PrepararEscrituraAlmacenDocumentalV4(
 		},
 	}
 	if err != nil || errSalida != nil || preparacion.Validar() != nil {
-		return PreparacionEscrituraAlmacenDocumentalV4{}, ErrPruebaEscrituraAlmacenInvalida
+		return PreparacionEscrituraAlmacenDocumentalV4Nominal{}, ErrPruebaEscrituraAlmacenInvalida
 	}
 	return preparacion, nil
 }
 
-func (p PreparacionEscrituraAlmacenDocumentalV4) Validar() error {
+func (p PreparacionEscrituraAlmacenDocumentalV4Nominal) Validar() error {
 	if p.datos == nil || validarDatosPreparacionEscrituraAlmacenDocumentalV4(p.datos) != nil {
 		return ErrPruebaEscrituraAlmacenInvalida
 	}
 	return nil
 }
 
-func (PreparacionEscrituraAlmacenDocumentalV4) String() string {
-	return "[PREPARACION-ESCRITURA-ALMACEN-V4-OPACA-NO-VERIFICADA]"
+func (PreparacionEscrituraAlmacenDocumentalV4Nominal) String() string {
+	return "[PREPARACION-ESCRITURA-ALMACEN-V4-OPACA-NOMINAL-NO-AUTORITATIVA-REDACTADA]"
 }
 
-func (p PreparacionEscrituraAlmacenDocumentalV4) GoString() string { return p.String() }
+func (p PreparacionEscrituraAlmacenDocumentalV4Nominal) GoString() string { return p.String() }
 
-func (p PreparacionEscrituraAlmacenDocumentalV4) Format(estado fmt.State, _ rune) {
+func (p PreparacionEscrituraAlmacenDocumentalV4Nominal) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, p.String())
 }
 
-func (p PreparacionEscrituraAlmacenDocumentalV4) LogValue() slog.Value {
+func (p PreparacionEscrituraAlmacenDocumentalV4Nominal) LogValue() slog.Value {
 	return slog.StringValue(p.String())
 }
 
-func (PreparacionEscrituraAlmacenDocumentalV4) MarshalJSON() ([]byte, error) {
+func (PreparacionEscrituraAlmacenDocumentalV4Nominal) MarshalJSON() ([]byte, error) {
 	return nil, ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (*PreparacionEscrituraAlmacenDocumentalV4) UnmarshalJSON([]byte) error {
+func (*PreparacionEscrituraAlmacenDocumentalV4Nominal) UnmarshalJSON([]byte) error {
 	return ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (PreparacionEscrituraAlmacenDocumentalV4) MarshalText() ([]byte, error) {
+func (PreparacionEscrituraAlmacenDocumentalV4Nominal) MarshalText() ([]byte, error) {
 	return nil, ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (*PreparacionEscrituraAlmacenDocumentalV4) UnmarshalText([]byte) error {
+func (*PreparacionEscrituraAlmacenDocumentalV4Nominal) UnmarshalText([]byte) error {
 	return ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (PreparacionEscrituraAlmacenDocumentalV4) MarshalBinary() ([]byte, error) {
+func (PreparacionEscrituraAlmacenDocumentalV4Nominal) MarshalBinary() ([]byte, error) {
 	return nil, ErrSerializacionMaterialDocumentalProhibida
 }
 
-func (*PreparacionEscrituraAlmacenDocumentalV4) UnmarshalBinary([]byte) error {
+func (*PreparacionEscrituraAlmacenDocumentalV4Nominal) UnmarshalBinary([]byte) error {
 	return ErrSerializacionMaterialDocumentalProhibida
 }
 
@@ -759,7 +821,7 @@ type DeclaracionEscrituraAlmacenDocumental struct {
 }
 
 func NuevaDeclaracionEscrituraAlmacenDocumental(
-	preparacion PreparacionEscrituraAlmacenDocumentalV4,
+	preparacion PreparacionEscrituraAlmacenDocumentalV4Nominal,
 ) (DeclaracionEscrituraAlmacenDocumental, error) {
 	if preparacion.Validar() != nil {
 		return DeclaracionEscrituraAlmacenDocumental{}, ErrPruebaEscrituraAlmacenInvalida
@@ -838,14 +900,11 @@ func (d DeclaracionEscrituraAlmacenDocumental) ValidarContraSalida(
 }
 
 func (d DeclaracionEscrituraAlmacenDocumental) ValidarContraEjecucion(
-	manifiesto ManifiestoEjecucionDocumentalV3,
-	consumo ConsumoDecisionEjecucionDocumentalV3,
-	token TokenCercadoEjecucionDocumentalV3,
-	verificacion ResultadoVerificacionTokenCercadoDocumentalV3,
+	ordenConsumida OrdenDespachoDocumentalV3ConsumidaNominal,
 	salida SalidaObservadaDocumental,
 ) error {
 	if d.ValidarContraSalida(salida) != nil ||
-		d.datos.vinculoEjecucion.ValidarContra(manifiesto, consumo, token, verificacion) != nil {
+		d.datos.vinculoEjecucion.ValidarContra(ordenConsumida) != nil {
 		return ErrPruebaEscrituraAlmacenInvalida
 	}
 	return nil
@@ -1027,10 +1086,10 @@ func (*PruebaCrudaEscrituraAlmacen) UnmarshalBinary([]byte) error {
 }
 
 // Deliberadamente no existe en ports una fabrica de
-// ReciboEscrituraAlmacenVerificado. La conversion de esta prueba nominal en
-// autoridad pertenece al conector de confianza homologado, donde el
-// llamador no puede inyectar un verificador alternativo. Hasta integrar esa
-// frontera, ninguna confirmacion debe aceptar esta prueba como recibo.
+// ReciboEscrituraAlmacenVerificado. Ninguna salida publica de un conector
+// convierte esta prueba nominal en autoridad. Hasta integrar el servicio de
+// aplicacion precompuesto con relectura durable y CAS, ninguna confirmacion
+// debe aceptar esta prueba como recibo.
 
 func validarDatosPreparacionEscrituraAlmacenDocumentalV4(
 	d *datosPreparacionEscrituraAlmacenDocumentalV4,
@@ -1059,7 +1118,7 @@ func validarDatosPreparacionEscrituraAlmacenDocumentalV4(
 	if vinculo == nil {
 		return ErrPruebaEscrituraAlmacenInvalida
 	}
-	instanteCercado := vinculo.VerificacionCercadoEn
+	instanteCercado := vinculo.ConsumidaEn
 	if d.solicitud.Zona != ZonaAlmacenCuarentena || solicitud.Validar() != nil ||
 		d.resultado.ValidarEscritura(solicitud, d.capacidades) != nil ||
 		salida.ValidarContraSolicitudEscribirObjeto(solicitud) != nil ||
@@ -1081,6 +1140,7 @@ func validarDatosPreparacionEscrituraAlmacenDocumentalV4(
 		!huellasMaterialDocumentalV4Distintas(
 			d.resultado.Objeto.HuellaSHA256, vinculo.HuellaPlanSHA256,
 			vinculo.HuellaDecisionSHA256, vinculo.HuellaVinculoCercadoSHA256,
+			vinculo.HuellaVinculoEstableSHA256, vinculo.HuellaOrdenDespachoSHA256,
 			d.huellaEvidenciaOperacionSHA256, d.huellaSolicitudSHA256,
 			d.politica.HuellaSHA256, d.politica.HuellaRequisitosSHA256,
 			d.politica.HuellaCapacidadesSHA256,
@@ -1198,7 +1258,50 @@ func clonarVinculoEjecucionEscrituraAlmacenDocumentalV4(
 		return VinculoEjecucionEscrituraAlmacenDocumental{}
 	}
 	copia := *vinculo.datos
+	copia.ordenDespachoConsumida = clonarOrdenDespachoDocumentalV3ConsumidaNominal(
+		vinculo.datos.ordenDespachoConsumida,
+	)
 	return VinculoEjecucionEscrituraAlmacenDocumental{datos: &copia}
+}
+
+func clonarOrdenDespachoDocumentalV3ConsumidaNominal(
+	orden OrdenDespachoDocumentalV3ConsumidaNominal,
+) OrdenDespachoDocumentalV3ConsumidaNominal {
+	copia := orden
+	copia.solicitud.orden = clonarOrdenDespachoDocumentalV3Nominal(orden.solicitud.orden)
+	copia.solicitud.vinculo = clonarVinculoEstableActivacionDocumentalV3(orden.solicitud.vinculo)
+	copia.solicitud.token = clonarTokenCercadoEjecucionDocumentalV3(orden.solicitud.token)
+	copia.solicitud.material = clonarMaterialCrudoVerificacionOrdenDespachoDocumentalV3(
+		orden.solicitud.material,
+	)
+	copia.solicitud.mensaje = append([]byte(nil), orden.solicitud.mensaje...)
+	return copia
+}
+
+func vinculosEjecucionEscrituraAlmacenDocumentalV4Coinciden(
+	a, b VinculoEjecucionEscrituraAlmacenDocumental,
+) bool {
+	if a.Validar() != nil || b.Validar() != nil {
+		return false
+	}
+	da, db := a.datos, b.datos
+	return da.HuellaVinculoEstableSHA256 == db.HuellaVinculoEstableSHA256 &&
+		da.HuellaOrdenDespachoSHA256 == db.HuellaOrdenDespachoSHA256 &&
+		da.InicioEfectoRef == db.InicioEfectoRef && da.OutboxInicioRef == db.OutboxInicioRef &&
+		da.ReclamacionDespachoRef == db.ReclamacionDespachoRef &&
+		da.ConsumoDespachoRef == db.ConsumoDespachoRef &&
+		da.OutboxConsumoRef == db.OutboxConsumoRef &&
+		da.VersionInicioCAS == db.VersionInicioCAS &&
+		da.VersionReclamacionCAS == db.VersionReclamacionCAS &&
+		da.VersionConsumoCAS == db.VersionConsumoCAS &&
+		da.ComprobacionKMSRef == db.ComprobacionKMSRef &&
+		da.ConsumidaEn.Equal(db.ConsumidaEn) &&
+		da.ReservaRef == db.ReservaRef && da.BorradorRef == db.BorradorRef &&
+		da.EfectoRef == db.EfectoRef && da.HuellaPlanSHA256 == db.HuellaPlanSHA256 &&
+		da.DecisionRef == db.DecisionRef &&
+		da.HuellaDecisionSHA256 == db.HuellaDecisionSHA256 &&
+		da.SecuenciaCercado == db.SecuenciaCercado &&
+		da.HuellaVinculoCercadoSHA256 == db.HuellaVinculoCercadoSHA256
 }
 
 func valoresSolicitudEscrituraAlmacenDocumentalV4(
@@ -1346,10 +1449,16 @@ func serializarDeclaracionEscrituraAlmacenDocumental(
 	valores = append(valores, valoresSolicitudEscrituraAlmacenDocumentalV4(datos.solicitud)...)
 	valores = append(valores,
 		datos.huellaSolicitudSHA256,
+		vinculo.HuellaVinculoEstableSHA256, vinculo.HuellaOrdenDespachoSHA256,
+		vinculo.InicioEfectoRef, vinculo.OutboxInicioRef, vinculo.ReclamacionDespachoRef,
+		vinculo.ConsumoDespachoRef, vinculo.OutboxConsumoRef,
+		strconv.FormatUint(vinculo.VersionInicioCAS, 10),
+		strconv.FormatUint(vinculo.VersionReclamacionCAS, 10),
+		strconv.FormatUint(vinculo.VersionConsumoCAS, 10), vinculo.ComprobacionKMSRef,
+		vinculo.ConsumidaEn.Format(time.RFC3339Nano),
 		vinculo.ReservaRef, vinculo.BorradorRef, vinculo.EfectoRef,
 		vinculo.HuellaPlanSHA256, vinculo.DecisionRef, vinculo.HuellaDecisionSHA256,
 		strconv.FormatUint(vinculo.SecuenciaCercado, 10), vinculo.HuellaVinculoCercadoSHA256,
-		vinculo.VerificacionCercadoRef, vinculo.VerificacionCercadoEn.Format(time.RFC3339Nano),
 		objeto.Objeto.Referencia, objeto.Objeto.Version, objeto.ConectorID,
 		string(objeto.Zona), objeto.MIME, objeto.HuellaSHA256,
 		strconv.FormatInt(objeto.Tamano, 10), objeto.EvidenciaCreacionRef,

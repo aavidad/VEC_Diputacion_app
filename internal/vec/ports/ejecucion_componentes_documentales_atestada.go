@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
@@ -74,16 +75,25 @@ type CompromisoEjecucionComponenteDocumental struct {
 	descriptorPerfil           DescriptorPerfilDocumental
 	situacionOperativa         domain.SituacionOperativaPerfilDocumental
 	descriptorComponente       DescriptorComponenteDocumentalAtestado
+	ordenDespachoConsumida     OrdenDespachoDocumentalV3ConsumidaNominal
+	vinculoActivacion          VinculoEstableActivacionDocumentalV3
 	reservaRef                 string
 	manifiesto                 ManifiestoEjecucionDocumentalV3
 	consumoDecision            ConsumoDecisionEjecucionDocumentalV3
-	tokenCercado               TokenCercadoEjecucionDocumentalV3
-	solicitudVerificacionToken SolicitudVerificacionTokenCercadoDocumentalV3
-	verificacionToken          ResultadoVerificacionTokenCercadoDocumentalV3
 	efectoRef                  string
 	huellaPlanSHA256           string
 	secuenciaCercado           uint64
 	huellaVinculoSHA256        string
+	inicioEfectoRef            string
+	outboxInicioRef            string
+	reclamacionDespachoRef     string
+	consumoDespachoRef         string
+	outboxConsumoRef           string
+	versionInicioCAS           uint64
+	versionReclamacionCAS      uint64
+	versionConsumoCAS          uint64
+	huellaOrdenDespachoSHA256  string
+	comprobacionKMSRef         string
 	borradorRef                string
 	huellaContenidoNeutralHMAC string
 	huellaDocumentoSHA256      string
@@ -94,11 +104,10 @@ type CompromisoEjecucionComponenteDocumental struct {
 	huellaCompromisoSHA256     string
 }
 
-// NuevoCompromisoEjecucionComponenteDocumental coteja el resultado de
-// verificacion de cercado, pero no ejecuta por si mismo la criptografia. En
-// producto, verificacionToken debe proceder exclusivamente de
-// VerificadorTokensCercadoDocumentalV3 y volver a contrastarse con la reserva
-// autoritativa inmediatamente antes de despachar.
+// NuevoCompromisoEjecucionComponenteDocumental acepta el comando nominal que
+// el servicio de aplicacion obtuvo tras verificar por KMS y consumir por CAS.
+// El valor no es autoritativo ni sustituye la composicion: handlers no deben
+// poseer este constructor junto con el despachador.
 func NuevoCompromisoEjecucionComponenteDocumental(
 	operacionRef string,
 	reto [32]byte,
@@ -106,38 +115,52 @@ func NuevoCompromisoEjecucionComponenteDocumental(
 	descriptorPerfil DescriptorPerfilDocumental,
 	situacionOperativa domain.SituacionOperativaPerfilDocumental,
 	descriptorComponente DescriptorComponenteDocumentalAtestado,
-	reservaRef string,
-	manifiesto ManifiestoEjecucionDocumentalV3,
-	consumoDecision ConsumoDecisionEjecucionDocumentalV3,
-	tokenCercado TokenCercadoEjecucionDocumentalV3,
-	verificacionToken ResultadoVerificacionTokenCercadoDocumentalV3,
+	ordenConsumida OrdenDespachoDocumentalV3ConsumidaNominal,
 	borradorRef, huellaContenidoNeutralHMAC, huellaDocumentoSHA256 string,
 	tamanoDocumento, limiteBytes uint64,
 	vigencia time.Duration,
 ) (CompromisoEjecucionComponenteDocumental, error) {
+	vinculoActivacion, errVinculo := ordenConsumida.VinculoActivacion()
+	datosOrden, errOrden := ordenConsumida.DatosOrden()
+	huellaOrden, errHuellaOrden := ordenConsumida.solicitud.orden.HuellaSHA256()
+	if errVinculo != nil || errOrden != nil || errHuellaOrden != nil ||
+		ordenConsumida.ValidarEn(ordenConsumida.estado.consumidaEn) != nil {
+		return CompromisoEjecucionComponenteDocumental{}, ErrCompromisoEjecucionDocumentalInvalido
+	}
+	reservaRef := vinculoActivacion.ReservaRef
+	manifiesto := vinculoActivacion.Manifiesto
+	consumoDecision := vinculoActivacion.ConsumoDecision
 	datosManifiesto, err := manifiesto.Datos()
 	if err != nil {
 		return CompromisoEjecucionComponenteDocumental{}, ErrCompromisoEjecucionDocumentalInvalido
 	}
-	solicitudVerificacion, err := NuevaSolicitudVerificacionTokenCercadoDocumentalV3(
-		reservaRef, manifiesto, consumoDecision, tokenCercado,
-	)
-	if err != nil || verificacionToken.ValidarPara(solicitudVerificacion) != nil {
+	emitidoEn := ordenConsumida.estado.consumidaEn
+	expiraEn := emitidoEn.Add(vigencia)
+	if expiraEn.After(datosOrden.ExpiraEn) {
 		return CompromisoEjecucionComponenteDocumental{}, ErrCompromisoEjecucionDocumentalInvalido
 	}
-	emitidoEn := verificacionToken.verificadaEn
-	expiraEn := emitidoEn.Add(vigencia)
 	compromiso := CompromisoEjecucionComponenteDocumental{
 		operacionRef: operacionRef, reto: reto, operacion: operacion,
 		descriptorPerfil: descriptorPerfil, situacionOperativa: situacionOperativa,
-		descriptorComponente: descriptorComponente,
-		reservaRef:           reservaRef, manifiesto: manifiesto, consumoDecision: consumoDecision,
-		tokenCercado: tokenCercado, efectoRef: datosManifiesto.EfectoRef,
-		solicitudVerificacionToken: solicitudVerificacion, verificacionToken: verificacionToken,
-		huellaPlanSHA256:    datosManifiesto.HuellaPlanSHA256,
-		secuenciaCercado:    tokenCercado.Secuencia(),
-		huellaVinculoSHA256: tokenCercado.HuellaVinculoSHA256(),
-		borradorRef:         borradorRef, huellaContenidoNeutralHMAC: huellaContenidoNeutralHMAC,
+		descriptorComponente:   descriptorComponente,
+		ordenDespachoConsumida: ordenConsumida,
+		vinculoActivacion:      vinculoActivacion,
+		reservaRef:             reservaRef, manifiesto: manifiesto, consumoDecision: consumoDecision,
+		efectoRef:                 datosManifiesto.EfectoRef,
+		huellaPlanSHA256:          datosManifiesto.HuellaPlanSHA256,
+		secuenciaCercado:          datosOrden.ReciboInicio.SecuenciaCercado,
+		huellaVinculoSHA256:       datosOrden.ReciboInicio.HuellaVinculoCercadoSHA256,
+		inicioEfectoRef:           datosOrden.ReciboInicio.InicioRef,
+		outboxInicioRef:           datosOrden.ReciboInicio.OutboxInicioRef,
+		reclamacionDespachoRef:    datosOrden.ReclamacionRef,
+		consumoDespachoRef:        ordenConsumida.estado.consumoRef,
+		outboxConsumoRef:          ordenConsumida.estado.outboxConsumoRef,
+		versionInicioCAS:          datosOrden.ReciboInicio.VersionInicioCAS,
+		versionReclamacionCAS:     datosOrden.VersionReclamacionCAS,
+		versionConsumoCAS:         ordenConsumida.estado.versionConsumoCAS,
+		huellaOrdenDespachoSHA256: huellaOrden,
+		comprobacionKMSRef:        ordenConsumida.resultado.comprobacionRef,
+		borradorRef:               borradorRef, huellaContenidoNeutralHMAC: huellaContenidoNeutralHMAC,
 		huellaDocumentoSHA256: huellaDocumentoSHA256, tamanoDocumento: tamanoDocumento,
 		limiteBytes: limiteBytes, emitidoEn: emitidoEn, expiraEn: expiraEn,
 	}
@@ -153,9 +176,8 @@ func (c CompromisoEjecucionComponenteDocumental) Validar() error {
 	consulta := c.descriptorComponente.Consulta()
 	perfil := c.descriptorPerfil.Perfil()
 	datosManifiesto, errManifiesto := c.manifiesto.Datos()
-	solicitudEsperada, errSolicitud := NuevaSolicitudVerificacionTokenCercadoDocumentalV3(
-		c.reservaRef, c.manifiesto, c.consumoDecision, c.tokenCercado,
-	)
+	datosOrden, errOrden := c.ordenDespachoConsumida.DatosOrden()
+	huellaOrden, errHuellaOrden := c.ordenDespachoConsumida.solicitud.orden.HuellaSHA256()
 	if !operacionValida || !referenciaOpacaEjecucionDocumentalSegura(c.operacionRef) ||
 		!referenciaOpacaEjecucionDocumentalSegura(c.borradorRef) || c.operacionRef == c.borradorRef ||
 		retoEjecucionDocumentalNulo(c.reto) || c.descriptorPerfil.Validar() != nil ||
@@ -169,12 +191,26 @@ func (c CompromisoEjecucionComponenteDocumental) Validar() error {
 		consulta.PublicacionRef != c.descriptorPerfil.PublicacionRef() ||
 		consulta.PerfilRef != perfil.Referencia() || consulta.DigestPerfil != perfil.DigestSHA256() ||
 		consulta.RevisionCatalogo != c.descriptorPerfil.Revision() ||
-		errManifiesto != nil || c.consumoDecision.ValidarContra(c.manifiesto) != nil ||
-		c.tokenCercado.ValidarPara(c.reservaRef, c.manifiesto, c.consumoDecision) != nil ||
-		errSolicitud != nil || c.solicitudVerificacionToken.Validar() != nil ||
-		c.solicitudVerificacionToken.huella != solicitudEsperada.huella ||
-		c.verificacionToken.ValidarPara(c.solicitudVerificacionToken) != nil ||
-		!c.verificacionToken.verificadaEn.Equal(c.emitidoEn) ||
+		errManifiesto != nil || c.vinculoActivacion.Validar() != nil ||
+		c.vinculoActivacion.ReservaRef != c.reservaRef ||
+		!manifiestosEjecucionDocumentalV3Coinciden(c.vinculoActivacion.Manifiesto, c.manifiesto) ||
+		c.vinculoActivacion.ConsumoDecision != c.consumoDecision || errOrden != nil ||
+		errHuellaOrden != nil || c.ordenDespachoConsumida.ValidarEn(c.emitidoEn) != nil ||
+		datosOrden.ReciboInicio.ReservaRef != c.reservaRef ||
+		datosOrden.ReciboInicio.SecuenciaCercado != c.secuenciaCercado ||
+		datosOrden.ReciboInicio.HuellaVinculoCercadoSHA256 != c.huellaVinculoSHA256 ||
+		datosOrden.ReciboInicio.InicioRef != c.inicioEfectoRef ||
+		datosOrden.ReciboInicio.OutboxInicioRef != c.outboxInicioRef ||
+		datosOrden.ReclamacionRef != c.reclamacionDespachoRef ||
+		c.ordenDespachoConsumida.estado.consumoRef != c.consumoDespachoRef ||
+		c.ordenDespachoConsumida.estado.outboxConsumoRef != c.outboxConsumoRef ||
+		datosOrden.ReciboInicio.VersionInicioCAS != c.versionInicioCAS ||
+		datosOrden.VersionReclamacionCAS != c.versionReclamacionCAS ||
+		c.ordenDespachoConsumida.estado.versionConsumoCAS != c.versionConsumoCAS ||
+		c.versionConsumoCAS <= c.versionReclamacionCAS ||
+		huellaOrden != c.huellaOrdenDespachoSHA256 ||
+		c.ordenDespachoConsumida.resultado.comprobacionRef != c.comprobacionKMSRef ||
+		!c.ordenDespachoConsumida.estado.consumidaEn.Equal(c.emitidoEn) ||
 		!referenciaOpacaEjecucionDocumentalSegura(c.reservaRef) ||
 		!referenciaOpacaEjecucionDocumentalSegura(c.efectoRef) ||
 		c.reservaRef == c.efectoRef || c.reservaRef == c.borradorRef ||
@@ -189,9 +225,8 @@ func (c CompromisoEjecucionComponenteDocumental) Validar() error {
 		c.consumoDecision.EfectoRef != c.efectoRef ||
 		c.consumoDecision.HuellaPlanSHA256 != c.huellaPlanSHA256 ||
 		!huellaSHA256FormatoDocumentalValida(c.huellaPlanSHA256) ||
-		c.secuenciaCercado == 0 || c.secuenciaCercado != c.tokenCercado.Secuencia() ||
+		c.secuenciaCercado == 0 ||
 		!huellaSHA256FormatoDocumentalValida(c.huellaVinculoSHA256) ||
-		c.huellaVinculoSHA256 != c.tokenCercado.HuellaVinculoSHA256() ||
 		!componenteEjecucionDocumentalPerteneceAlPlan(
 			c.operacion, c.descriptorComponente, datosManifiesto,
 		) ||
@@ -200,6 +235,7 @@ func (c CompromisoEjecucionComponenteDocumental) Validar() error {
 		c.limiteBytes > perfil.MaximoBytes() ||
 		c.limiteBytes > c.descriptorComponente.MaximoBytes() ||
 		!ventanaCompromisoEjecucionDocumentalValida(c.emitidoEn, c.expiraEn) ||
+		c.expiraEn.After(datosOrden.ExpiraEn) ||
 		!huellaSHA256FormatoDocumentalValida(c.huellaCompromisoSHA256) ||
 		c.huellaCompromisoSHA256 != c.calcularHuella() ||
 		c.operacionRef == c.descriptorPerfil.Referencia() ||
@@ -238,7 +274,10 @@ func (c CompromisoEjecucionComponenteDocumental) DescriptorComponente() Descript
 	return c.descriptorComponente
 }
 func (c CompromisoEjecucionComponenteDocumental) ReservaRef() string { return c.reservaRef }
-func (c CompromisoEjecucionComponenteDocumental) EfectoRef() string  { return c.efectoRef }
+func (c CompromisoEjecucionComponenteDocumental) VinculoActivacion() VinculoEstableActivacionDocumentalV3 {
+	return c.vinculoActivacion
+}
+func (c CompromisoEjecucionComponenteDocumental) EfectoRef() string { return c.efectoRef }
 func (c CompromisoEjecucionComponenteDocumental) HuellaPlanSHA256() string {
 	return c.huellaPlanSHA256
 }
@@ -253,12 +292,6 @@ func (c CompromisoEjecucionComponenteDocumental) ManifiestoCercado() ManifiestoE
 }
 func (c CompromisoEjecucionComponenteDocumental) ConsumoDecisionCercado() ConsumoDecisionEjecucionDocumentalV3 {
 	return c.consumoDecision
-}
-func (c CompromisoEjecucionComponenteDocumental) TokenCercado() TokenCercadoEjecucionDocumentalV3 {
-	return c.tokenCercado
-}
-func (c CompromisoEjecucionComponenteDocumental) VerificacionTokenCercado() ResultadoVerificacionTokenCercadoDocumentalV3 {
-	return c.verificacionToken
 }
 func (c CompromisoEjecucionComponenteDocumental) BorradorRef() string { return c.borradorRef }
 func (c CompromisoEjecucionComponenteDocumental) HuellaContenidoNeutralHMAC() string {
@@ -285,13 +318,17 @@ func (c CompromisoEjecucionComponenteDocumental) HuellaSHA256() (string, error) 
 }
 
 func (CompromisoEjecucionComponenteDocumental) String() string {
-	return "[COMPROMISO-EJECUCION-DOCUMENTAL-CON-CAPACIDAD-REDACTADO]"
+	return "[COMPROMISO-EJECUCION-DOCUMENTAL-NOMINAL-NO-AUTORITATIVO-REDACTADO]"
 }
 
 func (c CompromisoEjecucionComponenteDocumental) GoString() string { return c.String() }
 
 func (c CompromisoEjecucionComponenteDocumental) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, c.String())
+}
+
+func (c CompromisoEjecucionComponenteDocumental) LogValue() slog.Value {
+	return slog.StringValue(c.String())
 }
 
 func (CompromisoEjecucionComponenteDocumental) MarshalJSON() ([]byte, error) {
@@ -310,11 +347,20 @@ func (*CompromisoEjecucionComponenteDocumental) UnmarshalText([]byte) error {
 	return ErrSerializacionSecretoDocumentalV3
 }
 
+func (CompromisoEjecucionComponenteDocumental) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+
+func (*CompromisoEjecucionComponenteDocumental) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
 func (c CompromisoEjecucionComponenteDocumental) calcularHuella() string {
 	perfil := c.descriptorPerfil.Perfil()
 	revision := c.descriptorPerfil.Revision()
 	situacion := c.situacionOperativa
 	componente := c.descriptorComponente.Componente()
+	huellaVinculoEstable, _ := c.vinculoActivacion.HuellaSHA256()
 	return huellaCanonicaFormatoDocumental([]string{
 		"vec.compromiso-ejecucion-componente-documental.v1", c.operacionRef,
 		hex.EncodeToString(c.reto[:]), string(c.operacion), c.descriptorPerfil.Referencia(),
@@ -326,36 +372,39 @@ func (c CompromisoEjecucionComponenteDocumental) calcularHuella() string {
 		c.descriptorComponente.Referencia(), c.descriptorComponente.DigestDeclaracionSHA256(),
 		string(componente.Rol()), componente.Identificador(),
 		strconv.FormatUint(componente.Version(), 10), componente.HuellaArtefactoSHA256(),
-		c.reservaRef, c.efectoRef, c.huellaPlanSHA256,
+		c.reservaRef, c.efectoRef, c.huellaPlanSHA256, huellaVinculoEstable,
 		strconv.FormatUint(c.secuenciaCercado, 10), c.huellaVinculoSHA256,
 		c.consumoDecision.DecisionRef, c.consumoDecision.EsquemaHuellaDecision,
-		c.consumoDecision.HuellaDecisionSHA256,
-		c.solicitudVerificacionToken.huella, c.verificacionToken.verificacionRef,
-		c.verificacionToken.verificadaEn.Format(time.RFC3339Nano),
+		c.consumoDecision.HuellaDecisionSHA256, c.inicioEfectoRef, c.outboxInicioRef,
+		c.reclamacionDespachoRef, c.consumoDespachoRef, c.outboxConsumoRef,
+		strconv.FormatUint(c.versionInicioCAS, 10),
+		strconv.FormatUint(c.versionReclamacionCAS, 10),
+		strconv.FormatUint(c.versionConsumoCAS, 10), c.huellaOrdenDespachoSHA256,
+		c.comprobacionKMSRef,
 		c.borradorRef, c.huellaContenidoNeutralHMAC, c.huellaDocumentoSHA256,
 		strconv.FormatUint(c.tamanoDocumento, 10), strconv.FormatUint(c.limiteBytes, 10),
 		c.emitidoEn.Format(time.RFC3339Nano), c.expiraEn.Format(time.RFC3339Nano),
 	})
 }
 
-// SobreReciboEjecucionDocumental conserva un COSE_Sign1 opaco. La validacion
-// criptografica pertenece al puerto verificador; este valor solo impide alias,
-// tamanos ilimitados y sobres vacios evidentes.
-type SobreReciboEjecucionDocumental struct {
+// SobreReciboEjecucionDocumentalCrudo conserva un COSE_Sign1 opaco. La comprobacion
+// criptografica se coordina dentro del servicio de aplicacion privado; este
+// valor solo impide alias, tamanos ilimitados y sobres vacios evidentes.
+type SobreReciboEjecucionDocumentalCrudo struct {
 	coseSign1         []byte
 	huellaSobreSHA256 string
 }
 
-func NuevoSobreReciboEjecucionDocumental(coseSign1 []byte) (SobreReciboEjecucionDocumental, error) {
-	sobre := SobreReciboEjecucionDocumental{coseSign1: append([]byte(nil), coseSign1...)}
+func NuevoSobreReciboEjecucionDocumentalCrudo(coseSign1 []byte) (SobreReciboEjecucionDocumentalCrudo, error) {
+	sobre := SobreReciboEjecucionDocumentalCrudo{coseSign1: append([]byte(nil), coseSign1...)}
 	sobre.huellaSobreSHA256 = huellaBytesFormatoDocumental(sobre.coseSign1)
 	if sobre.Validar() != nil {
-		return SobreReciboEjecucionDocumental{}, ErrSobreReciboEjecucionDocumentalInvalido
+		return SobreReciboEjecucionDocumentalCrudo{}, ErrSobreReciboEjecucionDocumentalInvalido
 	}
 	return sobre, nil
 }
 
-func (s SobreReciboEjecucionDocumental) Validar() error {
+func (s SobreReciboEjecucionDocumentalCrudo) Validar() error {
 	if len(s.coseSign1) < minimoBytesSobreCOSEDocumental ||
 		len(s.coseSign1) > maximoBytesSobreCOSEDocumental || bytesEjecucionDocumentalNulos(s.coseSign1) ||
 		!huellaSHA256FormatoDocumentalValida(s.huellaSobreSHA256) ||
@@ -365,43 +414,55 @@ func (s SobreReciboEjecucionDocumental) Validar() error {
 	return nil
 }
 
-func (s SobreReciboEjecucionDocumental) COSESign1() ([]byte, error) {
+func (s SobreReciboEjecucionDocumentalCrudo) COSESign1() ([]byte, error) {
 	if s.Validar() != nil {
 		return nil, ErrSobreReciboEjecucionDocumentalInvalido
 	}
 	return append([]byte(nil), s.coseSign1...), nil
 }
 
-func (s SobreReciboEjecucionDocumental) HuellaSHA256() (string, error) {
+func (s SobreReciboEjecucionDocumentalCrudo) HuellaSHA256() (string, error) {
 	if s.Validar() != nil {
 		return "", ErrSobreReciboEjecucionDocumentalInvalido
 	}
 	return s.huellaSobreSHA256, nil
 }
 
-func (SobreReciboEjecucionDocumental) String() string {
-	return "[SOBRE-COSE-RECIBO-EJECUCION-DOCUMENTAL-OPACO]"
+func (SobreReciboEjecucionDocumentalCrudo) String() string {
+	return "[SOBRE-COSE-RECIBO-EJECUCION-DOCUMENTAL-CRUDO-NO-AUTORITATIVO-REDACTADO]"
 }
 
-func (s SobreReciboEjecucionDocumental) GoString() string { return s.String() }
+func (s SobreReciboEjecucionDocumentalCrudo) GoString() string { return s.String() }
 
-func (s SobreReciboEjecucionDocumental) Format(estado fmt.State, _ rune) {
+func (s SobreReciboEjecucionDocumentalCrudo) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, s.String())
 }
 
-func (SobreReciboEjecucionDocumental) MarshalJSON() ([]byte, error) {
+func (s SobreReciboEjecucionDocumentalCrudo) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
+
+func (SobreReciboEjecucionDocumentalCrudo) MarshalJSON() ([]byte, error) {
 	return nil, ErrSerializacionSecretoDocumentalV3
 }
 
-func (*SobreReciboEjecucionDocumental) UnmarshalJSON([]byte) error {
+func (*SobreReciboEjecucionDocumentalCrudo) UnmarshalJSON([]byte) error {
 	return ErrSerializacionSecretoDocumentalV3
 }
 
-func (SobreReciboEjecucionDocumental) MarshalText() ([]byte, error) {
+func (SobreReciboEjecucionDocumentalCrudo) MarshalText() ([]byte, error) {
 	return nil, ErrSerializacionSecretoDocumentalV3
 }
 
-func (*SobreReciboEjecucionDocumental) UnmarshalText([]byte) error {
+func (*SobreReciboEjecucionDocumentalCrudo) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+func (SobreReciboEjecucionDocumentalCrudo) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+
+func (*SobreReciboEjecucionDocumentalCrudo) UnmarshalBinary([]byte) error {
 	return ErrSerializacionSecretoDocumentalV3
 }
 
@@ -471,6 +532,35 @@ func (i IdentidadEjecucionComponenteDocumental) HuellaMedicionSHA256() string {
 	return i.huellaMedicion
 }
 
+func (IdentidadEjecucionComponenteDocumental) String() string {
+	return "[IDENTIDAD-EJECUCION-COMPONENTE-DOCUMENTAL-REFERENCIAS-REDACTADAS]"
+}
+func (i IdentidadEjecucionComponenteDocumental) GoString() string { return i.String() }
+func (i IdentidadEjecucionComponenteDocumental) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, i.String())
+}
+func (i IdentidadEjecucionComponenteDocumental) LogValue() slog.Value {
+	return slog.StringValue(i.String())
+}
+func (IdentidadEjecucionComponenteDocumental) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*IdentidadEjecucionComponenteDocumental) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (IdentidadEjecucionComponenteDocumental) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*IdentidadEjecucionComponenteDocumental) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (IdentidadEjecucionComponenteDocumental) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*IdentidadEjecucionComponenteDocumental) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
 type ResultadoEjecucionComponenteDocumental string
 
 const (
@@ -513,9 +603,17 @@ type proyeccionCompromisoEjecucionDocumental struct {
 	decisionRef                string
 	esquemaHuellaDecision      string
 	huellaDecisionSHA256       string
-	huellaSolicitudCercado     string
-	verificacionCercadoRef     string
-	verificacionCercadoEn      time.Time
+	inicioEfectoRef            string
+	outboxInicioRef            string
+	reclamacionDespachoRef     string
+	consumoDespachoRef         string
+	outboxConsumoRef           string
+	versionInicioCAS           uint64
+	versionReclamacionCAS      uint64
+	versionConsumoCAS          uint64
+	huellaOrdenDespachoSHA256  string
+	comprobacionKMSRef         string
+	consumidaEn                time.Time
 	borradorRef                string
 	huellaContenidoNeutralHMAC string
 	huellaDocumentoSHA256      string
@@ -548,9 +646,17 @@ func nuevaProyeccionCompromisoEjecucionDocumental(
 		decisionRef:                compromiso.consumoDecision.DecisionRef,
 		esquemaHuellaDecision:      compromiso.consumoDecision.EsquemaHuellaDecision,
 		huellaDecisionSHA256:       compromiso.consumoDecision.HuellaDecisionSHA256,
-		huellaSolicitudCercado:     compromiso.solicitudVerificacionToken.huella,
-		verificacionCercadoRef:     compromiso.verificacionToken.verificacionRef,
-		verificacionCercadoEn:      compromiso.verificacionToken.verificadaEn,
+		inicioEfectoRef:            compromiso.inicioEfectoRef,
+		outboxInicioRef:            compromiso.outboxInicioRef,
+		reclamacionDespachoRef:     compromiso.reclamacionDespachoRef,
+		consumoDespachoRef:         compromiso.consumoDespachoRef,
+		outboxConsumoRef:           compromiso.outboxConsumoRef,
+		versionInicioCAS:           compromiso.versionInicioCAS,
+		versionReclamacionCAS:      compromiso.versionReclamacionCAS,
+		versionConsumoCAS:          compromiso.versionConsumoCAS,
+		huellaOrdenDespachoSHA256:  compromiso.huellaOrdenDespachoSHA256,
+		comprobacionKMSRef:         compromiso.comprobacionKMSRef,
+		consumidaEn:                compromiso.emitidoEn,
 		borradorRef:                compromiso.BorradorRef(),
 		huellaContenidoNeutralHMAC: compromiso.HuellaContenidoNeutralHMAC(),
 		huellaDocumentoSHA256:      compromiso.HuellaDocumentoSHA256(),
@@ -586,9 +692,16 @@ func (p proyeccionCompromisoEjecucionDocumental) Validar() error {
 		!referenciaOpacaEjecucionDocumentalSegura(p.decisionRef) ||
 		p.esquemaHuellaDecision != EsquemaHuellaDecisionAutorizacionReforzadaV1 ||
 		!huellaSHA256FormatoDocumentalValida(p.huellaDecisionSHA256) ||
-		!huellaSHA256FormatoDocumentalValida(p.huellaSolicitudCercado) ||
-		!referenciaOpacaEjecucionDocumentalSegura(p.verificacionCercadoRef) ||
-		!p.verificacionCercadoEn.Equal(p.emitidoEn) ||
+		!referenciaOpacaEjecucionDocumentalSegura(p.inicioEfectoRef) ||
+		!referenciaOpacaEjecucionDocumentalSegura(p.outboxInicioRef) ||
+		!referenciaOpacaEjecucionDocumentalSegura(p.reclamacionDespachoRef) ||
+		!referenciaOpacaEjecucionDocumentalSegura(p.consumoDespachoRef) ||
+		!referenciaOpacaEjecucionDocumentalSegura(p.outboxConsumoRef) ||
+		p.versionInicioCAS == 0 || p.versionReclamacionCAS == 0 ||
+		p.versionConsumoCAS <= p.versionReclamacionCAS ||
+		!huellaSHA256FormatoDocumentalValida(p.huellaOrdenDespachoSHA256) ||
+		!referenciaOpacaEjecucionDocumentalSegura(p.comprobacionKMSRef) ||
+		!p.consumidaEn.Equal(p.emitidoEn) ||
 		!referenciaOpacaEjecucionDocumentalSegura(p.borradorRef) ||
 		!huellaHMACEjecucionDocumentalValida(p.huellaContenidoNeutralHMAC) ||
 		p.limiteBytes == 0 || p.limiteBytes > maximoBytesEjecucionComponenteDocumental ||
@@ -619,15 +732,19 @@ func (p proyeccionCompromisoEjecucionDocumental) calcularHuella() string {
 		p.descriptorComponente.DigestDeclaracionSHA256(), p.reservaRef, p.efectoRef,
 		p.huellaPlanSHA256, strconv.FormatUint(p.secuenciaCercado, 10), p.huellaVinculoSHA256,
 		p.decisionRef, p.esquemaHuellaDecision, p.huellaDecisionSHA256,
-		p.huellaSolicitudCercado, p.verificacionCercadoRef,
-		p.verificacionCercadoEn.Format(time.RFC3339Nano), p.borradorRef,
+		p.inicioEfectoRef, p.outboxInicioRef, p.reclamacionDespachoRef,
+		p.consumoDespachoRef, p.outboxConsumoRef,
+		strconv.FormatUint(p.versionInicioCAS, 10), strconv.FormatUint(p.versionReclamacionCAS, 10),
+		strconv.FormatUint(p.versionConsumoCAS, 10),
+		p.huellaOrdenDespachoSHA256, p.comprobacionKMSRef,
+		p.consumidaEn.Format(time.RFC3339Nano), p.borradorRef,
 		p.huellaContenidoNeutralHMAC, p.huellaDocumentoSHA256,
 		strconv.FormatUint(p.tamanoDocumento, 10), strconv.FormatUint(p.limiteBytes, 10),
 		p.emitidoEn.Format(time.RFC3339Nano), p.expiraEn.Format(time.RFC3339Nano),
 	})
 }
 
-type ReciboEjecucionComponenteDocumentalVerificado struct {
+type ReciboEjecucionComponenteDocumentalNominal struct {
 	compromiso            proyeccionCompromisoEjecucionDocumental
 	reciboRef             string
 	resultado             ResultadoEjecucionComponenteDocumental
@@ -639,80 +756,115 @@ type ReciboEjecucionComponenteDocumentalVerificado struct {
 	huellaReciboSHA256    string
 }
 
-// DatosReciboEjecucionComponenteDocumentalVerificado es una proyeccion segura
+// DatosReciboEjecucionComponenteDocumentalNominal es una proyeccion segura
 // para evidencia. Nunca expone CompromisoEjecucionComponenteDocumental,
-// TokenCercadoEjecucionDocumentalV3, su MAC ni el valor secreto de cercado.
-type DatosReciboEjecucionComponenteDocumentalVerificado struct {
-	HuellaCompromisoSHA256       string
-	OperacionRef                 string
-	Operacion                    OperacionComponenteDocumental
-	DescriptorPerfil             DescriptorPerfilDocumental
-	SituacionOperativa           domain.SituacionOperativaPerfilDocumental
-	DescriptorComponente         DescriptorComponenteDocumentalAtestado
-	ReservaRef                   string
-	EfectoRef                    string
-	HuellaPlanSHA256             string
-	SecuenciaCercado             uint64
-	HuellaVinculoCercadoSHA256   string
-	DecisionRef                  string
-	EsquemaHuellaDecision        string
-	HuellaDecisionSHA256         string
-	HuellaSolicitudCercadoSHA256 string
-	BorradorRef                  string
-	HuellaContenidoNeutralHMAC   string
-	HuellaDocumentoSHA256        string
-	TamanoDocumento              uint64
-	LimiteBytes                  uint64
-	CompromisoEmitidoEn          time.Time
-	CompromisoExpiraEn           time.Time
-	VerificacionCercadoRef       string
-	VerificacionCercadoEn        time.Time
-	ReciboRef                    string
-	Resultado                    ResultadoEjecucionComponenteDocumental
-	HuellaSalidaSHA256           string
-	TamanoSalida                 uint64
-	Identidad                    IdentidadEjecucionComponenteDocumental
-	EmitidoEn                    time.Time
-	HuellaSobreCOSESHA256        string
-	HuellaReciboSHA256           string
+// TokenCercadoEjecucionDocumentalV3Nominal, su MAC ni el valor secreto de cercado.
+type DatosReciboEjecucionComponenteDocumentalNominal struct {
+	HuellaCompromisoSHA256     string
+	OperacionRef               string
+	Operacion                  OperacionComponenteDocumental
+	DescriptorPerfil           DescriptorPerfilDocumental
+	SituacionOperativa         domain.SituacionOperativaPerfilDocumental
+	DescriptorComponente       DescriptorComponenteDocumentalAtestado
+	ReservaRef                 string
+	EfectoRef                  string
+	HuellaPlanSHA256           string
+	SecuenciaCercado           uint64
+	HuellaVinculoCercadoSHA256 string
+	DecisionRef                string
+	EsquemaHuellaDecision      string
+	HuellaDecisionSHA256       string
+	InicioEfectoRef            string
+	OutboxInicioRef            string
+	ReclamacionDespachoRef     string
+	ConsumoDespachoRef         string
+	OutboxConsumoRef           string
+	VersionInicioCAS           uint64
+	VersionReclamacionCAS      uint64
+	VersionConsumoCAS          uint64
+	HuellaOrdenDespachoSHA256  string
+	ComprobacionKMSRef         string
+	ConsumidaEn                time.Time
+	BorradorRef                string
+	HuellaContenidoNeutralHMAC string
+	HuellaDocumentoSHA256      string
+	TamanoDocumento            uint64
+	LimiteBytes                uint64
+	CompromisoEmitidoEn        time.Time
+	CompromisoExpiraEn         time.Time
+	ReciboRef                  string
+	Resultado                  ResultadoEjecucionComponenteDocumental
+	HuellaSalidaSHA256         string
+	TamanoSalida               uint64
+	Identidad                  IdentidadEjecucionComponenteDocumental
+	EmitidoEn                  time.Time
+	HuellaSobreCOSESHA256      string
+	HuellaReciboSHA256         string
 }
 
-// NuevoReciboEjecucionComponenteDocumentalVerificado solo comprueba el contrato
-// de valor: NO acredita por si mismo la firma ni la atestacion criptografica.
-// Aplicacion solo puede aceptar el valor devuelto por
-// VerificadorCriptograficoRecibosDocumentales. La composicion productiva debe
-// impedir que este constructor se use como sustituto de dicho verificador.
-func NuevoReciboEjecucionComponenteDocumentalVerificado(
+func (DatosReciboEjecucionComponenteDocumentalNominal) String() string {
+	return "[DATOS-RECIBO-EJECUCION-COMPONENTE-NOMINALES-HMAC-REDACTADOS]"
+}
+func (d DatosReciboEjecucionComponenteDocumentalNominal) GoString() string { return d.String() }
+func (d DatosReciboEjecucionComponenteDocumentalNominal) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, d.String())
+}
+func (d DatosReciboEjecucionComponenteDocumentalNominal) LogValue() slog.Value {
+	return slog.StringValue(d.String())
+}
+func (DatosReciboEjecucionComponenteDocumentalNominal) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosReciboEjecucionComponenteDocumentalNominal) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosReciboEjecucionComponenteDocumentalNominal) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosReciboEjecucionComponenteDocumentalNominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosReciboEjecucionComponenteDocumentalNominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosReciboEjecucionComponenteDocumentalNominal) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
+// NuevoReciboEjecucionComponenteDocumentalNominal solo comprueba el contrato
+// de valor: NO acredita la firma ni la atestacion criptografica y nunca concede
+// autoridad por si mismo.
+func NuevoReciboEjecucionComponenteDocumentalNominal(
 	compromiso CompromisoEjecucionComponenteDocumental,
-	sobre SobreReciboEjecucionDocumental,
+	sobre SobreReciboEjecucionDocumentalCrudo,
 	reciboRef string,
 	resultado ResultadoEjecucionComponenteDocumental,
 	huellaSalidaSHA256 string,
 	tamanoSalida uint64,
 	identidad IdentidadEjecucionComponenteDocumental,
 	emitidoEn time.Time,
-) (ReciboEjecucionComponenteDocumentalVerificado, error) {
+) (ReciboEjecucionComponenteDocumentalNominal, error) {
 	huellaSobre, err := sobre.HuellaSHA256()
 	if err != nil {
-		return ReciboEjecucionComponenteDocumentalVerificado{}, ErrReciboEjecucionDocumentalInvalido
+		return ReciboEjecucionComponenteDocumentalNominal{}, ErrReciboEjecucionDocumentalInvalido
 	}
 	proyeccion, err := nuevaProyeccionCompromisoEjecucionDocumental(compromiso)
 	if err != nil {
-		return ReciboEjecucionComponenteDocumentalVerificado{}, ErrReciboEjecucionDocumentalInvalido
+		return ReciboEjecucionComponenteDocumentalNominal{}, ErrReciboEjecucionDocumentalInvalido
 	}
-	recibo := ReciboEjecucionComponenteDocumentalVerificado{
+	recibo := ReciboEjecucionComponenteDocumentalNominal{
 		compromiso: proyeccion, reciboRef: reciboRef, resultado: resultado,
 		huellaSalidaSHA256: huellaSalidaSHA256, tamanoSalida: tamanoSalida,
 		identidad: identidad, emitidoEn: emitidoEn, huellaSobreCOSESHA256: huellaSobre,
 	}
 	recibo.huellaReciboSHA256 = recibo.calcularHuella()
 	if recibo.ValidarContra(compromiso, sobre) != nil {
-		return ReciboEjecucionComponenteDocumentalVerificado{}, ErrReciboEjecucionDocumentalInvalido
+		return ReciboEjecucionComponenteDocumentalNominal{}, ErrReciboEjecucionDocumentalInvalido
 	}
 	return recibo, nil
 }
 
-func (r ReciboEjecucionComponenteDocumentalVerificado) Validar() error {
+func (r ReciboEjecucionComponenteDocumentalNominal) Validar() error {
 	if r.compromiso.Validar() != nil || !referenciaOpacaEjecucionDocumentalSegura(r.reciboRef) ||
 		r.reciboRef == r.compromiso.operacionRef || r.reciboRef == r.compromiso.borradorRef ||
 		!r.resultado.corresponde(r.compromiso.operacion) ||
@@ -723,7 +875,7 @@ func (r ReciboEjecucionComponenteDocumentalVerificado) Validar() error {
 			r.compromiso.descriptorComponente.Componente().HuellaArtefactoSHA256() ||
 		r.emitidoEn.IsZero() || r.emitidoEn.Location() != time.UTC ||
 		r.emitidoEn.Before(r.compromiso.emitidoEn) || !r.emitidoEn.Before(r.compromiso.expiraEn) ||
-		r.emitidoEn.Before(r.compromiso.verificacionCercadoEn) ||
+		r.emitidoEn.Before(r.compromiso.consumidaEn) ||
 		!huellaSHA256FormatoDocumentalValida(r.huellaSobreCOSESHA256) ||
 		!huellaSHA256FormatoDocumentalValida(r.huellaReciboSHA256) ||
 		r.huellaReciboSHA256 != r.calcularHuella() {
@@ -737,9 +889,9 @@ func (r ReciboEjecucionComponenteDocumentalVerificado) Validar() error {
 	return nil
 }
 
-func (r ReciboEjecucionComponenteDocumentalVerificado) ValidarContra(
+func (r ReciboEjecucionComponenteDocumentalNominal) ValidarContra(
 	compromiso CompromisoEjecucionComponenteDocumental,
-	sobre SobreReciboEjecucionDocumental,
+	sobre SobreReciboEjecucionDocumentalCrudo,
 ) error {
 	huellaSobre, err := sobre.HuellaSHA256()
 	proyeccionEsperada, errProyeccion := nuevaProyeccionCompromisoEjecucionDocumental(compromiso)
@@ -751,35 +903,43 @@ func (r ReciboEjecucionComponenteDocumentalVerificado) ValidarContra(
 	return nil
 }
 
-func (r ReciboEjecucionComponenteDocumentalVerificado) Datos() (
-	DatosReciboEjecucionComponenteDocumentalVerificado,
+func (r ReciboEjecucionComponenteDocumentalNominal) Datos() (
+	DatosReciboEjecucionComponenteDocumentalNominal,
 	error,
 ) {
 	if r.Validar() != nil {
-		return DatosReciboEjecucionComponenteDocumentalVerificado{}, ErrReciboEjecucionDocumentalInvalido
+		return DatosReciboEjecucionComponenteDocumentalNominal{}, ErrReciboEjecucionDocumentalInvalido
 	}
-	return DatosReciboEjecucionComponenteDocumentalVerificado{
+	return DatosReciboEjecucionComponenteDocumentalNominal{
 		HuellaCompromisoSHA256: r.compromiso.huellaCompromisoSHA256,
 		OperacionRef:           r.compromiso.operacionRef, Operacion: r.compromiso.operacion,
 		DescriptorPerfil:     r.compromiso.descriptorPerfil,
 		SituacionOperativa:   r.compromiso.situacionOperativa,
 		DescriptorComponente: r.compromiso.descriptorComponente,
 		ReservaRef:           r.compromiso.reservaRef, EfectoRef: r.compromiso.efectoRef,
-		HuellaPlanSHA256:             r.compromiso.huellaPlanSHA256,
-		SecuenciaCercado:             r.compromiso.secuenciaCercado,
-		HuellaVinculoCercadoSHA256:   r.compromiso.huellaVinculoSHA256,
-		DecisionRef:                  r.compromiso.decisionRef,
-		EsquemaHuellaDecision:        r.compromiso.esquemaHuellaDecision,
-		HuellaDecisionSHA256:         r.compromiso.huellaDecisionSHA256,
-		HuellaSolicitudCercadoSHA256: r.compromiso.huellaSolicitudCercado,
-		BorradorRef:                  r.compromiso.borradorRef,
-		HuellaContenidoNeutralHMAC:   r.compromiso.huellaContenidoNeutralHMAC,
-		HuellaDocumentoSHA256:        r.compromiso.huellaDocumentoSHA256,
-		TamanoDocumento:              r.compromiso.tamanoDocumento, LimiteBytes: r.compromiso.limiteBytes,
+		HuellaPlanSHA256:           r.compromiso.huellaPlanSHA256,
+		SecuenciaCercado:           r.compromiso.secuenciaCercado,
+		HuellaVinculoCercadoSHA256: r.compromiso.huellaVinculoSHA256,
+		DecisionRef:                r.compromiso.decisionRef,
+		EsquemaHuellaDecision:      r.compromiso.esquemaHuellaDecision,
+		HuellaDecisionSHA256:       r.compromiso.huellaDecisionSHA256,
+		InicioEfectoRef:            r.compromiso.inicioEfectoRef,
+		OutboxInicioRef:            r.compromiso.outboxInicioRef,
+		ReclamacionDespachoRef:     r.compromiso.reclamacionDespachoRef,
+		ConsumoDespachoRef:         r.compromiso.consumoDespachoRef,
+		OutboxConsumoRef:           r.compromiso.outboxConsumoRef,
+		VersionInicioCAS:           r.compromiso.versionInicioCAS,
+		VersionReclamacionCAS:      r.compromiso.versionReclamacionCAS,
+		VersionConsumoCAS:          r.compromiso.versionConsumoCAS,
+		HuellaOrdenDespachoSHA256:  r.compromiso.huellaOrdenDespachoSHA256,
+		ComprobacionKMSRef:         r.compromiso.comprobacionKMSRef,
+		ConsumidaEn:                r.compromiso.consumidaEn,
+		BorradorRef:                r.compromiso.borradorRef,
+		HuellaContenidoNeutralHMAC: r.compromiso.huellaContenidoNeutralHMAC,
+		HuellaDocumentoSHA256:      r.compromiso.huellaDocumentoSHA256,
+		TamanoDocumento:            r.compromiso.tamanoDocumento, LimiteBytes: r.compromiso.limiteBytes,
 		CompromisoEmitidoEn: r.compromiso.emitidoEn, CompromisoExpiraEn: r.compromiso.expiraEn,
-		VerificacionCercadoRef: r.compromiso.verificacionCercadoRef,
-		VerificacionCercadoEn:  r.compromiso.verificacionCercadoEn,
-		ReciboRef:              r.reciboRef, Resultado: r.resultado,
+		ReciboRef: r.reciboRef, Resultado: r.resultado,
 		HuellaSalidaSHA256: r.huellaSalidaSHA256, TamanoSalida: r.tamanoSalida,
 		Identidad: r.identidad, EmitidoEn: r.emitidoEn,
 		HuellaSobreCOSESHA256: r.huellaSobreCOSESHA256,
@@ -787,18 +947,47 @@ func (r ReciboEjecucionComponenteDocumentalVerificado) Datos() (
 	}, nil
 }
 
-func (r ReciboEjecucionComponenteDocumentalVerificado) HuellaSHA256() (string, error) {
+func (r ReciboEjecucionComponenteDocumentalNominal) HuellaSHA256() (string, error) {
 	if r.Validar() != nil {
 		return "", ErrReciboEjecucionDocumentalInvalido
 	}
 	return r.huellaReciboSHA256, nil
 }
 
+func (ReciboEjecucionComponenteDocumentalNominal) String() string {
+	return "[RECIBO-EJECUCION-COMPONENTE-DOCUMENTAL-NOMINAL-REDACTADO]"
+}
+func (r ReciboEjecucionComponenteDocumentalNominal) GoString() string { return r.String() }
+func (r ReciboEjecucionComponenteDocumentalNominal) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, r.String())
+}
+func (r ReciboEjecucionComponenteDocumentalNominal) LogValue() slog.Value {
+	return slog.StringValue(r.String())
+}
+func (ReciboEjecucionComponenteDocumentalNominal) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ReciboEjecucionComponenteDocumentalNominal) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ReciboEjecucionComponenteDocumentalNominal) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ReciboEjecucionComponenteDocumentalNominal) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (ReciboEjecucionComponenteDocumentalNominal) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*ReciboEjecucionComponenteDocumentalNominal) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+
 // IndependienteDe exige segregacion tanto declarativa como observada durante
 // la ejecucion. El broker y el nodo fisico pueden ser compartidos; la carga de
 // trabajo, proceso, dominio, clave y medicion no.
-func (r ReciboEjecucionComponenteDocumentalVerificado) IndependienteDe(
-	otro ReciboEjecucionComponenteDocumentalVerificado,
+func (r ReciboEjecucionComponenteDocumentalNominal) IndependienteDe(
+	otro ReciboEjecucionComponenteDocumentalNominal,
 ) bool {
 	componente := r.compromiso.descriptorComponente
 	otroComponente := otro.compromiso.descriptorComponente
@@ -819,11 +1008,11 @@ func (r ReciboEjecucionComponenteDocumentalVerificado) IndependienteDe(
 	return true
 }
 
-func (r ReciboEjecucionComponenteDocumentalVerificado) calcularHuella() string {
+func (r ReciboEjecucionComponenteDocumentalNominal) calcularHuella() string {
 	huellaCompromiso := r.compromiso.huellaCompromisoSHA256
 	componente := r.compromiso.descriptorComponente
 	return huellaCanonicaFormatoDocumental([]string{
-		"vec.recibo-ejecucion-componente-documental-verificado.v1", huellaCompromiso,
+		"vec.recibo-ejecucion-componente-documental-nominal.v1", huellaCompromiso,
 		r.reciboRef, string(r.resultado), r.huellaSalidaSHA256,
 		strconv.FormatUint(r.tamanoSalida, 10), r.identidad.CargaTrabajoRef(),
 		r.identidad.InstanciaProcesoRef(), r.identidad.DominioAislamientoRef(),
@@ -838,45 +1027,44 @@ func (r ReciboEjecucionComponenteDocumentalVerificado) calcularHuella() string {
 // aislados; no es por si mismo un ejecutor homologado. El recibo firmado por la
 // carga de trabajo es obligatorio para aceptar cualquier resultado.
 type DespachadorComponentesDocumentalesAtestados interface {
-	// Cada metodo debe cotejar TokenCercado contra la reserva autoritativa
-	// inmediatamente antes del efecto. Compromiso.Validar prueba el vinculo,
-	// pero no sustituye la comprobacion de que la secuencia siga siendo actual.
+	// Cada metodo acepta un compromiso nominal ligado al consumo CAS. Este puerto
+	// solo puede estar en el servicio de aplicacion precompuesto, que verifica KMS,
+	// consume y despacha dentro de la misma llamada. Nunca se entrega a handlers.
 	Renderizar(
 		context.Context,
 		CompromisoEjecucionComponenteDocumental,
 		domain.PerfilFormatoDocumental,
 		domain.ContenidoDocumento,
 		io.Writer,
-	) (SobreReciboEjecucionDocumental, error)
+	) (SobreReciboEjecucionDocumentalCrudo, error)
 	ValidarEstructura(
 		context.Context,
 		CompromisoEjecucionComponenteDocumental,
 		domain.PerfilFormatoDocumental,
 		[]byte,
-	) (SobreReciboEjecucionDocumental, error)
+	) (SobreReciboEjecucionDocumentalCrudo, error)
 	VerificarSemantica(
 		context.Context,
 		CompromisoEjecucionComponenteDocumental,
 		domain.PerfilFormatoDocumental,
 		domain.ContenidoDocumento,
 		[]byte,
-	) (SobreReciboEjecucionDocumental, error)
+	) (SobreReciboEjecucionDocumentalCrudo, error)
 }
 
 type GeneradorRetosEjecucionDocumental interface {
 	NuevoRetoEjecucionDocumental(context.Context) ([32]byte, error)
 }
 
-// VerificadorCriptograficoRecibosDocumentales valida COSE, confianza,
-// vigencia/revocacion, la ventana/reto y la autorizacion de la clave por la
-// atestacion del descriptor. Este puerto es la unica fuente de autoridad que
-// aplicacion puede aceptar como recibo verificado.
-type VerificadorCriptograficoRecibosDocumentales interface {
-	VerificarRecibo(
+// VerificadorCrudoRecibosDocumentales es el conector intercambiable que coteja
+// COSE, confianza, vigencia/revocacion, ventana/reto y clave. Su salida es
+// nominal y nunca concede por si sola permiso para confirmar un efecto.
+type VerificadorCrudoRecibosDocumentales interface {
+	VerificarReciboCrudo(
 		context.Context,
 		CompromisoEjecucionComponenteDocumental,
-		SobreReciboEjecucionDocumental,
-	) (ReciboEjecucionComponenteDocumentalVerificado, error)
+		SobreReciboEjecucionDocumentalCrudo,
+	) (ReciboEjecucionComponenteDocumentalNominal, error)
 }
 
 func referenciaOpacaEjecucionDocumentalSegura(valor string) bool {

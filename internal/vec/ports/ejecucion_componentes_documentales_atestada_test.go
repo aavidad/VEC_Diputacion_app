@@ -2,9 +2,13 @@ package ports
 
 import (
 	"bytes"
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"strings"
 	"testing"
@@ -24,6 +28,10 @@ func TestCompromisoEjecucionDocumentalLigaTodosLosEjes(t *testing.T) {
 		compromiso.HuellaDocumentoSHA256() != huellaAtestacionDocumental('9') ||
 		compromiso.TamanoDocumento() != 128 || compromiso.LimiteBytes() != escenario.limite {
 		t.Fatalf("compromiso valido rechazado: %#v", compromiso)
+	}
+	if !strings.Contains(compromiso.String(), "NOMINAL-NO-AUTORITATIVO") ||
+		strings.Contains(compromiso.String(), "CON-CAPACIDAD") {
+		t.Fatalf("String ambiguo para un valor nominal: %s", compromiso.String())
 	}
 	huella, err := compromiso.HuellaSHA256()
 	if err != nil || len(huella) != 64 {
@@ -50,6 +58,9 @@ func TestCompromisoEjecucionDocumentalLigaTodosLosEjes(t *testing.T) {
 		{"reserva", func(c *CompromisoEjecucionComponenteDocumental) {
 			c.reservaRef = "reserva:documental:otra"
 		}},
+		{"vinculo activacion", func(c *CompromisoEjecucionComponenteDocumental) {
+			c.vinculoActivacion.ReservaRef = "reserva:documental:otra"
+		}},
 		{"efecto", func(c *CompromisoEjecucionComponenteDocumental) {
 			c.efectoRef = "efecto:documental:otro"
 		}},
@@ -68,11 +79,11 @@ func TestCompromisoEjecucionDocumentalLigaTodosLosEjes(t *testing.T) {
 		{"consumo", func(c *CompromisoEjecucionComponenteDocumental) {
 			c.consumoDecision.EfectoRef = "efecto:documental:otro"
 		}},
-		{"token", func(c *CompromisoEjecucionComponenteDocumental) {
-			c.tokenCercado = TokenCercadoEjecucionDocumentalV3{}
+		{"orden despacho consumida", func(c *CompromisoEjecucionComponenteDocumental) {
+			c.ordenDespachoConsumida = OrdenDespachoDocumentalV3ConsumidaNominal{}
 		}},
-		{"verificacion token", func(c *CompromisoEjecucionComponenteDocumental) {
-			c.verificacionToken = ResultadoVerificacionTokenCercadoDocumentalV3{}
+		{"consumo CAS despacho", func(c *CompromisoEjecucionComponenteDocumental) {
+			c.ordenDespachoConsumida.estado.versionConsumoCAS++
 		}},
 		{"reto", func(c *CompromisoEjecucionComponenteDocumental) { c.reto = [32]byte{} }},
 		{"hmac", func(c *CompromisoEjecucionComponenteDocumental) {
@@ -132,9 +143,7 @@ func TestCompromisoEjecucionDocumentalRechazaRolPIIComodinYModosAmbiguos(t *test
 		t.Run(prueba.nombre, func(t *testing.T) {
 			_, err := NuevoCompromisoEjecucionComponenteDocumental(
 				prueba.operacionRef, prueba.reto, prueba.operacion, escenario.descriptorPerfil,
-				escenario.vigente, prueba.componente, escenario.reservaRef,
-				escenario.manifiesto, escenario.consumoDecision, escenario.tokenCercado,
-				escenario.verificacionToken,
+				escenario.vigente, prueba.componente, escenario.ordenDespachoConsumida,
 				"borrador:documental:1", hmac,
 				prueba.huella, prueba.tamano, prueba.limite,
 				escenario.expiraEn.Sub(escenario.emitidoEn),
@@ -164,9 +173,7 @@ func TestCompromisoEjecucionDocumentalRechazaSituacionCruzadaRevocadaYVentanaAbi
 			_, err := NuevoCompromisoEjecucionComponenteDocumental(
 				"operacion:render:1", retoAtestacionDocumental(1),
 				OperacionRenderizadoDocumental, escenario.descriptorPerfil,
-				prueba.situacion, escenario.render, escenario.reservaRef,
-				escenario.manifiesto, escenario.consumoDecision, escenario.tokenCercado,
-				escenario.verificacionToken,
+				prueba.situacion, escenario.render, escenario.ordenDespachoConsumida,
 				"borrador:documental:1",
 				hmacAtestacionDocumental(), "", 0, escenario.limite,
 				prueba.vigencia,
@@ -178,32 +185,22 @@ func TestCompromisoEjecucionDocumentalRechazaSituacionCruzadaRevocadaYVentanaAbi
 	}
 }
 
-func TestCompromisoEjecucionDocumentalRechazaTokenDeOtraReservaAunqueRecalculeDigest(t *testing.T) {
+func TestCompromisoEjecucionDocumentalRechazaOrdenDespachoDeOtraReservaAunqueRecalculeDigest(t *testing.T) {
 	escenario := nuevoEscenarioAtestacionEjecucionDocumental(t)
 	compromiso := nuevoCompromisoAtestacionEjecucionDocumental(
 		t, escenario, OperacionRenderizadoDocumental, escenario.render,
 		"operacion:render:1", retoAtestacionDocumental(1), "", 0,
 	)
-	tokenAjeno, err := NuevoTokenCercadoEjecucionDocumentalV3(
-		"token:cercado:documental:otro", 12, "reserva:documental:otra",
-		escenario.manifiesto, escenario.consumoDecision, "clave:atestacion:cercado",
-		bytes.Repeat([]byte{0x6b}, 32), "evidencia:cercado:otra",
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	compromiso.tokenCercado = tokenAjeno
-	compromiso.secuenciaCercado = tokenAjeno.Secuencia()
-	compromiso.huellaVinculoSHA256 = tokenAjeno.HuellaVinculoSHA256()
+	compromiso.ordenDespachoConsumida.solicitud.vinculo.ReservaRef = "reserva:documental:otra"
 	compromiso.huellaCompromisoSHA256 = compromiso.calcularHuella()
 	if compromiso.Validar() == nil {
-		t.Fatal("un token valido para otra reserva autorizo el compromiso")
+		t.Fatal("una orden cruzada con otra reserva autorizo el compromiso")
 	}
 }
 
 func TestSobreCOSEEsOpacoLimitadoYCopiadoDefensivamente(t *testing.T) {
 	original := bytes.Repeat([]byte{0xa1}, 32)
-	sobre, err := NuevoSobreReciboEjecucionDocumental(original)
+	sobre, err := NuevoSobreReciboEjecucionDocumentalCrudo(original)
 	if err != nil || sobre.Validar() != nil {
 		t.Fatalf("sobre valido rechazado: %v", err)
 	}
@@ -223,7 +220,7 @@ func TestSobreCOSEEsOpacoLimitadoYCopiadoDefensivamente(t *testing.T) {
 		bytes.Repeat([]byte{1}, minimoBytesSobreCOSEDocumental-1),
 		bytes.Repeat([]byte{1}, maximoBytesSobreCOSEDocumental+1),
 	} {
-		if _, err := NuevoSobreReciboEjecucionDocumental(contenido); !errors.Is(
+		if _, err := NuevoSobreReciboEjecucionDocumentalCrudo(contenido); !errors.Is(
 			err, ErrSobreReciboEjecucionDocumentalInvalido,
 		) {
 			t.Fatalf("sobre invalido aceptado, longitud=%d: %v", len(contenido), err)
@@ -238,6 +235,14 @@ func TestCompromisoYSobreCOSESeRedactanYNoSeSerializan(t *testing.T) {
 		"operacion:render:secreto", retoAtestacionDocumental(1), "", 0,
 	)
 	sobre := sobreAtestacionDocumental(t, 7)
+	identidad, err := NuevaIdentidadEjecucionComponenteDocumental(
+		"carga:trabajo:redactada", "instancia:proceso:redactada",
+		"dominio:aislamiento:redactado", "clave:firma:redactada",
+		strings.Repeat("8", 64), strings.Repeat("9", 64),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	texto := fmt.Sprintf("%v|%+v|%#v|%s", compromiso, compromiso, compromiso, compromiso)
 	if strings.Contains(texto, "token:cercado:documental:1") ||
 		strings.Contains(texto, "clave:atestacion:cercado") ||
@@ -248,12 +253,35 @@ func TestCompromisoYSobreCOSESeRedactanYNoSeSerializan(t *testing.T) {
 	if strings.Contains(textoSobre, "070707") {
 		t.Fatalf("el sobre COSE filtro bytes: %s", textoSobre)
 	}
+	textoIdentidad := fmt.Sprintf("%v|%+v|%#v|%s", identidad, identidad, identidad, identidad)
+	if strings.Contains(textoIdentidad, identidad.ClaveFirmaRef()) ||
+		strings.Contains(textoIdentidad, identidad.CargaTrabajoRef()) {
+		t.Fatalf("la identidad filtro referencias de confianza: %s", textoIdentidad)
+	}
 	for nombre, valor := range map[string]any{
 		"compromiso": compromiso,
 		"sobre":      sobre,
+		"identidad":  identidad,
 	} {
 		if _, err := json.Marshal(valor); !errors.Is(err, ErrSerializacionSecretoDocumentalV3) {
 			t.Fatalf("%s se serializo por JSON: %v", nombre, err)
+		}
+		if slog.Any("valor", valor).Value.Resolve().Kind() != slog.KindString {
+			t.Fatalf("%s no se redacto en slog", nombre)
+		}
+		binario, ok := valor.(interface{ MarshalBinary() ([]byte, error) })
+		if !ok {
+			t.Fatalf("%s no bloquea binario", nombre)
+		}
+		if _, err := binario.MarshalBinary(); !errors.Is(err, ErrSerializacionSecretoDocumentalV3) {
+			t.Fatalf("%s se serializo como binario: %v", nombre, err)
+		}
+		texto, ok := valor.(interface{ MarshalText() ([]byte, error) })
+		if !ok {
+			t.Fatalf("%s no bloquea texto", nombre)
+		}
+		if _, err := texto.MarshalText(); !errors.Is(err, ErrSerializacionSecretoDocumentalV3) {
+			t.Fatalf("%s se serializo como texto: %v", nombre, err)
 		}
 	}
 	if _, err := compromiso.MarshalText(); !errors.Is(err, ErrSerializacionSecretoDocumentalV3) {
@@ -268,7 +296,7 @@ func TestCompromisoYSobreCOSESeRedactanYNoSeSerializan(t *testing.T) {
 	) {
 		t.Fatalf("compromiso se restauro por JSON: %v", err)
 	}
-	var sobreRestaurado SobreReciboEjecucionDocumental
+	var sobreRestaurado SobreReciboEjecucionDocumentalCrudo
 	if err := json.Unmarshal([]byte(`{}`), &sobreRestaurado); !errors.Is(
 		err, ErrSerializacionSecretoDocumentalV3,
 	) {
@@ -284,7 +312,7 @@ func TestCompromisoRechazaTiempoNoCanonicoAunqueRecalculeHuellas(t *testing.T) {
 	)
 	compromiso.emitidoEn = compromiso.emitidoEn.Add(time.Nanosecond)
 	compromiso.expiraEn = compromiso.expiraEn.Add(time.Nanosecond)
-	compromiso.verificacionToken.verificadaEn = compromiso.emitidoEn
+	compromiso.ordenDespachoConsumida.estado.consumidaEn = compromiso.emitidoEn
 	compromiso.huellaCompromisoSHA256 = compromiso.calcularHuella()
 	if compromiso.Validar() == nil {
 		t.Fatal("un instante no persistible a microsegundos conservo autoridad")
@@ -334,12 +362,12 @@ func TestRecibosVerificadosExigenMedicionYSegregacionRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = map[DatosReciboEjecucionComponenteDocumentalVerificado]struct{}{datosRecibo: {}}
+	_ = map[DatosReciboEjecucionComponenteDocumentalNominal]struct{}{datosRecibo: {}}
 	tipoDatos := reflect.TypeOf(datosRecibo)
 	for _, tipoProhibido := range []reflect.Type{
 		reflect.TypeOf(CompromisoEjecucionComponenteDocumental{}),
-		reflect.TypeOf(TokenCercadoEjecucionDocumentalV3{}),
-		reflect.TypeOf(SobreReciboEjecucionDocumental{}),
+		reflect.TypeOf(TokenCercadoEjecucionDocumentalV3Nominal{}),
+		reflect.TypeOf(SobreReciboEjecucionDocumentalCrudo{}),
 		reflect.TypeOf([]byte(nil)),
 	} {
 		for indice := 0; indice < tipoDatos.NumField(); indice++ {
@@ -431,31 +459,26 @@ func TestRecibosIndependientesPuedenCompartirAutoridadDeAtestacion(t *testing.T)
 	huellaPlan, _ := manifiesto.HuellaSHA256()
 	consumo := escenario.consumoDecision
 	consumo.HuellaPlanSHA256 = huellaPlan
-	token, err := NuevoTokenCercadoEjecucionDocumentalV3(
-		"token:cercado:documental:compartido", 13, escenario.reservaRef, manifiesto,
-		consumo, "clave:atestacion:cercado", bytes.Repeat([]byte{0x5c}, 32),
-		"evidencia:cercado:compartido",
-	)
-	if err != nil {
-		t.Fatal(err)
+	vinculoActivacion := escenario.vinculoActivacion
+	vinculoActivacion.Manifiesto = manifiesto
+	vinculoActivacion.ConsumoDecision = consumo
+	vinculoActivacion.OrdenConsumoDurableV4Ref = consumo.EfectoRef
+	if vinculoActivacion.Validar() != nil {
+		t.Fatal("vinculo compartido invalido")
 	}
-	solicitudVerificacion, err := NuevaSolicitudVerificacionTokenCercadoDocumentalV3(
-		escenario.reservaRef, manifiesto, consumo, token,
+	token := nuevoTokenCercadoEjecucionDocumentalV3Prueba(
+		t, "token:cercado:documental:compartido", 13, vinculoActivacion,
+		"clave:atestacion:cercado", 1, "evidencia:cercado:compartido",
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	verificacionToken, err := NuevoResultadoVerificacionTokenCercadoDocumentalV3(
-		solicitudVerificacion, "verificacion:cercado:compartida", escenario.emitidoEn,
+	ordenDespachoConsumida := ordenDespachoDocumentalV3ConsumidaNominalPrueba(
+		t, vinculoActivacion, token, escenario.emitidoEn, escenario.expiraEn, "compartida",
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
 	escenario.semantico = semantico
 	escenario.manifiesto = manifiesto
 	escenario.consumoDecision = consumo
+	escenario.vinculoActivacion = vinculoActivacion
 	escenario.tokenCercado = token
-	escenario.verificacionToken = verificacionToken
+	escenario.ordenDespachoConsumida = ordenDespachoConsumida
 	huellaSalida := huellaAtestacionDocumental('9')
 	compromisoRender := nuevoCompromisoAtestacionEjecucionDocumental(
 		t, escenario, OperacionRenderizadoDocumental, escenario.render,
@@ -491,13 +514,13 @@ func TestReciboVerificadoRechazaResultadoMedicionYManipulacion(t *testing.T) {
 	sobre := sobreAtestacionDocumental(t, 3)
 	identidad := identidadAtestacionDocumental(t, escenario.semantico, "semantica", "proceso:semantica:1", 'f')
 	instante := time.Date(2026, time.July, 15, 16, 59, 0, 0, time.UTC)
-	if _, err := NuevoReciboEjecucionComponenteDocumentalVerificado(
+	if _, err := NuevoReciboEjecucionComponenteDocumentalNominal(
 		compromiso, sobre, "recibo:semantica:1", ResultadoEstructuraDocumentalConforme,
 		huellaAtestacionDocumental('9'), 128, identidad, instante,
 	); !errors.Is(err, ErrReciboEjecucionDocumentalInvalido) {
 		t.Fatalf("resultado de otro rol aceptado: %v", err)
 	}
-	if _, err := NuevoReciboEjecucionComponenteDocumentalVerificado(
+	if _, err := NuevoReciboEjecucionComponenteDocumentalNominal(
 		compromiso, sobre, "recibo:semantica:expirado", ResultadoSemanticaDocumentalEquivalente,
 		huellaAtestacionDocumental('9'), 128, identidad, escenario.expiraEn,
 	); !errors.Is(err, ErrReciboEjecucionDocumentalInvalido) {
@@ -510,7 +533,7 @@ func TestReciboVerificadoRechazaResultadoMedicionYManipulacion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NuevoReciboEjecucionComponenteDocumentalVerificado(
+	if _, err := NuevoReciboEjecucionComponenteDocumentalNominal(
 		compromiso, sobre, "recibo:semantica:1", ResultadoSemanticaDocumentalEquivalente,
 		huellaAtestacionDocumental('9'), 128, medicionAjena, instante,
 	); !errors.Is(err, ErrReciboEjecucionDocumentalInvalido) {
@@ -520,32 +543,53 @@ func TestReciboVerificadoRechazaResultadoMedicionYManipulacion(t *testing.T) {
 		t, compromiso, sobre, "recibo:semantica:1", ResultadoSemanticaDocumentalEquivalente,
 		huellaAtestacionDocumental('9'), 128, identidad, instante,
 	)
+	datosRecibo, err := recibo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	textoDatos := fmt.Sprintf("%v|%+v|%#v", datosRecibo, datosRecibo, datosRecibo)
+	if strings.Contains(textoDatos, datosRecibo.HuellaContenidoNeutralHMAC) {
+		t.Fatal("el DTO de recibo filtro la HMAC")
+	}
+	if slog.Any("datos", datosRecibo).Value.Resolve().Kind() != slog.KindString {
+		t.Fatal("el DTO de recibo no se redacto en slog")
+	}
+	if _, err := json.Marshal(datosRecibo); !errors.Is(err, ErrSerializacionSecretoDocumentalV3) {
+		t.Fatalf("DTO de recibo serializado por JSON: %v", err)
+	}
+	if _, err := datosRecibo.MarshalText(); !errors.Is(err, ErrSerializacionSecretoDocumentalV3) {
+		t.Fatalf("DTO de recibo serializado como texto: %v", err)
+	}
+	if _, err := datosRecibo.MarshalBinary(); !errors.Is(err, ErrSerializacionSecretoDocumentalV3) {
+		t.Fatalf("DTO de recibo serializado como binario: %v", err)
+	}
 	recibo.tamanoSalida++
 	if recibo.Validar() == nil {
 		t.Fatal("un recibo manipulado conservo autoridad")
 	}
-	if (ReciboEjecucionComponenteDocumentalVerificado{}).Validar() == nil ||
+	if (ReciboEjecucionComponenteDocumentalNominal{}).Validar() == nil ||
 		(IdentidadEjecucionComponenteDocumental{}).Validar() == nil {
 		t.Fatal("un valor cero obtuvo semantica positiva")
 	}
 }
 
 type escenarioAtestacionEjecucionDocumental struct {
-	descriptorPerfil  DescriptorPerfilDocumental
-	vigente           domain.SituacionOperativaPerfilDocumental
-	revocada          domain.SituacionOperativaPerfilDocumental
-	vigenteAjena      domain.SituacionOperativaPerfilDocumental
-	render            DescriptorComponenteDocumentalAtestado
-	estructural       DescriptorComponenteDocumentalAtestado
-	semantico         DescriptorComponenteDocumentalAtestado
-	reservaRef        string
-	manifiesto        ManifiestoEjecucionDocumentalV3
-	consumoDecision   ConsumoDecisionEjecucionDocumentalV3
-	tokenCercado      TokenCercadoEjecucionDocumentalV3
-	verificacionToken ResultadoVerificacionTokenCercadoDocumentalV3
-	limite            uint64
-	emitidoEn         time.Time
-	expiraEn          time.Time
+	descriptorPerfil       DescriptorPerfilDocumental
+	vigente                domain.SituacionOperativaPerfilDocumental
+	revocada               domain.SituacionOperativaPerfilDocumental
+	vigenteAjena           domain.SituacionOperativaPerfilDocumental
+	render                 DescriptorComponenteDocumentalAtestado
+	estructural            DescriptorComponenteDocumentalAtestado
+	semantico              DescriptorComponenteDocumentalAtestado
+	reservaRef             string
+	manifiesto             ManifiestoEjecucionDocumentalV3
+	consumoDecision        ConsumoDecisionEjecucionDocumentalV3
+	vinculoActivacion      VinculoEstableActivacionDocumentalV3
+	tokenCercado           TokenCercadoEjecucionDocumentalV3Nominal
+	ordenDespachoConsumida OrdenDespachoDocumentalV3ConsumidaNominal
+	limite                 uint64
+	emitidoEn              time.Time
+	expiraEn               time.Time
 }
 
 func nuevoEscenarioAtestacionEjecucionDocumental(
@@ -615,33 +659,34 @@ func nuevoEscenarioAtestacionEjecucionDocumental(
 		HuellaDecisionSHA256:  huellaAtestacionDocumental('e'), HuellaPlanSHA256: huellaPlan,
 	}
 	reservaRef := "reserva:documental:1"
-	token, err := NuevoTokenCercadoEjecucionDocumentalV3(
-		"token:cercado:documental:1", 11, reservaRef, manifiesto, consumo,
-		"clave:atestacion:cercado", bytes.Repeat([]byte{0x7a}, 32), "evidencia:cercado:1",
-	)
+	solicitudActivar := SolicitudActivarEjecucionDocumentalV3{
+		ReservaRef:             reservaRef,
+		IndiceIdempotenciaHMAC: "hmac-sha256:indice-activacion:" + huellaAtestacionDocumental('b'),
+		HuellaSolicitudHMAC:    "hmac-sha256:solicitud-activacion:" + huellaAtestacionDocumental('c'),
+		Manifiesto:             manifiesto, ConsumoDecision: consumo,
+		OrdenConsumoDurableV4Ref: consumo.EfectoRef,
+		ActivadaEn:               emitidoEn.Add(-time.Second),
+	}
+	vinculoActivacion, err := solicitudActivar.VinculoEstable()
 	if err != nil {
 		t.Fatal(err)
 	}
-	solicitudVerificacion, err := NuevaSolicitudVerificacionTokenCercadoDocumentalV3(
-		reservaRef, manifiesto, consumo, token,
+	token := nuevoTokenCercadoEjecucionDocumentalV3Prueba(
+		t, "token:cercado:documental:1", 11, vinculoActivacion,
+		"clave:atestacion:cercado", 1, "evidencia:cercado:1",
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	verificacionToken, err := NuevoResultadoVerificacionTokenCercadoDocumentalV3(
-		solicitudVerificacion, "verificacion:cercado:documental:1", emitidoEn,
+	expiraEn := emitidoEn.Add(5 * time.Minute)
+	ordenDespachoConsumida := ordenDespachoDocumentalV3ConsumidaNominalPrueba(
+		t, vinculoActivacion, token, emitidoEn, expiraEn, "principal",
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
 	return escenarioAtestacionEjecucionDocumental{
 		descriptorPerfil: descriptorPerfil,
 		vigente:          vigente, revocada: revocada, vigenteAjena: vigenteAjena,
 		render: render, estructural: estructural, semantico: semantico,
 		reservaRef: reservaRef, manifiesto: manifiesto,
-		consumoDecision: consumo, tokenCercado: token,
-		verificacionToken: verificacionToken,
-		limite:            limite, emitidoEn: emitidoEn, expiraEn: emitidoEn.Add(5 * time.Minute),
+		consumoDecision: consumo, vinculoActivacion: vinculoActivacion, tokenCercado: token,
+		ordenDespachoConsumida: ordenDespachoConsumida,
+		limite:                 limite, emitidoEn: emitidoEn, expiraEn: expiraEn,
 	}
 }
 
@@ -658,8 +703,7 @@ func nuevoCompromisoAtestacionEjecucionDocumental(
 	t.Helper()
 	compromiso, err := NuevoCompromisoEjecucionComponenteDocumental(
 		operacionRef, reto, operacion, escenario.descriptorPerfil, escenario.vigente, componente,
-		escenario.reservaRef, escenario.manifiesto, escenario.consumoDecision, escenario.tokenCercado,
-		escenario.verificacionToken,
+		escenario.ordenDespachoConsumida,
 		"borrador:documental:1", hmacAtestacionDocumental(), huellaDocumento,
 		tamano, escenario.limite, escenario.expiraEn.Sub(escenario.emitidoEn),
 	)
@@ -690,16 +734,16 @@ func identidadAtestacionDocumental(
 func nuevoReciboAtestacionDocumental(
 	t *testing.T,
 	compromiso CompromisoEjecucionComponenteDocumental,
-	sobre SobreReciboEjecucionDocumental,
+	sobre SobreReciboEjecucionDocumentalCrudo,
 	reciboRef string,
 	resultado ResultadoEjecucionComponenteDocumental,
 	huella string,
 	tamano uint64,
 	identidad IdentidadEjecucionComponenteDocumental,
 	instante time.Time,
-) ReciboEjecucionComponenteDocumentalVerificado {
+) ReciboEjecucionComponenteDocumentalNominal {
 	t.Helper()
-	recibo, err := NuevoReciboEjecucionComponenteDocumentalVerificado(
+	recibo, err := NuevoReciboEjecucionComponenteDocumentalNominal(
 		compromiso, sobre, reciboRef, resultado, huella, tamano, identidad, instante,
 	)
 	if err != nil {
@@ -708,9 +752,9 @@ func nuevoReciboAtestacionDocumental(
 	return recibo
 }
 
-func sobreAtestacionDocumental(t *testing.T, semilla byte) SobreReciboEjecucionDocumental {
+func sobreAtestacionDocumental(t *testing.T, semilla byte) SobreReciboEjecucionDocumentalCrudo {
 	t.Helper()
-	sobre, err := NuevoSobreReciboEjecucionDocumental(bytes.Repeat([]byte{semilla}, 32))
+	sobre, err := NuevoSobreReciboEjecucionDocumentalCrudo(bytes.Repeat([]byte{semilla}, 32))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -725,10 +769,242 @@ func retoAtestacionDocumental(semilla byte) [32]byte {
 	return reto
 }
 
+type verificadorOrdenDespachoDocumentalV3Prueba struct {
+	sufijo       string
+	comprobadaEn time.Time
+}
+
+func (v *verificadorOrdenDespachoDocumentalV3Prueba) VerificarOrdenDespachoDocumentalV3(
+	ctx context.Context,
+	solicitud SolicitudComprobarOrdenDespachoDocumentalV3,
+) (ResultadoCrudoVerificacionOrdenDespachoDocumentalV3, error) {
+	if v == nil || ctx == nil {
+		return ResultadoCrudoVerificacionOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	select {
+	case <-ctx.Done():
+		return ResultadoCrudoVerificacionOrdenDespachoDocumentalV3{}, ctx.Err()
+	default:
+	}
+	material, err := solicitud.MaterialCrudo()
+	if err != nil {
+		return ResultadoCrudoVerificacionOrdenDespachoDocumentalV3{}, err
+	}
+	cercado, inicio, reclamacion, err := material.Pruebas()
+	if err != nil {
+		return ResultadoCrudoVerificacionOrdenDespachoDocumentalV3{}, err
+	}
+	for _, prueba := range []PruebaCrudaAtestacionDespachoDocumentalV3{
+		cercado, inicio, reclamacion,
+	} {
+		_, _, _, claveRef, revision, errPerfil := prueba.Perfil()
+		mensaje, errMensaje := prueba.MensajeCanonico()
+		sobre, errSobre := prueba.SobreCriptografico()
+		if errPerfil != nil || errMensaje != nil || errSobre != nil ||
+			!hmac.Equal(sobre, firmarAtestacionDocumentalV3Prueba(mensaje, claveRef, revision)) {
+			return ResultadoCrudoVerificacionOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+		}
+	}
+	mensaje, err := material.MensajeCanonico()
+	if err != nil {
+		return ResultadoCrudoVerificacionOrdenDespachoDocumentalV3{}, err
+	}
+	_, _, _, claveRef, revision, _ := cercado.Perfil()
+	atestacionResultado := firmarAtestacionDocumentalV3Prueba(mensaje, claveRef, revision)
+	return NuevoResultadoCrudoVerificacionOrdenDespachoDocumentalV3(
+		solicitud, "comprobacion:kms:"+v.sufijo, "evidencia:kms:"+v.sufijo,
+		huellaBytesFormatoDocumental(atestacionResultado), v.comprobadaEn,
+	)
+}
+
+type consumidorOrdenDespachoDocumentalV3Prueba struct {
+	sufijo             string
+	consumidaEn        time.Time
+	intentosCAS        int
+	estadosPersistidos int
+}
+
+func (c *consumidorOrdenDespachoDocumentalV3Prueba) ReleerYConsumirOrdenDespachoDocumentalV3(
+	ctx context.Context,
+	solicitud SolicitudComprobarOrdenDespachoDocumentalV3,
+	resultado ResultadoCrudoVerificacionOrdenDespachoDocumentalV3,
+) (EstadoCrudoOrdenDespachoDocumentalV3, error) {
+	if c == nil || ctx == nil {
+		return EstadoCrudoOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	select {
+	case <-ctx.Done():
+		return EstadoCrudoOrdenDespachoDocumentalV3{}, ctx.Err()
+	default:
+	}
+	// Representa la barrera que el adaptador debe ejecutar dentro de la misma
+	// transaccion, antes de tocar la fila reclamada.
+	if resultado.ValidarPara(solicitud) != nil {
+		return EstadoCrudoOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	c.intentosCAS++
+	estado, err := NuevoEstadoCrudoOrdenDespachoDocumentalV3(
+		solicitud, resultado, "estado:consumido:"+c.sufijo, "auditoria:consumo:"+c.sufijo,
+		"consumo:despacho:"+c.sufijo, "outbox:consumo:"+c.sufijo, 3, c.consumidaEn,
+	)
+	if err == nil {
+		c.estadosPersistidos++
+	}
+	return estado, err
+}
+
+func ordenDespachoDocumentalV3ConsumidaNominalPrueba(
+	t *testing.T,
+	vinculo VinculoEstableActivacionDocumentalV3,
+	token TokenCercadoEjecucionDocumentalV3Nominal,
+	comprobadaEn, expiraEn time.Time,
+	sufijo string,
+) OrdenDespachoDocumentalV3ConsumidaNominal {
+	t.Helper()
+	inicio := comprobadaEn.Add(-2 * time.Second)
+	solicitudInicio := SolicitudIniciarEfectoDocumentalV3{
+		VinculoActivacion: vinculo, Token: token, IniciadoEn: inicio,
+	}
+	inicioRef := "inicio:" + sufijo
+	auditoriaInicioRef := "auditoria:inicio:" + sufijo
+	outboxInicioRef := "outbox:inicio:" + sufijo
+	evidenciaInicioRef := "atestacion:inicio:" + sufijo
+	mensajeInicio, err := MensajeCanonicoAtestacionInicioEfectoDocumentalV3(
+		solicitudInicio, inicioRef, 1, auditoriaInicioRef, outboxInicioRef,
+		evidenciaInicioRef,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pruebaInicio, err := NuevaPruebaCrudaAtestacionDespachoDocumentalV3(
+		AlgoritmoSelloEvidenciaHMACSHA256V3, AudienciaAtestacionInicioEfectoV3,
+		ContextoAtestacionInicioEfectoV3, token.claveAtestacionRef,
+		token.revisionClave, evidenciaInicioRef, mensajeInicio,
+		firmarAtestacionDocumentalV3Prueba(mensajeInicio, token.claveAtestacionRef, token.revisionClave),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recibo, err := NuevoReciboInicioEfectoDocumentalV3Nominal(
+		solicitudInicio, inicioRef, 1, auditoriaInicioRef, outboxInicioRef,
+		pruebaInicio,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitudReclamar := SolicitudReclamarOrdenDespachoDocumentalV3{
+		ReclamacionRef: "reclamacion:despacho:" + sufijo,
+		InicioRef:      "inicio:" + sufijo,
+		OutboxRef:      "outbox:inicio:" + sufijo,
+		ConsumidorRef:  "consumidor:despacho:" + sufijo,
+		ReclamadaEn:    comprobadaEn.Add(-time.Second),
+		ExpiraEn:       expiraEn,
+	}
+	auditoriaReclamacionRef := "auditoria:reclamacion:" + sufijo
+	evidenciaReclamacionRef := "atestacion:reclamacion:" + sufijo
+	mensajeReclamacion, err := MensajeCanonicoAtestacionReclamacionDespachoDocumentalV3(
+		recibo, solicitudReclamar, 2, auditoriaReclamacionRef, evidenciaReclamacionRef,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pruebaReclamacion, err := NuevaPruebaCrudaAtestacionDespachoDocumentalV3(
+		AlgoritmoSelloEvidenciaHMACSHA256V3, AudienciaAtestacionReclamacionV3,
+		ContextoAtestacionReclamacionV3, token.claveAtestacionRef,
+		token.revisionClave, evidenciaReclamacionRef, mensajeReclamacion,
+		firmarAtestacionDocumentalV3Prueba(
+			mensajeReclamacion, token.claveAtestacionRef, token.revisionClave,
+		),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orden, err := NuevaOrdenDespachoDocumentalV3Nominal(
+		recibo, solicitudReclamar, 2, auditoriaReclamacionRef, pruebaReclamacion,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitudComprobar, err := NuevaSolicitudComprobarOrdenDespachoDocumentalV3(
+		orden, vinculo, token,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verificador := &verificadorOrdenDespachoDocumentalV3Prueba{
+		sufijo: sufijo, comprobadaEn: comprobadaEn,
+	}
+	resultado, err := verificador.VerificarOrdenDespachoDocumentalV3(
+		context.Background(), solicitudComprobar,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consumidor := &consumidorOrdenDespachoDocumentalV3Prueba{
+		sufijo: sufijo, consumidaEn: comprobadaEn,
+	}
+	estado, err := consumidor.ReleerYConsumirOrdenDespachoDocumentalV3(
+		context.Background(), solicitudComprobar, resultado,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordenConsumida, err := NuevaOrdenDespachoDocumentalV3ConsumidaNominal(
+		solicitudComprobar, resultado, estado,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ordenConsumida
+}
+
 func hmacAtestacionDocumental() string {
 	return "hmac-sha256:clave-documental:" + huellaAtestacionDocumental('a')
 }
 
 func huellaAtestacionDocumental(semilla byte) string {
 	return strings.Repeat(string(semilla), 64)
+}
+
+func claveGestionadaAtestacionDocumentalV3Prueba(referencia string, revision uint64) []byte {
+	huella := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", referencia, revision)))
+	return huella[:]
+}
+
+func firmarAtestacionDocumentalV3Prueba(
+	mensaje []byte,
+	claveRef string,
+	revision uint64,
+) []byte {
+	firmante := hmac.New(sha256.New, claveGestionadaAtestacionDocumentalV3Prueba(claveRef, revision))
+	_, _ = firmante.Write(mensaje)
+	return firmante.Sum(nil)
+}
+
+func nuevoTokenCercadoEjecucionDocumentalV3Prueba(
+	t *testing.T,
+	valor string,
+	secuencia uint64,
+	vinculo VinculoEstableActivacionDocumentalV3,
+	claveRef string,
+	revision uint64,
+	evidenciaRef string,
+) TokenCercadoEjecucionDocumentalV3Nominal {
+	t.Helper()
+	provisional, err := NuevoTokenCercadoEjecucionDocumentalV3Nominal(
+		valor, secuencia, vinculo, claveRef, revision, bytes.Repeat([]byte{1}, sha256.Size),
+		evidenciaRef,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mensaje := serializarAtestacionTokenCercadoDocumentalV3(vinculo, provisional)
+	mac := firmarAtestacionDocumentalV3Prueba(mensaje, claveRef, revision)
+	token, err := NuevoTokenCercadoEjecucionDocumentalV3Nominal(
+		valor, secuencia, vinculo, claveRef, revision, mac, evidenciaRef,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return token
 }

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"reflect"
 	"strings"
 	"sync"
@@ -21,7 +22,7 @@ func TestEntradaNeutralDocumentalCanonizaCopiaYNoConcedeHMAC(t *testing.T) {
 	parrafos := []string{"Uno", "Dos: con delimitador\ny unicode á"}
 	contenido := domain.ContenidoDocumento{Titulo: "Resolución", Parrafos: parrafos}
 	huellaDeclarada := "hmac-sha256:entrada-neutral-v4:" + strings.Repeat("a", 64)
-	preparacion, err := PrepararEntradaNeutralDocumental(contenido)
+	preparacion, err := NuevaPreparacionEntradaNeutralDocumentalNominal(contenido)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +33,7 @@ func TestEntradaNeutralDocumentalCanonizaCopiaYNoConcedeHMAC(t *testing.T) {
 	if preparacion.Validar() != nil {
 		t.Fatal("los accesores alteraron la preparacion opaca")
 	}
-	entrada, err := NuevaEntradaNeutralDocumental(preparacion, huellaDeclarada)
+	entrada, err := NuevaEntradaNeutralDocumentalNominal(preparacion, huellaDeclarada)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,16 +70,29 @@ func TestEntradaNeutralDocumentalCanonizaCopiaYNoConcedeHMAC(t *testing.T) {
 	if _, err := json.Marshal(preparacion); !errors.Is(err, ErrSerializacionMaterialDocumentalProhibida) {
 		t.Fatalf("serializacion de preparacion no bloqueada: %v", err)
 	}
+	for nombre, valor := range map[string]any{"preparacion": preparacion, "entrada": entrada} {
+		texto := fmt.Sprintf("%v|%+v|%#v", valor, valor, valor)
+		if strings.Contains(texto, huellaDeclarada) || strings.Contains(texto, "Resolución") {
+			t.Fatalf("%s filtro material protegido: %s", nombre, texto)
+		}
+		if slog.Any("valor", valor).Value.Resolve().Kind() != slog.KindString {
+			t.Fatalf("%s no se redacto en slog", nombre)
+		}
+		binario := valor.(interface{ MarshalBinary() ([]byte, error) })
+		if _, err := binario.MarshalBinary(); !errors.Is(err, ErrSerializacionMaterialDocumentalProhibida) {
+			t.Fatalf("%s se serializo como binario: %v", nombre, err)
+		}
+	}
 
 	// La longitud prefijada impide ambigüedad entre particiones de los mismos bytes.
-	preparacionPrimera, _ := PrepararEntradaNeutralDocumental(
+	preparacionPrimera, _ := NuevaPreparacionEntradaNeutralDocumentalNominal(
 		domain.ContenidoDocumento{Titulo: "a", Parrafos: []string{"bc"}},
 	)
-	preparacionSegunda, _ := PrepararEntradaNeutralDocumental(
+	preparacionSegunda, _ := NuevaPreparacionEntradaNeutralDocumentalNominal(
 		domain.ContenidoDocumento{Titulo: "ab", Parrafos: []string{"c"}},
 	)
-	primera, _ := NuevaEntradaNeutralDocumental(preparacionPrimera, huellaDeclarada)
-	segunda, _ := NuevaEntradaNeutralDocumental(preparacionSegunda, huellaDeclarada)
+	primera, _ := NuevaEntradaNeutralDocumentalNominal(preparacionPrimera, huellaDeclarada)
+	segunda, _ := NuevaEntradaNeutralDocumentalNominal(preparacionSegunda, huellaDeclarada)
 	bytesPrimera, _ := primera.ContenidoCanonico()
 	bytesSegunda, _ := segunda.ContenidoCanonico()
 	if bytes.Equal(bytesPrimera, bytesSegunda) {
@@ -124,17 +138,17 @@ func TestEntradaNeutralDocumentalPreflightRechazaAntesDeCanonizar(t *testing.T) 
 		{Titulo: "titulo", Parrafos: make([]string, maximosParrafosEntradaNeutral+1)},
 	}
 	for indice, contenido := range casos {
-		if _, err := PrepararEntradaNeutralDocumental(contenido); !errors.Is(err, ErrEntradaNeutralDocumentalInvalida) {
+		if _, err := NuevaPreparacionEntradaNeutralDocumentalNominal(contenido); !errors.Is(err, ErrEntradaNeutralDocumentalInvalida) {
 			t.Fatalf("caso %d no rechazado: %v", indice, err)
 		}
 	}
-	preparacion, _ := PrepararEntradaNeutralDocumental(domain.ContenidoDocumento{Titulo: "valido"})
-	if _, err := NuevaEntradaNeutralDocumental(
-		PreparacionEntradaNeutralDocumental{}, huella,
+	preparacion, _ := NuevaPreparacionEntradaNeutralDocumentalNominal(domain.ContenidoDocumento{Titulo: "valido"})
+	if _, err := NuevaEntradaNeutralDocumentalNominal(
+		PreparacionEntradaNeutralDocumentalNominal{}, huella,
 	); !errors.Is(err, ErrEntradaNeutralDocumentalInvalida) {
 		t.Fatalf("preparacion cero aceptada: %v", err)
 	}
-	if _, err := NuevaEntradaNeutralDocumental(
+	if _, err := NuevaEntradaNeutralDocumentalNominal(
 		preparacion, "sha256:"+strings.Repeat("a", 64),
 	); !errors.Is(err, ErrEntradaNeutralDocumentalInvalida) {
 		t.Fatalf("HMAC solo declarada con formato invalido aceptada: %v", err)
@@ -297,21 +311,38 @@ func TestSumideroSalidaDocumentalSerializaEscriturasYCierreConcurrentes(t *testi
 	}
 }
 
+func TestSumideroSalidaDocumentalTypedNilFallaCerradoSinPanic(t *testing.T) {
+	var sumidero *SumideroLimitadoSalidaDocumental
+	if _, err := sumidero.Write([]byte("dato")); !errors.Is(
+		err, ErrSumideroSalidaDocumentalInvalido,
+	) {
+		t.Fatalf("Write sobre typed nil no fallo cerrado: %v", err)
+	}
+	if _, err := sumidero.Cerrar(); !errors.Is(err, ErrSumideroSalidaDocumentalInvalido) {
+		t.Fatalf("Cerrar sobre typed nil no fallo cerrado: %v", err)
+	}
+}
+
 func TestPreparacionEscrituraAlmacenV4CotejaContratoCompleto(t *testing.T) {
 	escenario := escenarioMaterializacionDocumentalV4Prueba(t)
 	if err := (VinculoEjecucionEscrituraAlmacenDocumental{}).ValidarContra(
-		escenario.ejecucion.manifiesto, escenario.ejecucion.consumo,
-		escenario.ejecucion.token, escenario.ejecucion.verificacionCercado,
+		escenario.ejecucion.ordenDespachoConsumida,
 	); !errors.Is(err, ErrPruebaEscrituraAlmacenInvalida) {
 		t.Fatalf("el vinculo cero no fallo cerrado: %v", err)
 	}
 	if escenario.preparacion.Validar() != nil || escenario.declaracion.Validar() != nil ||
 		escenario.declaracion.ValidarContraEjecucion(
-			escenario.ejecucion.manifiesto, escenario.ejecucion.consumo,
-			escenario.ejecucion.token, escenario.ejecucion.verificacionCercado,
+			escenario.ejecucion.ordenDespachoConsumida,
 			escenario.salida,
 		) != nil {
 		t.Fatal("la preparacion exacta fue rechazada")
+	}
+	ordenCruzada := clonarOrdenDespachoDocumentalV3ConsumidaNominal(
+		escenario.ejecucion.ordenDespachoConsumida,
+	)
+	ordenCruzada.solicitud.vinculo.ReservaRef = "reserva:documental:v3:otra"
+	if escenario.declaracion.ValidarContraEjecucion(ordenCruzada, escenario.salida) == nil {
+		t.Fatal("la materializacion acepto otro vinculo estable")
 	}
 	objeto, _ := escenario.declaracion.Objeto()
 	evidencia, _ := escenario.declaracion.EvidenciaOperacion()
@@ -392,6 +423,21 @@ func TestPreparacionEscrituraAlmacenV4CotejaContratoCompleto(t *testing.T) {
 		"vinculo ausente": func(e *escenarioMaterializacionDocumentalV4) {
 			e.vinculo = VinculoEjecucionEscrituraAlmacenDocumental{}
 		},
+		"vinculo estable": func(e *escenarioMaterializacionDocumentalV4) {
+			e.vinculo.datos.vinculoActivacion.ReservaRef = "reserva:documental:v3:otra"
+		},
+		"huella vinculo estable": func(e *escenarioMaterializacionDocumentalV4) {
+			e.vinculo.datos.HuellaVinculoEstableSHA256 = strings.Repeat("8", 64)
+		},
+		"huella orden despacho": func(e *escenarioMaterializacionDocumentalV4) {
+			e.vinculo.datos.HuellaOrdenDespachoSHA256 = strings.Repeat("9", 64)
+		},
+		"secuencia orden despacho": func(e *escenarioMaterializacionDocumentalV4) {
+			e.vinculo.datos.ordenDespachoConsumida.solicitud.orden.datos.ReciboInicio.SecuenciaCercado++
+		},
+		"comprobacion TCB": func(e *escenarioMaterializacionDocumentalV4) {
+			e.vinculo.datos.ordenDespachoConsumida.resultado.comprobacionRef = "comprobacion:kms:v4:otra"
+		},
 		"politica capacidades": func(e *escenarioMaterializacionDocumentalV4) {
 			e.politica.HuellaCapacidadesSHA256 = strings.Repeat("6", 64)
 		},
@@ -402,7 +448,7 @@ func TestPreparacionEscrituraAlmacenV4CotejaContratoCompleto(t *testing.T) {
 	for nombre, mutar := range mutaciones {
 		copia := escenario.clonarEntradas()
 		mutar(&copia)
-		if _, err := PrepararEscrituraAlmacenDocumentalV4(
+		if _, err := NuevaPreparacionEscrituraAlmacenDocumentalV4Nominal(
 			copia.solicitud, copia.resultado, copia.capacidades, copia.salida,
 			copia.vinculo, copia.politica,
 		); !errors.Is(err, ErrPruebaEscrituraAlmacenInvalida) {
@@ -418,34 +464,25 @@ func TestPreparacionEscrituraAlmacenV4ConservaReintentoIdempotente(t *testing.T)
 	reintento.Evidencia.RealizadaEn = escenario.resultado.Evidencia.RealizadaEn.Add(2 * time.Second)
 	reintento.Evidencia.ReintentoIdempotente = true
 
-	consumo := escenario.ejecucion.consumo
 	datosVinculo := escenario.vinculo.datos
-	token, err := NuevoTokenCercadoEjecucionDocumentalV3(
-		"token:cercado:v4:reintento", escenario.ejecucion.token.Secuencia()+1,
-		datosVinculo.ReservaRef, escenario.ejecucion.manifiesto, consumo,
-		"clave:cercado:v4:reintento", []byte(strings.Repeat("r", 32)),
+	vinculoActivacion := datosVinculo.vinculoActivacion
+	token := nuevoTokenCercadoEjecucionDocumentalV3Prueba(
+		t, "token:cercado:v4:reintento", escenario.ejecucion.token.Secuencia()+1,
+		vinculoActivacion, "clave:cercado:v4:reintento", 1,
 		"evidencia:cercado:v4:reintento",
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	solicitudCercado, _ := NuevaSolicitudVerificacionTokenCercadoDocumentalV3(
-		datosVinculo.ReservaRef, escenario.ejecucion.manifiesto, consumo, token,
-	)
 	instanteCercado := escenario.resultado.Objeto.AlmacenadoEn.Add(time.Second)
-	verificacion, err := NuevoResultadoVerificacionTokenCercadoDocumentalV3(
-		solicitudCercado, "verificacion:cercado:v4:reintento", instanteCercado,
+	ordenDespachoConsumida := ordenDespachoDocumentalV3ConsumidaNominalPrueba(
+		t, vinculoActivacion, token, instanteCercado,
+		instanteCercado.Add(5*time.Minute), "materializacion-reintento",
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
 	vinculo, err := NuevoVinculoEjecucionEscrituraAlmacenDocumental(
-		datosVinculo.ReservaRef, escenario.ejecucion.manifiesto, consumo, token, verificacion,
+		ordenDespachoConsumida,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	preparacion, err := PrepararEscrituraAlmacenDocumentalV4(
+	preparacion, err := NuevaPreparacionEscrituraAlmacenDocumentalV4Nominal(
 		escenario.solicitud, reintento, escenario.capacidades, escenario.salida,
 		vinculo, escenario.politica,
 	)
@@ -464,7 +501,7 @@ func TestPreparacionEscrituraAlmacenV4ConservaReintentoIdempotente(t *testing.T)
 
 	antesDelCercado := reintento
 	antesDelCercado.Evidencia.RealizadaEn = instanteCercado.Add(-time.Microsecond)
-	if _, err := PrepararEscrituraAlmacenDocumentalV4(
+	if _, err := NuevaPreparacionEscrituraAlmacenDocumentalV4Nominal(
 		escenario.solicitud, antesDelCercado, escenario.capacidades,
 		escenario.salida, vinculo, escenario.politica,
 	); err == nil {
@@ -493,7 +530,7 @@ func TestPoliticaAlmacenV4SeparaCapacidadesDeRetencionYBloqueo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := PrepararEscrituraAlmacenDocumentalV4(
+	if _, err := NuevaPreparacionEscrituraAlmacenDocumentalV4Nominal(
 		escenario.solicitud, retenido, escenario.capacidades, escenario.salida,
 		escenario.vinculo, politica,
 	); err != nil {
@@ -585,6 +622,10 @@ func TestPruebaCrudaEscrituraAlmacenEsNominalOpacaYCopia(t *testing.T) {
 		t.Fatal("la referencia nominal no quedo disponible para la capa interna")
 	}
 	mensaje, _ := prueba.Mensaje()
+	if !bytes.Contains(mensaje, []byte(escenario.vinculo.datos.HuellaVinculoEstableSHA256)) ||
+		!bytes.Contains(mensaje, []byte(escenario.vinculo.datos.HuellaOrdenDespachoSHA256)) {
+		t.Fatal("la declaracion no comprometio el vinculo estable y la orden de despacho")
+	}
 	mensaje[0] ^= 0xff
 	sobreCrudo, _ := prueba.SobreCrudo()
 	cose, _ := sobreCrudo.COSESign1()
@@ -602,7 +643,7 @@ func TestPruebaCrudaEscrituraAlmacenEsNominalOpacaYCopia(t *testing.T) {
 	// recibo autoritativo: la comprobacion COSE queda fuera de ports.
 	politicaAlterada := escenario.politica
 	politicaAlterada.Version++
-	preparacionAlterada, err := PrepararEscrituraAlmacenDocumentalV4(
+	preparacionAlterada, err := NuevaPreparacionEscrituraAlmacenDocumentalV4Nominal(
 		escenario.solicitud, escenario.resultado, escenario.capacidades,
 		escenario.salida, escenario.vinculo, politicaAlterada,
 	)
@@ -646,7 +687,7 @@ func TestPreparacionYDeclaracionAlmacenV4SonOpacasDefensivasYConcurrentes(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	preparacion, err := PrepararEscrituraAlmacenDocumentalV4(
+	preparacion, err := NuevaPreparacionEscrituraAlmacenDocumentalV4Nominal(
 		escenario.solicitud, escenario.resultado, escenario.capacidades,
 		escenario.salida, escenario.vinculo, politica,
 	)
@@ -669,9 +710,9 @@ func TestPreparacionYDeclaracionAlmacenV4SonOpacasDefensivasYConcurrentes(t *tes
 		declaracion.Validar() != nil {
 		t.Fatal("un accesor altero la declaracion opaca")
 	}
-	for _, valor := range []any{preparacion, declaracion} {
+	for _, valor := range []any{escenario.vinculo, preparacion, declaracion} {
 		texto := fmt.Sprintf("%s|%v|%+v|%#v", valor, valor, valor, valor)
-		if !strings.Contains(texto, "OPACA") ||
+		if !strings.Contains(texto, "OPAC") ||
 			strings.Contains(texto, escenario.solicitud.ClaveIdempotencia) ||
 			strings.Contains(texto, escenario.resultado.Objeto.Objeto.Referencia) {
 			t.Fatalf("representacion no redactada: %s", texto)
@@ -679,9 +720,19 @@ func TestPreparacionYDeclaracionAlmacenV4SonOpacasDefensivasYConcurrentes(t *tes
 		if _, err := json.Marshal(valor); !errors.Is(err, ErrSerializacionMaterialDocumentalProhibida) {
 			t.Fatalf("serializacion no bloqueada: %v", err)
 		}
+		if slog.Any("valor", valor).Value.Resolve().Kind() != slog.KindString {
+			t.Fatal("slog no aplico redaccion opaca")
+		}
+		binario, ok := valor.(interface{ MarshalBinary() ([]byte, error) })
+		if !ok {
+			t.Fatal("valor sensible sin bloqueo binario")
+		}
+		if _, err := binario.MarshalBinary(); !errors.Is(err, ErrSerializacionMaterialDocumentalProhibida) {
+			t.Fatalf("serializacion binaria no bloqueada: %v", err)
+		}
 	}
 	for _, tipo := range []reflect.Type{
-		reflect.TypeOf(PreparacionEscrituraAlmacenDocumentalV4{}),
+		reflect.TypeOf(PreparacionEscrituraAlmacenDocumentalV4Nominal{}),
 		reflect.TypeOf(DeclaracionEscrituraAlmacenDocumental{}),
 	} {
 		for indice := 0; indice < tipo.NumField(); indice++ {
@@ -751,7 +802,7 @@ func TestPreparacionAlmacenV4DetectaCadaCampoDeContextoCapacidadesYPolitica(t *t
 		"vigencia":          func(p *ProyeccionContextoOperacionAlmacen) { p.ValidaHasta = p.ValidaHasta.Add(time.Microsecond) },
 	}
 	for nombre, mutar := range mutacionesContexto {
-		copia := PreparacionEscrituraAlmacenDocumentalV4{
+		copia := PreparacionEscrituraAlmacenDocumentalV4Nominal{
 			datos: clonarDatosPreparacionEscrituraAlmacenDocumentalV4(escenario.preparacion.datos),
 		}
 		mutar(&copia.datos.solicitud.Contexto)
@@ -779,7 +830,7 @@ func TestPreparacionAlmacenV4DetectaCadaCampoDeContextoCapacidadesYPolitica(t *t
 		"origenes":          func(c *CapacidadesAlmacenObjetos) { c.OrigenesCargaDirecta = []string{"https://otro.example.test"} },
 	}
 	for nombre, mutar := range mutacionesCapacidades {
-		copia := PreparacionEscrituraAlmacenDocumentalV4{
+		copia := PreparacionEscrituraAlmacenDocumentalV4Nominal{
 			datos: clonarDatosPreparacionEscrituraAlmacenDocumentalV4(escenario.preparacion.datos),
 		}
 		mutar(&copia.datos.capacidades)
@@ -864,7 +915,7 @@ func TestCapacidadesAlmacenV4AcotanOrigenesAntesDeCopiarYSerializar(t *testing.T
 	); err == nil {
 		t.Fatal("el agregado excesivo alcanzo la canonizacion")
 	}
-	if _, err := PrepararEscrituraAlmacenDocumentalV4(
+	if _, err := NuevaPreparacionEscrituraAlmacenDocumentalV4Nominal(
 		escenario.solicitud, escenario.resultado, agregado, escenario.salida,
 		escenario.vinculo, escenario.politica,
 	); !errors.Is(err, ErrPruebaEscrituraAlmacenInvalida) {
@@ -880,7 +931,7 @@ type escenarioMaterializacionDocumentalV4 struct {
 	salida      SalidaObservadaDocumental
 	vinculo     VinculoEjecucionEscrituraAlmacenDocumental
 	politica    VinculoPoliticaInmutabilidadDocumental
-	preparacion PreparacionEscrituraAlmacenDocumentalV4
+	preparacion PreparacionEscrituraAlmacenDocumentalV4Nominal
 	declaracion DeclaracionEscrituraAlmacenDocumental
 }
 
@@ -952,26 +1003,32 @@ func escenarioMaterializacionDocumentalV4Prueba(t *testing.T) escenarioMateriali
 		HuellaDecisionSHA256:  proyeccion.HuellaDecisionSHA256,
 		HuellaPlanSHA256:      datosManifiesto.HuellaPlanSHA256,
 	}
-	token, err := NuevoTokenCercadoEjecucionDocumentalV3(
-		"token:cercado:materializacion:v4:001", 51, "reserva:documental:v3:001",
-		ejecucion.manifiesto, consumo, "clave:cercado:materializacion:v4",
-		[]byte(strings.Repeat("q", 32)), "evidencia:cercado:materializacion:v4:001",
-	)
-	if err != nil {
-		t.Fatal(err)
+	vinculoActivacion := ejecucion.vinculoActivacion
+	vinculoActivacion.ConsumoDecision = consumo
+	if vinculoActivacion.Validar() != nil {
+		t.Fatal("vinculo de materializacion invalido")
 	}
-	solicitudCercado, _ := NuevaSolicitudVerificacionTokenCercadoDocumentalV3(
-		"reserva:documental:v3:001", ejecucion.manifiesto, consumo, token,
+	token := nuevoTokenCercadoEjecucionDocumentalV3Prueba(
+		t, "token:cercado:materializacion:v4:001", 51, vinculoActivacion,
+		"clave:cercado:materializacion:v4", 1,
+		"evidencia:cercado:materializacion:v4:001",
 	)
-	verificacionCercado, err := NuevoResultadoVerificacionTokenCercadoDocumentalV3(
+	solicitudCercado, _ := NuevaSolicitudVerificacionTokenCercadoDocumentalV3(
+		vinculoActivacion, token,
+	)
+	verificacionCercado, err := NuevosMetadatosComprobacionTokenCercadoDocumentalV3Nominal(
 		solicitudCercado, "verificacion:cercado:materializacion:v4:001",
 		verificadaAutorizacion.Add(time.Second),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
+	ordenDespachoConsumida := ordenDespachoDocumentalV3ConsumidaNominalPrueba(
+		t, vinculoActivacion, token, verificacionCercado.verificadaEn,
+		verificacionCercado.verificadaEn.Add(9*time.Minute), "materializacion-v4",
+	)
 	vinculo, err := NuevoVinculoEjecucionEscrituraAlmacenDocumental(
-		"reserva:documental:v3:001", ejecucion.manifiesto, consumo, token, verificacionCercado,
+		ordenDespachoConsumida,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -1014,7 +1071,7 @@ func escenarioMaterializacionDocumentalV4Prueba(t *testing.T) escenarioMateriali
 	if err != nil {
 		t.Fatal(err)
 	}
-	preparacion, err := PrepararEscrituraAlmacenDocumentalV4(
+	preparacion, err := NuevaPreparacionEscrituraAlmacenDocumentalV4Nominal(
 		solicitud, resultado, capacidades, salida, vinculo, politica,
 	)
 	if err != nil {
@@ -1025,8 +1082,10 @@ func escenarioMaterializacionDocumentalV4Prueba(t *testing.T) escenarioMateriali
 		t.Fatal(err)
 	}
 	ejecucion.consumo = consumo
+	ejecucion.vinculoActivacion = vinculoActivacion
 	ejecucion.token = token
 	ejecucion.verificacionCercado = verificacionCercado
+	ejecucion.ordenDespachoConsumida = ordenDespachoConsumida
 	return escenarioMaterializacionDocumentalV4{
 		ejecucion: ejecucion, solicitud: solicitud, resultado: resultado,
 		capacidades: capacidades, salida: salida, vinculo: vinculo, politica: politica,
