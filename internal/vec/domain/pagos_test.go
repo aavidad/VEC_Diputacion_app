@@ -2,6 +2,7 @@ package domain
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -88,7 +89,10 @@ type verificadorAutenticacionCobroPrueba struct {
 	err       error
 }
 
-func (v verificadorAutenticacionCobroPrueba) VerificarAutenticacionCobro(SolicitudVerificacionAutenticacionCobro) (ResultadoVerificacionAutenticacionCobro, error) {
+func (v verificadorAutenticacionCobroPrueba) VerificarAutenticacionCobro(ctx context.Context, _ SolicitudVerificacionAutenticacionCobro) (ResultadoVerificacionAutenticacionCobro, error) {
+	if err := ctx.Err(); err != nil {
+		return ResultadoVerificacionAutenticacionCobro{}, err
+	}
 	return v.resultado, v.err
 }
 
@@ -98,7 +102,7 @@ func huellaSesionCobroPrueba() string { return "hmac-sha256:sesion-v1:" + huella
 
 func atestacionAutenticacionCobroPrueba(t *testing.T, instante time.Time) AtestacionAutenticacionCobro {
 	t.Helper()
-	atestacion, err := NuevaAtestacionAutenticacionCobro(verificadorAutenticacionCobroPrueba{
+	atestacion, err := NuevaAtestacionAutenticacionCobro(context.Background(), verificadorAutenticacionCobroPrueba{
 		resultado: ResultadoVerificacionAutenticacionCobro{
 			PrincipalRef: personaTecnicaCobroPrueba, Metodo: AuthMethodCertificate,
 			Garantia: AuthAssuranceHigh, AutenticacionRef: "aut_0123456789abcdefghijkl",
@@ -582,6 +586,7 @@ func TestAutorizacionCobroExigeCamposExactosYAtestacionRealVinculada(t *testing.
 	crearAtestacion := func(t *testing.T, resultado ResultadoVerificacionAutenticacionCobro) AtestacionAutenticacionCobro {
 		t.Helper()
 		atestacion, err := NuevaAtestacionAutenticacionCobro(
+			context.Background(),
 			verificadorAutenticacionCobroPrueba{resultado: resultado}, resultado.SesionRef, resultado.HuellaSesionHMAC, instante,
 		)
 		if err != nil {
@@ -641,7 +646,7 @@ func TestAutorizacionCobroExigeCamposExactosYAtestacionRealVinculada(t *testing.
 	}
 	for _, caso := range atestacionesInvalidas {
 		t.Run(caso.nombre, func(t *testing.T) {
-			atestacion, err := NuevaAtestacionAutenticacionCobro(verificadorAutenticacionCobroPrueba{resultado: caso.resultado}, caso.resultado.SesionRef, caso.resultado.HuellaSesionHMAC, instante)
+			atestacion, err := NuevaAtestacionAutenticacionCobro(context.Background(), verificadorAutenticacionCobroPrueba{resultado: caso.resultado}, caso.resultado.SesionRef, caso.resultado.HuellaSesionHMAC, instante)
 			if err != nil {
 				if caso.nombre == "metodo de demostracion" || caso.nombre == "sesion caducada" {
 					return
@@ -656,6 +661,7 @@ func TestAutorizacionCobroExigeCamposExactosYAtestacionRealVinculada(t *testing.
 	resultadoOtraSesion := resultadoValido
 	resultadoOtraSesion.SesionRef = "ses_abcdefghijkl0123456789"
 	if _, err := NuevaAtestacionAutenticacionCobro(
+		context.Background(),
 		verificadorAutenticacionCobroPrueba{resultado: resultadoOtraSesion},
 		sesionCobroPrueba, huellaSesionCobroPrueba(), instante,
 	); !errors.Is(err, ErrContextoAutorizacionCobroInvalido) {
@@ -664,6 +670,7 @@ func TestAutorizacionCobroExigeCamposExactosYAtestacionRealVinculada(t *testing.
 	resultadoOtraHuella := resultadoValido
 	resultadoOtraHuella.HuellaSesionHMAC = "hmac-sha256:sesion-v1:" + huellaCobro('8')
 	if _, err := NuevaAtestacionAutenticacionCobro(
+		context.Background(),
 		verificadorAutenticacionCobroPrueba{resultado: resultadoOtraHuella},
 		sesionCobroPrueba, huellaSesionCobroPrueba(), instante,
 	); !errors.Is(err, ErrContextoAutorizacionCobroInvalido) {
@@ -672,13 +679,25 @@ func TestAutorizacionCobroExigeCamposExactosYAtestacionRealVinculada(t *testing.
 	resultadoOtroDominio := resultadoValido
 	resultadoOtroDominio.HuellaSesionHMAC = "hmac-sha256:otro-dominio:" + huellaCobro('9')
 	if _, err := NuevaAtestacionAutenticacionCobro(
+		context.Background(),
 		verificadorAutenticacionCobroPrueba{resultado: resultadoOtroDominio},
 		sesionCobroPrueba, resultadoOtroDominio.HuellaSesionHMAC, instante,
 	); !errors.Is(err, ErrContextoAutorizacionCobroInvalido) {
 		t.Fatalf("una HMAC de otro dominio se acepto como vinculo de sesion: %v", err)
 	}
-	if _, err := NuevaAtestacionAutenticacionCobro(nil, sesionCobroPrueba, huellaSesionCobroPrueba(), instante); !errors.Is(err, ErrContextoAutorizacionCobroInvalido) {
+	if _, err := NuevaAtestacionAutenticacionCobro(context.Background(), nil, sesionCobroPrueba, huellaSesionCobroPrueba(), instante); !errors.Is(err, ErrContextoAutorizacionCobroInvalido) {
 		t.Fatalf("se acepto un verificador ausente: %v", err)
+	}
+	ctxCancelado, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	if _, err := NuevaAtestacionAutenticacionCobro(
+		ctxCancelado,
+		verificadorAutenticacionCobroPrueba{resultado: resultadoValido},
+		sesionCobroPrueba,
+		huellaSesionCobroPrueba(),
+		instante,
+	); !errors.Is(err, context.Canceled) {
+		t.Fatalf("un contexto cancelado no se propago: %v", err)
 	}
 	if _, err := json.Marshal(atestacionValida); !errors.Is(err, ErrSerializacionAutorizacionCobro) {
 		t.Fatalf("se serializo la atestacion opaca: %v", err)
@@ -1108,7 +1127,7 @@ func TestEvidenciasCeroYDeNavegadorSeRechazan(t *testing.T) {
 }
 
 func TestIdentidadesCobroSoloAdmitenReferenciasOpacas(t *testing.T) {
-	for _, sujeto := range []string{"12345678Z", "persona@example.org", "persona:opaca:uno"} {
+	for _, sujeto := range []string{"00000000A", "persona@example.org", "persona:opaca:uno"} {
 		alta := altaOrdenCobroValida()
 		alta.SujetoRef = sujeto
 		contexto := contextoCobro(t, AccionCobroCrearOrden, alta.LiquidacionRef, alta.Finalidad, alta.CorrelacionRef, alta.CreadaEn)
@@ -1124,12 +1143,13 @@ func TestIdentidadesCobroSoloAdmitenReferenciasOpacas(t *testing.T) {
 	}
 	instante := instanteBaseCobro.Add(time.Minute)
 	resultado := ResultadoVerificacionAutenticacionCobro{
-		PrincipalRef: "12345678Z", Metodo: AuthMethodCertificate, Garantia: AuthAssuranceHigh,
+		PrincipalRef: "00000000A", Metodo: AuthMethodCertificate, Garantia: AuthAssuranceHigh,
 		AutenticacionRef: "aut_0123456789abcdefghijkl", SesionRef: sesionCobroPrueba,
 		HuellaSesionHMAC: huellaSesionCobroPrueba(), EmitidaEn: instante.Add(-time.Minute),
 		ValidaHasta: instante.Add(time.Minute),
 	}
 	if _, err := NuevaAtestacionAutenticacionCobro(
+		context.Background(),
 		verificadorAutenticacionCobroPrueba{resultado: resultado}, sesionCobroPrueba,
 		huellaSesionCobroPrueba(), instante,
 	); !errors.Is(err, ErrContextoAutorizacionCobroInvalido) {

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -548,7 +549,10 @@ func (s SolicitudVerificacionAutenticacionCobro) validar() error {
 // llamador. Esta interfaz evita aceptar un nivel de garantia suelto como si
 // fuera prueba suficiente, pero no finge resolver por si sola ese limite.
 type VerificadorAutenticacionCobro interface {
-	VerificarAutenticacionCobro(SolicitudVerificacionAutenticacionCobro) (ResultadoVerificacionAutenticacionCobro, error)
+	VerificarAutenticacionCobro(
+		context.Context,
+		SolicitudVerificacionAutenticacionCobro,
+	) (ResultadoVerificacionAutenticacionCobro, error)
 }
 
 type datosAtestacionAutenticacionCobro struct {
@@ -571,6 +575,7 @@ type AtestacionAutenticacionCobro struct {
 }
 
 func NuevaAtestacionAutenticacionCobro(
+	ctx context.Context,
 	verificador VerificadorAutenticacionCobro,
 	sesionRef, huellaSesionHMAC string,
 	instante time.Time,
@@ -578,10 +583,16 @@ func NuevaAtestacionAutenticacionCobro(
 	solicitud := SolicitudVerificacionAutenticacionCobro{
 		SesionRef: sesionRef, HuellaSesionHMAC: huellaSesionHMAC, Instante: instante.UTC(),
 	}
-	if verificador == nil || solicitud.validar() != nil {
+	if ctx == nil || verificador == nil || solicitud.validar() != nil {
 		return AtestacionAutenticacionCobro{}, ErrContextoAutorizacionCobroInvalido
 	}
-	resultado, err := verificador.VerificarAutenticacionCobro(solicitud)
+	if err := ctx.Err(); err != nil {
+		return AtestacionAutenticacionCobro{}, err
+	}
+	resultado, err := verificador.VerificarAutenticacionCobro(ctx, solicitud)
+	if contextoErr := ctx.Err(); contextoErr != nil {
+		return AtestacionAutenticacionCobro{}, contextoErr
+	}
 	if err != nil || resultado.validar(instante) != nil || resultado.SesionRef != solicitud.SesionRef ||
 		resultado.HuellaSesionHMAC != solicitud.HuellaSesionHMAC {
 		return AtestacionAutenticacionCobro{}, ErrContextoAutorizacionCobroInvalido

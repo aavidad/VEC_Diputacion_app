@@ -141,7 +141,7 @@ func contextoPuertoCobro(t *testing.T, accion domain.AccionCobro, recurso, final
 	decision, recursoAutorizable := decisionPuertoCobro(
 		t, accion, recurso, finalidad, correlacion, instante,
 	)
-	atestacion, err := domain.NuevaAtestacionAutenticacionCobro(verificadorAutenticacionPuertoCobro{
+	atestacion, err := domain.NuevaAtestacionAutenticacionCobro(context.Background(), verificadorAutenticacionPuertoCobro{
 		resultado: domain.ResultadoVerificacionAutenticacionCobro{
 			PrincipalRef: personaPuertoCobro, Metodo: domain.AuthMethodCertificate,
 			Garantia: domain.AuthAssuranceHigh, AutenticacionRef: "aut_0123456789abcdefghijkl",
@@ -163,7 +163,10 @@ type verificadorAutenticacionPuertoCobro struct {
 	resultado domain.ResultadoVerificacionAutenticacionCobro
 }
 
-func (v verificadorAutenticacionPuertoCobro) VerificarAutenticacionCobro(domain.SolicitudVerificacionAutenticacionCobro) (domain.ResultadoVerificacionAutenticacionCobro, error) {
+func (v verificadorAutenticacionPuertoCobro) VerificarAutenticacionCobro(
+	context.Context,
+	domain.SolicitudVerificacionAutenticacionCobro,
+) (domain.ResultadoVerificacionAutenticacionCobro, error) {
 	return v.resultado, nil
 }
 
