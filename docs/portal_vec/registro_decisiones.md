@@ -1497,3 +1497,74 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   arquitectura, vulnerabilidades e integracion PostgreSQL 18.4 con identidades
   reales, privilegios, replay, concurrencia, revocacion y `up/down` terminaron
   correctamente el 15 de julio de 2026. No acredita las puertas operacionales.
+
+## DEC-045 — Idempotencia semantica y reanudacion con autoridad vigente
+
+- Estado: decision transversal adoptada el 15 de julio de 2026; implantacion
+  pendiente. Los cortes de baremacion, generacion documental y carga directa
+  permanecen cerrados a produccion hasta cumplirla.
+- Problema: una clave idempotente no basta si el repositorio compara tambien
+  autorizacion, sesion, referencias aleatorias o ventanas del intento. Tras un
+  `COMMIT` cuya respuesta se pierde, una sesion nueva no recupera el resultado
+  y puede provocar conflicto falso, documento huerfano o repeticion de firma,
+  custodia, renderizado u otro efecto remoto.
+- Indice estable: cada operacion usa un indice HMAC versionado sobre modulo,
+  accion, principal estable y clave del cliente. La clave no se persiste en
+  claro. La rotacion conserva un llavero de indices aun vigentes durante la
+  retencion necesaria para recuperar operaciones historicas.
+- Intencion estable: otra HMAC compromete todos los datos materiales exactos
+  del efecto y del resultado esperado. Incluye agregado/version base,
+  decisiones, politicas, huellas, objetos, retencion y motivo cuando procedan;
+  excluye autenticacion, sesion, autorizacion del intento, token de reserva,
+  correlaciones tecnicas, auditoria/outbox aleatorios y tiempos efimeros.
+- Autoridad actual: cada intento, incluida una consulta o recuperacion
+  idempotente, obtiene y consume una concesion RBAC/ABAC positiva, exacta y
+  vigente. Esta concesion no cambia la intencion ni se compara con la original.
+  Una baja, revocacion o cambio de ambito deniega antes de revelar el resultado
+  ya confirmado.
+- Estados: ausente crea una operacion; mismo indice y otra intencion deniega
+  reutilizacion; misma intencion en curso informa sin repetir efectos; una
+  operacion confirmada devuelve la version y evidencia transaccional completas.
+  La aplicacion coteja el resultado persistido contra la intencion exacta antes
+  de aceptarlo.
+- Efectos: identificadores, manifiestos y claves tecnicas necesarios para
+  repetir o reconciliar se fijan durablemente antes del primer efecto externo.
+  Una respuesta ambigua nunca causa borrado compensatorio ni genera una segunda
+  identidad. El reconciliador continua desde el ultimo paso probado.
+- Pruebas de apertura: `COMMIT` mas `DeadlineExceeded`, reinicio del proceso,
+  sesion y autorizacion nuevas del mismo actor, dos reintentos concurrentes,
+  autorizacion revocada, cambio individual de cada campo de intencion, rotacion
+  de clave e inyeccion de evidencia persistida incompleta o contradictoria.
+  Version, efecto, auditoria y outbox deben conservar cardinalidad uno.
+
+## DEC-046 — Preparacion y entrega recuperable de carga directa
+
+- Estado: decision adoptada el 15 de julio de 2026; contrato y adaptador
+  pendientes. La carga directa a almacenamiento compatible con S3 continua
+  como objetivo, pero el flujo actual no se expone como productivo.
+- Problema: confirmar carga y manifiesto antes de emitir el recibo evita
+  aceptar una sesion no persistida, pero abre otro fallo. Si la emision o la
+  respuesta HTTP se pierde despues del `COMMIT`, el reintento encuentra la
+  preparacion ya procesada y el usuario no puede recuperar una credencial
+  valida para completar la subida.
+- Intencion de entrega: el mismo commit de preparacion persiste una intencion
+  estable ligada al indice idempotente, carga, vinculo HMAC de la sesion,
+  manifiesto, decision, expiracion y huellas. Sus estados cerrados son
+  `pendiente`, `emitida`, `consumida` y `expirada`.
+- Emision: el emisor registra de forma idempotente el recibo exacto o un
+  identificador opaco de entrega de un solo uso. Ni la URL temporal ni una
+  credencial de objeto se escriben en auditoria, outbox o logs generales.
+- Recuperacion: una repeticion autorizada devuelve una proyeccion de la
+  preparacion confirmada y un identificador de recuperacion. Una operacion
+  separada, con identidad, sesion y permiso actuales revalidados, recupera el
+  mismo recibo aun vigente o sustituye atomicamente el anterior, conservando
+  predecesor, causa y expiracion. Nunca reconstruye autoridad desde el DTO.
+- Reconciliacion: un outbox o trabajador durable resuelve la ventana entre
+  commit, emisor y entrega. Una respuesta ambigua deja el estado recuperable;
+  no abandona la reserva, no revoca a ciegas una sesion confirmada y no activa
+  dos recibos simultaneos.
+- Pruebas de apertura: commit correcto seguido de fallo del emisor, perdida de
+  respuesta HTTP y reinicio; reintento desde otra sesion valida; carreras de
+  recuperacion; caducidad y sustitucion; revocacion de permiso; y recibo,
+  manifiesto o vinculo manipulados. Deben quedar una preparacion, como maximo
+  un recibo activo y una cadena completa de auditoria y evidencias.
