@@ -11,7 +11,7 @@ Contexto de app revisado:
 
 - Prototipo Go con frontera hexagonal: dominio, puertos, casos de uso,
   adaptadores HTTP/repositorios en memoria/auth fake y composicion en
-  `cmd/bolsa-server`.
+  `cmd/vec-server`; el alias `cmd/bolsa-server` esta retirado y no escucha.
 - Flujo ciudadano: alta de candidato, meritos, baremo y exportacion de
   expediente.
 - Flujo administrativo: demo de convocatoria, solicitudes, listados provisional
@@ -60,7 +60,10 @@ Reglas:
 - No usar cuentas compartidas para acciones con efecto juridico.
 - Separar funciones: tramitacion, administracion tecnica, auditoria y
   resolucion no deben depender del mismo permiso amplio.
-- Cada endpoint debe comprobar rol y titularidad en caso de datos personales.
+- Cada caso de uso, cualquiera que sea su canal HTTP/web, CLI, MCP, tarea o
+  servicio, debe exigir una concesion central positiva, exacta y vigente para
+  accion, recurso, ambito, finalidad, campos y obligaciones. Rol y titularidad
+  son condiciones necesarias cuando procedan, nunca autoridad suficiente.
 - Los tokens o sesiones no son evidencia juridica por si solos; deben mapearse
   a actor, mecanismo de identificacion y contexto.
 - El dominio debe permanecer neutral: identidad real, directorio, Clave, DNIe,
@@ -114,8 +117,10 @@ Controles de cierre:
   aceptacion de riesgos.
 - Mantener analisis de riesgos vivo por convocatoria y por cambio relevante.
 - Implantar MFA para personal interno y administradores.
-- Aplicar minimo privilegio, revision periodica de permisos y baja automatica
-  por cambio de puesto.
+- Aplicar minimo privilegio mediante lista positiva cerrada: lo no concedido
+  de forma expresa se deniega, gana siempre la regla mas restrictiva y los
+  perfiles no suman autoridad; revisar permisos periodicamente y automatizar
+  la baja por cambio de puesto.
 - Centralizar logs de seguridad, auditoria de negocio y eventos de sistema con
   integridad y retencion definidas.
 - Tener copias probadas, restauracion ensayada y plan de continuidad.
@@ -239,7 +244,7 @@ Cada evento debe contener:
 | --- | --- |
 | Datos | Registro de actividades, informacion por capas, DPO, retencion y circuito de derechos documentados. |
 | Identidad | Clave/DNIe/certificado para ciudadania, directorio/MFA para personal, representantes soportados y trazados. |
-| Autorizacion | Matriz RBAC/ABAC por endpoint, titularidad de expediente y segregacion de funciones. |
+| Autorizacion | Matriz RBAC/ABAC por caso de uso y canal, lista positiva cerrada, accion/recurso/ambito/finalidad/campos/obligaciones exactos, titularidad, consumo idempotente y segregacion de funciones. |
 | ENS | Categorizacion, analisis de riesgos, politica, medidas implantadas, auditoria y evidencias de conformidad. |
 | Expediente | Documento ENI, expediente ENI, indice, firmas/sellos, CSV, huellas y exportacion reproducible. |
 | Interoperabilidad | Catalogos, formatos, metadatos, versionado y paquete de intercambio validados. |
@@ -260,4 +265,3 @@ propio:
 - Persistencia productiva de expedientes, auditoria y convocatorias.
 - Tests de frontera para exportacion ENI y autorizacion por rol/titularidad.
 - Declaracion de accesibilidad y plantilla de informacion RGPD por capas.
-
