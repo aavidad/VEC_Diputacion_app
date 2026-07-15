@@ -14,6 +14,13 @@ var (
 	ErrSecuenciaCatalogoInvalida   = errors.New("vec: secuencia de catalogo invalida")
 )
 
+const (
+	AccionCrearCatalogoConfigurable      = "vec.catalogos.crear"
+	AccionActualizarCatalogoConfigurable = "vec.catalogos.actualizar"
+	AccionPublicarCatalogoConfigurable   = "vec.catalogos.publicar"
+	AccionRetirarCatalogoConfigurable    = "vec.catalogos.retirar"
+)
+
 type ConsultaCatalogosConfigurables interface {
 	ObtenerCatalogo(context.Context, string, int) (domain.CatalogoConfigurable, error)
 	ListarVersionesCatalogo(context.Context, string) ([]domain.CatalogoConfigurable, error)
@@ -22,8 +29,8 @@ type ConsultaCatalogosConfigurables interface {
 // RepositorioGobiernoCatalogos confirma cada cambio junto con su auditoria y
 // outbox. Una version publicada o retirada nunca se sobrescribe.
 type RepositorioGobiernoCatalogos interface {
-	ConfirmarAltaBorradorCatalogo(context.Context, domain.CatalogoConfigurable, domain.AuditEntry, domain.Event) error
-	ConfirmarActualizacionBorradorCatalogo(context.Context, string, domain.CatalogoConfigurable, domain.AuditEntry, domain.Event) error
-	ConfirmarPublicacionCatalogo(context.Context, string, domain.CatalogoConfigurable, domain.AuditEntry, domain.Event) error
-	ConfirmarRetiradaCatalogo(context.Context, string, domain.CatalogoConfigurable, domain.AuditEntry, domain.Event) error
+	ConfirmarAltaBorradorCatalogo(context.Context, domain.CatalogoConfigurable, domain.AuditEntry, domain.Event, EvidenciaUsoDecisionAutorizacion) error
+	ConfirmarActualizacionBorradorCatalogo(context.Context, string, domain.CatalogoConfigurable, domain.AuditEntry, domain.Event, EvidenciaUsoDecisionAutorizacion) error
+	ConfirmarPublicacionCatalogo(context.Context, string, domain.CatalogoConfigurable, domain.AuditEntry, domain.Event, EvidenciaUsoDecisionAutorizacion) error
+	ConfirmarRetiradaCatalogo(context.Context, string, domain.CatalogoConfigurable, domain.AuditEntry, domain.Event, EvidenciaUsoDecisionAutorizacion) error
 }

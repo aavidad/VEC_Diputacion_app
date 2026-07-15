@@ -28,6 +28,7 @@ type Store struct {
 	decisionesReglaFlujo   map[string]domain.DecisionReglaFlujo
 	documentos             map[string]domain.DocumentoGenerado
 	usosAutorizacionDoc    map[string]usoAutorizacionDocumento
+	usosAutorizacionCat    map[string]usoAutorizacionCatalogo
 	contenidos             map[string]objetoContenidoDocumento
 	idempotenciasContenido map[string]idempotenciaContenidoDocumento
 	documentosLogicos      map[string]domain.DocumentoLogico
@@ -109,6 +110,7 @@ func NewStore() *Store {
 		decisionesReglaFlujo:   map[string]domain.DecisionReglaFlujo{},
 		documentos:             map[string]domain.DocumentoGenerado{},
 		usosAutorizacionDoc:    map[string]usoAutorizacionDocumento{},
+		usosAutorizacionCat:    map[string]usoAutorizacionCatalogo{},
 		contenidos:             map[string]objetoContenidoDocumento{},
 		idempotenciasContenido: map[string]idempotenciaContenidoDocumento{},
 		documentosLogicos:      map[string]domain.DocumentoLogico{},

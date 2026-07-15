@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"time"
 
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
@@ -19,6 +20,91 @@ const (
 	usoCamposDecisionNoAplicables
 	usoCamposDecisionConsumidos
 )
+
+// autorizadorConVinculo inserta las capacidades de identidad resueltas por la
+// frontera confiable. Ningun DTO puede aportar estos campos al PDP y una
+// decision que responda con otro vinculo se descarta antes de llegar al caso
+// de uso.
+type autorizadorConVinculo struct {
+	base    ports.Autorizador
+	actor   domain.ContextoActor
+	vinculo domain.VinculoAutenticacionActorV1
+}
+
+func (a autorizadorConVinculo) Exigir(
+	ctx context.Context,
+	solicitud domain.SolicitudAutorizacion,
+) (domain.DecisionAutorizacion, error) {
+	solicitud.ContextoActor = a.actor
+	solicitud.VinculoAutenticacionActor = a.vinculo
+	if err := solicitud.ValidarVinculoAutenticacionActor(); err != nil {
+		return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
+	}
+	decision, err := a.base.Exigir(ctx, solicitud)
+	if err != nil {
+		return domain.DecisionAutorizacion{}, err
+	}
+	if !a.vinculo.CoincideExactamenteCon(decision.VinculoAutenticacionActor) {
+		return domain.DecisionAutorizacion{}, errors.Join(
+			domain.ErrAutorizacionDenegada,
+			domain.ErrDecisionAutorizacionInvalida,
+		)
+	}
+	return decision, nil
+}
+
+// exigirDecisionAutorizacionVinculada es la variante productiva para casos de
+// uso migrados al contexto de actor canonico. La identidad, el perfil activo y
+// la garantia proceden exclusivamente de esa capacidad interna.
+func exigirDecisionAutorizacionVinculada(
+	ctx context.Context,
+	autorizador ports.Autorizador,
+	reloj ports.Reloj,
+	actor domain.ContextoActor,
+	vinculo domain.VinculoAutenticacionActorV1,
+	accion string,
+	recurso domain.RecursoAutorizable,
+	finalidad, correlacionRef, motivo string,
+	usoCampos usoCamposDecisionAutorizacion,
+) (domain.DecisionAutorizacion, error) {
+	if ctx == nil || dependenciaAutorizacionNula(autorizador) || dependenciaAutorizacionNula(reloj) {
+		return domain.DecisionAutorizacion{}, errors.Join(
+			domain.ErrAutorizacionDenegada,
+			domain.ErrConfiguracionAccesoInvalida,
+		)
+	}
+	if err := ctx.Err(); err != nil {
+		return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
+	}
+	actorCanonico, err := actor.Clonar()
+	if err != nil || vinculo.ValidarPara(actorCanonico) != nil {
+		return domain.DecisionAutorizacion{}, errors.Join(
+			domain.ErrAutorizacionDenegada,
+			domain.ErrVinculoAutenticacionActorInvalido,
+			err,
+		)
+	}
+	instante := reloj.Ahora().UTC().Truncate(time.Microsecond)
+	if instante.IsZero() || !vinculo.VigenteEn(instante, actorCanonico) {
+		return domain.DecisionAutorizacion{}, errors.Join(
+			domain.ErrAutorizacionDenegada,
+			domain.ErrVinculoAutenticacionActorInvalido,
+		)
+	}
+	return exigirDecisionAutorizacion(
+		ctx,
+		autorizadorConVinculo{base: autorizador, actor: actorCanonico, vinculo: vinculo},
+		reloj,
+		actorCanonico.Principal,
+		actorCanonico.PerfilActivoRef,
+		accion,
+		recurso,
+		finalidad,
+		correlacionRef,
+		motivo,
+		usoCampos,
+	)
+}
 
 // exigirDecisionAutorizacion aplica defensa en profundidad sobre el puerto:
 // una implementacion defectuosa no puede conceder una decision vencida o
