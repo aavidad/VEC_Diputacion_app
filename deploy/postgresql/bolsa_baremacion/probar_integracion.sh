@@ -5,10 +5,48 @@ raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
 contenedor="vec-bolsa-baremacion-pg-${USER:-usuario}-$$"
 base=vec_bolsa_baremacion_prueba
-clave_admin="admin-bolsa-$$"
-clave_ejecutor="ejecutor-bolsa-$$"
-clave_lector="lector-bolsa-$$"
-clave_registrador="registrador-bolsa-$$"
+
+# Cada cuenta recibe 256 bits del generador criptografico del sistema. Los
+# valores se asignan directamente a variables: nunca se escriben ni imprimen.
+# Se evita depender de OpenSSL; od y tr forman parte del entorno base GNU/Linux.
+generar_clave_prueba() {
+    local destino=$1
+    local valor
+
+    if [[ ! -c /dev/urandom || ! -r /dev/urandom ]] \
+        || ! command -v od >/dev/null 2>&1 \
+        || ! command -v tr >/dev/null 2>&1; then
+        echo "no hay una fuente local de entropia utilizable" >&2
+        return 1
+    fi
+    if ! valor=$(od -An -N32 -tx1 /dev/urandom | tr -d '[:space:]'); then
+        echo "no se pudo obtener entropia local" >&2
+        return 1
+    fi
+    if [[ ${#valor} -ne 64 || $valor == *[!0-9a-f]* ]]; then
+        echo "la fuente local de entropia devolvio una clave invalida" >&2
+        return 1
+    fi
+    printf -v "$destino" '%s' "$valor"
+}
+
+clave_admin=
+clave_ejecutor=
+clave_lector=
+clave_registrador=
+generar_clave_prueba clave_admin
+generar_clave_prueba clave_ejecutor
+generar_clave_prueba clave_lector
+generar_clave_prueba clave_registrador
+if [[ "$clave_admin" == "$clave_ejecutor" \
+    || "$clave_admin" == "$clave_lector" \
+    || "$clave_admin" == "$clave_registrador" \
+    || "$clave_ejecutor" == "$clave_lector" \
+    || "$clave_ejecutor" == "$clave_registrador" \
+    || "$clave_lector" == "$clave_registrador" ]]; then
+    echo "la fuente local de entropia produjo claves repetidas" >&2
+    exit 1
+fi
 salida_uno=$(mktemp)
 salida_dos=$(mktemp)
 
