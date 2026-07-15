@@ -67,6 +67,10 @@ services:
 
 networks:
   vec-borde:
+    ipam:
+      config:
+        - subnet: "${VEC_DOCKER_EDGE_SUBNET:-192.168.255.248/29}"
+          gateway: "${VEC_DOCKER_EDGE_GATEWAY:-192.168.255.249}"
   vec-interna:
     internal: true
     ipam:
