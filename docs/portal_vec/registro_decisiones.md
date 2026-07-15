@@ -1522,6 +1522,23 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   manifiesto material V2. Cada recibo remoto tendra esquema y huella canonica
   propios; la huella del documento nunca sustituye la del recibo de custodia o
   retencion.
+- Catalogos materiales: el formato documental y la clasificacion se fijan en
+  la intencion mediante snapshots administrables con referencia, version y
+  huella. La clave de formato se vincula al MIME canonico, al perfil y politica
+  de firma y a las capacidades del conector; la clasificacion se vincula a las
+  politicas de custodia y retencion. PDF/PAdES puede ser la configuracion
+  inicial, pero no se compila como unica alternativa ni se cambia el significado
+  historico de una clave de catalogo ya utilizada.
+- Frontera de confianza en proceso: un tipo opaco evita promociones y
+  manipulaciones accidentales, pero por si solo no demuestra autoridad si su
+  fabrica acepta puertos sustituibles. Identidades, criptografia, catalogos y
+  verificadores son parte de la base de computacion confiable y se fijan una
+  sola vez en la raiz de composicion homologada. Ningun DTO, handler, modulo o
+  conector elegido por una peticion puede suministrarlos o sustituirlos. El
+  flujo permanece cerrado hasta que un servicio de aplicacion con dependencias
+  privadas controle esas fabricas y existan pruebas que recorran el ensamblado
+  real; un conector no confiable se aisla fuera de proceso y se autentica, no se
+  carga como codigo con los mismos privilegios.
 - Autoridad actual: cada intento, incluida una consulta o recuperacion
   idempotente, obtiene y consume una concesion RBAC/ABAC positiva, exacta y
   vigente. Esta concesion no cambia la intencion ni se compara con la original.
