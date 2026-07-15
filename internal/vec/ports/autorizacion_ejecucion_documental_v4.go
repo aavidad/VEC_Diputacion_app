@@ -108,9 +108,9 @@ type datosSolicitudVinculadaAutorizacionEjecucionDocumentalV4 struct {
 // evidencia de la que parte puede construirse desde un DTO publico. Su valor
 // cero se deniega y no puede reconstruirse desde una proyeccion persistida.
 //
-// La autoridad de composicion final debe nacer dentro de
-// application/internal/confianzadocumental. Hasta incorporar atestacion
-// criptografica del PDP, ese perimetro es una frontera de confianza local.
+// La autoridad de composicion final debe nacer dentro de un conector
+// homologado que implemente ConectorEjecucionDocumentalAtestadaV4. El nucleo
+// nunca convierte esta comprobacion estructural en una concesion por si solo.
 type SolicitudVinculadaAutorizacionEjecucionDocumentalV4 struct {
 	datos *datosSolicitudVinculadaAutorizacionEjecucionDocumentalV4
 }

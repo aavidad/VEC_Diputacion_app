@@ -41,7 +41,7 @@ const (
 	maximoBytesOrigenCargaDirectaV4     = 512
 	maximoBytesOrigenesCargaDirectaV4   = 8 * 1024
 	// Debe permanecer igual o por debajo del limite de las audiencias COSE
-	// documentales ordinarias de confianzadocumental.
+	// documentales ordinarias del conector de confianza homologado.
 	maximoBytesMensajeEscrituraAlmacenV4 = 64 * 1024
 	// Cada escritura necesita dos copias defensivas: una para la observacion
 	// privada y otra para el destino. Acotar el bloque evita que una unica
@@ -158,7 +158,7 @@ type EntradaNeutralDocumental struct {
 }
 
 // NuevaEntradaNeutralDocumental asocia una HMAC declarada a la preparacion ya
-// fijada, sin verificarla criptograficamente. Solo confianzadocumental puede
+// fijada, sin verificarla criptograficamente. Solo el conector homologado puede
 // convertir en el futuro preparacion+HMAC comprobada en una capacidad de uso.
 func NuevaEntradaNeutralDocumental(
 	preparacion PreparacionEntradaNeutralDocumental,
@@ -206,7 +206,7 @@ func (e EntradaNeutralDocumental) ContenidoCanonico() ([]byte, error) {
 }
 
 // HuellaHMACDeclarada es una vinculacion nominal pendiente de comprobacion por
-// internal/confianzadocumental. Su formato valido no demuestra que se haya
+// de confianza. Su formato valido no demuestra que se haya
 // calculado con una clave confiable ni habilita por si solo ningun efecto.
 func (e EntradaNeutralDocumental) HuellaHMACDeclarada() (string, error) {
 	if e.Validar() != nil {
@@ -428,7 +428,7 @@ func (s *SumideroLimitadoSalidaDocumental) cerrarConFallo(err error) {
 // independientes y solo producen esos estados cuando la politica los exige.
 //
 // Este valor sigue siendo declarativo. Su autoridad y la atestacion de las
-// capacidades de arranque pertenecen a application/internal/confianzadocumental.
+// capacidades de arranque pertenecen al conector de confianza instalado.
 type VinculoPoliticaInmutabilidadDocumental struct {
 	PoliticaRef                string
 	Version                    uint64
@@ -1028,7 +1028,7 @@ func (*PruebaCrudaEscrituraAlmacen) UnmarshalBinary([]byte) error {
 
 // Deliberadamente no existe en ports una fabrica de
 // ReciboEscrituraAlmacenVerificado. La conversion de esta prueba nominal en
-// autoridad pertenece a application/internal/confianzadocumental, donde el
+// autoridad pertenece al conector de confianza homologado, donde el
 // llamador no puede inyectar un verificador alternativo. Hasta integrar esa
 // frontera, ninguna confirmacion debe aceptar esta prueba como recibo.
 
