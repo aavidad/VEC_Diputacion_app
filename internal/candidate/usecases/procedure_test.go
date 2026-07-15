@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"sort"
 	"strconv"
@@ -74,20 +75,19 @@ func TestProcedureUseCaseRejectsDefinitiveBeforeProvisional(t *testing.T) {
 	}
 }
 
-func TestProcedureUseCaseNormalizesNilContextBeforeCallingPorts(t *testing.T) {
-	useCase, err := NewProcedureUseCase(newFakeConvocatoriaRepository(), newFakeSolicitudRepository())
+func TestProcedureUseCaseRejectsNilContext(t *testing.T) {
+	convocatorias := newFakeConvocatoriaRepository()
+	solicitudes := newFakeSolicitudRepository()
+	useCase, err := NewProcedureUseCase(convocatorias, solicitudes)
 	if err != nil {
 		t.Fatalf("NewProcedureUseCase() error = %v", err)
 	}
-	if _, err := useCase.CrearConvocatoria(nil, CrearConvocatoriaCommand{ID: "conv-1", Version: "v1", RuleSet: testBaremoRuleSet(t)}); err != nil {
-		t.Fatalf("CrearConvocatoria(nil context) error = %v", err)
+	_, err = useCase.CrearConvocatoria(nil, CrearConvocatoriaCommand{ID: "conv-1", Version: "v1", RuleSet: testBaremoRuleSet(t)})
+	if !errors.Is(err, ErrContextRequired) {
+		t.Fatalf("CrearConvocatoria(nil context) error = %v, want %v", err, ErrContextRequired)
 	}
-	registerSolicitud(t, nil, useCase, "sol-1", "cand-a", "Lopez", 12, 0)
-	if _, err := useCase.PublicarListadoProvisional(nil, "conv-1", map[string]bool{"sol-1": true}); err != nil {
-		t.Fatalf("PublicarListadoProvisional(nil context) error = %v", err)
-	}
-	if _, err := useCase.PublicarListadoDefinitivo(nil, "conv-1", map[string]bool{"sol-1": true}); err != nil {
-		t.Fatalf("PublicarListadoDefinitivo(nil context) error = %v", err)
+	if len(convocatorias.byID) != 0 || len(solicitudes.byID) != 0 {
+		t.Fatalf("nil context mutated repositories: convocatorias=%d solicitudes=%d", len(convocatorias.byID), len(solicitudes.byID))
 	}
 }
 

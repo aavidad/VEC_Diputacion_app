@@ -40,7 +40,9 @@ func (u BaremoUseCase) PresentarSolicitud(
 	candidateID string,
 	ruleSet domain.BaremoRuleSet,
 ) (domain.BaremoResult, error) {
-	ctx = normalizeContext(ctx)
+	if err := validateContext(ctx); err != nil {
+		return domain.BaremoResult{}, err
+	}
 	candidateID = strings.TrimSpace(candidateID)
 	if err := u.validateCandidate(candidateID); err != nil {
 		return domain.BaremoResult{}, err
@@ -49,9 +51,15 @@ func (u BaremoUseCase) PresentarSolicitud(
 		return domain.BaremoResult{}, err
 	}
 
+	if err := validateContext(ctx); err != nil {
+		return domain.BaremoResult{}, err
+	}
 	merits, err := u.merits.ListByCandidate(ctx, candidateID)
 	if err != nil {
 		return domain.BaremoResult{}, fmt.Errorf("list candidate merits: %w", err)
+	}
+	if err := validateContext(ctx); err != nil {
+		return domain.BaremoResult{}, err
 	}
 	merits, err = u.presentMerits(ctx, candidateID, merits)
 	if err != nil {
@@ -65,7 +73,9 @@ func (u BaremoUseCase) CalcularAutobaremo(
 	candidateID string,
 	ruleSet domain.BaremoRuleSet,
 ) (domain.BaremoResult, error) {
-	ctx = normalizeContext(ctx)
+	if err := validateContext(ctx); err != nil {
+		return domain.BaremoResult{}, err
+	}
 	candidateID = strings.TrimSpace(candidateID)
 	if err := u.validateCandidate(candidateID); err != nil {
 		return domain.BaremoResult{}, err
@@ -74,9 +84,15 @@ func (u BaremoUseCase) CalcularAutobaremo(
 		return domain.BaremoResult{}, err
 	}
 
+	if err := validateContext(ctx); err != nil {
+		return domain.BaremoResult{}, err
+	}
 	merits, err := u.merits.ListByCandidate(ctx, candidateID)
 	if err != nil {
 		return domain.BaremoResult{}, fmt.Errorf("list candidate merits: %w", err)
+	}
+	if err := validateContext(ctx); err != nil {
+		return domain.BaremoResult{}, err
 	}
 	return u.calculateAndSave(ctx, candidateID, merits, ruleSet)
 }
@@ -118,21 +134,36 @@ func (u BaremoUseCase) presentMerits(
 	candidateID string,
 	merits []domain.Merit,
 ) ([]domain.Merit, error) {
+	if err := validateContext(ctx); err != nil {
+		return nil, err
+	}
 	presented := append([]domain.Merit(nil), merits...)
 	for i := range presented {
+		if err := validateContext(ctx); err != nil {
+			return nil, err
+		}
 		switch presented[i].Estado {
 		case domain.MeritStateBorrador, domain.MeritStateSubsanacion:
 			if err := presented[i].Transition(domain.MeritStatePresentado); err != nil {
 				return nil, err
 			}
+			if err := validateContext(ctx); err != nil {
+				return nil, err
+			}
 			if err := u.merits.Save(ctx, candidateID, presented[i]); err != nil {
 				return nil, fmt.Errorf("present candidate merit: %w", err)
+			}
+			if err := validateContext(ctx); err != nil {
+				return nil, err
 			}
 		default:
 			if err := presented[i].Validate(); err != nil {
 				return nil, err
 			}
 		}
+	}
+	if err := validateContext(ctx); err != nil {
+		return nil, err
 	}
 	return presented, nil
 }
@@ -143,19 +174,21 @@ func (u BaremoUseCase) calculateAndSave(
 	merits []domain.Merit,
 	ruleSet domain.BaremoRuleSet,
 ) (domain.BaremoResult, error) {
+	if err := validateContext(ctx); err != nil {
+		return domain.BaremoResult{}, err
+	}
 	result, err := domain.CalcularAutobaremo(merits, ruleSet)
 	if err != nil {
+		return domain.BaremoResult{}, err
+	}
+	if err := validateContext(ctx); err != nil {
 		return domain.BaremoResult{}, err
 	}
 	if err := u.results.Save(ctx, candidateID, result); err != nil {
 		return domain.BaremoResult{}, fmt.Errorf("save baremo result: %w", err)
 	}
-	return result, nil
-}
-
-func normalizeContext(ctx context.Context) context.Context {
-	if ctx == nil {
-		return context.Background()
+	if err := validateContext(ctx); err != nil {
+		return domain.BaremoResult{}, err
 	}
-	return ctx
+	return result, nil
 }

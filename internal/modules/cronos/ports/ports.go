@@ -11,7 +11,9 @@ type Store interface {
 	SaveProfile(context.Context, domain.ScheduleProfile) error
 	ListProfiles(context.Context) ([]domain.ScheduleProfile, error)
 	SaveWorkday(context.Context, domain.Workday) error
-	ListWorkdays(context.Context, time.Time) ([]domain.Workday, error)
+	// ListWorkdays exige una lista positiva no vacia de personas. Una fecha
+	// concreta sin sujetos concretos no equivale a permiso para leer a todos.
+	ListWorkdays(context.Context, []string, time.Time) ([]domain.Workday, error)
 	SaveLeavePolicy(context.Context, domain.LeavePolicy) error
 	ListLeavePolicies(context.Context) ([]domain.LeavePolicy, error)
 	SaveLeaveBalance(context.Context, domain.LeaveBalance) error

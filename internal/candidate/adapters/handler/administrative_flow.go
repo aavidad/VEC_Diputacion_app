@@ -31,6 +31,9 @@ type administrativeFlowService struct {
 	now       func() time.Time
 }
 
+var errCargaDocumentalSeguraNoDisponible = errors.New("carga documental segura no disponible")
+var errFlujoProbatorioSeguroNoDisponible = errors.New("flujo probatorio seguro no disponible")
+
 type administrativeDocumentRequest struct {
 	ID               string                 `json:"id"`
 	SolicitudID      string                 `json:"solicitud_id"`
@@ -157,7 +160,10 @@ func (h *Handler) handleCandidateDocumentsRoute(
 	case http.MethodGet:
 		h.handleListCandidateDocuments(w, r, candidateID)
 	case http.MethodPost:
-		h.handleRegisterCandidateDocument(w, r, candidateID, principal)
+		// El contrato heredado acepta CSV, huella, objeto, sello y firma
+		// declarados por el navegador. Se mantiene cerrado hasta sustituirlo por
+		// reserva de carga, cuarentena y confirmacion desde fuentes internas.
+		h.writeError(w, http.StatusServiceUnavailable, "api.error.secure_upload_unavailable", errCargaDocumentalSeguraNoDisponible)
 	default:
 		w.Header().Set("Allow", "GET, POST")
 		h.writeError(w, http.StatusMethodNotAllowed, "api.error.method_not_allowed", nil)

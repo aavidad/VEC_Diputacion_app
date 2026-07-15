@@ -6,81 +6,30 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
+	personalfile "vec-diputacion-granada/internal/modules/personal/adapters/file"
 	personalmemory "vec-diputacion-granada/internal/modules/personal/adapters/memory"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
+	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	"vec-diputacion-granada/internal/vec/application"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
-const defaultRPTImportPath = "config/rpt_positions_import.json"
-
-func newWorkspacePersonalCatalogService() (*personalapp.CatalogService, error) {
-	service, err := personalapp.NewCatalogService(personalmemory.NewCatalogStore())
-	if err != nil {
-		return nil, err
-	}
-	ctx := context.Background()
-	if imported, err := seedRPTPositionsFromJSON(ctx, service); err != nil {
-		return nil, err
-	} else if !imported {
-		for _, raw := range workspaceRPTPositionSamples() {
-			if _, err := service.UpsertPosition(ctx, rptPositionFromMap(raw)); err != nil {
-				return nil, err
-			}
-		}
-	}
-	for _, raw := range workspaceProfessionalCategories() {
-		if err := service.UpsertCategory(ctx, professionalCategoryFromMap(raw)); err != nil {
-			return nil, err
-		}
-	}
-	for _, raw := range workspaceRPTContractTypes() {
-		if err := service.UpsertCatalogEntry(ctx, catalogEntryFromMap(raw)); err != nil {
-			return nil, err
-		}
-	}
-	return service, nil
-}
-
-func seedRPTPositionsFromJSON(ctx context.Context, service *personalapp.CatalogService) (bool, error) {
-	for _, path := range rptImportPaths() {
-		data, err := os.ReadFile(path)
+func newWorkspacePersonalCatalogService(catalogPath string) (*personalapp.CatalogService, error) {
+	var store personalports.CatalogStore = personalmemory.NewCatalogStore()
+	if strings.TrimSpace(catalogPath) != "" {
+		durable, err := personalfile.NewCatalogStore(catalogPath)
 		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-			return false, err
+			return nil, err
 		}
-		var cmd personaldomain.RPTImportCommand
-		if err := json.Unmarshal(data, &cmd); err != nil {
-			return false, err
-		}
-		if strings.TrimSpace(cmd.Source) == "" {
-			cmd.Source = path
-		}
-		cmd.Replace = true
-		if _, err := service.ImportPositions(ctx, cmd); err != nil {
-			return false, err
-		}
-		return true, nil
+		store = durable
 	}
-	return false, nil
-}
-
-func rptImportPaths() []string {
-	paths := []string{}
-	if value := strings.TrimSpace(os.Getenv("VEC_RPT_IMPORT_JSON")); value != "" {
-		paths = append(paths, value)
-	}
-	paths = append(paths, defaultRPTImportPath)
-	return paths
+	return personalapp.NewCatalogService(store)
 }
 
 func (h *Handler) handlePersonalRPTPositions(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
@@ -111,6 +60,12 @@ func (h *Handler) handlePersonalRPTPosition(w http.ResponseWriter, r *http.Reque
 		}
 		position, err := h.personalCatalog.GetPosition(r.Context(), code)
 		if err != nil {
+			if errors.Is(err, personalapp.ErrRPTPositionNotFound) {
+				if fallback, ok := h.findPersonalRPTPositionByOfficialCode(r.Context(), code); ok {
+					h.writeJSON(w, http.StatusOK, map[string]any{"position": fallback})
+					return
+				}
+			}
 			status := http.StatusBadRequest
 			if errors.Is(err, personalapp.ErrRPTPositionNotFound) {
 				status = http.StatusNotFound
@@ -163,6 +118,29 @@ func (h *Handler) handlePersonalRPTPosition(w http.ResponseWriter, r *http.Reque
 		w.Header().Set("Allow", "GET, PUT, DELETE")
 		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+func (h *Handler) findPersonalRPTPositionByOfficialCode(ctx context.Context, code string) (personaldomain.RPTPosition, bool) {
+	page, err := h.personalCatalog.ListPositions(ctx, personaldomain.RPTPositionFilter{Query: code, Limit: 2000})
+	if err != nil {
+		return personaldomain.RPTPosition{}, false
+	}
+	for _, position := range page.Items {
+		if strings.EqualFold(position.Code, code) || strings.EqualFold(rptOfficialCode(position), code) {
+			return position, true
+		}
+	}
+	return personaldomain.RPTPosition{}, false
+}
+
+func rptOfficialCode(position personaldomain.RPTPosition) string {
+	for _, part := range strings.Split(position.Observations, "|") {
+		label, value, ok := strings.Cut(strings.TrimSpace(part), ":")
+		if ok && strings.EqualFold(strings.TrimSpace(label), "Codigo RPT oficial") {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func (h *Handler) handlePersonalRPTImports(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
@@ -342,7 +320,10 @@ func (h *Handler) requirePermission(w http.ResponseWriter, principal domain.Prin
 }
 
 func (h *Handler) recordPersonalCatalogAudit(ctx context.Context, principal domain.Principal, action, subjectRef string) (domain.AuditEntry, error) {
-	return h.service.RecordAudit(ctx, application.AuditCommand{
+	if h.internal == nil {
+		return domain.AuditEntry{}, domain.ErrPermissionDenied
+	}
+	authorized, err := application.NewAuthorizedAuditCommand(application.AuditCommand{
 		Principal:  principal,
 		Action:     action,
 		ModuleID:   personalmodule.ModuleID,
@@ -353,7 +334,15 @@ func (h *Handler) recordPersonalCatalogAudit(ctx context.Context, principal doma
 			"source":       "httpapi",
 			"at":           time.Now().UTC().Format(time.RFC3339),
 		},
-	})
+	}, personalmodule.PermissionPositionManage, "")
+	if err != nil {
+		return domain.AuditEntry{}, err
+	}
+	receipt, err := h.internal.RecordAudit(ctx, authorized)
+	if err != nil {
+		return domain.AuditEntry{}, err
+	}
+	return receipt.Entry(), nil
 }
 
 func personalPositionFilterFromRequest(r *http.Request) personaldomain.RPTPositionFilter {

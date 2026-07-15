@@ -18,30 +18,77 @@ var (
 type BaremoSection string
 
 const (
-	BaremoSectionExperiencia BaremoSection = "experiencia"; BaremoSectionFormacion BaremoSection = "formacion"; BaremoSectionOtros BaremoSection = "otros"
+	BaremoSectionExperiencia BaremoSection = "experiencia"
+	BaremoSectionFormacion   BaremoSection = "formacion"
+	BaremoSectionOtros       BaremoSection = "otros"
 )
 
 type BaremoUnit string
 
 const (
-	BaremoUnitMeses BaremoUnit = "meses"; BaremoUnitHoras BaremoUnit = "horas"; BaremoUnitMerito BaremoUnit = "merito"; BaremoUnitPuntosDeclarado BaremoUnit = "puntos_declarado"
+	BaremoUnitMeses           BaremoUnit = "meses"
+	BaremoUnitHoras           BaremoUnit = "horas"
+	BaremoUnitMerito          BaremoUnit = "merito"
+	BaremoUnitPuntosDeclarado BaremoUnit = "puntos_declarado"
 )
 
 type BaremoTieBreakRule string
 
 const (
-	BaremoTieMayorExperiencia BaremoTieBreakRule = "mayor_experiencia"; BaremoTieMayorFormacion BaremoTieBreakRule = "mayor_formacion"; BaremoTieLetraSorteo BaremoTieBreakRule = "letra_sorteo"; BaremoTieCandidateID BaremoTieBreakRule = "candidate_id"
+	BaremoTieMayorExperiencia BaremoTieBreakRule = "mayor_experiencia"
+	BaremoTieMayorFormacion   BaremoTieBreakRule = "mayor_formacion"
+	BaremoTieLetraSorteo      BaremoTieBreakRule = "letra_sorteo"
+	BaremoTieCandidateID      BaremoTieBreakRule = "candidate_id"
 )
 
-type BaremoRuleSetConfig struct { ConvocatoriaID, Version, SorteoLetra string; MeritRules []BaremoMeritRule; SectionCaps []BaremoSectionCap; TieBreakRules []BaremoTieBreakRule }
-type BaremoRuleSet struct { convocatoriaID, version, sorteoLetra string; meritRules []BaremoMeritRule; sectionCaps []BaremoSectionCap; tieBreakRules []BaremoTieBreakRule }
-type BaremoMeritRule struct { MeritType MeritType; Section BaremoSection; Unit BaremoUnit; PointsPerUnit float64 }
-type BaremoSectionCap struct { Section BaremoSection; MaxPoints float64 }
-type BaremoResult struct { TotalPoints float64; SectionPoints map[BaremoSection]float64; RuleSetID, RuleSetVersion string; Details []BaremoMeritScore }
-type BaremoMeritScore struct { MeritID string; MeritType MeritType; Section BaremoSection; RawPoints, AppliedPoints float64; Capped bool }
-type BaremoTieCandidate struct { CandidateID, SorteoKey string; Result BaremoResult }
-type BaremoTieBreakDecision struct { Rule BaremoTieBreakRule; WinnerID, AValue, BValue, Reason string }
-type BaremoTieBreakResult struct { WinnerID string; IsTie bool; Decisions []BaremoTieBreakDecision }
+type BaremoRuleSetConfig struct {
+	ConvocatoriaID, Version, SorteoLetra string
+	MeritRules                           []BaremoMeritRule
+	SectionCaps                          []BaremoSectionCap
+	TieBreakRules                        []BaremoTieBreakRule
+}
+type BaremoRuleSet struct {
+	convocatoriaID, version, sorteoLetra string
+	meritRules                           []BaremoMeritRule
+	sectionCaps                          []BaremoSectionCap
+	tieBreakRules                        []BaremoTieBreakRule
+}
+type BaremoMeritRule struct {
+	MeritType     MeritType
+	Section       BaremoSection
+	Unit          BaremoUnit
+	PointsPerUnit float64
+}
+type BaremoSectionCap struct {
+	Section   BaremoSection
+	MaxPoints float64
+}
+type BaremoResult struct {
+	TotalPoints               float64
+	SectionPoints             map[BaremoSection]float64
+	RuleSetID, RuleSetVersion string
+	Details                   []BaremoMeritScore
+}
+type BaremoMeritScore struct {
+	MeritID                  string
+	MeritType                MeritType
+	Section                  BaremoSection
+	RawPoints, AppliedPoints float64
+	Capped                   bool
+}
+type BaremoTieCandidate struct {
+	CandidateID, SorteoKey string
+	Result                 BaremoResult
+}
+type BaremoTieBreakDecision struct {
+	Rule                             BaremoTieBreakRule
+	WinnerID, AValue, BValue, Reason string
+}
+type BaremoTieBreakResult struct {
+	WinnerID  string
+	IsTie     bool
+	Decisions []BaremoTieBreakDecision
+}
 
 func NewBaremoRuleSet(config BaremoRuleSetConfig) (BaremoRuleSet, error) {
 	ruleSet := BaremoRuleSet{
@@ -98,6 +145,25 @@ func (r BaremoRuleSet) Validate() error {
 }
 
 func CalcularAutobaremo(merits []Merit, ruleSet BaremoRuleSet) (BaremoResult, error) {
+	return calcularBaremo(merits, ruleSet, func(merit Merit) bool {
+		// El autobaremo es una simulacion/declaracion del aspirante. Un merito
+		// rechazado o pendiente de subsanacion no puede seguir sumando, pero un
+		// borrador si puede mostrarse como simulacion antes de presentar.
+		return merit.Estado == MeritStateBorrador || merit.Estado == MeritStatePresentado || merit.Estado == MeritStateValidado
+	})
+}
+
+// CalcularBaremoOficial solo computa decisiones administrativas validadas.
+// El flujo productivo nuevo sustituira el estado mutable por decisiones
+// firmadas append-only; esta funcion cierra mientras tanto el fallo del
+// prototipo heredado que puntuaba rechazados y subsanaciones.
+func CalcularBaremoOficial(merits []Merit, ruleSet BaremoRuleSet) (BaremoResult, error) {
+	return calcularBaremo(merits, ruleSet, func(merit Merit) bool {
+		return merit.Estado == MeritStateValidado
+	})
+}
+
+func calcularBaremo(merits []Merit, ruleSet BaremoRuleSet, computable func(Merit) bool) (BaremoResult, error) {
 	if err := ruleSet.Validate(); err != nil {
 		return BaremoResult{}, err
 	}
@@ -118,6 +184,9 @@ func CalcularAutobaremo(merits []Merit, ruleSet BaremoRuleSet) (BaremoResult, er
 	for _, merit := range ordered {
 		if err := merit.Validate(); err != nil {
 			return BaremoResult{}, err
+		}
+		if !computable(merit) {
+			continue
 		}
 		rule, ok := rules[merit.Tipo]
 		if !ok {
@@ -158,9 +227,15 @@ func Desempate(a, b BaremoTieCandidate, ruleSet BaremoRuleSet) (BaremoTieBreakRe
 	return BaremoTieBreakResult{WinnerID: fallback.WinnerID, IsTie: fallback.WinnerID == "", Decisions: decisions}, nil
 }
 
-func (s BaremoSection) IsValid() bool { return s == BaremoSectionExperiencia || s == BaremoSectionFormacion || s == BaremoSectionOtros }
-func (u BaremoUnit) IsValid() bool { return u == BaremoUnitMeses || u == BaremoUnitHoras || u == BaremoUnitMerito || u == BaremoUnitPuntosDeclarado }
-func (r BaremoTieBreakRule) IsValid() bool { return r == BaremoTieMayorExperiencia || r == BaremoTieMayorFormacion || r == BaremoTieLetraSorteo || r == BaremoTieCandidateID }
+func (s BaremoSection) IsValid() bool {
+	return s == BaremoSectionExperiencia || s == BaremoSectionFormacion || s == BaremoSectionOtros
+}
+func (u BaremoUnit) IsValid() bool {
+	return u == BaremoUnitMeses || u == BaremoUnitHoras || u == BaremoUnitMerito || u == BaremoUnitPuntosDeclarado
+}
+func (r BaremoTieBreakRule) IsValid() bool {
+	return r == BaremoTieMayorExperiencia || r == BaremoTieMayorFormacion || r == BaremoTieLetraSorteo || r == BaremoTieCandidateID
+}
 
 func (r BaremoRuleSet) rulesByMeritType() map[MeritType]BaremoMeritRule {
 	rules := make(map[MeritType]BaremoMeritRule, len(r.meritRules))
@@ -289,6 +364,8 @@ func indexRune(values []rune, target rune) int {
 	return -1
 }
 
-func isFiniteNonNegative(value float64) bool { return !math.IsNaN(value) && !math.IsInf(value, 0) && value >= 0 }
+func isFiniteNonNegative(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0) && value >= 0
+}
 func roundPoints(value float64) float64 { return math.Round(value*10000) / 10000 }
 func formatPoints(value float64) string { return fmt.Sprintf("%.4f", roundPoints(value)) }

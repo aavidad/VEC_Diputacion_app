@@ -7,10 +7,10 @@ import (
 	"vec-diputacion-granada/internal/candidate/domain"
 )
 
-func TestDefaultBaremoRuleSetIsValidPrototypeRuleSet(t *testing.T) {
-	ruleSet, err := DefaultBaremoRuleSet()
+func TestExplicitBaremoRuleSetIsValidPrototypeRuleSet(t *testing.T) {
+	ruleSet, err := BaremoRuleSetFor("convocatoria-prueba", "v1")
 	if err != nil {
-		t.Fatalf("DefaultBaremoRuleSet() error = %v", err)
+		t.Fatalf("BaremoRuleSetFor() error = %v", err)
 	}
 
 	result, err := domain.CalcularAutobaremo(
@@ -33,8 +33,8 @@ func TestDefaultBaremoRuleSetIsValidPrototypeRuleSet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CalcularAutobaremo() error = %v", err)
 	}
-	if result.RuleSetID != DefaultBaremoConvocatoriaID || result.RuleSetVersion != "v1" {
-		t.Fatalf("rule set identity = %q/%q, want default/v1", result.RuleSetID, result.RuleSetVersion)
+	if result.RuleSetID != "convocatoria-prueba" || result.RuleSetVersion != "v1" {
+		t.Fatalf("rule set identity = %q/%q, want explicit call/v1", result.RuleSetID, result.RuleSetVersion)
 	}
 	if result.TotalPoints != 3.4 {
 		t.Fatalf("TotalPoints = %v, want 3.4", result.TotalPoints)

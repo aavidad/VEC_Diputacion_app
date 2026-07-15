@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -193,6 +194,13 @@ func (r *DurableAdministrativeAuditTrail) ListByScope(ctx context.Context, scope
 }
 
 func (r *DurableProcedureConvocatoriaRepository) Save(ctx context.Context, convocatoria ports.ConvocatoriaRecord) error {
+	existing, err := r.ProcedureConvocatoriaRepository.GetByID(ctx, convocatoria.Convocatoria.ID)
+	if err == nil && reflect.DeepEqual(existing, convocatoria) {
+		return nil
+	}
+	if err != nil && !errors.Is(err, ports.ErrConvocatoriaNotFound) {
+		return err
+	}
 	return r.store.after(r.ProcedureConvocatoriaRepository.Save(ctx, convocatoria))
 }
 
@@ -201,6 +209,13 @@ func (r *DurableProcedureConvocatoriaRepository) GetByID(ctx context.Context, id
 }
 
 func (r *DurableProcedureSolicitudRepository) Save(ctx context.Context, solicitud ports.SolicitudRecord) error {
+	existing, err := r.ProcedureSolicitudRepository.GetByID(ctx, solicitud.ID)
+	if err == nil && reflect.DeepEqual(existing, solicitud) {
+		return nil
+	}
+	if err != nil && !errors.Is(err, ports.ErrSolicitudNotFound) {
+		return err
+	}
 	return r.store.after(r.ProcedureSolicitudRepository.Save(ctx, solicitud))
 }
 

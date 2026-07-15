@@ -86,13 +86,21 @@ func (u *AdministrativeFlowUseCase) RegisterCandidateDocument(
 	ctx context.Context,
 	command RegisterCandidateDocumentCommand,
 ) (domain.CandidateDocument, domain.AuditEntry, error) {
-	ctx = normalizeContext(ctx)
+	if err := validateContext(ctx); err != nil {
+		return domain.CandidateDocument{}, domain.AuditEntry{}, err
+	}
 	document, err := domain.NewCandidateDocument(domain.CandidateDocumentInput(command))
 	if err != nil {
 		return domain.CandidateDocument{}, domain.AuditEntry{}, err
 	}
+	if err := validateContext(ctx); err != nil {
+		return domain.CandidateDocument{}, domain.AuditEntry{}, err
+	}
 	if err := u.documents.Save(ctx, document); err != nil {
 		return domain.CandidateDocument{}, domain.AuditEntry{}, fmt.Errorf("save candidate document: %w", err)
+	}
+	if err := validateContext(ctx); err != nil {
+		return domain.CandidateDocument{}, domain.AuditEntry{}, err
 	}
 	entry, err := u.appendAudit(ctx, document.CandidateID, document.RegisteredBy, "candidate.document.registered", document.AuditPayload(), document.RegisteredAt)
 	if err != nil {
@@ -105,13 +113,21 @@ func (u *AdministrativeFlowUseCase) PresentClaim(
 	ctx context.Context,
 	command PresentClaimCommand,
 ) (domain.Claim, domain.AuditEntry, error) {
-	ctx = normalizeContext(ctx)
+	if err := validateContext(ctx); err != nil {
+		return domain.Claim{}, domain.AuditEntry{}, err
+	}
 	claim, err := domain.NewClaim(domain.ClaimInput(command))
 	if err != nil {
 		return domain.Claim{}, domain.AuditEntry{}, err
 	}
+	if err := validateContext(ctx); err != nil {
+		return domain.Claim{}, domain.AuditEntry{}, err
+	}
 	if err := u.claims.Save(ctx, claim); err != nil {
 		return domain.Claim{}, domain.AuditEntry{}, fmt.Errorf("save claim: %w", err)
+	}
+	if err := validateContext(ctx); err != nil {
+		return domain.Claim{}, domain.AuditEntry{}, err
 	}
 	entry, err := u.appendAudit(ctx, claim.CandidateID, claim.PresentedBy, "candidate.claim.presented", claim.AuditPayload(), claim.PresentedAt)
 	if err != nil {
@@ -124,13 +140,21 @@ func (u *AdministrativeFlowUseCase) CreateNotification(
 	ctx context.Context,
 	command CreateNotificationCommand,
 ) (domain.Notification, domain.AuditEntry, error) {
-	ctx = normalizeContext(ctx)
+	if err := validateContext(ctx); err != nil {
+		return domain.Notification{}, domain.AuditEntry{}, err
+	}
 	notification, err := domain.NewNotification(domain.NotificationInput(command))
 	if err != nil {
 		return domain.Notification{}, domain.AuditEntry{}, err
 	}
+	if err := validateContext(ctx); err != nil {
+		return domain.Notification{}, domain.AuditEntry{}, err
+	}
 	if err := u.notifications.Save(ctx, notification); err != nil {
 		return domain.Notification{}, domain.AuditEntry{}, fmt.Errorf("save notification: %w", err)
+	}
+	if err := validateContext(ctx); err != nil {
+		return domain.Notification{}, domain.AuditEntry{}, err
 	}
 	entry, err := u.appendAudit(ctx, notification.CandidateID, notification.CreatedBy, "candidate.notification.created", notification.AuditPayload(), notification.CreatedAt)
 	if err != nil {
@@ -154,40 +178,64 @@ func (u *AdministrativeFlowUseCase) MarkNotificationRead(
 }
 
 func (u *AdministrativeFlowUseCase) ListClaimsBySolicitud(ctx context.Context, solicitudID string) ([]domain.Claim, error) {
-	ctx = normalizeContext(ctx)
+	if err := validateContext(ctx); err != nil {
+		return nil, err
+	}
 	solicitudID = strings.TrimSpace(solicitudID)
 	if solicitudID == "" {
 		return nil, ErrAdministrativeClaimRequired
+	}
+	if err := validateContext(ctx); err != nil {
+		return nil, err
 	}
 	claims, err := u.claims.ListBySolicitud(ctx, solicitudID)
 	if err != nil {
 		return nil, fmt.Errorf("list claims by solicitud: %w", err)
 	}
+	if err := validateContext(ctx); err != nil {
+		return nil, err
+	}
 	return claims, nil
 }
 
 func (u *AdministrativeFlowUseCase) ListNotificationsByCandidate(ctx context.Context, candidateID string) ([]domain.Notification, error) {
-	ctx = normalizeContext(ctx)
+	if err := validateContext(ctx); err != nil {
+		return nil, err
+	}
 	candidateID = strings.TrimSpace(candidateID)
 	if candidateID == "" {
 		return nil, ErrAdministrativeNoticeRequired
+	}
+	if err := validateContext(ctx); err != nil {
+		return nil, err
 	}
 	notifications, err := u.notifications.ListByCandidate(ctx, candidateID)
 	if err != nil {
 		return nil, fmt.Errorf("list notifications by candidate: %w", err)
 	}
+	if err := validateContext(ctx); err != nil {
+		return nil, err
+	}
 	return notifications, nil
 }
 
 func (u *AdministrativeFlowUseCase) ListAuditByScope(ctx context.Context, scope string) ([]domain.AuditEntry, error) {
-	ctx = normalizeContext(ctx)
+	if err := validateContext(ctx); err != nil {
+		return nil, err
+	}
 	scope = strings.TrimSpace(scope)
 	if scope == "" {
 		return nil, ErrAdministrativeAuditRequired
 	}
+	if err := validateContext(ctx); err != nil {
+		return nil, err
+	}
 	entries, err := u.audit.ListByScope(ctx, scope)
 	if err != nil {
 		return nil, fmt.Errorf("list audit by scope: %w", err)
+	}
+	if err := validateContext(ctx); err != nil {
+		return nil, err
 	}
 	return entries, nil
 }
@@ -198,14 +246,22 @@ func (u *AdministrativeFlowUseCase) applyNotificationReceipt(
 	action string,
 	apply func(*domain.Notification, domain.NotificationReceipt) error,
 ) (domain.Notification, domain.AuditEntry, error) {
-	ctx = normalizeContext(ctx)
+	if err := validateContext(ctx); err != nil {
+		return domain.Notification{}, domain.AuditEntry{}, err
+	}
 	id := strings.TrimSpace(command.NotificationID)
 	if id == "" {
 		return domain.Notification{}, domain.AuditEntry{}, ErrAdministrativeNoticeRequired
 	}
+	if err := validateContext(ctx); err != nil {
+		return domain.Notification{}, domain.AuditEntry{}, err
+	}
 	notification, err := u.notifications.GetByID(ctx, id)
 	if err != nil {
 		return domain.Notification{}, domain.AuditEntry{}, fmt.Errorf("get notification: %w", err)
+	}
+	if err := validateContext(ctx); err != nil {
+		return domain.Notification{}, domain.AuditEntry{}, err
 	}
 	recipientID := strings.TrimSpace(command.RecipientID)
 	if recipientID == "" {
@@ -221,8 +277,14 @@ func (u *AdministrativeFlowUseCase) applyNotificationReceipt(
 	if err := apply(&notification, receipt); err != nil {
 		return domain.Notification{}, domain.AuditEntry{}, err
 	}
+	if err := validateContext(ctx); err != nil {
+		return domain.Notification{}, domain.AuditEntry{}, err
+	}
 	if err := u.notifications.Save(ctx, notification); err != nil {
 		return domain.Notification{}, domain.AuditEntry{}, fmt.Errorf("save notification receipt: %w", err)
+	}
+	if err := validateContext(ctx); err != nil {
+		return domain.Notification{}, domain.AuditEntry{}, err
 	}
 	entry, err := u.appendAudit(ctx, notification.CandidateID, recipientID, action, notification.AuditPayload(), command.IssuedAt)
 	if err != nil {
@@ -239,6 +301,9 @@ func (u *AdministrativeFlowUseCase) appendAudit(
 	payload []byte,
 	occurredAt time.Time,
 ) (domain.AuditEntry, error) {
+	if err := validateContext(ctx); err != nil {
+		return domain.AuditEntry{}, err
+	}
 	scope := "candidate:" + strings.TrimSpace(candidateID)
 	entry, err := u.audit.Append(ctx, scope, domain.AuditEnvelope{
 		Actor: strings.TrimSpace(actor), Action: action,
@@ -246,6 +311,9 @@ func (u *AdministrativeFlowUseCase) appendAudit(
 	})
 	if err != nil {
 		return domain.AuditEntry{}, fmt.Errorf("append audit: %w", err)
+	}
+	if err := validateContext(ctx); err != nil {
+		return domain.AuditEntry{}, err
 	}
 	return entry, nil
 }

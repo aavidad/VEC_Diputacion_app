@@ -67,6 +67,33 @@ func TestCalcularAutobaremoRejectsMeritWithoutRule(t *testing.T) {
 	}
 }
 
+func TestBaremoSeparaAutobaremoDeValoracionOficial(t *testing.T) {
+	ruleSet := mustBaremoRuleSet(t, nil)
+	meritos := []Merit{
+		{ID: "borrador", Tipo: MeritTypeFormacionTitulo, Datos: MeritData{PuntosFijos: 1}, Estado: MeritStateBorrador},
+		{ID: "presentado", Tipo: MeritTypeFormacionTitulo, Datos: MeritData{PuntosFijos: 1}, Estado: MeritStatePresentado},
+		{ID: "validado", Tipo: MeritTypeFormacionTitulo, Datos: MeritData{PuntosFijos: 1}, Estado: MeritStateValidado},
+		{ID: "rechazado", Tipo: MeritTypeFormacionTitulo, Datos: MeritData{PuntosFijos: 100}, Estado: MeritStateRechazado},
+		{ID: "subsanacion", Tipo: MeritTypeFormacionTitulo, Datos: MeritData{PuntosFijos: 100}, Estado: MeritStateSubsanacion},
+	}
+
+	autobaremo, err := CalcularAutobaremo(meritos, ruleSet)
+	if err != nil {
+		t.Fatalf("CalcularAutobaremo() error = %v", err)
+	}
+	if autobaremo.TotalPoints != 3 || len(autobaremo.Details) != 3 {
+		t.Fatalf("autobaremo puntua estados no admisibles: %+v", autobaremo)
+	}
+
+	oficial, err := CalcularBaremoOficial(meritos, ruleSet)
+	if err != nil {
+		t.Fatalf("CalcularBaremoOficial() error = %v", err)
+	}
+	if oficial.TotalPoints != 1 || len(oficial.Details) != 1 || oficial.Details[0].MeritID != "validado" {
+		t.Fatalf("baremo oficial no se limita a meritos validados: %+v", oficial)
+	}
+}
+
 func TestBaremoRuleSetValidation(t *testing.T) {
 	tests := []struct {
 		name   string

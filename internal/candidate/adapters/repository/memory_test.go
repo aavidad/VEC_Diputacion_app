@@ -22,12 +22,12 @@ func TestMemoryRepositoriesSaveAndListDeterministically(t *testing.T) {
 	if err := candidates.Save(ctx, "call-1", candidateFixture("cand-1")); err != nil {
 		t.Fatalf("Save(candidate cand-1) error = %v", err)
 	}
-	gotCandidate, err := candidates.GetByID(ctx, "cand-1")
+	gotCandidate, gotCallID, err := candidates.GetByID(ctx, "cand-1")
 	if err != nil {
 		t.Fatalf("GetByID() error = %v", err)
 	}
-	if gotCandidate.ID != "cand-1" {
-		t.Fatalf("GetByID().ID = %q, want %q", gotCandidate.ID, "cand-1")
+	if gotCandidate.ID != "cand-1" || gotCallID != "call-1" {
+		t.Fatalf("GetByID() = %q/%q, want cand-1/call-1", gotCandidate.ID, gotCallID)
 	}
 
 	gotCandidates, err := candidates.ListByCall(ctx, "call-1")
@@ -81,9 +81,21 @@ func TestMemoryCandidateRepositoryMovesCandidateBetweenCalls(t *testing.T) {
 }
 
 func TestMemoryCandidateRepositoryNotFound(t *testing.T) {
-	_, err := NewCandidateRepository(nil).GetByID(context.Background(), "missing")
+	_, _, err := NewCandidateRepository(nil).GetByID(context.Background(), "missing")
 	if !errors.Is(err, ports.ErrCandidateNotFound) {
 		t.Fatalf("GetByID() error = %v, want %v", err, ports.ErrCandidateNotFound)
+	}
+}
+
+func TestMemoryCandidateRepositoryRejectsImplicitOrWildcardCall(t *testing.T) {
+	repository := NewCandidateRepository(nil)
+	for _, callID := range []string{"", " call-1 ", "*", "call-*"} {
+		if err := repository.Save(context.Background(), callID, candidateFixture("cand-1")); !errors.Is(err, ports.ErrCandidateCallInvalid) {
+			t.Fatalf("Save(call=%q) error = %v, want %v", callID, err, ports.ErrCandidateCallInvalid)
+		}
+		if _, err := repository.ListByCall(context.Background(), callID); !errors.Is(err, ports.ErrCandidateCallInvalid) {
+			t.Fatalf("ListByCall(call=%q) error = %v, want %v", callID, err, ports.ErrCandidateCallInvalid)
+		}
 	}
 }
 

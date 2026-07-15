@@ -2,9 +2,11 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
+	adminmodule "vec-diputacion-granada/internal/modules/administracion"
 	bolsamodule "vec-diputacion-granada/internal/modules/bolsa"
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
 	cronosmemory "vec-diputacion-granada/internal/modules/cronos/adapters/memory"
@@ -15,28 +17,34 @@ import (
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
-func (h *Handler) handleWorkspace(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleWorkspace(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
 	if !h.requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	modules, err := h.service.Modules(r.Context())
-	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, err.Error())
+	if !principal.HasPermission("vec.workspace.read") {
+		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
 		return
 	}
-	h.writeJSON(w, http.StatusOK, workspaceSnapshotWithCronos(r.Context(), modules, h.cronos))
+	// Este workspace heredado mezcla registros de varias personas y modulos,
+	// pero carece de resolver de recursos en el servidor. Un permiso grueso no
+	// puede autorizar esos registros. La ruta queda cerrada hasta que el PDP
+	// aporte un ambito positivo exacto para cada seccion y campo.
+	h.escribirSuperficieHTTPCronosNoDisponible(w)
 }
 
-func workspaceSnapshot(modules []domain.ModuleManifest) map[string]any {
+func workspaceSnapshot(modules []domain.ModuleManifest) (map[string]any, error) {
 	cronosService, err := newWorkspaceCronosService()
 	if err != nil {
-		return workspaceSnapshotWithCronos(context.Background(), modules, nil)
+		return nil, err
 	}
 	return workspaceSnapshotWithCronos(context.Background(), modules, cronosService)
 }
 
-func workspaceSnapshotWithCronos(ctx context.Context, modules []domain.ModuleManifest, cronosService *cronosapp.Service) map[string]any {
-	cronosData := workspaceCronosData(ctx, cronosService)
+func workspaceSnapshotWithCronos(ctx context.Context, modules []domain.ModuleManifest, cronosService *cronosapp.Service) (map[string]any, error) {
+	cronosData, err := workspaceCronosData(ctx, cronosService)
+	if err != nil {
+		return nil, err
+	}
 	return map[string]any{
 		"generated_at": time.Now().UTC(),
 		"modules":      modules,
@@ -53,6 +61,7 @@ func workspaceSnapshotWithCronos(ctx context.Context, modules []domain.ModuleMan
 		"flow_states":    workspaceFlowStates(),
 		"access_roles":   workspaceAccessRoles(),
 		"role_assignments": []map[string]any{
+			{"user": "demo.empleado", "display_name": "Empleado demo", "roles": []string{"personal_interno"}, "units": []string{"Servicio provincial"}, "state": "Activo", "mfa": "Clave"},
 			{"user": "demo.admin", "display_name": "Administrador VEC", "roles": []string{"administrador"}, "units": []string{"Diputacion"}, "state": "Activo", "mfa": "Certificado/Clave"},
 			{"user": "demo.rrhh.tecnico", "display_name": "Tecnico RRHH", "roles": []string{"tecnico_rrhh"}, "units": []string{"Recursos Humanos"}, "state": "Activo", "mfa": "Certificado"},
 			{"user": "demo.servicio", "display_name": "Jefatura de Servicio", "roles": []string{"jefe_servicio"}, "units": []string{"Asistencia a Municipios"}, "state": "Activo", "mfa": "Clave"},
@@ -295,14 +304,13 @@ func workspaceSnapshotWithCronos(ctx context.Context, modules []domain.ModuleMan
 				"action":    "Revisar",
 			},
 		},
-		"province_routes": []map[string]any{
-			{"id": "R-GR-MOTRIL", "from": "Granada", "to": "Motril", "km_one_way": 70.4, "estimated_minutes": 55, "allowance": "media dieta"},
-			{"id": "R-GR-LOJA", "from": "Granada", "to": "Loja", "km_one_way": 54.0, "estimated_minutes": 45, "allowance": "sin dieta por defecto"},
-			{"id": "R-GR-GUADIX", "from": "Granada", "to": "Guadix", "km_one_way": 60.5, "estimated_minutes": 50, "allowance": "media dieta si hay manutencion"},
-			{"id": "R-GR-BAZA", "from": "Granada", "to": "Baza", "km_one_way": 107.2, "estimated_minutes": 80, "allowance": "dieta completa segun horario"},
-			{"id": "R-GR-ALMUNECAR", "from": "Granada", "to": "Almunecar", "km_one_way": 80.5, "estimated_minutes": 65, "allowance": "media dieta"},
-		},
-		"schedule_profiles": cronosData["schedule_profiles"],
+		"province_localities":         dietasmodule.ProvinceLocalityMaps(),
+		"province_route_points":       dietasmodule.ProvinceRoutePointMaps(),
+		"province_route_matrix":       dietasmodule.ProvinceRouteMatrixStatus(),
+		"province_route_pairs":        dietasmodule.ProvinceRoutePairMaps(),
+		"province_routes":             dietasmodule.ProvinceRoutePairMaps(),
+		"province_itinerary_examples": dietasmodule.ProvinceRouteItineraryExampleMaps(),
+		"schedule_profiles":           cronosData["schedule_profiles"],
 		"cronos_sections": []string{
 			"Saldo Horario",
 			"Movimientos",
@@ -318,7 +326,7 @@ func workspaceSnapshotWithCronos(ctx context.Context, modules []domain.ModuleMan
 		"cronos_leave_policies":      cronosData["leave_policies"],
 		"cronos_leave_requests":      cronosData["leave_requests"],
 		"cronos_permission_balances": cronosData["permission_balances"],
-	}
+	}, nil
 }
 
 var workspaceCronosDate = time.Date(2026, time.June, 19, 0, 0, 0, 0, time.UTC)
@@ -493,19 +501,18 @@ func workspaceCronosLeaveRequests() []cronosdomain.LeaveRequest {
 	}
 }
 
-func workspaceCronosData(ctx context.Context, service *cronosapp.Service) map[string]any {
+func workspaceCronosData(ctx context.Context, service *cronosapp.Service) (map[string]any, error) {
 	if service == nil {
-		var err error
-		service, err = newWorkspaceCronosService()
-		if err != nil {
-			return emptyCronosData()
-		}
+		return nil, cronosapp.ErrServiceDependencyRequired
 	}
-	snapshot, err := service.Snapshot(ctx, workspaceCronosDate)
+	snapshot, err := service.Snapshot(ctx, workspaceCronosDate, workspaceCronosEmployeeIDs())
 	if err != nil {
-		return emptyCronosData()
+		return nil, err
 	}
-	summary := firstCronosResult(snapshot.Results, "EMP-0031")
+	summary, found := firstCronosResult(snapshot.Results, "EMP-0031")
+	if !found {
+		return nil, errors.New("persona del resumen de demostracion de Cronos no encontrada")
+	}
 	profiles := make([]map[string]any, 0, len(snapshot.Profiles)+2)
 	for _, profile := range snapshot.Profiles {
 		profiles = append(profiles, scheduleProfileView(profile, 0))
@@ -557,28 +564,26 @@ func workspaceCronosData(ctx context.Context, service *cronosapp.Service) map[st
 		},
 		"timecards":       timecards,
 		"reduction_cases": reductionCases,
-	}
+	}, nil
 }
 
-func emptyCronosData() map[string]any {
-	return map[string]any{
-		"schedule_profiles": []map[string]any{},
-		"daily_summary":     map[string]any{"engine": "cronos.application.Service.Snapshot", "store": "unavailable"},
-		"timecards":         []map[string]any{},
-		"reduction_cases":   []map[string]any{},
-	}
+func workspaceCronosEmployeeIDs() []string {
+	// Datos de demostracion locales: el alcance se declara positivamente y no
+	// se infiere de un filtro vacio. La superficie HTTP que usaba este conjunto
+	// permanece cerrada hasta resolver el alcance real desde el servidor.
+	return []string{"EMP-0031", "EMP-0042", "EMP-0063", "EMP-0064", "EMP-0088"}
 }
 
-func firstCronosResult(results []cronosdomain.DayResult, employeeID string) cronosdomain.DayResult {
+func firstCronosResult(results []cronosdomain.DayResult, employeeID string) (cronosdomain.DayResult, bool) {
+	if employeeID == "" {
+		return cronosdomain.DayResult{}, false
+	}
 	for _, result := range results {
 		if result.EmployeeID == employeeID {
-			return result
+			return result, true
 		}
 	}
-	if len(results) > 0 {
-		return results[0]
-	}
-	return cronosdomain.DayResult{Date: workspaceCronosDate}
+	return cronosdomain.DayResult{}, false
 }
 
 func firstFlexibleProfile(profiles []cronosdomain.ScheduleProfile) cronosdomain.ScheduleProfile {
@@ -666,10 +671,13 @@ func leavePolicyViews(policies []cronosdomain.LeavePolicy) []map[string]any {
 }
 
 func leaveBalanceViews(balances []cronosdomain.LeaveBalance, policies []cronosdomain.LeavePolicy, employeeID string) []map[string]any {
+	if employeeID == "" {
+		return []map[string]any{}
+	}
 	policyByID := leavePoliciesByID(policies)
 	views := make([]map[string]any, 0, len(balances))
 	for _, balance := range balances {
-		if employeeID != "" && balance.EmployeeID != employeeID {
+		if balance.EmployeeID != employeeID {
 			continue
 		}
 		policy, ok := policyByID[balance.PolicyID]
@@ -844,12 +852,12 @@ func workspaceScreenCatalog() []map[string]any {
 		screenSpec("cronos.dashboard", "cronos", "Dashboard Cronos", "Situacion diaria: saldo, fichajes, permisos, vacaciones, teletrabajo e incidencias.", []string{"Dia", "Saldo mes", "Fichajes abiertos", "Permisos", "Vacaciones", "Incidencias"}, []string{"Fichar", "Justificar", "Aprobar"}),
 		screenSpec("cronos.fichajes", "cronos", "Fichajes", "Registra entrada, salida, pausas, canal, teletrabajo y correcciones.", []string{"Empleado", "Fecha", "Entrada", "Salida", "Pausas", "Canal", "Justificante"}, []string{"Fichar", "Alta manual", "Corregir", "Justificar"}),
 		screenSpec("cronos.incidencias", "cronos", "Incidencias de jornada", "Resuelve sin salida, defecto/exceso, fuera de perfil, solapes y ausencias.", []string{"Empleado", "Fecha", "Tipo", "Severidad", "Impacto", "Documento", "Responsable"}, []string{"Justificar", "Aprobar", "Rechazar", "Enviar a nomina"}),
-		screenSpec("horarios.perfiles", "horarios", "Perfiles horarios", "Define tramos, flexibilidad, cobertura obligatoria, vigencia y excepciones.", []string{"Perfil", "Unidad", "Flexible", "Entrada", "Tramo obligatorio", "Horas", "Vigencia"}, []string{"Crear perfil", "Asignar puesto", "Cerrar vigencia"}),
-		screenSpec("horarios.reducciones", "horarios", "Reducciones 63/64", "Aplica una hora menos a 63 anos y dos horas menos a 64 anos.", []string{"Empleado", "Edad", "Fecha efecto", "Reduccion", "Perfil resultante", "Resolucion", "Impacto nomina"}, []string{"Validar RRHH", "Aplicar cuadrante", "Enviar a nomina"}),
-		screenSpec("permisos.solicitudes", "permisos", "Permisos", "Gestiona asuntos propios, permisos, compensaciones y saldo restante.", []string{"Empleado", "Tipo", "Desde", "Hasta", "Solicitado", "Saldo", "Responsable"}, []string{"Solicitar", "Aprobar", "Denegar", "Adjuntar"}),
-		screenSpec("permisos.vacaciones", "permisos", "Vacaciones", "Calendario con saldo anual, solapes de unidad y bloqueos.", []string{"Empleado", "Periodo", "Dias", "Saldo anual", "Solape", "Unidad", "Estado"}, []string{"Solicitar", "Aprobar", "Mover periodo", "Bloquear fechas"}),
-		screenSpec("permisos.aprobaciones", "permisos", "Aprobaciones Cronos", "Bandeja de responsables para permisos, incidencias, vacaciones y cambios horarios.", []string{"Tipo", "Solicitante", "Plazo", "Impacto", "Documento", "Responsable", "Prioridad"}, []string{"Aprobar lote", "Rechazar", "Pedir subsanacion"}),
-		screenSpec("permisos.saldos", "permisos", "Saldos", "Explica saldos diarios, mensuales y anuales de jornada y permisos.", []string{"Empleado", "Teoricas", "Trabajadas", "Permisos", "Exceso/defecto", "Saldo anterior", "Cierre"}, []string{"Recalcular", "Exportar", "Cerrar mes", "Reabrir"}),
+		screenSpec("horarios.perfiles", "cronos", "Perfiles horarios", "Define tramos, flexibilidad, cobertura obligatoria, vigencia y excepciones.", []string{"Perfil", "Unidad", "Flexible", "Entrada", "Tramo obligatorio", "Horas", "Vigencia"}, []string{"Crear perfil", "Asignar puesto", "Cerrar vigencia"}),
+		screenSpec("horarios.reducciones", "cronos", "Reducciones 63/64", "Aplica una hora menos a 63 anos y dos horas menos a 64 anos.", []string{"Empleado", "Edad", "Fecha efecto", "Reduccion", "Perfil resultante", "Resolucion", "Impacto nomina"}, []string{"Validar RRHH", "Aplicar cuadrante", "Enviar a nomina"}),
+		screenSpec("permisos.solicitudes", "cronos", "Permisos", "Gestiona asuntos propios, permisos, compensaciones y saldo restante.", []string{"Empleado", "Tipo", "Desde", "Hasta", "Solicitado", "Saldo", "Responsable"}, []string{"Solicitar", "Aprobar", "Denegar", "Adjuntar"}),
+		screenSpec("permisos.vacaciones", "cronos", "Vacaciones", "Calendario con saldo anual, solapes de unidad y bloqueos.", []string{"Empleado", "Periodo", "Dias", "Saldo anual", "Solape", "Unidad", "Estado"}, []string{"Solicitar", "Aprobar", "Mover periodo", "Bloquear fechas"}),
+		screenSpec("permisos.aprobaciones", "cronos", "Aprobaciones Cronos", "Bandeja de responsables para permisos, incidencias, vacaciones y cambios horarios.", []string{"Tipo", "Solicitante", "Plazo", "Impacto", "Documento", "Responsable", "Prioridad"}, []string{"Aprobar lote", "Rechazar", "Pedir subsanacion"}),
+		screenSpec("permisos.saldos", "cronos", "Saldos", "Explica saldos diarios, mensuales y anuales de jornada y permisos.", []string{"Empleado", "Teoricas", "Trabajadas", "Permisos", "Exceso/defecto", "Saldo anterior", "Cierre"}, []string{"Recalcular", "Exportar", "Cerrar mes", "Reabrir"}),
 
 		screenSpec("dietas.dashboard", "dietas", "Dashboard Dietas", "Prioriza comisiones, gastos fuera de politica, km a validar, liquidaciones e importes.", []string{"Unidad", "Pendientes", "Fuera politica", "Km validar", "Importe", "Liquidaciones"}, []string{"Nueva comision", "Aprobar", "Liquidar", "Exportar"}),
 		screenSpec("dietas.comisiones", "dietas", "Comisiones de servicio", "Autoriza desplazamientos con motivo, trayecto, horario, centro coste y estado.", []string{"Empleado", "Motivo", "Origen", "Destino", "Inicio", "Fin", "Centro coste"}, []string{"Crear comision", "Aprobar", "Cancelar", "Vincular justificante"}),
@@ -857,8 +865,8 @@ func workspaceScreenCatalog() []map[string]any {
 		screenSpec("dietas.justificantes", "dietas", "Justificantes", "Captura tickets, facturas, autorizaciones, asistencia, hash/CSV y OCR.", []string{"Documento", "Tipo", "Importe", "Fecha", "Hash", "OCR", "Estado"}, []string{"Subir", "Validar", "Rechazar", "Solicitar subsanacion"}),
 		screenSpec("dietas.aprobaciones", "dietas", "Aprobaciones de dietas", "Decide gastos segun politica, importe, km, justificantes e historial.", []string{"Comision", "Politica", "Importe", "Km", "Justificantes", "Responsable", "Plazo"}, []string{"Aprobar", "Rechazar", "Escalar", "Devolver"}),
 		screenSpec("dietas.liquidaciones", "dietas", "Liquidaciones", "Prepara pago/reembolso y conciliacion con nomina o contabilidad.", []string{"Lote", "Empleado", "Importe", "Conceptos", "Pago", "Nomina", "Errores"}, []string{"Liquidar", "Enviar a nomina", "Conciliar", "Reabrir"}),
-		screenSpec("rutas.kilometraje", "rutas", "Kilometraje", "Calcula y justifica kilometraje reembolsable con ruta, tarifa y motivo.", []string{"Fecha", "Origen", "Destino", "Paradas", "Km calculados", "Km ajustados", "Tarifa"}, []string{"Calcular ruta", "Ajustar km", "Validar", "Rechazar"}),
-		screenSpec("rutas.mapa_provincia", "rutas", "Mapa provincia", "Mantiene referencia de municipios, distancias, tiempos y dieta orientativa.", []string{"Origen", "Destino", "Km", "Minutos", "Ruta preferente", "Dieta sugerida", "Vigencia"}, []string{"Seleccionar ruta", "Anadir parada", "Actualizar tabla"}),
+		screenSpec("rutas.kilometraje", "dietas", "Kilometraje", "Calcula y justifica kilometraje reembolsable con ruta, tarifa y motivo.", []string{"Fecha", "Origen", "Destino", "Paradas", "Km calculados", "Km ajustados", "Tarifa"}, []string{"Calcular ruta", "Ajustar km", "Validar", "Rechazar"}),
+		screenSpec("rutas.mapa_provincia", "dietas", "Mapa provincia", "Mantiene referencia de municipios, distancias, tiempos y dieta orientativa.", []string{"Origen", "Destino", "Km", "Minutos", "Ruta preferente", "Dieta sugerida", "Vigencia"}, []string{"Seleccionar ruta", "Anadir parada", "Actualizar tabla"}),
 
 		screenSpec("bolsa.dashboard", "bolsa", "Dashboard Bolsa", "Prioriza convocatorias, solicitudes, subsanaciones, certificados, listados y alegaciones.", []string{"Convocatoria", "Solicitudes", "Subsanaciones", "Certificados", "Listados", "Vencimientos"}, []string{"Abrir expediente", "Publicar listado", "Asignar revisores"}),
 		screenSpec("bolsa.convocatorias", "bolsa", "Convocatorias", "Configura bases, categorias, requisitos, fechas, baremo y responsables.", []string{"Convocatoria", "Bases", "Categoria", "Fechas", "Baremo", "Version", "Estado"}, []string{"Crear", "Versionar", "Publicar", "Cerrar"}),
@@ -1047,6 +1055,16 @@ func screenField(key, label, kind string, required bool) map[string]any {
 func workspaceAccessRoles() []map[string]any {
 	return []map[string]any{
 		{
+			"id":              "personal_interno",
+			"label":           "Empleado/a",
+			"scope":           "Expediente propio",
+			"users_count":     1248,
+			"modules":         []string{"Cronos", "Permisos", "Dietas", "Documentos", "Bolsa"},
+			"key_permissions": []string{"Consultar su expediente", "Fichar", "Solicitar permisos", "Registrar dietas propias", "Aportar justificantes"},
+			"state":           "Activo",
+			"risk":            "Sin acceso a datos de otras personas ni dashboards internos.",
+		},
+		{
 			"id":              "administrador",
 			"label":           "Administrador",
 			"scope":           "Global VEC",
@@ -1111,16 +1129,16 @@ func workspaceAccessRoles() []map[string]any {
 
 func workspaceRPTCatalog() map[string]any {
 	return map[string]any{
-		"source_summary": "Catalogo inicial construido con la pagina oficial de transparencia/RPT de dipgra.es, procesos RRHH publicados y extractor local de /home/alberto/Trabajo/nominas.",
+		"source_summary": "Catalogo inicial construido con fuentes publicas institucionales y adaptadores de importacion gobernados.",
 		"official_links": []map[string]any{
 			{"id": "dipgra_rpt", "label": "Relacion de Puestos de Trabajo", "url": "https://www.dipgra.es/servicios/areas/transparencia/portal-de-transparencia/a-informacion-institucional-y-organizativa/a3-personal/relacion-de-Puestos-de-trabajo/"},
 			{"id": "dipgra_rrhh", "label": "Procesos de seleccion y provision RRHH", "url": "https://www.dipgra.es/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/recursos-humanos/"},
 		},
-		"local_sources": []map[string]any{
-			{"id": "nominas_rpt_extractor", "path": "/home/alberto/Trabajo/nominas/internal/rpt/extractor.go", "usage": "Parser pdftotext para importar RPT completa."},
-			{"id": "nominas_rpt_model", "path": "/home/alberto/Trabajo/nominas/internal/domain/types.go", "usage": "Modelo RPTFullPosition con campos RPT completos."},
-			{"id": "uso_afiliados", "path": "/home/alberto/Trabajo/USO/app_afiliados/main.go", "usage": "Catalogo simple de situacion: funcionario, interino, laboral, otro."},
-			{"id": "opes_bolsa_categories", "path": "/home/alberto/Trabajo/USO/web/internal/adapters/secondary/postgres/migrations/0002_seed_categories_from_opes.sql", "usage": "Categorias profesionales de Diputacion/OPES para Bolsa, Personal y RPT."},
+		"integration_sources": []map[string]any{
+			{"id": "rpt_importador", "connector_ref": "conector:rpt:importacion", "usage": "Importacion gobernada de la RPT completa."},
+			{"id": "rpt_modelo", "connector_ref": "contrato:rpt:posicion:v1", "usage": "Contrato versionado de puestos y campos RPT."},
+			{"id": "situaciones_personal", "connector_ref": "catalogo:personal:situaciones", "usage": "Catalogo gobernado de situaciones administrativas."},
+			{"id": "categorias_bolsa", "connector_ref": "catalogo:bolsa:categorias", "usage": "Categorias profesionales compartidas por Bolsa, Personal y RPT."},
 		},
 		"rpt_fields": []map[string]any{
 			{"code": "codigo", "label": "Codigo de puesto", "required": true},
@@ -1347,9 +1365,9 @@ func workspaceExpensePolicy() map[string]any {
 		},
 		"approval_chain": []map[string]any{
 			{"step": 1, "role": "solicitante", "state": "borrador", "action": "Registrar comision"},
-			{"step": 2, "role": "responsable_unidad", "state": "pendiente_responsable", "action": "Autorizar desplazamiento"},
-			{"step": 3, "role": "intervencion_demo", "state": "validacion_gasto", "action": "Validar politica y justificantes"},
-			{"step": 4, "role": "nominas", "state": "lista_para_nomina", "action": "Incluir en payroll_run demo"},
+			{"step": 2, "role": "jefe_seccion", "state": "pendiente_jefe_seccion", "action": "Validar necesidad del desplazamiento"},
+			{"step": 3, "role": "jefe_servicio", "state": "pendiente_jefe_servicio", "action": "Validar gasto y cobertura"},
+			{"step": 4, "role": "rrhh", "state": "validacion_rrhh", "action": "Validacion final y envio a liquidacion"},
 		},
 		"thresholds": map[string]any{
 			"route_over_km_requires_reason": 15.0,
@@ -1406,8 +1424,8 @@ func workspaceActionCatalog() map[string][]map[string]any {
 			{"id": "bolsa.autobaremo.recalculate", "label": "Recalcular autobaremo", "screen_id": "bolsa.autobaremo", "required_permissions": []string{bolsamodule.PermissionManage}, "flow_transition": "en_revision -> baremo_provisional", "demo_effect": "Actualiza puntuacion provisional sin valor juridico."},
 		},
 		"administracion": {
-			{"id": "vec.roles.assign", "label": "Asignar rol", "screen_id": "admin.usuarios_roles", "required_permissions": []string{"vec.roles.manage"}, "flow_transition": "pendiente -> activo", "demo_effect": "Registra una asignacion de rol con ambito y suplencia demo."},
-			{"id": "vec.catalog.rpt.publish", "label": "Publicar catalogo RPT", "screen_id": "admin.catalogos", "required_permissions": []string{"vec.catalogs.manage", personalmodule.PermissionPositionManage}, "flow_transition": "borrador -> vigente", "demo_effect": "Versiona catalogos RPT demo y deja traza de fuente."},
+			{"id": "vec.roles.assign", "label": "Asignar rol", "screen_id": "admin.usuarios_roles", "required_permissions": []string{adminmodule.PermissionRolesManage}, "flow_transition": "pendiente -> activo", "demo_effect": "Registra una asignacion de rol con ambito y suplencia demo."},
+			{"id": "vec.catalog.rpt.publish", "label": "Publicar catalogo RPT", "screen_id": "admin.catalogos", "required_permissions": []string{adminmodule.PermissionCatalogsManage, personalmodule.PermissionPositionManage}, "flow_transition": "borrador -> vigente", "demo_effect": "Versiona catalogos RPT demo y deja traza de fuente."},
 		},
 	}
 }

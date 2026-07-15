@@ -2,7 +2,10 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/server"
@@ -13,7 +16,11 @@ import (
 	candidatedomain "vec-diputacion-granada/internal/candidate/domain"
 	"vec-diputacion-granada/internal/candidate/ports"
 	"vec-diputacion-granada/internal/candidate/usecases"
+	adminmodule "vec-diputacion-granada/internal/modules/administracion"
 	bolsamodule "vec-diputacion-granada/internal/modules/bolsa"
+	bolsafichero "vec-diputacion-granada/internal/modules/bolsa/adapters/fichero"
+	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppublico"
+	bolsaapp "vec-diputacion-granada/internal/modules/bolsa/application"
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
 	dietasmodule "vec-diputacion-granada/internal/modules/dietas"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
@@ -37,24 +44,49 @@ func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 }
 
 func NewDemoAPI() (http.Handler, error) {
-	return NewDemoAPIWithConfig(config.Config{})
+	return NewDemoAPIWithConfig(config.Config{AuthMode: config.AuthModeFake})
 }
 
 func NewDemoAPIWithConfig(cfg config.Config) (http.Handler, error) {
-	bolsaAPI, err := newBolsaAPIWithConfig(cfg)
+	cfg = cfg.Normalize()
+	credencialesFake, err := cargarAlmacenFakeConfigurado(cfg)
 	if err != nil {
 		return nil, err
 	}
-	vecAPI, err := NewVECShellAPI()
+	vecAPI, err := newVECShellAPIWithConfig(cfg, credencialesFake)
 	if err != nil {
 		return nil, err
 	}
-	return composeAPI(vecAPI, bolsaAPI), nil
+	publicaBolsaAPI, err := newBolsaPublicAPI(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.AuthMode != config.AuthModeFake {
+		return composeVECShellAPI(vecAPI, publicaBolsaAPI), nil
+	}
+	bolsaAPI, err := newBolsaAPIWithConfig(cfg, credencialesFake)
+	if err != nil {
+		return nil, err
+	}
+	return composeAPI(vecAPI, bolsaAPI, publicaBolsaAPI), nil
 }
 
 func NewVECShellAPI() (http.Handler, error) {
+	return NewVECShellAPIWithConfig(config.Config{PersonalCatalogPath: "memory"})
+}
+
+func NewVECShellAPIWithConfig(cfg config.Config) (http.Handler, error) {
+	cfg = cfg.Normalize()
+	credencialesFake, err := cargarAlmacenFakeConfigurado(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return newVECShellAPIWithConfig(cfg, credencialesFake)
+}
+
+func newVECShellAPIWithConfig(cfg config.Config, credencialesFake *almacenCredencialesFake) (http.Handler, error) {
 	store := vecmemory.NewStore()
-	service, err := vecapp.NewService(store, store, store)
+	service, internalOperations, err := vecapp.NewServiceWithInternalOperations(store, store, store)
 	if err != nil {
 		return nil, err
 	}
@@ -63,23 +95,86 @@ func NewVECShellAPI() (http.Handler, error) {
 		cronosmodule.Manifest(),
 		dietasmodule.Manifest(),
 		bolsamodule.Manifest(),
+		adminmodule.Manifest(),
 	} {
-		if err := service.RegisterModule(context.Background(), manifest); err != nil {
+		if err := internalOperations.RegisterModule(context.Background(), manifest); err != nil {
 			return nil, err
 		}
 	}
-	return vechttp.NewHandler(service)
+	return vechttp.NewHandlerWithOptions(service, vechttp.HandlerOptions{
+		InternalOperations:      internalOperations,
+		PersonalCatalogPath:     cfg.PersonalCatalogPath,
+		OSRMBaseURL:             cfg.OSRMBaseURL,
+		OSRMScopeName:           cfg.OSRMScopeName,
+		OSRMScopeBounds:         cfg.OSRMScopeBounds,
+		OSRMAllowedCIDRs:        append([]string(nil), cfg.OSRMAllowedCIDRs...),
+		AllowDemoIdentity:       cfg.AuthMode == config.AuthModeFake,
+		DemoIdentityResolver:    credencialesFake,
+		TrustIdentityHeaders:    cfg.AuthMode == config.AuthModeTrustedHeaders,
+		TrustedProxyCIDRs:       append([]string(nil), cfg.TrustedProxyCIDRs...),
+		IdentitySubjectHeader:   cfg.TrustedHeaderSubject,
+		IdentityRolesHeader:     cfg.TrustedHeaderRoles,
+		IdentityMechanismHeader: cfg.TrustedHeaderMechanism,
+	})
 }
 
-func composeAPI(vecAPI http.Handler, fallback http.Handler) http.Handler {
+func composeAPI(vecAPI http.Handler, fallback http.Handler, publicaBolsaAPI http.Handler) http.Handler {
 	mux := http.NewServeMux()
+	registrarBolsaPublica(mux, publicaBolsaAPI)
 	mux.Handle("/api/vec", vecAPI)
 	mux.Handle("/api/vec/", vecAPI)
 	mux.Handle("/", fallback)
 	return mux
 }
 
-func newBolsaAPIWithConfig(cfg config.Config) (http.Handler, error) {
+// composeVECShellAPI no registra una ruta comodin. La API heredada de Bolsa
+// solo se publica en el modo fake de demostracion hasta que autorice cada
+// operacion mediante el PDP V1; en cualquier otro modo sus rutas no existen.
+func composeVECShellAPI(vecAPI http.Handler, publicaBolsaAPI http.Handler) http.Handler {
+	mux := http.NewServeMux()
+	registrarBolsaPublica(mux, publicaBolsaAPI)
+	mux.Handle("/api/vec", vecAPI)
+	mux.Handle("/api/vec/", vecAPI)
+	return mux
+}
+
+func registrarBolsaPublica(mux *http.ServeMux, publica http.Handler) {
+	mux.Handle(bolsahttp.RutaConvocatorias, publica)
+	mux.Handle(bolsahttp.RutaConvocatorias+"/", publica)
+}
+
+func newBolsaPublicAPI(cfg config.Config) (http.Handler, error) {
+	ruta, err := resolverRutaFuentePublica(cfg.BolsaPublicSourcePath)
+	if err != nil {
+		return nil, err
+	}
+	adaptador, err := bolsafichero.NuevaConsultaConvocatorias(ruta)
+	if err != nil {
+		return nil, err
+	}
+	servicio, err := bolsaapp.NuevoServicioConsultaPublica(adaptador, bolsaapp.RelojSistemaConsultaPublica{})
+	if err != nil {
+		return nil, err
+	}
+	return bolsahttp.NuevoHandler(servicio)
+}
+
+func resolverRutaFuentePublica(configurada string) (string, error) {
+	if filepath.IsAbs(configurada) {
+		if info, err := os.Stat(configurada); err == nil && !info.IsDir() {
+			return configurada, nil
+		}
+		return "", errors.New("bootstrap: fuente publica de Bolsa no disponible")
+	}
+	for _, candidata := range []string{configurada, filepath.Join("../../..", configurada)} {
+		if info, err := os.Stat(candidata); err == nil && !info.IsDir() {
+			return candidata, nil
+		}
+	}
+	return "", errors.New("bootstrap: fuente publica de Bolsa no disponible")
+}
+
+func newBolsaAPIWithConfig(cfg config.Config, credencialesFake *almacenCredencialesFake) (http.Handler, error) {
 	cfg = cfg.Normalize()
 	candidates, merits, results, durable, err := demoRepositories(cfg)
 	if err != nil {
@@ -90,7 +185,7 @@ func newBolsaAPIWithConfig(cfg config.Config) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	rules, err := demoRuleSet(application.DefaultCallID, "v1")
+	rules, err := demoRuleSet("convocatoria-demostracion", "v1")
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +203,7 @@ func newBolsaAPIWithConfig(cfg config.Config) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	authenticator, err := demoAuthenticator(cfg)
+	authenticator, err := demoAuthenticator(cfg, credencialesFake)
 	if err != nil {
 		return nil, err
 	}
@@ -168,32 +263,27 @@ func demoAdministrativeFlow(durable *repository.DurableFileStore) (handler.Admin
 	return handler.NewAdministrativeFlowService(documents, usecase), nil
 }
 
-func demoAuthenticator(cfg config.Config) (ports.Authenticator, error) {
+func cargarAlmacenFakeConfigurado(cfg config.Config) (*almacenCredencialesFake, error) {
+	if cfg.AuthMode != config.AuthModeFake {
+		return nil, nil
+	}
+	return cargarCredencialesFake(cfg.FakeCredentialsPath)
+}
+
+func demoAuthenticator(cfg config.Config, credencialesFake *almacenCredencialesFake) (ports.Authenticator, error) {
 	cfg = cfg.Normalize()
-	if cfg.AuthMode == config.AuthModeTrustedHeaders {
-		return authadapter.NewTrustedHeadersAuthenticator(cfg)
+	if cfg.AuthMode != config.AuthModeFake {
+		// La API heredada de Bolsa aun autoriza por roles gruesos. Ni siquiera una
+		// cabecera procedente de un proxy admitido puede convertir esos roles en
+		// autoridad funcional: permanece cerrada hasta consumir el autorizador
+		// RBAC+ABAC por operacion. La carcasa VEC puede autenticar la identidad por
+		// su frontera separada, pero tampoco hereda permisos de la cabecera.
+		return authadapter.NewFakeAuthenticator()
 	}
-	citizen := ports.AuthPrincipal{
-		Subject:   "cand-1",
-		Role:      ports.AuthRoleCiudadano,
-		Mechanism: ports.AuthMechanismClave,
+	if credencialesFake == nil {
+		return nil, errCredencialFakeNoValida
 	}
-	staff := ports.AuthPrincipal{
-		Subject:   "staff",
-		Role:      ports.AuthRolePersonalInterno,
-		Mechanism: ports.AuthMechanismKerberosAD,
-	}
-	authenticator, err := authadapter.NewFakeAuthenticator(citizen, staff)
-	if err != nil {
-		return nil, err
-	}
-	if err := authenticator.Register(citizen, "citizen-token"); err != nil {
-		return nil, err
-	}
-	if err := authenticator.Register(staff, "staff-token"); err != nil {
-		return nil, err
-	}
-	return authenticator, nil
+	return credencialesFake, nil
 }
 
 func demoRuleSet(convocatoriaID string, version string) (candidatedomain.BaremoRuleSet, error) {

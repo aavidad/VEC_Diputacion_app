@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -44,7 +45,7 @@ func TestServicePersistsAndEvaluatesWorkdays(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("RegisterWorkday() error = %v", err)
 	}
-	snapshot, err := service.Snapshot(ctx, day)
+	snapshot, err := service.Snapshot(ctx, day, []string{"EMP-0064"})
 	if err != nil {
 		t.Fatalf("Snapshot() error = %v", err)
 	}
@@ -54,6 +55,28 @@ func TestServicePersistsAndEvaluatesWorkdays(t *testing.T) {
 	result := snapshot.Results[0]
 	if result.Reduction != 2*time.Hour || result.Theoretical != domain.Minutes(5, 30) || result.Balance != 0 {
 		t.Fatalf("result = reduction %s theoretical %s balance %s", result.Reduction, result.Theoretical, result.Balance)
+	}
+}
+
+func TestServiceCronosExigeAlcancesConcretos(t *testing.T) {
+	service, err := NewService(cronosmemory.NewStore())
+	if err != nil {
+		t.Fatalf("NewService() error = %v", err)
+	}
+	ctx := context.Background()
+	if _, err := service.Snapshot(ctx, time.Time{}, []string{"EMP-0031"}); !errors.Is(err, domain.ErrWorkdayInvalid) {
+		t.Fatalf("Snapshot(fecha cero) error = %v", err)
+	}
+	for _, employeeIDs := range [][]string{nil, {}, {"*"}, {"EMP-0031", "EMP-0031"}} {
+		if _, err := service.Snapshot(ctx, time.Now().UTC(), employeeIDs); !errors.Is(err, domain.ErrWorkdayInvalid) {
+			t.Fatalf("Snapshot(%#v) error = %v", employeeIDs, err)
+		}
+	}
+	if _, err := service.LeaveBalances(ctx, "", 2026); !errors.Is(err, domain.ErrLeaveBalanceInvalid) {
+		t.Fatalf("LeaveBalances(empleado vacio) error = %v", err)
+	}
+	if _, err := service.LeaveRequests(ctx, "EMP-0031", 0); !errors.Is(err, domain.ErrLeaveRequestInvalid) {
+		t.Fatalf("LeaveRequests(anio cero) error = %v", err)
 	}
 }
 

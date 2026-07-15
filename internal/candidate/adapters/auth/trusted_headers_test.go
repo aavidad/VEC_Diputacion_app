@@ -17,7 +17,7 @@ func TestTrustedHeadersAuthenticatorAuthenticatesConfiguredHeaders(t *testing.T)
 	req := httptest.NewRequest("GET", "/api/portal", nil)
 	req.RemoteAddr = "127.0.0.1:12345"
 	req.Header.Set(config.DefaultTrustedHeaderSubject, "candidate-1")
-	req.Header.Set(config.DefaultTrustedHeaderRoles, "candidate,validator_l1")
+	req.Header.Set(config.DefaultTrustedHeaderRoles, "candidate")
 	req.Header.Set(config.DefaultTrustedHeaderMechanism, string(ports.AuthMechanismClave))
 
 	principal, err := authenticator.AuthenticateRequest(context.Background(), req)
@@ -27,8 +27,100 @@ func TestTrustedHeadersAuthenticatorAuthenticatesConfiguredHeaders(t *testing.T)
 	if principal.Subject != "candidate-1" || principal.Role != ports.AuthRoleCandidate {
 		t.Fatalf("principal = %+v", principal)
 	}
-	if !principal.HasRole(ports.AuthRoleValidatorL1) {
+	if len(principal.AllRoles()) != 1 {
 		t.Fatalf("principal roles = %#v", principal.Roles)
+	}
+}
+
+func TestTrustedHeadersAuthenticatorRejectsAmbiguousRoleSet(t *testing.T) {
+	t.Parallel()
+
+	authenticator := newTestTrustedHeadersAuthenticator(t)
+	for _, roles := range []string{
+		"candidate,validator_l1",
+		"candidate,candidate",
+		"candidate,unknown",
+		"candidate unknown",
+		" candidate",
+		"candidate ",
+	} {
+		req := httptest.NewRequest("GET", "/api/portal", nil)
+		req.RemoteAddr = "127.0.0.1:12345"
+		req.Header.Set(config.DefaultTrustedHeaderSubject, "candidate-1")
+		req.Header.Set(config.DefaultTrustedHeaderRoles, roles)
+		req.Header.Set(config.DefaultTrustedHeaderMechanism, string(ports.AuthMechanismClave))
+
+		_, err := authenticator.AuthenticateRequest(context.Background(), req)
+		if !errors.Is(err, ports.ErrAuthRoleInvalid) {
+			t.Fatalf("roles %q: AuthenticateRequest() error = %v, want %v", roles, err, ports.ErrAuthRoleInvalid)
+		}
+	}
+}
+
+func TestTrustedHeadersAuthenticatorRejectsUnpublishedRoleAliases(t *testing.T) {
+	t.Parallel()
+
+	authenticator := newTestTrustedHeadersAuthenticator(t)
+	for _, role := range []string{"ciudadano", "personal_interno", "administrador", "admin", "Candidate"} {
+		req := httptest.NewRequest("GET", "/api/portal", nil)
+		req.RemoteAddr = "127.0.0.1:12345"
+		req.Header.Set(config.DefaultTrustedHeaderSubject, "identity-1")
+		req.Header.Set(config.DefaultTrustedHeaderRoles, role)
+		req.Header.Set(config.DefaultTrustedHeaderMechanism, string(ports.AuthMechanismClave))
+
+		if _, err := authenticator.AuthenticateRequest(context.Background(), req); !errors.Is(err, ports.ErrAuthRoleInvalid) {
+			t.Fatalf("role alias %q: error = %v, want %v", role, err, ports.ErrAuthRoleInvalid)
+		}
+	}
+}
+
+func TestTrustedHeadersAuthenticatorRejectsInvalidOrAmbiguousMechanism(t *testing.T) {
+	t.Parallel()
+
+	authenticator := newTestTrustedHeadersAuthenticator(t)
+	for _, mechanisms := range [][]string{
+		{"password"},
+		{"kerberos"},
+		{"ad"},
+		{"certificado"},
+		{" clave"},
+		{string(ports.AuthMechanismClave), string(ports.AuthMechanismDNIe)},
+		{string(ports.AuthMechanismClave), string(ports.AuthMechanismClave)},
+	} {
+		req := httptest.NewRequest("GET", "/api/portal", nil)
+		req.RemoteAddr = "127.0.0.1:12345"
+		req.Header.Set(config.DefaultTrustedHeaderSubject, "candidate-1")
+		req.Header.Set(config.DefaultTrustedHeaderRoles, string(ports.AuthRoleCandidate))
+		req.Header.Del(config.DefaultTrustedHeaderMechanism)
+		for _, mechanism := range mechanisms {
+			req.Header.Add(config.DefaultTrustedHeaderMechanism, mechanism)
+		}
+
+		if _, err := authenticator.AuthenticateRequest(context.Background(), req); err == nil {
+			t.Fatalf("mechanisms %#v were accepted", mechanisms)
+		}
+	}
+}
+
+func TestTrustedHeadersAuthenticatorRejectsRepeatedAuthorityHeaders(t *testing.T) {
+	t.Parallel()
+
+	authenticator := newTestTrustedHeadersAuthenticator(t)
+	for _, header := range []string{
+		config.DefaultTrustedHeaderSubject,
+		config.DefaultTrustedHeaderRoles,
+		config.DefaultTrustedHeaderMechanism,
+	} {
+		req := httptest.NewRequest("GET", "/api/portal", nil)
+		req.RemoteAddr = "127.0.0.1:12345"
+		req.Header.Set(config.DefaultTrustedHeaderSubject, "candidate-1")
+		req.Header.Set(config.DefaultTrustedHeaderRoles, string(ports.AuthRoleCandidate))
+		req.Header.Set(config.DefaultTrustedHeaderMechanism, string(ports.AuthMechanismClave))
+		req.Header.Add(header, req.Header.Get(header))
+
+		if _, err := authenticator.AuthenticateRequest(context.Background(), req); err == nil {
+			t.Fatalf("la cabecera autoritativa repetida %s fue aceptada", header)
+		}
 	}
 }
 
@@ -97,6 +189,30 @@ func TestTrustedHeadersAuthenticatorRejectsUntrustedOrIncompleteRequest(t *testi
 			mechanism:  string(ports.AuthMechanismKerberosAD),
 			wantErr:    ports.ErrAuthRoleInvalid,
 		},
+		{
+			name:       "non canonical subject",
+			remoteAddr: "127.0.0.1:12345",
+			subject:    " candidate-1",
+			roles:      string(ports.AuthRoleCandidate),
+			mechanism:  string(ports.AuthMechanismClave),
+			wantErr:    ports.ErrAuthPrincipalInvalid,
+		},
+		{
+			name:       "ambiguous combined subject",
+			remoteAddr: "127.0.0.1:12345",
+			subject:    "candidate-1,candidate-2",
+			roles:      string(ports.AuthRoleCandidate),
+			mechanism:  string(ports.AuthMechanismClave),
+			wantErr:    ports.ErrAuthPrincipalInvalid,
+		},
+		{
+			name:       "invisible subject format",
+			remoteAddr: "127.0.0.1:12345",
+			subject:    "candidate\u200b-1",
+			roles:      string(ports.AuthRoleCandidate),
+			mechanism:  string(ports.AuthMechanismClave),
+			wantErr:    ports.ErrAuthPrincipalInvalid,
+		},
 	}
 
 	for _, tt := range tests {
@@ -115,6 +231,23 @@ func TestTrustedHeadersAuthenticatorRejectsUntrustedOrIncompleteRequest(t *testi
 				t.Fatalf("AuthenticateRequest() error = %v, want %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestTrustedHeadersAuthenticatorNeverTrustsDetachedAssertions(t *testing.T) {
+	t.Parallel()
+
+	authenticator := newTestTrustedHeadersAuthenticator(t)
+	_, err := authenticator.Authenticate(context.Background(), ports.AuthCredentials{
+		Mechanism: ports.AuthMechanismClave,
+		Subject:   "candidate-1",
+		Token:     "token",
+		Assertions: map[string]string{
+			"roles": string(ports.AuthRoleSystemAdmin),
+		},
+	})
+	if !errors.Is(err, ports.ErrAuthenticationFailed) {
+		t.Fatalf("Authenticate() error = %v, want %v", err, ports.ErrAuthenticationFailed)
 	}
 }
 

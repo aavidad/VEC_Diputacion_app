@@ -4,15 +4,17 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"sync"
 
 	"vec-diputacion-granada/internal/candidate/domain"
 	"vec-diputacion-granada/internal/candidate/ports"
 )
 
-const DefaultCallID = "convocatoria-default"
-
-var ErrServiceDependenciesRequired = errors.New("candidate application service: repositories and baremo usecase are required")
+var (
+	ErrServiceDependenciesRequired = errors.New("candidate application service: repositories and baremo usecase are required")
+	ErrCallIDRequired              = errors.New("candidate application service: an explicit call is required")
+	ErrCallNotConfigured           = errors.New("candidate application service: call is not configured")
+	ErrCandidateCallBindingInvalid = errors.New("candidate application service: candidate call binding is invalid")
+)
 
 type Service interface {
 	CreateCandidate(context.Context, CreateCandidateCommand) (CandidateView, error)
@@ -30,9 +32,6 @@ type CandidateApplicationService struct {
 	merits     ports.MeritRepository
 	baremo     BaremoCalculator
 	ruleSet    domain.BaremoRuleSet
-
-	mu                  sync.RWMutex
-	callIDByCandidateID map[string]string
 }
 
 func NewCandidateApplicationService(
@@ -48,11 +47,10 @@ func NewCandidateApplicationService(
 		return nil, err
 	}
 	return &CandidateApplicationService{
-		candidates:          candidates,
-		merits:              merits,
-		baremo:              baremo,
-		ruleSet:             ruleSet,
-		callIDByCandidateID: make(map[string]string),
+		candidates: candidates,
+		merits:     merits,
+		baremo:     baremo,
+		ruleSet:    ruleSet,
 	}, nil
 }
 
@@ -64,14 +62,17 @@ func (s *CandidateApplicationService) CreateCandidate(
 	if err != nil {
 		return CandidateView{}, err
 	}
-	callID := strings.TrimSpace(command.CallID)
+	callID := command.CallID
 	if callID == "" {
-		callID = DefaultCallID
+		return CandidateView{}, ErrCallIDRequired
+	}
+	if callID != strings.TrimSpace(callID) || strings.Contains(callID, "*") ||
+		callID != s.ruleSet.Config().ConvocatoriaID {
+		return CandidateView{}, ErrCallNotConfigured
 	}
 	if err := s.candidates.Save(ctx, callID, candidate); err != nil {
 		return CandidateView{}, err
 	}
-	s.rememberCandidateCallID(candidate.ID, callID)
 	return candidateView(candidate, callID), nil
 }
 
@@ -81,18 +82,19 @@ func (s *CandidateApplicationService) AddMerit(
 	command AddMeritCommand,
 ) (MeritView, error) {
 	candidateID = strings.TrimSpace(candidateID)
-	if _, err := s.candidates.GetByID(ctx, candidateID); err != nil {
+	if _, _, err := s.candidateInConfiguredCall(ctx, candidateID); err != nil {
 		return MeritView{}, err
 	}
 	merit, err := domain.NewMerit(command.ID, command.Tipo, domain.MeritData(command.Datos))
 	if err != nil {
 		return MeritView{}, err
 	}
-	if command.Estado != "" {
-		merit.Estado = command.Estado
-		if err := merit.Validate(); err != nil {
-			return MeritView{}, err
-		}
+	// El estado administrativo no es un dato declarable por el candidato.
+	// Admitirlo aqui permitia crear un merito ya "Validado" desde la API
+	// ciudadana. La presentacion y la revision deben pasar por casos de uso
+	// distintos, autorizados y auditados.
+	if command.Estado != "" && command.Estado != domain.MeritStateBorrador {
+		return MeritView{}, domain.ErrMeritTransition
 	}
 	if err := s.merits.Save(ctx, candidateID, merit); err != nil {
 		return MeritView{}, err
@@ -105,12 +107,16 @@ func (s *CandidateApplicationService) CalculateBaremo(
 	candidateID string,
 ) (BaremoView, error) {
 	candidateID = strings.TrimSpace(candidateID)
-	if _, err := s.candidates.GetByID(ctx, candidateID); err != nil {
+	if _, _, err := s.candidateInConfiguredCall(ctx, candidateID); err != nil {
 		return BaremoView{}, err
 	}
 	result, err := s.baremo.CalcularAutobaremo(ctx, candidateID, s.ruleSet)
 	if err != nil {
 		return BaremoView{}, err
+	}
+	configuracion := s.ruleSet.Config()
+	if result.RuleSetID != configuracion.ConvocatoriaID || result.RuleSetVersion != configuracion.Version {
+		return BaremoView{}, ErrCandidateCallBindingInvalid
 	}
 	return baremoView(result), nil
 }
@@ -120,7 +126,7 @@ func (s *CandidateApplicationService) ExportExpediente(
 	candidateID string,
 ) (ExpedienteView, error) {
 	candidateID = strings.TrimSpace(candidateID)
-	candidate, err := s.candidates.GetByID(ctx, candidateID)
+	candidate, callID, err := s.candidateInConfiguredCall(ctx, candidateID)
 	if err != nil {
 		return ExpedienteView{}, err
 	}
@@ -133,7 +139,7 @@ func (s *CandidateApplicationService) ExportExpediente(
 		return ExpedienteView{}, err
 	}
 	view := ExpedienteView{
-		Candidate: candidateView(candidate, s.candidateCallID(candidate.ID)),
+		Candidate: candidateView(candidate, callID),
 		Baremo:    baremo,
 		Merits:    make([]MeritView, 0, len(merits)),
 	}
@@ -143,20 +149,20 @@ func (s *CandidateApplicationService) ExportExpediente(
 	return view, nil
 }
 
-func (s *CandidateApplicationService) rememberCandidateCallID(candidateID, callID string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.callIDByCandidateID[candidateID] = callID
-}
-
-func (s *CandidateApplicationService) candidateCallID(candidateID string) string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	callID := strings.TrimSpace(s.callIDByCandidateID[candidateID])
-	if callID == "" {
-		return DefaultCallID
+func (s *CandidateApplicationService) candidateInConfiguredCall(
+	ctx context.Context,
+	candidateID string,
+) (domain.Candidate, string, error) {
+	candidate, callID, err := s.candidates.GetByID(ctx, candidateID)
+	if err != nil {
+		return domain.Candidate{}, "", err
 	}
-	return callID
+	configuredCallID := s.ruleSet.Config().ConvocatoriaID
+	if callID == "" || callID != strings.TrimSpace(callID) || strings.Contains(callID, "*") ||
+		callID != configuredCallID {
+		return domain.Candidate{}, "", ErrCandidateCallBindingInvalid
+	}
+	return candidate, callID, nil
 }
 
 func candidateView(candidate domain.Candidate, callID string) CandidateView {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"vec-diputacion-granada/internal/candidate/application"
 	"vec-diputacion-granada/internal/candidate/domain"
 	"vec-diputacion-granada/internal/candidate/ports"
 	"vec-diputacion-granada/internal/candidate/usecases"
@@ -48,6 +49,8 @@ func isValidationError(err error) bool {
 		errors.Is(err, domain.ErrProcedureRanking) ||
 		errors.Is(err, usecases.ErrProcedureConvocatoriaRequired) ||
 		errors.Is(err, usecases.ErrProcedureSolicitudRequired) ||
+		errors.Is(err, application.ErrCallIDRequired) ||
+		errors.Is(err, application.ErrCallNotConfigured) ||
 		errors.Is(err, domain.ErrBaremoRuleSetInvalid) ||
 		errors.Is(err, domain.ErrBaremoMeritNoRule)
 }

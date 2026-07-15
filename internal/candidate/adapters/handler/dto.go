@@ -5,8 +5,6 @@ import (
 	"vec-diputacion-granada/internal/candidate/domain"
 )
 
-const defaultCallID = application.DefaultCallID
-
 type Service = application.Service
 type CandidateApplicationService = application.CandidateApplicationService
 type CreateCandidateCommand = application.CreateCandidateCommand
@@ -31,11 +29,16 @@ type ListadoView struct {
 }
 
 type ListadoItemView struct {
-	SolicitudID string                `json:"solicitud_id"`
-	CandidateID string                `json:"candidate_id"`
-	Estado      domain.SolicitudState `json:"estado"`
-	TotalPoints float64               `json:"total_points"`
-	Rank        int                   `json:"rank,omitempty"`
+	ConvocatoriaID string                `json:"convocatoria_id"`
+	SolicitudID    string                `json:"solicitud_id"`
+	CandidateID    string                `json:"candidate_id"`
+	Estado         domain.SolicitudState `json:"estado"`
+	TotalPoints    float64               `json:"total_points"`
+	SectionPoints  map[string]float64    `json:"section_points,omitempty"`
+	RuleSetID      string                `json:"rule_set_id,omitempty"`
+	RuleSetVersion string                `json:"rule_set_version,omitempty"`
+	Details        []BaremoDetailView    `json:"details,omitempty"`
+	Rank           int                   `json:"rank,omitempty"`
 }
 
 type ProcedureDemoView struct {

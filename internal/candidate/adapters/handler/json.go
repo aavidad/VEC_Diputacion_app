@@ -2,6 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -11,7 +13,17 @@ import (
 func decodeJSON(r *http.Request, target any) error {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
-	return decoder.Decode(target)
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("la peticion contiene mas de un valor JSON")
+		}
+		return err
+	}
+	return nil
 }
 
 func (h *Handler) writeError(w http.ResponseWriter, status int, key string, err error) {
@@ -28,6 +40,7 @@ func publicError(status int, err error) string {
 	}
 	message := err.Error()
 	internalFragments := []string{
+		"candidate application service:",
 		"usecase:",
 		"repository:",
 		"durable file",
@@ -64,6 +77,10 @@ func fallbackMessage(key string) string {
 		return "Expediente exportado correctamente"
 	case "api.error.method_not_allowed":
 		return "Metodo no permitido"
+	case "api.error.secure_upload_unavailable":
+		return "La carga documental segura todavia no esta disponible"
+	case "api.error.probative_flow_unavailable":
+		return "El registro probatorio seguro todavia no esta disponible"
 	case "api.procedure.demo_completed":
 		return "Flujo administrativo completado"
 	case "api.procedure.convocatoria_created":
@@ -84,22 +101,24 @@ func fallbackMessage(key string) string {
 func fallbackCatalog() *i18n.Catalog {
 	catalog, _ := i18n.New(i18n.DefaultLocale, map[string]map[string]string{
 		i18n.DefaultLocale: {
-			"api.candidate.created":              "Candidato creado correctamente",
-			"api.candidate.merit_added":          "Merito agregado correctamente",
-			"api.candidate.baremo_calculated":    "Baremo calculado correctamente",
-			"api.candidate.expediente_exported":  "Expediente exportado correctamente",
-			"api.error.bad_request":              "Solicitud no valida",
-			"api.error.unauthorized":             "Autenticacion requerida",
-			"api.error.forbidden":                "Permisos insuficientes",
-			"api.error.not_found":                "Recurso no encontrado",
-			"api.error.method_not_allowed":       "Metodo no permitido",
-			"api.error.internal":                 "Error interno del servidor",
-			"api.procedure.demo_completed":       "Flujo administrativo completado",
-			"api.procedure.convocatoria_created": "Convocatoria creada correctamente",
-			"api.procedure.solicitud_registered": "Solicitud registrada correctamente",
-			"api.procedure.listado_published":    "Listado publicado correctamente",
-			"api.admin.status_loaded":            "Estado operativo cargado",
-			"api.admin.capabilities_loaded":      "Capacidades administrativas cargadas",
+			"api.candidate.created":                "Candidato creado correctamente",
+			"api.candidate.merit_added":            "Merito agregado correctamente",
+			"api.candidate.baremo_calculated":      "Baremo calculado correctamente",
+			"api.candidate.expediente_exported":    "Expediente exportado correctamente",
+			"api.error.bad_request":                "Solicitud no valida",
+			"api.error.unauthorized":               "Autenticacion requerida",
+			"api.error.forbidden":                  "Permisos insuficientes",
+			"api.error.not_found":                  "Recurso no encontrado",
+			"api.error.method_not_allowed":         "Metodo no permitido",
+			"api.error.secure_upload_unavailable":  "La carga documental segura todavia no esta disponible",
+			"api.error.probative_flow_unavailable": "El registro probatorio seguro todavia no esta disponible",
+			"api.error.internal":                   "Error interno del servidor",
+			"api.procedure.demo_completed":         "Flujo administrativo completado",
+			"api.procedure.convocatoria_created":   "Convocatoria creada correctamente",
+			"api.procedure.solicitud_registered":   "Solicitud registrada correctamente",
+			"api.procedure.listado_published":      "Listado publicado correctamente",
+			"api.admin.status_loaded":              "Estado operativo cargado",
+			"api.admin.capabilities_loaded":        "Capacidades administrativas cargadas",
 		},
 	})
 	return catalog

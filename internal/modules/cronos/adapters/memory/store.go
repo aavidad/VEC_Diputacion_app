@@ -60,13 +60,27 @@ func (s *Store) SaveWorkday(_ context.Context, workday domain.Workday) error {
 	return nil
 }
 
-func (s *Store) ListWorkdays(_ context.Context, date time.Time) ([]domain.Workday, error) {
+func (s *Store) ListWorkdays(_ context.Context, employeeIDs []string, date time.Time) ([]domain.Workday, error) {
+	if date.IsZero() || len(employeeIDs) == 0 || len(employeeIDs) > 1024 {
+		return nil, domain.ErrWorkdayInvalid
+	}
+	alcance := make(map[string]struct{}, len(employeeIDs))
+	for _, employeeID := range employeeIDs {
+		if employeeID == "" || employeeID != strings.TrimSpace(employeeID) || strings.ContainsRune(employeeID, '*') {
+			return nil, domain.ErrWorkdayInvalid
+		}
+		if _, repetido := alcance[employeeID]; repetido {
+			return nil, domain.ErrWorkdayInvalid
+		}
+		alcance[employeeID] = struct{}{}
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	filter := dayKey(date)
 	workdays := make([]domain.Workday, 0, len(s.workdays))
 	for _, workday := range s.workdays {
-		if filter == "" || dayKey(workday.Date) == filter {
+		_, permitido := alcance[workday.EmployeeID]
+		if permitido && dayKey(workday.Date) == filter {
 			workdays = append(workdays, cloneWorkday(workday))
 		}
 	}
@@ -128,14 +142,17 @@ func (s *Store) SaveLeaveBalance(_ context.Context, balance domain.LeaveBalance)
 }
 
 func (s *Store) ListLeaveBalances(_ context.Context, employeeID string, year int) ([]domain.LeaveBalance, error) {
+	if employeeID == "" || employeeID != strings.TrimSpace(employeeID) || year <= 0 {
+		return nil, domain.ErrLeaveBalanceInvalid
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	balances := make([]domain.LeaveBalance, 0, len(s.leaveBalances))
 	for _, balance := range s.leaveBalances {
-		if strings.TrimSpace(employeeID) != "" && balance.EmployeeID != strings.TrimSpace(employeeID) {
+		if balance.EmployeeID != employeeID {
 			continue
 		}
-		if year > 0 && balance.Year != year {
+		if balance.Year != year {
 			continue
 		}
 		balances = append(balances, balance)
@@ -161,14 +178,17 @@ func (s *Store) SaveLeaveRequest(_ context.Context, request domain.LeaveRequest)
 }
 
 func (s *Store) ListLeaveRequests(_ context.Context, employeeID string, year int) ([]domain.LeaveRequest, error) {
+	if employeeID == "" || employeeID != strings.TrimSpace(employeeID) || year <= 0 {
+		return nil, domain.ErrLeaveRequestInvalid
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	requests := make([]domain.LeaveRequest, 0, len(s.leaveRequests))
 	for _, request := range s.leaveRequests {
-		if strings.TrimSpace(employeeID) != "" && request.EmployeeID != strings.TrimSpace(employeeID) {
+		if request.EmployeeID != employeeID {
 			continue
 		}
-		if year > 0 && request.From.Year() != year {
+		if request.From.Year() != year {
 			continue
 		}
 		requests = append(requests, request)

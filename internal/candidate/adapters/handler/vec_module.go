@@ -13,7 +13,7 @@ func (h *Handler) handleVECModuleRoute(
 	path string,
 	principal ports.AuthPrincipal,
 ) {
-	if !h.requireStaff(w, principal) || !h.requireMethod(w, r, http.MethodGet) {
+	if !h.requireInternalMetadata(w, principal) || !h.requireMethod(w, r, http.MethodGet) {
 		return
 	}
 	if path == "/modules/bolsa/healthz" {
@@ -34,7 +34,7 @@ func (h *Handler) handleAdminRoute(
 	path string,
 	principal ports.AuthPrincipal,
 ) {
-	if !h.requireStaff(w, principal) || !h.requireMethod(w, r, http.MethodGet) {
+	if !h.requireTechnicalAdmin(w, principal) || !h.requireMethod(w, r, http.MethodGet) {
 		return
 	}
 	switch path {

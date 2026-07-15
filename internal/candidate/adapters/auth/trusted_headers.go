@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/candidate/ports"
@@ -35,7 +37,7 @@ func (a *TrustedHeadersAuthenticator) AuthenticateRequest(
 	ctx context.Context,
 	r *http.Request,
 ) (ports.AuthPrincipal, error) {
-	if a == nil || r == nil {
+	if a == nil || r == nil || ctx == nil {
 		return ports.AuthPrincipal{}, ports.ErrAuthenticationFailed
 	}
 	if err := ctx.Err(); err != nil {
@@ -44,18 +46,26 @@ func (a *TrustedHeadersAuthenticator) AuthenticateRequest(
 	if !a.isTrustedRemote(r.RemoteAddr) {
 		return ports.AuthPrincipal{}, ports.ErrAuthenticationFailed
 	}
-	mechanism := ports.AuthMechanism(strings.TrimSpace(r.Header.Get(a.mechanismHeader)))
-	if strings.TrimSpace(string(mechanism)) == "" {
+	mechanismValue, ok := singleCanonicalHeaderValue(r.Header.Values(a.mechanismHeader))
+	if !ok {
 		return ports.AuthPrincipal{}, ports.ErrAuthMechanismRequired
 	}
-	roles := parseRoles(r.Header.Values(a.rolesHeader))
-	if len(roles) == 0 {
+	mechanism := ports.AuthMechanism(mechanismValue)
+	role, ok := parseSingleRole(r.Header.Values(a.rolesHeader))
+	// Este adaptador heredado no dispone del PDP por recurso necesario para
+	// combinar perfiles. Hasta que se migre al nucleo RBAC+ABAC solo acepta un
+	// perfil canonico exacto; elegir uno por orden ampliaria autoridad.
+	if !ok {
 		return ports.AuthPrincipal{}, ports.ErrAuthRoleInvalid
 	}
+	subject, ok := singleCanonicalHeaderValue(r.Header.Values(a.subjectHeader))
+	if !ok || !canonicalSubject(subject) {
+		return ports.AuthPrincipal{}, ports.ErrAuthPrincipalInvalid
+	}
 	principal := ports.AuthPrincipal{
-		Subject:   strings.TrimSpace(r.Header.Get(a.subjectHeader)),
-		Role:      roles[0],
-		Roles:     roles,
+		Subject:   subject,
+		Role:      role,
+		Roles:     []ports.AuthRole{role},
 		Mechanism: mechanism,
 		Method:    mechanism,
 		Attributes: map[string]string{
@@ -70,28 +80,18 @@ func (a *TrustedHeadersAuthenticator) AuthenticateRequest(
 
 func (a *TrustedHeadersAuthenticator) Authenticate(
 	ctx context.Context,
-	credentials ports.AuthCredentials,
+	_ ports.AuthCredentials,
 ) (ports.AuthPrincipal, error) {
-	if a == nil {
+	if a == nil || ctx == nil {
 		return ports.AuthPrincipal{}, ports.ErrAuthenticationFailed
 	}
 	if err := ctx.Err(); err != nil {
 		return ports.AuthPrincipal{}, err
 	}
-	if strings.TrimSpace(string(credentials.Mechanism)) == "" {
-		return ports.AuthPrincipal{}, ports.ErrAuthMechanismRequired
-	}
-	roles := parseRoles([]string{credentials.Assertions["roles"]})
-	if len(roles) == 0 {
-		return ports.AuthPrincipal{}, ports.ErrAuthRoleInvalid
-	}
-	return normalizePrincipal(ports.AuthPrincipal{
-		Subject:   strings.TrimSpace(credentials.Subject),
-		Role:      roles[0],
-		Roles:     roles,
-		Mechanism: credentials.Mechanism,
-		Method:    credentials.Mechanism,
-	})
+	// Sin la peticion no se puede probar que las aserciones procedan de un
+	// proxy permitido. Aceptarlas desde AuthCredentials convertiria un mapa
+	// controlado por el llamador en una fuente de autoridad.
+	return ports.AuthPrincipal{}, ports.ErrAuthenticationFailed
 }
 
 func (a *TrustedHeadersAuthenticator) isTrustedRemote(remoteAddr string) bool {
@@ -126,25 +126,29 @@ func parseTrustedProxyCIDRs(values []string) ([]*net.IPNet, error) {
 	return proxies, nil
 }
 
-func parseRoles(values []string) []ports.AuthRole {
-	roles := make([]ports.AuthRole, 0, len(values))
-	seen := make(map[ports.AuthRole]struct{})
-	for _, value := range values {
-		for _, part := range strings.FieldsFunc(value, roleSeparator) {
-			role := ports.AuthRole(strings.TrimSpace(part))
-			if !role.IsValid() {
-				continue
-			}
-			if _, ok := seen[role]; ok {
-				continue
-			}
-			seen[role] = struct{}{}
-			roles = append(roles, role)
-		}
+func parseSingleRole(values []string) (ports.AuthRole, bool) {
+	value, ok := singleCanonicalHeaderValue(values)
+	if !ok || strings.ContainsAny(value, ",;") || strings.ContainsFunc(value, unicode.IsSpace) {
+		return "", false
 	}
-	return roles
+	role := ports.AuthRole(value)
+	return role, role.IsValid()
 }
 
-func roleSeparator(r rune) bool {
-	return r == ',' || r == ';' || r == ' '
+func singleCanonicalHeaderValue(values []string) (string, bool) {
+	if len(values) != 1 || values[0] == "" || values[0] != strings.TrimSpace(values[0]) ||
+		strings.ContainsFunc(values[0], unicode.IsControl) {
+		return "", false
+	}
+	return values[0], true
+}
+
+func canonicalSubject(value string) bool {
+	if value == "" || value != strings.TrimSpace(value) || len(value) > 512 ||
+		!utf8.ValidString(value) || strings.ContainsAny(value, "*,;") {
+		return false
+	}
+	return !strings.ContainsFunc(value, func(character rune) bool {
+		return unicode.IsControl(character) || unicode.IsSpace(character) || unicode.Is(unicode.Cf, character)
+	})
 }

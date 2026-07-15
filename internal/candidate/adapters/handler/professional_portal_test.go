@@ -24,16 +24,16 @@ func TestHTTPHandlerReturnsProfessionalPortalForStaff(t *testing.T) {
 	if portal.Principal.Subject != "staff" || portal.Principal.Role != ports.AuthRolePersonalInterno {
 		t.Fatalf("principal = %+v", portal.Principal)
 	}
-	if len(portal.Sections) != 3 || !hasRoute(portal.Routes, "/api/portal") ||
-		!hasRoute(portal.Routes, "/api/admin/status") ||
-		!hasRoute(portal.Routes, "/api/admin/capabilities") ||
-		!hasRoute(portal.Routes, "/api/candidates/{id}/claims") ||
+	if len(portal.Sections) != 2 || !hasRoute(portal.Routes, "/api/portal") ||
 		!hasRoute(portal.Routes, "/api/candidates/{id}/notifications") ||
 		!hasRoute(portal.Routes, "/api/candidates/{id}/audit") ||
-		!hasRoute(portal.Routes, "/api/notifications/{id}/send") ||
-		!hasRoute(portal.Routes, "/api/notifications/{id}/read") ||
 		!hasRoute(portal.Routes, "/api/audit?candidate_id={id}") {
 		t.Fatalf("portal data = %+v", portal)
+	}
+	for _, forbidden := range []string{"/api/admin/status", "/api/admin/capabilities", "/api/candidates/{id}/claims"} {
+		if hasRoute(portal.Routes, forbidden) {
+			t.Fatalf("el portal funcional anuncio una ruta no concedida: %s", forbidden)
+		}
 	}
 }
 
@@ -54,21 +54,19 @@ func TestHTTPHandlerListsProfessionalPortalAtAPIRoot(t *testing.T) {
 	}
 	decodeData(t, response, &root)
 	if !hasRoute(root.Routes, "/api/portal") ||
-		!hasRoute(root.Routes, "/api/admin/status") ||
-		!hasRoute(root.Routes, "/api/admin/capabilities") ||
-		!hasRoute(root.Routes, "/api/candidates/{id}/claims") ||
 		!hasRoute(root.Routes, "/api/candidates/{id}/notifications") ||
 		!hasRoute(root.Routes, "/api/candidates/{id}/audit") ||
-		!hasRoute(root.Routes, "/api/notifications/{id}/send") ||
-		!hasRoute(root.Routes, "/api/notifications/{id}/read") ||
 		!hasRoute(root.Routes, "/api/audit?candidate_id={id}") {
 		t.Fatalf("routes = %+v", root.Routes)
 	}
+	if hasRoute(root.Routes, "/api/admin/status") || hasRoute(root.Routes, "/api/admin/capabilities") {
+		t.Fatalf("la raiz funcional anuncio rutas tecnicas: %+v", root.Routes)
+	}
 }
 
-func TestHTTPHandlerReturnsAdminStatusAndCapabilitiesForStaff(t *testing.T) {
+func TestHTTPHandlerReturnsAdminStatusAndCapabilitiesForTechnicalAdmin(t *testing.T) {
 	handler := mustTestHandlerWithDemo(t, &recordingService{}, nil, &recordingAuthenticator{
-		principal: ports.AuthPrincipal{Subject: "staff", Role: ports.AuthRolePersonalInterno},
+		principal: ports.AuthPrincipal{Subject: "technical-admin", Role: ports.AuthRoleSystemAdmin, Mechanism: ports.AuthMechanismKerberosAD},
 	})
 
 	statusResponse := performStaffJSON(t, handler, http.MethodGet, "/api/admin/status", "")
@@ -105,14 +103,15 @@ func TestHTTPHandlerReturnsAdminStatusAndCapabilitiesForStaff(t *testing.T) {
 
 func TestHTTPHandlerProtectsAdminEndpoints(t *testing.T) {
 	candidate := mustTestHandler(t, &recordingService{}, &recordingAuthenticator{
-		principal: ports.AuthPrincipal{Subject: "candidate", Role: ports.AuthRoleCiudadano},
+		principal: ports.AuthPrincipal{Subject: "candidate", Role: ports.AuthRoleCiudadano, Mechanism: ports.AuthMechanismClave},
 	})
 	assertStatus(t, performJSON(t, candidate, http.MethodGet, "/api/admin/status", ""), http.StatusForbidden)
 
 	staff := mustTestHandler(t, &recordingService{}, &recordingAuthenticator{
-		principal: ports.AuthPrincipal{Subject: "staff", Role: ports.AuthRolePersonalInterno},
+		principal: ports.AuthPrincipal{Subject: "staff", Role: ports.AuthRolePersonalInterno, Mechanism: ports.AuthMechanismKerberosAD},
 	})
-	assertStatus(t, performStaffJSON(t, staff, http.MethodPost, "/api/admin/status", ""), http.StatusMethodNotAllowed)
+	assertStatus(t, performStaffJSON(t, staff, http.MethodGet, "/api/admin/status", ""), http.StatusForbidden)
+	assertStatus(t, performStaffJSON(t, staff, http.MethodPost, "/api/admin/status", ""), http.StatusForbidden)
 }
 
 func TestHTTPHandlerRejectsCandidateOnProfessionalPortal(t *testing.T) {

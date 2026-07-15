@@ -26,9 +26,9 @@ func TestDurableFileStoreReloadsSnapshotAndContinuesAuditChain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDurableFileStore(reopen) error = %v", err)
 	}
-	candidate, err := reopened.CandidateRepository().GetByID(ctx, "cand-1")
-	if err != nil || candidate.ID != "cand-1" {
-		t.Fatalf("GetByID() = %+v, %v", candidate, err)
+	candidate, callID, err := reopened.CandidateRepository().GetByID(ctx, "cand-1")
+	if err != nil || candidate.ID != "cand-1" || callID != "call-1" {
+		t.Fatalf("GetByID() = %+v/%q, %v", candidate, callID, err)
 	}
 	merits, err := reopened.MeritRepository().ListByCandidate(ctx, "cand-1")
 	if err != nil || len(merits) != 1 {
@@ -116,9 +116,9 @@ func TestDurableFileStoreFallsBackToLastGoodBackup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDurableFileStore(corrupt primary) error = %v", err)
 	}
-	candidate, err := reopened.CandidateRepository().GetByID(ctx, "cand-1")
-	if err != nil || candidate.ID != "cand-1" {
-		t.Fatalf("backup candidate = %+v, %v", candidate, err)
+	candidate, callID, err := reopened.CandidateRepository().GetByID(ctx, "cand-1")
+	if err != nil || candidate.ID != "cand-1" || callID != "call-1" {
+		t.Fatalf("backup candidate = %+v/%q, %v", candidate, callID, err)
 	}
 }
 

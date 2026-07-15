@@ -3,7 +3,10 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"vec-diputacion-granada/internal/candidate/ports"
 )
@@ -14,7 +17,7 @@ func (h *Handler) dispatch(w http.ResponseWriter, r *http.Request, principal por
 	path := apiPath(r.URL.Path)
 	switch {
 	case path == "/":
-		h.handleAPIRoot(w, r)
+		h.handleAPIRoot(w, r, principal)
 	case path == "/demo":
 		h.handleDemoRoute(w, r, principal)
 	case path == "/portal":
@@ -55,23 +58,43 @@ func (h *Handler) handleDemoRoute(
 	h.handleDemo(w, r)
 }
 
-func (h *Handler) handleAPIRoot(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleAPIRoot(w http.ResponseWriter, r *http.Request, principal ports.AuthPrincipal) {
 	if !h.requireMethod(w, r, http.MethodGet) {
 		return
 	}
 	h.writeJSON(w, http.StatusOK, responseEnvelope{
-		Data: map[string][]string{"routes": apiRootRoutes()},
+		Data: map[string][]string{"routes": apiRootRoutes(principal.Role)},
 	})
 }
 
-func apiRootRoutes() []string {
-	routes := append([]string(nil), apiRoutes()...)
-	routes = append(routes,
-		"/api/modules/bolsa",
-		"/api/modules/bolsa/manifest",
-		"/api/modules/bolsa/healthz",
-	)
-	return routes
+func apiRootRoutes(role ports.AuthRole) []string {
+	switch role {
+	case ports.AuthRoleCiudadano:
+		return []string{
+			"/api/candidates",
+			"/api/candidates/{id}/merits",
+			"/api/candidates/{id}/baremo",
+			"/api/candidates/{id}/expediente",
+			"/api/candidates/{id}/documents",
+			"/api/candidates/{id}/claims",
+		}
+	case ports.AuthRolePersonalInterno, ports.AuthRoleValidatorL2:
+		return append(apiRoutes(),
+			"/api/modules/bolsa",
+			"/api/modules/bolsa/manifest",
+			"/api/modules/bolsa/healthz",
+		)
+	case ports.AuthRoleSystemAdmin:
+		return []string{
+			"/api/admin/status",
+			"/api/admin/capabilities",
+			"/api/modules/bolsa",
+			"/api/modules/bolsa/manifest",
+			"/api/modules/bolsa/healthz",
+		}
+	default:
+		return nil
+	}
 }
 
 func apiPath(path string) string {
@@ -86,7 +109,7 @@ func apiPath(path string) string {
 
 func parseCandidateAction(path string) (string, string, bool) {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) != 3 || parts[0] != "candidates" || parts[1] == "" {
+	if len(parts) != 3 || parts[0] != "candidates" || !exactCandidateReference(parts[1]) {
 		return "", "", false
 	}
 	return parts[1], parts[2], true
@@ -147,13 +170,10 @@ func (h *Handler) handleCandidateClaimsRoute(w http.ResponseWriter, r *http.Requ
 		claims, err := h.administrative.ListCandidateClaims(r.Context(), candidateID, r.URL.Query().Get("solicitud_id"))
 		h.writeAdministrativeResult(w, http.StatusOK, "api.candidate.claims_listed", claims, err)
 	case http.MethodPost:
-		var request administrativeClaimRequest
-		if err := decodeJSON(r, &request); err != nil {
-			h.writeError(w, http.StatusBadRequest, "api.error.bad_request", err)
-			return
-		}
-		claim, err := h.administrative.PresentCandidateClaim(r.Context(), candidateID, principal, request)
-		h.writeAdministrativeResult(w, http.StatusCreated, "api.candidate.claim_presented", claim, err)
+		// El recibo/CSV de la alegacion heredada procede del navegador. La
+		// presentacion se mantiene cerrada hasta que registro y cotejo emitan la
+		// evidencia desde el servidor.
+		h.writeError(w, http.StatusServiceUnavailable, "api.error.probative_flow_unavailable", errFlujoProbatorioSeguroNoDisponible)
 	default:
 		w.Header().Set("Allow", "GET, POST")
 		h.writeError(w, http.StatusMethodNotAllowed, "api.error.method_not_allowed", nil)
@@ -218,16 +238,28 @@ func (h *Handler) handleNotificationsRoute(w http.ResponseWriter, r *http.Reques
 func (h *Handler) handleGlobalNotifications(w http.ResponseWriter, r *http.Request, principal ports.AuthPrincipal) {
 	switch r.Method {
 	case http.MethodGet:
-		notifications, err := h.administrative.ListCandidateNotifications(r.Context(), r.URL.Query().Get("candidate_id"))
+		candidateID, ok := exactOnlyQueryValue(r.URL.Query(), "candidate_id", exactCandidateReference)
+		if !ok {
+			h.writeError(w, http.StatusBadRequest, "api.error.bad_request", nil)
+			return
+		}
+		notifications, err := h.administrative.ListCandidateNotifications(r.Context(), candidateID)
 		h.writeAdministrativeResult(w, http.StatusOK, "api.candidate.notifications_listed", notifications, err)
 	case http.MethodPost:
+		if len(r.URL.Query()) != 0 {
+			h.writeError(w, http.StatusBadRequest, "api.error.bad_request", nil)
+			return
+		}
 		var request administrativeGlobalNotificationRequest
 		if err := decodeJSON(r, &request); err != nil {
 			h.writeError(w, http.StatusBadRequest, "api.error.bad_request", err)
 			return
 		}
-		candidateID := defaultString(request.CandidateID, defaultString(r.URL.Query().Get("candidate_id"), r.URL.Query().Get("candidate")))
-		notification, err := h.administrative.CreateCandidateNotification(r.Context(), candidateID, principal, request.candidateRequest())
+		if !exactCandidateReference(request.CandidateID) {
+			h.writeError(w, http.StatusBadRequest, "api.error.bad_request", nil)
+			return
+		}
+		notification, err := h.administrative.CreateCandidateNotification(r.Context(), request.CandidateID, principal, request.candidateRequest())
 		h.writeAdministrativeResult(w, http.StatusCreated, "api.candidate.notification_created", notification, err)
 	default:
 		w.Header().Set("Allow", "GET, POST")
@@ -238,35 +270,67 @@ func (h *Handler) handleGlobalNotifications(w http.ResponseWriter, r *http.Reque
 func (h *Handler) notificationReceiptRequest(
 	w http.ResponseWriter,
 	r *http.Request,
-	notificationID string,
+	_ string,
 ) (administrativeNotificationReceiptRequest, bool) {
 	if !h.requireMethod(w, r, http.MethodPost) {
 		return administrativeNotificationReceiptRequest{}, false
 	}
-	var request administrativeNotificationReceiptRequest
-	if err := decodeJSON(r, &request); err != nil {
-		h.writeError(w, http.StatusBadRequest, "api.error.bad_request", err)
-		return administrativeNotificationReceiptRequest{}, false
-	}
-	request.NotificationID = notificationID
-	return request, true
+	// En el prototipo el solicitante de la transicion tambien declaraba el CSV
+	// del envio/lectura. Solo el conector de notificaciones podra producir el
+	// recibo que confirme estas transiciones.
+	h.writeError(w, http.StatusServiceUnavailable, "api.error.probative_flow_unavailable", errFlujoProbatorioSeguroNoDisponible)
+	return administrativeNotificationReceiptRequest{}, false
 }
 
 func (h *Handler) handleAuditRoute(w http.ResponseWriter, r *http.Request, principal ports.AuthPrincipal) {
 	if !h.requireStaff(w, principal) || !h.requireAdministrative(w) || !h.requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	audit, err := h.administrative.ListAuditByScope(r.Context(), auditScopeFromQuery(r))
+	scope, ok := auditScopeFromQuery(r)
+	if !ok {
+		h.writeError(w, http.StatusBadRequest, "api.error.bad_request", nil)
+		return
+	}
+	audit, err := h.administrative.ListAuditByScope(r.Context(), scope)
 	h.writeAdministrativeResult(w, http.StatusOK, "api.candidate.audit_listed", audit, err)
 }
 
-func auditScopeFromQuery(r *http.Request) string {
+func auditScopeFromQuery(r *http.Request) (string, bool) {
 	query := r.URL.Query()
-	candidateID := strings.TrimSpace(query.Get("candidate_id"))
-	if candidateID != "" {
-		return "candidate:" + candidateID
+	if candidateID, ok := exactOnlyQueryValue(query, "candidate_id", exactCandidateReference); ok {
+		return "candidate:" + candidateID, true
 	}
-	return strings.TrimSpace(query.Get("scope"))
+	scope, ok := exactOnlyQueryValue(query, "scope", exactCandidateScope)
+	return scope, ok
+}
+
+func exactOnlyQueryValue(query url.Values, key string, validate func(string) bool) (string, bool) {
+	if len(query) != 1 {
+		return "", false
+	}
+	values, ok := query[key]
+	if !ok || len(values) != 1 || !validate(values[0]) {
+		return "", false
+	}
+	return values[0], true
+}
+
+func exactCandidateScope(scope string) bool {
+	const prefix = "candidate:"
+	return strings.HasPrefix(scope, prefix) && exactCandidateReference(strings.TrimPrefix(scope, prefix))
+}
+
+func exactCandidateReference(value string) bool {
+	if value == "" || value != strings.TrimSpace(value) || len(value) > 256 ||
+		!utf8.ValidString(value) || strings.ContainsAny(value, "*/\\?#") {
+		return false
+	}
+	for _, character := range value {
+		if unicode.IsControl(character) || unicode.IsSpace(character) {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *Handler) requireAdministrative(w http.ResponseWriter) bool {

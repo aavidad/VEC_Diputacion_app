@@ -6,10 +6,6 @@ import (
 	"vec-diputacion-granada/internal/candidate/domain"
 )
 
-func defaultRuleSet() (domain.BaremoRuleSet, error) {
-	return ruleSetFor(defaultCallID, "v1")
-}
-
 func ruleSetFor(convocatoriaID string, version string) (domain.BaremoRuleSet, error) {
 	return domain.NewBaremoRuleSet(domain.BaremoRuleSetConfig{
 		ConvocatoriaID: strings.TrimSpace(convocatoriaID),

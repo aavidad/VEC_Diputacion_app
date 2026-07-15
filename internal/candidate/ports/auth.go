@@ -4,13 +4,17 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 var (
 	ErrAuthMechanismRequired    = errors.New("auth mechanism is required")
 	ErrAuthMechanismUnsupported = errors.New("auth mechanism is unsupported")
 	ErrAuthSubjectRequired      = errors.New("auth subject is required")
+	ErrAuthSubjectInvalid       = errors.New("auth subject is invalid")
 	ErrAuthTokenRequired        = errors.New("auth token is required")
+	ErrAuthTokenInvalid         = errors.New("auth token is invalid")
 	ErrAuthRoleInvalid          = errors.New("auth role is invalid")
 	ErrAuthPrincipalInvalid     = errors.New("auth principal is invalid")
 	ErrAuthenticationFailed     = errors.New("authentication failed")
@@ -63,15 +67,18 @@ type AuthCredentials struct {
 
 func (c AuthCredentials) Validate() error {
 	switch {
+	case c.Mechanism == "":
+		return ErrAuthMechanismRequired
 	case !c.Mechanism.IsValid():
-		if strings.TrimSpace(string(c.Mechanism)) == "" {
-			return ErrAuthMechanismRequired
-		}
 		return ErrAuthMechanismUnsupported
-	case strings.TrimSpace(c.Subject) == "":
+	case c.Subject == "":
 		return ErrAuthSubjectRequired
-	case strings.TrimSpace(c.Token) == "":
+	case !canonicalAuthSubject(c.Subject):
+		return ErrAuthSubjectInvalid
+	case c.Token == "":
 		return ErrAuthTokenRequired
+	case !canonicalAuthToken(c.Token):
+		return ErrAuthTokenInvalid
 	default:
 		return nil
 	}
@@ -92,10 +99,12 @@ type Identity = AuthPrincipal
 
 func (p AuthPrincipal) Validate() error {
 	switch {
-	case strings.TrimSpace(p.Subject) == "":
+	case !canonicalAuthSubject(p.Subject):
 		return ErrAuthPrincipalInvalid
 	case !p.PrimaryRole().IsValid():
 		return ErrAuthRoleInvalid
+	case p.Mechanism == "" && p.Method == "":
+		return ErrAuthMechanismRequired
 	case !p.AuthMethod().IsValid():
 		return ErrAuthMechanismUnsupported
 	default:
@@ -104,51 +113,87 @@ func (p AuthPrincipal) Validate() error {
 }
 
 func (p AuthPrincipal) PrimaryRole() AuthRole {
-	if p.Role.IsValid() {
-		return p.Role
+	var resolved AuthRole
+	present := false
+	add := func(role AuthRole) bool {
+		if !role.IsValid() {
+			return false
+		}
+		if !present {
+			resolved = role
+			present = true
+			return true
+		}
+		return resolved == role
+	}
+	if p.Role != "" && !add(p.Role) {
+		return ""
 	}
 	for _, role := range p.Roles {
-		if role.IsValid() {
-			return role
+		if !add(role) {
+			return ""
 		}
 	}
-	return ""
+	if !present {
+		return ""
+	}
+	return resolved
 }
 
 func (p AuthPrincipal) AuthMethod() AuthMechanism {
-	if p.Method.IsValid() {
-		return p.Method
+	var resolved AuthMechanism
+	present := false
+	for _, mechanism := range []AuthMechanism{p.Mechanism, p.Method} {
+		if mechanism == "" {
+			continue
+		}
+		if !mechanism.IsValid() {
+			return ""
+		}
+		if !present {
+			resolved = mechanism
+			present = true
+			continue
+		}
+		if resolved != mechanism {
+			return ""
+		}
 	}
-	return p.Mechanism
+	return resolved
 }
 
 func (p AuthPrincipal) AllRoles() []AuthRole {
-	roles := make([]AuthRole, 0, len(p.Roles)+1)
-	seen := make(map[AuthRole]struct{}, len(p.Roles)+1)
-	add := func(role AuthRole) {
-		if !role.IsValid() {
-			return
-		}
-		if _, ok := seen[role]; ok {
-			return
-		}
-		seen[role] = struct{}{}
-		roles = append(roles, role)
+	role := p.PrimaryRole()
+	if !role.IsValid() {
+		return nil
 	}
-	add(p.Role)
-	for _, role := range p.Roles {
-		add(role)
-	}
-	return roles
+	return []AuthRole{role}
 }
 
 func (p AuthPrincipal) HasRole(role AuthRole) bool {
-	for _, current := range p.AllRoles() {
-		if current == role {
-			return true
+	return role.IsValid() && p.PrimaryRole() == role
+}
+
+func canonicalAuthSubject(value string) bool {
+	if value == "" || value != strings.TrimSpace(value) || len(value) > 512 ||
+		!utf8.ValidString(value) || strings.ContainsAny(value, "*,;") {
+		return false
+	}
+	return !strings.ContainsFunc(value, func(character rune) bool {
+		return unicode.IsControl(character) || unicode.IsSpace(character) || unicode.Is(unicode.Cf, character)
+	})
+}
+
+func canonicalAuthToken(value string) bool {
+	if value == "" || len(value) > 8192 || strings.ContainsAny(value, ",;") {
+		return false
+	}
+	for index := 0; index < len(value); index++ {
+		if value[index] < 0x21 || value[index] > 0x7e {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 type Authenticator interface {

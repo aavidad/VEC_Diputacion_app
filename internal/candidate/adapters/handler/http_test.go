@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"vec-diputacion-granada/internal/candidate/application"
 	"vec-diputacion-granada/internal/candidate/domain"
 	"vec-diputacion-granada/internal/candidate/ports"
 	"vec-diputacion-granada/internal/shared/i18n"
@@ -21,9 +23,9 @@ func TestHTTPHandlerRoutesCandidateFlowToInjectedService(t *testing.T) {
 		expediente: ExpedienteView{Candidate: CandidateView{ID: "cand-1"}, Merits: []MeritView{{ID: "merit-1"}}, Baremo: BaremoView{TotalPoints: 2.4}},
 	}
 	handler := mustTestHandler(t, service, &recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "cand-1", Role: ports.AuthRoleCiudadano, Mechanism: ports.AuthMechanismClave}})
-	create := performJSON(t, handler, http.MethodPost, "/candidates", `{"id":"cand-1","dni":"12345678A","nombre":"Ana Perez","email":"ana@example.test"}`)
+	create := performJSON(t, handler, http.MethodPost, "/candidates", `{"id":"cand-1","dni":"12345678A","nombre":"Ana Perez","email":"ana@example.test","call_id":"call-1"}`)
 	assertStatus(t, create, http.StatusCreated)
-	add := performJSON(t, handler, http.MethodPost, "/candidates/cand-1/merits", `{"id":"merit-1","tipo":"experiencia_misma_categoria","datos":{"meses":12},"estado":"Presentado"}`)
+	add := performJSON(t, handler, http.MethodPost, "/candidates/cand-1/merits", `{"id":"merit-1","tipo":"experiencia_misma_categoria","datos":{"meses":12}}`)
 	assertStatus(t, add, http.StatusCreated)
 	baremo := performJSON(t, handler, http.MethodPost, "/candidates/cand-1/baremo", "")
 	assertStatus(t, baremo, http.StatusOK)
@@ -53,7 +55,7 @@ func TestHTTPHandlerRunsAdministrativeAPIDemoThroughInjectedRunner(t *testing.T)
 			{Rank: 2, CandidateID: "demo-cand-b"},
 		}},
 	}}
-	handler := mustTestHandlerWithDemo(t, service, runner, &recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "staff", Role: ports.AuthRolePersonalInterno}})
+	handler := mustTestHandlerWithDemo(t, service, runner, &recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "staff", Role: ports.AuthRolePersonalInterno, Mechanism: ports.AuthMechanismKerberosAD}})
 	demo := performStaffJSON(t, handler, http.MethodPost, "/api/demo", "")
 	assertStatus(t, demo, http.StatusOK)
 	var result ProcedureDemoView
@@ -71,17 +73,43 @@ func TestHTTPHandlerRunsProcedureDemoUseCaseAdapter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("procedure usecase: %v", err)
 	}
-	handler := mustTestHandlerWithDemo(t, &recordingService{}, NewProcedureDemoRunner(procedure), &recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "staff", Role: ports.AuthRolePersonalInterno}})
+	handler := mustTestHandlerWithDemo(t, &recordingService{}, NewProcedureDemoRunner(procedure), &recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "staff", Role: ports.AuthRolePersonalInterno, Mechanism: ports.AuthMechanismKerberosAD}})
 	demo := performStaffJSON(t, handler, http.MethodPost, "/api/demo", "")
 	assertStatus(t, demo, http.StatusOK)
 	var result ProcedureDemoView
 	decodeData(t, demo, &result)
-	if result.Convocatoria.ID != "demo-convocatoria" || len(result.Definitivo.Items) != 2 {
+	if result.Convocatoria.ID != demoProcedureAggregateID || len(result.Definitivo.Items) != len(demoSolicitudFixtures()) {
 		t.Fatalf("demo result = %+v", result)
 	}
-	if result.Definitivo.Items[0].Rank != 1 || result.Definitivo.Items[0].CandidateID != "demo-cand-a" {
+	if !listadoHasRankedCandidate(result.Definitivo.Items, "demo-cand-a", 1) {
 		t.Fatalf("demo ranking = %+v", result.Definitivo.Items)
 	}
+	if result.Definitivo.Items[0].ConvocatoriaID == "" {
+		t.Fatalf("demo item missing convocatoria id: %+v", result.Definitivo.Items[0])
+	}
+	if len(result.Definitivo.Items[0].SectionPoints) == 0 || len(result.Definitivo.Items[0].Details) == 0 {
+		t.Fatalf("demo item missing baremo breakdown: %+v", result.Definitivo.Items[0])
+	}
+	if result.Definitivo.Items[0].RuleSetID == "" || result.Definitivo.Items[0].RuleSetVersion == "" {
+		t.Fatalf("demo item missing rule set info: %+v", result.Definitivo.Items[0])
+	}
+
+	second := performStaffJSON(t, handler, http.MethodPost, "/api/demo", "")
+	assertStatus(t, second, http.StatusOK)
+	var repeated ProcedureDemoView
+	decodeData(t, second, &repeated)
+	if len(repeated.Definitivo.Items) != len(demoSolicitudFixtures()) {
+		t.Fatalf("repeated demo result = %+v", repeated)
+	}
+}
+
+func listadoHasRankedCandidate(items []ListadoItemView, candidateID string, rank int) bool {
+	for _, item := range items {
+		if item.CandidateID == candidateID && item.Rank == rank {
+			return true
+		}
+	}
+	return false
 }
 
 func TestHTTPHandlerUsesInjectedPortsAuthAndI18n(t *testing.T) {
@@ -106,14 +134,30 @@ func TestHTTPHandlerRejectsUnauthenticatedForbiddenAndBadJSON(t *testing.T) {
 	service := &recordingService{}
 	unauth := mustTestHandler(t, service, &recordingAuthenticator{err: ports.ErrAuthenticationFailed})
 	assertStatus(t, performJSON(t, unauth, http.MethodPost, "/candidates", `{}`), http.StatusUnauthorized)
-	forbidden := mustTestHandler(t, service, &recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "auditor", Role: ports.AuthRole("auditor")}})
-	assertStatus(t, performJSON(t, forbidden, http.MethodPost, "/candidates", `{}`), http.StatusForbidden)
-	authed := mustTestHandler(t, service, &recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "cand-1", Role: ports.AuthRoleCiudadano}})
+	forbidden := mustTestHandler(t, service, &recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "auditor", Role: ports.AuthRole("auditor"), Mechanism: ports.AuthMechanismClave}})
+	assertStatus(t, performJSON(t, forbidden, http.MethodPost, "/candidates", `{}`), http.StatusUnauthorized)
+	authed := mustTestHandler(t, service, &recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "cand-1", Role: ports.AuthRoleCiudadano, Mechanism: ports.AuthMechanismClave}})
 	bad := performJSON(t, authed, http.MethodPost, "/candidates", `{"id":"cand-1","unknown":true}`)
 	assertStatus(t, bad, http.StatusBadRequest)
 	assertMessage(t, bad, "mal json")
 	if service.createCalls != 0 || bad.Error == "" {
 		t.Fatalf("bad json leaked: calls=%d error=%q", service.createCalls, bad.Error)
+	}
+}
+
+func TestHTTPHandlerTreatsMissingOrUnconfiguredCallAsBadRequest(t *testing.T) {
+	for _, serviceError := range []error{application.ErrCallIDRequired, application.ErrCallNotConfigured} {
+		service := &recordingService{createErr: serviceError}
+		handler := mustTestHandler(t, service, &recordingAuthenticator{
+			principal: ports.AuthPrincipal{Subject: "cand-1", Role: ports.AuthRoleCiudadano, Mechanism: ports.AuthMechanismClave},
+		})
+		response := performJSON(t, handler, http.MethodPost, "/candidates",
+			`{"id":"cand-1","dni":"12345678A","nombre":"Ana","email":"ana@example.test"}`)
+		assertStatus(t, response, http.StatusBadRequest)
+		assertMessage(t, response, "mal json")
+		if response.Error != "" {
+			t.Fatalf("el error interno de convocatoria se expuso: %#v", response)
+		}
 	}
 }
 
@@ -136,7 +180,7 @@ func TestHTTPHandlerRejectsStaffOnCitizenCandidateRoutes(t *testing.T) {
 
 func TestHTTPHandlerReturnsJSONEnvelopeForMethodMismatch(t *testing.T) {
 	service := &recordingService{}
-	handler := mustTestHandler(t, service, &recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "cand-1", Role: ports.AuthRoleCiudadano}})
+	handler := mustTestHandler(t, service, &recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "cand-1", Role: ports.AuthRoleCiudadano, Mechanism: ports.AuthMechanismClave}})
 	response := performJSON(t, handler, http.MethodGet, "/candidates", "")
 	assertStatus(t, response, http.StatusMethodNotAllowed)
 	assertMessage(t, response, "metodo no permitido")
@@ -163,7 +207,7 @@ func TestHTTPHandlerRejectsCandidateOwnerMismatch(t *testing.T) {
 func TestHTTPHandlerFallsBackMethodMismatchMessage(t *testing.T) {
 	handler, err := NewHTTPHandler(
 		&recordingService{},
-		&recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "candidate", Role: ports.AuthRoleCiudadano}},
+		&recordingAuthenticator{principal: ports.AuthPrincipal{Subject: "candidate", Role: ports.AuthRoleCiudadano, Mechanism: ports.AuthMechanismClave}},
 		nil,
 	)
 	if err != nil {
@@ -178,6 +222,7 @@ type recordingService struct {
 	createCalls       int
 	createCommand     CreateCandidateCommand
 	createView        CandidateView
+	createErr         error
 	addCandidateID    string
 	addCommand        AddMeritCommand
 	addView           MeritView
@@ -190,7 +235,7 @@ type recordingService struct {
 func (s *recordingService) CreateCandidate(ctx context.Context, command CreateCandidateCommand) (CandidateView, error) {
 	s.createCalls++
 	s.createCommand = command
-	return s.createView, ctx.Err()
+	return s.createView, errors.Join(s.createErr, ctx.Err())
 }
 func (s *recordingService) AddMerit(ctx context.Context, candidateID string, command AddMeritCommand) (MeritView, error) {
 	s.addCandidateID, s.addCommand = candidateID, command
@@ -208,10 +253,12 @@ func (s *recordingService) ExportExpediente(ctx context.Context, candidateID str
 type recordingAuthenticator struct {
 	principal       ports.AuthPrincipal
 	err             error
+	calls           int
 	lastCredentials ports.AuthCredentials
 }
 
 func (a *recordingAuthenticator) Authenticate(ctx context.Context, credentials ports.AuthCredentials) (ports.AuthPrincipal, error) {
+	a.calls++
 	a.lastCredentials = credentials
 	if a.err != nil {
 		return ports.AuthPrincipal{}, a.err

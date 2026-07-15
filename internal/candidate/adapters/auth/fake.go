@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"strings"
 	"sync"
 
 	"vec-diputacion-granada/internal/candidate/ports"
@@ -19,16 +18,11 @@ type authKey struct {
 	token     string
 }
 
-func NewFakeAuthenticator(principals ...ports.AuthPrincipal) (*FakeAuthenticator, error) {
-	fake := &FakeAuthenticator{
-		principals: make(map[authKey]ports.AuthPrincipal, len(principals)),
-	}
-	for _, principal := range principals {
-		if err := fake.Register(principal, principal.Subject); err != nil {
-			return nil, err
-		}
-	}
-	return fake, nil
+// NewFakeAuthenticator crea un doble vacio para pruebas unitarias. No deriva
+// nunca un token del sujeto ni precarga identidades; la composicion fake real
+// usa exclusivamente el fichero seguro de bootstrap.
+func NewFakeAuthenticator() (*FakeAuthenticator, error) {
+	return &FakeAuthenticator{principals: make(map[authKey]ports.AuthPrincipal)}, nil
 }
 
 func (f *FakeAuthenticator) Register(principal ports.AuthPrincipal, token string) error {
@@ -42,7 +36,7 @@ func (f *FakeAuthenticator) Register(principal ports.AuthPrincipal, token string
 	credentials := ports.AuthCredentials{
 		Mechanism: normalized.AuthMethod(),
 		Subject:   normalized.Subject,
-		Token:     strings.TrimSpace(token),
+		Token:     token,
 	}
 	if err := credentials.Validate(); err != nil {
 		return err
@@ -53,7 +47,11 @@ func (f *FakeAuthenticator) Register(principal ports.AuthPrincipal, token string
 	if f.principals == nil {
 		f.principals = make(map[authKey]ports.AuthPrincipal)
 	}
-	f.principals[keyFrom(credentials)] = clonePrincipal(normalized)
+	key := keyFrom(credentials)
+	if _, exists := f.principals[key]; exists {
+		return ports.ErrAuthenticationFailed
+	}
+	f.principals[key] = clonePrincipal(normalized)
 	return nil
 }
 
@@ -61,7 +59,7 @@ func (f *FakeAuthenticator) Authenticate(
 	ctx context.Context,
 	credentials ports.AuthCredentials,
 ) (ports.AuthPrincipal, error) {
-	if f == nil {
+	if f == nil || ctx == nil {
 		return ports.AuthPrincipal{}, ports.ErrAuthenticationFailed
 	}
 	if err := ctx.Err(); err != nil {
@@ -73,6 +71,9 @@ func (f *FakeAuthenticator) Authenticate(
 
 	f.mu.RLock()
 	defer f.mu.RUnlock()
+	if err := ctx.Err(); err != nil {
+		return ports.AuthPrincipal{}, err
+	}
 	principal, ok := f.principals[keyFrom(credentials)]
 	if !ok {
 		return ports.AuthPrincipal{}, ports.ErrAuthenticationFailed
@@ -83,8 +84,8 @@ func (f *FakeAuthenticator) Authenticate(
 func keyFrom(credentials ports.AuthCredentials) authKey {
 	return authKey{
 		mechanism: credentials.Mechanism,
-		subject:   strings.TrimSpace(credentials.Subject),
-		token:     strings.TrimSpace(credentials.Token),
+		subject:   credentials.Subject,
+		token:     credentials.Token,
 	}
 }
 
@@ -92,33 +93,11 @@ func normalizePrincipal(principal ports.AuthPrincipal) (ports.AuthPrincipal, err
 	if err := principal.Validate(); err != nil {
 		return ports.AuthPrincipal{}, err
 	}
-	principal.Subject = strings.TrimSpace(principal.Subject)
-	principal.DisplayName = strings.TrimSpace(principal.DisplayName)
-	principal.Email = strings.TrimSpace(principal.Email)
 	principal.Role = principal.PrimaryRole()
-	principal.Roles = normalizeRoles(principal.AllRoles())
+	principal.Roles = principal.AllRoles()
 	principal.Mechanism = principal.AuthMethod()
 	principal.Method = principal.AuthMethod()
 	return clonePrincipal(principal), nil
-}
-
-func normalizeRoles(roles []ports.AuthRole) []ports.AuthRole {
-	if len(roles) == 0 {
-		return nil
-	}
-	normalized := make([]ports.AuthRole, 0, len(roles))
-	seen := make(map[ports.AuthRole]struct{}, len(roles))
-	for _, role := range roles {
-		if !role.IsValid() {
-			continue
-		}
-		if _, ok := seen[role]; ok {
-			continue
-		}
-		seen[role] = struct{}{}
-		normalized = append(normalized, role)
-	}
-	return normalized
 }
 
 func clonePrincipal(principal ports.AuthPrincipal) ports.AuthPrincipal {

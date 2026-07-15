@@ -1,10 +1,14 @@
 package httpapi
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"crypto/tls"
 	"crypto/x509"
-	"encoding/pem"
+	"encoding/hex"
+	"fmt"
+	"net"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"vec-diputacion-granada/internal/vec/domain"
@@ -20,51 +24,139 @@ type requestIdentity struct {
 	attributes  map[string]string
 }
 
-func identityFromRequest(r *http.Request) requestIdentity {
+type identityPolicy struct {
+	allowDemo       bool
+	demoResolver    DemoIdentityResolver
+	trustHeaders    bool
+	trustedProxies  []*net.IPNet
+	subjectHeader   string
+	rolesHeader     string
+	mechanismHeader string
+}
+
+func newIdentityPolicy(options HandlerOptions) (identityPolicy, error) {
+	policy := identityPolicy{
+		allowDemo:       options.AllowDemoIdentity,
+		demoResolver:    options.DemoIdentityResolver,
+		trustHeaders:    options.TrustIdentityHeaders,
+		subjectHeader:   firstNonEmpty(options.IdentitySubjectHeader, "X-VEC-Subject"),
+		rolesHeader:     firstNonEmpty(options.IdentityRolesHeader, "X-VEC-Roles"),
+		mechanismHeader: firstNonEmpty(options.IdentityMechanismHeader, "X-VEC-Auth-Mechanism"),
+	}
+	if policy.allowDemo && policy.demoResolver == nil {
+		return identityPolicy{}, fmt.Errorf("vec http identity: fake mode requires an explicit credential resolver")
+	}
+	for _, raw := range options.TrustedProxyCIDRs {
+		_, network, err := net.ParseCIDR(strings.TrimSpace(raw))
+		if err != nil {
+			return identityPolicy{}, fmt.Errorf("vec http identity: trusted proxy %q: %w", raw, err)
+		}
+		policy.trustedProxies = append(policy.trustedProxies, network)
+	}
+	if policy.trustHeaders && len(policy.trustedProxies) == 0 {
+		return identityPolicy{}, fmt.Errorf("vec http identity: trusted headers require trusted proxy CIDRs")
+	}
+	return policy, nil
+}
+
+func identityFromRequest(r *http.Request, policy identityPolicy) requestIdentity {
+	acceptHeaders := policy.acceptHeaders(r)
 	identity := requestIdentity{
-		subject:    firstHeader(r, "X-Auth-Subject"),
-		method:     authMethod(strings.TrimSpace(r.Header.Get("X-Auth-Mechanism"))),
-		assurance:  assuranceFromHeader(r),
-		roles:      rolesFromHeader(r),
 		attributes: map[string]string{},
 	}
-	if identity.subject == "" {
-		identity.subject = firstHeader(r, "X-Remote-User", "Remote-User")
+	if acceptHeaders {
+		var consistente bool
+		identity.subject, consistente = consistentHeader(r, policy.subjectHeader, "X-Auth-Subject")
+		if !consistente {
+			return requestIdentity{attributes: map[string]string{}}
+		}
+		mecanismo, consistente := consistentHeader(r, policy.mechanismHeader, "X-Auth-Mechanism")
+		if !consistente {
+			return requestIdentity{attributes: map[string]string{}}
+		}
+		identity.method = authMethod(mecanismo)
+		identity.assurance = assuranceFromHeader(r)
+		identity.roles, consistente = rolesFromHeader(r, policy)
+		if !consistente {
+			return requestIdentity{attributes: map[string]string{}}
+		}
+	}
+	if acceptHeaders && identity.subject == "" {
+		var consistente bool
+		identity.subject, consistente = consistentHeader(r, "X-Remote-User", "Remote-User")
+		if !consistente {
+			return requestIdentity{attributes: map[string]string{}}
+		}
 		if identity.subject != "" && identity.method == domain.AuthMethodDemo {
 			identity.method = domain.AuthMethodSSO
 		}
 	}
-	if identity.displayName = firstHeader(r, "X-Auth-Display-Name", "X-Auth-Name"); identity.displayName == "" {
-		identity.displayName = identity.subject
-	}
-	identity.email = firstHeader(r, "X-Auth-Email", "X-Forwarded-Email")
-	if dni := firstHeader(r, "X-Auth-DNI", "X-Auth-NIF"); dni != "" {
-		identity.attributes["dni"] = dni
-		if identity.subject == "" {
-			identity.subject = dni
+	if acceptHeaders {
+		var consistente bool
+		identity.displayName, consistente = consistentHeader(
+			r, "X-VEC-Display-Name", "X-Auth-Display-Name", "X-Auth-Name",
+		)
+		if !consistente {
+			return requestIdentity{attributes: map[string]string{}}
+		}
+		identity.email, consistente = consistentHeader(
+			r, "X-VEC-Email", "X-Auth-Email", "X-Forwarded-Email",
+		)
+		if !consistente {
+			return requestIdentity{attributes: map[string]string{}}
+		}
+		dni, consistente := consistentHeader(r, "X-VEC-DNI", "X-Auth-DNI", "X-Auth-NIF")
+		if !consistente {
+			return requestIdentity{attributes: map[string]string{}}
+		}
+		if dni != "" {
+			identity.attributes["dni"] = dni
 		}
 	}
 
-	if cert, source := certificateFromRequest(r); cert != nil {
-		applyCertificateIdentity(&identity, cert, source)
-	}
-	if identity.subject == "" {
-		identity.subject = "staff"
-		identity.displayName = "staff"
-		identity.method = domain.AuthMethodDemo
-		identity.assurance = domain.AuthAssuranceHigh
+	if cert, source := certificateFromRequest(r, acceptHeaders); cert != nil {
+		if !applyCertificateIdentity(&identity, cert, source) {
+			return requestIdentity{attributes: map[string]string{}}
+		}
 	}
 	if identity.displayName == "" {
 		identity.displayName = identity.subject
 	}
-	if len(identity.roles) == 0 {
-		identity.roles = defaultRolesForIdentity(identity)
-	}
 	return identity
 }
 
+func (p identityPolicy) acceptHeaders(r *http.Request) bool {
+	if !p.trustHeaders || r == nil {
+		return false
+	}
+	host := strings.TrimSpace(r.RemoteAddr)
+	if splitHost, _, err := net.SplitHostPort(host); err == nil {
+		host = splitHost
+	}
+	ip := net.ParseIP(strings.Trim(host, "[]"))
+	if ip == nil {
+		return false
+	}
+	for _, network := range p.trustedProxies {
+		if network.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
 func assuranceFromHeader(r *http.Request) domain.AuthAssurance {
-	switch strings.TrimSpace(strings.ToLower(r.Header.Get("X-Auth-Assurance"))) {
+	if r == nil {
+		return ""
+	}
+	// Una garantia es una afirmacion autoritativa: no se corrige, aproxima ni
+	// canoniza en esta frontera. El emisor debe publicar exactamente el valor
+	// acordado; cualquier variante queda sin garantia y, por tanto, sin acceso.
+	valor, consistente := consistentHeader(r, "X-Auth-Assurance")
+	if !consistente {
+		return ""
+	}
+	switch valor {
 	case string(domain.AuthAssuranceLow):
 		return domain.AuthAssuranceLow
 	case string(domain.AuthAssuranceSubstantial):
@@ -72,42 +164,63 @@ func assuranceFromHeader(r *http.Request) domain.AuthAssurance {
 	case string(domain.AuthAssuranceHigh):
 		return domain.AuthAssuranceHigh
 	default:
-		return domain.AuthAssuranceSubstantial
+		return ""
 	}
 }
 
-func applyCertificateIdentity(identity *requestIdentity, cert *x509.Certificate, source string) {
+func applyCertificateIdentity(identity *requestIdentity, cert *x509.Certificate, source string) bool {
 	if identity == nil || cert == nil {
-		return
+		return false
 	}
-	if identity.method == domain.AuthMethodDemo {
-		identity.method = domain.AuthMethodCertificate
-		if looksLikeDNIe(cert) {
-			identity.method = domain.AuthMethodDNIe
-		}
+	certRef := certificateSubjectRef(cert)
+	if certRef == "" || (identity.subject != "" && identity.subject != certRef) {
+		return false
+	}
+	dniCertificado := strings.TrimSpace(cert.Subject.SerialNumber)
+	if dniAfirmado := strings.TrimSpace(identity.attributes["dni"]); dniAfirmado != "" &&
+		dniCertificado != "" && dniAfirmado != dniCertificado {
+		return false
+	}
+	// Hasta que el servicio de identidad fuerte enlace Kerberos y certificado
+	// mediante una atestacion unica, esta frontera trata el certificado como un
+	// mecanismo independiente y no suma garantias afirmadas por cabecera.
+	identity.method = domain.AuthMethodCertificate
+	if looksLikeDNIe(cert) {
+		identity.method = domain.AuthMethodDNIe
 	}
 	identity.assurance = domain.AuthAssuranceHigh
 	dni := firstNonEmpty(
+		dniCertificado,
 		identity.attributes["dni"],
-		strings.TrimSpace(cert.Subject.SerialNumber),
-		firstNonEmpty(cert.Subject.CommonName, certificateSerial(cert)),
 	)
-	if headerSubject := strings.TrimSpace(identity.subject); headerSubject != "" {
-		identity.attributes["external_subject"] = headerSubject
-	}
-	identity.subject = dni
+	identity.subject = certRef
 	identity.displayName = firstNonEmpty(identity.displayName, cert.Subject.CommonName, identity.subject)
 	if identity.email == "" && len(cert.EmailAddresses) > 0 {
 		identity.email = cert.EmailAddresses[0]
 	}
 	identity.attributes["auth_source"] = source
-	identity.attributes["certificate_subject"] = cert.Subject.String()
-	identity.attributes["certificate_issuer"] = cert.Issuer.String()
+	identity.attributes["certificate_ref"] = certRef
+	identity.attributes["certificate_issuer"] = cert.Issuer.CommonName
 	identity.attributes["certificate_serial"] = certificateSerial(cert)
 	identity.attributes["certificate_not_after"] = cert.NotAfter.Format("2006-01-02T15:04:05Z07:00")
-	if strings.TrimSpace(cert.Subject.SerialNumber) != "" {
-		identity.attributes["dni"] = strings.TrimSpace(cert.Subject.SerialNumber)
+	if dni != "" {
+		identity.attributes["dni"] = dni
 	}
+	return true
+}
+
+func certificateSubjectRef(cert *x509.Certificate) string {
+	if cert == nil {
+		return ""
+	}
+	material := append([]byte(nil), cert.RawIssuer...)
+	if len(material) == 0 {
+		material = []byte(cert.Issuer.String())
+	}
+	material = append(material, 0)
+	material = append(material, []byte(certificateSerial(cert))...)
+	sum := sha256.Sum256(material)
+	return "cert:" + hex.EncodeToString(sum[:])
 }
 
 func certificateSerial(cert *x509.Certificate) string {
@@ -117,38 +230,47 @@ func certificateSerial(cert *x509.Certificate) string {
 	return cert.SerialNumber.String()
 }
 
-func certificateFromRequest(r *http.Request) (*x509.Certificate, string) {
-	if r != nil && r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
-		return r.TLS.PeerCertificates[0], "tls_peer_certificate"
+func certificateFromRequest(r *http.Request, _ bool) (*x509.Certificate, string) {
+	if r != nil {
+		if certificado := certificadoClienteTLSVerificado(r.TLS); certificado != nil {
+			return certificado, "tls_peer_certificate_verified"
+		}
 	}
-	verify := strings.ToUpper(strings.TrimSpace(r.Header.Get("X-SSL-Client-Verify")))
-	raw := firstHeader(r, "X-SSL-Client-Cert", "X-Client-Cert", "X-Forwarded-Tls-Client-Cert")
-	if raw == "" || (verify != "" && verify != "SUCCESS") {
-		return nil, ""
-	}
-	cert, ok := parseCertificateHeader(raw)
-	if !ok {
-		return nil, ""
-	}
-	return cert, "trusted_proxy_header"
+	// Una CIDR confiable no autentica por si sola la afirmacion SUCCESS ni el
+	// PEM reenviado. Hasta disponer de mTLS/firma de asercion con audiencia y
+	// antirrepeticion, solo el certificado del handshake TLS verificado cuenta.
+	return nil, ""
 }
 
-func parseCertificateHeader(raw string) (*x509.Certificate, bool) {
-	raw = strings.TrimSpace(raw)
-	if decoded, err := url.QueryUnescape(raw); err == nil {
-		raw = decoded
+func certificadoClienteTLSVerificado(estado *tls.ConnectionState) *x509.Certificate {
+	if estado == nil || !estado.HandshakeComplete ||
+		(estado.Version != tls.VersionTLS12 && estado.Version != tls.VersionTLS13) ||
+		len(estado.PeerCertificates) == 0 || estado.PeerCertificates[0] == nil ||
+		len(estado.VerifiedChains) == 0 || len(estado.VerifiedChains[0]) == 0 ||
+		estado.VerifiedChains[0][0] == nil {
+		return nil
 	}
-	raw = strings.ReplaceAll(raw, `\n`, "\n")
-	raw = strings.ReplaceAll(raw, "\t", "")
-	block, _ := pem.Decode([]byte(raw))
-	if block == nil {
-		return nil, false
+	par := estado.PeerCertificates[0]
+	verificado := estado.VerifiedChains[0][0]
+	if len(par.Raw) == 0 || !bytes.Equal(par.Raw, verificado.Raw) || !certificadoClienteAdmitido(verificado) {
+		return nil
 	}
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, false
+	return verificado
+}
+
+func certificadoClienteAdmitido(certificado *x509.Certificate) bool {
+	if certificado == nil {
+		return false
 	}
-	return cert, true
+	if len(certificado.ExtKeyUsage) == 0 {
+		return true
+	}
+	for _, uso := range certificado.ExtKeyUsage {
+		if uso == x509.ExtKeyUsageClientAuth || uso == x509.ExtKeyUsageAny {
+			return true
+		}
+	}
+	return false
 }
 
 func looksLikeDNIe(cert *x509.Certificate) bool {
@@ -161,51 +283,76 @@ func looksLikeDNIe(cert *x509.Certificate) bool {
 		strings.Contains(haystack, "direccion general de la policia")
 }
 
-func rolesFromHeader(r *http.Request) []string {
-	raw := firstHeader(r, "X-Auth-Roles", "X-Auth-Role", "X-Vec-Roles")
-	if raw == "" {
-		return nil
+func rolesFromHeader(r *http.Request, policy identityPolicy) ([]string, bool) {
+	raw, consistente := consistentHeader(r, policy.rolesHeader, "X-Auth-Roles", "X-Auth-Role")
+	if !consistente {
+		return nil, false
 	}
-	fields := strings.FieldsFunc(raw, func(r rune) bool {
-		return r == ',' || r == ';' || r == ' '
-	})
+	if raw == "" {
+		return nil, true
+	}
+	// La gramatica de la asercion es deliberadamente unica: roles canonicos
+	// separados por coma, sin espacios, punto y coma, duplicados ni entradas
+	// vacias. Normalizar aqui ocultaria ambiguedad antes del autorizador.
+	if strings.ContainsAny(raw, "; \t\r\n") {
+		return nil, false
+	}
+	fields := strings.Split(raw, ",")
 	roles := make([]string, 0, len(fields))
 	seen := map[string]struct{}{}
 	for _, field := range fields {
-		role := strings.TrimSpace(strings.ToLower(field))
-		if role == "" {
-			continue
+		if field == "" || field != strings.ToLower(field) || field != strings.TrimSpace(field) {
+			return nil, false
 		}
-		if _, ok := seen[role]; ok {
-			continue
+		if _, ok := seen[field]; ok {
+			return nil, false
 		}
-		seen[role] = struct{}{}
-		roles = append(roles, role)
+		seen[field] = struct{}{}
+		roles = append(roles, field)
 	}
-	return roles
+	return roles, true
 }
 
-func defaultRolesForIdentity(identity requestIdentity) []string {
-	switch {
-	case identity.subject == "candidate":
-		return []string{"ciudadano"}
-	case identity.subject == "staff" || identity.method == domain.AuthMethodDemo:
-		return []string{"administrador", "tecnico_rrhh"}
-	default:
-		return []string{"personal_interno"}
-	}
-}
-
-func firstHeader(r *http.Request, keys ...string) string {
+// consistentHeader falla cerrado si dos alias de una misma asercion llegan
+// con valores diferentes. El orden de las cabeceras nunca decide la identidad.
+func consistentHeader(r *http.Request, keys ...string) (string, bool) {
 	if r == nil {
-		return ""
+		return "", true
 	}
+	seenKeys := make(map[string]struct{}, len(keys))
+	value := ""
 	for _, key := range keys {
-		if value := strings.TrimSpace(r.Header.Get(key)); value != "" {
-			return value
+		canonicalKey := http.CanonicalHeaderKey(strings.TrimSpace(key))
+		if canonicalKey == "" {
+			continue
 		}
+		if _, exists := seenKeys[canonicalKey]; exists {
+			continue
+		}
+		seenKeys[canonicalKey] = struct{}{}
+		valores := r.Header.Values(canonicalKey)
+		if len(valores) > 1 {
+			return "", false
+		}
+		if len(valores) == 0 {
+			continue
+		}
+		candidate := valores[0]
+		// Ausencia y cabecera presente sin valor no son equivalentes. Una
+		// afirmacion explicitamente vacia es una entrada no canonica y no puede
+		// combinarse con otro alias para fabricar una identidad completa.
+		if candidate == "" {
+			return "", false
+		}
+		if candidate != strings.TrimSpace(candidate) {
+			return "", false
+		}
+		if value != "" && candidate != value {
+			return "", false
+		}
+		value = candidate
 	}
-	return ""
+	return value, true
 }
 
 func firstNonEmpty(values ...string) string {

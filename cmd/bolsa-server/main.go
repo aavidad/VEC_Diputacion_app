@@ -1,20 +1,9 @@
 package main
 
-import (
-	"errors"
-	"log"
-	"net/http"
-
-	"vec-diputacion-granada/internal/app/bootstrap"
-)
+import "log"
 
 func main() {
-	srv, err := bootstrap.NewHTTPServer()
-	if err != nil {
-		log.Fatalf("bootstrap server: %v", err)
-	}
-	log.Printf("vec server listening on %s (legacy bolsa-server entrypoint)", srv.Addr)
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatalf("serve: %v", err)
-	}
+	// Este alias historico no puede arrancar un servidor con una composicion
+	// distinta o ignorar TLS. Solo cmd/vec-server es una entrada soportada.
+	log.Fatal("bolsa-server esta retirado: use el arranque canonico vec-server")
 }

@@ -75,7 +75,9 @@ func (r *CandidateRepository) Save(
 	if err := candidate.Validate(); err != nil {
 		return err
 	}
-	callID = strings.TrimSpace(callID)
+	if !validCallID(callID) {
+		return ports.ErrCandidateCallInvalid
+	}
 	candidate.ID = strings.TrimSpace(candidate.ID)
 
 	store := r.memoryStore()
@@ -104,9 +106,9 @@ func (r *CandidateRepository) Save(
 func (r *CandidateRepository) GetByID(
 	ctx context.Context,
 	id string,
-) (domain.Candidate, error) {
+) (domain.Candidate, string, error) {
 	if err := ctx.Err(); err != nil {
-		return domain.Candidate{}, err
+		return domain.Candidate{}, "", err
 	}
 
 	store := r.memoryStore()
@@ -115,9 +117,12 @@ func (r *CandidateRepository) GetByID(
 
 	record, ok := store.candidates[strings.TrimSpace(id)]
 	if !ok {
-		return domain.Candidate{}, ports.ErrCandidateNotFound
+		return domain.Candidate{}, "", ports.ErrCandidateNotFound
 	}
-	return record.candidate, nil
+	if !validCallID(record.callID) {
+		return domain.Candidate{}, "", ports.ErrCandidateCallInvalid
+	}
+	return record.candidate, record.callID, nil
 }
 
 func (r *CandidateRepository) ListByCall(
@@ -127,12 +132,15 @@ func (r *CandidateRepository) ListByCall(
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if !validCallID(callID) {
+		return nil, ports.ErrCandidateCallInvalid
+	}
 
 	store := r.memoryStore()
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 
-	ids := sortedKeys(store.candidatesByCall[strings.TrimSpace(callID)])
+	ids := sortedKeys(store.candidatesByCall[callID])
 	candidates := make([]domain.Candidate, 0, len(ids))
 	for _, id := range ids {
 		if record, ok := store.candidates[id]; ok {
@@ -140,6 +148,10 @@ func (r *CandidateRepository) ListByCall(
 		}
 	}
 	return candidates, nil
+}
+
+func validCallID(callID string) bool {
+	return callID != "" && callID == strings.TrimSpace(callID) && !strings.Contains(callID, "*")
 }
 
 func (r *MeritRepository) Save(

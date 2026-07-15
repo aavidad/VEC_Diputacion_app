@@ -6,12 +6,6 @@ import (
 	"vec-diputacion-granada/internal/candidate/domain"
 )
 
-const DefaultBaremoConvocatoriaID = "convocatoria-default"
-
-func DefaultBaremoRuleSet() (domain.BaremoRuleSet, error) {
-	return BaremoRuleSetFor(DefaultBaremoConvocatoriaID, "v1")
-}
-
 func BaremoRuleSetFor(convocatoriaID, version string) (domain.BaremoRuleSet, error) {
 	return domain.NewBaremoRuleSet(domain.BaremoRuleSetConfig{
 		ConvocatoriaID: strings.TrimSpace(convocatoriaID),

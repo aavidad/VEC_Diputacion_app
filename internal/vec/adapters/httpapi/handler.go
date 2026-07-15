@@ -1,12 +1,14 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
 	"time"
 
+	adminmodule "vec-diputacion-granada/internal/modules/administracion"
 	bolsamodule "vec-diputacion-granada/internal/modules/bolsa"
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
 	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
@@ -19,31 +21,92 @@ import (
 
 type Handler struct {
 	service         *application.Service
+	internal        *application.InternalOperations
 	cronos          *cronosapp.Service
 	personalCatalog *personalapp.CatalogService
+	roadRoute       *roadRouteConnector
+	identityPolicy  identityPolicy
+}
+
+type HandlerOptions struct {
+	InternalOperations      *application.InternalOperations
+	PersonalCatalogPath     string
+	OSRMBaseURL             string
+	OSRMScopeName           string
+	OSRMScopeBounds         string
+	OSRMAllowedCIDRs        []string
+	AllowDemoIdentity       bool
+	DemoIdentityResolver    DemoIdentityResolver
+	TrustIdentityHeaders    bool
+	TrustedProxyCIDRs       []string
+	IdentitySubjectHeader   string
+	IdentityRolesHeader     string
+	IdentityMechanismHeader string
+}
+
+// DemoIdentityResolver es el unico origen admitido para el modo fake. La
+// implementacion productiva de composicion resuelve un Bearer opaco contra un
+// fichero local y no consume identidad, roles ni garantia desde cabeceras.
+type DemoIdentityResolver interface {
+	ResolveDemoIdentity(context.Context, *http.Request) (domain.Principal, error)
 }
 
 func NewHandler(service *application.Service) (*Handler, error) {
+	return NewHandlerWithOptions(service, HandlerOptions{})
+}
+
+func NewHandlerWithOptions(service *application.Service, options HandlerOptions) (*Handler, error) {
 	if service == nil {
 		return nil, errors.New("vec http handler: service required")
+	}
+	if options.InternalOperations != nil && !options.InternalOperations.Matches(service) {
+		return nil, application.ErrInternalOperationsMismatch
+	}
+	identityPolicy, err := newIdentityPolicy(options)
+	if err != nil {
+		return nil, err
 	}
 	cronos, err := newWorkspaceCronosService()
 	if err != nil {
 		return nil, err
 	}
-	personalCatalog, err := newWorkspacePersonalCatalogService()
+	personalCatalog, err := newWorkspacePersonalCatalogService(options.PersonalCatalogPath)
 	if err != nil {
 		return nil, err
 	}
-	return &Handler{service: service, cronos: cronos, personalCatalog: personalCatalog}, nil
+	roadRoute, err := newRoadRouteConnector(
+		options.OSRMBaseURL,
+		options.OSRMScopeName,
+		options.OSRMScopeBounds,
+		options.OSRMAllowedCIDRs,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &Handler{
+		service:         service,
+		internal:        options.InternalOperations,
+		cronos:          cronos,
+		personalCatalog: personalCatalog,
+		roadRoute:       roadRoute,
+		identityPolicy:  identityPolicy,
+	}, nil
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := vecPath(r.URL.Path)
-	principal := principalFromRequest(r)
+	principal, err := principalFromRequest(r, h.identityPolicy)
+	if err != nil || principal.Validate() != nil {
+		h.writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
 	switch {
 	case path == "/":
 		if !h.requireMethod(w, r, http.MethodGet) {
+			return
+		}
+		if !principal.HasPermission("vec.modules.read") {
+			h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
 			return
 		}
 		h.writeJSON(w, http.StatusOK, map[string]any{
@@ -53,11 +116,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !h.requireMethod(w, r, http.MethodGet) {
 			return
 		}
+		if !principal.HasPermission("vec.session.read") {
+			h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+			return
+		}
 		h.writeJSON(w, http.StatusOK, map[string]any{"principal": principal})
 	case path == "/modules":
-		h.handleModules(w, r)
+		h.handleModules(w, r, principal)
 	case path == "/workspace":
-		h.handleWorkspace(w, r)
+		h.handleWorkspace(w, r, principal)
 	case path == "/cronos/timecards":
 		h.handleCronosTimecards(w, r, principal)
 	case path == "/cronos/leave-requests":
@@ -76,10 +143,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handlePersonalCategory(w, r, principal, path)
 	case path == "/personal/catalogs":
 		h.handlePersonalCatalogs(w, r, principal)
+	case path == "/dietas/road-route":
+		h.handleDietasRoadRoute(w, r, principal)
 	case path == "/menu":
 		h.handleMenu(w, r, principal)
 	case path == "/audit":
-		h.handleAudit(w, r)
+		h.handleAudit(w, r, principal)
 	case strings.HasPrefix(path, "/modules/") && strings.HasSuffix(path, "/action"):
 		h.handleModuleAction(w, r, principal, path)
 	default:
@@ -87,11 +156,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) handleModules(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleModules(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
 	if !h.requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	modules, err := h.service.Modules(r.Context())
+	if !principal.HasPermission("vec.modules.read") {
+		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+		return
+	}
+	modules, err := h.service.Modules(r.Context(), principal)
 	if err != nil {
 		h.writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -103,6 +176,10 @@ func (h *Handler) handleMenu(w http.ResponseWriter, r *http.Request, principal d
 	if !h.requireMethod(w, r, http.MethodGet) {
 		return
 	}
+	if !principal.HasPermission("vec.menu.read") {
+		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+		return
+	}
 	menu, err := h.service.BuildMenu(r.Context(), principal)
 	if err != nil {
 		h.writeError(w, http.StatusBadRequest, err.Error())
@@ -111,12 +188,35 @@ func (h *Handler) handleMenu(w http.ResponseWriter, r *http.Request, principal d
 	h.writeJSON(w, http.StatusOK, map[string]any{"menu": menu, "principal": principal})
 }
 
-func (h *Handler) handleAudit(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleAudit(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
+	w.Header().Set("Cache-Control", "no-store")
 	if !h.requireMethod(w, r, http.MethodGet) {
 		return
 	}
-	audit, err := h.service.Audit(r.Context(), r.URL.Query().Get("subject_ref"))
+	if !principal.HasPermission(adminmodule.PermissionAuditRead) {
+		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+		return
+	}
+	if h.internal == nil {
+		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+		return
+	}
+	subjectRef, err := referenciaAuditoriaDesdeConsulta(r.URL.RawQuery)
 	if err != nil {
+		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+		return
+	}
+	query, err := application.NewAuditQuery(principal, subjectRef)
+	if err != nil {
+		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+		return
+	}
+	audit, err := h.internal.Audit(r.Context(), query)
+	if err != nil {
+		if errors.Is(err, domain.ErrPermissionDenied) {
+			h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+			return
+		}
 		h.writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -136,7 +236,11 @@ func (h *Handler) handleModuleAction(w http.ResponseWriter, r *http.Request, pri
 		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
 		return
 	}
-	audit, err := h.service.RecordAudit(r.Context(), application.AuditCommand{
+	if h.internal == nil {
+		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+		return
+	}
+	authorized, err := application.NewAuthorizedAuditCommand(application.AuditCommand{
 		Principal:  principal,
 		Action:     action.action,
 		ModuleID:   action.moduleID,
@@ -147,19 +251,28 @@ func (h *Handler) handleModuleAction(w http.ResponseWriter, r *http.Request, pri
 			"source":       "httpapi",
 			"module_key":   action.key,
 		},
-	})
+	}, action.permission, action.eventType)
+	if err != nil {
+		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+		return
+	}
+	receipt, err := h.internal.RecordAudit(r.Context(), authorized)
 	if err != nil {
 		h.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	_ = h.service.PublishEvent(r.Context(), domain.Event{
+	audit := receipt.Entry()
+	if err := h.internal.PublishEvent(r.Context(), receipt, domain.Event{
 		Type:       action.eventType,
 		ModuleID:   action.moduleID,
 		SubjectRef: audit.SubjectRef,
 		ActorID:    principal.ID,
 		OccurredAt: time.Now().UTC(),
 		Payload:    map[string]string{"audit_id": audit.ID},
-	})
+	}); err != nil {
+		h.writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	h.writeJSON(w, http.StatusAccepted, map[string]any{"receipt": audit})
 }
 
@@ -223,6 +336,14 @@ func actionForPath(path string) (moduleAction, bool) {
 			subjectRef: "bolsa-demo-action",
 			eventType:  "vec.module.bolsa.action.executed",
 		},
+		"administracion": {
+			key:        "administracion",
+			moduleID:   adminmodule.ModuleID,
+			permission: adminmodule.PermissionCatalogsManage,
+			action:     adminmodule.ActionPublishCatalog,
+			subjectRef: "admin-catalogos-demo",
+			eventType:  "vec.module.administracion.catalog.executed",
+		},
 		"personal": {
 			key:        "personal",
 			moduleID:   personalmodule.ModuleID,
@@ -260,12 +381,14 @@ func vecRoutes() []string {
 		"/api/vec/personal/categories",
 		"/api/vec/personal/categories/{slug}",
 		"/api/vec/personal/catalogs",
+		"/api/vec/dietas/road-route",
 		"/api/vec/modules/cronos/action",
 		"/api/vec/modules/horarios/action",
 		"/api/vec/modules/permisos/action",
 		"/api/vec/modules/dietas/action",
 		"/api/vec/modules/rutas/action",
 		"/api/vec/modules/bolsa/action",
+		"/api/vec/modules/administracion/action",
 		"/api/vec/modules/personal/action",
 		"/api/vec/modules/nominas/action",
 	}
@@ -299,8 +422,27 @@ func vecPath(path string) string {
 	return strings.TrimPrefix(path, "/api/vec")
 }
 
-func principalFromRequest(r *http.Request) domain.Principal {
-	identity := identityFromRequest(r)
+func principalFromRequest(r *http.Request, policy identityPolicy) (domain.Principal, error) {
+	if policy.allowDemo {
+		if policy.demoResolver == nil || r == nil {
+			return domain.Principal{}, domain.ErrPrincipalInvalid
+		}
+		principal, err := policy.demoResolver.ResolveDemoIdentity(r.Context(), r)
+		if err != nil {
+			return domain.Principal{}, err
+		}
+		// El fichero declara identidad y roles. Los permisos son una lista
+		// positiva propia de esta carcasa y nunca se aceptan del resolvedor.
+		principal.Permissions = permissionsForRoles(principal.Roles)
+		if err := principal.Validate(); err != nil {
+			return domain.Principal{}, err
+		}
+		return principal, nil
+	}
+	identity := identityFromRequest(r, policy)
+	// En una superficie real los roles de la asercion son informativos: el
+	// autorizador RBAC+ABAC debe resolver cada caso de uso y esta frontera no
+	// concede permisos por su cuenta.
 	principal := domain.Principal{
 		ID:            identity.subject,
 		DisplayName:   identity.displayName,
@@ -308,13 +450,16 @@ func principalFromRequest(r *http.Request) domain.Principal {
 		Roles:         identity.roles,
 		AuthMethod:    identity.method,
 		AuthAssurance: identity.assurance,
-		Permissions:   permissionsForRoles(identity.roles),
+		Permissions:   nil,
 		Attributes:    identity.attributes,
 	}
-	return principal
+	return principal, nil
 }
 
 func authMethod(value string) domain.AuthMethod {
+	// El metodo participa en la garantia de autenticacion. Solo la
+	// representacion canonica exacta puede llegar al dominio; una variante no se
+	// transforma en una afirmacion mas fuerte.
 	switch value {
 	case string(domain.AuthMethodCertificate):
 		return domain.AuthMethodCertificate
@@ -327,176 +472,85 @@ func authMethod(value string) domain.AuthMethod {
 	case string(domain.AuthMethodSSO):
 		return domain.AuthMethodSSO
 	default:
-		return domain.AuthMethodDemo
+		return ""
 	}
 }
 
 func permissionsForRoles(roles []string) []string {
-	if hasRole(roles, "ciudadano") {
-		return []string{
-			bolsamodule.PermissionRead,
-			bolsamodule.PermissionDocument,
-			bolsamodule.PermissionClaim,
-			bolsamodule.PermissionNotification,
-		}
+	// El modo fake solo admite un perfil canonico por sesion. Una mezcla, un
+	// alias adicional o cualquier valor no exacto es ambiguedad y, por tanto,
+	// no concede capacidades.
+	if len(roles) != 1 {
+		return nil
 	}
-	permissions := baseVecPermissions()
-	if hasAnyRole(roles, "administrador", "jefatura_rrhh") {
-		return dedupePermissions(append(permissions, privilegedStaffPermissions()...))
+
+	switch roles[0] {
+	case "ciudadano", "candidate":
+		return permisosCiudadanoDemo()
+	case "administrador", "system_admin":
+		return permisosAdministradorTecnicoDemo()
+	case "jefatura_rrhh":
+		return permisosJefaturaRRHHDemo()
+	case "tecnico_rrhh", "validator_l2":
+		return permisosTecnicoRRHHDemo()
+	case "administrativo", "validator_l1":
+		return permisosAdministrativoRRHHDemo()
+	case "personal_interno":
+		return permisosPersonalInternoDemo()
+	case "jefe_servicio", "jefe_seccion":
+		return permisosJefaturaOperativaDemo()
+	default:
+		return nil
 	}
-	if hasRole(roles, "tecnico_rrhh") {
-		return dedupePermissions(append(permissions,
-			personalmodule.PermissionEmployeeRead,
-			personalmodule.PermissionEmployeeManage,
-			personalmodule.PermissionPositionRead,
-			personalmodule.PermissionPositionManage,
-			personalmodule.PermissionPayrollRead,
-			personalmodule.PermissionPayrollManage,
-			personalmodule.PermissionSeniorityRead,
-			personalmodule.PermissionCertificateManage,
-			personalmodule.PermissionAdministrativeManage,
-			personalmodule.PermissionAudit,
-			cronosmodule.PermissionTimeRead,
-			cronosmodule.PermissionTimeManage,
-			cronosmodule.PermissionScheduleRead,
-			cronosmodule.PermissionScheduleManage,
-			cronosmodule.PermissionLeaveRead,
-			cronosmodule.PermissionLeaveManage,
-			cronosmodule.PermissionApprovalManage,
-			cronosmodule.PermissionAudit,
-			dietasmodule.PermissionExpenseRead,
-			dietasmodule.PermissionRouteRead,
-			bolsamodule.PermissionRead,
-			bolsamodule.PermissionManage,
-			bolsamodule.PermissionDocument,
-			bolsamodule.PermissionClaim,
-			bolsamodule.PermissionNotification,
-			bolsamodule.PermissionDemoAction,
-			bolsamodule.PermissionAudit,
-		))
-	}
-	if hasAnyRole(roles, "jefe_servicio", "jefe_seccion") {
-		return dedupePermissions(append(permissions,
-			personalmodule.PermissionEmployeeRead,
-			personalmodule.PermissionPositionRead,
-			cronosmodule.PermissionTimeRead,
-			cronosmodule.PermissionTimeManage,
-			cronosmodule.PermissionScheduleRead,
-			cronosmodule.PermissionLeaveRead,
-			cronosmodule.PermissionLeaveManage,
-			cronosmodule.PermissionApprovalManage,
-			dietasmodule.PermissionExpenseRead,
-			dietasmodule.PermissionExpenseManage,
-			dietasmodule.PermissionRouteRead,
-			dietasmodule.PermissionApprovalManage,
-			bolsamodule.PermissionRead,
-			bolsamodule.PermissionDocument,
-			bolsamodule.PermissionNotification,
-		))
-	}
-	if hasRole(roles, "administrativo") {
-		return dedupePermissions(append(permissions,
-			personalmodule.PermissionEmployeeRead,
-			personalmodule.PermissionEmployeeManage,
-			personalmodule.PermissionPositionRead,
-			cronosmodule.PermissionTimeRead,
-			cronosmodule.PermissionLeaveRead,
-			cronosmodule.PermissionLeaveManage,
-			dietasmodule.PermissionExpenseRead,
-			dietasmodule.PermissionRouteRead,
-			bolsamodule.PermissionRead,
-			bolsamodule.PermissionManage,
-			bolsamodule.PermissionDocument,
-			bolsamodule.PermissionClaim,
-			bolsamodule.PermissionNotification,
-		))
-	}
-	return dedupePermissions(append(permissions,
-		personalmodule.PermissionEmployeeRead,
-		personalmodule.PermissionPositionRead,
-		cronosmodule.PermissionTimeRead,
-		cronosmodule.PermissionLeaveRead,
-		dietasmodule.PermissionExpenseRead,
-		dietasmodule.PermissionRouteRead,
-		bolsamodule.PermissionRead,
-		bolsamodule.PermissionDocument,
-	))
 }
 
-func baseVecPermissions() []string {
-	return []string{"vec.modules.read", "vec.menu.read"}
-}
-
-func privilegedStaffPermissions() []string {
+func permisosCiudadanoDemo() []string {
 	return []string{
-		"vec.audit.read",
-		"vec.roles.manage",
-		"vec.catalogs.manage",
-		personalmodule.PermissionEmployeeRead,
-		personalmodule.PermissionEmployeeManage,
-		personalmodule.PermissionPositionRead,
-		personalmodule.PermissionPositionManage,
-		personalmodule.PermissionPayrollRead,
-		personalmodule.PermissionPayrollManage,
-		personalmodule.PermissionSeniorityRead,
-		personalmodule.PermissionCertificateManage,
-		personalmodule.PermissionAdministrativeManage,
-		personalmodule.PermissionAudit,
-		cronosmodule.PermissionTimeRead,
-		cronosmodule.PermissionTimeManage,
-		cronosmodule.PermissionScheduleRead,
-		cronosmodule.PermissionScheduleManage,
-		cronosmodule.PermissionLeaveRead,
-		cronosmodule.PermissionLeaveManage,
-		cronosmodule.PermissionApprovalManage,
-		cronosmodule.PermissionAudit,
-		dietasmodule.PermissionExpenseRead,
-		dietasmodule.PermissionExpenseManage,
-		dietasmodule.PermissionRouteRead,
-		dietasmodule.PermissionRouteManage,
-		dietasmodule.PermissionApprovalManage,
-		dietasmodule.PermissionAudit,
+		"vec.session.read",
+		"vec.menu.read",
 		bolsamodule.PermissionRead,
-		bolsamodule.PermissionManage,
 		bolsamodule.PermissionDocument,
 		bolsamodule.PermissionClaim,
 		bolsamodule.PermissionNotification,
-		bolsamodule.PermissionDemoAction,
-		bolsamodule.PermissionAudit,
 	}
 }
 
-func hasRole(roles []string, role string) bool {
-	for _, candidate := range roles {
-		if strings.TrimSpace(candidate) == role {
-			return true
-		}
-	}
-	return false
+// permisosAdministradorTecnicoDemo no incluye datos ni acciones funcionales.
+// La auditoria generica tampoco se concede: hasta separar sus campos tecnicos
+// puede revelar referencias de expedientes o actuaciones de otros modulos.
+func permisosAdministradorTecnicoDemo() []string {
+	return append(permisosCarcasaInternaDemo(),
+		adminmodule.PermissionRolesManage,
+		adminmodule.PermissionCatalogsManage,
+		adminmodule.PermissionIntegrationsManage,
+		adminmodule.PermissionMonitoringRead,
+	)
 }
 
-func hasAnyRole(roles []string, candidates ...string) bool {
-	for _, candidate := range candidates {
-		if hasRole(roles, candidate) {
-			return true
-		}
-	}
-	return false
+func permisosJefaturaRRHHDemo() []string {
+	return permisosCarcasaInternaDemo()
 }
 
-func dedupePermissions(values []string) []string {
-	seen := map[string]struct{}{}
-	permissions := make([]string, 0, len(values))
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			continue
-		}
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		permissions = append(permissions, value)
+func permisosTecnicoRRHHDemo() []string {
+	return permisosCarcasaInternaDemo()
+}
+
+func permisosAdministrativoRRHHDemo() []string {
+	return permisosCarcasaInternaDemo()
+}
+
+func permisosPersonalInternoDemo() []string {
+	return permisosCarcasaInternaDemo()
+}
+
+func permisosJefaturaOperativaDemo() []string {
+	return permisosCarcasaInternaDemo()
+}
+
+func permisosCarcasaInternaDemo() []string {
+	return []string{
+		"vec.session.read",
+		"vec.modules.read",
+		"vec.menu.read",
 	}
-	return permissions
 }

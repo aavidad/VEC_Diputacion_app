@@ -10,7 +10,7 @@ import (
 
 func TestHTTPHandlerVECManifestMethodAuthHappyPathAndErrors(t *testing.T) {
 	handler := mustTestHandlerWithDemo(t, &recordingService{}, nil, &recordingAuthenticator{
-		principal: ports.AuthPrincipal{Subject: "staff", Role: ports.AuthRolePersonalInterno},
+		principal: ports.AuthPrincipal{Subject: "staff", Role: ports.AuthRolePersonalInterno, Mechanism: ports.AuthMechanismKerberosAD},
 	})
 
 	response := performStaffJSON(t, handler, http.MethodGet, "/api/modules/bolsa", "")
@@ -24,14 +24,14 @@ func TestHTTPHandlerVECManifestMethodAuthHappyPathAndErrors(t *testing.T) {
 	method := performStaffJSON(t, handler, http.MethodPost, "/api/modules/bolsa", "")
 	assertStatus(t, method, http.StatusMethodNotAllowed)
 	candidate := mustTestHandler(t, &recordingService{}, &recordingAuthenticator{
-		principal: ports.AuthPrincipal{Subject: "candidate", Role: ports.AuthRoleCiudadano},
+		principal: ports.AuthPrincipal{Subject: "candidate", Role: ports.AuthRoleCiudadano, Mechanism: ports.AuthMechanismClave},
 	})
 	assertStatus(t, performJSON(t, candidate, http.MethodGet, "/api/modules/bolsa", ""), http.StatusForbidden)
 }
 
 func TestHTTPHandlerAdminStatusCapabilitiesMethodAuthHappyPathAndErrors(t *testing.T) {
 	handler := mustTestHandlerWithDemo(t, &recordingService{}, &recordingDemoRunner{}, &recordingAuthenticator{
-		principal: ports.AuthPrincipal{Subject: "staff", Role: ports.AuthRolePersonalInterno},
+		principal: ports.AuthPrincipal{Subject: "technical-admin", Role: ports.AuthRoleSystemAdmin, Mechanism: ports.AuthMechanismKerberosAD},
 	})
 
 	statusResponse := performStaffJSON(t, handler, http.MethodGet, "/api/admin/status", "")
@@ -52,7 +52,11 @@ func TestHTTPHandlerAdminStatusCapabilitiesMethodAuthHappyPathAndErrors(t *testi
 
 	assertStatus(t, performStaffJSON(t, handler, http.MethodPost, "/api/admin/status", ""), http.StatusMethodNotAllowed)
 	candidate := mustTestHandler(t, &recordingService{}, &recordingAuthenticator{
-		principal: ports.AuthPrincipal{Subject: "candidate", Role: ports.AuthRoleCiudadano},
+		principal: ports.AuthPrincipal{Subject: "candidate", Role: ports.AuthRoleCiudadano, Mechanism: ports.AuthMechanismClave},
 	})
 	assertStatus(t, performJSON(t, candidate, http.MethodGet, "/api/admin/status", ""), http.StatusForbidden)
+	staff := mustTestHandler(t, &recordingService{}, &recordingAuthenticator{
+		principal: ports.AuthPrincipal{Subject: "staff", Role: ports.AuthRolePersonalInterno, Mechanism: ports.AuthMechanismKerberosAD},
+	})
+	assertStatus(t, performStaffJSON(t, staff, http.MethodGet, "/api/admin/status", ""), http.StatusForbidden)
 }

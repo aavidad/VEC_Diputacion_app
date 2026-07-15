@@ -64,6 +64,10 @@ func (s *Service) SaveLeaveBalance(ctx context.Context, balance domain.LeaveBala
 }
 
 func (s *Service) RequestLeave(ctx context.Context, request domain.LeaveRequest) (domain.LeaveRequest, error) {
+	if request.EmployeeID == "" || request.EmployeeID != strings.TrimSpace(request.EmployeeID) ||
+		request.PolicyID == "" || request.PolicyID != strings.TrimSpace(request.PolicyID) {
+		return domain.LeaveRequest{}, domain.ErrLeaveRequestInvalid
+	}
 	if request.CreatedAt.IsZero() {
 		request.CreatedAt = time.Now().UTC()
 	}
@@ -99,12 +103,16 @@ func (s *Service) Profiles(ctx context.Context) ([]domain.ScheduleProfile, error
 	return profiles, nil
 }
 
-func (s *Service) Snapshot(ctx context.Context, date time.Time) (Snapshot, error) {
+func (s *Service) Snapshot(ctx context.Context, date time.Time, employeeIDs []string) (Snapshot, error) {
+	empleados, err := validateEmployeeScope(employeeIDs)
+	if date.IsZero() || err != nil {
+		return Snapshot{}, domain.ErrWorkdayInvalid
+	}
 	profiles, err := s.Profiles(ctx)
 	if err != nil {
 		return Snapshot{}, err
 	}
-	workdays, err := s.store.ListWorkdays(ctx, date)
+	workdays, err := s.store.ListWorkdays(ctx, empleados, date)
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -112,13 +120,31 @@ func (s *Service) Snapshot(ctx context.Context, date time.Time) (Snapshot, error
 	if err != nil {
 		return Snapshot{}, err
 	}
-	balances, err := s.store.ListLeaveBalances(ctx, "", normalizeDate(date).Year())
-	if err != nil {
-		return Snapshot{}, err
+	identificadores := make(map[string]struct{}, len(workdays))
+	for _, workday := range workdays {
+		if workday.EmployeeID == "" || workday.EmployeeID != strings.TrimSpace(workday.EmployeeID) {
+			return Snapshot{}, domain.ErrWorkdayInvalid
+		}
+		identificadores[workday.EmployeeID] = struct{}{}
 	}
-	requests, err := s.store.ListLeaveRequests(ctx, "", normalizeDate(date).Year())
-	if err != nil {
-		return Snapshot{}, err
+	empleadosConJornada := make([]string, 0, len(identificadores))
+	for employeeID := range identificadores {
+		empleadosConJornada = append(empleadosConJornada, employeeID)
+	}
+	sort.Strings(empleadosConJornada)
+	balances := make([]domain.LeaveBalance, 0)
+	requests := make([]domain.LeaveRequest, 0)
+	for _, employeeID := range empleadosConJornada {
+		balancesEmpleado, err := s.store.ListLeaveBalances(ctx, employeeID, normalizeDate(date).Year())
+		if err != nil {
+			return Snapshot{}, err
+		}
+		balances = append(balances, balancesEmpleado...)
+		requestsEmpleado, err := s.store.ListLeaveRequests(ctx, employeeID, normalizeDate(date).Year())
+		if err != nil {
+			return Snapshot{}, err
+		}
+		requests = append(requests, requestsEmpleado...)
 	}
 	results := make([]domain.DayResult, 0, len(workdays))
 	for _, workday := range workdays {
@@ -151,6 +177,26 @@ func (s *Service) Snapshot(ctx context.Context, date time.Time) (Snapshot, error
 	}, nil
 }
 
+func validateEmployeeScope(employeeIDs []string) ([]string, error) {
+	if len(employeeIDs) == 0 || len(employeeIDs) > 1024 {
+		return nil, domain.ErrWorkdayInvalid
+	}
+	seen := make(map[string]struct{}, len(employeeIDs))
+	result := make([]string, 0, len(employeeIDs))
+	for _, employeeID := range employeeIDs {
+		if employeeID == "" || employeeID != strings.TrimSpace(employeeID) || strings.ContainsRune(employeeID, '*') {
+			return nil, domain.ErrWorkdayInvalid
+		}
+		if _, duplicate := seen[employeeID]; duplicate {
+			return nil, domain.ErrWorkdayInvalid
+		}
+		seen[employeeID] = struct{}{}
+		result = append(result, employeeID)
+	}
+	sort.Strings(result)
+	return result, nil
+}
+
 func (s *Service) LeavePolicies(ctx context.Context) ([]domain.LeavePolicy, error) {
 	policies, err := s.store.ListLeavePolicies(ctx)
 	if err != nil {
@@ -161,20 +207,29 @@ func (s *Service) LeavePolicies(ctx context.Context) ([]domain.LeavePolicy, erro
 }
 
 func (s *Service) LeaveBalances(ctx context.Context, employeeID string, year int) ([]domain.LeaveBalance, error) {
+	if employeeID == "" || employeeID != strings.TrimSpace(employeeID) || year <= 0 {
+		return nil, domain.ErrLeaveBalanceInvalid
+	}
 	return s.store.ListLeaveBalances(ctx, employeeID, year)
 }
 
 func (s *Service) LeaveRequests(ctx context.Context, employeeID string, year int) ([]domain.LeaveRequest, error) {
+	if employeeID == "" || employeeID != strings.TrimSpace(employeeID) || year <= 0 {
+		return nil, domain.ErrLeaveRequestInvalid
+	}
 	return s.store.ListLeaveRequests(ctx, employeeID, year)
 }
 
 func (s *Service) leavePolicy(ctx context.Context, policyID string) (domain.LeavePolicy, error) {
+	if policyID == "" || policyID != strings.TrimSpace(policyID) {
+		return domain.LeavePolicy{}, domain.ErrLeavePolicyInvalid
+	}
 	policies, err := s.store.ListLeavePolicies(ctx)
 	if err != nil {
 		return domain.LeavePolicy{}, err
 	}
 	for _, policy := range policies {
-		if policy.ID == strings.TrimSpace(policyID) {
+		if policy.ID == policyID {
 			return policy, nil
 		}
 	}
@@ -182,12 +237,16 @@ func (s *Service) leavePolicy(ctx context.Context, policyID string) (domain.Leav
 }
 
 func (s *Service) leaveBalance(ctx context.Context, employeeID string, year int, policyID string) (domain.LeaveBalance, error) {
-	balances, err := s.store.ListLeaveBalances(ctx, strings.TrimSpace(employeeID), year)
+	if employeeID == "" || employeeID != strings.TrimSpace(employeeID) || policyID == "" ||
+		policyID != strings.TrimSpace(policyID) || year <= 0 {
+		return domain.LeaveBalance{}, domain.ErrLeaveBalanceInvalid
+	}
+	balances, err := s.store.ListLeaveBalances(ctx, employeeID, year)
 	if err != nil {
 		return domain.LeaveBalance{}, err
 	}
 	for _, balance := range balances {
-		if balance.PolicyID == strings.TrimSpace(policyID) {
+		if balance.PolicyID == policyID {
 			return balance, nil
 		}
 	}

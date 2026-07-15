@@ -11,23 +11,31 @@ import (
 func TestFakeAuthenticatorAuthenticatesRegisteredPrincipalsByRole(t *testing.T) {
 	t.Parallel()
 
-	authenticator, err := NewFakeAuthenticator(
-		ports.AuthPrincipal{
+	authenticator, err := NewFakeAuthenticator()
+	if err != nil {
+		t.Fatalf("NewFakeAuthenticator() error = %v", err)
+	}
+	for _, registro := range []struct {
+		principal ports.AuthPrincipal
+		token     string
+	}{
+		{principal: ports.AuthPrincipal{
 			Subject:   "candidate",
 			Role:      ports.AuthRoleCiudadano,
 			Mechanism: ports.AuthMechanismClave,
 			Attributes: map[string]string{
 				"source": "test",
 			},
-		},
-		ports.AuthPrincipal{
+		}, token: "candidate"},
+		{principal: ports.AuthPrincipal{
 			Subject:   "staff",
 			Role:      ports.AuthRolePersonalInterno,
 			Mechanism: ports.AuthMechanismKerberosAD,
-		},
-	)
-	if err != nil {
-		t.Fatalf("NewFakeAuthenticator() error = %v", err)
+		}, token: "staff"},
+	} {
+		if err := authenticator.Register(registro.principal, registro.token); err != nil {
+			t.Fatalf("Register() error = %v", err)
+		}
 	}
 
 	tests := []struct {
@@ -77,11 +85,15 @@ func TestFakeAuthenticatorAuthenticatesRegisteredPrincipalsByRole(t *testing.T) 
 func TestFakeAuthenticatorRejectsInvalidCredentialsAndPrincipals(t *testing.T) {
 	t.Parallel()
 
-	authenticator, err := NewFakeAuthenticator(ports.AuthPrincipal{
+	authenticator, err := NewFakeAuthenticator()
+	if err != nil {
+		t.Fatalf("NewFakeAuthenticator() error = %v", err)
+	}
+	err = authenticator.Register(ports.AuthPrincipal{
 		Subject:   "candidate",
 		Role:      ports.AuthRoleCiudadano,
 		Mechanism: ports.AuthMechanismClave,
-	})
+	}, "candidate")
 	if err != nil {
 		t.Fatalf("NewFakeAuthenticator() error = %v", err)
 	}
@@ -141,23 +153,72 @@ func TestFakeAuthenticatorRejectsInvalidCredentialsAndPrincipals(t *testing.T) {
 	}
 }
 
-func TestFakeAuthenticatorTrimsRegisteredTokensForSmokeAuth(t *testing.T) {
+func TestFakeAuthenticatorNeverNormalizesIdentityOrTokenToCreateAMatch(t *testing.T) {
+	t.Parallel()
+
+	validPrincipal := ports.AuthPrincipal{
+		Subject:   "candidate",
+		Role:      ports.AuthRoleCiudadano,
+		Mechanism: ports.AuthMechanismClave,
+	}
+
+	registerTests := []struct {
+		name      string
+		principal ports.AuthPrincipal
+		token     string
+	}{
+		{name: "token with surrounding whitespace", principal: validPrincipal, token: " citizen-token "},
+		{name: "subject with surrounding whitespace", principal: ports.AuthPrincipal{Subject: " candidate", Role: ports.AuthRoleCandidate, Mechanism: ports.AuthMechanismClave}, token: "citizen-token"},
+		{name: "two roles", principal: ports.AuthPrincipal{Subject: "candidate", Role: ports.AuthRoleCandidate, Roles: []ports.AuthRole{ports.AuthRoleValidatorL1}, Mechanism: ports.AuthMechanismClave}, token: "citizen-token"},
+		{name: "valid and invalid role", principal: ports.AuthPrincipal{Subject: "candidate", Role: ports.AuthRoleCandidate, Roles: []ports.AuthRole{"unknown"}, Mechanism: ports.AuthMechanismClave}, token: "citizen-token"},
+		{name: "two mechanisms", principal: ports.AuthPrincipal{Subject: "candidate", Role: ports.AuthRoleCandidate, Mechanism: ports.AuthMechanismClave, Method: ports.AuthMechanismDNIe}, token: "citizen-token"},
+	}
+	for _, tt := range registerTests {
+		authenticator, err := NewFakeAuthenticator()
+		if err != nil {
+			t.Fatalf("NewFakeAuthenticator() error = %v", err)
+		}
+		if err := authenticator.Register(tt.principal, tt.token); err == nil {
+			t.Fatalf("%s: Register() accepted non canonical or ambiguous identity", tt.name)
+		}
+	}
+
+	authenticator, err := NewFakeAuthenticator()
+	if err != nil {
+		t.Fatalf("NewFakeAuthenticator() error = %v", err)
+	}
+	if err := authenticator.Register(validPrincipal, "citizen-token"); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	for _, credentials := range []ports.AuthCredentials{
+		{Mechanism: ports.AuthMechanismClave, Subject: " candidate", Token: "citizen-token"},
+		{Mechanism: ports.AuthMechanismClave, Subject: "candidate", Token: " citizen-token"},
+		{Mechanism: ports.AuthMechanismClave, Subject: "candidate", Token: "citizen-token "},
+	} {
+		if _, err := authenticator.Authenticate(context.Background(), credentials); err == nil {
+			t.Fatalf("Authenticate() accepted non canonical credentials: %+v", credentials)
+		}
+	}
+}
+
+func TestFakeAuthenticatorAcceptsOnlyExactDuplicateAuthorityRepresentation(t *testing.T) {
 	t.Parallel()
 
 	authenticator, err := NewFakeAuthenticator()
 	if err != nil {
 		t.Fatalf("NewFakeAuthenticator() error = %v", err)
 	}
-	err = authenticator.Register(ports.AuthPrincipal{
+	principal := ports.AuthPrincipal{
 		Subject:   "candidate",
-		Role:      ports.AuthRoleCiudadano,
+		Role:      ports.AuthRoleCandidate,
+		Roles:     []ports.AuthRole{ports.AuthRoleCandidate, ports.AuthRoleCandidate},
 		Mechanism: ports.AuthMechanismClave,
-	}, " citizen-token ")
-	if err != nil {
-		t.Fatalf("Register() error = %v", err)
+		Method:    ports.AuthMechanismClave,
 	}
-
-	principal, err := authenticator.Authenticate(context.Background(), ports.AuthCredentials{
+	if err := authenticator.Register(principal, "citizen-token"); err != nil {
+		t.Fatalf("Register() exact duplicate error = %v", err)
+	}
+	got, err := authenticator.Authenticate(context.Background(), ports.AuthCredentials{
 		Mechanism: ports.AuthMechanismClave,
 		Subject:   "candidate",
 		Token:     "citizen-token",
@@ -165,7 +226,38 @@ func TestFakeAuthenticatorTrimsRegisteredTokensForSmokeAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Authenticate() error = %v", err)
 	}
-	if principal.Role != ports.AuthRoleCiudadano {
-		t.Fatalf("Authenticate() role = %q", principal.Role)
+	if got.Role != ports.AuthRoleCandidate || len(got.Roles) != 1 || got.Roles[0] != ports.AuthRoleCandidate ||
+		got.Mechanism != ports.AuthMechanismClave || got.Method != ports.AuthMechanismClave {
+		t.Fatalf("principal was not reduced to one exact authority: %+v", got)
+	}
+}
+
+func TestFakeAuthenticatorNeverOverwritesAnExistingCredentialAuthority(t *testing.T) {
+	t.Parallel()
+
+	authenticator, err := NewFakeAuthenticator()
+	if err != nil {
+		t.Fatalf("NewFakeAuthenticator() error = %v", err)
+	}
+	if err := authenticator.Register(ports.AuthPrincipal{
+		Subject: "identity-1", Role: ports.AuthRoleCandidate, Mechanism: ports.AuthMechanismClave,
+	}, "token-1"); err != nil {
+		t.Fatalf("first Register() error = %v", err)
+	}
+	if err := authenticator.Register(ports.AuthPrincipal{
+		Subject: "identity-1", Role: ports.AuthRoleSystemAdmin, Mechanism: ports.AuthMechanismClave,
+	}, "token-1"); !errors.Is(err, ports.ErrAuthenticationFailed) {
+		t.Fatalf("second Register() error = %v, want %v", err, ports.ErrAuthenticationFailed)
+	}
+	principal, err := authenticator.Authenticate(context.Background(), ports.AuthCredentials{
+		Mechanism: ports.AuthMechanismClave,
+		Subject:   "identity-1",
+		Token:     "token-1",
+	})
+	if err != nil {
+		t.Fatalf("Authenticate() error = %v", err)
+	}
+	if principal.Role != ports.AuthRoleCandidate {
+		t.Fatalf("credential authority was overwritten: %+v", principal)
 	}
 }

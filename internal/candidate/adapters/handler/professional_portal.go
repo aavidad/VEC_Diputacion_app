@@ -82,13 +82,8 @@ func professionalPortalSections() []professionalPortalSectionView {
 		},
 		{
 			Key:     "candidate_management",
-			Routes:  []string{"/api/candidates", "/api/candidates/{id}/claims", "/api/candidates/{id}/notifications", "/api/candidates/{id}/audit", "/api/notifications", "/api/notifications?candidate_id={id}", "/api/audit?candidate_id={id}"},
-			Actions: []string{"review_candidate", "export_expediente", "present_claim", "create_notification", "send_notification", "mark_notification_read", "review_audit"},
-		},
-		{
-			Key:     "operations_status",
-			Routes:  []string{"/api/admin/status", "/api/admin/capabilities"},
-			Actions: []string{"check_operational_status", "review_capabilities"},
+			Routes:  []string{"/api/candidates/{id}/notifications", "/api/candidates/{id}/audit", "/api/notifications?candidate_id={id}", "/api/audit?candidate_id={id}"},
+			Actions: []string{"create_notification", "review_notifications", "review_audit"},
 		},
 	}
 }
@@ -97,20 +92,9 @@ func apiRoutes() []string {
 	return []string{
 		"/api/demo",
 		"/api/portal",
-		"/api/admin/status",
-		"/api/admin/capabilities",
-		"/api/candidates",
-		"/api/candidates/{id}/merits",
-		"/api/candidates/{id}/baremo",
-		"/api/candidates/{id}/expediente",
-		"/api/candidates/{id}/documents",
-		"/api/candidates/{id}/claims",
 		"/api/candidates/{id}/notifications",
 		"/api/candidates/{id}/audit",
-		"/api/notifications",
 		"/api/notifications?candidate_id={id}",
-		"/api/notifications/{id}/send",
-		"/api/notifications/{id}/read",
 		"/api/audit?candidate_id={id}",
 	}
 }

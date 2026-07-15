@@ -260,11 +260,33 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func normalizePrincipalRole(principal ports.AuthPrincipal) ports.AuthPrincipal {
-	switch {
-	case principal.HasRole(ports.AuthRoleCiudadano):
-		principal.Role = ports.AuthRoleCiudadano
-	case principal.HasRole(ports.AuthRolePersonalInterno):
-		principal.Role = ports.AuthRolePersonalInterno
+	roles := make(map[ports.AuthRole]struct{}, len(principal.Roles)+1)
+	invalid := false
+	add := func(role ports.AuthRole) {
+		if role == "" {
+			return
+		}
+		if !role.IsValid() {
+			invalid = true
+			return
+		}
+		roles[role] = struct{}{}
+	}
+	add(principal.Role)
+	for _, role := range principal.Roles {
+		add(role)
+	}
+	if invalid || len(roles) != 1 {
+		// El handler heredado autoriza por perfil grueso y no puede componer
+		// asignaciones con alcance. Un conjunto ambiguo o parcialmente invalido
+		// queda sin autoridad; ningun valor se descarta para salvar los restantes.
+		principal.Role = ""
+		principal.Roles = nil
+		return principal
+	}
+	for role := range roles {
+		principal.Role = role
+		principal.Roles = []ports.AuthRole{role}
 	}
 	return principal
 }
