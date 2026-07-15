@@ -1663,16 +1663,21 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   formula de extremo a extremo.
 - Sujeto autoritativo: la clave aportada por el cliente nunca identifica a la
   persona. El servicio resuelve el sujeto desde sesion, expediente y relaciones
-  internas y lo transforma con el dominio criptografico `sujeto`; DNI, nombre,
-  correo y referencias libres del cliente no entran en el indice ni se
-  persisten como material de idempotencia. El testimonio liga el seudonimo y
+  internas. El identificador interno estable se entrega solo de forma efimera a
+  las fronteras de identidad y KMS/HSM; no se persiste, registra ni expone. Este
+  origina de manera independiente el seudonimo con el dominio `sujeto` y los
+  candidatos con el dominio `principal`. DNI, nombre, correo y referencias
+  libres del cliente no entran en el indice. El testimonio liga el seudonimo y
   las referencias opacas de proceso, solicitud y baremacion utilizadas para
-  resolverlo.
+  resolver la misma identidad.
 - Principal estable: por cada generacion vigente del llavero `principal` se
-  deriva `HMAC(clave_principal, esquema + seudonimo_canonico)`. No incluye la
-  clave idempotente del cliente, sesion, autorizacion, intento ni expediente;
-  por ello el mismo sujeto conserva principal durante reintentos y una rotacion
-  puede cotejar historicos sin confundir personas.
+  deriva
+  `HMAC(clave_principal, esquema + identificador_interno_estable_canonico)`.
+  No se deriva del seudonimo: la rotacion del llavero `sujeto` cambiara ese
+  seudonimo, pero no los candidatos de principal ni los indices recuperables.
+  Tampoco incluye la clave idempotente del cliente, sesion, autorizacion,
+  intento ni expediente; por ello el mismo sujeto conserva principal durante
+  reintentos y las rotaciones pueden cotejar historicos sin confundir personas.
 - Indice de operacion: por cada combinacion de principal e historico vigente
   del llavero `indice` se deriva
   `HMAC(clave_indice, esquema + despliegue + modulo + accion + principal +
@@ -1688,10 +1693,13 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   atestacion HSM que identifique de forma inequívoca operacion, politica y
   material comprometido.
 - Fuentes efimeras: productor y verificador reciben copias de un solo uso del
-  minimo material necesario, creadas dentro del servicio y destruidas al
+  minimo material necesario, incluida la identidad interna estable y la clave
+  de cliente cuando corresponda, creadas dentro del servicio y destruidas al
   finalizar. Son implementaciones distintas fijadas por composicion; ni HTTP,
   CLI, MCP ni un modulo seleccionan una de ellas. El resultado publico sigue
-  siendo nominal y no habilita persistencia ni efectos.
+  siendo nominal y no habilita persistencia ni efectos. La limpieza de memoria
+  reduce exposicion accidental, pero no aisla de codigo malicioso con los mismos
+  privilegios; ese riesgo exige el proceso separado previsto en DEC-047.
 - Separacion de dominios: la comprobacion comprende todos los historicos
   vigentes de `sujeto`, `principal`, `indice`, `motivo`, `manifiesto` e
   `intencion`, no una referencia representativa por dominio. Cada dominio
@@ -1701,6 +1709,8 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - Casos de aceptacion: mismo sujeto con dos claves de cliente mantiene principal
   y cambia indices; dos sujetos con la misma clave cambian ambos; cruzar
   solicitud, sujeto, accion, politica, topologia, fila, columna o atestacion
-  falla cerrado. Tambien se prueban omisiones autoconsistentes primera,
-  intermedia y ultima, matriz 1x1 frente a historicos 8x8, alias fisico entre
-  dominios, cancelacion, `typed nil`, redaccion y adaptadores desde otro paquete.
+  falla cerrado. Rotar el dominio `sujeto` para la misma identidad cambia el
+  seudonimo sin cambiar los principales ni los indices historicos. Tambien se
+  prueban omisiones autoconsistentes primera, intermedia y ultima, matriz 1x1
+  frente a historicos 8x8, alias fisico entre dominios, cancelacion, `typed nil`,
+  redaccion y adaptadores desde otro paquete.
