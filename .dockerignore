@@ -27,6 +27,7 @@ docs
 fotos
 Peticion.pdf
 deploy/osrm-granada/data
+config/rpt_positions_import.json
 
 # Cachés, bases y artefactos locales.
 **/__pycache__

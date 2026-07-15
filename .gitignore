@@ -23,6 +23,10 @@ var/
 # conservan como fuentes locales para evitar binarios pesados en Git.
 /docs/referencias_portales_aapp/manuales/
 
+# Catálogo RPT generado desde una fuente local. Debe regenerarse o montarse
+# expresamente en cada entorno; no se distribuye dentro del repositorio.
+/config/rpt_positions_import.json
+
 # Datos geograficos derivados: se regeneran siguiendo deploy/osrm-granada/README.md.
 /deploy/osrm-granada/data/
 
