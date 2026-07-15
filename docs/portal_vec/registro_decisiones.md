@@ -1714,3 +1714,56 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   prueban omisiones autoconsistentes primera, intermedia y ultima, matriz 1x1
   frente a historicos 8x8, alias fisico entre dominios, cancelacion, `typed nil`,
   redaccion y adaptadores desde otro paquete.
+
+## DEC-049 — Identidad atomica y fingerprint estable frente a rotaciones
+
+- Estado: decision adoptada el 15 de julio de 2026 como cierre de DEC-045 y
+  DEC-048. El contrato nominal y el futuro servicio privado deben aplicarla
+  antes de abrir la idempotencia de baremacion a produccion.
+- Problema: seudonimo de sujeto, sello de manifiesto y HMAC de motivo contienen
+  version, referencia de clave y MAC. Volver a derivarlos tras una rotacion
+  produce sobres distintos aunque la persona, el documento, el motivo y la
+  operacion de negocio sean los mismos. Compararlos como parte del fingerprint
+  causa conflictos falsos y rompe la recuperacion historica.
+- Resolucion atomica: la frontera de identidad recibe conjuntamente referencias
+  opacas de proceso, solicitud y baremacion y el seudonimo esperado. Entrega una
+  sola vez un ancla interna aleatoria, inmutable y binaria de 256 bits junto con
+  referencia, revision, huella y atestacion del snapshot. No acepta referencias
+  de una persona y seudonimo de otra.
+- Snapshot ligado: su huella se calcula canonicamente sobre esquema, ambito,
+  seudonimo esperado, referencia y revision del snapshot y ancla interna. La
+  fabrica la recomputa antes de usarla. La raiz independiente recibe una copia
+  efimera de la misma resolucion, reconstruye el material y verifica la
+  atestacion; una huella o firma meramente declarada no acredita la relacion.
+  La frontera se consulta una vez y el lote se clona internamente para productor
+  y verificador, evitando TOCTOU y ABA entre dos resoluciones.
+- Ancla interna: se genera con CSPRNG en el servicio de identidad, se cifra en
+  reposo, se incluye en copias y restauracion y no cambia por rotar llaveros. No
+  es DNI, nombre, UUID textual, seudonimo ni HMAC con clave rotatoria. Nunca se
+  persiste en el modulo, DTO, contexto, log, auditoria ni evento.
+- Fingerprint semantico: compromete el indice idempotente ya verificado por la
+  raiz TCB, ambito, versiones, decisiones, referencias y huellas estables de
+  negocio, politicas, catalogos, objetos, recibos y resultado esperado. No
+  incorpora version, referencia ni valor de sobres criptograficos rotatorios.
+  El indice liga sujeto, despliegue, modulo, accion y clave de operacion sin
+  publicar un principal o hash global correlacionable.
+- Pruebas rotatorias: el seudonimo exacto, HMAC de motivo, sello de manifiesto y
+  demas sobres se verifican con sus claves historicas antes de aceptar igualdad.
+  El manifiesto queda ligado por su referencia, version y huella material. Para
+  un motivo libre de baja entropia se verifica el texto efimero contra el HMAC
+  historico almacenado, o se introduce solo dentro del HMAC de intencion; nunca
+  se persiste el texto ni un SHA publico susceptible de diccionario.
+- Sobre probatorio: cada intento conserva y firma por separado el seudonimo,
+  snapshot de identidad, referencias y revisiones de clave, HMAC y evidencias
+  exactas que se verificaron. Rotar una clave cambia este sobre y genera otro
+  asiento de auditoria, pero no convierte la misma intencion en otra operacion.
+- Orden del servicio: revalida identidad, sesion y permiso actuales; resuelve y
+  atesta identidad; deriva candidatos de indice; localiza la operacion; verifica
+  pruebas actuales e historicas; compara el fingerprint estable; y solo entonces
+  recupera el resultado o crea/continua efectos mediante CAS. Ningun dato
+  persistido se revela antes de esta secuencia.
+- Casos de aceptacion: misma ancla y clave cliente con rotacion independiente de
+  `sujeto`, `manifiesto` o `motivo` mantiene indice y fingerprint y crea nueva
+  evidencia de intento; cambiar identidad, ambito, contenido del manifiesto o
+  motivo cambia o deniega la operacion. Cruces A/B, snapshot manipulado, frontera
+  cambiante, firma falsa, historico omitido y callback asincrono fallan cerrados.
