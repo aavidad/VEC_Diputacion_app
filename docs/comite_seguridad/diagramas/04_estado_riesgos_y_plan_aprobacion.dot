@@ -1,0 +1,144 @@
+digraph estado_riesgos_y_plan_aprobacion {
+  graph [
+    label="04 · ESTADO DE RIESGOS Y PLAN DE APROBACIÓN\nLa decisión solicitada es continuar el desarrollo con condiciones; no autorizar producción",
+    labelloc=t,
+    labeljust=l,
+    fontsize=22,
+    fontname="DejaVu Sans",
+    fontcolor="#162433",
+    bgcolor="#FFFFFF",
+    pad=0.30,
+    nodesep=0.50,
+    ranksep=0.68,
+    rankdir=TB,
+    newrank=true,
+    compound=true,
+    splines=polyline
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="DejaVu Sans",
+    fontsize=10,
+    fontcolor="#162433",
+    color="#5B6775",
+    fillcolor="#F5F7FA",
+    penwidth=1.35,
+    margin="0.18,0.14"
+  ];
+  edge [
+    fontname="DejaVu Sans",
+    fontsize=9,
+    fontcolor="#44515F",
+    color="#667482",
+    arrowsize=0.72,
+    penwidth=1.15
+  ];
+
+  propuesta [
+    color="#2F6B9A", fillcolor="#EAF2FB", penwidth=1.8,
+    label=<<FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>DECISIÓN PROPUESTA AL COMITÉ</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="15"><B>Validación condicionada de la arquitectura de referencia</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">Continuar solo con datos sintéticos, sin usuarios ni redes reales, y volver al Comité en cada puerta.</FONT>>
+  ];
+
+  subgraph cluster_riesgos {
+    label="REGISTRO RESUMIDO · 18 RIESGOS ABIERTOS";
+    color="#6F7F8F";
+    fontcolor="#344454";
+    fontname="DejaVu Sans";
+    fontsize=12;
+    style="rounded,dashed";
+    penwidth=1.45;
+    margin=20;
+
+    criticos [
+      color="#B33A3A", fillcolor="#FDEBEC", penwidth=1.8,
+      label=<<FONT COLOR="#B33A3A" POINT-SIZE="10"><B>5 RIESGOS CRÍTICOS · R-01 A R-05</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">R-01 · identidad, sesión y revocación productivas<BR ALIGN="LEFT"/>R-02 · persistencia, concurrencia y recuperación<BR ALIGN="LEFT"/>R-03 · circuito documental completo y homologado<BR ALIGN="LEFT"/>R-04 · atestación y consumo atómico de autorización<BR ALIGN="LEFT"/>R-05 · integración limpia, CI y artefacto reproducible</FONT><BR ALIGN="LEFT"/><FONT COLOR="#B33A3A" POINT-SIZE="9"><B>BLOQUEAN CUALQUIER INTEGRACIÓN O DATO REAL</B></FONT>>
+    ];
+    altos [
+      color="#B7791F", fillcolor="#FFF4D6", penwidth=1.65,
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="10"><B>8 RIESGOS ALTOS · R-06 A R-13</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">R-06 · zonas y Cronos no demostrados en red<BR ALIGN="LEFT"/>R-07 · auditoría no durable ni independiente<BR ALIGN="LEFT"/>R-08 · HSM/KMS, secretos y gobierno de claves<BR ALIGN="LEFT"/>R-09 · continuidad, capacidad y recuperación<BR ALIGN="LEFT"/>R-10 · privacidad, bases jurídicas, retención y EIPD<BR ALIGN="LEFT"/>R-11 · firma, CSV, registro, notificación y ENI<BR ALIGN="LEFT"/>R-12 · desarrollo seguro y cadena de suministro<BR ALIGN="LEFT"/>R-13 · fuentes maestras y calidad de datos</FONT><BR ALIGN="LEFT"/><FONT COLOR="#9A6317" POINT-SIZE="9"><B>DEBEN CERRARSE ANTES DE UN PILOTO REAL</B></FONT>>
+    ];
+    medios [
+      color="#2F6B9A", fillcolor="#EAF2FB", penwidth=1.55,
+      label=<<FONT COLOR="#2F6B9A" POINT-SIZE="10"><B>5 RIESGOS MEDIOS · R-14 A R-18</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="10">R-14 · hardening, WAF, límites y observabilidad<BR ALIGN="LEFT"/>R-15 · accesibilidad de portal y documentos<BR ALIGN="LEFT"/>R-16 · separación inequívoca demo / producción<BR ALIGN="LEFT"/>R-17 · fallos y estados ambiguos de conectores<BR ALIGN="LEFT"/>R-18 · convergencia Candidate/Bolsa con núcleo VEC</FONT><BR ALIGN="LEFT"/><FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>REQUIEREN PLAN Y EVIDENCIA ANTES DE PRODUCCIÓN</B></FONT>>
+    ];
+
+    { rank=same; criticos; altos; medios; }
+  }
+
+  subgraph cluster_plan {
+    label="PUERTAS DE DECISIÓN · NO SE AVANZA POR MERO CALENDARIO";
+    color="#465B70";
+    fontcolor="#283746";
+    fontname="DejaVu Sans";
+    fontsize=12;
+    style="rounded,dashed";
+    penwidth=1.55;
+    margin=22;
+
+    desarrollo [
+      color="#B7791F", fillcolor="#FFF4D6", penwidth=1.7,
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL · APROBACIÓN CONDICIONADA</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="14"><B>DESARROLLO SINTÉTICO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9"><B>Puertas 0 y 1</B> · gobierno, alcance, ENS/riesgos,<BR ALIGN="LEFT"/>repositorio limpio, CI, revisión, SBOM y amenazas<BR ALIGN="LEFT"/><B>Permitido:</B> diseño y código sin datos ni usuarios reales</FONT>>
+    ];
+    integracion [
+      color="#B33A3A", fillcolor="#FDEBEC", penwidth=1.8,
+      label=<<FONT COLOR="#B33A3A" POINT-SIZE="9"><B>CERRADO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="14"><B>INTEGRACIÓN CONTROLADA</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9"><B>Puerta 2</B> · IdP y sesiones separados, perfil único,<BR ALIGN="LEFT"/>PDP/atestación, PostgreSQL/RLS y no alcanzabilidad<BR ALIGN="LEFT"/><B>Tras aprobar:</B> identidades de prueba; sin expedientes reales</FONT>>
+    ];
+    piloto [
+      color="#B33A3A", fillcolor="#FDEBEC", penwidth=1.8,
+      label=<<FONT COLOR="#B33A3A" POINT-SIZE="9"><B>CERRADO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="14"><B>PILOTO LIMITADO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9"><B>Puertas 3 y 4</B> · datos/documentos, claves, auditoría,<BR ALIGN="LEFT"/>firma/ENI, privacidad, SIEM, continuidad y accesibilidad<BR ALIGN="LEFT"/><B>Tras aprobar:</B> solicitar autorización de piloto</FONT>>
+    ];
+    produccion [
+      color="#B33A3A", fillcolor="#FDEBEC", penwidth=1.9,
+      label=<<FONT COLOR="#B33A3A" POINT-SIZE="9"><B>CERRADO · SIN EXCEPCIÓN IMPLÍCITA</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="14"><B>PRODUCCIÓN</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9"><B>Puerta 5</B> · revisión independiente, pentest, ENS,<BR ALIGN="LEFT"/>validaciones jurídica/DPD/Archivo y riesgo residual<BR ALIGN="LEFT"/><B>Única salida:</B> resolución formal separada</FONT>>
+    ];
+
+    desarrollo -> integracion [label="evidencias 0–2 aprobadas", color="#7A8794"];
+    integracion -> piloto [label="evidencias 3–4 aprobadas", color="#7A8794"];
+    piloto -> produccion [label="evaluación 5 + resolución", color="#7A8794"];
+    { rank=same; desarrollo; integracion; }
+    { rank=same; piloto; produccion; }
+  }
+
+  propuesta -> criticos [style=invis, weight=14];
+  propuesta -> altos [style=invis, weight=14];
+  propuesta -> medios [style=invis, weight=14];
+  criticos -> desarrollo [style=invis, weight=14];
+  altos -> integracion [style=invis, weight=14];
+  propuesta -> desarrollo [label="acuerdo condicionado", constraint=false];
+  criticos -> integracion [style=dashed, color="#B33A3A", penwidth=1.5, label="bloqueo absoluto", constraint=false];
+  altos -> piloto [style=dashed, color="#B7791F", penwidth=1.4, label="cierre obligatorio", constraint=false];
+  medios -> produccion [style=dashed, color="#2F6B9A", penwidth=1.3, label="plan + evidencia", constraint=false];
+
+  suspension [
+    color="#B33A3A", fillcolor="#FDEBEC",
+    label=<<FONT COLOR="#B33A3A" POINT-SIZE="9"><B>SUSPENSIÓN INMEDIATA</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">dato real sin autorización · ruta interna publicada · fake/cabeceras en entorno compartido<BR ALIGN="LEFT"/>controles desactivados · memoria/fichero productivo · documento sin cuarentena<BR ALIGN="LEFT"/>efecto sin autoría reconstruible · hallazgo crítico sin contener</FONT>>
+  ];
+
+  responsables [
+    shape=plain,
+    margin=0,
+    label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="7" COLOR="#AAB4BF">
+      <TR><TD BGCOLOR="#F5F7FA"><B>CADA PUERTA EXIGE</B></TD></TR>
+      <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="9">propietario nominal · evidencia reproducible · revisión independiente<BR ALIGN="LEFT"/>riesgo residual documentado · decisión y fecha registradas</FONT></TD></TR>
+    </TABLE>>
+  ];
+
+  leyenda [
+    shape=plain,
+    margin=0,
+    label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" COLOR="#CBD2D9">
+      <TR>
+        <TD BGCOLOR="#FFF4D6"><FONT COLOR="#9A6317"><B>PARCIAL / CONDICIONADO</B></FONT></TD>
+        <TD BGCOLOR="#EAF2FB"><FONT COLOR="#2F6B9A"><B>OBJETIVO / EVIDENCIA PENDIENTE</B></FONT></TD>
+        <TD BGCOLOR="#FDEBEC"><FONT COLOR="#B33A3A"><B>CERRADO / BLOQUEANTE</B></FONT></TD>
+      </TR>
+    </TABLE>>
+  ];
+
+  piloto -> responsables [style=invis, weight=12];
+  produccion -> suspension [style=invis, weight=12];
+  produccion -> suspension [style=dashed, color="#B33A3A", arrowhead=tee, constraint=false];
+  { rank=same; responsables; suspension; leyenda; }
+}

@@ -1,0 +1,160 @@
+digraph flujo_identidad_autorizacion {
+  graph [
+    label="02 · FLUJO DE IDENTIDAD Y AUTORIZACIÓN\nUna identidad autenticada no es un permiso: cada efecto exige una concesión exacta, vigente y consumible",
+    labelloc=t,
+    labeljust=l,
+    fontsize=22,
+    fontname="DejaVu Sans",
+    fontcolor="#162433",
+    bgcolor="#FFFFFF",
+    pad=0.30,
+    nodesep=0.42,
+    ranksep=0.55,
+    rankdir=TB,
+    newrank=true,
+    compound=true,
+    splines=polyline
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="DejaVu Sans",
+    fontsize=10,
+    fontcolor="#162433",
+    color="#5B6775",
+    fillcolor="#F5F7FA",
+    penwidth=1.35,
+    margin="0.18,0.13"
+  ];
+  edge [
+    fontname="DejaVu Sans",
+    fontsize=9,
+    fontcolor="#44515F",
+    color="#667482",
+    arrowsize=0.72,
+    penwidth=1.15
+  ];
+
+  cierre [
+    color="#B33A3A", fillcolor="#FDEBEC", penwidth=1.8,
+    label=<<FONT COLOR="#B33A3A" POINT-SIZE="9"><B>CERRADO A PRODUCCIÓN</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="14"><B>No hay todavía una composición confiable de extremo a extremo</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">IdP real, registro durable de sesiones, atestación criptográfica y consumo PostgreSQL siguen pendientes.</FONT>>
+  ];
+
+  subgraph cluster_identidad {
+    label="1 · AUTENTICACIÓN Y SESIÓN";
+    color="#6F7F8F";
+    fontcolor="#344454";
+    fontname="DejaVu Sans";
+    fontsize=12;
+    style="rounded,dashed";
+    penwidth=1.45;
+    margin=20;
+
+    superficie [
+      color="#B7791F", fillcolor="#FFF4D6",
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL · CONTRATOS</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Superficie y red exactas</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">pública anónima · personal externa · interna · administración<BR ALIGN="LEFT"/>listeners, cookies y audiencias no se comparten</FONT>>
+    ];
+    idp [
+      color="#2F6B9A", fillcolor="#EAF2FB",
+      label=<<FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>OBJETIVO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Proveedor de identidad aprobado</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Cl@ve/DNIe/certificado o Kerberos + certificado<BR ALIGN="LEFT"/>aserción breve, firmada, con audiencia y enlace de canal</FONT>>
+    ];
+    frontera_identidad [
+      color="#B7791F", fillcolor="#FFF4D6",
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL · NÚCLEO PROBADO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Frontera de identidad</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">mTLS del proxy · firma/revocación · ACR/AMR<BR ALIGN="LEFT"/>antirrepetición · factores y grupos criptográficos</FONT>>
+    ];
+    sesion [
+      color="#B7791F", fillcolor="#FFF4D6",
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Sesión + cuenta activas</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">consumir aserción y registrar de forma atómica;<BR ALIGN="LEFT"/>puertos definidos, repositorio durable pendiente</FONT>>
+    ];
+
+    superficie -> idp [label="mecanismo exigido"];
+    idp -> frontera_identidad [label="evidencia protegida"];
+    frontera_identidad -> sesion [label="una sola sesión"];
+  }
+
+  subgraph cluster_autorizacion {
+    label="2 · CONTEXTO Y PDP CENTRAL";
+    color="#465B70";
+    fontcolor="#283746";
+    fontname="DejaVu Sans";
+    fontsize=12;
+    style="rounded,dashed";
+    penwidth=1.55;
+    margin=22;
+
+    actor [
+      color="#247A4D", fillcolor="#E7F4EC",
+      label=<<FONT COLOR="#247A4D" POINT-SIZE="9"><B>IMPLEMENTADO · NÚCLEO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>ContextoActor</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">exactamente una persona canónica y un perfil activo<BR ALIGN="LEFT"/>sin sumar perfiles ni confiar en roles del cliente</FONT>>
+    ];
+    solicitud [
+      color="#247A4D", fillcolor="#E7F4EC",
+      label=<<FONT COLOR="#247A4D" POINT-SIZE="9"><B>IMPLEMENTADO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Solicitud exacta al PDP</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">acción · recurso · módulo · ámbito · finalidad<BR ALIGN="LEFT"/>campos · obligaciones · motivo · correlación</FONT>>
+    ];
+    pdp [
+      color="#247A4D", fillcolor="#E7F4EC", penwidth=1.8,
+      label=<<FONT COLOR="#247A4D" POINT-SIZE="9"><B>IMPLEMENTADO · NÚCLEO Y PRUEBAS</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="14"><B>PDP RBAC → ABAC</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">RBAC concede solo coincidencia positiva exacta<BR ALIGN="LEFT"/>ABAC reduce; una denegación siempre prevalece</FONT>>
+    ];
+    decision [
+      color="#B7791F", fillcolor="#FFF4D6",
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Decisión + vínculo V1</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">actor/sesión/perfil/recurso ligados · vigencia ≤ 5 min<BR ALIGN="LEFT"/>capacidad opaca; firma HSM/KMS productiva pendiente</FONT>>
+    ];
+
+    actor -> solicitud [label="perfil seleccionado"];
+    solicitud -> pdp [label="exigir"];
+    pdp -> decision [label="concesión registrada"];
+  }
+
+  subgraph cluster_efecto {
+    label="3 · PUNTO DE CONTROL Y EFECTO";
+    color="#465B70";
+    fontcolor="#283746";
+    fontname="DejaVu Sans";
+    fontsize=12;
+    style="rounded,dashed";
+    penwidth=1.55;
+    margin=22;
+
+    pep [
+      color="#B7791F", fillcolor="#FFF4D6",
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL · VERTICALES SELECCIONADAS</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>PEP dentro del caso de uso</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">revalida tupla, vigencia, garantía y obligaciones;<BR ALIGN="LEFT"/>baremación/documental avanzan, superficies heredadas cerradas</FONT>>
+    ];
+    transaccion [
+      color="#2F6B9A", fillcolor="#EAF2FB",
+      label=<<FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>OBJETIVO PRODUCTIVO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Revalidación y consumo atómicos</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">releer sesión, cuenta, asignación, rol y políticas;<BR ALIGN="LEFT"/>consumir DecisionRef junto al efecto en PostgreSQL</FONT>>
+    ];
+    efecto [
+      color="#2F6B9A", fillcolor="#EAF2FB",
+      label=<<FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>OBJETIVO PRODUCTIVO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Confirmación indivisible</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">agregado + OCC + hecho inmutable + auditoría + outbox<BR ALIGN="LEFT"/>o ningún cambio</FONT>>
+    ];
+
+    pep -> transaccion [label="capacidad de un solo uso"];
+    transaccion -> efecto [label="COMMIT"];
+  }
+
+  sesion -> actor [label="cuenta vinculada"];
+  decision -> pep [label="evidencia opaca"];
+  cierre -> superficie [style=dashed, color="#B33A3A", arrowhead=tee, label="no habilitado", constraint=false];
+
+  denegar [
+    color="#B33A3A", fillcolor="#FDEBEC", penwidth=1.7,
+    label=<<FONT COLOR="#B33A3A" POINT-SIZE="9"><B>DENEGAR POR DEFECTO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="12"><B>Sin efecto y sin revelar la causa interna</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">ausencia · ambigüedad · comodín · caducidad · revocación<BR ALIGN="LEFT"/>dependencia caída · cambio de versión · obligación no acreditada</FONT>>
+  ];
+  frontera_identidad -> denegar [style=dashed, color="#B33A3A", label="evidencia inválida", constraint=false];
+  pdp -> denegar [style=dashed, color="#B33A3A", label="no concedida", constraint=false];
+  transaccion -> denegar [style=dashed, color="#B33A3A", label="estado cambió", constraint=false];
+
+  leyenda [
+    shape=plain,
+    margin=0,
+    label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" COLOR="#CBD2D9">
+      <TR>
+        <TD BGCOLOR="#E7F4EC"><FONT COLOR="#247A4D"><B>IMPLEMENTADO</B></FONT></TD>
+        <TD BGCOLOR="#FFF4D6"><FONT COLOR="#9A6317"><B>PARCIAL</B></FONT></TD>
+        <TD BGCOLOR="#EAF2FB"><FONT COLOR="#2F6B9A"><B>OBJETIVO</B></FONT></TD>
+        <TD BGCOLOR="#FDEBEC"><FONT COLOR="#B33A3A"><B>CERRADO / DENEGADO</B></FONT></TD>
+      </TR>
+    </TABLE>>
+  ];
+  { rank=sink; leyenda; denegar; }
+}

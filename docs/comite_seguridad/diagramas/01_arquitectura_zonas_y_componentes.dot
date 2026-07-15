@@ -1,0 +1,224 @@
+digraph contexto_y_zonas {
+  graph [
+    label="01 · ARQUITECTURA, ZONAS Y COMPONENTES\nCorte técnico: 15-07-2026 · Arquitectura actual y objetivo sometido a validación",
+    labelloc=t,
+    labeljust=l,
+    fontsize=22,
+    fontname="DejaVu Sans",
+    fontcolor="#162433",
+    bgcolor="#FFFFFF",
+    pad=0.30,
+    nodesep=0.34,
+    ranksep=0.70,
+    rankdir=TB,
+    newrank=true,
+    compound=true,
+    splines=polyline
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="DejaVu Sans",
+    fontsize=10,
+    fontcolor="#162433",
+    color="#5B6775",
+    fillcolor="#F5F7FA",
+    penwidth=1.35,
+    margin="0.16,0.12"
+  ];
+  edge [
+    fontname="DejaVu Sans",
+    fontsize=9,
+    fontcolor="#44515F",
+    color="#667482",
+    arrowsize=0.72,
+    penwidth=1.15
+  ];
+
+  subgraph cluster_origenes {
+    label="ORÍGENES";
+    color="#AAB4BF";
+    fontcolor="#44515F";
+    fontname="DejaVu Sans";
+    fontsize=12;
+    style="rounded,dashed";
+    penwidth=1.2;
+    margin=18;
+
+    ciudadania [label="Ciudadanía y\nrepresentantes", fillcolor="#FFFFFF"];
+    personal [label="Personal corporativo\nRRHH · tribunal · empleado", fillcolor="#FFFFFF"];
+    operador [label="Operación y seguridad\ncuenta privilegiada", fillcolor="#FFFFFF"];
+    auditor [label="Auditoría · DPD · SIEM", fillcolor="#FFFFFF"];
+    { rank=same; ciudadania; personal; operador; auditor; }
+  }
+
+  subgraph cluster_publica {
+    label="FRONTERA DE CONFIANZA A · ZONA PÚBLICA / DMZ";
+    color="#6F7F8F";
+    fontcolor="#344454";
+    fontname="DejaVu Sans";
+    fontsize=12;
+    style="rounded,dashed";
+    penwidth=1.45;
+    margin=20;
+
+    waf_publico [
+      color="#2F6B9A", fillcolor="#EAF2FB",
+      label=<<FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>OBJETIVO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>WAF / NGINX público</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">TLS, límites, rutas públicas; sin datos</FONT>>
+    ];
+    idp_ciudadano [
+      color="#2F6B9A", fillcolor="#EAF2FB",
+      label=<<FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>OBJETIVO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Identidad ciudadana</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Cl@ve · DNIe · certificado</FONT>>
+    ];
+    superficie_anonima [
+      color="#B7791F", fillcolor="#FFF4D6",
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Superficie anónima</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Contrato sin sesión; solo publicación minimizada</FONT>>
+    ];
+    superficie_personal [
+      color="#B7791F", fillcolor="#FFF4D6",
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Área personal externa</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Propuesta sujeta a aprobación: garantía ≥ sustancial</FONT>>
+    ];
+
+    waf_publico -> superficie_anonima [label="solo rutas anónimas"];
+    waf_publico -> idp_ciudadano [label="trámites propios"];
+    idp_ciudadano -> superficie_personal;
+  }
+
+  subgraph cluster_interna {
+    label="FRONTERA DE CONFIANZA B · RED CORPORATIVA MULHACÉN / VPN";
+    color="#6F7F8F";
+    fontcolor="#344454";
+    fontname="DejaVu Sans";
+    fontsize=12;
+    style="rounded,dashed";
+    penwidth=1.45;
+    margin=20;
+
+    proxy_interno [
+      color="#2F6B9A", fillcolor="#EAF2FB",
+      label=<<FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>OBJETIVO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Proxy interno + IdP corporativo</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Red admitida · Kerberos/SPNEGO + certificado</FONT>>
+    ];
+    superficie_interna [
+      color="#B7791F", fillcolor="#FFF4D6",
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Superficie interna</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Propuesta sujeta a aprobación: dos factores · garantía alta</FONT>>
+    ];
+    proxy_interno -> superficie_interna;
+  }
+
+  subgraph cluster_administracion {
+    label="FRONTERA DE CONFIANZA C · SEGMENTO DE ADMINISTRACIÓN";
+    color="#6F7F8F";
+    fontcolor="#344454";
+    fontname="DejaVu Sans";
+    fontsize=12;
+    style="rounded,dashed";
+    penwidth=1.45;
+    margin=20;
+
+    bastion [
+      color="#2F6B9A", fillcolor="#EAF2FB",
+      label=<<FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>OBJETIVO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Bastión / puesto privilegiado</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">MFA · elevación temporal · red de gestión</FONT>>
+    ];
+    superficie_admin [
+      color="#B7791F", fillcolor="#FFF4D6",
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Administración privilegiada</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Cuenta nominativa separada · sesión y audiencia propias</FONT>>
+    ];
+    bastion -> superficie_admin;
+  }
+
+  subgraph cluster_servicios {
+    label="FRONTERA DE CONFIANZA D · ZONA DE SERVICIOS";
+    color="#506070";
+    fontcolor="#283746";
+    fontname="DejaVu Sans";
+    fontsize=12;
+    style="rounded,dashed";
+    penwidth=1.55;
+    margin=22;
+
+    vec_server [
+      color="#247A4D", fillcolor="#E7F4EC",
+      label=<<FONT COLOR="#247A4D" POINT-SIZE="9"><B>IMPLEMENTADO · DEMO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="14"><B>VEC Go · arranque único</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">cmd/vec-server · shell modular · HTTP/estáticos<BR ALIGN="LEFT"/>loopback por defecto · CIDR · límites · cabeceras</FONT>>
+    ];
+    pdp [
+      color="#B7791F", fillcolor="#FFF4D6",
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL · NÚCLEO PROBADO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="14"><B>PDP central RBAC + ABAC</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Concesión positiva exacta; ABAC solo restringe<BR ALIGN="LEFT"/>composición productiva de extremo a extremo pendiente</FONT>>
+    ];
+    trabajadores [
+      color="#B33A3A", fillcolor="#FDEBEC",
+      label=<<FONT COLOR="#B33A3A" POINT-SIZE="9"><B>CERRADO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Trabajadores y flujos sensibles</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Documental V4, CLI, MCP y tareas no expuestos</FONT>>
+    ];
+
+    vec_server -> pdp [label="cada caso de uso"];
+    pdp -> trabajadores [style=dashed, arrowhead=tee, color="#B33A3A", label="sin garantías productivas"];
+  }
+
+  subgraph cluster_datos {
+    label="FRONTERA DE CONFIANZA E · DATOS Y SERVICIOS CORPORATIVOS";
+    color="#506070";
+    fontcolor="#283746";
+    fontname="DejaVu Sans";
+    fontsize=12;
+    style="rounded,dashed";
+    penwidth=1.55;
+    margin=22;
+
+    demo_store [
+      color="#247A4D", fillcolor="#E7F4EC",
+      label=<<FONT COLOR="#247A4D" POINT-SIZE="9"><B>IMPLEMENTADO · NO PRODUCTIVO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Memoria / JSON local durable</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Datos demo de Bolsa; sin garantías de custodia legal</FONT>>
+    ];
+    postgres [
+      color="#B7791F", fillcolor="#FFF4D6",
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>PostgreSQL</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Primer adaptador de autorización y migraciones;<BR ALIGN="LEFT"/>negocio y consumo transaccional no compuestos</FONT>>
+    ];
+    objetos [
+      color="#2F6B9A", fillcolor="#EAF2FB",
+      label=<<FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>OBJETIVO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Objetos + KMS/HSM + antivirus</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Cifrado, cuarentena, inmutabilidad y retención</FONT>>
+    ];
+    corporativos [
+      color="#2F6B9A", fillcolor="#EAF2FB",
+      label=<<FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>OBJETIVO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Servicios corporativos</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Firma/TSA · registro · archivo · notificación<BR ALIGN="LEFT"/>SIEM · copias externas · DNS/NTP</FONT>>
+    ];
+  }
+
+  cierre_productivo [
+    color="#B33A3A", fillcolor="#FDEBEC", penwidth=1.8,
+    label=<<FONT COLOR="#B33A3A" POINT-SIZE="9"><B>CERRADO A PRODUCCIÓN</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>No existe aún un camino confiable completo</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">Los contratos defensivos no sustituyen IdP, segmentación,<BR ALIGN="LEFT"/>persistencia, criptografía, operación ENS ni aprobación del comité.</FONT>>
+  ];
+
+  ciudadania -> waf_publico [label="Internet"];
+  personal -> proxy_interno [label="red corporativa / VPN"];
+  operador -> bastion [label="segmento de gestión"];
+  auditor -> bastion [style=dashed, label="consulta segregada"];
+
+  superficie_anonima -> vec_server [label="listener exterior"];
+  superficie_personal -> vec_server;
+  superficie_interna -> vec_server [label="listener separado"];
+  superficie_admin -> vec_server [label="listener separado"];
+
+  vec_server -> demo_store [label="composición actual"];
+  pdp -> postgres [label="adaptador parcial"];
+  vec_server -> objetos [style=dashed, label="puertos"];
+  vec_server -> corporativos [style=dashed, label="conectores"];
+  vec_server -> cierre_productivo [style=dashed, arrowhead=tee, color="#B33A3A", constraint=false];
+
+  { rank=same; waf_publico; proxy_interno; bastion; }
+  { rank=same; superficie_anonima; superficie_interna; superficie_admin; }
+  { rank=same; demo_store; postgres; objetos; corporativos; }
+
+  leyenda [
+    shape=plain,
+    margin=0,
+    label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" COLOR="#CBD2D9">
+      <TR><TD COLSPAN="4" BGCOLOR="#F5F7FA"><FONT POINT-SIZE="10"><B>LEYENDA DE MADUREZ</B> · el estado se refiere al repositorio y a su composición actual</FONT></TD></TR>
+      <TR>
+        <TD BGCOLOR="#E7F4EC"><FONT COLOR="#247A4D"><B>IMPLEMENTADO</B></FONT><BR/><FONT POINT-SIZE="9">existe y se prueba</FONT></TD>
+        <TD BGCOLOR="#FFF4D6"><FONT COLOR="#9A6317"><B>PARCIAL</B></FONT><BR/><FONT POINT-SIZE="9">núcleo/contrato sin cierre productivo</FONT></TD>
+        <TD BGCOLOR="#EAF2FB"><FONT COLOR="#2F6B9A"><B>OBJETIVO</B></FONT><BR/><FONT POINT-SIZE="9">arquitectura propuesta pendiente</FONT></TD>
+        <TD BGCOLOR="#FDEBEC"><FONT COLOR="#B33A3A"><B>CERRADO</B></FONT><BR/><FONT POINT-SIZE="9">no se expone ni se autoriza</FONT></TD>
+      </TR>
+    </TABLE>>
+  ];
+  { rank=sink; leyenda; cierre_productivo; }
+}

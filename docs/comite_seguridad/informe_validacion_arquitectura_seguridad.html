@@ -1,0 +1,1305 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Validación de arquitectura y seguridad del Portal VEC</title>
+  <style>:root {
+  --azul-900: #10233f;
+  --azul-700: #1f4e79;
+  --azul-100: #eaf2f8;
+  --gris-900: #1f2937;
+  --gris-700: #475569;
+  --gris-300: #cbd5e1;
+  --gris-100: #f8fafc;
+  --rojo-700: #b42318;
+  --ambar-700: #a15c00;
+}
+
+@page {
+  size: A4;
+  margin: 15mm 14mm 17mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: "Liberation Sans", "DejaVu Sans", Arial, sans-serif;
+  color: var(--gris-900);
+  background: white;
+  font-size: 10pt;
+  line-height: 1.42;
+}
+
+body {
+  max-width: 186mm;
+  margin: 0 auto;
+}
+
+h1 {
+  margin: 0 0 12mm;
+  padding: 23mm 13mm 17mm;
+  border-top: 7mm solid var(--azul-900);
+  border-bottom: 1.5mm solid var(--azul-700);
+  color: var(--azul-900);
+  background: linear-gradient(145deg, #ffffff 0%, var(--azul-100) 100%);
+  font-size: 25pt;
+  line-height: 1.14;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  margin: 9mm 0 3.5mm;
+  padding-bottom: 1.5mm;
+  border-bottom: 0.6mm solid var(--azul-700);
+  color: var(--azul-900);
+  font-size: 16pt;
+  line-height: 1.2;
+  break-after: avoid-page;
+}
+
+h3 {
+  margin: 5mm 0 2mm;
+  color: var(--azul-700);
+  font-size: 12.5pt;
+  break-after: avoid-page;
+}
+
+p,
+li {
+  orphans: 3;
+  widows: 3;
+}
+
+p {
+  margin: 0 0 2.7mm;
+}
+
+ul,
+ol {
+  margin: 1.5mm 0 3mm 6mm;
+  padding-left: 4mm;
+}
+
+li {
+  margin: 0 0 1.1mm;
+}
+
+strong {
+  color: #172033;
+}
+
+a {
+  color: #165a96;
+  text-decoration: none;
+}
+
+blockquote {
+  margin: 4mm 0;
+  padding: 3.5mm 4.5mm;
+  border-left: 1.4mm solid var(--azul-700);
+  background: var(--azul-100);
+  color: #172033;
+  break-inside: avoid-page;
+}
+
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+table {
+  width: 100%;
+  margin: 3mm 0 5mm;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 8.35pt;
+}
+
+thead {
+  display: table-header-group;
+}
+
+tr {
+  break-inside: avoid-page;
+}
+
+th,
+td {
+  padding: 2mm 2.2mm;
+  border: 0.25mm solid var(--gris-300);
+  vertical-align: top;
+  text-align: left;
+}
+
+th {
+  color: white;
+  background: var(--azul-700);
+  font-weight: 700;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--gris-100);
+}
+
+code {
+  padding: 0.15em 0.35em;
+  border-radius: 0.25em;
+  background: #eef2f6;
+  color: #27364a;
+  font-family: "Liberation Mono", "DejaVu Sans Mono", monospace;
+  font-size: 0.9em;
+}
+
+pre {
+  margin: 3mm 0 4mm;
+  padding: 3mm;
+  overflow-wrap: anywhere;
+  border: 0.25mm solid var(--gris-300);
+  border-radius: 1.5mm;
+  background: #f4f7fa;
+  break-inside: avoid-page;
+}
+
+pre code {
+  padding: 0;
+  background: transparent;
+}
+
+img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  max-height: 245mm;
+  margin: 4mm auto 7mm;
+  object-fit: contain;
+  break-inside: avoid-page;
+}
+
+hr {
+  margin: 8mm 0;
+  border: 0;
+  border-top: 0.3mm solid var(--gris-300);
+}
+
+.pie-documento {
+  margin-top: 12mm;
+  padding-top: 3mm;
+  border-top: 0.3mm solid var(--gris-300);
+  color: var(--gris-700);
+  font-size: 8pt;
+}
+
+@media print {
+  body {
+    max-width: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  th,
+  blockquote {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  a {
+    color: inherit;
+  }
+}
+</style>
+</head>
+<body>
+<h1>Informe para la validación de la arquitectura y del enfoque de seguridad del Portal VEC</h1>
+<p><strong>Organización:</strong> Diputación de Granada<br>
+<strong>Sistema:</strong> Portal VEC — Ventanilla Electrónica del Empleado Público<br>
+<strong>Versión del informe:</strong> 0.1 — borrador para revisión<br>
+<strong>Fecha de corte:</strong> 15 de julio de 2026<br>
+<strong>Clasificación propuesta:</strong> uso interno / información de proyecto<br>
+<strong>Estado del sistema evaluado:</strong> prototipo y desarrollo activo; no apto para producción ni para datos personales reales</p>
+<h2>Control del documento</h2>
+<table>
+<thead>
+<tr>
+<th>Campo</th>
+<th>Valor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Finalidad</td>
+<td>Facilitar una decisión temprana del Comité de Seguridad sobre la arquitectura prevista y las condiciones para continuar el desarrollo.</td>
+</tr>
+<tr>
+<td>Decisión solicitada</td>
+<td>Validación condicionada de la dirección arquitectónica, no autorización de puesta en producción.</td>
+</tr>
+<tr>
+<td>Elaboración</td>
+<td>Borrador técnico preparado a partir de evidencias del repositorio; autoría institucional pendiente de asignación.</td>
+</tr>
+<tr>
+<td>Revisión y aprobación</td>
+<td>Pendientes de los responsables de Seguridad, Protección de Datos, Arquitectura/Sistemas y del Comité de Seguridad.</td>
+</tr>
+<tr>
+<td>Base técnica observada</td>
+<td>Repositorio <code>VEC_Diputacion_app</code>, rama <code>vec-orquesta-20260619</code>; revisión iniciada en <code>68854c0</code> y último <em>checkpoint</em> de código anterior a esta emisión: <code>c1b42bc</code>, más un árbol de trabajo amplio y en desarrollo.</td>
+</tr>
+<tr>
+<td>Evidencia principal</td>
+<td>Código fuente Go, configuración, migraciones y documentación técnica del repositorio.</td>
+</tr>
+<tr>
+<td>Exclusiones</td>
+<td>Auditoría ENS, análisis jurídico, EIPD, pentest, revisión criptográfica independiente, auditoría de accesibilidad, homologación de productos y validación de infraestructura real.</td>
+</tr>
+<tr>
+<td>Próxima revisión</td>
+<td>Al cerrar los bloqueantes P0 y antes de conectar una identidad, red, base de datos o documento real.</td>
+</tr>
+</tbody>
+</table>
+<h2>1. Resumen ejecutivo</h2>
+<p>El Portal VEC se está diseñando como una plataforma modular para servicios de personal, nóminas, control horario, dietas y procesos de Bolsa. La dirección técnica es razonable para continuar: núcleo común, módulos desacoplados, arquitectura hexagonal, autorización central con denegación por defecto, separación prevista de superficies, contratos de auditoría y puertos intercambiables para persistencia e integraciones.</p>
+<p>La implementación actual no constituye, sin embargo, un sistema desplegable con información real. Conviven componentes funcionales de demostración, repositorios en memoria o fichero, contratos de seguridad avanzados todavía no conectados y especificaciones de infraestructura pendientes de implantación. La autenticación disponible es exclusivamente de laboratorio; el adaptador PostgreSQL existente cubre una primera barrera de autorización, no la persistencia integral del negocio; y los flujos productivos de almacenamiento, antivirus, firma, registro, notificación, archivo y continuidad siguen cerrados.</p>
+<p>Además, ejecuciones puntuales de <code>go test ./...</code> sobre el árbol de trabajo activo del 15 de julio de 2026 no terminaron correctamente mientras avanzaban cambios concurrentes: se observaron una entrada de <code>go.sum</code> pendiente para una dependencia transitiva y símbolos V4 aún incompletos. El <em>checkpoint</em> limpio <code>c1b42bc</code> sí superó la suite Go completa. Por ello, el hallazgo se acota al trabajo no consolidado, que no puede integrarse ni usarse como evidencia de entrega hasta recuperar esa línea verde.</p>
+<p>Se propone que el Comité adopte la siguiente decisión:</p>
+<blockquote>
+<p><strong>Aprobar de forma condicionada la continuidad del desarrollo y la arquitectura de referencia, exclusivamente con datos sintéticos y sin exposición productiva, sujeta al cierre verificable de los riesgos críticos y altos de este informe.</strong></p>
+</blockquote>
+<p>Esta decisión no significaría:</p>
+<ul>
+<li>conformidad con el Esquema Nacional de Seguridad (ENS) ni asignación de categoría;</li>
+<li>aprobación jurídica, de protección de datos o de interoperabilidad;</li>
+<li>permiso para usar datos personales reales;</li>
+<li>autorización para exponer el portal en Internet, Mulhacén/VPN o un segmento de administración;</li>
+<li>homologación de PostgreSQL, almacenamiento, criptografía, AutoFirma, antivirus o conectores externos;</li>
+<li>aceptación del sistema para pruebas piloto con personas usuarias reales.</li>
+</ul>
+<h2>2. Objeto y decisión solicitada</h2>
+<h3>2.1 Objeto</h3>
+<p>El objetivo es revisar de forma temprana si la estructura del sistema permite implantar controles de seguridad suficientes sin rehacer el producto y señalar qué garantías faltan antes de ampliar funcionalidad o incorporar datos reales.</p>
+<p>La revisión se centra en:</p>
+<ul>
+<li>límites de confianza y separación de zonas;</li>
+<li>estructura hexagonal y aislamiento de módulos;</li>
+<li>identidad, sesión y autorización;</li>
+<li>tratamiento de documentos y expedientes;</li>
+<li>persistencia, transacciones y conectores;</li>
+<li>auditoría, evidencias y trazabilidad;</li>
+<li>operación, continuidad y cadena de suministro;</li>
+<li>brechas, responsables propuestos y puertas de aprobación.</li>
+</ul>
+<h3>2.2 Decisión que se pide al Comité</h3>
+<p>Se solicita pronunciamiento sobre cuatro puntos:</p>
+<ol>
+<li>aceptar o corregir la arquitectura de referencia antes de que se convierta en una dependencia costosa;</li>
+<li>aprobar la separación entre portal exterior, portal interno y administración privilegiada;</li>
+<li>confirmar que la plataforma transversal P0 debe completarse antes de ampliar módulos de negocio;</li>
+<li>fijar responsables y evidencias obligatorias para levantar cada bloqueo.</li>
+</ol>
+<p>La opción recomendada es una <strong>aprobación condicionada para continuar el desarrollo</strong>, con revisión de seguridad en cada puerta indicada en la sección 15.</p>
+<h2>3. Alcance, método y limitaciones</h2>
+<h3>3.1 Alcance técnico revisado</h3>
+<ul>
+<li>ejecutables <code>cmd/vec-server</code> y el centinela retirado <code>cmd/bolsa-server</code>;</li>
+<li>composición y servidor en <code>internal/app</code>;</li>
+<li>núcleo VEC en <code>internal/vec</code>;</li>
+<li>vertical heredada de candidatos y Bolsa en <code>internal/candidate</code>;</li>
+<li>módulos <code>personal</code>, <code>cronos</code>, <code>dietas</code>, <code>bolsa</code> y <code>administracion</code>;</li>
+<li>frontend estático en <code>web/static</code>;</li>
+<li>configuración y despliegue local con Go y contenedores;</li>
+<li>primer adaptador y migraciones PostgreSQL de autorización;</li>
+<li>documentación de arquitectura, permisos, autenticación, persistencia, documentos, firma y brechas.</li>
+</ul>
+<h3>3.2 Método</h3>
+<p>La valoración se basa en inspección de código y documentación, listado de paquetes, estado Git y una ejecución local de la suite Go. Se ha contrastado el marco general con las fuentes oficiales del <a href="https://www.boe.es/eli/es/rd/2022/05/03/311/con">ENS</a>, el <a href="https://www.boe.es/eli/es/rd/2010/01/08/4/con">ENI</a> y las <a href="https://www.aepd.es/areas-de-actuacion/administraciones-publicas/guias-informes-y-documentos">orientaciones de la AEPD para Administraciones públicas</a>.</p>
+<h3>3.3 Limitaciones de esta revisión</h3>
+<p>No se ha dispuesto de:</p>
+<ul>
+<li>inventario de activos aprobado ni categorización ENS;</li>
+<li>arquitectura de red real, reglas de cortafuegos o configuración de proxies;</li>
+<li>proveedor corporativo de identidad, HSM/KMS, gestor de secretos o PKI;</li>
+<li>sistemas corporativos de registro, archivo, notificación, firma o antivirus;</li>
+<li>datos, contratos, SLAs, RTO/RPO o procedimientos de operación aprobados;</li>
+<li>un artefacto de versión cerrado, reproducible y desplegado en un entorno representativo;</li>
+<li>pruebas independientes de penetración, rendimiento, accesibilidad o recuperación.</li>
+</ul>
+<p>Por tanto, este documento evalúa una <strong>dirección arquitectónica y su grado de implementación</strong>, no la seguridad efectiva de un servicio desplegado.</p>
+<h2>4. Alcance funcional y tipos de información previstos</h2>
+<p>VEC aspira a reunir servicios con niveles de sensibilidad distintos:</p>
+<table>
+<thead>
+<tr>
+<th>Área</th>
+<th>Funciones previstas</th>
+<th>Información potencial</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bolsa</td>
+<td>convocatorias, solicitudes, méritos, baremación, alegaciones, listados y llamamientos</td>
+<td>identificación, contacto, méritos, documentación acreditativa, resultados y actuaciones administrativas</td>
+</tr>
+<tr>
+<td>Personal y nóminas</td>
+<td>expediente del empleado, puesto, situaciones, antigüedad, certificados y recibos</td>
+<td>datos laborales, económicos, fiscales y administrativos</td>
+</tr>
+<tr>
+<td>Cronos</td>
+<td>fichajes, jornada, permisos, ausencias, saldos, cuadrantes y, en su caso, geolocalización</td>
+<td>hábitos, presencia, relaciones jerárquicas y posibles categorías de especial riesgo</td>
+</tr>
+<tr>
+<td>Dietas</td>
+<td>comisiones, kilometraje, justificantes, aprobación y liquidación</td>
+<td>desplazamientos, importes, cuentas y evidencias de gasto</td>
+</tr>
+<tr>
+<td>Administración</td>
+<td>roles, catálogos, integraciones, operación y auditoría</td>
+<td>configuración sensible, evidencias técnicas y referencias de seguridad</td>
+</tr>
+</tbody>
+</table>
+<p>Esta diversidad impide tratar VEC como una única zona homogénea. Cronos y las funciones privilegiadas requieren una segregación más fuerte que la zona pública. La categorización final y las medidas aplicables deberán determinarse formalmente; este informe no presume categoría ENS alguna.</p>
+<h2>5. Estado actual frente a arquitectura objetivo</h2>
+<p>Para evitar equiparar documentación con garantía efectiva, el informe usa estas categorías:</p>
+<ul>
+<li><strong>diseñado:</strong> existe una decisión o especificación revisable;</li>
+<li><strong>implementado:</strong> existe código, configuración o migración, aunque pueda no estar conectado;</li>
+<li><strong>verificado:</strong> existe una prueba reproducible sobre una versión cerrada y un entorno definido;</li>
+<li><strong>operativo:</strong> está desplegado, monitorizado, gobernado y sujeto a procedimientos aprobados.</li>
+</ul>
+<p>Una capacidad puede estar diseñada e implementada sin estar verificada ni operativa. Ninguna de las capacidades críticas se considera operativa en producción en este informe.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidad</th>
+<th>Estado observado</th>
+<th>Arquitectura objetivo</th>
+<th>Valoración</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shell modular</td>
+<td>Existe registro de módulos, menús, API y frontend estático.</td>
+<td>Carcasa común con identidad, sesión, navegación, i18n, documentos, notificaciones y auditoría.</td>
+<td>Base útil; falta cerrar contrato productivo y despliegue.</td>
+</tr>
+<tr>
+<td>Dominio y casos de uso</td>
+<td>Amplio modelo Go con pruebas unitarias en múltiples paquetes.</td>
+<td>Reglas puras e independientes de HTTP, base de datos y proveedores.</td>
+<td>Dirección adecuada; el árbol activo no es una versión estable.</td>
+</tr>
+<tr>
+<td>Autenticación</td>
+<td><code>disabled</code> por defecto; <code>fake</code> y <code>trusted_headers</code> limitados a laboratorio.</td>
+<td>Certificado/Cl@ve para exterior; AD/Kerberos y autenticación reforzada para interior; cuentas separadas para privilegio.</td>
+<td>Bloqueante productivo.</td>
+</tr>
+<tr>
+<td>Contexto de actor</td>
+<td>Existen modelo y resolución canónica en memoria, con denegación ante ambigüedad.</td>
+<td>Fuente corporativa durable que enlace cuenta, persona, perfil y representaciones.</td>
+<td>Parcial; no conectado a una fuente autoritativa real.</td>
+</tr>
+<tr>
+<td>Autorización</td>
+<td>Núcleo RBAC+ABAC de lista positiva y pruebas adversarias.</td>
+<td>PDP central, decisión exacta y atestada, revalidada y consumida atómicamente con el efecto.</td>
+<td>Diseño fuerte; atestación y consumo productivo incompletos.</td>
+</tr>
+<tr>
+<td>Persistencia</td>
+<td>Memoria por defecto, fichero durable opt-in para Bolsa y primer adaptador PostgreSQL de autorización aislado.</td>
+<td>PostgreSQL por módulo/superficie, RLS, transacciones, migraciones, outbox, copias y restauración.</td>
+<td>No existe persistencia productiva completa.</td>
+</tr>
+<tr>
+<td>Documentos</td>
+<td>Puertos, dominio, generación PDF/DOCX y adaptadores de prueba en memoria.</td>
+<td>Almacén cifrado, cuarentena, antivirus, metadatos ENI, firma, sello, CSV, registro, archivo y recuperación.</td>
+<td>Contratos avanzados; flujo productivo cerrado.</td>
+</tr>
+<tr>
+<td>Auditoría</td>
+<td>Modelos encadenados y confirmaciones atómicas en adaptadores de memoria.</td>
+<td>Registro durable, append-only, firma/sello, exportación, retención y copia en dominio separado.</td>
+<td>No probatoria en el despliegue actual.</td>
+</tr>
+<tr>
+<td>Integraciones</td>
+<td>Puertos y stubs; OSRM opcional bajo lista positiva.</td>
+<td>Conectores corporativos homologados, identidades técnicas separadas, mTLS, outbox y reconciliación.</td>
+<td>Pendiente.</td>
+</tr>
+<tr>
+<td>Zonas de red</td>
+<td>Especificadas documentalmente; escucha local por defecto.</td>
+<td>Entradas, audiencias, sesiones, datos y operación segregados.</td>
+<td>No demostrada en infraestructura.</td>
+</tr>
+<tr>
+<td>Operación</td>
+<td>Docker local, health y configuración inicial.</td>
+<td>observabilidad, SIEM, secretos, hardening, vulnerabilidades, capacidad, continuidad y respuesta.</td>
+<td>Bloqueante antes de piloto real.</td>
+</tr>
+<tr>
+<td>Calidad</td>
+<td>Existe una suite extensa; <code>c1b42bc</code> supera <code>go test ./...</code> en limpio.</td>
+<td>CI obligatoria, artefacto reproducible, revisión, SAST/SCA, pruebas de integración y gates.</td>
+<td>El árbol activo no está verde y aún no existe CI ni artefacto reproducible.</td>
+</tr>
+</tbody>
+</table>
+<h2>6. Arquitectura lógica: núcleo hexagonal y módulos</h2>
+<p>La aplicación sigue un patrón de puertos y adaptadores. La intención es que las reglas administrativas no dependan de HTTP, PostgreSQL, S3, AutoFirma o un proveedor de identidad concreto.</p>
+<h3>6.1 Capas</h3>
+<table>
+<thead>
+<tr>
+<th>Capa</th>
+<th>Responsabilidad</th>
+<th>Restricción de seguridad</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dominio</td>
+<td>entidades, invariantes, estados, baremos, documentos, decisiones y validaciones</td>
+<td>no confiar en cabeceras, rutas, variables de entorno ni datos de proveedor</td>
+</tr>
+<tr>
+<td>Aplicación/casos de uso</td>
+<td>coordinar operaciones y solicitar autorización, repositorios, auditoría y eventos</td>
+<td>una superficie nueva no puede eludir el mismo caso de uso protegido</td>
+</tr>
+<tr>
+<td>Puertos</td>
+<td>contratos mínimos para identidad, autorización, persistencia, documentos, firma, reloj, auditoría y conectores</td>
+<td>expresar capacidades, no productos; fallo o capacidad ausente debe cerrar la operación</td>
+</tr>
+<tr>
+<td>Adaptadores</td>
+<td>HTTP, memoria, fichero, PostgreSQL, PDF/DOCX y futuros proveedores</td>
+<td>validar transporte y traducir errores sin ampliar autoridad ni filtrar información</td>
+</tr>
+<tr>
+<td>Composición</td>
+<td>seleccionar configuración y conectar implementaciones</td>
+<td>ningún modo de demostración debe activarse accidentalmente en un perfil productivo</td>
+</tr>
+</tbody>
+</table>
+<h3>6.2 Componentes principales observados</h3>
+<ul>
+<li><code>internal/vec/domain</code>: tipos y reglas transversales del portal.</li>
+<li><code>internal/vec/application</code>: autorización, contexto de actor, documentos, cargas, catálogos, flujos, cotejo y otros casos de uso.</li>
+<li><code>internal/vec/ports</code>: contratos de repositorio, auditoría, almacenamiento, atestación y conectores.</li>
+<li><code>internal/vec/adapters/httpapi</code> y <code>httpseguridad</code>: superficie HTTP y controles de frontera.</li>
+<li><code>internal/vec/adapters/memory</code>: adaptadores de demostración y pruebas.</li>
+<li><code>internal/vec/adapters/postgres</code>: primera barrera durable de autorización, todavía no montada como persistencia de producto.</li>
+<li><code>internal/candidate</code>: vertical heredada de candidatos/Bolsa que debe converger con el núcleo común.</li>
+<li><code>internal/modules/*</code>: módulos funcionales conectados mediante manifiestos y puertos.</li>
+<li><code>internal/app/bootstrap</code>: composición; punto crítico para impedir conexiones inseguras.</li>
+<li><code>web/static</code>: interfaz estática; no debe ser fuente de autoridad ni almacenar datos reales como sistema de registro.</li>
+</ul>
+<h3>6.3 Modelo modular</h3>
+<p>El shell VEC pretende ser dueño de identidad, sesión, navegación, i18n y capacidades transversales. Cada módulo es dueño de su dominio y casos de uso, pero no de un login, un sistema de permisos o un almacenamiento documental alternativos.</p>
+<p>La separación evita duplicar controles, aunque introduce un riesgo de concentración: un fallo en el núcleo transversal afectaría a todos los módulos. Por ello, el contrato de módulo debe exigir como mínimo pruebas de autorización, auditoría, salud, documentos, eventos y aislamiento de datos.</p>
+<blockquote>
+<p><strong>Figura 1 — Arquitectura, zonas y componentes.</strong> La leyenda diferencia
+capacidades implementadas, parciales, objetivo y cerradas a producción.</p>
+</blockquote>
+<p><img src="diagramas/01_arquitectura_zonas_y_componentes.svg" alt="Arquitectura, zonas de confianza y componentes del Portal VEC" /></p>
+<h2>7. Zonas de confianza y separación exterior/interior</h2>
+<p>La arquitectura objetivo contempla superficies distintas que comparten código y casos de uso, pero no confianza implícita.</p>
+<h3>7.1 Zona exterior</h3>
+<p>Se divide en:</p>
+<ul>
+<li>zona anónima, solo para información expresamente publicable;</li>
+<li>área personal autenticada para el titular o representante acreditado;</li>
+<li>entrada pública mediante WAF/proxy y proveedor de identidad admitido;</li>
+<li>API exterior con audiencia, sesión, límites y credenciales técnicas propias.</li>
+</ul>
+<p>Una persona empleada que acceda como aspirante no obtiene por ello funciones internas. La titularidad y representación deben resolverse en el servidor.</p>
+<h3>7.2 Zona interna de empleado y gestión</h3>
+<p>Se prevé para Mulhacén o VPN corporativa autorizada, con proxy interno, AD/Kerberos y autenticación reforzada. Debe disponer de listener, DNS, certificado, audiencia, cookies, API y pool de base de datos distintos de la superficie exterior.</p>
+<p>La red interna autentica el origen técnico, pero no concede un expediente ni una acción. Cada operación sigue necesitando autorización por perfil, unidad, relación, recurso, finalidad, campos y vigencia.</p>
+<h3>7.3 Administración privilegiada</h3>
+<p>Debe quedar fuera de la sesión ordinaria de RRHH. Requiere cuenta nominativa distinta, puesto o bastión administrado, elevación temporal, reautenticación, doble control cuando proceda y auditoría en un destino que el administrador no pueda alterar.</p>
+<p>No se prevé un superadministrador funcional universal. Operar despliegues, base de datos o claves no concede acceso ordinario a expedientes.</p>
+<h3>7.4 Enclave Cronos</h3>
+<p>La especificación propone para Cronos una segregación reforzada: sin rutas desde Internet, con base, almacenamiento, copias, secretos, audiencia, telemetría y servicios cartográficos propios. Esa topología es todavía una decisión de diseño, no una infraestructura demostrada.</p>
+<h3>7.5 Regla de interconexión</h3>
+<p>Todo flujo entre zonas deberá estar inventariado con origen, destino, protocolo, identidad técnica, datos, finalidad, cifrado, autenticación, límites, registro y responsable. La ausencia de un flujo aprobado debe equivaler a ausencia de ruta.</p>
+<h2>8. Flujo de identidad, sesión y autorización</h2>
+<h3>8.1 Flujo objetivo</h3>
+<ol>
+<li>La persona entra por una superficie concreta.</li>
+<li>El proveedor de identidad autentica mediante el mecanismo aprobado para esa superficie.</li>
+<li>La aplicación valida una aserción de vida corta, audiencia exacta y protección antirrepetición, o un certificado de cliente verificado directamente.</li>
+<li>Se resuelve una única persona canónica y una cuenta concreta; no se usa el DNI como clave técnica.</li>
+<li>Se selecciona un único perfil activo. Los perfiles no suman permisos.</li>
+<li>Se resuelven vínculos vigentes con empleado, aspirante, representante, unidad o nombramiento.</li>
+<li>El caso de uso formula una solicitud de autorización completa.</li>
+<li>El PDP central devuelve denegación o una concesión positiva, exacta, breve y vinculada al contexto.</li>
+<li>Antes de un efecto administrativo, la decisión se revalida y consume en la misma transacción que negocio, auditoría y outbox.</li>
+<li>El resultado y las denegaciones relevantes se registran con datos minimizados.</li>
+</ol>
+<h3>8.2 Estado actual</h3>
+<ul>
+<li>El modo normal parte con autenticación deshabilitada.</li>
+<li><code>fake</code> exige loopback, fichero local restrictivo y token opaco; es solo una herramienta de desarrollo.</li>
+<li><code>trusted_headers</code> no debe considerarse autenticación productiva sin una aserción criptográfica y un canal confiable.</li>
+<li>Existe modelo de contexto de actor, pero no una fuente corporativa durable conectada.</li>
+<li>No están integrados Cl@ve, certificado/DNIe, AD/Kerberos, MFA, representación ni revocación corporativa.</li>
+</ul>
+<blockquote>
+<p><strong>Figura 2 — Flujo de identidad y autorización.</strong> Una identidad autenticada
+no concede por sí sola un permiso: cada efecto requiere una decisión exacta.</p>
+</blockquote>
+<p><img src="diagramas/02_flujo_identidad_autorizacion.svg" alt="Flujo de identidad, contexto, autorización y confirmación del efecto" /></p>
+<h2>9. Modelo de autorización RBAC + ABAC</h2>
+<h3>9.1 Principio rector</h3>
+<p>La autoridad crece de menos a más. La ausencia, ambigüedad, caducidad, error, dependencia no disponible o valor desconocido deniega. No hay comodines positivos, herencia de autoridad, suma de perfiles ni permiso implícito por estar en un menú o grupo de Active Directory.</p>
+<h3>9.2 Tupla mínima de decisión</h3>
+<p>Cada caso de uso debe comprobar, según proceda:</p>
+<ul>
+<li>superficie y sesión;</li>
+<li>identidad efectiva y persona representada;</li>
+<li>perfil activo y versión de rol;</li>
+<li>módulo y acción exacta;</li>
+<li>tipo, referencia y huella del recurso;</li>
+<li>ámbito: organismo, unidad, convocatoria, fase, lote, expediente, periodo o relación;</li>
+<li>finalidad;</li>
+<li>garantía y antigüedad de autenticación;</li>
+<li>campos permitidos;</li>
+<li>obligaciones: firma, motivación, doble control, registro o reautenticación;</li>
+<li>vigencia de asignación, políticas y catálogos.</li>
+</ul>
+<p>RBAC es una condición necesaria. ABAC solo puede reducir la concesión, no crearla. Las restricciones concurrentes se combinan de forma restrictiva.</p>
+<h3>9.3 Defensa en profundidad PostgreSQL</h3>
+<p>El diseño prevé:</p>
+<ul>
+<li>identidades técnicas separadas por módulo y superficie;</li>
+<li>revocación de privilegios generales;</li>
+<li>cuentas de ejecución sin propiedad, <code>SUPERUSER</code> ni <code>BYPASSRLS</code>;</li>
+<li>seguridad por filas y control de columnas;</li>
+<li>contexto local por transacción, nunca estado residual del pool;</li>
+<li>auditoría y hechos probatorios de solo adición;</li>
+<li>consumo único e idempotencia.</li>
+</ul>
+<p>PostgreSQL no sustituye al PDP. Su función es limitar el impacto de un fallo posterior y conservar atomicidad, concurrencia e invariantes.</p>
+<h3>9.4 Brecha principal</h3>
+<p>El adaptador durable actual puede comprobar la coherencia de asignación, rol y catálogo, pero la atestación criptográfica completa de la decisión y su consumo dentro de cada repositorio de negocio no están terminados ni aprobados. En consecuencia, el adaptador permanece correctamente aislado de la composición productiva.</p>
+<h2>10. Flujo documental, firma y expediente</h2>
+<h3>10.1 Documentos aportados</h3>
+<p>El flujo objetivo para una carga es:</p>
+<pre><code class="language-text">reserva -&gt; preparación -&gt; recepción en cuarentena -&gt; análisis
+                                                |
+                                                +-&gt; error/sospechoso: retenido
+                                                +-&gt; limpio: nueva autorización
+                                                            -&gt; promoción
+                                                            -&gt; incorporación
+</code></pre>
+<p>Las operaciones de preparar, confirmar, analizar y promover son capacidades diferentes. Un documento no analizado no debe descargarse, firmarse ni incorporarse al expediente. Original, derivados, firmas y evidencias son objetos distintos e inmutables.</p>
+<h3>10.2 Documentos generados</h3>
+<p>La generación prevista parte de una plantilla versionada y publicada, fusiona datos de forma estricta, genera una o varias representaciones, valida estructura y contenido, calcula huellas y almacena referencias opacas. Firma, sello de tiempo, registro, CSV y archivo son pasos posteriores y separados.</p>
+<p>La implementación actual incluye dominio, puertos y salidas funcionales PDF/DOCX para pruebas. No acredita PDF/A, PDF/UA, preservación, firma válida, registro ni expediente ENI.</p>
+<h3>10.3 Firma, CSV y cotejo</h3>
+<p>La arquitectura reserva el CSV antes de renderizar la versión que se firma; el código solo se activa después de completar firma, validación y registro. El QR sería únicamente una vía de acceso al cotejo, no una prueba de autenticidad. La posesión de un CSV tampoco debe convertir automáticamente un documento protegido en público.</p>
+<p>AutoFirma se prevé como adaptador, no como archivo central ni fuente de autorización. Cada revisión firmada debe validarse y custodiarse antes de habilitar la siguiente.</p>
+<h3>10.4 Estado productivo</h3>
+<p>El único adaptador de almacenamiento conectado es de memoria y declara que no cifra ni ofrece un perfil productivo. No existen todavía un almacén persistente homologado, cifrado por objeto, KMS/HSM, antivirus corporativo, reconciliación, firma, sello, registro, notificación o archivo conectados.</p>
+<blockquote>
+<p><strong>Figura 3 — Ciclo documental y evidencias.</strong> El diagrama diferencia los
+contratos existentes de los servicios productivos que continúan pendientes.</p>
+</blockquote>
+<p><img src="diagramas/03_ciclo_documental_y_evidencias.svg" alt="Ciclo documental seguro desde la aportación o generación hasta el archivo" /></p>
+<h2>11. Persistencia, datos y conectores</h2>
+<h3>11.1 Persistencia observada</h3>
+<ul>
+<li>memoria como opción predeterminada del prototipo;</li>
+<li>persistencia local por fichero disponible para determinadas funciones de Bolsa;</li>
+<li>adaptadores de memoria para capacidades transversales;</li>
+<li>migraciones y adaptador PostgreSQL limitados a autorización;</li>
+<li>ausencia de una base de datos integral y productiva para personas, expedientes, documentos, auditoría y módulos.</li>
+</ul>
+<p>La memoria y los ficheros locales son adecuados para pruebas acotadas, no para concurrencia, recuperación, integridad jurídica o explotación con datos reales.</p>
+<h3>11.2 Arquitectura de datos objetivo</h3>
+<p>Se propone que cada operación relevante confirme de forma atómica:</p>
+<pre><code class="language-text">agregado + control optimista de versión + hecho inmutable + auditoría + outbox
+</code></pre>
+<p>Las llamadas remotas no deben ejecutarse dentro de una transacción SQL abierta. Se registra primero una intención durable; un trabajador con identidad propia procesa la operación de forma idempotente y reconcilia respuestas ambiguas.</p>
+<p>Los binarios documentales no se guardarían en PostgreSQL. La base conservaría metadatos, referencias opacas, huellas, estados, versiones y evidencias; el contenido residiría en un almacén cifrado y gobernado.</p>
+<h3>11.3 Conectores previstos</h3>
+<table>
+<thead>
+<tr>
+<th>Conector</th>
+<th>Uso</th>
+<th>Estado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identidad exterior</td>
+<td>Cl@ve, DNIe/certificado y representación</td>
+<td>no conectado</td>
+</tr>
+<tr>
+<td>Identidad interior</td>
+<td>AD/Kerberos, certificado/MFA y ciclo de cuentas</td>
+<td>no conectado</td>
+</tr>
+<tr>
+<td>PostgreSQL</td>
+<td>negocio, autorización, RLS, auditoría y outbox</td>
+<td>autorización parcial y aislada</td>
+</tr>
+<tr>
+<td>Almacenamiento de objetos</td>
+<td>cuarentena, contenido admitido, retención y recuperación</td>
+<td>puerto y memoria de pruebas</td>
+</tr>
+<tr>
+<td>Antivirus/análisis</td>
+<td>detección o desarme de contenido</td>
+<td>puerto; sin proveedor productivo</td>
+</tr>
+<tr>
+<td>Firma/validación/TSA</td>
+<td>firma de personas, sello de órgano y tiempo</td>
+<td>especificado; sin integración productiva</td>
+</tr>
+<tr>
+<td>Registro/archivo/ENI</td>
+<td>asiento, expediente, conservación e intercambio</td>
+<td>pendiente</td>
+</tr>
+<tr>
+<td>Notificaciones</td>
+<td>puesta a disposición, acceso, rechazo y vencimiento</td>
+<td>pendiente</td>
+</tr>
+<tr>
+<td>OSRM/cartografía</td>
+<td>cálculo de rutas para Dietas</td>
+<td>opcional y restringido; no habilitado por defecto</td>
+</tr>
+<tr>
+<td>Sistemas de personal/nómina</td>
+<td>fuentes maestras corporativas</td>
+<td>pendientes de decisión</td>
+</tr>
+<tr>
+<td>SIEM/SOC</td>
+<td>vigilancia, correlación y conservación</td>
+<td>pendiente</td>
+</tr>
+</tbody>
+</table>
+<p>Cada conector deberá declarar versión, capacidades, identidad técnica, red, cifrado, límites, errores, salud, auditoría, idempotencia y procedimiento de sustitución.</p>
+<h2>12. Auditoría, evidencias y observabilidad</h2>
+<p>Se deben mantener separadas tres trazabilidades relacionadas:</p>
+<ol>
+<li><strong>Expediente administrativo:</strong> actuaciones, documentos, firmas, registros, notificaciones y resoluciones.</li>
+<li><strong>Auditoría funcional y de seguridad:</strong> actor, perfil, autorización, finalidad, recurso, acción, resultado, motivo y huellas.</li>
+<li><strong>Telemetría técnica:</strong> métricas, trazas, errores y rendimiento, con datos personales minimizados.</li>
+</ol>
+<p>El código contiene modelos de auditoría encadenada y contratos que unen cambio, auditoría y evento en adaptadores de memoria. Estas medidas son una base de diseño, pero no equivalen a una evidencia durable frente a un operador que controle el almacenamiento.</p>
+<p>Antes de producción se requiere:</p>
+<ul>
+<li>repositorio append-only y acceso segregado;</li>
+<li>fecha confiable y política de retención;</li>
+<li>firma, sello o anclaje de integridad aprobado;</li>
+<li>envío a un dominio de auditoría distinto;</li>
+<li>consultas justificadas y auditadas;</li>
+<li>exportación con manifiesto y cadena de custodia;</li>
+<li>registro de denegaciones sin convertirlas en capacidades ejecutables;</li>
+<li>alertas sobre accesos masivos, cambios de permisos, exportaciones, elevaciones y fallos de integridad;</li>
+<li>pruebas de restauración de negocio, objetos, claves y auditoría como un conjunto coherente.</li>
+</ul>
+<h2>13. Amenazas relevantes</h2>
+<p>La validación debe considerar, al menos:</p>
+<ul>
+<li>suplantación mediante cabeceras, tokens de demostración o certificados no verificados;</li>
+<li>acceso horizontal a expedientes de otra persona y acceso vertical por rol amplio;</li>
+<li>mezcla de sesiones exterior, interior y privilegiada;</li>
+<li>revocación concurrente entre autorización y escritura;</li>
+<li>alteración o repetición de una decisión de autorización;</li>
+<li>inyección SQL, de plantillas, documentos activos o contenido hostil;</li>
+<li>malware en documentos y bypass de cuarentena;</li>
+<li>manipulación de baremos, listados, firmas, CSV o historial;</li>
+<li>extracción masiva, exportaciones no justificadas y abuso interno;</li>
+<li>fuga de datos a logs, navegador, correo, telemetría o conectores;</li>
+<li>compromiso de cuenta técnica, secreto, clave de firma o cadena de suministro;</li>
+<li>pérdida, corrupción o indisponibilidad en periodos de plazo administrativo;</li>
+<li>respuesta ambigua de conectores que produzca duplicados o estados falsos;</li>
+<li>dependencia de un proveedor sin capacidad equivalente o recuperación ensayada;</li>
+<li>exposición accidental de Cronos o de rutas internas en la entrada pública.</li>
+</ul>
+<p>El modelo de amenazas formal deberá asociar cada escenario con activo, atacante, probabilidad, impacto, control, riesgo residual y responsable.</p>
+<h2>14. Registro de riesgos y brechas</h2>
+<h3>14.1 Escala utilizada</h3>
+<ul>
+<li><strong>Crítica:</strong> impide conectar datos o usuarios reales; un fallo podría comprometer autoridad, confidencialidad o integridad administrativa.</li>
+<li><strong>Alta:</strong> debe cerrarse antes de un piloto real o de conectar una zona corporativa.</li>
+<li><strong>Media:</strong> no invalida el diseño, pero requiere plan y evidencia antes de producción.</li>
+<li><strong>Baja:</strong> mejora de defensa, operación o mantenibilidad a programar y verificar.</li>
+</ul>
+<p>Los propietarios indicados son una propuesta; el Comité deberá asignar personas o unidades nominales y fechas.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Severidad</th>
+<th>Riesgo/brecha</th>
+<th>Control o decisión existente</th>
+<th>Acción/evidencia de cierre</th>
+<th>Propietario propuesto</th>
+<th>Evidencia de origen</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R-01</td>
+<td>Crítica</td>
+<td>No existe autenticación productiva ni ciclo de sesión/revocación corporativo.</td>
+<td><code>disabled</code> por defecto y <code>fake</code> restringido a loopback.</td>
+<td>Diseño aprobado, integración real, MFA según riesgo, revocación, pruebas de suplantación y separación de superficies.</td>
+<td>Sistemas + Seguridad + Identidad corporativa</td>
+<td><code>config/config.go</code>; <code>docs/portal_vec/autenticacion_fake_local_segura.md</code></td>
+</tr>
+<tr>
+<td>R-02</td>
+<td>Crítica</td>
+<td>La persistencia principal sigue en memoria/fichero y no soporta garantía integral, concurrencia ni recuperación.</td>
+<td>Puertos de repositorio y primer adaptador PostgreSQL de autorización.</td>
+<td>Esquema productivo, migraciones, privilegios, RLS, transacciones, backup/PITR y restauración ensayada.</td>
+<td>Arquitectura + DBA + Operación</td>
+<td><code>internal/vec/adapters/memory</code>; <code>internal/candidate/adapters/repository</code>; <code>deploy/postgresql/autorizacion</code></td>
+</tr>
+<tr>
+<td>R-03</td>
+<td>Crítica</td>
+<td>El circuito documental productivo no está conectado: cifrado, cuarentena, antivirus, firma, registro, archivo y recuperación.</td>
+<td>Puertos, estados cerrados y adaptador de memoria que declara capacidades limitadas.</td>
+<td>Adaptadores homologados, pruebas de contrato, malware, caída, reconciliación, retención y restauración completa.</td>
+<td>Sistemas + Seguridad + Archivo + Secretaría</td>
+<td><code>docs/portal_vec/almacen_documental_seguro.md</code>; <code>internal/vec/ports/almacen_objetos.go</code></td>
+</tr>
+<tr>
+<td>R-04</td>
+<td>Crítica</td>
+<td>Una decisión de autorización todavía no está atestada y consumida atómicamente con cada efecto productivo.</td>
+<td>PDP de lista positiva, CAS PostgreSQL y diseño de atestación.</td>
+<td>Aprobar perfil criptográfico, HSM/KMS, verificación independiente, vectores Go/SQL, consumo único y pruebas de mutación/replay.</td>
+<td>Seguridad + Arquitectura + DBA + Custodia de claves</td>
+<td><code>docs/portal_vec/atestacion_criptografica_decisiones.md</code></td>
+</tr>
+<tr>
+<td>R-05</td>
+<td>Crítica</td>
+<td>El <em>checkpoint</em> limpio compila y supera pruebas, pero el árbol activo no es integrable y no existe una línea de CI ni un artefacto reproducible.</td>
+<td>Suite extensa y <code>go test ./...</code> verde en <code>c1b42bc</code>.</td>
+<td>Integrar por lotes los cambios activos, resolver dependencia y símbolos V4 antes de incorporarlos, exigir CI verde, artefacto por digest, revisión y etiqueta de versión.</td>
+<td>Desarrollo + Responsable de entrega</td>
+<td>Ejecuciones <code>go test ./...</code> del 15-07-2026 sobre <code>c1b42bc</code> y el árbol activo</td>
+</tr>
+<tr>
+<td>R-06</td>
+<td>Alta</td>
+<td>Separación exterior, interior, privilegiada y Cronos definida, pero no demostrada en red o despliegue.</td>
+<td>Escucha local por defecto y documentos de zonificación.</td>
+<td>Diagramas aprobados, reglas de flujo, listeners, gateways, audiencias, pruebas de no alcanzabilidad y revisión de configuración.</td>
+<td>Redes + Sistemas + Seguridad</td>
+<td><code>docs/estudio_requisitos/acceso_interno_tecnicos_administracion.md</code>; <code>docs/estudio_requisitos/seguridad_y_despliegue_cronos.md</code></td>
+</tr>
+<tr>
+<td>R-07</td>
+<td>Alta</td>
+<td>Auditoría funcional no durable ni independiente; no es todavía evidencia probatoria.</td>
+<td>Modelos encadenados y contratos atómicos en memoria.</td>
+<td>Repositorio append-only, sello/anclaje, SIEM, retención, exportación, accesos segregados y restauración.</td>
+<td>Seguridad + Operación + Secretaría</td>
+<td><code>internal/candidate/domain/audit.go</code>; <code>internal/vec/ports</code></td>
+</tr>
+<tr>
+<td>R-08</td>
+<td>Alta</td>
+<td>No hay HSM/KMS, gestor de secretos ni gobierno de claves implantado.</td>
+<td>Separación conceptual de claves, referencias y puertos.</td>
+<td>Selección aprobada, inventario, custodia, rotación, revocación, doble control, backup y recuperación.</td>
+<td>Custodio de claves + Seguridad + Sistemas</td>
+<td><code>docs/portal_vec/atestacion_criptografica_decisiones.md</code>; <code>docs/portal_vec/almacen_documental_seguro.md</code></td>
+</tr>
+<tr>
+<td>R-09</td>
+<td>Alta</td>
+<td>No se ha demostrado continuidad, capacidad ni recuperación en último día de plazo o ante ransomware.</td>
+<td>Diseño de outbox e idempotencia; requisitos documentados.</td>
+<td>BIA, RTO/RPO, pruebas de carga, copias inmutables, segundo dominio y simulacros completos.</td>
+<td>Continuidad + Operación + Responsables del servicio</td>
+<td><code>docs/estudio_requisitos/brechas_para_producto_profesional.md</code></td>
+</tr>
+<tr>
+<td>R-10</td>
+<td>Alta</td>
+<td>Tratamientos, bases jurídicas, minimización, retención, derechos y EIPD no están aprobados.</td>
+<td>Privacidad por diseño en referencias opacas y minimización de logs.</td>
+<td>RAT, análisis de riesgos de privacidad, EIPD cuando proceda, política de conservación y validación del DPD.</td>
+<td>Responsable del tratamiento + DPD + RRHH</td>
+<td><code>docs/portal_vec/cumplimiento_y_seguridad.md</code></td>
+</tr>
+<tr>
+<td>R-11</td>
+<td>Alta</td>
+<td>Firma, sello, CSV, registro, notificación y expediente ENI son especificaciones, no integraciones validadas.</td>
+<td>Modelos y flujos inmutables definidos.</td>
+<td>Conectores reales, política de firma, metadatos, validación, cotejo, exportación y pruebas jurídicas/técnicas.</td>
+<td>Secretaría + Archivo + Sistemas + Asesoría</td>
+<td><code>docs/portal_vec/firma_csv_qr_y_cotejo.md</code>; <code>docs/portal_vec/capacidad_documental.md</code></td>
+</tr>
+<tr>
+<td>R-12</td>
+<td>Alta</td>
+<td>Falta un proceso demostrable de desarrollo seguro y cadena de suministro.</td>
+<td>Versiones y digests previstos; pruebas unitarias existentes.</td>
+<td>Ramas protegidas, revisión, SAST/SCA, secretos, SBOM, firma de artefactos, parcheo, política de vulnerabilidades y pentest.</td>
+<td>Desarrollo + Seguridad</td>
+<td><code>Dockerfile</code>; <code>go.mod</code>; <code>docs/estudio_requisitos/brechas_para_producto_profesional.md</code></td>
+</tr>
+<tr>
+<td>R-13</td>
+<td>Alta</td>
+<td>Fuentes maestras de persona, puesto, nómina, jornada y representación no están acordadas ni conectadas.</td>
+<td>Contexto de actor canónico y referencias opacas.</td>
+<td>Decisión de autoridad de datos, reconciliación, calidad, deduplicación, rectificación y trazabilidad.</td>
+<td>RRHH + Sistemas + DPD</td>
+<td><code>internal/vec/domain/contexto_actor.go</code>; <code>docs/portal_vec/registro_decisiones.md</code></td>
+</tr>
+<tr>
+<td>R-14</td>
+<td>Media</td>
+<td>Observabilidad, límites, cabeceras, CSRF, rate limiting y hardening productivo incompletos.</td>
+<td>Timeouts y restricciones locales iniciales.</td>
+<td>Perfil de despliegue endurecido, WAF, límites por operación, métricas, alertas y pruebas de abuso.</td>
+<td>Operación + Seguridad + Desarrollo</td>
+<td><code>internal/app/server</code>; <code>config</code>; <code>docs/estudio_requisitos/brechas_para_producto_profesional.md</code></td>
+</tr>
+<tr>
+<td>R-15</td>
+<td>Media</td>
+<td>Accesibilidad del portal y de documentos no está auditada.</td>
+<td>Requisitos UI y generación funcional PDF/DOCX.</td>
+<td>Auditoría EN 301 549/WCAG aplicable, pruebas con ayudas técnicas y corrección; perfil documental accesible.</td>
+<td>Producto + Desarrollo + Unidad de accesibilidad</td>
+<td><code>docs/portal_vec/cumplimiento_y_seguridad.md</code>; <code>web/static</code></td>
+</tr>
+<tr>
+<td>R-16</td>
+<td>Media</td>
+<td>Datos y comportamientos de demostración podrían confundirse con fuentes productivas.</td>
+<td>Modos explícitos y documentación de límites.</td>
+<td>Artefactos/configuraciones separados, prohibición de datos reales, banner de entorno y pruebas que impidan activar demos.</td>
+<td>Desarrollo + Operación</td>
+<td><code>README.md</code>; <code>docs/portal_vec/autenticacion_fake_local_segura.md</code></td>
+</tr>
+<tr>
+<td>R-17</td>
+<td>Media</td>
+<td>Conectores externos son stubs o decisiones pendientes; un error remoto puede dejar estado ambiguo.</td>
+<td>Puertos, outbox e idempotencia previstos.</td>
+<td>Contrato por conector, identidades técnicas, reintento seguro, reconciliación, circuit breaker, salud y simulación de fallos.</td>
+<td>Arquitectura + Sistemas + Propietario de cada integración</td>
+<td><code>internal/vec/ports</code>; <code>docs/estudio_requisitos/brechas_para_producto_profesional.md</code></td>
+</tr>
+<tr>
+<td>R-18</td>
+<td>Media</td>
+<td>El módulo heredado de candidatos/Bolsa y el núcleo VEC pueden mantener modelos o controles divergentes.</td>
+<td>Integración gradual y contratos comunes.</td>
+<td>Plan de convergencia, eliminación de rutas alternativas y pruebas comunes de autorización/auditoría.</td>
+<td>Arquitectura + Desarrollo</td>
+<td><code>internal/candidate</code>; <code>internal/vec</code>; <code>cmd/bolsa-server</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Figura 4 — Riesgos y plan de aprobación.</strong> El avance depende de evidencias
+aprobadas en cada puerta, no del calendario ni de un porcentaje de desarrollo.</p>
+</blockquote>
+<p><img src="diagramas/04_estado_riesgos_y_plan_aprobacion.svg" alt="Riesgos abiertos y puertas de decisión hasta una eventual producción" /></p>
+<h2>15. Plan de aseguramiento y puertas de decisión</h2>
+<h3>Puerta 0 — Gobierno y alcance</h3>
+<p><strong>Objetivo:</strong> convertir el proyecto en un sistema delimitado y gobernado.</p>
+<p>Evidencias mínimas:</p>
+<ul>
+<li>responsables de información, servicio, seguridad, sistema, tratamiento y módulos;</li>
+<li>inventario de activos, datos, servicios, dependencias y terceros;</li>
+<li>categorización ENS y valoración por dimensiones;</li>
+<li>análisis de riesgos inicial y plan de tratamiento;</li>
+<li>tratamientos, bases jurídicas, participación del DPD y decisión sobre EIPD;</li>
+<li>alcance exacto de zonas exterior, interior, privilegiada y Cronos;</li>
+<li>RTO, RPO, disponibilidad y periodos críticos.</li>
+</ul>
+<p><strong>Resultado permitido:</strong> continuar diseño y desarrollo con datos sintéticos.</p>
+<h3>Puerta 1 — Línea base de desarrollo seguro</h3>
+<p><strong>Objetivo:</strong> disponer de un artefacto reproducible y evaluable.</p>
+<p>Evidencias mínimas:</p>
+<ul>
+<li>repositorio limpio y cambios divididos en commits revisables;</li>
+<li>CI obligatoria con <code>go test ./...</code>, carrera, análisis estático y de dependencias;</li>
+<li>SBOM, escaneo de secretos e imágenes por digest;</li>
+<li>ramas protegidas y revisión por otra persona;</li>
+<li>separación inequívoca de perfiles demo, prueba y producción;</li>
+<li>modelo de amenazas inicial y casos negativos automatizados.</li>
+</ul>
+<p><strong>Resultado permitido:</strong> construir una versión candidata de integración sin datos reales.</p>
+<h3>Puerta 2 — Identidad, zonas y autorización</h3>
+<p><strong>Objetivo:</strong> demostrar que toda operación parte de una identidad y una concesión válidas.</p>
+<p>Evidencias mínimas:</p>
+<ul>
+<li>IdP exterior e interior aprobados y sesiones separadas;</li>
+<li>perfil único, representación, ciclo de alta/baja y cuentas privilegiadas;</li>
+<li>PDP central con matriz validada por propietarios funcionales;</li>
+<li>atestación de decisiones y consumo transaccional de un primer efecto;</li>
+<li>pruebas de acceso horizontal/vertical, replay, revocación concurrente y fallo de dependencias;</li>
+<li>PostgreSQL con identidades técnicas, privilegios y RLS verificados;</li>
+<li>pruebas de que Internet no alcanza APIs internas ni Cronos.</li>
+</ul>
+<p><strong>Resultado permitido:</strong> integración controlada con identidades de prueba; aún sin expedientes reales.</p>
+<h3>Puerta 3 — Datos, documentos y expediente</h3>
+<p><strong>Objetivo:</strong> custodiar y reproducir cada actuación sin confiar en memoria o ficheros de aplicación.</p>
+<p>Evidencias mínimas:</p>
+<ul>
+<li>persistencia de negocio con migraciones y transacciones;</li>
+<li>almacén cifrado, claves gobernadas, cuarentena y antivirus;</li>
+<li>firma/validación/sello de tiempo, registro, CSV y expediente ENI según política aprobada;</li>
+<li>auditoría durable y outbox en la misma transacción;</li>
+<li>conservación, bloqueo, expurgo y archivo definidos;</li>
+<li>pruebas de caída, duplicado, respuesta ambigua, malware, integridad y restauración.</li>
+</ul>
+<p><strong>Resultado permitido:</strong> evaluación prepiloto con datos sintéticos representativos.</p>
+<h3>Puerta 4 — Operación, privacidad y resiliencia</h3>
+<p><strong>Objetivo:</strong> demostrar capacidad sostenida de operar y responder.</p>
+<p>Evidencias mínimas:</p>
+<ul>
+<li>SGSI/procedimientos aplicables, configuración endurecida y gestor de secretos;</li>
+<li>SIEM/SOC, alertas, respuesta a incidentes y gestión de brechas;</li>
+<li>BIA, capacidad, pruebas de carga, continuidad y restauración en segundo dominio;</li>
+<li>RAT, información por capas, derechos, retención y EIPD aprobada cuando proceda;</li>
+<li>auditoría de accesibilidad de portal y documentos;</li>
+<li>formación de operación, soporte, RRHH y administradores.</li>
+</ul>
+<p><strong>Resultado permitido:</strong> solicitar autorización de piloto limitado.</p>
+<h3>Puerta 5 — Evaluación independiente y autorización</h3>
+<p><strong>Objetivo:</strong> decidir si el riesgo residual es aceptable.</p>
+<p>Evidencias mínimas:</p>
+<ul>
+<li>revisión independiente de arquitectura y código crítico;</li>
+<li>pentest y corrección de hallazgos;</li>
+<li>auditoría ENS o mecanismo de conformidad que corresponda a la categoría;</li>
+<li>validación jurídica, DPD, Secretaría, Archivo, RRHH, Sistemas y Seguridad;</li>
+<li>inventario de excepciones con riesgo aceptado, responsable y caducidad;</li>
+<li>plan de despliegue, reversión, soporte y vigilancia inicial.</li>
+</ul>
+<p><strong>Resultado permitido:</strong> solo una resolución formal separada puede autorizar producción.</p>
+<h2>16. Criterios propuestos para la aprobación condicionada actual</h2>
+<p>El Comité podría validar la continuación del proyecto si se incorporan al acuerdo estas condiciones:</p>
+<ol>
+<li>El sistema se mantiene en desarrollo, sin datos personales reales y sin exposición a usuarios reales.</li>
+<li>La validación se limita a la dirección arquitectónica; no declara conformidad normativa.</li>
+<li>Los riesgos R-01 a R-05 permanecen como bloqueantes absolutos de cualquier integración real.</li>
+<li>La plataforma transversal P0 —identidad, autorización, persona, persistencia, documentos, auditoría, operación y continuidad— tiene prioridad sobre nuevos módulos.</li>
+<li>Toda rama integrable debe tener CI verde, revisión y trazabilidad; <code>c1b42bc</code> es la referencia limpia mínima y el estado puntual fallido del árbol activo no puede sustituirla.</li>
+<li>Exterior, interior, administración y Cronos se diseñan y despliegan como superficies separadas; compartir código no implica compartir red, sesión, credencial o datos.</li>
+<li>No se conectará un proveedor o sistema corporativo sin contrato de capacidades, análisis de riesgos y propietario.</li>
+<li>Seguridad, DPD, Secretaría/Archivo y RRHH participarán en las decisiones que les correspondan antes de programar garantías irreversibles.</li>
+<li>Cada excepción tendrá alcance, riesgo, responsable, control compensatorio y fecha de retirada.</li>
+<li>El proyecto volverá al Comité al finalizar cada puerta y siempre antes de un piloto o cambio de superficie.</li>
+</ol>
+<h3>Causas de suspensión inmediata</h3>
+<ul>
+<li>introducción de datos reales sin autorización;</li>
+<li>exposición de una ruta interna o administrativa en la entrada pública;</li>
+<li>activación de autenticación <code>fake</code> o confianza en cabeceras en un entorno compartido;</li>
+<li>desactivación de controles para recuperar disponibilidad;</li>
+<li>uso de memoria/fichero como fuente productiva;</li>
+<li>conexión documental sin cuarentena, análisis y recuperación;</li>
+<li>imposibilidad de reconstruir quién autorizó o ejecutó un efecto;</li>
+<li>hallazgo crítico sin contención o dependencia comprometida.</li>
+</ul>
+<h2>17. Decisiones que debe aportar la Diputación</h2>
+<p>El equipo de desarrollo no puede resolver por código las siguientes cuestiones:</p>
+<ol>
+<li>alcance, responsables y categoría ENS;</li>
+<li>fuentes maestras de persona, puesto, unidad, jornada, nómina y representación;</li>
+<li>IdP, MFA y política de cuentas privilegiadas;</li>
+<li>arquitectura de red y condiciones de VPN/acceso remoto;</li>
+<li>HSM/KMS, gestor de secretos, PKI, sello y TSA;</li>
+<li>plataformas corporativas de registro, archivo, notificación, firma y antivirus;</li>
+<li>política documental, series, conservación, bloqueo y expurgo;</li>
+<li>base jurídica, información, derechos y necesidad de EIPD por tratamiento;</li>
+<li>RTO, RPO, capacidad, segundo emplazamiento y cobertura SOC;</li>
+<li>reglas de publicación y minimización de listados;</li>
+<li>alcance permitido de API, CLI, automatización, MCP e inteligencia artificial;</li>
+<li>presupuesto y calendario para auditoría, accesibilidad, pentest y operación.</li>
+</ol>
+<h2>18. Conclusión y propuesta de acuerdo</h2>
+<p>La arquitectura contiene decisiones favorables para seguridad: denegación por defecto, separación de dominio y tecnología, perfiles no acumulables, autorización exacta, referencias opacas, módulos sin login propio, persistencia como defensa adicional, documentos inmutables y conectores detrás de puertos.</p>
+<p>Su valor actual es el de una <strong>base de diseño y prototipo técnico</strong>, no el de una plataforma autorizable. Las garantías más importantes permanecen en especificación, en memoria o aisladas de la composición. Continuar sin una decisión temprana de gobierno podría consolidar integraciones incompatibles; detener todo desarrollo tampoco es necesario si se mantienen límites estrictos y se prioriza la plataforma P0.</p>
+<p>Se propone el siguiente texto de acuerdo:</p>
+<blockquote>
+<p>El Comité de Seguridad valida de forma condicionada la arquitectura de referencia del Portal VEC para continuar su desarrollo con datos sintéticos y en entornos no productivos. La validación no constituye conformidad ENS, aprobación jurídica, autorización de tratamiento ni permiso de puesta en servicio. El proyecto deberá cerrar los riesgos críticos, presentar las evidencias de las puertas de aseguramiento y solicitar una nueva decisión antes de conectar identidades, datos, redes o servicios corporativos reales y antes de cualquier piloto o producción.</p>
+</blockquote>
+<h2>Anexo A. Mapa de responsabilidades propuesto</h2>
+<table>
+<thead>
+<tr>
+<th>Materia</th>
+<th>Responsable primario propuesto</th>
+<th>Participantes necesarios</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Información y servicio</td>
+<td>RRHH / unidad promotora</td>
+<td>Secretaría, Archivo, Sistemas, DPD</td>
+</tr>
+<tr>
+<td>Seguridad</td>
+<td>Responsable de Seguridad</td>
+<td>Sistemas, SOC, Arquitectura, DPD</td>
+</tr>
+<tr>
+<td>Sistema y operación</td>
+<td>Sistemas</td>
+<td>Redes, DBA, soporte, continuidad</td>
+</tr>
+<tr>
+<td>Protección de datos</td>
+<td>Responsable del tratamiento + DPD</td>
+<td>RRHH, Seguridad, Asesoría</td>
+</tr>
+<tr>
+<td>Arquitectura y desarrollo</td>
+<td>Arquitectura/Desarrollo</td>
+<td>Seguridad, Sistemas, propietarios de módulos</td>
+</tr>
+<tr>
+<td>Expediente y firma</td>
+<td>Secretaría + Archivo</td>
+<td>Sistemas, RRHH, Asesoría</td>
+</tr>
+<tr>
+<td>Identidad y acceso</td>
+<td>Identidad corporativa + Seguridad</td>
+<td>RRHH, Sistemas, propietarios funcionales</td>
+</tr>
+<tr>
+<td>Claves</td>
+<td>Custodio de claves</td>
+<td>Seguridad, Sistemas, auditoría</td>
+</tr>
+<tr>
+<td>Riesgo residual</td>
+<td>Órgano competente</td>
+<td>responsables de información, servicio, seguridad y sistema</td>
+</tr>
+</tbody>
+</table>
+<h2>Anexo B. Evidencias técnicas del repositorio</h2>
+<table>
+<thead>
+<tr>
+<th>Área</th>
+<th>Evidencia principal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Arquitectura</td>
+<td><code>docs/portal_vec/arquitectura_tecnica.md</code></td>
+</tr>
+<tr>
+<td>Contrato modular</td>
+<td><code>docs/portal_vec/contrato_modulos_vec.md</code></td>
+</tr>
+<tr>
+<td>Cumplimiento y expediente</td>
+<td><code>docs/portal_vec/cumplimiento_y_seguridad.md</code></td>
+</tr>
+<tr>
+<td>Roles y ámbitos</td>
+<td><code>docs/portal_vec/matriz_roles_y_ambitos.md</code></td>
+</tr>
+<tr>
+<td>Autenticación local</td>
+<td><code>docs/portal_vec/autenticacion_fake_local_segura.md</code></td>
+</tr>
+<tr>
+<td>PostgreSQL</td>
+<td><code>docs/portal_vec/seguridad_persistencia_postgresql.md</code>; <code>deploy/postgresql/autorizacion</code></td>
+</tr>
+<tr>
+<td>Atestación de decisiones</td>
+<td><code>docs/portal_vec/atestacion_criptografica_decisiones.md</code></td>
+</tr>
+<tr>
+<td>Almacén documental</td>
+<td><code>docs/portal_vec/almacen_documental_seguro.md</code></td>
+</tr>
+<tr>
+<td>Generación documental</td>
+<td><code>docs/portal_vec/capacidad_documental.md</code></td>
+</tr>
+<tr>
+<td>Firma y cotejo</td>
+<td><code>docs/portal_vec/firma_csv_qr_y_cotejo.md</code></td>
+</tr>
+<tr>
+<td>Brechas generales</td>
+<td><code>docs/estudio_requisitos/brechas_para_producto_profesional.md</code></td>
+</tr>
+<tr>
+<td>Acceso interno</td>
+<td><code>docs/estudio_requisitos/acceso_interno_tecnicos_administracion.md</code></td>
+</tr>
+<tr>
+<td>Cronos</td>
+<td><code>docs/estudio_requisitos/seguridad_y_despliegue_cronos.md</code></td>
+</tr>
+<tr>
+<td>Código del núcleo</td>
+<td><code>internal/vec/domain</code>, <code>internal/vec/application</code>, <code>internal/vec/ports</code></td>
+</tr>
+<tr>
+<td>Adaptadores</td>
+<td><code>internal/vec/adapters</code>, <code>internal/candidate/adapters</code></td>
+</tr>
+<tr>
+<td>Composición</td>
+<td><code>internal/app/bootstrap</code>, <code>cmd/vec-server</code>, <code>config</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Anexo C. Marco de referencia</h2>
+<p>Estas referencias orientan las evidencias a preparar, pero su mención no acredita cumplimiento:</p>
+<ul>
+<li><a href="https://www.boe.es/buscar/act.php?id=BOE-A-2022-7191">Real Decreto 311/2022, Esquema Nacional de Seguridad — texto consolidado</a>.</li>
+<li><a href="https://www.ccn-cert.cni.es/es/series-ccn-stic/guias/series-ccn-stic/800-guia-esquema-nacional-de-seguridad.html">Serie CCN-STIC 800, guías del Esquema Nacional de Seguridad</a>.</li>
+<li><a href="https://www.boe.es/buscar/act.php?id=BOE-A-2010-1331">Real Decreto 4/2010, Esquema Nacional de Interoperabilidad — texto consolidado</a>.</li>
+<li><a href="https://www.boe.es/eli/es/l/2015/10/01/39/con">Ley 39/2015, Procedimiento Administrativo Común</a>.</li>
+<li><a href="https://www.boe.es/eli/es/l/2015/10/01/40/con">Ley 40/2015, Régimen Jurídico del Sector Público</a>.</li>
+<li><a href="https://www.boe.es/eli/es/rd/2021/03/30/203/con">Real Decreto 203/2021, actuación y funcionamiento electrónico del sector público</a>.</li>
+<li><a href="https://eur-lex.europa.eu/eli/reg/2016/679/oj/spa">Reglamento (UE) 2016/679, RGPD</a>.</li>
+<li><a href="https://www.boe.es/buscar/act.php?id=BOE-A-2018-16673">Ley Orgánica 3/2018, LOPDGDD — texto consolidado</a>.</li>
+<li><a href="https://eur-lex.europa.eu/eli/reg/2024/1183/oj/spa">Reglamento (UE) 2024/1183, marco europeo de identidad digital</a>.</li>
+<li><a href="https://www.boe.es/eli/es/rd/2018/09/07/1112/con">Real Decreto 1112/2018, accesibilidad de sitios web y aplicaciones móviles del sector público</a>.</li>
+<li><a href="https://www.aepd.es/areas-de-actuacion/administraciones-publicas/guias-informes-y-documentos">Guías e informes de la AEPD para Administraciones públicas</a>.</li>
+<li><a href="https://www.aepd.es/derechos-y-deberes/cumple-tus-deberes/medidas-de-cumplimiento/proteccion-de-datos-desde-el-diseno">AEPD, protección de datos desde el diseño</a>.</li>
+</ul>
+<h2>Anexo D. Glosario</h2>
+<table>
+<thead>
+<tr>
+<th>Término</th>
+<th>Significado en este informe</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ABAC</td>
+<td>autorización basada en atributos como unidad, relación, finalidad, periodo o clasificación</td>
+</tr>
+<tr>
+<td>CAS</td>
+<td>actualización condicional que solo confirma si versiones y huellas siguen coincidiendo</td>
+</tr>
+<tr>
+<td>CSV</td>
+<td>código seguro de verificación de una versión documental emitida</td>
+</tr>
+<tr>
+<td>DPD</td>
+<td>delegado de protección de datos</td>
+</tr>
+<tr>
+<td>EIPD</td>
+<td>evaluación de impacto relativa a la protección de datos</td>
+</tr>
+<tr>
+<td>ENI</td>
+<td>Esquema Nacional de Interoperabilidad</td>
+</tr>
+<tr>
+<td>ENS</td>
+<td>Esquema Nacional de Seguridad</td>
+</tr>
+<tr>
+<td>HSM/KMS</td>
+<td>sistema protegido para custodia/uso de claves y servicio de gestión de claves</td>
+</tr>
+<tr>
+<td>IdP</td>
+<td>proveedor de identidad</td>
+</tr>
+<tr>
+<td>MCP</td>
+<td>protocolo de herramientas para agentes/modelos; no debe abrir acceso directo a datos</td>
+</tr>
+<tr>
+<td>OCC</td>
+<td>control optimista de concurrencia</td>
+</tr>
+<tr>
+<td>Outbox</td>
+<td>bandeja transaccional de eventos/intenciones para procesar efectos externos con recuperación</td>
+</tr>
+<tr>
+<td>PDP</td>
+<td>punto central que evalúa la política y emite una decisión de autorización</td>
+</tr>
+<tr>
+<td>RBAC</td>
+<td>autorización basada en rol; en VEC es necesaria, pero no suficiente</td>
+</tr>
+<tr>
+<td>RAT</td>
+<td>registro de actividades de tratamiento</td>
+</tr>
+<tr>
+<td>RLS</td>
+<td>seguridad por filas de PostgreSQL</td>
+</tr>
+<tr>
+<td>RPO/RTO</td>
+<td>pérdida máxima de datos admisible y tiempo objetivo de recuperación</td>
+</tr>
+<tr>
+<td>SIEM/SOC</td>
+<td>plataforma de correlación de seguridad y capacidad operativa de vigilancia/respuesta</td>
+</tr>
+<tr>
+<td>TSA</td>
+<td>autoridad de sellado de tiempo</td>
+</tr>
+</tbody>
+</table>
+
+<p class="pie-documento">Portal VEC · Informe para revisión del Comité de Seguridad · Fecha de corte: 15 de julio de 2026</p>
+</body>
+</html>
