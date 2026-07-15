@@ -1,6 +1,7 @@
 package application
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -37,9 +38,7 @@ func (e *ErrorDocumentoFirmadoHuerfano) Unwrap() error {
 	return e.Causa
 }
 
-func (e *ErrorDocumentoFirmadoHuerfano) String() string {
-	return mensajeErrorBaremacion(e, mensajeDocumentoFirmadoHuerfano)
-}
+func (e *ErrorDocumentoFirmadoHuerfano) String() string   { return e.Error() }
 func (e *ErrorDocumentoFirmadoHuerfano) GoString() string { return e.String() }
 func (e *ErrorDocumentoFirmadoHuerfano) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, e.String())
@@ -48,7 +47,7 @@ func (e *ErrorDocumentoFirmadoHuerfano) LogValue() slog.Value {
 	return slog.StringValue(e.String())
 }
 func (e *ErrorDocumentoFirmadoHuerfano) MarshalJSON() ([]byte, error) {
-	return jsonErrorBaremacionSeguro(e.String()), nil
+	return json.Marshal(e.String())
 }
 func (e *ErrorDocumentoFirmadoHuerfano) MarshalText() ([]byte, error) {
 	return []byte(e.String()), nil
@@ -81,7 +80,7 @@ func (e *ErrorCustodiaBaremacionIncompleta) Unwrap() error {
 }
 
 func (e *ErrorCustodiaBaremacionIncompleta) String() string {
-	return mensajeErrorBaremacion(e, mensajeCustodiaBaremacionIncompleta)
+	return e.Error()
 }
 func (e *ErrorCustodiaBaremacionIncompleta) GoString() string { return e.String() }
 func (e *ErrorCustodiaBaremacionIncompleta) Format(estado fmt.State, _ rune) {
@@ -91,25 +90,11 @@ func (e *ErrorCustodiaBaremacionIncompleta) LogValue() slog.Value {
 	return slog.StringValue(e.String())
 }
 func (e *ErrorCustodiaBaremacionIncompleta) MarshalJSON() ([]byte, error) {
-	return jsonErrorBaremacionSeguro(e.String()), nil
+	return json.Marshal(e.String())
 }
 func (e *ErrorCustodiaBaremacionIncompleta) MarshalText() ([]byte, error) {
 	return []byte(e.String()), nil
 }
 func (e *ErrorCustodiaBaremacionIncompleta) MarshalBinary() ([]byte, error) {
 	return []byte(e.String()), nil
-}
-
-func mensajeErrorBaremacion(valor any, mensaje string) string {
-	if valor == nil {
-		return mensaje
-	}
-	return mensaje
-}
-
-// Los dos mensajes son literales ASCII controlados por el servidor. Se evita
-// json.Marshal para que este camino de error no tenga dependencias ni ramas que
-// puedan terminar serializando los campos sensibles de la estructura.
-func jsonErrorBaremacionSeguro(mensaje string) []byte {
-	return append(append([]byte{'"'}, mensaje...), '"')
 }
