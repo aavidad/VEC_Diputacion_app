@@ -185,12 +185,12 @@ func TestConstructoresCanonicalizanUTCYRechazanSubmicrosegundos(t *testing.T) {
 
 func TestReferenciasDeLlamamientoRechazanDNI_NIE_ComodinesYNoCanonicas(t *testing.T) {
 	bolsa, necesidad, politica, instantanea := escenarioLlamamientoPrueba(t)
-	bolsa.BolsaRef = "bolsa:12345678Z"
+	bolsa.BolsaRef = "bolsa:00000000A"
 	if err := bolsa.Validar(); !errors.Is(err, ErrBolsaConstituidaInvalida) {
 		t.Fatalf("DNI admitido en bolsa: %v", err)
 	}
 	participacion := participacionLlamamientoPrueba(t, 1)
-	participacion.SujetoRef = "sujeto:X1234567L"
+	participacion.SujetoRef = "sujeto:X0000000A"
 	if err := participacion.Validar(); !errors.Is(err, ErrParticipacionBolsaInvalida) {
 		t.Fatalf("NIE admitido como sujeto: %v", err)
 	}

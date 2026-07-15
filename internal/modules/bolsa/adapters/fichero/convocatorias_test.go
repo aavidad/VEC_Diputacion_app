@@ -62,7 +62,7 @@ func TestFuenteDemoRechazaJSONLaxoDuplicadoYDatosPersonales(t *testing.T) {
 	casos := map[string]string{
 		"campo desconocido":            strings.Replace(string(base), `"version_esquema": 1,`, `"version_esquema": 1, "desconocido": true,`, 1),
 		"clave duplicada":              strings.Replace(string(base), `"version_esquema": 1,`, `"version_esquema": 1, "version_esquema": 1,`, 1),
-		"dni":                          strings.Replace(string(base), `"version_esquema": 1,`, `"version_esquema": 1, "dni": "12345678Z",`, 1),
+		"dni_sintetico":                strings.Replace(string(base), `"version_esquema": 1,`, `"version_esquema": 1, "dni": "00000000A",`, 1),
 		"espacio no canonico":          strings.Replace(string(base), `"titulo": "Bolsa temporal`, `"titulo": " Bolsa temporal`, 1),
 		"marca bidi":                   strings.Replace(string(base), `"titulo": "Bolsa temporal`, `"titulo": "Bolsa \u202etemporal`, 1),
 		"version catalogo incoherente": strings.Replace(string(base), `"clave": "bolsa_temporal", "version": 1`, `"clave": "bolsa_temporal", "version": 2`, 1),

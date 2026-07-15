@@ -407,7 +407,7 @@ func TestServicioLlamamientosDeniegaPerfilImplicitoPIIYContextoCanceladoAntesDeE
 	casos := map[string]func(*puertosbolsa.SolicitudProponerLlamamiento){
 		"perfil_vacio":    func(s *puertosbolsa.SolicitudProponerLlamamiento) { s.PerfilActivoRef = "" },
 		"perfil_distinto": func(s *puertosbolsa.SolicitudProponerLlamamiento) { s.PerfilActivoRef = "prf_XXXXXXXXXXXXXXXXXXXXXX" },
-		"dni":             func(s *puertosbolsa.SolicitudProponerLlamamiento) { s.NecesidadRef = "necesidad:12345678Z" },
+		"dni_sintetico":   func(s *puertosbolsa.SolicitudProponerLlamamiento) { s.NecesidadRef = "necesidad:00000000A" },
 	}
 	for nombre, mutar := range casos {
 		t.Run(nombre, func(t *testing.T) {

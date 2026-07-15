@@ -55,7 +55,7 @@ func TestReferenciaOpacaLlamamientoDeniegaPIIComodinesYTextoNoCanonico(t *testin
 		}
 	}
 	invalidas := []string{
-		"", " necesidad:01 ", "necesidad:*", "sujeto:12345678Z", "sujeto:X1234567L",
+		"", " necesidad:01 ", "necesidad:*", "sujeto:00000000A", "sujeto:X0000000A",
 		"sujeto:dni:opaco", "sujeto:pasaporte:opaco", "corr:\u202Eoculto", "corr:\nlinea",
 		strings.Repeat("a", 513),
 	}
