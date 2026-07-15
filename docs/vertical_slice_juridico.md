@@ -22,13 +22,14 @@ Adaptadores opt-in:
 
 - Handler HTTP para API local.
 - Repositorios en memoria para prototipo.
-- Autenticador fake con dos identidades precargadas.
+- Autenticador fake cerrado: resuelve una credencial Bearer opaca contra un
+  fichero local obligatorio; no existen identidades ni secretos precargados.
 
 Composicion:
 
-- `cmd/bolsa-server/main.go` crea handler prototipo, carga `config.Load()` y
-  arranca `server.NewHTTPServer`.
-- Configuracion canonica actual: `BOLSA_HTTP_ADDR`.
+- `cmd/vec-server/main.go` carga `config.Load()` y arranca el unico servidor
+  canonico. El alias `cmd/bolsa-server` esta retirado y falla cerrado.
+- Configuracion canonica actual: `VEC_HTTP_ADDR`.
 
 ## Flujo ciudadano
 
@@ -37,11 +38,10 @@ Composicion:
 3. `POST /api/candidates/{id}/baremo` calcula puntuacion.
 4. `GET /api/candidates/{id}/expediente` devuelve candidato, meritos y baremo.
 
-Autenticacion simulada:
-
-- `X-Auth-Mechanism: clave`
-- `X-Auth-Subject: candidate`
-- `Authorization: Bearer citizen-token`
+Autenticacion local: `Authorization: Bearer $VEC_FAKE_TOKEN`. El token aleatorio
+no se incluye en codigo, JavaScript, documentacion ni imagenes; el servidor
+obtiene sujeto, roles, mecanismo y garantia exactos del fichero indicado por
+`VEC_FAKE_CREDENTIALS_FILE`.
 
 ## Flujo administrativo
 
@@ -53,15 +53,14 @@ Autenticacion simulada:
 - publicacion de listado definitivo;
 - desempate/ranking calculado por reglas de baremo.
 
-Autenticacion simulada:
-
-- `X-Auth-Mechanism: kerberos_ad`
-- `X-Auth-Subject: staff`
-- `Authorization: Bearer staff-token`
+La llamada usa igualmente el Bearer local. Las cabeceras `X-Auth-*` y `X-VEC-*`
+no son autoridad en modo fake, aunque un cliente intente enviarlas.
 
 ## Reglas de baremo prototipo
 
-Reglas cargadas por `defaultRuleSet()`:
+Reglas cargadas para la convocatoria de demostracion indicada de forma
+explicita. No existe una convocatoria de reserva: una peticion sin
+`call_id`, con comodines o distinta de la configurada se deniega.
 
 | Merito | Seccion | Unidad | Puntos |
 | --- | --- | --- | --- |
@@ -115,10 +114,11 @@ Con servidor en `127.0.0.1:8080`:
 ```bash
 curl -fsS http://127.0.0.1:8080/healthz
 curl -fsS -X POST http://127.0.0.1:8080/api/demo \
-  -H 'X-Auth-Mechanism: kerberos_ad' \
-  -H 'X-Auth-Subject: staff' \
-  -H 'Authorization: Bearer staff-token'
+  -H "Authorization: Bearer $VEC_FAKE_TOKEN"
 ```
 
 El primer comando devuelve `{"status":"ok"}`. El segundo devuelve un envelope
-JSON con `data.convocatoria.id` igual a `demo-convocatoria`.
+JSON con `data.convocatoria.id` igual a `demo-convocatoria`, siempre que el
+operador haya generado el token fuera del repositorio y haya guardado solo su
+SHA-256 en un fichero regular `0600`. La configuracion exacta y sus limites se
+documentan en `docs/portal_vec/autenticacion_fake_local_segura.md`.
