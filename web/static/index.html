@@ -4,8 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>VEC Diputacion Granada</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-    <link rel="stylesheet" href="/styles.css?v=20260621-fixes">
+    <link rel="stylesheet" href="/styles.css?v=20260621-baremo-details">
     <style>
       :root {
         --workspace-bg: #f4f6f8;
@@ -680,6 +679,86 @@
         overflow-x: auto;
       }
 
+      .work-table th .work-table-sort {
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-height: 32px;
+        width: 100%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 800;
+        text-align: left;
+      }
+
+      .work-table th .work-table-sort:focus-visible {
+        outline: 2px solid var(--module-blue);
+        outline-offset: 2px;
+      }
+
+      .work-table th .sort-indicator {
+        flex: 0 0 auto;
+        color: var(--module-blue);
+        font-size: 0.78rem;
+        opacity: 0.75;
+      }
+
+      .field-label-line {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .help-badge {
+        position: relative;
+        display: inline-grid;
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+        place-items: center;
+        border: 1px solid var(--module-blue);
+        border-radius: 999px;
+        background: #eef6ff;
+        color: var(--module-blue);
+        cursor: help;
+        font-size: 0.72rem;
+        font-weight: 900;
+        line-height: 1;
+      }
+
+      .help-badge:hover::after,
+      .help-badge:focus-visible::after {
+        content: attr(data-help);
+        position: absolute;
+        z-index: 50;
+        left: 22px;
+        top: 50%;
+        width: min(320px, 68vw);
+        padding: 9px 10px;
+        border: 1px solid #9fb6d8;
+        border-radius: 7px;
+        background: #0f172a;
+        color: #fff;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
+        font-size: 0.78rem;
+        font-weight: 650;
+        line-height: 1.35;
+        text-transform: none;
+        transform: translateY(-50%);
+        white-space: normal;
+      }
+
+      .help-badge:focus-visible {
+        outline: 2px solid var(--module-blue);
+        outline-offset: 2px;
+      }
+
       .work-table tbody tr {
         cursor: pointer;
       }
@@ -935,8 +1014,7 @@
         display: none;
       }
     </style>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
-    <script src="/app.js?v=20260621-fixes" defer></script>
+    <script src="/app.js?v=20260621-nominas-clean" defer></script>
   </head>
   <body>
     <div class="workspace">

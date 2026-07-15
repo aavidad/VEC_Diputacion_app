@@ -13,101 +13,26 @@ const ADMIN_STATUS_API = "/api/admin/status";
 const ADMIN_CAPABILITIES_API = "/api/admin/capabilities";
 const STAFF_HEADERS = {
   "Content-Type": "application/json",
-  "Authorization": "Bearer empleado-token",
-  "X-Auth-Token": "empleado-token",
-  "X-Auth-Mechanism": "clave",
-  "X-Auth-Subject": "demo.empleado",
-  "X-Auth-Display-Name": "Empleado demo",
-  "X-Auth-Roles": "personal_interno",
-  "X-VEC-Auth-Mechanism": "clave",
-  "X-VEC-Subject": "demo.empleado",
-  "X-VEC-Roles": "personal_interno",
 };
-
-const DEMO_USERS = [
-  {
-    id: "empleado",
-    label: "Empleado",
-    displayName: "Empleado demo",
-    subject: "demo.empleado",
-    roles: ["personal_interno"],
-    auth: "clave",
-    defaultModule: "personal",
-  },
-  {
-    id: "administrativo",
-    label: "Administrativo",
-    displayName: "Administrativo unidad",
-    subject: "demo.administrativo",
-    roles: ["administrativo"],
-    auth: "clave",
-    defaultModule: "dietas",
-  },
-  {
-    id: "jefe_seccion",
-    label: "Jefe seccion",
-    displayName: "Jefatura de Seccion",
-    subject: "demo.seccion",
-    roles: ["jefe_seccion"],
-    auth: "clave",
-    defaultModule: "aprobaciones",
-  },
-  {
-    id: "jefe_servicio",
-    label: "Jefe servicio",
-    displayName: "Jefatura de Servicio",
-    subject: "demo.servicio",
-    roles: ["jefe_servicio"],
-    auth: "clave",
-    defaultModule: "aprobaciones",
-  },
-  {
-    id: "tecnico_rrhh",
-    label: "Tecnico RRHH",
-    displayName: "Tecnico RRHH",
-    subject: "demo.rrhh.tecnico",
-    roles: ["tecnico_rrhh"],
-    auth: "dnie",
-    defaultModule: "personal",
-  },
-  {
-    id: "administrador",
-    label: "Administrador",
-    displayName: "Administrador VEC",
-    subject: "demo.admin",
-    roles: ["administrador"],
-    auth: "dnie",
-    defaultModule: "dashboard",
-  },
-];
-
-let activeDemoUserID = "empleado";
 
 function staffHeaders() {
   return { ...STAFF_HEADERS };
 }
 
 function activeDemoUser() {
-  return DEMO_USERS.find((user) => user.id === activeDemoUserID) || DEMO_USERS[0];
+  const principal = state.session || {};
+  return {
+    id: "sesion-servidor",
+    label: "Sesion autenticada",
+    displayName: principal.display_name || "Sesion no autenticada",
+    roles: Array.isArray(principal.roles) ? [...principal.roles] : [],
+    auth: principal.auth_method || "",
+    defaultModule: "dashboard",
+  };
 }
 
-function applyDemoUser(userID, options = {}) {
-  const user = DEMO_USERS.find((candidate) => candidate.id === userID) || DEMO_USERS[0];
-  const previousID = activeDemoUserID;
-  activeDemoUserID = user.id;
-  const roles = user.roles.join(",");
-  STAFF_HEADERS.Authorization = `Bearer ${user.id}-token`;
-  STAFF_HEADERS["X-Auth-Token"] = `${user.id}-token`;
-  STAFF_HEADERS["X-Auth-Mechanism"] = user.auth;
-  STAFF_HEADERS["X-Auth-Subject"] = user.subject;
-  STAFF_HEADERS["X-Auth-Display-Name"] = user.displayName;
-  STAFF_HEADERS["X-Auth-Roles"] = roles;
-  STAFF_HEADERS["X-VEC-Auth-Mechanism"] = user.auth;
-  STAFF_HEADERS["X-VEC-Subject"] = user.subject;
-  STAFF_HEADERS["X-VEC-Roles"] = roles;
-  if (previousID !== user.id) {
-    resetRoleScopedViewState();
-  }
+function applyDemoUser(_userID, options = {}) {
+  const user = activeDemoUser();
   updateDemoUserUI();
   if (options.switchModule !== false) {
     state.activeModule = moduleIDForSession(user.defaultModule);
@@ -177,12 +102,6 @@ function clearLocationHash() {
 function candidateHeaders(candidateID = state.candidate.id) {
   return {
     "Content-Type": "application/json",
-    "X-Auth-Mechanism": "clave",
-    "X-Auth-Subject": String(candidateID || state.candidate.id).trim(),
-    "X-Auth-Roles": "ciudadano",
-    "X-VEC-Auth-Mechanism": "clave",
-    "X-VEC-Subject": String(candidateID || state.candidate.id).trim(),
-    "X-VEC-Roles": "candidate",
   };
 }
 
@@ -260,6 +179,7 @@ const MODULE_PARENT = {
 };
 
 const MODULE_DEFAULT_SCREEN = {
+  personal: "personal.expedientes",
   horarios: "horarios.perfiles",
   permisos: "permisos.solicitudes",
   rutas: "rutas.kilometraje",
@@ -273,45 +193,55 @@ const ROOT_MENU_GROUPS = [
 const ROLE_ACCESS_PROFILES = [
   {
     id: "administrador",
-    label: "Perfil administrador",
-    roles: ["administrador", "admin", "vec_admin"],
-    modules: ["dashboard", "personal", "nominas", "cronos", "dietas", "bolsa", "documentos", "aprobaciones", "auditoria", "administracion"],
+    label: "Perfil administrador tecnico",
+    roles: ["administrador", "system_admin"],
+    modules: ["dashboard", "administracion"],
   },
   {
     id: "tecnico_rrhh",
     label: "Perfil RRHH",
-    roles: ["tecnico_rrhh", "rrhh", "personal_rrhh"],
+    roles: ["jefatura_rrhh", "tecnico_rrhh", "validator_l2"],
     modules: ["personal", "nominas", "cronos", "dietas", "bolsa", "documentos", "aprobaciones", "auditoria", "administracion"],
   },
   {
     id: "jefatura",
     label: "Perfil jefatura",
-    roles: ["jefe_seccion", "jefe_servicio", "responsable", "responsable_centro"],
+    roles: ["jefe_seccion", "jefe_servicio"],
     modules: ["cronos", "dietas", "documentos", "aprobaciones", "auditoria"],
   },
   {
     id: "administrativo",
     label: "Perfil administrativo",
-    roles: ["administrativo", "administrativo_unidad"],
+    roles: ["administrativo", "validator_l1"],
     modules: ["personal", "nominas", "cronos", "dietas", "bolsa", "documentos", "aprobaciones"],
   },
   {
     id: "empleado",
     label: "Perfil empleado",
-    roles: ["personal_interno", "empleado", "employee"],
+    roles: ["personal_interno"],
     modules: ["personal", "nominas", "cronos", "dietas", "bolsa", "documentos", "notificaciones"],
+  },
+  {
+    id: "ciudadano",
+    label: "Perfil aspirante",
+    roles: ["ciudadano", "candidate"],
+    modules: ["bolsa", "documentos", "notificaciones"],
   },
 ];
 
+const NO_ACCESS_PROFILE = Object.freeze({
+  id: "sin_acceso",
+  label: "Sin acceso concedido",
+  roles: Object.freeze([]),
+  modules: Object.freeze([]),
+});
+
 function currentRoleList() {
-  return [
-    STAFF_HEADERS["X-Auth-Roles"],
-    STAFF_HEADERS["X-VEC-Roles"],
-  ]
-    .join(",")
-    .split(/[,\s]+/g)
-    .map((role) => role.trim().toLowerCase())
-    .filter(Boolean);
+  const declared = Array.isArray(state.session?.roles) ? state.session.roles : [];
+  if (declared.length !== 1 || declared.some((role) => typeof role !== "string" || role === "" || role !== role.trim() || role !== role.toLowerCase())) {
+    return [];
+  }
+  return [...declared];
 }
 
 function isAdminSession() {
@@ -322,9 +252,17 @@ function isEmployeeSelfServiceSession() {
   return sessionAccessProfile().id === "empleado";
 }
 
+function hasExplicitSessionAccess() {
+  return sessionAccessProfile().id !== NO_ACCESS_PROFILE.id;
+}
+
 function sessionAccessProfile() {
   const roles = currentRoleList();
-  return ROLE_ACCESS_PROFILES.find((profile) => profile.roles.some((role) => roles.includes(role))) || ROLE_ACCESS_PROFILES[ROLE_ACCESS_PROFILES.length - 1];
+  // La presentacion tampoco elige un rol por prioridad ni suma perfiles. La
+  // sesion debe declarar exactamente un perfil canonico; cualquier mezcla,
+  // repeticion o valor no canonico queda sin acceso.
+  if (roles.length !== 1) return NO_ACCESS_PROFILE;
+  return ROLE_ACCESS_PROFILES.find((profile) => profile.roles.includes(roles[0])) || NO_ACCESS_PROFILE;
 }
 
 function sessionModuleIDs() {
@@ -332,10 +270,11 @@ function sessionModuleIDs() {
 }
 
 function defaultModuleID() {
+  if (!hasExplicitSessionAccess()) return "sin_acceso";
   if (isAdminSession()) return "dashboard";
   const preferred = activeDemoUser()?.defaultModule || "dietas";
   if (moduleVisibleForSession(preferred)) return preferred;
-  return sessionAccessProfile().modules.find((moduleID) => moduleID !== "dashboard") || "dietas";
+  return sessionAccessProfile().modules.find((moduleID) => moduleID !== "dashboard") || "sin_acceso";
 }
 
 function moduleVisibleForSession(moduleID) {
@@ -345,24 +284,16 @@ function moduleVisibleForSession(moduleID) {
 }
 
 function rowVisibleForSession(row) {
-  if (isAdminSession()) return true;
+  if (!hasExplicitSessionAccess()) return false;
   const modules = Array.isArray(row?.modules) ? row.modules : [];
-  if (isEmployeeSelfServiceSession()) {
-    const ownText = [
-      row?.candidate,
-      row?.candidate_id,
-      row?.employee,
-      row?.name,
-      row?.subject,
-      row?.expediente,
-      row?.scope,
-      row?.document,
-      row?.action,
-      ...(Array.isArray(row?.documents) ? row.documents : []),
-    ].join(" ").toLowerCase();
-    return /alberto|sanchez|74839201a|demo\.empleado|personal-interno|csv-9382|csv-cert/.test(ownText);
-  }
-  if (!modules.length) return true;
+  if (isAdminSession()) return modules.includes("administracion");
+  // La interfaz no deduce la titularidad buscando nombres, DNI ni patrones en
+  // el contenido. Los perfiles de autoservicio usan exclusivamente respuestas
+  // ya proyectadas por el servidor para el sujeto autenticado; esta cola
+  // operativa queda cerrada mientras no exista una concesion fila-sujeto
+  // explicita y verificable.
+  if (["empleado", "ciudadano"].includes(sessionAccessProfile().id)) return false;
+  if (!modules.length) return false;
   return modules.some((moduleID) => moduleID !== "dashboard" && moduleVisibleForSession(moduleID));
 }
 
@@ -378,6 +309,7 @@ function moduleIDForSession(moduleID) {
 }
 
 const MODULE_COPY = {
+  sin_acceso: ["Acceso no concedido", "No existe un perfil funcional autorizado para esta sesion"],
   dashboard: ["Bandeja VEC unificada", "Fichajes, permisos, dietas y expedientes en una cola comun"],
   personal: ["Modulo Personal", "Empleado, puesto, situacion administrativa, antiguedad y certificados"],
   nominas: ["Nominas y retribuciones", "Incidencias retributivas, trienios, reducciones y cierre mensual"],
@@ -550,6 +482,12 @@ const state = {
   selectedRowID: "",
   activeModule: defaultModuleID(),
   activeScreen: "",
+  workTableSorts: {},
+  employeeDirectoryCacheKey: "",
+  employeeDirectoryByID: null,
+  employeeDirectoryStats: null,
+  employeeDirectoryFilteredKey: "",
+  employeeDirectoryFilteredRows: null,
   screenStateFilter: "",
   leaveSubmitting: false,
   rptSubmitting: false,
@@ -568,7 +506,7 @@ const state = {
     dni: "12345678A",
     nombre: "Persona Demo",
     email: "persona.demo@example.test",
-    call_id: "convocatoria-default",
+    call_id: "convocatoria-demostracion",
   },
   merits: [],
   baremo: null,
@@ -652,6 +590,23 @@ function formatDateForDisplay(value) {
 function readStoredArray(key) {
   try {
     const parsed = JSON.parse(window.localStorage?.getItem(key) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function storedArraySnapshot(key) {
+  try {
+    return window.localStorage?.getItem(key) || "[]";
+  } catch {
+    return "[]";
+  }
+}
+
+function parseStoredArraySnapshot(snapshot) {
+  try {
+    const parsed = JSON.parse(snapshot || "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
@@ -1575,7 +1530,7 @@ function renderKPIs(view) {
 }
 
 function moduleKPIs(view, moduleID) {
-  const rows = state.rows.length ? state.rows : rowsFromPortal(view);
+  const rows = Array.isArray(state.rows) ? state.rows : [];
   const byModule = (id) => rows.filter((row) => row.modules.includes(id));
   const workspaceKPIs = view.workspace?.kpis || [];
   const cronos = view.workspace?.cronos_daily_summary || {};
@@ -1674,7 +1629,7 @@ function moduleCount(view, moduleID) {
     };
     return ownCounts[moduleID] || 0;
   }
-  const rows = state.rows.length ? state.rows : rowsFromPortal(view);
+  const rows = Array.isArray(state.rows) ? state.rows : [];
   switch (moduleID) {
     case "dashboard":
       return rows.length;
@@ -1753,11 +1708,72 @@ function updateModuleButton(button, module, view) {
     button.setAttribute("aria-current", state.activeModule === module.id ? "page" : "false");
 }
 
+function baremoSectionLabel(section) {
+  const value = String(section || "").toLowerCase();
+  if (value === "experiencia") return "Experiencia";
+  if (value === "formacion") return "Titulacion / grado / formacion";
+  if (value === "otros") return "Antiguedad y otros meritos";
+  return label(section || "Seccion");
+}
+
+function baremoMeritTypeLabel(type) {
+  const value = String(type || "").toLowerCase();
+  if (value === "experiencia_misma_categoria") return "Experiencia misma categoria";
+  if (value === "experiencia_otra_categoria") return "Experiencia otra categoria";
+  if (value === "formacion_titulo") return "Titulacion / grado";
+  if (value === "formacion_curso") return "Cursos de formacion";
+  if (value === "otros") return "Antiguedad, grado y otros meritos";
+  return label(type || "Merito");
+}
+
+function baremoSectionSummary(item) {
+  const points = item?.section_points || {};
+  const parts = [
+    ["experiencia", "Exp"],
+    ["formacion", "Grado/form"],
+    ["otros", "Antig/otros"],
+  ]
+    .filter(([key]) => points[key] !== undefined && points[key] !== null)
+    .map(([key, shortLabel]) => `${shortLabel} ${formatPoints(points[key])}`);
+  return parts.join(" - ");
+}
+
+function baremoBreakdownRows(item) {
+  const rows = [];
+  const points = item?.section_points || {};
+  [
+    "experiencia",
+    "formacion",
+    "otros",
+  ].forEach((section) => {
+    if (points[section] !== undefined && points[section] !== null) {
+      rows.push([baremoSectionLabel(section), `${formatPoints(points[section])} pt`]);
+    }
+  });
+  (Array.isArray(item?.details) ? item.details : []).forEach((detail) => {
+    const capped = detail.capped ? " - tope aplicado" : "";
+    rows.push([
+      baremoMeritTypeLabel(detail.merit_type),
+      `${formatPoints(detail.applied_points)} pt${capped} - ${detail.merit_id || "merito demo"}`,
+    ]);
+  });
+  if (item?.rule_set_version || item?.rule_set_id) {
+    rows.push(["Reglas de baremacion", `${item.rule_set_id || "convocatoria"} - ${item.rule_set_version || "v1"}`]);
+  }
+  return rows;
+}
+
 function rowFromItem(item, index, kind) {
   const definitive = kind === "definitive";
   const estado = item.estado || (definitive ? "AdmitidaDefinitiva" : "AdmitidaProvisional");
   const candidate = item.candidate_id || "personal-interno";
   const expediente = item.solicitud_id || `SOL-PORTAL-${String(index + 1).padStart(4, "0")}`;
+  const convocatoria = item.convocatoria_id || item.convocatoria || state.portal?.call?.id || "puesto-rpt";
+  const baremoRows = baremoBreakdownRows(item);
+  const baseMeritRows = [
+    ["Puntuacion servida por API", item.total_points == null ? "Sin puntuacion publicada" : `${formatPoints(item.total_points)} pt`],
+    ["Ranking en puesto", item.rank ? `#${item.rank} en ${convocatoria}` : `Pendiente en ${convocatoria}`],
+  ];
   return {
     id: `${kind}-${expediente}`,
     expediente,
@@ -1769,19 +1785,18 @@ function rowFromItem(item, index, kind) {
     points: item.total_points == null ? "-" : `${formatPoints(item.total_points)} pt`,
     document: definitive ? "Resolucion definitiva" : "Evidencia provisional",
     action: definitive ? "Abrir" : (index === 0 ? "Revisar" : "Validar"),
-    scope: "Modulo Bolsa",
-    unit: definitive ? "Personal temporal" : "Tribunal baremacion",
-    modules: ["dashboard", "bolsa", definitive ? "documentos" : "bolsa"],
+    scope: `Bolsa - ${convocatoria}`,
+    unit: definitive ? `Puesto ${convocatoria}` : "Tribunal baremacion",
+    modules: ["dashboard", "bolsa", "meritos", "autobaremo", definitive ? "documentos" : "bolsa"],
     documents: [
       ["Solicitud registrada", `${expediente} - registro asociado al procedimiento`],
+      ["Puesto solicitado", convocatoria],
       [definitive ? "Resolucion definitiva" : "Listado provisional", `${kind} - version ${item.version || "v1"}`],
       ["Expediente electronico", `${candidate} - CSV/ENI pendiente de verificacion real`],
     ],
-    merits: [
-      ["Puntuacion servida por API", item.total_points == null ? "Sin puntuacion publicada" : `${formatPoints(item.total_points)} pt`],
-      ["Desglose", "Abrir autobaremacion o expediente para ver calculo por backend"],
-      ["Reglas", "Catalogo declarado por la API profesional"],
-    ],
+    merits: baremoRows.length
+      ? [...baseMeritRows, ...baremoRows]
+      : [...baseMeritRows, ["Desglose", "Pendiente de recibir section_points/details desde la API"]],
     alerts: definitive
       ? [["Listado definitivo publicado", "Estado informativo sin accion critica"]]
       : [["Revision provisional pendiente", "Comprobar evidencias antes de publicar definitivo"]],
@@ -2050,9 +2065,11 @@ function renderListing(selector, items) {
     const row = document.createElement("article");
     row.className = "ranking-row";
     row.innerHTML = `<span class="rank"></span><div class="candidate"><strong></strong><span></span></div><strong class="score"></strong>`;
+    const convocatoria = item.convocatoria_id || item.convocatoria || "";
+    const sectionSummary = baremoSectionSummary(item);
     $(".rank", row).textContent = item.rank || index + 1;
     $(".candidate strong", row).textContent = item.candidate_id || "-";
-    $(".candidate span", row).textContent = `${item.solicitud_id || "-"} - ${item.estado || "sin estado"}`;
+    $(".candidate span", row).textContent = `${convocatoria ? `${convocatoria} - ` : ""}${item.solicitud_id || "-"} - ${item.estado || "sin estado"}${sectionSummary ? ` - ${sectionSummary}` : ""}`;
     $(".score", row).textContent = `${formatPoints(item.total_points)} pt`;
     row.tabIndex = 0;
     row.setAttribute("role", "button");
@@ -2258,6 +2275,18 @@ const EMPLOYEE_SELF_SERVICE_MODULES = new Set(["personal", "cronos", "horarios",
 function renderModulePortal(view) {
   const target = $("#module-portal");
   if (!target) return;
+  if (!hasExplicitSessionAccess()) {
+    target.hidden = false;
+    target.dataset.mode = "sin-acceso";
+    target.dataset.module = "sin_acceso";
+    target.replaceChildren();
+    const title = document.createElement("h3");
+    title.textContent = "Acceso no concedido";
+    const detail = document.createElement("p");
+    detail.textContent = "La sesion no tiene ningun perfil funcional autorizado. Cierre la sesion o contacte con el administrador de identidades.";
+    target.append(title, detail);
+    return;
+  }
   if (state.activeModule === "dashboard") {
     target.hidden = true;
     delete target.dataset.mode;
@@ -2331,6 +2360,7 @@ function renderEmployeeSelfServiceModule(target, view, moduleID) {
       ["Cuenta bancaria", employee.iban.replace(/\d(?=\d{4})/g, "*")],
       ["Afiliacion", employee.affiliation],
     ]));
+    target.append(employeeServicesRequestPanel());
     target.append(portalTable("Mis expedientes", ["Expediente", "Objeto", "Estado", "Accion"], [
       ["EMP-PROP-2026", "Ficha personal y puesto RPT", "Verificada", "Consultar"],
       ["CERT-SERV-2026", "Certificado de servicios prestados", "Disponible", "Solicitar certificado"],
@@ -2398,7 +2428,7 @@ function renderEmployeeSelfServiceModule(target, view, moduleID) {
       ["Ultima actualizacion", new Date().toLocaleDateString("es-ES")],
     ]));
     target.append(portalTable("Mis avisos", ["Fecha", "Asunto", "Expediente", "Estado", "Accion"], [
-      ["20/06/2026", "Recibo de nomina disponible", "NOM-2026-06", "No leida", "Abrir"],
+      ["20/06/2026", "Recibo de nomina disponible", "NOM-2026-06", "No leida", "Ver recibo"],
       ["18/06/2026", "Permiso medico justificado", "PER-2026-0108", "Leida", "Ver detalle"],
       ["15/06/2026", "Certificado de servicios disponible", "CERT-SERV-2026", "Leida", "Ver certificado"],
     ], { actionColumn: true }));
@@ -2978,7 +3008,7 @@ function renderEmployeeDietasRequestPanel(view) {
   let currentCalculation = null;
 
   const syncDietasTotal = () => {
-    // Km base por tramos del ultimo calculo (incluye compensacion de cada tramo);
+    // Km base por tramos del ultimo calculo; la compensacion se suma aparte.
     // si no hay calculo aun, se usa el campo manual "Km ruta".
     const tramoBaseKM = currentCalculation ? currentCalculation.totalBaseKM : null;
     const tramoCompKM = currentCalculation ? (currentCalculation.totalCompensationKM || 0) : 0;
@@ -3008,7 +3038,11 @@ function renderEmployeeDietasRequestPanel(view) {
     syncStopsState();
     const stops = readStops();
     if (stops.length < 2) return null;
+    const previousCalculation = currentCalculation;
     const calculation = calculateItinerary(stops, moneyNumber($("input[name='rate']", form).value), view, legAdjustmentStore);
+    if (!refreshMap) {
+      preserveRoadDistancesFromPreviousCalculation(calculation, previousCalculation);
+    }
     currentCalculation = calculation;
     renderItineraryResult(routeResult, calculation, handleRouteAdjustment, points);
     if (calculation.totalBaseKM > 0) $("input[name='km']", form).value = calculation.totalBaseKM.toFixed(1);
@@ -3270,7 +3304,10 @@ function renderEmployeeDietasRequestPanel(view) {
 }
 
 function canManageBolsaOffers() {
-  return currentRoleList().some((role) => ["administrador", "tecnico_rrhh", "rrhh", "personal_rrhh"].includes(role));
+  // El administrador tecnico no hereda facultades funcionales de RRHH y no se
+  // admiten alias implicitos. Solo el perfil publicado para gestion de RRHH
+  // puede mostrar estas acciones; el servidor vuelve a autorizarlas al usarla.
+  return sessionAccessProfile().id === "tecnico_rrhh";
 }
 
 function textSearchBase(value) {
@@ -3484,15 +3521,9 @@ function normalizeBolsaApplication(application) {
   };
 }
 
-function ensureEmployeeBolsaApplications(view) {
-  if (Array.isArray(state.employeeBolsaApplications)) return state.employeeBolsaApplications;
-  const storedApplications = readStoredArray("vec_demo_bolsa_employee_applications");
-  if (storedApplications.length) {
-    state.employeeBolsaApplications = storedApplications.map(normalizeBolsaApplication);
-    return state.employeeBolsaApplications;
-  }
-  const offers = ensureBolsaOffers(view);
-  state.employeeBolsaApplications = [
+function defaultEmployeeBolsaApplications(view, offers = ensureBolsaOffers(view)) {
+  const employee = payrollEmployeeData();
+  return [
     {
       id: "BOL-2026-0172",
       offerID: offers[0]?.id || "OFE-2026-0001",
@@ -3508,8 +3539,8 @@ function ensureEmployeeBolsaApplications(view) {
       signatureCSV: "CSV-FIR-BOL-2026-0172",
       registryNumber: "REG-BOL-2026-0172",
       form: {
-        fullName: payrollEmployeeData().name,
-        nif: payrollEmployeeData().nif,
+        fullName: employee.name,
+        nif: employee.nif,
         email: state.candidate.email,
         phone: "600000000",
         qualification: "Titulacion aportada en expediente VEC",
@@ -3532,6 +3563,17 @@ function ensureEmployeeBolsaApplications(view) {
       form: {},
     },
   ].map(normalizeBolsaApplication);
+}
+
+function ensureEmployeeBolsaApplications(view) {
+  if (Array.isArray(state.employeeBolsaApplications) && state.employeeBolsaApplications.length) return state.employeeBolsaApplications;
+  const storedApplications = readStoredArray("vec_demo_bolsa_employee_applications");
+  if (storedApplications.length) {
+    state.employeeBolsaApplications = storedApplications.map(normalizeBolsaApplication);
+    return state.employeeBolsaApplications;
+  }
+  const offers = ensureBolsaOffers(view);
+  state.employeeBolsaApplications = defaultEmployeeBolsaApplications(view, offers);
   writeStoredArray("vec_demo_bolsa_employee_applications", state.employeeBolsaApplications);
   return state.employeeBolsaApplications;
 }
@@ -3548,6 +3590,37 @@ function activeBolsaApplicationForOffer(applications, offerID) {
   );
 }
 
+function employeeBolsaApplicationRows(applications) {
+  return applications
+    .slice()
+    .sort((a, b) => {
+      const closedA = /cerrada|desistida|retirada|anulada/i.test(String(a.state || ""));
+      const closedB = /cerrada|desistida|retirada|anulada/i.test(String(b.state || ""));
+      if (closedA !== closedB) return closedA ? 1 : -1;
+      return String(b.submittedAt || b.createdAt || "").localeCompare(String(a.submittedAt || a.createdAt || ""), "es");
+    })
+    .map((item) => [
+      item.id,
+      item.title,
+      item.submittedAt || item.createdAt || "-",
+      item.state,
+      item.signatureState || "Pendiente firma",
+      item.paymentState || (item.feeRequired ? "Pendiente pago" : "No exige tasa"),
+      bolsaApplicationAction(item),
+    ]);
+}
+
+function renderEmployeeBolsaApplicationsTable(applications) {
+  const table = portalTable(
+    `Mis solicitudes de Bolsa (${formatCount(applications.length)})`,
+    ["Expediente", "Oferta", "Fecha", "Estado", "Firma", "Tasa", "Accion"],
+    employeeBolsaApplicationRows(applications),
+    { actionColumn: true },
+  );
+  table.classList.add("bolsa-applications-table");
+  return table;
+}
+
 function renderEmployeeBolsaModule(target, view) {
   const offers = ensureBolsaOffers(view);
   const applications = ensureEmployeeBolsaApplications(view);
@@ -3561,25 +3634,18 @@ function renderEmployeeBolsaModule(target, view) {
     ["Firmas pendientes", String(activeApplications.filter((item) => !/firmada/i.test(item.signatureState || "")).length)],
     ["Tasas pendientes", String(activeApplications.filter((item) => item.feeRequired && !/pagada/i.test(item.paymentState || "")).length)],
   ]));
-  target.append(renderEmployeeBolsaOffersPanel(view, offers, applications));
+  target.append(renderEmployeeBolsaApplicationsTable(applications));
   if (selectedOffer) {
     target.append(renderBolsaApplicationForm(view, selectedOffer, selectedApplication));
   }
-  target.append(portalTable("Mis solicitudes", ["Expediente", "Oferta", "Fecha", "Estado", "Firma", "Tasa", "Accion"], applications.map((item) => [
-    item.id,
-    item.title,
-    item.submittedAt || "-",
-    item.state,
-    item.signatureState || "Pendiente firma",
-    item.paymentState || (item.feeRequired ? "Pendiente pago" : "No exige tasa"),
-    bolsaApplicationAction(item),
-  ]), { actionColumn: true }));
+  target.append(renderEmployeeBolsaOffersPanel(view, offers, applications));
 }
 
 function bolsaApplicationAction(application) {
   const stateText = String(application.state || "");
   if (/cerrada/i.test(stateText)) return "Ver certificado";
   if (/desistida|retirada/i.test(stateText)) return "Ver desistimiento";
+  if (application.registryNumber || /presentada|registrada|admitida/i.test(stateText)) return "Descargar recibo";
   if (/borrador/i.test(stateText)) return "Completar";
   if (application.feeRequired && !/pagada/i.test(application.paymentState || "")) return "Pagar tasa";
   if (!/firmada/i.test(application.signatureState || "")) return "Firmar";
@@ -3748,6 +3814,7 @@ function renderBolsaApplicationForm(view, offer, application) {
   panel.className = "employee-flow-panel bolsa-application-panel";
   const employee = payrollEmployeeData();
   const app = application || null;
+  const hasRegistrationReceipt = Boolean(app?.registryNumber || /presentada|registrada|admitida/i.test(String(app?.state || "")));
   const feeRequired = offer.feeRequired === true;
   const feeState = app?.paymentState || (feeRequired ? "Pendiente pago" : "No exige tasa");
   const signatureState = app?.signatureState || "Pendiente firma";
@@ -3798,11 +3865,13 @@ function renderBolsaApplicationForm(view, offer, application) {
       <div class="employee-flow-note employee-field-wide">
         La presentacion requiere firma electronica. Si la oferta exige tasa, debe constar pagada antes de registrar la solicitud.
       </div>
+      <div class="employee-flow-note employee-field-wide" data-bolsa-form-message aria-live="polite" hidden></div>
       <div class="employee-form-actions employee-field-wide">
         <button type="button" class="quiet-action" data-save-bolsa-draft>Guardar borrador</button>
         <button type="button" class="quiet-action" data-pay-bolsa-fee ${feeRequired ? "" : "disabled"}>Pagar tasa</button>
         <button type="button" class="quiet-action" data-sign-bolsa-application>Solicitar firma electronica</button>
-        <button type="button" class="primary-action" data-submit-bolsa-application>Presentar solicitud</button>
+        ${hasRegistrationReceipt ? `<button type="button" class="quiet-action" data-download-bolsa-receipt>Descargar recibo</button>` : ""}
+        <button type="button" class="primary-action" data-submit-bolsa-application>${hasRegistrationReceipt ? "Descargar recibo" : "Presentar solicitud"}</button>
       </div>
     </form>
   `;
@@ -3829,6 +3898,10 @@ function renderBolsaApplicationForm(view, offer, application) {
   });
   $("[data-pay-bolsa-fee]", form).addEventListener("click", () => handleBolsaFeePayment(offer, form, view));
   $("[data-sign-bolsa-application]", form).addEventListener("click", () => handleBolsaSignature(offer, form, view));
+  $("[data-download-bolsa-receipt]", form)?.addEventListener("click", () => {
+    const current = ensureEmployeeBolsaApplications(view).find((item) => item.id === (app?.id || form.elements.application_id?.value));
+    if (current) downloadBolsaApplicationReceipt(current, "Descargar recibo");
+  });
   $("[data-submit-bolsa-application]", form).addEventListener("click", () => handleBolsaApplicationSubmit(offer, form, view));
   return panel;
 }
@@ -3881,18 +3954,18 @@ function saveBolsaApplicationDraft(offer, form, view) {
 }
 
 function handleBolsaFeePayment(offer, form, view) {
-  const application = saveBolsaApplicationDraft(offer, form, view);
+  saveBolsaApplicationDraft(offer, form, view);
   if (!offer.feeRequired) {
     setStatus("Esta oferta no exige tasa.", "ready");
     return;
   }
-  application.paymentState = "Pagada";
-  application.paymentReceipt = `TASA-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(Date.now()).slice(-5)}`;
-  application.paidAt = new Date().toLocaleString("es-ES");
-  saveBolsaApplications(ensureEmployeeBolsaApplications(view));
-  recordReceipt("Tasa Bolsa pagada", `${application.paymentReceipt} - ${application.id} - ${formatCurrency(offer.feeAmount)}`, "bolsa");
-  setStatus(`Tasa pagada: ${application.paymentReceipt}`, "ready");
-  renderModulePortal(view);
+  setBolsaFormMessage(
+    form,
+    "La pasarela de pago todavia no esta configurada. El borrador se ha guardado, pero la tasa no se ha marcado como pagada.",
+    "error",
+    $("[data-pay-bolsa-fee]", form),
+  );
+  setStatus("Pago no disponible: falta configurar y validar el conector corporativo.", "error");
 }
 
 function handleBolsaSignature(offer, form, view) {
@@ -3908,18 +3981,77 @@ function handleBolsaSignature(offer, form, view) {
   renderModulePortal(view);
 }
 
+function setBolsaFormMessage(form, message, tone = "error", focusTarget = null) {
+  const note = $("[data-bolsa-form-message]", form);
+  if (note) {
+    note.hidden = false;
+    note.dataset.tone = tone;
+    note.textContent = message;
+  }
+  setStatus(message, tone === "error" ? "error" : "ready");
+  if (focusTarget?.focus) focusTarget.focus();
+}
+
+function firstInvalidBolsaField(form) {
+  const field = $$("input, select, textarea", form).find((input) => !input.checkValidity());
+  if (!field) return null;
+  const label = field.closest("label");
+  const labelText = label ? String(label.textContent || "").trim().replace(/\s+/g, " ") : field.name;
+  return { field, label: labelText || field.name || "campo obligatorio" };
+}
+
+function downloadBolsaApplicationReceipt(application, actionText = "Descargar recibo") {
+  if (!application) return;
+  application.registryNumber = application.registryNumber || `REG-BOL-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+  application.submittedAt = application.submittedAt || new Date().toLocaleDateString("es-ES");
+  if (!application.signatureCSV && /firmada/i.test(application.signatureState || "")) {
+    application.signatureCSV = `CSV-FIR-${application.id.replace(/\W+/g, "-")}`;
+  }
+  const csv = application.registryNumber || application.signatureCSV || portalDocumentCSV("BOL", application.id);
+  saveBolsaApplications(ensureEmployeeBolsaApplications(state.portal));
+  downloadSignedPortalPDF({
+    title: "Recibo de solicitud Bolsa",
+    subtitle: application.title,
+    ref: application.id,
+    csv,
+    module: "Bolsa",
+    filename: `bolsa-recibo-${slugify(application.id)}.pdf`,
+    rows: [
+      ["Solicitud", application.id],
+      ["Registro", application.registryNumber],
+      ["Oferta", application.title],
+      ["Categoria", application.category],
+      ["Estado", application.state],
+      ["Firma", application.signatureCSV || application.signatureState || "-"],
+      ["Tasa", application.paymentReceipt || application.paymentState || "-"],
+      ["Fecha presentacion", application.submittedAt],
+      ["Solicitante", application.form?.fullName || payrollEmployeeData().name],
+    ],
+  });
+  recordReceipt(actionText, `${application.id} - ${csv}`, "bolsa");
+  setStatus(`Recibo descargado: ${application.id}`, "ready");
+}
+
 function handleBolsaApplicationSubmit(offer, form, view) {
-  if (!form.reportValidity()) {
-    setStatus("Completa los campos obligatorios antes de presentar.", "error");
+  const currentID = String(form.elements.application_id?.value || "").trim();
+  const existing = ensureEmployeeBolsaApplications(view).find((item) => item.id === currentID);
+  if (existing?.registryNumber && /presentada|registrada|admitida/i.test(existing.state || "")) {
+    downloadBolsaApplicationReceipt(existing, "Descargar recibo");
+    return;
+  }
+  const invalid = firstInvalidBolsaField(form);
+  if (invalid) {
+    setBolsaFormMessage(form, `Falta completar: ${invalid.label}.`, "error", invalid.field);
+    invalid.field.reportValidity();
     return;
   }
   const application = saveBolsaApplicationDraft(offer, form, view);
   if (offer.feeRequired && !/pagada/i.test(application.paymentState || "")) {
-    setStatus("Esta oferta exige tasa: realiza el pago antes de presentar.", "error");
+    setBolsaFormMessage(form, "Esta oferta exige tasa: realiza el pago antes de presentar.", "error", $("[data-pay-bolsa-fee]", form));
     return;
   }
   if (!/firmada/i.test(application.signatureState || "")) {
-    setStatus("Solicita la firma electronica antes de presentar.", "error");
+    setBolsaFormMessage(form, "Solicita la firma electronica antes de presentar.", "error", $("[data-sign-bolsa-application]", form));
     return;
   }
   application.state = "Presentada";
@@ -3928,6 +4060,7 @@ function handleBolsaApplicationSubmit(offer, form, view) {
   saveBolsaApplications(ensureEmployeeBolsaApplications(view));
   recordReceipt("Solicitud Bolsa presentada", `${application.registryNumber} - ${application.id} - ${offer.title}`, "bolsa");
   setStatus(`Solicitud presentada y firmada: ${application.registryNumber}`, "ready");
+  downloadBolsaApplicationReceipt(application, "Recibo solicitud Bolsa presentada");
   renderModulePortal(view);
 }
 
@@ -3959,6 +4092,7 @@ function bolsaOfferManagementPanel(view) {
       </label>
       <label>Estado
         <select name="state" required>
+          <option value="" selected disabled>Seleccione un estado</option>
           <option>Abierta</option>
           <option>Publicada</option>
           <option>Borrador</option>
@@ -4064,6 +4198,7 @@ function renderScreenWorkspace(target, screen, view) {
   const rows = screenRows(screen, view);
   const actions = screenActions(screen);
   const routeMatrixScreen = isRouteMatrixScreen(screen);
+  const employeeDirectoryScreen = screen.id === "personal.expedientes";
 
   // Cabecera compacta: titulo, descripcion y una sola accion primaria.
   if (!routeMatrixScreen) {
@@ -4075,7 +4210,7 @@ function renderScreenWorkspace(target, screen, view) {
   }
 
   // Contadores de estado clicables que filtran la tabla (patron Factorial/Sesame/Concur).
-  if (!routeMatrixScreen) {
+  if (!routeMatrixScreen && !employeeDirectoryScreen) {
     target.append(screenStateCounters(screen, rows, headers));
   }
 
@@ -4100,8 +4235,17 @@ function renderScreenWorkspace(target, screen, view) {
     return;
   }
 
+  if (employeeDirectoryScreen) {
+    target.append(employeeDirectoryPanel(view));
+    target.append(screenMeta(screen));
+    return;
+  }
+
   // Una sola tabla densa de trabajo con accion por fila.
   target.append(workTable(screen, headers, rows));
+  if (screen.id === "admin.usuarios_roles") {
+    target.append(adminUsersAssignedPanel(view));
+  }
 
   // La ficha de pantalla (datos del estudio) queda plegada, fuera del flujo principal.
   target.append(screenMeta(screen));
@@ -4134,7 +4278,7 @@ const STATE_CHIP_TONE = [
   ["borrador|nueva|detectada|simulado|pendiente seleccion", "chip-slate"],
   ["pendiente|solicitad|subsanacion|en revision|en estudio|presentad|recibid|calculando|en plazo", "chip-amber"],
   ["bloque|error|excedida|rechazad|impugnad|caducad|denegad|degradad|vencid|con errores|con alertas|excluida|desestimada|retirad|caido", "chip-red"],
-  ["aprobad|vigente|valid|firmad|publicad|cerrad|conciliad|estimada|admitida|saludable|activa|definitivo|pagad", "chip-green"],
+  ["aprobad|vigente|valid|firmad|publicad|cerrad|conciliad|estimada|admitida|saludable|activa|definitivo|pagad|resuelt", "chip-green"],
 ];
 
 function stateTone(stateText) {
@@ -4190,7 +4334,7 @@ function stateStem(value) {
   const first = String(value || "")
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .split(/\s+/)[0] || "";
   return first.replace(/(os|as|es|o|a|s)$/u, "");
 }
@@ -4210,11 +4354,91 @@ function stateColumnIndex(headers) {
   return idx >= 0 ? idx : -1;
 }
 
+const workTableTextCollator = new Intl.Collator("es", { numeric: true, sensitivity: "base" });
+
+function workTableSortKey(screen) {
+  return screen?.id || state.activeScreen || state.activeModule || "default";
+}
+
+function workTableSortFor(screen) {
+  return state.workTableSorts[workTableSortKey(screen)] || { column: -1, direction: "asc" };
+}
+
+function setWorkTableSort(screen, columnIndex) {
+  const key = workTableSortKey(screen);
+  const current = workTableSortFor(screen);
+  const direction = current.column === columnIndex && current.direction === "asc" ? "desc" : "asc";
+  state.workTableSorts[key] = { column: columnIndex, direction };
+  if (state.portal) renderModulePortal(state.portal);
+}
+
+function parseWorkTableDate(value) {
+  const text = String(value || "").trim();
+  let match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\b|$)/);
+  if (match) {
+    return Date.UTC(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+  }
+  match = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:\b|$)/);
+  if (match) {
+    return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+  return null;
+}
+
+function parseWorkTableNumber(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const numericLike = /^-?\d+(?:[.,]\d+)?(?:\s*(?:\u20ac|eur|km|min|h|horas?|dias?|pt|puntos?|registros?|solicitudes?))?$/i;
+  if (!numericLike.test(text)) return null;
+  return moneyNumber(text);
+}
+
+function workTableCellValue(row, columnIndex, headers, actionLabel) {
+  if (columnIndex < headers.length) return row[columnIndex];
+  return row._actionLabel || actionLabel || "";
+}
+
+function workTableComparableValue(row, columnIndex, headers, actionLabel) {
+  const value = workTableCellValue(row, columnIndex, headers, actionLabel);
+  const date = parseWorkTableDate(value);
+  if (date != null) return { type: "date", value: date, text: String(value || "") };
+  const number = parseWorkTableNumber(value);
+  if (number != null) return { type: "number", value: number, text: String(value || "") };
+  return { type: "text", value: String(value || "").trim(), text: String(value || "") };
+}
+
+function compareWorkTableValues(a, b) {
+  if (a.type === b.type && a.type !== "text") {
+    return a.value === b.value ? workTableTextCollator.compare(a.text, b.text) : a.value - b.value;
+  }
+  if (a.type === "text" && b.type === "text") {
+    return workTableTextCollator.compare(a.value, b.value);
+  }
+  return workTableTextCollator.compare(a.text, b.text);
+}
+
+function sortedWorkTableRows(rows, screen, headers, actionLabel) {
+  const sort = workTableSortFor(screen);
+  if (!Number.isInteger(sort.column) || sort.column < 0) return rows;
+  const direction = sort.direction === "desc" ? -1 : 1;
+  return rows
+    .map((row, originalIndex) => ({ row, originalIndex, value: workTableComparableValue(row, sort.column, headers, actionLabel) }))
+    .sort((a, b) => {
+      const result = compareWorkTableValues(a.value, b.value);
+      return result === 0 ? a.originalIndex - b.originalIndex : result * direction;
+    })
+    .map((item) => item.row);
+}
+
 function workTable(screen, headers, allRows) {
   const stateIndex = stateColumnIndex(headers);
-  const rows = state.screenStateFilter && stateIndex >= 0
+  const filtered = state.screenStateFilter && stateIndex >= 0
     ? allRows.filter((row) => matchesState(String(row[stateIndex] || ""), state.screenStateFilter))
     : allRows;
+  const actionLabel = rowActionLabel(screen);
+  const rows = sortedWorkTableRows(filtered, screen, headers, actionLabel);
+  const sort = workTableSortFor(screen);
 
   const wrap = document.createElement("section");
   wrap.className = "work-table";
@@ -4230,14 +4454,26 @@ function workTable(screen, headers, allRows) {
   const tableWrap = document.createElement("div");
   tableWrap.className = "table-wrap";
   const table = document.createElement("table");
-  const actionLabel = rowActionLabel(screen);
   const cols = [...headers, "Accion"];
   table.innerHTML = `<thead><tr></tr></thead><tbody></tbody>`;
   const headRow = $("thead tr", table);
-  cols.forEach((col) => {
+  cols.forEach((col, index) => {
     const th = document.createElement("th");
     th.scope = "col";
-    th.textContent = col;
+    const isActive = sort.column === index;
+    th.setAttribute("aria-sort", isActive ? (sort.direction === "desc" ? "descending" : "ascending") : "none");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "work-table-sort";
+    button.dataset.sortColumn = String(index);
+    const help = setHelpTitle(button, col);
+    button.setAttribute("aria-label", help ? `Ordenar por ${col}. ${help}` : `Ordenar por ${col}`);
+    button.innerHTML = `<span></span><span class="sort-indicator" aria-hidden="true"></span>`;
+    $("span", button).textContent = col;
+    $(".sort-indicator", button).textContent = isActive ? (sort.direction === "desc" ? "DESC" : "ASC") : "--";
+    if (help) th.title = help;
+    button.addEventListener("click", () => setWorkTableSort(screen, index));
+    th.append(button);
     headRow.append(th);
   });
   const tbody = $("tbody", table);
@@ -4288,6 +4524,692 @@ function rowActionLabel(screen) {
   if (screen.id === "admin.catalogos") return "Editar";
   if (screen.id === "bolsa.convocatorias") return "Editar oferta";
   return (screen.actions || [])[0] || "Abrir";
+}
+
+const EMPLOYEE_DIRECTORY_STORAGE_KEY = "vec_demo_personal_employee_overrides";
+const EMPLOYEE_DIRECTORY_PAGE_SIZE = 25;
+const EMPLOYEE_DIRECTORY_FIRST_NAMES = ["Ana", "Jose", "Maria", "Rafael", "Elena", "Laura", "Isabel", "Antonio", "Carmen", "Francisco", "Sofia", "Manuel", "Rocio", "Juan", "Teresa", "Miguel"];
+const EMPLOYEE_DIRECTORY_SURNAMES = ["Martin Ruiz", "Garcia Leon", "Lopez Castro", "Ortega Perez", "Jimenez Soto", "Medina Torres", "Sanchez Gomez", "Navarro Molina", "Romero Diaz", "Castillo Perez", "Hernandez Vega", "Moreno Lara"];
+const EMPLOYEE_DIRECTORY_AREAS = [
+  { area: "Administracion general", unit: "Palacio Provincial", schedule: "Flexible general" },
+  { area: "Centros sociales y residencias", unit: "Residencia Rodriguez Penalva", schedule: "Turnos sin flexibilidad" },
+  { area: "Carreteras y asistencia a municipios", unit: "Parque movil", schedule: "Reten y disponibilidad" },
+  { area: "Transformacion digital", unit: "Nuevas tecnologias", schedule: "Flexible TIC" },
+  { area: "Intervencion y tesoreria", unit: "Intervencion", schedule: "Flexible tecnico" },
+  { area: "Cultura, deportes y juventud", unit: "Cultura", schedule: "Flexible general" },
+  { area: "Medio ambiente y obras", unit: "Obras y servicios", schedule: "Jornada de campo" },
+  { area: "Servicios sociales comunitarios", unit: "Zona Norte", schedule: "Atencion directa" },
+];
+const EMPLOYEE_DIRECTORY_PROFILES = [
+  { position: "Tecnico/a Administracion General", group: "A1", regime: "Funcionario/a de carrera", base: 3480.75 },
+  { position: "Tecnico/a de Gestion", group: "A2", regime: "Funcionario/a de carrera", base: 2874.16 },
+  { position: "Administrativo/a", group: "C1", regime: "Funcionario/a de carrera", base: 2280.40 },
+  { position: "Auxiliar Administrativo/a", group: "C2", regime: "Funcionario/a de carrera", base: 1960.40 },
+  { position: "Trabajador/a Social", group: "A2", regime: "Funcionario/a interino/a", base: 2760.20 },
+  { position: "Oficial Conductor/a", group: "C1", regime: "Funcionario/a de carrera", base: 2310.88 },
+  { position: "Auxiliar Enfermeria", group: "C2", regime: "Laboral temporal", base: 1905.75 },
+  { position: "Ordenanza", group: "AP", regime: "Laboral fijo", base: 1680.25 },
+];
+
+function employeeDirectoryCount(view) {
+  const role = (view?.workspace?.access_roles || []).find((item) => item.id === "personal_interno");
+  return Number(role?.users_count || 1248);
+}
+
+function employeeDirectoryNIF(index) {
+  const number = 24000000 + ((index * 7919) % 54000000);
+  const letters = "TRWAGMYFPDXBNJZSQVHLCKE";
+  return `${number}${letters[number % letters.length]}`;
+}
+
+function generatedEmployeeDirectoryRecord(index) {
+  const first = EMPLOYEE_DIRECTORY_FIRST_NAMES[index % EMPLOYEE_DIRECTORY_FIRST_NAMES.length];
+  const surname = EMPLOYEE_DIRECTORY_SURNAMES[(index * 3) % EMPLOYEE_DIRECTORY_SURNAMES.length];
+  const area = EMPLOYEE_DIRECTORY_AREAS[(index * 5) % EMPLOYEE_DIRECTORY_AREAS.length];
+  const profile = EMPLOYEE_DIRECTORY_PROFILES[(index * 7) % EMPLOYEE_DIRECTORY_PROFILES.length];
+  const id = `EMP-${String(index + 1).padStart(4, "0")}`;
+  const trienios = (index * 2) % 11;
+  const situation = index % 53 === 0 ? "Baja IT" : index % 89 === 0 ? "Excedencia" : index % 41 === 0 ? "Comision de servicios" : "Servicio activo";
+  const rpt = `RPT-${profile.group.replace(/[^A-Z0-9]/g, "")}-${String(1000 + index).padStart(4, "0")}`;
+  return {
+    id,
+    name: `${first} ${surname}`,
+    nif: employeeDirectoryNIF(index + 1),
+    regime: profile.regime,
+    group: profile.group,
+    position: profile.position,
+    area: area.area,
+    unit: area.unit,
+    situation,
+    rpt,
+    trienios,
+    schedule: area.schedule,
+    email: `${first}.${surname}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, ".").replace(/\.+$/g, "") + "@dipgra.es",
+    phone: `958 ${String(100000 + index).slice(0, 6)}`,
+    iban: `ES${String(10 + (index % 89)).padStart(2, "0")} **** ${String(1000 + ((index * 37) % 9000)).padStart(4, "0")}`,
+    salary: profile.base + trienios * 49.59,
+    state: situation === "Servicio activo" ? "Activo" : "Incidencia",
+    modifiedAt: "",
+  };
+}
+
+function summarizeEmployeeDirectory(records) {
+  return (records || []).reduce((acc, item) => {
+    acc.total += 1;
+    if (item.situation === "Servicio activo") acc.active += 1;
+    if (item.modifiedAt) acc.modified += 1;
+    return acc;
+  }, { total: 0, active: 0, modified: 0 });
+}
+
+function ensureEmployeeDirectory(view) {
+  const count = employeeDirectoryCount(view);
+  const overridesSnapshot = storedArraySnapshot(EMPLOYEE_DIRECTORY_STORAGE_KEY);
+  const cacheKey = `${count}:${overridesSnapshot}`;
+  if (!Array.isArray(state.employeeDirectory) || state.employeeDirectory.length !== count || state.employeeDirectoryCacheKey !== cacheKey) {
+    const overrides = parseStoredArraySnapshot(overridesSnapshot);
+    const overrideMap = new Map(overrides.map((item) => [item.id, item]));
+    state.employeeDirectory = Array.from({ length: count }, (_, index) => {
+      const base = generatedEmployeeDirectoryRecord(index);
+      return { ...base, ...(overrideMap.get(base.id) || {}) };
+    });
+    state.employeeDirectoryByID = new Map(state.employeeDirectory.map((item) => [item.id, item]));
+    state.employeeDirectoryStats = summarizeEmployeeDirectory(state.employeeDirectory);
+    state.employeeDirectoryFilteredKey = "";
+    state.employeeDirectoryFilteredRows = null;
+    state.employeeDirectoryCacheKey = cacheKey;
+  }
+  return state.employeeDirectory;
+}
+
+function employeeDirectoryStats(view) {
+  ensureEmployeeDirectory(view);
+  if (!state.employeeDirectoryStats) {
+    state.employeeDirectoryStats = summarizeEmployeeDirectory(state.employeeDirectory || []);
+  }
+  return state.employeeDirectoryStats;
+}
+
+function employeeDirectoryRecordByID(view, employeeID) {
+  ensureEmployeeDirectory(view);
+  return state.employeeDirectoryByID?.get(employeeID) || null;
+}
+
+function persistEmployeeDirectoryRecord(record) {
+  const overrides = readStoredArray(EMPLOYEE_DIRECTORY_STORAGE_KEY);
+  const next = {
+    id: record.id,
+    name: record.name,
+    nif: record.nif,
+    regime: record.regime,
+    group: record.group,
+    position: record.position,
+    area: record.area,
+    unit: record.unit,
+    situation: record.situation,
+    rpt: record.rpt,
+    trienios: record.trienios,
+    schedule: record.schedule,
+    email: record.email,
+    phone: record.phone,
+    iban: record.iban,
+    state: record.state,
+    modifiedAt: record.modifiedAt,
+  };
+  const index = overrides.findIndex((item) => item.id === record.id);
+  if (index >= 0) overrides[index] = next;
+  else overrides.push(next);
+  writeStoredArray(EMPLOYEE_DIRECTORY_STORAGE_KEY, overrides);
+  state.employeeDirectoryCacheKey = "";
+  state.employeeDirectoryStats = null;
+  state.employeeDirectoryByID = null;
+  state.employeeDirectoryFilteredKey = "";
+  state.employeeDirectoryFilteredRows = null;
+}
+
+function filteredEmployeeDirectory(view) {
+  const query = textSearchBase(state.employeeDirectorySearch || "");
+  const records = ensureEmployeeDirectory(view);
+  if (!query) return records;
+  const filterKey = `${state.employeeDirectoryCacheKey}:${query}`;
+  if (state.employeeDirectoryFilteredKey === filterKey && Array.isArray(state.employeeDirectoryFilteredRows)) {
+    return state.employeeDirectoryFilteredRows;
+  }
+  state.employeeDirectoryFilteredKey = filterKey;
+  state.employeeDirectoryFilteredRows = records.filter((item) => textSearchBase(`${item.id} ${item.name} ${item.nif} ${item.regime} ${item.group} ${item.position} ${item.area} ${item.unit} ${item.situation} ${item.rpt}`).includes(query));
+  return state.employeeDirectoryFilteredRows;
+}
+
+function employeeIndexFromID(employeeID) {
+  const match = String(employeeID || "").match(/(\d+)/);
+  return Math.max(0, Number(match?.[1] || 1) - 1);
+}
+
+function dateUTCFromISO(value) {
+  const [year, month, day] = String(value || "").split("-").map(Number);
+  return Date.UTC(year || 1970, (month || 1) - 1, day || 1);
+}
+
+function servicePeriodDays(from, to) {
+  const diff = dateUTCFromISO(to) - dateUTCFromISO(from);
+  return Math.max(1, Math.floor(diff / 86400000) + 1);
+}
+
+function servicePeriodDateLabel(value) {
+  const [year, month, day] = String(value || "").split("-").map(Number);
+  const names = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  return `${day} de ${names[(month || 1) - 1]} de ${year}`;
+}
+
+function servicePeriodPDFDate(value) {
+  const [year, month, day] = String(value || "").split("-").map(Number);
+  return `${String(day || 1).padStart(2, "0")}/${String(month || 1).padStart(2, "0")}/${String(year || 0).padStart(4, "0")}`;
+}
+
+function serviceDaysBreakdown(days) {
+  const total = Math.max(0, Math.round(Number(days || 0)));
+  const years = Math.floor(total / 365);
+  const months = Math.floor((total % 365) / 30);
+  const restDays = (total % 365) % 30;
+  return { total, years, months, days: restDays };
+}
+
+function serviceDaysBreakdownText(days) {
+  const parts = serviceDaysBreakdown(days);
+  return `${formatCount(parts.total)} dias (${parts.years} anos, ${parts.months} meses y ${parts.days} dias)`;
+}
+
+function employeeServicePeriods(employee) {
+  const index = employeeIndexFromID(employee.id);
+  const offset = index % 5;
+  const secondYear = 2003 + offset;
+  const thirdYear = 2007 + offset;
+  const fourthYear = 2012 + offset;
+  const fifthYear = 2017 + offset;
+  const currentStart = 2021 + (index % 3);
+  const base = [
+    { from: "2001-01-01", to: "2001-03-20", category: "C1", position: "Administrativo/a", unit: "Administracion general", regime: "Funcionario/a interino/a", workingDay: "Jornada completa", factor: 1 },
+    { from: `${secondYear}-04-15`, to: `${secondYear}-09-30`, category: "B", position: "Tecnico/a medio/a", unit: "Servicio provincial", regime: "Programa temporal", workingDay: "1/3 jornada", factor: 0.3333 },
+    { from: `${thirdYear}-02-01`, to: `${thirdYear}-12-31`, category: "C2", position: "Auxiliar administrativo/a", unit: "Registro y atencion ciudadana", regime: "Laboral temporal", workingDay: "Media jornada", factor: 0.5 },
+    { from: `${fourthYear}-01-10`, to: `${fourthYear + 1}-06-30`, category: "C1", position: "Administrativo/a", unit: "Intervencion", regime: "Funcionario/a interino/a", workingDay: "Jornada completa", factor: 1 },
+    { from: `${fifthYear}-07-01`, to: `${fifthYear + 2}-08-31`, category: employee.group || "A2", position: employee.position || "Puesto RPT", unit: employee.unit || "Unidad actual", regime: employee.regime || "Funcionario/a de carrera", workingDay: "Jornada completa", factor: 1 },
+    { from: `${currentStart}-09-01`, to: todayISODate(), category: employee.group || "A2", position: employee.position || "Puesto RPT", unit: employee.unit || "Unidad actual", regime: employee.regime || "Funcionario/a de carrera", workingDay: "Jornada completa", factor: 1 },
+  ];
+  return base.map((period, periodIndex) => {
+    const naturalDays = servicePeriodDays(period.from, period.to);
+    const computableDays = Math.round(naturalDays * period.factor);
+    return {
+      ...period,
+      id: `${employee.id}-SERV-${String(periodIndex + 1).padStart(2, "0")}`,
+      naturalDays,
+      computableDays,
+    };
+  });
+}
+
+function employeeServiceTotals(employee) {
+  return employeeServicePeriods(employee).reduce((totals, period) => {
+    totals.naturalDays += period.naturalDays;
+    totals.computableDays += period.computableDays;
+    return totals;
+  }, { naturalDays: 0, computableDays: 0 });
+}
+
+function currentEmployeeServiceRecord() {
+  const employee = payrollEmployeeData();
+  const groupMatch = String(employee.position || "").match(/\(([^)]+)\)/);
+  return {
+    id: "EMP-PROP-2026",
+    name: employee.name,
+    nif: employee.nif,
+    regime: employee.relationship,
+    group: groupMatch?.[1] || "A2",
+    position: employee.position,
+    area: "Transformacion digital",
+    unit: employee.service,
+    situation: "Servicio activo",
+    rpt: "RPT-2026-A2-042",
+    trienios: employee.trienios,
+    schedule: "Flexible TIC",
+    email: "empleado.demo@dipgra.es",
+    phone: "958 100000",
+    iban: employee.iban,
+    state: "Activo",
+  };
+}
+
+function renderEmployeeServicesPanel(employee) {
+  const periods = employeeServicePeriods(employee);
+  const totals = employeeServiceTotals(employee);
+  return `
+    <section style="grid-column:1 / -1; background:#fff; border:1px solid #d8e0e8; border-radius:8px; padding:12px; margin-top:2px;">
+      <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:10px;">
+        <div>
+          <h5 style="margin:0; color:#13202d; font-size:0.94rem;">Servicios prestados y antiguedad</h5>
+          <p style="margin:3px 0 0; color:#607080; font-size:0.8rem;">Periodos acumulados desde el primer nombramiento/contrato en Diputacion, con dias naturales y computables por jornada.</p>
+        </div>
+        <div style="text-align:right; color:#1b5e20; font-weight:800;">
+          ${serviceDaysBreakdownText(totals.computableDays)}
+          <small style="display:block; color:#607080; font-weight:600;">${formatCount(totals.computableDays)} dias computables · ${formatCount(totals.naturalDays)} dias naturales</small>
+        </div>
+      </div>
+      <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:7px;">
+        <table style="width:100%; min-width:980px; border-collapse:collapse; font-size:0.8rem;">
+          <thead>
+            <tr style="background:#edf2f7;">
+              ${["Desde", "Hasta", "Unidad", "Categoria", "Puesto", "Regimen", "Jornada", "Dias", "Computables"].map((header) => `<th style="text-align:left; padding:8px;">${header}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${periods.map((period, index) => `
+              <tr style="background:${index % 2 ? "#f8fafc" : "#fff"};">
+                <td style="padding:8px; border-top:1px solid #e2e8f0;">${escapeHTML(servicePeriodDateLabel(period.from))}</td>
+                <td style="padding:8px; border-top:1px solid #e2e8f0;">${escapeHTML(servicePeriodDateLabel(period.to))}</td>
+                <td style="padding:8px; border-top:1px solid #e2e8f0;">${escapeHTML(period.unit)}</td>
+                <td style="padding:8px; border-top:1px solid #e2e8f0; font-weight:800;">${escapeHTML(period.category)}</td>
+                <td style="padding:8px; border-top:1px solid #e2e8f0;">${escapeHTML(period.position)}</td>
+                <td style="padding:8px; border-top:1px solid #e2e8f0;">${escapeHTML(period.regime)}</td>
+                <td style="padding:8px; border-top:1px solid #e2e8f0;">${escapeHTML(period.workingDay)}</td>
+                <td style="padding:8px; border-top:1px solid #e2e8f0; text-align:right;">${formatCount(period.naturalDays)}</td>
+                <td style="padding:8px; border-top:1px solid #e2e8f0; text-align:right; font-weight:800;">${formatCount(period.computableDays)}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </section>`;
+}
+
+function buildEmployeeServicesCertificatePDF(employee) {
+  const periods = employeeServicePeriods(employee);
+  const totals = employeeServiceTotals(employee);
+  const csv = portalDocumentCSV("SERV", employee.id);
+  const verificationURL = documentVerificationURL(csv);
+  const shortText = (value, max) => {
+    const text = String(value || "");
+    return text.length > max ? `${text.slice(0, max - 3)}...` : text;
+  };
+  const lines = [
+    "0.98 0.99 1 rg 36 36 523 770 re f",
+    "0.78 0.84 0.88 RG 36 36 523 770 re S",
+    "1 1 1 rg 45 736 505 72 re f",
+    "0.72 0.80 0.88 RG 45 736 505 72 re S",
+    "0.67 0.80 0.29 rg 45 736 505 4 re f",
+    "0 G 0 g",
+  ];
+  drawDiputacionLogoPDF(lines, 58, 780, 0.76);
+  lines.push("0.09 0.23 0.31 rg");
+  pdfLine(lines, 315, 788, "CERTIFICADO DE SERVICIOS PRESTADOS", { size: 11, bold: true });
+  pdfLine(lines, 315, 771, "Area de Recursos Humanos y Regimen Interior", { size: 8 });
+
+  lines.push("0.92 0.96 0.92 rg 45 642 505 82 re f");
+  lines.push("0.72 0.80 0.88 RG 45 642 505 82 re S");
+  lines.push("0.08 0.13 0.20 rg");
+  pdfLine(lines, 58, 707, "Datos del empleado", { size: 10, bold: true });
+  pdfLine(lines, 64, 686, `Empleado: ${shortText(employee.name, 46)}`, { size: 8.5 });
+  pdfLine(lines, 340, 686, `NIF: ${employee.nif}`, { size: 8.5 });
+  pdfLine(lines, 64, 668, `Puesto actual: ${shortText(employee.position, 44)}`, { size: 8.5 });
+  pdfLine(lines, 340, 668, `RPT: ${shortText(employee.rpt, 24)}`, { size: 8.5 });
+  pdfLine(lines, 64, 650, `Unidad actual: ${shortText(employee.unit, 54)}`, { size: 8.5 });
+
+  pdfLine(lines, 58, 617, "Periodos acreditados", { size: 10, bold: true });
+  lines.push("0.10 0.29 0.47 rg 45 586 505 24 re f");
+  lines.push("1 1 1 rg");
+  pdfLine(lines, 54, 594, "DESDE", { size: 6.7, bold: true });
+  pdfLine(lines, 106, 594, "HASTA", { size: 6.7, bold: true });
+  pdfLine(lines, 158, 594, "UNIDAD / PUESTO", { size: 6.7, bold: true });
+  pdfLine(lines, 286, 594, "CAT.", { size: 6.7, bold: true });
+  pdfLine(lines, 322, 594, "JORNADA", { size: 6.7, bold: true });
+  pdfLine(lines, 390, 594, "DIAS", { size: 6.7, bold: true });
+  pdfLine(lines, 448, 594, "COMP.", { size: 6.7, bold: true });
+
+  let y = 563;
+  periods.forEach((period, index) => {
+    lines.push(index % 2 ? "0.94 0.97 0.95 rg" : "0.97 0.99 1 rg");
+    lines.push(`45 ${y - 20} 505 34 re f`);
+    lines.push("0.84 0.88 0.92 RG");
+    lines.push(`45 ${y - 22} 505 0 m 550 ${y - 22} l S`);
+    lines.push("0.08 0.13 0.20 rg");
+    pdfLine(lines, 54, y, servicePeriodPDFDate(period.from), { size: 6.4 });
+    pdfLine(lines, 106, y, servicePeriodPDFDate(period.to), { size: 6.4 });
+    pdfLine(lines, 158, y, shortText(period.unit, 28), { size: 6.4 });
+    pdfLine(lines, 289, y, shortText(period.category, 5), { size: 6.6, bold: true });
+    pdfLine(lines, 322, y, shortText(period.workingDay, 17), { size: 6.2 });
+    pdfLine(lines, 394, y, String(period.naturalDays), { size: 6.6 });
+    pdfLine(lines, 456, y, String(period.computableDays), { size: 6.6, bold: true });
+    pdfLine(lines, 158, y - 12, shortText(`${period.position} - ${period.regime}`, 64), { size: 5.7 });
+    y -= 36;
+  });
+
+  lines.push("0.90 0.97 0.91 rg 58 154 320 70 re f");
+  lines.push("0.72 0.80 0.88 RG 58 154 320 70 re S");
+  lines.push("0.08 0.13 0.20 rg");
+  pdfLine(lines, 66, 204, "Computo total acreditado", { size: 10, bold: true });
+  pdfLine(lines, 66, 184, `Dias naturales: ${formatCount(totals.naturalDays)}`, { size: 8.5, bold: true });
+  pdfLine(lines, 210, 184, `Dias computables: ${formatCount(totals.computableDays)}`, { size: 8.5, bold: true });
+  pdfLine(lines, 66, 166, serviceDaysBreakdownText(totals.computableDays), { size: 8.5, bold: true });
+  pdfLine(lines, 58, 126, "El presente certificado se emite a efectos de acreditacion de servicios prestados y antiguedad en entorno demo VEC.", { size: 7 });
+  pdfLine(lines, 58, 111, `CSV: ${csv}`, { size: 8, bold: true });
+  drawQRCodePDF(lines, verificationURL, 482, 54, 1.35);
+  pdfLine(lines, 374, 106, "Verificar documento", { size: 8, bold: true });
+  pdfLine(lines, 374, 92, csv, { size: 7 });
+  return buildSimplePDF(lines.join("\n"));
+}
+
+function downloadEmployeeServicesCertificate(employee) {
+  downloadBlob(buildEmployeeServicesCertificatePDF(employee), `certificado-servicios-prestados-${slugify(employee.id)}.pdf`);
+  recordReceipt("Crear certificado servicios prestados", `${employee.id} - ${employee.name}`, "personal");
+  setStatus(`Certificado de servicios prestados creado: ${employee.id}`, "ready");
+  if (state.portal) renderFlowPanel();
+}
+
+function employeeServicesRequestPanel() {
+  const employee = currentEmployeeServiceRecord();
+  const totals = employeeServiceTotals(employee);
+  const panel = document.createElement("section");
+  panel.className = "employee-flow-panel employee-services-certificate-panel";
+  panel.innerHTML = `
+    <div class="employee-flow-head">
+      <div>
+        <h3>Certificado de servicios prestados</h3>
+        <span>Solicitud directa del empleado con todos los periodos trabajados y computo de antiguedad.</span>
+      </div>
+      <button type="button" class="primary-action" data-employee-services-certificate>Crear certificado</button>
+    </div>
+    <div class="employee-summary-strip">
+      <strong>${serviceDaysBreakdownText(totals.computableDays)}</strong>
+      <span>${formatCount(totals.computableDays)} dias computables · ${formatCount(totals.naturalDays)} dias naturales · ${employeeServicePeriods(employee).length} periodos</span>
+    </div>
+    <p class="employee-flow-note">Ubicacion: Portal empleado > Personal. Tambien se puede solicitar desde la fila CERT-SERV-2026 de Mis expedientes.</p>
+  `;
+  $("[data-employee-services-certificate]", panel).addEventListener("click", () => {
+    downloadEmployeeServicesCertificate(employee);
+  });
+  return panel;
+}
+
+function employeeDirectoryPanel(view) {
+  const records = filteredEmployeeDirectory(view);
+  const directoryStats = employeeDirectoryStats(view);
+  const hasSearch = Boolean(textSearchBase(state.employeeDirectorySearch || ""));
+  const pageSize = EMPLOYEE_DIRECTORY_PAGE_SIZE;
+  const maxPage = Math.max(1, Math.ceil(records.length / pageSize));
+  const page = Math.min(Math.max(Number(state.employeeDirectoryPage || 1), 1), maxPage);
+  state.employeeDirectoryPage = page;
+  const start = (page - 1) * pageSize;
+  const pageRows = records.slice(start, start + pageSize);
+  const selected = employeeDirectoryRecordByID(view, state.employeeDirectorySelectedID) || null;
+  const activeCount = hasSearch ? records.filter((item) => item.situation === "Servicio activo").length : directoryStats.active;
+  const modifiedCount = directoryStats.modified;
+  const panel = document.createElement("section");
+  panel.className = "employee-directory-panel";
+  panel.style.background = "#fff";
+  panel.style.border = "1px solid #d8e0e8";
+  panel.style.borderRadius = "8px";
+  panel.style.padding = "16px";
+  panel.style.marginBottom = "16px";
+  panel.innerHTML = `
+    <div style="display:flex; justify-content:space-between; gap:14px; align-items:flex-start; margin-bottom:14px;">
+      <div>
+        <h3 style="margin:0; color:#13202d; font-size:1rem;">Directorio de empleados</h3>
+        <p style="margin:4px 0 0; color:#607080; font-size:0.84rem;">Listado operativo para consultar y modificar datos personales, puesto, RPT, situacion, horario y contacto.</p>
+      </div>
+      <button type="button" data-employee-directory-export style="border:1px solid #9fc9a3; background:#fff; color:#1b5e20; border-radius:6px; padding:8px 12px; cursor:pointer; font-weight:700;">Exportar CSV</button>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:12px;">
+      ${[
+        ["Total empleados", formatCount(employeeDirectoryCount(view)), "#2563eb"],
+        ["Resultado actual", formatCount(records.length), "#0f766e"],
+        ["Servicio activo", formatCount(activeCount), "#15803d"],
+        ["Fichas modificadas", formatCount(modifiedCount), "#b45309"],
+      ].map(([label, value, color]) => `
+        <article style="background:#f8fafc; border:1px solid #e2e8f0; border-left:5px solid ${color}; border-radius:7px; padding:10px;">
+          <span style="display:block; color:#607080; font-size:0.72rem; font-weight:700;">${label}</span>
+          <strong style="display:block; margin-top:4px; color:${color}; font-size:1.2rem;">${value}</strong>
+        </article>`).join("")}
+    </div>
+    <div style="display:grid; grid-template-columns:minmax(220px, 1fr) auto auto; gap:8px; margin-bottom:12px;">
+      <label style="display:block;">
+        <span style="display:block; color:#475569; font-size:0.76rem; font-weight:700; margin-bottom:4px;">Buscar empleado, DNI, RPT, unidad o situacion</span>
+        <input data-employee-directory-search value="${escapeHTML(state.employeeDirectorySearch || "")}" placeholder="Ej. EMP-0042, Garcia, A2, Intervencion..." style="width:100%; min-height:38px; border:1px solid #cbd5e1; border-radius:7px; padding:0 10px;">
+      </label>
+      <button type="button" data-employee-directory-clear style="align-self:end; min-height:38px; border:1px solid #cbd5e1; background:#fff; border-radius:7px; padding:0 12px; cursor:pointer; font-weight:700;">Limpiar</button>
+      <div style="align-self:end; color:#607080; font-size:0.8rem; white-space:nowrap;">Pagina ${page}/${maxPage}</div>
+    </div>
+    ${selected ? renderEmployeeEditorForm(selected) : `
+      <div style="margin:0 0 12px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:8px; padding:13px; color:#607080; font-size:0.84rem;">
+        Pulsa Editar en una fila para abrir aqui la ficha modificable del empleado.
+      </div>`}
+    <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:8px;">
+      <table style="width:100%; min-width:1260px; border-collapse:collapse; font-size:0.82rem;">
+        <thead>
+          <tr style="background:#edf2f7;">
+            ${["Empleado", "DNI", "Regimen", "Grupo", "Puesto", "Unidad", "Situacion", "RPT", "Trienios", "Horario", "Accion"].map((header) => `<th style="text-align:left; padding:9px;">${header}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${pageRows.map((item, index) => {
+            const isSelected = selected?.id === item.id;
+            return `
+            <tr data-employee-row="${escapeHTML(item.id)}" tabindex="0" title="Abrir detalle de ${escapeHTML(item.name)}" style="background:${isSelected ? "#eff6ff" : index % 2 ? "#f8fafc" : "#fff"}; ${isSelected ? "outline:2px solid #2563eb; outline-offset:-2px;" : ""} cursor:pointer;">
+              <td style="padding:9px; border-top:1px solid #e2e8f0;"><strong>${escapeHTML(item.id)}</strong><br><span>${escapeHTML(item.name)}</span></td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0; font-family:monospace;">${escapeHTML(item.nif)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0;">${escapeHTML(item.regime)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0; font-weight:700;">${escapeHTML(item.group)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0;">${escapeHTML(item.position)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0;">${escapeHTML(item.unit)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0;">${renderNominasStatusBadge(item.situation)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0; font-family:monospace;">${escapeHTML(item.rpt)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0; text-align:right;">${formatCount(item.trienios)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0;">${escapeHTML(item.schedule)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0;"><button type="button" data-employee-edit="${escapeHTML(item.id)}" style="border:1px solid ${isSelected ? "#2563eb" : "#cbd5e1"}; background:${isSelected ? "#dbeafe" : "#fff"}; color:${isSelected ? "#1d4ed8" : "#13202d"}; border-radius:5px; padding:5px 8px; cursor:pointer; font-weight:700;">${isSelected ? "Editando" : "Editar"}</button></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; margin-top:10px;">
+      <span style="color:#607080; font-size:0.82rem;">Mostrando ${formatCount(start + 1)}-${formatCount(Math.min(start + pageRows.length, records.length))} de ${formatCount(records.length)}</span>
+      <div style="display:flex; gap:8px;">
+        <button type="button" data-employee-page="prev" ${page <= 1 ? "disabled" : ""} style="border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:7px 10px; cursor:pointer;">Anterior</button>
+        <button type="button" data-employee-page="next" ${page >= maxPage ? "disabled" : ""} style="border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:7px 10px; cursor:pointer;">Siguiente</button>
+      </div>
+    </div>
+  `;
+  attachEmployeeDirectoryPanel(panel, view);
+  if (selected && state.employeeDirectoryFocusEditor) {
+    window.requestAnimationFrame(() => {
+      const editor = document.querySelector("[data-employee-editor-form]");
+      editor?.scrollIntoView({ block: "start", behavior: "smooth" });
+      editor?.querySelector("input[name='name']")?.focus();
+      state.employeeDirectoryFocusEditor = false;
+    });
+  }
+  return panel;
+}
+
+function renderEmployeeEditorForm(employee) {
+  const option = (value, current) => `<option value="${escapeHTML(value)}" ${value === current ? "selected" : ""}>${escapeHTML(value)}</option>`;
+  return `
+    <form data-employee-editor-form style="margin:0 0 14px; background:#f8fafc; border:1px solid #bfdbfe; border-left:5px solid #2563eb; border-radius:8px; padding:14px;">
+      <input type="hidden" name="id" value="${escapeHTML(employee.id)}">
+      <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px;">
+        <div>
+          <h4 style="margin:0; color:#13202d;">Editar ficha ${escapeHTML(employee.id)}</h4>
+          <p style="margin:4px 0 0; color:#607080; font-size:0.82rem;">Los cambios quedan guardados en la demo y generan recibo de auditoria.</p>
+        </div>
+        <button type="button" data-employee-close-editor style="border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:6px 10px; cursor:pointer;">Cerrar</button>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:10px;">
+        <label>Nombre y apellidos<input name="name" value="${escapeHTML(employee.name)}" required style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px;"></label>
+        <label>DNI/NIE<input name="nif" value="${escapeHTML(employee.nif)}" required style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px;"></label>
+        <label>Regimen<select name="regime" style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px;">${["Funcionario/a de carrera", "Funcionario/a interino/a", "Laboral fijo", "Laboral temporal", "Eventual"].map((item) => option(item, employee.regime)).join("")}</select></label>
+        <label>Grupo<select name="group" style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px;">${["A1", "A2", "C1", "C2", "AP"].map((item) => option(item, employee.group)).join("")}</select></label>
+        <label>Puesto<input name="position" value="${escapeHTML(employee.position)}" required style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px;"></label>
+        <label>Unidad<input name="unit" value="${escapeHTML(employee.unit)}" required style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px;"></label>
+        <label>Situacion<select name="situation" style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px;">${["Servicio activo", "Baja IT", "Excedencia", "Comision de servicios", "Servicios especiales", "Jubilacion parcial"].map((item) => option(item, employee.situation)).join("")}</select></label>
+        <label>Codigo RPT<input name="rpt" value="${escapeHTML(employee.rpt)}" required style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px;"></label>
+        <label>Trienios<input name="trienios" type="number" min="0" max="15" value="${escapeHTML(employee.trienios)}" style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px;"></label>
+        <label>Horario<input name="schedule" value="${escapeHTML(employee.schedule)}" style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px;"></label>
+        <label>Email<input name="email" type="email" value="${escapeHTML(employee.email)}" style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px;"></label>
+        <label>Telefono<input name="phone" value="${escapeHTML(employee.phone)}" style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px;"></label>
+        <label style="grid-column:1 / -1;">IBAN<input name="iban" value="${escapeHTML(employee.iban)}" style="width:100%; min-height:36px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px;"></label>
+        ${renderEmployeeServicesPanel(employee)}
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; margin-top:12px;">
+        <button type="button" data-employee-certificate="${escapeHTML(employee.id)}" style="border:1px solid #9fc9a3; background:#fff; color:#1b5e20; border-radius:6px; padding:8px 12px; cursor:pointer; font-weight:700;">Crear certificado servicios prestados</button>
+        <button type="submit" style="background:#1b5e20; color:#fff; border:none; border-radius:6px; padding:8px 12px; cursor:pointer; font-weight:700;">Guardar cambios</button>
+      </div>
+    </form>`;
+}
+
+function openEmployeeDirectoryDetail(employeeID) {
+  if (!employeeID) return;
+  state.employeeDirectorySelectedID = employeeID;
+  state.employeeDirectoryFocusEditor = true;
+  recordReceipt("Abrir ficha empleado", employeeID, "personal");
+  if (state.portal) renderModulePortal(state.portal);
+  setStatus(`Ficha abierta: ${employeeID}`, "ready");
+}
+
+function attachEmployeeDirectoryPanel(panel, view) {
+  $("[data-employee-directory-search]", panel)?.addEventListener("input", (event) => {
+    state.employeeDirectorySearch = event.target.value;
+    state.employeeDirectoryPage = 1;
+    if (state.portal) renderModulePortal(state.portal);
+  });
+  $("[data-employee-directory-clear]", panel)?.addEventListener("click", () => {
+    state.employeeDirectorySearch = "";
+    state.employeeDirectoryPage = 1;
+    if (state.portal) renderModulePortal(state.portal);
+  });
+  $$("[data-employee-page]", panel).forEach((button) => {
+    button.addEventListener("click", () => {
+      state.employeeDirectoryPage = Math.max(1, Number(state.employeeDirectoryPage || 1) + (button.dataset.employeePage === "next" ? 1 : -1));
+      if (state.portal) renderModulePortal(state.portal);
+    });
+  });
+  $$("[data-employee-edit]", panel).forEach((button) => {
+    button.addEventListener("click", () => {
+      openEmployeeDirectoryDetail(button.dataset.employeeEdit);
+    });
+  });
+  $$("[data-employee-row]", panel).forEach((row) => {
+    row.addEventListener("click", (event) => {
+      if (event.target.closest("button, a, input, select, textarea")) return;
+      openEmployeeDirectoryDetail(row.dataset.employeeRow);
+    });
+    row.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openEmployeeDirectoryDetail(row.dataset.employeeRow);
+    });
+  });
+  $("[data-employee-close-editor]", panel)?.addEventListener("click", () => {
+    state.employeeDirectorySelectedID = "";
+    if (state.portal) renderModulePortal(state.portal);
+  });
+  $("[data-employee-directory-export]", panel)?.addEventListener("click", () => exportEmployeeDirectory(view));
+  $$("[data-employee-certificate]", panel).forEach((button) => {
+    button.addEventListener("click", () => {
+      const employee = ensureEmployeeDirectory(view).find((item) => item.id === button.dataset.employeeCertificate);
+      if (!employee) return;
+      downloadEmployeeServicesCertificate(employee);
+    });
+  });
+  $("[data-employee-editor-form]", panel)?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const data = new FormData(form);
+    const id = String(data.get("id") || "");
+    const employee = ensureEmployeeDirectory(view).find((item) => item.id === id);
+    if (!employee) return;
+    Object.assign(employee, {
+      name: String(data.get("name") || "").trim(),
+      nif: String(data.get("nif") || "").trim(),
+      regime: String(data.get("regime") || "").trim(),
+      group: String(data.get("group") || "").trim(),
+      position: String(data.get("position") || "").trim(),
+      unit: String(data.get("unit") || "").trim(),
+      situation: String(data.get("situation") || "").trim(),
+      rpt: String(data.get("rpt") || "").trim(),
+      trienios: Number(data.get("trienios") || 0),
+      schedule: String(data.get("schedule") || "").trim(),
+      email: String(data.get("email") || "").trim(),
+      phone: String(data.get("phone") || "").trim(),
+      iban: String(data.get("iban") || "").trim(),
+      state: String(data.get("situation") || "") === "Servicio activo" ? "Activo" : "Incidencia",
+      modifiedAt: new Date().toLocaleString("es-ES"),
+    });
+    persistEmployeeDirectoryRecord(employee);
+    recordReceipt("Actualizar expediente empleado", `${employee.id} - ${employee.name}`, "personal");
+    setStatus(`Empleado actualizado: ${employee.id}`, "ready");
+    if (state.portal) renderModulePortal(state.portal);
+  });
+}
+
+function exportEmployeeDirectory(view) {
+  const rows = filteredEmployeeDirectory(view);
+  const header = ["id", "nombre", "nif", "regimen", "grupo", "puesto", "unidad", "situacion", "rpt", "trienios", "horario", "email", "telefono"];
+  const csv = [
+    header.join(";"),
+    ...rows.map((item) => [item.id, item.name, item.nif, item.regime, item.group, item.position, item.unit, item.situation, item.rpt, item.trienios, item.schedule, item.email, item.phone]
+      .map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(";")),
+  ].join("\n");
+  downloadBlob(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }), "directorio-empleados-vec.csv");
+  recordReceipt("Exportar directorio empleados", `${formatCount(rows.length)} empleados`, "personal");
+  setStatus(`Directorio exportado: ${formatCount(rows.length)} empleados`, "ready");
+}
+
+function adminUsersAssignedPanel(view) {
+  const roles = view.workspace?.access_roles || [];
+  const assignments = view.workspace?.role_assignments || [];
+  const personalRole = roles.find((role) => role.id === "personal_interno") || {};
+  const rows = [];
+  if (Number(personalRole.users_count || 0) > 0) {
+    rows.push([
+      "Colectivo empleados activos",
+      personalRole.label || "Empleado/a",
+      personalRole.scope || "Expediente propio",
+      formatCount(personalRole.users_count),
+      "Clave / certificado segun politica",
+      personalRole.state || "Sin estado (no habilitado)",
+    ]);
+  }
+  assignments.forEach((assignment) => {
+    rows.push([
+      assignment.display_name || assignment.user,
+      formatList(assignment.roles),
+      formatList(assignment.units),
+      "1",
+      assignment.mfa || "-",
+      assignment.state || "Sin estado (no habilitado)",
+    ]);
+  });
+  const wrap = document.createElement("section");
+  wrap.style.display = "grid";
+  wrap.style.gap = "12px";
+  const actionBar = document.createElement("div");
+  actionBar.style.display = "flex";
+  actionBar.style.justifyContent = "space-between";
+  actionBar.style.alignItems = "center";
+  actionBar.style.gap = "12px";
+  actionBar.style.background = "#eff6ff";
+  actionBar.style.border = "1px solid #bfdbfe";
+  actionBar.style.borderRadius = "8px";
+  actionBar.style.padding = "12px";
+  actionBar.innerHTML = `
+    <div>
+      <strong style="display:block; color:#1d4ed8;">Directorio de empleados</strong>
+      <span style="display:block; color:#475569; font-size:0.84rem;">El colectivo de ${formatCount(personalRole.users_count || employeeDirectoryCount(view))} empleados se consulta y modifica desde Personal.</span>
+    </div>
+    <button type="button" data-open-employee-directory style="background:#1d4ed8; color:#fff; border:none; border-radius:6px; padding:8px 12px; cursor:pointer; font-weight:700; white-space:nowrap;">Abrir empleados</button>
+  `;
+  $("[data-open-employee-directory]", actionBar).addEventListener("click", () => {
+    setActiveModule("personal", "personal.expedientes");
+  });
+  wrap.append(actionBar, portalTable("Usuarios asignados y colectivos", ["Usuario/colectivo", "Rol", "Ambito", "Usuarios", "MFA", "Estado"], rows));
+  return wrap;
 }
 
 function isLeaveScreen(screen) {
@@ -4883,12 +5805,10 @@ function routeMapPanel() {
 }
 
 function openStreetMapDirectionsURL(coords) {
-  const valid = (coords || []).filter((coord) =>
-    Number.isFinite(Number(coord.lat)) && Number.isFinite(Number(coord.lon)),
-  );
-  if (valid.length < 2) return "";
-  const route = valid.map((coord) => `${Number(coord.lat).toFixed(6)},${Number(coord.lon).toFixed(6)}`).join(";");
-  return `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${encodeURIComponent(route)}`;
+  // Las coordenadas de personal, vehiculos o comisiones no deben salir de la
+  // red corporativa. El visor usa geometria OSRM y SVG locales.
+  void coords;
+  return "";
 }
 
 function addOpenStreetMapButton(actions, coords) {
@@ -5089,12 +6009,66 @@ function routeGeometryFromOSRM(payload, segmentMeta = [], coords = []) {
   };
 }
 
-function applyRoadRouteToCalculation(calculation, route) {
-  if (!calculation || !route?.legs?.length) return calculation;
-  const roadByIndex = aggregateRoadLegsByIndex(route.legs);
+function routeLegRoadKey(leg) {
+  return [
+    Number(leg?.index ?? 0),
+    normalizeRouteName(leg?.from),
+    normalizeRouteName(leg?.to),
+    normalizeRouteName(leg?.viaName),
+  ].join("|");
+}
+
+function refreshItineraryDerivedTotals(calculation) {
+  if (!calculation) return calculation;
   let totalBaseKM = 0;
   let totalCompensationKM = 0;
   let totalMinutes = 0;
+  (calculation.legs || []).forEach((leg) => {
+    const distanceKM = Number(leg.distanceKM || 0);
+    const compensationKM = Number(leg.compensationKM || 0);
+    const minutes = Number(leg.minutes || 0);
+    leg.liquidableKM = distanceKM + compensationKM;
+    totalBaseKM += distanceKM;
+    totalCompensationKM += compensationKM;
+    totalMinutes += minutes;
+  });
+  calculation.totalBaseKM = totalBaseKM;
+  calculation.totalCompensationKM = totalCompensationKM;
+  calculation.totalKM = totalBaseKM + totalCompensationKM;
+  calculation.totalMinutes = totalMinutes;
+  calculation.mileageAmount = calculation.totalKM * Number(calculation.rate || 0);
+  calculation.missing = (calculation.legs || [])
+    .filter((leg) => Number(leg.distanceKM || 0) <= 0)
+    .map((leg) => `${leg.from} -> ${leg.to}`);
+  calculation.compensationIssues = (calculation.legs || []).filter((leg) => leg.compensationKM > 0 && !leg.compensationReason);
+  calculation.routeViaIssues = (calculation.legs || []).filter((leg) => leg.viaName && !leg.viaReason);
+  return calculation;
+}
+
+function preserveRoadDistancesFromPreviousCalculation(calculation, previousCalculation) {
+  if (!calculation?.legs?.length || !previousCalculation?.legs?.length) return calculation;
+  const previousByKey = new Map();
+  previousCalculation.legs.forEach((leg) => {
+    previousByKey.set(routeLegRoadKey(leg), leg);
+  });
+  calculation.legs.forEach((leg) => {
+    const previous = previousByKey.get(routeLegRoadKey(leg));
+    if (!previous) return;
+    const previousDistance = Number(previous.distanceKM || 0);
+    if (previousDistance <= 0) return;
+    const currentDistance = Number(leg.distanceKM || 0);
+    if (previous.state === "OSRM interno" || currentDistance <= 0) {
+      leg.distanceKM = previousDistance;
+      leg.minutes = Number(previous.minutes || 0);
+      leg.state = previous.state || leg.state || "OSRM interno";
+    }
+  });
+  return refreshItineraryDerivedTotals(calculation);
+}
+
+function applyRoadRouteToCalculation(calculation, route) {
+  if (!calculation || !route?.legs?.length) return calculation;
+  const roadByIndex = aggregateRoadLegsByIndex(route.legs);
   calculation.legs.forEach((leg) => {
     const roadLeg = roadByIndex.get(leg.index);
     if (roadLeg && roadLeg.distanceKM > 0) {
@@ -5102,22 +6076,8 @@ function applyRoadRouteToCalculation(calculation, route) {
       leg.minutes = roadLeg.durationMin;
       leg.state = "OSRM interno";
     }
-    leg.liquidableKM = Number(leg.distanceKM || 0) + Number(leg.compensationKM || 0);
-    totalBaseKM += Number(leg.distanceKM || 0);
-    totalCompensationKM += Number(leg.compensationKM || 0);
-    totalMinutes += Number(leg.minutes || 0);
   });
-  calculation.totalBaseKM = totalBaseKM;
-  calculation.totalCompensationKM = totalCompensationKM;
-  calculation.totalKM = totalBaseKM + totalCompensationKM;
-  calculation.totalMinutes = totalMinutes;
-  calculation.mileageAmount = calculation.totalKM * Number(calculation.rate || 0);
-  calculation.missing = calculation.legs
-    .filter((leg) => Number(leg.distanceKM || 0) <= 0)
-    .map((leg) => `${leg.from} -> ${leg.to}`);
-  calculation.compensationIssues = calculation.legs.filter((leg) => leg.compensationKM > 0 && !leg.compensationReason);
-  calculation.routeViaIssues = calculation.legs.filter((leg) => leg.viaName && !leg.viaReason);
-  return calculation;
+  return refreshItineraryDerivedTotals(calculation);
 }
 
 async function fetchRoadRouteGeometry(coords, segmentMeta = []) {
@@ -5336,7 +6296,7 @@ function renderStraightLineLeafletMap(panel, canvas, legend, alternatives, fallb
   addOpenStreetMapButton(actions, coords);
 
   panel._leafletMap = window.L.map(canvas, { scrollWheelZoom: false });
-  window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  window.L.tileLayer("/tiles/osm/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap contributors",
   }).addTo(panel._leafletMap);
@@ -5431,7 +6391,7 @@ async function renderRouteMap(panel, calculation, view) {
     actions.append(fullRouteButton);
     addOpenStreetMapButton(actions, coords);
     panel._leafletMap = window.L.map(canvas, { scrollWheelZoom: false });
-    window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    window.L.tileLayer("/tiles/osm/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: "&copy; OpenStreetMap contributors",
     }).addTo(panel._leafletMap);
@@ -5476,24 +6436,15 @@ async function renderRouteMap(panel, calculation, view) {
       return;
     }
     destroyRouteMap(panel);
-    // Si Leaflet esta disponible, mostramos un mapa real con lineas rectas
-    // (estimacion entre paradas) aunque el OSRM por carretera no responda.
-    if (window.L && coords.length >= 2) {
-      renderStraightLineLeafletMap(panel, canvas, legend, alternatives, fallback, actions, calculation, coords, error.message);
-    } else {
-      renderLocalRouteMap(
-        panel,
-        canvas,
-        legend,
-        alternatives,
-        fallback,
-        actions,
-        calculation,
-        coords,
-        [],
-        `No se ha podido calcular la ruta por carretera con el OSRM interno: ${error.message}. Se muestra croquis local no liquidable en el mismo apartado de rutas.`,
-      );
-    }
+    canvas.hidden = true;
+    canvas.replaceChildren();
+    legend.hidden = true;
+    legend.replaceChildren();
+    alternatives.hidden = true;
+    alternatives.replaceChildren();
+    actions.replaceChildren();
+    fallback.hidden = false;
+    fallback.textContent = `No se ha podido calcular la ruta por carretera con el OSRM interno: ${error.message}. No se muestra mapa externo ni linea recta liquidable.`;
   }
 
   if (missing.length) {
@@ -5824,7 +6775,8 @@ function rptPositionPanel() {
       <input name="destination_level" type="number" min="0" value="24">
     </label>
     <label>Estado
-      <select name="state">
+      <select name="state" required>
+        <option value="" selected disabled>Seleccione un estado</option>
         <option value="Vigente">Vigente</option>
         <option value="Importado demo">Importado demo</option>
         <option value="Pendiente leyenda RPT">Pendiente leyenda RPT</option>
@@ -5833,6 +6785,7 @@ function rptPositionPanel() {
     <button class="primary-action" type="submit">Guardar puesto</button>
     <button class="quiet-action" type="button" data-rpt-delete>Borrar puesto</button>
   `;
+  applyVisibleFieldHelp(form);
   $("[data-rpt-delete]", form).addEventListener("click", () => handleRPTPositionDelete(form));
   form.addEventListener("submit", handleRPTPositionSubmit);
   panel.append(header, form);
@@ -5935,6 +6888,7 @@ function categoryCatalogPanel() {
     <button class="primary-action" type="submit">Guardar categoria</button>
     <button class="quiet-action" type="button" data-category-delete>Borrar categoria</button>
   `;
+  applyVisibleFieldHelp(form);
   form.addEventListener("submit", handleCategorySubmit);
   $("[data-category-delete]", form).addEventListener("click", () => handleCategoryDelete(form));
   panel.append(header, form);
@@ -6249,7 +7203,7 @@ function populateBolsaOfferForm(title) {
   const deadlineParts = String(offer.deadline || "").split("/");
   const deadlineISO = deadlineParts.length === 3 ? `${deadlineParts[2]}-${deadlineParts[1]}-${deadlineParts[0]}` : offer.deadline;
   setFormValue(form, "deadline", deadlineISO);
-  setFormValue(form, "state", offer.state || "Abierta");
+  setFormValue(form, "state", offer.state || "");
   setFormValue(form, "requirements", offer.requirements);
   setFormValue(form, "bases_ref", offer.basesRef);
   const feeRequired = form.elements?.fee_required;
@@ -6281,7 +7235,7 @@ function populateRPTPositionForm(code) {
   setFormValue(form, "group", position.group || "");
   setFormValue(form, "category_code", position.category_code || "");
   setFormValue(form, "destination_level", position.destination_level || "");
-  setFormValue(form, "state", position.state || "Vigente");
+  setFormValue(form, "state", position.state || "");
   form.scrollIntoView({ block: "nearest", behavior: "smooth" });
   setStatus(`Puesto RPT seleccionado: ${position.code}`, "ready");
 }
@@ -6360,12 +7314,13 @@ function getPersonalCatalog(view) {
 }
 
 function currentApprovalRole() {
-  const roles = currentRoleList();
-  if (isAdminSession()) return "administrador";
-  if (roles.some((role) => ["tecnico_rrhh", "rrhh", "personal_rrhh"].includes(role))) return "tecnico_rrhh";
-  if (roles.includes("jefe_servicio")) return "jefe_servicio";
-  if (roles.includes("jefe_seccion")) return "jefe_seccion";
-  return "empleado";
+  const profile = sessionAccessProfile();
+  const role = currentRoleList()[0] || "";
+  if (profile.id === "administrador") return "administrador";
+  if (profile.id === "tecnico_rrhh") return "tecnico_rrhh";
+  if (profile.id === "jefatura" && role === "jefe_servicio") return "jefe_servicio";
+  if (profile.id === "jefatura" && role === "jefe_seccion") return "jefe_seccion";
+  return "sin_permiso";
 }
 
 function approvalInboxRow(values, meta) {
@@ -6622,7 +7577,7 @@ function screenRows(screen, view) {
       formatCount(role.users_count || 0),
       formatList(role.modules),
       formatList(role.key_permissions),
-      role.state || "Activo",
+      role.state || "Sin estado (no habilitado)",
     ]);
   }
   if (screen.id === "admin.catalogos") {
@@ -6634,7 +7589,7 @@ function screenRows(screen, view) {
       item.label || item.name,
       item.source,
       item.module_key || "personal",
-      item.state || "Vigente",
+      item.state || "Sin estado (no habilitado)",
     ]);
     const categoryRows = categoryEntries.map((item) => [
       item.catalog || "categoria_profesional",
@@ -6642,7 +7597,7 @@ function screenRows(screen, view) {
       item.name,
       item.source,
       item.module_key || "bolsa",
-      item.state || "Vigente",
+      item.state || "Sin estado (no habilitado)",
     ]);
     return [...rptRows, ...categoryRows];
   }
@@ -6688,6 +7643,104 @@ function validationRows(screen) {
 function formatList(items) {
   const values = (items || []).filter(Boolean);
   return values.length ? values.join(", ") : "-";
+}
+
+const FIELD_HELP = {
+  accion: "Operacion disponible sobre el registro. Queda reflejada en auditoria cuando cambia estado o datos.",
+  ad: "Administracion del puesto en la RPT. F suele indicar funcionario, E eventual y L laboral, segun la leyenda vigente.",
+  ambito: "Unidad, servicio, seccion o alcance organizativo donde aplica el rol o registro.",
+  area: "Area funcional u organizativa a la que pertenece el registro.",
+  categoria: "Categoria profesional vinculada al puesto, bolsa, certificado o nomina.",
+  cd: "Complemento de destino del puesto. Es el nivel retributivo asociado en la RPT.",
+  codigo: "Identificador interno o oficial del registro.",
+  "codigo rpt": "Codigo del puesto en la Relacion de Puestos de Trabajo. Puede estar desduplicado por centro cuando el codigo oficial se repite.",
+  descripcion: "Texto funcional que identifica el objeto del registro o catalogo.",
+  empleado: "Persona afectada por el expediente o registro. En vistas de empleado solo debe verse la propia persona.",
+  estado: "Situacion administrativa o de tramitacion actual. Determina las acciones permitidas y la siguiente validacion.",
+  expediente: "Referencia trazable del expediente, solicitud o actuacion administrativa.",
+  fecha: "Fecha de alta, solicitud, efecto o registro, segun la pantalla.",
+  firma: "Estado de firma electronica o CSV asociado al documento o solicitud.",
+  fp: "Forma de provision del puesto. C: concurso, L: libre designacion, I u otros codigos: interpretar segun leyenda RPT.",
+  fuente: "Origen del dato: RPT, catalogo interno, importacion oficial, modulo VEC o integracion externa.",
+  grupo: "Grupo o subgrupo profesional del puesto: A1, A2, C1, C2, AP u otras combinaciones.",
+  importe: "Cantidad economica asociada. Puede ser propuesta, pendiente de validacion o liquidada.",
+  mfa: "Mecanismo de autenticacion reforzada: clave, certificado, DNIe u otro segundo factor admitido.",
+  modulo: "Modulo VEC responsable del dato o flujo: Personal, Cronos, Dietas, Bolsa, Nominas o Administracion.",
+  modulos: "Modulos a los que da acceso el rol o a los que pertenece el expediente.",
+  nombre: "Nombre funcional visible del registro, categoria, puesto o expediente.",
+  "permisos clave": "Resumen de permisos principales. No sustituye a la matriz completa de seguridad.",
+  puesto: "Denominacion funcional del puesto en la RPT o en el expediente de personal.",
+  rol: "Perfil de acceso. Define permisos, ambito, aprobaciones y restricciones de auditoria.",
+  slug: "Identificador corto, estable y sin espacios usado internamente por la aplicacion.",
+  tasa: "Estado o importe de la tasa asociada, si el procedimiento la exige.",
+  tipo: "Clasificacion del registro segun el catalogo de la pantalla.",
+  tp: "Tipo de puesto en la RPT. N: no singularizado u ordinario; S: singularizado; E: eventual o pendiente de leyenda segun origen.",
+  "usuario colectivo": "Cuenta individual o colectivo agregado al que se le asigna un rol de acceso.",
+  usuarios: "Numero de personas o cuentas asignadas al rol. Los listados nominativos se muestran debajo si estan disponibles.",
+  uso: "Procesos o modulos donde se reutiliza el registro de catalogo.",
+};
+
+function normalizeHelpKey(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function helpTextForTerm(term) {
+  const key = normalizeHelpKey(term);
+  if (FIELD_HELP[key]) return FIELD_HELP[key];
+  if (key.includes("rpt")) return "Dato vinculado a la Relacion de Puestos de Trabajo y a su leyenda oficial.";
+  if (key.includes("km")) return "Kilometros calculados, ajustados o liquidables segun el contexto de la ruta.";
+  if (key.includes("validacion")) return "Control o aprobacion pendiente antes de cerrar el expediente.";
+  if (key.includes("justificante")) return "Referencia documental o CSV que acredita el gasto, permiso o solicitud.";
+  return "";
+}
+
+function setHelpTitle(node, term) {
+  const help = helpTextForTerm(term);
+  if (!node || !help) return "";
+  node.title = help;
+  if (!node.getAttribute("aria-label")) {
+    node.setAttribute("aria-label", `${String(term || "").trim()}. ${help}`);
+  }
+  return help;
+}
+
+function directLabelText(label) {
+  const textNode = Array.from(label.childNodes).find((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+  return textNode ? textNode.textContent.trim() : "";
+}
+
+function createHelpBadge(help) {
+  const badge = document.createElement("span");
+  badge.className = "help-badge";
+  badge.tabIndex = 0;
+  badge.textContent = "?";
+  badge.dataset.help = help;
+  badge.setAttribute("aria-label", help);
+  return badge;
+}
+
+function applyVisibleFieldHelp(root) {
+  $$("label", root).forEach((label) => {
+    if (label.dataset.helpApplied === "true") return;
+    const labelText = directLabelText(label);
+    const help = helpTextForTerm(labelText);
+    if (!help) return;
+    label.dataset.helpApplied = "true";
+    label.title = help;
+    const control = $("input, select, textarea", label);
+    if (control) control.title = help;
+    const textNode = Array.from(label.childNodes).find((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+    if (!textNode) return;
+    const line = document.createElement("span");
+    line.className = "field-label-line";
+    line.append(document.createTextNode(labelText), createHelpBadge(help));
+    label.replaceChild(line, textNode);
+  });
 }
 
 function modulePortalHeader(title, subtitle, actions = []) {
@@ -6785,6 +7838,7 @@ function portalTable(title, headers, rows, options = {}) {
   headers.forEach((header) => {
     const th = document.createElement("th");
     th.textContent = header;
+    setHelpTitle(th, header);
     tr.append(th);
   });
   if (options.actionColumn) {
@@ -6917,30 +7971,9 @@ function downloadEmployeePortalDocument(title, row, action) {
 }
 
 function downloadPersonalCertificate(row, action) {
-  const employee = payrollEmployeeData();
-  const ref = String(row?.[0] || "CERT-SERV-2026");
-  const csv = portalDocumentCSV("CERT", ref);
-  downloadSignedPortalPDF({
-    title: "Certificado de servicios prestados",
-    subtitle: "Area de Recursos Humanos y Regimen Interior",
-    ref,
-    csv,
-    module: "Personal",
-    filename: `certificado-servicios-${slugify(ref)}.pdf`,
-    rows: [
-      ["Empleado", employee.name],
-      ["NIF", employee.nif],
-      ["Puesto", employee.position],
-      ["Centro", employee.service],
-      ["Relacion juridica", employee.relationship],
-      ["Antiguedad", `${String(employee.trienios).padStart(2, "0")} trienios reconocidos`],
-      ["Expediente", ref],
-      ["Estado", "Emitido para firma demo"],
-    ],
-    note: "Certificado demo emitido desde VEC para comprobar descarga, firma y CSV.",
-  });
-  recordReceipt(action, `${ref} - ${csv}`, "personal");
-  setStatus(`Certificado generado: ${csv}`, "ready");
+  const employee = currentEmployeeServiceRecord();
+  downloadEmployeeServicesCertificate(employee);
+  recordReceipt(action || "Solicitar certificado servicios prestados", `${row?.[0] || employee.id} - ${employee.name}`, "personal");
 }
 
 function handleBolsaPortalApplicationAction(row, action) {
@@ -6958,6 +7991,10 @@ function handleBolsaPortalApplicationAction(row, action) {
     feeAmount: application.feeAmount,
   };
   const actionText = String(action || "");
+  if (/descargar recibo|recibo|justificante/i.test(actionText)) {
+    downloadBolsaApplicationReceipt(application, actionText || "Descargar recibo");
+    return true;
+  }
   if (/completar|ver solicitud|formulario/i.test(actionText)) {
     state.bolsaSelectedOfferID = offer.id;
     recordReceipt(actionText, `${application.id} - ${application.title}`, "bolsa");
@@ -7064,6 +8101,21 @@ function openRowDetailModal(title, row, headers = [], action = "Ver detalle") {
 function handlePortalRowAction(title, row, action, headers = []) {
   const ref = String(row?.[0] || title || "Expediente propio");
   const detail = `${title}: ${ref}`;
+  const rowText = `${title || ""} ${(row || []).join(" ")} ${action || ""}`;
+  if (state.activeModule === "notificaciones" && /recibo|nomina|nom-2026-06/i.test(rowText)) {
+    state.nominasScreen = "nomina-mes";
+    recordReceipt(action || "Abrir recibo nomina", detail, "nominas");
+    setActiveModule("nominas");
+    setStatus(`Recibo abierto: ${ref}`, "ready");
+    return;
+  }
+  if (state.activeModule === "notificaciones" && /retenciones|10t/i.test(rowText)) {
+    state.nominasScreen = "certificado-retenciones";
+    recordReceipt(action || "Abrir certificado retenciones", detail, "nominas");
+    setActiveModule("nominas");
+    setStatus(`Certificado abierto: ${ref}`, "ready");
+    return;
+  }
   if (state.activeModule === "bolsa" && /mis solicitudes/i.test(String(title || ""))) {
     if (handleBolsaPortalApplicationAction(row, action)) return;
   }
@@ -7775,13 +8827,6 @@ function renderMeritosFlow(body) {
     flowRow("Meses", inputControl("meses", "0", "number")),
     flowRow("Horas", inputControl("horas", "0", "number")),
     flowRow("Puntos fijos", inputControl("puntos_fijos", "4", "number")),
-    flowRow("Estado", selectControl("estado", [
-      ["Presentado", "Presentado"],
-      ["Borrador", "Borrador"],
-      ["Validado", "Validado"],
-      ["Subsanacion", "Subsanacion"],
-      ["Rechazado", "Rechazado"],
-    ], "Presentado")),
   );
   form.append(flowButton(ui("meritAction"), async () => {
     await ensureCandidateExists();
@@ -7790,7 +8835,6 @@ function renderMeritosFlow(body) {
     const payload = {
       id: data.id,
       tipo: data.tipo,
-      estado: data.estado,
       datos: {
         meses: Number(data.meses || 0),
         horas: Number(data.horas || 0),
@@ -7800,7 +8844,7 @@ function renderMeritosFlow(body) {
     const merit = await sendJSON(`/api/candidates/${encodeURIComponent(candidateID)}/merits`, "POST", payload, candidateHeaders(candidateID));
     state.merits.push(merit);
     recordReceipt("Merito/titulo guardado", `${merit.id} (${merit.tipo}) para ${candidateID}`, "meritos");
-    upsertOperationalRow(candidateRowFromState("Merito presentado", "Revisar autobaremo"));
+    upsertOperationalRow(candidateRowFromState("Merito en borrador", "Revisar y presentar"));
     renderPortal(state.portal);
   }, "primary-action"));
   appendFlowSummary(body, "Meritos cargados en sesion", state.merits.length
@@ -7883,7 +8927,7 @@ async function registerDocument(data) {
   const payload = {
     id,
     solicitud_id: solicitudID(),
-    procedure_id: state.candidate.call_id || "convocatoria-default",
+    procedure_id: state.candidate.call_id,
     purpose: "Solicitud",
     csv: data.csv,
     digest_sha256: "0".repeat(64),
@@ -8309,6 +9353,9 @@ function hashStateFromLocation() {
     screenID = screenID || MODULE_DEFAULT_SCREEN[moduleID] || "";
     moduleID = MODULE_PARENT[moduleID];
   }
+  if (!screenID && MODULE_DEFAULT_SCREEN[moduleID]) {
+    screenID = MODULE_DEFAULT_SCREEN[moduleID];
+  }
   const validModule = MODULES.some((module) => module.id === moduleID && !MODULE_PARENT[module.id]) || flowRenderers[moduleID];
   return {
     moduleID: validModule ? moduleID : "",
@@ -8342,13 +9389,27 @@ function selectListingItem(item) {
   }
 }
 
+function modulePortalUsesDedicatedSurface() {
+  const portal = $("#module-portal");
+  if (!portal || portal.hidden) return false;
+  return ["screen", "custom-nominas", "custom-cronos", "custom-dietas", "employee-self-service"].includes(portal.dataset.mode || "");
+}
+
+function renderOperationalPanels(view) {
+  if (modulePortalUsesDedicatedSurface()) return;
+  renderFlowPanel();
+  renderTable(view);
+  renderCronosPanel(view);
+  renderDietasPanel(view);
+}
+
 function setActiveModule(moduleID, screenID = "") {
   if (MODULE_PARENT[moduleID]) {
     screenID = screenID || MODULE_DEFAULT_SCREEN[moduleID] || "";
     moduleID = MODULE_PARENT[moduleID];
   }
   state.activeModule = moduleIDForSession(moduleID);
-  state.activeScreen = screenID || "";
+  state.activeScreen = screenID || MODULE_DEFAULT_SCREEN[state.activeModule] || "";
   state.screenStateFilter = "";
   state.search = "";
   const search = $("#global-search");
@@ -8365,10 +9426,7 @@ function setActiveModule(moduleID, screenID = "") {
       return;
     }
     setOperationalPanelsHidden(false);
-    renderFlowPanel();
-    renderTable(state.portal);
-    renderCronosPanel(state.portal);
-    renderDietasPanel(state.portal);
+    renderOperationalPanels(state.portal);
   }
   updateLocationHash();
   setStatus(`Modulo activo: ${MODULES.find((module) => module.id === state.activeModule)?.label || state.activeModule}`, "ready");
@@ -8386,8 +9444,7 @@ function setActiveScreen(screenID) {
       return;
     }
     setOperationalPanelsHidden(false);
-    renderFlowPanel();
-    renderTable(state.portal);
+    renderOperationalPanels(state.portal);
   }
   updateLocationHash();
   setStatus(`Pantalla activa: ${activeScreen(state.portal)?.title || state.activeScreen || state.activeModule}`, "ready");
@@ -8651,26 +9708,8 @@ function renderDocumentVerificationNotice() {
 }
 
 function renderDemoUserSwitcher() {
-  const tools = $(".operator-tools");
-  if (!tools || $("#demo-user-select")) return;
-  const wrap = document.createElement("label");
-  wrap.className = "demo-user-switch";
-  wrap.innerHTML = `<span id="demo-user-role-label"></span><select id="demo-user-select" aria-label="Cambiar usuario y rol de prueba"></select>`;
-  const select = $("select", wrap);
-  DEMO_USERS.forEach((user) => {
-    const option = document.createElement("option");
-    option.value = user.id;
-    option.textContent = `${user.label}`;
-    select.append(option);
-  });
-  select.value = activeDemoUserID;
-  select.addEventListener("change", async () => {
-    const nextUserID = select.value;
-    setStatus(`Cambiando a ${DEMO_USERS.find((user) => user.id === nextUserID)?.label || nextUserID}`, "loading");
-    await applyDemoUser(nextUserID, { reload: true, switchModule: true });
-    setStatus(`Usuario activo: ${activeDemoUser().displayName} - ${sessionAccessProfile().label}`, "ready");
-  });
-  tools.prepend(wrap);
+  // La identidad visible procede exclusivamente de /api/vec/session. El
+  // cliente no contiene selector de identidades ni credenciales de prueba.
   updateDemoUserUI();
 }
 
@@ -8683,18 +9722,21 @@ function renderPortal(view) {
     state.selectedRowID = state.rows[0].id;
   }
   renderModuleHeader();
-  renderKPIs(view);
   renderModules(view);
   renderModulePortal(view);
+  if (!hasExplicitSessionAccess()) {
+    const metrics = $(".metrics");
+    if (metrics) metrics.hidden = true;
+    setOperationalPanelsHidden(true);
+    return;
+  }
+  renderKPIs(view);
   if (isEmployeeSelfServiceSession()) {
     setOperationalPanelsHidden(true);
     return;
   }
   setOperationalPanelsHidden(false);
-  renderFlowPanel();
-  renderTable(view);
-  renderCronosPanel(view);
-  renderDietasPanel(view);
+  renderOperationalPanels(view);
 }
 
 function setOperationalPanelsHidden(hidden) {
@@ -8778,6 +9820,56 @@ async function loadPortal() {
   }
 }
 
+const PAYROLL_HISTORY_MONTHS = [
+  "Julio 2025",
+  "Agosto 2025",
+  "Septiembre 2025",
+  "Octubre 2025",
+  "Noviembre 2025",
+  "Diciembre 2025",
+  "Enero 2026",
+  "Febrero 2026",
+  "Marzo 2026",
+  "Abril 2026",
+  "Mayo 2026",
+  "Junio 2026",
+];
+
+const PAYROLL_MONTH_PRODUCTIVITY_ADJUSTMENTS = {
+  "Julio 2025": -20,
+  "Agosto 2025": -120,
+  "Septiembre 2025": 35,
+  "Octubre 2025": 10,
+  "Noviembre 2025": 80,
+  "Diciembre 2025": 420,
+  "Febrero 2026": 40,
+  "Marzo 2026": 100,
+  "Abril 2026": 20,
+  "Mayo 2026": 50,
+};
+
+function nominasHistoryMonths() {
+  return [...PAYROLL_HISTORY_MONTHS];
+}
+
+function nominasReceiptMonths() {
+  return [...PAYROLL_HISTORY_MONTHS].reverse();
+}
+
+function payrollMonthShortLabel(month) {
+  const [name, year] = String(month || "").split(" ");
+  return `${(name || "").slice(0, 3)} ${String(year || "").slice(-2)}`;
+}
+
+function payrollMonthIncident(month, calc) {
+  const adjustment = PAYROLL_MONTH_PRODUCTIVITY_ADJUSTMENTS[month] || 0;
+  if (calc?.dietasVal > 0) return `Dietas VEC ${formatPayrollMoney(calc.dietasVal)}`;
+  if (adjustment > 250) return `Productividad extraordinaria ${formatPayrollMoney(adjustment)}`;
+  if (adjustment > 0) return `Productividad variable +${formatPayrollMoney(adjustment)}`;
+  if (adjustment < 0) return "Sin productividad variable";
+  return "Nomina ordinaria";
+}
+
 function getPayrollCalculations(month) {
   const isJune = month === "Junio 2026";
   const sueldoBase = 1113.12;
@@ -8786,9 +9878,7 @@ function getPayrollCalculations(month) {
   const specVal = state.nominasComplementoEspecifico;
 
   let prodVal = state.nominasProductividad;
-  if (month === "Marzo 2026") {
-    prodVal += 100.00;
-  }
+  prodVal += PAYROLL_MONTH_PRODUCTIVITY_ADJUSTMENTS[month] || 0;
   prodVal += state.nominasExtraProductividad;
 
   let dietasVal = 0;
@@ -8823,14 +9913,14 @@ function getPayrollCalculations(month) {
 
 function payrollEmployeeData() {
   return {
-    name: "ALBERTO SÁNCHEZ GÓMEZ",
-    nif: "74839201A",
+    name: "PERSONA DEMOSTRACIÓN",
+    nif: "NIF-DEMO-0001",
     service: "TRANSFORMACIÓN DIGITAL / NUEVAS TECNOLOGÍAS",
     position: "TÉCNICO DE GESTIÓN (A2)",
     trienios: state.nominasTrieniosCount ?? 4,
     relationship: "FUNCIONARIO DE CARRERA",
-    iban: "ES91 2100 0482 12 0123456789",
-    affiliation: "18/1234567-89",
+    iban: "ES00 0000 0000 00 0000000000",
+    affiliation: "AFILIACION-DEMO-0001",
   };
 }
 
@@ -9622,7 +10712,7 @@ const NOMINAS_CONTROL_DATA = {
     { ref: "CASO-2026-3813", subject: "Alta usuario jefatura", requester: "Servicio de Carreteras", sla: "8 h", state: "Pendiente autorizacion", owner: "Administrador VEC" },
     { ref: "CASO-2026-3814", subject: "Recibo no descargado", requester: "Empleado", sla: "24 h", state: "Resuelto", owner: "Atencion empleado" },
   ],
-  peoplenetUsers: [
+  payrollAccessUsers: [
     { user: "rrhh.nominas", profile: "Tecnico RRHH", scope: "Nomina, RPT, SLD, IRPF", auth: "DNIe/certificado", lastAccess: "20/06/2026 08:12", state: "Activo" },
     { user: "adm.unidad", profile: "Administrativo operativo", scope: "Expedientes, contratos, ausencias", auth: "Clave + MFA", lastAccess: "19/06/2026 14:40", state: "Limitado" },
     { user: "jefatura.servicio", profile: "Validacion jerarquica", scope: "Ausencias, dietas, informes", auth: "Certificado", lastAccess: "18/06/2026 09:03", state: "Activo" },
@@ -9630,13 +10720,11 @@ const NOMINAS_CONTROL_DATA = {
 };
 
 function payrollFullControlAllowed() {
-  const roles = currentRoleList();
-  return isAdminSession() || roles.some((role) => ["tecnico_rrhh", "rrhh", "personal_rrhh"].includes(role));
+  return sessionAccessProfile().id === "tecnico_rrhh";
 }
 
 function payrollOperationalAllowed() {
-  const roles = currentRoleList();
-  return payrollFullControlAllowed() || roles.some((role) => ["administrativo", "administrativo_unidad"].includes(role));
+  return payrollFullControlAllowed() || sessionAccessProfile().id === "administrativo";
 }
 
 function payrollControlAllowed() {
@@ -9646,12 +10734,12 @@ function payrollControlAllowed() {
 function defaultNominasScreen() {
   if (payrollFullControlAllowed()) return "calculo-retribuciones";
   if (payrollOperationalAllowed()) return "trabajadores-centros";
-  return "portal-peoplenet";
+  return "portal-empleado";
 }
 
 function payrollMenuItems() {
   const employeeItems = [
-    { id: "portal-peoplenet", label: "Portal empleado Peoplenet" },
+    { id: "portal-empleado", label: "Portal del empleado" },
     { id: "nomina-mes", label: "Nomina mensual" },
     { id: "historico-evolucion", label: "Historico y evolucion" },
     { id: "certificado-retenciones", label: "Certificado retenciones 10T" },
@@ -9704,7 +10792,7 @@ const NOMINAS_WORKFLOW_DEFS = [
     blockers: ["17 avisos del inspector deben quedar resueltos antes del cierre definitivo."],
   },
   {
-    match: /Resolver regla inspector|Ejecutar inspector|Avanzar cierre inspector/i,
+    match: /Resolver regla inspector|Ejecutar inspector|Avanzar cierre inspector|Recalcular afectados inspector/i,
     title: "Flujo del inspector de nomina",
     sensitive: true,
     steps: ["Abrir afectados", "Corregir maestro o incidencia origen", "Recalcular empleados afectados", "Liberar regla", "Emitir recibo de validacion"],
@@ -9797,6 +10885,26 @@ function downloadNominasOperationalReport(action, detail) {
   });
 }
 
+function resolveNominasInspectorRule(detail) {
+  const rules = nominasInspectorRules();
+  const rule = rules.find((item) => item.check === detail) || rules.find((item) => item.key === detail);
+  if (!rule) return detail || "Regla inspector";
+  state.nominasInspectorSelected = rule.key;
+  if (Number(rule.affected || 0) <= 0 || /correcto|resuelt/i.test(rule.state || "")) {
+    state.nominasInspectorFilter = "correct";
+    return `${rule.check} - sin afectados pendientes`;
+  }
+  const receipt = `NOM-INSP-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${String(state.actionLog.length + 1).padStart(4, "0")}`;
+  nominasInspectorResolved()[rule.key] = {
+    at: new Date().toLocaleString("es-ES"),
+    actor: activeDemoUser().displayName,
+    previousAffected: Number(rule.affected || 0),
+    receipt,
+  };
+  state.nominasInspectorFilter = "correct";
+  return `${rule.check} - ${formatInteger(rule.affected)} afectados resueltos - ${receipt}`;
+}
+
 function nominasAction(action, detail, rerender = false) {
   const workflow = nominasWorkflowForAction(action);
   if (workflow.sensitive && !payrollFullControlAllowed()) {
@@ -9804,6 +10912,9 @@ function nominasAction(action, detail, rerender = false) {
     setStatus("Accion reservada a RRHH o administracion del sistema", "error");
     if (state.portal) renderFlowPanel();
     return;
+  }
+  if (/Resolver regla inspector/i.test(action || "")) {
+    detail = resolveNominasInspectorRule(detail);
   }
   const receipt = recordReceipt(action, detail || "Actuacion de nominas", "nominas");
   if (/exportar/i.test(action || "")) {
@@ -9837,6 +10948,25 @@ function attachNominasActionButtons(root) {
   $$("[data-nominas-screen]", root).forEach((button) => {
     button.addEventListener("click", () => {
       state.nominasScreen = button.dataset.nominasScreen;
+      if (state.portal) renderModulePortal(state.portal);
+    });
+  });
+  $$("[data-nominas-portal-detail]", root).forEach((button) => {
+    button.addEventListener("click", () => {
+      state.nominasPortalDetail = button.dataset.nominasPortalDetail || "recibos";
+      if (state.portal) renderModulePortal(state.portal);
+    });
+  });
+  $$("[data-nominas-inspector-filter]", root).forEach((button) => {
+    button.addEventListener("click", () => {
+      state.nominasInspectorFilter = button.dataset.nominasInspectorFilter || "all";
+      state.nominasInspectorSelected = "";
+      if (state.portal) renderModulePortal(state.portal);
+    });
+  });
+  $$("[data-nominas-inspector-select]", root).forEach((button) => {
+    button.addEventListener("click", () => {
+      state.nominasInspectorSelected = button.dataset.nominasInspectorSelect || "";
       if (state.portal) renderModulePortal(state.portal);
     });
   });
@@ -9937,6 +11067,267 @@ function renderNominasPanelGrid(title, items, options = {}) {
 function renderNominasStatusBadge(text) {
   const value = text || "-";
   return `<span class="status-chip ${stateTone(value)}" style="white-space:nowrap;">${value}</span>`;
+}
+
+function nominasInspectorRuleKey(check) {
+  return slugify(check || "regla-inspector");
+}
+
+function nominasInspectorResolved() {
+  if (!state.nominasInspectorResolved || typeof state.nominasInspectorResolved !== "object") {
+    state.nominasInspectorResolved = {};
+  }
+  return state.nominasInspectorResolved;
+}
+
+function nominasInspectorRules() {
+  const resolved = nominasInspectorResolved();
+  return NOMINAS_CONTROL_DATA.inspectorRules.map((rule) => {
+    const key = nominasInspectorRuleKey(rule.check);
+    const resolution = resolved[key];
+    if (!resolution) return { ...rule, key, originalAffected: Number(rule.affected || 0), resolution: null };
+    return {
+      ...rule,
+      key,
+      originalAffected: Number(resolution.previousAffected ?? rule.affected ?? 0),
+      affected: 0,
+      state: "Resuelta",
+      action: `Validada ${resolution.at || ""}`.trim(),
+      resolution,
+    };
+  });
+}
+
+function nominasInspectorIsActiveBlocker(rule) {
+  return rule.severity === "Bloqueante" && Number(rule.affected || 0) > 0 && !/correcto|resuelt/i.test(rule.state || "");
+}
+
+function nominasInspectorVisibleRules(rules, filter) {
+  switch (filter) {
+    case "affected":
+      return rules.filter((rule) => Number(rule.affected || 0) > 0);
+    case "blockers":
+      return rules.filter(nominasInspectorIsActiveBlocker);
+    case "correct":
+      return rules.filter((rule) => /correcto|resuelt/i.test(rule.state || ""));
+    default:
+      return rules;
+  }
+}
+
+function nominasInspectorFilterLabel(filter) {
+  switch (filter) {
+    case "affected": return "Incidencias afectadas";
+    case "blockers": return "Reglas bloqueantes";
+    case "correct": return "Reglas correctas o resueltas";
+    default: return "Todas las reglas ejecutadas";
+  }
+}
+
+function nominasInspectorAffectedRows(rule) {
+  const count = Number(rule.originalAffected ?? rule.affected ?? 0);
+  if (count <= 0) return [];
+  const employees = NOMINAS_CONTROL_DATA.employees;
+  const issueProfiles = {
+    "Variacion salarial anomala >25%": ["Comparativa mensual", "Variacion de devengos superior al umbral", "Comparar mes anterior"],
+    "Trienios no actualizados": ["Antiguedad", "Trienio vencido sin recalculo", "Recalcular antiguedad"],
+    "Empleado sin cuenta bancaria": ["Datos bancarios", "IBAN ausente o no validado", "Requerir IBAN"],
+    "IRPF cero o incoherente": ["IRPF", "Retencion incompatible con acumulados", "Regularizar IRPF"],
+    "Plaza sin aplicacion presupuestaria": ["RPT / Presupuesto", "Puesto sin aplicacion de Capitulo I", "Asignar partida"],
+    "Incidencias incompatibles": ["Cronos / Personal", "Ausencia y concepto retributivo incompatible", "Cruzar incidencia origen"],
+    "Nomina calculada sin SLD validado": ["Seguridad Social", "SLD con diferencias pendientes", "Validar SLD"],
+  };
+  const profile = issueProfiles[rule.check] || ["Nomina", "Revision automatica del inspector", rule.action || "Revisar"];
+  return Array.from({ length: count }, (_, index) => {
+    const employee = employees[index % employees.length];
+    const amount = ((index + 1) * 37.42 + (rule.check.length % 11) * 9.3).toFixed(2).replace(".", ",");
+    return {
+      ref: `NOM-INSP-${String(index + 1).padStart(3, "0")}`,
+      employee: employee?.name || `Empleado ${index + 1}`,
+      area: employee?.area || profile[0],
+      origin: profile[0],
+      detail: profile[1],
+      impact: `${index % 2 ? "-" : "+"}${amount} EUR`,
+      next: profile[2],
+      state: rule.resolution ? "Resuelta" : rule.state,
+    };
+  });
+}
+
+function renderNominasInspectorMetricCards(metrics, activeFilter) {
+  return `
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
+      ${metrics.map((metric) => {
+        const selected = metric.filter === activeFilter;
+        return `
+          <button type="button" data-nominas-inspector-filter="${metric.filter}" aria-pressed="${selected ? "true" : "false"}" style="background:${selected ? "#f8fafc" : "#fff"}; border:1px solid ${selected ? metric.color : "#d8e0e8"}; border-left:5px solid ${metric.color}; border-radius:8px; padding:14px; cursor:pointer; text-align:left; min-height:104px; box-shadow:${selected ? `0 0 0 1px ${metric.color} inset` : "none"};">
+            <span style="font-size:0.74rem; font-weight:700; color:#475569;">${escapeHTML(metric.label)}</span>
+            <strong style="display:block; margin-top:5px; color:${metric.color}; font-size:1.35rem;">${escapeHTML(metric.value)}</strong>
+            <small style="display:block; margin-top:3px; color:#607080;">${escapeHTML(metric.note)}</small>
+          </button>`;
+      }).join("")}
+    </div>`;
+}
+
+function renderNominasInspectorDetailPanel(rule, filter, totalVisible) {
+  if (!rule) {
+    return `
+      <aside style="background:#fff; border:1px solid #d8e0e8; border-radius:8px; padding:16px;">
+        <h3 style="margin:0 0 8px; font-size:1rem;">${escapeHTML(nominasInspectorFilterLabel(filter))}</h3>
+        <p style="margin:0; color:#607080; font-size:0.84rem;">No hay registros para este filtro.</p>
+      </aside>`;
+  }
+  const rows = nominasInspectorAffectedRows(rule);
+  const displayedRows = rows.slice(0, 8);
+  const activeBlocker = nominasInspectorIsActiveBlocker(rule);
+  const canResolve = Number(rule.affected || 0) > 0 && !/correcto|resuelt/i.test(rule.state || "");
+  return `
+    <aside style="background:#fff; border:1px solid #d8e0e8; border-left:5px solid ${activeBlocker ? "#dc2626" : "#2563eb"}; border-radius:8px; padding:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:12px;">
+        <div>
+          <h3 style="margin:0; font-size:1rem;">${escapeHTML(rule.check)}</h3>
+          <p style="margin:4px 0 0; color:#607080; font-size:0.82rem;">${escapeHTML(nominasInspectorFilterLabel(filter))} · ${formatInteger(totalVisible)} reglas visibles</p>
+        </div>
+        ${renderNominasStatusBadge(rule.state)}
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:7px; padding:9px;"><span style="display:block; color:#64748b; font-size:0.72rem; font-weight:700;">Afectados actuales</span><strong style="color:#13202d;">${formatInteger(rule.affected)}</strong></div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:7px; padding:9px;"><span style="display:block; color:#64748b; font-size:0.72rem; font-weight:700;">Afectados iniciales</span><strong style="color:#13202d;">${formatInteger(rule.originalAffected)}</strong></div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:7px; padding:9px;"><span style="display:block; color:#64748b; font-size:0.72rem; font-weight:700;">Severidad</span>${renderNominasStatusBadge(rule.severity)}</div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:7px; padding:9px;"><span style="display:block; color:#64748b; font-size:0.72rem; font-weight:700;">Siguiente accion</span><strong style="color:#13202d;">${escapeHTML(rule.action)}</strong></div>
+      </div>
+      ${rule.resolution ? `
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:7px; padding:9px; color:#166534; font-size:0.82rem; margin-bottom:12px;">
+          Resuelta por ${escapeHTML(rule.resolution.actor || "RRHH")} el ${escapeHTML(rule.resolution.at || "-")} con recibo ${escapeHTML(rule.resolution.receipt || "-")}.
+        </div>` : ""}
+      <div style="overflow-x:auto;">
+        <table style="width:100%; min-width:620px; border-collapse:collapse; font-size:0.8rem;">
+          <thead><tr style="background:#edf2f7;"><th style="text-align:left; padding:8px;">Ref.</th><th style="text-align:left; padding:8px;">Empleado</th><th style="text-align:left; padding:8px;">Origen</th><th style="text-align:right; padding:8px;">Impacto</th><th style="text-align:left; padding:8px;">Estado</th></tr></thead>
+          <tbody>
+            ${displayedRows.length ? displayedRows.map((item, index) => `
+              <tr style="background:${index % 2 ? "#f8fafc" : "#fff"};">
+                <td style="padding:8px; border-top:1px solid #e2e8f0; font-weight:700;">${escapeHTML(item.ref)}</td>
+                <td style="padding:8px; border-top:1px solid #e2e8f0;">${escapeHTML(item.employee)}<br><small style="color:#64748b;">${escapeHTML(item.area)}</small></td>
+                <td style="padding:8px; border-top:1px solid #e2e8f0;">${escapeHTML(item.origin)}<br><small>${escapeHTML(item.detail)}</small></td>
+                <td style="padding:8px; border-top:1px solid #e2e8f0; text-align:right; font-weight:700;">${escapeHTML(item.impact)}</td>
+                <td style="padding:8px; border-top:1px solid #e2e8f0;">${renderNominasStatusBadge(item.state)}</td>
+              </tr>`).join("") : `
+              <tr><td colspan="5" style="padding:16px; border-top:1px solid #e2e8f0; color:#607080; text-align:center;">Sin afectados para esta regla.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      ${rows.length > displayedRows.length ? `<p style="margin:8px 0 0; color:#607080; font-size:0.78rem;">Se muestran 8 de ${formatInteger(rows.length)} afectados. Usa exportacion o flujo para el listado completo.</p>` : ""}
+      <div style="display:grid; gap:8px; margin-top:12px;">
+        <button type="button" data-nominas-action="Resolver regla inspector" data-nominas-detail="${escapeHTML(rule.check)}" ${canResolve ? "" : "disabled"} style="border:1px solid ${canResolve ? "#86efac" : "#cbd5e1"}; background:${canResolve ? "#f0fdf4" : "#f8fafc"}; color:${canResolve ? "#166534" : "#64748b"}; border-radius:7px; padding:9px; cursor:${canResolve ? "pointer" : "not-allowed"}; text-align:left; font-weight:700;">Resolver regla seleccionada</button>
+        <button type="button" data-nominas-action="Recalcular afectados inspector" data-nominas-detail="${escapeHTML(rule.check)}" style="border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; border-radius:7px; padding:9px; cursor:pointer; text-align:left; font-weight:700;">Recalcular afectados</button>
+      </div>
+      <div style="border-top:1px solid #e2e8f0; margin-top:14px; padding-top:12px;">
+        <h4 style="margin:0 0 8px; color:#13202d; font-size:0.9rem;">Orden de cierre</h4>
+        ${["Corregir bloqueantes", "Recalcular afectados", "Conciliar SLD", "Emitir recibo de validacion", "Cerrar paga mensual"].map((item) => `
+          <button type="button" data-nominas-action="Avanzar cierre inspector" data-nominas-detail="${item}" style="width:100%; border:1px solid #e2e8f0; background:#fff; border-radius:7px; padding:8px; margin-bottom:7px; cursor:pointer; text-align:left;">${item}</button>`).join("")}
+      </div>
+    </aside>`;
+}
+
+const NOMINAS_PORTAL_DETAIL_CARDS = [
+  { id: "recibos", label: "Recibos disponibles", value: "3", note: "Nomina, atrasos y certificado", color: "#2563eb" },
+  { id: "solicitudes", label: "Solicitudes abiertas", value: "2", note: "Vacaciones y justificante", color: "#b45309" },
+  { id: "datos", label: "Datos verificados", value: "100%", note: "Personal, bancario y RPT", color: "#15803d" },
+  { id: "notificaciones", label: "Notificaciones", value: "4", note: "Lectura o firma pendiente", color: "#7c3aed" },
+];
+
+function activeNominasPortalDetail(detailID) {
+  return NOMINAS_PORTAL_DETAIL_CARDS.some((item) => item.id === detailID) ? detailID : "recibos";
+}
+
+function renderNominasPortalMetricButtons(activeID = "recibos") {
+  const selectedID = activeNominasPortalDetail(activeID);
+  return `
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:16px;">
+      ${NOMINAS_PORTAL_DETAIL_CARDS.map((item) => {
+        const selected = item.id === selectedID;
+        const selectedStyle = selected ? `box-shadow:0 0 0 2px ${item.color} inset; background:#f8fafc;` : "background:#fff;";
+        return `
+          <button type="button" data-nominas-portal-detail="${item.id}" aria-pressed="${selected ? "true" : "false"}" style="${selectedStyle} border:1px solid #d8e0e8; border-left:5px solid ${item.color}; border-radius:8px; padding:14px; cursor:pointer; text-align:left; min-height:104px;">
+            <span style="font-size:0.74rem; font-weight:700; color:#475569;">${escapeHTML(item.label)}</span>
+            <strong style="display:block; margin-top:5px; color:${item.color}; font-size:1.35rem;">${escapeHTML(item.value)}</strong>
+            <small style="display:block; margin-top:3px; color:#607080;">${escapeHTML(item.note)}</small>
+          </button>`;
+      }).join("")}
+    </div>`;
+}
+
+function nominasPortalDetailRows(detailID) {
+  if (detailID === "solicitudes") {
+    return [
+      { ref: "VAC-2026-0031", type: "Vacaciones", state: "Pendiente responsable", detail: "05/08/2026 - 18/08/2026", action: { label: "Abrir Cronos", attrs: 'data-portal-module="cronos"' } },
+      { ref: "JUS-2026-0108", type: "Justificante medico", state: "Requiere firma", detail: "18/06/2026 - documento aportado", action: { label: "Abrir documentos", attrs: 'data-portal-module="documentos"' } },
+    ];
+  }
+  if (detailID === "datos") {
+    return [
+      { ref: "Identidad", type: "NIF", state: "Verificado", detail: "NIF-DEMO-0001", action: { label: "Abrir personal", attrs: 'data-portal-module="personal"' } },
+      { ref: "Puesto RPT", type: "A2 - Tecnico de Gestion", state: "Verificado", detail: "Transformacion digital", action: { label: "Abrir personal", attrs: 'data-portal-module="personal"' } },
+      { ref: "Cuenta bancaria", type: "IBAN", state: "Verificado", detail: "**** **** **** 6789", action: { label: "Abrir personal", attrs: 'data-portal-module="personal"' } },
+      { ref: "Trienios", type: "Antiguedad", state: "Calculado", detail: "4 reconocidos", action: { label: "Historico", attrs: 'data-nominas-screen="historico-evolucion"' } },
+      { ref: "IRPF", type: "Retencion", state: "Aplicado", detail: `${state.nominasIrpfPercent || 12.5}%`, action: { label: "Ver nomina", attrs: 'data-nominas-screen="nomina-mes"' } },
+    ];
+  }
+  if (detailID === "notificaciones") {
+    return [
+      { ref: "NOM-AV-2026-001", type: "Recibo junio disponible", state: "Lectura pendiente", detail: "NOM-2026-06", action: { label: "Ver recibo", attrs: 'data-nominas-screen="nomina-mes"' } },
+      { ref: "DOC-REQ-2026-014", type: "Justificante pendiente", state: "Requiere documento", detail: "72 h", action: { label: "Abrir documentos", attrs: 'data-portal-module="documentos"' } },
+      { ref: "PER-VAL-2026-008", type: "Vacaciones pendientes", state: "Responsable", detail: "3 dias", action: { label: "Abrir Cronos", attrs: 'data-portal-module="cronos"' } },
+      { ref: "CERT-10T-2025", type: "Certificado retenciones firmado", state: "Disponible", detail: "Sin vencimiento", action: { label: "Ver certificado", attrs: 'data-nominas-screen="certificado-retenciones"' } },
+    ];
+  }
+  return [
+    { ref: "NOM-2026-06", type: "Recibo salarios junio 2026", state: "Firmado", detail: "CSV-9382-AJ84-29E1-401C", action: { label: "Ver recibo", attrs: 'data-nominas-screen="nomina-mes"' } },
+    { ref: "RETRO-2026-0043", type: "Atrasos y regularizaciones", state: "Disponible", detail: "CSV-ATR-2026-0043", action: { label: "Ver atraso", attrs: 'data-nominas-screen="historico-evolucion"' } },
+    { ref: "CERT-10T-2025", type: "Certificado retenciones 2025", state: "Firmado", detail: "CSV-CERT-10T-2025-9988-81A2", action: { label: "Ver certificado", attrs: 'data-nominas-screen="certificado-retenciones"' } },
+  ];
+}
+
+function renderNominasPortalDetailAction(action) {
+  if (!action) return "";
+  return `<button type="button" ${action.attrs} style="border:1px solid #cbd5e1; background:#fff; color:#13202d; border-radius:6px; padding:6px 10px; cursor:pointer; font-weight:700;">${escapeHTML(action.label)}</button>`;
+}
+
+function renderNominasPortalDetailPanel(activeID = "recibos") {
+  const selectedID = activeNominasPortalDetail(activeID);
+  const card = NOMINAS_PORTAL_DETAIL_CARDS.find((item) => item.id === selectedID) || NOMINAS_PORTAL_DETAIL_CARDS[0];
+  const rows = nominasPortalDetailRows(selectedID);
+  return `
+    <section style="background:#fff; border:1px solid #d8e0e8; border-left:5px solid ${card.color}; border-radius:8px; padding:16px; margin-bottom:16px; overflow-x:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px;">
+        <div>
+          <h3 style="margin:0; color:#13202d; font-size:1rem;">${escapeHTML(card.label)}</h3>
+          <p style="margin:4px 0 0; color:#607080; font-size:0.84rem;">${escapeHTML(card.note)}</p>
+        </div>
+        <strong style="color:${card.color}; font-size:1.25rem;">${escapeHTML(card.value)}</strong>
+      </div>
+      <table style="width:100%; min-width:760px; border-collapse:collapse; font-size:0.84rem;">
+        <thead>
+          <tr style="background:#edf2f7;">
+            <th style="text-align:left; padding:9px;">Referencia</th>
+            <th style="text-align:left; padding:9px;">Tipo</th>
+            <th style="text-align:left; padding:9px;">Estado</th>
+            <th style="text-align:left; padding:9px;">Detalle</th>
+            <th style="text-align:center; padding:9px;">Accion</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((row, index) => `
+            <tr style="background:${index % 2 ? "#f8fafc" : "#fff"};">
+              <td style="padding:9px; border-top:1px solid #e2e8f0; font-weight:700;">${escapeHTML(row.ref)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0;">${escapeHTML(row.type)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0;">${renderNominasStatusBadge(row.state)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0; font-family:monospace;">${escapeHTML(row.detail)}</td>
+              <td style="padding:9px; border-top:1px solid #e2e8f0; text-align:center;">${renderNominasPortalDetailAction(row.action)}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </section>`;
 }
 
 function renderNominasMetricCards(cards) {
@@ -10398,7 +11789,7 @@ function renderNominasPagasTablasScreen(target) {
         </table>
       </section>
       <aside style="background:#fff; border:1px solid #d8e0e8; border-radius:8px; padding:16px;">
-        <h3 style="margin:0 0 12px; font-size:1rem;">Flujo de paga Peoplenet</h3>
+        <h3 style="margin:0 0 12px; font-size:1rem;">Flujo de paga mensual</h3>
         ${["Preparar paga y filtros", "Cargar incidencias y absentismos", "Validar tablas maestras", "Calcular bruto, IRPF y cotizacion", "Generar recibos, pago y contabilidad"].map((item, index) => `
           <button type="button" data-nominas-action="Revisar paso paga" data-nominas-detail="${item}" style="width:100%; display:flex; gap:9px; align-items:center; text-align:left; background:#fff; border:1px solid #e2e8f0; border-radius:7px; padding:9px; margin-bottom:8px; cursor:pointer;">
             <strong style="display:inline-grid; place-items:center; width:24px; height:24px; border-radius:50%; background:#e0f2fe; color:#0369a1;">${index + 1}</strong>
@@ -10410,39 +11801,55 @@ function renderNominasPagasTablasScreen(target) {
 }
 
 function renderNominasInspectorScreen(target) {
-  const rules = NOMINAS_CONTROL_DATA.inspectorRules;
-  const blockers = rules.filter((item) => item.severity === "Bloqueante");
+  const rules = nominasInspectorRules();
+  const activeFilter = state.nominasInspectorFilter || "all";
+  const visibleRules = nominasInspectorVisibleRules(rules, activeFilter);
+  const blockers = rules.filter(nominasInspectorIsActiveBlocker);
   const affected = rules.reduce((sum, item) => sum + item.affected, 0);
+  const correct = rules.filter((item) => /correcto|resuelt/i.test(item.state || ""));
+  const selectedRule = rules.find((item) => item.key === state.nominasInspectorSelected) || visibleRules[0] || rules[0];
   target.innerHTML = `
     ${renderNominasScreenHeader("Inspector de nomina", "Controles automaticos previos al cierre: netos negativos, variaciones, trienios, IRPF, IBAN, RPT y SLD.", "Ejecutar inspector", "Ejecutar inspector nomina", "Junio 2026 con ${formatInteger(rules.length)} reglas")}
-    ${renderNominasMetricCards([
-      ["Reglas ejecutadas", formatInteger(rules.length), "Catalogo Peoplenet AAPP", "#2563eb"],
-      ["Incidencias afectadas", formatInteger(affected), "Personas o tramos a revisar", "#b45309"],
-      ["Bloqueantes", formatInteger(blockers.length), "Impiden cierre automatico", "#dc2626"],
-      ["Correctas", formatInteger(rules.filter((item) => item.state === "Correcto").length), "Sin accion pendiente", "#15803d"],
-    ])}
-    <div style="display:grid; grid-template-columns:minmax(0, 1fr) 280px; gap:16px;">
+    ${renderNominasInspectorMetricCards([
+      { label: "Reglas ejecutadas", value: formatInteger(rules.length), note: "Catalogo de control de nomina", color: "#2563eb", filter: "all" },
+      { label: "Incidencias afectadas", value: formatInteger(affected), note: "Personas o tramos a revisar", color: "#b45309", filter: "affected" },
+      { label: "Bloqueantes", value: formatInteger(blockers.length), note: "Impiden cierre automatico", color: "#dc2626", filter: "blockers" },
+      { label: "Correctas", value: formatInteger(correct.length), note: "Sin accion pendiente o resueltas", color: "#15803d", filter: "correct" },
+    ], activeFilter)}
+    <div style="display:grid; grid-template-columns:minmax(0, 1fr) minmax(340px, 0.48fr); gap:16px;">
       <section style="background:#fff; border:1px solid #d8e0e8; border-radius:8px; padding:16px; overflow-x:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px;">
+          <div>
+            <h3 style="margin:0; color:#13202d; font-size:1rem;">${escapeHTML(nominasInspectorFilterLabel(activeFilter))}</h3>
+            <p style="margin:4px 0 0; color:#607080; font-size:0.82rem;">${formatInteger(visibleRules.length)} reglas visibles sobre ${formatInteger(rules.length)} ejecutadas.</p>
+          </div>
+          <button type="button" data-nominas-inspector-filter="all" style="border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:7px 10px; cursor:pointer; font-weight:700;">Ver todas</button>
+        </div>
         <table style="width:100%; border-collapse:collapse; font-size:0.86rem; min-width:780px;">
           <thead><tr style="background:#edf2f7;"><th style="text-align:left; padding:9px;">Control</th><th style="text-align:right; padding:9px;">Afectados</th><th style="text-align:left; padding:9px;">Severidad</th><th style="text-align:left; padding:9px;">Estado</th><th style="text-align:left; padding:9px;">Siguiente accion</th><th style="padding:9px;">Accion</th></tr></thead>
           <tbody>
-            ${rules.map((item, index) => `
-              <tr style="background:${index % 2 ? "#f8fafc" : "#fff"};">
-                <td style="padding:9px; border-top:1px solid #e2e8f0; font-weight:700;">${item.check}</td>
+            ${visibleRules.length ? visibleRules.map((item, index) => {
+              const selected = selectedRule?.key === item.key;
+              const canResolve = Number(item.affected || 0) > 0 && !/correcto|resuelt/i.test(item.state || "");
+              return `
+              <tr style="background:${selected ? "#eff6ff" : index % 2 ? "#f8fafc" : "#fff"}; box-shadow:${selected ? "inset 4px 0 #2563eb" : "none"};">
+                <td style="padding:9px; border-top:1px solid #e2e8f0; font-weight:700;">
+                  <button type="button" data-nominas-inspector-select="${item.key}" style="border:none; background:transparent; color:#0f172a; font:inherit; font-weight:700; padding:0; cursor:pointer; text-align:left;">${escapeHTML(item.check)}</button>
+                  ${item.resolution ? `<small style="display:block; color:#166534; margin-top:3px;">${escapeHTML(item.resolution.receipt || "Resuelta")}</small>` : ""}
+                </td>
                 <td style="padding:9px; border-top:1px solid #e2e8f0; text-align:right;">${formatInteger(item.affected)}</td>
                 <td style="padding:9px; border-top:1px solid #e2e8f0;">${renderNominasStatusBadge(item.severity)}</td>
                 <td style="padding:9px; border-top:1px solid #e2e8f0;">${renderNominasStatusBadge(item.state)}</td>
-                <td style="padding:9px; border-top:1px solid #e2e8f0;">${item.action}</td>
-                <td style="padding:9px; border-top:1px solid #e2e8f0; text-align:center;"><button type="button" data-nominas-action="Resolver regla inspector" data-nominas-detail="${item.check}" style="border:1px solid #cbd5e1; background:#fff; border-radius:5px; padding:5px 8px; cursor:pointer;">Resolver</button></td>
-              </tr>`).join("")}
+                <td style="padding:9px; border-top:1px solid #e2e8f0;">${escapeHTML(item.action)}</td>
+                <td style="padding:9px; border-top:1px solid #e2e8f0; text-align:center;">
+                  <button type="button" ${canResolve ? `data-nominas-action="Resolver regla inspector" data-nominas-detail="${escapeHTML(item.check)}"` : `data-nominas-inspector-select="${item.key}"`} style="border:1px solid ${canResolve ? "#86efac" : "#cbd5e1"}; background:${canResolve ? "#f0fdf4" : "#fff"}; color:${canResolve ? "#166534" : "#475569"}; border-radius:5px; padding:5px 8px; cursor:pointer;">${canResolve ? "Resolver" : "Ver"}</button>
+                </td>
+              </tr>`;
+            }).join("") : `<tr><td colspan="6" style="padding:18px; border-top:1px solid #e2e8f0; text-align:center; color:#607080;">No hay reglas para este filtro.</td></tr>`}
           </tbody>
         </table>
       </section>
-      <aside style="background:#fff; border:1px solid #d8e0e8; border-radius:8px; padding:16px;">
-        <h3 style="margin:0 0 12px; font-size:1rem;">Orden de cierre</h3>
-        ${["Corregir bloqueantes", "Recalcular afectados", "Conciliar SLD", "Emitir recibo de validacion", "Cerrar paga mensual"].map((item) => `
-          <button type="button" data-nominas-action="Avanzar cierre inspector" data-nominas-detail="${item}" style="width:100%; border:1px solid #e2e8f0; background:#fff; border-radius:7px; padding:9px; margin-bottom:8px; cursor:pointer; text-align:left;">${item}</button>`).join("")}
-      </aside>
+      ${renderNominasInspectorDetailPanel(selectedRule, activeFilter, visibleRules.length)}
     </div>`;
   attachNominasActionButtons(target);
 }
@@ -10633,10 +12040,10 @@ function renderNominasPrestamosFondoSocialScreen(target) {
 function renderNominasCentroServicioUsuariosScreen(target) {
   const openCases = NOMINAS_CONTROL_DATA.serviceCenter.filter((item) => !/resuelto/i.test(item.state)).length;
   target.innerHTML = `
-    ${renderNominasScreenHeader("Centro de servicio y usuarios PeopleNet", "Soporte funcional, administracion de usuarios, perfiles de acceso, SLA y mantenimiento de la plataforma de nominas.", "Abrir caso soporte", "Abrir caso centro servicio Peoplenet", "Incidencia funcional nominas")}
+    ${renderNominasScreenHeader("Centro de servicio y usuarios", "Soporte funcional, administracion de usuarios, perfiles de acceso, SLA y mantenimiento de la plataforma de nominas.", "Abrir caso soporte", "Abrir caso centro servicio", "Incidencia funcional nominas")}
     ${renderNominasMetricCards([
       ["Casos abiertos", formatInteger(openCases), "Soporte funcional y tecnico", "#b45309"],
-      ["Usuarios activos", formatInteger(NOMINAS_CONTROL_DATA.peoplenetUsers.length), "Perfiles internos configurados", "#2563eb"],
+      ["Usuarios activos", formatInteger(NOMINAS_CONTROL_DATA.payrollAccessUsers.length), "Perfiles internos configurados", "#2563eb"],
       ["Autenticacion", "DNIe/Cert + MFA", "Control de identidad fuerte", "#0f766e"],
       ["SLA critico", "4 h", "Nomina, SLD y pagos", "#dc2626"],
     ])}
@@ -10664,7 +12071,7 @@ function renderNominasCentroServicioUsuariosScreen(target) {
         <table style="width:100%; border-collapse:collapse; font-size:0.85rem; min-width:640px;">
           <thead><tr style="background:#edf2f7;"><th style="text-align:left; padding:9px;">Usuario</th><th style="text-align:left; padding:9px;">Perfil</th><th style="text-align:left; padding:9px;">Alcance</th><th style="text-align:left; padding:9px;">Autenticacion</th><th style="text-align:left; padding:9px;">Estado</th></tr></thead>
           <tbody>
-            ${NOMINAS_CONTROL_DATA.peoplenetUsers.map((item, index) => `
+            ${NOMINAS_CONTROL_DATA.payrollAccessUsers.map((item, index) => `
               <tr style="background:${index % 2 ? "#f8fafc" : "#fff"};">
                 <td style="padding:9px; border-top:1px solid #e2e8f0; font-family:monospace;">${item.user}</td>
                 <td style="padding:9px; border-top:1px solid #e2e8f0; font-weight:700;">${item.profile}</td>
@@ -10678,28 +12085,25 @@ function renderNominasCentroServicioUsuariosScreen(target) {
     </div>
     <section style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px; margin-top:16px;">
       ${["Crear usuario", "Asignar perfil", "Bloquear acceso", "Revisar auditoria", "Planificar mantenimiento"].map((item) => `
-        <button type="button" data-nominas-action="Administrar usuarios Peoplenet" data-nominas-detail="${item}" style="background:#fff; border:1px solid #d8e0e8; border-left:5px solid #2563eb; border-radius:8px; padding:13px; cursor:pointer; text-align:left; font-weight:700; color:#1d4ed8;">${item}</button>
+        <button type="button" data-nominas-action="Administrar usuarios nominas" data-nominas-detail="${item}" style="background:#fff; border:1px solid #d8e0e8; border-left:5px solid #2563eb; border-radius:8px; padding:13px; cursor:pointer; text-align:left; font-weight:700; color:#1d4ed8;">${item}</button>
       `).join("")}
     </section>`;
   attachNominasActionButtons(target);
 }
 
-function renderNominasPortalPeoplenetScreen(target) {
+function renderNominasPortalEmpleadoScreen(target) {
   const portalTargets = {
-    "Mi informacion": { attr: 'data-portal-module="personal"', tone: "#2563eb" },
-    "Ultimos recibos": { attr: 'data-nominas-screen="nomina-mes"', tone: "#15803d" },
-    "Vacaciones y ausencias": { attr: 'data-portal-module="cronos"', tone: "#0f766e" },
-    "Tareas y notificaciones": { attr: 'data-portal-module="notificaciones"', tone: "#b45309" },
+    "Mi informacion": { attr: 'data-nominas-portal-detail="datos"', tone: "#2563eb" },
+    "Ultimos recibos": { attr: 'data-nominas-portal-detail="recibos"', tone: "#15803d" },
+    "Vacaciones y ausencias": { attr: 'data-nominas-portal-detail="solicitudes"', tone: "#0f766e" },
+    "Tareas y notificaciones": { attr: 'data-nominas-portal-detail="notificaciones"', tone: "#b45309" },
   };
   const ownPortalItems = NOMINAS_CONTROL_DATA.employeePortal.filter((item) => item.tile !== "Quien es quien");
+  const activeDetail = activeNominasPortalDetail(state.nominasPortalDetail || "recibos");
   target.innerHTML = `
-    ${renderNominasScreenHeader("Portal empleado Peoplenet", "Vista propia del empleado: informacion personal, ultimos recibos, ausencias, tareas y notificaciones propias.", "Actualizar portal", "Actualizar portal empleado Peoplenet", "Autoservicio empleado junio 2026")}
-    ${renderNominasMetricCards([
-      ["Recibos disponibles", "3", "Nomina, atrasos y certificado", "#2563eb"],
-      ["Solicitudes abiertas", "2", "Vacaciones y justificante", "#b45309"],
-      ["Datos verificados", "100%", "Personal, bancario y RPT", "#15803d"],
-      ["Notificaciones", "4", "Lectura o firma pendiente", "#7c3aed"],
-    ])}
+    ${renderNominasScreenHeader("Portal del empleado", "Vista propia del empleado: informacion personal, ultimos recibos, ausencias, tareas y notificaciones propias.", "Actualizar portal", "Actualizar portal empleado", "Autoservicio empleado junio 2026")}
+    ${renderNominasPortalMetricButtons(activeDetail)}
+    ${renderNominasPortalDetailPanel(activeDetail)}
     <section style="background:#fff; border:1px solid #d8e0e8; border-radius:8px; padding:16px; margin-bottom:16px;">
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
         ${ownPortalItems.map((item) => {
@@ -10728,7 +12132,7 @@ function renderNominasPortalPeoplenetScreen(target) {
       <aside style="background:#fff; border:1px solid #d8e0e8; border-radius:8px; padding:16px;">
         <h3 style="margin:0 0 12px; font-size:1rem;">Mi informacion</h3>
         ${[
-          ["Empleado", "ALBERTO SANCHEZ GOMEZ"],
+          ["Empleado", "PERSONA DEMOSTRACION"],
           ["Puesto RPT", "A2 - Tecnico de Gestion"],
           ["Situacion", "Servicio activo"],
           ["Trienios", "4 reconocidos"],
@@ -10747,6 +12151,7 @@ function renderCustomNominasApp(container, view) {
     state.nominasScreen = defaultNominasScreen();
   }
   if (state.nominasSelectedMonth === undefined) state.nominasSelectedMonth = "Junio 2026";
+  if (state.nominasPortalDetail === undefined) state.nominasPortalDetail = "recibos";
   if (state.nominasIrpfPercent === undefined) state.nominasIrpfPercent = 12.5;
   if (state.nominasTrieniosCount === undefined) state.nominasTrieniosCount = 4;
   if (state.nominasComplementoDestino === undefined) state.nominasComplementoDestino = 562.30;
@@ -10789,7 +12194,7 @@ function renderCustomNominasApp(container, view) {
 
   const titleText = document.createElement("span");
   titleText.textContent = hasPayrollFullControl
-    ? "Control de Nominas Peoplenet AAPP"
+    ? "Control integral de Nominas"
     : hasPayrollControl
       ? "Gestion operativa de Personal y Nominas"
       : "Portal del Empleado - Consulta de Nominas";
@@ -10883,7 +12288,7 @@ function renderCustomNominasApp(container, view) {
   infoBadge.innerHTML = hasPayrollFullControl
     ? `
       <div style="font-weight:bold; margin-bottom:4px; color:#555;">Perfil RRHH / admin</div>
-      <div>Control completo Peoplenet AAPP</div>
+      <div>Control completo de nominas</div>
       <div style="margin-top:2px;">Nomina, RPT, SLD y Capitulo I</div>
       <div style="margin-top:2px; font-family:monospace; color:#888;">Junio 2026</div>
     `
@@ -10896,9 +12301,9 @@ function renderCustomNominasApp(container, view) {
     `
     : `
       <div style="font-weight:bold; margin-bottom:4px; color:#555;">Empleado activo</div>
-      <div>ALBERTO SANCHEZ GOMEZ</div>
+      <div>PERSONA DEMOSTRACION</div>
       <div style="margin-top:2px;">A2 - Tecnico de Gestion</div>
-      <div style="margin-top:2px; font-family:monospace; color:#888;">NIF: 74839201A</div>
+      <div style="margin-top:2px; font-family:monospace; color:#888;">NIF: NIF-DEMO-0001</div>
     `;
   sidebar.append(infoBadge);
 
@@ -10942,8 +12347,8 @@ function renderCustomNominasApp(container, view) {
     renderNominasCentroServicioUsuariosScreen(content, view);
   } else if (state.nominasScreen === "pagos-contabilidad") {
     renderNominasPagosContabilidadScreen(content, view);
-  } else if (state.nominasScreen === "portal-peoplenet") {
-    renderNominasPortalPeoplenetScreen(content, view);
+  } else if (state.nominasScreen === "portal-empleado") {
+    renderNominasPortalEmpleadoScreen(content, view);
   } else if (state.nominasScreen === "nomina-mes") {
     renderNominasMesScreen(content, view, container);
   } else if (state.nominasScreen === "historico-evolucion") {
@@ -10951,7 +12356,7 @@ function renderCustomNominasApp(container, view) {
   } else if (state.nominasScreen === "certificado-retenciones") {
     renderNominasCertificadoScreen(content, view);
   } else {
-    renderNominasPortalPeoplenetScreen(content, view);
+    renderNominasPortalEmpleadoScreen(content, view);
   }
   const workflowPanel = renderNominasWorkflowPanel();
   if (workflowPanel) {
@@ -10989,7 +12394,7 @@ function renderNominasMesScreen(target, view, container) {
   select.style.fontSize = "0.95rem";
   select.style.cursor = "pointer";
 
-  const months = ["Junio 2026", "Mayo 2026", "Abril 2026", "Marzo 2026", "Febrero 2026", "Enero 2026"];
+  const months = nominasReceiptMonths();
   months.forEach(m => {
     const opt = document.createElement("option");
     opt.value = m;
@@ -11133,14 +12538,14 @@ function renderNominasMesScreen(target, view, container) {
   detailsGrid.style.fontSize = "0.8rem";
 
   detailsGrid.innerHTML = `
-    <div><strong>Empleado:</strong> ALBERTO SÁNCHEZ GÓMEZ</div>
-    <div><strong>NIF:</strong> 74839201A</div>
+    <div><strong>Empleado:</strong> PERSONA DEMOSTRACIÓN</div>
+    <div><strong>NIF:</strong> NIF-DEMO-0001</div>
     <div><strong>C. Servicio:</strong> TRANSFORMACIÓN DIGITAL / NUEVAS TECNOLOGÍAS</div>
     <div><strong>Puesto:</strong> TÉCNICO DE GESTIÓN (A2)</div>
     <div><strong>Nº Trienios:</strong> ${state.nominasTrieniosCount.toString().padStart(2, '0')}</div>
     <div><strong>Ads.Adm.:</strong> FUNCIONARIO DE CARRERA</div>
-    <div><strong>IBAN:</strong> ES91 2100 0482 12 0123456789</div>
-    <div><strong>Nº Afiliación:</strong> 18/1234567-89</div>
+    <div><strong>IBAN:</strong> ES00 0000 0000 00 0000000000</div>
+    <div><strong>Nº Afiliación:</strong> AFILIACION-DEMO-0001</div>
   `;
   payslip.append(detailsGrid);
 
@@ -11518,157 +12923,114 @@ function renderNominasMesScreen(target, view, container) {
 }
 
 function renderNominasHistoricoScreen(target, view, container) {
-  const title = document.createElement("h3");
-  title.style.margin = "0 0 16px 0";
-  title.style.color = "#1b5e20";
-  title.style.fontSize = "1.2rem";
-  title.style.fontWeight = "bold";
-  title.textContent = "Evolución Salarial de los últimos 6 meses";
-  target.append(title);
-
-  const chartWrapper = document.createElement("div");
-  chartWrapper.style.background = "#fff";
-  chartWrapper.style.border = "1px solid #ddd";
-  chartWrapper.style.borderRadius = "8px";
-  chartWrapper.style.padding = "24px";
-  chartWrapper.style.marginBottom = "24px";
-  chartWrapper.style.boxShadow = "0 2px 4px rgba(0,0,0,0.02)";
-
-  const chartContainer = document.createElement("div");
-  chartContainer.style.display = "flex";
-  chartContainer.style.justifyContent = "space-around";
-  chartContainer.style.alignItems = "flex-end";
-  chartContainer.style.height = "240px";
-  chartContainer.style.borderBottom = "2px solid #ccc";
-  chartContainer.style.paddingBottom = "10px";
-  chartContainer.style.position = "relative";
-
-  const months = ["Enero 2026", "Febrero 2026", "Marzo 2026", "Abril 2026", "Mayo 2026", "Junio 2026"];
-
-  months.forEach(m => {
-    const calc = getPayrollCalculations(m);
-
-    const monthCol = document.createElement("div");
-    monthCol.style.display = "flex";
-    monthCol.style.flexDirection = "column";
-    monthCol.style.alignItems = "center";
-    monthCol.style.gap = "8px";
-    monthCol.style.width = "80px";
-
-    const barsDiv = document.createElement("div");
-    barsDiv.style.display = "flex";
-    barsDiv.style.alignItems = "flex-end";
-    barsDiv.style.gap = "6px";
-    barsDiv.style.height = "180px";
-
-    const grossBarHeight = (calc.devengos / 3500) * 160;
-    const grossBar = document.createElement("div");
-    grossBar.style.width = "18px";
-    grossBar.style.height = `${grossBarHeight}px`;
-    grossBar.style.background = "#42a5f5";
-    grossBar.style.borderRadius = "3px 3px 0 0";
-    grossBar.style.cursor = "pointer";
-    grossBar.style.transition = "all 0.3s ease";
-    grossBar.title = `Bruto: ${calc.devengos.toFixed(2)} €`;
-
-    const netBarHeight = (calc.liquido / 3500) * 160;
-    const netBar = document.createElement("div");
-    netBar.style.width = "18px";
-    netBar.style.height = `${netBarHeight}px`;
-    netBar.style.background = "#66bb6a";
-    netBar.style.borderRadius = "3px 3px 0 0";
-    netBar.style.cursor = "pointer";
-    netBar.style.transition = "all 0.3s ease";
-    netBar.title = `Neto: ${calc.liquido.toFixed(2)} €`;
-
-    [grossBar, netBar].forEach(bar => {
-      bar.addEventListener("mouseenter", () => {
-        bar.style.opacity = "0.85";
-        bar.style.transform = "scaleY(1.05)";
-      });
-      bar.addEventListener("mouseleave", () => {
-        bar.style.opacity = "1";
-        bar.style.transform = "scaleY(1)";
-      });
-    });
-
-    barsDiv.append(grossBar, netBar);
-
-    const monthLabel = document.createElement("span");
-    monthLabel.style.fontSize = "0.75rem";
-    monthLabel.style.fontWeight = "bold";
-    monthLabel.style.color = "#666";
-    monthLabel.textContent = m.split(" ")[0];
-
-    monthCol.append(barsDiv, monthLabel);
-    chartContainer.append(monthCol);
+  const months = nominasHistoryMonths();
+  const history = months.map((month, index) => {
+    const calc = getPayrollCalculations(month);
+    const previous = index > 0 ? getPayrollCalculations(months[index - 1]) : null;
+    return {
+      month,
+      calc,
+      variation: previous ? calc.liquido - previous.liquido : null,
+      incident: payrollMonthIncident(month, calc),
+    };
   });
-
-  chartWrapper.append(chartContainer);
-
-  const legend = document.createElement("div");
-  legend.style.display = "flex";
-  legend.style.justifyContent = "center";
-  legend.style.gap = "20px";
-  legend.style.marginTop = "12px";
-  legend.style.fontSize = "0.8rem";
-  legend.style.color = "#555";
-  legend.innerHTML = `
-    <div style="display:flex; align-items:center; gap:6px;">
-      <div style="width:12px; height:12px; background:#42a5f5; border-radius:2px;"></div>
-      <span>Total Devengos (Bruto)</span>
-    </div>
-    <div style="display:flex; align-items:center; gap:6px;">
-      <div style="width:12px; height:12px; background:#66bb6a; border-radius:2px;"></div>
-      <span>Líquido a percibir (Neto)</span>
-    </div>
-  `;
-  chartWrapper.append(legend);
-  target.append(chartWrapper);
-
-  const tableTitle = document.createElement("h4");
-  tableTitle.style.margin = "0 0 12px 0";
-  tableTitle.style.color = "#333";
-  tableTitle.textContent = "Histórico de Recibos de Nómina";
-  target.append(tableTitle);
-
-  const table = document.createElement("table");
-  table.style.width = "100%";
-  table.style.borderCollapse = "collapse";
-  table.style.fontSize = "0.85rem";
-  table.style.background = "#fff";
-  table.style.border = "1px solid #ddd";
-  table.style.borderRadius = "4px";
-
+  const totals = history.reduce((acc, item) => {
+    acc.devengos += item.calc.devengos;
+    acc.deducciones += item.calc.deducciones;
+    acc.liquido += item.calc.liquido;
+    return acc;
+  }, { devengos: 0, deducciones: 0, liquido: 0 });
+  const averageNet = totals.liquido / Math.max(history.length, 1);
+  const maxGross = Math.max(...history.map((item) => item.calc.devengos), 1);
+  const maxNetMonth = history.reduce((best, item) => item.calc.liquido > best.calc.liquido ? item : best, history[0]);
+  const last = history[history.length - 1];
+  const first = history[0];
+  const periodVariation = last.calc.liquido - first.calc.liquido;
+  const variationLabel = (value) => value == null ? "-" : `${value >= 0 ? "+" : "-"}${formatPayrollMoney(Math.abs(value))}`;
+  const variationColor = (value) => value == null ? "#64748b" : value >= 0 ? "#15803d" : "#b91c1c";
   const thStyle = "background:#f9f9f9; padding:10px; border-bottom:2px solid #ddd; text-align:left; font-weight:bold; color:#555;";
-  table.innerHTML = `
-    <thead>
-      <tr>
-        <th style="${thStyle}">PERIODO</th>
-        <th style="${thStyle}">CATEGORÍA</th>
-        <th style="${thStyle} text-align:right;">BRUTO (€)</th>
-        <th style="${thStyle} text-align:right;">NETO (€)</th>
-        <th style="${thStyle} text-align:center;">ACCIONES</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${months.map(m => {
-        const calc = getPayrollCalculations(m);
-        return `
-          <tr style="border-bottom:1px solid #eee;">
-            <td style="padding:10px; font-weight:bold;">${m}</td>
-            <td style="padding:10px; color:#666;">Técnico de Gestión (A2)</td>
-            <td style="padding:10px; text-align:right; font-weight:bold; color:#0d47a1;">${calc.devengos.toFixed(2)} €</td>
-            <td style="padding:10px; text-align:right; font-weight:bold; color:#1b5e20;">${calc.liquido.toFixed(2)} €</td>
-            <td style="padding:10px; text-align:center;">
-              <button type="button" class="btn-visualizar" data-month="${m}" style="background:#2e7d32; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.75rem; font-weight:bold; margin-right:6px;">Ver Recibo</button>
-              <button type="button" class="btn-pdf-dummy" data-month="${m}" style="background:#f5f5f5; color:#333; border:1px solid #ccc; padding:3px 8px; border-radius:4px; cursor:pointer; font-size:0.75rem;">PDF</button>
-            </td>
+
+  target.innerHTML = `
+    <h3 style="margin:0 0 14px; color:#1b5e20; font-size:1.2rem; font-weight:bold;">Evolucion salarial de los ultimos 12 meses</h3>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:18px;">
+      ${[
+        ["Devengos 12 meses", formatPayrollMoney(totals.devengos), "Bruto acumulado", "#0d47a1", "#e3f2fd"],
+        ["Liquido percibido", formatPayrollMoney(totals.liquido), "Neto acumulado", "#1b5e20", "#e8f5e9"],
+        ["Deducciones", formatPayrollMoney(totals.deducciones), "IRPF y Seguridad Social", "#b71c1c", "#ffebee"],
+        ["Promedio mensual neto", formatPayrollMoney(averageNet), `${maxNetMonth.month}: ${formatPayrollMoney(maxNetMonth.calc.liquido)}`, "#7c3aed", "#f5f3ff"],
+        ["Variacion periodo", variationLabel(periodVariation), `${first.month} a ${last.month}`, variationColor(periodVariation), "#f8fafc"],
+      ].map(([label, value, note, color, bg]) => `
+        <article style="background:${bg}; border:1px solid #d8e0e8; border-left:5px solid ${color}; border-radius:8px; padding:13px;">
+          <span style="display:block; color:#475569; font-size:0.73rem; font-weight:700;">${label}</span>
+          <strong style="display:block; margin-top:5px; color:${color}; font-size:1.18rem;">${value}</strong>
+          <small style="display:block; margin-top:3px; color:#607080;">${note}</small>
+        </article>`).join("")}
+    </div>
+    <section style="background:#fff; border:1px solid #ddd; border-radius:8px; padding:18px; margin-bottom:22px; box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+      <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px;">
+        <div>
+          <h4 style="margin:0; color:#13202d;">Comparativa mensual</h4>
+          <p style="margin:4px 0 0; color:#607080; font-size:0.84rem;">Cada mes muestra bruto y neto con importe visible; la tabla inferior detalla deducciones e incidencia.</p>
+        </div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:0.8rem; color:#555;">
+          <span style="display:flex; align-items:center; gap:6px;"><i style="width:12px; height:12px; background:#42a5f5; border-radius:2px; display:inline-block;"></i>Bruto</span>
+          <span style="display:flex; align-items:center; gap:6px;"><i style="width:12px; height:12px; background:#66bb6a; border-radius:2px; display:inline-block;"></i>Neto</span>
+        </div>
+      </div>
+      <div style="overflow-x:auto; padding-bottom:4px;">
+        <div style="display:grid; grid-template-columns:repeat(12, minmax(92px, 1fr)); gap:10px; min-width:1120px; align-items:end;">
+          ${history.map((item) => {
+            const grossHeight = Math.max(22, Math.round((item.calc.devengos / maxGross) * 152));
+            const netHeight = Math.max(22, Math.round((item.calc.liquido / maxGross) * 152));
+            return `
+              <article style="border:1px solid #e2e8f0; background:#f8fafc; border-radius:7px; padding:8px; text-align:center;">
+                <strong style="display:block; color:#0d47a1; font-size:0.74rem; line-height:1.15;">${formatPayrollMoney(item.calc.devengos)}</strong>
+                <small style="display:block; color:#1b5e20; font-weight:700; margin-top:2px;">${formatPayrollMoney(item.calc.liquido)}</small>
+                <div style="height:160px; display:flex; justify-content:center; align-items:flex-end; gap:5px; margin:8px 0 7px; border-bottom:1px solid #cbd5e1;">
+                  <span title="${item.month} bruto ${formatPayrollMoney(item.calc.devengos)}" style="width:20px; height:${grossHeight}px; background:#42a5f5; border-radius:4px 4px 0 0;"></span>
+                  <span title="${item.month} neto ${formatPayrollMoney(item.calc.liquido)}" style="width:20px; height:${netHeight}px; background:#66bb6a; border-radius:4px 4px 0 0;"></span>
+                </div>
+                <span style="display:block; color:#475569; font-size:0.75rem; font-weight:800;">${escapeHTML(payrollMonthShortLabel(item.month))}</span>
+              </article>`;
+          }).join("")}
+        </div>
+      </div>
+    </section>
+    <h4 style="margin:0 0 12px; color:#333;">Historico de recibos de nomina</h4>
+    <div style="overflow-x:auto; border:1px solid #ddd; border-radius:8px; background:#fff;">
+      <table style="width:100%; min-width:1040px; border-collapse:collapse; font-size:0.85rem;">
+        <thead>
+          <tr>
+            <th style="${thStyle}">PERIODO</th>
+            <th style="${thStyle} text-align:right;">BRUTO</th>
+            <th style="${thStyle} text-align:right;">DEDUCCIONES</th>
+            <th style="${thStyle} text-align:right;">NETO</th>
+            <th style="${thStyle} text-align:right;">VAR. NETO</th>
+            <th style="${thStyle}">INCIDENCIA</th>
+            <th style="${thStyle} text-align:center;">ACCIONES</th>
           </tr>
-        `;
-      }).join("")}
-    </tbody>
+        </thead>
+        <tbody>
+          ${history.map((item, index) => `
+            <tr style="background:${index % 2 ? "#f8fafc" : "#fff"}; border-bottom:1px solid #eee;">
+              <td style="padding:10px; font-weight:bold;">${escapeHTML(item.month)}</td>
+              <td style="padding:10px; text-align:right; font-weight:bold; color:#0d47a1;">${formatPayrollMoney(item.calc.devengos)}</td>
+              <td style="padding:10px; text-align:right; font-weight:bold; color:#b71c1c;">${formatPayrollMoney(item.calc.deducciones)}</td>
+              <td style="padding:10px; text-align:right; font-weight:bold; color:#1b5e20;">${formatPayrollMoney(item.calc.liquido)}</td>
+              <td style="padding:10px; text-align:right; font-weight:bold; color:${variationColor(item.variation)};">${variationLabel(item.variation)}</td>
+              <td style="padding:10px; color:#475569;">${escapeHTML(item.incident)}</td>
+              <td style="padding:10px; text-align:center; white-space:nowrap;">
+                <button type="button" class="btn-visualizar" data-month="${escapeHTML(item.month)}" style="background:#2e7d32; color:#fff; border:none; padding:5px 9px; border-radius:4px; cursor:pointer; font-size:0.75rem; font-weight:bold; margin-right:6px;">Ver recibo</button>
+                <button type="button" class="btn-pdf-dummy" data-month="${escapeHTML(item.month)}" style="background:#f5f5f5; color:#333; border:1px solid #ccc; padding:4px 9px; border-radius:4px; cursor:pointer; font-size:0.75rem;">PDF</button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
   `;
+
+  const table = target;
 
   table.querySelectorAll(".btn-visualizar").forEach(btn => {
     btn.addEventListener("click", (e) => {
@@ -11685,7 +13047,6 @@ function renderNominasHistoricoScreen(target, view, container) {
     });
   });
 
-  target.append(table);
 }
 
 function renderNominasCertificadoScreen(target, view) {
@@ -11720,8 +13081,8 @@ function renderNominasCertificadoScreen(target, view) {
     <div style="margin-bottom:20px;">
       <h4 style="margin:0 0 10px 0; border-bottom:1px solid #eee; padding-bottom:4px; color:#1b5e20;">DATOS DEL PERCEPTOR</h4>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-        <div><strong>Nombre y Apellidos:</strong> ALBERTO SÁNCHEZ GÓMEZ</div>
-        <div><strong>N.I.F. Perceptor:</strong> 74839201A</div>
+        <div><strong>Nombre y Apellidos:</strong> PERSONA DEMOSTRACIÓN</div>
+        <div><strong>N.I.F. Perceptor:</strong> NIF-DEMO-0001</div>
         <div><strong>Puesto de Trabajo:</strong> TÉCNICO DE GESTIÓN (A2)</div>
         <div><strong>Relación Jurídica:</strong> Funcionario de Carrera</div>
       </div>
