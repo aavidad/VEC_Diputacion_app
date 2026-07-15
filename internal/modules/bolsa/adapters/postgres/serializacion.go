@@ -3,12 +3,14 @@ package postgres
 import (
 	"bytes"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"strconv"
 	"time"
+	"unicode/utf8"
 
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	transaccionbolsa "vec-diputacion-granada/internal/modules/bolsa/internal/transaccion"
@@ -16,7 +18,14 @@ import (
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
-const formatoInstanteMicrosegundo = "2006-01-02T15:04:05.000000Z"
+const (
+	formatoInstanteMicrosegundo = "2006-01-02T15:04:05.000000Z"
+
+	// El agregado contiene referencias y evidencias, nunca los binarios de los
+	// documentos. Este limite coincide con la restriccion de las migraciones y
+	// evita que una fila manipulada fuerce trabajo de tamaño no gobernado.
+	maximoBytesAgregadoCanonico = 32 << 20
+)
 
 type pruebaDecisionPostgreSQL struct {
 	EsquemaHuella        string `json:"esquema_huella"`
@@ -91,8 +100,8 @@ func construirVersion(
 	if err != nil || confirmadaEn.IsZero() {
 		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
 	}
-	var agregado dominiobolsa.BaremacionMerito
-	if decodificarJSONEstricto(agregadoCanonico, &agregado) != nil {
+	agregado, err := decodificarAgregadoCanonico(agregadoCanonico)
+	if err != nil {
 		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
 	}
 	version := puertosbolsa.VersionBaremacion{
@@ -107,6 +116,31 @@ func construirVersion(
 		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
 	}
 	return version.Clonar()
+}
+
+// decodificarAgregadoCanonico solo admite los bytes exactos que selló el
+// dominio. HuellaEstadoSHA256 usa esta misma norma: ClonarCanonica seguido de
+// encoding/json.Marshal. Decodificar y validar no basta porque encoding/json
+// tolera, entre otras variantes, claves duplicadas y UTF-8 sustituido.
+func decodificarAgregadoCanonico(contenido []byte) (dominiobolsa.BaremacionMerito, error) {
+	if len(contenido) == 0 || len(contenido) > maximoBytesAgregadoCanonico || !utf8.Valid(contenido) {
+		return dominiobolsa.BaremacionMerito{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
+	}
+
+	var agregado dominiobolsa.BaremacionMerito
+	if decodificarJSONEstricto(contenido, &agregado) != nil {
+		return dominiobolsa.BaremacionMerito{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
+	}
+	canonico, err := agregado.ClonarCanonica()
+	if err != nil {
+		return dominiobolsa.BaremacionMerito{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
+	}
+	representacion, err := json.Marshal(canonico)
+	if err != nil || len(representacion) != len(contenido) ||
+		subtle.ConstantTimeCompare(representacion, contenido) != 1 {
+		return dominiobolsa.BaremacionMerito{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
+	}
+	return canonico, nil
 }
 
 func parsearUint64Positivo(valor string) (uint64, error) {
