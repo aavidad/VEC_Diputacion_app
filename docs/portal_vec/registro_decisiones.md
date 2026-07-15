@@ -1517,6 +1517,11 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   decisiones, politicas, huellas, objetos, retencion y motivo cuando procedan;
   excluye autenticacion, sesion, autorizacion del intento, token de reserva,
   correlaciones tecnicas, auditoria/outbox aleatorios y tiempos efimeros.
+  El manifiesto probatorio V1 de baremacion no cumple esta regla porque cubre
+  autorizaciones efimeras de reserva y confirmacion: se sustituira por un
+  manifiesto material V2. Cada recibo remoto tendra esquema y huella canonica
+  propios; la huella del documento nunca sustituye la del recibo de custodia o
+  retencion.
 - Autoridad actual: cada intento, incluida una consulta o recuperacion
   idempotente, obtiene y consume una concesion RBAC/ABAC positiva, exacta y
   vigente. Esta concesion no cambia la intencion ni se compara con la original.
@@ -1543,7 +1548,10 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   sesion y autorizacion nuevas del mismo actor, dos reintentos concurrentes,
   autorizacion revocada, cambio individual de cada campo de intencion, rotacion
   de clave e inyeccion de evidencia persistida incompleta o contradictoria.
-  Version, efecto, auditoria y outbox deben conservar cardinalidad uno.
+  Version, efecto, auditoria y outbox deben conservar cardinalidad uno. El
+  corredor obligatorio atraviesa el caso de uso Go, el adaptador y PostgreSQL
+  real; una prueba SQL que reutilice HMAC sinteticos no acredita compatibilidad
+  con las preimagenes distintas de reserva y confirmacion.
 
 ## DEC-046 — Preparacion y entrega recuperable de carga directa
 

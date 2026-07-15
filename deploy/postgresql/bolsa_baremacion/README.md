@@ -111,6 +111,28 @@ independiente para cada recuperación. No se reordena aquí el SQL ni se relaja
 la autorización porque ese cambio afecta conjuntamente al puerto, al
 adaptador, al modelo de amenazas y a la API.
 
+### Incompatibilidad funcional V1 confirmada
+
+La prueba SQL aislada tampoco demuestra que el adaptador Go pueda completar el
+flujo. La aplicación sella la reserva y la confirmación sobre preimágenes
+distintas; por diseño producen HMAC diferentes. Sin embargo,
+`confirmar_cambio` V1 exige que la confirmación repita exactamente la
+`huella_solicitud_hmac` guardada en la reserva. La prueba
+`pruebas_sql/integracion_v1.sql` no detecta la incompatibilidad porque inyecta
+el mismo HMAC literal en ambas llamadas.
+
+Además, el manifiesto probatorio V1 incorpora autorizaciones efímeras de
+reserva y confirmación, por lo que no puede utilizarse como parte de una
+intención estable. Los recibos de custodia y retención necesitan también una
+representación y huella canónicas propias; la huella del PDF no acredita el
+recibo técnico.
+
+La apertura exige una prueba de extremo a extremo Go → adaptador → PostgreSQL
+real. Debe cubrir una respuesta perdida después de `COMMIT`, reinicio, sesión y
+autorización nuevas, revocación, concurrencia y recuperación conjunta de
+versión, auditoría y outbox. Hasta entonces, las funciones V1 no reciben
+tráfico productivo aunque la prueba SQL y las ACL terminen correctamente.
+
 ## Entrega outbox
 
 `evento_outbox` representa el hecho de dominio y es inmutable; su estado
