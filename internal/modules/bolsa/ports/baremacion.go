@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -715,6 +716,9 @@ type RepresentacionBaremacionConfiable struct {
 
 func (r RepresentacionBaremacionConfiable) Validar() error {
 	if r.Representacion.Validar() != nil || !referenciaValida(r.EvidenciaConsultaRef, 512) ||
+		r.Representacion.EstadoTecnico != dominiovec.EstadoRepresentacionDisponible ||
+		(r.Representacion.EstadoAntivirus != dominiovec.EstadoAntivirusLimpio &&
+			r.Representacion.EstadoAntivirus != dominiovec.EstadoAntivirusNoAplica) ||
 		!huellaSHA256Valida(r.HuellaEvidenciaSHA256) || r.ConsultadaEn.IsZero() {
 		return ErrRepresentacionBaremacionNoConfiable
 	}
@@ -1499,12 +1503,25 @@ type BinarioFirmadoRecuperado struct {
 func (b BinarioFirmadoRecuperado) ValidarPara(s SolicitudRecuperarBinarioFirmado) error {
 	if s.Validar() != nil || b.DocumentoFirmadoRef != s.DocumentoFirmadoRef ||
 		b.HuellaDocumentoSHA256 != s.HuellaDocumentoSHA256 || b.MIME != "application/pdf" ||
-		b.Tamano < 1 || b.Tamano > s.LimiteBytes || b.Contenido == nil ||
+		b.Tamano < 1 || b.Tamano > s.LimiteBytes || lectorCierreNulo(b.Contenido) ||
 		!referenciaValida(b.EvidenciaRecuperacionRef, 512) ||
 		!huellaSHA256Valida(b.HuellaEvidenciaSHA256) || b.RecuperadoEn.IsZero() {
 		return ErrEvidenciaFirmaNoEncontrada
 	}
 	return nil
+}
+
+func lectorCierreNulo(lector io.ReadCloser) bool {
+	if lector == nil {
+		return true
+	}
+	valor := reflect.ValueOf(lector)
+	switch valor.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return valor.IsNil()
+	default:
+		return false
+	}
 }
 
 type RecuperadorBinarioFirmado interface {

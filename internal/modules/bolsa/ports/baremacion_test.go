@@ -672,6 +672,91 @@ func TestCalculoOficialValidaEvidenciasConfiablesExactasYCopiaDefensiva(t *testi
 	}
 }
 
+func TestRepresentacionConfiableExigeDisponibilidadYAntivirusApto(t *testing.T) {
+	base := RepresentacionBaremacionConfiable{
+		Representacion: dominiovec.RepresentacionDocumento{
+			ID:        "representacion-001",
+			Documento: dominiovec.ReferenciaDocumento{ID: "documento-001", Version: 1},
+			Tipo:      dominiovec.TipoRepresentacionVisualizacion, Formato: dominiovec.FormatoDocumentoPDF,
+			MIME: "application/pdf", NombreFichero: "merito.pdf", Tamano: 1024,
+			HuellaContenidoSHA256: huellaPruebaPuertos("b"),
+			HuellaFuenteHMAC:      "hmac-sha256:documentos_1:" + huellaPruebaPuertos("3"),
+			ReferenciaContenido:   "objeto:merito:001",
+			EstadoTecnico:         dominiovec.EstadoRepresentacionDisponible,
+			EstadoAntivirus:       dominiovec.EstadoAntivirusLimpio,
+			GeneradaPor:           "sistema-documental", GeneradaEn: instantePuertosPrueba.Add(-time.Minute),
+		},
+		EvidenciaConsultaRef:  "evidencia-consulta-representacion-001",
+		HuellaEvidenciaSHA256: huellaPruebaPuertos("8"), ConsultadaEn: instantePuertosPrueba,
+	}
+	if err := base.Validar(); err != nil {
+		t.Fatalf("representacion disponible y limpia rechazada: %v", err)
+	}
+	noAplicable := base
+	noAplicable.Representacion.EstadoAntivirus = dominiovec.EstadoAntivirusNoAplica
+	if err := noAplicable.Validar(); err != nil {
+		t.Fatalf("representacion generada internamente rechazada: %v", err)
+	}
+
+	for _, estado := range []dominiovec.EstadoRepresentacionDocumento{
+		dominiovec.EstadoRepresentacionPendiente,
+		dominiovec.EstadoRepresentacionCuarentena,
+		dominiovec.EstadoRepresentacionRechazada,
+		dominiovec.EstadoRepresentacionRetirada,
+	} {
+		caso := base
+		caso.Representacion.EstadoTecnico = estado
+		if err := caso.Validar(); !errors.Is(err, ErrRepresentacionBaremacionNoConfiable) {
+			t.Errorf("estado tecnico %q admitido: %v", estado, err)
+		}
+	}
+	for _, estado := range []dominiovec.EstadoAntivirusDocumento{
+		dominiovec.EstadoAntivirusPendiente,
+		dominiovec.EstadoAntivirusRechazado,
+		dominiovec.EstadoAntivirusError,
+	} {
+		caso := base
+		caso.Representacion.EstadoAntivirus = estado
+		if err := caso.Validar(); !errors.Is(err, ErrRepresentacionBaremacionNoConfiable) {
+			t.Errorf("estado antivirus %q admitido: %v", estado, err)
+		}
+	}
+}
+
+type lectorCierreTipadoNuloPrueba struct{}
+
+func (*lectorCierreTipadoNuloPrueba) Read([]byte) (int, error) { return 0, nil }
+func (*lectorCierreTipadoNuloPrueba) Close() error             { return nil }
+
+func TestBinarioFirmadoRecuperadoRechazaContenidoNuloTipado(t *testing.T) {
+	solicitud := SolicitudRecuperarBinarioFirmado{
+		Contexto: ContextoOperacionFirma{
+			ContextoOperacionBaremacion: contextoOperacionValido(
+				AccionRecuperarBinarioFirmadoBaremacion,
+				"documento-firmado-001",
+			),
+			OperacionRef: "operacion-recuperar-binario-001",
+		},
+		DocumentoFirmadoRef:   "documento-firmado-001",
+		HuellaDocumentoSHA256: huellaPruebaPuertos("f"),
+		LimiteBytes:           4096,
+	}
+	if err := solicitud.Validar(); err != nil {
+		t.Fatalf("solicitud de prueba invalida: %v", err)
+	}
+	var contenido *lectorCierreTipadoNuloPrueba
+	binario := BinarioFirmadoRecuperado{
+		DocumentoFirmadoRef:   solicitud.DocumentoFirmadoRef,
+		HuellaDocumentoSHA256: solicitud.HuellaDocumentoSHA256,
+		MIME:                  "application/pdf", Tamano: 1024, Contenido: contenido,
+		EvidenciaRecuperacionRef: "evidencia-recuperacion-001",
+		HuellaEvidenciaSHA256:    huellaPruebaPuertos("e"), RecuperadoEn: instantePuertosPrueba,
+	}
+	if err := binario.ValidarPara(solicitud); !errors.Is(err, ErrEvidenciaFirmaNoEncontrada) {
+		t.Fatalf("contenido nulo tipado admitido: %v", err)
+	}
+}
+
 func TestPoliticaExigeFirmaInteractivaYValidacionServidorConCapasExactas(t *testing.T) {
 	politica := politicaFirmaValidaPrueba()
 	if err := politica.Validar(); err != nil {
