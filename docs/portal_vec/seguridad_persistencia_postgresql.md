@@ -47,7 +47,7 @@ necesita aun alimentacion autoritativa desde el IdP y el maestro de personas;
 sin ella, o sin atestacion COSE y raiz historica verificables, el perfil
 productivo debe fallar cerrado.
 
-La cadena de compilacion parte de Go 1.25.8 como compatibilidad minima corregida
+La cadena de compilacion parte de Go 1.25.12 como compatibilidad minima corregida
 y fija Go 1.26.5 para entregas. El minimo exacto impide que
 `GOTOOLCHAIN=local` permita compilar con una revision 1.25 anterior vulnerable.
 Go 1.22 se ha retirado porque ya no recibe correcciones;
