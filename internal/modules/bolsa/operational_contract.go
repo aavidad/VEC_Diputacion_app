@@ -3,20 +3,23 @@ package bolsa
 import "strings"
 
 type ModuleManifestContract struct {
-	ModuleRef       string            `json:"module_ref"`
-	Version         string            `json:"version"`
-	TitleI18nKey    string            `json:"title_i18n_key"`
-	DescriptionKey  string            `json:"description_i18n_key"`
-	CategoryRef     string            `json:"category_ref"`
-	BaseRoute       string            `json:"base_route"`
-	APIPrefix       string            `json:"api_prefix"`
-	PrototypeAPI    string            `json:"prototype_api_prefix"`
-	RequiredRoles   []string          `json:"required_roles"`
-	MenuEntries     []MenuEntry       `json:"menu_entries"`
-	Capabilities    []Capability      `json:"capabilities"`
-	EventsPublished []string          `json:"events_published"`
-	HealthRoute     string            `json:"health_route"`
-	HTTPRoutes      []ModuleHTTPRoute `json:"http_routes"`
+	ModuleRef      string `json:"module_ref"`
+	Version        string `json:"version"`
+	TitleI18nKey   string `json:"title_i18n_key"`
+	DescriptionKey string `json:"description_i18n_key"`
+	CategoryRef    string `json:"category_ref"`
+	BaseRoute      string `json:"base_route"`
+	APIPrefix      string `json:"api_prefix"`
+	PrototypeAPI   string `json:"prototype_api_prefix"`
+	// AuthorizationPolicySource declara de donde debe obtenerse la decision,
+	// pero nunca concede acceso. Los roles y concesiones son datos publicados y
+	// versionados; no se incrustan en el manifiesto del modulo.
+	AuthorizationPolicySource string            `json:"authorization_policy_source"`
+	MenuEntries               []MenuEntry       `json:"menu_entries"`
+	Capabilities              []Capability      `json:"capabilities"`
+	EventsPublished           []string          `json:"events_published"`
+	HealthRoute               string            `json:"health_route"`
+	HTTPRoutes                []ModuleHTTPRoute `json:"http_routes"`
 }
 
 type MenuEntry struct {
@@ -70,7 +73,7 @@ func OperationalStatusForModes(demoEnabled bool, authMode, persistenceMode strin
 		ModuleRef:            ModuleID,
 		RuntimeMode:          "local_productizable",
 		Status:               "operational",
-		AuthMode:             defaultMode(authMode, "fake"),
+		AuthMode:             defaultMode(authMode, "disabled"),
 		PersistenceMode:      defaultMode(persistenceMode, "memory"),
 		DemoEnabled:          demoEnabled,
 		LegalProductionReady: false,
@@ -80,7 +83,7 @@ func OperationalStatusForModes(demoEnabled bool, authMode, persistenceMode strin
 }
 
 func OperationalStatusDefault(demoEnabled bool) OperationalStatus {
-	return OperationalStatusForModes(demoEnabled, "fake", "memory")
+	return OperationalStatusForModes(demoEnabled, "disabled", "memory")
 }
 
 func defaultMode(value, fallback string) string {
@@ -124,15 +127,15 @@ func LegalIntegrations() []IntegrationStatus {
 
 func ModuleManifestForCandidatePortal() ModuleManifestContract {
 	return ModuleManifestContract{
-		ModuleRef:      ModuleID,
-		Version:        "v1",
-		TitleI18nKey:   "module.bolsa.title",
-		DescriptionKey: "module.bolsa.description",
-		CategoryRef:    "seleccion_y_bolsas",
-		BaseRoute:      "/modules/bolsa",
-		APIPrefix:      "/api/modules/bolsa",
-		PrototypeAPI:   "/api",
-		RequiredRoles:  []string{"candidate", "validator_l1", "validator_l2", "system_admin"},
+		ModuleRef:                 ModuleID,
+		Version:                   "v1",
+		TitleI18nKey:              "module.bolsa.title",
+		DescriptionKey:            "module.bolsa.description",
+		CategoryRef:               "seleccion_y_bolsas",
+		BaseRoute:                 "/modules/bolsa",
+		APIPrefix:                 "/api/modules/bolsa",
+		PrototypeAPI:              "/api",
+		AuthorizationPolicySource: "rbac_abac_published",
 		MenuEntries: []MenuEntry{
 			{EntryRef: "bolsa.dashboard", LabelI18nKey: "module.bolsa.menu.dashboard", Route: "/modules/bolsa", RequiredPermissions: []string{"bolsa.dashboard.read"}},
 			{EntryRef: "bolsa.solicitudes", LabelI18nKey: "module.bolsa.menu.solicitudes", Route: "/modules/bolsa/solicitudes", RequiredPermissions: []string{PermissionRead}},
