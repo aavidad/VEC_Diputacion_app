@@ -1522,6 +1522,12 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   vigente. Esta concesion no cambia la intencion ni se compara con la original.
   Una baja, revocacion o cambio de ambito deniega antes de revelar el resultado
   ya confirmado.
+- Doble corte documental: antes de leer datos personales, fusionarlos,
+  sellarlos o entregarlos a un renderizador se exige una preautorizacion sobre
+  expediente, sujeto, plantilla, finalidad y clasificacion. Tras obtener los
+  bytes y huellas se exige otra concesion ligada al manifiesto exacto justo
+  antes del efecto. Identidad, pertenencia, relaciones y clasificacion proceden
+  de fronteras internas vinculadas a la sesion, nunca del DTO del cliente.
 - Estados: ausente crea una operacion; mismo indice y otra intencion deniega
   reutilizacion; misma intencion en curso informa sin repetir efectos; una
   operacion confirmada devuelve la version y evidencia transaccional completas.
@@ -1530,7 +1536,9 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - Efectos: identificadores, manifiestos y claves tecnicas necesarios para
   repetir o reconciliar se fijan durablemente antes del primer efecto externo.
   Una respuesta ambigua nunca causa borrado compensatorio ni genera una segunda
-  identidad. El reconciliador continua desde el ultimo paso probado.
+  identidad. El reconciliador continua desde el ultimo paso probado. La
+  confirmacion final recibe evidencia tipada de decision, reserva, plan y cada
+  objeto; una referencia textual suelta no acredita el efecto.
 - Pruebas de apertura: `COMMIT` mas `DeadlineExceeded`, reinicio del proceso,
   sesion y autorizacion nuevas del mismo actor, dos reintentos concurrentes,
   autorizacion revocada, cambio individual de cada campo de intencion, rotacion
