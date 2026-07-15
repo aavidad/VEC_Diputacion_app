@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Consulta pública de convocatorias, plazos, requisitos y documentos de Bolsa.">
+  <title>Bolsa y procesos selectivos | Portal VEC</title>
+  <link rel="stylesheet" href="/styles.css?v=20260715-theme">
+  <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260715-publico-v1">
+  <script src="/bolsa/bolsa.js?v=20260715-publico-v1" defer></script>
+</head>
+<body class="portal-bolsa-publico">
+  <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
+
+  <header class="cabecera-publica">
+    <a class="marca-publica" href="/bolsa/" aria-label="Inicio de Bolsa y procesos selectivos">
+      <span class="marca-publica__sigla" aria-hidden="true">VEC</span>
+      <span><strong>Bolsa y procesos selectivos</strong><small>Diputación de Granada · Portal público</small></span>
+    </a>
+    <nav class="acciones-accesibilidad" aria-label="Preferencias de visualización">
+      <button id="alternar-texto" type="button" aria-pressed="false">Texto grande</button>
+      <button id="alternar-contraste" type="button" aria-pressed="false">Alto contraste</button>
+    </nav>
+  </header>
+
+  <div id="aviso-demostracion" class="aviso-demostracion" role="status">
+    <strong>DEMOSTRACIÓN</strong>
+    <span id="texto-aviso-demostracion">Contenido sintético, sin validez administrativa ni datos personales.</span>
+  </div>
+
+  <main id="contenido-principal" class="contenido-publico" tabindex="-1">
+    <section class="presentacion-publica" aria-labelledby="titulo-portal">
+      <p class="eyebrow">Consulta pública</p>
+      <h1 id="titulo-portal">Convocatorias abiertas y próximas</h1>
+      <p>Consulte fechas, requisitos, documentos públicos y respuestas de ayuda. Esta zona no muestra expedientes ni datos personales.</p>
+    </section>
+
+    <form id="filtros-convocatorias" class="panel-filtros" role="search" aria-label="Filtrar convocatorias">
+      <div class="campo campo-busqueda">
+        <label for="filtro-texto">Buscar</label>
+        <input id="filtro-texto" name="texto" type="search" maxlength="100" autocomplete="off" placeholder="Título o contenido público">
+      </div>
+      <div class="campo">
+        <label for="filtro-tipo">Tipo</label>
+        <select id="filtro-tipo" name="tipo"><option value="">Todos los tipos</option></select>
+      </div>
+      <div class="campo">
+        <label for="filtro-categoria">Categoría</label>
+        <select id="filtro-categoria" name="categoria"><option value="">Todas las categorías</option></select>
+      </div>
+      <div class="campo">
+        <label for="filtro-estado">Estado</label>
+        <select id="filtro-estado" name="estado"><option value="">Todos los estados</option></select>
+      </div>
+      <label class="casilla-plazo" for="filtro-plazo">
+        <input id="filtro-plazo" name="plazo" type="checkbox" value="abierto">
+        <span>Solo con plazo abierto</span>
+      </label>
+      <div class="acciones-filtros">
+        <button class="boton-primario" type="submit">Aplicar filtros</button>
+        <button id="limpiar-filtros" class="boton-secundario" type="button">Limpiar</button>
+      </div>
+    </form>
+
+    <div class="resumen-resultados">
+      <p id="estado-consulta" role="status" aria-live="polite">Cargando convocatorias…</p>
+      <p id="revision-fuente" class="revision-fuente"></p>
+    </div>
+
+    <div class="espacio-trabajo-publico">
+      <section id="panel-listado" class="panel-listado" aria-labelledby="titulo-resultados" aria-busy="true">
+        <h2 id="titulo-resultados" tabindex="-1">Resultados</h2>
+        <div id="estado-cargando" class="estado-panel" role="status">
+          <span class="indicador-carga" aria-hidden="true"></span>
+          Consultando información pública…
+        </div>
+        <div id="estado-error" class="estado-panel estado-error" role="alert" hidden>
+          <h3>No se ha podido cargar la información</h3>
+          <p>Inténtelo de nuevo. No se ha enviado ningún dato personal.</p>
+          <button id="reintentar-consulta" class="boton-secundario" type="button">Reintentar</button>
+        </div>
+        <div id="estado-vacio" class="estado-panel" hidden>
+          <h3>No hay coincidencias</h3>
+          <p>Modifique o limpie los filtros para consultar otras convocatorias.</p>
+        </div>
+        <ol id="lista-convocatorias" class="lista-convocatorias" aria-label="Convocatorias encontradas"></ol>
+        <nav id="paginacion" class="paginacion" aria-label="Páginas de resultados" hidden>
+          <button id="pagina-anterior" type="button">Página anterior</button>
+          <span id="pagina-actual" aria-live="polite"></span>
+          <button id="pagina-siguiente" type="button">Página siguiente</button>
+        </nav>
+      </section>
+
+      <aside id="panel-detalle" class="panel-detalle" aria-labelledby="titulo-detalle" aria-busy="false">
+        <div class="detalle-cabecera">
+          <div>
+            <p class="eyebrow">Ficha pública</p>
+            <h2 id="titulo-detalle" tabindex="-1">Seleccione una convocatoria</h2>
+          </div>
+          <button id="cerrar-detalle" class="boton-icono" type="button" hidden>Volver al listado</button>
+        </div>
+        <div id="detalle-espera" class="estado-panel">
+          <p>Aquí aparecerán los plazos, requisitos, documentos y ayuda de la convocatoria seleccionada.</p>
+        </div>
+        <div id="detalle-cargando" class="estado-panel" role="status" hidden>Abriendo la ficha pública…</div>
+        <div id="detalle-error" class="estado-panel estado-error" role="alert" hidden>
+          <p>No se ha podido abrir esta ficha.</p>
+        </div>
+        <article id="contenido-detalle" hidden>
+          <div id="detalle-etiquetas" class="grupo-etiquetas"></div>
+          <p id="detalle-resumen" class="detalle-resumen"></p>
+          <p id="detalle-descripcion"></p>
+          <section aria-labelledby="titulo-plazos"><h3 id="titulo-plazos">Plazos</h3><div id="detalle-plazos"></div></section>
+          <section aria-labelledby="titulo-requisitos"><h3 id="titulo-requisitos">Requisitos</h3><ol id="detalle-requisitos" class="lista-detalle"></ol></section>
+          <section aria-labelledby="titulo-documentos"><h3 id="titulo-documentos">Documentos públicos</h3><ul id="detalle-documentos" class="lista-detalle"></ul></section>
+          <section aria-labelledby="titulo-ayuda"><h3 id="titulo-ayuda">Ayuda</h3><div id="detalle-ayuda"></div></section>
+          <p id="detalle-integridad" class="integridad-publica"></p>
+        </article>
+      </aside>
+    </div>
+
+    <noscript><p class="estado-panel estado-error">Active JavaScript para consultar la API pública desde esta página. La API permanece disponible en <code>/api/publico/bolsa/convocatorias</code>.</p></noscript>
+  </main>
+
+  <footer class="pie-publico">
+    <p>Portal público VEC · No introduzca datos personales en el buscador.</p>
+  </footer>
+</body>
+</html>

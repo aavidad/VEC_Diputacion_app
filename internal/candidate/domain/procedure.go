@@ -5,72 +5,31 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 )
 
 var (
-	ErrProcedureInvalid    = errors.New("procedure is invalid")
+	ErrProcedureInvalid    = dominiobolsa.ErrConvocatoriaInvalida
 	ErrProcedureTransition = errors.New("procedure transition is invalid")
 	ErrProcedureRanking    = errors.New("procedure ranking is invalid")
 )
 
-type Convocatoria struct {
-	ID      string
-	Version string
-	Estado  ProcedureState
-}
+type Convocatoria = dominiobolsa.Convocatoria
+type ProcedureState = dominiobolsa.EstadoConvocatoria
 
 func NewConvocatoria(id, version string) (Convocatoria, error) {
-	call := Convocatoria{ID: strings.TrimSpace(id), Version: strings.TrimSpace(version), Estado: ProcedureStateBorrador}
-	if err := call.Validate(); err != nil {
-		return Convocatoria{}, err
-	}
-	return call, nil
+	return dominiobolsa.NuevaConvocatoria(id, version)
 }
-
-func (c Convocatoria) Validate() error {
-	switch {
-	case strings.TrimSpace(c.ID) == "":
-		return fmt.Errorf("%w: convocatoria id is required", ErrProcedureInvalid)
-	case strings.TrimSpace(c.Version) == "":
-		return fmt.Errorf("%w: convocatoria version is required", ErrProcedureInvalid)
-	case !c.Estado.IsValid():
-		return fmt.Errorf("%w: convocatoria state %q", ErrProcedureInvalid, c.Estado)
-	default:
-		return nil
-	}
-}
-
-func (c Convocatoria) NewVersion(version string) (Convocatoria, error) {
-	next := Convocatoria{ID: c.ID, Version: strings.TrimSpace(version), Estado: ProcedureStateBorrador}
-	if next.Version == c.Version {
-		return Convocatoria{}, fmt.Errorf("%w: duplicated convocatoria version", ErrProcedureInvalid)
-	}
-	if err := next.Validate(); err != nil {
-		return Convocatoria{}, err
-	}
-	return next, nil
-}
-
-type ProcedureState string
 
 const (
-	ProcedureStateBorrador    ProcedureState = "Borrador"
-	ProcedureStateInscripcion ProcedureState = "Inscripcion"
-	ProcedureStateSubsanacion ProcedureState = "Subsanacion"
-	ProcedureStateAlegaciones ProcedureState = "Alegaciones"
-	ProcedureStateDefinitiva  ProcedureState = "Definitiva"
-	ProcedureStateCerrada     ProcedureState = "Cerrada"
+	ProcedureStateBorrador    = dominiobolsa.EstadoConvocatoriaBorrador
+	ProcedureStateInscripcion = dominiobolsa.EstadoConvocatoriaInscripcion
+	ProcedureStateSubsanacion = dominiobolsa.EstadoConvocatoriaSubsanacion
+	ProcedureStateAlegaciones = dominiobolsa.EstadoConvocatoriaAlegaciones
+	ProcedureStateDefinitiva  = dominiobolsa.EstadoConvocatoriaDefinitiva
+	ProcedureStateCerrada     = dominiobolsa.EstadoConvocatoriaCerrada
 )
-
-func (s ProcedureState) IsValid() bool {
-	switch s {
-	case ProcedureStateBorrador, ProcedureStateInscripcion, ProcedureStateSubsanacion,
-		ProcedureStateAlegaciones, ProcedureStateDefinitiva, ProcedureStateCerrada:
-		return true
-	default:
-		return false
-	}
-}
 
 type SolicitudState string
 

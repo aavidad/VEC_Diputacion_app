@@ -4,7 +4,20 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 )
+
+func TestConvocatoriaEsAliasDelAgregadoCanonicoBolsa(t *testing.T) {
+	convocatoria, err := NewConvocatoria("conv-compat", "v1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var canonica dominiobolsa.Convocatoria = convocatoria
+	if canonica.ID != convocatoria.ID || canonica.Estado != ProcedureStateBorrador {
+		t.Fatalf("alias con perdida: %#v", canonica)
+	}
+}
 
 func TestConvocatoriaVersionsRemainSameCall(t *testing.T) {
 	call, err := NewConvocatoria(" conv-1 ", " v1 ")

@@ -1,0 +1,119 @@
+{
+  "version_esquema": 1,
+  "fuente": {
+    "revision": "demo-2026-07-v1",
+    "actualizada_en": "2026-07-15T08:00:00Z",
+    "demostracion": true,
+    "aviso": "DEMOSTRACIÓN: contenido sintético sin validez administrativa ni datos personales."
+  },
+  "catalogos": [
+    {
+      "referencia": "tipos_convocatoria",
+      "version": 1,
+      "entradas": [
+        {"clave": "bolsa_temporal", "version": 1, "etiqueta": "Bolsa temporal", "descripcion": "Proceso para constituir una bolsa de empleo temporal.", "semantica": "procedimiento", "orden": 1, "publicable": true},
+        {"clave": "proceso_selectivo", "version": 1, "etiqueta": "Proceso selectivo", "descripcion": "Proceso selectivo de acceso público.", "semantica": "informacion", "orden": 2, "publicable": true}
+      ]
+    },
+    {
+      "referencia": "estados_convocatoria",
+      "version": 1,
+      "entradas": [
+        {"clave": "inscripcion", "version": 1, "etiqueta": "Inscripción abierta", "descripcion": "Admite solicitudes dentro del plazo publicado.", "semantica": "exito", "orden": 1, "publicable": true},
+        {"clave": "proxima", "version": 1, "etiqueta": "Próxima apertura", "descripcion": "Publicada antes de abrir el plazo.", "semantica": "informacion", "orden": 2, "publicable": true},
+        {"clave": "borrador", "version": 1, "etiqueta": "Borrador interno", "descripcion": "Estado no publicable.", "semantica": "neutro", "orden": 3, "publicable": false}
+      ]
+    },
+    {
+      "referencia": "categorias_convocatoria",
+      "version": 1,
+      "entradas": [
+        {"clave": "auxiliar_administrativo", "version": 1, "etiqueta": "Auxiliar administrativo", "descripcion": "Categoría profesional de demostración.", "semantica": "documento", "orden": 1, "publicable": true},
+        {"clave": "tecnico_gestion", "version": 1, "etiqueta": "Técnico de gestión", "descripcion": "Categoría profesional de demostración.", "semantica": "procedimiento", "orden": 2, "publicable": true}
+      ]
+    },
+    {
+      "referencia": "tipos_plazo",
+      "version": 1,
+      "entradas": [
+        {"clave": "inscripcion", "version": 1, "etiqueta": "Presentación de solicitudes", "descripcion": "Periodo habilitado para presentar la solicitud.", "semantica": "plazo", "orden": 1, "publicable": true},
+        {"clave": "subsanacion", "version": 1, "etiqueta": "Subsanación", "descripcion": "Periodo habilitado para subsanar.", "semantica": "aviso", "orden": 2, "publicable": true}
+      ]
+    },
+    {
+      "referencia": "tipos_documento",
+      "version": 1,
+      "entradas": [
+        {"clave": "bases", "version": 1, "etiqueta": "Bases", "descripcion": "Bases reguladoras del proceso.", "semantica": "documento", "orden": 1, "publicable": true},
+        {"clave": "anuncio", "version": 1, "etiqueta": "Anuncio", "descripcion": "Anuncio público del proceso.", "semantica": "informacion", "orden": 2, "publicable": true}
+      ]
+    },
+    {
+      "referencia": "categorias_ayuda",
+      "version": 1,
+      "entradas": [
+        {"clave": "participacion", "version": 1, "etiqueta": "Participación", "descripcion": "Ayuda sobre participación en el proceso.", "semantica": "informacion", "orden": 1, "publicable": true},
+        {"clave": "documentacion", "version": 1, "etiqueta": "Documentación", "descripcion": "Ayuda sobre documentos públicos.", "semantica": "documento", "orden": 2, "publicable": true}
+      ]
+    }
+  ],
+  "convocatorias": [
+    {
+      "id": "proceso:demo:bolsa-auxiliar-2026",
+      "version": "v1",
+      "estado": "inscripcion",
+      "datos_publicos": {
+        "identificador_publico": "bolsa-auxiliar-administrativo-demo-2026",
+        "tipo": "bolsa_temporal",
+        "categorias": ["auxiliar_administrativo"],
+        "titulo": "Bolsa temporal de auxiliar administrativo — demostración",
+        "resumen": "Ejemplo sintético de una convocatoria con plazo de inscripción abierto.",
+        "descripcion": "Esta ficha permite comprobar la consulta pública de plazos, requisitos, documentos y ayuda. Todo el contenido es sintético y carece de validez administrativa.",
+        "publicada_en": "2026-07-01T08:00:00Z",
+        "actualizada_en": "2026-07-15T08:00:00Z",
+        "plazos": [
+          {"referencia": "plazo:demo:inscripcion-auxiliar", "tipo": "inscripcion", "titulo": "Presentación de solicitudes", "descripcion": "Periodo sintético usado para probar el portal.", "abre_en": "2026-07-01T08:00:00Z", "cierra_en": "2026-08-15T21:59:59Z"}
+        ],
+        "requisitos": [
+          {"referencia": "requisito:demo:titulacion-auxiliar", "orden": 1, "titulo": "Titulación requerida", "descripcion": "Titulación indicada en las bases de demostración.", "obligatorio": true},
+          {"referencia": "requisito:demo:capacidad-auxiliar", "orden": 2, "titulo": "Capacidad funcional", "descripcion": "Capacidad necesaria para las tareas descritas en las bases de demostración.", "obligatorio": true}
+        ],
+        "documentos": [
+          {"referencia": "documento:demo:bases-auxiliar-v1", "tipo": "bases", "orden": 1, "titulo": "Bases de demostración", "descripcion": "Documento HTML sintético sin validez administrativa.", "formato": "html", "url": "/bolsa/documentos/bases-auxiliar-demo.html", "publicado_en": "2026-07-01T08:00:00Z"},
+          {"referencia": "documento:demo:anuncio-auxiliar-v1", "tipo": "anuncio", "orden": 2, "titulo": "Anuncio de demostración", "descripcion": "Anuncio HTML sintético sin validez administrativa.", "formato": "html", "url": "/bolsa/documentos/anuncio-auxiliar-demo.html", "publicado_en": "2026-07-01T08:00:00Z"}
+        ],
+        "ayuda": [
+          {"referencia": "ayuda:demo:participar-auxiliar", "categoria": "participacion", "orden": 1, "pregunta": "¿Cómo se participa en este ejemplo?", "respuesta": "Revise el plazo, los requisitos y las bases de demostración antes de usar el futuro trámite autenticado."},
+          {"referencia": "ayuda:demo:validez-auxiliar", "categoria": "documentacion", "orden": 2, "pregunta": "¿Estos documentos tienen validez?", "respuesta": "No. Son documentos sintéticos destinados exclusivamente a comprobar el portal."}
+        ]
+      }
+    },
+    {
+      "id": "proceso:demo:seleccion-gestion-2026",
+      "version": "v1",
+      "estado": "proxima",
+      "datos_publicos": {
+        "identificador_publico": "proceso-tecnico-gestion-demo-2026",
+        "tipo": "proceso_selectivo",
+        "categorias": ["tecnico_gestion"],
+        "titulo": "Proceso selectivo de técnico de gestión — demostración",
+        "resumen": "Ejemplo sintético de una convocatoria publicada antes de abrir su plazo.",
+        "descripcion": "Ficha sintética para comprobar estados próximos, filtrado y lectura accesible del detalle.",
+        "publicada_en": "2026-07-10T08:00:00Z",
+        "actualizada_en": "2026-07-14T08:00:00Z",
+        "plazos": [
+          {"referencia": "plazo:demo:inscripcion-gestion", "tipo": "inscripcion", "titulo": "Presentación de solicitudes", "descripcion": "Periodo futuro sintético usado para probar el portal.", "abre_en": "2026-09-01T08:00:00Z", "cierra_en": "2026-09-20T21:59:59Z"}
+        ],
+        "requisitos": [
+          {"referencia": "requisito:demo:titulacion-gestion", "orden": 1, "titulo": "Titulación requerida", "descripcion": "Titulación indicada en las bases de demostración.", "obligatorio": true}
+        ],
+        "documentos": [
+          {"referencia": "documento:demo:bases-gestion-v1", "tipo": "bases", "orden": 1, "titulo": "Bases de demostración", "descripcion": "Documento HTML sintético sin validez administrativa.", "formato": "html", "url": "/bolsa/documentos/bases-gestion-demo.html", "publicado_en": "2026-07-10T08:00:00Z"}
+        ],
+        "ayuda": [
+          {"referencia": "ayuda:demo:apertura-gestion", "categoria": "participacion", "orden": 1, "pregunta": "¿Se puede presentar ya la solicitud?", "respuesta": "No. El ejemplo muestra un plazo próximo; la situación y las fechas se indican en la ficha."}
+        ]
+      }
+    }
+  ]
+}
