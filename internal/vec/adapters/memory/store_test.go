@@ -11,9 +11,13 @@ func TestStorePersistsModulesAuditAndEvents(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()
 	if err := store.SaveModule(ctx, domain.ModuleManifest{
-		ID:      "vec.module.demo",
-		NameKey: "ui.module.demo",
-		Menu:    []domain.MenuEntry{{ID: "home", ModuleID: "vec.module.demo", LabelKey: "ui.home", Path: "/demo"}},
+		ID:          "vec.module.demo",
+		NameKey:     "ui.module.demo",
+		Permissions: []domain.Permission{{Key: "demo.read", LabelKey: "ui.permission.demo.read"}},
+		Menu: []domain.MenuEntry{{
+			ID: "home", ModuleID: "vec.module.demo", LabelKey: "ui.home", Path: "/demo",
+			RequiredPermissions: []string{"demo.read"},
+		}},
 	}); err != nil {
 		t.Fatalf("SaveModule() error = %v", err)
 	}

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 var (
@@ -32,6 +34,28 @@ const (
 	AuthAssuranceHigh        AuthAssurance = "alto"
 )
 
+func (a AuthAssurance) Valida() bool {
+	return a == AuthAssuranceLow || a == AuthAssuranceSubstantial || a == AuthAssuranceHigh
+}
+
+func (a AuthAssurance) Cumple(minima AuthAssurance) bool {
+	nivel := map[AuthAssurance]int{
+		AuthAssuranceLow:         1,
+		AuthAssuranceSubstantial: 2,
+		AuthAssuranceHigh:        3,
+	}
+	actual, actualValido := nivel[a]
+	requerido, requeridoValido := nivel[minima]
+	return actualValido && requeridoValido && actual >= requerido
+}
+
+// CumpleGarantiaAutenticacion conserva el contrato funcional usado por los
+// adaptadores, pero pertenece al núcleo de identidad y no a un módulo de
+// autorización o documentos concreto.
+func CumpleGarantiaAutenticacion(actual, minima AuthAssurance) bool {
+	return actual.Cumple(minima)
+}
+
 type Principal struct {
 	ID            string            `json:"id"`
 	DisplayName   string            `json:"display_name"`
@@ -44,25 +68,64 @@ type Principal struct {
 }
 
 func (p Principal) Validate() error {
-	if strings.TrimSpace(p.ID) == "" {
+	if !textoPrincipalSeguro(p.ID, 512, false) ||
+		(p.DisplayName != "" && !textoPrincipalSeguro(p.DisplayName, 512, true)) ||
+		(p.Email != "" && !textoPrincipalSeguro(p.Email, 512, false)) ||
+		len(p.Roles) > 64 || len(p.Permissions) > 512 || len(p.Attributes) > 128 {
 		return ErrPrincipalInvalid
 	}
-	if strings.TrimSpace(string(p.AuthMethod)) == "" {
+	if !p.AuthMethod.Valido() {
 		return ErrPrincipalInvalid
 	}
-	if strings.TrimSpace(string(p.AuthAssurance)) == "" {
+	if !p.AuthAssurance.Valida() {
 		return ErrPrincipalInvalid
+	}
+	roles := make(map[string]struct{}, len(p.Roles))
+	for _, rol := range p.Roles {
+		if !identificadorManifestSeguro(rol, 128) || strings.ContainsRune(rol, '*') {
+			return ErrPrincipalInvalid
+		}
+		if _, repetido := roles[rol]; repetido {
+			return ErrPrincipalInvalid
+		}
+		roles[rol] = struct{}{}
+	}
+	permisos := make(map[string]struct{}, len(p.Permissions))
+	for _, permiso := range p.Permissions {
+		if !permisoManifestConcreto(permiso) {
+			return ErrPrincipalInvalid
+		}
+		if _, repetido := permisos[permiso]; repetido {
+			return ErrPrincipalInvalid
+		}
+		permisos[permiso] = struct{}{}
+	}
+	for clave, valor := range p.Attributes {
+		if !identificadorManifestSeguro(clave, 128) || !textoPrincipalSeguro(valor, 1024, true) {
+			return ErrPrincipalInvalid
+		}
 	}
 	return nil
 }
 
-func (p Principal) HasPermission(permission string) bool {
-	permission = strings.TrimSpace(permission)
-	if permission == "" {
+func (a AuthMethod) Valido() bool {
+	switch a {
+	case AuthMethodCertificate, AuthMethodDNIe, AuthMethodSSO, AuthMethodClave,
+		AuthMethodKerberos, AuthMethodDemo:
 		return true
+	default:
+		return false
+	}
+}
+
+func (p Principal) HasPermission(permission string) bool {
+	// Ni el principal ni el permiso solicitado se normalizan para conceder. Una
+	// identidad o configuracion no canonica pierde todas sus capacidades.
+	if p.Validate() != nil || !permisoManifestConcreto(permission) {
+		return false
 	}
 	for _, candidate := range p.Permissions {
-		if strings.TrimSpace(candidate) == permission {
+		if candidate == permission && permisoManifestConcreto(candidate) {
 			return true
 		}
 	}
@@ -70,6 +133,11 @@ func (p Principal) HasPermission(permission string) bool {
 }
 
 func (p Principal) HasAllPermissions(permissions []string) bool {
+	// Una lista vacia nunca significa acceso publico. Cada superficie debe
+	// declarar al menos un permiso positivo y concreto.
+	if len(permissions) == 0 {
+		return false
+	}
 	for _, permission := range permissions {
 		if !p.HasPermission(permission) {
 			return false
@@ -96,12 +164,43 @@ type ModuleManifest struct {
 }
 
 func (m ModuleManifest) Validate() error {
-	if strings.TrimSpace(m.ID) == "" || strings.TrimSpace(m.NameKey) == "" {
+	if !identificadorManifestSeguro(m.ID, 128) || !identificadorManifestSeguro(m.NameKey, 256) ||
+		len(m.Permissions) == 0 || len(m.Permissions) > 512 || len(m.Menu) > 512 {
 		return ErrModuleInvalid
 	}
+
+	permisosDeclarados := make(map[string]struct{}, len(m.Permissions))
+	for _, permiso := range m.Permissions {
+		if !permisoManifestConcreto(permiso.Key) || !identificadorManifestSeguro(permiso.LabelKey, 256) {
+			return ErrModuleInvalid
+		}
+		if _, repetido := permisosDeclarados[permiso.Key]; repetido {
+			return ErrModuleInvalid
+		}
+		permisosDeclarados[permiso.Key] = struct{}{}
+	}
+
+	identificadoresMenu := make(map[string]struct{}, len(m.Menu))
+	rutasMenu := make(map[string]struct{}, len(m.Menu))
 	for _, entry := range m.Menu {
 		if err := entry.Validate(); err != nil {
 			return err
+		}
+		if entry.ModuleID != m.ID {
+			return ErrMenuEntryInvalid
+		}
+		if _, repetido := identificadoresMenu[entry.ID]; repetido {
+			return ErrMenuEntryInvalid
+		}
+		if _, repetida := rutasMenu[entry.Path]; repetida {
+			return ErrMenuEntryInvalid
+		}
+		identificadoresMenu[entry.ID] = struct{}{}
+		rutasMenu[entry.Path] = struct{}{}
+		for _, permiso := range entry.RequiredPermissions {
+			if _, declarado := permisosDeclarados[permiso]; !declarado {
+				return ErrMenuEntryInvalid
+			}
 		}
 	}
 	return nil
@@ -119,11 +218,57 @@ type MenuEntry struct {
 }
 
 func (m MenuEntry) Validate() error {
-	if strings.TrimSpace(m.ID) == "" || strings.TrimSpace(m.ModuleID) == "" ||
-		strings.TrimSpace(m.LabelKey) == "" || strings.TrimSpace(m.Path) == "" {
+	if !identificadorManifestSeguro(m.ID, 128) || !identificadorManifestSeguro(m.ModuleID, 128) ||
+		!identificadorManifestSeguro(m.LabelKey, 256) || !rutaMenuInternaSegura(m.Path) ||
+		len(m.RequiredPermissions) == 0 || len(m.RequiredPermissions) > 32 {
 		return ErrMenuEntryInvalid
 	}
+	permisos := make(map[string]struct{}, len(m.RequiredPermissions))
+	for _, permiso := range m.RequiredPermissions {
+		if !permisoManifestConcreto(permiso) {
+			return ErrMenuEntryInvalid
+		}
+		if _, repetido := permisos[permiso]; repetido {
+			return ErrMenuEntryInvalid
+		}
+		permisos[permiso] = struct{}{}
+	}
 	return nil
+}
+
+func identificadorManifestSeguro(valor string, maximoBytes int) bool {
+	if valor == "" || valor != strings.TrimSpace(valor) || len(valor) > maximoBytes || !utf8.ValidString(valor) {
+		return false
+	}
+	for _, caracter := range valor {
+		if unicode.IsControl(caracter) || unicode.IsSpace(caracter) {
+			return false
+		}
+	}
+	return true
+}
+
+func permisoManifestConcreto(permiso string) bool {
+	return identificadorManifestSeguro(permiso, 256) && !strings.ContainsRune(permiso, '*')
+}
+
+func textoPrincipalSeguro(valor string, maximoBytes int, permiteEspacios bool) bool {
+	if valor == "" || valor != strings.TrimSpace(valor) || len(valor) > maximoBytes || !utf8.ValidString(valor) {
+		return false
+	}
+	for _, caracter := range valor {
+		if unicode.IsControl(caracter) || (!permiteEspacios && unicode.IsSpace(caracter)) {
+			return false
+		}
+	}
+	return true
+}
+
+func rutaMenuInternaSegura(ruta string) bool {
+	if !identificadorManifestSeguro(ruta, 512) || !strings.HasPrefix(ruta, "/") || strings.HasPrefix(ruta, "//") {
+		return false
+	}
+	return !strings.ContainsAny(ruta, "?#\\\\")
 }
 
 type Event struct {
@@ -137,17 +282,33 @@ type Event struct {
 }
 
 type AuditEntry struct {
-	ID            string            `json:"id"`
-	Seq           int64             `json:"seq"`
-	ActorID       string            `json:"actor_id"`
-	Action        string            `json:"action"`
-	ModuleID      string            `json:"module_id"`
-	SubjectRef    string            `json:"subject_ref"`
-	Result        string            `json:"result"`
-	Metadata      map[string]string `json:"metadata,omitempty"`
-	OccurredAt    time.Time         `json:"occurred_at"`
-	PrevSignature string            `json:"prev_signature,omitempty"`
-	Signature     string            `json:"signature"`
+	ID                   string            `json:"id"`
+	Seq                  int64             `json:"seq"`
+	ActorID              string            `json:"actor_id"`
+	ActorProfile         string            `json:"actor_profile,omitempty"`
+	ActorRoles           []string          `json:"actor_roles,omitempty"`
+	RepresentedSubjectID string            `json:"represented_subject_id,omitempty"`
+	AuthMethod           AuthMethod        `json:"auth_method,omitempty"`
+	AuthAssurance        AuthAssurance     `json:"auth_assurance,omitempty"`
+	AuthorizationRef     string            `json:"authorization_ref,omitempty"`
+	Purpose              string            `json:"purpose,omitempty"`
+	Action               string            `json:"action"`
+	ModuleID             string            `json:"module_id"`
+	SubjectRef           string            `json:"subject_ref"`
+	ObjectVersion        int               `json:"object_version,omitempty"`
+	ExpedienteRef        string            `json:"expediente_ref,omitempty"`
+	DocumentRef          string            `json:"document_ref,omitempty"`
+	RuleRef              string            `json:"rule_ref,omitempty"`
+	Reason               string            `json:"reason,omitempty"`
+	Result               string            `json:"result"`
+	BeforeHash           string            `json:"before_hash,omitempty"`
+	AfterHash            string            `json:"after_hash,omitempty"`
+	CorrelationRef       string            `json:"correlation_ref,omitempty"`
+	Metadata             map[string]string `json:"metadata,omitempty"`
+	OccurredAt           time.Time         `json:"occurred_at"`
+	IntegrityAlgorithm   string            `json:"integrity_algorithm,omitempty"`
+	PrevSignature        string            `json:"prev_signature,omitempty"`
+	Signature            string            `json:"signature"`
 }
 
 type AuthChallenge struct {

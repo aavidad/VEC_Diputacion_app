@@ -17,6 +17,10 @@ func TestBuildMenuFiltersByPermission(t *testing.T) {
 	manifest := domain.ModuleManifest{
 		ID:      "vec.module.demo",
 		NameKey: "ui.module.demo",
+		Permissions: []domain.Permission{
+			{Key: "demo.read", LabelKey: "ui.permission.demo.read"},
+			{Key: "demo.admin", LabelKey: "ui.permission.demo.admin"},
+		},
 		Menu: []domain.MenuEntry{
 			{ID: "visible", ModuleID: "vec.module.demo", LabelKey: "ui.visible", Path: "/visible", Order: 2, RequiredPermissions: []string{"demo.read"}},
 			{ID: "hidden", ModuleID: "vec.module.demo", LabelKey: "ui.hidden", Path: "/hidden", Order: 1, RequiredPermissions: []string{"demo.admin"}},
