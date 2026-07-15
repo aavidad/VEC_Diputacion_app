@@ -205,7 +205,7 @@ func TestPersonalCategoryCRUDEndpoints(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/vec/personal/categories", strings.NewReader(`{"slug":"nueva-categoria","name":"Nueva Categoria","area":"administracion_especial","source":"test"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/vec/personal/categories", strings.NewReader(`{"slug":"nueva-categoria","name":"Nueva Categoria","area":"administracion_especial","source":"test","state":"vigente"}`))
 	headers(req)
 	handler.ServeHTTP(rec, req)
 	if rec.Code != http.StatusCreated {
@@ -213,7 +213,7 @@ func TestPersonalCategoryCRUDEndpoints(t *testing.T) {
 	}
 
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPut, "/api/vec/personal/categories/nueva-categoria", strings.NewReader(`{"name":"Nueva Categoria Editada","area":"administracion_general","source":"test"}`))
+	req = httptest.NewRequest(http.MethodPut, "/api/vec/personal/categories/nueva-categoria", strings.NewReader(`{"name":"Nueva Categoria Editada","area":"administracion_general","source":"test","state":"vigente"}`))
 	headers(req)
 	handler.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Nueva Categoria Editada") {
