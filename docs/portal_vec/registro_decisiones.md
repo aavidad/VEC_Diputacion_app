@@ -1601,3 +1601,56 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   recuperacion; caducidad y sustitucion; revocacion de permiso; y recibo,
   manifiesto o vinculo manipulados. Deben quedar una preparacion, como maximo
   un recibo activo y una cadena completa de auditoria y evidencias.
+
+## DEC-047 — Capacidades TCB privadas y conectores nominales
+
+- Estado: decision transversal adoptada el 15 de julio de 2026; servicios de
+  aplicacion, composicion y adaptadores productivos pendientes. Ningun contrato
+  nominal de idempotencia o despacho autoriza por si solo un efecto.
+- Problema de lenguaje: Go no ofrece paquetes amigos. Una fabrica exportada que
+  acepte verificadores sustituibles puede ser invocada tambien por un handler y
+  autocertificar una capacidad mediante dobles. Sellar una interfaz con metodos
+  privados evita ese abuso, pero tambien impide que un adaptador KMS, registro u
+  Oracle/PostgreSQL de otro paquete la implemente y rompe la arquitectura
+  hexagonal.
+- Puertos publicos: solicitudes canonicas, resultados de conectores y pruebas
+  transportables se denominan expresamente `Crudo` o `Nominal`. Pueden tener
+  constructores publicos y ser implementados por adaptadores, pero su validacion
+  solo acredita forma, vinculo y redaccion; nunca autenticidad, completitud,
+  vigencia, consumo ni autoridad.
+- Servicio privado: la promocion se realiza dentro de un servicio de aplicacion
+  con dependencias privadas de identidad, KMS, registro, catalogos y
+  persistencia, fijadas exclusivamente por la raiz de composicion homologada.
+  Su constructor devuelve solo el puerto del caso de uso. No devuelve
+  verificadores, repositorios, promotores ni capacidades.
+- Capacidad efimera: el valor comprobado tiene campos privados, no se serializa,
+  no se persiste, no se registra y no aparece en firmas HTTP, CLI, MCP ni en
+  eventos. Se crea y consume dentro de la misma llamada del servicio. Un
+  handler solo recibe comandos funcionales y resultados minimizados.
+- Completitud de llaveros: idempotencia exige un testimonio combinado y
+  atestado que inmovilice referencia, revision, cantidad, orden y topologia
+  completa de los llaveros de identidades e indices junto con toda la matriz.
+  El productor y el verificador de confianza son fronteras distintas. Una
+  matriz coherente cuya fuente haya omitido historicos y recalculado sus propias
+  huellas sigue siendo nominal y se deniega.
+- Consumo documental: verificar o releer una orden no basta. El registro debe
+  releer el inicio durable, adopcion V3/V4, secuencia y reclamacion y consumir
+  la orden mediante CAS en la misma transaccion que confirma auditoria y
+  outbox. Se prohibe el patron leer-verificar-usar con una ventana TOCTOU.
+- Composicion: HTTP, CLI, MCP, modulos funcionales y DTO nunca reciben ni
+  seleccionan los conectores TCB. La raiz construye una vez los servicios con
+  implementaciones homologadas y entrega a cada adaptador de entrada solamente
+  su caso de uso de minimo privilegio.
+- Guardas de arquitectura: pruebas AST/importaciones fallan si una frontera
+  externa importa adaptadores TCB, referencia fabricas o tipos comprobados,
+  incluye capacidades en peticiones/respuestas o usa constructores de
+  composicion fuera de `bootstrap`, aplicacion o pruebas autorizadas.
+- Aislamiento reforzado: si el modelo de amenaza incluye un handler o proceso
+  web comprometido, la opacidad de tipos Go no constituye una barrera. KMS,
+  registro y trabajador de efectos se ejecutan en proceso interno separado con
+  identidad de servicio, mTLS, red restringida y un protocolo nominal
+  autenticado.
+- Puerta tecnica: no hay GO hasta probar el ensamblado real desde el caso de uso
+  hasta KMS y PostgreSQL, llamada unica donde proceda, consumo CAS, cancelacion,
+  reinicio, carreras, denegacion por defecto y ausencia de capacidades en todas
+  las fronteras externas. Dobles unitarios no acreditan esta puerta.
