@@ -8,12 +8,31 @@
 | Naturaleza | Estudio funcional, juridico, de datos y de arquitectura previo a la implementacion. |
 | Estado | Propuesta razonada pendiente de validacion por Seleccion, Personal, Secretaria/Asesoria Juridica, DPD y Sistemas. |
 | Alcance | Convocatorias, bolsas, autobaremacion, revision administrativa y servicios prestados. |
-| Acredita implementacion | **No.** Describe el comportamiento exigible y las decisiones que deben cerrarse antes de programar el motor y sus pantallas. |
+| Acredita implementacion | **Parcial.** Esta implantado el fundamento neutral de valores exactos; no el motor gobernado, sus reglas, persistencia ni pantallas. |
 | Puerta productiva | **NO-GO.** El baremo demostrativo actual no puede utilizarse para resolver una convocatoria real. |
 
 Este documento no sustituye el informe juridico de la Diputacion ni interpreta
 unas bases concretas. Su finalidad es impedir que el producto codifique como
 regla universal lo que en Derecho depende de cada convocatoria.
+
+### Estado tecnico del fundamento exacto
+
+El paquete `internal/shared/baremacion` ya incorpora y prueba:
+
+- puntuacion no negativa en micropuntos, con seis decimales exactos;
+- racionales canonicos y acotados;
+- fracciones de jornada en el intervalo `(0, 1]`, por ejemplo `1/3` sin
+  aproximacion binaria;
+- fechas civiles gregorianas sin hora ni zona;
+- intervalos civiles semiabiertos `[desde, hasta)` para evitar dobles conteos;
+- serializacion JSON canonica y rechazo cerrado de valores ambiguos, no
+  canonicos o fuera de limites.
+
+Son tipos neutrales: no contienen coeficientes, meses convencionales,
+redondeos, topes ni reglas de una convocatoria. Su existencia no levanta el
+`NO-GO` del motor. El tipo de puntuacion anterior de Bolsa sigue siendo un
+contrato diferente; su migracion exigira un conversor explicito y versionado,
+sin alias ni reinterpretacion silenciosa del JSON historico.
 
 ## Decision ejecutiva
 
@@ -689,6 +708,8 @@ un interprete general desde administracion.
 El proyecto ya contiene decisiones utiles, pero este requisito no esta
 terminado:
 
+- `internal/shared/baremacion` aporta ya puntuacion, racional, fraccion de
+  jornada, fecha e intervalo civil exactos, con limites defensivos y pruebas;
 - `internal/modules/bolsa/domain/baremacion.go` dispone de puntuacion entera,
   referencias y decisiones append-only aprovechables.
 - `docs/portal_vec/dominio_y_autobaremacion.md` ya separa autobaremo ciudadano,
@@ -721,8 +742,8 @@ una convocatoria real.
 1. **Cierre funcional y juridico:** Seleccion aporta dos o tres bases reales,
    Personal identifica la fuente autoritativa y Asesoria/Secretaria valida las
    interpretaciones y ejemplos.
-2. **Dominio de reglas:** agregado, tipos, unidades exactas, jornada, tiempo,
-   topes, incompatibilidades, canonico y calculador puro.
+2. **Dominio de reglas:** completar, sobre los tipos exactos ya implantados, el
+   agregado, unidades, topes, incompatibilidades, canonico y calculador puro.
 3. **Pruebas de conformidad:** transcribir ejemplos oficiales y crear casos
    golden, propiedades, limites, concurrencia y reproduccion historica.
 4. **Servicios de oficio:** modelo de Personal, conector de solo lectura,

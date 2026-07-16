@@ -2458,3 +2458,81 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   plantilla ni romper V1 durante la migración.
 - Especificación:
   `docs/estudio_requisitos/archivo_documental_rrhh_relacionado.md`.
+
+## DEC-070 — Valores exactos compartidos para baremación
+
+- Estado: fundamento implantado el 16 de julio de 2026; motor gobernado,
+  persistencia y migración del contrato anterior pendientes y en **NO-GO**.
+- Alcance: `internal/shared/baremacion` contiene únicamente tipos neutrales;
+  ninguna base, coeficiente, redondeo o política provincial se compila en el
+  paquete.
+- Puntos: seis decimales mediante micropuntos enteros no negativos, límite
+  defensivo y JSON como cadena decimal canónica para no perder precisión en
+  clientes JavaScript.
+- Proporciones: racional reducido y acotado; la fracción de jornada admite
+  exactamente `(0,1]`, incluido `1/3`, sin `float64`.
+- Tiempo civil: fecha gregoriana sin hora/zona e intervalo semiabierto
+  `[desde,hasta)`, evitando contar dos veces extremos adyacentes.
+- Fallo cerrado: valores nulos inválidos, formatos alternativos, fracciones no
+  exactas y desbordamientos se rechazan; la capa llamante debe declarar la
+  política de redondeo y no puede ocultarla.
+- Compatibilidad: el `Puntos` anterior de Bolsa y su JSON no se redefinen por
+  alias. La transición utilizará un conversor explícito, una versión de
+  contrato y pruebas históricas antes de retirar el modelo previo.
+- Evidencia: pruebas unitarias, de propiedades de límites, calendario,
+  serialización y rechazo; `go test -race` y `go vet` superados en el commit de
+  implantación.
+- Especificación:
+  `docs/estudio_requisitos/baremacion_configurable_jornada_y_datos_de_oficio.md`.
+
+## DEC-071 — Fronteras del portal integral de Recursos Humanos
+
+- Estado: arquitectura de referencia adoptada el 16 de julio de 2026;
+  validación institucional y desarrollo por fases pendientes.
+- Producto: Bolsa es el primer módulo de un portal integral, no el dueño de
+  Persona, Personal, RPT, Cronos, Nómina, PRL o Archivo.
+- Compartido: persona canónica, identidad, autorización, políticas,
+  documentos, firma, registro, calendarios, comunicaciones, auditoría y
+  procedencia son capacidades transversales con vistas por finalidad.
+- Separado: cada contexto conserva reglas, datos reservados, expedientes y
+  ciclo de vida. Los módulos intercambian hechos mínimos versionados y no
+  importan entidades internas ni acceden a tablas ajenas.
+- Temporalidad: relaciones, organización, RPT, ocupaciones, políticas y actos
+  conservan fecha efectiva y fecha de conocimiento; rectificar crea un nuevo
+  acto y no reescribe el pasado.
+- Acceso: público, aspirante, empleado, responsable, RRHH y administración
+  privilegiada son zonas y sesiones distintas. Un perfil no hereda los
+  privilegios de otro por pertenecer a la misma persona.
+- Reglas: una práctica de otra Administración solo mejora el diseño. Todo
+  efecto material exige norma, convenio, acuerdo, bases o resolución, ámbito,
+  vigencia, órgano, firma y prueba.
+- Alcance inmediato: continuar Núcleo y Bolsa; definir contratos futuros, pero
+  no programar aún coeficientes de Cronos, Nómina, carrera o turnicidad.
+- Especificaciones:
+  `docs/estudio_requisitos/analisis_integral_rrhh.md`,
+  `docs/estudio_requisitos/matriz_normativa_rrhh_2026.md` y
+  `docs/estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md`.
+
+## DEC-072 — Tiempo trabajado, festivos y compensaciones como hechos separados
+
+- Estado: modelo adoptado el 16 de julio de 2026; cálculo real bloqueado hasta
+  consolidar reglas y calendarios de cada centro.
+- Conceptos: festivo, día hábil, apertura, turno, trabajo real, gestión de
+  servicio, hora extraordinaria, disponibilidad, descanso y pago no son
+  equivalentes.
+- Fuente: el Reglamento provincial de 2010 y el Convenio de 2006 recogen
+  compensaciones concretas, incluida la referencia a dos días por ciertos
+  festivos, pero el Reglamento remite los Centros Sociales a normas propias.
+- Seguridad jurídica: no se activa «festivo = dos días» de forma universal.
+  La ausencia de calendario, cuadrante, condición RPT, política o aprobación
+  produce `no determinable`.
+- Compatibilidad: acumular descanso, complemento, gratificación u hora extra
+  está prohibido por defecto y solo se permite cuando una política aprobada lo
+  declare expresamente.
+- Fronteras: Cronos conserva programación, hechos y saldos; Nómina recibe la
+  liquidación aprobada; Bolsa solo recibe periodos oficiales y fracción de
+  jornada, nunca fichajes, permisos o ubicación.
+- Historia: marcajes y cierres no se sobrescriben; una corrección crea asientos
+  relacionados y una liquidación nueva cuando proceda.
+- Especificación:
+  `docs/estudio_requisitos/turnos_festivos_y_compensaciones.md`.
