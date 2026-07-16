@@ -8,16 +8,17 @@ import (
 	"testing"
 )
 
-func TestMaterialCanonicoHMACSelloBaremacionCongelaFormulaContractual(t *testing.T) {
+func TestMaterialCanonicoHMACSelloBaremacionCongelaVerificacionHistoricaV2(t *testing.T) {
 	representacion, err := NuevaCargaProtegida([]byte("representacion-canonica-vector-v1"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	solicitud := SolicitudSellarSelloBaremacion{
+	verificacion := SolicitudVerificarSelloBaremacion{
 		Finalidad:              FinalidadSelloManifiestoProbatorioBaremacionV2,
 		RepresentacionCanonica: representacion,
+		SelloHMAC:              "hmac-sha256:vector_1:" + huellaPruebaPuertos("a"),
 	}
-	material, err := solicitud.MaterialCanonicoHMAC()
+	material, err := verificacion.MaterialCanonicoHMAC()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,14 +32,57 @@ func TestMaterialCanonicoHMACSelloBaremacionCongelaFormulaContractual(t *testing
 		t.Fatalf("vector de preimagen alterado: obtenido=%s esperado=%s", obtenida, vectorSHA256)
 	}
 
-	verificacion := SolicitudVerificarSelloBaremacion{
-		Finalidad:              solicitud.Finalidad,
-		RepresentacionCanonica: solicitud.RepresentacionCanonica,
-		SelloHMAC:              "hmac-sha256:vector_1:" + huellaPruebaPuertos("a"),
+	if _, err := (SolicitudSellarSelloBaremacion{
+		Finalidad:              FinalidadSelloManifiestoProbatorioBaremacionV2,
+		RepresentacionCanonica: representacion,
+	}).MaterialCanonicoHMAC(); !errors.Is(err, ErrSolicitudBaremacionInvalida) {
+		t.Fatalf("el productor admitio la finalidad historica V2: %v", err)
 	}
-	materialVerificacion, err := verificacion.MaterialCanonicoHMAC()
-	if err != nil || !bytes.Equal(material.Revelar(), materialVerificacion.Revelar()) {
-		t.Fatalf("productor y verificador divergen: %v", err)
+}
+
+func TestSelladoVigenteYVerificacionCompartenPreimagenSinDowngrade(t *testing.T) {
+	representacion, err := NuevaCargaProtegida([]byte("representacion-canonica-vigente"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, finalidad := range []FinalidadSelloBaremacion{
+		FinalidadSelloReservaBaremacion,
+		FinalidadSelloConfirmacionBaremacionV2,
+		FinalidadSelloSobreProbatorioConfirmacionBaremacionV3,
+		FinalidadSelloManifiestoProbatorioBaremacionV3,
+	} {
+		productor := SolicitudSellarSelloBaremacion{
+			Finalidad: finalidad, RepresentacionCanonica: representacion,
+		}
+		materialProductor, err := productor.MaterialCanonicoHMAC()
+		if err != nil {
+			t.Fatalf("finalidad vigente %s rechazada: %v", finalidad, err)
+		}
+		verificador := SolicitudVerificarSelloBaremacion{
+			Finalidad: finalidad, RepresentacionCanonica: representacion,
+			SelloHMAC: "hmac-sha256:vigente_1:" + huellaPruebaPuertos("b"),
+		}
+		materialVerificador, err := verificador.MaterialCanonicoHMAC()
+		if err != nil || !bytes.Equal(materialProductor.Revelar(), materialVerificador.Revelar()) {
+			t.Fatalf("preimagen vigente %s divergente: %v", finalidad, err)
+		}
+	}
+	for _, finalidad := range []FinalidadSelloBaremacion{
+		FinalidadSelloConfirmacionBaremacion,
+		FinalidadSelloSobreProbatorioConfirmacionBaremacionV2,
+		FinalidadSelloManifiestoProbatorioBaremacionV2,
+	} {
+		if err := (SolicitudSellarSelloBaremacion{
+			Finalidad: finalidad, RepresentacionCanonica: representacion,
+		}).Validar(); !errors.Is(err, ErrSolicitudBaremacionInvalida) {
+			t.Fatalf("finalidad retirada %s admitida para sellado: %v", finalidad, err)
+		}
+		if err := (SolicitudVerificarSelloBaremacion{
+			Finalidad: finalidad, RepresentacionCanonica: representacion,
+			SelloHMAC: "hmac-sha256:historica_1:" + huellaPruebaPuertos("c"),
+		}).Validar(); err != nil {
+			t.Fatalf("finalidad historica %s no verificable: %v", finalidad, err)
+		}
 	}
 }
 

@@ -35,6 +35,7 @@ func TestFinalizarFirmaAbandonaReservaSiFallaAntesDeConfirmar(t *testing.T) {
 	acciones := entorno.autorizador.acciones()
 	esperadas := []puertosbolsa.AccionOperacionBaremacion{
 		puertosbolsa.AccionReservarDecisionBaremacion,
+		puertosbolsa.AccionPrevalidarArchivoProbatorioBaremacion,
 		puertosbolsa.AccionConfirmarDecisionBaremacion,
 		puertosbolsa.AccionAbandonarDecisionBaremacion,
 	}
@@ -68,7 +69,7 @@ func TestFinalizarFirmaAcreditaFalloDelAbandonoSinPerderCausa(t *testing.T) {
 	entorno := nuevoEntornoBaremacionPrueba(t)
 	preparada := prepararFirmaBaremacionPrueba(t, entorno)
 	entorno.servicio.selladorSolicitud = selladorCentinelaPorFinalidadBaremacionPrueba{
-		finalidad: []byte(puertosbolsa.FinalidadSelloConfirmacionBaremacion),
+		finalidad: []byte(puertosbolsa.FinalidadSelloConfirmacionBaremacionV2),
 	}
 	errorAbandono := errors.New("fallo interno de abandono simulado")
 	entorno.repositorio.erroresAbandono = []error{errorAbandono, errorAbandono}
@@ -90,7 +91,7 @@ func TestFinalizarFirmaReintentaAbandonoConLaMismaAutorizacion(t *testing.T) {
 	entorno := nuevoEntornoBaremacionPrueba(t)
 	preparada := prepararFirmaBaremacionPrueba(t, entorno)
 	entorno.servicio.selladorSolicitud = selladorCentinelaPorFinalidadBaremacionPrueba{
-		finalidad: []byte(puertosbolsa.FinalidadSelloConfirmacionBaremacion),
+		finalidad: []byte(puertosbolsa.FinalidadSelloConfirmacionBaremacionV2),
 	}
 	entorno.repositorio.erroresAbandono = []error{errors.New("respuesta de abandono perdida")}
 

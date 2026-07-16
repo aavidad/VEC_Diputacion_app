@@ -52,13 +52,47 @@ Las migraciones se aplican con una identidad DBA controlada. El orden es:
 7. `migraciones/000002_operaciones_baremacion.up.sql`
 8. `migraciones/000003_abandono_y_lecturas.up.sql`
 9. `migraciones/000004_entrega_outbox.up.sql`
+10. `migraciones/000005_manifiesto_probatorio_v3.up.sql`
+
+### Ventana obligatoria para instalar `000005`
+
+`000005` **no es una migración en caliente**. Antes de ejecutarla, Sistemas
+debe detener el pool y los procesos de la aplicación y cerrar en la red toda
+posibilidad de reconexión del ejecutor. El chequeo de sesiones y los locks SQL
+son defensas adicionales; no eliminan la carrera si un pool puede volver a
+conectarse después del chequeo.
+
+Con el tráfico ya aislado se verifica que no queda ninguna sesión cuyo `LOGIN`
+sea miembro de `vec_bolsa_baremacion_ejecutor`. Solo la sesión DBA de esa
+ventana recibe el literal exacto:
+
+```bash
+PGOPTIONS='-c vec.confirmar_mantenimiento_bolsa_baremacion_v3=INSTALAR_MIGRACION_BOLSA_BAREMACION_V3_SIN_TRAFICO' \
+  psql --set ON_ERROR_STOP=1 --set VERBOSITY=verbose \
+  --file migraciones/000005_manifiesto_probatorio_v3.up.sql
+```
+
+La migración toma `ACCESS EXCLUSIVE` sobre las tablas mutables V1 antes de
+examinar su historia. Los resultados cerrados y comprobados por el arnés son:
+
+- sin el literal: `SQLSTATE 55000`, sin cambios parciales;
+- con una sesión ejecutora presente: `SQLSTATE 55000`, sin cambios parciales;
+- con historia de versiones no reconstruible: `SQLSTATE 55000`;
+- con esquema compatible y cero sesiones ejecutoras observables: instalación
+  completa. El arnés no puede acreditar el aislamiento de red; cerrar la
+  conectividad y detener todos los pools sigue siendo una precondición
+  operacional de Sistemas.
+
+Después del `COMMIT` se retira el literal, se validan objetos, ACL y RLS y solo
+entonces se reabre la conectividad. El literal no debe incorporarse al entorno
+permanente de ningún servicio.
 
 Las identidades `LOGIN` se crean fuera del repositorio y reciben un solo grupo:
 
 | Grupo | Uso permitido |
 |---|---|
 | `vec_bolsa_baremacion_migrador` | Ejecutar migraciones controladas mediante `SET ROLE` al propietario. Nunca es una cuenta de runtime. |
-| `vec_bolsa_baremacion_ejecutor` | Invocar las seis operaciones del repositorio de baremaciones. |
+| `vec_bolsa_baremacion_ejecutor` | Invocar exclusivamente las fachadas cerradas vigentes de baremación; no recibe acceso a tablas ni helpers. |
 | `vec_bolsa_baremacion_lector_outbox` | Reclamar y finalizar entregas de un consumidor previamente registrado. |
 | `vec_bolsa_baremacion_registrador_atestacion` | Reserva sin privilegios; permanece cerrada hasta integrar el registrador COSE auditado. |
 
@@ -110,6 +144,50 @@ excluyan sesión, autorización y tiempos efímeros, más una autorización actu
 independiente para cada recuperación. No se reordena aquí el SQL ni se relaja
 la autorización porque ese cambio afecta conjuntamente al puerto, al
 adaptador, al modelo de amenazas y a la API.
+
+## Archivo probatorio y prevalidación V3
+
+`000005_manifiesto_probatorio_v3` añade el contrato portable entre Go y
+PostgreSQL sin reescribir las versiones V1 congeladas. La instalación se
+rechaza si ya existe una baremación con versión superior a uno: no inventa ni
+reconstruye a posteriori evidencias que PostgreSQL nunca recibió.
+
+Una incorporación de decisión usa tres fases separadas:
+
+1. La reserva conserva su HMAC de petición, distinto del HMAC de confirmación.
+2. Una autorización dedicada permite obtener y sellar la vista probatoria
+   previa. Se consume una sola vez con un efecto exacto y admite únicamente el
+   replay literal de esa operación.
+3. La confirmación exige el recibo de prevalidación, vuelve a comprobar OCC,
+   reserva, autorización, agregado y manifiesto, y persiste versión, auditoría,
+   outbox, manifiesto y resultado en el mismo `COMMIT`.
+
+El archivo de una versión N contiene exactamente los N-1 manifiestos que
+explican sus decisiones posteriores al alta. Cada entrada conserva el JSON
+estructurado y los tres artefactos binarios exactos: contenido canónico,
+representación canónica y preimagen HMAC. PostgreSQL reconstruye y valida cada
+byte antes de responder. La continuidad no admite huecos y el documento de
+salida tiene un límite cerrado de 64 MiB, comprobado antes y después de
+agregarlo.
+
+Las tablas V3 son append-only, tienen RLS habilitado y forzado y solo aceptan
+al propietario exacto. El ejecutor recibe seis fachadas `SECURITY DEFINER`:
+reserva, prevalidación, confirmación y tres lecturas enriquecidas. Las
+fachadas V1 equivalentes quedan revocadas; la operación de abandono V1 se
+mantiene porque no elude el archivo probatorio.
+
+El fixture dorado compartido
+`internal/modules/bolsa/testdata/manifiesto_probatorio_v3_dorado.json` es
+validado por Go y por PostgreSQL. Fija 18 autorizaciones, 16 evidencias y las
+huellas y longitudes exactas de los tres artefactos; una divergencia en
+cualquiera de los dos runtimes rompe el corredor.
+
+Esta migración implanta en las fachadas V3 un protocolo que evita la
+incompatibilidad HMAC de V1 y cierra la persistencia del archivo. No repara ni
+reabre las fachadas V1, no elimina los bloqueos de producción descritos en
+DEC-045 ni sustituye el verificador HSM/KMS y el registrador COSE auditados.
+Los sellos de la prueba son fixtures, no una frontera criptográfica
+productiva.
 
 ### Incompatibilidad funcional V1 confirmada
 
@@ -238,16 +316,54 @@ La prueba usa PostgreSQL 18.4 real y comprueba:
 - dos sesiones PostgreSQL reales compitiendo por el mismo evento: exactamente
   una obtiene el arrendamiento;
 - ausencia del token de arrendamiento en la historia durable.
+- paridad Go/PostgreSQL del fixture dorado V3, byte por byte;
+- perfil textual común con Go: tipos JSON exactos, referencias ASCII visibles
+  sin comodín, HMAC acotado y RFC3339Nano UTC canónico;
+- inventario de catálogo cerrado: ninguna función para `PUBLIC`, cinco tablas
+  V3 con RLS forzado y política única, cero ACL directa de objetos para roles
+  runtime y conjuntos exactos de fachadas ejecutables;
+- 4096 autorizaciones y 4096 evidencias persistidas y cotejadas por los
+  triggers set-based, más construcción del archivo dentro de la puerta global
+  de 15 segundos;
+- agregación lineal sintética de 4096 fragmentos y 64 MiB con huella conocida;
+- rechazo con `SQLSTATE 23503/23514` de hijos huérfanos, divergentes,
+  secuencias fuera de rango y cabeceras incompletas al confirmar;
+- reserva, prevalidación consumible, confirmación y archivo N-1 atómicos;
+- extremo a extremo Go → PostgreSQL en tres procesos: prevalidación durable,
+  fallo KMS y reintento confirmado mientras la capacidad sigue solo en memoria;
+  después, dos reinicios y dos recuperaciones idempotentes del resultado ya
+  confirmado, sin serializar la capacidad;
+- dos conexiones `SERIALIZABLE` detenidas por una tercera barrera compitiendo
+  por la misma baremación: un `COMMIT`, un `SQLSTATE 40001` y reintento cerrado
+  como `en_curso`, con una sola reserva y un solo consumo;
+- RLS forzado con un `LOGIN` real, incluso ante un `GRANT SELECT` accidental;
+- rechazo íntegro del `down` V3 con historia y reversión de una segunda
+  instalación V3 realmente vacía.
+
+El tramo V3 también puede ejecutarse de forma aislada:
+
+```bash
+./deploy/postgresql/bolsa_baremacion/probar_integracion_v3.sh
+```
 
 La imagen puede sustituirse de forma explícita con
 `VEC_POSTGRES_TEST_IMAGE`, manteniendo PostgreSQL 18.4 o una revisión aprobada.
 
 ## Reversión
 
-Se ejecutan los `down` en orden inverso. Todos fallan antes de mutar si existe
-una fila en cualquier tabla ordinaria o particionada del esquema; el inventario
-completo se bloquea con `ACCESS EXCLUSIVE` antes de comprobarlo. El opt-in nunca
-autoriza a borrar historia y estos ficheros no son herramientas de expurgo.
+Se ejecutan los `down` en orden inverso. `000005` falla antes de mutar si existe
+cualquier manifiesto, hijo, prevalidación, resultado o consumo V3. Los `down`
+anteriores conservan su inventario completo del esquema. Las relaciones se
+bloquean con `ACCESS EXCLUSIVE` antes de comprobarlas. El opt-in nunca autoriza
+a borrar historia y estos ficheros no son herramientas de expurgo.
+
+La reversión `000005` exige su literal propio, incluso vacía:
+
+```bash
+PGOPTIONS='-c vec.confirmar_reversion_bolsa_baremacion_v3=REVERTIR_MIGRACION_BOLSA_BAREMACION_V3' \
+  psql --set ON_ERROR_STOP=1 \
+  --file migraciones/000005_manifiesto_probatorio_v3.down.sql
+```
 
 Las reversiones `000004`, `000003`, `000002` y la frontera de autorización
 exigen, en su propia sesión, el literal común:
@@ -256,6 +372,12 @@ exigen, en su propia sesión, el literal común:
 PGOPTIONS='-c vec.confirmar_reversion_bolsa_baremacion=REVERTIR_MIGRACION_BOLSA_BAREMACION_V1' \
   psql --set ON_ERROR_STOP=1 --file RUTA_DEL_DOWN.sql
 ```
+
+Una reversión vacía de `000005` restaura el inventario y la superficie SQL V1,
+no un flujo funcionalmente equivalente a V3. V1 conserva la incompatibilidad
+HMAC y las limitaciones de lectura descritas arriba, por lo que este `down` es
+una operación de retirada técnica y nunca una autorización para devolverle
+tráfico.
 
 La retirada base `000001` exige además su confirmación destructiva distinta,
 incluso vacía:

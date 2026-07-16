@@ -102,7 +102,7 @@ func (r *repositorioBaremacionPrueba) ConfirmarCambio(
 	representacion, err := puertosbolsa.RepresentacionCanonicaConfirmacionBaremacion(s)
 	if err != nil || r.verificador == nil || r.verificador.VerificarSelloBaremacion(
 		ctx, puertosbolsa.SolicitudVerificarSelloBaremacion{
-			Finalidad: puertosbolsa.FinalidadSelloConfirmacionBaremacion, RepresentacionCanonica: representacion,
+			Finalidad: puertosbolsa.FinalidadSelloConfirmacionBaremacionV2, RepresentacionCanonica: representacion,
 			SelloHMAC: s.HuellaSolicitudHMAC,
 		},
 	) != nil {
@@ -112,7 +112,7 @@ func (r *repositorioBaremacionPrueba) ConfirmarCambio(
 		representacionManifiesto, err := puertosbolsa.RepresentacionCanonicaManifiestoProbatorioBaremacion(*s.Manifiesto)
 		if err != nil || r.verificador.VerificarSelloBaremacion(
 			ctx, puertosbolsa.SolicitudVerificarSelloBaremacion{
-				Finalidad:              puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2,
+				Finalidad:              puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3,
 				RepresentacionCanonica: representacionManifiesto,
 				SelloHMAC:              s.Manifiesto.SelloManifiestoHMACSHA256,
 			},

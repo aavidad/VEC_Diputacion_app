@@ -318,12 +318,27 @@ type decisionAutorizacionCanonicaV1 struct {
 }
 
 func huellaDecisionAutorizacionReforzadaV1(decision domain.DecisionAutorizacion) (string, error) {
-	contenido, err := serializarDecisionAutorizacionReforzadaV1(decision)
+	contenido, err := RepresentacionCanonicaDecisionAutorizacionReforzadaV1(decision)
 	if err != nil {
 		return "", err
 	}
 	suma := sha256.Sum256(contenido)
 	return hex.EncodeToString(suma[:]), nil
+}
+
+// RepresentacionCanonicaDecisionAutorizacionReforzadaV1 devuelve el unico
+// perfil JSON comprometido por la huella de una decision reforzada. Esta
+// proyeccion estrecha existe para que los adaptadores duraderos no repliquen el
+// orden de conjuntos ni el formato UTC de microsegundo fijo.
+//
+// A diferencia de NuevaEvidenciaUsoDecisionAutorizacion, no acredita que las
+// obligaciones hayan sido cumplidas ni convierte la decision en una capacidad
+// consumible. Por ello admite decisiones validas con obligaciones y solo debe
+// usarse para persistencia, cotejo o firma de la representacion.
+func RepresentacionCanonicaDecisionAutorizacionReforzadaV1(
+	decision domain.DecisionAutorizacion,
+) ([]byte, error) {
+	return serializarDecisionAutorizacionReforzadaV1(decision)
 }
 
 func serializarDecisionAutorizacionReforzadaV1(decision domain.DecisionAutorizacion) ([]byte, error) {

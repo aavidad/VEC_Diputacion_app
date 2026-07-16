@@ -19,7 +19,7 @@ func manifiestoSinSelloPrueba(t *testing.T) ManifiestoProbatorioBaremacion {
 	return manifiesto
 }
 
-func TestManifiestoProbatorioV2RechazaDominioAusenteOAjeno(t *testing.T) {
+func TestManifiestoProbatorioV3RechazaDominioAusenteOAjeno(t *testing.T) {
 	casos := []struct {
 		nombre string
 		mutar  func(*ManifiestoProbatorioBaremacion)
@@ -42,11 +42,73 @@ func TestManifiestoProbatorioV2RechazaDominioAusenteOAjeno(t *testing.T) {
 	}
 }
 
-func TestManifiestoProbatorioV2AutenticaDominioComoPrimerosCampos(t *testing.T) {
+func TestManifiestoProbatorioV3RechazaReferenciasNoCanonicas(t *testing.T) {
+	casos := []struct {
+		nombre string
+		mutar  func(*ManifiestoProbatorioBaremacion)
+	}{
+		{"comodin", func(m *ManifiestoProbatorioBaremacion) { m.Referencia = "manifiesto:*" }},
+		{"unicode", func(m *ManifiestoProbatorioBaremacion) { m.Referencia = "manifiesto:á" }},
+		{"comodin en autorizacion", func(m *ManifiestoProbatorioBaremacion) {
+			m.Autorizaciones[0].AutorizacionRef = "autorizacion:*"
+		}},
+		{"unicode en evidencia", func(m *ManifiestoProbatorioBaremacion) {
+			m.Evidencias[0].Referencia = "evidencia:á"
+		}},
+	}
+	for _, caso := range casos {
+		caso := caso
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+			manifiesto := manifiestoSinSelloPrueba(t)
+			caso.mutar(&manifiesto)
+			if _, _, err := manifiesto.PrepararSellado(); !errors.Is(err, ErrSolicitudBaremacionInvalida) {
+				t.Fatalf("la referencia no canonica fue admitida: %v", err)
+			}
+		})
+	}
+}
+
+func TestManifiestoProbatorioV3CompartePerfilTemporalConPostgreSQL(t *testing.T) {
+	rechazados := []struct {
+		nombre   string
+		instante time.Time
+	}{
+		{"valor cero", time.Time{}},
+		{"anio negativo", time.Date(-1, time.January, 1, 0, 0, 0, 0, time.UTC)},
+		{"anio cero", time.Date(0, time.January, 1, 0, 0, 0, 0, time.UTC)},
+		{"anio de cinco cifras", time.Date(10000, time.January, 1, 0, 0, 0, 0, time.UTC)},
+		{"zona no UTC", time.Date(2026, time.July, 16, 12, 0, 0, 0, time.FixedZone("CEST", 2*60*60))},
+	}
+	for _, caso := range rechazados {
+		caso := caso
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+			manifiesto := manifiestoSinSelloPrueba(t)
+			manifiesto.CreadoEn = caso.instante
+			if _, _, err := manifiesto.PrepararSellado(); !errors.Is(err, ErrSolicitudBaremacionInvalida) {
+				t.Fatalf("el instante no canonico fue admitido: %v", err)
+			}
+		})
+	}
+
+	for _, instante := range []time.Time{
+		time.Date(1, time.January, 1, 0, 0, 0, 1, time.UTC),
+		time.Date(9999, time.December, 31, 23, 59, 59, 999999999, time.UTC),
+	} {
+		manifiesto := manifiestoSinSelloPrueba(t)
+		manifiesto.CreadoEn = instante
+		if _, _, err := manifiesto.PrepararSellado(); err != nil {
+			t.Fatalf("el instante limite canonico fue rechazado (%s): %v", instante.Format(time.RFC3339Nano), err)
+		}
+	}
+}
+
+func TestManifiestoProbatorioV3AutenticaDominioComoPrimerosCampos(t *testing.T) {
 	manifiesto := manifiestoSinSelloPrueba(t)
 	_, carga, err := manifiesto.PrepararSellado()
 	if err != nil {
-		t.Fatalf("preparar manifiesto v2: %v", err)
+		t.Fatalf("preparar manifiesto v3: %v", err)
 	}
 	material := carga.Revelar()
 	leer := func() string {
@@ -63,7 +125,7 @@ func TestManifiestoProbatorioV2AutenticaDominioComoPrimerosCampos(t *testing.T) 
 		material = material[longitud:]
 		return valor
 	}
-	if finalidad := leer(); finalidad != string(FinalidadSelloManifiestoProbatorioBaremacionV2) {
+	if finalidad := leer(); finalidad != string(FinalidadSelloManifiestoProbatorioBaremacionV3) {
 		t.Fatalf("finalidad criptografica ausente: %q", finalidad)
 	}
 	interior := []byte(leer())
@@ -83,7 +145,7 @@ func TestManifiestoProbatorioV2AutenticaDominioComoPrimerosCampos(t *testing.T) 
 	}
 }
 
-func TestRepresentacionCanonicaManifiestoProbatorioV2EsPublicaReproducibleYEstable(t *testing.T) {
+func TestRepresentacionCanonicaManifiestoProbatorioV3EsPublicaReproducibleYEstable(t *testing.T) {
 	base := manifiestoSinSelloPrueba(t)
 	preparado, producida, err := base.PrepararSellado()
 	if err != nil {
@@ -106,14 +168,14 @@ func TestRepresentacionCanonicaManifiestoProbatorioV2EsPublicaReproducibleYEstab
 		t.Fatal("productor y verificador no reconstruyen los mismos bytes")
 	}
 	suma := sha256.Sum256(producida.Revelar())
-	const vectorSHA256 = "7de32e3d7a918ec1089d43ba1c560f20522ccec62f2a90c8c1f411d12f4dc7c4"
-	const longitudVector = 6266
+	const vectorSHA256 = "c8fb92a5f3b3dae996fed88b507fb1cd454d877ce08698e84edba1d50e3608af"
+	const longitudVector = 6393
 	if obtenida := hex.EncodeToString(suma[:]); obtenida != vectorSHA256 || len(producida.Revelar()) != longitudVector {
 		t.Fatalf("vector canonico alterado: obtenido=%s esperado=%s longitud=%d", obtenida, vectorSHA256, len(producida.Revelar()))
 	}
 }
 
-func TestRepresentacionCanonicaManifiestoProbatorioV2RechazaMutacionesYNoAdmiteIntercambio(t *testing.T) {
+func TestRepresentacionCanonicaManifiestoProbatorioV3RechazaMutacionesYNoAdmiteIntercambio(t *testing.T) {
 	base := manifiestoSinSelloPrueba(t)
 	preparado, representacionBase, err := base.PrepararSellado()
 	if err != nil {
@@ -155,7 +217,7 @@ func TestRepresentacionCanonicaManifiestoProbatorioV2RechazaMutacionesYNoAdmiteI
 	}
 }
 
-func TestRepresentacionCanonicaManifiestoProbatorioV2CodificaConteosYParticionInequivoca(t *testing.T) {
+func TestRepresentacionCanonicaManifiestoProbatorioV3CodificaConteosYParticionInequivoca(t *testing.T) {
 	base := manifiestoSinSelloPrueba(t)
 	preparado, representacion, err := base.PrepararSellado()
 	if err != nil {
@@ -163,7 +225,7 @@ func TestRepresentacionCanonicaManifiestoProbatorioV2CodificaConteosYParticionIn
 	}
 	envoltura := representacion.Revelar()
 	if finalidad := leerCampoCanonicoManifiestoPrueba(t, &envoltura); finalidad !=
-		string(FinalidadSelloManifiestoProbatorioBaremacionV2) {
+		string(FinalidadSelloManifiestoProbatorioBaremacionV3) {
 		t.Fatalf("finalidad criptografica inesperada: %q", finalidad)
 	}
 	material := []byte(leerCampoCanonicoManifiestoPrueba(t, &envoltura))

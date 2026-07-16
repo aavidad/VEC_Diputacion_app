@@ -6,15 +6,15 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
-// normalizarFalloTransaccionalNominalBaremacionV2 expurga la respuesta de una
+// normalizarFalloTransaccionalNominalBaremacionV3 expurga la respuesta de una
 // frontera que pudo enviar COMMIT y conserva una prueba tipada solo si pertenece
 // al identificador exacto del intento. Cualquier ambiguedad produce un nuevo
 // resultado indeterminado ligado al identificador esperado, nunca al ajeno.
 //
 // La funcion solo normaliza errores: no acredita que el intento nominal fuera
 // autenticado o persistido, no acepta exitos y no concede permiso de reintento.
-func normalizarFalloTransaccionalNominalBaremacionV2(
-	intento puertosbolsa.IntentoNominalConfirmacionBaremacionV2,
+func normalizarFalloTransaccionalNominalBaremacionV3(
+	intento puertosbolsa.IntentoNominalConfirmacionBaremacionV3,
 	errInvocacion error,
 ) (*puertosbolsa.ErrorResultadoTransaccionalBaremacion, error) {
 	if intento.ValidarForma() != nil || errInvocacion == nil {
@@ -46,10 +46,11 @@ func normalizarFalloTransaccionalNominalBaremacionV2(
 // autenticada y coherente de no aplicacion evita el estado indeterminado; esa
 // prueba no concede por si misma autoridad para abandonar ni repetir.
 //
-// BLOQUEANTE PRODUCTIVO: la solicitud V1 aun no porta el identificador opaco
-// previo al COMMIT, por lo que esta capa no puede cotejar que la prueba tipada
-// corresponde a esta invocacion exacta. El contrato V2 debe hacer ese vinculo
-// obligatorio; no se fabrica aqui una identidad que el repositorio no aporto.
+// BLOQUEANTE PRODUCTIVO: la solicitud vigente aun no porta el identificador
+// opaco previo al COMMIT. El contrato nominal V3 ya modela ese vinculo, pero
+// sigue en sombra hasta que FinalizarFirma, el repositorio y el reconciliador lo
+// intercambien de extremo a extremo. No se fabrica aqui una identidad que la
+// frontera durable no haya aportado.
 func clasificarDesenlaceConfirmacionBaremacion(
 	resultado puertosbolsa.ResultadoConfirmarCambioBaremacion,
 	solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion,

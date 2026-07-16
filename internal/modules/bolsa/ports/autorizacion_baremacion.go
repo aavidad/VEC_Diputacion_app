@@ -25,6 +25,7 @@ const (
 	AccionConfirmarAltaBaremacion                 AccionOperacionBaremacion = "bolsa.baremacion.alta.confirmar"
 	AccionAbandonarAltaBaremacion                 AccionOperacionBaremacion = "bolsa.baremacion.alta.abandonar"
 	AccionReservarDecisionBaremacion              AccionOperacionBaremacion = "bolsa.baremacion.decision.reservar"
+	AccionPrevalidarArchivoProbatorioBaremacion   AccionOperacionBaremacion = "bolsa.baremacion.archivo.prevalidar"
 	AccionConfirmarDecisionBaremacion             AccionOperacionBaremacion = "bolsa.baremacion.decision.confirmar"
 	AccionAdoptarDecisionInicialBaremacion        AccionOperacionBaremacion = "bolsa.baremacion.decision.inicial.adoptar"
 	AccionRectificarDecisionBaremacion            AccionOperacionBaremacion = "bolsa.baremacion.decision.rectificar"
@@ -87,6 +88,7 @@ var especificacionesAccionBaremacion = map[AccionOperacionBaremacion]especificac
 	AccionConfirmarAltaBaremacion:                 {ClaseRecursoBaremacion, []string{"baremacion", "evidencia_transaccion"}},
 	AccionAbandonarAltaBaremacion:                 {ClaseRecursoBaremacion, []string{"reserva.alta"}},
 	AccionReservarDecisionBaremacion:              {ClaseRecursoBaremacion, []string{"reserva.decision"}},
+	AccionPrevalidarArchivoProbatorioBaremacion:   {ClaseRecursoBaremacion, []string{"archivo_probatorio"}},
 	AccionConfirmarDecisionBaremacion:             {ClaseRecursoBaremacion, []string{"baremacion", "decision", "evidencia_transaccion"}},
 	AccionAdoptarDecisionInicialBaremacion:        {ClaseRecursoBaremacion, []string{"decision.inicial.contenido"}},
 	AccionRectificarDecisionBaremacion:            {ClaseRecursoBaremacion, []string{"decision.rectificacion.contenido"}},
@@ -176,6 +178,13 @@ type datosAutorizacionOperacionBaremacion struct {
 // cero deniega y no existe un literal publico que pueda rellenar sus datos.
 type ContextoOperacionBaremacion struct {
 	datos *datosAutorizacionOperacionBaremacion
+}
+
+// EsNulo distingue la ausencia contractual de una capacidad invalida o ya no
+// vigente sin exponer ninguno de sus datos internos. Es la unica comprobacion
+// admisible para campos que deben estar exactamente ausentes.
+func (c ContextoOperacionBaremacion) EsNulo() bool {
+	return c.datos == nil
 }
 
 // ContextoConsultaBaremacion mantiene el nombre semantico sin crear una via de

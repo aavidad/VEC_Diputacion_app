@@ -36,6 +36,26 @@ func accionConfirmacion(clase puertosbolsa.ClaseCambioBaremacion) (puertosbolsa.
 	}
 }
 
+func contextosConfirmacionVigentes(
+	solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion,
+	accion puertosbolsa.AccionOperacionBaremacion,
+	instante time.Time,
+) bool {
+	if solicitud.Contexto.ValidarVigentePara(
+		accion, puertosbolsa.ClaseRecursoBaremacion, solicitud.Agregado.ID, instante,
+	) != nil {
+		return false
+	}
+	if solicitud.Clase == puertosbolsa.ClaseCambioAltaBaremacion {
+		return solicitud.ContextoPrevalidacionArchivo.EsNulo()
+	}
+	return solicitud.Clase == puertosbolsa.ClaseCambioIncorporarDecision &&
+		solicitud.ContextoPrevalidacionArchivo.ValidarVigentePara(
+			puertosbolsa.AccionPrevalidarArchivoProbatorioBaremacion,
+			puertosbolsa.ClaseRecursoBaremacion, solicitud.Agregado.ID, instante,
+		) == nil
+}
+
 func accionAbandono(clase puertosbolsa.ClaseCambioBaremacion) (puertosbolsa.AccionOperacionBaremacion, bool) {
 	switch clase {
 	case puertosbolsa.ClaseCambioAltaBaremacion:
@@ -82,7 +102,48 @@ func huellaEfectoReserva(solicitud puertosbolsa.SolicitudReservarCambioBaremacio
 }
 
 func huellaEfectoConfirmacion(solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion) (string, error) {
-	return transaccionbolsa.HuellaEfectoConfirmacion(solicitud)
+	return transaccionbolsa.HuellaEfectoConfirmacionV2(solicitud)
+}
+
+func huellaEfectoPrevalidacionArchivo(
+	solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion,
+) (string, error) {
+	return transaccionbolsa.HuellaEfectoPrevalidacionArchivoProbatorio(solicitud)
+}
+
+type usosAutorizacionConfirmacion struct {
+	confirmacion         usoAutorizacionBaremacion
+	prevalidacion        usoAutorizacionBaremacion
+	incluyePrevalidacion bool
+}
+
+func nuevosUsosAutorizacionConfirmacion(
+	solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion,
+	instante time.Time,
+	huellaConfirmacion string,
+) (usosAutorizacionConfirmacion, error) {
+	confirmacion, err := nuevoUsoAutorizacionBaremacion(
+		solicitud.Contexto, instante, huellaConfirmacion,
+	)
+	if err != nil {
+		return usosAutorizacionConfirmacion{}, err
+	}
+	if solicitud.Clase == puertosbolsa.ClaseCambioAltaBaremacion {
+		return usosAutorizacionConfirmacion{confirmacion: confirmacion}, nil
+	}
+	huellaPrevalidacion, err := huellaEfectoPrevalidacionArchivo(solicitud)
+	if err != nil {
+		return usosAutorizacionConfirmacion{}, err
+	}
+	prevalidacion, err := nuevoUsoAutorizacionBaremacion(
+		solicitud.ContextoPrevalidacionArchivo, instante, huellaPrevalidacion,
+	)
+	if err != nil || confirmacion.DecisionRef == prevalidacion.DecisionRef {
+		return usosAutorizacionConfirmacion{}, puertosbolsa.ErrAutorizacionBaremacionInvalida
+	}
+	return usosAutorizacionConfirmacion{
+		confirmacion: confirmacion, prevalidacion: prevalidacion, incluyePrevalidacion: true,
+	}, nil
 }
 
 func nuevoUsoAutorizacionBaremacion(
@@ -126,6 +187,29 @@ func (r *RepositorioBaremaciones) comprobarUsoAutorizacionBloqueado(
 		return true, puertosbolsa.ErrAutorizacionBaremacionReutilizada
 	}
 	return true, nil
+}
+
+func (r *RepositorioBaremaciones) comprobarUsosConfirmacionBloqueados(
+	usos usosAutorizacionConfirmacion,
+) (bool, error) {
+	confirmacionConsumida, err := r.comprobarUsoAutorizacionBloqueado(usos.confirmacion)
+	if err != nil {
+		return false, err
+	}
+	if !usos.incluyePrevalidacion {
+		return confirmacionConsumida, nil
+	}
+	prevalidacionConsumida, err := r.comprobarUsoAutorizacionBloqueado(usos.prevalidacion)
+	if err != nil {
+		return false, err
+	}
+	if confirmacionConsumida != prevalidacionConsumida {
+		return false, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
+	}
+	if !confirmacionConsumida && len(r.usosAutorizacion)+2 > maximoUsosAutorizacionMemoria {
+		return false, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
+	}
+	return confirmacionConsumida, nil
 }
 
 func huellaSHA256MemoriaValida(valor string) bool {

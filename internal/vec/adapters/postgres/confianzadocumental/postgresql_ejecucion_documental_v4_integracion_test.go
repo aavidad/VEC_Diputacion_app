@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 	pruebasvec "vec-diputacion-granada/internal/vec/pruebas"
@@ -264,11 +265,10 @@ func resultadoInternoDesdePuertoPostgreSQLDocumentalV4Prueba(
 
 func nuevaFixturePostgreSQLDocumentalV4(t *testing.T) fixturePostgreSQLDocumentalV4 {
 	t.Helper()
-	// Se fija una fraccion de seis digitos cuyo ultimo digito no es cero. Asi la
-	// representacion RFC3339Nano de Go coincide exactamente con to_char(...US)
-	// usado por la revalidacion canonica de PostgreSQL.
-	ancla := time.Now().UTC().Add(-time.Second).Truncate(time.Second).
-		Add(123457 * time.Microsecond)
+	// El segundo exacto ejercita que la representacion canonica conserve los
+	// seis ceros requeridos por PostgreSQL sin depender de RFC3339Nano ni de una
+	// fraccion elegida artificialmente por la prueba.
+	ancla := time.Now().UTC().Add(-time.Second).Truncate(time.Second)
 	actor, vinculoAutenticacion, err := pruebasvec.NuevoContextoYVinculo(
 		ancla,
 		"per_0123456789abcdefghijkl",
@@ -562,17 +562,26 @@ func sembrarFixturePostgreSQLDocumentalV4(
 		fixture.ancla, "acto:integracion:contexto-actor")
 	exigirSQLPostgreSQLDocumentalV4Prueba(t, err, "insertar puntero de actor")
 
+	exigirSQLPostgreSQLDocumentalV4Prueba(
+		t, tx.Commit(ctx), "confirmar siembra de autorizacion e identidad",
+	)
+
+	almacenAutorizacion, err := postgresvec.NuevoAlmacenAutorizacion(pool)
+	if err != nil {
+		t.Fatalf("crear almacen real de autorizacion para siembra V4: %v", err)
+	}
 	for _, caso := range fixture.casos {
-		documentoDecision := serializarDecisionPostgreSQLDocumentalV4Prueba(t, caso.decision)
-		var registrada bool
-		err = tx.QueryRow(ctx,
-			`SELECT vec_autorizacion.registrar_decision_si_vigente($1::jsonb)`,
-			documentoDecision,
-		).Scan(&registrada)
-		if err != nil || !registrada {
-			t.Fatalf("registrar decision %s: registrada=%t err=%v",
-				caso.decision.DecisionRef, registrada, err)
+		if err = almacenAutorizacion.RegistrarDecisionSiInstantaneaVigente(
+			ctx, caso.decision,
+		); err != nil {
+			t.Fatalf("registrar decision %s mediante el adaptador real: %v",
+				caso.decision.DecisionRef, err)
 		}
+	}
+
+	tx, err = pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		t.Fatalf("iniciar siembra de confianza documental V4: %v", err)
 	}
 
 	spki, err := x509.MarshalPKIXPublicKey(fixture.materialFirma.publica)
@@ -630,33 +639,9 @@ func sembrarFixturePostgreSQLDocumentalV4(
 		"acto:integracion:clave-capacidad-actual")
 	exigirSQLPostgreSQLDocumentalV4Prueba(t, err, "insertar puntero de capacidad")
 
-	exigirSQLPostgreSQLDocumentalV4Prueba(t, tx.Commit(ctx), "confirmar siembra V4")
-}
-
-func serializarDecisionPostgreSQLDocumentalV4Prueba(
-	t *testing.T,
-	decision domain.DecisionAutorizacion,
-) []byte {
-	t.Helper()
-	contenido := serializarJSONPostgreSQLDocumentalV4Prueba(t, decision)
-	var documento map[string]any
-	if err := json.Unmarshal(contenido, &documento); err != nil {
-		t.Fatalf("interpretar decision para persistencia: %v", err)
-	}
-	for clave, valor := range map[string]any{
-		"politicas_evaluadas_refs":           []string{},
-		"politicas_evaluadas_huellas_sha256": map[string]string{},
-		"politicas_refs":                     []string{}, "politicas_huellas_sha256": map[string]string{},
-		"campos_permitidos": []string{}, "obligaciones": []string{},
-	} {
-		if _, existe := documento[clave]; !existe {
-			documento[clave] = valor
-		}
-	}
-	if len(documento) != 31 {
-		t.Fatalf("la decision durable no tiene 31 claves exactas: %d", len(documento))
-	}
-	return serializarJSONPostgreSQLDocumentalV4Prueba(t, documento)
+	exigirSQLPostgreSQLDocumentalV4Prueba(
+		t, tx.Commit(ctx), "confirmar siembra de confianza documental V4",
+	)
 }
 
 func verificarSeparacionCredencialesPostgreSQLDocumentalV4(

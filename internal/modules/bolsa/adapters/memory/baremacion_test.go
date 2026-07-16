@@ -16,8 +16,6 @@ import (
 
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
-	dominiovec "vec-diputacion-granada/internal/vec/domain"
-	pruebasvec "vec-diputacion-granada/internal/vec/pruebas"
 )
 
 var instanteMemoriaPrueba = time.Date(2026, time.July, 15, 12, 0, 0, 0, time.UTC)
@@ -643,7 +641,7 @@ func TestRepositorioBaremacionesOCCAppendOnlyEHistoriaExacta(t *testing.T) {
 	}
 	comprobarLongitudesInternas(t, repositorio, 2, 2, 2)
 	repositorio.mu.RLock()
-	if len(repositorio.usosAutorizacion) != 4 {
+	if len(repositorio.usosAutorizacion) != 5 {
 		repositorio.mu.RUnlock()
 		t.Fatalf("consumos de autorizacion no atomicos: %d", len(repositorio.usosAutorizacion))
 	}
@@ -821,98 +819,6 @@ func nuevoRepositorioPrueba(t *testing.T, reloj puertosbolsa.Reloj) *Repositorio
 	return repositorio
 }
 
-func contextoMemoriaPrueba(
-	accion puertosbolsa.AccionOperacionBaremacion,
-	recursoRef string,
-	instante time.Time,
-) puertosbolsa.ContextoOperacionBaremacion {
-	return contextoMemoriaPruebaIdentidad(
-		accion, recursoRef, principalBaremacionMemoriaPrueba, "sujeto-001", "autenticacion-1", "correlacion-1", instante,
-	)
-}
-
-func contextoMemoriaPruebaIdentidad(
-	accion puertosbolsa.AccionOperacionBaremacion,
-	recursoRef, principalRef, sujetoRef, autenticacionRef, correlacionRef string,
-	instante time.Time,
-) puertosbolsa.ContextoOperacionBaremacion {
-	return contextoMemoriaPruebaAutorizacion(
-		accion, recursoRef, principalRef, sujetoRef, autenticacionRef, correlacionRef,
-		referenciaAutorizacionMemoria(accion), instante,
-	)
-}
-
-func contextoMemoriaPruebaAutorizacion(
-	accion puertosbolsa.AccionOperacionBaremacion,
-	recursoRef, principalRef, sujetoRef, autenticacionRef, correlacionRef, autorizacionRef string,
-	instante time.Time,
-) puertosbolsa.ContextoOperacionBaremacion {
-	campos, existe := puertosbolsa.CamposRequeridosOperacionBaremacion(accion)
-	if !existe {
-		panic("accion de prueba desconocida")
-	}
-	clase, existe := puertosbolsa.ClaseRecursoRequeridaOperacionBaremacion(accion)
-	if !existe {
-		panic("clase de recurso de prueba desconocida")
-	}
-	recurso := dominiovec.RecursoAutorizable{
-		Referencia: recursoRef, ModuloID: "bolsa", Tipo: string(clase),
-		Ambitos: map[string]string{"sujeto_ref": sujetoRef},
-	}
-	huellaContexto, err := recurso.HuellaContextoAutorizacionSHA256()
-	if err != nil {
-		panic(err)
-	}
-	huellaCatalogo, err := dominiovec.HuellaCatalogoPoliticasAutorizacion(nil)
-	if err != nil {
-		panic(err)
-	}
-	contextoActor, vinculo, err := pruebasvec.NuevoContextoYVinculo(
-		instante, principalRef, perfilBaremacionMemoriaPrueba,
-		dominiovec.AuthMethodCertificate, dominiovec.AuthAssuranceHigh,
-	)
-	if err != nil {
-		panic(err)
-	}
-	datosVinculo, err := vinculo.Datos()
-	if err != nil {
-		panic(err)
-	}
-	decision := dominiovec.DecisionAutorizacion{
-		DecisionRef: autorizacionRef, Concedida: true, Codigo: "concedida", PrincipalID: contextoActor.Principal.ID,
-		PerfilActivoRef: contextoActor.PerfilActivoRef, Accion: string(accion), RecursoRef: recursoRef,
-		ModuloID: "bolsa", TipoRecurso: string(clase), ContextoRecursoHuellaSHA256: huellaContexto,
-		Finalidad: "baremacion_proceso_selectivo", CorrelacionRef: correlacionRef,
-		VinculoAutenticacionActor: vinculo,
-		AsignacionRef:             "asignacion-tecnico-v1", AsignacionHuellaSHA256: huellaMemoria("1"),
-		VersionRolRef: "rol-tecnico-v1", VersionRolHuellaSHA256: huellaMemoria("2"),
-		ControlVigenciaVersionRolRef:      "rol-tecnico-v1",
-		ControlVigenciaVersionRolRevision: 1, ControlVigenciaVersionRolHuellaSHA256: huellaMemoria("3"),
-		RevisionCatalogoPoliticas: 1, CatalogoPoliticasHuellaSHA256: huellaCatalogo,
-		PoliticasEvaluadasHuellasSHA256: map[string]string{},
-		GarantiaMinima:                  dominiovec.AuthAssuranceHigh, CamposPermitidos: campos,
-		EmitidaEn: instante.Add(-time.Minute), ValidaHasta: instante.Add(4 * time.Minute),
-	}
-	contexto, err := puertosbolsa.NuevaAutorizacionOperacionBaremacion(
-		decision,
-		puertosbolsa.VinculoAutenticacionBaremacion{
-			SujetoRef: sujetoRef, Metodo: datosVinculo.MetodoObservado,
-			Garantia: datosVinculo.GarantiaObservada, AutenticacionRef: datosVinculo.AutenticacionRef,
-			SesionRef: datosVinculo.SesionRef, SesionEmitidaEn: datosVinculo.SesionEmitidaEn,
-			SesionValidaHasta: datosVinculo.SesionValidaHasta, VinculoAutenticacionActor: vinculo,
-		},
-		instante,
-	)
-	if err != nil {
-		panic(err)
-	}
-	return contexto
-}
-
-func referenciaAutorizacionMemoria(accion puertosbolsa.AccionOperacionBaremacion) string {
-	return "autorizacion-" + strings.ReplaceAll(string(accion), ".", "-")
-}
-
 func solicitudReservaAltaMemoria() puertosbolsa.SolicitudReservarCambioBaremacion {
 	solicitud := puertosbolsa.SolicitudReservarCambioBaremacion{
 		Contexto:          contextoMemoriaPrueba(puertosbolsa.AccionReservarAltaBaremacion, "baremacion-001", instanteMemoriaPrueba),
@@ -969,7 +875,12 @@ func solicitudConfirmarDecisionMemoria(
 	solicitud := puertosbolsa.SolicitudConfirmarCambioBaremacion{
 		Contexto: contextoMemoriaPrueba(
 			puertosbolsa.AccionConfirmarDecisionBaremacion, baremacion.ID, instanteMemoriaPrueba.Add(15*time.Minute),
-		), Token: token, Clase: puertosbolsa.ClaseCambioIncorporarDecision,
+		),
+		ContextoPrevalidacionArchivo: contextoMemoriaPrueba(
+			puertosbolsa.AccionPrevalidarArchivoProbatorioBaremacion, baremacion.ID,
+			instanteMemoriaPrueba.Add(15*time.Minute),
+		),
+		Token: token, Clase: puertosbolsa.ClaseCambioIncorporarDecision,
 		VersionEsperada: &version, HuellaSolicitudHMAC: hmacMemoria("0"), Agregado: baremacion,
 		Trazabilidad: puertosbolsa.TrazabilidadCambioBaremacion{
 			MotivoClave: "decision_tecnica_firmada", Motivo: "Incorporacion de la decision tecnica validada y firmada.",
@@ -978,6 +889,7 @@ func solicitudConfirmarDecisionMemoria(
 	}
 	manifiestoBase, err := manifiestoMemoriaPrueba(
 		version, ultima.Contenido, ultima.Firma,
+		solicitud.ContextoPrevalidacionArchivo.Proyeccion().AutorizacionRef,
 		solicitud.Contexto.Proyeccion().AutorizacionRef, solicitud.ConfirmadaEn,
 	)
 	if err != nil {
@@ -988,7 +900,7 @@ func solicitudConfirmarDecisionMemoria(
 		panic(err)
 	}
 	selloManifiesto := calcularSelloMemoria(
-		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2,
+		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3,
 		representacion.Revelar(),
 	)
 	manifiesto, err := preparado.IncorporarSello(selloManifiesto)
@@ -1021,7 +933,7 @@ func manifiestoMemoriaPrueba(
 	version puertosbolsa.ReferenciaVersionBaremacion,
 	contenido dominiobolsa.ContenidoDecisionTecnica,
 	firma dominiobolsa.FirmaDecisionTecnica,
-	autorizacionConfirmacionRef string,
+	autorizacionPrevalidacionRef, autorizacionConfirmacionRef string,
 	creadoEn time.Time,
 ) (puertosbolsa.ManifiestoProbatorioBaremacion, error) {
 	autorizaciones := make([]puertosbolsa.AutorizacionProbatoriaBaremacion, 0, 24)
@@ -1095,6 +1007,7 @@ func manifiestoMemoriaPrueba(
 		{puertosbolsa.AccionCustodiarDocumentoFirmadoBaremacion, firma.DocumentoFirmadoRef, ""},
 		{puertosbolsa.AccionRetenerDocumentoFirmadoBaremacion, firma.DocumentoFirmadoRef, ""},
 		{puertosbolsa.AccionReservarDecisionBaremacion, contenido.BaremacionMeritoRef, ""},
+		{puertosbolsa.AccionPrevalidarArchivoProbatorioBaremacion, contenido.BaremacionMeritoRef, autorizacionPrevalidacionRef},
 		{puertosbolsa.AccionConfirmarDecisionBaremacion, contenido.BaremacionMeritoRef, autorizacionConfirmacionRef},
 	} {
 		if err := agregar(paso.accion, paso.recurso, paso.referencia); err != nil {
@@ -1163,7 +1076,7 @@ func sellarConfirmacionMemoria(solicitud puertosbolsa.SolicitudConfirmarCambioBa
 	if err != nil {
 		panic(err)
 	}
-	solicitud.HuellaSolicitudHMAC = calcularSelloMemoria(puertosbolsa.FinalidadSelloConfirmacionBaremacion, representacion.Revelar())
+	solicitud.HuellaSolicitudHMAC = calcularSelloMemoria(puertosbolsa.FinalidadSelloConfirmacionBaremacionV2, representacion.Revelar())
 	return solicitud
 }
 

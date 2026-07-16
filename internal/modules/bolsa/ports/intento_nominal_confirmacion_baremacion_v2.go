@@ -13,14 +13,16 @@ var ErrSerializacionConfirmacionNominalBaremacionV2Prohibida = errors.New(
 
 const mensajeIntentoNominalConfirmacionBaremacionV2 = "[INTENTO-NOMINAL-CONFIRMACION-BAREMACION-V2-PROTEGIDO]"
 
-// IntentoNominalConfirmacionBaremacionV2 mantiene aislado del flujo V1 el
-// sobre probatorio exacto de un intento. El identificador debe existir
-// durablemente antes de construirlo y su sello debe cubrirlo junto al efecto.
+// IntentoNominalConfirmacionBaremacionV2 conserva exclusivamente el canonico
+// historico anterior a la prevalidacion de archivo. Ningun productor vigente
+// debe emitirlo; V3 es el unico contrato nominal habilitado para nuevo codigo.
+// El identificador debia existir durablemente antes de construir el sobre y su
+// sello cubrirlo junto al efecto.
 //
 // Este tipo es nominal: solo acredita forma y permite producir el canonico. No
 // acredita autenticidad, preparacion durable, persistencia ni resultado de
-// COMMIT y no habilita ningun efecto. El flujo sigue cerrado hasta disponer de
-// servicio TCB, PrepararOperacion, resultado canonico y reconciliador V2.
+// COMMIT y no habilita ningun efecto. Se mantiene para reproducir y verificar
+// vectores historicos, no como ruta de compatibilidad productiva.
 type IntentoNominalConfirmacionBaremacionV2 struct {
 	IdentificadorOperacion IdentificadorOperacionTransaccionalBaremacion
 	Confirmacion           SolicitudConfirmarCambioBaremacion

@@ -70,7 +70,10 @@ var (
 )
 
 const (
-	maximoCargaProtegida                = 64 << 20
+	// MaximoTamanoCargaProtegida permite aplicar el mismo limite antes de
+	// decodificar entradas no confiables en los adaptadores.
+	MaximoTamanoCargaProtegida          = 64 << 20
+	maximoCargaProtegida                = MaximoTamanoCargaProtegida
 	maximoEvidenciasCalculo             = 256
 	maximoComprobacionesFirma           = 64
 	VentanaMaximaReservaBaremacion      = 10 * time.Minute
@@ -400,15 +403,16 @@ func (t TrazabilidadCambioBaremacion) Validar() error {
 }
 
 type SolicitudConfirmarCambioBaremacion struct {
-	Contexto            ContextoOperacionBaremacion
-	Token               TokenReservaBaremacion
-	Clase               ClaseCambioBaremacion
-	VersionEsperada     *ReferenciaVersionBaremacion
-	HuellaSolicitudHMAC string
-	Agregado            dominiobolsa.BaremacionMerito
-	Manifiesto          *ManifiestoProbatorioBaremacion
-	Trazabilidad        TrazabilidadCambioBaremacion
-	ConfirmadaEn        time.Time
+	Contexto                     ContextoOperacionBaremacion
+	ContextoPrevalidacionArchivo ContextoOperacionBaremacion
+	Token                        TokenReservaBaremacion
+	Clase                        ClaseCambioBaremacion
+	VersionEsperada              *ReferenciaVersionBaremacion
+	HuellaSolicitudHMAC          string
+	Agregado                     dominiobolsa.BaremacionMerito
+	Manifiesto                   *ManifiestoProbatorioBaremacion
+	Trazabilidad                 TrazabilidadCambioBaremacion
+	ConfirmadaEn                 time.Time
 }
 
 func (s SolicitudConfirmarCambioBaremacion) Validar() error {
@@ -421,7 +425,8 @@ func (s SolicitudConfirmarCambioBaremacion) Validar() error {
 		return ErrSolicitudBaremacionInvalida
 	}
 	if s.Clase == ClaseCambioAltaBaremacion {
-		if s.VersionEsperada != nil || len(s.Agregado.Decisiones) != 0 || s.Manifiesto != nil {
+		if s.VersionEsperada != nil || len(s.Agregado.Decisiones) != 0 || s.Manifiesto != nil ||
+			!s.ContextoPrevalidacionArchivo.EsNulo() {
 			return ErrSolicitudBaremacionInvalida
 		}
 		return nil
@@ -432,8 +437,9 @@ func (s SolicitudConfirmarCambioBaremacion) Validar() error {
 		return ErrSolicitudBaremacionInvalida
 	}
 	ultima, existe := s.Agregado.UltimaDecision()
-	if !existe || s.Manifiesto == nil ||
+	if !existe || s.Manifiesto == nil || !contextosPrevalidacionYConfirmacionCoinciden(s) ||
 		s.Manifiesto.ValidarCoberturaFirmaPara(*s.VersionEsperada, ultima.Contenido, ultima.Firma) != nil ||
+		!s.Manifiesto.autorizacionPrevalidacionArchivoCoincide(s.ContextoPrevalidacionArchivo) ||
 		!s.Manifiesto.autorizacionConfirmacionCoincide(s.Contexto) ||
 		ultima.Firma.ManifiestoProbatorioRef != s.Manifiesto.Referencia ||
 		ultima.Firma.HuellaManifiestoProbatorioSHA256 != s.Manifiesto.HuellaManifiestoSHA256 ||
@@ -447,6 +453,24 @@ func (s SolicitudConfirmarCambioBaremacion) Validar() error {
 		return ErrSolicitudBaremacionInvalida
 	}
 	return nil
+}
+
+func contextosPrevalidacionYConfirmacionCoinciden(s SolicitudConfirmarCambioBaremacion) bool {
+	if s.ContextoPrevalidacionArchivo.ValidarVigentePara(
+		AccionPrevalidarArchivoProbatorioBaremacion, ClaseRecursoBaremacion,
+		s.Agregado.ID, s.ConfirmadaEn,
+	) != nil {
+		return false
+	}
+	confirmacion, prevalidacion := s.Contexto.Proyeccion(), s.ContextoPrevalidacionArchivo.Proyeccion()
+	return s.Contexto.MismoVinculoAutenticacionQue(s.ContextoPrevalidacionArchivo) &&
+		confirmacion.PrincipalRef == prevalidacion.PrincipalRef &&
+		confirmacion.SujetoRef == prevalidacion.SujetoRef &&
+		confirmacion.PerfilActorClave == prevalidacion.PerfilActorClave &&
+		confirmacion.RecursoRef == prevalidacion.RecursoRef &&
+		confirmacion.FinalidadClave == prevalidacion.FinalidadClave &&
+		confirmacion.CorrelacionRef == prevalidacion.CorrelacionRef &&
+		confirmacion.AutorizacionRef != prevalidacion.AutorizacionRef
 }
 
 func (s SolicitudConfirmarCambioBaremacion) Clonar() (SolicitudConfirmarCambioBaremacion, error) {
@@ -2006,7 +2030,7 @@ func referenciaValida(valor string, maximo int) bool {
 		return false
 	}
 	for _, caracter := range valor {
-		if caracter < 33 || caracter > 126 {
+		if caracter < 33 || caracter > 126 || caracter == '*' {
 			return false
 		}
 	}

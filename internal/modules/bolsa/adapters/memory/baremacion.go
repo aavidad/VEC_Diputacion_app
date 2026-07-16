@@ -335,7 +335,7 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrReservaBaremacionNoValida
 	}
 	accion, _ := accionConfirmacion(solicitud.Clase)
-	if solicitud.Contexto.ValidarVigentePara(accion, puertosbolsa.ClaseRecursoBaremacion, solicitud.Agregado.ID, ahora) != nil {
+	if !contextosConfirmacionVigentes(solicitud, accion, ahora) {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
 	}
 	if err := r.verificarSelloConfirmacion(ctx, solicitud); err != nil {
@@ -372,7 +372,7 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 	if err != nil || solicitud.ConfirmadaEn.After(ahora) {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrReservaBaremacionNoValida
 	}
-	if solicitud.Contexto.ValidarVigentePara(accion, puertosbolsa.ClaseRecursoBaremacion, solicitud.Agregado.ID, ahora) != nil {
+	if !contextosConfirmacionVigentes(solicitud, accion, ahora) {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
 	}
 	if !r.cadenasIntegrasBloqueadas() {
@@ -382,7 +382,7 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 	if err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
 	}
-	uso, err := nuevoUsoAutorizacionBaremacion(solicitud.Contexto, ahora, huellaEfecto)
+	usos, err := nuevosUsosAutorizacionConfirmacion(solicitud, ahora, huellaEfecto)
 	if err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
 	}
@@ -401,7 +401,7 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 			!cadenasConstantesIguales(reserva.HuellaConfirmacionSHA256, huellaConfirmacion) {
 			return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrClaveIdempotenciaBaremacionReutilizada
 		}
-		consumida, err := r.comprobarUsoAutorizacionBloqueado(uso)
+		consumida, err := r.comprobarUsosConfirmacionBloqueados(usos)
 		if err != nil {
 			return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
 		}
@@ -437,7 +437,7 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 		!solicitud.ConfirmadaEn.Before(reserva.SolicitudReserva.ExpiraEn.UTC()) {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrReservaBaremacionNoValida
 	}
-	consumida, err := r.comprobarUsoAutorizacionBloqueado(uso)
+	consumida, err := r.comprobarUsosConfirmacionBloqueados(usos)
 	if err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
 	}
@@ -561,6 +561,9 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 	reserva.Resultado = &resultadoAlmacenado
 	r.reservasPorAmbito[claveAmbito] = reserva
 	delete(r.ambitoActivoPorBaremacion, solicitud.Agregado.ID)
-	r.usosAutorizacion[uso.DecisionRef] = uso
+	r.usosAutorizacion[usos.confirmacion.DecisionRef] = usos.confirmacion
+	if usos.incluyePrevalidacion {
+		r.usosAutorizacion[usos.prevalidacion.DecisionRef] = usos.prevalidacion
+	}
 	return respuestaFinal, nil
 }

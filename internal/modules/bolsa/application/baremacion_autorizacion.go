@@ -357,7 +357,7 @@ func (s *ServicioBaremacion) sellarConfirmacion(
 		return puertosbolsa.SolicitudConfirmarCambioBaremacion{}, err
 	}
 	sello, err := s.selladorSolicitud.SellarSelloBaremacion(ctx, puertosbolsa.SolicitudSellarSelloBaremacion{
-		Finalidad:              puertosbolsa.FinalidadSelloConfirmacionBaremacion,
+		Finalidad:              puertosbolsa.FinalidadSelloConfirmacionBaremacionV2,
 		RepresentacionCanonica: representacion,
 	})
 	if err != nil || !selloGeneradoBaremacionValido(sello) {

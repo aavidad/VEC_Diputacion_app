@@ -33,9 +33,9 @@ func TestFinalizarFirmaClasificaRespuestaInvalidaComoIndeterminada(t *testing.T)
 	}
 }
 
-func TestNormalizacionNominalV2SoloConservaElIdentificadorEsperado(t *testing.T) {
+func TestNormalizacionNominalV3SoloConservaElIdentificadorEsperado(t *testing.T) {
 	identificador := identificadorTransaccionalAplicacionPrueba(t, 0x25)
-	intento := puertosbolsa.IntentoNominalConfirmacionBaremacionV2{
+	intento := puertosbolsa.IntentoNominalConfirmacionBaremacionV3{
 		IdentificadorOperacion: identificador,
 		Confirmacion:           solicitudConfirmacionValidaClasificacionPrueba(t),
 	}
@@ -44,7 +44,7 @@ func TestNormalizacionNominalV2SoloConservaElIdentificadorEsperado(t *testing.T)
 	}
 
 	exacto := errorIndeterminadoBaremacionPrueba(t, 0x25)
-	normalizado, err := normalizarFalloTransaccionalNominalBaremacionV2(intento, exacto)
+	normalizado, err := normalizarFalloTransaccionalNominalBaremacionV3(intento, exacto)
 	if err != nil || normalizado == exacto || normalizado.Validar() != nil ||
 		normalizado.NoAplicadaVerificada() {
 		t.Fatalf("resultado exacto no se clono de forma segura: (%v, %v)", normalizado, err)
@@ -55,15 +55,15 @@ func TestNormalizacionNominalV2SoloConservaElIdentificadorEsperado(t *testing.T)
 	}
 
 	noAplicadaExacta := errorNoAplicacionAcreditadaBaremacionPrueba(t, 0x25)
-	normalizado, err = normalizarFalloTransaccionalNominalBaremacionV2(intento, noAplicadaExacta)
+	normalizado, err = normalizarFalloTransaccionalNominalBaremacionV3(intento, noAplicadaExacta)
 	if err != nil || !normalizado.NoAplicadaVerificada() || normalizado == noAplicadaExacta {
 		t.Fatalf("la prueba exacta no se conservo mediante clon: (%v, %v)", normalizado, err)
 	}
 }
 
-func TestNormalizacionNominalV2ExpurgaResultadosAjenosOAmbiguos(t *testing.T) {
+func TestNormalizacionNominalV3ExpurgaResultadosAjenosOAmbiguos(t *testing.T) {
 	identificador := identificadorTransaccionalAplicacionPrueba(t, 0x35)
-	intento := puertosbolsa.IntentoNominalConfirmacionBaremacionV2{
+	intento := puertosbolsa.IntentoNominalConfirmacionBaremacionV3{
 		IdentificadorOperacion: identificador,
 		Confirmacion:           solicitudConfirmacionValidaClasificacionPrueba(t),
 	}
@@ -87,7 +87,7 @@ func TestNormalizacionNominalV2ExpurgaResultadosAjenosOAmbiguos(t *testing.T) {
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
-			normalizado, err := normalizarFalloTransaccionalNominalBaremacionV2(intento, caso.err)
+			normalizado, err := normalizarFalloTransaccionalNominalBaremacionV3(intento, caso.err)
 			if err != nil || normalizado == nil || normalizado.Validar() != nil ||
 				normalizado.NoAplicadaVerificada() || !normalizado.RequiereReconciliacion() ||
 				!errors.Is(normalizado, puertosbolsa.ErrResultadoTransaccionalBaremacionIndeterminado) {
@@ -104,17 +104,17 @@ func TestNormalizacionNominalV2ExpurgaResultadosAjenosOAmbiguos(t *testing.T) {
 	}
 }
 
-func TestNormalizacionNominalV2RechazaIntentoInvalidoOAusenciaDeFallo(t *testing.T) {
-	intento := puertosbolsa.IntentoNominalConfirmacionBaremacionV2{
+func TestNormalizacionNominalV3RechazaIntentoInvalidoOAusenciaDeFallo(t *testing.T) {
+	intento := puertosbolsa.IntentoNominalConfirmacionBaremacionV3{
 		IdentificadorOperacion: identificadorTransaccionalAplicacionPrueba(t, 0x45),
 		Confirmacion:           solicitudConfirmacionValidaClasificacionPrueba(t),
 	}
-	if resultado, err := normalizarFalloTransaccionalNominalBaremacionV2(intento, nil); resultado != nil ||
+	if resultado, err := normalizarFalloTransaccionalNominalBaremacionV3(intento, nil); resultado != nil ||
 		!errors.Is(err, puertosbolsa.ErrResultadoTransaccionalBaremacionInvalido) {
 		t.Fatalf("ausencia de fallo admitida: (%v, %v)", resultado, err)
 	}
 	intento.IdentificadorOperacion = puertosbolsa.IdentificadorOperacionTransaccionalBaremacion{}
-	if resultado, err := normalizarFalloTransaccionalNominalBaremacionV2(
+	if resultado, err := normalizarFalloTransaccionalNominalBaremacionV3(
 		intento, errors.New("fallo expurgado"),
 	); resultado != nil || !errors.Is(err, puertosbolsa.ErrResultadoTransaccionalBaremacionInvalido) {
 		t.Fatalf("intento invalido admitido: (%v, %v)", resultado, err)

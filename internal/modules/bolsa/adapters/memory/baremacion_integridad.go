@@ -301,7 +301,7 @@ func (r *RepositorioBaremaciones) verificarSelloConfirmacion(
 		return puertosbolsa.ErrSolicitudBaremacionInvalida
 	}
 	peticion := puertosbolsa.SolicitudVerificarSelloBaremacion{
-		Finalidad: puertosbolsa.FinalidadSelloConfirmacionBaremacion, RepresentacionCanonica: representacion,
+		Finalidad: puertosbolsa.FinalidadSelloConfirmacionBaremacionV2, RepresentacionCanonica: representacion,
 		SelloHMAC: solicitud.HuellaSolicitudHMAC,
 	}
 	if peticion.Validar() != nil {
@@ -328,7 +328,7 @@ func (r *RepositorioBaremaciones) verificarSelloManifiesto(
 		return puertosbolsa.ErrSelloBaremacionNoAutentico
 	}
 	peticion := puertosbolsa.SolicitudVerificarSelloBaremacion{
-		Finalidad:              puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2,
+		Finalidad:              puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3,
 		RepresentacionCanonica: representacion,
 		SelloHMAC:              manifiesto.SelloManifiestoHMACSHA256,
 	}

@@ -53,7 +53,7 @@ func (v *verificadorPausaHistoricaBaremacionPrueba) VerificarSelloBaremacion(
 	solicitud puertosbolsa.SolicitudVerificarSelloBaremacion,
 ) error {
 	pausar := false
-	if solicitud.Finalidad == puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2 {
+	if solicitud.Finalidad == puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3 {
 		v.mu.Lock()
 		v.llamadas++
 		pausar = v.objetivo > 0 && v.llamadas == v.objetivo
@@ -188,8 +188,8 @@ func TestRepositorioBaremacionesPreservaCancelacionYPlazoEnSelloReserva(t *testi
 
 func TestRepositorioBaremacionesDetectaCancelacionAunqueConectorDevuelvaNil(t *testing.T) {
 	for _, finalidad := range []puertosbolsa.FinalidadSelloBaremacion{
-		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2,
-		puertosbolsa.FinalidadSelloConfirmacionBaremacion,
+		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3,
+		puertosbolsa.FinalidadSelloConfirmacionBaremacionV2,
 	} {
 		t.Run(string(finalidad), func(t *testing.T) {
 			verificador := &verificadorCancelacionBaremacionPrueba{delegado: verificadorHMACMemoriaPrueba{}}
@@ -216,7 +216,7 @@ func TestRepositorioBaremacionesDetectaCancelacionConHistoricoVacioAunqueConecto
 		t.Fatal(err)
 	}
 	ctx, cancelar := context.WithCancel(context.Background())
-	verificador.preparar(puertosbolsa.FinalidadSelloConfirmacionBaremacion, 1, cancelar, false, true)
+	verificador.preparar(puertosbolsa.FinalidadSelloConfirmacionBaremacionV2, 1, cancelar, false, true)
 	if _, err := repositorio.ConfirmarCambio(
 		ctx, solicitudConfirmarAltaMemoria(reserva.Token, nuevaBaremacionMemoriaPrueba(t)),
 	); !errors.Is(err, context.Canceled) {
@@ -241,13 +241,13 @@ func TestRepositorioBaremacionesPreservaCancelacionEnLecturasHistoricas(t *testi
 		t.Run(nombre, func(t *testing.T) {
 			ctx, cancelar := context.WithCancel(context.Background())
 			verificador.preparar(
-				puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2, 1, cancelar, false, true,
+				puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3, 1, cancelar, false, true,
 			)
 			if err := operacion(ctx); !errors.Is(err, context.Canceled) {
 				t.Fatalf("lectura no preservo cancelacion: %v", err)
 			}
 			verificador.preparar(
-				puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2, 0, nil, false, false,
+				puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3, 0, nil, false, false,
 			)
 			if err := operacion(context.Background()); err != nil {
 				t.Fatalf("lectura posterior quedo bloqueada: %v", err)
@@ -266,7 +266,7 @@ func TestRepositorioBaremacionesReintentoExactoReverificaManifiestos(t *testing.
 
 	ctx, cancelar := context.WithCancel(context.Background())
 	verificador.preparar(
-		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2, 2, cancelar, false, true,
+		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3, 2, cancelar, false, true,
 	)
 	if _, err := escenario.repositorio.ConfirmarCambio(ctx, escenario.confirmar); !errors.Is(err, context.Canceled) {
 		t.Fatalf("preflight historico no preservo cancelacion: %v", err)
@@ -277,7 +277,7 @@ func TestRepositorioBaremacionesReintentoExactoReverificaManifiestos(t *testing.
 	comprobarLongitudesInternas(t, escenario.repositorio, 2, 2, 2)
 
 	verificador.preparar(
-		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2, 0, nil, false, false,
+		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3, 0, nil, false, false,
 	)
 	repetido, err := escenario.repositorio.ConfirmarCambio(context.Background(), escenario.confirmar)
 	if err != nil {
@@ -302,14 +302,14 @@ func TestRepositorioBaremacionesReintentoReservaConfirmadaVerificaHistoricoFuera
 	solicitud := solicitudReservaDecisionMemoria(escenario.alta.Version.Referencia)
 	ctx, cancelar := context.WithCancel(context.Background())
 	verificador.preparar(
-		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2, 1, cancelar, false, true,
+		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3, 1, cancelar, false, true,
 	)
 	respuesta, err := escenario.repositorio.ReservarCambio(ctx, solicitud)
 	if !errors.Is(err, context.Canceled) || !reflect.DeepEqual(respuesta, puertosbolsa.ReservaCambioBaremacion{}) {
 		t.Fatalf("reintento revelo resultado sin verificar: respuesta=%+v err=%v", respuesta, err)
 	}
 	verificador.preparar(
-		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2, 0, nil, false, false,
+		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3, 0, nil, false, false,
 	)
 	respuesta, err = escenario.repositorio.ReservarCambio(context.Background(), solicitud)
 	if err != nil || respuesta.VersionConfirmada == nil ||

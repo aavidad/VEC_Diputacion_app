@@ -324,9 +324,26 @@ func (s *ServicioBaremacion) FinalizarFirma(
 		}
 		errRetorno = errors.Join(errRetorno, errAbandono)
 	}()
-	autorizacionConfirmacion, err := s.autorizarRevision(ctx, orden.Actor, revision, puertosbolsa.AccionConfirmarDecisionBaremacion,
+	autorizacionPrevalidacionArchivo, err := s.autorizarRevision(
+		ctx, orden.Actor, revision, puertosbolsa.AccionPrevalidarArchivoProbatorioBaremacion,
 		puertosbolsa.ClaseRecursoBaremacion, contenido.BaremacionMeritoRef, contenido.SujetoRef,
-		contenido.FinalidadClave, contenido.CorrelacionRef)
+		contenido.FinalidadClave, contenido.CorrelacionRef,
+	)
+	if err != nil {
+		return ResultadoFinalizarFirmaBaremacion{}, &ErrorDocumentoFirmadoHuerfano{DecisionRef: contenido.ID, Documento: documentoFirmado, Causa: err}
+	}
+	if _, repetida := autorizaciones[autorizacionPrevalidacionArchivo.Proyeccion().AutorizacionRef]; repetida {
+		return ResultadoFinalizarFirmaBaremacion{}, &ErrorDocumentoFirmadoHuerfano{
+			DecisionRef: contenido.ID, Documento: documentoFirmado, Causa: ErrResultadoBaremacionNoConfiable,
+		}
+	}
+	autorizaciones[autorizacionPrevalidacionArchivo.Proyeccion().AutorizacionRef] = struct{}{}
+	proyeccionesFinales = append(proyeccionesFinales, autorizacionPrevalidacionArchivo.Proyeccion())
+	autorizacionConfirmacion, err := s.autorizarRevision(
+		ctx, orden.Actor, revision, puertosbolsa.AccionConfirmarDecisionBaremacion,
+		puertosbolsa.ClaseRecursoBaremacion, contenido.BaremacionMeritoRef, contenido.SujetoRef,
+		contenido.FinalidadClave, contenido.CorrelacionRef,
+	)
 	if err != nil {
 		return ResultadoFinalizarFirmaBaremacion{}, &ErrorDocumentoFirmadoHuerfano{DecisionRef: contenido.ID, Documento: documentoFirmado, Causa: err}
 	}
@@ -367,7 +384,8 @@ func (s *ServicioBaremacion) FinalizarFirma(
 		return ResultadoFinalizarFirmaBaremacion{}, &ErrorDocumentoFirmadoHuerfano{DecisionRef: contenido.ID, Documento: documentoFirmado, Causa: err}
 	}
 	solicitudConfirmacion := puertosbolsa.SolicitudConfirmarCambioBaremacion{
-		Contexto: autorizacionConfirmacion, Token: reserva.Token,
+		Contexto: autorizacionConfirmacion, ContextoPrevalidacionArchivo: autorizacionPrevalidacionArchivo,
+		Token: reserva.Token,
 		Clase: puertosbolsa.ClaseCambioIncorporarDecision, VersionEsperada: &referenciaVersion,
 		HuellaSolicitudHMAC: hmacBaremacionPendiente, Agregado: agregado, Manifiesto: &manifiesto,
 		Trazabilidad: puertosbolsa.TrazabilidadCambioBaremacion{

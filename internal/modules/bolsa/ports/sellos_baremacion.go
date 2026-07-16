@@ -13,14 +13,27 @@ import (
 type FinalidadSelloBaremacion string
 
 const (
-	FinalidadSelloReservaBaremacion                       FinalidadSelloBaremacion = "reserva_baremacion_v1"
+	FinalidadSelloReservaBaremacion FinalidadSelloBaremacion = "reserva_baremacion_v1"
+	// FinalidadSelloConfirmacionBaremacion queda como alias historico V1.
+	// Ningun productor vigente debe usarla tras incorporar la prevalidacion.
 	FinalidadSelloConfirmacionBaremacion                  FinalidadSelloBaremacion = "confirmacion_baremacion_v1"
+	FinalidadSelloConfirmacionBaremacionV2                FinalidadSelloBaremacion = "confirmacion_baremacion_v2"
 	FinalidadSelloSobreProbatorioConfirmacionBaremacionV2 FinalidadSelloBaremacion = "sobre_probatorio_confirmacion_baremacion_v2"
+	FinalidadSelloSobreProbatorioConfirmacionBaremacionV3 FinalidadSelloBaremacion = "sobre_probatorio_confirmacion_baremacion_v3"
 	FinalidadSelloManifiestoProbatorioBaremacionV2        FinalidadSelloBaremacion = "manifiesto_probatorio_baremacion_v2"
+	FinalidadSelloManifiestoProbatorioBaremacionV3        FinalidadSelloBaremacion = "manifiesto_probatorio_baremacion_v3"
 )
 
-func (f FinalidadSelloBaremacion) valida() bool {
-	return f == FinalidadSelloReservaBaremacion || f == FinalidadSelloConfirmacionBaremacion ||
+func (f FinalidadSelloBaremacion) validaParaSelladoVigente() bool {
+	return f == FinalidadSelloReservaBaremacion ||
+		f == FinalidadSelloConfirmacionBaremacionV2 ||
+		f == FinalidadSelloSobreProbatorioConfirmacionBaremacionV3 ||
+		f == FinalidadSelloManifiestoProbatorioBaremacionV3
+}
+
+func (f FinalidadSelloBaremacion) validaParaVerificacionHistorica() bool {
+	return f.validaParaSelladoVigente() ||
+		f == FinalidadSelloConfirmacionBaremacion ||
 		f == FinalidadSelloSobreProbatorioConfirmacionBaremacionV2 ||
 		f == FinalidadSelloManifiestoProbatorioBaremacionV2
 }
@@ -35,7 +48,7 @@ type SolicitudSellarSelloBaremacion struct {
 }
 
 func (s SolicitudSellarSelloBaremacion) Validar() error {
-	if !s.Finalidad.valida() || s.RepresentacionCanonica.Validar() != nil {
+	if !s.Finalidad.validaParaSelladoVigente() || s.RepresentacionCanonica.Validar() != nil {
 		return ErrSolicitudBaremacionInvalida
 	}
 	return nil
@@ -52,14 +65,24 @@ func (s SolicitudSellarSelloBaremacion) MaterialCanonicoHMAC() (CargaProtegida, 
 	if s.Validar() != nil {
 		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
 	}
-	representacion := s.RepresentacionCanonica.Revelar()
+	return materialCanonicoHMACBaremacion(s.Finalidad, s.RepresentacionCanonica)
+}
+
+func materialCanonicoHMACBaremacion(
+	finalidad FinalidadSelloBaremacion,
+	representacionCanonica CargaProtegida,
+) (CargaProtegida, error) {
+	if !finalidad.validaParaVerificacionHistorica() || representacionCanonica.Validar() != nil {
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	representacion := representacionCanonica.Revelar()
 	defer func() {
 		for indice := range representacion {
 			representacion[indice] = 0
 		}
 	}()
-	material := make([]byte, 0, len(s.Finalidad)+1+len(representacion))
-	material = append(material, []byte(s.Finalidad)...)
+	material := make([]byte, 0, len(finalidad)+1+len(representacion))
+	material = append(material, []byte(finalidad)...)
 	material = append(material, 0)
 	material = append(material, representacion...)
 	resultado, err := NuevaCargaProtegida(material)
@@ -94,7 +117,7 @@ type SolicitudVerificarSelloBaremacion struct {
 }
 
 func (s SolicitudVerificarSelloBaremacion) Validar() error {
-	if !s.Finalidad.valida() || s.RepresentacionCanonica.Validar() != nil ||
+	if !s.Finalidad.validaParaVerificacionHistorica() || s.RepresentacionCanonica.Validar() != nil ||
 		!huellaHMACSHA256Valida(s.SelloHMAC) {
 		return ErrSelloBaremacionNoAutentico
 	}
@@ -108,10 +131,11 @@ func (s SolicitudVerificarSelloBaremacion) MaterialCanonicoHMAC() (CargaProtegid
 	if s.Validar() != nil {
 		return CargaProtegida{}, ErrSelloBaremacionNoAutentico
 	}
-	return (SolicitudSellarSelloBaremacion{
-		Finalidad:              s.Finalidad,
-		RepresentacionCanonica: s.RepresentacionCanonica,
-	}).MaterialCanonicoHMAC()
+	material, err := materialCanonicoHMACBaremacion(s.Finalidad, s.RepresentacionCanonica)
+	if err != nil {
+		return CargaProtegida{}, ErrSelloBaremacionNoAutentico
+	}
+	return material, nil
 }
 
 // VerificadorSellosBaremacion debe comparar en tiempo constante y devolver
@@ -154,7 +178,7 @@ func RepresentacionCanonicaConfirmacionBaremacion(s SolicitudConfirmarCambioBare
 		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
 	}
 	return representacionCanonicaConfirmacionBaremacion(
-		s, FinalidadSelloConfirmacionBaremacion, nil,
+		s, FinalidadSelloConfirmacionBaremacionV2, nil,
 	)
 }
 
@@ -172,9 +196,29 @@ func RepresentacionCanonicaSobreProbatorioConfirmacionBaremacionV2(
 	if err != nil {
 		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
 	}
-	return representacionCanonicaConfirmacionBaremacion(
+	return representacionCanonicaConfirmacionBaremacionLegada(
 		s.Confirmacion,
 		FinalidadSelloSobreProbatorioConfirmacionBaremacionV2,
+		[]string{referencia, indiceHMAC},
+	)
+}
+
+// RepresentacionCanonicaSobreProbatorioConfirmacionBaremacionV3 liga el
+// identificador nominal con ambos contextos de autorizacion. V2 se conserva
+// solo para reproducir su disposicion historica y no debe usarse en producto.
+func RepresentacionCanonicaSobreProbatorioConfirmacionBaremacionV3(
+	s IntentoNominalConfirmacionBaremacionV3,
+) (CargaProtegida, error) {
+	if s.ValidarForma() != nil {
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	referencia, indiceHMAC, err := s.IdentificadorOperacion.DatosReconciliacion()
+	if err != nil {
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	return representacionCanonicaConfirmacionBaremacion(
+		s.Confirmacion,
+		FinalidadSelloSobreProbatorioConfirmacionBaremacionV3,
 		[]string{referencia, indiceHMAC},
 	)
 }
@@ -184,11 +228,11 @@ func representacionCanonicaConfirmacionBaremacion(
 	finalidad FinalidadSelloBaremacion,
 	prefijo []string,
 ) (CargaProtegida, error) {
-	if s.Validar() != nil || !finalidad.valida() ||
-		(finalidad == FinalidadSelloConfirmacionBaremacion && len(prefijo) != 0) ||
-		(finalidad == FinalidadSelloSobreProbatorioConfirmacionBaremacionV2 && len(prefijo) != 2) ||
-		(finalidad != FinalidadSelloConfirmacionBaremacion &&
-			finalidad != FinalidadSelloSobreProbatorioConfirmacionBaremacionV2) {
+	if s.Validar() != nil || !finalidad.validaParaSelladoVigente() ||
+		(finalidad == FinalidadSelloConfirmacionBaremacionV2 && len(prefijo) != 0) ||
+		(finalidad == FinalidadSelloSobreProbatorioConfirmacionBaremacionV3 && len(prefijo) != 2) ||
+		(finalidad != FinalidadSelloConfirmacionBaremacionV2 &&
+			finalidad != FinalidadSelloSobreProbatorioConfirmacionBaremacionV3) {
 		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
 	}
 	huellaAgregado, err := s.Agregado.HuellaEstadoSHA256()
@@ -209,9 +253,21 @@ func representacionCanonicaConfirmacionBaremacion(
 		manifiestoHuella = s.Manifiesto.HuellaManifiestoSHA256
 		manifiestoSello = s.Manifiesto.SelloManifiestoHMACSHA256
 	}
-	partes, err := partesCanonicasAutorizacion(s.Contexto)
+	partes := []string{"autorizacion_confirmacion_v2"}
+	partesConfirmacion, err := partesCanonicasAutorizacion(s.Contexto)
 	if err != nil {
 		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	partes = append(partes, partesConfirmacion...)
+	if s.Clase == ClaseCambioIncorporarDecision {
+		partesPrevalidacion, err := partesCanonicasAutorizacion(s.ContextoPrevalidacionArchivo)
+		if err != nil {
+			return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+		}
+		partes = append(partes, "autorizacion_prevalidacion_archivo")
+		partes = append(partes, partesPrevalidacion...)
+	} else {
+		partes = append(partes, "sin_autorizacion_prevalidacion_archivo")
 	}
 	partes = append(partes, string(finalidad))
 	partes = append(partes, prefijo...)
@@ -220,6 +276,48 @@ func representacionCanonicaConfirmacionBaremacion(
 		versionPresente, versionRef, versionNumero, versionHuella, huellaAgregado,
 		manifiestoPresente, manifiestoRef, manifiestoHuella, manifiestoSello,
 		s.Trazabilidad.MotivoClave, s.Trazabilidad.Motivo,
+		s.ConfirmadaEn.UTC().Format(time.RFC3339Nano),
+	)
+	return cargaPartesCanonicas(partes)
+}
+
+// representacionCanonicaConfirmacionBaremacionLegada conserva exactamente la
+// disposicion V1/V2 anterior a la autorizacion de prevalidacion. Solo sostiene
+// vectores historicos del sobre nominal V2; ningun productor vigente la usa.
+func representacionCanonicaConfirmacionBaremacionLegada(
+	s SolicitudConfirmarCambioBaremacion,
+	finalidad FinalidadSelloBaremacion,
+	prefijo []string,
+) (CargaProtegida, error) {
+	if s.Validar() != nil || finalidad != FinalidadSelloSobreProbatorioConfirmacionBaremacionV2 ||
+		len(prefijo) != 2 {
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	huellaAgregado, err := s.Agregado.HuellaEstadoSHA256()
+	if err != nil {
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	versionPresente, versionRef, versionNumero, versionHuella := "no", "", "0", ""
+	if s.VersionEsperada != nil {
+		versionPresente, versionRef = "si", s.VersionEsperada.BaremacionMeritoRef
+		versionNumero = strconv.FormatUint(s.VersionEsperada.Numero, 10)
+		versionHuella = s.VersionEsperada.HuellaEstadoSHA256
+	}
+	manifiestoPresente, manifiestoRef, manifiestoHuella, manifiestoSello := "no", "", "", ""
+	if s.Manifiesto != nil {
+		manifiestoPresente, manifiestoRef = "si", s.Manifiesto.Referencia
+		manifiestoHuella, manifiestoSello = s.Manifiesto.HuellaManifiestoSHA256, s.Manifiesto.SelloManifiestoHMACSHA256
+	}
+	partes, err := partesCanonicasAutorizacion(s.Contexto)
+	if err != nil {
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	partes = append(partes, string(finalidad))
+	partes = append(partes, prefijo...)
+	partes = append(partes,
+		s.Token.Revelar(), string(s.Clase), versionPresente, versionRef, versionNumero,
+		versionHuella, huellaAgregado, manifiestoPresente, manifiestoRef, manifiestoHuella,
+		manifiestoSello, s.Trazabilidad.MotivoClave, s.Trazabilidad.Motivo,
 		s.ConfirmadaEn.UTC().Format(time.RFC3339Nano),
 	)
 	return cargaPartesCanonicas(partes)

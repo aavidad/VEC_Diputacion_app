@@ -10,19 +10,20 @@ type disposicionManifiestoBaremacion struct {
 	sello   bool
 	aumento bool
 
-	autorizacionAdopcion            int
-	autorizacionPolitica            int
-	autorizacionConsultaFirma       int
-	autorizacionValidacionInicial   int
-	autorizacionSello               int
-	autorizacionValidacionTrasSello int
-	autorizacionAumento             int
-	autorizacionValidacionFinal     int
-	autorizacionRecuperacion        int
-	autorizacionCustodiaFirmado     int
-	autorizacionRetencion           int
-	autorizacionReserva             int
-	autorizacionConfirmacion        int
+	autorizacionAdopcion             int
+	autorizacionPolitica             int
+	autorizacionConsultaFirma        int
+	autorizacionValidacionInicial    int
+	autorizacionSello                int
+	autorizacionValidacionTrasSello  int
+	autorizacionAumento              int
+	autorizacionValidacionFinal      int
+	autorizacionRecuperacion         int
+	autorizacionCustodiaFirmado      int
+	autorizacionRetencion            int
+	autorizacionReserva              int
+	autorizacionPrevalidacionArchivo int
+	autorizacionConfirmacion         int
 
 	evidenciaContenido           int
 	evidenciaPolitica            int
@@ -158,7 +159,8 @@ func (m ManifiestoProbatorioBaremacion) validarCoberturaCanonica() (disposicionM
 	disposicion.autorizacionCustodiaFirmado = cursorAutorizaciones + 1
 	disposicion.autorizacionRetencion = cursorAutorizaciones + 2
 	disposicion.autorizacionReserva = cursorAutorizaciones + 3
-	disposicion.autorizacionConfirmacion = cursorAutorizaciones + 4
+	disposicion.autorizacionPrevalidacionArchivo = cursorAutorizaciones + 4
+	disposicion.autorizacionConfirmacion = cursorAutorizaciones + 5
 
 	accionesEsperadas := accionesManifiestoCanonicas(
 		meritos, m.Autorizaciones[baseAutorizaciones].Accion, disposicion.sello, disposicion.aumento,
@@ -246,6 +248,7 @@ func accionesManifiestoCanonicas(
 		AccionCustodiarDocumentoFirmadoBaremacion,
 		AccionRetenerDocumentoFirmadoBaremacion,
 		AccionReservarDecisionBaremacion,
+		AccionPrevalidarArchivoProbatorioBaremacion,
 		AccionConfirmarDecisionBaremacion,
 	)
 }
@@ -271,6 +274,7 @@ func (m ManifiestoProbatorioBaremacion) coberturaReferenciasEstructuralesValida(
 		autorizaciones[d.autorizacionAdopcion+3].RecursoRef != m.DecisionRef ||
 		autorizaciones[d.autorizacionAdopcion+4].RecursoRef != m.DecisionRef ||
 		autorizaciones[d.autorizacionReserva].RecursoRef != m.BaremacionMeritoRef ||
+		autorizaciones[d.autorizacionPrevalidacionArchivo].RecursoRef != m.BaremacionMeritoRef ||
 		autorizaciones[d.autorizacionConfirmacion].RecursoRef != m.BaremacionMeritoRef {
 		return false
 	}
@@ -518,5 +522,18 @@ func (m ManifiestoProbatorioBaremacion) autorizacionConfirmacionCoincide(
 		return false
 	}
 	return m.Autorizaciones[d.autorizacionConfirmacion].AutorizacionRef ==
+		contexto.Proyeccion().AutorizacionRef
+}
+
+func (m ManifiestoProbatorioBaremacion) autorizacionPrevalidacionArchivoCoincide(
+	contexto ContextoOperacionBaremacion,
+) bool {
+	d, err := m.validarCoberturaCanonica()
+	if err != nil || contexto.ValidarPara(
+		AccionPrevalidarArchivoProbatorioBaremacion, ClaseRecursoBaremacion, m.BaremacionMeritoRef,
+	) != nil {
+		return false
+	}
+	return m.Autorizaciones[d.autorizacionPrevalidacionArchivo].AutorizacionRef ==
 		contexto.Proyeccion().AutorizacionRef
 }

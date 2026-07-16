@@ -14,7 +14,10 @@ import (
 const (
 	EsquemaManifiestoProbatorioBaremacion   = "vec.bolsa.manifiesto_probatorio"
 	FinalidadManifiestoProbatorioBaremacion = "decision_tecnica_baremacion"
-	VersionManifiestoProbatorioBaremacion   = 2
+	// VersionManifiestoProbatorioBaremacionV2 queda congelada para identificar
+	// archivos preproductivos antiguos. El productor vigente solo emite V3.
+	VersionManifiestoProbatorioBaremacionV2 = 2
+	VersionManifiestoProbatorioBaremacion   = 3
 )
 
 // TipoEvidenciaProbatoriaBaremacion es un catalogo cerrado. Una evidencia no
@@ -154,8 +157,8 @@ func (m ManifiestoProbatorioBaremacion) validarContenido() error {
 		!referenciaValida(m.BaremacionMeritoRef, 512) || !referenciaValida(m.DecisionRef, 512) ||
 		m.VersionBase < 1 || !huellaSHA256Valida(m.HuellaVersionBaseSHA256) ||
 		len(m.Autorizaciones) == 0 || len(m.Autorizaciones) > 4096 ||
-		len(m.Evidencias) == 0 || len(m.Evidencias) > 4096 || m.CreadoEn.IsZero() ||
-		m.CreadoEn.Location() != time.UTC {
+		len(m.Evidencias) == 0 || len(m.Evidencias) > 4096 ||
+		!instanteCanonicoManifiestoBaremacion(m.CreadoEn) {
 		return ErrSolicitudBaremacionInvalida
 	}
 	autorizaciones := make(map[string]struct{}, len(m.Autorizaciones))
@@ -196,8 +199,8 @@ func (m ManifiestoProbatorioBaremacion) ValidarPara(
 // PrepararSellado calcula la huella cerrada y devuelve exactamente los bytes
 // que debe autenticar el sellador institucional.
 func (m ManifiestoProbatorioBaremacion) PrepararSellado() (ManifiestoProbatorioBaremacion, CargaProtegida, error) {
-	if m.HuellaManifiestoSHA256 != "" || m.SelloManifiestoHMACSHA256 != "" || m.CreadoEn.IsZero() ||
-		m.CreadoEn.Location() != time.UTC {
+	if m.HuellaManifiestoSHA256 != "" || m.SelloManifiestoHMACSHA256 != "" ||
+		!instanteCanonicoManifiestoBaremacion(m.CreadoEn) {
 		return ManifiestoProbatorioBaremacion{}, CargaProtegida{}, ErrSolicitudBaremacionInvalida
 	}
 	if _, err := m.validarCoberturaCanonica(); err != nil {
@@ -234,7 +237,7 @@ func RepresentacionCanonicaManifiestoProbatorioBaremacion(
 		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
 	}
 	return cargaPartesCanonicas([]string{
-		string(FinalidadSelloManifiestoProbatorioBaremacionV2),
+		string(FinalidadSelloManifiestoProbatorioBaremacionV3),
 		string(material),
 	})
 }
@@ -270,8 +273,8 @@ func (m ManifiestoProbatorioBaremacion) materialCanonico(incluirHuella bool) ([]
 		!referenciaValida(m.BaremacionMeritoRef, 512) || !referenciaValida(m.DecisionRef, 512) ||
 		m.VersionBase < 1 || !huellaSHA256Valida(m.HuellaVersionBaseSHA256) ||
 		len(m.Autorizaciones) == 0 || len(m.Autorizaciones) > 4096 ||
-		len(m.Evidencias) == 0 || len(m.Evidencias) > 4096 || m.CreadoEn.IsZero() ||
-		m.CreadoEn.Location() != time.UTC {
+		len(m.Evidencias) == 0 || len(m.Evidencias) > 4096 ||
+		!instanteCanonicoManifiestoBaremacion(m.CreadoEn) {
 		return nil, ErrSolicitudBaremacionInvalida
 	}
 	var destino bytes.Buffer
@@ -317,4 +320,12 @@ func (m ManifiestoProbatorioBaremacion) materialCanonico(incluirHuella bool) ([]
 		escribir(m.HuellaManifiestoSHA256)
 	}
 	return destino.Bytes(), nil
+}
+
+// instanteCanonicoManifiestoBaremacion mantiene el mismo perfil temporal que
+// PostgreSQL y RFC 3339: UTC, cuatro cifras de anio y distinto del valor cero
+// de time.Time. Evita firmar bytes que el almacen durable no pueda validar.
+func instanteCanonicoManifiestoBaremacion(instante time.Time) bool {
+	return !instante.IsZero() && instante.Location() == time.UTC &&
+		instante.Year() >= 1 && instante.Year() <= 9999
 }

@@ -88,6 +88,7 @@ func TestServicioBaremacionCompletaRevisionConAutorizacionesIndependientes(t *te
 		puertosbolsa.AccionCustodiarDocumentoFirmadoBaremacion,
 		puertosbolsa.AccionRetenerDocumentoFirmadoBaremacion,
 		puertosbolsa.AccionReservarDecisionBaremacion,
+		puertosbolsa.AccionPrevalidarArchivoProbatorioBaremacion,
 		puertosbolsa.AccionConfirmarDecisionBaremacion,
 	}
 	if acciones := entorno.autorizador.acciones(); !accionesBaremacionIguales(acciones, esperadas) {
@@ -95,6 +96,31 @@ func TestServicioBaremacionCompletaRevisionConAutorizacionesIndependientes(t *te
 	}
 	if entorno.autorizador.referenciasRepetidas() {
 		t.Fatal("se reutilizo una decision de autorizacion entre operaciones")
+	}
+	capturada := entorno.repositorio.confirmacion
+	if capturada == nil || capturada.Manifiesto == nil ||
+		capturada.ContextoPrevalidacionArchivo.ValidarPara(
+			puertosbolsa.AccionPrevalidarArchivoProbatorioBaremacion,
+			puertosbolsa.ClaseRecursoBaremacion, capturada.Agregado.ID,
+		) != nil || !capturada.Contexto.MismoVinculoAutenticacionQue(
+		capturada.ContextoPrevalidacionArchivo,
+	) {
+		t.Fatal("confirmacion no transporto la prevalidacion dedicada y ligada")
+	}
+	proyeccionConfirmacion := capturada.Contexto.Proyeccion()
+	proyeccionPrevalidacion := capturada.ContextoPrevalidacionArchivo.Proyeccion()
+	autorizacionesManifiesto := capturada.Manifiesto.Autorizaciones
+	if proyeccionConfirmacion.AutorizacionRef == proyeccionPrevalidacion.AutorizacionRef ||
+		len(autorizacionesManifiesto) < 2 ||
+		autorizacionesManifiesto[len(autorizacionesManifiesto)-2].Accion !=
+			puertosbolsa.AccionPrevalidarArchivoProbatorioBaremacion ||
+		autorizacionesManifiesto[len(autorizacionesManifiesto)-2].AutorizacionRef !=
+			proyeccionPrevalidacion.AutorizacionRef ||
+		autorizacionesManifiesto[len(autorizacionesManifiesto)-1].Accion !=
+			puertosbolsa.AccionConfirmarDecisionBaremacion ||
+		autorizacionesManifiesto[len(autorizacionesManifiesto)-1].AutorizacionRef !=
+			proyeccionConfirmacion.AutorizacionRef {
+		t.Fatal("manifiesto no conserva prevalidacion y confirmacion distintas en orden canonico")
 	}
 	contextoFirmable, err := entorno.almacen.firmable.Contexto.Proyeccion()
 	if err != nil {

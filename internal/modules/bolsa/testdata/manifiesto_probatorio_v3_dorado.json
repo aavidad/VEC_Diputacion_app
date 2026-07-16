@@ -1,0 +1,257 @@
+{
+  "esquema_fixture": "vec.pruebas.bolsa.manifiesto-probatorio-v3-dorado.v1",
+  "manifiesto": {
+    "esquema": "vec.bolsa.manifiesto_probatorio",
+    "finalidad": "decision_tecnica_baremacion",
+    "version_esquema": 3,
+    "referencia": "manifiesto:postgresql:v3",
+    "proceso_ref": "proceso:postgresql:manifiesto-v3",
+    "solicitud_ref": "solicitud:postgresql:v3",
+    "sujeto_ref": "sujeto:postgresql:v3",
+    "baremacion_merito_ref": "baremacion:postgresql:manifiesto-v3",
+    "decision_ref": "decision:postgresql:manifiesto-v3",
+    "version_base": 1,
+    "huella_version_base_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "autorizaciones": [
+      {
+        "secuencia": 1,
+        "accion": "bolsa.baremacion.vigente.consultar",
+        "clase_recurso": "baremacion",
+        "recurso_ref": "baremacion:postgresql:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:1"
+      },
+      {
+        "secuencia": 2,
+        "accion": "bolsa.puntuacion.calculo.recuperar",
+        "clase_recurso": "calculo",
+        "recurso_ref": "calculo:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:2"
+      },
+      {
+        "secuencia": 3,
+        "accion": "bolsa.criterio.consultar",
+        "clase_recurso": "proceso",
+        "recurso_ref": "proceso:postgresql:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:3"
+      },
+      {
+        "secuencia": 4,
+        "accion": "bolsa.evidencia.consultar",
+        "clase_recurso": "evidencia",
+        "recurso_ref": "documento:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:4"
+      },
+      {
+        "secuencia": 5,
+        "accion": "bolsa.representacion.consultar",
+        "clase_recurso": "representacion",
+        "recurso_ref": "representacion:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:5"
+      },
+      {
+        "secuencia": 6,
+        "accion": "bolsa.baremacion.decision.inicial.adoptar",
+        "clase_recurso": "baremacion",
+        "recurso_ref": "baremacion:postgresql:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:6"
+      },
+      {
+        "secuencia": 7,
+        "accion": "bolsa.firma.politica.consultar",
+        "clase_recurso": "politica_firma",
+        "recurso_ref": "politica:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:7"
+      },
+      {
+        "secuencia": 8,
+        "accion": "bolsa.decision.codificar",
+        "clase_recurso": "decision",
+        "recurso_ref": "decision:postgresql:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:8"
+      },
+      {
+        "secuencia": 9,
+        "accion": "bolsa.decision.custodiar",
+        "clase_recurso": "decision",
+        "recurso_ref": "decision:postgresql:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:9"
+      },
+      {
+        "secuencia": 10,
+        "accion": "bolsa.decision.firma.preparar",
+        "clase_recurso": "decision",
+        "recurso_ref": "decision:postgresql:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:10"
+      },
+      {
+        "secuencia": 11,
+        "accion": "bolsa.decision.firma.consultar",
+        "clase_recurso": "sesion_firma",
+        "recurso_ref": "sesion:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:11"
+      },
+      {
+        "secuencia": 12,
+        "accion": "bolsa.decision.firma.validar",
+        "clase_recurso": "artefacto_firma",
+        "recurso_ref": "firma:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:12"
+      },
+      {
+        "secuencia": 13,
+        "accion": "bolsa.decision.firma.binario.recuperar",
+        "clase_recurso": "documento_firmado",
+        "recurso_ref": "documento-firmado:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:13"
+      },
+      {
+        "secuencia": 14,
+        "accion": "bolsa.decision.firma.documento.custodiar",
+        "clase_recurso": "documento_firmado",
+        "recurso_ref": "documento-firmado:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:14"
+      },
+      {
+        "secuencia": 15,
+        "accion": "bolsa.decision.firma.documento.retener",
+        "clase_recurso": "documento_firmado",
+        "recurso_ref": "documento-firmado:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:15"
+      },
+      {
+        "secuencia": 16,
+        "accion": "bolsa.baremacion.decision.reservar",
+        "clase_recurso": "baremacion",
+        "recurso_ref": "baremacion:postgresql:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:16"
+      },
+      {
+        "secuencia": 17,
+        "accion": "bolsa.baremacion.archivo.prevalidar",
+        "clase_recurso": "baremacion",
+        "recurso_ref": "baremacion:postgresql:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:17"
+      },
+      {
+        "secuencia": 18,
+        "accion": "bolsa.baremacion.decision.confirmar",
+        "clase_recurso": "baremacion",
+        "recurso_ref": "baremacion:postgresql:manifiesto-v3",
+        "autorizacion_ref": "autorizacion:manifiesto-v3:18"
+      }
+    ],
+    "evidencias": [
+      {
+        "secuencia": 1,
+        "tipo": "estado_base",
+        "referencia": "baremacion:postgresql:manifiesto-v3",
+        "huella_evidencia_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "secuencia": 2,
+        "tipo": "calculo_oficial",
+        "referencia": "evidencia-calculo:v3",
+        "huella_evidencia_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "secuencia": 3,
+        "tipo": "criterio_publicado",
+        "referencia": "proceso:postgresql:manifiesto-v3",
+        "huella_evidencia_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "secuencia": 4,
+        "tipo": "documento_merito",
+        "referencia": "documento:manifiesto-v3",
+        "huella_evidencia_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      {
+        "secuencia": 5,
+        "tipo": "representacion_documento",
+        "referencia": "representacion:manifiesto-v3",
+        "huella_evidencia_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      {
+        "secuencia": 6,
+        "tipo": "contenido_decision",
+        "referencia": "decision:postgresql:manifiesto-v3",
+        "huella_evidencia_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "secuencia": 7,
+        "tipo": "politica_firma",
+        "referencia": "aprobacion-politica:v3",
+        "huella_evidencia_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "secuencia": 8,
+        "tipo": "documento_canonico",
+        "referencia": "decision:postgresql:manifiesto-v3",
+        "huella_evidencia_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      {
+        "secuencia": 9,
+        "tipo": "custodia_firmable",
+        "referencia": "custodia-firmable:v3",
+        "huella_evidencia_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      {
+        "secuencia": 10,
+        "tipo": "preparacion_firma",
+        "referencia": "preparacion-firma:v3",
+        "huella_evidencia_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "secuencia": 11,
+        "tipo": "consulta_firma",
+        "referencia": "consulta-firma:v3",
+        "huella_evidencia_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "secuencia": 12,
+        "tipo": "validacion_firma_inicial",
+        "referencia": "validacion-firma:v3",
+        "huella_evidencia_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      {
+        "secuencia": 13,
+        "tipo": "validacion_firma_final",
+        "referencia": "validacion-firma:v3",
+        "huella_evidencia_sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      {
+        "secuencia": 14,
+        "tipo": "recuperacion_documento_firmado",
+        "referencia": "recuperacion-firmado:v3",
+        "huella_evidencia_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "secuencia": 15,
+        "tipo": "custodia_documento_firmado",
+        "referencia": "custodia-firmado:v3",
+        "huella_evidencia_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      {
+        "secuencia": 16,
+        "tipo": "retencion_documento_firmado",
+        "referencia": "retencion-firmado:v3",
+        "huella_evidencia_sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+      }
+    ],
+    "creado_en": "2026-07-16T09:00:00Z",
+    "huella_manifiesto_sha256": "427bb5da122a4185bc572ab144bcf143480be38178b91c630276567c8f2122cd",
+    "sello_manifiesto_hmac_sha256": "hmac-sha256:manifiesto_v3:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "contenido_canonico": {
+    "sha256": "427bb5da122a4185bc572ab144bcf143480be38178b91c630276567c8f2122cd",
+    "tamano": 5248
+  },
+  "representacion_canonica": {
+    "sha256": "f26c109a5e0ca5ff4ba7d42f7594ae6f71566576e9d657d7ddd544876a90ec78",
+    "tamano": 5371
+  },
+  "preimagen_hmac": {
+    "sha256": "23bc76aee2da8ceb0ec2d19591c39b3ee7ba8a714f72995fd47baa37d2eccbe1",
+    "tamano": 5407
+  }
+}

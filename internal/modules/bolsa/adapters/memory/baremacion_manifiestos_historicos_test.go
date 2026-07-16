@@ -40,7 +40,7 @@ func (p *protectorManifiestosRotablePrueba) SellarSelloBaremacion(
 	ctx context.Context,
 	solicitud puertosbolsa.SolicitudSellarSelloBaremacion,
 ) (string, error) {
-	if ctx == nil || solicitud.Finalidad != puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2 {
+	if ctx == nil || solicitud.Finalidad != puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3 {
 		return "", puertosbolsa.ErrSelloBaremacionNoAutentico
 	}
 	if err := ctx.Err(); err != nil {
@@ -64,7 +64,7 @@ func (p *protectorManifiestosRotablePrueba) VerificarSelloBaremacion(
 	ctx context.Context,
 	solicitud puertosbolsa.SolicitudVerificarSelloBaremacion,
 ) error {
-	if solicitud.Finalidad != puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2 {
+	if solicitud.Finalidad != puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3 {
 		return (verificadorHMACMemoriaPrueba{}).VerificarSelloBaremacion(ctx, solicitud)
 	}
 	if ctx == nil || solicitud.Validar() != nil || p.indisponible.Load() {
@@ -254,8 +254,14 @@ func solicitudConfirmarDecisionHistoricaPrueba(
 		principalBaremacionMemoriaPrueba, baremacion.SujetoRef, "autenticacion-"+sufijo,
 		ultima.Contenido.CorrelacionRef, "autorizacion-confirmacion-"+sufijo, instante,
 	)
+	contextoPrevalidacion := contextoMemoriaPruebaAutorizacion(
+		puertosbolsa.AccionPrevalidarArchivoProbatorioBaremacion, baremacion.ID,
+		principalBaremacionMemoriaPrueba, baremacion.SujetoRef, "autenticacion-"+sufijo,
+		ultima.Contenido.CorrelacionRef, "autorizacion-prevalidacion-"+sufijo, instante,
+	)
 	manifiestoBase, err := manifiestoMemoriaPrueba(
-		version, ultima.Contenido, ultima.Firma, contexto.Proyeccion().AutorizacionRef, instante,
+		version, ultima.Contenido, ultima.Firma, contextoPrevalidacion.Proyeccion().AutorizacionRef,
+		contexto.Proyeccion().AutorizacionRef, instante,
 	)
 	if err != nil {
 		t.Fatalf("crear manifiesto %s: %v", sufijo, err)
@@ -265,7 +271,7 @@ func solicitudConfirmarDecisionHistoricaPrueba(
 		t.Fatalf("preparar manifiesto %s: %v", sufijo, err)
 	}
 	sello, err := sellador.SellarSelloBaremacion(context.Background(), puertosbolsa.SolicitudSellarSelloBaremacion{
-		Finalidad: puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2, RepresentacionCanonica: representacion,
+		Finalidad: puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3, RepresentacionCanonica: representacion,
 	})
 	if err != nil {
 		t.Fatalf("sellar manifiesto %s: %v", sufijo, err)
@@ -284,7 +290,8 @@ func solicitudConfirmarDecisionHistoricaPrueba(
 	}
 	*ultima = decision
 	solicitud := puertosbolsa.SolicitudConfirmarCambioBaremacion{
-		Contexto: contexto, Token: token, Clase: puertosbolsa.ClaseCambioIncorporarDecision,
+		Contexto: contexto, ContextoPrevalidacionArchivo: contextoPrevalidacion,
+		Token: token, Clase: puertosbolsa.ClaseCambioIncorporarDecision,
 		VersionEsperada: &version, HuellaSolicitudHMAC: hmacMemoria("0"), Agregado: baremacion,
 		Manifiesto: &manifiesto,
 		Trazabilidad: puertosbolsa.TrazabilidadCambioBaremacion{

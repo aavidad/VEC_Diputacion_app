@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -30,9 +31,11 @@ func (i iniciadorPostgreSQLBaremacionPrueba) BeginTx(
 
 type transaccionPostgreSQLBaremacionPrueba struct {
 	pgx.Tx
-	fila           pgx.Row
-	confirmaciones int
-	reversiones    int
+	fila              pgx.Row
+	filaPrevalidacion pgx.Row
+	consultas         []string
+	confirmaciones    int
+	reversiones       int
 }
 
 func (t *transaccionPostgreSQLBaremacionPrueba) Exec(
@@ -42,9 +45,63 @@ func (t *transaccionPostgreSQLBaremacionPrueba) Exec(
 }
 
 func (t *transaccionPostgreSQLBaremacionPrueba) QueryRow(
-	context.Context, string, ...any,
+	_ context.Context, consulta string, _ ...any,
 ) pgx.Row {
+	t.consultas = append(t.consultas, consulta)
+	if strings.Contains(consulta, funcionPrevalidacionArchivoProbatorioV3) && t.filaPrevalidacion != nil {
+		return t.filaPrevalidacion
+	}
 	return t.fila
+}
+
+func TestObtenerVersionPostgreSQLV3VerificaArchivoTrasCerrarTransaccion(t *testing.T) {
+	baremacion := baremacionPostgreSQLPrueba(t)
+	huella, err := baremacion.HuellaEstadoSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	agregado, err := json.Marshal(baremacion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archivo := archivoProbatorioPostgreSQLV3{
+		Esquema:             esquemaArchivoProbatorioPostgreSQLV3,
+		BaremacionMeritoRef: baremacion.ID, NumeroVersion: "1",
+		Manifiestos: []manifiestoArchivadoPostgreSQLV3{},
+	}
+	archivo.HuellaArchivoSHA256 = huellaArchivoProbatorioV3(
+		archivo.Esquema, archivo.BaremacionMeritoRef, archivo.NumeroVersion, nil,
+	)
+	archivoJSON, err := json.Marshal(archivo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx := &transaccionPostgreSQLBaremacionPrueba{fila: filaPostgreSQLBaremacionPrueba{valores: []any{
+		"obtenida", "1", huella, agregado, instantePostgreSQLPrueba,
+		"auditoria:postgresql:version-v3", archivoJSON,
+	}}}
+	repositorio, err := nuevoRepositorioBaremaciones(
+		iniciadorPostgreSQLBaremacionPrueba{tx: tx},
+		relojPostgreSQLBaremacionPrueba{instante: instantePostgreSQLPrueba},
+		verificadorPostgreSQLBaremacionPrueba{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud := puertosbolsa.SolicitudObtenerVersionBaremacion{
+		Contexto: contextoPostgreSQLBaremacionPrueba(
+			t, puertosbolsa.AccionConsultarVersionBaremacion, baremacion.ID,
+		),
+		BaremacionMeritoRef: baremacion.ID, Numero: 1,
+	}
+	version, err := repositorio.ObtenerVersion(context.Background(), solicitud)
+	if err != nil || version.Referencia.Numero != 1 {
+		t.Fatalf("lectura V3 no recuperada: %v", err)
+	}
+	if tx.confirmaciones != 1 || len(tx.consultas) != 1 ||
+		!strings.Contains(tx.consultas[0], "obtener_version_con_archivo_probatorio_v3") {
+		t.Fatalf("consulta V3/commit inesperados: commits=%d consultas=%v", tx.confirmaciones, tx.consultas)
+	}
 }
 
 func (t *transaccionPostgreSQLBaremacionPrueba) Commit(context.Context) error {
@@ -115,6 +172,84 @@ func (verificadorPostgreSQLBaremacionPrueba) VerificarSelloBaremacion(
 	return ctx.Err()
 }
 
+func TestHuellaPrevalidacionPrimeraConfirmacionLigaArchivoFinal(t *testing.T) {
+	token, err := transaccionbolsa.GenerarTokenReserva()
+	if err != nil {
+		t.Fatal(err)
+	}
+	baremacion := baremacionPostgreSQLPrueba(t)
+	solicitud := puertosbolsa.SolicitudConfirmarCambioBaremacion{
+		ContextoPrevalidacionArchivo: contextoPostgreSQLBaremacionPrueba(
+			t, puertosbolsa.AccionPrevalidarArchivoProbatorioBaremacion, baremacion.ID,
+		),
+		Token: token, Clase: puertosbolsa.ClaseCambioIncorporarDecision,
+		Agregado: baremacion,
+	}
+	huellaConfirmacion := strings.Repeat("9", 64)
+	versionBase := puertosbolsa.VersionBaremacion{
+		Referencia: puertosbolsa.ReferenciaVersionBaremacion{
+			BaremacionMeritoRef: baremacion.ID, Numero: 1,
+			HuellaEstadoSHA256: strings.Repeat("1", 64),
+		},
+	}
+	versionFinal := puertosbolsa.VersionBaremacion{
+		Referencia: puertosbolsa.ReferenciaVersionBaremacion{
+			BaremacionMeritoRef: baremacion.ID, Numero: 2,
+			HuellaEstadoSHA256: strings.Repeat("2", 64),
+		},
+	}
+	partesBase := []string{"0"}
+	partesFinales := []string{
+		"1", "manifiesto:postgresql:prueba", strings.Repeat("3", 64),
+		"hmac-sha256:postgresql_prueba:" + strings.Repeat("4", 64),
+		strings.Repeat("5", 64), strings.Repeat("6", 64), strings.Repeat("7", 64),
+	}
+	huellaBase := huellaPrevalidacionArchivoPostgreSQLV3(
+		solicitud, versionBase, huellaConfirmacion, partesBase,
+	)
+	huellaFinal := huellaPrevalidacionArchivoPostgreSQLV3(
+		solicitud, versionFinal, huellaConfirmacion, partesFinales,
+	)
+	if huellaBase == huellaFinal {
+		t.Fatal("la prevalidacion base y la evidencia final no quedaron separadas")
+	}
+	prevalidacionActiva := resultadoPrevalidacionArchivoPostgreSQLV3{
+		Estado: "activa", HuellaConfirmacionSHA256: huellaConfirmacion,
+		HuellaPrevalidacionSHA256: huellaBase,
+	}
+	if err = validarHuellaPrevalidacionConfirmacionPostgreSQLV3(
+		solicitud, prevalidacionActiva, versionFinal, partesFinales, huellaFinal,
+	); err != nil {
+		t.Fatalf("huella final autentica rechazada por compararla con la base: %v", err)
+	}
+	if err = validarHuellaPrevalidacionConfirmacionPostgreSQLV3(
+		solicitud, prevalidacionActiva, versionFinal, partesFinales, huellaBase,
+	); !errors.Is(err, puertosbolsa.ErrEvidenciaBaremacionNoConfiable) {
+		t.Fatalf("huella base admitida como evidencia final: %v", err)
+	}
+	prevalidacionConfirmada := prevalidacionActiva
+	prevalidacionConfirmada.Estado = "confirmada"
+	prevalidacionConfirmada.HuellaPrevalidacionSHA256 = huellaFinal
+	if err = validarHuellaPrevalidacionConfirmacionPostgreSQLV3(
+		solicitud, prevalidacionConfirmada, versionFinal, partesFinales, huellaFinal,
+	); err != nil {
+		t.Fatalf("replay confirmado no conservo la huella final durable: %v", err)
+	}
+	partesAlteradas := append([]string(nil), partesFinales...)
+	partesAlteradas[len(partesAlteradas)-1] = strings.Repeat("8", 64)
+	for nombre, partes := range map[string][]string{
+		"alteradas": partesAlteradas,
+		"ausentes":  nil,
+	} {
+		err = validarHuellaPrevalidacionConfirmacionPostgreSQLV3(
+			solicitud, prevalidacionConfirmada, versionFinal, partes, huellaFinal,
+		)
+		if !errors.Is(err, puertosbolsa.ErrEvidenciaBaremacionNoConfiable) {
+			t.Fatalf("replay confirmado admitio partes finales %s: %v", nombre, err)
+		}
+	}
+}
+
 func TestSalidasPostgreSQLNoConfiablesReviertenLosSeisMetodos(t *testing.T) {
 	t.Parallel()
 	token, err := transaccionbolsa.GenerarTokenReserva()
@@ -176,15 +311,17 @@ func TestSalidasPostgreSQLNoConfiablesReviertenLosSeisMetodos(t *testing.T) {
 	}
 
 	casos := []struct {
-		nombre   string
-		valores  []any
-		ejecutar func(*RepositorioBaremaciones) error
+		nombre                string
+		valores               []any
+		confirmacionesPrevias int
+		ejecutar              func(*RepositorioBaremaciones) error
 	}{
 		{
 			"reservar", []any{
 				"reservada", "reserva-forjada", reserva.ExpiraEn, "", "",
-				nil, nil, "", "", "", "",
+				nil, nil, "", "", "", "", []byte(`{}`),
 			},
+			0,
 			func(r *RepositorioBaremaciones) error {
 				_, err := r.ReservarCambio(context.Background(), reserva)
 				return err
@@ -194,8 +331,9 @@ func TestSalidasPostgreSQLNoConfiablesReviertenLosSeisMetodos(t *testing.T) {
 			"confirmar", []any{
 				"confirmada", "1", strings.Repeat("a", 64), []byte(`{}`),
 				nil, "auditoria", strings.Repeat("b", 64),
-				"evento", strings.Repeat("c", 64),
+				"evento", strings.Repeat("c", 64), []byte(`{}`), "",
 			},
+			0,
 			func(r *RepositorioBaremaciones) error {
 				_, err := r.ConfirmarCambio(context.Background(), confirmacion)
 				return err
@@ -203,6 +341,7 @@ func TestSalidasPostgreSQLNoConfiablesReviertenLosSeisMetodos(t *testing.T) {
 		},
 		{
 			"abandonar", []any{"estado_no_gobernado"},
+			0,
 			func(r *RepositorioBaremaciones) error {
 				return r.AbandonarReserva(context.Background(), abandono)
 			},
@@ -210,8 +349,9 @@ func TestSalidasPostgreSQLNoConfiablesReviertenLosSeisMetodos(t *testing.T) {
 		{
 			"obtener vigente", []any{
 				"obtenida", "1", strings.Repeat("a", 64), []byte(`{}`), nil,
-				"auditoria:postgresql:prueba",
+				"auditoria:postgresql:prueba", []byte(`{}`),
 			},
+			0,
 			func(r *RepositorioBaremaciones) error {
 				_, err := r.ObtenerVersionVigente(context.Background(), vigente)
 				return err
@@ -220,8 +360,9 @@ func TestSalidasPostgreSQLNoConfiablesReviertenLosSeisMetodos(t *testing.T) {
 		{
 			"obtener version", []any{
 				"obtenida", "1", strings.Repeat("a", 64), []byte(`{}`), nil,
-				"auditoria:postgresql:prueba",
+				"auditoria:postgresql:prueba", []byte(`{}`),
 			},
+			0,
 			func(r *RepositorioBaremaciones) error {
 				_, err := r.ObtenerVersion(context.Background(), version)
 				return err
@@ -230,8 +371,9 @@ func TestSalidasPostgreSQLNoConfiablesReviertenLosSeisMetodos(t *testing.T) {
 		{
 			"obtener evidencia", []any{
 				"obtenida", "1", strings.Repeat("a", 64), []byte(`{}`), nil,
-				[]byte(`{}`), []byte(`{}`),
+				[]byte(`{}`), []byte(`{}`), []byte(`{}`),
 			},
+			0,
 			func(r *RepositorioBaremaciones) error {
 				_, err := r.ObtenerEvidenciaTransaccion(context.Background(), evidencia)
 				return err
@@ -258,7 +400,7 @@ func TestSalidasPostgreSQLNoConfiablesReviertenLosSeisMetodos(t *testing.T) {
 			if !errors.Is(err, puertosbolsa.ErrEvidenciaBaremacionNoConfiable) {
 				t.Fatalf("error cerrado esperado, recibido: %v", err)
 			}
-			if tx.confirmaciones != 0 || tx.reversiones == 0 {
+			if tx.confirmaciones != caso.confirmacionesPrevias || tx.reversiones == 0 {
 				t.Fatalf(
 					"salida no confiable confirmada: commits=%d rollbacks=%d",
 					tx.confirmaciones, tx.reversiones,

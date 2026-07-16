@@ -8,13 +8,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
-	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -121,7 +118,7 @@ func (r *RepositorioBaremaciones) ReservarCambio(
 	}
 	proyeccion := solicitud.Contexto.Proyeccion()
 	operacion, err := json.Marshal(operacionReservaPostgreSQL{
-		Esquema:    "vec.bolsa.baremacion.reserva-postgresql.v1",
+		Esquema:    "vec.bolsa.baremacion.reserva-postgresql.v3",
 		ReservaRef: reservaRef, HuellaTokenSHA256: transaccionbolsa.HuellaTokenReserva(token),
 		AmbitoIdempotenciaSHA256: transaccionbolsa.HuellaCanonica(
 			"ambito-idempotencia-baremacion-v1", proyeccion.PrincipalRef, solicitud.ClaveIdempotencia,
@@ -143,19 +140,21 @@ func (r *RepositorioBaremaciones) ReservarCambio(
 	defer revertir(tx)
 	var estado, reservaResultado, numero, huella, auditoriaRef, huellaAuditoria, eventoRef, huellaEvento string
 	var expira, confirmada pgtype.Timestamptz
-	var agregado []byte
+	var agregado, archivo []byte
 	err = tx.QueryRow(ctx, `
 		SELECT resultado, reserva_ref, expira_en, numero_version,
 		       huella_estado_sha256, agregado_canonico, confirmada_en,
 		       auditoria_ref, huella_auditoria_sha256,
-		       evento_outbox_ref, huella_evento_outbox_sha256
-		FROM vec_bolsa_baremacion.reservar_cambio(
+		       evento_outbox_ref, huella_evento_outbox_sha256,
+		       archivo_probatorio_documento
+		FROM vec_bolsa_baremacion.reservar_cambio_con_archivo_probatorio_v3(
 			$1::jsonb, $2::jsonb, $3::bytea, $4::bytea
 		)`, operacion, prueba, decisionCanonica, recursoCanonico,
 	).Scan(
 		&estado, &reservaResultado, &expira, &numero, &huella, &agregado,
-		&confirmada, &auditoriaRef, &huellaAuditoria, &eventoRef, &huellaEvento,
+		&confirmada, &auditoriaRef, &huellaAuditoria, &eventoRef, &huellaEvento, &archivo,
 	)
+	defer borrarBytesPostgreSQL(agregado, archivo)
 	if err != nil {
 		return puertosbolsa.ReservaCambioBaremacion{}, errorPostgreSQL(ctx, err)
 	}
@@ -227,23 +226,29 @@ func (r *RepositorioBaremaciones) ReservarCambio(
 	if errorResultado != nil {
 		return puertosbolsa.ReservaCambioBaremacion{}, errorResultado
 	}
+	if err = r.verificarArchivoRespuestaReservaV3(ctx, estado, respuesta, archivo); err != nil {
+		return puertosbolsa.ReservaCambioBaremacion{}, err
+	}
 	return respuesta, nil
 }
 
 type operacionConfirmacionPostgreSQL struct {
-	Esquema                     string `json:"esquema"`
-	HuellaTokenSHA256           string `json:"huella_token_sha256"`
-	Clase                       string `json:"clase"`
-	VersionEsperada             string `json:"version_esperada"`
-	HuellaVersionEsperadaSHA256 string `json:"huella_version_esperada_sha256"`
-	HuellaSolicitudHMAC         string `json:"huella_solicitud_hmac"`
-	HuellaEfectoSHA256          string `json:"huella_efecto_sha256"`
-	HuellaAgregadoSHA256        string `json:"huella_agregado_sha256"`
-	MotivoClave                 string `json:"motivo_clave"`
-	Motivo                      string `json:"motivo"`
-	ConfirmadaEn                string `json:"confirmada_en"`
-	AuditoriaRef                string `json:"auditoria_ref"`
-	EventoOutboxRef             string `json:"evento_outbox_ref"`
+	Esquema                         string `json:"esquema"`
+	HuellaTokenSHA256               string `json:"huella_token_sha256"`
+	Clase                           string `json:"clase"`
+	VersionEsperada                 string `json:"version_esperada"`
+	HuellaVersionEsperadaSHA256     string `json:"huella_version_esperada_sha256"`
+	HuellaSolicitudHMAC             string `json:"huella_solicitud_hmac"`
+	HuellaEfectoSHA256              string `json:"huella_efecto_sha256"`
+	HuellaAgregadoSHA256            string `json:"huella_agregado_sha256"`
+	MotivoClave                     string `json:"motivo_clave"`
+	Motivo                          string `json:"motivo"`
+	ConfirmadaEn                    string `json:"confirmada_en"`
+	AuditoriaRef                    string `json:"auditoria_ref"`
+	EventoOutboxRef                 string `json:"evento_outbox_ref"`
+	AutorizacionPrevalidacionRef    string `json:"autorizacion_prevalidacion_ref"`
+	HuellaConfirmacionSHA256        string `json:"huella_confirmacion_sha256"`
+	HuellaEfectoPrevalidacionSHA256 string `json:"huella_efecto_prevalidacion_sha256"`
 }
 
 func (r *RepositorioBaremaciones) ConfirmarCambio(
@@ -268,6 +273,9 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 	if err = r.verificarSelloConfirmacion(ctx, solicitud); err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
 	}
+	if err = r.verificarSelloManifiestoProbatorioV3(ctx, solicitud.Manifiesto); err != nil {
+		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
+	}
 	huellaAgregado, err := solicitud.Agregado.HuellaEstadoSHA256()
 	if err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrHistorialBaremacionNoAnexable
@@ -280,7 +288,7 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 	if hex.EncodeToString(sumaAgregado[:]) != huellaAgregado {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrHistorialBaremacionNoAnexable
 	}
-	huellaEfecto, err := transaccionbolsa.HuellaEfectoConfirmacion(solicitud)
+	huellaEfecto, err := transaccionbolsa.HuellaEfectoConfirmacionV2(solicitud)
 	if err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
 	}
@@ -290,6 +298,21 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 	if err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
 	}
+	var prevalidacion resultadoPrevalidacionArchivoPostgreSQLV3
+	if solicitud.Clase == puertosbolsa.ClaseCambioIncorporarDecision {
+		prevalidacion, err = r.prevalidarArchivoCambioV3(ctx, solicitud, ahora, huellaEfecto)
+		if err != nil {
+			return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
+		}
+	}
+	manifiestoDocumento, contenidoManifiesto, representacionManifiesto, preimagenHMAC, err :=
+		serializarManifiestoProbatorioV3(solicitud.Manifiesto)
+	if err != nil {
+		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
+	}
+	defer borrarBytesPostgreSQL(
+		manifiestoDocumento, contenidoManifiesto, representacionManifiesto, preimagenHMAC,
+	)
 	auditoriaRef, err := transaccionbolsa.NuevaReferenciaOpaca()
 	if err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrGeneracionReferenciaNoDisponible
@@ -304,7 +327,7 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 		huellaVersion = solicitud.VersionEsperada.HuellaEstadoSHA256
 	}
 	operacion, err := json.Marshal(operacionConfirmacionPostgreSQL{
-		Esquema:           "vec.bolsa.baremacion.confirmacion-postgresql.v1",
+		Esquema:           "vec.bolsa.baremacion.confirmacion-postgresql.v3",
 		HuellaTokenSHA256: transaccionbolsa.HuellaTokenReserva(solicitud.Token),
 		Clase:             string(solicitud.Clase), VersionEsperada: version,
 		HuellaVersionEsperadaSHA256: huellaVersion,
@@ -313,6 +336,9 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 		MotivoClave: solicitud.Trazabilidad.MotivoClave, Motivo: solicitud.Trazabilidad.Motivo,
 		ConfirmadaEn: solicitud.ConfirmadaEn.UTC().Format(time.RFC3339Nano),
 		AuditoriaRef: auditoriaRef, EventoOutboxRef: eventoRef,
+		AutorizacionPrevalidacionRef:    prevalidacion.AutorizacionPrevalidacionRef,
+		HuellaConfirmacionSHA256:        huellaEfecto,
+		HuellaEfectoPrevalidacionSHA256: prevalidacion.HuellaEfectoPrevalidacionSHA256,
 	})
 	if err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
@@ -323,20 +349,27 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 	}
 	defer revertir(tx)
 	var estado, numero, huella, auditoriaResultado, huellaAuditoria, eventoResultado, huellaEvento string
-	var agregado []byte
+	var huellaPrevalidacionResultado string
+	var agregado, archivo []byte
 	var confirmada pgtype.Timestamptz
 	err = tx.QueryRow(ctx, `
 		SELECT resultado, numero_version, huella_estado_sha256,
 		       agregado_canonico, confirmada_en, auditoria_ref,
 		       huella_auditoria_sha256, evento_outbox_ref,
-		       huella_evento_outbox_sha256
-		FROM vec_bolsa_baremacion.confirmar_cambio(
-			$1::jsonb, $2::jsonb, $3::bytea, $4::bytea, $5::bytea
+		       huella_evento_outbox_sha256, archivo_probatorio_documento,
+		       huella_prevalidacion_sha256
+		FROM vec_bolsa_baremacion.confirmar_cambio_con_archivo_probatorio_v3(
+			$1::jsonb, $2::jsonb, $3::bytea, $4::bytea, $5::bytea,
+			$6::jsonb, $7::bytea, $8::bytea, $9::bytea, $10::text
 		)`, operacion, prueba, decisionCanonica, recursoCanonico, agregadoCanonico,
+		manifiestoDocumento, contenidoManifiesto, representacionManifiesto, preimagenHMAC,
+		prevalidacion.HuellaPrevalidacionSHA256,
 	).Scan(
 		&estado, &numero, &huella, &agregado, &confirmada,
 		&auditoriaResultado, &huellaAuditoria, &eventoResultado, &huellaEvento,
+		&archivo, &huellaPrevalidacionResultado,
 	)
+	defer borrarBytesPostgreSQL(agregado, archivo)
 	if err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, errorPostgreSQL(ctx, err)
 	}
@@ -376,6 +409,18 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, errorPostgreSQL(ctx, err)
+	}
+	_, partesArchivoFinal, err := r.verificarArchivoProbatorioV3(
+		ctx, resultadoClonado.Version, archivo,
+	)
+	if err != nil {
+		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
+	}
+	if err = validarHuellaPrevalidacionConfirmacionPostgreSQLV3(
+		solicitud, prevalidacion, resultadoClonado.Version,
+		partesArchivoFinal, huellaPrevalidacionResultado,
+	); err != nil {
+		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
 	}
 	return resultadoClonado, nil
 }
@@ -472,10 +517,10 @@ func (r *RepositorioBaremaciones) ObtenerVersionVigente(
 		"lectura-baremacion-vigente-v1", solicitud.BaremacionMeritoRef,
 	)
 	return r.obtenerVersion(ctx, solicitud.Contexto, operacionLecturaVigentePostgreSQL{
-		Esquema:             "vec.bolsa.baremacion.lectura-vigente-postgresql.v1",
+		Esquema:             "vec.bolsa.baremacion.lectura-vigente-postgresql.v3",
 		BaremacionMeritoRef: solicitud.BaremacionMeritoRef,
 		HuellaEfectoSHA256:  huellaEfecto,
-	}, "vec_bolsa_baremacion.obtener_version_vigente", solicitud.BaremacionMeritoRef, 0, huellaEfecto)
+	}, "vec_bolsa_baremacion.obtener_version_vigente_con_archivo_probatorio_v3", solicitud.BaremacionMeritoRef, 0, huellaEfecto)
 }
 
 type operacionLecturaVersionPostgreSQL struct {
@@ -500,10 +545,10 @@ func (r *RepositorioBaremaciones) ObtenerVersion(
 		"lectura-version-baremacion-v1", solicitud.BaremacionMeritoRef, numero,
 	)
 	return r.obtenerVersion(ctx, solicitud.Contexto, operacionLecturaVersionPostgreSQL{
-		Esquema:             "vec.bolsa.baremacion.lectura-version-postgresql.v1",
+		Esquema:             "vec.bolsa.baremacion.lectura-version-postgresql.v3",
 		BaremacionMeritoRef: solicitud.BaremacionMeritoRef, NumeroVersion: numero,
 		HuellaEfectoSHA256: huellaEfecto,
-	}, "vec_bolsa_baremacion.obtener_version", solicitud.BaremacionMeritoRef, solicitud.Numero, huellaEfecto)
+	}, "vec_bolsa_baremacion.obtener_version_con_archivo_probatorio_v3", solicitud.BaremacionMeritoRef, solicitud.Numero, huellaEfecto)
 }
 
 func (r *RepositorioBaremaciones) obtenerVersion(
@@ -532,14 +577,16 @@ func (r *RepositorioBaremaciones) obtenerVersion(
 	}
 	defer revertir(tx)
 	var estado, numero, huella, auditoriaRef string
-	var agregado []byte
+	var agregado, archivo []byte
 	var confirmada pgtype.Timestamptz
 	consulta := `SELECT resultado, numero_version, huella_estado_sha256,
-		agregado_canonico, confirmada_en, auditoria_ref FROM ` + funcion + `(
+		agregado_canonico, confirmada_en, auditoria_ref,
+		archivo_probatorio_documento FROM ` + funcion + `(
 		$1::jsonb, $2::jsonb, $3::bytea, $4::bytea)`
 	err = tx.QueryRow(ctx, consulta, operacionJSON, prueba, decisionCanonica, recursoCanonico).Scan(
-		&estado, &numero, &huella, &agregado, &confirmada, &auditoriaRef,
+		&estado, &numero, &huella, &agregado, &confirmada, &auditoriaRef, &archivo,
 	)
+	defer borrarBytesPostgreSQL(agregado, archivo)
 	if err != nil {
 		return puertosbolsa.VersionBaremacion{}, errorPostgreSQL(ctx, err)
 	}
@@ -579,6 +626,9 @@ func (r *RepositorioBaremaciones) obtenerVersion(
 	if err = tx.Commit(ctx); err != nil {
 		return puertosbolsa.VersionBaremacion{}, errorPostgreSQL(ctx, err)
 	}
+	if _, _, err = r.verificarArchivoProbatorioV3(ctx, version, archivo); err != nil {
+		return puertosbolsa.VersionBaremacion{}, err
+	}
 	return version, nil
 }
 
@@ -617,7 +667,7 @@ func (r *RepositorioBaremaciones) ObtenerEvidenciaTransaccion(
 		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, err
 	}
 	operacion, err := json.Marshal(operacionLecturaEvidenciaPostgreSQL{
-		Esquema:             "vec.bolsa.baremacion.lectura-evidencia-postgresql.v1",
+		Esquema:             "vec.bolsa.baremacion.lectura-evidencia-postgresql.v3",
 		BaremacionMeritoRef: solicitud.BaremacionMeritoRef, NumeroVersion: numero,
 		AuditoriaRef: solicitud.AuditoriaRef, EventoOutboxRef: solicitud.EventoOutboxRef,
 		HuellaEfectoSHA256: huellaEfecto,
@@ -631,16 +681,21 @@ func (r *RepositorioBaremaciones) ObtenerEvidenciaTransaccion(
 	}
 	defer revertir(tx)
 	var estado, numeroResultado, huella string
-	var agregado, auditoriaJSON, eventoJSON []byte
+	var agregado, auditoriaJSON, eventoJSON, archivo []byte
 	var confirmada pgtype.Timestamptz
 	err = tx.QueryRow(ctx, `
 		SELECT resultado, numero_version, huella_estado_sha256,
 		       agregado_canonico, confirmada_en,
-		       auditoria_documento, evento_documento
-		FROM vec_bolsa_baremacion.obtener_evidencia_transaccion(
+		       auditoria_documento, evento_documento,
+		       archivo_probatorio_documento
+		FROM vec_bolsa_baremacion.obtener_evidencia_transaccion_con_archivo_probatorio_v3(
 			$1::jsonb, $2::jsonb, $3::bytea, $4::bytea
 		)`, operacion, prueba, decisionCanonica, recursoCanonico,
-	).Scan(&estado, &numeroResultado, &huella, &agregado, &confirmada, &auditoriaJSON, &eventoJSON)
+	).Scan(
+		&estado, &numeroResultado, &huella, &agregado, &confirmada,
+		&auditoriaJSON, &eventoJSON, &archivo,
+	)
+	defer borrarBytesPostgreSQL(agregado, auditoriaJSON, eventoJSON, archivo)
 	if err != nil {
 		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, errorPostgreSQL(ctx, err)
 	}
@@ -691,11 +746,19 @@ func (r *RepositorioBaremaciones) ObtenerEvidenciaTransaccion(
 			ConfirmadaEn: auditoria.RegistradaEn,
 		},
 	}
-	if resultado.ValidarPara(solicitud) != nil {
-		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
-	}
 	if err = tx.Commit(ctx); err != nil {
 		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, errorPostgreSQL(ctx, err)
+	}
+	manifiestos, _, err := r.verificarArchivoProbatorioV3(ctx, version, archivo)
+	if err != nil {
+		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, err
+	}
+	if len(manifiestos) > 0 {
+		manifiesto := manifiestos[len(manifiestos)-1].Clonar()
+		resultado.Manifiesto = &manifiesto
+	}
+	if resultado.ValidarPara(solicitud) != nil {
+		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
 	}
 	return resultado, nil
 }
@@ -747,10 +810,16 @@ func (r *RepositorioBaremaciones) verificarSelloReserva(
 		Finalidad:              puertosbolsa.FinalidadSelloReservaBaremacion,
 		RepresentacionCanonica: representacion, SelloHMAC: solicitud.HuellaSolicitudHMAC,
 	}
-	if peticion.Validar() != nil || r.verificador.VerificarSelloBaremacion(ctx, peticion) != nil {
+	if peticion.Validar() != nil {
 		return puertosbolsa.ErrSelloBaremacionNoAutentico
 	}
-	return nil
+	if err = r.verificador.VerificarSelloBaremacion(ctx, peticion); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return puertosbolsa.ErrSelloBaremacionNoAutentico
+	}
+	return validarContexto(ctx)
 }
 
 func (r *RepositorioBaremaciones) verificarSelloConfirmacion(
@@ -764,167 +833,17 @@ func (r *RepositorioBaremaciones) verificarSelloConfirmacion(
 		return puertosbolsa.ErrSolicitudBaremacionInvalida
 	}
 	peticion := puertosbolsa.SolicitudVerificarSelloBaremacion{
-		Finalidad:              puertosbolsa.FinalidadSelloConfirmacionBaremacion,
+		Finalidad:              puertosbolsa.FinalidadSelloConfirmacionBaremacionV2,
 		RepresentacionCanonica: representacion, SelloHMAC: solicitud.HuellaSolicitudHMAC,
 	}
-	if peticion.Validar() != nil || r.verificador.VerificarSelloBaremacion(ctx, peticion) != nil {
+	if peticion.Validar() != nil {
 		return puertosbolsa.ErrSelloBaremacionNoAutentico
 	}
-	return nil
-}
-
-func accionReserva(clase puertosbolsa.ClaseCambioBaremacion) puertosbolsa.AccionOperacionBaremacion {
-	if clase == puertosbolsa.ClaseCambioAltaBaremacion {
-		return puertosbolsa.AccionReservarAltaBaremacion
-	}
-	return puertosbolsa.AccionReservarDecisionBaremacion
-}
-
-func accionConfirmacion(clase puertosbolsa.ClaseCambioBaremacion) puertosbolsa.AccionOperacionBaremacion {
-	if clase == puertosbolsa.ClaseCambioAltaBaremacion {
-		return puertosbolsa.AccionConfirmarAltaBaremacion
-	}
-	return puertosbolsa.AccionConfirmarDecisionBaremacion
-}
-
-func accionAbandono(clase puertosbolsa.ClaseCambioBaremacion) puertosbolsa.AccionOperacionBaremacion {
-	if clase == puertosbolsa.ClaseCambioAltaBaremacion {
-		return puertosbolsa.AccionAbandonarAltaBaremacion
-	}
-	return puertosbolsa.AccionAbandonarDecisionBaremacion
-}
-
-func errorEstadoReserva(estado string) (error, bool) {
-	switch estado {
-	case "en_curso":
-		return puertosbolsa.ErrCambioBaremacionEnCurso, true
-	case "idempotencia_reutilizada":
-		return puertosbolsa.ErrClaveIdempotenciaBaremacionReutilizada, true
-	case "autorizacion_reutilizada":
-		return puertosbolsa.ErrAutorizacionBaremacionReutilizada, true
-	case "autorizacion_obsoleta":
-		return puertosbolsa.ErrAutorizacionBaremacionInvalida, true
-	case "ya_existe":
-		return puertosbolsa.ErrBaremacionYaExiste, true
-	case "conflicto_version":
-		return puertosbolsa.ErrVersionBaremacionConflicto, true
-	case "no_encontrada":
-		return puertosbolsa.ErrBaremacionNoEncontrada, true
-	case "evidencia_no_confiable":
-		return puertosbolsa.ErrEvidenciaBaremacionNoConfiable, true
-	case "colision":
-		return puertosbolsa.ErrCambioBaremacionEnCurso, true
-	case "rechazada":
-		return puertosbolsa.ErrSolicitudBaremacionInvalida, true
-	default:
-		return puertosbolsa.ErrEvidenciaBaremacionNoConfiable, false
-	}
-}
-
-func errorEstadoConfirmacion(estado string) (error, bool) {
-	switch estado {
-	case "reserva_invalida":
-		return puertosbolsa.ErrReservaBaremacionNoValida, true
-	case "idempotencia_reutilizada":
-		return puertosbolsa.ErrClaveIdempotenciaBaremacionReutilizada, true
-	case "autorizacion_reutilizada":
-		return puertosbolsa.ErrAutorizacionBaremacionReutilizada, true
-	case "autorizacion_obsoleta":
-		return puertosbolsa.ErrAutorizacionBaremacionInvalida, true
-	case "ya_existe":
-		return puertosbolsa.ErrBaremacionYaExiste, true
-	case "conflicto_version":
-		return puertosbolsa.ErrVersionBaremacionConflicto, true
-	case "no_encontrada":
-		return puertosbolsa.ErrBaremacionNoEncontrada, true
-	case "historial_no_anexable":
-		return puertosbolsa.ErrHistorialBaremacionNoAnexable, true
-	case "evidencia_no_confiable":
-		return puertosbolsa.ErrEvidenciaBaremacionNoConfiable, true
-	case "colision":
-		return puertosbolsa.ErrCambioBaremacionEnCurso, true
-	case "rechazada":
-		return puertosbolsa.ErrSolicitudBaremacionInvalida, true
-	default:
-		return puertosbolsa.ErrEvidenciaBaremacionNoConfiable, false
-	}
-}
-
-func errorEstadoAbandono(estado string) (error, bool) {
-	switch estado {
-	case "reserva_invalida":
-		return puertosbolsa.ErrReservaBaremacionNoValida, true
-	case "idempotencia_reutilizada":
-		return puertosbolsa.ErrClaveIdempotenciaBaremacionReutilizada, true
-	case "autorizacion_reutilizada":
-		return puertosbolsa.ErrAutorizacionBaremacionReutilizada, true
-	case "autorizacion_obsoleta":
-		return puertosbolsa.ErrAutorizacionBaremacionInvalida, true
-	case "colision":
-		return puertosbolsa.ErrCambioBaremacionEnCurso, true
-	case "rechazada":
-		return puertosbolsa.ErrSolicitudBaremacionInvalida, true
-	default:
-		return puertosbolsa.ErrEvidenciaBaremacionNoConfiable, false
-	}
-}
-
-func errorEstadoLectura(estado string) (error, bool) {
-	switch estado {
-	case "autorizacion_reutilizada":
-		return puertosbolsa.ErrAutorizacionBaremacionReutilizada, true
-	case "autorizacion_obsoleta":
-		return puertosbolsa.ErrAutorizacionBaremacionInvalida, true
-	case "evidencia_no_confiable":
-		return puertosbolsa.ErrEvidenciaBaremacionNoConfiable, true
-	case "colision":
-		return puertosbolsa.ErrCambioBaremacionEnCurso, true
-	case "rechazada":
-		return puertosbolsa.ErrSolicitudBaremacionInvalida, true
-	default:
-		return puertosbolsa.ErrEvidenciaBaremacionNoConfiable, false
-	}
-}
-
-func errorPostgreSQL(ctx context.Context, err error) error {
-	if ctx != nil && ctx.Err() != nil {
-		return ctx.Err()
-	}
-	var pgError *pgconn.PgError
-	if errors.As(err, &pgError) {
-		switch pgError.Code {
-		case "40001", "40P01", "55P03", "57014":
-			return puertosbolsa.ErrCambioBaremacionEnCurso
+	if err = r.verificador.VerificarSelloBaremacion(ctx, peticion); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
+		return puertosbolsa.ErrSelloBaremacionNoAutentico
 	}
-	return puertosbolsa.ErrFuenteBaremacionNoDisponible
-}
-
-func validarContexto(ctx context.Context) error {
-	if ctx == nil {
-		return puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	return ctx.Err()
-}
-
-func revertir(tx pgx.Tx) {
-	if tx == nil {
-		return
-	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancelar()
-	_ = tx.Rollback(ctx)
-}
-
-func valorNulo(valor any) bool {
-	if valor == nil {
-		return true
-	}
-	v := reflect.ValueOf(valor)
-	switch v.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		return v.IsNil()
-	default:
-		return false
-	}
+	return validarContexto(ctx)
 }

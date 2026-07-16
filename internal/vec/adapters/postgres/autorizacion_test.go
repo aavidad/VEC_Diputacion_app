@@ -1,10 +1,12 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"math"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -162,6 +164,148 @@ func TestSerializarDecisionPostgreSQLMaterializaCatalogosVacios(t *testing.T) {
 	}
 }
 
+func TestSerializarDecisionPostgreSQLDerivaElPerfilCanonicoDeMicrosegundoFijo(t *testing.T) {
+	t.Parallel()
+	casos := []struct {
+		nombre       string
+		microsegundo int
+	}{
+		{"cero_ceros_finales", 123456},
+		{"un_cero_final", 123450},
+		{"dos_ceros_finales", 123400},
+		{"tres_ceros_finales", 123000},
+		{"cuatro_ceros_finales", 120000},
+		{"cinco_ceros_finales", 100000},
+		{"seis_ceros_finales", 0},
+		{"limite_inferior_no_cero", 1},
+		{"limite_superior", 999999},
+	}
+	for _, caso := range casos {
+		caso := caso
+		t.Run(caso.nombre, func(t *testing.T) {
+			t.Parallel()
+			ahora := time.Date(
+				2026, time.July, 15, 10, 30, 0, caso.microsegundo*1_000, time.UTC,
+			)
+			decision := decisionAutorizacionPostgreSQLPruebaEn(t, ahora)
+			// Registrar decisiones y materializar su canon no implica que estas
+			// obligaciones ya sean consumibles por un PEP concreto.
+			decision.Obligaciones = []string{"doble_control", "trazar_acceso"}
+			if err := decision.ValidarEvidenciaInstantanea(); err != nil {
+				t.Fatalf("decision con obligaciones valida: %v", err)
+			}
+
+			canonica, err := ports.RepresentacionCanonicaDecisionAutorizacionReforzadaV1(decision)
+			if err != nil {
+				t.Fatalf("representacion canonica: %v", err)
+			}
+			documento, err := serializarDecisionPostgreSQL(decision)
+			if err != nil {
+				t.Fatalf("serializar documento PostgreSQL: %v", err)
+			}
+			var objetoCanonico, objetoDocumento map[string]json.RawMessage
+			if json.Unmarshal(canonica, &objetoCanonico) != nil ||
+				json.Unmarshal(documento, &objetoDocumento) != nil {
+				t.Fatal("el serializador produjo JSON no decodificable")
+			}
+			if len(objetoCanonico) != 30 || len(objetoDocumento) != 31 {
+				t.Fatalf("numero de claves inesperado: canon=%d documento=%d", len(objetoCanonico), len(objetoDocumento))
+			}
+			for clave, valorCanonico := range objetoCanonico {
+				switch clave {
+				case "esquema", "politicas_evaluadas", "politicas_aplicables":
+					continue
+				}
+				if !bytes.Equal(valorCanonico, objetoDocumento[clave]) {
+					t.Fatalf("el campo %q diverge del canon: canon=%s documento=%s", clave, valorCanonico, objetoDocumento[clave])
+				}
+			}
+			comprobarManifiestoCanonicoPostgreSQLPrueba(
+				t, objetoCanonico["politicas_evaluadas"],
+				objetoDocumento["politicas_evaluadas_refs"],
+				objetoDocumento["politicas_evaluadas_huellas_sha256"],
+			)
+			comprobarManifiestoCanonicoPostgreSQLPrueba(
+				t, objetoCanonico["politicas_aplicables"],
+				objetoDocumento["politicas_refs"],
+				objetoDocumento["politicas_huellas_sha256"],
+			)
+
+			const formato = "2006-01-02T15:04:05.000000Z"
+			comprobarInstanteCanonicoPostgreSQLPrueba(
+				t, objetoDocumento["emitida_en"], decision.EmitidaEn.Format(formato),
+			)
+			comprobarInstanteCanonicoPostgreSQLPrueba(
+				t, objetoDocumento["valida_hasta"], decision.ValidaHasta.Format(formato),
+			)
+			var vinculo map[string]json.RawMessage
+			if err := json.Unmarshal(objetoDocumento["vinculo_autenticacion_actor"], &vinculo); err != nil {
+				t.Fatalf("vinculo canonico: %v", err)
+			}
+			datosVinculo, err := decision.VinculoAutenticacionActor.Datos()
+			if err != nil {
+				t.Fatalf("datos del vinculo: %v", err)
+			}
+			instantesVinculo := map[string]time.Time{
+				"autenticacion_verificada_en": datosVinculo.AutenticacionVerificadaEn,
+				"sesion_emitida_en":           datosVinculo.SesionEmitidaEn,
+				"sesion_valida_hasta":         datosVinculo.SesionValidaHasta,
+				"sesion_revalidada_en":        datosVinculo.SesionRevalidadaEn,
+			}
+			for clave, instante := range instantesVinculo {
+				comprobarInstanteCanonicoPostgreSQLPrueba(
+					t, vinculo[clave], instante.Format(formato),
+				)
+			}
+		})
+	}
+}
+
+func TestSerializarDecisionPostgreSQLRechazaPrecisionSubmicrosegundo(t *testing.T) {
+	t.Parallel()
+	decision := decisionAutorizacionPostgreSQLPrueba(t)
+	decision.EmitidaEn = decision.EmitidaEn.Add(time.Nanosecond)
+	if _, err := serializarDecisionPostgreSQL(decision); !errors.Is(err, ports.ErrEvidenciaUsoDecisionAutorizacionInvalida) {
+		t.Fatalf("instante submicrosegundo no rechazado de forma cerrada: %v", err)
+	}
+}
+
+func comprobarInstanteCanonicoPostgreSQLPrueba(
+	t *testing.T,
+	contenido json.RawMessage,
+	esperado string,
+) {
+	t.Helper()
+	var recibido string
+	if err := json.Unmarshal(contenido, &recibido); err != nil || recibido != esperado {
+		t.Fatalf("instante no canonico: recibido=%q esperado=%q err=%v", recibido, esperado, err)
+	}
+}
+
+func comprobarManifiestoCanonicoPostgreSQLPrueba(
+	t *testing.T,
+	canonico, referenciasJSON, huellasJSON json.RawMessage,
+) {
+	t.Helper()
+	var entradas []entradaManifiestoDecisionPostgreSQL
+	var referencias []string
+	var huellas map[string]string
+	if json.Unmarshal(canonico, &entradas) != nil ||
+		json.Unmarshal(referenciasJSON, &referencias) != nil ||
+		json.Unmarshal(huellasJSON, &huellas) != nil {
+		t.Fatal("manifiesto PostgreSQL no decodificable")
+	}
+	referenciasEsperadas := make([]string, 0, len(entradas))
+	huellasEsperadas := make(map[string]string, len(entradas))
+	for _, entrada := range entradas {
+		referenciasEsperadas = append(referenciasEsperadas, entrada.Referencia)
+		huellasEsperadas[entrada.Referencia] = entrada.HuellaSHA256
+	}
+	if !reflect.DeepEqual(referencias, referenciasEsperadas) || !reflect.DeepEqual(huellas, huellasEsperadas) {
+		t.Fatalf("manifiesto divergente: refs=%v huellas=%v", referencias, huellas)
+	}
+}
+
 type revalidadorAutenticacionActorPostgreSQLPrueba struct {
 	solicitud     domain.SolicitudRevalidacionAutenticacionActorV1
 	autenticacion domain.AutenticacionRevalidadaV1
@@ -185,7 +329,17 @@ func (r revalidadorAutenticacionActorPostgreSQLPrueba) RevalidarAutenticacionAct
 
 func decisionAutorizacionPostgreSQLPrueba(t *testing.T) domain.DecisionAutorizacion {
 	t.Helper()
-	ahora := time.Date(2026, time.July, 15, 10, 30, 0, 123_456_000, time.UTC)
+	return decisionAutorizacionPostgreSQLPruebaEn(
+		t,
+		time.Date(2026, time.July, 15, 10, 30, 0, 123_456_000, time.UTC),
+	)
+}
+
+func decisionAutorizacionPostgreSQLPruebaEn(
+	t *testing.T,
+	ahora time.Time,
+) domain.DecisionAutorizacion {
+	t.Helper()
 	cuenta := domain.CuentaAutenticadaContextoActor{
 		CuentaRef: "cta_cuenta_postgresql_autorizacion_0001",
 		Metodo:    domain.AuthMethodCertificate,

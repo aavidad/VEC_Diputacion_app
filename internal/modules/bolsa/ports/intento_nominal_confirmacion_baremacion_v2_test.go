@@ -20,17 +20,17 @@ func TestIntentoNominalConfirmacionV2LigaOperacionYSobreCanonico(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	canonicaV1, err := RepresentacionCanonicaConfirmacionBaremacion(solicitud.Confirmacion)
+	canonicaConfirmacionV2, err := RepresentacionCanonicaConfirmacionBaremacion(solicitud.Confirmacion)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Equal(canonica.Revelar(), canonicaV1.Revelar()) {
-		t.Fatal("la confirmacion V2 descendio a la representacion V1")
+	if bytes.Equal(canonica.Revelar(), canonicaConfirmacionV2.Revelar()) {
+		t.Fatal("el sobre nominal V2 descendio a la confirmacion ordinaria V2")
 	}
-	sumaV1 := sha256.Sum256(canonicaV1.Revelar())
-	const vectorV1Esperado = "61c5addec40c05201785afa148f5b4c44c2d642f8f74981c559b98045e40079f"
-	if obtenido := hex.EncodeToString(sumaV1[:]); obtenido != vectorV1Esperado {
-		t.Fatalf("el vector canonico V1 cambio durante la separacion V2: %s", obtenido)
+	sumaConfirmacionV2 := sha256.Sum256(canonicaConfirmacionV2.Revelar())
+	const vectorConfirmacionV2Esperado = "d22293713f205638e903dbaff6bb03761790843235aa8041ef6a1dc942e57c16"
+	if obtenido := hex.EncodeToString(sumaConfirmacionV2[:]); obtenido != vectorConfirmacionV2Esperado {
+		t.Fatalf("el vector canonico vigente cambio sin versionado: %s", obtenido)
 	}
 
 	mismaConfirmacionOtraOperacion := intentoNominalConfirmacionV2ValidoPrueba(t, 0x42)

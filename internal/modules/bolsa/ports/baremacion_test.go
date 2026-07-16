@@ -1852,6 +1852,7 @@ func construirManifiestoProbatorioPrueba(
 	agregarAutorizacion(AccionCustodiarDocumentoFirmadoBaremacion, artefactoFinal.DocumentoFirmadoRef, "")
 	agregarAutorizacion(AccionRetenerDocumentoFirmadoBaremacion, artefactoFinal.DocumentoFirmadoRef, "")
 	agregarAutorizacion(AccionReservarDecisionBaremacion, contenido.BaremacionMeritoRef, "")
+	agregarAutorizacion(AccionPrevalidarArchivoProbatorioBaremacion, contenido.BaremacionMeritoRef, "")
 	agregarAutorizacion(AccionConfirmarDecisionBaremacion, contenido.BaremacionMeritoRef, "")
 
 	huellaContenido, err := contenido.HuellaContenidoSHA256()

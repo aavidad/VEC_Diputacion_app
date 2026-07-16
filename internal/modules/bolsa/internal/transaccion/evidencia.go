@@ -135,14 +135,29 @@ func HuellaEfectoReserva(solicitud puertosbolsa.SolicitudReservarCambioBaremacio
 	return HuellaCanonica("efecto-reserva-baremacion-v1", hex.EncodeToString(carga.Revelar())), nil
 }
 
-// HuellaEfectoConfirmacion cubre la version, el agregado, la trazabilidad y la
-// evidencia de autorizacion usados por la mutacion definitiva.
-func HuellaEfectoConfirmacion(solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion) (string, error) {
+// HuellaEfectoConfirmacionV2 cubre la version, el agregado, la trazabilidad y
+// las dos autorizaciones usadas por la mutacion definitiva.
+func HuellaEfectoConfirmacionV2(solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion) (string, error) {
 	carga, err := puertosbolsa.RepresentacionCanonicaConfirmacionBaremacion(solicitud)
 	if err != nil {
 		return "", err
 	}
-	return HuellaCanonica("efecto-confirmacion-baremacion-v1", hex.EncodeToString(carga.Revelar())), nil
+	return HuellaCanonica("efecto-confirmacion-baremacion-v2", hex.EncodeToString(carga.Revelar())), nil
+}
+
+// HuellaEfectoPrevalidacionArchivoProbatorio liga el permiso consumible de
+// prevalidacion al efecto completo que se confirmara. Una autorizacion no puede
+// trasladarse a otra version, manifiesto, actor ni autorizacion de confirmacion.
+func HuellaEfectoPrevalidacionArchivoProbatorio(
+	solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion,
+) (string, error) {
+	huellaConfirmacion, err := HuellaEfectoConfirmacionV2(solicitud)
+	if err != nil {
+		return "", err
+	}
+	return HuellaCanonica(
+		"efecto-prevalidacion-archivo-probatorio-baremacion-v3", huellaConfirmacion,
+	), nil
 }
 
 // HuellaEfectoAbandono liga el abandono al token, clase y baremacion exactos.

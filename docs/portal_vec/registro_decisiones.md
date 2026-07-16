@@ -1955,9 +1955,103 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   al verificar; retirar una clave con historia viva requiere una operacion
   administrativa aprobada y evidencia de resellado o cierre de retencion, no
   una eliminacion silenciosa.
-- Persistencia: el adaptador en memoria solo acredita el contrato y las
-  invariantes en pruebas. El GO durable exige el mismo almacén append-only,
-  recuperacion completa, reverificacion y atomicidad con version, auditoria y
-  outbox en PostgreSQL, mas un corredor Go a PostgreSQL real. Hasta superar esa
-  puerta y disponer de un conector KMS/HSM productivo, la funcionalidad sigue
-  en **NO-GO productivo**.
+- Persistencia: el adaptador PostgreSQL y la migracion `000005` implantan el
+  almacen append-only, la reconstruccion exacta del archivo, la
+  reverificacion y la atomicidad con version, auditoria y outbox. El corredor
+  oficial valida esa puerta de archivo desde una base PostgreSQL 18.4 vacia,
+  tambien tras reinicio, bajo concurrencia y con un `LOGIN` real sometido a
+  RLS. No acredita por si solo la recuperacion semantica completa de una
+  operacion cuya respuesta a `COMMIT` se pierda. La funcionalidad continua en
+  **NO-GO productivo** hasta disponer del conector KMS/HSM auditado y cerrar la
+  identificacion y reconciliacion nominal exigidas por DEC-045.
+
+## DEC-057 — Prevalidacion autorizada del archivo probatorio de baremacion
+
+- Estado: contrato de puertos, aplicacion, memoria y PostgreSQL implantado y
+  validado el 16 de julio de 2026. La version 2 no alcanzo produccion ni
+  contiene datos reales que migrar; se conserva como formato historico
+  congelado y la nueva escritura se eleva de forma completa a V3.
+- Autoridad minima: antes de confirmar una decision, el servicio solicita una
+  concesion nueva para la accion exacta
+  `bolsa.baremacion.archivo.prevalidar`, sobre recurso `baremacion` y solo el
+  campo `archivo_probatorio`. La concesion debe estar vigente inmediatamente
+  antes de construir el manifiesto. Se rechazan campos ampliados, accion o
+  recurso distintos y cualquier divergencia de baremacion, principal, sujeto,
+  perfil activo, finalidad, correlacion, autenticacion o sesion respecto de la
+  confirmacion.
+- Separacion de deberes: prevalidar y confirmar requieren referencias de
+  autorizacion distintas. Ambas concesiones completas forman parte del
+  manifiesto V3 y de la representacion canonica HMAC de confirmacion; no basta
+  con guardar sus identificadores. En un alta sin archivo la prevalidacion debe
+  estar materialmente ausente, no meramente caducada o invalida.
+- Dominios criptograficos: la confirmacion corriente usa
+  `confirmacion_baremacion_v2` y el efecto
+  `efecto-confirmacion-baremacion-v2`. El sobre nominal y el manifiesto pasan a
+  `sobre_probatorio_confirmacion_baremacion_v3` y
+  `manifiesto_probatorio_baremacion_v3`. El efecto previo conocido antes de
+  acceder al almacen se deriva como
+  `SHA-256(canonico("efecto-prevalidacion-archivo-probatorio-baremacion-v3",
+  huella_confirmacion_v2))`; no se confunde con el recibo posterior obtenido
+  tras leer y validar el archivo. El puerto de sellado rechaza expresamente
+  finalidades V1/V2 retiradas; solo el puerto de verificacion puede aceptarlas
+  para comprobar artefactos historicos ya existentes.
+- Protocolo durable e idempotencia: la autorizacion de prevalidacion se consume
+  en una transaccion corta y queda ligada al efecto exacto de confirmacion y a
+  la huella del archivo devuelto. Esa transaccion se cierra antes de consultar
+  el KMS/HSM, por lo que nunca se retienen bloqueos PostgreSQL durante E/S
+  criptografica. Si la verificacion falla, no se consume la autorizacion de
+  confirmacion ni se modifica version, decision, auditoria u outbox. Mientras
+  la capacidad temporal de reserva permanezca exclusivamente en memoria, el
+  reintento exacto reutiliza de forma idempotente el consumo previo y puede
+  completar la confirmacion; reutilizar cualquiera de las dos concesiones para
+  otro efecto falla cerrado. La capacidad no se serializa ni se incluye en
+  auditoria, outbox o estado general. Si el proceso termina antes de confirmar,
+  este corte no puede reanudar ese intento: debe fallar cerrado y esperar la
+  capacidad recuperable y el reconciliador nominal previstos desde `000006`.
+  Antes del consumo, PostgreSQL coteja tambien el vinculo completo de
+  autenticacion de la reserva con el de la nueva concesion. Una autorizacion
+  valida del mismo principal pero procedente de otra sesion o revision de
+  `ContextoActor` devuelve `reserva_invalida` y no deja uso ni prevalidacion;
+  el corredor incluye esa regresion funcional adversaria.
+  El adaptador en memoria conserva una aplicacion atomica como referencia no
+  productiva porque no realiza E/S criptografica externa dentro del
+  repositorio.
+- Puerta productiva: los vectores V2 historicos permanecen inalterados y los
+  nuevos vectores V3 congelan los bytes actuales. PostgreSQL 18.4 supera la
+  puerta durable de archivo, la migracion reversible y el corredor
+  Go/PostgreSQL; no supera todavia la recuperacion nominal completa. El
+  **NO-GO productivo** permanece hasta que el almacenamiento probatorio y sus
+  claves procedan de conectores productivos auditados y se complete la
+  reconciliacion nominal de DEC-045; ninguno de esos requisitos se sustituye
+  por los sellos sinteticos del corredor.
+
+## DEC-058 — Perfil temporal canonico unico para decisiones de autorizacion
+
+- Estado: defecto transversal detectado y corregido el 16 de julio de 2026;
+  los corredores PostgreSQL de autorizacion, ejecucion documental V4 y Bolsa
+  V3 forman parte de su puerta de regresion. El sistema sigue sin datos
+  productivos y en **NO-GO**, por lo que no existe historia real que transformar.
+- Hallazgo: `encoding/json` aplica RFC3339Nano a `time.Time` y elimina ceros
+  fraccionales finales. La representacion criptografica de la decision y la
+  reconstruccion SQL exigen siempre UTC con seis digitos de microsegundo. Como
+  los seis instantes ligados comparten la misma fraccion, aproximadamente una
+  de cada diez decisiones podia quedar registrada con un documento valido pero
+  no coincidir despues con su canon probatorio.
+- Decision: `RepresentacionCanonicaDecisionAutorizacionReforzadaV1` es la unica
+  fuente de la proyeccion comprometida por la huella. El adaptador PostgreSQL
+  deriva de ella su documento de 31 claves, sustituyendo exclusivamente los
+  dos manifiestos canonicos por sus listas de referencias y mapas de huellas.
+  No vuelve a serializar `time.Time`, no inventa un instante de verificacion y
+  conserva la posibilidad de registrar decisiones validas con obligaciones;
+  registrar no equivale a acreditar que esas obligaciones se hayan cumplido.
+- Cobertura: se prueban segundo exacto, limites de microsegundo, de cero a seis
+  ceros finales, los dos instantes de la decision y los cuatro del vinculo de
+  autenticacion, obligaciones presentes y rechazo submicrosegundo. Bolsa fuerza
+  deliberadamente un cero final y ejecucion documental usa segundo exacto; ya
+  no se permite elegir una fraccion que oculte la divergencia.
+- Historia y despliegue: nunca se reescribe una decision append-only. Antes del
+  GO se publicara una migracion de endurecimiento que conserve la forma legacy
+  de 30 claves, exija `.ddddddZ` en los seis instantes de toda decision nueva de
+  31 claves y aborte en el preflight si detecta historia actual no canonica.
+  Una base exclusivamente sintetica se reconstruye; si apareciera historia real
+  se versionaria el lector en lugar de mutar documentos probatorios.

@@ -302,10 +302,10 @@ la sección de aceptación.
 ## Persistencia PostgreSQL V2
 
 La serie de migraciones de idempotencia semántica comenzará en `000006`, sin
-reinterpretar las reservas V1. El número `000005` queda reservado al corte
-estrecho `manifiesto_probatorio_v2`, que debe cerrar antes la conservación y
-reverificación durable del manifiesto ya exigido por el contrato vigente. Esta
-renumeración no levanta el NO-GO de DEC-045 ni autoriza a mezclar ambos cortes.
+reinterpretar las reservas V1. El número `000005` corresponde al corte
+`manifiesto_probatorio_v3` de DEC-057, que cierra antes la conservación y
+reverificación durable del archivo exigido por el contrato vigente. Esta
+separación no levanta el NO-GO de DEC-045 ni autoriza a mezclar ambos cortes.
 La serie desde `000006` creará:
 
 - `operacion_idempotente_version` y `operacion_idempotente_actual`;
@@ -355,7 +355,8 @@ se sustituye por llamadas SQL manuales. Debe demostrar:
 1. Completar tipos de índice, intención y resultado indeterminado.
 2. Crear recibos canónicos materiales V2 de almacenamiento.
 3. Tipar y proteger la capacidad recuperable.
-4. Crear el manifiesto probatorio material V2.
+4. Crear el manifiesto material del protocolo de operación V2. Este nombre de
+   protocolo no designa ni modifica el esquema probatorio V3 de `000005`.
 5. Definir el repositorio de operaciones V2.
 6. Separar la finalización de la saga de la incorporación administrativa.
 7. Implementar una referencia V2 en memoria con pruebas adversarias.

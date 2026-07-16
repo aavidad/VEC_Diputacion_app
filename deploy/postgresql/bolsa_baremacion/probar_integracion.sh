@@ -1092,5 +1092,5 @@ BEGIN
 END
 $desmontaje_final$;
 SQL
-
+"$raiz/deploy/postgresql/bolsa_baremacion/probar_integracion_v3.sh"
 echo "integracion Bolsa/PostgreSQL 18.4: correcta"

@@ -180,7 +180,7 @@ func (a *AlmacenAutorizacion) RegistrarDecisionSiInstantaneaVigente(
 }
 
 func serializarDecisionPostgreSQL(decision domain.DecisionAutorizacion) ([]byte, error) {
-	documento, err := json.Marshal(decision)
+	documento, err := ports.RepresentacionCanonicaDecisionAutorizacionReforzadaV1(decision)
 	if err != nil {
 		return nil, err
 	}
@@ -188,20 +188,62 @@ func serializarDecisionPostgreSQL(decision domain.DecisionAutorizacion) ([]byte,
 	if err = json.Unmarshal(documento, &objeto); err != nil {
 		return nil, err
 	}
-	valoresPredeterminados := map[string]json.RawMessage{
-		"politicas_evaluadas_refs":           json.RawMessage(`[]`),
-		"politicas_evaluadas_huellas_sha256": json.RawMessage(`{}`),
-		"politicas_refs":                     json.RawMessage(`[]`),
-		"politicas_huellas_sha256":           json.RawMessage(`{}`),
-		"campos_permitidos":                  json.RawMessage(`[]`),
-		"obligaciones":                       json.RawMessage(`[]`),
+	if len(objeto) != 30 || string(objeto["esquema"]) != `"`+ports.EsquemaHuellaDecisionAutorizacionReforzadaV1+`"` {
+		return nil, ports.ErrEvidenciaUsoDecisionAutorizacionInvalida
 	}
-	for clave, valor := range valoresPredeterminados {
-		if _, existe := objeto[clave]; !existe {
-			objeto[clave] = valor
-		}
+
+	evaluadasRefs, evaluadasHuellas, err := materializarManifiestoDecisionPostgreSQL(
+		objeto["politicas_evaluadas"],
+	)
+	if err != nil {
+		return nil, err
+	}
+	aplicablesRefs, aplicablesHuellas, err := materializarManifiestoDecisionPostgreSQL(
+		objeto["politicas_aplicables"],
+	)
+	if err != nil {
+		return nil, err
+	}
+	delete(objeto, "esquema")
+	delete(objeto, "politicas_evaluadas")
+	delete(objeto, "politicas_aplicables")
+	objeto["politicas_evaluadas_refs"] = evaluadasRefs
+	objeto["politicas_evaluadas_huellas_sha256"] = evaluadasHuellas
+	objeto["politicas_refs"] = aplicablesRefs
+	objeto["politicas_huellas_sha256"] = aplicablesHuellas
+	if len(objeto) != 31 {
+		return nil, ports.ErrEvidenciaUsoDecisionAutorizacionInvalida
 	}
 	return json.Marshal(objeto)
+}
+
+type entradaManifiestoDecisionPostgreSQL struct {
+	Referencia   string `json:"referencia"`
+	HuellaSHA256 string `json:"huella_sha256"`
+}
+
+func materializarManifiestoDecisionPostgreSQL(
+	canonico json.RawMessage,
+) (json.RawMessage, json.RawMessage, error) {
+	var entradas []entradaManifiestoDecisionPostgreSQL
+	if len(canonico) == 0 || json.Unmarshal(canonico, &entradas) != nil || entradas == nil {
+		return nil, nil, ports.ErrEvidenciaUsoDecisionAutorizacionInvalida
+	}
+	referencias := make([]string, 0, len(entradas))
+	huellas := make(map[string]string, len(entradas))
+	for _, entrada := range entradas {
+		if _, duplicada := huellas[entrada.Referencia]; duplicada {
+			return nil, nil, ports.ErrEvidenciaUsoDecisionAutorizacionInvalida
+		}
+		referencias = append(referencias, entrada.Referencia)
+		huellas[entrada.Referencia] = entrada.HuellaSHA256
+	}
+	referenciasJSON, errReferencias := json.Marshal(referencias)
+	huellasJSON, errHuellas := json.Marshal(huellas)
+	if errReferencias != nil || errHuellas != nil {
+		return nil, nil, ports.ErrEvidenciaUsoDecisionAutorizacionInvalida
+	}
+	return referenciasJSON, huellasJSON, nil
 }
 
 func configurarTransaccionAutorizacion(ctx context.Context, tx pgx.Tx) error {

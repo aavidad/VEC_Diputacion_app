@@ -20,7 +20,7 @@ func (v *verificadorManifiestoConmutablePrueba) VerificarSelloBaremacion(
 	ctx context.Context,
 	solicitud puertosbolsa.SolicitudVerificarSelloBaremacion,
 ) error {
-	if solicitud.Finalidad == puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2 &&
+	if solicitud.Finalidad == puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3 &&
 		v.rechazar.Load() {
 		return v.motivo
 	}
@@ -111,7 +111,7 @@ func sustituirPorManifiestoAlternativoPrueba(
 		t.Fatalf("preparar manifiesto alternativo: %v", err)
 	}
 	sello := calcularSelloMemoria(
-		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2,
+		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3,
 		representacion.Revelar(),
 	)
 	manifiesto, err := preparado.IncorporarSello(sello)

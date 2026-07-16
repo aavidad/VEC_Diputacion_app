@@ -51,8 +51,8 @@ func TestServicioBaremacionNoPersisteHMACCentinelaDevueltoPorSellador(t *testing
 		abandonosEsperados      int
 	}{
 		{"reserva", puertosbolsa.FinalidadSelloReservaBaremacion, 0, 0, 0},
-		{"manifiesto", puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2, 1, 0, 1},
-		{"confirmacion", puertosbolsa.FinalidadSelloConfirmacionBaremacion, 1, 0, 1},
+		{"manifiesto", puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3, 1, 0, 1},
+		{"confirmacion", puertosbolsa.FinalidadSelloConfirmacionBaremacionV2, 1, 0, 1},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -98,14 +98,14 @@ func TestServicioBaremacionProduceManifiestoVerificableYSeparaFinalidades(t *tes
 	}
 	verificador := selladorSolicitudBaremacionPrueba{}
 	peticion := puertosbolsa.SolicitudVerificarSelloBaremacion{
-		Finalidad:              puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2,
+		Finalidad:              puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV3,
 		RepresentacionCanonica: representacion,
 		SelloHMAC:              manifiesto.SelloManifiestoHMACSHA256,
 	}
 	if err := verificador.VerificarSelloBaremacion(context.Background(), peticion); err != nil {
 		t.Fatalf("el verificador rechazo el sello producido por ServicioBaremacion: %v", err)
 	}
-	peticion.Finalidad = puertosbolsa.FinalidadSelloConfirmacionBaremacion
+	peticion.Finalidad = puertosbolsa.FinalidadSelloConfirmacionBaremacionV2
 	if err := verificador.VerificarSelloBaremacion(context.Background(), peticion); !errors.Is(
 		err, puertosbolsa.ErrSelloBaremacionNoAutentico,
 	) {
@@ -429,6 +429,7 @@ func TestServicioBaremacionAplicaSelloTiempoYLongevidadSoloCuandoLaPoliticaLoExi
 		puertosbolsa.AccionCustodiarDocumentoFirmadoBaremacion,
 		puertosbolsa.AccionRetenerDocumentoFirmadoBaremacion,
 		puertosbolsa.AccionReservarDecisionBaremacion,
+		puertosbolsa.AccionPrevalidarArchivoProbatorioBaremacion,
 		puertosbolsa.AccionConfirmarDecisionBaremacion,
 	}
 	if len(acciones) < len(esperadoFinal) ||
