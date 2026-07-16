@@ -36,6 +36,10 @@ func (r ReferenciaConfiguracionConvocatoria) Validar() error {
 	return nil
 }
 
+func (r ReferenciaConfiguracionConvocatoria) ReferenciaVersionada() string {
+	return r.ID + ":" + strconv.Itoa(r.Version)
+}
+
 type ReferenciaDocumentoOficialConvocatoria struct {
 	Rol                   string `json:"rol"`
 	PublicacionRef        string `json:"publicacion_ref"`
@@ -48,7 +52,7 @@ type ReferenciaDocumentoOficialConvocatoria struct {
 }
 
 func (r ReferenciaDocumentoOficialConvocatoria) Validar() error {
-	if !claveNegocioValida(r.Rol) || !referenciaConvocatoriaValida(r.PublicacionRef) ||
+	if !claveCatalogoConvocatoriaValida(r.Rol) || !referenciaConvocatoriaValida(r.PublicacionRef) ||
 		!referenciaOpacaValida(r.DocumentoRef) || r.VersionDocumento < 1 ||
 		!referenciaOpacaValida(r.RepresentacionRef) || !huellaSHA256Valida(r.HuellaContenidoSHA256) ||
 		!referenciaOpacaValida(r.FirmaValidadaRef) || !referenciaOpacaValida(r.ReciboCustodiaRef) {
@@ -69,6 +73,9 @@ type ConfiguracionFijadaConvocatoria struct {
 func (c ConfiguracionFijadaConvocatoria) ClonarCanonicaPara(
 	contenido ContenidoPublicableConvocatoria,
 ) (ConfiguracionFijadaConvocatoria, error) {
+	if err := c.ValidarPara(contenido); err != nil {
+		return ConfiguracionFijadaConvocatoria{}, err
+	}
 	clon := c
 	clon.Documentos = append([]ReferenciaDocumentoOficialConvocatoria(nil), c.Documentos...)
 	sort.Slice(clon.Documentos, func(i, j int) bool {
@@ -81,7 +88,7 @@ func (c ConfiguracionFijadaConvocatoria) ClonarCanonicaPara(
 }
 
 func (c ConfiguracionFijadaConvocatoria) ValidarPara(contenido ContenidoPublicableConvocatoria) error {
-	if c.Catalogos.Validar() != nil || c.Calendario.Validar() != nil ||
+	if contenido.Validar() != nil || c.Catalogos.Validar() != nil || c.Calendario.Validar() != nil ||
 		c.ReglasBaremacion.Validar() != nil || c.FlujoProceso.Validar() != nil ||
 		c.FlujoSolicitud.Validar() != nil || len(c.Documentos) == 0 ||
 		len(c.Documentos) != len(contenido.Documentos) {
@@ -93,6 +100,10 @@ func (c ConfiguracionFijadaConvocatoria) ValidarPara(contenido ContenidoPublicab
 	}
 	publicaciones := make(map[string]struct{}, len(c.Documentos))
 	representaciones := make(map[string]struct{}, len(c.Documentos))
+	documentosLogicos := make(map[string]struct{}, len(c.Documentos))
+	firmas := make(map[string]struct{}, len(c.Documentos))
+	custodias := make(map[string]struct{}, len(c.Documentos))
+	urls := make(map[string]struct{}, len(c.Documentos))
 	for _, documento := range c.Documentos {
 		publico, existe := publicos[documento.PublicacionRef]
 		if documento.Validar() != nil || !existe || documento.Rol != publico.Tipo {
@@ -104,8 +115,25 @@ func (c ConfiguracionFijadaConvocatoria) ValidarPara(contenido ContenidoPublicab
 		if _, repetida := representaciones[documento.RepresentacionRef]; repetida {
 			return ErrVersionConvocatoriaGobernadaInvalida
 		}
+		claveDocumento := documento.DocumentoRef + "#" + strconv.Itoa(documento.VersionDocumento)
+		if _, repetida := documentosLogicos[claveDocumento]; repetida {
+			return ErrVersionConvocatoriaGobernadaInvalida
+		}
+		if _, repetida := firmas[documento.FirmaValidadaRef]; repetida {
+			return ErrVersionConvocatoriaGobernadaInvalida
+		}
+		if _, repetida := custodias[documento.ReciboCustodiaRef]; repetida {
+			return ErrVersionConvocatoriaGobernadaInvalida
+		}
+		if _, repetida := urls[publico.URL]; repetida {
+			return ErrVersionConvocatoriaGobernadaInvalida
+		}
 		publicaciones[documento.PublicacionRef] = struct{}{}
 		representaciones[documento.RepresentacionRef] = struct{}{}
+		documentosLogicos[claveDocumento] = struct{}{}
+		firmas[documento.FirmaValidadaRef] = struct{}{}
+		custodias[documento.ReciboCustodiaRef] = struct{}{}
+		urls[publico.URL] = struct{}{}
 	}
 	return nil
 }
@@ -155,6 +183,11 @@ func (c ContenidoPublicableConvocatoria) Validar() error {
 }
 
 func (c ContenidoPublicableConvocatoria) ClonarCanonico() (ContenidoPublicableConvocatoria, error) {
+	// Validar antes de reservar memoria impide que una entrada con millones de
+	// elementos fuerce copias desproporcionadas antes de alcanzar los limites.
+	if err := c.Validar(); err != nil {
+		return ContenidoPublicableConvocatoria{}, err
+	}
 	clon := c
 	clon.Categorias = append([]string(nil), c.Categorias...)
 	clon.Plazos = append([]PlazoConvocatoria(nil), c.Plazos...)

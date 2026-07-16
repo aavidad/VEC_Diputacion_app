@@ -3,7 +3,11 @@ package domain
 import (
 	"strings"
 	"time"
+
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
+
+const TipoEntidadFlujoConvocatoriaBolsa = "convocatoria_bolsa"
 
 func (v VersionConvocatoriaGobernada) ActualizarBorrador(
 	revisionEsperada int,
@@ -42,7 +46,61 @@ func (v VersionConvocatoriaGobernada) ActualizarBorrador(
 	return canonica, nil
 }
 
-func (v VersionConvocatoriaGobernada) Publicar(
+func (v VersionConvocatoriaGobernada) PublicarInicial(
+	actorID string,
+	aprobacion EvidenciaAprobacionConvocatoria,
+	dependencias EvidenciaDependenciasConvocatoria,
+	motivo string,
+	instante time.Time,
+) (VersionConvocatoriaGobernada, error) {
+	if v.Secuencia != 1 || v.VersionAnteriorRef != "" {
+		return VersionConvocatoriaGobernada{}, ErrTransicionGobiernoConvocatoria
+	}
+	return v.publicar(actorID, aprobacion, dependencias, motivo, instante)
+}
+
+type ResultadoPublicacionSucesoraConvocatoria struct {
+	Publicada   VersionConvocatoriaGobernada
+	Predecesora VersionConvocatoriaGobernada
+}
+
+// PublicarSucesora devuelve las dos instantaneas que el repositorio debe
+// confirmar de forma atomica. Mientras exista una publicación activa conserva la
+// misma definición del flujo; cambiarla exigirá una migración expresa.
+func (v VersionConvocatoriaGobernada) PublicarSucesora(
+	predecesora VersionConvocatoriaGobernada,
+	actorID string,
+	aprobacion EvidenciaAprobacionConvocatoria,
+	dependencias EvidenciaDependenciasConvocatoria,
+	motivo string,
+	instante time.Time,
+) (ResultadoPublicacionSucesoraConvocatoria, error) {
+	if v.Validar() != nil || predecesora.Validar() != nil || v.Secuencia <= 1 ||
+		(predecesora.EstadoGobierno != EstadoGobiernoConvocatoriaPublicada &&
+			predecesora.EstadoGobierno != EstadoGobiernoConvocatoriaRetirada) ||
+		v.ID != predecesora.ID || v.Secuencia != predecesora.Secuencia+1 ||
+		v.VersionAnteriorRef != predecesora.Referencia() ||
+		v.Contenido.IdentificadorPublico != predecesora.Contenido.IdentificadorPublico ||
+		v.CreadaEn.Before(predecesora.ultimaFechaGobierno()) ||
+		(predecesora.EstadoGobierno == EstadoGobiernoConvocatoriaPublicada &&
+			v.Configuracion.FlujoProceso != predecesora.Configuracion.FlujoProceso) {
+		return ResultadoPublicacionSucesoraConvocatoria{}, ErrTransicionGobiernoConvocatoria
+	}
+	publicada, err := v.publicar(actorID, aprobacion, dependencias, motivo, instante)
+	if err != nil {
+		return ResultadoPublicacionSucesoraConvocatoria{}, err
+	}
+	anterior := predecesora
+	if predecesora.EstadoGobierno == EstadoGobiernoConvocatoriaPublicada {
+		anterior, err = predecesora.SustituirPor(publicada)
+		if err != nil {
+			return ResultadoPublicacionSucesoraConvocatoria{}, err
+		}
+	}
+	return ResultadoPublicacionSucesoraConvocatoria{Publicada: publicada, Predecesora: anterior}, nil
+}
+
+func (v VersionConvocatoriaGobernada) publicar(
 	actorID string,
 	aprobacion EvidenciaAprobacionConvocatoria,
 	dependencias EvidenciaDependenciasConvocatoria,
@@ -57,11 +115,15 @@ func (v VersionConvocatoriaGobernada) Publicar(
 		!textoConvocatoriaValido(motivo, 8000, true) || fecha.IsZero() || fecha.Before(v.ultimaFechaGobierno()) {
 		return VersionConvocatoriaGobernada{}, ErrTransicionGobiernoConvocatoria
 	}
-	huellaContenido, err := v.huellaContenidoSinValidar()
-	if err != nil || !aprobacion.validaPara(
-		"publicar", v.Referencia(), huellaContenido, v.ultimaFechaEdicion(), fecha,
+	huellaContenido, errContenido := v.huellaContenidoSinValidar()
+	huellaEstado, errEstado := v.HuellaSHA256()
+	if errContenido != nil || errEstado != nil || !aprobacion.validaPara(
+		"publicar", v.Referencia(), v.Revision, huellaContenido, huellaEstado, v.ultimaFechaEdicion(), fecha,
 	) || aprobacion.AprobadaPor == v.CreadaPor || aprobacion.AprobadaPor == v.UltimaModificacionPor ||
-		!dependencias.validaPara(v.Referencia(), huellaContenido, v.ultimaFechaEdicion(), fecha) {
+		aprobacion.AprobadaPor == actorID ||
+		!dependencias.validaPara(
+			v.Referencia(), v.Revision, huellaContenido, huellaEstado, v.ultimaFechaEdicion(), fecha,
+		) {
 		return VersionConvocatoriaGobernada{}, ErrTransicionGobiernoConvocatoria
 	}
 	publicada := v
@@ -88,9 +150,12 @@ func (v VersionConvocatoriaGobernada) Retirar(
 		!textoConvocatoriaValido(motivo, 8000, true) || fecha.IsZero() || fecha.Before(v.ultimaFechaGobierno()) {
 		return VersionConvocatoriaGobernada{}, ErrTransicionGobiernoConvocatoria
 	}
-	huellaContenido, err := v.huellaContenidoSinValidar()
-	if err != nil || !aprobacion.validaPara("retirar", v.Referencia(), huellaContenido, v.PublicadaEn, fecha) ||
-		aprobacion.AprobadaPor == v.PublicadaPor {
+	huellaContenido, errContenido := v.huellaContenidoSinValidar()
+	huellaEstado, errEstado := v.HuellaSHA256()
+	if errContenido != nil || errEstado != nil || !aprobacion.validaPara(
+		"retirar", v.Referencia(), v.Revision, huellaContenido, huellaEstado, v.PublicadaEn, fecha,
+	) ||
+		aprobacion.AprobadaPor == v.PublicadaPor || aprobacion.AprobadaPor == actorID {
 		return VersionConvocatoriaGobernada{}, ErrTransicionGobiernoConvocatoria
 	}
 	retirada := v
@@ -142,7 +207,7 @@ func (v VersionConvocatoriaGobernada) SustituirPor(
 		nueva.EstadoGobierno != EstadoGobiernoConvocatoriaPublicada || nueva.ID != v.ID ||
 		nueva.Secuencia != v.Secuencia+1 || nueva.VersionAnteriorRef != v.Referencia() ||
 		nueva.Contenido.IdentificadorPublico != v.Contenido.IdentificadorPublico ||
-		nueva.PublicadaEn.Before(v.PublicadaEn) {
+		nueva.CreadaEn.Before(v.ultimaFechaGobierno()) || nueva.PublicadaEn.Before(v.PublicadaEn) {
 		return VersionConvocatoriaGobernada{}, ErrTransicionGobiernoConvocatoria
 	}
 	sustituida := v
@@ -154,11 +219,19 @@ func (v VersionConvocatoriaGobernada) SustituirPor(
 }
 
 func (v VersionConvocatoriaGobernada) ProyectarPublica(
-	estado EstadoConvocatoria,
-	actualizadaEn time.Time,
+	instancia dominiovec.InstanciaFlujo,
 ) (Convocatoria, error) {
+	actualizadaEn := instancia.CreadaEn
+	if instancia.Revision > 1 {
+		actualizadaEn = instancia.ActualizadaEn
+	}
 	actualizadaEn = instanteConvocatoriaCanonico(actualizadaEn)
-	if v.Validar() != nil || v.EstadoGobierno == EstadoGobiernoConvocatoriaBorrador ||
+	definicionRef := v.Configuracion.FlujoProceso.ReferenciaVersionada()
+	estado := EstadoConvocatoria(instancia.EstadoActual)
+	if v.Validar() != nil || v.EstadoGobierno != EstadoGobiernoConvocatoriaPublicada ||
+		instancia.Validar() != nil || instancia.TipoEntidad != TipoEntidadFlujoConvocatoriaBolsa ||
+		instancia.EntidadRef != v.ID || instancia.DefinicionRef != definicionRef ||
+		instancia.DefinicionContenidoHuellaSHA256 != v.Configuracion.FlujoProceso.HuellaContenidoSHA256 ||
 		!estado.IsValid() || actualizadaEn.IsZero() || actualizadaEn.Before(v.PublicadaEn) {
 		return Convocatoria{}, ErrVersionConvocatoriaGobernadaInvalida
 	}
@@ -191,21 +264,27 @@ func (v VersionConvocatoriaGobernada) ProyectarPublica(
 }
 
 func (e EvidenciaAprobacionConvocatoria) validaPara(
-	accion, convocatoriaRef, huellaContenido string,
+	accion, convocatoriaRef string,
+	revision int,
+	huellaContenido, huellaEstado string,
 	noAntes, noDespues time.Time,
 ) bool {
 	return e.Accion == accion && referenciaOpacaValida(e.Referencia) &&
 		huellaSHA256Valida(e.HuellaEvidenciaSHA256) && e.ConvocatoriaRef == convocatoriaRef &&
-		e.HuellaContenidoSHA256 == huellaContenido && referenciaOpacaValida(e.AprobadaPor) &&
+		e.Revision == revision && e.HuellaContenidoSHA256 == huellaContenido &&
+		e.HuellaEstadoSHA256 == huellaEstado && referenciaOpacaValida(e.AprobadaPor) &&
 		instanteUTCCanonico(e.AprobadaEn) && !e.AprobadaEn.Before(noAntes) && !e.AprobadaEn.After(noDespues)
 }
 
 func (e EvidenciaDependenciasConvocatoria) validaPara(
-	convocatoriaRef, huellaContenido string,
+	convocatoriaRef string,
+	revision int,
+	huellaContenido, huellaEstado string,
 	noAntes, noDespues time.Time,
 ) bool {
 	return referenciaOpacaValida(e.Referencia) && huellaSHA256Valida(e.HuellaEvidenciaSHA256) &&
-		e.ConvocatoriaRef == convocatoriaRef && e.HuellaContenidoSHA256 == huellaContenido &&
+		e.ConvocatoriaRef == convocatoriaRef && e.Revision == revision &&
+		e.HuellaContenidoSHA256 == huellaContenido && e.HuellaEstadoSHA256 == huellaEstado &&
 		instanteUTCCanonico(e.VerificadaEn) && !e.VerificadaEn.Before(noAntes) && !e.VerificadaEn.After(noDespues) &&
 		noDespues.Sub(e.VerificadaEn) <= vigenciaMaximaComprobacionDependencias
 }
@@ -224,15 +303,19 @@ func (v VersionConvocatoriaGobernada) datosRetiradaPresentes() bool {
 }
 
 func (v VersionConvocatoriaGobernada) datosPublicacionValidos() bool {
-	huella, err := v.huellaContenidoSinValidar()
-	return err == nil && referenciaOpacaValida(v.PublicadaPor) && instanteUTCCanonico(v.PublicadaEn) &&
+	huellaContenido, errContenido := v.huellaContenidoSinValidar()
+	huellaEstado, errEstado := v.huellaBorradorPrevioPublicacion()
+	return errContenido == nil && errEstado == nil && referenciaOpacaValida(v.PublicadaPor) &&
+		instanteUTCCanonico(v.PublicadaEn) &&
 		v.PublicadaEn.Compare(v.ultimaFechaEdicion()) >= 0 && textoConvocatoriaValido(v.MotivoPublicacion, 8000, true) &&
 		v.AprobacionPublicacion != nil && v.AprobacionPublicacion.validaPara(
-		"publicar", v.Referencia(), huella, v.ultimaFechaEdicion(), v.PublicadaEn,
+		"publicar", v.Referencia(), v.Revision, huellaContenido, huellaEstado,
+		v.ultimaFechaEdicion(), v.PublicadaEn,
 	) && v.AprobacionPublicacion.AprobadaPor != v.CreadaPor &&
 		v.AprobacionPublicacion.AprobadaPor != v.UltimaModificacionPor &&
+		v.AprobacionPublicacion.AprobadaPor != v.PublicadaPor &&
 		v.ComprobacionDependencias != nil && v.ComprobacionDependencias.validaPara(
-		v.Referencia(), huella, v.ultimaFechaEdicion(), v.PublicadaEn,
+		v.Referencia(), v.Revision, huellaContenido, huellaEstado, v.ultimaFechaEdicion(), v.PublicadaEn,
 	)
 }
 
@@ -243,12 +326,45 @@ func (v VersionConvocatoriaGobernada) datosSustitucionValidos() bool {
 }
 
 func (v VersionConvocatoriaGobernada) datosRetiradaValidos() bool {
-	huella, err := v.huellaContenidoSinValidar()
-	return err == nil && referenciaOpacaValida(v.RetiradaPor) && v.RetiradaPor != v.PublicadaPor &&
+	huellaContenido, errContenido := v.huellaContenidoSinValidar()
+	huellaEstado, errEstado := v.huellaPublicadaPreviaRetirada()
+	return errContenido == nil && errEstado == nil && referenciaOpacaValida(v.RetiradaPor) &&
+		v.RetiradaPor != v.PublicadaPor &&
 		instanteUTCCanonico(v.RetiradaEn) && !v.RetiradaEn.Before(v.PublicadaEn) &&
 		textoConvocatoriaValido(v.MotivoRetirada, 8000, true) && v.AprobacionRetirada != nil &&
-		v.AprobacionRetirada.validaPara("retirar", v.Referencia(), huella, v.PublicadaEn, v.RetiradaEn) &&
-		v.AprobacionRetirada.AprobadaPor != v.PublicadaPor
+		v.AprobacionRetirada.validaPara(
+			"retirar", v.Referencia(), v.Revision, huellaContenido, huellaEstado, v.PublicadaEn, v.RetiradaEn,
+		) &&
+		v.AprobacionRetirada.AprobadaPor != v.PublicadaPor &&
+		v.AprobacionRetirada.AprobadaPor != v.RetiradaPor
+}
+
+func (v VersionConvocatoriaGobernada) huellaBorradorPrevioPublicacion() (string, error) {
+	base := v
+	base.EstadoGobierno = EstadoGobiernoConvocatoriaBorrador
+	base.PublicadaPor = ""
+	base.PublicadaEn = time.Time{}
+	base.MotivoPublicacion = ""
+	base.AprobacionPublicacion = nil
+	base.ComprobacionDependencias = nil
+	base.SustituidaPorRef = ""
+	base.SustituidaPor = ""
+	base.SustituidaEn = time.Time{}
+	base.RetiradaPor = ""
+	base.RetiradaEn = time.Time{}
+	base.MotivoRetirada = ""
+	base.AprobacionRetirada = nil
+	return base.HuellaSHA256()
+}
+
+func (v VersionConvocatoriaGobernada) huellaPublicadaPreviaRetirada() (string, error) {
+	base := v
+	base.EstadoGobierno = EstadoGobiernoConvocatoriaPublicada
+	base.RetiradaPor = ""
+	base.RetiradaEn = time.Time{}
+	base.MotivoRetirada = ""
+	base.AprobacionRetirada = nil
+	return base.HuellaSHA256()
 }
 
 func (v VersionConvocatoriaGobernada) ultimaFechaEdicion() time.Time {

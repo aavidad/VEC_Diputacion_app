@@ -12,12 +12,15 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 var ErrConvocatoriaInvalida = errors.New("bolsa: convocatoria invalida")
 
 const (
-	maximoCategoriasConvocatoria = 32
+	maximoCategoriasConvocatoria = 1024
 	maximoPlazosConvocatoria     = 64
 	maximoRequisitosConvocatoria = 256
 	maximoDocumentosConvocatoria = 256
@@ -347,12 +350,14 @@ func claveCatalogoConvocatoriaValida(valor string) bool {
 }
 
 func textoConvocatoriaValido(valor string, maximo int, multilinea bool) bool {
-	if valor != strings.TrimSpace(valor) || valor == "" || len([]rune(valor)) > maximo {
+	if maximo < 1 || len(valor) > maximo*utf8.UTFMax || !utf8.ValidString(valor) ||
+		!norm.NFC.IsNormalString(valor) || valor != strings.TrimSpace(valor) || valor == "" ||
+		utf8.RuneCountInString(valor) > maximo {
 		return false
 	}
 	for _, caracter := range valor {
 		if unicode.Is(unicode.Cf, caracter) ||
-			(unicode.IsControl(caracter) && (!multilinea || (caracter != '\n' && caracter != '\r' && caracter != '\t'))) {
+			(unicode.IsControl(caracter) && (!multilinea || (caracter != '\n' && caracter != '\t'))) {
 			return false
 		}
 	}

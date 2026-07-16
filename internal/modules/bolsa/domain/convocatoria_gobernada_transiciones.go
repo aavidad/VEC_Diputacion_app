@@ -10,6 +10,8 @@ import (
 
 const vigenciaMaximaComprobacionDependencias = 15 * time.Minute
 
+const maximoBytesVersionConvocatoriaGobernada = 8 * 1024 * 1024
+
 type EstadoGobiernoConvocatoria string
 
 const (
@@ -29,7 +31,9 @@ type EvidenciaAprobacionConvocatoria struct {
 	Referencia            string    `json:"referencia"`
 	HuellaEvidenciaSHA256 string    `json:"huella_evidencia_sha256"`
 	ConvocatoriaRef       string    `json:"convocatoria_ref"`
+	Revision              int       `json:"revision"`
 	HuellaContenidoSHA256 string    `json:"huella_contenido_sha256"`
+	HuellaEstadoSHA256    string    `json:"huella_estado_sha256"`
 	AprobadaPor           string    `json:"aprobada_por"`
 	AprobadaEn            time.Time `json:"aprobada_en"`
 }
@@ -38,7 +42,9 @@ type EvidenciaDependenciasConvocatoria struct {
 	Referencia            string    `json:"referencia"`
 	HuellaEvidenciaSHA256 string    `json:"huella_evidencia_sha256"`
 	ConvocatoriaRef       string    `json:"convocatoria_ref"`
+	Revision              int       `json:"revision"`
 	HuellaContenidoSHA256 string    `json:"huella_contenido_sha256"`
+	HuellaEstadoSHA256    string    `json:"huella_estado_sha256"`
 	VerificadaEn          time.Time `json:"verificada_en"`
 }
 
@@ -109,7 +115,7 @@ func (v VersionConvocatoriaGobernada) Validar() error {
 		return ErrVersionConvocatoriaGobernadaInvalida
 	}
 	if (v.Secuencia == 1 && v.VersionAnteriorRef != "") ||
-		(v.Secuencia > 1 && !referenciaConvocatoriaValida(v.VersionAnteriorRef)) {
+		(v.Secuencia > 1 && v.VersionAnteriorRef != referenciaVersionConvocatoria(v.ID, v.Secuencia-1)) {
 		return ErrVersionConvocatoriaGobernadaInvalida
 	}
 	if v.Revision == 1 {
@@ -168,20 +174,38 @@ func (v VersionConvocatoriaGobernada) ClonarCanonico() (VersionConvocatoriaGober
 }
 
 func (v VersionConvocatoriaGobernada) HuellaContenidoSHA256() (string, error) {
-	if err := v.Validar(); err != nil {
+	representacion, err := v.RepresentacionContenidoCanonica()
+	if err != nil {
 		return "", err
 	}
-	return v.huellaContenidoSinValidar()
+	suma := sha256.Sum256(representacion)
+	return hex.EncodeToString(suma[:]), nil
 }
 
 func (v VersionConvocatoriaGobernada) huellaContenidoSinValidar() (string, error) {
-	contenido, err := v.Contenido.ClonarCanonico()
+	representacion, err := v.representacionContenidoSinValidar()
 	if err != nil {
 		return "", err
 	}
+	suma := sha256.Sum256(representacion)
+	return hex.EncodeToString(suma[:]), nil
+}
+
+func (v VersionConvocatoriaGobernada) RepresentacionContenidoCanonica() ([]byte, error) {
+	if err := v.Validar(); err != nil {
+		return nil, err
+	}
+	return v.representacionContenidoSinValidar()
+}
+
+func (v VersionConvocatoriaGobernada) representacionContenidoSinValidar() ([]byte, error) {
+	contenido, err := v.Contenido.ClonarCanonico()
+	if err != nil {
+		return nil, err
+	}
 	configuracion, err := v.Configuracion.ClonarCanonicaPara(contenido)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	material := struct {
 		Esquema              string                          `json:"esquema"`
@@ -195,23 +219,30 @@ func (v VersionConvocatoriaGobernada) huellaContenidoSinValidar() (string, error
 	}{"bolsa.version-convocatoria.contenido.v1", v.ID, v.Secuencia, v.CodigoVersionPublica,
 		v.VersionAnteriorRef, contenido, configuracion, v.ExpedienteRef}
 	bytes, err := json.Marshal(material)
-	if err != nil {
-		return "", ErrVersionConvocatoriaGobernadaInvalida
+	if err != nil || len(bytes) > maximoBytesVersionConvocatoriaGobernada {
+		return nil, ErrVersionConvocatoriaGobernadaInvalida
 	}
-	suma := sha256.Sum256(bytes)
-	return hex.EncodeToString(suma[:]), nil
+	return append([]byte(nil), bytes...), nil
+}
+
+func (v VersionConvocatoriaGobernada) RepresentacionCanonica() ([]byte, error) {
+	canonica, err := v.ClonarCanonico()
+	if err != nil {
+		return nil, err
+	}
+	bytes, err := json.Marshal(canonica)
+	if err != nil || len(bytes) > maximoBytesVersionConvocatoriaGobernada {
+		return nil, ErrVersionConvocatoriaGobernadaInvalida
+	}
+	return append([]byte(nil), bytes...), nil
 }
 
 func (v VersionConvocatoriaGobernada) HuellaSHA256() (string, error) {
-	canonica, err := v.ClonarCanonico()
+	representacion, err := v.RepresentacionCanonica()
 	if err != nil {
 		return "", err
 	}
-	bytes, err := json.Marshal(canonica)
-	if err != nil {
-		return "", ErrVersionConvocatoriaGobernadaInvalida
-	}
-	suma := sha256.Sum256(bytes)
+	suma := sha256.Sum256(representacion)
 	return hex.EncodeToString(suma[:]), nil
 }
 
