@@ -2296,3 +2296,30 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   firmada y no hereda puntos anteriores.
 - Especificacion y fuentes:
   `docs/estudio_requisitos/baremacion_configurable_jornada_y_datos_de_oficio.md`.
+
+## DEC-064 — Baremador de puestos singularizados sobre motor comun
+
+- Estado: decision arquitectonica adoptada el 16 de julio de 2026; porte e
+  implantacion pendientes y en **NO-GO**.
+- Caso de origen: la aplicacion local `Baremador` representa un concurso general
+  de provision de puestos singularizados para personal funcionario de carrera,
+  aunque partes del prototipo lo denominen concurso de traslados.
+- Alcance: se incorporara como primer tipo del modulo interno `Provision de
+  puestos y movilidad interna`, no como variante de Bolsa ni como aplicacion
+  aislada. Conserva requisitos de puesto, preferencias, nivel/grado,
+  permanencia, desempates, adjudicacion y expediente propios.
+- Reutilizacion: Personal y RUM aportan hechos y evidencias neutrales. Un nucleo
+  pequeno aporta aritmetica exacta, operadores tipados, desglose y huellas.
+  Puestos singularizados, otras provisiones, Bolsa y OPE calculan resultados
+  nuevos contra sus bases exactas; nunca heredan puntos de otro proceso.
+- Ampliacion: RRHH podra configurar nuevas convocatorias con familias de reglas
+  soportadas y versionadas. Una semantica juridica nueva se incorpora mediante
+  una extension tipada; el portal no acepta codigo, SQL ni formulas libres.
+- Fuente local: solo se reutilizan requisitos, patrones y casos anonimizados
+  contrastados con las bases oficiales. No se copian la base SQLite, JSON,
+  hojas, PDF, binario, datos personales ni la seguridad del prototipo.
+- Adjudicacion: un ranking por puesto no acredita el resultado final. Las
+  solicitudes con varias preferencias requieren una asignacion global,
+  determinista, explicable y reproducible conforme a los desempates publicados.
+- Especificacion:
+  `docs/estudio_requisitos/integracion_baremador_concursos_provision.md`.
