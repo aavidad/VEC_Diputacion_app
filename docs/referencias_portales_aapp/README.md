@@ -13,6 +13,12 @@ modelos que deban copiarse literalmente. La solución objetivo se definirá a pa
 requisitos de la Diputación, la normativa aplicable y una selección justificada de los
 patrones observados.
 
+Resultados del análisis:
+
+- [Comparativa y composición recomendada de portales](comparativa_y_composicion_recomendada.md).
+- [Comparativa de sistemas integrales de RRHH](comparativa_sistemas_integrales_rrhh.md).
+- [Decisión de espacios y persistencia](decision_espacios_y_persistencia.md).
+
 ## Criterios de selección
 
 - Fuentes oficiales de administraciones públicas.

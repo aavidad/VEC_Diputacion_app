@@ -41,6 +41,7 @@ Diputación.
 ## Documentos incorporados
 
 - [Análisis integral del portal de Recursos Humanos](analisis_integral_rrhh.md).
+- [Matriz normativa de Recursos Humanos a julio de 2026](matriz_normativa_rrhh_2026.md).
 - [Transcripción y lectura técnica de la petición de RRHH](peticion_rrhh_transcripcion_y_lectura.md).
 - [Baremacion configurable, jornada y servicios obtenidos de oficio](baremacion_configurable_jornada_y_datos_de_oficio.md).
 - [Integracion del Baremador de puestos singularizados y otros procesos](integracion_baremador_concursos_provision.md).
@@ -58,6 +59,7 @@ Diputación.
 - [Método de desarrollo asistido con Orquesta V06](metodo_desarrollo_orquestado_v06.md).
 - [Inventario de manuales públicos descargados](../referencias_portales_aapp/README.md).
 - [Comparativa y composición recomendada](../referencias_portales_aapp/comparativa_y_composicion_recomendada.md).
+- [Comparativa de sistemas integrales de RRHH](../referencias_portales_aapp/comparativa_sistemas_integrales_rrhh.md).
 - [Decisión de espacios y persistencia PostgreSQL/Oracle](../referencias_portales_aapp/decision_espacios_y_persistencia.md).
 - [Registro cronologico de decisiones, alternativas y motivos](../portal_vec/registro_decisiones.md).
 - [Dominio de Bolsa, autobaremacion y revision firmada](../portal_vec/dominio_y_autobaremacion.md).

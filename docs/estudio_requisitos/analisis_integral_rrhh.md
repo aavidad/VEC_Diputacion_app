@@ -418,6 +418,7 @@ Antes de programar cada bloque se solicitará, como mínimo:
 
 ## 14. Especificaciones relacionadas
 
+- [Matriz normativa de Recursos Humanos](matriz_normativa_rrhh_2026.md)
 - [Petición del Servicio de Selección Externa](peticion_rrhh_transcripcion_y_lectura.md)
 - [Baremación configurable y datos de oficio](baremacion_configurable_jornada_y_datos_de_oficio.md)
 - [RPT, plazas, puestos y vacantes](modelo_historico_rpt_plazas_puestos_y_vacantes.md)
@@ -426,9 +427,10 @@ Antes de programar cada bloque se solicitará, como mínimo:
 - [Seguridad y despliegue de Cronos](seguridad_y_despliegue_cronos.md)
 - [Acceso interno de técnicos y administración](acceso_interno_tecnicos_administracion.md)
 - [Comparativa de portales públicos](../referencias_portales_aapp/comparativa_y_composicion_recomendada.md)
+- [Comparativa de sistemas integrales de RRHH](../referencias_portales_aapp/comparativa_sistemas_integrales_rrhh.md)
 - [Informe para el Comité de Seguridad](../comite_seguridad/informe_validacion_arquitectura_seguridad.md)
 
-La matriz normativa detallada, la comparación ampliada de aplicaciones y las
-especificaciones por módulo completarán este documento sin convertirlo en una
-norma jurídica. La aprobación final corresponde a los órganos y unidades
-competentes.
+La matriz normativa detallada y la comparación ampliada de aplicaciones forman
+parte de esta memoria. Las especificaciones por módulo seguirán completándola
+sin convertirla en una norma jurídica. La aprobación final corresponde a los
+órganos y unidades competentes.
