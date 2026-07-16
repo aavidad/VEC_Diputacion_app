@@ -341,13 +341,12 @@ func (s *ServicioBaremacion) FinalizarFirma(
 	// devuelva error o no llegue a devolver. Ya no es seguro abandonar la reserva.
 	confirmacionInvocada = true
 	confirmacion, err := s.repositorio.ConfirmarCambio(ctx, solicitudConfirmacion)
-	if err != nil || confirmacion.ValidarPara(solicitudConfirmacion) != nil {
-		return ResultadoFinalizarFirmaBaremacion{}, &ErrorDocumentoFirmadoHuerfano{DecisionRef: contenido.ID, Documento: documentoFirmado, Causa: errors.Join(ErrResultadoBaremacionNoConfiable, err)}
-	}
-	huellaEsperada, err := agregado.HuellaEstadoSHA256()
-	if err != nil || confirmacion.Version.Referencia.HuellaEstadoSHA256 != huellaEsperada ||
-		confirmacion.Version.Referencia.Numero != referenciaVersion.Numero+1 {
-		return ResultadoFinalizarFirmaBaremacion{}, &ErrorDocumentoFirmadoHuerfano{DecisionRef: contenido.ID, Documento: documentoFirmado, Causa: ErrResultadoBaremacionNoConfiable}
+	if errDesenlace := clasificarDesenlaceConfirmacionBaremacion(
+		confirmacion, solicitudConfirmacion, err,
+	); errDesenlace != nil {
+		return ResultadoFinalizarFirmaBaremacion{}, &ErrorDocumentoFirmadoHuerfano{
+			DecisionRef: contenido.ID, Documento: documentoFirmado, Causa: errDesenlace,
+		}
 	}
 	return ResultadoFinalizarFirmaBaremacion{
 		Decision: decision, ValidacionInicial: validacionInicial, SelloTiempo: sello,

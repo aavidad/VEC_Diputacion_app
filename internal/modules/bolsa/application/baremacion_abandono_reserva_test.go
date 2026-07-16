@@ -124,8 +124,13 @@ func TestFinalizarFirmaNuncaAbandonaTrasInvocarConfirmacion(t *testing.T) {
 	_, err := entorno.servicio.FinalizarFirma(
 		context.Background(), ordenFinalizarBaremacionPrueba(preparada, "confirmacion-ambigua"),
 	)
-	if !errors.Is(err, errorRespuesta) {
-		t.Fatalf("no se conservo el fallo posterior al efecto: %v", err)
+	if errors.Is(err, errorRespuesta) {
+		t.Fatalf("se propago una causa tecnica posterior al efecto: %v", err)
+	}
+	if !errors.Is(err, puertosbolsa.ErrResultadoTransaccionalBaremacionIndeterminado) ||
+		!errors.Is(err, puertosbolsa.ErrReconciliacionTransaccionalBaremacionRequerida) ||
+		errors.Is(err, puertosbolsa.ErrTransaccionBaremacionNoAplicada) {
+		t.Fatalf("respuesta perdida sin clasificacion fail-closed: %v", err)
 	}
 	if entorno.repositorio.reservas != 1 || entorno.repositorio.confirmaciones != 1 ||
 		entorno.repositorio.intentosAbandono != 0 || entorno.repositorio.abandonos != 0 ||

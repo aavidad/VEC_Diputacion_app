@@ -8,20 +8,24 @@ import (
 )
 
 type repositorioBaremacionPrueba struct {
-	mu                  sync.Mutex
-	version             puertosbolsa.VersionBaremacion
-	token               puertosbolsa.TokenReservaBaremacion
-	reserva             *puertosbolsa.SolicitudReservarCambioBaremacion
-	abandono            *puertosbolsa.SolicitudAbandonarReservaBaremacion
-	solicitudesAbandono []puertosbolsa.SolicitudAbandonarReservaBaremacion
-	alReservar          func()
-	erroresAbandono     []error
-	errorConfirmar      error
-	consultas           int
-	reservas            int
-	confirmaciones      int
-	abandonos           int
-	intentosAbandono    int
+	mu                        sync.Mutex
+	version                   puertosbolsa.VersionBaremacion
+	token                     puertosbolsa.TokenReservaBaremacion
+	reserva                   *puertosbolsa.SolicitudReservarCambioBaremacion
+	confirmacion              *puertosbolsa.SolicitudConfirmarCambioBaremacion
+	abandono                  *puertosbolsa.SolicitudAbandonarReservaBaremacion
+	solicitudesAbandono       []puertosbolsa.SolicitudAbandonarReservaBaremacion
+	alReservar                func()
+	erroresAbandono           []error
+	errorConfirmar            error
+	errorConfirmarSinEfecto   error
+	devolverResultadoConError bool
+	alterarConfirmacion       func(puertosbolsa.ResultadoConfirmarCambioBaremacion) puertosbolsa.ResultadoConfirmarCambioBaremacion
+	consultas                 int
+	reservas                  int
+	confirmaciones            int
+	abandonos                 int
+	intentosAbandono          int
 }
 
 func (r *repositorioBaremacionPrueba) ObtenerVersionVigente(
@@ -85,6 +89,14 @@ func (r *repositorioBaremacionPrueba) ConfirmarCambio(
 		s.VersionEsperada == nil || *s.VersionEsperada != r.version.Referencia {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrReservaBaremacionNoValida
 	}
+	clonSolicitud, err := s.Clonar()
+	if err != nil {
+		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
+	}
+	r.confirmacion = &clonSolicitud
+	if r.errorConfirmarSinEfecto != nil {
+		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, r.errorConfirmarSinEfecto
+	}
 	huella, err := s.Agregado.HuellaEstadoSHA256()
 	if err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
@@ -109,7 +121,18 @@ func (r *repositorioBaremacionPrueba) ConfirmarCambio(
 	r.version = version
 	r.reserva = nil
 	if r.errorConfirmar != nil {
+		if r.devolverResultadoConError {
+			return resultado, r.errorConfirmar
+		}
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, r.errorConfirmar
+	}
+	if r.alterarConfirmacion != nil {
+		clon, err := resultado.Clonar()
+		if err != nil {
+			return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
+		}
+		resultado = clon
+		resultado = r.alterarConfirmacion(resultado)
 	}
 	return resultado, nil
 }
