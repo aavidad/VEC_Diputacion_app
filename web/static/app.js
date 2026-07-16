@@ -480,7 +480,9 @@ const state = {
   localRows: [],
   rowOverrides: {},
   selectedRowID: "",
-  activeModule: defaultModuleID(),
+  // El perfil autorizado solo existe despues de cargar /api/vec/session.
+  // Partir cerrado evita consultar state durante su propia inicializacion.
+  activeModule: "sin_acceso",
   activeScreen: "",
   workTableSorts: {},
   employeeDirectoryCacheKey: "",
