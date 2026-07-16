@@ -18,7 +18,7 @@
 ### T01 — Analisis de brecha del nucleo heredado (DEC-050)
 
 - `origen`: DEC-050 del registro de decisiones.
-- `estado`: nuevo.
+- `estado`: en_curso (reservado por direccion, subagentes en worktree aislado, 2026-07-16).
 - `area_hexagonal`: docs primero; nucleo y composicion despues.
 - `accion`: documentar el inventario de capacidades de `internal/candidate`
   y el analisis de brecha contra `internal/modules/bolsa`, dejando en el
@@ -57,7 +57,7 @@
 ### T04 — Frontend en modulos ES con tokens (DEC-052, H-03)
 
 - `origen`: DEC-052 del registro de decisiones.
-- `estado`: nuevo.
+- `estado`: en_curso (reservado por direccion, subagentes en worktree aislado, 2026-07-16).
 - `area_hexagonal`: adaptador (frontend estatico).
 - `accion`: programar la particion de `web/static/app.js` en modulos ES
   nativos por dominio funcional, eliminando en cada modulo migrado los
@@ -72,7 +72,7 @@
 - `origen`: DEC-053 del registro de decisiones; Ola 2 del plan de
   implantacion.
 - `area_hexagonal`: puerto y adaptador HTTP.
-- `estado`: nuevo.
+- `estado`: en_curso (reservado por direccion, subagentes en worktree aislado, 2026-07-16).
 - `accion`: documentar el contrato de endpoints por modulo (ruta, metodo,
   envelope, errores, version) y programar los endpoints finos de la Ola 2
   contra ese contrato; la web consume la API como un cliente mas y ningun
@@ -83,7 +83,7 @@
 ### T06 — Nivel de madurez por modulo en el contrato (H-05)
 
 - `origen`: auditoria H-05.
-- `estado`: nuevo.
+- `estado`: en_curso (reservado por direccion, subagentes en worktree aislado, 2026-07-16).
 - `area_hexagonal`: docs.
 - `accion`: documentar en el
   [contrato de modulos](portal_vec/contrato_modulos_vec.md) el nivel que

@@ -1,0 +1,151 @@
+{
+  "request_id": "req-vec-remediacion-20260716-001",
+  "correlation_id": "corr-vec-remediacion-20260716-001",
+  "requested_by": "direccion-claude-code",
+  "max_bursts": 6,
+  "max_steps_per_burst": 4,
+  "max_dispatches_per_wait": 2,
+  "max_commands": 16,
+  "max_outbox_per_cycle": 8,
+  "autoprogramming_request": {
+    "request_ref": "vec-remediacion-20260716-001",
+    "project_ref": "vec-diputacion-granada",
+    "worktree_ref": "worktree-vec-diputacion-app",
+    "worktree_isolated": true,
+    "branch_ref": "vec-orquesta-20260619",
+    "max_write_set_entries": 40,
+    "write_set": [
+      "internal/vec/ports/**",
+      "internal/vec/canonico/**",
+      "internal/vec/adapters/httpapi/**",
+      "internal/app/bootstrap/**",
+      "web/static/**",
+      "docs/portal_vec/contrato_modulos_vec.md",
+      "docs/portal_vec/brecha_nucleo_heredado_bolsa.md",
+      "docs/portal_vec/contratos_api_modulos.md",
+      "scripts/tamano_ficheros_base.txt"
+    ],
+    "required_tests": [
+      "go test ./...",
+      "scripts/comprobar_tamano_ficheros.sh"
+    ],
+    "tasks": [
+      {
+        "task_ref": "vec-rem-t01-brecha-legado",
+        "area": "docs",
+        "title": "T01: analisis de brecha del nucleo heredado de Bolsa (DEC-050)",
+        "objective": "Ejecuta el paso 1 y 2 de DEC-050 del registro de decisiones. Inventaria las capacidades de internal/candidate (candidatos, meritos, documentos, alegaciones, avisos, auditoria, manifiesto operacional, API /api heredada, autenticacion fake heredada, persistencia file/local_durable) y compara contra internal/modules/bolsa. Produce docs/portal_vec/brecha_nucleo_heredado_bolsa.md con tres listas: ya cubierto por el modulo nuevo, falta y se porta, se descarta con motivo. No toques codigo: es una tarea documental que desbloquea el porte. Cada afirmacion debe citar el fichero o simbolo Go que la evidencia.",
+        "write_set": [
+          "docs/portal_vec/brecha_nucleo_heredado_bolsa.md"
+        ],
+        "required_tests": [
+          "go test ./internal/modules/bolsa/..."
+        ],
+        "acceptance_criteria": [
+          "El documento lista cada capacidad heredada con destino portar/cubierto/descartar y evidencia",
+          "No se modifica ningun fichero .go",
+          "Las capacidades descartadas llevan motivo expreso apto para el registro de decisiones"
+        ]
+      },
+      {
+        "task_ref": "vec-rem-t02-ports-canonico",
+        "area": "vec-core",
+        "title": "T02: extraer logica canonica de internal/vec/ports (H-01)",
+        "objective": "Aplica H-01 de la auditoria 2026-07-16. Mueve la logica de canonizacion, derivacion criptografica y validacion pesada de internal/vec/ports a un subpaquete nuevo internal/vec/canonico (o subpaquetes por capacidad), dejando en ports interfaces y tipos de intercambio. Prioriza los ficheros mas grandes: ejecuciones_documentales_v3.go (4122 lineas), recibo_escritura_objeto_material_v2.go, almacen_objetos.go, pagos.go. Cada fichero resultante debe cumplir DEC-051 (objetivo 500, tope 800). No cambies firmas exportadas usadas por application o adapters salvo reexportacion transparente; el refactor debe ser conservador y por pasos commiteables. Actualiza scripts/tamano_ficheros_base.txt solo a la baja.",
+        "write_set": [
+          "internal/vec/ports/**",
+          "internal/vec/canonico/**",
+          "scripts/tamano_ficheros_base.txt"
+        ],
+        "required_tests": [
+          "go test ./internal/vec/...",
+          "scripts/comprobar_tamano_ficheros.sh"
+        ],
+        "acceptance_criteria": [
+          "go build ./... y go test ./... en verde tras cada paso",
+          "internal/vec/ports pierde lineas netas y ningun fichero nuevo supera 800",
+          "La linea base de tamanos solo mengua",
+          "go test -race ./internal/vec/ports baja de forma medible su duracion"
+        ]
+      },
+      {
+        "task_ref": "vec-rem-t03-httpapi-bootstrap",
+        "area": "vec-shell-http",
+        "title": "T03: mover el cableado de modulos de httpapi a bootstrap (H-02)",
+        "objective": "Aplica H-02 de la auditoria 2026-07-16. internal/vec/adapters/httpapi no debe importar internal/modules/*: traslada el montaje de modulos de workspace.go, cronos.go y personal_rpt.go a internal/app/bootstrap, entregando a httpapi handlers o interfaces ya compuestos. Manten identicas las rutas y respuestas HTTP existentes; los tests actuales de httpapi deben seguir pasando sin cambios de contrato. Divide workspace.go (1448 lineas) respetando DEC-051 al moverlo.",
+        "write_set": [
+          "internal/vec/adapters/httpapi/**",
+          "internal/app/bootstrap/**",
+          "scripts/tamano_ficheros_base.txt"
+        ],
+        "required_tests": [
+          "go test ./internal/vec/adapters/httpapi/...",
+          "go test ./internal/app/...",
+          "scripts/comprobar_tamano_ficheros.sh"
+        ],
+        "depends_on": [
+          "vec-rem-t02-ports-canonico"
+        ],
+        "acceptance_criteria": [
+          "go list -f '{{.Imports}}' ./internal/vec/adapters/httpapi no contiene internal/modules",
+          "Las rutas y codigos de estado existentes no cambian",
+          "La linea base de tamanos solo mengua"
+        ]
+      },
+      {
+        "task_ref": "vec-rem-t04-frontend-modular",
+        "area": "docs-ui",
+        "title": "T04: frontend en modulos ES con tokens de tema (DEC-052)",
+        "objective": "Ejecuta DEC-052 del registro de decisiones. Parte web/static/app.js (13211 lineas) en modulos ES nativos por dominio funcional (bolsa, dietas, cronos, personal, workspace, componentes comunes) cargados con script type=module, sin framework, sin bundler y sin npm. En cada modulo migrado elimina las asignaciones .style con colores literales (67 en total): el JS solo toca clases semanticas y los colores viven como tokens CSS en styles.css. Anade el conmutador de tema por atributo data-theme del documento con al menos un tema alternativo de demostracion. Migra por modulos en commits pequenos; la UI debe seguir funcionando identica tras cada commit.",
+        "write_set": [
+          "web/static/**",
+          "scripts/tamano_ficheros_base.txt"
+        ],
+        "required_tests": [
+          "go test ./...",
+          "scripts/comprobar_tamano_ficheros.sh"
+        ],
+        "acceptance_criteria": [
+          "index.html carga la aplicacion con script type=module",
+          "Ningun fichero JS nuevo supera 800 lineas y app.js pierde lineas netas en cada commit",
+          "Cero colores literales nuevos en JS; los migrados quedan como tokens",
+          "El tema se conmuta cambiando data-theme sin recargar ni retocar modulos"
+        ]
+      },
+      {
+        "task_ref": "vec-rem-t05-contratos-api",
+        "area": "docs",
+        "title": "T05: contrato API por modulo para clientes equivalentes (DEC-053)",
+        "objective": "Ejecuta la parte documental de DEC-053. Redacta docs/portal_vec/contratos_api_modulos.md con el contrato de cada endpoint existente bajo /api/vec y /api/publico/bolsa: ruta, metodo, autenticacion requerida, envelope de peticion y respuesta, errores y version. El contrato debe permitir construir un cliente de escritorio sin leer el codigo del servidor. Marca explicitamente los huecos: pantallas de la web que hoy operan con datos sinteticos locales sin endpoint, como entrada para la Ola 2. No inventes endpoints: documenta lo que existe y lo que falta.",
+        "write_set": [
+          "docs/portal_vec/contratos_api_modulos.md"
+        ],
+        "required_tests": [
+          "go test ./internal/vec/adapters/httpapi/..."
+        ],
+        "acceptance_criteria": [
+          "Cada endpoint real aparece con ruta, metodo, envelope, errores y version",
+          "Los huecos sin endpoint quedan listados como pendientes de Ola 2",
+          "No se modifica ningun fichero .go"
+        ]
+      },
+      {
+        "task_ref": "vec-rem-t06-madurez-modulos",
+        "area": "docs",
+        "title": "T06: declarar nivel de madurez por modulo en el contrato (H-05)",
+        "objective": "Aplica H-05 de la auditoria 2026-07-16. Anade al contrato de modulos docs/portal_vec/contrato_modulos_vec.md una seccion de niveles de madurez (completo, parcial, solo manifiesto) y clasifica Bolsa, Personal, Cronos, Dietas y Administracion segun el arbol real de internal/modules. Define que capacidades puede asumir el shell segun el nivel declarado.",
+        "write_set": [
+          "docs/portal_vec/contrato_modulos_vec.md"
+        ],
+        "required_tests": [
+          "go test ./internal/modules/..."
+        ],
+        "acceptance_criteria": [
+          "Cada modulo queda clasificado con evidencia del arbol de paquetes",
+          "El contrato define que puede asumir el shell por nivel",
+          "No se modifica ningun fichero .go"
+        ]
+      }
+    ]
+  }
+}
