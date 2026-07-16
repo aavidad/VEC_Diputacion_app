@@ -8,14 +8,20 @@ import (
 )
 
 type repositorioBaremacionPrueba struct {
-	mu             sync.Mutex
-	version        puertosbolsa.VersionBaremacion
-	token          puertosbolsa.TokenReservaBaremacion
-	reserva        *puertosbolsa.SolicitudReservarCambioBaremacion
-	consultas      int
-	reservas       int
-	confirmaciones int
-	abandonos      int
+	mu                  sync.Mutex
+	version             puertosbolsa.VersionBaremacion
+	token               puertosbolsa.TokenReservaBaremacion
+	reserva             *puertosbolsa.SolicitudReservarCambioBaremacion
+	abandono            *puertosbolsa.SolicitudAbandonarReservaBaremacion
+	solicitudesAbandono []puertosbolsa.SolicitudAbandonarReservaBaremacion
+	alReservar          func()
+	erroresAbandono     []error
+	errorConfirmar      error
+	consultas           int
+	reservas            int
+	confirmaciones      int
+	abandonos           int
+	intentosAbandono    int
 }
 
 func (r *repositorioBaremacionPrueba) ObtenerVersionVigente(
@@ -62,6 +68,9 @@ func (r *repositorioBaremacionPrueba) ReservarCambio(
 		esperada := *s.VersionEsperada
 		respuesta.VersionEsperada = &esperada
 	}
+	if r.alReservar != nil {
+		r.alReservar()
+	}
 	return respuesta, nil
 }
 
@@ -98,6 +107,10 @@ func (r *repositorioBaremacionPrueba) ConfirmarCambio(
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
 	}
 	r.version = version
+	r.reserva = nil
+	if r.errorConfirmar != nil {
+		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, r.errorConfirmar
+	}
 	return resultado, nil
 }
 
@@ -107,10 +120,21 @@ func (r *repositorioBaremacionPrueba) AbandonarReserva(
 ) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if s.Validar() != nil || r.reserva == nil || s.Token.Revelar() != r.token.Revelar() {
+	r.intentosAbandono++
+	if s.Validar() != nil || r.reserva == nil || s.Token.Revelar() != r.token.Revelar() ||
+		s.Clase != r.reserva.Clase || s.BaremacionMeritoRef != r.reserva.BaremacionMeritoRef {
 		return puertosbolsa.ErrReservaBaremacionNoValida
 	}
+	copia := s
+	r.abandono = &copia
+	r.solicitudesAbandono = append(r.solicitudesAbandono, copia)
+	if len(r.erroresAbandono) != 0 {
+		err := r.erroresAbandono[0]
+		r.erroresAbandono = r.erroresAbandono[1:]
+		return err
+	}
 	r.abandonos++
+	r.reserva = nil
 	return nil
 }
 

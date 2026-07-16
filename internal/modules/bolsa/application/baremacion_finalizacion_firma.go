@@ -48,7 +48,7 @@ type ResultadoFinalizarFirmaBaremacion struct {
 func (s *ServicioBaremacion) FinalizarFirma(
 	ctx context.Context,
 	orden OrdenFinalizarFirmaBaremacion,
-) (ResultadoFinalizarFirmaBaremacion, error) {
+) (resultadoRetorno ResultadoFinalizarFirmaBaremacion, errRetorno error) {
 	if validarFirmaPreparada(orden.Firma) != nil {
 		return ResultadoFinalizarFirmaBaremacion{}, ErrOrdenBaremacionInvalida
 	}
@@ -254,6 +254,30 @@ func (s *ServicioBaremacion) FinalizarFirma(
 			Causa: errors.Join(puertosbolsa.ErrVersionBaremacionConflicto, err),
 		}
 	}
+	confirmacionInvocada := false
+	defer func() {
+		if confirmacionInvocada {
+			return
+		}
+		if errRetorno == nil {
+			resultadoRetorno = ResultadoFinalizarFirmaBaremacion{}
+			errRetorno = &ErrorDocumentoFirmadoHuerfano{
+				DecisionRef: contenido.ID, Documento: documentoFirmado,
+				Causa: ErrResultadoBaremacionNoConfiable,
+			}
+		}
+		errAbandono := s.abandonarReservaAntesDeConfirmar(
+			ctx, orden.Actor, revision, contenido, solicitudReserva, reserva, autorizaciones,
+		)
+		if errAbandono == nil {
+			return
+		}
+		if huerfano, ok := errRetorno.(*ErrorDocumentoFirmadoHuerfano); ok {
+			huerfano.Causa = errors.Join(huerfano.Causa, errAbandono)
+			return
+		}
+		errRetorno = errors.Join(errRetorno, errAbandono)
+	}()
 	autorizacionConfirmacion, err := s.autorizarRevision(ctx, orden.Actor, revision, puertosbolsa.AccionConfirmarDecisionBaremacion,
 		puertosbolsa.ClaseRecursoBaremacion, contenido.BaremacionMeritoRef, contenido.SujetoRef,
 		contenido.FinalidadClave, contenido.CorrelacionRef)
@@ -308,6 +332,14 @@ func (s *ServicioBaremacion) FinalizarFirma(
 	if err != nil {
 		return ResultadoFinalizarFirmaBaremacion{}, &ErrorDocumentoFirmadoHuerfano{DecisionRef: contenido.ID, Documento: documentoFirmado, Causa: err}
 	}
+	if err := ctx.Err(); err != nil {
+		return ResultadoFinalizarFirmaBaremacion{}, &ErrorDocumentoFirmadoHuerfano{
+			DecisionRef: contenido.ID, Documento: documentoFirmado, Causa: err,
+		}
+	}
+	// Desde esta asignacion el COMMIT puede haberse aplicado aunque el adaptador
+	// devuelva error o no llegue a devolver. Ya no es seguro abandonar la reserva.
+	confirmacionInvocada = true
 	confirmacion, err := s.repositorio.ConfirmarCambio(ctx, solicitudConfirmacion)
 	if err != nil || confirmacion.ValidarPara(solicitudConfirmacion) != nil {
 		return ResultadoFinalizarFirmaBaremacion{}, &ErrorDocumentoFirmadoHuerfano{DecisionRef: contenido.ID, Documento: documentoFirmado, Causa: errors.Join(ErrResultadoBaremacionNoConfiable, err)}

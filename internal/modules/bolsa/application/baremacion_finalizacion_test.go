@@ -38,9 +38,10 @@ func TestServicioBaremacionNoPersisteHMACCentinelaDevueltoPorSellador(t *testing
 		finalidad               puertosbolsa.FinalidadSelloBaremacion
 		reservasEsperadas       int
 		confirmacionesEsperadas int
+		abandonosEsperados      int
 	}{
-		{"reserva", puertosbolsa.FinalidadSelloReservaBaremacion, 0, 0},
-		{"confirmacion", puertosbolsa.FinalidadSelloConfirmacionBaremacion, 1, 0},
+		{"reserva", puertosbolsa.FinalidadSelloReservaBaremacion, 0, 0, 0},
+		{"confirmacion", puertosbolsa.FinalidadSelloConfirmacionBaremacion, 1, 0, 1},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -57,9 +58,11 @@ func TestServicioBaremacionNoPersisteHMACCentinelaDevueltoPorSellador(t *testing
 				t.Fatalf("FinalizarFirma() error = %v", err)
 			}
 			if entorno.repositorio.reservas != caso.reservasEsperadas ||
-				entorno.repositorio.confirmaciones != caso.confirmacionesEsperadas {
-				t.Fatalf("el centinela alcanzo persistencia: reservas=%d confirmaciones=%d",
-					entorno.repositorio.reservas, entorno.repositorio.confirmaciones)
+				entorno.repositorio.confirmaciones != caso.confirmacionesEsperadas ||
+				entorno.repositorio.abandonos != caso.abandonosEsperados {
+				t.Fatalf("efectos del centinela: reservas=%d confirmaciones=%d abandonos=%d",
+					entorno.repositorio.reservas, entorno.repositorio.confirmaciones,
+					entorno.repositorio.abandonos)
 			}
 		})
 	}
