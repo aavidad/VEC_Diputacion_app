@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-DEFAULT_PDF = Path("/home/alberto/Trabajo/nominas/diputacion_salarios_complementos/rpt_diputacion_granada.pdf")
 DEFAULT_OUTPUT = Path("config/rpt_positions_import.json")
 DEFAULT_EXPECTED_ROWS = 842
 DEFAULT_EXPECTED_DOTATIONS = 1714
@@ -22,6 +21,10 @@ CENTER_RE = re.compile(r"Centro:\s+([0-9A-Z]+)\s+(.+)$")
 ROW_RE = re.compile(r"^\s*(\d{1,4})\s+([A-ZÁÉÍÓÚÜÑ0-9][^\n]*?)\s{2,}(.+)$")
 AMOUNT_RE = re.compile(r"^\d{1,3}(?:\.\d{3})*,\d{2}\s*€$")
 GROUP_RE = re.compile(r"\b(A1/A2/C1|A1/A2|A2/C1|B/C1|C1/C2|A1|A2|B|C1|C2|AP|3|5)\b")
+
+
+class ErrorLecturaPDF(RuntimeError):
+    """Fallo estable que no revela la ubicacion local del documento."""
 
 
 def clean(value: str) -> str:
@@ -212,7 +215,7 @@ def provision_label(code: str) -> str:
     }.get(clean(code), clean(code) or "Segun RPT")
 
 
-def build_import(positions: list[dict], source_pdf: Path) -> dict:
+def build_import(positions: list[dict]) -> dict:
     official_counts = Counter(item["official_code"] for item in positions)
     seen: dict[str, int] = defaultdict(int)
     imported = []
@@ -266,7 +269,7 @@ def build_import(positions: list[dict], source_pdf: Path) -> dict:
                 "telework": "Segun RPT",
                 "coverage": provision_label(item.get("provision", "")),
                 "state": "Vigente RPT 2026",
-                "source": f"{source_pdf} | {SOURCE_URL}",
+                "source": SOURCE_URL,
                 "requirements": clean(item.get("requirements")),
                 "observations": clean(" | ".join(part for part in observations if clean(part))),
                 "page": int(item.get("page") or 0),
@@ -275,7 +278,7 @@ def build_import(positions: list[dict], source_pdf: Path) -> dict:
         )
 
     return {
-        "source": str(source_pdf),
+        "source": SOURCE_URL,
         "version": f"rpt-diputacion-granada-2026-05-07-generated-{datetime.now(timezone.utc).date().isoformat()}",
         "replace": True,
         "positions": imported,
@@ -283,25 +286,42 @@ def build_import(positions: list[dict], source_pdf: Path) -> dict:
 
 
 def pdftotext(pdf_path: Path) -> str:
-    return subprocess.check_output(["pdftotext", "-layout", str(pdf_path), "-"], text=True)
+    try:
+        proceso = subprocess.run(
+            ["pdftotext", "-layout", str(pdf_path), "-"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError, UnicodeError):
+        raise ErrorLecturaPDF("no se pudo leer el PDF indicado") from None
+    return proceso.stdout
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pdf", type=Path, default=DEFAULT_PDF)
+    parser.add_argument(
+        "--pdf",
+        type=Path,
+        required=True,
+        help="PDF oficial de la RPT que se procesara; su ruta no se guarda en la salida",
+    )
     parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--expected-rows", type=int, default=DEFAULT_EXPECTED_ROWS)
     parser.add_argument("--expected-dotations", type=int, default=DEFAULT_EXPECTED_DOTATIONS)
     args = parser.parse_args()
 
-    positions = parse_text(pdftotext(args.pdf))
+    try:
+        positions = parse_text(pdftotext(args.pdf))
+    except ErrorLecturaPDF as error:
+        parser.error(str(error))
     dotations = sum(int(item.get("dot") or 0) for item in positions)
     if len(positions) != args.expected_rows:
         raise SystemExit(f"RPT rows = {len(positions)}, expected {args.expected_rows}")
     if dotations != args.expected_dotations:
         raise SystemExit(f"RPT dotations = {dotations}, expected {args.expected_dotations}")
 
-    payload = build_import(positions, args.pdf)
+    payload = build_import(positions)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {args.out} with {len(payload['positions'])} positions and {dotations} dotations")
