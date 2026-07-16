@@ -57,7 +57,7 @@
 ### T04 — Frontend en modulos ES con tokens (DEC-052, H-03)
 
 - `origen`: DEC-052 del registro de decisiones.
-- `estado`: en_curso (reservado por direccion, subagentes en worktree aislado, 2026-07-16).
+- `estado`: en_curso, cedido al agente Orquesta el 2026-07-16: el subagente de direccion cayo sin commitear y el agente inicio la extraccion conforme a DEC-052 (`81a54d1` modulo cronos con tests JS, `5135eb4` arranque cerrado). La direccion no relanza subagente en este carril para evitar colision; revisa y sube.
 - `area_hexagonal`: adaptador (frontend estatico).
 - `accion`: programar la particion de `web/static/app.js` en modulos ES
   nativos por dominio funcional, eliminando en cada modulo migrado los
