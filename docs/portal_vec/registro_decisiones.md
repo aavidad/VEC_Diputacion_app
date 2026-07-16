@@ -2352,3 +2352,33 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   nunca expone contenedor, ruta o clave. Las versiones parciales/testadas son
   objetos distintos con huella y derivacion auditadas.
 - Especificacion: `docs/portal_vec/firma_csv_qr_y_cotejo.md`.
+
+## DEC-066 — Historia separada de plantilla, plazas, RPT, puestos y ocupaciones
+
+- Estado: modelo adoptado el 16 de julio de 2026; implementacion y diccionario
+  corporativo pendientes, con el importador actual en **NO-GO** productivo.
+- Terminologia: categoria, plaza, puesto tipo, puesto individual, dotacion,
+  titularidad, ocupacion y numero de orden son conceptos distintos. Codigo de
+  plaza y codigo de puesto se conservan como cadenas opacas, acotadas por
+  organismo y fuente; nunca se infieren por longitud.
+- Historia: cada RPT, plantilla y modificacion es inmutable y bitemporal. Se
+  separan vigencia administrativa y momento de conocimiento para reproducir
+  tanto la situacion eficaz como la informacion disponible en aquel instante.
+- Fuente: el PDF consolidado aporta filas y dotaciones agrupadas, no el
+  inventario de puestos individuales ni sus ocupaciones. Se reconcilia con
+  plantilla, actos publicados, areas funcionales y fuente corporativa de RRHH.
+- Correccion: `RPTPosition`, el codigo sintetico y `replace: true` permanecen
+  solo como compatibilidad de demostracion. La version nueva se desarrolla de
+  forma aditiva en `Personal/Organizacion` y migra antes de retirar la anterior.
+- Disponibilidad: plaza vacante, puesto sin ocupante y unidad cubrible son
+  proyecciones diferentes. Se calculan por fecha/version desde estructura,
+  presupuesto, titularidad, ocupacion, reserva, proceso y actos; un dato ausente
+  produce `no determinable`, nunca una vacante inventada.
+- Consulta: el panel compara cualquier fecha o version —incluido 2024 frente a
+  hoy— con fuentes, cobertura, incidencias, diferencias y huella reproducible.
+  Puede emitir PDF firmado y CSV/JSON coherentes y descargables segun politica.
+- Arquitectura y seguridad: dominio hexagonal, puertos intercambiables,
+  separacion interno/externo, autorizacion positiva, auditoria, cifrado, ENS,
+  ENI, RGPD y LOPDGDD son puertas obligatorias antes de datos reales.
+- Especificacion:
+  `docs/estudio_requisitos/modelo_historico_rpt_plazas_puestos_y_vacantes.md`.

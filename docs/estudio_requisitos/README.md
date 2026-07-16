@@ -20,6 +20,7 @@ Fecha de corte actual: 16 de julio de 2026.
 - [Transcripción y lectura técnica de la petición de RRHH](peticion_rrhh_transcripcion_y_lectura.md).
 - [Baremacion configurable, jornada y servicios obtenidos de oficio](baremacion_configurable_jornada_y_datos_de_oficio.md).
 - [Integracion del Baremador de puestos singularizados y otros procesos](integracion_baremador_concursos_provision.md).
+- [Modelo historico de RPT, plazas, puestos, ocupaciones y vacantes](modelo_historico_rpt_plazas_puestos_y_vacantes.md).
 - [Brechas para un producto profesional, seguro y trazable](brechas_para_producto_profesional.md).
 - [Sistema de diseño, plantillas y temas visuales](sistema_diseno_y_temas.md).
 - [Ayuda, documentación, audio y asistente](ayuda_documentacion_audio_y_asistente.md).

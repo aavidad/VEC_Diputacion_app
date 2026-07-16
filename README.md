@@ -178,6 +178,7 @@ Pendiente productivo:
 - [Peticion de RRHH: transcripcion accesible y lectura tecnica inicial](docs/estudio_requisitos/peticion_rrhh_transcripcion_y_lectura.md)
 - [Baremacion configurable, jornada y servicios obtenidos de oficio](docs/estudio_requisitos/baremacion_configurable_jornada_y_datos_de_oficio.md)
 - [Integracion del Baremador de puestos singularizados y otros procesos](docs/estudio_requisitos/integracion_baremador_concursos_provision.md)
+- [Modelo historico de RPT, plazas, puestos, ocupaciones y vacantes](docs/estudio_requisitos/modelo_historico_rpt_plazas_puestos_y_vacantes.md)
 - [Acceso interno de tecnicos, RRHH y administracion](docs/estudio_requisitos/acceso_interno_tecnicos_administracion.md)
 - [Accesibilidad personalizable, ayuda, audio y asistente](docs/estudio_requisitos/ayuda_documentacion_audio_y_asistente.md)
 - [Brechas para un producto profesional, seguro y trazable](docs/estudio_requisitos/brechas_para_producto_profesional.md)
