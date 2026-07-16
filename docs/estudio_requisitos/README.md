@@ -2,7 +2,7 @@
 
 Estado: **documentación de trabajo; todavía no es el pliego ni la especificación final**.
 
-Fecha de corte actual: 14 de julio de 2026.
+Fecha de corte actual: 16 de julio de 2026.
 
 ## Orden de las fuentes
 
@@ -18,6 +18,7 @@ Fecha de corte actual: 14 de julio de 2026.
 ## Documentos incorporados
 
 - [Transcripción y lectura técnica de la petición de RRHH](peticion_rrhh_transcripcion_y_lectura.md).
+- [Baremacion configurable, jornada y servicios obtenidos de oficio](baremacion_configurable_jornada_y_datos_de_oficio.md).
 - [Brechas para un producto profesional, seguro y trazable](brechas_para_producto_profesional.md).
 - [Sistema de diseño, plantillas y temas visuales](sistema_diseno_y_temas.md).
 - [Ayuda, documentación, audio y asistente](ayuda_documentacion_audio_y_asistente.md).
@@ -97,6 +98,12 @@ productiva verificada.
   declarada/validada de VEC, historico de SACYL, cierre colegiado del INAP y
   cotejo/alegaciones de bases locales; se añaden firma por decision, decimal
   fijo y doble control configurable por riesgo.
+- Las bases de cada convocatoria gobiernan una version exacta del baremo. RRHH
+  utilizara reglas declarativas, simuladas y firmadas; jornada, solapes,
+  conversiones y redondeos no tienen valores juridicos ocultos por defecto.
+- Los servicios internos se obtendran de oficio desde Personal. Nomina se usa
+  como reconciliacion, no como unica fuente, y una indisponibilidad nunca se
+  convierte en cero puntos.
 
 ## Trabajo pendiente antes de redactar las especificaciones definitivas
 

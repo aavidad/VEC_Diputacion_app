@@ -2255,3 +2255,39 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   dependencias, migraciones/roles/RLS, concurrencia y recuperacion reales y
   listener interno separado. Hasta cerrar y probar todos esos puntos, solo se
   sirven datos publicos explicitamente marcados como demostracion.
+
+## DEC-063 — Baremo gobernado por las bases, jornada exacta y servicios de oficio
+
+- Estado: especificacion adoptada el 16 de julio de 2026, pendiente de
+  validacion funcional y juridica y sin implementacion productiva. Se mantiene
+  el **NO-GO** del baremo demostrativo.
+- Autoridad: cada resultado se liga a una convocatoria, documento de bases y
+  version exacta de reglas. Las bases publicadas gobiernan unidad, coeficiente,
+  jornada, solapes, conversion, restos, redondeo, topes, acreditacion y
+  desempates; no existe una tarifa universal.
+- Configuracion segura: RRHH utilizara un constructor declarativo con reglas y
+  operadores tipados, catalogos versionados, simulacion y casos aprobados. No
+  introduce codigo, SQL ni puntos manuales. Autor, revision tecnica, revision
+  juridica, aprobacion, firma y publicacion se separan; la version publicada es
+  inmutable y toda rectificacion crea una sucesora.
+- Jornada: los servicios se dividen en subperiodos con fraccion exacta. El
+  motor debe soportar prorrata, computo integro expresamente previsto, umbral,
+  reduccion protegida atestada, horas, titular/sustituto y politicas de solape,
+  sin valor juridico oculto por defecto. La causa sensible no sale de Personal.
+- Servicios internos: Bolsa obtiene de oficio una instantanea del Registro o
+  historial de Personal mediante puerto intercambiable. Puede usar el mismo
+  producto que nomina si lee contratos/nombramientos, ceses, categoria y
+  jornada; los importes de nomina solo reconcilian. Un fallo de consulta nunca
+  equivale a cero puntos y abre incidencia y via alternativa.
+- Control juridico: una prima por haber trabajado en la propia Diputacion queda
+  bloqueada sin informe que acredite diferencia funcional objetiva y
+  proporcional. Tambien se exige analizar el impacto de igualdad de la regla
+  de jornada y si procede negociacion de criterios generales. El motor calcula
+  y explica; el organo competente revisa hechos y evidencias y adopta la
+  decision motivada y firmada.
+- Proteccion de datos: se aplica minimizacion, finalidad, informacion,
+  exactitud, intervencion humana efectiva, identificacion publica limitada y
+  EIPD antes de produccion conforme determine el DPD. Una IA no admite,
+  rechaza, barema ni ordena personas.
+- Especificacion y fuentes:
+  `docs/estudio_requisitos/baremacion_configurable_jornada_y_datos_de_oficio.md`.

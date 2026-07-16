@@ -30,6 +30,12 @@ autorizacion, firma, registro, custodia, antivirus, notificaciones y formatos de
 salida se integraran mediante puertos intercambiables sin debilitar las
 invariantes de seguridad.
 
+La semantica detallada de jornada, periodos, solapes, conversion, redondeo,
+fuentes de oficio y gobierno del constructor de reglas se define en
+`docs/estudio_requisitos/baremacion_configurable_jornada_y_datos_de_oficio.md`.
+Los ejemplos simplificados de este documento no prevalecen sobre aquella
+especificacion ni acreditan que el motor configurable este implantado.
+
 ## Principios de dominio
 
 - El nucleo no conoce HTTP, MCP, OPES, Codex, base de datos, proveedor de

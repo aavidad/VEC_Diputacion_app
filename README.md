@@ -176,6 +176,7 @@ Pendiente productivo:
 
 - [Estudio de requisitos del portal transversal de RRHH](docs/estudio_requisitos/README.md)
 - [Peticion de RRHH: transcripcion accesible y lectura tecnica inicial](docs/estudio_requisitos/peticion_rrhh_transcripcion_y_lectura.md)
+- [Baremacion configurable, jornada y servicios obtenidos de oficio](docs/estudio_requisitos/baremacion_configurable_jornada_y_datos_de_oficio.md)
 - [Acceso interno de tecnicos, RRHH y administracion](docs/estudio_requisitos/acceso_interno_tecnicos_administracion.md)
 - [Accesibilidad personalizable, ayuda, audio y asistente](docs/estudio_requisitos/ayuda_documentacion_audio_y_asistente.md)
 - [Brechas para un producto profesional, seguro y trazable](docs/estudio_requisitos/brechas_para_producto_profesional.md)
