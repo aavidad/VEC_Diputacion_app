@@ -2055,3 +2055,50 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   31 claves y aborte en el preflight si detecta historia actual no canonica.
   Una base exclusivamente sintetica se reconstruye; si apareciera historia real
   se versionaria el lector en lugar de mutar documentos probatorios.
+
+## DEC-059 — Capacidades opacas, nominales y de un solo efecto
+
+- Estado: decision implantada el 16 de julio de 2026 para las reservas de
+  generacion documental, emision de codigo de cotejo, alta y devolucion de
+  cobro y para el arrendamiento del flujo de firma de baremaciones. No concede
+  por si misma un GO productivo a los adaptadores en memoria ni a pagos.
+- Problema: representar autoridad temporal mediante cadenas o slices permite
+  copiarla, persistirla o recuperarla accidentalmente mediante serializadores,
+  registros y reflexion segura, incluso aunque el campo no sea exportado. Un
+  identificador de reserva no debe convertirse en una credencial reutilizable.
+- Decision de tipo: cada capacidad es nominal, tiene valor cero invalido y
+  contiene un unico cierre privado e inmutable que captura 256 bits obtenidos
+  del CSPRNG. No existe metodo para revelar, reconstruir o aceptar el material.
+  En documentos, cotejo y pagos el cierre nace ligado al dominio criptografico
+  exacto y solo calcula o compara una huella SHA-256 canonica. En firma solo
+  calcula o verifica el HMAC de finalidad fija que le solicita el adaptador.
+  Las comparaciones de huellas validas se realizan en tiempo constante.
+- Superficies genericas: JSON, texto, binario, gob y XML fallan de forma
+  cerrada, tanto al codificar como al decodificar. `fmt` y `slog` producen
+  exclusivamente marcadores redactados. La API de reflexion segura solo ve un
+  campo funcion privado, que no puede convertir, sustituir ni invocar. Esta
+  defensa reduce fugas accidentales y abuso dentro del proceso; no pretende
+  resistir ejecucion arbitraria de codigo, `unsafe`, un volcado de memoria o un
+  host comprometido, que corresponden a la frontera de ejecucion y secretos.
+- Persistencia y consumo: los adaptadores en memoria de documentos y cotejo
+  guardan unicamente la huella; el de firma guarda unicamente HMAC y captura su
+  clave efimera en otro cierre no reflectible. Confirmar o abandonar consume y
+  elimina el selector. Una liberacion repetida del mismo arrendamiento ya
+  ausente es idempotente; un token nulo, ajeno u obsoleto frente a un
+  arrendamiento vigente falla sin mutacion. El contrato de pagos usa los tipos
+  nominales y su doble de prueba consume la huella, pero aun no existe un
+  adaptador productivo de cobros que acredite esta semantica.
+- Frontera productiva: el repositorio de firma real debe delegar el HMAC en un
+  KMS/HSM, con clave versionada y rotacion; los almacenes durables deben aplicar
+  transaccion, caducidad autoritativa, unicidad y borrado de la huella al
+  consumir. Los relojes de los adaptadores en memoria no acreditan tiempo
+  autoritativo de base de datos. El metodo actual de firma recibe la clave HMAC
+  como bytes y solo acredita el adaptador en memoria: antes de construir el
+  adaptador productivo se definira un puerto de sellado KMS que opere con una
+  clave no exportable, o se sellara en KMS el compromiso SHA-256 del token. No
+  se trasladara una clave HSM al proceso para reutilizar este doble de prueba.
+- Alcance pendiente: esta decision no transforma todavia
+  `TokenReservaCargaDocumental` ni `TokenReservaBaremacion`, cuyos contratos
+  historicos permiten revelar material al adaptador. Deben migrarse en un corte
+  posterior, con sus repositorios y corredores, antes de afirmar que todas las
+  capacidades del portal son opacas.

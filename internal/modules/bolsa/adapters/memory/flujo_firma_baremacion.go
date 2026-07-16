@@ -7,7 +7,9 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"io"
+	"log/slog"
 	"reflect"
 	"sync"
 	"time"
@@ -27,7 +29,21 @@ type arrendamientoFirmaMemoria struct {
 	propietarioRef   string
 	secuenciaCercado uint64
 	expiraEn         time.Time
+	huellaTokenHMAC  []byte
 }
+
+type finalidadHMACTokenArrendamientoMemoria uint8
+
+const (
+	finalidadSellarTokenArrendamientoMemoria finalidadHMACTokenArrendamientoMemoria = iota + 1
+	finalidadVerificarTokenArrendamientoMemoria
+)
+
+type operacionHMACTokenArrendamientoMemoria func(
+	token puertosbolsa.TokenArrendamientoFlujoFirmaBaremacion,
+	finalidad finalidadHMACTokenArrendamientoMemoria,
+	huellaEsperada []byte,
+) (huellaCalculada []byte, coincide bool, err error)
 
 // RepositorioFlujosFirmaBaremacion simula CAS, fencing, sellado e indices
 // unicos bajo un mutex. Es util para pruebas de reinicio de la capa de
@@ -41,6 +57,10 @@ type RepositorioFlujosFirmaBaremacion struct {
 	referenciaPorIndice map[string]string
 	arrendamientos      map[string]arrendamientoFirmaMemoria
 	secuenciaPorFlujo   map[string]uint64
+	// Este cierre captura una clave efimera no reflectible y solo permite sellar
+	// o verificar tokens. Un adaptador productivo debe delegar esta operacion en
+	// KMS/HSM o en un secreto de instancia gestionado, versionado y rotado.
+	operarHMACTokenArrendamiento operacionHMACTokenArrendamientoMemoria
 }
 
 func NuevoRepositorioFlujosFirmaBaremacion(
@@ -50,13 +70,53 @@ func NuevoRepositorioFlujosFirmaBaremacion(
 	if interfazNula(reloj) || interfazNula(verificador) || reloj.Ahora().UTC().IsZero() {
 		return nil, puertosbolsa.ErrSolicitudFlujoFirmaBaremacionInvalida
 	}
+	var claveHMACTokenArrendamiento [32]byte
+	if _, err := io.ReadFull(rand.Reader, claveHMACTokenArrendamiento[:]); err != nil ||
+		bytesFlujoFirmaNulos(claveHMACTokenArrendamiento[:]) {
+		return nil, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
+	}
+	claveCapturada := claveHMACTokenArrendamiento
+	limpiarBytesFlujoFirma(claveHMACTokenArrendamiento[:])
+	operarHMAC := func(
+		token puertosbolsa.TokenArrendamientoFlujoFirmaBaremacion,
+		finalidad finalidadHMACTokenArrendamientoMemoria,
+		huellaEsperada []byte,
+	) ([]byte, bool, error) {
+		if token.Validar() != nil {
+			return nil, false, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
+		}
+		switch finalidad {
+		case finalidadSellarTokenArrendamientoMemoria:
+			if huellaEsperada != nil {
+				return nil, false, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
+			}
+			huella, err := token.HuellaHMACSHA256(claveCapturada[:])
+			return huella, false, err
+		case finalidadVerificarTokenArrendamientoMemoria:
+			return nil, token.CoincideHuellaHMACSHA256(claveCapturada[:], huellaEsperada), nil
+		default:
+			return nil, false, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
+		}
+	}
 	return &RepositorioFlujosFirmaBaremacion{
 		reloj: reloj, verificador: verificador,
-		porReferencia:       make(map[string]puertosbolsa.ExpedienteFlujoFirmaBaremacion),
-		referenciaPorIndice: make(map[string]string),
-		arrendamientos:      make(map[string]arrendamientoFirmaMemoria),
-		secuenciaPorFlujo:   make(map[string]uint64),
+		porReferencia:                make(map[string]puertosbolsa.ExpedienteFlujoFirmaBaremacion),
+		referenciaPorIndice:          make(map[string]string),
+		arrendamientos:               make(map[string]arrendamientoFirmaMemoria),
+		secuenciaPorFlujo:            make(map[string]uint64),
+		operarHMACTokenArrendamiento: operarHMAC,
 	}, nil
+}
+
+func (*RepositorioFlujosFirmaBaremacion) String() string {
+	return "[REPOSITORIO-FLUJOS-FIRMA-BAREMACION-MEMORIA-REDACTADO]"
+}
+func (r *RepositorioFlujosFirmaBaremacion) GoString() string { return r.String() }
+func (r *RepositorioFlujosFirmaBaremacion) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, r.String())
+}
+func (r *RepositorioFlujosFirmaBaremacion) LogValue() slog.Value {
+	return slog.StringValue(r.String())
 }
 
 func (r *RepositorioFlujosFirmaBaremacion) CrearORecuperarFlujoFirmaBaremacion(
@@ -142,6 +202,18 @@ func (r *RepositorioFlujosFirmaBaremacion) AdquirirArrendamientoFlujoFirmaBarema
 	if err != nil {
 		return puertosbolsa.ResultadoAdquirirArrendamientoFlujoFirmaBaremacion{}, err
 	}
+	token, err := puertosbolsa.NuevoTokenArrendamientoFlujoFirmaBaremacion()
+	if err != nil {
+		return puertosbolsa.ResultadoAdquirirArrendamientoFlujoFirmaBaremacion{}, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
+	}
+	huellaTokenHMAC, _, err := r.operarHMACTokenArrendamiento(
+		token,
+		finalidadSellarTokenArrendamientoMemoria,
+		nil,
+	)
+	if err != nil {
+		return puertosbolsa.ResultadoAdquirirArrendamientoFlujoFirmaBaremacion{}, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if err := validarContextoEjecucion(ctx); err != nil {
@@ -155,22 +227,27 @@ func (r *RepositorioFlujosFirmaBaremacion) AdquirirArrendamientoFlujoFirmaBarema
 	if ahora.IsZero() {
 		return puertosbolsa.ResultadoAdquirirArrendamientoFlujoFirmaBaremacion{}, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
 	}
-	if vigente, existe := r.arrendamientos[actual.FlujoRef]; existe && ahora.Before(vigente.expiraEn) {
-		return puertosbolsa.ResultadoAdquirirArrendamientoFlujoFirmaBaremacion{}, puertosbolsa.ErrFlujoFirmaBaremacionOcupado
+	if vigente, existe := r.arrendamientos[actual.FlujoRef]; existe {
+		if ahora.Before(vigente.expiraEn) {
+			return puertosbolsa.ResultadoAdquirirArrendamientoFlujoFirmaBaremacion{}, puertosbolsa.ErrFlujoFirmaBaremacionOcupado
+		}
+		limpiarBytesFlujoFirma(vigente.huellaTokenHMAC)
 	}
 	r.secuenciaPorFlujo[actual.FlujoRef]++
 	registro := arrendamientoFirmaMemoria{
 		propietarioRef:   solicitud.PropietarioRef,
 		secuenciaCercado: r.secuenciaPorFlujo[actual.FlujoRef],
 		expiraEn:         ahora.Add(solicitud.Duracion),
+		huellaTokenHMAC:  append([]byte(nil), huellaTokenHMAC...),
 	}
 	r.arrendamientos[actual.FlujoRef] = registro
 	arrendamiento := puertosbolsa.ArrendamientoFlujoFirmaBaremacion{
 		FlujoRef: actual.FlujoRef, PropietarioRef: registro.propietarioRef,
-		SecuenciaCercado: registro.secuenciaCercado, ExpiraEn: registro.expiraEn,
+		SecuenciaCercado: registro.secuenciaCercado, ExpiraEn: registro.expiraEn, Token: token,
 	}
 	clon, err := actual.Clonar()
 	if err != nil || arrendamiento.Validar() != nil {
+		limpiarBytesFlujoFirma(registro.huellaTokenHMAC)
 		delete(r.arrendamientos, actual.FlujoRef)
 		return puertosbolsa.ResultadoAdquirirArrendamientoFlujoFirmaBaremacion{}, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
 	}
@@ -204,10 +281,15 @@ func (r *RepositorioFlujosFirmaBaremacion) GuardarFlujoFirmaBaremacion(
 	}
 	ahora := r.reloj.Ahora().UTC()
 	vigente, existe := r.arrendamientos[actual.FlujoRef]
+	_, tokenCoincide, errorToken := r.operarHMACTokenArrendamiento(
+		solicitud.Arrendamiento.Token,
+		finalidadVerificarTokenArrendamientoMemoria,
+		vigente.huellaTokenHMAC,
+	)
 	if !existe || ahora.IsZero() || !ahora.Before(vigente.expiraEn) ||
 		vigente.propietarioRef != solicitud.Arrendamiento.PropietarioRef ||
 		vigente.secuenciaCercado != solicitud.Arrendamiento.SecuenciaCercado ||
-		!vigente.expiraEn.Equal(solicitud.Arrendamiento.ExpiraEn) {
+		!vigente.expiraEn.Equal(solicitud.Arrendamiento.ExpiraEn) || errorToken != nil || !tokenCoincide {
 		return puertosbolsa.ExpedienteFlujoFirmaBaremacion{}, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
 	}
 	if !transicionFlujoFirmaValida(actual, solicitud.Siguiente) || solicitud.Siguiente.ActualizadoEn.After(ahora) {
@@ -231,17 +313,40 @@ func (r *RepositorioFlujosFirmaBaremacion) LiberarArrendamientoFlujoFirmaBaremac
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if err := validarContextoEjecucion(ctx); err != nil {
+		return err
+	}
 	vigente, existe := r.arrendamientos[solicitud.Arrendamiento.FlujoRef]
 	if !existe {
 		return nil
 	}
+	_, tokenCoincide, errorToken := r.operarHMACTokenArrendamiento(
+		solicitud.Arrendamiento.Token,
+		finalidadVerificarTokenArrendamientoMemoria,
+		vigente.huellaTokenHMAC,
+	)
 	if vigente.propietarioRef != solicitud.Arrendamiento.PropietarioRef ||
 		vigente.secuenciaCercado != solicitud.Arrendamiento.SecuenciaCercado ||
-		!vigente.expiraEn.Equal(solicitud.Arrendamiento.ExpiraEn) {
+		!vigente.expiraEn.Equal(solicitud.Arrendamiento.ExpiraEn) || errorToken != nil || !tokenCoincide {
 		return puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
 	}
+	limpiarBytesFlujoFirma(vigente.huellaTokenHMAC)
 	delete(r.arrendamientos, solicitud.Arrendamiento.FlujoRef)
 	return nil
+}
+
+func limpiarBytesFlujoFirma(valor []byte) {
+	for indice := range valor {
+		valor[indice] = 0
+	}
+}
+
+func bytesFlujoFirmaNulos(valor []byte) bool {
+	acumulado := byte(0)
+	for _, elemento := range valor {
+		acumulado |= elemento
+	}
+	return acumulado == 0
 }
 
 func (r *RepositorioFlujosFirmaBaremacion) verificarExpediente(

@@ -231,7 +231,8 @@ func TestReservarCodigoCotejoRechazaBajaEntropiaYAbandonaReserva(t *testing.T) {
 	if entorno.generador.llamadas != 1 {
 		t.Fatalf("llamadas al generador = %d; esperada 1", entorno.generador.llamadas)
 	}
-	if !reflect.DeepEqual(entorno.codigos.reservasAbandonadas, []string{"token-reserva-cotejo-prueba-001"}) {
+	if len(entorno.codigos.reservasAbandonadas) != 1 ||
+		!entorno.codigos.reservasAbandonadas[0].CoincideConHuellaSHA256(entorno.codigos.huellaToken) {
 		t.Fatalf("reservas abandonadas = %+v", entorno.codigos.reservasAbandonadas)
 	}
 	if entorno.selladorIndice.sellados != 0 || len(entorno.protector.solicitudesProteger) != 0 ||
@@ -328,7 +329,15 @@ func emisionCotejoPruebaNuevoEntorno(t *testing.T) *emisionCotejoPruebaEntorno {
 	catalogo := &emisionCotejoPruebaCatalogo{politica: politica}
 	documentos := &emisionCotejoPruebaDocumentos{documento: documento}
 	autorizador := &emisionCotejoPruebaAutorizador{ahora: ahora}
-	codigos := &emisionCotejoPruebaCodigos{}
+	tokenReserva, err := ports.NuevoTokenReservaEmisionCodigoCotejo()
+	if err != nil {
+		t.Fatalf("crear token de reserva de cotejo: %v", err)
+	}
+	huellaToken, err := tokenReserva.HuellaSHA256()
+	if err != nil {
+		t.Fatalf("obtener huella del token de reserva de cotejo: %v", err)
+	}
+	codigos := &emisionCotejoPruebaCodigos{token: tokenReserva, huellaToken: huellaToken}
 	generador := &emisionCotejoPruebaGenerador{resultado: ports.ValorCodigoCotejoGenerado{
 		Secreto:          secreto,
 		EntropiaBits:     minimoEntropiaCotejoAplicacion,
@@ -523,11 +532,13 @@ func (*emisionCotejoPruebaDocumentos) ReservarGeneracion(context.Context, ports.
 	return ports.ReservaGeneracionDocumento{}, nil
 }
 
-func (*emisionCotejoPruebaDocumentos) ConfirmarGeneracionLogica(context.Context, string, string, time.Time, domain.ResultadoGeneracionDocumento, domain.AuditEntry, domain.Event) error {
+func (*emisionCotejoPruebaDocumentos) ConfirmarGeneracionLogica(context.Context, ports.TokenReservaGeneracionDocumento, string, time.Time, domain.ResultadoGeneracionDocumento, domain.AuditEntry, domain.Event) error {
 	return nil
 }
 
-func (*emisionCotejoPruebaDocumentos) AbandonarGeneracion(context.Context, string) error { return nil }
+func (*emisionCotejoPruebaDocumentos) AbandonarGeneracion(context.Context, ports.TokenReservaGeneracionDocumento) error {
+	return nil
+}
 
 func (d *emisionCotejoPruebaDocumentos) ObtenerDocumentoLogico(_ context.Context, referencia domain.ReferenciaDocumento) (domain.DocumentoLogico, error) {
 	d.consultas = append(d.consultas, referencia)
@@ -579,7 +590,9 @@ func (a *emisionCotejoPruebaAutorizador) Exigir(_ context.Context, solicitud dom
 type emisionCotejoPruebaCodigos struct {
 	reservaFijada       *ports.ReservaEmisionCodigoCotejo
 	solicitudesReserva  []ports.SolicitudReservarEmisionCodigoCotejo
-	reservasAbandonadas []string
+	reservasAbandonadas []ports.TokenReservaEmisionCodigoCotejo
+	token               ports.TokenReservaEmisionCodigoCotejo
+	huellaToken         string
 	confirmaciones      int
 	huellaConfirmada    string
 	codigo              domain.CodigoCotejo
@@ -593,10 +606,13 @@ func (r *emisionCotejoPruebaCodigos) ReservarEmisionCodigoCotejo(_ context.Conte
 	if r.reservaFijada != nil {
 		return *r.reservaFijada, nil
 	}
-	return ports.ReservaEmisionCodigoCotejo{Token: "token-reserva-cotejo-prueba-001"}, nil
+	return ports.ReservaEmisionCodigoCotejo{Token: r.token}, nil
 }
 
-func (r *emisionCotejoPruebaCodigos) ConfirmarReservaCodigoCotejo(_ context.Context, _ string, huella string, _ time.Time, codigo domain.CodigoCotejo, traza domain.AuditEntry, evento domain.Event) error {
+func (r *emisionCotejoPruebaCodigos) ConfirmarReservaCodigoCotejo(_ context.Context, token ports.TokenReservaEmisionCodigoCotejo, huella string, _ time.Time, codigo domain.CodigoCotejo, traza domain.AuditEntry, evento domain.Event) error {
+	if !token.CoincideConHuellaSHA256(r.huellaToken) {
+		return ports.ErrReservaCodigoCotejoNoValida
+	}
 	r.confirmaciones++
 	r.huellaConfirmada = huella
 	r.codigo = codigo
@@ -605,7 +621,7 @@ func (r *emisionCotejoPruebaCodigos) ConfirmarReservaCodigoCotejo(_ context.Cont
 	return r.falloConfirmacion
 }
 
-func (r *emisionCotejoPruebaCodigos) AbandonarReservaCodigoCotejo(_ context.Context, token string) error {
+func (r *emisionCotejoPruebaCodigos) AbandonarReservaCodigoCotejo(_ context.Context, token ports.TokenReservaEmisionCodigoCotejo) error {
 	r.reservasAbandonadas = append(r.reservasAbandonadas, token)
 	return nil
 }

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -57,7 +56,7 @@ func (s *Store) ReservarGeneracion(ctx context.Context, solicitud ports.Solicitu
 			if err := ctx.Err(); err != nil {
 				return ports.ReservaGeneracionDocumento{}, err
 			}
-			delete(s.reservasPorToken, existente.Token)
+			delete(s.reservasPorHuellaToken, existente.HuellaTokenSHA256)
 		case estadoReservaDocumentalAbandonada:
 			// Una operacion fallida puede repetirse con la misma huella, pero la
 			// clave permanece ligada para impedir cambiar su significado.
@@ -69,24 +68,30 @@ func (s *Store) ReservarGeneracion(ctx context.Context, solicitud ports.Solicitu
 	if err := ctx.Err(); err != nil {
 		return ports.ReservaGeneracionDocumento{}, err
 	}
-	s.secuenciaReservas++
-	token := fmt.Sprintf("reserva-documental-%012d", s.secuenciaReservas)
+	token, err := ports.NuevoTokenReservaGeneracionDocumento()
+	if err != nil {
+		return ports.ReservaGeneracionDocumento{}, ports.ErrReservaDocumentoNoValida
+	}
+	huellaToken, err := token.HuellaSHA256()
+	if err != nil {
+		return ports.ReservaGeneracionDocumento{}, ports.ErrReservaDocumentoNoValida
+	}
 	reserva := reservaGeneracionDocumento{
 		ClaveAmbito:         claveAmbito,
 		PrincipalID:         principalID,
 		HuellaSolicitudHMAC: solicitud.HuellaSolicitudHMAC,
-		Token:               token,
+		HuellaTokenSHA256:   huellaToken,
 		Estado:              estadoReservaDocumentalActiva,
 		ExpiraEn:            solicitud.ExpiraEn.UTC(),
 	}
 	s.reservasDocumentales[claveAmbito] = reserva
-	s.reservasPorToken[token] = claveAmbito
+	s.reservasPorHuellaToken[huellaToken] = claveAmbito
 	return ports.ReservaGeneracionDocumento{Token: token}, nil
 }
 
 func (s *Store) ConfirmarGeneracionLogica(
 	ctx context.Context,
-	token string,
+	token ports.TokenReservaGeneracionDocumento,
 	huellaSolicitudHMAC string,
 	confirmadaEn time.Time,
 	resultado domain.ResultadoGeneracionDocumento,
@@ -96,7 +101,8 @@ func (s *Store) ConfirmarGeneracionLogica(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if strings.TrimSpace(token) == "" || !huellaHMACSHA256Valida(huellaSolicitudHMAC) || confirmadaEn.IsZero() || resultado.Repetida {
+	huellaToken, err := token.HuellaSHA256()
+	if err != nil || !huellaHMACSHA256Valida(huellaSolicitudHMAC) || confirmadaEn.IsZero() || resultado.Repetida {
 		return ports.ErrReservaDocumentoNoValida
 	}
 	canonico, err := resultado.ClonarCanonico()
@@ -112,12 +118,13 @@ func (s *Store) ConfirmarGeneracionLogica(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	claveAmbito, existe := s.reservasPorToken[token]
+	claveAmbito, existe := s.reservasPorHuellaToken[huellaToken]
 	if !existe {
 		return ports.ErrReservaDocumentoNoValida
 	}
 	reserva, existe := s.reservasDocumentales[claveAmbito]
-	if !existe || reserva.Estado != estadoReservaDocumentalActiva || reserva.Token != token ||
+	if !existe || reserva.Estado != estadoReservaDocumentalActiva ||
+		!token.CoincideConHuellaSHA256(reserva.HuellaTokenSHA256) ||
 		reserva.PrincipalID != canonico.Documento.CreadoPor ||
 		!huellasIguales(reserva.HuellaSolicitudHMAC, huellaSolicitudHMAC) ||
 		!confirmadaEn.UTC().Before(reserva.ExpiraEn) {
@@ -152,16 +159,16 @@ func (s *Store) ConfirmarGeneracionLogica(
 	reserva.Estado = estadoReservaDocumentalConfirmada
 	reserva.Resultado = canonico
 	s.reservasDocumentales[claveAmbito] = reserva
-	delete(s.reservasPorToken, token)
+	delete(s.reservasPorHuellaToken, huellaToken)
 	return nil
 }
 
-func (s *Store) AbandonarGeneracion(ctx context.Context, token string) error {
+func (s *Store) AbandonarGeneracion(ctx context.Context, token ports.TokenReservaGeneracionDocumento) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	token = strings.TrimSpace(token)
-	if token == "" {
+	huellaToken, err := token.HuellaSHA256()
+	if err != nil {
 		return ports.ErrReservaDocumentoNoValida
 	}
 	s.mu.Lock()
@@ -169,12 +176,13 @@ func (s *Store) AbandonarGeneracion(ctx context.Context, token string) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	claveAmbito, existe := s.reservasPorToken[token]
+	claveAmbito, existe := s.reservasPorHuellaToken[huellaToken]
 	if !existe {
 		return ports.ErrReservaDocumentoNoValida
 	}
 	reserva, existe := s.reservasDocumentales[claveAmbito]
-	if !existe || reserva.Estado != estadoReservaDocumentalActiva || reserva.Token != token {
+	if !existe || reserva.Estado != estadoReservaDocumentalActiva ||
+		!token.CoincideConHuellaSHA256(reserva.HuellaTokenSHA256) {
 		return ports.ErrReservaDocumentoNoValida
 	}
 	if err := ctx.Err(); err != nil {
@@ -182,7 +190,7 @@ func (s *Store) AbandonarGeneracion(ctx context.Context, token string) error {
 	}
 	reserva.Estado = estadoReservaDocumentalAbandonada
 	s.reservasDocumentales[claveAmbito] = reserva
-	delete(s.reservasPorToken, token)
+	delete(s.reservasPorHuellaToken, huellaToken)
 	return nil
 }
 

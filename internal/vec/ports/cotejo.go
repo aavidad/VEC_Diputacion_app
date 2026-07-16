@@ -2,9 +2,11 @@ package ports
 
 import (
 	"context"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"time"
 	"unicode"
@@ -14,27 +16,30 @@ import (
 )
 
 var (
-	ErrPoliticaCotejoNoEncontrada           = errors.New("vec: politica de cotejo no encontrada")
-	ErrVersionPoliticaCotejoYaExiste        = errors.New("vec: version de politica de cotejo ya existente")
-	ErrRevisionPoliticaCotejoConflicto      = errors.New("vec: revision de politica de cotejo en conflicto")
-	ErrSecuenciaPoliticaCotejoInvalida      = errors.New("vec: secuencia de politica de cotejo invalida")
-	ErrCodigoCotejoNoEncontrado             = errors.New("vec: codigo de cotejo no encontrado")
-	ErrCodigoCotejoYaExiste                 = errors.New("vec: codigo de cotejo ya existente")
-	ErrDocumentoConCodigoCotejo             = errors.New("vec: version documental ya vinculada a un codigo de cotejo")
-	ErrIndiceCodigoCotejoYaExiste           = errors.New("vec: indice de codigo de cotejo ya existente")
-	ErrIndicesCodigoCotejoAmbiguos          = errors.New("vec: varios codigos coinciden con los indices de cotejo")
-	ErrRevisionCodigoCotejoConflicto        = errors.New("vec: revision de codigo de cotejo en conflicto")
-	ErrClaveIdempotenciaCotejoInvalida      = errors.New("vec: clave de idempotencia de cotejo invalida")
-	ErrClaveIdempotenciaCotejoReutilizada   = errors.New("vec: clave de idempotencia de cotejo reutilizada")
-	ErrEmisionCodigoCotejoEnCurso           = errors.New("vec: emision de codigo de cotejo en curso")
-	ErrReservaCodigoCotejoNoValida          = errors.New("vec: reserva de codigo de cotejo no valida")
-	ErrMaterialCodigoCotejoInvalido         = errors.New("vec: material de codigo de cotejo invalido")
-	ErrValorCodigoCotejoNoDisponible        = errors.New("vec: valor protegido del codigo de cotejo no disponible")
-	ErrSerializacionCodigoCotejoProhibida   = errors.New("vec: serializacion del secreto de cotejo prohibida")
-	ErrEvidenciaEmisionNoEncontrada         = errors.New("vec: evidencia de emision no encontrada")
-	ErrContextoCustodiaCotejoInvalido       = errors.New("vec: contexto de custodia de codigo de cotejo invalido")
-	ErrSerializacionContextoCotejoProhibida = errors.New("vec: serializacion del contexto de custodia de cotejo prohibida")
+	ErrPoliticaCotejoNoEncontrada               = errors.New("vec: politica de cotejo no encontrada")
+	ErrVersionPoliticaCotejoYaExiste            = errors.New("vec: version de politica de cotejo ya existente")
+	ErrRevisionPoliticaCotejoConflicto          = errors.New("vec: revision de politica de cotejo en conflicto")
+	ErrSecuenciaPoliticaCotejoInvalida          = errors.New("vec: secuencia de politica de cotejo invalida")
+	ErrCodigoCotejoNoEncontrado                 = errors.New("vec: codigo de cotejo no encontrado")
+	ErrCodigoCotejoYaExiste                     = errors.New("vec: codigo de cotejo ya existente")
+	ErrDocumentoConCodigoCotejo                 = errors.New("vec: version documental ya vinculada a un codigo de cotejo")
+	ErrIndiceCodigoCotejoYaExiste               = errors.New("vec: indice de codigo de cotejo ya existente")
+	ErrIndicesCodigoCotejoAmbiguos              = errors.New("vec: varios codigos coinciden con los indices de cotejo")
+	ErrRevisionCodigoCotejoConflicto            = errors.New("vec: revision de codigo de cotejo en conflicto")
+	ErrClaveIdempotenciaCotejoInvalida          = errors.New("vec: clave de idempotencia de cotejo invalida")
+	ErrClaveIdempotenciaCotejoReutilizada       = errors.New("vec: clave de idempotencia de cotejo reutilizada")
+	ErrEmisionCodigoCotejoEnCurso               = errors.New("vec: emision de codigo de cotejo en curso")
+	ErrReservaCodigoCotejoNoValida              = errors.New("vec: reserva de codigo de cotejo no valida")
+	ErrSerializacionTokenReservaCotejoProhibida = errors.New("vec: serializacion del token de reserva de cotejo prohibida")
+	ErrMaterialCodigoCotejoInvalido             = errors.New("vec: material de codigo de cotejo invalido")
+	ErrValorCodigoCotejoNoDisponible            = errors.New("vec: valor protegido del codigo de cotejo no disponible")
+	ErrSerializacionCodigoCotejoProhibida       = errors.New("vec: serializacion del secreto de cotejo prohibida")
+	ErrEvidenciaEmisionNoEncontrada             = errors.New("vec: evidencia de emision no encontrada")
+	ErrContextoCustodiaCotejoInvalido           = errors.New("vec: contexto de custodia de codigo de cotejo invalido")
+	ErrSerializacionContextoCotejoProhibida     = errors.New("vec: serializacion del contexto de custodia de cotejo prohibida")
 )
+
+const dominioHuellaTokenReservaEmisionCodigoCotejo = "vec:token-reserva-emision-codigo-cotejo:v1"
 
 const (
 	AccionProtegerCodigoCotejo         = "vec.documentos.cotejo.custodia.proteger"
@@ -78,9 +83,78 @@ type SolicitudReservarEmisionCodigoCotejo struct {
 // anteriormente. Incluso en una repeticion el valor visible se recupera por
 // el protector; este contrato nunca lo persiste.
 type ReservaEmisionCodigoCotejo struct {
-	Token    string
+	Token    TokenReservaEmisionCodigoCotejo
 	Repetida bool
 	Codigo   domain.CodigoCotejo
+}
+
+// TokenReservaEmisionCodigoCotejo es una capacidad efimera, nominal y no
+// serializable. Su material aleatorio solo vive capturado por un cierre privado
+// e inmutable, ya ligado a este dominio, y es incompatible por tipo con
+// cualquier otra reserva del portal. La huella SHA-256 no permite recuperar una
+// entrada CSPRNG de 256 bits; un almacen puede envolverla con HMAC si ademas
+// necesita impedir correlacion entre almacenes.
+type TokenReservaEmisionCodigoCotejo struct {
+	operar operacionCapacidadReserva
+}
+
+func NuevoTokenReservaEmisionCodigoCotejo() (TokenReservaEmisionCodigoCotejo, error) {
+	operar, err := nuevaOperacionCapacidadReserva(dominioHuellaTokenReservaEmisionCodigoCotejo)
+	if err != nil {
+		return TokenReservaEmisionCodigoCotejo{}, ErrReservaCodigoCotejoNoValida
+	}
+	return TokenReservaEmisionCodigoCotejo{operar: operar}, nil
+}
+
+func (t TokenReservaEmisionCodigoCotejo) Valido() bool {
+	return operacionCapacidadReservaValida(t.operar)
+}
+
+func (t TokenReservaEmisionCodigoCotejo) HuellaSHA256() (string, error) {
+	huella, valida := huellaCapacidadReserva(t.operar)
+	if !valida {
+		return "", ErrReservaCodigoCotejoNoValida
+	}
+	return huella, nil
+}
+
+func (t TokenReservaEmisionCodigoCotejo) CoincideConHuellaSHA256(huella string) bool {
+	return coincideHuellaCapacidadReserva(t.operar, huella)
+}
+
+func (TokenReservaEmisionCodigoCotejo) String() string {
+	return "[TOKEN-RESERVA-EMISION-COTEJO-REDACTADO]"
+}
+func (t TokenReservaEmisionCodigoCotejo) GoString() string { return t.String() }
+func (t TokenReservaEmisionCodigoCotejo) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, t.String())
+}
+func (t TokenReservaEmisionCodigoCotejo) LogValue() slog.Value {
+	return slog.StringValue(t.String())
+}
+func (TokenReservaEmisionCodigoCotejo) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionTokenReservaCotejoProhibida
+}
+func (*TokenReservaEmisionCodigoCotejo) UnmarshalJSON([]byte) error {
+	return ErrSerializacionTokenReservaCotejoProhibida
+}
+func (TokenReservaEmisionCodigoCotejo) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionTokenReservaCotejoProhibida
+}
+func (*TokenReservaEmisionCodigoCotejo) UnmarshalText([]byte) error {
+	return ErrSerializacionTokenReservaCotejoProhibida
+}
+func (TokenReservaEmisionCodigoCotejo) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionTokenReservaCotejoProhibida
+}
+func (*TokenReservaEmisionCodigoCotejo) UnmarshalBinary([]byte) error {
+	return ErrSerializacionTokenReservaCotejoProhibida
+}
+func (TokenReservaEmisionCodigoCotejo) MarshalXML(*xml.Encoder, xml.StartElement) error {
+	return ErrSerializacionTokenReservaCotejoProhibida
+}
+func (*TokenReservaEmisionCodigoCotejo) UnmarshalXML(*xml.Decoder, xml.StartElement) error {
+	return ErrSerializacionTokenReservaCotejoProhibida
 }
 
 // RepositorioCodigosCotejo mantiene tres unicidades permanentes: identificador
@@ -88,8 +162,8 @@ type ReservaEmisionCodigoCotejo struct {
 // mutaciones confirman agregado, auditoria y outbox de forma atomica.
 type RepositorioCodigosCotejo interface {
 	ReservarEmisionCodigoCotejo(context.Context, SolicitudReservarEmisionCodigoCotejo) (ReservaEmisionCodigoCotejo, error)
-	ConfirmarReservaCodigoCotejo(context.Context, string, string, time.Time, domain.CodigoCotejo, domain.AuditEntry, domain.Event) error
-	AbandonarReservaCodigoCotejo(context.Context, string) error
+	ConfirmarReservaCodigoCotejo(context.Context, TokenReservaEmisionCodigoCotejo, string, time.Time, domain.CodigoCotejo, domain.AuditEntry, domain.Event) error
+	AbandonarReservaCodigoCotejo(context.Context, TokenReservaEmisionCodigoCotejo) error
 	ObtenerCodigoCotejo(context.Context, string) (domain.CodigoCotejo, error)
 	ObtenerCodigoCotejoPorDocumento(context.Context, domain.ReferenciaDocumento) (domain.CodigoCotejo, error)
 	BuscarCodigoCotejoPorIndices(context.Context, []string) (domain.CodigoCotejo, error)

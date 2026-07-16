@@ -6,6 +6,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +22,38 @@ func TestRepositorioFlujoFirmaRechazaArrendamientoConCercadoObsoleto(t *testing.
 	repositorio, err := NuevoRepositorioFlujosFirmaBaremacion(reloj, sellador)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if formateado := fmt.Sprintf("%v|%#v|%+v", repositorio, repositorio, repositorio); strings.Count(formateado, "[REPOSITORIO-FLUJOS-FIRMA-BAREMACION-MEMORIA-REDACTADO]") != 3 {
+		t.Fatalf("el repositorio filtro su secreto HMAC: %q", formateado)
+	}
+	tipoRepositorio := reflect.TypeOf(repositorio).Elem()
+	if _, existe := tipoRepositorio.FieldByName("claveHMACTokenArrendamiento"); existe {
+		t.Fatal("el adaptador conserva la clave HMAC en un contenedor reflectible")
+	}
+	campoOperacion, existe := tipoRepositorio.FieldByName("operarHMACTokenArrendamiento")
+	if !existe {
+		t.Fatal("el adaptador no contiene la operacion HMAC privada")
+	}
+	valorOperacion := reflect.ValueOf(repositorio).Elem().FieldByName("operarHMACTokenArrendamiento")
+	if campoOperacion.Type.Kind() != reflect.Func || valorOperacion.CanInterface() || valorOperacion.CanSet() {
+		t.Fatalf("operacion HMAC privada insegura: clase=%v accesible=%t mutable=%t",
+			campoOperacion.Type.Kind(), valorOperacion.CanInterface(), valorOperacion.CanSet())
+	}
+	invocable := true
+	func() {
+		defer func() {
+			if recover() != nil {
+				invocable = false
+			}
+		}()
+		valorOperacion.Call([]reflect.Value{
+			reflect.ValueOf(puertosbolsa.TokenArrendamientoFlujoFirmaBaremacion{}),
+			reflect.ValueOf(finalidadSellarTokenArrendamientoMemoria),
+			reflect.Zero(valorOperacion.Type().In(2)),
+		})
+	}()
+	if invocable {
+		t.Fatal("reflect pudo invocar el cierre HMAC privado del repositorio")
 	}
 	protector, err := NuevoProtectorEstadoFlujoFirmaBaremacion(
 		"clave-estado-flujo-firma-v1",
@@ -85,6 +120,15 @@ func TestRepositorioFlujoFirmaRechazaArrendamientoConCercadoObsoleto(t *testing.
 	if segundo.Arrendamiento.SecuenciaCercado <= primero.Arrendamiento.SecuenciaCercado {
 		t.Fatalf("cercado no monotono: primero=%d segundo=%d", primero.Arrendamiento.SecuenciaCercado, segundo.Arrendamiento.SecuenciaCercado)
 	}
+	registroVigente := repositorio.arrendamientos[segundo.Arrendamiento.FlujoRef]
+	_, tokenVigente, errorTokenVigente := repositorio.operarHMACTokenArrendamiento(
+		segundo.Arrendamiento.Token,
+		finalidadVerificarTokenArrendamientoMemoria,
+		registroVigente.huellaTokenHMAC,
+	)
+	if len(registroVigente.huellaTokenHMAC) != sha256.Size || errorTokenVigente != nil || !tokenVigente {
+		t.Fatal("el adaptador no conservo una huella HMAC autenticable del token")
+	}
 
 	siguiente, err := expediente.Clonar()
 	if err != nil {
@@ -100,11 +144,55 @@ func TestRepositorioFlujoFirmaRechazaArrendamientoConCercadoObsoleto(t *testing.
 	siguiente.SelloEstadoHMAC = ""
 	siguiente = sellarExpedienteFlujoMemoriaPrueba(t, sellador, siguiente)
 
+	// Los metadatos visibles conservan valor de cercado y diagnostico, pero no
+	// constituyen autoridad sin la capacidad opaca emitida por el repositorio.
+	soloMetadatos := puertosbolsa.ArrendamientoFlujoFirmaBaremacion{
+		FlujoRef:         segundo.Arrendamiento.FlujoRef,
+		PropietarioRef:   segundo.Arrendamiento.PropietarioRef,
+		SecuenciaCercado: segundo.Arrendamiento.SecuenciaCercado,
+		ExpiraEn:         segundo.Arrendamiento.ExpiraEn,
+	}
+	if _, err := repositorio.GuardarFlujoFirmaBaremacion(ctx, puertosbolsa.SolicitudGuardarFlujoFirmaBaremacion{
+		VersionEsperada: 1, Arrendamiento: soloMetadatos, Siguiente: siguiente,
+	}); err == nil {
+		t.Fatal("copiar solo los metadatos autorizo Guardar()")
+	}
+	if err := repositorio.LiberarArrendamientoFlujoFirmaBaremacion(
+		ctx,
+		puertosbolsa.SolicitudLiberarArrendamientoFlujoFirmaBaremacion{Arrendamiento: soloMetadatos},
+	); err == nil {
+		t.Fatal("copiar solo los metadatos autorizo Liberar()")
+	}
+
+	tokenAjeno, err := puertosbolsa.NuevoTokenArrendamientoFlujoFirmaBaremacion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	conTokenAjeno := segundo.Arrendamiento
+	conTokenAjeno.Token = tokenAjeno
+	if _, err := repositorio.GuardarFlujoFirmaBaremacion(ctx, puertosbolsa.SolicitudGuardarFlujoFirmaBaremacion{
+		VersionEsperada: 1, Arrendamiento: conTokenAjeno, Siguiente: siguiente,
+	}); !errors.Is(err, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido) {
+		t.Fatalf("Guardar() con token ajeno error = %v", err)
+	}
+	if err := repositorio.LiberarArrendamientoFlujoFirmaBaremacion(
+		ctx,
+		puertosbolsa.SolicitudLiberarArrendamientoFlujoFirmaBaremacion{Arrendamiento: conTokenAjeno},
+	); !errors.Is(err, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido) {
+		t.Fatalf("Liberar() con token ajeno error = %v", err)
+	}
+
 	_, err = repositorio.GuardarFlujoFirmaBaremacion(ctx, puertosbolsa.SolicitudGuardarFlujoFirmaBaremacion{
 		VersionEsperada: 1, Arrendamiento: primero.Arrendamiento, Siguiente: siguiente,
 	})
 	if !errors.Is(err, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido) {
 		t.Fatalf("Guardar() con cercado obsoleto error = %v", err)
+	}
+	if err := repositorio.LiberarArrendamientoFlujoFirmaBaremacion(
+		ctx,
+		puertosbolsa.SolicitudLiberarArrendamientoFlujoFirmaBaremacion{Arrendamiento: primero.Arrendamiento},
+	); !errors.Is(err, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido) {
+		t.Fatalf("Liberar() con token obsoleto error = %v", err)
 	}
 	guardado, err := repositorio.GuardarFlujoFirmaBaremacion(ctx, puertosbolsa.SolicitudGuardarFlujoFirmaBaremacion{
 		VersionEsperada: 1, Arrendamiento: segundo.Arrendamiento, Siguiente: siguiente,
@@ -114,6 +202,15 @@ func TestRepositorioFlujoFirmaRechazaArrendamientoConCercadoObsoleto(t *testing.
 	}
 	if guardado.Version != 2 || len(guardado.PuntosControl) != 1 {
 		t.Fatalf("estado guardado inesperado: version=%d puntos=%d", guardado.Version, len(guardado.PuntosControl))
+	}
+	liberacion := puertosbolsa.SolicitudLiberarArrendamientoFlujoFirmaBaremacion{
+		Arrendamiento: segundo.Arrendamiento,
+	}
+	if err := repositorio.LiberarArrendamientoFlujoFirmaBaremacion(ctx, liberacion); err != nil {
+		t.Fatalf("Liberar() con token vigente error = %v", err)
+	}
+	if err := repositorio.LiberarArrendamientoFlujoFirmaBaremacion(ctx, liberacion); err != nil {
+		t.Fatalf("la liberacion idempotente devolvio error = %v", err)
 	}
 }
 

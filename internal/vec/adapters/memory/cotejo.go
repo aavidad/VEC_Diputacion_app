@@ -230,33 +230,40 @@ func (s *Store) ReservarEmisionCodigoCotejo(
 			if instante.Before(existente.ExpiraEn) {
 				return ports.ReservaEmisionCodigoCotejo{}, ports.ErrEmisionCodigoCotejoEnCurso
 			}
-			delete(s.reservasCotejoToken, existente.Token)
+			delete(s.reservasCotejoPorHuellaToken, existente.HuellaTokenSHA256)
 		case estadoReservaCotejoAbandonada:
 		default:
 			return ports.ReservaEmisionCodigoCotejo{}, ports.ErrReservaCodigoCotejoNoValida
 		}
 	}
-	s.secuenciaCotejo++
-	token := "reserva-cotejo-" + strconv.FormatUint(s.secuenciaCotejo, 10)
+	token, err := ports.NuevoTokenReservaEmisionCodigoCotejo()
+	if err != nil {
+		return ports.ReservaEmisionCodigoCotejo{}, ports.ErrReservaCodigoCotejoNoValida
+	}
+	huellaToken, err := token.HuellaSHA256()
+	if err != nil {
+		return ports.ReservaEmisionCodigoCotejo{}, ports.ErrReservaCodigoCotejoNoValida
+	}
 	reserva := reservaEmisionCodigoCotejo{
 		ClaveAmbito:         claveAmbito,
 		PrincipalID:         strings.TrimSpace(solicitud.PrincipalID),
 		HuellaSolicitudHMAC: solicitud.HuellaSolicitudHMAC,
 		Documento:           solicitud.Documento,
 		Politica:            solicitud.Politica,
-		Token:               token,
+		HuellaTokenSHA256:   huellaToken,
 		Estado:              estadoReservaCotejoActiva,
 		SolicitadaEn:        instante,
 		ExpiraEn:            solicitud.ExpiraEn.UTC(),
 	}
 	s.reservasCotejo[claveAmbito] = reserva
-	s.reservasCotejoToken[token] = claveAmbito
+	s.reservasCotejoPorHuellaToken[huellaToken] = claveAmbito
 	return ports.ReservaEmisionCodigoCotejo{Token: token}, nil
 }
 
 func (s *Store) ConfirmarReservaCodigoCotejo(
 	ctx context.Context,
-	token, huellaSolicitudHMAC string,
+	token ports.TokenReservaEmisionCodigoCotejo,
+	huellaSolicitudHMAC string,
 	confirmadaEn time.Time,
 	codigo domain.CodigoCotejo,
 	traza domain.AuditEntry,
@@ -265,23 +272,28 @@ func (s *Store) ConfirmarReservaCodigoCotejo(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	huellaToken, err := token.HuellaSHA256()
+	if err != nil {
+		return ports.ErrReservaCodigoCotejoNoValida
+	}
 	canonico, err := codigo.ClonarCanonico()
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(token) == "" || !huellaHMACSHA256Valida(huellaSolicitudHMAC) || confirmadaEn.IsZero() ||
+	if !huellaHMACSHA256Valida(huellaSolicitudHMAC) || confirmadaEn.IsZero() ||
 		canonico.Estado != domain.EstadoCodigoCotejoReservado || canonico.Revision != 1 ||
 		!evidenciaCodigoCotejoValida(canonico, traza, evento, domain.AccionCodigoCotejoReservado, "", confirmadaEn.UTC()) {
 		return ports.ErrReservaCodigoCotejoNoValida
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	claveAmbito, existe := s.reservasCotejoToken[token]
+	claveAmbito, existe := s.reservasCotejoPorHuellaToken[huellaToken]
 	if !existe {
 		return ports.ErrReservaCodigoCotejoNoValida
 	}
 	reserva, existe := s.reservasCotejo[claveAmbito]
-	if !existe || reserva.Estado != estadoReservaCotejoActiva || reserva.Token != token ||
+	if !existe || reserva.Estado != estadoReservaCotejoActiva ||
+		!token.CoincideConHuellaSHA256(reserva.HuellaTokenSHA256) ||
 		!huellasIguales(reserva.HuellaSolicitudHMAC, huellaSolicitudHMAC) ||
 		reserva.PrincipalID != canonico.ReservadoPor || reserva.Documento != canonico.Documento ||
 		reserva.Politica != canonico.Politica.Referencia || !confirmadaEn.UTC().Before(reserva.ExpiraEn) ||
@@ -307,31 +319,32 @@ func (s *Store) ConfirmarReservaCodigoCotejo(
 	reserva.Estado = estadoReservaCotejoConfirmada
 	reserva.Codigo = canonico
 	s.reservasCotejo[claveAmbito] = reserva
-	delete(s.reservasCotejoToken, token)
+	delete(s.reservasCotejoPorHuellaToken, huellaToken)
 	return nil
 }
 
-func (s *Store) AbandonarReservaCodigoCotejo(ctx context.Context, token string) error {
+func (s *Store) AbandonarReservaCodigoCotejo(ctx context.Context, token ports.TokenReservaEmisionCodigoCotejo) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	token = strings.TrimSpace(token)
-	if token == "" {
+	huellaToken, err := token.HuellaSHA256()
+	if err != nil {
 		return ports.ErrReservaCodigoCotejoNoValida
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	claveAmbito, existe := s.reservasCotejoToken[token]
+	claveAmbito, existe := s.reservasCotejoPorHuellaToken[huellaToken]
 	if !existe {
 		return ports.ErrReservaCodigoCotejoNoValida
 	}
 	reserva, existe := s.reservasCotejo[claveAmbito]
-	if !existe || reserva.Estado != estadoReservaCotejoActiva || reserva.Token != token {
+	if !existe || reserva.Estado != estadoReservaCotejoActiva ||
+		!token.CoincideConHuellaSHA256(reserva.HuellaTokenSHA256) {
 		return ports.ErrReservaCodigoCotejoNoValida
 	}
 	reserva.Estado = estadoReservaCotejoAbandonada
 	s.reservasCotejo[claveAmbito] = reserva
-	delete(s.reservasCotejoToken, token)
+	delete(s.reservasCotejoPorHuellaToken, huellaToken)
 	return nil
 }
 

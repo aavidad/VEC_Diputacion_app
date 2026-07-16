@@ -116,7 +116,7 @@ func (s *ServicioCotejo) ReservarCodigoCotejo(ctx context.Context, orden OrdenRe
 	if reserva.Repetida {
 		return s.recuperarReservaCodigoCotejo(ctx, orden, decision, documento, aplicacionPolitica, reserva)
 	}
-	if strings.TrimSpace(reserva.Token) == "" {
+	if !reserva.Token.Valido() {
 		return ResultadoReservaCodigoCotejo{}, ports.ErrReservaCodigoCotejoNoValida
 	}
 
@@ -254,7 +254,7 @@ func (s *ServicioCotejo) recuperarReservaCodigoCotejo(
 	politica domain.AplicacionPoliticaCotejo,
 	reserva ports.ReservaEmisionCodigoCotejo,
 ) (ResultadoReservaCodigoCotejo, error) {
-	if reserva.Token != "" || !reserva.Repetida || reserva.Codigo.Validar() != nil ||
+	if reserva.Token.Valido() || !reserva.Repetida || reserva.Codigo.Validar() != nil ||
 		reserva.Codigo.Documento != documento.Referencia() ||
 		!reflect.DeepEqual(reserva.Codigo.Politica, politica) ||
 		(reserva.Codigo.Estado != domain.EstadoCodigoCotejoReservado && reserva.Codigo.Estado != domain.EstadoCodigoCotejoActivo) {

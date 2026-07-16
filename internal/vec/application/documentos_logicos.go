@@ -160,7 +160,7 @@ func (s *ServicioDocumental) GenerarDocumentoLogico(ctx context.Context, orden O
 		return domain.ResultadoGeneracionDocumento{}, err
 	}
 	if reserva.Repetida {
-		if reserva.Token != "" || !reserva.Resultado.Repetida || reserva.Resultado.Validar() != nil {
+		if reserva.Token.Valido() || !reserva.Resultado.Repetida || reserva.Resultado.Validar() != nil {
 			return domain.ResultadoGeneracionDocumento{}, ports.ErrReservaDocumentoNoValida
 		}
 		// La idempotencia no conserva privilegios. Antes de devolver un resultado
@@ -180,7 +180,7 @@ func (s *ServicioDocumental) GenerarDocumentoLogico(ctx context.Context, orden O
 		}
 		return reserva.Resultado, nil
 	}
-	if strings.TrimSpace(reserva.Token) == "" {
+	if !reserva.Token.Valido() {
 		return domain.ResultadoGeneracionDocumento{}, ports.ErrReservaDocumentoNoValida
 	}
 	confirmada := false

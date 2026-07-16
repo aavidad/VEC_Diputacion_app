@@ -41,6 +41,21 @@ El repositorio aplica versión esperada, arrendamiento exclusivo y número de ce
 
 La exclusión no sustituye la idempotencia. Si un efecto tarda más que el arrendamiento, dos réplicas podrían intentar recuperar el mismo efecto estable, pero el ejecutor no debe producir dos efectos y solo el propietario vigente podrá guardar el resultado.
 
+El arrendamiento incorpora una capacidad nominal de 256 bits que solo vive en
+un cierre privado e inmutable. El repositorio conserva exclusivamente su HMAC;
+ni el token ni la clave HMAC se guardan como cadenas, slices, expediente,
+auditoría u outbox. La capacidad y el arrendamiento bloquean JSON, texto,
+binario, gob y XML, y redactan `fmt` y `slog`. Copiar los metadatos, reutilizar
+un token de otro arrendamiento o presentar un cercado obsoleto no concede
+autoridad. Liberar de nuevo un arrendamiento que ya fue liberado es idempotente,
+pero un token incorrecto contra uno vigente falla sin eliminarlo. El adaptador
+en memoria captura una clave efímera solo para probar la semántica; el adaptador
+productivo deberá realizar el HMAC en un KMS/HSM con referencias de clave
+versionadas y rotación. El método actual que recibe la clave en bytes pertenece
+solo al adaptador en memoria: el conector productivo deberá ofrecer una
+operación de sellado con clave no exportable, o aplicar el HMAC en KMS sobre el
+compromiso SHA-256 del token; nunca exportará la clave HSM al proceso.
+
 Si el flujo ya está completado, la fachada devuelve el resultado final almacenado byte a byte en sus campos lógicos, sin volver a invocar ningún efecto. Si se reinicia la aplicación o cambia la réplica que atiende la petición, la nueva instancia puede descifrar y continuar siempre que disponga de la clave histórica identificada por `claveRef`.
 
 La proyección de lanzamiento solo incluye referencias opacas, canal e instantes. No contiene documentos, direcciones firmadas ni credenciales. Se devuelve únicamente después de persistir el punto de preparación completado.

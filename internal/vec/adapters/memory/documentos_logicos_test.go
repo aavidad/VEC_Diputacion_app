@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"reflect"
 	"strconv"
 	"sync"
 	"testing"
@@ -20,6 +21,15 @@ const (
 	huellaFuenteLogicaPrueba    = "hmac-sha256:documentos-1:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 	huellaFuenteLogicaDistinta  = "hmac-sha256:documentos-1:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 )
+
+func huellaTokenReservaDocumentoPrueba(t *testing.T, token ports.TokenReservaGeneracionDocumento) string {
+	t.Helper()
+	huella, err := token.HuellaSHA256()
+	if err != nil {
+		t.Fatalf("huella del token de reserva documental: %v", err)
+	}
+	return huella
+}
 
 func resultadoDocumentoLogicoMemoriaPrueba(t *testing.T, store *Store, principalID string, fecha time.Time) domain.ResultadoGeneracionDocumento {
 	t.Helper()
@@ -153,19 +163,33 @@ func TestRepositorioDocumentosLogicosConfirmaYRepiteIdempotente(t *testing.T) {
 	fecha := time.Date(2026, time.July, 14, 17, 0, 0, 0, time.UTC)
 	solicitud := solicitudReservaLogicaPrueba("tecnico-rrhh-1", fecha.Add(-time.Minute))
 	reserva, err := store.ReservarGeneracion(context.Background(), solicitud)
-	if err != nil || reserva.Token == "" || reserva.Repetida {
+	if err != nil || !reserva.Token.Valido() || reserva.Repetida {
 		t.Fatalf("ReservarGeneracion() = %+v, %v", reserva, err)
+	}
+	huellaReserva := huellaTokenReservaDocumentoPrueba(t, reserva.Token)
+	interna := store.reservasDocumentales[claveAmbitoIdempotenciaDocumento(solicitud.PrincipalID, solicitud.ClaveIdempotencia)]
+	if interna.HuellaTokenSHA256 != huellaReserva {
+		t.Fatalf("la reserva no conservo solo la huella esperada: %+v", interna)
+	}
+	if _, conservaToken := reflect.TypeOf(interna).FieldByName("Token"); conservaToken {
+		t.Fatal("el estado interno conserva el token de reserva en claro")
 	}
 	resultado := resultadoDocumentoLogicoMemoriaPrueba(t, store, solicitud.PrincipalID, fecha)
 	traza, evento := evidenciaDocumentoLogicoMemoriaPrueba(resultado, fecha)
 	if err := store.ConfirmarGeneracionLogica(context.Background(), reserva.Token, solicitud.HuellaSolicitudHMAC, fecha, resultado, traza, evento); err != nil {
 		t.Fatalf("ConfirmarGeneracionLogica() error = %v", err)
 	}
+	if err := store.ConfirmarGeneracionLogica(context.Background(), reserva.Token, solicitud.HuellaSolicitudHMAC, fecha, resultado, traza, evento); !errors.Is(err, ports.ErrReservaDocumentoNoValida) {
+		t.Fatalf("replay de confirmacion: error=%v", err)
+	}
+	if err := store.AbandonarGeneracion(context.Background(), reserva.Token); !errors.Is(err, ports.ErrReservaDocumentoNoValida) {
+		t.Fatalf("replay de abandono tras confirmacion: error=%v", err)
+	}
 
 	solicitud.SolicitadaEn = fecha.Add(time.Second)
 	solicitud.ExpiraEn = solicitud.SolicitadaEn.Add(5 * time.Minute)
 	repetida, err := store.ReservarGeneracion(context.Background(), solicitud)
-	if err != nil || !repetida.Repetida || repetida.Token != "" || !repetida.Resultado.Repetida {
+	if err != nil || !repetida.Repetida || repetida.Token.Valido() || !repetida.Resultado.Repetida {
 		t.Fatalf("repeticion = %+v, %v", repetida, err)
 	}
 	if err := repetida.Resultado.Validar(); err != nil {
@@ -189,7 +213,7 @@ func TestRepositorioDocumentosLogicosConfirmaYRepiteIdempotente(t *testing.T) {
 	}
 	otroPrincipal := solicitud
 	otroPrincipal.PrincipalID = "tecnico-rrhh-2"
-	if otra, err := store.ReservarGeneracion(context.Background(), otroPrincipal); err != nil || otra.Token == "" {
+	if otra, err := store.ReservarGeneracion(context.Background(), otroPrincipal); err != nil || !otra.Token.Valido() {
 		t.Fatalf("la clave no quedo aislada por principal: %+v, %v", otra, err)
 	}
 
@@ -243,7 +267,8 @@ func TestRepositorioDocumentosLogicosSoloConcedeUnaReservaConcurrente(t *testing
 		t.Fatalf("AbandonarGeneracion() error = %v", err)
 	}
 	reintento, err := store.ReservarGeneracion(context.Background(), solicitud)
-	if err != nil || reintento.Token == "" || reintento.Token == ganadora.Token {
+	if err != nil || !reintento.Token.Valido() ||
+		huellaTokenReservaDocumentoPrueba(t, reintento.Token) == huellaTokenReservaDocumentoPrueba(t, ganadora.Token) {
 		t.Fatalf("reintento tras abandono = %+v, %v", reintento, err)
 	}
 	conflicto := solicitud
@@ -266,7 +291,7 @@ func TestRepositorioDocumentosLogicosReemplazaReservaCaducadaEInvalidaTokenAnter
 	segundaSolicitud.SolicitadaEn = fecha.Add(2 * time.Minute)
 	segundaSolicitud.ExpiraEn = fecha.Add(7 * time.Minute)
 	segunda, err := store.ReservarGeneracion(context.Background(), segundaSolicitud)
-	if err != nil || segunda.Token == primera.Token {
+	if err != nil || huellaTokenReservaDocumentoPrueba(t, segunda.Token) == huellaTokenReservaDocumentoPrueba(t, primera.Token) {
 		t.Fatalf("segunda reserva = %+v, %v", segunda, err)
 	}
 	resultado := resultadoDocumentoLogicoMemoriaPrueba(t, store, primeraSolicitud.PrincipalID, segundaSolicitud.SolicitadaEn)

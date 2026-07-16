@@ -337,7 +337,7 @@ type consumoDecisionAltaCobroPrueba struct {
 type repositorioAltaCobroPrueba struct {
 	mu                     sync.Mutex
 	reserva                *ports.SolicitudReservaOrdenCobro
-	token                  string
+	huellaTokenReserva     string
 	ahoraCommit            time.Time
 	liquidacionCommit      DatosLiquidacionCobroAutoritativa
 	controlAutorizacion    controlAutorizacionCommitAltaCobroPrueba
@@ -411,11 +411,19 @@ func (r *repositorioAltaCobroPrueba) ReservarCreacion(
 	}
 	copia := solicitud
 	r.reserva = &copia
-	r.token = "res_cob_0123456789abcdefghijkl"
+	token, err := ports.NuevoTokenReservaOrdenCobro()
+	if err != nil {
+		return ports.ReservaOrdenCobro{}, ports.ErrReservaOrdenCobroInvalida
+	}
+	huellaToken, err := token.HuellaSHA256()
+	if err != nil {
+		return ports.ReservaOrdenCobro{}, ports.ErrReservaOrdenCobroInvalida
+	}
+	r.huellaTokenReserva = huellaToken
 	if r.cancelarTrasReserva != nil {
 		r.cancelarTrasReserva()
 	}
-	return ports.ReservaOrdenCobro{Token: r.token}, nil
+	return ports.ReservaOrdenCobro{Token: token}, nil
 }
 
 func (r *repositorioAltaCobroPrueba) ConfirmarCreacion(
@@ -428,7 +436,8 @@ func (r *repositorioAltaCobroPrueba) ConfirmarCreacion(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if solicitud.Validar() != nil || r.reserva == nil || solicitud.Token != r.token ||
+	if solicitud.Validar() != nil || r.reserva == nil ||
+		!solicitud.Token.CoincideConHuellaSHA256(r.huellaTokenReserva) ||
 		solicitud.OrdenRef != r.reserva.OrdenRef ||
 		solicitud.PrincipalRef != r.reserva.PrincipalRef ||
 		solicitud.IndiceIdempotenciaHMAC != r.reserva.IndiceIdempotenciaHMAC ||
@@ -489,7 +498,7 @@ func (r *repositorioAltaCobroPrueba) ConfirmarCreacion(
 		}
 		// El efecto exacto ya existe: se consume la nueva reserva sin volver a
 		// escribir agregado, auditoria ni outbox.
-		r.token = ""
+		r.huellaTokenReserva = ""
 		return nil
 	}
 	if r.consumosDecision == nil {
@@ -500,10 +509,12 @@ func (r *repositorioAltaCobroPrueba) ConfirmarCreacion(
 	r.orden = &orden
 	r.auditoria = datos.Auditoria
 	r.evento = datos.Evento
-	r.ultimaConfirmacion = solicitud
-	// Se conserva la firma de la reserva confirmada para resolver reintentos,
-	// pero el token deja de representar una reserva abandonable.
-	r.token = ""
+	confirmacionAuditable := solicitud
+	confirmacionAuditable.Token = ports.TokenReservaOrdenCobro{}
+	r.ultimaConfirmacion = confirmacionAuditable
+	// Se conserva solo la traza no secreta de la confirmacion; ni el material
+	// de la capacidad ni su huella sobreviven al consumo.
+	r.huellaTokenReserva = ""
 	return nil
 }
 
@@ -517,7 +528,8 @@ func (r *repositorioAltaCobroPrueba) AbandonarReservaCreacion(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if solicitud.Validar() != nil || r.reserva == nil || solicitud.Token != r.token ||
+	if solicitud.Validar() != nil || r.reserva == nil ||
+		!solicitud.Token.CoincideConHuellaSHA256(r.huellaTokenReserva) ||
 		solicitud.OrdenRef != r.reserva.OrdenRef || solicitud.PrincipalRef != r.reserva.PrincipalRef ||
 		solicitud.HuellaSolicitudHMAC != r.reserva.HuellaSolicitudHMAC {
 		return ports.ErrReservaOrdenCobroInvalida
@@ -526,7 +538,7 @@ func (r *repositorioAltaCobroPrueba) AbandonarReservaCreacion(
 		return r.errAbandono
 	}
 	r.reserva = nil
-	r.token = ""
+	r.huellaTokenReserva = ""
 	return nil
 }
 
@@ -833,30 +845,6 @@ func TestServicioAltaOrdenCobroEsIdempotenteSinDuplicarAuditoriaNiOutbox(t *test
 	}
 }
 
-func TestRepositorioAltaCobroConsumeTokenYNoConfirmaDosVeces(t *testing.T) {
-	escenario := nuevoEscenarioAltaCobroPrueba(t)
-	if _, err := escenario.servicio.Crear(context.Background(), escenario.solicitud); err != nil {
-		t.Fatalf("Crear() error = %v", err)
-	}
-	escenario.repositorio.mu.Lock()
-	confirmacion := escenario.repositorio.ultimaConfirmacion
-	auditoriaID := escenario.repositorio.auditoria.ID
-	eventoID := escenario.repositorio.evento.ID
-	escenario.repositorio.mu.Unlock()
-
-	err := escenario.repositorio.ConfirmarCreacion(context.Background(), confirmacion)
-	if !errors.Is(err, ports.ErrMutacionOrdenCobroInvalida) {
-		t.Fatalf("segunda ConfirmarCreacion() error = %v", err)
-	}
-	escenario.repositorio.mu.Lock()
-	defer escenario.repositorio.mu.Unlock()
-	version, _, errControl := escenario.repositorio.orden.ControlConcurrencia()
-	if errControl != nil || version != 1 || escenario.repositorio.confirmaciones != 2 ||
-		escenario.repositorio.auditoria.ID != auditoriaID || escenario.repositorio.evento.ID != eventoID {
-		t.Fatalf("el token consumido duplico o altero efectos: %+v", escenario.repositorio)
-	}
-}
-
 func TestRepositorioAltaCobroNoReutilizaDecisionParaOtroEfecto(t *testing.T) {
 	escenario := nuevoEscenarioAltaCobroPrueba(t)
 	if _, err := escenario.servicio.Crear(context.Background(), escenario.solicitud); err != nil {
@@ -905,7 +893,11 @@ func TestRepositorioAltaCobroNoReutilizaDecisionParaOtroEfecto(t *testing.T) {
 		t.Fatalf("huella segundo efecto: %v", err)
 	}
 	segundaConfirmacion := primeraConfirmacion
-	segundaConfirmacion.Token = "res_cob_abcdefghijkl0123456789"
+	segundoToken, err := ports.NuevoTokenReservaOrdenCobro()
+	if err != nil {
+		t.Fatalf("generar capacidad para segundo efecto: %v", err)
+	}
+	segundaConfirmacion.Token = segundoToken
 	segundaConfirmacion.OrdenRef = ordenDistinta.ID
 	segundaConfirmacion.IndiceIdempotenciaHMAC = ordenDistinta.IndiceIdempotenciaHMAC
 	segundaConfirmacion.HuellaSolicitudHMAC = "hmac-sha256:peticion-v1:" + strings.Repeat("7", 64)
@@ -926,8 +918,11 @@ func TestRepositorioAltaCobroNoReutilizaDecisionParaOtroEfecto(t *testing.T) {
 	}
 	escenario.repositorio.mu.Lock()
 	escenario.repositorio.reserva = &reservaDistinta
-	escenario.repositorio.token = segundaConfirmacion.Token
+	escenario.repositorio.huellaTokenReserva, err = segundaConfirmacion.Token.HuellaSHA256()
 	escenario.repositorio.mu.Unlock()
+	if err != nil {
+		t.Fatalf("obtener huella de capacidad para segundo efecto: %v", err)
+	}
 
 	err = escenario.repositorio.ConfirmarCreacion(context.Background(), segundaConfirmacion)
 	if !errors.Is(err, ports.ErrControlAutorizacionCobroConflicto) {

@@ -64,12 +64,10 @@ var _ SelladorSolicitudCobro = selladorSolicitudCobroContratoPrueba{}
 var instantePuertoCobro = time.Date(2026, 7, 15, 10, 0, 0, 0, time.UTC)
 
 const (
-	sesionPuertoCobro      = "ses_0123456789abcdefghijkl"
-	personaPuertoCobro     = "per_0123456789abcdefghijkl"
-	sujetoPuertoCobro      = "per_abcdefghijkl0123456789"
-	perfilPuertoCobro      = "prf_0123456789abcdefghijkl"
-	tokenReservaCobro      = "res_cob_0123456789abcdefghijkl"
-	tokenReservaDevolucion = "res_dev_0123456789abcdefghijkl"
+	sesionPuertoCobro  = "ses_0123456789abcdefghijkl"
+	personaPuertoCobro = "per_0123456789abcdefghijkl"
+	sujetoPuertoCobro  = "per_abcdefghijkl0123456789"
+	perfilPuertoCobro  = "prf_0123456789abcdefghijkl"
 )
 
 func huellaPuertoCobro(caracter byte) string { return strings.Repeat(string(caracter), 64) }
@@ -556,6 +554,7 @@ func mutacionCreacionPuertoCobro(t *testing.T) MutacionOrdenCobro {
 }
 
 func TestReservaRepositorioOCCAuditoriaYOutboxSonEstrictos(t *testing.T) {
+	tokenReservaCobro := tokenReservaOrdenCobroPrueba(t)
 	solicitud := SolicitudReservaOrdenCobro{
 		OrdenRef:               "cob_0123456789abcdefghijkl",
 		IndiceIdempotenciaHMAC: "hmac-sha256:pagos-v1:" + huellaPuertoCobro('5'),
@@ -585,21 +584,19 @@ func TestReservaRepositorioOCCAuditoriaYOutboxSonEstrictos(t *testing.T) {
 	if err := (ReservaOrdenCobro{Token: tokenReservaCobro}).Validar(); err != nil {
 		t.Fatalf("resultado de reserva nueva invalido: %v", err)
 	}
-	for _, token := range []string{" " + tokenReservaCobro, tokenReservaCobro + " ", tokenReservaDevolucion} {
-		if !errors.Is((ReservaOrdenCobro{Token: token}).Validar(), ErrReservaOrdenCobroInvalida) {
-			t.Fatalf("se acepto token de reserva de alta no exacto: %q", token)
-		}
+	if !errors.Is((ReservaOrdenCobro{}).Validar(), ErrReservaOrdenCobroInvalida) {
+		t.Fatal("se acepto una reserva de alta sin capacidad")
 	}
 	reservaSecreta := ReservaOrdenCobro{Token: tokenReservaCobro}
 	if _, err := json.Marshal(reservaSecreta); !errors.Is(err, ErrReservaOrdenCobroInvalida) ||
-		strings.Contains(fmt.Sprintf("%#v", reservaSecreta), reservaSecreta.Token) {
+		fmt.Sprintf("%#v", reservaSecreta) != reservaSecreta.String() {
 		t.Fatal("la reserva interna filtro su token")
 	}
 	orden := nuevaOrdenPuertoCobro(t)
 	if err := (ReservaOrdenCobro{Repetida: true, Orden: &orden}).Validar(); err != nil {
 		t.Fatalf("resultado idempotente invalido: %v", err)
 	}
-	if (ReservaOrdenCobro{Repetida: true, Token: "reserva:indebida", Orden: &orden}).Validar() == nil ||
+	if (ReservaOrdenCobro{Repetida: true, Token: tokenReservaCobro, Orden: &orden}).Validar() == nil ||
 		(ReservaOrdenCobro{}).Validar() == nil {
 		t.Fatal("una reserva ambigua fue aceptada")
 	}
@@ -795,6 +792,7 @@ func TestReservaRepositorioOCCAuditoriaYOutboxSonEstrictos(t *testing.T) {
 }
 
 func TestReservaDevolucionEsUnicaTipadaYLigadaAOCC(t *testing.T) {
+	tokenReservaDevolucion := tokenReservaDevolucionCobroPrueba(t)
 	anterior := ordenConfirmadaPuertoCobro(t)
 	versionAnterior, huellaAnterior, err := anterior.ControlConcurrencia()
 	if err != nil {
@@ -847,10 +845,8 @@ func TestReservaDevolucionEsUnicaTipadaYLigadaAOCC(t *testing.T) {
 			}
 		})
 	}
-	for _, token := range []string{" " + tokenReservaDevolucion, tokenReservaDevolucion + " ", tokenReservaCobro} {
-		if !errors.Is((ReservaDevolucionCobro{Token: token}).Validar(), ErrReservaOrdenCobroInvalida) {
-			t.Fatalf("se acepto token de reserva de devolucion no exacto: %q", token)
-		}
+	if !errors.Is((ReservaDevolucionCobro{}).Validar(), ErrReservaOrdenCobroInvalida) {
+		t.Fatal("se acepto una reserva de devolucion sin capacidad")
 	}
 	confirmacion := SolicitudConfirmarReservaDevolucionCobro{
 		Token: tokenReservaDevolucion, HuellaSolicitudHMAC: reserva.HuellaSolicitudHMAC,

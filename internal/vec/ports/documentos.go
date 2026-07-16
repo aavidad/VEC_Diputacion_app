@@ -4,28 +4,35 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/xml"
 	"errors"
+	"fmt"
+	"io"
+	"log/slog"
 	"time"
 
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
 var (
-	ErrPlantillaDocumentoNoEncontrada = errors.New("vec: plantilla documental no encontrada")
-	ErrVersionPlantillaYaExiste       = errors.New("vec: la version de plantilla ya existe")
-	ErrDocumentoNoEncontrado          = errors.New("vec: documento no encontrado")
-	ErrDocumentoYaExiste              = errors.New("vec: documento ya existe")
-	ErrContenidoDocumentoNoEncontrado = errors.New("vec: contenido documental no encontrado")
-	ErrHuellaContenidoNoCoincide      = errors.New("vec: la huella del contenido no coincide")
-	ErrLimiteLecturaExcedido          = errors.New("vec: limite de lectura documental excedido")
-	ErrDocumentoLogicoNoEncontrado    = errors.New("vec: documento logico no encontrado")
-	ErrRepresentacionNoEncontrada     = errors.New("vec: representacion documental no encontrada")
-	ErrClaveIdempotenciaInvalida      = errors.New("vec: clave de idempotencia documental invalida")
-	ErrClaveIdempotenciaReutilizada   = errors.New("vec: clave de idempotencia reutilizada para otra solicitud")
-	ErrGeneracionDocumentoEnCurso     = errors.New("vec: generacion documental en curso")
-	ErrReservaDocumentoNoValida       = errors.New("vec: reserva documental no valida")
-	ErrDecisionAutorizacionConsumida  = errors.New("vec: decision de autorizacion ya consumida por otro efecto")
+	ErrPlantillaDocumentoNoEncontrada              = errors.New("vec: plantilla documental no encontrada")
+	ErrVersionPlantillaYaExiste                    = errors.New("vec: la version de plantilla ya existe")
+	ErrDocumentoNoEncontrado                       = errors.New("vec: documento no encontrado")
+	ErrDocumentoYaExiste                           = errors.New("vec: documento ya existe")
+	ErrContenidoDocumentoNoEncontrado              = errors.New("vec: contenido documental no encontrado")
+	ErrHuellaContenidoNoCoincide                   = errors.New("vec: la huella del contenido no coincide")
+	ErrLimiteLecturaExcedido                       = errors.New("vec: limite de lectura documental excedido")
+	ErrDocumentoLogicoNoEncontrado                 = errors.New("vec: documento logico no encontrado")
+	ErrRepresentacionNoEncontrada                  = errors.New("vec: representacion documental no encontrada")
+	ErrClaveIdempotenciaInvalida                   = errors.New("vec: clave de idempotencia documental invalida")
+	ErrClaveIdempotenciaReutilizada                = errors.New("vec: clave de idempotencia reutilizada para otra solicitud")
+	ErrGeneracionDocumentoEnCurso                  = errors.New("vec: generacion documental en curso")
+	ErrReservaDocumentoNoValida                    = errors.New("vec: reserva documental no valida")
+	ErrSerializacionTokenReservaDocumentoProhibida = errors.New("vec: serializacion del token de reserva documental prohibida")
+	ErrDecisionAutorizacionConsumida               = errors.New("vec: decision de autorizacion ya consumida por otro efecto")
 )
+
+const dominioHuellaTokenReservaGeneracionDocumento = "vec:token-reserva-generacion-documento:v1"
 
 // CatalogoPlantillasDocumento es deliberadamente de solo lectura. Toda alta o
 // transicion pasa por el repositorio de gobierno con autorizacion, auditoria y
@@ -161,9 +168,84 @@ type SolicitudReservarGeneracionDocumento struct {
 // ReservaGeneracionDocumento tiene dos resultados excluyentes: una reserva
 // nueva con Token, o el resultado confirmado anteriormente con Repetida=true.
 type ReservaGeneracionDocumento struct {
-	Token     string
+	Token     TokenReservaGeneracionDocumento
 	Repetida  bool
 	Resultado domain.ResultadoGeneracionDocumento
+}
+
+// TokenReservaGeneracionDocumento es una capacidad efimera, nominal y no
+// serializable. Se crea con 256 bits del CSPRNG y no ofrece ninguna operacion
+// para revelar su material. Los repositorios deben persistir exclusivamente la
+// huella obtenida con HuellaSHA256 y verificarla mediante CoincideConHuellaSHA256.
+// SHA-256 es suficiente aqui porque la entrada tiene 256 bits uniformes, no es
+// un dato humano atacable por diccionario. Un almacen que deba ocultar tambien
+// correlaciones puede envolver esta huella con HMAC y una clave gestionada.
+// El cierre privado e inmutable impide recuperar el material mediante la API
+// de reflexion segura y hace que el tipo no sea comparable mediante ==.
+type TokenReservaGeneracionDocumento struct {
+	operar operacionCapacidadReserva
+}
+
+func NuevoTokenReservaGeneracionDocumento() (TokenReservaGeneracionDocumento, error) {
+	operar, err := nuevaOperacionCapacidadReserva(dominioHuellaTokenReservaGeneracionDocumento)
+	if err != nil {
+		return TokenReservaGeneracionDocumento{}, ErrReservaDocumentoNoValida
+	}
+	return TokenReservaGeneracionDocumento{operar: operar}, nil
+}
+
+func (t TokenReservaGeneracionDocumento) Valido() bool {
+	return operacionCapacidadReservaValida(t.operar)
+}
+
+func (t TokenReservaGeneracionDocumento) HuellaSHA256() (string, error) {
+	huella, valida := huellaCapacidadReserva(t.operar)
+	if !valida {
+		return "", ErrReservaDocumentoNoValida
+	}
+	return huella, nil
+}
+
+// CoincideConHuellaSHA256 realiza la unica comparacion autoritativa del token
+// contra estado durable. La comparacion de los 32 bytes se hace en tiempo
+// constante; una huella mal formada se rechaza en cerrado.
+func (t TokenReservaGeneracionDocumento) CoincideConHuellaSHA256(huella string) bool {
+	return coincideHuellaCapacidadReserva(t.operar, huella)
+}
+
+func (TokenReservaGeneracionDocumento) String() string {
+	return "[TOKEN-RESERVA-GENERACION-DOCUMENTO-REDACTADO]"
+}
+func (t TokenReservaGeneracionDocumento) GoString() string { return t.String() }
+func (t TokenReservaGeneracionDocumento) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, t.String())
+}
+func (t TokenReservaGeneracionDocumento) LogValue() slog.Value {
+	return slog.StringValue(t.String())
+}
+func (TokenReservaGeneracionDocumento) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionTokenReservaDocumentoProhibida
+}
+func (*TokenReservaGeneracionDocumento) UnmarshalJSON([]byte) error {
+	return ErrSerializacionTokenReservaDocumentoProhibida
+}
+func (TokenReservaGeneracionDocumento) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionTokenReservaDocumentoProhibida
+}
+func (*TokenReservaGeneracionDocumento) UnmarshalText([]byte) error {
+	return ErrSerializacionTokenReservaDocumentoProhibida
+}
+func (TokenReservaGeneracionDocumento) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionTokenReservaDocumentoProhibida
+}
+func (*TokenReservaGeneracionDocumento) UnmarshalBinary([]byte) error {
+	return ErrSerializacionTokenReservaDocumentoProhibida
+}
+func (TokenReservaGeneracionDocumento) MarshalXML(*xml.Encoder, xml.StartElement) error {
+	return ErrSerializacionTokenReservaDocumentoProhibida
+}
+func (*TokenReservaGeneracionDocumento) UnmarshalXML(*xml.Decoder, xml.StartElement) error {
+	return ErrSerializacionTokenReservaDocumentoProhibida
 }
 
 // RepositorioDocumentosLogicos protege la idempotencia funcional y confirma en
@@ -173,8 +255,8 @@ type ReservaGeneracionDocumento struct {
 // principal+clave y bloqueo transaccional o mecanismo equivalente.
 type RepositorioDocumentosLogicos interface {
 	ReservarGeneracion(context.Context, SolicitudReservarGeneracionDocumento) (ReservaGeneracionDocumento, error)
-	ConfirmarGeneracionLogica(context.Context, string, string, time.Time, domain.ResultadoGeneracionDocumento, domain.AuditEntry, domain.Event) error
-	AbandonarGeneracion(context.Context, string) error
+	ConfirmarGeneracionLogica(context.Context, TokenReservaGeneracionDocumento, string, time.Time, domain.ResultadoGeneracionDocumento, domain.AuditEntry, domain.Event) error
+	AbandonarGeneracion(context.Context, TokenReservaGeneracionDocumento) error
 	ObtenerDocumentoLogico(context.Context, domain.ReferenciaDocumento) (domain.DocumentoLogico, error)
 	ListarRepresentacionesDocumento(context.Context, domain.ReferenciaDocumento) ([]domain.RepresentacionDocumento, error)
 }

@@ -70,19 +70,19 @@ func (s SolicitudReservaOrdenCobro) Validar() error {
 }
 
 type ReservaOrdenCobro struct {
-	Token    string
+	Token    TokenReservaOrdenCobro
 	Repetida bool
 	Orden    *domain.OrdenCobro
 }
 
 func (r ReservaOrdenCobro) Validar() error {
 	if r.Repetida {
-		if r.Token != "" || r.Orden == nil || r.Orden.Validar() != nil {
+		if r.Token.Valido() || r.Orden == nil || r.Orden.Validar() != nil {
 			return ErrReservaOrdenCobroInvalida
 		}
 		return nil
 	}
-	if !referenciaOpacaPuertoCobroValida(r.Token, "res_cob_") || r.Orden != nil {
+	if !r.Token.Valido() || r.Orden != nil {
 		return ErrReservaOrdenCobroInvalida
 	}
 	return nil
@@ -492,7 +492,7 @@ func (m MutacionOrdenCobro) Datos() (DatosMutacionOrdenCobro, error) {
 }
 
 type SolicitudConfirmarCreacionOrdenCobro struct {
-	Token                    string
+	Token                    TokenReservaOrdenCobro
 	OrdenRef                 string
 	PrincipalRef             string
 	IndiceIdempotenciaHMAC   string
@@ -531,7 +531,7 @@ func (s SolicitudConfirmarCreacionOrdenCobro) Validar() error {
 	datosVinculo, errorVinculo := decision.VinculoAutenticacionActor.Datos()
 	datosContexto, errorContexto := s.ContextoAutorizacion.Datos()
 	version, huellaEfecto, err := datos.Orden.ControlConcurrencia()
-	if !referenciaOpacaPuertoCobroValida(s.Token, "res_cob_") ||
+	if !s.Token.Valido() ||
 		!idOrdenPuertoCobroValido(s.OrdenRef) ||
 		!idPersonaPuertoCobroValido(s.PrincipalRef) ||
 		!huellaHMACPuertoCobroDeDominioValida(s.IndiceIdempotenciaHMAC, dominioHMACAltaPuertoCobro) ||
@@ -652,19 +652,19 @@ func (s SolicitudReservaDevolucionCobro) Validar() error {
 }
 
 type ReservaDevolucionCobro struct {
-	Token    string
+	Token    TokenReservaDevolucionCobro
 	Repetida bool
 	Orden    *domain.OrdenCobro
 }
 
 func (r ReservaDevolucionCobro) Validar() error {
 	if r.Repetida {
-		if r.Token != "" || r.Orden == nil || r.Orden.Validar() != nil {
+		if r.Token.Valido() || r.Orden == nil || r.Orden.Validar() != nil {
 			return ErrReservaOrdenCobroInvalida
 		}
 		return nil
 	}
-	if !referenciaOpacaPuertoCobroValida(r.Token, "res_dev_") || r.Orden != nil {
+	if !r.Token.Valido() || r.Orden != nil {
 		return ErrReservaOrdenCobroInvalida
 	}
 	return nil
@@ -678,7 +678,7 @@ func (r ReservaDevolucionCobro) Format(estado fmt.State, _ rune) {
 }
 
 type SolicitudConfirmarReservaDevolucionCobro struct {
-	Token                string
+	Token                TokenReservaDevolucionCobro
 	HuellaSolicitudHMAC  string
 	VersionEsperada      int
 	HuellaEsperadaSHA256 string
@@ -688,7 +688,7 @@ type SolicitudConfirmarReservaDevolucionCobro struct {
 func (s SolicitudConfirmarReservaDevolucionCobro) Validar() error {
 	datos, errorDatos := s.Mutacion.Datos()
 	version, _, err := datos.Orden.ControlConcurrencia()
-	if !referenciaOpacaPuertoCobroValida(s.Token, "res_dev_") ||
+	if !s.Token.Valido() ||
 		!huellaHMACPuertoCobroDeDominioValida(s.HuellaSolicitudHMAC, dominioHMACPeticionCobro) ||
 		s.VersionEsperada < 1 || !huellaSHA256PuertoCobroValida(s.HuellaEsperadaSHA256) ||
 		errorDatos != nil || err != nil || version != s.VersionEsperada+1 ||
@@ -701,14 +701,14 @@ func (s SolicitudConfirmarReservaDevolucionCobro) Validar() error {
 }
 
 type SolicitudAbandonarReservaOrdenCobro struct {
-	Token               string
+	Token               TokenReservaOrdenCobro
 	OrdenRef            string
 	PrincipalRef        string
 	HuellaSolicitudHMAC string
 }
 
 func (s SolicitudAbandonarReservaOrdenCobro) Validar() error {
-	if !referenciaOpacaPuertoCobroValida(s.Token, "res_cob_") || !idOrdenPuertoCobroValido(s.OrdenRef) ||
+	if !s.Token.Valido() || !idOrdenPuertoCobroValido(s.OrdenRef) ||
 		!idPersonaPuertoCobroValido(s.PrincipalRef) ||
 		!huellaHMACPuertoCobroDeDominioValida(s.HuellaSolicitudHMAC, dominioHMACPeticionCobro) {
 		return ErrReservaOrdenCobroInvalida
@@ -717,7 +717,7 @@ func (s SolicitudAbandonarReservaOrdenCobro) Validar() error {
 }
 
 type SolicitudAbandonarReservaDevolucionCobro struct {
-	Token               string
+	Token               TokenReservaDevolucionCobro
 	OrdenRef            string
 	DevolucionRef       string
 	PrincipalRef        string
@@ -725,7 +725,7 @@ type SolicitudAbandonarReservaDevolucionCobro struct {
 }
 
 func (s SolicitudAbandonarReservaDevolucionCobro) Validar() error {
-	if !referenciaOpacaPuertoCobroValida(s.Token, "res_dev_") || !idOrdenPuertoCobroValido(s.OrdenRef) ||
+	if !s.Token.Valido() || !idOrdenPuertoCobroValido(s.OrdenRef) ||
 		!idDevolucionPuertoCobroValido(s.DevolucionRef) || !idPersonaPuertoCobroValido(s.PrincipalRef) ||
 		!huellaHMACPuertoCobroDeDominioValida(s.HuellaSolicitudHMAC, dominioHMACPeticionCobro) {
 		return ErrReservaOrdenCobroInvalida

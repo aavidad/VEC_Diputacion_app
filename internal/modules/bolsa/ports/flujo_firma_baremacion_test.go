@@ -2,13 +2,169 @@ package ports
 
 import (
 	"bytes"
+	"encoding/gob"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
+	"log/slog"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestTokenArrendamientoFlujoFirmaEsOpacoYFallaCerrado(t *testing.T) {
+	token, err := NuevoTokenArrendamientoFlujoFirmaBaremacion()
+	if err != nil || token.Validar() != nil {
+		t.Fatalf("NuevoTokenArrendamientoFlujoFirmaBaremacion() = (%v, %v)", token, err)
+	}
+	ajeno, err := NuevoTokenArrendamientoFlujoFirmaBaremacion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	clave := bytes.Repeat([]byte{0x31}, 32)
+	huella, err := token.HuellaHMACSHA256(clave)
+	if err != nil || len(huella) != 32 || !token.CoincideHuellaHMACSHA256(clave, huella) {
+		t.Fatalf("huella valida no reconocida: longitud=%d error=%v", len(huella), err)
+	}
+	alterada := append([]byte(nil), huella...)
+	alterada[len(alterada)-1] ^= 0xff
+	if token.CoincideHuellaHMACSHA256(clave, alterada) ||
+		token.CoincideHuellaHMACSHA256(bytes.Repeat([]byte{0x32}, 32), huella) ||
+		ajeno.CoincideHuellaHMACSHA256(clave, huella) ||
+		(TokenArrendamientoFlujoFirmaBaremacion{}).CoincideHuellaHMACSHA256(clave, huella) {
+		t.Fatal("una capacidad alterada, ajena o nula supero la autenticacion HMAC")
+	}
+	if _, err := token.HuellaHMACSHA256([]byte("clave-corta")); !errors.Is(err, ErrArrendamientoFlujoFirmaInvalido) {
+		t.Fatalf("clave HMAC corta aceptada: %v", err)
+	}
+	copia := token
+	huellaCopia, err := copia.HuellaHMACSHA256(clave)
+	if err != nil || !bytes.Equal(huellaCopia, huella) || !copia.CoincideHuellaHMACSHA256(clave, huella) {
+		t.Fatalf("copiar el sobre altero la capacidad: huella=%x error=%v", huellaCopia, err)
+	}
+
+	tipo := reflect.TypeOf(token)
+	if _, existe := tipo.MethodByName("Revelar"); existe {
+		t.Fatal("el token expone un metodo Revelar")
+	}
+	valor := reflect.ValueOf(token)
+	campo := valor.Field(0)
+	if tipo.NumField() != 1 || tipo.Field(0).Type.Kind() != reflect.Func ||
+		campo.CanInterface() || campo.CanSet() {
+		t.Fatalf("representacion reflectible insegura: tipo=%v campos=%d clase=%v accesible=%t mutable=%t",
+			tipo, tipo.NumField(), tipo.Field(0).Type.Kind(), campo.CanInterface(), campo.CanSet())
+	}
+	invocable := true
+	func() {
+		defer func() {
+			if recover() != nil {
+				invocable = false
+			}
+		}()
+		campo.Call([]reflect.Value{
+			reflect.ValueOf(clave), reflect.Zero(campo.Type().In(1)),
+		})
+	}()
+	if invocable {
+		t.Fatal("reflect pudo invocar el cierre privado del token")
+	}
+	for indice := 0; indice < tipo.NumField(); indice++ {
+		if tipo.Field(indice).IsExported() {
+			t.Fatalf("el token expone el campo %q", tipo.Field(indice).Name)
+		}
+	}
+}
+
+func TestTokenYArrendamientoFlujoFirmaBloqueanSerializacionYRegistro(t *testing.T) {
+	token, err := NuevoTokenArrendamientoFlujoFirmaBaremacion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	arrendamiento := ArrendamientoFlujoFirmaBaremacion{
+		FlujoRef: "flujo-firma-opaco-001", PropietarioRef: "propietario-opaco-001",
+		SecuenciaCercado: 7, ExpiraEn: time.Date(2026, 7, 16, 12, 5, 0, 0, time.UTC), Token: token,
+	}
+	if err := arrendamiento.Validar(); err != nil {
+		t.Fatal(err)
+	}
+	for indice, valor := range []any{token, arrendamiento, struct {
+		XMLName       xml.Name                          `xml:"envoltura"`
+		Arrendamiento ArrendamientoFlujoFirmaBaremacion `xml:"arrendamiento"`
+	}{Arrendamiento: arrendamiento}} {
+		if contenido, err := json.Marshal(valor); contenido != nil ||
+			!errors.Is(err, ErrSerializacionArrendamientoProhibida) {
+			t.Fatalf("objeto %d admite JSON: contenido=%q error=%v", indice, contenido, err)
+		}
+	}
+	for indice, valor := range []any{token, arrendamiento, struct {
+		XMLName       xml.Name                          `xml:"envoltura"`
+		Arrendamiento ArrendamientoFlujoFirmaBaremacion `xml:"arrendamiento"`
+	}{Arrendamiento: arrendamiento}} {
+		var gobCodificado bytes.Buffer
+		if err := gob.NewEncoder(&gobCodificado).Encode(valor); err == nil ||
+			!strings.Contains(err.Error(), ErrSerializacionArrendamientoProhibida.Error()) {
+			t.Fatalf("objeto %d admite gob: contenido=%x error=%v", indice, gobCodificado.Bytes(), err)
+		}
+		if contenido, err := xml.Marshal(valor); contenido != nil ||
+			!errors.Is(err, ErrSerializacionArrendamientoProhibida) {
+			t.Fatalf("objeto %d admite XML: contenido=%q error=%v", indice, contenido, err)
+		}
+	}
+	for nombre, prueba := range map[string]func() ([]byte, error){
+		"token_texto":           token.MarshalText,
+		"token_binario":         token.MarshalBinary,
+		"arrendamiento_texto":   arrendamiento.MarshalText,
+		"arrendamiento_binario": arrendamiento.MarshalBinary,
+	} {
+		contenido, err := prueba()
+		if contenido != nil || !errors.Is(err, ErrSerializacionArrendamientoProhibida) {
+			t.Fatalf("%s admite serializacion: contenido=%q error=%v", nombre, contenido, err)
+		}
+	}
+
+	var tokenRestaurado TokenArrendamientoFlujoFirmaBaremacion
+	var arrendamientoRestaurado ArrendamientoFlujoFirmaBaremacion
+	for nombre, prueba := range map[string]func() error{
+		"token_json":            func() error { return json.Unmarshal([]byte(`"forjado"`), &tokenRestaurado) },
+		"token_texto":           func() error { return tokenRestaurado.UnmarshalText([]byte("forjado")) },
+		"token_binario":         func() error { return tokenRestaurado.UnmarshalBinary([]byte("forjado")) },
+		"token_gob":             func() error { return tokenRestaurado.GobDecode([]byte("forjado")) },
+		"token_xml":             func() error { return xml.Unmarshal([]byte(`<token>forjado</token>`), &tokenRestaurado) },
+		"arrendamiento_json":    func() error { return json.Unmarshal([]byte(`{}`), &arrendamientoRestaurado) },
+		"arrendamiento_texto":   func() error { return arrendamientoRestaurado.UnmarshalText([]byte("forjado")) },
+		"arrendamiento_binario": func() error { return arrendamientoRestaurado.UnmarshalBinary([]byte("forjado")) },
+		"arrendamiento_gob":     func() error { return arrendamientoRestaurado.GobDecode([]byte("forjado")) },
+		"arrendamiento_xml":     func() error { return xml.Unmarshal([]byte(`<arrendamiento/>`), &arrendamientoRestaurado) },
+	} {
+		if err := prueba(); !errors.Is(err, ErrSerializacionArrendamientoProhibida) {
+			t.Fatalf("%s admite deserializacion: %v", nombre, err)
+		}
+	}
+
+	for _, caso := range []struct {
+		valor    any
+		marcador string
+	}{
+		{valor: token, marcador: "[TOKEN-ARRENDAMIENTO-FLUJO-FIRMA-REDACTADO]"},
+		{valor: arrendamiento, marcador: "[ARRENDAMIENTO-FLUJO-FIRMA-REDACTADO]"},
+	} {
+		formateado := fmt.Sprintf("%v|%#v|%+v|%s|%q", caso.valor, caso.valor, caso.valor, caso.valor, caso.valor)
+		if strings.Count(formateado, caso.marcador) != 5 || strings.Contains(formateado, "flujo-firma-opaco-001") {
+			t.Fatalf("formateo no redactado: %q", formateado)
+		}
+	}
+	var registro bytes.Buffer
+	slog.New(slog.NewJSONHandler(&registro, nil)).Info(
+		"prueba", "token", token, "arrendamiento", arrendamiento,
+	)
+	if !strings.Contains(registro.String(), "TOKEN-ARRENDAMIENTO-FLUJO-FIRMA-REDACTADO") ||
+		!strings.Contains(registro.String(), "ARRENDAMIENTO-FLUJO-FIRMA-REDACTADO") ||
+		strings.Contains(registro.String(), "flujo-firma-opaco-001") {
+		t.Fatalf("slog no redacto capacidades: %s", registro.String())
+	}
+}
 
 func TestEstadoProtegidoFlujoFirmaBloqueaSerializacionYFormateo(t *testing.T) {
 	estado, err := NuevoEstadoProtegidoFlujoFirmaBaremacion(

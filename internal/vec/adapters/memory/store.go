@@ -16,34 +16,32 @@ import (
 )
 
 type Store struct {
-	mu                     sync.RWMutex
-	modules                map[string]domain.ModuleManifest
-	audit                  []domain.AuditEntry
-	events                 []domain.Event
-	plantillas             map[string]domain.PlantillaDocumento
-	catalogos              map[string]domain.CatalogoConfigurable
-	definicionesFlujo      map[string]domain.DefinicionFlujo
-	instanciasFlujo        map[string]domain.InstanciaFlujo
-	instanciasPorEntidad   map[string]string
-	decisionesReglaFlujo   map[string]domain.DecisionReglaFlujo
-	documentos             map[string]domain.DocumentoGenerado
-	usosAutorizacionDoc    map[string]usoAutorizacionDocumento
-	usosAutorizacionCat    map[string]usoAutorizacionCatalogo
-	contenidos             map[string]objetoContenidoDocumento
-	idempotenciasContenido map[string]idempotenciaContenidoDocumento
-	documentosLogicos      map[string]domain.DocumentoLogico
-	representaciones       map[string]domain.RepresentacionDocumento
-	politicasCotejo        map[string]domain.PoliticaCotejo
-	codigosCotejo          map[string]domain.CodigoCotejo
-	cotejoPorDocumento     map[string]string
-	cotejoPorIndice        map[string]string
-	reservasDocumentales   map[string]reservaGeneracionDocumento
-	reservasPorToken       map[string]string
-	reservasCotejo         map[string]reservaEmisionCodigoCotejo
-	reservasCotejoToken    map[string]string
-	secuenciaReservas      uint64
-	secuenciaCotejo        uint64
-	secuenciaInstancias    uint64
+	mu                           sync.RWMutex
+	modules                      map[string]domain.ModuleManifest
+	audit                        []domain.AuditEntry
+	events                       []domain.Event
+	plantillas                   map[string]domain.PlantillaDocumento
+	catalogos                    map[string]domain.CatalogoConfigurable
+	definicionesFlujo            map[string]domain.DefinicionFlujo
+	instanciasFlujo              map[string]domain.InstanciaFlujo
+	instanciasPorEntidad         map[string]string
+	decisionesReglaFlujo         map[string]domain.DecisionReglaFlujo
+	documentos                   map[string]domain.DocumentoGenerado
+	usosAutorizacionDoc          map[string]usoAutorizacionDocumento
+	usosAutorizacionCat          map[string]usoAutorizacionCatalogo
+	contenidos                   map[string]objetoContenidoDocumento
+	idempotenciasContenido       map[string]idempotenciaContenidoDocumento
+	documentosLogicos            map[string]domain.DocumentoLogico
+	representaciones             map[string]domain.RepresentacionDocumento
+	politicasCotejo              map[string]domain.PoliticaCotejo
+	codigosCotejo                map[string]domain.CodigoCotejo
+	cotejoPorDocumento           map[string]string
+	cotejoPorIndice              map[string]string
+	reservasDocumentales         map[string]reservaGeneracionDocumento
+	reservasPorHuellaToken       map[string]string
+	reservasCotejo               map[string]reservaEmisionCodigoCotejo
+	reservasCotejoPorHuellaToken map[string]string
+	secuenciaInstancias          uint64
 }
 
 type objetoContenidoDocumento struct {
@@ -72,7 +70,7 @@ type reservaGeneracionDocumento struct {
 	ClaveAmbito         string
 	PrincipalID         string
 	HuellaSolicitudHMAC string
-	Token               string
+	HuellaTokenSHA256   string
 	Estado              estadoReservaGeneracionDocumento
 	ExpiraEn            time.Time
 	Resultado           domain.ResultadoGeneracionDocumento
@@ -92,7 +90,7 @@ type reservaEmisionCodigoCotejo struct {
 	HuellaSolicitudHMAC string
 	Documento           domain.ReferenciaDocumento
 	Politica            domain.ReferenciaPoliticaCotejo
-	Token               string
+	HuellaTokenSHA256   string
 	Estado              estadoReservaCotejo
 	SolicitadaEn        time.Time
 	ExpiraEn            time.Time
@@ -101,28 +99,28 @@ type reservaEmisionCodigoCotejo struct {
 
 func NewStore() *Store {
 	return &Store{
-		modules:                map[string]domain.ModuleManifest{},
-		plantillas:             map[string]domain.PlantillaDocumento{},
-		catalogos:              map[string]domain.CatalogoConfigurable{},
-		definicionesFlujo:      map[string]domain.DefinicionFlujo{},
-		instanciasFlujo:        map[string]domain.InstanciaFlujo{},
-		instanciasPorEntidad:   map[string]string{},
-		decisionesReglaFlujo:   map[string]domain.DecisionReglaFlujo{},
-		documentos:             map[string]domain.DocumentoGenerado{},
-		usosAutorizacionDoc:    map[string]usoAutorizacionDocumento{},
-		usosAutorizacionCat:    map[string]usoAutorizacionCatalogo{},
-		contenidos:             map[string]objetoContenidoDocumento{},
-		idempotenciasContenido: map[string]idempotenciaContenidoDocumento{},
-		documentosLogicos:      map[string]domain.DocumentoLogico{},
-		representaciones:       map[string]domain.RepresentacionDocumento{},
-		politicasCotejo:        map[string]domain.PoliticaCotejo{},
-		codigosCotejo:          map[string]domain.CodigoCotejo{},
-		cotejoPorDocumento:     map[string]string{},
-		cotejoPorIndice:        map[string]string{},
-		reservasDocumentales:   map[string]reservaGeneracionDocumento{},
-		reservasPorToken:       map[string]string{},
-		reservasCotejo:         map[string]reservaEmisionCodigoCotejo{},
-		reservasCotejoToken:    map[string]string{},
+		modules:                      map[string]domain.ModuleManifest{},
+		plantillas:                   map[string]domain.PlantillaDocumento{},
+		catalogos:                    map[string]domain.CatalogoConfigurable{},
+		definicionesFlujo:            map[string]domain.DefinicionFlujo{},
+		instanciasFlujo:              map[string]domain.InstanciaFlujo{},
+		instanciasPorEntidad:         map[string]string{},
+		decisionesReglaFlujo:         map[string]domain.DecisionReglaFlujo{},
+		documentos:                   map[string]domain.DocumentoGenerado{},
+		usosAutorizacionDoc:          map[string]usoAutorizacionDocumento{},
+		usosAutorizacionCat:          map[string]usoAutorizacionCatalogo{},
+		contenidos:                   map[string]objetoContenidoDocumento{},
+		idempotenciasContenido:       map[string]idempotenciaContenidoDocumento{},
+		documentosLogicos:            map[string]domain.DocumentoLogico{},
+		representaciones:             map[string]domain.RepresentacionDocumento{},
+		politicasCotejo:              map[string]domain.PoliticaCotejo{},
+		codigosCotejo:                map[string]domain.CodigoCotejo{},
+		cotejoPorDocumento:           map[string]string{},
+		cotejoPorIndice:              map[string]string{},
+		reservasDocumentales:         map[string]reservaGeneracionDocumento{},
+		reservasPorHuellaToken:       map[string]string{},
+		reservasCotejo:               map[string]reservaEmisionCodigoCotejo{},
+		reservasCotejoPorHuellaToken: map[string]string{},
 	}
 }
 

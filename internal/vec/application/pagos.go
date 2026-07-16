@@ -760,7 +760,7 @@ func nuevaAltaCobroCompletada(
 
 func (s *ServicioAltaOrdenCobro) abandonarReserva(
 	ctx context.Context,
-	token string,
+	token ports.TokenReservaOrdenCobro,
 	reserva ports.SolicitudReservaOrdenCobro,
 	causa error,
 ) error {

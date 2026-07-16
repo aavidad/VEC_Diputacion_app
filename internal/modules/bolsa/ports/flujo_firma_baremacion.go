@@ -18,6 +18,7 @@ var (
 	ErrConflictoFlujoFirmaBaremacion         = errors.New("bolsa: conflicto de version del flujo de firma")
 	ErrFlujoFirmaBaremacionOcupado           = errors.New("bolsa: flujo de firma ocupado")
 	ErrArrendamientoFlujoFirmaInvalido       = errors.New("bolsa: arrendamiento de flujo de firma invalido")
+	ErrSerializacionArrendamientoProhibida   = errors.New("bolsa: serializacion de arrendamiento de flujo de firma prohibida")
 	ErrEstadoFlujoFirmaAlterado              = errors.New("bolsa: estado protegido del flujo de firma alterado")
 	ErrPasoFlujoFirmaNoPermitido             = errors.New("bolsa: paso de flujo de firma no permitido")
 	ErrSerializacionEstadoFlujoProhibida     = errors.New("bolsa: serializacion generica de estado de flujo prohibida")
@@ -499,21 +500,6 @@ func (s SolicitudObtenerFlujoFirmaBaremacion) Validar() error {
 	if !referenciaValida(s.FlujoRef, 512) || !huellaHMACSHA256Valida(s.IndiceIdempotenciaHMAC) ||
 		!huellaHMACSHA256Valida(s.VinculoActorHMAC) {
 		return ErrSolicitudFlujoFirmaBaremacionInvalida
-	}
-	return nil
-}
-
-type ArrendamientoFlujoFirmaBaremacion struct {
-	FlujoRef         string
-	PropietarioRef   string
-	SecuenciaCercado uint64
-	ExpiraEn         time.Time
-}
-
-func (a ArrendamientoFlujoFirmaBaremacion) Validar() error {
-	if !referenciaValida(a.FlujoRef, 512) || !referenciaValida(a.PropietarioRef, 512) ||
-		a.SecuenciaCercado < 1 || a.ExpiraEn.IsZero() {
-		return ErrArrendamientoFlujoFirmaInvalido
 	}
 	return nil
 }
