@@ -171,6 +171,106 @@ La forma sintáctica de una HMAC no acredita «no aplicada». Esa conclusión
 requiere evidencia autenticada y un verificador autoritativo. Cualquier valor
 nulo, desconocido, incompleto o manipulado obliga a reconciliar.
 
+## Puerta previa al DDL — dictamen de 16 de julio de 2026
+
+**Estado: NO-GO para redactar o aplicar DDL productivo V2.** Este dictamen no
+revoca las decisiones de arquitectura anteriores: constata que su proyección
+persistible todavía no está cerrada. Las tablas y funciones de la sección
+siguiente describen el destino previsto, no una migración ya aprobada.
+
+Antes de fijar columnas, restricciones o firmas SQL deben resolverse
+conjuntamente estas brechas contractuales:
+
+- definir `RepositorioOperacionesBaremacion`, sus solicitudes, resultados y
+  las siete acciones de autorización, incluido el camino exclusivo de
+  reconciliación;
+- completar `IntencionAltaBaremacionV1` y decidir la convivencia de
+  identificadores V1 con las referencias opacas exigidas por V2;
+- distinguir y vincular la HMAC de la huella semántica con el sobre
+  probatorio exacto, sin tratarlos como un único valor intercambiable;
+- fijar una única proyección persistible del índice versionado y armonizarla
+  con `IdentificadorOperacionTransaccionalBaremacion`;
+- cerrar la capacidad AEAD: suite, sobre, límites, AAD canónico, caducidad,
+  revisión de token, revisión de reenvoltura, rotación y destrucción;
+- completar recibo de retención, los tres recibos específicos de Bolsa,
+  manifiesto material, restauración y verificadores productivos;
+- definir el resultado canónico que enlaza operación, versión, auditoría y
+  evento, así como el origen V2 de `version_baremacion`, que actualmente exige
+  una `reserva_ref` V1;
+- especificar consumo de autorización ante una consulta negativa, formato y
+  límite de candidatos, orden de bloqueo y respuesta ante coincidencia
+  múltiple;
+- resolver cómo una caducidad incluida en el AAD puede proceder de PostgreSQL
+  si el sobre se cifra antes de abrir la transacción;
+- exigir o acreditar el aislamiento transaccional en la propia frontera
+  durable, sin depender únicamente de que un cliente concreto solicite
+  `SERIALIZABLE`.
+
+### Secuencia propuesta para revisión
+
+La siguiente partición reduce el radio de cada cambio; **no constituye todavía
+una decisión adoptada**:
+
+1. Cerrar los contratos Go, vectores canónicos y referencia adversaria en
+   memoria, sin DDL.
+2. Crear una migración inerte de identidad de operación con
+   `operacion_idempotente_version`, `operacion_idempotente_actual` e
+   `indice_operacion_idempotente`; solo incluiría restricciones, RLS, ACL y
+   disparadores privados, sin funciones operativas ni concesiones.
+3. Añadir en otra migración capacidad recuperable y consumo de autorización.
+4. Añadir la barrera `decision_incorporada` y el enlace completo del resultado
+   transaccional.
+5. Incorporar las funciones cerradas y el adaptador PostgreSQL; mantenerlas
+   sin tráfico hasta superar el corredor real.
+6. Activar la composición V2 y retirar `EXECUTE` de V1 en una migración de
+   activación independiente y reversible antes de recibir tráfico V2.
+
+Los roles técnicos se aprovisionarían mediante migración DBA separada, nunca
+desde el propietario `NOCREATEROLE`. La propuesta mínima es un grupo `NOLOGIN`
+exclusivo para el proceso privado de idempotencia y, si se conserva una
+superficie SQL propia, otro para el reconciliador. El ejecutor V1, el proceso
+web y el lector outbox no recibirían funciones V2; el rol V2 solo recibiría
+`CONNECT`, `USAGE` del esquema y `EXECUTE` de sus funciones definitivas. Incorporar
+un rol obliga también a actualizar la guarda de ACL de tipos, la reversión de
+roles y sus pruebas de membresía.
+
+### Condiciones propuestas para revisar el primer DDL
+
+De aprobarse la partición anterior, el primer corte deberá acreditar estas
+invariantes antes de considerarse instalable:
+
+- `ausente` no es una fila; una operación comienza `en_curso` y `confirmada`
+  es terminal.
+- La referencia, el índice y la intención quedan fijados antes del primer
+  efecto y son inmutables.
+- Existe exactamente un índice durable por operación y un índice completo no
+  puede pertenecer a dos operaciones.
+- El puntero actual solo avanza por revisión consecutiva y operación exacta de
+  comparación y sustitución (CAS).
+- Una operación confirmada referencia conjuntamente una versión, una
+  auditoría y un evento coherentes; no se admite resultado parcial.
+- La identidad estable no contiene sesión, autorización, correlación ni
+  tiempos del intento.
+- Cero o una coincidencia de candidatos es admisible; una coincidencia múltiple
+  falla como evidencia no confiable.
+- Todas las tablas son inmutables o monotónicas, tienen RLS forzado y carecen
+  de acceso directo para identidades en ejecución.
+
+La reversión del primer corte exigirá una confirmación explícita V2, bloqueará
+únicamente sus relaciones en orden estable y abortará antes de mutar si existe una fila V2.
+Una instalación V2 vacía podrá retirarse aunque exista historia V1; no se
+vaciará, reinterpretará ni alterará esa historia. Los objetos se retirarán de
+forma exacta con `RESTRICT` y los roles, mediante su reversión DBA separada.
+
+Las pruebas mínimas de esta puerta son: instalación sobre V1 vacía y poblada;
+catálogo exacto de restricciones, RLS y ACL; denegación con cuentas `LOGIN`
+reales; rechazo de estados, revisiones, índices y punteros inválidos;
+inmutabilidad frente a actualización, borrado y truncado; dos sesiones
+compitiendo por el mismo índice con cardinalidad uno; y reversión sin
+confirmación explícita, con historia V2, con historia solo V1 y con dependencias externas. Estas
+pruebas estructurales no sustituyen el corredor Go → adaptador → PostgreSQL de
+la sección de aceptación.
+
 ## Persistencia PostgreSQL V2
 
 La migración `000005_idempotencia_semantica` creará, sin reinterpretar las
