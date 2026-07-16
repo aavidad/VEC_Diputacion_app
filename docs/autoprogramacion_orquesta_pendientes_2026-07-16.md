@@ -91,3 +91,34 @@
   no asuma capacidades inexistentes.
 - `evidencia`: Bolsa tiene las cuatro capas; Cronos y Personal parciales;
   Dietas y Administracion solo manifiesto (arbol de `internal/modules/`).
+
+### T07 — Coherencia frontend-API verificada en ejecucion
+
+- `origen`: inconsistencias detectadas y verificadas en vivo por T05 en
+  [contratos API por modulo](portal_vec/contratos_api_modulos.md), seccion
+  "Inconsistencias detectadas".
+- `estado`: nuevo. No ejecutar hasta fusionar el carril T04 (mismo write_set
+  `web/static/**`).
+- `area_hexagonal`: adaptador (frontend estatico) y composicion.
+- `accion`: programar tres correcciones: (1) `staffHeaders()` y
+  `candidateHeaders()` de `app.js` no envian `Authorization: Bearer`, que el
+  modo `fake` exige — 401 verificado en `/api/vec/session`; (2) ningun perfil
+  `fake` de serie tiene permisos funcionales de Cronos/Dietas/Personal — 403
+  verificado con Bearer valido, y `loadPortal()` sin `.catch` por llamada
+  deja la carcasa siempre en estado de error contra un despliegue demo
+  limpio; (3) `app.js` llama a `GET /api` (solo existe en la API heredada
+  fake) cuando el equivalente real de la carcasa es `GET /api/vec`.
+- `evidencia`: curls documentados en la seccion de inconsistencias del
+  contrato; codigos 401/403 reproducidos contra `cmd/vec-server` en fake.
+
+### T08 — Codigo muerto de workspace en httpapi
+
+- `origen`: hallazgo de lectura de T05.
+- `estado`: nuevo. Encaja de forma natural dentro del carril T03
+  (`httpapi` hacia `bootstrap`), como paso previo del traslado.
+- `area_hexagonal`: adaptador.
+- `accion`: eliminar `workspaceSnapshot`/`workspaceSnapshotWithCronos` de
+  `internal/vec/adapters/httpapi/workspace.go` (compilan pero ningun camino
+  HTTP los alcanza) o conectarlos si el workspace real de Ola 2 los necesita;
+  decidirlo al ejecutar T03.
+- `evidencia`: analisis de alcanzabilidad de T05 sobre `workspace.go`.
