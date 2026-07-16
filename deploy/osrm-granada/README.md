@@ -35,6 +35,10 @@ VEC_OSRM_SCOPE_NAME="Jaen provincia + 15 km"
 VEC_OSRM_SCOPE_BOUNDS="37.25,-4.35,38.65,-2.35"
 ```
 
+`OSRM_DATA_BASENAME` solo admite minusculas ASCII, numeros, guion y guion bajo.
+El contenedor valida esa lista positiva antes de construir cualquier ruta y
+ejecuta una operacion OSRM fija sin interpolarla en `sh -c`.
+
 ## Preparar grafo
 
 ```bash
@@ -61,3 +65,12 @@ datos, probar rutas semilla y cambiar el volumen activo de forma atomica.
 
 VEC guarda la version de grafo usada en cada expediente; las liquidaciones ya
 cerradas no se recalculan retroactivamente.
+
+## Comprobacion local de seguridad
+
+```bash
+deploy/osrm-granada/tests/probar_inicio_seguro.sh
+```
+
+La prueba rechaza nombres hostiles, impide reintroducir `sh -c` y valida la
+configuracion efectiva con Docker Compose.

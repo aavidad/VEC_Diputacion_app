@@ -3,17 +3,25 @@ services:
     image: ${OSRM_IMAGE:-osrm/osrm-backend:latest}
     profiles: ["build"]
     working_dir: /data
+    entrypoint: ["/bin/sh", "/opt/vec/iniciar_osrm.sh"]
+    environment:
+      OSRM_DATA_BASENAME: ${OSRM_DATA_BASENAME:-granada-buffer}
     volumes:
       - ./data:/data
-    command: sh -c "osrm-extract -p /opt/car.lua /data/${OSRM_DATA_BASENAME:-granada-buffer}.osm.pbf"
+      - ./iniciar_osrm.sh:/opt/vec/iniciar_osrm.sh:ro
+    command: ["extraer"]
 
   osrm-partition:
     image: ${OSRM_IMAGE:-osrm/osrm-backend:latest}
     profiles: ["build"]
     working_dir: /data
+    entrypoint: ["/bin/sh", "/opt/vec/iniciar_osrm.sh"]
+    environment:
+      OSRM_DATA_BASENAME: ${OSRM_DATA_BASENAME:-granada-buffer}
     volumes:
       - ./data:/data
-    command: sh -c "osrm-partition /data/${OSRM_DATA_BASENAME:-granada-buffer}.osrm"
+      - ./iniciar_osrm.sh:/opt/vec/iniciar_osrm.sh:ro
+    command: ["particionar"]
     depends_on:
       osrm-extract:
         condition: service_completed_successfully
@@ -22,9 +30,13 @@ services:
     image: ${OSRM_IMAGE:-osrm/osrm-backend:latest}
     profiles: ["build"]
     working_dir: /data
+    entrypoint: ["/bin/sh", "/opt/vec/iniciar_osrm.sh"]
+    environment:
+      OSRM_DATA_BASENAME: ${OSRM_DATA_BASENAME:-granada-buffer}
     volumes:
       - ./data:/data
-    command: sh -c "osrm-customize /data/${OSRM_DATA_BASENAME:-granada-buffer}.osrm"
+      - ./iniciar_osrm.sh:/opt/vec/iniciar_osrm.sh:ro
+    command: ["personalizar"]
     depends_on:
       osrm-partition:
         condition: service_completed_successfully
@@ -32,8 +44,12 @@ services:
   osrm:
     image: ${OSRM_IMAGE:-osrm/osrm-backend:latest}
     restart: unless-stopped
+    entrypoint: ["/bin/sh", "/opt/vec/iniciar_osrm.sh"]
+    environment:
+      OSRM_DATA_BASENAME: ${OSRM_DATA_BASENAME:-granada-buffer}
     ports:
       - "127.0.0.1:5000:5000"
     volumes:
       - ./data:/data:ro
-    command: sh -c "osrm-routed --algorithm mld --max-table-size 50000 /data/${OSRM_DATA_BASENAME:-granada-buffer}.osrm"
+      - ./iniciar_osrm.sh:/opt/vec/iniciar_osrm.sh:ro
+    command: ["servir"]
