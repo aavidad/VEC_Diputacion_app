@@ -82,8 +82,7 @@ func (v VersionConvocatoriaGobernada) PublicarSucesora(
 		v.VersionAnteriorRef != predecesora.Referencia() ||
 		v.Contenido.IdentificadorPublico != predecesora.Contenido.IdentificadorPublico ||
 		v.CreadaEn.Before(predecesora.ultimaFechaGobierno()) ||
-		(predecesora.EstadoGobierno == EstadoGobiernoConvocatoriaPublicada &&
-			v.Configuracion.FlujoProceso != predecesora.Configuracion.FlujoProceso) {
+		v.Configuracion.FlujoProceso != predecesora.Configuracion.FlujoProceso {
 		return ResultadoPublicacionSucesoraConvocatoria{}, ErrTransicionGobiernoConvocatoria
 	}
 	publicada, err := v.publicar(actorID, aprobacion, dependencias, motivo, instante)
@@ -221,18 +220,23 @@ func (v VersionConvocatoriaGobernada) SustituirPor(
 func (v VersionConvocatoriaGobernada) ProyectarPublica(
 	instancia dominiovec.InstanciaFlujo,
 ) (Convocatoria, error) {
-	actualizadaEn := instancia.CreadaEn
+	actualizadaFlujoEn := instancia.CreadaEn
 	if instancia.Revision > 1 {
-		actualizadaEn = instancia.ActualizadaEn
+		actualizadaFlujoEn = instancia.ActualizadaEn
 	}
-	actualizadaEn = instanteConvocatoriaCanonico(actualizadaEn)
+	actualizadaFlujoEn = instanteConvocatoriaCanonico(actualizadaFlujoEn)
+	actualizadaEn := actualizadaFlujoEn
+	if actualizadaEn.Before(v.PublicadaEn) {
+		actualizadaEn = v.PublicadaEn
+	}
 	definicionRef := v.Configuracion.FlujoProceso.ReferenciaVersionada()
 	estado := EstadoConvocatoria(instancia.EstadoActual)
 	if v.Validar() != nil || v.EstadoGobierno != EstadoGobiernoConvocatoriaPublicada ||
 		instancia.Validar() != nil || instancia.TipoEntidad != TipoEntidadFlujoConvocatoriaBolsa ||
 		instancia.EntidadRef != v.ID || instancia.DefinicionRef != definicionRef ||
 		instancia.DefinicionContenidoHuellaSHA256 != v.Configuracion.FlujoProceso.HuellaContenidoSHA256 ||
-		!estado.IsValid() || actualizadaEn.IsZero() || actualizadaEn.Before(v.PublicadaEn) {
+		!estado.IsValid() || actualizadaEn.IsZero() ||
+		(v.Secuencia == 1 && actualizadaFlujoEn.Before(v.PublicadaEn)) {
 		return Convocatoria{}, ErrVersionConvocatoriaGobernadaInvalida
 	}
 	contenido := v.Contenido

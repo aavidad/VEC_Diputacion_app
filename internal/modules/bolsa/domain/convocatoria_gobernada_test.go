@@ -406,6 +406,34 @@ func TestNuevaVersionSustituyeExactamenteLaAnterior(t *testing.T) {
 	if _, err := sustituida.ProyectarPublica(instancia); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
 		t.Fatalf("una version sustituida aparecio como activa: %v", err)
 	}
+	instanciaAnterior := instanciaFlujoConvocatoriaPrueba(primera, "inscripcion", primera.PublicadaEn)
+	proyeccionSucesora, err := segunda.ProyectarPublica(instanciaAnterior)
+	if err != nil || proyeccionSucesora.DatosPublicos == nil ||
+		proyeccionSucesora.DatosPublicos.ActualizadaEn != segunda.PublicadaEn {
+		t.Fatalf("la sucesora no reutilizo el flujo estable: proyeccion=%+v error=%v", proyeccionSucesora, err)
+	}
+
+	conOtroFlujo, err := primera.NuevaVersion(
+		"v3", primera.Contenido, primera.Configuracion, "expediente:seleccion:2026-003",
+		"persona:tecnica:004", "Intento de migracion implicita.", segunda.PublicadaEn.Add(time.Hour),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conOtroFlujo.Configuracion.FlujoProceso.Version++
+	conOtroFlujo.Configuracion.FlujoProceso.HuellaContenidoSHA256 = cadenaRepetidaConvocatoria('f')
+	conOtroFlujo, err = conOtroFlujo.ClonarCanonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fechaOtroFlujo := conOtroFlujo.CreadaEn.Add(time.Hour)
+	aprobacionOtroFlujo, dependenciasOtroFlujo := evidenciasPublicacionPrueba(t, conOtroFlujo, fechaOtroFlujo)
+	if _, err := conOtroFlujo.PublicarSucesora(
+		primera, "persona:gestora:002", aprobacionOtroFlujo, dependenciasOtroFlujo,
+		"Migracion implicita.", fechaOtroFlujo,
+	); !errors.Is(err, ErrTransicionGobiernoConvocatoria) {
+		t.Fatalf("acepto cambiar el flujo de una cadena iniciada: %v", err)
+	}
 }
 
 func TestClonacionGobernadaNoComparteDocumentos(t *testing.T) {
