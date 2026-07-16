@@ -45,6 +45,7 @@ Diputación.
 - [Integracion del Baremador de puestos singularizados y otros procesos](integracion_baremador_concursos_provision.md).
 - [Modelo historico de RPT, plazas, puestos, ocupaciones y vacantes](modelo_historico_rpt_plazas_puestos_y_vacantes.md).
 - [Calendario habil, laboral y de jornada con historia reproducible](calendario_habil_laboral_historico.md).
+- [Archivo documental relacionado de Recursos Humanos](archivo_documental_rrhh_relacionado.md).
 - [Brechas para un producto profesional, seguro y trazable](brechas_para_producto_profesional.md).
 - [Sistema de diseño, plantillas y temas visuales](sistema_diseno_y_temas.md).
 - [Ayuda, documentación, audio y asistente](ayuda_documentacion_audio_y_asistente.md).
@@ -138,6 +139,9 @@ productiva verificada.
   Diputacion, vigencia, ambito, procedimiento real y casos de prueba deben
   constar antes de programar. Si falta autoridad documental, se consulta a la
   unidad competente y no se inventa comportamiento.
+- El archivo de RRHH es una capa logica transversal sobre el almacen seguro:
+  conserva originales, indices, metadatos, relaciones, series y retencion sin
+  duplicar ficheros por modulo ni confundir un dossier con un expediente legal.
 
 ## Trabajo pendiente antes de redactar las especificaciones definitivas
 

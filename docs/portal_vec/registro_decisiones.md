@@ -2430,3 +2430,31 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   forma de trabajo provincial.
 - Evidencia de tarea: una tarea funcional de código sin ficha de fuentes,
   vigencia, decisión y prueba queda en **NO-GO** y no entra en producción.
+
+## DEC-069 — Archivo lógico transversal y expedientes relacionados
+
+- Estado: modelo adoptado el 16 de julio de 2026; política institucional,
+  tablas de valoración, integraciones y validación de Archivo pendientes.
+- Reutilización: el archivo lógico se apoya en `DocumentoLogico`,
+  `RepresentacionDocumento` y `AlmacenObjetos`; no crea carpetas o almacenes
+  independientes para Bolsa, Personal, RPT, Nómina o Cronos.
+- Identidad: contenido, documento, expediente y dossier son conceptos
+  distintos. Se deduplican bytes, pero no se fusionan documentos solo por
+  compartir huella, productor o nombre.
+- Expediente: cada incorporación muchos-a-muchos conserva rol, orden, fecha e
+  índice firmado exacto. Un dossier transversal relaciona expedientes sin
+  sustituirlos ni ampliar permisos.
+- Fuente: originales, publicaciones, firmas, metadatos y validaciones se
+  capturan con procedencia. URL, escaneo u OCR no se tratan como original o
+  copia auténtica por sí solos.
+- Historia: RPT, bases, acuerdos, BOP, resoluciones y correcciones forman
+  cronologías y relaciones tipadas inmutables; una instantánea estructurada
+  aprobada incluye esquema, datos y manifiesto reproducible.
+- Acceso y ciclo de vida: conservación, publicidad, acceso, transferencia,
+  bloqueo y eliminación son decisiones independientes. Sin tabla aplicable o
+  ante litigio se prohíbe eliminar.
+- Evolución: el contrato documental V2 añadirá procedencia capturada y clases
+  de original, copia auténtica, OCR, publicación y expurgo sin inventar una
+  plantilla ni romper V1 durante la migración.
+- Especificación:
+  `docs/estudio_requisitos/archivo_documental_rrhh_relacionado.md`.
