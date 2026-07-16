@@ -75,7 +75,8 @@ require_cmd python3
 
 if [[ "${VEC_SMOKE_SKIP_TESTS:-${BOLSA_SMOKE_SKIP_TESTS:-0}}" != "1" ]]; then
   (cd "$ROOT_DIR" && go test -count=1 ./...)
-  (cd "$ROOT_DIR" && node --check web/static/app.js)
+  (cd "$ROOT_DIR" && node --input-type=module --check < web/static/app.js)
+  (cd "$ROOT_DIR" && node --test web/static/modulos/cronos/resumen.test.mjs)
   (cd "$ROOT_DIR" && python3 -m json.tool locales/es.json >/dev/null)
 fi
 

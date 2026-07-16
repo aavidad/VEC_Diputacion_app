@@ -1,3 +1,5 @@
+import { renderizarResumenCronos } from "./modulos/cronos/resumen.js?v=20260716-cronos-modular";
+
 const VEC_SHELL_API = "/api/vec";
 const VEC_WORKSPACE_API = "/api/vec/workspace";
 const VEC_SESSION_API = "/api/vec/session";
@@ -65,6 +67,7 @@ function updateDemoUserUI() {
 }
 
 function sessionContextText() {
+  if (!hasExplicitSessionAccess()) return "Sesion no autenticada";
   const user = activeDemoUser();
   return `Sesion demo: ${user.displayName} (${user.roles.join(", ")})`;
 }
@@ -1673,6 +1676,7 @@ function moduleCount(view, moduleID) {
 function renderModules(view) {
   const nav = $(".module-group");
   if (!nav) return;
+  nav.hidden = !hasExplicitSessionAccess();
   const moduleByID = new Map(MODULES.map((module) => [module.id, module]));
   const nodes = [];
   visibleMenuGroups().forEach(([title, ids]) => {
@@ -2085,57 +2089,6 @@ function renderListing(selector, items) {
     });
     return row;
   }));
-}
-
-function renderCronosPanel(view) {
-  const target = $("#cronos-panel");
-  if (!target) return;
-  const summary = view.workspace?.cronos_daily_summary || {};
-  const permissions = view.workspace?.cronos_permission_balances || [];
-  const sections = view.workspace?.cronos_sections || [];
-  const nav = document.createElement("div");
-  nav.className = "cronos-nav";
-  nav.replaceChildren(...sections.map((section) => {
-    const span = document.createElement("span");
-    span.textContent = section;
-    return span;
-  }));
-
-  const summaryBox = document.createElement("div");
-  summaryBox.className = "cronos-summary";
-  summaryBox.innerHTML = `
-    <div><span>Horas teoricas</span><strong></strong></div>
-    <div><span>Horas trabajadas</span><strong></strong></div>
-    <div><span>Teletrabajo</span><strong></strong></div>
-    <div><span>Exceso / defecto mes</span><strong></strong></div>`;
-  const values = [
-    summary.theoretical || "-",
-    summary.worked || "-",
-    summary.telework || "-",
-    summary.period_balance || summary.daily_balance || "-",
-  ];
-  $$("strong", summaryBox).forEach((node, index) => {
-    node.textContent = values[index];
-    if (String(values[index]).startsWith("-")) node.classList.add("negative");
-  });
-
-  const table = document.createElement("table");
-  table.className = "mini-table";
-  table.innerHTML = `
-    <thead><tr><th>Permiso</th><th>Solicitar</th><th>Max.</th><th>Solic</th><th>Resta</th></tr></thead>
-    <tbody></tbody>`;
-  const tbody = $("tbody", table);
-  permissions.slice(0, 8).forEach((item) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td></td><td></td><td></td><td></td><td></td>`;
-    $$("td", tr)[0].textContent = item.name || "-";
-    $$("td", tr)[1].textContent = item.request ? "Solicitar" : "-";
-    $$("td", tr)[2].textContent = item.max || "-";
-    $$("td", tr)[3].textContent = item.requested || "-";
-    $$("td", tr)[4].textContent = item.remaining || "-";
-    tbody.append(tr);
-  });
-  target.replaceChildren(nav, summaryBox, table);
 }
 
 function renderDietasPanel(view) {
@@ -9401,7 +9354,7 @@ function renderOperationalPanels(view) {
   if (modulePortalUsesDedicatedSurface()) return;
   renderFlowPanel();
   renderTable(view);
-  renderCronosPanel(view);
+  renderizarResumenCronos(view);
   renderDietasPanel(view);
 }
 
@@ -9720,6 +9673,11 @@ function renderPortal(view) {
     document.body.dataset.accessProfile = sessionAccessProfile().id;
   }
   state.rows = rowsFromPortal(view).filter(rowVisibleForSession);
+  const buscador = $(".search-form");
+  if (buscador) buscador.hidden = !hasExplicitSessionAccess();
+  $$(".search-form input, .search-form button").forEach((control) => { control.disabled = false; });
+  const aprobaciones = $(".operator-tools > .quiet-action");
+  if (aprobaciones) aprobaciones.hidden = !hasExplicitSessionAccess();
   if (!state.selectedRowID && state.rows.length) {
     state.selectedRowID = state.rows[0].id;
   }
@@ -9741,6 +9699,27 @@ function renderPortal(view) {
   renderOperationalPanels(view);
 }
 
+function renderizarAccesoCerrado() {
+  state.session = null;
+  state.portal = null;
+  state.workspace = null;
+  state.rows = [];
+  state.selectedRowID = "";
+  state.activeModule = "sin_acceso";
+  state.activeScreen = "";
+  if (document.body) document.body.dataset.accessProfile = NO_ACCESS_PROFILE.id;
+  renderModules({});
+  renderModuleHeader();
+  setOperationalPanelsHidden(true);
+  const portal = $("#module-portal");
+  if (portal) portal.hidden = true;
+  const aprobaciones = $(".operator-tools > .quiet-action");
+  if (aprobaciones) aprobaciones.hidden = true;
+  const buscador = $(".search-form");
+  if (buscador) buscador.hidden = true;
+  $$(".search-form input, .search-form button").forEach((control) => { control.disabled = true; });
+}
+
 function setOperationalPanelsHidden(hidden) {
   [
     ".filter-bar",
@@ -9748,6 +9727,7 @@ function setOperationalPanelsHidden(hidden) {
     ".workspace-row",
     ".right-column",
     "#flow-panel",
+    ".workspace-status",
   ].forEach((selector) => {
     $$(selector).forEach((node) => {
       node.hidden = Boolean(hidden);
@@ -9816,6 +9796,7 @@ async function loadPortal() {
     updateLocationHash();
     setStatus("VEC conectado", "ready");
   } catch (error) {
+    renderizarAccesoCerrado();
     setStatus(error.message, "error");
   } finally {
     reloadButton.disabled = false;

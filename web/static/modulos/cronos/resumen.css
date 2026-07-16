@@ -1,0 +1,85 @@
+/* Cronos hereda todos los colores del tema central; aqui solo vive su layout. */
+.workspace .cronos-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 0;
+  padding: 10px;
+  background: var(--procedure);
+  list-style: none;
+}
+
+.workspace .cronos-nav li {
+  padding: 5px 8px;
+  color: var(--surface);
+  font-size: 0.82rem;
+  font-weight: 720;
+}
+
+.workspace .cronos-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  padding: 10px;
+}
+
+.workspace .cronos-summary div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--workspace-line, var(--line));
+  background: var(--surface);
+}
+
+.workspace .cronos-summary span,
+.workspace .mini-table th {
+  color: var(--workspace-muted, var(--muted));
+  font-size: 0.78rem;
+  font-weight: 780;
+  text-transform: uppercase;
+}
+
+.workspace .cronos-summary strong,
+.workspace .mini-table td {
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace .cronos-summary .negative {
+  color: var(--danger);
+}
+
+.workspace .cronos-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.workspace .mini-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.workspace .mini-table th,
+.workspace .mini-table td {
+  padding: 7px 8px;
+  border-top: 1px solid var(--workspace-line, var(--line));
+  text-align: left;
+}
+
+.workspace .mini-table tbody tr:nth-child(odd) {
+  background: var(--procedure-soft);
+}
+
+.workspace .mini-table .cronos-empty {
+  background: var(--surface);
+  color: var(--workspace-muted, var(--muted));
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .workspace .cronos-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

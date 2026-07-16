@@ -813,72 +813,6 @@ h2 {
   overflow-wrap: anywhere;
 }
 
-.workspace .cronos-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  padding: 10px;
-  background: #2f6da3;
-}
-
-.workspace .cronos-nav span {
-  padding: 5px 8px;
-  color: #fff;
-  font-size: 0.82rem;
-  font-weight: 720;
-}
-
-.workspace .cronos-summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
-  padding: 10px;
-}
-
-.workspace .cronos-summary div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  padding: 7px 8px;
-  border: 1px solid var(--workspace-line, var(--line));
-  background: #fff;
-}
-
-.workspace .cronos-summary span,
-.workspace .mini-table th {
-  color: var(--workspace-muted, var(--muted));
-  font-size: 0.78rem;
-  font-weight: 780;
-  text-transform: uppercase;
-}
-
-.workspace .cronos-summary strong,
-.workspace .mini-table td,
-.workspace .route-row b {
-  font-variant-numeric: tabular-nums;
-}
-
-.workspace .cronos-summary .negative {
-  color: var(--danger);
-}
-
-.workspace .mini-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.workspace .mini-table th,
-.workspace .mini-table td {
-  padding: 7px 8px;
-  border-top: 1px solid var(--workspace-line, var(--line));
-  text-align: left;
-}
-
-.workspace .mini-table tbody tr:nth-child(odd) {
-  background: #eaf3fb;
-}
-
 .workspace .route-list {
   display: grid;
   gap: 0;
@@ -892,6 +826,10 @@ h2 {
   min-height: 58px;
   padding: 10px 12px;
   border-top: 1px solid var(--workspace-line, var(--line));
+}
+
+.workspace .route-row b {
+  font-variant-numeric: tabular-nums;
 }
 
 .workspace .route-row:first-child {

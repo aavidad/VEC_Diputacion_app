@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>VEC Diputacion Granada</title>
-    <link rel="stylesheet" href="/styles.css?v=20260621-baremo-details">
+    <link rel="stylesheet" href="/styles.css?v=20260716-cronos-modular">
+    <link rel="stylesheet" href="/modulos/cronos/resumen.css?v=20260716-cronos-modular">
     <style>
       :root {
         --workspace-bg: #f4f6f8;
@@ -1014,7 +1015,7 @@
         display: none;
       }
     </style>
-    <script src="/app.js?v=20260716-arranque-cerrado" defer></script>
+    <script type="module" src="/app.js?v=20260716-cronos-modular"></script>
   </head>
   <body>
     <div class="workspace">
@@ -1029,7 +1030,7 @@
           </div>
         </div>
 
-        <nav class="module-group" aria-label="Navegacion principal">
+        <nav class="module-group" aria-label="Navegacion principal" hidden>
           <p class="module-title">Portal empleado</p>
           <button class="module-link" type="button">
             <span>Personal</span><span class="module-count">6</span>
@@ -1071,7 +1072,7 @@
             <span class="small-text">Sesion personal interno - contexto del modulo activo</span>
           </div>
 
-          <form class="search-form" role="search">
+          <form class="search-form" role="search" hidden>
             <label for="global-search">Buscar expediente, DNI parcial o solicitud</label>
             <input id="global-search" name="q" type="search" placeholder="Buscar expediente, DNI parcial o solicitud">
             <button type="submit">Buscar</button>
@@ -1079,7 +1080,7 @@
 
           <div class="operator-tools">
             <p class="status" id="connection-status" role="status">Preparando demo</p>
-            <button class="quiet-action" type="button" aria-label="Abrir aprobaciones">Aprobaciones 8</button>
+            <button class="quiet-action" type="button" aria-label="Abrir aprobaciones" hidden>Aprobaciones 8</button>
           </div>
         </header>
 
@@ -1122,7 +1123,7 @@
 
             <section id="module-portal" class="module-portal" aria-live="polite" hidden></section>
 
-            <form class="filter-bar" aria-label="Filtros de expedientes">
+            <form class="filter-bar" aria-label="Filtros de expedientes" hidden>
               <label>
                 Ambito
                 <select name="scope">
@@ -1170,7 +1171,7 @@
               <button class="quiet-action" type="button">Aplicar</button>
             </form>
 
-            <section class="queue-panel" aria-labelledby="queue-title">
+            <section class="queue-panel" aria-labelledby="queue-title" hidden>
               <div class="panel-header">
                 <div>
                   <h2 id="queue-title">Cola de expedientes VEC</h2>
@@ -1250,7 +1251,7 @@
               </div>
             </section>
 
-            <section class="workspace-row" aria-label="Control Cronos y Dietas">
+            <section class="workspace-row" aria-label="Control Cronos y Dietas" hidden>
               <article class="listing">
                 <div class="listing-header">
                   <h2>Cronos: saldo horario y permisos</h2>
@@ -1269,7 +1270,7 @@
             </section>
           </section>
 
-          <aside class="right-column" aria-label="Detalle del expediente seleccionado">
+          <aside class="right-column" aria-label="Detalle del expediente seleccionado" hidden>
             <section class="detail-panel" aria-labelledby="detail-title">
               <div class="panel-header">
                 <div>
@@ -1364,7 +1365,7 @@
           </aside>
         </main>
 
-        <footer class="workspace-status">
+        <footer class="workspace-status" hidden>
           <span>Ultima sincronizacion local: 19/06/2026 10:15 - adaptador demo en memoria</span>
           <span>Refs opacas preservadas: worktree-bolsa-diputacion-existing-app - branch-bolsa-profesional-002</span>
         </footer>

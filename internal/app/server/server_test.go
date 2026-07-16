@@ -37,6 +37,8 @@ func TestServerServesStaticUI(t *testing.T) {
 	}{
 		{path: "/", contentType: "text/html", want: "VEC Diputacion"},
 		{path: "/app.js", contentType: "text/javascript", want: `fetch("/api/demo"`},
+		{path: "/modulos/cronos/resumen.js", contentType: "text/javascript", want: "renderizarResumenCronos"},
+		{path: "/modulos/cronos/resumen.css", contentType: "text/css", want: ".cronos-table-wrap"},
 		{path: "/styles.css", contentType: "text/css", want: ".listings"},
 		{path: "/locales/es.json", contentType: "application/json", want: "api.candidate.created"},
 	} {
@@ -50,6 +52,37 @@ func TestServerServesStaticUI(t *testing.T) {
 		}
 		if !strings.Contains(rec.Body.String(), tc.want) {
 			t.Fatalf("%s body missing %q", tc.path, tc.want)
+		}
+	}
+}
+
+func TestInterfazParteCerradaHastaResolverUnaSesionAutorizada(t *testing.T) {
+	handler := NewHandler(http.NotFoundHandler())
+	for _, recurso := range []struct {
+		ruta    string
+		cierres []string
+	}{
+		{ruta: "/", cierres: []string{
+			`class="module-group" aria-label="Navegacion principal" hidden`,
+			`class="search-form" role="search" hidden`,
+			`class="filter-bar" aria-label="Filtros de expedientes" hidden`,
+			`class="queue-panel" aria-labelledby="queue-title" hidden`,
+			`class="right-column" aria-label="Detalle del expediente seleccionado" hidden`,
+		}},
+		{ruta: "/app.js", cierres: []string{
+			`activeModule: "sin_acceso"`,
+			`renderizarAccesoCerrado();`,
+		}},
+	} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, recurso.ruta, nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s status = %d, want 200", recurso.ruta, rec.Code)
+		}
+		for _, cierre := range recurso.cierres {
+			if !strings.Contains(rec.Body.String(), cierre) {
+				t.Errorf("%s no conserva el cierre inicial %q", recurso.ruta, cierre)
+			}
 		}
 	}
 }
@@ -112,6 +145,8 @@ func TestServerCachesVersionedStaticAssets(t *testing.T) {
 		{path: "/app.js", wantCache: "no-cache"},
 		{path: "/app.js?v=20260621-fixes", wantCache: "public, max-age=31536000, immutable"},
 		{path: "/styles.css?v=20260621-fixes", wantCache: "public, max-age=31536000, immutable"},
+		{path: "/modulos/cronos/resumen.js?v=20260716", wantCache: "public, max-age=31536000, immutable"},
+		{path: "/modulos/cronos/resumen.css?v=20260716", wantCache: "public, max-age=31536000, immutable"},
 	} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, tc.path, nil))
