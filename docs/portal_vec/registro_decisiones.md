@@ -1841,3 +1841,34 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   de DEC-051 y tema conmutable sin retocar el modulo.
 - Reversibilidad: media. Los modulos pueden reagruparse si hiciera falta,
   pero no se contempla volver al monolito.
+
+## DEC-053 — API primero con clientes web y de escritorio equivalentes
+
+- Estado: decision adoptada el 16 de julio de 2026 por el responsable del
+  proyecto. Condiciona la construccion de la Ola 2 (endpoints finos).
+- Necesidad: los tecnicos de RRHH y administracion acceden a la parte
+  interna y delicada del portal. El responsable contempla darles una
+  aplicacion de escritorio con seguridad reforzada en lugar de acceso web,
+  segun las puertas separadas ya descritas en
+  [acceso interno de tecnicos](../estudio_requisitos/acceso_interno_tecnicos_administracion.md).
+- Decision: toda funcionalidad nace como endpoint API JSON versionado bajo
+  `/api/vec`; la web estatica es un cliente mas, sin privilegios de acceso
+  distintos de los de cualquier otro cliente autorizado. Prohibido
+  incorporar logica de negocio, calculos normativos o datos de negocio
+  incrustados en los clientes: lo que hoy hace `app.js` con datos sinteticos
+  locales se considera deuda a extinguir con la Ola 2, no un patron a
+  repetir.
+- Sesion y autenticacion: sin cookies de sesion en ninguna superficie; la
+  autenticacion viaja por cabeceras o token en cada peticion, como ya ocurre.
+  La puerta de tecnicos podra montarse como superficie separada con
+  autenticacion reforzada (mTLS de dispositivo y empleado, Kerberos/AD,
+  allowlist de puestos de administracion via `VEC_HTTP_ALLOWED_CIDRS`), y
+  reutiliza sin cambios la autorizacion por caso de uso del servidor: un
+  cliente distinto jamas implica una autorizacion distinta.
+- Contrato: cada modulo documenta sus endpoints (ruta, metodo, envelope,
+  errores y version) en su documentacion de contrato, de forma que un
+  cliente de escritorio pueda construirse contra el contrato sin leer el
+  codigo del servidor.
+- Reversibilidad: alta para el cliente (web y escritorio son
+  intercambiables por diseno); baja para el principio API primero, que es
+  precisamente la garantia de esa intercambiabilidad.
