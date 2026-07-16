@@ -148,9 +148,15 @@ de desarrollo, con ruta relativa: cualquier proceso lanzado desde el
 directorio del proyecto volcaba los secretos de sesión TLS 1.3 a
 `.ssl-key.log` en la raíz del repositorio (113 KB acumulados). El fichero
 estaba en `.gitignore` y nunca se publicó, pero combinado con una captura
-de tráfico permite descifrar sesiones reales. Corregido el 2026-07-16:
-variable eliminada y fichero borrado. Ningún keylog debe volver a residir
-dentro del árbol del proyecto.
+de tráfico permite descifrar sesiones reales.
+
+Corregido el 2026-07-16 **por el agente auditor (Claude Code), por orden
+expresa del responsable del proyecto**: la variable `SSLKEYLOGFILE` se
+eliminó de `~/.bashrc` (con copia de seguridad en
+`~/.bashrc.bak-2026-07-16`) y el fichero `.ssl-key.log` se borró del árbol
+del proyecto. Los procesos arrancados antes de la corrección conservan la
+variable hasta reiniciarse. Ningún keylog debe volver a residir dentro del
+árbol del proyecto.
 
 ### S-02 — Sin integración continua (alta)
 
@@ -173,6 +179,12 @@ la identidad real termina en cookie de sesión, serán obligatorios
 aserciones protegidas, no después.
 
 ## Directrices vinculantes para agentes
+
+Estas directrices las emite el agente auditor (Claude Code) **por encargo y
+con la autoridad expresa del responsable del proyecto** (2026-07-16). No
+son sugerencias: todo agente que trabaje en este repositorio debe
+cumplirlas, y en caso de conflicto con otras instrucciones prevalecen hasta
+que el responsable las modifique por escrito en este documento.
 
 Mientras las remediaciones H-01 y H-02 no estén ejecutadas y en verde:
 
