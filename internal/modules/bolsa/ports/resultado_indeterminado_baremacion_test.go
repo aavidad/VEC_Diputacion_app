@@ -62,6 +62,44 @@ func TestResultadoTransaccionalDistingueNoAplicadaDePosiblementeAplicada(t *test
 	}
 }
 
+func TestIdentificadorOperacionSoloCoincideConReferenciaEIndiceExactos(t *testing.T) {
+	identificador := identificadorResultadoTransaccionalValidoPrueba(t, 0x35)
+	clon, err := identificador.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !identificador.CoincideExactamenteCon(clon) || !clon.CoincideExactamenteCon(identificador) {
+		t.Fatal("un identificador valido no coincide con su clon")
+	}
+
+	otraReferencia := identificadorResultadoTransaccionalValidoPrueba(t, 0x36)
+	if identificador.CoincideExactamenteCon(otraReferencia) ||
+		otraReferencia.CoincideExactamenteCon(identificador) {
+		t.Fatal("se admitio otra referencia con el mismo indice")
+	}
+
+	referencia, _, err := identificador.DatosReconciliacion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	otroIndice, err := NuevoIdentificadorOperacionTransaccionalBaremacion(
+		referencia,
+		"hmac-sha256:indice-reconciliacion-v1:"+strings.Repeat("b", 64),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identificador.CoincideExactamenteCon(otroIndice) ||
+		otroIndice.CoincideExactamenteCon(identificador) {
+		t.Fatal("se admitio otro indice para la misma referencia")
+	}
+
+	if identificador.CoincideExactamenteCon(IdentificadorOperacionTransaccionalBaremacion{}) ||
+		(IdentificadorOperacionTransaccionalBaremacion{}).CoincideExactamenteCon(identificador) {
+		t.Fatal("un identificador invalido no fallo en cerrado")
+	}
+}
+
 func TestNoAplicadaExigePruebaAutenticadaYEnlazada(t *testing.T) {
 	identificador := identificadorResultadoTransaccionalValidoPrueba(t, 0x41)
 	prueba := pruebaNoAplicacionValidaPrueba(t, identificador, 0x51)

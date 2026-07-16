@@ -101,6 +101,19 @@ func (i IdentificadorOperacionTransaccionalBaremacion) Clonar() (IdentificadorOp
 	return i, nil
 }
 
+// CoincideExactamenteCon comprueba las dos partes protegidas del identificador
+// sin abrirlas al llamador. Un valor cero, alterado o de otro esquema nunca
+// coincide, aunque comparta una de las dos partes.
+func (i IdentificadorOperacionTransaccionalBaremacion) CoincideExactamenteCon(
+	otro IdentificadorOperacionTransaccionalBaremacion,
+) bool {
+	if i.Validar() != nil || otro.Validar() != nil {
+		return false
+	}
+	return textoIgualConstanteBaremacion(i.referenciaOpaca, otro.referenciaOpaca) &&
+		textoIgualConstanteBaremacion(i.indiceOperacionHMAC, otro.indiceOperacionHMAC)
+}
+
 // DatosReconciliacion es la unica apertura deliberada del identificador. El
 // llamador debe tratar los valores como material probatorio, no como texto de
 // observabilidad.
