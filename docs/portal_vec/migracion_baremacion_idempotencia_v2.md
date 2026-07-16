@@ -171,6 +171,34 @@ La forma sintáctica de una HMAC no acredita «no aplicada». Esa conclusión
 requiere evidencia autenticada y un verificador autoritativo. Cualquier valor
 nulo, desconocido, incompleto o manipulado obliga a reconciliar.
 
+## Corte nominal de vinculo transaccional — 16 de julio de 2026
+
+Se ha implantado una pieza aislada de la primera fase, sin abrir el flujo V2:
+
+- `IdentificadorOperacionTransaccionalBaremacion` compara referencia opaca e
+  indice HMAC de forma protegida y falla en cerrado ante valores incompletos;
+- `IntentoNominalConfirmacionBaremacionV2` incorpora obligatoriamente ese
+  identificador al sobre probatorio exacto del intento;
+- la finalidad criptografica
+  `sobre_probatorio_confirmacion_baremacion_v2` separa el nuevo canonico de
+  reserva y confirmacion V1;
+- los vectores SHA-256 congelados del canonico de prueba son
+  `61c5addec40c05201785afa148f5b4c44c2d642f8f74981c559b98045e40079f`
+  para V1 y
+  `371e064cf0673dea27d2741803604a804e08246b9f447497deb025bf49790f6a`
+  para el sobre nominal V2;
+- la normalizacion de fallos solo conserva un resultado tipado si pertenece a
+  la operacion exacta. Un identificador ajeno, varias ramas, un error generico
+  o un grafo hostil se sustituyen por un resultado indeterminado nuevo ligado
+  al identificador esperado y sin causas tecnicas.
+
+La palabra **nominal** es deliberada. La coincidencia de forma y el eco del
+identificador no acreditan que una fila exista, que el `COMMIT` lo persistiera
+ni que version, auditoria y evento nacieran atomicamente. Tampoco autentican el
+testimonio de DEC-047, conceden un reintento o sustituyen el fingerprint
+semantico de DEC-045/049. El resultado canonico autenticado, la preparacion
+durable y el reconciliador siguen pendientes.
+
 ## Puerta previa al DDL — dictamen de 16 de julio de 2026
 
 **Estado: NO-GO para redactar o aplicar DDL productivo V2.** Este dictamen no

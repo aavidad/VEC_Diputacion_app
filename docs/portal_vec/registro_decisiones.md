@@ -1895,3 +1895,32 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   productivo pendiente. Tras invocar `ConfirmarCambio`, todo desenlace no
   autoritativo debe clasificarse como transaccionalmente indeterminado y
   entregarse a reconciliacion, sin ampliar autoridad ni intentos.
+
+## DEC-055 — Sobre probatorio nominal V2 ligado a la operacion
+
+- Estado: contrato nominal y normalizacion fail-closed implantados el 16 de
+  julio de 2026; flujo productivo, persistencia y DDL V2 siguen en NO-GO.
+- Separacion: V1 permanece experimental e inalterado. V2 usa la finalidad
+  criptografica independiente
+  `sobre_probatorio_confirmacion_baremacion_v2`; su representacion canonica
+  cubre la autorizacion exacta y, dentro del dominio V2, situa referencia opaca
+  e indice HMAC antes del token, agregado, manifiesto, trazabilidad y tiempo del
+  intento.
+- Alcance nominal: `IntentoNominalConfirmacionBaremacionV2` y
+  `ResultadoNominalConfirmacionBaremacionV2` solo validan forma. El eco exacto
+  del identificador no demuestra persistencia, autenticidad ni atomicidad de
+  version, auditoria y outbox; esa garantia queda reservada al futuro resultado
+  canonico autenticado y al corredor Go/PostgreSQL real.
+- Fallo cerrado: un error tipado solo se conserva, mediante copia expurgada, si
+  es unico, valido y su identificador coincide exactamente con el esperado.
+  Ante error generico, identificador ajeno, ramas multiples, `typed nil`, ciclo
+  o desenvoltura hostil se crea un indeterminado con el identificador esperado.
+  Nunca se conserva la causa tecnica, se abandona la reserva ni se concede un
+  reintento.
+- Vectores: la prueba congela por separado SHA-256 del canonico V1 y del sobre
+  V2 y verifica que cambiar referencia, indice o efecto cambia el material,
+  mientras el propio HMAC queda fuera de su preimagen para evitar circularidad.
+- Siguiente puerta: definir `RepositorioOperacionesBaremacion`, preparacion
+  durable, capacidad AEAD, resultado canonico, consumo de autorizacion y
+  reconciliacion. Hasta entonces ningun adaptador productivo puede presentar
+  estos tipos nominales como autoridad o prueba de `COMMIT`.
