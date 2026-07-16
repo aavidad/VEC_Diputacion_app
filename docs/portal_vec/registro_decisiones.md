@@ -1813,3 +1813,31 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   deben trocearse antes de incorporarse.
 - Reversibilidad: ajustar el umbral es un cambio de una linea mas la
   regeneracion de la linea base, consensuado en este registro.
+
+## DEC-052 — Frontend en modulos ES nativos con estilos por tokens
+
+- Estado: decision adoptada el 16 de julio de 2026 por el responsable del
+  proyecto. Ejecuta la remediacion H-03 de la
+  [auditoria de diseno y seguridad](auditoria_diseno_y_seguridad_2026-07-16.md).
+- Problema: `web/static/app.js` concentra 13.211 lineas sin modulos ni build:
+  ningun agente puede revisarlo entero. Ademas contiene ~300 asignaciones de
+  estilo inline desde JS, 67 de ellas con colores literales que se saltan el
+  sistema de tokens CSS y romperian cualquier cambio de tema o estilo.
+- Decision: partir el frontend en modulos ES nativos
+  (`<script type="module">`) por dominio funcional: bolsa, dietas, cronos,
+  personal, workspace y componentes comunes. Sin framework, sin bundler, sin
+  npm y sin build step: el navegador resuelve los `import` directamente, en
+  coherencia con el diseno autocontenido y sin dependencias externas del
+  portal. Cada modulo resultante cumple los limites de DEC-051.
+- Estilos y temas: colores, tipografias y espaciados viven unicamente como
+  tokens CSS (variables `--*` en `styles.css`, hoy 49). Un tema es una
+  redefinicion de tokens bajo un atributo del documento (por ejemplo
+  `:root[data-theme="oscuro"]`), y cambiar de tema es cambiar ese atributo
+  desde JS: una linea. El JS manipula clases semanticas, nunca estilos
+  inline. Prohibido introducir colores literales o `.style` nuevos en JS;
+  los existentes se eliminan al migrar cada modulo.
+- Criterio de terminado por modulo migrado: funcionalidad intacta, sin
+  variables globales nuevas, sin colores literales, fichero dentro del tope
+  de DEC-051 y tema conmutable sin retocar el modulo.
+- Reversibilidad: media. Los modulos pueden reagruparse si hiciera falta,
+  pero no se contempla volver al monolito.
