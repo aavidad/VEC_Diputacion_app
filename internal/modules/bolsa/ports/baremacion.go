@@ -1610,120 +1610,6 @@ func (c ComprobacionFirma) Validar() error {
 	return nil
 }
 
-type SolicitudValidarFirmaServidor struct {
-	Contexto                 ContextoOperacionFirma
-	Artefacto                ArtefactoFirma
-	Politica                 PoliticaFirmaBaremacion
-	FirmanteEsperadoRef      string
-	PerfilEsperadoClave      string
-	PerfilFirmaEsperadoClave string
-	SolicitadaEn             time.Time
-}
-
-func (s SolicitudValidarFirmaServidor) Validar() error {
-	if s.Contexto.ContextoOperacionBaremacion.ValidarPara(AccionValidarFirmaDecisionBaremacion, ClaseRecursoArtefactoFirma, s.Artefacto.FirmaRef) != nil ||
-		s.Contexto.Validar() != nil || s.Artefacto.Validar() != nil || s.Politica.Validar() != nil ||
-		!referenciaValida(s.FirmanteEsperadoRef, 512) || !claveValida(s.PerfilEsperadoClave) ||
-		!perfilFirmaPermitido(s.PerfilFirmaEsperadoClave) ||
-		s.Artefacto.PoliticaFirmaRef != s.Politica.Referencia || s.Artefacto.PoliticaFirmaVersion != s.Politica.Version ||
-		s.Artefacto.HuellaPoliticaFirmaSHA256 != s.Politica.HuellaSHA256 ||
-		s.Artefacto.FirmanteRef != s.FirmanteEsperadoRef || s.Artefacto.PerfilFirmanteClave != s.PerfilEsperadoClave ||
-		!s.Politica.VigenteEn(s.Artefacto.FirmadaEn.UTC()) ||
-		s.SolicitadaEn.IsZero() || s.SolicitadaEn.Before(s.Artefacto.FirmadaEn) {
-		return ErrSolicitudBaremacionInvalida
-	}
-	return nil
-}
-
-type ValidacionFirmaServidor struct {
-	Estado                     EstadoValidacionFirma
-	Artefacto                  ArtefactoFirma
-	ValidacionRef              string
-	HuellaValidacionSHA256     string
-	FirmanteVerificadoRef      string
-	PerfilVerificadoClave      string
-	PerfilFirmaVerificadoClave string
-	Comprobaciones             []ComprobacionFirma
-	ValidadaEn                 time.Time
-}
-
-func (v ValidacionFirmaServidor) Validar() error {
-	if !v.Estado.Valido() || v.Artefacto.Validar() != nil || !referenciaValida(v.ValidacionRef, 512) ||
-		!huellaSHA256Valida(v.HuellaValidacionSHA256) || !referenciaValida(v.FirmanteVerificadoRef, 512) ||
-		!claveValida(v.PerfilVerificadoClave) || !perfilFirmaPermitido(v.PerfilFirmaVerificadoClave) ||
-		v.ValidadaEn.IsZero() || v.ValidadaEn.Before(v.Artefacto.FirmadaEn) ||
-		len(v.Comprobaciones) == 0 || len(v.Comprobaciones) > maximoComprobacionesFirma {
-		return ErrValidacionFirmaNoConcluyente
-	}
-	claves := make(map[string]struct{}, len(v.Comprobaciones))
-	for _, comprobacion := range v.Comprobaciones {
-		if comprobacion.Validar() != nil {
-			return ErrValidacionFirmaNoConcluyente
-		}
-		if _, existe := claves[comprobacion.Clave]; existe {
-			return ErrValidacionFirmaNoConcluyente
-		}
-		claves[comprobacion.Clave] = struct{}{}
-	}
-	return nil
-}
-
-func (v ValidacionFirmaServidor) AptaParaDecision() bool {
-	if v.Validar() != nil || v.Estado != EstadoValidacionFirmaValida ||
-		v.FirmanteVerificadoRef != v.Artefacto.FirmanteRef ||
-		v.PerfilVerificadoClave != v.Artefacto.PerfilFirmanteClave {
-		return false
-	}
-	for _, comprobacion := range v.Comprobaciones {
-		if comprobacion.Estado != EstadoComprobacionSuperada {
-			return false
-		}
-	}
-	return true
-}
-
-func (v ValidacionFirmaServidor) AptaParaPolitica(p PoliticaFirmaBaremacion) bool {
-	return v.AptaParaPerfil(p, p.PerfilFirmaClave)
-}
-
-// AptaParaPerfil permite verificar cada etapa material del flujo B -> T ->
-// LTA sin confundir el perfil intermedio con el objetivo final de la politica.
-func (v ValidacionFirmaServidor) AptaParaPerfil(p PoliticaFirmaBaremacion, perfil string) bool {
-	if p.Validar() != nil || !v.AptaParaDecision() ||
-		!perfilFirmaPermitido(perfil) || v.PerfilFirmaVerificadoClave != perfil ||
-		v.Artefacto.PoliticaFirmaRef != p.Referencia ||
-		v.Artefacto.PoliticaFirmaVersion != p.Version ||
-		v.Artefacto.HuellaPoliticaFirmaSHA256 != p.HuellaSHA256 {
-		return false
-	}
-	claves := make([]string, len(v.Comprobaciones))
-	for indice := range v.Comprobaciones {
-		claves[indice] = v.Comprobaciones[indice].Clave
-	}
-	return mismoConjuntoClaves(claves, p.ComprobacionesObligatorias)
-}
-
-func (v ValidacionFirmaServidor) ValidarPara(s SolicitudValidarFirmaServidor) error {
-	if s.Validar() != nil || v.Validar() != nil || !v.AptaParaPerfil(s.Politica, s.PerfilFirmaEsperadoClave) ||
-		v.Artefacto != s.Artefacto ||
-		v.FirmanteVerificadoRef != s.FirmanteEsperadoRef || v.PerfilVerificadoClave != s.PerfilEsperadoClave ||
-		v.ValidadaEn.Before(s.SolicitadaEn) {
-		return ErrValidacionFirmaNoConcluyente
-	}
-	return nil
-}
-
-func (v ValidacionFirmaServidor) Clonar() (ValidacionFirmaServidor, error) {
-	clon := v
-	clon.Comprobaciones = append([]ComprobacionFirma(nil), v.Comprobaciones...)
-	sort.Slice(clon.Comprobaciones, func(i, j int) bool { return clon.Comprobaciones[i].Clave < clon.Comprobaciones[j].Clave })
-	return clon, clon.Validar()
-}
-
-type ValidadorFirmaServidor interface {
-	ValidarFirmaServidor(context.Context, SolicitudValidarFirmaServidor) (ValidacionFirmaServidor, error)
-}
-
 type SolicitudAumentarFirma struct {
 	Contexto          ContextoOperacionFirma
 	ClaveIdempotencia string
@@ -1746,6 +1632,8 @@ func (s SolicitudAumentarFirma) Validar() error {
 	if s.Politica.RequiereSelloTiempo {
 		if s.SelloTiempo == nil || s.SelloTiempo.Validar() != nil ||
 			s.SelloTiempo.ArtefactoSellado != s.Artefacto ||
+			s.Validacion.SelloTiempoVerificadoRef != s.SelloTiempo.SelloTiempoRef ||
+			s.Validacion.HuellaSelloTiempoVerificadaSHA256 != s.SelloTiempo.HuellaSelloTiempoSHA256 ||
 			s.SelloTiempo.PoliticaSelloTiempoRef != s.Politica.PoliticaSelloTiempoRef ||
 			s.SelloTiempo.PoliticaSelloTiempoVersion != s.Politica.PoliticaSelloTiempoVersion ||
 			s.SelloTiempo.HuellaPoliticaSelloTiempoSHA256 != s.Politica.HuellaPoliticaSelloTiempoSHA256 {
@@ -1812,9 +1700,11 @@ type AumentadorFirmaLongeva interface {
 }
 
 type SolicitudRecuperarArtefactoFirma struct {
-	Contexto          ContextoOperacionFirma
-	FirmaRef          string
-	HuellaFirmaSHA256 string
+	Contexto              ContextoOperacionFirma
+	FirmaRef              string
+	HuellaFirmaSHA256     string
+	DocumentoFirmadoRef   string
+	HuellaDocumentoSHA256 string
 }
 type SolicitudRecuperarValidacionFirma struct {
 	Contexto               ContextoOperacionFirma
@@ -1834,7 +1724,8 @@ type SolicitudRecuperarAumentoFirma struct {
 
 func (s SolicitudRecuperarArtefactoFirma) Validar() error {
 	if s.Contexto.ContextoOperacionBaremacion.ValidarPara(AccionRecuperarArtefactoFirmaBaremacion, ClaseRecursoArtefactoFirma, s.FirmaRef) != nil ||
-		s.Contexto.Validar() != nil || !referenciaValida(s.FirmaRef, 512) || !huellaSHA256Valida(s.HuellaFirmaSHA256) {
+		s.Contexto.Validar() != nil || !referenciaValida(s.FirmaRef, 512) || !huellaSHA256Valida(s.HuellaFirmaSHA256) ||
+		!referenciaValida(s.DocumentoFirmadoRef, 512) || !huellaSHA256Valida(s.HuellaDocumentoSHA256) {
 		return ErrSolicitudBaremacionInvalida
 	}
 	return nil
@@ -1862,7 +1753,8 @@ func (s SolicitudRecuperarAumentoFirma) Validar() error {
 }
 
 func (a ArtefactoFirma) ValidarRecuperacion(s SolicitudRecuperarArtefactoFirma) error {
-	if s.Validar() != nil || a.Validar() != nil || a.FirmaRef != s.FirmaRef || a.HuellaFirmaSHA256 != s.HuellaFirmaSHA256 {
+	if s.Validar() != nil || a.Validar() != nil || a.FirmaRef != s.FirmaRef || a.HuellaFirmaSHA256 != s.HuellaFirmaSHA256 ||
+		a.DocumentoFirmadoRef != s.DocumentoFirmadoRef || a.HuellaDocumentoSHA256 != s.HuellaDocumentoSHA256 {
 		return ErrEvidenciaFirmaNoEncontrada
 	}
 	return nil
@@ -1940,6 +1832,8 @@ func ConstituirFirmaDecisionConfiable(
 			sello.SelladoEn.Before(validacionInicial.ValidadaEn) || validacionTrasSello == nil ||
 			!validacionTrasSello.AptaParaPerfil(politica, PerfilFirmaPAdESBaselineT) ||
 			validacionTrasSello.Artefacto != sello.ArtefactoSellado ||
+			validacionTrasSello.SelloTiempoVerificadoRef != sello.SelloTiempoRef ||
+			validacionTrasSello.HuellaSelloTiempoVerificadaSHA256 != sello.HuellaSelloTiempoSHA256 ||
 			validacionTrasSello.ValidadaEn.Before(sello.SelladoEn) {
 			return dominiobolsa.FirmaDecisionTecnica{}, ErrSelloTiempoNoDisponible
 		}
@@ -1966,6 +1860,12 @@ func ConstituirFirmaDecisionConfiable(
 		validacionFinal.ValidadaEn.Before(validacionInicial.ValidadaEn) ||
 		(aumento != nil && (aumento.AumentadaEn.Before(validacionTrasSello.ValidadaEn) ||
 			validacionFinal.ValidadaEn.Before(aumento.AumentadaEn))) {
+		return dominiobolsa.FirmaDecisionTecnica{}, ErrFirmaServidorNoValida
+	}
+	if aumento != nil && (validacionFinal.SelloTiempoVerificadoRef != sello.SelloTiempoRef ||
+		validacionFinal.HuellaSelloTiempoVerificadaSHA256 != sello.HuellaSelloTiempoSHA256 ||
+		validacionFinal.AumentoLongevidadVerificadoRef != aumento.EvidenciaAumentoRef ||
+		validacionFinal.HuellaAumentoLongevidadVerificadaSHA256 != aumento.HuellaEvidenciaSHA256) {
 		return dominiobolsa.FirmaDecisionTecnica{}, ErrFirmaServidorNoValida
 	}
 	if sello == nil && !mismaEvidenciaValidacionFirma(validacionInicial, validacionFinal) ||
@@ -2021,8 +1921,14 @@ func ConstituirFirmaDecisionConfiable(
 		ValidadaEn:                            validacionFinal.ValidadaEn, FirmadaEn: artefacto.FirmadaEn,
 	}
 	if sello != nil {
+		vinculo, err := NuevoVinculoRevisionSelladaPAdES(*sello, *validacionTrasSello)
+		if err != nil {
+			return dominiobolsa.FirmaDecisionTecnica{}, ErrFirmaServidorNoValida
+		}
 		firma.SelloTiempoRef = sello.SelloTiempoRef
 		firma.HuellaSelloTiempoSHA256 = sello.HuellaSelloTiempoSHA256
+		firma.VinculoRevisionSelladaRef = vinculo.Referencia
+		firma.HuellaVinculoRevisionSelladaSHA256 = vinculo.HuellaSHA256
 		firma.PoliticaSelloTiempoRef = sello.PoliticaSelloTiempoRef
 		firma.PoliticaSelloTiempoVersion = sello.PoliticaSelloTiempoVersion
 		firma.HuellaPoliticaSelloTiempoSHA256 = sello.HuellaPoliticaSelloTiempoSHA256
@@ -2034,9 +1940,15 @@ func ConstituirFirmaDecisionConfiable(
 		firma.ValidadoDocumentoSelladoEn = validacionTrasSello.ValidadaEn
 	}
 	if aumento != nil {
+		vinculo, err := NuevoVinculoRevisionLongevaPAdES(*sello, *validacionTrasSello, *aumento, validacionFinal)
+		if err != nil {
+			return dominiobolsa.FirmaDecisionTecnica{}, ErrFirmaServidorNoValida
+		}
 		firma.NivelLongevidadClave = aumento.NivelAlcanzadoClave
 		firma.AumentoLongevidadRef = aumento.EvidenciaAumentoRef
 		firma.HuellaAumentoLongevidadSHA256 = aumento.HuellaEvidenciaSHA256
+		firma.VinculoRevisionLongevaRef = vinculo.Referencia
+		firma.HuellaVinculoRevisionLongevaSHA256 = vinculo.HuellaSHA256
 		firma.PoliticaLongevidadRef = aumento.PoliticaLongevidadRef
 		firma.PoliticaLongevidadVersion = aumento.PoliticaLongevidadVersion
 		firma.HuellaPoliticaLongevidadSHA256 = aumento.HuellaPoliticaLongevidadSHA256
@@ -2059,7 +1971,11 @@ func mismaEvidenciaValidacionFirma(a, b ValidacionFirmaServidor) bool {
 	return a.ValidacionRef == b.ValidacionRef &&
 		a.HuellaValidacionSHA256 == b.HuellaValidacionSHA256 &&
 		a.Artefacto == b.Artefacto && a.ValidadaEn.Equal(b.ValidadaEn) &&
-		a.PerfilFirmaVerificadoClave == b.PerfilFirmaVerificadoClave
+		a.PerfilFirmaVerificadoClave == b.PerfilFirmaVerificadoClave &&
+		a.SelloTiempoVerificadoRef == b.SelloTiempoVerificadoRef &&
+		a.HuellaSelloTiempoVerificadaSHA256 == b.HuellaSelloTiempoVerificadaSHA256 &&
+		a.AumentoLongevidadVerificadoRef == b.AumentoLongevidadVerificadoRef &&
+		a.HuellaAumentoLongevidadVerificadaSHA256 == b.HuellaAumentoLongevidadVerificadaSHA256
 }
 
 type SelladorSolicitudBaremacion interface {

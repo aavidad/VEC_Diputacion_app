@@ -1110,8 +1110,10 @@ func manifiestoMemoriaPrueba(
 		puertosbolsa.EvidenciaProbatoriaBaremacion{Tipo: puertosbolsa.EvidenciaConsultaFirmaBaremacion, Referencia: "evidencia-consulta-firma-memoria-001", HuellaEvidenciaSHA256: huellaMemoria("7")},
 		puertosbolsa.EvidenciaProbatoriaBaremacion{Tipo: puertosbolsa.EvidenciaValidacionInicialBaremacion, Referencia: firma.ValidacionInicialFirmaRef, HuellaEvidenciaSHA256: firma.HuellaValidacionInicialSHA256},
 		puertosbolsa.EvidenciaProbatoriaBaremacion{Tipo: puertosbolsa.EvidenciaSelloTiempoBaremacion, Referencia: firma.SelloTiempoRef, HuellaEvidenciaSHA256: firma.HuellaSelloTiempoSHA256},
+		puertosbolsa.EvidenciaProbatoriaBaremacion{Tipo: puertosbolsa.EvidenciaVinculoRevisionSelladaBaremacion, Referencia: firma.VinculoRevisionSelladaRef, HuellaEvidenciaSHA256: firma.HuellaVinculoRevisionSelladaSHA256},
 		puertosbolsa.EvidenciaProbatoriaBaremacion{Tipo: puertosbolsa.EvidenciaValidacionDocumentoSelladoBaremacion, Referencia: firma.ValidacionDocumentoSelladoRef, HuellaEvidenciaSHA256: firma.HuellaValidacionDocumentoSelladoSHA256},
 		puertosbolsa.EvidenciaProbatoriaBaremacion{Tipo: puertosbolsa.EvidenciaAumentoLongevidadBaremacion, Referencia: firma.AumentoLongevidadRef, HuellaEvidenciaSHA256: firma.HuellaAumentoLongevidadSHA256},
+		puertosbolsa.EvidenciaProbatoriaBaremacion{Tipo: puertosbolsa.EvidenciaVinculoRevisionLongevaBaremacion, Referencia: firma.VinculoRevisionLongevaRef, HuellaEvidenciaSHA256: firma.HuellaVinculoRevisionLongevaSHA256},
 		puertosbolsa.EvidenciaProbatoriaBaremacion{Tipo: puertosbolsa.EvidenciaValidacionFinalBaremacion, Referencia: firma.ValidacionFirmaRef, HuellaEvidenciaSHA256: firma.HuellaValidacionSHA256},
 		puertosbolsa.EvidenciaProbatoriaBaremacion{Tipo: puertosbolsa.EvidenciaRecuperacionFirmadoBaremacion, Referencia: firma.EvidenciaRecuperacionFirmadoRef, HuellaEvidenciaSHA256: firma.HuellaEvidenciaRecuperacionSHA256},
 		puertosbolsa.EvidenciaProbatoriaBaremacion{Tipo: puertosbolsa.EvidenciaCustodiaFirmadoBaremacion, Referencia: firma.EvidenciaCustodiaDocumentoFirmadoRef, HuellaEvidenciaSHA256: firma.HuellaDocumentoSHA256},
@@ -1121,7 +1123,10 @@ func manifiestoMemoriaPrueba(
 		evidencias[indice].Secuencia = uint32(indice + 1)
 	}
 	return puertosbolsa.ManifiestoProbatorioBaremacion{
-		Referencia: "manifiesto-probatorio-decision-001", ProcesoRef: contenido.ProcesoRef,
+		Esquema:        puertosbolsa.EsquemaManifiestoProbatorioBaremacion,
+		Finalidad:      puertosbolsa.FinalidadManifiestoProbatorioBaremacion,
+		VersionEsquema: puertosbolsa.VersionManifiestoProbatorioBaremacion,
+		Referencia:     "manifiesto-probatorio-decision-001", ProcesoRef: contenido.ProcesoRef,
 		SolicitudRef: contenido.SolicitudRef, SujetoRef: contenido.SujetoRef,
 		BaremacionMeritoRef: contenido.BaremacionMeritoRef, DecisionRef: contenido.ID,
 		VersionBase: version.Numero, HuellaVersionBaseSHA256: version.HuellaEstadoSHA256,

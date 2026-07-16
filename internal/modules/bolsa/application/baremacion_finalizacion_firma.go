@@ -191,8 +191,10 @@ func (s *ServicioBaremacion) FinalizarFirma(
 		solicitudValidacionT := puertosbolsa.SolicitudValidarFirmaServidor{
 			Contexto: contextoValidacionT, Artefacto: artefactoActual, Politica: politica,
 			FirmanteEsperadoRef: contenido.DecisorRef, PerfilEsperadoClave: contenido.PerfilDecisorClave,
-			PerfilFirmaEsperadoClave: puertosbolsa.PerfilFirmaPAdESBaselineT,
-			SolicitadaEn:             ahoraValidacionT,
+			PerfilFirmaEsperadoClave:        puertosbolsa.PerfilFirmaPAdESBaselineT,
+			SelloTiempoEsperadoRef:          resultadoSello.SelloTiempoRef,
+			HuellaSelloTiempoEsperadaSHA256: resultadoSello.HuellaSelloTiempoSHA256,
+			SolicitadaEn:                    ahoraValidacionT,
 		}
 		resultadoValidacionT, err := s.validadorFirma.ValidarFirmaServidor(ctx, solicitudValidacionT)
 		if err != nil || resultadoValidacionT.ValidarPara(solicitudValidacionT) != nil ||
@@ -241,8 +243,12 @@ func (s *ServicioBaremacion) FinalizarFirma(
 		solicitudFinal := puertosbolsa.SolicitudValidarFirmaServidor{
 			Contexto: contextoValidacionFinal, Artefacto: artefactoActual, Politica: politica,
 			FirmanteEsperadoRef: contenido.DecisorRef, PerfilEsperadoClave: contenido.PerfilDecisorClave,
-			PerfilFirmaEsperadoClave: puertosbolsa.PerfilFirmaPAdESBaselineLTA,
-			SolicitadaEn:             ahoraValidacionFinal,
+			PerfilFirmaEsperadoClave:              puertosbolsa.PerfilFirmaPAdESBaselineLTA,
+			SelloTiempoEsperadoRef:                sello.SelloTiempoRef,
+			HuellaSelloTiempoEsperadaSHA256:       sello.HuellaSelloTiempoSHA256,
+			AumentoLongevidadEsperadoRef:          resultadoAumento.EvidenciaAumentoRef,
+			HuellaAumentoLongevidadEsperadaSHA256: resultadoAumento.HuellaEvidenciaSHA256,
+			SolicitadaEn:                          ahoraValidacionFinal,
 		}
 		validacionActual, err = s.validadorFirma.ValidarFirmaServidor(ctx, solicitudFinal)
 		if err != nil || validacionActual.ValidarPara(solicitudFinal) != nil || !validacionActual.AptaParaPolitica(politica) {

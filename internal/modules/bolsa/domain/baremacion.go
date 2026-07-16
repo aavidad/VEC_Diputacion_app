@@ -545,6 +545,8 @@ type FirmaDecisionTecnica struct {
 	ValidadaEn                             time.Time `json:"validada_en"`
 	SelloTiempoRef                         string    `json:"sello_tiempo_ref,omitempty"`
 	HuellaSelloTiempoSHA256                string    `json:"huella_sello_tiempo_sha256,omitempty"`
+	VinculoRevisionSelladaRef              string    `json:"vinculo_revision_sellada_ref,omitempty"`
+	HuellaVinculoRevisionSelladaSHA256     string    `json:"huella_vinculo_revision_sellada_sha256,omitempty"`
 	PoliticaSelloTiempoRef                 string    `json:"politica_sello_tiempo_ref,omitempty"`
 	PoliticaSelloTiempoVersion             int       `json:"politica_sello_tiempo_version,omitempty"`
 	HuellaPoliticaSelloTiempoSHA256        string    `json:"huella_politica_sello_tiempo_sha256,omitempty"`
@@ -557,6 +559,8 @@ type FirmaDecisionTecnica struct {
 	NivelLongevidadClave                   string    `json:"nivel_longevidad_clave,omitempty"`
 	AumentoLongevidadRef                   string    `json:"aumento_longevidad_ref,omitempty"`
 	HuellaAumentoLongevidadSHA256          string    `json:"huella_aumento_longevidad_sha256,omitempty"`
+	VinculoRevisionLongevaRef              string    `json:"vinculo_revision_longeva_ref,omitempty"`
+	HuellaVinculoRevisionLongevaSHA256     string    `json:"huella_vinculo_revision_longeva_sha256,omitempty"`
 	PoliticaLongevidadRef                  string    `json:"politica_longevidad_ref,omitempty"`
 	PoliticaLongevidadVersion              int       `json:"politica_longevidad_version,omitempty"`
 	HuellaPoliticaLongevidadSHA256         string    `json:"huella_politica_longevidad_sha256,omitempty"`
@@ -652,6 +656,8 @@ func (f FirmaDecisionTecnica) clonarCanonica() FirmaDecisionTecnica {
 	canonica.ValidadaEn = f.ValidadaEn.UTC()
 	canonica.SelloTiempoRef = strings.TrimSpace(f.SelloTiempoRef)
 	canonica.HuellaSelloTiempoSHA256 = strings.TrimSpace(f.HuellaSelloTiempoSHA256)
+	canonica.VinculoRevisionSelladaRef = strings.TrimSpace(f.VinculoRevisionSelladaRef)
+	canonica.HuellaVinculoRevisionSelladaSHA256 = strings.TrimSpace(f.HuellaVinculoRevisionSelladaSHA256)
 	canonica.PoliticaSelloTiempoRef = strings.TrimSpace(f.PoliticaSelloTiempoRef)
 	canonica.HuellaPoliticaSelloTiempoSHA256 = strings.TrimSpace(f.HuellaPoliticaSelloTiempoSHA256)
 	canonica.ValidacionSelloTiempoRef = strings.TrimSpace(f.ValidacionSelloTiempoRef)
@@ -667,6 +673,8 @@ func (f FirmaDecisionTecnica) clonarCanonica() FirmaDecisionTecnica {
 	canonica.NivelLongevidadClave = strings.TrimSpace(f.NivelLongevidadClave)
 	canonica.AumentoLongevidadRef = strings.TrimSpace(f.AumentoLongevidadRef)
 	canonica.HuellaAumentoLongevidadSHA256 = strings.TrimSpace(f.HuellaAumentoLongevidadSHA256)
+	canonica.VinculoRevisionLongevaRef = strings.TrimSpace(f.VinculoRevisionLongevaRef)
+	canonica.HuellaVinculoRevisionLongevaSHA256 = strings.TrimSpace(f.HuellaVinculoRevisionLongevaSHA256)
 	canonica.PoliticaLongevidadRef = strings.TrimSpace(f.PoliticaLongevidadRef)
 	canonica.HuellaPoliticaLongevidadSHA256 = strings.TrimSpace(f.HuellaPoliticaLongevidadSHA256)
 	canonica.ValidacionLongevidadRef = strings.TrimSpace(f.ValidacionLongevidadRef)

@@ -1046,7 +1046,9 @@ func TestManifiestoProbatorioMatrizRechazaExtrasOrdenYReferenciasCruzadas(t *tes
 		{
 			nombre: "orden de evidencias alterado",
 			mutar: func(m *ManifiestoProbatorioBaremacion) {
-				m.Evidencias[3], m.Evidencias[4] = m.Evidencias[4], m.Evidencias[3]
+				documento := evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaDocumentoMeritoBaremacion)
+				representacion := evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaRepresentacionBaremacion)
+				*documento, *representacion = *representacion, *documento
 			},
 		},
 		{
@@ -1087,13 +1089,13 @@ func TestManifiestoProbatorioMatrizRechazaExtrasOrdenYReferenciasCruzadas(t *tes
 		{
 			nombre: "huella de otro criterio",
 			mutar: func(m *ManifiestoProbatorioBaremacion) {
-				m.Evidencias[2].HuellaEvidenciaSHA256 = huellaPruebaPuertos("0")
+				evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaCriterioPublicadoBaremacion).HuellaEvidenciaSHA256 = huellaPruebaPuertos("0")
 			},
 		},
 		{
 			nombre: "huella de otro contenido",
 			mutar: func(m *ManifiestoProbatorioBaremacion) {
-				m.Evidencias[5].HuellaEvidenciaSHA256 = huellaPruebaPuertos("0")
+				evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaContenidoDecisionBaremacion).HuellaEvidenciaSHA256 = huellaPruebaPuertos("0")
 			},
 		},
 	}
@@ -1157,25 +1159,38 @@ func TestManifiestoProbatorioMatrizLigaCadaCapaConLaFirmaConcreta(t *testing.T) 
 	}{
 		{"politica ajena", func(m *ManifiestoProbatorioBaremacion) { m.Autorizaciones[6].RecursoRef = "politica-ajena-001" }},
 		{"aprobacion de politica ajena", func(m *ManifiestoProbatorioBaremacion) {
-			m.Evidencias[6].Referencia = "aprobacion-politica-ajena"
-			m.Evidencias[6].HuellaEvidenciaSHA256 = huellaPruebaPuertos("0")
+			evidencia := evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaPoliticaFirmaBaremacion)
+			evidencia.Referencia = "aprobacion-politica-ajena"
+			evidencia.HuellaEvidenciaSHA256 = huellaPruebaPuertos("0")
 		}},
 		{"sesion ajena", func(m *ManifiestoProbatorioBaremacion) { m.Autorizaciones[10].RecursoRef = "sesion-ajena-001" }},
 		{"documento canonico ajeno", func(m *ManifiestoProbatorioBaremacion) {
-			m.Evidencias[7].HuellaEvidenciaSHA256 = huellaPruebaPuertos("0")
-			m.Evidencias[8].HuellaEvidenciaSHA256 = huellaPruebaPuertos("0")
+			evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaDocumentoCanonicoBaremacion).HuellaEvidenciaSHA256 = huellaPruebaPuertos("0")
+			evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaCustodiaFirmableBaremacion).HuellaEvidenciaSHA256 = huellaPruebaPuertos("0")
 		}},
-		{"validacion inicial ajena", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[11].Referencia = "validacion-inicial-ajena" }},
-		{"sello ajeno", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[12].Referencia = "sello-tiempo-ajeno" }},
-		{"aumento ajeno", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[14].Referencia = "aumento-ajeno" }},
+		{"validacion inicial ajena", func(m *ManifiestoProbatorioBaremacion) {
+			evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaValidacionInicialBaremacion).Referencia = "validacion-inicial-ajena"
+		}},
+		{"sello ajeno", func(m *ManifiestoProbatorioBaremacion) {
+			evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaSelloTiempoBaremacion).Referencia = "sello-tiempo-ajeno"
+		}},
+		{"aumento ajeno", func(m *ManifiestoProbatorioBaremacion) {
+			evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaAumentoLongevidadBaremacion).Referencia = "aumento-ajeno"
+		}},
 		{"documento firmado ajeno", func(m *ManifiestoProbatorioBaremacion) {
 			for _, indice := range []int{16, 17, 18} {
 				m.Autorizaciones[indice].RecursoRef = "documento-firmado-ajeno"
 			}
 		}},
-		{"recuperacion ajena", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[16].Referencia = "recuperacion-ajena" }},
-		{"custodia ajena", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[17].Referencia = "custodia-ajena" }},
-		{"retencion ajena", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[18].Referencia = "retencion-ajena" }},
+		{"recuperacion ajena", func(m *ManifiestoProbatorioBaremacion) {
+			evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaRecuperacionFirmadoBaremacion).Referencia = "recuperacion-ajena"
+		}},
+		{"custodia ajena", func(m *ManifiestoProbatorioBaremacion) {
+			evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaCustodiaFirmadoBaremacion).Referencia = "custodia-ajena"
+		}},
+		{"retencion ajena", func(m *ManifiestoProbatorioBaremacion) {
+			evidenciaManifiestoPorTipoPrueba(t, m, EvidenciaRetencionFirmadoBaremacion).Referencia = "retencion-ajena"
+		}},
 	}
 	for _, caso := range casos {
 		caso := caso
@@ -1274,6 +1289,7 @@ func TestRecuperacionHistoricaExigeReferenciaYHuellaExactas(t *testing.T) {
 	if err := artefacto.ValidarRecuperacion(SolicitudRecuperarArtefactoFirma{
 		Contexto: contextoFirmaValido(AccionRecuperarArtefactoFirmaBaremacion, artefacto.FirmaRef),
 		FirmaRef: artefacto.FirmaRef, HuellaFirmaSHA256: artefacto.HuellaFirmaSHA256,
+		DocumentoFirmadoRef: artefacto.DocumentoFirmadoRef, HuellaDocumentoSHA256: artefacto.HuellaDocumentoSHA256,
 	}); err != nil {
 		t.Fatalf("recuperar artefacto: %v", err)
 	}
@@ -1863,10 +1879,7 @@ func construirManifiestoProbatorioPrueba(
 		EvidenciaProbatoriaBaremacion{Tipo: EvidenciaValidacionInicialBaremacion, Referencia: validacionInicial.ValidacionRef, HuellaEvidenciaSHA256: validacionInicial.HuellaValidacionSHA256},
 	)
 	if sello != nil {
-		evidencias = append(evidencias, EvidenciaProbatoriaBaremacion{
-			Tipo: EvidenciaSelloTiempoBaremacion, Referencia: sello.SelloTiempoRef,
-			HuellaEvidenciaSHA256: sello.HuellaSelloTiempoSHA256,
-		})
+		evidencias = agregarEvidenciasVinculoSelloPrueba(t, evidencias, *sello, validacionTrasSello)
 	}
 	if aumento != nil {
 		if validacionTrasSello == nil {
@@ -1880,6 +1893,9 @@ func construirManifiestoProbatorioPrueba(
 			Tipo: EvidenciaAumentoLongevidadBaremacion, Referencia: aumento.EvidenciaAumentoRef,
 			HuellaEvidenciaSHA256: aumento.HuellaEvidenciaSHA256,
 		})
+		evidencias = agregarEvidenciaVinculoAumentoPrueba(
+			t, evidencias, *sello, *validacionTrasSello, *aumento, validacionFinal,
+		)
 	}
 	evidencias = append(evidencias,
 		EvidenciaProbatoriaBaremacion{Tipo: EvidenciaValidacionFinalBaremacion, Referencia: validacionFinal.ValidacionRef, HuellaEvidenciaSHA256: validacionFinal.HuellaValidacionSHA256},
@@ -1891,7 +1907,10 @@ func construirManifiestoProbatorioPrueba(
 		evidencias[indice].Secuencia = uint32(indice + 1)
 	}
 	manifiesto := ManifiestoProbatorioBaremacion{
-		Referencia: "manifiesto-probatorio-1", ProcesoRef: contenido.ProcesoRef,
+		Esquema:        EsquemaManifiestoProbatorioBaremacion,
+		Finalidad:      FinalidadManifiestoProbatorioBaremacion,
+		VersionEsquema: VersionManifiestoProbatorioBaremacion,
+		Referencia:     "manifiesto-probatorio-1", ProcesoRef: contenido.ProcesoRef,
 		SolicitudRef: contenido.SolicitudRef, SujetoRef: contenido.SujetoRef,
 		BaremacionMeritoRef: contenido.BaremacionMeritoRef, DecisionRef: contenido.ID,
 		VersionBase: contenido.VersionAnteriorBaremacion, HuellaVersionBaseSHA256: contenido.HuellaEstadoAnteriorSHA256,
@@ -1907,30 +1926,6 @@ func construirManifiestoProbatorioPrueba(
 		t.Fatalf("sellar manifiesto: %v", err)
 	}
 	return resultado
-}
-
-func resecuenciarManifiestoPrueba(manifiesto *ManifiestoProbatorioBaremacion) {
-	if manifiesto == nil {
-		return
-	}
-	for indice := range manifiesto.Autorizaciones {
-		manifiesto.Autorizaciones[indice].Secuencia = uint32(indice + 1)
-	}
-	for indice := range manifiesto.Evidencias {
-		manifiesto.Evidencias[indice].Secuencia = uint32(indice + 1)
-	}
-}
-
-func resellarManifiestoPrueba(
-	manifiesto ManifiestoProbatorioBaremacion,
-) (ManifiestoProbatorioBaremacion, error) {
-	manifiesto.HuellaManifiestoSHA256 = ""
-	manifiesto.SelloManifiestoHMACSHA256 = ""
-	preparado, _, err := manifiesto.PrepararSellado()
-	if err != nil {
-		return ManifiestoProbatorioBaremacion{}, err
-	}
-	return preparado.IncorporarSello("hmac-sha256:manifiesto_1:" + huellaPruebaPuertos("3"))
 }
 
 func selloValidoPrueba(artefacto ArtefactoFirma, politica PoliticaFirmaBaremacion) SelloTiempoFirma {

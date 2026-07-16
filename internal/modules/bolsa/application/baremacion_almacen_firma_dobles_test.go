@@ -14,13 +14,15 @@ import (
 )
 
 type almacenBaremacionPrueba struct {
-	ahora          time.Time
-	ultima         puertosvec.SolicitudEscribirObjeto
-	firmable       puertosvec.SolicitudEscribirObjeto
-	resultado      puertosvec.ResultadoOperacionObjeto
-	escrituras     int
-	retenciones    int
-	errorRetencion error
+	ahora                time.Time
+	ultima               puertosvec.SolicitudEscribirObjeto
+	firmable             puertosvec.SolicitudEscribirObjeto
+	resultado            puertosvec.ResultadoOperacionObjeto
+	invocacionesEscribir int
+	invocacionesRetener  int
+	escrituras           int
+	retenciones          int
+	errorRetencion       error
 }
 
 func (a *almacenBaremacionPrueba) Capacidades(context.Context) (puertosvec.CapacidadesAlmacenObjetos, error) {
@@ -36,6 +38,7 @@ func (a *almacenBaremacionPrueba) Escribir(
 	_ context.Context,
 	s puertosvec.SolicitudEscribirObjeto,
 ) (puertosvec.ResultadoOperacionObjeto, error) {
+	a.invocacionesEscribir++
 	if s.Validar() != nil {
 		return puertosvec.ResultadoOperacionObjeto{}, puertosvec.ErrSolicitudAlmacenInvalida
 	}
@@ -83,6 +86,7 @@ func (*almacenBaremacionPrueba) Promover(context.Context, puertosvec.SolicitudPr
 	return puertosvec.ResultadoOperacionObjeto{}, puertosvec.ErrTransicionZonaAlmacenNoPermitida
 }
 func (a *almacenBaremacionPrueba) AplicarRetencion(_ context.Context, s puertosvec.SolicitudRetenerObjeto) (puertosvec.ResultadoOperacionObjeto, error) {
+	a.invocacionesRetener++
 	if s.ValidarEn(a.ahora) != nil || a.resultado.Objeto.Objeto != s.Objeto {
 		return puertosvec.ResultadoOperacionObjeto{}, puertosvec.ErrSolicitudAlmacenInvalida
 	}
@@ -196,14 +200,16 @@ func (f *firmadorBaremacionPrueba) ConsultarFirmaInteractiva(
 }
 
 type recuperadorBinarioBaremacionPrueba struct {
-	ahora    time.Time
-	llamadas int
+	ahora                 time.Time
+	invocacionesRecuperar int
+	llamadas              int
 }
 
 func (r *recuperadorBinarioBaremacionPrueba) RecuperarBinarioFirmado(
 	_ context.Context,
 	s puertosbolsa.SolicitudRecuperarBinarioFirmado,
 ) (puertosbolsa.BinarioFirmadoRecuperado, error) {
+	r.invocacionesRecuperar++
 	if s.Validar() != nil {
 		return puertosbolsa.BinarioFirmadoRecuperado{}, puertosbolsa.ErrSolicitudBaremacionInvalida
 	}
@@ -270,7 +276,11 @@ func (v *validadorBaremacionPrueba) ValidarFirmaServidor(
 		ValidacionRef:          "validacion:firma:" + strings.Repeat("v", numero),
 		HuellaValidacionSHA256: huellaBaremacionPrueba("d"), FirmanteVerificadoRef: s.FirmanteEsperadoRef,
 		PerfilVerificadoClave: s.PerfilEsperadoClave, PerfilFirmaVerificadoClave: s.PerfilFirmaEsperadoClave,
-		Comprobaciones: comprobaciones, ValidadaEn: v.ahora,
+		SelloTiempoVerificadoRef:                s.SelloTiempoEsperadoRef,
+		HuellaSelloTiempoVerificadaSHA256:       s.HuellaSelloTiempoEsperadaSHA256,
+		AumentoLongevidadVerificadoRef:          s.AumentoLongevidadEsperadoRef,
+		HuellaAumentoLongevidadVerificadaSHA256: s.HuellaAumentoLongevidadEsperadaSHA256,
+		Comprobaciones:                          comprobaciones, ValidadaEn: v.ahora,
 	}
 	return resultado, nil
 }

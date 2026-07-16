@@ -2,6 +2,7 @@ package domain
 
 func (f FirmaDecisionTecnica) evidenciaSelloCoherente() bool {
 	presente := f.SelloTiempoRef != "" || f.HuellaSelloTiempoSHA256 != "" || f.PoliticaSelloTiempoRef != "" ||
+		f.VinculoRevisionSelladaRef != "" || f.HuellaVinculoRevisionSelladaSHA256 != "" ||
 		f.PoliticaSelloTiempoVersion != 0 || f.HuellaPoliticaSelloTiempoSHA256 != "" ||
 		f.ValidacionSelloTiempoRef != "" || f.HuellaValidacionSelloTiempoSHA256 != "" || !f.SelladaEn.IsZero() ||
 		f.ValidacionDocumentoSelladoRef != "" || f.HuellaValidacionDocumentoSelladoSHA256 != "" ||
@@ -10,6 +11,7 @@ func (f FirmaDecisionTecnica) evidenciaSelloCoherente() bool {
 		return !presente
 	}
 	return referenciaOpacaValida(f.SelloTiempoRef) && huellaSHA256Valida(f.HuellaSelloTiempoSHA256) &&
+		referenciaOpacaValida(f.VinculoRevisionSelladaRef) && huellaSHA256Valida(f.HuellaVinculoRevisionSelladaSHA256) &&
 		referenciaOpacaValida(f.PoliticaSelloTiempoRef) && f.PoliticaSelloTiempoVersion > 0 &&
 		huellaSHA256Valida(f.HuellaPoliticaSelloTiempoSHA256) &&
 		referenciaOpacaValida(f.ValidacionSelloTiempoRef) &&
@@ -27,14 +29,16 @@ func (f FirmaDecisionTecnica) evidenciaSelloCoherente() bool {
 
 func (f FirmaDecisionTecnica) evidenciaLongevidadCoherente() bool {
 	presente := f.NivelLongevidadClave != "" || f.AumentoLongevidadRef != "" ||
-		f.HuellaAumentoLongevidadSHA256 != "" || f.PoliticaLongevidadRef != "" ||
+		f.HuellaAumentoLongevidadSHA256 != "" || f.VinculoRevisionLongevaRef != "" ||
+		f.HuellaVinculoRevisionLongevaSHA256 != "" || f.PoliticaLongevidadRef != "" ||
 		f.PoliticaLongevidadVersion != 0 || f.HuellaPoliticaLongevidadSHA256 != "" ||
 		f.ValidacionLongevidadRef != "" || f.HuellaValidacionLongevidadSHA256 != "" || !f.AumentadaEn.IsZero()
 	if !f.RequiereAumentoLongevidad {
 		return !presente
 	}
 	return claveNegocioValida(f.NivelLongevidadClave) && referenciaOpacaValida(f.AumentoLongevidadRef) &&
-		huellaSHA256Valida(f.HuellaAumentoLongevidadSHA256) && referenciaOpacaValida(f.PoliticaLongevidadRef) &&
+		huellaSHA256Valida(f.HuellaAumentoLongevidadSHA256) && referenciaOpacaValida(f.VinculoRevisionLongevaRef) &&
+		huellaSHA256Valida(f.HuellaVinculoRevisionLongevaSHA256) && referenciaOpacaValida(f.PoliticaLongevidadRef) &&
 		f.PoliticaLongevidadVersion > 0 && huellaSHA256Valida(f.HuellaPoliticaLongevidadSHA256) &&
 		referenciaOpacaValida(f.ValidacionLongevidadRef) &&
 		huellaSHA256Valida(f.HuellaValidacionLongevidadSHA256) && !f.AumentadaEn.IsZero() &&

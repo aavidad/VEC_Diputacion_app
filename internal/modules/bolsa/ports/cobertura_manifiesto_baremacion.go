@@ -32,8 +32,10 @@ type disposicionManifiestoBaremacion struct {
 	evidenciaConsultaFirma       int
 	evidenciaValidacionInicial   int
 	evidenciaSello               int
+	evidenciaVinculoSello        int
 	evidenciaValidacionTrasSello int
 	evidenciaAumento             int
+	evidenciaVinculoAumento      int
 	evidenciaValidacionFinal     int
 	evidenciaRecuperacion        int
 	evidenciaCustodiaFirmado     int
@@ -72,8 +74,10 @@ func (m ManifiestoProbatorioBaremacion) validarCoberturaCanonica() (disposicionM
 		autorizacionAumento:             -1,
 		autorizacionValidacionFinal:     -1,
 		evidenciaSello:                  -1,
+		evidenciaVinculoSello:           -1,
 		evidenciaValidacionTrasSello:    -1,
 		evidenciaAumento:                -1,
+		evidenciaVinculoAumento:         -1,
 		evidenciaContenido:              baseEvidencias,
 		evidenciaPolitica:               baseEvidencias + 1,
 		evidenciaDocumentoCanonico:      baseEvidencias + 2,
@@ -87,6 +91,12 @@ func (m ManifiestoProbatorioBaremacion) validarCoberturaCanonica() (disposicionM
 		disposicion.sello = true
 		disposicion.evidenciaSello = cursorEvidencias
 		cursorEvidencias++
+		if cursorEvidencias >= len(m.Evidencias) ||
+			m.Evidencias[cursorEvidencias].Tipo != EvidenciaVinculoRevisionSelladaBaremacion {
+			return fallo()
+		}
+		disposicion.evidenciaVinculoSello = cursorEvidencias
+		cursorEvidencias++
 	}
 	if cursorEvidencias < len(m.Evidencias) && m.Evidencias[cursorEvidencias].Tipo == EvidenciaValidacionDocumentoSelladoBaremacion {
 		disposicion.evidenciaValidacionTrasSello = cursorEvidencias
@@ -95,6 +105,12 @@ func (m ManifiestoProbatorioBaremacion) validarCoberturaCanonica() (disposicionM
 	if cursorEvidencias < len(m.Evidencias) && m.Evidencias[cursorEvidencias].Tipo == EvidenciaAumentoLongevidadBaremacion {
 		disposicion.aumento = true
 		disposicion.evidenciaAumento = cursorEvidencias
+		cursorEvidencias++
+		if cursorEvidencias >= len(m.Evidencias) ||
+			m.Evidencias[cursorEvidencias].Tipo != EvidenciaVinculoRevisionLongevaBaremacion {
+			return fallo()
+		}
+		disposicion.evidenciaVinculoAumento = cursorEvidencias
 		cursorEvidencias++
 	}
 	if disposicion.aumento && (!disposicion.sello || disposicion.evidenciaValidacionTrasSello < 0) ||
@@ -180,10 +196,11 @@ func tiposEvidenciaCanonicos(meritos int, sello, aumento bool) []TipoEvidenciaPr
 		EvidenciaValidacionInicialBaremacion,
 	)
 	if sello {
-		tipos = append(tipos, EvidenciaSelloTiempoBaremacion)
+		tipos = append(tipos, EvidenciaSelloTiempoBaremacion, EvidenciaVinculoRevisionSelladaBaremacion)
 	}
 	if aumento {
-		tipos = append(tipos, EvidenciaValidacionDocumentoSelladoBaremacion, EvidenciaAumentoLongevidadBaremacion)
+		tipos = append(tipos, EvidenciaValidacionDocumentoSelladoBaremacion,
+			EvidenciaAumentoLongevidadBaremacion, EvidenciaVinculoRevisionLongevaBaremacion)
 	}
 	return append(tipos,
 		EvidenciaValidacionFinalBaremacion,
@@ -387,16 +404,28 @@ func (m ManifiestoProbatorioBaremacion) ValidarCoberturaFirmaPara(
 		!evidenciaManifiestoCoincide(evidencias[d.evidenciaRetencion], firma.EvidenciaRetencionDocumentoFirmadoRef, firma.HuellaDocumentoSHA256) {
 		return ErrSolicitudBaremacionInvalida
 	}
-	if d.sello && (autorizaciones[d.autorizacionSello].RecursoRef != firma.FirmaRef ||
+	vinculoSello := VinculoTransicionPAdES{
+		Referencia: firma.VinculoRevisionSelladaRef, HuellaSHA256: firma.HuellaVinculoRevisionSelladaSHA256,
+	}
+	if d.sello && (vinculoSello.ValidarParaTipo(tipoVinculoRevisionSellada) != nil ||
+		autorizaciones[d.autorizacionSello].RecursoRef != firma.FirmaRef ||
 		autorizaciones[d.autorizacionValidacionFinal].RecursoRef != firma.FirmaRef ||
-		!evidenciaManifiestoCoincide(evidencias[d.evidenciaSello], firma.SelloTiempoRef, firma.HuellaSelloTiempoSHA256)) {
+		!evidenciaManifiestoCoincide(evidencias[d.evidenciaSello], firma.SelloTiempoRef, firma.HuellaSelloTiempoSHA256) ||
+		!evidenciaManifiestoCoincide(evidencias[d.evidenciaVinculoSello],
+			firma.VinculoRevisionSelladaRef, firma.HuellaVinculoRevisionSelladaSHA256)) {
 		return ErrSolicitudBaremacionInvalida
 	}
-	if d.aumento && (autorizaciones[d.autorizacionValidacionTrasSello].RecursoRef != firma.FirmaRef ||
+	vinculoAumento := VinculoTransicionPAdES{
+		Referencia: firma.VinculoRevisionLongevaRef, HuellaSHA256: firma.HuellaVinculoRevisionLongevaSHA256,
+	}
+	if d.aumento && (vinculoAumento.ValidarParaTipo(tipoVinculoRevisionLongeva) != nil ||
+		autorizaciones[d.autorizacionValidacionTrasSello].RecursoRef != firma.FirmaRef ||
 		autorizaciones[d.autorizacionAumento].RecursoRef != firma.FirmaRef ||
 		!evidenciaManifiestoCoincide(evidencias[d.evidenciaValidacionTrasSello],
 			firma.ValidacionDocumentoSelladoRef, firma.HuellaValidacionDocumentoSelladoSHA256) ||
-		!evidenciaManifiestoCoincide(evidencias[d.evidenciaAumento], firma.AumentoLongevidadRef, firma.HuellaAumentoLongevidadSHA256)) {
+		!evidenciaManifiestoCoincide(evidencias[d.evidenciaAumento], firma.AumentoLongevidadRef, firma.HuellaAumentoLongevidadSHA256) ||
+		!evidenciaManifiestoCoincide(evidencias[d.evidenciaVinculoAumento],
+			firma.VinculoRevisionLongevaRef, firma.HuellaVinculoRevisionLongevaSHA256)) {
 		return ErrSolicitudBaremacionInvalida
 	}
 	return nil
@@ -446,19 +475,31 @@ func (m ManifiestoProbatorioBaremacion) validarCoberturaArtefactosFirmaPara(
 		!evidenciaManifiestoCoincide(evidencias[d.evidenciaRetencion], documento.EvidenciaRetencion.Referencia, documento.HuellaDocumentoSHA256) {
 		return ErrSolicitudBaremacionInvalida
 	}
-	if sello != nil && (sello.Validar() != nil ||
-		autorizaciones[d.autorizacionSello].RecursoRef != artefacto.FirmaRef ||
-		autorizaciones[d.autorizacionValidacionFinal].RecursoRef != artefacto.FirmaRef ||
-		!evidenciaManifiestoCoincide(evidencias[d.evidenciaSello], sello.SelloTiempoRef, sello.HuellaSelloTiempoSHA256)) {
-		return ErrSolicitudBaremacionInvalida
+	if sello != nil {
+		vinculo := VinculoTransicionPAdES{
+			Referencia:   evidencias[d.evidenciaVinculoSello].Referencia,
+			HuellaSHA256: evidencias[d.evidenciaVinculoSello].HuellaEvidenciaSHA256,
+		}
+		if vinculo.ValidarRevisionSelladaPara(*sello, *validacionTrasSello) != nil ||
+			autorizaciones[d.autorizacionSello].RecursoRef != artefacto.FirmaRef ||
+			autorizaciones[d.autorizacionValidacionFinal].RecursoRef != artefacto.FirmaRef ||
+			!evidenciaManifiestoCoincide(evidencias[d.evidenciaSello], sello.SelloTiempoRef, sello.HuellaSelloTiempoSHA256) {
+			return ErrSolicitudBaremacionInvalida
+		}
 	}
-	if aumento != nil && (aumento.Validar() != nil ||
-		autorizaciones[d.autorizacionValidacionTrasSello].RecursoRef != artefacto.FirmaRef ||
-		autorizaciones[d.autorizacionAumento].RecursoRef != artefacto.FirmaRef ||
-		!evidenciaManifiestoCoincide(evidencias[d.evidenciaValidacionTrasSello],
-			validacionTrasSello.ValidacionRef, validacionTrasSello.HuellaValidacionSHA256) ||
-		!evidenciaManifiestoCoincide(evidencias[d.evidenciaAumento], aumento.EvidenciaAumentoRef, aumento.HuellaEvidenciaSHA256)) {
-		return ErrSolicitudBaremacionInvalida
+	if aumento != nil {
+		vinculo := VinculoTransicionPAdES{
+			Referencia:   evidencias[d.evidenciaVinculoAumento].Referencia,
+			HuellaSHA256: evidencias[d.evidenciaVinculoAumento].HuellaEvidenciaSHA256,
+		}
+		if vinculo.ValidarRevisionLongevaPara(*sello, *validacionTrasSello, *aumento, validacionFinal) != nil ||
+			autorizaciones[d.autorizacionValidacionTrasSello].RecursoRef != artefacto.FirmaRef ||
+			autorizaciones[d.autorizacionAumento].RecursoRef != artefacto.FirmaRef ||
+			!evidenciaManifiestoCoincide(evidencias[d.evidenciaValidacionTrasSello],
+				validacionTrasSello.ValidacionRef, validacionTrasSello.HuellaValidacionSHA256) ||
+			!evidenciaManifiestoCoincide(evidencias[d.evidenciaAumento], aumento.EvidenciaAumentoRef, aumento.HuellaEvidenciaSHA256) {
+			return ErrSolicitudBaremacionInvalida
+		}
 	}
 	return nil
 }

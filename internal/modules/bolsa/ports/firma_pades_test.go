@@ -42,6 +42,14 @@ func validacionFirmaValidaPrueba(
 	if len(perfilesFirma) == 1 {
 		perfilFirma = perfilesFirma[0]
 	}
+	selloRef, huellaSello := "", ""
+	aumentoRef, huellaAumento := "", ""
+	if perfilFirma == PerfilFirmaPAdESBaselineT || perfilFirma == PerfilFirmaPAdESBaselineLTA {
+		selloRef, huellaSello = "sello-tiempo-1", huellaPruebaPuertos("d")
+	}
+	if perfilFirma == PerfilFirmaPAdESBaselineLTA {
+		aumentoRef, huellaAumento = "evidencia-aumento-1", huellaPruebaPuertos("6")
+	}
 	comprobaciones := make([]ComprobacionFirma, 0, len(comprobacionesFirmaObligatorias))
 	for indice, clave := range ComprobacionesFirmaObligatorias() {
 		comprobaciones = append(comprobaciones, ComprobacionFirma{
@@ -54,6 +62,8 @@ func validacionFirmaValidaPrueba(
 		Estado: EstadoValidacionFirmaValida, Artefacto: artefacto, ValidacionRef: "validacion-firma-" + sufijo,
 		HuellaValidacionSHA256: huellaPruebaPuertos("b"), FirmanteVerificadoRef: artefacto.FirmanteRef,
 		PerfilVerificadoClave: artefacto.PerfilFirmanteClave, PerfilFirmaVerificadoClave: perfilFirma,
+		SelloTiempoVerificadoRef: selloRef, HuellaSelloTiempoVerificadaSHA256: huellaSello,
+		AumentoLongevidadVerificadoRef: aumentoRef, HuellaAumentoLongevidadVerificadaSHA256: huellaAumento,
 		Comprobaciones: comprobaciones, ValidadaEn: instante,
 	}
 }

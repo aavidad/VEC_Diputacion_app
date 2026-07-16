@@ -11,6 +11,12 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 )
 
+const (
+	EsquemaManifiestoProbatorioBaremacion   = "vec.bolsa.manifiesto_probatorio"
+	FinalidadManifiestoProbatorioBaremacion = "decision_tecnica_baremacion"
+	VersionManifiestoProbatorioBaremacion   = 2
+)
+
 // TipoEvidenciaProbatoriaBaremacion es un catalogo cerrado. Una evidencia no
 // puede incorporarse al manifiesto bajo una etiqueta libre o ambigua.
 type TipoEvidenciaProbatoriaBaremacion string
@@ -29,8 +35,10 @@ const (
 	EvidenciaConsultaFirmaBaremacion              TipoEvidenciaProbatoriaBaremacion = "consulta_firma"
 	EvidenciaValidacionInicialBaremacion          TipoEvidenciaProbatoriaBaremacion = "validacion_firma_inicial"
 	EvidenciaSelloTiempoBaremacion                TipoEvidenciaProbatoriaBaremacion = "sello_tiempo"
+	EvidenciaVinculoRevisionSelladaBaremacion     TipoEvidenciaProbatoriaBaremacion = "vinculo_revision_sellada"
 	EvidenciaValidacionDocumentoSelladoBaremacion TipoEvidenciaProbatoriaBaremacion = "validacion_documento_sellado"
 	EvidenciaAumentoLongevidadBaremacion          TipoEvidenciaProbatoriaBaremacion = "aumento_longevidad"
+	EvidenciaVinculoRevisionLongevaBaremacion     TipoEvidenciaProbatoriaBaremacion = "vinculo_revision_longeva"
 	EvidenciaValidacionFinalBaremacion            TipoEvidenciaProbatoriaBaremacion = "validacion_firma_final"
 	EvidenciaRecuperacionFirmadoBaremacion        TipoEvidenciaProbatoriaBaremacion = "recuperacion_documento_firmado"
 	EvidenciaCustodiaFirmadoBaremacion            TipoEvidenciaProbatoriaBaremacion = "custodia_documento_firmado"
@@ -45,8 +53,9 @@ func (t TipoEvidenciaProbatoriaBaremacion) valida() bool {
 		EvidenciaPoliticaFirmaBaremacion, EvidenciaDocumentoCanonicoBaremacion,
 		EvidenciaCustodiaFirmableBaremacion, EvidenciaPreparacionFirmaBaremacion,
 		EvidenciaConsultaFirmaBaremacion, EvidenciaValidacionInicialBaremacion,
-		EvidenciaSelloTiempoBaremacion, EvidenciaValidacionDocumentoSelladoBaremacion,
-		EvidenciaAumentoLongevidadBaremacion,
+		EvidenciaSelloTiempoBaremacion, EvidenciaVinculoRevisionSelladaBaremacion,
+		EvidenciaValidacionDocumentoSelladoBaremacion, EvidenciaAumentoLongevidadBaremacion,
+		EvidenciaVinculoRevisionLongevaBaremacion,
 		EvidenciaValidacionFinalBaremacion, EvidenciaRecuperacionFirmadoBaremacion,
 		EvidenciaCustodiaFirmadoBaremacion, EvidenciaRetencionFirmadoBaremacion:
 		return true
@@ -92,6 +101,9 @@ func (e EvidenciaProbatoriaBaremacion) Validar() error {
 // ManifiestoProbatorioBaremacion es el indice sellado de capacidades y
 // evidencias que sostienen una decision. No acepta mapas ni extensiones libres.
 type ManifiestoProbatorioBaremacion struct {
+	Esquema                   string
+	Finalidad                 string
+	VersionEsquema            int
 	Referencia                string
 	ProcesoRef                string
 	SolicitudRef              string
@@ -116,7 +128,10 @@ func (m ManifiestoProbatorioBaremacion) Clonar() ManifiestoProbatorioBaremacion 
 }
 
 func (m ManifiestoProbatorioBaremacion) Validar() error {
-	if !referenciaValida(m.Referencia, 512) || !referenciaValida(m.ProcesoRef, 512) ||
+	if m.Esquema != EsquemaManifiestoProbatorioBaremacion ||
+		m.Finalidad != FinalidadManifiestoProbatorioBaremacion ||
+		m.VersionEsquema != VersionManifiestoProbatorioBaremacion ||
+		!referenciaValida(m.Referencia, 512) || !referenciaValida(m.ProcesoRef, 512) ||
 		!referenciaValida(m.SolicitudRef, 512) || !referenciaValida(m.SujetoRef, 512) ||
 		!referenciaValida(m.BaremacionMeritoRef, 512) || !referenciaValida(m.DecisionRef, 512) ||
 		m.VersionBase < 1 || !huellaSHA256Valida(m.HuellaVersionBaseSHA256) ||
@@ -215,7 +230,10 @@ func (m ManifiestoProbatorioBaremacion) huellaCalculada() (string, error) {
 }
 
 func (m ManifiestoProbatorioBaremacion) materialCanonico(incluirHuella bool) ([]byte, error) {
-	if !referenciaValida(m.Referencia, 512) || !referenciaValida(m.ProcesoRef, 512) ||
+	if m.Esquema != EsquemaManifiestoProbatorioBaremacion ||
+		m.Finalidad != FinalidadManifiestoProbatorioBaremacion ||
+		m.VersionEsquema != VersionManifiestoProbatorioBaremacion ||
+		!referenciaValida(m.Referencia, 512) || !referenciaValida(m.ProcesoRef, 512) ||
 		!referenciaValida(m.SolicitudRef, 512) || !referenciaValida(m.SujetoRef, 512) ||
 		!referenciaValida(m.BaremacionMeritoRef, 512) || !referenciaValida(m.DecisionRef, 512) ||
 		m.VersionBase < 1 || !huellaSHA256Valida(m.HuellaVersionBaseSHA256) ||
@@ -232,6 +250,7 @@ func (m ManifiestoProbatorioBaremacion) materialCanonico(incluirHuella bool) ([]
 		_, _ = destino.WriteString(valor)
 	}
 	for _, valor := range []string{
+		m.Esquema, m.Finalidad, strconv.Itoa(m.VersionEsquema),
 		m.Referencia, m.ProcesoRef, m.SolicitudRef, m.SujetoRef, m.BaremacionMeritoRef,
 		m.DecisionRef, strconv.FormatUint(m.VersionBase, 10), m.HuellaVersionBaseSHA256,
 		m.CreadoEn.Format(time.RFC3339Nano),

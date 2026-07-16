@@ -61,7 +61,10 @@ func (s *ServicioBaremacion) construirManifiestoProbatorio(
 	}
 	base := firmaPreparada.decision.decision.revision.revision.version.Referencia
 	manifiesto := puertosbolsa.ManifiestoProbatorioBaremacion{
-		Referencia: referencia, ProcesoRef: contenido.ProcesoRef, SolicitudRef: contenido.SolicitudRef,
+		Esquema:        puertosbolsa.EsquemaManifiestoProbatorioBaremacion,
+		Finalidad:      puertosbolsa.FinalidadManifiestoProbatorioBaremacion,
+		VersionEsquema: puertosbolsa.VersionManifiestoProbatorioBaremacion,
+		Referencia:     referencia, ProcesoRef: contenido.ProcesoRef, SolicitudRef: contenido.SolicitudRef,
 		SujetoRef: contenido.SujetoRef, BaremacionMeritoRef: contenido.BaremacionMeritoRef,
 		DecisionRef: contenido.ID, VersionBase: base.Numero, HuellaVersionBaseSHA256: base.HuellaEstadoSHA256,
 		Autorizaciones: autorizaciones, Evidencias: evidencias, CreadoEn: creadoEn.UTC(),
@@ -168,13 +171,26 @@ func evidenciasManifiestoBaremacion(
 		puertosbolsa.EvidenciaProbatoriaBaremacion{Tipo: puertosbolsa.EvidenciaValidacionInicialBaremacion, Referencia: validacionInicial.ValidacionRef, HuellaEvidenciaSHA256: validacionInicial.HuellaValidacionSHA256},
 	)
 	if sello != nil {
-		resultado = append(resultado, puertosbolsa.EvidenciaProbatoriaBaremacion{
-			Tipo: puertosbolsa.EvidenciaSelloTiempoBaremacion, Referencia: sello.SelloTiempoRef,
-			HuellaEvidenciaSHA256: sello.HuellaSelloTiempoSHA256,
-		})
+		if validacionTrasSello == nil {
+			return nil, ErrResultadoBaremacionNoConfiable
+		}
+		vinculo, err := puertosbolsa.NuevoVinculoRevisionSelladaPAdES(*sello, *validacionTrasSello)
+		if err != nil {
+			return nil, ErrResultadoBaremacionNoConfiable
+		}
+		resultado = append(resultado,
+			puertosbolsa.EvidenciaProbatoriaBaremacion{
+				Tipo: puertosbolsa.EvidenciaSelloTiempoBaremacion, Referencia: sello.SelloTiempoRef,
+				HuellaEvidenciaSHA256: sello.HuellaSelloTiempoSHA256,
+			},
+			puertosbolsa.EvidenciaProbatoriaBaremacion{
+				Tipo:       puertosbolsa.EvidenciaVinculoRevisionSelladaBaremacion,
+				Referencia: vinculo.Referencia, HuellaEvidenciaSHA256: vinculo.HuellaSHA256,
+			},
+		)
 	}
 	if aumento != nil {
-		if validacionTrasSello == nil {
+		if sello == nil || validacionTrasSello == nil {
 			return nil, ErrResultadoBaremacionNoConfiable
 		}
 		resultado = append(resultado, puertosbolsa.EvidenciaProbatoriaBaremacion{
@@ -185,6 +201,16 @@ func evidenciasManifiestoBaremacion(
 		resultado = append(resultado, puertosbolsa.EvidenciaProbatoriaBaremacion{
 			Tipo: puertosbolsa.EvidenciaAumentoLongevidadBaremacion, Referencia: aumento.EvidenciaAumentoRef,
 			HuellaEvidenciaSHA256: aumento.HuellaEvidenciaSHA256,
+		})
+		vinculo, err := puertosbolsa.NuevoVinculoRevisionLongevaPAdES(
+			*sello, *validacionTrasSello, *aumento, validacionFinal,
+		)
+		if err != nil {
+			return nil, ErrResultadoBaremacionNoConfiable
+		}
+		resultado = append(resultado, puertosbolsa.EvidenciaProbatoriaBaremacion{
+			Tipo:       puertosbolsa.EvidenciaVinculoRevisionLongevaBaremacion,
+			Referencia: vinculo.Referencia, HuellaEvidenciaSHA256: vinculo.HuellaSHA256,
 		})
 	}
 	resultado = append(resultado,

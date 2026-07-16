@@ -5,6 +5,40 @@ import (
 	"time"
 )
 
+func perfilFirmaAdmitidoEnPolitica(p PoliticaFirmaBaremacion, perfil string) bool {
+	if p.Validar() != nil || !perfilFirmaPermitido(perfil) {
+		return false
+	}
+	switch p.PerfilFirmaClave {
+	case PerfilFirmaPAdESBaselineB:
+		return perfil == PerfilFirmaPAdESBaselineB
+	case PerfilFirmaPAdESBaselineT:
+		return perfil == PerfilFirmaPAdESBaselineB || perfil == PerfilFirmaPAdESBaselineT
+	case PerfilFirmaPAdESBaselineLTA:
+		return perfil == PerfilFirmaPAdESBaselineB || perfil == PerfilFirmaPAdESBaselineT ||
+			perfil == PerfilFirmaPAdESBaselineLTA
+	default:
+		return false
+	}
+}
+
+func evidenciasEmbebidasPerfilFirmaValidas(
+	perfil, selloRef, huellaSello, aumentoRef, huellaAumento string,
+) bool {
+	selloPresente := referenciaValida(selloRef, 512) && huellaSHA256Valida(huellaSello)
+	aumentoPresente := referenciaValida(aumentoRef, 512) && huellaSHA256Valida(huellaAumento)
+	switch perfil {
+	case PerfilFirmaPAdESBaselineB:
+		return selloRef == "" && huellaSello == "" && aumentoRef == "" && huellaAumento == ""
+	case PerfilFirmaPAdESBaselineT:
+		return selloPresente && aumentoRef == "" && huellaAumento == ""
+	case PerfilFirmaPAdESBaselineLTA:
+		return selloPresente && aumentoPresente
+	default:
+		return false
+	}
+}
+
 // ValidarRevisionPAdESDe exige una nueva revision fisica del mismo PDF
 // firmado. FirmaRef y HuellaFirmaSHA256 identifican la firma criptografica
 // base y permanecen estables; la referencia y la huella del contenedor PDF
