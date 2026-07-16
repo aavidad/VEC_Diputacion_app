@@ -86,19 +86,97 @@ Pendiente productivo:
   kilometraje/dietas; Bolsa con baremo, listados, alegaciones, firma,
   notificaciones y persistencia duradera.
 
-## Documentacion de implantacion
+## Documentacion
 
+### Manual del programador
+
+- [Manual del programador](docs/manual_programador/LEEME.md): arquitectura por
+  capas y referencia de todas las funciones y tipos exportados, para que
+  sirven y como se usan. Se regenera con
+  `scripts/generar_manual_programador.py`.
+
+### Portal VEC: arquitectura y contratos
+
+- [Arquitectura tecnica modular del portal](docs/portal_vec/arquitectura_tecnica.md)
 - [Contrato de modulos VEC](docs/portal_vec/contrato_modulos_vec.md): contrato
   para enchufar Bolsa, nominas, concursos u otros modulos.
+- [Inventario funcional VEC/VEPA para portal empleado](docs/portal_vec/inventario_vec.md)
+- [Registro de decisiones y mejoras](docs/portal_vec/registro_decisiones.md)
+- [Dominio del portal VEC y autobaremacion](docs/portal_vec/dominio_y_autobaremacion.md)
+- [Estudio profesional de pantallas VEC](docs/portal_vec/estudio_pantallas_profesionales.md):
+  flujos completos por modulo/menu, datos visibles, acciones, estados,
+  integraciones, validaciones y criterio de terminado.
+- [UX portal empleado tipo VEC](docs/portal_vec/ux_portal_empleado.md)
+- [Matriz inicial de perfiles, roles y ambitos](docs/portal_vec/matriz_roles_y_ambitos.md)
+- [Catalogos configurables y gobernados](docs/portal_vec/catalogos_configurables.md)
+
+### Portal VEC: seguridad y autorizacion
+
+- [Cumplimiento, seguridad y expediente electronico](docs/portal_vec/cumplimiento_y_seguridad.md)
+- [Atestacion criptografica de decisiones de autorizacion](docs/portal_vec/atestacion_criptografica_decisiones.md)
+- [Autenticacion fake local segura](docs/portal_vec/autenticacion_fake_local_segura.md)
+- [Seguridad y permisos de PostgreSQL](docs/portal_vec/seguridad_persistencia_postgresql.md)
+- [Integracion de autorizacion en la firma de baremaciones V1](docs/portal_vec/integracion_autorizacion_firma_baremacion_v1.md)
+- [Auditoria adversaria del flujo durable de firma de baremacion V1](docs/portal_vec/auditoria_adversaria_flujo_firma_baremacion_v1.md)
+- [Auditoria adversaria de ejecucion documental V3](docs/portal_vec/auditoria_adversaria_ejecucion_documental_v3.md)
+
+### Portal VEC: gestion documental
+
+- [Capacidad documental transversal del Portal VEC](docs/portal_vec/capacidad_documental.md)
+- [Almacen documental seguro, cifrado e intercambiable](docs/portal_vec/almacen_documental_seguro.md)
+- [Ejecucion documental atestada V3](docs/portal_vec/ejecucion_documental_atestada_v3.md)
+- [Firma multiple, CSV, QR y servicio de cotejo](docs/portal_vec/firma_csv_qr_y_cotejo.md)
+- [Metadatos institucionales de procedencia documental](docs/portal_vec/metadatos_institucionales_procedencia.md)
+- [Recibos materiales de almacenamiento V2](docs/portal_vec/recibos_materiales_almacenamiento_v2.md)
+- [Flujo durable de firma de baremaciones](docs/portal_vec/flujo_firma_baremacion_durable.md)
+- [Migracion de baremacion a idempotencia semantica V2](docs/portal_vec/migracion_baremacion_idempotencia_v2.md)
+
+### Portal VEC: modulos e integraciones
+
+- [Modulo Personal/Nominas publico](docs/portal_vec/nominas_personal_publico.md):
+  normativa, referencias profesionales, modelo funcional y gates de calidad.
+- [Referencias para modulos Cronos y Dietas](docs/portal_vec/referencias_cronos_dietas.md)
+- [Dietas: matriz provincial de distancias](docs/portal_vec/dietas_matriz_distancias.md)
+- [Pagos, tasas y conciliacion](docs/portal_vec/pagos_tasas_y_conciliacion.md)
+
+### Portal VEC: planes de desarrollo
+
 - [Orden de desarrollo Orquesta](docs/portal_vec/desarrollo_vec_orquesta.md):
   alcance, gates y plan de tareas para evolucionar el shell.
 - [Plan de implantacion con Orquesta](docs/portal_vec/plan_implantacion_orquesta.md):
   olas, runs, dependencias y agentes recomendados.
-- [Estudio profesional de pantallas VEC](docs/portal_vec/estudio_pantallas_profesionales.md):
-  flujos completos por modulo/menu, datos visibles, acciones, estados,
-  integraciones, validaciones y criterio de terminado.
-- [Modulo Personal/Nominas publico](docs/portal_vec/nominas_personal_publico.md):
-  normativa, referencias profesionales, modelo funcional y gates de calidad.
+
+### Estudio de requisitos
+
+- [Estudio de requisitos del portal transversal de RRHH](docs/estudio_requisitos/README.md)
+- [Peticion de RRHH: transcripcion accesible y lectura tecnica inicial](docs/estudio_requisitos/peticion_rrhh_transcripcion_y_lectura.md)
+- [Acceso interno de tecnicos, RRHH y administracion](docs/estudio_requisitos/acceso_interno_tecnicos_administracion.md)
+- [Accesibilidad personalizable, ayuda, audio y asistente](docs/estudio_requisitos/ayuda_documentacion_audio_y_asistente.md)
+- [Brechas para un producto profesional, seguro y trazable](docs/estudio_requisitos/brechas_para_producto_profesional.md)
+- [Arquitectura de despliegue, contenedores y escalado](docs/estudio_requisitos/despliegue_contenedores_y_escalado.md)
+- [Manual 00 para Sistemas: preparacion e instalacion de la plataforma](docs/estudio_requisitos/manual_sistemas_preparacion_plataforma.md)
+- [Metodo de desarrollo asistido con Orquesta V06](docs/estudio_requisitos/metodo_desarrollo_orquestado_v06.md)
+- [Seguridad y despliegue del modulo Cronos](docs/estudio_requisitos/seguridad_y_despliegue_cronos.md)
+- [Sistema de diseno, plantillas y temas visuales](docs/estudio_requisitos/sistema_diseno_y_temas.md)
+
+### Comite de seguridad
+
+- [Entregables para el Comite de Seguridad](docs/comite_seguridad/LEEME.md)
+- [Informe para la validacion de la arquitectura y del enfoque de seguridad](docs/comite_seguridad/informe_validacion_arquitectura_seguridad.md)
+
+### Referencias de portales AAPP
+
+- [Referencias de portales de empleo publico y del personal](docs/referencias_portales_aapp/README.md)
+- [Comparativa y composicion recomendada de portales publicos de RRHH](docs/referencias_portales_aapp/comparativa_y_composicion_recomendada.md)
+- [Decision de trabajo: espacios de acceso y persistencia intercambiable](docs/referencias_portales_aapp/decision_espacios_y_persistencia.md)
+
+### Notas de desarrollo
+
+- [OSRM interno de Granada para Dietas/VEC](deploy/osrm-granada/README.md)
+- [Vertical slice juridico-administrativo](docs/vertical_slice_juridico.md)
+- [Autoprogramacion Orquesta pendientes 2026-05-23](docs/autoprogramacion_orquesta_pendientes_2026-05-23.md)
+- [Duplicaciones railes pendientes 2026-05-24](docs/duplicaciones_railes_pendientes_2026-05-24.md)
+- [Rail errors observados 2026-05-23](docs/rail_errors_observados_2026-05-23.md)
 
 ## Requisitos
 
