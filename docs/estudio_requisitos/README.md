@@ -21,6 +21,7 @@ Fecha de corte actual: 16 de julio de 2026.
 - [Baremacion configurable, jornada y servicios obtenidos de oficio](baremacion_configurable_jornada_y_datos_de_oficio.md).
 - [Integracion del Baremador de puestos singularizados y otros procesos](integracion_baremador_concursos_provision.md).
 - [Modelo historico de RPT, plazas, puestos, ocupaciones y vacantes](modelo_historico_rpt_plazas_puestos_y_vacantes.md).
+- [Calendario habil, laboral y de jornada con historia reproducible](calendario_habil_laboral_historico.md).
 - [Brechas para un producto profesional, seguro y trazable](brechas_para_producto_profesional.md).
 - [Sistema de diseño, plantillas y temas visuales](sistema_diseno_y_temas.md).
 - [Ayuda, documentación, audio y asistente](ayuda_documentacion_audio_y_asistente.md).
@@ -106,6 +107,10 @@ productiva verificada.
 - Los servicios internos se obtendran de oficio desde Personal. Nomina se usa
   como reconciliacion, no como unica fuente, y una indisponibilidad nunca se
   convierte en cero puntos.
+- Calendarios es un contexto transversal: separa dia natural, habilidad
+  administrativa, apertura del centro y jornada programada. Cada calculo
+  conserva politica, fuentes y versiones; la ausencia de fuente produce un
+  resultado indeterminado y nunca una regla oculta de lunes a viernes.
 
 ## Trabajo pendiente antes de redactar las especificaciones definitivas
 

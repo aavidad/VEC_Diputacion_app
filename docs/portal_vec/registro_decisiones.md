@@ -2382,3 +2382,28 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   ENI, RGPD y LOPDGDD son puertas obligatorias antes de datos reales.
 - Especificacion:
   `docs/estudio_requisitos/modelo_historico_rpt_plazas_puestos_y_vacantes.md`.
+
+## DEC-067 — Calendario transversal, histórico y explicable
+
+- Estado: modelo adoptado el 16 de julio de 2026; fuentes corporativas,
+  validación funcional y jurídica e implementación productiva pendientes.
+- Separación: día natural, día hábil administrativo, apertura de centro y
+  jornada programada son resultados distintos. Un turno en festivo no cambia
+  el calendario administrativo y una apertura excepcional tampoco.
+- Alcance: Calendarios gobierna fuentes, versiones, políticas y cálculos;
+  Personal aporta la adscripción, Cronos los cuadrantes y hechos reales y cada
+  procedimiento referencia la política jurídica exacta que consume.
+- Historia: calendarios, reglas y adscripciones son bitemporales. Se conservan
+  vigencia y conocimiento para reproducir un cálculo y detectar el impacto de
+  una corrección sin sobrescribir actos anteriores.
+- Configuración: RRHH y Secretaría publican combinaciones de operadores
+  tipados, con doble control y casos aprobados. No se admiten código, SQL,
+  expresiones libres ni traslados de festivos inventados por el motor.
+- Resultado: un cálculo relevante conserva entrada, política, ámbitos,
+  fuentes, versiones, desglose, cobertura, autorización y huella. Si falta una
+  fuente requerida queda `indeterminado`, nunca se supone lunes a viernes.
+- Seguridad: calendarios oficiales publicados pueden proyectarse al exterior;
+  adscripciones, perfiles, turnos y cálculos nominales quedan en el portal y
+  red internos, bajo finalidad y ámbito organizativo.
+- Especificación:
+  `docs/estudio_requisitos/calendario_habil_laboral_historico.md`.
