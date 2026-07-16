@@ -13,12 +13,14 @@ import (
 type FinalidadSelloBaremacion string
 
 const (
-	FinalidadSelloReservaBaremacion      FinalidadSelloBaremacion = "reserva_baremacion_v1"
-	FinalidadSelloConfirmacionBaremacion FinalidadSelloBaremacion = "confirmacion_baremacion_v1"
+	FinalidadSelloReservaBaremacion                       FinalidadSelloBaremacion = "reserva_baremacion_v1"
+	FinalidadSelloConfirmacionBaremacion                  FinalidadSelloBaremacion = "confirmacion_baremacion_v1"
+	FinalidadSelloSobreProbatorioConfirmacionBaremacionV2 FinalidadSelloBaremacion = "sobre_probatorio_confirmacion_baremacion_v2"
 )
 
 func (f FinalidadSelloBaremacion) valida() bool {
-	return f == FinalidadSelloReservaBaremacion || f == FinalidadSelloConfirmacionBaremacion
+	return f == FinalidadSelloReservaBaremacion || f == FinalidadSelloConfirmacionBaremacion ||
+		f == FinalidadSelloSobreProbatorioConfirmacionBaremacionV2
 }
 
 // SolicitudVerificarSelloBaremacion entrega al componente criptografico la
@@ -77,6 +79,44 @@ func RepresentacionCanonicaConfirmacionBaremacion(s SolicitudConfirmarCambioBare
 	if s.Validar() != nil {
 		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
 	}
+	return representacionCanonicaConfirmacionBaremacion(
+		s, FinalidadSelloConfirmacionBaremacion, nil,
+	)
+}
+
+// RepresentacionCanonicaSobreProbatorioConfirmacionBaremacionV2 liga el
+// identificador opaco previo al COMMIT y el indice estable con todos los datos
+// exactos del intento. Es material nominal del sobre probatorio, no el
+// fingerprint semantico de DEC-045 ni una prueba de persistencia.
+func RepresentacionCanonicaSobreProbatorioConfirmacionBaremacionV2(
+	s IntentoNominalConfirmacionBaremacionV2,
+) (CargaProtegida, error) {
+	if s.ValidarForma() != nil {
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	referencia, indiceHMAC, err := s.IdentificadorOperacion.DatosReconciliacion()
+	if err != nil {
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	return representacionCanonicaConfirmacionBaremacion(
+		s.Confirmacion,
+		FinalidadSelloSobreProbatorioConfirmacionBaremacionV2,
+		[]string{referencia, indiceHMAC},
+	)
+}
+
+func representacionCanonicaConfirmacionBaremacion(
+	s SolicitudConfirmarCambioBaremacion,
+	finalidad FinalidadSelloBaremacion,
+	prefijo []string,
+) (CargaProtegida, error) {
+	if s.Validar() != nil || !finalidad.valida() ||
+		(finalidad == FinalidadSelloConfirmacionBaremacion && len(prefijo) != 0) ||
+		(finalidad == FinalidadSelloSobreProbatorioConfirmacionBaremacionV2 && len(prefijo) != 2) ||
+		(finalidad != FinalidadSelloConfirmacionBaremacion &&
+			finalidad != FinalidadSelloSobreProbatorioConfirmacionBaremacionV2) {
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
 	huellaAgregado, err := s.Agregado.HuellaEstadoSHA256()
 	if err != nil {
 		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
@@ -99,8 +139,10 @@ func RepresentacionCanonicaConfirmacionBaremacion(s SolicitudConfirmarCambioBare
 	if err != nil {
 		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
 	}
+	partes = append(partes, string(finalidad))
+	partes = append(partes, prefijo...)
 	partes = append(partes,
-		string(FinalidadSelloConfirmacionBaremacion), s.Token.Revelar(), string(s.Clase),
+		s.Token.Revelar(), string(s.Clase),
 		versionPresente, versionRef, versionNumero, versionHuella, huellaAgregado,
 		manifiestoPresente, manifiestoRef, manifiestoHuella, manifiestoSello,
 		s.Trazabilidad.MotivoClave, s.Trazabilidad.Motivo,
