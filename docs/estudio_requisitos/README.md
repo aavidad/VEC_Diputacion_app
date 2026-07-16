@@ -32,6 +32,7 @@ Fecha de corte actual: 14 de julio de 2026.
 - [Decisión de espacios y persistencia PostgreSQL/Oracle](../referencias_portales_aapp/decision_espacios_y_persistencia.md).
 - [Registro cronologico de decisiones, alternativas y motivos](../portal_vec/registro_decisiones.md).
 - [Dominio de Bolsa, autobaremacion y revision firmada](../portal_vec/dominio_y_autobaremacion.md).
+- [Versiones gobernadas de convocatoria de Bolsa](../portal_vec/convocatorias_gobernadas.md).
 - [Firma, CSV, QR y cotejo documental](../portal_vec/firma_csv_qr_y_cotejo.md).
 - [Almacen documental seguro e intercambiable](../portal_vec/almacen_documental_seguro.md).
 - [Pagos, tasas y conciliacion](../portal_vec/pagos_tasas_y_conciliacion.md).

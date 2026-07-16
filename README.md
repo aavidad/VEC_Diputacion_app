@@ -122,6 +122,7 @@ Pendiente productivo:
 - [Inventario funcional VEC/VEPA para portal empleado](docs/portal_vec/inventario_vec.md)
 - [Registro de decisiones y mejoras](docs/portal_vec/registro_decisiones.md)
 - [Dominio del portal VEC y autobaremacion](docs/portal_vec/dominio_y_autobaremacion.md)
+- [Versiones gobernadas de convocatoria de Bolsa](docs/portal_vec/convocatorias_gobernadas.md)
 - [Estudio profesional de pantallas VEC](docs/portal_vec/estudio_pantallas_profesionales.md):
   flujos completos por modulo/menu, datos visibles, acciones, estados,
   integraciones, validaciones y criterio de terminado.
