@@ -1765,3 +1765,51 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   evidencia de intento; cambiar identidad, ambito, contenido del manifiesto o
   motivo cambia o deniega la operacion. Cruces A/B, snapshot manipulado, frontera
   cambiante, firma falsa, historico omitido y callback asincrono fallan cerrados.
+
+## DEC-050 — Retirada por porte del nucleo heredado de Bolsa
+
+- Estado: decision adoptada el 16 de julio de 2026 por el responsable del
+  proyecto. Recogida tambien como H-04 en la
+  [auditoria de diseno y seguridad](auditoria_diseno_y_seguridad_2026-07-16.md).
+- Problema: `internal/candidate` (heredado, en ingles) convive con
+  `internal/modules/bolsa` (nuevo, en espanol). Verificado con el grafo de
+  imports: su unico consumidor restante es `internal/app/bootstrap`, que solo
+  monta la API heredada en modo `fake`. El doble nucleo duplica dominio,
+  adaptadores y mantenimiento.
+- Decision: retirar el nucleo heredado portando primero al modulo nuevo lo
+  que siga haciendo falta. Retirar no es borrar sin mas; la secuencia
+  obligatoria es: inventario de capacidades del heredado; analisis de brecha
+  contra `internal/modules/bolsa` dejando constancia en este registro de lo
+  que se descarta; porte de lo necesario al formato nuevo (espanol,
+  hexagonal, fallo cerrado, autorizacion por caso de uso y limites de
+  DEC-051) con sus tests; y solo entonces borrado de `internal/candidate`,
+  de su cableado en `bootstrap` y de la configuracion residual de la API
+  heredada.
+- Mientras tanto: el heredado queda en solo-mantenimiento. No se admite
+  codigo, tests ni documentacion nuevos que dependan de `internal/candidate`.
+- Reversibilidad: alta hasta el borrado final, que conserva el historico Git
+  como via de recuperacion.
+
+## DEC-051 — Limite de tamano de los ficheros de codigo
+
+- Estado: decision adoptada el 16 de julio de 2026 por el responsable del
+  proyecto, que delego el umbral concreto en la auditoria tecnica. En vigor,
+  aplicada por la puerta de calidad y el CI.
+- Problema: los ficheros de miles de lineas agotan el contexto de los
+  agentes que desarrollan el proyecto e impiden revisarlos con seguridad
+  (peores casos en la fecha: `web/static/app.js` con 13.211 lineas e
+  `idempotencia_semantica_baremacion.go` con 4.215).
+- Decision: objetivo de diseno de 500 lineas por fichero de codigo y tope
+  duro de 800 lineas. El tope lo exige
+  `scripts/comprobar_tamano_ficheros.sh`, integrado en
+  `scripts/verificar_calidad.sh` y en el workflow `ci`. El margen entre
+  objetivo y tope existe para no partir por burocracia un fichero
+  cohesionado de 501 lineas: hasta ~800 lineas un agente lo lee entero sin
+  hipotecar su contexto; por encima debe trocearse (en Go, dividir en varios
+  ficheros del mismo paquete conserva API y comportamiento).
+- Linea base: `scripts/tamano_ficheros_base.txt` congela unicamente los
+  ficheros ya versionados que superaban el tope: no pueden crecer y la linea
+  base solo puede menguar. Los ficheros sin versionar no quedan exceptuados;
+  deben trocearse antes de incorporarse.
+- Reversibilidad: ajustar el umbral es un cambio de una linea mas la
+  regeneracion de la linea base, consensuado en este registro.
