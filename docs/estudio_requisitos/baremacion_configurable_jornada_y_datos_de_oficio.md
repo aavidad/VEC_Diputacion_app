@@ -517,6 +517,35 @@ sucesora y registra que solicitudes, calculos o listados deben revisarse.
 
 ## Autobaremacion y revision administrativa
 
+### Reutilizacion en convocatorias futuras
+
+El portal conserva un Registro Unificado de Meritos (RUM) de la persona y el
+historial inmutable de sus presentaciones. La reutilizacion distingue cuatro
+objetos que no deben confundirse:
+
+| Objeto | Reutilizacion |
+| --- | --- |
+| Hecho o merito | Un titulo, curso o periodo puede proponerse en futuras convocatorias mientras siga vigente y resulte pertinente. |
+| Evidencia | El documento o consulta de oficio se referencia sin volver a subir bytes; se comprueban integridad, firma, vigencia, revocacion y permiso de uso. |
+| Validacion del hecho | La comprobacion de autenticidad o contenido puede aprovecharse si conserva alcance, fuente y vigencia; el nuevo organo puede revisarla cuando proceda. |
+| Valoracion y autobaremo | Son exclusivos de una solicitud, convocatoria y version de reglas. Se conservan historicamente, pero nunca se copian como puntuacion de otro proceso. |
+
+Al iniciar una nueva solicitud, el sistema:
+
+1. propone los meritos existentes que podrian encajar;
+2. refresca los servicios obtenidos de oficio hasta la nueva fecha de corte;
+3. avisa de documentos caducados, revocados, sustituidos o insuficientes;
+4. aplica exclusivamente las nuevas bases;
+5. permite añadir, retirar o corregir la seleccion sin alterar expedientes
+   anteriores;
+6. exige revision, firma y registro de una nueva instantanea.
+
+Una persona no debe volver a aportar el mismo fichero valido, pero tampoco se
+la inscribe ni se presentan meritos automaticamente sin el tramite y la firma
+que correspondan. La conservacion del RUM y de cada expediente seguira tablas
+de retencion, bloqueo y supresion aprobadas; «reutilizable» no significa
+conservacion indefinida ni acceso general entre modulos.
+
 ### Puntuacion que vera la persona en cada convocatoria
 
 Si una persona participa en dos procesos con bases distintas, el mismo merito

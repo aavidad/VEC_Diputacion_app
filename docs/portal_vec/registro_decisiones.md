@@ -2289,5 +2289,10 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   exactitud, intervencion humana efectiva, identificacion publica limitada y
   EIPD antes de produccion conforme determine el DPD. Una IA no admite,
   rechaza, barema ni ordena personas.
+- Reutilizacion: el RUM conserva hechos, evidencias y validaciones reutilizables
+  con alcance y vigencia; cada autobaremo y valoracion permanece ligado a su
+  solicitud, convocatoria y reglas. Una nueva convocatoria precarga meritos,
+  refresca servicios y recalcula, pero requiere nueva revision y presentacion
+  firmada y no hereda puntos anteriores.
 - Especificacion y fuentes:
   `docs/estudio_requisitos/baremacion_configurable_jornada_y_datos_de_oficio.md`.
