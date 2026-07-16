@@ -40,6 +40,7 @@ Diputación.
 
 ## Documentos incorporados
 
+- [Análisis integral del portal de Recursos Humanos](analisis_integral_rrhh.md).
 - [Transcripción y lectura técnica de la petición de RRHH](peticion_rrhh_transcripcion_y_lectura.md).
 - [Baremacion configurable, jornada y servicios obtenidos de oficio](baremacion_configurable_jornada_y_datos_de_oficio.md).
 - [Integracion del Baremador de puestos singularizados y otros procesos](integracion_baremador_concursos_provision.md).
