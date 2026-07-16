@@ -4,9 +4,11 @@ Fecha de decision: 15-07-2026.
 
 ## Estado y finalidad
 
-El ejecutor V2 demuestra el gobierno de perfiles, la revocacion, los limites y
-el aislamiento defensivo de buffers, pero permanece en sombra. Una auditoria
-adversaria encontro seis condiciones que impiden conectarlo a produccion:
+El ejecutor V2 demostro el gobierno de perfiles, la revocacion, los limites y
+el aislamiento defensivo de buffers mientras permanecio en sombra. Fue retirado
+del paquete activo al quedar superado por V3/V4. Su auditoria adversaria dejo
+seis condiciones que impedian conectarlo a produccion y que se conservan como
+requisitos de regresion:
 
 1. pasar un descriptor a una interfaz no prueba que el binario ejecutado sea el
    que fue homologado;
@@ -45,8 +47,9 @@ de produccion. La iteracion V4 debe cerrar, como minimo:
 8. generar todas las referencias opacas en servidor, redactar capacidades y
    normalizar tiempos a UTC con precision persistible.
 
-Hasta superar de nuevo la auditoria, V2 y V3 permanecen desconectados de los
-flujos publicos y de los adaptadores productivos.
+V2 ya no forma parte del paquete activo. Hasta superar de nuevo la auditoria,
+V3/V4 no se cablean en la raiz de composicion productiva ni se exponen por
+HTTP, CLI o MCP.
 
 ## Frontera hexagonal abierta por V4
 

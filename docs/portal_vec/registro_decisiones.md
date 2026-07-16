@@ -1304,13 +1304,13 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 
 ## DEC-042 — Formatos gobernados y metadatos institucionales de procedencia
 
-- Estado: decision arquitectonica adoptada e implantada como contratos V2 y V3
-  en sombra el 15 de julio de 2026. Orquesta V12 completo en modo de solo
-  lectura dos revisiones paralelas y atestiguadas. Dominio, puertos, ejecucion
-  de borrador, cercado, recibos y pruebas adversarias estan implementados sin
-  sustituir el flujo heredado; una segunda auditoria V3 mantiene expresamente
-  bloqueada la produccion. PDF y DOCX siguen siendo por ahora los unicos
-  formatos ejecutables del prototipo.
+- Estado: decision arquitectonica adoptada como contratos V2/V3 en sombra el
+  15 de julio de 2026. El ejecutor V2 de borradores fue retirado del paquete
+  activo el 16 de julio de 2026 al quedar superado por V3/V4; se conservan los
+  contratos de dominio y puertos que V3/V4 reutilizan y sus hallazgos como
+  requisitos de regresion. Cercado, recibos y pruebas adversarias permanecen
+  sin cableado productivo. PDF y DOCX siguen siendo por ahora los unicos
+  formatos ejecutables del prototipo heredado.
 - Formatos: el nucleo no mantendra una lista compilada de PDF, DOCX, ODT, CSV,
   TXT, JSON u otros. Separara `FormatoID`, perfil inmutable y versionado,
   revision publicada del catalogo y conector instalado y homologado. Una
@@ -1366,15 +1366,12 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   con identidad/version, homologacion, huella de artefacto, broker, dominio de
   confianza y techo. Renderizador y verificador deben ser independientes y
   ninguna interfaz ejecutable sale del caso de uso.
-- Ejecucion implantada: cardinalidad exactamente uno, techo igual al minimo
-  institucional/perfil/componentes, escritor limitado y congelable, artefacto
-  de borrador opaco y evidencia restaurable. El contenido neutral potencialmente
-  personal se liga mediante HMAC-SHA-256, no SHA simple. Catalogo, publicacion y
-  componentes se releen antes y despues del efecto; antes de entregar el
-  documento al verificador se revalidan otra vez su atestacion y la autoridad.
-  El verificador recibe una copia desechable y no puede mutar el borrador
-  autoritativo. Desconocido, ambiguo, revocado, sustituido, discrepante,
-  sobredimensionado o `nil` tipado producen el mismo cierre.
+- Ejecucion V2 retirada: el prototipo demostro cardinalidad exactamente uno,
+  techo igual al minimo institucional/perfil/componentes, escritor limitado,
+  aislamiento de copias y relecturas contra TOCTOU. Su artefacto opaco y su
+  evidencia restaurable no bastaban para acreditar atestacion, atomicidad ni
+  recuperacion. Esas condiciones se mantienen como pruebas de regresion que
+  V3/V4 deben satisfacer sin reintroducir el camino competidor.
 - Migracion: el contrato V1 permanece solo para compatibilidad de compilacion.
   Su constructor de perfil no concede autoridad y sus servicios fallan cerrado
   antes de alcanzar renderizadores, marcadores o verificadores legacy.
@@ -1382,8 +1379,9 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   criptograficamente las atestaciones, reserva idempotente de referencias,
   anclaje autenticado de evidencia, reconciliacion, ejecucion en flujo hacia el
   almacen, verificacion independiente de equivalencia entre contenido neutral y
-  salida, adaptadores de formatos y el caso de uso V2 de marcado/extraccion y
-  manifiesto lateral. El contrato nuevo no esta cableado al generador ni
+  salida, adaptadores de formatos y los contratos gobernados de
+  marcado/extraccion y manifiesto lateral, pendientes de integrar en V4. El
+  contrato nuevo no esta cableado al generador ni
   expuesto por HTTP, CLI o MCP; una resolucion previa nunca sera autoridad
   permanente.
 - Auditoria adversaria: una revision independiente posterior a las pruebas

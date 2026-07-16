@@ -193,20 +193,16 @@ Capacidades inventariadas por los cortes anteriores del nucleo:
   marcado, extraccion y verificacion semantica— con identidad, version, huella
   de artefacto, homologacion, dominio de confianza y techo propios. El caso de
   uso no devuelve interfaces ejecutables;
-- primer ejecutor V2 de borradores previo a firma con cardinalidad exacta,
-  relectura de catalogo, publicacion y componentes antes y despues de los
-  efectos, y una relectura adicional antes de entregar bytes al verificador;
-- limite efectivo igual al menor techo institucional, del perfil y de ambos
-  componentes; escritor acotado y congelable, copias desechables para el
-  verificador y artefacto autoritativo opaco e inmutable;
-- HMAC-SHA-256 del contenido neutral potencialmente personal, SHA-256 del
-  artefacto y evidencia restaurable ligada al perfil, revision, publicacion,
-  componentes, limites, referencia, tamano e instante;
+- requisitos de regresion extraidos del ejecutor V2 retirado: cardinalidad
+  exacta, relecturas contra TOCTOU, menor techo efectivo, escritor acotado,
+  aislamiento de copias y ligadura del contenido al artefacto. Su auditoria
+  anadio la exigencia de evidencia autenticada y durable. V3/V4 deben satisfacer
+  ambos grupos sin reintroducir aquel camino de ejecucion competidor;
 - el contrato V1 de seleccion de conector y marcado permanece compilable solo
   durante la migracion, pero falla cerrado y no alcanza ejecutores;
 - metadato institucional tipado, previo a firma, no personal y sin referencia
   circular. La especificacion de politica, extractor y verificador V2 esta
-  definida, pero el caso de uso V2 de marcado todavia no esta implementado;
+  definida como contrato reutilizable; su integracion en V4 sigue pendiente;
 - remediacion hexagonal V4: puerto neutral, caso de uso sin dependencia de
   `pgx`, conector PostgreSQL separado, emisor compuesto desde `cmd` y resultado
   opaco. La validacion tecnica del corte esta superada; siguen pendientes su
@@ -222,15 +218,17 @@ Todavia no integrado en el flujo productivo:
   representacion generada;
 - reserva durable e idempotente de la referencia de borrador, anclaje
   autenticado de la evidencia y reconciliacion de efectos ambiguos;
-- ejecucion por flujo hacia almacenamiento acotado; el corte en sombra conserva
-  el borrador en memoria y no debe cablearse a produccion con documentos grandes;
+- ejecucion V4 por flujo hacia almacenamiento acotado; no existe un ejecutor
+  documental productivo y no se permite reintroducir un borrador integro en
+  memoria para documentos grandes;
 - cuotas por peticion y por principal, limite de concurrencia y presupuesto de
   memoria total; el limite nominal del fichero no equivale al consumo agregado
   de sus copias y serializaciones;
 - adaptadores JSON, XML, CSV, TXT, ODT y demas formatos;
 - migracion en sombra y posterior sustitucion del selector PDF/DOCX heredado;
-- caso de uso V2 de marca institucional, extraccion independiente, equivalencia
-  semantica y manifiestos laterales firmados, con adaptadores reales por perfil;
+- contratos gobernados de marca institucional, extraccion independiente,
+  equivalencia semantica y manifiestos laterales firmados, pendientes de
+  integrar en V4 con adaptadores reales por perfil;
 - ensamblado productivo que compruebe que las atestaciones proceden del broker
   autorizado y que el HMAC usa una clave exclusiva gestionada por KMS/HSM.
 
