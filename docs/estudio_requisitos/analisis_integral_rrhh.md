@@ -404,6 +404,8 @@ Antes de programar cada bloque se solicitará, como mínimo:
 - responsables y autoridad de persona, relación, plaza, puesto, ocupación,
   jornada, servicios, grado y concepto retributivo;
 - reglamentos específicos de turnos y centros sociales;
+- resolución y efectos de la revisión de oficio del artículo 17.4 del
+  Reglamento de tiempo de trabajo iniciada en febrero de 2026;
 - catálogo actual de permisos, justificantes, efectos, plazos y aprobadores;
 - reglas de permanencia, provisión, promoción y carencias por proceso;
 - circuito real de altas, nombramientos, contratos, ceses y toma de posesión;

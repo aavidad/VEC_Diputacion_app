@@ -108,6 +108,14 @@ y [2025](https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegac
 localizadas no modifican jornada, festivos, turnicidad ni horas
 extraordinarias.
 
+El Pleno inició el 26 de febrero de 2026 un [procedimiento de revisión de oficio
+del artículo 17.4](https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/AREAS-Participacion-Publica-Normativa-Documentos-en-exposicion-publica-RRHH/2026_PES_01_002036_Iniciacion-de-procedimiento-de-revision-de-oficio.pdf),
+relativo al disfrute completo de vacaciones por personal fijo que cesa, por
+posible infracción del artículo 50 del TREBEP. A la fecha de corte no se ha
+localizado en las fuentes oficiales consultadas la resolución final. Esa regla
+se registrará como `en_revision` y no se materializará hasta conocer el acto que
+ponga fin al expediente y su fecha de efectos.
+
 ### 3.3 WCRONOS
 
 La [Circular de gestiones de servicio de 2018](https://www.dipgra.es/export/sites/diputaciongranada/diputacion/delegaciones/transparencia-recursos-humanos-y-administracion-electronica/.galleries/DIPUTACION-Delegaciones-Galerias-Normativa-RRHH/2018-circular_gestion_servicios.pdf)
@@ -317,6 +325,8 @@ Los casos anonimizados aprobados por RRHH deben cubrir al menos:
    gratificaciones.
 10. Ejemplos anonimizados de descansos, liquidaciones y rectificaciones.
 11. Reglas históricas necesarias para reproducir ejercicios anteriores.
+12. Resolución y efectos del procedimiento de revisión de oficio del artículo
+    17.4 iniciado en febrero de 2026.
 
 ## 12. Efecto sobre Núcleo y Bolsa
 
