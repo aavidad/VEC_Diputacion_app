@@ -112,6 +112,9 @@ Pendiente productivo:
 
 ### Portal VEC: seguridad y autorizacion
 
+- [Auditoria de diseno, estructura y seguridad 2026-07-16](docs/portal_vec/auditoria_diseno_y_seguridad_2026-07-16.md):
+  hallazgos verificados, directrices vinculantes para agentes y plan de
+  remediacion.
 - [Cumplimiento, seguridad y expediente electronico](docs/portal_vec/cumplimiento_y_seguridad.md)
 - [Atestacion criptografica de decisiones de autorizacion](docs/portal_vec/atestacion_criptografica_decisiones.md)
 - [Autenticacion fake local segura](docs/portal_vec/autenticacion_fake_local_segura.md)
