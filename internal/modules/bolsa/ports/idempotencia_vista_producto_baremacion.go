@@ -26,7 +26,8 @@ const (
 	coberturaPrincipalesBaremacion
 	coberturaMatrizBaremacion
 	coberturaEvidenciaBaremacion
-	coberturaCompletaVistaBaremacion = coberturaMaterialAtestadoBaremacion |
+	coberturaRepresentacionesIntencionBaremacion
+	coberturaObligatoriaVistaBaremacion = coberturaMaterialAtestadoBaremacion |
 		coberturaResolucionIdentidadBaremacion |
 		coberturaResumenIdentidadesBaremacion |
 		coberturaTopologiaIdentidadesBaremacion |
@@ -35,6 +36,8 @@ const (
 		coberturaPrincipalesBaremacion |
 		coberturaMatrizBaremacion |
 		coberturaEvidenciaBaremacion
+	coberturaPermitidaVistaBaremacion = coberturaObligatoriaVistaBaremacion |
+		coberturaRepresentacionesIntencionBaremacion
 )
 
 func nuevaVistaEfimeraTestimonioIdempotenciaBaremacion(
@@ -110,7 +113,12 @@ func (v *vistaEfimeraTestimonioIdempotenciaBaremacion) cerrarYComprobarSinActivi
 	}
 	v.cerrada = true
 	destruirTestimonioAtomicoIdempotenciaBaremacion(&v.testimonio)
-	return v.visitasEnVuelo == 0 && v.cobertura == coberturaCompletaVistaBaremacion
+	return v.visitasEnVuelo == 0 && coberturaVistaBaremacionValida(v.cobertura)
+}
+
+func coberturaVistaBaremacionValida(cobertura uint16) bool {
+	return cobertura&coberturaObligatoriaVistaBaremacion == coberturaObligatoriaVistaBaremacion &&
+		cobertura&^coberturaPermitidaVistaBaremacion == 0
 }
 
 func (v *vistaEfimeraTestimonioIdempotenciaBaremacion) VisitarMaterialCanonicoAtestadoBaremacion(
@@ -333,9 +341,9 @@ func (v *vistaEfimeraTestimonioIdempotenciaBaremacion) VisitarRepresentacionesCa
 		return nil
 	})
 	if err == nil {
-		// La visita recorre la misma matriz completa, aunque entrega unicamente
-		// sus representaciones efimeras y no los indices aislados.
-		v.marcarCobertura(coberturaMatrizBaremacion)
+		// Las representaciones derivadas no acreditan que el adaptador haya
+		// cotejado tambien los indices originales de la matriz.
+		v.marcarCobertura(coberturaRepresentacionesIntencionBaremacion)
 	}
 	return err
 }

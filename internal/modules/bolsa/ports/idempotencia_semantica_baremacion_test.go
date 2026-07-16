@@ -3249,7 +3249,7 @@ func TestVistaConstruyeRepresentacionesDeTodaLaMatrizSinExponerCelda(t *testing.
 			return nil
 		},
 	)
-	if err != nil || visitadas != 4 || vista.cobertura&coberturaMatrizBaremacion == 0 {
+	if err != nil || visitadas != 4 || !coberturaRepresentacionesSinMatrizBaremacionPrueba(vista.cobertura) {
 		t.Fatalf("visita matricial nominal incompleta: visitadas=%d cobertura=%x err=%v",
 			visitadas, vista.cobertura, err)
 	}
