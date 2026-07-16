@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -33,18 +34,64 @@ func contenidoConvocatoriaGobernadaPrueba() ContenidoPublicableConvocatoria {
 	}
 }
 
-func configuracionConvocatoriaGobernadaPrueba() ConfiguracionFijadaConvocatoria {
+func definicionFlujoConvocatoriaGobernadaPrueba(t *testing.T) dominiovec.DefinicionFlujo {
+	t.Helper()
+	fecha := time.Date(2026, time.July, 1, 8, 0, 0, 0, time.UTC)
+	referenciaEstado := func(clave string) dominiovec.ReferenciaEntradaCatalogo {
+		return dominiovec.ReferenciaEntradaCatalogo{
+			CatalogoID: "estados-convocatoria-bolsa", CatalogoVersion: 1,
+			CatalogoHuellaSHA256: cadenaRepetidaConvocatoria('9'), EntradaClave: clave,
+		}
+	}
+	borrador := dominiovec.DefinicionFlujo{
+		ID: "convocatoria-bolsa", Version: 4, Revision: 1,
+		VersionAnteriorRef: "convocatoria-bolsa:3", ModuloID: "bolsa",
+		TipoEntidad: TipoEntidadFlujoConvocatoriaBolsa, Nombre: "Procedimiento de convocatoria de bolsa",
+		Descripcion: "Fases publicables de una convocatoria de seleccion.",
+		FuenteRef:   "procedimiento:seleccion-externa:v1", MotivoCreacion: "Version gobernada para pruebas.",
+		EstadoInicial: "inscripcion", AccionInicio: "bolsa.convocatoria.iniciar",
+		GarantiaInicio: dominiovec.AuthAssuranceHigh,
+		Estados: []dominiovec.EstadoFlujoConfigurable{
+			{Clave: "inscripcion", Catalogo: referenciaEstado("inscripcion"), Orden: 10},
+			{Clave: "alegaciones", Catalogo: referenciaEstado("alegaciones"), Orden: 20, Terminal: true},
+		},
+		Transiciones: []dominiovec.TransicionFlujoConfigurable{{
+			Clave: "abrir_alegaciones", Desde: []string{"inscripcion"}, Hacia: "alegaciones",
+			Accion: "bolsa.convocatoria.abrir_alegaciones", ReglaRef: "regla:convocatoria:alegaciones:v1",
+			Prioridad: 10, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+		}},
+		Estado: dominiovec.EstadoDefinicionFlujoBorrador, CreadaPor: "persona:flujos:001", CreadaEn: fecha,
+	}
+	publicada, err := borrador.Publicar(
+		"persona:flujos:002", "aprobacion:flujo:convocatoria:004",
+		"Definicion revisada para el procedimiento.", fecha.Add(time.Hour),
+	)
+	if err != nil {
+		t.Fatalf("publicar definicion de flujo de prueba: %v", err)
+	}
+	return publicada
+}
+
+func configuracionConvocatoriaGobernadaPrueba(t *testing.T) ConfiguracionFijadaConvocatoria {
+	t.Helper()
 	referencia := func(id string, version int, marca byte) ReferenciaConfiguracionConvocatoria {
 		return ReferenciaConfiguracionConvocatoria{
 			ID: id, Version: version, HuellaContenidoSHA256: cadenaRepetidaConvocatoria(marca),
 		}
 	}
+	definicion := definicionFlujoConvocatoriaGobernadaPrueba(t)
+	huellaFlujo, err := definicion.HuellaContenidoSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
 	return ConfiguracionFijadaConvocatoria{
 		Catalogos:        referencia("catalogos:bolsa", 3, '1'),
 		Calendario:       referencia("calendario:auxiliar-2026", 2, '2'),
 		ReglasBaremacion: referencia("baremo:auxiliar-2026", 5, '3'),
-		FlujoProceso:     referencia("convocatoria-bolsa", 4, '4'),
-		FlujoSolicitud:   referencia("solicitud-bolsa", 7, '5'),
+		FlujoProceso: ReferenciaConfiguracionConvocatoria{
+			ID: definicion.ID, Version: definicion.Version, HuellaContenidoSHA256: huellaFlujo,
+		},
+		FlujoSolicitud: referencia("solicitud-bolsa", 7, '5'),
 		Documentos: []ReferenciaDocumentoOficialConvocatoria{{
 			Rol: "bases", PublicacionRef: "doc:bases", DocumentoRef: "documento:logico:bases:001",
 			VersionDocumento: 2, RepresentacionRef: "representacion:pdf:bases:002",
@@ -66,12 +113,13 @@ func versionConvocatoriaGobernadaPrueba(t *testing.T) VersionConvocatoriaGoberna
 	t.Helper()
 	version, err := NuevaVersionConvocatoriaGobernada(DatosNuevaVersionConvocatoriaGobernada{
 		ID: "proceso:bolsa:auxiliar-2026", CodigoVersionPublica: "v1",
-		Contenido:     contenidoConvocatoriaGobernadaPrueba(),
-		Configuracion: configuracionConvocatoriaGobernadaPrueba(),
-		ExpedienteRef: "expediente:seleccion:2026-001",
-		Motivo:        "Preparacion de la convocatoria aprobada por el servicio.",
-		ActorID:       "persona:tecnica:001",
-		Instante:      time.Date(2026, time.July, 2, 10, 30, 0, 999, time.FixedZone("CEST", 2*60*60)),
+		InstanciaFlujoRef: "instancia:flujo:convocatoria:001",
+		Contenido:         contenidoConvocatoriaGobernadaPrueba(),
+		Configuracion:     configuracionConvocatoriaGobernadaPrueba(t),
+		ExpedienteRef:     "expediente:seleccion:2026-001",
+		Motivo:            "Preparacion de la convocatoria aprobada por el servicio.",
+		ActorID:           "persona:tecnica:001",
+		Instante:          time.Date(2026, time.July, 2, 10, 30, 0, 999, time.FixedZone("CEST", 2*60*60)),
 	})
 	if err != nil {
 		t.Fatalf("NuevaVersionConvocatoriaGobernada() error = %v", err)
@@ -160,7 +208,9 @@ func TestBorradorNoFingePublicacionNiCongelaFase(t *testing.T) {
 	if version.EstadoGobierno != EstadoGobiernoConvocatoriaBorrador || version.Referencia() != "proceso:bolsa:auxiliar-2026#1" {
 		t.Fatalf("identidad o gobierno incorrectos: %+v", version)
 	}
-	if _, err := version.ProyectarPublica(dominiovec.InstanciaFlujo{}); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
+	if _, err := version.ProyectarPublica(
+		dominiovec.InstanciaFlujo{}, dominiovec.DefinicionFlujo{},
+	); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
 		t.Fatalf("un borrador produjo proyeccion publica: %v", err)
 	}
 	if version.CreadaEn.Location() != time.UTC || version.CreadaEn.Nanosecond()%1000 != 0 {
@@ -187,16 +237,19 @@ func TestPublicacionMantieneHuellaSemanticaYProyectaFaseDelFlujo(t *testing.T) {
 		t.Fatalf("el creador pudo publicar: %v", err)
 	}
 	publicada := publicarVersionConvocatoriaPrueba(t, version, fecha)
+	definicion := definicionFlujoConvocatoriaGobernadaPrueba(t)
 	huellaPublicada, err := publicada.HuellaContenidoSHA256()
 	if err != nil || huellaPublicada != huellaBorrador {
 		t.Fatalf("publicar altero contenido: antes=%q despues=%q error=%v", huellaBorrador, huellaPublicada, err)
 	}
-	inscripcion, err := publicada.ProyectarPublica(instanciaFlujoConvocatoriaPrueba(publicada, "inscripcion", fecha))
+	inscripcion, err := publicada.ProyectarPublica(
+		instanciaFlujoConvocatoriaPrueba(publicada, "inscripcion", fecha), definicion,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	alegaciones, err := publicada.ProyectarPublica(
-		instanciaFlujoConvocatoriaPrueba(publicada, "alegaciones", fecha.Add(time.Hour)),
+		instanciaFlujoConvocatoriaPrueba(publicada, "alegaciones", fecha.Add(time.Hour)), definicion,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -209,8 +262,34 @@ func TestPublicacionMantieneHuellaSemanticaYProyectaFaseDelFlujo(t *testing.T) {
 	}
 	instanciaAjena := instanciaFlujoConvocatoriaPrueba(publicada, "inscripcion", fecha)
 	instanciaAjena.DefinicionContenidoHuellaSHA256 = cadenaRepetidaConvocatoria('e')
-	if _, err := publicada.ProyectarPublica(instanciaAjena); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
+	if _, err := publicada.ProyectarPublica(
+		instanciaAjena, definicion,
+	); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
 		t.Fatalf("acepto una fase sin vinculo con el flujo exacto: %v", err)
+	}
+}
+
+func TestProyeccionExigeInstanciaReservadaCronologiaYEstadoDefinido(t *testing.T) {
+	version := versionConvocatoriaGobernadaPrueba(t)
+	publicada := publicarVersionConvocatoriaPrueba(t, version, version.CreadaEn.Add(time.Hour))
+	definicion := definicionFlujoConvocatoriaGobernadaPrueba(t)
+
+	gemela := instanciaFlujoConvocatoriaPrueba(publicada, "inscripcion", publicada.PublicadaEn)
+	gemela.ID = "instancia:flujo:convocatoria:gemela"
+	if _, err := publicada.ProyectarPublica(gemela, definicion); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
+		t.Fatalf("acepto una instancia gemela no reservada: %v", err)
+	}
+
+	anterior := instanciaFlujoConvocatoriaPrueba(publicada, "alegaciones", publicada.PublicadaEn.Add(time.Hour))
+	anterior.CreadaEn = publicada.PublicadaEn.Add(-time.Minute)
+	if _, err := publicada.ProyectarPublica(anterior, definicion); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
+		t.Fatalf("acepto un flujo iniciado antes de publicar pese a transicionar despues: %v", err)
+	}
+
+	desconocido := instanciaFlujoConvocatoriaPrueba(publicada, "inscripcion", publicada.PublicadaEn)
+	desconocido.EstadoActual = "estado_ajeno"
+	if _, err := publicada.ProyectarPublica(desconocido, definicion); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
+		t.Fatalf("acepto un estado ausente de la definicion exacta: %v", err)
 	}
 }
 
@@ -236,15 +315,27 @@ func TestContenidoAdmiteLasCincuentaYOchoCategoriasYRechazaTextoNoCanonico(t *te
 
 func TestConfiguracionExigeDocumentoPublicoFirmadoYCustodiadoUnoAUno(t *testing.T) {
 	contenido := contenidoConvocatoriaGobernadaPrueba()
-	configuracion := configuracionConvocatoriaGobernadaPrueba()
+	configuracion := configuracionConvocatoriaGobernadaPrueba(t)
 	configuracion.Documentos[0].FirmaValidadaRef = ""
 	if err := configuracion.ValidarPara(contenido); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
 		t.Fatalf("acepto documento sin firma: %v", err)
 	}
-	configuracion = configuracionConvocatoriaGobernadaPrueba()
+	configuracion = configuracionConvocatoriaGobernadaPrueba(t)
 	configuracion.Documentos[0].PublicacionRef = "doc:ajeno"
 	if err := configuracion.ValidarPara(contenido); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
 		t.Fatalf("acepto documento ajeno: %v", err)
+	}
+	for nombre, identificador := range map[string]string{
+		"mayusculas":              "Solicitud-Bolsa",
+		"separador de referencia": "solicitud:bolsa",
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			configuracion := configuracionConvocatoriaGobernadaPrueba(t)
+			configuracion.FlujoSolicitud.ID = identificador
+			if err := configuracion.ValidarPara(contenido); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
+				t.Fatalf("acepto identificador imposible para DefinicionFlujo: %v", err)
+			}
+		})
 	}
 }
 
@@ -403,11 +494,14 @@ func TestNuevaVersionSustituyeExactamenteLaAnterior(t *testing.T) {
 		t.Fatalf("sustitucion incorrecta: %+v", sustituida)
 	}
 	instancia := instanciaFlujoConvocatoriaPrueba(sustituida, "inscripcion", sustituida.SustituidaEn)
-	if _, err := sustituida.ProyectarPublica(instancia); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
+	definicion := definicionFlujoConvocatoriaGobernadaPrueba(t)
+	if _, err := sustituida.ProyectarPublica(
+		instancia, definicion,
+	); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
 		t.Fatalf("una version sustituida aparecio como activa: %v", err)
 	}
 	instanciaAnterior := instanciaFlujoConvocatoriaPrueba(primera, "inscripcion", primera.PublicadaEn)
-	proyeccionSucesora, err := segunda.ProyectarPublica(instanciaAnterior)
+	proyeccionSucesora, err := segunda.ProyectarPublica(instanciaAnterior, definicion)
 	if err != nil || proyeccionSucesora.DatosPublicos == nil ||
 		proyeccionSucesora.DatosPublicos.ActualizadaEn != segunda.PublicadaEn {
 		t.Fatalf("la sucesora no reutilizo el flujo estable: proyeccion=%+v error=%v", proyeccionSucesora, err)
@@ -433,6 +527,56 @@ func TestNuevaVersionSustituyeExactamenteLaAnterior(t *testing.T) {
 		"Migracion implicita.", fechaOtroFlujo,
 	); !errors.Is(err, ErrTransicionGobiernoConvocatoria) {
 		t.Fatalf("acepto cambiar el flujo de una cadena iniciada: %v", err)
+	}
+}
+
+func TestPublicarSucesoraDesdeRetiradaClonaPredecesora(t *testing.T) {
+	inicial := versionConvocatoriaGobernadaPrueba(t)
+	publicada := publicarVersionConvocatoriaPrueba(t, inicial, inicial.CreadaEn.Add(time.Hour))
+	fechaRetirada := publicada.PublicadaEn.Add(time.Hour)
+	huellaContenido, err := publicada.HuellaContenidoSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaEstado, err := publicada.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	aprobacionRetirada := EvidenciaAprobacionConvocatoria{
+		Accion: "retirar", Referencia: "aprobacion:retirada:clon",
+		HuellaEvidenciaSHA256: cadenaRepetidaConvocatoria('d'), ConvocatoriaRef: publicada.Referencia(),
+		Revision: publicada.Revision, HuellaContenidoSHA256: huellaContenido, HuellaEstadoSHA256: huellaEstado,
+		AprobadaPor: "persona:inspectora:002", AprobadaEn: fechaRetirada.Add(-time.Minute),
+	}
+	retirada, err := publicada.Retirar(
+		"persona:gestora:003", aprobacionRetirada, "Retirada para corregir las bases.", fechaRetirada,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sucesora, err := retirada.NuevaVersion(
+		"v2", retirada.Contenido, retirada.Configuracion, "expediente:seleccion:2026-002",
+		"persona:tecnica:004", "Nueva version tras retirada.", fechaRetirada.Add(time.Hour),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fechaPublicacion := sucesora.CreadaEn.Add(time.Hour)
+	aprobacion, dependencias := evidenciasPublicacionPrueba(t, sucesora, fechaPublicacion)
+	resultado, err := sucesora.PublicarSucesora(
+		retirada, "persona:gestora:004", aprobacion, dependencias,
+		"Publicacion posterior a retirada.", fechaPublicacion,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultado.Predecesora.Contenido.Documentos[0].Titulo = "Alterado"
+	resultado.Predecesora.Configuracion.Documentos[0].DocumentoRef = "documento:alterado"
+	resultado.Predecesora.AprobacionPublicacion.Referencia = "aprobacion:alterada"
+	if retirada.Contenido.Documentos[0].Titulo == "Alterado" ||
+		retirada.Configuracion.Documentos[0].DocumentoRef == "documento:alterado" ||
+		retirada.AprobacionPublicacion.Referencia == "aprobacion:alterada" {
+		t.Fatal("la predecesora retirada comparte memoria con el resultado")
 	}
 }
 
@@ -480,5 +624,66 @@ func TestRepresentacionesCanonicasCoincidenConSusHuellasYDevuelvenCopias(t *test
 	repetida, err := version.RepresentacionCanonica()
 	if err != nil || len(repetida) == 0 || repetida[0] == representacion[0] {
 		t.Fatalf("la representacion comparte memoria: error=%v", err)
+	}
+}
+
+func TestReferenciaDeInstanciaFormaParteDeAmbasHuellas(t *testing.T) {
+	original := versionConvocatoriaGobernadaPrueba(t)
+	manipulada := original
+	manipulada.InstanciaFlujoRef = "instancia:flujo:convocatoria:002"
+	manipulada, err := manipulada.ClonarCanonico()
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaContenidoOriginal, _ := original.HuellaContenidoSHA256()
+	huellaContenidoManipulada, _ := manipulada.HuellaContenidoSHA256()
+	huellaEstadoOriginal, _ := original.HuellaSHA256()
+	huellaEstadoManipulada, _ := manipulada.HuellaSHA256()
+	if huellaContenidoOriginal == huellaContenidoManipulada || huellaEstadoOriginal == huellaEstadoManipulada {
+		t.Fatal("la identidad reservada de la instancia no quedo comprometida en ambas huellas")
+	}
+}
+
+func TestVectoresGoldenDeRepresentacionesCanonicas(t *testing.T) {
+	version := versionConvocatoriaGobernadaPrueba(t)
+	estado, err := version.RepresentacionCanonica()
+	if err != nil {
+		t.Fatal(err)
+	}
+	contenido, err := version.RepresentacionContenidoCanonica()
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaEstado := sha256.Sum256(estado)
+	huellaContenido := sha256.Sum256(contenido)
+	const esperadaEstado = "b5287ba99b36840ae3c1c99beeba50e0c73014fb51a33984d73017c0837e9f56"
+	const esperadaContenido = "3aa5032b7d6ce8d15aa8ec9c90b3007477c185dce0ad10899ce2a4aaf1d71ba0"
+	if obtenida := hex.EncodeToString(huellaEstado[:]); obtenida != esperadaEstado {
+		t.Errorf("vector golden de estado cambiado: %s", obtenida)
+	}
+	if obtenida := hex.EncodeToString(huellaContenido[:]); obtenida != esperadaContenido {
+		t.Errorf("vector golden de contenido cambiado: %s", obtenida)
+	}
+	if !strings.HasPrefix(string(estado), `{"esquema":"`+esquemaEstadoVersionConvocatoria+`"`) ||
+		!strings.HasPrefix(string(contenido), `{"esquema":"`+esquemaContenidoVersionConvocatoria+`"`) {
+		t.Fatal("las representaciones no declaran su esquema antes del material")
+	}
+}
+
+func TestRepresentacionesCanonicasNoDependenDelOrdenDeColecciones(t *testing.T) {
+	primera := versionConvocatoriaGobernadaPrueba(t)
+	primera.Contenido.Categorias = []string{"tecnico_gestion", "auxiliar_administrativo"}
+	segunda := primera
+	segunda.Contenido.Categorias = []string{"auxiliar_administrativo", "tecnico_gestion"}
+	estadoPrimera, errPrimera := primera.RepresentacionCanonica()
+	estadoSegunda, errSegunda := segunda.RepresentacionCanonica()
+	contenidoPrimera, errContenidoPrimera := primera.RepresentacionContenidoCanonica()
+	contenidoSegunda, errContenidoSegunda := segunda.RepresentacionContenidoCanonica()
+	if errPrimera != nil || errSegunda != nil || errContenidoPrimera != nil || errContenidoSegunda != nil {
+		t.Fatalf("representar permutaciones: %v %v %v %v",
+			errPrimera, errSegunda, errContenidoPrimera, errContenidoSegunda)
+	}
+	if !bytes.Equal(estadoPrimera, estadoSegunda) || !bytes.Equal(contenidoPrimera, contenidoSegunda) {
+		t.Fatal("el orden de entrada altero los bytes canonicos")
 	}
 }

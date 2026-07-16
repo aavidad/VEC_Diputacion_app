@@ -65,8 +65,9 @@ type ResultadoPublicacionSucesoraConvocatoria struct {
 }
 
 // PublicarSucesora devuelve las dos instantaneas que el repositorio debe
-// confirmar de forma atomica. Mientras exista una publicación activa conserva la
-// misma definición del flujo; cambiarla exigirá una migración expresa.
+// confirmar de forma atomica. Toda la cadena iniciada conserva la misma
+// instancia y definicion de flujo; cambiar cualquiera exige una migracion
+// expresa, no una publicacion ordinaria.
 func (v VersionConvocatoriaGobernada) PublicarSucesora(
 	predecesora VersionConvocatoriaGobernada,
 	actorID string,
@@ -80,6 +81,7 @@ func (v VersionConvocatoriaGobernada) PublicarSucesora(
 			predecesora.EstadoGobierno != EstadoGobiernoConvocatoriaRetirada) ||
 		v.ID != predecesora.ID || v.Secuencia != predecesora.Secuencia+1 ||
 		v.VersionAnteriorRef != predecesora.Referencia() ||
+		v.InstanciaFlujoRef != predecesora.InstanciaFlujoRef ||
 		v.Contenido.IdentificadorPublico != predecesora.Contenido.IdentificadorPublico ||
 		v.CreadaEn.Before(predecesora.ultimaFechaGobierno()) ||
 		v.Configuracion.FlujoProceso != predecesora.Configuracion.FlujoProceso {
@@ -89,7 +91,10 @@ func (v VersionConvocatoriaGobernada) PublicarSucesora(
 	if err != nil {
 		return ResultadoPublicacionSucesoraConvocatoria{}, err
 	}
-	anterior := predecesora
+	anterior, err := predecesora.ClonarCanonico()
+	if err != nil {
+		return ResultadoPublicacionSucesoraConvocatoria{}, err
+	}
 	if predecesora.EstadoGobierno == EstadoGobiernoConvocatoriaPublicada {
 		anterior, err = predecesora.SustituirPor(publicada)
 		if err != nil {
@@ -189,7 +194,7 @@ func (v VersionConvocatoriaGobernada) NuevaVersion(
 	}
 	nueva := VersionConvocatoriaGobernada{
 		ID: v.ID, Secuencia: v.Secuencia + 1, CodigoVersionPublica: codigoVersionPublica,
-		Revision: 1, VersionAnteriorRef: v.Referencia(), Contenido: contenido,
+		Revision: 1, VersionAnteriorRef: v.Referencia(), InstanciaFlujoRef: v.InstanciaFlujoRef, Contenido: contenido,
 		Configuracion: configuracion, ExpedienteRef: expedienteRef, MotivoCreacion: motivo,
 		EstadoGobierno: EstadoGobiernoConvocatoriaBorrador, CreadaPor: actorID, CreadaEn: fecha,
 	}
@@ -219,6 +224,7 @@ func (v VersionConvocatoriaGobernada) SustituirPor(
 
 func (v VersionConvocatoriaGobernada) ProyectarPublica(
 	instancia dominiovec.InstanciaFlujo,
+	definicion dominiovec.DefinicionFlujo,
 ) (Convocatoria, error) {
 	actualizadaFlujoEn := instancia.CreadaEn
 	if instancia.Revision > 1 {
@@ -233,10 +239,12 @@ func (v VersionConvocatoriaGobernada) ProyectarPublica(
 	estado := EstadoConvocatoria(instancia.EstadoActual)
 	if v.Validar() != nil || v.EstadoGobierno != EstadoGobiernoConvocatoriaPublicada ||
 		instancia.Validar() != nil || instancia.TipoEntidad != TipoEntidadFlujoConvocatoriaBolsa ||
-		instancia.EntidadRef != v.ID || instancia.DefinicionRef != definicionRef ||
+		instancia.ID != v.InstanciaFlujoRef || instancia.EntidadRef != v.ID ||
+		instancia.DefinicionRef != definicionRef ||
 		instancia.DefinicionContenidoHuellaSHA256 != v.Configuracion.FlujoProceso.HuellaContenidoSHA256 ||
+		!definicionFlujoConvocatoriaExacta(v, instancia, definicion) ||
 		!estado.IsValid() || actualizadaEn.IsZero() ||
-		(v.Secuencia == 1 && actualizadaFlujoEn.Before(v.PublicadaEn)) {
+		(v.Secuencia == 1 && instancia.CreadaEn.Before(v.PublicadaEn)) {
 		return Convocatoria{}, ErrVersionConvocatoriaGobernadaInvalida
 	}
 	contenido := v.Contenido
@@ -265,6 +273,45 @@ func (v VersionConvocatoriaGobernada) ProyectarPublica(
 		return Convocatoria{}, ErrVersionConvocatoriaGobernadaInvalida
 	}
 	return proyeccion.Clonar(), nil
+}
+
+func definicionFlujoConvocatoriaExacta(
+	version VersionConvocatoriaGobernada,
+	instancia dominiovec.InstanciaFlujo,
+	definicion dominiovec.DefinicionFlujo,
+) bool {
+	if definicion.Validar() != nil ||
+		(definicion.Estado != dominiovec.EstadoDefinicionFlujoPublicada &&
+			definicion.Estado != dominiovec.EstadoDefinicionFlujoRetirada) ||
+		definicion.ModuloID != "bolsa" || definicion.TipoEntidad != TipoEntidadFlujoConvocatoriaBolsa ||
+		definicion.Referencia() != version.Configuracion.FlujoProceso.ReferenciaVersionada() ||
+		instancia.CreadaEn.Before(definicion.PublicadaEn) {
+		return false
+	}
+	huella, err := definicion.HuellaContenidoSHA256()
+	if err != nil || huella != version.Configuracion.FlujoProceso.HuellaContenidoSHA256 ||
+		huella != instancia.DefinicionContenidoHuellaSHA256 {
+		return false
+	}
+	estadoEncontrado := false
+	for _, estado := range definicion.Estados {
+		if estado.Clave == instancia.EstadoActual {
+			estadoEncontrado = true
+			break
+		}
+	}
+	if !estadoEncontrado {
+		return false
+	}
+	if instancia.Revision == 1 {
+		return instancia.EstadoActual == definicion.EstadoInicial
+	}
+	for _, transicion := range definicion.Transiciones {
+		if transicion.Clave == instancia.UltimaTransicionClave {
+			return transicion.Hacia == instancia.EstadoActual
+		}
+	}
+	return false
 }
 
 func (e EvidenciaAprobacionConvocatoria) validaPara(

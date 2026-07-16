@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -95,5 +96,12 @@ func TestConvocatoriaPublicaRechazaDuplicadosYURLExterna(t *testing.T) {
 	convocatoria.DatosPublicos.Documentos[0].URL = "https://example.invalid/bases.pdf"
 	if err := convocatoria.ValidarPublicacion(); !errors.Is(err, ErrConvocatoriaInvalida) {
 		t.Fatalf("URL externa: %v", err)
+	}
+}
+
+func TestURLPublicaRechazaTamanoAntesDeInterpretarla(t *testing.T) {
+	valor := "/bolsa/documentos/" + strings.Repeat("segmento/", 100_000)
+	if urlDocumentoPublicoValida(valor) {
+		t.Fatal("acepto una URL desproporcionada")
 	}
 }

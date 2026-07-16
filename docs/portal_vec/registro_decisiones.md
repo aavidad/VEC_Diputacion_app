@@ -2206,6 +2206,8 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - Reproduccion: cada version fija ID, numero de secuencia, predecesora inmediata,
   expediente, catalogos, calendario, reglas de baremacion, flujo del proceso,
   flujo de solicitud y documentos oficiales por identidad, version y huella.
+  La cadena reserva ademas una unica identidad de instancia del flujo de
+  proceso, incluida tanto en la huella semantica como en la huella de estado.
   Una solicitud futura se ligara a esta referencia y huella, nunca a «las reglas
   actuales» ni a «la ultima version».
 - Documentos: cada publicacion documental exige correspondencia uno a uno con
@@ -2220,15 +2222,21 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   ejecutor de retirada tambien. Una correccion crea una sucesora y publicar la
   nueva y sustituir la anterior es un unico efecto atomico.
 - Proyeccion publica: solo una version en estado publicada puede proyectarse y
-  requiere una instancia valida del tipo `convocatoria_bolsa`, ligada al ID
-  estable, definicion, version y huella exactas. Borradores, sustituidas y
-  retiradas no atraviesan esa frontera. El lector exterior usara una proyeccion
-  minimizada y un pool propio; no leera el agregado interno.
+  requiere la instancia reservada del tipo `convocatoria_bolsa`, ligada al ID
+  estable, y la definicion publicada de version y huella exactas. El estado debe
+  pertenecer a esa definicion y la instancia inicial no puede preceder a la
+  publicacion. Borradores, sustituidas y retiradas no atraviesan esa frontera.
+  El lector exterior revalidara ademas el puntero activo actual, usara una
+  proyeccion minimizada y un pool propio; no leera agregados aportados ni
+  instantaneas antiguas desde cache.
 - Canonico y limites: el agregado y su contenido ofrecen representaciones
-  canonicas reproducibles, con techo de 8 MiB. Los textos deben ser UTF-8, NFC y
-  canonicos; se rechazan controles y entradas desproporcionadas antes de copiar
-  u ordenar colecciones. El maximo de categorias permite el catalogo inicial de
-  58 entradas y futuras ampliaciones razonables sin volver a compilar.
+  canonicas reproducibles y versionadas mediante los esquemas de contenido v2 y
+  estado v1, con techo de 8 MiB y vectores golden. Los textos deben ser UTF-8,
+  NFC y canonicos; se rechazan controles, URLs y colecciones desproporcionadas
+  antes de interpretarlas, copiarlas u ordenarlas. Las fases heredadas quedan
+  alineadas con las claves gobernadas en minusculas. El maximo de categorias
+  permite el catalogo inicial de 58 entradas y futuras ampliaciones razonables
+  sin volver a compilar.
 - Persistencia: se crea un esquema propio `vec_bolsa`; no se amplian tablas,
   roles ni fachadas de `vec_bolsa_baremacion`. Se reutilizan sus patrones de
   transaccion serializable, RLS, privilegio minimo, append-only, auditoria y

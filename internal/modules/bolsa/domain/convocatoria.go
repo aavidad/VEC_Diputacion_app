@@ -32,6 +32,7 @@ var (
 	patronReferenciaConvocatoria    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,159}$`)
 	patronIdentificadorPublico      = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{2,79}$`)
 	patronHuellaCatalogoSHA256      = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	patronIdentificadorFlujo        = regexp.MustCompile(`^[a-z][a-z0-9._-]{0,127}$`)
 )
 
 // EstadoConvocatoria contiene una clave gobernada por el catalogo de estados.
@@ -40,15 +41,16 @@ var (
 type EstadoConvocatoria string
 
 // Estas constantes mantienen la compatibilidad temporal del prototipo
-// candidate. No constituyen la lista de estados permitidos por el modulo
-// definitivo: cualquier clave valida debe existir en el catalogo gobernado.
+// candidate con las claves canonicas del catalogo gobernado. No constituyen la
+// lista de estados permitidos: cualquier clave valida debe existir en la
+// definicion de flujo exacta que gobierna la convocatoria.
 const (
-	EstadoConvocatoriaBorrador    EstadoConvocatoria = "Borrador"
-	EstadoConvocatoriaInscripcion EstadoConvocatoria = "Inscripcion"
-	EstadoConvocatoriaSubsanacion EstadoConvocatoria = "Subsanacion"
-	EstadoConvocatoriaAlegaciones EstadoConvocatoria = "Alegaciones"
-	EstadoConvocatoriaDefinitiva  EstadoConvocatoria = "Definitiva"
-	EstadoConvocatoriaCerrada     EstadoConvocatoria = "Cerrada"
+	EstadoConvocatoriaBorrador    EstadoConvocatoria = "borrador"
+	EstadoConvocatoriaInscripcion EstadoConvocatoria = "inscripcion"
+	EstadoConvocatoriaSubsanacion EstadoConvocatoria = "subsanacion"
+	EstadoConvocatoriaAlegaciones EstadoConvocatoria = "alegaciones"
+	EstadoConvocatoriaDefinitiva  EstadoConvocatoria = "definitiva"
+	EstadoConvocatoriaCerrada     EstadoConvocatoria = "cerrada"
 )
 
 func (e EstadoConvocatoria) IsValid() bool {
@@ -369,7 +371,8 @@ func instanteUTCCanonico(instante time.Time) bool {
 }
 
 func urlDocumentoPublicoValida(valor string) bool {
-	if strings.TrimSpace(valor) != valor || !strings.HasPrefix(valor, "/bolsa/documentos/") || strings.Contains(valor, "\\") {
+	if len(valor) > 240 || strings.TrimSpace(valor) != valor ||
+		!strings.HasPrefix(valor, "/bolsa/documentos/") || strings.Contains(valor, "\\") {
 		return false
 	}
 	u, err := url.Parse(valor)
@@ -381,5 +384,5 @@ func urlDocumentoPublicoValida(valor string) bool {
 			return false
 		}
 	}
-	return u.Path == valor && len(u.Path) <= 240
+	return u.Path == valor
 }

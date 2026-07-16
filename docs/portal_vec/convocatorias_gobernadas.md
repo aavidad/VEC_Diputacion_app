@@ -37,7 +37,9 @@ La representación pública compatible con `Convocatoria` se deriva de:
 ```text
 versión publicada exacta
         +
-instancia del flujo del procedimiento
+instancia reservada del flujo del procedimiento
+        +
+definición publicada exacta del flujo
         +
 instante fiable de actualización
         =
@@ -55,6 +57,7 @@ evidencias de autorización ni referencias de custodia.
 - secuencia técnica monotónica;
 - código de versión que se muestra al público;
 - referencia exacta a la versión anterior;
+- identidad inmutable de la instancia de flujo reservada para toda la cadena;
 - contenido publicable sin fechas inventadas;
 - expediente administrativo de procedencia;
 - configuración exacta;
@@ -86,6 +89,13 @@ dentro de la transacción durable.
 Mientras catálogos, reglas y flujos no dispongan de persistencia durable o de
 un paquete canónico autocontenido, se permiten borradores, pero no publicación
 productiva.
+
+La proyección exige conjuntamente el ID reservado de la instancia, su entidad,
+la referencia y huella de la definición, y la propia definición publicada. El
+estado actual debe pertenecer a esa definición y coincidir con su estado inicial
+o con el destino de la última transición. Una instancia equivalente creada con
+otro ID, iniciada antes de la publicación inicial o vinculada a una definición
+de igual nombre pero distinto contenido se rechaza.
 
 ## Documentos oficiales
 
@@ -140,6 +150,15 @@ El modelo mantiene tres huellas con finalidades distintas:
 
 La huella de contenido permanece idéntica al publicar, sustituir o retirar. Un
 cambio de regla, calendario, flujo, catálogo o documento produce otra huella.
+También compromete la identidad reservada de la instancia de flujo, por lo que
+no puede sustituirse por una instancia gemela sin cambiar la evidencia.
+
+Los bytes no se obtienen serializando directamente el agregado mutable. Dos DTO
+cerrados declaran los esquemas
+`bolsa.version-convocatoria.contenido.v2` y
+`bolsa.version-convocatoria.estado.v1`; sus vectores SHA-256 quedan fijados por
+pruebas golden. Una futura modificación del contrato deberá publicar otro
+esquema y conservar el lector histórico del anterior.
 
 ## Persistencia prevista
 
@@ -233,6 +252,11 @@ Las pruebas cubren, entre otros casos:
 - comprobación de dependencias caducada;
 - retirada con separación de funciones;
 - nueva versión y sustitución exacta;
+- sucesora de una retirada sin alias de memoria;
+- instancia reservada, cronología y pertenencia del estado a la definición;
+- identificadores de flujo compatibles con el núcleo;
+- claves de fase canónicas en minúsculas;
+- vectores golden y estabilidad ante permutaciones de entrada;
 - clonación profunda.
 
 La batería completa `go test ./...` pasó tras el corte. Esto acredita el
