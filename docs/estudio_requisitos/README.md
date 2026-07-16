@@ -15,6 +15,29 @@ Fecha de corte actual: 16 de julio de 2026.
 6. Prototipos y documentación técnica actual, que deberán adaptarse a las decisiones
    anteriores.
 
+## Puerta institucional previa al código
+
+Ninguna regla funcional se diseña ni programa directamente desde una idea,
+una práctica de otra Administración o un prototipo. Antes de abrir una tarea
+de código se debe:
+
+1. revisar la documentación oficial de la Diputación aplicable: RPT,
+   plantilla, acuerdos, convenio, reglamentos, resoluciones, circulares, BOP,
+   formularios y manuales del procedimiento real;
+2. comprobar sus modificaciones, derogaciones, fecha de efectos y ámbito
+   personal, material y organizativo;
+3. identificar el órgano y sistema que son fuente maestra de cada dato;
+4. registrar documento, versión, fecha de consulta, apartado aplicable y dudas;
+5. obtener casos anonimizados o públicos para convertirlos en pruebas de
+   aceptación;
+6. validar con la unidad competente cualquier vacío o contradicción.
+
+Una fuente antigua no se trata automáticamente como vigente. Una ausencia de
+documentación produce una incidencia y un resultado no determinable, nunca una
+regla inventada. Las prácticas útiles de otras Administraciones solo completan
+el diseño cuando no contradicen la normativa ni la forma de trabajo de la
+Diputación.
+
 ## Documentos incorporados
 
 - [Transcripción y lectura técnica de la petición de RRHH](peticion_rrhh_transcripcion_y_lectura.md).
@@ -111,6 +134,10 @@ productiva verificada.
   administrativa, apertura del centro y jornada programada. Cada calculo
   conserva politica, fuentes y versiones; la ausencia de fuente produce un
   resultado indeterminado y nunca una regla oculta de lunes a viernes.
+- Toda tarea funcional tiene una puerta institucional previa: fuentes de la
+  Diputacion, vigencia, ambito, procedimiento real y casos de prueba deben
+  constar antes de programar. Si falta autoridad documental, se consulta a la
+  unidad competente y no se inventa comportamiento.
 
 ## Trabajo pendiente antes de redactar las especificaciones definitivas
 

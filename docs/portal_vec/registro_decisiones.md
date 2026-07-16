@@ -2407,3 +2407,26 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   red internos, bajo finalidad y ámbito organizativo.
 - Especificación:
   `docs/estudio_requisitos/calendario_habil_laboral_historico.md`.
+
+## DEC-068 — Puerta institucional previa a toda regla funcional
+
+- Estado: método obligatorio adoptado el 16 de julio de 2026 para el resto del
+  estudio, desarrollo y mantenimiento.
+- Prioridad: antes de diseñar o programar se revisan RPT, plantilla, acuerdos,
+  convenio, reglamentos, resoluciones, circulares, BOP, formularios, manuales y
+  procedimiento real de la Diputación que afecten a la capacidad.
+- Vigencia: cada requisito identifica fuente, versión, modificaciones, fecha
+  de efectos, ámbito y órgano competente. La publicación más reciente no se
+  considera por sí sola un texto consolidado ni una regla antigua se presume
+  vigente.
+- Incertidumbre: las contradicciones y ausencias se elevan a RRHH o al órgano
+  responsable y permanecen como incidencia o resultado no determinable; no se
+  completan con valores inventados.
+- Pruebas: ejemplos públicos o anonimizados de la Diputación se transforman en
+  casos de aceptación trazables. La fuente y la regla exactas acompañan a la
+  versión de configuración y al cálculo que produzca efectos.
+- Reutilización externa: patrones de otras Administraciones y componentes
+  libres pueden mejorar la solución, pero se subordinan a la normativa y a la
+  forma de trabajo provincial.
+- Evidencia de tarea: una tarea funcional de código sin ficha de fuentes,
+  vigencia, decisión y prueba queda en **NO-GO** y no entra en producción.
