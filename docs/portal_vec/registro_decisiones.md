@@ -2323,3 +2323,32 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   determinista, explicable y reproducible conforme a los desempates publicados.
 - Especificacion:
   `docs/estudio_requisitos/integracion_baremador_concursos_provision.md`.
+
+## DEC-065 — Firma por puestos competentes y descarga por partes autorizadas
+
+- Estado: requisito transversal adoptado el 16 de julio de 2026; contratos y
+  conectores productivos pendientes.
+- Circuito: cada acto y tipo documental referencia una politica publicada,
+  versionada e inmutable. Declara puestos funcionales, clase de intervencion,
+  orden, grupos, quorum, separacion de funciones, suplencias, delegaciones,
+  formato, sello, registro y acceso; no contiene nombres compilados.
+- Competencia: RBAC permite abrir la tarea, pero no acredita potestad para
+  firmar. El certificado identifica a la persona y un resolutor atestado
+  acredita que ocupa o ejerce validamente el puesto en el acto e instante
+  exactos. Se rechazan cuentas compartidas y administradores sin competencia.
+- Calculo y revision: cualquier modulo puede materializar la instantanea exacta
+  de entradas, reglas, desglose, decisiones y huellas como documento firmable.
+  La politica decide los hitos obligatorios; nunca se firma una regeneracion de
+  «los datos actuales».
+- Inmutabilidad: cada cofirma crea una revision incremental validada. Un cambio
+  no previsto de circuito tras la primera firma exige una version nueva. Una
+  actuacion automatizada usa sello de organo cuando este formalmente aprobado;
+  no imita la firma de una persona.
+- Descarga: las partes autorizadas pueden obtener original, recibo,
+  representacion accesible, PDF/PAdES final y paquete de expediente segun una
+  capacidad positiva por relacion, finalidad, clasificacion, tramite y version.
+  La condicion de parte interesada no revela notas internas ni datos ajenos.
+- Entrega: el almacen emite autorizaciones opacas de uso unico o vida corta;
+  nunca expone contenedor, ruta o clave. Las versiones parciales/testadas son
+  objetos distintos con huella y derivacion auditadas.
+- Especificacion: `docs/portal_vec/firma_csv_qr_y_cotejo.md`.

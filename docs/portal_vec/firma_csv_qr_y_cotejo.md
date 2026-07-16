@@ -1,6 +1,6 @@
 # Firma multiple, CSV, QR y servicio de cotejo
 
-Fecha de referencia: 14 de julio de 2026.
+Fecha de referencia: 16 de julio de 2026.
 
 ## Decision
 
@@ -159,6 +159,113 @@ La franja se prepara antes de la primera firma. Las apariencias visibles de
 firmas posteriores se crean dentro de sus propias revisiones PAdES
 incrementales. No se ejecuta un proceso de estampado general despues de firmar.
 
+## Circuitos configurables por puesto y competencia
+
+Los firmantes no se fijan en codigo como una lista de personas o cargos. Cada
+tipo documental y cada hito del proceso referencia una
+`PoliticaCircuitoFirma` publicada, versionada e inmutable que declara:
+
+- tipo de documento, proceso, fase y acto que se firma;
+- puestos funcionales requeridos, por ejemplo Secretaria, Intervencion,
+  titular de la Delegacion, Presidencia, jefatura o personal tecnico de RRHH;
+- clase de intervencion de cada puesto: autoria, informe, visto bueno,
+  fiscalizacion, propuesta, resolucion, firma o sello de organo;
+- firma secuencial, paralela o por grupos, junto con orden, cardinalidad y
+  quorum cuando exista un organo colegiado;
+- incompatibilidades, separacion entre preparacion, revision y firma, y nivel
+  de autenticacion exigido;
+- reglas de suplencia, delegacion, abstencion y sustitucion, con la referencia
+  administrativa que debe acreditarlas;
+- formato, nivel de firma, sello de tiempo, registro y politica de acceso de la
+  version final.
+
+La expresion `puesto firmante` significa una posicion organizativa o una
+funcion competente, no un rol tecnico RBAC ni una cuenta compartida. Un
+`ResolutorCompetenciaFirmante` consulta el directorio organizativo, RPT y
+delegaciones vigentes y produce una asignacion atestada para el expediente. En
+el momento de firmar se verifica simultaneamente que:
+
+1. el certificado identifica a la persona que actua;
+2. esa persona ocupa, sustituye o ejerce validamente el puesto funcional;
+3. la asignacion estaba vigente en el instante de firma;
+4. el acto, expediente, documento, version y huella coinciden exactamente;
+5. no hay abstencion, incompatibilidad o cambio de circuito pendiente.
+
+Una firma no se autoriza solo porque la persona posea el rol `rrhh` o
+`administrador`. Los roles permiten acceder a la tarea; la competencia para el
+acto procede de la asignacion organizativa atestada. No se usan cuentas
+genericas de Secretaria, Intervencion o RRHH para firmar.
+
+Los suplentes o delegados previstos pueden ocupar un hueco sin recompilar la
+aplicacion. La firma conserva puesto ejercido, titulo de actuacion y referencia
+de suplencia o delegacion. Si despues de la primera firma se altera un requisito
+del circuito que no estaba previsto como alternativa, se cancela la emision y
+se genera una version nueva; no se modifica el PDF parcialmente firmado.
+
+Todos los modulos podran materializar como documento firmable el resultado
+exacto de un calculo o revision: entrada y reglas, desglose, incidencias,
+decisiones, version, huellas y momento de corte. La politica determina que
+hitos requieren documento firmado. No se firma una cifra regenerada ni «el
+estado actual», sino la instantanea inmutable que produjo el resultado.
+
+Entre otros, se contemplan:
+
+- solicitud, declaracion y autobaremo presentados por la persona;
+- informe tecnico de revision y acta de la comision;
+- listados provisionales y definitivos;
+- informe de fiscalizacion, propuesta y resolucion;
+- certificado, notificacion, recibo de registro y justificante;
+- rectificacion, revocacion, rehabilitacion y nueva publicacion.
+
+Cuando el ordenamiento y la politica aprobada permitan una actuacion
+administrativa automatizada, se utilizara sello electronico del organo y se
+identificara el sistema responsable. No se simulara la firma de una persona.
+
+## Descarga por las partes interesadas
+
+Todo documento incorporado a un expediente tiene una politica de acceso
+positiva y una o varias representaciones identificadas. La aplicacion permite
+descargar a cada parte autorizada, segun proceda:
+
+- los bytes exactos del fichero que aporto y su recibo de presentacion;
+- el original recibido, cuando su relacion y finalidad concedan acceso;
+- la representacion accesible de consulta;
+- el PDF/PAdES final con todas las firmas, CSV, QR y sellos;
+- informes, requerimientos, comunicaciones, notificaciones y resoluciones que
+  deban ponerse a su disposicion;
+- un paquete del expediente con indice y manifiesto de huellas cuando exista
+  derecho de acceso o entrega formal.
+
+La condicion de parte interesada no concede acceso indiscriminado a notas de
+trabajo, documentos internos, secretos protegidos ni datos de otras personas.
+La politica se evalua por documento y version atendiendo a expediente,
+relacion, representacion, finalidad, clasificacion, tramite, estado y posibles
+limites de acceso. Cuando proceda acceso parcial se genera previamente una
+representacion disociada o testada, que es otro objeto con su propia huella y
+trazabilidad; nunca se ocultan datos alterando el original firmado.
+
+Las capacidades se conceden por separado: ver metadatos, previsualizar,
+descargar original, descargar representacion firmada y exportar expediente.
+Una capacidad no implica las demas. La persona interesada y su representante
+acreditado se relacionan con el expediente mediante referencias versionadas y
+vigentes; una mera URL, CSV, identificador o conocimiento del numero de
+expediente no concede acceso.
+
+La descarga se inicia a traves de la API autorizada. Tras releer politica,
+relacion, estado y huella, el conector de almacenamiento emite una autorizacion
+opaca, de un solo uso o vida muy corta, limitada a objeto, version, operacion y
+dispositivo/sesion cuando proceda. El contenedor S3, ruta interna y claves de
+objeto no se exponen. Cada intento, concesion, denegacion y descarga terminada
+queda auditado sin registrar el contenido ni la URL temporal.
+
+La vista previa no sustituye la descarga probatoria. Para documentos aportados
+se conserva el original exacto aunque exista una conversion segura; para
+documentos generados se conserva tanto el formato fuente gobernado como sus
+representaciones. PDF/PAdES sera la representacion humana firmada habitual,
+pero CSV, JSON, ODT, XML u otros formatos pueden entregarse tambien en original
+o mediante firma separada/contenedor interoperable cuando la politica lo
+requiera.
+
 ## CSV y contenido del QR
 
 El formato definitivo debe aprobarse en la norma o resolucion interna que
@@ -286,12 +393,21 @@ El dominio no depende de Autofirma, DSS, PDFBox ni una biblioteca QR concreta:
 
 - `GeneradorCodigoCotejo`: reserva, activa, retira y resuelve un CSV;
 - `PreparadorAparienciaDocumento`: incorpora la franja antes de firmar;
+- `CatalogoPoliticasCircuitoFirma`: obtiene la politica publicada exacta;
+- `ResolutorCompetenciaFirmante`: resuelve puesto, titularidad, suplencia o
+  delegacion vigentes sin acoplar el nucleo al directorio corporativo;
+- `RepositorioCircuitosFirma`: conserva asignaciones, pasos, rechazos,
+  revisiones y recibos del circuito;
 - `FirmadorDocumento`: inicia o completa una revision de firma;
 - `ValidadorFirmaDocumento`: produce un informe firmado o sellado de
   validacion;
 - `SelladorTiempo`: obtiene evidencia temporal;
 - `AlmacenObjetos`: conserva cada revision y abre los bytes exactos;
 - `RepositorioDocumental`: conserva relaciones, estados y huellas;
+- `AutorizadorDescargaDocumento`: concede capacidades por relacion, finalidad,
+  clasificacion, representacion y version exactas;
+- `EmisorDescargaTemporal`: entrega una autorizacion opaca y acotada para los
+  bytes exactos sin revelar la topologia del almacen;
 - `RegistroElectronico`: registra la version final;
 - `Auditoria`: registra toda reserva, firma, validacion, cotejo, lectura,
   retirada y sustitucion.
@@ -324,6 +440,20 @@ validador, formato optico o repositorio no cambia el nucleo ni los modulos.
 15. Una decision protegida con campos vacios, sin `estado` o `codigo_ref`, o
     con un campo desconocido no produce una respuesta util; las proyecciones
     minima y completa solo contienen los campos expresamente concedidos.
+16. Cambiar la persona titular de un puesto no cambia la politica; el resolutor
+    acredita la asignacion vigente y rechaza certificados, suplencias o
+    delegaciones que no correspondan al instante y acto exactos.
+17. Un rol tecnico suficiente sin competencia organizativa no puede firmar; una
+    competencia organizativa sin permiso de acceso tampoco puede abrir la tarea.
+18. Una firma, rechazo o sustitucion no prevista despues de la primera firma no
+    muta la revision existente y obliga a emitir una version nueva.
+19. La persona aportante recupera los bytes exactos y el recibo; la parte
+    interesada recupera el PDF/PAdES que le corresponde; una persona ajena no
+    obtiene ni metadatos enumerables ni URL de objeto.
+20. Una entrega parcial descarga una representacion testada distinta y conserva
+    inmutables y relacionadas la fuente, la transformacion y ambas huellas.
+21. La URL temporal caducada, reutilizada, dirigida a otra version o presentada
+    fuera de su contexto no permite descargar.
 
 ## Base normativa y tecnica
 
