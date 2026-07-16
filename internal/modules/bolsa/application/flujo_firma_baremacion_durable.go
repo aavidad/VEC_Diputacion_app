@@ -567,8 +567,9 @@ func (f *FachadaFirmaBaremacionDurable) sellarExpediente(
 		return puertosbolsa.ExpedienteFlujoFirmaBaremacion{}, err
 	}
 	sello, err := f.sellador.SellarSolicitudBaremacion(ctx, carga)
-	if err != nil {
-		return puertosbolsa.ExpedienteFlujoFirmaBaremacion{}, err
+	if err != nil || !selloGeneradoBaremacionValido(sello) {
+		return puertosbolsa.ExpedienteFlujoFirmaBaremacion{},
+			errors.Join(ErrResultadoBaremacionNoConfiable, err)
 	}
 	return preparado.IncorporarSello(sello)
 }
@@ -661,7 +662,11 @@ func (f *FachadaFirmaBaremacionDurable) sellarPartes(ctx context.Context, partes
 	if err != nil {
 		return "", err
 	}
-	return f.sellador.SellarSolicitudBaremacion(ctx, carga)
+	sello, err := f.sellador.SellarSolicitudBaremacion(ctx, carga)
+	if err != nil || !selloGeneradoBaremacionValido(sello) {
+		return "", errors.Join(ErrResultadoBaremacionNoConfiable, err)
+	}
+	return sello, nil
 }
 
 func (f *FachadaFirmaBaremacionDurable) ahora() (time.Time, error) {

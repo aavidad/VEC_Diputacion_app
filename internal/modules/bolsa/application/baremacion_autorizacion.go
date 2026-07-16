@@ -334,8 +334,9 @@ func (s *ServicioBaremacion) sellarReserva(
 		return puertosbolsa.SolicitudReservarCambioBaremacion{}, err
 	}
 	sello, err := s.selladorSolicitud.SellarSolicitudBaremacion(ctx, representacion)
-	if err != nil {
-		return puertosbolsa.SolicitudReservarCambioBaremacion{}, err
+	if err != nil || !selloGeneradoBaremacionValido(sello) {
+		return puertosbolsa.SolicitudReservarCambioBaremacion{},
+			errors.Join(ErrResultadoBaremacionNoConfiable, err)
 	}
 	solicitud.HuellaSolicitudHMAC = sello
 	if err := solicitud.Validar(); err != nil {
@@ -353,8 +354,9 @@ func (s *ServicioBaremacion) sellarConfirmacion(
 		return puertosbolsa.SolicitudConfirmarCambioBaremacion{}, err
 	}
 	sello, err := s.selladorSolicitud.SellarSolicitudBaremacion(ctx, representacion)
-	if err != nil {
-		return puertosbolsa.SolicitudConfirmarCambioBaremacion{}, err
+	if err != nil || !selloGeneradoBaremacionValido(sello) {
+		return puertosbolsa.SolicitudConfirmarCambioBaremacion{},
+			errors.Join(ErrResultadoBaremacionNoConfiable, err)
 	}
 	solicitud.HuellaSolicitudHMAC = sello
 	if err := solicitud.Validar(); err != nil {
@@ -389,8 +391,9 @@ func (s *ServicioBaremacion) sellarCustodia(
 		return puertosbolsa.SolicitudCustodiarDocumentoFirmable{}, err
 	}
 	sello, err := s.selladorSolicitud.SellarSolicitudBaremacion(ctx, carga)
-	if err != nil {
-		return puertosbolsa.SolicitudCustodiarDocumentoFirmable{}, err
+	if err != nil || !selloGeneradoBaremacionValido(sello) {
+		return puertosbolsa.SolicitudCustodiarDocumentoFirmable{},
+			errors.Join(ErrResultadoBaremacionNoConfiable, err)
 	}
 	solicitud.HuellaAlmacenHMAC = sello
 	if err := solicitud.Validar(); err != nil {
@@ -417,5 +420,9 @@ func (s *ServicioBaremacion) sellarPartesBaremacion(ctx context.Context, partes 
 	if err != nil {
 		return "", err
 	}
-	return s.selladorSolicitud.SellarSolicitudBaremacion(ctx, carga)
+	sello, err := s.selladorSolicitud.SellarSolicitudBaremacion(ctx, carga)
+	if err != nil || !selloGeneradoBaremacionValido(sello) {
+		return "", errors.Join(ErrResultadoBaremacionNoConfiable, err)
+	}
+	return sello, nil
 }

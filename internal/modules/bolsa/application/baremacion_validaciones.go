@@ -258,6 +258,10 @@ func huellaHMACAplicacionBaremacionValida(valor string) bool {
 	return err == nil && len(decodificada) == 32
 }
 
+func selloGeneradoBaremacionValido(valor string) bool {
+	return valor != hmacBaremacionPendiente && huellaHMACAplicacionBaremacionValida(valor)
+}
+
 func claveAplicacionBaremacionValida(valor string) bool {
 	if valor == "" || valor != strings.TrimSpace(valor) || len(valor) > 128 {
 		return false

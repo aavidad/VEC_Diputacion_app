@@ -1,6 +1,7 @@
 package application
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,59 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
+
+type selladorCentinelaPorFinalidadBaremacionPrueba struct {
+	finalidad []byte
+}
+
+func (s selladorCentinelaPorFinalidadBaremacionPrueba) SellarSolicitudBaremacion(
+	ctx context.Context,
+	carga puertosbolsa.CargaProtegida,
+) (string, error) {
+	material := carga.Revelar()
+	defer func() {
+		for posicion := range material {
+			material[posicion] = 0
+		}
+	}()
+	if bytes.Contains(material, s.finalidad) {
+		return hmacBaremacionPendiente, nil
+	}
+	return selladorSolicitudBaremacionPrueba{}.SellarSolicitudBaremacion(ctx, carga)
+}
+
+func TestServicioBaremacionNoPersisteHMACCentinelaDevueltoPorSellador(t *testing.T) {
+	casos := []struct {
+		nombre                  string
+		finalidad               puertosbolsa.FinalidadSelloBaremacion
+		reservasEsperadas       int
+		confirmacionesEsperadas int
+	}{
+		{"reserva", puertosbolsa.FinalidadSelloReservaBaremacion, 0, 0},
+		{"confirmacion", puertosbolsa.FinalidadSelloConfirmacionBaremacion, 1, 0},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			entorno := nuevoEntornoBaremacionPrueba(t)
+			preparada := prepararFirmaBaremacionPrueba(t, entorno)
+			entorno.servicio.selladorSolicitud = selladorCentinelaPorFinalidadBaremacionPrueba{
+				finalidad: []byte(caso.finalidad),
+			}
+
+			_, err := entorno.servicio.FinalizarFirma(
+				context.Background(), ordenFinalizarBaremacionPrueba(preparada, "centinela-"+caso.nombre),
+			)
+			if !errors.Is(err, ErrResultadoBaremacionNoConfiable) {
+				t.Fatalf("FinalizarFirma() error = %v", err)
+			}
+			if entorno.repositorio.reservas != caso.reservasEsperadas ||
+				entorno.repositorio.confirmaciones != caso.confirmacionesEsperadas {
+				t.Fatalf("el centinela alcanzo persistencia: reservas=%d confirmaciones=%d",
+					entorno.repositorio.reservas, entorno.repositorio.confirmaciones)
+			}
+		})
+	}
+}
 
 func TestServicioBaremacionIntegraServicioAutorizacionV1Real(t *testing.T) {
 	entorno := nuevoEntornoBaremacionPrueba(t)

@@ -69,8 +69,9 @@ func (s *ServicioBaremacion) construirManifiestoProbatorio(
 		return puertosbolsa.ManifiestoProbatorioBaremacion{}, err
 	}
 	selloManifiesto, err := s.selladorSolicitud.SellarSolicitudBaremacion(ctx, carga)
-	if err != nil {
-		return puertosbolsa.ManifiestoProbatorioBaremacion{}, err
+	if err != nil || !selloGeneradoBaremacionValido(selloManifiesto) {
+		return puertosbolsa.ManifiestoProbatorioBaremacion{},
+			errors.Join(ErrResultadoBaremacionNoConfiable, err)
 	}
 	return preparado.IncorporarSello(selloManifiesto)
 }
