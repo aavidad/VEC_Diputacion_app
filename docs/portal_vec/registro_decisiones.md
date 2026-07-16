@@ -1872,3 +1872,26 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - Reversibilidad: alta para el cliente (web y escritorio son
   intercambiables por diseno); baja para el principio API primero, que es
   precisamente la garantia de esa intercambiabilidad.
+
+## DEC-054 — Abandono acotado de reservas antes del COMMIT
+
+- Estado: decision aplicada al corte interno de baremacion; la persistencia
+  durable del resultado indeterminado y el reconciliador productivo siguen
+  pendientes.
+- Limite seguro: una reserva solo puede abandonarse antes de invocar la
+  frontera que puede enviar `COMMIT`. Desde que se invoca
+  `ConfirmarCambio`, cualquier error, cancelacion o perdida de respuesta
+  puede ocultar un commit aplicado: queda prohibido abandonar, compensar o
+  repetir el efecto a ciegas.
+- Autoridad: el abandono obtiene una concesion RBAC/ABAC nueva, exacta y
+  vigente, distinta de las usadas para reservar o confirmar.
+- Reintento: ante una respuesta ambigua del abandono se permite un unico
+  reintento sincronico con la misma concesion, token, recurso y solicitud
+  exacta, dentro de un plazo independiente y nunca mas alla de la vigencia
+  conocida de la reserva.
+- Resultado no acreditado: agotado el plazo o el reintento sin confirmacion
+  autoritativa, no se presume abandono. Se conserva una clasificacion fija y
+  expurgada; la evidencia durable y su reconciliacion forman parte del cierre
+  productivo pendiente. Tras invocar `ConfirmarCambio`, todo desenlace no
+  autoritativo debe clasificarse como transaccionalmente indeterminado y
+  entregarse a reconciliacion, sin ampliar autoridad ni intentos.
