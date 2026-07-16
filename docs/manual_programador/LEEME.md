@@ -89,6 +89,7 @@ Documentos de contexto recomendados antes de tocar codigo:
 | [`internal/candidate/usecases`](nucleo_candidate.md#paquete-internalcandidateusecases) | Nucleo heredado de candidatos (Bolsa) | Casos de uso del flujo administrativo heredado. |
 | [`internal/modules/administracion`](modulos_personal_cronos_dietas.md#paquete-internalmodulesadministracion) | Modulos Personal, Cronos, Dietas y Administracion | Manifiesto del modulo Administracion para el shell VEC. |
 | [`internal/modules/bolsa`](modulo_bolsa.md#paquete-internalmodulesbolsa) | Modulo Bolsa | Manifiesto del modulo Bolsa: identidad, permisos y menus para el shell VEC. |
+| [`internal/modules/bolsa/adapters/catalogosvec`](modulo_bolsa.md#paquete-internalmodulesbolsaadapterscatalogosvec) | Modulo Bolsa | Package catalogosvec adapta catalogos configurables gobernados por el nucleo a las proyecciones publicas minimizadas del modulo Bolsa. |
 | [`internal/modules/bolsa/adapters/fichero`](modulo_bolsa.md#paquete-internalmodulesbolsaadaptersfichero) | Modulo Bolsa | Package fichero aporta únicamente una fuente local de demostración. |
 | [`internal/modules/bolsa/adapters/httppublico`](modulo_bolsa.md#paquete-internalmodulesbolsaadaptershttppublico) | Modulo Bolsa | Package httppublico expone únicamente proyecciones públicas minimizadas. |
 | [`internal/modules/bolsa/adapters/memory`](modulo_bolsa.md#paquete-internalmodulesbolsaadaptersmemory) | Modulo Bolsa | Package memory contiene adaptadores efimeros y defensivos del modulo de bolsas. |
@@ -115,6 +116,7 @@ Documentos de contexto recomendados antes de tocar codigo:
 | [`internal/vec/adapters/documentos/docx`](vec_adaptadores.md#paquete-internalvecadaptersdocumentosdocx) | Nucleo VEC: adaptadores | Package docx genera documentos Word Open XML sin macros ni recursos externos. |
 | [`internal/vec/adapters/documentos/pdf`](vec_adaptadores.md#paquete-internalvecadaptersdocumentospdf) | Nucleo VEC: adaptadores | Package pdf genera la representacion PDF de trabajo mediante un adaptador reemplazable. |
 | [`internal/vec/adapters/documentos/seguridad`](vec_adaptadores.md#paquete-internalvecadaptersdocumentosseguridad) | Nucleo VEC: adaptadores | Package seguridad contiene adaptadores criptograficos y de infraestructura local. |
+| [`internal/vec/adapters/fichero`](vec_adaptadores.md#paquete-internalvecadaptersfichero) | Nucleo VEC: adaptadores | Package fichero aporta adaptadores locales de solo lectura para paquetes de demostracion. |
 | [`internal/vec/adapters/httpapi`](vec_adaptadores.md#paquete-internalvecadaptershttpapi) | Nucleo VEC: adaptadores | Adaptador HTTP del shell VEC: rutas publicas y privadas. |
 | [`internal/vec/adapters/httpseguridad`](vec_adaptadores.md#paquete-internalvecadaptershttpseguridad) | Nucleo VEC: adaptadores | Package httpseguridad define la frontera de seguridad HTTP entre las superficies publica, personal, interna y de administracion. |
 | [`internal/vec/adapters/memory`](vec_adaptadores.md#paquete-internalvecadaptersmemory) | Nucleo VEC: adaptadores | Adaptadores en memoria del nucleo VEC para pruebas y arranque local. |

@@ -8,9 +8,11 @@ import (
 	"testing"
 	"time"
 
+	catalogosvec "vec-diputacion-granada/internal/modules/bolsa/adapters/catalogosvec"
 	ficherobolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/fichero"
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	ficherovec "vec-diputacion-granada/internal/vec/adapters/fichero"
 )
 
 type relojPublicoFijo struct{ instante time.Time }
@@ -23,15 +25,29 @@ func servicioPublicoPrueba(t *testing.T, instante time.Time) *aplicacionbolsa.Se
 	if err != nil {
 		t.Fatal(err)
 	}
-	servicio, err := aplicacionbolsa.NuevoServicioConsultaPublica(adaptador, relojPublicoFijo{instante: instante})
+	categorias := categoriasPublicasPrueba(t)
+	servicio, err := aplicacionbolsa.NuevoServicioConsultaPublica(adaptador, categorias, relojPublicoFijo{instante: instante})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return servicio
 }
 
+func categoriasPublicasPrueba(t *testing.T) puertosbolsa.ConsultaCategoriasPublicas {
+	t.Helper()
+	paquete, err := ficherovec.NuevaConsultaCatalogos("../../../../data/catalogos/categorias-profesionales/v1.demo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	categorias, err := catalogosvec.NuevaConsultaCategorias(paquete, "categorias-profesionales", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return categorias
+}
+
 func TestListadoPublicoMinimizaDatosYResuelveCatalogos(t *testing.T) {
-	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 15, 8, 0, 0, 0, time.UTC))
+	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC))
 	resultado, err := servicio.Listar(context.Background(), aplicacionbolsa.SolicitudListadoPublico{Tamano: 12})
 	if err != nil || resultado.Paginacion.Total != 2 || len(resultado.Facetas.Tipos) != 2 {
 		t.Fatalf("resultado = %#v, error = %v", resultado, err)
@@ -48,8 +64,94 @@ func TestListadoPublicoMinimizaDatosYResuelveCatalogos(t *testing.T) {
 	}
 }
 
+type categoriasConHuellaDistinta struct {
+	base puertosbolsa.ConsultaCategoriasPublicas
+}
+
+func (c categoriasConHuellaDistinta) ObtenerPublicadas(ctx context.Context, instante time.Time) (puertosbolsa.CatalogoCategoriasPublicas, error) {
+	resultado, err := c.base.ObtenerPublicadas(ctx, instante)
+	if err == nil {
+		resultado.HuellaSHA256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	}
+	return resultado, err
+}
+
+func TestValidacionAnticipadaFijaCatalogoExactoAntesDePublicarRutas(t *testing.T) {
+	instante := time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+	if err := servicioPublicoPrueba(t, instante).ValidarConfiguracion(context.Background()); err != nil {
+		t.Fatalf("configuracion valida rechazada: %v", err)
+	}
+	adaptador, err := ficherobolsa.NuevaConsultaConvocatorias("../../../../data/demo/convocatorias_publicas.demo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	servicio, err := aplicacionbolsa.NuevoServicioConsultaPublica(
+		adaptador,
+		categoriasConHuellaDistinta{base: categoriasPublicasPrueba(t)},
+		relojPublicoFijo{instante: instante},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := servicio.ValidarConfiguracion(context.Background()); !errors.Is(err, aplicacionbolsa.ErrDatosPublicosNoConfiables) {
+		t.Fatalf("huella distinta no rechazada: %v", err)
+	}
+}
+
+func TestListadoUsaFacetasProfesionalesConConteoSinConvertirConvocatoriasEnAutoridad(t *testing.T) {
+	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC))
+	resultado, err := servicio.Listar(context.Background(), aplicacionbolsa.SolicitudListadoPublico{Categoria: "auxiliar-administrativo"})
+	if err != nil || resultado.Paginacion.Total != 1 || len(resultado.Facetas.Categorias) != 2 {
+		t.Fatalf("resultado=%#v error=%v", resultado, err)
+	}
+	for _, faceta := range resultado.Facetas.Categorias {
+		if faceta.NumeroResultados != 1 {
+			t.Fatalf("faceta sin conteo independiente del filtro: %#v", faceta)
+		}
+	}
+	contenido, err := json.Marshal(resultado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(contenido), `"numero_resultados"`) != 2 {
+		t.Fatalf("numero_resultados se expuso fuera de facetas categoria: %s", contenido)
+	}
+}
+
+func TestDirectorioPublicoExpone58CategoriasMinimizadasYConteos(t *testing.T) {
+	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC))
+	resultado, err := servicio.ListarCategorias(context.Background())
+	if err != nil || resultado.Esquema != "vec.bolsa.publico.categorias.v1" ||
+		resultado.Catalogo.Total != 58 || len(resultado.Categorias) != 58 || !resultado.Fuente.Demostracion {
+		t.Fatalf("resultado=%#v error=%v", resultado, err)
+	}
+	if primera := resultado.Categorias[0]; primera.Clave != "administrativo" || primera.Orden != 1 ||
+		primera.Area != "administracion_general" || primera.AreaEtiqueta != "Administración general" {
+		t.Fatalf("primera categoria no conserva orden/area gobernados: %#v", primera)
+	}
+	conteos := map[string]aplicacionbolsa.CategoriaDirectorioPublico{}
+	for _, categoria := range resultado.Categorias {
+		conteos[categoria.Clave] = categoria
+	}
+	if conteos["auxiliar-administrativo"].NumeroConvocatorias != 1 ||
+		conteos["auxiliar-administrativo"].NumeroPlazosAbiertos != 1 ||
+		conteos["tecnico-de-gestion"].NumeroConvocatorias != 1 ||
+		conteos["tecnico-de-gestion"].NumeroPlazosAbiertos != 0 {
+		t.Fatalf("conteos=%#v", conteos)
+	}
+	contenido, err := json.Marshal(resultado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, prohibido := range []string{"source_path", "creado_por", "publicado_por", "aprobacion_ref", "origen_sha256"} {
+		if strings.Contains(string(contenido), prohibido) {
+			t.Fatalf("la proyeccion publica contiene %q", prohibido)
+		}
+	}
+}
+
 func TestConsultaPublicaAcotaFiltrosYPaginacion(t *testing.T) {
-	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 15, 8, 0, 0, 0, time.UTC))
+	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC))
 	pruebas := []struct {
 		nombre    string
 		solicitud aplicacionbolsa.SolicitudListadoPublico
@@ -126,7 +228,8 @@ func TestDetalleFallaCerradoSiDocumentoPierdeCatalogoPublicable(t *testing.T) {
 	}
 	servicio, err := aplicacionbolsa.NuevoServicioConsultaPublica(
 		fuenteDocumentoNoPublicable{base: base},
-		relojPublicoFijo{instante: time.Date(2026, 7, 15, 8, 0, 0, 0, time.UTC)},
+		categoriasPublicasPrueba(t),
+		relojPublicoFijo{instante: time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)},
 	)
 	if err != nil {
 		t.Fatal(err)

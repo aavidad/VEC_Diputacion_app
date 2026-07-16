@@ -113,6 +113,38 @@ func OperationalStatusDefault(demoEnabled bool) OperationalStatus
 func OperationalStatusForModes(demoEnabled bool, authMode, persistenceMode string) OperationalStatus
 ```
 
+## Paquete `internal/modules/bolsa/adapters/catalogosvec`
+
+> Package catalogosvec adapta catalogos configurables gobernados por el nucleo a las proyecciones publicas minimizadas del modulo Bolsa.
+
+Package catalogosvec adapta catalogos configurables gobernados por el nucleo a
+las proyecciones publicas minimizadas del modulo Bolsa.
+
+### Tipos
+
+```go
+type ConsultaCategorias struct {
+	// Has unexported fields.
+}
+```
+
+ConsultaCategorias fija el ID y la version al construirse. Cambiar de
+version es una decision de configuracion explicita; nunca se consulta "la
+ultima" de forma implicita.
+
+```go
+func NuevaConsultaCategorias(
+	fuente fuenteCatalogosPublicos,
+	catalogoID string,
+	version int,
+) (*ConsultaCategorias, error)
+
+func (c *ConsultaCategorias) ObtenerPublicadas(
+	ctx context.Context,
+	instante time.Time,
+) (puertosbolsa.CatalogoCategoriasPublicas, error)
+```
+
 ## Paquete `internal/modules/bolsa/adapters/fichero`
 
 > Package fichero aporta únicamente una fuente local de demostración.
@@ -150,7 +182,10 @@ No contiene rutas personales, internas ni de administración.
 ### Constantes
 
 ```go
-const RutaConvocatorias = "/api/publico/bolsa/convocatorias"
+const (
+	RutaConvocatorias = "/api/publico/bolsa/convocatorias"
+	RutaCategorias    = "/api/publico/bolsa/categorias"
+)
 ```
 
 ### Funciones
@@ -485,6 +520,20 @@ type AyudaPublica struct {
 	Respuesta  string               `json:"respuesta"`
 }
 
+type CategoriaDirectorioPublico struct {
+	Clave                string `json:"clave"`
+	Version              int    `json:"version"`
+	Etiqueta             string `json:"etiqueta"`
+	Descripcion          string `json:"descripcion,omitempty"`
+	Semantica            string `json:"semantica"`
+	Orden                int    `json:"orden"`
+	Area                 string `json:"area"`
+	AreaEtiqueta         string `json:"area_etiqueta"`
+	Suscribible          bool   `json:"suscribible"`
+	NumeroConvocatorias  int    `json:"numero_convocatorias"`
+	NumeroPlazosAbiertos int    `json:"numero_plazos_abiertos"`
+}
+
 type DecisionBaremacionCodificada struct {
 	// Has unexported fields.
 }
@@ -544,6 +593,13 @@ type DetalleConvocatoriaPublica struct {
 	Requisitos   []RequisitoPublico         `json:"requisitos"`
 	Documentos   []DocumentoPublico         `json:"documentos"`
 	Ayuda        []AyudaPublica             `json:"ayuda"`
+}
+
+type DirectorioCategoriasPublicas struct {
+	Esquema    string                              `json:"esquema"`
+	Fuente     FuentePublica                       `json:"fuente"`
+	Catalogo   ReferenciaCatalogoCategoriasPublico `json:"catalogo"`
+	Categorias []CategoriaDirectorioPublico        `json:"categorias"`
 }
 
 type DocumentoPublico struct {
@@ -626,10 +682,19 @@ func (e *ErrorDocumentoFirmadoHuerfano) String() string
 
 func (e *ErrorDocumentoFirmadoHuerfano) Unwrap() error
 
+type FacetaCategoriaPublica struct {
+	Clave            string `json:"clave"`
+	Version          int    `json:"version"`
+	Etiqueta         string `json:"etiqueta"`
+	Descripcion      string `json:"descripcion,omitempty"`
+	Semantica        string `json:"semantica"`
+	NumeroResultados int    `json:"numero_resultados"`
+}
+
 type FacetasConvocatorias struct {
-	Tipos      []ValorCatalogoPublico `json:"tipos"`
-	Categorias []ValorCatalogoPublico `json:"categorias"`
-	Estados    []ValorCatalogoPublico `json:"estados"`
+	Tipos      []ValorCatalogoPublico   `json:"tipos"`
+	Categorias []FacetaCategoriaPublica `json:"categorias"`
+	Estados    []ValorCatalogoPublico   `json:"estados"`
 }
 
 type FachadaFirmaBaremacionDurable struct {
@@ -884,6 +949,13 @@ type ProyeccionEstadoFlujoFirmaBaremacion struct {
 	ActualizadoEn time.Time
 }
 
+type ReferenciaCatalogoCategoriasPublico struct {
+	Referencia   string `json:"referencia"`
+	Version      int    `json:"version"`
+	HuellaSHA256 string `json:"huella_sha256"`
+	Total        int    `json:"total"`
+}
+
 type RelojConsultaPublica interface {
 	Ahora() time.Time
 }
@@ -1092,12 +1164,27 @@ type ServicioConsultaPublica struct {
 	// Has unexported fields.
 }
 
-func NuevoServicioConsultaPublica(fuente puertosbolsa.ConsultaConvocatoriasPublicas, reloj RelojConsultaPublica) (*ServicioConsultaPublica, error)
+func NuevoServicioConsultaPublica(
+	fuente puertosbolsa.ConsultaConvocatoriasPublicas,
+	categorias puertosbolsa.ConsultaCategoriasPublicas,
+	reloj RelojConsultaPublica,
+) (*ServicioConsultaPublica, error)
 
 func (s *ServicioConsultaPublica) Listar(ctx context.Context, solicitud SolicitudListadoPublico) (ListadoConvocatoriasPublicas, error)
 
+func (s *ServicioConsultaPublica) ListarCategorias(ctx context.Context) (DirectorioCategoriasPublicas, error)
+
 func (s *ServicioConsultaPublica) Obtener(ctx context.Context, identificador string) (DetalleConvocatoriaPublica, error)
 
+func (s *ServicioConsultaPublica) ValidarConfiguracion(ctx context.Context) error
+```
+
+ValidarConfiguracion coteja de forma anticipada la instantanea profesional
+con todas las convocatorias publicadas. El bootstrap debe ejecutarlo antes
+de montar las rutas: una referencia desconocida o una version/huella
+diferente impide arrancar en vez de convertirse despues en un error 500.
+
+```go
 type ServicioLlamamientos struct {
 	// Has unexported fields.
 }
@@ -1515,18 +1602,19 @@ Validate conserva el nombre usado por el prototipo durante la migración.
 
 ```go
 type DatosPublicosConvocatoria struct {
-	IdentificadorPublico string                  `json:"identificador_publico"`
-	Tipo                 string                  `json:"tipo"`
-	Categorias           []string                `json:"categorias"`
-	Titulo               string                  `json:"titulo"`
-	Resumen              string                  `json:"resumen"`
-	Descripcion          string                  `json:"descripcion"`
-	PublicadaEn          time.Time               `json:"publicada_en"`
-	ActualizadaEn        time.Time               `json:"actualizada_en"`
-	Plazos               []PlazoConvocatoria     `json:"plazos"`
-	Requisitos           []RequisitoConvocatoria `json:"requisitos"`
-	Documentos           []DocumentoConvocatoria `json:"documentos"`
-	Ayuda                []AyudaConvocatoria     `json:"ayuda"`
+	IdentificadorPublico string                       `json:"identificador_publico"`
+	Tipo                 string                       `json:"tipo"`
+	CatalogoCategorias   ReferenciaCatalogoCategorias `json:"catalogo_categorias"`
+	Categorias           []string                     `json:"categorias"`
+	Titulo               string                       `json:"titulo"`
+	Resumen              string                       `json:"resumen"`
+	Descripcion          string                       `json:"descripcion"`
+	PublicadaEn          time.Time                    `json:"publicada_en"`
+	ActualizadaEn        time.Time                    `json:"actualizada_en"`
+	Plazos               []PlazoConvocatoria          `json:"plazos"`
+	Requisitos           []RequisitoConvocatoria      `json:"requisitos"`
+	Documentos           []DocumentoConvocatoria      `json:"documentos"`
+	Ayuda                []AyudaConvocatoria          `json:"ayuda"`
 }
 
 type DecisionTecnica struct {
@@ -1897,6 +1985,21 @@ Puntos almacena micropuntos. Por ejemplo, 2,75 puntos se representan como
 
 ```go
 func (p Puntos) Validos() bool
+
+type ReferenciaCatalogoCategorias struct {
+	CatalogoID           string `json:"catalogo_id"`
+	CatalogoVersion      int    `json:"catalogo_version"`
+	CatalogoHuellaSHA256 string `json:"catalogo_huella_sha256"`
+}
+```
+
+ReferenciaCatalogoCategorias inmoviliza la instantanea profesional usada al
+publicar una convocatoria. La huella publica de la convocatoria incluye esta
+referencia, por lo que otra version nunca puede reinterpretarla de forma
+silenciosa.
+
+```go
+func (r ReferenciaCatalogoCategorias) Valida() bool
 
 type ReferenciaCriterio struct {
 	ProcesoRef    string                 `json:"proceso_ref"`
@@ -2412,9 +2515,11 @@ var (
 	ErrSelloBaremacionNoAutentico              = errors.New("bolsa: sello de operacion no autentico")
 )
 var (
-	ErrConsultaConvocatoriasInvalida = errors.New("bolsa: consulta publica de convocatorias invalida")
-	ErrConvocatoriaNoEncontrada      = errors.New("bolsa: convocatoria publica no encontrada")
-	ErrFuenteConvocatoriasInvalida   = errors.New("bolsa: fuente publica de convocatorias invalida")
+	ErrConsultaConvocatoriasInvalida  = errors.New("bolsa: consulta publica de convocatorias invalida")
+	ErrConsultaCategoriasInvalida     = errors.New("bolsa: consulta publica de categorias invalida")
+	ErrConvocatoriaNoEncontrada       = errors.New("bolsa: convocatoria publica no encontrada")
+	ErrFuenteConvocatoriasInvalida    = errors.New("bolsa: fuente publica de convocatorias invalida")
+	ErrCatalogoCategoriasNoDisponible = errors.New("bolsa: catalogo publico de categorias no disponible")
 )
 var (
 	ErrSolicitudFlujoFirmaBaremacionInvalida = errors.New("bolsa: solicitud de flujo de firma invalida")
@@ -2993,6 +3098,20 @@ func (c CargaProtegida) Tamano() int
 
 func (c CargaProtegida) Validar() error
 
+type CatalogoCategoriasPublicas struct {
+	ID           string
+	Version      int
+	HuellaSHA256 string
+	Fuente       MetadatosFuenteCategorias
+	Categorias   []CategoriaPublica
+}
+```
+
+CatalogoCategoriasPublicas conserva la identidad y version exactas que
+resolvio el adaptador. Ningun consumidor selecciona implicitamente la ultima
+version disponible.
+
+```go
 type CatalogoPoliticasFirmaBaremacion interface {
 	ObtenerPoliticaFirma(context.Context, SolicitudObtenerPoliticaFirma) (PoliticaFirmaBaremacion, error)
 }
@@ -3003,6 +3122,24 @@ type CatalogoPublico struct {
 	Entradas   []EntradaCatalogoPublico `json:"entradas"`
 }
 
+type CategoriaPublica struct {
+	Clave        string
+	Version      int
+	Etiqueta     string
+	Descripcion  string
+	Semantica    string
+	Orden        int
+	Area         string
+	AreaEtiqueta string
+	Suscribible  bool
+}
+```
+
+CategoriaPublica es la proyeccion minimizada de una entrada del catalogo
+gobernado del nucleo. Los metadatos de procedencia, gobierno y aprobacion no
+forman parte de este contrato publico.
+
+```go
 type ClaseCambioBaremacion string
 
 const (
@@ -3127,6 +3264,17 @@ type ComprobacionFirma struct {
 
 func (c ComprobacionFirma) Validar() error
 
+type ConsultaCategoriasPublicas interface {
+	ObtenerPublicadas(context.Context, time.Time) (CatalogoCategoriasPublicas, error)
+}
+```
+
+ConsultaCategoriasPublicas separa el catalogo profesional de la fuente
+de convocatorias. Su adaptador debe fijar ID y version al construirse y
+devolver solo entradas publicadas, vigentes y publicables para el instante
+indicado.
+
+```go
 type ConsultaConvocatoriasPublicas interface {
 	BuscarPublicadas(context.Context, FiltroConvocatoriasPublicas) (PaginaConvocatorias, error)
 	ObtenerPublicada(context.Context, string) (DetalleConvocatoria, error)
@@ -3190,6 +3338,11 @@ el identificador interno opaco dentro de un callback sincrono. El valor no
 debe copiarse a DTO, contexto, registro ni persistencia.
 
 ```go
+type ConteoCategoriaConvocatorias struct {
+	NumeroConvocatorias  int
+	NumeroPlazosAbiertos int
+}
+
 type ContextoConsultaBaremacion = ContextoOperacionBaremacion
 ```
 
@@ -4578,6 +4731,13 @@ func (m MaterialCanonicoEfimeroBaremacion) VisitarBytes(
 	visita func([]byte) error,
 ) (errRetorno error)
 
+type MetadatosFuenteCategorias struct {
+	Revision      string
+	ActualizadaEn time.Time
+	Demostracion  bool
+	Aviso         string
+}
+
 type MetadatosFuenteConvocatorias struct {
 	Revision      string    `json:"revision"`
 	ActualizadaEn time.Time `json:"actualizada_en"`
@@ -4598,7 +4758,11 @@ type PaginaConvocatorias struct {
 	Convocatorias []dominiobolsa.Convocatoria
 	Total         int
 	Catalogos     []CatalogoPublico
-	Fuente        MetadatosFuenteConvocatorias
+	// ConteosCategorias aplica todos los filtros salvo Categoria. Permite
+	// construir facetas navegables sin que la opcion seleccionada oculte las
+	// restantes y sin convertir la fuente en autoridad del catalogo.
+	ConteosCategorias map[string]ConteoCategoriaConvocatorias
+	Fuente            MetadatosFuenteConvocatorias
 }
 
 type PasoFlujoFirmaBaremacion string

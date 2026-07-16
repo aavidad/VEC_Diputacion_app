@@ -3,6 +3,7 @@ package ports
 import (
 	"context"
 	"errors"
+	"time"
 
 	"vec-diputacion-granada/internal/vec/domain"
 )
@@ -24,6 +25,22 @@ const (
 type ConsultaCatalogosConfigurables interface {
 	ObtenerCatalogo(context.Context, string, int) (domain.CatalogoConfigurable, error)
 	ListarVersionesCatalogo(context.Context, string) ([]domain.CatalogoConfigurable, error)
+}
+
+// MetadatosFuenteCatalogos describe el adaptador de lectura sin revelar la
+// procedencia interna de cada entrada ni los actores del gobierno del catalogo.
+// En produccion estos datos pueden proceder del repositorio publicado; el
+// adaptador de fichero los toma del envoltorio DEMO versionado. La huella de
+// procedencia declarada no equivale a una firma verificable del paquete.
+type MetadatosFuenteCatalogos struct {
+	Revision      string
+	ActualizadaEn time.Time
+	Demostracion  bool
+	Aviso         string
+}
+
+type ConsultaMetadatosFuenteCatalogos interface {
+	ObtenerMetadatosFuenteCatalogos(context.Context) (MetadatosFuenteCatalogos, error)
 }
 
 // RepositorioGobiernoCatalogos confirma cada cambio junto con su auditoria y

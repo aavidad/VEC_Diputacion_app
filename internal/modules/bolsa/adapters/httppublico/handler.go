@@ -14,7 +14,10 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
-const RutaConvocatorias = "/api/publico/bolsa/convocatorias"
+const (
+	RutaConvocatorias = "/api/publico/bolsa/convocatorias"
+	RutaCategorias    = "/api/publico/bolsa/categorias"
+)
 
 type Handler struct {
 	servicio *aplicacionbolsa.ServicioConsultaPublica
@@ -43,6 +46,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.listar(w, r)
 		return
 	}
+	if r.URL.Path == RutaCategorias {
+		h.listarCategorias(w, r)
+		return
+	}
 	prefijo := RutaConvocatorias + "/"
 	if strings.HasPrefix(r.URL.Path, prefijo) {
 		identificador := strings.TrimPrefix(r.URL.Path, prefijo)
@@ -54,6 +61,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responderError(w, http.StatusNotFound, "recurso_no_encontrado", "Recurso no encontrado.")
+}
+
+func (h *Handler) listarCategorias(w http.ResponseWriter, r *http.Request) {
+	if !metodoLectura(w, r) {
+		return
+	}
+	if r.URL.RawQuery != "" {
+		responderError(w, http.StatusBadRequest, "consulta_invalida", "El directorio de categorías no admite parámetros.")
+		return
+	}
+	resultado, err := h.servicio.ListarCategorias(r.Context())
+	if err != nil {
+		responderErrorAplicacion(w, err)
+		return
+	}
+	responderJSON(w, r, http.StatusOK, resultado)
 }
 
 type escritorSinCuerpo struct{ http.ResponseWriter }

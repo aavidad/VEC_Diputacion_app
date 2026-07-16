@@ -2,6 +2,7 @@
 
 (() => {
   const API = "/api/publico/bolsa/convocatorias";
+  const API_CATEGORIAS = "/api/publico/bolsa/categorias";
   const TAMANO = 12;
   const porId = (id) => document.getElementById(id);
   const elementos = {
@@ -13,11 +14,21 @@
     paginacion: porId("paginacion"), anterior: porId("pagina-anterior"), siguiente: porId("pagina-siguiente"), pagina: porId("pagina-actual"),
     panelDetalle: porId("panel-detalle"), tituloDetalle: porId("titulo-detalle"), cerrarDetalle: porId("cerrar-detalle"),
     detalleEspera: porId("detalle-espera"), detalleCargando: porId("detalle-cargando"), detalleError: porId("detalle-error"),
+    reintentarDetalle: porId("reintentar-detalle"),
     contenidoDetalle: porId("contenido-detalle"), detalleEtiquetas: porId("detalle-etiquetas"), detalleResumen: porId("detalle-resumen"),
     detalleDescripcion: porId("detalle-descripcion"), detallePlazos: porId("detalle-plazos"), detalleRequisitos: porId("detalle-requisitos"),
     detalleDocumentos: porId("detalle-documentos"), detalleAyuda: porId("detalle-ayuda"), detalleIntegridad: porId("detalle-integridad"),
+    directorio: porId("directorio-categorias"), buscarCategoria: porId("buscar-categoria"), areaCategoria: porId("filtrar-area-categoria"),
+    estadoDirectorio: porId("estado-directorio-categorias"), cargandoDirectorio: porId("cargando-directorio-categorias"),
+    errorDirectorio: porId("error-directorio-categorias"), vacioDirectorio: porId("vacio-directorio-categorias"),
+    gruposDirectorio: porId("grupos-directorio-categorias"), reintentarDirectorio: porId("reintentar-directorio-categorias"),
+    integridadCategorias: porId("integridad-catalogo-categorias"),
   };
-  const estado = { pagina: 1, paginas: 0, convocatoria: "", controladorListado: null, controladorDetalle: null };
+  const estado = {
+    pagina: 1, paginas: 0, convocatoria: "", categorias: [], controladorListado: null, controladorDetalle: null,
+    controladorCategorias: null, etiquetasArea: new Map(), fuentesDemostracion: { convocatorias: null, categorias: null }, avisosDemostracion: {},
+    facetas: null,
+  };
   const formatoFecha = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" });
 
   function texto(tag, contenido, clase) {
@@ -29,6 +40,26 @@
 
   function vaciar(nodo) {
     while (nodo.firstChild) nodo.removeChild(nodo.firstChild);
+  }
+
+  function normalizarBusqueda(valor) {
+    return String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es").trim();
+  }
+
+  function etiquetaArea(valor) {
+    if (estado.etiquetasArea.has(valor)) return estado.etiquetasArea.get(valor);
+    const limpio = String(valor || "").replace(/[_-]+/g, " ").trim();
+    return limpio ? limpio.charAt(0).toLocaleUpperCase("es") + limpio.slice(1) : "Área no indicada";
+  }
+
+  function actualizarAvisoDemostracion(origen, fuente) {
+    estado.fuentesDemostracion[origen] = fuente?.demostracion === true;
+    const aviso = String(fuente?.aviso || "").replace(/^DEMOSTRACI[ÓO]N\s*:?\s*/i, "").trim();
+    if (aviso) estado.avisosDemostracion[origen] = aviso;
+    const valores = Object.values(estado.fuentesDemostracion);
+    elementos.avisoContenedor.hidden = valores.every((valor) => valor !== null) && !valores.some(Boolean);
+    const avisos = [...new Set(Object.values(estado.avisosDemostracion))];
+    if (avisos.length > 0) elementos.aviso.textContent = avisos.join(" ");
   }
 
   function etiqueta(valor) {
@@ -69,6 +100,9 @@
   function cargarFiltrosDesdeURL() {
     const parametros = new URLSearchParams(window.location.search);
     elementos.texto.value = parametros.get("texto") || "";
+    elementos.tipo.value = "";
+    elementos.categoria.value = "";
+    elementos.estado.value = "";
     elementos.tipo.dataset.valorInicial = parametros.get("tipo") || "";
     elementos.categoria.dataset.valorInicial = parametros.get("categoria") || "";
     elementos.estado.dataset.valorInicial = parametros.get("estado") || "";
@@ -81,8 +115,9 @@
   function parametrosConsulta() {
     const parametros = new URLSearchParams();
     const valores = [
-      ["texto", elementos.texto.value.trim()], ["tipo", elementos.tipo.value],
-      ["categoria", elementos.categoria.value], ["estado", elementos.estado.value],
+      ["texto", elementos.texto.value.trim()], ["tipo", elementos.tipo.value || elementos.tipo.dataset.valorInicial || ""],
+      ["categoria", elementos.categoria.value || elementos.categoria.dataset.valorInicial || ""],
+      ["estado", elementos.estado.value || elementos.estado.dataset.valorInicial || ""],
     ];
     valores.forEach(([clave, valor]) => { if (valor) parametros.set(clave, valor); });
     if (elementos.plazo.checked) parametros.set("plazo", "abierto");
@@ -91,13 +126,22 @@
     return parametros;
   }
 
-  function actualizarURL() {
+  function actualizarURL(modo = "replace", conservarAncla = true, datosHistorial = undefined) {
+    if (modo === "none") return;
     const parametros = parametrosConsulta();
     parametros.delete("tamano");
     if (estado.pagina === 1) parametros.delete("pagina");
     if (estado.convocatoria) parametros.set("convocatoria", estado.convocatoria);
     const consulta = parametros.toString();
-    history.replaceState(null, "", `/bolsa/${consulta ? `?${consulta}` : ""}`);
+    const ancla = conservarAncla ? window.location.hash : "";
+    const destino = `/bolsa/${consulta ? `?${consulta}` : ""}${ancla}`;
+    const datos = datosHistorial === undefined ? (modo === "replace" ? history.state : null) : datosHistorial;
+    if (modo === "push") history.pushState(datos, "", destino);
+    else history.replaceState(datos, "", destino);
+  }
+
+  function activacionSimpleEnlace(evento) {
+    return !evento.defaultPrevented && evento.button === 0 && !evento.metaKey && !evento.ctrlKey && !evento.shiftKey && !evento.altKey;
   }
 
   async function obtenerJSON(url, signal) {
@@ -128,17 +172,41 @@
     valores.forEach((valor) => {
       const opcion = document.createElement("option");
       opcion.value = valor.clave;
-      opcion.textContent = valor.etiqueta;
+      opcion.textContent = Number.isInteger(valor.numero_resultados) && valor.numero_resultados > 0
+        ? `${valor.etiqueta} (${valor.numero_resultados})`
+        : valor.etiqueta;
       select.appendChild(opcion);
     });
+    if (seleccionado && ![...select.options].some((opcion) => opcion.value === seleccionado)) {
+      const categoria = select === elementos.categoria ? estado.categorias.find((valor) => valor.clave === seleccionado) : null;
+      const opcionSeleccionada = document.createElement("option");
+      opcionSeleccionada.value = seleccionado;
+      opcionSeleccionada.textContent = categoria
+        ? `${categoria.etiqueta} (sin procesos publicados)`
+        : `Selección sin resultados: ${seleccionado}`;
+      select.appendChild(opcionSeleccionada);
+    }
     if ([...select.options].some((opcion) => opcion.value === seleccionado)) select.value = seleccionado;
     delete select.dataset.valorInicial;
   }
 
   function renderizarFacetas(facetas) {
+    estado.facetas = facetas;
     completarSelect(elementos.tipo, facetas.tipos, "Todos los tipos");
-    completarSelect(elementos.categoria, facetas.categorias, "Todas las categorías");
+    completarSelect(elementos.categoria, facetas.categorias, "Todas con procesos");
     completarSelect(elementos.estado, facetas.estados, "Todos los estados");
+  }
+
+  function cantidad(total, singular, plural) {
+    return `${total} ${total === 1 ? singular : plural}`;
+  }
+
+  function hrefDetalle(identificador) {
+    const parametros = parametrosConsulta();
+    parametros.delete("tamano");
+    if (estado.pagina === 1) parametros.delete("pagina");
+    parametros.set("convocatoria", identificador);
+    return `/bolsa/?${parametros.toString()}`;
   }
 
   function tarjetaConvocatoria(convocatoria) {
@@ -161,12 +229,17 @@
       plazo.appendChild(intervalo(convocatoria.plazo_destacado));
       articulo.appendChild(plazo);
     }
-    articulo.appendChild(texto("p", `${convocatoria.numero_requisitos} requisitos · ${convocatoria.numero_documentos} documentos · ${convocatoria.numero_ayudas} ayudas`, "tarjeta-meta"));
+    articulo.appendChild(texto("p", [
+      cantidad(convocatoria.numero_requisitos, "requisito", "requisitos"),
+      cantidad(convocatoria.numero_documentos, "documento", "documentos"),
+      cantidad(convocatoria.numero_ayudas, "ayuda", "ayudas"),
+    ].join(" · "), "tarjeta-meta"));
     const enlace = texto("a", "Consultar ficha pública", "enlace-detalle");
-    enlace.href = `/bolsa/?convocatoria=${encodeURIComponent(convocatoria.identificador_publico)}`;
+    enlace.href = hrefDetalle(convocatoria.identificador_publico);
     enlace.addEventListener("click", (evento) => {
+      if (!activacionSimpleEnlace(evento)) return;
       evento.preventDefault();
-      abrirDetalle(convocatoria.identificador_publico, true);
+      abrirDetalle(convocatoria.identificador_publico, true, "push", false);
     });
     articulo.appendChild(enlace);
     item.appendChild(articulo);
@@ -176,12 +249,11 @@
   function renderizarListado(datos) {
     if (datos.esquema !== "vec.bolsa.publico.convocatorias.v1" || !Array.isArray(datos.convocatorias)) throw new Error("esquema público inesperado");
     renderizarFacetas(datos.facetas);
-    elementos.avisoContenedor.hidden = datos.fuente.demostracion !== true;
-    if (datos.fuente.demostracion === true) elementos.aviso.textContent = datos.fuente.aviso || "DEMOSTRACIÓN sin validez administrativa.";
+    actualizarAvisoDemostracion("convocatorias", datos.fuente);
     elementos.revision.textContent = `Fuente ${datos.fuente.revision} · actualizada ${formatoFecha.format(new Date(datos.fuente.actualizada_en))}`;
     estado.paginas = datos.paginacion.paginas;
     estado.pagina = datos.paginacion.pagina;
-    elementos.estadoConsulta.textContent = `${datos.paginacion.total} convocatorias encontradas`;
+    elementos.estadoConsulta.textContent = cantidad(datos.paginacion.total, "convocatoria encontrada", "convocatorias encontradas");
     vaciar(elementos.listado);
     datos.convocatorias.forEach((convocatoria) => elementos.listado.appendChild(tarjetaConvocatoria(convocatoria)));
     if (datos.convocatorias.length === 0) {
@@ -195,17 +267,23 @@
     elementos.siguiente.disabled = estado.pagina >= estado.paginas;
   }
 
-  async function cargarListado() {
+  async function cargarListado(modoHistoria = "replace", conservarAncla = true) {
     if (estado.controladorListado) estado.controladorListado.abort();
     estado.controladorListado = new AbortController();
     estadoListado("cargando");
     elementos.estadoConsulta.textContent = "Cargando convocatorias…";
-    actualizarURL();
+    actualizarURL(modoHistoria, conservarAncla);
     try {
-      const datos = await obtenerJSON(`${API}?${parametrosConsulta().toString()}`, estado.controladorListado.signal);
+      let datos = await obtenerJSON(`${API}?${parametrosConsulta().toString()}`, estado.controladorListado.signal);
+      const paginaValida = datos.paginacion.paginas > 0 ? Math.min(estado.pagina, datos.paginacion.paginas) : 1;
+      if (paginaValida !== estado.pagina) {
+        estado.pagina = paginaValida;
+        actualizarURL("replace", conservarAncla);
+        datos = await obtenerJSON(`${API}?${parametrosConsulta().toString()}`, estado.controladorListado.signal);
+      }
       renderizarListado(datos);
-      actualizarURL();
-      if (estado.convocatoria) await abrirDetalle(estado.convocatoria, false);
+      actualizarURL(modoHistoria === "none" ? "none" : "replace", conservarAncla);
+      if (estado.convocatoria) await abrirDetalle(estado.convocatoria, false, "none", conservarAncla);
     } catch (error) {
       if (error.name === "AbortError") return;
       estadoListado("error");
@@ -224,6 +302,10 @@
 
   function renderizarPlazos(plazos) {
     vaciar(elementos.detallePlazos);
+    if (plazos.length === 0) {
+      elementos.detallePlazos.appendChild(texto("p", "No hay plazos públicos asociados.", "detalle-vacio"));
+      return;
+    }
     plazos.forEach((plazo) => {
       const bloque = document.createElement("article");
       bloque.className = "bloque-plazo";
@@ -240,6 +322,10 @@
 
   function renderizarRequisitos(requisitos) {
     vaciar(elementos.detalleRequisitos);
+    if (requisitos.length === 0) {
+      elementos.detalleRequisitos.appendChild(texto("li", "No hay requisitos públicos asociados.", "detalle-vacio"));
+      return;
+    }
     requisitos.forEach((requisito) => {
       const item = document.createElement("li");
       item.appendChild(texto("h4", requisito.titulo));
@@ -251,6 +337,10 @@
 
   function renderizarDocumentos(documentos) {
     vaciar(elementos.detalleDocumentos);
+    if (documentos.length === 0) {
+      elementos.detalleDocumentos.appendChild(texto("li", "No hay documentos públicos asociados.", "detalle-vacio"));
+      return;
+    }
     documentos.forEach((documento) => {
       const item = document.createElement("li");
       item.append(etiqueta(documento.tipo), texto("h4", documento.titulo), texto("p", documento.descripcion));
@@ -263,6 +353,10 @@
 
   function renderizarAyuda(ayudas) {
     vaciar(elementos.detalleAyuda);
+    if (ayudas.length === 0) {
+      elementos.detalleAyuda.appendChild(texto("p", "No hay respuestas de ayuda asociadas.", "detalle-vacio"));
+      return;
+    }
     ayudas.forEach((ayuda) => {
       const bloque = document.createElement("details");
       bloque.className = "ayuda-item";
@@ -290,16 +384,18 @@
     document.querySelectorAll(".tarjeta-convocatoria").forEach((tarjeta) => tarjeta.setAttribute("aria-current", String(tarjeta.dataset.identificador === estado.convocatoria)));
   }
 
-  async function abrirDetalle(identificador, moverFoco) {
+  async function abrirDetalle(identificador, moverFoco, modoHistoria = "replace", conservarAncla = true) {
     if (estado.controladorDetalle) estado.controladorDetalle.abort();
     estado.controladorDetalle = new AbortController();
     estado.convocatoria = identificador;
-    actualizarURL();
+    let modoEfectivo = modoHistoria;
+    if (modoHistoria === "push" && history.state?.vecBolsaDetalle === true) modoEfectivo = "replace";
+    actualizarURL(modoEfectivo, conservarAncla, modoHistoria === "push" ? { vecBolsaDetalle: true } : undefined);
     estadoDetalle("cargando");
     try {
       const datos = await obtenerJSON(`${API}/${encodeURIComponent(identificador)}`, estado.controladorDetalle.signal);
       renderizarDetalle(datos);
-      if (moverFoco && window.matchMedia("(max-width: 800px)").matches) elementos.tituloDetalle.focus?.();
+      if (moverFoco) elementos.tituloDetalle.focus?.();
     } catch (error) {
       if (error.name === "AbortError") return;
       elementos.tituloDetalle.textContent = "Ficha no disponible";
@@ -307,25 +403,203 @@
     }
   }
 
-  function cerrarDetalle() {
+  function reiniciarDetalleVisual() {
     if (estado.controladorDetalle) estado.controladorDetalle.abort();
-    estado.convocatoria = "";
     elementos.tituloDetalle.textContent = "Seleccione una convocatoria";
     estadoDetalle("espera");
     document.querySelectorAll(".tarjeta-convocatoria").forEach((tarjeta) => tarjeta.setAttribute("aria-current", "false"));
-    actualizarURL();
+  }
+
+  function cerrarDetalle(modoHistoria = "replace", moverFoco = true, conservarAncla = false) {
+    reiniciarDetalleVisual();
+    estado.convocatoria = "";
+    if (modoHistoria === "replace" && history.state?.vecBolsaDetalle === true) {
+      history.back();
+      if (moverFoco) porId("titulo-resultados").focus?.();
+      return;
+    }
+    actualizarURL(modoHistoria, conservarAncla);
+    if (moverFoco) porId("titulo-resultados").focus?.();
+  }
+
+  function mostrarEstadoDirectorio(nombre) {
+    elementos.directorio.setAttribute("aria-busy", String(nombre === "cargando"));
+    elementos.cargandoDirectorio.hidden = nombre !== "cargando";
+    elementos.errorDirectorio.hidden = nombre !== "error";
+    elementos.vacioDirectorio.hidden = nombre !== "vacio";
+    elementos.gruposDirectorio.hidden = nombre !== "listo";
+  }
+
+  function configurarAreasDirectorio(categorias) {
+    const seleccionada = elementos.areaCategoria.value;
+    const areas = [...new Set(categorias.map((categoria) => categoria.area).filter(Boolean))];
+    vaciar(elementos.areaCategoria);
+    const todas = document.createElement("option");
+    todas.value = "";
+    todas.textContent = "Todas las áreas";
+    elementos.areaCategoria.appendChild(todas);
+    areas.forEach((area) => {
+      const opcion = document.createElement("option");
+      opcion.value = area;
+      opcion.textContent = etiquetaArea(area);
+      elementos.areaCategoria.appendChild(opcion);
+    });
+    if (areas.includes(seleccionada)) elementos.areaCategoria.value = seleccionada;
+  }
+
+  function resumenConteo(categoria) {
+    const procesos = Number(categoria.numero_convocatorias) || 0;
+    const abiertos = Number(categoria.numero_plazos_abiertos) || 0;
+    const textoProcesos = `${procesos} ${procesos === 1 ? "proceso publicado" : "procesos publicados"}`;
+    const textoAbiertos = `${abiertos} ${abiertos === 1 ? "plazo abierto" : "plazos abiertos"}`;
+    return `${textoProcesos} · ${textoAbiertos}`;
+  }
+
+  async function aplicarCategoriaDesdeDirectorio(categoria) {
+    elementos.formulario.reset();
+    elementos.categoria.dataset.valorInicial = categoria.clave;
+    estado.pagina = 1;
+    cerrarDetalle("none", false);
+    await cargarListado("push", false);
     porId("titulo-resultados").focus?.();
   }
 
-  elementos.formulario.addEventListener("submit", (evento) => { evento.preventDefault(); estado.pagina = 1; estado.convocatoria = ""; cerrarDetalle(); cargarListado(); });
-  elementos.limpiar.addEventListener("click", () => { elementos.formulario.reset(); estado.pagina = 1; estado.convocatoria = ""; cerrarDetalle(); cargarListado(); });
-  elementos.reintentar.addEventListener("click", cargarListado);
-  elementos.anterior.addEventListener("click", () => { if (estado.pagina > 1) { estado.pagina -= 1; cargarListado(); } });
-  elementos.siguiente.addEventListener("click", () => { if (estado.pagina < estado.paginas) { estado.pagina += 1; cargarListado(); } });
-  elementos.cerrarDetalle.addEventListener("click", cerrarDetalle);
+  function filaCategoria(categoria) {
+    const item = document.createElement("li");
+    item.className = "categoria-directorio";
+    const contenido = document.createElement("div");
+    contenido.className = "categoria-directorio__contenido";
+    contenido.appendChild(texto("h4", categoria.etiqueta));
+    if (categoria.descripcion) contenido.appendChild(texto("p", categoria.descripcion));
+    contenido.appendChild(texto("p", resumenConteo(categoria), "categoria-directorio__conteo"));
+    item.appendChild(contenido);
+
+    if (Number(categoria.numero_convocatorias) > 0) {
+      const enlace = texto("a", `Ver procesos de ${categoria.etiqueta}`, "enlace-detalle");
+      enlace.href = `/bolsa/?categoria=${encodeURIComponent(categoria.clave)}`;
+      enlace.addEventListener("click", (evento) => {
+        if (!activacionSimpleEnlace(evento)) return;
+        evento.preventDefault();
+        aplicarCategoriaDesdeDirectorio(categoria);
+      });
+      item.appendChild(enlace);
+    } else {
+      item.appendChild(texto("span", "Sin convocatorias publicadas actualmente", "categoria-directorio__sin-procesos"));
+    }
+    return item;
+  }
+
+  function renderizarDirectorioFiltrado() {
+    const consulta = normalizarBusqueda(elementos.buscarCategoria.value);
+    const area = elementos.areaCategoria.value;
+    const filtradas = estado.categorias.filter((categoria) => {
+      if (area && categoria.area !== area) return false;
+      if (!consulta) return true;
+      return normalizarBusqueda([categoria.etiqueta, categoria.descripcion, categoria.clave].join(" ")).includes(consulta);
+    });
+    elementos.estadoDirectorio.textContent = `${filtradas.length} de ${estado.categorias.length} categorías mostradas`;
+    vaciar(elementos.gruposDirectorio);
+    if (filtradas.length === 0) {
+      mostrarEstadoDirectorio("vacio");
+      return;
+    }
+
+    const grupos = new Map();
+    filtradas.forEach((categoria) => {
+      const areaCategoria = categoria.area || "Área no indicada";
+      if (!grupos.has(areaCategoria)) grupos.set(areaCategoria, []);
+      grupos.get(areaCategoria).push(categoria);
+    });
+    [...grupos.entries()].forEach(([nombreArea, categorias]) => {
+      const grupo = document.createElement("section");
+      grupo.className = "grupo-directorio";
+      const titulo = texto("h3", etiquetaArea(nombreArea));
+      titulo.id = `area-${normalizarBusqueda(nombreArea).replace(/[^a-z0-9]+/g, "-")}`;
+      grupo.setAttribute("aria-labelledby", titulo.id);
+      grupo.appendChild(titulo);
+      const lista = document.createElement("ul");
+      lista.className = "lista-directorio";
+      categorias.forEach((categoria) => lista.appendChild(filaCategoria(categoria)));
+      grupo.appendChild(lista);
+      elementos.gruposDirectorio.appendChild(grupo);
+    });
+    mostrarEstadoDirectorio("listo");
+  }
+
+  function renderizarDirectorio(datos) {
+    if (datos.esquema !== "vec.bolsa.publico.categorias.v1" || !datos.catalogo || !Array.isArray(datos.categorias)) {
+      throw new Error("esquema de categorías inesperado");
+    }
+    if (datos.catalogo.total !== datos.categorias.length || !/^[a-f0-9]{64}$/.test(datos.catalogo.huella_sha256 || "")) {
+      throw new Error("integridad de categorías incoherente");
+    }
+    estado.categorias = datos.categorias.slice().sort((a, b) => (a.orden - b.orden) || a.etiqueta.localeCompare(b.etiqueta, "es"));
+    estado.etiquetasArea = new Map(estado.categorias.map((categoria) => [categoria.area, categoria.area_etiqueta]));
+    actualizarAvisoDemostracion("categorias", datos.fuente);
+    configurarAreasDirectorio(estado.categorias);
+    const huella = String(datos.catalogo.huella_sha256 || "");
+    elementos.integridadCategorias.textContent = `Catálogo ${datos.catalogo.referencia} · versión ${datos.catalogo.version} · ${datos.catalogo.total} categorías · huella ${huella.slice(0, 16)}…`;
+    elementos.integridadCategorias.setAttribute("aria-label", `Catálogo ${datos.catalogo.referencia}, versión ${datos.catalogo.version}, ${datos.catalogo.total} categorías, huella SHA-256 ${huella}`);
+    elementos.integridadCategorias.title = `SHA-256 ${huella}`;
+    if (estado.facetas) renderizarFacetas(estado.facetas);
+    renderizarDirectorioFiltrado();
+  }
+
+  async function cargarDirectorioCategorias() {
+    if (estado.controladorCategorias) estado.controladorCategorias.abort();
+    estado.controladorCategorias = new AbortController();
+    mostrarEstadoDirectorio("cargando");
+    elementos.estadoDirectorio.textContent = "Cargando el catálogo profesional…";
+    try {
+      const datos = await obtenerJSON(API_CATEGORIAS, estado.controladorCategorias.signal);
+      renderizarDirectorio(datos);
+    } catch (error) {
+      if (error.name === "AbortError") return;
+      estado.categorias = [];
+      elementos.estadoDirectorio.textContent = "El directorio no está disponible.";
+      mostrarEstadoDirectorio("error");
+    }
+  }
+
+  elementos.formulario.addEventListener("submit", (evento) => {
+    evento.preventDefault();
+    estado.pagina = 1;
+    cerrarDetalle("none", false);
+    cargarListado("push", false);
+  });
+  elementos.limpiar.addEventListener("click", () => {
+    elementos.formulario.reset();
+    estado.pagina = 1;
+    cerrarDetalle("none", false);
+    cargarListado("push", false);
+  });
+  elementos.reintentar.addEventListener("click", () => cargarListado("replace", true));
+  elementos.anterior.addEventListener("click", () => {
+    if (estado.pagina > 1) {
+      estado.pagina -= 1;
+      cargarListado("push", false);
+    }
+  });
+  elementos.siguiente.addEventListener("click", () => {
+    if (estado.pagina < estado.paginas) {
+      estado.pagina += 1;
+      cargarListado("push", false);
+    }
+  });
+  elementos.cerrarDetalle.addEventListener("click", () => cerrarDetalle());
+  elementos.reintentarDetalle.addEventListener("click", () => abrirDetalle(estado.convocatoria, true, "replace", false));
+  elementos.buscarCategoria.addEventListener("input", renderizarDirectorioFiltrado);
+  elementos.areaCategoria.addEventListener("change", renderizarDirectorioFiltrado);
+  elementos.reintentarDirectorio.addEventListener("click", cargarDirectorioCategorias);
+  window.addEventListener("popstate", () => {
+    cargarFiltrosDesdeURL();
+    if (!estado.convocatoria) reiniciarDetalleVisual();
+    cargarListado("none", true);
+  });
 
   configurarPreferencia("alternar-texto", "texto-grande", "vec.bolsa.texto_grande");
   configurarPreferencia("alternar-contraste", "alto-contraste", "vec.bolsa.alto_contraste");
   cargarFiltrosDesdeURL();
-  cargarListado();
+  cargarListado("replace", true);
+  cargarDirectorioCategorias();
 })();

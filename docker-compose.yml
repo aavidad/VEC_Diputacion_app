@@ -10,6 +10,9 @@ services:
       VEC_BOLSA_STORAGE_MODE: "local_durable"
       VEC_BOLSA_DATA_DIR: "/data/bolsa"
       VEC_BOLSA_PUBLIC_SOURCE_PATH: "/app/data/demo/convocatorias_publicas.demo.json"
+      VEC_BOLSA_CATEGORIES_SOURCE_PATH: "/app/data/catalogos/categorias-profesionales/v1.demo.json"
+      VEC_BOLSA_CATEGORIES_CATALOG_ID: "categorias-profesionales"
+      VEC_BOLSA_CATEGORIES_CATALOG_VERSION: "1"
       # Solo el proxy local, con direccion fija en la red interna, puede entrar.
       VEC_TRUSTED_PROXY_CIDRS: "${VEC_PROXY_INTERNAL_ADDRESS:-192.168.255.242}/32"
       VEC_HTTP_ALLOWED_CIDRS: "${VEC_PROXY_INTERNAL_ADDRESS:-192.168.255.242}/32"

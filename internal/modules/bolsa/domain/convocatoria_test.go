@@ -13,6 +13,10 @@ func convocatoriaPublicaValidaPrueba() Convocatoria {
 		DatosPublicos: &DatosPublicosConvocatoria{
 			IdentificadorPublico: "auxiliar-administrativo-2026",
 			Tipo:                 "bolsa_temporal", Categorias: []string{"auxiliar_administrativo"},
+			CatalogoCategorias: ReferenciaCatalogoCategorias{
+				CatalogoID: "categorias-profesionales", CatalogoVersion: 1,
+				CatalogoHuellaSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			},
 			Titulo: "Bolsa temporal de demostracion", Resumen: "Resumen publico de demostracion.",
 			Descripcion: "Descripcion publica de demostracion.", PublicadaEn: publicada, ActualizadaEn: publicada,
 			Plazos: []PlazoConvocatoria{{
@@ -43,6 +47,13 @@ func TestConvocatoriaPublicaCanonicaYConHuellaEstable(t *testing.T) {
 	if convocatoria.DatosPublicos.Categorias[0] != "auxiliar_administrativo" {
 		t.Fatal("Clonar() comparte memoria con el agregado")
 	}
+	otraVersion := convocatoria.Clonar()
+	otraVersion.DatosPublicos.CatalogoCategorias.CatalogoVersion = 2
+	otraVersion.DatosPublicos.CatalogoCategorias.CatalogoHuellaSHA256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	otraHuella, err := otraVersion.HuellaPublicaSHA256()
+	if err != nil || otraHuella == huella {
+		t.Fatalf("la referencia del catalogo no altera la huella: %q, %v", otraHuella, err)
+	}
 }
 
 func TestConvocatoriaPublicaRechazaZonaNoUTCYEspaciosNoCanonicos(t *testing.T) {
@@ -55,8 +66,14 @@ func TestConvocatoriaPublicaRechazaZonaNoUTCYEspaciosNoCanonicos(t *testing.T) {
 		},
 		"espacio en referencia": func(c *Convocatoria) { c.ID = " proceso:bolsa:auxiliar-2026" },
 		"espacio en clave":      func(c *Convocatoria) { c.DatosPublicos.Tipo = "bolsa_temporal " },
-		"espacio en texto":      func(c *Convocatoria) { c.DatosPublicos.Titulo = " Titulo" },
-		"marca bidi":            func(c *Convocatoria) { c.DatosPublicos.Titulo = "Titulo\u202edesviado" },
+		"catalogo sin huella": func(c *Convocatoria) {
+			c.DatosPublicos.CatalogoCategorias.CatalogoHuellaSHA256 = ""
+		},
+		"catalogo sin version": func(c *Convocatoria) {
+			c.DatosPublicos.CatalogoCategorias.CatalogoVersion = 0
+		},
+		"espacio en texto": func(c *Convocatoria) { c.DatosPublicos.Titulo = " Titulo" },
+		"marca bidi":       func(c *Convocatoria) { c.DatosPublicos.Titulo = "Titulo\u202edesviado" },
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			convocatoria := convocatoriaPublicaValidaPrueba()

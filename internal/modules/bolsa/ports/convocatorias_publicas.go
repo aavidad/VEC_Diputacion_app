@@ -9,9 +9,11 @@ import (
 )
 
 var (
-	ErrConsultaConvocatoriasInvalida = errors.New("bolsa: consulta publica de convocatorias invalida")
-	ErrConvocatoriaNoEncontrada      = errors.New("bolsa: convocatoria publica no encontrada")
-	ErrFuenteConvocatoriasInvalida   = errors.New("bolsa: fuente publica de convocatorias invalida")
+	ErrConsultaConvocatoriasInvalida  = errors.New("bolsa: consulta publica de convocatorias invalida")
+	ErrConsultaCategoriasInvalida     = errors.New("bolsa: consulta publica de categorias invalida")
+	ErrConvocatoriaNoEncontrada       = errors.New("bolsa: convocatoria publica no encontrada")
+	ErrFuenteConvocatoriasInvalida    = errors.New("bolsa: fuente publica de convocatorias invalida")
+	ErrCatalogoCategoriasNoDisponible = errors.New("bolsa: catalogo publico de categorias no disponible")
 )
 
 const (
@@ -55,6 +57,51 @@ type CatalogoPublico struct {
 	Entradas   []EntradaCatalogoPublico `json:"entradas"`
 }
 
+// CategoriaPublica es la proyeccion minimizada de una entrada del catalogo
+// gobernado del nucleo. Los metadatos de procedencia, gobierno y aprobacion no
+// forman parte de este contrato publico.
+type CategoriaPublica struct {
+	Clave        string
+	Version      int
+	Etiqueta     string
+	Descripcion  string
+	Semantica    string
+	Orden        int
+	Area         string
+	AreaEtiqueta string
+	Suscribible  bool
+}
+
+type MetadatosFuenteCategorias struct {
+	Revision      string
+	ActualizadaEn time.Time
+	Demostracion  bool
+	Aviso         string
+}
+
+// CatalogoCategoriasPublicas conserva la identidad y version exactas que
+// resolvio el adaptador. Ningun consumidor selecciona implicitamente la ultima
+// version disponible.
+type CatalogoCategoriasPublicas struct {
+	ID           string
+	Version      int
+	HuellaSHA256 string
+	Fuente       MetadatosFuenteCategorias
+	Categorias   []CategoriaPublica
+}
+
+// ConsultaCategoriasPublicas separa el catalogo profesional de la fuente de
+// convocatorias. Su adaptador debe fijar ID y version al construirse y devolver
+// solo entradas publicadas, vigentes y publicables para el instante indicado.
+type ConsultaCategoriasPublicas interface {
+	ObtenerPublicadas(context.Context, time.Time) (CatalogoCategoriasPublicas, error)
+}
+
+type ConteoCategoriaConvocatorias struct {
+	NumeroConvocatorias  int
+	NumeroPlazosAbiertos int
+}
+
 type MetadatosFuenteConvocatorias struct {
 	Revision      string    `json:"revision"`
 	ActualizadaEn time.Time `json:"actualizada_en"`
@@ -66,7 +113,11 @@ type PaginaConvocatorias struct {
 	Convocatorias []dominiobolsa.Convocatoria
 	Total         int
 	Catalogos     []CatalogoPublico
-	Fuente        MetadatosFuenteConvocatorias
+	// ConteosCategorias aplica todos los filtros salvo Categoria. Permite
+	// construir facetas navegables sin que la opcion seleccionada oculte las
+	// restantes y sin convertir la fuente en autoridad del catalogo.
+	ConteosCategorias map[string]ConteoCategoriaConvocatorias
+	Fuente            MetadatosFuenteConvocatorias
 }
 
 type DetalleConvocatoria struct {

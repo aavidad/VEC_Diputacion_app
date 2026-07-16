@@ -54,6 +54,23 @@ func TestFuenteDemoFiltraPlazoAbiertoConCierreInclusivo(t *testing.T) {
 	}
 }
 
+func TestFuenteDemoCuentaCategoriasIgnorandoSoloEseFiltro(t *testing.T) {
+	consulta, err := NuevaConsultaConvocatorias(rutaDemoPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultado, err := consulta.BuscarPublicadas(context.Background(), puertosbolsa.FiltroConvocatoriasPublicas{
+		Categoria: "auxiliar-administrativo",
+		Instante:  time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC),
+		Limite:    24,
+	})
+	if err != nil || resultado.Total != 1 ||
+		resultado.ConteosCategorias["auxiliar-administrativo"].NumeroConvocatorias != 1 ||
+		resultado.ConteosCategorias["tecnico-de-gestion"].NumeroConvocatorias != 1 {
+		t.Fatalf("resultado=%#v error=%v", resultado, err)
+	}
+}
+
 func TestFuenteDemoRechazaJSONLaxoDuplicadoYDatosPersonales(t *testing.T) {
 	base, err := os.ReadFile(rutaDemoPrueba)
 	if err != nil {
@@ -66,6 +83,7 @@ func TestFuenteDemoRechazaJSONLaxoDuplicadoYDatosPersonales(t *testing.T) {
 		"espacio no canonico":          strings.Replace(string(base), `"titulo": "Bolsa temporal`, `"titulo": " Bolsa temporal`, 1),
 		"marca bidi":                   strings.Replace(string(base), `"titulo": "Bolsa temporal`, `"titulo": "Bolsa \u202etemporal`, 1),
 		"version catalogo incoherente": strings.Replace(string(base), `"clave": "bolsa_temporal", "version": 1`, `"clave": "bolsa_temporal", "version": 2`, 1),
+		"categorias embebidas":         strings.Replace(string(base), `"catalogos": [`, `"catalogos": [{"referencia":"categorias_convocatoria","version":1,"entradas":[{"clave":"auxiliar-administrativo","version":1,"etiqueta":"Auxiliar administrativo","semantica":"informacion","orden":1,"publicable":true}]},`, 1),
 	}
 	for nombre, contenido := range casos {
 		t.Run(nombre, func(t *testing.T) {

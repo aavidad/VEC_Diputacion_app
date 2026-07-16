@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/server"
@@ -18,6 +19,7 @@ import (
 	"vec-diputacion-granada/internal/candidate/usecases"
 	adminmodule "vec-diputacion-granada/internal/modules/administracion"
 	bolsamodule "vec-diputacion-granada/internal/modules/bolsa"
+	bolsacatalogosvec "vec-diputacion-granada/internal/modules/bolsa/adapters/catalogosvec"
 	bolsafichero "vec-diputacion-granada/internal/modules/bolsa/adapters/fichero"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppublico"
 	bolsaapp "vec-diputacion-granada/internal/modules/bolsa/application"
@@ -25,6 +27,7 @@ import (
 	dietasmodule "vec-diputacion-granada/internal/modules/dietas"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
 	"vec-diputacion-granada/internal/shared/i18n"
+	vecfichero "vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecmemory "vec-diputacion-granada/internal/vec/adapters/memory"
 	vecapp "vec-diputacion-granada/internal/vec/application"
@@ -141,9 +144,13 @@ func composeVECShellAPI(vecAPI http.Handler, publicaBolsaAPI http.Handler) http.
 func registrarBolsaPublica(mux *http.ServeMux, publica http.Handler) {
 	mux.Handle(bolsahttp.RutaConvocatorias, publica)
 	mux.Handle(bolsahttp.RutaConvocatorias+"/", publica)
+	mux.Handle(bolsahttp.RutaCategorias, publica)
 }
 
 func newBolsaPublicAPI(cfg config.Config) (http.Handler, error) {
+	if cfg.BolsaCategoriesVersion < 1 {
+		return nil, errors.New("bootstrap: version de catalogo de categorias no valida")
+	}
 	ruta, err := resolverRutaFuentePublica(cfg.BolsaPublicSourcePath)
 	if err != nil {
 		return nil, err
@@ -152,9 +159,30 @@ func newBolsaPublicAPI(cfg config.Config) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	servicio, err := bolsaapp.NuevoServicioConsultaPublica(adaptador, bolsaapp.RelojSistemaConsultaPublica{})
+	rutaCategorias, err := resolverRutaFuentePublica(cfg.BolsaCategoriesSourcePath)
 	if err != nil {
 		return nil, err
+	}
+	consultaCatalogos, err := vecfichero.NuevaConsultaCatalogos(rutaCategorias)
+	if err != nil {
+		return nil, err
+	}
+	categorias, err := bolsacatalogosvec.NuevaConsultaCategorias(
+		consultaCatalogos,
+		cfg.BolsaCategoriesCatalogID,
+		cfg.BolsaCategoriesVersion,
+	)
+	if err != nil {
+		return nil, err
+	}
+	servicio, err := bolsaapp.NuevoServicioConsultaPublica(adaptador, categorias, bolsaapp.RelojSistemaConsultaPublica{})
+	if err != nil {
+		return nil, err
+	}
+	ctxValidacion, cancelarValidacion := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelarValidacion()
+	if err := servicio.ValidarConfiguracion(ctxValidacion); err != nil {
+		return nil, errors.Join(errors.New("bootstrap: fuentes publicas de Bolsa incompatibles"), err)
 	}
 	return bolsahttp.NuevoHandler(servicio)
 }

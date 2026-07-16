@@ -64,6 +64,11 @@ Los primeros catalogos previstos son, como minimo:
 - categorias profesionales, tipos de contrato/nombramiento y causas de cese;
 - plantillas de comunicacion y preferencias de aviso.
 
+La primera proyeccion conectada es el catalogo compartido de categorias
+profesionales. Su procedencia, contrato publico, limites de demostracion y
+criterios de aceptacion se detallan en
+[`catalogo_categorias_profesionales.md`](catalogo_categorias_profesionales.md).
+
 Las transiciones entre estados no se guardaran como atributos informales. El
 siguiente corte del nucleo es una definicion de flujo y reglas versionada que
 referenciara estas claves de catalogo y conservara la decision de cada cambio.

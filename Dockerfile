@@ -37,6 +37,9 @@ COPY --from=build /src/web /app/web
 # Fuente sintética, pública y versionada: se copia de forma explícita para no
 # ampliar el contexto admitido por la imagen a ningún otro fichero de datos.
 COPY --chown=app:app data/demo/convocatorias_publicas.demo.json /app/data/demo/convocatorias_publicas.demo.json
+# Paquete de catalogo gobernado de demostracion. Contiene unicamente
+# categorias profesionales y metadatos de procedencia; no incorpora personas.
+COPY --chown=app:app data/catalogos/categorias-profesionales/v1.demo.json /app/data/catalogos/categorias-profesionales/v1.demo.json
 
 USER app
 WORKDIR /app
@@ -45,6 +48,9 @@ ENV VEC_AUTH_MODE=disabled
 ENV VEC_BOLSA_STORAGE_MODE=local_durable
 ENV VEC_BOLSA_DATA_DIR=/data/bolsa
 ENV VEC_BOLSA_PUBLIC_SOURCE_PATH=/app/data/demo/convocatorias_publicas.demo.json
+ENV VEC_BOLSA_CATEGORIES_SOURCE_PATH=/app/data/catalogos/categorias-profesionales/v1.demo.json
+ENV VEC_BOLSA_CATEGORIES_CATALOG_ID=categorias-profesionales
+ENV VEC_BOLSA_CATEGORIES_CATALOG_VERSION=1
 # La imagen no acepta identidades hasta configurar el futuro adaptador de
 # aserciones protegidas. Las cabeceras heredadas quedan solo para pruebas
 # locales expresamente habilitadas y nunca son el valor de la imagen.

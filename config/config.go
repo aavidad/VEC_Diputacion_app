@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -32,6 +33,9 @@ const (
 	EnvTLSKeyFile                = "VEC_TLS_KEY_FILE"
 	EnvPersonalCatalogPath       = "VEC_PERSONAL_CATALOG_PATH"
 	EnvBolsaPublicSourcePath     = "VEC_BOLSA_PUBLIC_SOURCE_PATH"
+	EnvBolsaCategoriesSourcePath = "VEC_BOLSA_CATEGORIES_SOURCE_PATH"
+	EnvBolsaCategoriesCatalogID  = "VEC_BOLSA_CATEGORIES_CATALOG_ID"
+	EnvBolsaCategoriesVersion    = "VEC_BOLSA_CATEGORIES_CATALOG_VERSION"
 	EnvOSRMBaseURL               = "VEC_OSRM_BASE_URL"
 	EnvOSRMScopeName             = "VEC_OSRM_SCOPE_NAME"
 	EnvOSRMScopeBounds           = "VEC_OSRM_SCOPE_BOUNDS"
@@ -45,82 +49,91 @@ const (
 	AuthModeFake           = "fake"
 	AuthModeTrustedHeaders = "trusted_headers"
 
-	DefaultAddress                = "127.0.0.1:8080"
-	DefaultAPIBasePath            = "/api"
-	DefaultReadHeaderLimit        = 5 * time.Second
-	DefaultReadTimeout            = 30 * time.Second
-	DefaultWriteTimeout           = 60 * time.Second
-	DefaultIdleTimeout            = 2 * time.Minute
-	DefaultMaxHeaderBytes         = 1 << 20
-	DefaultMaxRequestBodyBytes    = int64(2 << 20)
-	DefaultStorageMode            = StorageModeMemory
-	DefaultDataDir                = "var/bolsa"
-	DefaultDataFileName           = "bolsa_store.json"
-	DefaultPersonalCatalogPath    = "var/vec/personal_catalog.json"
-	DefaultBolsaPublicSourcePath  = "data/demo/convocatorias_publicas.demo.json"
-	DefaultAuthMode               = AuthModeDisabled
-	DefaultTrustedHeaderSubject   = "X-VEC-Subject"
-	DefaultTrustedHeaderRoles     = "X-VEC-Roles"
-	DefaultTrustedHeaderMechanism = "X-VEC-Auth-Mechanism"
+	DefaultAddress                   = "127.0.0.1:8080"
+	DefaultAPIBasePath               = "/api"
+	DefaultReadHeaderLimit           = 5 * time.Second
+	DefaultReadTimeout               = 30 * time.Second
+	DefaultWriteTimeout              = 60 * time.Second
+	DefaultIdleTimeout               = 2 * time.Minute
+	DefaultMaxHeaderBytes            = 1 << 20
+	DefaultMaxRequestBodyBytes       = int64(2 << 20)
+	DefaultStorageMode               = StorageModeMemory
+	DefaultDataDir                   = "var/bolsa"
+	DefaultDataFileName              = "bolsa_store.json"
+	DefaultPersonalCatalogPath       = "var/vec/personal_catalog.json"
+	DefaultBolsaPublicSourcePath     = "data/demo/convocatorias_publicas.demo.json"
+	DefaultBolsaCategoriesSourcePath = "data/catalogos/categorias-profesionales/v1.demo.json"
+	DefaultBolsaCategoriesCatalogID  = "categorias-profesionales"
+	DefaultBolsaCategoriesVersion    = 1
+	DefaultAuthMode                  = AuthModeDisabled
+	DefaultTrustedHeaderSubject      = "X-VEC-Subject"
+	DefaultTrustedHeaderRoles        = "X-VEC-Roles"
+	DefaultTrustedHeaderMechanism    = "X-VEC-Auth-Mechanism"
 )
 
 type Config struct {
-	Address                string
-	APIBasePath            string
-	ReadHeaderTimeout      time.Duration
-	ReadTimeout            time.Duration
-	WriteTimeout           time.Duration
-	IdleTimeout            time.Duration
-	MaxHeaderBytes         int
-	MaxRequestBodyBytes    int64
-	StorageMode            string
-	DataDir                string
-	DataPath               string
-	AuthMode               string
-	FakeCredentialsPath    string
-	TrustedHeaderSubject   string
-	TrustedHeaderRoles     string
-	TrustedHeaderMechanism string
-	TrustedProxyCIDRs      []string
-	HTTPAllowedCIDRs       []string
-	TLSCertFile            string
-	TLSKeyFile             string
-	PersonalCatalogPath    string
-	BolsaPublicSourcePath  string
-	OSRMBaseURL            string
-	OSRMScopeName          string
-	OSRMScopeBounds        string
-	OSRMAllowedCIDRs       []string
+	Address                   string
+	APIBasePath               string
+	ReadHeaderTimeout         time.Duration
+	ReadTimeout               time.Duration
+	WriteTimeout              time.Duration
+	IdleTimeout               time.Duration
+	MaxHeaderBytes            int
+	MaxRequestBodyBytes       int64
+	StorageMode               string
+	DataDir                   string
+	DataPath                  string
+	AuthMode                  string
+	FakeCredentialsPath       string
+	TrustedHeaderSubject      string
+	TrustedHeaderRoles        string
+	TrustedHeaderMechanism    string
+	TrustedProxyCIDRs         []string
+	HTTPAllowedCIDRs          []string
+	TLSCertFile               string
+	TLSKeyFile                string
+	PersonalCatalogPath       string
+	BolsaPublicSourcePath     string
+	BolsaCategoriesSourcePath string
+	BolsaCategoriesCatalogID  string
+	BolsaCategoriesVersion    int
+	OSRMBaseURL               string
+	OSRMScopeName             string
+	OSRMScopeBounds           string
+	OSRMAllowedCIDRs          []string
 }
 
 func Load() Config {
 	return Config{
-		Address:                envFirst(EnvAddress, LegacyEnvAddress),
-		APIBasePath:            DefaultAPIBasePath,
-		ReadHeaderTimeout:      DefaultReadHeaderLimit,
-		ReadTimeout:            DefaultReadTimeout,
-		WriteTimeout:           DefaultWriteTimeout,
-		IdleTimeout:            DefaultIdleTimeout,
-		MaxHeaderBytes:         DefaultMaxHeaderBytes,
-		MaxRequestBodyBytes:    DefaultMaxRequestBodyBytes,
-		StorageMode:            envFirst(EnvStorageMode, LegacyEnvStorageMode),
-		DataDir:                envFirst(EnvDataDir, LegacyEnvDataDir),
-		DataPath:               envFirst(EnvDataPath, LegacyEnvDataPath),
-		AuthMode:               envFirst(EnvAuthMode, LegacyEnvAuthMode),
-		FakeCredentialsPath:    envFirst(EnvFakeCredentialsPath),
-		TrustedHeaderSubject:   envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),
-		TrustedHeaderRoles:     envFirst(EnvTrustedHeaderRoles, LegacyTrustedHeaderRoles),
-		TrustedHeaderMechanism: envFirst(EnvTrustedHeaderMechanism, LegacyTrustedHeaderMechanism),
-		TrustedProxyCIDRs:      splitCSV(envFirst(EnvTrustedProxyCIDRs, LegacyEnvTrustedProxyCIDRs)),
-		HTTPAllowedCIDRs:       splitCSV(envFirst(EnvHTTPAllowedCIDRs)),
-		TLSCertFile:            envFirst(EnvTLSCertFile),
-		TLSKeyFile:             envFirst(EnvTLSKeyFile),
-		PersonalCatalogPath:    envFirst(EnvPersonalCatalogPath),
-		BolsaPublicSourcePath:  envFirst(EnvBolsaPublicSourcePath),
-		OSRMBaseURL:            envFirst(EnvOSRMBaseURL),
-		OSRMScopeName:          envFirst(EnvOSRMScopeName),
-		OSRMScopeBounds:        envFirst(EnvOSRMScopeBounds),
-		OSRMAllowedCIDRs:       splitCSV(envFirst(EnvOSRMAllowedCIDRs)),
+		Address:                   envFirst(EnvAddress, LegacyEnvAddress),
+		APIBasePath:               DefaultAPIBasePath,
+		ReadHeaderTimeout:         DefaultReadHeaderLimit,
+		ReadTimeout:               DefaultReadTimeout,
+		WriteTimeout:              DefaultWriteTimeout,
+		IdleTimeout:               DefaultIdleTimeout,
+		MaxHeaderBytes:            DefaultMaxHeaderBytes,
+		MaxRequestBodyBytes:       DefaultMaxRequestBodyBytes,
+		StorageMode:               envFirst(EnvStorageMode, LegacyEnvStorageMode),
+		DataDir:                   envFirst(EnvDataDir, LegacyEnvDataDir),
+		DataPath:                  envFirst(EnvDataPath, LegacyEnvDataPath),
+		AuthMode:                  envFirst(EnvAuthMode, LegacyEnvAuthMode),
+		FakeCredentialsPath:       envFirst(EnvFakeCredentialsPath),
+		TrustedHeaderSubject:      envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),
+		TrustedHeaderRoles:        envFirst(EnvTrustedHeaderRoles, LegacyTrustedHeaderRoles),
+		TrustedHeaderMechanism:    envFirst(EnvTrustedHeaderMechanism, LegacyTrustedHeaderMechanism),
+		TrustedProxyCIDRs:         splitCSV(envFirst(EnvTrustedProxyCIDRs, LegacyEnvTrustedProxyCIDRs)),
+		HTTPAllowedCIDRs:          splitCSV(envFirst(EnvHTTPAllowedCIDRs)),
+		TLSCertFile:               envFirst(EnvTLSCertFile),
+		TLSKeyFile:                envFirst(EnvTLSKeyFile),
+		PersonalCatalogPath:       envFirst(EnvPersonalCatalogPath),
+		BolsaPublicSourcePath:     envFirst(EnvBolsaPublicSourcePath),
+		BolsaCategoriesSourcePath: envFirst(EnvBolsaCategoriesSourcePath),
+		BolsaCategoriesCatalogID:  envFirst(EnvBolsaCategoriesCatalogID),
+		BolsaCategoriesVersion:    envPositiveInt(EnvBolsaCategoriesVersion),
+		OSRMBaseURL:               envFirst(EnvOSRMBaseURL),
+		OSRMScopeName:             envFirst(EnvOSRMScopeName),
+		OSRMScopeBounds:           envFirst(EnvOSRMScopeBounds),
+		OSRMAllowedCIDRs:          splitCSV(envFirst(EnvOSRMAllowedCIDRs)),
 	}.Normalize()
 }
 
@@ -165,6 +178,11 @@ func (c Config) Normalize() Config {
 	c.TLSKeyFile = strings.TrimSpace(c.TLSKeyFile)
 	c.PersonalCatalogPath = normalizeOptionalPath(c.PersonalCatalogPath, DefaultPersonalCatalogPath)
 	c.BolsaPublicSourcePath = defaultString(c.BolsaPublicSourcePath, DefaultBolsaPublicSourcePath)
+	c.BolsaCategoriesSourcePath = defaultString(c.BolsaCategoriesSourcePath, DefaultBolsaCategoriesSourcePath)
+	c.BolsaCategoriesCatalogID = defaultString(c.BolsaCategoriesCatalogID, DefaultBolsaCategoriesCatalogID)
+	if c.BolsaCategoriesVersion == 0 {
+		c.BolsaCategoriesVersion = DefaultBolsaCategoriesVersion
+	}
 	c.OSRMBaseURL = strings.TrimRight(strings.TrimSpace(c.OSRMBaseURL), "/")
 	c.OSRMScopeName = strings.TrimSpace(c.OSRMScopeName)
 	c.OSRMScopeBounds = strings.TrimSpace(c.OSRMScopeBounds)
@@ -182,6 +200,21 @@ func envFirst(keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// envPositiveInt distingue una variable ausente (cero, aplica el valor por
+// defecto) de una configuracion invalida (negativo, el bootstrap falla
+// cerrado). No corrige silenciosamente una version de catalogo mal escrita.
+func envPositiveInt(key string) int {
+	valor := strings.TrimSpace(os.Getenv(key))
+	if valor == "" {
+		return 0
+	}
+	numero, err := strconv.Atoi(valor)
+	if err != nil || numero < 1 {
+		return -1
+	}
+	return numero
 }
 
 func defaultDataPath(value, dataDir string) string {

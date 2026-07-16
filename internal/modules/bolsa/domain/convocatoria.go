@@ -28,6 +28,7 @@ var (
 	patronClaveCatalogoConvocatoria = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$`)
 	patronReferenciaConvocatoria    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,159}$`)
 	patronIdentificadorPublico      = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{2,79}$`)
+	patronHuellaCatalogoSHA256      = regexp.MustCompile(`^[a-f0-9]{64}$`)
 )
 
 // EstadoConvocatoria contiene una clave gobernada por el catalogo de estados.
@@ -101,18 +102,34 @@ func (c Convocatoria) NewVersion(version string) (Convocatoria, error) {
 }
 
 type DatosPublicosConvocatoria struct {
-	IdentificadorPublico string                  `json:"identificador_publico"`
-	Tipo                 string                  `json:"tipo"`
-	Categorias           []string                `json:"categorias"`
-	Titulo               string                  `json:"titulo"`
-	Resumen              string                  `json:"resumen"`
-	Descripcion          string                  `json:"descripcion"`
-	PublicadaEn          time.Time               `json:"publicada_en"`
-	ActualizadaEn        time.Time               `json:"actualizada_en"`
-	Plazos               []PlazoConvocatoria     `json:"plazos"`
-	Requisitos           []RequisitoConvocatoria `json:"requisitos"`
-	Documentos           []DocumentoConvocatoria `json:"documentos"`
-	Ayuda                []AyudaConvocatoria     `json:"ayuda"`
+	IdentificadorPublico string                       `json:"identificador_publico"`
+	Tipo                 string                       `json:"tipo"`
+	CatalogoCategorias   ReferenciaCatalogoCategorias `json:"catalogo_categorias"`
+	Categorias           []string                     `json:"categorias"`
+	Titulo               string                       `json:"titulo"`
+	Resumen              string                       `json:"resumen"`
+	Descripcion          string                       `json:"descripcion"`
+	PublicadaEn          time.Time                    `json:"publicada_en"`
+	ActualizadaEn        time.Time                    `json:"actualizada_en"`
+	Plazos               []PlazoConvocatoria          `json:"plazos"`
+	Requisitos           []RequisitoConvocatoria      `json:"requisitos"`
+	Documentos           []DocumentoConvocatoria      `json:"documentos"`
+	Ayuda                []AyudaConvocatoria          `json:"ayuda"`
+}
+
+// ReferenciaCatalogoCategorias inmoviliza la instantanea profesional usada
+// al publicar una convocatoria. La huella publica de la convocatoria incluye
+// esta referencia, por lo que otra version nunca puede reinterpretarla de
+// forma silenciosa.
+type ReferenciaCatalogoCategorias struct {
+	CatalogoID           string `json:"catalogo_id"`
+	CatalogoVersion      int    `json:"catalogo_version"`
+	CatalogoHuellaSHA256 string `json:"catalogo_huella_sha256"`
+}
+
+func (r ReferenciaCatalogoCategorias) Valida() bool {
+	return patronClaveCatalogoConvocatoria.MatchString(r.CatalogoID) &&
+		r.CatalogoVersion >= 1 && patronHuellaCatalogoSHA256.MatchString(r.CatalogoHuellaSHA256)
 }
 
 type PlazoConvocatoria struct {
@@ -158,6 +175,7 @@ func (c Convocatoria) ValidarPublicacion() error {
 	d := c.DatosPublicos
 	if !patronIdentificadorPublico.MatchString(d.IdentificadorPublico) ||
 		!claveCatalogoConvocatoriaValida(d.Tipo) ||
+		!d.CatalogoCategorias.Valida() ||
 		!textoConvocatoriaValido(d.Titulo, 180, false) ||
 		!textoConvocatoriaValido(d.Resumen, 500, false) ||
 		!textoConvocatoriaValido(d.Descripcion, 12000, true) ||

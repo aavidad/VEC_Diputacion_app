@@ -1189,6 +1189,10 @@ type ConsultaInstanciasFlujo interface {
 	ObtenerInstanciaFlujo(context.Context, string) (domain.InstanciaFlujo, error)
 }
 
+type ConsultaMetadatosFuenteCatalogos interface {
+	ObtenerMetadatosFuenteCatalogos(context.Context) (MetadatosFuenteCatalogos, error)
+}
+
 type ConsultaPoliticaInstitucionalDocumental struct {
 	Institucion        domain.ReferenciaInstitucionalDocumento
 	PerfilRef          domain.ReferenciaPerfilDocumental
@@ -3500,6 +3504,22 @@ func (r MetadatosComprobacionTokenCercadoDocumentalV3Nominal) ValidarPara(
 	solicitud SolicitudVerificacionTokenCercadoDocumentalV3,
 ) error
 
+type MetadatosFuenteCatalogos struct {
+	Revision      string
+	ActualizadaEn time.Time
+	Demostracion  bool
+	Aviso         string
+}
+```
+
+MetadatosFuenteCatalogos describe el adaptador de lectura sin revelar
+la procedencia interna de cada entrada ni los actores del gobierno del
+catalogo. En produccion estos datos pueden proceder del repositorio
+publicado; el adaptador de fichero los toma del envoltorio DEMO versionado.
+La huella de procedencia declarada no equivale a una firma verificable del
+paquete.
+
+```go
 type MetodoCargaDirecta string
 
 const (

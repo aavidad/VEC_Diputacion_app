@@ -2140,3 +2140,41 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   los vectores, los casos 4096+4096, reinicios, RLS/ACL y concurrencia
   `SERIALIZABLE`. Esa puerta acredita compatibilidad, no un adaptador durable de
   carga ni la custodia productiva de claves.
+
+## DEC-061 — Autoridad central de la superficie publica y doble proyeccion de categorias profesionales
+
+- Estado: implantada el 16 de julio de 2026 para la consulta publica de Bolsa
+  y su demostracion local. No declara oficial el contenido ni concede GO
+  productivo al catalogo.
+- Hallazgo: coexistian 58 categorias hardcodeadas en un workspace heredado, un
+  snapshot mutable de Personal y solo dos entradas distintas dentro del JSON
+  publico. Las dos ultimas usaban guiones bajos, mientras el maestro historico
+  usaba claves kebab-case. La interfaz se limitaba a representar el catalogo de
+  dos elementos que recibia.
+- Decision: `categorias-profesionales` es un `CatalogoConfigurable` del nucleo,
+  con ID, version y huella exactas. Bolsa lo consume mediante un puerto y un
+  adaptador; las convocatorias conservan las claves y una referencia inmutable
+  al ID, version y huella del catalogo, incluida en su propia huella publica.
+  Tienen prohibido volver a embeber el catalogo. Ruta, ID y version son
+  configurables; el bootstrap coteja todas las referencias antes de montar las
+  rutas y una seleccion incompatible impide el arranque.
+- Proyecciones: la faceta de convocatorias contiene solo categorias con
+  resultados y su conteo, calculado aplicando los demas filtros. El directorio
+  `/api/publico/bolsa/categorias` devuelve todas las entradas vigentes y
+  publicables, con area configurada y conteos derivados. Ninguna respuesta
+  publica source paths, alias, actores, motivos ni aprobaciones.
+- Datos iniciales: el paquete demo recupera 58 categorias del corpus historico
+  OPES, 5 de Administracion general y 53 de especial. Su fuente candidata queda
+  identificada por SHA-256 y el paquete se marca, en datos y en pantalla, como
+  pendiente de validacion y aprobacion formal por RRHH. No se copiaron bases de
+  candidatos ni otros ficheros con datos personales.
+- Frontera de despliegue: el adaptador de fichero es estricto, acotado,
+  inmutable y de solo lectura. No importa ni siembra el gobierno al arrancar.
+  Produccion debe sustituirlo por el repositorio publicado PostgreSQL u Oracle,
+  manteniendo el mismo puerto y publicando cada version con autenticacion alta,
+  doble control, auditoria y recibo.
+- Deuda expresamente conservada: el workspace y las operaciones heredadas de
+  categorias en Personal aun deben migrarse al servicio gobernado y perder su
+  capacidad de escritura sobre un segundo almacen. Hasta cerrar esa migracion,
+  solo la nueva superficie publica puede afirmar que consume la autoridad
+  central; no se afirma todavia unicidad total en todo el portal interno.

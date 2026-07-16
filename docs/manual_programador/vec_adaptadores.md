@@ -368,6 +368,36 @@ SeudonimizarSujetoAlmacen permite dedicar una instancia y una clave
 exclusivas a la seudonimizacion tecnica del almacen. El ensamblado no debe
 reutilizar aqui el sellador de datos ni el de idempotencia.
 
+## Paquete `internal/vec/adapters/fichero`
+
+> Package fichero aporta adaptadores locales de solo lectura para paquetes de demostracion.
+
+Package fichero aporta adaptadores locales de solo lectura para paquetes de
+demostracion. No constituye la autoridad productiva ni realiza importaciones
+implicitas al arrancar la aplicacion.
+
+### Tipos
+
+```go
+type ConsultaCatalogos struct {
+	// Has unexported fields.
+}
+```
+
+ConsultaCatalogos mantiene una unica instantanea canonica e inmutable.
+Un paquete de fichero solo sirve como adaptador DEMO explicito; PostgreSQL,
+Oracle u otro repositorio implementan el mismo puerto del nucleo.
+
+```go
+func NuevaConsultaCatalogos(ruta string) (*ConsultaCatalogos, error)
+
+func (c *ConsultaCatalogos) ListarVersionesCatalogo(ctx context.Context, id string) ([]domain.CatalogoConfigurable, error)
+
+func (c *ConsultaCatalogos) ObtenerCatalogo(ctx context.Context, id string, version int) (domain.CatalogoConfigurable, error)
+
+func (c *ConsultaCatalogos) ObtenerMetadatosFuenteCatalogos(ctx context.Context) (ports.MetadatosFuenteCatalogos, error)
+```
+
 ## Paquete `internal/vec/adapters/httpapi`
 
 > Adaptador HTTP del shell VEC: rutas publicas y privadas.

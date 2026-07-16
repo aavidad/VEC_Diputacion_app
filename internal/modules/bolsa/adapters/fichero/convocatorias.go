@@ -117,15 +117,24 @@ func (c *ConsultaConvocatorias) BuscarPublicadas(ctx context.Context, filtro pue
 	}
 	texto := strings.ToLower(filtro.Texto)
 	coincidencias := make([]dominiobolsa.Convocatoria, 0, len(c.convocatorias))
+	conteosCategorias := make(map[string]puertosbolsa.ConteoCategoriaConvocatorias)
 	for _, convocatoria := range c.convocatorias {
 		if err := ctx.Err(); err != nil {
 			return puertosbolsa.PaginaConvocatorias{}, err
 		}
 		d := convocatoria.DatosPublicos
 		if filtro.Tipo != "" && d.Tipo != filtro.Tipo || filtro.Estado != "" && string(convocatoria.Estado) != filtro.Estado ||
-			filtro.Categoria != "" && !contiene(d.Categorias, filtro.Categoria) ||
 			filtro.SoloPlazoAbierto && !tienePlazoAbierto(d.Plazos, filtro.Instante) ||
 			texto != "" && !contieneTextoPublico(convocatoria, texto) {
+			continue
+		}
+		for _, categoria := range d.Categorias {
+			conteo := conteosCategorias[categoria]
+			conteo.NumeroConvocatorias++
+			conteo.NumeroPlazosAbiertos += numeroPlazosAbiertos(d.Plazos, filtro.Instante)
+			conteosCategorias[categoria] = conteo
+		}
+		if filtro.Categoria != "" && !contiene(d.Categorias, filtro.Categoria) {
 			continue
 		}
 		coincidencias = append(coincidencias, convocatoria.Clonar())
@@ -141,7 +150,7 @@ func (c *ConsultaConvocatorias) BuscarPublicadas(ctx context.Context, filtro pue
 	}
 	return puertosbolsa.PaginaConvocatorias{
 		Convocatorias: clonarConvocatorias(coincidencias[inicio:fin]), Total: total,
-		Catalogos: clonarCatalogos(c.catalogos), Fuente: c.fuente,
+		Catalogos: clonarCatalogos(c.catalogos), ConteosCategorias: clonarConteosCategorias(conteosCategorias), Fuente: c.fuente,
 	}, nil
 }
 
@@ -192,6 +201,9 @@ func validarArchivo(archivo archivoConvocatorias) error {
 func indiceCatalogos(catalogos []puertosbolsa.CatalogoPublico) (map[string]map[string]bool, error) {
 	indice := make(map[string]map[string]bool, len(catalogos))
 	for _, catalogo := range catalogos {
+		if catalogo.Referencia == puertosbolsa.CatalogoCategoriasConvocatoria {
+			return nil, fmt.Errorf("%w: el catalogo profesional no puede estar embebido", puertosbolsa.ErrFuenteConvocatoriasInvalida)
+		}
 		if catalogo.Referencia == "" || catalogo.Version < 1 || len(catalogo.Entradas) == 0 || indice[catalogo.Referencia] != nil {
 			return nil, fmt.Errorf("%w: catálogo no válido", puertosbolsa.ErrFuenteConvocatoriasInvalida)
 		}
@@ -206,7 +218,7 @@ func indiceCatalogos(catalogos []puertosbolsa.CatalogoPublico) (map[string]map[s
 			indice[catalogo.Referencia][entrada.Clave] = entrada.Publicable
 		}
 	}
-	for _, requerido := range []string{puertosbolsa.CatalogoTiposConvocatoria, puertosbolsa.CatalogoEstadosConvocatoria, puertosbolsa.CatalogoCategoriasConvocatoria, puertosbolsa.CatalogoTiposPlazo, puertosbolsa.CatalogoTiposDocumento, puertosbolsa.CatalogoCategoriasAyuda} {
+	for _, requerido := range []string{puertosbolsa.CatalogoTiposConvocatoria, puertosbolsa.CatalogoEstadosConvocatoria, puertosbolsa.CatalogoTiposPlazo, puertosbolsa.CatalogoTiposDocumento, puertosbolsa.CatalogoCategoriasAyuda} {
 		if indice[requerido] == nil {
 			return nil, fmt.Errorf("%w: falta catálogo requerido", puertosbolsa.ErrFuenteConvocatoriasInvalida)
 		}
@@ -218,11 +230,6 @@ func referenciasCatalogoValidas(c dominiobolsa.Convocatoria, indice map[string]m
 	d := c.DatosPublicos
 	if !indice[puertosbolsa.CatalogoEstadosConvocatoria][string(c.Estado)] || !indice[puertosbolsa.CatalogoTiposConvocatoria][d.Tipo] {
 		return false
-	}
-	for _, clave := range d.Categorias {
-		if !indice[puertosbolsa.CatalogoCategoriasConvocatoria][clave] {
-			return false
-		}
 	}
 	for _, plazo := range d.Plazos {
 		if !indice[puertosbolsa.CatalogoTiposPlazo][plazo.Tipo] {
@@ -271,6 +278,16 @@ func tienePlazoAbierto(plazos []dominiobolsa.PlazoConvocatoria, ahora time.Time)
 	return false
 }
 
+func numeroPlazosAbiertos(plazos []dominiobolsa.PlazoConvocatoria, ahora time.Time) int {
+	total := 0
+	for _, plazo := range plazos {
+		if !ahora.Before(plazo.AbreEn) && !ahora.After(plazo.CierraEn) {
+			total++
+		}
+	}
+	return total
+}
+
 func contieneTextoPublico(c dominiobolsa.Convocatoria, texto string) bool {
 	d := c.DatosPublicos
 	contenido := strings.ToLower(strings.Join([]string{d.Titulo, d.Resumen, d.Descripcion}, " "))
@@ -290,6 +307,14 @@ func clonarCatalogos(origen []puertosbolsa.CatalogoPublico) []puertosbolsa.Catal
 	for i, catalogo := range origen {
 		destino[i] = catalogo
 		destino[i].Entradas = append([]puertosbolsa.EntradaCatalogoPublico(nil), catalogo.Entradas...)
+	}
+	return destino
+}
+
+func clonarConteosCategorias(origen map[string]puertosbolsa.ConteoCategoriaConvocatorias) map[string]puertosbolsa.ConteoCategoriaConvocatorias {
+	destino := make(map[string]puertosbolsa.ConteoCategoriaConvocatorias, len(origen))
+	for clave, conteo := range origen {
+		destino[clave] = conteo
 	}
 	return destino
 }

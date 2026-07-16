@@ -57,6 +57,36 @@ func TestFuentePublicaBolsaEsDemoLocalSustituible(t *testing.T) {
 	}
 }
 
+func TestCatalogoCategoriasBolsaFijaFuenteIDYVersionSinRecompilar(t *testing.T) {
+	configuracion := (Config{}).Normalize()
+	if configuracion.BolsaCategoriesSourcePath != DefaultBolsaCategoriesSourcePath ||
+		configuracion.BolsaCategoriesCatalogID != DefaultBolsaCategoriesCatalogID ||
+		configuracion.BolsaCategoriesVersion != DefaultBolsaCategoriesVersion {
+		t.Fatalf("catalogo predeterminado inesperado: %+v", configuracion)
+	}
+
+	t.Setenv(EnvBolsaCategoriesSourcePath, " /fuentes/catalogo-v7.json ")
+	t.Setenv(EnvBolsaCategoriesCatalogID, " categorias-profesionales-provincia ")
+	t.Setenv(EnvBolsaCategoriesVersion, "7")
+	configuracion = Load()
+	if configuracion.BolsaCategoriesSourcePath != "/fuentes/catalogo-v7.json" ||
+		configuracion.BolsaCategoriesCatalogID != "categorias-profesionales-provincia" ||
+		configuracion.BolsaCategoriesVersion != 7 {
+		t.Fatalf("configuracion explicita alterada: %+v", configuracion)
+	}
+}
+
+func TestVersionCatalogoCategoriasInvalidaNoRetrocedeSilenciosamente(t *testing.T) {
+	for _, valor := range []string{"abc", "0", "-1"} {
+		t.Run(valor, func(t *testing.T) {
+			t.Setenv(EnvBolsaCategoriesVersion, valor)
+			if obtenida := Load().BolsaCategoriesVersion; obtenida >= 1 {
+				t.Fatalf("version invalida %q se convirtio en %d", valor, obtenida)
+			}
+		})
+	}
+}
+
 func TestOSRMNoInfiereRedesYCargaSoloLasExplicitas(t *testing.T) {
 	configuracion := (Config{}).Normalize()
 	if len(configuracion.OSRMAllowedCIDRs) != 0 {

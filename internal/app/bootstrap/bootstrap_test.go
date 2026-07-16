@@ -148,6 +148,11 @@ func TestModoDisabledPublicaSoloConsultaAnonimaBolsa(t *testing.T) {
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "vec.bolsa.publico.convocatorias.v1") {
 		t.Fatalf("consulta pública = %d %s", rec.Code, rec.Body.String())
 	}
+	rec = httptest.NewRecorder()
+	api.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/publico/bolsa/categorias", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"total":58`) {
+		t.Fatalf("directorio de categorias = %d %s", rec.Code, rec.Body.String())
+	}
 	for _, ruta := range []string{"/api/publico/bolsa/personas", "/api/publico/bolsa/solicitudes", "/api/demo"} {
 		rec = httptest.NewRecorder()
 		api.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, ruta, nil))
@@ -169,7 +174,7 @@ func TestSmokeLoopbackPortalYAPIPublicaSinCabecerasConfiables(t *testing.T) {
 	finalizado := make(chan error, 1)
 	go func() { finalizado <- servidor.Serve(escucha) }()
 	base := "http://" + escucha.Addr().String()
-	for _, ruta := range []string{"/bolsa/", "/api/publico/bolsa/convocatorias"} {
+	for _, ruta := range []string{"/bolsa/", "/api/publico/bolsa/convocatorias", "/api/publico/bolsa/categorias"} {
 		respuesta, err := http.Get(base + ruta)
 		if err != nil {
 			t.Fatalf("GET %s: %v", ruta, err)
@@ -188,6 +193,66 @@ func TestSmokeLoopbackPortalYAPIPublicaSinCabecerasConfiables(t *testing.T) {
 	}
 	if err := <-finalizado; err != nil && err != http.ErrServerClosed {
 		t.Fatal(err)
+	}
+}
+
+func TestArranqueRechazaVersionCatalogoCategoriasInvalida(t *testing.T) {
+	_, err := NewDemoAPIWithConfig(config.Config{
+		PersonalCatalogPath:       "memory",
+		BolsaCategoriesVersion:    -1,
+		BolsaCategoriesSourcePath: config.DefaultBolsaCategoriesSourcePath,
+		BolsaCategoriesCatalogID:  config.DefaultBolsaCategoriesCatalogID,
+	})
+	if err == nil || !strings.Contains(err.Error(), "version de catalogo") {
+		t.Fatalf("version invalida no rechazo el arranque: %v", err)
+	}
+}
+
+func TestArranqueRechazaCatalogoCategoriasInexistente(t *testing.T) {
+	for _, prueba := range []struct {
+		nombre  string
+		id      string
+		version int
+	}{
+		{nombre: "id", id: "catalogo-profesional-inexistente", version: 1},
+		{nombre: "version", id: config.DefaultBolsaCategoriesCatalogID, version: 2},
+	} {
+		t.Run(prueba.nombre, func(t *testing.T) {
+			_, err := NewDemoAPIWithConfig(config.Config{
+				PersonalCatalogPath:       "memory",
+				BolsaCategoriesSourcePath: config.DefaultBolsaCategoriesSourcePath,
+				BolsaCategoriesCatalogID:  prueba.id,
+				BolsaCategoriesVersion:    prueba.version,
+			})
+			if err == nil || !strings.Contains(err.Error(), "fuentes publicas de Bolsa incompatibles") {
+				t.Fatalf("seleccion inexistente no rechazo el arranque: %v", err)
+			}
+		})
+	}
+}
+
+func TestArranqueRechazaCategoriaDeConvocatoriaDesconocida(t *testing.T) {
+	base, err := os.ReadFile("../../../data/demo/convocatorias_publicas.demo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	alterado := strings.Replace(string(base), `"categorias": ["auxiliar-administrativo"]`, `"categorias": ["categoria-inexistente"]`, 1)
+	if alterado == string(base) {
+		t.Fatal("no se altero la categoria de prueba")
+	}
+	ruta := filepath.Join(t.TempDir(), "convocatorias.json")
+	if err := os.WriteFile(ruta, []byte(alterado), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = NewDemoAPIWithConfig(config.Config{
+		PersonalCatalogPath:       "memory",
+		BolsaPublicSourcePath:     ruta,
+		BolsaCategoriesSourcePath: config.DefaultBolsaCategoriesSourcePath,
+		BolsaCategoriesCatalogID:  config.DefaultBolsaCategoriesCatalogID,
+		BolsaCategoriesVersion:    1,
+	})
+	if err == nil || !strings.Contains(err.Error(), "fuentes publicas de Bolsa incompatibles") {
+		t.Fatalf("categoria desconocida no rechazo el arranque: %v", err)
 	}
 }
 

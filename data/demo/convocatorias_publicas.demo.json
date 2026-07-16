@@ -1,10 +1,10 @@
 {
   "version_esquema": 1,
   "fuente": {
-    "revision": "demo-2026-07-v1",
-    "actualizada_en": "2026-07-15T08:00:00Z",
+    "revision": "demo-2026-07-v2",
+    "actualizada_en": "2026-07-16T00:00:00Z",
     "demostracion": true,
-    "aviso": "DEMOSTRACIÓN: contenido sintético sin validez administrativa ni datos personales."
+    "aviso": "DEMOSTRACIÓN: Contenido sintético sin validez administrativa ni datos personales."
   },
   "catalogos": [
     {
@@ -22,14 +22,6 @@
         {"clave": "inscripcion", "version": 1, "etiqueta": "Inscripción abierta", "descripcion": "Admite solicitudes dentro del plazo publicado.", "semantica": "exito", "orden": 1, "publicable": true},
         {"clave": "proxima", "version": 1, "etiqueta": "Próxima apertura", "descripcion": "Publicada antes de abrir el plazo.", "semantica": "informacion", "orden": 2, "publicable": true},
         {"clave": "borrador", "version": 1, "etiqueta": "Borrador interno", "descripcion": "Estado no publicable.", "semantica": "neutro", "orden": 3, "publicable": false}
-      ]
-    },
-    {
-      "referencia": "categorias_convocatoria",
-      "version": 1,
-      "entradas": [
-        {"clave": "auxiliar_administrativo", "version": 1, "etiqueta": "Auxiliar administrativo", "descripcion": "Categoría profesional de demostración.", "semantica": "documento", "orden": 1, "publicable": true},
-        {"clave": "tecnico_gestion", "version": 1, "etiqueta": "Técnico de gestión", "descripcion": "Categoría profesional de demostración.", "semantica": "procedimiento", "orden": 2, "publicable": true}
       ]
     },
     {
@@ -65,7 +57,8 @@
       "datos_publicos": {
         "identificador_publico": "bolsa-auxiliar-administrativo-demo-2026",
         "tipo": "bolsa_temporal",
-        "categorias": ["auxiliar_administrativo"],
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "2a9aa4a903b765c2f46ceb7f429f342a13b229e54ca45813472cb9d0aa1a4f3e"},
+        "categorias": ["auxiliar-administrativo"],
         "titulo": "Bolsa temporal de auxiliar administrativo — demostración",
         "resumen": "Ejemplo sintético de una convocatoria con plazo de inscripción abierto.",
         "descripcion": "Esta ficha permite comprobar la consulta pública de plazos, requisitos, documentos y ayuda. Todo el contenido es sintético y carece de validez administrativa.",
@@ -95,7 +88,8 @@
       "datos_publicos": {
         "identificador_publico": "proceso-tecnico-gestion-demo-2026",
         "tipo": "proceso_selectivo",
-        "categorias": ["tecnico_gestion"],
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "2a9aa4a903b765c2f46ceb7f429f342a13b229e54ca45813472cb9d0aa1a4f3e"},
+        "categorias": ["tecnico-de-gestion"],
         "titulo": "Proceso selectivo de técnico de gestión — demostración",
         "resumen": "Ejemplo sintético de una convocatoria publicada antes de abrir su plazo.",
         "descripcion": "Ficha sintética para comprobar estados próximos, filtrado y lectura accesible del detalle.",

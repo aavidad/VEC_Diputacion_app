@@ -532,6 +532,9 @@ Respuesta (`200`), esquema `vec.bolsa.publico.convocatorias.v1`:
 ```
 
 `ValorCatalogoPublico`: `{ "clave", "version", "etiqueta", "descripcion?", "semantica" }`.
+Las categorias de `facetas` añaden `numero_resultados` y solo incluyen claves
+con al menos una convocatoria que cumpla los demas filtros. El conteo ignora
+exclusivamente el propio filtro de categoria.
 
 `ResumenConvocatoriaPublica`: `identificador_publico`, `version`,
 `huella_sha256`, `titulo`, `resumen`, `tipo` (`ValorCatalogoPublico`),
@@ -539,9 +542,48 @@ Respuesta (`200`), esquema `vec.bolsa.publico.convocatorias.v1`:
 (`PlazoPublico`), `numero_requisitos`, `numero_documentos`, `numero_ayudas`,
 `publicada_en`, `actualizada_en`.
 
+El agregado de convocatoria que origina esa proyeccion fija además
+`catalogo_categorias` con `catalogo_id`, `catalogo_version` y
+`catalogo_huella_sha256`. La referencia forma parte de
+`huella_sha256`; no se resuelve una convocatoria historica contra «la ultima»
+version del catalogo. El arranque coteja de forma anticipada todas las
+convocatorias con la version configurada antes de publicar las rutas.
+
 `PlazoPublico`: `referencia`, `tipo`, `titulo`, `descripcion?`, `abre_en`,
 `cierra_en`, `situacion` (`proximo`|`abierto`|`cerrado`), `etiqueta_situacion`,
 `semantica_situacion`.
+
+### `GET /api/publico/bolsa/categorias`
+
+No admite query string. Devuelve el directorio completo de la version exacta
+del catalogo profesional publicado y vigente:
+
+```json
+{
+  "esquema": "vec.bolsa.publico.categorias.v1",
+  "fuente": { "revision": "opes-inventario-historico-demo-v1", "actualizada_en": "2026-07-16T00:00:00Z", "demostracion": true, "aviso": "..." },
+  "catalogo": { "referencia": "categorias-profesionales", "version": 1, "huella_sha256": "...", "total": 58 },
+  "categorias": [
+    {
+      "clave": "auxiliar-administrativo",
+      "version": 1,
+      "etiqueta": "Auxiliar Administrativo",
+      "descripcion": "...",
+      "semantica": "informacion",
+	  "orden": 2,
+      "area": "administracion_general",
+      "area_etiqueta": "Administración general",
+      "suscribible": true,
+      "numero_convocatorias": 1,
+      "numero_plazos_abiertos": 1
+    }
+  ]
+}
+```
+
+No expone rutas de origen, actores, aprobaciones, alias ni otros metadatos
+internos. `HEAD` conserva estado y cabeceras sin cuerpo; cualquier otro metodo
+responde `405` y `Allow: GET, HEAD`.
 
 ### `GET /api/publico/bolsa/convocatorias/{id}`
 
@@ -561,11 +603,16 @@ la trae). Respuesta (`200`), esquema `vec.bolsa.publico.convocatoria.v1`:
 }
 ```
 
-Fuente de datos: fichero JSON configurado en `VEC_BOLSA_PUBLIC_SOURCE_PATH`
-(por defecto `data/demo/convocatorias_publicas.demo.json`), no base de datos.
+Fuente de convocatorias: fichero JSON configurado en
+`VEC_BOLSA_PUBLIC_SOURCE_PATH` (por defecto
+`data/demo/convocatorias_publicas.demo.json`). El paquete de categorias se
+selecciona mediante `VEC_BOLSA_CATEGORIES_SOURCE_PATH`,
+`VEC_BOLSA_CATEGORIES_CATALOG_ID` y
+`VEC_BOLSA_CATEGORIES_CATALOG_VERSION`. Los ficheros son adaptadores de
+demostracion de solo lectura, no la persistencia productiva.
 Este es el modulo con el cliente frontend mas fiel al contrato real:
-`web/static/bolsa/bolsa.js` llama exactamente a estas dos rutas (listado y
-detalle) sin datos sinteticos locales de por medio.
+`web/static/bolsa/bolsa.js` llama exactamente a listado, detalle y directorio,
+sin listas de categorias sinteticas locales de por medio.
 
 ---
 

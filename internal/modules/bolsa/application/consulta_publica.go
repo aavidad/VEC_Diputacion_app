@@ -30,6 +30,7 @@ const (
 var (
 	patronFiltroCatalogo       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$`)
 	patronIdentificadorPublico = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{2,79}$`)
+	patronHuellaSHA256         = regexp.MustCompile(`^[a-f0-9]{64}$`)
 )
 
 type RelojConsultaPublica interface {
@@ -43,15 +44,82 @@ func (RelojSistemaConsultaPublica) Ahora() time.Time {
 }
 
 type ServicioConsultaPublica struct {
-	fuente puertosbolsa.ConsultaConvocatoriasPublicas
-	reloj  RelojConsultaPublica
+	fuente     puertosbolsa.ConsultaConvocatoriasPublicas
+	categorias puertosbolsa.ConsultaCategoriasPublicas
+	reloj      RelojConsultaPublica
 }
 
-func NuevoServicioConsultaPublica(fuente puertosbolsa.ConsultaConvocatoriasPublicas, reloj RelojConsultaPublica) (*ServicioConsultaPublica, error) {
-	if fuente == nil || reloj == nil {
+func NuevoServicioConsultaPublica(
+	fuente puertosbolsa.ConsultaConvocatoriasPublicas,
+	categorias puertosbolsa.ConsultaCategoriasPublicas,
+	reloj RelojConsultaPublica,
+) (*ServicioConsultaPublica, error) {
+	if fuente == nil || categorias == nil || reloj == nil {
 		return nil, ErrServicioConsultaPublicaInvalido
 	}
-	return &ServicioConsultaPublica{fuente: fuente, reloj: reloj}, nil
+	return &ServicioConsultaPublica{fuente: fuente, categorias: categorias, reloj: reloj}, nil
+}
+
+// ValidarConfiguracion coteja de forma anticipada la instantanea profesional
+// con todas las convocatorias publicadas. El bootstrap debe ejecutarlo antes
+// de montar las rutas: una referencia desconocida o una version/huella
+// diferente impide arrancar en vez de convertirse despues en un error 500.
+func (s *ServicioConsultaPublica) ValidarConfiguracion(ctx context.Context) error {
+	if ctx == nil || s == nil || s.fuente == nil || s.categorias == nil || s.reloj == nil {
+		return ErrServicioConsultaPublicaInvalido
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	instante, err := instanteCanonico(s.reloj.Ahora())
+	if err != nil {
+		return err
+	}
+	catalogoCategorias, err := s.categorias.ObtenerPublicadas(ctx, instante)
+	if err != nil {
+		return err
+	}
+
+	totalEsperado := -1
+	desplazamiento := 0
+	identificadores := make(map[string]struct{})
+	for {
+		pagina, err := s.fuente.BuscarPublicadas(ctx, puertosbolsa.FiltroConvocatoriasPublicas{
+			Instante: instante, Limite: TamanoPaginaPublicaMaximo, Desplazamiento: desplazamiento,
+		})
+		if err != nil {
+			return err
+		}
+		indice, err := nuevoIndiceCatalogos(pagina.Catalogos, catalogoCategorias)
+		if err != nil || validarFuente(pagina.Fuente) != nil ||
+			validarConteosCategorias(pagina.ConteosCategorias, indice) != nil || pagina.Total < 0 ||
+			pagina.Total > PaginaPublicaMaxima*TamanoPaginaPublicaMaximo ||
+			len(pagina.Convocatorias) > TamanoPaginaPublicaMaximo {
+			return ErrDatosPublicosNoConfiables
+		}
+		if totalEsperado < 0 {
+			totalEsperado = pagina.Total
+		} else if pagina.Total != totalEsperado {
+			return ErrDatosPublicosNoConfiables
+		}
+		for _, convocatoria := range pagina.Convocatorias {
+			resumen, err := proyectarResumen(convocatoria, indice, instante)
+			if err != nil {
+				return ErrDatosPublicosNoConfiables
+			}
+			if _, existe := identificadores[resumen.IdentificadorPublico]; existe {
+				return ErrDatosPublicosNoConfiables
+			}
+			identificadores[resumen.IdentificadorPublico] = struct{}{}
+		}
+		desplazamiento += len(pagina.Convocatorias)
+		if desplazamiento >= totalEsperado {
+			return nil
+		}
+		if len(pagina.Convocatorias) == 0 {
+			return ErrDatosPublicosNoConfiables
+		}
+	}
 }
 
 type SolicitudListadoPublico struct {
@@ -72,10 +140,19 @@ type ValorCatalogoPublico struct {
 	Semantica   string `json:"semantica"`
 }
 
+type FacetaCategoriaPublica struct {
+	Clave            string `json:"clave"`
+	Version          int    `json:"version"`
+	Etiqueta         string `json:"etiqueta"`
+	Descripcion      string `json:"descripcion,omitempty"`
+	Semantica        string `json:"semantica"`
+	NumeroResultados int    `json:"numero_resultados"`
+}
+
 type FacetasConvocatorias struct {
-	Tipos      []ValorCatalogoPublico `json:"tipos"`
-	Categorias []ValorCatalogoPublico `json:"categorias"`
-	Estados    []ValorCatalogoPublico `json:"estados"`
+	Tipos      []ValorCatalogoPublico   `json:"tipos"`
+	Categorias []FacetaCategoriaPublica `json:"categorias"`
+	Estados    []ValorCatalogoPublico   `json:"estados"`
 }
 
 type PaginacionPublica struct {
@@ -129,6 +206,34 @@ type ListadoConvocatoriasPublicas struct {
 	Convocatorias []ResumenConvocatoriaPublica `json:"convocatorias"`
 }
 
+type ReferenciaCatalogoCategoriasPublico struct {
+	Referencia   string `json:"referencia"`
+	Version      int    `json:"version"`
+	HuellaSHA256 string `json:"huella_sha256"`
+	Total        int    `json:"total"`
+}
+
+type CategoriaDirectorioPublico struct {
+	Clave                string `json:"clave"`
+	Version              int    `json:"version"`
+	Etiqueta             string `json:"etiqueta"`
+	Descripcion          string `json:"descripcion,omitempty"`
+	Semantica            string `json:"semantica"`
+	Orden                int    `json:"orden"`
+	Area                 string `json:"area"`
+	AreaEtiqueta         string `json:"area_etiqueta"`
+	Suscribible          bool   `json:"suscribible"`
+	NumeroConvocatorias  int    `json:"numero_convocatorias"`
+	NumeroPlazosAbiertos int    `json:"numero_plazos_abiertos"`
+}
+
+type DirectorioCategoriasPublicas struct {
+	Esquema    string                              `json:"esquema"`
+	Fuente     FuentePublica                       `json:"fuente"`
+	Catalogo   ReferenciaCatalogoCategoriasPublico `json:"catalogo"`
+	Categorias []CategoriaDirectorioPublico        `json:"categorias"`
+}
+
 type RequisitoPublico struct {
 	Referencia  string `json:"referencia"`
 	Orden       int    `json:"orden"`
@@ -168,7 +273,7 @@ type DetalleConvocatoriaPublica struct {
 }
 
 func (s *ServicioConsultaPublica) Listar(ctx context.Context, solicitud SolicitudListadoPublico) (ListadoConvocatoriasPublicas, error) {
-	if ctx == nil || s == nil || s.fuente == nil || s.reloj == nil {
+	if ctx == nil || s == nil || s.fuente == nil || s.categorias == nil || s.reloj == nil {
 		return ListadoConvocatoriasPublicas{}, ErrServicioConsultaPublicaInvalido
 	}
 	if err := ctx.Err(); err != nil {
@@ -178,12 +283,20 @@ func (s *ServicioConsultaPublica) Listar(ctx context.Context, solicitud Solicitu
 	if err != nil {
 		return ListadoConvocatoriasPublicas{}, err
 	}
+	catalogoCategorias, err := s.categorias.ObtenerPublicadas(ctx, filtro.Instante)
+	if err != nil {
+		return ListadoConvocatoriasPublicas{}, err
+	}
+	if filtro.Categoria != "" && !contieneCategoriaPublica(catalogoCategorias, filtro.Categoria) {
+		return ListadoConvocatoriasPublicas{}, ErrFiltroPublicoInvalido
+	}
 	resultado, err := s.fuente.BuscarPublicadas(ctx, filtro)
 	if err != nil {
 		return ListadoConvocatoriasPublicas{}, err
 	}
-	indice, err := nuevoIndiceCatalogos(resultado.Catalogos)
-	if err != nil || validarFuente(resultado.Fuente) != nil || resultado.Total < 0 || len(resultado.Convocatorias) > tamano {
+	indice, err := nuevoIndiceCatalogos(resultado.Catalogos, catalogoCategorias)
+	if err != nil || validarFuente(resultado.Fuente) != nil || resultado.Total < 0 || len(resultado.Convocatorias) > tamano ||
+		validarConteosCategorias(resultado.ConteosCategorias, indice) != nil {
 		return ListadoConvocatoriasPublicas{}, ErrDatosPublicosNoConfiables
 	}
 	resumenes := make([]ResumenConvocatoriaPublica, 0, len(resultado.Convocatorias))
@@ -201,14 +314,14 @@ func (s *ServicioConsultaPublica) Listar(ctx context.Context, solicitud Solicitu
 	return ListadoConvocatoriasPublicas{
 		Esquema:       "vec.bolsa.publico.convocatorias.v1",
 		Fuente:        proyectarFuente(resultado.Fuente),
-		Facetas:       indice.facetas(),
+		Facetas:       indice.facetas(resultado.ConteosCategorias),
 		Paginacion:    PaginacionPublica{Pagina: pagina, Tamano: tamano, Total: resultado.Total, Paginas: paginas},
 		Convocatorias: resumenes,
 	}, nil
 }
 
 func (s *ServicioConsultaPublica) Obtener(ctx context.Context, identificador string) (DetalleConvocatoriaPublica, error) {
-	if ctx == nil || s == nil || s.fuente == nil || s.reloj == nil {
+	if ctx == nil || s == nil || s.fuente == nil || s.categorias == nil || s.reloj == nil {
 		return DetalleConvocatoriaPublica{}, ErrServicioConsultaPublicaInvalido
 	}
 	if err := ctx.Err(); err != nil {
@@ -218,17 +331,21 @@ func (s *ServicioConsultaPublica) Obtener(ctx context.Context, identificador str
 	if !patronIdentificadorPublico.MatchString(identificador) {
 		return DetalleConvocatoriaPublica{}, ErrFiltroPublicoInvalido
 	}
+	ahora, err := instanteCanonico(s.reloj.Ahora())
+	if err != nil {
+		return DetalleConvocatoriaPublica{}, err
+	}
+	catalogoCategorias, err := s.categorias.ObtenerPublicadas(ctx, ahora)
+	if err != nil {
+		return DetalleConvocatoriaPublica{}, err
+	}
 	resultado, err := s.fuente.ObtenerPublicada(ctx, identificador)
 	if err != nil {
 		return DetalleConvocatoriaPublica{}, err
 	}
-	indice, err := nuevoIndiceCatalogos(resultado.Catalogos)
+	indice, err := nuevoIndiceCatalogos(resultado.Catalogos, catalogoCategorias)
 	if err != nil || validarFuente(resultado.Fuente) != nil {
 		return DetalleConvocatoriaPublica{}, ErrDatosPublicosNoConfiables
-	}
-	ahora, err := instanteCanonico(s.reloj.Ahora())
-	if err != nil {
-		return DetalleConvocatoriaPublica{}, err
 	}
 	resumen, err := proyectarResumen(resultado.Convocatoria, indice, ahora)
 	if err != nil {
@@ -272,6 +389,63 @@ func (s *ServicioConsultaPublica) Obtener(ctx context.Context, identificador str
 	return detalle, nil
 }
 
+func (s *ServicioConsultaPublica) ListarCategorias(ctx context.Context) (DirectorioCategoriasPublicas, error) {
+	if ctx == nil || s == nil || s.fuente == nil || s.categorias == nil || s.reloj == nil {
+		return DirectorioCategoriasPublicas{}, ErrServicioConsultaPublicaInvalido
+	}
+	if err := ctx.Err(); err != nil {
+		return DirectorioCategoriasPublicas{}, err
+	}
+	ahora, err := instanteCanonico(s.reloj.Ahora())
+	if err != nil {
+		return DirectorioCategoriasPublicas{}, err
+	}
+	catalogo, err := s.categorias.ObtenerPublicadas(ctx, ahora)
+	if err != nil {
+		return DirectorioCategoriasPublicas{}, err
+	}
+	resultado, err := s.fuente.BuscarPublicadas(ctx, puertosbolsa.FiltroConvocatoriasPublicas{
+		Instante: ahora,
+		Limite:   1,
+	})
+	if err != nil {
+		return DirectorioCategoriasPublicas{}, err
+	}
+	indice, err := nuevoIndiceCatalogos(resultado.Catalogos, catalogo)
+	if err != nil || validarFuente(resultado.Fuente) != nil || validarFuenteCategorias(catalogo.Fuente) != nil ||
+		validarConteosCategorias(resultado.ConteosCategorias, indice) != nil {
+		return DirectorioCategoriasPublicas{}, ErrDatosPublicosNoConfiables
+	}
+	categorias := make([]CategoriaDirectorioPublico, 0, len(catalogo.Categorias))
+	for _, categoria := range catalogo.Categorias {
+		conteo := resultado.ConteosCategorias[categoria.Clave]
+		categorias = append(categorias, CategoriaDirectorioPublico{
+			Clave:                categoria.Clave,
+			Version:              categoria.Version,
+			Etiqueta:             categoria.Etiqueta,
+			Descripcion:          categoria.Descripcion,
+			Semantica:            categoria.Semantica,
+			Orden:                categoria.Orden,
+			Area:                 categoria.Area,
+			AreaEtiqueta:         categoria.AreaEtiqueta,
+			Suscribible:          categoria.Suscribible,
+			NumeroConvocatorias:  conteo.NumeroConvocatorias,
+			NumeroPlazosAbiertos: conteo.NumeroPlazosAbiertos,
+		})
+	}
+	return DirectorioCategoriasPublicas{
+		Esquema: "vec.bolsa.publico.categorias.v1",
+		Fuente:  proyectarFuenteCategorias(catalogo.Fuente),
+		Catalogo: ReferenciaCatalogoCategoriasPublico{
+			Referencia:   catalogo.ID,
+			Version:      catalogo.Version,
+			HuellaSHA256: catalogo.HuellaSHA256,
+			Total:        len(categorias),
+		},
+		Categorias: categorias,
+	}, nil
+}
+
 func (s *ServicioConsultaPublica) prepararFiltro(solicitud SolicitudListadoPublico) (puertosbolsa.FiltroConvocatoriasPublicas, int, int, error) {
 	texto := strings.TrimSpace(solicitud.Texto)
 	if len([]rune(texto)) > LongitudTextoPublicoMaxima || strings.ContainsAny(texto, "\x00\r\n") {
@@ -304,13 +478,51 @@ func (s *ServicioConsultaPublica) prepararFiltro(solicitud SolicitudListadoPubli
 }
 
 type indiceCatalogos struct {
-	porCatalogo map[string]map[string]puertosbolsa.EntradaCatalogoPublico
-	ordenados   map[string][]puertosbolsa.EntradaCatalogoPublico
+	porCatalogo          map[string]map[string]puertosbolsa.EntradaCatalogoPublico
+	ordenados            map[string][]puertosbolsa.EntradaCatalogoPublico
+	referenciaCategorias dominiobolsa.ReferenciaCatalogoCategorias
 }
 
-func nuevoIndiceCatalogos(catalogos []puertosbolsa.CatalogoPublico) (indiceCatalogos, error) {
-	indice := indiceCatalogos{porCatalogo: map[string]map[string]puertosbolsa.EntradaCatalogoPublico{}, ordenados: map[string][]puertosbolsa.EntradaCatalogoPublico{}}
-	for _, catalogo := range catalogos {
+func nuevoIndiceCatalogos(
+	catalogos []puertosbolsa.CatalogoPublico,
+	categorias puertosbolsa.CatalogoCategoriasPublicas,
+) (indiceCatalogos, error) {
+	if !patronFiltroCatalogo.MatchString(categorias.ID) || categorias.Version < 1 ||
+		!patronHuellaSHA256.MatchString(categorias.HuellaSHA256) || len(categorias.Categorias) == 0 ||
+		validarFuenteCategorias(categorias.Fuente) != nil {
+		return indiceCatalogos{}, ErrDatosPublicosNoConfiables
+	}
+	catalogosCompletos := make([]puertosbolsa.CatalogoPublico, 0, len(catalogos)+1)
+	catalogosCompletos = append(catalogosCompletos, catalogos...)
+	catalogoProfesional := puertosbolsa.CatalogoPublico{
+		Referencia: puertosbolsa.CatalogoCategoriasConvocatoria,
+		Version:    categorias.Version,
+		Entradas:   make([]puertosbolsa.EntradaCatalogoPublico, 0, len(categorias.Categorias)),
+	}
+	for _, categoria := range categorias.Categorias {
+		if categoria.Version != categorias.Version || !patronFiltroCatalogo.MatchString(categoria.Area) ||
+			!textoPublicoCanonico(categoria.AreaEtiqueta, 120, false) {
+			return indiceCatalogos{}, ErrDatosPublicosNoConfiables
+		}
+		catalogoProfesional.Entradas = append(catalogoProfesional.Entradas, puertosbolsa.EntradaCatalogoPublico{
+			Clave:       categoria.Clave,
+			Version:     categoria.Version,
+			Etiqueta:    categoria.Etiqueta,
+			Descripcion: categoria.Descripcion,
+			Semantica:   categoria.Semantica,
+			Orden:       categoria.Orden,
+			Publicable:  true,
+		})
+	}
+	catalogosCompletos = append(catalogosCompletos, catalogoProfesional)
+	indice := indiceCatalogos{
+		porCatalogo: map[string]map[string]puertosbolsa.EntradaCatalogoPublico{},
+		ordenados:   map[string][]puertosbolsa.EntradaCatalogoPublico{},
+		referenciaCategorias: dominiobolsa.ReferenciaCatalogoCategorias{
+			CatalogoID: categorias.ID, CatalogoVersion: categorias.Version, CatalogoHuellaSHA256: categorias.HuellaSHA256,
+		},
+	}
+	for _, catalogo := range catalogosCompletos {
 		if !patronFiltroCatalogo.MatchString(catalogo.Referencia) || catalogo.Version < 1 || len(catalogo.Entradas) == 0 || indice.porCatalogo[catalogo.Referencia] != nil {
 			return indiceCatalogos{}, ErrDatosPublicosNoConfiables
 		}
@@ -349,10 +561,25 @@ func (i indiceCatalogos) resolver(catalogo, clave string) (ValorCatalogoPublico,
 	return ValorCatalogoPublico{Clave: entrada.Clave, Version: entrada.Version, Etiqueta: entrada.Etiqueta, Descripcion: entrada.Descripcion, Semantica: entrada.Semantica}, nil
 }
 
-func (i indiceCatalogos) facetas() FacetasConvocatorias {
+func (i indiceCatalogos) facetas(conteos map[string]puertosbolsa.ConteoCategoriaConvocatorias) FacetasConvocatorias {
+	categorias := make([]FacetaCategoriaPublica, 0, len(conteos))
+	for _, entrada := range i.ordenados[puertosbolsa.CatalogoCategoriasConvocatoria] {
+		conteo := conteos[entrada.Clave]
+		if !entrada.Publicable || conteo.NumeroConvocatorias < 1 {
+			continue
+		}
+		categorias = append(categorias, FacetaCategoriaPublica{
+			Clave:            entrada.Clave,
+			Version:          entrada.Version,
+			Etiqueta:         entrada.Etiqueta,
+			Descripcion:      entrada.Descripcion,
+			Semantica:        entrada.Semantica,
+			NumeroResultados: conteo.NumeroConvocatorias,
+		})
+	}
 	return FacetasConvocatorias{
 		Tipos:      i.valoresPublicables(puertosbolsa.CatalogoTiposConvocatoria),
-		Categorias: i.valoresPublicables(puertosbolsa.CatalogoCategoriasConvocatoria),
+		Categorias: categorias,
 		Estados:    i.valoresPublicables(puertosbolsa.CatalogoEstadosConvocatoria),
 	}
 }
@@ -372,6 +599,9 @@ func proyectarResumen(c dominiobolsa.Convocatoria, indice indiceCatalogos, ahora
 		return ResumenConvocatoriaPublica{}, ErrDatosPublicosNoConfiables
 	}
 	d := c.DatosPublicos
+	if d.CatalogoCategorias != indice.referenciaCategorias {
+		return ResumenConvocatoriaPublica{}, ErrDatosPublicosNoConfiables
+	}
 	tipo, err := indice.resolver(puertosbolsa.CatalogoTiposConvocatoria, d.Tipo)
 	if err != nil {
 		return ResumenConvocatoriaPublica{}, err
@@ -485,9 +715,38 @@ func proyectarAyuda(origen []dominiobolsa.AyudaConvocatoria, indice indiceCatalo
 	return resultado, nil
 }
 
+func contieneCategoriaPublica(catalogo puertosbolsa.CatalogoCategoriasPublicas, clave string) bool {
+	for _, categoria := range catalogo.Categorias {
+		if categoria.Clave == clave {
+			return true
+		}
+	}
+	return false
+}
+
+func validarConteosCategorias(conteos map[string]puertosbolsa.ConteoCategoriaConvocatorias, indice indiceCatalogos) error {
+	for clave, conteo := range conteos {
+		entrada, existe := indice.porCatalogo[puertosbolsa.CatalogoCategoriasConvocatoria][clave]
+		if !existe || !entrada.Publicable || conteo.NumeroConvocatorias < 1 || conteo.NumeroPlazosAbiertos < 0 {
+			return ErrDatosPublicosNoConfiables
+		}
+	}
+	return nil
+}
+
 func validarFuente(f puertosbolsa.MetadatosFuenteConvocatorias) error {
 	if !patronFiltroCatalogo.MatchString(f.Revision) || f.ActualizadaEn.IsZero() || f.ActualizadaEn.Location() != time.UTC || f.ActualizadaEn.Nanosecond()%1000 != 0 ||
 		(f.Demostracion && !textoPublicoCanonico(f.Aviso, 500, true)) || (!f.Demostracion && f.Aviso != "" && !textoPublicoCanonico(f.Aviso, 500, true)) {
+		return ErrDatosPublicosNoConfiables
+	}
+	return nil
+}
+
+func validarFuenteCategorias(f puertosbolsa.MetadatosFuenteCategorias) error {
+	if !patronFiltroCatalogo.MatchString(f.Revision) || f.ActualizadaEn.IsZero() ||
+		f.ActualizadaEn.Location() != time.UTC || f.ActualizadaEn.Nanosecond()%1000 != 0 ||
+		(f.Demostracion && !textoPublicoCanonico(f.Aviso, 500, true)) ||
+		(!f.Demostracion && f.Aviso != "" && !textoPublicoCanonico(f.Aviso, 500, true)) {
 		return ErrDatosPublicosNoConfiables
 	}
 	return nil
@@ -507,6 +766,10 @@ func textoPublicoCanonico(valor string, maximo int, multilinea bool) bool {
 }
 
 func proyectarFuente(f puertosbolsa.MetadatosFuenteConvocatorias) FuentePublica {
+	return FuentePublica{Revision: f.Revision, ActualizadaEn: f.ActualizadaEn, Demostracion: f.Demostracion, Aviso: f.Aviso}
+}
+
+func proyectarFuenteCategorias(f puertosbolsa.MetadatosFuenteCategorias) FuentePublica {
 	return FuentePublica{Revision: f.Revision, ActualizadaEn: f.ActualizadaEn, Demostracion: f.Demostracion, Aviso: f.Aviso}
 }
 

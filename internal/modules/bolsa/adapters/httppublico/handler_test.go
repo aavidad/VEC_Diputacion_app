@@ -7,13 +7,15 @@ import (
 	"testing"
 	"time"
 
+	catalogosvec "vec-diputacion-granada/internal/modules/bolsa/adapters/catalogosvec"
 	ficherobolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/fichero"
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
+	ficherovec "vec-diputacion-granada/internal/vec/adapters/fichero"
 )
 
 type relojHTTPFijo struct{}
 
-func (relojHTTPFijo) Ahora() time.Time { return time.Date(2026, 7, 15, 8, 0, 0, 0, time.UTC) }
+func (relojHTTPFijo) Ahora() time.Time { return time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC) }
 
 func handlerPublicoPrueba(t *testing.T) http.Handler {
 	t.Helper()
@@ -21,7 +23,15 @@ func handlerPublicoPrueba(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatal(err)
 	}
-	servicio, err := aplicacionbolsa.NuevoServicioConsultaPublica(adaptador, relojHTTPFijo{})
+	paquete, err := ficherovec.NuevaConsultaCatalogos("../../../../../data/catalogos/categorias-profesionales/v1.demo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	categorias, err := catalogosvec.NuevaConsultaCategorias(paquete, "categorias-profesionales", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	servicio, err := aplicacionbolsa.NuevoServicioConsultaPublica(adaptador, categorias, relojHTTPFijo{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,6 +100,31 @@ func TestHTTPPublicoHEADMetodosYCabeceras(t *testing.T) {
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodHead, RutaConvocatorias+"?tipo=", nil))
 	if rec.Code != http.StatusBadRequest || rec.Body.Len() != 0 {
 		t.Fatalf("HEAD erróneo = %d, cuerpo=%q", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHTTPPublicoCategoriasGETHEADYMinimizacion(t *testing.T) {
+	handler := handlerPublicoPrueba(t)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, RutaCategorias, nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"esquema":"vec.bolsa.publico.categorias.v1"`) ||
+		!strings.Contains(rec.Body.String(), `"total":58`) {
+		t.Fatalf("GET categorias=%d %s", rec.Code, rec.Body.String())
+	}
+	for _, prohibido := range []string{"source_path", "creado_por", "publicado_por", "aprobacion_ref", "origen_sha256"} {
+		if strings.Contains(rec.Body.String(), prohibido) {
+			t.Fatalf("respuesta contiene %q", prohibido)
+		}
+	}
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodHead, RutaCategorias, nil))
+	if rec.Code != http.StatusOK || rec.Body.Len() != 0 {
+		t.Fatalf("HEAD categorias=%d cuerpo=%q", rec.Code, rec.Body.String())
+	}
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, RutaCategorias+"?interno=true", nil))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("consulta categorias no rechazada=%d", rec.Code)
 	}
 }
 

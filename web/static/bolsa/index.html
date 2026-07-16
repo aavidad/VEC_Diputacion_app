@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Consulta pública de convocatorias, plazos, requisitos y documentos de Bolsa.">
   <title>Bolsa y procesos selectivos | Portal VEC</title>
+  <link rel="icon" href="/bolsa/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css?v=20260715-theme">
-  <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260715-publico-v1">
-  <script src="/bolsa/bolsa.js?v=20260715-publico-v1" defer></script>
+  <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260716-categorias-v1">
+  <script src="/bolsa/bolsa.js?v=20260716-categorias-v1" defer></script>
 </head>
 <body class="portal-bolsa-publico">
   <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
@@ -46,7 +47,8 @@
       </div>
       <div class="campo">
         <label for="filtro-categoria">Categoría</label>
-        <select id="filtro-categoria" name="categoria"><option value="">Todas las categorías</option></select>
+        <select id="filtro-categoria" name="categoria" aria-describedby="ayuda-filtro-categoria"><option value="">Todas con procesos</option></select>
+        <p id="ayuda-filtro-categoria" class="ayuda-campo">Solo se muestran categorías con procesos publicados. <a href="#directorio-categorias">Consultar el directorio completo</a>.</p>
       </div>
       <div class="campo">
         <label for="filtro-estado">Estado</label>
@@ -105,6 +107,7 @@
         <div id="detalle-cargando" class="estado-panel" role="status" hidden>Abriendo la ficha pública…</div>
         <div id="detalle-error" class="estado-panel estado-error" role="alert" hidden>
           <p>No se ha podido abrir esta ficha.</p>
+      <button id="reintentar-detalle" class="boton-secundario" type="button">Reintentar</button>
         </div>
         <article id="contenido-detalle" hidden>
           <div id="detalle-etiquetas" class="grupo-etiquetas"></div>
@@ -118,6 +121,46 @@
         </article>
       </aside>
     </div>
+
+    <section id="directorio-categorias" class="directorio-categorias" aria-labelledby="titulo-directorio-categorias" aria-busy="true">
+      <div class="directorio-categorias__cabecera">
+        <div>
+          <p class="eyebrow">Catálogo profesional compartido</p>
+          <h2 id="titulo-directorio-categorias" tabindex="-1">Todas las categorías profesionales</h2>
+          <p>Consulte también las categorías que no tienen procesos publicados en este momento.</p>
+        </div>
+        <p id="integridad-catalogo-categorias" class="integridad-publica"></p>
+      </div>
+
+      <div class="filtros-directorio" role="search" aria-label="Buscar en el directorio de categorías">
+        <div class="campo">
+          <label for="buscar-categoria">Buscar categoría</label>
+          <input id="buscar-categoria" type="search" maxlength="100" autocomplete="off" placeholder="Nombre o descripción">
+        </div>
+        <div class="campo">
+          <label for="filtrar-area-categoria">Área</label>
+          <select id="filtrar-area-categoria"><option value="">Todas las áreas</option></select>
+        </div>
+      </div>
+
+      <p id="estado-directorio-categorias" class="estado-directorio" role="status" aria-live="polite">Cargando el catálogo profesional…</p>
+      <div id="cargando-directorio-categorias" class="estado-panel" role="status">
+        <span class="indicador-carga" aria-hidden="true"></span>
+        Consultando categorías publicables…
+      </div>
+      <div id="error-directorio-categorias" class="estado-panel estado-error" role="alert" hidden>
+        <h3>No se ha podido cargar el directorio</h3>
+        <p>Las convocatorias pueden seguir consultándose con normalidad.</p>
+        <button id="reintentar-directorio-categorias" class="boton-secundario" type="button">Reintentar</button>
+      </div>
+      <div id="vacio-directorio-categorias" class="estado-panel" hidden>
+        <h3>No hay categorías que coincidan</h3>
+        <p>Pruebe con otro texto o seleccione todas las áreas.</p>
+      </div>
+      <div id="grupos-directorio-categorias" class="grupos-directorio" aria-label="Categorías profesionales" hidden></div>
+
+      <p class="nota-suscripciones"><strong>Avisos por categoría:</strong> se configurarán desde el área personal autenticada, con consentimiento y justificante. Este portal público no guarda preferencias ni datos de contacto.</p>
+    </section>
 
     <noscript><p class="estado-panel estado-error">Active JavaScript para consultar la API pública desde esta página. La API permanece disponible en <code>/api/publico/bolsa/convocatorias</code>.</p></noscript>
   </main>

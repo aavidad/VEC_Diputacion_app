@@ -90,9 +90,11 @@ func TestInterfazParteCerradaHastaResolverUnaSesionAutorizada(t *testing.T) {
 func TestServerSirvePortalBolsaPermanenteSinEstilosInline(t *testing.T) {
 	handler := NewHandler(http.NotFoundHandler())
 	for _, prueba := range []struct{ ruta, tipo, contenido string }{
-		{ruta: "/bolsa/", tipo: "text/html", contenido: "Convocatorias abiertas y próximas"},
-		{ruta: "/bolsa/bolsa.css?v=1", tipo: "text/css", contenido: ".espacio-trabajo-publico"},
-		{ruta: "/bolsa/bolsa.js?v=1", tipo: "text/javascript", contenido: "/api/publico/bolsa/convocatorias"},
+		{ruta: "/bolsa/", tipo: "text/html", contenido: "directorio-categorias"},
+		{ruta: "/bolsa/bolsa.css?v=1", tipo: "text/css", contenido: ".grupos-directorio"},
+		{ruta: "/bolsa/bolsa.js?v=1", tipo: "text/javascript", contenido: "/api/publico/bolsa/categorias"},
+		{ruta: "/bolsa/favicon.svg", tipo: "image/svg+xml", contenido: "<svg"},
+		{ruta: "/bolsa/documentos/bases-auxiliar-demo.html", tipo: "text/html", contenido: "bolsa.css?v=20260716-categorias-v1"},
 	} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, prueba.ruta, nil))
@@ -102,7 +104,7 @@ func TestServerSirvePortalBolsaPermanenteSinEstilosInline(t *testing.T) {
 		if prueba.tipo == "text/html" && (strings.Contains(strings.ToLower(rec.Body.String()), "<style") || strings.Contains(strings.ToLower(rec.Body.String()), " style=")) {
 			t.Fatalf("%s contiene CSS inline", prueba.ruta)
 		}
-		if prueba.ruta == "/bolsa/bolsa.js?v=1" && !strings.Contains(rec.Body.String(), "datos.fuente.demostracion === true") {
+		if prueba.ruta == "/bolsa/bolsa.js?v=1" && !strings.Contains(rec.Body.String(), "fuente?.demostracion === true") {
 			t.Fatal("la UI no gobierna el aviso DEMOSTRACIÓN desde la fuente")
 		}
 	}
