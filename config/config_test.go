@@ -61,17 +61,20 @@ func TestCatalogoCategoriasBolsaFijaFuenteIDYVersionSinRecompilar(t *testing.T) 
 	configuracion := (Config{}).Normalize()
 	if configuracion.BolsaCategoriesSourcePath != DefaultBolsaCategoriesSourcePath ||
 		configuracion.BolsaCategoriesCatalogID != DefaultBolsaCategoriesCatalogID ||
-		configuracion.BolsaCategoriesVersion != DefaultBolsaCategoriesVersion {
+		configuracion.BolsaCategoriesVersion != DefaultBolsaCategoriesVersion ||
+		configuracion.BolsaCategoriesSHA256 != DefaultBolsaCategoriesSHA256 {
 		t.Fatalf("catalogo predeterminado inesperado: %+v", configuracion)
 	}
 
 	t.Setenv(EnvBolsaCategoriesSourcePath, " /fuentes/catalogo-v7.json ")
 	t.Setenv(EnvBolsaCategoriesCatalogID, " categorias-profesionales-provincia ")
 	t.Setenv(EnvBolsaCategoriesVersion, "7")
+	t.Setenv(EnvBolsaCategoriesSHA256, " aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ")
 	configuracion = Load()
 	if configuracion.BolsaCategoriesSourcePath != "/fuentes/catalogo-v7.json" ||
 		configuracion.BolsaCategoriesCatalogID != "categorias-profesionales-provincia" ||
-		configuracion.BolsaCategoriesVersion != 7 {
+		configuracion.BolsaCategoriesVersion != 7 ||
+		configuracion.BolsaCategoriesSHA256 != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
 		t.Fatalf("configuracion explicita alterada: %+v", configuracion)
 	}
 }

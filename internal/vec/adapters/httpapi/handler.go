@@ -20,17 +20,19 @@ import (
 )
 
 type Handler struct {
-	service         *application.Service
-	internal        *application.InternalOperations
-	cronos          *cronosapp.Service
-	personalCatalog *personalapp.CatalogService
-	roadRoute       *roadRouteConnector
-	identityPolicy  identityPolicy
+	service                 *application.Service
+	internal                *application.InternalOperations
+	cronos                  *cronosapp.Service
+	personalCatalog         *personalapp.CatalogService
+	categoriasProfesionales *personalapp.ServicioConsultaCategoriasProfesionales
+	roadRoute               *roadRouteConnector
+	identityPolicy          identityPolicy
 }
 
 type HandlerOptions struct {
 	InternalOperations      *application.InternalOperations
 	PersonalCatalogPath     string
+	CategoriasProfesionales *personalapp.ServicioConsultaCategoriasProfesionales
 	OSRMBaseURL             string
 	OSRMScopeName           string
 	OSRMScopeBounds         string
@@ -84,12 +86,13 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 		return nil, err
 	}
 	return &Handler{
-		service:         service,
-		internal:        options.InternalOperations,
-		cronos:          cronos,
-		personalCatalog: personalCatalog,
-		roadRoute:       roadRoute,
-		identityPolicy:  identityPolicy,
+		service:                 service,
+		internal:                options.InternalOperations,
+		cronos:                  cronos,
+		personalCatalog:         personalCatalog,
+		categoriasProfesionales: options.CategoriasProfesionales,
+		roadRoute:               roadRoute,
+		identityPolicy:          identityPolicy,
 	}, nil
 }
 

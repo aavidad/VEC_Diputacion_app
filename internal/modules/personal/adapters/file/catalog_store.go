@@ -17,17 +17,18 @@ import (
 const catalogStoreSchemaVersion = 1
 
 type CatalogStore struct {
-	path   string
-	mu     sync.Mutex
-	memory *personalmemory.CatalogStore
+	path                 string
+	mu                   sync.Mutex
+	memory               *personalmemory.CatalogStore
+	categoriasHistoricas json.RawMessage
 }
 
 type catalogSnapshot struct {
-	SchemaVersion int                           `json:"schema_version"`
-	SavedAt       time.Time                     `json:"saved_at"`
-	Positions     []domain.RPTPosition          `json:"positions"`
-	Categories    []domain.ProfessionalCategory `json:"categories"`
-	Catalogs      []domain.CatalogEntry         `json:"catalogs"`
+	SchemaVersion int                   `json:"schema_version"`
+	SavedAt       time.Time             `json:"saved_at"`
+	Positions     []domain.RPTPosition  `json:"positions"`
+	Categories    json.RawMessage       `json:"categories"`
+	Catalogs      []domain.CatalogEntry `json:"catalogs"`
 }
 
 func NewCatalogStore(path string) (*CatalogStore, error) {
@@ -79,33 +80,6 @@ func (s *CatalogStore) ImportPositions(ctx context.Context, cmd domain.RPTImport
 		return domain.RPTImportReceipt{}, err
 	}
 	return receipt, s.persistLocked(ctx)
-}
-
-func (s *CatalogStore) UpsertCategory(ctx context.Context, category domain.ProfessionalCategory) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.memory.UpsertCategory(ctx, category); err != nil {
-		return err
-	}
-	return s.persistLocked(ctx)
-}
-
-func (s *CatalogStore) GetCategory(ctx context.Context, slug string) (domain.ProfessionalCategory, bool, error) {
-	return s.memory.GetCategory(ctx, slug)
-}
-
-func (s *CatalogStore) DeleteCategory(ctx context.Context, slug string) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	deleted, err := s.memory.DeleteCategory(ctx, slug)
-	if err != nil || !deleted {
-		return deleted, err
-	}
-	return deleted, s.persistLocked(ctx)
-}
-
-func (s *CatalogStore) ListCategories(ctx context.Context, filter domain.ProfessionalCategoryFilter) (domain.ProfessionalCategoryPage, error) {
-	return s.memory.ListCategories(ctx, filter)
 }
 
 func (s *CatalogStore) UpsertCatalogEntry(ctx context.Context, entry domain.CatalogEntry) error {
@@ -163,11 +137,20 @@ func (s *CatalogStore) applySnapshot(ctx context.Context, snapshot catalogSnapsh
 	}); err != nil {
 		return err
 	}
-	for _, category := range snapshot.Categories {
-		if err := s.memory.UpsertCategory(ctx, category); err != nil {
+	// Categories pertenecia al esquema historico de este snapshot. Se valida una
+	// proyeccion tipada, pero se conserva el subarbol JSON original para que una
+	// escritura de RPT no elimine extensiones heredadas desconocidas. Nunca se
+	// carga como autoridad consultable ni admite mutaciones nuevas.
+	categorias, err := decodificarCategoriasHistoricas(snapshot.Categories)
+	if err != nil {
+		return err
+	}
+	for _, category := range categorias {
+		if err := category.Validate(); err != nil {
 			return err
 		}
 	}
+	s.categoriasHistoricas = clonarMensajeJSON(snapshot.Categories)
 	for _, entry := range snapshot.Catalogs {
 		if err := s.memory.UpsertCatalogEntry(ctx, entry); err != nil {
 			return err
@@ -220,10 +203,6 @@ func (s *CatalogStore) snapshot(ctx context.Context) (catalogSnapshot, error) {
 	if err != nil {
 		return catalogSnapshot{}, err
 	}
-	categories, err := s.memory.ListCategories(ctx, domain.ProfessionalCategoryFilter{Limit: maxSnapshotRows})
-	if err != nil {
-		return catalogSnapshot{}, err
-	}
 	catalogs, err := s.memory.ListCatalogEntries(ctx)
 	if err != nil {
 		return catalogSnapshot{}, err
@@ -232,9 +211,24 @@ func (s *CatalogStore) snapshot(ctx context.Context) (catalogSnapshot, error) {
 		SchemaVersion: catalogStoreSchemaVersion,
 		SavedAt:       time.Now().UTC(),
 		Positions:     positions.Items,
-		Categories:    categories.Items,
+		Categories:    clonarMensajeJSON(s.categoriasHistoricas),
 		Catalogs:      catalogs,
 	}, nil
+}
+
+func decodificarCategoriasHistoricas(contenido json.RawMessage) ([]domain.ProfessionalCategory, error) {
+	if len(contenido) == 0 {
+		return nil, nil
+	}
+	var categorias []domain.ProfessionalCategory
+	if err := json.Unmarshal(contenido, &categorias); err != nil {
+		return nil, fmt.Errorf("decode personal legacy categories: %w", err)
+	}
+	return categorias, nil
+}
+
+func clonarMensajeJSON(contenido json.RawMessage) json.RawMessage {
+	return append(json.RawMessage(nil), contenido...)
 }
 
 func (s *CatalogStore) copyBackup() error {

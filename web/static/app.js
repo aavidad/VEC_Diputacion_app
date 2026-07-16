@@ -1,4 +1,9 @@
 import { renderizarResumenCronos } from "./modulos/cronos/resumen.js?v=20260716-cronos-modular";
+import {
+  crearHerramientasCatalogoCategorias,
+  normalizarPaginaCategoriasProfesionales,
+  ofertaPerteneceAlCatalogoActual,
+} from "./catalogo-categorias.js?v=20260716-catalogo-gobernado";
 
 const VEC_SHELL_API = "/api/vec";
 const VEC_WORKSPACE_API = "/api/vec/workspace";
@@ -496,7 +501,6 @@ const state = {
   screenStateFilter: "",
   leaveSubmitting: false,
   rptSubmitting: false,
-  categorySubmitting: false,
   activeTab: "resumen",
   search: "",
   filters: { scope: "", state: "", deadline: "", unit: "" },
@@ -1460,9 +1464,10 @@ function notificationActionPath(notificationID, action) {
   return `/api/notifications/${encodeURIComponent(notificationID)}/${action}`;
 }
 
+
 function normalizePersonalCatalog(raw) {
   const positions = raw.positions?.positions || raw.positions || {};
-  const categories = raw.categories?.categories || raw.categories || {};
+  const categories = normalizarPaginaCategoriasProfesionales(raw.categories);
   return {
     positions: {
       items: Array.isArray(positions.items) ? positions.items : [],
@@ -1471,15 +1476,11 @@ function normalizePersonalCatalog(raw) {
       offset: Number(positions.offset || 0),
     },
     stats: raw.stats?.stats || raw.stats || {},
-    categories: {
-      items: Array.isArray(categories.items) ? categories.items : [],
-      total: Number(categories.total || 0),
-      limit: Number(categories.limit || 0),
-      offset: Number(categories.offset || 0),
-    },
+    categories,
     catalogs: Array.isArray(raw.catalogs?.catalogs) ? raw.catalogs.catalogs : (Array.isArray(raw.catalogs) ? raw.catalogs : []),
   };
 }
+
 
 function normalizePortal(rawPortal, demo) {
   const sections = Array.isArray(rawPortal.sections) ? rawPortal.sections : [];
@@ -1543,6 +1544,7 @@ function moduleKPIs(view, moduleID) {
   const routes = view.workspace?.province_route_pairs || view.workspace?.province_routes || [];
   const catalog = getPersonalCatalog(view);
   const catalogStats = catalog.stats || {};
+  const totalCategorias = Number(catalog.categories?.total ?? catalogStats.categories ?? 0);
   const findPermission = (name) => permissions.find((item) => String(item.name || "").includes(name)) || {};
   const byScope = (pattern) => rows.filter((row) => pattern.test(row.scope || row.expediente || row.state || ""));
   const defaults = [
@@ -1559,7 +1561,7 @@ function moduleKPIs(view, moduleID) {
       return [
         { label: "Expedientes RRHH", value: byModule("personal").length, note: "Empleado, puesto y situacion" },
         { label: "Puestos RPT", value: catalogStats.positions || byScope(/puesto/i).length, note: "API Personal/RPT" },
-        { label: "Categorias", value: catalogStats.categories || 0, note: "Maestro Bolsa/OPES" },
+        { label: "Categorías", value: totalCategorias, note: "Catálogo profesional recibido" },
         { label: "Codigos pendientes", value: catalogStats.pending_legend || 0, note: "Leyenda RPT por validar" },
       ];
     case "nominas":
@@ -1607,7 +1609,7 @@ function moduleKPIs(view, moduleID) {
     case "bolsa":
       return [
         { label: "Registros Bolsa", value: moduleRows.length, note: "Modulo independiente" },
-        { label: "Categorias", value: catalogStats.categories || 0, note: "Desde Personal/RPT" },
+        { label: "Categorías", value: totalCategorias, note: "Catálogo profesional recibido" },
         { label: "Subsanaciones", value: moduleRows.filter((row) => /subsan/i.test(row.state)).length, note: "Pendientes" },
         { label: "Baremo categoria", value: (view.workspace?.bolsa_category_rules || []).length, note: "Misma/otra categoria" },
       ];
@@ -1655,7 +1657,7 @@ function moduleCount(view, moduleID) {
     case "rutas":
       return view.workspace?.province_routes?.length || rows.filter((row) => row.modules.includes("rutas")).length;
     case "bolsa":
-      return rows.filter((row) => row.modules.includes("bolsa")).length || getPersonalCatalog(view).stats?.categories || 0;
+      return rows.filter((row) => row.modules.includes("bolsa")).length || getPersonalCatalog(view).categories?.total || 0;
     case "documentos":
       return rows.reduce((sum, row) => sum + row.documents.length, 0);
     case "aprobaciones":
@@ -3401,65 +3403,58 @@ function normalizeBolsaOffer(offer, index = 0) {
     feeAmount: feeRequired ? feeAmount : 0,
     feeCode: offer.feeCode || offer.fee_code || (feeRequired ? `TASA-BOL-${String(index + 1).padStart(2, "0")}` : ""),
     feeLabel: offer.feeLabel || offer.fee_label || (feeRequired ? "Tasa de derechos de examen/participacion" : "Sin tasa"),
+    categoryKey: offer.categoryKey || offer.category_key || "",
+    categoryCatalogID: offer.categoryCatalogID || offer.category_catalog_id || "",
+    categoryCatalogVersion: Number(offer.categoryCatalogVersion || offer.category_catalog_version || 0),
+    categoryCatalogSHA256: offer.categoryCatalogSHA256 || offer.category_catalog_sha256 || "",
     applications: Number(offer.applications || 0),
   };
 }
 
 function ensureBolsaOffers(view) {
-  if (Array.isArray(state.bolsaOffers) && state.bolsaOffers.length) return state.bolsaOffers;
-  const storedOffers = readStoredArray("vec_demo_bolsa_offers");
-  if (storedOffers.length) {
-    state.bolsaOffers = storedOffers.map(normalizeBolsaOffer);
+  const categories = obtenerCategoriasProfesionales(view);
+  const referenciaCatalogo = referenciaCatalogoCategorias(view);
+  const clavesVigentes = new Set(categories.map((category) => category.clave).filter(Boolean));
+  const perteneceAlCatalogoActual = (offer) => ofertaPerteneceAlCatalogoActual(
+    offer, clavesVigentes, referenciaCatalogo,
+  );
+  for (const source of [state.bolsaOffers, readStoredArray("vec_demo_bolsa_offers")]) {
+    const validas = Array.isArray(source) ? source.map(normalizeBolsaOffer).filter(perteneceAlCatalogoActual) : [];
+    if (validas.length) {
+      state.bolsaOffers = validas;
+      writeStoredArray("vec_demo_bolsa_offers", validas);
+      return validas;
+    }
+  }
+  if (
+    !categories.length
+    || !referenciaCatalogo.id
+    || referenciaCatalogo.version <= 0
+    || !/^[a-f0-9]{64}$/i.test(referenciaCatalogo.huellaSHA256)
+  ) {
+    state.bolsaOffers = [];
     return state.bolsaOffers;
   }
-  const categories = getPersonalCatalog(view).categories?.items || view.workspace?.professional_categories || [];
   const seeded = categories.slice(0, 4).map((category, index) => ({
     id: `OFE-2026-${String(index + 1).padStart(4, "0")}`,
-    title: `Bolsa ${category.name || category.label || "categoria profesional"}`,
-    category: category.name || category.label || "Categoria profesional",
-    unit: category.area || "Diputacion de Granada",
+    title: `Bolsa ${category.etiqueta || "categoría profesional"}`,
+    category: category.etiqueta || "Categoría profesional",
+    categoryKey: category.clave,
+    categoryCatalogID: referenciaCatalogo.id,
+    categoryCatalogVersion: referenciaCatalogo.version,
+    categoryCatalogSHA256: referenciaCatalogo.huellaSHA256,
+    unit: category.area || "Diputación de Granada",
     deadline: index === 0 ? "30/06/2026" : "15/07/2026",
-    requirements: "Solicitud, titulacion requerida y meritos reutilizables del expediente VEC.",
+    requirements: "Solicitud, titulación requerida y méritos reutilizables del expediente VEC.",
     basesRef: "Bases publicadas en portal interno",
     state: "Abierta",
     applications: index,
     feeRequired: index === 0,
     feeAmount: index === 0 ? 15.12 : 0,
     feeCode: index === 0 ? "TASA-BOL-01" : "",
-    feeLabel: index === 0 ? "Tasa de participacion" : "Sin tasa",
+    feeLabel: index === 0 ? "Tasa de participación" : "Sin tasa",
   }));
-  state.bolsaOffers = (seeded.length ? seeded : [
-    {
-      id: "OFE-2026-0001",
-      title: "Bolsa tecnico de gestion A2",
-      category: "Tecnico de gestion A2",
-      unit: "Administracion general",
-      deadline: "30/06/2026",
-      requirements: "Titulacion A2, servicios prestados y meritos documentados.",
-      basesRef: "Bases demo VEC",
-      state: "Abierta",
-      applications: 0,
-      feeRequired: true,
-      feeAmount: 15.12,
-      feeCode: "TASA-BOL-01",
-      feeLabel: "Tasa de participacion",
-    },
-    {
-      id: "OFE-2026-0002",
-      title: "Bolsa administrativo C1",
-      category: "Administracion general C1",
-      unit: "Servicios centrales",
-      deadline: "15/07/2026",
-      requirements: "Titulacion C1, experiencia y formacion baremable.",
-      basesRef: "Bases demo VEC",
-      state: "Abierta",
-      applications: 0,
-      feeRequired: false,
-      feeAmount: 0,
-      feeCode: "",
-      feeLabel: "Sin tasa",
-    },
-  ]).map(normalizeBolsaOffer);
+  state.bolsaOffers = seeded.map(normalizeBolsaOffer);
   writeStoredArray("vec_demo_bolsa_offers", state.bolsaOffers);
   return state.bolsaOffers;
 }
@@ -3477,13 +3472,14 @@ function normalizeBolsaApplication(application) {
 }
 
 function defaultEmployeeBolsaApplications(view, offers = ensureBolsaOffers(view)) {
+  if (!offers[0]) return [];
   const employee = payrollEmployeeData();
   return [
     {
       id: "BOL-2026-0172",
-      offerID: offers[0]?.id || "OFE-2026-0001",
-      title: offers[0]?.title || "Bolsa tecnico de gestion A2",
-      category: offers[0]?.category || "Tecnico de gestion A2",
+      offerID: offers[0].id,
+      title: offers[0].title,
+      category: offers[0].category,
       state: "Admitida provisional",
       submittedAt: "18/06/2026",
       feeRequired: offers[0]?.feeRequired === true,
@@ -4021,7 +4017,8 @@ function handleBolsaApplicationSubmit(offer, form, view) {
 
 function bolsaOfferManagementPanel(view) {
   const offers = ensureBolsaOffers(view);
-  const categories = getPersonalCatalog(view).categories?.items || view.workspace?.professional_categories || [];
+  const categories = obtenerCategoriasProfesionales(view).filter((categoria) => categoria.clave && categoria.etiqueta);
+  const referenciaCatalogo = referenciaCatalogoCategorias(view);
   const panel = document.createElement("section");
   panel.className = "employee-flow-panel bolsa-offer-panel";
   panel.innerHTML = `
@@ -4077,27 +4074,37 @@ function bolsaOfferManagementPanel(view) {
   `;
   const form = $("form", panel);
   const categorySelect = $("select[name='category']", form);
-  const categoryValues = categories.length
-    ? categories.map((item) => item.name || item.label || item.slug).filter(Boolean)
-    : ["Tecnico de gestion A2", "Administrativo C1", "Auxiliar administrativo C2", "Trabajador social A2"];
-  categoryValues.slice(0, 40).forEach((category) => {
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.disabled = true;
+  placeholder.selected = true;
+  placeholder.textContent = categories.length ? "Seleccione una categoría" : "No hay categorías disponibles";
+  categorySelect.append(placeholder);
+  categories.forEach((category) => {
     const option = document.createElement("option");
-    option.value = category;
-    option.textContent = category;
+    option.value = category.clave;
+    option.textContent = category.etiqueta;
+    option.dataset.categoryLabel = category.etiqueta;
     categorySelect.append(option);
   });
-  if (categoryValues[0]) {
-    categorySelect.value = categoryValues[0];
-    $("input[name='title']", form).value = `Bolsa ${categoryValues[0]}`;
+  if (categories[0]) {
+    categorySelect.value = categories[0].clave;
+    $("input[name='title']", form).value = `Bolsa ${categories[0].etiqueta}`;
+  } else {
+    categorySelect.disabled = true;
+    $("button[type='submit']", form).disabled = true;
   }
   categorySelect.addEventListener("change", () => {
-    $("input[name='title']", form).value = `Bolsa ${categorySelect.value}`;
+    const etiqueta = categorySelect.selectedOptions[0]?.dataset.categoryLabel || "";
+    if (etiqueta) $("input[name='title']", form).value = `Bolsa ${etiqueta}`;
   });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     if (!form.reportValidity()) return;
     const data = new FormData(form);
     const deadline = formatDateForDisplay(data.get("deadline"));
+    const categoryOption = categorySelect.selectedOptions[0];
+    const categoryLabel = categoryOption?.dataset.categoryLabel || categoryOption?.textContent || "";
     const existingID = String(data.get("offer_id") || "").trim();
     const existing = offers.find((item) => item.id === existingID);
     const offer = existing || {
@@ -4106,7 +4113,11 @@ function bolsaOfferManagementPanel(view) {
     };
     Object.assign(offer, {
       title: String(data.get("title") || "").trim(),
-      category: String(data.get("category") || "").trim(),
+      category: String(categoryLabel).trim(),
+      categoryKey: String(data.get("category") || "").trim(),
+      categoryCatalogID: referenciaCatalogo.id,
+      categoryCatalogVersion: referenciaCatalogo.version,
+      categoryCatalogSHA256: referenciaCatalogo.huellaSHA256,
       unit: String(data.get("unit") || "").trim(),
       deadline,
       requirements: String(data.get("requirements") || "").trim(),
@@ -4149,6 +4160,10 @@ function renderScreenNavigation(target, screens) {
 }
 
 function renderScreenWorkspace(target, screen, view) {
+  if (screen.id === "admin.catalogos") {
+    renderCatalogoCategoriasGobernado(target, screen, view);
+    return;
+  }
   const headers = screenHeaders(screen);
   const rows = screenRows(screen, view);
   const actions = screenActions(screen);
@@ -4175,10 +4190,6 @@ function renderScreenWorkspace(target, screen, view) {
 
   if (isRPTScreen(screen)) {
     target.append(rptPositionPanel(screen));
-  }
-
-  if (screen.id === "admin.catalogos") {
-    target.append(categoryCatalogPanel());
   }
 
   if (screen.id === "bolsa.convocatorias" && canManageBolsaOffers()) {
@@ -4225,7 +4236,8 @@ function screenHead(title, subtitle, actions) {
     button.addEventListener("click", () => handleModulePortalAction(action));
     bar.append(button);
   });
-  head.append(copy, bar);
+  head.append(copy);
+  if (bar.childElementCount) head.append(bar);
   return head;
 }
 
@@ -4310,6 +4322,20 @@ function stateColumnIndex(headers) {
 }
 
 const workTableTextCollator = new Intl.Collator("es", { numeric: true, sensitivity: "base" });
+
+const {
+  obtenerCategoriasProfesionales,
+  referenciaCatalogoCategorias,
+  renderCatalogoCategoriasGobernado,
+} = crearHerramientasCatalogoCategorias({
+  $,
+  $$,
+  formatCount,
+  stateTone,
+  screenHead,
+  getPersonalCatalog,
+  workTableTextCollator,
+});
 
 function workTableSortKey(screen) {
   return screen?.id || state.activeScreen || state.activeModule || "default";
@@ -4476,7 +4502,6 @@ function workTable(screen, headers, allRows) {
 
 function rowActionLabel(screen) {
   if (screen.id === "personal.puestos") return "Editar";
-  if (screen.id === "admin.catalogos") return "Editar";
   if (screen.id === "bolsa.convocatorias") return "Editar oferta";
   return (screen.actions || [])[0] || "Abrir";
 }
@@ -6810,104 +6835,6 @@ async function handleRPTPositionDelete(form) {
   }
 }
 
-function categoryCatalogPanel() {
-  const panel = document.createElement("section");
-  panel.className = "leave-request-panel";
-  const header = document.createElement("div");
-  header.className = "panel-header";
-  header.innerHTML = `<div><h3></h3><span class="small-text"></span></div>`;
-  $("h3", header).textContent = "Categoria profesional";
-  $(".small-text", header).textContent = "Crear, modificar o borrar categoria comun para Bolsa, RPT y certificados";
-  const form = document.createElement("form");
-  form.className = "flow-form leave-form";
-  form.dataset.categoryForm = "true";
-  form.innerHTML = `
-    <label>Slug
-      <input name="slug" value="nueva-categoria" required>
-    </label>
-    <label>Nombre
-      <input name="name" value="Nueva categoria profesional" required>
-    </label>
-    <label>Area
-      <select name="area">
-        <option value="administracion_general">Administracion general</option>
-        <option value="administracion_especial">Administracion especial</option>
-      </select>
-    </label>
-    <label>Fuente
-      <input name="source" value="VEC">
-    </label>
-    <label>Uso
-      <input name="usage" value="Convocatorias, RPT y certificados">
-    </label>
-    <button class="primary-action" type="submit">Guardar categoria</button>
-    <button class="quiet-action" type="button" data-category-delete>Borrar categoria</button>
-  `;
-  applyVisibleFieldHelp(form);
-  form.addEventListener("submit", handleCategorySubmit);
-  $("[data-category-delete]", form).addEventListener("click", () => handleCategoryDelete(form));
-  panel.append(header, form);
-  return panel;
-}
-
-async function handleCategorySubmit(event) {
-  event.preventDefault();
-  if (state.categorySubmitting) return;
-  const form = event.currentTarget;
-  const data = new FormData(form);
-  const slug = String(data.get("slug") || "").trim();
-  const payload = {
-    name: String(data.get("name") || "").trim(),
-    area: String(data.get("area") || "").trim(),
-    source: String(data.get("source") || "").trim(),
-    usage: String(data.get("usage") || "").trim(),
-    module_key: "bolsa",
-    state: "Vigente",
-  };
-  state.categorySubmitting = true;
-  setStatus("Guardando categoria", "loading");
-  try {
-    const result = await getData(`${PERSONAL_CATEGORIES_API}/${encodeURIComponent(slug)}`, {
-      method: "PUT",
-      headers: staffHeaders(),
-      body: JSON.stringify(payload),
-    });
-    recordReceipt("Categoria guardada", `${result.category?.slug || slug} - ${result.receipt?.id || "auditoria"}`, "administracion");
-    await loadPortal();
-    setStatus("Categoria actualizada", "ready");
-  } catch (error) {
-    setStatus(error.message, "error");
-  } finally {
-    state.categorySubmitting = false;
-  }
-}
-
-async function handleCategoryDelete(form) {
-  if (state.categorySubmitting) return;
-  const slug = String(new FormData(form).get("slug") || "").trim();
-  if (!slug) {
-    setStatus("Slug obligatorio para borrar categoria", "error");
-    return;
-  }
-  if (!window.confirm(`Borrar la categoria ${slug}. Esta accion se auditara y puede afectar a Bolsa, RPT y certificados.`)) {
-    return;
-  }
-  state.categorySubmitting = true;
-  setStatus("Borrando categoria", "loading");
-  try {
-    const result = await getData(`${PERSONAL_CATEGORIES_API}/${encodeURIComponent(slug)}`, {
-      method: "DELETE",
-      headers: STAFF_HEADERS,
-    });
-    recordReceipt("Categoria borrada", `${result.slug || slug} - ${result.receipt?.id || "auditoria"}`, "administracion");
-    await loadPortal();
-    setStatus("Categoria borrada", "ready");
-  } catch (error) {
-    setStatus(error.message, "error");
-  } finally {
-    state.categorySubmitting = false;
-  }
-}
 
 function leaveRequestPanel(screen, view) {
   const policies = (view.workspace?.cronos_leave_policies || []).filter((policy) => policy.request);
@@ -7057,10 +6984,6 @@ function handleScreenRowAction(screen, row, headers, actionLabel) {
     populateRPTPositionForm(String(row[0] || ""));
     return;
   }
-  if (screen.id === "admin.catalogos" && String(row[0] || "") === "categoria_profesional") {
-    populateCategoryForm(String(row[1] || ""));
-    return;
-  }
   if (screen.id === "bolsa.convocatorias") {
     populateBolsaOfferForm(String(row[0] || ""));
     return;
@@ -7153,7 +7076,14 @@ function populateBolsaOfferForm(title) {
   }
   setFormValue(form, "offer_id", offer.id);
   setFormValue(form, "title", offer.title);
-  setFormValue(form, "category", offer.category);
+  const categorySelect = form.elements?.category;
+  if (categorySelect) {
+    const categoryOption = Array.from(categorySelect.options).find((option) =>
+      (offer.categoryKey && option.value === offer.categoryKey)
+      || option.dataset.categoryLabel === offer.category,
+    );
+    if (categoryOption) categorySelect.value = categoryOption.value;
+  }
   setFormValue(form, "unit", offer.unit);
   const deadlineParts = String(offer.deadline || "").split("/");
   const deadlineISO = deadlineParts.length === 3 ? `${deadlineParts[2]}-${deadlineParts[1]}-${deadlineParts[0]}` : offer.deadline;
@@ -7195,23 +7125,8 @@ function populateRPTPositionForm(code) {
   setStatus(`Puesto RPT seleccionado: ${position.code}`, "ready");
 }
 
-function populateCategoryForm(slug) {
-  const category = (getPersonalCatalog(state.portal).categories?.items || []).find((item) => String(item.slug) === slug);
-  const form = document.querySelector("[data-category-form]");
-  if (!category || !form) {
-    setStatus(`No se ha encontrado la categoria ${slug}`, "error");
-    return;
-  }
-  setFormValue(form, "slug", category.slug);
-  setFormValue(form, "name", category.name);
-  setFormValue(form, "area", category.area || "administracion_general");
-  setFormValue(form, "source", category.source || "VEC");
-  setFormValue(form, "usage", category.usage || "");
-  form.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  setStatus(`Categoria seleccionada: ${category.name}`, "ready");
-}
-
 function screenActions(screen) {
+  if (screen.id === "admin.catalogos") return [];
   const actions = Array.isArray(screen.actions) && screen.actions.length ? screen.actions : ["Registrar accion", "Exportar"];
   return actions.slice(0, 4).map((action) => ({ label: String(action) }));
 }
@@ -7255,9 +7170,6 @@ function screenHeaders(screen) {
   }
   if (screen.id === "admin.usuarios_roles") {
     return ["Rol", "Ambito", "Usuarios", "Modulos", "Permisos clave", "Estado"];
-  }
-  if (screen.id === "admin.catalogos") {
-    return ["Catalogo", "Codigo", "Descripcion", "Fuente", "Modulo", "Estado"];
   }
   const fields = Array.isArray(screen.fields) ? screen.fields : [];
   const headers = fields.slice(0, 6).map((field) => field.label || field.key || "Dato");
@@ -7534,27 +7446,6 @@ function screenRows(screen, view) {
       formatList(role.key_permissions),
       role.state || "Sin estado (no habilitado)",
     ]);
-  }
-  if (screen.id === "admin.catalogos") {
-    const catalogEntries = getPersonalCatalog(view).catalogs || view.workspace?.rpt_contract_types || [];
-    const categoryEntries = getPersonalCatalog(view).categories?.items || view.workspace?.professional_categories || [];
-    const rptRows = catalogEntries.map((item) => [
-      item.catalog,
-      item.code,
-      item.label || item.name,
-      item.source,
-      item.module_key || "personal",
-      item.state || "Sin estado (no habilitado)",
-    ]);
-    const categoryRows = categoryEntries.map((item) => [
-      item.catalog || "categoria_profesional",
-      item.slug,
-      item.name,
-      item.source,
-      item.module_key || "bolsa",
-      item.state || "Sin estado (no habilitado)",
-    ]);
-    return [...rptRows, ...categoryRows];
   }
   if (screen.id === "nominas.cierre" || screen.id === "nominas.retribuciones") {
     return (view.workspace?.payroll_run?.concepts || []).map((item) => [
@@ -9745,12 +9636,14 @@ async function loadPortal() {
   setStatus("Cargando shell VEC", "loading");
   try {
     await loadLocale();
+    // La sesion se resuelve antes que cualquier dato interno. Si no existe una
+    // identidad autenticada, el portal falla cerrado sin sondear otras APIs.
+    const session = await getData(VEC_SESSION_API, { method: "GET", headers: staffHeaders() });
     const [
       portal,
       demo,
       vecModules,
       workspace,
-      session,
       rptPositions,
       rptStats,
       categories,
@@ -9764,7 +9657,6 @@ async function loadPortal() {
       loadDemoData(),
       getData(`${VEC_SHELL_API}/modules`, { method: "GET", headers: staffHeaders() }),
       getData(VEC_WORKSPACE_API, { method: "GET", headers: staffHeaders() }),
-      getData(VEC_SESSION_API, { method: "GET", headers: staffHeaders() }),
       getData(`${PERSONAL_RPT_POSITIONS_API}?limit=2000`, { method: "GET", headers: staffHeaders() }),
       getData(PERSONAL_RPT_STATS_API, { method: "GET", headers: staffHeaders() }),
       getData(`${PERSONAL_CATEGORIES_API}?limit=500`, { method: "GET", headers: staffHeaders() }),

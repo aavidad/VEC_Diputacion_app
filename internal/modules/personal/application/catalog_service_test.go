@@ -42,13 +42,6 @@ func TestCatalogServiceNoFabricaEstadoHabilitante(t *testing.T) {
 			want: domain.ErrRPTPositionInvalid,
 		},
 		{
-			name: "categoria sin estado",
-			run: func() error {
-				return service.UpsertCategory(ctx, domain.ProfessionalCategory{Slug: "categoria", Name: "Categoria"})
-			},
-			want: domain.ErrProfessionalCategoryInvalid,
-		},
-		{
 			name: "entrada con estado no canonico",
 			run: func() error {
 				return service.UpsertCatalogEntry(ctx, domain.CatalogEntry{Catalog: "tipos", Code: "A", Label: "Alta", State: " vigente "})

@@ -12,16 +12,14 @@ import (
 type CatalogStore struct {
 	mu         sync.RWMutex
 	positions  map[string]domain.RPTPosition
-	categories map[string]domain.ProfessionalCategory
 	catalogs   map[string]domain.CatalogEntry
 	lastImport domain.RPTImportReceipt
 }
 
 func NewCatalogStore() *CatalogStore {
 	return &CatalogStore{
-		positions:  map[string]domain.RPTPosition{},
-		categories: map[string]domain.ProfessionalCategory{},
-		catalogs:   map[string]domain.CatalogEntry{},
+		positions: map[string]domain.RPTPosition{},
+		catalogs:  map[string]domain.CatalogEntry{},
 	}
 }
 
@@ -111,64 +109,6 @@ func (s *CatalogStore) ImportPositions(ctx context.Context, cmd domain.RPTImport
 	return receipt, nil
 }
 
-func (s *CatalogStore) UpsertCategory(ctx context.Context, category domain.ProfessionalCategory) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if err := category.Validate(); err != nil {
-		return err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.ensureLocked()
-	s.categories[category.Slug] = category
-	return nil
-}
-
-func (s *CatalogStore) GetCategory(ctx context.Context, slug string) (domain.ProfessionalCategory, bool, error) {
-	if err := ctx.Err(); err != nil {
-		return domain.ProfessionalCategory{}, false, err
-	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	category, ok := s.categories[strings.TrimSpace(slug)]
-	return category, ok, nil
-}
-
-func (s *CatalogStore) DeleteCategory(ctx context.Context, slug string) (bool, error) {
-	if err := ctx.Err(); err != nil {
-		return false, err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	slug = strings.TrimSpace(slug)
-	if _, ok := s.categories[slug]; !ok {
-		return false, nil
-	}
-	delete(s.categories, slug)
-	return true, nil
-}
-
-func (s *CatalogStore) ListCategories(ctx context.Context, filter domain.ProfessionalCategoryFilter) (domain.ProfessionalCategoryPage, error) {
-	if err := ctx.Err(); err != nil {
-		return domain.ProfessionalCategoryPage{}, err
-	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	items := make([]domain.ProfessionalCategory, 0, len(s.categories))
-	for _, category := range s.categories {
-		if matchesCategory(category, filter) {
-			items = append(items, category)
-		}
-	}
-	sort.SliceStable(items, func(i, j int) bool {
-		return items[i].Slug < items[j].Slug
-	})
-	total := len(items)
-	items = pageCategories(items, filter.Offset, filter.Limit)
-	return domain.ProfessionalCategoryPage{Items: items, Total: total, Limit: filter.Limit, Offset: filter.Offset}, nil
-}
-
 func (s *CatalogStore) UpsertCatalogEntry(ctx context.Context, entry domain.CatalogEntry) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -210,7 +150,6 @@ func (s *CatalogStore) Stats(ctx context.Context) (domain.CatalogStats, error) {
 	defer s.mu.RUnlock()
 	stats := domain.CatalogStats{
 		Positions:        len(s.positions),
-		Categories:       len(s.categories),
 		CatalogEntries:   len(s.catalogs),
 		PositionsByGroup: map[string]int{},
 		CategoriesByArea: map[string]int{},
@@ -222,18 +161,12 @@ func (s *CatalogStore) Stats(ctx context.Context) (domain.CatalogStats, error) {
 			stats.PendingLegend++
 		}
 	}
-	for _, category := range s.categories {
-		stats.CategoriesByArea[valueOr(category.Area, "sin_area")]++
-	}
 	return stats, nil
 }
 
 func (s *CatalogStore) ensureLocked() {
 	if s.positions == nil {
 		s.positions = map[string]domain.RPTPosition{}
-	}
-	if s.categories == nil {
-		s.categories = map[string]domain.ProfessionalCategory{}
 	}
 	if s.catalogs == nil {
 		s.catalogs = map[string]domain.CatalogEntry{}
@@ -266,17 +199,6 @@ func matchesPosition(position domain.RPTPosition, filter domain.RPTPositionFilte
 	return true
 }
 
-func matchesCategory(category domain.ProfessionalCategory, filter domain.ProfessionalCategoryFilter) bool {
-	if filter.Area != "" && !strings.EqualFold(category.Area, filter.Area) {
-		return false
-	}
-	if filter.Query != "" {
-		q := strings.ToLower(filter.Query)
-		return strings.Contains(strings.ToLower(category.Slug+" "+category.Name+" "+category.Usage), q)
-	}
-	return true
-}
-
 func pagePositions(items []domain.RPTPosition, offset, limit int) []domain.RPTPosition {
 	if offset >= len(items) {
 		return []domain.RPTPosition{}
@@ -286,17 +208,6 @@ func pagePositions(items []domain.RPTPosition, offset, limit int) []domain.RPTPo
 		end = len(items)
 	}
 	return append([]domain.RPTPosition(nil), items[offset:end]...)
-}
-
-func pageCategories(items []domain.ProfessionalCategory, offset, limit int) []domain.ProfessionalCategory {
-	if offset >= len(items) {
-		return []domain.ProfessionalCategory{}
-	}
-	end := offset + limit
-	if end > len(items) {
-		end = len(items)
-	}
-	return append([]domain.ProfessionalCategory(nil), items[offset:end]...)
 }
 
 func naturalPositionLess(a, b string) bool {

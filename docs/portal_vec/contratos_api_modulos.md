@@ -383,15 +383,14 @@ ningun otro endpoint**: solo el calculo de ruta punto-a-punto esta expuesto.
 
 ## Modulo: Personal
 
-Fuente: `internal/vec/adapters/httpapi/personal_rpt.go`. Es el modulo con mas
-superficie CRUD real del shell. Almacen: memoria por defecto, o fichero
-durable si `VEC_PERSONAL_CATALOG_PATH` apunta a una ruta (no es "memory").
-**Importante**: el arranque productivo (`bootstrap.go`) no precarga ningun
-dato de ejemplo en este catalogo; los fixtures que aparecen en
-`workspace.go` (`workspaceRPTPositionSamples`, etc.) solo se cargan
-explicitamente en tests (`personal_rpt_startup_test.go`). Un despliegue
-limpio arranca con el catalogo vacio hasta que alguien haga `POST
-/personal/rpt/imports` o `PUT`/`POST` individuales.
+Fuente: `internal/vec/adapters/httpapi/personal_rpt.go`. Los puestos RPT y los
+catalogos auxiliares usan memoria por defecto, o un fichero durable si
+`VEC_PERSONAL_CATALOG_PATH` apunta a una ruta (no es "memory"). El arranque
+productivo no precarga puestos de ejemplo: un despliegue limpio necesita una
+importacion expresa de RPT. Las categorias profesionales son una excepcion
+deliberada: se consultan desde la misma instantanea gobernada, fijada por
+ID/version/huella, que consume Bolsa. No se almacenan ni se siembran como un
+segundo catalogo mutable de Personal.
 
 | Metodo | Ruta | Permiso exigido | Descripcion |
 | --- | --- | --- | --- |
@@ -402,17 +401,17 @@ limpio arranca con el catalogo vacio hasta que alguien haga `POST
 | `POST` | `/api/vec/personal/rpt/imports` | `personal.puesto.manage` | Importacion masiva (reemplaza o añade) + recibo |
 | `GET` | `/api/vec/personal/rpt/stats` | `personal.puesto.read` | Contadores agregados del catalogo |
 | `GET` | `/api/vec/personal/categories` | `personal.puesto.read` | Lista paginada de categorias profesionales |
-| `POST` | `/api/vec/personal/categories` | `personal.puesto.manage` | Alta de categoria + recibo |
+| `POST` | `/api/vec/personal/categories` | `personal.puesto.manage` | `409`: la mutacion directa requiere un futuro borrador gobernado |
 | `GET` | `/api/vec/personal/categories/{slug}` | `personal.puesto.read` | Detalle de categoria |
-| `PUT` | `/api/vec/personal/categories/{slug}` | `personal.puesto.manage` | Edicion (upsert) + recibo |
-| `DELETE` | `/api/vec/personal/categories/{slug}` | `personal.puesto.manage` | Baja + recibo |
+| `PUT` | `/api/vec/personal/categories/{slug}` | `personal.puesto.manage` | `409`: la mutacion directa requiere un futuro borrador gobernado |
+| `DELETE` | `/api/vec/personal/categories/{slug}` | `personal.puesto.manage` | `409`: la mutacion directa requiere un futuro borrador gobernado |
 | `GET` | `/api/vec/personal/catalogs` | `personal.puesto.read` | Lista de entradas de catalogo auxiliar (tipos de contrato, etc.) |
 
-Nota: todas las escrituras usan el mismo permiso "manage", **no** hay
-distincion entre crear/editar/borrar puestos y categorias (a diferencia de
-Cronos/Dietas, donde cada accion tiene su propio permiso segun DEC-020). Un
-cliente de escritorio que quiera ese nivel de granularidad no puede
-expresarlo hoy: quien puede editar puede tambien borrar.
+Los metodos de mutacion de categorias conservan la comprobacion del permiso
+`personal.puesto.manage`, pero no efectuan una escritura. Tras autorizar la
+peticion responden siempre `409`; no cambian la instantanea, no escriben el
+snapshot heredado y no generan un recibo de auditoria de exito. No deben usarse
+como sustituto del futuro flujo de borrador y doble aprobacion.
 
 ### `RPTPosition` (JSON)
 
@@ -432,17 +431,34 @@ expresarlo hoy: quien puede editar puede tambien borrar.
 `Validate()` exige `code` y `name` no vacios, `state` sin espacios exteriores
 y no vacio, y `dot`/`destination_level`/`annual_amount_cents` >= 0.
 
-### `RPTPositionPage` / `ProfessionalCategoryPage`
+### `RPTPositionPage` / pagina compatible de categorias
 
 ```json
-{ "items": [ /* ... */ ], "total": 0, "limit": 100, "offset": 0 }
+{ "items": [ /* ... */ ], "total": 58, "limit": 100, "offset": 0 }
 ```
 
+La lista de categorias se mantiene envuelta como `{"categories": pagina}`.
+Ademas de los campos paginados, `pagina.catalogo` identifica la autoridad
+exacta:
+
+```json
+{
+  "catalogo_id": "categorias-profesionales",
+  "catalogo_version": 1,
+  "catalogo_huella_sha256": "..."
+}
+```
+
+`pagina.fuente` contiene solo la revision, fecha, marca de demostracion y aviso
+publicable. No incluye rutas, actores, aprobaciones ni motivos internos.
+
 Filtros de consulta admitidos (`?q=&group=&center_code=&provision=&state=&limit=&offset=`
-para posiciones; `?q=&area=&limit=&offset=` para categorias). `limit` por
-defecto 100, tope 2000 (posiciones) / 500 (categorias); valores fuera de
-rango se normalizan silenciosamente al valor por defecto (no es un error
-400).
+para posiciones; `?q=&area=&limit=&offset=` para categorias). En categorias,
+`q` admite hasta 100 caracteres y `area` hasta 80 con formato
+`^[a-z][a-z0-9_]*$`; parametros desconocidos, repetidos o mal formados
+responden `400`. `limit` por defecto
+100, tope 2000 (posiciones) / 500 (categorias); un limite fuera de rango se
+normaliza al valor por defecto.
 
 ### `RPTImportCommand` / `RPTImportReceipt`
 
@@ -458,17 +474,53 @@ Respuesta (`201 Created`):
 { "data": { "import": { "source": "rpt_2026", "version": "v3", "imported": 42, "replaced": true }, "receipt": { /* AuditEntry */ } } }
 ```
 
-### `ProfessionalCategory`
+### Proyeccion compatible de categoria profesional
 
 ```json
-{ "slug": "cocinero", "name": "Cocinero/a", "area": "Servicios", "source": "USO/OPES seed", "source_path": "", "module_key": "", "state": "Activo", "usage": "" }
+{
+  "catalog": "categoria_profesional", "clave": "cocinero",
+  "slug": "cocinero", "etiqueta": "Cocinero/a", "name": "Cocinero/a",
+  "descripcion": "...", "orden": 24,
+  "area": "administracion_especial",
+  "area_etiqueta": "Administración especial",
+  "source": "catalogo_gobernado_vec", "module_key": "personal",
+  "state": "Demostración pendiente de validación RRHH",
+  "usage": "Bolsa, RPT, certificados y demás módulos autorizados."
+}
 ```
+
+Los alias `slug`/`name` y los demas campos heredados se conservan para los
+clientes existentes. No se expone `source_path` ni ninguna ruta local. El
+detalle responde `{"category": categoria, "catalogo": referencia, "fuente": fuente_publica_minimizada}`;
+la fuente contiene solo revision, fecha, marca de demostracion y aviso, nunca
+rutas, actores ni referencias internas de aprobacion.
+
+Las 58 entradas actuales (5 de Administracion general y 53 de Administracion
+especial) proceden del inventario historico OPES y son exclusivamente DEMO,
+pendientes de contraste y aprobacion formal por RRHH. La huella identifica el
+contenido exacto; no equivale a aprobacion ni firma administrativa.
+
+Una mutacion directa autorizada responde:
+
+```json
+{
+  "error": "catalogo_gobernado_requiere_borrador",
+  "message": "Las categorías publicadas no se modifican directamente; el cambio requiere una nueva versión en borrador y su flujo de aprobación."
+}
+```
+
+El futuro caso de uso de administracion debera partir de una version concreta,
+recoger motivo y fuente, y exigir validaciones, doble aprobacion, publicacion y
+recibo auditado. No esta implementado ni se presenta como productivo.
 
 ### `CatalogStats` (`GET /personal/rpt/stats`)
 
 ```json
-{ "positions": 0, "categories": 0, "catalog_entries": 0, "positions_by_group": {}, "categories_by_area": {}, "pending_legend": 0 }
+{ "positions": 0, "categories": 58, "catalog_entries": 0, "positions_by_group": {}, "categories_by_area": { "administracion_general": 5, "administracion_especial": 53 }, "pending_legend": 0 }
 ```
+
+Los contadores de categorias y por area se calculan desde la misma instantanea
+gobernada que atiende los `GET`; no proceden del snapshot mutable de RPT.
 
 ### `CatalogEntry` (`GET /personal/catalogs`)
 
@@ -608,8 +660,10 @@ Fuente de convocatorias: fichero JSON configurado en
 `data/demo/convocatorias_publicas.demo.json`). El paquete de categorias se
 selecciona mediante `VEC_BOLSA_CATEGORIES_SOURCE_PATH`,
 `VEC_BOLSA_CATEGORIES_CATALOG_ID` y
-`VEC_BOLSA_CATEGORIES_CATALOG_VERSION`. Los ficheros son adaptadores de
-demostracion de solo lectura, no la persistencia productiva.
+`VEC_BOLSA_CATEGORIES_CATALOG_VERSION`; la huella esperada se fija con
+`VEC_BOLSA_CATEGORIES_CATALOG_SHA256`. Los cuatro valores seleccionan una
+instantanea exacta y una discrepancia impide el arranque. Los ficheros son
+adaptadores de demostracion de solo lectura, no la persistencia productiva.
 Este es el modulo con el cliente frontend mas fiel al contrato real:
 `web/static/bolsa/bolsa.js` llama exactamente a listado, detalle y directorio,
 sin listas de categorias sinteticas locales de por medio.
@@ -686,7 +740,7 @@ resultado de un `fetch`).
 | Dietas: dashboard, comisiones, kilometraje anual, dietas, justificantes, aprobaciones, liquidaciones | Ninguno | 100% local |
 | Dietas: mapa provincial, calculo de ruta punto a punto | `POST /api/vec/dietas/road-route` | Real solo para el calculo de distancia/geometria; el resto de la pantalla (listas de comisiones, dietas asociadas) es local |
 | Personal: puestos RPT (listado/detalle) | `GET /api/vec/personal/rpt/positions[/{code}]` | Real, pero catalogo vacio salvo import previo |
-| Personal: categorias profesionales, catalogos auxiliares | `GET /api/vec/personal/categories`, `GET /api/vec/personal/catalogs` | Real, mismo matiz |
+| Personal: categorias profesionales, catalogos auxiliares | `GET /api/vec/personal/categories`, `GET /api/vec/personal/catalogs` | Categorias: autoridad gobernada compartida (58 DEMO pendientes de RRHH); auxiliares: vacios salvo carga previa |
 | Personal: estadisticas de catalogo | `GET /api/vec/personal/rpt/stats` | Real |
 | Personal: expedientes, situaciones administrativas, antiguedad/trienios, servicios prestados, certificados | Ninguno | 100% local |
 | Personal: nominas, retribuciones, incidencias, integraciones | Ninguno | 100% local (incluye tablas `PAYROLL_HISTORY_MONTHS` y ajustes de productividad hardcodeados en el JS) |
@@ -769,10 +823,11 @@ servidor):
   tests. Si la intencion de la Ola 2 es reabrir el workspace con permisos
   finos, ese codigo es un punto de partida razonable para el nuevo caso de
   uso, pero hoy es puro codigo muerto desde el contrato HTTP.
-- El catalogo de Personal (`personal/rpt/*`, `personal/categories`,
-  `personal/catalogs`) arranca vacio en un despliegue limpio: los fixtures
-  de `workspace.go` que parecen "poblar" RPT/categorias solo se cargan en
-  tests (`cargarFixturesCatalogoPersonalPrueba`), nunca desde
-  `bootstrap.go`. Quien pruebe estos endpoints en un servidor recien
-  arrancado debe importar datos explicitamente (`POST
-  /personal/rpt/imports`) antes de ver resultados no vacios.
+- Los puestos RPT y catalogos auxiliares de Personal arrancan vacios en un
+  despliegue limpio y requieren una importacion expresa. Las categorias no:
+  `personal/categories` consulta la misma instantanea ID/version/huella que
+  Bolsa. Si un snapshot antiguo contiene `categories`, se valida una proyeccion
+  tipada y se conserva inerte el subarbol JSON opaco, incluidas extensiones que
+  esta version no conozca. Al persistir RPT no se destruye ese legado, pero no
+  se consulta, no se mezcla con las 58 entradas DEMO gobernadas, no se expone y
+  no acepta mutaciones nuevas.

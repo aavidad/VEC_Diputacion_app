@@ -6,10 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
+	"golang.org/x/text/unicode/norm"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
 	personalfile "vec-diputacion-granada/internal/modules/personal/adapters/file"
 	personalmemory "vec-diputacion-granada/internal/modules/personal/adapters/memory"
@@ -169,6 +173,7 @@ func (h *Handler) handlePersonalRPTImports(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *Handler) handlePersonalRPTStats(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
+	w.Header().Set("Cache-Control", "no-store")
 	if !h.requireMethod(w, r, http.MethodGet) {
 		return
 	}
@@ -180,45 +185,44 @@ func (h *Handler) handlePersonalRPTStats(w http.ResponseWriter, r *http.Request,
 		h.writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	catalogo, err := h.listarCategoriasProfesionales(r.Context())
+	if err != nil {
+		h.writeError(w, http.StatusServiceUnavailable, "catalogo_categorias_profesionales_no_disponible")
+		return
+	}
+	stats.Categories = len(catalogo.Categorias)
+	stats.CategoriesByArea = make(map[string]int)
+	for _, categoria := range catalogo.Categorias {
+		stats.CategoriesByArea[categoria.Area]++
+	}
 	h.writeJSON(w, http.StatusOK, map[string]any{"stats": stats})
 }
 
 func (h *Handler) handlePersonalCategories(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
+	w.Header().Set("Cache-Control", "no-store")
 	switch r.Method {
 	case http.MethodGet:
 		if !h.requirePermission(w, principal, personalmodule.PermissionPositionRead) {
 			return
 		}
-		page, err := h.personalCatalog.ListCategories(r.Context(), personalCategoryFilterFromRequest(r))
+		filtro, err := filtroCategoriasProfesionalesDesdePeticion(r)
 		if err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
+			h.writeError(w, http.StatusBadRequest, "filtro_categorias_profesionales_invalido")
 			return
 		}
+		catalogo, err := h.listarCategoriasProfesionales(r.Context())
+		if err != nil {
+			h.writeError(w, http.StatusServiceUnavailable, "catalogo_categorias_profesionales_no_disponible")
+			return
+		}
+		page := paginarCategoriasProfesionales(catalogo, filtro)
+		w.Header().Set("Cache-Control", "no-store")
 		h.writeJSON(w, http.StatusOK, map[string]any{"categories": page})
 	case http.MethodPost:
 		if !h.requirePermission(w, principal, personalmodule.PermissionPositionManage) {
 			return
 		}
-		var category personaldomain.ProfessionalCategory
-		if err := json.NewDecoder(r.Body).Decode(&category); err != nil {
-			h.writeError(w, http.StatusBadRequest, "invalid professional category json")
-			return
-		}
-		if err := h.personalCatalog.UpsertCategory(r.Context(), category); err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		stored, err := h.personalCatalog.GetCategory(r.Context(), category.Slug)
-		if err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		receipt, err := h.recordPersonalCatalogAudit(r.Context(), principal, "personal.category.upsert", stored.Slug)
-		if err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		h.writeJSON(w, http.StatusCreated, map[string]any{"category": stored, "receipt": receipt})
+		h.writeCatalogoGobernadoConflict(w)
 	default:
 		w.Header().Set("Allow", "GET, POST")
 		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -226,9 +230,10 @@ func (h *Handler) handlePersonalCategories(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *Handler) handlePersonalCategory(w http.ResponseWriter, r *http.Request, principal domain.Principal, path string) {
+	w.Header().Set("Cache-Control", "no-store")
 	slug := strings.TrimSpace(strings.TrimPrefix(path, "/personal/categories/"))
 	if slug == "" {
-		h.writeError(w, http.StatusNotFound, personalapp.ErrCategoryNotFound.Error())
+		h.writeError(w, http.StatusNotFound, "categoria_profesional_no_encontrada")
 		return
 	}
 	switch r.Method {
@@ -236,64 +241,224 @@ func (h *Handler) handlePersonalCategory(w http.ResponseWriter, r *http.Request,
 		if !h.requirePermission(w, principal, personalmodule.PermissionPositionRead) {
 			return
 		}
-		category, err := h.personalCatalog.GetCategory(r.Context(), slug)
+		catalogo, err := h.listarCategoriasProfesionales(r.Context())
 		if err != nil {
-			status := http.StatusBadRequest
-			if errors.Is(err, personalapp.ErrCategoryNotFound) {
-				status = http.StatusNotFound
-			}
-			h.writeError(w, status, err.Error())
+			h.writeError(w, http.StatusServiceUnavailable, "catalogo_categorias_profesionales_no_disponible")
 			return
 		}
-		h.writeJSON(w, http.StatusOK, map[string]any{"category": category})
+		for _, categoria := range catalogo.Categorias {
+			if categoria.Clave == slug {
+				w.Header().Set("Cache-Control", "no-store")
+				h.writeJSON(w, http.StatusOK, map[string]any{
+					"category": proyectarCategoriaProfesionalHTTP(categoria, catalogo.Fuente.Demostracion),
+					"catalogo": catalogo.Referencia,
+					"fuente":   catalogo.Fuente,
+				})
+				return
+			}
+		}
+		h.writeError(w, http.StatusNotFound, "categoria_profesional_no_encontrada")
 	case http.MethodPut:
 		if !h.requirePermission(w, principal, personalmodule.PermissionPositionManage) {
 			return
 		}
-		var category personaldomain.ProfessionalCategory
-		if err := json.NewDecoder(r.Body).Decode(&category); err != nil {
-			h.writeError(w, http.StatusBadRequest, "invalid professional category json")
-			return
-		}
-		category.Slug = slug
-		if err := h.personalCatalog.UpsertCategory(r.Context(), category); err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		stored, err := h.personalCatalog.GetCategory(r.Context(), slug)
-		if err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		receipt, err := h.recordPersonalCatalogAudit(r.Context(), principal, "personal.category.upsert", slug)
-		if err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		h.writeJSON(w, http.StatusOK, map[string]any{"category": stored, "receipt": receipt})
+		h.writeCatalogoGobernadoConflict(w)
 	case http.MethodDelete:
 		if !h.requirePermission(w, principal, personalmodule.PermissionPositionManage) {
 			return
 		}
-		deleted, err := h.personalCatalog.DeleteCategory(r.Context(), slug)
-		if err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if !deleted {
-			h.writeError(w, http.StatusNotFound, personalapp.ErrCategoryNotFound.Error())
-			return
-		}
-		receipt, err := h.recordPersonalCatalogAudit(r.Context(), principal, "personal.category.delete", slug)
-		if err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		h.writeJSON(w, http.StatusOK, map[string]any{"deleted": true, "slug": slug, "receipt": receipt})
+		h.writeCatalogoGobernadoConflict(w)
 	default:
 		w.Header().Set("Allow", "GET, PUT, DELETE")
 		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+const (
+	limiteCategoriasProfesionalesPorDefecto = 100
+	limiteMaximoCategoriasProfesionales     = 500
+)
+
+type filtroCategoriasProfesionalesHTTP struct {
+	consulta string
+	area     string
+	limite   int
+	desde    int
+}
+
+type categoriaProfesionalHTTP struct {
+	Catalogo     string `json:"catalog"`
+	Clave        string `json:"clave"`
+	Slug         string `json:"slug"`
+	Etiqueta     string `json:"etiqueta"`
+	Nombre       string `json:"name"`
+	Descripcion  string `json:"descripcion,omitempty"`
+	Orden        int    `json:"orden"`
+	Area         string `json:"area"`
+	AreaEtiqueta string `json:"area_etiqueta"`
+	Fuente       string `json:"source"`
+	Modulo       string `json:"module_key"`
+	Estado       string `json:"state"`
+	Uso          string `json:"usage"`
+}
+
+type paginaCategoriasProfesionalesHTTP struct {
+	Items    []categoriaProfesionalHTTP                              `json:"items"`
+	Total    int                                                     `json:"total"`
+	Limit    int                                                     `json:"limit"`
+	Offset   int                                                     `json:"offset"`
+	Catalogo personalports.ReferenciaCatalogoCategoriasProfesionales `json:"catalogo"`
+	Fuente   personalports.FuenteCategoriasProfesionalesConsultable  `json:"fuente"`
+}
+
+func (h *Handler) listarCategoriasProfesionales(ctx context.Context) (personalports.CatalogoCategoriasProfesionalesConsultable, error) {
+	if h == nil || h.categoriasProfesionales == nil {
+		return personalports.CatalogoCategoriasProfesionalesConsultable{}, personalports.ErrCatalogoCategoriasProfesionalesNoDisponible
+	}
+	return h.categoriasProfesionales.ListarVigentes(ctx)
+}
+
+func (h *Handler) writeCatalogoGobernadoConflict(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusConflict)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"error":   "catalogo_gobernado_requiere_borrador",
+		"message": "Las categorías publicadas no se modifican directamente; el cambio requiere una nueva versión en borrador y su flujo de aprobación.",
+	})
+}
+
+func filtroCategoriasProfesionalesDesdePeticion(r *http.Request) (filtroCategoriasProfesionalesHTTP, error) {
+	if r == nil || r.URL == nil {
+		return filtroCategoriasProfesionalesHTTP{}, errors.New("filtro invalido")
+	}
+	valores, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		return filtroCategoriasProfesionalesHTTP{}, errors.New("filtro invalido")
+	}
+	for clave, lista := range valores {
+		if len(lista) != 1 || (clave != "q" && clave != "area" && clave != "limit" && clave != "offset") {
+			return filtroCategoriasProfesionalesHTTP{}, errors.New("filtro invalido")
+		}
+	}
+	consulta := strings.TrimSpace(valores.Get("q"))
+	area := strings.TrimSpace(valores.Get("area"))
+	if !utf8.ValidString(consulta) || !utf8.ValidString(area) || utf8.RuneCountInString(consulta) > 100 ||
+		utf8.RuneCountInString(area) > 80 || !areaCategoriaProfesionalValida(area) {
+		return filtroCategoriasProfesionalesHTTP{}, errors.New("filtro invalido")
+	}
+	limite, err := enteroConsultaCategorias(valores.Get("limit"))
+	if err != nil {
+		return filtroCategoriasProfesionalesHTTP{}, err
+	}
+	if limite <= 0 || limite > limiteMaximoCategoriasProfesionales {
+		limite = limiteCategoriasProfesionalesPorDefecto
+	}
+	desde, err := enteroConsultaCategorias(valores.Get("offset"))
+	if err != nil {
+		return filtroCategoriasProfesionalesHTTP{}, err
+	}
+	if desde < 0 {
+		desde = 0
+	}
+	return filtroCategoriasProfesionalesHTTP{consulta: consulta, area: area, limite: limite, desde: desde}, nil
+}
+
+func areaCategoriaProfesionalValida(area string) bool {
+	if area == "" {
+		return true
+	}
+	for indice, caracter := range area {
+		if indice == 0 {
+			if caracter >= 'a' && caracter <= 'z' {
+				continue
+			}
+			return false
+		}
+		if (caracter >= 'a' && caracter <= 'z') || caracter == '_' || (caracter >= '0' && caracter <= '9') {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func enteroConsultaCategorias(valor string) (int, error) {
+	valor = strings.TrimSpace(valor)
+	if valor == "" {
+		return 0, nil
+	}
+	numero, err := strconv.Atoi(valor)
+	if err != nil {
+		return 0, errors.New("filtro invalido")
+	}
+	return numero, nil
+}
+
+func paginarCategoriasProfesionales(
+	catalogo personalports.CatalogoCategoriasProfesionalesConsultable,
+	filtro filtroCategoriasProfesionalesHTTP,
+) paginaCategoriasProfesionalesHTTP {
+	filtradas := make([]categoriaProfesionalHTTP, 0, len(catalogo.Categorias))
+	consulta := textoBusquedaCategoriaProfesional(filtro.consulta)
+	for _, categoria := range catalogo.Categorias {
+		if filtro.area != "" && categoria.Area != filtro.area {
+			continue
+		}
+		if consulta != "" {
+			texto := textoBusquedaCategoriaProfesional(strings.Join([]string{
+				categoria.Clave, categoria.Etiqueta, categoria.Descripcion, categoria.AreaEtiqueta,
+			}, " "))
+			if !strings.Contains(texto, consulta) {
+				continue
+			}
+		}
+		filtradas = append(filtradas, proyectarCategoriaProfesionalHTTP(categoria, catalogo.Fuente.Demostracion))
+	}
+	total := len(filtradas)
+	desde := filtro.desde
+	if desde > total {
+		desde = total
+	}
+	hasta := desde + filtro.limite
+	if hasta > total {
+		hasta = total
+	}
+	items := append([]categoriaProfesionalHTTP(nil), filtradas[desde:hasta]...)
+	return paginaCategoriasProfesionalesHTTP{
+		Items: items, Total: total, Limit: filtro.limite, Offset: filtro.desde,
+		Catalogo: catalogo.Referencia, Fuente: catalogo.Fuente,
+	}
+}
+
+func proyectarCategoriaProfesionalHTTP(
+	categoria personalports.CategoriaProfesionalConsultable,
+	demostracion bool,
+) categoriaProfesionalHTTP {
+	estado := "Vigente"
+	if demostracion {
+		estado = "Demostración pendiente de validación RRHH"
+	}
+	return categoriaProfesionalHTTP{
+		Catalogo: "categoria_profesional", Clave: categoria.Clave, Slug: categoria.Clave,
+		Etiqueta: categoria.Etiqueta, Nombre: categoria.Etiqueta, Descripcion: categoria.Descripcion,
+		Orden: categoria.Orden, Area: categoria.Area, AreaEtiqueta: categoria.AreaEtiqueta,
+		Fuente: "catalogo_gobernado_vec", Modulo: personalmodule.ModuleID, Estado: estado,
+		Uso: "Bolsa, RPT, certificados y demás módulos autorizados.",
+	}
+}
+
+func textoBusquedaCategoriaProfesional(valor string) string {
+	valor = norm.NFD.String(strings.ToLower(strings.TrimSpace(valor)))
+	var salida strings.Builder
+	salida.Grow(len(valor))
+	for _, caracter := range valor {
+		if unicode.Is(unicode.Mn, caracter) {
+			continue
+		}
+		salida.WriteRune(caracter)
+	}
+	return salida.String()
 }
 
 func (h *Handler) handlePersonalCatalogs(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
@@ -358,16 +523,6 @@ func personalPositionFilterFromRequest(r *http.Request) personaldomain.RPTPositi
 	}
 }
 
-func personalCategoryFilterFromRequest(r *http.Request) personaldomain.ProfessionalCategoryFilter {
-	query := r.URL.Query()
-	return personaldomain.ProfessionalCategoryFilter{
-		Query:  query.Get("q"),
-		Area:   query.Get("area"),
-		Limit:  intQuery(query.Get("limit")),
-		Offset: intQuery(query.Get("offset")),
-	}
-}
-
 func intQuery(value string) int {
 	n, _ := strconv.Atoi(strings.TrimSpace(value))
 	return n
@@ -392,19 +547,6 @@ func rptPositionFromMap(raw map[string]any) personaldomain.RPTPosition {
 		Coverage:           asString(raw["coverage"]),
 		State:              asString(raw["state"]),
 		Source:             "workspace_seed_nominas_rpt",
-	}
-}
-
-func professionalCategoryFromMap(raw map[string]any) personaldomain.ProfessionalCategory {
-	return personaldomain.ProfessionalCategory{
-		Slug:       asString(raw["slug"]),
-		Name:       asString(raw["name"]),
-		Area:       asString(raw["area"]),
-		Source:     asString(raw["source"]),
-		SourcePath: asString(raw["source_path"]),
-		ModuleKey:  asString(raw["module_key"]),
-		State:      asString(raw["state"]),
-		Usage:      asString(raw["usage"]),
 	}
 }
 

@@ -54,6 +54,7 @@ const (
 	EnvBolsaCategoriesSourcePath = "VEC_BOLSA_CATEGORIES_SOURCE_PATH"
 	EnvBolsaCategoriesCatalogID  = "VEC_BOLSA_CATEGORIES_CATALOG_ID"
 	EnvBolsaCategoriesVersion    = "VEC_BOLSA_CATEGORIES_CATALOG_VERSION"
+	EnvBolsaCategoriesSHA256     = "VEC_BOLSA_CATEGORIES_CATALOG_SHA256"
 	EnvOSRMBaseURL               = "VEC_OSRM_BASE_URL"
 	EnvOSRMScopeName             = "VEC_OSRM_SCOPE_NAME"
 	EnvOSRMScopeBounds           = "VEC_OSRM_SCOPE_BOUNDS"
@@ -83,6 +84,7 @@ const (
 	DefaultBolsaCategoriesSourcePath = "data/catalogos/categorias-profesionales/v1.demo.json"
 	DefaultBolsaCategoriesCatalogID  = "categorias-profesionales"
 	DefaultBolsaCategoriesVersion    = 1
+	DefaultBolsaCategoriesSHA256     = "2a9aa4a903b765c2f46ceb7f429f342a13b229e54ca45813472cb9d0aa1a4f3e"
 	DefaultAuthMode                  = AuthModeDisabled
 	DefaultTrustedHeaderSubject      = "X-VEC-Subject"
 	DefaultTrustedHeaderRoles        = "X-VEC-Roles"
@@ -119,6 +121,7 @@ type Config struct {
 	BolsaCategoriesSourcePath string
 	BolsaCategoriesCatalogID  string
 	BolsaCategoriesVersion    int
+	BolsaCategoriesSHA256     string
 	OSRMBaseURL               string
 	OSRMScopeName             string
 	OSRMScopeBounds           string

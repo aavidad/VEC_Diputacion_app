@@ -428,6 +428,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 type HandlerOptions struct {
 	InternalOperations      *application.InternalOperations
 	PersonalCatalogPath     string
+	CategoriasProfesionales *personalapp.ServicioConsultaCategoriasProfesionales
 	OSRMBaseURL             string
 	OSRMScopeName           string
 	OSRMScopeBounds         string

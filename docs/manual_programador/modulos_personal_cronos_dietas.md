@@ -476,6 +476,36 @@ const (
 func Manifest() domain.ModuleManifest
 ```
 
+## Paquete `internal/modules/personal/adapters/catalogosvec`
+
+> Package catalogosvec adapta el catalogo configurable del nucleo a la consulta minimizada de categorias profesionales de Personal.
+
+Package catalogosvec adapta el catalogo configurable del nucleo a la consulta
+minimizada de categorias profesionales de Personal.
+
+### Tipos
+
+```go
+type ConsultaCategoriasProfesionales struct {
+	// Has unexported fields.
+}
+```
+
+ConsultaCategoriasProfesionales fija ID, version y huella en su
+construccion. Una seleccion distinta exige otra composicion explicita.
+
+```go
+func NuevaConsultaCategoriasProfesionales(
+	consulta fuenteCategoriasProfesionales,
+	referencia puertospersonal.ReferenciaCatalogoCategoriasProfesionales,
+) (*ConsultaCategoriasProfesionales, error)
+
+func (c *ConsultaCategoriasProfesionales) ObtenerVigentes(
+	ctx context.Context,
+	instante time.Time,
+) (puertospersonal.CatalogoCategoriasProfesionalesConsultable, error)
+```
+
 ## Paquete `internal/modules/personal/adapters/file`
 
 > Adaptador de catalogo Personal sobre fichero local.
@@ -489,11 +519,7 @@ type CatalogStore struct {
 
 func NewCatalogStore(path string) (*CatalogStore, error)
 
-func (s *CatalogStore) DeleteCategory(ctx context.Context, slug string) (bool, error)
-
 func (s *CatalogStore) DeletePosition(ctx context.Context, code string) (bool, error)
-
-func (s *CatalogStore) GetCategory(ctx context.Context, slug string) (domain.ProfessionalCategory, bool, error)
 
 func (s *CatalogStore) GetPosition(ctx context.Context, code string) (domain.RPTPosition, bool, error)
 
@@ -501,15 +527,11 @@ func (s *CatalogStore) ImportPositions(ctx context.Context, cmd domain.RPTImport
 
 func (s *CatalogStore) ListCatalogEntries(ctx context.Context) ([]domain.CatalogEntry, error)
 
-func (s *CatalogStore) ListCategories(ctx context.Context, filter domain.ProfessionalCategoryFilter) (domain.ProfessionalCategoryPage, error)
-
 func (s *CatalogStore) ListPositions(ctx context.Context, filter domain.RPTPositionFilter) (domain.RPTPositionPage, error)
 
 func (s *CatalogStore) Stats(ctx context.Context) (domain.CatalogStats, error)
 
 func (s *CatalogStore) UpsertCatalogEntry(ctx context.Context, entry domain.CatalogEntry) error
-
-func (s *CatalogStore) UpsertCategory(ctx context.Context, category domain.ProfessionalCategory) error
 
 func (s *CatalogStore) UpsertPosition(ctx context.Context, position domain.RPTPosition) error
 ```
@@ -527,11 +549,7 @@ type CatalogStore struct {
 
 func NewCatalogStore() *CatalogStore
 
-func (s *CatalogStore) DeleteCategory(ctx context.Context, slug string) (bool, error)
-
 func (s *CatalogStore) DeletePosition(ctx context.Context, code string) (bool, error)
-
-func (s *CatalogStore) GetCategory(ctx context.Context, slug string) (domain.ProfessionalCategory, bool, error)
 
 func (s *CatalogStore) GetPosition(ctx context.Context, code string) (domain.RPTPosition, bool, error)
 
@@ -539,15 +557,11 @@ func (s *CatalogStore) ImportPositions(ctx context.Context, cmd domain.RPTImport
 
 func (s *CatalogStore) ListCatalogEntries(ctx context.Context) ([]domain.CatalogEntry, error)
 
-func (s *CatalogStore) ListCategories(ctx context.Context, filter domain.ProfessionalCategoryFilter) (domain.ProfessionalCategoryPage, error)
-
 func (s *CatalogStore) ListPositions(ctx context.Context, filter domain.RPTPositionFilter) (domain.RPTPositionPage, error)
 
 func (s *CatalogStore) Stats(ctx context.Context) (domain.CatalogStats, error)
 
 func (s *CatalogStore) UpsertCatalogEntry(ctx context.Context, entry domain.CatalogEntry) error
-
-func (s *CatalogStore) UpsertCategory(ctx context.Context, category domain.ProfessionalCategory) error
 
 func (s *CatalogStore) UpsertPosition(ctx context.Context, position domain.RPTPosition) error
 ```
@@ -562,7 +576,6 @@ func (s *CatalogStore) UpsertPosition(ctx context.Context, position domain.RPTPo
 var (
 	ErrCatalogStoreRequired = errors.New("personal catalog store required")
 	ErrRPTPositionNotFound  = errors.New("personal rpt position not found")
-	ErrCategoryNotFound     = errors.New("personal professional category not found")
 )
 ```
 
@@ -575,11 +588,7 @@ type CatalogService struct {
 
 func NewCatalogService(store ports.CatalogStore) (*CatalogService, error)
 
-func (s *CatalogService) DeleteCategory(ctx context.Context, slug string) (bool, error)
-
 func (s *CatalogService) DeletePosition(ctx context.Context, code string) (bool, error)
-
-func (s *CatalogService) GetCategory(ctx context.Context, slug string) (domain.ProfessionalCategory, error)
 
 func (s *CatalogService) GetPosition(ctx context.Context, code string) (domain.RPTPosition, error)
 
@@ -587,17 +596,39 @@ func (s *CatalogService) ImportPositions(ctx context.Context, cmd domain.RPTImpo
 
 func (s *CatalogService) ListCatalogEntries(ctx context.Context) ([]domain.CatalogEntry, error)
 
-func (s *CatalogService) ListCategories(ctx context.Context, filter domain.ProfessionalCategoryFilter) (domain.ProfessionalCategoryPage, error)
-
 func (s *CatalogService) ListPositions(ctx context.Context, filter domain.RPTPositionFilter) (domain.RPTPositionPage, error)
 
 func (s *CatalogService) Stats(ctx context.Context) (domain.CatalogStats, error)
 
 func (s *CatalogService) UpsertCatalogEntry(ctx context.Context, entry domain.CatalogEntry) error
 
-func (s *CatalogService) UpsertCategory(ctx context.Context, category domain.ProfessionalCategory) error
-
 func (s *CatalogService) UpsertPosition(ctx context.Context, position domain.RPTPosition) (domain.RPTPosition, error)
+
+type RelojCategoriasProfesionales interface {
+	Ahora() time.Time
+}
+```
+
+RelojCategoriasProfesionales impide que un consumidor elija el instante de
+vigencia del catalogo.
+
+```go
+type RelojSistemaCategoriasProfesionales struct{}
+
+func (RelojSistemaCategoriasProfesionales) Ahora() time.Time
+
+type ServicioConsultaCategoriasProfesionales struct {
+	// Has unexported fields.
+}
+
+func NuevoServicioConsultaCategoriasProfesionales(
+	consulta ports.ConsultaCategoriasProfesionales,
+	reloj RelojCategoriasProfesionales,
+) (*ServicioConsultaCategoriasProfesionales, error)
+
+func (s *ServicioConsultaCategoriasProfesionales) ListarVigentes(
+	ctx context.Context,
+) (ports.CatalogoCategoriasProfesionalesConsultable, error)
 ```
 
 ## Paquete `internal/modules/personal/domain`
@@ -732,22 +763,14 @@ type ProfessionalCategory struct {
 	State      string `json:"state"`
 	Usage      string `json:"usage"`
 }
+```
 
+ProfessionalCategory conserva exclusivamente el campo historico del snapshot
+Personal v1. No es una autoridad de negocio ni admite CRUD; la consulta
+vigente procede del catalogo configurable gobernado del nucleo.
+
+```go
 func (c ProfessionalCategory) Validate() error
-
-type ProfessionalCategoryFilter struct {
-	Query  string `json:"query,omitempty"`
-	Area   string `json:"area,omitempty"`
-	Limit  int    `json:"limit,omitempty"`
-	Offset int    `json:"offset,omitempty"`
-}
-
-type ProfessionalCategoryPage struct {
-	Items  []ProfessionalCategory `json:"items"`
-	Total  int                    `json:"total"`
-	Limit  int                    `json:"limit"`
-	Offset int                    `json:"offset"`
-}
 
 type RPTImportCommand struct {
 	Source    string        `json:"source"`
@@ -818,6 +841,21 @@ type RPTPositionPage struct {
 
 > Contratos hexagonales del modulo Personal.
 
+### Variables
+
+```go
+var (
+	ErrConsultaCategoriasProfesionalesInvalida     = errors.New("personal: consulta de categorias profesionales invalida")
+	ErrCatalogoCategoriasProfesionalesNoDisponible = errors.New("personal: catalogo de categorias profesionales no disponible")
+)
+```
+
+### Funciones
+
+```go
+func OrdenarCategoriasProfesionales(categorias []CategoriaProfesionalConsultable)
+```
+
 ### Tipos
 
 ```go
@@ -828,12 +866,75 @@ type CatalogStore interface {
 	ListPositions(context.Context, domain.RPTPositionFilter) (domain.RPTPositionPage, error)
 	ImportPositions(context.Context, domain.RPTImportCommand) (domain.RPTImportReceipt, error)
 
-	UpsertCategory(context.Context, domain.ProfessionalCategory) error
-	GetCategory(context.Context, string) (domain.ProfessionalCategory, bool, error)
-	DeleteCategory(context.Context, string) (bool, error)
-	ListCategories(context.Context, domain.ProfessionalCategoryFilter) (domain.ProfessionalCategoryPage, error)
 	UpsertCatalogEntry(context.Context, domain.CatalogEntry) error
 	ListCatalogEntries(context.Context) ([]domain.CatalogEntry, error)
 	Stats(context.Context) (domain.CatalogStats, error)
 }
+
+type CatalogoCategoriasProfesionalesConsultable struct {
+	Referencia ReferenciaCatalogoCategoriasProfesionales `json:"referencia"`
+	Fuente     FuenteCategoriasProfesionalesConsultable  `json:"fuente"`
+	Categorias []CategoriaProfesionalConsultable         `json:"categorias"`
+}
+```
+
+CatalogoCategoriasProfesionalesConsultable es la proyeccion minimizada de
+una unica version publicada del catalogo gobernado.
+
+```go
+func (c CatalogoCategoriasProfesionalesConsultable) Clonar() CatalogoCategoriasProfesionalesConsultable
+
+func (c CatalogoCategoriasProfesionalesConsultable) Validar() error
+
+type CategoriaProfesionalConsultable struct {
+	Clave        string `json:"clave"`
+	Etiqueta     string `json:"etiqueta"`
+	Descripcion  string `json:"descripcion,omitempty"`
+	Orden        int    `json:"orden"`
+	Area         string `json:"area"`
+	AreaEtiqueta string `json:"area_etiqueta"`
+}
+```
+
+CategoriaProfesionalConsultable contiene solo datos de negocio necesarios
+para Personal. Excluye rutas de origen, actores, aprobaciones y motivos.
+
+```go
+func (c CategoriaProfesionalConsultable) Validar() error
+
+type ConsultaCategoriasProfesionales interface {
+	ObtenerVigentes(context.Context, time.Time) (CatalogoCategoriasProfesionalesConsultable, error)
+}
+```
+
+ConsultaCategoriasProfesionales es el puerto de lectura compartible por los
+casos de uso de Personal. El instante procede siempre de la aplicacion.
+
+```go
+type FuenteCategoriasProfesionalesConsultable struct {
+	Revision      string    `json:"revision"`
+	ActualizadaEn time.Time `json:"actualizada_en"`
+	Demostracion  bool      `json:"demostracion"`
+	Aviso         string    `json:"aviso"`
+}
+```
+
+FuenteCategoriasProfesionalesConsultable identifica el origen publicado sin
+revelar rutas, actores, aprobaciones ni otra metadata interna.
+
+```go
+func (f FuenteCategoriasProfesionalesConsultable) Validar() error
+
+type ReferenciaCatalogoCategoriasProfesionales struct {
+	CatalogoID           string `json:"catalogo_id"`
+	CatalogoVersion      int    `json:"catalogo_version"`
+	CatalogoHuellaSHA256 string `json:"catalogo_huella_sha256"`
+}
+```
+
+ReferenciaCatalogoCategoriasProfesionales inmoviliza la instantanea exacta
+que debe consumir Personal. No existe resolucion implicita de «la ultima».
+
+```go
+func (r ReferenciaCatalogoCategoriasProfesionales) Validar() error
 ```

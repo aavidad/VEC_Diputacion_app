@@ -55,6 +55,9 @@ func (p RPTPosition) Validate() error {
 	return nil
 }
 
+// ProfessionalCategory conserva exclusivamente el campo historico del
+// snapshot Personal v1. No es una autoridad de negocio ni admite CRUD; la
+// consulta vigente procede del catalogo configurable gobernado del nucleo.
 type ProfessionalCategory struct {
 	Slug       string `json:"slug"`
 	Name       string `json:"name"`
@@ -125,20 +128,6 @@ type RPTPositionPage struct {
 	Total  int           `json:"total"`
 	Limit  int           `json:"limit"`
 	Offset int           `json:"offset"`
-}
-
-type ProfessionalCategoryFilter struct {
-	Query  string `json:"query,omitempty"`
-	Area   string `json:"area,omitempty"`
-	Limit  int    `json:"limit,omitempty"`
-	Offset int    `json:"offset,omitempty"`
-}
-
-type ProfessionalCategoryPage struct {
-	Items  []ProfessionalCategory `json:"items"`
-	Total  int                    `json:"total"`
-	Limit  int                    `json:"limit"`
-	Offset int                    `json:"offset"`
 }
 
 type RPTImportCommand struct {

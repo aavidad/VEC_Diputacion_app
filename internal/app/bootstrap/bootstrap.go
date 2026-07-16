@@ -26,6 +26,9 @@ import (
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
 	dietasmodule "vec-diputacion-granada/internal/modules/dietas"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
+	personalcatalogosvec "vec-diputacion-granada/internal/modules/personal/adapters/catalogosvec"
+	personalapp "vec-diputacion-granada/internal/modules/personal/application"
+	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	"vec-diputacion-granada/internal/shared/i18n"
 	vecfichero "vec-diputacion-granada/internal/vec/adapters/fichero"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -56,11 +59,15 @@ func NewDemoAPIWithConfig(cfg config.Config) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	vecAPI, err := newVECShellAPIWithConfig(cfg, credencialesFake)
+	consultaCategorias, categoriasPersonal, err := nuevasDependenciasCategoriasProfesionales(cfg)
 	if err != nil {
 		return nil, err
 	}
-	publicaBolsaAPI, err := newBolsaPublicAPI(cfg)
+	vecAPI, err := newVECShellAPICompuesta(cfg, credencialesFake, categoriasPersonal)
+	if err != nil {
+		return nil, err
+	}
+	publicaBolsaAPI, err := newBolsaPublicAPIConCatalogos(cfg, consultaCategorias)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +95,18 @@ func NewVECShellAPIWithConfig(cfg config.Config) (http.Handler, error) {
 }
 
 func newVECShellAPIWithConfig(cfg config.Config, credencialesFake *almacenCredencialesFake) (http.Handler, error) {
+	_, categoriasPersonal, err := nuevasDependenciasCategoriasProfesionales(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return newVECShellAPICompuesta(cfg, credencialesFake, categoriasPersonal)
+}
+
+func newVECShellAPICompuesta(
+	cfg config.Config,
+	credencialesFake *almacenCredencialesFake,
+	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
+) (http.Handler, error) {
 	store := vecmemory.NewStore()
 	service, internalOperations, err := vecapp.NewServiceWithInternalOperations(store, store, store)
 	if err != nil {
@@ -107,6 +126,7 @@ func newVECShellAPIWithConfig(cfg config.Config, credencialesFake *almacenCreden
 	return vechttp.NewHandlerWithOptions(service, vechttp.HandlerOptions{
 		InternalOperations:      internalOperations,
 		PersonalCatalogPath:     cfg.PersonalCatalogPath,
+		CategoriasProfesionales: categoriasPersonal,
 		OSRMBaseURL:             cfg.OSRMBaseURL,
 		OSRMScopeName:           cfg.OSRMScopeName,
 		OSRMScopeBounds:         cfg.OSRMScopeBounds,
@@ -147,23 +167,12 @@ func registrarBolsaPublica(mux *http.ServeMux, publica http.Handler) {
 	mux.Handle(bolsahttp.RutaCategorias, publica)
 }
 
-func newBolsaPublicAPI(cfg config.Config) (http.Handler, error) {
-	if cfg.BolsaCategoriesVersion < 1 {
-		return nil, errors.New("bootstrap: version de catalogo de categorias no valida")
-	}
+func newBolsaPublicAPIConCatalogos(cfg config.Config, consultaCatalogos *vecfichero.ConsultaCatalogos) (http.Handler, error) {
 	ruta, err := resolverRutaFuentePublica(cfg.BolsaPublicSourcePath)
 	if err != nil {
 		return nil, err
 	}
 	adaptador, err := bolsafichero.NuevaConsultaConvocatorias(ruta)
-	if err != nil {
-		return nil, err
-	}
-	rutaCategorias, err := resolverRutaFuentePublica(cfg.BolsaCategoriesSourcePath)
-	if err != nil {
-		return nil, err
-	}
-	consultaCatalogos, err := vecfichero.NuevaConsultaCatalogos(rutaCategorias)
 	if err != nil {
 		return nil, err
 	}
@@ -185,6 +194,46 @@ func newBolsaPublicAPI(cfg config.Config) (http.Handler, error) {
 		return nil, errors.Join(errors.New("bootstrap: fuentes publicas de Bolsa incompatibles"), err)
 	}
 	return bolsahttp.NuevoHandler(servicio)
+}
+
+// nuevasDependenciasCategoriasProfesionales construye una sola instantanea
+// inmutable para Bolsa y Personal. La tupla ID/version/huella se configura de
+// forma expresa: nunca se resuelve implicitamente «la ultima version».
+func nuevasDependenciasCategoriasProfesionales(
+	cfg config.Config,
+) (*vecfichero.ConsultaCatalogos, *personalapp.ServicioConsultaCategoriasProfesionales, error) {
+	if cfg.BolsaCategoriesVersion < 1 {
+		return nil, nil, errors.New("bootstrap: version de catalogo de categorias no valida")
+	}
+	rutaCategorias, err := resolverRutaFuentePublica(cfg.BolsaCategoriesSourcePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	consultaCatalogos, err := vecfichero.NuevaConsultaCatalogos(rutaCategorias)
+	if err != nil {
+		return nil, nil, err
+	}
+	referencia := personalports.ReferenciaCatalogoCategoriasProfesionales{
+		CatalogoID:           cfg.BolsaCategoriesCatalogID,
+		CatalogoVersion:      cfg.BolsaCategoriesVersion,
+		CatalogoHuellaSHA256: cfg.BolsaCategoriesSHA256,
+	}
+	adaptador, err := personalcatalogosvec.NuevaConsultaCategoriasProfesionales(consultaCatalogos, referencia)
+	if err != nil {
+		return nil, nil, errors.Join(errors.New("bootstrap: referencia de categorias profesionales no valida"), err)
+	}
+	servicio, err := personalapp.NuevoServicioConsultaCategoriasProfesionales(
+		adaptador, personalapp.RelojSistemaCategoriasProfesionales{},
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctxValidacion, cancelarValidacion := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelarValidacion()
+	if _, err := servicio.ListarVigentes(ctxValidacion); err != nil {
+		return nil, nil, errors.Join(errors.New("bootstrap: catalogo profesional gobernado incompatible"), err)
+	}
+	return consultaCatalogos, servicio, nil
 }
 
 func resolverRutaFuentePublica(configurada string) (string, error) {

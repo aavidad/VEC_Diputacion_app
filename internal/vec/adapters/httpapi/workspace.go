@@ -68,15 +68,9 @@ func workspaceSnapshotWithCronos(ctx context.Context, modules []domain.ModuleMan
 			{"user": "demo.seccion", "display_name": "Jefatura de Seccion", "roles": []string{"jefe_seccion"}, "units": []string{"Centro servicios sociales"}, "state": "Suplencia vigente", "mfa": "Clave"},
 			{"user": "demo.administrativo", "display_name": "Administrativo unidad", "roles": []string{"administrativo"}, "units": []string{"Administracion General"}, "state": "Activo", "mfa": "Clave"},
 		},
-		"rpt_catalog":             workspaceRPTCatalog(),
-		"rpt_contract_types":      workspaceRPTContractTypes(),
-		"rpt_position_samples":    workspaceRPTPositionSamples(),
-		"professional_categories": workspaceProfessionalCategories(),
-		"professional_category_aliases": []map[string]any{
-			{"alias": "cocinero-00001", "category_slug": "cocinero", "source": "USO/OPES seed"},
-			{"alias": "tecnico-superior-archivo-00001", "category_slug": "tecnico-superior-archivo", "source": "USO/OPES seed"},
-			{"alias": "tecnico-de-administracion-general-00001", "category_slug": "tecnico-de-administracion-general", "source": "USO/OPES seed"},
-		},
+		"rpt_catalog":          workspaceRPTCatalog(),
+		"rpt_contract_types":   workspaceRPTContractTypes(),
+		"rpt_position_samples": workspaceRPTPositionSamples(),
 		"bolsa_category_rules": []map[string]any{
 			{"id": "experiencia_misma_categoria", "label": "Experiencia en misma categoria", "points_per_month": 0.2, "section": "experiencia", "source": "Bolsa baremo rules"},
 			{"id": "experiencia_otra_categoria", "label": "Experiencia en otra categoria", "points_per_month": 0.1, "section": "experiencia", "source": "Bolsa baremo rules"},
@@ -1193,86 +1187,6 @@ func workspaceRPTPositionSamples() []map[string]any {
 		{"code": "8", "name": "Administrativo/a", "tp": "N", "ad": "F", "fp": "C", "group": "C1", "area": "A7", "scale": "AG", "category": "AM", "cd": 18, "ce": "CE anual", "dg": "NO", "ta": "Segun RPT", "coverage": "Concurso", "state": "Importado demo"},
 		{"code": "359", "name": "Oficial de servicios multiples", "tp": "N", "ad": "F", "fp": "C", "group": "C2", "area": "A7", "scale": "AE", "category": "EE4", "cd": 16, "ce": "CE anual", "dg": "NO", "ta": "Segun RPT", "coverage": "Concurso", "state": "Importado demo"},
 	}
-}
-
-func workspaceProfessionalCategories() []map[string]any {
-	rows := []struct {
-		slug, name, area, sourcePath string
-	}{
-		{"administrativo", "Administrativo", "administracion_general", "OPES/administracion-general/Administrativo"},
-		{"auxiliar-administrativo", "Auxiliar Administrativo", "administracion_general", "OPES/administracion-general/Auxiliar-Administrativo"},
-		{"subalterno", "Subalterno", "administracion_general", "OPES/administracion-general/Subalterno"},
-		{"tecnico-de-administracion-general", "Tecnico de Administracion General", "administracion_general", "OPES/administracion-general/Tecnico-de-Administracion-General-00001"},
-		{"tecnico-de-gestion", "Tecnico de Gestion", "administracion_general", "OPES/administracion-general/Tecnico-de-gestion"},
-		{"analista", "Analista", "administracion_especial", "OPES/administracion-especial/Analista"},
-		{"analista-programador", "Analista Programador", "administracion_especial", "OPES/administracion-especial/Analista-Programador"},
-		{"analista-de-laboratorio", "Analista de Laboratorio", "administracion_especial", "OPES/administracion-especial/Analista-de-Laboratorio"},
-		{"arquitecto", "Arquitecto", "administracion_especial", "OPES/administracion-especial/Arquitecto"},
-		{"arquitecto-tecnico", "Arquitecto Tecnico", "administracion_especial", "OPES/administracion-especial/Arquitecto-Tecnico"},
-		{"auxiliar-deportivo", "Auxiliar Deportivo", "administracion_especial", "OPES/administracion-especial/Auxiliar-Deportivo"},
-		{"auxiliar-tecnico-superior-centros-sociales", "Auxiliar Tecnico Superior de Centros Sociales", "administracion_especial", "OPES/administracion-especial/Auxiliar-Tecnico-Superior-de-Centros-Sociales"},
-		{"auxiliar-tecnico-superior-informatica", "Auxiliar Tecnico Superior de Informatica", "administracion_especial", "OPES/administracion-especial/Auxiliar-Tecnico-Superior-de-Informatica"},
-		{"auxiliar-tecnico-superior-integracion-social", "Auxiliar Tecnico Superior de Integracion Social", "administracion_especial", "OPES/administracion-especial/Auxiliar-Tecnico-Superior-de-Integracion-Social"},
-		{"auxiliar-tecnico-superior-obras", "Auxiliar Tecnico Superior de Obras", "administracion_especial", "OPES/administracion-especial/Auxiliar-Tecnico-Superior-de-Obras"},
-		{"auxiliar-tecnico-superior-salud-ambiental", "Auxiliar Tecnico Superior de Salud Ambiental", "administracion_especial", "OPES/administracion-especial/Auxiliar-Tecnico-Superior-Salud-Ambiental-00001"},
-		{"auxiliar-tecnico-preimpresion", "Auxiliar Tecnico a Preimpresion", "administracion_especial", "OPES/administracion-especial/Auxiliar-Tecnico-a-Preimpresion"},
-		{"auxiliar-tecnico-superior-gestion-agua", "Auxiliar Tecnico Superior de Gestion de Agua", "administracion_especial", "OPES/administracion-especial/Auxiliar-Tecnico-a-Superior-de-Gestion-Agua"},
-		{"auxiliar-tecnico-archivo", "Auxiliar Tecnico de Archivo", "administracion_especial", "OPES/administracion-especial/Auxiliar-Tecnico-de-Archivo"},
-		{"auxiliar-enfermeria", "Auxiliar de Enfermeria", "administracion_especial", "OPES/administracion-especial/Auxiliar-de-Enfermeria"},
-		{"auxiliar-informatica", "Auxiliar de Informatica", "administracion_especial", "OPES/administracion-especial/Auxiliar-de-Informatica"},
-		{"auxiliar-servicios-generales", "Auxiliar de Servicios Generales", "administracion_especial", "OPES/administracion-especial/Auxiliar-de-Servicios-Generales"},
-		{"ayudante-tecnico-sanitario-due", "Ayudante Tecnico Sanitario DUE", "administracion_especial", "OPES/administracion-especial/Ayudante-Tecnico-Sanitario-DUE"},
-		{"cocinero", "Cocinero", "administracion_especial", "OPES/administracion-especial/Cocinero"},
-		{"conductor", "Conductor/a", "administracion_especial", "OPES/administracion-especial/Conductor-a"},
-		{"cuidador-tecnico-personas-dependientes", "Cuidador Tecnico de Personas Dependientes", "administracion_especial", "OPES/administracion-especial/Cuidador-Tecnico-de-Personas-Dependientes"},
-		{"economista", "Economista", "administracion_especial", "OPES/administracion-especial/Economista"},
-		{"educador", "Educador", "administracion_especial", "OPES/administracion-especial/Educador"},
-		{"educador-social", "Educador Social", "administracion_especial", "OPES/administracion-especial/Educador-Social"},
-		{"encargado", "Encargado", "administracion_especial", "OPES/administracion-especial/Encargado"},
-		{"fisioterapeuta", "Fisioterapeuta", "administracion_especial", "OPES/administracion-especial/Fisioterapeuta"},
-		{"ingenieria-tecnica-industrial", "Ingenieria Tecnica Industrial", "administracion_especial", "OPES/administracion-especial/Ingenieria-Tecnica-Industrial"},
-		{"ingenieria-tecnica-obras-publicas", "Ingenieria Tecnica de Obras Publicas", "administracion_especial", "OPES/administracion-especial/Ingenieria-Tecnica-de-Obras-Publicas"},
-		{"ingeniero-industrial", "Ingeniero Industrial", "administracion_especial", "OPES/administracion-especial/Ingeniero-Industrial"},
-		{"ingeniero-tecnico-topografo", "Ingeniero Tecnico Topografo", "administracion_especial", "OPES/administracion-especial/Ingeniero-Tecnico-Topografo"},
-		{"ingeniero-tecnico-agricola", "Ingeniero/a Tecnico/a Agricola", "administracion_especial", "OPES/administracion-especial/Ingeniero-a-Tecnico-a-Agricola"},
-		{"ingeniero-telecomunicaciones", "Ingeniero/a Telecomunicaciones", "administracion_especial", "OPES/administracion-especial/Ingeniero-a-Telecomunicaciones"},
-		{"ingeniero-caminos-canales-puertos", "Ingeniero de Caminos, Canales y Puertos", "administracion_especial", "OPES/administracion-especial/Ingeniero-de-Caminos-Canales-y-Puertos"},
-		{"medico", "Medico", "administracion_especial", "OPES/administracion-especial/Medico"},
-		{"medico-psiquiatra", "Medico Psiquiatra", "administracion_especial", "OPES/administracion-especial/Medico-Psiquiatra"},
-		{"medico-medicina-trabajo", "Medico/a especialista en Medicina del Trabajo", "administracion_especial", "OPES/administracion-especial/Medico-a-especialista-en-Medicina-del-Trabajo"},
-		{"oficial-fontaneria", "Oficial 1 Fontaneria", "administracion_especial", "OPES/administracion-especial/Oficial-1-Fontaneria"},
-		{"oficial-letrado", "Oficial Letrado", "administracion_especial", "OPES/administracion-especial/Oficial-Letrado"},
-		{"oficial-servicios-multiples", "Oficial de Servicios Multiples", "administracion_especial", "OPES/administracion-especial/Oficial-de-Servicios-Multiples"},
-		{"operario", "Operario", "administracion_especial", "OPES/administracion-especial/Operario"},
-		{"operario-tractorista-grupo-5", "Operario Tractorista Grupo 5", "administracion_especial", "OPES/administracion-especial/Operario-Tractorista-Grupo-5"},
-		{"psicologo", "Psicologo", "administracion_especial", "OPES/administracion-especial/Psicologo"},
-		{"tecnico-medio-desarrollo", "Tecnico Medio de Desarrollo", "administracion_especial", "OPES/administracion-especial/Tecnico-Medio-de-Desarrollo"},
-		{"tecnico-medio-medio-ambiente", "Tecnico Medio de Medio Ambiente", "administracion_especial", "OPES/administracion-especial/Tecnico-Medio-de-Medio-Ambiente"},
-		{"tecnico-superior-archivo", "Tecnico Superior Archivo", "administracion_especial", "OPES/administracion-especial/Tecnico-Superior-Archivo"},
-		{"tecnico-superior-ade", "Tecnico Superior de Administracion y Direccion de Empresas", "administracion_especial", "OPES/administracion-especial/Tecnico-Superior-de-Administracion-y-Direccion-de-Empresas"},
-		{"tecnico-superior-desarrollo", "Tecnico Superior de Desarrollo", "administracion_especial", "OPES/administracion-especial/Tecnico-Superior-de-Desarrollo"},
-		{"tecnico-superior-gestion-presupuestaria", "Tecnico Superior de Gestion Presupuestaria", "administracion_especial", "OPES/administracion-especial/Tecnico-Superior-de-Gestion-Presupuestaria"},
-		{"tecnico-superior-servicios-culturales", "Tecnico Superior de Servicios Culturales", "administracion_especial", "OPES/administracion-especial/Tecnico-Superior-de-Servicios-Culturales"},
-		{"tecnico-medio-archivo-biblioteca", "Tecnico/a Medio Archivo Biblioteca", "administracion_especial", "OPES/administracion-especial/Tecnico-a-Medio-Archivo-Biblioteca"},
-		{"tecnico-superior-deportes", "Tecnico/a Superior de Deportes", "administracion_especial", "OPES/administracion-especial/Tecnico-a-Superior-de-Deportes"},
-		{"terapeuta-ocupacional", "Terapeuta Ocupacional", "administracion_especial", "OPES/administracion-especial/Terapeuta-Ocupacional"},
-		{"trabajador-social", "Trabajador Social", "administracion_especial", "OPES/administracion-especial/Trabajador-Social"},
-	}
-	categories := make([]map[string]any, 0, len(rows))
-	for _, row := range rows {
-		categories = append(categories, map[string]any{
-			"catalog":     "categoria_profesional",
-			"slug":        row.slug,
-			"name":        row.name,
-			"area":        row.area,
-			"source":      "Bolsa/OPES",
-			"source_path": row.sourcePath,
-			"module_key":  "bolsa",
-			"state":       "Vigente catalogo Bolsa",
-			"usage":       "Convocatorias, baremo por misma/otra categoria, Personal/RPT y certificados de servicios prestados.",
-		})
-	}
-	return categories
 }
 
 func workspacePayrollRun() map[string]any {

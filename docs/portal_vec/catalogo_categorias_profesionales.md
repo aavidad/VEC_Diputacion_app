@@ -23,11 +23,11 @@ otros datos personales encontrados en aplicaciones auxiliares.
 
 Las categorias no pertenecen en exclusiva a Bolsa. Las consumen tambien
 Personal, RPT, certificados, baremacion y preferencias de avisos. Se adopta
-como autoridad objetivo el catalogo configurable y gobernado del nucleo, con
-version y huella exactas. La superficie publica de Bolsa ya consume una
-proyeccion minimizada mediante un puerto. Personal y el workspace conservan
-representaciones heredadas que deben migrarse antes de afirmar unicidad en
-todo el portal.
+como unica autoridad el catalogo configurable y gobernado del nucleo, fijado
+por ID, version y huella SHA-256 exactos. El bootstrap construye una sola
+instantanea inmutable y la comparte, mediante puertos y proyecciones
+minimizadas, con Bolsa publica y Personal. Ninguno de esos consumidores
+resuelve implicitamente «la ultima version» ni mantiene una lista propia.
 
 ```text
 paquete de importacion revisable
@@ -43,10 +43,16 @@ catalogo gobernado, versionado y publicado
 
 El paquete `data/catalogos/categorias-profesionales/v1.demo.json` es una
 instantanea reproducible para desarrollo y demostracion. No se siembra en el
-almacen al arrancar ni sustituye al gobierno del catalogo. En produccion se
-publicara por el caso de uso administrativo, con autenticacion alta, doble
-control, auditoria, aprobacion y recibo. PostgreSQL y un futuro Oracle deben
-implementar el mismo puerto.
+almacen al arrancar ni sustituye al gobierno del catalogo. Las 58 entradas
+siguen siendo un inventario historico DEMO pendiente de contraste y aprobacion
+por RRHH. En produccion, una version se publicara por el caso de uso
+administrativo, con autenticacion alta, doble control, auditoria, aprobacion y
+recibo. PostgreSQL y un futuro Oracle deben implementar el mismo puerto.
+
+El antiguo snapshot durable de Personal puede contener una coleccion
+`categories`. Se conserva inerte al leer y volver a escribir el fichero para no
+destruir datos heredados, pero ya no se carga como autoridad consultable ni
+admite altas, cambios o bajas. El workspace tampoco embebe la lista historica.
 
 En este envoltorio DEMO, `actualizada_en` indica cuando se genero la
 instantanea tecnica (16 de julio de 2026); no es la fecha de una actualizacion
@@ -86,6 +92,29 @@ La suscripcion no se simula en el portal publico. Se gestionara desde el area
 personal autenticada, con consentimiento, canales configurables y justificante
 auditado.
 
+## Proyeccion interna compatible de Personal
+
+`GET /api/vec/personal/categories` y
+`GET /api/vec/personal/categories/{slug}` conservan las rutas y los campos de
+compatibilidad que necesita el cliente existente (`slug`, `name`, `source`,
+`module_key`, `state` y `usage`), pero los proyectan desde la misma autoridad
+ID/version/huella que Bolsa. La respuesta incorpora la referencia exacta del
+catalogo. No expone `source_path`, rutas locales, alias, actores, motivos ni
+aprobaciones.
+
+La consulta sigue admitiendo paginacion y filtros de texto y area. Las
+operaciones directas `POST`, `PUT` y `DELETE` permanecen reconocidas por
+compatibilidad de transporte, pero responden `409 Conflict` con el codigo
+estable `catalogo_gobernado_requiere_borrador`. No mutan el catalogo heredado,
+no crean una auditoria de exito y no se reinterpretan como una publicacion.
+
+La futura administracion se implementara como un flujo diferente: nueva
+version en borrador, referencia a la version de partida, motivo y fuente,
+validaciones, doble aprobacion por personas distintas, firma/publicacion y
+recibo auditable. Hasta que ese caso de uso exista y haya contenido aprobado
+por RRHH, la pantalla interna es exclusivamente de consulta y no atribuye
+validez administrativa a las 58 entradas DEMO.
+
 ## Seguridad e integridad
 
 El adaptador local de demostracion debe fallar cerrado ante fichero ausente,
@@ -111,6 +140,11 @@ por si mismo el paquete DEMO.
 
 - el paquete inicial contiene exactamente 58 claves unicas, distribuidas 5/53;
 - el directorio publico devuelve esas 58 entradas sin metadatos internos;
+- Bolsa y Personal devuelven la misma referencia de catalogo, version y huella;
+- la proyeccion de Personal mantiene el contrato de lectura sin publicar
+  `source_path`;
+- las mutaciones directas de Personal responden `409` y no alteran ni el
+  catalogo gobernado ni las categorias heredadas del snapshot;
 - con la fuente sintetica actual, el filtro devuelve solo 2 categorias y un
   resultado para cada una;
 - una convocatoria no puede referenciar una categoria ausente, retirada o no
@@ -130,5 +164,7 @@ por si mismo el paquete DEMO.
 3. Generar una propuesta de version y un informe de diferencias.
 4. Aprobar y firmar la publicacion mediante doble control.
 5. Importarla expresamente al repositorio durable y conservar el recibo.
-6. Migrar los consumidores heredados de Personal y retirar sus operaciones de
-   alta, modificacion o borrado directo sobre un segundo almacen.
+6. Implantar la gestion administrativa por borrador y doble aprobacion; hasta
+   entonces no existe una operacion de escritura productiva sobre categorias.
+7. Definir y ejecutar, con informe y respaldo, la retirada futura de las
+   categorias heredadas conservadas de forma inerte en snapshots de Personal.

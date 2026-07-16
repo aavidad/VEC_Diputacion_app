@@ -18,9 +18,6 @@ func TestCatalogStoreListsFiltersAndStats(t *testing.T) {
 			t.Fatalf("UpsertPosition() error = %v", err)
 		}
 	}
-	if err := store.UpsertCategory(ctx, domain.ProfessionalCategory{Slug: "administrativo", Name: "Administrativo", Area: "administracion_general", State: "vigente"}); err != nil {
-		t.Fatalf("UpsertCategory() error = %v", err)
-	}
 	page, err := store.ListPositions(ctx, domain.RPTPositionFilter{Query: "admin", Limit: 10})
 	if err != nil {
 		t.Fatalf("ListPositions() error = %v", err)
@@ -32,7 +29,7 @@ func TestCatalogStoreListsFiltersAndStats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stats() error = %v", err)
 	}
-	if stats.Positions != 2 || stats.Categories != 1 || stats.PendingLegend != 1 || stats.PositionsByGroup["A1"] != 1 {
+	if stats.Positions != 2 || stats.Categories != 0 || stats.PendingLegend != 1 || stats.PositionsByGroup["A1"] != 1 {
 		t.Fatalf("Stats() = %#v, want grouped counts", stats)
 	}
 }
@@ -65,7 +62,7 @@ func TestCatalogStoreImportReplace(t *testing.T) {
 	}
 }
 
-func TestCatalogStoreDeletesPositionsAndCategories(t *testing.T) {
+func TestCatalogStoreDeletesPositions(t *testing.T) {
 	store := NewCatalogStore()
 	ctx := context.Background()
 	if err := store.UpsertPosition(ctx, domain.RPTPosition{Code: "1", Name: "Puesto", State: "vigente", Dot: 1}); err != nil {
@@ -77,15 +74,5 @@ func TestCatalogStoreDeletesPositionsAndCategories(t *testing.T) {
 	}
 	if _, ok, err := store.GetPosition(ctx, "1"); err != nil || ok {
 		t.Fatalf("GetPosition() after delete = ok %v err %v", ok, err)
-	}
-	if err := store.UpsertCategory(ctx, domain.ProfessionalCategory{Slug: "cat", Name: "Categoria", State: "vigente"}); err != nil {
-		t.Fatalf("UpsertCategory() error = %v", err)
-	}
-	deleted, err = store.DeleteCategory(ctx, "cat")
-	if err != nil || !deleted {
-		t.Fatalf("DeleteCategory() = %v, %v; want deleted", deleted, err)
-	}
-	if _, ok, err := store.GetCategory(ctx, "cat"); err != nil || ok {
-		t.Fatalf("GetCategory() after delete = ok %v err %v", ok, err)
 	}
 }

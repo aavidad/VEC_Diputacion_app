@@ -12,13 +12,9 @@ import (
 var (
 	ErrCatalogStoreRequired = errors.New("personal catalog store required")
 	ErrRPTPositionNotFound  = errors.New("personal rpt position not found")
-	ErrCategoryNotFound     = errors.New("personal professional category not found")
 )
 
-const (
-	maxRPTPositionPageSize = 2000
-	maxCategoryPageSize    = 500
-)
+const maxRPTPositionPageSize = 2000
 
 type CatalogService struct {
 	store ports.CatalogStore
@@ -81,41 +77,6 @@ func (s *CatalogService) ImportPositions(ctx context.Context, cmd domain.RPTImpo
 	return s.store.ImportPositions(ctx, cmd)
 }
 
-func (s *CatalogService) UpsertCategory(ctx context.Context, category domain.ProfessionalCategory) error {
-	if err := category.Validate(); err != nil {
-		return err
-	}
-	category = normalizeCategory(category)
-	return s.store.UpsertCategory(ctx, category)
-}
-
-func (s *CatalogService) GetCategory(ctx context.Context, slug string) (domain.ProfessionalCategory, error) {
-	category, ok, err := s.store.GetCategory(ctx, strings.TrimSpace(slug))
-	if err != nil {
-		return domain.ProfessionalCategory{}, err
-	}
-	if !ok {
-		return domain.ProfessionalCategory{}, ErrCategoryNotFound
-	}
-	return category, nil
-}
-
-func (s *CatalogService) DeleteCategory(ctx context.Context, slug string) (bool, error) {
-	return s.store.DeleteCategory(ctx, strings.TrimSpace(slug))
-}
-
-func (s *CatalogService) ListCategories(ctx context.Context, filter domain.ProfessionalCategoryFilter) (domain.ProfessionalCategoryPage, error) {
-	filter.Query = strings.TrimSpace(filter.Query)
-	filter.Area = strings.TrimSpace(filter.Area)
-	if filter.Limit <= 0 || filter.Limit > maxCategoryPageSize {
-		filter.Limit = 100
-	}
-	if filter.Offset < 0 {
-		filter.Offset = 0
-	}
-	return s.store.ListCategories(ctx, filter)
-}
-
 func (s *CatalogService) UpsertCatalogEntry(ctx context.Context, entry domain.CatalogEntry) error {
 	if err := entry.Validate(); err != nil {
 		return err
@@ -160,14 +121,6 @@ func normalizePositionFilter(filter domain.RPTPositionFilter) domain.RPTPosition
 		filter.Offset = 0
 	}
 	return filter
-}
-
-func normalizeCategory(category domain.ProfessionalCategory) domain.ProfessionalCategory {
-	category.Slug = strings.TrimSpace(category.Slug)
-	category.Name = strings.TrimSpace(category.Name)
-	category.Area = strings.TrimSpace(category.Area)
-	category.State = strings.TrimSpace(category.State)
-	return category
 }
 
 func normalizeCatalogEntry(entry domain.CatalogEntry) domain.CatalogEntry {

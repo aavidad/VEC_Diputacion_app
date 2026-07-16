@@ -4,12 +4,22 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
+	personalmodule "vec-diputacion-granada/internal/modules/personal"
+	personalcatalogosvec "vec-diputacion-granada/internal/modules/personal/adapters/catalogosvec"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
+	personalports "vec-diputacion-granada/internal/modules/personal/ports"
+	vecfichero "vec-diputacion-granada/internal/vec/adapters/fichero"
+	vecmemory "vec-diputacion-granada/internal/vec/adapters/memory"
+	vecapp "vec-diputacion-granada/internal/vec/application"
 )
 
 // cargarFixturesCatalogoPersonalPrueba mantiene los datos demostrativos fuera
@@ -31,16 +41,51 @@ func cargarFixturesCatalogoPersonalPrueba(t *testing.T, service *personalapp.Cat
 		t.Fatalf("importar fixture RPT: %v", err)
 	}
 
-	for _, raw := range workspaceProfessionalCategories() {
-		if err := service.UpsertCategory(context.Background(), professionalCategoryFromMap(raw)); err != nil {
-			t.Fatalf("cargar categoria profesional de prueba: %v", err)
-		}
-	}
 	for _, raw := range workspaceRPTContractTypes() {
 		if err := service.UpsertCatalogEntry(context.Background(), catalogEntryFromMap(raw)); err != nil {
 			t.Fatalf("cargar entrada de catalogo de prueba: %v", err)
 		}
 	}
+}
+
+type relojCategoriasProfesionalesHTTPPrueba struct{}
+
+func (relojCategoriasProfesionalesHTTPPrueba) Ahora() time.Time {
+	return time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC)
+}
+
+func nuevoServicioCategoriasProfesionalesHTTPPrueba(t *testing.T) *personalapp.ServicioConsultaCategoriasProfesionales {
+	t.Helper()
+	consulta, err := vecfichero.NuevaConsultaCatalogos("../../../../data/catalogos/categorias-profesionales/v1.demo.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := consulta.ObtenerCatalogo(context.Background(), "categorias-profesionales", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huella, err := catalogo.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	adaptador, err := personalcatalogosvec.NuevaConsultaCategoriasProfesionales(
+		consulta,
+		personalports.ReferenciaCatalogoCategoriasProfesionales{
+			CatalogoID:           catalogo.ID,
+			CatalogoVersion:      catalogo.Version,
+			CatalogoHuellaSHA256: huella,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	servicio, err := personalapp.NuevoServicioConsultaCategoriasProfesionales(
+		adaptador, relojCategoriasProfesionalesHTTPPrueba{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return servicio
 }
 
 // posicionesRPTSinteticasPrueba contiene solo los registros necesarios para
@@ -85,6 +130,37 @@ func TestArranqueCatalogoPersonalConRutaDurableVaciaNoCreaFichero(t *testing.T) 
 	}
 	if _, err := os.Stat(path + ".bak"); !os.IsNotExist(err) {
 		t.Fatalf("el arranque creo una copia de respaldo implicita: %v", err)
+	}
+}
+
+func TestConsultaGobernadaDevuelve58SinCrearSnapshotPersonalVacio(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "catalogo", "personal.json")
+	store := vecmemory.NewStore()
+	servicioVEC, operaciones, err := vecapp.NewServiceWithInternalOperations(store, store, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler, err := NewHandlerWithOptions(servicioVEC, HandlerOptions{
+		InternalOperations:      operaciones,
+		PersonalCatalogPath:     path,
+		CategoriasProfesionales: nuevoServicioCategoriasProfesionalesHTTPPrueba(t),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	handler.handlePersonalCategories(
+		rec,
+		httptest.NewRequest(http.MethodGet, "/api/vec/personal/categories?limit=500", nil),
+		principalConPermisosExpresosPrueba(personalmodule.PermissionPositionRead),
+	)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"total":58`) {
+		t.Fatalf("GET categorias = %d: %s", rec.Code, rec.Body.String())
+	}
+	for _, ruta := range []string{path, path + ".bak"} {
+		if _, err := os.Stat(ruta); !os.IsNotExist(err) {
+			t.Fatalf("la consulta creo el snapshot %s: %v", ruta, err)
+		}
 	}
 }
 

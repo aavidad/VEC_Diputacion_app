@@ -2141,31 +2141,37 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   `SERIALIZABLE`. Esa puerta acredita compatibilidad, no un adaptador durable de
   carga ni la custodia productiva de claves.
 
-## DEC-061 — Autoridad central de la superficie publica y doble proyeccion de categorias profesionales
+## DEC-061 — Autoridad central y proyecciones de categorias profesionales para Bolsa y Personal
 
-- Estado: implantada el 16 de julio de 2026 para la consulta publica de Bolsa
-  y su demostracion local. No declara oficial el contenido ni concede GO
-  productivo al catalogo.
+- Estado: implantada el 16 de julio de 2026 para las consultas de Bolsa y
+  Personal y su demostracion local. No declara oficial el contenido, no
+  sustituye la aprobacion de RRHH ni concede GO productivo al catalogo.
 - Hallazgo: coexistian 58 categorias hardcodeadas en un workspace heredado, un
   snapshot mutable de Personal y solo dos entradas distintas dentro del JSON
   publico. Las dos ultimas usaban guiones bajos, mientras el maestro historico
   usaba claves kebab-case. La interfaz se limitaba a representar el catalogo de
   dos elementos que recibia.
 - Decision: `categorias-profesionales` es un `CatalogoConfigurable` del nucleo,
-  con ID, version y huella exactas. Bolsa lo consume mediante un puerto y un
-  adaptador; las convocatorias conservan las claves y una referencia inmutable
-  al ID, version y huella del catalogo, incluida en su propia huella publica.
-  Tienen prohibido volver a embeber el catalogo. Ruta, ID y version son
-  configurables; el bootstrap coteja todas las referencias antes de montar las
-  rutas y una seleccion incompatible impide el arranque.
+  con ID, version y huella exactas. El bootstrap carga una sola instantanea
+  inmutable y la comparte con Bolsa y Personal mediante puertos y adaptadores;
+  ninguno puede resolver implicitamente «la ultima version» ni volver a
+  embeber el catalogo. Las convocatorias conservan las claves y una referencia
+  inmutable al ID, version y huella, incluida en su propia huella publica. Ruta,
+  ID, version y huella esperada son configurables; el bootstrap coteja las
+  referencias antes de montar las rutas y una seleccion incompatible impide el
+  arranque.
 - Proyecciones: la faceta de convocatorias contiene solo categorias con
   resultados y su conteo, calculado aplicando los demas filtros. El directorio
   `/api/publico/bolsa/categorias` devuelve todas las entradas vigentes y
-  publicables, con area configurada y conteos derivados. Ninguna respuesta
-  publica source paths, alias, actores, motivos ni aprobaciones.
+  publicables, con area configurada y conteos derivados. Los `GET` heredados de
+  Personal conservan rutas, paginacion, filtros y alias de campos compatibles,
+  pero se proyectan desde la misma referencia ID/version/huella. Ninguna de
+  estas respuestas expone `source_path`, rutas locales, alias internos,
+  actores, motivos ni aprobaciones.
 - Datos iniciales: el paquete demo recupera 58 categorias del corpus historico
-  OPES, 5 de Administracion general y 53 de especial. Su fuente candidata queda
-  identificada por SHA-256 y el paquete se marca, en datos y en pantalla, como
+  OPES, 5 de Administracion general y 53 de Administracion especial. Su fuente
+  candidata queda identificada por SHA-256 y el paquete se marca, en datos y
+  en pantalla, como
   pendiente de validacion y aprobacion formal por RRHH. No se copiaron bases de
   candidatos ni otros ficheros con datos personales.
 - Frontera de despliegue: el adaptador de fichero es estricto, acotado,
@@ -2173,8 +2179,15 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   Produccion debe sustituirlo por el repositorio publicado PostgreSQL u Oracle,
   manteniendo el mismo puerto y publicando cada version con autenticacion alta,
   doble control, auditoria y recibo.
-- Deuda expresamente conservada: el workspace y las operaciones heredadas de
-  categorias en Personal aun deben migrarse al servicio gobernado y perder su
-  capacidad de escritura sobre un segundo almacen. Hasta cerrar esa migracion,
-  solo la nueva superficie publica puede afirmar que consume la autoridad
-  central; no se afirma todavia unicidad total en todo el portal interno.
+- Compatibilidad y legado: `POST`, `PUT` y `DELETE` de categorias en Personal
+  ya no mutan un segundo almacen; tras comprobar el permiso responden `409`
+  con `catalogo_gobernado_requiere_borrador`, sin asiento de exito. Las
+  categorias presentes en snapshots historicos de Personal se validan mediante
+  una proyeccion tipada y su subarbol JSON se conserva opaco, incluidas
+  extensiones desconocidas, al persistir RPT. No se cargan como autoridad
+  consultable. La lista hardcodeada y sus alias se retiran del workspace.
+- Administracion pendiente: una modificacion real requerira un caso de uso
+  distinto, con version base, borrador, motivo y fuente, validaciones, doble
+  aprobacion por actores diferentes, firma/publicacion y recibo auditable. No se
+  reinterpreta el `409` como publicacion ni se afirma que ese flujo este
+  implementado o productivo.

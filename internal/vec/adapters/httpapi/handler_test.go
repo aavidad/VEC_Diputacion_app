@@ -42,6 +42,9 @@ func newTestHandlerWithOptions(t *testing.T, options HandlerOptions) *Handler {
 	t.Helper()
 	options.AllowDemoIdentity = true
 	options.DemoIdentityResolver = resolvedorIdentidadPruebas{}
+	if options.CategoriasProfesionales == nil {
+		options.CategoriasProfesionales = nuevoServicioCategoriasProfesionalesHTTPPrueba(t)
+	}
 	store := memory.NewStore()
 	service, internal, err := application.NewServiceWithInternalOperations(store, store, store)
 	if err != nil {
@@ -653,56 +656,6 @@ func TestPersonalRPTCatalogCargaFixtureSinteticoEnMemoria(t *testing.T) {
 	}
 }
 
-func TestPersonalCategoryCRUDEndpoints(t *testing.T) {
-	handler := newTestHandler(t)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/vec/personal/categories", strings.NewReader(`{"slug":"nueva-categoria","name":"Nueva Categoria","area":"administracion_especial","source":"test","state":"vigente"}`))
-	servirCatalogoPersonalConPermisosExpresos(handler, rec, req, personalmodule.PermissionPositionManage)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("POST /api/vec/personal/categories status = %d: %s", rec.Code, rec.Body.String())
-	}
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPut, "/api/vec/personal/categories/nueva-categoria", strings.NewReader(`{"name":"Nueva Categoria Editada","area":"administracion_general","source":"test","state":"vigente"}`))
-	servirCatalogoPersonalConPermisosExpresos(handler, rec, req, personalmodule.PermissionPositionManage)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Nueva Categoria Editada") {
-		t.Fatalf("PUT category status = %d: %s", rec.Code, rec.Body.String())
-	}
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/api/vec/personal/categories/nueva-categoria", nil)
-	servirCatalogoPersonalConPermisosExpresos(handler, rec, req, personalmodule.PermissionPositionRead)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "nueva-categoria") {
-		t.Fatalf("GET category status = %d: %s", rec.Code, rec.Body.String())
-	}
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodDelete, "/api/vec/personal/categories/nueva-categoria", nil)
-	servirCatalogoPersonalConPermisosExpresos(handler, rec, req, personalmodule.PermissionPositionManage)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "personal.category.delete") {
-		t.Fatalf("DELETE category status = %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestPersonalCategorySinEstadoExpresoNoSeActiva(t *testing.T) {
-	handler := newTestHandler(t)
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/vec/personal/categories", strings.NewReader(`{"slug":"sin-estado","name":"Categoria sin estado","area":"administracion_especial","source":"test"}`))
-	servirCatalogoPersonalConPermisosExpresos(handler, rec, req, personalmodule.PermissionPositionManage)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("POST categoria sin estado status = %d: %s", rec.Code, rec.Body.String())
-	}
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/api/vec/personal/categories/sin-estado", nil)
-	servirCatalogoPersonalConPermisosExpresos(handler, rec, req, personalmodule.PermissionPositionRead)
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("GET categoria rechazada status = %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
 func TestPersonalRPTCatalogNoSeConcedePorRolGrueso(t *testing.T) {
 	handler := newTestHandler(t)
 	for _, rol := range []string{"ciudadano", "tecnico_rrhh", "administrativo", "jefatura_rrhh", "personal_interno", "jefe_servicio", "jefe_seccion", "administrador"} {
@@ -853,8 +806,6 @@ func TestWorkspaceSnapshotIncludesProfessionalDemoPayload(t *testing.T) {
 		"rpt_catalog",
 		"rpt_contract_types",
 		"rpt_position_samples",
-		"professional_categories",
-		"professional_category_aliases",
 		"bolsa_category_rules",
 	} {
 		if snapshot[key] == nil {
@@ -949,20 +900,4 @@ func TestWorkspaceSnapshotIncludesProfessionalDemoPayload(t *testing.T) {
 		t.Fatalf("rpt_contract_types missing regime/provision entries: %#v", rptTypes)
 	}
 
-	categories, ok := snapshot["professional_categories"].([]map[string]any)
-	if !ok || len(categories) < 50 {
-		t.Fatalf("professional_categories = %#v, want Diputacion category master from Bolsa/OPES", snapshot["professional_categories"])
-	}
-	var hasAdministrativo, hasTrabajadorSocial bool
-	for _, category := range categories {
-		switch category["slug"] {
-		case "administrativo":
-			hasAdministrativo = true
-		case "trabajador-social":
-			hasTrabajadorSocial = true
-		}
-	}
-	if !hasAdministrativo || !hasTrabajadorSocial {
-		t.Fatalf("professional_categories missing expected categories: %#v", categories)
-	}
 }

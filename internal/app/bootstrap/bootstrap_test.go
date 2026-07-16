@@ -224,10 +224,23 @@ func TestArranqueRechazaCatalogoCategoriasInexistente(t *testing.T) {
 				BolsaCategoriesCatalogID:  prueba.id,
 				BolsaCategoriesVersion:    prueba.version,
 			})
-			if err == nil || !strings.Contains(err.Error(), "fuentes publicas de Bolsa incompatibles") {
+			if err == nil || !strings.Contains(err.Error(), "catalogo profesional gobernado incompatible") {
 				t.Fatalf("seleccion inexistente no rechazo el arranque: %v", err)
 			}
 		})
+	}
+}
+
+func TestArranqueRechazaHuellaCatalogoCategoriasDistinta(t *testing.T) {
+	_, err := NewDemoAPIWithConfig(config.Config{
+		PersonalCatalogPath:       "memory",
+		BolsaCategoriesSourcePath: config.DefaultBolsaCategoriesSourcePath,
+		BolsaCategoriesCatalogID:  config.DefaultBolsaCategoriesCatalogID,
+		BolsaCategoriesVersion:    config.DefaultBolsaCategoriesVersion,
+		BolsaCategoriesSHA256:     "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+	})
+	if err == nil || !strings.Contains(err.Error(), "catalogo profesional gobernado incompatible") {
+		t.Fatalf("huella distinta no rechazo el arranque: %v", err)
 	}
 }
 
