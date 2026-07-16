@@ -28,13 +28,14 @@ type OrdenFinalizarFirmaBaremacion struct {
 // ResultadoFinalizarFirmaBaremacion expone la decision inmutable y todas las
 // capas verificadas que condujeron a su confirmacion transaccional.
 type ResultadoFinalizarFirmaBaremacion struct {
-	Decision          dominiobolsa.DecisionTecnica
-	ValidacionInicial puertosbolsa.ValidacionFirmaServidor
-	SelloTiempo       *puertosbolsa.SelloTiempoFirma
-	Aumento           *puertosbolsa.ResultadoAumentoFirma
-	ValidacionFinal   puertosbolsa.ValidacionFirmaServidor
-	DocumentoFirmado  puertosbolsa.DocumentoFirmadoCustodiado
-	Confirmacion      puertosbolsa.ResultadoConfirmarCambioBaremacion
+	Decision            dominiobolsa.DecisionTecnica
+	ValidacionInicial   puertosbolsa.ValidacionFirmaServidor
+	SelloTiempo         *puertosbolsa.SelloTiempoFirma
+	ValidacionTrasSello *puertosbolsa.ValidacionFirmaServidor
+	Aumento             *puertosbolsa.ResultadoAumentoFirma
+	ValidacionFinal     puertosbolsa.ValidacionFirmaServidor
+	DocumentoFirmado    puertosbolsa.DocumentoFirmadoCustodiado
+	Confirmacion        puertosbolsa.ResultadoConfirmarCambioBaremacion
 }
 
 // FinalizarFirma consulta el firmador, valida en servidor, aplica las capas
@@ -142,13 +143,18 @@ func (s *ServicioBaremacion) FinalizarFirma(
 	solicitudValidacion := puertosbolsa.SolicitudValidarFirmaServidor{
 		Contexto: contextoValidacion, Artefacto: artefacto, Politica: politica,
 		FirmanteEsperadoRef: contenido.DecisorRef, PerfilEsperadoClave: contenido.PerfilDecisorClave,
-		SolicitadaEn: ahora,
+		PerfilFirmaEsperadoClave: puertosbolsa.PerfilFirmaPAdESBaselineB,
+		SolicitadaEn:             ahora,
 	}
 	validacionInicial, err := s.validadorFirma.ValidarFirmaServidor(ctx, solicitudValidacion)
-	if err != nil || validacionInicial.ValidarPara(solicitudValidacion) != nil || !validacionInicial.AptaParaPolitica(politica) {
+	if err != nil || validacionInicial.ValidarPara(solicitudValidacion) != nil ||
+		!validacionInicial.AptaParaPerfil(politica, puertosbolsa.PerfilFirmaPAdESBaselineB) {
 		return ResultadoFinalizarFirmaBaremacion{}, errors.Join(ErrResultadoBaremacionNoConfiable, err)
 	}
+	artefactoActual := artefacto
+	validacionActual := validacionInicial
 	var sello *puertosbolsa.SelloTiempoFirma
+	var validacionTrasSello *puertosbolsa.ValidacionFirmaServidor
 	if politica.RequiereSelloTiempo {
 		if !referenciaAplicacionBaremacionValida(orden.ClaveIdempotenciaSello) {
 			return ResultadoFinalizarFirmaBaremacion{}, ErrOrdenBaremacionInvalida
@@ -158,61 +164,95 @@ func (s *ServicioBaremacion) FinalizarFirma(
 		if err != nil {
 			return ResultadoFinalizarFirmaBaremacion{}, err
 		}
+		ahoraSello, err := s.ahora()
+		if err != nil {
+			return ResultadoFinalizarFirmaBaremacion{}, err
+		}
 		solicitudSello := puertosbolsa.SolicitudSellarTiempoFirma{
 			Contexto: contextoSello, ClaveIdempotencia: orden.ClaveIdempotenciaSello,
-			ObjetoRef: artefacto.FirmaRef, HuellaObjetoSHA256: artefacto.HuellaFirmaSHA256,
-			Politica: politica, SolicitadaEn: ahora,
+			ArtefactoOrigen: artefacto, ValidacionOrigen: validacionInicial,
+			Politica: politica, SolicitadaEn: ahoraSello,
 		}
-		resultado, err := s.selladorTiempo.SellarTiempoFirma(ctx, solicitudSello)
-		if err != nil || resultado.ValidarPara(solicitudSello) != nil {
+		resultadoSello, err := s.selladorTiempo.SellarTiempoFirma(ctx, solicitudSello)
+		if err != nil || resultadoSello.ValidarPara(solicitudSello) != nil {
 			return ResultadoFinalizarFirmaBaremacion{}, errors.Join(ErrResultadoBaremacionNoConfiable, err)
 		}
-		sello = &resultado
+		sello = &resultadoSello
+		artefactoActual = resultadoSello.ArtefactoSellado
+		contextoValidacionT, err := autorizarFirma(puertosbolsa.AccionValidarFirmaDecisionBaremacion,
+			puertosbolsa.ClaseRecursoArtefactoFirma, artefactoActual.FirmaRef, "validacion_tras_sello")
+		if err != nil {
+			return ResultadoFinalizarFirmaBaremacion{}, err
+		}
+		ahoraValidacionT, err := s.ahora()
+		if err != nil {
+			return ResultadoFinalizarFirmaBaremacion{}, err
+		}
+		solicitudValidacionT := puertosbolsa.SolicitudValidarFirmaServidor{
+			Contexto: contextoValidacionT, Artefacto: artefactoActual, Politica: politica,
+			FirmanteEsperadoRef: contenido.DecisorRef, PerfilEsperadoClave: contenido.PerfilDecisorClave,
+			PerfilFirmaEsperadoClave: puertosbolsa.PerfilFirmaPAdESBaselineT,
+			SolicitadaEn:             ahoraValidacionT,
+		}
+		resultadoValidacionT, err := s.validadorFirma.ValidarFirmaServidor(ctx, solicitudValidacionT)
+		if err != nil || resultadoValidacionT.ValidarPara(solicitudValidacionT) != nil ||
+			!resultadoValidacionT.AptaParaPerfil(politica, puertosbolsa.PerfilFirmaPAdESBaselineT) {
+			return ResultadoFinalizarFirmaBaremacion{}, errors.Join(ErrResultadoBaremacionNoConfiable, err)
+		}
+		validacionTrasSello = &resultadoValidacionT
+		validacionActual = resultadoValidacionT
 	} else if orden.ClaveIdempotenciaSello != "" {
 		return ResultadoFinalizarFirmaBaremacion{}, ErrOrdenBaremacionInvalida
 	}
-	validacionFinal := validacionInicial
 	var aumento *puertosbolsa.ResultadoAumentoFirma
 	if politica.RequiereAumentoLongevidad {
 		if !referenciaAplicacionBaremacionValida(orden.ClaveIdempotenciaAumento) {
 			return ResultadoFinalizarFirmaBaremacion{}, ErrOrdenBaremacionInvalida
 		}
 		contextoAumento, err := autorizarFirma(puertosbolsa.AccionAumentarFirmaDecisionBaremacion,
-			puertosbolsa.ClaseRecursoArtefactoFirma, artefacto.FirmaRef, "aumento")
+			puertosbolsa.ClaseRecursoArtefactoFirma, artefactoActual.FirmaRef, "aumento")
+		if err != nil {
+			return ResultadoFinalizarFirmaBaremacion{}, err
+		}
+		ahoraAumento, err := s.ahora()
 		if err != nil {
 			return ResultadoFinalizarFirmaBaremacion{}, err
 		}
 		solicitudAumento := puertosbolsa.SolicitudAumentarFirma{
 			Contexto: contextoAumento, ClaveIdempotencia: orden.ClaveIdempotenciaAumento,
-			Artefacto: artefacto, Validacion: validacionInicial, SelloTiempo: sello,
-			Politica: politica, SolicitadaEn: ahora,
+			Artefacto: artefactoActual, Validacion: validacionActual, SelloTiempo: sello,
+			Politica: politica, SolicitadaEn: ahoraAumento,
 		}
-		resultado, err := s.aumentadorFirma.AumentarFirma(ctx, solicitudAumento)
-		if err != nil || resultado.ValidarPara(solicitudAumento) != nil {
+		resultadoAumento, err := s.aumentadorFirma.AumentarFirma(ctx, solicitudAumento)
+		if err != nil || resultadoAumento.ValidarPara(solicitudAumento) != nil {
 			return ResultadoFinalizarFirmaBaremacion{}, errors.Join(ErrResultadoBaremacionNoConfiable, err)
 		}
-		aumento = &resultado
+		aumento = &resultadoAumento
+		artefactoActual = resultadoAumento.Artefacto
 		contextoValidacionFinal, err := autorizarFirma(puertosbolsa.AccionValidarFirmaDecisionBaremacion,
-			puertosbolsa.ClaseRecursoArtefactoFirma, resultado.Artefacto.FirmaRef, "validacion_final")
+			puertosbolsa.ClaseRecursoArtefactoFirma, artefactoActual.FirmaRef, "validacion_final")
+		if err != nil {
+			return ResultadoFinalizarFirmaBaremacion{}, err
+		}
+		ahoraValidacionFinal, err := s.ahora()
 		if err != nil {
 			return ResultadoFinalizarFirmaBaremacion{}, err
 		}
 		solicitudFinal := puertosbolsa.SolicitudValidarFirmaServidor{
-			Contexto: contextoValidacionFinal, Artefacto: resultado.Artefacto, Politica: politica,
+			Contexto: contextoValidacionFinal, Artefacto: artefactoActual, Politica: politica,
 			FirmanteEsperadoRef: contenido.DecisorRef, PerfilEsperadoClave: contenido.PerfilDecisorClave,
-			SolicitadaEn: resultado.AumentadaEn,
+			PerfilFirmaEsperadoClave: puertosbolsa.PerfilFirmaPAdESBaselineLTA,
+			SolicitadaEn:             ahoraValidacionFinal,
 		}
-		validacionFinal, err = s.validadorFirma.ValidarFirmaServidor(ctx, solicitudFinal)
-		if err != nil || validacionFinal.ValidarPara(solicitudFinal) != nil || !validacionFinal.AptaParaPolitica(politica) {
+		validacionActual, err = s.validadorFirma.ValidarFirmaServidor(ctx, solicitudFinal)
+		if err != nil || validacionActual.ValidarPara(solicitudFinal) != nil || !validacionActual.AptaParaPolitica(politica) {
 			return ResultadoFinalizarFirmaBaremacion{}, errors.Join(ErrResultadoBaremacionNoConfiable, err)
 		}
 	} else if orden.ClaveIdempotenciaAumento != "" {
 		return ResultadoFinalizarFirmaBaremacion{}, ErrOrdenBaremacionInvalida
 	}
-	artefactoFinal := artefacto
-	if aumento != nil {
-		artefactoFinal = aumento.Artefacto
-	}
+	validacionFinal := validacionActual
+	artefactoFinal := artefactoActual
 	documentoFirmado, err := s.custodiarBinarioFirmado(
 		ctx, orden, contenido, artefactoFinal, autorizarFirma, autorizarFirmaAlmacen, autorizaciones,
 	)
@@ -296,7 +336,7 @@ func (s *ServicioBaremacion) FinalizarFirma(
 		return ResultadoFinalizarFirmaBaremacion{}, &ErrorDocumentoFirmadoHuerfano{DecisionRef: contenido.ID, Documento: documentoFirmado, Causa: errors.Join(ErrResultadoBaremacionNoConfiable, err)}
 	}
 	manifiesto, err := s.construirManifiestoProbatorio(
-		ctx, orden.Firma, contenido, consulta, validacionInicial, sello, aumento,
+		ctx, orden.Firma, contenido, consulta, validacionInicial, sello, validacionTrasSello, aumento,
 		validacionFinal, documentoFirmado, proyeccionesFinales, confirmadaEn,
 	)
 	if err != nil || manifiesto.ValidarPara(referenciaVersion, contenido) != nil {
@@ -306,7 +346,8 @@ func (s *ServicioBaremacion) FinalizarFirma(
 		}
 	}
 	firma, err := puertosbolsa.ConstituirFirmaDecisionConfiable(
-		contenido, politica, artefacto, validacionInicial, sello, aumento, validacionFinal, documentoFirmado, manifiesto,
+		contenido, politica, artefacto, validacionInicial, sello, validacionTrasSello,
+		aumento, validacionFinal, documentoFirmado, manifiesto,
 	)
 	if err != nil {
 		return ResultadoFinalizarFirmaBaremacion{}, &ErrorDocumentoFirmadoHuerfano{DecisionRef: contenido.ID, Documento: documentoFirmado, Causa: err}
@@ -350,6 +391,7 @@ func (s *ServicioBaremacion) FinalizarFirma(
 	}
 	return ResultadoFinalizarFirmaBaremacion{
 		Decision: decision, ValidacionInicial: validacionInicial, SelloTiempo: sello,
-		Aumento: aumento, ValidacionFinal: validacionFinal, DocumentoFirmado: documentoFirmado, Confirmacion: confirmacion,
+		ValidacionTrasSello: validacionTrasSello, Aumento: aumento, ValidacionFinal: validacionFinal,
+		DocumentoFirmado: documentoFirmado, Confirmacion: confirmacion,
 	}, nil
 }

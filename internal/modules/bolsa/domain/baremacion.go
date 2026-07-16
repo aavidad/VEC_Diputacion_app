@@ -505,67 +505,72 @@ func (c ContenidoDecisionTecnica) ClonarCanonico() (ContenidoDecisionTecnica, er
 // validacion criptografica real pertenece al conector de firma; el dominio
 // exige sus referencias y vincula el resultado con la huella del contenido.
 type FirmaDecisionTecnica struct {
-	FirmanteRef                           string    `json:"firmante_ref"`
-	PerfilFirmanteClave                   string    `json:"perfil_firmante_clave"`
-	PoliticaFirmaRef                      string    `json:"politica_firma_ref"`
-	PoliticaFirmaVersion                  int       `json:"politica_firma_version"`
-	HuellaPoliticaFirmaSHA256             string    `json:"huella_politica_firma_sha256"`
-	RequiereFirmaInteractiva              bool      `json:"requiere_firma_interactiva"`
-	RequiereValidacionServidor            bool      `json:"requiere_validacion_servidor"`
-	RequiereSelloTiempo                   bool      `json:"requiere_sello_tiempo"`
-	RequiereAumentoLongevidad             bool      `json:"requiere_aumento_longevidad"`
-	SesionFirmaInteractivaRef             string    `json:"sesion_firma_interactiva_ref"`
-	HuellaEvidenciaFirmaInteractivaSHA256 string    `json:"huella_evidencia_firma_interactiva_sha256"`
-	DocumentoFirmableRef                  string    `json:"documento_firmable_ref"`
-	VersionDocumentoFirmable              string    `json:"version_documento_firmable"`
-	HuellaDocumentoFirmableSHA256         string    `json:"huella_documento_firmable_sha256"`
-	EvidenciaCustodiaRef                  string    `json:"evidencia_custodia_ref"`
-	FirmaRef                              string    `json:"firma_ref"`
-	HuellaFirmaSHA256                     string    `json:"huella_firma_sha256"`
-	DocumentoFirmadoRef                   string    `json:"documento_firmado_ref"`
-	HuellaDocumentoSHA256                 string    `json:"huella_documento_sha256"`
-	DocumentoFirmadoCustodiadoRef         string    `json:"documento_firmado_custodiado_ref"`
-	VersionDocumentoFirmadoCustodiado     string    `json:"version_documento_firmado_custodiado"`
-	EvidenciaRecuperacionFirmadoRef       string    `json:"evidencia_recuperacion_firmado_ref"`
-	HuellaEvidenciaRecuperacionSHA256     string    `json:"huella_evidencia_recuperacion_sha256"`
-	EvidenciaCustodiaDocumentoFirmadoRef  string    `json:"evidencia_custodia_documento_firmado_ref"`
-	EvidenciaRetencionDocumentoFirmadoRef string    `json:"evidencia_retencion_documento_firmado_ref"`
-	PoliticaRetencionDocumentoFirmadoRef  string    `json:"politica_retencion_documento_firmado_ref"`
-	DocumentoFirmadoRetenidoHasta         time.Time `json:"documento_firmado_retenido_hasta"`
-	ManifiestoProbatorioRef               string    `json:"manifiesto_probatorio_ref"`
-	HuellaManifiestoProbatorioSHA256      string    `json:"huella_manifiesto_probatorio_sha256"`
-	SelloManifiestoProbatorioHMACSHA256   string    `json:"sello_manifiesto_probatorio_hmac_sha256"`
-	HuellaContenidoSHA256                 string    `json:"huella_contenido_sha256"`
-	ValidacionInicialFirmaRef             string    `json:"validacion_inicial_firma_ref"`
-	HuellaValidacionInicialSHA256         string    `json:"huella_validacion_inicial_sha256"`
-	ValidadaInicialEn                     time.Time `json:"validada_inicial_en"`
-	ValidacionFirmaRef                    string    `json:"validacion_firma_ref"`
-	HuellaValidacionSHA256                string    `json:"huella_validacion_sha256"`
-	ValidadaEn                            time.Time `json:"validada_en"`
-	SelloTiempoRef                        string    `json:"sello_tiempo_ref,omitempty"`
-	HuellaSelloTiempoSHA256               string    `json:"huella_sello_tiempo_sha256,omitempty"`
-	PoliticaSelloTiempoRef                string    `json:"politica_sello_tiempo_ref,omitempty"`
-	PoliticaSelloTiempoVersion            int       `json:"politica_sello_tiempo_version,omitempty"`
-	HuellaPoliticaSelloTiempoSHA256       string    `json:"huella_politica_sello_tiempo_sha256,omitempty"`
-	ValidacionSelloTiempoRef              string    `json:"validacion_sello_tiempo_ref,omitempty"`
-	HuellaValidacionSelloTiempoSHA256     string    `json:"huella_validacion_sello_tiempo_sha256,omitempty"`
-	SelladaEn                             time.Time `json:"sellada_en,omitempty"`
-	NivelLongevidadClave                  string    `json:"nivel_longevidad_clave,omitempty"`
-	AumentoLongevidadRef                  string    `json:"aumento_longevidad_ref,omitempty"`
-	HuellaAumentoLongevidadSHA256         string    `json:"huella_aumento_longevidad_sha256,omitempty"`
-	PoliticaLongevidadRef                 string    `json:"politica_longevidad_ref,omitempty"`
-	PoliticaLongevidadVersion             int       `json:"politica_longevidad_version,omitempty"`
-	HuellaPoliticaLongevidadSHA256        string    `json:"huella_politica_longevidad_sha256,omitempty"`
-	ValidacionLongevidadRef               string    `json:"validacion_longevidad_ref,omitempty"`
-	HuellaValidacionLongevidadSHA256      string    `json:"huella_validacion_longevidad_sha256,omitempty"`
-	AumentadaEn                           time.Time `json:"aumentada_en,omitempty"`
-	FirmadaEn                             time.Time `json:"firmada_en"`
+	FirmanteRef                            string    `json:"firmante_ref"`
+	PerfilFirmanteClave                    string    `json:"perfil_firmante_clave"`
+	PoliticaFirmaRef                       string    `json:"politica_firma_ref"`
+	PoliticaFirmaVersion                   int       `json:"politica_firma_version"`
+	HuellaPoliticaFirmaSHA256              string    `json:"huella_politica_firma_sha256"`
+	PerfilFirmaAlcanzadoClave              string    `json:"perfil_firma_alcanzado_clave"`
+	RequiereFirmaInteractiva               bool      `json:"requiere_firma_interactiva"`
+	RequiereValidacionServidor             bool      `json:"requiere_validacion_servidor"`
+	RequiereSelloTiempo                    bool      `json:"requiere_sello_tiempo"`
+	RequiereAumentoLongevidad              bool      `json:"requiere_aumento_longevidad"`
+	SesionFirmaInteractivaRef              string    `json:"sesion_firma_interactiva_ref"`
+	HuellaEvidenciaFirmaInteractivaSHA256  string    `json:"huella_evidencia_firma_interactiva_sha256"`
+	DocumentoFirmableRef                   string    `json:"documento_firmable_ref"`
+	VersionDocumentoFirmable               string    `json:"version_documento_firmable"`
+	HuellaDocumentoFirmableSHA256          string    `json:"huella_documento_firmable_sha256"`
+	EvidenciaCustodiaRef                   string    `json:"evidencia_custodia_ref"`
+	FirmaRef                               string    `json:"firma_ref"`
+	HuellaFirmaSHA256                      string    `json:"huella_firma_sha256"`
+	DocumentoFirmadoRef                    string    `json:"documento_firmado_ref"`
+	HuellaDocumentoSHA256                  string    `json:"huella_documento_sha256"`
+	DocumentoFirmadoCustodiadoRef          string    `json:"documento_firmado_custodiado_ref"`
+	VersionDocumentoFirmadoCustodiado      string    `json:"version_documento_firmado_custodiado"`
+	EvidenciaRecuperacionFirmadoRef        string    `json:"evidencia_recuperacion_firmado_ref"`
+	HuellaEvidenciaRecuperacionSHA256      string    `json:"huella_evidencia_recuperacion_sha256"`
+	EvidenciaCustodiaDocumentoFirmadoRef   string    `json:"evidencia_custodia_documento_firmado_ref"`
+	EvidenciaRetencionDocumentoFirmadoRef  string    `json:"evidencia_retencion_documento_firmado_ref"`
+	PoliticaRetencionDocumentoFirmadoRef   string    `json:"politica_retencion_documento_firmado_ref"`
+	DocumentoFirmadoRetenidoHasta          time.Time `json:"documento_firmado_retenido_hasta"`
+	ManifiestoProbatorioRef                string    `json:"manifiesto_probatorio_ref"`
+	HuellaManifiestoProbatorioSHA256       string    `json:"huella_manifiesto_probatorio_sha256"`
+	SelloManifiestoProbatorioHMACSHA256    string    `json:"sello_manifiesto_probatorio_hmac_sha256"`
+	HuellaContenidoSHA256                  string    `json:"huella_contenido_sha256"`
+	ValidacionInicialFirmaRef              string    `json:"validacion_inicial_firma_ref"`
+	HuellaValidacionInicialSHA256          string    `json:"huella_validacion_inicial_sha256"`
+	ValidadaInicialEn                      time.Time `json:"validada_inicial_en"`
+	ValidacionFirmaRef                     string    `json:"validacion_firma_ref"`
+	HuellaValidacionSHA256                 string    `json:"huella_validacion_sha256"`
+	ValidadaEn                             time.Time `json:"validada_en"`
+	SelloTiempoRef                         string    `json:"sello_tiempo_ref,omitempty"`
+	HuellaSelloTiempoSHA256                string    `json:"huella_sello_tiempo_sha256,omitempty"`
+	PoliticaSelloTiempoRef                 string    `json:"politica_sello_tiempo_ref,omitempty"`
+	PoliticaSelloTiempoVersion             int       `json:"politica_sello_tiempo_version,omitempty"`
+	HuellaPoliticaSelloTiempoSHA256        string    `json:"huella_politica_sello_tiempo_sha256,omitempty"`
+	ValidacionSelloTiempoRef               string    `json:"validacion_sello_tiempo_ref,omitempty"`
+	HuellaValidacionSelloTiempoSHA256      string    `json:"huella_validacion_sello_tiempo_sha256,omitempty"`
+	SelladaEn                              time.Time `json:"sellada_en,omitempty"`
+	ValidacionDocumentoSelladoRef          string    `json:"validacion_documento_sellado_ref,omitempty"`
+	HuellaValidacionDocumentoSelladoSHA256 string    `json:"huella_validacion_documento_sellado_sha256,omitempty"`
+	ValidadoDocumentoSelladoEn             time.Time `json:"validado_documento_sellado_en,omitempty"`
+	NivelLongevidadClave                   string    `json:"nivel_longevidad_clave,omitempty"`
+	AumentoLongevidadRef                   string    `json:"aumento_longevidad_ref,omitempty"`
+	HuellaAumentoLongevidadSHA256          string    `json:"huella_aumento_longevidad_sha256,omitempty"`
+	PoliticaLongevidadRef                  string    `json:"politica_longevidad_ref,omitempty"`
+	PoliticaLongevidadVersion              int       `json:"politica_longevidad_version,omitempty"`
+	HuellaPoliticaLongevidadSHA256         string    `json:"huella_politica_longevidad_sha256,omitempty"`
+	ValidacionLongevidadRef                string    `json:"validacion_longevidad_ref,omitempty"`
+	HuellaValidacionLongevidadSHA256       string    `json:"huella_validacion_longevidad_sha256,omitempty"`
+	AumentadaEn                            time.Time `json:"aumentada_en,omitempty"`
+	FirmadaEn                              time.Time `json:"firmada_en"`
 }
 
 func (f FirmaDecisionTecnica) validarPara(contenido ContenidoDecisionTecnica) error {
 	if !referenciaOpacaValida(f.FirmanteRef) || !claveNegocioValida(f.PerfilFirmanteClave) ||
 		!referenciaOpacaValida(f.PoliticaFirmaRef) || f.PoliticaFirmaVersion < 1 ||
-		!huellaSHA256Valida(f.HuellaPoliticaFirmaSHA256) || !f.RequiereFirmaInteractiva ||
+		!huellaSHA256Valida(f.HuellaPoliticaFirmaSHA256) || !perfilFirmaDecisionValido(f.PerfilFirmaAlcanzadoClave) ||
+		!f.RequiereFirmaInteractiva ||
 		!f.RequiereValidacionServidor || !referenciaOpacaValida(f.SesionFirmaInteractivaRef) ||
 		!huellaSHA256Valida(f.HuellaEvidenciaFirmaInteractivaSHA256) ||
 		!referenciaOpacaValida(f.DocumentoFirmableRef) || !referenciaOpacaValida(f.VersionDocumentoFirmable) ||
@@ -595,7 +600,7 @@ func (f FirmaDecisionTecnica) validarPara(contenido ContenidoDecisionTecnica) er
 		f.FirmanteRef != contenido.DecisorRef || f.PerfilFirmanteClave != contenido.PerfilDecisorClave {
 		return ErrFirmaDecisionInvalida
 	}
-	if !f.evidenciaSelloCoherente() || !f.evidenciaLongevidadCoherente() {
+	if !f.perfilFirmaCoherente() || !f.evidenciaSelloCoherente() || !f.evidenciaLongevidadCoherente() {
 		return ErrFirmaDecisionInvalida
 	}
 	if f.RequiereAumentoLongevidad && f.ValidadaEn.Before(f.AumentadaEn) {
@@ -611,46 +616,12 @@ func (f FirmaDecisionTecnica) validarPara(contenido ContenidoDecisionTecnica) er
 	return nil
 }
 
-func (f FirmaDecisionTecnica) evidenciaSelloCoherente() bool {
-	presente := f.SelloTiempoRef != "" || f.HuellaSelloTiempoSHA256 != "" || f.PoliticaSelloTiempoRef != "" ||
-		f.PoliticaSelloTiempoVersion != 0 || f.HuellaPoliticaSelloTiempoSHA256 != "" ||
-		f.ValidacionSelloTiempoRef != "" || f.HuellaValidacionSelloTiempoSHA256 != "" || !f.SelladaEn.IsZero()
-	if !f.RequiereSelloTiempo {
-		return !presente
-	}
-	return referenciaOpacaValida(f.SelloTiempoRef) && huellaSHA256Valida(f.HuellaSelloTiempoSHA256) &&
-		referenciaOpacaValida(f.PoliticaSelloTiempoRef) && f.PoliticaSelloTiempoVersion > 0 &&
-		huellaSHA256Valida(f.HuellaPoliticaSelloTiempoSHA256) &&
-		referenciaOpacaValida(f.ValidacionSelloTiempoRef) &&
-		huellaSHA256Valida(f.HuellaValidacionSelloTiempoSHA256) && !f.SelladaEn.IsZero() &&
-		!f.SelladaEn.Before(f.ValidadaInicialEn)
-}
-
-func (f FirmaDecisionTecnica) evidenciaLongevidadCoherente() bool {
-	presente := f.NivelLongevidadClave != "" || f.AumentoLongevidadRef != "" ||
-		f.HuellaAumentoLongevidadSHA256 != "" || f.PoliticaLongevidadRef != "" ||
-		f.PoliticaLongevidadVersion != 0 || f.HuellaPoliticaLongevidadSHA256 != "" ||
-		f.ValidacionLongevidadRef != "" || f.HuellaValidacionLongevidadSHA256 != "" || !f.AumentadaEn.IsZero()
-	if !f.RequiereAumentoLongevidad {
-		return !presente
-	}
-	instanteAnterior := f.ValidadaInicialEn
-	if f.RequiereSelloTiempo {
-		instanteAnterior = f.SelladaEn
-	}
-	return claveNegocioValida(f.NivelLongevidadClave) && referenciaOpacaValida(f.AumentoLongevidadRef) &&
-		huellaSHA256Valida(f.HuellaAumentoLongevidadSHA256) && referenciaOpacaValida(f.PoliticaLongevidadRef) &&
-		f.PoliticaLongevidadVersion > 0 && huellaSHA256Valida(f.HuellaPoliticaLongevidadSHA256) &&
-		referenciaOpacaValida(f.ValidacionLongevidadRef) &&
-		huellaSHA256Valida(f.HuellaValidacionLongevidadSHA256) && !f.AumentadaEn.IsZero() &&
-		!f.AumentadaEn.Before(instanteAnterior)
-}
-
 func (f FirmaDecisionTecnica) clonarCanonica() FirmaDecisionTecnica {
 	canonica := f
 	canonica.FirmanteRef = strings.TrimSpace(f.FirmanteRef)
 	canonica.PoliticaFirmaRef = strings.TrimSpace(f.PoliticaFirmaRef)
 	canonica.HuellaPoliticaFirmaSHA256 = strings.TrimSpace(f.HuellaPoliticaFirmaSHA256)
+	canonica.PerfilFirmaAlcanzadoClave = strings.TrimSpace(f.PerfilFirmaAlcanzadoClave)
 	canonica.SesionFirmaInteractivaRef = strings.TrimSpace(f.SesionFirmaInteractivaRef)
 	canonica.HuellaEvidenciaFirmaInteractivaSHA256 = strings.TrimSpace(f.HuellaEvidenciaFirmaInteractivaSHA256)
 	canonica.DocumentoFirmableRef = strings.TrimSpace(f.DocumentoFirmableRef)
@@ -687,6 +658,11 @@ func (f FirmaDecisionTecnica) clonarCanonica() FirmaDecisionTecnica {
 	canonica.HuellaValidacionSelloTiempoSHA256 = strings.TrimSpace(f.HuellaValidacionSelloTiempoSHA256)
 	if !f.SelladaEn.IsZero() {
 		canonica.SelladaEn = f.SelladaEn.UTC()
+	}
+	canonica.ValidacionDocumentoSelladoRef = strings.TrimSpace(f.ValidacionDocumentoSelladoRef)
+	canonica.HuellaValidacionDocumentoSelladoSHA256 = strings.TrimSpace(f.HuellaValidacionDocumentoSelladoSHA256)
+	if !f.ValidadoDocumentoSelladoEn.IsZero() {
+		canonica.ValidadoDocumentoSelladoEn = f.ValidadoDocumentoSelladoEn.UTC()
 	}
 	canonica.NivelLongevidadClave = strings.TrimSpace(f.NivelLongevidadClave)
 	canonica.AumentoLongevidadRef = strings.TrimSpace(f.AumentoLongevidadRef)

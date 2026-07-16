@@ -208,7 +208,7 @@ func (r *recuperadorBinarioBaremacionPrueba) RecuperarBinarioFirmado(
 		return puertosbolsa.BinarioFirmadoRecuperado{}, puertosbolsa.ErrSolicitudBaremacionInvalida
 	}
 	r.llamadas++
-	contenido := contenidoDocumentoFirmadoBaremacionPrueba()
+	contenido := contenidoDocumentoFirmadoSegunReferenciaBaremacionPrueba(s.DocumentoFirmadoRef)
 	return puertosbolsa.BinarioFirmadoRecuperado{
 		DocumentoFirmadoRef: s.DocumentoFirmadoRef, HuellaDocumentoSHA256: s.HuellaDocumentoSHA256,
 		MIME: "application/pdf", Tamano: int64(len(contenido)), Contenido: io.NopCloser(strings.NewReader(string(contenido))),
@@ -219,6 +219,25 @@ func (r *recuperadorBinarioBaremacionPrueba) RecuperarBinarioFirmado(
 
 func contenidoDocumentoFirmadoBaremacionPrueba() []byte {
 	return []byte("%PDF-1.7\ndocumento-decision-baremacion-firmado")
+}
+
+func contenidoDocumentoFirmadoSelladoBaremacionPrueba() []byte {
+	return []byte("%PDF-1.7\ndocumento-decision-baremacion-firmado-pades-t")
+}
+
+func contenidoDocumentoFirmadoLongevoBaremacionPrueba() []byte {
+	return []byte("%PDF-1.7\ndocumento-decision-baremacion-firmado-pades-lta")
+}
+
+func contenidoDocumentoFirmadoSegunReferenciaBaremacionPrueba(referencia string) []byte {
+	switch {
+	case strings.HasSuffix(referencia, ":pades-lta"):
+		return contenidoDocumentoFirmadoLongevoBaremacionPrueba()
+	case strings.HasSuffix(referencia, ":pades-t"):
+		return contenidoDocumentoFirmadoSelladoBaremacionPrueba()
+	default:
+		return contenidoDocumentoFirmadoBaremacionPrueba()
+	}
 }
 
 type validadorBaremacionPrueba struct {
@@ -250,9 +269,8 @@ func (v *validadorBaremacionPrueba) ValidarFirmaServidor(
 		Estado: puertosbolsa.EstadoValidacionFirmaValida, Artefacto: s.Artefacto,
 		ValidacionRef:          "validacion:firma:" + strings.Repeat("v", numero),
 		HuellaValidacionSHA256: huellaBaremacionPrueba("d"), FirmanteVerificadoRef: s.FirmanteEsperadoRef,
-		PerfilVerificadoClave: s.PerfilEsperadoClave,
-		Comprobaciones:        comprobaciones,
-		ValidadaEn:            v.ahora,
+		PerfilVerificadoClave: s.PerfilEsperadoClave, PerfilFirmaVerificadoClave: s.PerfilFirmaEsperadoClave,
+		Comprobaciones: comprobaciones, ValidadaEn: v.ahora,
 	}
 	return resultado, nil
 }

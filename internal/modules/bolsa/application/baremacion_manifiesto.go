@@ -22,6 +22,7 @@ func (s *ServicioBaremacion) construirManifiestoProbatorio(
 	consulta puertosbolsa.ConsultaFirmaInteractiva,
 	validacionInicial puertosbolsa.ValidacionFirmaServidor,
 	sello *puertosbolsa.SelloTiempoFirma,
+	validacionTrasSello *puertosbolsa.ValidacionFirmaServidor,
 	aumento *puertosbolsa.ResultadoAumentoFirma,
 	validacionFinal puertosbolsa.ValidacionFirmaServidor,
 	documentoFirmado puertosbolsa.DocumentoFirmadoCustodiado,
@@ -48,7 +49,8 @@ func (s *ServicioBaremacion) construirManifiestoProbatorio(
 		})
 	}
 	evidencias, err := evidenciasManifiestoBaremacion(
-		firmaPreparada, contenido, consulta, validacionInicial, sello, aumento, validacionFinal, documentoFirmado,
+		firmaPreparada, contenido, consulta, validacionInicial, sello, validacionTrasSello,
+		aumento, validacionFinal, documentoFirmado,
 	)
 	if err != nil {
 		return puertosbolsa.ManifiestoProbatorioBaremacion{}, err
@@ -131,6 +133,7 @@ func evidenciasManifiestoBaremacion(
 	consulta puertosbolsa.ConsultaFirmaInteractiva,
 	validacionInicial puertosbolsa.ValidacionFirmaServidor,
 	sello *puertosbolsa.SelloTiempoFirma,
+	validacionTrasSello *puertosbolsa.ValidacionFirmaServidor,
 	aumento *puertosbolsa.ResultadoAumentoFirma,
 	validacionFinal puertosbolsa.ValidacionFirmaServidor,
 	documentoFirmado puertosbolsa.DocumentoFirmadoCustodiado,
@@ -171,6 +174,14 @@ func evidenciasManifiestoBaremacion(
 		})
 	}
 	if aumento != nil {
+		if validacionTrasSello == nil {
+			return nil, ErrResultadoBaremacionNoConfiable
+		}
+		resultado = append(resultado, puertosbolsa.EvidenciaProbatoriaBaremacion{
+			Tipo:                  puertosbolsa.EvidenciaValidacionDocumentoSelladoBaremacion,
+			Referencia:            validacionTrasSello.ValidacionRef,
+			HuellaEvidenciaSHA256: validacionTrasSello.HuellaValidacionSHA256,
+		})
 		resultado = append(resultado, puertosbolsa.EvidenciaProbatoriaBaremacion{
 			Tipo: puertosbolsa.EvidenciaAumentoLongevidadBaremacion, Referencia: aumento.EvidenciaAumentoRef,
 			HuellaEvidenciaSHA256: aumento.HuellaEvidenciaSHA256,

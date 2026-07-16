@@ -365,7 +365,7 @@ func TestServicioBaremacionAplicaSelloTiempoYLongevidadSoloCuandoLaPoliticaLoExi
 		t.Fatalf("FinalizarFirma() error = %v", err)
 	}
 	if resultado.SelloTiempo == nil || resultado.Aumento == nil || sellador.llamadas != 1 || aumentador.llamadas != 1 ||
-		entorno.validador.llamadas != 2 || resultado.Decision.Validar() != nil {
+		resultado.ValidacionTrasSello == nil || entorno.validador.llamadas != 3 || resultado.Decision.Validar() != nil {
 		t.Fatalf("capas de firma incompletas: sello=%v aumento=%v validaciones=%d",
 			resultado.SelloTiempo != nil, resultado.Aumento != nil, entorno.validador.llamadas)
 	}
@@ -374,6 +374,7 @@ func TestServicioBaremacionAplicaSelloTiempoYLongevidadSoloCuandoLaPoliticaLoExi
 		puertosbolsa.AccionConsultarFirmaDecisionBaremacion,
 		puertosbolsa.AccionValidarFirmaDecisionBaremacion,
 		puertosbolsa.AccionSellarTiempoDecisionBaremacion,
+		puertosbolsa.AccionValidarFirmaDecisionBaremacion,
 		puertosbolsa.AccionAumentarFirmaDecisionBaremacion,
 		puertosbolsa.AccionValidarFirmaDecisionBaremacion,
 		puertosbolsa.AccionRecuperarBinarioFirmadoBaremacion,

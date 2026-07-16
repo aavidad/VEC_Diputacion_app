@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -909,7 +908,7 @@ func TestValidacionServidorCardinalidadEstadosYCopiaDefensiva(t *testing.T) {
 	politica := politicaFirmaValidaPrueba()
 	artefacto := artefactoFirmaValidoPrueba(t, contenido, politica, "inicial")
 	validacion := validacionFirmaValidaPrueba(artefacto, instantePuertosPrueba.Add(6*time.Minute), "inicial")
-	if !validacion.AptaParaPolitica(politica) {
+	if !validacion.AptaParaPerfil(politica, PerfilFirmaPAdESBaselineB) {
 		t.Fatalf("validacion valida no apta: %+v", validacion)
 	}
 	clon, err := validacion.Clonar()
@@ -926,7 +925,7 @@ func TestValidacionServidorCardinalidadEstadosYCopiaDefensiva(t *testing.T) {
 	}
 	validacion = validacionFirmaValidaPrueba(artefacto, instantePuertosPrueba.Add(6*time.Minute), "inicial")
 	validacion.Comprobaciones[0].Estado = EstadoComprobacionIndeterminada
-	if validacion.AptaParaPolitica(politica) {
+	if validacion.AptaParaPerfil(politica, PerfilFirmaPAdESBaselineB) {
 		t.Fatal("validacion indeterminada admitida para decision")
 	}
 }
@@ -1120,6 +1119,9 @@ func TestManifiestoProbatorioMatrizLigaCadaCapaConLaFirmaConcreta(t *testing.T) 
 	artefacto := artefactoFirmaValidoPrueba(t, contenido, politica, "inicial")
 	validacionInicial := validacionFirmaValidaPrueba(artefacto, instantePuertosPrueba.Add(6*time.Minute), "inicial")
 	sello := selloValidoPrueba(artefacto, politica)
+	validacionTrasSello := validacionFirmaValidaPrueba(
+		sello.ArtefactoSellado, instantePuertosPrueba.Add(7*time.Minute), "sellado", PerfilFirmaPAdESBaselineT,
+	)
 	artefactoFinal := artefactoFirmaValidoPrueba(t, contenido, politica, "longevo")
 	artefactoFinal.FirmaRef = artefacto.FirmaRef
 	artefactoFinal.HuellaFirmaSHA256 = artefacto.HuellaFirmaSHA256
@@ -1128,19 +1130,24 @@ func TestManifiestoProbatorioMatrizLigaCadaCapaConLaFirmaConcreta(t *testing.T) 
 	artefactoFinal.HuellaEvidenciaInteractivaSHA256 = artefacto.HuellaEvidenciaInteractivaSHA256
 	artefactoFinal.FirmadaEn = artefacto.FirmadaEn
 	aumento := ResultadoAumentoFirma{
-		Artefacto: artefactoFinal, NivelAlcanzadoClave: politica.NivelAumentoClave,
+		ArtefactoOrigen: sello.ArtefactoSellado, Artefacto: artefactoFinal,
+		NivelAlcanzadoClave:   politica.NivelAumentoClave,
 		PoliticaLongevidadRef: politica.PoliticaLongevidadRef, PoliticaLongevidadVersion: politica.PoliticaLongevidadVersion,
 		HuellaPoliticaLongevidadSHA256: politica.HuellaPoliticaLongevidadSHA256,
 		EvidenciaAumentoRef:            "evidencia-aumento-1", HuellaEvidenciaSHA256: huellaPruebaPuertos("6"),
 		AumentadaEn: instantePuertosPrueba.Add(8 * time.Minute),
 	}
-	validacionFinal := validacionFirmaValidaPrueba(artefactoFinal, instantePuertosPrueba.Add(9*time.Minute), "final")
+	validacionFinal := validacionFirmaValidaPrueba(
+		artefactoFinal, instantePuertosPrueba.Add(9*time.Minute), "final", PerfilFirmaPAdESBaselineLTA,
+	)
 	documento := documentoFirmadoCustodiadoPrueba(artefactoFinal)
 	base := construirManifiestoProbatorioPrueba(
-		t, contenido, politica, artefacto, validacionInicial, &sello, &aumento, validacionFinal, documento,
+		t, contenido, politica, artefacto, validacionInicial, &sello, &validacionTrasSello,
+		&aumento, validacionFinal, documento,
 	)
 	if _, err := ConstituirFirmaDecisionConfiable(
-		contenido, politica, artefacto, validacionInicial, &sello, &aumento, validacionFinal, documento, base,
+		contenido, politica, artefacto, validacionInicial, &sello, &validacionTrasSello,
+		&aumento, validacionFinal, documento, base,
 	); err != nil {
 		t.Fatalf("firma base de la matriz: %v", err)
 	}
@@ -1160,15 +1167,15 @@ func TestManifiestoProbatorioMatrizLigaCadaCapaConLaFirmaConcreta(t *testing.T) 
 		}},
 		{"validacion inicial ajena", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[11].Referencia = "validacion-inicial-ajena" }},
 		{"sello ajeno", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[12].Referencia = "sello-tiempo-ajeno" }},
-		{"aumento ajeno", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[13].Referencia = "aumento-ajeno" }},
+		{"aumento ajeno", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[14].Referencia = "aumento-ajeno" }},
 		{"documento firmado ajeno", func(m *ManifiestoProbatorioBaremacion) {
-			for _, indice := range []int{15, 16, 17} {
+			for _, indice := range []int{16, 17, 18} {
 				m.Autorizaciones[indice].RecursoRef = "documento-firmado-ajeno"
 			}
 		}},
-		{"recuperacion ajena", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[15].Referencia = "recuperacion-ajena" }},
-		{"custodia ajena", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[16].Referencia = "custodia-ajena" }},
-		{"retencion ajena", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[17].Referencia = "retencion-ajena" }},
+		{"recuperacion ajena", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[16].Referencia = "recuperacion-ajena" }},
+		{"custodia ajena", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[17].Referencia = "custodia-ajena" }},
+		{"retencion ajena", func(m *ManifiestoProbatorioBaremacion) { m.Evidencias[18].Referencia = "retencion-ajena" }},
 	}
 	for _, caso := range casos {
 		caso := caso
@@ -1180,7 +1187,7 @@ func TestManifiestoProbatorioMatrizLigaCadaCapaConLaFirmaConcreta(t *testing.T) 
 				t.Fatalf("estructura de la capa adulterada: %v", err)
 			}
 			if _, err := ConstituirFirmaDecisionConfiable(
-				contenido, politica, artefacto, validacionInicial, &sello, &aumento,
+				contenido, politica, artefacto, validacionInicial, &sello, &validacionTrasSello, &aumento,
 				validacionFinal, documento, sellado,
 			); err == nil {
 				t.Fatal("la capa de otra firma se acepto como cobertura de la decision")
@@ -1195,6 +1202,9 @@ func TestEnsambladorConservaPoliticasSelloLongevidadYValidacionFinal(t *testing.
 	artefacto := artefactoFirmaValidoPrueba(t, contenido, politica, "inicial")
 	validacionInicial := validacionFirmaValidaPrueba(artefacto, instantePuertosPrueba.Add(6*time.Minute), "inicial")
 	sello := selloValidoPrueba(artefacto, politica)
+	validacionTrasSello := validacionFirmaValidaPrueba(
+		sello.ArtefactoSellado, instantePuertosPrueba.Add(7*time.Minute), "sellado", PerfilFirmaPAdESBaselineT,
+	)
 	artefactoFinal := artefactoFirmaValidoPrueba(t, contenido, politica, "longevo")
 	artefactoFinal.FirmaRef = artefacto.FirmaRef
 	artefactoFinal.HuellaFirmaSHA256 = artefacto.HuellaFirmaSHA256
@@ -1203,17 +1213,23 @@ func TestEnsambladorConservaPoliticasSelloLongevidadYValidacionFinal(t *testing.
 	artefactoFinal.HuellaEvidenciaInteractivaSHA256 = artefacto.HuellaEvidenciaInteractivaSHA256
 	artefactoFinal.FirmadaEn = artefacto.FirmadaEn
 	aumento := ResultadoAumentoFirma{
-		Artefacto: artefactoFinal, NivelAlcanzadoClave: politica.NivelAumentoClave,
+		ArtefactoOrigen: sello.ArtefactoSellado, Artefacto: artefactoFinal,
+		NivelAlcanzadoClave:            politica.NivelAumentoClave,
 		PoliticaLongevidadRef:          politica.PoliticaLongevidadRef,
 		PoliticaLongevidadVersion:      politica.PoliticaLongevidadVersion,
 		HuellaPoliticaLongevidadSHA256: politica.HuellaPoliticaLongevidadSHA256,
 		EvidenciaAumentoRef:            "evidencia-aumento-1", HuellaEvidenciaSHA256: huellaPruebaPuertos("6"),
 		AumentadaEn: instantePuertosPrueba.Add(8 * time.Minute),
 	}
-	validacionFinal := validacionFirmaValidaPrueba(artefactoFinal, instantePuertosPrueba.Add(9*time.Minute), "final")
+	validacionFinal := validacionFirmaValidaPrueba(
+		artefactoFinal, instantePuertosPrueba.Add(9*time.Minute), "final", PerfilFirmaPAdESBaselineLTA,
+	)
 	custodiaFinal := documentoFirmadoCustodiadoPrueba(artefactoFinal)
 	manifiesto := manifiestoProbatorioValidoPrueba(t, contenido)
-	firma, err := ConstituirFirmaDecisionConfiable(contenido, politica, artefacto, validacionInicial, &sello, &aumento, validacionFinal, custodiaFinal, manifiesto)
+	firma, err := ConstituirFirmaDecisionConfiable(
+		contenido, politica, artefacto, validacionInicial, &sello, &validacionTrasSello,
+		&aumento, validacionFinal, custodiaFinal, manifiesto,
+	)
 	if err != nil {
 		t.Fatalf("ensamblar firma: %v", err)
 	}
@@ -1229,7 +1245,10 @@ func TestEnsambladorConservaPoliticasSelloLongevidadYValidacionFinal(t *testing.
 		t.Fatalf("no se conservaron capas exactas: %+v", firma)
 	}
 	validacionFinal.Estado = EstadoValidacionFirmaIndeterminada
-	if _, err := ConstituirFirmaDecisionConfiable(contenido, politica, artefacto, validacionInicial, &sello, &aumento, validacionFinal, custodiaFinal, manifiesto); !errors.Is(err, ErrFirmaServidorNoValida) {
+	if _, err := ConstituirFirmaDecisionConfiable(
+		contenido, politica, artefacto, validacionInicial, &sello, &validacionTrasSello,
+		&aumento, validacionFinal, custodiaFinal, manifiesto,
+	); !errors.Is(err, ErrFirmaServidorNoValida) {
 		t.Fatalf("aumento no revalidado admitido: %v", err)
 	}
 }
@@ -1240,8 +1259,12 @@ func TestRecuperacionHistoricaExigeReferenciaYHuellaExactas(t *testing.T) {
 	artefacto := artefactoFirmaValidoPrueba(t, contenido, politica, "inicial")
 	validacion := validacionFirmaValidaPrueba(artefacto, instantePuertosPrueba.Add(6*time.Minute), "inicial")
 	sello := selloValidoPrueba(artefacto, politica)
+	artefactoLongevo := sello.ArtefactoSellado
+	artefactoLongevo.DocumentoFirmadoRef += ":pades-lta"
+	artefactoLongevo.HuellaDocumentoSHA256 = huellaPruebaPuertos("f")
 	aumento := ResultadoAumentoFirma{
-		Artefacto: artefacto, NivelAlcanzadoClave: politica.NivelAumentoClave,
+		ArtefactoOrigen: sello.ArtefactoSellado, Artefacto: artefactoLongevo,
+		NivelAlcanzadoClave:            politica.NivelAumentoClave,
 		PoliticaLongevidadRef:          politica.PoliticaLongevidadRef,
 		PoliticaLongevidadVersion:      politica.PoliticaLongevidadVersion,
 		HuellaPoliticaLongevidadSHA256: politica.HuellaPoliticaLongevidadSHA256,
@@ -1709,65 +1732,6 @@ func sesionFirmaValidaPrueba(t *testing.T, solicitud SolicitudPrepararFirmaInter
 	}
 }
 
-func artefactoFirmaValidoPrueba(t *testing.T, contenido dominiobolsa.ContenidoDecisionTecnica, politica PoliticaFirmaBaremacion, sufijo string) ArtefactoFirma {
-	t.Helper()
-	huella, err := contenido.HuellaContenidoSHA256()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return ArtefactoFirma{
-		ProcesoRef: contenido.ProcesoRef, SolicitudRef: contenido.SolicitudRef, SujetoRef: contenido.SujetoRef,
-		BaremacionMeritoRef: contenido.BaremacionMeritoRef, DecisionRef: contenido.ID,
-		VersionBaremacion: contenido.VersionBaremacion, SesionFirmaRef: "sesion-firma-1",
-		EvidenciaFirmaInteractivaRef:     "evidencia-firma-interactiva-" + sufijo,
-		HuellaEvidenciaInteractivaSHA256: huellaPruebaPuertos("7"),
-		DocumentoFirmable:                puertosvec.ReferenciaObjetoAlmacen{Referencia: "objeto-firmable-001", Version: "version-001"},
-		HuellaDocumentoFirmableSHA256:    huellaPruebaPuertos("5"), EvidenciaCustodiaRef: "evidencia-custodia-001",
-		FirmaRef:          "firma-decision-001",
-		HuellaFirmaSHA256: huellaPruebaPuertos("8"), DocumentoFirmadoRef: "documento-firmado-" + sufijo,
-		HuellaDocumentoSHA256: huellaPruebaPuertos(map[bool]string{true: "9", false: "a"}[sufijo == "inicial"]),
-		HuellaContenidoSHA256: huella, PoliticaFirmaRef: politica.Referencia, PoliticaFirmaVersion: politica.Version,
-		HuellaPoliticaFirmaSHA256: politica.HuellaSHA256, FirmanteRef: principalBaremacionPuertosPrueba,
-		PerfilFirmanteClave: perfilBaremacionPuertosPrueba, FirmadaEn: instantePuertosPrueba.Add(5 * time.Minute),
-	}
-}
-
-func validacionFirmaValidaPrueba(artefacto ArtefactoFirma, instante time.Time, sufijo string) ValidacionFirmaServidor {
-	comprobaciones := make([]ComprobacionFirma, 0, len(comprobacionesFirmaObligatorias))
-	for indice, clave := range ComprobacionesFirmaObligatorias() {
-		comprobaciones = append(comprobaciones, ComprobacionFirma{
-			Clave: clave, Estado: EstadoComprobacionSuperada,
-			EvidenciaRef:          "evidencia-validacion-" + sufijo + "-" + strconv.Itoa(indice),
-			HuellaEvidenciaSHA256: huellaPruebaPuertos(strconv.FormatInt(int64(10+indice%6), 16)),
-		})
-	}
-	return ValidacionFirmaServidor{
-		Estado: EstadoValidacionFirmaValida, Artefacto: artefacto, ValidacionRef: "validacion-firma-" + sufijo,
-		HuellaValidacionSHA256: huellaPruebaPuertos("b"), FirmanteVerificadoRef: artefacto.FirmanteRef,
-		PerfilVerificadoClave: artefacto.PerfilFirmanteClave, Comprobaciones: comprobaciones, ValidadaEn: instante,
-	}
-}
-
-func documentoFirmadoCustodiadoPrueba(artefacto ArtefactoFirma) DocumentoFirmadoCustodiado {
-	objetoRef := puertosvec.ReferenciaObjetoAlmacen{Referencia: "objeto-firmado-1", Version: "version-firmada-1"}
-	retenidoHasta := instantePuertosPrueba.Add(365 * 24 * time.Hour)
-	return DocumentoFirmadoCustodiado{
-		DocumentoFirmadoRef: artefacto.DocumentoFirmadoRef, FirmaRef: artefacto.FirmaRef,
-		HuellaDocumentoSHA256: artefacto.HuellaDocumentoSHA256,
-		Objeto: puertosvec.ObjetoAlmacenado{
-			Objeto: objetoRef, ConectorID: "almacen-prueba", Zona: puertosvec.ZonaAlmacenAdmitida,
-			MIME: "application/pdf", Tamano: 1024, HuellaSHA256: artefacto.HuellaDocumentoSHA256,
-			EvidenciaCreacionRef: "evidencia-escritura-firmado-1", AlmacenadoEn: instantePuertosPrueba.Add(9 * time.Minute),
-			RetenidoHasta: retenidoHasta,
-		},
-		EvidenciaEscritura:                puertosvec.EvidenciaOperacionAlmacen{Referencia: "evidencia-escritura-firmado-1"},
-		EvidenciaRetencion:                puertosvec.EvidenciaOperacionAlmacen{Referencia: "evidencia-retencion-firmado-1"},
-		EvidenciaRecuperacionRef:          "evidencia-recuperacion-firmado-1",
-		HuellaEvidenciaRecuperacionSHA256: huellaPruebaPuertos("e"),
-		PoliticaRetencionRef:              "politica-retencion-firmado-v1", RetenidoHasta: retenidoHasta,
-	}
-}
-
 func manifiestoProbatorioValidoPrueba(t *testing.T, contenido dominiobolsa.ContenidoDecisionTecnica) ManifiestoProbatorioBaremacion {
 	t.Helper()
 	politica := politicaFirmaValidaPrueba()
@@ -1776,6 +1740,9 @@ func manifiestoProbatorioValidoPrueba(t *testing.T, contenido dominiobolsa.Conte
 		artefacto, instantePuertosPrueba.Add(6*time.Minute), "inicial",
 	)
 	sello := selloValidoPrueba(artefacto, politica)
+	validacionTrasSello := validacionFirmaValidaPrueba(
+		sello.ArtefactoSellado, instantePuertosPrueba.Add(7*time.Minute), "sellado", PerfilFirmaPAdESBaselineT,
+	)
 	artefactoFinal := artefactoFirmaValidoPrueba(t, contenido, politica, "longevo")
 	artefactoFinal.FirmaRef = artefacto.FirmaRef
 	artefactoFinal.HuellaFirmaSHA256 = artefacto.HuellaFirmaSHA256
@@ -1784,7 +1751,8 @@ func manifiestoProbatorioValidoPrueba(t *testing.T, contenido dominiobolsa.Conte
 	artefactoFinal.HuellaEvidenciaInteractivaSHA256 = artefacto.HuellaEvidenciaInteractivaSHA256
 	artefactoFinal.FirmadaEn = artefacto.FirmadaEn
 	aumento := ResultadoAumentoFirma{
-		Artefacto: artefactoFinal, NivelAlcanzadoClave: politica.NivelAumentoClave,
+		ArtefactoOrigen: sello.ArtefactoSellado, Artefacto: artefactoFinal,
+		NivelAlcanzadoClave:            politica.NivelAumentoClave,
 		PoliticaLongevidadRef:          politica.PoliticaLongevidadRef,
 		PoliticaLongevidadVersion:      politica.PoliticaLongevidadVersion,
 		HuellaPoliticaLongevidadSHA256: politica.HuellaPoliticaLongevidadSHA256,
@@ -1792,10 +1760,10 @@ func manifiestoProbatorioValidoPrueba(t *testing.T, contenido dominiobolsa.Conte
 		AumentadaEn: instantePuertosPrueba.Add(8 * time.Minute),
 	}
 	validacionFinal := validacionFirmaValidaPrueba(
-		artefactoFinal, instantePuertosPrueba.Add(9*time.Minute), "final",
+		artefactoFinal, instantePuertosPrueba.Add(9*time.Minute), "final", PerfilFirmaPAdESBaselineLTA,
 	)
 	return construirManifiestoProbatorioPrueba(
-		t, contenido, politica, artefacto, validacionInicial, &sello, &aumento,
+		t, contenido, politica, artefacto, validacionInicial, &sello, &validacionTrasSello, &aumento,
 		validacionFinal, documentoFirmadoCustodiadoPrueba(artefactoFinal),
 	)
 }
@@ -1807,6 +1775,7 @@ func construirManifiestoProbatorioPrueba(
 	artefacto ArtefactoFirma,
 	validacionInicial ValidacionFirmaServidor,
 	sello *SelloTiempoFirma,
+	validacionTrasSello *ValidacionFirmaServidor,
 	aumento *ResultadoAumentoFirma,
 	validacionFinal ValidacionFirmaServidor,
 	documentoFirmado DocumentoFirmadoCustodiado,
@@ -1852,10 +1821,16 @@ func construirManifiestoProbatorioPrueba(
 		agregarAutorizacion(AccionSellarTiempoDecisionBaremacion, artefacto.FirmaRef, "")
 	}
 	artefactoFinal := artefacto
+	if sello != nil {
+		artefactoFinal = sello.ArtefactoSellado
+	}
 	if aumento != nil {
-		agregarAutorizacion(AccionAumentarFirmaDecisionBaremacion, artefacto.FirmaRef, "")
-		agregarAutorizacion(AccionValidarFirmaDecisionBaremacion, aumento.Artefacto.FirmaRef, "")
+		agregarAutorizacion(AccionValidarFirmaDecisionBaremacion, sello.ArtefactoSellado.FirmaRef, "")
+		agregarAutorizacion(AccionAumentarFirmaDecisionBaremacion, sello.ArtefactoSellado.FirmaRef, "")
 		artefactoFinal = aumento.Artefacto
+	}
+	if sello != nil {
+		agregarAutorizacion(AccionValidarFirmaDecisionBaremacion, artefactoFinal.FirmaRef, "")
 	}
 	agregarAutorizacion(AccionRecuperarBinarioFirmadoBaremacion, artefactoFinal.DocumentoFirmadoRef, "")
 	agregarAutorizacion(AccionCustodiarDocumentoFirmadoBaremacion, artefactoFinal.DocumentoFirmadoRef, "")
@@ -1894,6 +1869,13 @@ func construirManifiestoProbatorioPrueba(
 		})
 	}
 	if aumento != nil {
+		if validacionTrasSello == nil {
+			t.Fatal("aumento de prueba sin validacion PAdES-T")
+		}
+		evidencias = append(evidencias, EvidenciaProbatoriaBaremacion{
+			Tipo: EvidenciaValidacionDocumentoSelladoBaremacion, Referencia: validacionTrasSello.ValidacionRef,
+			HuellaEvidenciaSHA256: validacionTrasSello.HuellaValidacionSHA256,
+		})
 		evidencias = append(evidencias, EvidenciaProbatoriaBaremacion{
 			Tipo: EvidenciaAumentoLongevidadBaremacion, Referencia: aumento.EvidenciaAumentoRef,
 			HuellaEvidenciaSHA256: aumento.HuellaEvidenciaSHA256,
@@ -1952,9 +1934,12 @@ func resellarManifiestoPrueba(
 }
 
 func selloValidoPrueba(artefacto ArtefactoFirma, politica PoliticaFirmaBaremacion) SelloTiempoFirma {
+	artefactoSellado := artefacto
+	artefactoSellado.DocumentoFirmadoRef += ":pades-t"
+	artefactoSellado.HuellaDocumentoSHA256 = huellaPruebaPuertos("c")
 	return SelloTiempoFirma{
 		SelloTiempoRef: "sello-tiempo-1", HuellaSelloTiempoSHA256: huellaPruebaPuertos("d"),
-		ObjetoRef: artefacto.FirmaRef, HuellaObjetoSHA256: artefacto.HuellaFirmaSHA256,
+		ArtefactoOrigen: artefacto, ArtefactoSellado: artefactoSellado,
 		PoliticaSelloTiempoRef:          politica.PoliticaSelloTiempoRef,
 		PoliticaSelloTiempoVersion:      politica.PoliticaSelloTiempoVersion,
 		HuellaPoliticaSelloTiempoSHA256: politica.HuellaPoliticaSelloTiempoSHA256,

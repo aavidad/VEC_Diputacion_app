@@ -16,24 +16,25 @@ import (
 type TipoEvidenciaProbatoriaBaremacion string
 
 const (
-	EvidenciaEstadoBaseBaremacion          TipoEvidenciaProbatoriaBaremacion = "estado_base"
-	EvidenciaCalculoOficialBaremacion      TipoEvidenciaProbatoriaBaremacion = "calculo_oficial"
-	EvidenciaCriterioPublicadoBaremacion   TipoEvidenciaProbatoriaBaremacion = "criterio_publicado"
-	EvidenciaDocumentoMeritoBaremacion     TipoEvidenciaProbatoriaBaremacion = "documento_merito"
-	EvidenciaRepresentacionBaremacion      TipoEvidenciaProbatoriaBaremacion = "representacion_documento"
-	EvidenciaContenidoDecisionBaremacion   TipoEvidenciaProbatoriaBaremacion = "contenido_decision"
-	EvidenciaPoliticaFirmaBaremacion       TipoEvidenciaProbatoriaBaremacion = "politica_firma"
-	EvidenciaDocumentoCanonicoBaremacion   TipoEvidenciaProbatoriaBaremacion = "documento_canonico"
-	EvidenciaCustodiaFirmableBaremacion    TipoEvidenciaProbatoriaBaremacion = "custodia_firmable"
-	EvidenciaPreparacionFirmaBaremacion    TipoEvidenciaProbatoriaBaremacion = "preparacion_firma"
-	EvidenciaConsultaFirmaBaremacion       TipoEvidenciaProbatoriaBaremacion = "consulta_firma"
-	EvidenciaValidacionInicialBaremacion   TipoEvidenciaProbatoriaBaremacion = "validacion_firma_inicial"
-	EvidenciaSelloTiempoBaremacion         TipoEvidenciaProbatoriaBaremacion = "sello_tiempo"
-	EvidenciaAumentoLongevidadBaremacion   TipoEvidenciaProbatoriaBaremacion = "aumento_longevidad"
-	EvidenciaValidacionFinalBaremacion     TipoEvidenciaProbatoriaBaremacion = "validacion_firma_final"
-	EvidenciaRecuperacionFirmadoBaremacion TipoEvidenciaProbatoriaBaremacion = "recuperacion_documento_firmado"
-	EvidenciaCustodiaFirmadoBaremacion     TipoEvidenciaProbatoriaBaremacion = "custodia_documento_firmado"
-	EvidenciaRetencionFirmadoBaremacion    TipoEvidenciaProbatoriaBaremacion = "retencion_documento_firmado"
+	EvidenciaEstadoBaseBaremacion                 TipoEvidenciaProbatoriaBaremacion = "estado_base"
+	EvidenciaCalculoOficialBaremacion             TipoEvidenciaProbatoriaBaremacion = "calculo_oficial"
+	EvidenciaCriterioPublicadoBaremacion          TipoEvidenciaProbatoriaBaremacion = "criterio_publicado"
+	EvidenciaDocumentoMeritoBaremacion            TipoEvidenciaProbatoriaBaremacion = "documento_merito"
+	EvidenciaRepresentacionBaremacion             TipoEvidenciaProbatoriaBaremacion = "representacion_documento"
+	EvidenciaContenidoDecisionBaremacion          TipoEvidenciaProbatoriaBaremacion = "contenido_decision"
+	EvidenciaPoliticaFirmaBaremacion              TipoEvidenciaProbatoriaBaremacion = "politica_firma"
+	EvidenciaDocumentoCanonicoBaremacion          TipoEvidenciaProbatoriaBaremacion = "documento_canonico"
+	EvidenciaCustodiaFirmableBaremacion           TipoEvidenciaProbatoriaBaremacion = "custodia_firmable"
+	EvidenciaPreparacionFirmaBaremacion           TipoEvidenciaProbatoriaBaremacion = "preparacion_firma"
+	EvidenciaConsultaFirmaBaremacion              TipoEvidenciaProbatoriaBaremacion = "consulta_firma"
+	EvidenciaValidacionInicialBaremacion          TipoEvidenciaProbatoriaBaremacion = "validacion_firma_inicial"
+	EvidenciaSelloTiempoBaremacion                TipoEvidenciaProbatoriaBaremacion = "sello_tiempo"
+	EvidenciaValidacionDocumentoSelladoBaremacion TipoEvidenciaProbatoriaBaremacion = "validacion_documento_sellado"
+	EvidenciaAumentoLongevidadBaremacion          TipoEvidenciaProbatoriaBaremacion = "aumento_longevidad"
+	EvidenciaValidacionFinalBaremacion            TipoEvidenciaProbatoriaBaremacion = "validacion_firma_final"
+	EvidenciaRecuperacionFirmadoBaremacion        TipoEvidenciaProbatoriaBaremacion = "recuperacion_documento_firmado"
+	EvidenciaCustodiaFirmadoBaremacion            TipoEvidenciaProbatoriaBaremacion = "custodia_documento_firmado"
+	EvidenciaRetencionFirmadoBaremacion           TipoEvidenciaProbatoriaBaremacion = "retencion_documento_firmado"
 )
 
 func (t TipoEvidenciaProbatoriaBaremacion) valida() bool {
@@ -44,7 +45,8 @@ func (t TipoEvidenciaProbatoriaBaremacion) valida() bool {
 		EvidenciaPoliticaFirmaBaremacion, EvidenciaDocumentoCanonicoBaremacion,
 		EvidenciaCustodiaFirmableBaremacion, EvidenciaPreparacionFirmaBaremacion,
 		EvidenciaConsultaFirmaBaremacion, EvidenciaValidacionInicialBaremacion,
-		EvidenciaSelloTiempoBaremacion, EvidenciaAumentoLongevidadBaremacion,
+		EvidenciaSelloTiempoBaremacion, EvidenciaValidacionDocumentoSelladoBaremacion,
+		EvidenciaAumentoLongevidadBaremacion,
 		EvidenciaValidacionFinalBaremacion, EvidenciaRecuperacionFirmadoBaremacion,
 		EvidenciaCustodiaFirmadoBaremacion, EvidenciaRetencionFirmadoBaremacion:
 		return true

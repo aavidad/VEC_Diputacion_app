@@ -46,9 +46,13 @@ func (s *selladorTiempoActivoBaremacionPrueba) SellarTiempoFirma(
 		return puertosbolsa.SelloTiempoFirma{}, puertosbolsa.ErrSelloTiempoNoDisponible
 	}
 	s.llamadas++
+	artefactoSellado := solicitud.ArtefactoOrigen
+	artefactoSellado.DocumentoFirmadoRef += ":pades-t"
+	huellaDocumento := sha256.Sum256(contenidoDocumentoFirmadoSelladoBaremacionPrueba())
+	artefactoSellado.HuellaDocumentoSHA256 = hex.EncodeToString(huellaDocumento[:])
 	return puertosbolsa.SelloTiempoFirma{
 		SelloTiempoRef: "sello-tiempo:firma:1", HuellaSelloTiempoSHA256: huellaBaremacionPrueba("5"),
-		ObjetoRef: solicitud.ObjetoRef, HuellaObjetoSHA256: solicitud.HuellaObjetoSHA256,
+		ArtefactoOrigen: solicitud.ArtefactoOrigen, ArtefactoSellado: artefactoSellado,
 		PoliticaSelloTiempoRef:          solicitud.Politica.PoliticaSelloTiempoRef,
 		PoliticaSelloTiempoVersion:      solicitud.Politica.PoliticaSelloTiempoVersion,
 		HuellaPoliticaSelloTiempoSHA256: solicitud.Politica.HuellaPoliticaSelloTiempoSHA256,
@@ -70,8 +74,13 @@ func (a *aumentadorActivoBaremacionPrueba) AumentarFirma(
 		return puertosbolsa.ResultadoAumentoFirma{}, puertosbolsa.ErrAumentoFirmaNoDisponible
 	}
 	a.llamadas++
+	artefactoAumentado := solicitud.Artefacto
+	artefactoAumentado.DocumentoFirmadoRef += ":pades-lta"
+	huellaDocumento := sha256.Sum256(contenidoDocumentoFirmadoLongevoBaremacionPrueba())
+	artefactoAumentado.HuellaDocumentoSHA256 = hex.EncodeToString(huellaDocumento[:])
 	return puertosbolsa.ResultadoAumentoFirma{
-		Artefacto: solicitud.Artefacto, NivelAlcanzadoClave: solicitud.Politica.NivelAumentoClave,
+		ArtefactoOrigen: solicitud.Artefacto, Artefacto: artefactoAumentado,
+		NivelAlcanzadoClave:            solicitud.Politica.NivelAumentoClave,
 		PoliticaLongevidadRef:          solicitud.Politica.PoliticaLongevidadRef,
 		PoliticaLongevidadVersion:      solicitud.Politica.PoliticaLongevidadVersion,
 		HuellaPoliticaLongevidadSHA256: solicitud.Politica.HuellaPoliticaLongevidadSHA256,
