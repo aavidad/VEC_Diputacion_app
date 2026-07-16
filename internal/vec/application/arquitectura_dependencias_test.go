@@ -5,18 +5,13 @@ import (
 	"go/token"
 	"io/fs"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 )
 
 func TestNucleoNoDependeDeModulosNiAdaptadores(t *testing.T) {
-	_, archivoActual, _, correcto := runtime.Caller(0)
-	if !correcto {
-		t.Fatal("no se pudo localizar la prueba de arquitectura")
-	}
-	raizNucleo := filepath.Dir(filepath.Dir(archivoActual))
+	raizNucleo := filepath.Dir(directorioFuentesAplicacionInternoPrueba(t))
 	capas := []string{"domain", "ports", "application"}
 
 	for _, capa := range capas {

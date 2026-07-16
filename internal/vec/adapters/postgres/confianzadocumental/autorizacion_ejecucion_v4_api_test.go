@@ -6,7 +6,6 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -122,11 +121,7 @@ func visitarFuncionesExportadasProduccion(
 	visitar func(*ast.FuncDecl, string),
 ) {
 	t.Helper()
-	_, ficheroPrueba, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("no se pudo localizar el paquete de confianza")
-	}
-	directorio := filepath.Dir(ficheroPrueba)
+	directorio := directorioFuentesConfianzaPrueba(t)
 	entradas, err := os.ReadDir(directorio)
 	if err != nil {
 		t.Fatalf("leer paquete de confianza: %v", err)

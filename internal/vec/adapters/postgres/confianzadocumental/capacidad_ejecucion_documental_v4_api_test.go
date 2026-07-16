@@ -6,9 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -147,11 +145,7 @@ func TestAPICapacidadDocumentalV4MantieneFronterasConcretasMinimas(t *testing.T)
 
 func analizarPaqueteConfianzaProduccionV4(t *testing.T) *ast.Package {
 	t.Helper()
-	_, fichero, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("no se pudo localizar el paquete de confianza")
-	}
-	directorio := filepath.Dir(fichero)
+	directorio := directorioFuentesConfianzaPrueba(t)
 	paquetes, err := parser.ParseDir(
 		token.NewFileSet(), directorio,
 		func(info os.FileInfo) bool {

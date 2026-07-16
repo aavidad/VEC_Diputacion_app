@@ -8,7 +8,6 @@ import (
 	"go/token"
 	"io/fs"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -148,11 +147,7 @@ func TestEjecutorDocumentalAtestadoV4RechazaPuertoNulo(t *testing.T) {
 }
 
 func TestApplicationNoImportaInfraestructuraEjecucionDocumentalV4(t *testing.T) {
-	_, fichero, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("no se pudo localizar application")
-	}
-	raiz := filepath.Dir(fichero)
+	raiz := directorioFuentesAplicacionExternoPrueba(t)
 	err := filepath.WalkDir(raiz, func(ruta string, entrada fs.DirEntry, err error) error {
 		if err != nil {
 			return err

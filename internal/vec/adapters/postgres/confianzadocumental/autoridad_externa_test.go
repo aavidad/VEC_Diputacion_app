@@ -6,9 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
-	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -39,11 +37,7 @@ func TestAPIExternaNoPuedeFabricarAutoridadCOSE(t *testing.T) {
 		}
 	}
 
-	_, fichero, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("no se pudo localizar el paquete")
-	}
-	directorio := filepath.Dir(fichero)
+	directorio := directorioFuentesConfianzaPrueba(t)
 	paquetes, err := parser.ParseDir(
 		token.NewFileSet(), directorio,
 		func(info fs.FileInfo) bool { return !strings.HasSuffix(info.Name(), "_test.go") },
