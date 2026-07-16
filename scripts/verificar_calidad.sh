@@ -11,8 +11,11 @@ if [[ -n "${archivos_sin_formato}" ]]; then
 fi
 
 go mod verify
-go test ./... -count=1
-go test -race ./... -count=1
+# Timeouts explicitos: internal/vec/ports tarda >10 min bajo -race en
+# maquinas de 2 nucleos (runners de CI) y el limite por defecto de go test
+# es justamente 10 min. Vease H-01 de la auditoria 2026-07-16.
+go test ./... -count=1 -timeout 20m
+go test -race ./... -count=1 -timeout 30m
 go vet ./...
 go build ./cmd/...
 go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
