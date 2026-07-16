@@ -128,6 +128,24 @@ func (m ManifiestoProbatorioBaremacion) Clonar() ManifiestoProbatorioBaremacion 
 }
 
 func (m ManifiestoProbatorioBaremacion) Validar() error {
+	if m.validarContenidoConHuella() != nil || !huellaHMACSHA256Valida(m.SelloManifiestoHMACSHA256) {
+		return ErrSolicitudBaremacionInvalida
+	}
+	return nil
+}
+
+func (m ManifiestoProbatorioBaremacion) validarContenidoConHuella() error {
+	if m.validarContenido() != nil || !huellaSHA256Valida(m.HuellaManifiestoSHA256) {
+		return ErrSolicitudBaremacionInvalida
+	}
+	huella, err := m.huellaCalculada()
+	if err != nil || huella != m.HuellaManifiestoSHA256 {
+		return ErrSolicitudBaremacionInvalida
+	}
+	return nil
+}
+
+func (m ManifiestoProbatorioBaremacion) validarContenido() error {
 	if m.Esquema != EsquemaManifiestoProbatorioBaremacion ||
 		m.Finalidad != FinalidadManifiestoProbatorioBaremacion ||
 		m.VersionEsquema != VersionManifiestoProbatorioBaremacion ||
@@ -137,8 +155,7 @@ func (m ManifiestoProbatorioBaremacion) Validar() error {
 		m.VersionBase < 1 || !huellaSHA256Valida(m.HuellaVersionBaseSHA256) ||
 		len(m.Autorizaciones) == 0 || len(m.Autorizaciones) > 4096 ||
 		len(m.Evidencias) == 0 || len(m.Evidencias) > 4096 || m.CreadoEn.IsZero() ||
-		m.CreadoEn.Location() != time.UTC || !huellaSHA256Valida(m.HuellaManifiestoSHA256) ||
-		!huellaHMACSHA256Valida(m.SelloManifiestoHMACSHA256) {
+		m.CreadoEn.Location() != time.UTC {
 		return ErrSolicitudBaremacionInvalida
 	}
 	autorizaciones := make(map[string]struct{}, len(m.Autorizaciones))
@@ -164,10 +181,6 @@ func (m ManifiestoProbatorioBaremacion) Validar() error {
 	}
 	if _, err := m.validarCoberturaCanonica(); err != nil {
 		return err
-	}
-	huella, err := m.huellaCalculada()
-	if err != nil || huella != m.HuellaManifiestoSHA256 {
-		return ErrSolicitudBaremacionInvalida
 	}
 	return nil
 }
@@ -196,15 +209,34 @@ func (m ManifiestoProbatorioBaremacion) PrepararSellado() (ManifiestoProbatorioB
 	}
 	preparado := m.Clonar()
 	preparado.HuellaManifiestoSHA256 = huella
-	material, err := preparado.materialCanonico(true)
-	if err != nil {
-		return ManifiestoProbatorioBaremacion{}, CargaProtegida{}, err
-	}
-	carga, err := NuevaCargaProtegida(material)
+	carga, err := RepresentacionCanonicaManifiestoProbatorioBaremacion(preparado)
 	if err != nil {
 		return ManifiestoProbatorioBaremacion{}, CargaProtegida{}, err
 	}
 	return preparado, carga, nil
+}
+
+// RepresentacionCanonicaManifiestoProbatorioBaremacion reconstruye los bytes
+// exactos que autentica el sellador. Admite el manifiesto preparado o ya
+// sellado porque el propio sello nunca forma parte de la carga autenticada.
+// La finalidad criptografica exclusiva encierra el material funcional y evita
+// reutilizar el HMAC valido de otro contrato aunque comparta campos.
+func RepresentacionCanonicaManifiestoProbatorioBaremacion(
+	manifiesto ManifiestoProbatorioBaremacion,
+) (CargaProtegida, error) {
+	if manifiesto.validarContenidoConHuella() != nil ||
+		(manifiesto.SelloManifiestoHMACSHA256 != "" &&
+			!huellaHMACSHA256Valida(manifiesto.SelloManifiestoHMACSHA256)) {
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	material, err := manifiesto.materialCanonico(true)
+	if err != nil {
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	return cargaPartesCanonicas([]string{
+		string(FinalidadSelloManifiestoProbatorioBaremacionV2),
+		string(material),
+	})
 }
 
 func (m ManifiestoProbatorioBaremacion) IncorporarSello(sello string) (ManifiestoProbatorioBaremacion, error) {
@@ -257,6 +289,7 @@ func (m ManifiestoProbatorioBaremacion) materialCanonico(incluirHuella bool) ([]
 	} {
 		escribir(valor)
 	}
+	escribir(strconv.Itoa(len(m.Autorizaciones)))
 	for indice, autorizacion := range m.Autorizaciones {
 		if autorizacion.Validar() != nil || autorizacion.Secuencia != uint32(indice+1) {
 			return nil, ErrSolicitudBaremacionInvalida
@@ -267,6 +300,7 @@ func (m ManifiestoProbatorioBaremacion) materialCanonico(incluirHuella bool) ([]
 		escribir(autorizacion.RecursoRef)
 		escribir(autorizacion.AutorizacionRef)
 	}
+	escribir(strconv.Itoa(len(m.Evidencias)))
 	for indice, evidencia := range m.Evidencias {
 		if evidencia.Validar() != nil || evidencia.Secuencia != uint32(indice+1) {
 			return nil, ErrSolicitudBaremacionInvalida

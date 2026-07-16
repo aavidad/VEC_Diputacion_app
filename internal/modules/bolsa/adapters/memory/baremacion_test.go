@@ -836,6 +836,17 @@ func contextoMemoriaPruebaIdentidad(
 	recursoRef, principalRef, sujetoRef, autenticacionRef, correlacionRef string,
 	instante time.Time,
 ) puertosbolsa.ContextoOperacionBaremacion {
+	return contextoMemoriaPruebaAutorizacion(
+		accion, recursoRef, principalRef, sujetoRef, autenticacionRef, correlacionRef,
+		referenciaAutorizacionMemoria(accion), instante,
+	)
+}
+
+func contextoMemoriaPruebaAutorizacion(
+	accion puertosbolsa.AccionOperacionBaremacion,
+	recursoRef, principalRef, sujetoRef, autenticacionRef, correlacionRef, autorizacionRef string,
+	instante time.Time,
+) puertosbolsa.ContextoOperacionBaremacion {
 	campos, existe := puertosbolsa.CamposRequeridosOperacionBaremacion(accion)
 	if !existe {
 		panic("accion de prueba desconocida")
@@ -868,7 +879,7 @@ func contextoMemoriaPruebaIdentidad(
 		panic(err)
 	}
 	decision := dominiovec.DecisionAutorizacion{
-		DecisionRef: referenciaAutorizacionMemoria(accion), Concedida: true, Codigo: "concedida", PrincipalID: contextoActor.Principal.ID,
+		DecisionRef: autorizacionRef, Concedida: true, Codigo: "concedida", PrincipalID: contextoActor.Principal.ID,
 		PerfilActivoRef: contextoActor.PerfilActivoRef, Accion: string(accion), RecursoRef: recursoRef,
 		ModuloID: "bolsa", TipoRecurso: string(clase), ContextoRecursoHuellaSHA256: huellaContexto,
 		Finalidad: "baremacion_proceso_selectivo", CorrelacionRef: correlacionRef,
@@ -972,11 +983,15 @@ func solicitudConfirmarDecisionMemoria(
 	if err != nil {
 		panic(err)
 	}
-	preparado, _, err := manifiestoBase.PrepararSellado()
+	preparado, representacion, err := manifiestoBase.PrepararSellado()
 	if err != nil {
 		panic(err)
 	}
-	manifiesto, err := preparado.IncorporarSello(hmacMemoria("9"))
+	selloManifiesto := calcularSelloMemoria(
+		puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2,
+		representacion.Revelar(),
+	)
+	manifiesto, err := preparado.IncorporarSello(selloManifiesto)
 	if err != nil {
 		panic(err)
 	}
@@ -1126,7 +1141,7 @@ func manifiestoMemoriaPrueba(
 		Esquema:        puertosbolsa.EsquemaManifiestoProbatorioBaremacion,
 		Finalidad:      puertosbolsa.FinalidadManifiestoProbatorioBaremacion,
 		VersionEsquema: puertosbolsa.VersionManifiestoProbatorioBaremacion,
-		Referencia:     "manifiesto-probatorio-decision-001", ProcesoRef: contenido.ProcesoRef,
+		Referencia:     "manifiesto-probatorio-" + contenido.ID, ProcesoRef: contenido.ProcesoRef,
 		SolicitudRef: contenido.SolicitudRef, SujetoRef: contenido.SujetoRef,
 		BaremacionMeritoRef: contenido.BaremacionMeritoRef, DecisionRef: contenido.ID,
 		VersionBase: version.Numero, HuellaVersionBaseSHA256: version.HuellaEstadoSHA256,
@@ -1153,10 +1168,18 @@ func sellarConfirmacionMemoria(solicitud puertosbolsa.SolicitudConfirmarCambioBa
 }
 
 func calcularSelloMemoria(finalidad puertosbolsa.FinalidadSelloBaremacion, contenido []byte) string {
+	representacion, err := puertosbolsa.NuevaCargaProtegida(contenido)
+	if err != nil {
+		panic(err)
+	}
+	material, err := (puertosbolsa.SolicitudSellarSelloBaremacion{
+		Finalidad: finalidad, RepresentacionCanonica: representacion,
+	}).MaterialCanonicoHMAC()
+	if err != nil {
+		panic(err)
+	}
 	mac := hmac.New(sha256.New, claveHMACMemoriaPrueba)
-	_, _ = mac.Write([]byte(finalidad))
-	_, _ = mac.Write([]byte{0})
-	_, _ = mac.Write(contenido)
+	_, _ = mac.Write(material.Revelar())
 	return "hmac-sha256:memoria_1:" + hex.EncodeToString(mac.Sum(nil))
 }
 

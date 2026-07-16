@@ -1,10 +1,14 @@
 package ports
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func manifiestoSinSelloPrueba(t *testing.T) ManifiestoProbatorioBaremacion {
@@ -59,6 +63,14 @@ func TestManifiestoProbatorioV2AutenticaDominioComoPrimerosCampos(t *testing.T) 
 		material = material[longitud:]
 		return valor
 	}
+	if finalidad := leer(); finalidad != string(FinalidadSelloManifiestoProbatorioBaremacionV2) {
+		t.Fatalf("finalidad criptografica ausente: %q", finalidad)
+	}
+	interior := []byte(leer())
+	if len(material) != 0 {
+		t.Fatal("la envoltura criptografica contiene campos no definidos")
+	}
+	material = interior
 	esperados := []string{
 		EsquemaManifiestoProbatorioBaremacion,
 		FinalidadManifiestoProbatorioBaremacion,
@@ -69,4 +81,158 @@ func TestManifiestoProbatorioV2AutenticaDominioComoPrimerosCampos(t *testing.T) 
 			t.Fatalf("campo de dominio %d fuera de orden: obtenido=%q esperado=%q", indice, obtenido, esperado)
 		}
 	}
+}
+
+func TestRepresentacionCanonicaManifiestoProbatorioV2EsPublicaReproducibleYEstable(t *testing.T) {
+	base := manifiestoSinSelloPrueba(t)
+	preparado, producida, err := base.PrepararSellado()
+	if err != nil {
+		t.Fatalf("preparar manifiesto: %v", err)
+	}
+	reconstruidaPreparada, err := RepresentacionCanonicaManifiestoProbatorioBaremacion(preparado)
+	if err != nil {
+		t.Fatalf("reconstruir manifiesto preparado: %v", err)
+	}
+	sellado, err := preparado.IncorporarSello("hmac-sha256:vector_1:" + huellaPruebaPuertos("9"))
+	if err != nil {
+		t.Fatalf("incorporar sello de vector: %v", err)
+	}
+	reconstruidaSellada, err := RepresentacionCanonicaManifiestoProbatorioBaremacion(sellado)
+	if err != nil {
+		t.Fatalf("reconstruir manifiesto sellado: %v", err)
+	}
+	if !bytes.Equal(producida.Revelar(), reconstruidaPreparada.Revelar()) ||
+		!bytes.Equal(producida.Revelar(), reconstruidaSellada.Revelar()) {
+		t.Fatal("productor y verificador no reconstruyen los mismos bytes")
+	}
+	suma := sha256.Sum256(producida.Revelar())
+	const vectorSHA256 = "7de32e3d7a918ec1089d43ba1c560f20522ccec62f2a90c8c1f411d12f4dc7c4"
+	const longitudVector = 6266
+	if obtenida := hex.EncodeToString(suma[:]); obtenida != vectorSHA256 || len(producida.Revelar()) != longitudVector {
+		t.Fatalf("vector canonico alterado: obtenido=%s esperado=%s longitud=%d", obtenida, vectorSHA256, len(producida.Revelar()))
+	}
+}
+
+func TestRepresentacionCanonicaManifiestoProbatorioV2RechazaMutacionesYNoAdmiteIntercambio(t *testing.T) {
+	base := manifiestoSinSelloPrueba(t)
+	preparado, representacionBase, err := base.PrepararSellado()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cambios := []struct {
+		nombre string
+		mutar  func(*ManifiestoProbatorioBaremacion)
+	}{
+		{"esquema", func(m *ManifiestoProbatorioBaremacion) { m.Esquema = "vec.otro.manifiesto" }},
+		{"finalidad", func(m *ManifiestoProbatorioBaremacion) { m.Finalidad = "otra_finalidad" }},
+		{"version", func(m *ManifiestoProbatorioBaremacion) { m.VersionEsquema++ }},
+		{"referencia", func(m *ManifiestoProbatorioBaremacion) { m.Referencia += "-alterada" }},
+		{"autorizacion", func(m *ManifiestoProbatorioBaremacion) { m.Autorizaciones[0].AutorizacionRef += "-alterada" }},
+		{"evidencia", func(m *ManifiestoProbatorioBaremacion) {
+			m.Evidencias[0].HuellaEvidenciaSHA256 = huellaPruebaPuertos("8")
+		}},
+		{"huella", func(m *ManifiestoProbatorioBaremacion) { m.HuellaManifiestoSHA256 = huellaPruebaPuertos("7") }},
+	}
+	for _, cambio := range cambios {
+		t.Run(cambio.nombre, func(t *testing.T) {
+			mutado := preparado.Clonar()
+			cambio.mutar(&mutado)
+			if _, err := RepresentacionCanonicaManifiestoProbatorioBaremacion(mutado); !errors.Is(err, ErrSolicitudBaremacionInvalida) {
+				t.Fatalf("mutacion admitida: %v", err)
+			}
+		})
+	}
+
+	alternativo := base.Clonar()
+	alternativo.Referencia += "-alternativo"
+	alternativo.CreadoEn = alternativo.CreadoEn.Add(time.Second)
+	_, representacionAlternativa, err := alternativo.PrepararSellado()
+	if err != nil {
+		t.Fatalf("preparar manifiesto alternativo: %v", err)
+	}
+	if bytes.Equal(representacionBase.Revelar(), representacionAlternativa.Revelar()) {
+		t.Fatal("dos manifiestos distintos comparten representacion canonica")
+	}
+}
+
+func TestRepresentacionCanonicaManifiestoProbatorioV2CodificaConteosYParticionInequivoca(t *testing.T) {
+	base := manifiestoSinSelloPrueba(t)
+	preparado, representacion, err := base.PrepararSellado()
+	if err != nil {
+		t.Fatal(err)
+	}
+	envoltura := representacion.Revelar()
+	if finalidad := leerCampoCanonicoManifiestoPrueba(t, &envoltura); finalidad !=
+		string(FinalidadSelloManifiestoProbatorioBaremacionV2) {
+		t.Fatalf("finalidad criptografica inesperada: %q", finalidad)
+	}
+	material := []byte(leerCampoCanonicoManifiestoPrueba(t, &envoltura))
+	if len(envoltura) != 0 {
+		t.Fatal("campos fuera de la envoltura definida")
+	}
+
+	// Doce campos forman la cabecera fija. Cada autorizacion ocupa cinco y
+	// cada evidencia cuatro; ambos limites se declaran antes de su seccion.
+	for campo := 0; campo < 12; campo++ {
+		_ = leerCampoCanonicoManifiestoPrueba(t, &material)
+	}
+	if cantidad := leerCampoCanonicoManifiestoPrueba(t, &material); cantidad !=
+		strconv.Itoa(len(preparado.Autorizaciones)) {
+		t.Fatalf("cantidad de autorizaciones ausente: %q", cantidad)
+	}
+	for range preparado.Autorizaciones {
+		for campo := 0; campo < 5; campo++ {
+			_ = leerCampoCanonicoManifiestoPrueba(t, &material)
+		}
+	}
+	if cantidad := leerCampoCanonicoManifiestoPrueba(t, &material); cantidad !=
+		strconv.Itoa(len(preparado.Evidencias)) {
+		t.Fatalf("cantidad de evidencias ausente: %q", cantidad)
+	}
+	for range preparado.Evidencias {
+		for campo := 0; campo < 4; campo++ {
+			_ = leerCampoCanonicoManifiestoPrueba(t, &material)
+		}
+	}
+	if huella := leerCampoCanonicoManifiestoPrueba(t, &material); huella != preparado.HuellaManifiestoSHA256 {
+		t.Fatalf("particion desplazo la huella final: %q", huella)
+	}
+	if len(material) != 0 {
+		t.Fatal("material restante tras consumir las secciones declaradas")
+	}
+
+	for _, caso := range []struct {
+		nombre string
+		mutar  func(*ManifiestoProbatorioBaremacion)
+	}{
+		{"menos autorizaciones", func(m *ManifiestoProbatorioBaremacion) {
+			m.Autorizaciones = m.Autorizaciones[:len(m.Autorizaciones)-1]
+		}},
+		{"menos evidencias", func(m *ManifiestoProbatorioBaremacion) {
+			m.Evidencias = m.Evidencias[:len(m.Evidencias)-1]
+		}},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			mutado := base.Clonar()
+			caso.mutar(&mutado)
+			if _, _, err := mutado.PrepararSellado(); err == nil {
+				t.Fatal("se admitio cambiar la particion declarada")
+			}
+		})
+	}
+}
+
+func leerCampoCanonicoManifiestoPrueba(t *testing.T, material *[]byte) string {
+	t.Helper()
+	if len(*material) < 8 {
+		t.Fatal("material canonico truncado antes de una longitud")
+	}
+	longitud := binary.BigEndian.Uint64((*material)[:8])
+	*material = (*material)[8:]
+	if longitud > uint64(len(*material)) {
+		t.Fatal("material canonico truncado dentro de un campo")
+	}
+	valor := string((*material)[:longitud])
+	*material = (*material)[longitud:]
+	return valor
 }

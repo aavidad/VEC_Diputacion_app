@@ -1924,3 +1924,40 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   durable, capacidad AEAD, resultado canonico, consumo de autorizacion y
   reconciliacion. Hasta entonces ningun adaptador productivo puede presentar
   estos tipos nominales como autoridad o prueba de `COMMIT`.
+
+## DEC-056 — Autenticidad y conservacion del manifiesto probatorio de baremacion
+
+- Estado: decision adoptada el 16 de julio de 2026 para el corte previo a
+  produccion. El sistema continua limitado a datos sinteticos y no existe
+  historia V2 productiva que migrar; esta excepcion permite completar y
+  congelar ahora el canonico de version 2 sin reinterpretar datos reales.
+- Canonico congelado: la representacion del manifiesto incluye esquema,
+  finalidad funcional, version, identidades y referencias, version base,
+  instante UTC, cardinalidad explicita y secuencia de autorizaciones y
+  evidencias, huella del contenido y una envoltura criptografica exclusiva.
+  Los conteos evitan que dos particiones de colecciones compartan una misma
+  secuencia de campos. Cualquier cambio futuro de estos bytes exige una nueva
+  version de esquema y vectores de migracion; no se modificara V2 en silencio.
+- Contrato productor-verificador: el productor declara una
+  `FinalidadSelloBaremacion` cerrada y el conector calcula
+  `HMAC(K_finalidad, finalidad || 0x00 || representacion_canonica)`. El
+  verificador reconstruye exactamente el mismo material. La finalidad
+  selecciona un dominio y llavero historico; una carga sellada para reserva,
+  confirmacion, sobre nominal o manifiesto no puede reutilizarse en otro.
+- Historia probatoria: cada decision incorporada conserva el manifiesto
+  completo, inmutable y enlazado uno a uno con baremacion, decision y numero de
+  version. Antes de anexar una nueva decision y antes de toda lectura o
+  recuperacion se reconstruyen y verifican todos los manifiestos que sostienen
+  la version solicitada. Una clave desconocida, retirada, revocada o no
+  disponible falla cerrada y no produce efectos.
+- Rotacion: el sello conserva una referencia de clave. El conector productivo
+  debera resolver la clave activa al firmar y las claves historicas admitidas
+  al verificar; retirar una clave con historia viva requiere una operacion
+  administrativa aprobada y evidencia de resellado o cierre de retencion, no
+  una eliminacion silenciosa.
+- Persistencia: el adaptador en memoria solo acredita el contrato y las
+  invariantes en pruebas. El GO durable exige el mismo almacén append-only,
+  recuperacion completa, reverificacion y atomicidad con version, auditoria y
+  outbox en PostgreSQL, mas un corredor Go a PostgreSQL real. Hasta superar esa
+  puerta y disponer de un conector KMS/HSM productivo, la funcionalidad sigue
+  en **NO-GO productivo**.

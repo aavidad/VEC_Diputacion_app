@@ -202,10 +202,11 @@ func (s SolicitudObtenerEvidenciaTransaccionBaremacion) Validar() error {
 }
 
 type EvidenciaTransaccionBaremacionRecuperada struct {
-	Version   VersionBaremacion
-	Auditoria RegistroAuditoriaBaremacion
-	Evento    EventoOutboxBaremacion
-	Evidencia EvidenciaTransaccionBaremacion
+	Version    VersionBaremacion
+	Auditoria  RegistroAuditoriaBaremacion
+	Evento     EventoOutboxBaremacion
+	Evidencia  EvidenciaTransaccionBaremacion
+	Manifiesto *ManifiestoProbatorioBaremacion
 }
 
 func (r EvidenciaTransaccionBaremacionRecuperada) Validar() error {
@@ -228,10 +229,33 @@ func (r EvidenciaTransaccionBaremacionRecuperada) Validar() error {
 		r.Evidencia.EventoOutboxRef != r.Evento.Referencia ||
 		r.Evidencia.HuellaEventoOutboxSHA256 != r.Evento.HuellaRegistroSHA256 ||
 		!r.Evidencia.ConfirmadaEn.Equal(r.Auditoria.RegistradaEn) ||
-		!r.Version.ConfirmadaEn.Equal(r.Auditoria.RegistradaEn) {
+		!r.Version.ConfirmadaEn.Equal(r.Auditoria.RegistradaEn) || !r.manifiestoRecuperadoValido() {
 		return ErrSolicitudBaremacionInvalida
 	}
 	return nil
+}
+
+func (r EvidenciaTransaccionBaremacionRecuperada) manifiestoRecuperadoValido() bool {
+	if r.Auditoria.ManifiestoProbatorioRef == "" {
+		return r.Manifiesto == nil
+	}
+	if r.Manifiesto == nil || r.Manifiesto.Validar() != nil ||
+		r.Manifiesto.Referencia != r.Auditoria.ManifiestoProbatorioRef ||
+		r.Manifiesto.HuellaManifiestoSHA256 != r.Auditoria.HuellaManifiestoSHA256 ||
+		r.Manifiesto.BaremacionMeritoRef != r.Version.Referencia.BaremacionMeritoRef ||
+		r.Manifiesto.VersionBase+1 != r.Version.Referencia.Numero {
+		return false
+	}
+	decision, existe := r.Version.Agregado.UltimaDecision()
+	if !existe || r.Manifiesto.DecisionRef != decision.Contenido.ID {
+		return false
+	}
+	base := ReferenciaVersionBaremacion{
+		BaremacionMeritoRef: r.Manifiesto.BaremacionMeritoRef,
+		Numero:              r.Manifiesto.VersionBase,
+		HuellaEstadoSHA256:  r.Manifiesto.HuellaVersionBaseSHA256,
+	}
+	return r.Manifiesto.ValidarCoberturaFirmaPara(base, decision.Contenido, decision.Firma) == nil
 }
 
 func (r EvidenciaTransaccionBaremacionRecuperada) ValidarPara(s SolicitudObtenerEvidenciaTransaccionBaremacion) error {

@@ -114,7 +114,7 @@ type ServicioBaremacion struct {
 	validadorFirma     puertosbolsa.ValidadorFirmaServidor
 	selladorTiempo     puertosbolsa.SelladorTiempoFirma
 	aumentadorFirma    puertosbolsa.AumentadorFirmaLongeva
-	selladorSolicitud  puertosbolsa.SelladorSolicitudBaremacion
+	selladorSolicitud  puertosbolsa.SelladorServicioBaremacion
 	seudonimizador     puertosvec.SeudonimizadorSujetoAlmacen
 	generador          puertosbolsa.GeneradorReferenciasOpacasBaremacion
 	autorizador        puertosvec.Autorizador
@@ -142,7 +142,7 @@ func NuevoServicioBaremacion(
 	validadorFirma puertosbolsa.ValidadorFirmaServidor,
 	selladorTiempo puertosbolsa.SelladorTiempoFirma,
 	aumentadorFirma puertosbolsa.AumentadorFirmaLongeva,
-	selladorSolicitud puertosbolsa.SelladorSolicitudBaremacion,
+	selladorSolicitud puertosbolsa.SelladorServicioBaremacion,
 	seudonimizador puertosvec.SeudonimizadorSujetoAlmacen,
 	generador puertosbolsa.GeneradorReferenciasOpacasBaremacion,
 	autorizador puertosvec.Autorizador,

@@ -26,6 +26,7 @@ type repositorioBaremacionPrueba struct {
 	confirmaciones            int
 	abandonos                 int
 	intentosAbandono          int
+	verificador               puertosbolsa.VerificadorSellosBaremacion
 }
 
 func (r *repositorioBaremacionPrueba) ObtenerVersionVigente(
@@ -53,7 +54,7 @@ func (r *repositorioBaremacionPrueba) ObtenerVersion(
 }
 
 func (r *repositorioBaremacionPrueba) ReservarCambio(
-	_ context.Context,
+	ctx context.Context,
 	s puertosbolsa.SolicitudReservarCambioBaremacion,
 ) (puertosbolsa.ReservaCambioBaremacion, error) {
 	r.mu.Lock()
@@ -61,6 +62,15 @@ func (r *repositorioBaremacionPrueba) ReservarCambio(
 	r.reservas++
 	if s.Validar() != nil || s.VersionEsperada == nil || *s.VersionEsperada != r.version.Referencia {
 		return puertosbolsa.ReservaCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
+	}
+	representacion, err := puertosbolsa.RepresentacionCanonicaReservaBaremacion(s)
+	if err != nil || r.verificador == nil || r.verificador.VerificarSelloBaremacion(
+		ctx, puertosbolsa.SolicitudVerificarSelloBaremacion{
+			Finalidad: puertosbolsa.FinalidadSelloReservaBaremacion, RepresentacionCanonica: representacion,
+			SelloHMAC: s.HuellaSolicitudHMAC,
+		},
+	) != nil {
+		return puertosbolsa.ReservaCambioBaremacion{}, puertosbolsa.ErrSelloBaremacionNoAutentico
 	}
 	clon := s.Clonar()
 	r.reserva = &clon
@@ -79,7 +89,7 @@ func (r *repositorioBaremacionPrueba) ReservarCambio(
 }
 
 func (r *repositorioBaremacionPrueba) ConfirmarCambio(
-	_ context.Context,
+	ctx context.Context,
 	s puertosbolsa.SolicitudConfirmarCambioBaremacion,
 ) (puertosbolsa.ResultadoConfirmarCambioBaremacion, error) {
 	r.mu.Lock()
@@ -88,6 +98,27 @@ func (r *repositorioBaremacionPrueba) ConfirmarCambio(
 	if s.Validar() != nil || r.reserva == nil || s.Token.Revelar() != r.token.Revelar() ||
 		s.VersionEsperada == nil || *s.VersionEsperada != r.version.Referencia {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrReservaBaremacionNoValida
+	}
+	representacion, err := puertosbolsa.RepresentacionCanonicaConfirmacionBaremacion(s)
+	if err != nil || r.verificador == nil || r.verificador.VerificarSelloBaremacion(
+		ctx, puertosbolsa.SolicitudVerificarSelloBaremacion{
+			Finalidad: puertosbolsa.FinalidadSelloConfirmacionBaremacion, RepresentacionCanonica: representacion,
+			SelloHMAC: s.HuellaSolicitudHMAC,
+		},
+	) != nil {
+		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSelloBaremacionNoAutentico
+	}
+	if s.Manifiesto != nil {
+		representacionManifiesto, err := puertosbolsa.RepresentacionCanonicaManifiestoProbatorioBaremacion(*s.Manifiesto)
+		if err != nil || r.verificador.VerificarSelloBaremacion(
+			ctx, puertosbolsa.SolicitudVerificarSelloBaremacion{
+				Finalidad:              puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2,
+				RepresentacionCanonica: representacionManifiesto,
+				SelloHMAC:              s.Manifiesto.SelloManifiestoHMACSHA256,
+			},
+		) != nil {
+			return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSelloBaremacionNoAutentico
+		}
 	}
 	clonSolicitud, err := s.Clonar()
 	if err != nil {

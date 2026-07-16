@@ -5,17 +5,8 @@ package memory
 
 import (
 	"context"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
-	"reflect"
-	"strconv"
-	"strings"
 	"sync"
-	"time"
 
-	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
-	transaccionbolsa "vec-diputacion-granada/internal/modules/bolsa/internal/transaccion"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
@@ -69,6 +60,22 @@ type usoAutorizacionBaremacion struct {
 	HuellaEfectoSHA256   string
 }
 
+// manifiestoBaremacionPersistido conserva el sobre probatorio completo y su
+// enlace inmutable con la version que incorporo la decision. Los indices por
+// referencia y version apuntan al mismo asiento logico y se validan juntos.
+type manifiestoBaremacionPersistido struct {
+	Manifiesto          puertosbolsa.ManifiestoProbatorioBaremacion
+	BaremacionMeritoRef string
+	NumeroVersion       uint64
+	DecisionRef         string
+}
+
+func (m manifiestoBaremacionPersistido) clonar() manifiestoBaremacionPersistido {
+	clon := m
+	clon.Manifiesto = m.Manifiesto.Clonar()
+	return clon
+}
+
 // RepositorioBaremaciones conserva versiones, tombstones de idempotencia,
 // auditoria y outbox bajo el mismo mutex. Una clave o token abandonados,
 // expirados o invalidados nunca vuelven a habilitarse.
@@ -79,6 +86,8 @@ type RepositorioBaremaciones struct {
 	verificador puertosbolsa.VerificadorSellosBaremacion
 
 	versionesPorBaremacion    map[string][]puertosbolsa.VersionBaremacion
+	manifiestosPorReferencia  map[string]manifiestoBaremacionPersistido
+	manifiestoRefPorVersion   map[string]string
 	reservasPorAmbito         map[string]reservaBaremacion
 	ambitoPorHuellaToken      map[string]string
 	ambitoActivoPorBaremacion map[string]string
@@ -105,6 +114,8 @@ func NuevoRepositorioBaremaciones(
 		reloj:                     reloj,
 		verificador:               verificador,
 		versionesPorBaremacion:    make(map[string][]puertosbolsa.VersionBaremacion),
+		manifiestosPorReferencia:  make(map[string]manifiestoBaremacionPersistido),
+		manifiestoRefPorVersion:   make(map[string]string),
 		reservasPorAmbito:         make(map[string]reservaBaremacion),
 		ambitoPorHuellaToken:      make(map[string]string),
 		ambitoActivoPorBaremacion: make(map[string]string),
@@ -142,7 +153,12 @@ func (r *RepositorioBaremaciones) ReservarCambio(
 	claveAmbito := claveAmbitoReserva(solicitud.Contexto.Proyeccion().PrincipalRef, solicitud.ClaveIdempotencia)
 
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	bloqueoActivo := true
+	defer func() {
+		if bloqueoActivo {
+			r.mu.Unlock()
+		}
+	}()
 	if err := validarContextoEjecucion(ctx); err != nil {
 		return puertosbolsa.ReservaCambioBaremacion{}, err
 	}
@@ -181,6 +197,10 @@ func (r *RepositorioBaremaciones) ReservarCambio(
 			if existente.Resultado == nil || ahora.Before(existente.Resultado.Version.ConfirmadaEn) {
 				return puertosbolsa.ReservaCambioBaremacion{}, puertosbolsa.ErrReservaBaremacionNoValida
 			}
+			instantaneas, err := r.instantaneasManifiestosVersionBloqueada(existente.Resultado.Version)
+			if err != nil {
+				return puertosbolsa.ReservaCambioBaremacion{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
+			}
 			version, err := existente.Resultado.Version.Clonar()
 			if err != nil {
 				return puertosbolsa.ReservaCambioBaremacion{}, puertosbolsa.ErrReservaBaremacionNoValida
@@ -188,6 +208,13 @@ func (r *RepositorioBaremaciones) ReservarCambio(
 			respuesta := respuestaReservaBaremacion(existente.SolicitudReserva, puertosbolsa.TokenReservaBaremacion{}, true, &version)
 			if err := respuesta.ValidarPara(solicitud); err != nil {
 				return puertosbolsa.ReservaCambioBaremacion{}, err
+			}
+			r.mu.Unlock()
+			bloqueoActivo = false
+			if err := r.verificarInstantaneasManifiestos(ctx, instantaneas); err != nil {
+				return puertosbolsa.ReservaCambioBaremacion{}, errorVerificacionConContexto(
+					ctx, puertosbolsa.ErrEvidenciaBaremacionNoConfiable,
+				)
 			}
 			return respuesta, nil
 		case estadoReservaActiva:
@@ -298,6 +325,11 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
 	}
 	solicitud = clon
+	if solicitud.Manifiesto != nil {
+		if err := r.verificarSelloManifiesto(ctx, *solicitud.Manifiesto); err != nil {
+			return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
+		}
+	}
 	ahora, err := r.ahora()
 	if err != nil || solicitud.ConfirmadaEn.After(ahora) {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrReservaBaremacionNoValida
@@ -313,9 +345,26 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 	if err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrHistorialBaremacionNoAnexable
 	}
+	// La criptografia historica se ejecuta antes del bloqueo exclusivo. La fase
+	// de confirmacion que sigue vuelve a comprobar bajo el mutex la reserva, OCC,
+	// cadenas, cardinalidad e indices antes del unico punto de escritura.
+	instantaneasHistoricas, err := r.instantaneasHistoricasParaConfirmacion(ctx, solicitud)
+	if err != nil {
+		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
+	}
+	if err := r.verificarInstantaneasManifiestos(ctx, instantaneasHistoricas); err != nil {
+		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, errorVerificacionConContexto(
+			ctx, puertosbolsa.ErrEvidenciaBaremacionNoConfiable,
+		)
+	}
 
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	bloqueoActivo := true
+	defer func() {
+		if bloqueoActivo {
+			r.mu.Unlock()
+		}
+	}()
 	if err := validarContextoEjecucion(ctx); err != nil {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, err
 	}
@@ -359,7 +408,22 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 		if !consumida {
 			return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
 		}
-		return reserva.Resultado.Clonar()
+		instantaneas, err := r.instantaneasManifiestosVersionBloqueada(reserva.Resultado.Version)
+		if err != nil {
+			return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
+		}
+		respuesta, err := reserva.Resultado.Clonar()
+		if err != nil {
+			return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
+		}
+		r.mu.Unlock()
+		bloqueoActivo = false
+		if err := r.verificarInstantaneasManifiestos(ctx, instantaneas); err != nil {
+			return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, errorVerificacionConContexto(
+				ctx, puertosbolsa.ErrEvidenciaBaremacionNoConfiable,
+			)
+		}
+		return respuesta, nil
 	}
 	if reserva.Estado != estadoReservaActiva {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrReservaBaremacionNoValida
@@ -410,6 +474,21 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 	}
 	if !r.capacidadConfirmacionDisponibleBloqueada(solicitud.Agregado.ID) {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
+	}
+	manifiestoAlmacenado, err := prepararManifiestoPersistido(solicitud, numeroNuevo)
+	if err != nil {
+		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
+	}
+	if manifiestoAlmacenado != nil {
+		claveVersion := claveVersionManifiesto(
+			manifiestoAlmacenado.BaremacionMeritoRef, manifiestoAlmacenado.NumeroVersion,
+		)
+		if _, existe := r.manifiestosPorReferencia[manifiestoAlmacenado.Manifiesto.Referencia]; existe {
+			return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
+		}
+		if _, existe := r.manifiestoRefPorVersion[claveVersion]; existe {
+			return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
+		}
 	}
 	huellaAuditoriaAnterior, huellaEventoAnterior := "", ""
 	if len(r.auditorias) != 0 {
@@ -466,6 +545,13 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 	r.versionesPorBaremacion[solicitud.Agregado.ID] = append(
 		r.versionesPorBaremacion[solicitud.Agregado.ID], versionAlmacenada,
 	)
+	if manifiestoAlmacenado != nil {
+		claveVersion := claveVersionManifiesto(
+			manifiestoAlmacenado.BaremacionMeritoRef, manifiestoAlmacenado.NumeroVersion,
+		)
+		r.manifiestosPorReferencia[manifiestoAlmacenado.Manifiesto.Referencia] = manifiestoAlmacenado.clonar()
+		r.manifiestoRefPorVersion[claveVersion] = manifiestoAlmacenado.Manifiesto.Referencia
+	}
 	r.auditorias = append(r.auditorias, auditoria)
 	r.eventosOutbox = append(r.eventosOutbox, evento)
 	r.referenciasTransaccion[auditoria.Referencia] = struct{}{}
@@ -477,657 +563,4 @@ func (r *RepositorioBaremaciones) ConfirmarCambio(
 	delete(r.ambitoActivoPorBaremacion, solicitud.Agregado.ID)
 	r.usosAutorizacion[uso.DecisionRef] = uso
 	return respuestaFinal, nil
-}
-
-func (r *RepositorioBaremaciones) AbandonarReserva(
-	ctx context.Context,
-	solicitud puertosbolsa.SolicitudAbandonarReservaBaremacion,
-) error {
-	if err := validarContextoEjecucion(ctx); err != nil {
-		return err
-	}
-	if err := solicitud.Validar(); err != nil {
-		return puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	ahora, err := r.ahora()
-	if err != nil {
-		return puertosbolsa.ErrReservaBaremacionNoValida
-	}
-	accion, _ := accionAbandono(solicitud.Clase)
-	if solicitud.Contexto.ValidarVigentePara(
-		accion, puertosbolsa.ClaseRecursoBaremacion, solicitud.BaremacionMeritoRef, ahora,
-	) != nil {
-		return puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if err := validarContextoEjecucion(ctx); err != nil {
-		return err
-	}
-	ahora, err = r.ahora()
-	if err != nil {
-		return puertosbolsa.ErrReservaBaremacionNoValida
-	}
-	if solicitud.Contexto.ValidarVigentePara(
-		accion, puertosbolsa.ClaseRecursoBaremacion, solicitud.BaremacionMeritoRef, ahora,
-	) != nil {
-		return puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	huellaToken := huellaTokenReserva(solicitud.Token)
-	huellaEfecto := huellaCanonica(
-		"abandono-reserva-baremacion-v1", huellaToken, string(solicitud.Clase), solicitud.BaremacionMeritoRef,
-	)
-	uso, err := nuevoUsoAutorizacionBaremacion(solicitud.Contexto, ahora, huellaEfecto)
-	if err != nil {
-		return puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	claveAmbito, existe := r.ambitoPorHuellaToken[huellaToken]
-	if !existe {
-		return puertosbolsa.ErrReservaBaremacionNoValida
-	}
-	reserva, existe := r.reservasPorAmbito[claveAmbito]
-	if !existe || !cadenasConstantesIguales(reserva.HuellaTokenSHA256, huellaToken) ||
-		!mismoVinculoOperacion(reserva.SolicitudReserva.Contexto, solicitud.Contexto) ||
-		reserva.SolicitudReserva.Clase != solicitud.Clase ||
-		reserva.SolicitudReserva.BaremacionMeritoRef != solicitud.BaremacionMeritoRef {
-		return puertosbolsa.ErrReservaBaremacionNoValida
-	}
-	consumida, err := r.comprobarUsoAutorizacionBloqueado(uso)
-	if err != nil {
-		return err
-	}
-	switch reserva.Estado {
-	case estadoReservaAbandonada:
-		if !consumida {
-			return puertosbolsa.ErrEvidenciaBaremacionNoConfiable
-		}
-		return nil
-	case estadoReservaActiva:
-		if consumida {
-			return puertosbolsa.ErrEvidenciaBaremacionNoConfiable
-		}
-		if !ahora.Before(reserva.SolicitudReserva.ExpiraEn.UTC()) {
-			r.cambiarEstadoReservaBloqueado(claveAmbito, reserva, estadoReservaExpirada)
-			return puertosbolsa.ErrReservaBaremacionNoValida
-		}
-		r.cambiarEstadoReservaBloqueado(claveAmbito, reserva, estadoReservaAbandonada)
-		r.usosAutorizacion[uso.DecisionRef] = uso
-		return nil
-	default:
-		return puertosbolsa.ErrReservaBaremacionNoValida
-	}
-}
-
-func (r *RepositorioBaremaciones) ObtenerVersionVigente(
-	ctx context.Context,
-	solicitud puertosbolsa.SolicitudObtenerBaremacionVigente,
-) (puertosbolsa.VersionBaremacion, error) {
-	if err := validarContextoEjecucion(ctx); err != nil {
-		return puertosbolsa.VersionBaremacion{}, err
-	}
-	if err := solicitud.Validar(); err != nil {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	if r == nil {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrBaremacionNoEncontrada
-	}
-	ahora, err := r.ahora()
-	if err != nil || solicitud.Contexto.ValidarVigentePara(
-		puertosbolsa.AccionConsultarBaremacionVigente, puertosbolsa.ClaseRecursoBaremacion,
-		solicitud.BaremacionMeritoRef, ahora,
-	) != nil {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	if err := validarContextoEjecucion(ctx); err != nil {
-		return puertosbolsa.VersionBaremacion{}, err
-	}
-	ahora, err = r.ahora()
-	if err != nil || solicitud.Contexto.ValidarVigentePara(
-		puertosbolsa.AccionConsultarBaremacionVigente, puertosbolsa.ClaseRecursoBaremacion,
-		solicitud.BaremacionMeritoRef, ahora,
-	) != nil {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	if !r.cadenasIntegrasBloqueadas() {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
-	}
-	versiones := r.versionesPorBaremacion[solicitud.BaremacionMeritoRef]
-	if len(versiones) == 0 || versiones[len(versiones)-1].Agregado.SujetoRef != solicitud.Contexto.Proyeccion().SujetoRef {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrBaremacionNoEncontrada
-	}
-	version, err := versiones[len(versiones)-1].Clonar()
-	if err != nil {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrVersionBaremacionNoEncontrada
-	}
-	return version, nil
-}
-
-func (r *RepositorioBaremaciones) ObtenerVersion(
-	ctx context.Context,
-	solicitud puertosbolsa.SolicitudObtenerVersionBaremacion,
-) (puertosbolsa.VersionBaremacion, error) {
-	if err := validarContextoEjecucion(ctx); err != nil {
-		return puertosbolsa.VersionBaremacion{}, err
-	}
-	if err := solicitud.Validar(); err != nil {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	if r == nil {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrVersionBaremacionNoEncontrada
-	}
-	ahora, err := r.ahora()
-	if err != nil || solicitud.Contexto.ValidarVigentePara(
-		puertosbolsa.AccionConsultarVersionBaremacion, puertosbolsa.ClaseRecursoBaremacion,
-		solicitud.BaremacionMeritoRef, ahora,
-	) != nil {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	if err := validarContextoEjecucion(ctx); err != nil {
-		return puertosbolsa.VersionBaremacion{}, err
-	}
-	ahora, err = r.ahora()
-	if err != nil || solicitud.Contexto.ValidarVigentePara(
-		puertosbolsa.AccionConsultarVersionBaremacion, puertosbolsa.ClaseRecursoBaremacion,
-		solicitud.BaremacionMeritoRef, ahora,
-	) != nil {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	if !r.cadenasIntegrasBloqueadas() {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
-	}
-	versiones := r.versionesPorBaremacion[solicitud.BaremacionMeritoRef]
-	if solicitud.Numero > uint64(len(versiones)) ||
-		versiones[solicitud.Numero-1].Agregado.SujetoRef != solicitud.Contexto.Proyeccion().SujetoRef {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrVersionBaremacionNoEncontrada
-	}
-	version, err := versiones[solicitud.Numero-1].Clonar()
-	if err != nil || version.Referencia.Numero != solicitud.Numero {
-		return puertosbolsa.VersionBaremacion{}, puertosbolsa.ErrVersionBaremacionNoEncontrada
-	}
-	return version, nil
-}
-
-func (r *RepositorioBaremaciones) ObtenerEvidenciaTransaccion(
-	ctx context.Context,
-	solicitud puertosbolsa.SolicitudObtenerEvidenciaTransaccionBaremacion,
-) (puertosbolsa.EvidenciaTransaccionBaremacionRecuperada, error) {
-	if err := validarContextoEjecucion(ctx); err != nil {
-		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, err
-	}
-	if solicitud.Validar() != nil || r == nil {
-		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	ahora, err := r.ahora()
-	if err != nil || solicitud.Contexto.ValidarVigentePara(
-		puertosbolsa.AccionConsultarEvidenciaTransaccionBaremacion, puertosbolsa.ClaseRecursoTransaccion,
-		solicitud.AuditoriaRef, ahora,
-	) != nil {
-		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	if err := validarContextoEjecucion(ctx); err != nil {
-		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, err
-	}
-	ahora, err = r.ahora()
-	if err != nil || solicitud.Contexto.ValidarVigentePara(
-		puertosbolsa.AccionConsultarEvidenciaTransaccionBaremacion, puertosbolsa.ClaseRecursoTransaccion,
-		solicitud.AuditoriaRef, ahora,
-	) != nil {
-		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	if !r.cadenasIntegrasBloqueadas() {
-		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
-	}
-	indice := -1
-	for actual := range r.auditorias {
-		if r.auditorias[actual].Referencia == solicitud.AuditoriaRef {
-			indice = actual
-			break
-		}
-	}
-	if indice < 0 || indice >= len(r.eventosOutbox) ||
-		r.eventosOutbox[indice].Referencia != solicitud.EventoOutboxRef {
-		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, puertosbolsa.ErrEvidenciaBaremacionNoEncontrada
-	}
-	auditoria, evento := r.auditorias[indice], r.eventosOutbox[indice]
-	versiones := r.versionesPorBaremacion[solicitud.BaremacionMeritoRef]
-	if solicitud.NumeroVersion > uint64(len(versiones)) || auditoria.SujetoRef != solicitud.Contexto.Proyeccion().SujetoRef {
-		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, puertosbolsa.ErrEvidenciaBaremacionNoEncontrada
-	}
-	version, err := versiones[solicitud.NumeroVersion-1].Clonar()
-	if err != nil {
-		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
-	}
-	auditoria.CamposPermitidos = append([]string(nil), auditoria.CamposPermitidos...)
-	resultado := puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{
-		Version: version, Auditoria: auditoria, Evento: evento,
-		Evidencia: puertosbolsa.EvidenciaTransaccionBaremacion{
-			AuditoriaRef: auditoria.Referencia, HuellaAuditoriaSHA256: auditoria.HuellaRegistroSHA256,
-			EventoOutboxRef: evento.Referencia, HuellaEventoOutboxSHA256: evento.HuellaRegistroSHA256,
-			ConfirmadaEn: auditoria.RegistradaEn,
-		},
-	}
-	if resultado.ValidarPara(solicitud) != nil {
-		return puertosbolsa.EvidenciaTransaccionBaremacionRecuperada{}, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
-	}
-	return resultado, nil
-}
-
-func (r *RepositorioBaremaciones) comprobarVersionEsperadaBloqueado(
-	solicitud puertosbolsa.SolicitudReservarCambioBaremacion,
-	ahora time.Time,
-) error {
-	versiones := r.versionesPorBaremacion[solicitud.BaremacionMeritoRef]
-	switch solicitud.Clase {
-	case puertosbolsa.ClaseCambioAltaBaremacion:
-		if len(versiones) != 0 {
-			if versiones[len(versiones)-1].Agregado.SujetoRef != solicitud.Contexto.Proyeccion().SujetoRef {
-				return puertosbolsa.ErrBaremacionNoEncontrada
-			}
-			if ahora.Before(versiones[len(versiones)-1].ConfirmadaEn) {
-				return puertosbolsa.ErrSolicitudBaremacionInvalida
-			}
-			return puertosbolsa.ErrBaremacionYaExiste
-		}
-		return nil
-	case puertosbolsa.ClaseCambioIncorporarDecision:
-		if len(versiones) == 0 {
-			return puertosbolsa.ErrBaremacionNoEncontrada
-		}
-		if versiones[len(versiones)-1].Agregado.SujetoRef != solicitud.Contexto.Proyeccion().SujetoRef {
-			return puertosbolsa.ErrBaremacionNoEncontrada
-		}
-		if ahora.Before(versiones[len(versiones)-1].ConfirmadaEn) {
-			return puertosbolsa.ErrSolicitudBaremacionInvalida
-		}
-		actual := versiones[len(versiones)-1].Referencia
-		if !referenciasVersionIguales(&actual, solicitud.VersionEsperada) {
-			return puertosbolsa.ErrVersionBaremacionConflicto
-		}
-		return nil
-	default:
-		return puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-}
-
-func (r *RepositorioBaremaciones) validarCambioBloqueado(
-	reserva puertosbolsa.SolicitudReservarCambioBaremacion,
-	agregado dominiobolsa.BaremacionMerito,
-	huellaNueva string,
-	confirmadaEn time.Time,
-) (*puertosbolsa.VersionBaremacion, uint64, error) {
-	versiones := r.versionesPorBaremacion[agregado.ID]
-	switch reserva.Clase {
-	case puertosbolsa.ClaseCambioAltaBaremacion:
-		if reserva.VersionEsperada != nil || len(versiones) != 0 {
-			return nil, 0, puertosbolsa.ErrBaremacionYaExiste
-		}
-		if len(agregado.Decisiones) != 0 {
-			return nil, 0, puertosbolsa.ErrHistorialBaremacionNoAnexable
-		}
-		return nil, 1, nil
-	case puertosbolsa.ClaseCambioIncorporarDecision:
-		if reserva.VersionEsperada == nil || len(versiones) == 0 {
-			return nil, 0, puertosbolsa.ErrBaremacionNoEncontrada
-		}
-		actual, err := versiones[len(versiones)-1].Clonar()
-		if err != nil || !referenciasVersionIguales(&actual.Referencia, reserva.VersionEsperada) {
-			return nil, 0, puertosbolsa.ErrVersionBaremacionConflicto
-		}
-		if confirmadaEn.Before(actual.ConfirmadaEn) {
-			return nil, 0, puertosbolsa.ErrHistorialBaremacionNoAnexable
-		}
-		if len(agregado.Decisiones) != len(actual.Agregado.Decisiones)+1 {
-			return nil, 0, puertosbolsa.ErrHistorialBaremacionNoAnexable
-		}
-		esperado, err := actual.Agregado.IncorporarDecision(agregado.Decisiones[len(agregado.Decisiones)-1])
-		if err != nil {
-			return nil, 0, puertosbolsa.ErrHistorialBaremacionNoAnexable
-		}
-		huellaEsperada, err := esperado.HuellaEstadoSHA256()
-		if err != nil || !cadenasConstantesIguales(huellaEsperada, huellaNueva) {
-			return nil, 0, puertosbolsa.ErrHistorialBaremacionNoAnexable
-		}
-		return &actual, actual.Referencia.Numero + 1, nil
-	default:
-		return nil, 0, puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-}
-
-func (r *RepositorioBaremaciones) cambiarEstadoReservaBloqueado(
-	claveAmbito string,
-	reserva reservaBaremacion,
-	estado estadoReserva,
-) {
-	reserva.Estado = estado
-	r.reservasPorAmbito[claveAmbito] = reserva
-	if r.ambitoActivoPorBaremacion[reserva.SolicitudReserva.BaremacionMeritoRef] == claveAmbito {
-		delete(r.ambitoActivoPorBaremacion, reserva.SolicitudReserva.BaremacionMeritoRef)
-	}
-}
-
-func (r *RepositorioBaremaciones) capacidadConfirmacionDisponibleBloqueada(baremacionRef string) bool {
-	if r == nil || len(r.auditorias) != len(r.eventosOutbox) ||
-		len(r.auditorias) >= maximoTransaccionesMemoria ||
-		len(r.referenciasTransaccion) != len(r.auditorias)*2 || !r.cadenasIntegrasBloqueadas() {
-		return false
-	}
-	versiones := r.versionesPorBaremacion[baremacionRef]
-	if len(versiones) >= maximoVersionesPorBaremacionMemoria {
-		return false
-	}
-	if len(versiones) == 0 && len(r.versionesPorBaremacion) >= maximoBaremacionesMemoria {
-		return false
-	}
-	return true
-}
-
-func (r *RepositorioBaremaciones) cadenasIntegrasBloqueadas() bool {
-	if r == nil || len(r.auditorias) != len(r.eventosOutbox) ||
-		len(r.referenciasTransaccion) != len(r.auditorias)*2 {
-		return false
-	}
-	huellaAuditoriaAnterior, huellaEventoAnterior := "", ""
-	referencias := make(map[string]struct{}, len(r.auditorias)*2)
-	for indice := range r.auditorias {
-		auditoria, evento := r.auditorias[indice], r.eventosOutbox[indice]
-		secuencia := uint64(indice + 1)
-		if auditoria.Validar() != nil || evento.Validar() != nil || auditoria.Secuencia != secuencia ||
-			evento.Secuencia != secuencia || auditoria.HuellaAnteriorAuditoriaSHA256 != huellaAuditoriaAnterior ||
-			evento.HuellaEventoAnteriorSHA256 != huellaEventoAnterior ||
-			auditoria.HuellaRegistroSHA256 != huellaAuditoria(auditoria) ||
-			evento.HuellaRegistroSHA256 != huellaEvento(evento) || evento.AuditoriaRef != auditoria.Referencia ||
-			evento.HuellaAuditoriaSHA256 != auditoria.HuellaRegistroSHA256 ||
-			evento.BaremacionMeritoRef != auditoria.BaremacionMeritoRef || evento.VersionNueva != auditoria.VersionNueva ||
-			evento.HuellaNuevaSHA256 != auditoria.HuellaNuevaSHA256 || evento.SujetoRef != auditoria.SujetoRef ||
-			evento.PrincipalRef != auditoria.PrincipalRef || evento.CorrelacionRef != auditoria.CorrelacionRef ||
-			!evento.RegistradoEn.Equal(auditoria.RegistradaEn) {
-			return false
-		}
-		versiones := r.versionesPorBaremacion[auditoria.BaremacionMeritoRef]
-		if auditoria.VersionNueva > uint64(len(versiones)) {
-			return false
-		}
-		version := versiones[auditoria.VersionNueva-1]
-		if version.Validar() != nil || version.Referencia.Numero != auditoria.VersionNueva ||
-			version.Referencia.HuellaEstadoSHA256 != auditoria.HuellaNuevaSHA256 ||
-			version.Agregado.SujetoRef != auditoria.SujetoRef || !version.ConfirmadaEn.Equal(auditoria.RegistradaEn) {
-			return false
-		}
-		for _, referencia := range []string{auditoria.Referencia, evento.Referencia} {
-			if _, repetida := referencias[referencia]; repetida {
-				return false
-			}
-			referencias[referencia] = struct{}{}
-			if _, reservada := r.referenciasTransaccion[referencia]; !reservada {
-				return false
-			}
-		}
-		huellaAuditoriaAnterior = auditoria.HuellaRegistroSHA256
-		huellaEventoAnterior = evento.HuellaRegistroSHA256
-	}
-	return true
-}
-
-func (r *RepositorioBaremaciones) ahora() (time.Time, error) {
-	if r == nil || interfazNula(r.reloj) {
-		return time.Time{}, puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	ahora := r.reloj.Ahora()
-	if ahora.IsZero() {
-		return time.Time{}, puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	return ahora.UTC(), nil
-}
-
-func (r *RepositorioBaremaciones) verificarSelloReserva(
-	ctx context.Context,
-	solicitud puertosbolsa.SolicitudReservarCambioBaremacion,
-) error {
-	if r == nil || interfazNula(r.verificador) {
-		return puertosbolsa.ErrVerificacionSelloBaremacionNoDisponible
-	}
-	representacion, err := puertosbolsa.RepresentacionCanonicaReservaBaremacion(solicitud)
-	if err != nil {
-		return puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	peticion := puertosbolsa.SolicitudVerificarSelloBaremacion{
-		Finalidad: puertosbolsa.FinalidadSelloReservaBaremacion, RepresentacionCanonica: representacion,
-		SelloHMAC: solicitud.HuellaSolicitudHMAC,
-	}
-	if peticion.Validar() != nil {
-		return puertosbolsa.ErrSelloBaremacionNoAutentico
-	}
-	if err := r.verificador.VerificarSelloBaremacion(ctx, peticion); err != nil {
-		return puertosbolsa.ErrSelloBaremacionNoAutentico
-	}
-	return nil
-}
-
-func (r *RepositorioBaremaciones) verificarSelloConfirmacion(
-	ctx context.Context,
-	solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion,
-) error {
-	if r == nil || interfazNula(r.verificador) {
-		return puertosbolsa.ErrVerificacionSelloBaremacionNoDisponible
-	}
-	representacion, err := puertosbolsa.RepresentacionCanonicaConfirmacionBaremacion(solicitud)
-	if err != nil {
-		return puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	peticion := puertosbolsa.SolicitudVerificarSelloBaremacion{
-		Finalidad: puertosbolsa.FinalidadSelloConfirmacionBaremacion, RepresentacionCanonica: representacion,
-		SelloHMAC: solicitud.HuellaSolicitudHMAC,
-	}
-	if peticion.Validar() != nil {
-		return puertosbolsa.ErrSelloBaremacionNoAutentico
-	}
-	if err := r.verificador.VerificarSelloBaremacion(ctx, peticion); err != nil {
-		return puertosbolsa.ErrSelloBaremacionNoAutentico
-	}
-	return nil
-}
-
-func accionReserva(clase puertosbolsa.ClaseCambioBaremacion) (puertosbolsa.AccionOperacionBaremacion, bool) {
-	switch clase {
-	case puertosbolsa.ClaseCambioAltaBaremacion:
-		return puertosbolsa.AccionReservarAltaBaremacion, true
-	case puertosbolsa.ClaseCambioIncorporarDecision:
-		return puertosbolsa.AccionReservarDecisionBaremacion, true
-	default:
-		return "", false
-	}
-}
-
-func accionConfirmacion(clase puertosbolsa.ClaseCambioBaremacion) (puertosbolsa.AccionOperacionBaremacion, bool) {
-	switch clase {
-	case puertosbolsa.ClaseCambioAltaBaremacion:
-		return puertosbolsa.AccionConfirmarAltaBaremacion, true
-	case puertosbolsa.ClaseCambioIncorporarDecision:
-		return puertosbolsa.AccionConfirmarDecisionBaremacion, true
-	default:
-		return "", false
-	}
-}
-
-func accionAbandono(clase puertosbolsa.ClaseCambioBaremacion) (puertosbolsa.AccionOperacionBaremacion, bool) {
-	switch clase {
-	case puertosbolsa.ClaseCambioAltaBaremacion:
-		return puertosbolsa.AccionAbandonarAltaBaremacion, true
-	case puertosbolsa.ClaseCambioIncorporarDecision:
-		return puertosbolsa.AccionAbandonarDecisionBaremacion, true
-	default:
-		return "", false
-	}
-}
-
-func confirmacionCorrespondeAReserva(
-	confirmacion puertosbolsa.SolicitudConfirmarCambioBaremacion,
-	reserva puertosbolsa.SolicitudReservarCambioBaremacion,
-) bool {
-	return mismoVinculoOperacion(confirmacion.Contexto, reserva.Contexto) && confirmacion.Clase == reserva.Clase &&
-		confirmacion.Agregado.ID == reserva.BaremacionMeritoRef &&
-		referenciasVersionOpcionalesIguales(confirmacion.VersionEsperada, reserva.VersionEsperada)
-}
-
-func solicitudesReservaIguales(
-	a, b puertosbolsa.SolicitudReservarCambioBaremacion,
-) bool {
-	return proyeccionesAutorizacionIguales(a.Contexto, b.Contexto) && a.Clase == b.Clase && a.ClaveIdempotencia == b.ClaveIdempotencia &&
-		a.BaremacionMeritoRef == b.BaremacionMeritoRef &&
-		referenciasVersionOpcionalesIguales(a.VersionEsperada, b.VersionEsperada) &&
-		cadenasConstantesIguales(a.HuellaSolicitudHMAC, b.HuellaSolicitudHMAC) &&
-		a.SolicitadaEn.Equal(b.SolicitadaEn) && a.ExpiraEn.Equal(b.ExpiraEn)
-}
-
-func proyeccionesAutorizacionIguales(a, b puertosbolsa.ContextoOperacionBaremacion) bool {
-	return a.CoincideExactamenteCon(b)
-}
-
-func mismoVinculoOperacion(a, b puertosbolsa.ContextoOperacionBaremacion) bool {
-	pa, pb := a.Proyeccion(), b.Proyeccion()
-	return a.MismoVinculoAutenticacionQue(b) && pa.RecursoRef == pb.RecursoRef &&
-		pa.FinalidadClave == pb.FinalidadClave &&
-		pa.CorrelacionRef == pb.CorrelacionRef
-}
-
-func huellaEfectoReserva(solicitud puertosbolsa.SolicitudReservarCambioBaremacion) (string, error) {
-	return transaccionbolsa.HuellaEfectoReserva(solicitud)
-}
-
-func huellaEfectoConfirmacion(solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion) (string, error) {
-	return transaccionbolsa.HuellaEfectoConfirmacion(solicitud)
-}
-
-func nuevoUsoAutorizacionBaremacion(
-	contexto puertosbolsa.ContextoOperacionBaremacion,
-	instante time.Time,
-	huellaEfecto string,
-) (usoAutorizacionBaremacion, error) {
-	evidencia, err := contexto.EvidenciaUsoAutorizacion()
-	if err != nil || evidencia.ValidarEn(instante) != nil || !huellaSHA256MemoriaValida(huellaEfecto) {
-		return usoAutorizacionBaremacion{}, puertosbolsa.ErrAutorizacionBaremacionInvalida
-	}
-	datos, err := evidencia.Datos()
-	proyeccion := contexto.Proyeccion()
-	if err != nil || datos.Decision.DecisionRef != proyeccion.AutorizacionRef ||
-		!huellaSHA256MemoriaValida(datos.HuellaDecisionSHA256) {
-		return usoAutorizacionBaremacion{}, puertosbolsa.ErrAutorizacionBaremacionInvalida
-	}
-	return usoAutorizacionBaremacion{
-		DecisionRef:          datos.Decision.DecisionRef,
-		HuellaDecisionSHA256: datos.HuellaDecisionSHA256,
-		HuellaEfectoSHA256:   huellaEfecto,
-	}, nil
-}
-
-func (r *RepositorioBaremaciones) comprobarUsoAutorizacionBloqueado(
-	uso usoAutorizacionBaremacion,
-) (bool, error) {
-	if r == nil || r.usosAutorizacion == nil || uso.DecisionRef == "" ||
-		!huellaSHA256MemoriaValida(uso.HuellaDecisionSHA256) || !huellaSHA256MemoriaValida(uso.HuellaEfectoSHA256) {
-		return false, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
-	}
-	existente, consumida := r.usosAutorizacion[uso.DecisionRef]
-	if !consumida {
-		if len(r.usosAutorizacion) >= maximoUsosAutorizacionMemoria {
-			return false, puertosbolsa.ErrEvidenciaBaremacionNoConfiable
-		}
-		return false, nil
-	}
-	if !cadenasConstantesIguales(existente.HuellaDecisionSHA256, uso.HuellaDecisionSHA256) ||
-		!cadenasConstantesIguales(existente.HuellaEfectoSHA256, uso.HuellaEfectoSHA256) {
-		return true, puertosbolsa.ErrAutorizacionBaremacionReutilizada
-	}
-	return true, nil
-}
-
-func huellaSHA256MemoriaValida(valor string) bool {
-	if len(valor) != sha256.Size*2 || strings.ToLower(valor) != valor {
-		return false
-	}
-	bytes, err := hex.DecodeString(valor)
-	return err == nil && len(bytes) == sha256.Size
-}
-
-func huellaConfirmacion(s puertosbolsa.SolicitudConfirmarCambioBaremacion) (string, error) {
-	return huellaEfectoConfirmacion(s)
-}
-
-func derivarEvidenciaTransaccion(
-	solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion,
-	versionAnterior, versionNueva uint64,
-	huellaAnterior, huellaNueva, huellaAuditoriaAnterior, huellaEventoAnterior string,
-	secuenciaAuditoria, secuenciaEvento uint64,
-	registradaEn time.Time,
-) (registroAuditoriaBaremacion, eventoOutboxBaremacion, puertosbolsa.EvidenciaTransaccionBaremacion, error) {
-	return transaccionbolsa.DerivarEvidencia(
-		solicitud, versionAnterior, versionNueva, huellaAnterior, huellaNueva,
-		huellaAuditoriaAnterior, huellaEventoAnterior, secuenciaAuditoria, secuenciaEvento, registradaEn,
-	)
-}
-
-func huellaAuditoria(a registroAuditoriaBaremacion) string {
-	return transaccionbolsa.HuellaAuditoria(a)
-}
-
-func huellaEvento(e eventoOutboxBaremacion) string {
-	return transaccionbolsa.HuellaEvento(e)
-}
-
-func huellaCanonica(partes ...string) string {
-	return transaccionbolsa.HuellaCanonica(partes...)
-}
-
-func generarTokenReserva() (puertosbolsa.TokenReservaBaremacion, error) {
-	return transaccionbolsa.GenerarTokenReserva()
-}
-
-func claveAmbitoReserva(principalRef, claveIdempotencia string) string {
-	return strconv.Itoa(len(principalRef)) + ":" + principalRef + claveIdempotencia
-}
-
-func referenciasVersionOpcionalesIguales(a, b *puertosbolsa.ReferenciaVersionBaremacion) bool {
-	if a == nil || b == nil {
-		return a == nil && b == nil
-	}
-	return referenciasVersionIguales(a, b)
-}
-
-func referenciasVersionIguales(a, b *puertosbolsa.ReferenciaVersionBaremacion) bool {
-	return a != nil && b != nil && a.BaremacionMeritoRef == b.BaremacionMeritoRef && a.Numero == b.Numero &&
-		cadenasConstantesIguales(a.HuellaEstadoSHA256, b.HuellaEstadoSHA256)
-}
-
-func huellaTokenReserva(token puertosbolsa.TokenReservaBaremacion) string {
-	return transaccionbolsa.HuellaTokenReserva(token)
-}
-
-func cadenasConstantesIguales(a, b string) bool {
-	return len(a) == len(b) && subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
-}
-
-func validarContextoEjecucion(ctx context.Context) error {
-	if ctx == nil {
-		return puertosbolsa.ErrSolicitudBaremacionInvalida
-	}
-	return ctx.Err()
-}
-
-func interfazNula(valor any) bool {
-	if valor == nil {
-		return true
-	}
-	reflejo := reflect.ValueOf(valor)
-	switch reflejo.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		return reflejo.IsNil()
-	default:
-		return false
-	}
 }

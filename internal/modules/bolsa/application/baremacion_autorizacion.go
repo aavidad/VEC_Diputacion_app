@@ -333,7 +333,10 @@ func (s *ServicioBaremacion) sellarReserva(
 	if err != nil {
 		return puertosbolsa.SolicitudReservarCambioBaremacion{}, err
 	}
-	sello, err := s.selladorSolicitud.SellarSolicitudBaremacion(ctx, representacion)
+	sello, err := s.selladorSolicitud.SellarSelloBaremacion(ctx, puertosbolsa.SolicitudSellarSelloBaremacion{
+		Finalidad:              puertosbolsa.FinalidadSelloReservaBaremacion,
+		RepresentacionCanonica: representacion,
+	})
 	if err != nil || !selloGeneradoBaremacionValido(sello) {
 		return puertosbolsa.SolicitudReservarCambioBaremacion{},
 			errors.Join(ErrResultadoBaremacionNoConfiable, err)
@@ -353,7 +356,10 @@ func (s *ServicioBaremacion) sellarConfirmacion(
 	if err != nil {
 		return puertosbolsa.SolicitudConfirmarCambioBaremacion{}, err
 	}
-	sello, err := s.selladorSolicitud.SellarSolicitudBaremacion(ctx, representacion)
+	sello, err := s.selladorSolicitud.SellarSelloBaremacion(ctx, puertosbolsa.SolicitudSellarSelloBaremacion{
+		Finalidad:              puertosbolsa.FinalidadSelloConfirmacionBaremacion,
+		RepresentacionCanonica: representacion,
+	})
 	if err != nil || !selloGeneradoBaremacionValido(sello) {
 		return puertosbolsa.SolicitudConfirmarCambioBaremacion{},
 			errors.Join(ErrResultadoBaremacionNoConfiable, err)

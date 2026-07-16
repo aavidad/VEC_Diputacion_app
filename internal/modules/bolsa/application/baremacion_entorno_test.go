@@ -29,7 +29,10 @@ func nuevoEntornoBaremacionPrueba(t *testing.T) *entornoBaremacionPrueba {
 	t.Helper()
 	reloj := relojBaremacionPrueba{instante: instanteBaremacionPrueba}
 	version, resultadoCalculo, fuente := versionInicialBaremacionPrueba(t)
-	repositorio := &repositorioBaremacionPrueba{version: version, token: tokenReservaBaremacionPrueba(t)}
+	protectorSellos := selladorSolicitudBaremacionPrueba{}
+	repositorio := &repositorioBaremacionPrueba{
+		version: version, token: tokenReservaBaremacionPrueba(t), verificador: protectorSellos,
+	}
 	autorizador := &autorizadorBaremacionPrueba{ahora: instanteBaremacionPrueba}
 	contextoActor, vinculo := contextoYVinculoAutenticacionAplicacionPrueba(instanteBaremacionPrueba)
 	sesion, err := NuevaSesionAutenticadaBaremacion(contextoActor, vinculo)
@@ -46,7 +49,7 @@ func nuevoEntornoBaremacionPrueba(t *testing.T) *entornoBaremacionPrueba {
 	validador := &validadorBaremacionPrueba{ahora: instanteBaremacionPrueba}
 	servicio, err := NuevoServicioBaremacion(
 		repositorio, fuente, calculador, politicas, codificador, almacen, firmador, recuperador, validador,
-		selladorTiempoBaremacionPrueba{}, aumentadorBaremacionPrueba{}, selladorSolicitudBaremacionPrueba{},
+		selladorTiempoBaremacionPrueba{}, aumentadorBaremacionPrueba{}, protectorSellos,
 		seudonimizadorBaremacionPrueba{}, &generadorBaremacionPrueba{}, autorizador, sesiones, reloj,
 		OpcionesServicioBaremacion{
 			DuracionReserva: 5 * time.Second, DuracionFirma: 5 * time.Minute,

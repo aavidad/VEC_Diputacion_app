@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -91,6 +92,8 @@ func (a *aumentadorActivoBaremacionPrueba) AumentarFirma(
 
 type selladorSolicitudBaremacionPrueba struct{}
 
+var claveSellosBaremacionAplicacionPrueba = []byte("clave-sellos-baremacion-aplicacion-prueba-32b")
+
 func (selladorSolicitudBaremacionPrueba) SellarSolicitudBaremacion(
 	_ context.Context,
 	carga puertosbolsa.CargaProtegida,
@@ -100,6 +103,48 @@ func (selladorSolicitudBaremacionPrueba) SellarSolicitudBaremacion(
 	}
 	huella := sha256.Sum256(carga.Revelar())
 	return "hmac-sha256:baremacion_1:" + hex.EncodeToString(huella[:]), nil
+}
+
+func (selladorSolicitudBaremacionPrueba) SellarSelloBaremacion(
+	ctx context.Context,
+	solicitud puertosbolsa.SolicitudSellarSelloBaremacion,
+) (string, error) {
+	if ctx == nil {
+		return "", puertosbolsa.ErrCargaProtegidaInvalida
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	material, err := solicitud.MaterialCanonicoHMAC()
+	if err != nil {
+		return "", err
+	}
+	mac := hmac.New(sha256.New, claveSellosBaremacionAplicacionPrueba)
+	_, _ = mac.Write(material.Revelar())
+	return "hmac-sha256:aplicacion_prueba_1:" + hex.EncodeToString(mac.Sum(nil)), nil
+}
+
+func (s selladorSolicitudBaremacionPrueba) VerificarSelloBaremacion(
+	ctx context.Context,
+	solicitud puertosbolsa.SolicitudVerificarSelloBaremacion,
+) error {
+	if ctx == nil {
+		return puertosbolsa.ErrSelloBaremacionNoAutentico
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	material, err := solicitud.MaterialCanonicoHMAC()
+	if err != nil {
+		return puertosbolsa.ErrSelloBaremacionNoAutentico
+	}
+	mac := hmac.New(sha256.New, claveSellosBaremacionAplicacionPrueba)
+	_, _ = mac.Write(material.Revelar())
+	esperado := "hmac-sha256:aplicacion_prueba_1:" + hex.EncodeToString(mac.Sum(nil))
+	if !hmac.Equal([]byte(esperado), []byte(solicitud.SelloHMAC)) {
+		return puertosbolsa.ErrSelloBaremacionNoAutentico
+	}
+	return nil
 }
 
 type seudonimizadorBaremacionPrueba struct{}
@@ -187,7 +232,8 @@ var (
 	_ puertosbolsa.ValidadorFirmaServidor               = (*validadorBaremacionPrueba)(nil)
 	_ puertosbolsa.SelladorTiempoFirma                  = selladorTiempoBaremacionPrueba{}
 	_ puertosbolsa.AumentadorFirmaLongeva               = aumentadorBaremacionPrueba{}
-	_ puertosbolsa.SelladorSolicitudBaremacion          = selladorSolicitudBaremacionPrueba{}
+	_ puertosbolsa.SelladorServicioBaremacion           = selladorSolicitudBaremacionPrueba{}
+	_ puertosbolsa.VerificadorSellosBaremacion          = selladorSolicitudBaremacionPrueba{}
 	_ puertosvec.SeudonimizadorSujetoAlmacen            = seudonimizadorBaremacionPrueba{}
 	_ puertosbolsa.GeneradorReferenciasOpacasBaremacion = (*generadorBaremacionPrueba)(nil)
 	_ puertosvec.Autorizador                            = (*autorizadorBaremacionPrueba)(nil)

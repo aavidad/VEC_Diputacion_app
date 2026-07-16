@@ -32,6 +32,16 @@ func (s selladorCentinelaPorFinalidadBaremacionPrueba) SellarSolicitudBaremacion
 	return selladorSolicitudBaremacionPrueba{}.SellarSolicitudBaremacion(ctx, carga)
 }
 
+func (s selladorCentinelaPorFinalidadBaremacionPrueba) SellarSelloBaremacion(
+	ctx context.Context,
+	solicitud puertosbolsa.SolicitudSellarSelloBaremacion,
+) (string, error) {
+	if bytes.Equal([]byte(solicitud.Finalidad), s.finalidad) {
+		return hmacBaremacionPendiente, nil
+	}
+	return selladorSolicitudBaremacionPrueba{}.SellarSelloBaremacion(ctx, solicitud)
+}
+
 func TestServicioBaremacionNoPersisteHMACCentinelaDevueltoPorSellador(t *testing.T) {
 	casos := []struct {
 		nombre                  string
@@ -41,6 +51,7 @@ func TestServicioBaremacionNoPersisteHMACCentinelaDevueltoPorSellador(t *testing
 		abandonosEsperados      int
 	}{
 		{"reserva", puertosbolsa.FinalidadSelloReservaBaremacion, 0, 0, 0},
+		{"manifiesto", puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2, 1, 0, 1},
 		{"confirmacion", puertosbolsa.FinalidadSelloConfirmacionBaremacion, 1, 0, 1},
 	}
 	for _, caso := range casos {
@@ -65,6 +76,43 @@ func TestServicioBaremacionNoPersisteHMACCentinelaDevueltoPorSellador(t *testing
 					entorno.repositorio.abandonos)
 			}
 		})
+	}
+}
+
+func TestServicioBaremacionProduceManifiestoVerificableYSeparaFinalidades(t *testing.T) {
+	entorno := nuevoEntornoBaremacionPrueba(t)
+	preparada := prepararFirmaBaremacionPrueba(t, entorno)
+	resultado, err := entorno.servicio.FinalizarFirma(
+		context.Background(), ordenFinalizarBaremacionPrueba(preparada, "vertical-hmac"),
+	)
+	if err != nil {
+		t.Fatalf("finalizar con productor y verificador compartidos: %v", err)
+	}
+	if entorno.repositorio.confirmacion == nil || entorno.repositorio.confirmacion.Manifiesto == nil {
+		t.Fatal("el repositorio no recibio el manifiesto producido por el servicio")
+	}
+	manifiesto := entorno.repositorio.confirmacion.Manifiesto.Clonar()
+	representacion, err := puertosbolsa.RepresentacionCanonicaManifiestoProbatorioBaremacion(manifiesto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verificador := selladorSolicitudBaremacionPrueba{}
+	peticion := puertosbolsa.SolicitudVerificarSelloBaremacion{
+		Finalidad:              puertosbolsa.FinalidadSelloManifiestoProbatorioBaremacionV2,
+		RepresentacionCanonica: representacion,
+		SelloHMAC:              manifiesto.SelloManifiestoHMACSHA256,
+	}
+	if err := verificador.VerificarSelloBaremacion(context.Background(), peticion); err != nil {
+		t.Fatalf("el verificador rechazo el sello producido por ServicioBaremacion: %v", err)
+	}
+	peticion.Finalidad = puertosbolsa.FinalidadSelloConfirmacionBaremacion
+	if err := verificador.VerificarSelloBaremacion(context.Background(), peticion); !errors.Is(
+		err, puertosbolsa.ErrSelloBaremacionNoAutentico,
+	) {
+		t.Fatalf("el sello de manifiesto se reutilizo en confirmacion: %v", err)
+	}
+	if resultado.Decision.Firma.SelloManifiestoProbatorioHMACSHA256 != manifiesto.SelloManifiestoHMACSHA256 {
+		t.Fatal("el resultado no conserva el sello que verifico el repositorio")
 	}
 }
 

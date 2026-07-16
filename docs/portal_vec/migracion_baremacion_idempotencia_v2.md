@@ -301,8 +301,12 @@ la sección de aceptación.
 
 ## Persistencia PostgreSQL V2
 
-La migración `000005_idempotencia_semantica` creará, sin reinterpretar las
-reservas V1:
+La serie de migraciones de idempotencia semántica comenzará en `000006`, sin
+reinterpretar las reservas V1. El número `000005` queda reservado al corte
+estrecho `manifiesto_probatorio_v2`, que debe cerrar antes la conservación y
+reverificación durable del manifiesto ya exigido por el contrato vigente. Esta
+renumeración no levanta el NO-GO de DEC-045 ni autoriza a mezclar ambos cortes.
+La serie desde `000006` creará:
 
 - `operacion_idempotente_version` y `operacion_idempotente_actual`;
 - `indice_operacion_idempotente`;

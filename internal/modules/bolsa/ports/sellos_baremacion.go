@@ -16,11 +16,72 @@ const (
 	FinalidadSelloReservaBaremacion                       FinalidadSelloBaremacion = "reserva_baremacion_v1"
 	FinalidadSelloConfirmacionBaremacion                  FinalidadSelloBaremacion = "confirmacion_baremacion_v1"
 	FinalidadSelloSobreProbatorioConfirmacionBaremacionV2 FinalidadSelloBaremacion = "sobre_probatorio_confirmacion_baremacion_v2"
+	FinalidadSelloManifiestoProbatorioBaremacionV2        FinalidadSelloBaremacion = "manifiesto_probatorio_baremacion_v2"
 )
 
 func (f FinalidadSelloBaremacion) valida() bool {
 	return f == FinalidadSelloReservaBaremacion || f == FinalidadSelloConfirmacionBaremacion ||
-		f == FinalidadSelloSobreProbatorioConfirmacionBaremacionV2
+		f == FinalidadSelloSobreProbatorioConfirmacionBaremacionV2 ||
+		f == FinalidadSelloManifiestoProbatorioBaremacionV2
+}
+
+// SolicitudSellarSelloBaremacion obliga al productor a declarar el dominio
+// criptografico que el verificador recibira despues. No debe sustituirse por un
+// sellador generico: la finalidad permite seleccionar una clave y un llavero
+// historico independientes sin interpretar bytes opacos en el conector.
+type SolicitudSellarSelloBaremacion struct {
+	Finalidad              FinalidadSelloBaremacion
+	RepresentacionCanonica CargaProtegida
+}
+
+func (s SolicitudSellarSelloBaremacion) Validar() error {
+	if !s.Finalidad.valida() || s.RepresentacionCanonica.Validar() != nil {
+		return ErrSolicitudBaremacionInvalida
+	}
+	return nil
+}
+
+// MaterialCanonicoHMAC devuelve la preimagen contractual exacta:
+//
+//	HMAC(K_finalidad, finalidad || 0x00 || representacion_canonica)
+//
+// La finalidad cerrada no puede contener NUL. La representacion conserva
+// ademas su dominio funcional para que el artefacto siga siendo autocontenido;
+// esta doble declaracion es deliberada y queda congelada por vector de prueba.
+func (s SolicitudSellarSelloBaremacion) MaterialCanonicoHMAC() (CargaProtegida, error) {
+	if s.Validar() != nil {
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	representacion := s.RepresentacionCanonica.Revelar()
+	defer func() {
+		for indice := range representacion {
+			representacion[indice] = 0
+		}
+	}()
+	material := make([]byte, 0, len(s.Finalidad)+1+len(representacion))
+	material = append(material, []byte(s.Finalidad)...)
+	material = append(material, 0)
+	material = append(material, representacion...)
+	resultado, err := NuevaCargaProtegida(material)
+	for indice := range material {
+		material[indice] = 0
+	}
+	return resultado, err
+}
+
+// SelladorSellosBaremacion produce sellos con una finalidad explicita. La
+// implementacion debe resolver la clave activa de esa finalidad y devolver el
+// identificador de clave en el formato hmac-sha256:<clave>:<hex>.
+type SelladorSellosBaremacion interface {
+	SellarSelloBaremacion(context.Context, SolicitudSellarSelloBaremacion) (string, error)
+}
+
+// SelladorServicioBaremacion es el compuesto requerido por ServicioBaremacion.
+// La fachada durable de firma conserva deliberadamente el puerto generico
+// SelladorSolicitudBaremacion y no queda acoplada a este contrato transaccional.
+type SelladorServicioBaremacion interface {
+	SelladorSolicitudBaremacion
+	SelladorSellosBaremacion
 }
 
 // SolicitudVerificarSelloBaremacion entrega al componente criptografico la
@@ -38,6 +99,19 @@ func (s SolicitudVerificarSelloBaremacion) Validar() error {
 		return ErrSelloBaremacionNoAutentico
 	}
 	return nil
+}
+
+// MaterialCanonicoHMAC reutiliza sin variantes la misma preimagen que el
+// productor. El sello solo autoriza la conversion; nunca entra en su propia
+// preimagen.
+func (s SolicitudVerificarSelloBaremacion) MaterialCanonicoHMAC() (CargaProtegida, error) {
+	if s.Validar() != nil {
+		return CargaProtegida{}, ErrSelloBaremacionNoAutentico
+	}
+	return (SolicitudSellarSelloBaremacion{
+		Finalidad:              s.Finalidad,
+		RepresentacionCanonica: s.RepresentacionCanonica,
+	}).MaterialCanonicoHMAC()
 }
 
 // VerificadorSellosBaremacion debe comparar en tiempo constante y devolver
