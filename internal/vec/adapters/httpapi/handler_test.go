@@ -19,6 +19,8 @@ import (
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
 	dietasmodule "vec-diputacion-granada/internal/modules/dietas"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
+	personalmemory "vec-diputacion-granada/internal/modules/personal/adapters/memory"
+	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	"vec-diputacion-granada/internal/vec/adapters/memory"
 	"vec-diputacion-granada/internal/vec/application"
@@ -45,6 +47,13 @@ func newTestHandlerWithOptions(t *testing.T, options HandlerOptions) *Handler {
 	if options.CategoriasProfesionales == nil {
 		options.CategoriasProfesionales = nuevoServicioCategoriasProfesionalesHTTPPrueba(t)
 	}
+	if options.PersonalCatalog == nil {
+		var err error
+		options.PersonalCatalog, err = personalapp.NewCatalogService(personalmemory.NewCatalogStore())
+		if err != nil {
+			t.Fatalf("crear catalogo Personal de prueba: %v", err)
+		}
+	}
 	store := memory.NewStore()
 	service, internal, err := application.NewServiceWithInternalOperations(store, store, store)
 	if err != nil {
@@ -55,7 +64,11 @@ func newTestHandlerWithOptions(t *testing.T, options HandlerOptions) *Handler {
 	if err != nil {
 		t.Fatalf("NewHandler() error = %v", err)
 	}
-	cargarFixturesCatalogoPersonalPrueba(t, handler.personalCatalog)
+	catalogoPersonal, ok := handler.personalCatalog.(*personalapp.CatalogService)
+	if !ok || catalogoPersonal == nil {
+		t.Fatalf("catalogo Personal de prueba inesperado: %T", handler.personalCatalog)
+	}
+	cargarFixturesCatalogoPersonalPrueba(t, catalogoPersonal)
 	return handler
 }
 
@@ -603,6 +616,9 @@ func TestPersonalRPTCatalogEndpoints(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("%s status = %d: %s", path, rec.Code, rec.Body.String())
 		}
+		if path == "/api/vec/personal/catalogs" && !strings.Contains(rec.Body.String(), `"code":"PRUEBA"`) {
+			t.Fatalf("%s no proyecta el catálogo sintético: %s", path, rec.Body.String())
+		}
 	}
 
 	rec := httptest.NewRecorder()
@@ -709,16 +725,6 @@ func TestCronosTimecardsLegacyDeniegaIdentificadorDeEmpleadoDelCliente(t *testin
 	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
 		t.Fatalf("Cache-Control = %q, want no-store", got)
 	}
-	snapshot, err := handler.cronos.Snapshot(context.Background(), workspaceCronosDate, workspaceCronosEmployeeIDs())
-	if err != nil {
-		t.Fatalf("Snapshot() error = %v", err)
-	}
-	for _, result := range snapshot.Results {
-		if result.EmployeeID == "EMP-0999" {
-			t.Fatalf("la petición denegada persistió una jornada: %#v", result)
-		}
-	}
-
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/api/vec/cronos/timecards?employee_id=EMP-0031", nil)
 	servirCronosCerradoConPermisosPreliminares(handler, rec, req)
@@ -746,10 +752,6 @@ func TestCronosPermisosLegacyDeniegaIdentificadorDeEmpleadoDelCliente(t *testing
 	if err != nil {
 		t.Fatalf("NewHandler() error = %v", err)
 	}
-	requestsBefore, err := handler.cronos.LeaveRequests(context.Background(), "EMP-0031", 2026)
-	if err != nil {
-		t.Fatalf("LeaveRequests() before error = %v", err)
-	}
 	payload := []byte(`{
 		"employee_id":"EMP-0031",
 		"policy_id":"asuntos_propios",
@@ -767,14 +769,6 @@ func TestCronosPermisosLegacyDeniegaIdentificadorDeEmpleadoDelCliente(t *testing
 	if body := rec.Body.String(); strings.Contains(body, "cronos.permiso.request") || strings.Contains(body, "asuntos_propios") || strings.Contains(body, "EMP-0031") {
 		t.Fatalf("la superficie cerrada reveló o procesó la solicitud: %s", body)
 	}
-	requestsAfter, err := handler.cronos.LeaveRequests(context.Background(), "EMP-0031", 2026)
-	if err != nil {
-		t.Fatalf("LeaveRequests() after error = %v", err)
-	}
-	if len(requestsAfter) != len(requestsBefore) {
-		t.Fatalf("la petición denegada mutó solicitudes: before=%d after=%d", len(requestsBefore), len(requestsAfter))
-	}
-
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/api/vec/cronos/leave-requests?employee_id=EMP-0031", nil)
 	servirCronosCerradoConPermisosPreliminares(handler, rec, req)
@@ -784,120 +778,4 @@ func TestCronosPermisosLegacyDeniegaIdentificadorDeEmpleadoDelCliente(t *testing
 	if body := rec.Body.String(); strings.Contains(body, "Asunto propio") || strings.Contains(body, `"remaining"`) || strings.Contains(body, "EMP-0031") {
 		t.Fatalf("la consulta cerrada reveló datos de permisos: %s", body)
 	}
-}
-
-func TestWorkspaceSnapshotIncludesProfessionalDemoPayload(t *testing.T) {
-	snapshot, err := workspaceSnapshot(nil)
-	if err != nil {
-		t.Fatalf("workspaceSnapshot() error = %v", err)
-	}
-	for _, key := range []string{
-		"generated_at",
-		"modules",
-		"kpis",
-		"operational_records",
-		"screen_catalog",
-		"payroll_run",
-		"expense_policy",
-		"action_catalog",
-		"flow_states",
-		"access_roles",
-		"role_assignments",
-		"rpt_catalog",
-		"rpt_contract_types",
-		"rpt_position_samples",
-		"bolsa_category_rules",
-	} {
-		if snapshot[key] == nil {
-			t.Fatalf("workspace snapshot missing %q", key)
-		}
-	}
-
-	screenCatalog, ok := snapshot["screen_catalog"].([]map[string]any)
-	if !ok || len(screenCatalog) == 0 {
-		t.Fatalf("screen_catalog = %#v, want non-empty []map[string]any", snapshot["screen_catalog"])
-	}
-	var hasPayrollScreen bool
-	for _, screen := range screenCatalog {
-		if screen["id"] == "nominas.cierre" {
-			hasPayrollScreen = true
-			fields, ok := screen["fields"].([]map[string]any)
-			if !ok || len(fields) == 0 {
-				t.Fatalf("nominas.cierre fields = %#v, want non-empty field catalog", screen["fields"])
-			}
-		}
-	}
-	if !hasPayrollScreen {
-		t.Fatalf("screen_catalog missing nominas.cierre: %#v", screenCatalog)
-	}
-
-	payrollRun, ok := snapshot["payroll_run"].(map[string]any)
-	if !ok || payrollRun["period"] != "2026-06" || payrollRun["state"] == "" {
-		t.Fatalf("payroll_run = %#v, want demo payroll period and state", snapshot["payroll_run"])
-	}
-	expensePolicy, ok := snapshot["expense_policy"].(map[string]any)
-	if !ok || expensePolicy["demo_notice"] == "" {
-		t.Fatalf("expense_policy = %#v, want demo policy metadata", snapshot["expense_policy"])
-	}
-
-	actionCatalog, ok := snapshot["action_catalog"].(map[string][]map[string]any)
-	if !ok {
-		t.Fatalf("action_catalog = %#v, want map[string][]map[string]any", snapshot["action_catalog"])
-	}
-	for _, module := range []string{"personal", "nominas", "cronos", "horarios", "permisos", "dietas", "rutas", "bolsa"} {
-		if len(actionCatalog[module]) == 0 {
-			t.Fatalf("action_catalog missing actions for %s: %#v", module, actionCatalog)
-		}
-	}
-
-	flowStates, ok := snapshot["flow_states"].([]map[string]any)
-	if !ok || len(flowStates) == 0 {
-		t.Fatalf("flow_states = %#v, want non-empty []map[string]any", snapshot["flow_states"])
-	}
-	var hasPayrollHandoff bool
-	for _, state := range flowStates {
-		if state["id"] == "lista_para_nomina" {
-			hasPayrollHandoff = true
-		}
-	}
-	if !hasPayrollHandoff {
-		t.Fatalf("flow_states missing lista_para_nomina: %#v", flowStates)
-	}
-
-	accessRoles, ok := snapshot["access_roles"].([]map[string]any)
-	if !ok || len(accessRoles) < 5 {
-		t.Fatalf("access_roles = %#v, want role matrix for VEC", snapshot["access_roles"])
-	}
-	var hasAdmin, hasRRHH, hasJefeServicio bool
-	for _, role := range accessRoles {
-		switch role["id"] {
-		case "administrador":
-			hasAdmin = true
-		case "tecnico_rrhh":
-			hasRRHH = true
-		case "jefe_servicio":
-			hasJefeServicio = true
-		}
-	}
-	if !hasAdmin || !hasRRHH || !hasJefeServicio {
-		t.Fatalf("access_roles missing expected public-sector roles: %#v", accessRoles)
-	}
-
-	rptTypes, ok := snapshot["rpt_contract_types"].([]map[string]any)
-	if !ok || len(rptTypes) == 0 {
-		t.Fatalf("rpt_contract_types = %#v, want RPT/personnel catalog", snapshot["rpt_contract_types"])
-	}
-	var hasFuncionario, hasProvision bool
-	for _, item := range rptTypes {
-		if item["code"] == "funcionario_carrera" {
-			hasFuncionario = true
-		}
-		if item["catalog"] == "forma_provision" && item["code"] == "L" {
-			hasProvision = true
-		}
-	}
-	if !hasFuncionario || !hasProvision {
-		t.Fatalf("rpt_contract_types missing regime/provision entries: %#v", rptTypes)
-	}
-
 }

@@ -78,6 +78,36 @@ func escribirCredencialesFakePrueba(t *testing.T, modo os.FileMode, registros ..
 	return ruta
 }
 
+func TestComposicionCatalogoPersonalNoCreaSnapshotAlArrancar(t *testing.T) {
+	ruta := filepath.Join(t.TempDir(), "personal", "catalogo.json")
+	servicio, err := nuevoServicioCatalogoPersonal(ruta)
+	if err != nil {
+		t.Fatalf("componer catalogo Personal durable: %v", err)
+	}
+	estadisticas, err := servicio.Stats(context.Background())
+	if err != nil {
+		t.Fatalf("consultar catalogo Personal vacio: %v", err)
+	}
+	if estadisticas.Positions != 0 || estadisticas.Categories != 0 || estadisticas.CatalogEntries != 0 {
+		t.Fatalf("el arranque inyecto datos implicitos: %+v", estadisticas)
+	}
+	for _, candidata := range []string{ruta, ruta + ".bak"} {
+		if _, err := os.Stat(candidata); !os.IsNotExist(err) {
+			t.Fatalf("el arranque creo %s: %v", candidata, err)
+		}
+	}
+}
+
+func TestComposicionCatalogoPersonalEnMemoriaEsExplicita(t *testing.T) {
+	servicio, err := nuevoServicioCatalogoPersonal("")
+	if err != nil {
+		t.Fatalf("componer catalogo Personal en memoria: %v", err)
+	}
+	if servicio == nil {
+		t.Fatal("la raiz de composicion no inyecto el servicio de Personal")
+	}
+}
+
 func TestNewHTTPServerWithConfigComponeAPISinDarFuncionBolsaAlAdministradorTecnico(t *testing.T) {
 	srv, err := NewHTTPServerWithConfig(configurarFakePrueba(t, config.Config{
 		Address:             "127.0.0.1:0",

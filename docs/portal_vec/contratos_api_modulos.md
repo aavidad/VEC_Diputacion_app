@@ -277,14 +277,11 @@ fabrica posee) y, aunque se concediera, responde siempre `503` con
 resolver de recursos en el servidor [...] La ruta queda cerrada hasta que el
 PDP aporte un ambito positivo exacto para cada seccion y campo".
 
-Dato relevante para quien lea el codigo: existen funciones
-`workspaceSnapshot`/`workspaceSnapshotWithCronos` en `workspace.go` que
-construyen un payload muy completo (KPIs, `operational_records`, catalogos
-RPT, datos de Cronos, rutas provinciales...). **Ese codigo no es alcanzable
-por HTTP**: solo lo invocan tests (`handler_test.go`,
-`cronos_security_test.go`). Un cliente de escritorio no puede ni debe
-construirse contra ese payload; es codigo muerto desde la perspectiva del
-contrato HTTP.
+El antiguo constructor sintetico inalcanzable
+`workspaceSnapshot`/`workspaceSnapshotWithCronos` fue eliminado el
+17/07/2026. No existe un payload alternativo oculto contra el que pueda
+construirse un cliente. La futura superficie interna necesitara un caso de
+uso nuevo y consultas acotadas por sujeto, finalidad y campos.
 
 ---
 
@@ -311,9 +308,8 @@ enviado por el navegador; no hay resolver de persona/organigrama/delegacion
 en el servidor todavia. **Ningun dato de Cronos llega hoy al cliente por
 HTTP**, ni en lectura ni en escritura. Todo lo que el modulo Cronos ofrece
 (perfiles horarios, fichajes, saldos, permisos, vacaciones, reducciones
-63/64) vive solo en el motor `internal/modules/cronos/application` usado
-internamente por `workspaceSnapshot` (inalcanzable, ver arriba) y por los
-tests.
+63/64) vive solo en el motor `internal/modules/cronos/application` y sus
+pruebas; la carcasa HTTP no lo construye ni lo retiene.
 
 ---
 
@@ -817,12 +813,9 @@ codigo):
 Ademas, dos observaciones de solo lectura de codigo (no requieren arrancar el
 servidor):
 
-- `workspaceSnapshot`/`workspaceSnapshotWithCronos` (`workspace.go`) generan
-  un payload rico (KPIs, `operational_records`, `cronos_*`,
-  `province_route_*`...) que **ningun** handler HTTP invoca; solo lo llaman
-  tests. Si la intencion de la Ola 2 es reabrir el workspace con permisos
-  finos, ese codigo es un punto de partida razonable para el nuevo caso de
-  uso, pero hoy es puro codigo muerto desde el contrato HTTP.
+- el agregado sintetico `workspaceSnapshot*` ya no existe. La Ola 2 no debe
+  recuperarlo: debe crear un caso de uso real, con recursos resueltos en el
+  servidor y proyecciones positivas por campo;
 - Los puestos RPT y catalogos auxiliares de Personal arrancan vacios en un
   despliegue limpio y requieren una importacion expresa. Las categorias no:
   `personal/categories` consulta la misma instantanea ID/version/huella que

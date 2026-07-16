@@ -1,17 +1,12 @@
 package httpapi
 
 import (
-	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
-	cronosmemory "vec-diputacion-granada/internal/modules/cronos/adapters/memory"
-	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
-	cronosdomain "vec-diputacion-granada/internal/modules/cronos/domain"
 )
 
 func servirCronosCerradoConPermisosPreliminares(handler *Handler, rec *httptest.ResponseRecorder, req *http.Request) {
@@ -81,50 +76,4 @@ func TestCronosLegacySinPermisoPositivoDeniega(t *testing.T) {
 			t.Fatalf("GET %s status = %d: %s", path, rec.Code, rec.Body.String())
 		}
 	}
-}
-
-func TestWorkspaceCronosPropagaDependenciaAusenteYErrorDeBackend(t *testing.T) {
-	if data, err := workspaceCronosData(context.Background(), nil); err == nil || data != nil {
-		t.Fatalf("workspaceCronosData(nil) = (%#v, %v), want nil/error", data, err)
-	}
-
-	errBackend := errors.New("backend cronos unavailable")
-	service, err := cronosapp.NewService(storeCronosConFallo{
-		Store: cronosmemory.NewStore(),
-		err:   errBackend,
-	})
-	if err != nil {
-		t.Fatalf("NewService() error = %v", err)
-	}
-	data, err := workspaceCronosData(context.Background(), service)
-	if !errors.Is(err, errBackend) || data != nil {
-		t.Fatalf("workspaceCronosData(failing) = (%#v, %v), want nil/%v", data, err, errBackend)
-	}
-	if snapshot, err := workspaceSnapshotWithCronos(context.Background(), nil, service); !errors.Is(err, errBackend) || snapshot != nil {
-		t.Fatalf("workspaceSnapshotWithCronos(failing) = (%#v, %v), want nil/%v", snapshot, err, errBackend)
-	}
-}
-
-func TestAyudasCronosNoInterpretanAmbitoVacioNiSustituyenEmpleado(t *testing.T) {
-	results := []cronosdomain.DayResult{{EmployeeID: "EMP-0001"}}
-	if result, ok := firstCronosResult(results, ""); ok || result.EmployeeID != "" {
-		t.Fatalf("firstCronosResult(empty) = (%#v, %v), want zero/false", result, ok)
-	}
-	if result, ok := firstCronosResult(results, "EMP-INEXISTENTE"); ok || result.EmployeeID != "" {
-		t.Fatalf("firstCronosResult(missing) = (%#v, %v), want zero/false", result, ok)
-	}
-	balances := []cronosdomain.LeaveBalance{{EmployeeID: "EMP-0001", Year: 2026, PolicyID: "vacaciones", Granted: 22}}
-	policies := []cronosdomain.LeavePolicy{{ID: "vacaciones", Name: "Vacaciones", Unit: cronosdomain.LeaveUnitDay}}
-	if views := leaveBalanceViews(balances, policies, ""); len(views) != 0 {
-		t.Fatalf("leaveBalanceViews(empty scope) = %#v, want empty", views)
-	}
-}
-
-type storeCronosConFallo struct {
-	*cronosmemory.Store
-	err error
-}
-
-func (s storeCronosConFallo) ListProfiles(context.Context) ([]cronosdomain.ScheduleProfile, error) {
-	return nil, s.err
 }

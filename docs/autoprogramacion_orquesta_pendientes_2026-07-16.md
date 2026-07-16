@@ -43,16 +43,22 @@
 ### T03 — Cableado de modulos fuera de `httpapi` (H-02)
 
 - `origen`: auditoria H-02.
-- `estado`: nuevo.
+- `estado`: en curso. Primera rebanada terminada el 17/07/2026: la raiz de
+  composicion construye e inyecta el servicio de catalogo Personal y
+  `httpapi` ya no importa ni decide entre sus adaptadores `file`/`memory`;
+  tambien se retiro el servicio Cronos sintetico que solo alimentaba codigo
+  muerto. Queda extraer los handlers/contratos de ruta para eliminar los
+  imports funcionales restantes de `internal/modules/*`.
 - `area_hexagonal`: adaptador hacia composicion.
 - `accion`: programar el traslado del montaje de modulos de
   `internal/vec/adapters/httpapi` (`workspace.go`, `cronos.go`,
   `personal_rpt.go`) a `internal/app/bootstrap`; `httpapi` recibe handlers o
   interfaces ya compuestos y pierde todos los imports de
   `internal/modules/*`.
-- `evidencia`: `go list -f '{{.ImportPath}} {{join .Imports " "}}'` muestra
-  a `httpapi` importando cinco modulos, incluidos `application` y
-  `adapters/file`/`memory` ajenos.
+- `evidencia`: `nuevoServicioCatalogoPersonal` vive en
+  `internal/app/bootstrap`; `HandlerOptions.PersonalCatalog` recibe el caso
+  de uso compuesto. `go list` sigue mostrando imports funcionales de modulo,
+  por lo que T03 no se declara cerrado todavia.
 
 ### T04 — Frontend en modulos ES con tokens (DEC-052, H-03)
 
@@ -114,11 +120,11 @@
 ### T08 — Codigo muerto de workspace en httpapi
 
 - `origen`: hallazgo de lectura de T05.
-- `estado`: nuevo. Encaja de forma natural dentro del carril T03
-  (`httpapi` hacia `bootstrap`), como paso previo del traslado.
+- `estado`: completado el 17/07/2026. Se conserva la ruta fail-closed y se
+  elimino todo el grafo sintetico inalcanzable.
 - `area_hexagonal`: adaptador.
-- `accion`: eliminar `workspaceSnapshot`/`workspaceSnapshotWithCronos` de
-  `internal/vec/adapters/httpapi/workspace.go` (compilan pero ningun camino
-  HTTP los alcanza) o conectarlos si el workspace real de Ola 2 los necesita;
-  decidirlo al ejecutar T03.
-- `evidencia`: analisis de alcanzabilidad de T05 sobre `workspace.go`.
+- `accion`: cerrada por eliminacion; el futuro workspace interno se
+  construira como caso de uso acotado por sujeto, finalidad y campos, no
+  reactivando el agregado demo.
+- `evidencia`: `workspace.go` contiene solo `handleWorkspace`; no quedan
+  simbolos `workspaceSnapshot*`, semillas Cronos ni datos RPT/nomina/dietas.

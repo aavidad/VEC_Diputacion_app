@@ -11,10 +11,8 @@ import (
 	adminmodule "vec-diputacion-granada/internal/modules/administracion"
 	bolsamodule "vec-diputacion-granada/internal/modules/bolsa"
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
-	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
 	dietasmodule "vec-diputacion-granada/internal/modules/dietas"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
-	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	"vec-diputacion-granada/internal/vec/application"
 	"vec-diputacion-granada/internal/vec/domain"
 )
@@ -22,17 +20,16 @@ import (
 type Handler struct {
 	service                 *application.Service
 	internal                *application.InternalOperations
-	cronos                  *cronosapp.Service
-	personalCatalog         *personalapp.CatalogService
-	categoriasProfesionales *personalapp.ServicioConsultaCategoriasProfesionales
+	personalCatalog         CatalogoPersonal
+	categoriasProfesionales ConsultaCategoriasProfesionales
 	roadRoute               *roadRouteConnector
 	identityPolicy          identityPolicy
 }
 
 type HandlerOptions struct {
 	InternalOperations      *application.InternalOperations
-	PersonalCatalogPath     string
-	CategoriasProfesionales *personalapp.ServicioConsultaCategoriasProfesionales
+	PersonalCatalog         CatalogoPersonal
+	CategoriasProfesionales ConsultaCategoriasProfesionales
 	OSRMBaseURL             string
 	OSRMScopeName           string
 	OSRMScopeBounds         string
@@ -68,14 +65,6 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 	if err != nil {
 		return nil, err
 	}
-	cronos, err := newWorkspaceCronosService()
-	if err != nil {
-		return nil, err
-	}
-	personalCatalog, err := newWorkspacePersonalCatalogService(options.PersonalCatalogPath)
-	if err != nil {
-		return nil, err
-	}
 	roadRoute, err := newRoadRouteConnector(
 		options.OSRMBaseURL,
 		options.OSRMScopeName,
@@ -88,8 +77,7 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 	return &Handler{
 		service:                 service,
 		internal:                options.InternalOperations,
-		cronos:                  cronos,
-		personalCatalog:         personalCatalog,
+		personalCatalog:         options.PersonalCatalog,
 		categoriasProfesionales: options.CategoriasProfesionales,
 		roadRoute:               roadRoute,
 		identityPolicy:          identityPolicy,

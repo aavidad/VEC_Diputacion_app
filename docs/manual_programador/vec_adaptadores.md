@@ -405,6 +405,26 @@ func (c *ConsultaCatalogos) ObtenerMetadatosFuenteCatalogos(ctx context.Context)
 ### Tipos
 
 ```go
+type CatalogoPersonal interface {
+	ListPositions(context.Context, personaldomain.RPTPositionFilter) (personaldomain.RPTPositionPage, error)
+	GetPosition(context.Context, string) (personaldomain.RPTPosition, error)
+	UpsertPosition(context.Context, personaldomain.RPTPosition) (personaldomain.RPTPosition, error)
+	DeletePosition(context.Context, string) (bool, error)
+	ImportPositions(context.Context, personaldomain.RPTImportCommand) (personaldomain.RPTImportReceipt, error)
+	Stats(context.Context) (personaldomain.CatalogStats, error)
+	ListCatalogEntries(context.Context) ([]personaldomain.CatalogEntry, error)
+}
+```
+
+CatalogoPersonal es el puerto minimo que necesita esta frontera HTTP.
+La raiz de composicion puede inyectar cualquier implementacion compatible
+sin que el adaptador elija memoria, fichero o una futura base de datos.
+
+```go
+type ConsultaCategoriasProfesionales interface {
+	ListarVigentes(context.Context) (personalports.CatalogoCategoriasProfesionalesConsultable, error)
+}
+
 type DemoIdentityResolver interface {
 	ResolveDemoIdentity(context.Context, *http.Request) (domain.Principal, error)
 }
@@ -427,8 +447,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 type HandlerOptions struct {
 	InternalOperations      *application.InternalOperations
-	PersonalCatalogPath     string
-	CategoriasProfesionales *personalapp.ServicioConsultaCategoriasProfesionales
+	PersonalCatalog         CatalogoPersonal
+	CategoriasProfesionales ConsultaCategoriasProfesionales
 	OSRMBaseURL             string
 	OSRMScopeName           string
 	OSRMScopeBounds         string

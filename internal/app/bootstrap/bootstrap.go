@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"vec-diputacion-granada/config"
@@ -27,6 +28,8 @@ import (
 	dietasmodule "vec-diputacion-granada/internal/modules/dietas"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
 	personalcatalogosvec "vec-diputacion-granada/internal/modules/personal/adapters/catalogosvec"
+	personalfile "vec-diputacion-granada/internal/modules/personal/adapters/file"
+	personalmemory "vec-diputacion-granada/internal/modules/personal/adapters/memory"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	"vec-diputacion-granada/internal/shared/i18n"
@@ -107,6 +110,10 @@ func newVECShellAPICompuesta(
 	credencialesFake *almacenCredencialesFake,
 	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
 ) (http.Handler, error) {
+	personalCatalog, err := nuevoServicioCatalogoPersonal(cfg.PersonalCatalogPath)
+	if err != nil {
+		return nil, err
+	}
 	store := vecmemory.NewStore()
 	service, internalOperations, err := vecapp.NewServiceWithInternalOperations(store, store, store)
 	if err != nil {
@@ -125,7 +132,7 @@ func newVECShellAPICompuesta(
 	}
 	return vechttp.NewHandlerWithOptions(service, vechttp.HandlerOptions{
 		InternalOperations:      internalOperations,
-		PersonalCatalogPath:     cfg.PersonalCatalogPath,
+		PersonalCatalog:         personalCatalog,
 		CategoriasProfesionales: categoriasPersonal,
 		OSRMBaseURL:             cfg.OSRMBaseURL,
 		OSRMScopeName:           cfg.OSRMScopeName,
@@ -139,6 +146,27 @@ func newVECShellAPICompuesta(
 		IdentityRolesHeader:     cfg.TrustedHeaderRoles,
 		IdentityMechanismHeader: cfg.TrustedHeaderMechanism,
 	})
+}
+
+// nuevoServicioCatalogoPersonal pertenece a la raiz de composicion: el
+// adaptador HTTP recibe el caso de uso ya construido y no decide si la
+// persistencia es efimera o durable. Una ruta vacia selecciona memoria; nunca
+// crea ni importa datos por efecto lateral durante el arranque.
+func nuevoServicioCatalogoPersonal(catalogPath string) (*personalapp.CatalogService, error) {
+	catalogPath = strings.TrimSpace(catalogPath)
+	var store personalports.CatalogStore = personalmemory.NewCatalogStore()
+	if catalogPath != "" {
+		durable, err := personalfile.NewCatalogStore(catalogPath)
+		if err != nil {
+			return nil, err
+		}
+		store = durable
+	}
+	service, err := personalapp.NewCatalogService(store)
+	if err != nil {
+		return nil, errors.Join(errors.New("bootstrap: catalogo de Personal no disponible"), err)
+	}
+	return service, nil
 }
 
 func composeAPI(vecAPI http.Handler, fallback http.Handler, publicaBolsaAPI http.Handler) http.Handler {

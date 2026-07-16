@@ -14,6 +14,7 @@ import (
 
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
 	personalcatalogosvec "vec-diputacion-granada/internal/modules/personal/adapters/catalogosvec"
+	personalfile "vec-diputacion-granada/internal/modules/personal/adapters/file"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
@@ -40,12 +41,30 @@ func cargarFixturesCatalogoPersonalPrueba(t *testing.T, service *personalapp.Cat
 	if _, err := service.ImportPositions(context.Background(), command); err != nil {
 		t.Fatalf("importar fixture RPT: %v", err)
 	}
-
-	for _, raw := range workspaceRPTContractTypes() {
-		if err := service.UpsertCatalogEntry(context.Background(), catalogEntryFromMap(raw)); err != nil {
-			t.Fatalf("cargar entrada de catalogo de prueba: %v", err)
-		}
+	if err := service.UpsertCatalogEntry(context.Background(), personaldomain.CatalogEntry{
+		Catalog:   "regimen_sintetico",
+		Code:      "PRUEBA",
+		Label:     "Entrada sintética de prueba",
+		Source:    "fixture sintético en memoria",
+		ModuleKey: personalmodule.ModuleID,
+		State:     "Vigente",
+		Usage:     "Comprobar la proyección HTTP sin datos institucionales.",
+	}); err != nil {
+		t.Fatalf("importar entrada de catálogo sintética: %v", err)
 	}
+}
+
+func nuevoServicioCatalogoPersonalRutaPrueba(t *testing.T, path string) *personalapp.CatalogService {
+	t.Helper()
+	store, err := personalfile.NewCatalogStore(path)
+	if err != nil {
+		t.Fatalf("abrir catalogo Personal de prueba: %v", err)
+	}
+	service, err := personalapp.NewCatalogService(store)
+	if err != nil {
+		t.Fatalf("crear servicio de catalogo Personal de prueba: %v", err)
+	}
+	return service
 }
 
 type relojCategoriasProfesionalesHTTPPrueba struct{}
@@ -114,10 +133,7 @@ func TestArranqueCatalogoPersonalConRutaDurableVaciaNoCreaFichero(t *testing.T) 
 		t.Fatalf("precondicion: el snapshot no debe existir: %v", err)
 	}
 
-	service, err := newWorkspacePersonalCatalogService(path)
-	if err != nil {
-		t.Fatalf("arrancar catalogo vacio: %v", err)
-	}
+	service := nuevoServicioCatalogoPersonalRutaPrueba(t, path)
 	stats, err := service.Stats(context.Background())
 	if err != nil {
 		t.Fatalf("consultar catalogo vacio: %v", err)
@@ -140,9 +156,10 @@ func TestConsultaGobernadaDevuelve58SinCrearSnapshotPersonalVacio(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
+	personalCatalog := nuevoServicioCatalogoPersonalRutaPrueba(t, path)
 	handler, err := NewHandlerWithOptions(servicioVEC, HandlerOptions{
 		InternalOperations:      operaciones,
-		PersonalCatalogPath:     path,
+		PersonalCatalog:         personalCatalog,
 		CategoriasProfesionales: nuevoServicioCategoriasProfesionalesHTTPPrueba(t),
 	})
 	if err != nil {
@@ -164,14 +181,65 @@ func TestConsultaGobernadaDevuelve58SinCrearSnapshotPersonalVacio(t *testing.T) 
 	}
 }
 
+func TestCatalogoPersonalAusenteFallaCerrado(t *testing.T) {
+	store := vecmemory.NewStore()
+	servicioVEC, operaciones, err := vecapp.NewServiceWithInternalOperations(store, store, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler, err := NewHandlerWithOptions(servicioVEC, HandlerOptions{
+		InternalOperations:   operaciones,
+		AllowDemoIdentity:    true,
+		DemoIdentityResolver: resolvedorIdentidadPruebas{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	handler.handlePersonalRPTPositions(
+		rec,
+		httptest.NewRequest(http.MethodGet, "/api/vec/personal/rpt/positions", nil),
+		principalConPermisosExpresosPrueba(personalmodule.PermissionPositionRead),
+	)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("catalogo Personal ausente status = %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDependenciasPersonalesConNilTipadoFallanCerrado(t *testing.T) {
+	handler := newTestHandler(t)
+	principal := principalConPermisosExpresosPrueba(personalmodule.PermissionPositionRead)
+
+	var catalogoPersonal *personalapp.CatalogService
+	handler.personalCatalog = catalogoPersonal
+	rec := httptest.NewRecorder()
+	handler.handlePersonalCatalogs(
+		rec,
+		httptest.NewRequest(http.MethodGet, "/api/vec/personal/catalogs", nil),
+		principal,
+	)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("catálogo Personal con nil tipado = %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var categorias *personalapp.ServicioConsultaCategoriasProfesionales
+	handler.categoriasProfesionales = categorias
+	rec = httptest.NewRecorder()
+	handler.handlePersonalCategories(
+		rec,
+		httptest.NewRequest(http.MethodGet, "/api/vec/personal/categories", nil),
+		principal,
+	)
+	if rec.Code != http.StatusServiceUnavailable || rec.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("categorías con nil tipado = %d, cache=%q: %s", rec.Code, rec.Header().Get("Cache-Control"), rec.Body.String())
+	}
+}
+
 func TestArranqueCatalogoPersonalIgnoraImportacionHostilDeEntorno(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "personal.json")
-	service, err := newWorkspacePersonalCatalogService(path)
-	if err != nil {
-		t.Fatalf("crear catalogo durable: %v", err)
-	}
+	service := nuevoServicioCatalogoPersonalRutaPrueba(t, path)
 	original := personaldomain.RPTPosition{
 		Code: "RPT-ORIGINAL-001", Name: "Puesto original autorizado", Dot: 1,
 		State: "Vigente", Source: "prueba de snapshot preexistente",
@@ -207,10 +275,7 @@ func TestArranqueCatalogoPersonalIgnoraImportacionHostilDeEntorno(t *testing.T) 
 	}
 	t.Setenv("VEC_RPT_IMPORT_JSON", hostilePath)
 
-	reopened, err := newWorkspacePersonalCatalogService(path)
-	if err != nil {
-		t.Fatalf("reabrir snapshot con entorno hostil: %v", err)
-	}
+	reopened := nuevoServicioCatalogoPersonalRutaPrueba(t, path)
 	stored, err := reopened.GetPosition(ctx, original.Code)
 	if err != nil || stored.Name != original.Name {
 		t.Fatalf("el arranque no preservo el registro original: puesto=%+v error=%v", stored, err)

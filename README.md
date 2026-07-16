@@ -23,11 +23,11 @@ Probado:
   (`vec.module.bolsa`) via manifiestos. Menu, permisos y acciones demo con
   recibo auditable estan probados en casos de uso y adaptadores de prueba, no
   expuestos por el despliegue predeterminado.
-- Modelo de workspace VEC con expediente de empleado, puestos, nomina,
-  antiguedad, certificados, Cronos, Dietas y Bolsa. Su endpoint permanece
-  cerrado (`503`) hasta resolver en servidor persona, relacion, ambito,
-  finalidad y campos exactos; no se entrega una instantanea agregada por un
-  permiso grueso.
+- Contrato reservado para un futuro espacio de trabajo interno. Su endpoint
+  permanece cerrado (`503`) hasta resolver en servidor persona, relacion,
+  ambito, finalidad y campos exactos; el antiguo agregado sintetico fue
+  eliminado y no se entrega una instantanea transversal por un permiso
+  grueso.
 - Con `fake` habilitado expresamente, API Bolsa heredada con
   `GET /api/portal`, `POST /api/demo`, candidatos, manifiesto operacional,
   documentos, alegaciones, avisos, auditoria y persistencia local opt-in. Esa

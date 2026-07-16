@@ -414,15 +414,13 @@ Como medida inmediata, no como implementación productiva de autorización:
   ámbito, finalidad y campos;
 - los `POST` no decodifican ni persisten el `employee_id` aportado por el cliente;
 - las respuestas cerradas usan `Cache-Control: no-store`;
-- los errores o dependencias ausentes del generador de demostración se propagan como error:
-  no se transforman en `200` con listas vacías;
-- los auxiliares de demostración no sustituyen una persona inexistente por «la primera» ni
-  interpretan un ámbito vacío como todas las personas;
+- la carcasa HTTP ya no construye ni conserva un generador de datos Cronos de
+  demostracion;
 - el puerto de jornadas exige una fecha y una lista positiva no vacía de empleados; los
   puertos de saldos y solicitudes exigen empleado y ejercicio exactos. Vacíos, duplicados,
   entradas no canónicas y `*` producen error;
-- el gran `workspaceSnapshot` queda únicamente como fixture sintético de pruebas y no se
-  entrega por HTTP; incluso ese fixture enumera explícitamente sus sujetos.
+- el antiguo `workspaceSnapshot` sintetico e inalcanzable fue eliminado para
+  impedir que una refactorizacion futura pudiera publicarlo por accidente.
 
 La puerta solo podrá abrirse en el artefacto interno separado después de incorporar el PDP,
 el resolver corporativo de persona/organigrama/delegaciones, consultas acotadas en el puerto

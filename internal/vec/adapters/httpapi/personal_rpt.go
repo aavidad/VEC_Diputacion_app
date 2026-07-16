@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -15,8 +16,6 @@ import (
 
 	"golang.org/x/text/unicode/norm"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
-	personalfile "vec-diputacion-granada/internal/modules/personal/adapters/file"
-	personalmemory "vec-diputacion-granada/internal/modules/personal/adapters/memory"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	personalports "vec-diputacion-granada/internal/modules/personal/ports"
@@ -24,16 +23,21 @@ import (
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
-func newWorkspacePersonalCatalogService(catalogPath string) (*personalapp.CatalogService, error) {
-	var store personalports.CatalogStore = personalmemory.NewCatalogStore()
-	if strings.TrimSpace(catalogPath) != "" {
-		durable, err := personalfile.NewCatalogStore(catalogPath)
-		if err != nil {
-			return nil, err
-		}
-		store = durable
-	}
-	return personalapp.NewCatalogService(store)
+// CatalogoPersonal es el puerto minimo que necesita esta frontera HTTP. La
+// raiz de composicion puede inyectar cualquier implementacion compatible sin
+// que el adaptador elija memoria, fichero o una futura base de datos.
+type CatalogoPersonal interface {
+	ListPositions(context.Context, personaldomain.RPTPositionFilter) (personaldomain.RPTPositionPage, error)
+	GetPosition(context.Context, string) (personaldomain.RPTPosition, error)
+	UpsertPosition(context.Context, personaldomain.RPTPosition) (personaldomain.RPTPosition, error)
+	DeletePosition(context.Context, string) (bool, error)
+	ImportPositions(context.Context, personaldomain.RPTImportCommand) (personaldomain.RPTImportReceipt, error)
+	Stats(context.Context) (personaldomain.CatalogStats, error)
+	ListCatalogEntries(context.Context) ([]personaldomain.CatalogEntry, error)
+}
+
+type ConsultaCategoriasProfesionales interface {
+	ListarVigentes(context.Context) (personalports.CatalogoCategoriasProfesionalesConsultable, error)
 }
 
 func (h *Handler) handlePersonalRPTPositions(w http.ResponseWriter, r *http.Request, principal domain.Principal) {
@@ -41,6 +45,9 @@ func (h *Handler) handlePersonalRPTPositions(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if !h.requirePermission(w, principal, personalmodule.PermissionPositionRead) {
+		return
+	}
+	if !h.requirePersonalCatalog(w) {
 		return
 	}
 	page, err := h.personalCatalog.ListPositions(r.Context(), personalPositionFilterFromRequest(r))
@@ -60,6 +67,9 @@ func (h *Handler) handlePersonalRPTPosition(w http.ResponseWriter, r *http.Reque
 	switch r.Method {
 	case http.MethodGet:
 		if !h.requirePermission(w, principal, personalmodule.PermissionPositionRead) {
+			return
+		}
+		if !h.requirePersonalCatalog(w) {
 			return
 		}
 		position, err := h.personalCatalog.GetPosition(r.Context(), code)
@@ -82,6 +92,9 @@ func (h *Handler) handlePersonalRPTPosition(w http.ResponseWriter, r *http.Reque
 		if !h.requirePermission(w, principal, personalmodule.PermissionPositionManage) {
 			return
 		}
+		if !h.requirePersonalCatalog(w) {
+			return
+		}
 		var position personaldomain.RPTPosition
 		if err := json.NewDecoder(r.Body).Decode(&position); err != nil {
 			h.writeError(w, http.StatusBadRequest, "invalid rpt position json")
@@ -101,6 +114,9 @@ func (h *Handler) handlePersonalRPTPosition(w http.ResponseWriter, r *http.Reque
 		h.writeJSON(w, http.StatusOK, map[string]any{"position": stored, "receipt": receipt})
 	case http.MethodDelete:
 		if !h.requirePermission(w, principal, personalmodule.PermissionPositionManage) {
+			return
+		}
+		if !h.requirePersonalCatalog(w) {
 			return
 		}
 		deleted, err := h.personalCatalog.DeletePosition(r.Context(), code)
@@ -154,6 +170,9 @@ func (h *Handler) handlePersonalRPTImports(w http.ResponseWriter, r *http.Reques
 	if !h.requirePermission(w, principal, personalmodule.PermissionPositionManage) {
 		return
 	}
+	if !h.requirePersonalCatalog(w) {
+		return
+	}
 	var cmd personaldomain.RPTImportCommand
 	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
 		h.writeError(w, http.StatusBadRequest, "invalid rpt import json")
@@ -178,6 +197,9 @@ func (h *Handler) handlePersonalRPTStats(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	if !h.requirePermission(w, principal, personalmodule.PermissionPositionRead) {
+		return
+	}
+	if !h.requirePersonalCatalog(w) {
 		return
 	}
 	stats, err := h.personalCatalog.Stats(r.Context())
@@ -312,7 +334,7 @@ type paginaCategoriasProfesionalesHTTP struct {
 }
 
 func (h *Handler) listarCategoriasProfesionales(ctx context.Context) (personalports.CatalogoCategoriasProfesionalesConsultable, error) {
-	if h == nil || h.categoriasProfesionales == nil {
+	if h == nil || dependenciaHTTPNula(h.categoriasProfesionales) {
 		return personalports.CatalogoCategoriasProfesionalesConsultable{}, personalports.ErrCatalogoCategoriasProfesionalesNoDisponible
 	}
 	return h.categoriasProfesionales.ListarVigentes(ctx)
@@ -468,6 +490,9 @@ func (h *Handler) handlePersonalCatalogs(w http.ResponseWriter, r *http.Request,
 	if !h.requirePermission(w, principal, personalmodule.PermissionPositionRead) {
 		return
 	}
+	if !h.requirePersonalCatalog(w) {
+		return
+	}
 	entries, err := h.personalCatalog.ListCatalogEntries(r.Context())
 	if err != nil {
 		h.writeError(w, http.StatusBadRequest, err.Error())
@@ -482,6 +507,27 @@ func (h *Handler) requirePermission(w http.ResponseWriter, principal domain.Prin
 	}
 	h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
 	return false
+}
+
+func (h *Handler) requirePersonalCatalog(w http.ResponseWriter) bool {
+	if h != nil && !dependenciaHTTPNula(h.personalCatalog) {
+		return true
+	}
+	h.writeError(w, http.StatusServiceUnavailable, "catalogo de Personal no disponible")
+	return false
+}
+
+func dependenciaHTTPNula(dependencia any) bool {
+	if dependencia == nil {
+		return true
+	}
+	valor := reflect.ValueOf(dependencia)
+	switch valor.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return valor.IsNil()
+	default:
+		return false
+	}
 }
 
 func (h *Handler) recordPersonalCatalogAudit(ctx context.Context, principal domain.Principal, action, subjectRef string) (domain.AuditEntry, error) {
