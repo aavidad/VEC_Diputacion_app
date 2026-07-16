@@ -641,3 +641,61 @@ incremental, pero **definidos ya** para que ningun modulo nazca incumpliendolos.
   `https://www.boe.es/buscar/act.php?id=BOE-A-2010-1331`
 - Cl@ve, sistema de identificacion y firma del Estado (ejemplo de sede):
   `https://sede.carm.es/web/pagina?IDCONTENIDO=2522&IDTIPO=240`
+
+---
+
+# Niveles de madurez de modulo (H-05)
+
+Esta seccion cierra el hallazgo H-05 de
+`docs/portal_vec/auditoria_diseno_y_seguridad_2026-07-16.md`: Bolsa tiene las
+cuatro capas hexagonales, Cronos y Personal son parciales, Dietas y
+Administracion son solo manifiesto. El contrato debe declarar el nivel de
+cada modulo para que el shell VEC no asuma capacidades que el modulo todavia
+no implementa.
+
+## Definicion de niveles
+
+- **completo**: existen las cuatro capas (`domain`, `ports`, `application`,
+  `adapters`) y cada capa tiene tests propios. El modulo puede ejecutar casos
+  de uso reales, persistir estado y exponer efectos auditables.
+- **parcial**: existen las cuatro capas, pero al menos una esta debil (sin
+  test propio, un unico fichero) o cubre solo un subconjunto de lo que el
+  manifiesto anuncia.
+- **solo-manifiesto**: unicamente publica `ModuleID`, `Manifest()` con menu y
+  permisos. No hay `domain`, `ports`, `application` ni `adapters`; cualquier
+  dato adicional que exponga (catalogos, referencias) es estatico, sin caso
+  de uso que lo transforme ni puerto que lo persista.
+
+## Que puede asumir el shell segun el nivel declarado
+
+| Nivel | El shell puede | El shell NO puede |
+| --- | --- | --- |
+| completo | Montar rutas de `api_prefix`, invocar acciones con efectos (crear, aprobar, firmar), suscribir `events_published` y auditarlas, confiar en `health_route`. | — |
+| parcial | Mostrar menu y datos de solo lectura de las capas ya implementadas. | Asumir que toda accion listada en el manifiesto tiene caso de uso detras; debe verificarse capacidad por capacidad, no por modulo completo. |
+| solo-manifiesto | Mostrar menu, icono, grupo y permisos declarados; reservar hueco en el dashboard. | Enrutar acciones con efectos, invocar `api_prefix`, esperar `events_published` reales, ni dar por buena `health_route`: no hay handler, dominio ni persistencia detras. |
+
+## Clasificacion actual (evidencia de arbol de paquetes)
+
+Evidencia tomada de `internal/modules/*` en este commit: capas presentes y
+numero de ficheros `_test.go` por capa.
+
+| Modulo | Nivel | Capas presentes | Tests por capa | Tests totales |
+| --- | --- | --- | --- | --- |
+| `bolsa` | completo | domain, ports, application, adapters (+ `internal/transaccion`) | domain 3, ports 9, application 15, adapters 9, internal 1 | 39 |
+| `personal` | parcial | domain, ports, application, adapters | domain 2, ports 0, application 1, adapters 2 | 6 |
+| `cronos` | parcial | domain, ports, application, adapters | domain 2, ports 0, application 1, adapters 1 | 5 |
+| `dietas` | solo-manifiesto | ninguna (`manifest.go` + `routes.go` con dataset estatico de municipios/rutas) | — | 2 (`manifest_test.go`, `routes_test.go`) |
+| `administracion` | solo-manifiesto | ninguna (solo `manifest.go`) | — | 1 (`manifest_test.go`) |
+
+Notas sobre la evidencia:
+
+- En `personal` y `cronos` la capa `ports` tiene un unico fichero de
+  interfaces y ningun test propio: es la capa mas debil de ambos y el motivo
+  de clasificarlos como parciales, no completos.
+- `dietas/routes.go`, pese al nombre, no es un enrutador HTTP: es un dataset
+  de municipios, puntos y distancias de la provincia de Granada pensado para
+  una futura funcion de kilometraje. No hay caso de uso que lo consuma
+  todavia, asi que no cuenta como capa `application`.
+- `administracion` no tiene ni dataset propio: es manifiesto puro.
+- Un modulo solo sube de nivel cuando su arbol de paquetes lo respalda; esta
+  tabla se actualiza en el mismo commit que anada o complete una capa.
