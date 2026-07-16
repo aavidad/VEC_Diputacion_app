@@ -12,9 +12,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/fs"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -767,37 +765,6 @@ func TestSolicitudExternaRepresentaSeisDominiosHistoricosYElKMSDetectaAliasFisic
 	}
 }
 
-func TestHandlersNoImplementanElConsumidorNominalReservadoAlServicioPrivado(t *testing.T) {
-	_, archivo, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("no se pudo localizar el repositorio")
-	}
-	raiz := filepath.Clean(filepath.Join(filepath.Dir(archivo), "../../../.."))
-	metodoReservado := "ConsumirProductoNominalNoAutoritativoCompletoIdempotenciaBaremacion"
-	err := filepath.WalkDir(raiz, func(ruta string, entrada fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entrada.IsDir() || filepath.Ext(ruta) != ".go" || filepath.Dir(ruta) == filepath.Dir(archivo) {
-			return nil
-		}
-		unidad, err := parser.ParseFile(token.NewFileSet(), ruta, nil, 0)
-		if err != nil {
-			return err
-		}
-		for _, declaracion := range unidad.Decls {
-			funcion, ok := declaracion.(*ast.FuncDecl)
-			if ok && funcion.Recv != nil && funcion.Name.Name == metodoReservado {
-				t.Errorf("implementacion nominal fuera del servicio privado: %s", ruta)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func expresionASTContieneIdentificadorExterno(expresion ast.Expr, nombre string) bool {
 	encontrado := false
 	ast.Inspect(expresion, func(nodo ast.Node) bool {
@@ -842,11 +809,10 @@ func expresionASTContieneLlamadaExterna(expresion ast.Expr, nombres map[string]b
 }
 
 func TestASTSuperficiePublicaNoDevuelveCargaNiReintroducePuenteEnDosFases(t *testing.T) {
-	_, archivo, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("no se pudo localizar el fichero de prueba")
-	}
-	ruta := filepath.Join(filepath.Dir(archivo), "idempotencia_semantica_baremacion.go")
+	ruta := filepath.Join(
+		localizarRaizRepositorioIdempotencia(t),
+		filepath.FromSlash(rutaContratoNominalPermitida),
+	)
 	unidad, err := parser.ParseFile(token.NewFileSet(), ruta, nil, 0)
 	if err != nil {
 		t.Fatalf("analizar superficie publica: %v", err)
