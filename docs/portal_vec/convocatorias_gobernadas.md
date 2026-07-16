@@ -5,7 +5,8 @@
 Fecha de referencia: 16 de julio de 2026.
 
 El dominio de este documento está implementado en
-`internal/modules/bolsa/domain` desde el commit `dde04bd`. La persistencia
+`internal/modules/bolsa/domain` desde el commit `dde04bd` y fue endurecido tras
+revisión adversaria en `4a4eb15`. La persistencia
 PostgreSQL, la composición productiva y las superficies internas todavía no
 forman parte del corte terminado. Hasta que esas barreras estén verificadas,
 la aplicación solo puede publicar las convocatorias sintéticas marcadas como
@@ -160,6 +161,62 @@ No se reutilizan directamente las tablas de baremación porque sus restricciones
 roles y funciones están cerrados nominalmente a ese agregado. Sí se reutilizan
 sus patrones probados de transacción serializable, privilegio mínimo, seguridad
 por filas, funciones nominales y recuperación tras respuesta perdida.
+
+### Separación respecto de baremación
+
+Convocatorias se implantará en un esquema nuevo `vec_bolsa`, con identidades
+técnicas y fachadas nominales propias. No se ampliará el esquema
+`vec_bolsa_baremacion`: su revalidación autorizativa, auditoría, bandeja de
+eventos, tipos de efecto e inventario de privilegios están deliberadamente
+cerrados a decisiones de baremación. Compartir tablas o el ejecutor ampliaría
+el impacto de una credencial comprometida y rompería las pruebas de privilegio
+mínimo.
+
+Se reutiliza conocimiento, no autoridad ni estado. En concreto, el nuevo
+adaptador copiará los patrones ya probados de:
+
+- transacciones `SERIALIZABLE` con límites de bloqueo y ejecución;
+- `row_security=on`, RLS forzado y acceso únicamente mediante funciones
+  nominales `SECURITY DEFINER`;
+- instantáneas de solo adición y punteros monotónicos;
+- serialización estricta y cotejo de representaciones canónicas;
+- revalidación de autorización dentro de la transacción;
+- auditoría y bandeja de eventos confirmadas con el efecto;
+- corredor Docker reproducible con roles reales y pruebas de recuperación.
+
+### Estado durable y CAS
+
+La revisión del dominio aumenta al editar un borrador, pero publicar, sustituir
+o retirar cambia el estado completo sin alterar esa revisión. Por ello la base
+mantendrá un `numero_estado` monotónico independiente. Cada comparación y
+escritura comprobará simultáneamente:
+
+```text
+referencia exacta + revisión de dominio + número de estado + huella completa
+```
+
+La publicación de una sucesora bloqueará la cadena y ambas versiones en orden
+determinista. La nueva versión publicada, la predecesora sustituida, el puntero
+de publicación activa, los consumos de autorización y verificaciones, la
+auditoría, la bandeja de eventos y el resultado idempotente se confirmarán en
+un único `COMMIT`.
+
+### Secuencia de migraciones
+
+La implantación se dividirá para mantener una superficie verificable:
+
+1. roles sin inicio de sesión y cierre de privilegios predeterminados;
+2. revalidación nominal de decisiones en `vec_autorizacion`;
+3. estados, punteros, cadena de versiones y publicación activa;
+4. atestaciones, consumos e idempotencia semántica;
+5. operaciones de gobierno mediante fachadas separadas;
+6. proyección pública minimizada y rol lector exclusivo;
+7. entrega durable de la bandeja de eventos.
+
+Ninguna función de mutación recibirá privilegios productivos hasta que existan
+los registradores confiables de aprobación y dependencias y se superen las
+pruebas reales de CAS, carreras, revocación concurrente, respuesta perdida,
+reinicio, RLS y ACL.
 
 ## Pruebas del dominio ya presentes
 

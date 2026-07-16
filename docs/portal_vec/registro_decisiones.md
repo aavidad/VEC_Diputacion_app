@@ -2191,3 +2191,59 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   aprobacion por actores diferentes, firma/publicacion y recibo auditable. No se
   reinterpreta el `409` como publicacion ni se afirma que ese flujo este
   implementado o productivo.
+
+## DEC-062 — Versiones gobernadas y reproduccion exacta de convocatorias de Bolsa
+
+- Estado: dominio implantado y endurecido mediante revision adversaria el 16 de
+  julio de 2026. El contrato durable, PostgreSQL y la composicion interna siguen
+  en construccion; ninguna ruta administrativa de este corte queda habilitada
+  en produccion y se mantiene el **NO-GO**.
+- Separacion conceptual: la version conserva por separado contenido semantico,
+  gobierno administrativo y fase procedimental. Borrador, publicada,
+  sustituida y retirada son estados de gobierno. Inscripcion, subsanacion,
+  alegaciones o cierre proceden exclusivamente de una instancia del flujo
+  exacto; cerrar un plazo no equivale a retirar una publicacion.
+- Reproduccion: cada version fija ID, numero de secuencia, predecesora inmediata,
+  expediente, catalogos, calendario, reglas de baremacion, flujo del proceso,
+  flujo de solicitud y documentos oficiales por identidad, version y huella.
+  Una solicitud futura se ligara a esta referencia y huella, nunca a «las reglas
+  actuales» ni a «la ultima version».
+- Documentos: cada publicacion documental exige correspondencia uno a uno con
+  documento logico y version, representacion, SHA-256 de contenido, firma
+  validada, recibo de custodia y URL publica no reutilizada. La convocatoria no
+  guarda los bytes ni sustituye al almacen documental; conserva referencias
+  opacas que el verificador productivo debe releer y atestar.
+- Gobierno y doble control: solo se editan borradores mediante CAS. Aprobacion y
+  comprobacion de dependencias se ligan a referencia, revision, huella de
+  contenido y huella completa del estado para impedir la repeticion A-B-A. El
+  creador, ultimo editor, aprobador y publicador quedan separados; aprobador y
+  ejecutor de retirada tambien. Una correccion crea una sucesora y publicar la
+  nueva y sustituir la anterior es un unico efecto atomico.
+- Proyeccion publica: solo una version en estado publicada puede proyectarse y
+  requiere una instancia valida del tipo `convocatoria_bolsa`, ligada al ID
+  estable, definicion, version y huella exactas. Borradores, sustituidas y
+  retiradas no atraviesan esa frontera. El lector exterior usara una proyeccion
+  minimizada y un pool propio; no leera el agregado interno.
+- Canonico y limites: el agregado y su contenido ofrecen representaciones
+  canonicas reproducibles, con techo de 8 MiB. Los textos deben ser UTF-8, NFC y
+  canonicos; se rechazan controles y entradas desproporcionadas antes de copiar
+  u ordenar colecciones. El maximo de categorias permite el catalogo inicial de
+  58 entradas y futuras ampliaciones razonables sin volver a compilar.
+- Persistencia: se crea un esquema propio `vec_bolsa`; no se amplian tablas,
+  roles ni fachadas de `vec_bolsa_baremacion`. Se reutilizan sus patrones de
+  transaccion serializable, RLS, privilegio minimo, append-only, auditoria y
+  outbox, no su autoridad ni su estado. Como publicar, sustituir y retirar no
+  incrementan la revision del borrador, PostgreSQL mantendra ademas un
+  `numero_estado` monotono y aplicara CAS sobre referencia, revision, numero y
+  huella completa.
+- Frontera interna: toda gestion exige superficie corporativa o administracion
+  privilegiada coherente, garantia alta, Kerberos y certificado acreditados por
+  el vinculo de autenticacion, decision PDP exacta, campos positivos exactos y
+  ninguna obligacion ignorada. La base releera y consumira la decision y su
+  atestacion PDP dentro de la misma transaccion. El navegador nunca construye
+  actor, accion, recurso, evidencia, aprobacion, verificacion ni instante.
+- Puerta productiva: permanecen pendientes el revalidador productivo de
+  autenticacion, sellador HMAC de motivos, registros atestados de aprobacion y
+  dependencias, migraciones/roles/RLS, concurrencia y recuperacion reales y
+  listener interno separado. Hasta cerrar y probar todos esos puntos, solo se
+  sirven datos publicos explicitamente marcados como demostracion.
