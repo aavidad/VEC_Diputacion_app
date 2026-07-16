@@ -42,11 +42,13 @@ Diputación.
 
 - [Análisis integral del portal de Recursos Humanos](analisis_integral_rrhh.md).
 - [Matriz normativa de Recursos Humanos a julio de 2026](matriz_normativa_rrhh_2026.md).
+- [Catálogo funcional y hoja de ruta del portal integral de RRHH](catalogo_funcional_rrhh_y_hoja_ruta.md).
 - [Transcripción y lectura técnica de la petición de RRHH](peticion_rrhh_transcripcion_y_lectura.md).
 - [Baremacion configurable, jornada y servicios obtenidos de oficio](baremacion_configurable_jornada_y_datos_de_oficio.md).
 - [Integracion del Baremador de puestos singularizados y otros procesos](integracion_baremador_concursos_provision.md).
 - [Modelo historico de RPT, plazas, puestos, ocupaciones y vacantes](modelo_historico_rpt_plazas_puestos_y_vacantes.md).
 - [Calendario habil, laboral y de jornada con historia reproducible](calendario_habil_laboral_historico.md).
+- [Turnos, festivos, disponibilidades y compensaciones](turnos_festivos_y_compensaciones.md).
 - [Archivo documental relacionado de Recursos Humanos](archivo_documental_rrhh_relacionado.md).
 - [Brechas para un producto profesional, seguro y trazable](brechas_para_producto_profesional.md).
 - [Sistema de diseño, plantillas y temas visuales](sistema_diseno_y_temas.md).

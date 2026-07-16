@@ -69,6 +69,9 @@ quedar activa.
 
 ## 4. Nómina, Seguridad Social y fiscalidad
 
+El análisis provincial detallado de jornadas especiales se documenta en
+[Turnos, festivos, disponibilidades y compensaciones](turnos_festivos_y_compensaciones.md).
+
 | Materia | Fuente y alcance | Regla o control funcional | Evidencia mínima | Decisión técnica o validación pendiente |
 | --- | --- | --- | --- | --- |
 | Retribuciones públicas | TREBEP arts. 21-30; LBRL art. 93; [RD 861/1986](https://www.boe.es/eli/es/rd/1986/04/25/861/con); presupuestos y acuerdos anuales | Conceptos, tablas y efectos por colectivo, puesto, jornada, periodo y acto | concepto, fuente, tabla, puesto, jornada, incidencia, cálculo, aprobación, pago y retroactividad | dominio de nómina separado y bitemporal; importes y topes versionados, nunca constantes; una nómina cerrada se rectifica, no se recalcula destructivamente |

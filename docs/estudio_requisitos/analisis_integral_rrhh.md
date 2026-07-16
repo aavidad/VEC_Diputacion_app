@@ -419,10 +419,12 @@ Antes de programar cada bloque se solicitará, como mínimo:
 ## 14. Especificaciones relacionadas
 
 - [Matriz normativa de Recursos Humanos](matriz_normativa_rrhh_2026.md)
+- [Catálogo funcional y hoja de ruta](catalogo_funcional_rrhh_y_hoja_ruta.md)
 - [Petición del Servicio de Selección Externa](peticion_rrhh_transcripcion_y_lectura.md)
 - [Baremación configurable y datos de oficio](baremacion_configurable_jornada_y_datos_de_oficio.md)
 - [RPT, plazas, puestos y vacantes](modelo_historico_rpt_plazas_puestos_y_vacantes.md)
 - [Calendario hábil y laboral histórico](calendario_habil_laboral_historico.md)
+- [Turnos, festivos y compensaciones](turnos_festivos_y_compensaciones.md)
 - [Archivo documental relacionado](archivo_documental_rrhh_relacionado.md)
 - [Seguridad y despliegue de Cronos](seguridad_y_despliegue_cronos.md)
 - [Acceso interno de técnicos y administración](acceso_interno_tecnicos_administracion.md)
