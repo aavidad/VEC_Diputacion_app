@@ -1,7 +1,6 @@
 package ports
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -71,24 +70,32 @@ func manifiestoPreparacionPuertoPrueba(
 	return manifiesto
 }
 
-func TestTokenReservaCargaEsOpacoYNoSerializable(t *testing.T) {
-	const secreto = "token:reserva:supersecreto:0123456789abcdef"
-	token, err := NuevoTokenReservaCargaDocumental(secreto)
+func TestTokenReservaCargaTieneDominioCriptograficoPropio(t *testing.T) {
+	const entropiaComun = "0123456789abcdef0123456789abcdef"
+	operacionCarga, err := nuevaOperacionCapacidadReservaConFuenteEntropia(
+		dominioHuellaTokenReservaCargaDocumental, strings.NewReader(entropiaComun),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, formato := range []string{"%s", "%v", "%+v", "%#v"} {
-		salida := fmt.Sprintf(formato, token)
-		if strings.Contains(salida, secreto) || !strings.Contains(salida, "CONFIDENCIAL") {
-			t.Fatalf("el formato %s filtro el token: %q", formato, salida)
-		}
+	operacionDocumento, err := nuevaOperacionCapacidadReservaConFuenteEntropia(
+		dominioHuellaTokenReservaGeneracionDocumento, strings.NewReader(entropiaComun),
+	)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := json.Marshal(token); !errors.Is(err, ErrSerializacionTokenReservaProhibida) {
-		t.Fatalf("JSON debe fallar cerrado: %v", err)
+	tokenCarga := TokenReservaCargaDocumental{operar: operacionCarga}
+	tokenDocumento := TokenReservaGeneracionDocumento{operar: operacionDocumento}
+	huellaCarga, err := tokenCarga.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
 	}
-	revelado, err := token.RevelarParaPersistencia()
-	if err != nil || revelado != secreto {
-		t.Fatalf("revelacion deliberada: %q, %v", revelado, err)
+	huellaDocumento, err := tokenDocumento.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if huellaCarga == huellaDocumento || tokenCarga.CoincideConHuellaSHA256(huellaDocumento) {
+		t.Fatal("la misma entropia produjo autoridad cruzable entre dominios")
 	}
 }
 
@@ -294,7 +301,7 @@ func TestConfirmarPreparacionExigeManifiestoAtomicoYLaLecturaEsCoherente(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	token, _ := NuevoTokenReservaCargaDocumental("token:reserva:carga:0123456789abcdef")
+	token, _ := NuevoTokenReservaCargaDocumental()
 	manifiesto := manifiestoPreparacionPuertoPrueba(t, preparada)
 	solicitud := SolicitudConfirmarPreparacionCargaDocumental{
 		Token: token, Confirmacion: confirmacion, Manifiesto: manifiesto,

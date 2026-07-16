@@ -4,10 +4,10 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -117,9 +117,9 @@ func TestRepositorioBaremacionesAltaAtomicaIdempotenteYConCopiasProfundas(t *tes
 	if err := capacidad.Validar(); err != nil {
 		t.Fatalf("capacidad invalida: %v", err)
 	}
-	decodificado, err := base64.RawURLEncoding.DecodeString(capacidad.Token.Revelar())
-	if err != nil || len(decodificado) != 32 {
-		t.Fatalf("token no opaco o no canonico: longitud=%d err=%v", len(decodificado), err)
+	huellaToken, err := capacidad.Token.HuellaSHA256()
+	if err != nil || len(huellaToken) != sha256.Size*2 {
+		t.Fatalf("token no opaco o huella no canonica: huella=%q err=%v", huellaToken, err)
 	}
 
 	confirmacion := solicitudConfirmarAltaMemoria(capacidad.Token, baremacion)
@@ -156,7 +156,7 @@ func TestRepositorioBaremacionesAltaAtomicaIdempotenteYConCopiasProfundas(t *tes
 		t.Fatalf("reserva idempotente confirmada: %v", err)
 	}
 	if !reservaRepetida.Repetida || reservaRepetida.VersionConfirmada == nil ||
-		reservaRepetida.Token.Revelar() != "" {
+		reservaRepetida.Token.Validar() == nil {
 		t.Fatalf("respuesta idempotente insegura: %+v", reservaRepetida)
 	}
 	reloj.fijar(reserva.ExpiraEn.Add(time.Hour))
@@ -427,12 +427,22 @@ func TestRepositorioBaremacionesNoRetieneTokenEnClaroYAcotaMemoria(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	secreto := capacidad.Token.Revelar()
+	huellaToken, err := capacidad.Token.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tipoToken := reflect.TypeOf(puertosbolsa.TokenReservaBaremacion{})
+	tipoReserva := reflect.TypeOf(reservaBaremacion{})
+	for indice := 0; indice < tipoReserva.NumField(); indice++ {
+		if tipoReserva.Field(indice).Type == tipoToken {
+			t.Fatalf("el estado persistido conserva la capacidad en %s", tipoReserva.Field(indice).Name)
+		}
+	}
 	repositorio.mu.RLock()
 	volcado := fmt.Sprintf("%#v %#v", repositorio.reservasPorAmbito, repositorio.ambitoPorHuellaToken)
 	repositorio.mu.RUnlock()
-	if strings.Contains(volcado, secreto) {
-		t.Fatal("el token de capacidad se conserva en claro")
+	if !strings.Contains(volcado, huellaToken) || strings.Contains(volcado, "TOKEN-RESERVA-OCULTO") {
+		t.Fatal("el repositorio no conserva exclusivamente la huella del token")
 	}
 	if _, err := repositorio.ConfirmarCambio(context.Background(), solicitudConfirmarAltaMemoria(
 		capacidad.Token, nuevaBaremacionMemoriaPrueba(t),
@@ -442,8 +452,8 @@ func TestRepositorioBaremacionesNoRetieneTokenEnClaroYAcotaMemoria(t *testing.T)
 	repositorio.mu.RLock()
 	volcado = fmt.Sprintf("%#v %#v", repositorio.reservasPorAmbito, repositorio.ambitoPorHuellaToken)
 	repositorio.mu.RUnlock()
-	if strings.Contains(volcado, secreto) {
-		t.Fatal("la confirmacion idempotente retiene el token en claro")
+	if !strings.Contains(volcado, huellaToken) || strings.Contains(volcado, "TOKEN-RESERVA-OCULTO") {
+		t.Fatal("la confirmacion idempotente no conserva exclusivamente la huella")
 	}
 
 	repositorioLleno := nuevoRepositorioPrueba(t, reloj)

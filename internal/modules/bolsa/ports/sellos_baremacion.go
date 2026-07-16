@@ -271,14 +271,14 @@ func representacionCanonicaConfirmacionBaremacion(
 	}
 	partes = append(partes, string(finalidad))
 	partes = append(partes, prefijo...)
-	partes = append(partes,
-		s.Token.Revelar(), string(s.Clase),
+	partesPosteriores := []string{
+		string(s.Clase),
 		versionPresente, versionRef, versionNumero, versionHuella, huellaAgregado,
 		manifiestoPresente, manifiestoRef, manifiestoHuella, manifiestoSello,
 		s.Trazabilidad.MotivoClave, s.Trazabilidad.Motivo,
 		s.ConfirmadaEn.UTC().Format(time.RFC3339Nano),
-	)
-	return cargaPartesCanonicas(partes)
+	}
+	return cargaPartesCanonicasConToken(partes, s.Token, partesPosteriores)
 }
 
 // representacionCanonicaConfirmacionBaremacionLegada conserva exactamente la
@@ -314,13 +314,13 @@ func representacionCanonicaConfirmacionBaremacionLegada(
 	}
 	partes = append(partes, string(finalidad))
 	partes = append(partes, prefijo...)
-	partes = append(partes,
-		s.Token.Revelar(), string(s.Clase), versionPresente, versionRef, versionNumero,
+	partesPosteriores := []string{
+		string(s.Clase), versionPresente, versionRef, versionNumero,
 		versionHuella, huellaAgregado, manifiestoPresente, manifiestoRef, manifiestoHuella,
 		manifiestoSello, s.Trazabilidad.MotivoClave, s.Trazabilidad.Motivo,
 		s.ConfirmadaEn.UTC().Format(time.RFC3339Nano),
-	)
-	return cargaPartesCanonicas(partes)
+	}
+	return cargaPartesCanonicasConToken(partes, s.Token, partesPosteriores)
 }
 
 func partesCanonicasAutorizacion(c ContextoOperacionBaremacion) ([]string, error) {
@@ -347,11 +347,37 @@ func partesCanonicasAutorizacion(c ContextoOperacionBaremacion) ([]string, error
 
 func cargaPartesCanonicas(partes []string) (CargaProtegida, error) {
 	var contenido bytes.Buffer
+	escribirPartesCanonicas(&contenido, partes)
+	return nuevaCargaCanonicaDesdeBuffer(&contenido)
+}
+
+func cargaPartesCanonicasConToken(
+	partesAnteriores []string,
+	token TokenReservaBaremacion,
+	partesPosteriores []string,
+) (CargaProtegida, error) {
+	var contenido bytes.Buffer
+	escribirPartesCanonicas(&contenido, partesAnteriores)
+	if !token.escribirParteCanonica(&contenido) {
+		clear(contenido.Bytes())
+		return CargaProtegida{}, ErrSolicitudBaremacionInvalida
+	}
+	escribirPartesCanonicas(&contenido, partesPosteriores)
+	return nuevaCargaCanonicaDesdeBuffer(&contenido)
+}
+
+func escribirPartesCanonicas(contenido *bytes.Buffer, partes []string) {
 	for _, parte := range partes {
 		var longitud [8]byte
 		binary.BigEndian.PutUint64(longitud[:], uint64(len(parte)))
 		_, _ = contenido.Write(longitud[:])
 		_, _ = contenido.WriteString(parte)
 	}
-	return NuevaCargaProtegida(contenido.Bytes())
+}
+
+func nuevaCargaCanonicaDesdeBuffer(contenido *bytes.Buffer) (CargaProtegida, error) {
+	bytesCanonicos := contenido.Bytes()
+	resultado, err := NuevaCargaProtegida(bytesCanonicos)
+	clear(bytesCanonicos)
+	return resultado, err
 }

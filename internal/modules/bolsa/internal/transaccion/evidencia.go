@@ -174,11 +174,11 @@ func HuellaEfectoAbandono(solicitud puertosbolsa.SolicitudAbandonarReservaBarema
 // HuellaTokenReserva permite localizar una reserva sin guardar la capacidad
 // en claro. El token original solo se devuelve una vez al llamador.
 func HuellaTokenReserva(token puertosbolsa.TokenReservaBaremacion) string {
-	if token.Validar() != nil {
+	huella, err := token.HuellaSHA256()
+	if err != nil {
 		return ""
 	}
-	suma := sha256.Sum256([]byte(token.Revelar()))
-	return hex.EncodeToString(suma[:])
+	return huella
 }
 
 // MismoUso comprueba en tiempo constante las huellas antes de tratar un

@@ -171,6 +171,109 @@ func TestRepositorioCargasMemoriaConfirmaReservaYManifiestoAtomicamente(t *testi
 	}
 }
 
+func TestRepositorioCargasMemoriaPersisteSoloHuellaYConsumeLaCapacidad(t *testing.T) {
+	reloj := &relojCargasMemoriaPrueba{ahora: instanteCargasMemoriaPrueba}
+	repositorio, _ := NuevoRepositorioCargasDocumentalesMemoria(reloj)
+	escenario := escenarioCargaMemoriaPrueba(t)
+	reserva, err := repositorio.Reservar(context.Background(), escenario.solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaToken, err := reserva.Token.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repositorio.mu.RLock()
+	reservaPersistida := repositorio.reservasPorIndice[escenario.solicitud.IndiceIdempotenciaHMAC]
+	reclamacionPersistida := repositorio.decisionesPreparacion[escenario.solicitud.DecisionPreparacion.DecisionRef]
+	indicePersistido := repositorio.indicePorHuellaToken[huellaToken]
+	repositorio.mu.RUnlock()
+	if len(huellaToken) != 64 || reservaPersistida.huellaTokenSHA256 != huellaToken ||
+		reclamacionPersistida.huellaTokenSHA256 != huellaToken ||
+		indicePersistido != escenario.solicitud.IndiceIdempotenciaHMAC {
+		t.Fatal("el repositorio no conservo exclusivamente la huella de la capacidad")
+	}
+
+	reloj.fijar(instanteCargasMemoriaPrueba.Add(2 * time.Second))
+	solicitud := ports.SolicitudConfirmarPreparacionCargaDocumental{
+		Token: reserva.Token, Confirmacion: escenario.confirmacion, Manifiesto: escenario.manifiesto,
+	}
+	if err := repositorio.ConfirmarPreparacion(context.Background(), solicitud); err != nil {
+		t.Fatal(err)
+	}
+	if err := repositorio.ConfirmarPreparacion(context.Background(), solicitud); !errors.Is(
+		err, ports.ErrConfirmacionCargaDocumentalInvalida,
+	) {
+		t.Fatalf("el replay reutilizo la capacidad consumida: %v", err)
+	}
+	repositorio.mu.RLock()
+	reservaPersistida = repositorio.reservasPorIndice[escenario.solicitud.IndiceIdempotenciaHMAC]
+	reclamacionPersistida = repositorio.decisionesPreparacion[escenario.solicitud.DecisionPreparacion.DecisionRef]
+	_, sigueIndexada := repositorio.indicePorHuellaToken[huellaToken]
+	repositorio.mu.RUnlock()
+	if sigueIndexada || reservaPersistida.huellaTokenSHA256 != "" ||
+		reclamacionPersistida.huellaTokenSHA256 != "" {
+		t.Fatal("la confirmacion no retiro todas las huellas activas")
+	}
+}
+
+func TestRepositorioCargasMemoriaTokenAjenoNoConfirmaNiAbandona(t *testing.T) {
+	t.Run("confirmacion", func(t *testing.T) {
+		reloj := &relojCargasMemoriaPrueba{ahora: instanteCargasMemoriaPrueba}
+		repositorio, _ := NuevoRepositorioCargasDocumentalesMemoria(reloj)
+		escenario := escenarioCargaMemoriaPrueba(t)
+		reserva, err := repositorio.Reservar(context.Background(), escenario.solicitud)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ajeno, err := ports.NuevoTokenReservaCargaDocumental()
+		if err != nil {
+			t.Fatal(err)
+		}
+		reloj.fijar(instanteCargasMemoriaPrueba.Add(2 * time.Second))
+		solicitudAjena := ports.SolicitudConfirmarPreparacionCargaDocumental{
+			Token: ajeno, Confirmacion: escenario.confirmacion, Manifiesto: escenario.manifiesto,
+		}
+		if err := repositorio.ConfirmarPreparacion(context.Background(), solicitudAjena); !errors.Is(
+			err, ports.ErrConfirmacionCargaDocumentalInvalida,
+		) {
+			t.Fatalf("un token ajeno confirmo o devolvio otro error: %v", err)
+		}
+		solicitudPropia := solicitudAjena
+		solicitudPropia.Token = reserva.Token
+		if err := repositorio.ConfirmarPreparacion(context.Background(), solicitudPropia); err != nil {
+			t.Fatalf("el intento ajeno altero la reserva legitima: %v", err)
+		}
+	})
+
+	t.Run("abandono", func(t *testing.T) {
+		reloj := &relojCargasMemoriaPrueba{ahora: instanteCargasMemoriaPrueba}
+		repositorio, _ := NuevoRepositorioCargasDocumentalesMemoria(reloj)
+		escenario := escenarioCargaMemoriaPrueba(t)
+		reserva, err := repositorio.Reservar(context.Background(), escenario.solicitud)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ajeno, err := ports.NuevoTokenReservaCargaDocumental()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := repositorio.AbandonarReserva(context.Background(), ajeno); !errors.Is(
+			err, ports.ErrReservaCargaDocumentalInvalida,
+		) {
+			t.Fatalf("un token ajeno abandono o devolvio otro error: %v", err)
+		}
+		if err := repositorio.AbandonarReserva(context.Background(), reserva.Token); err != nil {
+			t.Fatalf("el intento ajeno altero la reserva legitima: %v", err)
+		}
+		if err := repositorio.AbandonarReserva(context.Background(), reserva.Token); !errors.Is(
+			err, ports.ErrReservaCargaDocumentalInvalida,
+		) {
+			t.Fatalf("el replay de abandono reutilizo la capacidad: %v", err)
+		}
+	})
+}
+
 func TestRepositorioCargasMemoriaNoDejaEstadoParcialSinManifiesto(t *testing.T) {
 	reloj := &relojCargasMemoriaPrueba{ahora: instanteCargasMemoriaPrueba}
 	repositorio, _ := NuevoRepositorioCargasDocumentalesMemoria(reloj)
@@ -463,9 +566,9 @@ func TestRepositorioCargasMemoriaLeaseVencidoExpiraTokenYDecisionSinFallback(t *
 	if !errors.Is(err, ports.ErrConfirmacionCargaDocumentalInvalida) {
 		t.Fatalf("se confirmo una lease vencida: %v", err)
 	}
-	valorToken, _ := reserva.Token.RevelarParaPersistencia()
+	huellaToken, _ := reserva.Token.HuellaSHA256()
 	repositorio.mu.RLock()
-	_, tokenActivo := repositorio.indicePorToken[valorToken]
+	_, tokenActivo := repositorio.indicePorHuellaToken[huellaToken]
 	reclamacion := repositorio.decisionesPreparacion[escenario.solicitud.DecisionPreparacion.DecisionRef]
 	reservaPersistida := repositorio.reservasPorIndice[escenario.solicitud.IndiceIdempotenciaHMAC]
 	repositorio.mu.RUnlock()
@@ -473,6 +576,39 @@ func TestRepositorioCargasMemoriaLeaseVencidoExpiraTokenYDecisionSinFallback(t *
 		reservaPersistida.estado != estadoReservaCargaMemoriaExpirada {
 		t.Fatalf("lease vencida ambigua: token=%v decision=%d reserva=%d",
 			tokenActivo, reclamacion.estado, reservaPersistida.estado)
+	}
+}
+
+func TestRepositorioCargasMemoriaAbandonoVencidoUsaRelojAutoritativo(t *testing.T) {
+	reloj := &relojCargasMemoriaPrueba{ahora: instanteCargasMemoriaPrueba}
+	repositorio, _ := NuevoRepositorioCargasDocumentalesMemoria(reloj)
+	escenario := escenarioCargaMemoriaPrueba(t)
+	reserva, err := repositorio.Reservar(context.Background(), escenario.solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaToken, err := reserva.Token.HuellaSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloj.fijar(escenario.solicitud.ReservaExpiraEn)
+	if err := repositorio.AbandonarReserva(context.Background(), reserva.Token); !errors.Is(
+		err, ports.ErrReservaCargaDocumentalInvalida,
+	) {
+		t.Fatalf("el abandono vencido no fallo cerrado: %v", err)
+	}
+	repositorio.mu.RLock()
+	reservaPersistida := repositorio.reservasPorIndice[escenario.solicitud.IndiceIdempotenciaHMAC]
+	reclamacion := repositorio.decisionesPreparacion[escenario.solicitud.DecisionPreparacion.DecisionRef]
+	_, tokenActivo := repositorio.indicePorHuellaToken[huellaToken]
+	repositorio.mu.RUnlock()
+	if tokenActivo || reservaPersistida.estado != estadoReservaCargaMemoriaExpirada ||
+		reservaPersistida.huellaTokenSHA256 != "" ||
+		reclamacion.estado != estadoDecisionPreparacionCargaExpirada || reclamacion.huellaTokenSHA256 != "" {
+		t.Fatalf(
+			"el reloj no cerro la reserva vencida: indice=%t reserva=%d decision=%d",
+			tokenActivo, reservaPersistida.estado, reclamacion.estado,
+		)
 	}
 }
 

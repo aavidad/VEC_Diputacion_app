@@ -2102,3 +2102,41 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   historicos permiten revelar material al adaptador. Deben migrarse en un corte
   posterior, con sus repositorios y corredores, antes de afirmar que todas las
   capacidades del portal son opacas.
+
+## DEC-060 — Cierre de capacidades historicas de carga y baremacion
+
+- Estado: decision implantada y probada el 16 de julio de 2026. Cierra el
+  alcance pendiente de DEC-059 para los tipos publicos y los adaptadores en
+  memoria, pero no concede un GO productivo: carga documental sigue sin
+  repositorio durable y baremacion necesita KMS/HSM y reconciliacion nominal.
+- Carga documental: cada reserva genera 256 bits con el CSPRNG y los captura en
+  un cierre privado ligado a `vec:token-reserva-carga-documental:v1`. El tipo no
+  acepta ni devuelve una cadena; solo calcula o coteja su huella SHA-256. El
+  repositorio en memoria conserva esa huella, la elimina al confirmar,
+  abandonar o expirar y usa su reloj interno para la caducidad. JSON, texto,
+  binario, gob y XML fallan cerrados; `fmt`, `slog` y reflexion segura no
+  recuperan el material.
+- Baremacion historica: se conserva exactamente la formula durable
+  `SHA-256(Base64URL)` y la disposicion canonica V2/V3 para no romper reservas,
+  migraciones ni vectores congelados. El valor importado se copia a un cierre
+  privado y el tipo deja de publicar `Revelar`; solo ofrece huella y comparacion
+  constante. La escritura del canonico ocurre dentro del paquete de puertos,
+  sin devolver la cadena al llamador.
+- Limite explicito de baremacion: los canonicos historicos incluyen por contrato
+  los bytes Base64URL y `CargaProtegida` permite revelarlos al sellador. Por
+  tanto se ha cerrado la exposicion del token como capacidad publica, pero no se
+  afirma opacidad absoluta de su preimagen dentro de la frontera criptografica.
+  El conector productivo debe limitar esa carga al sellador KMS/HSM y una futura
+  version podra comprometer el token sin incluirlo, con migracion y vectores
+  propios; V2/V3 no se reinterpretan.
+- Linealizacion y cancelacion: confirmar frente a abandonar tiene un unico
+  ganador. Los mutadores revalidan el contexto despues de adquirir el bloqueo,
+  de modo que una cancelacion mientras se espera no crea, consume, abandona ni
+  transforma estado. La respuesta y todos los asientos de una reserva se
+  construyen y validan antes del punto de publicacion logica.
+- Evidencia: permanecen congelados los cinco vectores V2/V3; se prueban
+  serializacion hostil, reflexion, dominios cruzados, repeticion, caducidad,
+  carreras y cancelacion determinista. El corredor PostgreSQL 18.4 V3 conserva
+  los vectores, los casos 4096+4096, reinicios, RLS/ACL y concurrencia
+  `SERIALIZABLE`. Esa puerta acredita compatibilidad, no un adaptador durable de
+  carga ni la custodia productiva de claves.

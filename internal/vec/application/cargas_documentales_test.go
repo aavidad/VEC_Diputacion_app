@@ -105,7 +105,7 @@ type repositorioCargaPrueba struct {
 	mu                        sync.Mutex
 	carga                     domain.CargaDocumental
 	manifiesto                domain.ManifiestoPreparacionCargaDirectaV1
-	token                     ports.TokenReservaCargaDocumental
+	huellaTokenSHA256         string
 	decisionesPreparacion     map[string]ports.ConsumoDecisionPreparacionCargaDocumentalV1
 	decisionPreparacionActiva string
 	confirmaciones            []ports.ConfirmacionTransicionCargaDocumental
@@ -134,12 +134,12 @@ func (r *repositorioCargaPrueba) Reservar(
 	if r.decisionesPreparacion == nil {
 		r.decisionesPreparacion = make(map[string]ports.ConsumoDecisionPreparacionCargaDocumentalV1)
 	}
-	token, err := ports.NuevoTokenReservaCargaDocumental("token:reserva:carga:0123456789abcdef")
+	token, huellaToken, err := nuevaCapacidadReservaCargaPrueba()
 	if err != nil {
 		return ports.ReservaCargaDocumental{}, err
 	}
 	r.carga = solicitud.Carga
-	r.token = token
+	r.huellaTokenSHA256 = huellaToken
 	r.decisionesPreparacion[solicitud.DecisionPreparacion.DecisionRef] = solicitud.DecisionPreparacion
 	r.decisionPreparacionActiva = solicitud.DecisionPreparacion.DecisionRef
 	return ports.ReservaCargaDocumental{Token: token, Carga: solicitud.Carga}, nil
@@ -159,9 +159,7 @@ func (r *repositorioCargaPrueba) ConfirmarPreparacion(
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	esperado, _ := r.token.RevelarParaPersistencia()
-	recibido, _ := instantanea.Token.RevelarParaPersistencia()
-	if esperado == "" || recibido != esperado ||
+	if r.huellaTokenSHA256 == "" || !instantanea.Token.CoincideConHuellaSHA256(r.huellaTokenSHA256) ||
 		instantanea.Confirmacion.ValidarContra(r.carga) != nil ||
 		instantanea.Manifiesto.ValidarContraCarga(instantanea.Confirmacion.Carga) != nil {
 		return ports.ErrConfirmacionCargaDocumentalInvalida
@@ -174,7 +172,7 @@ func (r *repositorioCargaPrueba) ConfirmarPreparacion(
 	r.manifiesto = instantanea.Manifiesto
 	r.decisionPreparacionActiva = ""
 	r.confirmaciones = append(r.confirmaciones, instantanea.Confirmacion)
-	r.token = ports.TokenReservaCargaDocumental{}
+	r.huellaTokenSHA256 = ""
 	return nil
 }
 
@@ -196,14 +194,14 @@ func (r *repositorioCargaPrueba) ConfirmarTransicion(
 func (r *repositorioCargaPrueba) AbandonarReserva(_ context.Context, token ports.TokenReservaCargaDocumental) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if !token.Valido() {
+	if !token.CoincideConHuellaSHA256(r.huellaTokenSHA256) {
 		return ports.ErrReservaCargaDocumentalInvalida
 	}
 	r.abandonada = true
 	r.carga = domain.CargaDocumental{}
 	r.manifiesto = domain.ManifiestoPreparacionCargaDirectaV1{}
 	r.decisionPreparacionActiva = ""
-	r.token = ports.TokenReservaCargaDocumental{}
+	r.huellaTokenSHA256 = ""
 	return nil
 }
 

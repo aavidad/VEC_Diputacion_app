@@ -72,34 +72,6 @@ func TestCargaProtegidaNoSeFiltraYCopiaLosBytes(t *testing.T) {
 	}
 }
 
-func TestTokenReservaSoloBase64URLCanonicoYNoSeFiltra(t *testing.T) {
-	secreto := base64.RawURLEncoding.EncodeToString([]byte("0123456789abcdefghijklmn"))
-	token, err := NuevoTokenReservaBaremacion(secreto)
-	if err != nil {
-		t.Fatalf("NuevoTokenReservaBaremacion: %v", err)
-	}
-	if err := token.Validar(); err != nil || token.Revelar() != secreto {
-		t.Fatalf("token valido no recuperable: %v", err)
-	}
-	for _, formato := range []string{"%s", "%q", "%v", "%+v", "%#v"} {
-		if salida := fmt.Sprintf(formato, token); strings.Contains(salida, secreto) {
-			t.Fatalf("token filtrado con %s: %q", formato, salida)
-		}
-	}
-	if _, err := json.Marshal(token); !errors.Is(err, ErrSerializacionTokenReservaProhibida) {
-		t.Fatalf("MarshalJSON debe cerrar: %v", err)
-	}
-	invalidos := []string{
-		"token con espacios", strings.Repeat("a", 31), strings.Repeat("a", 129),
-		secreto + "=", "á" + secreto, "abc$" + secreto,
-	}
-	for _, invalido := range invalidos {
-		if _, err := NuevoTokenReservaBaremacion(invalido); !errors.Is(err, ErrTokenReservaBaremacionInvalido) {
-			t.Fatalf("token ambiguo admitido %q: %v", invalido, err)
-		}
-	}
-}
-
 func TestContextoEsObligatorioEnLecturasReservasYFirma(t *testing.T) {
 	contexto := contextoOperacionValido(AccionConsultarBaremacionVigente, "baremacion-1")
 	if err := contexto.Validar(); err != nil {

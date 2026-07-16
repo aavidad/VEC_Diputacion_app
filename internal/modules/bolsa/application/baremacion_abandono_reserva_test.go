@@ -29,7 +29,7 @@ func TestFinalizarFirmaAbandonaReservaSiFallaAntesDeConfirmar(t *testing.T) {
 	abandono := *entorno.repositorio.abandono
 	if abandono.Validar() != nil || abandono.Clase != puertosbolsa.ClaseCambioIncorporarDecision ||
 		abandono.BaremacionMeritoRef != preparada.decision.decision.revision.contenido.BaremacionMeritoRef ||
-		abandono.Token.Revelar() != entorno.repositorio.token.Revelar() {
+		!tokensReservaBaremacionCoinciden(abandono.Token, entorno.repositorio.token) {
 		t.Fatal("el abandono no quedo ligado a la reserva exacta")
 	}
 	acciones := entorno.autorizador.acciones()
@@ -110,7 +110,7 @@ func TestFinalizarFirmaReintentaAbandonoConLaMismaAutorizacion(t *testing.T) {
 	}
 	primera, segunda := solicitudes[0], solicitudes[1]
 	if primera.Contexto.Proyeccion().AutorizacionRef != segunda.Contexto.Proyeccion().AutorizacionRef ||
-		primera.Token.Revelar() != segunda.Token.Revelar() || primera.Clase != segunda.Clase ||
+		!tokensReservaBaremacionCoinciden(primera.Token, segunda.Token) || primera.Clase != segunda.Clase ||
 		primera.BaremacionMeritoRef != segunda.BaremacionMeritoRef {
 		t.Fatal("el reintento amplio o sustituyo la capacidad de abandono")
 	}

@@ -29,6 +29,14 @@ type repositorioBaremacionPrueba struct {
 	verificador               puertosbolsa.VerificadorSellosBaremacion
 }
 
+func tokensReservaBaremacionCoinciden(
+	izquierdo puertosbolsa.TokenReservaBaremacion,
+	derecho puertosbolsa.TokenReservaBaremacion,
+) bool {
+	huella, err := derecho.HuellaSHA256()
+	return err == nil && izquierdo.CoincideConHuellaSHA256(huella)
+}
+
 func (r *repositorioBaremacionPrueba) ObtenerVersionVigente(
 	_ context.Context,
 	s puertosbolsa.SolicitudObtenerBaremacionVigente,
@@ -95,7 +103,7 @@ func (r *repositorioBaremacionPrueba) ConfirmarCambio(
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.confirmaciones++
-	if s.Validar() != nil || r.reserva == nil || s.Token.Revelar() != r.token.Revelar() ||
+	if s.Validar() != nil || r.reserva == nil || !tokensReservaBaremacionCoinciden(s.Token, r.token) ||
 		s.VersionEsperada == nil || *s.VersionEsperada != r.version.Referencia {
 		return puertosbolsa.ResultadoConfirmarCambioBaremacion{}, puertosbolsa.ErrReservaBaremacionNoValida
 	}
@@ -175,7 +183,7 @@ func (r *repositorioBaremacionPrueba) AbandonarReserva(
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.intentosAbandono++
-	if s.Validar() != nil || r.reserva == nil || s.Token.Revelar() != r.token.Revelar() ||
+	if s.Validar() != nil || r.reserva == nil || !tokensReservaBaremacionCoinciden(s.Token, r.token) ||
 		s.Clase != r.reserva.Clase || s.BaremacionMeritoRef != r.reserva.BaremacionMeritoRef {
 		return puertosbolsa.ErrReservaBaremacionNoValida
 	}

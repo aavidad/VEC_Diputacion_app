@@ -214,6 +214,9 @@ func (s *Store) ReservarEmisionCodigoCotejo(
 	instante := solicitud.SolicitadaEn.UTC()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return ports.ReservaEmisionCodigoCotejo{}, err
+	}
 	if existente, existe := s.reservasCotejo[claveAmbito]; existe {
 		if !huellasIguales(existente.HuellaSolicitudHMAC, solicitud.HuellaSolicitudHMAC) ||
 			existente.Documento != solicitud.Documento || existente.Politica != solicitud.Politica {
@@ -287,6 +290,9 @@ func (s *Store) ConfirmarReservaCodigoCotejo(
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	claveAmbito, existe := s.reservasCotejoPorHuellaToken[huellaToken]
 	if !existe {
 		return ports.ErrReservaCodigoCotejoNoValida
@@ -333,6 +339,9 @@ func (s *Store) AbandonarReservaCodigoCotejo(ctx context.Context, token ports.To
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	claveAmbito, existe := s.reservasCotejoPorHuellaToken[huellaToken]
 	if !existe {
 		return ports.ErrReservaCodigoCotejoNoValida

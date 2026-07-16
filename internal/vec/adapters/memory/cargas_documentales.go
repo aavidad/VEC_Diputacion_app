@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -19,9 +18,8 @@ import (
 type RepositorioCargasDocumentalesMemoria struct {
 	mu                    sync.RWMutex
 	reloj                 ports.Reloj
-	secuenciaReservas     uint64
 	reservasPorIndice     map[string]reservaCargaDocumentalMemoria
-	indicePorToken        map[string]string
+	indicePorHuellaToken  map[string]string
 	cargasPorID           map[string]domain.CargaDocumental
 	manifiestosPorID      map[string]domain.ManifiestoPreparacionCargaDirectaV1
 	decisionesPreparacion map[string]reclamacionDecisionPreparacionCargaMemoria
@@ -48,19 +46,19 @@ const (
 )
 
 type reclamacionDecisionPreparacionCargaMemoria struct {
-	estado   estadoDecisionPreparacionCargaMemoria
-	consumo  ports.ConsumoDecisionPreparacionCargaDocumentalV1
-	indice   string
-	token    string
-	expiraEn time.Time
-	cargaID  string
+	estado            estadoDecisionPreparacionCargaMemoria
+	consumo           ports.ConsumoDecisionPreparacionCargaDocumentalV1
+	indice            string
+	huellaTokenSHA256 string
+	expiraEn          time.Time
+	cargaID           string
 }
 
 type reservaCargaDocumentalMemoria struct {
 	estado              estadoReservaCargaDocumentalMemoria
 	indiceHMAC          string
 	huellaSolicitudHMAC string
-	token               string
+	huellaTokenSHA256   string
 	carga               domain.CargaDocumental
 	decisionPreparacion ports.ConsumoDecisionPreparacionCargaDocumentalV1
 	expiraEn            time.Time
@@ -74,7 +72,7 @@ func NuevoRepositorioCargasDocumentalesMemoria(
 	}
 	return &RepositorioCargasDocumentalesMemoria{
 		reloj: reloj, reservasPorIndice: make(map[string]reservaCargaDocumentalMemoria),
-		indicePorToken: make(map[string]string), cargasPorID: make(map[string]domain.CargaDocumental),
+		indicePorHuellaToken: make(map[string]string), cargasPorID: make(map[string]domain.CargaDocumental),
 		manifiestosPorID:      make(map[string]domain.ManifiestoPreparacionCargaDirectaV1),
 		decisionesPreparacion: make(map[string]reclamacionDecisionPreparacionCargaMemoria),
 	}, nil
@@ -84,11 +82,17 @@ func (r *RepositorioCargasDocumentalesMemoria) Reservar(
 	ctx context.Context,
 	solicitud ports.SolicitudReservarCargaDocumental,
 ) (ports.ReservaCargaDocumental, error) {
-	if r == nil || ctx == nil || ctx.Err() != nil || solicitud.Validar() != nil {
+	if r == nil || ctx == nil || solicitud.Validar() != nil {
 		return ports.ReservaCargaDocumental{}, ports.ErrReservaCargaDocumentalInvalida
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ReservaCargaDocumental{}, err
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return ports.ReservaCargaDocumental{}, err
+	}
 	ahora := r.reloj.Ahora().UTC()
 	if ahora.IsZero() || ahora.Before(solicitud.SolicitadaEn) || !ahora.Before(solicitud.ReservaExpiraEn) {
 		return ports.ReservaCargaDocumental{}, ports.ErrReservaCargaDocumentalInvalida
@@ -114,7 +118,7 @@ func (r *RepositorioCargasDocumentalesMemoria) Reservar(
 			) {
 				return ports.ReservaCargaDocumental{}, ports.ErrReservaCargaDocumentalInvalida
 			}
-			delete(r.indicePorToken, existente.token)
+			delete(r.indicePorHuellaToken, existente.huellaTokenSHA256)
 			delete(r.reservasPorIndice, solicitud.IndiceIdempotenciaHMAC)
 		case estadoReservaCargaMemoriaAbandonada:
 			delete(r.reservasPorIndice, solicitud.IndiceIdempotenciaHMAC)
@@ -131,42 +135,51 @@ func (r *RepositorioCargasDocumentalesMemoria) Reservar(
 		if reclamacion.estado == estadoDecisionPreparacionCargaActiva && !ahora.Before(reclamacion.expiraEn) {
 			reservaExpirada, existeReserva := r.reservasPorIndice[reclamacion.indice]
 			if !existeReserva || reservaExpirada.estado != estadoReservaCargaMemoriaActiva ||
-				reservaExpirada.token != reclamacion.token ||
+				reservaExpirada.huellaTokenSHA256 != reclamacion.huellaTokenSHA256 ||
 				reservaExpirada.decisionPreparacion != reclamacion.consumo {
 				return ports.ReservaCargaDocumental{}, ports.ErrReservaCargaDocumentalInvalida
 			}
 			reservaExpirada.estado = estadoReservaCargaMemoriaExpirada
-			reservaExpirada.token = ""
+			reservaExpirada.huellaTokenSHA256 = ""
 			r.reservasPorIndice[reclamacion.indice] = reservaExpirada
-			delete(r.indicePorToken, reclamacion.token)
+			delete(r.indicePorHuellaToken, reclamacion.huellaTokenSHA256)
 			reclamacion.estado = estadoDecisionPreparacionCargaExpirada
-			reclamacion.token = ""
+			reclamacion.huellaTokenSHA256 = ""
 			r.decisionesPreparacion[solicitud.DecisionPreparacion.DecisionRef] = reclamacion
 		}
 		return ports.ReservaCargaDocumental{}, ports.ErrDecisionPreparacionCargaNoDisponible
 	}
-	r.secuenciaReservas++
-	valorToken := fmt.Sprintf("token:reserva:carga:%016x", r.secuenciaReservas)
-	token, err := ports.NuevoTokenReservaCargaDocumental(valorToken)
+	token, err := ports.NuevoTokenReservaCargaDocumental()
 	if err != nil {
 		return ports.ReservaCargaDocumental{}, ports.ErrReservaCargaDocumentalInvalida
 	}
-	r.reservasPorIndice[solicitud.IndiceIdempotenciaHMAC] = reservaCargaDocumentalMemoria{
+	huellaToken, err := token.HuellaSHA256()
+	if err != nil {
+		return ports.ReservaCargaDocumental{}, ports.ErrReservaCargaDocumentalInvalida
+	}
+	if _, existe := r.indicePorHuellaToken[huellaToken]; existe {
+		return ports.ReservaCargaDocumental{}, ports.ErrReservaCargaDocumentalInvalida
+	}
+	reservaPersistible := reservaCargaDocumentalMemoria{
 		estado: estadoReservaCargaMemoriaActiva, indiceHMAC: solicitud.IndiceIdempotenciaHMAC,
-		huellaSolicitudHMAC: solicitud.HuellaSolicitudHMAC, token: valorToken,
+		huellaSolicitudHMAC: solicitud.HuellaSolicitudHMAC, huellaTokenSHA256: huellaToken,
 		carga:               clonarCargaDocumentalMemoria(solicitud.Carga),
 		decisionPreparacion: solicitud.DecisionPreparacion, expiraEn: solicitud.ReservaExpiraEn.UTC(),
 	}
-	r.indicePorToken[valorToken] = solicitud.IndiceIdempotenciaHMAC
-	r.decisionesPreparacion[solicitud.DecisionPreparacion.DecisionRef] = reclamacionDecisionPreparacionCargaMemoria{
+	reclamacionPersistible := reclamacionDecisionPreparacionCargaMemoria{
 		estado: estadoDecisionPreparacionCargaActiva, consumo: solicitud.DecisionPreparacion,
-		indice: solicitud.IndiceIdempotenciaHMAC, token: valorToken,
+		indice: solicitud.IndiceIdempotenciaHMAC, huellaTokenSHA256: huellaToken,
 		expiraEn: solicitud.ReservaExpiraEn.UTC(), cargaID: solicitud.Carga.ID,
 	}
 	resultado := ports.ReservaCargaDocumental{Token: token, Carga: clonarCargaDocumentalMemoria(solicitud.Carga)}
 	if resultado.Validar() != nil {
 		return ports.ReservaCargaDocumental{}, ports.ErrReservaCargaDocumentalInvalida
 	}
+	// Punto de confirmacion logica: la respuesta y todos los asientos se han
+	// construido y validado antes de publicar cualquiera de ellos.
+	r.reservasPorIndice[solicitud.IndiceIdempotenciaHMAC] = reservaPersistible
+	r.indicePorHuellaToken[huellaToken] = solicitud.IndiceIdempotenciaHMAC
+	r.decisionesPreparacion[solicitud.DecisionPreparacion.DecisionRef] = reclamacionPersistible
 	return resultado, nil
 }
 
@@ -174,14 +187,17 @@ func (r *RepositorioCargasDocumentalesMemoria) ConfirmarPreparacion(
 	ctx context.Context,
 	solicitud ports.SolicitudConfirmarPreparacionCargaDocumental,
 ) error {
-	if r == nil || ctx == nil || ctx.Err() != nil {
+	if r == nil || ctx == nil {
 		return ports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	instantanea, err := ports.InstantaneaSolicitudConfirmarPreparacionCargaDocumental(solicitud)
 	if err != nil {
 		return ports.ErrConfirmacionCargaDocumentalInvalida
 	}
-	valorToken, err := instantanea.Token.RevelarParaPersistencia()
+	huellaToken, err := instantanea.Token.HuellaSHA256()
 	if err != nil {
 		return ports.ErrConfirmacionCargaDocumentalInvalida
 	}
@@ -191,11 +207,14 @@ func (r *RepositorioCargasDocumentalesMemoria) ConfirmarPreparacion(
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	ahora := r.reloj.Ahora().UTC()
-	indice, existe := r.indicePorToken[valorToken]
+	indice, existe := r.indicePorHuellaToken[huellaToken]
 	reserva, existeReserva := r.reservasPorIndice[indice]
 	if ahora.IsZero() || !existe || !existeReserva || reserva.estado != estadoReservaCargaMemoriaActiva ||
-		reserva.token != valorToken {
+		!instantanea.Token.CoincideConHuellaSHA256(reserva.huellaTokenSHA256) {
 		return ports.ErrConfirmacionCargaDocumentalInvalida
 	}
 	if !ahora.Before(reserva.expiraEn) {
@@ -203,9 +222,9 @@ func (r *RepositorioCargasDocumentalesMemoria) ConfirmarPreparacion(
 			return ports.ErrConfirmacionCargaDocumentalInvalida
 		}
 		reserva.estado = estadoReservaCargaMemoriaExpirada
-		reserva.token = ""
+		reserva.huellaTokenSHA256 = ""
 		r.reservasPorIndice[indice] = reserva
-		delete(r.indicePorToken, valorToken)
+		delete(r.indicePorHuellaToken, huellaToken)
 		return ports.ErrConfirmacionCargaDocumentalInvalida
 	}
 	if instantanea.Confirmacion.ValidarContra(reserva.carga) != nil ||
@@ -216,7 +235,8 @@ func (r *RepositorioCargasDocumentalesMemoria) ConfirmarPreparacion(
 	reclamacion, existeReclamacion := r.decisionesPreparacion[consumoDecision.DecisionRef]
 	if !existeReclamacion || reclamacion.estado != estadoDecisionPreparacionCargaActiva ||
 		reclamacion.consumo != consumoDecision || reserva.decisionPreparacion != consumoDecision ||
-		reclamacion.indice != indice || reclamacion.token != valorToken || reclamacion.cargaID != reserva.carga.ID {
+		reclamacion.indice != indice || reclamacion.huellaTokenSHA256 != reserva.huellaTokenSHA256 ||
+		reclamacion.cargaID != reserva.carga.ID {
 		if existeReclamacion && reclamacion.estado == estadoDecisionPreparacionCargaConsumida {
 			return ports.ErrDecisionPreparacionCargaYaConsumida
 		}
@@ -233,14 +253,14 @@ func (r *RepositorioCargasDocumentalesMemoria) ConfirmarPreparacion(
 	// puerto. Si se anade persistencia con fallo inyectable, debe prepararse
 	// antes de este punto o revertirse toda la transaccion.
 	reserva.estado = estadoReservaCargaMemoriaConfirmada
-	reserva.token = ""
+	reserva.huellaTokenSHA256 = ""
 	reserva.carga = instantanea.Confirmacion.Carga
 	r.reservasPorIndice[indice] = reserva
-	delete(r.indicePorToken, valorToken)
+	delete(r.indicePorHuellaToken, huellaToken)
 	r.cargasPorID[id] = instantanea.Confirmacion.Carga
 	r.manifiestosPorID[id] = instantanea.Manifiesto
 	reclamacion.estado = estadoDecisionPreparacionCargaConsumida
-	reclamacion.token = ""
+	reclamacion.huellaTokenSHA256 = ""
 	reclamacion.cargaID = id
 	r.decisionesPreparacion[consumoDecision.DecisionRef] = reclamacion
 	r.auditoria = append(r.auditoria, instantanea.Confirmacion.Auditoria)
@@ -252,12 +272,18 @@ func (r *RepositorioCargasDocumentalesMemoria) ConfirmarTransicion(
 	ctx context.Context,
 	confirmacion ports.ConfirmacionTransicionCargaDocumental,
 ) error {
-	if r == nil || ctx == nil || ctx.Err() != nil {
+	if r == nil || ctx == nil {
 		return ports.ErrConfirmacionCargaDocumentalInvalida
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	instantanea := ports.InstantaneaConfirmacionTransicionCargaDocumental(confirmacion)
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	anterior, existe := r.cargasPorID[instantanea.Carga.ID]
 	if !existe || instantanea.ValidarContra(anterior) != nil {
 		return ports.ErrConflictoVersionCargaDocumental
@@ -279,27 +305,45 @@ func (r *RepositorioCargasDocumentalesMemoria) AbandonarReserva(
 	ctx context.Context,
 	token ports.TokenReservaCargaDocumental,
 ) error {
-	if r == nil || ctx == nil || ctx.Err() != nil {
+	if r == nil || ctx == nil {
 		return ports.ErrReservaCargaDocumentalInvalida
 	}
-	valorToken, err := token.RevelarParaPersistencia()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	huellaToken, err := token.HuellaSHA256()
 	if err != nil {
 		return ports.ErrReservaCargaDocumentalInvalida
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	indice, existe := r.indicePorToken[valorToken]
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	ahora := r.reloj.Ahora().UTC()
+	indice, existe := r.indicePorHuellaToken[huellaToken]
 	reserva, existeReserva := r.reservasPorIndice[indice]
-	if !existe || !existeReserva || reserva.estado != estadoReservaCargaMemoriaActiva || reserva.token != valorToken {
+	if ahora.IsZero() || !existe || !existeReserva || reserva.estado != estadoReservaCargaMemoriaActiva ||
+		!token.CoincideConHuellaSHA256(reserva.huellaTokenSHA256) {
+		return ports.ErrReservaCargaDocumentalInvalida
+	}
+	if !ahora.Before(reserva.expiraEn) {
+		if !r.marcarDecisionPreparacionFinalizada(reserva, estadoDecisionPreparacionCargaExpirada) {
+			return ports.ErrReservaCargaDocumentalInvalida
+		}
+		reserva.estado = estadoReservaCargaMemoriaExpirada
+		reserva.huellaTokenSHA256 = ""
+		r.reservasPorIndice[indice] = reserva
+		delete(r.indicePorHuellaToken, huellaToken)
 		return ports.ErrReservaCargaDocumentalInvalida
 	}
 	if !r.marcarDecisionPreparacionFinalizada(reserva, estadoDecisionPreparacionCargaAbandonada) {
 		return ports.ErrReservaCargaDocumentalInvalida
 	}
 	reserva.estado = estadoReservaCargaMemoriaAbandonada
-	reserva.token = ""
+	reserva.huellaTokenSHA256 = ""
 	r.reservasPorIndice[indice] = reserva
-	delete(r.indicePorToken, valorToken)
+	delete(r.indicePorHuellaToken, huellaToken)
 	return nil
 }
 
@@ -359,11 +403,11 @@ func (r *RepositorioCargasDocumentalesMemoria) marcarDecisionPreparacionFinaliza
 	reclamacion, existe := r.decisionesPreparacion[referencia]
 	if !existe || reclamacion.estado != estadoDecisionPreparacionCargaActiva ||
 		reclamacion.consumo != reserva.decisionPreparacion || reclamacion.indice != reserva.indiceHMAC ||
-		reclamacion.token != reserva.token || reclamacion.cargaID != reserva.carga.ID {
+		reclamacion.huellaTokenSHA256 != reserva.huellaTokenSHA256 || reclamacion.cargaID != reserva.carga.ID {
 		return false
 	}
 	reclamacion.estado = estado
-	reclamacion.token = ""
+	reclamacion.huellaTokenSHA256 = ""
 	r.decisionesPreparacion[referencia] = reclamacion
 	return true
 }

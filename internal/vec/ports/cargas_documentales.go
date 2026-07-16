@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"reflect"
 	"strconv"
 	"strings"
@@ -34,6 +36,8 @@ const duracionMaximaReservaRepositorioCarga = 10 * time.Minute
 
 const EsquemaHuellaRecursoBaseCargaDocumentalV1 = "vec.carga-documental.recurso-base.v1"
 
+const dominioHuellaTokenReservaCargaDocumental = "vec:token-reserva-carga-documental:v1"
+
 const (
 	accionCargaDocumentalPreparar  = "vec.documentos.carga.preparar"
 	accionCargaDocumentalConfirmar = "vec.documentos.carga.confirmar"
@@ -46,47 +50,81 @@ const (
 	eventoCargaDocumentalPromovida = "vec.documentos.carga.promovida"
 )
 
-// TokenReservaCargaDocumental es un secreto de coordinacion entre el caso de
-// uso y el repositorio. Nunca forma parte del agregado, la auditoria, el
-// outbox, una respuesta HTTP o un mensaje de error.
+// TokenReservaCargaDocumental es una capacidad efimera y nominal entre el caso
+// de uso y el repositorio. Su material CSPRNG vive exclusivamente en un cierre
+// privado e inmutable ligado al dominio de carga documental. Nunca forma parte
+// del agregado, la auditoria, el outbox, una respuesta HTTP o un mensaje de
+// error. Los repositorios persisten solo HuellaSHA256 y verifican mediante
+// CoincideConHuellaSHA256.
 type TokenReservaCargaDocumental struct {
-	valor string
+	operar operacionCapacidadReserva
 }
 
-func NuevoTokenReservaCargaDocumental(valor string) (TokenReservaCargaDocumental, error) {
-	valor = strings.TrimSpace(valor)
-	if !referenciaOpacaAlmacenValida(valor, 512) {
+func NuevoTokenReservaCargaDocumental() (TokenReservaCargaDocumental, error) {
+	operar, err := nuevaOperacionCapacidadReserva(dominioHuellaTokenReservaCargaDocumental)
+	if err != nil {
 		return TokenReservaCargaDocumental{}, ErrReservaCargaDocumentalInvalida
 	}
-	return TokenReservaCargaDocumental{valor: valor}, nil
+	return TokenReservaCargaDocumental{operar: operar}, nil
 }
 
 func (t TokenReservaCargaDocumental) Valido() bool {
-	return referenciaOpacaAlmacenValida(t.valor, 512)
+	return operacionCapacidadReservaValida(t.operar)
 }
 
-// RevelarParaPersistencia se limita al adaptador del repositorio. El valor no
-// debe entregarse a SQL interpolado, trazas, telemetria ni serializadores.
-func (t TokenReservaCargaDocumental) RevelarParaPersistencia() (string, error) {
-	if !t.Valido() {
+func (t TokenReservaCargaDocumental) HuellaSHA256() (string, error) {
+	huella, valida := huellaCapacidadReserva(t.operar)
+	if !valida {
 		return "", ErrReservaCargaDocumentalInvalida
 	}
-	return t.valor, nil
+	return huella, nil
 }
 
-func (TokenReservaCargaDocumental) String() string   { return "[TOKEN-RESERVA-CARGA-CONFIDENCIAL]" }
-func (TokenReservaCargaDocumental) GoString() string { return "[TOKEN-RESERVA-CARGA-CONFIDENCIAL]" }
+func (t TokenReservaCargaDocumental) CoincideConHuellaSHA256(huella string) bool {
+	return coincideHuellaCapacidadReserva(t.operar, huella)
+}
+
+func (TokenReservaCargaDocumental) String() string     { return "[TOKEN-RESERVA-CARGA-CONFIDENCIAL]" }
+func (t TokenReservaCargaDocumental) GoString() string { return t.String() }
 
 func (t TokenReservaCargaDocumental) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, t.String())
+}
+
+func (t TokenReservaCargaDocumental) LogValue() slog.Value {
+	return slog.StringValue(t.String())
 }
 
 func (TokenReservaCargaDocumental) MarshalJSON() ([]byte, error) {
 	return nil, ErrSerializacionTokenReservaProhibida
 }
 
+func (*TokenReservaCargaDocumental) UnmarshalJSON([]byte) error {
+	return ErrSerializacionTokenReservaProhibida
+}
+
 func (TokenReservaCargaDocumental) MarshalText() ([]byte, error) {
 	return nil, ErrSerializacionTokenReservaProhibida
+}
+
+func (*TokenReservaCargaDocumental) UnmarshalText([]byte) error {
+	return ErrSerializacionTokenReservaProhibida
+}
+
+func (TokenReservaCargaDocumental) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionTokenReservaProhibida
+}
+
+func (*TokenReservaCargaDocumental) UnmarshalBinary([]byte) error {
+	return ErrSerializacionTokenReservaProhibida
+}
+
+func (TokenReservaCargaDocumental) MarshalXML(*xml.Encoder, xml.StartElement) error {
+	return ErrSerializacionTokenReservaProhibida
+}
+
+func (*TokenReservaCargaDocumental) UnmarshalXML(*xml.Decoder, xml.StartElement) error {
+	return ErrSerializacionTokenReservaProhibida
 }
 
 type SolicitudReservarCargaDocumental struct {

@@ -5988,23 +5988,65 @@ type TokenReservaBaremacion struct {
 }
 ```
 
-TokenReservaBaremacion solo admite Base64URL sin relleno, en ASCII y con
-entre 192 y 768 bits. Es una capacidad temporal, nunca un ID de negocio.
+TokenReservaBaremacion es una capacidad temporal, nunca un identificador
+de negocio. Su representacion Base64URL solo vive capturada por un cierre
+privado: el valor no puede recuperarse mediante la API de reflexion segura.
+
+La huella durable conserva deliberadamente el contrato historico exacto
+SHA-256(Base64URL), sin decodificar ni anadir un dominio. Cambiar esa
+formula impediria localizar reservas V1/V3 y alteraria los vectores
+probatorios.
 
 ```go
 func NuevoTokenReservaBaremacion(valor string) (TokenReservaBaremacion, error)
+```
 
+NuevoTokenReservaBaremacion valida e importa la representacion Base64URL
+canonica empleada por el contrato historico. El tipo resultante no ofrece
+ninguna operacion publica para volver a obtenerla.
+
+```go
+func (t TokenReservaBaremacion) CoincideConHuellaSHA256(huella string) bool
+```
+
+CoincideConHuellaSHA256 compara los 32 bytes en tiempo constante y rechaza
+representaciones hexadecimales no canonicas.
+
+```go
 func (t TokenReservaBaremacion) Format(estado fmt.State, _ rune)
 
 func (TokenReservaBaremacion) GoString() string
+
+func (*TokenReservaBaremacion) GobDecode([]byte) error
+
+func (TokenReservaBaremacion) GobEncode() ([]byte, error)
+
+func (t TokenReservaBaremacion) HuellaSHA256() (string, error)
+```
+
+HuellaSHA256 devuelve exclusivamente el selector durable historico.
+El material de la capacidad no forma parte del valor devuelto.
+
+```go
+func (t TokenReservaBaremacion) LogValue() slog.Value
+
+func (TokenReservaBaremacion) MarshalBinary() ([]byte, error)
 
 func (TokenReservaBaremacion) MarshalJSON() ([]byte, error)
 
 func (TokenReservaBaremacion) MarshalText() ([]byte, error)
 
-func (t TokenReservaBaremacion) Revelar() string
+func (TokenReservaBaremacion) MarshalXML(*xml.Encoder, xml.StartElement) error
 
 func (TokenReservaBaremacion) String() string
+
+func (*TokenReservaBaremacion) UnmarshalBinary([]byte) error
+
+func (*TokenReservaBaremacion) UnmarshalJSON([]byte) error
+
+func (*TokenReservaBaremacion) UnmarshalText([]byte) error
+
+func (*TokenReservaBaremacion) UnmarshalXML(*xml.Decoder, xml.StartElement) error
 
 func (t TokenReservaBaremacion) Validar() error
 

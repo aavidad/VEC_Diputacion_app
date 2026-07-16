@@ -51,6 +51,24 @@ type contenedorTokenCobroDevolucion struct {
 func TestCapacidadesReservaSonNominalesOpacasYNoSerializables(t *testing.T) {
 	casos := []casoCapacidadReservaOpaca{
 		{
+			nombre: "carga_documental",
+			nueva: func() (capacidadReservaOpacaPrueba, error) {
+				return ports.NuevoTokenReservaCargaDocumental()
+			},
+			cero: func() capacidadReservaOpacaPrueba {
+				return ports.TokenReservaCargaDocumental{}
+			},
+			punteroCero:        func() any { return &ports.TokenReservaCargaDocumental{} },
+			errorReserva:       ports.ErrReservaCargaDocumentalInvalida,
+			errorSerializacion: ports.ErrSerializacionTokenReservaProhibida,
+			textoRedactado:     "[TOKEN-RESERVA-CARGA-CONFIDENCIAL]",
+			envolverEnResultado: func(capacidad capacidadReservaOpacaPrueba) any {
+				return ports.ReservaCargaDocumental{
+					Token: capacidad.(ports.TokenReservaCargaDocumental),
+				}
+			},
+		},
+		{
 			nombre: "generacion_documental",
 			nueva: func() (capacidadReservaOpacaPrueba, error) {
 				return ports.NuevoTokenReservaGeneracionDocumento()
@@ -255,6 +273,9 @@ func probarCapacidadReservaOpaca(t *testing.T, caso casoCapacidadReservaOpaca) {
 func TestCapacidadesReservaNoColisionanEnUnaMuestraConcurrente(t *testing.T) {
 	const cantidad = 128
 	for nombre, nueva := range map[string]func() (capacidadReservaOpacaPrueba, error){
+		"carga_documental": func() (capacidadReservaOpacaPrueba, error) {
+			return ports.NuevoTokenReservaCargaDocumental()
+		},
 		"generacion_documental": func() (capacidadReservaOpacaPrueba, error) {
 			return ports.NuevoTokenReservaGeneracionDocumento()
 		},

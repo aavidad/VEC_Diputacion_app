@@ -5,7 +5,6 @@ package ports
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -176,35 +175,6 @@ func (CargaProtegida) MarshalText() ([]byte, error) {
 	return nil, ErrSerializacionCargaProtegidaProhibida
 }
 
-// TokenReservaBaremacion solo admite Base64URL sin relleno, en ASCII y con
-// entre 192 y 768 bits. Es una capacidad temporal, nunca un ID de negocio.
-type TokenReservaBaremacion struct{ valor string }
-
-func NuevoTokenReservaBaremacion(valor string) (TokenReservaBaremacion, error) {
-	if !tokenBase64URLValido(valor) {
-		return TokenReservaBaremacion{}, ErrTokenReservaBaremacionInvalido
-	}
-	return TokenReservaBaremacion{valor: valor}, nil
-}
-func (t TokenReservaBaremacion) Validar() error {
-	if !tokenBase64URLValido(t.valor) {
-		return ErrTokenReservaBaremacionInvalido
-	}
-	return nil
-}
-func (t TokenReservaBaremacion) Revelar() string { return t.valor }
-func (TokenReservaBaremacion) String() string    { return "[TOKEN-RESERVA-OCULTO]" }
-func (TokenReservaBaremacion) GoString() string  { return "ports.TokenReservaBaremacion{[OCULTO]}" }
-func (t TokenReservaBaremacion) Format(estado fmt.State, _ rune) {
-	_, _ = io.WriteString(estado, t.String())
-}
-func (TokenReservaBaremacion) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionTokenReservaProhibida
-}
-func (TokenReservaBaremacion) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionTokenReservaProhibida
-}
-
 type ClaseCambioBaremacion string
 
 const (
@@ -328,7 +298,7 @@ func (r ReservaCambioBaremacion) Validar() error {
 		return ErrReservaBaremacionNoValida
 	}
 	if r.Repetida {
-		if r.Token.valor != "" || r.VersionConfirmada == nil || r.VersionConfirmada.Validar() != nil {
+		if r.Token.Validar() == nil || r.VersionConfirmada == nil || r.VersionConfirmada.Validar() != nil {
 			return ErrReservaBaremacionNoValida
 		}
 		return nil
@@ -2015,15 +1985,6 @@ type GeneradorReferenciasOpacasBaremacion interface {
 }
 
 type Reloj = puertosvec.Reloj
-
-func tokenBase64URLValido(valor string) bool {
-	if valor == "" || valor != strings.TrimSpace(valor) || len(valor) < 32 || len(valor) > 128 || strings.Contains(valor, "=") {
-		return false
-	}
-	decodificado, err := base64.RawURLEncoding.DecodeString(valor)
-	return err == nil && len(decodificado) >= 24 && len(decodificado) <= 96 &&
-		base64.RawURLEncoding.EncodeToString(decodificado) == valor
-}
 
 func referenciaValida(valor string, maximo int) bool {
 	if valor == "" || valor != strings.TrimSpace(valor) || len(valor) > maximo {

@@ -7745,29 +7745,43 @@ type TokenReservaCargaDocumental struct {
 }
 ```
 
-TokenReservaCargaDocumental es un secreto de coordinacion entre el caso
-de uso y el repositorio. Nunca forma parte del agregado, la auditoria,
-el outbox, una respuesta HTTP o un mensaje de error.
+TokenReservaCargaDocumental es una capacidad efimera y nominal entre el caso
+de uso y el repositorio. Su material CSPRNG vive exclusivamente en un cierre
+privado e inmutable ligado al dominio de carga documental. Nunca forma parte
+del agregado, la auditoria, el outbox, una respuesta HTTP o un mensaje de
+error. Los repositorios persisten solo HuellaSHA256 y verifican mediante
+CoincideConHuellaSHA256.
 
 ```go
-func NuevoTokenReservaCargaDocumental(valor string) (TokenReservaCargaDocumental, error)
+func NuevoTokenReservaCargaDocumental() (TokenReservaCargaDocumental, error)
+
+func (t TokenReservaCargaDocumental) CoincideConHuellaSHA256(huella string) bool
 
 func (t TokenReservaCargaDocumental) Format(estado fmt.State, _ rune)
 
-func (TokenReservaCargaDocumental) GoString() string
+func (t TokenReservaCargaDocumental) GoString() string
+
+func (t TokenReservaCargaDocumental) HuellaSHA256() (string, error)
+
+func (t TokenReservaCargaDocumental) LogValue() slog.Value
+
+func (TokenReservaCargaDocumental) MarshalBinary() ([]byte, error)
 
 func (TokenReservaCargaDocumental) MarshalJSON() ([]byte, error)
 
 func (TokenReservaCargaDocumental) MarshalText() ([]byte, error)
 
-func (t TokenReservaCargaDocumental) RevelarParaPersistencia() (string, error)
-```
+func (TokenReservaCargaDocumental) MarshalXML(*xml.Encoder, xml.StartElement) error
 
-RevelarParaPersistencia se limita al adaptador del repositorio. El valor no
-debe entregarse a SQL interpolado, trazas, telemetria ni serializadores.
-
-```go
 func (TokenReservaCargaDocumental) String() string
+
+func (*TokenReservaCargaDocumental) UnmarshalBinary([]byte) error
+
+func (*TokenReservaCargaDocumental) UnmarshalJSON([]byte) error
+
+func (*TokenReservaCargaDocumental) UnmarshalText([]byte) error
+
+func (*TokenReservaCargaDocumental) UnmarshalXML(*xml.Decoder, xml.StartElement) error
 
 func (t TokenReservaCargaDocumental) Valido() bool
 

@@ -27,12 +27,16 @@ func TestReferenciasYTokensTienen256Bits(t *testing.T) {
 		t.Fatal("referencia opaca fuera del contrato")
 	}
 	token, err := GenerarTokenReserva()
-	if err != nil || token.Validar() != nil || token.Revelar() == referencia {
+	if err != nil || token.Validar() != nil {
 		t.Fatal("token de reserva fuera del contrato")
 	}
 	huella := HuellaTokenReserva(token)
 	if len(huella) != 64 || huella != HuellaTokenReserva(token) {
 		t.Fatal("huella de token fuera del contrato")
+	}
+	otroToken, err := GenerarTokenReserva()
+	if err != nil || HuellaTokenReserva(otroToken) == huella {
+		t.Fatal("el generador reutilizo una capacidad de reserva")
 	}
 }
 
