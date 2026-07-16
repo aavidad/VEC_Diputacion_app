@@ -49,6 +49,7 @@ Diputación.
 - [Modelo historico de RPT, plazas, puestos, ocupaciones y vacantes](modelo_historico_rpt_plazas_puestos_y_vacantes.md).
 - [Calendario habil, laboral y de jornada con historia reproducible](calendario_habil_laboral_historico.md).
 - [Turnos, festivos, disponibilidades y compensaciones](turnos_festivos_y_compensaciones.md).
+- [Materias económicas, reservadas y relaciones laborales](materias_reservadas_economicas_y_relaciones_laborales.md).
 - [Archivo documental relacionado de Recursos Humanos](archivo_documental_rrhh_relacionado.md).
 - [Brechas para un producto profesional, seguro y trazable](brechas_para_producto_profesional.md).
 - [Sistema de diseño, plantillas y temas visuales](sistema_diseno_y_temas.md).

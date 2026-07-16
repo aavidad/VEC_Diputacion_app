@@ -41,7 +41,7 @@ funcional, seguridad, datos, accesibilidad, operación y prueba.
 | NUC-010 | Documento lógico | F0 | Original, representaciones, metadatos, huellas, procedencia, clasificación y relaciones sin duplicar el contenido |
 | NUC-011 | Almacenamiento seguro | F0 | Puerto sustituible, cifrado, cuarentena, análisis antimalware, versionado, retención, copia y restauración verificadas |
 | NUC-012 | Firma, sello, CSV y validación | F1 | Firma humana y sello diferenciados, cofirmas, tiempo fiable, validación a largo plazo, QR/CSV de cotejo y conector de AutoFirma |
-| NUC-013 | Generación documental | F1 | Modelo canónico y adaptadores PDF/PDF-A, ODT, DOCX, texto, CSV, JSON u otros; indicar original jurídico y representación accesible |
+| NUC-013 | Generación documental | F1 | Modelo canónico y adaptadores PDF/PDF/A, ODT, DOCX, texto, CSV, JSON u otros; indicar original jurídico y representación accesible |
 | NUC-014 | Registro administrativo | F1 | Puerto al registro/SIR-SICRES, asiento, recibo, anexos, conciliación e idempotencia; no simular registro con una tabla propia |
 | NUC-015 | Notificación y avisos | F1 | Notificación administrativa trazable y avisos separados por correo, Telegram u otros conectores sin datos sensibles |
 | NUC-016 | Autorización positiva | F0 | Capacidades por rol y atributos de entidad, unidad, relación, expediente, finalidad, estado, tiempo y delegación; denegar lo no concedido |
@@ -170,6 +170,7 @@ funcional, seguridad, datos, accesibilidad, operación y prueba.
 | IGU-001 | Plan e indicadores | F5 | Diagnóstico, negociación, objetivos, medidas, responsables, calendario, indicadores y seguimiento |
 | IGU-002 | Impacto en selección | F2 | Informe, composición equilibrada o justificación, lenguaje inclusivo, adaptaciones y revisión de bases |
 | RES-001 | Protocolos reservados | F5 | Denuncia, protección, instrucción, prueba, medidas y resolución en expediente aislado y con barrera frente a represalias |
+| RES-002 | Sistema interno de información | F5 | Enlace o derivación mínima al canal institucional existente; no crear un segundo canal ni copiar su expediente al portal |
 | RLA-001 | Negociación | F5 | Mesa, representación, propuestas, actas, acuerdos, publicación, vigencia y materialización en políticas |
 | RLA-002 | Crédito y actividad sindical | F4 | Representante, bolsa/saldo, solicitud y justificación mínima; afiliación separada del expediente ordinario |
 | RLA-003 | Incompatibilidades | F5 | Declaración, actividad, jornada, retribución, informes, resolución y proyección pública legalmente exigible |

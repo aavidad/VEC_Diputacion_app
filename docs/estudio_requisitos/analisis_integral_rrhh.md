@@ -155,6 +155,23 @@ Ningún módulo leerá directamente tablas ajenas ni escribirá en GINPIX, Nómi
 WCRONOS o Active Directory. Todo intercambio pasará por un puerto y un adaptador
 aprobado, con instantánea, procedencia, idempotencia y conciliación.
 
+### 4.4 Alertas de vigencia y consolidación detectadas
+
+| Materia | Hallazgo | Tratamiento |
+| --- | --- | --- |
+| Nivel, grado y promoción | no existe una regla universal de examen cada tres años; promoción funcionarial, grado y progresión laboral son figuras distintas | modelos y políticas separadas; acto e inscripción obligatorios |
+| Centros Sociales | el Reglamento común remite jornada, festivos y vacaciones a normas propias no localizadas públicamente | no activar multiplicadores ni ciclos hasta recibir calendarios y acuerdos de centro |
+| Vacaciones al cese | en febrero de 2026 se inició la revisión de oficio del art. 17.4 del Reglamento de tiempo por posible infracción del TREBEP | estado `en_revision`; obtener resolución y efectos antes de calcular |
+| Plan de Igualdad | el plan aprobado el 27-01-2022 declaró cuatro años y no se ha localizado sustitución pública | acreditar plan vigente, evaluación, negociación y remisión registral |
+| Protocolo de acoso | el acuerdo de 2020 declara vigencia indefinida, pero es anterior a las leyes de 2022-2024 | conservar garantías válidas y solicitar actualización negociada/versionada |
+| Disciplina | el Convenio de 2006 menciona seis meses y normativa derogada; la Ley andaluza 5/2023 contempla hasta doce meses | **NO-GO** hasta criterio jurídico por vínculo y procedimiento |
+| Acción Social | el texto refundido de 2021 es informativo y contiene referencias a la Ley 30/1992 | usar actos auténticos, Ley 39/2015 para procedimiento y convocatoria anual vigente |
+| Crédito sindical | el acuerdo de 2020 liga cifras y liberaciones a aquel mandato | obtener acuerdo postelectoral; no codificar personas u horas históricas |
+
+Una alerta no se resuelve eligiendo la fuente más nueva por fecha ni la más
+favorable. Se registra la cadena, se solicita criterio al órgano competente y
+se bloquea únicamente la regla afectada.
+
 ## 5. Modelo conceptual que no se puede simplificar
 
 ### 5.1 Persona, cuenta y relación de servicio
@@ -427,6 +444,7 @@ Antes de programar cada bloque se solicitará, como mínimo:
 - [RPT, plazas, puestos y vacantes](modelo_historico_rpt_plazas_puestos_y_vacantes.md)
 - [Calendario hábil y laboral histórico](calendario_habil_laboral_historico.md)
 - [Turnos, festivos y compensaciones](turnos_festivos_y_compensaciones.md)
+- [Materias económicas, reservadas y relaciones laborales](materias_reservadas_economicas_y_relaciones_laborales.md)
 - [Archivo documental relacionado](archivo_documental_rrhh_relacionado.md)
 - [Seguridad y despliegue de Cronos](seguridad_y_despliegue_cronos.md)
 - [Acceso interno de técnicos y administración](acceso_interno_tecnicos_administracion.md)

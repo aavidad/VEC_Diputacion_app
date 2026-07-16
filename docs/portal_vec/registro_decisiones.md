@@ -2536,3 +2536,29 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   relacionados y una liquidación nueva cuando proceda.
 - Especificación:
   `docs/estudio_requisitos/turnos_festivos_y_compensaciones.md`.
+
+## DEC-073 — Compartimentos especializados para materias reservadas
+
+- Estado: fronteras adoptadas el 16 de julio de 2026; reglas, textos
+  consolidados, EIPD y despliegues productivos pendientes.
+- Separación: Nómina/Fiscalidad, Salud Laboral, Acoso, Disciplina, Acción
+  Social, Incompatibilidades y Representación no son pestañas de un expediente
+  universal ni comparten por defecto base, índice, búsqueda o administradores.
+- Núcleo: solo conserva referencias opacas, relación/ocupación necesarias,
+  autoridad y eventos minimizados. No almacena diagnósticos, banco, IRPF,
+  embargo, afiliación, denuncia o prueba disciplinaria.
+- Acceso: denegación por defecto, necesidad de conocer, expediente, actuación,
+  periodo, doble control y segregación. No existe un superadministrador con
+  lectura ordinaria de todos los compartimentos.
+- Corrección: nóminas, resoluciones y evidencias cerradas son inmutables; se
+  regularizan o sustituyen mediante otro acto relacionado.
+- Integraciones: TGSS/RED, AEAT, contabilidad, Tesorería, banca, vigilancia de
+  salud, gestora y canal del informante se consumen por conectores versionados,
+  con acuse y conciliación. El canal institucional no se duplica.
+- Conflictos: quedan bloqueados el procedimiento disciplinario provincial
+  seis/doce meses, la vigencia del Plan de Igualdad posterior a enero de 2026,
+  el acuerdo sindical del mandato actual y demás fuentes no consolidadas.
+- Bolsa: únicamente recibe periodos de servicio certificados y fracción de
+  jornada cuando sus bases lo exijan; nunca datos económicos o reservados.
+- Especificación:
+  `docs/estudio_requisitos/materias_reservadas_economicas_y_relaciones_laborales.md`.
