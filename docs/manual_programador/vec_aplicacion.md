@@ -99,10 +99,6 @@ var (
 	ErrReferenciaCatalogoFlujoInvalida    = errors.New("vec: referencia de catalogo de flujo invalida")
 )
 var (
-	ErrEjecucionFormatoDocumentalCerrada = errors.New("vec: ejecucion de formato documental cerrada")
-	ErrLimiteFormatoDocumentalExcedido   = errors.New("vec: limite de formato documental excedido")
-)
-var (
 	// Un unico error externo evita revelar si falta un perfil, existen dos
 	// entradas contradictorias, fue retirado o no hay conector homologado.
 	ErrResolucionFormatoDocumentalCerrada = errors.New("vec: resolucion de formato documental cerrada")
@@ -167,29 +163,6 @@ func (AltaOrdenCobroCompletada) MarshalJSON() ([]byte, error)
 func (AltaOrdenCobroCompletada) String() string
 
 func (*AltaOrdenCobroCompletada) UnmarshalJSON([]byte) error
-
-type ArtefactoBorradorPreFirmaV2 struct {
-	// Has unexported fields.
-}
-```
-
-ArtefactoBorradorPreFirmaV2 solo puede ser creado por el ejecutor V2.
-Los bytes permanecen privados y cada lectura devuelve una copia. Marcar o
-firmar producira otro artefacto; este valor nunca se modifica in situ.
-
-```go
-func (a ArtefactoBorradorPreFirmaV2) Contenido() ([]byte, error)
-
-func (a ArtefactoBorradorPreFirmaV2) Evidencia() (
-	EvidenciaRenderizadoDocumentalV2,
-	error,
-)
-
-func (a ArtefactoBorradorPreFirmaV2) HuellaSHA256() (string, error)
-
-func (a ArtefactoBorradorPreFirmaV2) Referencia() (string, error)
-
-func (a ArtefactoBorradorPreFirmaV2) Validar() error
 
 type AuditCommand struct {
 	Principal            domain.Principal
@@ -301,28 +274,6 @@ type DatosAltaOrdenCobroCompletada struct {
 	Repetida bool
 }
 
-type DatosEvidenciaRenderizadoDocumentalV2 struct {
-	Consulta                ports.ConsultaFormatoDocumental
-	DescriptorPerfil        ports.DescriptorPerfilDocumental
-	SituacionOperativa      domain.SituacionOperativaPerfilDocumental
-	ComponenteRender        ports.DescriptorComponenteDocumentalAtestado
-	ComponenteVerificador   ports.DescriptorComponenteDocumentalAtestado
-	TechoInstitucionalBytes uint64
-	LimiteEfectivoBytes     uint64
-	HuellaEntradaHMAC       string
-	BorradorRef             string
-	HuellaSalidaSHA256      string
-	TamanoSalida            uint64
-	GeneradoEn              time.Time
-	HuellaEvidenciaSHA256   string
-}
-```
-
-DatosEvidenciaRenderizadoDocumentalV2 es el sobre restaurable del corte en
-sombra. Su SHA-256 detecta alteraciones accidentales, pero no es una firma
-ni una MAC: produccion exigira anclaje durable y atestacion criptografica.
-
-```go
 type DatosEvidenciaResolucionFormatoDocumental struct {
 	Consulta     ports.ConsultaFormatoDocumental
 	Descriptor   ports.DescriptorFormatoDocumental
@@ -425,23 +376,6 @@ const (
 	EstadoLiquidacionCobroPagada     EstadoLiquidacionCobro = "pagada"
 	EstadoLiquidacionCobroCaducada   EstadoLiquidacionCobro = "caducada"
 )
-type EvidenciaRenderizadoDocumentalV2 struct {
-	// Has unexported fields.
-}
-
-func RestaurarEvidenciaRenderizadoDocumentalV2(
-	datos DatosEvidenciaRenderizadoDocumentalV2,
-) (EvidenciaRenderizadoDocumentalV2, error)
-
-func (e EvidenciaRenderizadoDocumentalV2) Datos() (
-	DatosEvidenciaRenderizadoDocumentalV2,
-	error,
-)
-
-func (e EvidenciaRenderizadoDocumentalV2) HuellaSHA256() (string, error)
-
-func (e EvidenciaRenderizadoDocumentalV2) Validar() error
-
 type EvidenciaResolucionFormatoDocumental struct {
 	// Has unexported fields.
 }
@@ -547,16 +481,6 @@ func (LiquidacionCobroAutoritativa) String() string
 
 func (*LiquidacionCobroAutoritativa) UnmarshalJSON([]byte) error
 
-type OpcionesEjecucionFormatoDocumentalV2 struct {
-	TechoInstitucionalBytes uint64
-}
-```
-
-OpcionesEjecucionFormatoDocumentalV2 obliga a declarar el techo local.
-Cero no activa un valor positivo por defecto. El limite efectivo sera el
-minimo de este techo, el perfil y las homologaciones de los componentes.
-
-```go
 type OpcionesServicioCargaDocumental struct {
 	VigenciaInstrucciones       time.Duration
 	TamanoMaximo                int64
@@ -1276,34 +1200,6 @@ func (s *ServicioEjecucionFlujos) IniciarInstancia(
 	ctx context.Context,
 	orden OrdenIniciarInstanciaFlujo,
 ) (domain.InstanciaFlujo, error)
-
-type ServicioEjecucionFormatoDocumentalV2 struct {
-	// Has unexported fields.
-}
-```
-
-ServicioEjecucionFormatoDocumentalV2 es el puente en sombra que ejecuta una
-resolucion sin exponer interfaces de componentes. Todavia no sustituye al
-generador PDF/DOCX heredado ni autoriza una superficie HTTP, CLI o MCP.
-
-```go
-func NuevoServicioEjecucionFormatoDocumentalV2(
-	catalogoPerfiles ports.CatalogoPerfilesDocumentales,
-	situaciones ports.RegistroSituacionesOperativasPerfilDocumental,
-	componentes ports.RegistroComponentesDocumentalesAtestados,
-	renderizador ports.EjecutorRenderizadoDocumental,
-	verificador ports.EjecutorValidacionConformidadDocumental,
-	generadorReferencia ports.GeneradorReferenciaBorradorDocumental,
-	selladorDatos ports.SelladorDatosDocumento,
-	reloj ports.Reloj,
-	opciones OpcionesEjecucionFormatoDocumentalV2,
-) (*ServicioEjecucionFormatoDocumentalV2, error)
-
-func (s *ServicioEjecucionFormatoDocumentalV2) RenderizarBorrador(
-	ctx context.Context,
-	consulta ports.ConsultaFormatoDocumental,
-	contenido domain.ContenidoDocumento,
-) (ArtefactoBorradorPreFirmaV2, error)
 
 type ServicioGobiernoFlujos struct {
 	// Has unexported fields.
