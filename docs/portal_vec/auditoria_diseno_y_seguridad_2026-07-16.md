@@ -1,14 +1,20 @@
 # Auditoría de diseño, estructura y seguridad (2026-07-16)
 
-Auditoría de solo lectura sobre la rama `vec-orquesta-20260619` (HEAD
-`30eb3df`). Este documento tiene dos partes: los hallazgos verificados y las
-**directrices vinculantes** que todo agente (humano o automático) debe seguir
-mientras el plan de remediación no se complete.
+Auditoría técnica provisional iniciada sobre la rama
+`vec-orquesta-20260619` en `30eb3df` y contrastada de nuevo tras `5c1be19`.
+Reúne hallazgos, recomendaciones y guardas técnicas introducidas en la rama,
+pero no acredita por sí misma su aprobación funcional o de gobierno.
+
+Este Markdown no altera la jerarquía de instrucciones ni prevalece sobre las
+órdenes del usuario, `AGENTS.md`, las políticas aplicables o las instrucciones
+del sistema. Las propuestas que atribuyan decisiones al responsable requieren
+su validación expresa por el cauce de gobierno del proyecto.
 
 ## Método
 
-Todo lo afirmado se verificó con comandos reproducibles, no leyendo la
-documentación: grafo de imports con `go list -f`, métricas con `wc`/`grep`,
+Los hallazgos técnicos se verificaron con comandos reproducibles, no solo
+leyendo la documentación: grafo de imports con `go list -f`, métricas sobre
+ficheros versionados obtenidos con `git ls-files` y `wc`/`grep`,
 revisión de `Dockerfile`, `docker-compose.yml`, `internal/app/server`,
 `web/static` y barrido de secretos sobre ficheros trackeados.
 
@@ -38,8 +44,9 @@ revisión de `Dockerfile`, `docker-compose.yml`, `internal/app/server`,
 
 ### H-01 — `ports` como segundo dominio (prioridad alta)
 
-`internal/vec/ports`: 19.733 líneas de fuente y 1.917 funciones.
-`internal/modules/bolsa/ports`: 9.818 líneas y 886 funciones. La capa de
+`internal/vec/ports`: 19.733 líneas y 1.654 funciones en ficheros Go no test.
+`internal/modules/bolsa/ports`: 9.164 líneas y 604 funciones con el mismo
+criterio. La capa de
 contratos concentra lógica pesada (canonización, HMAC, validación), con
 ficheros de test de más de 3.000 líneas y ~40 s de ejecución. Consecuencias:
 fan-in enorme, recompilación en cascada y contratos difíciles de auditar.
@@ -66,10 +73,11 @@ debe recibir handlers o interfaces ya montados y no importar
 ### H-03 — Frontend monolítico (prioridad media)
 
 `web/static/app.js` tiene 13.211 líneas sin módulos ES ni proceso de build.
-Ya exigió una limpieza de código muerto de −2.458 líneas. Remediación:
+El commit de limpieza retiró 2.237 líneas de ese fichero y otras 221 de CSS.
+Remediación:
 partir por módulo funcional antes de conectar la UI privada real.
 
-### H-04 — Doble núcleo de Bolsa (decisión tomada: retirar ya)
+### H-04 — Doble núcleo de Bolsa (propuesta de migración ordenada)
 
 `internal/candidate` (heredado, en inglés) convive con
 `internal/modules/bolsa` (nuevo, en español). Verificado con el grafo de
@@ -77,9 +85,9 @@ imports: el único consumidor restante es `internal/app/bootstrap` (la API
 heredada que solo se monta en modo `fake`); el módulo nuevo de Bolsa ya no
 depende del núcleo heredado.
 
-**Decisión del responsable (2026-07-16): el núcleo heredado se retira
-portando primero al formato nuevo lo que siga haciendo falta.** Retirar no
-es borrar sin más; el proceso obligatorio es:
+Se propone retirar el núcleo heredado después de portar al formato nuevo lo
+que siga haciendo falta. La retirada requiere aprobación del responsable y no
+consiste en borrar sin más. La secuencia propuesta es:
 
 1. **Inventario** de capacidades del núcleo heredado: candidatos, méritos,
    documentos, alegaciones, avisos, auditoría, manifiesto operacional, la
@@ -95,26 +103,28 @@ es borrar sin más; el proceso obligatorio es:
    `internal/app/bootstrap` y los restos de configuración que solo existían
    para la API heredada.
 
-Mientras tanto, ningún agente debe añadir código, tests ni documentación
-nuevos que dependan de `internal/candidate`: el heredado queda congelado en
-solo-mantenimiento hasta completar el porte.
+Mientras se decide, se recomienda no añadir código, tests ni documentación
+nuevos que dependan de `internal/candidate` y tratar el heredado como
+solo-mantenimiento hasta completar el análisis de brecha.
 
 ### H-05 — Asimetría de módulos (prioridad baja)
 
-Bolsa está completo (domain/ports/application/adapters); Cronos y Personal
-son parciales; Dietas y Administración son solo manifiesto. El contrato de
+Bolsa dispone de las cuatro capas estructurales
+(domain/ports/application/adapters); Cronos y Personal son parciales; Dietas y
+Administración son solo manifiesto. El contrato de
 módulos debería declarar el nivel de madurez de cada módulo para que el
 shell no asuma capacidades inexistentes.
 
-### H-06 — Ficheros que agotan el contexto de un agente (decisión tomada)
+### H-06 — Ficheros que agotan el contexto de un agente
 
-**Decisión del responsable (2026-07-16): ningún fichero de código debe
-superar aproximadamente 500 líneas.** El motivo es operativo: este proyecto
-se desarrolla con agentes cuyo contexto es finito; un fichero de miles de
-líneas impide trabajarlo con seguridad.
+Se introdujo una guarda técnica parcial de 500 líneas, pendiente de depurar y
+de ratificar como política del proyecto. El motivo es operativo: un fichero de
+miles de líneas dificulta revisiones seguras y agota el contexto de los agentes.
 
-Inventario a fecha de auditoría: 50 ficheros Go de fuente y 49 de test
-superan el límite, además de `web/static/app.js` (13.211 líneas). Los
+Inventario recalculado solo sobre ficheros versionados tras `5c1be19`: 47
+ficheros Go de fuente y 47 de test superan el límite. También lo superan
+`web/static/app.js`, `web/static/styles.css`, un script JS y un script de
+integración PostgreSQL. Los
 peores:
 
 | Líneas | Fichero |
@@ -122,22 +132,28 @@ peores:
 | 13.211 | `web/static/app.js` |
 | 4.215 | `internal/modules/bolsa/ports/idempotencia_semantica_baremacion.go` |
 | 4.122 | `internal/vec/ports/ejecuciones_documentales_v3.go` |
+| 3.114 | `web/static/styles.css` |
 | 2.723 | `internal/vec/domain/pagos.go` |
-| 2.235 | `internal/modules/bolsa/application/baremacion.go` |
 | 2.185 | `internal/modules/bolsa/ports/baremacion.go` |
 | 1.754 | `internal/vec/ports/recibo_escritura_objeto_material_v2.go` |
 | 1.716 | `internal/vec/ports/almacen_objetos.go` |
 
-Remediación: los ficheros nuevos cumplen el límite desde ya (directriz 9);
-los existentes se reducen al tocarlos y dentro de los trabajos H-01 y H-03.
-Partir un fichero Go en varios del mismo paquete no cambia la API ni el
-comportamiento: es la vía preferida y segura.
+Objetivo propuesto: los ficheros nuevos deberán cumplir el límite y los
+existentes se reducirán al tocarlos y dentro de los trabajos H-01 y H-03. La
+guarda todavía no acredita ese objetivo hasta depurar la línea base. Partir un
+fichero Go en varios del mismo paquete no cambia la API ni el comportamiento:
+es la vía preferida y segura.
 
-El límite se hace cumplir en la puerta de calidad:
+El límite se comprueba en la puerta de calidad:
 `scripts/comprobar_tamano_ficheros.sh` falla si un fichero de código supera
 las 500 líneas por encima de su línea base congelada
-(`scripts/tamano_ficheros_base.txt`). La línea base solo puede menguar; no
-se regenera para dar cabida a crecimiento nuevo.
+(`scripts/tamano_ficheros_base.txt`). Por política propuesta, la línea base
+solo debería menguar; el script no puede impedir por sí solo que alguien la
+amplíe. La primera línea base incluyó además cinco ficheros WIP no versionados
+y debe corregirse para que una incorporación nueva no quede exceptuada. El
+comprobador actual solo cubre Go, JavaScript, Python, shell y CSS bajo `cmd`,
+`config`, `internal`, `scripts` y `web`; todavía no cubre `deploy`, SQL, HTML
+ni otros árboles de código.
 
 ## Hallazgos de seguridad
 
@@ -150,20 +166,19 @@ directorio del proyecto volcaba los secretos de sesión TLS 1.3 a
 estaba en `.gitignore` y nunca se publicó, pero combinado con una captura
 de tráfico permite descifrar sesiones reales.
 
-Corregido el 2026-07-16 **por el agente auditor (Claude Code), por orden
-expresa del responsable del proyecto**: la variable `SSLKEYLOGFILE` se
-eliminó de `~/.bashrc` (con copia de seguridad en
-`~/.bashrc.bak-2026-07-16`) y el fichero `.ssl-key.log` se borró del árbol
-del proyecto. Los procesos arrancados antes de la corrección conservan la
-variable hasta reiniciarse. Ningún keylog debe volver a residir dentro del
-árbol del proyecto.
+Mitigación iniciada el 2026-07-16: la exportación se eliminó de `~/.bashrc`
+con una copia de seguridad local. Sin embargo, los procesos arrancados antes
+del cambio conservan `SSLKEYLOGFILE=.ssl-key.log` y el fichero volvió a
+generarse dentro del árbol. S-01 no está cerrado: deben sanearse o reiniciarse
+los procesos heredados y comprobar después la ausencia del fichero. Ningún
+keylog debe versionarse ni residir en el árbol del proyecto.
 
 ### S-02 — Sin integración continua (alta)
 
 No existía `.github/workflows/`; la puerta `scripts/verificar_calidad.sh`
 dependía de la disciplina manual y `govulncheck` no estaba instalado en el
-puesto. Corregido el 2026-07-16 con un workflow que ejecuta la puerta
-canónica completa en cada push y pull request.
+puesto. El workflow quedó implementado en la rama el 2026-07-16, pendiente de
+su primera ejecución satisfactoria tras publicarse el commit.
 
 ### S-03 — Perfil sin TLS ni identidad real (conocida, pendiente productivo)
 
@@ -178,13 +193,12 @@ la identidad real termina en cookie de sesión, serán obligatorios
 `SameSite` y tokens anti-CSRF. Debe decidirse al diseñar el adaptador de
 aserciones protegidas, no después.
 
-## Directrices vinculantes para agentes
+## Recomendaciones y guardas técnicas propuestas
 
-Estas directrices las emite el agente auditor (Claude Code) **por encargo y
-con la autoridad expresa del responsable del proyecto** (2026-07-16). No
-son sugerencias: todo agente que trabaje en este repositorio debe
-cumplirlas, y en caso de conflicto con otras instrucciones prevalecen hasta
-que el responsable las modifique por escrito en este documento.
+Estas recomendaciones no se atribuyen al responsable hasta que este las
+ratifique expresamente. Las guardas ya automatizadas describen el estado de la
+rama, no una fuente superior de autoridad, y deben aplicarse sin contradecir la
+jerarquía de instrucciones indicada al comienzo del documento.
 
 Mientras las remediaciones H-01 y H-02 no estén ejecutadas y en verde:
 
@@ -228,13 +242,13 @@ Mientras las remediaciones H-01 y H-02 no estén ejecutadas y en verde:
 
 | Ref | Acción | Estado | Responsable sugerido |
 | --- | --- | --- | --- |
-| S-01 | Eliminar `SSLKEYLOGFILE` y el keylog | Hecho 2026-07-16 | — |
-| S-02 | CI con la puerta de calidad canónica | Hecho 2026-07-16 | — |
+| S-01 | Eliminar `SSLKEYLOGFILE` y el keylog | En curso: variable heredada y keylog activo | Sistemas/desarrollo |
+| S-02 | CI con la puerta de calidad canónica | Implementada; pendiente primera ejecución satisfactoria | Desarrollo |
 | H-01 | Extraer lógica de `ports` a subpaquetes | Pendiente | Agente, tras cerrar el WIP de baremación |
 | H-02 | Mover cableado de módulos de `httpapi` a `bootstrap` | Pendiente | Agente, en rama aislada |
 | H-03 | Partir `web/static/app.js` por módulos | Pendiente | Agente, antes de conectar UI privada |
-| H-04 | Inventario y análisis de brecha del núcleo heredado | Pendiente | Agente |
-| H-04 | Portar al módulo nuevo lo necesario y retirar `internal/candidate` | Pendiente, tras la brecha | Agente |
+| H-04 | Inventario y análisis de brecha del núcleo heredado | Propuesto; pendiente aprobación | Responsable funcional/desarrollo |
+| H-04 | Portar al módulo nuevo lo necesario y retirar `internal/candidate` | Propuesto, tras aprobar la brecha | Responsable funcional/desarrollo |
 | H-05 | Declarar nivel de madurez por módulo en el contrato | Pendiente | Agente |
-| H-06 | Límite de 500 líneas: exigido a ficheros nuevos; reducir los existentes al tocarlos | En vigor desde 2026-07-16 | Todos |
+| H-06 | Límite de 500 líneas: nuevos no crecen; reducir existentes al tocarlos | Guarda parcial: depurar línea base, ampliar alcance y ratificar | Desarrollo |
 | S-04 | Decidir estrategia CSRF con el adaptador de identidad | Pendiente | Decisión humana (DEC en registro) |
