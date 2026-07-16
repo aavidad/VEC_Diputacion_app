@@ -33,6 +33,94 @@ func TestFinalizarFirmaClasificaRespuestaInvalidaComoIndeterminada(t *testing.T)
 	}
 }
 
+func TestNormalizacionNominalV2SoloConservaElIdentificadorEsperado(t *testing.T) {
+	identificador := identificadorTransaccionalAplicacionPrueba(t, 0x25)
+	intento := puertosbolsa.IntentoNominalConfirmacionBaremacionV2{
+		IdentificadorOperacion: identificador,
+		Confirmacion:           solicitudConfirmacionValidaClasificacionPrueba(t),
+	}
+	if err := intento.ValidarForma(); err != nil {
+		t.Fatal(err)
+	}
+
+	exacto := errorIndeterminadoBaremacionPrueba(t, 0x25)
+	normalizado, err := normalizarFalloTransaccionalNominalBaremacionV2(intento, exacto)
+	if err != nil || normalizado == exacto || normalizado.Validar() != nil ||
+		normalizado.NoAplicadaVerificada() {
+		t.Fatalf("resultado exacto no se clono de forma segura: (%v, %v)", normalizado, err)
+	}
+	identificadorNormalizado, err := normalizado.Identificador()
+	if err != nil || !identificadorNormalizado.CoincideExactamenteCon(identificador) {
+		t.Fatal("se perdio el identificador esperado")
+	}
+
+	noAplicadaExacta := errorNoAplicacionAcreditadaBaremacionPrueba(t, 0x25)
+	normalizado, err = normalizarFalloTransaccionalNominalBaremacionV2(intento, noAplicadaExacta)
+	if err != nil || !normalizado.NoAplicadaVerificada() || normalizado == noAplicadaExacta {
+		t.Fatalf("la prueba exacta no se conservo mediante clon: (%v, %v)", normalizado, err)
+	}
+}
+
+func TestNormalizacionNominalV2ExpurgaResultadosAjenosOAmbiguos(t *testing.T) {
+	identificador := identificadorTransaccionalAplicacionPrueba(t, 0x35)
+	intento := puertosbolsa.IntentoNominalConfirmacionBaremacionV2{
+		IdentificadorOperacion: identificador,
+		Confirmacion:           solicitudConfirmacionValidaClasificacionPrueba(t),
+	}
+	causaTecnica := errors.New("detalle-postgresql-sensible")
+	var tipadoNulo *puertosbolsa.ErrorResultadoTransaccionalBaremacion
+	var errorTipadoNulo error = tipadoNulo
+	casos := []struct {
+		nombre string
+		err    error
+	}{
+		{"identificador ajeno", errorNoAplicacionAcreditadaBaremacionPrueba(t, 0x36)},
+		{"error generico", causaTecnica},
+		{"rama hermana", errors.Join(errorIndeterminadoBaremacionPrueba(t, 0x35), causaTecnica)},
+		{"dos resultados", errors.Join(
+			errorIndeterminadoBaremacionPrueba(t, 0x35),
+			errorIndeterminadoBaremacionPrueba(t, 0x37),
+		)},
+		{"resultado tipado nulo", errorTipadoNulo},
+		{"desenvoltura hostil", errorDesenvolturaPanicoBaremacionPrueba{}},
+		{"desenvoltura ciclica", &errorDesenvolturaCiclicaBaremacionPrueba{}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			normalizado, err := normalizarFalloTransaccionalNominalBaremacionV2(intento, caso.err)
+			if err != nil || normalizado == nil || normalizado.Validar() != nil ||
+				normalizado.NoAplicadaVerificada() || !normalizado.RequiereReconciliacion() ||
+				!errors.Is(normalizado, puertosbolsa.ErrResultadoTransaccionalBaremacionIndeterminado) {
+				t.Fatalf("fallo no normalizado en cerrado: (%v, %v)", normalizado, err)
+			}
+			obtenido, err := normalizado.Identificador()
+			if err != nil || !obtenido.CoincideExactamenteCon(identificador) {
+				t.Fatal("la normalizacion conservo o fabrico otro identificador")
+			}
+			if errors.Is(normalizado, causaTecnica) || strings.Contains(normalizado.Error(), causaTecnica.Error()) {
+				t.Fatal("la normalizacion filtro la causa tecnica")
+			}
+		})
+	}
+}
+
+func TestNormalizacionNominalV2RechazaIntentoInvalidoOAusenciaDeFallo(t *testing.T) {
+	intento := puertosbolsa.IntentoNominalConfirmacionBaremacionV2{
+		IdentificadorOperacion: identificadorTransaccionalAplicacionPrueba(t, 0x45),
+		Confirmacion:           solicitudConfirmacionValidaClasificacionPrueba(t),
+	}
+	if resultado, err := normalizarFalloTransaccionalNominalBaremacionV2(intento, nil); resultado != nil ||
+		!errors.Is(err, puertosbolsa.ErrResultadoTransaccionalBaremacionInvalido) {
+		t.Fatalf("ausencia de fallo admitida: (%v, %v)", resultado, err)
+	}
+	intento.IdentificadorOperacion = puertosbolsa.IdentificadorOperacionTransaccionalBaremacion{}
+	if resultado, err := normalizarFalloTransaccionalNominalBaremacionV2(
+		intento, errors.New("fallo expurgado"),
+	); resultado != nil || !errors.Is(err, puertosbolsa.ErrResultadoTransaccionalBaremacionInvalido) {
+		t.Fatalf("intento invalido admitido: (%v, %v)", resultado, err)
+	}
+}
+
 func TestFinalizarFirmaConservaResultadoTransaccionalIndeterminadoTipado(t *testing.T) {
 	entorno := nuevoEntornoBaremacionPrueba(t)
 	preparada := prepararFirmaBaremacionPrueba(t, entorno)

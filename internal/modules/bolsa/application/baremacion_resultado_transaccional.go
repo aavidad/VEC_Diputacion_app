@@ -6,6 +6,41 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
+// normalizarFalloTransaccionalNominalBaremacionV2 expurga la respuesta de una
+// frontera que pudo enviar COMMIT y conserva una prueba tipada solo si pertenece
+// al identificador exacto del intento. Cualquier ambiguedad produce un nuevo
+// resultado indeterminado ligado al identificador esperado, nunca al ajeno.
+//
+// La funcion solo normaliza errores: no acredita que el intento nominal fuera
+// autenticado o persistido, no acepta exitos y no concede permiso de reintento.
+func normalizarFalloTransaccionalNominalBaremacionV2(
+	intento puertosbolsa.IntentoNominalConfirmacionBaremacionV2,
+	errInvocacion error,
+) (*puertosbolsa.ErrorResultadoTransaccionalBaremacion, error) {
+	if intento.ValidarForma() != nil || errInvocacion == nil {
+		return nil, puertosbolsa.ErrResultadoTransaccionalBaremacionInvalido
+	}
+
+	tipado, unico, _ := extraerResultadoTransaccionalUnicoBaremacion(errInvocacion)
+	if unico {
+		identificador, err := tipado.Identificador()
+		if err == nil && identificador.CoincideExactamenteCon(intento.IdentificadorOperacion) {
+			clon, err := tipado.Clonar()
+			if err == nil {
+				return clon, nil
+			}
+		}
+	}
+
+	indeterminado, err := puertosbolsa.NuevoErrorResultadoTransaccionalIndeterminadoBaremacion(
+		intento.IdentificadorOperacion,
+	)
+	if err != nil {
+		return nil, puertosbolsa.ErrResultadoTransaccionalBaremacionInvalido
+	}
+	return indeterminado, nil
+}
+
 // clasificarDesenlaceConfirmacionBaremacion se ejecuta exclusivamente despues
 // de cruzar la frontera que puede haber enviado COMMIT. Solo una prueba
 // autenticada y coherente de no aplicacion evita el estado indeterminado; esa
