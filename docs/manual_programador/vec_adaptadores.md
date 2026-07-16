@@ -1098,9 +1098,9 @@ type Store struct {
 
 func NewStore() *Store
 
-func (s *Store) AbandonarGeneracion(ctx context.Context, token string) error
+func (s *Store) AbandonarGeneracion(ctx context.Context, token ports.TokenReservaGeneracionDocumento) error
 
-func (s *Store) AbandonarReservaCodigoCotejo(ctx context.Context, token string) error
+func (s *Store) AbandonarReservaCodigoCotejo(ctx context.Context, token ports.TokenReservaEmisionCodigoCotejo) error
 
 func (s *Store) AppendAudit(ctx context.Context, entry domain.AuditEntry) (domain.AuditEntry, error)
 
@@ -1167,7 +1167,7 @@ func (s *Store) ConfirmarGeneracion(
 
 func (s *Store) ConfirmarGeneracionLogica(
 	ctx context.Context,
-	token string,
+	token ports.TokenReservaGeneracionDocumento,
 	huellaSolicitudHMAC string,
 	confirmadaEn time.Time,
 	resultado domain.ResultadoGeneracionDocumento,
@@ -1211,7 +1211,8 @@ func (s *Store) ConfirmarPublicacionPoliticaCotejo(
 
 func (s *Store) ConfirmarReservaCodigoCotejo(
 	ctx context.Context,
-	token, huellaSolicitudHMAC string,
+	token ports.TokenReservaEmisionCodigoCotejo,
+	huellaSolicitudHMAC string,
 	confirmadaEn time.Time,
 	codigo domain.CodigoCotejo,
 	traza domain.AuditEntry,

@@ -208,42 +208,44 @@ var (
 	ErrSecuenciaCatalogoInvalida   = errors.New("vec: secuencia de catalogo invalida")
 )
 var (
-	ErrPoliticaCotejoNoEncontrada           = errors.New("vec: politica de cotejo no encontrada")
-	ErrVersionPoliticaCotejoYaExiste        = errors.New("vec: version de politica de cotejo ya existente")
-	ErrRevisionPoliticaCotejoConflicto      = errors.New("vec: revision de politica de cotejo en conflicto")
-	ErrSecuenciaPoliticaCotejoInvalida      = errors.New("vec: secuencia de politica de cotejo invalida")
-	ErrCodigoCotejoNoEncontrado             = errors.New("vec: codigo de cotejo no encontrado")
-	ErrCodigoCotejoYaExiste                 = errors.New("vec: codigo de cotejo ya existente")
-	ErrDocumentoConCodigoCotejo             = errors.New("vec: version documental ya vinculada a un codigo de cotejo")
-	ErrIndiceCodigoCotejoYaExiste           = errors.New("vec: indice de codigo de cotejo ya existente")
-	ErrIndicesCodigoCotejoAmbiguos          = errors.New("vec: varios codigos coinciden con los indices de cotejo")
-	ErrRevisionCodigoCotejoConflicto        = errors.New("vec: revision de codigo de cotejo en conflicto")
-	ErrClaveIdempotenciaCotejoInvalida      = errors.New("vec: clave de idempotencia de cotejo invalida")
-	ErrClaveIdempotenciaCotejoReutilizada   = errors.New("vec: clave de idempotencia de cotejo reutilizada")
-	ErrEmisionCodigoCotejoEnCurso           = errors.New("vec: emision de codigo de cotejo en curso")
-	ErrReservaCodigoCotejoNoValida          = errors.New("vec: reserva de codigo de cotejo no valida")
-	ErrMaterialCodigoCotejoInvalido         = errors.New("vec: material de codigo de cotejo invalido")
-	ErrValorCodigoCotejoNoDisponible        = errors.New("vec: valor protegido del codigo de cotejo no disponible")
-	ErrSerializacionCodigoCotejoProhibida   = errors.New("vec: serializacion del secreto de cotejo prohibida")
-	ErrEvidenciaEmisionNoEncontrada         = errors.New("vec: evidencia de emision no encontrada")
-	ErrContextoCustodiaCotejoInvalido       = errors.New("vec: contexto de custodia de codigo de cotejo invalido")
-	ErrSerializacionContextoCotejoProhibida = errors.New("vec: serializacion del contexto de custodia de cotejo prohibida")
+	ErrPoliticaCotejoNoEncontrada               = errors.New("vec: politica de cotejo no encontrada")
+	ErrVersionPoliticaCotejoYaExiste            = errors.New("vec: version de politica de cotejo ya existente")
+	ErrRevisionPoliticaCotejoConflicto          = errors.New("vec: revision de politica de cotejo en conflicto")
+	ErrSecuenciaPoliticaCotejoInvalida          = errors.New("vec: secuencia de politica de cotejo invalida")
+	ErrCodigoCotejoNoEncontrado                 = errors.New("vec: codigo de cotejo no encontrado")
+	ErrCodigoCotejoYaExiste                     = errors.New("vec: codigo de cotejo ya existente")
+	ErrDocumentoConCodigoCotejo                 = errors.New("vec: version documental ya vinculada a un codigo de cotejo")
+	ErrIndiceCodigoCotejoYaExiste               = errors.New("vec: indice de codigo de cotejo ya existente")
+	ErrIndicesCodigoCotejoAmbiguos              = errors.New("vec: varios codigos coinciden con los indices de cotejo")
+	ErrRevisionCodigoCotejoConflicto            = errors.New("vec: revision de codigo de cotejo en conflicto")
+	ErrClaveIdempotenciaCotejoInvalida          = errors.New("vec: clave de idempotencia de cotejo invalida")
+	ErrClaveIdempotenciaCotejoReutilizada       = errors.New("vec: clave de idempotencia de cotejo reutilizada")
+	ErrEmisionCodigoCotejoEnCurso               = errors.New("vec: emision de codigo de cotejo en curso")
+	ErrReservaCodigoCotejoNoValida              = errors.New("vec: reserva de codigo de cotejo no valida")
+	ErrSerializacionTokenReservaCotejoProhibida = errors.New("vec: serializacion del token de reserva de cotejo prohibida")
+	ErrMaterialCodigoCotejoInvalido             = errors.New("vec: material de codigo de cotejo invalido")
+	ErrValorCodigoCotejoNoDisponible            = errors.New("vec: valor protegido del codigo de cotejo no disponible")
+	ErrSerializacionCodigoCotejoProhibida       = errors.New("vec: serializacion del secreto de cotejo prohibida")
+	ErrEvidenciaEmisionNoEncontrada             = errors.New("vec: evidencia de emision no encontrada")
+	ErrContextoCustodiaCotejoInvalido           = errors.New("vec: contexto de custodia de codigo de cotejo invalido")
+	ErrSerializacionContextoCotejoProhibida     = errors.New("vec: serializacion del contexto de custodia de cotejo prohibida")
 )
 var (
-	ErrPlantillaDocumentoNoEncontrada = errors.New("vec: plantilla documental no encontrada")
-	ErrVersionPlantillaYaExiste       = errors.New("vec: la version de plantilla ya existe")
-	ErrDocumentoNoEncontrado          = errors.New("vec: documento no encontrado")
-	ErrDocumentoYaExiste              = errors.New("vec: documento ya existe")
-	ErrContenidoDocumentoNoEncontrado = errors.New("vec: contenido documental no encontrado")
-	ErrHuellaContenidoNoCoincide      = errors.New("vec: la huella del contenido no coincide")
-	ErrLimiteLecturaExcedido          = errors.New("vec: limite de lectura documental excedido")
-	ErrDocumentoLogicoNoEncontrado    = errors.New("vec: documento logico no encontrado")
-	ErrRepresentacionNoEncontrada     = errors.New("vec: representacion documental no encontrada")
-	ErrClaveIdempotenciaInvalida      = errors.New("vec: clave de idempotencia documental invalida")
-	ErrClaveIdempotenciaReutilizada   = errors.New("vec: clave de idempotencia reutilizada para otra solicitud")
-	ErrGeneracionDocumentoEnCurso     = errors.New("vec: generacion documental en curso")
-	ErrReservaDocumentoNoValida       = errors.New("vec: reserva documental no valida")
-	ErrDecisionAutorizacionConsumida  = errors.New("vec: decision de autorizacion ya consumida por otro efecto")
+	ErrPlantillaDocumentoNoEncontrada              = errors.New("vec: plantilla documental no encontrada")
+	ErrVersionPlantillaYaExiste                    = errors.New("vec: la version de plantilla ya existe")
+	ErrDocumentoNoEncontrado                       = errors.New("vec: documento no encontrado")
+	ErrDocumentoYaExiste                           = errors.New("vec: documento ya existe")
+	ErrContenidoDocumentoNoEncontrado              = errors.New("vec: contenido documental no encontrado")
+	ErrHuellaContenidoNoCoincide                   = errors.New("vec: la huella del contenido no coincide")
+	ErrLimiteLecturaExcedido                       = errors.New("vec: limite de lectura documental excedido")
+	ErrDocumentoLogicoNoEncontrado                 = errors.New("vec: documento logico no encontrado")
+	ErrRepresentacionNoEncontrada                  = errors.New("vec: representacion documental no encontrada")
+	ErrClaveIdempotenciaInvalida                   = errors.New("vec: clave de idempotencia documental invalida")
+	ErrClaveIdempotenciaReutilizada                = errors.New("vec: clave de idempotencia reutilizada para otra solicitud")
+	ErrGeneracionDocumentoEnCurso                  = errors.New("vec: generacion documental en curso")
+	ErrReservaDocumentoNoValida                    = errors.New("vec: reserva documental no valida")
+	ErrSerializacionTokenReservaDocumentoProhibida = errors.New("vec: serializacion del token de reserva documental prohibida")
+	ErrDecisionAutorizacionConsumida               = errors.New("vec: decision de autorizacion ya consumida por otro efecto")
 )
 var (
 	ErrReservaEfectoGeneracionDocumentalInvalida = errors.New("vec: reserva de efecto documental invalida")
@@ -385,6 +387,9 @@ var ErrEjecucionDocumentalAtestadaV4NoDisponible = errors.New(
 var ErrFuenteContextoActorNoDisponible = errors.New("vec: fuente de contexto de actor no disponible")
 var ErrInteropNotEnabledV0 = errors.New("vec interop port not enabled v0")
 var ErrRevalidacionAutenticacionActorNoDisponible = errors.New("vec: revalidacion de autenticacion y actor no disponible")
+var ErrSerializacionTokenReservaCobroProhibida = errors.New(
+	"vec: serializacion de token de reserva de cobro prohibida",
+)
 ```
 
 ### Funciones
@@ -438,6 +443,22 @@ func MensajeCanonicoAtestacionReclamacionDespachoDocumentalV3(
 	auditoriaReclamacionRef, evidenciaOperacionRef string,
 ) ([]byte, error)
 func RenderizadorDocumentalNulo(renderizador RenderizadorDocumentalPorPerfil) bool
+func RepresentacionCanonicaDecisionAutorizacionReforzadaV1(
+	decision domain.DecisionAutorizacion,
+) ([]byte, error)
+```
+
+RepresentacionCanonicaDecisionAutorizacionReforzadaV1 devuelve el unico
+perfil JSON comprometido por la huella de una decision reforzada. Esta
+proyeccion estrecha existe para que los adaptadores duraderos no repliquen
+el orden de conjuntos ni el formato UTC de microsegundo fijo.
+
+A diferencia de NuevaEvidenciaUsoDecisionAutorizacion, no acredita que las
+obligaciones hayan sido cumplidas ni convierte la decision en una capacidad
+consumible. Por ello admite decisiones validas con obligaciones y solo debe
+usarse para persistencia, cotejo o firma de la representacion.
+
+```go
 func ValidarManifiestoPreparacionParaConfirmacion(
 	manifiesto domain.ManifiestoPreparacionCargaDirectaV1,
 	carga domain.CargaDocumental,
@@ -5034,8 +5055,8 @@ respuesta ambigua y exige reconciliacion.
 ```go
 type RepositorioCodigosCotejo interface {
 	ReservarEmisionCodigoCotejo(context.Context, SolicitudReservarEmisionCodigoCotejo) (ReservaEmisionCodigoCotejo, error)
-	ConfirmarReservaCodigoCotejo(context.Context, string, string, time.Time, domain.CodigoCotejo, domain.AuditEntry, domain.Event) error
-	AbandonarReservaCodigoCotejo(context.Context, string) error
+	ConfirmarReservaCodigoCotejo(context.Context, TokenReservaEmisionCodigoCotejo, string, time.Time, domain.CodigoCotejo, domain.AuditEntry, domain.Event) error
+	AbandonarReservaCodigoCotejo(context.Context, TokenReservaEmisionCodigoCotejo) error
 	ObtenerCodigoCotejo(context.Context, string) (domain.CodigoCotejo, error)
 	ObtenerCodigoCotejoPorDocumento(context.Context, domain.ReferenciaDocumento) (domain.CodigoCotejo, error)
 	BuscarCodigoCotejoPorIndices(context.Context, []string) (domain.CodigoCotejo, error)
@@ -5067,8 +5088,8 @@ nunca autoriza por si sola.
 ```go
 type RepositorioDocumentosLogicos interface {
 	ReservarGeneracion(context.Context, SolicitudReservarGeneracionDocumento) (ReservaGeneracionDocumento, error)
-	ConfirmarGeneracionLogica(context.Context, string, string, time.Time, domain.ResultadoGeneracionDocumento, domain.AuditEntry, domain.Event) error
-	AbandonarGeneracion(context.Context, string) error
+	ConfirmarGeneracionLogica(context.Context, TokenReservaGeneracionDocumento, string, time.Time, domain.ResultadoGeneracionDocumento, domain.AuditEntry, domain.Event) error
+	AbandonarGeneracion(context.Context, TokenReservaGeneracionDocumento) error
 	ObtenerDocumentoLogico(context.Context, domain.ReferenciaDocumento) (domain.DocumentoLogico, error)
 	ListarRepresentacionesDocumento(context.Context, domain.ReferenciaDocumento) ([]domain.RepresentacionDocumento, error)
 }
@@ -5266,7 +5287,7 @@ se comunica como error y nunca se roba silenciosamente.
 func (r ReservaCargaDocumental) Validar() error
 
 type ReservaDevolucionCobro struct {
-	Token    string
+	Token    TokenReservaDevolucionCobro
 	Repetida bool
 	Orden    *domain.OrdenCobro
 }
@@ -5282,7 +5303,7 @@ func (ReservaDevolucionCobro) String() string
 func (r ReservaDevolucionCobro) Validar() error
 
 type ReservaEmisionCodigoCotejo struct {
-	Token    string
+	Token    TokenReservaEmisionCodigoCotejo
 	Repetida bool
 	Codigo   domain.CodigoCotejo
 }
@@ -5294,7 +5315,7 @@ protector; este contrato nunca lo persiste.
 
 ```go
 type ReservaGeneracionDocumento struct {
-	Token     string
+	Token     TokenReservaGeneracionDocumento
 	Repetida  bool
 	Resultado domain.ResultadoGeneracionDocumento
 }
@@ -5305,7 +5326,7 @@ nueva con Token, o el resultado confirmado anteriormente con Repetida=true.
 
 ```go
 type ReservaOrdenCobro struct {
-	Token    string
+	Token    TokenReservaOrdenCobro
 	Repetida bool
 	Orden    *domain.OrdenCobro
 }
@@ -6283,7 +6304,7 @@ type SolicitudAbandonarEjecucionDocumentalV3 struct {
 func (s SolicitudAbandonarEjecucionDocumentalV3) Validar() error
 
 type SolicitudAbandonarReservaDevolucionCobro struct {
-	Token               string
+	Token               TokenReservaDevolucionCobro
 	OrdenRef            string
 	DevolucionRef       string
 	PrincipalRef        string
@@ -6293,7 +6314,7 @@ type SolicitudAbandonarReservaDevolucionCobro struct {
 func (s SolicitudAbandonarReservaDevolucionCobro) Validar() error
 
 type SolicitudAbandonarReservaOrdenCobro struct {
-	Token               string
+	Token               TokenReservaOrdenCobro
 	OrdenRef            string
 	PrincipalRef        string
 	HuellaSolicitudHMAC string
@@ -6585,7 +6606,7 @@ func (SolicitudConfirmarCargaDirecta) String() string
 func (s SolicitudConfirmarCargaDirecta) Validar() error
 
 type SolicitudConfirmarCreacionOrdenCobro struct {
-	Token                    string
+	Token                    TokenReservaOrdenCobro
 	OrdenRef                 string
 	PrincipalRef             string
 	IndiceIdempotenciaHMAC   string
@@ -6667,7 +6688,7 @@ copia devuelta; volver a leer la solicitud original reabriria un TOCTOU.
 func (s SolicitudConfirmarPreparacionCargaDocumental) Validar() error
 
 type SolicitudConfirmarReservaDevolucionCobro struct {
-	Token                string
+	Token                TokenReservaDevolucionCobro
 	HuellaSolicitudHMAC  string
 	VersionEsperada      int
 	HuellaEsperadaSHA256 string
@@ -7749,6 +7770,191 @@ debe entregarse a SQL interpolado, trazas, telemetria ni serializadores.
 func (TokenReservaCargaDocumental) String() string
 
 func (t TokenReservaCargaDocumental) Valido() bool
+
+type TokenReservaDevolucionCobro struct {
+	// Has unexported fields.
+}
+```
+
+TokenReservaDevolucionCobro no es intercambiable con el token de alta. Su
+huella usa otro dominio aun cuando ambos secretos tengan la misma longitud.
+La ligadura se realiza al crear el cierre, no al invocarlo.
+
+```go
+func NuevoTokenReservaDevolucionCobro() (TokenReservaDevolucionCobro, error)
+
+func (t TokenReservaDevolucionCobro) CoincideConHuellaSHA256(huella string) bool
+
+func (t TokenReservaDevolucionCobro) Format(estado fmt.State, _ rune)
+
+func (t TokenReservaDevolucionCobro) GoString() string
+
+func (t TokenReservaDevolucionCobro) HuellaSHA256() (string, error)
+
+func (t TokenReservaDevolucionCobro) LogValue() slog.Value
+
+func (TokenReservaDevolucionCobro) MarshalBinary() ([]byte, error)
+
+func (TokenReservaDevolucionCobro) MarshalJSON() ([]byte, error)
+
+func (TokenReservaDevolucionCobro) MarshalText() ([]byte, error)
+
+func (TokenReservaDevolucionCobro) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (TokenReservaDevolucionCobro) String() string
+
+func (*TokenReservaDevolucionCobro) UnmarshalBinary([]byte) error
+
+func (*TokenReservaDevolucionCobro) UnmarshalJSON([]byte) error
+
+func (*TokenReservaDevolucionCobro) UnmarshalText([]byte) error
+
+func (*TokenReservaDevolucionCobro) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (t TokenReservaDevolucionCobro) Valido() bool
+
+type TokenReservaEmisionCodigoCotejo struct {
+	// Has unexported fields.
+}
+```
+
+TokenReservaEmisionCodigoCotejo es una capacidad efimera, nominal y no
+serializable. Su material aleatorio solo vive capturado por un cierre
+privado e inmutable, ya ligado a este dominio, y es incompatible por
+tipo con cualquier otra reserva del portal. La huella SHA-256 no permite
+recuperar una entrada CSPRNG de 256 bits; un almacen puede envolverla con
+HMAC si ademas necesita impedir correlacion entre almacenes.
+
+```go
+func NuevoTokenReservaEmisionCodigoCotejo() (TokenReservaEmisionCodigoCotejo, error)
+
+func (t TokenReservaEmisionCodigoCotejo) CoincideConHuellaSHA256(huella string) bool
+
+func (t TokenReservaEmisionCodigoCotejo) Format(estado fmt.State, _ rune)
+
+func (t TokenReservaEmisionCodigoCotejo) GoString() string
+
+func (t TokenReservaEmisionCodigoCotejo) HuellaSHA256() (string, error)
+
+func (t TokenReservaEmisionCodigoCotejo) LogValue() slog.Value
+
+func (TokenReservaEmisionCodigoCotejo) MarshalBinary() ([]byte, error)
+
+func (TokenReservaEmisionCodigoCotejo) MarshalJSON() ([]byte, error)
+
+func (TokenReservaEmisionCodigoCotejo) MarshalText() ([]byte, error)
+
+func (TokenReservaEmisionCodigoCotejo) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (TokenReservaEmisionCodigoCotejo) String() string
+
+func (*TokenReservaEmisionCodigoCotejo) UnmarshalBinary([]byte) error
+
+func (*TokenReservaEmisionCodigoCotejo) UnmarshalJSON([]byte) error
+
+func (*TokenReservaEmisionCodigoCotejo) UnmarshalText([]byte) error
+
+func (*TokenReservaEmisionCodigoCotejo) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (t TokenReservaEmisionCodigoCotejo) Valido() bool
+
+type TokenReservaGeneracionDocumento struct {
+	// Has unexported fields.
+}
+```
+
+TokenReservaGeneracionDocumento es una capacidad efimera, nominal y
+no serializable. Se crea con 256 bits del CSPRNG y no ofrece ninguna
+operacion para revelar su material. Los repositorios deben persistir
+exclusivamente la huella obtenida con HuellaSHA256 y verificarla mediante
+CoincideConHuellaSHA256. SHA-256 es suficiente aqui porque la entrada
+tiene 256 bits uniformes, no es un dato humano atacable por diccionario.
+Un almacen que deba ocultar tambien correlaciones puede envolver esta
+huella con HMAC y una clave gestionada. El cierre privado e inmutable impide
+recuperar el material mediante la API de reflexion segura y hace que el tipo
+no sea comparable mediante ==.
+
+```go
+func NuevoTokenReservaGeneracionDocumento() (TokenReservaGeneracionDocumento, error)
+
+func (t TokenReservaGeneracionDocumento) CoincideConHuellaSHA256(huella string) bool
+```
+
+CoincideConHuellaSHA256 realiza la unica comparacion autoritativa del token
+contra estado durable. La comparacion de los 32 bytes se hace en tiempo
+constante; una huella mal formada se rechaza en cerrado.
+
+```go
+func (t TokenReservaGeneracionDocumento) Format(estado fmt.State, _ rune)
+
+func (t TokenReservaGeneracionDocumento) GoString() string
+
+func (t TokenReservaGeneracionDocumento) HuellaSHA256() (string, error)
+
+func (t TokenReservaGeneracionDocumento) LogValue() slog.Value
+
+func (TokenReservaGeneracionDocumento) MarshalBinary() ([]byte, error)
+
+func (TokenReservaGeneracionDocumento) MarshalJSON() ([]byte, error)
+
+func (TokenReservaGeneracionDocumento) MarshalText() ([]byte, error)
+
+func (TokenReservaGeneracionDocumento) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (TokenReservaGeneracionDocumento) String() string
+
+func (*TokenReservaGeneracionDocumento) UnmarshalBinary([]byte) error
+
+func (*TokenReservaGeneracionDocumento) UnmarshalJSON([]byte) error
+
+func (*TokenReservaGeneracionDocumento) UnmarshalText([]byte) error
+
+func (*TokenReservaGeneracionDocumento) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (t TokenReservaGeneracionDocumento) Valido() bool
+
+type TokenReservaOrdenCobro struct {
+	// Has unexported fields.
+}
+```
+
+TokenReservaOrdenCobro es una capacidad efimera y nominal para confirmar o
+abandonar exclusivamente una reserva de alta. Nunca se serializa ni revela;
+la huella con separacion de dominio es el unico material persistible. El
+secreto vive solo en un cierre privado e inmutable ligado a dicho dominio.
+
+```go
+func NuevoTokenReservaOrdenCobro() (TokenReservaOrdenCobro, error)
+
+func (t TokenReservaOrdenCobro) CoincideConHuellaSHA256(huella string) bool
+
+func (t TokenReservaOrdenCobro) Format(estado fmt.State, _ rune)
+
+func (t TokenReservaOrdenCobro) GoString() string
+
+func (t TokenReservaOrdenCobro) HuellaSHA256() (string, error)
+
+func (t TokenReservaOrdenCobro) LogValue() slog.Value
+
+func (TokenReservaOrdenCobro) MarshalBinary() ([]byte, error)
+
+func (TokenReservaOrdenCobro) MarshalJSON() ([]byte, error)
+
+func (TokenReservaOrdenCobro) MarshalText() ([]byte, error)
+
+func (TokenReservaOrdenCobro) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (TokenReservaOrdenCobro) String() string
+
+func (*TokenReservaOrdenCobro) UnmarshalBinary([]byte) error
+
+func (*TokenReservaOrdenCobro) UnmarshalJSON([]byte) error
+
+func (*TokenReservaOrdenCobro) UnmarshalText([]byte) error
+
+func (*TokenReservaOrdenCobro) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (t TokenReservaOrdenCobro) Valido() bool
 
 type ValorCodigoCotejoGenerado struct {
 	Secreto          SecretoCodigoCotejo

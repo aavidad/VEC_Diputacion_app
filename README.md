@@ -56,7 +56,21 @@ Probado:
   publicado y aislada en una red interna. Ambos contenedores se ejecutan sin
   privilegios, con raiz de solo lectura, capacidades eliminadas y limites de
   recursos; sigue siendo un perfil local sin TLS.
-- Test obligatorio local: `go test ./...`.
+- Idempotencia semantica nominal V2 de baremacion con denegacion cerrada de
+  serializacion de valores sensibles. La proyeccion persistible (DDL) esta
+  bajo dictamen NO-GO hasta cerrar las brechas contractuales listadas en
+  [la migracion V2](docs/portal_vec/migracion_baremacion_idempotencia_v2.md).
+- Saga durable de firma de baremaciones: contratos, expediente probatorio,
+  fachada reanudable y adaptador en memoria con arrendamiento, cercado y
+  AES-256-GCM, probados adversariamente (reintentos ambiguos, reanudacion
+  entre replicas, claves cruzadas). Los conectores productivos siguen
+  pendientes segun
+  [el flujo durable](docs/portal_vec/flujo_firma_baremacion_durable.md).
+- Integracion continua en GitHub Actions: cada push y pull request ejecuta
+  la puerta canonica completa (`gofmt`, tests, `-race`, `vet`, `build`,
+  `govulncheck` y tamano de ficheros conforme a DEC-051).
+- Test obligatorio local: `go test ./...`; puerta completa en
+  `scripts/verificar_calidad.sh`.
 
 Simulado:
 
@@ -99,7 +113,12 @@ Pendiente productivo:
 
 - [Arquitectura tecnica modular del portal](docs/portal_vec/arquitectura_tecnica.md)
 - [Contrato de modulos VEC](docs/portal_vec/contrato_modulos_vec.md): contrato
-  para enchufar Bolsa, nominas, concursos u otros modulos.
+  para enchufar Bolsa, nominas, concursos u otros modulos, con los niveles de
+  madurez declarados por modulo.
+- [Contratos API por modulo](docs/portal_vec/contratos_api_modulos.md):
+  endpoints reales con envelope, errores y version, huecos de la Ola 2 e
+  inconsistencias verificadas en ejecucion; base para clientes web y de
+  escritorio equivalentes (DEC-053).
 - [Inventario funcional VEC/VEPA para portal empleado](docs/portal_vec/inventario_vec.md)
 - [Registro de decisiones y mejoras](docs/portal_vec/registro_decisiones.md)
 - [Dominio del portal VEC y autobaremacion](docs/portal_vec/dominio_y_autobaremacion.md)
@@ -138,6 +157,9 @@ Pendiente productivo:
 
 - [Modulo Personal/Nominas publico](docs/portal_vec/nominas_personal_publico.md):
   normativa, referencias profesionales, modelo funcional y gates de calidad.
+- [Brecha del nucleo heredado de Bolsa](docs/portal_vec/brecha_nucleo_heredado_bolsa.md):
+  inventario y analisis de brecha de `internal/candidate` para la retirada
+  por porte (DEC-050).
 - [Referencias para modulos Cronos y Dietas](docs/portal_vec/referencias_cronos_dietas.md)
 - [Dietas: matriz provincial de distancias](docs/portal_vec/dietas_matriz_distancias.md)
 - [Pagos, tasas y conciliacion](docs/portal_vec/pagos_tasas_y_conciliacion.md)
@@ -177,6 +199,9 @@ Pendiente productivo:
 
 - [OSRM interno de Granada para Dietas/VEC](deploy/osrm-granada/README.md)
 - [Vertical slice juridico-administrativo](docs/vertical_slice_juridico.md)
+- [Autoprogramacion Orquesta pendientes 2026-07-16](docs/autoprogramacion_orquesta_pendientes_2026-07-16.md):
+  cola T01-T08 derivada de la auditoria y las DEC-050 a DEC-053, con estados
+  de reserva por carril.
 - [Autoprogramacion Orquesta pendientes 2026-05-23](docs/autoprogramacion_orquesta_pendientes_2026-05-23.md)
 - [Duplicaciones railes pendientes 2026-05-24](docs/duplicaciones_railes_pendientes_2026-05-24.md)
 - [Rail errors observados 2026-05-23](docs/rail_errors_observados_2026-05-23.md)

@@ -10,6 +10,13 @@ Este Markdown no altera la jerarquía de instrucciones ni prevalece sobre las
 del sistema. Las propuestas que atribuyan decisiones al responsable requieren
 su validación expresa por el cauce de gobierno del proyecto.
 
+Validación producida: las decisiones derivadas de esta auditoría quedaron
+adoptadas por el responsable el 16 de julio de 2026 como DEC-050 (retirada
+por porte del núcleo heredado), DEC-051 (tamaño de ficheros: objetivo 500,
+tope duro 800), DEC-052 (frontend en módulos ES con tokens) y DEC-053 (API
+primero para clientes web y de escritorio) en el
+[registro de decisiones](registro_decisiones.md).
+
 ## Método
 
 Los hallazgos técnicos se verificaron con comandos reproducibles, no solo
@@ -242,13 +249,14 @@ Mientras las remediaciones H-01 y H-02 no estén ejecutadas y en verde:
 
 | Ref | Acción | Estado | Responsable sugerido |
 | --- | --- | --- | --- |
-| S-01 | Eliminar `SSLKEYLOGFILE` y el keylog | En curso: variable heredada y keylog activo | Sistemas/desarrollo |
-| S-02 | CI con la puerta de calidad canónica | Implementada; pendiente primera ejecución satisfactoria | Desarrollo |
-| H-01 | Extraer lógica de `ports` a subpaquetes | Pendiente | Agente, tras cerrar el WIP de baremación |
-| H-02 | Mover cableado de módulos de `httpapi` a `bootstrap` | Pendiente | Agente, en rama aislada |
-| H-03 | Partir `web/static/app.js` por módulos | Pendiente | Agente, antes de conectar UI privada |
-| H-04 | Inventario y análisis de brecha del núcleo heredado | Propuesto; pendiente aprobación | Responsable funcional/desarrollo |
-| H-04 | Portar al módulo nuevo lo necesario y retirar `internal/candidate` | Propuesto, tras aprobar la brecha | Responsable funcional/desarrollo |
-| H-05 | Declarar nivel de madurez por módulo en el contrato | Pendiente | Agente |
-| H-06 | Límite de 500 líneas: nuevos no crecen; reducir existentes al tocarlos | Guarda parcial: depurar línea base, ampliar alcance y ratificar | Desarrollo |
+| S-01 | Eliminar `SSLKEYLOGFILE` y el keylog | Hecho 2026-07-16: variable retirada de `~/.bashrc` (copia `~/.bashrc.bak-2026-07-16`) y fichero borrado; procesos previos deben reiniciarse | — |
+| S-02 | CI con la puerta de calidad canónica | Hecho: workflow `ci` en verde tras fijar timeouts de `-race` (commit `708f7f8`) | — |
+| H-01 | Extraer lógica de `ports` a subpaquetes | Pendiente: encolado como T02 con evidencia del timeout real de CI | Agente |
+| H-02 | Mover cableado de módulos de `httpapi` a `bootstrap` | Pendiente: encolado como T03 (incluye T08, código muerto de workspace) | Agente |
+| H-03 | Partir `web/static/app.js` por módulos | En curso: DEC-052 adoptada, carril T04 reservado | Agente dirigido |
+| H-04 | Inventario y análisis de brecha del núcleo heredado | Hecho 2026-07-16: [análisis de brecha](brecha_nucleo_heredado_bolsa.md) (9 cubiertas, 14 a portar, 9 descartadas) | — |
+| H-04 | Portar al módulo nuevo lo necesario y retirar `internal/candidate` | Pendiente: DEC-050 adoptada; el alcance de la inscripción ciudadana requiere decisión previa del responsable | Responsable + agente |
+| H-05 | Declarar nivel de madurez por módulo en el contrato | Hecho 2026-07-16: sección de niveles en el [contrato de módulos](contrato_modulos_vec.md) | — |
+| H-06 | Límite de tamaño de ficheros | En vigor: DEC-051 (objetivo 500, tope duro 800), puerta en `verificar_calidad.sh` y CI, línea base solo de versionados | Todos |
+| DEC-053 | Contrato API por módulo para clientes web/escritorio | Hecho 2026-07-16 la parte documental: [contratos API](contratos_api_modulos.md); endpoints de Ola 2 pendientes | Agente |
 | S-04 | Decidir estrategia CSRF con el adaptador de identidad | Pendiente | Decisión humana (DEC en registro) |

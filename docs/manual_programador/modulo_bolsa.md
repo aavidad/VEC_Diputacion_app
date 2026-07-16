@@ -341,6 +341,10 @@ func (r *RepositorioFlujosFirmaBaremacion) CrearORecuperarFlujoFirmaBaremacion(
 	solicitud puertosbolsa.SolicitudCrearORecuperarFlujoFirmaBaremacion,
 ) (puertosbolsa.ResultadoCrearORecuperarFlujoFirmaBaremacion, error)
 
+func (r *RepositorioFlujosFirmaBaremacion) Format(estado fmt.State, _ rune)
+
+func (r *RepositorioFlujosFirmaBaremacion) GoString() string
+
 func (r *RepositorioFlujosFirmaBaremacion) GuardarFlujoFirmaBaremacion(
 	ctx context.Context,
 	solicitud puertosbolsa.SolicitudGuardarFlujoFirmaBaremacion,
@@ -351,10 +355,14 @@ func (r *RepositorioFlujosFirmaBaremacion) LiberarArrendamientoFlujoFirmaBaremac
 	solicitud puertosbolsa.SolicitudLiberarArrendamientoFlujoFirmaBaremacion,
 ) error
 
+func (r *RepositorioFlujosFirmaBaremacion) LogValue() slog.Value
+
 func (r *RepositorioFlujosFirmaBaremacion) ObtenerFlujoFirmaBaremacion(
 	ctx context.Context,
 	solicitud puertosbolsa.SolicitudObtenerFlujoFirmaBaremacion,
 ) (puertosbolsa.ExpedienteFlujoFirmaBaremacion, error)
+
+func (*RepositorioFlujosFirmaBaremacion) String() string
 ```
 
 ## Paquete `internal/modules/bolsa/adapters/postgres`
@@ -449,6 +457,9 @@ var (
 	ErrServicioConsultaPublicaInvalido = errors.New("bolsa: servicio de consulta publica invalido")
 	ErrFiltroPublicoInvalido           = errors.New("bolsa: filtro publico invalido")
 	ErrDatosPublicosNoConfiables       = errors.New("bolsa: datos publicos no confiables")
+)
+var ErrAbandonoReservaBaremacionNoAcreditado = errors.New(
+	"bolsa: abandono de reserva de baremacion no acreditado",
 )
 ```
 
@@ -630,6 +641,10 @@ FachadaFirmaBaremacionDurable separa el ciclo HTTP de las capacidades en
 memoria del motor. El repositorio conserva una saga sellada y el protector
 cifra el estado de trabajo; cada llamada vuelve a derivar la identidad desde
 la sesion autoritativa.
+
+Estado: infraestructura interna sin cableado productivo. No acredita
+persistencia tras reinicio, KMS/HSM ni ejecutores reales; esas garantias
+dependen de los adaptadores fijados por la composicion homologada.
 
 ```go
 func NuevaFachadaFirmaBaremacionDurable(
@@ -833,7 +848,8 @@ type OrdenPrepararFlujoFirmaBaremacion struct {
 OrdenPrepararFlujoFirmaBaremacion solo admite referencias de negocio y un
 estado de trabajo interno sin capacidades. Un adaptador HTTP no debe aceptar
 EstadoTrabajoInicial del cliente: lo construye el caso de uso tecnico que ha
-fijado la decision y sus huellas.
+fijado la decision y sus huellas. La entrada productiva permanece cerrada
+hasta imponer esta restriccion por construccion y probarla en arquitectura.
 
 ```go
 type OrdenReanudarFlujoFirmaBaremacion struct {
@@ -885,13 +901,14 @@ type RequisitoPublico struct {
 }
 
 type ResultadoFinalizarFirmaBaremacion struct {
-	Decision          dominiobolsa.DecisionTecnica
-	ValidacionInicial puertosbolsa.ValidacionFirmaServidor
-	SelloTiempo       *puertosbolsa.SelloTiempoFirma
-	Aumento           *puertosbolsa.ResultadoAumentoFirma
-	ValidacionFinal   puertosbolsa.ValidacionFirmaServidor
-	DocumentoFirmado  puertosbolsa.DocumentoFirmadoCustodiado
-	Confirmacion      puertosbolsa.ResultadoConfirmarCambioBaremacion
+	Decision            dominiobolsa.DecisionTecnica
+	ValidacionInicial   puertosbolsa.ValidacionFirmaServidor
+	SelloTiempo         *puertosbolsa.SelloTiempoFirma
+	ValidacionTrasSello *puertosbolsa.ValidacionFirmaServidor
+	Aumento             *puertosbolsa.ResultadoAumentoFirma
+	ValidacionFinal     puertosbolsa.ValidacionFirmaServidor
+	DocumentoFirmado    puertosbolsa.DocumentoFirmadoCustodiado
+	Confirmacion        puertosbolsa.ResultadoConfirmarCambioBaremacion
 }
 ```
 
@@ -988,7 +1005,7 @@ func NuevoServicioBaremacion(
 	validadorFirma puertosbolsa.ValidadorFirmaServidor,
 	selladorTiempo puertosbolsa.SelladorTiempoFirma,
 	aumentadorFirma puertosbolsa.AumentadorFirmaLongeva,
-	selladorSolicitud puertosbolsa.SelladorSolicitudBaremacion,
+	selladorSolicitud puertosbolsa.SelladorServicioBaremacion,
 	seudonimizador puertosvec.SeudonimizadorSujetoAlmacen,
 	generador puertosbolsa.GeneradorReferenciasOpacasBaremacion,
 	autorizador puertosvec.Autorizador,
@@ -1037,7 +1054,7 @@ no afirma que este artefacto temporal esté ya retenido.
 func (s *ServicioBaremacion) FinalizarFirma(
 	ctx context.Context,
 	orden OrdenFinalizarFirmaBaremacion,
-) (ResultadoFinalizarFirmaBaremacion, error)
+) (resultadoRetorno ResultadoFinalizarFirmaBaremacion, errRetorno error)
 ```
 
 FinalizarFirma consulta el firmador, valida en servidor, aplica las capas
@@ -1629,61 +1646,69 @@ conjuntas y estas no se convierten artificialmente en meritos distintos.
 func (e EvidenciaMerito) Validar() error
 
 type FirmaDecisionTecnica struct {
-	FirmanteRef                           string    `json:"firmante_ref"`
-	PerfilFirmanteClave                   string    `json:"perfil_firmante_clave"`
-	PoliticaFirmaRef                      string    `json:"politica_firma_ref"`
-	PoliticaFirmaVersion                  int       `json:"politica_firma_version"`
-	HuellaPoliticaFirmaSHA256             string    `json:"huella_politica_firma_sha256"`
-	RequiereFirmaInteractiva              bool      `json:"requiere_firma_interactiva"`
-	RequiereValidacionServidor            bool      `json:"requiere_validacion_servidor"`
-	RequiereSelloTiempo                   bool      `json:"requiere_sello_tiempo"`
-	RequiereAumentoLongevidad             bool      `json:"requiere_aumento_longevidad"`
-	SesionFirmaInteractivaRef             string    `json:"sesion_firma_interactiva_ref"`
-	HuellaEvidenciaFirmaInteractivaSHA256 string    `json:"huella_evidencia_firma_interactiva_sha256"`
-	DocumentoFirmableRef                  string    `json:"documento_firmable_ref"`
-	VersionDocumentoFirmable              string    `json:"version_documento_firmable"`
-	HuellaDocumentoFirmableSHA256         string    `json:"huella_documento_firmable_sha256"`
-	EvidenciaCustodiaRef                  string    `json:"evidencia_custodia_ref"`
-	FirmaRef                              string    `json:"firma_ref"`
-	HuellaFirmaSHA256                     string    `json:"huella_firma_sha256"`
-	DocumentoFirmadoRef                   string    `json:"documento_firmado_ref"`
-	HuellaDocumentoSHA256                 string    `json:"huella_documento_sha256"`
-	DocumentoFirmadoCustodiadoRef         string    `json:"documento_firmado_custodiado_ref"`
-	VersionDocumentoFirmadoCustodiado     string    `json:"version_documento_firmado_custodiado"`
-	EvidenciaRecuperacionFirmadoRef       string    `json:"evidencia_recuperacion_firmado_ref"`
-	HuellaEvidenciaRecuperacionSHA256     string    `json:"huella_evidencia_recuperacion_sha256"`
-	EvidenciaCustodiaDocumentoFirmadoRef  string    `json:"evidencia_custodia_documento_firmado_ref"`
-	EvidenciaRetencionDocumentoFirmadoRef string    `json:"evidencia_retencion_documento_firmado_ref"`
-	PoliticaRetencionDocumentoFirmadoRef  string    `json:"politica_retencion_documento_firmado_ref"`
-	DocumentoFirmadoRetenidoHasta         time.Time `json:"documento_firmado_retenido_hasta"`
-	ManifiestoProbatorioRef               string    `json:"manifiesto_probatorio_ref"`
-	HuellaManifiestoProbatorioSHA256      string    `json:"huella_manifiesto_probatorio_sha256"`
-	SelloManifiestoProbatorioHMACSHA256   string    `json:"sello_manifiesto_probatorio_hmac_sha256"`
-	HuellaContenidoSHA256                 string    `json:"huella_contenido_sha256"`
-	ValidacionInicialFirmaRef             string    `json:"validacion_inicial_firma_ref"`
-	HuellaValidacionInicialSHA256         string    `json:"huella_validacion_inicial_sha256"`
-	ValidadaInicialEn                     time.Time `json:"validada_inicial_en"`
-	ValidacionFirmaRef                    string    `json:"validacion_firma_ref"`
-	HuellaValidacionSHA256                string    `json:"huella_validacion_sha256"`
-	ValidadaEn                            time.Time `json:"validada_en"`
-	SelloTiempoRef                        string    `json:"sello_tiempo_ref,omitempty"`
-	HuellaSelloTiempoSHA256               string    `json:"huella_sello_tiempo_sha256,omitempty"`
-	PoliticaSelloTiempoRef                string    `json:"politica_sello_tiempo_ref,omitempty"`
-	PoliticaSelloTiempoVersion            int       `json:"politica_sello_tiempo_version,omitempty"`
-	HuellaPoliticaSelloTiempoSHA256       string    `json:"huella_politica_sello_tiempo_sha256,omitempty"`
-	ValidacionSelloTiempoRef              string    `json:"validacion_sello_tiempo_ref,omitempty"`
-	HuellaValidacionSelloTiempoSHA256     string    `json:"huella_validacion_sello_tiempo_sha256,omitempty"`
-	SelladaEn                             time.Time `json:"sellada_en,omitempty"`
-	NivelLongevidadClave                  string    `json:"nivel_longevidad_clave,omitempty"`
-	AumentoLongevidadRef                  string    `json:"aumento_longevidad_ref,omitempty"`
-	HuellaAumentoLongevidadSHA256         string    `json:"huella_aumento_longevidad_sha256,omitempty"`
-	PoliticaLongevidadRef                 string    `json:"politica_longevidad_ref,omitempty"`
-	PoliticaLongevidadVersion             int       `json:"politica_longevidad_version,omitempty"`
-	HuellaPoliticaLongevidadSHA256        string    `json:"huella_politica_longevidad_sha256,omitempty"`
-	ValidacionLongevidadRef               string    `json:"validacion_longevidad_ref,omitempty"`
-	HuellaValidacionLongevidadSHA256      string    `json:"huella_validacion_longevidad_sha256,omitempty"`
-	AumentadaEn                           time.Time `json:"aumentada_en,omitempty"`
-	FirmadaEn                             time.Time `json:"firmada_en"`
+	FirmanteRef                            string    `json:"firmante_ref"`
+	PerfilFirmanteClave                    string    `json:"perfil_firmante_clave"`
+	PoliticaFirmaRef                       string    `json:"politica_firma_ref"`
+	PoliticaFirmaVersion                   int       `json:"politica_firma_version"`
+	HuellaPoliticaFirmaSHA256              string    `json:"huella_politica_firma_sha256"`
+	PerfilFirmaAlcanzadoClave              string    `json:"perfil_firma_alcanzado_clave"`
+	RequiereFirmaInteractiva               bool      `json:"requiere_firma_interactiva"`
+	RequiereValidacionServidor             bool      `json:"requiere_validacion_servidor"`
+	RequiereSelloTiempo                    bool      `json:"requiere_sello_tiempo"`
+	RequiereAumentoLongevidad              bool      `json:"requiere_aumento_longevidad"`
+	SesionFirmaInteractivaRef              string    `json:"sesion_firma_interactiva_ref"`
+	HuellaEvidenciaFirmaInteractivaSHA256  string    `json:"huella_evidencia_firma_interactiva_sha256"`
+	DocumentoFirmableRef                   string    `json:"documento_firmable_ref"`
+	VersionDocumentoFirmable               string    `json:"version_documento_firmable"`
+	HuellaDocumentoFirmableSHA256          string    `json:"huella_documento_firmable_sha256"`
+	EvidenciaCustodiaRef                   string    `json:"evidencia_custodia_ref"`
+	FirmaRef                               string    `json:"firma_ref"`
+	HuellaFirmaSHA256                      string    `json:"huella_firma_sha256"`
+	DocumentoFirmadoRef                    string    `json:"documento_firmado_ref"`
+	HuellaDocumentoSHA256                  string    `json:"huella_documento_sha256"`
+	DocumentoFirmadoCustodiadoRef          string    `json:"documento_firmado_custodiado_ref"`
+	VersionDocumentoFirmadoCustodiado      string    `json:"version_documento_firmado_custodiado"`
+	EvidenciaRecuperacionFirmadoRef        string    `json:"evidencia_recuperacion_firmado_ref"`
+	HuellaEvidenciaRecuperacionSHA256      string    `json:"huella_evidencia_recuperacion_sha256"`
+	EvidenciaCustodiaDocumentoFirmadoRef   string    `json:"evidencia_custodia_documento_firmado_ref"`
+	EvidenciaRetencionDocumentoFirmadoRef  string    `json:"evidencia_retencion_documento_firmado_ref"`
+	PoliticaRetencionDocumentoFirmadoRef   string    `json:"politica_retencion_documento_firmado_ref"`
+	DocumentoFirmadoRetenidoHasta          time.Time `json:"documento_firmado_retenido_hasta"`
+	ManifiestoProbatorioRef                string    `json:"manifiesto_probatorio_ref"`
+	HuellaManifiestoProbatorioSHA256       string    `json:"huella_manifiesto_probatorio_sha256"`
+	SelloManifiestoProbatorioHMACSHA256    string    `json:"sello_manifiesto_probatorio_hmac_sha256"`
+	HuellaContenidoSHA256                  string    `json:"huella_contenido_sha256"`
+	ValidacionInicialFirmaRef              string    `json:"validacion_inicial_firma_ref"`
+	HuellaValidacionInicialSHA256          string    `json:"huella_validacion_inicial_sha256"`
+	ValidadaInicialEn                      time.Time `json:"validada_inicial_en"`
+	ValidacionFirmaRef                     string    `json:"validacion_firma_ref"`
+	HuellaValidacionSHA256                 string    `json:"huella_validacion_sha256"`
+	ValidadaEn                             time.Time `json:"validada_en"`
+	SelloTiempoRef                         string    `json:"sello_tiempo_ref,omitempty"`
+	HuellaSelloTiempoSHA256                string    `json:"huella_sello_tiempo_sha256,omitempty"`
+	VinculoRevisionSelladaRef              string    `json:"vinculo_revision_sellada_ref,omitempty"`
+	HuellaVinculoRevisionSelladaSHA256     string    `json:"huella_vinculo_revision_sellada_sha256,omitempty"`
+	PoliticaSelloTiempoRef                 string    `json:"politica_sello_tiempo_ref,omitempty"`
+	PoliticaSelloTiempoVersion             int       `json:"politica_sello_tiempo_version,omitempty"`
+	HuellaPoliticaSelloTiempoSHA256        string    `json:"huella_politica_sello_tiempo_sha256,omitempty"`
+	ValidacionSelloTiempoRef               string    `json:"validacion_sello_tiempo_ref,omitempty"`
+	HuellaValidacionSelloTiempoSHA256      string    `json:"huella_validacion_sello_tiempo_sha256,omitempty"`
+	SelladaEn                              time.Time `json:"sellada_en,omitempty"`
+	ValidacionDocumentoSelladoRef          string    `json:"validacion_documento_sellado_ref,omitempty"`
+	HuellaValidacionDocumentoSelladoSHA256 string    `json:"huella_validacion_documento_sellado_sha256,omitempty"`
+	ValidadoDocumentoSelladoEn             time.Time `json:"validado_documento_sellado_en,omitempty"`
+	NivelLongevidadClave                   string    `json:"nivel_longevidad_clave,omitempty"`
+	AumentoLongevidadRef                   string    `json:"aumento_longevidad_ref,omitempty"`
+	HuellaAumentoLongevidadSHA256          string    `json:"huella_aumento_longevidad_sha256,omitempty"`
+	VinculoRevisionLongevaRef              string    `json:"vinculo_revision_longeva_ref,omitempty"`
+	HuellaVinculoRevisionLongevaSHA256     string    `json:"huella_vinculo_revision_longeva_sha256,omitempty"`
+	PoliticaLongevidadRef                  string    `json:"politica_longevidad_ref,omitempty"`
+	PoliticaLongevidadVersion              int       `json:"politica_longevidad_version,omitempty"`
+	HuellaPoliticaLongevidadSHA256         string    `json:"huella_politica_longevidad_sha256,omitempty"`
+	ValidacionLongevidadRef                string    `json:"validacion_longevidad_ref,omitempty"`
+	HuellaValidacionLongevidadSHA256       string    `json:"huella_validacion_longevidad_sha256,omitempty"`
+	AumentadaEn                            time.Time `json:"aumentada_en,omitempty"`
+	FirmadaEn                              time.Time `json:"firmada_en"`
 }
 ```
 
@@ -2110,11 +2135,22 @@ func HuellaEfectoAbandono(solicitud puertosbolsa.SolicitudAbandonarReservaBarema
 HuellaEfectoAbandono liga el abandono al token, clase y baremacion exactos.
 
 ```go
-func HuellaEfectoConfirmacion(solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion) (string, error)
+func HuellaEfectoConfirmacionV2(solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion) (string, error)
 ```
 
-HuellaEfectoConfirmacion cubre la version, el agregado, la trazabilidad y la
-evidencia de autorizacion usados por la mutacion definitiva.
+HuellaEfectoConfirmacionV2 cubre la version, el agregado, la trazabilidad y
+las dos autorizaciones usadas por la mutacion definitiva.
+
+```go
+func HuellaEfectoPrevalidacionArchivoProbatorio(
+	solicitud puertosbolsa.SolicitudConfirmarCambioBaremacion,
+) (string, error)
+```
+
+HuellaEfectoPrevalidacionArchivoProbatorio liga el permiso consumible de
+prevalidacion al efecto completo que se confirmara. Una autorizacion no
+puede trasladarse a otra version, manifiesto, actor ni autorizacion de
+confirmacion.
 
 ```go
 func HuellaEfectoReserva(solicitud puertosbolsa.SolicitudReservarCambioBaremacion) (string, error)
@@ -2220,6 +2256,10 @@ Package ports define las fronteras hexagonales del modulo de bolsa.
 
 ```go
 const (
+	// MaximoTamanoCargaProtegida permite aplicar el mismo limite antes de
+	// decodificar entradas no confiables en los adaptadores.
+	MaximoTamanoCargaProtegida = 64 << 20
+
 	VentanaMaximaReservaBaremacion      = 10 * time.Minute
 	VentanaMaximaSesionFirmaInteractiva = 15 * time.Minute
 )
@@ -2237,6 +2277,7 @@ const (
 	ComprobacionDigestDocumento   = "digest_documento"
 	ComprobacionAlgoritmosFirma   = "algoritmos_permitidos"
 	ComprobacionFormatoPAdES      = "formato_pades"
+	ComprobacionPerfilPAdES       = "perfil_pades"
 )
 const (
 	CatalogoTiposConvocatoria      = "tipos_convocatoria"
@@ -2306,6 +2347,14 @@ const (
 	ModuloLlamamientos           = "bolsa"
 	TipoRecursoNecesidad         = "necesidad_cobertura"
 )
+const (
+	EsquemaManifiestoProbatorioBaremacion   = "vec.bolsa.manifiesto_probatorio"
+	FinalidadManifiestoProbatorioBaremacion = "decision_tecnica_baremacion"
+	// VersionManifiestoProbatorioBaremacionV2 queda congelada para identificar
+	// archivos preproductivos antiguos. El productor vigente solo emite V3.
+	VersionManifiestoProbatorioBaremacionV2 = 2
+	VersionManifiestoProbatorioBaremacion   = 3
+)
 const VentanaMaximaUsoAutorizacionBaremacion = 30 * time.Second
 ```
 
@@ -2351,6 +2400,7 @@ var (
 	ErrValidacionFirmaNoDisponible             = errors.New("bolsa: validacion de firma no disponible")
 	ErrFirmaServidorNoValida                   = errors.New("bolsa: firma no valida")
 	ErrValidacionFirmaNoConcluyente            = errors.New("bolsa: validacion de firma no concluyente")
+	ErrRevisionPDFFirmaNoConfiable             = errors.New("bolsa: revision PDF de firma no confiable")
 	ErrSelloTiempoNoDisponible                 = errors.New("bolsa: sello de tiempo no disponible")
 	ErrAumentoFirmaNoDisponible                = errors.New("bolsa: aumento de firma no disponible")
 	ErrEvidenciaFirmaNoEncontrada              = errors.New("bolsa: evidencia historica de firma no encontrada")
@@ -2373,6 +2423,7 @@ var (
 	ErrConflictoFlujoFirmaBaremacion         = errors.New("bolsa: conflicto de version del flujo de firma")
 	ErrFlujoFirmaBaremacionOcupado           = errors.New("bolsa: flujo de firma ocupado")
 	ErrArrendamientoFlujoFirmaInvalido       = errors.New("bolsa: arrendamiento de flujo de firma invalido")
+	ErrSerializacionArrendamientoProhibida   = errors.New("bolsa: serializacion de arrendamiento de flujo de firma prohibida")
 	ErrEstadoFlujoFirmaAlterado              = errors.New("bolsa: estado protegido del flujo de firma alterado")
 	ErrPasoFlujoFirmaNoPermitido             = errors.New("bolsa: paso de flujo de firma no permitido")
 	ErrSerializacionEstadoFlujoProhibida     = errors.New("bolsa: serializacion generica de estado de flujo prohibida")
@@ -2437,6 +2488,12 @@ var (
 
 	ErrContextoVerificacionNoAplicacionBaremacionInvalido = errors.New("bolsa: contexto de verificacion de no aplicacion invalido")
 )
+var ErrSerializacionConfirmacionNominalBaremacionV2Prohibida = errors.New(
+	"bolsa: serializacion generica de confirmacion nominal V2 prohibida",
+)
+var ErrSerializacionConfirmacionNominalBaremacionV3Prohibida = errors.New(
+	"bolsa: serializacion generica de confirmacion nominal V3 prohibida",
+)
 ```
 
 ### Funciones
@@ -2470,6 +2527,7 @@ func ConstituirFirmaDecisionConfiable(
 	artefacto ArtefactoFirma,
 	validacionInicial ValidacionFirmaServidor,
 	sello *SelloTiempoFirma,
+	validacionTrasSello *ValidacionFirmaServidor,
 	aumento *ResultadoAumentoFirma,
 	validacionFinal ValidacionFirmaServidor,
 	documentoCustodiado DocumentoFirmadoCustodiado,
@@ -2630,6 +2688,7 @@ const (
 	AccionConfirmarAltaBaremacion                 AccionOperacionBaremacion = "bolsa.baremacion.alta.confirmar"
 	AccionAbandonarAltaBaremacion                 AccionOperacionBaremacion = "bolsa.baremacion.alta.abandonar"
 	AccionReservarDecisionBaremacion              AccionOperacionBaremacion = "bolsa.baremacion.decision.reservar"
+	AccionPrevalidarArchivoProbatorioBaremacion   AccionOperacionBaremacion = "bolsa.baremacion.archivo.prevalidar"
 	AccionConfirmarDecisionBaremacion             AccionOperacionBaremacion = "bolsa.baremacion.decision.confirmar"
 	AccionAdoptarDecisionInicialBaremacion        AccionOperacionBaremacion = "bolsa.baremacion.decision.inicial.adoptar"
 	AccionRectificarDecisionBaremacion            AccionOperacionBaremacion = "bolsa.baremacion.decision.rectificar"
@@ -2698,10 +2757,44 @@ type ArrendamientoFlujoFirmaBaremacion struct {
 	PropietarioRef   string
 	SecuenciaCercado uint64
 	ExpiraEn         time.Time
+	Token            TokenArrendamientoFlujoFirmaBaremacion
 }
 
-func (a ArrendamientoFlujoFirmaBaremacion) Validar() error
+func (a ArrendamientoFlujoFirmaBaremacion) Format(estado fmt.State, _ rune)
 
+func (a ArrendamientoFlujoFirmaBaremacion) GoString() string
+
+func (*ArrendamientoFlujoFirmaBaremacion) GobDecode([]byte) error
+
+func (ArrendamientoFlujoFirmaBaremacion) GobEncode() ([]byte, error)
+
+func (a ArrendamientoFlujoFirmaBaremacion) LogValue() slog.Value
+
+func (ArrendamientoFlujoFirmaBaremacion) MarshalBinary() ([]byte, error)
+
+func (ArrendamientoFlujoFirmaBaremacion) MarshalJSON() ([]byte, error)
+
+func (ArrendamientoFlujoFirmaBaremacion) MarshalText() ([]byte, error)
+
+func (ArrendamientoFlujoFirmaBaremacion) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (ArrendamientoFlujoFirmaBaremacion) String() string
+
+func (*ArrendamientoFlujoFirmaBaremacion) UnmarshalBinary([]byte) error
+
+func (*ArrendamientoFlujoFirmaBaremacion) UnmarshalJSON([]byte) error
+
+func (*ArrendamientoFlujoFirmaBaremacion) UnmarshalText([]byte) error
+
+func (*ArrendamientoFlujoFirmaBaremacion) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (a ArrendamientoFlujoFirmaBaremacion) Validar() error
+```
+
+Validar solo acredita la forma nominal del sobre. La autoridad procede de
+verificar Token contra la huella HMAC que conserva el repositorio.
+
+```go
 type ArtefactoFirma struct {
 	ProcesoRef                       string
 	SolicitudRef                     string
@@ -2734,6 +2827,39 @@ func (a ArtefactoFirma) ValidarPara(s SolicitudPrepararFirmaInteractiva, sesion 
 
 func (a ArtefactoFirma) ValidarRecuperacion(s SolicitudRecuperarArtefactoFirma) error
 
+func (a ArtefactoFirma) ValidarRevisionPAdESDe(origen ArtefactoFirma) error
+```
+
+ValidarRevisionPAdESDe exige una nueva revision fisica del mismo PDF
+firmado. FirmaRef y HuellaFirmaSHA256 identifican la firma criptografica
+base y permanecen estables; la referencia y la huella del contenedor PDF
+tienen que cambiar al incorporar atributos PAdES no firmados.
+
+```go
+type ArtefactosCanonicosManifiestoProbatorioBaremacionV3 struct {
+	ContenidoSinHuella    CargaProtegida
+	RepresentacionSellada CargaProtegida
+	PreimagenHMAC         CargaProtegida
+}
+```
+
+ArtefactosCanonicosManifiestoProbatorioBaremacionV3 contiene las tres
+representaciones binarias que el archivo probatorio durable debe conservar
+y contrastar. CargaProtegida impide su serializacion accidental y entrega
+siempre copias defensivas mediante Revelar.
+
+```go
+func ArtefactosCanonicosManifiestoProbatorioBaremacion(
+	manifiesto ManifiestoProbatorioBaremacion,
+) (ArtefactosCanonicosManifiestoProbatorioBaremacionV3, error)
+```
+
+ArtefactosCanonicosManifiestoProbatorioBaremacion reconstruye, sin aceptar
+bytes aportados por el cliente, el contenido sin huella, la representacion
+canonica que incluye la huella y la preimagen exacta del HMAC. De este modo
+PostgreSQL puede cotejar byte a byte su archivo sin poseer claves.
+
+```go
 type AumentadorFirmaLongeva interface {
 	AumentarFirma(context.Context, SolicitudAumentarFirma) (ResultadoAumentoFirma, error)
 }
@@ -2784,6 +2910,18 @@ type CargaProtegida struct {
 CargaProtegida copia los bytes y bloquea su serializacion o formateo.
 
 ```go
+func ContenidoCanonicoManifiestoProbatorioBaremacionV3(
+	manifiesto ManifiestoProbatorioBaremacion,
+) (CargaProtegida, error)
+```
+
+ContenidoCanonicoManifiestoProbatorioBaremacionV3 reconstruye exactamente
+los bytes usados como preimagen SHA-256 por PrepararSellado, es decir,
+materialCanonico(false). Solo admite un manifiesto completo con estructura,
+huella y formato coherentes; la autenticidad del HMAC se verifica en la
+frontera criptografica externa.
+
+```go
 func NuevaCargaProtegida(valor []byte) (CargaProtegida, error)
 
 func RepresentacionCanonicaConfirmacionBaremacion(s SolicitudConfirmarCambioBaremacion) (CargaProtegida, error)
@@ -2798,12 +2936,45 @@ func RepresentacionCanonicaExpedienteFlujoFirmaBaremacion(
 	e ExpedienteFlujoFirmaBaremacion,
 ) (CargaProtegida, error)
 
+func RepresentacionCanonicaManifiestoProbatorioBaremacion(
+	manifiesto ManifiestoProbatorioBaremacion,
+) (CargaProtegida, error)
+```
+
+RepresentacionCanonicaManifiestoProbatorioBaremacion reconstruye los bytes
+exactos que autentica el sellador. Admite el manifiesto preparado o ya
+sellado porque el propio sello nunca forma parte de la carga autenticada.
+La finalidad criptografica exclusiva encierra el material funcional y evita
+reutilizar el HMAC valido de otro contrato aunque comparta campos.
+
+```go
 func RepresentacionCanonicaReservaBaremacion(s SolicitudReservarCambioBaremacion) (CargaProtegida, error)
 ```
 
 RepresentacionCanonicaReservaBaremacion cubre todos los datos que fijan la
 reserva, salvo el propio sello. Usa longitudes binarias para que no existan
 concatenaciones ambiguas.
+
+```go
+func RepresentacionCanonicaSobreProbatorioConfirmacionBaremacionV2(
+	s IntentoNominalConfirmacionBaremacionV2,
+) (CargaProtegida, error)
+```
+
+RepresentacionCanonicaSobreProbatorioConfirmacionBaremacionV2 liga el
+identificador opaco previo al COMMIT y el indice estable con todos los
+datos exactos del intento. Es material nominal del sobre probatorio,
+no el fingerprint semantico de DEC-045 ni una prueba de persistencia.
+
+```go
+func RepresentacionCanonicaSobreProbatorioConfirmacionBaremacionV3(
+	s IntentoNominalConfirmacionBaremacionV3,
+) (CargaProtegida, error)
+```
+
+RepresentacionCanonicaSobreProbatorioConfirmacionBaremacionV3 liga el
+identificador nominal con ambos contextos de autorizacion. V2 se conserva
+solo para reproducir su disposicion historica y no debe usarse en producto.
 
 ```go
 func (c CargaProtegida) Format(estado fmt.State, _ rune)
@@ -3101,6 +3272,14 @@ func (c ContextoOperacionBaremacion) CrearContextoAlmacenRetenerDocumentoFirmado
 
 CrearContextoAlmacenRetenerDocumentoFirmado deriva solo la retencion de la
 referencia y version exactas incluidas en el recurso evaluado.
+
+```go
+func (c ContextoOperacionBaremacion) EsNulo() bool
+```
+
+EsNulo distingue la ausencia contractual de una capacidad invalida o ya no
+vigente sin exponer ninguno de sus datos internos. Es la unica comprobacion
+admisible para campos que deben estar exactamente ausentes.
 
 ```go
 func (c ContextoOperacionBaremacion) EvidenciaUsoAutorizacion() (
@@ -3688,10 +3867,11 @@ type EvidenciaTransaccionBaremacion struct {
 func (e EvidenciaTransaccionBaremacion) Validar() error
 
 type EvidenciaTransaccionBaremacionRecuperada struct {
-	Version   VersionBaremacion
-	Auditoria RegistroAuditoriaBaremacion
-	Evento    EventoOutboxBaremacion
-	Evidencia EvidenciaTransaccionBaremacion
+	Version    VersionBaremacion
+	Auditoria  RegistroAuditoriaBaremacion
+	Evento     EventoOutboxBaremacion
+	Evidencia  EvidenciaTransaccionBaremacion
+	Manifiesto *ManifiestoProbatorioBaremacion
 }
 
 func (r EvidenciaTransaccionBaremacionRecuperada) Validar() error
@@ -3766,8 +3946,15 @@ confirmaciones. Un sello autentico de una finalidad no vale para la otra.
 
 ```go
 const (
-	FinalidadSelloReservaBaremacion      FinalidadSelloBaremacion = "reserva_baremacion_v1"
-	FinalidadSelloConfirmacionBaremacion FinalidadSelloBaremacion = "confirmacion_baremacion_v1"
+	FinalidadSelloReservaBaremacion FinalidadSelloBaremacion = "reserva_baremacion_v1"
+	// FinalidadSelloConfirmacionBaremacion queda como alias historico V1.
+	// Ningun productor vigente debe usarla tras incorporar la prevalidacion.
+	FinalidadSelloConfirmacionBaremacion                  FinalidadSelloBaremacion = "confirmacion_baremacion_v1"
+	FinalidadSelloConfirmacionBaremacionV2                FinalidadSelloBaremacion = "confirmacion_baremacion_v2"
+	FinalidadSelloSobreProbatorioConfirmacionBaremacionV2 FinalidadSelloBaremacion = "sobre_probatorio_confirmacion_baremacion_v2"
+	FinalidadSelloSobreProbatorioConfirmacionBaremacionV3 FinalidadSelloBaremacion = "sobre_probatorio_confirmacion_baremacion_v3"
+	FinalidadSelloManifiestoProbatorioBaremacionV2        FinalidadSelloBaremacion = "manifiesto_probatorio_baremacion_v2"
+	FinalidadSelloManifiestoProbatorioBaremacionV3        FinalidadSelloBaremacion = "manifiesto_probatorio_baremacion_v3"
 )
 type FirmadorInteractivo interface {
 	PrepararFirmaInteractiva(context.Context, SolicitudPrepararFirmaInteractiva) (SesionFirmaInteractiva, error)
@@ -4006,6 +4193,16 @@ la obligacion del adaptador de usar aleatoriedad criptografica.
 ```go
 func (i IdentificadorOperacionTransaccionalBaremacion) Clonar() (IdentificadorOperacionTransaccionalBaremacion, error)
 
+func (i IdentificadorOperacionTransaccionalBaremacion) CoincideExactamenteCon(
+	otro IdentificadorOperacionTransaccionalBaremacion,
+) bool
+```
+
+CoincideExactamenteCon comprueba las dos partes protegidas del identificador
+sin abrirlas al llamador. Un valor cero, alterado o de otro esquema nunca
+coincide, aunque comparta una de las dos partes.
+
+```go
 func (i IdentificadorOperacionTransaccionalBaremacion) DatosReconciliacion() (
 	referenciaOpaca string,
 	indiceOperacionHMAC string,
@@ -4203,6 +4400,83 @@ func (IntencionCambioBaremacion) String() string
 
 func (i IntencionCambioBaremacion) Validar() error
 
+type IntentoNominalConfirmacionBaremacionV2 struct {
+	IdentificadorOperacion IdentificadorOperacionTransaccionalBaremacion
+	Confirmacion           SolicitudConfirmarCambioBaremacion
+}
+```
+
+IntentoNominalConfirmacionBaremacionV2 conserva exclusivamente el canonico
+historico anterior a la prevalidacion de archivo. Ningun productor vigente
+debe emitirlo; V3 es el unico contrato nominal habilitado para nuevo codigo.
+El identificador debia existir durablemente antes de construir el sobre y su
+sello cubrirlo junto al efecto.
+
+Este tipo es nominal: solo acredita forma y permite producir el canonico.
+No acredita autenticidad, preparacion durable, persistencia ni resultado de
+COMMIT y no habilita ningun efecto. Se mantiene para reproducir y verificar
+vectores historicos, no como ruta de compatibilidad productiva.
+
+```go
+func (s IntentoNominalConfirmacionBaremacionV2) Clonar() (IntentoNominalConfirmacionBaremacionV2, error)
+
+func (s IntentoNominalConfirmacionBaremacionV2) Format(estado fmt.State, _ rune)
+
+func (IntentoNominalConfirmacionBaremacionV2) GoString() string
+
+func (IntentoNominalConfirmacionBaremacionV2) LogValue() slog.Value
+
+func (IntentoNominalConfirmacionBaremacionV2) MarshalBinary() ([]byte, error)
+
+func (IntentoNominalConfirmacionBaremacionV2) MarshalJSON() ([]byte, error)
+
+func (IntentoNominalConfirmacionBaremacionV2) MarshalText() ([]byte, error)
+
+func (IntentoNominalConfirmacionBaremacionV2) String() string
+
+func (*IntentoNominalConfirmacionBaremacionV2) UnmarshalBinary([]byte) error
+
+func (*IntentoNominalConfirmacionBaremacionV2) UnmarshalJSON([]byte) error
+
+func (*IntentoNominalConfirmacionBaremacionV2) UnmarshalText([]byte) error
+
+func (s IntentoNominalConfirmacionBaremacionV2) ValidarForma() error
+
+type IntentoNominalConfirmacionBaremacionV3 struct {
+	IdentificadorOperacion IdentificadorOperacionTransaccionalBaremacion
+	Confirmacion           SolicitudConfirmarCambioBaremacion
+}
+```
+
+IntentoNominalConfirmacionBaremacionV3 sustituye al sobre V2 retirado e
+incorpora la autorizacion de prevalidacion dentro del canonico autenticado.
+Sigue siendo un contrato nominal: no acredita persistencia ni resultado.
+
+```go
+func (s IntentoNominalConfirmacionBaremacionV3) Clonar() (IntentoNominalConfirmacionBaremacionV3, error)
+
+func (s IntentoNominalConfirmacionBaremacionV3) Format(estado fmt.State, _ rune)
+
+func (IntentoNominalConfirmacionBaremacionV3) GoString() string
+
+func (IntentoNominalConfirmacionBaremacionV3) LogValue() slog.Value
+
+func (IntentoNominalConfirmacionBaremacionV3) MarshalBinary() ([]byte, error)
+
+func (IntentoNominalConfirmacionBaremacionV3) MarshalJSON() ([]byte, error)
+
+func (IntentoNominalConfirmacionBaremacionV3) MarshalText() ([]byte, error)
+
+func (IntentoNominalConfirmacionBaremacionV3) String() string
+
+func (*IntentoNominalConfirmacionBaremacionV3) UnmarshalBinary([]byte) error
+
+func (*IntentoNominalConfirmacionBaremacionV3) UnmarshalJSON([]byte) error
+
+func (*IntentoNominalConfirmacionBaremacionV3) UnmarshalText([]byte) error
+
+func (s IntentoNominalConfirmacionBaremacionV3) ValidarForma() error
+
 type MIMECanonicoDocumentoBaremacion string
 ```
 
@@ -4213,6 +4487,9 @@ el catalogo. No admite parametros, comodines ni mayusculas canonicas.
 func (m MIMECanonicoDocumentoBaremacion) Valido() bool
 
 type ManifiestoProbatorioBaremacion struct {
+	Esquema                   string
+	Finalidad                 string
+	VersionEsquema            int
 	Referencia                string
 	ProcesoRef                string
 	SolicitudRef              string
@@ -4719,6 +4996,7 @@ type ResultadoAdquirirArrendamientoFlujoFirmaBaremacion struct {
 }
 
 type ResultadoAumentoFirma struct {
+	ArtefactoOrigen                ArtefactoFirma
 	Artefacto                      ArtefactoFirma
 	NivelAlcanzadoClave            string
 	PoliticaLongevidadRef          string
@@ -4794,6 +5072,106 @@ type ResultadoFinalFlujoFirmaBaremacion struct {
 
 func (r ResultadoFinalFlujoFirmaBaremacion) Validar() error
 
+type ResultadoNominalConfirmacionBaremacionV2 struct {
+	IdentificadorOperacion IdentificadorOperacionTransaccionalBaremacion
+	Resultado              ResultadoConfirmarCambioBaremacion
+}
+```
+
+ResultadoNominalConfirmacionBaremacionV2 coteja solo la forma del eco de un
+adaptador nominal. La coincidencia sintactica del identificador no demuestra
+que el COMMIT lo persistiera ni que version, auditoria y evento nacieran
+atomicamente. Esa atribucion requerira el resultado canonico autenticado V2.
+
+```go
+func (r ResultadoNominalConfirmacionBaremacionV2) ClonarFormaPara(
+	s IntentoNominalConfirmacionBaremacionV2,
+) (ResultadoNominalConfirmacionBaremacionV2, error)
+
+func (r ResultadoNominalConfirmacionBaremacionV2) Format(estado fmt.State, _ rune)
+
+func (ResultadoNominalConfirmacionBaremacionV2) GoString() string
+
+func (r ResultadoNominalConfirmacionBaremacionV2) LogValue() slog.Value
+
+func (ResultadoNominalConfirmacionBaremacionV2) MarshalBinary() ([]byte, error)
+
+func (ResultadoNominalConfirmacionBaremacionV2) MarshalJSON() ([]byte, error)
+
+func (ResultadoNominalConfirmacionBaremacionV2) MarshalText() ([]byte, error)
+
+func (ResultadoNominalConfirmacionBaremacionV2) String() string
+
+func (*ResultadoNominalConfirmacionBaremacionV2) UnmarshalBinary([]byte) error
+
+func (*ResultadoNominalConfirmacionBaremacionV2) UnmarshalJSON([]byte) error
+
+func (*ResultadoNominalConfirmacionBaremacionV2) UnmarshalText([]byte) error
+
+func (r ResultadoNominalConfirmacionBaremacionV2) ValidarFormaPara(
+	s IntentoNominalConfirmacionBaremacionV2,
+) error
+
+type ResultadoNominalConfirmacionBaremacionV3 struct {
+	IdentificadorOperacion IdentificadorOperacionTransaccionalBaremacion
+	Resultado              ResultadoConfirmarCambioBaremacion
+}
+```
+
+ResultadoNominalConfirmacionBaremacionV3 valida solo el eco nominal;
+no eleva el sobre a prueba de COMMIT ni relaja el fail-closed transaccional.
+
+```go
+func (r ResultadoNominalConfirmacionBaremacionV3) ClonarFormaPara(
+	s IntentoNominalConfirmacionBaremacionV3,
+) (ResultadoNominalConfirmacionBaremacionV3, error)
+
+func (r ResultadoNominalConfirmacionBaremacionV3) Format(estado fmt.State, _ rune)
+
+func (ResultadoNominalConfirmacionBaremacionV3) GoString() string
+
+func (r ResultadoNominalConfirmacionBaremacionV3) LogValue() slog.Value
+
+func (ResultadoNominalConfirmacionBaremacionV3) MarshalBinary() ([]byte, error)
+
+func (ResultadoNominalConfirmacionBaremacionV3) MarshalJSON() ([]byte, error)
+
+func (ResultadoNominalConfirmacionBaremacionV3) MarshalText() ([]byte, error)
+
+func (ResultadoNominalConfirmacionBaremacionV3) String() string
+
+func (*ResultadoNominalConfirmacionBaremacionV3) UnmarshalBinary([]byte) error
+
+func (*ResultadoNominalConfirmacionBaremacionV3) UnmarshalJSON([]byte) error
+
+func (*ResultadoNominalConfirmacionBaremacionV3) UnmarshalText([]byte) error
+
+func (r ResultadoNominalConfirmacionBaremacionV3) ValidarFormaPara(
+	s IntentoNominalConfirmacionBaremacionV3,
+) error
+
+type SelladorSellosBaremacion interface {
+	SellarSelloBaremacion(context.Context, SolicitudSellarSelloBaremacion) (string, error)
+}
+```
+
+SelladorSellosBaremacion produce sellos con una finalidad explicita.
+La implementacion debe resolver la clave activa de esa finalidad y devolver
+el identificador de clave en el formato hmac-sha256:<clave>:<hex>.
+
+```go
+type SelladorServicioBaremacion interface {
+	SelladorSolicitudBaremacion
+	SelladorSellosBaremacion
+}
+```
+
+SelladorServicioBaremacion es el compuesto requerido por ServicioBaremacion.
+La fachada durable de firma conserva deliberadamente el puerto generico
+SelladorSolicitudBaremacion y no queda acoplada a este contrato
+transaccional.
+
+```go
 type SelladorSolicitudBaremacion interface {
 	SellarSolicitudBaremacion(context.Context, CargaProtegida) (string, error)
 }
@@ -4805,8 +5183,8 @@ type SelladorTiempoFirma interface {
 type SelloTiempoFirma struct {
 	SelloTiempoRef                  string
 	HuellaSelloTiempoSHA256         string
-	ObjetoRef                       string
-	HuellaObjetoSHA256              string
+	ArtefactoOrigen                 ArtefactoFirma
+	ArtefactoSellado                ArtefactoFirma
 	PoliticaSelloTiempoRef          string
 	PoliticaSelloTiempoVersion      int
 	HuellaPoliticaSelloTiempoSHA256 string
@@ -4937,15 +5315,16 @@ func (s SolicitudCodificarDecisionCanonica) Clonar() (SolicitudCodificarDecision
 func (s SolicitudCodificarDecisionCanonica) Validar() error
 
 type SolicitudConfirmarCambioBaremacion struct {
-	Contexto            ContextoOperacionBaremacion
-	Token               TokenReservaBaremacion
-	Clase               ClaseCambioBaremacion
-	VersionEsperada     *ReferenciaVersionBaremacion
-	HuellaSolicitudHMAC string
-	Agregado            dominiobolsa.BaremacionMerito
-	Manifiesto          *ManifiestoProbatorioBaremacion
-	Trazabilidad        TrazabilidadCambioBaremacion
-	ConfirmadaEn        time.Time
+	Contexto                     ContextoOperacionBaremacion
+	ContextoPrevalidacionArchivo ContextoOperacionBaremacion
+	Token                        TokenReservaBaremacion
+	Clase                        ClaseCambioBaremacion
+	VersionEsperada              *ReferenciaVersionBaremacion
+	HuellaSolicitudHMAC          string
+	Agregado                     dominiobolsa.BaremacionMerito
+	Manifiesto                   *ManifiestoProbatorioBaremacion
+	Trazabilidad                 TrazabilidadCambioBaremacion
+	ConfirmadaEn                 time.Time
 }
 
 func (s SolicitudConfirmarCambioBaremacion) Clonar() (SolicitudConfirmarCambioBaremacion, error)
@@ -5235,9 +5614,11 @@ func (*SolicitudProponerLlamamiento) UnmarshalJSON([]byte) error
 func (s SolicitudProponerLlamamiento) Validar() error
 
 type SolicitudRecuperarArtefactoFirma struct {
-	Contexto          ContextoOperacionFirma
-	FirmaRef          string
-	HuellaFirmaSHA256 string
+	Contexto              ContextoOperacionFirma
+	FirmaRef              string
+	HuellaFirmaSHA256     string
+	DocumentoFirmadoRef   string
+	HuellaDocumentoSHA256 string
 }
 
 func (s SolicitudRecuperarArtefactoFirma) Validar() error
@@ -5335,13 +5716,40 @@ VisitarReferencias entrega las referencias opacas solo durante la llamada al
 adaptador de identidad; evita getters y colecciones reutilizables.
 
 ```go
+type SolicitudSellarSelloBaremacion struct {
+	Finalidad              FinalidadSelloBaremacion
+	RepresentacionCanonica CargaProtegida
+}
+```
+
+SolicitudSellarSelloBaremacion obliga al productor a declarar el dominio
+criptografico que el verificador recibira despues. No debe sustituirse
+por un sellador generico: la finalidad permite seleccionar una clave y
+un llavero historico independientes sin interpretar bytes opacos en el
+conector.
+
+```go
+func (s SolicitudSellarSelloBaremacion) MaterialCanonicoHMAC() (CargaProtegida, error)
+```
+
+MaterialCanonicoHMAC devuelve la preimagen contractual exacta:
+
+    HMAC(K_finalidad, finalidad || 0x00 || representacion_canonica)
+
+La finalidad cerrada no puede contener NUL. La representacion conserva
+ademas su dominio funcional para que el artefacto siga siendo autocontenido;
+esta doble declaracion es deliberada y queda congelada por vector de prueba.
+
+```go
+func (s SolicitudSellarSelloBaremacion) Validar() error
+
 type SolicitudSellarTiempoFirma struct {
-	Contexto           ContextoOperacionFirma
-	ClaveIdempotencia  string
-	ObjetoRef          string
-	HuellaObjetoSHA256 string
-	Politica           PoliticaFirmaBaremacion
-	SolicitadaEn       time.Time
+	Contexto          ContextoOperacionFirma
+	ClaveIdempotencia string
+	ArtefactoOrigen   ArtefactoFirma
+	ValidacionOrigen  ValidacionFirmaServidor
+	Politica          PoliticaFirmaBaremacion
+	SolicitadaEn      time.Time
 }
 
 func (s SolicitudSellarTiempoFirma) Validar() error
@@ -5403,14 +5811,24 @@ construirla.
 
 ```go
 type SolicitudValidarFirmaServidor struct {
-	Contexto            ContextoOperacionFirma
-	Artefacto           ArtefactoFirma
-	Politica            PoliticaFirmaBaremacion
-	FirmanteEsperadoRef string
-	PerfilEsperadoClave string
-	SolicitadaEn        time.Time
+	Contexto                              ContextoOperacionFirma
+	Artefacto                             ArtefactoFirma
+	Politica                              PoliticaFirmaBaremacion
+	FirmanteEsperadoRef                   string
+	PerfilEsperadoClave                   string
+	PerfilFirmaEsperadoClave              string
+	SelloTiempoEsperadoRef                string
+	HuellaSelloTiempoEsperadaSHA256       string
+	AumentoLongevidadEsperadoRef          string
+	HuellaAumentoLongevidadEsperadaSHA256 string
+	SolicitadaEn                          time.Time
 }
+```
 
+SolicitudValidarFirmaServidor exige que el conector ateste tanto la revision
+exacta del PDF como las evidencias embebidas del perfil solicitado.
+
+```go
 func (s SolicitudValidarFirmaServidor) Validar() error
 
 type SolicitudVerificarEstadoFlujoFirmaBaremacion struct {
@@ -5453,6 +5871,14 @@ representacion canonica completa. El repositorio nunca recibe ni conserva
 material de clave.
 
 ```go
+func (s SolicitudVerificarSelloBaremacion) MaterialCanonicoHMAC() (CargaProtegida, error)
+```
+
+MaterialCanonicoHMAC reutiliza sin variantes la misma preimagen que el
+productor. El sello solo autoriza la conversion; nunca entra en su propia
+preimagen.
+
+```go
 func (s SolicitudVerificarSelloBaremacion) Validar() error
 
 type TipoEventoOutboxBaremacion string
@@ -5469,25 +5895,94 @@ puede incorporarse al manifiesto bajo una etiqueta libre o ambigua.
 
 ```go
 const (
-	EvidenciaEstadoBaseBaremacion          TipoEvidenciaProbatoriaBaremacion = "estado_base"
-	EvidenciaCalculoOficialBaremacion      TipoEvidenciaProbatoriaBaremacion = "calculo_oficial"
-	EvidenciaCriterioPublicadoBaremacion   TipoEvidenciaProbatoriaBaremacion = "criterio_publicado"
-	EvidenciaDocumentoMeritoBaremacion     TipoEvidenciaProbatoriaBaremacion = "documento_merito"
-	EvidenciaRepresentacionBaremacion      TipoEvidenciaProbatoriaBaremacion = "representacion_documento"
-	EvidenciaContenidoDecisionBaremacion   TipoEvidenciaProbatoriaBaremacion = "contenido_decision"
-	EvidenciaPoliticaFirmaBaremacion       TipoEvidenciaProbatoriaBaremacion = "politica_firma"
-	EvidenciaDocumentoCanonicoBaremacion   TipoEvidenciaProbatoriaBaremacion = "documento_canonico"
-	EvidenciaCustodiaFirmableBaremacion    TipoEvidenciaProbatoriaBaremacion = "custodia_firmable"
-	EvidenciaPreparacionFirmaBaremacion    TipoEvidenciaProbatoriaBaremacion = "preparacion_firma"
-	EvidenciaConsultaFirmaBaremacion       TipoEvidenciaProbatoriaBaremacion = "consulta_firma"
-	EvidenciaValidacionInicialBaremacion   TipoEvidenciaProbatoriaBaremacion = "validacion_firma_inicial"
-	EvidenciaSelloTiempoBaremacion         TipoEvidenciaProbatoriaBaremacion = "sello_tiempo"
-	EvidenciaAumentoLongevidadBaremacion   TipoEvidenciaProbatoriaBaremacion = "aumento_longevidad"
-	EvidenciaValidacionFinalBaremacion     TipoEvidenciaProbatoriaBaremacion = "validacion_firma_final"
-	EvidenciaRecuperacionFirmadoBaremacion TipoEvidenciaProbatoriaBaremacion = "recuperacion_documento_firmado"
-	EvidenciaCustodiaFirmadoBaremacion     TipoEvidenciaProbatoriaBaremacion = "custodia_documento_firmado"
-	EvidenciaRetencionFirmadoBaremacion    TipoEvidenciaProbatoriaBaremacion = "retencion_documento_firmado"
+	EvidenciaEstadoBaseBaremacion                 TipoEvidenciaProbatoriaBaremacion = "estado_base"
+	EvidenciaCalculoOficialBaremacion             TipoEvidenciaProbatoriaBaremacion = "calculo_oficial"
+	EvidenciaCriterioPublicadoBaremacion          TipoEvidenciaProbatoriaBaremacion = "criterio_publicado"
+	EvidenciaDocumentoMeritoBaremacion            TipoEvidenciaProbatoriaBaremacion = "documento_merito"
+	EvidenciaRepresentacionBaremacion             TipoEvidenciaProbatoriaBaremacion = "representacion_documento"
+	EvidenciaContenidoDecisionBaremacion          TipoEvidenciaProbatoriaBaremacion = "contenido_decision"
+	EvidenciaPoliticaFirmaBaremacion              TipoEvidenciaProbatoriaBaremacion = "politica_firma"
+	EvidenciaDocumentoCanonicoBaremacion          TipoEvidenciaProbatoriaBaremacion = "documento_canonico"
+	EvidenciaCustodiaFirmableBaremacion           TipoEvidenciaProbatoriaBaremacion = "custodia_firmable"
+	EvidenciaPreparacionFirmaBaremacion           TipoEvidenciaProbatoriaBaremacion = "preparacion_firma"
+	EvidenciaConsultaFirmaBaremacion              TipoEvidenciaProbatoriaBaremacion = "consulta_firma"
+	EvidenciaValidacionInicialBaremacion          TipoEvidenciaProbatoriaBaremacion = "validacion_firma_inicial"
+	EvidenciaSelloTiempoBaremacion                TipoEvidenciaProbatoriaBaremacion = "sello_tiempo"
+	EvidenciaVinculoRevisionSelladaBaremacion     TipoEvidenciaProbatoriaBaremacion = "vinculo_revision_sellada"
+	EvidenciaValidacionDocumentoSelladoBaremacion TipoEvidenciaProbatoriaBaremacion = "validacion_documento_sellado"
+	EvidenciaAumentoLongevidadBaremacion          TipoEvidenciaProbatoriaBaremacion = "aumento_longevidad"
+	EvidenciaVinculoRevisionLongevaBaremacion     TipoEvidenciaProbatoriaBaremacion = "vinculo_revision_longeva"
+	EvidenciaValidacionFinalBaremacion            TipoEvidenciaProbatoriaBaremacion = "validacion_firma_final"
+	EvidenciaRecuperacionFirmadoBaremacion        TipoEvidenciaProbatoriaBaremacion = "recuperacion_documento_firmado"
+	EvidenciaCustodiaFirmadoBaremacion            TipoEvidenciaProbatoriaBaremacion = "custodia_documento_firmado"
+	EvidenciaRetencionFirmadoBaremacion           TipoEvidenciaProbatoriaBaremacion = "retencion_documento_firmado"
 )
+type TokenArrendamientoFlujoFirmaBaremacion struct {
+	// Has unexported fields.
+}
+```
+
+TokenArrendamientoFlujoFirmaBaremacion es la capacidad aleatoria que
+autoriza a usar un arrendamiento. Su valor solo vive en el cierre privado
+e inmutable operarHMAC: no tiene representacion generica ni ofrece una
+operacion para revelarlo. Los adaptadores conservan exclusivamente una
+huella HMAC y la verifican antes de aceptar cualquier cambio o liberacion.
+
+```go
+func NuevoTokenArrendamientoFlujoFirmaBaremacion() (TokenArrendamientoFlujoFirmaBaremacion, error)
+```
+
+NuevoTokenArrendamientoFlujoFirmaBaremacion crea una capacidad de 256 bits
+mediante el generador criptografico del sistema operativo.
+
+```go
+func (t TokenArrendamientoFlujoFirmaBaremacion) CoincideHuellaHMACSHA256(
+	clave, esperada []byte,
+) bool
+```
+
+CoincideHuellaHMACSHA256 autentica la capacidad mediante comparacion en
+tiempo constante. Una capacidad nula, una clave invalida o una huella con
+longitud incorrecta fallan cerradas.
+
+```go
+func (t TokenArrendamientoFlujoFirmaBaremacion) Format(estado fmt.State, _ rune)
+
+func (t TokenArrendamientoFlujoFirmaBaremacion) GoString() string
+
+func (*TokenArrendamientoFlujoFirmaBaremacion) GobDecode([]byte) error
+
+func (TokenArrendamientoFlujoFirmaBaremacion) GobEncode() ([]byte, error)
+
+func (t TokenArrendamientoFlujoFirmaBaremacion) HuellaHMACSHA256(clave []byte) ([]byte, error)
+```
+
+HuellaHMACSHA256 calcula el comprobante almacenable de la capacidad.
+Nunca devuelve el token y exige una clave de, al menos, 256 bits.
+
+```go
+func (t TokenArrendamientoFlujoFirmaBaremacion) LogValue() slog.Value
+
+func (TokenArrendamientoFlujoFirmaBaremacion) MarshalBinary() ([]byte, error)
+
+func (TokenArrendamientoFlujoFirmaBaremacion) MarshalJSON() ([]byte, error)
+
+func (TokenArrendamientoFlujoFirmaBaremacion) MarshalText() ([]byte, error)
+
+func (TokenArrendamientoFlujoFirmaBaremacion) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (TokenArrendamientoFlujoFirmaBaremacion) String() string
+
+func (*TokenArrendamientoFlujoFirmaBaremacion) UnmarshalBinary([]byte) error
+
+func (*TokenArrendamientoFlujoFirmaBaremacion) UnmarshalJSON([]byte) error
+
+func (*TokenArrendamientoFlujoFirmaBaremacion) UnmarshalText([]byte) error
+
+func (*TokenArrendamientoFlujoFirmaBaremacion) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (t TokenArrendamientoFlujoFirmaBaremacion) Validar() error
+
 type TokenReservaBaremacion struct {
 	// Has unexported fields.
 }
@@ -5547,18 +6042,35 @@ aceptan AuditEntry, Event ni mapas libres proporcionados por un cliente.
 func (t TrazabilidadCambioBaremacion) Validar() error
 
 type ValidacionFirmaServidor struct {
-	Estado                 EstadoValidacionFirma
-	Artefacto              ArtefactoFirma
-	ValidacionRef          string
-	HuellaValidacionSHA256 string
-	FirmanteVerificadoRef  string
-	PerfilVerificadoClave  string
-	Comprobaciones         []ComprobacionFirma
-	ValidadaEn             time.Time
+	Estado                                  EstadoValidacionFirma
+	Artefacto                               ArtefactoFirma
+	ValidacionRef                           string
+	HuellaValidacionSHA256                  string
+	FirmanteVerificadoRef                   string
+	PerfilVerificadoClave                   string
+	PerfilFirmaVerificadoClave              string
+	SelloTiempoVerificadoRef                string
+	HuellaSelloTiempoVerificadaSHA256       string
+	AumentoLongevidadVerificadoRef          string
+	HuellaAumentoLongevidadVerificadaSHA256 string
+	Comprobaciones                          []ComprobacionFirma
+	ValidadaEn                              time.Time
 }
+```
 
+ValidacionFirmaServidor conserva la atestacion del conector sobre una
+revision PAdES y las referencias exactas de las evidencias que encontro.
+
+```go
 func (v ValidacionFirmaServidor) AptaParaDecision() bool
 
+func (v ValidacionFirmaServidor) AptaParaPerfil(p PoliticaFirmaBaremacion, perfil string) bool
+```
+
+AptaParaPerfil permite verificar cada etapa material del flujo B -> T -> LTA
+sin confundir el perfil intermedio con el objetivo final de la politica.
+
+```go
 func (v ValidacionFirmaServidor) AptaParaPolitica(p PoliticaFirmaBaremacion) bool
 
 func (v ValidacionFirmaServidor) Clonar() (ValidacionFirmaServidor, error)
@@ -5661,6 +6173,64 @@ type VinculoAutenticacionBaremacion struct {
 VinculoAutenticacionBaremacion contiene hechos ya verificados de la sesion.
 No concede acceso: la unica fuente de concesion aceptada por el constructor
 es DecisionAutorizacion.
+
+```go
+type VinculoTransicionPAdES struct {
+	Referencia   string
+	HuellaSHA256 string
+}
+```
+
+VinculoTransicionPAdES identifica un recibo canónico calculado por el
+núcleo. Su huella se incorpora al manifiesto HMAC para impedir que una
+evidencia válida se combine con una revisión PDF distinta.
+
+```go
+func NuevoVinculoRevisionLongevaPAdES(
+	sello SelloTiempoFirma,
+	atestacionT ValidacionFirmaServidor,
+	aumento ResultadoAumentoFirma,
+	atestacionLTA ValidacionFirmaServidor,
+) (VinculoTransicionPAdES, error)
+```
+
+NuevoVinculoRevisionLongevaPAdES vincula la transición T→LTA con la
+atestación que prueba tanto el sello como el aumento embebidos en LTA.
+
+```go
+func NuevoVinculoRevisionSelladaPAdES(
+	sello SelloTiempoFirma,
+	atestacion ValidacionFirmaServidor,
+) (VinculoTransicionPAdES, error)
+```
+
+NuevoVinculoRevisionSelladaPAdES vincula la transición B→T con la atestación
+que prueba el token TSA embebido en esa misma revisión T.
+
+```go
+func (v VinculoTransicionPAdES) ValidarParaTipo(tipo string) error
+
+func (v VinculoTransicionPAdES) ValidarRevisionLongevaPara(
+	sello SelloTiempoFirma,
+	atestacionT ValidacionFirmaServidor,
+	aumento ResultadoAumentoFirma,
+	atestacionLTA ValidacionFirmaServidor,
+) error
+```
+
+ValidarRevisionLongevaPara recompone el recibo desde el material original y
+falla cerrado ante cualquier sustitución de revisión o evidencia.
+
+```go
+func (v VinculoTransicionPAdES) ValidarRevisionSelladaPara(
+	sello SelloTiempoFirma,
+	atestacion ValidacionFirmaServidor,
+) error
+```
+
+ValidarRevisionSelladaPara recompone el recibo desde el material original;
+no acepta una pareja referencia/huella válida pero perteneciente a otra
+transición.
 
 ```go
 type VistaEfimeraProductoNominalNoAutoritativoCompletoIdempotenciaBaremacion interface {
