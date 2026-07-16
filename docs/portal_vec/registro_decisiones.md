@@ -2562,3 +2562,36 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   jornada cuando sus bases lo exijan; nunca datos económicos o reservados.
 - Especificación:
   `docs/estudio_requisitos/materias_reservadas_economicas_y_relaciones_laborales.md`.
+
+## DEC-074 — Registro canónico previo a las políticas funcionales
+
+- Estado: arquitectura adoptada el 17 de julio de 2026; dominio y doble de
+  contrato en construcción, persistencia y comprobación institucional
+  pendientes.
+- Brecha: `FuenteRef`, `AprobacionRef` y `FuentesNormativasRefs` permiten
+  relacionar objetos, pero una cadena no acredita documento, representación,
+  publicación, acto, órgano, precepto, firma, vigencia o efectos.
+- Orden: se implanta primero `FuenteAutoridadVersionada`; las políticas
+  tipadas de baremación, calendario, permisos, turnos o retribuciones vendrán
+  después y citarán ID, versión, huella y preceptos exactos.
+- Separación temporal: publicación, vigencia jurídica, efectos y conocimiento
+  del sistema son hechos distintos y no se deducen entre sí.
+- Historia: una versión publicada no se edita. Corrección material, suspensión,
+  levantamiento o derogación conservan el acto y la relación con la historia;
+  nunca sustituyen silenciosamente referencias usadas por expedientes.
+- Verificación: publicar o cambiar estado requerirá evidencia obtenida por un
+  puerto de comprobación. Un identificador recibido desde HTTP no se convierte
+  por sí solo en autoridad.
+- Seguridad: contexto de actor resuelto, garantía alta, autorización PDP
+  exacta, segregación, OCC, consumo único, auditoría y outbox atómicos. El
+  agregado no contiene datos personales.
+- Límite: no se crea una DSL ni se interpreta normativa automáticamente; cada
+  familia de reglas tendrá un contrato declarativo, tipado y acotado.
+- Compatibilidad: los consumidores actuales evolucionarán mediante nuevas
+  versiones y reconciliación aprobada. No se recalculan huellas históricas para
+  reemplazar las referencias textuales existentes.
+- NO-GO: el adaptador en memoria solo prueba contratos. El uso productivo queda
+  bloqueado hasta PostgreSQL, ACL/RLS, comprobación real de actos y firmas,
+  auditoría probatoria y validación institucional.
+- Especificación:
+  `docs/portal_vec/registro_fuentes_autoridad.md`.
