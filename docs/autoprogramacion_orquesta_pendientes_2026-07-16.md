@@ -20,7 +20,7 @@
   ceden el paso ante conflicto de recursos o de carril.
 - Orden de ataque recomendado por direccion (17/07 tarde): primero T11
   (conformidad DEC-053, barato ahora y caro despues), despues T07 y T12
-  (coherencia y durabilidad de Bolsa), despues T02 y el resto de T03.
+  (coherencia y durabilidad de Bolsa), despues T02 y el resto de T03; tras T12 entran las medidas de cumplimiento T13 a T16 (paquete docs/cumplimiento/), redactadas para programarse sin esperar a las mesas: los plazos y politicas que solo las mesas pueden fijar entran como configuracion, no como codigo.
   S-03 (identidad real por certificado/Kerberos) queda aparcada
   deliberadamente: depende de Sistemas y no hay produccion hasta su visto
   bueno; nada debe disenarse de forma que la estorbe.
@@ -42,7 +42,15 @@
 ### T02 — Extraer la logica canonica de `internal/vec/ports` (H-01)
 
 - `origen`: auditoria H-01 y fallo real de CI.
-- `estado`: nuevo.
+- `estado`: **urgente — desviacion activa detectada el 17/07**. La directriz
+  1 de la auditoria congelo ambos `ports` ("contratos nuevos limitados a
+  interfaces y tipos; toda derivacion a subpaquetes") y desde el ancla de la
+  auditoria han entrado +6.563 lineas en `internal/vec/ports` y +10.336
+  lineas con 45 ficheros nuevos en `internal/modules/bolsa/ports`. Regla
+  reforzada hasta cerrar T02: ningun fichero nuevo en `*/ports`; los
+  contratos nuevos nacen en subpaquetes de dominio (`reglasbaremo`,
+  `calculoexperiencia` son el patron correcto ya usado) y `ports` solo
+  reexporta interfaces.
 - `area_hexagonal`: puerto hacia nucleo/subpaquetes.
 - `accion`: programar el troceo por capacidad (autorizacion, documental,
   almacen, auditoria) moviendo derivaciones canonicas y criptograficas a
@@ -210,3 +218,55 @@
   incidente no pierde seguridad pero si trazabilidad.
 - `evidencia`: adaptadores en memoria en `internal/modules/bolsa` y
   `internal/vec`; el flujo durable documenta sus conectores pendientes.
+
+### T13 — Registro durable de accesos a datos personales con finalidad
+
+- `origen`: paquete de cumplimiento (`docs/cumplimiento/`): ENS op.exp.8-10 y
+  responsabilidad proactiva RGPD.
+- `estado`: nuevo. Tras T12, misma zona de persistencia.
+- `area_hexagonal`: nucleo (contrato) y adaptadores de persistencia.
+- `accion`: registrar de forma durable y consultable cada acceso a datos
+  personales: actor, rol, expediente afectado, finalidad declarada, base de
+  la autorizacion, momento y version de reglas. Consulta interna autorizada
+  para control y para atender derechos; sin volcar datos personales en el
+  propio registro mas alla de la referencia opaca del expediente.
+- `evidencia`: la EIPD lo fija como condicion de piloto; la cadena de
+  auditoria existe en memoria y la autorizacion ya declara finalidad.
+
+### T14 — Conservacion y expurgo programados
+
+- `origen`: paquete de cumplimiento: RAT (plazos por actividad) y ENS
+  mp.info.6; estudio de archivo documental de RRHH.
+- `estado`: nuevo. Los plazos concretos los fija la mesa; programar el
+  mecanismo con plazos configurables por tipo documental.
+- `area_hexagonal`: nucleo y persistencia.
+- `accion`: ciclo de vida por tipo de dato/documento: vigencia, bloqueo
+  cautelar (recursos), supresion o anonimizacion irreversible con acta de
+  expurgo auditada. Nada se borra sin acta; nada se conserva sin plazo.
+- `evidencia`: `docs/estudio_requisitos/archivo_documental_rrhh_relacionado.md`.
+
+### T15 — Atencion de derechos RGPD con evidencia
+
+- `origen`: paquete de cumplimiento: RAT y EIPD (acceso, rectificacion,
+  supresion, oposicion, limitacion).
+- `estado`: nuevo.
+- `area_hexagonal`: nucleo (casos de uso internos) y API interna.
+- `accion`: casos de uso internos para: extraer todo lo tratado de una
+  persona (acceso/portabilidad), rectificar con trazabilidad, suprimir o
+  limitar con bloqueo cautelar, y oponerse; cada atencion genera recibo
+  auditable. La supresion respeta las obligaciones de conservacion (T14).
+- `evidencia`: EIPD seccion 6; sin estos casos de uso la atencion seria
+  manual sobre la base de datos, sin evidencia.
+
+### T16 — Cifrado en reposo de datos personales en PostgreSQL
+
+- `origen`: paquete de cumplimiento: ENS mp.info.3.
+- `estado`: nuevo. La gestion de claves productiva depende de KMS/HSM
+  (Sistemas); disenar con inyeccion de proveedor como el resto.
+- `area_hexagonal`: adaptadores de persistencia.
+- `accion`: cifrar en reposo las columnas de datos identificativos y
+  especiales (sobres AEAD con AAD canonico, como los flujos ya existentes),
+  con anillo de claves historicas y rotacion sin parada; las columnas de
+  busqueda usan derivaciones ciegas (HMAC) como ya hace la idempotencia.
+- `evidencia`: patron AEAD ya implantado en la saga de firma; falta
+  extenderlo a las columnas personales del DDL nuevo.

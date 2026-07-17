@@ -204,6 +204,12 @@ Pendiente productivo:
 - [Catalogo comun de categorias profesionales](docs/portal_vec/catalogo_categorias_profesionales.md)
 - [Registro versionado de fuentes de autoridad](docs/portal_vec/registro_fuentes_autoridad.md)
 
+### Cumplimiento normativo
+
+- [Paquete de cumplimiento para las mesas de validacion](docs/cumplimiento/LEEME.md):
+  borradores de categorizacion ENS con declaracion de aplicabilidad, RAT y
+  EIPD del modulo de Bolsas, con version imprimible conjunta en PDF.
+
 ### Portal VEC: seguridad y autorizacion
 
 - [Auditoria de diseno, estructura y seguridad 2026-07-16](docs/portal_vec/auditoria_diseno_y_seguridad_2026-07-16.md):
