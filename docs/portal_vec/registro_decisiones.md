@@ -2784,3 +2784,13 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - Consecuencias: nueva actividad de tratamiento (progreso formativo) que se
   incorporara al RAT y a la EIPD; el manifiesto del modulo declara nivel
   solo-manifiesto hasta que el catalogo real este compuesto.
+- Adenda 2026-07-17 (responsable): aunque la fase 1 es informativa y sin
+  homologacion, el ciclo editorial del curso queda **preparado desde el
+  origen para la homologacion**: el modelo contempla los estados
+  borrador -> revisado (acta editorial) -> publicado (informativo) ->
+  homologado, donde el ultimo exige la firma de una persona con capacidad
+  de homologar (firmante, fecha, version exacta del curso y evidencia,
+  reutilizando la generacion documental firmada y la atestacion del
+  nucleo). En fase 1 el estado homologado existe pero permanece cerrado
+  (fallo cerrado: sin firmante habilitado no es alcanzable); activarlo en
+  fase 2 sera conceder la capacidad, no redisenar el modulo.

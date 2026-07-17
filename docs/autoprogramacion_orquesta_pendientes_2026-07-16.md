@@ -318,6 +318,11 @@
   personal minimizado (el empleado solo ve el suyo; nueva actividad RAT);
   (4) tarjeta y vistas en el Portal del Empleado reutilizando la carcasa
   actual. Sin certificados ni computo de meritos en esta fase (DEC-080).
+  El ciclo editorial nace preparado para homologacion (adenda DEC-080):
+  estados borrador/revisado/publicado/homologado con firma de persona
+  habilitada en el ultimo; en fase 1 el estado homologado queda cerrado por
+  fallo cerrado (sin capacidad concedida no es alcanzable) y las vistas lo
+  muestran como previsto, no disponible.
   El contrato del paquete de curso se congela por version; los ficheros de
   cursos reales no entran en Git: los tests usan paquetes sinteticos.
 - `evidencia`: DEC-080; fabrica OPES verificada (salida HTML canonica,
