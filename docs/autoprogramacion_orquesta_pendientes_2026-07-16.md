@@ -175,20 +175,26 @@
 - `origen`: DEC-053 del registro de decisiones ("la web consume la API como
   un cliente mas"; sin cookies de sesion, para que un cliente de escritorio
   sea equivalente byte a byte). El cliente nuevo del portal la contradice.
-- `estado`: nuevo. Prioridad alta: corregir antes de componer el adaptador
-  de identidad, mientras el cambio es barato.
+- `estado`: completado el 17/07/2026 en `1a32b1c`. La regresion queda
+  protegida por pruebas del cliente y del contrato de superficies.
 - `area_hexagonal`: adaptador (frontend) y composicion.
 - `accion`: el cliente del portal interno no debe usar
   `credentials: "same-origin"` ni asumir sesion de cookie: la autenticacion
   viaja en cabecera `Authorization` (token de sesion emitido por el
   adaptador de identidad; para tecnicos, derivado de mTLS+Kerberos segun
-  DEC-053). Sin credencial ambiental no hay CSRF que mitigar. La app de
-  administracion sera de escritorio: la API no puede exigir nada que un
-  cliente no navegador no pueda enviar.
-- `evidencia`: `web/static/portal-empleado/portal.js` envia
-  `credentials: "same-origin"` a `/api/vec/bolsa/panel`; DEC-053 fija
-  clientes equivalentes sin cookies; el acceso tecnico previsto es
-  mTLS+Kerberos+allowlist.
+  DEC-053), y el cliente web usa `credentials: "omit"`. Bajo ese contrato web
+  no hay credencial ambiental que el navegador adjunte entre sitios. La app de
+  administracion sera de escritorio y no tiene contexto web entre sitios: la
+  API no puede exigir nada que un cliente no navegador no pueda enviar. Si un
+  futuro navegador negociase Kerberos/SPNEGO o mTLS automaticamente, habria que
+  reevaluar CSRF y origen antes de habilitarlo.
+- `evidencia`: `web/static/portal-empleado/portal.js`,
+  `web/static/bolsa/bolsa.js` y `web/static/app.js` usan
+  `credentials: "omit"`; `web/static/app.seguridad.test.mjs` impide
+  reintroducir cookies, credenciales ambientales o identidad persistida en
+  almacenamiento web. El contrato de superficies ya no contiene
+  configuracion de cookies y el proxy local elimina cualquier cabecera
+  `Cookie` entrante.
 
 ### T12 — Durabilidad probatoria productiva de Bolsa
 
