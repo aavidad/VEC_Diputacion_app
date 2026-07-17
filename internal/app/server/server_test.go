@@ -90,7 +90,7 @@ func TestInterfazParteCerradaHastaResolverUnaSesionAutorizada(t *testing.T) {
 func TestServerSirvePortalBolsaPermanenteSinEstilosInline(t *testing.T) {
 	handler := NewHandler(http.NotFoundHandler())
 	for _, prueba := range []struct{ ruta, tipo, contenido string }{
-		{ruta: "/bolsa/", tipo: "text/html", contenido: "directorio-categorias"},
+		{ruta: "/bolsa/", tipo: "text/html", contenido: "menu-lateral-publico"},
 		{ruta: "/bolsa/bolsa.css?v=1", tipo: "text/css", contenido: ".grupos-directorio"},
 		{ruta: "/bolsa/bolsa.js?v=1", tipo: "text/javascript", contenido: "/api/publico/bolsa/categorias"},
 		{ruta: "/bolsa/favicon.svg", tipo: "image/svg+xml", contenido: "<svg"},
@@ -107,6 +107,31 @@ func TestServerSirvePortalBolsaPermanenteSinEstilosInline(t *testing.T) {
 		if prueba.ruta == "/bolsa/bolsa.js?v=1" && !strings.Contains(rec.Body.String(), "fuente?.demostracion === true") {
 			t.Fatal("la UI no gobierna el aviso DEMOSTRACIÓN desde la fuente")
 		}
+		if prueba.ruta == "/bolsa/" {
+			for _, destinoPublico := range []string{"#contenido-principal", "#filtros-convocatorias", "#directorio-categorias", "#ayuda-publica"} {
+				if !strings.Contains(rec.Body.String(), `href="`+destinoPublico+`"`) {
+					t.Errorf("el menú público servido no contiene el destino %q", destinoPublico)
+				}
+			}
+			for _, accesoInterno := range []string{"Cronos", "Nóminas", "Dietas", "Administración", "Auditoría"} {
+				if strings.Contains(rec.Body.String(), accesoInterno) {
+					t.Errorf("el menú público servido expone el acceso interno %q", accesoInterno)
+				}
+			}
+		}
+	}
+}
+
+func TestServerNormalizaEntradaBolsaSinBarraFinal(t *testing.T) {
+	handler := NewHandler(http.NotFoundHandler())
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, "/bolsa", nil))
+
+	if rec.Code != http.StatusMovedPermanently {
+		t.Fatalf("/bolsa status = %d, want 301", rec.Code)
+	}
+	if destino := rec.Header().Get("Location"); destino != "bolsa/" {
+		t.Fatalf("/bolsa location = %q, want %q", destino, "bolsa/")
 	}
 }
 
