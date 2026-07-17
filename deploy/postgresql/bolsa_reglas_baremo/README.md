@@ -254,6 +254,7 @@ El runner usa PostgreSQL 18.4 fijado por digest y verifica:
   efecto;
 - caducidad de evidencia durante VEC-AD-2, cotejada con una lectura fresca del
   reloj al regresar y revertida conjuntamente;
+- rechazo precentral de una evidencia sin caducidad finita;
 - reconciliacion exacta y rechazo de un nonce distinto;
 - RLS forzada y ACL con identidades LOGIN reales;
 - imposibilidad de alcanzar la puerta central cruda desde el LOGIN modular;

@@ -2968,10 +2968,10 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   se expondra directamente: produccion necesita un caso de uso que revalide
   identidad, sesion y permiso actuales antes de invocarla.
 - Pruebas V2: el runner confirma alta y publicacion, rechazo precentral de CAS
-  y sujeto cruzados, segundo intento, caducidad durante VEC con reloj fresco,
-  rollback conjunto tras un fallo local, grafo de claves foraneas, evidencia,
-  outbox, reconciliacion y nonce incorrecto. Tambien demuestra que el down
-  ordinario rechaza historia V2 real.
+  y sujeto cruzados, evidencia sin caducidad finita, segundo intento, caducidad
+  durante VEC con reloj fresco, rollback conjunto tras un fallo local, grafo de
+  claves foraneas, evidencia, outbox, reconciliacion y nonce incorrecto.
+  Tambien demuestra que el down ordinario rechaza historia V2 real.
 - Barreras restantes: faltan el resolvedor durable de alcance y misma fila, el
   adaptador que restaure el canon Go, el verificador autoritativo de evidencia,
   el broker de capacidades y el seudonimizador separado, HSM/KMS, perfiles

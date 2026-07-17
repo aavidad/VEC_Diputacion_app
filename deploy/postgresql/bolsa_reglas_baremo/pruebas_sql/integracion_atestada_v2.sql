@@ -107,7 +107,8 @@ CREATE FUNCTION pg_temp.crear_vector_reglas_v2(
     p_cas_huella text DEFAULT NULL,
     p_cas_revision numeric DEFAULT NULL,
     p_sujeto_capacidad text DEFAULT NULL,
-    p_vigencia_evidencia interval DEFAULT interval '10 minutes'
+    p_vigencia_evidencia interval DEFAULT interval '10 minutes',
+    p_evidencia_sin_limite boolean DEFAULT false
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -167,7 +168,8 @@ BEGIN
     IF p_contenido_sufijo !~ '^[0-9a-f]{32}$'
        OR p_nonce !~ '^[0-9a-f]{64}$'
        OR p_vigencia_evidencia <= interval '0 seconds'
-       OR p_vigencia_evidencia > interval '10 minutes' THEN
+       OR p_vigencia_evidencia > interval '10 minutes'
+       OR p_evidencia_sin_limite IS NULL THEN
         RAISE EXCEPTION 'semilla de vector invalida';
     END IF;
     CASE p_operacion
@@ -245,7 +247,8 @@ BEGIN
                         'huella_estado_sha256', p_cas_huella
                     ),
                     'valida_hasta', to_char(
-                        ahora + p_vigencia_evidencia,
+                        CASE WHEN p_evidencia_sin_limite THEN 'infinity'
+                             ELSE ahora + p_vigencia_evidencia END,
                         'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
                     )
                 )
@@ -470,6 +473,20 @@ SELECT pg_temp.crear_vector_reglas_v2(
     (SELECT huella_estado FROM pg_temp.vectores_reglas_v2
       WHERE nombre = 'alta'), 1, NULL, interval '2 seconds'
 );
+SELECT pg_temp.crear_vector_reglas_v2(
+    'evidencia_sin_limite', 'publicar',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'intencion-sin-limite',
+    'sin-limite', repeat('9', 64),
+    (SELECT huella_estado FROM pg_temp.vectores_reglas_v2
+      WHERE nombre = 'alta'), 1, NULL, interval '10 minutes', true
+);
+SELECT pg_temp.crear_vector_reglas_v2(
+    'evidencia_nula', 'publicar',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'intencion-evidencia-nula',
+    'evidencia-nula', repeat('a', 64),
+    (SELECT huella_estado FROM pg_temp.vectores_reglas_v2
+      WHERE nombre = 'alta'), 1, NULL, NULL, false
+);
 
 GRANT SELECT, UPDATE ON TABLE pg_temp.vectores_reglas_v2
     TO vec_reglas_consumidor_atestado_prueba;
@@ -558,6 +575,34 @@ BEGIN
             );
         RAISE EXCEPTION 'sujeto de otro dominio aceptado';
     EXCEPTION WHEN insufficient_privilege THEN
+        NULL;
+    END;
+    SELECT * INTO STRICT vector
+      FROM pg_temp.vectores_reglas_v2
+     WHERE nombre = 'evidencia_sin_limite';
+    BEGIN
+        PERFORM * FROM
+            vec_bolsa_reglas_baremo.confirmar_cambio_atestado_v2(
+                vector.plan, vector.decision, vector.payload,
+                vector.sobre, vector.evidencia, vector.raiz,
+                vector.capacidad
+            );
+        RAISE EXCEPTION 'evidencia sin caducidad fue aceptada';
+    EXCEPTION WHEN invalid_parameter_value THEN
+        NULL;
+    END;
+    SELECT * INTO STRICT vector
+      FROM pg_temp.vectores_reglas_v2
+     WHERE nombre = 'evidencia_nula';
+    BEGIN
+        PERFORM * FROM
+            vec_bolsa_reglas_baremo.confirmar_cambio_atestado_v2(
+                vector.plan, vector.decision, vector.payload,
+                vector.sobre, vector.evidencia, vector.raiz,
+                vector.capacidad
+            );
+        RAISE EXCEPTION 'evidencia sin vigencia fue aceptada';
+    EXCEPTION WHEN invalid_parameter_value THEN
         NULL;
     END;
     SELECT last_value INTO despues

@@ -688,7 +688,10 @@ BEGIN
            OR (v_evidencia_version_json ->> 'version')::numeric
               IS DISTINCT FROM v_evidencia_version
            OR v_evidencia_version_json ->> 'huella_sha256'
-              IS DISTINCT FROM v_evidencia_huella THEN
+              IS DISTINCT FROM v_evidencia_huella
+           OR v_evidencia_valida_hasta IS NULL
+           OR NOT isfinite(v_evidencia_valida_hasta)
+           OR v_evidencia_valida_hasta <= v_instante_transicion THEN
             RAISE EXCEPTION USING ERRCODE = '22023',
                 MESSAGE = 'CAS o evidencia V2 no incorporados exactamente';
         END IF;
