@@ -290,6 +290,12 @@ SELECT format(
     'GRANT CONNECT ON DATABASE %I TO vec_autorizacion_migrador, vec_autorizacion_motivos_proyector, vec_autorizacion_motivos_evaluador',
     :'base_concurrencia'
 ) \gexec
+-- Fuente V1 solo necesita alcanzar esta base para demostrar que sus
+-- privilegios V1 no permiten resolver motivos V2.
+SELECT format(
+    'GRANT CONNECT ON DATABASE %I TO vec_autorizacion_fuente',
+    :'base_concurrencia'
+) \gexec
 SQL
 docker exec --interactive "$contenedor" \
     psql --set ON_ERROR_STOP=1 --username postgres --dbname "$base_concurrencia" \
@@ -339,6 +345,17 @@ docker exec --interactive --env PGPASSWORD="$clave_proyector" "$contenedor" \
     --username vec_autorizacion_motivos_proyector_prueba \
     --dbname "$base_concurrencia" \
     < "$raiz/deploy/postgresql/autorizacion/pruebas_sql/preparar_concurrencia_motivos_v2.sql"
+
+# El adaptador Go se prueba sobre la misma evidencia confirmada y antes de la
+# retirada. Cada DSN corresponde a una LOGIN distinta; nunca se imprime.
+export VEC_POSTGRES_TEST_MOTIVOS_EVALUADOR_DSN="postgresql://vec_autorizacion_motivos_evaluador_prueba:${clave_evaluador}@127.0.0.1:${puerto}/${base_concurrencia}?sslmode=disable"
+export VEC_POSTGRES_TEST_MOTIVOS_PROYECTOR_DSN="postgresql://vec_autorizacion_motivos_proyector_prueba:${clave_proyector}@127.0.0.1:${puerto}/${base_concurrencia}?sslmode=disable"
+export VEC_POSTGRES_TEST_MOTIVOS_FUENTE_V1_DSN="postgresql://vec_autorizacion_fuente_prueba:${clave_fuente}@127.0.0.1:${puerto}/${base_concurrencia}?sslmode=disable"
+(cd "$raiz" && go test ./internal/vec/adapters/postgres \
+    -run '^TestIntegracionMotivosAutorizacionV2PostgreSQL$' -count=1)
+unset VEC_POSTGRES_TEST_MOTIVOS_EVALUADOR_DSN
+unset VEC_POSTGRES_TEST_MOTIVOS_PROYECTOR_DSN
+unset VEC_POSTGRES_TEST_MOTIVOS_FUENTE_V1_DSN
 
 docker exec --interactive --env PGPASSWORD="$clave_migrador" "$contenedor" \
     psql --set ON_ERROR_STOP=1 --host 127.0.0.1 \

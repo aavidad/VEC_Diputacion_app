@@ -150,7 +150,9 @@ debe cotejarla.
 - La credencial del registro no sustituye la procedencia del PDP. El uso
   productivo exige atestacion asimetrica verificable o un verificador aislado;
   una huella SHA-256 por si sola no autentica al emisor.
-- PostgreSQL V2 debe materializar la orden nominal, la referencia de motivo y
-  su revalidacion transaccional.
+- PostgreSQL ya materializa y resuelve historicamente el catalogo de motivos
+  mediante una identidad evaluadora minima. Aun debe materializar la orden
+  nominal V2 y revalidar la vigencia actual del motivo dentro de la misma
+  transaccion que registre y consuma una concesion.
 - La migracion de los flujos documentales V3/V4 debe seleccionar de forma
   explicita evidencias y registros V2.

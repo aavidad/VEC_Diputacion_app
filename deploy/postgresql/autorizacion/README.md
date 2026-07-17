@@ -4,9 +4,11 @@ Estado: primer adaptador durable y proyeccion de motivos V2 implementados y
 probados, **no habilitados en la composicion productiva**. Fecha de corte: 17
 de julio de 2026.
 
-Implementa exclusivamente `ports.FuenteAutorizacion` y
-`ports.RegistroDecisionesAutorizacion` con `pgx` v5.10.0. No conecta HTTP, CLI,
-MCP ni modulos de negocio y la aplicacion no ejecuta migraciones al arrancar.
+Implementa `ports.FuenteAutorizacion`,
+`ports.RegistroDecisionesAutorizacion` y la consulta historica de
+`ports.ValidadorReferenciaMotivoAutorizacionV2` con `pgx` v5.10.0. No conecta
+HTTP, CLI, MCP ni modulos de negocio y la aplicacion no ejecuta migraciones al
+arrancar.
 
 ## Contenido
 
@@ -28,7 +30,8 @@ MCP ni modulos de negocio y la aplicacion no ejecuta migraciones al arrancar.
 - `roles_down.sql`: retirada final de grupos; falla si quedan membresias o
   dependencias.
 - `probar_integracion.sh`: PostgreSQL efimero aislado, migracion ascendente,
-  pruebas reales, migracion descendente y retirada de roles.
+  pruebas SQL y del adaptador Go con identidades reales separadas, migracion
+  descendente y retirada de roles.
 
 La prueba usa por defecto PostgreSQL 18.4 Bookworm con el indice OCI fijado a
 `sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296`.
@@ -48,8 +51,20 @@ export VEC_POSTGRES_TEST_ADMIN_DSN='postgresql://administrador_pruebas:...@host/
 go test ./internal/vec/adapters/postgres -run TestIntegracionAutorizacionPostgreSQL -count=1
 ```
 
+La consulta historica V2 usa tres variables distintas para demostrar tanto la
+capacidad positiva del evaluador como la ausencia de esa capacidad en el
+proyector y en la fuente V1:
+
+```bash
+export VEC_POSTGRES_TEST_MOTIVOS_EVALUADOR_DSN='postgresql://evaluador:...@host/base?sslmode=verify-full'
+export VEC_POSTGRES_TEST_MOTIVOS_PROYECTOR_DSN='postgresql://proyector:...@host/base?sslmode=verify-full'
+export VEC_POSTGRES_TEST_MOTIVOS_FUENTE_V1_DSN='postgresql://fuente_v1:...@host/base?sslmode=verify-full'
+go test ./internal/vec/adapters/postgres -run '^TestIntegracionMotivosAutorizacionV2PostgreSQL$' -count=1
+```
+
 Esas variables solo existen para pruebas. No deben imprimirse, guardarse en el
-repositorio ni reutilizarse en produccion.
+repositorio ni reutilizarse en produccion. Fuera del runner, cada prueba se
+omite limpiamente si no esta completo su propio grupo de variables.
 
 ## Aplicacion de migraciones
 
@@ -154,6 +169,15 @@ Hay dos semanticas de resolucion deliberadamente distintas:
   funcion `SECURITY DEFINER` de registro o efecto lo invocara dentro de su misma
   transaccion. La retirada necesita `FOR UPDATE`, por lo que no puede
   adelantarse entre esta barrera y el efecto confirmado.
+
+`ValidadorReferenciaMotivoPostgreSQLV2` solo invoca la primera funcion mediante
+una consulta parametrizada y recibe un `pgxpool.Pool` ya administrado por la
+composicion. No abre conexiones, no conserva el DSN y no conoce la funcion
+actual ni las operaciones de proyeccion. Su pool debe pertenecer a una LOGIN
+evaluadora exclusiva: el runner confirma sobre una publicacion real que esa
+identidad resuelve la referencia exacta, rechaza huella, clave e instante no
+coincidentes y no puede proyectar ni ejecutar la barrera actual. Tambien
+confirma que las identidades proyectora y fuente V1 no pueden usar el adaptador.
 
 El PDP usa la variante historica con el instante autoritativo de evaluacion que
 despues queda comprometido como `emitida_en`. Una futura funcion de registro V2
