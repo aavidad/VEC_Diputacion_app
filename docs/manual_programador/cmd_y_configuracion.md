@@ -59,6 +59,7 @@ const (
 	EnvOSRMScopeName             = "VEC_OSRM_SCOPE_NAME"
 	EnvOSRMScopeBounds           = "VEC_OSRM_SCOPE_BOUNDS"
 	EnvOSRMAllowedCIDRs          = "VEC_OSRM_ALLOWED_CIDRS"
+	EnvRRHHPresentationEnabled   = "VEC_RRHH_PRESENTATION_ENABLED"
 
 	StorageModeMemory       = "memory"
 	StorageModeFile         = "file"
@@ -126,6 +127,7 @@ type Config struct {
 	OSRMScopeName             string
 	OSRMScopeBounds           string
 	OSRMAllowedCIDRs          []string
+	RRHHPresentationEnabled   bool
 }
 
 func Load() Config

@@ -94,8 +94,13 @@ Documentos de contexto recomendados antes de tocar codigo:
 | [`internal/modules/bolsa/adapters/httppublico`](modulo_bolsa.md#paquete-internalmodulesbolsaadaptershttppublico) | Modulo Bolsa | Package httppublico expone únicamente proyecciones públicas minimizadas. |
 | [`internal/modules/bolsa/adapters/memory`](modulo_bolsa.md#paquete-internalmodulesbolsaadaptersmemory) | Modulo Bolsa | Package memory contiene adaptadores efimeros y defensivos del modulo de bolsas. |
 | [`internal/modules/bolsa/adapters/postgres`](modulo_bolsa.md#paquete-internalmodulesbolsaadapterspostgres) | Modulo Bolsa | Package postgres implementa la persistencia durable del agregado de baremacion. |
+| [`internal/modules/bolsa/adapters/referencias`](modulo_bolsa.md#paquete-internalmodulesbolsaadaptersreferencias) | Modulo Bolsa | Package referencias contiene emisores productivos de identificadores opacos del modulo de Bolsa. |
 | [`internal/modules/bolsa/application`](modulo_bolsa.md#paquete-internalmodulesbolsaapplication) | Modulo Bolsa | Package application contiene casos de uso del modulo de bolsa. |
+| [`internal/modules/bolsa/application/calculoexperienciaoficial`](modulo_bolsa.md#paquete-internalmodulesbolsaapplicationcalculoexperienciaoficial) | Modulo Bolsa |  |
 | [`internal/modules/bolsa/domain`](modulo_bolsa.md#paquete-internalmodulesbolsadomain) | Modulo Bolsa | Package domain contiene las reglas puras del modulo de bolsas. |
+| [`internal/modules/bolsa/domain/calculoexperiencia`](modulo_bolsa.md#paquete-internalmodulesbolsadomaincalculoexperiencia) | Modulo Bolsa |  |
+| [`internal/modules/bolsa/domain/calculoexperienciaoficial`](modulo_bolsa.md#paquete-internalmodulesbolsadomaincalculoexperienciaoficial) | Modulo Bolsa |  |
+| [`internal/modules/bolsa/domain/reglasbaremo`](modulo_bolsa.md#paquete-internalmodulesbolsadomainreglasbaremo) | Modulo Bolsa |  |
 | [`internal/modules/bolsa/internal/transaccion`](modulo_bolsa.md#paquete-internalmodulesbolsainternaltransaccion) | Modulo Bolsa | Package transaccion concentra la derivacion canonica de la evidencia probatoria del modulo Bolsa. |
 | [`internal/modules/bolsa/ports`](modulo_bolsa.md#paquete-internalmodulesbolsaports) | Modulo Bolsa | Package ports declara contratos hexagonales del modulo de bolsas. |
 | [`internal/modules/cronos`](modulos_personal_cronos_dietas.md#paquete-internalmodulescronos) | Modulos Personal, Cronos, Dietas y Administracion | Manifiesto del modulo Cronos: fichajes, permisos, vacaciones y saldos. |
@@ -123,6 +128,7 @@ Documentos de contexto recomendados antes de tocar codigo:
 | [`internal/vec/adapters/httpseguridad`](vec_adaptadores.md#paquete-internalvecadaptershttpseguridad) | Nucleo VEC: adaptadores | Package httpseguridad define la frontera de seguridad HTTP entre las superficies publica, personal, interna y de administracion. |
 | [`internal/vec/adapters/memory`](vec_adaptadores.md#paquete-internalvecadaptersmemory) | Nucleo VEC: adaptadores | Adaptadores en memoria del nucleo VEC para pruebas y arranque local. |
 | [`internal/vec/adapters/postgres`](vec_adaptadores.md#paquete-internalvecadapterspostgres) | Nucleo VEC: adaptadores | Package postgres contiene adaptadores duraderos del nucleo para PostgreSQL. |
+| [`internal/vec/adapters/postgres/confianzaatestacionv2`](vec_adaptadores.md#paquete-internalvecadapterspostgresconfianzaatestacionv2) | Nucleo VEC: adaptadores | Package confianzaatestacionv2 carga la lista positiva VEC-AD-2 desde una autoridad PostgreSQL aislada. |
 | [`internal/vec/adapters/postgres/confianzadocumental`](vec_adaptadores.md#paquete-internalvecadapterspostgresconfianzadocumental) | Nucleo VEC: adaptadores | Package confianzadocumental implementa el conector PostgreSQL de ejecucion documental atestada V4. |
 | [`internal/vec/adapters/seguridad`](vec_adaptadores.md#paquete-internalvecadaptersseguridad) | Nucleo VEC: adaptadores | Adaptadores criptograficos del nucleo: HMAC, AEAD y atestacion. |
 | [`internal/vec/adapters/seguridad/confianzaatestacion`](vec_adaptadores.md#paquete-internalvecadaptersseguridadconfianzaatestacion) | Nucleo VEC: adaptadores | Package confianzaatestacion aplica el perfil institucional de confianza a atestaciones de autorizacion VEC-AD-2. |

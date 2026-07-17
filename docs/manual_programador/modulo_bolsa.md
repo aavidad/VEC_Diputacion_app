@@ -289,12 +289,22 @@ func NuevoRegistroPropuestasLlamamiento(
 
 func (r *RegistroPropuestasLlamamiento) GuardarPropuestaLlamamiento(
 	ctx context.Context,
-	propuesta dominiobolsa.PropuestaLlamamiento,
-	evidencia puertosvec.EvidenciaUsoDecisionAutorizacion,
+	comando puertosbolsa.ComandoGuardarPropuestaLlamamiento,
 ) error
 
 func (r *RegistroPropuestasLlamamiento) NumeroPropuestasParaPruebas() int
 
+func (r *RegistroPropuestasLlamamiento) ObtenerInstantaneaParaPruebas(
+	ctx context.Context,
+	referenciaPropuesta string,
+) (dominiobolsa.InstantaneaOrdenBolsa, error)
+```
+
+ObtenerInstantaneaParaPruebas no forma parte del puerto productivo. Permite
+demostrar que el adaptador conserva el orden completo, incluido el tramo no
+evaluado que PropuestaLlamamiento no contiene.
+
+```go
 func (r *RegistroPropuestasLlamamiento) ObtenerPropuestaParaPruebas(
 	ctx context.Context,
 	referencia string,
@@ -408,9 +418,71 @@ Package postgres implementa la persistencia durable del agregado de baremacion.
 La cuenta de ejecucion no recibe permisos sobre tablas: este adaptador solo
 invoca funciones SECURITY DEFINER de contrato cerrado.
 
+La consulta de gobierno de convocatorias es deliberadamente transaccional:
+incluso una lectura consume una decision de autorizacion y deja auditoria. La
+cuenta de ejecucion solo puede invocar la funcion SECURITY DEFINER de contrato
+cerrado; no recibe permisos directos sobre las tablas.
+
+La persistencia de propuestas de llamamiento es deliberadamente una sola
+transaccion durable. La cuenta runtime no toca tablas: invoca una funcion
+SECURITY DEFINER de contrato cerrado que vuelve a comprobar toda autoridad.
+
+La cuenta de ejecucion del panel solo puede invocar la funcion SECURITY DEFINER
+de contrato cerrado. No recibe SELECT sobre tablas de convocatorias, bolsas,
+llamamientos, auditoria ni identidad.
+
+### Variables
+
+```go
+var (
+	ErrFuentePanelInternoPostgreSQLNoDisponible = errors.New(
+		"bolsa: fuente PostgreSQL del panel interno no disponible",
+	)
+	ErrConsultaPanelInternoPostgreSQLEnCurso = errors.New(
+		"bolsa: consulta PostgreSQL del panel interno en curso",
+	)
+)
+```
+
 ### Tipos
 
 ```go
+type ConsultaGobiernoConvocatoriasPostgreSQL struct {
+	// Has unexported fields.
+}
+```
+
+ConsultaGobiernoConvocatoriasPostgreSQL recupera una version exacta.
+No contiene busquedas por "ultima", listados amplios ni rutas degradadas.
+
+```go
+func NuevaConsultaGobiernoConvocatoriasPostgreSQL(
+	pool *pgxpool.Pool,
+) (*ConsultaGobiernoConvocatoriasPostgreSQL, error)
+
+func (r *ConsultaGobiernoConvocatoriasPostgreSQL) ObtenerVersionExacta(
+	ctx context.Context,
+	solicitud puertosbolsa.SolicitudConsultaVersionConvocatoriaAutorizada,
+) (puertosbolsa.ResultadoConsultaVersionConvocatoria, error)
+
+type ConsultaPanelInternoPostgreSQL struct {
+	// Has unexported fields.
+}
+```
+
+ConsultaPanelInternoPostgreSQL consume una autorizacion V2 y obtiene una
+instantanea agregada dentro de la misma transaccion durable.
+
+```go
+func NuevaConsultaPanelInternoPostgreSQL(
+	pool *pgxpool.Pool,
+) (*ConsultaPanelInternoPostgreSQL, error)
+
+func (r *ConsultaPanelInternoPostgreSQL) ConsultarPanel(
+	ctx context.Context,
+	solicitud puertosbolsa.SolicitudConsultaPanelInterno,
+) (puertosbolsa.InstantaneaPanelInterno, error)
+
 type RepositorioBaremaciones struct {
 	// Has unexported fields.
 }
@@ -460,6 +532,71 @@ func (r *RepositorioBaremaciones) ReservarCambio(
 	ctx context.Context,
 	solicitud puertosbolsa.SolicitudReservarCambioBaremacion,
 ) (puertosbolsa.ReservaCambioBaremacion, error)
+
+type TransaccionPropuestasLlamamientoPostgreSQL struct {
+	// Has unexported fields.
+}
+```
+
+TransaccionPropuestasLlamamientoPostgreSQL permanece cerrada aunque
+exista la funcion guardar_propuesta_v1: ese contrato antiguo no recibe ni
+confirma la instantanea completa generada. Conceder EXECUTE no basta para
+habilitarla.
+
+```go
+func NuevaTransaccionPropuestasLlamamientoPostgreSQL(
+	pool *pgxpool.Pool,
+	reloj puertosbolsa.RelojLlamamientos,
+) (*TransaccionPropuestasLlamamientoPostgreSQL, error)
+
+func (r *TransaccionPropuestasLlamamientoPostgreSQL) GuardarPropuestaLlamamiento(
+	ctx context.Context,
+	comando puertosbolsa.ComandoGuardarPropuestaLlamamiento,
+) error
+```
+
+GuardarPropuestaLlamamiento valida el nuevo comando indivisible y falla
+cerrado antes de iniciar una transaccion. TODO(produccion): sustituir
+guardar_propuesta_v1 por un contrato SQL nuevo que inserte la instantanea
+completa, todas sus entradas, el prefijo de evaluaciones, la propuesta,
+el consumo de autorizacion, la atestacion COSE, auditoria y outbox en un
+unico COMMIT; solo entonces podra retirarse este cierre explicito.
+
+## Paquete `internal/modules/bolsa/adapters/referencias`
+
+> Package referencias contiene emisores productivos de identificadores opacos del modulo de Bolsa.
+
+Package referencias contiene emisores productivos de identificadores opacos
+del modulo de Bolsa. No incorpora identidad, datos del expediente ni claves de
+negocio a las referencias.
+
+### Tipos
+
+```go
+type GeneradorCriptograficoLlamamientos struct {
+	// Has unexported fields.
+}
+```
+
+GeneradorCriptograficoLlamamientos implementa el puerto de referencias
+con el CSPRNG del sistema. El lector queda privado para impedir que la
+composicion productiva inyecte identificadores previsibles.
+
+La codificacion base64url sin relleno conserva 256 bits de entropia.
+La validacion posterior evita devolver, incluso por coincidencia accidental,
+texto que el dominio considere un documento personal evidente.
+
+```go
+func NuevoGeneradorCriptograficoLlamamientos() GeneradorCriptograficoLlamamientos
+```
+
+NuevoGeneradorCriptograficoLlamamientos fija crypto/rand.Reader como unica
+fuente productiva de entropia. El valor cero falla cerrado.
+
+```go
+func (g GeneradorCriptograficoLlamamientos) NuevaReferenciaInstantaneaOrdenBolsa() (string, error)
+
+func (g GeneradorCriptograficoLlamamientos) NuevaReferenciaPropuestaLlamamiento() (string, error)
 ```
 
 ## Paquete `internal/modules/bolsa/application`
@@ -492,6 +629,16 @@ var (
 	ErrServicioConsultaPublicaInvalido = errors.New("bolsa: servicio de consulta publica invalido")
 	ErrFiltroPublicoInvalido           = errors.New("bolsa: filtro publico invalido")
 	ErrDatosPublicosNoConfiables       = errors.New("bolsa: datos publicos no confiables")
+)
+var (
+	ErrServicioConsultaConvocatoriaInvalido  = errors.New("bolsa: servicio de consulta interna de convocatoria invalido")
+	ErrOrdenConsultaConvocatoriaInvalida     = errors.New("bolsa: orden de consulta interna de convocatoria invalida")
+	ErrResultadoConsultaConvocatoriaInseguro = errors.New("bolsa: resultado de consulta interna de convocatoria no confiable")
+)
+var (
+	ErrServicioPanelInternoInvalido  = errors.New("bolsa: servicio de panel interno invalido")
+	ErrOrdenPanelInternoInvalida     = errors.New("bolsa: orden de panel interno invalida")
+	ErrDatosPanelInternoNoConfiables = errors.New("bolsa: datos de panel interno no confiables")
 )
 var ErrAbandonoReservaBaremacionNoAcreditado = errors.New(
 	"bolsa: abandono de reserva de baremacion no acreditado",
@@ -841,6 +988,32 @@ OrdenCodificarDecisionBaremacion selecciona una politica publicada por
 referencia, version y huella exactas.
 
 ```go
+type OrdenConsultaPanelInterno struct {
+	ContextoActor             dominiovec.ContextoActor
+	VinculoAutenticacionActor dominiovec.VinculoAutenticacionActorV1
+	Selector                  puertosbolsa.SelectorPanelInterno
+	MotivoCatalogo            dominiovec.ReferenciaEntradaCatalogo
+	Correlacion               dominiovec.ReferenciaCorrelacionAutorizacionV2
+}
+```
+
+OrdenConsultaPanelInterno recibe capacidades resueltas por la frontera
+interna. No admite roles, permisos ni garantia declarados por el cliente.
+
+```go
+type OrdenConsultaVersionConvocatoria struct {
+	ContextoActor             dominiovec.ContextoActor
+	VinculoAutenticacionActor dominiovec.VinculoAutenticacionActorV1
+	Selector                  puertosbolsa.SelectorVersionConvocatoriaExacta
+	IncluirInstanciaFlujo     bool
+	CorrelacionRef            string
+}
+```
+
+OrdenConsultaVersionConvocatoria contiene capacidades resueltas por la
+frontera interna. Ninguno de estos campos debe reconstruirse desde JSON.
+
+```go
 type OrdenCustodiarDecisionBaremacion struct {
 	Actor             ActorBaremacion
 	Decision          DecisionBaremacionCodificada
@@ -1160,6 +1333,26 @@ PrepararFirma crea una sesion vinculada al documento, firmante, perfil,
 politica y autorizacion exactos.
 
 ```go
+type ServicioConsultaPanelInterno struct {
+	// Has unexported fields.
+}
+```
+
+ServicioConsultaPanelInterno es el PEP del cuadro operativo de Bolsa.
+Solo acepta sesion interna de garantia alta y una concesion PDP ligada V2.
+
+```go
+func NuevoServicioConsultaPanelInterno(
+	consulta puertosbolsa.ConsultaPanelInterno,
+	exigidor aplicacionvec.ExigidorEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
+	reloj puertosvec.Reloj,
+) (*ServicioConsultaPanelInterno, error)
+
+func (s *ServicioConsultaPanelInterno) Consultar(
+	ctx context.Context,
+	orden OrdenConsultaPanelInterno,
+) (puertosbolsa.InstantaneaPanelInterno, error)
+
 type ServicioConsultaPublica struct {
 	// Has unexported fields.
 }
@@ -1185,6 +1378,27 @@ de montar las rutas: una referencia desconocida o una version/huella
 diferente impide arrancar en vez de convertirse despues en un error 500.
 
 ```go
+type ServicioConsultaVersionConvocatoria struct {
+	// Has unexported fields.
+}
+```
+
+ServicioConsultaVersionConvocatoria compone identidad, PEP, PDP y lectura
+durable. El adaptador PostgreSQL vuelve a revalidar y consumir la decision
+en la misma transaccion que deja la auditoria.
+
+```go
+func NuevoServicioConsultaVersionConvocatoria(
+	consulta puertosbolsa.ConsultaGobiernoConvocatorias,
+	exigidor aplicacionvec.ExigidorEvidenciaUsoDecisionAutorizacion,
+	reloj puertosvec.Reloj,
+) (*ServicioConsultaVersionConvocatoria, error)
+
+func (s *ServicioConsultaVersionConvocatoria) ObtenerExacta(
+	ctx context.Context,
+	orden OrdenConsultaVersionConvocatoria,
+) (puertosbolsa.ResultadoConsultaVersionConvocatoria, error)
+
 type ServicioLlamamientos struct {
 	// Has unexported fields.
 }
@@ -1267,6 +1481,621 @@ type ValorCatalogoPublico struct {
 	Descripcion string `json:"descripcion,omitempty"`
 	Semantica   string `json:"semantica"`
 }
+```
+
+## Paquete `internal/modules/bolsa/application/calculoexperienciaoficial`
+
+### Variables
+
+```go
+var (
+	ErrServicioInvalido = errors.New(
+		"bolsa: servicio de calculo oficial de experiencia invalido",
+	)
+	ErrOrdenInvalida = errors.New(
+		"bolsa: orden confiable de calculo oficial de experiencia invalida",
+	)
+	ErrSesionNoApta = errors.New(
+		"bolsa: sesion no apta para calculo oficial de experiencia",
+	)
+	ErrFuenteNoConfiable = errors.New(
+		"bolsa: fuente de calculo oficial de experiencia no confiable",
+	)
+	ErrMotorNoCoincide = errors.New(
+		"bolsa: motor de calculo oficial de experiencia no coincide",
+	)
+	ErrResultadoNoConfiable = errors.New(
+		"bolsa: resultado de calculo oficial de experiencia no confiable",
+	)
+	ErrConfirmacionInvalida = errors.New(
+		"bolsa: confirmacion durable de calculo oficial de experiencia invalida",
+	)
+	ErrReciboNoConfiable = errors.New(
+		"bolsa: recibo de calculo oficial de experiencia no confiable",
+	)
+	ErrResultadoConfirmacionIndeterminado = errors.New(
+		"bolsa: resultado de confirmacion de calculo oficial indeterminado",
+	)
+	ErrReconciliacionRequerida = errors.New(
+		"bolsa: reconciliacion de calculo oficial requerida",
+	)
+	ErrSerializacionProhibida = errors.New(
+		"bolsa: serializacion de capacidad de calculo oficial prohibida",
+	)
+)
+```
+
+### Tipos
+
+```go
+type ConfirmadorDuradero interface {
+	Confirmar(
+		context.Context,
+		SolicitudConfirmacionDuradera,
+	) (ResultadoConfirmacionDuradera, error)
+}
+
+type DatosConfirmacionDuradera struct {
+	Perfil                PerfilConfirmacionDuradera
+	ReferenciaIntento     string
+	Selector              puertosbolsa.SelectorFuenteExactaCalculoReglasBaremo
+	Fuente                puertosbolsa.FuenteExactaCalculoReglasBaremo
+	Clave                 oficial.ClaveEfectoV1
+	Intencion             oficial.IntencionResultadoV1
+	Resultado             calculo.ResultadoExperienciaV1
+	ResultadoCanonico     []byte
+	HuellaResultadoSHA256 string
+	AutorizacionLectura   puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2
+	AutorizacionEscritura puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2
+	CorrelacionLectura    dominiovec.ReferenciaCorrelacionAutorizacionV2
+	CorrelacionEscritura  dominiovec.ReferenciaCorrelacionAutorizacionV2
+	Motivo                dominiovec.ReferenciaEntradaCatalogo
+	LecturaNoAntesDe      time.Time
+	FuenteSolicitadaEn    time.Time
+	EscrituraNoAntesDe    time.Time
+	SolicitadaEn          time.Time
+	// Has unexported fields.
+}
+
+func (b DatosConfirmacionDuradera) Format(estado fmt.State, _ rune)
+
+func (b DatosConfirmacionDuradera) GoString() string
+
+func (*DatosConfirmacionDuradera) GobDecode([]byte) error
+
+func (DatosConfirmacionDuradera) GobEncode() ([]byte, error)
+
+func (b DatosConfirmacionDuradera) LogValue() slog.Value
+
+func (DatosConfirmacionDuradera) MarshalBinary() ([]byte, error)
+
+func (DatosConfirmacionDuradera) MarshalCBOR() ([]byte, error)
+
+func (DatosConfirmacionDuradera) MarshalJSON() ([]byte, error)
+
+func (DatosConfirmacionDuradera) MarshalText() ([]byte, error)
+
+func (DatosConfirmacionDuradera) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (DatosConfirmacionDuradera) MarshalYAML() (any, error)
+
+func (DatosConfirmacionDuradera) String() string
+
+func (*DatosConfirmacionDuradera) UnmarshalBinary([]byte) error
+
+func (*DatosConfirmacionDuradera) UnmarshalCBOR([]byte) error
+
+func (*DatosConfirmacionDuradera) UnmarshalJSON([]byte) error
+
+func (*DatosConfirmacionDuradera) UnmarshalText([]byte) error
+
+func (*DatosConfirmacionDuradera) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*DatosConfirmacionDuradera) UnmarshalYAML(func(any) error) error
+
+type DatosOrdenConfiable struct {
+	ContextoActor             dominiovec.ContextoActor
+	VinculoAutenticacionActor dominiovec.VinculoAutenticacionActorV1
+	Selector                  puertosbolsa.SelectorFuenteExactaCalculoReglasBaremo
+	Motivo                    dominiovec.ReferenciaEntradaCatalogo
+	CorrelacionLectura        dominiovec.ReferenciaCorrelacionAutorizacionV2
+	CorrelacionEscritura      dominiovec.ReferenciaCorrelacionAutorizacionV2
+	Causa                     oficial.CausaGobernadaV1
+	MotorEsperado             oficial.VinculoMotorV1
+	TipoEfecto                oficial.TipoEfectoV1
+	Predecesor                *oficial.VinculoPredecesorV1
+	// Has unexported fields.
+}
+```
+
+DatosOrdenConfiable solo admite capacidades obtenidas por la frontera de
+identidad y referencias exactas ya resueltas. No contiene DNI ni permite
+seleccionar el perfil de proteccion del servicio.
+
+```go
+func (b DatosOrdenConfiable) Format(estado fmt.State, _ rune)
+
+func (b DatosOrdenConfiable) GoString() string
+
+func (*DatosOrdenConfiable) GobDecode([]byte) error
+
+func (DatosOrdenConfiable) GobEncode() ([]byte, error)
+
+func (b DatosOrdenConfiable) LogValue() slog.Value
+
+func (DatosOrdenConfiable) MarshalBinary() ([]byte, error)
+
+func (DatosOrdenConfiable) MarshalCBOR() ([]byte, error)
+
+func (DatosOrdenConfiable) MarshalJSON() ([]byte, error)
+
+func (DatosOrdenConfiable) MarshalText() ([]byte, error)
+
+func (DatosOrdenConfiable) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (DatosOrdenConfiable) MarshalYAML() (any, error)
+
+func (DatosOrdenConfiable) String() string
+
+func (*DatosOrdenConfiable) UnmarshalBinary([]byte) error
+
+func (*DatosOrdenConfiable) UnmarshalCBOR([]byte) error
+
+func (*DatosOrdenConfiable) UnmarshalJSON([]byte) error
+
+func (*DatosOrdenConfiable) UnmarshalText([]byte) error
+
+func (*DatosOrdenConfiable) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*DatosOrdenConfiable) UnmarshalYAML(func(any) error) error
+
+type DatosReconciliacionDuradera struct {
+	ReferenciaIntento     string
+	HuellaIntencionSHA256 string
+	// Has unexported fields.
+}
+
+func (b DatosReconciliacionDuradera) Format(estado fmt.State, _ rune)
+
+func (b DatosReconciliacionDuradera) GoString() string
+
+func (*DatosReconciliacionDuradera) GobDecode([]byte) error
+
+func (DatosReconciliacionDuradera) GobEncode() ([]byte, error)
+
+func (b DatosReconciliacionDuradera) LogValue() slog.Value
+
+func (DatosReconciliacionDuradera) MarshalBinary() ([]byte, error)
+
+func (DatosReconciliacionDuradera) MarshalCBOR() ([]byte, error)
+
+func (DatosReconciliacionDuradera) MarshalJSON() ([]byte, error)
+
+func (DatosReconciliacionDuradera) MarshalText() ([]byte, error)
+
+func (DatosReconciliacionDuradera) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (DatosReconciliacionDuradera) MarshalYAML() (any, error)
+
+func (DatosReconciliacionDuradera) String() string
+
+func (*DatosReconciliacionDuradera) UnmarshalBinary([]byte) error
+
+func (*DatosReconciliacionDuradera) UnmarshalCBOR([]byte) error
+
+func (*DatosReconciliacionDuradera) UnmarshalJSON([]byte) error
+
+func (*DatosReconciliacionDuradera) UnmarshalText([]byte) error
+
+func (*DatosReconciliacionDuradera) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*DatosReconciliacionDuradera) UnmarshalYAML(func(any) error) error
+
+type DesenlaceConfirmacionDuradera string
+
+const (
+	ConfirmacionCreada      DesenlaceConfirmacionDuradera = "creada"
+	ConfirmacionReutilizada DesenlaceConfirmacionDuradera = "reutilizada"
+)
+type ErrorConfirmacionIndeterminada struct {
+	// Has unexported fields.
+}
+```
+
+ErrorConfirmacionIndeterminada evita propagar errores de driver tras una
+frontera COMMIT ambigua y conserva la unica capacidad segura de consulta.
+
+```go
+func (*ErrorConfirmacionIndeterminada) Error() string
+
+func (b ErrorConfirmacionIndeterminada) Format(estado fmt.State, _ rune)
+
+func (b ErrorConfirmacionIndeterminada) GoString() string
+
+func (*ErrorConfirmacionIndeterminada) GobDecode([]byte) error
+
+func (ErrorConfirmacionIndeterminada) GobEncode() ([]byte, error)
+
+func (e *ErrorConfirmacionIndeterminada) Intento() (
+	IntentoReconciliacionCalculoOficial,
+	error,
+)
+
+func (e *ErrorConfirmacionIndeterminada) LogValue() slog.Value
+
+func (ErrorConfirmacionIndeterminada) MarshalBinary() ([]byte, error)
+
+func (ErrorConfirmacionIndeterminada) MarshalCBOR() ([]byte, error)
+
+func (ErrorConfirmacionIndeterminada) MarshalJSON() ([]byte, error)
+
+func (ErrorConfirmacionIndeterminada) MarshalText() ([]byte, error)
+
+func (ErrorConfirmacionIndeterminada) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (ErrorConfirmacionIndeterminada) MarshalYAML() (any, error)
+
+func (ErrorConfirmacionIndeterminada) String() string
+
+func (*ErrorConfirmacionIndeterminada) UnmarshalBinary([]byte) error
+
+func (*ErrorConfirmacionIndeterminada) UnmarshalCBOR([]byte) error
+
+func (*ErrorConfirmacionIndeterminada) UnmarshalJSON([]byte) error
+
+func (*ErrorConfirmacionIndeterminada) UnmarshalText([]byte) error
+
+func (*ErrorConfirmacionIndeterminada) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*ErrorConfirmacionIndeterminada) UnmarshalYAML(func(any) error) error
+
+func (*ErrorConfirmacionIndeterminada) Unwrap() []error
+
+type IntentoReconciliacionCalculoOficial struct {
+	// Has unexported fields.
+}
+```
+
+IntentoReconciliacionCalculoOficial es una capacidad opaca creada antes de
+cruzar la frontera que puede enviar COMMIT. No concede permiso para repetir
+la confirmacion; solo permite consultar el mismo intento nominal.
+
+NO-GO REANUDACION EXTERNA: esta capacidad es deliberadamente in-memory y no
+puede serializarse ni reconstruirse solo desde ReferenciaOpaca. Produccion
+necesita un worker/acuse durable autenticado que recupere el intento tras un
+reinicio y vuelva a comprobar autoridad sin aceptar un identificador libre.
+
+```go
+func (b IntentoReconciliacionCalculoOficial) Format(estado fmt.State, _ rune)
+
+func (b IntentoReconciliacionCalculoOficial) GoString() string
+
+func (*IntentoReconciliacionCalculoOficial) GobDecode([]byte) error
+
+func (IntentoReconciliacionCalculoOficial) GobEncode() ([]byte, error)
+
+func (b IntentoReconciliacionCalculoOficial) LogValue() slog.Value
+
+func (IntentoReconciliacionCalculoOficial) MarshalBinary() ([]byte, error)
+
+func (IntentoReconciliacionCalculoOficial) MarshalCBOR() ([]byte, error)
+
+func (IntentoReconciliacionCalculoOficial) MarshalJSON() ([]byte, error)
+
+func (IntentoReconciliacionCalculoOficial) MarshalText() ([]byte, error)
+
+func (IntentoReconciliacionCalculoOficial) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (IntentoReconciliacionCalculoOficial) MarshalYAML() (any, error)
+
+func (i IntentoReconciliacionCalculoOficial) ReferenciaOpaca() (string, error)
+```
+
+ReferenciaOpaca devuelve el identificador nominal emitido antes del COMMIT.
+No contiene sujeto, convocatoria ni datos personales.
+
+```go
+func (IntentoReconciliacionCalculoOficial) String() string
+
+func (*IntentoReconciliacionCalculoOficial) UnmarshalBinary([]byte) error
+
+func (*IntentoReconciliacionCalculoOficial) UnmarshalCBOR([]byte) error
+
+func (*IntentoReconciliacionCalculoOficial) UnmarshalJSON([]byte) error
+
+func (*IntentoReconciliacionCalculoOficial) UnmarshalText([]byte) error
+
+func (*IntentoReconciliacionCalculoOficial) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*IntentoReconciliacionCalculoOficial) UnmarshalYAML(func(any) error) error
+
+type OrdenCalculoExperienciaOficial struct {
+	// Has unexported fields.
+}
+
+func NuevaOrdenConfiable(
+	datos DatosOrdenConfiable,
+) (OrdenCalculoExperienciaOficial, error)
+
+func (o OrdenCalculoExperienciaOficial) Format(estado fmt.State, _ rune)
+
+func (o OrdenCalculoExperienciaOficial) GoString() string
+
+func (*OrdenCalculoExperienciaOficial) GobDecode([]byte) error
+
+func (OrdenCalculoExperienciaOficial) GobEncode() ([]byte, error)
+
+func (o OrdenCalculoExperienciaOficial) LogValue() slog.Value
+
+func (OrdenCalculoExperienciaOficial) MarshalBinary() ([]byte, error)
+
+func (OrdenCalculoExperienciaOficial) MarshalCBOR() ([]byte, error)
+
+func (OrdenCalculoExperienciaOficial) MarshalJSON() ([]byte, error)
+
+func (OrdenCalculoExperienciaOficial) MarshalText() ([]byte, error)
+
+func (OrdenCalculoExperienciaOficial) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (OrdenCalculoExperienciaOficial) MarshalYAML() (any, error)
+
+func (OrdenCalculoExperienciaOficial) String() string
+
+func (*OrdenCalculoExperienciaOficial) UnmarshalBinary([]byte) error
+
+func (*OrdenCalculoExperienciaOficial) UnmarshalCBOR([]byte) error
+
+func (*OrdenCalculoExperienciaOficial) UnmarshalJSON(datos []byte) error
+
+func (*OrdenCalculoExperienciaOficial) UnmarshalText([]byte) error
+
+func (*OrdenCalculoExperienciaOficial) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*OrdenCalculoExperienciaOficial) UnmarshalYAML(func(any) error) error
+
+type PerfilConfirmacionDuradera string
+
+const (
+	PerfilConfirmacionExternoOrdinario PerfilConfirmacionDuradera = "externo_ordinario"
+	PerfilConfirmacionInternoAlto      PerfilConfirmacionDuradera = "interno_alto"
+)
+type ReconciliadorDuradero interface {
+	Reconciliar(
+		context.Context,
+		SolicitudReconciliacionDuradera,
+	) (ResultadoConfirmacionDuradera, error)
+}
+
+type ResultadoConfirmacionDuradera struct {
+	// Has unexported fields.
+}
+
+func NuevoResultadoConfirmacionDuradera(
+	referenciaIntento string,
+	recibo oficial.ReciboV1,
+	indiceEfectoHMACSHA256 string,
+	huellaResultadoSHA256 string,
+	desenlace DesenlaceConfirmacionDuradera,
+) (ResultadoConfirmacionDuradera, error)
+
+func (r ResultadoConfirmacionDuradera) Format(estado fmt.State, _ rune)
+
+func (r ResultadoConfirmacionDuradera) GoString() string
+
+func (*ResultadoConfirmacionDuradera) GobDecode([]byte) error
+
+func (ResultadoConfirmacionDuradera) GobEncode() ([]byte, error)
+
+func (r ResultadoConfirmacionDuradera) LogValue() slog.Value
+
+func (ResultadoConfirmacionDuradera) MarshalBinary() ([]byte, error)
+
+func (ResultadoConfirmacionDuradera) MarshalCBOR() ([]byte, error)
+
+func (ResultadoConfirmacionDuradera) MarshalJSON() ([]byte, error)
+
+func (ResultadoConfirmacionDuradera) MarshalText() ([]byte, error)
+
+func (ResultadoConfirmacionDuradera) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (ResultadoConfirmacionDuradera) MarshalYAML() (any, error)
+
+func (ResultadoConfirmacionDuradera) String() string
+
+func (*ResultadoConfirmacionDuradera) UnmarshalBinary([]byte) error
+
+func (*ResultadoConfirmacionDuradera) UnmarshalCBOR([]byte) error
+
+func (*ResultadoConfirmacionDuradera) UnmarshalJSON([]byte) error
+
+func (*ResultadoConfirmacionDuradera) UnmarshalText([]byte) error
+
+func (*ResultadoConfirmacionDuradera) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*ResultadoConfirmacionDuradera) UnmarshalYAML(func(any) error) error
+
+func (r ResultadoConfirmacionDuradera) ValidarParaReconciliacion(
+	solicitud SolicitudReconciliacionDuradera,
+) error
+
+type ResultadoEjecucion struct {
+	// Has unexported fields.
+}
+
+func (r ResultadoEjecucion) Desenlace() (DesenlaceConfirmacionDuradera, error)
+
+func (r ResultadoEjecucion) Format(estado fmt.State, _ rune)
+
+func (r ResultadoEjecucion) GoString() string
+
+func (*ResultadoEjecucion) GobDecode([]byte) error
+
+func (ResultadoEjecucion) GobEncode() ([]byte, error)
+
+func (r ResultadoEjecucion) LogValue() slog.Value
+
+func (ResultadoEjecucion) MarshalBinary() ([]byte, error)
+
+func (ResultadoEjecucion) MarshalCBOR() ([]byte, error)
+
+func (ResultadoEjecucion) MarshalJSON() ([]byte, error)
+
+func (ResultadoEjecucion) MarshalText() ([]byte, error)
+
+func (ResultadoEjecucion) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (ResultadoEjecucion) MarshalYAML() (any, error)
+
+func (r ResultadoEjecucion) Recibo() (oficial.ReciboV1, error)
+
+func (r ResultadoEjecucion) Resultado() (calculo.ResultadoExperienciaV1, error)
+
+func (ResultadoEjecucion) String() string
+
+func (*ResultadoEjecucion) UnmarshalBinary([]byte) error
+
+func (*ResultadoEjecucion) UnmarshalCBOR([]byte) error
+
+func (*ResultadoEjecucion) UnmarshalJSON(datos []byte) error
+
+func (*ResultadoEjecucion) UnmarshalText([]byte) error
+
+func (*ResultadoEjecucion) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*ResultadoEjecucion) UnmarshalYAML(func(any) error) error
+
+type Servicio struct {
+	// Has unexported fields.
+}
+
+func NuevoServicioExternoOrdinario(
+	fuente puertosbolsa.FuenteReglasBaremoParaCalculo,
+	exigidor aplicacionvec.ExigidorEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
+	confirmador ConfirmadorDuradero,
+	reconciliador ReconciliadorDuradero,
+	reloj puertosvec.Reloj,
+) (*Servicio, error)
+
+func NuevoServicioInternoAlto(
+	fuente puertosbolsa.FuenteReglasBaremoParaCalculo,
+	exigidor aplicacionvec.ExigidorEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
+	confirmador ConfirmadorDuradero,
+	reconciliador ReconciliadorDuradero,
+	reloj puertosvec.Reloj,
+) (*Servicio, error)
+
+func (s *Servicio) Ejecutar(
+	ctx context.Context,
+	orden OrdenCalculoExperienciaOficial,
+) (ResultadoEjecucion, error)
+
+func (s *Servicio) Reconciliar(
+	ctx context.Context,
+	intento IntentoReconciliacionCalculoOficial,
+) (ResultadoEjecucion, error)
+```
+
+Reconciliar consulta un intento previo; nunca vuelve a llamar a Confirmar.
+
+```go
+type SolicitudConfirmacionDuradera struct {
+	// Has unexported fields.
+}
+```
+
+SolicitudConfirmacionDuradera es opaca para impedir que una frontera de
+transporte reconstruya una escritura oficial sin pasar por el caso de uso.
+
+```go
+func (s SolicitudConfirmacionDuradera) Datos() (DatosConfirmacionDuradera, error)
+
+func (s SolicitudConfirmacionDuradera) Format(estado fmt.State, _ rune)
+
+func (s SolicitudConfirmacionDuradera) GoString() string
+
+func (*SolicitudConfirmacionDuradera) GobDecode([]byte) error
+
+func (SolicitudConfirmacionDuradera) GobEncode() ([]byte, error)
+
+func (s SolicitudConfirmacionDuradera) LogValue() slog.Value
+
+func (SolicitudConfirmacionDuradera) MarshalBinary() ([]byte, error)
+
+func (SolicitudConfirmacionDuradera) MarshalCBOR() ([]byte, error)
+
+func (SolicitudConfirmacionDuradera) MarshalJSON() ([]byte, error)
+
+func (SolicitudConfirmacionDuradera) MarshalText() ([]byte, error)
+
+func (SolicitudConfirmacionDuradera) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (SolicitudConfirmacionDuradera) MarshalYAML() (any, error)
+
+func (SolicitudConfirmacionDuradera) String() string
+
+func (*SolicitudConfirmacionDuradera) UnmarshalBinary([]byte) error
+
+func (*SolicitudConfirmacionDuradera) UnmarshalCBOR([]byte) error
+
+func (*SolicitudConfirmacionDuradera) UnmarshalJSON(datos []byte) error
+
+func (*SolicitudConfirmacionDuradera) UnmarshalText([]byte) error
+
+func (*SolicitudConfirmacionDuradera) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*SolicitudConfirmacionDuradera) UnmarshalYAML(func(any) error) error
+
+type SolicitudReconciliacionDuradera struct {
+	// Has unexported fields.
+}
+```
+
+SolicitudReconciliacionDuradera no admite un DTO libre: se deriva de la
+correlacion V2 y la intencion oficial exactas que originaron el intento.
+
+```go
+func NuevaSolicitudReconciliacionDuradera(
+	correlacion dominiovec.ReferenciaCorrelacionAutorizacionV2,
+	intencion oficial.IntencionResultadoV1,
+) (SolicitudReconciliacionDuradera, error)
+
+func (s SolicitudReconciliacionDuradera) Datos() (DatosReconciliacionDuradera, error)
+
+func (s SolicitudReconciliacionDuradera) Format(estado fmt.State, _ rune)
+
+func (s SolicitudReconciliacionDuradera) GoString() string
+
+func (*SolicitudReconciliacionDuradera) GobDecode([]byte) error
+
+func (SolicitudReconciliacionDuradera) GobEncode() ([]byte, error)
+
+func (s SolicitudReconciliacionDuradera) LogValue() slog.Value
+
+func (SolicitudReconciliacionDuradera) MarshalBinary() ([]byte, error)
+
+func (SolicitudReconciliacionDuradera) MarshalCBOR() ([]byte, error)
+
+func (SolicitudReconciliacionDuradera) MarshalJSON() ([]byte, error)
+
+func (SolicitudReconciliacionDuradera) MarshalText() ([]byte, error)
+
+func (SolicitudReconciliacionDuradera) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (SolicitudReconciliacionDuradera) MarshalYAML() (any, error)
+
+func (SolicitudReconciliacionDuradera) String() string
+
+func (*SolicitudReconciliacionDuradera) UnmarshalBinary([]byte) error
+
+func (*SolicitudReconciliacionDuradera) UnmarshalCBOR([]byte) error
+
+func (*SolicitudReconciliacionDuradera) UnmarshalJSON([]byte) error
+
+func (*SolicitudReconciliacionDuradera) UnmarshalText([]byte) error
+
+func (*SolicitudReconciliacionDuradera) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*SolicitudReconciliacionDuradera) UnmarshalYAML(func(any) error) error
 ```
 
 ## Paquete `internal/modules/bolsa/domain`
@@ -2346,6 +3175,19 @@ type VersionConvocatoriaGobernada struct {
 	AprobacionRetirada       *EvidenciaAprobacionConvocatoria   `json:"aprobacion_retirada,omitempty"`
 }
 
+func DecodificarVersionConvocatoriaGobernadaCanonica(
+	contenido []byte,
+) (VersionConvocatoriaGobernada, error)
+```
+
+DecodificarVersionConvocatoriaGobernadaCanonica reconstruye exclusivamente
+los bytes producidos por RepresentacionCanonica. No basta con que el JSON
+represente un agregado valido: se rechazan claves desconocidas o duplicadas,
+orden alternativo, espacios, formatos temporales equivalentes y cualquier
+otra codificacion maleable. Esta frontera se usa al recuperar evidencias
+duraderas de un almacenamiento que el dominio no debe confiar a ciegas.
+
+```go
 func NuevaVersionConvocatoriaGobernada(datos DatosNuevaVersionConvocatoriaGobernada) (VersionConvocatoriaGobernada, error)
 
 func (v VersionConvocatoriaGobernada) ActualizarBorrador(
@@ -2422,6 +3264,2263 @@ confirmar esta copia y la publicacion nueva en una unica transaccion.
 
 ```go
 func (v VersionConvocatoriaGobernada) Validar() error
+```
+
+## Paquete `internal/modules/bolsa/domain/calculoexperiencia`
+
+### Variables
+
+```go
+var (
+	ErrSeleccionTemporalBloqueada   = &ErrorCalculo{codigo: CodigoSeleccionTemporalBloqueada}
+	ErrSeleccionTemporalInvalida    = &ErrorCalculo{codigo: CodigoSeleccionTemporalInvalida}
+	ErrLimiteAplicacionesTemporales = &ErrorCalculo{codigo: CodigoLimiteAplicacionesTemporales}
+	ErrLimiteEventosTemporales      = &ErrorCalculo{codigo: CodigoLimiteEventosTemporales}
+)
+var (
+	ErrCompilacionConjuntoInvalido  = &ErrorCalculo{codigo: CodigoCompilacionConjuntoInvalido}
+	ErrCompilacionPlanInvalido      = &ErrorCalculo{codigo: CodigoCompilacionPlanInvalido}
+	ErrUnidadBaseNoSoportada        = &ErrorCalculo{codigo: CodigoUnidadBaseNoSoportada}
+	ErrJornadaNoSoportada           = &ErrorCalculo{codigo: CodigoJornadaNoSoportada}
+	ErrRedondeoNoSoportado          = &ErrorCalculo{codigo: CodigoRedondeoNoSoportado}
+	ErrMinimoSeccionNoSoportado     = &ErrorCalculo{codigo: CodigoMinimoSeccionNoSoportado}
+	ErrRestosRedondeoNoSoportados   = &ErrorCalculo{codigo: CodigoRestosRedondeoNoSoportados}
+	ErrCoincidenciaNoSoportada      = &ErrorCalculo{codigo: CodigoCoincidenciaNoSoportada}
+	ErrSolapeNoSoportado            = &ErrorCalculo{codigo: CodigoSolapeNoSoportado}
+	ErrTopeUnidadesNoSoportado      = &ErrorCalculo{codigo: CodigoTopeUnidadesNoSoportado}
+	ErrCatalogoCriterioIncompatible = &ErrorCalculo{codigo: CodigoCatalogoCriterioIncompatible}
+)
+var (
+	ErrValorInvalido        = &ErrorCalculo{codigo: CodigoValorInvalido}
+	ErrValorNoCanonico      = &ErrorCalculo{codigo: CodigoValorNoCanonico}
+	ErrFueraDeLimites       = &ErrorCalculo{codigo: CodigoFueraDeLimites}
+	ErrValorDuplicado       = &ErrorCalculo{codigo: CodigoValorDuplicado}
+	ErrResultadoNegativo    = &ErrorCalculo{codigo: CodigoResultadoNegativo}
+	ErrDivisionPorCero      = &ErrorCalculo{codigo: CodigoDivisionPorCero}
+	ErrResultadoNoExacto    = &ErrorCalculo{codigo: CodigoResultadoNoExacto}
+	ErrDesbordamiento       = &ErrorCalculo{codigo: CodigoDesbordamiento}
+	ErrLimiteOperaciones    = &ErrorCalculo{codigo: CodigoLimiteOperaciones}
+	ErrContextoIncompatible = &ErrorCalculo{codigo: CodigoContextoIncompatible}
+	ErrModoRedondeoInvalido = &ErrorCalculo{codigo: CodigoModoRedondeoInvalido}
+	ErrEsquemaIncompatible  = &ErrorCalculo{codigo: CodigoEsquemaIncompatible}
+	ErrHuellaNoCoincide     = &ErrorCalculo{codigo: CodigoHuellaNoCoincide}
+)
+```
+
+### Tipos
+
+```go
+type AplicacionCalculadaResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (a AplicacionCalculadaResultadoExperienciaV1) Jornada() JornadaResultadoExperienciaV1
+
+func (a AplicacionCalculadaResultadoExperienciaV1) Puntuacion() PuntuacionPeriodoResultadoExperienciaV1
+
+func (a AplicacionCalculadaResultadoExperienciaV1) ReglaClave() string
+
+func (a AplicacionCalculadaResultadoExperienciaV1) Tramo() reglasbaremo.ReferenciaVersionada
+
+func (a AplicacionCalculadaResultadoExperienciaV1) Unidades() UnidadesAplicacionResultadoExperienciaV1
+
+type AplicacionSeleccionResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+```
+
+AplicacionSeleccionResultadoExperienciaV1 afirma que todos los criterios
+gobernados de la regla ligada por el plan resultaron verdaderos. No repite
+claves ni valores catalogados: el plan exacto conserva las primeras y
+la huella de entrada liga los segundos sin ampliar datos laborales en la
+salida.
+
+```go
+func (a AplicacionSeleccionResultadoExperienciaV1) GrupoClave() string
+
+func (a AplicacionSeleccionResultadoExperienciaV1) Prioridad() uint32
+
+func (a AplicacionSeleccionResultadoExperienciaV1) Razon() CodigoRazonResultadoExperienciaV1
+
+func (a AplicacionSeleccionResultadoExperienciaV1) ReglaClave() string
+
+func (a AplicacionSeleccionResultadoExperienciaV1) SeccionClave() string
+
+func (a AplicacionSeleccionResultadoExperienciaV1) Tramo() reglasbaremo.ReferenciaVersionada
+
+type AtributoCatalogado struct {
+	// Has unexported fields.
+}
+```
+
+AtributoCatalogado aporta una clave normalizada y un valor gobernado por una
+version exacta de catalogo. No admite descripciones ni texto libre.
+
+```go
+func NuevoAtributoCatalogado(
+	clave string,
+	catalogo reglasbaremo.ReferenciaVersionada,
+	valor string,
+) (AtributoCatalogado, error)
+
+func (a AtributoCatalogado) Catalogo() reglasbaremo.ReferenciaVersionada
+
+func (a AtributoCatalogado) Clave() string
+
+func (a AtributoCatalogado) Valor() string
+
+type BloqueoResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (b BloqueoResultadoExperienciaV1) ClaveGobernada() string
+
+func (b BloqueoResultadoExperienciaV1) Codigo() CodigoBloqueoResultadoExperienciaV1
+
+func (b BloqueoResultadoExperienciaV1) GrupoClave() string
+
+func (b BloqueoResultadoExperienciaV1) Reglas() []string
+
+func (b BloqueoResultadoExperienciaV1) SeccionClave() string
+
+func (b BloqueoResultadoExperienciaV1) Tramos() []reglasbaremo.ReferenciaVersionada
+
+func (b BloqueoResultadoExperienciaV1) ValorExacto() (string, bool)
+
+type CodigoBloqueoResultadoExperienciaV1 string
+
+const (
+	BloqueoResultadoCatalogoIncompatible  CodigoBloqueoResultadoExperienciaV1 = "catalogo_incompatible"
+	BloqueoResultadoGruposDistintos       CodigoBloqueoResultadoExperienciaV1 = "reglas_en_grupos_distintos"
+	BloqueoResultadoCoincidenciaRechazada CodigoBloqueoResultadoExperienciaV1 = "coincidencia_reglas_rechazada"
+	BloqueoResultadoSolape                CodigoBloqueoResultadoExperienciaV1 = "solape_tramos"
+	BloqueoResultadoRedondeoNoExacto      CodigoBloqueoResultadoExperienciaV1 = "redondeo_no_exacto"
+)
+type CodigoError string
+```
+
+CodigoError identifica de forma estable un fallo del calculo exacto. Los
+errores nunca incorporan los valores operados ni referencias del expediente.
+
+```go
+const (
+	CodigoSeleccionTemporalBloqueada   CodigoError = "seleccion_temporal_bloqueada"
+	CodigoSeleccionTemporalInvalida    CodigoError = "seleccion_temporal_invalida"
+	CodigoLimiteAplicacionesTemporales CodigoError = "limite_aplicaciones_temporales"
+	CodigoLimiteEventosTemporales      CodigoError = "limite_eventos_temporales"
+)
+```
+
+Los errores tecnicos de la fase temporal se separan de sus exclusiones y
+bloqueos de negocio. Estos ultimos forman parte del resultado explicable.
+
+```go
+const (
+	CodigoCompilacionConjuntoInvalido  CodigoError = "compilacion_conjunto_invalido"
+	CodigoCompilacionPlanInvalido      CodigoError = "compilacion_plan_invalido"
+	CodigoUnidadBaseNoSoportada        CodigoError = "unidad_base_no_soportada"
+	CodigoJornadaNoSoportada           CodigoError = "jornada_no_soportada"
+	CodigoRedondeoNoSoportado          CodigoError = "redondeo_no_soportado"
+	CodigoMinimoSeccionNoSoportado     CodigoError = "minimo_seccion_no_soportado"
+	CodigoRestosRedondeoNoSoportados   CodigoError = "restos_redondeo_no_soportados"
+	CodigoCoincidenciaNoSoportada      CodigoError = "coincidencia_no_soportada"
+	CodigoSolapeNoSoportado            CodigoError = "solape_no_soportado"
+	CodigoTopeUnidadesNoSoportado      CodigoError = "tope_unidades_no_soportado"
+	CodigoCatalogoCriterioIncompatible CodigoError = "catalogo_criterio_incompatible"
+)
+```
+
+Los codigos de compilacion separan una configuracion valida pero no
+ejecutable por V1 de un fallo aritmetico producido durante el calculo.
+
+```go
+const (
+	CodigoValorInvalido        CodigoError = "valor_invalido"
+	CodigoValorNoCanonico      CodigoError = "valor_no_canonico"
+	CodigoFueraDeLimites       CodigoError = "fuera_de_limites"
+	CodigoValorDuplicado       CodigoError = "valor_duplicado"
+	CodigoResultadoNegativo    CodigoError = "resultado_negativo"
+	CodigoDivisionPorCero      CodigoError = "division_por_cero"
+	CodigoResultadoNoExacto    CodigoError = "resultado_no_exacto"
+	CodigoDesbordamiento       CodigoError = "desbordamiento"
+	CodigoLimiteOperaciones    CodigoError = "limite_operaciones"
+	CodigoContextoIncompatible CodigoError = "contexto_incompatible"
+	CodigoModoRedondeoInvalido CodigoError = "modo_redondeo_invalido"
+	CodigoEsquemaIncompatible  CodigoError = "esquema_incompatible"
+	CodigoHuellaNoCoincide     CodigoError = "huella_no_coincide"
+)
+type CodigoRazonResultadoExperienciaV1 string
+
+const (
+	RazonCoincidenciaUnica    CodigoRazonResultadoExperienciaV1 = "coincidencia_unica"
+	RazonPrioridad            CodigoRazonResultadoExperienciaV1 = "prioridad"
+	RazonAcumulacion          CodigoRazonResultadoExperienciaV1 = "acumulacion"
+	RazonPrioridadInferior    CodigoRazonResultadoExperienciaV1 = "prioridad_inferior"
+	RazonNingunaCoincidencia  CodigoRazonResultadoExperienciaV1 = "ninguna_regla_coincidente"
+	RazonPosteriorCorte       CodigoRazonResultadoExperienciaV1 = "posterior_corte"
+	RazonIntervaloVacio       CodigoRazonResultadoExperienciaV1 = "intervalo_vacio"
+	RazonJornadaProporcional  CodigoRazonResultadoExperienciaV1 = "jornada_proporcional"
+	RazonJornadaIntegra       CodigoRazonResultadoExperienciaV1 = "jornada_integra"
+	RazonUmbralAlcanzado      CodigoRazonResultadoExperienciaV1 = "umbral_alcanzado"
+	RazonUmbralNoAlcanzado    CodigoRazonResultadoExperienciaV1 = "umbral_no_alcanzado"
+	RazonProteccionAtestada   CodigoRazonResultadoExperienciaV1 = "proteccion_atestada"
+	RazonProteccionNoAtestada CodigoRazonResultadoExperienciaV1 = "proteccion_no_atestada"
+)
+type ComputoIntegroAtestado struct {
+	// Has unexported fields.
+}
+```
+
+ComputoIntegroAtestado solo informa de la consecuencia computable. Nunca
+contiene la causa medica, familiar, sindical o de otra naturaleza.
+
+```go
+func NuevoComputoIntegroAtestado(
+	referencia reglasbaremo.ReferenciaVersionada,
+) (ComputoIntegroAtestado, error)
+
+func SinComputoIntegroAtestado() ComputoIntegroAtestado
+
+func (a ComputoIntegroAtestado) EstaAtestado() bool
+
+func (a ComputoIntegroAtestado) Referencia() (reglasbaremo.ReferenciaVersionada, bool)
+
+type DescarteSeleccionResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (d DescarteSeleccionResultadoExperienciaV1) GrupoClave() string
+
+func (d DescarteSeleccionResultadoExperienciaV1) Razon() CodigoRazonResultadoExperienciaV1
+
+func (d DescarteSeleccionResultadoExperienciaV1) ReglaClave() string
+
+func (d DescarteSeleccionResultadoExperienciaV1) ReglaSeleccionada() string
+
+func (d DescarteSeleccionResultadoExperienciaV1) Tramo() reglasbaremo.ReferenciaVersionada
+
+type EntradaExperiencia struct {
+	// Has unexported fields.
+}
+```
+
+EntradaExperiencia es la instantanea inmutable y minimizada que consume el
+futuro calculador. Una entrada vacia es valida y representa cero hechos.
+
+```go
+func NuevaEntradaExperiencia(
+	instantanea reglasbaremo.ReferenciaVersionada,
+	tramos []TramoExperiencia,
+) (EntradaExperiencia, error)
+
+func RestaurarEntradaExperiencia(contenido []byte) (EntradaExperiencia, error)
+```
+
+RestaurarEntradaExperiencia solo acepta los mismos bytes que produciria
+RepresentacionCanonica. Rechaza campos, orden, espacios y claves duplicadas
+alternativos aunque representen aparentemente los mismos datos. Restaurar
+y comprobar la huella no autentica la fuente, pertenencia, catalogos ni
+atestaciones: antes de calcular, la aplicacion debe obtener una atestacion
+externa exacta desde el puerto confiable de servicios y evidencias.
+
+```go
+func RestaurarEntradaExperienciaConHuellaSHA256(
+	contenido []byte,
+	huellaEsperada string,
+) (EntradaExperiencia, error)
+
+func (e EntradaExperiencia) HuellaSHA256() (string, error)
+
+func (e EntradaExperiencia) Instantanea() reglasbaremo.ReferenciaVersionada
+
+func (e EntradaExperiencia) MarshalJSON() ([]byte, error)
+```
+
+MarshalJSON conserva exactamente la representacion canonica.
+
+```go
+func (e EntradaExperiencia) RepresentacionCanonica() ([]byte, error)
+```
+
+RepresentacionCanonica devuelve el unico JSON V1 admitido para la entrada.
+
+```go
+func (e EntradaExperiencia) Tramos() []TramoExperiencia
+
+func (e EntradaExperiencia) Validar() error
+
+type ErrorCalculo struct {
+	// Has unexported fields.
+}
+```
+
+ErrorCalculo permite clasificar un fallo sin depender de su texto. Campo es
+siempre una etiqueta tecnica fija y nunca el valor de entrada rechazado.
+
+```go
+func (e *ErrorCalculo) Campo() string
+```
+
+Campo devuelve la etiqueta tecnica del elemento rechazado.
+
+```go
+func (e *ErrorCalculo) Codigo() CodigoError
+```
+
+Codigo devuelve la clasificacion estable del error.
+
+```go
+func (e *ErrorCalculo) Error() string
+
+func (e *ErrorCalculo) Is(objetivo error) bool
+```
+
+Is permite clasificar el error mediante errors.Is.
+
+```go
+type EstadoResultadoExperienciaV1 string
+
+const (
+	ResultadoExperienciaCompletado EstadoResultadoExperienciaV1 = "completado"
+	ResultadoExperienciaBloqueado  EstadoResultadoExperienciaV1 = "bloqueado"
+)
+type FaseResultadoExperienciaV1 string
+
+const (
+	FaseResultadoSeleccion  FaseResultadoExperienciaV1 = "seleccion"
+	FaseResultadoIntervalos FaseResultadoExperienciaV1 = "intervalos"
+	FaseResultadoPuntuacion FaseResultadoExperienciaV1 = "puntuacion"
+	FaseResultadoCompletado FaseResultadoExperienciaV1 = "completado"
+)
+type FronteraRestosResultadoExperienciaV1 string
+
+const (
+	FronteraRestosResultadoExacta  FronteraRestosResultadoExperienciaV1 = "exacta"
+	FronteraRestosResultadoPeriodo FronteraRestosResultadoExperienciaV1 = "periodo"
+	FronteraRestosResultadoRegla   FronteraRestosResultadoExperienciaV1 = "regla"
+)
+type IntervaloAplicacionResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (i IntervaloAplicacionResultadoExperienciaV1) Dias() uint64
+
+func (i IntervaloAplicacionResultadoExperienciaV1) Efectivo() (baremacion.IntervaloCivil, bool)
+
+func (i IntervaloAplicacionResultadoExperienciaV1) Extremo() reglasbaremo.TratamientoExtremoFinal
+
+func (i IntervaloAplicacionResultadoExperienciaV1) Periodo() PeriodoServicio
+
+func (i IntervaloAplicacionResultadoExperienciaV1) Razon() CodigoRazonResultadoExperienciaV1
+
+func (i IntervaloAplicacionResultadoExperienciaV1) ReglaClave() string
+
+func (i IntervaloAplicacionResultadoExperienciaV1) Tramo() reglasbaremo.ReferenciaVersionada
+
+type JornadaResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (j JornadaResultadoExperienciaV1) AtestacionPresente() bool
+
+func (j JornadaResultadoExperienciaV1) AtestacionUsada() bool
+
+func (j JornadaResultadoExperienciaV1) FactorExacto() string
+
+func (j JornadaResultadoExperienciaV1) Modo() reglasbaremo.ModoJornada
+
+func (j JornadaResultadoExperienciaV1) Origen() baremacion.FraccionJornada
+
+func (j JornadaResultadoExperienciaV1) Razon() CodigoRazonResultadoExperienciaV1
+
+type ModoPeriodoServicio string
+```
+
+ModoPeriodoServicio diferencia de forma expresa un periodo cerrado de uno
+que seguia en curso al generar la instantanea.
+
+```go
+const (
+	PeriodoServicioCerrado ModoPeriodoServicio = "cerrado"
+	PeriodoServicioEnCurso ModoPeriodoServicio = "en_curso"
+)
+type PeriodoServicio struct {
+	// Has unexported fields.
+}
+```
+
+PeriodoServicio conserva las fechas informadas por la fuente. No decide si
+el extremo final se incluye: esa decision pertenece a la regla publicada.
+
+```go
+func NuevoPeriodoServicioCerrado(
+	desde baremacion.FechaCivil,
+	finInformado baremacion.FechaCivil,
+) (PeriodoServicio, error)
+```
+
+NuevoPeriodoServicioCerrado acepta fin igual a inicio porque una regla con
+extremo inclusivo puede representar asi un servicio de un dia.
+
+```go
+func NuevoPeriodoServicioEnCurso(desde baremacion.FechaCivil) (PeriodoServicio, error)
+```
+
+NuevoPeriodoServicioEnCurso no inventa una fecha final provisional.
+
+```go
+func (p PeriodoServicio) Desde() baremacion.FechaCivil
+
+func (p PeriodoServicio) EnCurso() bool
+
+func (p PeriodoServicio) FinInformado() (baremacion.FechaCivil, bool)
+```
+
+FinInformado devuelve false cuando el servicio estaba en curso.
+
+```go
+func (p PeriodoServicio) Modo() ModoPeriodoServicio
+
+type PlanExperiencia struct {
+	// Has unexported fields.
+}
+```
+
+PlanExperiencia es la instantanea cerrada que consumira el calculador V1.
+Fija la version y huella exactas de las reglas y conserva solo el material
+minimo necesario para rederivar ese vinculo, nunca referencias a las
+colecciones recibidas.
+
+El pipeline puntuable es unico: unidades y restos, tope de unidades,
+coeficiente y redondeo, tope de puntos de regla, suma y tope de seccion.
+Las comprobaciones de elegibilidad, coincidencia y ausencia de solapes
+ocurren antes de ese pipeline y nunca cambian su orden.
+
+```go
+func Compilar(conjunto reglasbaremo.ConjuntoReglasBaremo) (PlanExperiencia, error)
+```
+
+Compilar convierte un conjunto valido en un plan ejecutable por V1. Una
+politica que el modelo puede representar pero el calculador aun no gobierna
+se rechaza expresamente; nunca se aproxima ni se sustituye por un valor por
+defecto. Deliberadamente no comprueba el estado de gobierno: tambien compila
+borradores para su simulacion y conformidad. El caso de uso administrativo
+oficial debe aportar una FuenteExacta atestada en estado activo.
+
+```go
+func (p PlanExperiencia) Conjunto() reglasbaremo.ReferenciaVersionada
+```
+
+Conjunto devuelve la referencia, version y huella exactas fijadas al
+compilar. No significa nunca "la version vigente".
+
+```go
+func (p PlanExperiencia) FechaCorte() baremacion.FechaCivil
+```
+
+FechaCorte devuelve el ultimo dia civil incluido por el conjunto.
+
+```go
+func (p PlanExperiencia) GruposConcurrencia() []reglasbaremo.GrupoConcurrenciaExperiencia
+```
+
+GruposConcurrencia devuelve una copia en el orden canonico del conjunto.
+
+```go
+func (p PlanExperiencia) Reglas() []reglasbaremo.ReglaExperiencia
+```
+
+Reglas devuelve una copia ordenada. Los criterios de cada regla son tambien
+inmutables y sus propios accesores devuelven copias defensivas.
+
+```go
+func (p PlanExperiencia) Secciones() []reglasbaremo.SeccionBaremo
+```
+
+Secciones devuelve una copia en el orden canonico del conjunto.
+
+```go
+func (p PlanExperiencia) Validar() error
+```
+
+Validar vuelve a comprobar que el plan conserva las invariantes cerradas de
+compilacion. Su valor cero es invalido.
+
+```go
+type PuntuacionPeriodoResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (p PuntuacionPeriodoResultadoExperienciaV1) BrutoExacto() string
+
+func (p PuntuacionPeriodoResultadoExperienciaV1) RedondeadoExacto() (string, bool)
+
+type RedondeoResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (r RedondeoResultadoExperienciaV1) EntradaExacta() string
+
+func (r RedondeoResultadoExperienciaV1) Modo() baremacion.ModoRedondeo
+
+func (r RedondeoResultadoExperienciaV1) Momento() reglasbaremo.MomentoRedondeo
+
+func (r RedondeoResultadoExperienciaV1) SalidaExacta() string
+
+type ResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+```
+
+ResultadoExperienciaV1 es el recibo semantico inmutable del motor.
+No contiene identidad directa, modo oficial/simulacion, actor ni instante de
+ejecucion. Esos datos pertenecen al recibo administrativo que lo envuelva.
+Un error tecnico nunca produce este agregado: devuelve su valor cero y
+error.
+
+```go
+func CalcularExperienciaV1(
+	plan PlanExperiencia,
+	entrada EntradaExperiencia,
+) (ResultadoExperienciaV1, error)
+```
+
+CalcularExperienciaV1 ejecuta de extremo a extremo el contrato puro del
+motor. No decide si el plan esta administrativamente activo: esa garantia
+corresponde al caso de uso oficial, mientras que una simulacion puede usar
+un borrador compilable. Ante un fallo tecnico nunca devuelve material
+parcial; los impedimentos de negocio forman un resultado bloqueado, canonico
+y explicable.
+
+```go
+func RestaurarResultadoExperienciaV1(contenido []byte) (ResultadoExperienciaV1, error)
+```
+
+RestaurarResultadoExperienciaV1 acepta exclusivamente los mismos bytes que
+produce RepresentacionCanonica. La restauracion estructural no autentica la
+ejecucion; el caso oficial debe exigir ademas huella y prueba confiables.
+
+```go
+func RestaurarResultadoExperienciaV1ConHuellaSHA256(
+	contenido []byte,
+	huellaEsperada string,
+) (ResultadoExperienciaV1, error)
+
+func (r ResultadoExperienciaV1) Aplicaciones() []AplicacionCalculadaResultadoExperienciaV1
+
+func (r ResultadoExperienciaV1) Bloqueos() []BloqueoResultadoExperienciaV1
+
+func (r ResultadoExperienciaV1) Estado() EstadoResultadoExperienciaV1
+
+func (r ResultadoExperienciaV1) Fase() FaseResultadoExperienciaV1
+
+func (r ResultadoExperienciaV1) HuellaSHA256() (string, error)
+
+func (r ResultadoExperienciaV1) Intervalos() []IntervaloAplicacionResultadoExperienciaV1
+
+func (r ResultadoExperienciaV1) MarshalJSON() ([]byte, error)
+
+func (r ResultadoExperienciaV1) Reglas() []ResultadoReglaExperienciaV1
+
+func (r ResultadoExperienciaV1) RepresentacionCanonica() ([]byte, error)
+```
+
+RepresentacionCanonica devuelve el unico JSON V1 admitido. No incorpora
+datos de ejecucion: simulacion y calculo oficial comparten bytes si sus dos
+instantaneas semanticas son identicas.
+
+```go
+func (r ResultadoExperienciaV1) Secciones() []SubtotalSeccionResultadoExperienciaV1
+
+func (r ResultadoExperienciaV1) Seleccion() SeleccionResultadoExperienciaV1
+
+func (r ResultadoExperienciaV1) Total() (baremacion.Puntos, bool)
+
+func (r ResultadoExperienciaV1) Validar() error
+```
+
+Validar comprueba estructura, presencia por fase y aritmetica registrada.
+No reinterpreta criterios, divisor temporal ni umbral de jornada:
+esa verificacion exige el PlanExperiencia y la EntradaExperiencia exactos
+ligados y se realizara reejecutando el unico motor o comparando su prueba
+confiable.
+
+```go
+func (r ResultadoExperienciaV1) Vinculos() VinculosResultadoExperienciaV1
+
+type ResultadoReglaExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (r ResultadoReglaExperienciaV1) BrutoExacto() string
+
+func (r ResultadoReglaExperienciaV1) Coeficiente() baremacion.Puntos
+
+func (r ResultadoReglaExperienciaV1) PuntosFinalesExactos() string
+
+func (r ResultadoReglaExperienciaV1) Redondeo() RedondeoResultadoExperienciaV1
+
+func (r ResultadoReglaExperienciaV1) ReglaClave() string
+
+func (r ResultadoReglaExperienciaV1) RestoRegla() string
+
+func (r ResultadoReglaExperienciaV1) SeccionClave() string
+
+func (r ResultadoReglaExperienciaV1) TopePuntos() TopeResultadoExperienciaV1
+
+func (r ResultadoReglaExperienciaV1) TopeUnidades() TopeResultadoExperienciaV1
+
+func (r ResultadoReglaExperienciaV1) UnidadesAgregadas() string
+
+func (r ResultadoReglaExperienciaV1) UnidadesTrasRestos() string
+
+type SeleccionResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (s SeleccionResultadoExperienciaV1) Aplicaciones() []AplicacionSeleccionResultadoExperienciaV1
+
+func (s SeleccionResultadoExperienciaV1) Descartes() []DescarteSeleccionResultadoExperienciaV1
+
+func (s SeleccionResultadoExperienciaV1) Evaluaciones() uint64
+
+func (s SeleccionResultadoExperienciaV1) SinCoincidencia() []SinCoincidenciaResultadoExperienciaV1
+
+type SinCoincidenciaResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (s SinCoincidenciaResultadoExperienciaV1) Razon() CodigoRazonResultadoExperienciaV1
+
+func (s SinCoincidenciaResultadoExperienciaV1) Tramo() reglasbaremo.ReferenciaVersionada
+
+type SubtotalSeccionResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (s SubtotalSeccionResultadoExperienciaV1) AntesTopeExacto() string
+
+func (s SubtotalSeccionResultadoExperienciaV1) PuntosFinales() baremacion.Puntos
+
+func (s SubtotalSeccionResultadoExperienciaV1) SeccionClave() string
+
+func (s SubtotalSeccionResultadoExperienciaV1) Tope() TopeResultadoExperienciaV1
+
+type TopeResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (t TopeResultadoExperienciaV1) Antes() string
+
+func (t TopeResultadoExperienciaV1) Aplicado() bool
+
+func (t TopeResultadoExperienciaV1) Despues() string
+
+func (t TopeResultadoExperienciaV1) Limite() (string, bool)
+
+type TramoExperiencia struct {
+	// Has unexported fields.
+}
+```
+
+TramoExperiencia es un hecho temporal minimo. servicioRef permite reconocer
+tramos procedentes del mismo servicio sin revelar identidad ni empleador.
+Sigue siendo un seudonimo sujeto a las mismas medidas de proteccion que el
+resto del expediente; no convierte el dato en anonimo. Los prefijos y la
+carga hexadecimal solo fijan el formato: el adaptador de fuente debe generar
+el token en servidor con aleatoriedad o seudonimizacion institucional que no
+permita probar identificadores por diccionario.
+
+```go
+func NuevoTramoExperiencia(
+	referencia reglasbaremo.ReferenciaVersionada,
+	servicioRef string,
+	periodo PeriodoServicio,
+	jornada baremacion.FraccionJornada,
+	atestacion ComputoIntegroAtestado,
+	atributos []AtributoCatalogado,
+) (TramoExperiencia, error)
+
+func (t TramoExperiencia) Atestacion() ComputoIntegroAtestado
+
+func (t TramoExperiencia) Atributos() []AtributoCatalogado
+
+func (t TramoExperiencia) Jornada() baremacion.FraccionJornada
+
+func (t TramoExperiencia) Periodo() PeriodoServicio
+
+func (t TramoExperiencia) Referencia() reglasbaremo.ReferenciaVersionada
+
+func (t TramoExperiencia) ServicioRef() string
+
+type UnidadesAplicacionResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (u UnidadesAplicacionResultadoExperienciaV1) Aportadas() string
+
+func (u UnidadesAplicacionResultadoExperienciaV1) Exactas() string
+
+func (u UnidadesAplicacionResultadoExperienciaV1) Frontera() FronteraRestosResultadoExperienciaV1
+
+func (u UnidadesAplicacionResultadoExperienciaV1) Resto() string
+
+type VinculoEntradaResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (v VinculoEntradaResultadoExperienciaV1) HuellaContenidoSHA256() string
+
+func (v VinculoEntradaResultadoExperienciaV1) Instantanea() reglasbaremo.ReferenciaVersionada
+
+type VinculoMotorResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (v VinculoMotorResultadoExperienciaV1) Contrato() string
+
+func (v VinculoMotorResultadoExperienciaV1) HuellaContratoSHA256() string
+
+func (v VinculoMotorResultadoExperienciaV1) Version() uint64
+
+type VinculoPlanResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (v VinculoPlanResultadoExperienciaV1) Esquema() string
+
+func (v VinculoPlanResultadoExperienciaV1) HuellaSHA256() string
+
+type VinculosResultadoExperienciaV1 struct {
+	// Has unexported fields.
+}
+
+func (v VinculosResultadoExperienciaV1) Conjunto() reglasbaremo.ReferenciaVersionada
+
+func (v VinculosResultadoExperienciaV1) Entrada() VinculoEntradaResultadoExperienciaV1
+
+func (v VinculosResultadoExperienciaV1) FechaCorte() baremacion.FechaCivil
+
+func (v VinculosResultadoExperienciaV1) Motor() VinculoMotorResultadoExperienciaV1
+
+func (v VinculosResultadoExperienciaV1) Plan() VinculoPlanResultadoExperienciaV1
+```
+
+## Paquete `internal/modules/bolsa/domain/calculoexperienciaoficial`
+
+### Constantes
+
+```go
+const EsquemaSelectorFuenteExactaCalculoReglasBaremoV1 = "vec.bolsa.calculo-experiencia.selector-fuente-exacta.v1"
+```
+
+### Variables
+
+```go
+var (
+	ErrValorInvalido       = &ErrorDominio{codigo: CodigoValorInvalido}
+	ErrValorNoCanonico     = &ErrorDominio{codigo: CodigoValorNoCanonico}
+	ErrFueraDeLimites      = &ErrorDominio{codigo: CodigoFueraDeLimites}
+	ErrEsquemaIncompatible = &ErrorDominio{codigo: CodigoEsquemaIncompatible}
+	ErrHuellaNoCoincide    = &ErrorDominio{codigo: CodigoHuellaNoCoincide}
+	ErrEstadoIncompatible  = &ErrorDominio{codigo: CodigoEstadoIncompatible}
+	ErrSecretoInvalido     = &ErrorDominio{codigo: CodigoSecretoInvalido}
+	ErrEntradaNoPermitida  = &ErrorDominio{codigo: CodigoEntradaNoPermitida}
+)
+var ErrSelectorFuenteExactaCalculoReglasBaremoInvalido = errors.New("selector de fuente exacta para calculo de reglas de baremo invalido")
+```
+
+### Funciones
+
+```go
+func CalcularIndiceHMACSHA256(clave ClaveEfectoV1, secretoServidor []byte) (string, error)
+```
+
+CalcularIndiceHMACSHA256 deriva el índice durable sin exponer el pseudónimo
+ni permitir que una clave elegida por el cliente controle la idempotencia.
+
+### Tipos
+
+```go
+type CausaGobernadaV1 struct {
+	Catalogo ReferenciaExactaV1 `json:"catalogo"`
+	Clave    string             `json:"clave"`
+}
+```
+
+CausaGobernadaV1 evita incorporar motivos libres a la identidad semántica.
+
+```go
+type ClaveEfectoV1 struct {
+	// Has unexported fields.
+}
+```
+
+ClaveEfectoV1 identifica un único efecto oficial por sus entradas
+semánticas. Excluye actor, sesión, autorizaciones, correlaciones, tiempos,
+auditoría y cualquier dato personal directo.
+
+```go
+func NuevaClaveEfectoV1(datos DatosClaveEfectoV1) (ClaveEfectoV1, error)
+
+func RestaurarClaveEfectoV1(contenido []byte) (ClaveEfectoV1, error)
+
+func RestaurarClaveEfectoV1ConHuellaSHA256(
+	contenido []byte,
+	huellaEsperada string,
+) (ClaveEfectoV1, error)
+
+func (c ClaveEfectoV1) Causa() CausaGobernadaV1
+
+func (c ClaveEfectoV1) Convocatoria() ReferenciaExactaV1
+
+func (c ClaveEfectoV1) Datos() (DatosClaveEfectoV1, error)
+
+func (c ClaveEfectoV1) Entrada() VinculoEntradaV1
+
+func (c ClaveEfectoV1) Format(estado fmt.State, _ rune)
+
+func (c ClaveEfectoV1) GoString() string
+
+func (c ClaveEfectoV1) HuellaPlanSHA256() string
+
+func (c ClaveEfectoV1) HuellaSHA256() (string, error)
+
+func (c ClaveEfectoV1) LogValue() slog.Value
+
+func (c ClaveEfectoV1) MarshalJSON() ([]byte, error)
+
+func (c ClaveEfectoV1) Motor() VinculoMotorV1
+
+func (c ClaveEfectoV1) Predecesor() (VinculoPredecesorV1, bool)
+
+func (c ClaveEfectoV1) Reglas() VinculoReglasV1
+
+func (c ClaveEfectoV1) RepresentacionCanonica() ([]byte, error)
+
+func (ClaveEfectoV1) String() string
+
+func (c ClaveEfectoV1) SujetoPseudonimizado() ReferenciaExactaV1
+
+func (c ClaveEfectoV1) Tipo() TipoEfectoV1
+
+func (*ClaveEfectoV1) UnmarshalJSON([]byte) error
+```
+
+UnmarshalJSON impide crear un valor cero aparente saltándose la restauración
+estricta, que es la única frontera de entrada admitida.
+
+```go
+func (c ClaveEfectoV1) Validar() error
+
+type CodigoError string
+```
+
+CodigoError identifica de forma estable un rechazo del contrato oficial.
+Los errores no incorporan valores recibidos para evitar filtraciones.
+
+```go
+const (
+	CodigoValorInvalido       CodigoError = "valor_invalido"
+	CodigoValorNoCanonico     CodigoError = "valor_no_canonico"
+	CodigoFueraDeLimites      CodigoError = "fuera_de_limites"
+	CodigoEsquemaIncompatible CodigoError = "esquema_incompatible"
+	CodigoHuellaNoCoincide    CodigoError = "huella_no_coincide"
+	CodigoEstadoIncompatible  CodigoError = "estado_incompatible"
+	CodigoSecretoInvalido     CodigoError = "secreto_invalido"
+	CodigoEntradaNoPermitida  CodigoError = "entrada_no_permitida"
+)
+type DatosClaveEfectoV1 struct {
+	// SujetoPseudonimizado es la ReferenciaVersionada exacta emitida por la
+	// fuente confiable; nunca un DNI, nombre, correo ni pseudónimo sin huella.
+	SujetoPseudonimizado ReferenciaExactaV1
+	Convocatoria         ReferenciaExactaV1
+	Reglas               VinculoReglasV1
+	Entrada              VinculoEntradaV1
+	Motor                VinculoMotorV1
+	HuellaPlanSHA256     string
+	Causa                CausaGobernadaV1
+	Tipo                 TipoEfectoV1
+	Predecesor           *VinculoPredecesorV1
+}
+
+type ErrorDominio struct {
+	// Has unexported fields.
+}
+```
+
+ErrorDominio permite clasificar fallos sin depender de su texto.
+
+```go
+func (e *ErrorDominio) Campo() string
+```
+
+Campo es una etiqueta técnica fija, nunca el valor rechazado.
+
+```go
+func (e *ErrorDominio) Codigo() CodigoError
+
+func (e *ErrorDominio) Error() string
+
+func (e *ErrorDominio) Is(objetivo error) bool
+
+type EstadoResultadoV1 string
+
+const (
+	ResultadoCompletado EstadoResultadoV1 = "completado"
+	ResultadoBloqueado  EstadoResultadoV1 = "bloqueado"
+)
+type FaseResultadoV1 string
+
+const (
+	FaseSeleccion  FaseResultadoV1 = "seleccion"
+	FaseIntervalos FaseResultadoV1 = "intervalos"
+	FasePuntuacion FaseResultadoV1 = "puntuacion"
+	FaseCompletado FaseResultadoV1 = "completado"
+)
+type IntencionResultadoV1 struct {
+	// Has unexported fields.
+}
+```
+
+IntencionResultadoV1 liga la clave semántica completa con el resultado
+exacto que se pretende confirmar. No porta autoridad ni contexto de sesión.
+
+```go
+func NuevaIntencionResultadoV1(
+	clave ClaveEfectoV1,
+	huellaResultadoSHA256 string,
+	estado EstadoResultadoV1,
+	fase FaseResultadoV1,
+) (IntencionResultadoV1, error)
+
+func RestaurarIntencionResultadoV1(contenido []byte) (IntencionResultadoV1, error)
+
+func RestaurarIntencionResultadoV1ConHuellaSHA256(
+	contenido []byte,
+	huellaEsperada string,
+) (IntencionResultadoV1, error)
+
+func (i IntencionResultadoV1) Clave() ClaveEfectoV1
+
+func (i IntencionResultadoV1) Estado() EstadoResultadoV1
+
+func (i IntencionResultadoV1) Fase() FaseResultadoV1
+
+func (i IntencionResultadoV1) Format(estado fmt.State, _ rune)
+
+func (i IntencionResultadoV1) GoString() string
+
+func (i IntencionResultadoV1) HuellaResultadoSHA256() string
+
+func (i IntencionResultadoV1) HuellaSHA256() (string, error)
+
+func (i IntencionResultadoV1) LogValue() slog.Value
+
+func (i IntencionResultadoV1) MarshalJSON() ([]byte, error)
+
+func (i IntencionResultadoV1) RepresentacionCanonica() ([]byte, error)
+
+func (IntencionResultadoV1) String() string
+
+func (*IntencionResultadoV1) UnmarshalJSON([]byte) error
+
+func (i IntencionResultadoV1) Validar() error
+
+func (i IntencionResultadoV1) ValidarPara(
+	clave ClaveEfectoV1,
+	huellaResultadoSHA256 string,
+	estado EstadoResultadoV1,
+	fase FaseResultadoV1,
+) error
+
+type ReciboV1 struct {
+	// Has unexported fields.
+}
+```
+
+ReciboV1 es el comprobante mínimo e inmutable del efecto confirmado.
+No duplica la intención ni incorpora actor, autoridad, auditoría o tiempos.
+
+```go
+func NuevoReciboV1(
+	referencia string,
+	generacionClaveHMAC uint32,
+	indiceEfectoHMACSHA256 string,
+	intencion IntencionResultadoV1,
+) (ReciboV1, error)
+
+func RestaurarReciboV1(contenido []byte) (ReciboV1, error)
+
+func RestaurarReciboV1ConHuellaSHA256(
+	contenido []byte,
+	huellaEsperada string,
+) (ReciboV1, error)
+
+func (r ReciboV1) Estado() EstadoResultadoV1
+
+func (r ReciboV1) Fase() FaseResultadoV1
+
+func (r ReciboV1) Format(estado fmt.State, _ rune)
+
+func (r ReciboV1) GeneracionClaveHMAC() uint32
+
+func (r ReciboV1) GoString() string
+
+func (r ReciboV1) HuellaClaveEfectoSHA256() string
+
+func (r ReciboV1) HuellaIntencionSHA256() string
+
+func (r ReciboV1) HuellaResultadoSHA256() string
+
+func (r ReciboV1) HuellaSHA256() (string, error)
+
+func (r ReciboV1) IndiceHMACSHA256() string
+
+func (r ReciboV1) LogValue() slog.Value
+
+func (r ReciboV1) MarshalJSON() ([]byte, error)
+
+func (r ReciboV1) Referencia() string
+
+func (r ReciboV1) RepresentacionCanonica() ([]byte, error)
+
+func (ReciboV1) String() string
+
+func (*ReciboV1) UnmarshalJSON([]byte) error
+
+func (r ReciboV1) Validar() error
+
+func (r ReciboV1) ValidarPara(
+	indiceEfectoHMACSHA256 string,
+	intencion IntencionResultadoV1,
+) error
+
+func (r ReciboV1) VinculoPredecesor() (VinculoPredecesorV1, error)
+
+type ReferenciaExactaV1 struct {
+	Referencia   string `json:"referencia"`
+	Version      uint64 `json:"version"`
+	HuellaSHA256 string `json:"huella_sha256"`
+}
+```
+
+ReferenciaExactaV1 nunca significa «la vigente»: fija identidad, versión y
+contenido. Replica el contrato léxico de ReferenciaVersionada de reglas;
+la capa confiable debe emitir referencias opacas, nunca datos personales.
+
+```go
+type SelectorFuenteExactaCalculoReglasBaremo struct {
+	EstadoReglas       reglas.VinculoEstadoReglasBaremo
+	InstantaneaEntrada reglas.ReferenciaVersionada
+	SujetoPseudonimo   reglas.ReferenciaVersionada
+	Convocatoria       reglas.ReferenciaVersionada
+}
+```
+
+SelectorFuenteExactaCalculoReglasBaremo liga el calculo a reglas, entrada,
+sujeto pseudonimizado y convocatoria exactos. No admite identificadores
+personales directos ni resolucion temporal de versiones.
+
+```go
+func (s SelectorFuenteExactaCalculoReglasBaremo) HuellaSHA256V1() (string, error)
+```
+
+HuellaSHA256V1 identifica el esquema y todos los campos exactos del
+selector.
+
+```go
+func (s SelectorFuenteExactaCalculoReglasBaremo) RepresentacionCanonicaV1() ([]byte, error)
+```
+
+RepresentacionCanonicaV1 es el unico material que deben compartir la capa de
+aplicacion y los adaptadores al ligar una autorizacion a este selector.
+
+```go
+func (s SelectorFuenteExactaCalculoReglasBaremo) Validar() error
+```
+
+Validar comprueba que cada identidad versionada y el estado de reglas pueden
+reconstruirse exactamente. No resuelve alias ni completa valores ausentes.
+
+```go
+type TipoEfectoV1 string
+
+const (
+	EfectoCalculoInicial TipoEfectoV1 = "calculo_inicial"
+	EfectoRectificacion  TipoEfectoV1 = "rectificacion"
+)
+type VinculoEntradaV1 struct {
+	Instantanea           ReferenciaExactaV1 `json:"instantanea"`
+	HuellaContenidoSHA256 string             `json:"huella_contenido_sha256"`
+}
+
+type VinculoMotorV1 struct {
+	Contrato             string `json:"contrato"`
+	Version              uint64 `json:"version"`
+	HuellaContratoSHA256 string `json:"huella_contrato_sha256"`
+}
+
+type VinculoPredecesorV1 struct {
+	ReferenciaRecibo   string `json:"referencia_recibo"`
+	HuellaReciboSHA256 string `json:"huella_recibo_sha256"`
+}
+```
+
+VinculoPredecesorV1 identifica un recibo oficial inmutable por referencia y
+huella. Solo puede aparecer en una rectificación.
+
+```go
+type VinculoReglasV1 struct {
+	Contenido          ReferenciaExactaV1 `json:"contenido"`
+	Revision           uint64             `json:"revision"`
+	HuellaEstadoSHA256 string             `json:"huella_estado_sha256"`
+}
+```
+
+VinculoReglasV1 fija tanto el contenido como el estado gobernado exacto.
+
+## Paquete `internal/modules/bolsa/domain/reglasbaremo`
+
+### Variables
+
+```go
+var (
+	ErrValorInvalido       = &ErrorModelo{codigo: CodigoValorInvalido}
+	ErrValorNoCanonico     = &ErrorModelo{codigo: CodigoValorNoCanonico}
+	ErrFueraDeLimites      = &ErrorModelo{codigo: CodigoFueraDeLimites}
+	ErrValorDuplicado      = &ErrorModelo{codigo: CodigoValorDuplicado}
+	ErrPoliticaIncompleta  = &ErrorModelo{codigo: CodigoPoliticaIncompleta}
+	ErrSeccionDesconocida  = &ErrorModelo{codigo: CodigoSeccionDesconocida}
+	ErrGrupoDesconocido    = &ErrorModelo{codigo: CodigoGrupoDesconocido}
+	ErrCoeficienteAusente  = &ErrorModelo{codigo: CodigoCoeficienteAusente}
+	ErrInvarianteQuebrada  = &ErrorModelo{codigo: CodigoInvarianteQuebrada}
+	ErrEsquemaIncompatible = &ErrorModelo{codigo: CodigoEsquemaIncompatible}
+	ErrHuellaNoCoincide    = &ErrorModelo{codigo: CodigoHuellaNoCoincide}
+)
+var (
+	ErrGobiernoValorInvalido       = &ErrorGobierno{codigo: CodigoGobiernoValorInvalido}
+	ErrGobiernoEstadoInvalido      = &ErrorGobierno{codigo: CodigoGobiernoEstadoInvalido}
+	ErrGobiernoRevisionConflicto   = &ErrorGobierno{codigo: CodigoGobiernoRevisionConflicto}
+	ErrGobiernoTransicionProhibida = &ErrorGobierno{codigo: CodigoGobiernoTransicionProhibida}
+	ErrGobiernoEvidenciaInvalida   = &ErrorGobierno{codigo: CodigoGobiernoEvidenciaInvalida}
+	ErrGobiernoVinculoInexacto     = &ErrorGobierno{codigo: CodigoGobiernoVinculoInexacto}
+	ErrGobiernoInstanteInvalido    = &ErrorGobierno{codigo: CodigoGobiernoInstanteInvalido}
+	ErrGobiernoInvarianteQuebrada  = &ErrorGobierno{codigo: CodigoGobiernoInvarianteQuebrada}
+)
+```
+
+### Tipos
+
+```go
+type AccionGobiernoReglasBaremo string
+```
+
+AccionGobiernoReglasBaremo forma parte del vinculo de autoridad. No es un
+texto configurable ni permite inventar nuevas transiciones desde datos.
+
+```go
+const (
+	AccionPublicarReglasBaremo  AccionGobiernoReglasBaremo = "publicar"
+	AccionActivarReglasBaremo   AccionGobiernoReglasBaremo = "activar"
+	AccionSustituirReglasBaremo AccionGobiernoReglasBaremo = "sustituir"
+	AccionRetirarReglasBaremo   AccionGobiernoReglasBaremo = "retirar"
+	AccionDescartarReglasBaremo AccionGobiernoReglasBaremo = "descartar"
+)
+type AtestacionAprobacionFirmadaReglasBaremo struct {
+	// Has unexported fields.
+}
+```
+
+AtestacionAprobacionFirmadaReglasBaremo es una afirmacion estructurada de
+un verificador externo. El dominio liga referencias, huellas y tiempos,
+pero no verifica certificados ni convierte una huella SHA-256 en una firma.
+
+```go
+func NuevaAtestacionAprobacionFirmadaReglasBaremo(
+	datos DatosAtestacionAprobacionFirmadaReglasBaremo,
+) (AtestacionAprobacionFirmadaReglasBaremo, error)
+
+func (a AtestacionAprobacionFirmadaReglasBaremo) Atestacion() ReferenciaVersionada
+
+func (a AtestacionAprobacionFirmadaReglasBaremo) Firma() ReferenciaVersionada
+
+func (a AtestacionAprobacionFirmadaReglasBaremo) FirmadaEn() time.Time
+
+func (a AtestacionAprobacionFirmadaReglasBaremo) Firmantes() []string
+
+func (a AtestacionAprobacionFirmadaReglasBaremo) PoliticaFirma() ReferenciaVersionada
+
+func (a AtestacionAprobacionFirmadaReglasBaremo) ValidaHasta() time.Time
+
+func (a AtestacionAprobacionFirmadaReglasBaremo) VerificadaEn() time.Time
+
+func (a AtestacionAprobacionFirmadaReglasBaremo) Vinculo() VinculoEstadoReglasBaremo
+
+type AtestacionAutoridadReglasBaremo struct {
+	// Has unexported fields.
+}
+```
+
+AtestacionAutoridadReglasBaremo demuestra estructuralmente que una autoridad
+externa autorizo una transicion terminal exacta. Su autenticidad pertenece
+al adaptador de verificacion, no a este valor puro.
+
+```go
+func NuevaAtestacionAutoridadReglasBaremo(
+	datos DatosAtestacionAutoridadReglasBaremo,
+) (AtestacionAutoridadReglasBaremo, error)
+
+func (a AtestacionAutoridadReglasBaremo) Accion() AccionGobiernoReglasBaremo
+
+func (a AtestacionAutoridadReglasBaremo) Atestacion() ReferenciaVersionada
+
+func (a AtestacionAutoridadReglasBaremo) EmitidaEn() time.Time
+
+func (a AtestacionAutoridadReglasBaremo) PrincipalRef() string
+
+func (a AtestacionAutoridadReglasBaremo) Relacionada() (ReferenciaVersionada, bool)
+
+func (a AtestacionAutoridadReglasBaremo) ValidaHasta() time.Time
+
+func (a AtestacionAutoridadReglasBaremo) Vinculo() VinculoEstadoReglasBaremo
+
+type AtestacionDependenciasVigentesReglasBaremo struct {
+	// Has unexported fields.
+}
+```
+
+AtestacionDependenciasVigentesReglasBaremo liga la activacion a la version
+exacta de convocatoria, bases y todas las referencias del contenido.
+
+```go
+func NuevaAtestacionDependenciasVigentesReglasBaremo(
+	datos DatosAtestacionDependenciasVigentesReglasBaremo,
+) (AtestacionDependenciasVigentesReglasBaremo, error)
+
+func (a AtestacionDependenciasVigentesReglasBaremo) Atestacion() ReferenciaVersionada
+
+func (a AtestacionDependenciasVigentesReglasBaremo) Bases() ReferenciaVersionada
+
+func (a AtestacionDependenciasVigentesReglasBaremo) Convocatoria() ReferenciaVersionada
+
+func (a AtestacionDependenciasVigentesReglasBaremo) Dependencias() []ReferenciaVersionada
+
+func (a AtestacionDependenciasVigentesReglasBaremo) ValidaHasta() time.Time
+
+func (a AtestacionDependenciasVigentesReglasBaremo) VerificadaEn() time.Time
+
+func (a AtestacionDependenciasVigentesReglasBaremo) VerificadorRef() string
+
+func (a AtestacionDependenciasVigentesReglasBaremo) Vinculo() VinculoEstadoReglasBaremo
+
+type CodigoError string
+```
+
+CodigoError identifica de forma estable por que se rechazo una
+configuracion. Los errores no incorporan los valores recibidos para evitar
+que una referencia sensible termine accidentalmente en un registro.
+
+```go
+const (
+	CodigoValorInvalido       CodigoError = "valor_invalido"
+	CodigoValorNoCanonico     CodigoError = "valor_no_canonico"
+	CodigoFueraDeLimites      CodigoError = "fuera_de_limites"
+	CodigoValorDuplicado      CodigoError = "valor_duplicado"
+	CodigoPoliticaIncompleta  CodigoError = "politica_incompleta"
+	CodigoSeccionDesconocida  CodigoError = "seccion_desconocida"
+	CodigoGrupoDesconocido    CodigoError = "grupo_desconocido"
+	CodigoCoeficienteAusente  CodigoError = "coeficiente_ausente"
+	CodigoInvarianteQuebrada  CodigoError = "invariante_quebrada"
+	CodigoEsquemaIncompatible CodigoError = "esquema_incompatible"
+	CodigoHuellaNoCoincide    CodigoError = "huella_no_coincide"
+)
+type CodigoErrorGobierno string
+```
+
+CodigoErrorGobierno clasifica rechazos del ciclo de gobierno sin incorporar
+referencias, actores ni otros valores de entrada a los mensajes de error.
+
+```go
+const (
+	CodigoGobiernoValorInvalido       CodigoErrorGobierno = "valor_invalido"
+	CodigoGobiernoEstadoInvalido      CodigoErrorGobierno = "estado_invalido"
+	CodigoGobiernoRevisionConflicto   CodigoErrorGobierno = "revision_conflicto"
+	CodigoGobiernoTransicionProhibida CodigoErrorGobierno = "transicion_prohibida"
+	CodigoGobiernoEvidenciaInvalida   CodigoErrorGobierno = "evidencia_invalida"
+	CodigoGobiernoVinculoInexacto     CodigoErrorGobierno = "vinculo_inexacto"
+	CodigoGobiernoInstanteInvalido    CodigoErrorGobierno = "instante_invalido"
+	CodigoGobiernoInvarianteQuebrada  CodigoErrorGobierno = "invariante_quebrada"
+)
+type ConjuntoReglasBaremo struct {
+	// Has unexported fields.
+}
+```
+
+ConjuntoReglasBaremo es la version inmutable de las reglas de una
+convocatoria. Este primer corte solo contiene reglas de experiencia;
+no calcula ni publica resultados.
+
+```go
+func NuevoConjuntoReglasBaremo(
+	identidad IdentidadConjuntoReglasBaremo,
+	bases ReferenciaVersionada,
+	fechaCorte baremacion.FechaCivil,
+	secciones []SeccionBaremo,
+	gruposConcurrencia []GrupoConcurrenciaExperiencia,
+	reglasExperiencia []ReglaExperiencia,
+) (ConjuntoReglasBaremo, error)
+```
+
+NuevoConjuntoReglasBaremo construye, valida y ordena una instantanea.
+Las colecciones recibidas se copian y dejan de pertenecer al agregado.
+
+```go
+func RestaurarConjuntoReglasBaremo(contenido []byte) (ConjuntoReglasBaremo, error)
+```
+
+RestaurarConjuntoReglasBaremo reconstruye exclusivamente una
+RepresentacionCanonica V1. Cualquier otra codificacion, aunque
+json.Unmarshal pudiera interpretarla con el mismo resultado aparente,
+se rechaza.
+
+```go
+func RestaurarConjuntoReglasBaremoConHuellaSHA256(
+	contenido []byte,
+	huellaEsperada string,
+) (ConjuntoReglasBaremo, error)
+```
+
+RestaurarConjuntoReglasBaremoConHuellaSHA256 añade a la restauracion
+canonica la comprobacion en tiempo constante de una huella esperada.
+
+```go
+func (c ConjuntoReglasBaremo) Bases() ReferenciaVersionada
+```
+
+Bases devuelve la version y huella exactas de las bases publicadas.
+
+```go
+func (c ConjuntoReglasBaremo) FechaCorte() baremacion.FechaCivil
+```
+
+FechaCorte devuelve el ultimo dia civil incluido en el computo. La
+inclusividad forma parte de la invariante V1 y no depende de una convencion
+del calculador.
+
+```go
+func (c ConjuntoReglasBaremo) GrupoConcurrenciaPorClave(
+	clave string,
+) (GrupoConcurrenciaExperiencia, bool)
+```
+
+GrupoConcurrenciaPorClave busca sin exponer la coleccion interna.
+
+```go
+func (c ConjuntoReglasBaremo) GruposConcurrenciaExperiencia() []GrupoConcurrenciaExperiencia
+```
+
+GruposConcurrenciaExperiencia devuelve una copia ordenada de las politicas
+que resuelven coincidencias de reglas y solapes temporales.
+
+```go
+func (c ConjuntoReglasBaremo) HuellaSHA256() (string, error)
+```
+
+HuellaSHA256 calcula la huella hexadecimal minuscula de los bytes canonicos.
+
+```go
+func (c ConjuntoReglasBaremo) Identidad() IdentidadConjuntoReglasBaremo
+```
+
+Identidad devuelve la identidad por valor.
+
+```go
+func (c ConjuntoReglasBaremo) MarshalJSON() ([]byte, error)
+```
+
+MarshalJSON usa exactamente el contrato canonico, sin una segunda forma de
+serializacion accidental.
+
+```go
+func (c ConjuntoReglasBaremo) ReferenciaVersionada() (ReferenciaVersionada, error)
+```
+
+ReferenciaVersionada devuelve la identidad del conjunto enlazada a su
+contenido exacto.
+
+```go
+func (c ConjuntoReglasBaremo) ReglaExperienciaPorClave(clave string) (ReglaExperiencia, bool)
+```
+
+ReglaExperienciaPorClave busca y devuelve una copia profunda.
+
+```go
+func (c ConjuntoReglasBaremo) ReglasExperiencia() []ReglaExperiencia
+```
+
+ReglasExperiencia devuelve una copia profunda y ordenada.
+
+```go
+func (c ConjuntoReglasBaremo) RepresentacionCanonica() ([]byte, error)
+```
+
+RepresentacionCanonica devuelve un contrato JSON estable de esquema V1.
+No serializa directamente los campos privados del agregado.
+
+```go
+func (c ConjuntoReglasBaremo) SeccionPorClave(clave string) (SeccionBaremo, bool)
+```
+
+SeccionPorClave busca sin exponer la coleccion interna.
+
+```go
+func (c ConjuntoReglasBaremo) Secciones() []SeccionBaremo
+```
+
+Secciones devuelve una copia ordenada.
+
+```go
+func (c ConjuntoReglasBaremo) Validar() error
+```
+
+Validar vuelve a comprobar las invariantes de la instantanea.
+
+```go
+type CriterioDesempateExceso string
+```
+
+CriterioDesempateExceso hace visible en el canon si interviene la prioridad.
+
+```go
+const (
+	DesempateExcesoNoAplica              CriterioDesempateExceso = "no_aplica"
+	DesempateExcesoPrioridadConcurrencia CriterioDesempateExceso = "prioridad_concurrencia"
+)
+type CriterioExperiencia struct {
+	// Has unexported fields.
+}
+```
+
+CriterioExperiencia enlaza un eje configurable con un catalogo versionado y
+un conjunto cerrado de claves admitidas. No ejecuta expresiones libres.
+
+```go
+func NuevoCriterioExperiencia(
+	clave string,
+	catalogo ReferenciaVersionada,
+	valores []string,
+) (CriterioExperiencia, error)
+```
+
+NuevoCriterioExperiencia valida, deduplica mediante rechazo y ordena los
+valores para que el mismo significado produzca los mismos bytes.
+
+```go
+func (c CriterioExperiencia) Catalogo() ReferenciaVersionada
+
+func (c CriterioExperiencia) Clave() string
+
+func (c CriterioExperiencia) Valores() []string
+
+type DatosAtestacionAprobacionFirmadaReglasBaremo struct {
+	Atestacion    ReferenciaVersionada
+	Vinculo       VinculoEstadoReglasBaremo
+	Firma         ReferenciaVersionada
+	PoliticaFirma ReferenciaVersionada
+	Firmantes     []string
+	FirmadaEn     time.Time
+	VerificadaEn  time.Time
+	ValidaHasta   time.Time
+}
+
+type DatosAtestacionAutoridadReglasBaremo struct {
+	Atestacion   ReferenciaVersionada
+	Vinculo      VinculoEstadoReglasBaremo
+	Accion       AccionGobiernoReglasBaremo
+	PrincipalRef string
+	Relacionada  *ReferenciaVersionada
+	EmitidaEn    time.Time
+	ValidaHasta  time.Time
+}
+
+type DatosAtestacionDependenciasVigentesReglasBaremo struct {
+	Atestacion     ReferenciaVersionada
+	Vinculo        VinculoEstadoReglasBaremo
+	Convocatoria   ReferenciaVersionada
+	Bases          ReferenciaVersionada
+	Dependencias   []ReferenciaVersionada
+	VerificadorRef string
+	VerificadaEn   time.Time
+	ValidaHasta    time.Time
+}
+
+type ErrorGobierno struct {
+	// Has unexported fields.
+}
+```
+
+ErrorGobierno es un error de dominio estable y deliberadamente exento de
+valores potencialmente sensibles.
+
+```go
+func (e *ErrorGobierno) Codigo() CodigoErrorGobierno
+
+func (e *ErrorGobierno) Error() string
+
+func (e *ErrorGobierno) Is(objetivo error) bool
+
+type ErrorModelo struct {
+	// Has unexported fields.
+}
+```
+
+ErrorModelo es un error de dominio clasificable con errors.Is.
+
+```go
+func (e *ErrorModelo) Campo() string
+```
+
+Campo devuelve el nombre tecnico del elemento rechazado, nunca su valor.
+
+```go
+func (e *ErrorModelo) Codigo() CodigoError
+```
+
+Codigo devuelve la causa estable del rechazo.
+
+```go
+func (e *ErrorModelo) Error() string
+
+func (e *ErrorModelo) Is(objetivo error) bool
+```
+
+Is permite clasificar errores sin depender del texto mostrado.
+
+```go
+type EstadoGobiernoReglasBaremo string
+```
+
+EstadoGobiernoReglasBaremo describe exclusivamente el gobierno de una
+version de contenido inmutable. No se modifica el conjunto al transicionar.
+
+```go
+const (
+	EstadoReglasBaremoBorrador   EstadoGobiernoReglasBaremo = "borrador"
+	EstadoReglasBaremoPublicada  EstadoGobiernoReglasBaremo = "publicada"
+	EstadoReglasBaremoActiva     EstadoGobiernoReglasBaremo = "activa"
+	EstadoReglasBaremoSustituida EstadoGobiernoReglasBaremo = "sustituida"
+	EstadoReglasBaremoRetirada   EstadoGobiernoReglasBaremo = "retirada"
+	EstadoReglasBaremoDescartada EstadoGobiernoReglasBaremo = "descartada"
+)
+func (e EstadoGobiernoReglasBaremo) Valido() bool
+
+type GrupoConcurrenciaExperiencia struct {
+	// Has unexported fields.
+}
+```
+
+GrupoConcurrenciaExperiencia gobierna coincidencias multiples entre reglas,
+incluso si pertenecen a secciones diferentes. La prioridad 1 de cada regla
+es la maxima y no se admite empate dentro del grupo. Si un mismo tramo
+coincide en grupos diferentes, V1 no inventa una prioridad entre grupos:
+el calculador debe rechazar la entrada de forma cerrada.
+
+```go
+func NuevoGrupoConcurrenciaExperiencia(
+	clave string,
+	definicion ReferenciaVersionada,
+	orden uint32,
+	coincidenciaReglas PoliticaCoincidenciaReglas,
+	solape PoliticaSolape,
+	repartoExceso *PoliticaRepartoExceso,
+) (GrupoConcurrenciaExperiencia, error)
+```
+
+NuevoGrupoConcurrenciaExperiencia exige la politica de exceso exactamente
+cuando el solape acumula hasta un limite. El puntero se copia y no se
+retiene.
+
+```go
+func (g GrupoConcurrenciaExperiencia) Clave() string
+
+func (g GrupoConcurrenciaExperiencia) CoincidenciaReglas() PoliticaCoincidenciaReglas
+
+func (g GrupoConcurrenciaExperiencia) Definicion() ReferenciaVersionada
+
+func (g GrupoConcurrenciaExperiencia) Orden() uint32
+
+func (g GrupoConcurrenciaExperiencia) RepartoExceso() (PoliticaRepartoExceso, bool)
+
+func (g GrupoConcurrenciaExperiencia) Solape() PoliticaSolape
+
+type IdentidadConjuntoReglasBaremo struct {
+	// Has unexported fields.
+}
+```
+
+IdentidadConjuntoReglasBaremo enlaza el conjunto con una convocatoria y un
+expediente concretos. Todos los identificadores son referencias opacas.
+
+```go
+func NuevaIdentidadConjuntoReglasBaremo(
+	referencia string,
+	version uint64,
+	convocatoriaRef string,
+	expedienteRef string,
+) (IdentidadConjuntoReglasBaremo, error)
+```
+
+NuevaIdentidadConjuntoReglasBaremo valida la identidad sin normalizar
+silenciosamente ninguna referencia.
+
+```go
+func (i IdentidadConjuntoReglasBaremo) ConvocatoriaRef() string
+```
+
+ConvocatoriaRef devuelve la convocatoria a la que pertenece.
+
+```go
+func (i IdentidadConjuntoReglasBaremo) ExpedienteRef() string
+```
+
+ExpedienteRef devuelve el expediente administrativo enlazado.
+
+```go
+func (i IdentidadConjuntoReglasBaremo) Referencia() string
+```
+
+Referencia devuelve la referencia inmutable del conjunto.
+
+```go
+func (i IdentidadConjuntoReglasBaremo) Version() uint64
+```
+
+Version devuelve la version semantica del conjunto.
+
+```go
+type LimitePuntos struct {
+	// Has unexported fields.
+}
+```
+
+LimitePuntos distingue de forma expresa la ausencia de limite de un valor
+cero. Su valor cero es invalido y no selecciona una politica implicita.
+
+```go
+func NuevoLimitePuntos(valor baremacion.Puntos) (LimitePuntos, error)
+```
+
+NuevoLimitePuntos declara un tope positivo exacto.
+
+```go
+func SinLimitePuntos() LimitePuntos
+```
+
+SinLimitePuntos declara explicitamente que la regla no tiene tope propio.
+
+```go
+func (l LimitePuntos) EstaLimitado() bool
+```
+
+EstaLimitado indica si existe un maximo propio.
+
+```go
+func (l LimitePuntos) Valor() (baremacion.Puntos, bool)
+```
+
+Valor devuelve el limite y si este fue configurado.
+
+```go
+type LimiteUnidades struct {
+	// Has unexported fields.
+}
+```
+
+LimiteUnidades distingue un limite racional positivo de la ausencia expresa
+de tope temporal.
+
+```go
+func NuevoLimiteUnidades(valor baremacion.Racional) (LimiteUnidades, error)
+```
+
+NuevoLimiteUnidades construye un tope racional positivo y exacto.
+
+```go
+func SinLimiteUnidades() LimiteUnidades
+```
+
+SinLimiteUnidades declara explicitamente que no hay tope temporal propio.
+
+```go
+func (l LimiteUnidades) EstaLimitado() bool
+```
+
+EstaLimitado indica si hay un maximo de unidades.
+
+```go
+func (l LimiteUnidades) Valor() (baremacion.Racional, bool)
+```
+
+Valor devuelve el limite y si este fue configurado.
+
+```go
+type ModoCoincidenciaReglas string
+```
+
+ModoCoincidenciaReglas decide que ocurre cuando un mismo tramo satisface
+simultaneamente los criterios de varias reglas del grupo.
+
+```go
+const (
+	CoincidenciaReglasRechazar              ModoCoincidenciaReglas = "rechazar"
+	CoincidenciaReglasElegirPrioridad       ModoCoincidenciaReglas = "elegir_prioridad"
+	CoincidenciaReglasElegirMayorPuntuacion ModoCoincidenciaReglas = "elegir_mayor_puntuacion"
+	CoincidenciaReglasAcumular              ModoCoincidenciaReglas = "acumular"
+)
+type ModoJornada string
+```
+
+ModoJornada selecciona una semantica revisada por el dominio.
+
+```go
+const (
+	JornadaProporcional       ModoJornada = "proporcional"
+	JornadaIntegra            ModoJornada = "integra"
+	JornadaIntegraDesdeUmbral ModoJornada = "integra_desde_umbral"
+	JornadaProtegidaIntegra   ModoJornada = "protegida_integra"
+	JornadaPorHoras           ModoJornada = "por_horas"
+)
+type ModoRepartoDentroRegla string
+```
+
+ModoRepartoDentroRegla impide usar el orden de entrada como desempate.
+
+```go
+const (
+	RepartoDentroReglaNoAplica           ModoRepartoDentroRegla = "no_aplica"
+	RepartoDentroReglaProporcionalExacto ModoRepartoDentroRegla = "proporcional_exacto"
+)
+type ModoRepartoExceso string
+```
+
+ModoRepartoExceso decide que hacer con la dedicacion que supera el limite de
+una politica de solape acumulable.
+
+```go
+const (
+	RepartoExcesoRechazar                      ModoRepartoExceso = "rechazar"
+	RepartoExcesoRecortarPorPrioridad          ModoRepartoExceso = "recortar_por_prioridad"
+	RepartoExcesoProporcionalExacto            ModoRepartoExceso = "repartir_proporcional_exacto"
+	RepartoExcesoElegirMayorPuntuacionMarginal ModoRepartoExceso = "elegir_mayor_puntuacion_marginal"
+)
+type ModoRestos string
+```
+
+ModoRestos fija en que frontera se conserva o descarta una fraccion
+temporal.
+
+```go
+const (
+	RestosConservarExactos    ModoRestos = "conservar_exactos"
+	RestosAcumularPorRegla    ModoRestos = "acumular_por_regla"
+	RestosDescartarPorPeriodo ModoRestos = "descartar_por_periodo"
+	RestosDescartarPorRegla   ModoRestos = "descartar_por_regla"
+)
+type ModoSolape string
+```
+
+ModoSolape selecciona como resolver tramos distintos que concurren en el
+tiempo dentro de un grupo. La coincidencia de un mismo tramo con varias
+reglas se gobierna por PoliticaCoincidenciaReglas, nunca por este valor.
+
+```go
+const (
+	SolapeRechazar              ModoSolape = "rechazar"
+	SolapeAcumularHastaLimite   ModoSolape = "acumular_hasta_limite"
+	SolapeElegirMayorPuntuacion ModoSolape = "elegir_mayor_puntuacion"
+	SolapeElegirMayorDedicacion ModoSolape = "elegir_mayor_dedicacion"
+)
+type MomentoRedondeo string
+```
+
+MomentoRedondeo fija la unica frontera en la que se redondea.
+
+```go
+const (
+	RedondearPorPeriodo MomentoRedondeo = "periodo"
+	RedondearPorRegla   MomentoRedondeo = "regla"
+	RedondearPorSeccion MomentoRedondeo = "seccion"
+	RedondearEnTotal    MomentoRedondeo = "total"
+)
+type MotivoCatalogadoReglasBaremo struct {
+	// Has unexported fields.
+}
+```
+
+MotivoCatalogadoReglasBaremo fija tanto la version y huella del catalogo
+como la clave elegida. El dominio no conserva un motivo libre en las trazas.
+
+```go
+func NuevoMotivoCatalogadoReglasBaremo(
+	catalogo ReferenciaVersionada,
+	clave string,
+) (MotivoCatalogadoReglasBaremo, error)
+
+func (m MotivoCatalogadoReglasBaremo) Catalogo() ReferenciaVersionada
+
+func (m MotivoCatalogadoReglasBaremo) Clave() string
+
+type PoliticaCoincidenciaReglas struct {
+	// Has unexported fields.
+}
+```
+
+PoliticaCoincidenciaReglas exige una eleccion explicita y no confunde una
+coincidencia de criterios con el solape temporal de tramos distintos.
+En las elecciones, una igualdad de puntuacion se resuelve por la prioridad
+unica de regla: 1 es la maxima.
+
+```go
+func NuevaPoliticaCoincidenciaReglas(modo ModoCoincidenciaReglas) (PoliticaCoincidenciaReglas, error)
+```
+
+NuevaPoliticaCoincidenciaReglas valida un modo cerrado.
+
+```go
+func (p PoliticaCoincidenciaReglas) Modo() ModoCoincidenciaReglas
+
+type PoliticaJornada struct {
+	// Has unexported fields.
+}
+```
+
+PoliticaJornada conserva el modo y, solo cuando corresponde, el umbral
+exacto. El valor cero no representa ninguna politica.
+
+```go
+func NuevaPoliticaJornada(modo ModoJornada) (PoliticaJornada, error)
+```
+
+NuevaPoliticaJornada construye una politica sin umbral.
+
+```go
+func NuevaPoliticaJornadaDesdeUmbral(umbral baremacion.FraccionJornada) (PoliticaJornada, error)
+```
+
+NuevaPoliticaJornadaDesdeUmbral construye exclusivamente la politica de
+computo integro a partir de una fraccion publicada.
+
+```go
+func (p PoliticaJornada) Modo() ModoJornada
+
+func (p PoliticaJornada) Umbral() (baremacion.FraccionJornada, bool)
+
+type PoliticaRedondeo struct {
+	// Has unexported fields.
+}
+```
+
+PoliticaRedondeo combina un momento explicito con uno de los modos exactos
+del fundamento comun de baremacion.
+
+```go
+func NuevaPoliticaRedondeo(momento MomentoRedondeo, modo baremacion.ModoRedondeo) (PoliticaRedondeo, error)
+```
+
+NuevaPoliticaRedondeo no aplica ningun modo por defecto.
+
+```go
+func (p PoliticaRedondeo) Modo() baremacion.ModoRedondeo
+
+func (p PoliticaRedondeo) Momento() MomentoRedondeo
+
+type PoliticaRepartoExceso struct {
+	// Has unexported fields.
+}
+```
+
+PoliticaRepartoExceso existe exclusivamente con un solape acumulable.
+Recortar por prioridad asigna capacidad por prioridad de regla; si varios
+tramos de la misma regla comparten prioridad, distribuye el remanente de
+forma proporcional exacta, nunca por orden de entrada. Elegir la mayor
+puntuacion marginal desempata por prioridad y aplica el mismo reparto exacto
+dentro de la regla elegida.
+
+```go
+func NuevaPoliticaRepartoExceso(modo ModoRepartoExceso) (PoliticaRepartoExceso, error)
+```
+
+NuevaPoliticaRepartoExceso valida un modo cerrado.
+
+```go
+func (p PoliticaRepartoExceso) DesempateEntreReglas() CriterioDesempateExceso
+
+func (p PoliticaRepartoExceso) Modo() ModoRepartoExceso
+
+func (p PoliticaRepartoExceso) RepartoDentroMismaRegla() ModoRepartoDentroRegla
+
+type PoliticaRestos struct {
+	// Has unexported fields.
+}
+```
+
+PoliticaRestos exige una eleccion expresa.
+
+```go
+func NuevaPoliticaRestos(modo ModoRestos) (PoliticaRestos, error)
+```
+
+NuevaPoliticaRestos valida un modo conocido.
+
+```go
+func (p PoliticaRestos) Modo() ModoRestos
+
+type PoliticaSolape struct {
+	// Has unexported fields.
+}
+```
+
+PoliticaSolape almacena el limite de dedicacion exclusivamente cuando se
+acumulan periodos. El valor cero es invalido.
+
+```go
+func NuevaPoliticaSolape(modo ModoSolape) (PoliticaSolape, error)
+```
+
+NuevaPoliticaSolape construye una politica que no acumula fracciones.
+
+```go
+func NuevaPoliticaSolapeAcumulable(limite baremacion.FraccionJornada) (PoliticaSolape, error)
+```
+
+NuevaPoliticaSolapeAcumulable fija el limite exacto de acumulacion.
+
+```go
+func (p PoliticaSolape) Limite() (baremacion.FraccionJornada, bool)
+
+func (p PoliticaSolape) Modo() ModoSolape
+
+type PoliticaUnidadTemporal struct {
+	// Has unexported fields.
+}
+```
+
+PoliticaUnidadTemporal expresa una conversion exacta. Por ejemplo, una regla
+por meses convencionales puede fijar dia -> mes y 30/1 unidades base.
+
+```go
+func NuevaPoliticaUnidadTemporal(
+	unidadBase UnidadTemporal,
+	unidadPuntuable UnidadTemporal,
+	unidadesBasePorUnidad baremacion.Racional,
+	extremoFinal TratamientoExtremoFinal,
+) (PoliticaUnidadTemporal, error)
+```
+
+NuevaPoliticaUnidadTemporal exige todos sus parametros; no presupone 30 dias
+por mes, 365 por anio ni la inclusion del extremo final.
+
+```go
+func (p PoliticaUnidadTemporal) ExtremoFinal() TratamientoExtremoFinal
+
+func (p PoliticaUnidadTemporal) UnidadBase() UnidadTemporal
+
+func (p PoliticaUnidadTemporal) UnidadPuntuable() UnidadTemporal
+
+func (p PoliticaUnidadTemporal) UnidadesBasePorUnidad() baremacion.Racional
+
+type ReferenciaVersionada struct {
+	// Has unexported fields.
+}
+```
+
+ReferenciaVersionada fija una dependencia por referencia opaca, version y
+huella. Nunca significa "la version vigente".
+
+```go
+func NuevaReferenciaVersionada(referencia string, version uint64, huellaSHA256 string) (ReferenciaVersionada, error)
+```
+
+NuevaReferenciaVersionada construye una referencia cerrada y reproducible.
+
+```go
+func (r ReferenciaVersionada) HuellaSHA256() string
+```
+
+HuellaSHA256 devuelve la huella hexadecimal canonica.
+
+```go
+func (r ReferenciaVersionada) Referencia() string
+```
+
+Referencia devuelve el identificador opaco exacto.
+
+```go
+func (r ReferenciaVersionada) Version() uint64
+```
+
+Version devuelve la version positiva fijada.
+
+```go
+type ReglaExperiencia struct {
+	// Has unexported fields.
+}
+```
+
+ReglaExperiencia configura como transformar experiencia elegible en puntos.
+Es solo modelo: no contiene ni ejecuta un calculador.
+
+```go
+func NuevaReglaExperiencia(
+	clave string,
+	definicion ReferenciaVersionada,
+	seccionClave string,
+	orden uint32,
+	criterios []CriterioExperiencia,
+	grupoConcurrenciaClave string,
+	prioridadConcurrencia uint32,
+	unidadTemporal PoliticaUnidadTemporal,
+	jornada PoliticaJornada,
+	restos PoliticaRestos,
+	redondeo PoliticaRedondeo,
+	puntosPorUnidad baremacion.Puntos,
+	maximoUnidades LimiteUnidades,
+	maximoPuntos LimitePuntos,
+) (ReglaExperiencia, error)
+```
+
+NuevaReglaExperiencia exige coeficiente y politicas completos. No hay una
+jornada, conversion, solape, resto o redondeo implicitos.
+
+```go
+func (r ReglaExperiencia) Clave() string
+
+func (r ReglaExperiencia) Criterios() []CriterioExperiencia
+
+func (r ReglaExperiencia) Definicion() ReferenciaVersionada
+
+func (r ReglaExperiencia) GrupoConcurrenciaClave() string
+
+func (r ReglaExperiencia) Jornada() PoliticaJornada
+
+func (r ReglaExperiencia) MaximoPuntos() LimitePuntos
+
+func (r ReglaExperiencia) MaximoUnidades() LimiteUnidades
+
+func (r ReglaExperiencia) Orden() uint32
+
+func (r ReglaExperiencia) PrioridadConcurrencia() uint32
+
+func (r ReglaExperiencia) PuntosPorUnidad() baremacion.Puntos
+
+func (r ReglaExperiencia) Redondeo() PoliticaRedondeo
+
+func (r ReglaExperiencia) Restos() PoliticaRestos
+
+func (r ReglaExperiencia) SeccionClave() string
+
+func (r ReglaExperiencia) UnidadTemporal() PoliticaUnidadTemporal
+
+type SeccionBaremo struct {
+	// Has unexported fields.
+}
+```
+
+SeccionBaremo es una seccion ordenada y acotada del baremo.
+
+```go
+func NuevaSeccionBaremo(
+	clave string,
+	definicion ReferenciaVersionada,
+	orden uint32,
+	puntosMinimos baremacion.Puntos,
+	puntosMaximos baremacion.Puntos,
+) (SeccionBaremo, error)
+```
+
+NuevaSeccionBaremo construye una seccion sin inferir sus limites.
+
+```go
+func (s SeccionBaremo) Clave() string
+
+func (s SeccionBaremo) Definicion() ReferenciaVersionada
+
+func (s SeccionBaremo) Orden() uint32
+
+func (s SeccionBaremo) PuntosMaximos() baremacion.Puntos
+
+func (s SeccionBaremo) PuntosMinimos() baremacion.Puntos
+
+type TratamientoExtremoFinal string
+```
+
+TratamientoExtremoFinal fija si el ultimo dia u hora se incorpora antes de
+convertir unidades.
+
+```go
+const (
+	ExtremoFinalExclusivo TratamientoExtremoFinal = "exclusivo"
+	ExtremoFinalInclusivo TratamientoExtremoFinal = "inclusivo"
+)
+type UnidadTemporal string
+```
+
+UnidadTemporal identifica la unidad de entrada o la unidad puntuable.
+
+```go
+const (
+	UnidadTemporalDia  UnidadTemporal = "dia"
+	UnidadTemporalMes  UnidadTemporal = "mes"
+	UnidadTemporalAnio UnidadTemporal = "anio"
+	UnidadTemporalHora UnidadTemporal = "hora"
+)
+type VersionGobernadaReglasBaremo struct {
+	// Has unexported fields.
+}
+```
+
+VersionGobernadaReglasBaremo envuelve un contenido inmutable. Todos sus
+campos son privados; cada transicion devuelve una copia nueva y aumenta una
+sola vez la revision usada para OCC.
+
+```go
+func NuevaVersionGobernadaReglasBaremo(
+	conjunto ConjuntoReglasBaremo,
+	actorRef string,
+	motivo MotivoCatalogadoReglasBaremo,
+	instante time.Time,
+) (VersionGobernadaReglasBaremo, error)
+
+func RestaurarVersionGobernadaReglasBaremo(
+	contenido []byte,
+) (VersionGobernadaReglasBaremo, error)
+```
+
+RestaurarVersionGobernadaReglasBaremo reconstruye exclusivamente la
+representacion canonica V1. Ademas de validar el JSON, reproduce el ciclo de
+gobierno mediante sus constructores y transiciones publicas.
+
+```go
+func RestaurarVersionGobernadaReglasBaremoConHuellaSHA256(
+	contenido []byte,
+	huellaEsperada string,
+) (VersionGobernadaReglasBaremo, error)
+```
+
+RestaurarVersionGobernadaReglasBaremoConHuellaSHA256 exige tambien la huella
+canonica esperada y la compara en tiempo constante.
+
+```go
+func (v VersionGobernadaReglasBaremo) Activar(
+	revisionEsperada uint64,
+	actorRef string,
+	motivo MotivoCatalogadoReglasBaremo,
+	dependencias AtestacionDependenciasVigentesReglasBaremo,
+	instante time.Time,
+) (VersionGobernadaReglasBaremo, error)
+
+func (v VersionGobernadaReglasBaremo) Clonar() (VersionGobernadaReglasBaremo, error)
+
+func (v VersionGobernadaReglasBaremo) Conjunto() (ConjuntoReglasBaremo, error)
+
+func (v VersionGobernadaReglasBaremo) ConvocatoriaActivacion() (
+	ReferenciaVersionada,
+	bool,
+	error,
+)
+```
+
+ConvocatoriaActivacion devuelve la referencia exacta que el verificador de
+dependencias ligo al activar la version. El segundo resultado distingue
+una ausencia legitima de activacion en borradores, versiones publicadas y
+descartadas. Las versiones sustituidas o retiradas conservan el vinculo para
+permitir la reproduccion historica.
+
+No expone el acto ni la atestacion internos. La referencia se devuelve por
+valor y no comparte estado mutable con la version gobernada.
+
+```go
+func (v VersionGobernadaReglasBaremo) CreadaEn() time.Time
+
+func (v VersionGobernadaReglasBaremo) CreadaPor() string
+
+func (v VersionGobernadaReglasBaremo) DependenciasContenido() ([]ReferenciaVersionada, error)
+```
+
+DependenciasContenido devuelve bases, definiciones y catalogos exactos en
+orden canonico para que el verificador externo pueda atestarlos.
+
+```go
+func (v VersionGobernadaReglasBaremo) Descartar(
+	revisionEsperada uint64,
+	actorRef string,
+	motivo MotivoCatalogadoReglasBaremo,
+	autoridad AtestacionAutoridadReglasBaremo,
+	instante time.Time,
+) (VersionGobernadaReglasBaremo, error)
+
+func (v VersionGobernadaReglasBaremo) Estado() EstadoGobiernoReglasBaremo
+
+func (v VersionGobernadaReglasBaremo) HuellaSHA256() (string, error)
+
+func (v VersionGobernadaReglasBaremo) MotivoCreacion() MotivoCatalogadoReglasBaremo
+
+func (v VersionGobernadaReglasBaremo) Publicar(
+	revisionEsperada uint64,
+	actorRef string,
+	motivo MotivoCatalogadoReglasBaremo,
+	aprobacion AtestacionAprobacionFirmadaReglasBaremo,
+	instante time.Time,
+) (VersionGobernadaReglasBaremo, error)
+
+func (v VersionGobernadaReglasBaremo) ReferenciaContenido() (ReferenciaVersionada, error)
+
+func (v VersionGobernadaReglasBaremo) RepresentacionCanonica() ([]byte, error)
+
+func (v VersionGobernadaReglasBaremo) Retirar(
+	revisionEsperada uint64,
+	actorRef string,
+	motivo MotivoCatalogadoReglasBaremo,
+	autoridad AtestacionAutoridadReglasBaremo,
+	instante time.Time,
+) (VersionGobernadaReglasBaremo, error)
+
+func (v VersionGobernadaReglasBaremo) Revision() uint64
+
+func (v VersionGobernadaReglasBaremo) Sustituir(
+	revisionEsperada uint64,
+	actorRef string,
+	motivo MotivoCatalogadoReglasBaremo,
+	sucesora ReferenciaVersionada,
+	autoridad AtestacionAutoridadReglasBaremo,
+	instante time.Time,
+) (VersionGobernadaReglasBaremo, error)
+
+func (v VersionGobernadaReglasBaremo) Validar() error
+
+func (v VersionGobernadaReglasBaremo) VinculoEstado() (VinculoEstadoReglasBaremo, error)
+
+type VinculoEstadoReglasBaremo struct {
+	// Has unexported fields.
+}
+```
+
+VinculoEstadoReglasBaremo impide aplicar una atestacion a otra revision,
+otro contenido o un estado materialmente distinto.
+
+```go
+func NuevoVinculoEstadoReglasBaremo(
+	contenido ReferenciaVersionada,
+	revision uint64,
+	huellaEstadoSHA256 string,
+) (VinculoEstadoReglasBaremo, error)
+
+func (v VinculoEstadoReglasBaremo) Contenido() ReferenciaVersionada
+
+func (v VinculoEstadoReglasBaremo) HuellaEstadoSHA256() string
+
+func (v VinculoEstadoReglasBaremo) Revision() uint64
 ```
 
 ## Paquete `internal/modules/bolsa/internal/transaccion`
@@ -2601,6 +5700,8 @@ depende de un motor de datos, proveedor de firma o producto de almacenamiento.
 
 Package ports define las fronteras hexagonales del modulo de bolsa.
 
+Package ports declara las fronteras hexagonales del modulo de Bolsa.
+
 ### Constantes
 
 ```go
@@ -2728,6 +5829,15 @@ const (
 	VersionManifiestoProbatorioBaremacionV2 = 2
 	VersionManifiestoProbatorioBaremacion   = 3
 )
+const (
+	EsquemaPanelInternoBolsaV1 = "vec.bolsa.panel.interno.v1"
+
+	ModuloPanelInternoBolsa      = "bolsa"
+	TipoRecursoPanelInternoBolsa = "panel_interno_agregado"
+	AccionConsultarPanelInterno  = "bolsa.panel_interno.consultar"
+	FinalidadPanelInternoBolsa   = "gestion_operativa_bolsa"
+	CampoPanelInternoAgregado    = "panel_agregado_sin_datos_personales"
+)
 const DominioCriptograficoMotivoGobiernoConvocatoriaV1 = "bolsa.convocatoria.motivo.v1"
 const VentanaMaximaUsoAutorizacionBaremacion = 30 * time.Second
 ```
@@ -2793,6 +5903,9 @@ var (
 	ErrAutorizacionGobiernoConvocatoriaInvalida = errors.New("bolsa: autorizacion de gobierno de convocatoria invalida")
 	ErrConsultaGobiernoConvocatoriaInvalida     = errors.New("bolsa: consulta interna de convocatoria invalida")
 	ErrVersionGobernadaConvocatoriaNoEncontrada = errors.New("bolsa: version gobernada de convocatoria no encontrada")
+	ErrFuenteGobiernoConvocatoriasNoDisponible  = errors.New("bolsa: fuente de gobierno de convocatorias no disponible")
+	ErrConsultaGobiernoConvocatoriaEnCurso      = errors.New("bolsa: consulta de convocatoria en curso")
+	ErrEvidenciaConsultaConvocatoriaNoConfiable = errors.New("bolsa: evidencia de consulta de convocatoria no confiable")
 )
 var (
 	ErrMaterialIntencionConvocatoriaInvalido = errors.New("bolsa: material de intencion de convocatoria invalido")
@@ -2868,6 +5981,29 @@ var (
 	ErrDecisionAutorizacionLlamamientoUsada       = errors.New("bolsa: decision de autorizacion ya consumida")
 	ErrCapacidadMemoriaLlamamientosAgotada        = errors.New("bolsa: capacidad del adaptador de memoria agotada")
 	ErrSerializacionSolicitudLlamamientoProhibida = errors.New("bolsa: serializacion de solicitud interna de llamamiento prohibida")
+	ErrComandoGuardarPropuestaLlamamientoInvalido = errors.New("bolsa: comando para guardar propuesta de llamamiento invalido")
+)
+var (
+	ErrSelectorPanelInternoInvalido  = errors.New("bolsa: selector de panel interno invalido")
+	ErrConsultaPanelInternoInvalida  = errors.New("bolsa: consulta de panel interno invalida")
+	ErrResultadoPanelInternoInvalido = errors.New("bolsa: resultado de panel interno invalido")
+)
+var (
+	// ErrReglasBaremoNoEncontradas indica que no existe el estado exacto
+	// solicitado. Ningun adaptador puede sustituirlo por «el vigente».
+	ErrReglasBaremoNoEncontradas = errors.New("bolsa: estado exacto de reglas de baremo no encontrado")
+
+	// ErrConflictoOCCReglasBaremo indica que revision o huella esperadas ya no
+	// coinciden con el estado durable.
+	ErrConflictoOCCReglasBaremo = errors.New("bolsa: conflicto OCC en reglas de baremo")
+
+	// ErrClaveIdempotenciaReglasReutilizada corresponde al indice exacto de
+	// intencion ya usado para otro material semantico. La derivacion de ese
+	// indice pertenece a application/internal, nunca a este paquete.
+	ErrClaveIdempotenciaReglasReutilizada = errors.New("bolsa: indice idempotente reutilizado con otra intencion")
+
+	ErrConfirmacionReglasBaremoInvalida  = errors.New("bolsa: confirmacion transaccional de reglas de baremo invalida")
+	ErrFuenteCalculoReglasBaremoInvalida = errors.New("bolsa: fuente exacta de calculo de reglas de baremo invalida")
 )
 var (
 	// ErrResultadoTransaccionalBaremacionInvalido impide convertir un valor
@@ -2999,12 +6135,38 @@ RecursoAutorizableMutacionConvocatoria liga la concesion a la preimagen
 semantica completa; una concesion no puede aplicarse a otra mutacion.
 
 ```go
+func RecursoAutorizablePanelInterno(
+	selector SelectorPanelInterno,
+	motivo dominiovec.ReferenciaEntradaCatalogo,
+) (dominiovec.RecursoAutorizable, error)
+```
+
+RecursoAutorizablePanelInterno liga el alcance exacto y el motivo catalogado
+a la decision V2. No acepta comodines ni ambitos solapados.
+
+```go
 func ReferenciaOpacaLlamamientoValida(valor string) bool
 ```
 
 ReferenciaOpacaLlamamientoValida evita documentos personales evidentes,
 comodines, controles, espacios no canonicos y texto Unicode ambiguo.
 No pretende sustituir el emisor criptograficamente aleatorio de referencias.
+
+```go
+func VinculoAptoParaGestionLlamamientos(
+	vinculo dominiovec.VinculoAutenticacionActorV1,
+	actor dominiovec.ContextoActor,
+	perfilActivoRef string,
+) bool
+```
+
+VinculoAptoParaGestionLlamamientos comprueba la frontera de autenticacion
+reforzada de una operacion interna de RRHH. No concede autorizacion:
+exige que el vinculo opaco proceda de la superficie corporativa con
+cuenta ordinaria o de administracion con cuenta privilegiada, y que
+conserve exactamente el contexto y el perfil resueltos con garantia alta.
+La superficie personal externa y el metodo de demostracion nunca habilitan
+el acceso aunque un PDP defectuoso tratase de concederlo.
 
 ```go
 func VisitarMaterialCanonicoAtestacionResolucionIdentidadInternaEstableBaremacion(
@@ -3164,6 +6326,21 @@ func AccionAdopcionParaClase(clase dominiobolsa.ClaseDecisionTecnica) (AccionOpe
 AccionAdopcionParaClase devuelve la unica accion positiva que puede adoptar
 cada transicion del historial. No existe una accion generica que herede o
 amplie permisos entre una decision ordinaria y una actuacion inspectora.
+
+```go
+type ActuacionPendientePanelInterno struct {
+	ActuacionRef    string    `json:"actuacion_ref"`
+	RecursoRef      string    `json:"recurso_ref"`
+	TipoClave       string    `json:"tipo_clave"`
+	EstadoClave     string    `json:"estado_clave"`
+	PrioridadClave  string    `json:"prioridad_clave"`
+	FechaLimite     time.Time `json:"fecha_limite,omitempty"`
+	NumeroElementos int       `json:"numero_elementos"`
+}
+```
+
+ActuacionPendientePanelInterno describe trabajo administrativo sin actor ni
+interesado. RecursoRef apunta al expediente o agregado autorizado.
 
 ```go
 type AlmacenDocumentosFirmables interface {
@@ -3655,6 +6832,17 @@ gobernado del nucleo. Los metadatos de procedencia, gobierno y aprobacion no
 forman parte de este contrato publico.
 
 ```go
+type ClaseAmbitoPanelInterno string
+```
+
+ClaseAmbitoPanelInterno obliga a elegir un alcance exacto. El valor cero no
+significa toda la organizacion y nunca se interpreta como valor por defecto.
+
+```go
+const (
+	AmbitoPanelOrganizacion ClaseAmbitoPanelInterno = "organizacion"
+	AmbitoPanelUnidad       ClaseAmbitoPanelInterno = "unidad_gestion"
+)
 type ClaseCambioBaremacion string
 
 const (
@@ -3770,6 +6958,47 @@ type CodificadorCanonicoDecision interface {
 	CodificarDecision(context.Context, SolicitudCodificarDecisionCanonica) (CodificacionCanonicaDecision, error)
 }
 
+type ComandoGuardarPropuestaLlamamiento struct {
+	// Has unexported fields.
+}
+```
+
+ComandoGuardarPropuestaLlamamiento conserva, como una unica capacidad opaca,
+todos los datos que una persistencia duradera debe confirmar de forma
+indivisible. La propuesta solo contiene el prefijo evaluado; por eso el
+comando retiene ademas la instantanea completa que genero dicho prefijo.
+
+Sus campos son privados y Datos devuelve copias profundas. Un adaptador no
+puede completar la instantanea consultando de nuevo una fuente mutable ni
+aceptar propuesta y evidencia por parametros independientes.
+
+```go
+func NuevoComandoGuardarPropuestaLlamamiento(
+	instantanea dominiobolsa.InstantaneaOrdenBolsa,
+	propuesta dominiobolsa.PropuestaLlamamiento,
+	evidencia puertosvec.EvidenciaUsoDecisionAutorizacion,
+) (ComandoGuardarPropuestaLlamamiento, error)
+
+func (c ComandoGuardarPropuestaLlamamiento) Datos() (
+	dominiobolsa.InstantaneaOrdenBolsa,
+	dominiobolsa.PropuestaLlamamiento,
+	puertosvec.EvidenciaUsoDecisionAutorizacion,
+	error,
+)
+```
+
+Datos devuelve una fotografia defensiva del conjunto indivisible.
+La evidencia ya es una capacidad opaca e inmutable del nucleo; instantanea y
+propuesta se clonan para no compartir slices con el adaptador.
+
+```go
+func (c ComandoGuardarPropuestaLlamamiento) ValidarEn(instante time.Time) error
+```
+
+ValidarEn revalida la capacidad en el reloj efectivo del adaptador. No
+sustituye el bloqueo y la relectura autoritativa dentro de la transaccion.
+
+```go
 type ComprobacionFirma struct {
 	Clave                 string
 	Estado                EstadoComprobacionFirma
@@ -3973,6 +7202,18 @@ func (c ConfirmacionRetiradaConvocatoria) ValidarRecibo(
 	recibo ReciboGobiernoConvocatoria,
 ) error
 
+type ConsultaAutorizadaReglasBaremo interface {
+	ObtenerVersionExacta(
+		context.Context,
+		SolicitudConsultaExactaReglasBaremo,
+	) (ResultadoConsultaExactaReglasBaremo, error)
+}
+```
+
+ConsultaAutorizadaReglasBaremo no resuelve alias temporales ni selecciona
+versiones por orden de insercion.
+
+```go
 type ConsultaCategoriasPublicas interface {
 	ObtenerPublicadas(context.Context, time.Time) (CatalogoCategoriasPublicas, error)
 }
@@ -4023,6 +7264,19 @@ ConsultaGobiernoConvocatorias debe leer exactamente una version y registrar
 la lectura junto con el uso de autorizacion en la misma transaccion.
 La preimagen auditada incluye HuellaVersionSHA256 y, cuando exista,
 HuellaInstanciaFlujoSHA256; la huella del registro no es decorativa.
+
+```go
+type ConsultaPanelInterno interface {
+	ConsultarPanel(
+		context.Context,
+		SolicitudConsultaPanelInterno,
+	) (InstantaneaPanelInterno, error)
+}
+```
+
+ConsultaPanelInterno no es un DAO libre. La implementacion productiva debe
+consumir la evidencia una sola vez, auditar el acceso y devolver el panel
+solo despues de confirmar la transaccion.
 
 ```go
 type ConsumidorClaveClienteLoteIdempotenciaBaremacion interface {
@@ -5109,6 +8363,35 @@ dependencia privada; una fuente elegida por el llamador nunca concede
 autoridad.
 
 ```go
+type FuenteExactaCalculoReglasBaremo struct {
+	Version             reglas.VersionGobernadaReglasBaremo
+	Entrada             calculo.EntradaExperiencia
+	Prueba              PruebaFuenteExactaCalculoReglasBaremo
+	Auditoria           reglas.ReferenciaVersionada
+	ConsumoAutorizacion reglas.ReferenciaVersionada
+	ConsumoPrueba       reglas.ReferenciaVersionada
+	ObtenidaEn          time.Time
+}
+
+type FuenteReglasBaremoParaCalculo interface {
+	ObtenerFuenteExacta(
+		context.Context,
+		SolicitudFuenteExactaCalculoReglasBaremo,
+	) (FuenteExactaCalculoReglasBaremo, error)
+}
+```
+
+FuenteReglasBaremoParaCalculo obtiene y verifica la procedencia de una
+instantanea exacta. El adaptador devuelve el consumo durable de la prueba;
+una entrada restaurada localmente no satisface este contrato.
+
+NO-GO PRODUCCION: el contrato actual no prueba todavia que
+ConsumoAutorizacion ligue de forma durable decision_ref, huella de
+decision V2, recurso y correlacion exactos. Ningun adaptador satisface
+la autorizacion de produccion hasta incorporar y verificar esa atestacion
+tipada.
+
+```go
 type GeneradorReferenciasFlujoFirmaBaremacion interface {
 	NuevaReferenciaFlujoFirmaBaremacion() (string, error)
 	NuevaReferenciaPropietarioArrendamientoFirmaBaremacion() (string, error)
@@ -5355,6 +8638,26 @@ func (*IdentificadorOperacionTransaccionalBaremacion) UnmarshalText([]byte) erro
 
 func (i IdentificadorOperacionTransaccionalBaremacion) Validar() error
 
+type IndicadoresPanelInterno struct {
+	ConvocatoriasBorrador        int `json:"convocatorias_borrador"`
+	ConvocatoriasRevision        int `json:"convocatorias_revision"`
+	ConvocatoriasPendientesFirma int `json:"convocatorias_pendientes_firma"`
+	ConvocatoriasPublicadas      int `json:"convocatorias_publicadas"`
+	BolsasActivas                int `json:"bolsas_activas"`
+	BolsasSuspendidas            int `json:"bolsas_suspendidas"`
+	BolsasAgotadas               int `json:"bolsas_agotadas"`
+	LlamamientosPendientes       int `json:"llamamientos_pendientes"`
+	LlamamientosEnCurso          int `json:"llamamientos_en_curso"`
+	LlamamientosVencenHoy        int `json:"llamamientos_vencen_hoy"`
+	DocumentosPendientesFirma    int `json:"documentos_pendientes_firma"`
+	IncidenciasAbiertas          int `json:"incidencias_abiertas"`
+}
+```
+
+IndicadoresPanelInterno contiene exclusivamente magnitudes agregadas.
+No transporta identidades ni permite reconstruir un listado de personas.
+
+```go
 type InstantaneaCatalogoClasificacionDocumentoBaremacion struct {
 	CatalogoRef          string
 	CatalogoVersion      uint32
@@ -5413,6 +8716,31 @@ func (InstantaneaCatalogoFormatoDocumentoBaremacion) String() string
 
 func (i InstantaneaCatalogoFormatoDocumentoBaremacion) Validar() error
 
+type InstantaneaPanelInterno struct {
+	Esquema               string                            `json:"esquema"`
+	Selector              SelectorPanelInterno              `json:"selector"`
+	Origen                OrigenPanelInterno                `json:"origen"`
+	PruebaLectura         PruebaLecturaPanelInterno         `json:"prueba_lectura"`
+	Indicadores           IndicadoresPanelInterno           `json:"indicadores"`
+	Convocatorias         []ResumenConvocatoriaPanelInterno `json:"convocatorias"`
+	ActuacionesPendientes []ActuacionPendientePanelInterno  `json:"actuaciones_pendientes"`
+}
+```
+
+InstantaneaPanelInterno es el contrato minimo del cuadro operativo. No hay
+campos de nombre, documento identificativo, correo, telefono, direccion ni
+colecciones globales de candidatos.
+
+```go
+func (i InstantaneaPanelInterno) ClonarValidadaPara(
+	solicitud SolicitudConsultaPanelInterno,
+) (InstantaneaPanelInterno, error)
+```
+
+ClonarValidadaPara aplica copia defensiva y coteja el selector exacto. Un
+origen de demostracion o una prueba de lectura incoherente fallan cerrado.
+
+```go
 type IntencionCambioBaremacion struct {
 	Version uint16
 	Clase   ClaseCambioBaremacion
@@ -5774,6 +9102,52 @@ type MotorElegibilidadLlamamiento interface {
 	EvaluarParticipacion(context.Context, SolicitudEvaluarParticipacionLlamamiento) (dominiobolsa.EvaluacionParticipacionLlamamiento, error)
 }
 
+type OperacionGobiernoReglasBaremo string
+```
+
+OperacionGobiernoReglasBaremo identifica el efecto durable ya preparado por
+application. No ejecuta ni valida transiciones de dominio.
+
+```go
+const (
+	OperacionAltaBorradorReglasBaremo OperacionGobiernoReglasBaremo = "alta_borrador"
+	OperacionPublicarReglasBaremo     OperacionGobiernoReglasBaremo = "publicar"
+	OperacionActivarReglasBaremo      OperacionGobiernoReglasBaremo = "activar"
+	OperacionSustituirReglasBaremo    OperacionGobiernoReglasBaremo = "sustituir"
+	OperacionRetirarReglasBaremo      OperacionGobiernoReglasBaremo = "retirar"
+	OperacionDescartarReglasBaremo    OperacionGobiernoReglasBaremo = "descartar"
+)
+type OrdenConfirmacionReglasBaremo struct {
+	Operacion        OperacionGobiernoReglasBaremo
+	Intencion        reglas.ReferenciaVersionada
+	EstadoEsperado   *reglas.VinculoEstadoReglasBaremo
+	VersionResultado reglas.VersionGobernadaReglasBaremo
+	Autorizacion     puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2
+	PruebaTransicion *reglas.ReferenciaVersionada
+	EfectuarEn       time.Time
+}
+```
+
+OrdenConfirmacionReglasBaremo contiene exclusivamente material ya derivado
+y validado por application. Intencion es una referencia exacta al material
+idempotente canonico creado fuera de ports.
+
+EstadoEsperado hace explicito el CAS: nil solo es admisible para el alta;
+en el resto de operaciones contiene identificador, version, revision y
+huellas exactas. El adaptador no calcula ninguna transicion.
+
+```go
+type OrigenPanelInterno struct {
+	Revision      string    `json:"revision"`
+	ActualizadaEn time.Time `json:"actualizada_en"`
+	Demostracion  bool      `json:"demostracion"`
+}
+```
+
+OrigenPanelInterno permite rechazar de forma positiva adaptadores de
+demostracion. El servicio productivo solo acepta Demostracion=false.
+
+```go
 type PaginaConvocatorias struct {
 	Convocatorias []dominiobolsa.Convocatoria
 	Total         int
@@ -5954,6 +9328,39 @@ opaca que el adaptador interno debe resolver tras reautenticar la peticion.
 ```go
 func (p ProyeccionLanzamientoFirmaBaremacion) Validar() error
 
+type PruebaFuenteExactaCalculoReglasBaremo struct {
+	Evidencia           reglas.ReferenciaVersionada
+	Verificador         reglas.ReferenciaVersionada
+	EstadoReglas        reglas.VinculoEstadoReglasBaremo
+	InstantaneaEntrada  reglas.ReferenciaVersionada
+	HuellaEntradaSHA256 string
+	SujetoPseudonimo    reglas.ReferenciaVersionada
+	Convocatoria        reglas.ReferenciaVersionada
+	EmitidaEn           time.Time
+	ValidaHasta         time.Time
+}
+```
+
+PruebaFuenteExactaCalculoReglasBaremo es compacta: liga la evidencia
+verificable a la instantanea y su contenido, sin repetir tramos ni
+catalogos.
+
+```go
+type PruebaLecturaPanelInterno struct {
+	LecturaRef           string    `json:"lectura_ref"`
+	AuditoriaRef         string    `json:"auditoria_ref"`
+	AuditoriaSecuencia   uint64    `json:"auditoria_secuencia"`
+	DecisionRef          string    `json:"decision_ref"`
+	HuellaDecisionSHA256 string    `json:"huella_decision_sha256"`
+	CorrelacionRef       string    `json:"correlacion_ref"`
+	ConfirmadaEn         time.Time `json:"confirmada_en"`
+}
+```
+
+PruebaLecturaPanelInterno acredita que la consulta y su auditoria quedaron
+confirmadas. Solo contiene referencias tecnicas opacas.
+
+```go
 type PruebaNoAplicacionVerificadaBaremacion struct {
 	// Has unexported fields.
 }
@@ -6048,6 +9455,24 @@ type ReceptorEfimeroTestimonioAtomicoIdempotenciaBaremacion interface {
 ReceptorEfimeroTestimonioAtomicoIdempotenciaBaremacion es la unica via de
 construccion para un adaptador externo. El receptor lo crea la fabrica, se
 cierra tras una sola llamada al productor y no devuelve tipos individuales.
+
+```go
+type ReciboConfirmacionReglasBaremo struct {
+	Operacion               OperacionGobiernoReglasBaremo
+	Intencion               reglas.ReferenciaVersionada
+	EstadoResultado         reglas.VinculoEstadoReglasBaremo
+	Transaccion             reglas.ReferenciaVersionada
+	Auditoria               reglas.ReferenciaVersionada
+	EventoOutbox            reglas.ReferenciaVersionada
+	ConsumoAutorizacion     reglas.ReferenciaVersionada
+	ConsumoPruebaTransicion *reglas.ReferenciaVersionada
+	ConfirmadaEn            time.Time
+}
+```
+
+ReciboConfirmacionReglasBaremo referencia los efectos confirmados por una
+unica transaccion. No constituye por si mismo la validacion del resultado;
+application coteja estos vinculos exactos con la orden original.
 
 ```go
 type ReciboConsumoVerificacionConvocatoria struct {
@@ -6345,6 +9770,20 @@ adaptador durable en el mismo TCB/BD; EvidenciaUsoDecisionAutorizacion por
 si sola no acredita la procedencia del PDP.
 
 ```go
+type RepositorioGobiernoReglasBaremo interface {
+	Confirmar(
+		context.Context,
+		OrdenConfirmacionReglasBaremo,
+	) (ReciboConfirmacionReglasBaremo, error)
+}
+```
+
+RepositorioGobiernoReglasBaremo confirma en una sola transaccion durable la
+idempotencia ya derivada, el CAS, la version resultante, el consumo de la
+autorizacion V2, la prueba de transicion cuando exista, auditoria y outbox.
+Ante cualquier fallo no confirma ningun efecto parcial.
+
+```go
 type RepresentacionBaremacionConfiable struct {
 	Representacion        dominiovec.RepresentacionDocumento
 	EvidenciaConsultaRef  string
@@ -6439,6 +9878,13 @@ ValidarPara liga el resultado a la mutacion exacta solicitada. Una respuesta
 valida de otra baremacion, version o agregado nunca se acepta por semejanza.
 
 ```go
+type ResultadoConsultaExactaReglasBaremo struct {
+	Version             reglas.VersionGobernadaReglasBaremo
+	Auditoria           reglas.ReferenciaVersionada
+	ConsumoAutorizacion reglas.ReferenciaVersionada
+	ConsultadaEn        time.Time
+}
+
 type ResultadoConsultaVersionConvocatoria struct {
 	Version                            dominiobolsa.VersionConvocatoriaGobernada
 	InstanciaFlujo                     *dominiovec.InstanciaFlujo
@@ -6606,6 +10052,42 @@ func (*ResultadoNominalConfirmacionBaremacionV3) UnmarshalText([]byte) error
 func (r ResultadoNominalConfirmacionBaremacionV3) ValidarFormaPara(
 	s IntentoNominalConfirmacionBaremacionV3,
 ) error
+
+type ResumenConvocatoriaPanelInterno struct {
+	ConvocatoriaRef   string    `json:"convocatoria_ref"`
+	CategoriaClave    string    `json:"categoria_clave"`
+	EstadoClave       string    `json:"estado_clave"`
+	PlazoCierraEn     time.Time `json:"plazo_cierra_en,omitempty"`
+	NumeroSolicitudes int       `json:"numero_solicitudes"`
+	NumeroPendientes  int       `json:"numero_pendientes"`
+}
+```
+
+ResumenConvocatoriaPanelInterno usa claves de catalogo y referencias opacas.
+Las etiquetas se resuelven aparte desde catalogos gobernados.
+
+```go
+type SelectorFuenteExactaCalculoReglasBaremo = oficial.SelectorFuenteExactaCalculoReglasBaremo
+```
+
+SelectorFuenteExactaCalculoReglasBaremo conserva en la frontera hexagonal
+el contrato canonico versionado del dominio. Sus metodos Validar,
+RepresentacionCanonicaV1 y HuellaSHA256V1 son la unica fuente de verdad para
+aplicacion y adaptadores; el algoritmo no debe copiarse fuera del dominio.
+
+```go
+type SelectorPanelInterno struct {
+	Clase            ClaseAmbitoPanelInterno `json:"clase"`
+	OrganizacionRef  string                  `json:"organizacion_ref"`
+	UnidadGestionRef string                  `json:"unidad_gestion_ref,omitempty"`
+}
+```
+
+SelectorPanelInterno no contiene identidad de la persona operadora.
+Sus referencias proceden de configuracion interna y quedan ligadas al PDP.
+
+```go
+func (s SelectorPanelInterno) Validar() error
 
 type SelectorVersionConvocatoriaExacta struct {
 	ID        string
@@ -6857,6 +10339,53 @@ func (s SolicitudConfirmarCambioBaremacion) Clonar() (SolicitudConfirmarCambioBa
 
 func (s SolicitudConfirmarCambioBaremacion) Validar() error
 
+type SolicitudConsultaExactaReglasBaremo struct {
+	Selector     reglas.VinculoEstadoReglasBaremo
+	Autorizacion puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2
+	SolicitadaEn time.Time
+}
+```
+
+SolicitudConsultaExactaReglasBaremo solo admite un estado identificado por
+contenido, version, revision y huellas exactas.
+
+```go
+type SolicitudConsultaPanelInterno struct {
+	// Has unexported fields.
+}
+```
+
+SolicitudConsultaPanelInterno es una capacidad opaca para el adaptador
+durable. Este debe revalidar y consumir la decision V2 en la misma
+transaccion que calcula los agregados y confirma la auditoria de lectura.
+
+```go
+func NuevaSolicitudConsultaPanelInterno(
+	selector SelectorPanelInterno,
+	autorizacion puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
+	motivo dominiovec.ReferenciaEntradaCatalogo,
+	correlacion dominiovec.ReferenciaCorrelacionAutorizacionV2,
+	consultadaEn time.Time,
+) (SolicitudConsultaPanelInterno, error)
+
+func (s SolicitudConsultaPanelInterno) Autorizacion() (
+	puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
+	error,
+)
+
+func (s SolicitudConsultaPanelInterno) ConsultadaEn() (time.Time, error)
+
+func (s SolicitudConsultaPanelInterno) Correlacion() (
+	dominiovec.ReferenciaCorrelacionAutorizacionV2,
+	error,
+)
+
+func (s SolicitudConsultaPanelInterno) Motivo() (dominiovec.ReferenciaEntradaCatalogo, error)
+
+func (s SolicitudConsultaPanelInterno) Selector() (SelectorPanelInterno, error)
+
+func (SolicitudConsultaPanelInterno) String() string
+
 type SolicitudConsultaVersionConvocatoriaAutorizada struct {
 	Selector              SelectorVersionConvocatoriaExacta
 	IncluirInstanciaFlujo bool
@@ -7015,6 +10544,12 @@ favorables codificadas en la aplicacion.
 
 ```go
 func (s SolicitudEvaluarParticipacionLlamamiento) Validar() error
+
+type SolicitudFuenteExactaCalculoReglasBaremo struct {
+	Selector     SelectorFuenteExactaCalculoReglasBaremo
+	Autorizacion puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2
+	SolicitadaEn time.Time
+}
 
 type SolicitudGuardarFlujoFirmaBaremacion struct {
 	VersionEsperada uint64
@@ -7836,8 +11371,7 @@ func (t TokenReservaBaremacion) Validar() error
 type TransaccionPropuestasLlamamiento interface {
 	GuardarPropuestaLlamamiento(
 		context.Context,
-		dominiobolsa.PropuestaLlamamiento,
-		puertosvec.EvidenciaUsoDecisionAutorizacion,
+		ComandoGuardarPropuestaLlamamiento,
 	) error
 }
 ```

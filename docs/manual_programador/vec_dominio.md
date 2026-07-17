@@ -423,6 +423,17 @@ exige una version portable, una huella no nula y una clave opaca de 128
 bits. La existencia y vigencia de la entrada requieren resolver el catalogo.
 
 ```go
+func RepresentacionCanonicaMotivoAutorizacionV2(
+	referencia ReferenciaEntradaCatalogo,
+) ([]byte, error)
+```
+
+RepresentacionCanonicaMotivoAutorizacionV2 entrega el documento cerrado que
+un adaptador durable necesita para cotejar la huella ligada a la decision.
+Solo contiene una referencia opaca y versionada; no incorpora texto libre ni
+convierte la referencia en autoridad para ejecutar un efecto.
+
+```go
 func SerializarMensajeAtestacionAutorizacionV1(
 	cabecera CabeceraAtestacionAutorizacionV1,
 	decision DecisionAutorizacion,

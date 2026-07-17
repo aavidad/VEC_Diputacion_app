@@ -287,6 +287,28 @@ Solapa detecta una interseccion de al menos un dia civil.
 ```go
 func (i *IntervaloCivil) UnmarshalJSON(datos []byte) error
 
+type ModoRedondeo string
+```
+
+ModoRedondeo fija como se convierte un resultado racional positivo a
+micropuntos. La regla publicada debe elegirlo de forma expresa; el motor no
+aplica una opcion implicita.
+
+```go
+const (
+	RedondeoExacto      ModoRedondeo = "exacto"
+	RedondeoTruncar     ModoRedondeo = "truncar"
+	RedondeoHaciaArriba ModoRedondeo = "hacia_arriba"
+	RedondeoMitadArriba ModoRedondeo = "mitad_arriba"
+	RedondeoMitadAlPar  ModoRedondeo = "mitad_al_par"
+)
+func (m ModoRedondeo) EsValido() bool
+```
+
+EsValido impide que una cadena configurada desde administracion seleccione
+un comportamiento no revisado por el dominio.
+
+```go
 type Puntos struct {
 	// Has unexported fields.
 }
@@ -333,6 +355,14 @@ func (p Puntos) MultiplicarExacto(factor Racional) (Puntos, error)
 MultiplicarExacto aplica un factor racional sin introducir una politica de
 redondeo. Si el resultado no cabe en un micropunto, la regla llamante debe
 elegir de forma explicita su politica y no puede perder la fraccion aqui.
+
+```go
+func (p Puntos) MultiplicarRedondeado(factor Racional, modo ModoRedondeo) (Puntos, error)
+```
+
+MultiplicarRedondeado aplica un factor racional no negativo y redondea una
+sola vez a micropuntos. La descomposicion evita multiplicar directamente un
+valor de hasta 9e15 por el numerador del factor.
 
 ```go
 func (p Puntos) Restar(otros Puntos) (Puntos, error)

@@ -60,6 +60,14 @@ Probado:
   asignacion/rol/politicas versionados, CAS y decisiones breves. El primer
   adaptador PostgreSQL con RLS y privilegios minimos pasa integracion real,
   pero no esta conectado a ninguna superficie.
+- Reglas de baremo configurables y versionadas con gobierno de publicacion y
+  activacion: una version pasa por borrador, revision, publicacion y
+  activacion sin pisar versiones previas, con huella e historial. El calculo
+  de experiencia usa aritmetica racional exacta (sin coma flotante) y
+  redondeos configurados por las bases. La persistencia oficial de los
+  resultados de experiencia tiene esquema PostgreSQL con RLS, roles de
+  privilegio minimo, migraciones y pruebas de integracion mecanica; aun no
+  se monta en produccion.
 - Perfil de autorizacion V2 nominal: la solicitud efectiva ya no admite
   principal declarado ni motivo libre, liga la referencia exacta de un
   catalogo publicado y separa evidencias y registros V1/V2. El adaptador de
@@ -201,6 +209,9 @@ Pendiente productivo:
 - [Cálculo oficial de experiencia](docs/portal_vec/calculo_oficial_experiencia.md):
   integración del motor puro con fuente exacta, doble autorización,
   idempotencia semántica, persistencia y auditoría transaccional.
+- [Persistencia PostgreSQL del cálculo oficial de experiencia](deploy/postgresql/bolsa_calculo_experiencia/README.md):
+  migraciones de resultados oficiales, frontera V2, roles de privilegio
+  mínimo y pruebas SQL de integración, ACL, frontera y rectificaciones.
 - [Estudio profesional de pantallas VEC](docs/portal_vec/estudio_pantallas_profesionales.md):
   flujos completos por modulo/menu, datos visibles, acciones, estados,
   integraciones, validaciones y criterio de terminado.

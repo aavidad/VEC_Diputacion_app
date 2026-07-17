@@ -508,9 +508,9 @@ proceso aislado, pero no sustituye esta comprobacion global de arranque.
 func ValidarConjuntoSuperficies(configuraciones []ConfiguracionSuperficie) error
 ```
 
-ValidarConjuntoSuperficies impide compartir audiencia o cookie. Solo
-las dos clases del portal exterior pueden compartir listener; interna y
-administracion siempre utilizan entradas diferentes.
+ValidarConjuntoSuperficies impide compartir audiencia. Solo las dos clases
+del portal exterior pueden compartir listener; interna y administracion
+siempre utilizan entradas diferentes.
 
 ### Tipos
 
@@ -575,26 +575,11 @@ func (c CanalProxyAutenticado) Superficie() Superficie
 
 func (c CanalProxyAutenticado) Tipo() TipoCanalProxy
 
-type ConfiguracionCookie struct {
-	Nombre   string
-	Ruta     string
-	Dominio  string
-	Segura   bool
-	SoloHTTP bool
-	SameSite ModoSameSite
-}
-```
-
-ConfiguracionCookie describe exclusivamente la cookie de sesion de una
-superficie. No se reutiliza entre portales.
-
-```go
 type ConfiguracionSuperficie struct {
 	Superficie                          Superficie
 	ZonaRed                             ZonaRed
 	DireccionEscucha                    string
 	Audiencia                           string
-	Cookie                              ConfiguracionCookie
 	EmisorIdentidad                     string
 	RedesPermitidas                     []string
 	HuellasProxyTLSPermitidas           []string
@@ -806,16 +791,6 @@ const (
 )
 func (m MetodoAutenticacion) Valido() bool
 
-type ModoSameSite string
-```
-
-ModoSameSite evita que la configuracion utilice valores libres.
-
-```go
-const (
-	SameSiteLaxo     ModoSameSite = "lax"
-	SameSiteEstricto ModoSameSite = "strict"
-)
 type PoliticaRed struct {
 	// Has unexported fields.
 }
@@ -1428,6 +1403,18 @@ func (a *AlmacenAutorizacion) RegistrarDecisionSiInstantaneaVigente(
 	decision domain.DecisionAutorizacion,
 ) error
 
+func (a *AlmacenAutorizacion) RegistrarDecisionSolicitudLigadaV2SiInstantaneaVigente(
+	ctx context.Context,
+	orden ports.OrdenRegistroDecisionAutorizacionSolicitudLigadaV2,
+) error
+```
+
+RegistrarDecisionSolicitudLigadaV2SiInstantaneaVigente persiste una
+concesion V2 en un registro nominal separado de V1. PostgreSQL recibe
+los bytes canonicos de decision y motivo; nunca una proyeccion que pueda
+reinterpretarse como capacidad historica.
+
+```go
 type ValidadorReferenciaMotivoPostgreSQLV2 struct {
 	// Has unexported fields.
 }
@@ -1463,6 +1450,57 @@ ValidarReferenciaMotivoAutorizacionV2 resuelve exclusivamente el estado
 que existia en instante. La barrera de vigencia actual de una concesion
 pertenece a la misma transaccion que registra o consume su efecto y no a
 este puerto.
+
+## Paquete `internal/vec/adapters/postgres/confianzaatestacionv2`
+
+> Package confianzaatestacionv2 carga la lista positiva VEC-AD-2 desde una autoridad PostgreSQL aislada.
+
+Package confianzaatestacionv2 carga la lista positiva VEC-AD-2 desde una
+autoridad PostgreSQL aislada. No firma, no emite capacidades y no abre una via
+alternativa a la funcion SQL gobernada.
+
+### Constantes
+
+```go
+const (
+	// RolLectorAutoridadPostgreSQL es un rol NOLOGIN sin herencias. El LOGIN
+	// aislado del proceso debe poder asumirlo, pero no se acepta como autoridad.
+	RolLectorAutoridadPostgreSQL = "vec_confianza_atestacion_v2_lector_autoridad"
+)
+```
+
+### Variables
+
+```go
+var ErrCargaConfianzaAtestacionV2NoDisponible = errors.New(
+	"vec: carga PostgreSQL de confianza de atestacion V2 no disponible",
+)
+```
+
+### Funciones
+
+```go
+func CargarConfiguracionActual(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+) (confianzaatestacion.ConfiguracionConfianzaAtestacionAutorizacionV2, error)
+```
+
+CargarConfiguracionActual reconstruye la revision completa mediante un pool
+concreto. El llamante no puede inyectar una consulta, una identidad ni una
+fuente alternativa en este constructor productivo.
+
+```go
+func NuevoServicioActual(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	reloj ports.Reloj,
+) (*confianzaatestacion.ServicioConfianzaAtestacionAutorizacionV2, error)
+```
+
+NuevoServicioActual carga una unica instantanea autoritativa y construye el
+verificador con el conector de tiempo elegido por la composicion. La fuente
+PostgreSQL sigue siendo concreta y no admite repositorios alternativos.
 
 ## Paquete `internal/vec/adapters/postgres/confianzadocumental`
 
@@ -2447,6 +2485,16 @@ func (*ConfiguracionConfianzaAtestacionAutorizacionV2) UnmarshalXML(*xml.Decoder
 
 func (*ConfiguracionConfianzaAtestacionAutorizacionV2) UnmarshalYAML(func(any) error) error
 
+func (c ConfiguracionConfianzaAtestacionAutorizacionV2) ValidarHuellaSHA256Esperada(
+	esperada string,
+) error
+```
+
+ValidarHuellaSHA256Esperada comprueba una huella durable sin exponer la
+representacion interna de la configuracion. Permite a los adaptadores de
+persistencia acreditar que reconstruyeron exactamente la revision leida.
+
+```go
 type DatosPruebaConfianzaAtestacionAutorizacionV2 struct {
 	ReferenciaDecision          string
 	HuellaSolicitudLigadaSHA256 string
