@@ -37,12 +37,6 @@ func TestValidarConjuntoSuperficiesSeparado(t *testing.T) {
 			},
 		},
 		{
-			nombre: "cookie compartida sin atender a mayusculas",
-			modificar: func(c []ConfiguracionSuperficie) {
-				c[3].Cookie.Nombre = "__Host-VEC-INTERNA"
-			},
-		},
-		{
 			nombre: "listener interno compartido con el exterior",
 			modificar: func(c []ConfiguracionSuperficie) {
 				c[2].DireccionEscucha = "10.40.0.20:8080"
@@ -71,7 +65,6 @@ func TestValidarConjuntoSuperficiesSeparado(t *testing.T) {
 			modificar: func(c []ConfiguracionSuperficie) {
 				c[1].Superficie = c[0].Superficie
 				c[1].Audiencia = ""
-				c[1].Cookie = ConfiguracionCookie{}
 				c[1].EmisorIdentidad = ""
 				c[1].HuellasProxyTLSPermitidas = nil
 				c[1].IdentidadesSANProxyPermitidas = nil
@@ -129,7 +122,6 @@ func TestConfiguracionSuperficieFallaCerrada(t *testing.T) {
 		{"duracion superior a cinco minutos", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.DuracionMaximaAsercion = 5*time.Minute + time.Second })},
 		{"anonima con audiencia", cambiar(basePublica, func(c *ConfiguracionSuperficie) { c.Audiencia = "vec-publico" })},
 		{"anonima con garantia", cambiar(basePublica, func(c *ConfiguracionSuperficie) { c.GarantiaMinima = dominiovec.AuthAssuranceHigh })},
-		{"anonima con cookie", cambiar(basePublica, func(c *ConfiguracionSuperficie) { c.Cookie = cookie("__Host-no") })},
 		{"anonima con emisor", cambiar(basePublica, func(c *ConfiguracionSuperficie) { c.EmisorIdentidad = "idp" })},
 		{"anonima con tolerancia de sesion", cambiar(basePublica, func(c *ConfiguracionSuperficie) { c.ToleranciaReloj = time.Second })},
 		{"personal permite anonimo", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.PermiteAnonimo = true })},
@@ -145,11 +137,6 @@ func TestConfiguracionSuperficieFallaCerrada(t *testing.T) {
 			c.IdentidadesSANProxyPermitidas = nil
 			c.HuellasProxyTLSPermitidas = []string{"sha256:corta"}
 		})},
-		{"cookie sin prefijo host", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.Cookie.Nombre = "vec" })},
-		{"cookie con dominio", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.Cookie.Dominio = "example.test" })},
-		{"cookie no segura", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.Cookie.Segura = false })},
-		{"cookie accesible por script", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.Cookie.SoloHTTP = false })},
-		{"cookie samesite none", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.Cookie.SameSite = "none" })},
 		{"metodos admitidos ausentes", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.MetodosAdmitidos = nil })},
 		{"factor desconocido", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.MetodosAdmitidos = []MetodoAutenticacion{"magico"} })},
 		{"metodo admitido duplicado", cambiar(basePersonal, func(c *ConfiguracionSuperficie) {
@@ -234,7 +221,6 @@ func configuracionPersonalValida() ConfiguracionSuperficie {
 		ZonaRed:                             ZonaRedPublica,
 		DireccionEscucha:                    ":8080",
 		Audiencia:                           "vec-personal",
-		Cookie:                              cookie("__Host-vec-personal"),
 		EmisorIdentidad:                     "https://identidad.example.test",
 		RedesPermitidas:                     []string{"0.0.0.0/0", "::/0"},
 		IdentidadesSANProxyPermitidas:       []string{"dns:proxy-personal.vec.test"},
@@ -253,7 +239,6 @@ func configuracionInternaValida() ConfiguracionSuperficie {
 		ZonaRed:                             ZonaRedInterna,
 		DireccionEscucha:                    "10.40.0.20:8443",
 		Audiencia:                           "vec-interna",
-		Cookie:                              cookie("__Host-vec-interna"),
 		EmisorIdentidad:                     "https://idp.mulhacen.test",
 		RedesPermitidas:                     []string{"10.40.0.0/16"},
 		IdentidadesSANProxyPermitidas:       []string{"dns:proxy-interno.mulhacen.test"},
@@ -273,7 +258,6 @@ func configuracionAdministracionValida() ConfiguracionSuperficie {
 		ZonaRed:                             ZonaRedAdministracion,
 		DireccionEscucha:                    "10.50.0.20:9443",
 		Audiencia:                           "vec-administracion",
-		Cookie:                              cookie("__Host-vec-administracion"),
 		EmisorIdentidad:                     "https://idp-admin.mulhacen.test",
 		RedesPermitidas:                     []string{"10.50.0.0/24"},
 		IdentidadesSANProxyPermitidas:       []string{"dns:proxy-administracion.mulhacen.test"},
@@ -285,12 +269,6 @@ func configuracionAdministracionValida() ConfiguracionSuperficie {
 		MinimoGruposCriptograficosDistintos: 2,
 		GarantiaMinima:                      dominiovec.AuthAssuranceHigh,
 		RequiereCuentaPrivilegiada:          true,
-	}
-}
-
-func cookie(nombre string) ConfiguracionCookie {
-	return ConfiguracionCookie{
-		Nombre: nombre, Ruta: "/", Segura: true, SoloHTTP: true, SameSite: SameSiteEstricto,
 	}
 }
 

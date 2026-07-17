@@ -68,45 +68,6 @@ func (z ZonaRed) Valida() bool {
 	}
 }
 
-// ModoSameSite evita que la configuracion utilice valores libres.
-type ModoSameSite string
-
-const (
-	SameSiteLaxo     ModoSameSite = "lax"
-	SameSiteEstricto ModoSameSite = "strict"
-)
-
-// ConfiguracionCookie describe exclusivamente la cookie de sesion de una
-// superficie. No se reutiliza entre portales.
-type ConfiguracionCookie struct {
-	Nombre   string
-	Ruta     string
-	Dominio  string
-	Segura   bool
-	SoloHTTP bool
-	SameSite ModoSameSite
-}
-
-func (c ConfiguracionCookie) vacia() bool {
-	return strings.TrimSpace(c.Nombre) == "" && strings.TrimSpace(c.Ruta) == "" &&
-		strings.TrimSpace(c.Dominio) == "" && !c.Segura && !c.SoloHTTP && c.SameSite == ""
-}
-
-func (c ConfiguracionCookie) validar() error {
-	nombre := strings.TrimSpace(c.Nombre)
-	canonico, err := canonicalizarID(c.Nombre, 128, false)
-	if err != nil || canonico != c.Nombre || nombre == "" || !strings.HasPrefix(nombre, "__Host-") {
-		return fmt.Errorf("%w: la cookie debe usar el prefijo __Host-", ErrConfiguracionSuperficie)
-	}
-	if c.Ruta != "/" || strings.TrimSpace(c.Dominio) != "" || !c.Segura || !c.SoloHTTP {
-		return fmt.Errorf("%w: la cookie __Host- debe ser segura, SoloHTTP, sin dominio y con ruta /", ErrConfiguracionSuperficie)
-	}
-	if c.SameSite != SameSiteLaxo && c.SameSite != SameSiteEstricto {
-		return fmt.Errorf("%w: SameSite debe ser lax o strict", ErrConfiguracionSuperficie)
-	}
-	return nil
-}
-
 // ConfiguracionSuperficie es la configuracion independiente de un listener.
 // RedesPermitidas siempre es explicita; incluso la red publica debe declarar
 // 0.0.0.0/0 y/o ::/0 cuando quiera aceptar Internet.
@@ -115,7 +76,6 @@ type ConfiguracionSuperficie struct {
 	ZonaRed                             ZonaRed
 	DireccionEscucha                    string
 	Audiencia                           string
-	Cookie                              ConfiguracionCookie
 	EmisorIdentidad                     string
 	RedesPermitidas                     []string
 	HuellasProxyTLSPermitidas           []string
@@ -158,7 +118,7 @@ func (c ConfiguracionSuperficie) Validar() error {
 	}
 
 	if c.Superficie == SuperficiePublicaAnonima {
-		if !c.PermiteAnonimo || strings.TrimSpace(c.Audiencia) != "" || !c.Cookie.vacia() || strings.TrimSpace(c.EmisorIdentidad) != "" ||
+		if !c.PermiteAnonimo || strings.TrimSpace(c.Audiencia) != "" || strings.TrimSpace(c.EmisorIdentidad) != "" ||
 			len(c.HuellasProxyTLSPermitidas) != 0 || len(c.IdentidadesSANProxyPermitidas) != 0 ||
 			len(c.MetodosAdmitidos) != 0 || len(c.FactoresRequeridos) != 0 ||
 			c.MinimoFactoresVerificados != 0 || c.MinimoGruposCriptograficosDistintos != 0 ||
@@ -175,9 +135,6 @@ func (c ConfiguracionSuperficie) Validar() error {
 		c.DuracionMaximaAsercion <= 0 || c.DuracionMaximaAsercion > duracionLimiteAsercion ||
 		!c.GarantiaMinima.Valida() {
 		return fmt.Errorf("%w: emisor y duracion maxima son obligatorios", ErrConfiguracionSuperficie)
-	}
-	if err := c.Cookie.validar(); err != nil {
-		return err
 	}
 	if err := validarConfianzaProxyTLS(c); err != nil {
 		return err
@@ -328,16 +285,15 @@ func contieneMetodo(metodos []MetodoAutenticacion, buscado MetodoAutenticacion) 
 	return false
 }
 
-// ValidarConjuntoSuperficies impide compartir audiencia o cookie. Solo las dos
-// clases del portal exterior pueden compartir listener; interna y
-// administracion siempre utilizan entradas diferentes.
+// ValidarConjuntoSuperficies impide compartir audiencia. Solo las dos clases
+// del portal exterior pueden compartir listener; interna y administracion
+// siempre utilizan entradas diferentes.
 func ValidarConjuntoSuperficies(configuraciones []ConfiguracionSuperficie) error {
 	if len(configuraciones) == 0 {
 		return fmt.Errorf("%w: conjunto vacio", ErrConfiguracionSuperficie)
 	}
 	superficies := make(map[Superficie]struct{}, len(configuraciones))
 	audiencias := make(map[string]Superficie, len(configuraciones))
-	cookies := make(map[string]Superficie, len(configuraciones))
 	listeners := make([]listenerRegistrado, 0, len(configuraciones))
 	for _, configuracion := range configuraciones {
 		if err := configuracion.Validar(); err != nil {
@@ -354,11 +310,6 @@ func ValidarConjuntoSuperficies(configuraciones []ConfiguracionSuperficie) error
 		}
 		if err := registrarListener(&listeners, configuracion.DireccionEscucha, configuracion.Superficie); err != nil {
 			return err
-		}
-		if !configuracion.Cookie.vacia() {
-			if err := registrarLimiteUnico(cookies, configuracion.Cookie.Nombre, configuracion.Superficie, "cookie"); err != nil {
-				return err
-			}
 		}
 	}
 	if err := exigirListenerExteriorComun(listeners); err != nil {

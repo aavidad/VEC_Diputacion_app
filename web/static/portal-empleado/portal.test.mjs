@@ -78,9 +78,11 @@ function panelInternoReal() {
   };
 }
 
-test("la ruta normal usa API protegida y no cae a datos sintéticos", () => {
+test("la ruta normal usa API protegida sin cookies y no cae a datos sintéticos", () => {
   assert.match(javascript, /const API_PANEL_BOLSA = "\/api\/vec\/bolsa\/panel"/);
-  assert.match(javascript, /credentials: "same-origin"/);
+  assert.equal(javascript.match(/credentials: "omit"/g)?.length, 2, "todas las llamadas internas deben omitir cookies");
+  assert.doesNotMatch(javascript, /credentials: "(?:same-origin|include)"/);
+  assert.doesNotMatch(javascript, /document\.cookie|localStorage.*(?:token|sesion|auth)/i);
   assert.match(javascript, /extraerDatosEnvelopeCanonico\(envelope\)/);
   assert.match(contrato, /la API interna no puede responder con datos de demostración/);
   assert.match(javascript, /if \(respuesta\.status === 401\)/);

@@ -176,7 +176,7 @@ async function cargarFuenteDatos() {
   try {
     const respuesta = await fetch(API_PANEL_BOLSA, {
       method: "GET",
-      credentials: "same-origin",
+      credentials: "omit",
       headers: { Accept: "application/json" },
     });
     if (!respuesta.ok) {
@@ -232,7 +232,7 @@ async function solicitarPropuestaLlamamiento() {
   try {
     const respuesta = await fetch(API_PROPUESTAS_LLAMAMIENTO, {
       method: "POST",
-      credentials: "same-origin",
+      credentials: "omit",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",

@@ -145,7 +145,7 @@
   }
 
   async function obtenerJSON(url, signal) {
-    const respuesta = await fetch(url, { method: "GET", headers: { Accept: "application/json" }, credentials: "same-origin", signal });
+    const respuesta = await fetch(url, { method: "GET", headers: { Accept: "application/json" }, credentials: "omit", signal });
     const tipo = respuesta.headers.get("content-type") || "";
     if (!tipo.includes("application/json")) throw new Error("respuesta no JSON");
     const contenido = await respuesta.json();

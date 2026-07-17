@@ -6,7 +6,10 @@ import test from "node:test";
 
 const directorio = dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(join(directorio, "index.html"), "utf8");
-const css = readFileSync(join(directorio, "bolsa.css"), "utf8");
+const css = ["bolsa.css", "bolsa_adaptable.css"]
+  .map((nombre) => readFileSync(join(directorio, nombre), "utf8"))
+  .join("\n");
+const javascript = readFileSync(join(directorio, "bolsa.js"), "utf8");
 const menu = html.match(/<aside class="menu-lateral-publico"[\s\S]*?<\/aside>/)?.[0] || "";
 const destinosPermitidos = [
   "/bolsa/",
@@ -42,6 +45,12 @@ function sinBloquesDeImpresion(contenido) {
 
   return resultado;
 }
+
+test("la consulta pública es anónima y nunca envía credenciales ambientales", () => {
+  assert.match(javascript, /credentials: "omit"/);
+  assert.doesNotMatch(javascript, /credentials: "(?:same-origin|include)"/);
+  assert.doesNotMatch(javascript, /document\.cookie|Authorization|localStorage.*(?:token|sesion|auth)/i);
+});
 
 test("la bolsa pública conserva una navegación lateral limitada a contenido público", () => {
   assert.match(menu, /Navegación del portal público de empleo/);

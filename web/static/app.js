@@ -1381,7 +1381,7 @@ function renderDietasAnnualTable(annual) {
 }
 
 async function getData(url, options) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, { ...options, credentials: "omit" });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     if (response.status === 401) {
@@ -1431,7 +1431,7 @@ async function loadLocale() {
 }
 
 async function loadDemoData() {
-  const response = await fetch("/api/demo", { method: "POST", headers: staffHeaders() });
+  const response = await fetch("/api/demo", { method: "POST", headers: staffHeaders(), credentials: "omit" });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) return null;
   return payload.data || null;
