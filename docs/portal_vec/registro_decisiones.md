@@ -2794,3 +2794,46 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   nucleo). En fase 1 el estado homologado existe pero permanece cerrado
   (fallo cerrado: sin firmante habilitado no es alcanzable); activarlo en
   fase 2 sera conceder la capacidad, no redisenar el modulo.
+
+## DEC-081 — Calculo oficial de experiencia con fuente exacta y rectificacion
+
+- Fecha: 2026-07-17.
+- Estado: nucleo de dominio, caso de uso, recibo tipado de lectura y
+  persistencia inmutable del resultado implantados y probados; composicion
+  PostgreSQL completa en **NO-GO productivo**.
+- Identidad del calculo: cada efecto queda fijado por sujeto seudonimizado,
+  convocatoria, estado y contenido exactos de las reglas, instantanea de
+  entrada, contrato del motor, plan, causa gobernada y, cuando proceda,
+  predecesor. No existe la semantica «usar lo vigente» durante el calculo.
+- Seudonimizacion: la referencia del sujeto tiene obligatoriamente la forma
+  `hmac-sha256:<espacio-de-nombres>:<64-hex-minusculas>` tanto en Go como en
+  PostgreSQL. DNI, correo y rutas no son referencias admisibles. La
+  generacion de clave se restringe al mismo dominio positivo de `uint32` en
+  ambos lados.
+- Autorizacion: leer la fuente y confirmar o rectificar el resultado son
+  acciones y finalidades distintas, cada una con su propia decision
+  `VEC-AD-2`. Una rectificacion solo se admite desde el perfil interno de
+  garantia alta. Denegacion, caducidad, mezcla de recurso o correlacion y
+  reutilizacion de una decision fallan cerradas.
+- Lectura probatoria: la fuente debe devolver un recibo canonico y opaco que
+  ligue decision y huella V2, recurso y contexto, correlacion, selector,
+  fuente exacta, consumo de prueba, auditoria e instante. El caso de uso lo
+  coteja campo a campo y exige el orden
+  `evidencia verificada <= solicitud <= consumo <= obtencion`.
+- Resultado: alta y rectificacion son efectos inmutables e idempotentes. Una
+  rectificacion conserva el predecesor inmediato, no permite ramas ni saltos
+  y deja recibo, auditoria encadenada y outbox. Un resultado dudoso tras un
+  fallo de confirmacion se reconcilia antes de considerar otro intento.
+- Persistencia: PostgreSQL conserva bytes canonicos y huellas, proyecciones,
+  intentos, consumos de autorizacion, recibos, auditoria y outbox. RLS forzada
+  y ACL explicitas limitan la superficie; una retirada con historia exige
+  operador DBA y confirmacion destructiva explicita. La migracion fundacional
+  aun concede insercion directa al rol de aplicacion: debe sustituirse por una
+  unica funcion cerrada antes de componer el runtime productivo.
+- Barreras: la base actual acredita integridad binaria, pero no sustituye los
+  restauradores canonicos Go. Faltan el almacen autoritativo de reglas e
+  instantaneas, la funcion atomica que emita el recibo de lectura, el registro
+  atestado y consumo unico de `VEC-AD-2`, los adaptadores PostgreSQL reales,
+  la reconciliacion durable tras reinicio y el conector HSM/KMS con ancla
+  antirretroceso. Hasta cerrar y probar esas fronteras, ninguna composicion de
+  produccion puede arrancar.
