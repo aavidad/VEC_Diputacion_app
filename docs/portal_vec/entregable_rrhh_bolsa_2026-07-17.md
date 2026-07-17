@@ -380,7 +380,7 @@ política de empaquetado probada.
 7. Documentos, firmas, publicación y comunicaciones fehacientes.
 8. Estadísticas y explotación con anonimización aprobada.
 
-El relevo técnico de confianza se conserva en
-`docs/portal_vec/relevo_confianza_atestacion_v2_2026-07-17.md`; debe leerse
-junto con el estado actualizado de este entregable y no como autorización para
-abrir las funciones SQL.
+El diseño técnico de confianza se conserva en
+`docs/portal_vec/atestacion_criptografica_decisiones.md`; debe leerse junto con
+el estado actualizado de este entregable y no como autorización para abrir las
+funciones SQL.
