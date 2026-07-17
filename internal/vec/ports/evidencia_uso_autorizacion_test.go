@@ -2,7 +2,9 @@ package ports
 
 import (
 	"bytes"
+	"encoding/gob"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,6 +17,54 @@ import (
 
 	"vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestEvidenciaUsoDecisionAutorizacionV1BloqueaCodecsAlternativos(t *testing.T) {
+	decision, verificadaEn := decisionAutorizacionReforzadaPrueba(t)
+	evidencia, err := NuevaEvidenciaUsoDecisionAutorizacion(decision, verificadaEn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos, err := evidencia.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for nombre, valor := range map[string]any{"evidencia": evidencia, "datos": datos} {
+		t.Run(nombre, func(t *testing.T) {
+			if _, err := xml.Marshal(valor); !errors.Is(err, ErrSerializacionEvidenciaUsoAutorizacionProhibida) {
+				t.Fatalf("XML no bloqueado: %v", err)
+			}
+			var salida bytes.Buffer
+			if err := gob.NewEncoder(&salida).Encode(valor); !errors.Is(err, ErrSerializacionEvidenciaUsoAutorizacionProhibida) {
+				t.Fatalf("Gob no bloqueado: %v", err)
+			}
+			if _, err := valor.(interface{ MarshalBinary() ([]byte, error) }).MarshalBinary(); !errors.Is(err, ErrSerializacionEvidenciaUsoAutorizacionProhibida) {
+				t.Fatalf("binario no bloqueado: %v", err)
+			}
+			if _, err := valor.(interface{ MarshalCBOR() ([]byte, error) }).MarshalCBOR(); !errors.Is(err, ErrSerializacionEvidenciaUsoAutorizacionProhibida) {
+				t.Fatalf("CBOR no bloqueado: %v", err)
+			}
+			if _, err := valor.(interface{ MarshalYAML() (any, error) }).MarshalYAML(); !errors.Is(err, ErrSerializacionEvidenciaUsoAutorizacionProhibida) {
+				t.Fatalf("YAML no bloqueado: %v", err)
+			}
+		})
+	}
+	for nombre, destino := range map[string]interface{ UnmarshalYAML(func(any) error) error }{
+		"evidencia": &EvidenciaUsoDecisionAutorizacion{},
+		"datos":     &DatosEvidenciaUsoDecisionAutorizacion{},
+	} {
+		if err := destino.UnmarshalYAML(func(any) error { return nil }); !errors.Is(err, ErrSerializacionEvidenciaUsoAutorizacionProhibida) {
+			t.Fatalf("%s: decodificacion YAML no bloqueada: %v", nombre, err)
+		}
+	}
+	for nombre, destino := range map[string]interface{ UnmarshalCBOR([]byte) error }{
+		"evidencia": &EvidenciaUsoDecisionAutorizacion{},
+		"datos":     &DatosEvidenciaUsoDecisionAutorizacion{},
+	} {
+		if err := destino.UnmarshalCBOR([]byte{0xa0}); !errors.Is(err, ErrSerializacionEvidenciaUsoAutorizacionProhibida) {
+			t.Fatalf("%s: decodificacion CBOR no bloqueada: %v", nombre, err)
+		}
+	}
+}
 
 func TestEvidenciaUsoDecisionAutorizacionValidaEsOpacaYTemporal(t *testing.T) {
 	decision, verificadaEn := decisionAutorizacionReforzadaPrueba(t)
@@ -239,7 +289,8 @@ func TestHuellaDecisionAutorizacionEsCanonicaDeterministaYCompleta(t *testing.T)
 	camposDominioEsperados := []string{
 		"DecisionRef", "Concedida", "Codigo", "PrincipalID", "PerfilActivoRef", "Accion",
 		"RecursoRef", "ModuloID", "TipoRecurso", "ContextoRecursoHuellaSHA256", "Finalidad",
-		"CorrelacionRef", "AsignacionRef", "AsignacionHuellaSHA256", "VersionRolRef",
+		"CorrelacionRef", "EsquemaHuellaSolicitud", "SolicitudHuellaSHA256",
+		"EsquemaHuellaMotivo", "MotivoHuellaSHA256", "AsignacionRef", "AsignacionHuellaSHA256", "VersionRolRef",
 		"VinculoAutenticacionActor",
 		"VersionRolHuellaSHA256", "ControlVigenciaVersionRolRef", "ControlVigenciaVersionRolRevision",
 		"ControlVigenciaVersionRolHuellaSHA256", "RevisionCatalogoPoliticas",
@@ -545,6 +596,38 @@ func decisionAutorizacionReforzadaPrueba(t *testing.T) (domain.DecisionAutorizac
 		t.Fatalf("decision reforzada de prueba invalida: %v", err)
 	}
 	return decision, emitidaEn.Add(15 * time.Second)
+}
+
+func ligarDecisionAutorizacionReforzadaPrueba(
+	t *testing.T,
+	decision *domain.DecisionAutorizacion,
+	recurso domain.RecursoAutorizable,
+	motivo domain.ReferenciaEntradaCatalogo,
+) {
+	t.Helper()
+	solicitud, err := domain.NuevaSolicitudAutorizacionLigadaV2(
+		domain.DatosSolicitudAutorizacionLigadaV2{
+			VinculoAutenticacionActor: decision.VinculoAutenticacionActor,
+			ReferenciaMotivo:          motivo,
+			Accion:                    decision.Accion, Recurso: recurso, Finalidad: decision.Finalidad,
+			CorrelacionRef: decision.CorrelacionRef,
+		},
+	)
+	if err != nil {
+		t.Fatalf("crear solicitud nominal de prueba: %v", err)
+	}
+	huellaSolicitud, err := domain.HuellaSHA256SolicitudAutorizacionV2(solicitud)
+	if err != nil {
+		t.Fatalf("ligar solicitud de prueba: %v", err)
+	}
+	huellaMotivo, err := domain.HuellaSHA256MotivoAutorizacionV2(motivo)
+	if err != nil {
+		t.Fatalf("ligar motivo de prueba: %v", err)
+	}
+	decision.EsquemaHuellaSolicitud = domain.EsquemaHuellaSolicitudAutorizacionV2
+	decision.SolicitudHuellaSHA256 = huellaSolicitud
+	decision.EsquemaHuellaMotivo = domain.EsquemaHuellaMotivoAutorizacionV2
+	decision.MotivoHuellaSHA256 = huellaMotivo
 }
 
 func huellaPrueba(caracter byte) string { return strings.Repeat(string(caracter), 64) }

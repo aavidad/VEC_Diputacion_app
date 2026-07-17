@@ -106,16 +106,40 @@ func TestEsquemaAtestacionAutorizacionV1EnumeraDecisionYBloqueObligatorio(t *tes
 		"garantia_minima", "campos_permitidos", "obligaciones", "emitida_en", "valida_hasta",
 	}
 	tipo := reflect.TypeOf(DecisionAutorizacion{})
-	if tipo.NumField() != len(esperados) {
-		t.Fatalf("DecisionAutorizacion tiene %d campos; VEC-AD-1 enumera %d: un cambio exige version nueva", tipo.NumField(), len(esperados))
-	}
 	for indice, esperado := range esperados {
-		campo := tipo.Field(indice)
+		campo, existe := campoDecisionAtestacionAutorizacionV1(tipo, esperado)
+		if !existe {
+			t.Fatalf("campo VEC-AD-1 ausente en DecisionAutorizacion: %q", esperado)
+		}
 		etiqueta := strings.Split(campo.Tag.Get("json"), ",")[0]
 		if campo.PkgPath != "" || etiqueta != esperado {
 			t.Fatalf("campo %d = %s/%q; esperado exportado con json %q", indice, campo.Name, etiqueta, esperado)
 		}
 	}
+	decisionLigada := decisionAtestacionAutorizacionV1Prueba(t)
+	decisionLigada.EsquemaHuellaSolicitud = EsquemaHuellaSolicitudAutorizacionV2
+	decisionLigada.SolicitudHuellaSHA256 = strings.Repeat("8", 64)
+	decisionLigada.EsquemaHuellaMotivo = EsquemaHuellaMotivoAutorizacionV2
+	decisionLigada.MotivoHuellaSHA256 = strings.Repeat("9", 64)
+	if _, err := SerializarMensajeAtestacionAutorizacionV1(
+		cabeceraAtestacionAutorizacionV1Prueba(),
+		decisionLigada,
+	); !errors.Is(err, ErrMensajeAtestacionAutorizacionInvalido) {
+		t.Fatalf("VEC-AD-1 omitio silenciosamente campos V2: %v", err)
+	}
+}
+
+func campoDecisionAtestacionAutorizacionV1(
+	tipo reflect.Type,
+	etiquetaEsperada string,
+) (reflect.StructField, bool) {
+	for indice := 0; indice < tipo.NumField(); indice++ {
+		campo := tipo.Field(indice)
+		if strings.Split(campo.Tag.Get("json"), ",")[0] == etiquetaEsperada {
+			return campo, true
+		}
+	}
+	return reflect.StructField{}, false
 }
 
 func TestMensajeAtestacionAutorizacionV1SeDecodificaConEsquemaIndependiente(t *testing.T) {

@@ -183,6 +183,21 @@ type ExigidorEvidenciaUsoDecisionAutorizacion interface {
 	) (ports.EvidenciaUsoDecisionAutorizacion, error)
 }
 
+// ExigidorEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2 es un contrato
+// distinto y no sustituible por V1. Los flujos nuevos que necesitan demostrar
+// solicitud y motivo exactos deben depender expresamente de esta interfaz.
+type ExigidorEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2 interface {
+	ExigirEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2(
+		ctx context.Context,
+		actor domain.ContextoActor,
+		vinculo domain.VinculoAutenticacionActorV1,
+		recurso domain.RecursoAutorizable,
+		correlacionRef string,
+		motivo domain.ReferenciaEntradaCatalogo,
+		politica PoliticaUsoDecisionAutorizacion,
+	) (ports.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2, error)
+}
+
 var _ ExigidorEvidenciaUsoDecisionAutorizacion = (*FachadaUsoDecisionAutorizacion)(nil)
 
 // NuevaFachadaUsoDecisionAutorizacion fija el PEP y el reloj confiable en la

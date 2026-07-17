@@ -138,7 +138,10 @@ func (a *AlmacenAutorizacion) RegistrarDecisionSiInstantaneaVigente(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := decision.ValidarEvidenciaInstantanea(); err != nil {
+	if err := decision.ValidarEvidenciaInstantanea(); err != nil || decision.TieneSolicitudLigadaV2() {
+		if err == nil {
+			err = domain.ErrDecisionAutorizacionInvalida
+		}
 		return err
 	}
 	// Esta tabla materializa exclusivamente concesiones ejecutables. Las

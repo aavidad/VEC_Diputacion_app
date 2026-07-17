@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -22,7 +23,7 @@ var (
 	// decision reforzada, concedida, completa y vigente.
 	ErrEvidenciaUsoDecisionAutorizacionInvalida = errors.New("vec: evidencia de uso de decision de autorizacion invalida")
 	// ErrSerializacionEvidenciaUsoAutorizacionProhibida evita que la capacidad
-	// opaca termine por accidente en JSON, texto, trazas o una respuesta HTTP.
+	// opaca termine por accidente en codecs de transporte, trazas o HTTP.
 	ErrSerializacionEvidenciaUsoAutorizacionProhibida = errors.New("vec: serializacion de evidencia de uso de autorizacion prohibida")
 )
 
@@ -31,6 +32,9 @@ const (
 	// criptografico como el formato canonico. Cambiar el significado o los
 	// campos de la representacion exige publicar otro esquema.
 	EsquemaHuellaDecisionAutorizacionReforzadaV1 = "vec.autorizacion.decision.reforzada.v1.autenticacion-actor"
+	// EsquemaHuellaDecisionAutorizacionReforzadaV2 añade los compromisos
+	// versionados de solicitud completa y motivo verificable por separado.
+	EsquemaHuellaDecisionAutorizacionReforzadaV2 = "vec.autorizacion.decision.reforzada.v2.solicitud-ligada"
 	formatoInstanteDecisionAutorizacionV1        = "2006-01-02T15:04:05.000000Z"
 )
 
@@ -55,7 +59,7 @@ type DatosEvidenciaUsoDecisionAutorizacion struct {
 // adaptadores duraderos: les permite cotejar la decision registrada sin
 // reimplementar ni divergir del formato privado del nucleo.
 //
-// La proyeccion completa sigue bloqueando JSON, texto y formateo; este metodo
+// La proyeccion completa sigue bloqueando codecs y formateo; este metodo
 // no convierte la evidencia opaca en una capacidad reconstruible.
 func (d DatosEvidenciaUsoDecisionAutorizacion) RepresentacionCanonica() ([]byte, error) {
 	if len(d.representacionCanonica) == 0 ||
@@ -83,6 +87,46 @@ func (DatosEvidenciaUsoDecisionAutorizacion) MarshalText() ([]byte, error) {
 }
 
 func (*DatosEvidenciaUsoDecisionAutorizacion) UnmarshalText([]byte) error {
+	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (DatosEvidenciaUsoDecisionAutorizacion) MarshalXML(*xml.Encoder, xml.StartElement) error {
+	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (*DatosEvidenciaUsoDecisionAutorizacion) UnmarshalXML(*xml.Decoder, xml.StartElement) error {
+	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (DatosEvidenciaUsoDecisionAutorizacion) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (*DatosEvidenciaUsoDecisionAutorizacion) UnmarshalBinary([]byte) error {
+	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (DatosEvidenciaUsoDecisionAutorizacion) GobEncode() ([]byte, error) {
+	return nil, ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (*DatosEvidenciaUsoDecisionAutorizacion) GobDecode([]byte) error {
+	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (DatosEvidenciaUsoDecisionAutorizacion) MarshalCBOR() ([]byte, error) {
+	return nil, ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (*DatosEvidenciaUsoDecisionAutorizacion) UnmarshalCBOR([]byte) error {
+	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (DatosEvidenciaUsoDecisionAutorizacion) MarshalYAML() (any, error) {
+	return nil, ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (*DatosEvidenciaUsoDecisionAutorizacion) UnmarshalYAML(func(any) error) error {
 	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
 }
 
@@ -130,7 +174,7 @@ func NuevaEvidenciaUsoDecisionAutorizacion(
 	decision domain.DecisionAutorizacion,
 	verificadaEn time.Time,
 ) (EvidenciaUsoDecisionAutorizacion, error) {
-	if decision.ValidarEvidenciaInstantanea() != nil || !decision.Concedida ||
+	if decision.ValidarEvidenciaInstantanea() != nil || decision.TieneSolicitudLigadaV2() || !decision.Concedida ||
 		!instanteEvidenciaUsoAutorizacionCanonico(verificadaEn) ||
 		!decision.VigenteEn(verificadaEn) || contieneComodinDecisionAutorizacion(decision) ||
 		len(decision.Obligaciones) != 0 {
@@ -138,7 +182,7 @@ func NuevaEvidenciaUsoDecisionAutorizacion(
 	}
 
 	decisionCanonica := clonarDecisionAutorizacionCanonica(decision)
-	if decisionCanonica.ValidarEvidenciaInstantanea() != nil ||
+	if decisionCanonica.ValidarEvidenciaInstantanea() != nil || decisionCanonica.TieneSolicitudLigadaV2() ||
 		!decisionCanonica.VigenteEn(verificadaEn) {
 		return EvidenciaUsoDecisionAutorizacion{}, errorEvidenciaUsoDecisionAutorizacion()
 	}
@@ -202,7 +246,7 @@ func (e EvidenciaUsoDecisionAutorizacion) validarEstructura() error {
 		return ErrEvidenciaUsoDecisionAutorizacionInvalida
 	}
 	decision := e.datos.Decision
-	if decision.ValidarEvidenciaInstantanea() != nil || !decision.Concedida ||
+	if decision.ValidarEvidenciaInstantanea() != nil || decision.TieneSolicitudLigadaV2() || !decision.Concedida ||
 		!decision.VigenteEn(e.datos.VerificadaEn) || contieneComodinDecisionAutorizacion(decision) ||
 		len(decision.Obligaciones) != 0 {
 		return ErrEvidenciaUsoDecisionAutorizacionInvalida
@@ -231,6 +275,46 @@ func (EvidenciaUsoDecisionAutorizacion) MarshalText() ([]byte, error) {
 }
 
 func (*EvidenciaUsoDecisionAutorizacion) UnmarshalText([]byte) error {
+	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (EvidenciaUsoDecisionAutorizacion) MarshalXML(*xml.Encoder, xml.StartElement) error {
+	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (*EvidenciaUsoDecisionAutorizacion) UnmarshalXML(*xml.Decoder, xml.StartElement) error {
+	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (EvidenciaUsoDecisionAutorizacion) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (*EvidenciaUsoDecisionAutorizacion) UnmarshalBinary([]byte) error {
+	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (EvidenciaUsoDecisionAutorizacion) GobEncode() ([]byte, error) {
+	return nil, ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (*EvidenciaUsoDecisionAutorizacion) GobDecode([]byte) error {
+	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (EvidenciaUsoDecisionAutorizacion) MarshalCBOR() ([]byte, error) {
+	return nil, ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (*EvidenciaUsoDecisionAutorizacion) UnmarshalCBOR([]byte) error {
+	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (EvidenciaUsoDecisionAutorizacion) MarshalYAML() (any, error) {
+	return nil, ErrSerializacionEvidenciaUsoAutorizacionProhibida
+}
+
+func (*EvidenciaUsoDecisionAutorizacion) UnmarshalYAML(func(any) error) error {
 	return ErrSerializacionEvidenciaUsoAutorizacionProhibida
 }
 
@@ -342,7 +426,8 @@ func RepresentacionCanonicaDecisionAutorizacionReforzadaV1(
 }
 
 func serializarDecisionAutorizacionReforzadaV1(decision domain.DecisionAutorizacion) ([]byte, error) {
-	if decision.ValidarEvidenciaInstantanea() != nil || contieneComodinDecisionAutorizacion(decision) {
+	if decision.ValidarEvidenciaInstantanea() != nil || decision.TieneSolicitudLigadaV2() ||
+		contieneComodinDecisionAutorizacion(decision) {
 		return nil, ErrEvidenciaUsoDecisionAutorizacionInvalida
 	}
 	politicasEvaluadas, err := politicasDecisionAutorizacionCanonicas(

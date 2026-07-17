@@ -22,12 +22,15 @@ type ConfiguracionServicioAutorizacion struct {
 // PostgreSQL, un IdP ni el generador criptografico concreto. Un fallo en
 // cualquier dependencia termina siempre en denegacion.
 type ServicioAutorizacion struct {
-	fuente               ports.FuenteAutorizacion
-	registroConcesiones  ports.RegistroDecisionesAutorizacion
-	registroDenegaciones ports.RegistroDenegacionesAutorizacion
-	reloj                ports.Reloj
-	generador            ports.GeneradorReferenciaDecisionAutorizacion
-	vigenciaDecision     time.Duration
+	fuente                 ports.FuenteAutorizacion
+	registroConcesiones    ports.RegistroDecisionesAutorizacion
+	registroDenegaciones   ports.RegistroDenegacionesAutorizacion
+	registroConcesionesV2  ports.RegistroDecisionesAutorizacionSolicitudLigadaV2
+	registroDenegacionesV2 ports.RegistroDenegacionesAutorizacionSolicitudLigadaV2
+	validadorMotivosV2     ports.ValidadorReferenciaMotivoAutorizacionV2
+	reloj                  ports.Reloj
+	generador              ports.GeneradorReferenciaDecisionAutorizacion
+	vigenciaDecision       time.Duration
 }
 
 func NuevoServicioAutorizacion(
@@ -61,9 +64,32 @@ func NuevoServicioAutorizacion(
 }
 
 func (s *ServicioAutorizacion) Exigir(ctx context.Context, solicitud domain.SolicitudAutorizacion) (domain.DecisionAutorizacion, error) {
-	if ctx == nil || s == nil || dependenciaAutorizacionNula(s.fuente) ||
-		dependenciaAutorizacionNula(s.registroConcesiones) ||
-		dependenciaAutorizacionNula(s.registroDenegaciones) ||
+	return s.exigir(ctx, solicitud, nil)
+}
+
+func (s *ServicioAutorizacion) exigir(
+	ctx context.Context,
+	solicitud domain.SolicitudAutorizacion,
+	solicitudLigadaV2 *domain.SolicitudAutorizacionLigadaV2,
+) (domain.DecisionAutorizacion, error) {
+	if s == nil {
+		return domain.DecisionAutorizacion{}, errors.Join(
+			domain.ErrAutorizacionDenegada,
+			domain.ErrConfiguracionAccesoInvalida,
+		)
+	}
+	ligarSolicitudV2 := solicitudLigadaV2 != nil
+	registrosInvalidos := false
+	if ligarSolicitudV2 {
+		registrosInvalidos = dependenciaAutorizacionNula(s.registroConcesionesV2) ||
+			dependenciaAutorizacionNula(s.registroDenegacionesV2) ||
+			dependenciaAutorizacionNula(s.validadorMotivosV2)
+	} else {
+		registrosInvalidos = dependenciaAutorizacionNula(s.registroConcesiones) ||
+			dependenciaAutorizacionNula(s.registroDenegaciones)
+	}
+	if ctx == nil || dependenciaAutorizacionNula(s.fuente) ||
+		registrosInvalidos ||
 		dependenciaAutorizacionNula(s.reloj) || dependenciaAutorizacionNula(s.generador) {
 		return domain.DecisionAutorizacion{}, errors.Join(
 			domain.ErrAutorizacionDenegada,
@@ -73,8 +99,30 @@ func (s *ServicioAutorizacion) Exigir(ctx context.Context, solicitud domain.Soli
 	if err := ctx.Err(); err != nil {
 		return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
 	}
+	if ligarSolicitudV2 {
+		var err error
+		solicitud, err = proyectarSolicitudAutorizacionLigadaV2(*solicitudLigadaV2)
+		if err != nil {
+			return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
+		}
+	}
 	if err := solicitud.ValidarVinculoAutenticacionActor(); err != nil {
 		return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
+	}
+	if ligarSolicitudV2 {
+		if !domain.ReferenciaMotivoAutorizacionV2Valida(solicitud.ReferenciaMotivo) ||
+			!domain.ReferenciaCorrelacionAutorizacionV2Valida(solicitud.CorrelacionRef) ||
+			solicitud.Motivo != solicitud.ReferenciaMotivo.EntradaClave {
+			return domain.DecisionAutorizacion{}, errors.Join(
+				domain.ErrAutorizacionDenegada,
+				domain.ErrSolicitudAutorizacionInvalida,
+			)
+		}
+	} else if solicitud.TieneReferenciaMotivoAutorizacionV2() {
+		return domain.DecisionAutorizacion{}, errors.Join(
+			domain.ErrAutorizacionDenegada,
+			domain.ErrSolicitudAutorizacionInvalida,
+		)
 	}
 	// El reloj es una dependencia interna fiable: se canoniza antes de crear
 	// cualquier evidencia porque timestamptz conserva microsegundos.
@@ -82,11 +130,36 @@ func (s *ServicioAutorizacion) Exigir(ctx context.Context, solicitud domain.Soli
 	if instante.IsZero() {
 		return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, domain.ErrConfiguracionAccesoInvalida)
 	}
+	if ligarSolicitudV2 {
+		if err := s.validadorMotivosV2.ValidarReferenciaMotivoAutorizacionV2(
+			ctx,
+			solicitud.ReferenciaMotivo,
+			instante,
+		); err != nil {
+			return domain.DecisionAutorizacion{}, errors.Join(
+				domain.ErrAutorizacionDenegada,
+				domain.ErrSolicitudAutorizacionInvalida,
+				err,
+			)
+		}
+	}
 	if !solicitud.VinculoAutenticacionActor.VigenteEn(instante, solicitud.ContextoActor) {
 		return domain.DecisionAutorizacion{}, errors.Join(
 			domain.ErrAutorizacionDenegada,
 			domain.ErrVinculoAutenticacionActorInvalido,
 		)
+	}
+	huellaSolicitud, huellaMotivo := "", ""
+	var err error
+	if ligarSolicitudV2 {
+		huellaSolicitud, err = domain.HuellaSHA256SolicitudAutorizacionV2(*solicitudLigadaV2)
+		if err != nil {
+			return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
+		}
+		huellaMotivo, err = domain.HuellaSHA256MotivoAutorizacionV2(solicitud.ReferenciaMotivo)
+		if err != nil {
+			return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
+		}
 	}
 	instantanea, err := s.fuente.ObtenerInstantaneaAutorizacion(ctx, solicitud.Principal.ID, solicitud.PerfilActivoRef)
 	if err != nil {
@@ -141,6 +214,12 @@ func (s *ServicioAutorizacion) Exigir(ctx context.Context, solicitud domain.Soli
 			solicitud.ContextoActor,
 		),
 	}
+	if ligarSolicitudV2 {
+		decision.EsquemaHuellaSolicitud = domain.EsquemaHuellaSolicitudAutorizacionV2
+		decision.SolicitudHuellaSHA256 = huellaSolicitud
+		decision.EsquemaHuellaMotivo = domain.EsquemaHuellaMotivoAutorizacionV2
+		decision.MotivoHuellaSHA256 = huellaMotivo
+	}
 	decision.AsignacionHuellaSHA256, err = asignacion.HuellaSHA256()
 	if err != nil {
 		return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
@@ -174,16 +253,41 @@ func (s *ServicioAutorizacion) Exigir(ctx context.Context, solicitud domain.Soli
 		decision.PoliticasRefs = normalizarUnicosAutorizacion(decision.PoliticasRefs)
 		decision.CamposPermitidos = normalizarUnicosAutorizacion(decision.CamposPermitidos)
 		decision.Obligaciones = normalizarUnicosAutorizacion(decision.Obligaciones)
-		if errDecision := decision.ValidarEvidenciaInstantanea(); errDecision != nil {
+		errDecision := decision.ValidarEvidenciaInstantanea()
+		if ligarSolicitudV2 {
+			errDecision = decision.ValidarEvidenciaInstantaneaSolicitudLigadaV2()
+		} else if decision.TieneSolicitudLigadaV2() {
+			errDecision = domain.ErrDecisionAutorizacionInvalida
+		}
+		if errDecision != nil {
 			decision.Concedida = false
 			decision.Codigo = "decision_no_fiable"
 			return decision, errors.Join(domain.ErrAutorizacionDenegada, errDecision)
+		}
+		var ordenRegistroV2 ports.OrdenRegistroDecisionAutorizacionSolicitudLigadaV2
+		if ligarSolicitudV2 {
+			var errOrden error
+			ordenRegistroV2, errOrden = ports.NuevaOrdenRegistroDecisionAutorizacionSolicitudLigadaV2(
+				decision,
+				solicitud.ReferenciaMotivo,
+			)
+			if errOrden != nil {
+				decision.Concedida = false
+				decision.Codigo = "decision_no_fiable"
+				return decision, errors.Join(domain.ErrAutorizacionDenegada, errOrden)
+			}
 		}
 		if !decision.Concedida {
 			if errContexto := ctx.Err(); errContexto != nil {
 				return decision, errors.Join(domain.ErrAutorizacionDenegada, errContexto)
 			}
-			if errRegistro := s.registroDenegaciones.RegistrarDenegacionAutorizacion(ctx, decision); errRegistro != nil {
+			var errRegistro error
+			if ligarSolicitudV2 {
+				errRegistro = s.registroDenegacionesV2.RegistrarDenegacionAutorizacionSolicitudLigadaV2(ctx, ordenRegistroV2)
+			} else {
+				errRegistro = s.registroDenegaciones.RegistrarDenegacionAutorizacion(ctx, decision)
+			}
+			if errRegistro != nil {
 				return decision, errors.Join(
 					domain.ErrAutorizacionDenegada,
 					ports.ErrRegistroDenegacionNoDisponible,
@@ -197,7 +301,13 @@ func (s *ServicioAutorizacion) Exigir(ctx context.Context, solicitud domain.Soli
 			decision.Codigo = "contexto_cancelado"
 			return decision, errors.Join(domain.ErrAutorizacionDenegada, errContexto)
 		}
-		if errRegistro := s.registroConcesiones.RegistrarDecisionSiInstantaneaVigente(ctx, decision); errRegistro != nil {
+		var errRegistro error
+		if ligarSolicitudV2 {
+			errRegistro = s.registroConcesionesV2.RegistrarDecisionSolicitudLigadaV2SiInstantaneaVigente(ctx, ordenRegistroV2)
+		} else {
+			errRegistro = s.registroConcesiones.RegistrarDecisionSiInstantaneaVigente(ctx, decision)
+		}
+		if errRegistro != nil {
 			decision.Concedida = false
 			if errors.Is(errRegistro, ports.ErrInstantaneaAutorizacionObsoleta) {
 				decision.Codigo = "instantanea_obsoleta"

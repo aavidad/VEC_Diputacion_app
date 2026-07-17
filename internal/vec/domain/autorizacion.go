@@ -86,11 +86,15 @@ type SolicitudAutorizacion struct {
 	// identidad las resuelve y revalida antes de llamar al PDP.
 	ContextoActor             ContextoActor               `json:"-"`
 	VinculoAutenticacionActor VinculoAutenticacionActorV1 `json:"-"`
-	Accion                    string                      `json:"accion"`
-	Recurso                   RecursoAutorizable          `json:"recurso"`
-	Finalidad                 string                      `json:"finalidad"`
-	CorrelacionRef            string                      `json:"correlacion_ref"`
-	Motivo                    string                      `json:"motivo"`
+	// ReferenciaMotivo fija para V2 la entrada exacta de un catalogo publicado.
+	// Es una capacidad interna resuelta por una frontera confiable, nunca un
+	// campo reconstruido directamente desde el cuerpo de una peticion.
+	ReferenciaMotivo ReferenciaEntradaCatalogo `json:"-"`
+	Accion           string                    `json:"accion"`
+	Recurso          RecursoAutorizable        `json:"recurso"`
+	Finalidad        string                    `json:"finalidad"`
+	CorrelacionRef   string                    `json:"correlacion_ref"`
+	Motivo           string                    `json:"motivo"`
 }
 
 func (s SolicitudAutorizacion) Validar() error {
@@ -123,6 +127,51 @@ func (s SolicitudAutorizacion) ValidarVinculoAutenticacionActor() error {
 		return ErrSolicitudAutorizacionInvalida
 	}
 	return nil
+}
+
+// TieneReferenciaMotivoAutorizacionV2 distingue de forma exacta una solicitud
+// nueva de una historica. Un valor parcialmente rellenado cuenta como presente
+// y sera rechazado por el constructor nominal V2.
+func (s SolicitudAutorizacion) TieneReferenciaMotivoAutorizacionV2() bool {
+	return s.ReferenciaMotivo != (ReferenciaEntradaCatalogo{})
+}
+
+// ReferenciaMotivoAutorizacionV2Valida aplica el perfil especializado de
+// motivos de autorizacion V2. Ademas de la referencia de catalogo valida,
+// exige una version portable, una huella no nula y una clave opaca de 128 bits.
+// La existencia y vigencia de la entrada requieren resolver el catalogo.
+func ReferenciaMotivoAutorizacionV2Valida(referencia ReferenciaEntradaCatalogo) bool {
+	return referencia.Validar() == nil &&
+		int64(referencia.CatalogoVersion) <= int64(1<<31-1) &&
+		referencia.CatalogoHuellaSHA256 != strings.Repeat("0", sha256.Size*2) &&
+		claveOpacaMotivoAutorizacionV2Valida(referencia.EntradaClave)
+}
+
+// ReferenciaCorrelacionAutorizacionV2Valida exige el identificador opaco de
+// 128 bits reservado a solicitudes V2. La frontera debe generarlo con
+// crypto/rand; nunca se deriva de datos del usuario o del expediente.
+func ReferenciaCorrelacionAutorizacionV2Valida(referencia string) bool {
+	return referenciaOpacaHex128AutorizacionV2Valida(referencia, "correlacion_")
+}
+
+// claveOpacaMotivoAutorizacionV2Valida aplica minimizacion por construccion:
+// solo admite un identificador opaco de 128 bits generado por el servidor. La
+// etiqueta humana permanece en el catalogo y nunca entra en la decision.
+func claveOpacaMotivoAutorizacionV2Valida(clave string) bool {
+	return referenciaOpacaHex128AutorizacionV2Valida(clave, "motivo_")
+}
+
+func referenciaOpacaHex128AutorizacionV2Valida(valor, prefijo string) bool {
+	if len(valor) != len(prefijo)+32 || !strings.HasPrefix(valor, prefijo) {
+		return false
+	}
+	for indice := len(prefijo); indice < len(valor); indice++ {
+		caracter := valor[indice]
+		if (caracter < '0' || caracter > '9') && (caracter < 'a' || caracter > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 type EstadoVersionRol string
@@ -622,6 +671,10 @@ type DecisionAutorizacion struct {
 	ContextoRecursoHuellaSHA256           string                      `json:"contexto_recurso_huella_sha256,omitempty"`
 	Finalidad                             string                      `json:"finalidad"`
 	CorrelacionRef                        string                      `json:"correlacion_ref"`
+	EsquemaHuellaSolicitud                string                      `json:"esquema_huella_solicitud,omitempty"`
+	SolicitudHuellaSHA256                 string                      `json:"solicitud_huella_sha256,omitempty"`
+	EsquemaHuellaMotivo                   string                      `json:"esquema_huella_motivo,omitempty"`
+	MotivoHuellaSHA256                    string                      `json:"motivo_huella_sha256,omitempty"`
 	VinculoAutenticacionActor             VinculoAutenticacionActorV1 `json:"vinculo_autenticacion_actor"`
 	AsignacionRef                         string                      `json:"asignacion_ref,omitempty"`
 	AsignacionHuellaSHA256                string                      `json:"asignacion_huella_sha256,omitempty"`
@@ -658,6 +711,7 @@ func (d DecisionAutorizacion) Validar() error {
 		!textoAutorizacionSinComodinSeguro(d.RecursoRef, 512, false) ||
 		!textoAutorizacionSinComodinSeguro(d.Finalidad, 512, false) ||
 		!textoAutorizacionSinComodinSeguro(d.CorrelacionRef, 512, false) ||
+		d.validarVinculoSolicitudAutorizacion() != nil ||
 		d.PrincipalID != datosVinculo.PrincipalID ||
 		d.PerfilActivoRef != datosVinculo.PerfilActivoRef ||
 		!instanteAutorizacionCanonico(d.EmitidaEn) || !instanteAutorizacionCanonico(d.ValidaHasta) ||
@@ -709,6 +763,37 @@ func (d DecisionAutorizacion) ValidarEvidenciaInstantanea() error {
 		return ErrDecisionAutorizacionInvalida
 	}
 	return d.validarEvidenciaInstantanea()
+}
+
+// ValidarEvidenciaInstantaneaSolicitudLigadaV2 es el contrato para decisiones
+// nuevas y efectos durables. ValidarEvidenciaInstantanea conserva lectura
+// historica, pero nunca basta para crear una capacidad ejecutable V2.
+func (d DecisionAutorizacion) ValidarEvidenciaInstantaneaSolicitudLigadaV2() error {
+	if err := d.ValidarEvidenciaInstantanea(); err != nil || !d.TieneSolicitudLigadaV2() ||
+		!ReferenciaCorrelacionAutorizacionV2Valida(d.CorrelacionRef) {
+		return ErrDecisionAutorizacionInvalida
+	}
+	return nil
+}
+
+// TieneSolicitudLigadaV2 informa solo de la validez estructural de los dos
+// compromisos. La procedencia sigue dependiendo del PDP y del registro.
+func (d DecisionAutorizacion) TieneSolicitudLigadaV2() bool {
+	return d.EsquemaHuellaSolicitud == EsquemaHuellaSolicitudAutorizacionV2 &&
+		huellaSHA256AutorizacionValida(d.SolicitudHuellaSHA256) &&
+		d.SolicitudHuellaSHA256 != strings.Repeat("0", sha256.Size*2) &&
+		d.EsquemaHuellaMotivo == EsquemaHuellaMotivoAutorizacionV2 &&
+		huellaSHA256AutorizacionValida(d.MotivoHuellaSHA256) &&
+		d.MotivoHuellaSHA256 != strings.Repeat("0", sha256.Size*2)
+}
+
+func (d DecisionAutorizacion) validarVinculoSolicitudAutorizacion() error {
+	sinVinculo := d.EsquemaHuellaSolicitud == "" && d.SolicitudHuellaSHA256 == "" &&
+		d.EsquemaHuellaMotivo == "" && d.MotivoHuellaSHA256 == ""
+	if sinVinculo || d.TieneSolicitudLigadaV2() {
+		return nil
+	}
+	return ErrDecisionAutorizacionInvalida
 }
 
 func (d DecisionAutorizacion) tieneEvidenciaInstantanea() bool {
@@ -781,6 +866,12 @@ func (d DecisionAutorizacion) VigenteEn(instante time.Time) bool {
 	return d.Concedida && !instante.UTC().Before(d.EmitidaEn) && instante.UTC().Before(d.ValidaHasta) &&
 		!instante.UTC().Before(datosVinculo.SesionRevalidadaEn) &&
 		instante.UTC().Before(datosVinculo.SesionValidaHasta)
+}
+
+// VigenteParaEfectoEn excluye expresamente decisiones historicas sin el
+// compromiso V2 de solicitud y motivo.
+func (d DecisionAutorizacion) VigenteParaEfectoEn(instante time.Time) bool {
+	return d.ValidarEvidenciaInstantaneaSolicitudLigadaV2() == nil && d.VigenteEn(instante)
 }
 
 func GarantiaAutenticacionMasAlta(primera, segunda AuthAssurance) (AuthAssurance, error) {

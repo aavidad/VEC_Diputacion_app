@@ -174,7 +174,10 @@ func HuellaSHA256MensajeAtestacionAutorizacionV1(
 }
 
 func validarDecisionParaAtestacionAutorizacionV1(decision DecisionAutorizacion) error {
-	if decision.ValidarEvidenciaInstantanea() != nil || !decision.Concedida || decision.Codigo != "concedida" ||
+	// VEC-AD-1 permanece congelado y no omite silenciosamente los compromisos
+	// añadidos por la decision V2. Una decision ligada requiere VEC-AD-2.
+	if decision.ValidarEvidenciaInstantanea() != nil || decision.TieneSolicitudLigadaV2() ||
+		!decision.Concedida || decision.Codigo != "concedida" ||
 		contieneComodinAtestacionAutorizacion(decision) ||
 		!listaAtestacionAutorizacionCanonica(decision.PoliticasEvaluadasRefs) ||
 		!listaAtestacionAutorizacionCanonica(decision.PoliticasRefs) ||

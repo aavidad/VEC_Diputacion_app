@@ -153,7 +153,8 @@ func exigirDecisionAutorizacion(
 		return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
 	}
 	instante := reloj.Ahora().UTC()
-	if err := decision.ValidarEvidenciaInstantanea(); err != nil || !decision.VigenteEn(instante) ||
+	if err := decision.ValidarEvidenciaInstantanea(); err != nil || decision.TieneSolicitudLigadaV2() ||
+		!decision.VigenteEn(instante) ||
 		decision.PrincipalID != principal.ID ||
 		decision.PerfilActivoRef != solicitud.PerfilActivoRef ||
 		decision.Accion != solicitud.Accion ||
@@ -191,8 +192,8 @@ func revalidarDecisionAutorizacionEnUso(decision domain.DecisionAutorizacion, re
 		return errors.Join(domain.ErrAutorizacionDenegada, domain.ErrConfiguracionAccesoInvalida)
 	}
 	instante := reloj.Ahora().UTC()
-	if err := decision.ValidarEvidenciaInstantanea(); err != nil || !decision.Concedida ||
-		instante.IsZero() || !decision.VigenteEn(instante) {
+	if err := decision.ValidarEvidenciaInstantanea(); err != nil || decision.TieneSolicitudLigadaV2() ||
+		!decision.Concedida || instante.IsZero() || !decision.VigenteEn(instante) {
 		return errors.Join(domain.ErrAutorizacionDenegada, domain.ErrDecisionAutorizacionInvalida, err)
 	}
 	return nil

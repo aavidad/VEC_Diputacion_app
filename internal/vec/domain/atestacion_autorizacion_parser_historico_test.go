@@ -99,15 +99,18 @@ func TestParserHistoricoAtestacionAutorizacionV1MantieneEsquemaCerradoDeTreintaD
 		"politicas_evaluadas_huellas_sha256", "politicas_refs", "politicas_huellas_sha256",
 		"garantia_minima", "campos_permitidos", "obligaciones", "emitida_en", "valida_hasta",
 	}
-	tipoDecision := reflect.TypeOf(DecisionAutorizacion{})
 	tipoHistorico := reflect.TypeOf(DatosDecisionHistoricaAtestacionAutorizacionV1{})
-	if tipoDecision.NumField() != len(esquema) || tipoHistorico.NumField() != len(esquema) || len(esquema)-1 != 30 {
-		t.Fatalf("deriva de esquema: decision=%d historico=%d datos_sin_bloque=%d",
-			tipoDecision.NumField(), tipoHistorico.NumField(), len(esquema)-1)
+	tipoDecision := reflect.TypeOf(DecisionAutorizacion{})
+	if tipoHistorico.NumField() != len(esquema) || len(esquema)-1 != 30 {
+		t.Fatalf("deriva del parser historico: historico=%d datos_sin_bloque=%d",
+			tipoHistorico.NumField(), len(esquema)-1)
 	}
 	for indice, etiquetaEsperada := range esquema {
-		campoDecision := tipoDecision.Field(indice)
 		campoHistorico := tipoHistorico.Field(indice)
+		campoDecision, existe := campoDecisionAtestacionAutorizacionV1(tipoDecision, etiquetaEsperada)
+		if !existe {
+			t.Fatalf("DecisionAutorizacion ya no contiene el dato historico %q", etiquetaEsperada)
+		}
 		etiquetaDecision := strings.Split(campoDecision.Tag.Get("json"), ",")[0]
 		if etiquetaDecision != etiquetaEsperada || campoHistorico.Name != campoDecision.Name {
 			t.Fatalf("campo %d: decision=%s/%q historico=%s esperado=%q",

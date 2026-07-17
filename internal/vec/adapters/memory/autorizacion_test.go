@@ -16,12 +16,29 @@ import (
 )
 
 const (
-	principalAutorizacionPrueba          = "per_persona_autorizacion_prueba_0001"
-	principalAjenoAutorizacionPrueba     = "per_persona_ajena_autorizacion_0001"
-	perfilBolsaAutorizacionPrueba        = "prf_perfil_bolsa_autorizacion_prueba_0001"
-	perfilConsultaAutorizacionPrueba     = "prf_perfil_consulta_autorizacion_prueba_0001"
-	perfilModificacionAutorizacionPrueba = "prf_perfil_modificacion_autorizacion_prueba_0001"
+	principalAutorizacionPrueba               = "per_persona_autorizacion_prueba_0001"
+	principalAjenoAutorizacionPrueba          = "per_persona_ajena_autorizacion_0001"
+	perfilBolsaAutorizacionPrueba             = "prf_perfil_bolsa_autorizacion_prueba_0001"
+	perfilConsultaAutorizacionPrueba          = "prf_perfil_consulta_autorizacion_prueba_0001"
+	perfilModificacionAutorizacionPrueba      = "prf_perfil_modificacion_autorizacion_prueba_0001"
+	claveMotivoAutorizacionV2Prueba           = "motivo_33333333333333333333333333333333"
+	referenciaCorrelacionAutorizacionV2Prueba = "correlacion_33333333333333333333333333333333"
 )
+
+type validadorMotivoAutorizacionMemoriaPrueba struct {
+	referencia domain.ReferenciaEntradaCatalogo
+}
+
+func (v validadorMotivoAutorizacionMemoriaPrueba) ValidarReferenciaMotivoAutorizacionV2(
+	_ context.Context,
+	referencia domain.ReferenciaEntradaCatalogo,
+	_ time.Time,
+) error {
+	if referencia != v.referencia {
+		return domain.ErrSolicitudAutorizacionInvalida
+	}
+	return nil
+}
 
 func TestAutorizadorNoSumaPermisosDePerfiles(t *testing.T) {
 	ahora := instanteAutorizacionPrueba()
@@ -52,6 +69,62 @@ func TestAutorizadorNoSumaPermisosDePerfiles(t *testing.T) {
 	decision, err = autorizador.Exigir(context.Background(), solicitud)
 	if err != nil || !decision.Concedida {
 		t.Fatalf("el perfil seleccionado si debe conceder: decision=%+v err=%v", decision, err)
+	}
+}
+
+func TestAlmacenAutorizacionMemoriaSeparaRegistrosV1YV2(t *testing.T) {
+	ahora := instanteAutorizacionPrueba()
+	servicioV1, almacen := autorizadorBasePrueba(t, ahora)
+	solicitud := solicitudAutorizacionPrueba()
+
+	decisionV1, err := servicioV1.Exigir(context.Background(), solicitud)
+	if err != nil || decisionV1.TieneSolicitudLigadaV2() {
+		t.Fatalf("el servicio V1 no produjo una decision historica valida: decision=%+v err=%v", decisionV1, err)
+	}
+	referenciaMotivo := domain.ReferenciaEntradaCatalogo{
+		CatalogoID: "motivos_autorizacion", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+		EntradaClave:         claveMotivoAutorizacionV2Prueba,
+	}
+	servicioV2, err := vecapp.NuevoServicioAutorizacionSolicitudLigadaV2(
+		almacen,
+		almacen,
+		almacen,
+		validadorMotivoAutorizacionMemoriaPrueba{referencia: referenciaMotivo},
+		relojAutorizacionPrueba{ahora: ahora},
+		generadorReferenciaAutorizacionPrueba("decision:registro-memoria:v2"),
+		vecapp.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second},
+	)
+	if err != nil {
+		t.Fatalf("crear servicio V2: %v", err)
+	}
+	solicitudV2, err := domain.NuevaSolicitudAutorizacionLigadaV2(
+		domain.DatosSolicitudAutorizacionLigadaV2{
+			ContextoActor: solicitud.ContextoActor, VinculoAutenticacionActor: solicitud.VinculoAutenticacionActor,
+			ReferenciaMotivo: referenciaMotivo, Accion: solicitud.Accion,
+			Recurso: solicitud.Recurso, Finalidad: solicitud.Finalidad,
+			CorrelacionRef: referenciaCorrelacionAutorizacionV2Prueba,
+		},
+	)
+	if err != nil {
+		t.Fatalf("crear solicitud V2: %v", err)
+	}
+	decisionV2, err := servicioV2.ExigirSolicitudLigadaV2(context.Background(), solicitudV2)
+	if err != nil || !decisionV2.TieneSolicitudLigadaV2() {
+		t.Fatalf("el servicio V2 no produjo una decision ligada: decision=%+v err=%v", decisionV2, err)
+	}
+
+	if err := almacen.RegistrarDecisionSiInstantaneaVigente(context.Background(), decisionV2); !errors.Is(err, domain.ErrDecisionAutorizacionInvalida) {
+		t.Fatalf("el registro V1 acepto una decision V2: %v", err)
+	}
+	if _, err := ports.NuevaOrdenRegistroDecisionAutorizacionSolicitudLigadaV2(decisionV1, referenciaMotivo); !errors.Is(err, ports.ErrOrdenRegistroAutorizacionSolicitudLigadaV2Invalida) {
+		t.Fatalf("se pudo construir una orden V2 desde decision V1: %v", err)
+	}
+	if len(almacen.decisiones) != 2 {
+		t.Fatalf("numero inesperado de decisiones registradas: %d", len(almacen.decisiones))
+	}
+	if almacen.referenciasMotivoV2[decisionV2.DecisionRef] != referenciaMotivo {
+		t.Fatal("el registro V2 no conservo la referencia exacta de motivo")
 	}
 }
 

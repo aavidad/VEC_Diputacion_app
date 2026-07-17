@@ -14,17 +14,18 @@ import (
 // instantaneas inmutables y el registro de decisiones protegido para acceso
 // concurrente; no sustituye al registro duradero y sellado de produccion.
 type AlmacenAutorizacionMemoria struct {
-	mu                sync.RWMutex
-	roles             map[string]domain.VersionRol
-	controlesRoles    map[string]domain.ControlVigenciaVersionRol
-	asignaciones      map[string]domain.AsignacionPerfil
-	perfilesActuales  map[string]string
-	politicas         map[string]domain.PoliticaRestrictiva
-	politicasActuales map[string]string
-	revisionPoliticas uint64
-	huellaPoliticas   string
-	decisiones        map[string]domain.DecisionAutorizacion
-	denegaciones      map[string]domain.DecisionAutorizacion
+	mu                  sync.RWMutex
+	roles               map[string]domain.VersionRol
+	controlesRoles      map[string]domain.ControlVigenciaVersionRol
+	asignaciones        map[string]domain.AsignacionPerfil
+	perfilesActuales    map[string]string
+	politicas           map[string]domain.PoliticaRestrictiva
+	politicasActuales   map[string]string
+	revisionPoliticas   uint64
+	huellaPoliticas     string
+	decisiones          map[string]domain.DecisionAutorizacion
+	denegaciones        map[string]domain.DecisionAutorizacion
+	referenciasMotivoV2 map[string]domain.ReferenciaEntradaCatalogo
 }
 
 func NuevoAlmacenAutorizacionMemoria() *AlmacenAutorizacionMemoria {
@@ -33,16 +34,17 @@ func NuevoAlmacenAutorizacionMemoria() *AlmacenAutorizacionMemoria {
 		panic("calcular huella del catalogo de autorizacion vacio: " + err.Error())
 	}
 	return &AlmacenAutorizacionMemoria{
-		roles:             make(map[string]domain.VersionRol),
-		controlesRoles:    make(map[string]domain.ControlVigenciaVersionRol),
-		asignaciones:      make(map[string]domain.AsignacionPerfil),
-		perfilesActuales:  make(map[string]string),
-		politicas:         make(map[string]domain.PoliticaRestrictiva),
-		politicasActuales: make(map[string]string),
-		revisionPoliticas: 1,
-		huellaPoliticas:   huellaPoliticas,
-		decisiones:        make(map[string]domain.DecisionAutorizacion),
-		denegaciones:      make(map[string]domain.DecisionAutorizacion),
+		roles:               make(map[string]domain.VersionRol),
+		controlesRoles:      make(map[string]domain.ControlVigenciaVersionRol),
+		asignaciones:        make(map[string]domain.AsignacionPerfil),
+		perfilesActuales:    make(map[string]string),
+		politicas:           make(map[string]domain.PoliticaRestrictiva),
+		politicasActuales:   make(map[string]string),
+		revisionPoliticas:   1,
+		huellaPoliticas:     huellaPoliticas,
+		decisiones:          make(map[string]domain.DecisionAutorizacion),
+		denegaciones:        make(map[string]domain.DecisionAutorizacion),
+		referenciasMotivoV2: make(map[string]domain.ReferenciaEntradaCatalogo),
 	}
 }
 
@@ -238,7 +240,22 @@ func (a *AlmacenAutorizacionMemoria) RegistrarDecisionSiInstantaneaVigente(
 	if !decision.Concedida || decision.Codigo != "concedida" {
 		return ports.ErrRegistroDecisionNoDisponible
 	}
-	return a.registrarDecisionSiInstantaneaVigente(ctx, decision, true)
+	return a.registrarDecisionSiInstantaneaVigente(ctx, decision, true, nil)
+}
+
+func (a *AlmacenAutorizacionMemoria) RegistrarDecisionSolicitudLigadaV2SiInstantaneaVigente(
+	ctx context.Context,
+	orden ports.OrdenRegistroDecisionAutorizacionSolicitudLigadaV2,
+) error {
+	datos, err := orden.Datos()
+	if err != nil {
+		return err
+	}
+	decision := datos.Decision
+	if !decision.Concedida || decision.Codigo != "concedida" {
+		return ports.ErrRegistroDecisionNoDisponible
+	}
+	return a.registrarDecisionSiInstantaneaVigente(ctx, decision, true, &datos.ReferenciaMotivo)
 }
 
 func (a *AlmacenAutorizacionMemoria) RegistrarDenegacionAutorizacion(
@@ -248,18 +265,44 @@ func (a *AlmacenAutorizacionMemoria) RegistrarDenegacionAutorizacion(
 	if decision.Concedida || decision.Codigo == "concedida" {
 		return ports.ErrRegistroDenegacionNoDisponible
 	}
-	return a.registrarDecisionSiInstantaneaVigente(ctx, decision, false)
+	return a.registrarDecisionSiInstantaneaVigente(ctx, decision, false, nil)
+}
+
+func (a *AlmacenAutorizacionMemoria) RegistrarDenegacionAutorizacionSolicitudLigadaV2(
+	ctx context.Context,
+	orden ports.OrdenRegistroDecisionAutorizacionSolicitudLigadaV2,
+) error {
+	datos, err := orden.Datos()
+	if err != nil {
+		return err
+	}
+	decision := datos.Decision
+	if decision.Concedida || decision.Codigo == "concedida" {
+		return ports.ErrRegistroDenegacionNoDisponible
+	}
+	return a.registrarDecisionSiInstantaneaVigente(ctx, decision, false, &datos.ReferenciaMotivo)
 }
 
 func (a *AlmacenAutorizacionMemoria) registrarDecisionSiInstantaneaVigente(
 	ctx context.Context,
 	decision domain.DecisionAutorizacion,
 	esConcesion bool,
+	referenciaMotivoV2 *domain.ReferenciaEntradaCatalogo,
 ) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := decision.ValidarEvidenciaInstantanea(); err != nil {
+	err := decision.ValidarEvidenciaInstantanea()
+	if referenciaMotivoV2 != nil {
+		err = decision.ValidarEvidenciaInstantaneaSolicitudLigadaV2()
+		huellaMotivo, errHuella := domain.HuellaSHA256MotivoAutorizacionV2(*referenciaMotivoV2)
+		if err == nil && (errHuella != nil || huellaMotivo != decision.MotivoHuellaSHA256) {
+			err = domain.ErrDecisionAutorizacionInvalida
+		}
+	} else if decision.TieneSolicitudLigadaV2() {
+		err = domain.ErrDecisionAutorizacionInvalida
+	}
+	if err != nil {
 		return err
 	}
 	a.mu.Lock()
@@ -311,6 +354,9 @@ func (a *AlmacenAutorizacionMemoria) registrarDecisionSiInstantaneaVigente(
 		a.decisiones[decision.DecisionRef] = clonarDecisionAutorizacion(decision)
 	} else {
 		a.denegaciones[decision.DecisionRef] = clonarDecisionAutorizacion(decision)
+	}
+	if referenciaMotivoV2 != nil {
+		a.referenciasMotivoV2[decision.DecisionRef] = *referenciaMotivoV2
 	}
 	return nil
 }
@@ -403,3 +449,5 @@ func clonarDecisionAutorizacion(decision domain.DecisionAutorizacion) domain.Dec
 var _ ports.FuenteAutorizacion = (*AlmacenAutorizacionMemoria)(nil)
 var _ ports.RegistroDecisionesAutorizacion = (*AlmacenAutorizacionMemoria)(nil)
 var _ ports.RegistroDenegacionesAutorizacion = (*AlmacenAutorizacionMemoria)(nil)
+var _ ports.RegistroDecisionesAutorizacionSolicitudLigadaV2 = (*AlmacenAutorizacionMemoria)(nil)
+var _ ports.RegistroDenegacionesAutorizacionSolicitudLigadaV2 = (*AlmacenAutorizacionMemoria)(nil)
