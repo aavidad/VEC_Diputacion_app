@@ -262,7 +262,9 @@ pendientes (llamamientos por preparar, plazos próximos, tareas de revisión).
 ![Ayuda del portal](capturas/13_ayuda.png)
 
 El enlace **Ayuda**, disponible en el menú lateral y en el pie, ofrece la
-guía de uso contextual del módulo.
+guía de uso contextual del módulo. El ejemplo incluye un recorrido de cuatro
+pasos, preguntas frecuentes, un audio local y su transcripción completa; puede
+usarse con teclado y no envía ningún contenido a servicios externos.
 
 ## 15. Accesibilidad
 
