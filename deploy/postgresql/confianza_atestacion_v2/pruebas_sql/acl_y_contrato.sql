@@ -270,3 +270,142 @@ END
 $comprobar$;
 
 ROLLBACK;
+
+-- Demuestra que el cierre no depende solo de los objetos presentes durante la
+-- instalacion. Estas definiciones nacen despues, con el propietario real, y se
+-- revierten al terminar la prueba.
+BEGIN;
+SET LOCAL ROLE vec_confianza_atestacion_v2_propietario;
+SET LOCAL search_path = pg_catalog;
+
+CREATE TYPE vec_confianza_atestacion_v2.prueba_acl_futuro_estado
+    AS ENUM ('creado');
+
+CREATE TABLE vec_confianza_atestacion_v2.prueba_acl_futuro (
+    id bigint PRIMARY KEY,
+    estado vec_confianza_atestacion_v2.prueba_acl_futuro_estado NOT NULL
+);
+
+CREATE FUNCTION vec_confianza_atestacion_v2.prueba_acl_futuro_funcion()
+RETURNS integer
+LANGUAGE sql
+IMMUTABLE
+SET search_path = pg_catalog
+AS $funcion$
+    SELECT 1
+$funcion$;
+
+DO $comprobar_objetos_futuros$
+DECLARE
+    oid_propietario oid;
+    oid_tabla oid := pg_catalog.to_regclass(
+        'vec_confianza_atestacion_v2.prueba_acl_futuro'
+    );
+    oid_tipo_fila oid := pg_catalog.to_regtype(
+        'vec_confianza_atestacion_v2.prueba_acl_futuro'
+    );
+    oid_tipo_explicito oid := pg_catalog.to_regtype(
+        'vec_confianza_atestacion_v2.prueba_acl_futuro_estado'
+    );
+    oid_funcion oid := pg_catalog.to_regprocedure(
+        'vec_confianza_atestacion_v2.prueba_acl_futuro_funcion()'
+    );
+BEGIN
+    SELECT oid
+      INTO oid_propietario
+      FROM pg_catalog.pg_roles
+     WHERE rolname = 'vec_confianza_atestacion_v2_propietario';
+
+    IF oid_propietario IS NULL OR oid_tabla IS NULL
+       OR oid_tipo_fila IS NULL OR oid_tipo_explicito IS NULL
+       OR oid_funcion IS NULL THEN
+        RAISE EXCEPTION 'no se crearon todos los objetos futuros de prueba';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_class
+         WHERE oid = oid_tabla
+           AND relowner = oid_propietario
+    ) OR NOT EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_type
+         WHERE oid IN (oid_tipo_fila, oid_tipo_explicito)
+           AND typowner = oid_propietario
+        HAVING count(*) = 2
+    ) OR NOT EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_proc
+         WHERE oid = oid_funcion
+           AND proowner = oid_propietario
+    ) THEN
+        RAISE EXCEPTION 'un objeto futuro no pertenece al propietario real';
+    END IF;
+
+    IF pg_catalog.has_table_privilege(
+           'vec_confianza_atestacion_v2_lector_autoridad',
+           oid_tabla,
+           'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'
+       ) OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_class AS clase
+          CROSS JOIN LATERAL pg_catalog.aclexplode(
+              COALESCE(
+                  clase.relacl,
+                  pg_catalog.acldefault('r', clase.relowner)
+              )
+          ) AS privilegio
+         WHERE clase.oid = oid_tabla
+           AND privilegio.grantee = 0
+    ) THEN
+        RAISE EXCEPTION 'una tabla futura expone privilegios al lector o PUBLIC';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_type AS tipo
+         WHERE tipo.oid IN (oid_tipo_fila, oid_tipo_explicito)
+           AND (
+               pg_catalog.has_type_privilege(
+                   'vec_confianza_atestacion_v2_lector_autoridad',
+                   tipo.oid,
+                   'USAGE'
+               ) OR EXISTS (
+                   SELECT 1
+                     FROM pg_catalog.aclexplode(
+                         COALESCE(
+                             tipo.typacl,
+                             pg_catalog.acldefault('T', tipo.typowner)
+                         )
+                     ) AS privilegio
+                    WHERE privilegio.grantee = 0
+                      AND privilegio.privilege_type = 'USAGE'
+               )
+           )
+    ) THEN
+        RAISE EXCEPTION 'un tipo futuro expone USAGE al lector o PUBLIC';
+    END IF;
+
+    IF pg_catalog.has_function_privilege(
+           'vec_confianza_atestacion_v2_lector_autoridad',
+           oid_funcion,
+           'EXECUTE'
+       ) OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_proc AS funcion
+          CROSS JOIN LATERAL pg_catalog.aclexplode(
+              COALESCE(
+                  funcion.proacl,
+                  pg_catalog.acldefault('f', funcion.proowner)
+              )
+          ) AS privilegio
+         WHERE funcion.oid = oid_funcion
+           AND privilegio.grantee = 0
+           AND privilegio.privilege_type = 'EXECUTE'
+    ) THEN
+        RAISE EXCEPTION 'una funcion futura expone EXECUTE al lector o PUBLIC';
+    END IF;
+END
+$comprobar_objetos_futuros$;
+
+ROLLBACK;
