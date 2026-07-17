@@ -2565,9 +2565,9 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 
 ## DEC-074 — Registro canónico previo a las políticas funcionales
 
-- Estado: arquitectura adoptada el 17 de julio de 2026; dominio y doble de
-  contrato en construcción, persistencia y comprobación institucional
-  pendientes.
+- Estado: arquitectura adoptada el 17 de julio de 2026; dominio y formato de
+  persistencia canónica V1 implementados. Caso de uso, puertos, repositorios,
+  verificación criptográfica e institucional y anclaje externo pendientes.
 - Brecha: `FuenteRef`, `AprobacionRef` y `FuentesNormativasRefs` permiten
   relacionar objetos, pero una cadena no acredita documento, representación,
   publicación, acto, órgano, precepto, firma, vigencia o efectos.
@@ -2575,13 +2575,33 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   tipadas de baremación, calendario, permisos, turnos o retribuciones vendrán
   después y citarán ID, versión, huella y preceptos exactos.
 - Separación temporal: publicación, vigencia jurídica, efectos y conocimiento
-  del sistema son hechos distintos y no se deducen entre sí.
+  del sistema son hechos distintos y no se deducen entre sí. En cada
+  transición se separa además el reloj jurídico del acto, que puede ser
+  histórico, del reloj técnico:
+  `última mutación < preparada ≤ comprobada ≤ registrada < expira`; el
+  instante de expiración es un límite exclusivo.
 - Historia: una versión publicada no se edita. Corrección material, suspensión,
-  levantamiento o derogación conservan el acto y la relación con la historia;
-  nunca sustituyen silenciosamente referencias usadas por expedientes.
-- Verificación: publicar o cambiar estado requerirá evidencia obtenida por un
-  puerto de comprobación. Un identificador recibido desde HTTP no se convierte
-  por sí solo en autoridad.
+  levantamiento o derogación conservan el acto y una cadena incremental cuya
+  cabeza forma parte del compromiso firmado; nunca sustituyen silenciosamente
+  referencias usadas por expedientes.
+- Linaje: una sucesora fija ID, versión y huella de contenido de su predecesora,
+  pero también revisión, estado, cabeza de historia y huella de estado. No se
+  admite una sucesora idéntica. Versiones, revisiones, secuencias y versiones
+  documentales usan `uint64` y fallan cerradas ante agotamiento o desborde.
+- Solicitud durable: antes de firmar se genera un compromiso canónico con
+  `SolicitudRef`, `PreparadaEn` y `ExpiraEn`. Puede custodiarse y rehidratarse
+  byte a byte tras un reinicio; cambiar el agregado la deja obsoleta y superar
+  la ventana la deja expirada. El registro durable de estados pendientes y
+  cancelaciones corresponde al futuro repositorio.
+- Verificación: la atestación cubre el compromiso y el cuerpo completo de la
+  evidencia sobre DTO V1 congelados. La validación actual solo acredita
+  coherencia estructural; un identificador o una huella recibidos desde HTTP no
+  prueban firma, cadena, revocación, procedencia ni competencia.
+- Persistencia: el estado y las solicitudes se custodiarán como bytes canónicos
+  en `BYTEA` (PostgreSQL) o `BLOB` (Oracle/otro conector). `JSONB` y columnas de
+  consulta serán proyecciones reconstruibles, nunca autoridad. La rehidratación
+  exige igualdad byte a byte y aplica antes de decodificar límites de tamaño,
+  profundidad, campos, duplicados y cardinalidad de arrays para contener DoS.
 - Seguridad: contexto de actor resuelto, garantía alta, autorización PDP
   exacta, segregación, OCC, consumo único, auditoría y outbox atómicos. El
   agregado no contiene datos personales.
@@ -2590,8 +2610,10 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - Compatibilidad: los consumidores actuales evolucionarán mediante nuevas
   versiones y reconciliación aprobada. No se recalculan huellas históricas para
   reemplazar las referencias textuales existentes.
-- NO-GO: el adaptador en memoria solo prueba contratos. El uso productivo queda
-  bloqueado hasta PostgreSQL, ACL/RLS, comprobación real de actos y firmas,
-  auditoría probatoria y validación institucional.
+- NO-GO: las huellas encadenadas no impiden que un escritor privilegiado
+  recomponga toda la historia. El uso productivo queda bloqueado hasta disponer
+  de PostgreSQL con ACL/RLS y append-only, verificador criptográfico real,
+  resolución atestada de competencia, segregación institucional, solicitudes
+  durables y anclaje de cabezas de historia en WORM o sistema externo sellado.
 - Especificación:
   `docs/portal_vec/registro_fuentes_autoridad.md`.
