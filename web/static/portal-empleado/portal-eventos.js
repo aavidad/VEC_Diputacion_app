@@ -8,7 +8,6 @@
 export function crearControladorPortal(dependencias) {
   const {
     anunciar,
-    candidatosFiltrados,
     cargarFuenteDatos,
     escaparHTML,
     estado,
@@ -20,7 +19,8 @@ export function crearControladorPortal(dependencias) {
     porcentajeSeguro,
     porId,
     renderizar,
-    resumenBolsaSeleccionada,
+    renderizarContenidoAyuda,
+    solicitarPropuestaLlamamiento,
     vistaDesdeHash,
   } = dependencias;
 
@@ -36,7 +36,7 @@ export function crearControladorPortal(dependencias) {
     abrirDialogo(titulo, `<p class="nota-pendiente">${escaparHTML(notaOperacionNoCompuesta())}</p><p>Su activación exige autorización por expediente, validación de estado, persistencia, auditoría y, cuando proceda, firma o recibo verificable del conector.</p>`);
   }
 
-  function manejarAccion(boton) {
+  async function manejarAccion(boton) {
     const accion = boton.dataset.accion;
     const id = boton.dataset.id;
     const datosPanel = obtenerDatosPanel();
@@ -52,6 +52,9 @@ export function crearControladorPortal(dependencias) {
         break;
       case "nuevo-llamamiento":
         estado.pasoLlamamiento = 1;
+        estado.propuestaLlamamiento = null;
+        estado.errorPropuesta = "";
+        estado.claveIdempotenciaPropuesta = "";
         navegar("llamamientos");
         break;
       case "nueva-bolsa":
@@ -65,12 +68,14 @@ export function crearControladorPortal(dependencias) {
       case "configurar-bases":
         abrirDialogo("Configurar bases y baremo", '<dl class="resumen-expediente"><div class="fila-resumen"><dt>Experiencia</dt><dd>Unidad, ámbito, jornada, topes y redondeo</dd></div><div class="fila-resumen"><dt>Formación</dt><dd>Titulaciones, cursos, horas, relación y límites</dd></div><div class="fila-resumen"><dt>Otros méritos</dt><dd>Tipos definidos por las bases</dd></div><div class="fila-resumen"><dt>Garantía</dt><dd>Versión inmutable, simulación y validación antes de publicar</dd></div></dl><p class="nota-pendiente">Los valores visibles serían ejemplos; no se activará una regla sin bases e informe aplicables.</p>');
         break;
-      case "seleccionar-bolsa": {
-        estado.bolsaSeleccionada = id;
-        estado.candidatosSeleccionados.clear();
+      case "seleccionar-necesidad": {
+        estado.necesidadSeleccionada = id;
+        estado.propuestaLlamamiento = null;
+        estado.errorPropuesta = "";
+        estado.claveIdempotenciaPropuesta = "";
+        estado.pasoLlamamiento = 1;
         renderizar();
-        const bolsa = resumenBolsaSeleccionada();
-        anunciar(bolsa ? `Bolsa ${bolsa.nombre} seleccionada` : "Bolsa seleccionada");
+        anunciar("Necesidad de cobertura seleccionada");
         break;
       }
       case "ver-bolsa": {
@@ -78,9 +83,17 @@ export function crearControladorPortal(dependencias) {
         if (bolsa) abrirDialogo(bolsa.nombre, `<dl class="resumen-expediente"><div class="fila-resumen"><dt>Categoría</dt><dd>${escaparHTML(bolsa.categoria)}</dd></div><div class="fila-resumen"><dt>Integrantes</dt><dd>${numero(bolsa.integrantes)}</dd></div><div class="fila-resumen"><dt>Disponibles</dt><dd>${numero(bolsa.disponibles)}</dd></div><div class="fila-resumen"><dt>Cobertura</dt><dd>${porcentajeSeguro(bolsa.cobertura)}%</dd></div><div class="fila-resumen"><dt>Estado</dt><dd>${escaparHTML(bolsa.estado)}</dd></div></dl><p class="nota-informativa">Fuente: ${escaparHTML(etiquetaFuentePanel())}.</p>`);
         break;
       }
-      case "ver-candidato": {
-        const candidato = datosPanel.candidatos.find((item) => item.id === id);
-        if (candidato) abrirDialogo("Detalle minimizado del candidato", `<dl class="resumen-expediente"><div class="fila-resumen"><dt>Identificador</dt><dd>${escaparHTML(candidato.dni)}</dd></div><div class="fila-resumen"><dt>Nombre</dt><dd>${escaparHTML(candidato.nombre)}</dd></div><div class="fila-resumen"><dt>Orden</dt><dd>${numero(candidato.orden)}</dd></div><div class="fila-resumen"><dt>Estado</dt><dd>${escaparHTML(candidato.estado)}</dd></div><div class="fila-resumen"><dt>Puntos</dt><dd>${numero(candidato.puntos, 3)}</dd></div></dl><p class="nota-seguridad">El servidor comprueba el ámbito del técnico antes de devolver estos datos.</p>`);
+      case "solicitar-propuesta": {
+        const resultado = await solicitarPropuestaLlamamiento();
+        if (!resultado.ok) {
+          anunciar(resultado.mensaje || "No se pudo obtener la propuesta");
+          renderizar();
+          break;
+        }
+        estado.pasoLlamamiento = 2;
+        renderizar();
+        porId("contenido-principal")?.focus({ preventScroll: true });
+        anunciar(resultado.sintetica ? "Propuesta sintética cargada sin consultar el servidor" : "Propuesta recibida del servidor");
         break;
       }
       case "siguiente-paso":
@@ -104,11 +117,6 @@ export function crearControladorPortal(dependencias) {
         }
         break;
       }
-      case "quitar-candidato":
-        estado.candidatosSeleccionados.delete(id);
-        renderizar();
-        anunciar("Candidato retirado de la selección actual");
-        break;
       case "validar-recorrido":
         abrirDialogo("Recorrido validado", `<p class="nota-seguridad">La preparación se ha revisado sin enviar comunicaciones ni modificar datos.</p><p>${escaparHTML(notaOperacionNoCompuesta())}</p>`);
         break;
@@ -116,7 +124,7 @@ export function crearControladorPortal(dependencias) {
         window.print();
         break;
       case "ayuda":
-        abrirDialogo("Ayuda del Portal del Empleado", '<p>Use el menú de módulos para volver al portal. Solo Bolsas está habilitado en esta fase.</p><ul><li>Elaboración configura bases, reglas, calendario y publicación.</li><li>Llamamientos propone personas respetando la prelación.</li><li>Auditoría reconstruye cada decisión.</li></ul><p class="nota-informativa">La ayuda definitiva incorporará lectura en voz alta, manuales y asistente de consultas.</p>');
+        abrirDialogo("Ayuda del Portal del Empleado", renderizarContenidoAyuda());
         break;
       case "avisos":
         abrirDialogo("Avisos", `<ul>${datosPanel.avisos.map((aviso) => `<li>${escaparHTML(aviso.texto)}</li>`).join("") || "<li>No hay avisos accesibles.</li>"}</ul>`);
@@ -130,32 +138,6 @@ export function crearControladorPortal(dependencias) {
         break;
       default:
         break;
-    }
-  }
-
-  function manejarFormulario(evento) {
-    if (evento.target.id !== "filtros-candidatos") return;
-    evento.preventDefault();
-    const datos = new FormData(evento.target);
-    estado.filtroEstado = String(datos.get("estado") || "Todos");
-    estado.busquedaCandidato = String(datos.get("busqueda") || "");
-    estado.puntosDesde = String(datos.get("desde") || "");
-    estado.puntosHasta = String(datos.get("hasta") || "");
-    renderizar();
-    anunciar(`${candidatosFiltrados().length} candidatos cumplen los filtros`);
-  }
-
-  function manejarCambio(evento) {
-    const objetivo = evento.target;
-    if (objetivo.matches("[data-candidato]")) {
-      if (objetivo.checked) estado.candidatosSeleccionados.add(objetivo.dataset.candidato);
-      else estado.candidatosSeleccionados.delete(objetivo.dataset.candidato);
-      anunciar(`${estado.candidatosSeleccionados.size} candidatos seleccionados`);
-      return;
-    }
-    if (objetivo.id === "respetar-prelacion") {
-      estado.respetarPrelacion = objetivo.checked;
-      anunciar(objetivo.checked ? "Orden de prelación activado" : "Orden de prelación desactivado para esta preparación");
     }
   }
 
@@ -201,10 +183,8 @@ export function crearControladorPortal(dependencias) {
         return;
       }
       const botonAccion = evento.target.closest("[data-accion]");
-      if (botonAccion) manejarAccion(botonAccion);
+      if (botonAccion) void manejarAccion(botonAccion);
     });
-    document.addEventListener("submit", manejarFormulario);
-    document.addEventListener("change", manejarCambio);
     porId("boton-menu").addEventListener("click", () => {
       if (document.body.dataset.menuAbierto === "true") cerrarMenuMovil();
       else abrirMenuMovil();

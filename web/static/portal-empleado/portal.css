@@ -146,25 +146,25 @@ a:focus-visible,
 }
 
 .marca-portal {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 86px;
+  display: block;
+  min-height: 126px;
   padding: 16px 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-.marca-portal-icono {
-  display: grid;
-  width: 46px;
-  height: 46px;
-  flex: 0 0 46px;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 8px;
-  background: linear-gradient(145deg, #1581ee, #0753b4);
-  font-size: 0.8rem;
-  font-weight: 900;
+.logo-institucional {
+  display: block;
+  width: min(100%, 218px);
+  height: auto;
+  box-sizing: border-box;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: #fff;
+  object-fit: contain;
+}
+
+.marca-portal-contexto {
+  margin-top: 9px;
 }
 
 .marca-portal strong,

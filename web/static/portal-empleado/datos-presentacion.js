@@ -24,14 +24,6 @@ const DATOS = {
     firmas_pendientes: 2,
     plazos_proximos: 1,
   },
-  estados_candidatos: {
-    disponibles: 12,
-    ocupados: 98,
-    no_disponibles: 28,
-    excluidos: 10,
-    renuncia_pendiente: 5,
-    en_revision: 3,
-  },
   distribucion_global: {
     disponibles: 145,
     en_llamamiento: 48,
@@ -74,15 +66,11 @@ const DATOS = {
     { id: "operario-servicios", nombre: "Operario Servicios Múltiples", categoria: "Servicios Generales", creada: "12/01/2026", integrantes: 278, disponibles: 15, llamamiento: 1, cobertura: 94, estado: "Activa", regla: "Bases · versión de presentación" },
     { id: "educador-social", nombre: "Educador Social", categoria: "Servicios Sociales", creada: "18/02/2026", integrantes: 66, disponibles: 4, llamamiento: 0, cobertura: 90, estado: "Activa", regla: "Bases · versión de presentación" },
   ],
-  candidatos: [
-    { id: "cand-001", orden: 1, dni: "***1234**", nombre: "García López, Ana", estado: "Disponible", fecha: "14/07/2026", motivo: "—", puntos: 92.45, seleccionado: true },
-    { id: "cand-002", orden: 2, dni: "***5678**", nombre: "Martínez Sánchez, Juan", estado: "Disponible", fecha: "14/07/2026", motivo: "—", puntos: 88.3, seleccionado: true },
-    { id: "cand-003", orden: 3, dni: "***9012**", nombre: "Ruiz Torres, María", estado: "Disponible", fecha: "14/07/2026", motivo: "—", puntos: 85.12, seleccionado: false },
-    { id: "cand-004", orden: 4, dni: "***3456**", nombre: "López Fernández, Carlos", estado: "Disponible", fecha: "14/07/2026", motivo: "—", puntos: 84.61, seleccionado: false },
-    { id: "cand-005", orden: 5, dni: "***7890**", nombre: "Hernández Ruiz, Laura", estado: "Disponible", fecha: "14/07/2026", motivo: "—", puntos: 82.9, seleccionado: false },
-    { id: "cand-006", orden: 6, dni: "***2468**", nombre: "Santos Molina, Pedro", estado: "Renuncia pendiente", fecha: "10/07/2026", motivo: "Pendiente de justificar", puntos: 81.75, seleccionado: false },
-    { id: "cand-007", orden: 7, dni: "***1357**", nombre: "Navarro Cano, Irene", estado: "En revisión", fecha: "09/07/2026", motivo: "Actualización de disponibilidad", puntos: 80.2, seleccionado: false },
-    { id: "cand-008", orden: 8, dni: "***8642**", nombre: "Ortega Díaz, Pablo", estado: "No disponible", fecha: "01/07/2026", motivo: "Contrato temporal vigente", puntos: 79.6, seleccionado: false },
+  capacidades: { solicitar_propuesta_llamamiento: false, confirmar_llamamiento: false },
+  necesidades_llamamiento: [
+    { id: "NEC-2026-0045", referencia: "Necesidad nº 45", puesto: "Auxiliar Administrativo", bolsa_id: "auxiliar-administrativo", bolsa: "Auxiliar Administrativo", destino: "Servicios Centrales", jornada: "Completa", duracion: "3 meses", cobertura: "Sustitución temporal", fecha_limite: "20/07/2026 09:00", regla: "Reglamento y bases · versión de presentación", estado: "Pendiente de propuesta" },
+    { id: "NEC-2026-0038", referencia: "Necesidad nº 38", puesto: "Operario Servicios Múltiples", bolsa_id: "operario-servicios", bolsa: "Operario Servicios Múltiples", destino: "Parque móvil provincial", jornada: "Completa", duracion: "6 meses", cobertura: "Vacante", fecha_limite: "21/07/2026 10:00", regla: "Bases · versión de presentación", estado: "Pendiente de propuesta" },
+    { id: "NEC-2026-0012", referencia: "Necesidad nº 12", puesto: "Trabajador Social", bolsa_id: "trabajador-social", bolsa: "Trabajador Social", destino: "Centro comarcal Guadix", jornada: "Parcial 50 %", duracion: "3 meses", cobertura: "Programa temporal", fecha_limite: "22/07/2026 09:30", regla: "Bases · versión de presentación", estado: "Pendiente de propuesta" },
   ],
   elaboraciones: [
     { id: "BOL-2026-014", nombre: "Auxiliar Administrativo", expediente: "2026/PES-014", fase: "Validación jurídica", reglas: "v3 · 8 criterios", plazo: "22/07/2026", responsable: "Servicio de Selección", estado: "En revisión", version_bases: "v3 · Huella SHA-256 registrada", calendario: "Solicitud 01/08–20/08/2026", firmantes: "Jefatura RRHH · Secretaría · Diputada delegada" },
@@ -128,4 +116,39 @@ const DATOS = {
 
 export function obtenerDatosPresentacion() {
   return structuredClone(DATOS);
+}
+
+const EVALUACIONES_PRESENTACION = Object.freeze({
+  "NEC-2026-0045": [
+    { secuencia: 1, resultado: "Elegible", puntuacion: 92.45, regla: "R1 · Orden de bolsa vigente", fundamento: "Primer puesto disponible del orden constituido" },
+    { secuencia: 2, resultado: "Elegible", puntuacion: 88.3, regla: "R1 · Orden de bolsa vigente", fundamento: "Disponible sin causa de exclusión" },
+    { secuencia: 3, resultado: "Elegible", puntuacion: 85.12, regla: "R1 · Orden de bolsa vigente", fundamento: "Disponible sin causa de exclusión" },
+    { secuencia: 4, resultado: "No disponible", puntuacion: 84.61, regla: "R4 · Causas de indisponibilidad", fundamento: "Contrato temporal vigente comunicado" },
+    { secuencia: 5, resultado: "Elegible", puntuacion: 82.9, regla: "R1 · Orden de bolsa vigente", fundamento: "Disponible sin causa de exclusión" },
+  ],
+  "NEC-2026-0038": [
+    { secuencia: 1, resultado: "Elegible", puntuacion: 90.1, regla: "R1 · Orden de bolsa vigente", fundamento: "Primer puesto disponible del orden constituido" },
+    { secuencia: 2, resultado: "Excluida por regla", puntuacion: 87.4, regla: "R6 · Penalización por renuncia", fundamento: "Renuncia no justificada dentro del plazo reglamentario" },
+    { secuencia: 3, resultado: "Elegible", puntuacion: 83.75, regla: "R1 · Orden de bolsa vigente", fundamento: "Disponible sin causa de exclusión" },
+  ],
+  "NEC-2026-0012": [
+    { secuencia: 1, resultado: "Elegible", puntuacion: 89.6, regla: "R1 · Orden de bolsa vigente", fundamento: "Primer puesto disponible del orden constituido" },
+    { secuencia: 2, resultado: "Elegible", puntuacion: 86.05, regla: "R1 · Orden de bolsa vigente", fundamento: "Disponible sin causa de exclusión" },
+  ],
+});
+
+export function obtenerPropuestaPresentacion(necesidadId) {
+  const evaluaciones = EVALUACIONES_PRESENTACION[necesidadId] || EVALUACIONES_PRESENTACION["NEC-2026-0045"];
+  return {
+    esquema: "vec.bolsa.propuesta-llamamiento.presentacion.v1",
+    demostracion: true,
+    id: `PRO-${String(necesidadId || "NEC-2026-0045").slice(-4)}`,
+    necesidad_id: String(necesidadId || "NEC-2026-0045"),
+    estado: "Propuesta sintética aislada",
+    version_bolsa: "v3 · huella registrada",
+    version_regla: "v3 · 8 criterios",
+    fecha_corte: "17/07/2026 08:00",
+    personas_incluidas: evaluaciones.filter((item) => item.resultado === "Elegible").length,
+    evaluaciones: evaluaciones.map((item) => ({ ...item })),
+  };
 }

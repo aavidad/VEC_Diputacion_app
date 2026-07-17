@@ -357,6 +357,25 @@
   padding: 16px;
 }
 
+.ayuda-contextual h3 { margin: 18px 0 8px; font-size: 0.95rem; }
+.lista-ayuda { display: grid; gap: 7px; padding-left: 24px; }
+.ayuda-audio { padding: 12px; border: 1px solid var(--portal-borde); border-radius: 8px; background: var(--portal-superficie-suave); }
+.ayuda-audio h3 { margin-top: 0; }
+.ayuda-audio audio { display: block; width: 100%; }
+.faq-ayuda details,
+.transcripcion-ayuda { margin-top: 8px; padding: 9px 11px; border: 1px solid var(--portal-borde); border-radius: 7px; }
+.faq-ayuda summary,
+.transcripcion-ayuda summary { cursor: pointer; font-weight: 700; }
+.faq-ayuda p,
+.transcripcion-ayuda p { line-height: 1.55; }
+
+.tabla-necesidades th,
+.tabla-necesidades td { padding: 9px 8px; white-space: normal; }
+.tabla-necesidades th:first-child,
+.tabla-necesidades td:first-child,
+.tabla-necesidades th:last-child,
+.tabla-necesidades td:last-child { white-space: nowrap; }
+
 .velo-menu {
   position: fixed;
   z-index: 29;
