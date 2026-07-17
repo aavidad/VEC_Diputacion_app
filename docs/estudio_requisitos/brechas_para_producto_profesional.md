@@ -34,15 +34,20 @@ introducir datos personales reales deben resolverse, como mínimo:
 5. **Módulos y permisos estáticos.** Rutas, acciones y composición están codificadas. Hay que
    separar capacidad de software de configuración funcional y decidir el contrato de
    incorporación de módulos sin modificar el núcleo.
-6. **Datos de demostración en el navegador.** No se conservarán documentos o datos
-   personales en almacenamiento local como fuente de verdad. Desarrollo, demostración y
-   producción tendrán artefactos y configuraciones inequívocos.
+6. **Datos de demostración en el navegador.** No se conservarán credenciales,
+   documentos o datos personales en `localStorage` ni `sessionStorage`. El
+   estado imprescindible de interfaz será efímero y minimizado; desarrollo,
+   demostración y producción tendrán artefactos y configuraciones inequívocos.
 7. **Circuito documental simulado.** Falta implantar subida directa temporal, cuarentena,
    validación, antivirus o desarme, huella, custodia, firma/sello y promoción al almacén
    definitivo.
-8. **Endurecimiento de red y aplicación.** Faltan controles productivos de TLS, cabeceras,
-   CSRF, límites, sesiones, secretos, red, contenedores, correlación, disponibilidad y
-   observabilidad.
+8. **Endurecimiento de red y aplicación.** Faltan controles productivos de TLS,
+   cabeceras, origen/CORS, XSS, credenciales explícitas por petición, límites,
+   secretos, red, contenedores, correlación, disponibilidad y observabilidad.
+   DEC-053 prohíbe cookies de sesión. El cliente web debe usar `Authorization`
+   explícita y `credentials: "omit"`; si en el futuro un navegador negociase
+   Kerberos/SPNEGO o mTLS automáticamente, habría que reevaluar CSRF y origen
+   antes de habilitarlo.
 
 ## 3. Gobierno ENS y privacidad
 

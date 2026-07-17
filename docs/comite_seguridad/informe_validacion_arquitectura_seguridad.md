@@ -128,7 +128,7 @@ Una capacidad puede estar diseñada e implementada sin estar verificada ni opera
 
 | Capacidad | Estado observado | Arquitectura objetivo | Valoración |
 | --- | --- | --- | --- |
-| Shell modular | Existe registro de módulos, menús, API y frontend estático. | Carcasa común con identidad, sesión, navegación, i18n, documentos, notificaciones y auditoría. | Base útil; falta cerrar contrato productivo y despliegue. |
+| Shell modular | Existe registro de módulos, menús, API y frontend estático. | Carcasa común con identidad, contexto autenticado, navegación, i18n, documentos, notificaciones y auditoría. | Base útil; falta cerrar contrato productivo y despliegue. |
 | Dominio y casos de uso | Amplio modelo Go con pruebas unitarias en múltiples paquetes. | Reglas puras e independientes de HTTP, base de datos y proveedores. | Dirección adecuada; el árbol activo no es una versión estable. |
 | Autenticación | `disabled` por defecto; `fake` y `trusted_headers` limitados a laboratorio. | Certificado/Cl@ve para exterior; AD/Kerberos y autenticación reforzada para interior; cuentas separadas para privilegio. | Bloqueante productivo. |
 | Contexto de actor | Existen modelo y resolución canónica en memoria, con denegación ante ambigüedad. | Fuente corporativa durable que enlace cuenta, persona, perfil y representaciones. | Parcial; no conectado a una fuente autoritativa real. |
@@ -137,7 +137,7 @@ Una capacidad puede estar diseñada e implementada sin estar verificada ni opera
 | Documentos | Puertos, dominio, generación PDF/DOCX y adaptadores de prueba en memoria. | Almacén cifrado, cuarentena, antivirus, metadatos ENI, firma, sello, CSV, registro, archivo y recuperación. | Contratos avanzados; flujo productivo cerrado. |
 | Auditoría | Modelos encadenados y confirmaciones atómicas en adaptadores de memoria. | Registro durable, append-only, firma/sello, exportación, retención y copia en dominio separado. | No probatoria en el despliegue actual. |
 | Integraciones | Puertos y stubs; OSRM opcional bajo lista positiva. | Conectores corporativos homologados, identidades técnicas separadas, mTLS, outbox y reconciliación. | Pendiente. |
-| Zonas de red | Especificadas documentalmente; escucha local por defecto. | Entradas, audiencias, sesiones, datos y operación segregados. | No demostrada en infraestructura. |
+| Zonas de red | Especificadas documentalmente; escucha local por defecto. | Entradas, audiencias, credenciales, datos y operación segregados. | No demostrada en infraestructura. |
 | Operación | Docker local, health y configuración inicial. | observabilidad, SIEM, secretos, hardening, vulnerabilidades, capacidad, continuidad y respuesta. | Bloqueante antes de piloto real. |
 | Calidad | Existe una suite extensa; `c1b42bc` supera `go test ./...` en limpio. | CI obligatoria, artefacto reproducible, revisión, SAST/SCA, pruebas de integración y gates. | El árbol activo no está verde y aún no existe CI ni artefacto reproducible. |
 
@@ -190,19 +190,37 @@ Se divide en:
 - zona anónima, solo para información expresamente publicable;
 - área personal autenticada para el titular o representante acreditado;
 - entrada pública mediante WAF/proxy y proveedor de identidad admitido;
-- API exterior con audiencia, sesión, límites y credenciales técnicas propias.
+- API exterior con audiencia, credencial explícita por petición, límites y
+  credenciales técnicas propias.
 
 Una persona empleada que acceda como aspirante no obtiene por ello funciones internas. La titularidad y representación deben resolverse en el servidor.
 
 ### 7.2 Zona interna de empleado y gestión
 
-Se prevé para Mulhacén o VPN corporativa autorizada, con proxy interno, AD/Kerberos y autenticación reforzada. Debe disponer de listener, DNS, certificado, audiencia, cookies, API y pool de base de datos distintos de la superficie exterior.
+Se prevé para Mulhacén o VPN corporativa autorizada mediante aplicación de
+escritorio, con pasarela interna, mTLS del dispositivo, AD/Kerberos y
+autenticación reforzada. Debe disponer de listener, DNS, certificado, audiencia,
+API y pool de base de datos distintos de la superficie exterior. No usa cookies
+de sesión: la aserción breve se presenta explícitamente en cada petición y no se
+persiste en almacenamiento web.
+
+La aplicación interna de escritorio no se ejecuta en un contexto web entre
+sitios. Los clientes web autorizados usan `Authorization` explícita y
+`credentials: "omit"`; bajo ese contrato el navegador no adjunta credenciales
+ambientales susceptibles de CSRF. CORS y la validación de origen se mantienen
+como defensa en profundidad; XSS continúa siendo una amenaza para cualquier
+cliente web exterior. Si un futuro navegador negocia Kerberos/SPNEGO o presenta
+mTLS automáticamente, esas credenciales pueden ser ambientales y deberán
+reevaluarse CSRF y origen antes de habilitar la superficie.
 
 La red interna autentica el origen técnico, pero no concede un expediente ni una acción. Cada operación sigue necesitando autorización por perfil, unidad, relación, recurso, finalidad, campos y vigencia.
 
 ### 7.3 Administración privilegiada
 
-Debe quedar fuera de la sesión ordinaria de RRHH. Requiere cuenta nominativa distinta, puesto o bastión administrado, elevación temporal, reautenticación, doble control cuando proceda y auditoría en un destino que el administrador no pueda alterar.
+Debe quedar fuera del contexto autenticado ordinario de RRHH. Requiere cuenta
+nominativa distinta, puesto o bastión administrado, elevación temporal,
+reautenticación, doble control cuando proceda y auditoría en un destino que el
+administrador no pueda alterar.
 
 No se prevé un superadministrador funcional universal. Operar despliegues, base de datos o claves no concede acceso ordinario a expedientes.
 
@@ -392,7 +410,8 @@ La validación debe considerar, al menos:
 
 - suplantación mediante cabeceras, tokens de demostración o certificados no verificados;
 - acceso horizontal a expedientes de otra persona y acceso vertical por rol amplio;
-- mezcla de sesiones exterior, interior y privilegiada;
+- mezcla de audiencias, credenciales o perfiles exterior, interior y
+  privilegiado;
 - revocación concurrente entre autorización y escritura;
 - alteración o repetición de una decisión de autorización;
 - inyección SQL, de plantillas, documentos activos o contenido hostil;
@@ -434,7 +453,7 @@ Los propietarios indicados son una propuesta; el Comité deberá asignar persona
 | R-11 | Alta | Firma, sello, CSV, registro, notificación y expediente ENI son especificaciones, no integraciones validadas. | Modelos y flujos inmutables definidos. | Conectores reales, política de firma, metadatos, validación, cotejo, exportación y pruebas jurídicas/técnicas. | Secretaría + Archivo + Sistemas + Asesoría | `docs/portal_vec/firma_csv_qr_y_cotejo.md`; `docs/portal_vec/capacidad_documental.md` |
 | R-12 | Alta | Falta un proceso demostrable de desarrollo seguro y cadena de suministro. | Versiones y digests previstos; pruebas unitarias existentes. | Ramas protegidas, revisión, SAST/SCA, secretos, SBOM, firma de artefactos, parcheo, política de vulnerabilidades y pentest. | Desarrollo + Seguridad | `Dockerfile`; `go.mod`; `docs/estudio_requisitos/brechas_para_producto_profesional.md` |
 | R-13 | Alta | Fuentes maestras de persona, puesto, nómina, jornada y representación no están acordadas ni conectadas. | Contexto de actor canónico y referencias opacas. | Decisión de autoridad de datos, reconciliación, calidad, deduplicación, rectificación y trazabilidad. | RRHH + Sistemas + DPD | `internal/vec/domain/contexto_actor.go`; `docs/portal_vec/registro_decisiones.md` |
-| R-14 | Media | Observabilidad, límites, cabeceras, CSRF, rate limiting y hardening productivo incompletos. | Timeouts y restricciones locales iniciales. | Perfil de despliegue endurecido, WAF, límites por operación, métricas, alertas y pruebas de abuso. | Operación + Seguridad + Desarrollo | `internal/app/server`; `config`; `docs/estudio_requisitos/brechas_para_producto_profesional.md` |
+| R-14 | Media | Observabilidad, límites, cabeceras, CORS/origen, defensa XSS, rate limiting y hardening productivo incompletos. | Timeouts y restricciones locales iniciales. | Perfil de despliegue endurecido, WAF, límites por operación, métricas, alertas y pruebas de abuso. | Operación + Seguridad + Desarrollo | `internal/app/server`; `config`; `docs/estudio_requisitos/brechas_para_producto_profesional.md` |
 | R-15 | Media | Accesibilidad del portal y de documentos no está auditada. | Requisitos UI y generación funcional PDF/DOCX. | Auditoría EN 301 549/WCAG aplicable, pruebas con ayudas técnicas y corrección; perfil documental accesible. | Producto + Desarrollo + Unidad de accesibilidad | `docs/portal_vec/cumplimiento_y_seguridad.md`; `web/static` |
 | R-16 | Media | Datos y comportamientos de demostración podrían confundirse con fuentes productivas. | Modos explícitos y documentación de límites. | Artefactos/configuraciones separados, prohibición de datos reales, banner de entorno y pruebas que impidan activar demos. | Desarrollo + Operación | `README.md`; `docs/portal_vec/autenticacion_fake_local_segura.md` |
 | R-17 | Media | Conectores externos son stubs o decisiones pendientes; un error remoto puede dejar estado ambiguo. | Puertos, outbox e idempotencia previstos. | Contrato por conector, identidades técnicas, reintento seguro, reconciliación, circuit breaker, salud y simulación de fallos. | Arquitectura + Sistemas + Propietario de cada integración | `internal/vec/ports`; `docs/estudio_requisitos/brechas_para_producto_profesional.md` |
@@ -484,7 +503,8 @@ Evidencias mínimas:
 
 Evidencias mínimas:
 
-- IdP exterior e interior aprobados y sesiones separadas;
+- IdP exterior e interior aprobados, con audiencias y credenciales separadas y
+  sin cookies de sesión;
 - perfil único, representación, ciclo de alta/baja y cuentas privilegiadas;
 - PDP central con matriz validada por propietarios funcionales;
 - atestación de decisiones y consumo transaccional de un primer efecto;

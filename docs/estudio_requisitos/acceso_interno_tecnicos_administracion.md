@@ -14,7 +14,7 @@ de uso, pero tendran superficies tecnicas separadas.
 | Superficie | Red y entrada | Identidad | Capacidades |
 | --- | --- | --- | --- |
 | Portal ciudadano | Internet/DMZ, WAF y proxy publico | Cl@ve, DNIe, certificado u otros proveedores admitidos | Solo datos y tramites propios, y consultas publicas minimizadas. |
-| Portal interno corporativo | Solo Mulhacen o VPN corporativa autorizada, proxy interno | Cuenta corporativa AD por Kerberos/SPNEGO y autenticacion fuerte basada en certificado | Autoservicio del empleado y funciones de gestion, revision o baremacion conforme al unico perfil activo y sus ambitos. |
+| Aplicacion interna corporativa de escritorio | Solo Mulhacen o VPN corporativa autorizada, pasarela interna | Cuenta corporativa AD por Kerberos/SPNEGO, mTLS del dispositivo y autenticacion fuerte basada en certificado | Autoservicio del empleado y funciones de gestion, revision o baremacion conforme al unico perfil activo y sus ambitos. |
 | Administracion de seguridad/sistema | Segmento de gestion, bastion o puesto privilegiado | Cuenta administrativa separada, autenticacion fuerte y elevacion temporal | Configuracion sensible, claves/referencias, roles, auditoria y operacion. |
 
 Ninguna ruta interna se publicara en el proxy de Internet. Un control de menu o
@@ -33,9 +33,9 @@ dominio y SSO desde un puesto administrado. El certificado aporta una prueba
 criptografica adicional y se reutiliza, cuando proceda, para firmar decisiones
 o documentos. Se aplican con estas condiciones:
 
-1. El proxy o proveedor de identidad interno negocia Kerberos/SPNEGO. El
-   navegador nunca envia usuario, grupos o cabeceras de identidad libres a la
-   aplicacion.
+1. La pasarela o proveedor de identidad interno negocia Kerberos/SPNEGO con la
+   aplicacion de escritorio. El cliente nunca envia usuario, grupos o cabeceras
+   de identidad libres a la aplicacion.
 2. Las cabeceras de identidad entrantes de Internet se eliminan. Solo se acepta
    una asercion firmada y de vida corta del proveedor confiable, por un canal
    autenticado entre proxy y servicio. La frontera actual ignora tanto el PEM
@@ -53,8 +53,10 @@ o documentos. Se aplican con estas condiciones:
    sea un factor independiente. La matriz ENS y el analisis de riesgos decidiran
    si hace falta otro factor o un reto de presencia/usuario separado.
 6. Para validar, rechazar o rectificar un merito se exige reautenticacion
-   reciente y firma de la decision. Para lecturas ordinarias puede mantenerse
-   una sesion interna corta conforme a politica.
+   reciente y firma de la decision. En cada peticion, incluidas las lecturas
+   ordinarias, el cliente presenta una credencial o asercion breve, con
+   audiencia, vigencia y enlace al canal; no existe una sesion ambiental del
+   navegador.
 
 Cuando Go termine mTLS directamente, solo se acepta el certificado de cliente
 que figure en la cadena verificada del `handshake`, coincida byte a byte con el
@@ -73,13 +75,14 @@ recurso.
 - Un administrador usara una cuenta ordinaria para su trabajo habitual y una
   cuenta privilegiada nominativa para administrar. No se permiten cuentas
   compartidas como `admin_rrhh`.
-- Cada sesion selecciona un solo perfil activo. No se suman permisos de varios
-  perfiles.
+- Cada peticion identifica un solo perfil activo junto a la credencial. El
+  servidor resuelve y valida su asignacion; no se suman permisos de varios
+  perfiles ni se confia en roles declarados por el cliente.
 - Los grupos de Active Directory son fuente de asignacion o propuesta de
   perfil, no autorizaciones aceptadas ciegamente. El motor RBAC+ABAC conserva
   version, ambito, vigencia, emisor y revocacion.
-- El cese, cambio de unidad o retirada de funcion desactiva la asignacion y las
-  sesiones activas dentro del plazo fijado.
+- El cese, cambio de unidad o retirada de funcion desactiva la asignacion y
+  revoca las credenciales o aserciones vigentes dentro del plazo fijado.
 - Las operaciones criticas pueden exigir concurrencia de dos personas distintas
   y nunca se satisfacen con dos perfiles de la misma persona.
 
@@ -87,10 +90,21 @@ recurso.
 
 - DNS, certificado TLS, virtual host y cliente del proveedor de identidad
   distintos para portal publico e interno.
-- Cookies distintas con `Secure`, `HttpOnly`, `SameSite` apropiado, nombre y
-  dominio cerrados; sin SSO accidental entre ambas superficies.
-- Claves de firma de sesion, audiencias, emisores, politicas CORS/CSRF y limites
-  de tasa separados.
+- Ninguna superficie usa cookies de sesion. La credencial o asercion se envia
+  de forma explicita en cada peticion y no se guarda en `localStorage` ni
+  `sessionStorage`; la aplicacion de escritorio solo podra custodiarla en
+  memoria o en el almacen seguro del sistema operativo conforme a la politica
+  aprobada.
+- Claves de firma de credenciales, audiencias, emisores, politicas de origen y
+  CORS y limites de tasa separados. Los clientes web autorizados presentan
+  `Authorization` de forma explicita y usan `credentials: "omit"`; bajo ese
+  contrato no hay una credencial ambiental que el navegador pueda adjuntar a
+  una peticion entre sitios. CORS y la validacion de origen se mantienen como
+  defensa en profundidad, y XSS sigue tratandose como amenaza porque podria
+  ejecutar operaciones o sustraer una credencial en memoria. Si en el futuro
+  se habilita un navegador que negocie Kerberos/SPNEGO o presente mTLS de forma
+  automatica, ambos pueden actuar como credenciales ambientales y sera
+  obligatorio reevaluar CSRF y origen antes de abrir esa superficie.
 - API interna con audiencia propia y sin rutas en el gateway publico.
 - Listeners o despliegues separados cuando la frontera de red lo requiera,
   aunque ambos compilen desde los mismos puertos/casos de uso.
@@ -98,23 +112,25 @@ recurso.
   segmento de gestion, puesto autorizado y elevacion just-in-time cuando la
   infraestructura lo permita.
 - Registro de accesos correctos y fallidos, ultimo acceso mostrado al usuario,
-  reautenticacion en puntos criticos, expiracion por inactividad y revocacion de
-  sesiones.
+  reautenticacion en puntos criticos, expiracion breve y revocacion de
+  credenciales.
 
 ## Flujo interno recomendado
 
-1. El puesto administrado accede al nombre interno desde Mulhacen/VPN.
-2. El proxy interno comprueba red, dispositivo cuando exista esa capacidad y
-   Kerberos/SPNEGO.
+1. La aplicacion de escritorio del puesto administrado accede al endpoint
+   interno desde Mulhacen/VPN mediante mTLS.
+2. La pasarela interna comprueba red, dispositivo y Kerberos/SPNEGO.
 3. El proveedor exige certificado protegido por PIN/biometria o el segundo
    factor aprobado para el nivel resultante.
 4. Emite una asercion corta con sujeto opaco, cuenta vinculada, autenticadores
    vinculados al mismo sujeto, instante y nivel de garantia; no incluye roles
    ni permisos finales inventados por el cliente o el proxy.
-5. La aplicacion obliga a seleccionar un perfil activo y consulta su asignacion
-   versionada.
-6. Cada caso de uso solicita autorizacion RBAC+ABAC sobre recurso, ambito y
-   finalidad.
+5. La aplicacion de escritorio presenta esa asercion de forma explicita en cada
+   peticion, junto al perfil activo seleccionado; nunca la persiste en
+   almacenamiento web.
+6. El servidor valida audiencia, vigencia, canal y antirrepeticion, consulta la
+   asignacion versionada y solicita autorizacion RBAC+ABAC sobre recurso, ambito
+   y finalidad.
 7. Una actuacion probatoria prepara bytes canonicos, solicita firma, valida la
    firma y confirma estado, auditoria y outbox de forma atomica.
 
@@ -128,8 +144,8 @@ Ademas de lo anterior:
 - privilegio temporal y aprobado para tareas de alto impacto;
 - doble control para cambios de roles, politicas, claves, retencion, borrado,
   publicacion o rectificacion masiva;
-- sesiones mas cortas, reautenticacion por accion sensible y auditoria enviada a
-  un destino que el propio administrador no pueda alterar.
+- credenciales mas breves, reautenticacion por accion sensible y auditoria
+  enviada a un destino que el propio administrador no pueda alterar.
 
 ## Referencias oficiales y lectura
 
@@ -152,15 +168,18 @@ categorizacion, el analisis de riesgos y la validacion de Sistemas/Seguridad.
 ## Pruebas de aceptacion futuras
 
 - Ninguna IP externa alcanza el listener o rutas internas.
-- Una cabecera de identidad falsificada por el cliente no produce sesion.
-- Un certificado presentado sin cadena TLS verificada no produce sesion.
-- Kerberos sin el segundo mecanismo requerido no abre el portal interno.
+- Una cabecera de identidad falsificada por el cliente no produce un contexto
+  autenticado.
+- Un certificado presentado sin cadena TLS verificada no produce un contexto
+  autenticado.
+- Kerberos sin el segundo mecanismo requerido no abre la API interna.
 - Certificado valido con identidad distinta de la cuenta Kerberos falla
   cerrado y genera alerta sin exponer datos.
 - Cuenta ciudadana, ordinaria y administrativa de una misma persona producen
   sujetos/perfiles y trazas inequívocos.
-- Una sesion RRHH no sirve en el portal ciudadano ni viceversa.
-- La retirada de grupo/asignacion revoca nuevas autorizaciones y sesiones segun
-  el objetivo temporal aprobado.
+- Una credencial o asercion de RRHH no sirve en el portal ciudadano ni
+  viceversa.
+- La retirada de grupo/asignacion revoca nuevas autorizaciones y credenciales
+  segun el objetivo temporal aprobado.
 - Una accion critica exige reautenticacion y, si la politica lo marca, segundo
   aprobador distinto.

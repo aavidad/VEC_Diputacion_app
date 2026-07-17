@@ -193,12 +193,20 @@ Ya documentado en el README: el perfil actual descansa en loopback y red
 interna. El fallo cerrado existente (rechazo de `fake` fuera de loopback)
 mitiga. No desplegar este perfil fuera del puesto local.
 
-### S-04 — CSRF para el futuro adaptador de identidad (nota de diseño)
+### S-04 — Credencial explícita sin cookies (cerrado por DEC-053)
 
-La API heredada usa token portador sin cookies, así que hoy no aplica. Si
-la identidad real termina en cookie de sesión, serán obligatorios
-`SameSite` y tokens anti-CSRF. Debe decidirse al diseñar el adaptador de
-aserciones protegidas, no después.
+DEC-053 descarta las cookies de sesión en todas las superficies. Cada petición
+autenticada presenta una credencial o aserción explícita; el cliente web no la
+persiste en `localStorage` ni `sessionStorage`, y el cliente interno definitivo
+es la aplicación de escritorio con mTLS y Kerberos, fuera de un contexto web
+entre sitios. Los clientes web autorizados usan `Authorization` explícita y
+`credentials: "omit"`; bajo ese contrato el navegador no adjunta una credencial
+ambiental susceptible de CSRF. Se conservan CORS y la validación de origen como
+defensa en profundidad, y XSS permanece dentro del modelo de amenazas porque
+podría ejecutar acciones o sustraer una credencial en memoria. Si un futuro
+cliente web negocia Kerberos/SPNEGO o presenta mTLS automáticamente, esas
+credenciales sí pueden ser ambientales y deberán reevaluarse CSRF y origen
+antes de habilitarlo.
 
 ## Recomendaciones y guardas técnicas propuestas
 
@@ -259,4 +267,4 @@ Mientras las remediaciones H-01 y H-02 no estén ejecutadas y en verde:
 | H-05 | Declarar nivel de madurez por módulo en el contrato | Hecho 2026-07-16: sección de niveles en el [contrato de módulos](contrato_modulos_vec.md) | — |
 | H-06 | Límite de tamaño de ficheros | En vigor: DEC-051 (objetivo 500, tope duro 800), puerta en `verificar_calidad.sh` y CI, línea base solo de versionados | Todos |
 | DEC-053 | Contrato API por módulo para clientes web/escritorio | Hecho 2026-07-16 la parte documental: [contratos API](contratos_api_modulos.md); endpoints de Ola 2 pendientes | Agente |
-| S-04 | Decidir estrategia CSRF con el adaptador de identidad | Pendiente | Decisión humana (DEC en registro) |
+| S-04 | Mantener credencial explícita sin cookies y comprobar CORS/origen y XSS | Decisión cerrada por DEC-053; verificación de implementación pendiente | Agente + Seguridad |

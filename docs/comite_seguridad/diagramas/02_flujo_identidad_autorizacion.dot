@@ -38,11 +38,11 @@ digraph flujo_identidad_autorizacion {
 
   cierre [
     color="#B33A3A", fillcolor="#FDEBEC", penwidth=1.8,
-    label=<<FONT COLOR="#B33A3A" POINT-SIZE="9"><B>CERRADO A PRODUCCIÓN</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="14"><B>No hay todavía una composición confiable de extremo a extremo</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">IdP real, registro durable de sesiones, atestación criptográfica y consumo PostgreSQL siguen pendientes.</FONT>>
+    label=<<FONT COLOR="#B33A3A" POINT-SIZE="9"><B>CERRADO A PRODUCCIÓN</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="14"><B>No hay todavía una composición confiable de extremo a extremo</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">IdP real, credenciales/aserciones por petición, atestación criptográfica y consumo PostgreSQL siguen pendientes.</FONT>>
   ];
 
   subgraph cluster_identidad {
-    label="1 · AUTENTICACIÓN Y SESIÓN";
+    label="1 · AUTENTICACIÓN Y CREDENCIAL";
     color="#6F7F8F";
     fontcolor="#344454";
     fontname="DejaVu Sans";
@@ -53,7 +53,7 @@ digraph flujo_identidad_autorizacion {
 
     superficie [
       color="#B7791F", fillcolor="#FFF4D6",
-      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL · CONTRATOS</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Superficie y red exactas</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">pública anónima · personal externa · interna · administración<BR ALIGN="LEFT"/>listeners, cookies y audiencias no se comparten</FONT>>
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL · CONTRATOS</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Superficie y red exactas</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">pública anónima · personal externa · interna · administración<BR ALIGN="LEFT"/>sin cookies · listeners, credenciales y audiencias separados</FONT>>
     ];
     idp [
       color="#2F6B9A", fillcolor="#EAF2FB",
@@ -61,16 +61,16 @@ digraph flujo_identidad_autorizacion {
     ];
     frontera_identidad [
       color="#B7791F", fillcolor="#FFF4D6",
-      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL · NÚCLEO PROBADO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Frontera de identidad</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">mTLS del proxy · firma/revocación · ACR/AMR<BR ALIGN="LEFT"/>antirrepetición · factores y grupos criptográficos</FONT>>
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL · NÚCLEO PROBADO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Frontera de identidad</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">mTLS cliente/pasarela · firma/revocación · ACR/AMR<BR ALIGN="LEFT"/>antirrepetición · factores y grupos criptográficos</FONT>>
     ];
-    sesion [
+    credencial [
       color="#B7791F", fillcolor="#FFF4D6",
-      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Sesión + cuenta activas</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">consumir aserción y registrar de forma atómica;<BR ALIGN="LEFT"/>puertos definidos, repositorio durable pendiente</FONT>>
+      label=<<FONT COLOR="#9A6317" POINT-SIZE="9"><B>PARCIAL</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Credencial + cuenta activas</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">aserción breve explícita en cada petición, sin cookie;<BR ALIGN="LEFT"/>audiencia, canal, vigencia y antirrepetición verificados</FONT>>
     ];
 
     superficie -> idp [label="mecanismo exigido"];
     idp -> frontera_identidad [label="evidencia protegida"];
-    frontera_identidad -> sesion [label="una sola sesión"];
+    frontera_identidad -> credencial [label="una credencial explícita"];
   }
 
   subgraph cluster_autorizacion {
@@ -121,7 +121,7 @@ digraph flujo_identidad_autorizacion {
     ];
     transaccion [
       color="#2F6B9A", fillcolor="#EAF2FB",
-      label=<<FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>OBJETIVO PRODUCTIVO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Revalidación y consumo atómicos</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">releer sesión, cuenta, asignación, rol y políticas;<BR ALIGN="LEFT"/>consumir DecisionRef junto al efecto en PostgreSQL</FONT>>
+      label=<<FONT COLOR="#2F6B9A" POINT-SIZE="9"><B>OBJETIVO PRODUCTIVO</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="13"><B>Revalidación y consumo atómicos</B></FONT><BR ALIGN="LEFT"/><FONT POINT-SIZE="9">releer credencial, cuenta, asignación, rol y políticas;<BR ALIGN="LEFT"/>consumir DecisionRef junto al efecto en PostgreSQL</FONT>>
     ];
     efecto [
       color="#2F6B9A", fillcolor="#EAF2FB",
@@ -132,7 +132,7 @@ digraph flujo_identidad_autorizacion {
     transaccion -> efecto [label="COMMIT"];
   }
 
-  sesion -> actor [label="cuenta vinculada"];
+  credencial -> actor [label="cuenta vinculada"];
   decision -> pep [label="evidencia opaca"];
   cierre -> superficie [style=dashed, color="#B33A3A", arrowhead=tee, label="no habilitado", constraint=false];
 

@@ -20,10 +20,10 @@ Una misma persona podrá tener varias vinculaciones:
 - personal tramitador, técnico o resolutor de RRHH;
 - personal de soporte, auditoría o administración.
 
-Estas vinculaciones no producirán una unión automática de permisos. Toda sesión
-tendrá un único perfil activo, un ámbito y una vigencia. El cambio a un perfil de
-mayor riesgo será explícito, quedará auditado y podrá exigir autenticación
-reforzada.
+Estas vinculaciones no producirán una unión automática de permisos. Cada
+petición autenticada tendrá un único perfil activo, un ámbito y una vigencia.
+El cambio a un perfil de mayor riesgo será explícito, quedará auditado y podrá
+exigir autenticación reforzada.
 
 Ejemplo: una técnica de RRHH que entre como empleada solo podrá consultar sus
 propias nóminas, solicitudes, permisos y expediente. Para tramitar una bolsa
@@ -50,12 +50,25 @@ Un empleado también podrá presentarse a un proceso selectivo. Lo hará en el
 contexto de aspirante, sin heredar sus permisos internos ni recibir ventajas de
 acceso a información no publicada.
 
+Los nombres de la tabla describen espacios funcionales, no obligan a un canal
+web. El portal del personal, el espacio del responsable, el backoffice y la
+administración se consumirán mediante la aplicación interna de escritorio; la
+web exterior queda para el portal público y el área personal del aspirante.
+
 ## 3. Fronteras técnicas mínimas
 
 - Pasarelas y audiencias de credenciales distintas para portal público, área
   personal, portal del empleado, backoffice y administración.
-- Cookies, políticas de contenido, límites, sesiones y claves separadas por
-  superficie.
+- No habrá cookies de sesión en ninguna superficie. Cada petición autenticada
+  llevará una credencial o aserción explícita, con audiencia propia; no se
+  persistirá en `localStorage` ni `sessionStorage`. Se separarán por superficie
+  las políticas de contenido y origen, límites, emisores y claves.
+- Los clientes web autorizados enviarán `Authorization` de forma explícita con
+  `credentials: "omit"`; bajo ese contrato el navegador no adjunta una
+  credencial ambiental entre sitios. Se mantienen CORS y la validación de
+  origen como defensa en profundidad, y la prevención de XSS sigue siendo
+  obligatoria. Un futuro cliente web que negocie Kerberos/SPNEGO o presente
+  mTLS automáticamente deberá reevaluar CSRF y origen antes de habilitarse.
 - La API pública leerá una proyección de publicación separada; nunca consultará
   directamente expedientes, personas o el almacén documental privado.
 - El backoffice y la administración no se expondrán mediante la pasarela
