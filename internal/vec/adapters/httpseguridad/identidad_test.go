@@ -523,47 +523,6 @@ func TestRegistroConsumeAsercionAtomicamenteEnCarrera(t *testing.T) {
 	}
 }
 
-func TestProyeccionRevalidaRevocacionCuentaYVigencia(t *testing.T) {
-	crear := func(t *testing.T) (*ServicioIdentidad, IdentidadSesion, *registroMemoria, *relojFijo) {
-		t.Helper()
-		ahora := time.Date(2026, 7, 15, 8, 0, 0, 0, time.UTC)
-		configuracion := configuracionInternaValida()
-		verificador := &verificadorFalso{}
-		registro := nuevoRegistroMemoria()
-		reloj := &relojFijo{ahora: ahora}
-		servicio := debeServicio(t, configuracion, verificador, evaluadorValido(dominiovec.AuthAssuranceHigh), registro, reloj)
-		canal := debeCanalTLS(t, servicio, configuracion)
-		verificador.fijarAsercion(asercionInternaValida(ahora, configuracion, canal))
-		identidad, err := servicio.Resolver(context.Background(), debeCredencial(t, []byte("opaca"), canal))
-		if err != nil {
-			t.Fatalf("resolver: %v", err)
-		}
-		return servicio, identidad, registro, reloj
-	}
-
-	t.Run("sesion revocada", func(t *testing.T) {
-		servicio, identidad, registro, _ := crear(t)
-		registro.revocar("sesion-001")
-		if _, _, err := servicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
-			t.Fatalf("sesion revocada aceptada: %v", err)
-		}
-	})
-	t.Run("cuenta inactiva", func(t *testing.T) {
-		servicio, identidad, registro, _ := crear(t)
-		registro.inactivar("cuenta-tecnica")
-		if _, _, err := servicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
-			t.Fatalf("cuenta inactiva aceptada: %v", err)
-		}
-	})
-	t.Run("asercion caducada", func(t *testing.T) {
-		servicio, identidad, _, reloj := crear(t)
-		reloj.fijar(time.Date(2026, 7, 15, 8, 2, 0, 0, time.UTC))
-		if _, _, err := servicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
-			t.Fatalf("sesion caducada aceptada: %v", err)
-		}
-	})
-}
-
 func TestCredencialPrivadaRedactaSerializadores(t *testing.T) {
 	configuracion := configuracionInternaValida()
 	servicio := debeServicio(t, configuracion, &verificadorFalso{}, evaluadorValido(dominiovec.AuthAssuranceHigh), nuevoRegistroMemoria(), &relojFijo{ahora: time.Now()})

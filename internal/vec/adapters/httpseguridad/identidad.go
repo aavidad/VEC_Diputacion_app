@@ -532,6 +532,15 @@ func (s *ServicioIdentidad) Resolver(ctx context.Context, credencial CredencialP
 	}
 	estado.metodoObservado = metodoObservado
 	alta := altaSesion(estado)
+	// La frontera de aplicacion no entrega al puerto una escritura que ella
+	// misma no pueda reconstruir y validar de forma exacta. La vigencia se
+	// comprueba de nuevo justo antes del efecto durable: el verificador y el
+	// evaluador pueden haber consumido tiempo desde la primera comprobacion.
+	ahoraAlta := s.reloj.Ahora()
+	if ahoraAlta.IsZero() || alta.Validar() != nil ||
+		validarEstadoSesion(estado, s.configuracion, ahoraAlta) != nil {
+		return IdentidadSesion{}, ErrSesionNoValida
+	}
 	confirmacion, err := s.registroSesiones.ConsumirAsercionYRegistrar(ctx, alta)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -547,6 +556,7 @@ func (s *ServicioIdentidad) Resolver(ctx context.Context, credencial CredencialP
 	}
 	ahoraFinal := s.reloj.Ahora()
 	if ahoraFinal.IsZero() || ahoraFinal.Before(confirmacion.SesionRevalidadaEn) ||
+		validarEstadoSesion(estado, s.configuracion, ahoraFinal) != nil ||
 		!ahoraFinal.Before(estado.expiraEn) ||
 		!ahoraFinal.Before(confirmacion.SesionValidaHasta) {
 		return IdentidadSesion{}, ErrSesionNoValida
@@ -636,6 +646,7 @@ func (s *ServicioIdentidad) ProyectarPrincipal(
 	}
 	ahoraFinal := s.reloj.Ahora()
 	if ahoraFinal.IsZero() || ahoraFinal.Before(identidad.confirmacion.SesionRevalidadaEn) ||
+		validarEstadoSesion(identidad.estado, s.configuracion, ahoraFinal) != nil ||
 		!ahoraFinal.Before(identidad.estado.expiraEn) ||
 		!ahoraFinal.Before(identidad.confirmacion.SesionValidaHasta) {
 		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
