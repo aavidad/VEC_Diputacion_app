@@ -51,6 +51,9 @@ func Compilar(conjunto reglasbaremo.ConjuntoReglasBaremo) (PlanExperiencia, erro
 			return PlanExperiencia{}, err
 		}
 	}
+	if err := validarCatalogosCriterioCompatibles(reglas); err != nil {
+		return PlanExperiencia{}, err
+	}
 	grupos := conjunto.GruposConcurrenciaExperiencia()
 	for _, grupo := range grupos {
 		if err := validarGrupoCompilableV1(grupo); err != nil {
@@ -113,6 +116,27 @@ func validarReglaCompilableV1(regla reglasbaremo.ReglaExperiencia) error {
 	if regla.MaximoUnidades().EstaLimitado() &&
 		momento == reglasbaremo.RedondearPorPeriodo {
 		return nuevoError("regla.maximo_unidades", CodigoTopeUnidadesNoSoportado)
+	}
+	return nil
+}
+
+// validarCatalogosCriterioCompatibles impide que una misma clave tenga dos
+// significados dentro de una instantanea. La identidad del catalogo comprende
+// conjuntamente referencia, version y huella; no basta con que coincida una de
+// ellas.
+func validarCatalogosCriterioCompatibles(reglas []reglasbaremo.ReglaExperiencia) error {
+	catalogos := make(map[string]reglasbaremo.ReferenciaVersionada)
+	for _, regla := range reglas {
+		for _, criterio := range regla.Criterios() {
+			catalogo, existe := catalogos[criterio.Clave()]
+			if existe && !referenciasPlanIguales(catalogo, criterio.Catalogo()) {
+				return nuevoError(
+					"regla.criterios.catalogo",
+					CodigoCatalogoCriterioIncompatible,
+				)
+			}
+			catalogos[criterio.Clave()] = criterio.Catalogo()
+		}
 	}
 	return nil
 }
@@ -217,6 +241,9 @@ func (p PlanExperiencia) Validar() error {
 	}
 	if len(p.secciones) == 0 || len(p.gruposConcurrencia) == 0 || len(p.reglas) == 0 {
 		return errorPlanInvalido()
+	}
+	if err := validarCatalogosCriterioCompatibles(p.reglas); err != nil {
+		return err
 	}
 	// Reconstruir el agregado vuelve a aplicar limites de volumen, unicidad de
 	// referencias, relaciones regla/seccion/grupo y todos los topes cruzados. Su

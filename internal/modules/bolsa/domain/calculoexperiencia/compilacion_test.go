@@ -72,6 +72,74 @@ func TestCompilarEsDeterministaYDefiendeColecciones(t *testing.T) {
 	}
 }
 
+func TestCompilarExigeUnCatalogoPorClaveDeCriterio(t *testing.T) {
+	referencia := "catalogo:ambito:compartido"
+	compartido := referenciaCompilacion(t, referencia, 4)
+
+	t.Run("mismo_catalogo_compartido", func(t *testing.T) {
+		conjunto := conjuntoCatalogosCriterioCompilacion(t, compartido, compartido)
+		if _, err := Compilar(conjunto); err != nil {
+			t.Fatalf("catalogo compartido rechazado: %v", err)
+		}
+	})
+
+	casos := []struct {
+		nombre  string
+		segundo reglasbaremo.ReferenciaVersionada
+	}{
+		{
+			nombre:  "referencia_distinta",
+			segundo: referenciaCompilacion(t, "catalogo:ambito:otro", 4),
+		},
+		{
+			nombre:  "version_distinta",
+			segundo: referenciaCompilacion(t, referencia, 5),
+		},
+		{
+			nombre: "huella_distinta",
+			segundo: referenciaCompilacionConSemillaHuella(
+				t, referencia, 4, referencia+":contenido_distinto",
+			),
+		},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			_, err := Compilar(conjuntoCatalogosCriterioCompilacion(
+				t, compartido, caso.segundo,
+			))
+			exigirErrorCompilacion(
+				t, err,
+				ErrCatalogoCriterioIncompatible,
+				CodigoCatalogoCriterioIncompatible,
+			)
+		})
+	}
+}
+
+func TestPlanValidarDetectaCatalogoDeCriterioAlterado(t *testing.T) {
+	compartido := referenciaCompilacion(t, "catalogo:ambito:compartido", 4)
+	plan, err := Compilar(conjuntoCatalogosCriterioCompilacion(
+		t, compartido, compartido,
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	alterado := plan
+	alterado.reglas = append([]reglasbaremo.ReglaExperiencia(nil), plan.reglas...)
+	alterado.reglas[1] = reglaConCatalogoCompilacion(
+		t,
+		alterado.reglas[1],
+		referenciaCompilacion(t, "catalogo:ambito:alterado", 4),
+	)
+	err = alterado.Validar()
+	exigirErrorCompilacion(
+		t, err,
+		ErrCatalogoCriterioIncompatible,
+		CodigoCatalogoCriterioIncompatible,
+	)
+}
+
 func TestCompilarRechazaPuertasNoGobernadasV1(t *testing.T) {
 	pruebas := []struct {
 		nombre   string
@@ -560,7 +628,7 @@ func reglaCompilacion(
 ) reglasbaremo.ReglaExperiencia {
 	t.Helper()
 	criterio := debeCompilacion(reglasbaremo.NuevoCriterioExperiencia(
-		"ambito", referenciaCompilacion(t, "catalogo:ambito:"+clave, 4),
+		"ambito", referenciaCompilacion(t, "catalogo:ambito:compartido", 4),
 		[]string{"administracion_local", "diputacion_granada"},
 	))
 	return debeCompilacion(reglasbaremo.NuevaReglaExperiencia(
@@ -572,13 +640,58 @@ func reglaCompilacion(
 	))
 }
 
+func conjuntoCatalogosCriterioCompilacion(
+	t *testing.T,
+	primero reglasbaremo.ReferenciaVersionada,
+	segundo reglasbaremo.ReferenciaVersionada,
+) reglasbaremo.ConjuntoReglasBaremo {
+	t.Helper()
+	base := conjuntoOrdenadoCompilacion(t)
+	reglas := base.ReglasExperiencia()
+	reglas[0] = reglaConCatalogoCompilacion(t, reglas[0], primero)
+	reglas[1] = reglaConCatalogoCompilacion(t, reglas[1], segundo)
+	return debeCompilacion(reglasbaremo.NuevoConjuntoReglasBaremo(
+		base.Identidad(), base.Bases(), base.FechaCorte(),
+		base.Secciones(), base.GruposConcurrenciaExperiencia(), reglas,
+	))
+}
+
+func reglaConCatalogoCompilacion(
+	t *testing.T,
+	regla reglasbaremo.ReglaExperiencia,
+	catalogo reglasbaremo.ReferenciaVersionada,
+) reglasbaremo.ReglaExperiencia {
+	t.Helper()
+	criterios := regla.Criterios()
+	criterio := criterios[0]
+	criterios[0] = debeCompilacion(reglasbaremo.NuevoCriterioExperiencia(
+		criterio.Clave(), catalogo, criterio.Valores(),
+	))
+	return debeCompilacion(reglasbaremo.NuevaReglaExperiencia(
+		regla.Clave(), regla.Definicion(), regla.SeccionClave(), regla.Orden(),
+		criterios, regla.GrupoConcurrenciaClave(), regla.PrioridadConcurrencia(),
+		regla.UnidadTemporal(), regla.Jornada(), regla.Restos(), regla.Redondeo(),
+		regla.PuntosPorUnidad(), regla.MaximoUnidades(), regla.MaximoPuntos(),
+	))
+}
+
 func referenciaCompilacion(
 	t *testing.T,
 	referencia string,
 	version uint64,
 ) reglasbaremo.ReferenciaVersionada {
 	t.Helper()
-	huella := sha256.Sum256([]byte(referencia))
+	return referenciaCompilacionConSemillaHuella(t, referencia, version, referencia)
+}
+
+func referenciaCompilacionConSemillaHuella(
+	t *testing.T,
+	referencia string,
+	version uint64,
+	semilla string,
+) reglasbaremo.ReferenciaVersionada {
+	t.Helper()
+	huella := sha256.Sum256([]byte(semilla))
 	return debeCompilacion(reglasbaremo.NuevaReferenciaVersionada(
 		referencia, version, hex.EncodeToString(huella[:]),
 	))
