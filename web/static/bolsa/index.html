@@ -7,27 +7,49 @@
   <title>Bolsa y procesos selectivos | Portal VEC</title>
   <link rel="icon" href="/bolsa/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css?v=20260715-theme">
-  <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260716-categorias-v1">
+  <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260717-menu-publico-v2">
   <script src="/bolsa/bolsa.js?v=20260716-categorias-v1" defer></script>
 </head>
 <body class="portal-bolsa-publico">
   <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
 
-  <header class="cabecera-publica">
-    <a class="marca-publica" href="/bolsa/" aria-label="Inicio de Bolsa y procesos selectivos">
-      <img class="marca-publica__logo" src="/portal-empleado/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
-      <span><strong>Bolsa y procesos selectivos</strong><small>Diputación de Granada · Portal público</small></span>
-    </a>
-    <nav class="acciones-accesibilidad" aria-label="Preferencias de visualización">
-      <button id="alternar-texto" type="button" aria-pressed="false">Texto grande</button>
-      <button id="alternar-contraste" type="button" aria-pressed="false">Alto contraste</button>
-    </nav>
-  </header>
+  <div class="portal-publico-shell">
+    <aside class="menu-lateral-publico" aria-label="Navegación del portal público de empleo">
+      <a class="marca-publica" href="/bolsa/" aria-label="Inicio de Bolsa y procesos selectivos">
+        <img class="marca-publica__logo" src="/portal-empleado/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
+        <span><strong>Portal público de empleo</strong><small>Bolsas y procesos selectivos</small></span>
+      </a>
 
-  <div id="aviso-demostracion" class="aviso-demostracion" role="status">
-    <strong>DEMOSTRACIÓN</strong>
-    <span id="texto-aviso-demostracion">Contenido sintético, sin validez administrativa ni datos personales.</span>
-  </div>
+      <div class="alcance-zona-publica" role="note">
+        <strong>Zona pública</strong>
+        <span>Consulta anónima, sin expedientes ni datos personales.</span>
+      </div>
+
+      <nav class="navegacion-publica" aria-label="Secciones públicas disponibles">
+        <p>Bolsa de trabajo</p>
+        <a href="#contenido-principal" aria-current="page"><span aria-hidden="true">1</span> Convocatorias</a>
+        <a href="#filtros-convocatorias"><span aria-hidden="true">2</span> Buscar y filtrar</a>
+        <a href="#directorio-categorias"><span aria-hidden="true">3</span> Categorías profesionales</a>
+        <a href="#ayuda-publica"><span aria-hidden="true">4</span> Ayuda pública</a>
+      </nav>
+    </aside>
+
+    <div class="portal-publico-superficie">
+      <header class="cabecera-publica">
+        <div class="contexto-publico">
+          <span>Portal de Recursos Humanos</span>
+          <strong>Bolsa y procesos selectivos</strong>
+        </div>
+        <nav class="acciones-accesibilidad" aria-label="Preferencias de visualización">
+          <button id="alternar-texto" type="button" aria-pressed="false">Texto grande</button>
+          <button id="alternar-contraste" type="button" aria-pressed="false">Alto contraste</button>
+        </nav>
+      </header>
+
+      <div id="aviso-demostracion" class="aviso-demostracion" role="status">
+        <strong>DEMOSTRACIÓN</strong>
+        <span id="texto-aviso-demostracion">Contenido sintético, sin validez administrativa ni datos personales.</span>
+      </div>
 
   <main id="contenido-principal" class="contenido-publico" tabindex="-1">
     <section class="presentacion-publica" aria-labelledby="titulo-portal">
@@ -162,11 +184,35 @@
       <p class="nota-suscripciones"><strong>Avisos por categoría:</strong> se configurarán desde el área personal autenticada, con consentimiento y justificante. Este portal público no guarda preferencias ni datos de contacto.</p>
     </section>
 
+    <section id="ayuda-publica" class="ayuda-publica" aria-labelledby="titulo-ayuda-publica">
+      <div>
+        <p class="eyebrow">Ayuda del portal público</p>
+        <h2 id="titulo-ayuda-publica" tabindex="-1">Cómo consultar una bolsa o proceso selectivo</h2>
+        <p>La información de esta zona es pública. No introduzca DNI, teléfonos, direcciones ni otros datos personales en el buscador.</p>
+      </div>
+      <div class="ayuda-publica__preguntas">
+        <details>
+          <summary>¿Cómo encuentro una convocatoria?</summary>
+          <p>Use el buscador o los filtros de tipo, categoría, estado y plazo. Después seleccione «Consultar ficha pública».</p>
+        </details>
+        <details>
+          <summary>¿Dónde están las bases y los requisitos?</summary>
+          <p>La ficha de cada convocatoria reúne sus plazos, requisitos, documentos públicos y respuestas específicas.</p>
+        </details>
+        <details>
+          <summary>¿Esta página permite presentar una solicitud?</summary>
+          <p>No. Esta es una consulta anónima. La presentación y firma se realizarán en el área personal autenticada cuando esté habilitada.</p>
+        </details>
+      </div>
+    </section>
+
     <noscript><p class="estado-panel estado-error">Active JavaScript para consultar la API pública desde esta página. La API permanece disponible en <code>/api/publico/bolsa/convocatorias</code>.</p></noscript>
   </main>
 
-  <footer class="pie-publico">
-    <p>Portal público VEC · No introduzca datos personales en el buscador.</p>
-  </footer>
+      <footer class="pie-publico">
+        <p>Portal público VEC · No introduzca datos personales en el buscador.</p>
+      </footer>
+    </div>
+  </div>
 </body>
 </html>

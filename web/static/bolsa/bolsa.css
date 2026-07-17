@@ -8,6 +8,26 @@
   display: none;
 }
 
+.portal-publico-shell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: 272px minmax(0, 1fr);
+}
+
+.portal-publico-superficie {
+  min-width: 0;
+}
+
+.menu-lateral-publico {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid #28577f;
+  background: #07365e;
+  color: #fff;
+}
+
 [hidden] {
   display: none !important;
 }
@@ -29,6 +49,9 @@
 }
 
 .cabecera-publica {
+  position: sticky;
+  z-index: 20;
+  top: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -39,19 +62,21 @@
 }
 
 .marca-publica {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--text);
+  display: block;
+  padding: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, .16);
+  color: #fff;
   text-decoration: none;
 }
 
 .marca-publica__logo {
   display: block;
-  width: min(42vw, 190px);
+  width: min(100%, 218px);
   height: auto;
+  box-sizing: border-box;
+  margin-bottom: 11px;
   padding: 5px 7px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, .34);
   border-radius: var(--radius);
   background: #fff;
   object-fit: contain;
@@ -63,8 +88,92 @@
 }
 
 .marca-publica small {
-  margin-top: 2px;
+  margin-top: 3px;
+  color: #d5e6f5;
+}
+
+.alcance-zona-publica {
+  margin: 14px;
+  padding: 12px;
+  border: 1px solid #4383ad;
+  border-radius: var(--radius);
+  background: #0b496f;
+}
+
+.alcance-zona-publica strong,
+.alcance-zona-publica span {
+  display: block;
+}
+
+.alcance-zona-publica span {
+  margin-top: 4px;
+  color: #d8eaf7;
+  font-size: .78rem;
+  line-height: 1.4;
+}
+
+.navegacion-publica {
+  padding: 4px 10px 20px;
+}
+
+.navegacion-publica > p {
+  margin: 12px 8px 7px;
+  color: #aac9e0;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.navegacion-publica a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin: 3px 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  color: #eaf5fc;
+  text-decoration: none;
+}
+
+.navegacion-publica a > span {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: #1f6493;
+  font-size: .76rem;
+  font-weight: 800;
+}
+
+.navegacion-publica a:hover,
+.navegacion-publica a:focus-visible {
+  background: #0d527d;
+}
+
+.navegacion-publica a[aria-current="page"] {
+  background: #0868bd;
+  box-shadow: inset 4px 0 0 #72c7ff;
+  font-weight: 750;
+}
+
+.contexto-publico span,
+.contexto-publico strong {
+  display: block;
+}
+
+.contexto-publico span {
   color: var(--muted);
+  font-size: .78rem;
+}
+
+.contexto-publico strong {
+  margin-top: 2px;
+  color: var(--text);
+  font-size: 1.05rem;
 }
 
 .acciones-accesibilidad,
@@ -546,6 +655,51 @@ button:hover {
   color: var(--muted-strong);
 }
 
+.ayuda-publica {
+  display: grid;
+  grid-template-columns: minmax(260px, .8fr) minmax(360px, 1.2fr);
+  gap: 24px;
+  margin-top: 22px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--document);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.ayuda-publica h2 {
+  margin-bottom: 8px;
+}
+
+.ayuda-publica > div > p:last-child {
+  margin: 0;
+  color: var(--muted-strong);
+}
+
+.ayuda-publica__preguntas {
+  display: grid;
+  gap: 8px;
+}
+
+.ayuda-publica__preguntas details {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.ayuda-publica__preguntas summary {
+  min-height: 32px;
+  cursor: pointer;
+  font-weight: 720;
+}
+
+.ayuda-publica__preguntas p {
+  margin: 8px 0 0;
+  color: var(--muted-strong);
+}
+
 .pie-publico {
   padding: 20px;
   border-top: 1px solid var(--line);
@@ -573,6 +727,17 @@ button:hover {
   --shadow: none;
 }
 
+.portal-bolsa-publico.alto-contraste .menu-lateral-publico,
+.portal-bolsa-publico.alto-contraste .alcance-zona-publica {
+  border-color: #fff;
+  background: #000;
+}
+
+.portal-bolsa-publico.alto-contraste .navegacion-publica a[aria-current="page"] {
+  outline: 2px solid #fff;
+  background: #003f88;
+}
+
 @media (max-width: 1100px) {
   .panel-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .acciones-filtros { grid-column: auto; }
@@ -581,6 +746,13 @@ button:hover {
 }
 
 @media (max-width: 800px) {
+  .portal-publico-shell { grid-template-columns: 1fr; }
+  .menu-lateral-publico { position: static; height: auto; border-right: 0; border-bottom: 1px solid #28577f; }
+  .marca-publica { display: flex; align-items: center; gap: 12px; padding: 12px 18px; }
+  .marca-publica__logo { width: min(42vw, 180px); margin: 0; }
+  .alcance-zona-publica { margin: 0 18px 10px; }
+  .navegacion-publica { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0 14px 12px; }
+  .navegacion-publica > p { grid-column: 1 / -1; }
   .cabecera-publica { align-items: flex-start; flex-direction: column; padding: 12px 18px; }
   .contenido-publico { width: min(100% - 28px, 720px); padding-top: 18px; }
   .panel-filtros, .espacio-trabajo-publico { grid-template-columns: 1fr; }
@@ -591,14 +763,22 @@ button:hover {
   .directorio-categorias__cabecera { flex-direction: column; }
   .directorio-categorias__cabecera .integridad-publica { max-width: none; text-align: left; }
   .filtros-directorio { grid-template-columns: 1fr; }
+  .ayuda-publica { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
+  .marca-publica__logo { width: 150px; }
+  .marca-publica strong { font-size: .9rem; }
+  .marca-publica small { font-size: .75rem; }
+  .alcance-zona-publica { padding: 9px 11px; }
+  .navegacion-publica { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .navegacion-publica > p { grid-column: 1 / -1; }
+  .navegacion-publica a { align-items: flex-start; min-width: 0; font-size: .86rem; }
   .acciones-accesibilidad { width: 100%; }
   .acciones-accesibilidad button { flex: 1; }
   .aviso-demostracion { align-items: flex-start; flex-direction: column; }
   .contenido-publico { width: min(100% - 20px, 430px); }
-  .panel-filtros, .panel-listado, .panel-detalle, .directorio-categorias { padding: 12px; }
+  .panel-filtros, .panel-listado, .panel-detalle, .directorio-categorias, .ayuda-publica { padding: 12px; }
   .acciones-filtros, .paginacion { align-items: stretch; flex-direction: column; }
   .detalle-cabecera { flex-direction: column; }
   .categoria-directorio { grid-template-columns: 1fr; }
@@ -610,7 +790,8 @@ button:hover {
 }
 
 @media print {
-  .acciones-accesibilidad, .panel-filtros, .paginacion, .pie-publico, .panel-listado, .directorio-categorias { display: none !important; }
+  .menu-lateral-publico, .acciones-accesibilidad, .panel-filtros, .paginacion, .pie-publico, .panel-listado, .directorio-categorias, .ayuda-publica { display: none !important; }
+  .portal-publico-shell { display: block; }
   .contenido-publico, .espacio-trabajo-publico { width: 100%; display: block; }
   .panel-detalle { max-height: none; border: 0; box-shadow: none; }
 }
