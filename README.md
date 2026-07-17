@@ -255,6 +255,7 @@ Pendiente productivo:
 - [Catalogo funcional y hoja de ruta integral de RRHH](docs/estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md)
 - [Peticion de RRHH: transcripcion accesible y lectura tecnica inicial](docs/estudio_requisitos/peticion_rrhh_transcripcion_y_lectura.md)
 - [Baremacion configurable, jornada y servicios obtenidos de oficio](docs/estudio_requisitos/baremacion_configurable_jornada_y_datos_de_oficio.md)
+- [Decisiones del calculador exacto de experiencia V1](docs/portal_vec/decisiones_calculador_experiencia_v1.md)
 - [Integracion del Baremador de puestos singularizados y otros procesos](docs/estudio_requisitos/integracion_baremador_concursos_provision.md)
 - [Modelo historico de RPT, plazas, puestos, ocupaciones y vacantes](docs/estudio_requisitos/modelo_historico_rpt_plazas_puestos_y_vacantes.md)
 - [Calendario habil, laboral y de jornada historico](docs/estudio_requisitos/calendario_habil_laboral_historico.md)
