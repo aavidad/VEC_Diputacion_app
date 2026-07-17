@@ -283,14 +283,18 @@ func (r racionalExacto) resto() (racionalExacto, error) {
 	return construirRacionalExacto(r.contador, residuo, &r.denominador)
 }
 
-// redondearAPuntos interpreta el racional como una cantidad exacta de
-// micropuntos, no de puntos, y la convierte al tipo administrativo acotado.
-func (r racionalExacto) redondearAPuntos(modo baremacion.ModoRedondeo) (baremacion.Puntos, error) {
+// redondearAEnteroExacto aplica la politica publicada pero conserva el
+// resultado como entero arbitrario acotado por el presupuesto exacto. No aplica
+// todavia el limite tecnico de Puntos: los topes de regla y seccion pertenecen
+// entre este paso y convertirAPuntos.
+func (r racionalExacto) redondearAEnteroExacto(
+	modo baremacion.ModoRedondeo,
+) (racionalExacto, error) {
 	if err := r.comprobarOperacionUnaria(); err != nil {
-		return baremacion.Puntos{}, err
+		return racionalExacto{}, err
 	}
 	if !modo.EsValido() {
-		return baremacion.Puntos{}, nuevoError("modo_redondeo", CodigoModoRedondeoInvalido)
+		return racionalExacto{}, nuevoError("modo_redondeo", CodigoModoRedondeoInvalido)
 	}
 	cociente := new(big.Int)
 	residuo := new(big.Int)
@@ -300,7 +304,7 @@ func (r racionalExacto) redondearAPuntos(modo baremacion.ModoRedondeo) (baremaci
 	switch modo {
 	case baremacion.RedondeoExacto:
 		if residuo.Sign() != 0 {
-			return baremacion.Puntos{}, nuevoError("puntos", CodigoResultadoNoExacto)
+			return racionalExacto{}, nuevoError("puntos", CodigoResultadoNoExacto)
 		}
 	case baremacion.RedondeoTruncar:
 	case baremacion.RedondeoHaciaArriba:
@@ -314,13 +318,38 @@ func (r racionalExacto) redondearAPuntos(modo baremacion.ModoRedondeo) (baremaci
 	if incrementar {
 		cociente.Add(cociente, big.NewInt(1))
 	}
-	if !cociente.IsInt64() || cociente.Sign() < 0 ||
-		cociente.Cmp(big.NewInt(baremacion.MaximoMicropuntos)) > 0 {
+	return construirRacionalExacto(r.contador, cociente, big.NewInt(1))
+}
+
+// convertirAPuntos cruza la frontera administrativa exclusivamente cuando el
+// valor ya es un entero de micropuntos y se han aplicado los topes. No redondea
+// ni satura de forma implicita.
+func (r racionalExacto) convertirAPuntos() (baremacion.Puntos, error) {
+	if err := r.comprobarOperacionUnaria(); err != nil {
+		return baremacion.Puntos{}, err
+	}
+	if r.denominador.Cmp(big.NewInt(1)) != 0 {
+		return baremacion.Puntos{}, nuevoError("puntos", CodigoResultadoNoExacto)
+	}
+	if !r.numerador.IsInt64() ||
+		r.numerador.Cmp(big.NewInt(baremacion.MaximoMicropuntos)) > 0 {
 		return baremacion.Puntos{}, nuevoError("puntos", CodigoDesbordamiento)
 	}
-	resultado, err := baremacion.PuntosDesdeMicropuntos(cociente.Int64())
+	resultado, err := baremacion.PuntosDesdeMicropuntos(r.numerador.Int64())
 	if err != nil {
 		return baremacion.Puntos{}, nuevoError("puntos", CodigoDesbordamiento)
 	}
 	return resultado, nil
+}
+
+// redondearAPuntos conserva el atajo historico para resultados que deben cruzar
+// inmediatamente la frontera administrativa. El calculador no debe usarlo
+// antes de aplicar topes: para ese pipeline llama a redondearAEnteroExacto y,
+// solo al final, a convertirAPuntos.
+func (r racionalExacto) redondearAPuntos(modo baremacion.ModoRedondeo) (baremacion.Puntos, error) {
+	entero, err := r.redondearAEnteroExacto(modo)
+	if err != nil {
+		return baremacion.Puntos{}, err
+	}
+	return entero.convertirAPuntos()
 }

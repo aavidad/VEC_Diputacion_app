@@ -135,6 +135,73 @@ func TestRacionalExactoAplicaTodosLosModosDeRedondeo(t *testing.T) {
 	}
 }
 
+func TestRacionalExactoRedondeaAEnteroAntesDeConvertirAPuntos(t *testing.T) {
+	casos := []struct {
+		nombre      string
+		numerador   int64
+		denominador int64
+		modo        baremacion.ModoRedondeo
+		esperado    string
+	}{
+		{"exacto", 4, 2, baremacion.RedondeoExacto, "2/1"},
+		{"truncar", 5, 2, baremacion.RedondeoTruncar, "2/1"},
+		{"arriba", 5, 2, baremacion.RedondeoHaciaArriba, "3/1"},
+		{"mitad_arriba", 5, 2, baremacion.RedondeoMitadArriba, "3/1"},
+		{"mitad_par_baja", 5, 2, baremacion.RedondeoMitadAlPar, "2/1"},
+		{"mitad_par_sube", 7, 2, baremacion.RedondeoMitadAlPar, "4/1"},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			contador := nuevoContadorOperaciones()
+			valor := exactoDesdeRacional(
+				t, contador, caso.numerador, caso.denominador,
+			)
+			entero, err := valor.redondearAEnteroExacto(caso.modo)
+			comprobarRepresentacion(t, entero, caso.esperado, err)
+			puntos, err := entero.convertirAPuntos()
+			if err != nil || puntos.String()+"/1" != caso.esperado {
+				t.Fatalf("conversion = %s, %v; quiere %s", puntos, err, caso.esperado)
+			}
+		})
+	}
+
+	contador := nuevoContadorOperaciones()
+	fraccion := exactoDesdeRacional(t, contador, 5, 2)
+	if _, err := fraccion.redondearAEnteroExacto(baremacion.RedondeoExacto); !errors.Is(err, ErrResultadoNoExacto) {
+		t.Fatalf("redondeo exacto de no entero: %v", err)
+	}
+	if _, err := fraccion.convertirAPuntos(); !errors.Is(err, ErrResultadoNoExacto) {
+		t.Fatalf("conversion fraccionaria: %v", err)
+	}
+}
+
+func TestRacionalExactoMantieneBrutoSobreMaximoHastaAplicarTope(t *testing.T) {
+	contador := nuevoContadorOperaciones()
+	maximo, _ := nuevoRacionalExactoDesdeEntero(contador, baremacion.MaximoMicropuntos)
+	uno, _ := nuevoRacionalExactoDesdeEntero(contador, 1)
+	bruto, err := maximo.sumar(uno)
+	if err != nil {
+		t.Fatalf("bruto exacto: %v", err)
+	}
+	brutoRedondeado, err := bruto.redondearAEnteroExacto(baremacion.RedondeoExacto)
+	comprobarRepresentacion(
+		t, brutoRedondeado, "9000000000000001/1", err,
+	)
+	if _, err := brutoRedondeado.convertirAPuntos(); !errors.Is(err, ErrDesbordamiento) {
+		t.Fatalf("conversion prematura fuera de limite: %v", err)
+	}
+
+	tope, _ := nuevoRacionalExactoDesdeEntero(contador, 10_000_000)
+	limitado, err := brutoRedondeado.minimo(tope)
+	if err != nil {
+		t.Fatalf("aplicar tope: %v", err)
+	}
+	resultado, err := limitado.convertirAPuntos()
+	if err != nil || resultado.Micropuntos() != 10_000_000 {
+		t.Fatalf("resultado limitado = %d, %v", resultado.Micropuntos(), err)
+	}
+}
+
 func TestRacionalExactoRechazaPuntosFueraDelLimite(t *testing.T) {
 	contador := nuevoContadorOperaciones()
 	maximo, _ := nuevoRacionalExactoDesdeEntero(contador, baremacion.MaximoMicropuntos)
