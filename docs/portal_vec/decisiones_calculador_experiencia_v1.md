@@ -245,6 +245,22 @@ La implementación impondrá presupuestos máximos de aplicaciones, eventos de
 intervalo y operaciones exactas. Superarlos es un error técnico, nunca un
 resultado parcial.
 
+### 7.1 Presupuesto de salida V1
+
+Antes de materializar intervalos, aplicaciones puntuadas, bloqueos, reglas y
+apartados, el motor reserva de forma conservadora el tamaño máximo que podría
+ocupar su explicación canónica. El presupuesto cubre también la selección,
+los descartes y los tramos sin coincidencia. Si la cota supera 64 MiB, el
+cálculo falla cerrado antes de construir una salida parcial.
+
+Esta protección reduce deliberadamente el máximo práctico de la V1 a menos de
+dos mil aplicaciones puntuables en el peor caso, dependiendo del número de
+reglas y apartados. No es un límite jurídico ni funcional de las bases, sino
+una barrera técnica de seguridad y disponibilidad. Una versión posterior podrá
+sustituir la estimación por contabilidad exacta de bytes y un escritor canónico
+limitado, pero solo después de aportar pruebas equivalentes de memoria,
+serialización y restauración.
+
 ## 8. Resultado y explicación
 
 ### 8.1 Estados separados
@@ -403,3 +419,21 @@ La decisión de implementación V1 establece **cómo** ejecuta el sistema una
 regla ya aprobada. RRHH y Secretaría determinan **qué** interpretación de las
 bases debe configurarse. Ambas responsabilidades son necesarias y no se
 sustituyen entre sí.
+
+## 13. Estado de implementación a 17 de julio de 2026
+
+Está implementado y probado el contrato puro
+`CalcularExperienciaV1(plan, entrada)`. Ejecuta de extremo a extremo selección,
+normalización temporal, detección de solapes, jornada, restos, redondeo, topes,
+subtotales y total. Devuelve resultados canónicos restaurables y distingue
+entre cálculo completado, bloqueo explicable de negocio y error técnico sin
+material parcial.
+
+El paquete dispone de pruebas con detector de carreras y cobertura del 80 %,
+además de superar la suite completa del repositorio y la comprobación estática.
+Todavía no convierte por sí solo el cálculo en un acto administrativo: quedan
+por integrar el caso de uso oficial, las dos autorizaciones independientes de
+lectura y escritura, la persistencia transaccional, la idempotencia semántica,
+la auditoría, el outbox y la proyección en los portales. Una simulación podrá
+usar un borrador compilable; un cálculo oficial deberá exigir reglas activas y
+su vínculo exacto con la convocatoria.
