@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -65,23 +66,67 @@ func (GeneradorReferenciasCriptograficas) NuevaReferenciaOperacion(
 	return referencia, nil
 }
 
+func (GeneradorReferenciasCriptograficas) NuevaReferenciaCorrelacionAutorizacionV2(
+	ctx context.Context,
+) (string, error) {
+	valor, err := nuevaReferenciaOpacaHex128(
+		ctx,
+		rand.Reader,
+		"correlacion_",
+		ports.ErrGeneracionReferenciaAutorizacionV2,
+	)
+	if err != nil || !domain.ReferenciaCorrelacionAutorizacionV2Valida(valor) {
+		return "", errors.Join(ports.ErrGeneracionReferenciaAutorizacionV2, err)
+	}
+	return valor, nil
+}
+
+func (GeneradorReferenciasCriptograficas) NuevaClaveMotivoAutorizacionV2(
+	ctx context.Context,
+) (string, error) {
+	valor, err := nuevaReferenciaOpacaHex128(
+		ctx,
+		rand.Reader,
+		"motivo_",
+		ports.ErrGeneracionReferenciaAutorizacionV2,
+	)
+	if err != nil || !domain.ClaveMotivoAutorizacionV2Valida(valor) {
+		return "", errors.Join(ports.ErrGeneracionReferenciaAutorizacionV2, err)
+	}
+	return valor, nil
+}
+
 func nuevaReferenciaFuenteAutoridad(
 	ctx context.Context,
 	lector io.Reader,
 	prefijo string,
 ) (string, error) {
+	return nuevaReferenciaOpacaHex128(
+		ctx,
+		lector,
+		prefijo,
+		ports.ErrGeneracionReferenciaFuenteAutoridad,
+	)
+}
+
+func nuevaReferenciaOpacaHex128(
+	ctx context.Context,
+	lector io.Reader,
+	prefijo string,
+	errorGeneracion error,
+) (string, error) {
 	if ctx == nil || lector == nil {
-		return "", ports.ErrGeneracionReferenciaFuenteAutoridad
+		return "", errorGeneracion
 	}
 	if err := ctx.Err(); err != nil {
-		return "", errors.Join(ports.ErrGeneracionReferenciaFuenteAutoridad, err)
+		return "", errors.Join(errorGeneracion, err)
 	}
 	aleatorio := make([]byte, 16)
 	if _, err := io.ReadFull(lector, aleatorio); err != nil {
-		return "", errors.Join(ports.ErrGeneracionReferenciaFuenteAutoridad, err)
+		return "", errors.Join(errorGeneracion, err)
 	}
 	if err := ctx.Err(); err != nil {
-		return "", errors.Join(ports.ErrGeneracionReferenciaFuenteAutoridad, err)
+		return "", errors.Join(errorGeneracion, err)
 	}
 	return prefijo + hex.EncodeToString(aleatorio), nil
 }
@@ -89,4 +134,5 @@ func nuevaReferenciaFuenteAutoridad(
 var (
 	_ ports.GeneradorReferenciaDecisionAutorizacion = GeneradorReferenciasCriptograficas{}
 	_ ports.GeneradorReferenciasFuentesAutoridad    = GeneradorReferenciasCriptograficas{}
+	_ ports.GeneradorReferenciasAutorizacionV2      = GeneradorReferenciasCriptograficas{}
 )
