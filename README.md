@@ -364,6 +364,10 @@ visible identifica que no tiene validez administrativa y ninguna acción
 persiste, firma o envía. Su inventario y sustitución están documentados en
 [el entregable RRHH de Bolsa](docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md).
 
+El servidor no sirve ese adaptador por defecto. Para una muestra local debe
+arrancarse deliberadamente con `VEC_RRHH_PRESENTATION_ENABLED=true`; en un
+despliegue normal la petición al fichero sintético responde `404`.
+
 La interfaz, sus diez paneles, el asistente de llamamientos, el diseño
 adaptable y el contrato de lectura son los definitivos; solo el adaptador de
 datos se excluye del despliegue productivo cuando la vertical PostgreSQL/API

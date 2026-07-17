@@ -111,7 +111,7 @@ func TestServerSirvePortalBolsaPermanenteSinEstilosInline(t *testing.T) {
 }
 
 func TestServerSirvePortalEmpleadoRRHHConPresentacionAislada(t *testing.T) {
-	handler := NewHandler(http.NotFoundHandler())
+	handler := NewHandlerWithConfig(config.Config{RRHHPresentationEnabled: true}, http.NotFoundHandler())
 	for _, prueba := range []struct{ ruta, tipo, contenido string }{
 		{ruta: "/portal-empleado/", tipo: "text/html", contenido: "Portal del Empleado"},
 		{ruta: "/portal-empleado/portal.css?v=1", tipo: "text/css", contenido: ".portal-empleado-shell"},
@@ -128,6 +128,17 @@ func TestServerSirvePortalEmpleadoRRHHConPresentacionAislada(t *testing.T) {
 		}
 		if prueba.tipo == "text/html" && (strings.Contains(strings.ToLower(rec.Body.String()), "<style") || strings.Contains(strings.ToLower(rec.Body.String()), " style=")) {
 			t.Fatalf("%s contiene CSS inline", prueba.ruta)
+		}
+	}
+}
+
+func TestAdaptadorPresentacionRRHHNoSeSirvePorDefecto(t *testing.T) {
+	handler := NewHandler(http.NotFoundHandler())
+	for _, metodo := range []string{http.MethodGet, http.MethodHead} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, peticionServidorPrueba(metodo, "/portal-empleado/datos-presentacion.js?v=1", nil))
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("%s adaptador presentacion = %d; se esperaba 404", metodo, rec.Code)
 		}
 	}
 }

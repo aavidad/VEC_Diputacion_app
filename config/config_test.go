@@ -46,6 +46,28 @@ func TestCargaRutaCredencialesFakeSinInventarValor(t *testing.T) {
 	}
 }
 
+func TestPresentacionRRHHParteDeshabilitadaYExigeActivacionExpresa(t *testing.T) {
+	if Load().RRHHPresentationEnabled {
+		t.Fatal("la presentacion RRHH se activo sin configuracion expresa")
+	}
+	for _, valor := range []string{"1", "true", "yes", "on"} {
+		t.Run(valor, func(t *testing.T) {
+			t.Setenv(EnvRRHHPresentationEnabled, valor)
+			if !Load().RRHHPresentationEnabled {
+				t.Fatalf("valor positivo %q rechazado", valor)
+			}
+		})
+	}
+	for _, valor := range []string{"0", "false", "quizas", "activado"} {
+		t.Run("cerrado_"+valor, func(t *testing.T) {
+			t.Setenv(EnvRRHHPresentationEnabled, valor)
+			if Load().RRHHPresentationEnabled {
+				t.Fatalf("valor ambiguo %q concedio acceso", valor)
+			}
+		})
+	}
+}
+
 func TestFuentePublicaBolsaEsDemoLocalSustituible(t *testing.T) {
 	configuracion := (Config{}).Normalize()
 	if configuracion.BolsaPublicSourcePath != DefaultBolsaPublicSourcePath {

@@ -51,7 +51,7 @@ func NewHandlerWithConfig(cfg config.Config, api http.Handler) http.Handler {
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
 	mux := http.NewServeMux()
 	mux.Handle("/locales/", localeHandler())
-	mux.Handle("/", staticHandler())
+	mux.Handle("/", staticHandler(cfg.RRHHPresentationEnabled))
 	mux.HandleFunc("/healthz", handleHealthz)
 	mux.Handle(cfg.APIBasePath, api)
 	mux.Handle(cfg.APIBasePath+"/", api)
@@ -111,11 +111,17 @@ func handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, healthResponse{Status: "ok"})
 }
 
-func staticHandler() http.Handler {
+func staticHandler(presentacionRRHHHabilitada bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
 			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if !presentacionRRHHHabilitada && strings.HasSuffix(
+			strings.TrimSuffix(r.URL.Path, "/"), "/datos-presentacion.js",
+		) {
+			http.NotFound(w, r)
 			return
 		}
 		setNoStoreForStatic(w, r)

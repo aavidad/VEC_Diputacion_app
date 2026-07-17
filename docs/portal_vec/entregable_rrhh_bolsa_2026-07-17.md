@@ -69,6 +69,11 @@ Solo el parámetro exacto `presentacion=rrhh` importa dinámicamente
 todo momento un aviso visible de datos sintéticos y ausencia de validez
 administrativa. Ninguna acción envía, firma, registra ni persiste.
 
+Además, el servidor exige la activación explícita
+`VEC_RRHH_PRESENTATION_ENABLED=true`. La opción parte deshabilitada y, sin
+ella, `datos-presentacion.js` responde `404` incluso aunque alguien conozca la
+URL. La ruta normal y el resto de recursos definitivos permanecen disponibles.
+
 ## Inventario exhaustivo de elementos temporales
 
 | Elemento | Ubicación | Qué hace ahora | Sustitución obligatoria |

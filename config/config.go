@@ -41,6 +41,7 @@ const (
 	EnvOSRMScopeName             = "VEC_OSRM_SCOPE_NAME"
 	EnvOSRMScopeBounds           = "VEC_OSRM_SCOPE_BOUNDS"
 	EnvOSRMAllowedCIDRs          = "VEC_OSRM_ALLOWED_CIDRS"
+	EnvRRHHPresentationEnabled   = "VEC_RRHH_PRESENTATION_ENABLED"
 
 	StorageModeMemory       = "memory"
 	StorageModeFile         = "file"
@@ -104,6 +105,7 @@ type Config struct {
 	OSRMScopeName             string
 	OSRMScopeBounds           string
 	OSRMAllowedCIDRs          []string
+	RRHHPresentationEnabled   bool
 }
 
 func Load() Config {
@@ -138,6 +140,7 @@ func Load() Config {
 		OSRMScopeName:             envFirst(EnvOSRMScopeName),
 		OSRMScopeBounds:           envFirst(EnvOSRMScopeBounds),
 		OSRMAllowedCIDRs:          splitCSV(envFirst(EnvOSRMAllowedCIDRs)),
+		RRHHPresentationEnabled:   envBool(EnvRRHHPresentationEnabled),
 	}.Normalize()
 }
 
@@ -220,6 +223,17 @@ func envPositiveInt(key string) int {
 		return -1
 	}
 	return numero
+}
+
+// envBool solo concede la activacion para valores positivos conocidos. Un
+// valor ausente, ambiguo o mal escrito conserva la superficie deshabilitada.
+func envBool(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func defaultDataPath(value, dataDir string) string {
