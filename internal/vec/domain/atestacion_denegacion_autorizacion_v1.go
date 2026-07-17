@@ -48,6 +48,8 @@ func (c CabeceraAtestacionDenegacionAutorizacionV1) Validar() error {
 // SerializarMensajeAtestacionDenegacionAutorizacionV1 produce VEC-AD-D-1: la
 // prueba binaria de una decision negativa V2 y de la referencia catalogada que
 // el PDP resolvio al evaluarla. Nunca acepta una concesion ni emite VEC-AD-2.
+// GarantiaMinima puede estar vacia en denegaciones anteriores a seleccionar
+// una concesion; si esta presente debe pertenecer al vocabulario gobernado.
 // Las listas deben llegar ya ordenadas por bytes UTF-8, igual que en VEC-AD-2.
 func SerializarMensajeAtestacionDenegacionAutorizacionV1(
 	cabecera CabeceraAtestacionDenegacionAutorizacionV1,
@@ -128,7 +130,8 @@ func validarDecisionParaAtestacionDenegacionAutorizacionV1(
 	if err := validarDecisionParaAtestacionAutorizacionSolicitudLigadaV2(
 		decision,
 		referenciaMotivo,
-	); err != nil || decision.Concedida || decision.Codigo == "concedida" {
+	); err != nil || decision.Concedida || decision.Codigo == "concedida" ||
+		(decision.GarantiaMinima != "" && !decision.GarantiaMinima.Valida()) {
 		return errors.Join(errorMensajeAtestacionAutorizacionInvalido(), err)
 	}
 	return nil

@@ -168,6 +168,32 @@ func TestMensajeAtestacionDenegacionAutorizacionV1RechazaConcesionesYCruces(t *t
 	}
 }
 
+func TestMensajeAtestacionDenegacionAutorizacionV1AdmiteGarantiaAunNoDeterminada(t *testing.T) {
+	cabecera := cabeceraAtestacionDenegacionAutorizacionV1Prueba()
+	referencia := referenciaMotivoAtestacionAutorizacionV2Prueba()
+	decision := decisionAtestacionDenegacionAutorizacionV1Prueba(t, referencia)
+
+	// Las denegaciones tempranas (perfil, ambito o rol) suceden antes de
+	// seleccionar una concesion y por tanto aun no tienen garantia minima.
+	decision.GarantiaMinima = ""
+	if _, err := SerializarMensajeAtestacionDenegacionAutorizacionV1(
+		cabecera,
+		decision,
+		referencia,
+	); err != nil {
+		t.Fatalf("denegacion temprana rechazada: %v", err)
+	}
+
+	decision.GarantiaMinima = AuthAssurance("garantia_inventada")
+	if _, err := SerializarMensajeAtestacionDenegacionAutorizacionV1(
+		cabecera,
+		decision,
+		referencia,
+	); !errors.Is(err, ErrMensajeAtestacionAutorizacionInvalido) {
+		t.Fatalf("garantia de denegacion no gobernada aceptada: %v", err)
+	}
+}
+
 func TestCabeceraAtestacionDenegacionAutorizacionV1LigaConfiguracion(t *testing.T) {
 	base := cabeceraAtestacionDenegacionAutorizacionV1Prueba()
 	referencia := referenciaMotivoAtestacionAutorizacionV2Prueba()
