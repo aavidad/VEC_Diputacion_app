@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 
 	"vec-diputacion-granada/config"
@@ -17,6 +18,26 @@ type healthResponse struct {
 }
 
 func NewHTTPServer(cfg config.Config, api http.Handler) (*http.Server, error) {
+	return newHTTPServer(cfg, api, NewHandlerWithConfig)
+}
+
+// NewHTTPServerPublico construye el listener exclusivo para contenido anonimo
+// y API publica. Su tabla de rutas no incluye ninguna superficie de empleado o
+// administracion.
+func NewHTTPServerPublico(cfg config.Config, api http.Handler) (*http.Server, error) {
+	return newHTTPServer(cfg, api, NewHandlerPublicoWithConfig)
+}
+
+// NewHTTPServerInterno construye el listener exclusivo para el Portal del
+// Empleado y la API VEC. Este listener no expone contenido publico ni la SPA
+// historica que mezclaba ambas superficies.
+func NewHTTPServerInterno(cfg config.Config, api http.Handler) (*http.Server, error) {
+	return newHTTPServer(cfg, api, NewHandlerInternoWithConfig)
+}
+
+type constructorHandlerConConfig func(config.Config, http.Handler) http.Handler
+
+func newHTTPServer(cfg config.Config, api http.Handler, constructor constructorHandlerConConfig) (*http.Server, error) {
 	if api == nil {
 		return nil, errors.New("server: api handler is required")
 	}
@@ -33,7 +54,7 @@ func NewHTTPServer(cfg config.Config, api http.Handler) (*http.Server, error) {
 	}
 	return &http.Server{
 		Addr:              cfg.Address,
-		Handler:           NewHandlerWithConfig(cfg, api),
+		Handler:           constructor(cfg, api),
 		ReadHeaderTimeout: cfg.ReadHeaderTimeout,
 		ReadTimeout:       cfg.ReadTimeout,
 		WriteTimeout:      cfg.WriteTimeout,
@@ -62,6 +83,259 @@ func NewHandlerWithConfig(cfg config.Config, api http.Handler) http.Handler {
 		handler = rechazarCabecerasProxyFake(handler)
 	}
 	return securityHeaders(handler)
+}
+
+// NewHandlerPublicoWithConfig expone unicamente la consulta anonima de Bolsa,
+// sus recursos imprescindibles y la API publica. La lista positiva evita que
+// una nueva carpeta estatica o ruta interna se publique por accidente.
+func NewHandlerPublicoWithConfig(cfg config.Config, api http.Handler) http.Handler {
+	cfg = cfg.Normalize()
+	if api == nil {
+		api = http.NotFoundHandler()
+	}
+	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
+	estaticos := staticHandler(cfg.RRHHPresentationEnabled)
+
+	mux := http.NewServeMux()
+	mux.Handle("/healthz", soloLecturaHTTP(http.HandlerFunc(handleHealthz)))
+	mux.Handle("/bolsa", soloLecturaHTTP(redireccionDirectorio("bolsa/")))
+	mux.Handle("/bolsa/", soloLecturaHTTP(estaticos))
+	mux.Handle("/styles.css", soloLecturaHTTP(estaticos))
+	mux.Handle("/portal-empleado/assets/logo-diputacion-granada.svg", soloLecturaHTTP(estaticos))
+	mux.Handle("/api/publico", api)
+	mux.Handle("/api/publico/", api)
+
+	return protegerSuperficie(cfg, rechazarRutasNoCanonicas(mux))
+}
+
+// NewHandlerInternoWithConfig expone unicamente el Portal del Empleado y la
+// API VEC. No acepta estado de sesion del navegador ni credenciales de proxy;
+// la identidad interna debe llegar por el canal autenticado que componga el
+// listener, nunca mediante cookies.
+func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handler {
+	cfg = cfg.Normalize()
+	if api == nil {
+		api = http.NotFoundHandler()
+	}
+	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
+	estaticos := staticHandler(cfg.RRHHPresentationEnabled)
+
+	mux := http.NewServeMux()
+	mux.Handle("/healthz", soloLecturaHTTP(http.HandlerFunc(handleHealthz)))
+	mux.Handle("/portal-empleado", soloLecturaHTTP(redireccionDirectorio("portal-empleado/")))
+	mux.Handle("/portal-empleado/", soloLecturaHTTP(estaticos))
+	mux.Handle("/api/vec", api)
+	mux.Handle("/api/vec/", api)
+
+	handler := rechazarRutasNoCanonicas(mux)
+	handler = prohibirCookiesYAutorizacionProxy(handler)
+	return protegerSuperficie(cfg, handler)
+}
+
+func protegerSuperficie(cfg config.Config, handler http.Handler) http.Handler {
+	handler = restrictRemoteAddrs(handler, cfg.HTTPAllowedCIDRs)
+	if cfg.AuthMode == config.AuthModeFake {
+		handler = rechazarCabecerasProxyFake(handler)
+	}
+	return suprimirCuerpoHEAD(securityHeaders(handler))
+}
+
+func soloLecturaHTTP(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func redireccionDirectorio(destino string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, destino, http.StatusMovedPermanently)
+	})
+}
+
+// suprimirCuerpoHEAD mantiene el contrato de los handlers tambien cuando se
+// prueban o componen sin pasar por la implementacion de transporte de net/http.
+// Esta ultima ya omite el cuerpo de HEAD, pero no todos los ResponseWriter de
+// adaptadores y pruebas ofrecen esa garantia.
+func suprimirCuerpoHEAD(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead {
+			w = &escritorRespuestaHEAD{ResponseWriter: w}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+type escritorRespuestaHEAD struct {
+	http.ResponseWriter
+	escrito bool
+}
+
+func (w *escritorRespuestaHEAD) WriteHeader(estado int) {
+	if w.escrito {
+		return
+	}
+	if !esRespuestaInformativa(estado) {
+		w.escrito = true
+	}
+	w.ResponseWriter.WriteHeader(estado)
+}
+
+func (w *escritorRespuestaHEAD) Write(contenido []byte) (int, error) {
+	if !w.escrito {
+		w.WriteHeader(http.StatusOK)
+	}
+	return len(contenido), nil
+}
+
+func (w *escritorRespuestaHEAD) Flush() {
+	_ = w.FlushError()
+}
+
+func (w *escritorRespuestaHEAD) FlushError() error {
+	if !w.escrito {
+		w.WriteHeader(http.StatusOK)
+	}
+	return http.NewResponseController(w.ResponseWriter).Flush()
+}
+
+func (w *escritorRespuestaHEAD) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
+// rechazarRutasNoCanonicas impide que ServeMux convierta una ruta con saltos
+// de directorio o barras duplicadas en una redireccion hacia otra superficie.
+func rechazarRutasNoCanonicas(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !rutaHTTPCanonica(r) {
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func rutaHTTPCanonica(r *http.Request) bool {
+	if r == nil || r.URL == nil || r.URL.RawPath != "" || r.URL.Opaque != "" ||
+		r.URL.Fragment != "" || r.URL.RawFragment != "" {
+		return false
+	}
+	ruta := r.URL.Path
+	if ruta == "" || ruta[0] != '/' || strings.ContainsRune(ruta, '\\') {
+		return false
+	}
+	// Las superficies tienen rutas ASCII cerradas. Rechazar cualquier forma
+	// escapada evita diferencias de normalizacion entre proxy, ServeMux y app.
+	if r.URL.EscapedPath() != ruta {
+		return false
+	}
+	limpia := path.Clean(ruta)
+	return ruta == limpia || (limpia != "/" && ruta == limpia+"/")
+}
+
+func prohibirCookiesYAutorizacionProxy(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if contieneCabecera(r.Header, "Cookie") || contieneCabecera(r.Header, "Proxy-Authorization") ||
+			contieneCabeceraIdentidadHeredada(r.Header) {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		escritor := &escritorSinCookies{ResponseWriter: w}
+		next.ServeHTTP(escritor, r)
+		eliminarCookiesRespuesta(escritor.Header())
+	})
+}
+
+func contieneCabecera(cabeceras http.Header, buscada string) bool {
+	for nombre := range cabeceras {
+		if strings.EqualFold(strings.TrimSpace(nombre), buscada) {
+			return true
+		}
+	}
+	return false
+}
+
+func contieneCabeceraIdentidadHeredada(cabeceras http.Header) bool {
+	for nombre := range cabeceras {
+		normalizado := strings.ToLower(strings.TrimSpace(nombre))
+		if strings.HasPrefix(normalizado, "x-vec-") ||
+			strings.HasPrefix(normalizado, "x-auth-") ||
+			strings.HasPrefix(normalizado, "x-forwarded-") ||
+			normalizado == "x-remote-user" || normalizado == "remote-user" {
+			return true
+		}
+	}
+	return false
+}
+
+func eliminarCookiesRespuesta(cabeceras http.Header) {
+	cabeceras.Del("Set-Cookie")
+	cabeceras.Del(http.TrailerPrefix + "Set-Cookie")
+
+	declaraciones := cabeceras.Values("Trailer")
+	if len(declaraciones) == 0 {
+		return
+	}
+	permitidas := make([]string, 0, len(declaraciones))
+	for _, declaracion := range declaraciones {
+		for _, nombre := range strings.Split(declaracion, ",") {
+			nombre = strings.TrimSpace(nombre)
+			if nombre != "" && !strings.EqualFold(nombre, "Set-Cookie") {
+				permitidas = append(permitidas, nombre)
+			}
+		}
+	}
+	cabeceras.Del("Trailer")
+	for _, permitida := range permitidas {
+		cabeceras.Add("Trailer", permitida)
+	}
+}
+
+type escritorSinCookies struct {
+	http.ResponseWriter
+	escrito bool
+}
+
+func (w *escritorSinCookies) WriteHeader(estado int) {
+	if w.escrito {
+		return
+	}
+	eliminarCookiesRespuesta(w.Header())
+	if !esRespuestaInformativa(estado) {
+		w.escrito = true
+	}
+	w.ResponseWriter.WriteHeader(estado)
+}
+
+func (w *escritorSinCookies) Write(contenido []byte) (int, error) {
+	if !w.escrito {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(contenido)
+}
+
+func (w *escritorSinCookies) Flush() {
+	_ = w.FlushError()
+}
+
+func (w *escritorSinCookies) FlushError() error {
+	eliminarCookiesRespuesta(w.Header())
+	if !w.escrito {
+		w.WriteHeader(http.StatusOK)
+	}
+	return http.NewResponseController(w.ResponseWriter).Flush()
+}
+
+func (w *escritorSinCookies) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
+func esRespuestaInformativa(estado int) bool {
+	return estado >= 100 && estado <= 199 && estado != http.StatusSwitchingProtocols
 }
 
 func rechazarCabecerasProxyFake(next http.Handler) http.Handler {

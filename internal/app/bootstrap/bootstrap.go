@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"net/http"
 	"os"
@@ -50,6 +51,40 @@ func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 		return nil, err
 	}
 	return server.NewHTTPServer(cfg, api)
+}
+
+// NewHTTPServerPublicoWithConfig construye el listener anonimo de Bolsa sin
+// componer la superficie interna, la autenticacion de demostracion ni la API
+// heredada de candidatos.
+func NewHTTPServerPublicoWithConfig(cfg config.Config) (*http.Server, error) {
+	cfg = cfg.Normalize()
+	api, err := NewAPIPublicaBolsaWithConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	// La superficie es anonima y no compone ningun autenticador. No debe
+	// heredar restricciones ni cabeceras propias del modo fake/trusted del
+	// listener interno por compartir accidentalmente el mismo fichero de
+	// configuracion durante una migracion.
+	cfg.AuthMode = config.AuthModeDisabled
+	return server.NewHTTPServerPublico(cfg, api)
+}
+
+// NewAPIPublicaBolsaWithConfig es la raiz de composicion minima del portal
+// publico. Su tabla de rutas solo contiene consultas anonimas de Bolsa.
+func NewAPIPublicaBolsaWithConfig(cfg config.Config) (http.Handler, error) {
+	cfg = cfg.Normalize()
+	consultaCategorias, err := nuevaConsultaCatalogosPublicosBolsa(cfg)
+	if err != nil {
+		return nil, err
+	}
+	publicaBolsaAPI, err := newBolsaPublicAPIConCatalogos(cfg, consultaCategorias)
+	if err != nil {
+		return nil, err
+	}
+	mux := http.NewServeMux()
+	registrarBolsaPublica(mux, publicaBolsaAPI)
+	return mux, nil
 }
 
 func NewDemoAPI() (http.Handler, error) {
@@ -196,6 +231,9 @@ func registrarBolsaPublica(mux *http.ServeMux, publica http.Handler) {
 }
 
 func newBolsaPublicAPIConCatalogos(cfg config.Config, consultaCatalogos *vecfichero.ConsultaCatalogos) (http.Handler, error) {
+	if err := validarCatalogoCategoriasPublicoConfigurado(cfg, consultaCatalogos); err != nil {
+		return nil, err
+	}
 	ruta, err := resolverRutaFuentePublica(cfg.BolsaPublicSourcePath)
 	if err != nil {
 		return nil, err
@@ -222,6 +260,52 @@ func newBolsaPublicAPIConCatalogos(cfg config.Config, consultaCatalogos *vecfich
 		return nil, errors.Join(errors.New("bootstrap: fuentes publicas de Bolsa incompatibles"), err)
 	}
 	return bolsahttp.NuevoHandler(servicio)
+}
+
+func nuevaConsultaCatalogosPublicosBolsa(cfg config.Config) (*vecfichero.ConsultaCatalogos, error) {
+	if cfg.BolsaCategoriesVersion < 1 {
+		return nil, errors.New("bootstrap: version de catalogo de categorias no valida")
+	}
+	rutaCategorias, err := resolverRutaFuentePublica(cfg.BolsaCategoriesSourcePath)
+	if err != nil {
+		return nil, err
+	}
+	consultaCatalogos, err := vecfichero.NuevaConsultaCatalogos(rutaCategorias)
+	if err != nil {
+		return nil, err
+	}
+	return consultaCatalogos, nil
+}
+
+// validarCatalogoCategoriasPublicoConfigurado mantiene el pinning de la
+// instantanea gobernada aunque el listener publico no componga Personal.
+func validarCatalogoCategoriasPublicoConfigurado(
+	cfg config.Config,
+	consultaCatalogos *vecfichero.ConsultaCatalogos,
+) error {
+	if cfg.BolsaCategoriesVersion < 1 {
+		return errors.New("bootstrap: version de catalogo de categorias no valida")
+	}
+	ctxValidacion, cancelarValidacion := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelarValidacion()
+	catalogo, err := consultaCatalogos.ObtenerCatalogo(
+		ctxValidacion,
+		cfg.BolsaCategoriesCatalogID,
+		cfg.BolsaCategoriesVersion,
+	)
+	if err != nil {
+		return errors.Join(errors.New("bootstrap: catalogo gobernado de categorias de Bolsa incompatible"), err)
+	}
+	huella, err := catalogo.HuellaSHA256()
+	if err != nil || !huellasCatalogoPublicoIguales(huella, cfg.BolsaCategoriesSHA256) {
+		return errors.New("bootstrap: catalogo gobernado de categorias de Bolsa incompatible")
+	}
+	return nil
+}
+
+func huellasCatalogoPublicoIguales(obtenida, esperada string) bool {
+	return len(obtenida) == 64 && len(esperada) == 64 &&
+		subtle.ConstantTimeCompare([]byte(obtenida), []byte(esperada)) == 1
 }
 
 // nuevasDependenciasCategoriasProfesionales construye una sola instantanea
