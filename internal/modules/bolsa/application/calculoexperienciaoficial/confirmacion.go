@@ -69,8 +69,10 @@ func (s SolicitudConfirmacionDuradera) validar() error {
 		datos.FuenteSolicitadaEn.Before(datos.LecturaNoAntesDe) ||
 		datos.EscrituraNoAntesDe.Before(datos.FuenteSolicitadaEn) ||
 		datos.SolicitadaEn.Before(datos.EscrituraNoAntesDe) || !selectorValido(datos.Selector) ||
-		validarFuenteExacta(datos.Fuente, datos.Selector, datos.FuenteSolicitadaEn,
-			datos.SolicitadaEn) != nil ||
+		validarFuenteExacta(
+			datos.Fuente, datos.Selector, datos.AutorizacionLectura,
+			datos.FuenteSolicitadaEn, datos.SolicitadaEn,
+		) != nil ||
 		datos.Clave.Validar() != nil || datos.Intencion.Validar() != nil ||
 		datos.Resultado.Validar() != nil ||
 		!huellaSHA256Valida(datos.HuellaResultadoSHA256) {

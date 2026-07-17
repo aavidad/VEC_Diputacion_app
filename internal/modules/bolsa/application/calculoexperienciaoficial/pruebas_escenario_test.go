@@ -49,10 +49,9 @@ func nuevoEscenarioServicioPrueba(
 			Convocatoria: convocatoria, EmitidaEn: ahora.Add(-time.Minute),
 			ValidaHasta: ahora.Add(10 * time.Minute),
 		},
-		Auditoria:           referenciaPrueba(t, "auditoria:fuente:oficial", 1),
-		ConsumoAutorizacion: referenciaPrueba(t, "consumo:autorizacion:oficial", 1),
-		ConsumoPrueba:       referenciaPrueba(t, "consumo:prueba:oficial", 1),
-		ObtenidaEn:          ahora,
+		Auditoria:     referenciaPrueba(t, "auditoria:fuente:oficial", 1),
+		ConsumoPrueba: referenciaPrueba(t, "consumo:prueba:oficial", 1),
+		ObtenidaEn:    ahora,
 	}
 	plan := debePrueba(calculo.Compilar(debePrueba(version.Conjunto())))
 	resultado := debePrueba(calculo.CalcularExperienciaV1(plan, entrada))

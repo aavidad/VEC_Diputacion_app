@@ -77,6 +77,20 @@ func TestEvidenciaDebeSerPosteriorALaFronteraQueAutoriza(t *testing.T) {
 	}
 }
 
+func TestConsumoFuenteRespetaOrdenTemporalConRelojQueAvanza(t *testing.T) {
+	escenario := nuevoEscenarioServicioPrueba(t, perfilInternoAlto, false)
+	reloj := &relojSecuencialPrueba{actual: escenario.ahora, paso: time.Microsecond}
+	escenario.servicio.reloj = reloj
+	escenario.exigidor.reloj = reloj
+	if _, err := escenario.servicio.Ejecutar(context.Background(), escenario.orden); err != nil {
+		t.Fatalf("el avance real del reloj invirtio evidencia, solicitud y consumo: %v", err)
+	}
+	if escenario.fuente.llamadas != 1 || len(escenario.exigidor.llamadas) != 2 ||
+		escenario.confirmador.llamadas != 1 {
+		t.Fatal("el flujo temporal valido no llego a confirmacion")
+	}
+}
+
 func TestFuenteRechazaRolesReutilizadosYPruebaCaducada(t *testing.T) {
 	t.Run("auditoria_como_sujeto", func(t *testing.T) {
 		escenario := nuevoEscenarioServicioPrueba(t, perfilInternoAlto, false)

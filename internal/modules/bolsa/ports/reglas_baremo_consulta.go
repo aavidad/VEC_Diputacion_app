@@ -65,7 +65,7 @@ type FuenteExactaCalculoReglasBaremo struct {
 	Entrada             calculo.EntradaExperiencia
 	Prueba              PruebaFuenteExactaCalculoReglasBaremo
 	Auditoria           reglas.ReferenciaVersionada
-	ConsumoAutorizacion reglas.ReferenciaVersionada
+	ConsumoAutorizacion oficial.ReciboConsumoAutorizacionFuenteV1
 	ConsumoPrueba       reglas.ReferenciaVersionada
 	ObtenidaEn          time.Time
 }
@@ -74,10 +74,10 @@ type FuenteExactaCalculoReglasBaremo struct {
 // instantanea exacta. El adaptador devuelve el consumo durable de la prueba;
 // una entrada restaurada localmente no satisface este contrato.
 //
-// NO-GO PRODUCCION: el contrato actual no prueba todavia que
-// ConsumoAutorizacion ligue de forma durable decision_ref, huella de decision
-// V2, recurso y correlacion exactos. Ningun adaptador satisface la autorizacion
-// de produccion hasta incorporar y verificar esa atestacion tipada.
+// NO-GO PRODUCCION: el contrato exige un recibo canonico que liga la decision
+// V2, el selector, la fuente, la prueba y la auditoria exactas. Aun no existe
+// un adaptador PostgreSQL productivo que lo cree atomicamente con el consumo;
+// una construccion en memoria o posterior a la lectura no satisface el puerto.
 type FuenteReglasBaremoParaCalculo interface {
 	ObtenerFuenteExacta(
 		context.Context,

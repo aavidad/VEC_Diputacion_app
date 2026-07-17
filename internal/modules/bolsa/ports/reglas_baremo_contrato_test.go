@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	oficial "vec-diputacion-granada/internal/modules/bolsa/domain/calculoexperienciaoficial"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -88,5 +89,13 @@ func TestPruebaFuenteReglasBaremoEsCompacta(t *testing.T) {
 		if campo.Type.Kind() == reflect.Slice || campo.Type.Kind() == reflect.Map || campo.Type.Kind() == reflect.Array {
 			t.Fatalf("la prueba compacta contiene la coleccion %s", campo.Name)
 		}
+	}
+}
+
+func TestFuenteCalculoExigeReciboTipadoDeConsumoAutorizacion(t *testing.T) {
+	tipo := reflect.TypeOf(FuenteExactaCalculoReglasBaremo{})
+	campo, existe := tipo.FieldByName("ConsumoAutorizacion")
+	if !existe || campo.Type != reflect.TypeOf(oficial.ReciboConsumoAutorizacionFuenteV1{}) {
+		t.Fatal("la fuente admite una referencia debil en lugar del recibo durable tipado")
 	}
 }

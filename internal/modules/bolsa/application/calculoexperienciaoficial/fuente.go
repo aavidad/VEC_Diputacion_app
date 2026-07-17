@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	oficial "vec-diputacion-granada/internal/modules/bolsa/domain/calculoexperienciaoficial"
 	reglas "vec-diputacion-granada/internal/modules/bolsa/domain/reglasbaremo"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -30,7 +31,9 @@ func (s *Servicio) obtenerFuente(
 	}
 	ahora := instanteCanonico(s.reloj.Ahora())
 	if ahora.IsZero() || ahora.Before(solicitadaEn) || autorizacion.ValidarEn(ahora) != nil ||
-		validarFuenteExacta(fuente, solicitud.Selector, solicitadaEn, ahora) != nil {
+		validarFuenteExacta(
+			fuente, solicitud.Selector, autorizacion, solicitadaEn, ahora,
+		) != nil {
 		return puertosbolsa.FuenteExactaCalculoReglasBaremo{}, time.Time{},
 			ErrFuenteNoConfiable
 	}
@@ -40,6 +43,7 @@ func (s *Servicio) obtenerFuente(
 func validarFuenteExacta(
 	fuente puertosbolsa.FuenteExactaCalculoReglasBaremo,
 	selector puertosbolsa.SelectorFuenteExactaCalculoReglasBaremo,
+	autorizacion puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
 	solicitadaEn, comprobadaEn time.Time,
 ) error {
 	if !selectorValido(selector) || fuente.Version.Validar() != nil ||
@@ -48,7 +52,7 @@ func validarFuenteExacta(
 		fuente.ObtenidaEn.Before(solicitadaEn) || fuente.ObtenidaEn.After(comprobadaEn) ||
 		validarPruebaFuente(fuente.Prueba, selector, fuente.ObtenidaEn, comprobadaEn) != nil ||
 		!referenciaValida(fuente.Auditoria) ||
-		!referenciaValida(fuente.ConsumoAutorizacion) ||
+		fuente.ConsumoAutorizacion.Validar() != nil ||
 		!referenciaValida(fuente.ConsumoPrueba) ||
 		!referenciasFuenteDistintas(fuente) {
 		return ErrFuenteNoConfiable
@@ -71,7 +75,43 @@ func validarFuenteExacta(
 	if err != nil || !referenciasIguales(referenciaConjunto, contenido) {
 		return ErrFuenteNoConfiable
 	}
+	if validarReciboConsumoFuente(
+		fuente, selector, autorizacion, solicitadaEn,
+	) != nil {
+		return ErrFuenteNoConfiable
+	}
 	return nil
+}
+
+func validarReciboConsumoFuente(
+	fuente puertosbolsa.FuenteExactaCalculoReglasBaremo,
+	selector puertosbolsa.SelectorFuenteExactaCalculoReglasBaremo,
+	autorizacion puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
+	solicitadaEn time.Time,
+) error {
+	datos, errDatos := autorizacion.Datos()
+	huellaSelector, errSelector := selector.HuellaSHA256V1()
+	recurso, errRecurso := recursoLectura(selector)
+	huellaContexto, errContexto := recurso.HuellaContextoAutorizacionSHA256()
+	if errDatos != nil || errSelector != nil || errRecurso != nil || errContexto != nil ||
+		datos.EsquemaHuella != puertosvec.EsquemaHuellaDecisionAutorizacionReforzadaV2 ||
+		datos.VerificadaEn.After(solicitadaEn) {
+		return ErrFuenteNoConfiable
+	}
+	decision := datos.Decision
+	if decision.RecursoRef != recurso.Referencia ||
+		decision.ContextoRecursoHuellaSHA256 != huellaContexto {
+		return ErrFuenteNoConfiable
+	}
+	return fuente.ConsumoAutorizacion.ValidarPara(
+		decision.DecisionRef, datos.EsquemaHuella, datos.HuellaDecisionSHA256,
+		decision.RecursoRef, decision.ContextoRecursoHuellaSHA256,
+		decision.CorrelacionRef, huellaSelector,
+		referenciaExactaOficial(fuente.Prueba.Evidencia),
+		referenciaExactaOficial(fuente.ConsumoPrueba),
+		referenciaExactaOficial(fuente.Auditoria),
+		solicitadaEn, fuente.ObtenidaEn,
+	)
 }
 
 func validarPruebaFuente(
@@ -94,13 +134,18 @@ func validarPruebaFuente(
 }
 
 func referenciasFuenteDistintas(fuente puertosbolsa.FuenteExactaCalculoReglasBaremo) bool {
+	consumo, err := fuente.ConsumoAutorizacion.Consumo()
+	if err != nil {
+		return false
+	}
 	referencias := []reglas.ReferenciaVersionada{
 		fuente.Prueba.Evidencia, fuente.Prueba.Verificador, fuente.Auditoria,
-		fuente.ConsumoAutorizacion, fuente.ConsumoPrueba,
+		fuente.ConsumoPrueba,
 		fuente.Prueba.EstadoReglas.Contenido(), fuente.Prueba.InstantaneaEntrada,
 		fuente.Prueba.SujetoPseudonimo, fuente.Prueba.Convocatoria,
 	}
-	vistas := make(map[string]struct{}, len(referencias))
+	vistas := make(map[string]struct{}, len(referencias)+1)
+	vistas[consumo.Referencia] = struct{}{}
 	for _, referencia := range referencias {
 		clave := referencia.Referencia()
 		if _, existe := vistas[clave]; existe {
@@ -109,6 +154,13 @@ func referenciasFuenteDistintas(fuente puertosbolsa.FuenteExactaCalculoReglasBar
 		vistas[clave] = struct{}{}
 	}
 	return true
+}
+
+func referenciaExactaOficial(referencia reglas.ReferenciaVersionada) oficial.ReferenciaExactaV1 {
+	return oficial.ReferenciaExactaV1{
+		Referencia: referencia.Referencia(), Version: referencia.Version(),
+		HuellaSHA256: referencia.HuellaSHA256(),
+	}
 }
 
 func referenciasIguales(a, b reglas.ReferenciaVersionada) bool {

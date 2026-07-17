@@ -7,6 +7,7 @@ import (
 	"time"
 
 	oficial "vec-diputacion-granada/internal/modules/bolsa/domain/calculoexperienciaoficial"
+	reglas "vec-diputacion-granada/internal/modules/bolsa/domain/reglasbaremo"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -17,16 +18,36 @@ type relojPrueba struct{ ahora time.Time }
 
 func (r relojPrueba) Ahora() time.Time { return r.ahora }
 
+type relojSecuencialPrueba struct {
+	actual time.Time
+	paso   time.Duration
+}
+
+func (r *relojSecuencialPrueba) Ahora() time.Time {
+	actual := r.actual
+	r.actual = r.actual.Add(r.paso)
+	return actual
+}
+
 type fuentePrueba struct {
-	resultado puertosbolsa.FuenteExactaCalculoReglasBaremo
-	error     error
-	llamadas  int
-	cancelar  context.CancelFunc
+	resultado      puertosbolsa.FuenteExactaCalculoReglasBaremo
+	error          error
+	llamadas       int
+	cancelar       context.CancelFunc
+	alterarConsumo func(*datosReciboConsumoFuenteDoble)
+	omitirConsumo  bool
+}
+
+type datosReciboConsumoFuenteDoble struct {
+	consumo, fuenteExacta, consumoPrueba, auditoria            oficial.ReferenciaExactaV1
+	decisionRef, esquemaDecision, huellaDecision               string
+	recursoRef, huellaContexto, correlacionRef, huellaSelector string
+	consumidaEn                                                time.Time
 }
 
 func (f *fuentePrueba) ObtenerFuenteExacta(
 	ctx context.Context,
-	_ puertosbolsa.SolicitudFuenteExactaCalculoReglasBaremo,
+	solicitud puertosbolsa.SolicitudFuenteExactaCalculoReglasBaremo,
 ) (puertosbolsa.FuenteExactaCalculoReglasBaremo, error) {
 	f.llamadas++
 	if err := ctx.Err(); err != nil {
@@ -35,7 +56,62 @@ func (f *fuentePrueba) ObtenerFuenteExacta(
 	if f.cancelar != nil {
 		f.cancelar()
 	}
-	return f.resultado, f.error
+	resultado := f.resultado
+	if f.error == nil && !f.omitirConsumo {
+		if resultado.ObtenidaEn.Before(solicitud.SolicitadaEn) {
+			resultado.ObtenidaEn = solicitud.SolicitadaEn
+		}
+		resultado.ConsumoAutorizacion = construirReciboConsumoFuenteDoble(
+			solicitud, resultado, f.alterarConsumo,
+		)
+	}
+	return resultado, f.error
+}
+
+func construirReciboConsumoFuenteDoble(
+	solicitud puertosbolsa.SolicitudFuenteExactaCalculoReglasBaremo,
+	resultado puertosbolsa.FuenteExactaCalculoReglasBaremo,
+	alterar func(*datosReciboConsumoFuenteDoble),
+) oficial.ReciboConsumoAutorizacionFuenteV1 {
+	datosAutorizacion, err := solicitud.Autorizacion.Datos()
+	huellaSelector, errSelector := solicitud.Selector.HuellaSHA256V1()
+	if err != nil || errSelector != nil {
+		return oficial.ReciboConsumoAutorizacionFuenteV1{}
+	}
+	decision := datosAutorizacion.Decision
+	datos := datosReciboConsumoFuenteDoble{
+		consumo: oficial.ReferenciaExactaV1{
+			Referencia: "consumo:autorizacion:oficial", Version: 1,
+			HuellaSHA256: strings.Repeat("7", 64),
+		},
+		fuenteExacta:  referenciaExactaDoble(resultado.Prueba.Evidencia),
+		consumoPrueba: referenciaExactaDoble(resultado.ConsumoPrueba),
+		auditoria:     referenciaExactaDoble(resultado.Auditoria),
+		decisionRef:   decision.DecisionRef, esquemaDecision: datosAutorizacion.EsquemaHuella,
+		huellaDecision: datosAutorizacion.HuellaDecisionSHA256,
+		recursoRef:     decision.RecursoRef, huellaContexto: decision.ContextoRecursoHuellaSHA256,
+		correlacionRef: decision.CorrelacionRef, huellaSelector: huellaSelector,
+		consumidaEn: resultado.ObtenidaEn,
+	}
+	if alterar != nil {
+		alterar(&datos)
+	}
+	recibo, err := oficial.NuevoReciboConsumoAutorizacionFuenteV1(
+		datos.consumo, datos.decisionRef, datos.esquemaDecision, datos.huellaDecision,
+		datos.recursoRef, datos.huellaContexto, datos.correlacionRef, datos.huellaSelector,
+		datos.fuenteExacta, datos.consumoPrueba, datos.auditoria, datos.consumidaEn,
+	)
+	if err != nil {
+		return oficial.ReciboConsumoAutorizacionFuenteV1{}
+	}
+	return recibo
+}
+
+func referenciaExactaDoble(referencia reglas.ReferenciaVersionada) oficial.ReferenciaExactaV1 {
+	return oficial.ReferenciaExactaV1{
+		Referencia: referencia.Referencia(), Version: referencia.Version(),
+		HuellaSHA256: referencia.HuellaSHA256(),
+	}
 }
 
 type llamadaAutorizacionPrueba struct {
@@ -51,6 +127,7 @@ type exigidorPrueba struct {
 	cancelar         context.CancelFunc
 	garantiaDecision dominiovec.AuthAssurance
 	llamadas         []llamadaAutorizacionPrueba
+	reloj            puertosvec.Reloj
 }
 
 func (e *exigidorPrueba) ExigirEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2(
@@ -102,9 +179,13 @@ func (e *exigidorPrueba) ExigirEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2
 	if e.garantiaDecision.Valida() {
 		garantia = e.garantiaDecision
 	}
-	verificadaEn := e.ahora
+	ahora := e.ahora
+	if e.reloj != nil {
+		ahora = instanteCanonico(e.reloj.Ahora())
+	}
+	verificadaEn := ahora
 	if e.antiguaEn == indice {
-		verificadaEn = e.ahora.Add(-30 * time.Second)
+		verificadaEn = ahora.Add(-30 * time.Second)
 	}
 	decision := dominiovec.DecisionAutorizacion{
 		DecisionRef: "decision:calculo:" + string(rune('0'+indice)), Concedida: true, Codigo: "concedida",
@@ -122,7 +203,7 @@ func (e *exigidorPrueba) ExigirEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2
 		ControlVigenciaVersionRolHuellaSHA256: strings.Repeat("c", 64),
 		RevisionCatalogoPoliticas:             1, CatalogoPoliticasHuellaSHA256: huellaCatalogo,
 		GarantiaMinima: garantia, CamposPermitidos: campos,
-		EmitidaEn: verificadaEn.Add(-time.Second), ValidaHasta: e.ahora.Add(time.Minute),
+		EmitidaEn: verificadaEn.Add(-time.Second), ValidaHasta: ahora.Add(time.Minute),
 	}
 	evidencia, err := puertosvec.NuevaEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2(
 		decision, verificadaEn,
