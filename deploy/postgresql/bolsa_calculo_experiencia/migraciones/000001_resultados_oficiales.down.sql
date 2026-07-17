@@ -96,6 +96,7 @@ DROP DOMAIN vec_bolsa_calculo_experiencia.instante_utc;
 DROP FUNCTION vec_bolsa_calculo_experiencia.instante_utc_valido(text);
 DROP FUNCTION
     vec_bolsa_calculo_experiencia.indice_hmac_sha256_valido(text);
+DROP FUNCTION vec_bolsa_calculo_experiencia.sujeto_hmac_ref_valido(text);
 DROP FUNCTION vec_bolsa_calculo_experiencia.huella_sha256_valida(text);
 DROP FUNCTION
     vec_bolsa_calculo_experiencia.texto_opaco_valido(text, integer);

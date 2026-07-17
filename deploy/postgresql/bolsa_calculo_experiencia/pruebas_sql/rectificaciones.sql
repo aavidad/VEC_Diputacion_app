@@ -112,7 +112,8 @@ BEGIN
         'reglas:exactas', 1, repeat('3', 64), 1, repeat('4', 64),
         'convocatoria:misma', 1, repeat('5', 64),
         'entrada:inicial', 1, repeat('6', 64), repeat('7', 64),
-        'sujeto:pseudonimo:mismo', 1, repeat('8', 64),
+        'hmac-sha256:personas:' || repeat('8', 64),
+        1, repeat('8', 64),
         'calculo_inicial', 'completado', 'completado', intento_0,
         'recibo:inicial', 'outbox:inicial', t_0
     );
@@ -141,7 +142,8 @@ BEGIN
         'diputacion_granada', 'recibo:inicial', 'resultado:inicial',
         intento_0, 'creada', 1, repeat('1', 64), h_clave_0,
         h_intencion_0, h_resultado_0, 'calculo_inicial',
-        'sujeto:pseudonimo:mismo', 1, repeat('8', 64),
+        'hmac-sha256:personas:' || repeat('8', 64),
+        1, repeat('8', 64),
         'convocatoria:misma', 1, repeat('5', 64),
         'completado', 'completado',
         'vec.bolsa.calculo-experiencia-oficial.recibo.v1',
@@ -309,7 +311,8 @@ BEGIN
         encode(sha256(candidato.clave_semantica_publica), 'hex');
     candidato.generacion_clave_hmac := 4;
     candidato.indice_efecto_hmac_sha256 := repeat('4', 64);
-    candidato.sujeto_ref := 'sujeto:pseudonimo:ajeno';
+    candidato.sujeto_ref :=
+        'hmac-sha256:personas:' || repeat('9', 64);
     candidato.intento_nominal_ref := 'intento:cruzado';
     candidato.recibo_ref := 'recibo:cruzado';
     candidato.outbox_ref := 'outbox:cruzado';

@@ -89,6 +89,8 @@ DECLARE
         'vec_autorizacion.revalidar_decision_calculo_experiencia_v1(text,text,text,text,text,text,text,text)'::regprocedure;
     registrador regprocedure :=
         'vec_autorizacion.registrar_decision_solicitud_ligada_v2_si_vigente(bytea,bytea)'::regprocedure;
+    validador_sujeto regprocedure :=
+        'vec_bolsa_calculo_experiencia.sujeto_hmac_ref_valido(text)'::regprocedure;
 BEGIN
     IF (SELECT count(*)
           FROM pg_catalog.pg_class AS tabla
@@ -140,6 +142,34 @@ BEGIN
        ) THEN
         RAISE EXCEPTION 'el runtime recibio la puerta V2 no atestada';
     END IF;
+    IF has_function_privilege('public', validador_sujeto, 'EXECUTE')
+       OR NOT has_function_privilege(
+           'vec_bolsa_calculo_experiencia_aplicacion',
+           validador_sujeto,
+           'EXECUTE'
+       ) THEN
+        RAISE EXCEPTION 'el validador de sujeto tiene una ACL incorrecta';
+    END IF;
+    IF NOT vec_bolsa_calculo_experiencia.sujeto_hmac_ref_valido(
+               'hmac-sha256:personas:' || repeat('a', 64)
+           )
+       OR vec_bolsa_calculo_experiencia.sujeto_hmac_ref_valido('12345678Z')
+       OR vec_bolsa_calculo_experiencia.sujeto_hmac_ref_valido(
+           'persona@example.org'
+       )
+       OR vec_bolsa_calculo_experiencia.sujeto_hmac_ref_valido(
+           '/personas/12345678Z'
+       ) THEN
+        RAISE EXCEPTION 'el formato HMAC cerrado de sujeto no se cumple';
+    END IF;
+    IF (SELECT count(*)
+          FROM information_schema.columns
+         WHERE table_schema = 'vec_bolsa_calculo_experiencia'
+           AND table_name IN ('resultado_oficial', 'intento', 'recibo')
+           AND column_name = 'generacion_clave_hmac'
+           AND data_type = 'bigint') <> 3 THEN
+        RAISE EXCEPTION 'la generacion HMAC no representa uint32 en SQL';
+    END IF;
     IF EXISTS (
         SELECT 1 FROM information_schema.columns
          WHERE table_schema = 'vec_bolsa_calculo_experiencia'
@@ -163,8 +193,26 @@ BEGIN
                     'vec_bolsa_calculo_experiencia.resultado_oficial'::regclass
                   AND conname = 'resultado_bytes_exactos'
            ))
-       ) = 0 THEN
+    ) = 0 THEN
         RAISE EXCEPTION 'no se conserva el limite de 64 MiB';
+    END IF;
+    IF position(
+           'sujeto_hmac_ref_valido' IN pg_get_constraintdef((
+               SELECT oid FROM pg_catalog.pg_constraint
+                WHERE conrelid =
+                    'vec_bolsa_calculo_experiencia.resultado_oficial'::regclass
+                  AND conname = 'resultado_referencias_validas'
+           ))
+       ) = 0
+       OR position(
+           'sujeto_hmac_ref_valido' IN pg_get_constraintdef((
+               SELECT oid FROM pg_catalog.pg_constraint
+                WHERE conrelid =
+                    'vec_bolsa_calculo_experiencia.recibo'::regclass
+                  AND conname = 'recibo_exacto'
+           ))
+       ) = 0 THEN
+        RAISE EXCEPTION 'resultado o recibo no cierran la referencia HMAC';
     END IF;
     IF NOT EXISTS (
         SELECT 1

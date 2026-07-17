@@ -41,6 +41,22 @@ SECURITY DEFINER
 SET search_path = pg_catalog, pg_temp
 AS $prueba$ SELECT true $prueba$;
 
+CREATE TEMP TABLE prueba_limite_resultado (
+    LIKE vec_bolsa_calculo_experiencia.resultado_oficial
+    INCLUDING CONSTRAINTS
+) ON COMMIT DROP;
+CREATE TEMP TABLE prueba_limite_intento (
+    LIKE vec_bolsa_calculo_experiencia.intento INCLUDING CONSTRAINTS
+) ON COMMIT DROP;
+CREATE TEMP TABLE prueba_limite_recibo (
+    LIKE vec_bolsa_calculo_experiencia.recibo INCLUDING CONSTRAINTS
+) ON COMMIT DROP;
+GRANT SELECT, INSERT, UPDATE ON
+    prueba_limite_resultado,
+    prueba_limite_intento,
+    prueba_limite_recibo
+    TO vec_bolsa_calculo_experiencia_aplicacion;
+
 SET LOCAL ROLE vec_bolsa_calculo_experiencia_aplicacion;
 
 DO $historia$
@@ -107,7 +123,8 @@ BEGIN
         'reglas:experiencia:1', 1, repeat('3', 64), 1, repeat('4', 64),
         'convocatoria:1', 1, repeat('5', 64),
         'entrada:experiencia:1', 1, repeat('6', 64), repeat('7', 64),
-        'sujeto:pseudonimizado:1', 1, repeat('8', 64), 'calculo_inicial',
+        'hmac-sha256:personas:' || repeat('8', 64),
+        1, repeat('8', 64), 'calculo_inicial',
         'completado', 'completado', intento_1,
         'recibo:experiencia:1', 'outbox:experiencia:1', instante_1
     );
@@ -172,7 +189,8 @@ BEGIN
         'diputacion_granada', 'recibo:experiencia:1',
         'resultado:experiencia:1', intento_1, 1, indice, h_clave,
         h_intencion, h_resultado, 'calculo_inicial',
-        'sujeto:pseudonimizado:1', 1, repeat('8', 64),
+        'hmac-sha256:personas:' || repeat('8', 64),
+        1, repeat('8', 64),
         'convocatoria:1', 1, repeat('5', 64),
         'completado', 'completado',
         'vec.bolsa.calculo-experiencia-oficial.recibo.v1',
@@ -307,7 +325,8 @@ BEGIN
             'reglas:otra', 1, repeat('3', 64), 1, repeat('4', 64),
             'convocatoria:otra', 1, repeat('5', 64),
             'entrada:otra', 1, repeat('6', 64), repeat('7', 64),
-            'sujeto:otro', 1, repeat('8', 64), 'calculo_inicial',
+            'hmac-sha256:personas:' || repeat('9', 64),
+            1, repeat('8', 64), 'calculo_inicial',
             'completado', 'completado', 'intento:otro',
             'recibo:otro', 'outbox:otro', instante_2
         );
@@ -326,6 +345,85 @@ BEGIN
     END;
 END
 $historia$;
+
+INSERT INTO prueba_limite_resultado
+    SELECT * FROM vec_bolsa_calculo_experiencia.resultado_oficial
+     WHERE resultado_ref = 'resultado:experiencia:1';
+INSERT INTO prueba_limite_intento
+    SELECT * FROM vec_bolsa_calculo_experiencia.intento
+     WHERE intento_ref = 'correlacion_11111111111111111111111111111111';
+INSERT INTO prueba_limite_recibo
+    SELECT * FROM vec_bolsa_calculo_experiencia.recibo
+     WHERE recibo_ref = 'recibo:experiencia:1';
+
+UPDATE prueba_limite_resultado
+   SET generacion_clave_hmac = 4294967295;
+UPDATE prueba_limite_intento
+   SET generacion_clave_hmac = 4294967295;
+UPDATE prueba_limite_recibo
+   SET generacion_clave_hmac = 4294967295;
+
+DO $limites_uint32_y_sujeto$
+DECLARE
+    referencia_directa text;
+BEGIN
+    IF (SELECT generacion_clave_hmac FROM prueba_limite_resultado) <>
+           4294967295
+       OR (SELECT generacion_clave_hmac FROM prueba_limite_intento) <>
+           4294967295
+       OR (SELECT generacion_clave_hmac FROM prueba_limite_recibo) <>
+           4294967295 THEN
+        RAISE EXCEPTION 'se rechazo el limite superior uint32 valido';
+    END IF;
+
+    BEGIN
+        UPDATE prueba_limite_resultado
+           SET generacion_clave_hmac = 4294967296;
+        RAISE EXCEPTION 'resultado acepto una generacion fuera de uint32';
+    EXCEPTION WHEN check_violation THEN
+        NULL;
+    END;
+    BEGIN
+        UPDATE prueba_limite_intento
+           SET generacion_clave_hmac = 4294967296;
+        RAISE EXCEPTION 'intento acepto una generacion fuera de uint32';
+    EXCEPTION WHEN check_violation THEN
+        NULL;
+    END;
+    BEGIN
+        UPDATE prueba_limite_recibo
+           SET generacion_clave_hmac = 4294967296;
+        RAISE EXCEPTION 'recibo acepto una generacion fuera de uint32';
+    EXCEPTION WHEN check_violation THEN
+        NULL;
+    END;
+
+    FOREACH referencia_directa IN ARRAY ARRAY[
+        '12345678Z',
+        'persona@example.org',
+        '/personas/12345678Z'
+    ] LOOP
+        BEGIN
+            UPDATE prueba_limite_resultado
+               SET sujeto_ref = referencia_directa;
+            RAISE EXCEPTION
+                'resultado acepto una referencia directa de sujeto: %',
+                referencia_directa;
+        EXCEPTION WHEN check_violation THEN
+            NULL;
+        END;
+        BEGIN
+            UPDATE prueba_limite_recibo
+               SET sujeto_ref = referencia_directa;
+            RAISE EXCEPTION
+                'recibo acepto una referencia directa de sujeto: %',
+                referencia_directa;
+        EXCEPTION WHEN check_violation THEN
+            NULL;
+        END;
+    END LOOP;
+END
+$limites_uint32_y_sujeto$;
 
 SET LOCAL vec.tenant_id = 'otro_tenant';
 DO $aislamiento_tenant$

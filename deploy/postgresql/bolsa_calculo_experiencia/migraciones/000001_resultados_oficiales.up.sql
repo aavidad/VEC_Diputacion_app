@@ -77,6 +77,18 @@ AS $funcion$
     SELECT p_valor ~ '^[0-9a-f]{64}$'
 $funcion$;
 
+CREATE FUNCTION vec_bolsa_calculo_experiencia.sujeto_hmac_ref_valido(
+    p_valor text
+)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = pg_catalog, pg_temp
+AS $funcion$
+    SELECT (p_valor COLLATE "C") ~
+        '^hmac-sha256:[a-z][a-z0-9._-]{0,127}:[0-9a-f]{64}$'
+$funcion$;
+
 CREATE FUNCTION vec_bolsa_calculo_experiencia.instante_utc_valido(
     p_valor text
 )
@@ -155,7 +167,7 @@ CREATE TABLE vec_bolsa_calculo_experiencia.resultado_oficial (
     esquema_clave_semantica text NOT NULL,
     clave_semantica_publica bytea NOT NULL,
     huella_clave_semantica_sha256 text NOT NULL,
-    generacion_clave_hmac integer NOT NULL,
+    generacion_clave_hmac bigint NOT NULL,
     indice_efecto_hmac_sha256 text NOT NULL,
     esquema_selector_fuente text NOT NULL,
     selector_fuente_canonico bytea NOT NULL,
@@ -217,7 +229,7 @@ CREATE TABLE vec_bolsa_calculo_experiencia.resultado_oficial (
             convocatoria_ref, 512
         )
         AND vec_bolsa_calculo_experiencia.texto_opaco_valido(entrada_ref, 512)
-        AND vec_bolsa_calculo_experiencia.texto_opaco_valido(sujeto_ref, 512)
+        AND vec_bolsa_calculo_experiencia.sujeto_hmac_ref_valido(sujeto_ref)
         AND (
             predecesor_recibo_ref IS NULL
             OR vec_bolsa_calculo_experiencia.texto_opaco_valido(
@@ -256,7 +268,7 @@ CREATE TABLE vec_bolsa_calculo_experiencia.resultado_oficial (
         )
         AND encode(sha256(selector_fuente_canonico), 'hex') =
             huella_selector_fuente_sha256
-        AND generacion_clave_hmac > 0
+        AND generacion_clave_hmac BETWEEN 1 AND 4294967295
         AND vec_bolsa_calculo_experiencia.indice_hmac_sha256_valido(
             indice_efecto_hmac_sha256
         )
@@ -319,7 +331,7 @@ CREATE TABLE vec_bolsa_calculo_experiencia.intento (
     esquema_intencion text NOT NULL,
     intencion_canonica bytea NOT NULL,
     huella_intencion_sha256 text NOT NULL,
-    generacion_clave_hmac integer NOT NULL,
+    generacion_clave_hmac bigint NOT NULL,
     indice_efecto_hmac_sha256 text NOT NULL,
     huella_clave_semantica_sha256 text NOT NULL,
     huella_resultado_sha256 text NOT NULL,
@@ -379,7 +391,7 @@ CREATE TABLE vec_bolsa_calculo_experiencia.intento (
         )
         AND encode(sha256(intencion_canonica), 'hex') =
             huella_intencion_sha256
-        AND generacion_clave_hmac > 0
+        AND generacion_clave_hmac BETWEEN 1 AND 4294967295
         AND vec_bolsa_calculo_experiencia.indice_hmac_sha256_valido(
             indice_efecto_hmac_sha256
         )
@@ -555,7 +567,7 @@ CREATE TABLE vec_bolsa_calculo_experiencia.recibo (
     resultado_ref text NOT NULL,
     intento_nominal_ref text NOT NULL,
     desenlace_nominal text NOT NULL DEFAULT 'creada',
-    generacion_clave_hmac integer NOT NULL,
+    generacion_clave_hmac bigint NOT NULL,
     indice_efecto_hmac_sha256 text NOT NULL,
     huella_clave_semantica_sha256 text NOT NULL,
     huella_intencion_sha256 text NOT NULL,
@@ -591,7 +603,7 @@ CREATE TABLE vec_bolsa_calculo_experiencia.recibo (
         )
         AND encode(sha256(recibo_canonico), 'hex') = huella_recibo_sha256
         AND desenlace_nominal = 'creada'
-        AND generacion_clave_hmac > 0
+        AND generacion_clave_hmac BETWEEN 1 AND 4294967295
         AND vec_bolsa_calculo_experiencia.indice_hmac_sha256_valido(
             indice_efecto_hmac_sha256
         )
@@ -607,7 +619,7 @@ CREATE TABLE vec_bolsa_calculo_experiencia.recibo (
         AND tipo_efecto IN ('calculo_inicial', 'rectificacion')
         AND sujeto_version BETWEEN 1 AND 1000000000
         AND convocatoria_version BETWEEN 1 AND 1000000000
-        AND vec_bolsa_calculo_experiencia.texto_opaco_valido(sujeto_ref, 512)
+        AND vec_bolsa_calculo_experiencia.sujeto_hmac_ref_valido(sujeto_ref)
         AND vec_bolsa_calculo_experiencia.texto_opaco_valido(
             convocatoria_ref, 512
         )
@@ -969,6 +981,7 @@ GRANT EXECUTE ON FUNCTION
     vec_bolsa_calculo_experiencia.texto_opaco_valido(text, integer),
     vec_bolsa_calculo_experiencia.huella_sha256_valida(text),
     vec_bolsa_calculo_experiencia.indice_hmac_sha256_valido(text),
+    vec_bolsa_calculo_experiencia.sujeto_hmac_ref_valido(text),
     vec_bolsa_calculo_experiencia.instante_utc_valido(text),
     vec_bolsa_calculo_experiencia.validar_predecesor_resultado(),
     vec_bolsa_calculo_experiencia.validar_encadenamiento_auditoria(),

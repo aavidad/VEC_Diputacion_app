@@ -43,6 +43,16 @@ base. La clave y el selector incluyen referencias pseudonimizadas y, por tanto,
 siguen siendo datos personales protegidos aunque no contengan DNI, nombre o
 correo.
 
+`sujeto_ref` no es una referencia opaca libre: tanto el resultado como el
+recibo exigen exactamente
+`hmac-sha256:<espacio-de-nombres>:<64-hex-minusculas>`. El espacio de nombres
+empieza por una letra minúscula, admite como máximo 128 caracteres ASCII entre
+letras, dígitos, punto, guion y guion bajo, y nunca contiene el identificador
+directo. DNI, correo y rutas se rechazan en ambas tablas. La generación de la
+clave es un `bigint` SQL restringido a `1..4294967295`, exactamente el dominio
+positivo de `uint32` que usa Go; resultado, intento y recibo repiten y enlazan
+ese mismo valor.
+
 Para un efecto nuevo inserta el grafo completo: resultado, intento nominal,
 evidencias separadas de lectura/escritura, recibo oficial, auditoría y outbox.
 La lectura aporta el consumo exacto ya emitido por la fuente. La decisión de
@@ -77,12 +87,13 @@ atrás. Un cálculo inicial externo exige superficie personal no privilegiada y
 garantías mínima y observada de nivel sustancial o alto; el perfil interno exige
 garantía alta y superficie corporativa o administrativa coherente.
 
-Los `bytea` canónicos obedecen a esquemas cerrados de la aplicación y no deben
-contener identificadores directos. El resultado admite como máximo 64 MiB; la
-clave, intención, selector y recibo, 32 KiB cada uno. La referencia exacta del
-sujeto la emite la capa confiable y PostgreSQL no la genera ni la resuelve. El
-pseudónimo recibe las mismas medidas de acceso, retención, auditoría y
-protección que el resto de datos personales.
+Los `bytea` canónicos deben obedecer a esquemas cerrados de la aplicación y no
+deben contener identificadores directos. PostgreSQL verifica límites y que su
+SHA-256 coincide, pero deliberadamente no interpreta su semántica. El resultado
+admite como máximo 64 MiB; la clave, intención, selector y recibo, 32 KiB cada
+uno. La referencia exacta del sujeto la emite la capa confiable y PostgreSQL no
+la genera ni la resuelve. El pseudónimo recibe las mismas medidas de acceso,
+retención, auditoría y protección que el resto de datos personales.
 
 ### Barreras NO-GO pendientes
 
@@ -93,7 +104,20 @@ revalida la decisión V2, pero todavía no existe un almacén PostgreSQL product
 de esa fuente que permita una clave foránea o una consulta cerrada contra esos
 dos recibos. Hasta implementar y probar ese adaptador, la composición
 productiva debe fallar al arrancar; no se puede habilitar la confirmación
-oficial usando solo los campos declarados.
+oficial usando solo los campos declarados. Tampoco queda cerrado el riesgo
+TOCTOU entre calcular con una fuente activa y persistir: el futuro repositorio
+exacto debe volver a comprobar versión, estado, huellas y consumos dentro de la
+misma transacción `SERIALIZABLE` que confirma el grafo. Una comprobación previa
+en memoria o en otra transacción no es suficiente.
+
+Existe además una barrera canónica: la base acredita integridad binaria, no que
+los bytes sean la representación canónica válida ni que todas sus proyecciones
+coincidan con las columnas relacionales. El adaptador productivo deberá
+restaurar clave, selector, intención, resultado y recibo con los códecs Go
+cerrados, recodificarlos, cotejar sus huellas y contrastar sujeto, convocatoria,
+efecto y predecesor tanto al insertar como al reconciliar. Hasta que ese camino
+tenga pruebas de integración negativas, los bytes y hashes SQL por sí solos no
+habilitan producción.
 
 La segunda barrera es la emisión de autoridad: conforme al contrato del módulo
 de autorización, este paquete no concede al runtime `EXECUTE` sobre
