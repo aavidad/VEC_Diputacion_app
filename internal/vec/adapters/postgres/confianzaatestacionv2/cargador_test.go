@@ -48,19 +48,24 @@ func (i *iniciadorDoble) BeginTx(_ context.Context, opciones pgx.TxOptions) (pgx
 
 type transaccionDoble struct {
 	pgx.Tx
-	identidad        identidadTransaccion
-	filas            *filasDoble
-	errPreparacion   error
-	errConsulta      error
-	errIdentidad     error
-	errConfirmacion  error
-	cancelarConsulta context.CancelFunc
-	ejecutadas       []string
-	consultada       string
-	confirmaciones   int
-	reversiones      int
-	errorRollbackCtx error
-	rollbackConPlazo bool
+	identidad            identidadTransaccion
+	filas                *filasDoble
+	errPreparacion       error
+	errBloqueo           error
+	errConsulta          error
+	errIdentidad         error
+	errConfirmacion      error
+	cancelarBloqueo      context.CancelFunc
+	cancelarConsulta     context.CancelFunc
+	ejecutadas           []string
+	eventos              []string
+	consultada           string
+	consultasIdentidad   int
+	consultaIdentidadSQL string
+	confirmaciones       int
+	reversiones          int
+	errorRollbackCtx     error
+	rollbackConPlazo     bool
 }
 
 func (t *transaccionDoble) Exec(
@@ -69,6 +74,21 @@ func (t *transaccionDoble) Exec(
 	_ ...any,
 ) (pgconn.CommandTag, error) {
 	t.ejecutadas = append(t.ejecutadas, sql)
+	if sql == sentenciaBloqueoGobierno {
+		t.eventos = append(t.eventos, "bloqueo")
+		if t.cancelarBloqueo != nil {
+			t.cancelarBloqueo()
+		}
+		if t.errBloqueo != nil {
+			return pgconn.CommandTag{}, t.errBloqueo
+		}
+		return pgconn.NewCommandTag("SELECT 1"), nil
+	}
+	if strings.Contains(sql, "SET LOCAL ROLE ") {
+		t.eventos = append(t.eventos, "rol")
+	} else {
+		t.eventos = append(t.eventos, "ajustes")
+	}
 	if t.errPreparacion != nil {
 		return pgconn.CommandTag{}, t.errPreparacion
 	}
@@ -81,6 +101,7 @@ func (t *transaccionDoble) Query(
 	_ ...any,
 ) (pgx.Rows, error) {
 	t.consultada = sql
+	t.eventos = append(t.eventos, "datos")
 	if t.cancelarConsulta != nil {
 		t.cancelarConsulta()
 	}
@@ -90,17 +111,22 @@ func (t *transaccionDoble) Query(
 	return t.filas, nil
 }
 
-func (t *transaccionDoble) QueryRow(_ context.Context, _ string, _ ...any) pgx.Row {
+func (t *transaccionDoble) QueryRow(_ context.Context, sql string, _ ...any) pgx.Row {
+	t.consultasIdentidad++
+	t.consultaIdentidadSQL = sql
+	t.eventos = append(t.eventos, "identidad")
 	return filaIdentidadDoble{identidad: t.identidad, err: t.errIdentidad}
 }
 
 func (t *transaccionDoble) Commit(_ context.Context) error {
 	t.confirmaciones++
+	t.eventos = append(t.eventos, "commit")
 	return t.errConfirmacion
 }
 
 func (t *transaccionDoble) Rollback(ctx context.Context) error {
 	t.reversiones++
+	t.eventos = append(t.eventos, "rollback")
 	t.errorRollbackCtx = ctx.Err()
 	_, t.rollbackConPlazo = ctx.Deadline()
 	return nil
@@ -223,8 +249,10 @@ func TestCargarConfiguracionActualReconstruyeConjuntoExactoYConfirma(t *testing.
 	if err := configuracion.ValidarHuellaSHA256Esperada(huella); err != nil {
 		t.Fatalf("la configuracion retuvo memoria mutable del origen: %v", err)
 	}
-	if iniciador.opciones.IsoLevel != pgx.Serializable ||
-		iniciador.opciones.AccessMode != pgx.ReadWrite {
+	if iniciador.opciones.IsoLevel != pgx.ReadCommitted ||
+		iniciador.opciones.AccessMode != pgx.ReadWrite ||
+		iniciador.opciones.DeferrableMode != pgx.NotDeferrable ||
+		iniciador.opciones.BeginQuery != "" || iniciador.opciones.CommitQuery != "" {
 		t.Fatalf("opciones de transaccion inseguras: %+v", iniciador.opciones)
 	}
 	if tx.confirmaciones != 1 || tx.reversiones != 1 {
@@ -236,13 +264,63 @@ func TestCargarConfiguracionActualReconstruyeConjuntoExactoYConfirma(t *testing.
 	if !tx.rollbackConPlazo {
 		t.Fatal("el rollback no quedo acotado por plazo")
 	}
-	if len(tx.ejecutadas) != 2 ||
+	if len(tx.ejecutadas) != 3 ||
 		!strings.Contains(tx.ejecutadas[0], "SET LOCAL ROLE "+RolLectorAutoridadPostgreSQL) ||
-		!strings.Contains(tx.ejecutadas[1], "'search_path', 'pg_catalog'") {
+		!strings.Contains(tx.ejecutadas[1], "'search_path', 'pg_catalog'") ||
+		tx.ejecutadas[2] != sentenciaBloqueoGobierno || tx.consultasIdentidad != 1 ||
+		!strings.Contains(tx.consultaIdentidadSQL, "pg_catalog.clock_timestamp()") {
 		t.Fatalf("preparacion transaccional incompleta: %#v", tx.ejecutadas)
 	}
 	if tx.consultada != consultaConfianzaActual {
 		t.Fatalf("se empleo una consulta no gobernada: %q", tx.consultada)
+	}
+	esperados := []string{"rol", "ajustes", "bloqueo", "identidad", "datos", "commit", "rollback"}
+	if !reflect.DeepEqual(tx.eventos, esperados) {
+		t.Fatalf("orden transaccional inseguro: %#v", tx.eventos)
+	}
+}
+
+func TestCargarConfiguracionActualBloqueaGobiernoAntesDeIdentidadYDatos(t *testing.T) {
+	ahora := time.Now().UTC().Truncate(time.Microsecond)
+	filas := filasConfianzaValidas(t, ahora, false)
+	t.Run("fallo_del_bloqueo", func(t *testing.T) {
+		tx := transaccionValida(ahora, filas)
+		tx.errBloqueo = errors.New("bloqueo no disponible")
+		_, err := cargarConfiguracionActual(context.Background(), &iniciadorDoble{tx: tx})
+		if !errors.Is(err, ErrCargaConfianzaAtestacionV2NoDisponible) {
+			t.Fatalf("el fallo del bloqueo no cerro la carga: %v", err)
+		}
+		verificarBloqueoImpideLecturas(t, tx)
+	})
+
+	t.Run("cancelacion_al_adquirir", func(t *testing.T) {
+		ctx, cancelar := context.WithCancel(context.Background())
+		tx := transaccionValida(ahora, filas)
+		tx.cancelarBloqueo = cancelar
+		_, err := cargarConfiguracionActual(ctx, &iniciadorDoble{tx: tx})
+		if !errors.Is(err, context.Canceled) ||
+			!errors.Is(err, ErrCargaConfianzaAtestacionV2NoDisponible) {
+			t.Fatalf("la cancelacion del bloqueo no se preservo: %v", err)
+		}
+		verificarBloqueoImpideLecturas(t, tx)
+	})
+}
+
+func verificarBloqueoImpideLecturas(t *testing.T, tx *transaccionDoble) {
+	t.Helper()
+	if tx.consultasIdentidad != 0 || tx.consultaIdentidadSQL != "" ||
+		tx.consultada != "" || tx.confirmaciones != 0 {
+		t.Fatal("se consulto identidad o datos sin adquirir el bloqueo de gobierno")
+	}
+	if len(tx.ejecutadas) != 3 || tx.ejecutadas[2] != sentenciaBloqueoGobierno {
+		t.Fatalf("orden transaccional inesperado: %#v", tx.ejecutadas)
+	}
+	if tx.reversiones != 1 {
+		t.Fatal("el fallo del bloqueo no revirtio la transaccion")
+	}
+	esperados := []string{"rol", "ajustes", "bloqueo", "rollback"}
+	if !reflect.DeepEqual(tx.eventos, esperados) {
+		t.Fatalf("orden ante fallo del bloqueo inesperado: %#v", tx.eventos)
 	}
 }
 

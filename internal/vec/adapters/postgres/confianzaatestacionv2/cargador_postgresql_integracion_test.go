@@ -71,8 +71,9 @@ func leerHuellaActualComoOraculoIntegracion(
 	pool *pgxpool.Pool,
 ) (string, error) {
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{
-		IsoLevel:   pgx.Serializable,
-		AccessMode: pgx.ReadWrite,
+		IsoLevel:       pgx.ReadCommitted,
+		AccessMode:     pgx.ReadWrite,
+		DeferrableMode: pgx.NotDeferrable,
 	})
 	if err != nil {
 		return "", err
@@ -83,6 +84,9 @@ func leerHuellaActualComoOraculoIntegracion(
 		_ = tx.Rollback(ctxRollback)
 	}()
 	if _, err = tx.Exec(ctx, `SET LOCAL ROLE `+RolLectorAutoridadPostgreSQL); err != nil {
+		return "", err
+	}
+	if _, err = tx.Exec(ctx, sentenciaBloqueoGobierno); err != nil {
 		return "", err
 	}
 	var huella string

@@ -46,6 +46,13 @@ const consultaConfianzaActual = `
 	       raiz_estado, raiz_revocada_en
 	  FROM vec_confianza_atestacion_v2.obtener_confianza_actual()`
 
+const sentenciaBloqueoGobierno = `
+	SELECT pg_catalog.pg_advisory_xact_lock_shared(
+		pg_catalog.hashtextextended(
+			'vec_confianza_atestacion_v2:gobierno:v1', 0
+		)
+	)`
+
 type iniciadorTransaccion interface {
 	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
 }
@@ -112,8 +119,9 @@ func cargarConfiguracionActual(
 		return vacia, errorCarga(ctx, err)
 	}
 	tx, err := iniciador.BeginTx(ctx, pgx.TxOptions{
-		IsoLevel:   pgx.Serializable,
-		AccessMode: pgx.ReadWrite,
+		IsoLevel:       pgx.ReadCommitted,
+		AccessMode:     pgx.ReadWrite,
+		DeferrableMode: pgx.NotDeferrable,
 	})
 	if err != nil || valorNulo(tx) {
 		return vacia, errorCarga(ctx, err)
@@ -121,6 +129,12 @@ func cargarConfiguracionActual(
 	defer cancelarTransaccion(tx)
 
 	if err = prepararTransaccion(ctx, tx); err != nil {
+		return vacia, errorCarga(ctx, err)
+	}
+	if err = adquirirBloqueoGobierno(ctx, tx); err != nil {
+		return vacia, errorCarga(ctx, err)
+	}
+	if err = ctx.Err(); err != nil {
 		return vacia, errorCarga(ctx, err)
 	}
 	instanteConsulta, err := comprobarIdentidad(ctx, tx)
@@ -215,6 +229,11 @@ func prepararTransaccion(ctx context.Context, tx pgx.Tx) error {
 	return err
 }
 
+func adquirirBloqueoGobierno(ctx context.Context, tx pgx.Tx) error {
+	_, err := tx.Exec(ctx, sentenciaBloqueoGobierno)
+	return err
+}
+
 type identidadTransaccion struct {
 	sesionUsuario       string
 	usuarioActual       string
@@ -240,7 +259,7 @@ func comprobarIdentidad(ctx context.Context, tx pgx.Tx) (time.Time, error) {
 	var identidad identidadTransaccion
 	err := tx.QueryRow(ctx, `
 		SELECT session_user::text, current_user::text,
-		       pg_catalog.transaction_timestamp(),
+		       pg_catalog.clock_timestamp(),
 		       sesion.rolcanlogin, sesion.rolsuper, sesion.rolcreaterole,
 		       sesion.rolcreatedb, sesion.rolreplication, sesion.rolbypassrls,
 		       (SELECT count(*)
