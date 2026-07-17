@@ -339,6 +339,7 @@ button:hover {
 
 .panel-listado,
 .panel-detalle {
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -741,8 +742,13 @@ button:hover {
 @media (max-width: 1100px) {
   .panel-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .acciones-filtros { grid-column: auto; }
-  .espacio-trabajo-publico { grid-template-columns: minmax(330px, .85fr) minmax(400px, 1.15fr); }
+  .espacio-trabajo-publico { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); }
   .grupos-directorio { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 801px) and (max-width: 960px) {
+  .espacio-trabajo-publico { grid-template-columns: 1fr; }
+  .panel-detalle { position: static; max-height: none; }
 }
 
 @media (max-width: 800px) {

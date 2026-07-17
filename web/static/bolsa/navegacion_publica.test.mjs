@@ -71,3 +71,22 @@ test("el menú es lateral en escritorio y se adapta sin ocultarse en móvil", ()
     assert.doesNotMatch(declaraciones, /\bcontent-visibility\s*:\s*hidden\b/i, `${selector.trim()} no puede omitir el menú en pantalla`);
   });
 });
+
+test("el espacio de convocatorias cabe a 1024 px sin desbordamiento horizontal", () => {
+  assert.match(css, /\.panel-listado,\s*\.panel-detalle\s*\{[^}]*min-width:\s*0;/s);
+  assert.match(
+    css,
+    /@media \(max-width: 1100px\)[\s\S]*?\.espacio-trabajo-publico\s*\{\s*grid-template-columns:\s*minmax\(0, \.85fr\) minmax\(0, 1\.15fr\);/,
+  );
+  assert.doesNotMatch(
+    css,
+    /@media \(max-width: 1100px\)[\s\S]*?\.espacio-trabajo-publico\s*\{[^}]*minmax\((?:330|400)px/,
+  );
+  assert.match(
+    css,
+    /@media \(min-width: 801px\) and \(max-width: 960px\)[\s\S]*?\.espacio-trabajo-publico\s*\{\s*grid-template-columns:\s*1fr;/,
+  );
+
+  const anchoUtilA1024 = 1024 - 272 - 40;
+  assert.equal(anchoUtilA1024, 712, "el área principal disponible a 1024 px debe quedar explicitada en la regresión");
+});
