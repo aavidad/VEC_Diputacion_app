@@ -14,10 +14,13 @@ import (
 )
 
 const (
-	esquemaResultadoConsultaAutoridadV1 = "vec.fuentes-autoridad.consulta-resultado.v1"
-	esquemaEntradaAuditoriaConsultaV1   = "vec.fuentes-autoridad.auditoria-consulta.v1"
-	esquemaCompromisoReciboConsultaV1   = "vec.fuentes-autoridad.recibo-consulta.v1"
-	formatoInstanteAuditoriaConsultaV1  = "2006-01-02T15:04:05.000000Z"
+	esquemaResultadoConsultaAutoridadV1  = "vec.fuentes-autoridad.consulta-resultado.v1"
+	esquemaEntradaAuditoriaConsultaV1    = "vec.fuentes-autoridad.auditoria-consulta.v1"
+	esquemaCompromisoReciboConsultaV1    = "vec.fuentes-autoridad.recibo-consulta.v1"
+	formatoInstanteAuditoriaConsultaV1   = "2006-01-02T15:04:05.000000Z"
+	maximoTextoReciboConsultaAutoridadV1 = 512
+	numeroMetadatosConsultaAutoridadV1   = 6
+	maximoBytesAuditoriaConsultaV1       = 16 * 1024
 )
 
 // DatosReciboConsultaInternaFuenteAutoridad es una proyeccion interna. La
@@ -83,7 +86,11 @@ func NuevoReciboConsultaInternaFuenteAutoridad(
 ) (ReciboConsultaInternaFuenteAutoridad, error) {
 	// Las huellas son calculadas por este puerto sobre DTO V1 congeladas; una
 	// huella declarada por el adaptador nunca se acepta como autoridad.
-	if datos.AuditoriaHuellaEntradaSHA256 != "" || datos.HuellaCompromisoReciboSHA256 != "" {
+	// La prevalidacion acotada ocurre antes de ordenar, copiar o serializar lo
+	// que entregue un adaptador. Evita que una frontera comprometida use el
+	// constructor como amplificador de memoria antes del rechazo semantico.
+	if prevalidarLimitesDatosReciboConsultaAutoridad(datos) != nil ||
+		datos.AuditoriaHuellaEntradaSHA256 != "" || datos.HuellaCompromisoReciboSHA256 != "" {
 		return ReciboConsultaInternaFuenteAutoridad{}, ErrReciboConsultaFuenteAutoridadInvalido
 	}
 	huellaAuditoria, err := huellaEntradaAuditoriaConsultaV1(datos.AuditoriaConfirmada)
@@ -100,6 +107,9 @@ func NuevoReciboConsultaInternaFuenteAutoridad(
 		return ReciboConsultaInternaFuenteAutoridad{}, ErrReciboConsultaFuenteAutoridadInvalido
 	}
 	copia := clonarDatosReciboConsultaAutoridad(datos)
+	if validarDatosReciboConsultaAutoridad(solicitud, copia) != nil {
+		return ReciboConsultaInternaFuenteAutoridad{}, ErrReciboConsultaFuenteAutoridadInvalido
+	}
 	return ReciboConsultaInternaFuenteAutoridad{datos: &copia}, nil
 }
 
@@ -127,6 +137,9 @@ func validarDatosReciboConsultaAutoridad(
 	solicitud SolicitudConsultaInternaGobernadaFuenteAutoridad,
 	datos DatosReciboConsultaInternaFuenteAutoridad,
 ) error {
+	if prevalidarLimitesDatosReciboConsultaAutoridad(datos) != nil {
+		return ErrReciboConsultaFuenteAutoridadInvalido
+	}
 	selector, errSelector := solicitud.Selector()
 	autorizacion, errAutorizacion := solicitud.Autorizacion()
 	datosAutorizacion, errDatos := autorizacion.Datos()
@@ -306,7 +319,8 @@ type compromisoReciboConsultaCanonicoV1 struct {
 }
 
 func huellaEntradaAuditoriaConsultaV1(entrada domain.AuditEntry) (string, error) {
-	if !instantePuertoAutoridadCanonico(entrada.OccurredAt) {
+	if prevalidarLimitesAuditoriaConsultaAutoridad(entrada) != nil ||
+		!instantePuertoAutoridadCanonico(entrada.OccurredAt) {
 		return "", ErrReciboConsultaFuenteAutoridadInvalido
 	}
 	claves := make([]string, 0, len(entrada.Metadata))
@@ -385,7 +399,8 @@ func huellaCompromisoReciboConsultaV1(
 	datos DatosReciboConsultaInternaFuenteAutoridad,
 	huellaAuditoria string,
 ) (string, error) {
-	if !huellaSHA256PuertoAutoridadValida(datos.HuellaDecisionSHA256) ||
+	if prevalidarLimitesDatosReciboConsultaAutoridad(datos) != nil ||
+		!huellaSHA256PuertoAutoridadValida(datos.HuellaDecisionSHA256) ||
 		!huellaSHA256PuertoAutoridadValida(huellaAuditoria) ||
 		!instantePuertoAutoridadCanonico(datos.ConfirmadaEn) {
 		return "", ErrReciboConsultaFuenteAutoridadInvalido
@@ -399,6 +414,79 @@ func huellaCompromisoReciboConsultaV1(
 		AuditoriaHuellaEntradaSHA256: huellaAuditoria,
 		ConfirmadaEn:                 datos.ConfirmadaEn.Format(formatoInstanteAuditoriaConsultaV1),
 	})
+}
+
+// prevalidarLimitesDatosReciboConsultaAutoridad solo inspecciona un numero
+// fijo de campos y longitudes. No recorre colecciones no acotadas, no copia y
+// no serializa. La validacion semantica completa se ejecuta despues sobre la
+// misma entrada y, tras construir el valor opaco, sobre su copia defensiva.
+func prevalidarLimitesDatosReciboConsultaAutoridad(
+	datos DatosReciboConsultaInternaFuenteAutoridad,
+) error {
+	if len(datos.TransaccionRef) > maximoTextoReciboConsultaAutoridadV1 ||
+		len(datos.Selector.FuenteID) > 128 ||
+		len(datos.Resultado) > 32 ||
+		len(datos.Estado.Fuente.FuenteID) > 128 ||
+		len(datos.Estado.Fuente.HuellaContenidoSHA256) > 64 ||
+		len(datos.Estado.Estado) > 64 ||
+		len(datos.Estado.HuellaHistoriaSHA256) > 64 ||
+		len(datos.Estado.HuellaEstadoSHA256) > 64 ||
+		len(datos.DecisionRef) > maximoTextoReciboConsultaAutoridadV1 ||
+		len(datos.HuellaDecisionSHA256) > 64 ||
+		len(datos.AuditoriaRef) > maximoTextoReciboConsultaAutoridadV1 ||
+		len(datos.AuditoriaAlgoritmoIntegridad) > 128 ||
+		len(datos.AuditoriaEncadenadoAnteriorRef) > maximoTextoReciboConsultaAutoridadV1 ||
+		len(datos.AuditoriaFirmaRef) > maximoTextoReciboConsultaAutoridadV1 ||
+		len(datos.AuditoriaHuellaEntradaSHA256) > 64 ||
+		len(datos.HuellaCompromisoReciboSHA256) > 64 ||
+		prevalidarLimitesAuditoriaConsultaAutoridad(datos.AuditoriaConfirmada) != nil {
+		return ErrReciboConsultaFuenteAutoridadInvalido
+	}
+	return nil
+}
+
+func prevalidarLimitesAuditoriaConsultaAutoridad(entrada domain.AuditEntry) error {
+	// Esta operacion no admite roles ni metadatos variables. Con cardinalidad
+	// exacta y presencia de las seis claves, no puede quedar una septima clave
+	// desconocida que obligue a ordenar o recorrer un mapa controlado fuera.
+	if len(entrada.ActorRoles) != 0 || len(entrada.Metadata) != numeroMetadatosConsultaAutoridadV1 {
+		return ErrReciboConsultaFuenteAutoridadInvalido
+	}
+	claves := [...]string{
+		"fuente_id",
+		"fuente_version",
+		AtributoMotivoCatalogoIDConsultaAutoridad,
+		AtributoMotivoCatalogoVersionConsultaAutoridad,
+		AtributoMotivoCatalogoHuellaConsultaAutoridad,
+		AtributoMotivoEntradaClaveConsultaAutoridad,
+	}
+	presupuesto := 0
+	for _, clave := range claves {
+		valor, existe := entrada.Metadata[clave]
+		if !existe || len(valor) > maximoTextoReciboConsultaAutoridadV1 {
+			return ErrReciboConsultaFuenteAutoridadInvalido
+		}
+		presupuesto += len(clave) + len(valor)
+	}
+	textos := [...]string{
+		entrada.ID, entrada.ActorID, entrada.ActorProfile,
+		entrada.RepresentedSubjectID, string(entrada.AuthMethod), string(entrada.AuthAssurance),
+		entrada.AuthorizationRef, entrada.Purpose, entrada.Action, entrada.ModuleID,
+		entrada.SubjectRef, entrada.ExpedienteRef, entrada.DocumentRef, entrada.RuleRef,
+		entrada.Reason, entrada.Result, entrada.BeforeHash, entrada.AfterHash,
+		entrada.CorrelationRef, entrada.IntegrityAlgorithm, entrada.PrevSignature,
+		entrada.Signature,
+	}
+	for _, valor := range textos {
+		if len(valor) > maximoTextoReciboConsultaAutoridadV1 {
+			return ErrReciboConsultaFuenteAutoridadInvalido
+		}
+		presupuesto += len(valor)
+	}
+	if presupuesto > maximoBytesAuditoriaConsultaV1 {
+		return ErrReciboConsultaFuenteAutoridadInvalido
+	}
+	return nil
 }
 
 func estadoResultadoConsultaV1(estado ReferenciaEstadoFuenteAutoridad) estadoResultadoConsultaCanonicoV1 {
