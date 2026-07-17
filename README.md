@@ -19,12 +19,16 @@ conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
 
 Probado:
 
-- Servidor HTTP con salud en `/healthz`, carcasa estatica en `/` y consulta
-  publica minimizada de convocatorias en
+- Proceso público independiente `cmd/vec-publico`, con salud en `/healthz`,
+  portal anónimo en `/bolsa/` y consulta minimizada de convocatorias en
   `/api/publico/bolsa/convocatorias`, junto con el directorio gobernado de
-  categorias en `/api/publico/bolsa/categorias`. Ambas consultas se montan en
-  todos los modos de autenticacion y usan por defecto fuentes de demostracion
-  sin datos personales.
+  categorias en `/api/publico/bolsa/categorias`. Su raíz de composición no
+  carga Personal, credenciales `fake`, almacenes privados ni la API heredada;
+  usa por defecto fuentes de demostracion sin datos personales.
+- Raíces HTTP de lista positiva separadas para la superficie pública y la
+  interna. La primera no sirve el Portal del Empleado ni `/api/vec`; la segunda
+  no sirve la Bolsa pública, rechaza cookies, `Proxy-Authorization` y
+  cabeceras heredadas de identidad, y nunca emite `Set-Cookie`.
 - UI estatica en `http://127.0.0.1:8080/` como carcasa del tablero VEC: modulos,
   expedientes, filtros, cola, detalle y flujo de acciones. Sus datos y acciones
   privadas permanecen cerrados hasta conectar identidad y autorizacion reales.
@@ -51,6 +55,12 @@ Probado:
   ambito, finalidad y campos exactos; el antiguo agregado sintetico fue
   eliminado y no se entrega una instantanea transversal por un permiso
   grueso.
+- Adaptador HTTP interno de solo lectura para
+  `GET/HEAD /api/vec/bolsa/panel`, con envelope cerrado, fechas opcionales
+  reales, listas canónicas, errores no filtrados y rechazo de toda identidad o
+  selector declarado en cabeceras, query o cuerpo. Está deliberadamente sin
+  montar: no devuelve datos hasta que la composición resuelva identidad,
+  perfil, ámbito, motivo y autoridad VEC-AD-2 del lado servidor.
 - Con `fake` habilitado expresamente, API Bolsa heredada con
   `GET /api/portal`, `POST /api/demo`, candidatos, manifiesto operacional,
   documentos, alegaciones, avisos, auditoria y persistencia local opt-in. Esa
@@ -388,20 +398,29 @@ forma coordinada subred, pasarela e IP fijas; no se debe ampliar
 
 ## Arranque local con Go
 
+La superficie anónima aislada se arranca con:
+
 ```bash
 VEC_HTTP_ADDR=127.0.0.1:8080 \
   VEC_AUTH_MODE=disabled \
   VEC_HTTP_ALLOWED_CIDRS=127.0.0.1/32,::1/128 \
   VEC_BOLSA_PUBLIC_SOURCE_PATH=data/demo/convocatorias_publicas.demo.json \
-  go run ./cmd/vec-server
+  go run ./cmd/vec-publico
 ```
+
+Este proceso solo acepta `/healthz`, `/bolsa/`, los recursos públicos
+enumerados y `/api/publico/`; `/`, `/api/vec`, `/api/demo` y el Portal del
+Empleado responden `404`. La fuente predeterminada sigue siendo sintética y no
+equivale a una publicación oficial.
 
 ### Entregable del Portal del Empleado y Bolsa
 
-La superficie final interna está en `http://127.0.0.1:8080/portal-empleado/`.
-Consume exclusivamente `GET /api/vec/bolsa/panel` y falla cerrada mientras no
-existan sesión, ámbito y proyección real. No sustituye ese fallo por datos
-locales.
+La interfaz final interna vive en `/portal-empleado/`. Consume exclusivamente
+`GET /api/vec/bolsa/panel`, con `credentials: "omit"`, y falla cerrada mientras
+no existan identidad, ámbito y proyección reales. No usa cookies, no almacena
+tokens en JavaScript y no sustituye ese fallo por datos locales. El cliente
+nativo y la frontera de identidad deberán aportar la autorización explícita
+por el canal autenticado que se apruebe.
 
 La consulta anónima está en `http://127.0.0.1:8080/bolsa/`. Usa un menú lateral
 exclusivamente público que no desaparece en móvil y no hereda accesos del
@@ -429,9 +448,12 @@ La puerta completa y reproducible para desarrollo y CI se ejecuta con:
 scripts/verificar_calidad.sh
 ```
 
-`cmd/bolsa-server` esta retirado y falla cerrado. No existe una segunda via de
-arranque: cualquier ejecucion soportada usa `cmd/vec-server` y su configuracion
-canonica, incluido TLS cuando corresponda.
+`cmd/vec-publico` es la única composición nueva desplegable de este corte.
+`cmd/vec-server` se conserva como composición integrada heredada para
+desarrollo y presentación local; no representa la separación de superficies
+de producción. `cmd/bolsa-server` está retirado y falla cerrado. El proceso
+interno productivo no se habilitará hasta componer identidad reforzada,
+autorización y persistencia reales.
 
 ## Arranque local con Docker Compose
 
@@ -497,7 +519,10 @@ firma, notificacion fehaciente, archivo ENI ni persistencia duradera.
   capacidades siguen siendo contratos o dobles de prueba y no superficies
   productivas.
 - `internal/candidate`: nucleo heredado de Bolsa, usado por el primer modulo.
-- `cmd/vec-server` y `config`: composicion y configuracion canonica.
+- `cmd/vec-publico`: composición mínima de la superficie anónima de Bolsa.
+- `cmd/vec-server`: composición integrada heredada para desarrollo y
+  presentación, no frontera productiva.
+- `config`: configuración común de los procesos.
 - `cmd/bolsa-server`: centinela retirado; no arranca ningun servidor.
 
 Los directorios `Baremador`, `Bolsa_Diputacion`, `Bolsa_Diputacion_app`,

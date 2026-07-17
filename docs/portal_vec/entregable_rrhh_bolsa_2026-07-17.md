@@ -54,14 +54,20 @@ Cada fichero cumple el tope de 800 líneas de DEC-051.
 - en la carga inicial consulta únicamente `GET /api/vec/bolsa/panel`;
 - exige el envelope canónico `{ "data": { ... } }` y rechaza una proyección
   raw situada en la raíz;
-- usa credenciales de la sesión interna del mismo origen;
+- ejecuta `fetch` con `credentials: "omit"`: no crea ni consume cookies y no
+  guarda credenciales en JavaScript; la futura aplicación de escritorio y la
+  frontera autenticada deberán aportar autorización explícita;
 - rechaza una respuesta marcada como `demostracion`;
 - ante `401`, `403`, `404`, `501` o error de red muestra acceso cerrado;
 - no sustituye el error por datos locales;
 - no guarda datos de negocio en el navegador.
 
-La API aún no está montada. Por tanto, esta ruta falla cerrada de forma
-deliberada hasta que se complete la vertical real.
+Ya existe el adaptador HTTP estricto para `GET/HEAD` de esta ruta, pero aún no
+está montado. Rechaza query, cuerpo, cookies, credenciales de proxy y cabeceras
+heredadas de identidad o rol; tampoco interpreta `Authorization`. La frontera
+preparadora deberá resolver del lado servidor actor, perfil, ámbito, motivo y
+correlación antes de invocar el caso de uso. Por tanto, la ruta sigue fallando
+cerrada hasta que se complete la vertical real.
 
 ### Presentación explícita para RRHH
 
@@ -100,6 +106,13 @@ el alto contraste y la ayuda son componentes definitivos. El cambio se
 incorporó en `29afe4d` y cuenta con una prueba específica que impide introducir
 en esta superficie cualquier destino ajeno a la lista positiva de cinco rutas
 públicas y evita que una regla CSS de pantalla retire el menú.
+
+La composición `cmd/vec-publico` permite arrancar esta zona como proceso
+independiente. Su lista positiva no incluye `/`, `/portal-empleado`,
+`/api/vec`, `/api/demo` ni la API heredada, y no carga Personal, credenciales
+de demostración o almacenes privados. Existe además una raíz HTTP interna
+separada, todavía sin proceso productivo, que solo admite Portal del Empleado y
+`/api/vec` y prohíbe cookies en ambos sentidos.
 
 ## Inventario exhaustivo de elementos temporales
 
@@ -236,7 +249,7 @@ reintroducir los literales conocidos fuera del adaptador aislado.
 | Pantalla | Base reutilizable existente | Corte real siguiente |
 | --- | --- | --- |
 | Portada | Registro de módulos y manifiestos VEC | Habilitación administrable por despliegue y rol, no lista fija del navegador |
-| Cuadro de mando | Dominio, aplicación y consulta PostgreSQL de `vec.bolsa.panel.interno.v1` | Identidad interna, autoridad COSE, publicador de proyección y adaptador HTTP dedicados |
+| Cuadro de mando | Dominio, aplicación, consulta PostgreSQL y adaptador HTTP no montado de `vec.bolsa.panel.interno.v1` | Identidad interna, autoridad COSE, publicador de proyección y composición productiva dedicados |
 | Elaboración | `domain/convocatoria_gobernada*.go` | Repositorio PostgreSQL, aplicación, HTTP y composición |
 | Llamamientos | `application/llamamientos.go`, comando indivisible con instantánea completa y esquema PostgreSQL V1 cerrado | Fuente y motor autoritativos, guardado SQL completo V2, fachada HTTP interna y composición |
 | Contratos/ceses | Estados de elegibilidad del núcleo de llamamientos | Agregado de relación temporal y eventos que recalculan disponibilidad |
@@ -362,7 +375,8 @@ consultar datos administrativos.
 
 `datos-presentacion.js` se podrá retirar del artefacto productivo cuando:
 
-1. `GET /api/vec/bolsa/panel` esté compuesto y probado con PostgreSQL;
+1. `GET /api/vec/bolsa/panel` esté montado y probado de extremo a extremo con
+   PostgreSQL e identidad real;
 2. la sesión interna proyecte el perfil y ámbito efectivos;
 3. elaboración y llamamientos dispongan de consultas reales;
 4. las pruebas de seguridad verifiquen que otro ámbito no puede consultar la

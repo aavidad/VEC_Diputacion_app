@@ -2981,3 +2981,38 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   de desplegar la nueva gramatica opaca debe demostrarse que no existen filas
   canonicas V1 o ejecutar un versionado explicito; nunca se reinterpretaran en
   silencio.
+
+## DEC-084 — Procesos y tablas de rutas separados por superficie
+
+- Fecha: 2026-07-17.
+- Estado: raíz pública ejecutable y fronteras HTTP pública e interna probadas;
+  superficie interna y administración privilegiada en **NO-GO productivo**.
+- Separación positiva: el proceso `cmd/vec-publico` compone únicamente la
+  consulta anónima de Bolsa y una tabla cerrada de estáticos públicos. No carga
+  Personal, credenciales `fake`, almacenamiento privado, `/api/vec`,
+  `/api/demo` ni la aplicación integrada heredada. Las rutas no enumeradas y
+  las representaciones no canónicas responden `404` sin redirección entre
+  zonas.
+- Frontera interna: existe un constructor HTTP distinto que solo admite el
+  Portal del Empleado y `/api/vec`. Rechaza cookies y
+  `Proxy-Authorization`, no emite `Set-Cookie` y deniega cabeceras heredadas de
+  identidad, rol o forwarding. `Authorization` queda reservado para una
+  credencial explícita del cliente nativo; esta frontera no la convierte por
+  sí sola en identidad ni autoridad.
+- Panel de Bolsa: el adaptador no montado de
+  `GET/HEAD /api/vec/bolsa/panel` acepta exclusivamente la ruta exacta sin
+  query ni cuerpo. Delega en una frontera de confianza la preparación de actor,
+  perfil, selector, motivo y correlación; devuelve un DTO cerrado agregado,
+  omite fechas ausentes, canonicaliza listas vacías y no filtra causas
+  internas. Las cabeceras del cliente nunca pueden declarar esos valores.
+- Despliegue: `cmd/vec-server` permanece como composición integrada heredada
+  para desarrollo y presentación local, no como prueba de aislamiento
+  productivo. Todavía no existe binario interno aprobado ni superficie de
+  administración privilegiada desplegable.
+- Barreras para montar el panel: verificador de la aserción protegida, mTLS y
+  doble factor Kerberos/certificado acreditado, registro durable de sesiones y
+  revocación, fuente PostgreSQL de contexto y alcance, PDP/denegaciones,
+  broker y autoridad COSE VEC-AD-2, pools y cuentas técnicas segregados,
+  productor de la proyección del panel, ACL/RLS y pruebas de red de extremo a
+  extremo. Hasta entonces la ruta interna continúa cerrada y no se sustituye
+  por datos sintéticos.
