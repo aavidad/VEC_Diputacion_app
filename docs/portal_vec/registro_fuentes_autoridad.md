@@ -2,11 +2,15 @@
 
 Fecha de corte: **17 de julio de 2026**.
 
-Estado: arquitectura adoptada y dominio del primer incremento de `NUC-006`
-implementado y verificado en la rama. Incluye persistencia canónica V1 del
-agregado, pero todavía no sus puertos ni un repositorio. El futuro adaptador en
-memoria será únicamente un doble de contrato. La capacidad permanecerá en
-**NO-GO productivo** hasta disponer de caso de uso, persistencia PostgreSQL,
+Estado: arquitectura adoptada, dominio y primer corte de puertos de `NUC-006`
+implementados y verificados en la rama. Incluye persistencia canónica V1 del
+agregado, consulta exacta y paginada, control OCC completo, operación pendiente
+y atestación opaca. El caso de uso de consulta interna exacta y su recibo
+probatorio ya están implementados sobre un puerto que exige lectura, consumo
+de autorización y auditoría firmada en una sola transacción. No existe aún el
+repositorio que materialice esa barrera ni el caso de uso de mutación. El
+futuro adaptador en memoria será únicamente un doble de contrato. La capacidad
+permanece en **NO-GO productivo** hasta disponer de persistencia PostgreSQL,
 verificación criptográfica y de competencia, segregación institucional,
 auditoría probatoria con anclaje externo inmutable y validación institucional.
 
@@ -169,10 +173,12 @@ el compromiso V1 exacto y `RehidratarSolicitudTransicionFuenteAutoridadV1`
 solo reconstruye una solicitud si recibe esos mismos bytes, sin campos
 desconocidos, duplicados, espacios ni representaciones alternativas. Esto
 permite atravesar un reinicio o una espera de Portafirmas sin reconstruir
-actor, motivo, revisión o acción desde el callback. El futuro caso de uso y su
-repositorio deberán custodiar los bytes y el estado de la operación
-`pendiente/completada/cancelada/expirada/obsoleta`; este corte de dominio aún
-no implementa ese registro de pendientes.
+actor, motivo, revisión o acción desde el callback. El puerto ya modela la
+operación opaca y sus estados cerrados
+`pendiente/atestada/confirmada/cancelada/expirada/obsoleta`; el futuro caso de
+uso y su repositorio deberán custodiar los bytes y aplicar las transiciones de
+esa operación de manera atómica. El callback solo podrá despertar la
+reconciliación: no aportará actor, acción, estado ni evidencia como autoridad.
 
 El mensaje completo de atestación anida ese compromiso y añade la evidencia
 examinada: referencia de evidencia, acto, documento, representación, huella
@@ -290,12 +296,14 @@ El corte hexagonal prevé:
 
 | Puerto | Responsabilidad |
 | --- | --- |
-| Consulta de fuentes | Obtener una versión exacta y listar su historia sin elegir una versión por defecto |
+| Consulta de fuentes | Obtener una versión exacta y paginar su historia, con un máximo de 100 versiones y sin elegir una versión por defecto |
+| Consulta interna gobernada | Revalidar y consumir la decisión V2 en la misma transacción que lee la versión exacta y registra la auditoría; una ausencia produce el mismo tipo de recibo y no crea un oráculo de existencia |
+| Recibo de consulta | Comprometer selector, resultado, snapshot, decisión y entrada de auditoría ya confirmada, firmada y encadenada; solo puede emitirse después del `COMMIT` |
 | Repositorio de gobierno | Confirmar cada transición con OCC, auditoría, outbox y consumo de autorización |
-| Comprobador de actos | Verificar documento, huella, órgano y firmas sin introducirlos desde HTTP como autoridad |
+| Comprobador de actos | Producir una atestación opaca de vigencia corta tras verificar documento, huella, órgano y firmas sin introducirlos desde HTTP como autoridad |
 | Reloj | Aportar instantes UTC canónicos desde composición |
 | Autorizador | Exigir una decisión PDP vinculada al actor, acción, recurso y finalidad exactos |
-| Operaciones pendientes | Custodiar solicitud canónica, caducidad, estado terminal e idempotencia durante Portafirmas o comprobaciones asíncronas |
+| Operaciones pendientes | Custodiar solicitud canónica, snapshot OCC, caducidad, atestación, resolución terminal e idempotencia durante Portafirmas o comprobaciones asíncronas |
 
 Adaptadores previstos:
 
@@ -320,8 +328,11 @@ por confirmada una transición incompleta.
 
 El registro se incorporará sin reinterpretar datos históricos:
 
-1. Crear y probar el agregado y su referencia exacta.
-2. Añadir puertos, caso de uso y doble en memoria.
+1. Crear y probar el agregado y su referencia exacta. **Completado.**
+2. Añadir puertos, casos de uso y doble en memoria. **Puertos de consulta,
+   operación y atestación completados. Caso de uso de consulta interna exacta
+   y recibo probatorio completados; gobierno de mutaciones, repositorio y doble
+   en memoria pendientes.**
 3. Implantar PostgreSQL, ACL/RLS, procedimiento transaccional y pruebas SQL.
 4. Conectar la comprobación institucional de actos y firmas.
 5. Crear versiones nuevas de contratos consumidores que admitan la referencia
@@ -365,6 +376,12 @@ El incremento no se considerará cerrado sin:
 - rechazo previo a la asignación de JSON profundo, duplicado o con arrays
   patológicos, más pruebas de fuzz y ejecución en arquitectura de 32 bits;
 - reutilización de una decisión de autorización para otro efecto;
+- consulta interna sin decisión V2, con motivo o correlación no opacos, o con
+  actor/superficie/garantía distintos de los exigidos;
+- resultado ausente sin oráculo de existencia y recibo ligado al mismo
+  selector, decisión, resultado y auditoría confirmada;
+- manipulación de cualquier campo de la entrada de auditoría, su secuencia,
+  encadenado, firma o compromiso del recibo;
 - conflictos OCC, idempotencia, cancelación y concurrencia;
 - atomicidad entre agregado, auditoría y outbox;
 - ausencia de datos personales en auditoría y eventos;

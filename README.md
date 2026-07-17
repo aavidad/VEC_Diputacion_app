@@ -55,6 +55,12 @@ Probado:
   asignacion/rol/politicas versionados, CAS y decisiones breves. El primer
   adaptador PostgreSQL con RLS y privilegios minimos pasa integracion real,
   pero no esta conectado a ninguna superficie.
+- Perfil de autorizacion V2 nominal: la solicitud efectiva ya no admite
+  principal declarado ni motivo libre, liga la referencia exacta de un
+  catalogo publicado y separa evidencias y registros V1/V2. El adaptador de
+  memoria y los generadores CSPRNG estan probados; PostgreSQL V2, la capacidad
+  nominal de correlacion y la atestacion `VEC-AD-2` siguen cerrados antes de
+  produccion.
 - Primer corte de [contexto canonico de actor](docs/portal_vec/registro_decisiones.md#dec-034--contexto-canonico-de-actor-con-perfil-expreso-y-denegacion-por-defecto):
   cuenta autenticada y perfil expreso resuelven exactamente una persona y sus
   enlaces opacos versionados, sin DNI ni autoridad inferida. Persistencia,
@@ -90,10 +96,12 @@ Probado:
   dominio; aun no interpretan unas bases concretas.
 - Primer corte `NUC-006` del registro de fuentes de autoridad: dominio
   versionado e inmutable, doble reloj juridico/tecnico, solicitudes de firma
-  durables, linaje verificable, historia encadenada y formato canonico V1
-  probado. Permanece en **NO-GO productivo** hasta incorporar caso de uso,
-  repositorio, comprobacion criptografica y de competencia, segregacion y
-  anclaje externo WORM, segun
+  durables, linaje verificable, historia encadenada y formato canonico V1.
+  Incluye ya el caso de uso de consulta interna exacta con autorización V2 y
+  recibo ligado a lectura, auditoría firmada y resultado confirmado. Permanece
+  en **NO-GO productivo** hasta incorporar repositorio transaccional,
+  comprobacion criptografica y de competencia, segregacion y anclaje externo
+  WORM, segun
   [su especificacion](docs/portal_vec/registro_fuentes_autoridad.md).
 - Analisis integral de RRHH, matriz normativa, catalogo funcional y limites de
   materias reservadas documentados antes de ampliar Personal, Cronos o
@@ -116,8 +124,9 @@ Simulado:
 - Integraciones AAPP como puertos/stubs iniciales, sin clientes reales SCSP, SIR,
   Notific@, InSiDe ni AutofirmaV2 cableado en runtime.
 - El registro `NUC-006` verifica hoy invariantes y huellas estructurales, no una
-  firma real ni la competencia del firmante. Sus adaptadores de aplicacion y
-  persistencia siguen pendientes y no debe exponerse como autoridad por HTTP.
+  firma real ni la competencia del firmante. Su caso de consulta usa un puerto
+  transaccional, pero el adaptador durable y los casos de mutacion siguen
+  pendientes; no debe exponerse como autoridad por HTTP.
 
 Pendiente productivo:
 
