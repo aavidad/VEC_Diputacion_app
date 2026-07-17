@@ -2847,9 +2847,10 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 ## DEC-082 — Registro atestado VEC-AD-2 separado del efecto de negocio
 
 - Fecha: 2026-07-17.
-- Estado: cimiento PostgreSQL 18 ejecutable y probado, en **NO-GO productivo**
-  hasta disponer de broker Go, HSM/KMS, ancla externa antirretroceso y una
-  funcion del modulo que componga consumo y efecto en el mismo `COMMIT`.
+- Estado: cimiento PostgreSQL 18 y primera composicion modular ejecutables y
+  probados, en **NO-GO productivo** hasta disponer de broker Go, HSM/KMS,
+  ancla externa antirretroceso, restaurador Go y verificador autoritativo de
+  evidencias.
 - Frontera de autoridad: una firma VEC-AD-2 valida no concede por si sola una
   operacion. La puerta central exige ademas una capacidad HMAC de cinco
   segundos emitida por un broker aislado y vuelve a ejecutar el registrador
@@ -2884,18 +2885,19 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   mutacion y truncado. La cadena local requiere ademas anclaje externo para
   detectar restauraciones o replicas atrasadas.
 - Limite deliberado: esta puerta acredita y consume autoridad, pero no prueba
-  por si sola que un efecto de Bolsa haya ocurrido. El runtime solo podra
-  invocarla indirectamente desde una funcion propietaria del modulo que cree
-  el efecto, auditoria, outbox y recibo en la misma transaccion. Hasta entonces
-  no se concede su ejecucion a la aplicacion. Si falla la revalidacion final,
-  se revierte tambien cualquier registro nominal creado en esa transaccion.
+  por si sola que un efecto de negocio haya ocurrido. Reglas de baremo ya la
+  invoca indirectamente desde una funcion propietaria que crea efecto,
+  auditoria, outbox y recibo en la misma transaccion. La composicion permanece
+  sin permisos runtime hasta incorporar las autoridades reales anteriores. Si
+  falla cualquier cotejo o escritura, se revierte tambien el registro, consumo
+  y auditoria centrales creados en esa transaccion.
 
-## DEC-083 — Almacen gobernado de reglas cerrado hasta la composicion V2
+## DEC-083 — Composicion V2 del almacen gobernado de reglas
 
 - Fecha: 2026-07-17.
-- Estado: modelo durable, migraciones, retirada protegida y pruebas PostgreSQL
-  18 implantados, junto con el plan tipado y canonico Go V2; funciones V1
-  deliberadamente sin permisos runtime y composicion productiva en **NO-GO**.
+- Estado: modelo durable, plan tipado Go, composicion VEC-AD-2, retirada
+  protegida y pruebas PostgreSQL 18 implantados; funciones V1 y V2
+  deliberadamente sin permisos runtime y despliegue productivo en **NO-GO**.
 - Fuente de verdad: los bytes canonicos de
   `reglasbaremo.VersionGobernadaReglasBaremo` y su SHA-256 son la autoridad.
   Referencia, version, revision y estado SQL son proyecciones cotejables, no
@@ -2906,13 +2908,15 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   auditoria y outbox. No comparte tabla ni ciclo de vida con la valoracion de
   meritos de una persona.
 - Concurrencia e idempotencia: cada cambio nombra estado esperado y resultado
-  exactos; no existe «usar lo vigente». Una intencion identica puede recuperar
-  su mismo recibo mientras se satisfaga el contrato V1; una intencion
-  reutilizada con otro material y un CAS obsoleto fallan cerrados.
+  exactos; no existe «usar lo vigente». La confirmacion V2 nunca devuelve un
+  recibo anterior ni reintenta una decision consumida: un segundo intento
+  falla y la recuperacion se realiza por la consulta de reconciliacion exacta.
+  Una intencion reutilizada, un CAS obsoleto y una evidencia ya consumida
+  fallan cerrados.
 - Cierre de despliegue: RLS forzada, historia append-only, propietario
   `NOLOGIN`, retirada con confirmacion destructiva explicita y cero `USAGE`,
   `EXECUTE` o DML para roles runtime. Haber superado las pruebas mecanicas no
-  autoriza a conceder las funciones V1.
+  autoriza a conceder las funciones V1 ni V2.
 - Motivo del V2: V1 no compone el consumo atestado central con el cambio de
   reglas, revalida antes de todas las esperas, admite referencias tecnicas
   demasiado genericas y no puede reconciliar un `COMMIT` ambiguo despues de
@@ -2920,13 +2924,19 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   V1: se crea una frontera V2 nueva.
 - Cimiento Go V2: las operaciones de alta, publicacion, activacion,
   sustitucion, retirada y descarte producen un manifiesto canonico de efecto
-  propuesto. Liga version y huellas exactas, CAS, evidencia incorporada,
-  principal de `ContextoActor`, motivo del catalogo VEC, correlacion, instante
+  propuesto. Liga version y huellas exactas, CAS, vinculo estructural de
+  evidencia, principal de `ContextoActor`, motivo del catalogo VEC, instante
   de negocio, modulo, recurso, perfil `interno_alto` y los ambitos opacos
   `rgl_<128 bits>`, `con_<128 bits>` y `exp_<128 bits>`. No es autorizacion,
   atestacion, capacidad, orden ejecutable ni recibo.
-- Invariantes ejecutables V2: el material canonico compromete resolucion de
-  alcance en servidor, verificador confiable de evidencia, decision VEC V2
+- Seudonimo del sujeto: el plan liga obligatoriamente
+  `hmac-sha256:reglas_baremo_v2:<64-hex-minusculas>`. Es una referencia opaca,
+  distinta del actor y no serializable mediante codecs genericos. Su futura
+  emision corresponde a un seudonimizador confiable con secreto fuera del
+  proceso de negocio; el plan no le concede autoridad.
+- Obligaciones comprometidas por el plan V2: el material canonico exige
+  resolucion de alcance en servidor, verificador confiable de evidencia,
+  decision VEC V2
   consumible, consumo atestado VEC-AD-2, reloj autoritativo y frescura,
   transaccion `SERIALIZABLE` y creacion atomica de contenido, version, CAS,
   evidencia, consumo, auditoria, outbox y recibo en el mismo `COMMIT`. El
@@ -2935,19 +2945,39 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   paquete de aplicacion despues de resolver un indice o recibo durable en el
   servidor. El adaptador debe cotejar vinculo e identidad contra la misma fila;
   un cliente no puede aportar convocatoria, expediente o alcance libremente.
+- Composicion SQL V2: `confirmar_cambio_atestado_v2` exige
+  `SERIALIZABLE READ WRITE`, coteja plan, decision, capacidad, sujeto, motivo y
+  contexto, preadquiere en orden fijo los bloqueos locales de tablas y datos,
+  consume VEC-AD-2 y usa su reloj autoritativo antes de crear version, CAS,
+  evidencia,
+  auditoria, outbox y recibo. Claves foraneas ligan el recibo con registro,
+  consumo y auditoria centrales y, localmente, con version, uso de decision,
+  intencion, auditoria y outbox; el resto del grafo queda ligado de forma
+  transitiva. Un fallo local posterior al consumo central se prueba y revierte
+  conjuntamente.
 - Integracion hexagonal: Bolsa consume el contrato de autoridad del kernel VEC
   como nucleo compartido, sin depender de HTTP, SQL ni otros adaptadores. Los
   validadores sintacticos de principal se mantienen por ahora duplicados para
   no abrir construccion libre; deben unificarse sin ampliar la API antes del
   GO productivo.
-- Reconciliacion: una consulta separada y minimizada observa una intencion
-  anterior por su identidad material exacta; nunca vuelve a ejecutar el
-  cambio ni reutiliza la decision consumida. Recuperar bytes de reglas requiere
-  una nueva consulta autorizada, aunque el recibo del cambio pueda cotejarse
-  tras expirar la autorizacion inicial.
+- Reconciliacion: una funcion separada y minimizada recupera el recibo por
+  decision, efecto, plan y nonce exactos; nunca vuelve a ejecutar el cambio ni
+  reutiliza la decision consumida. Recuperar bytes de reglas requiere una nueva
+  consulta autorizada, aunque el recibo del cambio pueda cotejarse tras expirar
+  la autorizacion inicial. Esta primitiva mecanica permanece sin `GRANT` y no
+  se expondra directamente: produccion necesita un caso de uso que revalide
+  identidad, sesion y permiso actuales antes de invocarla.
+- Pruebas V2: el runner confirma alta y publicacion, rechazo precentral de CAS
+  y sujeto cruzados, segundo intento, caducidad durante VEC con reloj fresco,
+  rollback conjunto tras un fallo local, grafo de claves foraneas, evidencia,
+  outbox, reconciliacion y nonce incorrecto. Tambien demuestra que el down
+  ordinario rechaza historia V2 real.
 - Barreras restantes: faltan el resolvedor durable de alcance y misma fila, el
-  verificador de evidencia, el adaptador y funcion SQL V2 atomicos, consumo real
-  de VEC-AD-2, reloj autoritativo, restauracion y reconciliacion de plan/recibo,
-  broker Go, HSM/KMS y ancla externa antirretroceso. Antes de desplegar la nueva
-  gramatica opaca debe demostrarse que no existen filas canonicas V1 o ejecutar
-  una migracion/versionado explicitos; nunca se reinterpretaran en silencio.
+  adaptador que restaure el canon Go, el verificador autoritativo de evidencia,
+  el broker de capacidades y el seudonimizador separado, HSM/KMS, perfiles
+  centrales especificos por modulo, envoltorio autorizado de reconciliacion y
+  ancla externa antirretroceso. La reconciliacion debe probarse ademas despues
+  de un `COMMIT` desde otra sesion y la carrera V2 merece su propio vector. Antes
+  de desplegar la nueva gramatica opaca debe demostrarse que no existen filas
+  canonicas V1 o ejecutar un versionado explicito; nunca se reinterpretaran en
+  silencio.
