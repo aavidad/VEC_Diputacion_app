@@ -15,7 +15,7 @@
 1448 internal/vec/adapters/httpapi/workspace.go
 1129 internal/vec/adapters/httpseguridad/identidad.go
 838 internal/vec/adapters/httpseguridad/identidad_test.go
-860 internal/vec/adapters/memory/autorizacion_test.go
+667 internal/vec/adapters/memory/autorizacion_test.go
 859 internal/vec/adapters/memory/cotejo_test.go
 1175 internal/vec/adapters/postgres/autorizacion_integracion_test.go
 1077 internal/vec/adapters/postgres/confianzadocumental/atestacion_autorizacion_pdp_v4_test.go
@@ -30,7 +30,7 @@
 833 internal/vec/application/documentos_test.go
 834 internal/vec/application/pagos.go
 1403 internal/vec/application/pagos_test.go
-933 internal/vec/domain/autorizacion.go
+434 internal/vec/domain/autorizacion.go
 820 internal/vec/domain/cotejo.go
 924 internal/vec/domain/flujos.go
 2723 internal/vec/domain/pagos.go
