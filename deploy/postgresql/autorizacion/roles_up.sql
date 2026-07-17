@@ -16,6 +16,17 @@ DO $prevalidacion$
 DECLARE
     encontrados text[];
 BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_roles
+         WHERE rolname = current_user
+           AND rolsuper IS TRUE
+    ) THEN
+        RAISE EXCEPTION USING
+            ERRCODE = '42501',
+            MESSAGE = 'bootstrap rechazado: el principal ejecutor no es superusuario';
+    END IF;
+
     SELECT array_agg(rolname::text ORDER BY rolname)
       INTO encontrados
       FROM pg_catalog.pg_roles

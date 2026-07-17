@@ -16,7 +16,8 @@ arrancar.
   `NOLOGIN`, sin contrasenas.
 - `roles_v2_up.sql` y `roles_v2_down.sql`: evolucion DBA segregada para los
   grupos `NOLOGIN` de proyeccion y evaluacion historica. No los hace miembros
-  del propietario y no modifica los roles V1.
+  del propietario y no modifica los roles V1; la retirada inventaria sus
+  atributos, ajustes, ACL y los tres campos de todas las membresias.
 - `migraciones/000001_autorizacion.up.sql`: esquema, invariantes, RLS,
   funciones cerradas y privilegios.
 - `migraciones/000001_autorizacion.down.sql`: reversion destructiva del
@@ -27,8 +28,9 @@ arrancar.
 - `migraciones/000003_proyeccion_motivos_autorizacion_v2.*.sql`: cabeceras
   publicadas inmutables, entradas temporales, retiradas append-only, eventos y
   checkpoint monotono del catalogo maestro de motivos V2.
-- `roles_down.sql`: retirada final de grupos; falla si quedan membresias o
-  dependencias.
+- `roles_down.sql`: retirada final gobernada de grupos V1; inventaria roles y
+  los tres campos OID de cada membresia antes de mutar, y falla ante cualquier
+  relacion, atributo o dependencia inesperados.
 - `probar_integracion.sh`: PostgreSQL efimero aislado, migracion ascendente,
   pruebas SQL y del adaptador Go con identidades reales separadas, migracion
   descendente y retirada de roles.
@@ -75,6 +77,10 @@ mutacion, aborta si ya existe uno solo de sus nombres reservados. No adopta ni
 corrige roles homonimos aunque sus atributos
 parezcan validos: podrian conservar credenciales, ajustes, membresias,
 privilegios o propiedad ajenos que un bootstrap no debe asumir ni revocar.
+Antes de esas comprobaciones exige que `current_user` sea superusuario. Ser
+propietario de la base y disponer de `CREATEROLE` no basta; el runner lo prueba
+con una cuenta `LOGIN` real y demuestra que el rechazo no crea roles ni cambia
+las ACL de base o del esquema publico, tanto en V1 como en V2.
 
 Por diseño no es idempotente: una segunda ejecucion falla. La comprobacion de
 una instalacion existente debe hacerse con una auditoria separada y de solo
@@ -84,13 +90,43 @@ las cuentas `LOGIN` y dependencias bajo procedimiento aprobado, ejecutar
 evita tocar objetos extranjeros, incluso privilegios o propiedad situados en
 otras bases del mismo cluster.
 
-`roles_v2_down.sql` bloquea primero `pg_authid` y despues `pg_auth_members` en
-modo `ACCESS EXCLUSIVE` antes de comprobar membresias. El primer bloqueo impide
-que un `GRANT ROLE` concurrente conserve OID que van a desaparecer; el segundo
-serializa la arista hasta `COMMIT`. Si existe una sola membresia entrante o
-saliente, la retirada falla sin tocarla. Estos bloqueos de catalogos compartidos
-requieren superusuario, afectan al cluster completo y solo se ejecutan en una
-ventana de mantenimiento que impida altas o cambios de roles no coordinados.
+`roles_down.sql` y `roles_v2_down.sql` bloquean, en este orden, `pg_authid`,
+`pg_auth_members` y `pg_database` en modo `ACCESS EXCLUSIVE`, siempre despues
+de su bloqueo advisory y antes de comprobar inventario. Los dos primeros
+impiden que un `GRANT ROLE` concurrente conserve OID que van a desaparecer; el
+tercero estabiliza propietario, otorgante y ACL de la base entre preflight y
+revocacion. El runner abre el `GRANT` desde otra base y usa tres barreras
+advisory de prueba, no ventanas temporizadas: un observador ya conectado
+acredita que el PID del down posee exactamente ambos bloqueos de roles, espera
+`pg_database` y bloquea directamente al `GRANT`. Ninguna sesion se cancela; el
+`GRANT` falla de forma natural despues del `DROP ROLE`. Finalmente se revisan
+`roleid`, `member` y `grantor` por los OID retirados y la ausencia de membresias
+huerfanas en todo el cluster.
+
+V1 fija bajo esos bloqueos los cuatro OID y los atributos exactos creados por
+el bootstrap. Solo admite la relacion estructural propietario-migrador, con
+`ADMIN FALSE`, `INHERIT FALSE`, `SET TRUE` y como otorgante el superusuario
+bootstrap gobernado del cluster (OID interno estable 10, aunque se renombre).
+PostgreSQL atribuye a ese principal las concesiones emitidas por cualquier
+superusuario; comparar sin mas con `current_user` impediria una retirada
+legitima hecha por otro DBA nominativo. Cualquier otra relacion en la que un
+rol V1 sea grupo, miembro **u otorgante** aborta antes de revocar ACL o
+membresias. Ademas, V1 exige la ACL completa producida por `roles_up`: todos
+los privilegios del propietario real de la base, `CONNECT` y `CREATE` para el
+propietario VEC, y solo `CONNECT` para los otros tres grupos; el otorgante de
+cada entrada debe ser el propietario real de la base. Una concesion adicional,
+como `TEMPORARY`, aborta antes de ejecutar `REVOKE`.
+
+V2 no posee una arista estructural y exige inventario de membresias vacio en
+las tres coordenadas. Tambien exige roles `NOLOGIN` sin contrasena, caducidad ni
+ajustes por rol/base y una unica ACL `CONNECT` por grupo, otorgada por el
+propietario de la base; al inventariar la ACL considera al rol tanto como
+destinatario como otorgante. El runner construye incluso una concesion de rol
+cuyo `grantor` es el propio proyector V2 y prueba que se conserva al abortar.
+
+Estos bloqueos de catalogos compartidos requieren superusuario, afectan al
+cluster completo y solo se ejecutan en una ventana de mantenimiento que impida
+altas o cambios de roles no coordinados.
 
 Después, una identidad `LOGIN` nominativa y temporal, miembro de
 `vec_autorizacion_migrador`, aplica las migraciones por orden. La aplicacion no
