@@ -195,6 +195,9 @@ Pendiente productivo:
 - [Registro de decisiones y mejoras](docs/portal_vec/registro_decisiones.md)
 - [Dominio del portal VEC y autobaremacion](docs/portal_vec/dominio_y_autobaremacion.md)
 - [Versiones gobernadas de convocatoria de Bolsa](docs/portal_vec/convocatorias_gobernadas.md)
+- [Gobierno y publicación de reglas de experiencia](docs/portal_vec/gobierno_publicacion_reglas_experiencia.md):
+  secuencia administrativa, autorización, idempotencia, transacción y pruebas
+  exigidas para que un baremo pase de borrador a proyección pública.
 - [Estudio profesional de pantallas VEC](docs/portal_vec/estudio_pantallas_profesionales.md):
   flujos completos por modulo/menu, datos visibles, acciones, estados,
   integraciones, validaciones y criterio de terminado.
