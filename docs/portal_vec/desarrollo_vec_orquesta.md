@@ -27,7 +27,7 @@ aceptacion y el plan de tareas. Complementa, no sustituye, a
    implementan ahora**: se entregan con un adaptador `noop`/`stub` y un test de
    contrato. Asi el dia de manana se enchufan sin reescribir.
 4. **No sobredimensionar.** Critica expresa del responsable al estudio extenso de
-   Bolsa (`/home/alberto/Trabajo/Bolsa_Diputacion/estudio_arquitectura_bolsa.md`):
+   Bolsa (`Bolsa_Diputacion/estudio_arquitectura_bolsa.md`):
    es demasiado grande y se extralimita en servicios. Aqui se hace lo contrario:
    superficie minima ejecutable + puertos preparados. **No** levantar Kubernetes,
    colas, MinIO, Redis, MCP-IA, HA multi-servidor ni microservicios en esta fase.
@@ -165,7 +165,7 @@ Reglas:
 ## 4. Identidad y firma: AutofirmaV2 (decision tomada)
 
 Identidad **por certificado** como metodo preferente (decision del responsable).
-Reutilizamos software propio: **AutofirmaV2** (`/home/alberto/Trabajo/AutofirmaV2`,
+Reutilizamos software propio: **AutofirmaV2** (`AutofirmaV2`,
 Go, hexagonal, GPL-3.0, Oficina de Software Libre Dipgra), cliente local del
 empleado en loopback. Endpoints relevantes ya existentes:
 
@@ -387,6 +387,6 @@ opcion de menu real puede convertirse en modulo con el mismo contrato.
   `https://www.boe.es/buscar/act.php?id=BOE-A-2010-1331`
 - Arquitectura de referencia Microfrontend (Junta de Andalucia):
   `https://desarrollo.juntadeandalucia.es/recursos/reglas-pautas/arquitectura-referencia-microfrontend`
-- AutofirmaV2 (software propio): `/home/alberto/Trabajo/AutofirmaV2`
+- AutofirmaV2 (software propio): `AutofirmaV2`
 - Estudio extenso de Bolsa (referencia de dominio, NO de alcance):
-  `/home/alberto/Trabajo/Bolsa_Diputacion/estudio_arquitectura_bolsa.md`
+  `Bolsa_Diputacion/estudio_arquitectura_bolsa.md`

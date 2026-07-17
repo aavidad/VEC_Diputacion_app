@@ -1,5 +1,9 @@
 # VEC Diputacion Granada
 
+Copyright (c) 2026 Alberto Avidad (avidad@dipgra.es), para la Diputacion
+Provincial de Granada. Publicado bajo la
+[Licencia Publica de la Union Europea v1.2 (EUPL-1.2)](LICENSE).
+
 Prototipo Go de VEC, Ventanilla Electronica del empleado publico para la
 Diputacion de Granada. La aplicacion raiz es un shell modular con identidad,
 menu, permisos, auditoria, eventos e i18n comunes. Personal/Nominas, Cronos,
@@ -369,3 +373,22 @@ nucleo y pueden contener datos personales de referencia. `.dockerignore` y el
 
 La i18n se centraliza en `internal/shared/i18n`; el prototipo usa catalogo
 espanol con fallback si no hay ficheros externos.
+
+## Licencia y autoria
+
+Este software es obra de Alberto Avidad (avidad@dipgra.es), desarrollado para
+la Diputacion Provincial de Granada, y se publica bajo la
+[EUPL-1.2](LICENSE) para que cualquier administracion publica u organizacion
+pueda reutilizarlo, adaptarlo y redistribuirlo.
+
+Condiciones esenciales de la reutilizacion (articulo 5 de la EUPL-1.2):
+
+- Mantener intactos los avisos de autoria y de licencia, incluido el nombre
+  del autor original, en el codigo y en las obras derivadas.
+- Distribuir las obras derivadas bajo la EUPL o una licencia compatible de
+  las enumeradas en su apendice.
+- Indicar los cambios realizados sobre la obra original.
+
+Todas las versiones linguisticas oficiales de la EUPL publicadas por la
+Comision Europea tienen identico valor juridico; el fichero LICENSE contiene
+la version inglesa canonica.

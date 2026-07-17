@@ -6,7 +6,7 @@ cuando Orquesta evolucione**.
 Fecha de revisión: 14 de julio de 2026.
 
 Fuente revisada íntegramente:
-`/home/alberto/Trabajo/orquesta-rebuild/docs/reconstruccion/runbook_agente_director_v06.md`.
+`orquesta-rebuild/docs/reconstruccion/runbook_agente_director_v06.md`.
 
 ## 1. Conclusión
 

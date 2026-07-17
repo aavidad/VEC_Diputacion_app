@@ -401,7 +401,7 @@ vigencia, fuentes, flujo editorial y evidencia; no conocerá marcas de proveedor
 
 ## 12. Reutilización del trabajo de OPES
 
-La revisión de `/home/alberto/Trabajo/OPES` ha encontrado piezas aprovechables:
+La revisión de `OPES` ha encontrado piezas aprovechables:
 
 - `skills/opes-audio-edge-whisper/SKILL.md`: cierre textual, bloques, huellas, generación
   selectiva y QA con Whisper;
@@ -413,9 +413,9 @@ La revisión de `/home/alberto/Trabajo/OPES` ha encontrado piezas aprovechables:
   abstención;
 - `opes-salidas/coordinacion_temarios/tools/build_opes_course_rag_from_html.py`: extracción
   de HTML por secciones;
-- `/home/alberto/Trabajo/USO/web/scripts/build_help_manual.py`: escenarios de capturas y
+- `USO/web/scripts/build_help_manual.py`: escenarios de capturas y
   salida HTML/Markdown/PDF;
-- `/home/alberto/Trabajo/USO/web/docs/SCREENSHOT_HELP_MANUALS.md`: proceso de privacidad y
+- `USO/web/docs/SCREENSHOT_HELP_MANUALS.md`: proceso de privacidad y
   revisión de manuales.
 
 No existe todavía una única implementación que genere de extremo a extremo manual,

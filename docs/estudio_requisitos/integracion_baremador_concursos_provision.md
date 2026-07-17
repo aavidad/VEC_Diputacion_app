@@ -5,7 +5,7 @@
 | Campo | Valor |
 | --- | --- |
 | Fecha de estudio | 16 de julio de 2026 |
-| Fuente local | `/home/alberto/Trabajo/VEC_Diputacion_app/Baremador` |
+| Fuente local | `Baremador` |
 | Naturaleza de la fuente | Prototipo y material de estudio con datos personales; permanece excluido de Git, Docker y artefactos. |
 | Caso de origen | Concurso general para la provision de puestos singularizados por personal funcionario de carrera. |
 | Decision | Usarlo como primer caso real del motor comun de valoracion; reutilizar requisitos, reglas contrastadas y patrones de pantalla, sin copiar el prototipo como modulo productivo. |
