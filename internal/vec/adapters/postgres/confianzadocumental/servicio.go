@@ -1,17 +1,13 @@
 package confianzadocumental
 
 import (
-	"bytes"
 	"context"
-	"crypto/elliptic"
 	"fmt"
 	"io"
 	"log/slog"
-	"math/big"
 	"time"
 
-	"github.com/veraison/go-cose"
-
+	"vec-diputacion-granada/internal/vec/adapters/seguridad/verificacioncose"
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -27,7 +23,7 @@ func (relojSistema) Ahora() time.Time {
 
 type raizVerificacion struct {
 	algoritmo                        AlgoritmoCOSEDocumental
-	verificador                      cose.Verifier
+	verificador                      *verificacioncose.VerificadorClave
 	huellaClaveSHA256                string
 	audiencia                        AudienciaCOSEDocumental
 	suiteAtestacionPDP               string
@@ -106,11 +102,15 @@ func nuevoServicioConReloj(
 		if raiz.validar() != nil || err != nil || huellaClave != raiz.huellaClaveSHA256 {
 			return nil, ErrConfiguracionConfianzaDocumentalInvalida
 		}
-		algoritmoCOSE, err := algoritmoBiblioteca(raiz.algoritmo)
+		algoritmoCOSE, err := algoritmoVerificacionComun(raiz.algoritmo)
 		if err != nil {
 			return nil, ErrConfiguracionConfianzaDocumentalInvalida
 		}
-		verificador, err := cose.NewVerifier(algoritmoCOSE, claveClonada)
+		verificador, err := verificacioncose.NuevoVerificadorClave(
+			raiz.claveID,
+			algoritmoCOSE,
+			claveClonada,
+		)
 		if err != nil {
 			return nil, ErrConfiguracionConfianzaDocumentalInvalida
 		}
@@ -174,58 +174,31 @@ func (s *Servicio) verificarCOSESign1En(
 	if !audienciaValida || len(contenido) > limitePayload+margenMaximoSobreCOSEDocumentalV4 {
 		return PruebaCOSESign1DocumentalVerificada{}, ErrVerificacionCOSESign1Fallida
 	}
-	var mensaje cose.Sign1Message
-	if err := mensaje.UnmarshalCBOR(contenido); err != nil {
-		return PruebaCOSESign1DocumentalVerificada{}, ErrVerificacionCOSESign1Fallida
-	}
-	// COSE autentica el contenido, pero una representacion CBOR equivalente
-	// puede conservar una firma valida y cambiar la huella del sobre. Se exige
-	// una unica representacion determinista antes de convertir esa huella en
-	// evidencia. Construir otro mensaje sin Raw* obliga a recodificar tambien
-	// ambos mapas, no solo el tag, array y bstr exteriores, y deja intacto el
-	// mensaje original que despues se somete a verificacion criptografica.
-	mensajeDeterminista := cose.Sign1Message{
-		Headers: cose.Headers{
-			Protected:   mensaje.Headers.Protected,
-			Unprotected: mensaje.Headers.Unprotected,
-		},
-		Payload:   append([]byte(nil), mensaje.Payload...),
-		Signature: append([]byte(nil), mensaje.Signature...),
-	}
-	contenidoDeterminista, err := mensajeDeterminista.MarshalCBOR()
-	if err != nil || !bytes.Equal(contenidoDeterminista, contenido) {
-		return PruebaCOSESign1DocumentalVerificada{}, ErrVerificacionCOSESign1Fallida
-	}
-	if len(mensaje.Headers.Protected) != 2 || len(mensaje.Headers.Unprotected) != 0 {
-		return PruebaCOSESign1DocumentalVerificada{}, ErrVerificacionCOSESign1Fallida
-	}
-	algoritmoCOSE, err := mensaje.Headers.Protected.Algorithm()
+	inspeccion, err := verificacioncose.InspeccionarSobreSign1(
+		contenido,
+		limitePayload+margenMaximoSobreCOSEDocumentalV4,
+	)
 	if err != nil {
 		return PruebaCOSESign1DocumentalVerificada{}, ErrVerificacionCOSESign1Fallida
 	}
-	algoritmo, err := algoritmoDocumental(algoritmoCOSE)
-	if err != nil {
-		return PruebaCOSESign1DocumentalVerificada{}, ErrVerificacionCOSESign1Fallida
-	}
-	// ECDSA admite (r, N-s) para la misma firma. Low-S fija una unica forma y
-	// evita que una firma valida tenga dos huellas de sobre distintas.
-	if algoritmo == AlgoritmoCOSEDocumentalES256 && !firmaCOSEES256Canonica(mensaje.Signature) {
-		return PruebaCOSESign1DocumentalVerificada{}, ErrVerificacionCOSESign1Fallida
-	}
-	claveIDValor, protegida := mensaje.Headers.Protected[cose.HeaderLabelKeyID]
-	claveID, tipoCorrecto := claveIDValor.([]byte)
-	if !protegida || !tipoCorrecto || !claveIDDocumentalValida(claveID) {
+	algoritmoComun, errAlgoritmo := inspeccion.Algoritmo()
+	algoritmo, errConversion := algoritmoDocumentalDesdeComun(algoritmoComun)
+	claveID, errClaveID := inspeccion.ClaveID()
+	if errAlgoritmo != nil || errConversion != nil || errClaveID != nil {
 		return PruebaCOSESign1DocumentalVerificada{}, ErrVerificacionCOSESign1Fallida
 	}
 	raiz, conocida := s.raices[string(claveID)]
 	if !conocida || raiz.algoritmo != algoritmo || raiz.audiencia != solicitud.audiencia ||
 		raiz.estado != EstadoConfianzaClaveDocumentalActiva || !raiz.revocadaEn.IsZero() ||
-		verificadaEn.Before(raiz.validaDesde) || !verificadaEn.Before(raiz.validaHasta) ||
-		!bytes.Equal(mensaje.Payload, solicitud.payloadEsperado) {
+		verificadaEn.Before(raiz.validaDesde) || !verificadaEn.Before(raiz.validaHasta) {
 		return PruebaCOSESign1DocumentalVerificada{}, ErrVerificacionCOSESign1Fallida
 	}
 	aad, err := solicitud.AADExterno()
-	if err != nil || mensaje.Verify(aad, raiz.verificador) != nil {
+	if err != nil || raiz.verificador.Verificar(
+		inspeccion,
+		solicitud.payloadEsperado,
+		aad,
+	) != nil {
 		return PruebaCOSESign1DocumentalVerificada{}, ErrVerificacionCOSESign1Fallida
 	}
 	if err := ctx.Err(); err != nil {
@@ -256,35 +229,26 @@ func (s *Servicio) verificarCOSESign1En(
 	return prueba, nil
 }
 
-func firmaCOSEES256Canonica(firma []byte) bool {
-	const bytesComponenteP256 = 32
-	if len(firma) != 2*bytesComponenteP256 {
-		return false
-	}
-	orden := elliptic.P256().Params().N
-	mitadOrden := new(big.Int).Rsh(new(big.Int).Set(orden), 1)
-	r := new(big.Int).SetBytes(firma[:bytesComponenteP256])
-	s := new(big.Int).SetBytes(firma[bytesComponenteP256:])
-	return r.Sign() > 0 && r.Cmp(orden) < 0 &&
-		s.Sign() > 0 && s.Cmp(mitadOrden) <= 0
-}
-
-func algoritmoBiblioteca(algoritmo AlgoritmoCOSEDocumental) (cose.Algorithm, error) {
+func algoritmoVerificacionComun(
+	algoritmo AlgoritmoCOSEDocumental,
+) (verificacioncose.Algoritmo, error) {
 	switch algoritmo {
 	case AlgoritmoCOSEDocumentalEdDSA:
-		return cose.AlgorithmEdDSA, nil
+		return verificacioncose.AlgoritmoEdDSA, nil
 	case AlgoritmoCOSEDocumentalES256:
-		return cose.AlgorithmES256, nil
+		return verificacioncose.AlgoritmoES256, nil
 	default:
-		return cose.AlgorithmReserved, ErrConfiguracionConfianzaDocumentalInvalida
+		return "", ErrConfiguracionConfianzaDocumentalInvalida
 	}
 }
 
-func algoritmoDocumental(algoritmo cose.Algorithm) (AlgoritmoCOSEDocumental, error) {
+func algoritmoDocumentalDesdeComun(
+	algoritmo verificacioncose.Algoritmo,
+) (AlgoritmoCOSEDocumental, error) {
 	switch algoritmo {
-	case cose.AlgorithmEdDSA:
+	case verificacioncose.AlgoritmoEdDSA:
 		return AlgoritmoCOSEDocumentalEdDSA, nil
-	case cose.AlgorithmES256:
+	case verificacioncose.AlgoritmoES256:
 		return AlgoritmoCOSEDocumentalES256, nil
 	default:
 		return "", ErrVerificacionCOSESign1Fallida
