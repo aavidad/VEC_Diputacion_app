@@ -201,7 +201,9 @@ func puntuacionResultadoV1Coherente(r ResultadoExperienciaV1) bool {
 	}
 	brutosPorRegla := make(map[string][]exactoResultadoV1, len(r.reglas))
 	redondeadosPorRegla := make(map[string][]exactoResultadoV1, len(r.reglas))
-	unidadesPorRegla := make(map[string][]exactoResultadoV1, len(r.reglas))
+	unidadesExactasPorRegla := make(map[string][]exactoResultadoV1, len(r.reglas))
+	unidadesAportadasPorRegla := make(map[string][]exactoResultadoV1, len(r.reglas))
+	restosPorRegla := make(map[string][]exactoResultadoV1, len(r.reglas))
 	fronteraPorRegla := make(map[string]FronteraRestosResultadoExperienciaV1, len(r.reglas))
 	for _, aplicacion := range r.aplicaciones {
 		regla, existe := reglas[aplicacion.reglaClave]
@@ -217,8 +219,14 @@ func puntuacionResultadoV1Coherente(r ResultadoExperienciaV1) bool {
 			return false
 		}
 		fronteraPorRegla[regla.reglaClave] = aplicacion.unidades.frontera
-		unidadesPorRegla[regla.reglaClave] = append(
-			unidadesPorRegla[regla.reglaClave], aplicacion.unidades.aportadas,
+		unidadesExactasPorRegla[regla.reglaClave] = append(
+			unidadesExactasPorRegla[regla.reglaClave], aplicacion.unidades.exactas,
+		)
+		unidadesAportadasPorRegla[regla.reglaClave] = append(
+			unidadesAportadasPorRegla[regla.reglaClave], aplicacion.unidades.aportadas,
+		)
+		restosPorRegla[regla.reglaClave] = append(
+			restosPorRegla[regla.reglaClave], aplicacion.unidades.resto,
 		)
 		switch regla.redondeo.momento {
 		case reglasbaremo.RedondearPorPeriodo:
@@ -247,9 +255,41 @@ func puntuacionResultadoV1Coherente(r ResultadoExperienciaV1) bool {
 		}
 	}
 	for _, regla := range r.reglas {
-		unidades, err := sumarExactosResultadoV1(unidadesPorRegla[regla.reglaClave])
-		if err != nil || unidades.canonico != regla.unidadesAgregadas.canonico {
+		exactas, err := sumarExactosResultadoV1(
+			unidadesExactasPorRegla[regla.reglaClave],
+		)
+		if err != nil || exactas.canonico != regla.unidadesAgregadas.canonico {
 			return false
+		}
+		if frontera, existe := fronteraPorRegla[regla.reglaClave]; existe {
+			aportadas, err := sumarExactosResultadoV1(
+				unidadesAportadasPorRegla[regla.reglaClave],
+			)
+			if err != nil {
+				return false
+			}
+			switch frontera {
+			case FronteraRestosResultadoExacta:
+				if aportadas.canonico != exactas.canonico ||
+					regla.unidadesTrasRestos.canonico != exactas.canonico ||
+					regla.restoRegla.canonico != "0/1" {
+					return false
+				}
+			case FronteraRestosResultadoPeriodo:
+				restos, err := sumarExactosResultadoV1(
+					restosPorRegla[regla.reglaClave],
+				)
+				if err != nil || aportadas.canonico != regla.unidadesTrasRestos.canonico ||
+					restos.canonico != regla.restoRegla.canonico {
+					return false
+				}
+			case FronteraRestosResultadoRegla:
+				if aportadas.canonico != exactas.canonico {
+					return false
+				}
+			default:
+				return false
+			}
 		}
 		if regla.redondeo.momento == reglasbaremo.RedondearPorPeriodo {
 			bruto, err := sumarExactosResultadoV1(brutosPorRegla[regla.reglaClave])
