@@ -24,6 +24,14 @@ const (
 	TamanoMaximoMensajeAtestacionAutorizacionV1 = 512 * 1024
 )
 const (
+	AccionFuenteAutoridadBorradorCreado      = "vec.fuentes_autoridad.borrador.creado"
+	AccionFuenteAutoridadBorradorActualizado = "vec.fuentes_autoridad.borrador.actualizado"
+	AccionFuenteAutoridadPublicada           = "vec.fuentes_autoridad.publicada"
+	AccionFuenteAutoridadSuspendida          = "vec.fuentes_autoridad.suspendida"
+	AccionFuenteAutoridadSuspensionLevantada = "vec.fuentes_autoridad.suspension_levantada"
+	AccionFuenteAutoridadDerogada            = "vec.fuentes_autoridad.derogada"
+)
+const (
 	// VigenciaMaximaDecisionAutorizacion limita la reutilizacion de una
 	// decision. Un adaptador puede emitir decisiones con menor vigencia.
 	VigenciaMaximaDecisionAutorizacion = 5 * time.Minute
@@ -81,6 +89,16 @@ var (
 	// accidentalmente en registros o serializadores generales. VEC-AD-1 solo se
 	// vuelve a emitir dentro del comprobador canonico privado de este archivo.
 	ErrSerializacionProyeccionHistoricaAtestacionAutorizacionV1Prohibida = errors.New("vec: serializacion de proyeccion historica VEC-AD-1 prohibida")
+)
+var (
+	ErrFuenteAutoridadInvalida        = errors.New("vec: fuente de autoridad invalida")
+	ErrReferenciaAutoridadInvalida    = errors.New("vec: referencia de autoridad invalida")
+	ErrEvidenciaActoAutoridadInvalida = errors.New("vec: evidencia de acto de autoridad invalida")
+	ErrTransicionAutoridadInvalida    = errors.New("vec: transicion de fuente de autoridad invalida")
+	ErrRevisionAutoridadEnConflicto   = errors.New("vec: revision de fuente de autoridad en conflicto")
+	ErrSolicitudAutoridadObsoleta     = errors.New("vec: solicitud de transicion de autoridad obsoleta")
+	ErrSolicitudAutoridadExpirada     = errors.New("vec: solicitud de transicion de autoridad expirada")
+	ErrLimiteAutoridadAlcanzado       = errors.New("vec: limite de fuente de autoridad alcanzado")
 )
 var (
 	ErrSolicitudAutorizacionInvalida = errors.New("vec: solicitud de autorizacion invalida")
@@ -191,6 +209,7 @@ var (
 	ErrVinculoAutenticacionActorInvalido                = errors.New("vec: vinculo de autenticacion y actor invalido")
 	ErrReconstruccionVinculoAutenticacionActorProhibida = errors.New("vec: reconstruccion de vinculo de autenticacion y actor prohibida")
 )
+var ErrEstadoPersistibleFuenteAutoridadInvalido = errors.New("vec: estado persistible de fuente de autoridad invalido")
 var ErrMensajeAtestacionAutorizacionInvalido = errors.New("vec: mensaje de atestacion de autorizacion invalido")
 ```
 
@@ -295,6 +314,16 @@ sin revelar referencias concretas en los errores.
 ### Tipos
 
 ```go
+type AccionActoFuenteAutoridad string
+
+const (
+	AccionActoPublicarFuenteAutoridad           AccionActoFuenteAutoridad = "publicar"
+	AccionActoSuspenderFuenteAutoridad          AccionActoFuenteAutoridad = "suspender"
+	AccionActoLevantarSuspensionFuenteAutoridad AccionActoFuenteAutoridad = "levantar_suspension"
+	AccionActoDerogarFuenteAutoridad            AccionActoFuenteAutoridad = "derogar"
+)
+func (a AccionActoFuenteAutoridad) Valida() bool
+
 type AccionCobro string
 
 const (
@@ -328,6 +357,18 @@ type AltaOrdenCobro struct {
 	HuellaEvidenciaSHA256  string
 	Motivo                 string
 }
+
+type AmbitoFuenteAutoridad struct {
+	DimensionClave string   `json:"dimension_clave"`
+	ValoresClave   []string `json:"valores_clave"`
+}
+```
+
+AmbitoFuenteAutoridad usa claves gobernadas. El nucleo no interpreta valores
+como colectivos, territorios o centros ni compila sus catalogos.
+
+```go
+func (a AmbitoFuenteAutoridad) Validar() error
 
 type AmbitoPerfil struct {
 	Clave   string   `json:"clave"`
@@ -764,6 +805,20 @@ func (c CatalogoConfigurable) Retirar(actorID, aprobacionRef, motivo string, ins
 
 func (c CatalogoConfigurable) Validar() error
 
+type CitaFuenteAutoridad struct {
+	Fuente    ReferenciaFuenteAutoridad `json:"fuente"`
+	Preceptos []string                  `json:"preceptos"`
+}
+```
+
+CitaFuenteAutoridad selecciona preceptos exactos de una version. Una lista
+vacia no significa "toda la fuente".
+
+```go
+func (c CitaFuenteAutoridad) ClonarCanonica() (CitaFuenteAutoridad, error)
+
+func (c CitaFuenteAutoridad) Validar() error
+
 type ClaseAccesoCotejo string
 ```
 
@@ -838,6 +893,16 @@ func (c CodigoCotejo) TieneCampoPublico(campo CampoPublicoCotejo) bool
 
 func (c CodigoCotejo) Validar() error
 
+type CodigoMotivoFuenteAutoridad string
+```
+
+CodigoMotivoFuenteAutoridad referencia un motivo gobernado por catalogo.
+El detalle humano y su documentacion justificativa viven fuera del agregado
+con clasificacion y conservacion propias.
+
+```go
+func (m CodigoMotivoFuenteAutoridad) Valido() bool
+
 type ComandoConciliacionCobro struct {
 	// Has unexported fields.
 }
@@ -898,6 +963,40 @@ func (*ComandoInicioOperacionCobro) UnmarshalJSON([]byte) error
 
 func (c ComandoInicioOperacionCobro) Validar() error
 
+type CompromisoTransicionFuenteAutoridadV1 struct {
+	Esquema                    string                      `json:"esquema"`
+	SolicitudRef               string                      `json:"solicitud_ref"`
+	Fuente                     ReferenciaFuenteAutoridad   `json:"fuente"`
+	RevisionPrevia             uint64                      `json:"revision_previa"`
+	Secuencia                  uint64                      `json:"secuencia"`
+	EstadoAnterior             EstadoFuenteAutoridad       `json:"estado_anterior"`
+	EstadoNuevo                EstadoFuenteAutoridad       `json:"estado_nuevo"`
+	Accion                     AccionActoFuenteAutoridad   `json:"accion"`
+	ActorRef                   string                      `json:"actor_ref"`
+	MotivoCodigo               CodigoMotivoFuenteAutoridad `json:"motivo_codigo"`
+	HuellaHistoriaPreviaSHA256 string                      `json:"huella_historia_previa_sha256"`
+	PreparadaEn                time.Time                   `json:"preparada_en"`
+	ExpiraEn                   time.Time                   `json:"expira_en"`
+}
+```
+
+CompromisoTransicionFuenteAutoridadV1 fija todos los datos que el
+comprobador debe atestar. Cambiar cualquiera de ellos invalida la evidencia.
+
+```go
+func (c CompromisoTransicionFuenteAutoridadV1) BytesCanonicos() ([]byte, error)
+
+func (c CompromisoTransicionFuenteAutoridadV1) HuellaSHA256() (string, error)
+
+func (c CompromisoTransicionFuenteAutoridadV1) MarshalJSON() ([]byte, error)
+```
+
+MarshalJSON fuerza a todos los conectores a usar el mismo compromiso V1 que
+se firma y cuya huella se conserva. No se serializa el tipo vivo.
+
+```go
+func (c CompromisoTransicionFuenteAutoridadV1) Validar() error
+
 type ConcesionRol struct {
 	Accion           string        `json:"accion"`
 	ModuloID         string        `json:"modulo_id"`
@@ -957,6 +1056,26 @@ type ContenidoDocumento struct {
 ContenidoDocumento es el modelo neutral que consumen los renderizadores.
 
 ```go
+type ContenidoFuenteAutoridad struct {
+	MateriaClave string                    `json:"materia_clave"`
+	Nombre       string                    `json:"nombre"`
+	Ambitos      []AmbitoFuenteAutoridad   `json:"ambitos"`
+	Documento    DocumentoFuenteAutoridad  `json:"documento"`
+	Preceptos    []PreceptoFuenteAutoridad `json:"preceptos"`
+	Vigencia     PeriodoFuenteAutoridad    `json:"vigencia"`
+	Efectos      PeriodoFuenteAutoridad    `json:"efectos"`
+	ConocidaEn   time.Time                 `json:"conocida_en"`
+}
+```
+
+ContenidoFuenteAutoridad agrupa la semantica inmutable al publicarse.
+No contiene texto normativo, datos personales ni parametros de reglas.
+
+```go
+func (c ContenidoFuenteAutoridad) ClonarCanonico() (ContenidoFuenteAutoridad, error)
+
+func (c ContenidoFuenteAutoridad) Validar() error
+
 type ContextoActor struct {
 	Principal       Principal                `json:"principal"`
 	PerfilActivoRef string                   `json:"perfil_activo_ref"`
@@ -1137,6 +1256,14 @@ No admite DNI, correo, nombre, roles, permisos ni atributos declarados.
 
 ```go
 func (c CuentaAutenticadaContextoActor) Validar() error
+
+type DatosAltaFuenteAutoridadV1 struct {
+	ID                   string
+	Contenido            ContenidoFuenteAutoridad
+	CreadaPor            string
+	CreadaEn             time.Time
+	MotivoCreacionCodigo CodigoMotivoFuenteAutoridad
+}
 
 type DatosComandoConciliacionCobro struct {
 	OrdenRef                string
@@ -1350,6 +1477,40 @@ adaptador durable. Todos sus campos son escalares y la huella se recalcula
 al leer; una mutacion o decodificacion parcial falla cerrada.
 
 ```go
+type DatosMensajeAtestacionActoFuenteAutoridadV1 struct {
+	EvidenciaRef          string
+	ActoRef               string
+	DocumentoRef          string
+	RepresentacionRef     string
+	HuellaDocumentoSHA256 string
+	OrganoRef             string
+	FirmasRefs            []string
+	ComprobadorRef        string
+	ActoOcurridoEn        time.Time
+	ComprobadaEn          time.Time
+}
+```
+
+DatosMensajeAtestacionActoFuenteAutoridadV1 son hechos producidos por el
+comprobador. No incluyen campos derivados ni el sobre que todavía debe
+firmar el mensaje.
+
+```go
+type DatosPreparacionTransicionFuenteAutoridadV1 struct {
+	EstadoNuevo  EstadoFuenteAutoridad
+	ActorRef     string
+	MotivoCodigo CodigoMotivoFuenteAutoridad
+	SolicitudRef string
+	PreparadaEn  time.Time
+	ExpiraEn     time.Time
+}
+
+type DatosSobreAtestacionActoFuenteAutoridadV1 struct {
+	AtestacionRef          string
+	HuellaAtestacionSHA256 string
+	FirmaAtestacionRef     string
+}
+
 type DatosVinculoAutenticacionActorV1 struct {
 	BloqueVersion                uint16                         `json:"bloque_version"`
 	AutenticacionRef             string                         `json:"autenticacion_ref"`
@@ -1546,6 +1707,24 @@ func (d DineroCobro) Igual(otro DineroCobro) bool
 
 func (d DineroCobro) Validar() error
 
+type DocumentoFuenteAutoridad struct {
+	DocumentoID           string `json:"documento_id"`
+	DocumentoVersion      uint64 `json:"documento_version"`
+	RepresentacionRef     string `json:"representacion_ref"`
+	HuellaContenidoSHA256 string `json:"huella_contenido_sha256"`
+	PublicacionOficialRef string `json:"publicacion_oficial_ref"`
+	ActoOrigenRef         string `json:"acto_origen_ref"`
+	OrganoEmisorRef       string `json:"organo_emisor_ref"`
+}
+```
+
+DocumentoFuenteAutoridad fija la representacion concreta examinada. El
+contenido y las firmas siguen custodiados por las capacidades documentales;
+este agregado solo conserva referencias opacas y huellas.
+
+```go
+func (d DocumentoFuenteAutoridad) Validar() error
+
 type DocumentoGenerado struct {
 	ID                  string                   `json:"id"`
 	Version             int                      `json:"version"`
@@ -1616,6 +1795,23 @@ func (d DocumentoLogico) Referencia() ReferenciaDocumento
 
 func (d DocumentoLogico) Validar() error
 
+type EdicionBorradorFuenteAutoridad struct {
+	RevisionAnterior              uint64                      `json:"revision_anterior"`
+	RevisionNueva                 uint64                      `json:"revision_nueva"`
+	ActorRef                      string                      `json:"actor_ref"`
+	MotivoCodigo                  CodigoMotivoFuenteAutoridad `json:"motivo_codigo"`
+	RegistradaEn                  time.Time                   `json:"registrada_en"`
+	HuellaContenidoAnteriorSHA256 string                      `json:"huella_contenido_anterior_sha256"`
+	HuellaContenidoNuevaSHA256    string                      `json:"huella_contenido_nueva_sha256"`
+	HuellaHistoriaAnteriorSHA256  string                      `json:"huella_historia_anterior_sha256"`
+	HuellaHistoriaNuevaSHA256     string                      `json:"huella_historia_nueva_sha256"`
+}
+```
+
+EdicionBorradorFuenteAutoridad conserva todos los actores que alteraron el
+borrador y encadena la huella anterior con la nueva.
+
+```go
 type EfectoPoliticaRestrictiva string
 
 const (
@@ -1785,6 +1981,16 @@ type EstadoFlujoConfigurable struct {
 
 func (e EstadoFlujoConfigurable) Validar() error
 
+type EstadoFuenteAutoridad string
+
+const (
+	EstadoFuenteAutoridadBorrador   EstadoFuenteAutoridad = "borrador"
+	EstadoFuenteAutoridadPublicada  EstadoFuenteAutoridad = "publicada"
+	EstadoFuenteAutoridadSuspendida EstadoFuenteAutoridad = "suspendida"
+	EstadoFuenteAutoridadDerogada   EstadoFuenteAutoridad = "derogada"
+)
+func (e EstadoFuenteAutoridad) Valido() bool
+
 type EstadoPerfilDocumental string
 ```
 
@@ -1877,6 +2083,38 @@ type Event struct {
 	Payload    map[string]string `json:"payload,omitempty"`
 	OccurredAt time.Time         `json:"occurred_at"`
 }
+
+type EvidenciaActoFuenteAutoridad struct {
+	EvidenciaRef                string                    `json:"evidencia_ref"`
+	Accion                      AccionActoFuenteAutoridad `json:"accion"`
+	FuenteID                    string                    `json:"fuente_id"`
+	FuenteVersion               uint64                    `json:"fuente_version"`
+	HuellaContenidoSHA256       string                    `json:"huella_contenido_sha256"`
+	ActoRef                     string                    `json:"acto_ref"`
+	DocumentoRef                string                    `json:"documento_ref"`
+	RepresentacionRef           string                    `json:"representacion_ref"`
+	HuellaDocumentoSHA256       string                    `json:"huella_documento_sha256"`
+	OrganoRef                   string                    `json:"organo_ref"`
+	FirmasRefs                  []string                  `json:"firmas_refs"`
+	ComprobadorRef              string                    `json:"comprobador_ref"`
+	AtestacionRef               string                    `json:"atestacion_ref"`
+	HuellaAtestacionSHA256      string                    `json:"huella_atestacion_sha256"`
+	FirmaAtestacionRef          string                    `json:"firma_atestacion_ref"`
+	HuellaCompromisoSHA256      string                    `json:"huella_compromiso_sha256"`
+	HuellaMensajeAtestadoSHA256 string                    `json:"huella_mensaje_atestado_sha256"`
+	ActoOcurridoEn              time.Time                 `json:"acto_ocurrido_en"`
+	ComprobadaEn                time.Time                 `json:"comprobada_en"`
+}
+```
+
+EvidenciaActoFuenteAutoridad es una atestacion neutral producida por un
+puerto de comprobacion. Validar comprueba coherencia estructural, no firma,
+competencia ni procedencia criptografica.
+
+```go
+func (e EvidenciaActoFuenteAutoridad) ClonarCanonica() (EvidenciaActoFuenteAutoridad, error)
+
+func (e EvidenciaActoFuenteAutoridad) Validar() error
 
 type EvidenciaAprobacionFlujo struct {
 	AprobacionRef                   string        `json:"aprobacion_ref"`
@@ -2029,6 +2267,111 @@ func (f FormatoDocumento) Extension() string
 func (f FormatoDocumento) MIME() string
 
 func (f FormatoDocumento) Valido() bool
+
+type FuenteAutoridadVersionada struct {
+	ID                           string                           `json:"id"`
+	Version                      uint64                           `json:"version"`
+	Revision                     uint64                           `json:"revision"`
+	VersionAnterior              ReferenciaLinajeFuenteAutoridad  `json:"version_anterior,omitempty"`
+	Contenido                    ContenidoFuenteAutoridad         `json:"contenido"`
+	HuellaContenidoInicialSHA256 string                           `json:"huella_contenido_inicial_sha256"`
+	HuellaHistoriaInicialSHA256  string                           `json:"huella_historia_inicial_sha256"`
+	Estado                       EstadoFuenteAutoridad            `json:"estado"`
+	CreadaPor                    string                           `json:"creada_por"`
+	CreadaEn                     time.Time                        `json:"creada_en"`
+	MotivoCreacionCodigo         CodigoMotivoFuenteAutoridad      `json:"motivo_creacion_codigo"`
+	EdicionesBorrador            []EdicionBorradorFuenteAutoridad `json:"ediciones_borrador,omitempty"`
+	Transiciones                 []TransicionFuenteAutoridad      `json:"transiciones,omitempty"`
+}
+```
+
+FuenteAutoridadVersionada registra autoridad documental, no una regla de
+negocio. Las revisiones anteriores viven en el repositorio append-only.
+
+```go
+func NuevaFuenteAutoridadBorradorV1(datos DatosAltaFuenteAutoridadV1) (FuenteAutoridadVersionada, error)
+
+func RehidratarFuenteAutoridadV1(datos []byte) (FuenteAutoridadVersionada, error)
+```
+
+RehidratarFuenteAutoridadV1 solo acepta la representacion byte a byte
+canonica de V1. Rechaza extensiones, campos repetidos, espacios, ordenes de
+listas no canonicos y datos que el agregado vivo no pueda validar.
+
+```go
+func (f FuenteAutoridadVersionada) ActualizarBorrador(
+	revisionEsperada uint64,
+	contenido ContenidoFuenteAutoridad,
+	actorRef string,
+	motivoCodigo CodigoMotivoFuenteAutoridad,
+	instante time.Time,
+) (FuenteAutoridadVersionada, error)
+
+func (f FuenteAutoridadVersionada) AplicarTransicionV1(
+	solicitud SolicitudTransicionFuenteAutoridadV1,
+	evidencia EvidenciaActoFuenteAutoridad,
+	registradaEn time.Time,
+) (FuenteAutoridadVersionada, error)
+
+func (f FuenteAutoridadVersionada) Citar(preceptos ...string) (CitaFuenteAutoridad, error)
+```
+
+Citar solo expone preceptos que existen en una version ya publicada.
+Una suspension o derogacion no borra la cita historica; un borrador nunca es
+fuente citable.
+
+```go
+func (f FuenteAutoridadVersionada) ClonarCanonica() (FuenteAutoridadVersionada, error)
+
+func (f FuenteAutoridadVersionada) EstadoPersistibleV1() ([]byte, error)
+```
+
+EstadoPersistibleV1 devuelve el unico JSON aceptado para la version V1.
+La validacion no serializa el agregado completo; este metodo lo hace una
+sola vez despues de obtener una copia defensiva canonica.
+
+```go
+func (f FuenteAutoridadVersionada) HuellaContenidoSHA256() (string, error)
+
+func (f FuenteAutoridadVersionada) HuellaEstadoSHA256() (string, error)
+
+func (f FuenteAutoridadVersionada) MarshalJSON() ([]byte, error)
+```
+
+MarshalJSON impide persistir por accidente la estructura viva. Todo JSON del
+agregado cruza el contrato congelado EstadoPersistibleV1.
+
+```go
+func (f FuenteAutoridadVersionada) NuevaVersionV1(
+	contenido ContenidoFuenteAutoridad,
+	actorRef string,
+	motivoCodigo CodigoMotivoFuenteAutoridad,
+	instante time.Time,
+) (FuenteAutoridadVersionada, error)
+
+func (f FuenteAutoridadVersionada) PrepararSolicitudTransicionV1(
+	datos DatosPreparacionTransicionFuenteAutoridadV1,
+) (SolicitudTransicionFuenteAutoridadV1, error)
+```
+
+PrepararSolicitudTransicionV1 devuelve una solicitud y sus bytes canónicos
+firmables. El adaptador no construye JSON ni repite los parámetros al
+aplicar el acto.
+
+```go
+func (f FuenteAutoridadVersionada) ReferenciaExacta() (ReferenciaFuenteAutoridad, error)
+
+func (f FuenteAutoridadVersionada) ReferenciaLinajeExacta() (ReferenciaLinajeFuenteAutoridad, error)
+
+func (f *FuenteAutoridadVersionada) UnmarshalJSON(datos []byte) error
+```
+
+UnmarshalJSON impide que un adaptador eluda por accidente la rehidratacion
+estricta V1 mediante encoding/json. Solo se acepta el estado canonico
+exacto.
+
+```go
+func (f FuenteAutoridadVersionada) Validar() error
 
 type HechoCobro struct {
 	VersionEsquemaIntegridad    int                               `json:"version_esquema_integridad"`
@@ -2264,6 +2607,60 @@ func (m MarcaInstitucionalDocumento) URIPublica() string
 
 func (m MarcaInstitucionalDocumento) Validar() error
 
+type MensajeAtestacionActoFuenteAutoridadV1 struct {
+	Esquema               string                                `json:"esquema"`
+	Compromiso            CompromisoTransicionFuenteAutoridadV1 `json:"compromiso"`
+	EvidenciaRef          string                                `json:"evidencia_ref"`
+	ActoRef               string                                `json:"acto_ref"`
+	DocumentoRef          string                                `json:"documento_ref"`
+	RepresentacionRef     string                                `json:"representacion_ref"`
+	HuellaDocumentoSHA256 string                                `json:"huella_documento_sha256"`
+	OrganoRef             string                                `json:"organo_ref"`
+	FirmasRefs            []string                              `json:"firmas_refs"`
+	ComprobadorRef        string                                `json:"comprobador_ref"`
+	ActoOcurridoEn        time.Time                             `json:"acto_ocurrido_en"`
+	ComprobadaEn          time.Time                             `json:"comprobada_en"`
+}
+```
+
+MensajeAtestacionActoFuenteAutoridadV1 es el mensaje completo que cubre la
+atestacion externa. Excluye unicamente el sobre criptografico que lo firma
+para evitar una dependencia circular.
+
+```go
+func PrepararMensajeAtestacionActoFuenteAutoridadV1(
+	solicitud SolicitudTransicionFuenteAutoridadV1,
+	datos DatosMensajeAtestacionActoFuenteAutoridadV1,
+) (MensajeAtestacionActoFuenteAutoridadV1, error)
+```
+
+PrepararMensajeAtestacionActoFuenteAutoridadV1 construye el único mensaje
+que un conector puede firmar. El adaptador no serializa el compromiso ni
+repite actor, recurso, revisión o acción.
+
+```go
+func (m MensajeAtestacionActoFuenteAutoridadV1) BytesCanonicos() ([]byte, error)
+
+func (m MensajeAtestacionActoFuenteAutoridadV1) ConstituirEvidenciaAtestadaV1(
+	sobre DatosSobreAtestacionActoFuenteAutoridadV1,
+) (EvidenciaActoFuenteAutoridad, error)
+```
+
+ConstituirEvidenciaAtestadaV1 incorpora el sobre criptográfico después de
+firmar/verificar el mensaje y calcula todos los campos derivados.
+
+```go
+func (m MensajeAtestacionActoFuenteAutoridadV1) HuellaSHA256() (string, error)
+
+func (m MensajeAtestacionActoFuenteAutoridadV1) MarshalJSON() ([]byte, error)
+```
+
+MarshalJSON evita que el orden recibido de las firmas u otro detalle del
+tipo vivo produzca unos bytes distintos de los entregados a Portafirmas.
+
+```go
+func (m MensajeAtestacionActoFuenteAutoridadV1) Validar() error
+
 type MenuEntry struct {
 	ID                  string   `json:"id"`
 	ModuleID            string   `json:"module_id"`
@@ -2452,6 +2849,21 @@ func (p PerfilFormatoDocumental) Referencia() ReferenciaPerfilDocumental
 
 func (p PerfilFormatoDocumental) Validar() error
 
+type PeriodoFuenteAutoridad struct {
+	Desde time.Time `json:"desde"`
+	Hasta time.Time `json:"hasta,omitempty"`
+}
+```
+
+PeriodoFuenteAutoridad representa un intervalo semiabierto [desde, hasta).
+Hasta cero significa que el periodo no tiene fin conocido. Vigencia y
+efectos usan instancias distintas: ninguna de las dos se deduce de la otra.
+
+```go
+func (p PeriodoFuenteAutoridad) Contiene(instante time.Time) bool
+
+func (p PeriodoFuenteAutoridad) Validar() error
+
 type Permission struct {
 	Key         string `json:"key"`
 	LabelKey    string `json:"label_key"`
@@ -2614,6 +3026,19 @@ func (p PoliticaRestrictiva) Referencia() string
 func (p PoliticaRestrictiva) Validar() error
 
 func (p PoliticaRestrictiva) VigenteEn(instante time.Time) bool
+
+type PreceptoFuenteAutoridad struct {
+	Clave string `json:"clave"`
+	Cita  string `json:"cita"`
+}
+```
+
+PreceptoFuenteAutoridad identifica un articulo, apartado, anexo o seccion.
+Cita es solo una etiqueta verificable por personas; no se ejecuta ni se
+interpreta como expresion.
+
+```go
+func (p PreceptoFuenteAutoridad) Validar() error
 
 type Principal struct {
 	ID            string            `json:"id"`
@@ -2900,6 +3325,16 @@ func (r ReferenciaEntradaCatalogo) Referencia() string
 
 func (r ReferenciaEntradaCatalogo) Validar() error
 
+type ReferenciaFuenteAutoridad struct {
+	FuenteID              string `json:"fuente_id"`
+	Version               uint64 `json:"version"`
+	HuellaContenidoSHA256 string `json:"huella_contenido_sha256"`
+}
+
+func (r ReferenciaFuenteAutoridad) Referencia() (string, error)
+
+func (r ReferenciaFuenteAutoridad) Validar() error
+
 type ReferenciaInstitucionalDocumento struct {
 	// Has unexported fields.
 }
@@ -2919,6 +3354,22 @@ func (r ReferenciaInstitucionalDocumento) Entidad() string
 func (r ReferenciaInstitucionalDocumento) Organo() string
 
 func (r ReferenciaInstitucionalDocumento) Validar() error
+
+type ReferenciaLinajeFuenteAutoridad struct {
+	Fuente               ReferenciaFuenteAutoridad `json:"fuente"`
+	Revision             uint64                    `json:"revision"`
+	Estado               EstadoFuenteAutoridad     `json:"estado"`
+	HuellaHistoriaSHA256 string                    `json:"huella_historia_sha256"`
+	HuellaEstadoSHA256   string                    `json:"huella_estado_sha256"`
+}
+```
+
+ReferenciaLinajeFuenteAutoridad fija no solo el contenido de la predecesora,
+sino también el estado e historia exactos desde los que nació una sucesora.
+No se usa como cita funcional.
+
+```go
+func (r ReferenciaLinajeFuenteAutoridad) Validar() error
 
 type ReferenciaPerfilDocumental struct {
 	// Has unexported fields.
@@ -3267,6 +3718,39 @@ aceptan como atributos declarados en esta solicitud.
 ```go
 func (s SolicitudRevalidacionAutenticacionActorV1) Validar() error
 
+type SolicitudTransicionFuenteAutoridadV1 struct {
+	// Has unexported fields.
+}
+```
+
+SolicitudTransicionFuenteAutoridadV1 evita que quien integra el caso de uso
+repita actor, motivo, estado o instante entre la firma y la aplicacion.
+
+```go
+func RehidratarSolicitudTransicionFuenteAutoridadV1(
+	datos []byte,
+) (SolicitudTransicionFuenteAutoridadV1, error)
+```
+
+RehidratarSolicitudTransicionFuenteAutoridadV1 permite reanudar de forma
+segura una operación de Portafirmas tras un callback o reinicio. Solo acepta
+exactamente los bytes canónicos que produjo BytesCanonicos.
+
+```go
+func (s SolicitudTransicionFuenteAutoridadV1) BytesCanonicos() ([]byte, error)
+
+func (s SolicitudTransicionFuenteAutoridadV1) Compromiso() (CompromisoTransicionFuenteAutoridadV1, error)
+
+func (s SolicitudTransicionFuenteAutoridadV1) MarshalJSON() ([]byte, error)
+```
+
+MarshalJSON evita que la opacidad de la solicitud se convierta
+accidentalmente en {}. La representación es el compromiso V1 canónico que
+puede custodiarse mientras un portafirmas completa el acto.
+
+```go
+func (s SolicitudTransicionFuenteAutoridadV1) Validar() error
+
 type SolicitudVerificacionAutenticacionCobro struct {
 	SesionRef        string
 	HuellaSesionHMAC string
@@ -3403,6 +3887,21 @@ type TransicionFlujoConfigurable struct {
 func (t TransicionFlujoConfigurable) AdmiteOrigen(estado string) bool
 
 func (t TransicionFlujoConfigurable) Validar() error
+
+type TransicionFuenteAutoridad struct {
+	Secuencia                    uint64                       `json:"secuencia"`
+	EstadoAnterior               EstadoFuenteAutoridad        `json:"estado_anterior"`
+	EstadoNuevo                  EstadoFuenteAutoridad        `json:"estado_nuevo"`
+	ActorRef                     string                       `json:"actor_ref"`
+	MotivoCodigo                 CodigoMotivoFuenteAutoridad  `json:"motivo_codigo"`
+	SolicitudRef                 string                       `json:"solicitud_ref"`
+	PreparadaEn                  time.Time                    `json:"preparada_en"`
+	ExpiraEn                     time.Time                    `json:"expira_en"`
+	RegistradaEn                 time.Time                    `json:"registrada_en"`
+	Evidencia                    EvidenciaActoFuenteAutoridad `json:"evidencia"`
+	HuellaHistoriaAnteriorSHA256 string                       `json:"huella_historia_anterior_sha256"`
+	HuellaHistoriaNuevaSHA256    string                       `json:"huella_historia_nueva_sha256"`
+}
 
 type VerificadorAutenticacionCobro interface {
 	VerificarAutenticacionCobro(

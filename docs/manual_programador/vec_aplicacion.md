@@ -90,6 +90,14 @@ var (
 	ErrConfirmacionContenidoInvalida  = errors.New("vec: confirmacion de contenido invalida")
 )
 var (
+	// ErrPoliticaUsoDecisionAutorizacionInvalida indica que el caso de uso no
+	// ha declarado de forma cerrada como consumira la decision del PDP.
+	ErrPoliticaUsoDecisionAutorizacionInvalida = errors.New("vec: politica de uso de decision de autorizacion invalida")
+	// ErrSerializacionPoliticaUsoAutorizacionProhibida impide convertir una
+	// configuracion interna en un DTO de entrada o salida.
+	ErrSerializacionPoliticaUsoAutorizacionProhibida = errors.New("vec: serializacion de politica de uso de autorizacion prohibida")
+)
+var (
 	ErrDependenciaEjecucionFlujosRequerida = errors.New("vec: dependencia de ejecucion de flujos requerida")
 	ErrOrdenEjecucionFlujoInvalida         = errors.New("vec: orden de ejecucion de flujo invalida")
 )
@@ -400,6 +408,62 @@ func (e EvidenciaResolucionFormatoDocumental) HuellaSHA256() (string, error)
 
 func (e EvidenciaResolucionFormatoDocumental) Validar() error
 
+type ExigidorEvidenciaUsoDecisionAutorizacion interface {
+	ExigirEvidencia(
+		ctx context.Context,
+		actor domain.ContextoActor,
+		vinculo domain.VinculoAutenticacionActorV1,
+		recurso domain.RecursoAutorizable,
+		correlacionRef string,
+		motivo string,
+		politica PoliticaUsoDecisionAutorizacion,
+	) (ports.EvidenciaUsoDecisionAutorizacion, error)
+}
+```
+
+ExigidorEvidenciaUsoDecisionAutorizacion es el contrato minimo que deben
+inyectar los modulos. Depender de esta interfaz evita acoplar sus casos de
+uso al servicio concreto y permite dobles contractuales sin otro PEP.
+
+```go
+type FachadaUsoDecisionAutorizacion struct {
+	// Has unexported fields.
+}
+```
+
+FachadaUsoDecisionAutorizacion ofrece a los modulos la unica operacion
+general necesaria: exigir una decision vinculada y convertirla en evidencia
+opaca. No expone domain.DecisionAutorizacion al llamador.
+
+```go
+func NuevaFachadaUsoDecisionAutorizacion(
+	autorizador ports.Autorizador,
+	reloj ports.Reloj,
+) (*FachadaUsoDecisionAutorizacion, error)
+```
+
+NuevaFachadaUsoDecisionAutorizacion fija el PEP y el reloj confiable en la
+composicion. Las dependencias no se seleccionan desde una peticion.
+
+```go
+func (f *FachadaUsoDecisionAutorizacion) ExigirEvidencia(
+	ctx context.Context,
+	actor domain.ContextoActor,
+	vinculo domain.VinculoAutenticacionActorV1,
+	recurso domain.RecursoAutorizable,
+	correlacionRef string,
+	motivo string,
+	politica PoliticaUsoDecisionAutorizacion,
+) (ports.EvidenciaUsoDecisionAutorizacion, error)
+```
+
+ExigirEvidencia ejecuta el PEP comun, comprueba la politica cerrada del caso
+de uso y devuelve solo la capacidad que el adaptador duradero puede consumir
+junto al efecto. Actor, vinculo y recurso deben proceder de fronteras
+confiables ya resueltas; esta operacion nunca completa ni normaliza
+entradas.
+
+```go
 type FormatoDocumentalResuelto struct {
 	// Has unexported fields.
 }
@@ -851,6 +915,80 @@ type OrdenSustituirCodigoCotejo struct {
 	Motivo          string
 	CorrelacionRef  string
 }
+
+type PerfilProteccionUsoAutorizacion uint8
+```
+
+PerfilProteccionUsoAutorizacion selecciona las comprobaciones locales que
+el caso de uso aplica ademas de la decision exacta del PDP. El valor cero no
+tiene significado para que una ampliacion no herede un perfil por omision.
+
+```go
+const (
+	PerfilProteccionUsoAutorizacionNoDeclarado PerfilProteccionUsoAutorizacion = iota
+	// PerfilProteccionUsoAutorizacionOrdinario admite una superficie personal
+	// externa; la garantia efectiva sigue teniendo que cumplir la exigida por
+	// la decision del PDP.
+	PerfilProteccionUsoAutorizacionOrdinario
+	// PerfilProteccionUsoAutorizacionInternoAlto exige una sesion de garantia
+	// alta en una superficie corporativa o de administracion privilegiada. La
+	// propia decision debe conservar tambien garantia minima alta.
+	PerfilProteccionUsoAutorizacionInternoAlto
+)
+type PoliticaUsoDecisionAutorizacion struct {
+	// Has unexported fields.
+}
+```
+
+PoliticaUsoDecisionAutorizacion es una configuracion nominal cerrada e
+inmutable para consumidores externos al paquete. No es una capacidad
+criptografica: se construye deliberadamente con su fabrica, pero no
+representa datos aportados por HTTP ni admite codecs de transporte.
+
+```go
+func NuevaPoliticaUsoDecisionAutorizacion(
+	accion string,
+	moduloID string,
+	tipoRecurso string,
+	finalidad string,
+	camposEsperados []string,
+	perfil PerfilProteccionUsoAutorizacion,
+) (PoliticaUsoDecisionAutorizacion, error)
+```
+
+NuevaPoliticaUsoDecisionAutorizacion fija la operacion nominal exacta que el
+caso de uso puede solicitar y el conjunto cerrado de campos que interpreta.
+Una lista vacia declara una operacion atomica sin restricciones por campo;
+no significa "cualquier campo".
+
+```go
+func (p PoliticaUsoDecisionAutorizacion) Format(estado fmt.State, _ rune)
+
+func (p PoliticaUsoDecisionAutorizacion) GoString() string
+
+func (*PoliticaUsoDecisionAutorizacion) GobDecode([]byte) error
+
+func (PoliticaUsoDecisionAutorizacion) GobEncode() ([]byte, error)
+
+func (p PoliticaUsoDecisionAutorizacion) LogValue() slog.Value
+
+func (PoliticaUsoDecisionAutorizacion) MarshalBinary() ([]byte, error)
+
+func (PoliticaUsoDecisionAutorizacion) MarshalJSON() ([]byte, error)
+
+func (PoliticaUsoDecisionAutorizacion) MarshalText() ([]byte, error)
+
+func (PoliticaUsoDecisionAutorizacion) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (PoliticaUsoDecisionAutorizacion) String() string
+
+func (*PoliticaUsoDecisionAutorizacion) UnmarshalBinary([]byte) error
+
+func (*PoliticaUsoDecisionAutorizacion) UnmarshalJSON([]byte) error
+
+func (*PoliticaUsoDecisionAutorizacion) UnmarshalText([]byte) error
+
+func (*PoliticaUsoDecisionAutorizacion) UnmarshalXML(*xml.Decoder, xml.StartElement) error
 
 type ResultadoConsultaProtegidaCotejo struct {
 	Estado             EstadoConsultaCotejo        `json:"estado,omitempty"`

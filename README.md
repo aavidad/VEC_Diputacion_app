@@ -11,14 +11,20 @@ Dietas y Bolsa son modulos independientes con `ModuleID`, permisos y menus
 propios; VEC solo los agrega y permite relacionarlos por empleado, expediente,
 justificante o auditoria.
 
+Fecha de corte de este estado: **17 de julio de 2026**. El repositorio es una
+base de desarrollo y demostracion verificable; no acredita por si solo
+conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
+
 ## Estado honesto
 
 Probado:
 
 - Servidor HTTP con salud en `/healthz`, carcasa estatica en `/` y consulta
   publica minimizada de convocatorias en
-  `/api/publico/bolsa/convocatorias`. Esta consulta se monta en todos los modos
-  de autenticacion y usa por defecto una fuente sintetica sin datos personales.
+  `/api/publico/bolsa/convocatorias`, junto con el directorio gobernado de
+  categorias en `/api/publico/bolsa/categorias`. Ambas consultas se montan en
+  todos los modos de autenticacion y usan por defecto fuentes de demostracion
+  sin datos personales.
 - UI estatica en `http://127.0.0.1:8080/` como carcasa del tablero VEC: modulos,
   expedientes, filtros, cola, detalle y flujo de acciones. Sus datos y acciones
   privadas permanecen cerrados hasta conectar identidad y autorizacion reales.
@@ -27,6 +33,14 @@ Probado:
   (`vec.module.bolsa`) via manifiestos. Menu, permisos y acciones demo con
   recibo auditable estan probados en casos de uso y adaptadores de prueba, no
   expuestos por el despliegue predeterminado.
+- Catalogo profesional comun y versionado, con 58 categorias de demostracion,
+  compartido por Personal y Bolsa. El arranque coteja que las categorias de
+  cada convocatoria existan en la version exacta del catalogo; la UI ya no
+  mantiene una lista de dos categorias escrita en el codigo.
+- Dominio y puertos de convocatorias gobernadas: borrador, publicacion,
+  rectificacion mediante version sucesora y cierre conservan flujo, bases,
+  catalogos, autorizacion, motivo e idempotencia exactos. Todavia no existe la
+  pantalla administrativa ni el repositorio productivo que completen el flujo.
 - Contrato reservado para un futuro espacio de trabajo interno. Su endpoint
   permanece cerrado (`503`) hasta resolver en servidor persona, relacion,
   ambito, finalidad y campos exactos; el antiguo agregado sintetico fue
@@ -70,6 +84,20 @@ Probado:
   entre replicas, claves cruzadas). Los conectores productivos siguen
   pendientes segun
   [el flujo durable](docs/portal_vec/flujo_firma_baremacion_durable.md).
+- Valores exactos compartidos para los futuros motores de baremacion
+  (`Puntos`, racionales, fraccion de jornada, fecha e intervalo civil), sin
+  `float64`, zonas horarias ni redondeos implicitos. Son infraestructura de
+  dominio; aun no interpretan unas bases concretas.
+- Primer corte `NUC-006` del registro de fuentes de autoridad: dominio
+  versionado e inmutable, doble reloj juridico/tecnico, solicitudes de firma
+  durables, linaje verificable, historia encadenada y formato canonico V1
+  probado. Permanece en **NO-GO productivo** hasta incorporar caso de uso,
+  repositorio, comprobacion criptografica y de competencia, segregacion y
+  anclaje externo WORM, segun
+  [su especificacion](docs/portal_vec/registro_fuentes_autoridad.md).
+- Analisis integral de RRHH, matriz normativa, catalogo funcional y limites de
+  materias reservadas documentados antes de ampliar Personal, Cronos o
+  Nominas. Son especificaciones de trabajo y no reglas activas en Bolsa.
 - Integracion continua en GitHub Actions: cada push y pull request ejecuta
   la puerta canonica completa (`gofmt`, tests, `-race`, `vet`, `build`,
   `govulncheck` y tamano de ficheros conforme a DEC-051).
@@ -87,6 +115,9 @@ Simulado:
   el despliegue `disabled` en una aplicacion privada durable.
 - Integraciones AAPP como puertos/stubs iniciales, sin clientes reales SCSP, SIR,
   Notific@, InSiDe ni AutofirmaV2 cableado en runtime.
+- El registro `NUC-006` verifica hoy invariantes y huellas estructurales, no una
+  firma real ni la competencia del firmante. Sus adaptadores de aplicacion y
+  persistencia siguen pendientes y no debe exponerse como autoridad por HTTP.
 
 Pendiente productivo:
 
@@ -98,11 +129,13 @@ Pendiente productivo:
 - TLS y proxy productivo, observabilidad centralizada, gestion de secretos,
   limites acordados con Sistemas y hardening del entorno final. El proxy local
   incluido no es una terminacion TLS ni un frontal de produccion.
-- Desarrollo completo de cada modulo real: Personal/Nominas con maestro de
+- Cierre de los flujos completos de cada modulo real: Personal/Nominas con maestro de
   empleados, puestos, situaciones, trienios, servicios prestados y certificados;
   Cronos con cuadrantes y normativa de jornada; Dietas con calculo oficial de
-  kilometraje/dietas; Bolsa con baremo, listados, alegaciones, firma,
-  notificaciones y persistencia duradera.
+  kilometraje/dietas; Bolsa con configurador administrativo de bases y baremo,
+  listados, alegaciones, firma, notificaciones y persistencia duradera. Existen
+  piezas de dominio y contratos de estos flujos, pero no el recorrido
+  productivo completo.
 
 ## Documentacion
 
@@ -133,6 +166,8 @@ Pendiente productivo:
 - [UX portal empleado tipo VEC](docs/portal_vec/ux_portal_empleado.md)
 - [Matriz inicial de perfiles, roles y ambitos](docs/portal_vec/matriz_roles_y_ambitos.md)
 - [Catalogos configurables y gobernados](docs/portal_vec/catalogos_configurables.md)
+- [Catalogo comun de categorias profesionales](docs/portal_vec/catalogo_categorias_profesionales.md)
+- [Registro versionado de fuentes de autoridad](docs/portal_vec/registro_fuentes_autoridad.md)
 
 ### Portal VEC: seguridad y autorizacion
 
@@ -179,10 +214,17 @@ Pendiente productivo:
 ### Estudio de requisitos
 
 - [Estudio de requisitos del portal transversal de RRHH](docs/estudio_requisitos/README.md)
+- [Analisis integral del portal de Recursos Humanos](docs/estudio_requisitos/analisis_integral_rrhh.md)
+- [Matriz normativa de Recursos Humanos a julio de 2026](docs/estudio_requisitos/matriz_normativa_rrhh_2026.md)
+- [Catalogo funcional y hoja de ruta integral de RRHH](docs/estudio_requisitos/catalogo_funcional_rrhh_y_hoja_ruta.md)
 - [Peticion de RRHH: transcripcion accesible y lectura tecnica inicial](docs/estudio_requisitos/peticion_rrhh_transcripcion_y_lectura.md)
 - [Baremacion configurable, jornada y servicios obtenidos de oficio](docs/estudio_requisitos/baremacion_configurable_jornada_y_datos_de_oficio.md)
 - [Integracion del Baremador de puestos singularizados y otros procesos](docs/estudio_requisitos/integracion_baremador_concursos_provision.md)
 - [Modelo historico de RPT, plazas, puestos, ocupaciones y vacantes](docs/estudio_requisitos/modelo_historico_rpt_plazas_puestos_y_vacantes.md)
+- [Calendario habil, laboral y de jornada historico](docs/estudio_requisitos/calendario_habil_laboral_historico.md)
+- [Turnos, festivos y compensaciones](docs/estudio_requisitos/turnos_festivos_y_compensaciones.md)
+- [Archivo documental relacionado de RRHH](docs/estudio_requisitos/archivo_documental_rrhh_relacionado.md)
+- [Materias economicas, reservadas y relaciones laborales](docs/estudio_requisitos/materias_reservadas_economicas_y_relaciones_laborales.md)
 - [Acceso interno de tecnicos, RRHH y administracion](docs/estudio_requisitos/acceso_interno_tecnicos_administracion.md)
 - [Accesibilidad personalizable, ayuda, audio y asistente](docs/estudio_requisitos/ayuda_documentacion_audio_y_asistente.md)
 - [Brechas para un producto profesional, seguro y trazable](docs/estudio_requisitos/brechas_para_producto_profesional.md)
@@ -328,6 +370,7 @@ sin secretos ni credenciales locales:
 curl -fsS http://127.0.0.1:8080/healthz
 curl -fsS \
   'http://127.0.0.1:8080/api/publico/bolsa/convocatorias?plazo=abierto'
+curl -fsS http://127.0.0.1:8080/api/publico/bolsa/categorias
 test "$(curl -sS -o /dev/null -w '%{http_code}' \
   http://127.0.0.1:8080/api/vec/modules)" = 401
 test "$(curl -sS -o /dev/null -w '%{http_code}' \
@@ -358,7 +401,10 @@ firma, notificacion fehaciente, archivo ENI ni persistencia duradera.
   incidencias, permisos, vacaciones, reducciones 63/64, saldos y aprobaciones.
 - `internal/modules/dietas`: manifiesto de Dietas: comisiones de servicio,
   kilometraje, mapa provincial, justificantes, aprobaciones y liquidaciones.
-- `internal/modules/bolsa`: manifiesto del modulo Bolsa para registrarlo en VEC.
+- `internal/modules/bolsa`: modulo hexagonal de Bolsa: manifiesto, consulta
+  publica, convocatorias gobernadas, baremacion, firma y adaptadores. Varias
+  capacidades siguen siendo contratos o dobles de prueba y no superficies
+  productivas.
 - `internal/candidate`: nucleo heredado de Bolsa, usado por el primer modulo.
 - `cmd/vec-server` y `config`: composicion y configuracion canonica.
 - `cmd/bolsa-server`: centinela retirado; no arranca ningun servidor.
@@ -390,5 +436,6 @@ Condiciones esenciales de la reutilizacion (articulo 5 de la EUPL-1.2):
 - Indicar los cambios realizados sobre la obra original.
 
 Todas las versiones linguisticas oficiales de la EUPL publicadas por la
-Comision Europea tienen identico valor juridico; el fichero LICENSE contiene
-la version inglesa canonica.
+Comision Europea tienen identico valor juridico. El fichero `LICENSE` incluye
+primero el texto oficial en español y, a continuacion, el texto oficial en
+ingles; ninguno prevalece sobre el otro.

@@ -1283,6 +1283,14 @@ const (
 	// Es una invariante tecnica, no un tipo de merito ni una regla de baremo.
 	UnidadesPorPunto Puntos = 1_000_000
 )
+const (
+	AccionBorradorConvocatoriaCreado      = "bolsa.convocatoria.borrador.creado"
+	AccionBorradorConvocatoriaActualizado = "bolsa.convocatoria.borrador.actualizado"
+	AccionConvocatoriaPublicada           = "bolsa.convocatoria.publicada"
+	AccionConvocatoriaSustituida          = "bolsa.convocatoria.sustituida"
+	AccionConvocatoriaRetirada            = "bolsa.convocatoria.retirada"
+)
+const TipoEntidadFlujoConvocatoriaBolsa = "convocatoria_bolsa"
 ```
 
 ### Variables
@@ -1301,6 +1309,10 @@ var (
 	ErrHistorialDecisionesInvalido = errors.New("bolsa: historial de decisiones invalido")
 	ErrTransicionDecisionInvalida  = errors.New("bolsa: transicion de decision invalida")
 	ErrDecisionSinCambios          = errors.New("bolsa: la rectificacion no cambia la valoracion")
+)
+var (
+	ErrVersionConvocatoriaGobernadaInvalida = errors.New("bolsa: version gobernada de convocatoria invalida")
+	ErrTransicionGobiernoConvocatoria       = errors.New("bolsa: transicion de gobierno de convocatoria invalida")
 )
 var (
 	ErrBolsaConstituidaInvalida      = errors.New("bolsa: bolsa constituida invalida")
@@ -1524,6 +1536,21 @@ const (
 )
 func (c ClaseDecisionTecnica) Valida() bool
 
+type ConfiguracionFijadaConvocatoria struct {
+	Catalogos        ReferenciaConfiguracionConvocatoria      `json:"catalogos"`
+	Calendario       ReferenciaConfiguracionConvocatoria      `json:"calendario"`
+	ReglasBaremacion ReferenciaConfiguracionConvocatoria      `json:"reglas_baremacion"`
+	FlujoProceso     ReferenciaConfiguracionConvocatoria      `json:"flujo_proceso"`
+	FlujoSolicitud   ReferenciaConfiguracionConvocatoria      `json:"flujo_solicitud"`
+	Documentos       []ReferenciaDocumentoOficialConvocatoria `json:"documentos"`
+}
+
+func (c ConfiguracionFijadaConvocatoria) ClonarCanonicaPara(
+	contenido ContenidoPublicableConvocatoria,
+) (ConfiguracionFijadaConvocatoria, error)
+
+func (c ConfiguracionFijadaConvocatoria) ValidarPara(contenido ContenidoPublicableConvocatoria) error
+
 type ContenidoDecisionTecnica struct {
 	ID                           string                   `json:"id"`
 	Numero                       int                      `json:"numero"`
@@ -1566,6 +1593,29 @@ func (c ContenidoDecisionTecnica) HuellaContenidoSHA256() (string, error)
 
 func (c ContenidoDecisionTecnica) Validar() error
 
+type ContenidoPublicableConvocatoria struct {
+	IdentificadorPublico string                            `json:"identificador_publico"`
+	Tipo                 string                            `json:"tipo"`
+	CatalogoCategorias   ReferenciaCatalogoCategorias      `json:"catalogo_categorias"`
+	Categorias           []string                          `json:"categorias"`
+	Titulo               string                            `json:"titulo"`
+	Resumen              string                            `json:"resumen"`
+	Descripcion          string                            `json:"descripcion"`
+	Plazos               []PlazoConvocatoria               `json:"plazos"`
+	Requisitos           []RequisitoConvocatoria           `json:"requisitos"`
+	Documentos           []DocumentoPublicableConvocatoria `json:"documentos"`
+	Ayuda                []AyudaConvocatoria               `json:"ayuda"`
+}
+```
+
+ContenidoPublicableConvocatoria no contiene fase ni marcas de publicacion.
+Esas piezas proceden, respectivamente, del flujo y del acto de gobierno.
+
+```go
+func (c ContenidoPublicableConvocatoria) ClonarCanonico() (ContenidoPublicableConvocatoria, error)
+
+func (c ContenidoPublicableConvocatoria) Validar() error
+
 type Convocatoria struct {
 	ID            string                     `json:"id"`
 	Version       string                     `json:"version"`
@@ -1601,6 +1651,18 @@ func (c Convocatoria) Validate() error
 Validate conserva el nombre usado por el prototipo durante la migración.
 
 ```go
+type DatosNuevaVersionConvocatoriaGobernada struct {
+	ID                   string
+	CodigoVersionPublica string
+	InstanciaFlujoRef    string
+	Contenido            ContenidoPublicableConvocatoria
+	Configuracion        ConfiguracionFijadaConvocatoria
+	ExpedienteRef        string
+	Motivo               string
+	ActorID              string
+	Instante             time.Time
+}
+
 type DatosPublicosConvocatoria struct {
 	IdentificadorPublico string                       `json:"identificador_publico"`
 	Tipo                 string                       `json:"tipo"`
@@ -1645,6 +1707,16 @@ type DocumentoConvocatoria struct {
 	PublicadoEn time.Time `json:"publicado_en"`
 }
 
+type DocumentoPublicableConvocatoria struct {
+	Referencia  string `json:"referencia"`
+	Tipo        string `json:"tipo"`
+	Orden       int    `json:"orden"`
+	Titulo      string `json:"titulo"`
+	Descripcion string `json:"descripcion"`
+	Formato     string `json:"formato"`
+	URL         string `json:"url"`
+}
+
 type EntradaOrdenBolsa struct {
 	Orden         uint64             `json:"orden"`
 	Participacion ParticipacionBolsa `json:"participacion"`
@@ -1660,21 +1732,32 @@ catalogos.
 
 ```go
 const (
-	EstadoConvocatoriaBorrador    EstadoConvocatoria = "Borrador"
-	EstadoConvocatoriaInscripcion EstadoConvocatoria = "Inscripcion"
-	EstadoConvocatoriaSubsanacion EstadoConvocatoria = "Subsanacion"
-	EstadoConvocatoriaAlegaciones EstadoConvocatoria = "Alegaciones"
-	EstadoConvocatoriaDefinitiva  EstadoConvocatoria = "Definitiva"
-	EstadoConvocatoriaCerrada     EstadoConvocatoria = "Cerrada"
+	EstadoConvocatoriaBorrador    EstadoConvocatoria = "borrador"
+	EstadoConvocatoriaInscripcion EstadoConvocatoria = "inscripcion"
+	EstadoConvocatoriaSubsanacion EstadoConvocatoria = "subsanacion"
+	EstadoConvocatoriaAlegaciones EstadoConvocatoria = "alegaciones"
+	EstadoConvocatoriaDefinitiva  EstadoConvocatoria = "definitiva"
+	EstadoConvocatoriaCerrada     EstadoConvocatoria = "cerrada"
 )
 ```
 
 Estas constantes mantienen la compatibilidad temporal del prototipo
-candidate. No constituyen la lista de estados permitidos por el modulo
-definitivo: cualquier clave valida debe existir en el catalogo gobernado.
+candidate con las claves canonicas del catalogo gobernado. No constituyen
+la lista de estados permitidos: cualquier clave valida debe existir en la
+definicion de flujo exacta que gobierna la convocatoria.
 
 ```go
 func (e EstadoConvocatoria) IsValid() bool
+
+type EstadoGobiernoConvocatoria string
+
+const (
+	EstadoGobiernoConvocatoriaBorrador   EstadoGobiernoConvocatoria = "borrador"
+	EstadoGobiernoConvocatoriaPublicada  EstadoGobiernoConvocatoria = "publicada"
+	EstadoGobiernoConvocatoriaSustituida EstadoGobiernoConvocatoria = "sustituida"
+	EstadoGobiernoConvocatoriaRetirada   EstadoGobiernoConvocatoria = "retirada"
+)
+func (e EstadoGobiernoConvocatoria) Valido() bool
 
 type EstadoValoracionEvidencia string
 
@@ -1719,6 +1802,28 @@ instantanea. Un booleano suelto nunca basta para proponer un llamamiento.
 
 ```go
 func (e EvaluacionParticipacionLlamamiento) Validar() error
+
+type EvidenciaAprobacionConvocatoria struct {
+	Accion                string    `json:"accion"`
+	Referencia            string    `json:"referencia"`
+	HuellaEvidenciaSHA256 string    `json:"huella_evidencia_sha256"`
+	ConvocatoriaRef       string    `json:"convocatoria_ref"`
+	Revision              int       `json:"revision"`
+	HuellaContenidoSHA256 string    `json:"huella_contenido_sha256"`
+	HuellaEstadoSHA256    string    `json:"huella_estado_sha256"`
+	AprobadaPor           string    `json:"aprobada_por"`
+	AprobadaEn            time.Time `json:"aprobada_en"`
+}
+
+type EvidenciaDependenciasConvocatoria struct {
+	Referencia            string    `json:"referencia"`
+	HuellaEvidenciaSHA256 string    `json:"huella_evidencia_sha256"`
+	ConvocatoriaRef       string    `json:"convocatoria_ref"`
+	Revision              int       `json:"revision"`
+	HuellaContenidoSHA256 string    `json:"huella_contenido_sha256"`
+	HuellaEstadoSHA256    string    `json:"huella_estado_sha256"`
+	VerificadaEn          time.Time `json:"verificada_en"`
+}
 
 type EvidenciaMerito struct {
 	Referencia    ReferenciaEvidencia  `json:"referencia"`
@@ -2001,6 +2106,21 @@ silenciosa.
 ```go
 func (r ReferenciaCatalogoCategorias) Valida() bool
 
+type ReferenciaConfiguracionConvocatoria struct {
+	ID                    string `json:"id"`
+	Version               int    `json:"version"`
+	HuellaContenidoSHA256 string `json:"huella_contenido_sha256"`
+}
+```
+
+ReferenciaConfiguracionConvocatoria fija identidad, version y contenido.
+Nunca representa «la ultima version» de una dependencia.
+
+```go
+func (r ReferenciaConfiguracionConvocatoria) ReferenciaVersionada() string
+
+func (r ReferenciaConfiguracionConvocatoria) Validar() error
+
 type ReferenciaCriterio struct {
 	ProcesoRef    string                 `json:"proceso_ref"`
 	Clave         string                 `json:"clave"`
@@ -2031,6 +2151,19 @@ contenido distinto.
 
 ```go
 func (r ReferenciaDecision) Validar() error
+
+type ReferenciaDocumentoOficialConvocatoria struct {
+	Rol                   string `json:"rol"`
+	PublicacionRef        string `json:"publicacion_ref"`
+	DocumentoRef          string `json:"documento_ref"`
+	VersionDocumento      int    `json:"version_documento"`
+	RepresentacionRef     string `json:"representacion_ref"`
+	HuellaContenidoSHA256 string `json:"huella_contenido_sha256"`
+	FirmaValidadaRef      string `json:"firma_validada_ref"`
+	ReciboCustodiaRef     string `json:"recibo_custodia_ref"`
+}
+
+func (r ReferenciaDocumentoOficialConvocatoria) Validar() error
 
 type ReferenciaEvidencia struct {
 	DocumentoRef      string `json:"documento_ref"`
@@ -2129,6 +2262,11 @@ const (
 )
 func (r ResultadoElegibilidadLlamamiento) Valido() bool
 
+type ResultadoPublicacionSucesoraConvocatoria struct {
+	Publicada   VersionConvocatoriaGobernada
+	Predecesora VersionConvocatoriaGobernada
+}
+
 type ResultadoSubsanacion string
 
 const (
@@ -2176,6 +2314,114 @@ merito atomico.
 
 ```go
 func (v ValoracionEvidencia) Validar() error
+
+type VersionConvocatoriaGobernada struct {
+	ID                       string                             `json:"id"`
+	Secuencia                int                                `json:"secuencia"`
+	CodigoVersionPublica     string                             `json:"codigo_version_publica"`
+	Revision                 int                                `json:"revision"`
+	VersionAnteriorRef       string                             `json:"version_anterior_ref,omitempty"`
+	InstanciaFlujoRef        string                             `json:"instancia_flujo_ref"`
+	Contenido                ContenidoPublicableConvocatoria    `json:"contenido"`
+	Configuracion            ConfiguracionFijadaConvocatoria    `json:"configuracion"`
+	ExpedienteRef            string                             `json:"expediente_ref"`
+	MotivoCreacion           string                             `json:"motivo_creacion"`
+	EstadoGobierno           EstadoGobiernoConvocatoria         `json:"estado_gobierno"`
+	CreadaPor                string                             `json:"creada_por"`
+	CreadaEn                 time.Time                          `json:"creada_en"`
+	UltimaModificacionPor    string                             `json:"ultima_modificacion_por,omitempty"`
+	UltimaModificacionEn     time.Time                          `json:"ultima_modificacion_en,omitempty"`
+	MotivoModificacion       string                             `json:"motivo_modificacion,omitempty"`
+	PublicadaPor             string                             `json:"publicada_por,omitempty"`
+	PublicadaEn              time.Time                          `json:"publicada_en,omitempty"`
+	MotivoPublicacion        string                             `json:"motivo_publicacion,omitempty"`
+	AprobacionPublicacion    *EvidenciaAprobacionConvocatoria   `json:"aprobacion_publicacion,omitempty"`
+	ComprobacionDependencias *EvidenciaDependenciasConvocatoria `json:"comprobacion_dependencias,omitempty"`
+	SustituidaPorRef         string                             `json:"sustituida_por_ref,omitempty"`
+	SustituidaPor            string                             `json:"sustituida_por,omitempty"`
+	SustituidaEn             time.Time                          `json:"sustituida_en,omitempty"`
+	RetiradaPor              string                             `json:"retirada_por,omitempty"`
+	RetiradaEn               time.Time                          `json:"retirada_en,omitempty"`
+	MotivoRetirada           string                             `json:"motivo_retirada,omitempty"`
+	AprobacionRetirada       *EvidenciaAprobacionConvocatoria   `json:"aprobacion_retirada,omitempty"`
+}
+
+func NuevaVersionConvocatoriaGobernada(datos DatosNuevaVersionConvocatoriaGobernada) (VersionConvocatoriaGobernada, error)
+
+func (v VersionConvocatoriaGobernada) ActualizarBorrador(
+	revisionEsperada int,
+	contenido ContenidoPublicableConvocatoria,
+	configuracion ConfiguracionFijadaConvocatoria,
+	actorID, motivo string,
+	instante time.Time,
+) (VersionConvocatoriaGobernada, error)
+
+func (v VersionConvocatoriaGobernada) ClonarCanonico() (VersionConvocatoriaGobernada, error)
+
+func (v VersionConvocatoriaGobernada) HuellaContenidoSHA256() (string, error)
+
+func (v VersionConvocatoriaGobernada) HuellaSHA256() (string, error)
+
+func (v VersionConvocatoriaGobernada) NuevaVersion(
+	codigoVersionPublica string,
+	contenido ContenidoPublicableConvocatoria,
+	configuracion ConfiguracionFijadaConvocatoria,
+	expedienteRef, actorID, motivo string,
+	instante time.Time,
+) (VersionConvocatoriaGobernada, error)
+
+func (v VersionConvocatoriaGobernada) ProyectarPublica(
+	instancia dominiovec.InstanciaFlujo,
+	definicion dominiovec.DefinicionFlujo,
+) (Convocatoria, error)
+
+func (v VersionConvocatoriaGobernada) PublicarInicial(
+	actorID string,
+	aprobacion EvidenciaAprobacionConvocatoria,
+	dependencias EvidenciaDependenciasConvocatoria,
+	motivo string,
+	instante time.Time,
+) (VersionConvocatoriaGobernada, error)
+
+func (v VersionConvocatoriaGobernada) PublicarSucesora(
+	predecesora VersionConvocatoriaGobernada,
+	actorID string,
+	aprobacion EvidenciaAprobacionConvocatoria,
+	dependencias EvidenciaDependenciasConvocatoria,
+	motivo string,
+	instante time.Time,
+) (ResultadoPublicacionSucesoraConvocatoria, error)
+```
+
+PublicarSucesora devuelve las dos instantaneas que el repositorio debe
+confirmar de forma atomica. Toda la cadena iniciada conserva la misma
+instancia y definicion de flujo; cambiar cualquiera exige una migracion
+expresa, no una publicacion ordinaria.
+
+```go
+func (v VersionConvocatoriaGobernada) Referencia() string
+
+func (v VersionConvocatoriaGobernada) RepresentacionCanonica() ([]byte, error)
+
+func (v VersionConvocatoriaGobernada) RepresentacionContenidoCanonica() ([]byte, error)
+
+func (v VersionConvocatoriaGobernada) Retirar(
+	actorID string,
+	aprobacion EvidenciaAprobacionConvocatoria,
+	motivo string,
+	instante time.Time,
+) (VersionConvocatoriaGobernada, error)
+
+func (v VersionConvocatoriaGobernada) SustituirPor(
+	nueva VersionConvocatoriaGobernada,
+) (VersionConvocatoriaGobernada, error)
+```
+
+SustituirPor prepara la mutacion de la version anterior. El repositorio debe
+confirmar esta copia y la publicacion nueva en una unica transaccion.
+
+```go
+func (v VersionConvocatoriaGobernada) Validar() error
 ```
 
 ## Paquete `internal/modules/bolsa/internal/transaccion`
@@ -2383,6 +2629,30 @@ const (
 	ComprobacionPerfilPAdES       = "perfil_pades"
 )
 const (
+	AccionConsultarVersionConvocatoria         = "bolsa.convocatoria.version.consultar"
+	AccionConsultarVersionConFlujoConvocatoria = "bolsa.convocatoria.version_con_flujo.consultar"
+	AccionCrearBorradorConvocatoria            = "bolsa.convocatoria.borrador.crear"
+	AccionActualizarBorradorConvocatoria       = "bolsa.convocatoria.borrador.actualizar"
+	AccionPublicarVersionConvocatoria          = "bolsa.convocatoria.version.publicar"
+	AccionPublicarYSustituirConvocatoria       = "bolsa.convocatoria.version.publicar_y_sustituir"
+	AccionPublicarTrasRetiradaConvocatoria     = "bolsa.convocatoria.version.publicar_tras_retirada"
+	AccionRetirarVersionConvocatoria           = "bolsa.convocatoria.version.retirar"
+	ModuloGobiernoConvocatorias                = "bolsa"
+	TipoRecursoVersionConvocatoriaGobernada    = "version_convocatoria_gobernada"
+	FinalidadConsultaInternaConvocatorias      = "consulta_interna_convocatorias"
+	FinalidadGobiernoConvocatorias             = "gobierno_convocatorias"
+	AtributoHuellaIntencionConvocatoria        = "huella_intencion_sha256"
+	VentanaMaximaUsoAutorizacionConvocatoria   = 30 * time.Second
+)
+const (
+	VersionTestimonioIdempotenciaConvocatoriaV1 = 1
+	VigenciaMaximaTestimonioConvocatoria        = 10 * time.Minute
+)
+const (
+	VigenciaMaximaComprobacionDependenciasConvocatoria = 15 * time.Minute
+	VigenciaMaximaAtestacionVerificacionConvocatoria   = 5 * time.Minute
+)
+const (
 	CatalogoTiposConvocatoria      = "tipos_convocatoria"
 	CatalogoEstadosConvocatoria    = "estados_convocatoria"
 	CatalogoCategoriasConvocatoria = "categorias_convocatoria"
@@ -2458,11 +2728,16 @@ const (
 	VersionManifiestoProbatorioBaremacionV2 = 2
 	VersionManifiestoProbatorioBaremacion   = 3
 )
+const DominioCriptograficoMotivoGobiernoConvocatoriaV1 = "bolsa.convocatoria.motivo.v1"
 const VentanaMaximaUsoAutorizacionBaremacion = 30 * time.Second
 ```
 
 VentanaMaximaUsoAutorizacionBaremacion limita el tiempo durante el que una
 decision ya evaluada puede viajar hasta el punto de aplicacion.
+
+```go
+const VigenciaMaximaAtestacionMotivoGobiernoConvocatoria = 5 * time.Minute
+```
 
 ### Variables
 
@@ -2513,6 +2788,38 @@ var (
 	ErrSerializacionAutorizacionProhibida      = errors.New("bolsa: serializacion de autorizacion prohibida")
 	ErrVerificacionSelloBaremacionNoDisponible = errors.New("bolsa: verificacion de sello no disponible")
 	ErrSelloBaremacionNoAutentico              = errors.New("bolsa: sello de operacion no autentico")
+)
+var (
+	ErrAutorizacionGobiernoConvocatoriaInvalida = errors.New("bolsa: autorizacion de gobierno de convocatoria invalida")
+	ErrConsultaGobiernoConvocatoriaInvalida     = errors.New("bolsa: consulta interna de convocatoria invalida")
+	ErrVersionGobernadaConvocatoriaNoEncontrada = errors.New("bolsa: version gobernada de convocatoria no encontrada")
+)
+var (
+	ErrMaterialIntencionConvocatoriaInvalido = errors.New("bolsa: material de intencion de convocatoria invalido")
+	ErrIdempotenciaConvocatoriaInvalida      = errors.New("bolsa: idempotencia semantica de convocatoria invalida")
+	ErrClaveIdempotenciaConvocatoriaReusada  = errors.New("bolsa: clave de idempotencia reutilizada con otra intencion")
+	ErrSerializacionIdempotenciaConvocatoria = errors.New("bolsa: serializacion de idempotencia de convocatoria prohibida")
+)
+var (
+	ErrSelladoMotivoGobiernoConvocatoriaInvalido = errors.New("bolsa: sellado HMAC de motivo de convocatoria invalido")
+	ErrSerializacionMotivoGobiernoConvocatoria   = errors.New("bolsa: serializacion de motivo de convocatoria prohibida")
+)
+var (
+	ErrConfirmacionGobiernoConvocatoriaInvalida   = errors.New("bolsa: confirmacion de gobierno de convocatoria invalida")
+	ErrVersionGobernadaConvocatoriaYaExiste       = errors.New("bolsa: version gobernada de convocatoria ya existe")
+	ErrCASVersionConvocatoriaEnConflicto          = errors.New("bolsa: revision o huella de convocatoria en conflicto")
+	ErrRamaVersionConvocatoriaEnConflicto         = errors.New("bolsa: la predecesora ya tiene otra rama")
+	ErrUsoAutorizacionConvocatoriaConsumido       = errors.New("bolsa: uso de autorizacion de convocatoria ya consumido")
+	ErrAtestacionVerificacionConsumida            = errors.New("bolsa: atestacion de verificacion de convocatoria ya consumida")
+	ErrReciboGobiernoConvocatoriaInvalido         = errors.New("bolsa: recibo de gobierno de convocatoria invalido")
+	ErrSerializacionGobiernoConvocatoriaProhibida = errors.New("bolsa: serializacion de orden de gobierno de convocatoria prohibida")
+)
+var (
+	ErrComprobacionDependenciasConvocatoriaInvalida = errors.New("bolsa: comprobacion de dependencias de convocatoria invalida")
+	ErrAprobacionConvocatoriaInvalida               = errors.New("bolsa: aprobacion de convocatoria invalida")
+	ErrDependenciaConvocatoriaNoDisponible          = errors.New("bolsa: dependencia exacta de convocatoria no disponible")
+	ErrAprobacionConvocatoriaNoDisponible           = errors.New("bolsa: aprobacion de convocatoria no disponible")
+	ErrSerializacionVerificacionConvocatoria        = errors.New("bolsa: serializacion de verificacion de convocatoria prohibida")
 )
 var (
 	ErrConsultaConvocatoriasInvalida  = errors.New("bolsa: consulta publica de convocatorias invalida")
@@ -2673,6 +2980,25 @@ aplicacion fije la composicion, verifique historicamente motivo/material y
 persista de forma atomica.
 
 ```go
+func RecursoAutorizableConsultaVersionConvocatoria(
+	selector SelectorVersionConvocatoriaExacta,
+) (dominiovec.RecursoAutorizable, error)
+```
+
+RecursoAutorizableConsultaVersionConvocatoria construye el mismo recurso
+exacto que debe evaluar el PDP. La consulta no admite ambitos ni atributos
+declarados por el cliente.
+
+```go
+func RecursoAutorizableMutacionConvocatoria(
+	material MaterialIntencionGobiernoConvocatoria,
+) (dominiovec.RecursoAutorizable, error)
+```
+
+RecursoAutorizableMutacionConvocatoria liga la concesion a la preimagen
+semantica completa; una concesion no puede aplicarse a otra mutacion.
+
+```go
 func ReferenciaOpacaLlamamientoValida(valor string) bool
 ```
 
@@ -2775,6 +3101,14 @@ func VisitarSolicitudVerificarHMACMotivoBaremacion(
 ### Tipos
 
 ```go
+type AccionAprobacionConvocatoria string
+
+const (
+	AccionAprobacionPublicarConvocatoria AccionAprobacionConvocatoria = "publicar"
+	AccionAprobacionRetirarConvocatoria  AccionAprobacionConvocatoria = "retirar"
+)
+func (a AccionAprobacionConvocatoria) Valida() bool
+
 type AccionAuditoriaBaremacion string
 
 const (
@@ -2965,6 +3299,187 @@ canonica que incluye la huella y la preimagen exacta del HMAC. De este modo
 PostgreSQL puede cotejar byte a byte su archivo sin poseer claves.
 
 ```go
+type AtestacionAprobacionConvocatoria struct {
+	// Has unexported fields.
+}
+```
+
+AtestacionAprobacionConvocatoria es reconstruible y no autoritativa. El
+repositorio debe verificarla y consumir su token dentro de la transaccion.
+
+```go
+func NuevaAtestacionAprobacionConvocatoria(
+	solicitud SolicitudComprobarAprobacionConvocatoria,
+	datos DatosAtestacionAprobacionConvocatoria,
+) (AtestacionAprobacionConvocatoria, error)
+
+func (c AtestacionAprobacionConvocatoria) DatosParaConsumo() (
+	DatosAtestacionAprobacionConvocatoria,
+	error,
+)
+
+func (c AtestacionAprobacionConvocatoria) Evidencia() (
+	dominiobolsa.EvidenciaAprobacionConvocatoria,
+	error,
+)
+
+func (c AtestacionAprobacionConvocatoria) Format(estado fmt.State, _ rune)
+
+func (c AtestacionAprobacionConvocatoria) GoString() string
+
+func (*AtestacionAprobacionConvocatoria) GobDecode([]byte) error
+
+func (AtestacionAprobacionConvocatoria) GobEncode() ([]byte, error)
+
+func (c AtestacionAprobacionConvocatoria) LogValue() slog.Value
+
+func (AtestacionAprobacionConvocatoria) MarshalBinary() ([]byte, error)
+
+func (AtestacionAprobacionConvocatoria) MarshalJSON() ([]byte, error)
+
+func (AtestacionAprobacionConvocatoria) MarshalText() ([]byte, error)
+
+func (AtestacionAprobacionConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (AtestacionAprobacionConvocatoria) String() string
+
+func (*AtestacionAprobacionConvocatoria) UnmarshalBinary([]byte) error
+
+func (*AtestacionAprobacionConvocatoria) UnmarshalJSON([]byte) error
+
+func (*AtestacionAprobacionConvocatoria) UnmarshalText([]byte) error
+
+func (*AtestacionAprobacionConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (c AtestacionAprobacionConvocatoria) ValidarPara(
+	solicitud SolicitudComprobarAprobacionConvocatoria,
+	instante time.Time,
+) error
+
+type AtestacionDependenciasConvocatoria struct {
+	// Has unexported fields.
+}
+```
+
+AtestacionDependenciasConvocatoria es un testimonio reconstruible para que
+la barrera durable relea y verifique su procedencia. No es una capacidad ni
+concede autoridad por si sola.
+
+```go
+func NuevaAtestacionDependenciasConvocatoria(
+	solicitud SolicitudVerificarDependenciasConvocatoria,
+	datos DatosAtestacionDependenciasConvocatoria,
+) (AtestacionDependenciasConvocatoria, error)
+
+func (c AtestacionDependenciasConvocatoria) DatosParaConsumo() (
+	DatosAtestacionDependenciasConvocatoria,
+	error,
+)
+
+func (c AtestacionDependenciasConvocatoria) Evidencia() (
+	dominiobolsa.EvidenciaDependenciasConvocatoria,
+	error,
+)
+
+func (c AtestacionDependenciasConvocatoria) Format(estado fmt.State, _ rune)
+
+func (c AtestacionDependenciasConvocatoria) GoString() string
+
+func (*AtestacionDependenciasConvocatoria) GobDecode([]byte) error
+
+func (AtestacionDependenciasConvocatoria) GobEncode() ([]byte, error)
+
+func (c AtestacionDependenciasConvocatoria) LogValue() slog.Value
+
+func (AtestacionDependenciasConvocatoria) MarshalBinary() ([]byte, error)
+
+func (AtestacionDependenciasConvocatoria) MarshalJSON() ([]byte, error)
+
+func (AtestacionDependenciasConvocatoria) MarshalText() ([]byte, error)
+
+func (AtestacionDependenciasConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (AtestacionDependenciasConvocatoria) String() string
+
+func (*AtestacionDependenciasConvocatoria) UnmarshalBinary([]byte) error
+
+func (*AtestacionDependenciasConvocatoria) UnmarshalJSON([]byte) error
+
+func (*AtestacionDependenciasConvocatoria) UnmarshalText([]byte) error
+
+func (*AtestacionDependenciasConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (c AtestacionDependenciasConvocatoria) ValidarPara(
+	solicitud SolicitudVerificarDependenciasConvocatoria,
+	instante time.Time,
+) error
+
+type AtestacionSelladoMotivoConvocatoria struct {
+	// Has unexported fields.
+}
+```
+
+AtestacionSelladoMotivoConvocatoria es reconstruible y no concede autoridad.
+La barrera durable debe releerla desde el registro del HSM/KMS, comprobar su
+huella y consumir TokenConsumoRef en la misma transaccion que la mutacion.
+
+```go
+func NuevaAtestacionSelladoMotivoConvocatoria(
+	solicitud SolicitudSellarMotivoGobiernoConvocatoria,
+	datos DatosAtestacionSelladoMotivoConvocatoria,
+) (AtestacionSelladoMotivoConvocatoria, error)
+
+func (a AtestacionSelladoMotivoConvocatoria) DatosParaConsumo() (
+	DatosAtestacionSelladoMotivoConvocatoria,
+	error,
+)
+
+func (a AtestacionSelladoMotivoConvocatoria) Format(estado fmt.State, _ rune)
+
+func (a AtestacionSelladoMotivoConvocatoria) GoString() string
+
+func (*AtestacionSelladoMotivoConvocatoria) GobDecode([]byte) error
+
+func (AtestacionSelladoMotivoConvocatoria) GobEncode() ([]byte, error)
+
+func (a AtestacionSelladoMotivoConvocatoria) LogValue() slog.Value
+
+func (AtestacionSelladoMotivoConvocatoria) MarshalBinary() ([]byte, error)
+
+func (AtestacionSelladoMotivoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (AtestacionSelladoMotivoConvocatoria) MarshalText() ([]byte, error)
+
+func (AtestacionSelladoMotivoConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (AtestacionSelladoMotivoConvocatoria) String() string
+
+func (*AtestacionSelladoMotivoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*AtestacionSelladoMotivoConvocatoria) UnmarshalJSON([]byte) error
+
+func (*AtestacionSelladoMotivoConvocatoria) UnmarshalText([]byte) error
+
+func (*AtestacionSelladoMotivoConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
 type AumentadorFirmaLongeva interface {
 	AumentarFirma(context.Context, SolicitudAumentarFirma) (ResultadoAumentoFirma, error)
 }
@@ -3264,6 +3779,200 @@ type ComprobacionFirma struct {
 
 func (c ComprobacionFirma) Validar() error
 
+type ConfirmacionActualizacionBorradorConvocatoria struct {
+	Version     dominiobolsa.VersionConvocatoriaGobernada
+	Esperada    ReferenciaEstadoVersionConvocatoria
+	Transaccion PreparacionTransaccionGobiernoConvocatoria
+	// Has unexported fields.
+}
+
+func (c ConfirmacionActualizacionBorradorConvocatoria) Format(estado fmt.State, _ rune)
+
+func (c ConfirmacionActualizacionBorradorConvocatoria) GoString() string
+
+func (*ConfirmacionActualizacionBorradorConvocatoria) GobDecode([]byte) error
+
+func (ConfirmacionActualizacionBorradorConvocatoria) GobEncode() ([]byte, error)
+
+func (c ConfirmacionActualizacionBorradorConvocatoria) LogValue() slog.Value
+
+func (ConfirmacionActualizacionBorradorConvocatoria) MarshalBinary() ([]byte, error)
+
+func (ConfirmacionActualizacionBorradorConvocatoria) MarshalJSON() ([]byte, error)
+
+func (ConfirmacionActualizacionBorradorConvocatoria) MarshalText() ([]byte, error)
+
+func (ConfirmacionActualizacionBorradorConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (ConfirmacionActualizacionBorradorConvocatoria) String() string
+
+func (*ConfirmacionActualizacionBorradorConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ConfirmacionActualizacionBorradorConvocatoria) UnmarshalJSON([]byte) error
+
+func (*ConfirmacionActualizacionBorradorConvocatoria) UnmarshalText([]byte) error
+
+func (*ConfirmacionActualizacionBorradorConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (c ConfirmacionActualizacionBorradorConvocatoria) Validar() error
+
+func (c ConfirmacionActualizacionBorradorConvocatoria) ValidarRecibo(
+	recibo ReciboGobiernoConvocatoria,
+) error
+
+type ConfirmacionAltaBorradorConvocatoria struct {
+	Version             dominiobolsa.VersionConvocatoriaGobernada
+	PredecesoraEsperada *ReferenciaEstadoVersionConvocatoria
+	Predecesora         *dominiobolsa.VersionConvocatoriaGobernada
+	Transaccion         PreparacionTransaccionGobiernoConvocatoria
+	// Has unexported fields.
+}
+
+func (c ConfirmacionAltaBorradorConvocatoria) Format(estado fmt.State, _ rune)
+
+func (c ConfirmacionAltaBorradorConvocatoria) GoString() string
+
+func (*ConfirmacionAltaBorradorConvocatoria) GobDecode([]byte) error
+
+func (ConfirmacionAltaBorradorConvocatoria) GobEncode() ([]byte, error)
+
+func (c ConfirmacionAltaBorradorConvocatoria) LogValue() slog.Value
+
+func (ConfirmacionAltaBorradorConvocatoria) MarshalBinary() ([]byte, error)
+
+func (ConfirmacionAltaBorradorConvocatoria) MarshalJSON() ([]byte, error)
+
+func (ConfirmacionAltaBorradorConvocatoria) MarshalText() ([]byte, error)
+
+func (ConfirmacionAltaBorradorConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (ConfirmacionAltaBorradorConvocatoria) String() string
+
+func (*ConfirmacionAltaBorradorConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ConfirmacionAltaBorradorConvocatoria) UnmarshalJSON([]byte) error
+
+func (*ConfirmacionAltaBorradorConvocatoria) UnmarshalText([]byte) error
+
+func (*ConfirmacionAltaBorradorConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (c ConfirmacionAltaBorradorConvocatoria) Validar() error
+
+func (c ConfirmacionAltaBorradorConvocatoria) ValidarRecibo(
+	recibo ReciboGobiernoConvocatoria,
+) error
+
+type ConfirmacionPublicacionConvocatoria struct {
+	VersionPublicada     dominiobolsa.VersionConvocatoriaGobernada
+	PublicadaEsperada    ReferenciaEstadoVersionConvocatoria
+	PredecesoraResultado *dominiobolsa.VersionConvocatoriaGobernada
+	PredecesoraEsperada  *ReferenciaEstadoVersionConvocatoria
+	Dependencias         AtestacionDependenciasConvocatoria
+	Aprobacion           AtestacionAprobacionConvocatoria
+	Transaccion          PreparacionTransaccionGobiernoConvocatoria
+	// Has unexported fields.
+}
+
+func (c ConfirmacionPublicacionConvocatoria) Format(estado fmt.State, _ rune)
+
+func (c ConfirmacionPublicacionConvocatoria) GoString() string
+
+func (*ConfirmacionPublicacionConvocatoria) GobDecode([]byte) error
+
+func (ConfirmacionPublicacionConvocatoria) GobEncode() ([]byte, error)
+
+func (c ConfirmacionPublicacionConvocatoria) LogValue() slog.Value
+
+func (ConfirmacionPublicacionConvocatoria) MarshalBinary() ([]byte, error)
+
+func (ConfirmacionPublicacionConvocatoria) MarshalJSON() ([]byte, error)
+
+func (ConfirmacionPublicacionConvocatoria) MarshalText() ([]byte, error)
+
+func (ConfirmacionPublicacionConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (ConfirmacionPublicacionConvocatoria) String() string
+
+func (*ConfirmacionPublicacionConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ConfirmacionPublicacionConvocatoria) UnmarshalJSON([]byte) error
+
+func (*ConfirmacionPublicacionConvocatoria) UnmarshalText([]byte) error
+
+func (*ConfirmacionPublicacionConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (c ConfirmacionPublicacionConvocatoria) Validar() error
+
+func (c ConfirmacionPublicacionConvocatoria) ValidarRecibo(
+	recibo ReciboGobiernoConvocatoria,
+) error
+
+type ConfirmacionRetiradaConvocatoria struct {
+	Version     dominiobolsa.VersionConvocatoriaGobernada
+	Esperada    ReferenciaEstadoVersionConvocatoria
+	Aprobacion  AtestacionAprobacionConvocatoria
+	Transaccion PreparacionTransaccionGobiernoConvocatoria
+	// Has unexported fields.
+}
+
+func (c ConfirmacionRetiradaConvocatoria) Format(estado fmt.State, _ rune)
+
+func (c ConfirmacionRetiradaConvocatoria) GoString() string
+
+func (*ConfirmacionRetiradaConvocatoria) GobDecode([]byte) error
+
+func (ConfirmacionRetiradaConvocatoria) GobEncode() ([]byte, error)
+
+func (c ConfirmacionRetiradaConvocatoria) LogValue() slog.Value
+
+func (ConfirmacionRetiradaConvocatoria) MarshalBinary() ([]byte, error)
+
+func (ConfirmacionRetiradaConvocatoria) MarshalJSON() ([]byte, error)
+
+func (ConfirmacionRetiradaConvocatoria) MarshalText() ([]byte, error)
+
+func (ConfirmacionRetiradaConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (ConfirmacionRetiradaConvocatoria) String() string
+
+func (*ConfirmacionRetiradaConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ConfirmacionRetiradaConvocatoria) UnmarshalJSON([]byte) error
+
+func (*ConfirmacionRetiradaConvocatoria) UnmarshalText([]byte) error
+
+func (*ConfirmacionRetiradaConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (c ConfirmacionRetiradaConvocatoria) Validar() error
+
+func (c ConfirmacionRetiradaConvocatoria) ValidarRecibo(
+	recibo ReciboGobiernoConvocatoria,
+) error
+
 type ConsultaCategoriasPublicas interface {
 	ObtenerPublicadas(context.Context, time.Time) (CatalogoCategoriasPublicas, error)
 }
@@ -3302,6 +4011,20 @@ func (c ConsultaFirmaInteractiva) Validar() error
 
 func (c ConsultaFirmaInteractiva) ValidarPara(s SolicitudConsultarFirmaInteractiva) error
 
+type ConsultaGobiernoConvocatorias interface {
+	ObtenerVersionExacta(
+		context.Context,
+		SolicitudConsultaVersionConvocatoriaAutorizada,
+	) (ResultadoConsultaVersionConvocatoria, error)
+}
+```
+
+ConsultaGobiernoConvocatorias debe leer exactamente una version y registrar
+la lectura junto con el uso de autorizacion en la misma transaccion.
+La preimagen auditada incluye HuellaVersionSHA256 y, cuando exista,
+HuellaInstanciaFlujoSHA256; la huella del registro no es decorativa.
+
+```go
 type ConsumidorClaveClienteLoteIdempotenciaBaremacion interface {
 	ConsumirClaveClienteLoteIdempotenciaBaremacion(context.Context, []byte) error
 }
@@ -3536,6 +4259,150 @@ func (c CriterioBaremacionConfiable) Validar() error
 
 func (c CriterioBaremacionConfiable) ValidarPara(s SolicitudObtenerCriterioBaremacion) error
 
+type DatosAtestacionAprobacionConvocatoria struct {
+	Evidencia                 dominiobolsa.EvidenciaAprobacionConvocatoria
+	RevisionVersion           int
+	HuellaEstadoVersionSHA256 string
+	VerificadorRef            string
+	AtestacionRef             string
+	HuellaAtestacionSHA256    string
+	TokenConsumoRef           string
+	AtestacionEmitidaEn       time.Time
+	AtestacionValidaHasta     time.Time
+	// Has unexported fields.
+}
+
+func (d DatosAtestacionAprobacionConvocatoria) Format(estado fmt.State, _ rune)
+
+func (d DatosAtestacionAprobacionConvocatoria) GoString() string
+
+func (*DatosAtestacionAprobacionConvocatoria) GobDecode([]byte) error
+
+func (DatosAtestacionAprobacionConvocatoria) GobEncode() ([]byte, error)
+
+func (d DatosAtestacionAprobacionConvocatoria) LogValue() slog.Value
+
+func (DatosAtestacionAprobacionConvocatoria) MarshalBinary() ([]byte, error)
+
+func (DatosAtestacionAprobacionConvocatoria) MarshalJSON() ([]byte, error)
+
+func (DatosAtestacionAprobacionConvocatoria) MarshalText() ([]byte, error)
+
+func (DatosAtestacionAprobacionConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (DatosAtestacionAprobacionConvocatoria) String() string
+
+func (*DatosAtestacionAprobacionConvocatoria) UnmarshalBinary([]byte) error
+
+func (*DatosAtestacionAprobacionConvocatoria) UnmarshalJSON([]byte) error
+
+func (*DatosAtestacionAprobacionConvocatoria) UnmarshalText([]byte) error
+
+func (*DatosAtestacionAprobacionConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+type DatosAtestacionDependenciasConvocatoria struct {
+	Evidencia                 dominiobolsa.EvidenciaDependenciasConvocatoria
+	RevisionVersion           int
+	HuellaEstadoVersionSHA256 string
+	VerificadorRef            string
+	AtestacionRef             string
+	HuellaAtestacionSHA256    string
+	TokenConsumoRef           string
+	AtestacionEmitidaEn       time.Time
+	AtestacionValidaHasta     time.Time
+	// Has unexported fields.
+}
+
+func (d DatosAtestacionDependenciasConvocatoria) Format(estado fmt.State, _ rune)
+
+func (d DatosAtestacionDependenciasConvocatoria) GoString() string
+
+func (*DatosAtestacionDependenciasConvocatoria) GobDecode([]byte) error
+
+func (DatosAtestacionDependenciasConvocatoria) GobEncode() ([]byte, error)
+
+func (d DatosAtestacionDependenciasConvocatoria) LogValue() slog.Value
+
+func (DatosAtestacionDependenciasConvocatoria) MarshalBinary() ([]byte, error)
+
+func (DatosAtestacionDependenciasConvocatoria) MarshalJSON() ([]byte, error)
+
+func (DatosAtestacionDependenciasConvocatoria) MarshalText() ([]byte, error)
+
+func (DatosAtestacionDependenciasConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (DatosAtestacionDependenciasConvocatoria) String() string
+
+func (*DatosAtestacionDependenciasConvocatoria) UnmarshalBinary([]byte) error
+
+func (*DatosAtestacionDependenciasConvocatoria) UnmarshalJSON([]byte) error
+
+func (*DatosAtestacionDependenciasConvocatoria) UnmarshalText([]byte) error
+
+func (*DatosAtestacionDependenciasConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+type DatosAtestacionSelladoMotivoConvocatoria struct {
+	HMAC                   HMACMotivoGobiernoConvocatoria
+	Accion                 string
+	ConvocatoriaRef        string
+	PrincipalRef           string
+	CorrelacionRef         string
+	HuellaSolicitudSHA256  string
+	SelladorRef            string
+	AtestacionRef          string
+	HuellaAtestacionSHA256 string
+	TokenConsumoRef        string
+	AtestacionEmitidaEn    time.Time
+	AtestacionValidaHasta  time.Time
+	// Has unexported fields.
+}
+
+func (b DatosAtestacionSelladoMotivoConvocatoria) Format(estado fmt.State, _ rune)
+
+func (b DatosAtestacionSelladoMotivoConvocatoria) GoString() string
+
+func (*DatosAtestacionSelladoMotivoConvocatoria) GobDecode([]byte) error
+
+func (DatosAtestacionSelladoMotivoConvocatoria) GobEncode() ([]byte, error)
+
+func (b DatosAtestacionSelladoMotivoConvocatoria) LogValue() slog.Value
+
+func (DatosAtestacionSelladoMotivoConvocatoria) MarshalBinary() ([]byte, error)
+
+func (DatosAtestacionSelladoMotivoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (DatosAtestacionSelladoMotivoConvocatoria) MarshalText() ([]byte, error)
+
+func (DatosAtestacionSelladoMotivoConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (DatosAtestacionSelladoMotivoConvocatoria) String() string
+
+func (*DatosAtestacionSelladoMotivoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*DatosAtestacionSelladoMotivoConvocatoria) UnmarshalJSON([]byte) error
+
+func (*DatosAtestacionSelladoMotivoConvocatoria) UnmarshalText([]byte) error
+
+func (*DatosAtestacionSelladoMotivoConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
 type DatosAutoritativosLlamamiento struct {
 	Bolsa     dominiobolsa.BolsaConstituida
 	Necesidad dominiobolsa.NecesidadCobertura
@@ -3561,6 +4428,55 @@ type DatosPersistenciaEstadoProtegidoFlujoFirmaBaremacion struct {
 	Cifrado      []byte
 	HuellaSHA256 string
 }
+
+type DatosTestimonioIdempotenciaConvocatoria struct {
+	Version                   uint16
+	GeneracionClave           uint32
+	ClaveHMACRef              string
+	ProtectorRef              string
+	AtestacionRef             string
+	HuellaAtestacionSHA256    string
+	IndiceOperacionHMACSHA256 string
+	PrincipalRef              string
+	HuellaIntencionSHA256     string
+	EmitidoEn                 time.Time
+	ValidoHasta               time.Time
+	// Has unexported fields.
+}
+
+func (b DatosTestimonioIdempotenciaConvocatoria) Format(estado fmt.State, _ rune)
+
+func (b DatosTestimonioIdempotenciaConvocatoria) GoString() string
+
+func (*DatosTestimonioIdempotenciaConvocatoria) GobDecode([]byte) error
+
+func (DatosTestimonioIdempotenciaConvocatoria) GobEncode() ([]byte, error)
+
+func (b DatosTestimonioIdempotenciaConvocatoria) LogValue() slog.Value
+
+func (DatosTestimonioIdempotenciaConvocatoria) MarshalBinary() ([]byte, error)
+
+func (DatosTestimonioIdempotenciaConvocatoria) MarshalJSON() ([]byte, error)
+
+func (DatosTestimonioIdempotenciaConvocatoria) MarshalText() ([]byte, error)
+
+func (DatosTestimonioIdempotenciaConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (DatosTestimonioIdempotenciaConvocatoria) String() string
+
+func (*DatosTestimonioIdempotenciaConvocatoria) UnmarshalBinary([]byte) error
+
+func (*DatosTestimonioIdempotenciaConvocatoria) UnmarshalJSON([]byte) error
+
+func (*DatosTestimonioIdempotenciaConvocatoria) UnmarshalText([]byte) error
+
+func (*DatosTestimonioIdempotenciaConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
 
 type DetalleConvocatoria struct {
 	Convocatoria dominiobolsa.Convocatoria
@@ -4318,6 +5234,55 @@ func (HMACMotivoBaremacion) String() string
 
 func (h HMACMotivoBaremacion) Validar() error
 
+type HMACMotivoGobiernoConvocatoria struct {
+	DominioCriptografico string
+	GeneracionClave      uint32
+	ClaveHMACRef         string
+	ValorHMACSHA256      string
+	// Has unexported fields.
+}
+```
+
+HMACMotivoGobiernoConvocatoria identifica dominio y generacion de clave.
+No contiene la clave ni permite calcular otro HMAC.
+
+```go
+func (h HMACMotivoGobiernoConvocatoria) Format(estado fmt.State, _ rune)
+
+func (h HMACMotivoGobiernoConvocatoria) GoString() string
+
+func (*HMACMotivoGobiernoConvocatoria) GobDecode([]byte) error
+
+func (HMACMotivoGobiernoConvocatoria) GobEncode() ([]byte, error)
+
+func (h HMACMotivoGobiernoConvocatoria) LogValue() slog.Value
+
+func (HMACMotivoGobiernoConvocatoria) MarshalBinary() ([]byte, error)
+
+func (HMACMotivoGobiernoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (HMACMotivoGobiernoConvocatoria) MarshalText() ([]byte, error)
+
+func (HMACMotivoGobiernoConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (HMACMotivoGobiernoConvocatoria) String() string
+
+func (*HMACMotivoGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*HMACMotivoGobiernoConvocatoria) UnmarshalJSON([]byte) error
+
+func (*HMACMotivoGobiernoConvocatoria) UnmarshalText([]byte) error
+
+func (*HMACMotivoGobiernoConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (h HMACMotivoGobiernoConvocatoria) Validar() error
+
 type IdentificadorOperacionTransaccionalBaremacion struct {
 	// Has unexported fields.
 }
@@ -4731,6 +5696,61 @@ func (m MaterialCanonicoEfimeroBaremacion) VisitarBytes(
 	visita func([]byte) error,
 ) (errRetorno error)
 
+type MaterialIntencionGobiernoConvocatoria struct {
+	Esquema                     string                               `json:"esquema"`
+	Accion                      string                               `json:"accion"`
+	EstadoPrincipalEsperado     *ReferenciaEstadoVersionConvocatoria `json:"estado_principal_esperado,omitempty"`
+	EstadoPrincipalNuevo        ReferenciaEstadoVersionConvocatoria  `json:"estado_principal_nuevo"`
+	EstadoRelacionadoEsperado   *ReferenciaEstadoVersionConvocatoria `json:"estado_relacionado_esperado,omitempty"`
+	EstadoRelacionadoNuevo      *ReferenciaEstadoVersionConvocatoria `json:"estado_relacionado_nuevo,omitempty"`
+	DominioCriptograficoMotivo  string                               `json:"dominio_criptografico_motivo"`
+	GeneracionClaveMotivo       uint32                               `json:"generacion_clave_motivo"`
+	HuellaSolicitudMotivoSHA256 string                               `json:"huella_solicitud_motivo_sha256"`
+	HuellaMotivoHMACSHA256      string                               `json:"huella_motivo_hmac_sha256"`
+}
+```
+
+MaterialIntencionGobiernoConvocatoria es la preimagen semantica estable de
+una mutacion. Solo contiene referencias y huellas; nunca motivos en claro.
+
+```go
+func MaterialActualizacionBorradorConvocatoria(
+	esperada ReferenciaEstadoVersionConvocatoria,
+	version dominiobolsa.VersionConvocatoriaGobernada,
+	motivo AtestacionSelladoMotivoConvocatoria,
+) (MaterialIntencionGobiernoConvocatoria, error)
+
+func MaterialAltaBorradorConvocatoria(
+	version dominiobolsa.VersionConvocatoriaGobernada,
+	predecesora *ReferenciaEstadoVersionConvocatoria,
+	versionPredecesora *dominiobolsa.VersionConvocatoriaGobernada,
+	motivo AtestacionSelladoMotivoConvocatoria,
+) (MaterialIntencionGobiernoConvocatoria, error)
+
+func MaterialPublicacionConvocatoria(
+	esperada ReferenciaEstadoVersionConvocatoria,
+	version dominiobolsa.VersionConvocatoriaGobernada,
+	predecesoraEsperada *ReferenciaEstadoVersionConvocatoria,
+	predecesoraResultado *dominiobolsa.VersionConvocatoriaGobernada,
+	motivo AtestacionSelladoMotivoConvocatoria,
+) (MaterialIntencionGobiernoConvocatoria, error)
+```
+
+MaterialPublicacionConvocatoria exige la predecesora para toda secuencia
+posterior a la primera. Publicada pasa a sustituida; retirada se relee y se
+devuelve sin alteracion. En ambos casos el repositorio bloquea ambas filas.
+
+```go
+func MaterialRetiradaConvocatoria(
+	esperada ReferenciaEstadoVersionConvocatoria,
+	version dominiobolsa.VersionConvocatoriaGobernada,
+	motivo AtestacionSelladoMotivoConvocatoria,
+) (MaterialIntencionGobiernoConvocatoria, error)
+
+func (m MaterialIntencionGobiernoConvocatoria) HuellaSHA256() (string, error)
+
+func (m MaterialIntencionGobiernoConvocatoria) Validar() error
+
 type MetadatosFuenteCategorias struct {
 	Revision      string
 	ActualizadaEn time.Time
@@ -4810,6 +5830,51 @@ func (p PoliticaFirmaBaremacion) ValidarPara(s SolicitudObtenerPoliticaFirma) er
 
 func (p PoliticaFirmaBaremacion) VigenteEn(instante time.Time) bool
 
+type PreparacionTransaccionGobiernoConvocatoria struct {
+	Material      MaterialIntencionGobiernoConvocatoria
+	Idempotencia  TestimonioIdempotenciaConvocatoria
+	Autorizacion  puertosvec.EvidenciaUsoDecisionAutorizacion
+	SelladoMotivo AtestacionSelladoMotivoConvocatoria
+	SolicitadaEn  time.Time
+	// Has unexported fields.
+}
+
+func (b PreparacionTransaccionGobiernoConvocatoria) Format(estado fmt.State, _ rune)
+
+func (b PreparacionTransaccionGobiernoConvocatoria) GoString() string
+
+func (*PreparacionTransaccionGobiernoConvocatoria) GobDecode([]byte) error
+
+func (PreparacionTransaccionGobiernoConvocatoria) GobEncode() ([]byte, error)
+
+func (b PreparacionTransaccionGobiernoConvocatoria) LogValue() slog.Value
+
+func (PreparacionTransaccionGobiernoConvocatoria) MarshalBinary() ([]byte, error)
+
+func (PreparacionTransaccionGobiernoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (PreparacionTransaccionGobiernoConvocatoria) MarshalText() ([]byte, error)
+
+func (PreparacionTransaccionGobiernoConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (PreparacionTransaccionGobiernoConvocatoria) String() string
+
+func (*PreparacionTransaccionGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*PreparacionTransaccionGobiernoConvocatoria) UnmarshalJSON([]byte) error
+
+func (*PreparacionTransaccionGobiernoConvocatoria) UnmarshalText([]byte) error
+
+func (*PreparacionTransaccionGobiernoConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (p PreparacionTransaccionGobiernoConvocatoria) Validar() error
+
 type ProductorTestimonioAtomicoIdempotenciaBaremacion interface {
 	ProducirTestimonioAtomicoIdempotenciaBaremacion(
 		context.Context,
@@ -4831,6 +5896,20 @@ type ProtectorEstadoFlujoFirmaBaremacion interface {
 	DesprotegerEstadoFlujoFirmaBaremacion(context.Context, EstadoProtegidoFlujoFirmaBaremacion) (CargaProtegida, error)
 }
 
+type ProtectorIdempotenciaConvocatorias interface {
+	Proteger(
+		context.Context,
+		SolicitudProtegerIdempotenciaConvocatoria,
+	) (TestimonioIdempotenciaConvocatoria, error)
+}
+```
+
+ProtectorIdempotenciaConvocatorias registra antes de devolver el testimonio
+la atestacion exacta, su generacion de clave y el indice HMAC. El
+repositorio de gobierno no confia en la copia recibida: relee ese registro
+durable.
+
+```go
 type ProyeccionAutorizacionBaremacion struct {
 	PrincipalRef        string
 	SujetoRef           string
@@ -4971,6 +6050,118 @@ construccion para un adaptador externo. El receptor lo crea la fabrica, se
 cierra tras una sola llamada al productor y no devuelve tipos individuales.
 
 ```go
+type ReciboConsumoVerificacionConvocatoria struct {
+	TokenConsumoRef        string
+	AtestacionRef          string
+	HuellaAtestacionSHA256 string
+	// Has unexported fields.
+}
+
+func (b ReciboConsumoVerificacionConvocatoria) Format(estado fmt.State, _ rune)
+
+func (b ReciboConsumoVerificacionConvocatoria) GoString() string
+
+func (*ReciboConsumoVerificacionConvocatoria) GobDecode([]byte) error
+
+func (ReciboConsumoVerificacionConvocatoria) GobEncode() ([]byte, error)
+
+func (b ReciboConsumoVerificacionConvocatoria) LogValue() slog.Value
+
+func (ReciboConsumoVerificacionConvocatoria) MarshalBinary() ([]byte, error)
+
+func (ReciboConsumoVerificacionConvocatoria) MarshalJSON() ([]byte, error)
+
+func (ReciboConsumoVerificacionConvocatoria) MarshalText() ([]byte, error)
+
+func (ReciboConsumoVerificacionConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (ReciboConsumoVerificacionConvocatoria) String() string
+
+func (*ReciboConsumoVerificacionConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ReciboConsumoVerificacionConvocatoria) UnmarshalJSON([]byte) error
+
+func (*ReciboConsumoVerificacionConvocatoria) UnmarshalText([]byte) error
+
+func (*ReciboConsumoVerificacionConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+type ReciboGobiernoConvocatoria struct {
+	TransaccionRef                     string
+	Accion                             string
+	EstadoPrincipal                    ReferenciaEstadoVersionConvocatoria
+	EstadoRelacionado                  *ReferenciaEstadoVersionConvocatoria
+	PrincipalRef                       string
+	AutorizacionRef                    string
+	HuellaAutorizacionSHA256           string
+	AtestacionAutorizacionRef          string
+	HuellaAtestacionAutorizacionSHA256 string
+	ConsumoAutorizacionRef             string
+	IndiceIdempotenciaHMACSHA256       string
+	AtestacionIdempotenciaRef          string
+	HuellaAtestacionIdempotenciaSHA256 string
+	HuellaIntencionSHA256              string
+	AuditoriaRef                       string
+	HuellaAuditoriaSHA256              string
+	EventoOutboxRef                    string
+	HuellaEventoOutboxSHA256           string
+	ConsumoMotivo                      *ReciboConsumoVerificacionConvocatoria
+	ConsumoDependencias                *ReciboConsumoVerificacionConvocatoria
+	ConsumoAprobacion                  *ReciboConsumoVerificacionConvocatoria
+	ConfirmadaEn                       time.Time
+	// Has unexported fields.
+}
+```
+
+ReciboGobiernoConvocatoria es la prueba minima devuelta tras COMMIT. Liga
+el estado confirmado con la decision consumida, la intencion idempotente, el
+registro de auditoria y el evento outbox. No contiene atributos personales
+directos; es interno y PrincipalRef sigue siendo una referencia seudonima.
+
+```go
+func (r ReciboGobiernoConvocatoria) Format(estado fmt.State, _ rune)
+
+func (r ReciboGobiernoConvocatoria) GoString() string
+
+func (*ReciboGobiernoConvocatoria) GobDecode([]byte) error
+
+func (ReciboGobiernoConvocatoria) GobEncode() ([]byte, error)
+
+func (r ReciboGobiernoConvocatoria) LogValue() slog.Value
+
+func (ReciboGobiernoConvocatoria) MarshalBinary() ([]byte, error)
+
+func (ReciboGobiernoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (ReciboGobiernoConvocatoria) MarshalText() ([]byte, error)
+
+func (ReciboGobiernoConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (ReciboGobiernoConvocatoria) String() string
+
+func (*ReciboGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ReciboGobiernoConvocatoria) UnmarshalJSON([]byte) error
+
+func (*ReciboGobiernoConvocatoria) UnmarshalText([]byte) error
+
+func (*ReciboGobiernoConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (r ReciboGobiernoConvocatoria) ValidarPara(
+	preparacion PreparacionTransaccionGobiernoConvocatoria,
+) error
+
 type RecuperadorBinarioFirmado interface {
 	RecuperarBinarioFirmado(context.Context, SolicitudRecuperarBinarioFirmado) (BinarioFirmadoRecuperado, error)
 }
@@ -4978,6 +6169,23 @@ type RecuperadorBinarioFirmado interface {
 type ReferenciaDespliegueIdempotenciaBaremacion string
 
 func (r ReferenciaDespliegueIdempotenciaBaremacion) Valida() bool
+
+type ReferenciaEstadoVersionConvocatoria struct {
+	Referencia         string `json:"referencia"`
+	Revision           int    `json:"revision"`
+	HuellaEstadoSHA256 string `json:"huella_estado_sha256"`
+}
+```
+
+ReferenciaEstadoVersionConvocatoria fija referencia, revision y huella del
+agregado completo. No es una referencia a contenido ni a «la ultima» fila.
+
+```go
+func EstadoVersionConvocatoria(
+	version dominiobolsa.VersionConvocatoriaGobernada,
+) (ReferenciaEstadoVersionConvocatoria, error)
+
+func (r ReferenciaEstadoVersionConvocatoria) Validar() error
 
 type ReferenciaGeneracionClaveHMACNominalBaremacion struct {
 	// Has unexported fields.
@@ -5111,6 +6319,32 @@ type RepositorioFlujosFirmaBaremacion interface {
 	LiberarArrendamientoFlujoFirmaBaremacion(context.Context, SolicitudLiberarArrendamientoFlujoFirmaBaremacion) error
 }
 
+type RepositorioGobiernoConvocatorias interface {
+	ConfirmarAltaBorrador(context.Context, ConfirmacionAltaBorradorConvocatoria) (ReciboGobiernoConvocatoria, error)
+	ConfirmarActualizacionBorrador(context.Context, ConfirmacionActualizacionBorradorConvocatoria) (ReciboGobiernoConvocatoria, error)
+	ConfirmarPublicacion(context.Context, ConfirmacionPublicacionConvocatoria) (ReciboGobiernoConvocatoria, error)
+	ConfirmarRetirada(context.Context, ConfirmacionRetiradaConvocatoria) (ReciboGobiernoConvocatoria, error)
+}
+```
+
+RepositorioGobiernoConvocatorias es la barrera durable, no un simple DAO.
+Dentro de la MISMA transaccion debe bloquear y releer las filas afectadas,
+comparar revision+huella, revalidar la decision registrada y su instantanea
+de politicas y una atestacion PDP registrada/COSE cuya procedencia ya haya
+sido verificada, releer el testimonio registrado del protector idempotente,
+y verificar las atestaciones de sellado HSM/KMS, aprobacion y dependencias.
+El indice (principal, HMAC idempotente) devuelve el recibo previo
+si coincide la intencion y rechaza su reutilizacion si difiere.
+Decision y tokens de sellado/verificacion se consumen una sola vez. Solo
+despues confirma agregado(s), auditoria encadenada y outbox en un COMMIT
+indivisible. Una validacion previa de la aplicacion nunca sustituye estas
+comprobaciones. ConfirmarAlta bloquea y relee la predecesora de secuencia
+>1; publicacion vuelve a bloquear ambas versiones y evita que dos ramas la
+reclamen. La composicion productiva permanece NO-GO hasta disponer de ese
+adaptador durable en el mismo TCB/BD; EvidenciaUsoDecisionAutorizacion por
+si sola no acredita la procedencia del PDP.
+
+```go
 type RepresentacionBaremacionConfiable struct {
 	Representacion        dominiovec.RepresentacionDocumento
 	EvidenciaConsultaRef  string
@@ -5205,6 +6439,65 @@ ValidarPara liga el resultado a la mutacion exacta solicitada. Una respuesta
 valida de otra baremacion, version o agregado nunca se acepta por semejanza.
 
 ```go
+type ResultadoConsultaVersionConvocatoria struct {
+	Version                            dominiobolsa.VersionConvocatoriaGobernada
+	InstanciaFlujo                     *dominiovec.InstanciaFlujo
+	HuellaVersionSHA256                string
+	HuellaInstanciaFlujoSHA256         string
+	AutorizacionRef                    string
+	HuellaAutorizacionSHA256           string
+	AtestacionAutorizacionRef          string
+	HuellaAtestacionAutorizacionSHA256 string
+	ConsumoAutorizacionRef             string
+	AuditoriaRef                       string
+	HuellaAuditoriaSHA256              string
+	ConsultadaEn                       time.Time
+	// Has unexported fields.
+}
+
+func (r ResultadoConsultaVersionConvocatoria) Clonar() (
+	ResultadoConsultaVersionConvocatoria,
+	error,
+)
+
+func (b ResultadoConsultaVersionConvocatoria) Format(estado fmt.State, _ rune)
+
+func (b ResultadoConsultaVersionConvocatoria) GoString() string
+
+func (*ResultadoConsultaVersionConvocatoria) GobDecode([]byte) error
+
+func (ResultadoConsultaVersionConvocatoria) GobEncode() ([]byte, error)
+
+func (b ResultadoConsultaVersionConvocatoria) LogValue() slog.Value
+
+func (ResultadoConsultaVersionConvocatoria) MarshalBinary() ([]byte, error)
+
+func (ResultadoConsultaVersionConvocatoria) MarshalJSON() ([]byte, error)
+
+func (ResultadoConsultaVersionConvocatoria) MarshalText() ([]byte, error)
+
+func (ResultadoConsultaVersionConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (ResultadoConsultaVersionConvocatoria) String() string
+
+func (*ResultadoConsultaVersionConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ResultadoConsultaVersionConvocatoria) UnmarshalJSON([]byte) error
+
+func (*ResultadoConsultaVersionConvocatoria) UnmarshalText([]byte) error
+
+func (*ResultadoConsultaVersionConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (r ResultadoConsultaVersionConvocatoria) ValidarPara(
+	s SolicitudConsultaVersionConvocatoriaAutorizada,
+) error
+
 type ResultadoCrearORecuperarFlujoFirmaBaremacion struct {
 	Expediente ExpedienteFlujoFirmaBaremacion
 	Creado     bool
@@ -5314,6 +6607,31 @@ func (r ResultadoNominalConfirmacionBaremacionV3) ValidarFormaPara(
 	s IntentoNominalConfirmacionBaremacionV3,
 ) error
 
+type SelectorVersionConvocatoriaExacta struct {
+	ID        string
+	Secuencia int
+}
+```
+
+SelectorVersionConvocatoriaExacta impide consultas ambiguas o a «la ultima».
+
+```go
+func (s SelectorVersionConvocatoriaExacta) Referencia() string
+
+func (s SelectorVersionConvocatoriaExacta) Validar() error
+
+type SelladorMotivoGobiernoConvocatoria interface {
+	SellarMotivo(
+		context.Context,
+		SolicitudSellarMotivoGobiernoConvocatoria,
+	) (AtestacionSelladoMotivoConvocatoria, error)
+}
+```
+
+SelladorMotivoGobiernoConvocatoria debe usar un HSM/KMS o servicio de claves
+versionadas. El contrato no admite una clave recibida por parametro.
+
+```go
 type SelladorSellosBaremacion interface {
 	SellarSelloBaremacion(context.Context, SolicitudSellarSelloBaremacion) (string, error)
 }
@@ -5478,6 +6796,50 @@ func (s SolicitudCodificarDecisionCanonica) Clonar() (SolicitudCodificarDecision
 
 func (s SolicitudCodificarDecisionCanonica) Validar() error
 
+type SolicitudComprobarAprobacionConvocatoria struct {
+	Version       dominiobolsa.VersionConvocatoriaGobernada
+	Accion        AccionAprobacionConvocatoria
+	AprobacionRef string
+	ComprobarEn   time.Time
+	// Has unexported fields.
+}
+
+func (b SolicitudComprobarAprobacionConvocatoria) Format(estado fmt.State, _ rune)
+
+func (b SolicitudComprobarAprobacionConvocatoria) GoString() string
+
+func (*SolicitudComprobarAprobacionConvocatoria) GobDecode([]byte) error
+
+func (SolicitudComprobarAprobacionConvocatoria) GobEncode() ([]byte, error)
+
+func (b SolicitudComprobarAprobacionConvocatoria) LogValue() slog.Value
+
+func (SolicitudComprobarAprobacionConvocatoria) MarshalBinary() ([]byte, error)
+
+func (SolicitudComprobarAprobacionConvocatoria) MarshalJSON() ([]byte, error)
+
+func (SolicitudComprobarAprobacionConvocatoria) MarshalText() ([]byte, error)
+
+func (SolicitudComprobarAprobacionConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (SolicitudComprobarAprobacionConvocatoria) String() string
+
+func (*SolicitudComprobarAprobacionConvocatoria) UnmarshalBinary([]byte) error
+
+func (*SolicitudComprobarAprobacionConvocatoria) UnmarshalJSON([]byte) error
+
+func (*SolicitudComprobarAprobacionConvocatoria) UnmarshalText([]byte) error
+
+func (*SolicitudComprobarAprobacionConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (s SolicitudComprobarAprobacionConvocatoria) Validar() error
+
 type SolicitudConfirmarCambioBaremacion struct {
 	Contexto                     ContextoOperacionBaremacion
 	ContextoPrevalidacionArchivo ContextoOperacionBaremacion
@@ -5494,6 +6856,50 @@ type SolicitudConfirmarCambioBaremacion struct {
 func (s SolicitudConfirmarCambioBaremacion) Clonar() (SolicitudConfirmarCambioBaremacion, error)
 
 func (s SolicitudConfirmarCambioBaremacion) Validar() error
+
+type SolicitudConsultaVersionConvocatoriaAutorizada struct {
+	Selector              SelectorVersionConvocatoriaExacta
+	IncluirInstanciaFlujo bool
+	Autorizacion          puertosvec.EvidenciaUsoDecisionAutorizacion
+	ConsultadaEn          time.Time
+	// Has unexported fields.
+}
+
+func (b SolicitudConsultaVersionConvocatoriaAutorizada) Format(estado fmt.State, _ rune)
+
+func (b SolicitudConsultaVersionConvocatoriaAutorizada) GoString() string
+
+func (*SolicitudConsultaVersionConvocatoriaAutorizada) GobDecode([]byte) error
+
+func (SolicitudConsultaVersionConvocatoriaAutorizada) GobEncode() ([]byte, error)
+
+func (b SolicitudConsultaVersionConvocatoriaAutorizada) LogValue() slog.Value
+
+func (SolicitudConsultaVersionConvocatoriaAutorizada) MarshalBinary() ([]byte, error)
+
+func (SolicitudConsultaVersionConvocatoriaAutorizada) MarshalJSON() ([]byte, error)
+
+func (SolicitudConsultaVersionConvocatoriaAutorizada) MarshalText() ([]byte, error)
+
+func (SolicitudConsultaVersionConvocatoriaAutorizada) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (SolicitudConsultaVersionConvocatoriaAutorizada) String() string
+
+func (*SolicitudConsultaVersionConvocatoriaAutorizada) UnmarshalBinary([]byte) error
+
+func (*SolicitudConsultaVersionConvocatoriaAutorizada) UnmarshalJSON([]byte) error
+
+func (*SolicitudConsultaVersionConvocatoriaAutorizada) UnmarshalText([]byte) error
+
+func (*SolicitudConsultaVersionConvocatoriaAutorizada) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (s SolicitudConsultaVersionConvocatoriaAutorizada) Validar() error
 
 type SolicitudConsultarFirmaInteractiva struct {
 	Contexto              ContextoOperacionFirma
@@ -5777,6 +7183,56 @@ func (*SolicitudProponerLlamamiento) UnmarshalJSON([]byte) error
 
 func (s SolicitudProponerLlamamiento) Validar() error
 
+type SolicitudProtegerIdempotenciaConvocatoria struct {
+	ClaveIdempotencia string
+	PrincipalRef      string
+	Material          MaterialIntencionGobiernoConvocatoria
+	SolicitadaEn      time.Time
+	// Has unexported fields.
+}
+```
+
+SolicitudProtegerIdempotenciaConvocatoria no es un DTO HTTP. La clave se
+recibe de una frontera limitada y se convierte en indice HMAC antes de
+llegar al repositorio de gobierno.
+
+```go
+func (s SolicitudProtegerIdempotenciaConvocatoria) Format(estado fmt.State, _ rune)
+
+func (s SolicitudProtegerIdempotenciaConvocatoria) GoString() string
+
+func (*SolicitudProtegerIdempotenciaConvocatoria) GobDecode([]byte) error
+
+func (SolicitudProtegerIdempotenciaConvocatoria) GobEncode() ([]byte, error)
+
+func (s SolicitudProtegerIdempotenciaConvocatoria) LogValue() slog.Value
+
+func (SolicitudProtegerIdempotenciaConvocatoria) MarshalBinary() ([]byte, error)
+
+func (SolicitudProtegerIdempotenciaConvocatoria) MarshalJSON() ([]byte, error)
+
+func (SolicitudProtegerIdempotenciaConvocatoria) MarshalText() ([]byte, error)
+
+func (SolicitudProtegerIdempotenciaConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (SolicitudProtegerIdempotenciaConvocatoria) String() string
+
+func (*SolicitudProtegerIdempotenciaConvocatoria) UnmarshalBinary([]byte) error
+
+func (*SolicitudProtegerIdempotenciaConvocatoria) UnmarshalJSON([]byte) error
+
+func (*SolicitudProtegerIdempotenciaConvocatoria) UnmarshalText([]byte) error
+
+func (*SolicitudProtegerIdempotenciaConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (s SolicitudProtegerIdempotenciaConvocatoria) Validar() error
+
 type SolicitudRecuperarArtefactoFirma struct {
 	Contexto              ContextoOperacionFirma
 	FirmaRef              string
@@ -5880,6 +7336,67 @@ VisitarReferencias entrega las referencias opacas solo durante la llamada al
 adaptador de identidad; evita getters y colecciones reutilizables.
 
 ```go
+type SolicitudSellarMotivoGobiernoConvocatoria struct {
+	DominioCriptografico string
+	Accion               string
+	ConvocatoriaRef      string
+	PrincipalRef         string
+	CorrelacionRef       string
+	Motivo               string
+	SolicitadaEn         time.Time
+	// Has unexported fields.
+}
+```
+
+SolicitudSellarMotivoGobiernoConvocatoria es una orden interna. El motivo en
+claro solo cruza este puerto hacia un servicio de claves; nunca se guarda en
+idempotencia ni se registra en trazas.
+
+```go
+func (s SolicitudSellarMotivoGobiernoConvocatoria) Format(estado fmt.State, _ rune)
+
+func (s SolicitudSellarMotivoGobiernoConvocatoria) GoString() string
+
+func (*SolicitudSellarMotivoGobiernoConvocatoria) GobDecode([]byte) error
+
+func (SolicitudSellarMotivoGobiernoConvocatoria) GobEncode() ([]byte, error)
+
+func (s SolicitudSellarMotivoGobiernoConvocatoria) HuellaSHA256() (string, error)
+```
+
+HuellaSHA256 fija la preimagen que el sellador debe autenticar. El HSM/KMS
+calcula su HMAC sobre dominio || 0x00 || esta huella, nunca solo sobre el
+motivo. Asi quedan ligados accion, version, principal y correlacion.
+
+```go
+func (s SolicitudSellarMotivoGobiernoConvocatoria) LogValue() slog.Value
+
+func (SolicitudSellarMotivoGobiernoConvocatoria) MarshalBinary() ([]byte, error)
+
+func (SolicitudSellarMotivoGobiernoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (SolicitudSellarMotivoGobiernoConvocatoria) MarshalText() ([]byte, error)
+
+func (SolicitudSellarMotivoGobiernoConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (SolicitudSellarMotivoGobiernoConvocatoria) String() string
+
+func (*SolicitudSellarMotivoGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*SolicitudSellarMotivoGobiernoConvocatoria) UnmarshalJSON([]byte) error
+
+func (*SolicitudSellarMotivoGobiernoConvocatoria) UnmarshalText([]byte) error
+
+func (*SolicitudSellarMotivoGobiernoConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (s SolicitudSellarMotivoGobiernoConvocatoria) Validar() error
+
 type SolicitudSellarSelloBaremacion struct {
 	Finalidad              FinalidadSelloBaremacion
 	RepresentacionCanonica CargaProtegida
@@ -5995,6 +7512,53 @@ exacta del PDF como las evidencias embebidas del perfil solicitado.
 ```go
 func (s SolicitudValidarFirmaServidor) Validar() error
 
+type SolicitudVerificarDependenciasConvocatoria struct {
+	Version     dominiobolsa.VersionConvocatoriaGobernada
+	VerificarEn time.Time
+	// Has unexported fields.
+}
+
+func (s SolicitudVerificarDependenciasConvocatoria) Clonar() (
+	SolicitudVerificarDependenciasConvocatoria,
+	error,
+)
+
+func (b SolicitudVerificarDependenciasConvocatoria) Format(estado fmt.State, _ rune)
+
+func (b SolicitudVerificarDependenciasConvocatoria) GoString() string
+
+func (*SolicitudVerificarDependenciasConvocatoria) GobDecode([]byte) error
+
+func (SolicitudVerificarDependenciasConvocatoria) GobEncode() ([]byte, error)
+
+func (b SolicitudVerificarDependenciasConvocatoria) LogValue() slog.Value
+
+func (SolicitudVerificarDependenciasConvocatoria) MarshalBinary() ([]byte, error)
+
+func (SolicitudVerificarDependenciasConvocatoria) MarshalJSON() ([]byte, error)
+
+func (SolicitudVerificarDependenciasConvocatoria) MarshalText() ([]byte, error)
+
+func (SolicitudVerificarDependenciasConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (SolicitudVerificarDependenciasConvocatoria) String() string
+
+func (*SolicitudVerificarDependenciasConvocatoria) UnmarshalBinary([]byte) error
+
+func (*SolicitudVerificarDependenciasConvocatoria) UnmarshalJSON([]byte) error
+
+func (*SolicitudVerificarDependenciasConvocatoria) UnmarshalText([]byte) error
+
+func (*SolicitudVerificarDependenciasConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (s SolicitudVerificarDependenciasConvocatoria) Validar() error
+
 type SolicitudVerificarEstadoFlujoFirmaBaremacion struct {
 	RepresentacionCanonica CargaProtegida
 	SelloHMAC              string
@@ -6044,6 +7608,61 @@ preimagen.
 
 ```go
 func (s SolicitudVerificarSelloBaremacion) Validar() error
+
+type TestimonioIdempotenciaConvocatoria struct {
+	// Has unexported fields.
+}
+```
+
+TestimonioIdempotenciaConvocatoria es reconstruible y no acredita por si
+solo la procedencia del protector. La barrera durable relee AtestacionRef y
+su huella antes de consultar o crear el indice semantico.
+
+```go
+func NuevoTestimonioIdempotenciaConvocatoria(
+	datos DatosTestimonioIdempotenciaConvocatoria,
+) (TestimonioIdempotenciaConvocatoria, error)
+
+func (t TestimonioIdempotenciaConvocatoria) Datos() (DatosTestimonioIdempotenciaConvocatoria, error)
+
+func (t TestimonioIdempotenciaConvocatoria) Format(estado fmt.State, _ rune)
+
+func (t TestimonioIdempotenciaConvocatoria) GoString() string
+
+func (*TestimonioIdempotenciaConvocatoria) GobDecode([]byte) error
+
+func (TestimonioIdempotenciaConvocatoria) GobEncode() ([]byte, error)
+
+func (t TestimonioIdempotenciaConvocatoria) LogValue() slog.Value
+
+func (TestimonioIdempotenciaConvocatoria) MarshalBinary() ([]byte, error)
+
+func (TestimonioIdempotenciaConvocatoria) MarshalJSON() ([]byte, error)
+
+func (TestimonioIdempotenciaConvocatoria) MarshalText() ([]byte, error)
+
+func (TestimonioIdempotenciaConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (TestimonioIdempotenciaConvocatoria) String() string
+
+func (*TestimonioIdempotenciaConvocatoria) UnmarshalBinary([]byte) error
+
+func (*TestimonioIdempotenciaConvocatoria) UnmarshalJSON([]byte) error
+
+func (*TestimonioIdempotenciaConvocatoria) UnmarshalText([]byte) error
+
+func (*TestimonioIdempotenciaConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (t TestimonioIdempotenciaConvocatoria) ValidarPara(
+	material MaterialIntencionGobiernoConvocatoria,
+	principalRef string,
+) error
 
 type TipoEventoOutboxBaremacion string
 
@@ -6291,6 +7910,30 @@ type ValidadorFirmaServidor interface {
 	ValidarFirmaServidor(context.Context, SolicitudValidarFirmaServidor) (ValidacionFirmaServidor, error)
 }
 
+type VerificadorAprobacionConvocatoria interface {
+	ComprobarAprobacion(
+		context.Context,
+		SolicitudComprobarAprobacionConvocatoria,
+	) (AtestacionAprobacionConvocatoria, error)
+}
+```
+
+El repositorio debe releer la atestacion y consumir TokenConsumoRef dentro
+de la misma transaccion que el cambio de gobierno.
+
+```go
+type VerificadorDependenciasConvocatoria interface {
+	VerificarDependencias(
+		context.Context,
+		SolicitudVerificarDependenciasConvocatoria,
+	) (AtestacionDependenciasConvocatoria, error)
+}
+```
+
+El repositorio debe releer la atestacion y consumir TokenConsumoRef dentro
+de la misma transaccion que la publicacion.
+
+```go
 type VerificadorEstadoFlujoFirmaBaremacion interface {
 	VerificarEstadoFlujoFirmaBaremacion(context.Context, SolicitudVerificarEstadoFlujoFirmaBaremacion) error
 }

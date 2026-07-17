@@ -2,7 +2,7 @@
 
 Estado: **documentación de trabajo; todavía no es el pliego ni la especificación final**.
 
-Fecha de corte actual: 16 de julio de 2026.
+Fecha de corte actual: 17 de julio de 2026.
 
 ## Orden de las fuentes
 
@@ -72,6 +72,9 @@ Diputación.
 - [Pagos, tasas y conciliacion](../portal_vec/pagos_tasas_y_conciliacion.md).
 - [Seguridad, privilegios y seguridad por filas en PostgreSQL](../portal_vec/seguridad_persistencia_postgresql.md).
 - [Atestacion criptografica y registro durable de decisiones](../portal_vec/atestacion_criptografica_decisiones.md).
+- [Catalogo comun y gobernado de categorias profesionales](../portal_vec/catalogo_categorias_profesionales.md).
+- [Convocatorias de Bolsa gobernadas y versionadas](../portal_vec/convocatorias_gobernadas.md).
+- [Registro versionado de fuentes de autoridad](../portal_vec/registro_fuentes_autoridad.md).
 
 El `README` actua como indice de la memoria viva. El registro de decisiones
 explica el por que; las especificaciones de capacidad describen el que y el
@@ -148,6 +151,15 @@ productiva verificada.
 - El archivo de RRHH es una capa logica transversal sobre el almacen seguro:
   conserva originales, indices, metadatos, relaciones, series y retencion sin
   duplicar ficheros por modulo ni confundir un dossier con un expediente legal.
+- Categorias profesionales y convocatorias dejan de ser listas estaticas: se
+  gobiernan por catalogo y version exacta. La fuente de demostracion contiene
+  58 categorias y el arranque impide publicar una convocatoria que cite una
+  categoria ausente.
+- Se implanta primero un registro canonico y versionado de fuentes de autoridad
+  para que bases, RPT, calendarios, convenios y decisiones funcionales citen el
+  documento, version, precepto, vigencia y estado exactos. Su primer corte de
+  dominio sigue en **NO-GO productivo** hasta cerrar persistencia, verificacion
+  criptografica y de competencia, segregacion y anclaje externo de la historia.
 
 ## Trabajo pendiente antes de redactar las especificaciones definitivas
 

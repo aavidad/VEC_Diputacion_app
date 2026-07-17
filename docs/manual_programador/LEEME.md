@@ -111,6 +111,7 @@ Documentos de contexto recomendados antes de tocar codigo:
 | [`internal/modules/personal/application`](modulos_personal_cronos_dietas.md#paquete-internalmodulespersonalapplication) | Modulos Personal, Cronos, Dietas y Administracion | Casos de uso del modulo Personal/Nominas. |
 | [`internal/modules/personal/domain`](modulos_personal_cronos_dietas.md#paquete-internalmodulespersonaldomain) | Modulos Personal, Cronos, Dietas y Administracion | Reglas puras del dominio Personal: RPT, puestos y categorias. |
 | [`internal/modules/personal/ports`](modulos_personal_cronos_dietas.md#paquete-internalmodulespersonalports) | Modulos Personal, Cronos, Dietas y Administracion | Contratos hexagonales del modulo Personal. |
+| [`internal/shared/baremacion`](compartido.md#paquete-internalsharedbaremacion) | Paquetes compartidos | Package baremacion contiene valores exactos y neutrales compartidos por los motores de baremacion. |
 | [`internal/shared/i18n`](compartido.md#paquete-internalsharedi18n) | Paquetes compartidos | Catalogo de internacionalizacion compartido con fallback espanol. |
 | [`internal/vec/adapters/almacen`](vec_adaptadores.md#paquete-internalvecadaptersalmacen) | Nucleo VEC: adaptadores | Package almacen contiene adaptadores que componen el puerto documental con conectores de objetos. |
 | [`internal/vec/adapters/almacen/s3`](vec_adaptadores.md#paquete-internalvecadaptersalmacens3) | Nucleo VEC: adaptadores | Package s3 implementa un conector de objetos compatible con la API S3. |
