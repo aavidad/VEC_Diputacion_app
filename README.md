@@ -257,6 +257,9 @@ Pendiente productivo:
 - [Almacen documental seguro, cifrado e intercambiable](docs/portal_vec/almacen_documental_seguro.md)
 - [Ejecucion documental atestada V3](docs/portal_vec/ejecucion_documental_atestada_v3.md)
 - [Firma multiple, CSV, QR y servicio de cotejo](docs/portal_vec/firma_csv_qr_y_cotejo.md)
+- [Sellado de tiempo y sincronizacion horaria para firmas](docs/portal_vec/sellado_de_tiempo_y_sincronizacion.md):
+  sello cualificado externo (TS@/FNMT) como hora legal frente al reloj del
+  servidor (NTP/ROA), lo que el dominio ya exige y el adaptador T19 pendiente.
 - [Metadatos institucionales de procedencia documental](docs/portal_vec/metadatos_institucionales_procedencia.md)
 - [Recibos materiales de almacenamiento V2](docs/portal_vec/recibos_materiales_almacenamiento_v2.md)
 - [Flujo durable de firma de baremaciones](docs/portal_vec/flujo_firma_baremacion_durable.md)

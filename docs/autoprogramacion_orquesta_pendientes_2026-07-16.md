@@ -328,3 +328,30 @@
 - `evidencia`: DEC-080; fabrica OPES verificada (salida HTML canonica,
   politica de fuentes, proveedor de audio); patron de importacion ya
   definido en T17.
+
+### T19 — Adaptador de sellado de tiempo cualificado (TSA) para firmas
+
+- `origen`: estudio `docs/portal_vec/sellado_de_tiempo_y_sincronizacion.md`
+  (18/07). El dominio ya exige sello de tiempo y falla cerrado sin el; falta
+  el conector productivo con una TSA real.
+- `estado`: nuevo. Depende de la decision de proveedor (seccion 3 del
+  estudio) y de credenciales de Sistemas; el adaptador puede construirse y
+  probarse antes con una TSA simulada determinista.
+- `area_hexagonal`: adaptador (sellado de tiempo) sobre el contrato ya
+  existente `FirmaDecisionTecnica`.
+- `accion`: cliente RFC 3161 detras de interfaz inyectable (TS@ de la
+  Administracion recomendado; FNMT-RCM como alternativa): envia la huella de
+  la revision, recibe y valida el token (cadena de la TSA, politica, huella
+  coincidente) y rellena `SelloTiempoRef`, `PoliticaSelloTiempoRef/Version`,
+  `ValidacionSelloTiempoRef` y `SelladaEn`; nunca fija la fecha desde el
+  reloj local. Politica de sellado versionada; fallo cerrado si la TSA no
+  responde o el token no valida (la firma queda pendiente, jamas sellada con
+  hora local); soporte de aumento de longevidad
+  (`RequiereAumentoLongevidad`, resellado antes de caducar la cadena). El
+  reloj operativo sigue entrando por el puerto `Reloj` ya existente,
+  alimentado del sistema sincronizado por NTP (ROA/RedIRIS, competencia de
+  Sistemas). Sin endpoints ni credenciales reales en Git; pruebas con TSA
+  simulada.
+- `evidencia`: `internal/modules/bolsa/domain/firma_decision_validacion.go`
+  ya modela sello, politica versionada, validacion, vinculo a revision
+  sellada y longevidad; solo existen adaptadores de memoria.
