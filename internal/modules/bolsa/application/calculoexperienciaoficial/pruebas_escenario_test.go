@@ -42,16 +42,24 @@ func nuevoEscenarioServicioPrueba(
 	fuente := puertosbolsa.FuenteExactaCalculoReglasBaremo{
 		Version: version, Entrada: entrada,
 		Prueba: puertosbolsa.PruebaFuenteExactaCalculoReglasBaremo{
-			Evidencia:    referenciaPrueba(t, "evidencia:fuente:oficial", 1),
-			Verificador:  referenciaPrueba(t, "verificador:fuente:oficial", 1),
+			Evidencia: referenciaPrueba(
+				t, tokenPrueba("evidencia:fuente:", "evidencia-fuente-oficial"), 1,
+			),
+			Verificador: referenciaPrueba(
+				t, tokenPrueba("verificador:fuente:", "verificador-fuente-oficial"), 1,
+			),
 			EstadoReglas: estado, InstantaneaEntrada: entrada.Instantanea(),
 			HuellaEntradaSHA256: huellaEntrada, SujetoPseudonimo: sujeto,
 			Convocatoria: convocatoria, EmitidaEn: ahora.Add(-time.Minute),
 			ValidaHasta: ahora.Add(10 * time.Minute),
 		},
-		Auditoria:     referenciaPrueba(t, "auditoria:fuente:oficial", 1),
-		ConsumoPrueba: referenciaPrueba(t, "consumo:prueba:oficial", 1),
-		ObtenidaEn:    ahora,
+		Auditoria: referenciaPrueba(
+			t, tokenPrueba("auditoria:fuente:", "auditoria-fuente-oficial"), 1,
+		),
+		ConsumoPrueba: referenciaPrueba(
+			t, tokenPrueba("consumo:prueba:", "consumo-prueba-oficial"), 1,
+		),
+		ObtenidaEn: ahora,
 	}
 	plan := debePrueba(calculo.Compilar(debePrueba(version.Conjunto())))
 	resultado := debePrueba(calculo.CalcularExperienciaV1(plan, entrada))

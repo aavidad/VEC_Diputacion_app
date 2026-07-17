@@ -13,34 +13,35 @@ type datosReciboConsumoFuentePrueba struct {
 	decision, esquemaDecision, huellaDecision       string
 	recurso, huellaContexto, correlacion            string
 	huellaSelector, huellaEntrada                   string
-	pruebaEmitidaEn, pruebaValidaHasta, consumidaEn time.Time
+	pruebaEmitidaEn, pruebaValidaHasta              time.Time
+	consumidaEn, obtenidaEn                         time.Time
 }
 
 func TestReciboConsumoFuenteCanonicoRestaurableYConHuella(t *testing.T) {
 	recibo := reciboConsumoFuentePrueba(t, datosReciboConsumoFuentePrueba{})
-	primera, err := recibo.RepresentacionCanonicaV1()
-	segunda, errSegunda := recibo.RepresentacionCanonicaV1()
+	primera, err := recibo.RepresentacionCanonicaV2()
+	segunda, errSegunda := recibo.RepresentacionCanonicaV2()
 	if err != nil || errSegunda != nil || !bytes.Equal(primera, segunda) {
 		t.Fatalf("representacion no determinista: %v / %v", err, errSegunda)
 	}
-	huella, err := recibo.HuellaSHA256V1()
+	huella, err := recibo.HuellaSHA256V2()
 	if err != nil || !huellaSHA256Valida(huella) {
 		t.Fatalf("huella no valida: %q, %v", huella, err)
 	}
-	restaurado, err := RestaurarReciboConsumoAutorizacionFuenteV1ConHuellaSHA256(primera, huella)
+	restaurado, err := RestaurarReciboConsumoAutorizacionFuenteV2ConHuellaSHA256(primera, huella)
 	if err != nil {
 		t.Fatal(err)
 	}
-	huellaRestaurada, _ := restaurado.HuellaSHA256V1()
+	huellaRestaurada, _ := restaurado.HuellaSHA256V2()
 	if huellaRestaurada != huella {
 		t.Fatal("la restauracion cambio la identidad")
 	}
 	primera[0] ^= 0xff
-	tercera, _ := recibo.RepresentacionCanonicaV1()
+	tercera, _ := recibo.RepresentacionCanonicaV2()
 	if !bytes.Equal(segunda, tercera) {
 		t.Fatal("la representacion comparte memoria")
 	}
-	const vector = "1346c509ae8725573a10a8e4404af2e80c0ad567939e1a58e434dd179dd2ff20"
+	const vector = "6641533ef41608efab600ae8e25e728e98034b0bc7aedab47fd8c73cf7ad7d86"
 	if huella != vector {
 		t.Fatalf("vector canonico modificado: %s", huella)
 	}
@@ -53,10 +54,13 @@ func TestReciboConsumoFuenteCotejaDecisionSelectorYArtefactosCampoACampo(t *test
 		return recibo.ValidarPara(
 			d.decision, d.esquemaDecision, d.huellaDecision, d.recurso, d.huellaContexto,
 			d.correlacion, d.huellaSelector, d.huellaEntrada, d.fuente, d.verificador,
-			d.prueba, d.auditoria, d.pruebaEmitidaEn, d.pruebaValidaHasta, desde, hasta,
+			d.prueba, d.auditoria, d.pruebaEmitidaEn, d.pruebaValidaHasta,
+			d.obtenidaEn, desde, hasta,
 		)
 	}
-	if err := cotejar(base, base.consumidaEn.Add(-time.Microsecond), base.consumidaEn); err != nil {
+	if err := cotejar(
+		base, base.consumidaEn.Add(-time.Microsecond), base.obtenidaEn,
+	); err != nil {
 		t.Fatalf("cotejo exacto rechazado: %v", err)
 	}
 	mutaciones := []struct {
@@ -87,19 +91,22 @@ func TestReciboConsumoFuenteCotejaDecisionSelectorYArtefactosCampoACampo(t *test
 		{"prueba_validez", func(d *datosReciboConsumoFuentePrueba) {
 			d.pruebaValidaHasta = d.pruebaValidaHasta.Add(time.Microsecond)
 		}},
+		{"obtenida_en", func(d *datosReciboConsumoFuentePrueba) {
+			d.obtenidaEn = d.obtenidaEn.Add(time.Microsecond)
+		}},
 	}
 	for _, caso := range mutaciones {
 		t.Run(caso.nombre, func(t *testing.T) {
 			alterado := base
 			caso.mutar(&alterado)
-			if err := cotejar(alterado, base.consumidaEn, base.consumidaEn); !errors.Is(err, ErrHuellaNoCoincide) {
+			if err := cotejar(alterado, base.consumidaEn, base.obtenidaEn); !errors.Is(err, ErrHuellaNoCoincide) {
 				t.Fatalf("campo alterado aceptado: %v", err)
 			}
 		})
 	}
 	for nombre, limites := range map[string][2]time.Time{
-		"antes":   {base.consumidaEn.Add(time.Microsecond), base.consumidaEn.Add(2 * time.Microsecond)},
-		"despues": {base.consumidaEn.Add(-2 * time.Microsecond), base.consumidaEn.Add(-time.Microsecond)},
+		"antes":   {base.consumidaEn.Add(time.Microsecond), base.obtenidaEn.Add(time.Microsecond)},
+		"despues": {base.consumidaEn.Add(-2 * time.Microsecond), base.obtenidaEn.Add(-time.Microsecond)},
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			if err := cotejar(base, limites[0], limites[1]); !errors.Is(err, ErrHuellaNoCoincide) {
@@ -107,28 +114,37 @@ func TestReciboConsumoFuenteCotejaDecisionSelectorYArtefactosCampoACampo(t *test
 			}
 		})
 	}
+	if err := cotejar(
+		base, base.consumidaEn, base.pruebaValidaHasta,
+	); !errors.Is(err, ErrValorInvalido) {
+		t.Fatalf("la comprobacion en el instante de caducidad fue aceptada: %v", err)
+	}
 }
 
 func TestReciboConsumoFuenteLigaIdentidadConsumoEnMaterialCanonico(t *testing.T) {
 	base := completarDatosReciboConsumoFuentePrueba(datosReciboConsumoFuentePrueba{})
 	original := reciboConsumoFuentePrueba(t, base)
-	huellaOriginal, _ := original.HuellaSHA256V1()
+	huellaOriginal, _ := original.HuellaSHA256V2()
 	mutaciones := []func(*datosReciboConsumoFuentePrueba){
-		func(d *datosReciboConsumoFuentePrueba) { d.consumo.Referencia += ":otro" },
+		func(d *datosReciboConsumoFuentePrueba) {
+			d.consumo.Referencia = "consumo:autorizacion:" + hashPrueba("6")
+		},
 		func(d *datosReciboConsumoFuentePrueba) { d.consumo.Version++ },
 		func(d *datosReciboConsumoFuentePrueba) { d.consumo.HuellaSHA256 = hashPrueba("7") },
 	}
 	for indice, mutar := range mutaciones {
 		alterado := base
 		mutar(&alterado)
-		huella, err := reciboConsumoFuentePrueba(t, alterado).HuellaSHA256V1()
+		huella, err := reciboConsumoFuentePrueba(t, alterado).HuellaSHA256V2()
 		if err != nil || huella == huellaOriginal {
 			t.Fatalf("componente %d no quedo ligado: %v", indice, err)
 		}
 	}
 	consumo, err := original.Consumo()
 	instante, errInstante := original.ConsumidaEn()
-	if err != nil || errInstante != nil || consumo != base.consumo || !instante.Equal(base.consumidaEn) {
+	obtenida, errObtenida := original.ObtenidaEn()
+	if err != nil || errInstante != nil || errObtenida != nil || consumo != base.consumo ||
+		!instante.Equal(base.consumidaEn) || !obtenida.Equal(base.obtenidaEn) {
 		t.Fatal("las proyecciones tipadas no conservaron el consumo")
 	}
 }
@@ -146,6 +162,9 @@ func TestReciboConsumoFuenteRechazaInstanteQueExigiriaNormalizacion(t *testing.T
 			d.pruebaValidaHasta = d.pruebaValidaHasta.Add(time.Nanosecond)
 		}},
 		{"consumo_cero", func(d *datosReciboConsumoFuentePrueba) { d.consumidaEn = time.Time{} }},
+		{"obtencion_submicro", func(d *datosReciboConsumoFuentePrueba) {
+			d.obtenidaEn = d.obtenidaEn.Add(time.Nanosecond)
+		}},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -161,29 +180,30 @@ func TestReciboConsumoFuenteRechazaInstanteQueExigiriaNormalizacion(t *testing.T
 
 func TestRestaurarReciboConsumoFuenteRechazaAlteracionYJSONNoCanonico(t *testing.T) {
 	recibo := reciboConsumoFuentePrueba(t, datosReciboConsumoFuentePrueba{})
-	canonico, _ := recibo.RepresentacionCanonicaV1()
-	huella, _ := recibo.HuellaSHA256V1()
+	canonico, _ := recibo.RepresentacionCanonicaV2()
+	huella, _ := recibo.HuellaSHA256V2()
 	casos := [][]byte{
 		append([]byte(" "), canonico...),
+		bytes.Replace(canonico, []byte("autorizacion-fuente.v2"), []byte("autorizacion-fuente.v1"), 1),
 		bytes.Replace(canonico, []byte(`"esquema":`), []byte(`"esquema_ajeno":`), 1),
 		bytes.Replace(canonico, []byte(`"decision_ref":`), []byte(`"decision_ref":"duplicada","decision_ref":`), 1),
 	}
 	for indice, caso := range casos {
-		if _, err := RestaurarReciboConsumoAutorizacionFuenteV1ConHuellaSHA256(
+		if _, err := RestaurarReciboConsumoAutorizacionFuenteV2ConHuellaSHA256(
 			caso, huella,
 		); err == nil {
 			t.Fatalf("caso no canonico %d aceptado", indice)
 		}
 	}
 	alterado := bytes.Replace(canonico, []byte(hashPrueba("a")), []byte(hashPrueba("f")), 1)
-	if _, err := RestaurarReciboConsumoAutorizacionFuenteV1ConHuellaSHA256(alterado, huella); !errors.Is(err, ErrHuellaNoCoincide) {
+	if _, err := RestaurarReciboConsumoAutorizacionFuenteV2ConHuellaSHA256(alterado, huella); !errors.Is(err, ErrHuellaNoCoincide) {
 		t.Fatalf("alteracion no detectada: %v", err)
 	}
 }
 
 func reciboConsumoFuentePrueba(
 	t *testing.T, datos datosReciboConsumoFuentePrueba,
-) ReciboConsumoAutorizacionFuenteV1 {
+) ReciboConsumoAutorizacionFuenteV2 {
 	t.Helper()
 	d := completarDatosReciboConsumoFuentePrueba(datos)
 	recibo, err := nuevoReciboConsumoFuenteDesdeDatos(d)
@@ -195,12 +215,12 @@ func reciboConsumoFuentePrueba(
 
 func nuevoReciboConsumoFuenteDesdeDatos(
 	d datosReciboConsumoFuentePrueba,
-) (ReciboConsumoAutorizacionFuenteV1, error) {
-	return NuevoReciboConsumoAutorizacionFuenteV1(
+) (ReciboConsumoAutorizacionFuenteV2, error) {
+	return NuevoReciboConsumoAutorizacionFuenteV2(
 		d.consumo, d.decision, d.esquemaDecision, d.huellaDecision, d.recurso,
 		d.huellaContexto, d.correlacion, d.huellaSelector, d.huellaEntrada,
 		d.fuente, d.verificador, d.prueba, d.auditoria, d.pruebaEmitidaEn,
-		d.pruebaValidaHasta, d.consumidaEn,
+		d.pruebaValidaHasta, d.consumidaEn, d.obtenidaEn,
 	)
 }
 
@@ -208,8 +228,10 @@ func completarDatosReciboConsumoFuentePrueba(
 	d datosReciboConsumoFuentePrueba,
 ) datosReciboConsumoFuentePrueba {
 	if d.consumo.Referencia == "" {
-		d.consumo = referenciaExactaReciboPrueba("consumo:autorizacion:fuente:1", 1, "0")
-		d.decision = "decision:fuente:1"
+		d.consumo = referenciaExactaReciboPrueba(
+			"consumo:autorizacion:"+hashPrueba("0"), 1, "0",
+		)
+		d.decision = "decision:" + hashPrueba("1")
 		d.esquemaDecision = "vec.autorizacion.decision.reforzada.v2.solicitud-ligada"
 		d.huellaDecision = hashPrueba("a")
 		d.recurso = "fuente:" + hashPrueba("9")
@@ -217,11 +239,12 @@ func completarDatosReciboConsumoFuentePrueba(
 		d.correlacion = "correlacion_0123456789abcdef0123456789abcdef"
 		d.huellaSelector = hashPrueba("c")
 		d.huellaEntrada = hashPrueba("8")
-		d.fuente = referenciaExactaReciboPrueba("evidencia:fuente:exacta:1", 2, "d")
-		d.verificador = referenciaExactaReciboPrueba("verificador:fuente:exacto:1", 1, "7")
-		d.prueba = referenciaExactaReciboPrueba("consumo:prueba:1", 3, "e")
-		d.auditoria = referenciaExactaReciboPrueba("auditoria:fuente:1", 4, "f")
+		d.fuente = referenciaExactaReciboPrueba("evidencia:fuente:"+hashPrueba("2"), 2, "d")
+		d.verificador = referenciaExactaReciboPrueba("verificador:fuente:"+hashPrueba("3"), 1, "7")
+		d.prueba = referenciaExactaReciboPrueba("consumo:prueba:"+hashPrueba("4"), 3, "e")
+		d.auditoria = referenciaExactaReciboPrueba("auditoria:fuente:"+hashPrueba("5"), 4, "f")
 		d.consumidaEn = time.Date(2026, 7, 17, 10, 11, 12, 345678000, time.UTC)
+		d.obtenidaEn = d.consumidaEn.Add(time.Microsecond)
 		d.pruebaEmitidaEn = d.consumidaEn.Add(-time.Minute)
 		d.pruebaValidaHasta = d.consumidaEn.Add(time.Minute)
 	}

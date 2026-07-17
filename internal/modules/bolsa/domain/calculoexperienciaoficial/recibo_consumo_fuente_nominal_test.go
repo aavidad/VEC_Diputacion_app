@@ -1,6 +1,10 @@
 package calculoexperienciaoficial
 
-import "testing"
+import (
+	"strings"
+	"testing"
+	"time"
+)
 
 func TestReciboConsumoFuenteRechazaCadaCampoAusenteONoCanonico(t *testing.T) {
 	base := completarDatosReciboConsumoFuentePrueba(datosReciboConsumoFuentePrueba{})
@@ -25,6 +29,12 @@ func TestReciboConsumoFuenteRechazaCadaCampoAusenteONoCanonico(t *testing.T) {
 		{"auditoria", func(d *datosReciboConsumoFuentePrueba) { d.auditoria.Referencia = "?" }},
 		{"ventana_invertida", func(d *datosReciboConsumoFuentePrueba) { d.pruebaValidaHasta = d.pruebaEmitidaEn }},
 		{"consumo_fuera_prueba", func(d *datosReciboConsumoFuentePrueba) { d.consumidaEn = d.pruebaValidaHasta }},
+		{"obtencion_antes_consumo", func(d *datosReciboConsumoFuentePrueba) {
+			d.obtenidaEn = d.consumidaEn.Add(-1 * time.Microsecond)
+		}},
+		{"obtencion_fuera_prueba", func(d *datosReciboConsumoFuentePrueba) {
+			d.obtenidaEn = d.pruebaValidaHasta
+		}},
 		{"roles", func(d *datosReciboConsumoFuentePrueba) { d.decision = d.recurso }},
 	}
 	for _, caso := range casos {
@@ -52,8 +62,11 @@ func TestReciboConsumoFuenteRechazaPIIYRecorridosEnCadaRolNominal(t *testing.T) 
 		{"auditoria", "auditoria:fuente:", func(d *datosReciboConsumoFuentePrueba, v string) { d.auditoria.Referencia = v }},
 	}
 	hostiles := map[string]string{
-		"dni": "12345678z", "nie": "x1234567l",
-		"correo": "persona@example.test", "ruta": "../../expedientes",
+		"dni": "12345678z", "nie": "x1234567l", "telefono": "600123456",
+		"nombre": "alberto-garcia", "correo": "persona@example.test",
+		"ruta": "../../expedientes", "corto": strings.Repeat("a", 63),
+		"largo": strings.Repeat("a", 65), "mayusculas": strings.Repeat("A", 64),
+		"no_hexadecimal": strings.Repeat("g", 64),
 	}
 	for _, rol := range roles {
 		for nombre, hostil := range hostiles {
@@ -95,17 +108,19 @@ func TestReciboConsumoFuenteExigeRecursoYCorrelacionConContratoReal(t *testing.T
 
 func TestReferenciasSelectorFuenteRechazanPIIYAlias(t *testing.T) {
 	for _, hostil := range []string{
-		"12345678z", "x1234567l", "persona@example.test", "../../expediente",
+		"12345678z", "x1234567l", "600123456", "alberto-garcia",
+		"persona@example.test", "../../expediente", strings.Repeat("a", 63),
+		strings.Repeat("a", 65), strings.Repeat("A", 64), strings.Repeat("g", 64),
 	} {
-		if ReferenciaReglasFuenteExactaV1Valida("reglas:"+hostil) ||
-			ReferenciaConvocatoriaFuenteExactaV1Valida("convocatoria:"+hostil) ||
-			ReferenciaInstantaneaFuenteExactaV1Valida("iex_"+hostil) {
+		if ReferenciaReglasFuenteExactaV2Valida("reglas:"+hostil) ||
+			ReferenciaConvocatoriaFuenteExactaV2Valida("convocatoria:"+hostil) ||
+			ReferenciaInstantaneaFuenteExactaV2Valida("iex_"+hostil) {
 			t.Fatalf("selector acepto PII, ruta o alias: %q", hostil)
 		}
 	}
-	if !ReferenciaReglasFuenteExactaV1Valida("reglas:oficial:v1") ||
-		!ReferenciaConvocatoriaFuenteExactaV1Valida("convocatoria:oficial:v1") ||
-		!ReferenciaInstantaneaFuenteExactaV1Valida("iex_"+hashPrueba("a")) {
+	if !ReferenciaReglasFuenteExactaV2Valida("reglas:"+hashPrueba("a")) ||
+		!ReferenciaConvocatoriaFuenteExactaV2Valida("convocatoria:"+hashPrueba("b")) ||
+		!ReferenciaInstantaneaFuenteExactaV2Valida("iex_"+hashPrueba("c")) {
 		t.Fatal("perfil nominal rechazo referencias tecnicas reales")
 	}
 }

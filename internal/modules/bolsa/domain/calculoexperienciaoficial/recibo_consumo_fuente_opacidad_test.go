@@ -14,7 +14,7 @@ import (
 
 func TestReciboConsumoFuenteBloqueaCadaCodecEnAmbosSentidos(t *testing.T) {
 	recibo := reciboConsumoFuentePrueba(t, datosReciboConsumoFuentePrueba{})
-	var destino ReciboConsumoAutorizacionFuenteV1
+	var destino ReciboConsumoAutorizacionFuenteV2
 	casos := []struct {
 		nombre string
 		usar   func() error
@@ -49,8 +49,8 @@ func TestReciboConsumoFuenteBloqueaCadaCodecEnAmbosSentidos(t *testing.T) {
 }
 
 func TestReciboConsumoFuenteBloqueaValorCeroYPunteroNulo(t *testing.T) {
-	var cero ReciboConsumoAutorizacionFuenteV1
-	var nulo *ReciboConsumoAutorizacionFuenteV1
+	var cero ReciboConsumoAutorizacionFuenteV2
+	var nulo *ReciboConsumoAutorizacionFuenteV2
 	marshalsCero := []func() error{
 		func() error { _, err := cero.MarshalJSON(); return err },
 		func() error { return cero.MarshalXML(nil, xml.StartElement{}) },
@@ -91,9 +91,10 @@ func TestReciboConsumoFuenteRedactaFmtYLogsSinFugas(t *testing.T) {
 		registro.String(),
 	}
 	secretos := []string{
-		"decision:fuente:1", "fuente:" + hashPrueba("9"),
+		"decision:" + hashPrueba("1"), "fuente:" + hashPrueba("9"),
 		"correlacion_0123456789abcdef0123456789abcdef",
-		"evidencia:fuente:exacta:1", "verificador:fuente:exacto:1",
+		"evidencia:fuente:" + hashPrueba("2"),
+		"verificador:fuente:" + hashPrueba("3"),
 		hashPrueba("a"), hashPrueba("c"), hashPrueba("8"),
 	}
 	for _, texto := range textos {

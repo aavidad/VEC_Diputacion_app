@@ -95,7 +95,7 @@ func TestPruebaFuenteReglasBaremoEsCompacta(t *testing.T) {
 func TestFuenteCalculoExigeReciboTipadoDeConsumoAutorizacion(t *testing.T) {
 	tipo := reflect.TypeOf(FuenteExactaCalculoReglasBaremo{})
 	campo, existe := tipo.FieldByName("ConsumoAutorizacion")
-	if !existe || campo.Type != reflect.TypeOf(oficial.ReciboConsumoAutorizacionFuenteV1{}) {
+	if !existe || campo.Type != reflect.TypeOf(oficial.ReciboConsumoAutorizacionFuenteV2{}) {
 		t.Fatal("la fuente admite una referencia debil en lugar del recibo durable tipado")
 	}
 }

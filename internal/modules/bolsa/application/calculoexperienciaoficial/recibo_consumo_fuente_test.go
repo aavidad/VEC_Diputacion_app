@@ -13,7 +13,8 @@ import (
 
 func TestServicioRechazaCadaDesvinculacionDelReciboConsumoFuente(t *testing.T) {
 	otraReferencia := func(referencia oficial.ReferenciaExactaV1) oficial.ReferenciaExactaV1 {
-		referencia.Referencia += ":otra"
+		referencia.Referencia = referencia.Referencia[:len(referencia.Referencia)-64] +
+			strings.Repeat("6", 64)
 		return referencia
 	}
 	otraVersion := func(referencia oficial.ReferenciaExactaV1) oficial.ReferenciaExactaV1 {
@@ -28,7 +29,9 @@ func TestServicioRechazaCadaDesvinculacionDelReciboConsumoFuente(t *testing.T) {
 		nombre string
 		mutar  func(*datosReciboConsumoFuenteDoble)
 	}{
-		{"decision_ref", func(d *datosReciboConsumoFuenteDoble) { d.decisionRef += ":otra" }},
+		{"decision_ref", func(d *datosReciboConsumoFuenteDoble) {
+			d.decisionRef = "decision:" + strings.Repeat("1", 64)
+		}},
 		{"esquema_decision", func(d *datosReciboConsumoFuenteDoble) { d.esquemaDecision += ".otro" }},
 		{"huella_decision", func(d *datosReciboConsumoFuenteDoble) { d.huellaDecision = strings.Repeat("1", 64) }},
 		{"recurso_ref", func(d *datosReciboConsumoFuenteDoble) { d.recursoRef = "fuente:" + strings.Repeat("4", 64) }},
@@ -56,6 +59,7 @@ func TestServicioRechazaCadaDesvinculacionDelReciboConsumoFuente(t *testing.T) {
 		}},
 		{"consumo_antes_solicitud", func(d *datosReciboConsumoFuenteDoble) { d.consumidaEn = d.consumidaEn.Add(-time.Microsecond) }},
 		{"consumo_despues_fuente", func(d *datosReciboConsumoFuenteDoble) { d.consumidaEn = d.consumidaEn.Add(time.Microsecond) }},
+		{"obtencion_distinta", func(d *datosReciboConsumoFuenteDoble) { d.obtenidaEn = d.obtenidaEn.Add(time.Microsecond) }},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -81,7 +85,9 @@ func TestServicioRechazaFuenteMutadaDespuesDeEmitirRecibo(t *testing.T) {
 			f.Prueba.HuellaEntradaSHA256 = debePrueba(entrada.HuellaSHA256())
 		}},
 		{"verificador", func(f *puertosbolsa.FuenteExactaCalculoReglasBaremo) {
-			f.Prueba.Verificador = referenciaPrueba(t, "verificador:fuente:alternativo", 2)
+			f.Prueba.Verificador = referenciaPrueba(
+				t, tokenPrueba("verificador:fuente:", "verificador-alternativo"), 2,
+			)
 		}},
 		{"emitida_en", func(f *puertosbolsa.FuenteExactaCalculoReglasBaremo) {
 			f.Prueba.EmitidaEn = f.Prueba.EmitidaEn.Add(-time.Minute)
@@ -89,16 +95,22 @@ func TestServicioRechazaFuenteMutadaDespuesDeEmitirRecibo(t *testing.T) {
 		{"valida_hasta", func(f *puertosbolsa.FuenteExactaCalculoReglasBaremo) {
 			f.Prueba.ValidaHasta = f.Prueba.ValidaHasta.Add(-time.Minute)
 		}},
+		{"obtenida_en", func(f *puertosbolsa.FuenteExactaCalculoReglasBaremo) {
+			f.ObtenidaEn = f.ObtenidaEn.Add(time.Microsecond)
+		}},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
 			escenario := nuevoEscenarioServicioPrueba(t, perfilInternoAlto, false)
+			escenario.servicio.reloj = &relojSecuenciaPrueba{
+				siguiente: escenario.ahora, paso: time.Microsecond,
+			}
 			escenario.fuente.alterarFuenteDespuesConsumo = func(
 				fuente *puertosbolsa.FuenteExactaCalculoReglasBaremo,
 			) {
-				huellaAntes := debePrueba(fuente.ConsumoAutorizacion.HuellaSHA256V1())
+				huellaAntes := debePrueba(fuente.ConsumoAutorizacion.HuellaSHA256V2())
 				caso.mutar(fuente)
-				huellaDespues := debePrueba(fuente.ConsumoAutorizacion.HuellaSHA256V1())
+				huellaDespues := debePrueba(fuente.ConsumoAutorizacion.HuellaSHA256V2())
 				if huellaAntes != huellaDespues {
 					t.Fatal("la mutacion de la fuente sustituyo el recibo de control")
 				}
@@ -110,6 +122,17 @@ func TestServicioRechazaFuenteMutadaDespuesDeEmitirRecibo(t *testing.T) {
 			}
 		})
 	}
+}
+
+type relojSecuenciaPrueba struct {
+	siguiente time.Time
+	paso      time.Duration
+}
+
+func (r *relojSecuenciaPrueba) Ahora() time.Time {
+	actual := r.siguiente
+	r.siguiente = r.siguiente.Add(r.paso)
+	return actual
 }
 
 func TestUnionCompletaDeRolesDeFuenteNoAdmiteReferenciasReutilizadas(t *testing.T) {

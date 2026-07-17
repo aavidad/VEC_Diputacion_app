@@ -57,7 +57,8 @@ func conjuntoPrueba(t *testing.T) reglas.ConjuntoReglasBaremo {
 		reglas.SinLimiteUnidades(), reglas.SinLimitePuntos(),
 	))
 	identidad := debePrueba(reglas.NuevaIdentidadConjuntoReglasBaremo(
-		"reglas:oficial:v1", 1, "convocatoria:oficial:v1", "expediente:oficial:v1",
+		tokenPrueba("reglas:", "reglas-oficial-v2"), 1,
+		tokenPrueba("convocatoria:", "convocatoria-oficial-v2"), "expediente:oficial:v1",
 	))
 	return debePrueba(reglas.NuevoConjuntoReglasBaremo(
 		identidad, referenciaPrueba(t, "bases:oficial:v1", 1),
@@ -99,7 +100,7 @@ func versionActivaPrueba(
 	))
 	vinculoPublicada := debePrueba(publicada.VinculoEstado())
 	dependencias := debePrueba(publicada.DependenciasContenido())
-	convocatoria := referenciaPrueba(t, "convocatoria:oficial:v1", 3)
+	convocatoria := referenciaPrueba(t, tokenPrueba("convocatoria:", "convocatoria-oficial-v2"), 3)
 	atestacion := debePrueba(reglas.NuevaAtestacionDependenciasVigentesReglasBaremo(
 		reglas.DatosAtestacionDependenciasVigentesReglasBaremo{
 			Atestacion: referenciaPrueba(t, "atestacion:dependencias:oficial", 1),

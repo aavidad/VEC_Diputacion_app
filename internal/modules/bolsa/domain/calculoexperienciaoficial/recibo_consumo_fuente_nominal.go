@@ -11,16 +11,11 @@ func referenciaExactaNominalReciboValida(
 	prefijo string,
 ) bool {
 	return validarReferencia(referencia, "recibo_consumo_fuente.referencia") == nil &&
-		referenciaNominalReciboConsumoFuenteValida(referencia.Referencia, prefijo)
+		referenciaOpacaAcuñadaReciboValida(referencia.Referencia, prefijo)
 }
 
-// DecisionRef carece hoy de un tipo nominal VEC y VEC admite referencias
-// historicas de formas distintas. Este contrato puede exigir su espacio de
-// nombres y una gramatica cerrada, pero no fingir un UUID/entropia que el
-// contrato global aun no garantiza. La procedencia se acredita con la huella
-// canonica V2 y el consumo durable, no con la sintaxis del identificador.
 func decisionRefReciboConsumoFuenteValida(valor string) bool {
-	return referenciaNominalReciboConsumoFuenteValida(valor, "decision:")
+	return referenciaOpacaAcuñadaReciboValida(valor, "decision:")
 }
 
 func correlacionReciboConsumoFuenteValida(valor string) bool {
@@ -28,88 +23,41 @@ func correlacionReciboConsumoFuenteValida(valor string) bool {
 }
 
 func recursoLecturaReciboConsumoFuenteValido(valor string) bool {
-	const prefijo = "fuente:"
-	return strings.HasPrefix(valor, prefijo) && huellaSHA256Valida(strings.TrimPrefix(valor, prefijo))
+	return referenciaOpacaAcuñadaReciboValida(valor, "fuente:")
 }
 
-// ReferenciaReglasFuenteExactaV1Valida y sus variantes aplican en application
+// ReferenciaReglasFuenteExactaV2Valida y sus variantes aplican en application
 // los mismos perfiles nominales del recibo, sin abrir la gramatica a un
 // prefijo elegido por el llamador.
-func ReferenciaReglasFuenteExactaV1Valida(valor string) bool {
-	return referenciaNominalReciboConsumoFuenteValida(valor, "reglas:")
+func ReferenciaReglasFuenteExactaV2Valida(valor string) bool {
+	return referenciaOpacaAcuñadaReciboValida(valor, "reglas:")
 }
 
-func ReferenciaConvocatoriaFuenteExactaV1Valida(valor string) bool {
-	return referenciaNominalReciboConsumoFuenteValida(valor, "convocatoria:")
+func ReferenciaConvocatoriaFuenteExactaV2Valida(valor string) bool {
+	return referenciaOpacaAcuñadaReciboValida(valor, "convocatoria:")
 }
 
-func ReferenciaInstantaneaFuenteExactaV1Valida(valor string) bool {
-	const prefijo = "iex_"
-	return strings.HasPrefix(valor, prefijo) && huellaSHA256Valida(strings.TrimPrefix(valor, prefijo))
+func ReferenciaInstantaneaFuenteExactaV2Valida(valor string) bool {
+	return referenciaOpacaAcuñadaReciboValida(valor, "iex_")
 }
 
-func referenciaNominalReciboConsumoFuenteValida(valor, prefijo string) bool {
-	if len(valor) <= len(prefijo) || len(valor) > 512 || !strings.HasPrefix(valor, prefijo) {
-		return false
-	}
-	sufijo := strings.TrimPrefix(valor, prefijo)
-	if strings.Contains(sufijo, "..") || !caracterAlfanumericoASCII(rune(sufijo[0])) ||
-		contieneDocumentoIdentidadEnSufijo(sufijo) {
-		return false
-	}
-	for _, caracter := range sufijo {
-		if !((caracter >= 'a' && caracter <= 'z') || (caracter >= '0' && caracter <= '9') ||
-			caracter == ':' || caracter == '.' || caracter == '-' || caracter == '_') {
-			return false
-		}
-	}
-	return true
+func ReferenciaEvidenciaFuenteExactaV2Valida(valor string) bool {
+	return referenciaOpacaAcuñadaReciboValida(valor, "evidencia:fuente:")
 }
 
-func contieneDocumentoIdentidadEnSufijo(sufijo string) bool {
-	tokens := strings.FieldsFunc(sufijo, func(caracter rune) bool {
-		return caracter == ':' || caracter == '.' || caracter == '-' || caracter == '_'
-	})
-	for _, token := range tokens {
-		if dniNominalReciboValido(token) || nieNominalReciboValido(token) {
-			return true
-		}
-	}
-	return false
+func ReferenciaVerificadorFuenteExactaV2Valida(valor string) bool {
+	return referenciaOpacaAcuñadaReciboValida(valor, "verificador:fuente:")
 }
 
-func dniNominalReciboValido(valor string) bool {
-	if len(valor) != 9 {
-		return false
-	}
-	numero := 0
-	for indice := 0; indice < 8; indice++ {
-		if valor[indice] < '0' || valor[indice] > '9' {
-			return false
-		}
-		numero = numero*10 + int(valor[indice]-'0')
-	}
-	return letraDocumentoIdentidad(numero) == valor[8]
+func ReferenciaConsumoPruebaFuenteExactaV2Valida(valor string) bool {
+	return referenciaOpacaAcuñadaReciboValida(valor, "consumo:prueba:")
 }
 
-func nieNominalReciboValido(valor string) bool {
-	if len(valor) != 9 || (valor[0] != 'x' && valor[0] != 'y' && valor[0] != 'z') {
-		return false
-	}
-	numero := int(valor[0] - 'x')
-	for indice := 1; indice < 8; indice++ {
-		if valor[indice] < '0' || valor[indice] > '9' {
-			return false
-		}
-		numero = numero*10 + int(valor[indice]-'0')
-	}
-	return letraDocumentoIdentidad(numero) == valor[8]
+func ReferenciaAuditoriaFuenteExactaV2Valida(valor string) bool {
+	return referenciaOpacaAcuñadaReciboValida(valor, "auditoria:fuente:")
 }
 
-func letraDocumentoIdentidad(numero int) byte {
-	const letras = "trwagmyfpdxbnjzsqvhlcke"
-	if numero < 0 {
-		return 0
-	}
-	return letras[numero%len(letras)]
+func referenciaOpacaAcuñadaReciboValida(valor, prefijo string) bool {
+	return strings.HasPrefix(valor, prefijo) && len(valor) == len(prefijo)+64 &&
+		huellaSHA256Valida(strings.TrimPrefix(valor, prefijo))
 }

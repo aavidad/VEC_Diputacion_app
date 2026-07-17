@@ -65,7 +65,7 @@ type FuenteExactaCalculoReglasBaremo struct {
 	Entrada             calculo.EntradaExperiencia
 	Prueba              PruebaFuenteExactaCalculoReglasBaremo
 	Auditoria           reglas.ReferenciaVersionada
-	ConsumoAutorizacion oficial.ReciboConsumoAutorizacionFuenteV1
+	ConsumoAutorizacion oficial.ReciboConsumoAutorizacionFuenteV2
 	ConsumoPrueba       reglas.ReferenciaVersionada
 	ObtenidaEn          time.Time
 }

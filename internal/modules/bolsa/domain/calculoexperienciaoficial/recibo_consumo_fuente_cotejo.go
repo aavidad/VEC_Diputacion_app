@@ -6,8 +6,9 @@ import (
 )
 
 // ValidarPara coteja el recibo con la evidencia V2 y los artefactos exactos
-// esperados por el caso de uso. Los limites temporales son inclusivos.
-func (r ReciboConsumoAutorizacionFuenteV1) ValidarPara(
+// esperados por el caso de uso. Los limites de solicitud y comprobacion son
+// inclusivos; la caducidad de la prueba es exclusiva.
+func (r ReciboConsumoAutorizacionFuenteV2) ValidarPara(
 	decisionRef, esquemaHuellaDecision, huellaDecisionSHA256 string,
 	recursoRef, huellaContextoRecursoSHA256, correlacionRef string,
 	huellaSelectorSHA256 string,
@@ -17,18 +18,23 @@ func (r ReciboConsumoAutorizacionFuenteV1) ValidarPara(
 	consumoPrueba ReferenciaExactaV1,
 	auditoria ReferenciaExactaV1,
 	pruebaEmitidaEn, pruebaValidaHasta time.Time,
+	obtenidaEn time.Time,
 	noAntesDe, noDespuesDe time.Time,
 ) error {
 	if r.Validar() != nil || !instanteReciboConsumoFuenteValido(noAntesDe) ||
 		!instanteReciboConsumoFuenteValido(noDespuesDe) ||
 		!instanteReciboConsumoFuenteValido(pruebaEmitidaEn) ||
 		!instanteReciboConsumoFuenteValido(pruebaValidaHasta) ||
-		noDespuesDe.Before(noAntesDe) || !pruebaValidaHasta.After(pruebaEmitidaEn) {
+		!instanteReciboConsumoFuenteValido(obtenidaEn) ||
+		noDespuesDe.Before(noAntesDe) || !pruebaValidaHasta.After(pruebaEmitidaEn) ||
+		!noDespuesDe.Before(pruebaValidaHasta) {
 		return nuevoError("recibo_consumo_fuente.cotejo", CodigoValorInvalido)
 	}
 	m := r.material
-	consumidaEn, err := time.Parse(formatoInstanteReciboConsumoFuenteV1, m.ConsumidaEn)
-	if err != nil || consumidaEn.Before(noAntesDe) || consumidaEn.After(noDespuesDe) ||
+	consumidaEn, errConsumo := time.Parse(formatoInstanteReciboConsumoFuenteV2, m.ConsumidaEn)
+	obtenidaEnRecibo, errObtencion := time.Parse(formatoInstanteReciboConsumoFuenteV2, m.ObtenidaEn)
+	if errConsumo != nil || errObtencion != nil || consumidaEn.Before(noAntesDe) ||
+		obtenidaEnRecibo.Before(consumidaEn) || obtenidaEnRecibo.After(noDespuesDe) ||
 		m.DecisionRef != decisionRef || m.EsquemaHuellaDecision != esquemaHuellaDecision ||
 		!cotejoHuellaReciboConsumo(m.HuellaDecisionSHA256, huellaDecisionSHA256) ||
 		m.RecursoRef != recursoRef ||
@@ -40,27 +46,39 @@ func (r ReciboConsumoAutorizacionFuenteV1) ValidarPara(
 		!referenciasExactasIguales(m.Verificador, verificador) ||
 		!referenciasExactasIguales(m.ConsumoPrueba, consumoPrueba) ||
 		!referenciasExactasIguales(m.Auditoria, auditoria) ||
-		m.PruebaEmitidaEn != pruebaEmitidaEn.Format(formatoInstanteReciboConsumoFuenteV1) ||
-		m.PruebaValidaHasta != pruebaValidaHasta.Format(formatoInstanteReciboConsumoFuenteV1) {
+		m.PruebaEmitidaEn != pruebaEmitidaEn.Format(formatoInstanteReciboConsumoFuenteV2) ||
+		m.PruebaValidaHasta != pruebaValidaHasta.Format(formatoInstanteReciboConsumoFuenteV2) ||
+		m.ObtenidaEn != obtenidaEn.Format(formatoInstanteReciboConsumoFuenteV2) {
 		return nuevoError("recibo_consumo_fuente.cotejo", CodigoHuellaNoCoincide)
 	}
 	return nil
 }
 
-func (r ReciboConsumoAutorizacionFuenteV1) Consumo() (ReferenciaExactaV1, error) {
+func (r ReciboConsumoAutorizacionFuenteV2) Consumo() (ReferenciaExactaV1, error) {
 	if err := r.Validar(); err != nil {
 		return ReferenciaExactaV1{}, err
 	}
 	return r.material.Consumo, nil
 }
 
-func (r ReciboConsumoAutorizacionFuenteV1) ConsumidaEn() (time.Time, error) {
+func (r ReciboConsumoAutorizacionFuenteV2) ConsumidaEn() (time.Time, error) {
 	if err := r.Validar(); err != nil {
 		return time.Time{}, err
 	}
-	instante, err := time.Parse(formatoInstanteReciboConsumoFuenteV1, r.material.ConsumidaEn)
+	instante, err := time.Parse(formatoInstanteReciboConsumoFuenteV2, r.material.ConsumidaEn)
 	if err != nil {
 		return time.Time{}, nuevoError("recibo_consumo_fuente.consumida_en", CodigoValorNoCanonico)
+	}
+	return instante, nil
+}
+
+func (r ReciboConsumoAutorizacionFuenteV2) ObtenidaEn() (time.Time, error) {
+	if err := r.Validar(); err != nil {
+		return time.Time{}, err
+	}
+	instante, err := time.Parse(formatoInstanteReciboConsumoFuenteV2, r.material.ObtenidaEn)
+	if err != nil {
+		return time.Time{}, nuevoError("recibo_consumo_fuente.obtenida_en", CodigoValorNoCanonico)
 	}
 	return instante, nil
 }

@@ -33,7 +33,7 @@ type datosReciboConsumoFuenteDoble struct {
 	decisionRef, esquemaDecision, huellaDecision                 string
 	recursoRef, huellaContexto, correlacionRef, huellaSelector   string
 	huellaEntrada                                                string
-	pruebaEmitidaEn, pruebaValidaHasta, consumidaEn              time.Time
+	pruebaEmitidaEn, pruebaValidaHasta, consumidaEn, obtenidaEn  time.Time
 }
 
 func (f *fuentePrueba) ObtenerFuenteExacta(
@@ -66,17 +66,17 @@ func construirReciboConsumoFuenteDoble(
 	solicitud puertosbolsa.SolicitudFuenteExactaCalculoReglasBaremo,
 	resultado puertosbolsa.FuenteExactaCalculoReglasBaremo,
 	alterar func(*datosReciboConsumoFuenteDoble),
-) oficial.ReciboConsumoAutorizacionFuenteV1 {
+) oficial.ReciboConsumoAutorizacionFuenteV2 {
 	datosAutorizacion, err := solicitud.Autorizacion.Datos()
 	huellaSelector, errSelector := solicitud.Selector.HuellaSHA256V1()
 	huellaEntrada, errEntrada := resultado.Entrada.HuellaSHA256()
 	if err != nil || errSelector != nil || errEntrada != nil {
-		return oficial.ReciboConsumoAutorizacionFuenteV1{}
+		return oficial.ReciboConsumoAutorizacionFuenteV2{}
 	}
 	decision := datosAutorizacion.Decision
 	datos := datosReciboConsumoFuenteDoble{
 		consumo: oficial.ReferenciaExactaV1{
-			Referencia: "consumo:autorizacion:oficial", Version: 1,
+			Referencia: tokenPrueba("consumo:autorizacion:", "consumo-autorizacion-oficial"), Version: 1,
 			HuellaSHA256: strings.Repeat("7", 64),
 		},
 		fuenteExacta:  referenciaExactaDoble(resultado.Prueba.Evidencia),
@@ -89,19 +89,20 @@ func construirReciboConsumoFuenteDoble(
 		correlacionRef: decision.CorrelacionRef, huellaSelector: huellaSelector,
 		huellaEntrada: huellaEntrada, pruebaEmitidaEn: resultado.Prueba.EmitidaEn,
 		pruebaValidaHasta: resultado.Prueba.ValidaHasta, consumidaEn: resultado.ObtenidaEn,
+		obtenidaEn: resultado.ObtenidaEn,
 	}
 	if alterar != nil {
 		alterar(&datos)
 	}
-	recibo, err := oficial.NuevoReciboConsumoAutorizacionFuenteV1(
+	recibo, err := oficial.NuevoReciboConsumoAutorizacionFuenteV2(
 		datos.consumo, datos.decisionRef, datos.esquemaDecision, datos.huellaDecision,
 		datos.recursoRef, datos.huellaContexto, datos.correlacionRef, datos.huellaSelector,
 		datos.huellaEntrada, datos.fuenteExacta, datos.verificador,
 		datos.consumoPrueba, datos.auditoria, datos.pruebaEmitidaEn,
-		datos.pruebaValidaHasta, datos.consumidaEn,
+		datos.pruebaValidaHasta, datos.consumidaEn, datos.obtenidaEn,
 	)
 	if err != nil {
-		return oficial.ReciboConsumoAutorizacionFuenteV1{}
+		return oficial.ReciboConsumoAutorizacionFuenteV2{}
 	}
 	return recibo
 }
@@ -187,7 +188,8 @@ func (e *exigidorPrueba) ExigirEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2
 		verificadaEn = ahora.Add(-30 * time.Second)
 	}
 	decision := dominiovec.DecisionAutorizacion{
-		DecisionRef: "decision:calculo:" + string(rune('0'+indice)), Concedida: true, Codigo: "concedida",
+		DecisionRef: tokenPrueba("decision:", "decision-calculo-"+string(rune('0'+indice))),
+		Concedida:   true, Codigo: "concedida",
 		PrincipalID: actor.Principal.ID, PerfilActivoRef: actor.PerfilActivoRef,
 		Accion: accion, RecursoRef: recurso.Referencia, ModuloID: recurso.ModuloID,
 		TipoRecurso: recurso.Tipo, ContextoRecursoHuellaSHA256: huellaContexto,

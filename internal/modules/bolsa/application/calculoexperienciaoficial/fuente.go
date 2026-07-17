@@ -2,7 +2,6 @@ package calculoexperienciaoficial
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	oficial "vec-diputacion-granada/internal/modules/bolsa/domain/calculoexperienciaoficial"
@@ -78,7 +77,7 @@ func validarFuenteExacta(
 		return ErrFuenteNoConfiable
 	}
 	if validarReciboConsumoFuente(
-		fuente, selector, autorizacion, solicitadaEn,
+		fuente, selector, autorizacion, solicitadaEn, comprobadaEn,
 	) != nil {
 		return ErrFuenteNoConfiable
 	}
@@ -89,7 +88,7 @@ func validarReciboConsumoFuente(
 	fuente puertosbolsa.FuenteExactaCalculoReglasBaremo,
 	selector puertosbolsa.SelectorFuenteExactaCalculoReglasBaremo,
 	autorizacion puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
-	solicitadaEn time.Time,
+	solicitadaEn, comprobadaEn time.Time,
 ) error {
 	datos, errDatos := autorizacion.Datos()
 	huellaSelector, errSelector := selector.HuellaSHA256V1()
@@ -117,7 +116,7 @@ func validarReciboConsumoFuente(
 		referenciaExactaOficial(fuente.ConsumoPrueba),
 		referenciaExactaOficial(fuente.Auditoria),
 		fuente.Prueba.EmitidaEn, fuente.Prueba.ValidaHasta,
-		solicitadaEn, fuente.ObtenidaEn,
+		fuente.ObtenidaEn, solicitadaEn, comprobadaEn,
 	)
 }
 
@@ -171,31 +170,19 @@ func referenciasFuenteDistintas(
 func referenciasFuenteConRolNominal(
 	fuente puertosbolsa.FuenteExactaCalculoReglasBaremo,
 ) bool {
-	roles := []struct {
-		referencia reglas.ReferenciaVersionada
-		prefijo    string
-	}{
-		{fuente.Prueba.Evidencia, "evidencia:fuente:"},
-		{fuente.Prueba.Verificador, "verificador:fuente:"},
-		{fuente.ConsumoPrueba, "consumo:prueba:"},
-		{fuente.Auditoria, "auditoria:fuente:"},
-		{fuente.Prueba.EstadoReglas.Contenido(), "reglas:"},
-		{fuente.Prueba.InstantaneaEntrada, "iex_"},
-		{fuente.Prueba.Convocatoria, "convocatoria:"},
-	}
-	for _, rol := range roles {
-		valor := rol.referencia.Referencia()
-		if !referenciaValida(rol.referencia) || !strings.HasPrefix(valor, rol.prefijo) ||
-			len(valor) <= len(rol.prefijo) || strings.Contains(valor, "..") ||
-			strings.ContainsAny(valor, "/@\\") {
-			return false
-		}
-	}
-	return oficial.ReferenciaReglasFuenteExactaV1Valida(
+	return oficial.ReferenciaEvidenciaFuenteExactaV2Valida(
+		fuente.Prueba.Evidencia.Referencia(),
+	) && oficial.ReferenciaVerificadorFuenteExactaV2Valida(
+		fuente.Prueba.Verificador.Referencia(),
+	) && oficial.ReferenciaConsumoPruebaFuenteExactaV2Valida(
+		fuente.ConsumoPrueba.Referencia(),
+	) && oficial.ReferenciaAuditoriaFuenteExactaV2Valida(
+		fuente.Auditoria.Referencia(),
+	) && oficial.ReferenciaReglasFuenteExactaV2Valida(
 		fuente.Prueba.EstadoReglas.Contenido().Referencia(),
-	) && oficial.ReferenciaInstantaneaFuenteExactaV1Valida(
+	) && oficial.ReferenciaInstantaneaFuenteExactaV2Valida(
 		fuente.Prueba.InstantaneaEntrada.Referencia(),
-	) && oficial.ReferenciaConvocatoriaFuenteExactaV1Valida(
+	) && oficial.ReferenciaConvocatoriaFuenteExactaV2Valida(
 		fuente.Prueba.Convocatoria.Referencia(),
 	)
 }
