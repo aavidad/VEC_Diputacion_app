@@ -30,7 +30,7 @@
 ### T01 — Analisis de brecha del nucleo heredado (DEC-050)
 
 - `origen`: DEC-050 del registro de decisiones.
-- `estado`: completado 2026-07-16 por direccion: [analisis de brecha](portal_vec/brecha_nucleo_heredado_bolsa.md) fusionado; el porte queda pendiente de la decision de alcance de la inscripcion ciudadana.
+- `estado`: completado 2026-07-16 por direccion: [analisis de brecha](portal_vec/brecha_nucleo_heredado_bolsa.md) fusionado; la decision de alcance quedo adoptada como DEC-079 (sede existente, sin autobaremo declarativo): el porte del legado puede abrirse conforme a ella.
 - `area_hexagonal`: docs primero; nucleo y composicion despues.
 - `accion`: documentar el inventario de capacidades de `internal/candidate`
   y el analisis de brecha contra `internal/modules/bolsa`, dejando en el

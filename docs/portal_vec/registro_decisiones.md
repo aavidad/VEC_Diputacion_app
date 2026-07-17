@@ -2723,3 +2723,30 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - Evidencia: runner sobre PostgreSQL 18.4 con contrato de dieciséis columnas,
   ACL/RLS, objetos futuros, huella cruzada Go/PostgreSQL, revocación concurrente,
   caducidad bajo bloqueo, anti-rollback local, desmontaje y reinstalación.
+
+## DEC-079 — Inscripcion de aspirantes por sede existente y sin autobaremo declarativo
+
+- Fecha: 2026-07-17. Decision del responsable del proyecto.
+- Contexto: el analisis de brecha del nucleo heredado
+  (`docs/portal_vec/brecha_nucleo_heredado_bolsa.md`) constato que el ciclo
+  de inscripcion ciudadana del legado nunca tuvo un endpoint real: portarlo
+  es construirlo por primera vez, y su alcance debia decidirse antes de
+  abrir codigo (condicion de DEC-050).
+- Decision, fase inicial:
+  1. La solicitud del aspirante entra por la **sede electronica y el
+     registro corporativo existentes**. El VEC importa las solicitudes
+     registradas y RRHH las tramita. No se construye identificacion
+     ciudadana propia (Cl@ve) en esta fase; la zona externa del VEC sigue
+     siendo de consulta minimizada.
+  2. **Se suprime el autobaremo declarativo previo** del aspirante. La
+     puntuacion la calcula exclusivamente el motor oficial configurable
+     (reglas versionadas y selladas, datos de oficio conforme al articulo
+     28 de la Ley 39/2015); las discrepancias se cauzan por el procedimiento
+     de alegaciones ya previsto.
+- Consecuencias para el porte (DEC-050): de la lista "falta y se porta" del
+  analisis de brecha, el ciclo de Solicitud se disena contra la importacion
+  desde registro (no contra un formulario publico); el autobaremo ciudadano
+  del legado pasa a la lista de descartes con este motivo; el
+  ranking/desempate se porta contra el motor oficial. La inscripcion
+  telematica propia queda como ampliacion posible de fase 2, que debera
+  decidirse por DEC propia cuando exista identidad ciudadana.
