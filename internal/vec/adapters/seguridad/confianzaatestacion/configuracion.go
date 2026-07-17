@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"crypto/subtle"
 	"crypto/x509"
 	"encoding/binary"
 	"encoding/hex"
@@ -176,6 +177,19 @@ func NuevaConfiguracionConfianzaAtestacionAutorizacionV2(
 		return ConfiguracionConfianzaAtestacionAutorizacionV2{}, ErrConfiguracionConfianzaAtestacionV2Invalida
 	}
 	return configuracion, nil
+}
+
+// ValidarHuellaSHA256Esperada comprueba una huella durable sin exponer la
+// representacion interna de la configuracion. Permite a los adaptadores de
+// persistencia acreditar que reconstruyeron exactamente la revision leida.
+func (c ConfiguracionConfianzaAtestacionAutorizacionV2) ValidarHuellaSHA256Esperada(
+	esperada string,
+) error {
+	if c.validar() != nil || !huellaSHA256ConfianzaValida(esperada) ||
+		subtle.ConstantTimeCompare([]byte(c.huellaSHA256), []byte(esperada)) != 1 {
+		return ErrConfiguracionConfianzaAtestacionV2Invalida
+	}
+	return nil
 }
 
 func (c ConfiguracionConfianzaAtestacionAutorizacionV2) validar() error {

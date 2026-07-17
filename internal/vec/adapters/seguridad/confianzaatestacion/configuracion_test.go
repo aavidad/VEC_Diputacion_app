@@ -56,6 +56,16 @@ func TestConfiguracionConfianzaAtestacionV2ClonaYEsIndependienteDelOrden(t *test
 	if err != nil || configuracion.huellaSHA256 != invertida.huellaSHA256 {
 		t.Fatalf("la huella depende del orden: %s / %s / %v", configuracion.huellaSHA256, invertida.huellaSHA256, err)
 	}
+	if err := configuracion.ValidarHuellaSHA256Esperada(configuracion.huellaSHA256); err != nil {
+		t.Fatalf("la huella exacta fue rechazada: %v", err)
+	}
+	huellaDistinta := strings.Repeat("0", 64)
+	if huellaDistinta == configuracion.huellaSHA256 {
+		huellaDistinta = strings.Repeat("1", 64)
+	}
+	if err := configuracion.ValidarHuellaSHA256Esperada(huellaDistinta); !errors.Is(err, ErrConfiguracionConfianzaAtestacionV2Invalida) {
+		t.Fatalf("una huella distinta fue aceptada: %v", err)
+	}
 
 	publicaPrimera[0] ^= 0xff
 	primera.clavePublica[0] ^= 0xff
