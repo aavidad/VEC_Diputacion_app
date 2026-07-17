@@ -108,13 +108,23 @@ func TestServerSirvePortalBolsaPermanenteSinEstilosInline(t *testing.T) {
 			t.Fatal("la UI no gobierna el aviso DEMOSTRACIÓN desde la fuente")
 		}
 		if prueba.ruta == "/bolsa/" {
+			contenido := rec.Body.String()
+			inicioMenu := strings.Index(contenido, `<aside class="menu-lateral-publico"`)
+			if inicioMenu < 0 {
+				t.Fatal("la bolsa pública servida no contiene el menú lateral")
+			}
+			finMenu := strings.Index(contenido[inicioMenu:], "</aside>")
+			if finMenu < 0 {
+				t.Fatal("el menú lateral público servido no está cerrado")
+			}
+			menu := contenido[inicioMenu : inicioMenu+finMenu]
 			for _, destinoPublico := range []string{"#contenido-principal", "#filtros-convocatorias", "#directorio-categorias", "#ayuda-publica"} {
-				if !strings.Contains(rec.Body.String(), `href="`+destinoPublico+`"`) {
+				if !strings.Contains(menu, `href="`+destinoPublico+`"`) {
 					t.Errorf("el menú público servido no contiene el destino %q", destinoPublico)
 				}
 			}
 			for _, accesoInterno := range []string{"Cronos", "Nóminas", "Dietas", "Administración", "Auditoría"} {
-				if strings.Contains(rec.Body.String(), accesoInterno) {
+				if strings.Contains(menu, accesoInterno) {
 					t.Errorf("el menú público servido expone el acceso interno %q", accesoInterno)
 				}
 			}
