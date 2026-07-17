@@ -69,6 +69,7 @@ func TestValidarConjuntoSuperficiesSeparado(t *testing.T) {
 				c[1].HuellasProxyTLSPermitidas = nil
 				c[1].IdentidadesSANProxyPermitidas = nil
 				c[1].DuracionMaximaAsercion = 0
+				c[1].EdadMaximaAutenticacion = 0
 				c[1].ToleranciaReloj = 0
 				c[1].MetodosAdmitidos = nil
 				c[1].FactoresRequeridos = nil
@@ -120,10 +121,23 @@ func TestConfiguracionSuperficieFallaCerrada(t *testing.T) {
 		{"tolerancia negativa", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.ToleranciaReloj = -time.Second })},
 		{"tolerancia superior a dos minutos", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.ToleranciaReloj = 2*time.Minute + time.Second })},
 		{"duracion superior a cinco minutos", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.DuracionMaximaAsercion = 5*time.Minute + time.Second })},
+		{"edad de autenticacion ausente", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.EdadMaximaAutenticacion = 0 })},
+		{"edad de autenticacion personal excesiva", cambiar(basePersonal, func(c *ConfiguracionSuperficie) {
+			c.EdadMaximaAutenticacion = edadMaximaAutenticacionPersonal + time.Second
+		})},
+		{"edad de autenticacion interna excesiva", cambiar(baseInterna, func(c *ConfiguracionSuperficie) {
+			c.EdadMaximaAutenticacion = edadMaximaAutenticacionInterna + time.Second
+		})},
+		{"edad de autenticacion administrativa no estricta", cambiar(baseAdmin, func(c *ConfiguracionSuperficie) {
+			c.EdadMaximaAutenticacion = edadMaximaAutenticacionAdministracion + time.Second
+		})},
 		{"anonima con audiencia", cambiar(basePublica, func(c *ConfiguracionSuperficie) { c.Audiencia = "vec-publico" })},
 		{"anonima con garantia", cambiar(basePublica, func(c *ConfiguracionSuperficie) { c.GarantiaMinima = dominiovec.AuthAssuranceHigh })},
 		{"anonima con emisor", cambiar(basePublica, func(c *ConfiguracionSuperficie) { c.EmisorIdentidad = "idp" })},
 		{"anonima con tolerancia de sesion", cambiar(basePublica, func(c *ConfiguracionSuperficie) { c.ToleranciaReloj = time.Second })},
+		{"anonima con edad de autenticacion", cambiar(basePublica, func(c *ConfiguracionSuperficie) {
+			c.EdadMaximaAutenticacion = time.Minute
+		})},
 		{"personal permite anonimo", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.PermiteAnonimo = true })},
 		{"personal sin emisor", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.EmisorIdentidad = "" })},
 		{"personal con emisor sin TLS", cambiar(basePersonal, func(c *ConfiguracionSuperficie) { c.EmisorIdentidad = "http://identidad.example.test" })},
@@ -225,6 +239,7 @@ func configuracionPersonalValida() ConfiguracionSuperficie {
 		RedesPermitidas:                     []string{"0.0.0.0/0", "::/0"},
 		IdentidadesSANProxyPermitidas:       []string{"dns:proxy-personal.vec.test"},
 		DuracionMaximaAsercion:              5 * time.Minute,
+		EdadMaximaAutenticacion:             edadMaximaAutenticacionPersonal,
 		ToleranciaReloj:                     30 * time.Second,
 		MetodosAdmitidos:                    []MetodoAutenticacion{MetodoClave, MetodoCertificado, MetodoDNIe},
 		MinimoFactoresVerificados:           1,
@@ -243,6 +258,7 @@ func configuracionInternaValida() ConfiguracionSuperficie {
 		RedesPermitidas:                     []string{"10.40.0.0/16"},
 		IdentidadesSANProxyPermitidas:       []string{"dns:proxy-interno.mulhacen.test"},
 		DuracionMaximaAsercion:              3 * time.Minute,
+		EdadMaximaAutenticacion:             edadMaximaAutenticacionInterna,
 		ToleranciaReloj:                     20 * time.Second,
 		MetodosAdmitidos:                    []MetodoAutenticacion{MetodoKerberos, MetodoCertificado},
 		FactoresRequeridos:                  []MetodoAutenticacion{MetodoKerberos, MetodoCertificado},
@@ -262,6 +278,7 @@ func configuracionAdministracionValida() ConfiguracionSuperficie {
 		RedesPermitidas:                     []string{"10.50.0.0/24"},
 		IdentidadesSANProxyPermitidas:       []string{"dns:proxy-administracion.mulhacen.test"},
 		DuracionMaximaAsercion:              5 * time.Minute,
+		EdadMaximaAutenticacion:             edadMaximaAutenticacionAdministracion,
 		ToleranciaReloj:                     10 * time.Second,
 		MetodosAdmitidos:                    []MetodoAutenticacion{MetodoKerberos, MetodoCertificado},
 		FactoresRequeridos:                  []MetodoAutenticacion{MetodoKerberos, MetodoCertificado},

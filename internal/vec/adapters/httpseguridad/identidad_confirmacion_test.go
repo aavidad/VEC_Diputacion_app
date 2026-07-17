@@ -57,9 +57,37 @@ func TestResolverRechazaConfirmacionDuraderaNoLigadaAlAlta(t *testing.T) {
 			c.CuentaOrdinariaRef = "cta_otra23456789abcdefghijkl"
 		}},
 		{"eco de cuenta alterado", func(c *ConfirmacionAltaSesion, _ AltaSesionAtomica) { c.AltaConfirmada.CuentaID = "otra-cuenta" }},
-		{"eco de politica alterado", func(c *ConfirmacionAltaSesion, _ AltaSesionAtomica) { c.AltaConfirmada.PoliticaRef = "otra-politica" }},
+		{"eco de politica alterado", func(c *ConfirmacionAltaSesion, _ AltaSesionAtomica) {
+			c.AltaConfirmada.PoliticaGarantiaRef = "pga_otra23456789abcdefghijkl"
+		}},
+		{"eco de espacio de identidad alterado", func(c *ConfirmacionAltaSesion, _ AltaSesionAtomica) {
+			c.AltaConfirmada.EspacioIdentidad = "https://otro-idp.example.test"
+		}},
 		{"eco de tiempo alterado", func(c *ConfirmacionAltaSesion, _ AltaSesionAtomica) {
-			c.AltaConfirmada.ExpiraEn = c.AltaConfirmada.ExpiraEn.Add(time.Second)
+			c.AltaConfirmada.AsercionExpiraEn = c.AltaConfirmada.AsercionExpiraEn.Add(time.Second)
+		}},
+		{"revision cero", func(c *ConfirmacionAltaSesion, _ AltaSesionAtomica) { c.ControlSesionRevision = 0 }},
+		{"revision de alta distinta de uno", func(c *ConfirmacionAltaSesion, _ AltaSesionAtomica) {
+			c.ControlSesionRevision = 2
+		}},
+		{"control revocado", func(c *ConfirmacionAltaSesion, _ AltaSesionAtomica) {
+			c.ControlSesionEstado = EstadoControlSesionRevocada
+		}},
+		{"huella de control no canonica", func(c *ConfirmacionAltaSesion, _ AltaSesionAtomica) {
+			c.ControlSesionHuellaSHA256 = strings.Repeat("A", 64)
+		}},
+		{"revalidacion sin microsegundos", func(c *ConfirmacionAltaSesion, _ AltaSesionAtomica) {
+			c.SesionRevalidadaEn = c.SesionRevalidadaEn.Add(time.Nanosecond)
+		}},
+		{"vigencia amplia la asercion", func(c *ConfirmacionAltaSesion, alta AltaSesionAtomica) {
+			c.SesionValidaHasta = alta.AsercionExpiraEn.Add(time.Microsecond)
+		}},
+		{"vigencia no posterior", func(c *ConfirmacionAltaSesion, _ AltaSesionAtomica) {
+			c.SesionValidaHasta = c.SesionRevalidadaEn
+		}},
+		{"revalidacion futura", func(c *ConfirmacionAltaSesion, alta AltaSesionAtomica) {
+			c.SesionRevalidadaEn = alta.SesionEmitidaEn.Add(90 * time.Second)
+			c.SesionValidaHasta = alta.AsercionExpiraEn
 		}},
 	}
 
@@ -133,20 +161,27 @@ func TestProyeccionConservaYRevalidaConfirmacionExacta(t *testing.T) {
 	if consulta.AutenticacionRef != confirmacion.AutenticacionRef || consulta.AsercionRef != confirmacion.AsercionRef ||
 		consulta.SesionRef != confirmacion.SesionRef || consulta.ControlSesionRef != confirmacion.ControlSesionRef ||
 		consulta.CuentaRef != confirmacion.CuentaRef || consulta.CuentaOrdinariaRef != confirmacion.CuentaOrdinariaRef ||
-		!altasSesionCoinciden(confirmacion.AltaConfirmada, AltaSesionAtomica{
-			AsercionID: consulta.AsercionID, SesionID: consulta.SesionID, SujetoID: consulta.SujetoID,
-			CuentaID: consulta.CuentaID, CuentaOrdinariaID: consulta.CuentaOrdinariaID,
-			CuentaPrivilegiada: consulta.CuentaPrivilegiada, Superficie: consulta.Superficie,
-			EmitidaEn: consulta.EmitidaEn, ExpiraEn: consulta.ExpiraEn,
-			PoliticaRef: consulta.PoliticaRef, HuellaPolitica: consulta.HuellaPolitica,
-		}) {
+		consulta.AutenticacionHuellaSHA256 != confirmacion.AltaConfirmada.AutenticacionHuellaSHA256 ||
+		consulta.CuentaPrivilegiada != confirmacion.AltaConfirmada.CuentaPrivilegiada ||
+		consulta.Superficie != confirmacion.AltaConfirmada.Superficie ||
+		consulta.MetodoObservado != confirmacion.AltaConfirmada.MetodoObservado ||
+		consulta.GarantiaObservada != confirmacion.AltaConfirmada.GarantiaObservada ||
+		consulta.PoliticaGarantiaRef != confirmacion.AltaConfirmada.PoliticaGarantiaRef ||
+		consulta.PoliticaGarantiaHuellaSHA256 != confirmacion.AltaConfirmada.PoliticaGarantiaHuellaSHA256 ||
+		!consulta.AutenticacionVerificadaEn.Equal(confirmacion.AltaConfirmada.AutenticacionVerificadaEn) ||
+		!consulta.SesionEmitidaEn.Equal(confirmacion.AltaConfirmada.SesionEmitidaEn) ||
+		consulta.ControlSesionRevision != confirmacion.ControlSesionRevision ||
+		consulta.ControlSesionEstado != confirmacion.ControlSesionEstado ||
+		consulta.ControlSesionHuellaSHA256 != confirmacion.ControlSesionHuellaSHA256 ||
+		!consulta.SesionRevalidadaEn.Equal(confirmacion.SesionRevalidadaEn) ||
+		!consulta.SesionValidaHasta.Equal(confirmacion.SesionValidaHasta) {
 		t.Fatalf("consulta de revalidacion no reproduce la confirmacion: %#v", consulta)
 	}
 
 	registro.mu.Lock()
-	alterada := registro.sesiones["sesion-001"]
+	alterada := registro.sesiones[confirmacion.SesionRef]
 	alterada.ControlSesionRef = "cse_alterado567890abcdefghijkl"
-	registro.sesiones["sesion-001"] = alterada
+	registro.sesiones[confirmacion.SesionRef] = alterada
 	registro.mu.Unlock()
 	if _, _, err := servicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
 		t.Fatalf("el registro alterado durante la revalidacion fue aceptado: %v", err)
@@ -167,9 +202,9 @@ func TestCuentaPrivilegiadaConservaReferenciasDeCuentaSeparadas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolver: %v", err)
 	}
-	_, auditoria, err := servicio.ProyectarPrincipal(context.Background(), identidad)
+	principal, auditoria, err := servicio.ProyectarPrincipal(context.Background(), identidad)
 	if err != nil || auditoria.CuentaRef() == auditoria.CuentaOrdinariaRef() ||
-		auditoria.CuentaRef() == auditoria.CuentaID() || auditoria.CuentaOrdinariaRef() == auditoria.CuentaOrdinariaID() {
+		auditoria.CuentaRef() == principal.ID || auditoria.CuentaOrdinariaRef() == principal.ID {
 		t.Fatalf("referencias de cuenta privilegiada no separadas: %#v %v", auditoria, err)
 	}
 }

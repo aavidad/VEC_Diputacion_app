@@ -130,12 +130,20 @@ type AsercionProxyIdentidad struct {
 	Cuenta            CuentaAcceso
 	SesionID          string
 	CanalVinculadoRef string
-	EmitidaEn         time.Time
-	NoAntesDe         time.Time
-	ExpiraEn          time.Time
-	MetodoPrimario    MetodoAutenticacion
-	ACRVerificado     string
-	Factores          []FactorAutenticacion
+	// AutenticacionVerificadaEn es el instante de autenticacion afirmado por
+	// el documento protegido y aceptado por el verificador. No es el reloj
+	// local posterior a la verificacion.
+	AutenticacionVerificadaEn time.Time
+	// EmitidaEn es el instante de emision de la sesion acreditado por el
+	// documento protegido; no es la mera hora de serializacion del token.
+	EmitidaEn time.Time
+	NoAntesDe time.Time
+	// ExpiraEn limita la asercion y es el maximo que el registro puede conceder
+	// como vigencia de la sesion, aunque puede devolver un plazo menor.
+	ExpiraEn       time.Time
+	MetodoPrimario MetodoAutenticacion
+	ACRVerificado  string
+	Factores       []FactorAutenticacion
 }
 
 // VerificadorAsercionProtegida verifica firma, algoritmo, claves, revocacion y
@@ -169,22 +177,6 @@ type ResultadoEvaluacionGarantia struct {
 // reconozca.
 type EvaluadorGarantia interface {
 	Evaluar(context.Context, EntradaEvaluacionGarantia) (ResultadoEvaluacionGarantia, error)
-}
-
-// AltaSesionAtomica es el dato que recibe el registro de reproduccion. No
-// contiene el mensaje protegido.
-type AltaSesionAtomica struct {
-	AsercionID         string
-	SesionID           string
-	SujetoID           string
-	CuentaID           string
-	CuentaOrdinariaID  string
-	CuentaPrivilegiada bool
-	Superficie         Superficie
-	EmitidaEn          time.Time
-	ExpiraEn           time.Time
-	PoliticaRef        string
-	HuellaPolitica     string
 }
 
 type Reloj interface {
@@ -267,90 +259,27 @@ func (IdentidadSesion) Format(estado fmt.State, _ rune) {
 }
 
 type estadoIdentidadSesion struct {
-	asercionID          string
-	emisor              string
-	audiencia           string
-	sujetoID            string
-	cuenta              CuentaAcceso
-	sesionID            string
-	superficie          Superficie
-	canalVinculadoRef   string
-	emitidaEn           time.Time
-	noAntesDe           time.Time
-	expiraEn            time.Time
-	metodoPrimario      MetodoAutenticacion
-	acrVerificado       string
-	garantia            dominiovec.AuthAssurance
-	politicaGarantiaRef string
-	huellaPolitica      string
-	factores            []FactorAutenticacion
-}
-
-// ResumenFactorAuditoria no contiene secretos ni concede autorizacion.
-type ResumenFactorAuditoria struct {
-	Metodo                MetodoAutenticacion
-	EvidenciaRef          string
-	GrupoCriptograficoRef string
-	VerificadoEn          time.Time
-}
-
-// ContextoAuditoriaAutenticada conserva la identidad humana, la cuenta, la
-// sesion, la superficie y la politica verificadas. Deliberadamente no contiene
-// roles, permisos ni atributos de autorizacion.
-type ContextoAuditoriaAutenticada struct {
-	autenticacionRef    string
-	asercionRef         string
-	sesionRef           string
-	controlSesionRef    string
-	cuentaRef           string
-	cuentaOrdinariaRef  string
-	asercionID          string
-	emisor              string
-	audiencia           string
-	sujetoID            string
-	cuentaID            string
-	cuentaOrdinariaID   string
-	cuentaPrivilegiada  bool
-	sesionID            string
-	superficie          Superficie
-	metodoPrimario      MetodoAutenticacion
-	garantia            dominiovec.AuthAssurance
-	emitidaEn           time.Time
-	noAntesDe           time.Time
-	expiraEn            time.Time
-	politicaGarantiaRef string
-	huellaPolitica      string
-	huellaConfiguracion string
-	canalVinculadoRef   string
-	factores            []ResumenFactorAuditoria
-}
-
-func (c ContextoAuditoriaAutenticada) AutenticacionRef() string            { return c.autenticacionRef }
-func (c ContextoAuditoriaAutenticada) AsercionRef() string                 { return c.asercionRef }
-func (c ContextoAuditoriaAutenticada) SesionRef() string                   { return c.sesionRef }
-func (c ContextoAuditoriaAutenticada) ControlSesionRef() string            { return c.controlSesionRef }
-func (c ContextoAuditoriaAutenticada) CuentaRef() string                   { return c.cuentaRef }
-func (c ContextoAuditoriaAutenticada) CuentaOrdinariaRef() string          { return c.cuentaOrdinariaRef }
-func (c ContextoAuditoriaAutenticada) AsercionID() string                  { return c.asercionID }
-func (c ContextoAuditoriaAutenticada) Emisor() string                      { return c.emisor }
-func (c ContextoAuditoriaAutenticada) Audiencia() string                   { return c.audiencia }
-func (c ContextoAuditoriaAutenticada) SujetoID() string                    { return c.sujetoID }
-func (c ContextoAuditoriaAutenticada) CuentaID() string                    { return c.cuentaID }
-func (c ContextoAuditoriaAutenticada) CuentaOrdinariaID() string           { return c.cuentaOrdinariaID }
-func (c ContextoAuditoriaAutenticada) CuentaPrivilegiada() bool            { return c.cuentaPrivilegiada }
-func (c ContextoAuditoriaAutenticada) SesionID() string                    { return c.sesionID }
-func (c ContextoAuditoriaAutenticada) Superficie() Superficie              { return c.superficie }
-func (c ContextoAuditoriaAutenticada) MetodoPrimario() MetodoAutenticacion { return c.metodoPrimario }
-func (c ContextoAuditoriaAutenticada) Garantia() dominiovec.AuthAssurance  { return c.garantia }
-func (c ContextoAuditoriaAutenticada) EmitidaEn() time.Time                { return c.emitidaEn }
-func (c ContextoAuditoriaAutenticada) NoAntesDe() time.Time                { return c.noAntesDe }
-func (c ContextoAuditoriaAutenticada) ExpiraEn() time.Time                 { return c.expiraEn }
-func (c ContextoAuditoriaAutenticada) PoliticaGarantiaRef() string         { return c.politicaGarantiaRef }
-func (c ContextoAuditoriaAutenticada) HuellaPolitica() string              { return c.huellaPolitica }
-func (c ContextoAuditoriaAutenticada) HuellaConfiguracion() string         { return c.huellaConfiguracion }
-func (c ContextoAuditoriaAutenticada) CanalVinculadoRef() string           { return c.canalVinculadoRef }
-func (c ContextoAuditoriaAutenticada) Factores() []ResumenFactorAuditoria {
-	return append([]ResumenFactorAuditoria(nil), c.factores...)
+	asercionID                string
+	emisor                    string
+	espacioIdentidad          string
+	audiencia                 string
+	sujetoID                  string
+	cuenta                    CuentaAcceso
+	sesionID                  string
+	superficie                Superficie
+	canalVinculadoRef         string
+	autenticacionHuellaSHA256 string
+	autenticacionVerificadaEn time.Time
+	emitidaEn                 time.Time
+	noAntesDe                 time.Time
+	expiraEn                  time.Time
+	metodoPrimario            MetodoAutenticacion
+	metodoObservado           dominiovec.AuthMethod
+	acrVerificado             string
+	garantia                  dominiovec.AuthAssurance
+	politicaGarantiaRef       string
+	huellaPolitica            string
+	factores                  []FactorAutenticacion
 }
 
 // ServicioIdentidad es la unica autoridad que crea y proyecta identidades.
@@ -566,7 +495,15 @@ func (s *ServicioIdentidad) Resolver(ctx context.Context, credencial CredencialP
 	if len(credencial.asercionProtegida) > longitudMaximaAsercionProtegida {
 		return IdentidadSesion{}, ErrAsercionDemasiadoGrande
 	}
-	asercion, err := s.verificador.Verificar(ctx, append([]byte(nil), credencial.asercionProtegida...))
+	// La huella se calcula sobre el material privado que nunca se entrega a un
+	// puerto. El verificador recibe otro respaldo para que un parser in-place no
+	// pueda alterar los bytes cuya huella queda registrada.
+	huellaAutenticacion := sha256.Sum256(credencial.asercionProtegida)
+	protegidaVerificada := append([]byte(nil), credencial.asercionProtegida...)
+	asercion, err := s.verificador.Verificar(ctx, protegidaVerificada)
+	for indice := range protegidaVerificada {
+		protegidaVerificada[indice] = 0
+	}
 	if err != nil {
 		return IdentidadSesion{}, ErrAsercionNoValida
 	}
@@ -588,6 +525,12 @@ func (s *ServicioIdentidad) Resolver(ctx context.Context, credencial CredencialP
 	estado.garantia = resultado.Garantia
 	estado.politicaGarantiaRef = resultado.PoliticaRef
 	estado.huellaPolitica = resultado.HuellaPolitica
+	estado.autenticacionHuellaSHA256 = hex.EncodeToString(huellaAutenticacion[:])
+	metodoObservado, valido := metodoAutenticacionDominio(estado.metodoPrimario)
+	if !valido {
+		return IdentidadSesion{}, ErrAsercionNoValida
+	}
+	estado.metodoObservado = metodoObservado
 	alta := altaSesion(estado)
 	confirmacion, err := s.registroSesiones.ConsumirAsercionYRegistrar(ctx, alta)
 	if err != nil {
@@ -603,7 +546,9 @@ func (s *ServicioIdentidad) Resolver(ctx context.Context, credencial CredencialP
 		return IdentidadSesion{}, err
 	}
 	ahoraFinal := s.reloj.Ahora()
-	if ahoraFinal.IsZero() || !ahoraFinal.Before(estado.expiraEn) {
+	if ahoraFinal.IsZero() || ahoraFinal.Before(confirmacion.SesionRevalidadaEn) ||
+		!ahoraFinal.Before(estado.expiraEn) ||
+		!ahoraFinal.Before(confirmacion.SesionValidaHasta) {
 		return IdentidadSesion{}, ErrSesionNoValida
 	}
 	return IdentidadSesion{
@@ -647,23 +592,26 @@ func (s *ServicioIdentidad) ProyectarPrincipal(
 		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, err
 	}
 	consulta := ConsultaSesionActiva{
-		AutenticacionRef:   identidad.confirmacion.AutenticacionRef,
-		AsercionRef:        identidad.confirmacion.AsercionRef,
-		SesionRef:          identidad.confirmacion.SesionRef,
-		ControlSesionRef:   identidad.confirmacion.ControlSesionRef,
-		CuentaRef:          identidad.confirmacion.CuentaRef,
-		CuentaOrdinariaRef: identidad.confirmacion.CuentaOrdinariaRef,
-		AsercionID:         identidad.estado.asercionID,
-		SesionID:           identidad.estado.sesionID,
-		SujetoID:           identidad.estado.sujetoID,
-		CuentaID:           identidad.estado.cuenta.ID,
-		CuentaOrdinariaID:  identidad.estado.cuenta.CuentaOrdinariaID,
-		CuentaPrivilegiada: identidad.estado.cuenta.Privilegiada,
-		Superficie:         identidad.estado.superficie,
-		EmitidaEn:          identidad.estado.emitidaEn,
-		ExpiraEn:           identidad.estado.expiraEn,
-		PoliticaRef:        identidad.estado.politicaGarantiaRef,
-		HuellaPolitica:     identidad.estado.huellaPolitica,
+		AutenticacionRef:             identidad.confirmacion.AutenticacionRef,
+		AutenticacionHuellaSHA256:    identidad.estado.autenticacionHuellaSHA256,
+		AsercionRef:                  identidad.confirmacion.AsercionRef,
+		SesionRef:                    identidad.confirmacion.SesionRef,
+		CuentaRef:                    identidad.confirmacion.CuentaRef,
+		CuentaOrdinariaRef:           identidad.confirmacion.CuentaOrdinariaRef,
+		CuentaPrivilegiada:           identidad.estado.cuenta.Privilegiada,
+		Superficie:                   identidad.estado.superficie,
+		MetodoObservado:              identidad.estado.metodoObservado,
+		GarantiaObservada:            identidad.estado.garantia,
+		PoliticaGarantiaRef:          identidad.estado.politicaGarantiaRef,
+		PoliticaGarantiaHuellaSHA256: strings.TrimPrefix(identidad.estado.huellaPolitica, "sha256:"),
+		AutenticacionVerificadaEn:    identidad.estado.autenticacionVerificadaEn,
+		SesionEmitidaEn:              identidad.estado.emitidaEn,
+		ControlSesionRef:             identidad.confirmacion.ControlSesionRef,
+		ControlSesionRevision:        identidad.confirmacion.ControlSesionRevision,
+		ControlSesionEstado:          identidad.confirmacion.ControlSesionEstado,
+		ControlSesionHuellaSHA256:    identidad.confirmacion.ControlSesionHuellaSHA256,
+		SesionRevalidadaEn:           identidad.confirmacion.SesionRevalidadaEn,
+		SesionValidaHasta:            identidad.confirmacion.SesionValidaHasta,
 	}
 	if err := s.registroSesiones.ComprobarSesionYCuentaActivas(ctx, consulta); err != nil {
 		if ctx.Err() != nil {
@@ -675,7 +623,7 @@ func (s *ServicioIdentidad) ProyectarPrincipal(
 		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, err
 	}
 	metodo, valido := metodoAutenticacionDominio(identidad.estado.metodoPrimario)
-	if !valido {
+	if !valido || metodo != identidad.estado.metodoObservado {
 		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
 	principal := dominiovec.Principal{
@@ -687,7 +635,9 @@ func (s *ServicioIdentidad) ProyectarPrincipal(
 		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
 	ahoraFinal := s.reloj.Ahora()
-	if ahoraFinal.IsZero() || !ahoraFinal.Before(identidad.estado.expiraEn) {
+	if ahoraFinal.IsZero() || ahoraFinal.Before(identidad.confirmacion.SesionRevalidadaEn) ||
+		!ahoraFinal.Before(identidad.estado.expiraEn) ||
+		!ahoraFinal.Before(identidad.confirmacion.SesionValidaHasta) {
 		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
 	return principal, nuevoContextoAuditoria(identidad.estado, identidad.confirmacion, s.huellaConfiguracion), nil
@@ -736,8 +686,10 @@ func normalizarYValidarAsercion(
 		return estado, ErrAsercionNoValida
 	}
 	estado.emisor = a.Emisor
+	estado.espacioIdentidad = a.Emisor
 	estado.audiencia = a.Audiencia
 	estado.superficie = a.Superficie
+	estado.autenticacionVerificadaEn = a.AutenticacionVerificadaEn
 	estado.emitidaEn = a.EmitidaEn
 	estado.noAntesDe = a.NoAntesDe
 	estado.expiraEn = a.ExpiraEn
@@ -750,10 +702,14 @@ func normalizarYValidarAsercion(
 }
 
 func validarEstadoSesion(estado estadoIdentidadSesion, c ConfiguracionSuperficie, ahora time.Time) error {
-	if estado.emisor != c.EmisorIdentidad || estado.audiencia != c.Audiencia || estado.superficie != c.Superficie ||
-		!estado.metodoPrimario.Valido() || !estado.garantia.Valida() ||
+	metodoObservado, metodoValido := metodoAutenticacionDominio(estado.metodoPrimario)
+	if estado.emisor != c.EmisorIdentidad || estado.espacioIdentidad != c.EmisorIdentidad ||
+		estado.audiencia != c.Audiencia || estado.superficie != c.Superficie ||
+		!estado.metodoPrimario.Valido() || !metodoValido || estado.metodoObservado != metodoObservado ||
+		!huellaSHA256SesionValida(estado.autenticacionHuellaSHA256) || !estado.garantia.Valida() ||
 		!dominiovec.CumpleGarantiaAutenticacion(estado.garantia, c.GarantiaMinima) ||
-		strings.TrimSpace(estado.politicaGarantiaRef) == "" || validarHuellaPolitica(estado.huellaPolitica) != nil {
+		!referenciaOpacaSesionValida(estado.politicaGarantiaRef, "pga_") ||
+		validarHuellaPolitica(estado.huellaPolitica) != nil {
 		return ErrSesionNoValida
 	}
 	for _, valor := range []struct {
@@ -785,7 +741,12 @@ func validarEstadoSesion(estado estadoIdentidadSesion, c ConfiguracionSuperficie
 }
 
 func validarTiempos(estado estadoIdentidadSesion, c ConfiguracionSuperficie, ahora time.Time) error {
-	if estado.emitidaEn.IsZero() || estado.noAntesDe.IsZero() || estado.expiraEn.IsZero() ||
+	if !instanteSesionCanonico(estado.autenticacionVerificadaEn) ||
+		!instanteSesionCanonico(estado.emitidaEn) || !instanteSesionCanonico(estado.noAntesDe) ||
+		!instanteSesionCanonico(estado.expiraEn) ||
+		estado.autenticacionVerificadaEn.After(estado.emitidaEn) ||
+		estado.autenticacionVerificadaEn.After(ahora.Add(c.ToleranciaReloj)) ||
+		!ahora.Before(estado.autenticacionVerificadaEn.Add(c.EdadMaximaAutenticacion)) ||
 		!estado.expiraEn.After(estado.emitidaEn) ||
 		estado.noAntesDe.Before(estado.emitidaEn.Add(-c.ToleranciaReloj)) ||
 		estado.noAntesDe.After(estado.expiraEn) ||
@@ -947,23 +908,30 @@ func (s *ServicioIdentidad) evaluarGarantia(ctx context.Context, estado estadoId
 		!dominiovec.CumpleGarantiaAutenticacion(resultado.Garantia, s.configuracion.GarantiaMinima) {
 		return ResultadoEvaluacionGarantia{}, ErrAsercionNoValida
 	}
-	politica, err := canonicalizarID(resultado.PoliticaRef, longitudMaximaReferencia, true)
-	if err != nil {
+	if !referenciaOpacaSesionValida(resultado.PoliticaRef, "pga_") {
 		return ResultadoEvaluacionGarantia{}, ErrAsercionNoValida
 	}
 	huella, err := normalizarHuellaCertificado(resultado.HuellaPolitica)
-	if err != nil {
+	if err != nil || huella != resultado.HuellaPolitica {
 		return ResultadoEvaluacionGarantia{}, ErrAsercionNoValida
 	}
-	return ResultadoEvaluacionGarantia{Garantia: resultado.Garantia, PoliticaRef: politica, HuellaPolitica: huella}, nil
+	return ResultadoEvaluacionGarantia{
+		Garantia: resultado.Garantia, PoliticaRef: resultado.PoliticaRef, HuellaPolitica: huella,
+	}, nil
 }
 
 func altaSesion(estado estadoIdentidadSesion) AltaSesionAtomica {
 	return AltaSesionAtomica{
 		AsercionID: estado.asercionID, SesionID: estado.sesionID, SujetoID: estado.sujetoID,
 		CuentaID: estado.cuenta.ID, CuentaOrdinariaID: estado.cuenta.CuentaOrdinariaID,
-		CuentaPrivilegiada: estado.cuenta.Privilegiada, Superficie: estado.superficie, EmitidaEn: estado.emitidaEn,
-		ExpiraEn: estado.expiraEn, PoliticaRef: estado.politicaGarantiaRef, HuellaPolitica: estado.huellaPolitica,
+		CuentaPrivilegiada: estado.cuenta.Privilegiada, Superficie: estado.superficie,
+		EspacioIdentidad: estado.espacioIdentidad,
+		MetodoObservado:  estado.metodoObservado, GarantiaObservada: estado.garantia,
+		AutenticacionHuellaSHA256: estado.autenticacionHuellaSHA256,
+		AutenticacionVerificadaEn: estado.autenticacionVerificadaEn,
+		SesionEmitidaEn:           estado.emitidaEn, AsercionExpiraEn: estado.expiraEn,
+		PoliticaGarantiaRef:          estado.politicaGarantiaRef,
+		PoliticaGarantiaHuellaSHA256: strings.TrimPrefix(estado.huellaPolitica, "sha256:"),
 	}
 }
 

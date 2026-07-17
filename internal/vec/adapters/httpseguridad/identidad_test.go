@@ -129,6 +129,12 @@ func TestServicioIdentidadResuelveYProyectaContextoAuditable(t *testing.T) {
 	if string(verificador.ultima) != "asercion-firmada-opaca" {
 		t.Fatalf("el constructor no copio los bytes: %q", verificador.ultima)
 	}
+	if string(credencial.asercionProtegida) != "asercion-firmada-opaca" {
+		t.Fatalf("el verificador pudo mutar el material privado hasheado: %q", credencial.asercionProtegida)
+	}
+	if identidad.confirmacion.AltaConfirmada.EspacioIdentidad != configuracion.EmisorIdentidad {
+		t.Fatalf("alta sin espacio de identidad protegido: %q", identidad.confirmacion.AltaConfirmada.EspacioIdentidad)
+	}
 
 	principal, auditoria, err := servicio.ProyectarPrincipal(context.Background(), identidad)
 	if err != nil {
@@ -139,12 +145,23 @@ func TestServicioIdentidadResuelveYProyectaContextoAuditable(t *testing.T) {
 		principal.Permissions != nil || principal.Attributes != nil {
 		t.Fatalf("principal minimo inesperado: %#v", principal)
 	}
-	if auditoria.SujetoID() != "persona-001" || auditoria.CuentaID() != "cuenta-tecnica" ||
-		auditoria.SesionID() != "sesion-001" || auditoria.Superficie() != SuperficieInternaCorporativa ||
+	if auditoria.Superficie() != SuperficieInternaCorporativa ||
 		auditoria.Garantia() != dominiovec.AuthAssuranceHigh || len(auditoria.Factores()) != 2 ||
-		auditoria.PoliticaGarantiaRef() != "politica-garantia-v1" ||
+		auditoria.PoliticaGarantiaRef() != "pga_0123456789abcdefghijkl" ||
 		!strings.HasPrefix(auditoria.HuellaConfiguracion(), "sha256:") {
 		t.Fatalf("contexto de auditoria incompleto: %#v", auditoria)
+	}
+	huellaProtegida := sha256.Sum256([]byte("asercion-firmada-opaca"))
+	if auditoria.AutenticacionHuellaSHA256() != fmt.Sprintf("%x", huellaProtegida) ||
+		auditoria.AutenticacionHuellaSHA256() != identidad.confirmacion.AltaConfirmada.AutenticacionHuellaSHA256 ||
+		auditoria.MetodoObservado() != dominiovec.AuthMethodCertificate ||
+		auditoria.PoliticaGarantiaHuellaSHA256() != strings.Repeat("a", 64) ||
+		auditoria.ControlSesionRevision() != 1 || auditoria.ControlSesionEstado() != EstadoControlSesionActiva ||
+		auditoria.ControlSesionHuellaSHA256() != identidad.confirmacion.ControlSesionHuellaSHA256 ||
+		!auditoria.AutenticacionVerificadaEn().Equal(identidad.estado.autenticacionVerificadaEn) ||
+		!auditoria.SesionRevalidadaEn().Equal(identidad.confirmacion.SesionRevalidadaEn) ||
+		!auditoria.SesionValidaHasta().Equal(identidad.confirmacion.SesionValidaHasta) {
+		t.Fatalf("proyeccion autoritativa incompleta: %#v", auditoria)
 	}
 	factores := auditoria.Factores()
 	factores[0].EvidenciaRef = "mutada"
@@ -278,6 +295,22 @@ func TestServicioIdentidadFallaCerradoAnteAsercionesInvalidas(t *testing.T) {
 		{"metodo primario ausente", func(a *AsercionProxyIdentidad) { a.MetodoPrimario = "" }},
 		{"metodo primario sin factor", func(a *AsercionProxyIdentidad) { a.MetodoPrimario = MetodoDNIe }},
 		{"canal no vinculado", func(a *AsercionProxyIdentidad) { a.CanalVinculadoRef = "tls:otro" }},
+		{"autenticacion verificada ausente", func(a *AsercionProxyIdentidad) { a.AutenticacionVerificadaEn = time.Time{} }},
+		{"autenticacion posterior a sesion", func(a *AsercionProxyIdentidad) {
+			a.AutenticacionVerificadaEn = a.EmitidaEn.Add(time.Microsecond)
+		}},
+		{"autenticacion demasiado antigua", func(a *AsercionProxyIdentidad) {
+			a.AutenticacionVerificadaEn = ahora.Add(-configuracion.EdadMaximaAutenticacion)
+		}},
+		{"autenticacion fuera de UTC canonico", func(a *AsercionProxyIdentidad) {
+			a.AutenticacionVerificadaEn = a.AutenticacionVerificadaEn.In(time.FixedZone("UTC-no-canonico", 0))
+		}},
+		{"autenticacion sin precision PostgreSQL", func(a *AsercionProxyIdentidad) {
+			a.AutenticacionVerificadaEn = a.AutenticacionVerificadaEn.Add(time.Nanosecond)
+		}},
+		{"sesion emitida sin precision PostgreSQL", func(a *AsercionProxyIdentidad) {
+			a.EmitidaEn = a.EmitidaEn.Add(time.Nanosecond)
+		}},
 		{"emitida en futuro", func(a *AsercionProxyIdentidad) { a.EmitidaEn = ahora.Add(time.Minute) }},
 		{"aun no vigente", func(a *AsercionProxyIdentidad) { a.NoAntesDe = ahora.Add(time.Minute) }},
 		{"caducada", func(a *AsercionProxyIdentidad) { a.ExpiraEn = ahora }},
@@ -359,13 +392,25 @@ func TestGarantiaSeCalculaYSeLigaALaPolitica(t *testing.T) {
 		t.Fatalf("la garantia calculada insuficiente debe denegarse: %v", err)
 	}
 
+	for _, resultado := range []ResultadoEvaluacionGarantia{
+		{Garantia: dominiovec.AuthAssuranceHigh, PoliticaRef: "politica-garantia-v1", HuellaPolitica: "sha256:" + strings.Repeat("a", 64)},
+		{Garantia: dominiovec.AuthAssuranceHigh, PoliticaRef: "pga_corta", HuellaPolitica: "sha256:" + strings.Repeat("a", 64)},
+		{Garantia: dominiovec.AuthAssuranceHigh, PoliticaRef: "pga_0123456789abcdefghijkl", HuellaPolitica: "SHA256:" + strings.Repeat("A", 64)},
+		{Garantia: dominiovec.AuthAssuranceHigh, PoliticaRef: "pga_0123456789abcdefghijkl", HuellaPolitica: strings.Repeat("a", 64)},
+	} {
+		evaluador.fijarResultado(resultado)
+		if _, err := servicio.Resolver(context.Background(), debeCredencial(t, []byte("politica-no-canonica"), canal)); !errors.Is(err, ErrAsercionNoValida) {
+			t.Fatalf("politica no canonica aceptada (%#v): %v", resultado, err)
+		}
+	}
+
 	evaluador.fijarResultado(resultadoGarantia(dominiovec.AuthAssuranceHigh))
 	identidad, err := servicio.Resolver(context.Background(), debeCredencial(t, []byte("otra-opaca"), canal))
 	if err != nil {
 		t.Fatalf("garantia calculada valida: %v", err)
 	}
 	evaluador.fijarResultado(ResultadoEvaluacionGarantia{
-		Garantia: dominiovec.AuthAssuranceHigh, PoliticaRef: "politica-garantia-v2",
+		Garantia: dominiovec.AuthAssuranceHigh, PoliticaRef: "pga_otra23456789abcdefghijkl",
 		HuellaPolitica: "sha256:" + strings.Repeat("b", 64),
 	})
 	if _, _, err := servicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
@@ -397,7 +442,8 @@ func TestAreaPersonalMantieneConectoresAlternativosIntercambiables(t *testing.T)
 			Audiencia: configuracion.Audiencia, Superficie: configuracion.Superficie, SujetoID: "persona-001",
 			Cuenta:   CuentaAcceso{ID: "persona.cuenta", SujetoVinculadoID: "persona-001"},
 			SesionID: fmt.Sprintf("sesion-personal-%d", indice), CanalVinculadoRef: canal.ReferenciaVinculacion(),
-			EmitidaEn: emitida, NoAntesDe: emitida, ExpiraEn: ahora.Add(time.Minute),
+			AutenticacionVerificadaEn: emitida,
+			EmitidaEn:                 emitida, NoAntesDe: emitida, ExpiraEn: ahora.Add(time.Minute),
 			MetodoPrimario: factor.Metodo, ACRVerificado: "urn:vec:acr:sustancial", Factores: []FactorAutenticacion{factor},
 		}
 		verificador.fijarAsercion(asercion)
@@ -427,7 +473,8 @@ func TestAdministracionComparaCuentasCanonicalizadas(t *testing.T) {
 		t.Fatalf("cuenta administrativa nominativa: %v", err)
 	}
 	principal, auditoria, err := servicio.ProyectarPrincipal(context.Background(), identidad)
-	if err != nil || principal.ID != "adm-cuenta-tecnica" || auditoria.CuentaOrdinariaID() != "cuenta-tecnica" || !auditoria.CuentaPrivilegiada() {
+	if err != nil || principal.ID != "adm-cuenta-tecnica" ||
+		identidad.estado.cuenta.CuentaOrdinariaID != "cuenta-tecnica" || !auditoria.CuentaPrivilegiada() {
 		t.Fatalf("cuentas no canonicalizadas: %#v %#v %v", principal, auditoria, err)
 	}
 	registro.inactivar("cuenta-tecnica")
@@ -633,7 +680,7 @@ func evaluadorValido(garantia dominiovec.AuthAssurance) *evaluadorFalso {
 
 func resultadoGarantia(garantia dominiovec.AuthAssurance) ResultadoEvaluacionGarantia {
 	return ResultadoEvaluacionGarantia{
-		Garantia: garantia, PoliticaRef: "politica-garantia-v1",
+		Garantia: garantia, PoliticaRef: "pga_0123456789abcdefghijkl",
 		HuellaPolitica: "sha256:" + strings.Repeat("a", 64),
 	}
 }
@@ -643,7 +690,8 @@ func asercionInternaValida(ahora time.Time, c ConfiguracionSuperficie, canal Can
 	return AsercionProxyIdentidad{
 		ID: "asercion-001", Emisor: c.EmisorIdentidad, Audiencia: c.Audiencia, Superficie: c.Superficie,
 		SujetoID: "persona-001", Cuenta: CuentaAcceso{ID: "Cuenta-Tecnica", SujetoVinculadoID: "persona-001"},
-		SesionID: "sesion-001", CanalVinculadoRef: canal.ReferenciaVinculacion(), EmitidaEn: emitida,
+		SesionID: "sesion-001", CanalVinculadoRef: canal.ReferenciaVinculacion(),
+		AutenticacionVerificadaEn: emitida, EmitidaEn: emitida,
 		NoAntesDe: emitida, ExpiraEn: ahora.Add(time.Minute), MetodoPrimario: MetodoCertificado,
 		ACRVerificado: "urn:vec:acr:alto",
 		Factores: []FactorAutenticacion{

@@ -21,8 +21,11 @@ var (
 )
 
 const (
-	duracionLimiteAsercion = 5 * time.Minute
-	toleranciaLimiteReloj  = 2 * time.Minute
+	duracionLimiteAsercion                = 5 * time.Minute
+	toleranciaLimiteReloj                 = 2 * time.Minute
+	edadMaximaAutenticacionPersonal       = 12 * time.Hour
+	edadMaximaAutenticacionInterna        = 15 * time.Minute
+	edadMaximaAutenticacionAdministracion = 5 * time.Minute
 )
 
 // Superficie es un conjunto cerrado de clases de ruta. La zona anonima y el
@@ -72,15 +75,19 @@ func (z ZonaRed) Valida() bool {
 // RedesPermitidas siempre es explicita; incluso la red publica debe declarar
 // 0.0.0.0/0 y/o ::/0 cuando quiera aceptar Internet.
 type ConfiguracionSuperficie struct {
-	Superficie                          Superficie
-	ZonaRed                             ZonaRed
-	DireccionEscucha                    string
-	Audiencia                           string
-	EmisorIdentidad                     string
-	RedesPermitidas                     []string
-	HuellasProxyTLSPermitidas           []string
-	IdentidadesSANProxyPermitidas       []string
-	DuracionMaximaAsercion              time.Duration
+	Superficie                    Superficie
+	ZonaRed                       ZonaRed
+	DireccionEscucha              string
+	Audiencia                     string
+	EmisorIdentidad               string
+	RedesPermitidas               []string
+	HuellasProxyTLSPermitidas     []string
+	IdentidadesSANProxyPermitidas []string
+	DuracionMaximaAsercion        time.Duration
+	// EdadMaximaAutenticacion limita la antiguedad del acto de
+	// autenticacion protegido, no solo la de la asercion que lo transporta.
+	// Cada superficie admite un limite duro y puede configurarse uno menor.
+	EdadMaximaAutenticacion             time.Duration
 	ToleranciaReloj                     time.Duration
 	PermiteAnonimo                      bool
 	MetodosAdmitidos                    []MetodoAutenticacion
@@ -122,7 +129,8 @@ func (c ConfiguracionSuperficie) Validar() error {
 			len(c.HuellasProxyTLSPermitidas) != 0 || len(c.IdentidadesSANProxyPermitidas) != 0 ||
 			len(c.MetodosAdmitidos) != 0 || len(c.FactoresRequeridos) != 0 ||
 			c.MinimoFactoresVerificados != 0 || c.MinimoGruposCriptograficosDistintos != 0 ||
-			c.GarantiaMinima != "" || c.RequiereCuentaPrivilegiada || c.DuracionMaximaAsercion != 0 || c.ToleranciaReloj != 0 {
+			c.GarantiaMinima != "" || c.RequiereCuentaPrivilegiada || c.DuracionMaximaAsercion != 0 ||
+			c.EdadMaximaAutenticacion != 0 || c.ToleranciaReloj != 0 {
 			return fmt.Errorf("%w: la superficie anonima no puede crear ni aceptar sesiones", ErrConfiguracionSuperficie)
 		}
 		return nil
@@ -133,8 +141,10 @@ func (c ConfiguracionSuperficie) Validar() error {
 	}
 	if validarAudienciaConfigurada(c.Audiencia) != nil || validarEmisorConfigurado(c.EmisorIdentidad) != nil ||
 		c.DuracionMaximaAsercion <= 0 || c.DuracionMaximaAsercion > duracionLimiteAsercion ||
+		c.EdadMaximaAutenticacion <= 0 ||
+		c.EdadMaximaAutenticacion > limiteEdadAutenticacion(c.Superficie) ||
 		!c.GarantiaMinima.Valida() {
-		return fmt.Errorf("%w: emisor y duracion maxima son obligatorios", ErrConfiguracionSuperficie)
+		return fmt.Errorf("%w: emisor, duracion y frescura de autenticacion son obligatorios", ErrConfiguracionSuperficie)
 	}
 	if err := validarConfianzaProxyTLS(c); err != nil {
 		return err
@@ -162,6 +172,19 @@ func (c ConfiguracionSuperficie) Validar() error {
 		return fmt.Errorf("%w: la cuenta privilegiada solo pertenece a administracion", ErrConfiguracionSuperficie)
 	}
 	return nil
+}
+
+func limiteEdadAutenticacion(superficie Superficie) time.Duration {
+	switch superficie {
+	case SuperficieExternaPersonal:
+		return edadMaximaAutenticacionPersonal
+	case SuperficieInternaCorporativa:
+		return edadMaximaAutenticacionInterna
+	case SuperficieAdministracionPrivilegiada:
+		return edadMaximaAutenticacionAdministracion
+	default:
+		return 0
+	}
 }
 
 func validarCorrespondenciaZona(superficie Superficie, zona ZonaRed) error {
