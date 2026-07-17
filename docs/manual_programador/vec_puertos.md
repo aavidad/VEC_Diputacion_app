@@ -443,6 +443,9 @@ var ErrOrdenRegistroAutorizacionSolicitudLigadaV2Invalida = errors.New(
 	"vec: orden de registro de autorizacion ligada a solicitud invalida",
 )
 var ErrRevalidacionAutenticacionActorNoDisponible = errors.New("vec: revalidacion de autenticacion y actor no disponible")
+var ErrSerializacionAtestacionAutorizacionV2Prohibida = errors.New(
+	"vec: serializacion generica de atestacion de autorizacion V2 prohibida",
+)
 var ErrSerializacionTokenReservaCobroProhibida = errors.New(
 	"vec: serializacion de token de reserva de cobro prohibida",
 )
@@ -753,6 +756,73 @@ func (a AtestacionAutorizacionV1) Resultado() (ResultadoFirmaAtestacionAutorizac
 
 func (a AtestacionAutorizacionV1) ValidarPara(
 	solicitud SolicitudFirmaAtestacionAutorizacionV1,
+) error
+
+type AtestacionAutorizacionV2 struct {
+	// Has unexported fields.
+}
+```
+
+AtestacionAutorizacionV2 conserva juntos el mensaje exacto y la salida del
+firmante. Sigue siendo evidencia nominal hasta superar perfil de confianza,
+vigencia, revocacion, revalidacion y consumo unico en la transaccion final.
+
+```go
+func NuevaAtestacionAutorizacionV2(
+	solicitud SolicitudFirmaAtestacionAutorizacionV2,
+	resultado ResultadoFirmaAtestacionAutorizacionV2,
+) (AtestacionAutorizacionV2, error)
+
+func (b AtestacionAutorizacionV2) Format(estado fmt.State, _ rune)
+
+func (b AtestacionAutorizacionV2) GoString() string
+
+func (*AtestacionAutorizacionV2) GobDecode([]byte) error
+
+func (AtestacionAutorizacionV2) GobEncode() ([]byte, error)
+
+func (b AtestacionAutorizacionV2) LogValue() slog.Value
+
+func (AtestacionAutorizacionV2) MarshalBinary() ([]byte, error)
+
+func (AtestacionAutorizacionV2) MarshalCBOR() ([]byte, error)
+
+func (AtestacionAutorizacionV2) MarshalJSON() ([]byte, error)
+
+func (AtestacionAutorizacionV2) MarshalText() ([]byte, error)
+
+func (AtestacionAutorizacionV2) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (AtestacionAutorizacionV2) MarshalYAML() (any, error)
+
+func (a AtestacionAutorizacionV2) Resultado() (ResultadoFirmaAtestacionAutorizacionV2, error)
+
+func (a AtestacionAutorizacionV2) Solicitud() (SolicitudFirmaAtestacionAutorizacionV2, error)
+
+func (AtestacionAutorizacionV2) String() string
+
+func (*AtestacionAutorizacionV2) UnmarshalBinary([]byte) error
+
+func (*AtestacionAutorizacionV2) UnmarshalCBOR([]byte) error
+
+func (*AtestacionAutorizacionV2) UnmarshalJSON([]byte) error
+
+func (*AtestacionAutorizacionV2) UnmarshalText([]byte) error
+
+func (*AtestacionAutorizacionV2) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*AtestacionAutorizacionV2) UnmarshalYAML(func(any) error) error
+
+func (a AtestacionAutorizacionV2) Validar() error
+
+func (a AtestacionAutorizacionV2) ValidarPara(
+	solicitud SolicitudFirmaAtestacionAutorizacionV2,
 ) error
 
 type AtestacionCriptograficaMaterialAlmacenV2 struct {
@@ -3406,6 +3476,19 @@ type FirmanteAtestacionesAutorizacionV1 interface {
 
 FirmanteAtestacionesAutorizacionV1 es un puerto de salida. La implementacion
 productiva debe usar identidad exclusiva del PDP y una clave no exportable.
+
+```go
+type FirmanteAtestacionesAutorizacionV2 interface {
+	FirmarAtestacionAutorizacionV2(
+		context.Context,
+		SolicitudFirmaAtestacionAutorizacionV2,
+	) (ResultadoFirmaAtestacionAutorizacionV2, error)
+}
+```
+
+FirmanteAtestacionesAutorizacionV2 es un puerto deliberadamente distinto de
+V1. La implementacion productiva debe usar la identidad exclusiva del PDP y
+una clave no exportable aprobada para el perfil VEC-AD-2.
 
 ```go
 type FirmanteEvidenciasRenderizadoDocumentalV3 interface {
@@ -6752,6 +6835,80 @@ func (r ResultadoFirmaAtestacionAutorizacionV1) ValidarPara(
 	solicitud SolicitudFirmaAtestacionAutorizacionV1,
 ) error
 
+type ResultadoFirmaAtestacionAutorizacionV2 struct {
+	// Has unexported fields.
+}
+```
+
+ResultadoFirmaAtestacionAutorizacionV2 conserva la salida opaca del
+proveedor y la liga a una unica solicitud VEC-AD-2 mediante su huella.
+Verificar el perfil criptografico sigue siendo responsabilidad del adaptador
+privado de confianza que consuma esta salida.
+
+```go
+func NuevoResultadoFirmaAtestacionAutorizacionV2(
+	solicitud SolicitudFirmaAtestacionAutorizacionV2,
+	firma []byte,
+	evidenciaOperacionRef string,
+	firmadaEn time.Time,
+) (ResultadoFirmaAtestacionAutorizacionV2, error)
+
+func (r ResultadoFirmaAtestacionAutorizacionV2) EvidenciaOperacionRef() (string, error)
+
+func (r ResultadoFirmaAtestacionAutorizacionV2) Firma() ([]byte, error)
+
+func (r ResultadoFirmaAtestacionAutorizacionV2) FirmadaEn() (time.Time, error)
+
+func (b ResultadoFirmaAtestacionAutorizacionV2) Format(estado fmt.State, _ rune)
+
+func (b ResultadoFirmaAtestacionAutorizacionV2) GoString() string
+
+func (*ResultadoFirmaAtestacionAutorizacionV2) GobDecode([]byte) error
+
+func (ResultadoFirmaAtestacionAutorizacionV2) GobEncode() ([]byte, error)
+
+func (r ResultadoFirmaAtestacionAutorizacionV2) HuellaMensajeSHA256() (string, error)
+
+func (b ResultadoFirmaAtestacionAutorizacionV2) LogValue() slog.Value
+
+func (ResultadoFirmaAtestacionAutorizacionV2) MarshalBinary() ([]byte, error)
+
+func (ResultadoFirmaAtestacionAutorizacionV2) MarshalCBOR() ([]byte, error)
+
+func (ResultadoFirmaAtestacionAutorizacionV2) MarshalJSON() ([]byte, error)
+
+func (ResultadoFirmaAtestacionAutorizacionV2) MarshalText() ([]byte, error)
+
+func (ResultadoFirmaAtestacionAutorizacionV2) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (ResultadoFirmaAtestacionAutorizacionV2) MarshalYAML() (any, error)
+
+func (ResultadoFirmaAtestacionAutorizacionV2) String() string
+
+func (*ResultadoFirmaAtestacionAutorizacionV2) UnmarshalBinary([]byte) error
+
+func (*ResultadoFirmaAtestacionAutorizacionV2) UnmarshalCBOR([]byte) error
+
+func (*ResultadoFirmaAtestacionAutorizacionV2) UnmarshalJSON([]byte) error
+
+func (*ResultadoFirmaAtestacionAutorizacionV2) UnmarshalText([]byte) error
+
+func (*ResultadoFirmaAtestacionAutorizacionV2) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*ResultadoFirmaAtestacionAutorizacionV2) UnmarshalYAML(func(any) error) error
+
+func (r ResultadoFirmaAtestacionAutorizacionV2) Validar() error
+
+func (r ResultadoFirmaAtestacionAutorizacionV2) ValidarPara(
+	solicitud SolicitudFirmaAtestacionAutorizacionV2,
+) error
+
 type ResultadoIntentoCASReconciliacionDocumentalV4 string
 
 const (
@@ -8083,6 +8240,81 @@ func (s SolicitudFirmaAtestacionAutorizacionV1) Mensaje() ([]byte, error)
 func (s SolicitudFirmaAtestacionAutorizacionV1) ReferenciaDecision() (string, error)
 
 func (s SolicitudFirmaAtestacionAutorizacionV1) Validar() error
+
+type SolicitudFirmaAtestacionAutorizacionV2 struct {
+	// Has unexported fields.
+}
+```
+
+SolicitudFirmaAtestacionAutorizacionV2 conserva exactamente el mensaje
+VEC-AD-2 que debe recibir el firmante. Es un contrato nominal: ni construir
+la solicitud ni obtener sus datos concede autoridad para ejecutar un efecto.
+
+```go
+func NuevaSolicitudFirmaAtestacionAutorizacionV2(
+	cabecera domain.CabeceraAtestacionAutorizacionV2,
+	decision domain.DecisionAutorizacion,
+	referenciaMotivo domain.ReferenciaEntradaCatalogo,
+) (SolicitudFirmaAtestacionAutorizacionV2, error)
+
+func (s SolicitudFirmaAtestacionAutorizacionV2) Cabecera() (
+	domain.CabeceraAtestacionAutorizacionV2,
+	error,
+)
+
+func (b SolicitudFirmaAtestacionAutorizacionV2) Format(estado fmt.State, _ rune)
+
+func (b SolicitudFirmaAtestacionAutorizacionV2) GoString() string
+
+func (*SolicitudFirmaAtestacionAutorizacionV2) GobDecode([]byte) error
+
+func (SolicitudFirmaAtestacionAutorizacionV2) GobEncode() ([]byte, error)
+
+func (s SolicitudFirmaAtestacionAutorizacionV2) HuellaMensajeSHA256() (string, error)
+
+func (s SolicitudFirmaAtestacionAutorizacionV2) HuellaMotivoCatalogoSHA256() (string, error)
+
+func (s SolicitudFirmaAtestacionAutorizacionV2) HuellaSolicitudLigadaSHA256() (string, error)
+
+func (b SolicitudFirmaAtestacionAutorizacionV2) LogValue() slog.Value
+
+func (SolicitudFirmaAtestacionAutorizacionV2) MarshalBinary() ([]byte, error)
+
+func (SolicitudFirmaAtestacionAutorizacionV2) MarshalCBOR() ([]byte, error)
+
+func (SolicitudFirmaAtestacionAutorizacionV2) MarshalJSON() ([]byte, error)
+
+func (SolicitudFirmaAtestacionAutorizacionV2) MarshalText() ([]byte, error)
+
+func (SolicitudFirmaAtestacionAutorizacionV2) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (SolicitudFirmaAtestacionAutorizacionV2) MarshalYAML() (any, error)
+
+func (s SolicitudFirmaAtestacionAutorizacionV2) Mensaje() ([]byte, error)
+
+func (s SolicitudFirmaAtestacionAutorizacionV2) ReferenciaDecision() (string, error)
+
+func (SolicitudFirmaAtestacionAutorizacionV2) String() string
+
+func (*SolicitudFirmaAtestacionAutorizacionV2) UnmarshalBinary([]byte) error
+
+func (*SolicitudFirmaAtestacionAutorizacionV2) UnmarshalCBOR([]byte) error
+
+func (*SolicitudFirmaAtestacionAutorizacionV2) UnmarshalJSON([]byte) error
+
+func (*SolicitudFirmaAtestacionAutorizacionV2) UnmarshalText([]byte) error
+
+func (*SolicitudFirmaAtestacionAutorizacionV2) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*SolicitudFirmaAtestacionAutorizacionV2) UnmarshalYAML(func(any) error) error
+
+func (s SolicitudFirmaAtestacionAutorizacionV2) Validar() error
 
 type SolicitudFirmaEvidenciaRenderizadoDocumentalV3 struct {
 	// Has unexported fields.

@@ -2643,6 +2643,30 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   transaccional prevista por DEC-047.
 - Compatibilidad: que la primitiva sepa verificar ES256 no aprueba ES256 para
   la atestación PDP actual, cuyo perfil sigue limitado expresamente a EdDSA.
+
+## DEC-076 — Puerto de firma VEC-AD-2 separado y no autoritativo
+
+- Estado: contrato de puertos, servicio de aplicación y pruebas implantados el
+  17 de julio de 2026; adaptador HSM/KMS, perfil de confianza y consumo
+  transaccional pendientes.
+- Versionado: V2 posee solicitud, resultado, atestación y firmante propios. No
+  implementa V1, no lo reinterpreta y no permite entregar el resultado de una
+  solicitud a otra aunque compartan cabecera.
+- Ligadura: la solicitud conserva los bytes canónicos VEC-AD-2 y compromete de
+  forma independiente mensaje, `decision_ref`, huella de solicitud y huella del
+  motivo catalogado. El parser estricto vuelve a cotejar esos compromisos antes
+  de cada entrega al firmante.
+- Copias y registros: entradas y salidas binarias se copian defensivamente. El
+  formateo y `slog` solo muestran una marca redactada; JSON, XML, texto,
+  binario, Gob, CBOR y YAML genéricos fallan cerrados.
+- Errores: cancelación se conserva, los fallos internos del proveedor no se
+  propagan y una denegación o referencia de motivo incoherente no alcanza el
+  firmante.
+- No autoridad: una firma opaca no acredita todavía clave institucional,
+  audiencia, entorno, vigencia, revocación ni consumo único. Ningún handler
+  obtiene por este contrato permiso para mutar una baremación.
+- Siguiente frontera: perfil privado de confianza VEC-AD-2 y primera reserva de
+  cambio de Bolsa con revalidación y consumo atómicos en PostgreSQL.
 - Evidencia: pruebas EdDSA/ES256, CBOR no mínimo, cabeceras extra, high-S,
   firma, payload, AAD, `kid` y claves cruzados, alias mutables, redacción,
   codecs, límites, fuzz, carrera, 32 bits y batería completa del adaptador V4.

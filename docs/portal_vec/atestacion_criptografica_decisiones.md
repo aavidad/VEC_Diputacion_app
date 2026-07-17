@@ -471,14 +471,25 @@ canonico coherentes y devuelve solo la firma —y, si el proveedor lo exige,
 metadatos probatorios que deben confirmar exactamente la misma clave—. Nunca se
 usa una suite o clave devuelta para reconstruir despues el mensaje ya firmado.
 
-El contrato Go y su orquestador cerrado ya estan implementados como
-`ports.FirmanteAtestacionesAutorizacionV1` y
-`application.ServicioAtestacionesAutorizacionV1`. La solicitud protege copias
-del mensaje y liga su huella, decision y cabecera; el resultado no puede
-sustituirse por el de otra decision. El diseno V4 incorpora verificador aislado,
-catalogo durable y consumo PostgreSQL, pero el corte permanece pendiente de
-validacion y aun no acredita un adaptador HSM/KMS homologado para el firmante
-PDP; por ello la puerta productiva continua cerrada.
+Los contratos Go y sus orquestadores cerrados estan implementados por version.
+V1 usa `ports.FirmanteAtestacionesAutorizacionV1` y
+`application.ServicioAtestacionesAutorizacionV1`. V2 no es un alias ni una
+ampliacion silenciosa: usa `ports.FirmanteAtestacionesAutorizacionV2` y
+`application.ServicioAtestacionesAutorizacionV2`. Su solicitud conserva una
+copia del mensaje VEC-AD-2 exacto y liga por separado huella del mensaje,
+decision, solicitud original y motivo catalogado. El resultado y la atestacion
+son tambien tipos V2 distintos; no admiten una firma procedente de otra
+solicitud. Mensaje, firma y referencias se redactan en formateo y logs, y los
+codecs genericos quedan bloqueados para obligar al adaptador durable a usar un
+esquema explicito.
+
+Este contrato V2 sigue siendo nominal. El firmante devuelve evidencia opaca,
+pero el servicio no verifica por si mismo COSE, procedencia institucional,
+vigencia o revocacion de la clave y no crea autoridad ejecutable. El diseno V4
+documental incorpora verificador aislado, catalogo durable y consumo
+PostgreSQL; el perfil equivalente de confianza y consumo atomico para VEC-AD-2
+permanece pendiente. Tampoco se acredita aun un adaptador HSM/KMS homologado
+para el firmante PDP. Por ambas razones la puerta productiva continua cerrada.
 
 El envoltorio durable tendra esquema cerrado: version, suite, `clave_id`,
 audiencia, huella del mensaje, firma binaria, referencia opaca de operacion y

@@ -379,6 +379,13 @@ Superar pruebas unitarias o de memoria no satisface esta puerta. Este documento
 no declara cumplimiento del ENS ni sustituye una evaluación formal del sistema
 implantado.
 
+Como prerrequisito ya existe el contrato de firma nominal VEC-AD-2, separado de
+V1 y ligado simultaneamente a decision, solicitud y motivo catalogado. Conserva
+los bytes exactos, impide cruzar resultados entre solicitudes y bloquea logs y
+codecs genericos. Esta pieza no adelanta la puerta de produccion: falta promover
+la prueba mediante un perfil privado de confianza y consumirla una sola vez en
+la misma transaccion PostgreSQL que produzca el efecto de Bolsa.
+
 ## 11. Decisión de implementación
 
 La opción recomendada es mantener `Autorizador` pequeño y estable y añadir la

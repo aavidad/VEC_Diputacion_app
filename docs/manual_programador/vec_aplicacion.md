@@ -1286,6 +1286,27 @@ func (s *ServicioAtestacionesAutorizacionV1) Atestar(
 	decision domain.DecisionAutorizacion,
 ) (ports.AtestacionAutorizacionV1, error)
 
+type ServicioAtestacionesAutorizacionV2 struct {
+	// Has unexported fields.
+}
+```
+
+ServicioAtestacionesAutorizacionV2 fija el perfil nominal VEC-AD-2 en la
+composicion. La decision y la referencia de motivo deben proceder del mismo
+ciclo de autorizacion; el usuario no puede elegir suite, clave o audiencia.
+
+```go
+func NuevoServicioAtestacionesAutorizacionV2(
+	cabecera domain.CabeceraAtestacionAutorizacionV2,
+	firmante ports.FirmanteAtestacionesAutorizacionV2,
+) (*ServicioAtestacionesAutorizacionV2, error)
+
+func (s *ServicioAtestacionesAutorizacionV2) Atestar(
+	ctx context.Context,
+	decision domain.DecisionAutorizacion,
+	referenciaMotivo domain.ReferenciaEntradaCatalogo,
+) (ports.AtestacionAutorizacionV2, error)
+
 type ServicioAutorizacion struct {
 	// Has unexported fields.
 }
