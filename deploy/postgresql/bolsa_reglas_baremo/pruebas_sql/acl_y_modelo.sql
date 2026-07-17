@@ -10,7 +10,7 @@ BEGIN
     SELECT count(*) INTO total
       FROM pg_catalog.pg_tables
      WHERE schemaname = 'vec_bolsa_reglas_baremo';
-    IF total <> 10 THEN
+    IF total <> 11 THEN
         RAISE EXCEPTION 'inventario inesperado de tablas: %', total;
     END IF;
 
