@@ -55,7 +55,9 @@ SET search_path = pg_catalog, pg_temp
 SET timezone = 'UTC'
 AS $funcion$
 DECLARE
+    v_recepcion timestamptz;
     v_ahora timestamptz;
+    v_clave_bloqueo text;
     v_propuesta jsonb;
     v_propuesta_json json;
     v_necesidad record;
@@ -86,7 +88,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '25001',
             MESSAGE = 'guardado requiere SERIALIZABLE READ WRITE';
     END IF;
-    v_ahora := clock_timestamp();
+    v_recepcion := clock_timestamp();
+    v_ahora := v_recepcion;
 
     IF p_operacion IS NULL OR jsonb_typeof(p_operacion) <> 'object' OR
        (SELECT count(*) FROM jsonb_object_keys(p_operacion)) <> 11 OR
@@ -123,8 +126,8 @@ BEGIN
        vec_bolsa_llamamientos.instante_utc_microsegundo_valido(
           p_operacion ->> 'solicitada_en'
        ) IS NOT TRUE OR
-       (p_operacion ->> 'solicitada_en')::timestamptz > v_ahora OR
-       v_ahora - (p_operacion ->> 'solicitada_en')::timestamptz >
+       (p_operacion ->> 'solicitada_en')::timestamptz > v_recepcion OR
+       v_recepcion - (p_operacion ->> 'solicitada_en')::timestamptz >
           interval '30 seconds' OR
        p_prueba IS NULL OR jsonb_typeof(p_prueba) <> 'object' OR
        (SELECT count(*) FROM jsonb_object_keys(p_prueba)) <> 5 OR
@@ -182,6 +185,41 @@ BEGIN
             MESSAGE = 'documento de propuesta incoherente';
     END IF;
 
+    v_total_evaluaciones := jsonb_array_length(
+        v_propuesta -> 'evaluaciones'
+    );
+    IF v_total_evaluaciones NOT BETWEEN 1 AND 250000 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'numero de evaluaciones fuera de contrato';
+    END IF;
+
+    -- Los cerrojos consultivos cubren tambien claves que todavia no tienen
+    -- fila. Se toman en orden estable antes de los bloqueos de tabla para que
+    -- ninguna espera quede despues de la revalidacion temporal final.
+    FOR v_clave_bloqueo IN
+        SELECT DISTINCT claves.clave
+          FROM (
+            SELECT 'propuesta:' || (p_operacion ->> 'propuesta_ref') AS clave
+            UNION ALL SELECT 'decision:' || (p_prueba ->> 'decision_ref')
+            UNION ALL SELECT 'necesidad:' || (p_operacion ->> 'necesidad_ref')
+            UNION ALL SELECT 'instantanea:' || (v_propuesta ->> 'instantanea_ref')
+            UNION ALL
+            SELECT 'recibo:' || referencias.valor
+              FROM jsonb_array_elements(v_propuesta -> 'evaluaciones')
+                   AS evaluacion(valor_evaluacion),
+                   LATERAL (VALUES (
+                       evaluacion.valor_evaluacion ->> 'entrada_evaluacion_ref'
+                   ), (
+                       evaluacion.valor_evaluacion ->> 'resultado_evaluacion_ref'
+                   )) AS referencias(valor)
+          ) AS claves
+         ORDER BY claves.clave
+    LOOP
+        PERFORM pg_advisory_xact_lock(
+            hashtextextended('vec_bolsa_llamamientos:' || v_clave_bloqueo, 0)
+        );
+    END LOOP;
+
     SELECT necesidad.*, actual.estado AS estado_actual
       INTO STRICT v_necesidad
       FROM vec_bolsa_llamamientos.necesidad_actual AS actual
@@ -207,20 +245,20 @@ BEGIN
      WHERE bolsa_ref = v_necesidad.bolsa_ref
        AND version = v_necesidad.version_bolsa
        AND huella_bolsa_sha256 = v_necesidad.huella_bolsa_sha256
-     FOR SHARE;
+     FOR UPDATE;
     SELECT * INTO STRICT v_politica
       FROM vec_bolsa_llamamientos.politica_autoritativa
      WHERE politica_ref = v_propuesta ->> 'politica_ref'
        AND version = (v_propuesta ->> 'version_politica')::bigint
        AND huella_politica_sha256 = v_propuesta ->> 'huella_politica_sha256'
-     FOR SHARE;
+     FOR UPDATE;
     SELECT * INTO STRICT v_instantanea
       FROM vec_bolsa_llamamientos.instantanea_autoritativa
      WHERE instantanea_ref = v_propuesta ->> 'instantanea_ref'
        AND version = (v_propuesta ->> 'version_instantanea')::bigint
        AND huella_instantanea_sha256 =
            v_propuesta ->> 'huella_instantanea_sha256'
-     FOR SHARE;
+     FOR UPDATE;
     IF v_bolsa.estado <> 'vigente' OR v_ahora < v_bolsa.vigente_desde OR
        (v_bolsa.vigente_hasta IS NOT NULL AND v_ahora >= v_bolsa.vigente_hasta) OR
        v_politica.estado <> 'publicada' OR v_ahora < v_politica.vigente_desde OR
@@ -243,7 +281,6 @@ BEGIN
             MESSAGE = 'fuentes autoritativas no coinciden';
     END IF;
 
-    v_total_evaluaciones := jsonb_array_length(v_propuesta -> 'evaluaciones');
     IF v_total_evaluaciones < 1 OR
        v_total_evaluaciones > v_instantanea.total_participaciones OR
        (v_propuesta ->> 'orden_seleccionado')::bigint <>
@@ -257,7 +294,7 @@ BEGIN
          WHERE instantanea_ref = v_instantanea.instantanea_ref
            AND version_instantanea = v_instantanea.version
            AND orden = v_indice + 1
-         FOR SHARE;
+         FOR UPDATE;
         IF v_evaluacion.evaluacion_canonica IS DISTINCT FROM
               v_propuesta -> 'evaluaciones' -> v_indice OR
            (v_indice < v_total_evaluaciones - 1 AND
@@ -306,6 +343,44 @@ BEGIN
        AND v_ahora >= version_atestacion.valida_desde
        AND v_ahora < version_atestacion.valida_hasta
      FOR UPDATE OF actual, version_atestacion;
+
+    -- La cadena global tambien se bloquea antes del reloj definitivo. No
+    -- queda despues ningun bloqueo esperado que pueda envejecer capacidades.
+    SELECT ultima_secuencia, ultima_huella_sha256
+      INTO STRICT v_ultima_secuencia, v_huella_anterior
+      FROM vec_bolsa_llamamientos.auditoria_actual
+     WHERE control_id FOR UPDATE;
+
+    v_ahora := clock_timestamp();
+    IF (p_operacion ->> 'solicitada_en')::timestamptz > v_ahora OR
+       v_ahora - (p_operacion ->> 'solicitada_en')::timestamptz >
+          interval '30 seconds' OR
+       (v_propuesta ->> 'generada_en')::timestamptz > v_ahora OR
+       v_ahora >= v_necesidad.fin_previsto OR
+       v_bolsa.estado <> 'vigente' OR v_ahora < v_bolsa.vigente_desde OR
+       (v_bolsa.vigente_hasta IS NOT NULL AND
+          v_ahora >= v_bolsa.vigente_hasta) OR
+       v_politica.estado <> 'publicada' OR
+       v_ahora < v_politica.vigente_desde OR
+       (v_politica.vigente_hasta IS NOT NULL AND
+          v_ahora >= v_politica.vigente_hasta) OR
+       v_atestacion.estado <> 'activa' OR
+       v_ahora < v_atestacion.valida_desde OR
+       v_ahora >= v_atestacion.valida_hasta THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'alguna dependencia expiro durante los bloqueos';
+    END IF;
+    -- Segunda llamada: la primera dejo decision, asignacion, rol, politicas,
+    -- sesion y actor bloqueados. Esta comprueba sus ventanas con el reloj
+    -- fresco que regira todos los efectos siguientes.
+    IF vec_autorizacion.revalidar_decision_bolsa_llamamientos_v1(
+        p_prueba, p_decision_canonica, v_recurso_canonico,
+        'bolsa.llamamiento.proponer', 'necesidad_cobertura',
+        v_necesidad.necesidad_ref, '[]'::jsonb, v_ahora
+    ) IS NOT TRUE THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'autorizacion expirada durante los bloqueos';
+    END IF;
 
     SELECT propuesta_almacen.*, uso.consumo_ref, uso.consumo_canonico,
            uso.huella_consumo_sha256, uso.atestacion_ref,
@@ -426,10 +501,6 @@ BEGIN
         v_atestacion.version, v_consumo_canonico, v_huella_consumo, v_ahora
     );
 
-    SELECT ultima_secuencia, ultima_huella_sha256
-      INTO STRICT v_ultima_secuencia, v_huella_anterior
-      FROM vec_bolsa_llamamientos.auditoria_actual
-     WHERE control_id FOR UPDATE;
     v_auditoria_ref := 'auditoria-' || encode(sha256(convert_to(
         v_consumo_ref || ':' || v_huella_anterior, 'UTF8'
     )), 'hex');

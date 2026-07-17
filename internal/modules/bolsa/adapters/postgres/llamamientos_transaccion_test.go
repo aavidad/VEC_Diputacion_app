@@ -129,6 +129,18 @@ func TestTransaccionLlamamientoPostgreSQLRespuestaManipuladaNoConfirma(t *testin
 		{"instante", func(r *reciboLlamamientoPostgreSQLV1) {
 			r.ConfirmadaEn.Time = instanteLlamamientoPostgreSQLPrueba.Add(5 * time.Minute)
 		}},
+		{"clave duplicada consumo", func(r *reciboLlamamientoPostgreSQLV1) {
+			r.ConsumoCanonico = anteponerClaveDuplicadaLlamamientoPrueba(r.ConsumoCanonico)
+			r.HuellaConsumoSHA256 = huellaBytesPostgreSQLLlamamiento(r.ConsumoCanonico)
+		}},
+		{"clave duplicada auditoria", func(r *reciboLlamamientoPostgreSQLV1) {
+			r.RegistroAuditoria = anteponerClaveDuplicadaLlamamientoPrueba(r.RegistroAuditoria)
+			r.HuellaAuditoriaSHA256 = huellaBytesPostgreSQLLlamamiento(r.RegistroAuditoria)
+		}},
+		{"clave duplicada outbox", func(r *reciboLlamamientoPostgreSQLV1) {
+			r.EventoCanonico = anteponerClaveDuplicadaLlamamientoPrueba(r.EventoCanonico)
+			r.HuellaEventoSHA256 = huellaBytesPostgreSQLLlamamiento(r.EventoCanonico)
+		}},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -148,6 +160,19 @@ func TestTransaccionLlamamientoPostgreSQLRespuestaManipuladaNoConfirma(t *testin
 			}
 		})
 	}
+}
+
+func TestJSONLlamamientoNoAmbiguoRechazaDuplicadoAnidado(t *testing.T) {
+	contenido := []byte(`{"objeto":{"clave":1,"clave":2}}`)
+	if err := validarJSONLlamamientoNoAmbiguo(contenido); err == nil {
+		t.Fatal("se acepto una clave duplicada dentro de un objeto anidado")
+	}
+}
+
+func anteponerClaveDuplicadaLlamamientoPrueba(contenido []byte) []byte {
+	duplicado := make([]byte, 0, len(contenido)+24)
+	duplicado = append(duplicado, []byte(`{"esquema":"invalido",`)...)
+	return append(duplicado, contenido[1:]...)
 }
 
 func TestTransaccionLlamamientoPostgreSQLEvidenciaYCierreFallanSeguro(t *testing.T) {

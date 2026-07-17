@@ -229,6 +229,9 @@ func huellaBytesPostgreSQLLlamamiento(contenido []byte) string {
 }
 
 func decodificarJSONExactoLlamamiento(contenido []byte, destino any) error {
+	if err := validarJSONLlamamientoNoAmbiguo(contenido); err != nil {
+		return err
+	}
 	decodificador := json.NewDecoder(bytes.NewReader(contenido))
 	decodificador.DisallowUnknownFields()
 	if err := decodificador.Decode(destino); err != nil {

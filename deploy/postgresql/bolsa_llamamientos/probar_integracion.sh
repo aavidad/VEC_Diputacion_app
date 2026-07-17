@@ -6,6 +6,18 @@ imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c
 contenedor="vec-bolsa-llamamientos-pg-${USER:-usuario}-$$"
 base=vec_bolsa_llamamientos_prueba
 
+# Puerta estatica para el documento que sustenta la idempotencia. JSONB
+# conservaria silenciosamente la ultima aparicion si una clave se repitiese.
+seccion_consumo=$(sed -n \
+    '/v_consumo_canonico := convert_to(jsonb_build_object(/,/v_huella_consumo :=/p' \
+    "$raiz/deploy/postgresql/bolsa_llamamientos/migraciones/000002_guardado_cerrado.up.sql")
+apariciones_propuesta=$(grep -Ec "^[[:space:]]*'propuesta_ref'," \
+    <<<"$seccion_consumo")
+if [[ $apariciones_propuesta -ne 1 ]]; then
+    echo 'el consumo canonico contiene propuesta_ref duplicada o ausente' >&2
+    exit 1
+fi
+
 clave_admin=$(od -An -N32 -tx1 /dev/urandom | tr -d '[:space:]')
 clave_runtime=$(od -An -N32 -tx1 /dev/urandom | tr -d '[:space:]')
 if [[ ${#clave_admin} -ne 64 || ${#clave_runtime} -ne 64 ]]; then
@@ -53,6 +65,7 @@ SQL
 
 psql_archivo deploy/postgresql/bolsa_llamamientos/pruebas_sql/acl_cierre.sql
 psql_archivo deploy/postgresql/bolsa_llamamientos/pruebas_sql/idempotencia_y_unicidad.sql
+psql_archivo deploy/postgresql/bolsa_llamamientos/pruebas_sql/revalidacion_temporal.sql
 psql_archivo deploy/postgresql/bolsa_llamamientos/pruebas_sql/preparar_concurrencia.sql
 
 if docker exec --env PGPASSWORD="$clave_runtime" "$contenedor" \
