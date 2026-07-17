@@ -160,10 +160,17 @@ func nuevaVersionConsultaConvocatoriaAplicacionPrueba(
 			ReciboCustodiaRef: "custodia:bases:001",
 		}},
 	}
+	ambito, err := dominiobolsa.NuevoAmbitoOrganizativoConvocatoria(
+		"org_diputaciongranada", "uni_seleccionexterna",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	version, err := dominiobolsa.NuevaVersionConvocatoriaGobernada(
 		dominiobolsa.DatosNuevaVersionConvocatoriaGobernada{
 			ID: "proceso:bolsa:auxiliar-2026", CodigoVersionPublica: "v1",
-			InstanciaFlujoRef: "instancia:flujo:convocatoria:001", Contenido: contenido,
+			InstanciaFlujoRef: "instancia:flujo:convocatoria:001", AmbitoOrganizativo: ambito,
+			Contenido:     contenido,
 			Configuracion: configuracion, ExpedienteRef: "expediente:seleccion:2026-001",
 			Motivo: "Preparacion administrativa.", ActorID: "persona:tecnica:001",
 			Instante: instantePanelInternoPrueba.Add(-time.Hour),

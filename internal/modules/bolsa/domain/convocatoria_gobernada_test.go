@@ -109,17 +109,29 @@ func cadenaRepetidaConvocatoria(marca byte) string {
 	return string(bytes)
 }
 
+func ambitoOrganizativoConvocatoriaPrueba(t *testing.T) AmbitoOrganizativoConvocatoria {
+	t.Helper()
+	ambito, err := NuevoAmbitoOrganizativoConvocatoria(
+		"org_diputaciongranada", "uni_seleccionexterna",
+	)
+	if err != nil {
+		t.Fatalf("crear ambito organizativo de prueba: %v", err)
+	}
+	return ambito
+}
+
 func versionConvocatoriaGobernadaPrueba(t *testing.T) VersionConvocatoriaGobernada {
 	t.Helper()
 	version, err := NuevaVersionConvocatoriaGobernada(DatosNuevaVersionConvocatoriaGobernada{
 		ID: "proceso:bolsa:auxiliar-2026", CodigoVersionPublica: "v1",
-		InstanciaFlujoRef: "instancia:flujo:convocatoria:001",
-		Contenido:         contenidoConvocatoriaGobernadaPrueba(),
-		Configuracion:     configuracionConvocatoriaGobernadaPrueba(t),
-		ExpedienteRef:     "expediente:seleccion:2026-001",
-		Motivo:            "Preparacion de la convocatoria aprobada por el servicio.",
-		ActorID:           "persona:tecnica:001",
-		Instante:          time.Date(2026, time.July, 2, 10, 30, 0, 999, time.FixedZone("CEST", 2*60*60)),
+		InstanciaFlujoRef:  "instancia:flujo:convocatoria:001",
+		AmbitoOrganizativo: ambitoOrganizativoConvocatoriaPrueba(t),
+		Contenido:          contenidoConvocatoriaGobernadaPrueba(),
+		Configuracion:      configuracionConvocatoriaGobernadaPrueba(t),
+		ExpedienteRef:      "expediente:seleccion:2026-001",
+		Motivo:             "Preparacion de la convocatoria aprobada por el servicio.",
+		ActorID:            "persona:tecnica:001",
+		Instante:           time.Date(2026, time.July, 2, 10, 30, 0, 999, time.FixedZone("CEST", 2*60*60)),
 	})
 	if err != nil {
 		t.Fatalf("NuevaVersionConvocatoriaGobernada() error = %v", err)
@@ -656,8 +668,8 @@ func TestVectoresGoldenDeRepresentacionesCanonicas(t *testing.T) {
 	}
 	huellaEstado := sha256.Sum256(estado)
 	huellaContenido := sha256.Sum256(contenido)
-	const esperadaEstado = "b5287ba99b36840ae3c1c99beeba50e0c73014fb51a33984d73017c0837e9f56"
-	const esperadaContenido = "3aa5032b7d6ce8d15aa8ec9c90b3007477c185dce0ad10899ce2a4aaf1d71ba0"
+	const esperadaEstado = "e7ad3e59b37d64675b7ec28af0c8ab50c61e2454cc97dd614d86c779e6edace8"
+	const esperadaContenido = "b3878bec83de987521e4836656df93693b2758e142d4e261790ff60482c54e5f"
 	if obtenida := hex.EncodeToString(huellaEstado[:]); obtenida != esperadaEstado {
 		t.Errorf("vector golden de estado cambiado: %s", obtenida)
 	}

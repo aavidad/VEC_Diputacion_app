@@ -25,7 +25,7 @@ func TestAltaExigeIntencionAutorizacionIdempotenciaYReciboLigados(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	autorizacion := autorizacionMutacionConvocatoriaPrueba(t, material)
+	autorizacion := autorizacionMutacionConvocatoriaPrueba(t, material, version)
 	testimonio := testimonioIdempotenciaConvocatoriaPrueba(t, material, autorizacion)
 	preparacion := PreparacionTransaccionGobiernoConvocatoria{
 		Material: material, Idempotencia: testimonio, Autorizacion: autorizacion,
@@ -70,22 +70,22 @@ func TestAltaExigeIntencionAutorizacionIdempotenciaYReciboLigados(t *testing.T) 
 		}(),
 		ConfirmadaEn: instanteGobiernoConvocatoriaPrueba.Add(time.Second),
 	}
-	if err := recibo.ValidarPara(preparacion); err != nil {
+	if err := recibo.ValidarPara(preparacion, version); err != nil {
 		t.Fatalf("recibo valido rechazado: %v", err)
 	}
 	preparacionNoCanonica := preparacion
 	preparacionNoCanonica.SolicitadaEn = preparacion.SolicitadaEn.Add(time.Nanosecond)
-	if err := recibo.ValidarPara(preparacionNoCanonica); !errors.Is(err, ErrReciboGobiernoConvocatoriaInvalido) {
+	if err := recibo.ValidarPara(preparacionNoCanonica, version); !errors.Is(err, ErrReciboGobiernoConvocatoriaInvalido) {
 		t.Fatalf("recibo acepto una preparacion temporal no canonica: %v", err)
 	}
 	sinAtestacionPDP := recibo
 	sinAtestacionPDP.AtestacionAutorizacionRef = ""
-	if err := sinAtestacionPDP.ValidarPara(preparacion); !errors.Is(err, ErrReciboGobiernoConvocatoriaInvalido) {
+	if err := sinAtestacionPDP.ValidarPara(preparacion, version); !errors.Is(err, ErrReciboGobiernoConvocatoriaInvalido) {
 		t.Fatalf("recibo sin atestacion PDP aceptado: %v", err)
 	}
 	pruebasReutilizadas := recibo
 	pruebasReutilizadas.ConsumoAutorizacionRef = recibo.AtestacionAutorizacionRef
-	if err := pruebasReutilizadas.ValidarPara(preparacion); !errors.Is(err, ErrReciboGobiernoConvocatoriaInvalido) {
+	if err := pruebasReutilizadas.ValidarPara(preparacion, version); !errors.Is(err, ErrReciboGobiernoConvocatoriaInvalido) {
 		t.Fatalf("recibo reutilizo identidad entre atestacion y consumo: %v", err)
 	}
 	if _, err := json.Marshal(recibo); !errors.Is(err, ErrSerializacionGobiernoConvocatoriaProhibida) {
@@ -97,7 +97,7 @@ func TestAltaExigeIntencionAutorizacionIdempotenciaYReciboLigados(t *testing.T) 
 		}
 	}
 	recibo.EventoOutboxRef = recibo.AuditoriaRef
-	if err := recibo.ValidarPara(preparacion); !errors.Is(err, ErrReciboGobiernoConvocatoriaInvalido) {
+	if err := recibo.ValidarPara(preparacion, version); !errors.Is(err, ErrReciboGobiernoConvocatoriaInvalido) {
 		t.Fatalf("auditoria y outbox compartieron identidad: %v", err)
 	}
 }
@@ -199,7 +199,7 @@ func TestAutorizacionNoSeReutilizaParaOtraIntencionAccionORecurso(t *testing.T) 
 		t, AccionCrearBorradorConvocatoria, version.Referencia(), 'a',
 	)
 	material, _ := MaterialAltaBorradorConvocatoria(version, nil, nil, selladoMotivo)
-	autorizacion := autorizacionMutacionConvocatoriaPrueba(t, material)
+	autorizacion := autorizacionMutacionConvocatoriaPrueba(t, material, version)
 	testimonio := testimonioIdempotenciaConvocatoriaPrueba(t, material, autorizacion)
 
 	otroMaterial := material
@@ -215,7 +215,7 @@ func TestAutorizacionNoSeReutilizaParaOtraIntencionAccionORecurso(t *testing.T) 
 		SelladoMotivo: selladoMotivo,
 		SolicitadaEn:  instanteGobiernoConvocatoriaPrueba,
 	}
-	if err := preparacion.Validar(); !errors.Is(err, ErrConfirmacionGobiernoConvocatoriaInvalida) {
+	if err := preparacion.ValidarPara(version); !errors.Is(err, ErrConfirmacionGobiernoConvocatoriaInvalida) {
 		t.Fatalf("autorizacion se reutilizo con otra preimagen: %v", err)
 	}
 

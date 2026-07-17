@@ -120,8 +120,12 @@ func RecursoAutorizableConsultaVersionConvocatoria(
 // semantica completa; una concesion no puede aplicarse a otra mutacion.
 func RecursoAutorizableMutacionConvocatoria(
 	material MaterialIntencionGobiernoConvocatoria,
+	versionConfirmada dominiobolsa.VersionConvocatoriaGobernada,
 ) (dominiovec.RecursoAutorizable, error) {
-	if material.Validar() != nil {
+	estadoConfirmado, errEstado := estadoVersionConvocatoria(versionConfirmada)
+	ambitos, errAmbitos := ambitosOrganizativosConvocatoria(versionConfirmada)
+	if material.Validar() != nil || errEstado != nil || errAmbitos != nil ||
+		estadoConfirmado != material.EstadoPrincipalNuevo {
 		return dominiovec.RecursoAutorizable{}, ErrAutorizacionGobiernoConvocatoriaInvalida
 	}
 	huella, err := material.HuellaSHA256()
@@ -132,6 +136,7 @@ func RecursoAutorizableMutacionConvocatoria(
 		Referencia: material.EstadoPrincipalNuevo.Referencia,
 		ModuloID:   ModuloGobiernoConvocatorias,
 		Tipo:       TipoRecursoVersionConvocatoriaGobernada,
+		Ambitos:    ambitos,
 		Atributos:  map[string]string{AtributoHuellaIntencionConvocatoria: huella},
 	}
 	if recurso.Validar() != nil {
@@ -286,7 +291,7 @@ func validarUsoAutorizacionConvocatoria(
 		return ErrAutorizacionGobiernoConvocatoriaInvalida
 	}
 	if especificacion.mutacion {
-		if len(recurso.Ambitos) != 0 || len(recurso.Atributos) != 1 ||
+		if len(recurso.Ambitos) < 1 || len(recurso.Ambitos) > 2 || len(recurso.Atributos) != 1 ||
 			!huellaGobiernoConvocatoriaValida(recurso.Atributos[AtributoHuellaIntencionConvocatoria]) {
 			return ErrAutorizacionGobiernoConvocatoriaInvalida
 		}
@@ -294,6 +299,35 @@ func validarUsoAutorizacionConvocatoria(
 		return ErrAutorizacionGobiernoConvocatoriaInvalida
 	}
 	return nil
+}
+
+func validarUsoAutorizacionMutacionConvocatoria(
+	evidencia puertosvec.EvidenciaUsoDecisionAutorizacion,
+	accion string,
+	material MaterialIntencionGobiernoConvocatoria,
+	versionConfirmada dominiobolsa.VersionConvocatoriaGobernada,
+	instante time.Time,
+) error {
+	recurso, err := RecursoAutorizableMutacionConvocatoria(material, versionConfirmada)
+	if err != nil {
+		return ErrAutorizacionGobiernoConvocatoriaInvalida
+	}
+	return validarUsoAutorizacionConvocatoria(evidencia, accion, recurso, instante)
+}
+
+func ambitosOrganizativosConvocatoria(
+	version dominiobolsa.VersionConvocatoriaGobernada,
+) (map[string]string, error) {
+	if version.Validar() != nil || version.AmbitoOrganizativo.Validar() != nil {
+		return nil, ErrAutorizacionGobiernoConvocatoriaInvalida
+	}
+	ambitos := map[string]string{
+		"organizacion_ref": version.AmbitoOrganizativo.OrganizacionRef(),
+	}
+	if unidadRef := version.AmbitoOrganizativo.UnidadGestionRef(); unidadRef != "" {
+		ambitos["unidad_gestion_ref"] = unidadRef
+	}
+	return ambitos, nil
 }
 
 func mismosCamposConvocatoria(recibidos, esperados []string) bool {

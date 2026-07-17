@@ -55,6 +55,7 @@ func relacionVersionesSucesorasExacta(
 		sucesora.VersionAnteriorRef == predecesora.Referencia() &&
 		sucesora.Contenido.IdentificadorPublico == predecesora.Contenido.IdentificadorPublico &&
 		sucesora.InstanciaFlujoRef == predecesora.InstanciaFlujoRef &&
+		sucesora.AmbitoOrganizativo == predecesora.AmbitoOrganizativo &&
 		sucesora.Configuracion.FlujoProceso == predecesora.Configuracion.FlujoProceso &&
 		!sucesora.CreadaEn.Before(noAntes)
 }

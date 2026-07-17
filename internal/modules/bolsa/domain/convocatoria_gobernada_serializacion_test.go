@@ -36,12 +36,18 @@ func TestDecodificarVersionConvocatoriaGobernadaCanonicaRechazaJSONMaleable(t *t
 		t.Fatal(err)
 	}
 	conDesconocido := append([]byte(`{"desconocido":true,`), contenido[1:]...)
-	conDuplicado := append([]byte(`{"esquema":"bolsa.version-convocatoria.estado.v1",`), contenido[1:]...)
+	conDuplicado := append([]byte(`{"esquema":"bolsa.version-convocatoria.estado.v2",`), contenido[1:]...)
 	conEspacio := append(append([]byte(nil), contenido...), ' ')
 	conEsquemaDistinto := bytes.Replace(
 		contenido,
-		[]byte(`"bolsa.version-convocatoria.estado.v1"`),
+		[]byte(`"bolsa.version-convocatoria.estado.v2"`),
 		[]byte(`"bolsa.version-convocatoria.estado.v9"`),
+		1,
+	)
+	conEsquemaHistorico := bytes.Replace(
+		contenido,
+		[]byte(`"bolsa.version-convocatoria.estado.v2"`),
+		[]byte(`"bolsa.version-convocatoria.estado.v1"`),
 		1,
 	)
 
@@ -51,6 +57,7 @@ func TestDecodificarVersionConvocatoriaGobernadaCanonicaRechazaJSONMaleable(t *t
 		"duplicado":           conDuplicado,
 		"espacio final":       conEspacio,
 		"esquema alternativo": conEsquemaDistinto,
+		"esquema historico":   conEsquemaHistorico,
 		"utf8 invalido":       {0xff, 0xfe},
 	}
 	for nombre, candidata := range casos {

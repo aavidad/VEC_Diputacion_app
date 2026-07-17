@@ -5,6 +5,8 @@ import (
 	"io"
 	"log/slog"
 	"time"
+
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 )
 
 type ReciboConsumoVerificacionConvocatoria struct {
@@ -69,12 +71,13 @@ func (r ReciboGobiernoConvocatoria) LogValue() slog.Value {
 
 func (r ReciboGobiernoConvocatoria) ValidarPara(
 	preparacion PreparacionTransaccionGobiernoConvocatoria,
+	versionConfirmada dominiobolsa.VersionConvocatoriaGobernada,
 ) error {
 	datosAutorizacion, errAutorizacion := preparacion.Autorizacion.Datos()
 	datosIdempotencia, errIdempotencia := preparacion.Idempotencia.Datos()
 	datosSellado, errSellado := preparacion.SelladoMotivo.DatosParaConsumo()
 	huellaIntencion, errHuella := preparacion.Material.HuellaSHA256()
-	if preparacion.validarEn(r.ConfirmadaEn) != nil || errAutorizacion != nil ||
+	if preparacion.validarEn(versionConfirmada, r.ConfirmadaEn) != nil || errAutorizacion != nil ||
 		errIdempotencia != nil || errSellado != nil || errHuella != nil ||
 		!referenciaGobiernoConvocatoriaValida(r.TransaccionRef) ||
 		r.Accion != preparacion.Material.Accion ||

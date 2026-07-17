@@ -32,21 +32,25 @@ type PreparacionTransaccionGobiernoConvocatoria struct {
 	SolicitadaEn  time.Time
 }
 
-func (p PreparacionTransaccionGobiernoConvocatoria) Validar() error {
-	return p.validarEn(p.SolicitadaEn)
+func (p PreparacionTransaccionGobiernoConvocatoria) ValidarPara(
+	versionConfirmada dominiobolsa.VersionConvocatoriaGobernada,
+) error {
+	return p.validarEn(versionConfirmada, p.SolicitadaEn)
 }
 
-func (p PreparacionTransaccionGobiernoConvocatoria) validarEn(instante time.Time) error {
-	recurso, errRecurso := RecursoAutorizableMutacionConvocatoria(p.Material)
+func (p PreparacionTransaccionGobiernoConvocatoria) validarEn(
+	versionConfirmada dominiobolsa.VersionConvocatoriaGobernada,
+	instante time.Time,
+) error {
 	datosAutorizacion, errAutorizacion := p.Autorizacion.Datos()
 	datosIdempotencia, errIdempotencia := p.Idempotencia.Datos()
 	datosSellado, errSellado := p.SelladoMotivo.DatosParaConsumo()
-	if errRecurso != nil || errAutorizacion != nil || errIdempotencia != nil ||
+	if errAutorizacion != nil || errIdempotencia != nil ||
 		errSellado != nil ||
 		!instanteGobiernoConvocatoriaCanonico(p.SolicitadaEn) ||
 		!instanteGobiernoConvocatoriaCanonico(instante) || instante.Before(p.SolicitadaEn) ||
-		validarUsoAutorizacionConvocatoria(
-			p.Autorizacion, p.Material.Accion, recurso, instante,
+		validarUsoAutorizacionMutacionConvocatoria(
+			p.Autorizacion, p.Material.Accion, p.Material, versionConfirmada, instante,
 		) != nil || p.Idempotencia.ValidarPara(
 		p.Material, datosAutorizacion.Decision.PrincipalID,
 	) != nil || p.SelladoMotivo.validarParaMaterial(p.Material, instante) != nil ||
@@ -211,7 +215,7 @@ func (c ConfirmacionAltaBorradorConvocatoria) Validar() error {
 		c.Version, c.PredecesoraEsperada, c.Predecesora, c.Transaccion.SelladoMotivo,
 	)
 	if err != nil || !materialesIntencionConvocatoriaIguales(material, c.Transaccion.Material) ||
-		c.Transaccion.Validar() != nil {
+		c.Transaccion.ValidarPara(c.Version) != nil {
 		return ErrConfirmacionGobiernoConvocatoriaInvalida
 	}
 	return nil
@@ -234,7 +238,7 @@ func (c ConfirmacionAltaBorradorConvocatoria) LogValue() slog.Value {
 func (c ConfirmacionAltaBorradorConvocatoria) ValidarRecibo(
 	recibo ReciboGobiernoConvocatoria,
 ) error {
-	if c.Validar() != nil || recibo.ValidarPara(c.Transaccion) != nil {
+	if c.Validar() != nil || recibo.ValidarPara(c.Transaccion, c.Version) != nil {
 		return ErrReciboGobiernoConvocatoriaInvalido
 	}
 	return nil
@@ -252,7 +256,7 @@ func (c ConfirmacionActualizacionBorradorConvocatoria) Validar() error {
 		c.Esperada, c.Version, c.Transaccion.SelladoMotivo,
 	)
 	if err != nil || !materialesIntencionConvocatoriaIguales(material, c.Transaccion.Material) ||
-		c.Transaccion.Validar() != nil {
+		c.Transaccion.ValidarPara(c.Version) != nil {
 		return ErrConfirmacionGobiernoConvocatoriaInvalida
 	}
 	return nil
@@ -275,7 +279,7 @@ func (c ConfirmacionActualizacionBorradorConvocatoria) LogValue() slog.Value {
 func (c ConfirmacionActualizacionBorradorConvocatoria) ValidarRecibo(
 	recibo ReciboGobiernoConvocatoria,
 ) error {
-	if c.Validar() != nil || recibo.ValidarPara(c.Transaccion) != nil {
+	if c.Validar() != nil || recibo.ValidarPara(c.Transaccion, c.Version) != nil {
 		return ErrReciboGobiernoConvocatoriaInvalido
 	}
 	return nil
@@ -300,7 +304,7 @@ func (c ConfirmacionPublicacionConvocatoria) Validar() error {
 	datosDependencias, errDependencias := c.Dependencias.DatosParaConsumo()
 	datosAprobacion, errAprobacion := c.Aprobacion.DatosParaConsumo()
 	if err != nil || !materialesIntencionConvocatoriaIguales(material, c.Transaccion.Material) ||
-		c.Transaccion.Validar() != nil ||
+		c.Transaccion.ValidarPara(c.VersionPublicada) != nil ||
 		errDependencias != nil || errAprobacion != nil ||
 		!atestacionVerificacionVigenteEn(
 			datosDependencias.AtestacionEmitidaEn, datosDependencias.AtestacionValidaHasta,
@@ -345,7 +349,7 @@ func (c ConfirmacionPublicacionConvocatoria) ValidarRecibo(
 	esperadoDependencias := reciboConsumoDependencias(datosDependencias)
 	esperadoAprobacion := reciboConsumoAprobacion(datosAprobacion)
 	if c.Validar() != nil || errDependencias != nil || errAprobacion != nil ||
-		recibo.ValidarPara(c.Transaccion) != nil || recibo.ConsumoDependencias == nil ||
+		recibo.ValidarPara(c.Transaccion, c.VersionPublicada) != nil || recibo.ConsumoDependencias == nil ||
 		recibo.ConsumoAprobacion == nil || *recibo.ConsumoDependencias != esperadoDependencias ||
 		*recibo.ConsumoAprobacion != esperadoAprobacion ||
 		!atestacionVerificacionVigenteEn(
@@ -374,7 +378,7 @@ func (c ConfirmacionRetiradaConvocatoria) Validar() error {
 	)
 	datosAprobacion, errAprobacion := c.Aprobacion.DatosParaConsumo()
 	if err != nil || !materialesIntencionConvocatoriaIguales(material, c.Transaccion.Material) ||
-		c.Transaccion.Validar() != nil ||
+		c.Transaccion.ValidarPara(c.Version) != nil ||
 		errAprobacion != nil || !atestacionVerificacionVigenteEn(
 		datosAprobacion.AtestacionEmitidaEn, datosAprobacion.AtestacionValidaHasta,
 		c.Transaccion.SolicitadaEn,
@@ -406,7 +410,7 @@ func (c ConfirmacionRetiradaConvocatoria) ValidarRecibo(
 ) error {
 	datosAprobacion, errAprobacion := c.Aprobacion.DatosParaConsumo()
 	esperadoAprobacion := reciboConsumoAprobacion(datosAprobacion)
-	if c.Validar() != nil || errAprobacion != nil || recibo.ValidarPara(c.Transaccion) != nil ||
+	if c.Validar() != nil || errAprobacion != nil || recibo.ValidarPara(c.Transaccion, c.Version) != nil ||
 		recibo.ConsumoAprobacion == nil || *recibo.ConsumoAprobacion != esperadoAprobacion ||
 		!atestacionVerificacionVigenteEn(
 			datosAprobacion.AtestacionEmitidaEn, datosAprobacion.AtestacionValidaHasta,

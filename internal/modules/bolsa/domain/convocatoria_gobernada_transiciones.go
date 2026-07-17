@@ -15,8 +15,8 @@ import (
 const (
 	vigenciaMaximaComprobacionDependencias  = 15 * time.Minute
 	maximoBytesVersionConvocatoriaGobernada = 8 * 1024 * 1024
-	esquemaContenidoVersionConvocatoria     = "bolsa.version-convocatoria.contenido.v2"
-	esquemaEstadoVersionConvocatoria        = "bolsa.version-convocatoria.estado.v1"
+	esquemaContenidoVersionConvocatoria     = "bolsa.version-convocatoria.contenido.v3"
+	esquemaEstadoVersionConvocatoria        = "bolsa.version-convocatoria.estado.v2"
 )
 
 type EstadoGobiernoConvocatoria string
@@ -62,6 +62,7 @@ type VersionConvocatoriaGobernada struct {
 	Revision                 int                                `json:"revision"`
 	VersionAnteriorRef       string                             `json:"version_anterior_ref,omitempty"`
 	InstanciaFlujoRef        string                             `json:"instancia_flujo_ref"`
+	AmbitoOrganizativo       AmbitoOrganizativoConvocatoria     `json:"ambito_organizativo"`
 	Contenido                ContenidoPublicableConvocatoria    `json:"contenido"`
 	Configuracion            ConfiguracionFijadaConvocatoria    `json:"configuracion"`
 	ExpedienteRef            string                             `json:"expediente_ref"`
@@ -90,6 +91,7 @@ type DatosNuevaVersionConvocatoriaGobernada struct {
 	ID                   string
 	CodigoVersionPublica string
 	InstanciaFlujoRef    string
+	AmbitoOrganizativo   AmbitoOrganizativoConvocatoria
 	Contenido            ContenidoPublicableConvocatoria
 	Configuracion        ConfiguracionFijadaConvocatoria
 	ExpedienteRef        string
@@ -102,8 +104,9 @@ func NuevaVersionConvocatoriaGobernada(datos DatosNuevaVersionConvocatoriaGobern
 	version := VersionConvocatoriaGobernada{
 		ID: strings.TrimSpace(datos.ID), Secuencia: 1,
 		CodigoVersionPublica: strings.TrimSpace(datos.CodigoVersionPublica), Revision: 1,
-		InstanciaFlujoRef: strings.TrimSpace(datos.InstanciaFlujoRef),
-		Contenido:         datos.Contenido, Configuracion: datos.Configuracion,
+		InstanciaFlujoRef:  strings.TrimSpace(datos.InstanciaFlujoRef),
+		AmbitoOrganizativo: datos.AmbitoOrganizativo,
+		Contenido:          datos.Contenido, Configuracion: datos.Configuracion,
 		ExpedienteRef: strings.TrimSpace(datos.ExpedienteRef), MotivoCreacion: strings.TrimSpace(datos.Motivo),
 		EstadoGobierno: EstadoGobiernoConvocatoriaBorrador,
 		CreadaPor:      strings.TrimSpace(datos.ActorID), CreadaEn: instanteConvocatoriaCanonico(datos.Instante),
@@ -119,6 +122,7 @@ func (v VersionConvocatoriaGobernada) Validar() error {
 	if !referenciaConvocatoriaValida(v.ID) || v.Secuencia < 1 ||
 		!claveCatalogoConvocatoriaValida(v.CodigoVersionPublica) || v.Revision < 1 ||
 		!referenciaConvocatoriaValida(v.Referencia()) || !referenciaOpacaValida(v.InstanciaFlujoRef) ||
+		v.AmbitoOrganizativo.Validar() != nil ||
 		v.Contenido.Validar() != nil ||
 		v.Configuracion.ValidarPara(v.Contenido) != nil || !referenciaOpacaValida(v.ExpedienteRef) ||
 		!textoConvocatoriaValido(v.MotivoCreacion, 8000, true) || !v.EstadoGobierno.Valido() ||
@@ -162,6 +166,10 @@ func (v VersionConvocatoriaGobernada) Validar() error {
 func (v VersionConvocatoriaGobernada) ClonarCanonico() (VersionConvocatoriaGobernada, error) {
 	clon := v
 	var err error
+	clon.AmbitoOrganizativo, err = v.AmbitoOrganizativo.ClonarCanonico()
+	if err != nil {
+		return VersionConvocatoriaGobernada{}, err
+	}
 	clon.Contenido, err = v.Contenido.ClonarCanonico()
 	if err != nil {
 		return VersionConvocatoriaGobernada{}, err
@@ -219,17 +227,20 @@ func (v VersionConvocatoriaGobernada) representacionContenidoSinValidar() ([]byt
 		return nil, err
 	}
 	material := struct {
-		Esquema              string                          `json:"esquema"`
-		ID                   string                          `json:"id"`
-		Secuencia            int                             `json:"secuencia"`
-		CodigoVersionPublica string                          `json:"codigo_version_publica"`
-		VersionAnteriorRef   string                          `json:"version_anterior_ref,omitempty"`
-		InstanciaFlujoRef    string                          `json:"instancia_flujo_ref"`
-		Contenido            ContenidoPublicableConvocatoria `json:"contenido"`
-		Configuracion        ConfiguracionFijadaConvocatoria `json:"configuracion"`
-		ExpedienteRef        string                          `json:"expediente_ref"`
+		Esquema              string                                 `json:"esquema"`
+		ID                   string                                 `json:"id"`
+		Secuencia            int                                    `json:"secuencia"`
+		CodigoVersionPublica string                                 `json:"codigo_version_publica"`
+		VersionAnteriorRef   string                                 `json:"version_anterior_ref,omitempty"`
+		InstanciaFlujoRef    string                                 `json:"instancia_flujo_ref"`
+		AmbitoOrganizativo   materialAmbitoOrganizativoConvocatoria `json:"ambito_organizativo"`
+		Contenido            ContenidoPublicableConvocatoria        `json:"contenido"`
+		Configuracion        ConfiguracionFijadaConvocatoria        `json:"configuracion"`
+		ExpedienteRef        string                                 `json:"expediente_ref"`
 	}{esquemaContenidoVersionConvocatoria, v.ID, v.Secuencia, v.CodigoVersionPublica,
-		v.VersionAnteriorRef, v.InstanciaFlujoRef, contenido, configuracion, v.ExpedienteRef}
+		v.VersionAnteriorRef, v.InstanciaFlujoRef,
+		materialAmbitoOrganizativoConvocatoriaDe(v.AmbitoOrganizativo),
+		contenido, configuracion, v.ExpedienteRef}
 	bytes, err := json.Marshal(material)
 	if err != nil || len(bytes) > maximoBytesVersionConvocatoriaGobernada {
 		return nil, ErrVersionConvocatoriaGobernadaInvalida
@@ -247,7 +258,8 @@ func (v VersionConvocatoriaGobernada) RepresentacionCanonica() ([]byte, error) {
 		ID:      canonica.ID, Secuencia: canonica.Secuencia,
 		CodigoVersionPublica: canonica.CodigoVersionPublica, Revision: canonica.Revision,
 		VersionAnteriorRef: canonica.VersionAnteriorRef, InstanciaFlujoRef: canonica.InstanciaFlujoRef,
-		Contenido: canonica.Contenido, Configuracion: canonica.Configuracion,
+		AmbitoOrganizativo: materialAmbitoOrganizativoConvocatoriaDe(canonica.AmbitoOrganizativo),
+		Contenido:          canonica.Contenido, Configuracion: canonica.Configuracion,
 		ExpedienteRef: canonica.ExpedienteRef, MotivoCreacion: canonica.MotivoCreacion,
 		EstadoGobierno: canonica.EstadoGobierno, CreadaPor: canonica.CreadaPor, CreadaEn: canonica.CreadaEn,
 		UltimaModificacionPor: canonica.UltimaModificacionPor,
@@ -294,11 +306,16 @@ func DecodificarVersionConvocatoriaGobernadaCanonica(
 		return VersionConvocatoriaGobernada{}, ErrVersionConvocatoriaGobernadaInvalida
 	}
 
+	ambito, errAmbito := material.AmbitoOrganizativo.restaurar()
+	if errAmbito != nil {
+		return VersionConvocatoriaGobernada{}, ErrVersionConvocatoriaGobernadaInvalida
+	}
 	version := VersionConvocatoriaGobernada{
 		ID: material.ID, Secuencia: material.Secuencia,
 		CodigoVersionPublica: material.CodigoVersionPublica, Revision: material.Revision,
 		VersionAnteriorRef: material.VersionAnteriorRef, InstanciaFlujoRef: material.InstanciaFlujoRef,
-		Contenido: material.Contenido, Configuracion: material.Configuracion,
+		AmbitoOrganizativo: ambito,
+		Contenido:          material.Contenido, Configuracion: material.Configuracion,
 		ExpedienteRef: material.ExpedienteRef, MotivoCreacion: material.MotivoCreacion,
 		EstadoGobierno: material.EstadoGobierno, CreadaPor: material.CreadaPor, CreadaEn: material.CreadaEn,
 		UltimaModificacionPor: material.UltimaModificacionPor,
@@ -324,35 +341,36 @@ func DecodificarVersionConvocatoriaGobernadaCanonica(
 // cambio deliberado de este DTO exige un esquema nuevo y vectores golden
 // nuevos, sin reinterpretar las huellas historicas.
 type materialEstadoVersionConvocatoria struct {
-	Esquema                  string                             `json:"esquema"`
-	ID                       string                             `json:"id"`
-	Secuencia                int                                `json:"secuencia"`
-	CodigoVersionPublica     string                             `json:"codigo_version_publica"`
-	Revision                 int                                `json:"revision"`
-	VersionAnteriorRef       string                             `json:"version_anterior_ref,omitempty"`
-	InstanciaFlujoRef        string                             `json:"instancia_flujo_ref"`
-	Contenido                ContenidoPublicableConvocatoria    `json:"contenido"`
-	Configuracion            ConfiguracionFijadaConvocatoria    `json:"configuracion"`
-	ExpedienteRef            string                             `json:"expediente_ref"`
-	MotivoCreacion           string                             `json:"motivo_creacion"`
-	EstadoGobierno           EstadoGobiernoConvocatoria         `json:"estado_gobierno"`
-	CreadaPor                string                             `json:"creada_por"`
-	CreadaEn                 time.Time                          `json:"creada_en"`
-	UltimaModificacionPor    string                             `json:"ultima_modificacion_por,omitempty"`
-	UltimaModificacionEn     time.Time                          `json:"ultima_modificacion_en,omitempty"`
-	MotivoModificacion       string                             `json:"motivo_modificacion,omitempty"`
-	PublicadaPor             string                             `json:"publicada_por,omitempty"`
-	PublicadaEn              time.Time                          `json:"publicada_en,omitempty"`
-	MotivoPublicacion        string                             `json:"motivo_publicacion,omitempty"`
-	AprobacionPublicacion    *EvidenciaAprobacionConvocatoria   `json:"aprobacion_publicacion,omitempty"`
-	ComprobacionDependencias *EvidenciaDependenciasConvocatoria `json:"comprobacion_dependencias,omitempty"`
-	SustituidaPorRef         string                             `json:"sustituida_por_ref,omitempty"`
-	SustituidaPor            string                             `json:"sustituida_por,omitempty"`
-	SustituidaEn             time.Time                          `json:"sustituida_en,omitempty"`
-	RetiradaPor              string                             `json:"retirada_por,omitempty"`
-	RetiradaEn               time.Time                          `json:"retirada_en,omitempty"`
-	MotivoRetirada           string                             `json:"motivo_retirada,omitempty"`
-	AprobacionRetirada       *EvidenciaAprobacionConvocatoria   `json:"aprobacion_retirada,omitempty"`
+	Esquema                  string                                 `json:"esquema"`
+	ID                       string                                 `json:"id"`
+	Secuencia                int                                    `json:"secuencia"`
+	CodigoVersionPublica     string                                 `json:"codigo_version_publica"`
+	Revision                 int                                    `json:"revision"`
+	VersionAnteriorRef       string                                 `json:"version_anterior_ref,omitempty"`
+	InstanciaFlujoRef        string                                 `json:"instancia_flujo_ref"`
+	AmbitoOrganizativo       materialAmbitoOrganizativoConvocatoria `json:"ambito_organizativo"`
+	Contenido                ContenidoPublicableConvocatoria        `json:"contenido"`
+	Configuracion            ConfiguracionFijadaConvocatoria        `json:"configuracion"`
+	ExpedienteRef            string                                 `json:"expediente_ref"`
+	MotivoCreacion           string                                 `json:"motivo_creacion"`
+	EstadoGobierno           EstadoGobiernoConvocatoria             `json:"estado_gobierno"`
+	CreadaPor                string                                 `json:"creada_por"`
+	CreadaEn                 time.Time                              `json:"creada_en"`
+	UltimaModificacionPor    string                                 `json:"ultima_modificacion_por,omitempty"`
+	UltimaModificacionEn     time.Time                              `json:"ultima_modificacion_en,omitempty"`
+	MotivoModificacion       string                                 `json:"motivo_modificacion,omitempty"`
+	PublicadaPor             string                                 `json:"publicada_por,omitempty"`
+	PublicadaEn              time.Time                              `json:"publicada_en,omitempty"`
+	MotivoPublicacion        string                                 `json:"motivo_publicacion,omitempty"`
+	AprobacionPublicacion    *EvidenciaAprobacionConvocatoria       `json:"aprobacion_publicacion,omitempty"`
+	ComprobacionDependencias *EvidenciaDependenciasConvocatoria     `json:"comprobacion_dependencias,omitempty"`
+	SustituidaPorRef         string                                 `json:"sustituida_por_ref,omitempty"`
+	SustituidaPor            string                                 `json:"sustituida_por,omitempty"`
+	SustituidaEn             time.Time                              `json:"sustituida_en,omitempty"`
+	RetiradaPor              string                                 `json:"retirada_por,omitempty"`
+	RetiradaEn               time.Time                              `json:"retirada_en,omitempty"`
+	MotivoRetirada           string                                 `json:"motivo_retirada,omitempty"`
+	AprobacionRetirada       *EvidenciaAprobacionConvocatoria       `json:"aprobacion_retirada,omitempty"`
 }
 
 func (v VersionConvocatoriaGobernada) HuellaSHA256() (string, error) {

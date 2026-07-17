@@ -82,6 +82,7 @@ func (v VersionConvocatoriaGobernada) PublicarSucesora(
 		v.ID != predecesora.ID || v.Secuencia != predecesora.Secuencia+1 ||
 		v.VersionAnteriorRef != predecesora.Referencia() ||
 		v.InstanciaFlujoRef != predecesora.InstanciaFlujoRef ||
+		v.AmbitoOrganizativo != predecesora.AmbitoOrganizativo ||
 		v.Contenido.IdentificadorPublico != predecesora.Contenido.IdentificadorPublico ||
 		v.CreadaEn.Before(predecesora.ultimaFechaGobierno()) ||
 		v.Configuracion.FlujoProceso != predecesora.Configuracion.FlujoProceso {
@@ -195,7 +196,8 @@ func (v VersionConvocatoriaGobernada) NuevaVersion(
 	nueva := VersionConvocatoriaGobernada{
 		ID: v.ID, Secuencia: v.Secuencia + 1, CodigoVersionPublica: codigoVersionPublica,
 		Revision: 1, VersionAnteriorRef: v.Referencia(), InstanciaFlujoRef: v.InstanciaFlujoRef, Contenido: contenido,
-		Configuracion: configuracion, ExpedienteRef: expedienteRef, MotivoCreacion: motivo,
+		AmbitoOrganizativo: v.AmbitoOrganizativo,
+		Configuracion:      configuracion, ExpedienteRef: expedienteRef, MotivoCreacion: motivo,
 		EstadoGobierno: EstadoGobiernoConvocatoriaBorrador, CreadaPor: actorID, CreadaEn: fecha,
 	}
 	return nueva.ClonarCanonico()
@@ -210,6 +212,7 @@ func (v VersionConvocatoriaGobernada) SustituirPor(
 		v.EstadoGobierno != EstadoGobiernoConvocatoriaPublicada ||
 		nueva.EstadoGobierno != EstadoGobiernoConvocatoriaPublicada || nueva.ID != v.ID ||
 		nueva.Secuencia != v.Secuencia+1 || nueva.VersionAnteriorRef != v.Referencia() ||
+		nueva.AmbitoOrganizativo != v.AmbitoOrganizativo ||
 		nueva.Contenido.IdentificadorPublico != v.Contenido.IdentificadorPublico ||
 		nueva.CreadaEn.Before(v.ultimaFechaGobierno()) || nueva.PublicadaEn.Before(v.PublicadaEn) {
 		return VersionConvocatoriaGobernada{}, ErrTransicionGobiernoConvocatoria
