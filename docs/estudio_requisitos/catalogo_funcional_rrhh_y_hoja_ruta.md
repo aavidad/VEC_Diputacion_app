@@ -132,6 +132,8 @@ funcional, seguridad, datos, accesibilidad, operación y prueba.
 | EMP-001 | Carpeta personal | F3 | Vista propia de datos oficiales, actos, puesto, servicios, documentos, solicitudes y procedencia |
 | EMP-002 | Bandeja y solicitudes | F3 | Formularios, borradores, estado, plazo, tarea, justificante, subsanación, decisión y notificación |
 | EMP-003 | Espacio del responsable | F4 | Cobertura y tareas de su unidad con delegación temporal; nunca expediente completo, diagnóstico, nómina o méritos de Bolsa |
+| EMP-004 | Trabajo colaborativo | F4 | Espacios por equipo, unidad, proyecto o expediente; tareas, responsables, dependencias, comentarios, adjuntos y avisos con ámbito y auditoría exactos |
+| EMP-005 | Agenda compartida | F4 | Reuniones, hitos y recordatorios con sincronización reconciliable mediante conectores iCalendar, CalDAV, Google Calendar o Microsoft 365, sin credenciales en el núcleo |
 | CRO-001 | Perfil de jornada | F4 | Calendario, colectivo, centro, ciclo, horario, flexibilidad, reducciones y vigencia desde políticas aprobadas |
 | CRO-002 | Cuadrantes y turnos | F4 | Planificación, publicación, cambios, cobertura, descanso, trazabilidad y reglas específicas por centro |
 | CRO-003 | Marcajes | F4 | Hecho original inmutable, dispositivo, origen, calidad, corrección compensatoria y auditoría |

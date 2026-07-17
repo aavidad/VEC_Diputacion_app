@@ -54,6 +54,7 @@ Diputación.
 - [Brechas para un producto profesional, seguro y trazable](brechas_para_producto_profesional.md).
 - [Sistema de diseño, plantillas y temas visuales](sistema_diseno_y_temas.md).
 - [Ayuda, documentación, audio y asistente](ayuda_documentacion_audio_y_asistente.md).
+- [Espacio de trabajo colaborativo y agenda compartida](espacio_trabajo_colaborativo_y_agenda.md).
 - [Arquitectura de despliegue, contenedores y escalado](despliegue_contenedores_y_escalado.md).
 - [Manual 00 para Sistemas: preparación e instalación de la plataforma](manual_sistemas_preparacion_plataforma.md).
 - [Seguridad y despliegue del módulo Cronos](seguridad_y_despliegue_cronos.md).
@@ -101,6 +102,9 @@ productiva verificada.
   arbitrario ni almacenamiento de diagnósticos.
 - Una fuente de ayuda gobernada generará HTML accesible, manuales, PDF, audio, búsqueda y
   corpus del asistente, evitando mantener contenidos contradictorios.
+- El futuro espacio de trabajo colaborativo tendrá tareas y agenda compartida por ámbitos
+  exactos. Google Calendar, CalDAV o Microsoft 365 serán conectores sustituibles; no se
+  reabrirá el antiguo agregado transversal ni se retrasará por ello la entrega de Bolsa.
 - Cronos será un enclave exclusivamente interno de Mulhacén, sin rutas, artefactos, datos,
   mapas, conectores o credenciales compartidos con el portal público.
 - Módulo lógico y contenedor no son equivalentes: se separará el despliegue por frontera de
