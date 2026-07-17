@@ -131,51 +131,11 @@ func SerializarMensajeAtestacionAutorizacionV2(
 	escritor.escribirTexto(cabecera.ClaveID)
 	escritor.escribirTexto(cabecera.Audiencia)
 
-	// Orden contractual cerrado de DecisionAutorizacion para VEC-AD-2.
-	escritor.escribirTexto(decision.DecisionRef)
-	escritor.escribirBooleano(decision.Concedida)
-	escritor.escribirTexto(decision.Codigo)
-	escritor.escribirTexto(decision.PrincipalID)
-	escritor.escribirTexto(decision.PerfilActivoRef)
-	escritor.escribirTexto(decision.Accion)
-	escritor.escribirTexto(decision.RecursoRef)
-	escritor.escribirTexto(decision.ModuloID)
-	escritor.escribirTexto(decision.TipoRecurso)
-	escritor.escribirTexto(decision.ContextoRecursoHuellaSHA256)
-	escritor.escribirTexto(decision.Finalidad)
-	escritor.escribirTexto(decision.CorrelacionRef)
-	escritor.escribirTexto(decision.EsquemaHuellaSolicitud)
-	escritor.escribirTexto(decision.SolicitudHuellaSHA256)
-	escritor.escribirTexto(decision.EsquemaHuellaMotivo)
-	escritor.escribirTexto(decision.MotivoHuellaSHA256)
-	escribirVinculoAutenticacionActorV1(escritor, decision.VinculoAutenticacionActor)
-	escritor.escribirTexto(decision.AsignacionRef)
-	escritor.escribirTexto(decision.AsignacionHuellaSHA256)
-	escritor.escribirTexto(decision.VersionRolRef)
-	escritor.escribirTexto(decision.VersionRolHuellaSHA256)
-	escritor.escribirTexto(decision.ControlVigenciaVersionRolRef)
-	escritor.escribirUint64(decision.ControlVigenciaVersionRolRevision)
-	escritor.escribirTexto(decision.ControlVigenciaVersionRolHuellaSHA256)
-	escritor.escribirUint64(decision.RevisionCatalogoPoliticas)
-	escritor.escribirTexto(decision.CatalogoPoliticasHuellaSHA256)
-	escritor.escribirLista(decision.PoliticasEvaluadasRefs)
-	escritor.escribirMapa(decision.PoliticasEvaluadasHuellasSHA256)
-	escritor.escribirLista(decision.PoliticasRefs)
-	escritor.escribirMapa(decision.PoliticasHuellasSHA256)
-	escritor.escribirTexto(string(decision.GarantiaMinima))
-	escritor.escribirLista(decision.CamposPermitidos)
-	escritor.escribirLista(decision.Obligaciones)
-	escritor.escribirInstante(decision.EmitidaEn)
-	escritor.escribirInstante(decision.ValidaHasta)
-
-	// Coordenadas completas e inmutables de la entrada de motivo publicada.
-	escritor.escribirTexto(referenciaMotivo.CatalogoID)
-	// uint64 evita que el formato binario dependa del ancho de int del proceso.
-	// El perfil de motivos acota actualmente la version al intervalo portable
-	// de PostgreSQL, pero VEC-AD-2 no debe truncarla si ese perfil evoluciona.
-	escritor.escribirUint64(uint64(referenciaMotivo.CatalogoVersion))
-	escritor.escribirTexto(referenciaMotivo.CatalogoHuellaSHA256)
-	escritor.escribirTexto(referenciaMotivo.EntradaClave)
+	escribirDecisionAtestacionAutorizacionSolicitudLigadaV2(escritor, decision)
+	escribirReferenciaMotivoAtestacionAutorizacionSolicitudLigadaV2(
+		escritor,
+		referenciaMotivo,
+	)
 	if escritor.err != nil {
 		return nil, escritor.err
 	}
@@ -231,6 +191,19 @@ func validarDecisionParaAtestacionAutorizacionV2(
 	decision DecisionAutorizacion,
 	referenciaMotivo ReferenciaEntradaCatalogo,
 ) error {
+	if err := validarDecisionParaAtestacionAutorizacionSolicitudLigadaV2(
+		decision,
+		referenciaMotivo,
+	); err != nil || !decision.Concedida || decision.Codigo != "concedida" {
+		return errors.Join(errorMensajeAtestacionAutorizacionInvalido(), err)
+	}
+	return nil
+}
+
+func validarDecisionParaAtestacionAutorizacionSolicitudLigadaV2(
+	decision DecisionAutorizacion,
+	referenciaMotivo ReferenciaEntradaCatalogo,
+) error {
 	// Acota las colecciones antes de cualquier recorrido, copia u ordenacion.
 	if len(decision.PoliticasEvaluadasRefs) > maximoElementosAutorizacion ||
 		len(decision.PoliticasEvaluadasHuellasSHA256) > maximoElementosAutorizacion ||
@@ -242,7 +215,6 @@ func validarDecisionParaAtestacionAutorizacionV2(
 	}
 
 	if decision.ValidarEvidenciaInstantaneaSolicitudLigadaV2() != nil ||
-		!decision.Concedida || decision.Codigo != "concedida" ||
 		contieneComodinAtestacionAutorizacion(decision) ||
 		!listaAtestacionAutorizacionCanonica(decision.PoliticasEvaluadasRefs) ||
 		!listaAtestacionAutorizacionCanonica(decision.PoliticasRefs) ||
@@ -265,6 +237,62 @@ func validarDecisionParaAtestacionAutorizacionV2(
 		return errors.Join(errorMensajeAtestacionAutorizacionInvalido(), err)
 	}
 	return nil
+}
+
+func escribirDecisionAtestacionAutorizacionSolicitudLigadaV2(
+	escritor *escritorAtestacionAutorizacionV1,
+	decision DecisionAutorizacion,
+) {
+	// Orden contractual cerrado de los 35 campos de DecisionAutorizacion.
+	escritor.escribirTexto(decision.DecisionRef)
+	escritor.escribirBooleano(decision.Concedida)
+	escritor.escribirTexto(decision.Codigo)
+	escritor.escribirTexto(decision.PrincipalID)
+	escritor.escribirTexto(decision.PerfilActivoRef)
+	escritor.escribirTexto(decision.Accion)
+	escritor.escribirTexto(decision.RecursoRef)
+	escritor.escribirTexto(decision.ModuloID)
+	escritor.escribirTexto(decision.TipoRecurso)
+	escritor.escribirTexto(decision.ContextoRecursoHuellaSHA256)
+	escritor.escribirTexto(decision.Finalidad)
+	escritor.escribirTexto(decision.CorrelacionRef)
+	escritor.escribirTexto(decision.EsquemaHuellaSolicitud)
+	escritor.escribirTexto(decision.SolicitudHuellaSHA256)
+	escritor.escribirTexto(decision.EsquemaHuellaMotivo)
+	escritor.escribirTexto(decision.MotivoHuellaSHA256)
+	escribirVinculoAutenticacionActorV1(escritor, decision.VinculoAutenticacionActor)
+	escritor.escribirTexto(decision.AsignacionRef)
+	escritor.escribirTexto(decision.AsignacionHuellaSHA256)
+	escritor.escribirTexto(decision.VersionRolRef)
+	escritor.escribirTexto(decision.VersionRolHuellaSHA256)
+	escritor.escribirTexto(decision.ControlVigenciaVersionRolRef)
+	escritor.escribirUint64(decision.ControlVigenciaVersionRolRevision)
+	escritor.escribirTexto(decision.ControlVigenciaVersionRolHuellaSHA256)
+	escritor.escribirUint64(decision.RevisionCatalogoPoliticas)
+	escritor.escribirTexto(decision.CatalogoPoliticasHuellaSHA256)
+	escritor.escribirLista(decision.PoliticasEvaluadasRefs)
+	escritor.escribirMapa(decision.PoliticasEvaluadasHuellasSHA256)
+	escritor.escribirLista(decision.PoliticasRefs)
+	escritor.escribirMapa(decision.PoliticasHuellasSHA256)
+	escritor.escribirTexto(string(decision.GarantiaMinima))
+	escritor.escribirLista(decision.CamposPermitidos)
+	escritor.escribirLista(decision.Obligaciones)
+	escritor.escribirInstante(decision.EmitidaEn)
+	escritor.escribirInstante(decision.ValidaHasta)
+}
+
+func escribirReferenciaMotivoAtestacionAutorizacionSolicitudLigadaV2(
+	escritor *escritorAtestacionAutorizacionV1,
+	referenciaMotivo ReferenciaEntradaCatalogo,
+) {
+	// Coordenadas completas e inmutables de la entrada de motivo publicada.
+	escritor.escribirTexto(referenciaMotivo.CatalogoID)
+	// uint64 evita que el formato binario dependa del ancho de int del proceso.
+	// El perfil de motivos acota actualmente la version al intervalo portable
+	// de PostgreSQL, pero el formato no debe truncarla si ese perfil evoluciona.
+	escritor.escribirUint64(uint64(referenciaMotivo.CatalogoVersion))
+	escritor.escribirTexto(referenciaMotivo.CatalogoHuellaSHA256)
+	escritor.escribirTexto(referenciaMotivo.EntradaClave)
 }
 
 func mapaAtestacionAutorizacionV2Canonico(

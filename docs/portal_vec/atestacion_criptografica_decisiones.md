@@ -1,10 +1,10 @@
 # Atestacion criptografica de decisiones de autorizacion
 
-Estado: **remediacion tecnica V4 y representacion canonica VEC-AD-2 validadas;
-NO-GO productivo**. El corte separa el nucleo, el conector PostgreSQL, el emisor
-aislado y el consumo atomico del efecto, y ha superado su matriz tecnica en un
-arbol limpio. Esto no autoriza el despliegue: una decision registrada o una
-huella canonica, por si solas, nunca conceden un efecto.
+Estado: **remediacion tecnica V4 y representaciones canonicas VEC-AD-2 y
+VEC-AD-D-1 validadas; NO-GO productivo**. El corte separa el nucleo, el conector
+PostgreSQL, el emisor aislado y el consumo atomico del efecto, y ha superado su
+matriz tecnica en un arbol limpio. Esto no autoriza el despliegue: una decision
+registrada o una huella canonica, por si solas, nunca conceden un efecto.
 
 Fecha de corte: 17 de julio de 2026.
 
@@ -395,6 +395,23 @@ Este corte solo fija bytes canonicos y su huella: todavia no firma, no verifica
 procedencia, no selecciona una suite productiva y no sustituye la revalidacion
 atomica del catalogo, sesion, actor y efecto.
 
+Una denegacion no se etiqueta ni se reinterpreta como `VEC-AD-2`. El contrato
+nominal `domain.SerializarMensajeAtestacionDenegacionAutorizacionV1` publica el
+formato separado `VEC-AD-D-1`, con versionado y separador de dominio propios.
+Conserva los mismos 35 campos cerrados y las cuatro coordenadas completas del
+motivo, pero exige `concedida=false` y un codigo distinto de `concedida`.
+`VEC-AD-2` sigue exigiendo exactamente el resultado contrario. Ambos comparten
+solo las primitivas de escritura y la validacion estructural, de modo que un
+cambio futuro de `DecisionAutorizacion` bloquea los dos formatos sin convertir
+una prueba negativa en capacidad ejecutable.
+
+`VEC-AD-D-1` mantiene el limite exacto de 512 KiB y prueba los bordes limite
+menos uno, limite y limite mas uno. Su vector pequeno de interoperabilidad tiene
+2.371 bytes y SHA-256
+`ff44e2eeab73f9c9e1c8563d006880bf63224396b545ab94bf184da186ef0380`.
+Esta huella solo acredita integridad reproducible: la procedencia de la
+denegacion permanece cerrada hasta que exista el sobre y el verificador aislado.
+
 El formato Go `VEC-AD-1` actual ya no acepta el antiguo mensaje de 30 campos:
 se cambio el separador de dominio y el vector fijo. No existe lector, fallback
 ni conversion automatica desde aquel borrador. La V4 aporta revalidacion de
@@ -534,8 +551,9 @@ registra como capacidad ejecutable.
 ## 9. Matriz minima de pruebas
 
 - vector canonico comun Go/PostgreSQL y verificacion de firma conocida;
-- mutacion individual de cada uno de los 31 campos de decision y de los 25
-  datos del vinculo autenticacion-actor;
+- mutacion individual de los 31 campos historicos de `VEC-AD-1` y de los 35
+  campos de `VEC-AD-2`/`VEC-AD-D-1`, incluidos en ambos casos los 25 datos del
+  vinculo autenticacion-actor;
 - ausencia de contexto de actor, sesion o control; mezcla de sesion, cuenta,
   perfil, persona o superficie; `demo`, anonimo y cuenta privilegiada fuera de
   administracion;

@@ -144,7 +144,9 @@ debe cotejarla.
 ## Compatibilidad y siguiente corte
 
 - `VEC-AD-1` sigue siendo exclusivamente historico y rechaza V2.
-- La representacion canonica `VEC-AD-2` ya esta implementada y probada sin
+- `VEC-AD-2` representa exclusivamente concesiones V2. Las denegaciones usan
+  el dominio y tipo nominal independiente `VEC-AD-D-1`; ninguno puede aceptar
+  el resultado del otro. Ambos formatos estan implementados y probados sin
   modificar el vector V1. El sobre firmado, su verificador aislado, el gobierno
   de claves y el consumo atomico siguen siendo puertas separadas y cerradas.
 - La credencial del registro no sustituye la procedencia del PDP. El uso
