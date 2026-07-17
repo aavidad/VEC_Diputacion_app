@@ -439,6 +439,14 @@ vigencia y revocacion antes de promoverlo a una capacidad efimera. Para el
 perfil PDP actual ES256 continua sin estar aprobado aunque la primitiva comun
 sepa verificarlo.
 
+La misma primitiva ofrece un modo explicito de payload separado para mensajes
+grandes. El COSE_Sign1 transporta `null` en lugar de duplicar el payload; el
+verificador reconstruye la Sig_structure exclusivamente con los bytes
+canonicos esperados. No acepta un `bstr` vacio, un payload incrustado ni cambia
+automaticamente entre ambos modos. VEC-AD-2 usa este perfil porque su mensaje
+puede alcanzar 512 KiB y el resultado opaco del firmante permanece limitado a
+16 KiB.
+
 El formato Go `VEC-AD-1` actual ya no acepta el antiguo mensaje de 30 campos:
 se cambio el separador de dominio y el vector fijo. No existe lector, fallback
 ni conversion automatica desde aquel borrador. La V4 aporta revalidacion de
@@ -483,13 +491,21 @@ solicitud. Mensaje, firma y referencias se redactan en formateo y logs, y los
 codecs genericos quedan bloqueados para obligar al adaptador durable a usar un
 esquema explicito.
 
-Este contrato V2 sigue siendo nominal. El firmante devuelve evidencia opaca,
-pero el servicio no verifica por si mismo COSE, procedencia institucional,
-vigencia o revocacion de la clave y no crea autoridad ejecutable. El diseno V4
-documental incorpora verificador aislado, catalogo durable y consumo
-PostgreSQL; el perfil equivalente de confianza y consumo atomico para VEC-AD-2
-permanece pendiente. Tampoco se acredita aun un adaptador HSM/KMS homologado
-para el firmante PDP. Por ambas razones la puerta productiva continua cerrada.
+El contrato de firma V2 sigue siendo nominal por si solo. Sobre el se ha
+implementado el perfil privado
+`adapters/seguridad/confianzaatestacion`: fija Ed25519, la suite
+`VEC-AD-2-COSE-EDDSA-1`, audiencia de despliegue, AAD propio, claves publicas,
+ventanas, revision de configuracion y revocacion. Verifica COSE con payload
+separado y solo conserva huellas y referencias opacas. `firmada_en` continua
+siendo metadato informativo y nunca sustituye el reloj interno confiable.
+
+La prueba resultante no es autoridad de negocio. Una composicion local puede
+crear una configuracion y, por tanto, PostgreSQL debe cotejar revision, huella,
+clave y estado contra su catalogo durable y consumir la decision una sola vez
+en la misma transaccion del efecto. Ese catalogo y el consumo atomico para
+VEC-AD-2 permanecen pendientes. Tampoco se acredita aun un adaptador HSM/KMS
+homologado para el firmante PDP. Por ambas razones la puerta productiva
+continua cerrada.
 
 El envoltorio durable tendra esquema cerrado: version, suite, `clave_id`,
 audiencia, huella del mensaje, firma binaria, referencia opaca de operacion y

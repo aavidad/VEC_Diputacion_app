@@ -2341,6 +2341,360 @@ func (GeneradorReferenciasCriptograficas) NuevaReferenciaSolicitud(
 ) (ports.ReferenciaSolicitudFuenteAutoridad, error)
 ```
 
+## Paquete `internal/vec/adapters/seguridad/confianzaatestacion`
+
+> Package confianzaatestacion aplica el perfil institucional de confianza a atestaciones de autorizacion VEC-AD-2.
+
+Package confianzaatestacion aplica el perfil institucional de confianza a
+atestaciones de autorizacion VEC-AD-2. Verifica claves fijadas, audiencia,
+vigencia, revocacion y COSE, pero no concede por si solo permiso para mutar un
+agregado: el adaptador transaccional debe revalidar y consumir la prueba.
+
+### Constantes
+
+```go
+const (
+	// SuiteAtestacionAutorizacionV2COSEEdDSA separa el perfil VEC-AD-2 del
+	// perfil COSE de VEC-AD-1. Que la primitiva comun admita ES256 no lo
+	// incorpora a esta lista positiva.
+	SuiteAtestacionAutorizacionV2COSEEdDSA = "VEC-AD-2-COSE-EDDSA-1"
+
+	AlgoritmoCOSEAtestacionAutorizacionV2EdDSA = "EdDSA"
+)
+```
+
+### Variables
+
+```go
+var (
+	ErrConfiguracionConfianzaAtestacionV2Invalida = errors.New(
+		"vec: configuracion de confianza de atestacion V2 invalida",
+	)
+	ErrVerificacionConfianzaAtestacionV2Fallida = errors.New(
+		"vec: verificacion de confianza de atestacion V2 fallida",
+	)
+	ErrPruebaConfianzaAtestacionV2Invalida = errors.New(
+		"vec: prueba de confianza de atestacion V2 invalida",
+	)
+	ErrSerializacionConfianzaAtestacionV2Prohibida = errors.New(
+		"vec: serializacion generica de confianza de atestacion V2 prohibida",
+	)
+)
+```
+
+### Funciones
+
+```go
+func AADExternoAtestacionAutorizacionV2(audienciaDespliegue string) ([]byte, error)
+```
+
+AADExternoAtestacionAutorizacionV2 publica la vinculacion exacta que debe
+emplear el conector HSM/KMS al producir el COSE_Sign1 con payload separado.
+
+### Tipos
+
+```go
+type ConfiguracionConfianzaAtestacionAutorizacionV2 struct {
+	// Has unexported fields.
+}
+```
+
+ConfiguracionConfianzaAtestacionAutorizacionV2 es una instantanea acotada y
+con caducidad obligatoria. Su huella permite que el efecto durable compruebe
+despues que consume exactamente la revision verificada fuera de SQL.
+
+```go
+func NuevaConfiguracionConfianzaAtestacionAutorizacionV2(
+	revision string,
+	publicadaEn time.Time,
+	expiraEn time.Time,
+	raices ...RaizPublicaAtestacionAutorizacionV2,
+) (ConfiguracionConfianzaAtestacionAutorizacionV2, error)
+
+func (b ConfiguracionConfianzaAtestacionAutorizacionV2) Format(estado fmt.State, _ rune)
+
+func (b ConfiguracionConfianzaAtestacionAutorizacionV2) GoString() string
+
+func (*ConfiguracionConfianzaAtestacionAutorizacionV2) GobDecode([]byte) error
+
+func (ConfiguracionConfianzaAtestacionAutorizacionV2) GobEncode() ([]byte, error)
+
+func (b ConfiguracionConfianzaAtestacionAutorizacionV2) LogValue() slog.Value
+
+func (ConfiguracionConfianzaAtestacionAutorizacionV2) MarshalBinary() ([]byte, error)
+
+func (ConfiguracionConfianzaAtestacionAutorizacionV2) MarshalCBOR() ([]byte, error)
+
+func (ConfiguracionConfianzaAtestacionAutorizacionV2) MarshalJSON() ([]byte, error)
+
+func (ConfiguracionConfianzaAtestacionAutorizacionV2) MarshalText() ([]byte, error)
+
+func (ConfiguracionConfianzaAtestacionAutorizacionV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (ConfiguracionConfianzaAtestacionAutorizacionV2) MarshalYAML() (any, error)
+
+func (ConfiguracionConfianzaAtestacionAutorizacionV2) String() string
+
+func (*ConfiguracionConfianzaAtestacionAutorizacionV2) UnmarshalBinary([]byte) error
+
+func (*ConfiguracionConfianzaAtestacionAutorizacionV2) UnmarshalCBOR([]byte) error
+
+func (*ConfiguracionConfianzaAtestacionAutorizacionV2) UnmarshalJSON([]byte) error
+
+func (*ConfiguracionConfianzaAtestacionAutorizacionV2) UnmarshalText([]byte) error
+
+func (*ConfiguracionConfianzaAtestacionAutorizacionV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*ConfiguracionConfianzaAtestacionAutorizacionV2) UnmarshalYAML(func(any) error) error
+
+type DatosPruebaConfianzaAtestacionAutorizacionV2 struct {
+	ReferenciaDecision          string
+	HuellaSolicitudLigadaSHA256 string
+	HuellaMotivoCatalogoSHA256  string
+	HuellaMensajeSHA256         string
+	HuellaSobreSHA256           string
+	ClaveID                     string
+	HuellaClaveSPKISHA256       string
+	AlgoritmoCOSE               string
+	Suite                       string
+	AudienciaDespliegue         string
+	EstadoClave                 EstadoClaveAtestacionAutorizacionV2
+	VerificadaEn                time.Time
+	RaizValidaDesde             time.Time
+	RaizValidaHasta             time.Time
+	RevisionConfiguracion       string
+	HuellaConfiguracionSHA256   string
+	ConfiguracionPublicadaEn    time.Time
+	ConfiguracionExpiraEn       time.Time
+	// Has unexported fields.
+}
+```
+
+DatosPruebaConfianzaAtestacionAutorizacionV2 es una copia no serializable de
+compromisos aptos para cotejo durable. No contiene payload, sobre ni clave.
+
+```go
+func (b DatosPruebaConfianzaAtestacionAutorizacionV2) Format(estado fmt.State, _ rune)
+
+func (b DatosPruebaConfianzaAtestacionAutorizacionV2) GoString() string
+
+func (*DatosPruebaConfianzaAtestacionAutorizacionV2) GobDecode([]byte) error
+
+func (DatosPruebaConfianzaAtestacionAutorizacionV2) GobEncode() ([]byte, error)
+
+func (b DatosPruebaConfianzaAtestacionAutorizacionV2) LogValue() slog.Value
+
+func (DatosPruebaConfianzaAtestacionAutorizacionV2) MarshalBinary() ([]byte, error)
+
+func (DatosPruebaConfianzaAtestacionAutorizacionV2) MarshalCBOR() ([]byte, error)
+
+func (DatosPruebaConfianzaAtestacionAutorizacionV2) MarshalJSON() ([]byte, error)
+
+func (DatosPruebaConfianzaAtestacionAutorizacionV2) MarshalText() ([]byte, error)
+
+func (DatosPruebaConfianzaAtestacionAutorizacionV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (DatosPruebaConfianzaAtestacionAutorizacionV2) MarshalYAML() (any, error)
+
+func (DatosPruebaConfianzaAtestacionAutorizacionV2) String() string
+
+func (*DatosPruebaConfianzaAtestacionAutorizacionV2) UnmarshalBinary([]byte) error
+
+func (*DatosPruebaConfianzaAtestacionAutorizacionV2) UnmarshalCBOR([]byte) error
+
+func (*DatosPruebaConfianzaAtestacionAutorizacionV2) UnmarshalJSON([]byte) error
+
+func (*DatosPruebaConfianzaAtestacionAutorizacionV2) UnmarshalText([]byte) error
+
+func (*DatosPruebaConfianzaAtestacionAutorizacionV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*DatosPruebaConfianzaAtestacionAutorizacionV2) UnmarshalYAML(func(any) error) error
+
+func (d DatosPruebaConfianzaAtestacionAutorizacionV2) Validar() error
+
+type EstadoClaveAtestacionAutorizacionV2 string
+
+const (
+	EstadoClaveAtestacionAutorizacionV2Activa   EstadoClaveAtestacionAutorizacionV2 = "activa"
+	EstadoClaveAtestacionAutorizacionV2Revocada EstadoClaveAtestacionAutorizacionV2 = "revocada"
+)
+type PruebaConfianzaAtestacionAutorizacionV2 struct {
+	// Has unexported fields.
+}
+```
+
+PruebaConfianzaAtestacionAutorizacionV2 acredita una comprobacion local
+contra una instantanea fijada. No es autoridad de negocio ni sustituye el
+consumo unico y la revalidacion dentro de PostgreSQL u otro conector.
+
+```go
+func (p PruebaConfianzaAtestacionAutorizacionV2) Datos() (
+	DatosPruebaConfianzaAtestacionAutorizacionV2,
+	error,
+)
+
+func (b PruebaConfianzaAtestacionAutorizacionV2) Format(estado fmt.State, _ rune)
+
+func (b PruebaConfianzaAtestacionAutorizacionV2) GoString() string
+
+func (*PruebaConfianzaAtestacionAutorizacionV2) GobDecode([]byte) error
+
+func (PruebaConfianzaAtestacionAutorizacionV2) GobEncode() ([]byte, error)
+
+func (b PruebaConfianzaAtestacionAutorizacionV2) LogValue() slog.Value
+
+func (PruebaConfianzaAtestacionAutorizacionV2) MarshalBinary() ([]byte, error)
+
+func (PruebaConfianzaAtestacionAutorizacionV2) MarshalCBOR() ([]byte, error)
+
+func (PruebaConfianzaAtestacionAutorizacionV2) MarshalJSON() ([]byte, error)
+
+func (PruebaConfianzaAtestacionAutorizacionV2) MarshalText() ([]byte, error)
+
+func (PruebaConfianzaAtestacionAutorizacionV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (PruebaConfianzaAtestacionAutorizacionV2) MarshalYAML() (any, error)
+
+func (PruebaConfianzaAtestacionAutorizacionV2) String() string
+
+func (*PruebaConfianzaAtestacionAutorizacionV2) UnmarshalBinary([]byte) error
+
+func (*PruebaConfianzaAtestacionAutorizacionV2) UnmarshalCBOR([]byte) error
+
+func (*PruebaConfianzaAtestacionAutorizacionV2) UnmarshalJSON([]byte) error
+
+func (*PruebaConfianzaAtestacionAutorizacionV2) UnmarshalText([]byte) error
+
+func (*PruebaConfianzaAtestacionAutorizacionV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*PruebaConfianzaAtestacionAutorizacionV2) UnmarshalYAML(func(any) error) error
+
+func (p PruebaConfianzaAtestacionAutorizacionV2) Validar() error
+
+func (p PruebaConfianzaAtestacionAutorizacionV2) ValidarPara(
+	decision domain.DecisionAutorizacion,
+	referenciaMotivo domain.ReferenciaEntradaCatalogo,
+	atestacion ports.AtestacionAutorizacionV2,
+) error
+
+type RaizPublicaAtestacionAutorizacionV2 struct {
+	// Has unexported fields.
+}
+```
+
+RaizPublicaAtestacionAutorizacionV2 fija una clave Ed25519 a una unica
+audiencia de despliegue y ventana. No se reconstruye desde una peticion.
+
+```go
+func NuevaRaizPublicaAtestacionAutorizacionV2EdDSA(
+	claveID string,
+	clavePublica ed25519.PublicKey,
+	audienciaDespliegue string,
+	estado EstadoClaveAtestacionAutorizacionV2,
+	validaDesde time.Time,
+	validaHasta time.Time,
+	revocadaEn time.Time,
+) (RaizPublicaAtestacionAutorizacionV2, error)
+
+func (b RaizPublicaAtestacionAutorizacionV2) Format(estado fmt.State, _ rune)
+
+func (b RaizPublicaAtestacionAutorizacionV2) GoString() string
+
+func (*RaizPublicaAtestacionAutorizacionV2) GobDecode([]byte) error
+
+func (RaizPublicaAtestacionAutorizacionV2) GobEncode() ([]byte, error)
+
+func (b RaizPublicaAtestacionAutorizacionV2) LogValue() slog.Value
+
+func (RaizPublicaAtestacionAutorizacionV2) MarshalBinary() ([]byte, error)
+
+func (RaizPublicaAtestacionAutorizacionV2) MarshalCBOR() ([]byte, error)
+
+func (RaizPublicaAtestacionAutorizacionV2) MarshalJSON() ([]byte, error)
+
+func (RaizPublicaAtestacionAutorizacionV2) MarshalText() ([]byte, error)
+
+func (RaizPublicaAtestacionAutorizacionV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (RaizPublicaAtestacionAutorizacionV2) MarshalYAML() (any, error)
+
+func (RaizPublicaAtestacionAutorizacionV2) String() string
+
+func (*RaizPublicaAtestacionAutorizacionV2) UnmarshalBinary([]byte) error
+
+func (*RaizPublicaAtestacionAutorizacionV2) UnmarshalCBOR([]byte) error
+
+func (*RaizPublicaAtestacionAutorizacionV2) UnmarshalJSON([]byte) error
+
+func (*RaizPublicaAtestacionAutorizacionV2) UnmarshalText([]byte) error
+
+func (*RaizPublicaAtestacionAutorizacionV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*RaizPublicaAtestacionAutorizacionV2) UnmarshalYAML(func(any) error) error
+
+type ServicioConfianzaAtestacionAutorizacionV2 struct {
+	// Has unexported fields.
+}
+```
+
+ServicioConfianzaAtestacionAutorizacionV2 contiene una copia defensiva de la
+lista positiva. Produce prueba criptografica y de configuracion, nunca una
+capacidad para mutar Bolsa.
+
+```go
+func NuevoServicioConfianzaAtestacionAutorizacionV2(
+	configuracion ConfiguracionConfianzaAtestacionAutorizacionV2,
+	reloj ports.Reloj,
+) (*ServicioConfianzaAtestacionAutorizacionV2, error)
+
+func (b ServicioConfianzaAtestacionAutorizacionV2) Format(estado fmt.State, _ rune)
+
+func (b ServicioConfianzaAtestacionAutorizacionV2) GoString() string
+
+func (*ServicioConfianzaAtestacionAutorizacionV2) GobDecode([]byte) error
+
+func (ServicioConfianzaAtestacionAutorizacionV2) GobEncode() ([]byte, error)
+
+func (b ServicioConfianzaAtestacionAutorizacionV2) LogValue() slog.Value
+
+func (ServicioConfianzaAtestacionAutorizacionV2) MarshalBinary() ([]byte, error)
+
+func (ServicioConfianzaAtestacionAutorizacionV2) MarshalCBOR() ([]byte, error)
+
+func (ServicioConfianzaAtestacionAutorizacionV2) MarshalJSON() ([]byte, error)
+
+func (ServicioConfianzaAtestacionAutorizacionV2) MarshalText() ([]byte, error)
+
+func (ServicioConfianzaAtestacionAutorizacionV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (ServicioConfianzaAtestacionAutorizacionV2) MarshalYAML() (any, error)
+
+func (ServicioConfianzaAtestacionAutorizacionV2) String() string
+
+func (*ServicioConfianzaAtestacionAutorizacionV2) UnmarshalBinary([]byte) error
+
+func (*ServicioConfianzaAtestacionAutorizacionV2) UnmarshalCBOR([]byte) error
+
+func (*ServicioConfianzaAtestacionAutorizacionV2) UnmarshalJSON([]byte) error
+
+func (*ServicioConfianzaAtestacionAutorizacionV2) UnmarshalText([]byte) error
+
+func (*ServicioConfianzaAtestacionAutorizacionV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*ServicioConfianzaAtestacionAutorizacionV2) UnmarshalYAML(func(any) error) error
+
+func (s *ServicioConfianzaAtestacionAutorizacionV2) Verificar(
+	ctx context.Context,
+	decision domain.DecisionAutorizacion,
+	referenciaMotivo domain.ReferenciaEntradaCatalogo,
+	atestacion ports.AtestacionAutorizacionV2,
+) (PruebaConfianzaAtestacionAutorizacionV2, error)
+```
+
+Verificar comprueba la decision esperada, el motivo, la configuracion
+vigente y un COSE_Sign1 con payload separado. La fecha informativa devuelta
+por el firmante no se usa como reloj de seguridad.
+
 ## Paquete `internal/vec/adapters/seguridad/verificacioncose`
 
 > Package verificacioncose aplica el perfil criptografico comun de COSE_Sign1.
@@ -2503,3 +2857,17 @@ func (v *VerificadorClave) Verificar(
 
 Verificar comprueba la firma, el payload exacto y el AAD externo exacto.
 No consulta tiempo, revocacion o audiencia y no devuelve una capacidad.
+
+```go
+func (v *VerificadorClave) VerificarPayloadSeparado(
+	sobre SobreSign1Estricto,
+	payloadEsperado []byte,
+	aadExterno []byte,
+) error
+```
+
+VerificarPayloadSeparado comprueba un COSE_Sign1 cuyo campo payload es
+null y reconstruye la Sig_structure con los bytes exactos aportados por el
+protocolo consumidor. Permite firmar mensajes grandes sin duplicarlos en el
+sobre. Un bstr vacio o un payload incrustado no se reinterpretan como modo
+separado.

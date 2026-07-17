@@ -386,6 +386,12 @@ codecs genericos. Esta pieza no adelanta la puerta de produccion: falta promover
 la prueba mediante un perfil privado de confianza y consumirla una sola vez en
 la misma transaccion PostgreSQL que produzca el efecto de Bolsa.
 
+El perfil privado de confianza ya verifica Ed25519/COSE con payload separado,
+clave, audiencia, vigencia, configuracion y revocacion fijadas. Su salida son
+solo compromisos no autoritativos. La puerta sigue sin avanzar hasta que el
+conector durable relea esas mismas coordenadas y consuma decision y efecto en
+una unica transaccion; aceptar la prueba local sin ese cotejo esta prohibido.
+
 ## 11. Decisión de implementación
 
 La opción recomendada es mantener `Autorizador` pequeño y estable y añadir la

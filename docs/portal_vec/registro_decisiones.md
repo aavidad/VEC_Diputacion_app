@@ -2643,6 +2643,9 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   transaccional prevista por DEC-047.
 - Compatibilidad: que la primitiva sepa verificar ES256 no aprueba ES256 para
   la atestación PDP actual, cuyo perfil sigue limitado expresamente a EdDSA.
+- Payload separado: el método específico exige `null` en el sobre y reconstruye
+  la Sig_structure con el payload esperado. No acepta payload incrustado ni
+  vacío y permite mantener acotado el artefacto COSE para VEC-AD-2.
 
 ## DEC-076 — Puerto de firma VEC-AD-2 separado y no autoritativo
 
@@ -2665,8 +2668,33 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - No autoridad: una firma opaca no acredita todavía clave institucional,
   audiencia, entorno, vigencia, revocación ni consumo único. Ningún handler
   obtiene por este contrato permiso para mutar una baremación.
-- Siguiente frontera: perfil privado de confianza VEC-AD-2 y primera reserva de
-  cambio de Bolsa con revalidación y consumo atómicos en PostgreSQL.
+- Siguiente frontera: catálogo durable de confianza VEC-AD-2 y primera reserva
+  de cambio de Bolsa con revalidación y consumo atómicos en PostgreSQL.
+
+## DEC-077 — Confianza VEC-AD-2 local sin autoridad de negocio
+
+- Estado: perfil criptográfico y de configuración implantado y probado el 17
+  de julio de 2026; catálogo PostgreSQL y consumo atómico pendientes.
+- Perfil: exclusivamente Ed25519, suite `VEC-AD-2-COSE-EDDSA-1`, audiencia de
+  despliegue de cuatro segmentos y AAD específico del protocolo. ES256 continúa
+  fuera de la lista positiva aunque el verificador común lo soporte.
+- Transporte: COSE_Sign1 con payload separado; el mensaje de hasta 512 KiB no
+  se duplica y el sobre opaco conserva el límite de 16 KiB del puerto.
+- Configuración: revisión, publicación y caducidad máxima de 24 horas; hasta 64
+  claves con identificador y material únicos; huella determinista independiente
+  del orden; ventanas y revocación explícitas.
+- Reloj: la verificación usa únicamente el reloj inyectado por composición. La
+  fecha informativa del proveedor no participa en vigencia ni revocación.
+- Minimización: la prueba conserva referencias y huellas de decisión, solicitud,
+  motivo, mensaje, sobre, clave y configuración; no conserva payload, sobre ni
+  clave pública.
+- No autoridad: el constructor de configuración es accesible a la composición,
+  por lo que su resultado solo sirve de precomprobación. El efecto debe releer
+  catálogo, clave y revocación durables y consumir la decisión dentro de la
+  misma transacción; sin ello permanece en **NO-GO**.
+- Adversarial: se prueban otra clave, `kid`, payload, AAD, audiencia, suite,
+  decisión y motivo; payload incrustado, firma alterada, revocación, ventanas,
+  cancelación, nulos tipados, codecs, logs, alias mutables y concurrencia.
 - Evidencia: pruebas EdDSA/ES256, CBOR no mínimo, cabeceras extra, high-S,
   firma, payload, AAD, `kid` y claves cruzados, alias mutables, redacción,
   codecs, límites, fuzz, carrera, 32 bits y batería completa del adaptador V4.
