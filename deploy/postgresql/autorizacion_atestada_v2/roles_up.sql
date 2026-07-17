@@ -44,12 +44,22 @@ BEGIN
     END IF;
     IF pg_catalog.to_regnamespace('vec_autorizacion_atestada_v2') IS NOT NULL
        OR pg_catalog.to_regnamespace(
+              'vec_confianza_atestacion_v2_consumo_atestado'
+          ) IS NOT NULL
+       OR pg_catalog.to_regnamespace(
               'vec_autorizacion_atestada_v2_guardia'
           ) IS NOT NULL
        OR EXISTS (
            SELECT 1 FROM pg_catalog.pg_event_trigger
             WHERE evtname =
                   'vec_autorizacion_atestada_v2_cerrar_acl_tipos'
+       )
+       OR EXISTS (
+           SELECT 1 FROM pg_catalog.pg_constraint
+            WHERE conrelid =
+                  'vec_autorizacion.decision_autorizacion_solicitud_ligada_v2'::regclass
+              AND conname =
+                  'decision_solicitud_ligada_v2_ref_huella_atestada_unica'
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'ya existen objetos de autorizacion atestada V2';
@@ -143,9 +153,6 @@ $privilegios_base$;
 -- la revalidacion nominal. Ningun rol runtime recibe estas capacidades.
 GRANT USAGE ON SCHEMA vec_autorizacion
     TO vec_autorizacion_atestada_v2_propietario;
-GRANT REFERENCES (decision_ref) ON
-    vec_autorizacion.decision_autorizacion_solicitud_ligada_v2
-    TO vec_autorizacion_atestada_v2_propietario;
 GRANT EXECUTE ON FUNCTION
     vec_autorizacion.registrar_decision_solicitud_ligada_v2_si_vigente(
         bytea, bytea
@@ -153,10 +160,6 @@ GRANT EXECUTE ON FUNCTION
 
 GRANT USAGE ON SCHEMA vec_confianza_atestacion_v2
     TO vec_autorizacion_atestada_v2_propietario;
-GRANT REFERENCES (configuracion_revision, clave_id, version) ON
-    vec_confianza_atestacion_v2.configuracion_raiz
-    TO vec_autorizacion_atestada_v2_propietario;
-
 GRANT USAGE ON SCHEMA public
     TO vec_autorizacion_atestada_v2_propietario;
 GRANT EXECUTE ON FUNCTION public.hmac(bytea, bytea, text)

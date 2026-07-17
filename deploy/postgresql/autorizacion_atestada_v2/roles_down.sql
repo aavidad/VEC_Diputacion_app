@@ -1,6 +1,7 @@
 -- Retirada de roles despues de retirar la migracion. Requiere superusuario.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
+SET LOCAL lock_timeout = '5s';
 
 SELECT pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(
@@ -19,9 +20,19 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'retirada de roles atestados V2 requiere superusuario';
     END IF;
-    IF pg_catalog.to_regnamespace('vec_autorizacion_atestada_v2') IS NOT NULL THEN
+    IF pg_catalog.to_regnamespace('vec_autorizacion_atestada_v2') IS NOT NULL
+       OR pg_catalog.to_regnamespace(
+              'vec_confianza_atestacion_v2_consumo_atestado'
+          ) IS NOT NULL
+       OR EXISTS (
+           SELECT 1 FROM pg_catalog.pg_constraint
+            WHERE conrelid =
+                  'vec_autorizacion.decision_autorizacion_solicitud_ligada_v2'::regclass
+              AND conname =
+                  'decision_solicitud_ligada_v2_ref_huella_atestada_unica'
+       ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
-            MESSAGE = 'retire primero el esquema atestado V2';
+            MESSAGE = 'retire primero los objetos atestados V2';
     END IF;
     FOREACH rol IN ARRAY ARRAY[
         'vec_autorizacion_atestada_v2_propietario',
@@ -58,13 +69,7 @@ REVOKE EXECUTE ON FUNCTION
     vec_autorizacion.registrar_decision_solicitud_ligada_v2_si_vigente(
         bytea, bytea
     ) FROM vec_autorizacion_atestada_v2_propietario;
-REVOKE REFERENCES (decision_ref) ON
-    vec_autorizacion.decision_autorizacion_solicitud_ligada_v2
-    FROM vec_autorizacion_atestada_v2_propietario;
 REVOKE USAGE ON SCHEMA vec_autorizacion
-    FROM vec_autorizacion_atestada_v2_propietario;
-REVOKE REFERENCES (configuracion_revision, clave_id, version) ON
-    vec_confianza_atestacion_v2.configuracion_raiz
     FROM vec_autorizacion_atestada_v2_propietario;
 REVOKE USAGE ON SCHEMA vec_confianza_atestacion_v2
     FROM vec_autorizacion_atestada_v2_propietario;

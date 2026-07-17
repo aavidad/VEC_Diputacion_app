@@ -28,7 +28,8 @@ generar_clave clave_ajeno
 
 limpiar() {
     docker rm -f "$contenedor" >/dev/null 2>&1 || true
-    rm -f /tmp/vec_ad2_holder_"$$".out /tmp/vec_ad2_error_"$$".out
+    rm -f /tmp/vec_ad2_holder_"$$".out /tmp/vec_ad2_error_"$$".out \
+        /tmp/vec_ad2_retro_"$$".out
 }
 trap limpiar EXIT INT TERM
 
@@ -60,6 +61,53 @@ exigir_rechazo_login() {
     fi
 }
 
+exigir_snapshot_obsoleto() {
+    local preparacion=$1
+    local escritor_sql=$2
+    local lector_sql=$3
+    local aplicacion=$4
+    local escritor
+    local activo=0
+    local estado=0
+    psql_archivo "$preparacion"
+    docker exec --interactive "$contenedor" psql -X --quiet \
+        --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+        --command "SET application_name='$aplicacion'" --file=- \
+        < "$raiz/$escritor_sql" \
+        > /tmp/vec_ad2_holder_"$$".out 2>&1 &
+    escritor=$!
+    for _ in $(seq 1 50); do
+        numero=$(docker exec "$contenedor" psql -X -Atq \
+            --username postgres --dbname "$base" --command \
+            "SELECT count(*) FROM pg_stat_activity WHERE application_name='$aplicacion' AND state='active' AND wait_event='PgSleep'" || true)
+        if [[ "$numero" == "1" ]]; then
+            activo=1
+            break
+        fi
+        sleep 0.1
+    done
+    if [[ "$activo" != 1 ]]; then
+        echo "el escritor $aplicacion no alcanzo el punto concurrente" >&2
+        cat /tmp/vec_ad2_holder_"$$".out >&2
+        wait "$escritor" || true
+        exit 1
+    fi
+    if psql_archivo "$lector_sql" \
+        > /tmp/vec_ad2_error_"$$".out 2>&1; then
+        estado=0
+    else
+        estado=$?
+    fi
+    wait "$escritor"
+    if [[ "$estado" == 0 ]] || ! grep -Eq \
+        '40001|could not serialize|no se pudo serializar' \
+        /tmp/vec_ad2_error_"$$".out; then
+        echo "el checkpoint $aplicacion no rechazo el snapshot obsoleto" >&2
+        cat /tmp/vec_ad2_error_"$$".out >&2
+        exit 1
+    fi
+}
+
 instalar_dependencias() {
     psql_archivo deploy/postgresql/autorizacion/roles_up.sql
     psql_archivo \
@@ -81,6 +129,8 @@ instalar_dependencias() {
 instalar_modulo() {
     psql_archivo deploy/postgresql/autorizacion_atestada_v2/roles_up.sql
     psql_archivo \
+        deploy/postgresql/autorizacion_atestada_v2/migraciones_autorizacion/000001_vinculo_decision_atestada_v2.up.sql
+    psql_archivo \
         deploy/postgresql/autorizacion_atestada_v2/migraciones_confianza/000001_cotejo_consumo_atestado_v2.up.sql
     psql_archivo \
         deploy/postgresql/autorizacion_atestada_v2/migraciones/000001_registro_consumo_atestado_v2.up.sql
@@ -94,6 +144,8 @@ retirar_modulo() {
         < "$raiz/deploy/postgresql/autorizacion_atestada_v2/migraciones/000001_registro_consumo_atestado_v2.down.sql"
     psql_archivo \
         deploy/postgresql/autorizacion_atestada_v2/migraciones_confianza/000001_cotejo_consumo_atestado_v2.down.sql
+    psql_archivo \
+        deploy/postgresql/autorizacion_atestada_v2/migraciones_autorizacion/000001_vinculo_decision_atestada_v2.down.sql
 }
 
 command -v docker >/dev/null 2>&1 || {
@@ -159,16 +211,18 @@ docker exec --interactive \
 \getenv clave_consumidor CLAVE_CONSUMIDOR
 \getenv clave_emisor CLAVE_EMISOR
 \getenv clave_ajeno CLAVE_AJENO
-CREATE ROLE vec_ad2_consumidor_prueba LOGIN NOSUPERUSER NOCREATEDB
+CREATE ROLE vec_ad2_consumidor_prueba LOGIN INHERIT NOSUPERUSER NOCREATEDB
     NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'clave_consumidor';
-CREATE ROLE vec_ad2_emisor_prueba LOGIN NOSUPERUSER NOCREATEDB
+CREATE ROLE vec_ad2_emisor_prueba LOGIN INHERIT NOSUPERUSER NOCREATEDB
     NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'clave_emisor';
-CREATE ROLE vec_ad2_ajeno_prueba LOGIN NOSUPERUSER NOCREATEDB
+CREATE ROLE vec_ad2_ajeno_prueba LOGIN INHERIT NOSUPERUSER NOCREATEDB
     NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'clave_ajeno';
 GRANT vec_autorizacion_atestada_v2_consumidor
-    TO vec_ad2_consumidor_prueba;
+    TO vec_ad2_consumidor_prueba
+    WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;
 GRANT vec_autorizacion_atestada_v2_emisor_capacidad
-    TO vec_ad2_emisor_prueba;
+    TO vec_ad2_emisor_prueba
+    WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;
 DO $conectar_ajeno$
 BEGIN
     EXECUTE format(
@@ -178,6 +232,50 @@ BEGIN
 END
 $conectar_ajeno$;
 SQL
+
+exigir_snapshot_obsoleto \
+    deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/preparar_revocacion_snapshot_clave.sql \
+    deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/revocar_clave_snapshot_concurrente.sql \
+    deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/leer_clave_snapshot_obsoleto.sql \
+    vec_ad2_snapshot_clave
+exigir_snapshot_obsoleto \
+    deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/preparar_revocacion_snapshot_confianza.sql \
+    deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/revocar_raiz_snapshot_concurrente.sql \
+    deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/leer_confianza_snapshot_obsoleto.sql \
+    vec_ad2_snapshot_confianza
+psql_archivo \
+    deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/puntero_clave_futuro.sql
+
+# Una activación cuyo reloj se fijó antes de esperar conserva dos ejes:
+# efectiva_en y conocida/registrada_en sellada dentro del advisory lock.
+psql_archivo \
+    deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/preparar_clave_activacion_concurrente.sql
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+    --command "SET application_name='vec_ad2_material_clave'" --file=- \
+    < "$raiz/deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/mantener_material_clave.sql" \
+    > /tmp/vec_ad2_holder_"$$".out 2>&1 &
+holder=$!
+activo=0
+for _ in $(seq 1 50); do
+    numero=$(docker exec "$contenedor" psql -X -Atq --username postgres \
+        --dbname "$base" --command \
+        "SELECT count(*) FROM pg_stat_activity WHERE application_name='vec_ad2_material_clave' AND state='active' AND wait_event='PgSleep'" || true)
+    if [[ "$numero" == "1" ]]; then
+        activo=1
+        break
+    fi
+    sleep 0.1
+done
+if [[ "$activo" != 1 ]]; then
+    echo "el lector de clave no retuvo su lock" >&2
+    cat /tmp/vec_ad2_holder_"$$".out >&2
+    wait "$holder" || true
+    exit 1
+fi
+psql_archivo \
+    deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/activar_clave_tras_espera.sql
+wait "$holder"
 
 material=$(consulta_login vec_ad2_emisor_prueba "$clave_emisor" \
     'SELECT count(*) FROM vec_autorizacion_atestada_v2.obtener_material_emisor_capacidad()' \
@@ -220,8 +318,66 @@ REVOKE vec_ad2_grupo_extra FROM vec_ad2_emisor_prueba;
 DROP ROLE vec_ad2_grupo_extra;
 SQL
 
+# Una cadena transitiva no sustituye la única membresía directa exacta.
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" <<'SQL'
+CREATE ROLE vec_ad2_puente_prueba NOLOGIN INHERIT;
+GRANT vec_autorizacion_atestada_v2_emisor_capacidad,
+      vec_autorizacion_atestada_v2_consumidor
+    TO vec_ad2_puente_prueba
+    WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;
+GRANT vec_ad2_puente_prueba TO vec_ad2_ajeno_prueba
+    WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;
+SQL
+exigir_rechazo_login vec_ad2_ajeno_prueba "$clave_ajeno" \
+    'SELECT * FROM vec_autorizacion_atestada_v2.obtener_material_emisor_capacidad()' \
+    'un puente transitivo alcanzo el secreto HMAC'
+exigir_rechazo_login vec_ad2_ajeno_prueba "$clave_ajeno" \
+    "SELECT * FROM vec_autorizacion_atestada_v2.registrar_y_consumir_decision_v2_atestada('x'::bytea,'x'::bytea,'x'::bytea,repeat('x',16)::bytea,'x'::bytea,repeat('x',44)::bytea,'{}'::jsonb)" \
+    'un puente transitivo alcanzo la puerta consumidora'
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" <<'SQL'
+REVOKE vec_ad2_puente_prueba FROM vec_ad2_ajeno_prueba;
+REVOKE vec_autorizacion_atestada_v2_emisor_capacidad,
+       vec_autorizacion_atestada_v2_consumidor FROM vec_ad2_puente_prueba;
+DROP ROLE vec_ad2_puente_prueba;
+SQL
+
 psql_archivo \
     deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/integracion_consumo.sql
+
+# Una revocación que se hace efectiva mientras la puerta espera la cabeza
+# global de auditoría debe fallar después del registro nominal y revertirlo.
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+    --command "SET application_name='vec_ad2_bloqueo_auditoria'" --file=- \
+    < "$raiz/deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/bloquear_cadena_auditoria.sql" \
+    > /tmp/vec_ad2_holder_"$$".out 2>&1 &
+holder=$!
+activo=0
+for _ in $(seq 1 50); do
+    numero=$(docker exec "$contenedor" psql -X -Atq --username postgres \
+        --dbname "$base" --command \
+        "SELECT count(*) FROM pg_stat_activity WHERE application_name='vec_ad2_bloqueo_auditoria' AND state='active' AND wait_event='PgSleep'" || true)
+    if [[ "$numero" == "1" ]]; then
+        activo=1
+        break
+    fi
+    sleep 0.1
+done
+if [[ "$activo" != 1 ]]; then
+    echo "no se bloqueo la cabeza de auditoria" >&2
+    cat /tmp/vec_ad2_holder_"$$".out >&2
+    wait "$holder" || true
+    exit 1
+fi
+psql_archivo \
+    deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/revocar_clave_actual_en_futuro.sql
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --set VEC_AD2_REVOCACION_FUTURA=1 \
+    --username postgres --dbname "$base" \
+    < "$raiz/deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/integracion_consumo.sql"
+wait "$holder"
 
 # El cotejo vivo conserva el advisory lock compartido hasta fin de transaccion.
 psql_archivo \
@@ -236,7 +392,7 @@ activo=0
 for _ in $(seq 1 50); do
     numero=$(docker exec "$contenedor" psql -X -Atq --username postgres \
         --dbname "$base" --command \
-        "SELECT count(*) FROM pg_stat_activity WHERE application_name='vec_ad2_holder' AND state='active'" || true)
+        "SELECT count(*) FROM pg_stat_activity WHERE application_name='vec_ad2_holder' AND state='active' AND wait_event='PgSleep'" || true)
     if [[ "$numero" == "1" ]]; then
         activo=1
         break
@@ -246,6 +402,30 @@ done
 if [[ "$activo" != 1 ]]; then
     echo "el cotejo no alcanzo el punto de concurrencia" >&2
     cat /tmp/vec_ad2_holder_"$$".out >&2
+    exit 1
+fi
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+    --command "SET application_name='vec_ad2_revocacion_retroactiva'" \
+    --file=- \
+    < "$raiz/deploy/postgresql/autorizacion_atestada_v2/pruebas_sql/revocar_raiz_con_reloj_previo_a_espera.sql" \
+    > /tmp/vec_ad2_retro_"$$".out 2>&1 &
+retro=$!
+esperando=0
+for _ in $(seq 1 50); do
+    numero=$(docker exec "$contenedor" psql -X -Atq --username postgres \
+        --dbname "$base" --command \
+        "SELECT count(*) FROM pg_stat_activity WHERE application_name='vec_ad2_revocacion_retroactiva' AND state='active' AND wait_event_type='Lock'" || true)
+    if [[ "$numero" == "1" ]]; then
+        esperando=1
+        break
+    fi
+    sleep 0.1
+done
+if [[ "$esperando" != 1 ]]; then
+    echo "la revocacion retroactiva no espero el lock" >&2
+    cat /tmp/vec_ad2_retro_"$$".out >&2
+    wait "$retro" || true
     exit 1
 fi
 for prueba in \
@@ -265,6 +445,15 @@ for prueba in \
     fi
 done
 wait "$holder"
+if wait "$retro"; then
+    echo "se acepto una revocacion fechada antes de esperar" >&2
+    exit 1
+fi
+if ! grep -Eq '55000|revocacion de confianza retroactiva' \
+    /tmp/vec_ad2_retro_"$$".out; then
+    cat /tmp/vec_ad2_retro_"$$".out >&2
+    exit 1
+fi
 for prueba in \
     revocar_raiz_bajo_cotejo.sql \
     revocar_configuracion_bajo_cotejo.sql \
@@ -282,8 +471,8 @@ if psql_archivo \
 fi
 docker exec "$contenedor" psql -X -Atq --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base" --command \
-    "SELECT count(*) FROM vec_autorizacion_atestada_v2.clave_capacidad_version" \
-    | grep -qx '1'
+    "SELECT count(*) > 0 FROM vec_autorizacion_atestada_v2.clave_capacidad_version" \
+    | grep -qx 't'
 
 retirar_modulo
 docker exec --interactive "$contenedor" psql -X --quiet \

@@ -39,6 +39,7 @@ LOCK TABLE
     vec_autorizacion_atestada_v2.consumo_decision_v2,
     vec_autorizacion_atestada_v2.consumo_capacidad_v2,
     vec_autorizacion_atestada_v2.atestacion_decision_v2,
+    vec_autorizacion_atestada_v2.checkpoint_gobierno_clave,
     vec_autorizacion_atestada_v2.puntero_clave_capacidad,
     vec_autorizacion_atestada_v2.revocacion_clave_capacidad,
     vec_autorizacion_atestada_v2.clave_capacidad_version
@@ -62,10 +63,15 @@ DROP TABLE vec_autorizacion_atestada_v2.control_cadena_auditoria;
 DROP TABLE vec_autorizacion_atestada_v2.consumo_decision_v2;
 DROP TABLE vec_autorizacion_atestada_v2.consumo_capacidad_v2;
 DROP TABLE vec_autorizacion_atestada_v2.atestacion_decision_v2;
+DROP TABLE vec_autorizacion_atestada_v2.checkpoint_gobierno_clave;
 DROP TABLE vec_autorizacion_atestada_v2.puntero_clave_capacidad;
 DROP TABLE vec_autorizacion_atestada_v2.revocacion_clave_capacidad;
 DROP TABLE vec_autorizacion_atestada_v2.clave_capacidad_version;
 
+DROP FUNCTION
+    vec_autorizacion_atestada_v2.avanzar_checkpoint_gobierno_clave();
+DROP FUNCTION
+    vec_autorizacion_atestada_v2.sellar_conocimiento_gobierno_clave();
 DROP FUNCTION
     vec_autorizacion_atestada_v2.validar_gobierno_clave();
 DROP FUNCTION

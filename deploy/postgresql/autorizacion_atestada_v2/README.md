@@ -32,14 +32,17 @@ de `vec_autorizacion_atestada_v2_emisor_capacidad`, obtiene la clave HMAC de
 vida operativa y emite una capacidad ligada a la verificación. Las credenciales
 no se comparten y la cuenta consumidora no puede obtener el secreto.
 
-PostgreSQL conserva payload, COSE, SPKI y evidencia exactos, sus SHA-256 y una FK
-inmutable a `(configuración, clave, versión)` del catálogo histórico. La
+PostgreSQL conserva payload, COSE, SPKI y evidencia exactos, sus SHA-256 y FK
+compuestas a la decisión nominal, configuración, raíz y consumo exactos. La
 migración compañera instala en el propietario del catálogo un cotejo booleano
 estrecho: toma su mismo advisory lock compartido, reconstruye la configuración
 completa, exige que siga siendo la actual y coteja huellas, membresía, versión,
 suite, audiencia, ventanas y ausencia de revocación de configuración y raíz.
 El lock vive hasta el `COMMIT`, por lo que rotaciones y revocaciones quedan
-serializadas con el consumo. Ni consumidor ni emisor pueden invocar ese cotejo.
+serializadas con el consumo. Un checkpoint mutable en cada gobierno fuerza
+`40001` si una transacción `SERIALIZABLE` intenta leer desde un snapshot anterior
+a una revocación ya comprometida. Ni consumidor ni emisor pueden invocar esos
+cotejos ni el lector estrecho del instante nominal.
 
 La FK prueba procedencia referencial y el cotejo prueba vigencia del catálogo;
 ninguno demuestra por sí solo que la firma sea correcta. La capacidad HMAC
@@ -61,7 +64,7 @@ debe estar cubierta por las pruebas del adaptador productivo.
 - `..._consumidor`: solo ejecuta la puerta y la reconciliación estrecha.
 
 Runtime no recibe `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`,
-`REFERENCES`, secretos, registrador nominal ni lectura del catálogo. Las ocho
+`REFERENCES`, secretos, registrador nominal ni lectura del catálogo. Las nueve
 tablas usan `ENABLE/FORCE RLS`, política de propietario exacto, historia
 append-only y rechazo de `TRUNCATE`. Las funciones son `SECURITY DEFINER` con
 `search_path=pg_catalog`; `PUBLIC` no recibe `EXECUTE` ni acceso al esquema.
@@ -76,9 +79,18 @@ otros módulos ni pretende restaurar un ACL previo que desconoce.
 La clave HMAC se publica como una versión append-only y se activa mediante un
 puntero monotónico. Publicación, rotación y revocación adquieren el advisory lock
 `vec_autorizacion_atestada_v2:gobierno_clave:v1`; las lecturas lo adquieren en
-modo compartido y toman el reloj después de cualquier espera. Producción debe
-mover el secreto a HSM/KMS o a un broker con envoltura institucional: el `bytea`
-cifrado por el servidor es solo un corte de integración y mantiene el NO-GO.
+modo compartido y bloquean el checkpoint antes de tomar el reloj. Los punteros
+futuros se rechazan y el lector elige el de mayor orden que ya sea elegible.
+`registrada_en` se vuelve a sellar dentro del lock exclusivo y constituye el
+eje de conocimiento; `establecida_en`/`revocada_en` es el eje efectivo. Toda
+lectura exige ambos ejes anteriores o iguales a su instante autoritativo. Las
+revocaciones no pueden fecharse antes del sello, por lo que una espera de lock
+no reescribe retroactivamente la historia de un consumo válido.
+
+Producción debe mover el secreto a HSM/KMS o a un broker con envoltura
+institucional: el `bytea`
+almacenado en PostgreSQL no demuestra cifrado en reposo, es solo un corte de
+integración y mantiene el NO-GO.
 
 La cuenta emisora debe tener exactamente una membresía directa. El lector del
 catálogo exige también identidad aislada; por ello el broker usa dos pools de
@@ -90,6 +102,7 @@ Orden requerido:
 
 ```bash
 psql -X -v ON_ERROR_STOP=1 -f deploy/postgresql/autorizacion_atestada_v2/roles_up.sql
+psql -X -v ON_ERROR_STOP=1 -f deploy/postgresql/autorizacion_atestada_v2/migraciones_autorizacion/000001_vinculo_decision_atestada_v2.up.sql
 psql -X -v ON_ERROR_STOP=1 -f deploy/postgresql/autorizacion_atestada_v2/migraciones_confianza/000001_cotejo_consumo_atestado_v2.up.sql
 psql -X -v ON_ERROR_STOP=1 -f deploy/postgresql/autorizacion_atestada_v2/migraciones/000001_registro_consumo_atestado_v2.up.sql
 ```
@@ -102,7 +115,8 @@ vec.confirmar_destruccion_autorizacion_atestada_v2=DESTRUIR_AUTORIZACION_ATESTAD
 ```
 
 La retirada usa el orden inverso: down del registro (con token), down del cotejo
-en confianza y finalmente `roles_down.sql`. El token no sustituye el expediente
+en confianza, down del vínculo en autorización y finalmente `roles_down.sql`.
+El token no sustituye el expediente
 formal de retención/destrucción ni autoriza retirar datos reales.
 
 ## Barreras NO-GO restantes
@@ -112,8 +126,14 @@ formal de retención/destrucción ni autoriza retirar datos reales.
 - ancla monotónica externa contra restauración/failover atrasado;
 - adaptador PostgreSQL del cálculo que consuma y cree el efecto en un único
   `COMMIT`, con reconciliación tras respuesta ambigua;
-- pruebas E2E negativas contra revocación concurrente de confianza y autoridad;
 - política aprobada de retención, backup cifrado, recuperación y destrucción.
+
+La cabeza hash de auditoría es deliberadamente una fila única bloqueada con
+`FOR UPDATE`: garantiza orden total, pero constituye un cuello de botella global
+que debe medirse. Fragmentarla exige un diseño formal de múltiples cadenas y
+anclaje; hacerlo solo para ganar rendimiento es NO-GO. También es NO-GO aplicar
+el efecto de negocio fuera de la misma transacción: un consumo sin efecto, o un
+efecto sin consumo, crea un «efecto fantasma» aunque después se intente reparar.
 
 Hasta entonces no se concede `EXECUTE` de esta puerta a la aplicación de Bolsa
 en un despliegue real y el arranque productivo debe fallar cerrado.
@@ -125,5 +145,7 @@ deploy/postgresql/autorizacion_atestada_v2/probar_integracion.sh
 ```
 
 El runner usa PostgreSQL 18 efímero, dependencias reales, LOGIN separados y
-casos adversariales de ACL, HMAC, nonce, vínculos alterados, caducidad,
-inmutabilidad, down protegido y reinstalación limpia.
+casos adversariales de ACL, rol puente, HMAC, nonce, vínculos alterados,
+puntero futuro, revocación efectiva durante espera, snapshots obsoletos con
+`40001` para clave y confianza, inmutabilidad, down protegido y reinstalación
+limpia.

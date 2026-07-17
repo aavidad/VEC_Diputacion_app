@@ -17,7 +17,9 @@ INSERT INTO vec_confianza_atestacion_v2.acto_gobierno(
     ('acto:prueba:publicar:configuracion:rotada', 902,
      'publicacion_configuracion', clock_timestamp(), repeat('a', 64)),
     ('acto:prueba:activar:configuracion:rotada', 903,
-     'activacion_configuracion', clock_timestamp(), repeat('b', 64));
+     'activacion_configuracion', clock_timestamp(), repeat('b', 64)),
+    ('acto:prueba:revocar:raiz:retroactiva', 904,
+     'revocacion_raiz', clock_timestamp(), repeat('c', 64));
 
 DO $preparar_configuracion_rotada$
 DECLARE

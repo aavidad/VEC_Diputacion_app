@@ -8,6 +8,12 @@ DO $prevalidacion_dependencias$
 BEGIN
     IF to_regprocedure(
            'vec_confianza_atestacion_v2.cotejar_confianza_consumo_atestado_v1(text,text,timestamp with time zone,timestamp with time zone,text,numeric,text,timestamp with time zone,timestamp with time zone,text,text,timestamp with time zone)'
+       ) IS NULL
+       OR to_regprocedure(
+           'vec_confianza_atestacion_v2.cotejar_confianza_consumo_atestado_en_v1(text,text,timestamp with time zone,timestamp with time zone,text,numeric,text,timestamp with time zone,timestamp with time zone,text,text,timestamp with time zone,timestamp with time zone)'
+       ) IS NULL
+       OR to_regprocedure(
+           'vec_autorizacion.obtener_instante_decision_atestada_v2(text,text)'
        ) IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'falta el cotejo transaccional del catalogo VEC-AD-2';
@@ -285,6 +291,7 @@ CREATE TABLE vec_autorizacion_atestada_v2.clave_capacidad_version (
     registrada_en timestamptz(6) NOT NULL DEFAULT clock_timestamp(),
     PRIMARY KEY (clave_id, version),
     UNIQUE (version),
+    UNIQUE (huella_secreto_sha256),
     CHECK (version BETWEEN 1 AND 18446744073709551615),
     CHECK (vec_autorizacion_atestada_v2.texto_tecnico_valido(
         clave_id, 512
@@ -333,6 +340,18 @@ CREATE TABLE vec_autorizacion_atestada_v2.puntero_clave_capacidad (
     CHECK (orden BETWEEN 1 AND 18446744073709551615)
 );
 
+-- Barrera mutable contra snapshots SERIALIZABLE anteriores a un cambio de
+-- clave. Todo gobierno de clave la avanza dentro de la misma transacción.
+CREATE TABLE vec_autorizacion_atestada_v2.checkpoint_gobierno_clave (
+    control_id boolean PRIMARY KEY DEFAULT true CHECK (control_id),
+    revision numeric(20, 0) NOT NULL,
+    actualizada_en timestamptz(6) NOT NULL,
+    CHECK (revision BETWEEN 0 AND 18446744073709551615)
+);
+INSERT INTO vec_autorizacion_atestada_v2.checkpoint_gobierno_clave(
+    control_id, revision, actualizada_en
+) VALUES (true, 0, clock_timestamp());
+
 CREATE TABLE vec_autorizacion_atestada_v2.atestacion_decision_v2 (
     registro_ref text PRIMARY KEY,
     decision_ref text NOT NULL UNIQUE,
@@ -369,14 +388,30 @@ CREATE TABLE vec_autorizacion_atestada_v2.atestacion_decision_v2 (
     raiz_valida_desde timestamptz(6) NOT NULL,
     raiz_valida_hasta timestamptz(6) NOT NULL,
     registrada_en timestamptz(6) NOT NULL,
-    FOREIGN KEY (decision_ref)
+    UNIQUE (registro_ref, decision_ref, huella_decision_sha256),
+    FOREIGN KEY (decision_ref, huella_decision_sha256)
         REFERENCES vec_autorizacion.decision_autorizacion_solicitud_ligada_v2(
-            decision_ref
+            decision_ref, huella_decision_sha256
         ),
     FOREIGN KEY (revision_confianza, raiz_clave_id, raiz_version)
         REFERENCES vec_confianza_atestacion_v2.configuracion_raiz(
             configuracion_revision, clave_id, version
         ),
+    FOREIGN KEY (
+        revision_confianza, huella_configuracion_sha256,
+        configuracion_publicada_en, configuracion_expira_en
+    ) REFERENCES
+        vec_confianza_atestacion_v2.configuracion_confianza_version(
+            revision, huella_configuracion_sha256, publicada_en, expira_en
+        ),
+    FOREIGN KEY (
+        raiz_clave_id, raiz_version, raiz_publica_spki,
+        huella_raiz_spki_sha256, raiz_valida_desde, raiz_valida_hasta,
+        suite, audiencia_despliegue
+    ) REFERENCES vec_confianza_atestacion_v2.raiz_confianza_version(
+        clave_id, version, clave_publica_spki, huella_clave_spki_sha256,
+        valida_desde, valida_hasta, suite, audiencia_despliegue
+    ),
     CHECK (vec_autorizacion_atestada_v2.texto_tecnico_valido(
         registro_ref, 512
     )),
@@ -454,13 +489,10 @@ CREATE TABLE vec_autorizacion_atestada_v2.consumo_decision_v2 (
     contexto_recurso_huella_sha256 text NOT NULL,
     correlacion_ref text NOT NULL,
     consumida_en timestamptz(6) NOT NULL,
-    FOREIGN KEY (registro_ref)
+    UNIQUE (consumo_ref, registro_ref, decision_ref, efecto_ref),
+    FOREIGN KEY (registro_ref, decision_ref, huella_decision_sha256)
         REFERENCES vec_autorizacion_atestada_v2.atestacion_decision_v2(
-            registro_ref
-        ),
-    FOREIGN KEY (decision_ref)
-        REFERENCES vec_autorizacion.decision_autorizacion_solicitud_ligada_v2(
-            decision_ref
+            registro_ref, decision_ref, huella_decision_sha256
         ),
     CHECK (vec_autorizacion_atestada_v2.texto_tecnico_valido(
         consumo_ref, 512
@@ -504,9 +536,9 @@ CREATE TABLE vec_autorizacion_atestada_v2.auditoria_consumo_v2 (
     ocurrida_en timestamptz(6) NOT NULL,
     huella_anterior_sha256 text NOT NULL,
     huella_registro_sha256 text NOT NULL UNIQUE,
-    FOREIGN KEY (consumo_ref)
+    FOREIGN KEY (consumo_ref, registro_ref, decision_ref, efecto_ref)
         REFERENCES vec_autorizacion_atestada_v2.consumo_decision_v2(
-            consumo_ref
+            consumo_ref, registro_ref, decision_ref, efecto_ref
         ),
     CHECK (vec_autorizacion_atestada_v2.texto_tecnico_valido(
         auditoria_ref, 512
@@ -548,9 +580,10 @@ BEGIN
           FROM vec_autorizacion_atestada_v2.clave_capacidad_version
          WHERE clave_id = NEW.clave_id AND version = NEW.version
          FOR SHARE;
-        IF NEW.revocada_en < destino.valida_desde THEN
+        IF NEW.revocada_en < destino.valida_desde
+           OR NEW.revocada_en < NEW.registrada_en THEN
             RAISE EXCEPTION USING ERRCODE = '55000',
-                MESSAGE = 'revocacion anterior a la clave';
+                MESSAGE = 'revocacion de clave retroactiva';
         END IF;
         RETURN NEW;
     END IF;
@@ -558,7 +591,8 @@ BEGIN
       FROM vec_autorizacion_atestada_v2.clave_capacidad_version
      WHERE clave_id = NEW.clave_id AND version = NEW.version
      FOR SHARE;
-    IF NEW.establecida_en < destino.valida_desde
+    IF NEW.establecida_en > clock_timestamp()
+       OR NEW.establecida_en < destino.valida_desde
        OR NEW.establecida_en >= destino.valida_hasta
        OR EXISTS (
            SELECT 1
@@ -582,6 +616,54 @@ BEGIN
 END
 $funcion$;
 
+-- registrada_en es el instante oficial de conocimiento: se genera dentro del
+-- candado exclusivo, nunca con el reloj congelado antes de una espera.
+CREATE FUNCTION
+vec_autorizacion_atestada_v2.sellar_conocimiento_gobierno_clave()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog
+AS $funcion$
+BEGIN
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended(
+            'vec_autorizacion_atestada_v2:gobierno_clave:v1', 0
+        )
+    );
+    NEW.registrada_en := clock_timestamp();
+    RETURN NEW;
+END
+$funcion$;
+
+CREATE FUNCTION
+vec_autorizacion_atestada_v2.avanzar_checkpoint_gobierno_clave()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $funcion$
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'operacion de clave no admitida por checkpoint';
+    END IF;
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended(
+            'vec_autorizacion_atestada_v2:gobierno_clave:v1', 0
+        )
+    );
+    UPDATE vec_autorizacion_atestada_v2.checkpoint_gobierno_clave
+       SET revision = revision + 1,
+           actualizada_en = clock_timestamp()
+     WHERE control_id = true;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'checkpoint de clave ausente';
+    END IF;
+    RETURN NULL;
+END
+$funcion$;
+
 CREATE TRIGGER puntero_clave_validar
     BEFORE INSERT ON vec_autorizacion_atestada_v2.puntero_clave_capacidad
     FOR EACH ROW EXECUTE FUNCTION
@@ -590,6 +672,38 @@ CREATE TRIGGER revocacion_clave_validar
     BEFORE INSERT ON vec_autorizacion_atestada_v2.revocacion_clave_capacidad
     FOR EACH ROW EXECUTE FUNCTION
         vec_autorizacion_atestada_v2.validar_gobierno_clave();
+
+DO $sellar_conocimiento_gobierno_clave$
+DECLARE
+    tabla text;
+BEGIN
+    FOREACH tabla IN ARRAY ARRAY[
+        'clave_capacidad_version', 'revocacion_clave_capacidad',
+        'puntero_clave_capacidad'
+    ] LOOP
+        EXECUTE format(
+            'CREATE TRIGGER a00_sellar_conocimiento_gobierno_clave BEFORE INSERT ON vec_autorizacion_atestada_v2.%I FOR EACH ROW EXECUTE FUNCTION vec_autorizacion_atestada_v2.sellar_conocimiento_gobierno_clave()',
+            tabla
+        );
+    END LOOP;
+END
+$sellar_conocimiento_gobierno_clave$;
+
+DO $checkpoint_gobierno_clave$
+DECLARE
+    tabla text;
+BEGIN
+    FOREACH tabla IN ARRAY ARRAY[
+        'clave_capacidad_version', 'revocacion_clave_capacidad',
+        'puntero_clave_capacidad'
+    ] LOOP
+        EXECUTE format(
+            'CREATE TRIGGER z90_avanzar_checkpoint_gobierno_clave AFTER INSERT ON vec_autorizacion_atestada_v2.%I FOR EACH ROW EXECUTE FUNCTION vec_autorizacion_atestada_v2.avanzar_checkpoint_gobierno_clave()',
+            tabla
+        );
+    END LOOP;
+END
+$checkpoint_gobierno_clave$;
 
 DO $inmutabilidad$
 DECLARE
@@ -613,13 +727,35 @@ BEGIN
 END
 $inmutabilidad$;
 
+-- El checkpoint y la cabeza de auditoría son mutables solo por las funciones
+-- propietarias; ninguna operación puede eliminar o truncar sus filas control.
+DO $controles_no_retirables$
+DECLARE
+    tabla text;
+BEGIN
+    FOREACH tabla IN ARRAY ARRAY[
+        'checkpoint_gobierno_clave', 'control_cadena_auditoria'
+    ] LOOP
+        EXECUTE format(
+            'CREATE TRIGGER %I BEFORE DELETE ON vec_autorizacion_atestada_v2.%I FOR EACH ROW EXECUTE FUNCTION vec_autorizacion_atestada_v2.rechazar_mutacion_inmutable()',
+            tabla || '_no_eliminar', tabla
+        );
+        EXECUTE format(
+            'CREATE TRIGGER %I BEFORE TRUNCATE ON vec_autorizacion_atestada_v2.%I FOR EACH STATEMENT EXECUTE FUNCTION vec_autorizacion_atestada_v2.rechazar_mutacion_inmutable()',
+            tabla || '_no_truncar', tabla
+        );
+    END LOOP;
+END
+$controles_no_retirables$;
+
 DO $rls$
 DECLARE
     tabla text;
 BEGIN
     FOREACH tabla IN ARRAY ARRAY[
         'clave_capacidad_version', 'revocacion_clave_capacidad',
-        'puntero_clave_capacidad', 'atestacion_decision_v2',
+        'puntero_clave_capacidad', 'checkpoint_gobierno_clave',
+        'atestacion_decision_v2',
         'consumo_capacidad_v2', 'consumo_decision_v2',
         'control_cadena_auditoria', 'auditoria_consumo_v2'
     ] LOOP
@@ -651,22 +787,50 @@ SET search_path = pg_catalog
 AS $funcion$
 DECLARE
     identidad record;
+    objetivo record;
     oid_sesion oid;
+    numero_membresias bigint;
+    membresia_exacta boolean;
 BEGIN
-    SELECT oid, rolcanlogin, rolsuper, rolcreatedb, rolcreaterole,
-           rolreplication, rolbypassrls
+    IF p_exclusiva IS NOT TRUE OR p_rol NOT IN (
+        'vec_autorizacion_atestada_v2_emisor_capacidad',
+        'vec_autorizacion_atestada_v2_consumidor'
+    ) THEN
+        RETURN false;
+    END IF;
+    SELECT oid, rolcanlogin, rolinherit, rolsuper, rolcreatedb,
+           rolcreaterole, rolreplication, rolbypassrls
       INTO identidad
       FROM pg_catalog.pg_roles WHERE rolname = session_user;
+    SELECT oid, rolcanlogin, rolinherit, rolsuper, rolcreatedb,
+           rolcreaterole, rolreplication, rolbypassrls
+      INTO objetivo
+      FROM pg_catalog.pg_roles WHERE rolname = p_rol;
     oid_sesion := identidad.oid;
+    SELECT count(*), COALESCE(bool_and(
+               membresia.roleid = objetivo.oid
+               AND membresia.admin_option IS FALSE
+               AND membresia.inherit_option IS TRUE
+               AND membresia.set_option IS TRUE
+           ), false)
+      INTO numero_membresias, membresia_exacta
+      FROM pg_catalog.pg_auth_members AS membresia
+     WHERE membresia.member = oid_sesion;
     RETURN identidad IS NOT NULL AND identidad.rolcanlogin
+       AND identidad.rolinherit
        AND NOT identidad.rolsuper AND NOT identidad.rolcreatedb
        AND NOT identidad.rolcreaterole AND NOT identidad.rolreplication
        AND NOT identidad.rolbypassrls
-       AND pg_catalog.pg_has_role(session_user, p_rol, 'MEMBER')
-       AND (NOT p_exclusiva OR (
-           SELECT count(*) FROM pg_catalog.pg_auth_members
-            WHERE member = oid_sesion
-       ) = 1);
+       AND objetivo IS NOT NULL AND NOT objetivo.rolcanlogin
+       AND objetivo.rolinherit
+       AND NOT objetivo.rolsuper AND NOT objetivo.rolcreatedb
+       AND NOT objetivo.rolcreaterole AND NOT objetivo.rolreplication
+       AND NOT objetivo.rolbypassrls
+       AND numero_membresias = 1 AND membresia_exacta
+       AND NOT EXISTS (
+           SELECT 1 FROM pg_catalog.pg_auth_members
+            WHERE member = objetivo.oid
+       );
 END
 $funcion$;
 
@@ -691,6 +855,7 @@ SET search_path = pg_catalog
 AS $funcion$
 DECLARE
     instante timestamptz(6);
+    checkpoint_revision numeric(20, 0);
 BEGIN
     IF vec_autorizacion_atestada_v2.identidad_runtime_valida(
            'vec_autorizacion_atestada_v2_emisor_capacidad', true
@@ -703,6 +868,10 @@ BEGIN
             'vec_autorizacion_atestada_v2:gobierno_clave:v1', 0
         )
     );
+    SELECT revision INTO STRICT checkpoint_revision
+      FROM vec_autorizacion_atestada_v2.checkpoint_gobierno_clave
+     WHERE control_id = true
+     FOR SHARE;
     instante := clock_timestamp();
     RETURN QUERY
     SELECT clave.clave_id, clave.version, clave.secreto_hmac,
@@ -716,8 +885,11 @@ BEGIN
                SELECT max(ultimo.orden)
                  FROM vec_autorizacion_atestada_v2.puntero_clave_capacidad
                      AS ultimo
+                WHERE ultimo.establecida_en <= instante
+                  AND ultimo.registrada_en <= instante
            )
        AND puntero.establecida_en <= instante
+       AND puntero.registrada_en <= instante
        AND instante >= clave.valida_desde
        AND instante < clave.valida_hasta
        AND NOT EXISTS (
@@ -727,6 +899,7 @@ BEGIN
             WHERE revocacion.clave_id = clave.clave_id
               AND revocacion.version = clave.version
               AND revocacion.revocada_en <= instante
+              AND revocacion.registrada_en <= instante
        )
      FOR SHARE OF puntero, clave;
 END
@@ -756,12 +929,15 @@ AS $funcion$
 DECLARE
     decision jsonb;
     clave record;
+    clave_final record;
     instante timestamptz(6);
+    checkpoint_revision numeric(20, 0);
     mac_esperado bytea;
     secuencia numeric(20, 0);
     huella_anterior text;
     huella_auditoria text;
     referencia_auditoria text;
+    nominal_registrada boolean := false;
     claves_texto text[] := ARRAY[
         'esquema', 'clave_id', 'emisor_id', 'audiencia', 'nonce',
         'emitida_en', 'expira_en', 'registro_ref', 'consumo_ref',
@@ -780,7 +956,7 @@ DECLARE
     ];
 BEGIN
     IF vec_autorizacion_atestada_v2.identidad_runtime_valida(
-           'vec_autorizacion_atestada_v2_consumidor', false
+           'vec_autorizacion_atestada_v2_consumidor', true
        ) IS NOT TRUE THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'identidad consumidora atestada rechazada';
@@ -882,6 +1058,10 @@ BEGIN
             'vec_autorizacion_atestada_v2:gobierno_clave:v1', 0
         )
     );
+    SELECT revision INTO STRICT checkpoint_revision
+      FROM vec_autorizacion_atestada_v2.checkpoint_gobierno_clave
+     WHERE control_id = true
+     FOR SHARE;
     instante := clock_timestamp();
     SELECT capacidad.* INTO clave
       FROM vec_autorizacion_atestada_v2.puntero_clave_capacidad AS puntero
@@ -892,8 +1072,11 @@ BEGIN
                SELECT max(ultimo.orden)
                  FROM vec_autorizacion_atestada_v2.puntero_clave_capacidad
                      AS ultimo
+                WHERE ultimo.establecida_en <= instante
+                  AND ultimo.registrada_en <= instante
            )
        AND puntero.establecida_en <= instante
+       AND puntero.registrada_en <= instante
        AND NOT EXISTS (
            SELECT 1
              FROM vec_autorizacion_atestada_v2.revocacion_clave_capacidad
@@ -901,6 +1084,7 @@ BEGIN
             WHERE revocacion.clave_id = capacidad.clave_id
               AND revocacion.version = capacidad.version
               AND revocacion.revocada_en <= instante
+              AND revocacion.registrada_en <= instante
        )
      FOR SHARE OF puntero, capacidad;
     IF NOT FOUND
@@ -932,9 +1116,7 @@ BEGIN
         RETURN;
     END IF;
 
-    -- El cotejo toma el mismo advisory xact lock compartido que la lectura
-    -- oficial del catálogo. Una revocación o rotación queda serializada hasta
-    -- el COMMIT que también consumirá la decisión y aplicará el efecto.
+    -- Primera pasada: valida confianza y retiene sus locks hasta COMMIT.
     IF vec_confianza_atestacion_v2.cotejar_confianza_consumo_atestado_v1(
            p_capacidad ->> 'revision_confianza',
            p_capacidad ->> 'huella_configuracion_sha256',
@@ -995,6 +1177,14 @@ BEGIN
         RETURN;
     END IF;
 
+    -- La cabeza de auditoría es el último lock potencialmente bloqueante de
+    -- esta puerta. Se toma antes del registro nominal y se conserva hasta
+    -- completar efecto, consumo y cadena en el mismo COMMIT.
+    SELECT ultima_secuencia, ultima_huella_sha256
+      INTO STRICT secuencia, huella_anterior
+      FROM vec_autorizacion_atestada_v2.control_cadena_auditoria
+     WHERE control_id = true FOR UPDATE;
+
     -- La autoridad nominal se revalida y registra dentro de ESTA transaccion.
     -- La capacidad no sustituye RBAC/ABAC, sesion, motivo ni vigencia.
     IF vec_autorizacion.registrar_decision_solicitud_ligada_v2_si_vigente(
@@ -1002,12 +1192,82 @@ BEGIN
        ) IS NOT TRUE THEN
         RETURN;
     END IF;
-    instante := clock_timestamp();
-    IF instante >= (p_capacidad ->> 'expira_en')::timestamptz
-       OR instante >= (p_capacidad ->> 'decision_valida_hasta')::timestamptz
-       OR instante >= clave.valida_hasta THEN
+    nominal_registrada := true;
+
+    -- La fila nominal contiene el único reloj autoritativo tomado por su
+    -- registrador después de revalidar sesión, RBAC/ABAC, motivo y vigencia.
+    -- No se abre una segunda ventana temporal entre autoridad y efecto.
+    instante := vec_autorizacion.obtener_instante_decision_atestada_v2(
+        p_capacidad ->> 'decision_ref',
+        p_capacidad ->> 'huella_decision_sha256'
+    );
+    IF instante IS NULL OR NOT isfinite(instante) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
-            MESSAGE = 'capacidad o decision caduco durante la revalidacion';
+            MESSAGE = 'registro nominal exacto ausente tras revalidacion';
+    END IF;
+    -- Revisión final completa en ese mismo instante. Cualquier fallo se eleva
+    -- para revertir también el registro nominal, nunca retorna vacío.
+    SELECT revision INTO STRICT checkpoint_revision
+      FROM vec_autorizacion_atestada_v2.checkpoint_gobierno_clave
+     WHERE control_id = true
+     FOR SHARE;
+    SELECT capacidad.* INTO clave_final
+      FROM vec_autorizacion_atestada_v2.puntero_clave_capacidad AS puntero
+      JOIN vec_autorizacion_atestada_v2.clave_capacidad_version AS capacidad
+        ON capacidad.clave_id = puntero.clave_id
+       AND capacidad.version = puntero.version
+     WHERE puntero.orden = (
+               SELECT max(ultimo.orden)
+                 FROM vec_autorizacion_atestada_v2.puntero_clave_capacidad
+                     AS ultimo
+                WHERE ultimo.establecida_en <= instante
+                  AND ultimo.registrada_en <= instante
+           )
+       AND NOT EXISTS (
+           SELECT 1
+             FROM vec_autorizacion_atestada_v2.revocacion_clave_capacidad
+                 AS revocacion
+            WHERE revocacion.clave_id = capacidad.clave_id
+              AND revocacion.version = capacidad.version
+              AND revocacion.revocada_en <= instante
+              AND revocacion.registrada_en <= instante
+       )
+     FOR SHARE OF puntero, capacidad;
+    IF NOT FOUND
+       OR clave_final.clave_id IS DISTINCT FROM clave.clave_id
+       OR clave_final.version IS DISTINCT FROM clave.version
+       OR clave_final.secreto_hmac IS DISTINCT FROM clave.secreto_hmac
+       OR clave_final.huella_secreto_sha256 IS DISTINCT FROM
+          clave.huella_secreto_sha256
+       OR clave_final.emisor_id IS DISTINCT FROM p_capacidad ->> 'emisor_id'
+       OR clave_final.audiencia IS DISTINCT FROM p_capacidad ->> 'audiencia'
+       OR instante < clave_final.valida_desde
+       OR instante >= clave_final.valida_hasta
+       OR (p_capacidad ->> 'emitida_en')::timestamptz <
+          clave_final.valida_desde
+       OR (p_capacidad ->> 'expira_en')::timestamptz >
+          clave_final.valida_hasta
+       OR instante < (p_capacidad ->> 'emitida_en')::timestamptz
+       OR instante >= (p_capacidad ->> 'expira_en')::timestamptz
+       OR instante >= (p_capacidad ->> 'decision_valida_hasta')::timestamptz
+       OR vec_confianza_atestacion_v2.
+          cotejar_confianza_consumo_atestado_en_v1(
+              p_capacidad ->> 'revision_confianza',
+              p_capacidad ->> 'huella_configuracion_sha256',
+              (p_capacidad ->> 'configuracion_publicada_en')::timestamptz,
+              (p_capacidad ->> 'configuracion_expira_en')::timestamptz,
+              p_capacidad ->> 'raiz_clave_id',
+              (p_capacidad ->> 'raiz_version')::numeric,
+              p_capacidad ->> 'huella_raiz_spki_sha256',
+              (p_capacidad ->> 'raiz_valida_desde')::timestamptz,
+              (p_capacidad ->> 'raiz_valida_hasta')::timestamptz,
+              p_capacidad ->> 'suite',
+              p_capacidad ->> 'audiencia_despliegue',
+              (p_capacidad ->> 'verificada_en')::timestamptz,
+              instante
+          ) IS NOT TRUE THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'gobierno, capacidad o decision cambio durante la revalidacion';
     END IF;
 
     INSERT INTO vec_autorizacion_atestada_v2.atestacion_decision_v2 (
@@ -1082,10 +1342,6 @@ BEGIN
         p_capacidad ->> 'correlacion_ref', instante
     );
 
-    SELECT ultima_secuencia, ultima_huella_sha256
-      INTO STRICT secuencia, huella_anterior
-      FROM vec_autorizacion_atestada_v2.control_cadena_auditoria
-     WHERE control_id = true FOR UPDATE;
     secuencia := secuencia + 1;
     referencia_auditoria := 'auditoria-atestada:' || encode(sha256(
         vec_autorizacion_atestada_v2.encuadrar_capacidad(
@@ -1140,6 +1396,9 @@ BEGIN
 EXCEPTION
     WHEN data_exception OR invalid_text_representation
         OR datetime_field_overflow OR numeric_value_out_of_range THEN
+        IF nominal_registrada THEN
+            RAISE;
+        END IF;
         RETURN;
 END
 $funcion$;
@@ -1166,9 +1425,13 @@ SET search_path = pg_catalog
 AS $funcion$
 BEGIN
     IF vec_autorizacion_atestada_v2.identidad_runtime_valida(
-           'vec_autorizacion_atestada_v2_consumidor', false
+           'vec_autorizacion_atestada_v2_consumidor', true
        ) IS NOT TRUE
-       OR vec_autorizacion_atestada_v2.texto_tecnico_valido(
+    THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'identidad consumidora atestada rechazada';
+    END IF;
+    IF vec_autorizacion_atestada_v2.texto_tecnico_valido(
               p_decision_ref, 512
           ) IS NOT TRUE
        OR vec_autorizacion_atestada_v2.texto_tecnico_valido(

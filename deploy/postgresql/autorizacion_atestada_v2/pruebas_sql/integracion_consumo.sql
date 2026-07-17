@@ -3,6 +3,11 @@
 BEGIN;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
+\if :{?VEC_AD2_REVOCACION_FUTURA}
+SET LOCAL vec.prueba_revocacion_futura = '1';
+\else
+SET LOCAL vec.prueba_revocacion_futura = '0';
+\endif
 
 DO $retirar_checks_nominales$
 DECLARE
@@ -12,7 +17,7 @@ BEGIN
         SELECT conname FROM pg_catalog.pg_constraint
          WHERE conrelid =
              'vec_autorizacion.decision_autorizacion_solicitud_ligada_v2'::regclass
-           AND contype = 'c'
+           AND contype IN ('c', 'f')
     LOOP
         EXECUTE format(
             'ALTER TABLE vec_autorizacion.decision_autorizacion_solicitud_ligada_v2 DROP CONSTRAINT %I',
@@ -21,6 +26,12 @@ BEGIN
     END LOOP;
 END
 $retirar_checks_nominales$;
+DROP TRIGGER decision_autorizacion_v2_inmutable ON
+    vec_autorizacion.decision_autorizacion_solicitud_ligada_v2;
+CREATE SEQUENCE vec_autorizacion.prueba_nominal_atestada_seq;
+GRANT USAGE, SELECT ON SEQUENCE
+    vec_autorizacion.prueba_nominal_atestada_seq
+    TO vec_autorizacion_propietario;
 
 SET LOCAL session_replication_role = replica;
 INSERT INTO vec_autorizacion.decision_autorizacion_solicitud_ligada_v2(
@@ -35,7 +46,7 @@ INSERT INTO vec_autorizacion.decision_autorizacion_solicitud_ligada_v2(
     control_vigencia_version_rol_revision,
     emitida_en, valida_hasta, registrada_en
 ) VALUES (
-    'decision:atestada:v2:prueba:1', repeat('1', 64),
+    'decision:atestada:v2:prueba:plantilla', repeat('1', 64),
     convert_to('nominal-sintetica', 'UTF8'), '{}'::jsonb, '{}'::jsonb,
     'principal:prueba', 'perfil:prueba',
     'bolsa.calculo_experiencia.oficial.confirmar',
@@ -67,13 +78,49 @@ DECLARE
     documento jsonb;
 BEGIN
     documento := convert_from(p_decision_canonica, 'UTF8')::jsonb;
-    RETURN p_motivo_canonico IS NOT NULL AND EXISTS (
-        SELECT 1
-          FROM vec_autorizacion.decision_autorizacion_solicitud_ligada_v2
-         WHERE decision_ref = documento ->> 'decision_ref'
+    IF p_motivo_canonico IS NULL THEN
+        RETURN false;
+    END IF;
+    PERFORM nextval(
+        'vec_autorizacion.prueba_nominal_atestada_seq'::regclass
     );
-EXCEPTION WHEN OTHERS THEN
-    RETURN false;
+    INSERT INTO vec_autorizacion.decision_autorizacion_solicitud_ligada_v2(
+        decision_ref, huella_decision_sha256, decision_canonica,
+        documento_v2, documento_comun, principal_id, perfil_activo_ref,
+        accion, recurso_ref, modulo_id, tipo_recurso,
+        contexto_recurso_huella_sha256, finalidad, correlacion_ref,
+        solicitud_huella_sha256, motivo_huella_sha256, motivo_canonico,
+        motivo_catalogo_id, motivo_catalogo_version,
+        motivo_catalogo_huella_sha256, motivo_entrada_clave,
+        asignacion_ref, version_rol_ref, control_vigencia_version_rol_ref,
+        control_vigencia_version_rol_revision,
+        emitida_en, valida_hasta, registrada_en
+    )
+    SELECT documento ->> 'decision_ref',
+           encode(sha256(p_decision_canonica), 'hex'),
+           p_decision_canonica, plantilla.documento_v2,
+           plantilla.documento_comun, plantilla.principal_id,
+           plantilla.perfil_activo_ref, plantilla.accion,
+           plantilla.recurso_ref, plantilla.modulo_id,
+           plantilla.tipo_recurso,
+           plantilla.contexto_recurso_huella_sha256,
+           plantilla.finalidad, plantilla.correlacion_ref,
+           plantilla.solicitud_huella_sha256,
+           plantilla.motivo_huella_sha256, p_motivo_canonico,
+           plantilla.motivo_catalogo_id,
+           plantilla.motivo_catalogo_version,
+           plantilla.motivo_catalogo_huella_sha256,
+           plantilla.motivo_entrada_clave, plantilla.asignacion_ref,
+           plantilla.version_rol_ref,
+           plantilla.control_vigencia_version_rol_ref,
+           plantilla.control_vigencia_version_rol_revision,
+           plantilla.emitida_en, plantilla.valida_hasta,
+           date_trunc('microseconds', clock_timestamp())
+      FROM vec_autorizacion.decision_autorizacion_solicitud_ligada_v2
+           AS plantilla
+     WHERE plantilla.decision_ref =
+           'decision:atestada:v2:prueba:plantilla';
+    RETURN FOUND;
 END
 $sustituto$;
 
@@ -102,6 +149,8 @@ DECLARE
     evidencia bytea := convert_to('evidencia-verificacion-prueba', 'UTF8');
     resultado record;
     numero bigint;
+    secuencia_llamada bigint;
+    secuencia_usada boolean;
 BEGIN
     SELECT version.revision, version.huella_configuracion_sha256,
            version.publicada_en, version.expira_en
@@ -206,6 +255,55 @@ BEGIN
     );
     IF (SELECT count(*) FROM jsonb_object_keys(capacidad)) <> 39 THEN
         RAISE EXCEPTION 'vector de capacidad no tiene 39 campos';
+    END IF;
+
+    IF current_setting('vec.prueba_revocacion_futura') = '1' THEN
+        IF EXISTS (
+            SELECT 1
+              FROM vec_autorizacion.
+                   decision_autorizacion_solicitud_ligada_v2
+             WHERE decision_ref = 'decision:atestada:v2:prueba:1'
+        ) THEN
+            RAISE EXCEPTION 'la fila nominal de prueba ya existia';
+        END IF;
+        BEGIN
+            PERFORM * FROM vec_autorizacion_atestada_v2.
+                registrar_y_consumir_decision_v2_atestada(
+                    decision_bytes, motivo, payload, sobre, evidencia,
+                    raiz.clave_publica_spki, capacidad
+                );
+            RAISE EXCEPTION
+                'se acepto una clave revocada mientras esperaba auditoria';
+        EXCEPTION WHEN SQLSTATE '55000' THEN
+            NULL;
+        END;
+        SELECT last_value, is_called
+          INTO STRICT secuencia_llamada, secuencia_usada
+          FROM vec_autorizacion.prueba_nominal_atestada_seq;
+        IF secuencia_llamada <> 1 OR NOT secuencia_usada
+           OR EXISTS (
+               SELECT 1
+                 FROM vec_autorizacion.
+                      decision_autorizacion_solicitud_ligada_v2
+                WHERE decision_ref = 'decision:atestada:v2:prueba:1'
+           )
+           OR EXISTS (
+               SELECT 1 FROM vec_autorizacion_atestada_v2.
+                   atestacion_decision_v2
+           ) OR EXISTS (
+               SELECT 1 FROM vec_autorizacion_atestada_v2.
+                   consumo_capacidad_v2
+           ) OR EXISTS (
+               SELECT 1 FROM vec_autorizacion_atestada_v2.
+                   consumo_decision_v2
+           ) OR EXISTS (
+               SELECT 1 FROM vec_autorizacion_atestada_v2.
+                   auditoria_consumo_v2
+           ) THEN
+            RAISE EXCEPTION
+                'el fallo posterior al registro nominal no revirtio todo';
+        END IF;
+        RETURN;
     END IF;
 
     SELECT * INTO resultado

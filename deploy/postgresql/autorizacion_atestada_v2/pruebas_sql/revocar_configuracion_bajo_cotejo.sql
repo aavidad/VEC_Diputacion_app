@@ -6,7 +6,7 @@ SET LOCAL timezone = 'UTC';
 INSERT INTO vec_confianza_atestacion_v2.revocacion_configuracion(
     revision, revocada_en, motivo_catalogado_ref, acto_ref
 )
-SELECT revision, clock_timestamp(),
+SELECT revision, clock_timestamp() + interval '1 second',
        'motivo:prueba:revocacion:configuracion',
        'acto:prueba:revocar:configuracion:atestada'
   FROM vec_confianza_atestacion_v2.puntero_configuracion_actual
