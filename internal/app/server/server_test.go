@@ -110,6 +110,28 @@ func TestServerSirvePortalBolsaPermanenteSinEstilosInline(t *testing.T) {
 	}
 }
 
+func TestServerSirvePortalEmpleadoRRHHConPresentacionAislada(t *testing.T) {
+	handler := NewHandler(http.NotFoundHandler())
+	for _, prueba := range []struct{ ruta, tipo, contenido string }{
+		{ruta: "/portal-empleado/", tipo: "text/html", contenido: "Portal del Empleado"},
+		{ruta: "/portal-empleado/portal.css?v=1", tipo: "text/css", contenido: ".portal-empleado-shell"},
+		{ruta: "/portal-empleado/portal-componentes.css?v=1", tipo: "text/css", contenido: ".tarjeta-modulo"},
+		{ruta: "/portal-empleado/portal-flujos.css?v=1", tipo: "text/css", contenido: ".barra-filtros"},
+		{ruta: "/portal-empleado/portal.js?v=1", tipo: "text/javascript", contenido: `const API_PANEL_BOLSA = "/api/vec/bolsa/panel"`},
+		{ruta: "/portal-empleado/portal-eventos.js?v=1", tipo: "text/javascript", contenido: "crearControladorPortal"},
+		{ruta: "/portal-empleado/datos-presentacion.js?v=1", tipo: "text/javascript", contenido: "ADAPTADOR EXCLUSIVO DE PRESENTACIÓN RRHH"},
+	} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, prueba.ruta, nil))
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Header().Get("Content-Type"), prueba.tipo) || !strings.Contains(rec.Body.String(), prueba.contenido) {
+			t.Fatalf("%s = %d %q", prueba.ruta, rec.Code, rec.Body.String())
+		}
+		if prueba.tipo == "text/html" && (strings.Contains(strings.ToLower(rec.Body.String()), "<style") || strings.Contains(strings.ToLower(rec.Body.String()), " style=")) {
+			t.Fatalf("%s contiene CSS inline", prueba.ruta)
+		}
+	}
+}
+
 func TestInterfazNoDeduceTitularidadNiPermisosPorContenido(t *testing.T) {
 	handler := NewHandler(http.NotFoundHandler())
 	rec := httptest.NewRecorder()

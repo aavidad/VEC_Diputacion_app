@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <title>Portal del Empleado · Gestión de Bolsas</title>
+    <link rel="stylesheet" href="/styles.css?v=20260717-portal-rrhh">
+    <link rel="stylesheet" href="/portal-empleado/portal.css?v=20260717-portal-rrhh">
+    <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20260717-portal-rrhh">
+    <link rel="stylesheet" href="/portal-empleado/portal-flujos.css?v=20260717-portal-rrhh">
+    <script type="module" src="/portal-empleado/portal.js?v=20260717-portal-rrhh"></script>
+  </head>
+  <body class="portal-empleado-app">
+    <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
+
+    <div class="aviso-presentacion" role="status" hidden>
+      <strong>Presentación para RRHH</strong>
+      <span>Datos íntegramente sintéticos · Sin validez administrativa · Ninguna acción envía comunicaciones ni modifica expedientes reales</span>
+    </div>
+
+    <div class="portal-empleado-shell">
+      <aside class="portal-lateral" id="navegacion-lateral" aria-label="Portal del Empleado">
+        <div class="marca-portal">
+          <span class="marca-portal-icono" aria-hidden="true">VEC</span>
+          <div>
+            <strong>Portal del Empleado</strong>
+            <span>Diputación de Granada</span>
+          </div>
+        </div>
+
+        <div class="fase-portal">
+          <span class="punto-estado" aria-hidden="true"></span>
+          Fase inicial: Bolsa habilitada
+        </div>
+
+        <nav class="navegacion-modulos" aria-label="Módulos del portal">
+          <p class="titulo-navegacion">Portal</p>
+          <button type="button" class="enlace-lateral enlace-portal" data-vista="portal">
+            <span class="indicador-menu" aria-hidden="true">P</span>
+            <span>Inicio del portal</span>
+          </button>
+
+          <p class="titulo-navegacion">Módulos</p>
+          <button type="button" class="enlace-lateral modulo-habilitado" data-vista="resumen">
+            <span class="indicador-menu" aria-hidden="true">B</span>
+            <span>Bolsas de trabajo</span>
+            <span class="etiqueta-menu">Activo</span>
+          </button>
+          <button type="button" class="enlace-lateral" disabled>
+            <span class="indicador-menu" aria-hidden="true">P</span>
+            <span>Personal</span>
+            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
+          </button>
+          <button type="button" class="enlace-lateral" disabled>
+            <span class="indicador-menu" aria-hidden="true">N</span>
+            <span>Nóminas</span>
+            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
+          </button>
+          <button type="button" class="enlace-lateral" disabled>
+            <span class="indicador-menu" aria-hidden="true">C</span>
+            <span>Cronos</span>
+            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
+          </button>
+          <button type="button" class="enlace-lateral" disabled>
+            <span class="indicador-menu" aria-hidden="true">D</span>
+            <span>Dietas</span>
+            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
+          </button>
+          <button type="button" class="enlace-lateral" disabled>
+            <span class="indicador-menu" aria-hidden="true">S</span>
+            <span>Solicitudes y certificados</span>
+            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
+          </button>
+        </nav>
+
+        <nav class="navegacion-bolsa" id="navegacion-bolsa" aria-label="Gestión de Bolsas" hidden>
+          <p class="titulo-navegacion">Gestión de Bolsas</p>
+          <button type="button" class="enlace-lateral" data-vista="elaboracion">
+            <span class="numero-menu tono-azul" aria-hidden="true">1</span>
+            <span>Elaboración y gestión de bolsas</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="llamamientos">
+            <span class="numero-menu tono-verde" aria-hidden="true">2</span>
+            <span>Llamamientos según bases y Reglamento</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="contratos">
+            <span class="numero-menu tono-naranja" aria-hidden="true">3</span>
+            <span>Contratos, ceses y reincorporaciones</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="reglas">
+            <span class="numero-menu tono-violeta" aria-hidden="true">4</span>
+            <span>Motor de reglas configurable</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="consulta">
+            <span class="numero-menu tono-cian" aria-hidden="true">5</span>
+            <span>Consulta segura para candidatos</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="resumen">
+            <span class="numero-menu tono-rojo" aria-hidden="true">6</span>
+            <span>Cuadro de mando</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="estadisticas">
+            <span class="numero-menu tono-oliva" aria-hidden="true">7</span>
+            <span>Estadísticas y explotación de datos</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="documentos">
+            <span class="numero-menu tono-ambar" aria-hidden="true">8</span>
+            <span>Generación de documentos</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="comunicaciones">
+            <span class="numero-menu tono-turquesa" aria-hidden="true">9</span>
+            <span>Correo y mensajería</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="auditoria">
+            <span class="numero-menu tono-morado" aria-hidden="true">10</span>
+            <span>Auditoría y trazabilidad</span>
+          </button>
+        </nav>
+
+        <div class="pie-lateral">
+          <button type="button" class="enlace-lateral" data-accion="ayuda">
+            <span class="indicador-menu" aria-hidden="true">?</span>
+            <span>Ayuda</span>
+          </button>
+          <span>Gestión de Bolsas · Fase inicial</span>
+        </div>
+      </aside>
+
+      <div class="portal-superficie">
+        <header class="cabecera-portal">
+          <button type="button" class="boton-menu-movil" id="boton-menu" aria-controls="navegacion-lateral" aria-expanded="false">
+            <span aria-hidden="true">☰</span><span class="solo-lectura">Abrir navegación</span>
+          </button>
+          <div class="contexto-cabecera">
+            <nav class="migas" aria-label="Migas de pan" id="migas-pan">Portal del Empleado</nav>
+            <h1 id="titulo-vista">Portal del Empleado</h1>
+          </div>
+          <div class="acciones-cabecera">
+            <button type="button" class="boton-cabecera" id="boton-texto" aria-pressed="false" title="Aumentar tamaño del texto">A+</button>
+            <button type="button" class="boton-cabecera" id="boton-contraste" aria-pressed="false" title="Activar alto contraste">Contraste</button>
+            <button type="button" class="boton-cabecera boton-avisos" data-accion="avisos">
+              Avisos <span aria-label="Avisos pendientes sin resolver">—</span>
+            </button>
+            <div class="sesion-presentacion" id="sesion-visible" aria-label="Contexto de sesión">
+              <span class="avatar" aria-hidden="true">—</span>
+              <span><strong>Sesión no resuelta</strong><small>La API interna debe identificar al usuario</small></span>
+            </div>
+          </div>
+        </header>
+
+        <main id="contenido-principal" class="contenido-portal" tabindex="-1">
+          <div id="espacio-trabajo" aria-live="off"></div>
+        </main>
+
+        <footer class="pie-portal">
+          <span>© 2026 Diputación de Granada · Portal del Empleado</span>
+          <span>Protección de datos · Accesibilidad · Ayuda</span>
+        </footer>
+      </div>
+    </div>
+
+    <dialog id="dialogo-detalle" class="dialogo-detalle" aria-labelledby="titulo-dialogo">
+      <form method="dialog">
+        <div class="cabecera-dialogo">
+          <div>
+            <p class="sobrelinea">Detalle de gestión</p>
+            <h2 id="titulo-dialogo">Detalle</h2>
+          </div>
+          <button type="submit" class="boton-cerrar" aria-label="Cerrar detalle">×</button>
+        </div>
+        <div id="contenido-dialogo" class="contenido-dialogo"></div>
+        <div class="acciones-dialogo">
+          <button type="submit" class="boton-secundario">Cerrar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="solo-lectura" id="anuncios" aria-live="polite"></div>
+    <div class="velo-menu" id="velo-menu" hidden></div>
+  </body>
+</html>

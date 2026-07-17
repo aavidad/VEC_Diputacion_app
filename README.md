@@ -350,6 +350,25 @@ VEC_HTTP_ADDR=127.0.0.1:8080 \
   go run ./cmd/vec-server
 ```
 
+### Entregable del Portal del Empleado y Bolsa
+
+La superficie final interna está en `http://127.0.0.1:8080/portal-empleado/`.
+Consume exclusivamente `GET /api/vec/bolsa/panel` y falla cerrada mientras no
+existan sesión, ámbito y proyección real. No sustituye ese fallo por datos
+locales.
+
+Para la presentación urgente a RRHH existe un adaptador sintético separado,
+activado únicamente en
+`http://127.0.0.1:8080/portal-empleado/?presentacion=rrhh#portal`. El aviso
+visible identifica que no tiene validez administrativa y ninguna acción
+persiste, firma o envía. Su inventario y sustitución están documentados en
+[el entregable RRHH de Bolsa](docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md).
+
+La interfaz, sus diez paneles, el asistente de llamamientos, el diseño
+adaptable y el contrato de lectura son los definitivos; solo el adaptador de
+datos se excluye del despliegue productivo cuando la vertical PostgreSQL/API
+esté compuesta.
+
 La puerta completa y reproducible para desarrollo y CI se ejecuta con:
 
 ```bash
