@@ -62,9 +62,11 @@ Probado:
   probados de extremo a extremo. La proyeccion historica de motivos PostgreSQL
   V2, su adaptador Go con identidad evaluadora minima y las representaciones
   binarias separadas `VEC-AD-2` para concesiones y `VEC-AD-D-1` para
-  denegaciones tambien estan implementados y probados, pero no se montan en
-  produccion. El registro durable V2, el sobre y verificador criptograficos y
-  el consumo atomico del efecto siguen cerrados.
+  denegaciones tambien estan implementados y probados. Sus parsers estrictos
+  solo producen proyecciones nominales minimizadas, con limites previos a la
+  reserva y canonicalidad byte a byte; nunca reconstruyen autoridad. No se
+  montan en produccion. El registro durable V2, el sobre y verificador
+  criptograficos y el consumo atomico del efecto siguen cerrados.
 - Primer corte de [contexto canonico de actor](docs/portal_vec/registro_decisiones.md#dec-034--contexto-canonico-de-actor-con-perfil-expreso-y-denegacion-por-defecto):
   cuenta autenticada y perfil expreso resuelven exactamente una persona y sus
   enlaces opacos versionados, sin DNI ni autoridad inferida. Persistencia,

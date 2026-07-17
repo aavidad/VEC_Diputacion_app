@@ -147,8 +147,11 @@ debe cotejarla.
 - `VEC-AD-2` representa exclusivamente concesiones V2. Las denegaciones usan
   el dominio y tipo nominal independiente `VEC-AD-D-1`; ninguno puede aceptar
   el resultado del otro. Ambos formatos estan implementados y probados sin
-  modificar el vector V1. El sobre firmado, su verificador aislado, el gobierno
-  de claves y el consumo atomico siguen siendo puertas separadas y cerradas.
+  modificar el vector V1. Sus parsers estrictos son no autoritativos, limitan
+  antes de reservar memoria, exigen forma canonica byte a byte y solo exponen
+  compromisos minimos; no reconstruyen una decision ni un vinculo vivo. El
+  sobre firmado, su verificador aislado, el gobierno de claves y el consumo
+  atomico siguen siendo puertas separadas y cerradas.
 - La credencial del registro no sustituye la procedencia del PDP. El uso
   productivo exige atestacion asimetrica verificable o un verificador aislado;
   una huella SHA-256 por si sola no autentica al emisor.

@@ -395,6 +395,15 @@ Este corte solo fija bytes canonicos y su huella: todavia no firma, no verifica
 procedencia, no selecciona una suite productiva y no sustituye la revalidacion
 atomica del catalogo, sesion, actor y efecto.
 
+`domain.ParsearMensajeAtestacionAutorizacionV2NoAutoritativo` aporta el lector
+estricto pareado. Limita el mensaje y los conteos antes de reservar memoria,
+lee los 35 campos, los 25 datos del vinculo y las cuatro coordenadas del motivo,
+comprueba todos sus cruces y exige reserializacion byte a byte identica. Su
+resultado no contiene `DecisionAutorizacion` ni reconstruye
+`VinculoAutenticacionActorV1`: solo permite consultar cabecera nominal,
+`decision_ref` y las huellas de solicitud y motivo. Formateo y codecs generales
+quedan redactados o prohibidos. Superar este parser no acredita una firma.
+
 Una denegacion no se etiqueta ni se reinterpreta como `VEC-AD-2`. El contrato
 nominal `domain.SerializarMensajeAtestacionDenegacionAutorizacionV1` publica el
 formato separado `VEC-AD-D-1`, con versionado y separador de dominio propios.
@@ -411,6 +420,11 @@ menos uno, limite y limite mas uno. Su vector pequeno de interoperabilidad tiene
 `ff44e2eeab73f9c9e1c8563d006880bf63224396b545ab94bf184da186ef0380`.
 Esta huella solo acredita integridad reproducible: la procedencia de la
 denegacion permanece cerrada hasta que exista el sobre y el verificador aislado.
+El parser nominal separado
+`domain.ParsearMensajeAtestacionDenegacionAutorizacionV1NoAutoritativo` aplica
+las mismas barreras y rechaza expresamente una concesion o el dominio VEC-AD-2.
+Una denegacion temprana puede carecer aun de `garantia_minima`; si ese campo ya
+existe solo admite un nivel del vocabulario gobernado.
 
 El formato Go `VEC-AD-1` actual ya no acepta el antiguo mensaje de 30 campos:
 se cambio el separador de dominio y el vector fijo. No existe lector, fallback
