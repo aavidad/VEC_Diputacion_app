@@ -66,7 +66,10 @@ func TestPlanCubreTransicionesYLigaActorMotivoYAlcance(t *testing.T) {
 			t.Fatalf("operacion %d: %v", caso.operacion, err)
 		}
 		datos, err := plan.Datos()
-		if err != nil || datos.Operacion != caso.operacion ||
+		debeSinError(t, err)
+		sujeto, err := datos.SujetoSeudonimoHMAC.ValorCanonico()
+		if err != nil || sujeto != sujetoSeudonimoPlanPrueba ||
+			datos.Operacion != caso.operacion ||
 			datos.TieneCAS != (caso.cas != nil) ||
 			datos.TieneVinculoEvidencia != (caso.evidencia != nil) ||
 			datos.PrincipalRef != actorPlanPrueba ||
@@ -126,6 +129,7 @@ func TestPlanCanonicoComprometeContratoSinInventarRecibo(t *testing.T) {
 		material.Operacion != "alta_borrador" ||
 		material.InstanteTransicion != "2026-07-17T08:30:00.123456Z" ||
 		material.CASEsperado != nil || material.VinculoEvidencia != nil ||
+		material.SujetoSeudonimoHMAC != sujetoSeudonimoPlanPrueba ||
 		material.PrincipalRef != actorPlanPrueba ||
 		!bytes.Equal(material.MotivoCanonico, motivoEsperado) ||
 		!huellaSHA256Valida(material.HuellaMotivoSHA256) ||
@@ -139,9 +143,40 @@ func TestPlanCanonicoComprometeContratoSinInventarRecibo(t *testing.T) {
 		material.RecursoRef != "reglas-baremo:"+material.VinculoResultado.HuellaEstadoSHA256 ||
 		!cadenasIguales(material.RequisitosEjecucion, requisitos) ||
 		!cadenasIguales(material.Componentes, esperados) ||
+		!bytes.Contains(canonico, []byte(
+			`"sujeto_seudonimo_hmac":"`+sujetoSeudonimoPlanPrueba+`"`,
+		)) ||
 		bytes.Contains(canonico, []byte(`"recibo_ref"`)) ||
 		bytes.Contains(canonico, []byte(`"efectuar_en"`)) {
 		t.Fatalf("material canonico incompleto o deshonesto: %#v", material)
+	}
+}
+
+func TestPlanLigaSujetoSeudonimoAHuellaDelEfecto(t *testing.T) {
+	borrador := borradorPrueba(t)
+	primeraEntrada := datosNuevoPlanPrueba(t, OperacionAltaBorrador, nil, borrador, nil)
+	segundaEntrada := primeraEntrada
+	segundoSujeto, err := RestaurarSujetoSeudonimoHMAC(
+		"hmac-sha256:reglas_baremo_v2:" + strings.Repeat("e", 64),
+	)
+	debeSinError(t, err)
+	segundaEntrada.SujetoSeudonimoHMAC = segundoSujeto
+
+	primerPlan, err := NuevoPlanCambioReglasBaremoV2(primeraEntrada)
+	debeSinError(t, err)
+	segundoPlan, err := NuevoPlanCambioReglasBaremoV2(segundaEntrada)
+	debeSinError(t, err)
+	primeraRepresentacion, err := primerPlan.RepresentacionCanonica()
+	debeSinError(t, err)
+	segundaRepresentacion, err := segundoPlan.RepresentacionCanonica()
+	debeSinError(t, err)
+	primeraHuella, err := primerPlan.HuellaSHA256()
+	debeSinError(t, err)
+	segundaHuella, err := segundoPlan.HuellaSHA256()
+	debeSinError(t, err)
+	if bytes.Equal(primeraRepresentacion, segundaRepresentacion) ||
+		primeraHuella == segundaHuella {
+		t.Fatal("cambiar el sujeto no cambio el material y la huella del plan")
 	}
 }
 
@@ -176,6 +211,10 @@ func TestPlanRechazaMutacionDeCadaCompromiso(t *testing.T) {
 		datosNuevoPlanPrueba(t, OperacionPublicar, &cas, publicada, &vinculo),
 	)
 	debeSinError(t, err)
+	sujetoDistinto, err := RestaurarSujetoSeudonimoHMAC(
+		"hmac-sha256:reglas_baremo_v2:" + strings.Repeat("e", 64),
+	)
+	debeSinError(t, err)
 	casos := []struct {
 		nombre string
 		mutar  func(*PlanCambioReglasBaremoV2)
@@ -188,6 +227,9 @@ func TestPlanRechazaMutacionDeCadaCompromiso(t *testing.T) {
 		{"vinculo resultado", func(p *PlanCambioReglasBaremoV2) { p.datos.vinculoResultado = reglas.VinculoEstadoReglasBaremo{} }},
 		{"evidencia", func(p *PlanCambioReglasBaremoV2) {
 			p.datos.vinculoEvidencia = VinculoEvidenciaTransicionReglasBaremoV2{}
+		}},
+		{"sujeto seudonimo", func(p *PlanCambioReglasBaremoV2) {
+			p.datos.sujetoSeudonimoHMAC = sujetoDistinto
 		}},
 		{"principal", func(p *PlanCambioReglasBaremoV2) { p.datos.principalRef = "per_ffffffffffffffffffffffffffffffff" }},
 		{"motivo referencia", func(p *PlanCambioReglasBaremoV2) {
@@ -230,6 +272,9 @@ func TestPlanRechazaActorMotivoEInstantesNoExactos(t *testing.T) {
 		{"operacion cero", func(d *DatosNuevoPlanCambioReglasBaremoV2) { d.Operacion = 0 }},
 		{"consulta", func(d *DatosNuevoPlanCambioReglasBaremoV2) { d.Operacion = OperacionConsultaExacta }},
 		{"intencion cero", func(d *DatosNuevoPlanCambioReglasBaremoV2) { d.Intencion = IntencionGobiernoReglasBaremoV2{} }},
+		{"sujeto cero", func(d *DatosNuevoPlanCambioReglasBaremoV2) {
+			d.SujetoSeudonimoHMAC = SujetoSeudonimoHMAC{}
+		}},
 		{"actor cero", func(d *DatosNuevoPlanCambioReglasBaremoV2) { d.ContextoActor = dominiovec.ContextoActor{} }},
 		{"otro actor valido", func(d *DatosNuevoPlanCambioReglasBaremoV2) {
 			d.ContextoActor = contextoActorConPrincipalPrueba(t, "per_ffffffffffffffffffffffffffffffff")
@@ -313,7 +358,8 @@ func TestTiposOpacosNoFiltranEnJSONNiFormato(t *testing.T) {
 	debeSinError(t, err)
 	entrada := datosNuevoPlanPrueba(t, OperacionAltaBorrador, nil, borrador, nil)
 	valores := []any{
-		plan, datos, contrato, descriptor, consulta, entrada, entrada.Intencion, vinculo,
+		plan, datos, contrato, descriptor, consulta, entrada, entrada.Intencion,
+		entrada.SujetoSeudonimoHMAC, vinculo,
 	}
 	for _, valor := range valores {
 		serializado, err := json.Marshal(valor)
@@ -322,7 +368,9 @@ func TestTiposOpacosNoFiltranEnJSONNiFormato(t *testing.T) {
 		}
 		texto := fmt.Sprintf("%v %#v", valor, valor)
 		if strings.Contains(texto, "intencion:reglas") ||
-			strings.Contains(texto, "correlacion_") || strings.Contains(texto, actorPlanPrueba) {
+			strings.Contains(texto, "correlacion_") ||
+			strings.Contains(texto, sujetoSeudonimoPlanPrueba) ||
+			strings.Contains(texto, actorPlanPrueba) {
 			t.Fatalf("formato revelador para %T: %s", valor, texto)
 		}
 	}
@@ -339,15 +387,16 @@ func datosNuevoPlanPrueba(
 	instante, err := version.InstanteUltimaActuacion()
 	debeSinError(t, err)
 	return DatosNuevoPlanCambioReglasBaremoV2{
-		Operacion:          operacion,
-		Intencion:          intencionPrueba(t),
-		CASEsperado:        cas,
-		VersionResultado:   version,
-		VinculoEvidencia:   vinculo,
-		ContextoActor:      contextoActorPrueba(t),
-		ReferenciaMotivo:   referenciaMotivoVersionPrueba(t, version),
-		Correlacion:        correlacionPrueba(t),
-		InstanteTransicion: instante,
+		Operacion:           operacion,
+		Intencion:           intencionPrueba(t),
+		CASEsperado:         cas,
+		VersionResultado:    version,
+		VinculoEvidencia:    vinculo,
+		SujetoSeudonimoHMAC: sujetoSeudonimoPrueba(t),
+		ContextoActor:       contextoActorPrueba(t),
+		ReferenciaMotivo:    referenciaMotivoVersionPrueba(t, version),
+		Correlacion:         correlacionPrueba(t),
+		InstanteTransicion:  instante,
 	}
 }
 

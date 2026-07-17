@@ -20,7 +20,19 @@ const (
 	referenciaReglasPlanPrueba       = "rgl_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	referenciaConvocatoriaPlanPrueba = "con_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	referenciaExpedientePlanPrueba   = "exp_cccccccccccccccccccccccccccccccc"
+	sujetoSeudonimoPlanPrueba        = "hmac-sha256:reglas_baremo_v2:" +
+		"dddddddddddddddddddddddddddddddd" +
+		"dddddddddddddddddddddddddddddddd"
 )
+
+func sujetoSeudonimoPrueba(t *testing.T) SujetoSeudonimoHMAC {
+	t.Helper()
+	sujeto, err := RestaurarSujetoSeudonimoHMAC(sujetoSeudonimoPlanPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sujeto
+}
 
 type generadorCorrelacionPrueba struct{ valor string }
 
@@ -470,13 +482,14 @@ func planAltaPrueba(t *testing.T) PlanCambioReglasBaremoV2 {
 	t.Helper()
 	borrador := borradorPrueba(t)
 	resultado, err := NuevoPlanCambioReglasBaremoV2(DatosNuevoPlanCambioReglasBaremoV2{
-		Operacion:          OperacionAltaBorrador,
-		Intencion:          intencionPrueba(t),
-		VersionResultado:   borrador,
-		ContextoActor:      contextoActorPrueba(t),
-		ReferenciaMotivo:   referenciaMotivoVersionPrueba(t, borrador),
-		Correlacion:        correlacionPrueba(t),
-		InstanteTransicion: instanteBasePrueba,
+		Operacion:           OperacionAltaBorrador,
+		Intencion:           intencionPrueba(t),
+		VersionResultado:    borrador,
+		SujetoSeudonimoHMAC: sujetoSeudonimoPrueba(t),
+		ContextoActor:       contextoActorPrueba(t),
+		ReferenciaMotivo:    referenciaMotivoVersionPrueba(t, borrador),
+		Correlacion:         correlacionPrueba(t),
+		InstanteTransicion:  instanteBasePrueba,
 	})
 	if err != nil {
 		t.Fatal(err)

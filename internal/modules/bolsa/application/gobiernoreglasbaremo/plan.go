@@ -158,14 +158,15 @@ func (v VinculoEvidenciaTransicionReglasBaremoV2) validar() error {
 
 type DatosNuevoPlanCambioReglasBaremoV2 struct {
 	bloqueoSerializacion
-	Operacion        OperacionGobiernoReglasBaremoV2
-	Intencion        IntencionGobiernoReglasBaremoV2
-	CASEsperado      *reglas.VinculoEstadoReglasBaremo
-	VersionResultado reglas.VersionGobernadaReglasBaremo
-	VinculoEvidencia *VinculoEvidenciaTransicionReglasBaremoV2
-	ContextoActor    dominiovec.ContextoActor
-	ReferenciaMotivo dominiovec.ReferenciaEntradaCatalogo
-	Correlacion      dominiovec.ReferenciaCorrelacionAutorizacionV2
+	Operacion           OperacionGobiernoReglasBaremoV2
+	Intencion           IntencionGobiernoReglasBaremoV2
+	CASEsperado         *reglas.VinculoEstadoReglasBaremo
+	VersionResultado    reglas.VersionGobernadaReglasBaremo
+	VinculoEvidencia    *VinculoEvidenciaTransicionReglasBaremoV2
+	SujetoSeudonimoHMAC SujetoSeudonimoHMAC
+	ContextoActor       dominiovec.ContextoActor
+	ReferenciaMotivo    dominiovec.ReferenciaEntradaCatalogo
+	Correlacion         dominiovec.ReferenciaCorrelacionAutorizacionV2
 	// InstanteTransicion es el instante de negocio incorporado a la version.
 	// El plan solo puede validar su forma y coherencia interna: la frontera
 	// ejecutora debe obtenerlo o cotejarlo contra un reloj confiable y aplicar
@@ -183,6 +184,7 @@ type datosPlanCambioReglasBaremoV2 struct {
 	vinculoResultado       reglas.VinculoEstadoReglasBaremo
 	vinculoEvidencia       VinculoEvidenciaTransicionReglasBaremoV2
 	tieneVinculoEvidencia  bool
+	sujetoSeudonimoHMAC    SujetoSeudonimoHMAC
 	principalRef           string
 	referenciaMotivo       dominiovec.ReferenciaEntradaCatalogo
 	motivoCanonico         []byte
@@ -210,7 +212,8 @@ func NuevoPlanCambioReglasBaremoV2(
 		!instanteUTCMicrosegundos(datos.InstanteTransicion) ||
 		datos.ContextoActor.Validar() != nil ||
 		!dominiovec.ReferenciaMotivoAutorizacionV2Valida(datos.ReferenciaMotivo) ||
-		datos.Correlacion.Validar() != nil {
+		datos.Correlacion.Validar() != nil ||
+		datos.SujetoSeudonimoHMAC.validar() != nil {
 		return PlanCambioReglasBaremoV2{}, ErrPlanCambioInvalido
 	}
 	if _, err := datos.Intencion.Referencia(); err != nil {
@@ -236,6 +239,7 @@ func NuevoPlanCambioReglasBaremoV2(
 		versionCanonica:     append([]byte(nil), canonico...),
 		huellaVersionSHA256: huella,
 		vinculoResultado:    vinculo,
+		sujetoSeudonimoHMAC: datos.SujetoSeudonimoHMAC,
 		principalRef:        datos.ContextoActor.Principal.ID,
 		referenciaMotivo:    datos.ReferenciaMotivo,
 		motivoCanonico:      append([]byte(nil), motivoCanonico...),
@@ -279,6 +283,7 @@ type DatosPlanCambioReglasBaremoV2 struct {
 	VinculoResultado      reglas.VinculoEstadoReglasBaremo
 	VinculoEvidencia      VinculoEvidenciaTransicionReglasBaremoV2
 	TieneVinculoEvidencia bool
+	SujetoSeudonimoHMAC   SujetoSeudonimoHMAC
 	PrincipalRef          string
 	ReferenciaMotivo      dominiovec.ReferenciaEntradaCatalogo
 	MotivoCanonico        []byte
@@ -310,6 +315,7 @@ func (p PlanCambioReglasBaremoV2) Datos() (DatosPlanCambioReglasBaremoV2, error)
 		VinculoResultado:      p.datos.vinculoResultado,
 		VinculoEvidencia:      p.datos.vinculoEvidencia,
 		TieneVinculoEvidencia: p.datos.tieneVinculoEvidencia,
+		SujetoSeudonimoHMAC:   p.datos.sujetoSeudonimoHMAC,
 		PrincipalRef:          p.datos.principalRef,
 		ReferenciaMotivo:      p.datos.referenciaMotivo,
 		MotivoCanonico:        append([]byte(nil), p.datos.motivoCanonico...),
@@ -381,6 +387,7 @@ func (p PlanCambioReglasBaremoV2) validarEstructura() error {
 		!instanteUTCMicrosegundos(p.datos.instanteTransicion) ||
 		!dominiovec.ReferenciaMotivoAutorizacionV2Valida(p.datos.referenciaMotivo) ||
 		p.datos.correlacion.Validar() != nil ||
+		p.datos.sujetoSeudonimoHMAC.validar() != nil ||
 		!componentesExactos(p.datos.componentes) {
 		return ErrPlanCambioInvalido
 	}
@@ -461,6 +468,7 @@ type materialPlanCambioV2 struct {
 	HuellaVersionResultadoSHA256 string                `json:"huella_version_resultado_sha256"`
 	VinculoResultado             materialVinculoV2     `json:"vinculo_resultado"`
 	VinculoEvidencia             *materialReferenciaV2 `json:"vinculo_evidencia"`
+	SujetoSeudonimoHMAC          string                `json:"sujeto_seudonimo_hmac"`
 	PrincipalRef                 string                `json:"principal_ref"`
 	MotivoCanonico               []byte                `json:"motivo_canonico"`
 	HuellaMotivoSHA256           string                `json:"huella_motivo_sha256"`
@@ -502,6 +510,10 @@ func (p PlanCambioReglasBaremoV2) representacionSinCotejo() ([]byte, error) {
 		return nil, err
 	}
 	correlacion, err := p.datos.correlacion.ValorCanonico()
+	if err != nil {
+		return nil, err
+	}
+	sujetoSeudonimo, err := p.datos.sujetoSeudonimoHMAC.ValorCanonico()
 	if err != nil {
 		return nil, err
 	}
@@ -550,6 +562,7 @@ func (p PlanCambioReglasBaremoV2) representacionSinCotejo() ([]byte, error) {
 		VersionResultadoCanonica:     append([]byte(nil), p.datos.versionCanonica...),
 		HuellaVersionResultadoSHA256: p.datos.huellaVersionSHA256,
 		VinculoResultado:             materialVinculo(p.datos.vinculoResultado),
+		SujetoSeudonimoHMAC:          sujetoSeudonimo,
 		PrincipalRef:                 p.datos.principalRef,
 		MotivoCanonico:               append([]byte(nil), p.datos.motivoCanonico...),
 		HuellaMotivoSHA256:           p.datos.huellaMotivoSHA256,
