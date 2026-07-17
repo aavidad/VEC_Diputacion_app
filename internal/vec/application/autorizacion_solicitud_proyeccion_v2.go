@@ -17,6 +17,10 @@ func proyectarSolicitudAutorizacionLigadaV2(
 	if err != nil {
 		return domain.SolicitudAutorizacion{}, domain.ErrSolicitudAutorizacionInvalida
 	}
+	correlacionRef, err := datos.Correlacion.ValorCanonico()
+	if err != nil {
+		return domain.SolicitudAutorizacion{}, domain.ErrSolicitudAutorizacionInvalida
+	}
 	proyeccion := domain.SolicitudAutorizacion{
 		Principal: domain.Principal{
 			ID: vinculo.PrincipalID, AuthMethod: vinculo.MetodoObservado,
@@ -26,7 +30,7 @@ func proyectarSolicitudAutorizacionLigadaV2(
 		ContextoActor:   datos.ContextoActor, VinculoAutenticacionActor: datos.VinculoAutenticacionActor,
 		ReferenciaMotivo: datos.ReferenciaMotivo,
 		Accion:           datos.Accion, Recurso: datos.Recurso, Finalidad: datos.Finalidad,
-		CorrelacionRef: datos.CorrelacionRef, Motivo: datos.ReferenciaMotivo.EntradaClave,
+		CorrelacionRef: correlacionRef, Motivo: datos.ReferenciaMotivo.EntradaClave,
 	}
 	if proyeccion.ValidarVinculoAutenticacionActor() != nil ||
 		!domain.ReferenciaMotivoAutorizacionV2Valida(proyeccion.ReferenciaMotivo) ||

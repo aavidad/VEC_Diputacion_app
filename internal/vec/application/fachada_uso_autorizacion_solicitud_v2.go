@@ -33,7 +33,7 @@ func (f *FachadaUsoDecisionAutorizacionSolicitudLigadaV2) ExigirEvidenciaUsoDeci
 	actor domain.ContextoActor,
 	vinculo domain.VinculoAutenticacionActorV1,
 	recurso domain.RecursoAutorizable,
-	correlacionRef string,
+	correlacion domain.ReferenciaCorrelacionAutorizacionV2,
 	motivo domain.ReferenciaEntradaCatalogo,
 	politica PoliticaUsoDecisionAutorizacion,
 ) (ports.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2, error) {
@@ -53,7 +53,7 @@ func (f *FachadaUsoDecisionAutorizacionSolicitudLigadaV2) ExigirEvidenciaUsoDeci
 	}
 	decision, err := exigirDecisionAutorizacionVinculadaSolicitudLigadaV2(
 		ctx, f.autorizador, f.reloj, actor, vinculo,
-		politica.datos.accion, recurso, politica.datos.finalidad, correlacionRef, motivo,
+		politica.datos.accion, recurso, politica.datos.finalidad, correlacion, motivo,
 		usoCamposDecisionConsumidos,
 	)
 	if err != nil {

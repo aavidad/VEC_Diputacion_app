@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
@@ -65,6 +66,13 @@ func TestHuellaSolicitudAutorizacionV2NoAdmitePrincipalDeclaradoYComprometeRecur
 	tipoDatos := reflect.TypeOf(DatosSolicitudAutorizacionLigadaV2{})
 	if _, existe := tipoDatos.FieldByName("Principal"); existe {
 		t.Fatal("el contrato nominal admite un Principal declarado")
+	}
+	if _, existe := tipoDatos.FieldByName("CorrelacionRef"); existe {
+		t.Fatal("el contrato nominal admite correlacion V2 como texto")
+	}
+	campoCorrelacion, existe := tipoDatos.FieldByName("Correlacion")
+	if !existe || campoCorrelacion.Type != reflect.TypeOf(ReferenciaCorrelacionAutorizacionV2{}) {
+		t.Fatalf("el contrato no exige la capacidad nominal de correlacion: %+v", campoCorrelacion)
 	}
 
 	datosOtroPrincipal, err := solicitud.Datos()
@@ -198,15 +206,19 @@ func TestSolicitudAutorizacionV2SoloAdmiteCorrelacionOpacaDe128Bits(t *testing.T
 			if ReferenciaCorrelacionAutorizacionV2Valida(referencia) {
 				t.Fatalf("correlacion no opaca aceptada: %q", referencia)
 			}
-			datos, err := solicitudHuellaAutorizacionV2Prueba(t).Datos()
-			if err != nil {
-				t.Fatal(err)
-			}
-			datos.CorrelacionRef = referencia
-			if _, err := NuevaSolicitudAutorizacionLigadaV2(datos); !errors.Is(err, ErrSolicitudAutorizacionInvalida) {
-				t.Fatalf("solicitud V2 con correlacion invalida aceptada: %v", err)
+			generador := &generadorCorrelacionAutorizacionV2Prueba{valor: referencia}
+			if _, err := GenerarReferenciaCorrelacionAutorizacionV2(context.Background(), generador); !errors.Is(err, ErrReferenciaCorrelacionAutorizacionV2Invalida) {
+				t.Fatalf("fabrica acepto correlacion invalida: %v", err)
 			}
 		})
+	}
+	datos, err := solicitudHuellaAutorizacionV2Prueba(t).Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos.Correlacion = ReferenciaCorrelacionAutorizacionV2{}
+	if _, err := NuevaSolicitudAutorizacionLigadaV2(datos); !errors.Is(err, ErrSolicitudAutorizacionInvalida) {
+		t.Fatalf("solicitud V2 con capacidad cero aceptada: %v", err)
 	}
 }
 
@@ -224,7 +236,11 @@ func solicitudHuellaAutorizacionV2Prueba(t *testing.T) SolicitudAutorizacionLiga
 			Ambitos:   map[string]string{"provincia": "granada", "unidad": "seleccion"},
 			Atributos: map[string]string{"estado": "presentado"},
 		},
-		Finalidad: "gestion_bolsa", CorrelacionRef: referenciaCorrelacionAutorizacionV2Prueba,
+		Finalidad: "gestion_bolsa",
+		Correlacion: referenciaCorrelacionAutorizacionV2ParaPrueba(
+			t,
+			referenciaCorrelacionAutorizacionV2Prueba,
+		),
 	})
 }
 

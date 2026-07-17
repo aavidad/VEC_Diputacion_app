@@ -118,6 +118,10 @@ func representacionCanonicaSolicitudAutorizacionV2(s SolicitudAutorizacionLigada
 	if err != nil {
 		return nil, ErrSolicitudAutorizacionLigadaV2Invalida
 	}
+	correlacionRef, err := datos.Correlacion.ValorCanonico()
+	if err != nil {
+		return nil, ErrSolicitudAutorizacionLigadaV2Invalida
+	}
 
 	documento := solicitudAutorizacionCanonicaV2{
 		Esquema:         EsquemaHuellaSolicitudAutorizacionV2,
@@ -134,7 +138,7 @@ func representacionCanonicaSolicitudAutorizacionV2(s SolicitudAutorizacionLigada
 			Ambitos:   entradasSolicitudAutorizacionCanonicasV2(datos.Recurso.Ambitos),
 			Atributos: entradasSolicitudAutorizacionCanonicasV2(datos.Recurso.Atributos),
 		},
-		Finalidad: datos.Finalidad, CorrelacionRef: datos.CorrelacionRef,
+		Finalidad: datos.Finalidad, CorrelacionRef: correlacionRef,
 		ReferenciaMotivo: referenciaMotivoAutorizacionCanonicaV2Desde(datos.ReferenciaMotivo),
 	}
 	contenido, err := json.Marshal(documento)

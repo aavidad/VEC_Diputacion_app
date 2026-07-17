@@ -192,7 +192,7 @@ type ExigidorEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2 interface {
 		actor domain.ContextoActor,
 		vinculo domain.VinculoAutenticacionActorV1,
 		recurso domain.RecursoAutorizable,
-		correlacionRef string,
+		correlacion domain.ReferenciaCorrelacionAutorizacionV2,
 		motivo domain.ReferenciaEntradaCatalogo,
 		politica PoliticaUsoDecisionAutorizacion,
 	) (ports.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2, error)
@@ -251,6 +251,10 @@ func (f *FachadaUsoDecisionAutorizacion) ExigirEvidencia(
 			domain.ErrSolicitudAutorizacionInvalida,
 		)
 	}
+	recursoCanonico, err := clonarRecursoUsoAutorizacion(recurso)
+	if err != nil {
+		return ports.EvidenciaUsoDecisionAutorizacion{}, errorUsoDecisionAutorizacion(err)
+	}
 
 	decision, err := exigirDecisionAutorizacionVinculada(
 		ctx,
@@ -259,7 +263,7 @@ func (f *FachadaUsoDecisionAutorizacion) ExigirEvidencia(
 		actor,
 		vinculo,
 		politica.datos.accion,
-		clonarRecursoUsoAutorizacion(recurso),
+		recursoCanonico,
 		politica.datos.finalidad,
 		correlacionRef,
 		motivo,
@@ -389,11 +393,19 @@ func perfilProteccionUsoAutorizacionValido(perfil PerfilProteccionUsoAutorizacio
 		perfil == PerfilProteccionUsoAutorizacionInternoAlto
 }
 
-func clonarRecursoUsoAutorizacion(recurso domain.RecursoAutorizable) domain.RecursoAutorizable {
+func clonarRecursoUsoAutorizacion(
+	recurso domain.RecursoAutorizable,
+) (domain.RecursoAutorizable, error) {
+	if recurso.Validar() != nil {
+		return domain.RecursoAutorizable{}, domain.ErrSolicitudAutorizacionInvalida
+	}
 	clon := recurso
 	clon.Ambitos = clonarMapaUsoAutorizacion(recurso.Ambitos)
 	clon.Atributos = clonarMapaUsoAutorizacion(recurso.Atributos)
-	return clon
+	if clon.Validar() != nil {
+		return domain.RecursoAutorizable{}, domain.ErrSolicitudAutorizacionInvalida
+	}
+	return clon, nil
 }
 
 func clonarMapaUsoAutorizacion(origen map[string]string) map[string]string {

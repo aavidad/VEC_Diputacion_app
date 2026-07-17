@@ -16,6 +16,27 @@ const (
 	referenciaCorrelacionAutorizacionV2Prueba = "correlacion_11111111111111111111111111111111"
 )
 
+type generadorCorrelacionAplicacionPrueba struct{ valor string }
+
+func (g generadorCorrelacionAplicacionPrueba) NuevaReferenciaCorrelacionAutorizacionV2(
+	context.Context,
+) (string, error) {
+	return g.valor, nil
+}
+
+func referenciaCorrelacionAplicacionPrueba(
+	valor string,
+) domain.ReferenciaCorrelacionAutorizacionV2 {
+	referencia, err := domain.GenerarReferenciaCorrelacionAutorizacionV2(
+		context.Background(),
+		generadorCorrelacionAplicacionPrueba{valor: valor},
+	)
+	if err != nil {
+		panic("fixture de correlacion nominal V2 invalido: " + err.Error())
+	}
+	return referencia
+}
+
 type registroAutorizacionSolicitudV2Prueba struct {
 	err          error
 	concesiones  int
@@ -255,11 +276,8 @@ func TestServicioAutorizacionSolicitudLigadaV2RechazaMotivoNoResuelto(t *testing
 			s.ReferenciaMotivo = referenciaMotivoAutorizacionV2Prueba("dni_12345678z")
 			s.ReferenciaMotivo.CatalogoHuellaSHA256 = "9999999999999999999999999999999999999999999999999999999999999999"
 		},
-		"correlacion legible": func(s *domain.DatosSolicitudAutorizacionLigadaV2) {
-			s.CorrelacionRef = "correlacion:expediente:1234"
-		},
-		"correlacion con dato personal": func(s *domain.DatosSolicitudAutorizacionLigadaV2) {
-			s.CorrelacionRef = "correlacion_dni_12345678z"
+		"capacidad de correlacion cero": func(s *domain.DatosSolicitudAutorizacionLigadaV2) {
+			s.Correlacion = domain.ReferenciaCorrelacionAutorizacionV2{}
 		},
 	} {
 		t.Run(nombre, func(t *testing.T) {
@@ -377,7 +395,9 @@ func datosSolicitudAutorizacionServicioV2Prueba() domain.DatosSolicitudAutorizac
 		ContextoActor: solicitud.ContextoActor, VinculoAutenticacionActor: solicitud.VinculoAutenticacionActor,
 		ReferenciaMotivo: referenciaMotivoAutorizacionV2Prueba(claveMotivoAutorizacionV2Prueba),
 		Accion:           solicitud.Accion, Recurso: solicitud.Recurso, Finalidad: solicitud.Finalidad,
-		CorrelacionRef: referenciaCorrelacionAutorizacionV2Prueba,
+		Correlacion: referenciaCorrelacionAplicacionPrueba(
+			referenciaCorrelacionAutorizacionV2Prueba,
+		),
 	}
 }
 

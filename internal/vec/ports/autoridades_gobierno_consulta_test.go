@@ -21,6 +21,29 @@ const (
 	correlacionConsultaAutoridadAjenaPrueba = "correlacion_fedcba9876543210fedcba9876543210"
 )
 
+type generadorCorrelacionPuertoPrueba struct{ valor string }
+
+func (g generadorCorrelacionPuertoPrueba) NuevaReferenciaCorrelacionAutorizacionV2(
+	context.Context,
+) (string, error) {
+	return g.valor, nil
+}
+
+func referenciaCorrelacionPuertoPrueba(
+	t *testing.T,
+	valor string,
+) domain.ReferenciaCorrelacionAutorizacionV2 {
+	t.Helper()
+	referencia, err := domain.GenerarReferenciaCorrelacionAutorizacionV2(
+		context.Background(),
+		generadorCorrelacionPuertoPrueba{valor: valor},
+	)
+	if err != nil {
+		t.Fatalf("generar correlacion nominal de puerto: %v", err)
+	}
+	return referencia
+}
+
 func solicitudConsultaGobernadaAutoridadPrueba(
 	t *testing.T,
 	selector SelectorVersionFuenteAutoridad,
@@ -74,7 +97,9 @@ func solicitudConsultaGobernadaAutoridadPrueba(
 		OccurredAt: solicitadaEn,
 	}
 	solicitud, err := NuevaSolicitudConsultaInternaGobernadaFuenteAutoridad(
-		selector, evidencia, auditoria, motivoCatalogo, decision.CorrelacionRef, solicitadaEn,
+		selector, evidencia, auditoria, motivoCatalogo,
+		referenciaCorrelacionPuertoPrueba(t, decision.CorrelacionRef),
+		solicitadaEn,
 	)
 	if err != nil {
 		t.Fatalf("solicitud gobernada: %v", err)
@@ -96,7 +121,7 @@ func ligarDecisionSolicitudConsultaAutoridadPrueba(
 			Accion:                    decision.Accion,
 			Recurso:                   recurso,
 			Finalidad:                 decision.Finalidad,
-			CorrelacionRef:            decision.CorrelacionRef,
+			Correlacion:               referenciaCorrelacionPuertoPrueba(t, decision.CorrelacionRef),
 		},
 	)
 	if err != nil {
@@ -331,7 +356,7 @@ func TestConsultaInternaGobernadaRechazaDecisionOAuditoriaDivergente(t *testing.
 	autorizacion, _ := solicitud.Autorizacion()
 	auditoria, _ := solicitud.Auditoria()
 	motivoCatalogo, _ := solicitud.MotivoCatalogo()
-	correlacion, _ := solicitud.CorrelacionRef()
+	correlacion, _ := solicitud.Correlacion()
 
 	mutacionesAuditoria := []struct {
 		nombre string
@@ -383,6 +408,51 @@ func TestConsultaInternaGobernadaRechazaDecisionOAuditoriaDivergente(t *testing.
 				selector, evidencia, auditoria, motivoCatalogo, correlacion, solicitadaEn,
 			); !errors.Is(err, ErrConsultaInternaFuenteAutoridadInvalida) {
 				t.Fatalf("decision divergente aceptada: %v", err)
+			}
+		})
+	}
+}
+
+func TestConsultaInternaGobernadaPrevalidaAuditoriaAntesDeClonar(t *testing.T) {
+	escenario := nuevoEscenarioPuertoAutoridad(t)
+	solicitud, _, solicitadaEn := solicitudConsultaGobernadaAutoridadPrueba(
+		t,
+		SelectorVersionFuenteAutoridad{FuenteID: escenario.Fuente.ID, Version: 1},
+	)
+	selector, _ := solicitud.Selector()
+	autorizacion, _ := solicitud.Autorizacion()
+	auditoriaBase, _ := solicitud.Auditoria()
+	motivo, _ := solicitud.MotivoCatalogo()
+	correlacion, _ := solicitud.Correlacion()
+
+	casos := []struct {
+		nombre string
+		mutar  func(*domain.AuditEntry)
+	}{
+		{"roles enormes", func(auditoria *domain.AuditEntry) {
+			auditoria.ActorRoles = make([]string, 100_000)
+		}},
+		{"metadatos enormes", func(auditoria *domain.AuditEntry) {
+			auditoria.Metadata = make(map[string]string, 10_000)
+			for indice := 0; indice < 10_000; indice++ {
+				auditoria.Metadata[fmt.Sprintf("clave_%05d", indice)] = "valor"
+			}
+		}},
+		{"valor fuera de presupuesto", func(auditoria *domain.AuditEntry) {
+			auditoria.Metadata[AtributoMotivoCatalogoIDConsultaAutoridad] = strings.Repeat("x", 513)
+		}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			auditoria := clonarAuditoriaFuenteAutoridad(auditoriaBase)
+			caso.mutar(&auditoria)
+			if prevalidarAuditoriaConsultaFuenteAutoridad(auditoria) {
+				t.Fatal("el preflight acepto una auditoria fuera de presupuesto")
+			}
+			if _, err := NuevaSolicitudConsultaInternaGobernadaFuenteAutoridad(
+				selector, autorizacion, auditoria, motivo, correlacion, solicitadaEn,
+			); !errors.Is(err, ErrConsultaInternaFuenteAutoridadInvalida) {
+				t.Fatalf("el constructor acepto la auditoria: %v", err)
 			}
 		})
 	}

@@ -16,7 +16,7 @@ func TestConsultaGobernadaRechazaDecisionYAuditoriaCoherentementeDesviadas(t *te
 	solicitud, decisionBase, solicitadaEn := solicitudConsultaGobernadaAutoridadPrueba(t, selector)
 	auditoriaBase, _ := solicitud.Auditoria()
 	motivoCatalogo, _ := solicitud.MotivoCatalogo()
-	correlacionEsperada, _ := solicitud.CorrelacionRef()
+	correlacionEsperada, _ := solicitud.Correlacion()
 	recurso, err := RecursoAutorizableConsultaInternaFuenteAutoridad(selector, motivoCatalogo)
 	if err != nil {
 		t.Fatal(err)
@@ -109,7 +109,7 @@ func TestConsultaGobernadaExigeReferenciaCatalogadaExactaSinTextoLibre(t *testin
 	autorizacion, _ := solicitud.Autorizacion()
 	auditoria, _ := solicitud.Auditoria()
 	motivoCatalogo, _ := solicitud.MotivoCatalogo()
-	correlacion, _ := solicitud.CorrelacionRef()
+	correlacion, _ := solicitud.Correlacion()
 	recurso, err := RecursoAutorizableConsultaInternaFuenteAutoridad(selector, motivoCatalogo)
 	if err != nil || len(recurso.Atributos) != 6 ||
 		recurso.Atributos[AtributoMotivoCatalogoIDConsultaAutoridad] != motivoCatalogo.CatalogoID ||
@@ -249,7 +249,7 @@ func TestReciboConsultaComprometeReferenciaMotivoOpaca(t *testing.T) {
 	auditoriaAlternativa.Metadata[AtributoMotivoEntradaClaveConsultaAutoridad] = motivoAlternativo.EntradaClave
 	solicitudAlternativa, err := NuevaSolicitudConsultaInternaGobernadaFuenteAutoridad(
 		selector, evidenciaAlternativa, auditoriaAlternativa, motivoAlternativo,
-		correlacionConsultaAutoridadPrueba, solicitadaEn,
+		referenciaCorrelacionPuertoPrueba(t, correlacionConsultaAutoridadPrueba), solicitadaEn,
 	)
 	if err != nil {
 		t.Fatal(err)

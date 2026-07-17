@@ -147,6 +147,10 @@ func (a *autorizadorConsultaInternaAutoridadV2Prueba) ExigirSolicitudLigadaV2(
 	if err != nil {
 		return domain.DecisionAutorizacion{}, err
 	}
+	correlacionRef, err := datos.Correlacion.ValorCanonico()
+	if err != nil {
+		return domain.DecisionAutorizacion{}, err
+	}
 	a.llamadas++
 	decision := domain.DecisionAutorizacion{
 		DecisionRef: fmt.Sprintf("decision:consulta-autoridad:%03d", a.llamadas),
@@ -156,7 +160,7 @@ func (a *autorizadorConsultaInternaAutoridadV2Prueba) ExigirSolicitudLigadaV2(
 		Accion: datos.Accion, RecursoRef: datos.Recurso.Referencia,
 		ModuloID: datos.Recurso.ModuloID, TipoRecurso: datos.Recurso.Tipo,
 		ContextoRecursoHuellaSHA256: huellaContexto,
-		Finalidad:                   datos.Finalidad, CorrelacionRef: datos.CorrelacionRef,
+		Finalidad:                   datos.Finalidad, CorrelacionRef: correlacionRef,
 		EsquemaHuellaSolicitud:                domain.EsquemaHuellaSolicitudAutorizacionV2,
 		SolicitudHuellaSHA256:                 huellaSolicitud,
 		EsquemaHuellaMotivo:                   domain.EsquemaHuellaMotivoAutorizacionV2,
@@ -194,7 +198,7 @@ func (e *exigidorConsultaInternaAutoridadPrueba) ExigirEvidenciaUsoDecisionAutor
 	domain.ContextoActor,
 	domain.VinculoAutenticacionActorV1,
 	domain.RecursoAutorizable,
-	string,
+	domain.ReferenciaCorrelacionAutorizacionV2,
 	domain.ReferenciaEntradaCatalogo,
 	PoliticaUsoDecisionAutorizacion,
 ) (ports.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2, error) {
@@ -210,7 +214,7 @@ func TestConsultaInternaFuenteAutoridadAutorizaAntesDeRevelarYConservaEvidencia(
 			datos.Recurso.Tipo != ports.TipoRecursoFuenteAutoridad ||
 			datos.Finalidad != FinalidadConsultaInternaFuenteAutoridad ||
 			datos.ReferenciaMotivo != orden.MotivoCatalogo ||
-			datos.CorrelacionRef != orden.CorrelacionRef ||
+			datos.Correlacion != orden.Correlacion ||
 			datos.Recurso.Atributos["fuente_id"] != orden.Selector.FuenteID ||
 			datos.Recurso.Atributos[ports.AtributoMotivoCatalogoIDConsultaAutoridad] != orden.MotivoCatalogo.CatalogoID ||
 			datos.Recurso.Atributos[ports.AtributoMotivoCatalogoVersionConsultaAutoridad] != fmt.Sprint(orden.MotivoCatalogo.CatalogoVersion) ||
@@ -354,24 +358,9 @@ func TestConsultaInternaFuenteAutoridadFallaAntesDelRepositorio(t *testing.T) {
 		{"huella catalogo nula", context.Background(), func(o *OrdenConsultaInternaExactaFuenteAutoridad) {
 			o.MotivoCatalogo.CatalogoHuellaSHA256 = ""
 		}},
-		{"correlacion vacia", context.Background(), func(o *OrdenConsultaInternaExactaFuenteAutoridad) { o.CorrelacionRef = "" }},
-		{"correlacion semantica anterior", context.Background(), func(o *OrdenConsultaInternaExactaFuenteAutoridad) {
-			o.CorrelacionRef = "correlacion:autoridad:consulta:0001"
+		{"capacidad de correlacion cero", context.Background(), func(o *OrdenConsultaInternaExactaFuenteAutoridad) {
+			o.Correlacion = domain.ReferenciaCorrelacionAutorizacionV2{}
 		}},
-		{"correlacion opaca corta", context.Background(), func(o *OrdenConsultaInternaExactaFuenteAutoridad) {
-			o.CorrelacionRef = "correlacion_0123456789abcdef0123456789abcde"
-		}},
-		{"correlacion opaca mayuscula", context.Background(), func(o *OrdenConsultaInternaExactaFuenteAutoridad) {
-			o.CorrelacionRef = "correlacion_0123456789ABCDEF0123456789abcdef"
-		}},
-		{"correlacion opaca no hexadecimal", context.Background(), func(o *OrdenConsultaInternaExactaFuenteAutoridad) {
-			o.CorrelacionRef = "correlacion_0123456789abcdef0123456789abcdeg"
-		}},
-		{"correlacion con espacio", context.Background(), func(o *OrdenConsultaInternaExactaFuenteAutoridad) { o.CorrelacionRef = "correlacion no segura" }},
-		{"correlacion con control", context.Background(), func(o *OrdenConsultaInternaExactaFuenteAutoridad) { o.CorrelacionRef = "correlacion:\n" }},
-		{"correlacion unicode", context.Background(), func(o *OrdenConsultaInternaExactaFuenteAutoridad) { o.CorrelacionRef = "correlacion:á" }},
-		{"correlacion comodin", context.Background(), func(o *OrdenConsultaInternaExactaFuenteAutoridad) { o.CorrelacionRef = "correlacion:*" }},
-		{"correlacion excesiva", context.Background(), func(o *OrdenConsultaInternaExactaFuenteAutoridad) { o.CorrelacionRef = strings.Repeat("a", 513) }},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -436,7 +425,9 @@ func ordenConsultaInternaAutoridadPrueba() OrdenConsultaInternaExactaFuenteAutor
 			CatalogoHuellaSHA256: strings.Repeat("d", 64),
 			EntradaClave:         "motivo_0123456789abcdef0123456789abcdef",
 		},
-		CorrelacionRef: "correlacion_0123456789abcdef0123456789abcdef",
+		Correlacion: referenciaCorrelacionAplicacionPrueba(
+			"correlacion_0123456789abcdef0123456789abcdef",
+		),
 	}
 }
 

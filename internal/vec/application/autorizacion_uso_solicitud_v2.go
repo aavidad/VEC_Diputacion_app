@@ -20,7 +20,8 @@ func exigirDecisionAutorizacionVinculadaSolicitudLigadaV2(
 	vinculo domain.VinculoAutenticacionActorV1,
 	accion string,
 	recurso domain.RecursoAutorizable,
-	finalidad, correlacionRef string,
+	finalidad string,
+	correlacion domain.ReferenciaCorrelacionAutorizacionV2,
 	motivo domain.ReferenciaEntradaCatalogo,
 	usoCampos usoCamposDecisionAutorizacion,
 ) (domain.DecisionAutorizacion, error) {
@@ -32,6 +33,10 @@ func exigirDecisionAutorizacionVinculadaSolicitudLigadaV2(
 		)
 	}
 	if err := ctx.Err(); err != nil {
+		return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
+	}
+	recursoCanonico, err := clonarRecursoUsoAutorizacion(recurso)
+	if err != nil {
 		return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
 	}
 	actorCanonico, err := actor.Clonar()
@@ -53,14 +58,18 @@ func exigirDecisionAutorizacionVinculadaSolicitudLigadaV2(
 		domain.DatosSolicitudAutorizacionLigadaV2{
 			ContextoActor: actorCanonico, VinculoAutenticacionActor: vinculo,
 			ReferenciaMotivo: motivo, Accion: accion,
-			Recurso: clonarRecursoUsoAutorizacion(recurso), Finalidad: finalidad,
-			CorrelacionRef: correlacionRef,
+			Recurso: recursoCanonico, Finalidad: finalidad,
+			Correlacion: correlacion,
 		},
 	)
 	if err != nil {
 		return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
 	}
 	datosSolicitud, err := solicitud.Datos()
+	if err != nil {
+		return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
+	}
+	correlacionRef, err := datosSolicitud.Correlacion.ValorCanonico()
 	if err != nil {
 		return domain.DecisionAutorizacion{}, errors.Join(domain.ErrAutorizacionDenegada, err)
 	}
@@ -92,7 +101,7 @@ func exigirDecisionAutorizacionVinculadaSolicitudLigadaV2(
 		decision.Accion != datosSolicitud.Accion || decision.RecursoRef != datosSolicitud.Recurso.Referencia ||
 		decision.ModuloID != datosSolicitud.Recurso.ModuloID || decision.TipoRecurso != datosSolicitud.Recurso.Tipo ||
 		decision.ContextoRecursoHuellaSHA256 != huellaContexto ||
-		decision.Finalidad != datosSolicitud.Finalidad || decision.CorrelacionRef != datosSolicitud.CorrelacionRef ||
+		decision.Finalidad != datosSolicitud.Finalidad || decision.CorrelacionRef != correlacionRef ||
 		decision.EsquemaHuellaSolicitud != domain.EsquemaHuellaSolicitudAutorizacionV2 ||
 		decision.SolicitudHuellaSHA256 != huellaSolicitud ||
 		decision.EsquemaHuellaMotivo != domain.EsquemaHuellaMotivoAutorizacionV2 ||

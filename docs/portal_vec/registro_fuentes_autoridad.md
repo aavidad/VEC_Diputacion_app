@@ -224,7 +224,8 @@ Toda mutación exige:
 - vínculo de autenticación revalidado;
 - garantía de autenticación alta;
 - decisión positiva y exacta del PDP;
-- finalidad, motivo y correlación no vacíos;
+- finalidad cerrada, motivo catalogado opaco y capacidad nominal de
+  correlación V2 acuñada por el servidor;
 - control optimista de la huella anterior;
 - consumo único de la decisión de autorización;
 - agregado, auditoría y evento de bandeja de salida en una sola transacción.
@@ -251,6 +252,26 @@ justificación humana y su documentación se custodian fuera del agregado, con
 clasificación, acceso y conservación propios. Los textos humanos admitidos se
 exigen en NFC y rechazan controles y caracteres de formato invisibles; las
 referencias técnicas son ASCII y las huellas SHA-256 nulas no se aceptan.
+
+La consulta interna recibe la correlación como
+`ReferenciaCorrelacionAutorizacionV2`, no como texto. La capacidad se genera
+una sola vez mediante el puerto CSPRNG, no puede reconstruirse desde HTTP y
+bloquea codecs, formato y log estructurado. El caso de uso conserva esa misma
+capacidad hasta que extrae su valor canónico para cotejar la decisión, crear la
+entrada de auditoría y entregarla a la barrera transaccional durable.
+
+La solicitud gobernada prevalida la auditoría antes de clonarla: exige cero
+roles declarados, exactamente los seis metadatos cerrados de la consulta y
+límites por clave, valor y presupuesto total. Después toma la copia defensiva
+y repite sobre ella la validación exacta de decisión, recurso, motivo,
+correlación, auditoría e instante.
+
+El recibo posterior al `COMMIT` aplica la misma defensa antes de calcular
+huellas, ordenar metadatos, serializar o copiar. Acota todos sus campos y la
+entrada de auditoría, calcula los compromisos únicamente sobre datos
+admisibles, valida la semántica completa, clona y vuelve a validar la copia.
+Así, un adaptador interno defectuoso o comprometido no puede usar el
+constructor del recibo como amplificador de memoria.
 
 `EstadoPersistibleV1` emite un único JSON canónico: fechas UTC RFC3339Nano,
 listas vacías como `[]`, enteros sin dependencia de la arquitectura y orden
@@ -376,8 +397,8 @@ El incremento no se considerará cerrado sin:
 - rechazo previo a la asignación de JSON profundo, duplicado o con arrays
   patológicos, más pruebas de fuzz y ejecución en arquitectura de 32 bits;
 - reutilización de una decisión de autorización para otro efecto;
-- consulta interna sin decisión V2, con motivo o correlación no opacos, o con
-  actor/superficie/garantía distintos de los exigidos;
+- consulta interna sin decisión V2, con motivo no opaco, capacidad cero de
+  correlación o actor/superficie/garantía distintos de los exigidos;
 - resultado ausente sin oráculo de existencia y recibo ligado al mismo
   selector, decisión, resultado y auditoría confirmada;
 - manipulación de cualquier campo de la entrada de auditoría, su secuencia,

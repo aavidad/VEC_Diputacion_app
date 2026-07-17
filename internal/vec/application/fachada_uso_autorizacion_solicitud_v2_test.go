@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -88,7 +89,8 @@ func TestFachadaSolicitudLigadaV2RechazaMutacionDeSolicitudOMotivo(t *testing.T)
 			}
 			evidencia, err := fachada.ExigirEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2(
 				context.Background(), actor, vinculo, recursoFachadaUsoAutorizacionPrueba(),
-				referenciaCorrelacionAutorizacionV2Prueba, motivo, politica,
+				referenciaCorrelacionAplicacionPrueba(referenciaCorrelacionAutorizacionV2Prueba),
+				motivo, politica,
 			)
 			if caso.mutar == nil {
 				if err != nil || evidencia.ValidarEn(ahora) != nil ||
@@ -99,6 +101,47 @@ func TestFachadaSolicitudLigadaV2RechazaMutacionDeSolicitudOMotivo(t *testing.T)
 			}
 			if !errors.Is(err, domain.ErrAutorizacionDenegada) || evidencia.ValidarEn(ahora) == nil {
 				t.Fatalf("mutacion V2 aceptada: evidencia=%v err=%v", evidencia, err)
+			}
+		})
+	}
+}
+
+func TestFachadaSolicitudLigadaV2PrevalidaRecursoAntesDelPDP(t *testing.T) {
+	ahora := instanteFachadaUsoAutorizacionPrueba()
+	actor, vinculo := contextoYVinculoAutenticacionAplicacionPrueba(ahora)
+	politica := politicaFachadaUsoPrueba(t, nil, PerfilProteccionUsoAutorizacionInternoAlto)
+	motivo := referenciaMotivoAutorizacionV2Prueba(claveMotivoAutorizacionV2Prueba)
+	for nombre, mutar := range map[string]func(*domain.RecursoAutorizable){
+		"mapa sobre limite": func(recurso *domain.RecursoAutorizable) {
+			recurso.Atributos = make(map[string]string, 513)
+			for indice := 0; indice < 513; indice++ {
+				recurso.Atributos[fmt.Sprintf("atributo_%03d", indice)] = "valor"
+			}
+		},
+		"valor fuera de forma": func(recurso *domain.RecursoAutorizable) {
+			recurso.Atributos = map[string]string{"estado": strings.Repeat("x", 513)}
+		},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			base := &autorizadorFachadaUsoPrueba{
+				ahora: ahora, garantiaMinima: domain.AuthAssuranceHigh,
+			}
+			fachada, err := NuevaFachadaUsoDecisionAutorizacionSolicitudLigadaV2(
+				&autorizadorFachadaSolicitudV2Prueba{base: base},
+				relojUsoAutorizacionPrueba{ahora: ahora},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			recurso := recursoFachadaUsoAutorizacionPrueba()
+			mutar(&recurso)
+			_, err = fachada.ExigirEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2(
+				context.Background(), actor, vinculo, recurso,
+				referenciaCorrelacionAplicacionPrueba(referenciaCorrelacionAutorizacionV2Prueba),
+				motivo, politica,
+			)
+			if !errors.Is(err, domain.ErrAutorizacionDenegada) || base.llamadas != 0 {
+				t.Fatalf("recurso invalido alcanzo el PDP: llamadas=%d error=%v", base.llamadas, err)
 			}
 		})
 	}

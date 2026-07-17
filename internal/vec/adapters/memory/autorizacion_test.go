@@ -29,6 +29,14 @@ type validadorMotivoAutorizacionMemoriaPrueba struct {
 	referencia domain.ReferenciaEntradaCatalogo
 }
 
+type generadorCorrelacionAutorizacionMemoriaPrueba string
+
+func (g generadorCorrelacionAutorizacionMemoriaPrueba) NuevaReferenciaCorrelacionAutorizacionV2(
+	context.Context,
+) (string, error) {
+	return string(g), nil
+}
+
 func (v validadorMotivoAutorizacionMemoriaPrueba) ValidarReferenciaMotivoAutorizacionV2(
 	_ context.Context,
 	referencia domain.ReferenciaEntradaCatalogo,
@@ -103,7 +111,16 @@ func TestAlmacenAutorizacionMemoriaSeparaRegistrosV1YV2(t *testing.T) {
 			ContextoActor: solicitud.ContextoActor, VinculoAutenticacionActor: solicitud.VinculoAutenticacionActor,
 			ReferenciaMotivo: referenciaMotivo, Accion: solicitud.Accion,
 			Recurso: solicitud.Recurso, Finalidad: solicitud.Finalidad,
-			CorrelacionRef: referenciaCorrelacionAutorizacionV2Prueba,
+			Correlacion: func() domain.ReferenciaCorrelacionAutorizacionV2 {
+				referencia, err := domain.GenerarReferenciaCorrelacionAutorizacionV2(
+					context.Background(),
+					generadorCorrelacionAutorizacionMemoriaPrueba(referenciaCorrelacionAutorizacionV2Prueba),
+				)
+				if err != nil {
+					t.Fatalf("generar correlacion nominal: %v", err)
+				}
+				return referencia
+			}(),
 		},
 	)
 	if err != nil {

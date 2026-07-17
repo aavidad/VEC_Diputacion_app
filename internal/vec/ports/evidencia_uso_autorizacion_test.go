@@ -610,7 +610,7 @@ func ligarDecisionAutorizacionReforzadaPrueba(
 			VinculoAutenticacionActor: decision.VinculoAutenticacionActor,
 			ReferenciaMotivo:          motivo,
 			Accion:                    decision.Accion, Recurso: recurso, Finalidad: decision.Finalidad,
-			CorrelacionRef: decision.CorrelacionRef,
+			Correlacion: referenciaCorrelacionPuertoPrueba(t, decision.CorrelacionRef),
 		},
 	)
 	if err != nil {

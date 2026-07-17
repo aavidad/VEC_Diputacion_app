@@ -38,22 +38,25 @@ proyeccion minima creada dentro de la aplicacion; no existe conversion publica
 V1/V2. Constructor y `Datos()` clonan defensivamente y bloquean serializacion,
 decodificacion, formato y log estructurado.
 
-`CorrelacionRef` usa el perfil `correlacion_` seguido de 32 digitos
-hexadecimales en minuscula. Sus 128 bits se generan con `crypto/rand` en la
-frontera; nunca se derivan de DNI, correo, persona, expediente ni texto
-aportado por el usuario. La barrera final del servicio y la huella reutilizan
-`domain.ReferenciaCorrelacionAutorizacionV2Valida`. El puerto
-`GeneradorReferenciasAutorizacionV2` y su adaptador criptografico separan este
-espacio del usado para claves de motivo. La futura frontera HTTP debe generar
-la referencia mediante ese puerto y nunca aceptar su valor desde el cliente.
+La correlacion V2 es `domain.ReferenciaCorrelacionAutorizacionV2`, una
+capacidad nominal opaca cuyo valor cero es invalido. No existe un constructor
+publico desde `string`. `GenerarReferenciaCorrelacionAutorizacionV2` invoca una
+sola vez el puerto CSPRNG minimo, exige el perfil `correlacion_` seguido de 32
+digitos hexadecimales en minuscula y encapsula el resultado. Rechaza contexto
+nulo o cancelado, generadores nulos incluso tipados, errores del CSPRNG y
+salidas fuera del perfil. La misma capacidad se reutiliza durante toda la
+operacion: `Exigir` no genera ni sustituye correlaciones.
 
-En este corte el generador ya existe, pero la fachada y el PEP V2 todavia
-transportan la correlacion como `string`. Validar su forma impide introducir
-un DNI o una etiqueta, pero no demuestra que el llamador haya usado el CSPRNG.
-Antes de exponer V2, la correlacion se convertira en una capacidad nominal
-opaca: se acuñara una sola vez en el ingreso confiable y la misma capacidad se
-reutilizara durante toda la operacion. Hasta cerrar esa frontera, el flujo V2
-permanece **NO-GO productivo**.
+Los 128 bits se generan con `crypto/rand` en la frontera confiable; nunca se
+derivan de DNI, correo, persona, expediente ni texto aportado por el usuario.
+El puerto `GeneradorReferenciasAutorizacionV2` y su adaptador criptografico
+separan este espacio del usado para claves de motivo. Solicitud nominal,
+huella, PEP, fachada, interfaz `Exigidor` y orden de consulta interna conservan
+la capacidad, no el texto. `ValorCanonico()` solo se usa al comprometer la
+decision, construir auditoria o cruzar la frontera durable. JSON, XML, Gob,
+binario, texto, CBOR y YAML estan bloqueados; `fmt` y `slog` siempre redactan el
+valor. HTTP nunca acepta la correlacion enviada por el cliente: la acuna en el
+ingreso confiable y pasa la capacidad resultante.
 
 ## Motivo catalogado y minimizacion
 
@@ -119,6 +122,13 @@ vinculo de autenticacion se comparte unicamente porque es una capacidad opaca e
 inmutable creada por la fabrica del dominio. Esto evita divergencias TOCTOU
 entre evaluacion, huellas y registro.
 
+Antes de reservar esas copias se ejecuta un preflight sin crecimiento de
+memoria proporcional a la entrada: comprueba forma, conteos y presupuesto de
+ambitos, atributos, roles y vinculos. Solo una entrada acotada se clona, y el
+clon se valida de nuevo antes de usarse. La fachada y el PEP aplican el mismo
+patron al recurso para que una llamada directa tampoco copie mapas fuera de
+limite antes de denegar.
+
 Solicitud nominal, datos internos, evidencias y orden de registro bloquean
 JSON, XML, Gob, binario, texto, CBOR, YAML y formateo/log estructurado. La
 representacion canonica solo se entrega de forma deliberada al adaptador que
@@ -131,8 +141,6 @@ debe cotejarla.
 - La credencial del registro no sustituye la procedencia del PDP. El uso
   productivo exige atestacion asimetrica verificable o un verificador aislado;
   una huella SHA-256 por si sola no autentica al emisor.
-- La correlacion V2 debe pasar de valor validado a capacidad nominal acuñada
-  por el generador confiable.
 - PostgreSQL V2 debe materializar la orden nominal, la referencia de motivo y
   su revalidacion transaccional.
 - La migracion de los flujos documentales V3/V4 debe seleccionar de forma

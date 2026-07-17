@@ -30,7 +30,10 @@ func TestSolicitudAutorizacionLigadaV2ClonaEntradaYDatos(t *testing.T) {
 	datos.Recurso.Ambitos["unidad"] = "nominas"
 	datos.Recurso.Atributos["estado"] = "borrado"
 	datos.ReferenciaMotivo.EntradaClave = claveMotivoAutorizacionV2Alternativa
-	datos.CorrelacionRef = "correlacion_fedcba9876543210fedcba9876543210"
+	datos.Correlacion = referenciaCorrelacionAutorizacionV2ParaPrueba(
+		t,
+		"correlacion_fedcba9876543210fedcba9876543210",
+	)
 	entregados, err := solicitud.Datos()
 	if err != nil {
 		t.Fatal(err)
@@ -39,12 +42,13 @@ func TestSolicitudAutorizacionLigadaV2ClonaEntradaYDatos(t *testing.T) {
 	entregados.Recurso.Atributos["estado"] = "eliminado"
 
 	nuevos, err := solicitud.Datos()
+	correlacionNueva, errCorrelacion := nuevos.Correlacion.ValorCanonico()
 	nuevaHuella, errHuella := HuellaSHA256SolicitudAutorizacionV2(solicitud)
-	if err != nil || errHuella != nil || nuevaHuella != huella ||
+	if err != nil || errCorrelacion != nil || errHuella != nil || nuevaHuella != huella ||
 		nuevos.Recurso.Ambitos["unidad"] != "seleccion" ||
 		nuevos.Recurso.Atributos["estado"] != "presentado" ||
 		nuevos.ReferenciaMotivo.EntradaClave != claveMotivoAutorizacionV2Prueba ||
-		nuevos.CorrelacionRef != referenciaCorrelacionAutorizacionV2Prueba {
+		correlacionNueva != referenciaCorrelacionAutorizacionV2Prueba {
 		t.Fatalf("la capacidad compartio estado mutable: datos=%+v err=%v huella=%q errHuella=%v", nuevos, err, nuevaHuella, errHuella)
 	}
 }
@@ -52,6 +56,10 @@ func TestSolicitudAutorizacionLigadaV2ClonaEntradaYDatos(t *testing.T) {
 func TestSolicitudAutorizacionLigadaV2BloqueaCodecsYFormato(t *testing.T) {
 	solicitud := solicitudHuellaAutorizacionV2Prueba(t)
 	datos, err := solicitud.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	correlacionRef, err := datos.Correlacion.ValorCanonico()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,12 +89,12 @@ func TestSolicitudAutorizacionLigadaV2BloqueaCodecsYFormato(t *testing.T) {
 			}
 			texto := fmt.Sprintf("%v %+v %#v", valor, valor, valor)
 			if strings.Contains(texto, datos.ReferenciaMotivo.EntradaClave) ||
-				strings.Contains(texto, datos.CorrelacionRef) || strings.Contains(texto, datos.Recurso.Referencia) {
+				strings.Contains(texto, correlacionRef) || strings.Contains(texto, datos.Recurso.Referencia) {
 				t.Fatalf("formato filtro contenido: %q", texto)
 			}
 			valorLog := slog.AnyValue(valor).Resolve().String()
 			if strings.Contains(valorLog, datos.ReferenciaMotivo.EntradaClave) ||
-				strings.Contains(valorLog, datos.CorrelacionRef) || strings.Contains(valorLog, datos.Recurso.Referencia) {
+				strings.Contains(valorLog, correlacionRef) || strings.Contains(valorLog, datos.Recurso.Referencia) {
 				t.Fatalf("slog filtro contenido: %q", valorLog)
 			}
 		})
@@ -129,5 +137,47 @@ func TestSolicitudAutorizacionLigadaV2ValorCeroFallaCerrado(t *testing.T) {
 	if _, err := solicitud.Datos(); !errors.Is(err, ErrSolicitudAutorizacionLigadaV2Invalida) ||
 		!errors.Is(err, ErrSolicitudAutorizacionInvalida) {
 		t.Fatalf("valor cero aceptado: %v", err)
+	}
+}
+
+func TestSolicitudAutorizacionLigadaV2PrevalidaPresupuestoAntesDeClonar(t *testing.T) {
+	base, err := solicitudHuellaAutorizacionV2Prueba(t).Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	casos := []struct {
+		nombre string
+		mutar  func(*DatosSolicitudAutorizacionLigadaV2)
+	}{
+		{"ambitos sobre limite", func(datos *DatosSolicitudAutorizacionLigadaV2) {
+			datos.Recurso.Ambitos = make(map[string]string, maximoElementosAutorizacion+1)
+			for indice := 0; indice <= maximoElementosAutorizacion; indice++ {
+				datos.Recurso.Ambitos[fmt.Sprintf("ambito_%03d", indice)] = "valor"
+			}
+		}},
+		{"atributo fuera de forma", func(datos *DatosSolicitudAutorizacionLigadaV2) {
+			datos.Recurso.Atributos = map[string]string{"estado": strings.Repeat("x", 513)}
+		}},
+		{"roles de actor no permitidos", func(datos *DatosSolicitudAutorizacionLigadaV2) {
+			datos.ContextoActor.Principal.Roles = make([]string, 100_000)
+		}},
+		{"vinculos sobre limite", func(datos *DatosSolicitudAutorizacionLigadaV2) {
+			datos.ContextoActor.Instantanea.Vinculos = make(
+				[]VinculoReferenciaContextoActor,
+				maximoVinculosContextoActor+1,
+			)
+		}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			datos := base
+			caso.mutar(&datos)
+			if err := prevalidarDatosSolicitudAutorizacionLigadaV2(datos); err == nil {
+				t.Fatal("el preflight acepto una entrada fuera de presupuesto")
+			}
+			if _, err := NuevaSolicitudAutorizacionLigadaV2(datos); !errors.Is(err, ErrSolicitudAutorizacionLigadaV2Invalida) {
+				t.Fatalf("el constructor acepto la entrada: %v", err)
+			}
+		})
 	}
 }

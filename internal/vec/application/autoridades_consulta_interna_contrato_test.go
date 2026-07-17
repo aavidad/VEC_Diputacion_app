@@ -75,9 +75,13 @@ func TestOrdenConsultaInternaAutoridadNoSeSerializaNiExponeCapacidades(t *testin
 		t.Fatalf("reconstruccion YAML aceptada: %v", err)
 	}
 	texto := fmt.Sprintf("%v %+v %#v", orden, orden, orden)
+	correlacionRef, err := orden.Correlacion.ValorCanonico()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, sensible := range []string{
 		orden.Selector.FuenteID, orden.MotivoCatalogo.EntradaClave, orden.MotivoCatalogo.CatalogoID,
-		orden.MotivoCatalogo.CatalogoHuellaSHA256, orden.CorrelacionRef,
+		orden.MotivoCatalogo.CatalogoHuellaSHA256, correlacionRef,
 	} {
 		if strings.Contains(texto, sensible) {
 			t.Fatalf("formato expuso %q: %s", sensible, texto)

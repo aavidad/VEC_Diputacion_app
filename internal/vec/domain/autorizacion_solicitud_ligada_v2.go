@@ -28,7 +28,7 @@ type DatosSolicitudAutorizacionLigadaV2 struct {
 	Accion                    string
 	Recurso                   RecursoAutorizable
 	Finalidad                 string
-	CorrelacionRef            string
+	Correlacion               ReferenciaCorrelacionAutorizacionV2
 }
 
 type datosSolicitudAutorizacionLigadaV2 struct {
@@ -38,7 +38,7 @@ type datosSolicitudAutorizacionLigadaV2 struct {
 	accion                    string
 	recurso                   RecursoAutorizable
 	finalidad                 string
-	correlacionRef            string
+	correlacion               ReferenciaCorrelacionAutorizacionV2
 }
 
 // SolicitudAutorizacionLigadaV2 es una capacidad nominal opaca. No puede
@@ -53,6 +53,9 @@ type SolicitudAutorizacionLigadaV2 struct {
 func NuevaSolicitudAutorizacionLigadaV2(
 	datos DatosSolicitudAutorizacionLigadaV2,
 ) (SolicitudAutorizacionLigadaV2, error) {
+	if err := prevalidarDatosSolicitudAutorizacionLigadaV2(datos); err != nil {
+		return SolicitudAutorizacionLigadaV2{}, errorSolicitudAutorizacionLigadaV2(err)
+	}
 	clon, err := clonarDatosSolicitudAutorizacionLigadaV2(datos)
 	if err != nil {
 		return SolicitudAutorizacionLigadaV2{}, errorSolicitudAutorizacionLigadaV2(err)
@@ -63,7 +66,7 @@ func NuevaSolicitudAutorizacionLigadaV2(
 	return SolicitudAutorizacionLigadaV2{datos: &datosSolicitudAutorizacionLigadaV2{
 		contextoActor: clon.ContextoActor, vinculoAutenticacionActor: clon.VinculoAutenticacionActor,
 		referenciaMotivo: clon.ReferenciaMotivo, accion: clon.Accion, recurso: clon.Recurso,
-		finalidad: clon.Finalidad, correlacionRef: clon.CorrelacionRef,
+		finalidad: clon.Finalidad, correlacion: clon.Correlacion,
 	}}, nil
 }
 
@@ -79,7 +82,10 @@ func (s SolicitudAutorizacionLigadaV2) Datos() (
 	datos := DatosSolicitudAutorizacionLigadaV2{
 		ContextoActor: s.datos.contextoActor, VinculoAutenticacionActor: s.datos.vinculoAutenticacionActor,
 		ReferenciaMotivo: s.datos.referenciaMotivo, Accion: s.datos.accion,
-		Recurso: s.datos.recurso, Finalidad: s.datos.finalidad, CorrelacionRef: s.datos.correlacionRef,
+		Recurso: s.datos.recurso, Finalidad: s.datos.finalidad, Correlacion: s.datos.correlacion,
+	}
+	if err := prevalidarDatosSolicitudAutorizacionLigadaV2(datos); err != nil {
+		return DatosSolicitudAutorizacionLigadaV2{}, errorSolicitudAutorizacionLigadaV2(err)
 	}
 	clon, err := clonarDatosSolicitudAutorizacionLigadaV2(datos)
 	if err != nil {
@@ -91,13 +97,34 @@ func (s SolicitudAutorizacionLigadaV2) Datos() (
 	return clon, nil
 }
 
+// prevalidarDatosSolicitudAutorizacionLigadaV2 limita forma y presupuesto
+// antes de reservar memoria para copias defensivas. La validacion completa se
+// repite sobre el clon para cerrar la ventana TOCTOU.
+func prevalidarDatosSolicitudAutorizacionLigadaV2(
+	datos DatosSolicitudAutorizacionLigadaV2,
+) error {
+	if len(datos.Recurso.Ambitos) > maximoElementosAutorizacion ||
+		len(datos.Recurso.Atributos) > maximoElementosAutorizacion ||
+		len(datos.ContextoActor.Principal.Roles) != 0 ||
+		len(datos.ContextoActor.Principal.Permissions) != 0 ||
+		len(datos.ContextoActor.Principal.Attributes) != 0 ||
+		len(datos.ContextoActor.Instantanea.Vinculos) > maximoVinculosContextoActor ||
+		datos.Recurso.Validar() != nil ||
+		!ReferenciaMotivoAutorizacionV2Valida(datos.ReferenciaMotivo) ||
+		datos.Correlacion.Validar() != nil {
+		return ErrSolicitudAutorizacionLigadaV2Invalida
+	}
+	return nil
+}
+
 func validarDatosSolicitudAutorizacionLigadaV2(
 	datos DatosSolicitudAutorizacionLigadaV2,
 ) error {
 	vinculo, err := datos.VinculoAutenticacionActor.Datos()
+	correlacionRef, errCorrelacion := datos.Correlacion.ValorCanonico()
 	if err != nil || !ReferenciaMotivoAutorizacionV2Valida(datos.ReferenciaMotivo) ||
-		!ReferenciaCorrelacionAutorizacionV2Valida(datos.CorrelacionRef) {
-		return errorSolicitudAutorizacionLigadaV2(err)
+		errCorrelacion != nil {
+		return errorSolicitudAutorizacionLigadaV2(errors.Join(err, errCorrelacion))
 	}
 	proyeccion := SolicitudAutorizacion{
 		Principal: Principal{
@@ -106,7 +133,7 @@ func validarDatosSolicitudAutorizacionLigadaV2(
 		},
 		PerfilActivoRef: vinculo.PerfilActivoRef, Accion: datos.Accion,
 		Recurso: datos.Recurso, Finalidad: datos.Finalidad,
-		CorrelacionRef: datos.CorrelacionRef, Motivo: datos.ReferenciaMotivo.EntradaClave,
+		CorrelacionRef: correlacionRef, Motivo: datos.ReferenciaMotivo.EntradaClave,
 	}
 	if proyeccion.Validar() != nil {
 		return errorSolicitudAutorizacionLigadaV2(nil)
@@ -136,7 +163,7 @@ func clonarDatosSolicitudAutorizacionLigadaV2(
 	return DatosSolicitudAutorizacionLigadaV2{
 		ContextoActor: contexto, VinculoAutenticacionActor: datos.VinculoAutenticacionActor,
 		ReferenciaMotivo: datos.ReferenciaMotivo, Accion: datos.Accion, Recurso: recurso,
-		Finalidad: datos.Finalidad, CorrelacionRef: datos.CorrelacionRef,
+		Finalidad: datos.Finalidad, Correlacion: datos.Correlacion,
 	}, nil
 }
 

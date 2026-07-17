@@ -15,17 +15,21 @@ import (
 )
 
 const (
-	ModuloFuentesAutoridad                                                          = "vec"
-	TipoRecursoFuenteAutoridad                                                      = "fuente_autoridad_versionada"
-	AccionConsultarFuenteAutoridadInterna                                           = "vec.fuentes_autoridad.consultar_interna"
-	FinalidadConsultaInternaFuenteAutoridad                                         = "gobierno_fuentes_autoridad"
-	CampoConsultaInternaFuenteAutoridad                                             = "fuente_autoridad"
-	AtributoMotivoCatalogoIDConsultaAutoridad                                       = "motivo_catalogo_id"
-	AtributoMotivoCatalogoVersionConsultaAutoridad                                  = "motivo_catalogo_version"
-	AtributoMotivoCatalogoHuellaConsultaAutoridad                                   = "motivo_catalogo_huella_sha256"
-	AtributoMotivoEntradaClaveConsultaAutoridad                                     = "motivo_entrada_clave"
-	ResultadoConsultaFuenteEncontrada              ResultadoConsultaFuenteAutoridad = "encontrada"
-	ResultadoConsultaFuenteNoEncontrada            ResultadoConsultaFuenteAutoridad = "no_encontrada"
+	ModuloFuentesAutoridad                                                                = "vec"
+	TipoRecursoFuenteAutoridad                                                            = "fuente_autoridad_versionada"
+	AccionConsultarFuenteAutoridadInterna                                                 = "vec.fuentes_autoridad.consultar_interna"
+	FinalidadConsultaInternaFuenteAutoridad                                               = "gobierno_fuentes_autoridad"
+	CampoConsultaInternaFuenteAutoridad                                                   = "fuente_autoridad"
+	AtributoMotivoCatalogoIDConsultaAutoridad                                             = "motivo_catalogo_id"
+	AtributoMotivoCatalogoVersionConsultaAutoridad                                        = "motivo_catalogo_version"
+	AtributoMotivoCatalogoHuellaConsultaAutoridad                                         = "motivo_catalogo_huella_sha256"
+	AtributoMotivoEntradaClaveConsultaAutoridad                                           = "motivo_entrada_clave"
+	ResultadoConsultaFuenteEncontrada                    ResultadoConsultaFuenteAutoridad = "encontrada"
+	ResultadoConsultaFuenteNoEncontrada                  ResultadoConsultaFuenteAutoridad = "no_encontrada"
+	maximoMetadatosAuditoriaConsultaAutoridad                                             = 6
+	maximoClaveMetadatoAuditoriaConsultaAutoridad                                         = 128
+	maximoValorMetadatoAuditoriaConsultaAutoridad                                         = 512
+	maximoPresupuestoMetadatosAuditoriaConsultaAutoridad                                  = 4 * 1024
 )
 
 var (
@@ -72,7 +76,7 @@ type datosSolicitudConsultaInternaFuenteAutoridad struct {
 	autorizacion   EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2
 	auditoria      domain.AuditEntry
 	motivoCatalogo domain.ReferenciaEntradaCatalogo
-	correlacion    string
+	correlacion    domain.ReferenciaCorrelacionAutorizacionV2
 	solicitadaEn   time.Time
 }
 
@@ -86,18 +90,43 @@ func NuevaSolicitudConsultaInternaGobernadaFuenteAutoridad(
 	autorizacion EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
 	auditoria domain.AuditEntry,
 	motivoCatalogo domain.ReferenciaEntradaCatalogo,
-	correlacionRef string,
+	correlacion domain.ReferenciaCorrelacionAutorizacionV2,
 	solicitadaEn time.Time,
 ) (SolicitudConsultaInternaGobernadaFuenteAutoridad, error) {
+	if !prevalidarAuditoriaConsultaFuenteAutoridad(auditoria) {
+		return SolicitudConsultaInternaGobernadaFuenteAutoridad{}, ErrConsultaInternaFuenteAutoridadInvalida
+	}
 	datos := datosSolicitudConsultaInternaFuenteAutoridad{
 		selector: selector, autorizacion: autorizacion,
 		auditoria: clonarAuditoriaFuenteAutoridad(auditoria), motivoCatalogo: motivoCatalogo,
-		correlacion: correlacionRef, solicitadaEn: solicitadaEn,
+		correlacion: correlacion, solicitadaEn: solicitadaEn,
 	}
 	if validarSolicitudConsultaInternaFuenteAutoridad(datos) != nil {
 		return SolicitudConsultaInternaGobernadaFuenteAutoridad{}, ErrConsultaInternaFuenteAutoridadInvalida
 	}
 	return SolicitudConsultaInternaGobernadaFuenteAutoridad{datos: &datos}, nil
+}
+
+// prevalidarAuditoriaConsultaFuenteAutoridad impone conteos y presupuesto
+// antes de reservar la copia defensiva. La validacion exacta se repite sobre
+// el clon dentro de validarSolicitudConsultaInternaFuenteAutoridad.
+func prevalidarAuditoriaConsultaFuenteAutoridad(auditoria domain.AuditEntry) bool {
+	if len(auditoria.ActorRoles) != 0 ||
+		len(auditoria.Metadata) != maximoMetadatosAuditoriaConsultaAutoridad {
+		return false
+	}
+	presupuesto := 0
+	for clave, valor := range auditoria.Metadata {
+		if len(clave) == 0 || len(clave) > maximoClaveMetadatoAuditoriaConsultaAutoridad ||
+			len(valor) == 0 || len(valor) > maximoValorMetadatoAuditoriaConsultaAutoridad {
+			return false
+		}
+		presupuesto += len(clave) + len(valor)
+		if presupuesto > maximoPresupuestoMetadatosAuditoriaConsultaAutoridad {
+			return false
+		}
+	}
+	return true
 }
 
 func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) MotivoCatalogo() (
@@ -113,6 +142,18 @@ func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) MotivoCatalogo() (
 func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) CorrelacionRef() (string, error) {
 	if s.validar() != nil {
 		return "", ErrConsultaInternaFuenteAutoridadInvalida
+	}
+	return s.datos.correlacion.ValorCanonico()
+}
+
+// Correlacion conserva la capacidad nominal mientras la operacion permanece
+// dentro del nucleo. CorrelacionRef revela el valor solo al adaptador durable.
+func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) Correlacion() (
+	domain.ReferenciaCorrelacionAutorizacionV2,
+	error,
+) {
+	if s.validar() != nil {
+		return domain.ReferenciaCorrelacionAutorizacionV2{}, ErrConsultaInternaFuenteAutoridadInvalida
 	}
 	return s.datos.correlacion, nil
 }
@@ -244,17 +285,18 @@ func validarSolicitudConsultaInternaFuenteAutoridad(
 		datos.selector, datos.motivoCatalogo,
 	)
 	datosAutorizacion, errAutorizacion := datos.autorizacion.Datos()
+	correlacionRef, errCorrelacion := datos.correlacion.ValorCanonico()
 	if errRecurso != nil || errAutorizacion != nil ||
 		!ReferenciaMotivoConsultaFuenteAutoridadValida(datos.motivoCatalogo) ||
-		!domain.ReferenciaCorrelacionAutorizacionV2Valida(datos.correlacion) ||
+		errCorrelacion != nil ||
 		!instantePuertoAutoridadCanonico(datos.solicitadaEn) ||
 		datos.autorizacion.ValidarMotivo(datos.motivoCatalogo) != nil ||
 		validarUsoAutorizacionFuenteAutoridad(
 			datos.autorizacion, AccionConsultarFuenteAutoridadInterna,
-			recurso, []string{CampoConsultaInternaFuenteAutoridad}, datos.correlacion, datos.solicitadaEn,
+			recurso, []string{CampoConsultaInternaFuenteAutoridad}, correlacionRef, datos.solicitadaEn,
 		) != nil || validarAuditoriaConsultaFuenteAutoridad(
 		datos.auditoria, datosAutorizacion.Decision, recurso, datos.motivoCatalogo,
-		datos.correlacion, datos.solicitadaEn,
+		correlacionRef, datos.solicitadaEn,
 	) != nil {
 		return ErrConsultaInternaFuenteAutoridadInvalida
 	}

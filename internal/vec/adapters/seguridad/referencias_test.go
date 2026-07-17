@@ -99,9 +99,13 @@ func TestGeneradorReferenciasAutorizacionV2CreaPerfilesSeparados(t *testing.T) {
 	generador := GeneradorReferenciasCriptograficas{}
 	ctx := context.Background()
 
-	correlacion, err := generador.NuevaReferenciaCorrelacionAutorizacionV2(ctx)
+	capacidadCorrelacion, err := domain.GenerarReferenciaCorrelacionAutorizacionV2(ctx, generador)
 	if err != nil {
 		t.Fatalf("generar correlacion: %v", err)
+	}
+	correlacion, err := capacidadCorrelacion.ValorCanonico()
+	if err != nil {
+		t.Fatalf("extraer correlacion canonica: %v", err)
 	}
 	claveMotivo, err := generador.NuevaClaveMotivoAutorizacionV2(ctx)
 	if err != nil {

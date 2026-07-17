@@ -69,7 +69,7 @@ type OrdenConsultaInternaExactaFuenteAutoridad struct {
 	VinculoAutenticacionActor domain.VinculoAutenticacionActorV1
 	Selector                  ports.SelectorVersionFuenteAutoridad
 	MotivoCatalogo            domain.ReferenciaEntradaCatalogo
-	CorrelacionRef            string
+	Correlacion               domain.ReferenciaCorrelacionAutorizacionV2
 }
 
 func (OrdenConsultaInternaExactaFuenteAutoridad) MarshalJSON() ([]byte, error) {
@@ -183,7 +183,7 @@ func (s *ServicioConsultaInternaFuentesAutoridad) ConsultarExacta(
 		actor,
 		orden.VinculoAutenticacionActor,
 		recurso,
-		orden.CorrelacionRef,
+		orden.Correlacion,
 		orden.MotivoCatalogo,
 		s.politica,
 	)
@@ -204,11 +204,20 @@ func (s *ServicioConsultaInternaFuentesAutoridad) ConsultarExacta(
 	if err != nil {
 		return ResultadoConsultaInternaExactaFuenteAutoridad{}, errors.Join(domain.ErrAutorizacionDenegada, err)
 	}
+	correlacionRef, err := orden.Correlacion.ValorCanonico()
+	if err != nil || datosAutorizacion.Decision.CorrelacionRef != correlacionRef {
+		return ResultadoConsultaInternaExactaFuenteAutoridad{}, errors.Join(
+			domain.ErrAutorizacionDenegada,
+			ErrOrdenConsultaInternaFuenteAutoridadInvalida,
+			err,
+		)
+	}
 	auditoria := auditoriaSolicitudConsultaInternaFuenteAutoridad(
 		actor,
 		datosAutorizacion.Decision,
 		recurso,
 		orden,
+		correlacionRef,
 		solicitadaEn,
 	)
 	solicitud, err := ports.NuevaSolicitudConsultaInternaGobernadaFuenteAutoridad(
@@ -216,7 +225,7 @@ func (s *ServicioConsultaInternaFuentesAutoridad) ConsultarExacta(
 		evidencia,
 		auditoria,
 		orden.MotivoCatalogo,
-		orden.CorrelacionRef,
+		orden.Correlacion,
 		solicitadaEn,
 	)
 	if err != nil {
@@ -263,13 +272,15 @@ func validarOrdenConsultaInternaFuenteAutoridad(
 	orden OrdenConsultaInternaExactaFuenteAutoridad,
 ) (domain.ContextoActor, error) {
 	actor, err := orden.ContextoActor.Clonar()
+	errCorrelacion := orden.Correlacion.Validar()
 	if err != nil || orden.VinculoAutenticacionActor.ValidarPara(actor) != nil ||
 		orden.Selector.Validar() != nil ||
 		!ports.ReferenciaMotivoConsultaFuenteAutoridadValida(orden.MotivoCatalogo) ||
-		!domain.ReferenciaCorrelacionAutorizacionV2Valida(orden.CorrelacionRef) {
+		errCorrelacion != nil {
 		return domain.ContextoActor{}, errors.Join(
 			ErrOrdenConsultaInternaFuenteAutoridadInvalida,
 			err,
+			errCorrelacion,
 		)
 	}
 	return actor, nil
@@ -280,6 +291,7 @@ func auditoriaSolicitudConsultaInternaFuenteAutoridad(
 	decision domain.DecisionAutorizacion,
 	recurso domain.RecursoAutorizable,
 	orden OrdenConsultaInternaExactaFuenteAutoridad,
+	correlacionRef string,
 	instante time.Time,
 ) domain.AuditEntry {
 	return domain.AuditEntry{
@@ -293,7 +305,7 @@ func auditoriaSolicitudConsultaInternaFuenteAutoridad(
 		ModuleID:         ports.ModuloFuentesAutoridad,
 		SubjectRef:       recurso.Referencia,
 		Reason:           orden.MotivoCatalogo.EntradaClave,
-		CorrelationRef:   decision.CorrelacionRef,
+		CorrelationRef:   correlacionRef,
 		OccurredAt:       instante,
 		Metadata: map[string]string{
 			"fuente_id": orden.Selector.FuenteID, "fuente_version": strconv.FormatUint(orden.Selector.Version, 10),
