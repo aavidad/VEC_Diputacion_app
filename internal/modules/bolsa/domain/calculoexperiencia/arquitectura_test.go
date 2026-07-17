@@ -63,7 +63,16 @@ func comprobarImportacionesExactas(t *testing.T, ruta string, archivo *ast.File)
 			"bytes", "crypto/sha256", "crypto/subtle", "encoding/hex",
 			"encoding/json", "io", "unicode/utf8",
 		},
-		"entrada.go": {"sort", "strings"},
+		"entrada.go":               {"sort", "strings"},
+		"resultado_exacto.go":      {"strings"},
+		"resultado_registrador.go": {"sort"},
+		"resultado_material.go":    {"bytes", "encoding/json"},
+		"resultado_canonico.go": {
+			"crypto/sha256", "encoding/hex", "encoding/json",
+		},
+		"resultado_restauracion.go": {
+			"bytes", "crypto/subtle", "encoding/json", "io", "unicode/utf8",
+		},
 	}
 	for _, nombre := range porArchivo[filepath.Base(ruta)] {
 		permitidas[nombre] = struct{}{}
