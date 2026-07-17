@@ -46,15 +46,15 @@
   text-decoration: none;
 }
 
-.marca-publica__sigla {
-  display: grid;
-  width: 46px;
-  height: 46px;
-  place-items: center;
+.marca-publica__logo {
+  display: block;
+  width: min(42vw, 190px);
+  height: auto;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--brand);
-  color: #fff;
-  font-weight: 800;
+  background: #fff;
+  object-fit: contain;
 }
 
 .marca-publica strong,
