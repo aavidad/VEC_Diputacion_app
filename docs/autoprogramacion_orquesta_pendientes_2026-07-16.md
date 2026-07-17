@@ -304,3 +304,22 @@
   resumen; 307 filas detalladas) con las cabeceras literales citadas; el
   DNI llega enmascarado desde origen (`***NNNN**`). Utilidad previa de
   referencia en `Trabajo/Emilio/main.go` (cruce con certificados PDF).
+
+### T18 — Modulo de Formacion continua (DEC-080, fase informativa)
+
+- `origen`: DEC-080 del registro de decisiones.
+- `estado`: nuevo. Tras T17; comparte patron de importacion gobernada.
+- `area_hexagonal`: modulo nuevo completo (`internal/modules/formacion`).
+- `accion`: por cortes: (1) manifiesto `vec.module.formacion` con menu,
+  permisos `formacion.*` y nivel de madurez declarado; (2) dominio de
+  catalogo (curso, version, huella, estado editorial) con importador
+  gobernado de paquetes OPES (HTML canonico + metadatos + SHA-256; staging,
+  acta, revision editorial obligatoria antes de publicar); (3) progreso
+  personal minimizado (el empleado solo ve el suyo; nueva actividad RAT);
+  (4) tarjeta y vistas en el Portal del Empleado reutilizando la carcasa
+  actual. Sin certificados ni computo de meritos en esta fase (DEC-080).
+  El contrato del paquete de curso se congela por version; los ficheros de
+  cursos reales no entran en Git: los tests usan paquetes sinteticos.
+- `evidencia`: DEC-080; fabrica OPES verificada (salida HTML canonica,
+  politica de fuentes, proveedor de audio); patron de importacion ya
+  definido en T17.

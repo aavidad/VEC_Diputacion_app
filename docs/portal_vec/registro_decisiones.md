@@ -2750,3 +2750,37 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   ranking/desempate se porta contra el motor oficial. La inscripcion
   telematica propia queda como ampliacion posible de fase 2, que debera
   decidirse por DEC propia cuando exista identidad ciudadana.
+
+## DEC-080 — Modulo de Formacion continua con OPES como fabrica editorial
+
+- Fecha: 2026-07-17. Decision del responsable del proyecto.
+- Contexto: el Portal del Empleado carece de apartado de formacion. Existe
+  una fabrica editorial propia de temarios (OPES: nucleo hexagonal Go,
+  salida canonica HTML con PDF y audio derivados, politica de fuentes) y
+  experiencia previa de servicio web de cursos cuyo esquema se reutiliza.
+- Decision:
+  1. Se crea el modulo `vec.module.formacion` conforme al contrato de
+     modulos y sus niveles de madurez. **Alcance fase 1: informativo**
+     (catalogo de cursos y progreso personal, sin efectos juridicos).
+     La fase certificante (certificados firmados y posible computo como
+     merito) queda para una fase 2 con su propia DEC y circuito de firma.
+  2. **OPES queda fuera del VEC como fabrica editorial**: produce paquetes
+     de curso (HTML canonico, metadatos, huella SHA-256, version de
+     esquema congelada) que el modulo importa de forma gobernada: staging,
+     validacion, acta auditada y fuente de autoridad declarada "OPES vN".
+  3. El contenido se sirve desde el almacen del VEC bajo su CSP; ningun
+     codigo, dato ni referencia de la web sindical de origen entra en el
+     repositorio. La revision humana previa a publicar es obligatoria:
+     sin acta de revision editorial no hay publicacion.
+- Titularidad del contenido: el responsable declara ser autor de los
+  temarios preexistentes, creados con recursos propios y sin encargo ni
+  remuneracion de terceros. Su aportacion a la Diputacion se formalizara
+  como **licencia no exclusiva y gratuita por escrito** antes de importar
+  contenido preexistente; los temarios nuevos generados para la Diputacion
+  nacen ya bajo esa titularidad. Queda excluida cualquier contraprestacion
+  economica (incompatibilidades del empleado publico). Antes de importar
+  cada temario preexistente se verificara la ausencia de material de
+  terceros conforme a la politica de fuentes.
+- Consecuencias: nueva actividad de tratamiento (progreso formativo) que se
+  incorporara al RAT y a la EIPD; el manifiesto del modulo declara nivel
+  solo-manifiesto hasta que el catalogo real este compuesto.
