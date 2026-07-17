@@ -58,11 +58,19 @@ const (
 	AccionPublicarDefinicionFlujo   = "vec.flujos.definicion.publicar"
 	AccionRetirarDefinicionFlujo    = "vec.flujos.definicion.retirar"
 )
+const FinalidadConsultaInternaFuenteAutoridad = ports.FinalidadConsultaInternaFuenteAutoridad
 ```
 
 ### Variables
 
 ```go
+var (
+	ErrDependenciaConsultaInternaFuenteAutoridadRequerida = errors.New("vec: dependencia de consulta interna de fuente de autoridad requerida")
+	ErrOrdenConsultaInternaFuenteAutoridadInvalida        = errors.New("vec: orden de consulta interna de fuente de autoridad invalida")
+	ErrResultadoConsultaInternaFuenteAutoridadInvalido    = errors.New("vec: resultado de consulta interna de fuente de autoridad invalido")
+	ErrSerializacionOrdenConsultaInternaAutoridad         = errors.New("vec: serializacion de orden interna de consulta de autoridad prohibida")
+	ErrSerializacionResultadoConsultaInternaAutoridad     = errors.New("vec: serializacion de resultado interno de consulta de autoridad prohibida")
+)
 var (
 	ErrDependenciaCargaDocumentalRequerida = errors.New("vec: dependencia de carga documental requerida")
 	ErrOrdenCargaDocumentalInvalida        = errors.New("vec: orden de carga documental invalida")
@@ -426,6 +434,24 @@ inyectar los modulos. Depender de esta interfaz evita acoplar sus casos de
 uso al servicio concreto y permite dobles contractuales sin otro PEP.
 
 ```go
+type ExigidorEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2 interface {
+	ExigirEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2(
+		ctx context.Context,
+		actor domain.ContextoActor,
+		vinculo domain.VinculoAutenticacionActorV1,
+		recurso domain.RecursoAutorizable,
+		correlacion domain.ReferenciaCorrelacionAutorizacionV2,
+		motivo domain.ReferenciaEntradaCatalogo,
+		politica PoliticaUsoDecisionAutorizacion,
+	) (ports.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2, error)
+}
+```
+
+ExigidorEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2 es un contrato
+distinto y no sustituible por V1. Los flujos nuevos que necesitan demostrar
+solicitud y motivo exactos deben depender expresamente de esta interfaz.
+
+```go
 type FachadaUsoDecisionAutorizacion struct {
 	// Has unexported fields.
 }
@@ -464,6 +490,30 @@ confiables ya resueltas; esta operacion nunca completa ni normaliza
 entradas.
 
 ```go
+type FachadaUsoDecisionAutorizacionSolicitudLigadaV2 struct {
+	// Has unexported fields.
+}
+```
+
+FachadaUsoDecisionAutorizacionSolicitudLigadaV2 es la composicion explicita
+para modulos nuevos. No implementa la interfaz V1 ni acepta su autorizador.
+
+```go
+func NuevaFachadaUsoDecisionAutorizacionSolicitudLigadaV2(
+	autorizador ports.AutorizadorSolicitudLigadaV2,
+	reloj ports.Reloj,
+) (*FachadaUsoDecisionAutorizacionSolicitudLigadaV2, error)
+
+func (f *FachadaUsoDecisionAutorizacionSolicitudLigadaV2) ExigirEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2(
+	ctx context.Context,
+	actor domain.ContextoActor,
+	vinculo domain.VinculoAutenticacionActorV1,
+	recurso domain.RecursoAutorizable,
+	correlacion domain.ReferenciaCorrelacionAutorizacionV2,
+	motivo domain.ReferenciaEntradaCatalogo,
+	politica PoliticaUsoDecisionAutorizacion,
+) (ports.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2, error)
+
 type FormatoDocumentalResuelto struct {
 	// Has unexported fields.
 }
@@ -645,6 +695,63 @@ type OrdenConfirmarCargaDocumental struct {
 	Motivo         string
 	CorrelacionRef string
 }
+
+type OrdenConsultaInternaExactaFuenteAutoridad struct {
+	ContextoActor             domain.ContextoActor
+	VinculoAutenticacionActor domain.VinculoAutenticacionActorV1
+	Selector                  ports.SelectorVersionFuenteAutoridad
+	MotivoCatalogo            domain.ReferenciaEntradaCatalogo
+	Correlacion               domain.ReferenciaCorrelacionAutorizacionV2
+	// Has unexported fields.
+}
+```
+
+OrdenConsultaInternaExactaFuenteAutoridad contiene capacidades resueltas por
+la frontera interna. No admite roles, permisos, finalidad ni atributos de
+recurso declarados por el cliente.
+
+```go
+func (o OrdenConsultaInternaExactaFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (o OrdenConsultaInternaExactaFuenteAutoridad) GoString() string
+
+func (*OrdenConsultaInternaExactaFuenteAutoridad) GobDecode([]byte) error
+
+func (OrdenConsultaInternaExactaFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (o OrdenConsultaInternaExactaFuenteAutoridad) LogValue() slog.Value
+
+func (OrdenConsultaInternaExactaFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (OrdenConsultaInternaExactaFuenteAutoridad) MarshalCBOR() ([]byte, error)
+
+func (OrdenConsultaInternaExactaFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (OrdenConsultaInternaExactaFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (OrdenConsultaInternaExactaFuenteAutoridad) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (OrdenConsultaInternaExactaFuenteAutoridad) MarshalYAML() (any, error)
+
+func (OrdenConsultaInternaExactaFuenteAutoridad) String() string
+
+func (*OrdenConsultaInternaExactaFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*OrdenConsultaInternaExactaFuenteAutoridad) UnmarshalCBOR([]byte) error
+
+func (*OrdenConsultaInternaExactaFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*OrdenConsultaInternaExactaFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*OrdenConsultaInternaExactaFuenteAutoridad) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*OrdenConsultaInternaExactaFuenteAutoridad) UnmarshalYAML(func(any) error) error
 
 type OrdenConsultaProtegidaCotejo struct {
 	Principal      domain.Principal
@@ -990,6 +1097,61 @@ func (*PoliticaUsoDecisionAutorizacion) UnmarshalText([]byte) error
 
 func (*PoliticaUsoDecisionAutorizacion) UnmarshalXML(*xml.Decoder, xml.StartElement) error
 
+type ResultadoConsultaInternaExactaFuenteAutoridad struct {
+	Encontrada   bool
+	Fuente       domain.FuenteAutoridadVersionada
+	EstadoExacto ports.ReferenciaEstadoFuenteAutoridad
+	Recibo       ports.ReciboConsultaInternaFuenteAutoridad
+	// Has unexported fields.
+}
+
+func (r ResultadoConsultaInternaExactaFuenteAutoridad) Clonar() (
+	ResultadoConsultaInternaExactaFuenteAutoridad,
+	error,
+)
+
+func (r ResultadoConsultaInternaExactaFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (r ResultadoConsultaInternaExactaFuenteAutoridad) GoString() string
+
+func (*ResultadoConsultaInternaExactaFuenteAutoridad) GobDecode([]byte) error
+
+func (ResultadoConsultaInternaExactaFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (r ResultadoConsultaInternaExactaFuenteAutoridad) LogValue() slog.Value
+
+func (ResultadoConsultaInternaExactaFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (ResultadoConsultaInternaExactaFuenteAutoridad) MarshalCBOR() ([]byte, error)
+
+func (ResultadoConsultaInternaExactaFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (ResultadoConsultaInternaExactaFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (ResultadoConsultaInternaExactaFuenteAutoridad) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (ResultadoConsultaInternaExactaFuenteAutoridad) MarshalYAML() (any, error)
+
+func (ResultadoConsultaInternaExactaFuenteAutoridad) String() string
+
+func (*ResultadoConsultaInternaExactaFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*ResultadoConsultaInternaExactaFuenteAutoridad) UnmarshalCBOR([]byte) error
+
+func (*ResultadoConsultaInternaExactaFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*ResultadoConsultaInternaExactaFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*ResultadoConsultaInternaExactaFuenteAutoridad) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*ResultadoConsultaInternaExactaFuenteAutoridad) UnmarshalYAML(func(any) error) error
+
 type ResultadoConsultaProtegidaCotejo struct {
 	Estado             EstadoConsultaCotejo        `json:"estado,omitempty"`
 	CodigoRef          string                      `json:"codigo_ref,omitempty"`
@@ -1145,6 +1307,31 @@ func NuevoServicioAutorizacion(
 
 func (s *ServicioAutorizacion) Exigir(ctx context.Context, solicitud domain.SolicitudAutorizacion) (domain.DecisionAutorizacion, error)
 
+type ServicioAutorizacionSolicitudLigadaV2 struct {
+	// Has unexported fields.
+}
+```
+
+ServicioAutorizacionSolicitudLigadaV2 comparte el evaluador RBAC/ABAC, pero
+usa puertos de registro distintos y solo expone el metodo V2. No implementa
+ports.Autorizador ni puede registrar una decision historica por accidente.
+
+```go
+func NuevoServicioAutorizacionSolicitudLigadaV2(
+	fuente ports.FuenteAutorizacion,
+	registroConcesiones ports.RegistroDecisionesAutorizacionSolicitudLigadaV2,
+	registroDenegaciones ports.RegistroDenegacionesAutorizacionSolicitudLigadaV2,
+	validadorMotivos ports.ValidadorReferenciaMotivoAutorizacionV2,
+	reloj ports.Reloj,
+	generador ports.GeneradorReferenciaDecisionAutorizacion,
+	configuracion ConfiguracionServicioAutorizacion,
+) (*ServicioAutorizacionSolicitudLigadaV2, error)
+
+func (s *ServicioAutorizacionSolicitudLigadaV2) ExigirSolicitudLigadaV2(
+	ctx context.Context,
+	solicitud domain.SolicitudAutorizacionLigadaV2,
+) (domain.DecisionAutorizacion, error)
+
 type ServicioCargaDocumental struct {
 	// Has unexported fields.
 }
@@ -1212,6 +1399,27 @@ func (s *ServicioCatalogos) CrearBorrador(ctx context.Context, orden OrdenCrearB
 func (s *ServicioCatalogos) Publicar(ctx context.Context, orden OrdenPublicarCatalogo) (domain.CatalogoConfigurable, error)
 
 func (s *ServicioCatalogos) Retirar(ctx context.Context, orden OrdenRetirarCatalogo) (domain.CatalogoConfigurable, error)
+
+type ServicioConsultaInternaFuentesAutoridad struct {
+	// Has unexported fields.
+}
+```
+
+ServicioConsultaInternaFuentesAutoridad gobierna la revelacion de una
+version exacta. La decision se obtiene antes de invocar el repositorio y se
+entrega a este para que sea consumida junto con el recibo de lectura.
+
+```go
+func NuevoServicioConsultaInternaFuentesAutoridad(
+	consulta ports.ConsultaInternaGobernadaFuentesAutoridad,
+	exigidor ExigidorEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
+	reloj ports.Reloj,
+) (*ServicioConsultaInternaFuentesAutoridad, error)
+
+func (s *ServicioConsultaInternaFuentesAutoridad) ConsultarExacta(
+	ctx context.Context,
+	orden OrdenConsultaInternaExactaFuenteAutoridad,
+) (ResultadoConsultaInternaExactaFuenteAutoridad, error)
 
 type ServicioContextoActor struct {
 	// Has unexported fields.
@@ -1446,6 +1654,27 @@ func (SolicitudAltaOrdenCobro) MarshalText() ([]byte, error)
 func (SolicitudAltaOrdenCobro) String() string
 
 func (*SolicitudAltaOrdenCobro) UnmarshalJSON([]byte) error
+
+type ValidadorReferenciaMotivoCatalogoV2 struct {
+	// Has unexported fields.
+}
+```
+
+ValidadorReferenciaMotivoCatalogoV2 relee la version exacta del catalogo
+configurado. Una ReferenciaEntradaCatalogo rellenada por el llamador nunca
+basta: deben coincidir documento publicado, huella y entrada vigente.
+
+```go
+func NuevoValidadorReferenciaMotivoCatalogoV2(
+	consulta ports.ConsultaCatalogosConfigurables,
+	catalogoID string,
+) (*ValidadorReferenciaMotivoCatalogoV2, error)
+
+func (v *ValidadorReferenciaMotivoCatalogoV2) ValidarReferenciaMotivoAutorizacionV2(
+	ctx context.Context,
+	referencia domain.ReferenciaEntradaCatalogo,
+	instante time.Time,
+) error
 ```
 
 ## Paquete `internal/vec/pruebas`

@@ -2617,3 +2617,32 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   durables y anclaje de cabezas de historia en WORM o sistema externo sellado.
 - Especificación:
   `docs/portal_vec/registro_fuentes_autoridad.md`.
+
+## DEC-075 — Verificación COSE común sin promoción de autoridad
+
+- Estado: primitiva implantada y conectada al adaptador documental V4 el 17 de
+  julio de 2026; perfil de confianza y consumo para `VEC-AD-2` pendientes.
+- Separación: `internal/vec/adapters/seguridad/verificacioncose` comprueba forma
+  y firma sin importar PostgreSQL, Oracle, puertos documentales ni reglas de
+  negocio. Un conector futuro reutiliza la misma primitiva sin copiarla.
+- Perfil cerrado: solo EdDSA y ES256; CBOR determinista; exactamente `alg` y
+  `kid` protegidos; ninguna cabecera no protegida; payload y AAD exactos. ES256
+  exige firma low-S para impedir dos sobres con huellas distintas para una
+  misma firma matemática.
+- Límites y copias: techo absoluto antes de interpretar, límite más estricto
+  aportado por cada protocolo y copias de sobre, `kid` y clave pública. Valor
+  cero, claves incompatibles, entradas cruzadas y serialización fallan
+  cerrados.
+- No autoridad: el constructor público acepta una clave proporcionada por su
+  llamador y, por ello, solo produce un verificador criptográfico nominal. No
+  acredita que la clave sea institucional, vigente o competente y no devuelve
+  una capacidad.
+- Promoción privada: el adaptador consumidor conserva catálogo histórico,
+  huella de configuración, audiencia, suite, entorno, reloj y revocación. Solo
+  después de cotejarlos crea y consume su capacidad opaca dentro de la frontera
+  transaccional prevista por DEC-047.
+- Compatibilidad: que la primitiva sepa verificar ES256 no aprueba ES256 para
+  la atestación PDP actual, cuyo perfil sigue limitado expresamente a EdDSA.
+- Evidencia: pruebas EdDSA/ES256, CBOR no mínimo, cabeceras extra, high-S,
+  firma, payload, AAD, `kid` y claves cruzados, alias mutables, redacción,
+  codecs, límites, fuzz, carrera, 32 bits y batería completa del adaptador V4.

@@ -24,6 +24,37 @@ const (
 	TamanoMaximoMensajeAtestacionAutorizacionV1 = 512 * 1024
 )
 const (
+	// VersionFormatoAtestacionAutorizacionV2 identifica exclusivamente la
+	// representacion binaria VEC-AD-2. No identifica ni aprueba una suite de
+	// firma, un proveedor criptografico o un formato de sobre.
+	VersionFormatoAtestacionAutorizacionV2 uint16 = 2
+
+	// EsquemaMensajeAtestacionAutorizacionV2 separa VEC-AD-2 de VEC-AD-1 y de
+	// cualquier otro uso criptografico. El byte cero posterior forma parte del
+	// dominio binario firmado.
+	EsquemaMensajeAtestacionAutorizacionV2 = "VEC-AUTORIZACION-ATESTACION-V2-SOLICITUD-LIGADA-MOTIVO-CATALOGADO"
+
+	// TamanoMaximoMensajeAtestacionAutorizacionV2 conserva el mismo presupuesto
+	// acotado de 512 KiB que VEC-AD-1. Se declara por separado para que el perfil
+	// V2 sea autocontenido aunque reutilice sus primitivas binarias seguras.
+	TamanoMaximoMensajeAtestacionAutorizacionV2 = 512 * 1024
+)
+const (
+	// VersionFormatoAtestacionDenegacionAutorizacionV1 identifica el contrato
+	// binario VEC-AD-D-1. Es un espacio de versiones propio: el valor 1 no lo
+	// convierte en VEC-AD-1 ni permite tratar una denegacion como concesion.
+	VersionFormatoAtestacionDenegacionAutorizacionV1 uint16 = 1
+
+	// EsquemaMensajeAtestacionDenegacionAutorizacionV1 separa de forma
+	// criptografica una prueba negativa de VEC-AD-1, VEC-AD-2 y cualquier otro
+	// protocolo. El byte cero posterior tambien forma parte del mensaje.
+	EsquemaMensajeAtestacionDenegacionAutorizacionV1 = "VEC-AUTORIZACION-DENEGACION-ATESTACION-V1-SOLICITUD-LIGADA-MOTIVO-CATALOGADO"
+
+	// TamanoMaximoMensajeAtestacionDenegacionAutorizacionV1 fija el mismo techo
+	// operativo de 512 KiB mediante una constante independiente.
+	TamanoMaximoMensajeAtestacionDenegacionAutorizacionV1 = 512 * 1024
+)
+const (
 	AccionFuenteAutoridadBorradorCreado      = "vec.fuentes_autoridad.borrador.creado"
 	AccionFuenteAutoridadBorradorActualizado = "vec.fuentes_autoridad.borrador.actualizado"
 	AccionFuenteAutoridadPublicada           = "vec.fuentes_autoridad.publicada"
@@ -35,6 +66,17 @@ const (
 	// VigenciaMaximaDecisionAutorizacion limita la reutilizacion de una
 	// decision. Un adaptador puede emitir decisiones con menor vigencia.
 	VigenciaMaximaDecisionAutorizacion = 5 * time.Minute
+)
+const (
+	// EsquemaHuellaSolicitudAutorizacionV2 identifica un documento canonico
+	// cerrado. La huella resultante acredita solo integridad estructural: no es
+	// una firma ni demuestra que la solicitud proceda del PDP o del registro.
+	EsquemaHuellaSolicitudAutorizacionV2 = "vec.autorizacion.solicitud.v2.efectiva-minimizada"
+	// EsquemaHuellaMotivoAutorizacionV2 compromete una referencia completa a
+	// una entrada de catalogo: identificador, version, huella y clave. No
+	// constituye una firma ni demuestra por si sola que el catalogo exista,
+	// este publicado o proceda de una frontera confiable.
+	EsquemaHuellaMotivoAutorizacionV2 = "vec.autorizacion.motivo.v2.referencia-opaca-catalogada"
 )
 const (
 	EsquemaManifiestoPreparacionCargaDirectaV1 = "vec.carga-directa.manifiesto-preparacion.v1"
@@ -91,6 +133,26 @@ var (
 	ErrSerializacionProyeccionHistoricaAtestacionAutorizacionV1Prohibida = errors.New("vec: serializacion de proyeccion historica VEC-AD-1 prohibida")
 )
 var (
+	// ErrParseoAtestacionAutorizacionV2Invalido identifica un VEC-AD-2 que no
+	// es completo, canonico o semanticamente coherente. Parsearlo no verifica
+	// una firma y nunca concede autoridad.
+	ErrParseoAtestacionAutorizacionV2Invalido = errors.New("vec: parseo no autoritativo VEC-AD-2 invalido")
+
+	// ErrSerializacionProyeccionAtestacionAutorizacionV2Prohibida impide que
+	// la proyeccion nominal pueda terminar accidentalmente en logs o codecs.
+	ErrSerializacionProyeccionAtestacionAutorizacionV2Prohibida = errors.New("vec: serializacion de proyeccion no autoritativa VEC-AD-2 prohibida")
+)
+var (
+	// ErrParseoAtestacionDenegacionAutorizacionV1Invalido identifica un
+	// VEC-AD-D-1 no exacto. La proyeccion resultante sigue sin demostrar firma,
+	// procedencia ni autoridad para mutar estado.
+	ErrParseoAtestacionDenegacionAutorizacionV1Invalido = errors.New("vec: parseo no autoritativo VEC-AD-D-1 invalido")
+
+	// ErrSerializacionProyeccionAtestacionDenegacionAutorizacionV1Prohibida
+	// bloquea todos los codecs generales sobre la proyeccion negativa.
+	ErrSerializacionProyeccionAtestacionDenegacionAutorizacionV1Prohibida = errors.New("vec: serializacion de proyeccion no autoritativa VEC-AD-D-1 prohibida")
+)
+var (
 	ErrFuenteAutoridadInvalida        = errors.New("vec: fuente de autoridad invalida")
 	ErrReferenciaAutoridadInvalida    = errors.New("vec: referencia de autoridad invalida")
 	ErrEvidenciaActoAutoridadInvalida = errors.New("vec: evidencia de acto de autoridad invalida")
@@ -105,6 +167,25 @@ var (
 	ErrConfiguracionAccesoInvalida   = errors.New("vec: configuracion de acceso invalida")
 	ErrAutorizacionDenegada          = errors.New("vec: autorizacion denegada")
 	ErrDecisionAutorizacionInvalida  = errors.New("vec: decision de autorizacion invalida")
+)
+var (
+	ErrReferenciaCorrelacionAutorizacionV2Invalida = errors.New(
+		"vec: referencia de correlacion de autorizacion V2 invalida",
+	)
+	ErrGeneracionReferenciaCorrelacionAutorizacionV2 = errors.New(
+		"vec: no se pudo generar la referencia de correlacion de autorizacion V2",
+	)
+	ErrSerializacionReferenciaCorrelacionAutorizacionV2Prohibida = errors.New(
+		"vec: serializacion de referencia de correlacion de autorizacion V2 prohibida",
+	)
+)
+var (
+	ErrSolicitudAutorizacionLigadaV2Invalida = errors.New(
+		"vec: solicitud de autorizacion ligada V2 invalida",
+	)
+	ErrSerializacionSolicitudAutorizacionLigadaV2Prohibida = errors.New(
+		"vec: serializacion de solicitud de autorizacion ligada V2 prohibida",
+	)
 )
 var (
 	ErrCargaDocumentalInvalida        = errors.New("vec: carga documental invalida")
@@ -239,6 +320,15 @@ CamposRequeridosAccionCobro permite configurar el motor de autorizacion con
 la misma lista cerrada que aplica el dominio. Devuelve siempre una copia.
 
 ```go
+func ClaveMotivoAutorizacionV2Valida(clave string) bool
+```
+
+ClaveMotivoAutorizacionV2Valida comprueba exclusivamente el perfil opaco de
+la clave. No acredita que exista en un catalogo ni que haya sido generada
+con entropia suficiente; esas garantias pertenecen al servicio y al
+repositorio.
+
+```go
 func CumpleGarantiaAutenticacion(actual, minima AuthAssurance) bool
 ```
 
@@ -277,11 +367,60 @@ HuellaSHA256MensajeAtestacionAutorizacionV1 permite publicar vectores de
 interoperabilidad sin convertir la huella en firma o autorizacion.
 
 ```go
+func HuellaSHA256MensajeAtestacionAutorizacionV2(
+	cabecera CabeceraAtestacionAutorizacionV2,
+	decision DecisionAutorizacion,
+	referenciaMotivo ReferenciaEntradaCatalogo,
+) (string, error)
+```
+
+HuellaSHA256MensajeAtestacionAutorizacionV2 publica un vector de integridad
+del mensaje canonico. La huella no constituye firma ni autorizacion.
+
+```go
+func HuellaSHA256MensajeAtestacionDenegacionAutorizacionV1(
+	cabecera CabeceraAtestacionDenegacionAutorizacionV1,
+	decision DecisionAutorizacion,
+	referenciaMotivo ReferenciaEntradaCatalogo,
+) (string, error)
+```
+
+HuellaSHA256MensajeAtestacionDenegacionAutorizacionV1 publica un vector de
+integridad. La huella no acredita al PDP y no sustituye la firma del sobre.
+
+```go
+func HuellaSHA256MotivoAutorizacionV2(referencia ReferenciaEntradaCatalogo) (string, error)
+```
+
+HuellaSHA256MotivoAutorizacionV2 calcula el compromiso que puede cotejar
+un adaptador durable. No recibe ni persiste texto libre: compromete la
+referencia integra a una entrada catalogada ya resuelta por una frontera
+confiable.
+
+```go
+func HuellaSHA256SolicitudAutorizacionV2(s SolicitudAutorizacionLigadaV2) (string, error)
 func NormalizarValorCodigoCotejo(valor string) (string, error)
 ```
 
 NormalizarValorCodigoCotejo elimina separadores de lectura. No admite otros
 caracteres para evitar distintas representaciones del mismo secreto.
+
+```go
+func ReferenciaCorrelacionAutorizacionV2Valida(referencia string) bool
+```
+
+ReferenciaCorrelacionAutorizacionV2Valida exige el identificador opaco
+de 128 bits reservado a solicitudes V2. La frontera debe generarlo con
+crypto/rand; nunca se deriva de datos del usuario o del expediente.
+
+```go
+func ReferenciaMotivoAutorizacionV2Valida(referencia ReferenciaEntradaCatalogo) bool
+```
+
+ReferenciaMotivoAutorizacionV2Valida aplica el perfil especializado de
+motivos de autorizacion V2. Ademas de la referencia de catalogo valida,
+exige una version portable, una huella no nula y una clave opaca de 128
+bits. La existencia y vigencia de la entrada requieren resolver el catalogo.
 
 ```go
 func SerializarMensajeAtestacionAutorizacionV1(
@@ -295,6 +434,39 @@ binaria VEC-AD-1 de una concesion reforzada. No ordena ni corrige las listas
 recibidas: una lista que no llegue ya en orden UTF-8 estricto se rechaza.
 Los mapas, cuyo orden de iteracion no forma parte del valor Go, se emiten
 por clave UTF-8 ascendente.
+
+```go
+func SerializarMensajeAtestacionAutorizacionV2(
+	cabecera CabeceraAtestacionAutorizacionV2,
+	decision DecisionAutorizacion,
+	referenciaMotivo ReferenciaEntradaCatalogo,
+) ([]byte, error)
+```
+
+SerializarMensajeAtestacionAutorizacionV2 produce la unica representacion
+binaria VEC-AD-2 de una concesion ligada a su solicitud y a una entrada
+catalogada. La referencia del motivo se recibe completa para recomputar el
+compromiso que contiene la decision; no se confia en una huella declarada.
+
+VEC-AD-2 conserva el orden contractual VEC-AD-1 de DecisionAutorizacion e
+inserta sus cuatro campos V2 en el lugar que ocupan tras CorrelacionRef. Las
+cuatro coordenadas completas del motivo se escriben despues de la decision.
+Las listas deben llegar ya ordenadas por bytes UTF-8; nunca se corrigen.
+
+```go
+func SerializarMensajeAtestacionDenegacionAutorizacionV1(
+	cabecera CabeceraAtestacionDenegacionAutorizacionV1,
+	decision DecisionAutorizacion,
+	referenciaMotivo ReferenciaEntradaCatalogo,
+) ([]byte, error)
+```
+
+SerializarMensajeAtestacionDenegacionAutorizacionV1 produce VEC-AD-D-1: la
+prueba binaria de una decision negativa V2 y de la referencia catalogada que
+el PDP resolvio al evaluarla. Nunca acepta una concesion ni emite VEC-AD-2.
+GarantiaMinima puede estar vacia en denegaciones anteriores a seleccionar
+una concesion; si esta presente debe pertenecer al vocabulario gobernado.
+Las listas deben llegar ya ordenadas por bytes UTF-8, igual que en VEC-AD-2.
 
 ```go
 func TuplaHechoCobroValida(tipo TipoHechoCobro, estado EstadoCobro, accion AccionCobro) bool
@@ -597,6 +769,36 @@ proveedores o material criptografico.
 
 ```go
 func (c CabeceraAtestacionAutorizacionV1) Validar() error
+
+type CabeceraAtestacionAutorizacionV2 struct {
+	FormatoVersion uint16
+	Suite          string
+	ClaveID        string
+	Audiencia      string
+}
+```
+
+CabeceraAtestacionAutorizacionV2 es una cabecera nominal distinta de V1.
+Toda su configuracion debe seleccionarse antes de construir el mensaje. Este
+corte solo fija los bytes canonicos: no implementa firma, COSE ni runtime.
+
+```go
+func (c CabeceraAtestacionAutorizacionV2) Validar() error
+
+type CabeceraAtestacionDenegacionAutorizacionV1 struct {
+	FormatoVersion uint16
+	Suite          string
+	ClaveID        string
+	Audiencia      string
+}
+```
+
+CabeceraAtestacionDenegacionAutorizacionV1 es nominalmente distinta de las
+cabeceras de concesion. Suite, clave y audiencia se fijan en composicion;
+el tipo solo define los bytes canonicos y no aprueba un proveedor de firma.
+
+```go
+func (c CabeceraAtestacionDenegacionAutorizacionV1) Validar() error
 
 type CambioEstadoFlujo struct {
 	InstanciaRef      string `json:"instancia_ref"`
@@ -1511,6 +1713,65 @@ type DatosSobreAtestacionActoFuenteAutoridadV1 struct {
 	FirmaAtestacionRef     string
 }
 
+type DatosSolicitudAutorizacionLigadaV2 struct {
+	ContextoActor             ContextoActor
+	VinculoAutenticacionActor VinculoAutenticacionActorV1
+	ReferenciaMotivo          ReferenciaEntradaCatalogo
+	Accion                    string
+	Recurso                   RecursoAutorizable
+	Finalidad                 string
+	Correlacion               ReferenciaCorrelacionAutorizacionV2
+	// Has unexported fields.
+}
+```
+
+DatosSolicitudAutorizacionLigadaV2 declara exclusivamente la solicitud
+efectiva V2. Identidad, perfil, metodo y garantia se derivan del vinculo;
+no admite Principal declarado ni un campo de texto Motivo.
+
+```go
+func (b DatosSolicitudAutorizacionLigadaV2) Format(estado fmt.State, _ rune)
+
+func (b DatosSolicitudAutorizacionLigadaV2) GoString() string
+
+func (*DatosSolicitudAutorizacionLigadaV2) GobDecode([]byte) error
+
+func (DatosSolicitudAutorizacionLigadaV2) GobEncode() ([]byte, error)
+
+func (b DatosSolicitudAutorizacionLigadaV2) LogValue() slog.Value
+
+func (DatosSolicitudAutorizacionLigadaV2) MarshalBinary() ([]byte, error)
+
+func (DatosSolicitudAutorizacionLigadaV2) MarshalCBOR() ([]byte, error)
+
+func (DatosSolicitudAutorizacionLigadaV2) MarshalJSON() ([]byte, error)
+
+func (DatosSolicitudAutorizacionLigadaV2) MarshalText() ([]byte, error)
+
+func (DatosSolicitudAutorizacionLigadaV2) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (DatosSolicitudAutorizacionLigadaV2) MarshalYAML() (any, error)
+
+func (DatosSolicitudAutorizacionLigadaV2) String() string
+
+func (*DatosSolicitudAutorizacionLigadaV2) UnmarshalBinary([]byte) error
+
+func (*DatosSolicitudAutorizacionLigadaV2) UnmarshalCBOR([]byte) error
+
+func (*DatosSolicitudAutorizacionLigadaV2) UnmarshalJSON([]byte) error
+
+func (*DatosSolicitudAutorizacionLigadaV2) UnmarshalText([]byte) error
+
+func (*DatosSolicitudAutorizacionLigadaV2) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*DatosSolicitudAutorizacionLigadaV2) UnmarshalYAML(func(any) error) error
+
 type DatosVinculoAutenticacionActorV1 struct {
 	BloqueVersion                uint16                         `json:"bloque_version"`
 	AutenticacionRef             string                         `json:"autenticacion_ref"`
@@ -1562,6 +1823,10 @@ type DecisionAutorizacion struct {
 	ContextoRecursoHuellaSHA256           string                      `json:"contexto_recurso_huella_sha256,omitempty"`
 	Finalidad                             string                      `json:"finalidad"`
 	CorrelacionRef                        string                      `json:"correlacion_ref"`
+	EsquemaHuellaSolicitud                string                      `json:"esquema_huella_solicitud,omitempty"`
+	SolicitudHuellaSHA256                 string                      `json:"solicitud_huella_sha256,omitempty"`
+	EsquemaHuellaMotivo                   string                      `json:"esquema_huella_motivo,omitempty"`
+	MotivoHuellaSHA256                    string                      `json:"motivo_huella_sha256,omitempty"`
 	VinculoAutenticacionActor             VinculoAutenticacionActorV1 `json:"vinculo_autenticacion_actor"`
 	AsignacionRef                         string                      `json:"asignacion_ref,omitempty"`
 	AsignacionHuellaSHA256                string                      `json:"asignacion_huella_sha256,omitempty"`
@@ -1590,6 +1855,13 @@ DecisionAutorizacion es una evidencia breve, no un permiso permanente.
 Las referencias y huellas fijan exactamente la configuracion evaluada.
 
 ```go
+func (d DecisionAutorizacion) TieneSolicitudLigadaV2() bool
+```
+
+TieneSolicitudLigadaV2 informa solo de la validez estructural de los dos
+compromisos. La procedencia sigue dependiendo del PDP y del registro.
+
+```go
 func (d DecisionAutorizacion) Validar() error
 
 func (d DecisionAutorizacion) ValidarEvidenciaInstantanea() error
@@ -1600,8 +1872,23 @@ los adaptadores de autorizacion. Validar conserva temporalmente la lectura
 de evidencias historicas anteriores, pero el registro CAS nunca las admite.
 
 ```go
+func (d DecisionAutorizacion) ValidarEvidenciaInstantaneaSolicitudLigadaV2() error
+```
+
+ValidarEvidenciaInstantaneaSolicitudLigadaV2 es el contrato para decisiones
+nuevas y efectos durables. ValidarEvidenciaInstantanea conserva lectura
+historica, pero nunca basta para crear una capacidad ejecutable V2.
+
+```go
 func (d DecisionAutorizacion) VigenteEn(instante time.Time) bool
 
+func (d DecisionAutorizacion) VigenteParaEfectoEn(instante time.Time) bool
+```
+
+VigenteParaEfectoEn excluye expresamente decisiones historicas sin el
+compromiso V2 de solicitud y motivo.
+
+```go
 type DecisionReglaFlujo struct {
 	DecisionRef                     string    `json:"decision_ref"`
 	Concedida                       bool      `json:"concedida"`
@@ -3057,6 +3344,188 @@ func (p Principal) HasPermission(permission string) bool
 
 func (p Principal) Validate() error
 
+type ProyeccionAtestacionAutorizacionV2NoAutoritativa struct {
+	// Has unexported fields.
+}
+```
+
+ProyeccionAtestacionAutorizacionV2NoAutoritativa acredita unicamente que
+un buffer tiene la forma canonica VEC-AD-2. Sus campos son privados,
+no contiene DecisionAutorizacion ni VinculoAutenticacionActorV1 y no puede
+serializarse. Antes de utilizar sus compromisos, otra capa debe verificar el
+sobre, la procedencia, la vigencia, la revocacion y el consumo unico.
+
+```go
+func ParsearMensajeAtestacionAutorizacionV2NoAutoritativo(
+	contenido []byte,
+) (ProyeccionAtestacionAutorizacionV2NoAutoritativa, error)
+```
+
+ParsearMensajeAtestacionAutorizacionV2NoAutoritativo lee estrictamente
+los 35 campos de decision, los 25 del vinculo y las cuatro coordenadas del
+motivo. Los limites del mensaje, textos y colecciones se comprueban antes
+de reservar memoria. Al final se exige una reserializacion byte a byte
+identica.
+
+```go
+func (p ProyeccionAtestacionAutorizacionV2NoAutoritativa) Cabecera() (
+	CabeceraAtestacionAutorizacionV2,
+	error,
+)
+```
+
+Cabecera devuelve solo la seleccion nominal de suite, clave y audiencia.
+No afirma que esa configuracion haya sido aprobada ni que exista una firma.
+
+```go
+func (p ProyeccionAtestacionAutorizacionV2NoAutoritativa) DecisionRef() (string, error)
+```
+
+DecisionRef devuelve el identificador opaco nominal, no una capacidad.
+
+```go
+func (p ProyeccionAtestacionAutorizacionV2NoAutoritativa) Format(estado fmt.State, _ rune)
+
+func (p ProyeccionAtestacionAutorizacionV2NoAutoritativa) GoString() string
+
+func (*ProyeccionAtestacionAutorizacionV2NoAutoritativa) GobDecode([]byte) error
+
+func (ProyeccionAtestacionAutorizacionV2NoAutoritativa) GobEncode() ([]byte, error)
+
+func (p ProyeccionAtestacionAutorizacionV2NoAutoritativa) LogValue() slog.Value
+
+func (ProyeccionAtestacionAutorizacionV2NoAutoritativa) MarshalBinary() ([]byte, error)
+
+func (ProyeccionAtestacionAutorizacionV2NoAutoritativa) MarshalCBOR() ([]byte, error)
+
+func (ProyeccionAtestacionAutorizacionV2NoAutoritativa) MarshalJSON() ([]byte, error)
+
+func (ProyeccionAtestacionAutorizacionV2NoAutoritativa) MarshalText() ([]byte, error)
+
+func (ProyeccionAtestacionAutorizacionV2NoAutoritativa) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (ProyeccionAtestacionAutorizacionV2NoAutoritativa) MarshalYAML() (any, error)
+
+func (p ProyeccionAtestacionAutorizacionV2NoAutoritativa) MotivoHuellaSHA256() (string, error)
+```
+
+MotivoHuellaSHA256 devuelve solo el compromiso nominal de la referencia de
+motivo. Las cuatro coordenadas completas permanecen deliberadamente ocultas.
+
+```go
+func (p ProyeccionAtestacionAutorizacionV2NoAutoritativa) SolicitudHuellaSHA256() (string, error)
+```
+
+SolicitudHuellaSHA256 devuelve el compromiso nominal de la solicitud. No
+prueba por si mismo que la solicitud existiera o fuese evaluada por el PDP.
+
+```go
+func (ProyeccionAtestacionAutorizacionV2NoAutoritativa) String() string
+
+func (*ProyeccionAtestacionAutorizacionV2NoAutoritativa) UnmarshalBinary([]byte) error
+
+func (*ProyeccionAtestacionAutorizacionV2NoAutoritativa) UnmarshalCBOR([]byte) error
+
+func (*ProyeccionAtestacionAutorizacionV2NoAutoritativa) UnmarshalJSON([]byte) error
+
+func (*ProyeccionAtestacionAutorizacionV2NoAutoritativa) UnmarshalText([]byte) error
+
+func (*ProyeccionAtestacionAutorizacionV2NoAutoritativa) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*ProyeccionAtestacionAutorizacionV2NoAutoritativa) UnmarshalYAML(func(any) error) error
+
+type ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa struct {
+	// Has unexported fields.
+}
+```
+
+ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa solo acredita la
+forma canonica de una evidencia negativa. Conserva los datos completos en
+campos privados exclusivamente para validar cruces y nunca los expone.
+
+```go
+func ParsearMensajeAtestacionDenegacionAutorizacionV1NoAutoritativo(
+	contenido []byte,
+) (ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa, error)
+```
+
+ParsearMensajeAtestacionDenegacionAutorizacionV1NoAutoritativo exige el
+dominio VEC-AD-D-1, una decision negativa V2 completa y reserializacion
+exacta.
+
+```go
+func (p ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) Cabecera() (
+	CabeceraAtestacionDenegacionAutorizacionV1,
+	error,
+)
+```
+
+Cabecera devuelve configuracion nominal; no selecciona una clave confiable.
+
+```go
+func (p ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) DecisionRef() (string, error)
+```
+
+DecisionRef devuelve un identificador nominal y no una denegacion firmada.
+
+```go
+func (p ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) Format(estado fmt.State, _ rune)
+
+func (p ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) GoString() string
+
+func (*ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) GobDecode([]byte) error
+
+func (ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) GobEncode() ([]byte, error)
+
+func (p ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) LogValue() slog.Value
+
+func (ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) MarshalBinary() ([]byte, error)
+
+func (ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) MarshalCBOR() ([]byte, error)
+
+func (ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) MarshalJSON() ([]byte, error)
+
+func (ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) MarshalText() ([]byte, error)
+
+func (ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) MarshalYAML() (any, error)
+
+func (p ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) MotivoHuellaSHA256() (string, error)
+```
+
+MotivoHuellaSHA256 devuelve el compromiso nominal sin revelar coordenadas.
+
+```go
+func (p ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) SolicitudHuellaSHA256() (string, error)
+```
+
+SolicitudHuellaSHA256 devuelve el compromiso nominal de solicitud.
+
+```go
+func (ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) String() string
+
+func (*ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) UnmarshalBinary([]byte) error
+
+func (*ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) UnmarshalCBOR([]byte) error
+
+func (*ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) UnmarshalJSON([]byte) error
+
+func (*ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) UnmarshalText([]byte) error
+
+func (*ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*ProyeccionAtestacionDenegacionAutorizacionV1NoAutoritativa) UnmarshalYAML(func(any) error) error
+
 type ProyeccionHistoricaAtestacionAutorizacionV1 struct {
 	// Has unexported fields.
 }
@@ -3296,6 +3765,81 @@ func (r ReferenciaConformidadDocumental) Validar() error
 
 func (r ReferenciaConformidadDocumental) Version() uint64
 
+type ReferenciaCorrelacionAutorizacionV2 struct {
+	// Has unexported fields.
+}
+```
+
+ReferenciaCorrelacionAutorizacionV2 es una capacidad nominal opaca. Su valor
+cero es invalido y no existe un constructor publico que acepte texto.
+
+```go
+func GenerarReferenciaCorrelacionAutorizacionV2(
+	ctx context.Context,
+	generador generadorReferenciaCorrelacionAutorizacionV2,
+) (ReferenciaCorrelacionAutorizacionV2, error)
+```
+
+GenerarReferenciaCorrelacionAutorizacionV2 acuna una referencia una sola vez
+mediante el puerto CSPRNG confiable y solo despues encapsula su valor. El
+llamador debe reutilizar la capacidad resultante durante toda la operacion.
+
+```go
+func (r ReferenciaCorrelacionAutorizacionV2) Format(estado fmt.State, _ rune)
+
+func (r ReferenciaCorrelacionAutorizacionV2) GoString() string
+
+func (*ReferenciaCorrelacionAutorizacionV2) GobDecode([]byte) error
+
+func (ReferenciaCorrelacionAutorizacionV2) GobEncode() ([]byte, error)
+
+func (r ReferenciaCorrelacionAutorizacionV2) LogValue() slog.Value
+
+func (ReferenciaCorrelacionAutorizacionV2) MarshalBinary() ([]byte, error)
+
+func (ReferenciaCorrelacionAutorizacionV2) MarshalCBOR() ([]byte, error)
+
+func (ReferenciaCorrelacionAutorizacionV2) MarshalJSON() ([]byte, error)
+
+func (ReferenciaCorrelacionAutorizacionV2) MarshalText() ([]byte, error)
+
+func (ReferenciaCorrelacionAutorizacionV2) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (ReferenciaCorrelacionAutorizacionV2) MarshalYAML() (any, error)
+
+func (ReferenciaCorrelacionAutorizacionV2) String() string
+
+func (*ReferenciaCorrelacionAutorizacionV2) UnmarshalBinary([]byte) error
+
+func (*ReferenciaCorrelacionAutorizacionV2) UnmarshalCBOR([]byte) error
+
+func (*ReferenciaCorrelacionAutorizacionV2) UnmarshalJSON([]byte) error
+
+func (*ReferenciaCorrelacionAutorizacionV2) UnmarshalText([]byte) error
+
+func (*ReferenciaCorrelacionAutorizacionV2) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*ReferenciaCorrelacionAutorizacionV2) UnmarshalYAML(func(any) error) error
+
+func (r ReferenciaCorrelacionAutorizacionV2) Validar() error
+```
+
+Validar permite comprobar la capacidad sin revelar su valor canonico.
+
+```go
+func (r ReferenciaCorrelacionAutorizacionV2) ValorCanonico() (string, error)
+```
+
+ValorCanonico revela el identificador solo en las fronteras que deben
+comprometerlo en una decision, auditarlo o persistirlo.
+
+```go
 type ReferenciaDocumento struct {
 	ID      string `json:"id"`
 	Version int    `json:"version"`
@@ -3646,17 +4190,29 @@ type SolicitudAutorizacion struct {
 	// identidad las resuelve y revalida antes de llamar al PDP.
 	ContextoActor             ContextoActor               `json:"-"`
 	VinculoAutenticacionActor VinculoAutenticacionActorV1 `json:"-"`
-	Accion                    string                      `json:"accion"`
-	Recurso                   RecursoAutorizable          `json:"recurso"`
-	Finalidad                 string                      `json:"finalidad"`
-	CorrelacionRef            string                      `json:"correlacion_ref"`
-	Motivo                    string                      `json:"motivo"`
+	// ReferenciaMotivo fija para V2 la entrada exacta de un catalogo publicado.
+	// Es una capacidad interna resuelta por una frontera confiable, nunca un
+	// campo reconstruido directamente desde el cuerpo de una peticion.
+	ReferenciaMotivo ReferenciaEntradaCatalogo `json:"-"`
+	Accion           string                    `json:"accion"`
+	Recurso          RecursoAutorizable        `json:"recurso"`
+	Finalidad        string                    `json:"finalidad"`
+	CorrelacionRef   string                    `json:"correlacion_ref"`
+	Motivo           string                    `json:"motivo"`
 }
 ```
 
 SolicitudAutorizacion selecciona exactamente un perfil activo. Roles y
 permisos incluidos en Principal son informativos y nunca son autoridad para
 resolver esta solicitud.
+
+```go
+func (s SolicitudAutorizacion) TieneReferenciaMotivoAutorizacionV2() bool
+```
+
+TieneReferenciaMotivoAutorizacionV2 distingue de forma exacta una solicitud
+nueva de una historica. Un valor parcialmente rellenado cuenta como presente
+y sera rechazado por el constructor nominal V2.
 
 ```go
 func (s SolicitudAutorizacion) Validar() error
@@ -3669,6 +4225,77 @@ decision durable. Validar por si solo conserva la validacion sintactica de
 una solicitud, pero nunca basta para conceder ni registrar una decision.
 
 ```go
+type SolicitudAutorizacionLigadaV2 struct {
+	// Has unexported fields.
+}
+```
+
+SolicitudAutorizacionLigadaV2 es una capacidad nominal opaca. No puede
+confundirse con SolicitudAutorizacion, que conserva el contrato historico
+V1.
+
+```go
+func NuevaSolicitudAutorizacionLigadaV2(
+	datos DatosSolicitudAutorizacionLigadaV2,
+) (SolicitudAutorizacionLigadaV2, error)
+```
+
+NuevaSolicitudAutorizacionLigadaV2 es la unica entrada al contrato V2.
+Toma una copia defensiva y falla cerrado antes de crear la capacidad.
+
+```go
+func (s SolicitudAutorizacionLigadaV2) Datos() (
+	DatosSolicitudAutorizacionLigadaV2,
+	error,
+)
+```
+
+Datos entrega una copia defensiva deliberada a la capa de aplicacion. El
+resultado sigue bloqueando codecs y formato para no convertirse en DTO HTTP.
+
+```go
+func (b SolicitudAutorizacionLigadaV2) Format(estado fmt.State, _ rune)
+
+func (b SolicitudAutorizacionLigadaV2) GoString() string
+
+func (*SolicitudAutorizacionLigadaV2) GobDecode([]byte) error
+
+func (SolicitudAutorizacionLigadaV2) GobEncode() ([]byte, error)
+
+func (b SolicitudAutorizacionLigadaV2) LogValue() slog.Value
+
+func (SolicitudAutorizacionLigadaV2) MarshalBinary() ([]byte, error)
+
+func (SolicitudAutorizacionLigadaV2) MarshalCBOR() ([]byte, error)
+
+func (SolicitudAutorizacionLigadaV2) MarshalJSON() ([]byte, error)
+
+func (SolicitudAutorizacionLigadaV2) MarshalText() ([]byte, error)
+
+func (SolicitudAutorizacionLigadaV2) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (SolicitudAutorizacionLigadaV2) MarshalYAML() (any, error)
+
+func (SolicitudAutorizacionLigadaV2) String() string
+
+func (*SolicitudAutorizacionLigadaV2) UnmarshalBinary([]byte) error
+
+func (*SolicitudAutorizacionLigadaV2) UnmarshalCBOR([]byte) error
+
+func (*SolicitudAutorizacionLigadaV2) UnmarshalJSON([]byte) error
+
+func (*SolicitudAutorizacionLigadaV2) UnmarshalText([]byte) error
+
+func (*SolicitudAutorizacionLigadaV2) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*SolicitudAutorizacionLigadaV2) UnmarshalYAML(func(any) error) error
+
 type SolicitudContextoActor struct {
 	Cuenta          CuentaAutenticadaContextoActor `json:"cuenta"`
 	PerfilActivoRef string                         `json:"perfil_activo_ref"`

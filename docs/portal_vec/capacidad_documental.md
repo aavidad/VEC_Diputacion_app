@@ -72,8 +72,11 @@ la consumen por el mismo puerto; ningun modulo genera documentos por su cuenta.
 ## Ejecucion documental atestada V4
 
 La fachada neutral `application.EjecutorDocumentalAtestadoV4` solo conoce el
-puerto de salida `ports.ConectorEjecucionDocumentalAtestadaV4`. `pgx`, SQL, el
-socket Unix, las claves y los repositorios quedan dentro de
+puerto de salida `ports.ConectorEjecucionDocumentalAtestadaV4`. La comprobacion
+criptografica estricta COSE Sign1 se reutiliza desde
+`internal/vec/adapters/seguridad/verificacioncose`; no conoce motores, raices o
+revocaciones y no concede autoridad. `pgx`, SQL, el socket Unix, el catalogo de
+confianza, las claves y los repositorios quedan dentro de
 `internal/vec/adapters/postgres/confianzadocumental`. El constructor del
 adaptador esta disponible para que la futura raiz de composicion productiva lo
 inyecte, pero este corte aun no lo expone por HTTP, CLI ni MCP; el ejecutable

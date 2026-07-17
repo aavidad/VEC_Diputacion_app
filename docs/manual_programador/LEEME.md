@@ -125,6 +125,7 @@ Documentos de contexto recomendados antes de tocar codigo:
 | [`internal/vec/adapters/postgres`](vec_adaptadores.md#paquete-internalvecadapterspostgres) | Nucleo VEC: adaptadores | Package postgres contiene adaptadores duraderos del nucleo para PostgreSQL. |
 | [`internal/vec/adapters/postgres/confianzadocumental`](vec_adaptadores.md#paquete-internalvecadapterspostgresconfianzadocumental) | Nucleo VEC: adaptadores | Package confianzadocumental implementa el conector PostgreSQL de ejecucion documental atestada V4. |
 | [`internal/vec/adapters/seguridad`](vec_adaptadores.md#paquete-internalvecadaptersseguridad) | Nucleo VEC: adaptadores | Adaptadores criptograficos del nucleo: HMAC, AEAD y atestacion. |
+| [`internal/vec/adapters/seguridad/verificacioncose`](vec_adaptadores.md#paquete-internalvecadaptersseguridadverificacioncose) | Nucleo VEC: adaptadores | Package verificacioncose aplica el perfil criptografico comun de COSE_Sign1. |
 | [`internal/vec/application`](vec_aplicacion.md#paquete-internalvecapplication) | Nucleo VEC: aplicacion y dobles de prueba | Casos de uso del shell VEC: modulos, auditoria, documentos, flujos y cotejo. |
 | [`internal/vec/domain`](vec_dominio.md#paquete-internalvecdomain) | Nucleo VEC: dominio | Tipos puros del shell VEC, sin HTTP ni persistencia concreta. |
 | [`internal/vec/ports`](vec_puertos.md#paquete-internalvecports) | Nucleo VEC: puertos | Contratos hexagonales del nucleo VEC: autorizacion, auditoria, documental y almacen. |

@@ -31,6 +31,23 @@ la finalidad. Una autorizacion para una accion no habilita ninguna otra.
 
 ```go
 const (
+	ModuloFuentesAutoridad                                                          = "vec"
+	TipoRecursoFuenteAutoridad                                                      = "fuente_autoridad_versionada"
+	AccionConsultarFuenteAutoridadInterna                                           = "vec.fuentes_autoridad.consultar_interna"
+	FinalidadConsultaInternaFuenteAutoridad                                         = "gobierno_fuentes_autoridad"
+	CampoConsultaInternaFuenteAutoridad                                             = "fuente_autoridad"
+	AtributoMotivoCatalogoIDConsultaAutoridad                                       = "motivo_catalogo_id"
+	AtributoMotivoCatalogoVersionConsultaAutoridad                                  = "motivo_catalogo_version"
+	AtributoMotivoCatalogoHuellaConsultaAutoridad                                   = "motivo_catalogo_huella_sha256"
+	AtributoMotivoEntradaClaveConsultaAutoridad                                     = "motivo_entrada_clave"
+	ResultadoConsultaFuenteEncontrada              ResultadoConsultaFuenteAutoridad = "encontrada"
+	ResultadoConsultaFuenteNoEncontrada            ResultadoConsultaFuenteAutoridad = "no_encontrada"
+)
+const (
+	PrefijoReferenciaSolicitudFuenteAutoridad = "solicitud:fuente_autoridad:"
+	PrefijoReferenciaOperacionFuenteAutoridad = "operacion:fuente_autoridad:"
+)
+const (
 	EsquemaContextoOperacionAlmacenV1 = "vec.almacen.contexto-operacion.v1"
 
 	// Acciones de negocio de lista positiva. Se duplican deliberadamente en
@@ -99,6 +116,9 @@ const (
 	// criptografico como el formato canonico. Cambiar el significado o los
 	// campos de la representacion exige publicar otro esquema.
 	EsquemaHuellaDecisionAutorizacionReforzadaV1 = "vec.autorizacion.decision.reforzada.v1.autenticacion-actor"
+	// EsquemaHuellaDecisionAutorizacionReforzadaV2 añade los compromisos
+	// versionados de solicitud completa y motivo verificable por separado.
+	EsquemaHuellaDecisionAutorizacionReforzadaV2 = "vec.autorizacion.decision.reforzada.v2.solicitud-ligada"
 )
 const (
 	EsquemaManifiestoGeneracionDocumentalV1 = "vec.documentos.manifiesto-generacion.v1"
@@ -116,6 +136,8 @@ const (
 	VersionEsquemaMaterialAlmacenV2 uint16 = 2
 )
 const EsquemaHuellaRecursoBaseCargaDocumentalV1 = "vec.carga-documental.recurso-base.v1"
+const MaximoVersionesPaginaFuenteAutoridad uint16 = 100
+const VigenciaMaximaAtestacionActoFuenteAutoridad = 5 * time.Minute
 ```
 
 ### Variables
@@ -156,6 +178,34 @@ var (
 	ErrSolicitudFirmaAtestacionInvalida = errors.New("vec: solicitud de firma de atestacion invalida")
 	ErrFirmaAtestacionNoDisponible      = errors.New("vec: firma de atestacion no disponible")
 	ErrResultadoFirmaAtestacionInvalido = errors.New("vec: resultado de firma de atestacion invalido")
+)
+var (
+	ErrSolicitudComprobacionActoAutoridadInvalida = errors.New("vec: solicitud de comprobacion de acto de autoridad invalida")
+	ErrAtestacionActoAutoridadInvalida            = errors.New("vec: atestacion de acto de autoridad invalida")
+	ErrActoFuenteAutoridadNoDisponible            = errors.New("vec: acto de fuente de autoridad no disponible")
+	ErrAtestacionActoAutoridadConsumida           = errors.New("vec: atestacion de acto de autoridad consumida")
+	ErrSerializacionAtestacionActoAutoridad       = errors.New("vec: serializacion de atestacion de acto de autoridad prohibida")
+)
+var (
+	ErrConsultaFuenteAutoridadInvalida = errors.New("vec: consulta de fuente de autoridad invalida")
+	ErrFuenteAutoridadNoEncontrada     = errors.New("vec: fuente de autoridad no encontrada")
+)
+var (
+	ErrConsultaInternaFuenteAutoridadInvalida = errors.New("vec: consulta interna gobernada de fuente de autoridad invalida")
+	ErrReciboConsultaFuenteAutoridadInvalido  = errors.New("vec: recibo de consulta de fuente de autoridad invalido")
+	ErrSerializacionGobiernoFuenteAutoridad   = errors.New("vec: serializacion de gobierno de fuente de autoridad prohibida")
+)
+var (
+	ErrEstadoFuenteAutoridadInvalido        = errors.New("vec: estado exacto de fuente de autoridad invalido")
+	ErrOperacionFuenteAutoridadInvalida     = errors.New("vec: operacion de fuente de autoridad invalida")
+	ErrOperacionFuenteAutoridadNoEncontrada = errors.New("vec: operacion de fuente de autoridad no encontrada")
+	ErrSerializacionOperacionAutoridad      = errors.New("vec: serializacion de operacion de fuente de autoridad prohibida")
+)
+var (
+	ErrReferenciaGeneradaFuenteAutoridadInvalida = errors.New("vec: referencia generada de fuente de autoridad invalida")
+	ErrGeneracionReferenciaFuenteAutoridad       = errors.New("vec: no se pudo generar una referencia de fuente de autoridad")
+	ErrColisionReferenciaFuenteAutoridad         = errors.New("vec: colision de referencia de fuente de autoridad")
+	ErrSerializacionReferenciaAutoridad          = errors.New("vec: serializacion de referencia de fuente de autoridad prohibida")
 )
 var (
 	ErrAsignacionPerfilNoEncontrada     = errors.New("vec: asignacion de perfil no encontrada")
@@ -274,7 +324,7 @@ var (
 	// decision reforzada, concedida, completa y vigente.
 	ErrEvidenciaUsoDecisionAutorizacionInvalida = errors.New("vec: evidencia de uso de decision de autorizacion invalida")
 	// ErrSerializacionEvidenciaUsoAutorizacionProhibida evita que la capacidad
-	// opaca termine por accidente en JSON, texto, trazas o una respuesta HTTP.
+	// opaca termine por accidente en codecs de transporte, trazas o HTTP.
 	ErrSerializacionEvidenciaUsoAutorizacionProhibida = errors.New("vec: serializacion de evidencia de uso de autorizacion prohibida")
 )
 var (
@@ -385,7 +435,13 @@ var ErrEjecucionDocumentalAtestadaV4NoDisponible = errors.New(
 	"vec: ejecucion documental atestada v4 no disponible",
 )
 var ErrFuenteContextoActorNoDisponible = errors.New("vec: fuente de contexto de actor no disponible")
+var ErrGeneracionReferenciaAutorizacionV2 = errors.New(
+	"vec: no se pudo generar una referencia de autorizacion V2",
+)
 var ErrInteropNotEnabledV0 = errors.New("vec interop port not enabled v0")
+var ErrOrdenRegistroAutorizacionSolicitudLigadaV2Invalida = errors.New(
+	"vec: orden de registro de autorizacion ligada a solicitud invalida",
+)
 var ErrRevalidacionAutenticacionActorNoDisponible = errors.New("vec: revalidacion de autenticacion y actor no disponible")
 var ErrSerializacionTokenReservaCobroProhibida = errors.New(
 	"vec: serializacion de token de reserva de cobro prohibida",
@@ -442,6 +498,32 @@ func MensajeCanonicoAtestacionReclamacionDespachoDocumentalV3(
 	versionReclamacionCAS uint64,
 	auditoriaReclamacionRef, evidenciaOperacionRef string,
 ) ([]byte, error)
+func PrepararAuditoriaResultadoConsultaInternaFuenteAutoridad(
+	solicitud SolicitudConsultaInternaGobernadaFuenteAutoridad,
+	resultado ResultadoConsultaFuenteAutoridad,
+	estado ReferenciaEstadoFuenteAutoridad,
+) (domain.AuditEntry, error)
+```
+
+PrepararAuditoriaResultadoConsultaInternaFuenteAutoridad fija el outcome y
+el snapshot exacto en la entrada que la barrera debe encadenar y persistir.
+ID, secuencia y envolvente de integridad siguen vacios hasta el registro.
+
+```go
+func RecursoAutorizableConsultaInternaFuenteAutoridad(
+	selector SelectorVersionFuenteAutoridad,
+	motivo domain.ReferenciaEntradaCatalogo,
+) (domain.RecursoAutorizable, error)
+func ReferenciaMotivoConsultaFuenteAutoridadValida(
+	referencia domain.ReferenciaEntradaCatalogo,
+) bool
+```
+
+ReferenciaMotivoConsultaFuenteAutoridadValida restringe el identificador de
+la entrada a un valor opaco. La semantica y cualquier etiqueta legible viven
+exclusivamente en el catalogo gobernado, no en ordenes, decisiones ni logs.
+
+```go
 func RenderizadorDocumentalNulo(renderizador RenderizadorDocumentalPorPerfil) bool
 func RepresentacionCanonicaDecisionAutorizacionReforzadaV1(
 	decision domain.DecisionAutorizacion,
@@ -457,6 +539,18 @@ A diferencia de NuevaEvidenciaUsoDecisionAutorizacion, no acredita que las
 obligaciones hayan sido cumplidas ni convierte la decision en una capacidad
 consumible. Por ello admite decisiones validas con obligaciones y solo debe
 usarse para persistencia, cotejo o firma de la representacion.
+
+```go
+func RepresentacionCanonicaDecisionAutorizacionReforzadaV2(
+	decision domain.DecisionAutorizacion,
+) ([]byte, error)
+```
+
+RepresentacionCanonicaDecisionAutorizacionReforzadaV2 devuelve la proyeccion
+apta para persistencia y cotejo. No contiene Motivo ni la referencia de
+catalogo en claro, sino sus compromisos de integridad. El consumidor durable
+debe releer la misma version publicada y cotejar su huella: este documento
+no acredita por si solo la procedencia del catalogo.
 
 ```go
 func ValidarManifiestoPreparacionParaConfirmacion(
@@ -579,6 +673,64 @@ type AnalizadorContenido interface {
 	Capacidades(context.Context) (CapacidadesAnalizadorContenido, error)
 	Analizar(context.Context, SolicitudAnalizarContenido) (ResultadoAnalisisContenido, error)
 }
+
+type AtestacionActoFuenteAutoridad struct {
+	// Has unexported fields.
+}
+
+func NuevaAtestacionActoFuenteAutoridad(
+	solicitud SolicitudComprobarActoFuenteAutoridad,
+	datos DatosAtestacionActoFuenteAutoridad,
+) (AtestacionActoFuenteAutoridad, error)
+
+func (a AtestacionActoFuenteAutoridad) DatosParaConsumo() (
+	DatosAtestacionActoFuenteAutoridad,
+	error,
+)
+
+func (a AtestacionActoFuenteAutoridad) Evidencia() (
+	domain.EvidenciaActoFuenteAutoridad,
+	error,
+)
+
+func (a AtestacionActoFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (a AtestacionActoFuenteAutoridad) GoString() string
+
+func (*AtestacionActoFuenteAutoridad) GobDecode([]byte) error
+
+func (AtestacionActoFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (a AtestacionActoFuenteAutoridad) LogValue() slog.Value
+
+func (AtestacionActoFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (AtestacionActoFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (AtestacionActoFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (AtestacionActoFuenteAutoridad) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (AtestacionActoFuenteAutoridad) String() string
+
+func (*AtestacionActoFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*AtestacionActoFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*AtestacionActoFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*AtestacionActoFuenteAutoridad) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (a AtestacionActoFuenteAutoridad) ValidarPara(
+	solicitud SolicitudComprobarActoFuenteAutoridad,
+	instante time.Time,
+) error
 
 type AtestacionAutorizacionV1 struct {
 	// Has unexported fields.
@@ -706,6 +858,18 @@ type Autorizador interface {
 
 Autorizador es el unico puerto que deben consumir los casos de uso. Exigir
 devuelve ErrAutorizacionDenegada para cualquier resultado no concedido.
+
+```go
+type AutorizadorSolicitudLigadaV2 interface {
+	ExigirSolicitudLigadaV2(
+		context.Context,
+		domain.SolicitudAutorizacionLigadaV2,
+	) (domain.DecisionAutorizacion, error)
+}
+```
+
+AutorizadorSolicitudLigadaV2 es deliberadamente distinto de Autorizador.
+Impide que un flujo nuevo acepte por accidente una decision historica V1.
 
 ```go
 type CabeceraCargaDirecta struct {
@@ -917,6 +1081,19 @@ type CommonRegistryPort interface {
 	RegisterEntry(context.Context, InteropRequest) (InteropResult, error)
 }
 
+type ComprobadorActosFuentesAutoridad interface {
+	ComprobarActo(
+		context.Context,
+		SolicitudComprobarActoFuenteAutoridad,
+	) (AtestacionActoFuenteAutoridad, error)
+}
+```
+
+ComprobadorActosFuentesAutoridad debe verificar documento, representacion,
+huella, firmas, competencia y procedencia de la atestacion. El repositorio
+vuelve a leer el registro y consume el token en la transaccion de gobierno.
+
+```go
 type ComprobanteConsumoReciboCargaDirecta struct {
 	// Has unexported fields.
 }
@@ -1125,6 +1302,15 @@ type ConsultaCatalogosConfigurables interface {
 	ListarVersionesCatalogo(context.Context, string) ([]domain.CatalogoConfigurable, error)
 }
 
+type ConsultaCitaFuenteAutoridad interface {
+	ObtenerPorCita(context.Context, domain.CitaFuenteAutoridad) (domain.FuenteAutoridadVersionada, error)
+}
+```
+
+ConsultaCitaFuenteAutoridad resuelve solo citas exactas; el puerto no
+completa una lista vacia de preceptos ni sustituye su fuente.
+
+```go
 type ConsultaComponenteDocumentalAtestado struct {
 	Rol                 domain.RolComponenteDocumental
 	DescriptorPerfilRef string
@@ -1185,13 +1371,54 @@ revision incluye numero y huella de la instantanea completa del catalogo.
 ```go
 func (c ConsultaFormatoDocumental) Validar() error
 
+type ConsultaHistoriaFuentesAutoridad interface {
+	ListarVersiones(
+		context.Context,
+		ConsultaPaginaHistoriaFuenteAutoridad,
+	) (PaginaHistoriaFuenteAutoridad, error)
+}
+```
+
+ConsultaHistoriaFuentesAutoridad pagina las versiones por orden ascendente.
+Una pagina vacia es distinta de una consulta invalida.
+
+```go
 type ConsultaInstanciasFlujo interface {
 	ObtenerInstanciaFlujo(context.Context, string) (domain.InstanciaFlujo, error)
 }
 
+type ConsultaInternaGobernadaFuentesAutoridad interface {
+	ConsultarVersionExacta(
+		context.Context,
+		SolicitudConsultaInternaGobernadaFuenteAutoridad,
+	) (ResultadoConsultaInternaFuenteAutoridad, error)
+}
+```
+
+ConsultaInternaGobernadaFuentesAutoridad es una barrera transaccional, no
+una lectura DAO. En una unica transaccion debe releer y validar la decision
+durable, consumirla exactamente una vez, ejecutar la lectura exacta, fijar
+el resultado de auditoria a encontrada o no_encontrada, encadenar y firmar
+esa auditoria y emitir el recibo. Resultado y Recibo solo se construyen
+y devuelven despues del COMMIT. La ausencia nunca se devuelve como
+ErrFuenteAutoridadNoEncontrada ni sigue un camino sin consumo y auditoria.
+
+```go
 type ConsultaMetadatosFuenteCatalogos interface {
 	ObtenerMetadatosFuenteCatalogos(context.Context) (MetadatosFuenteCatalogos, error)
 }
+
+type ConsultaOperacionesFuentesAutoridad interface {
+	ObtenerOperacion(context.Context, SelectorOperacionFuenteAutoridad) (OperacionFuenteAutoridad, error)
+}
+
+type ConsultaPaginaHistoriaFuenteAutoridad struct {
+	FuenteID     string
+	DesdeVersion uint64
+	Limite       uint16
+}
+
+func (s ConsultaPaginaHistoriaFuenteAutoridad) Validar() error
 
 type ConsultaPoliticaInstitucionalDocumental struct {
 	Institucion        domain.ReferenciaInstitucionalDocumento
@@ -1262,6 +1489,15 @@ ValidarSintaxis comprueba invariantes, no la aleatoriedad ni la unicidad
 durable de ConsultaRef y reto.
 
 ```go
+type ConsultaReferenciaFuenteAutoridad interface {
+	ObtenerPorReferencia(context.Context, domain.ReferenciaFuenteAutoridad) (domain.FuenteAutoridadVersionada, error)
+}
+```
+
+ConsultaReferenciaFuenteAutoridad resuelve una referencia ya ligada a la
+huella exacta. Una discrepancia de huella se trata como no encontrada.
+
+```go
 type ConsultaSituacionOperativaActual struct {
 	PublicacionRef   string
 	PerfilRef        domain.ReferenciaPerfilDocumental
@@ -1280,6 +1516,15 @@ func (c ConsultaSituacionOperativaActual) Coincide(
 
 func (c ConsultaSituacionOperativaActual) Validar() error
 
+type ConsultaVersionFuenteAutoridad interface {
+	ObtenerVersion(context.Context, SelectorVersionFuenteAutoridad) (domain.FuenteAutoridadVersionada, error)
+}
+```
+
+ConsultaVersionFuenteAutoridad nunca elige la version mas reciente.
+La implementacion debe devolver una copia canonica del agregado.
+
+```go
 type ConsumidorPrivadoOrdenDespachoDocumentalV3 interface {
 	ReleerYConsumirOrdenDespachoDocumentalV3(
 		context.Context,
@@ -1583,6 +1828,59 @@ type DataIntermediationPort interface {
 	QueryData(context.Context, InteropRequest) (InteropResult, error)
 }
 
+type DatosAtestacionActoFuenteAutoridad struct {
+	Evidencia                      domain.EvidenciaActoFuenteAutoridad
+	RevisionEsperada               uint64
+	HuellaEstadoEsperadoSHA256     string
+	VerificadorRef                 string
+	RegistroAtestacionRef          string
+	HuellaRegistroAtestacionSHA256 string
+	TokenConsumoRef                string
+	EmitidaEn                      time.Time
+	ValidaHasta                    time.Time
+	// Has unexported fields.
+}
+```
+
+DatosAtestacionActoFuenteAutoridad es la vista que el repositorio relee
+antes de consumir TokenConsumoRef. Las referencias acreditan registros
+externos; este contrato no implementa ni simula criptografia.
+
+```go
+func (d DatosAtestacionActoFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (d DatosAtestacionActoFuenteAutoridad) GoString() string
+
+func (*DatosAtestacionActoFuenteAutoridad) GobDecode([]byte) error
+
+func (DatosAtestacionActoFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (d DatosAtestacionActoFuenteAutoridad) LogValue() slog.Value
+
+func (DatosAtestacionActoFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (DatosAtestacionActoFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (DatosAtestacionActoFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (DatosAtestacionActoFuenteAutoridad) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (DatosAtestacionActoFuenteAutoridad) String() string
+
+func (*DatosAtestacionActoFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*DatosAtestacionActoFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*DatosAtestacionActoFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*DatosAtestacionActoFuenteAutoridad) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
 type DatosConsultaReconciliacionDocumentalV4 struct {
 	ConsultaRef              string
 	Reto                     RetoConsultaReconciliacionDocumentalV4
@@ -1717,11 +2015,23 @@ func (d DatosEvidenciaUsoDecisionAutorizacion) Format(estado fmt.State, _ rune)
 
 func (d DatosEvidenciaUsoDecisionAutorizacion) GoString() string
 
+func (*DatosEvidenciaUsoDecisionAutorizacion) GobDecode([]byte) error
+
+func (DatosEvidenciaUsoDecisionAutorizacion) GobEncode() ([]byte, error)
+
 func (d DatosEvidenciaUsoDecisionAutorizacion) LogValue() slog.Value
+
+func (DatosEvidenciaUsoDecisionAutorizacion) MarshalBinary() ([]byte, error)
+
+func (DatosEvidenciaUsoDecisionAutorizacion) MarshalCBOR() ([]byte, error)
 
 func (DatosEvidenciaUsoDecisionAutorizacion) MarshalJSON() ([]byte, error)
 
 func (DatosEvidenciaUsoDecisionAutorizacion) MarshalText() ([]byte, error)
+
+func (DatosEvidenciaUsoDecisionAutorizacion) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (DatosEvidenciaUsoDecisionAutorizacion) MarshalYAML() (any, error)
 
 func (d DatosEvidenciaUsoDecisionAutorizacion) RepresentacionCanonica() ([]byte, error)
 ```
@@ -1731,16 +2041,92 @@ se calculo HuellaDecisionSHA256. Es una salida deliberada para adaptadores
 duraderos: les permite cotejar la decision registrada sin reimplementar ni
 divergir del formato privado del nucleo.
 
-La proyeccion completa sigue bloqueando JSON, texto y formateo; este metodo
-no convierte la evidencia opaca en una capacidad reconstruible.
+La proyeccion completa sigue bloqueando codecs y formateo; este metodo no
+convierte la evidencia opaca en una capacidad reconstruible.
 
 ```go
 func (DatosEvidenciaUsoDecisionAutorizacion) String() string
+
+func (*DatosEvidenciaUsoDecisionAutorizacion) UnmarshalBinary([]byte) error
+
+func (*DatosEvidenciaUsoDecisionAutorizacion) UnmarshalCBOR([]byte) error
 
 func (*DatosEvidenciaUsoDecisionAutorizacion) UnmarshalJSON([]byte) error
 
 func (*DatosEvidenciaUsoDecisionAutorizacion) UnmarshalText([]byte) error
 
+func (*DatosEvidenciaUsoDecisionAutorizacion) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*DatosEvidenciaUsoDecisionAutorizacion) UnmarshalYAML(func(any) error) error
+
+type DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2 struct {
+	EsquemaHuella        string
+	HuellaDecisionSHA256 string
+	Decision             domain.DecisionAutorizacion
+	VerificadaEn         time.Time
+	// Has unexported fields.
+}
+```
+
+DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2 es la proyeccion
+defensiva y no reconstruible que un adaptador durable necesita para cotejar
+una decision V2. No es asignable al contrato historico V1.
+
+```go
+func (d DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) Format(estado fmt.State, _ rune)
+
+func (d DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) GoString() string
+
+func (*DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) GobDecode([]byte) error
+
+func (DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) GobEncode() ([]byte, error)
+
+func (d DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) LogValue() slog.Value
+
+func (DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) MarshalBinary() ([]byte, error)
+
+func (DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) MarshalCBOR() ([]byte, error)
+
+func (DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) MarshalJSON() ([]byte, error)
+
+func (DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) MarshalText() ([]byte, error)
+
+func (DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) MarshalYAML() (any, error)
+
+func (d DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) RepresentacionCanonica() ([]byte, error)
+
+func (DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) String() string
+
+func (*DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) UnmarshalBinary([]byte) error
+
+func (*DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) UnmarshalCBOR([]byte) error
+
+func (*DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) UnmarshalJSON([]byte) error
+
+func (*DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) UnmarshalText([]byte) error
+
+func (*DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) UnmarshalYAML(func(any) error) error
+
+func (d DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) ValidarMotivo(
+	motivo domain.ReferenciaEntradaCatalogo,
+) error
+```
+
+ValidarMotivo coteja la referencia completa ya resuelta por la frontera
+confiable. La existencia y vigencia del catalogo deben revalidarse en la
+transaccion durable; esta huella acredita integridad, no procedencia.
+
+```go
 type DatosManifiestoEjecucionDocumentalV3 struct {
 	Esquema               string
 	Consulta              ConsultaFormatoDocumental
@@ -1788,6 +2174,59 @@ type DatosMutacionOrdenCobro struct {
 	Evento    EventoSalidaCobro
 }
 
+type DatosOperacionFuenteAutoridad struct {
+	OperacionRef           string
+	Solicitud              domain.SolicitudTransicionFuenteAutoridadV1
+	EstadoEsperado         ReferenciaEstadoFuenteAutoridad
+	Estado                 EstadoOperacionFuenteAutoridad
+	AtestacionRef          string
+	HuellaAtestacionSHA256 string
+	ResolucionRef          string
+	PreparadaEn            time.Time
+	ActualizadaEn          time.Time
+	// Has unexported fields.
+}
+```
+
+DatosOperacionFuenteAutoridad es una proyeccion interna reconstruible. Los
+conectores persisten los bytes canonicos de Solicitud, no una copia de sus
+parametros. Atestacion y resolucion son referencias a registros durables.
+
+```go
+func (d DatosOperacionFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (d DatosOperacionFuenteAutoridad) GoString() string
+
+func (*DatosOperacionFuenteAutoridad) GobDecode([]byte) error
+
+func (DatosOperacionFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (d DatosOperacionFuenteAutoridad) LogValue() slog.Value
+
+func (DatosOperacionFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (DatosOperacionFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (DatosOperacionFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (DatosOperacionFuenteAutoridad) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (DatosOperacionFuenteAutoridad) String() string
+
+func (*DatosOperacionFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*DatosOperacionFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*DatosOperacionFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*DatosOperacionFuenteAutoridad) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
 type DatosOrdenDespachoDocumentalV3Nominal struct {
 	ReciboInicio             DatosReciboInicioEfectoDocumentalV3Nominal
 	HuellaReciboInicioSHA256 string
@@ -1819,6 +2258,116 @@ func (*DatosOrdenDespachoDocumentalV3Nominal) UnmarshalBinary([]byte) error
 func (*DatosOrdenDespachoDocumentalV3Nominal) UnmarshalJSON([]byte) error
 
 func (*DatosOrdenDespachoDocumentalV3Nominal) UnmarshalText([]byte) error
+
+type DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2 struct {
+	Decision         domain.DecisionAutorizacion
+	ReferenciaMotivo domain.ReferenciaEntradaCatalogo
+	// Has unexported fields.
+}
+```
+
+DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2 es la copia
+defensiva que recibe el adaptador durable. La referencia permite releer
+en su propia transaccion el catalogo exacto y cotejar version, huella y
+entrada.
+
+```go
+func (b DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) Format(estado fmt.State, _ rune)
+
+func (b DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) GoString() string
+
+func (*DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) GobDecode([]byte) error
+
+func (DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) GobEncode() ([]byte, error)
+
+func (b DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) LogValue() slog.Value
+
+func (DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) MarshalBinary() ([]byte, error)
+
+func (DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) MarshalCBOR() ([]byte, error)
+
+func (DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) MarshalJSON() ([]byte, error)
+
+func (DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) MarshalText() ([]byte, error)
+
+func (DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) MarshalYAML() (any, error)
+
+func (DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) String() string
+
+func (*DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) UnmarshalBinary([]byte) error
+
+func (*DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) UnmarshalCBOR([]byte) error
+
+func (*DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) UnmarshalJSON([]byte) error
+
+func (*DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) UnmarshalText([]byte) error
+
+func (*DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2) UnmarshalYAML(func(any) error) error
+
+type DatosReciboConsultaInternaFuenteAutoridad struct {
+	TransaccionRef                 string
+	Selector                       SelectorVersionFuenteAutoridad
+	Resultado                      ResultadoConsultaFuenteAutoridad
+	Estado                         ReferenciaEstadoFuenteAutoridad
+	DecisionRef                    string
+	HuellaDecisionSHA256           string
+	AuditoriaRef                   string
+	AuditoriaSecuencia             int64
+	AuditoriaAlgoritmoIntegridad   string
+	AuditoriaEncadenadoAnteriorRef string
+	AuditoriaFirmaRef              string
+	AuditoriaConfirmada            domain.AuditEntry
+	AuditoriaHuellaEntradaSHA256   string
+	HuellaCompromisoReciboSHA256   string
+	ConfirmadaEn                   time.Time
+	// Has unexported fields.
+}
+```
+
+DatosReciboConsultaInternaFuenteAutoridad es una proyeccion interna. La
+entrada confirmada queda minimizada y su copia defensiva permite comprobar
+el registro firmado que ya existe tras el COMMIT, no solo una referencia.
+
+```go
+func (b DatosReciboConsultaInternaFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (b DatosReciboConsultaInternaFuenteAutoridad) GoString() string
+
+func (*DatosReciboConsultaInternaFuenteAutoridad) GobDecode([]byte) error
+
+func (DatosReciboConsultaInternaFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (b DatosReciboConsultaInternaFuenteAutoridad) LogValue() slog.Value
+
+func (DatosReciboConsultaInternaFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (DatosReciboConsultaInternaFuenteAutoridad) MarshalCBOR() ([]byte, error)
+
+func (DatosReciboConsultaInternaFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (DatosReciboConsultaInternaFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (DatosReciboConsultaInternaFuenteAutoridad) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (DatosReciboConsultaInternaFuenteAutoridad) MarshalYAML() (any, error)
+
+func (DatosReciboConsultaInternaFuenteAutoridad) String() string
+
+func (*DatosReciboConsultaInternaFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*DatosReciboConsultaInternaFuenteAutoridad) UnmarshalCBOR([]byte) error
+
+func (*DatosReciboConsultaInternaFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*DatosReciboConsultaInternaFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*DatosReciboConsultaInternaFuenteAutoridad) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*DatosReciboConsultaInternaFuenteAutoridad) UnmarshalYAML(func(any) error) error
 
 type DatosReciboEjecucionComponenteDocumentalNominal struct {
 	HuellaCompromisoSHA256     string
@@ -2469,6 +3018,20 @@ emite recibos para objetos activos y no eliminados.
 
 ```go
 const EstadoObjetoMaterialActivo EstadoObjetoMaterialV2 = "activo"
+type EstadoOperacionFuenteAutoridad string
+
+const (
+	EstadoOperacionFuenteAutoridadPendiente  EstadoOperacionFuenteAutoridad = "pendiente"
+	EstadoOperacionFuenteAutoridadAtestada   EstadoOperacionFuenteAutoridad = "atestada"
+	EstadoOperacionFuenteAutoridadConfirmada EstadoOperacionFuenteAutoridad = "confirmada"
+	EstadoOperacionFuenteAutoridadCancelada  EstadoOperacionFuenteAutoridad = "cancelada"
+	EstadoOperacionFuenteAutoridadExpirada   EstadoOperacionFuenteAutoridad = "expirada"
+	EstadoOperacionFuenteAutoridadObsoleta   EstadoOperacionFuenteAutoridad = "obsoleta"
+)
+func (e EstadoOperacionFuenteAutoridad) Terminal() bool
+
+func (e EstadoOperacionFuenteAutoridad) Valido() bool
+
 type EstadoPasoDuraderoGeneracionDocumental struct {
 	PasoRef               PasoOperacionAlmacen
 	HuellaPasoSHA256      string
@@ -2649,7 +3212,15 @@ func (e EvidenciaUsoDecisionAutorizacion) Format(estado fmt.State, _ rune)
 
 func (e EvidenciaUsoDecisionAutorizacion) GoString() string
 
+func (*EvidenciaUsoDecisionAutorizacion) GobDecode([]byte) error
+
+func (EvidenciaUsoDecisionAutorizacion) GobEncode() ([]byte, error)
+
 func (e EvidenciaUsoDecisionAutorizacion) LogValue() slog.Value
+
+func (EvidenciaUsoDecisionAutorizacion) MarshalBinary() ([]byte, error)
+
+func (EvidenciaUsoDecisionAutorizacion) MarshalCBOR() ([]byte, error)
 
 func (EvidenciaUsoDecisionAutorizacion) MarshalJSON() ([]byte, error)
 ```
@@ -2660,11 +3231,23 @@ deliberada, defensiva y tipada dentro de un adaptador de salida.
 ```go
 func (EvidenciaUsoDecisionAutorizacion) MarshalText() ([]byte, error)
 
+func (EvidenciaUsoDecisionAutorizacion) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (EvidenciaUsoDecisionAutorizacion) MarshalYAML() (any, error)
+
 func (EvidenciaUsoDecisionAutorizacion) String() string
+
+func (*EvidenciaUsoDecisionAutorizacion) UnmarshalBinary([]byte) error
+
+func (*EvidenciaUsoDecisionAutorizacion) UnmarshalCBOR([]byte) error
 
 func (*EvidenciaUsoDecisionAutorizacion) UnmarshalJSON([]byte) error
 
 func (*EvidenciaUsoDecisionAutorizacion) UnmarshalText([]byte) error
+
+func (*EvidenciaUsoDecisionAutorizacion) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*EvidenciaUsoDecisionAutorizacion) UnmarshalYAML(func(any) error) error
 
 func (e EvidenciaUsoDecisionAutorizacion) ValidarEn(instante time.Time) error
 ```
@@ -2674,6 +3257,74 @@ efectivo del servidor. Se rechaza tambien un reloj anterior a la primera
 verificacion: un retroceso temporal nunca recupera una capacidad ya emitida.
 
 ```go
+type EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2 struct {
+	// Has unexported fields.
+}
+```
+
+EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2 es una capacidad opaca
+exclusiva de efectos V2. No existe conversion desde V1 ni constructor desde
+bytes o una proyeccion historica.
+
+```go
+func NuevaEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2(
+	decision domain.DecisionAutorizacion,
+	verificadaEn time.Time,
+) (EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2, error)
+
+func (e EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) Datos() (
+	DatosEvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
+	error,
+)
+
+func (e EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) Format(estado fmt.State, _ rune)
+
+func (e EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) GoString() string
+
+func (*EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) GobDecode([]byte) error
+
+func (EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) GobEncode() ([]byte, error)
+
+func (e EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) LogValue() slog.Value
+
+func (EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) MarshalBinary() ([]byte, error)
+
+func (EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) MarshalCBOR() ([]byte, error)
+
+func (EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) MarshalJSON() ([]byte, error)
+
+func (EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) MarshalText() ([]byte, error)
+
+func (EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) MarshalYAML() (any, error)
+
+func (EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) String() string
+
+func (*EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) UnmarshalBinary([]byte) error
+
+func (*EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) UnmarshalCBOR([]byte) error
+
+func (*EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) UnmarshalJSON([]byte) error
+
+func (*EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) UnmarshalText([]byte) error
+
+func (*EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) UnmarshalYAML(func(any) error) error
+
+func (e EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) ValidarEn(instante time.Time) error
+
+func (e EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2) ValidarMotivo(
+	motivo domain.ReferenciaEntradaCatalogo,
+) error
+
 type ExpectativaAutorizacionEjecucionDocumentalV4 struct {
 	// DecisionEsperada debe proceder del registro/resolucion confiable del
 	// servidor, no de la peticion. Su huella completa se coteja con la evidencia
@@ -2841,6 +3492,34 @@ type GeneradorReferenciaDecisionAutorizacion interface {
 
 GeneradorReferenciaDecisionAutorizacion evita que el caso de uso dependa de
 una biblioteca, formato de UUID o proveedor concreto.
+
+```go
+type GeneradorReferenciasAutorizacionV2 interface {
+	NuevaReferenciaCorrelacionAutorizacionV2(context.Context) (string, error)
+	NuevaClaveMotivoAutorizacionV2(context.Context) (string, error)
+}
+```
+
+GeneradorReferenciasAutorizacionV2 crea identificadores opacos para
+dos finalidades distintas. La implementacion productiva debe usar
+un CSPRNG con al menos 128 bits y nunca derivarlos de identidad,
+expediente o texto libre. La correlacion en texto es solo la salida
+tecnica del adaptador: la frontera debe entregarla inmediatamente a
+domain.GenerarReferenciaCorrelacionAutorizacionV2 y transportar desde
+entonces exclusivamente la capacidad nominal resultante.
+
+```go
+type GeneradorReferenciasFuentesAutoridad interface {
+	NuevaReferenciaSolicitud(context.Context) (ReferenciaSolicitudFuenteAutoridad, error)
+	NuevaReferenciaOperacion(context.Context) (ReferenciaOperacionFuenteAutoridad, error)
+}
+```
+
+GeneradorReferenciasFuentesAutoridad produce namespaces distintos. La forma
+no acredita entropia: el adaptador debe obtener al menos 128 bits aleatorios
+con un CSPRNG y codificarlos, por ejemplo, como 22 caracteres base64url sin
+relleno o 32 hexadecimales. La barrera durable reserva ademas la unicidad y
+puede devolver ErrColisionReferenciaFuenteAutoridad.
 
 ```go
 type GeneradorRetosEjecucionDocumental interface {
@@ -3614,6 +4293,63 @@ const (
 )
 func (o OperacionComponenteDocumental) Valida() bool
 
+type OperacionFuenteAutoridad struct {
+	// Has unexported fields.
+}
+```
+
+OperacionFuenteAutoridad evita que un callback reconstruya actor, motivo,
+accion o revision a partir de parametros externos.
+
+```go
+func NuevaOperacionPendienteFuenteAutoridad(
+	operacionRef string,
+	solicitud domain.SolicitudTransicionFuenteAutoridadV1,
+	esperado ReferenciaEstadoFuenteAutoridad,
+) (OperacionFuenteAutoridad, error)
+
+func RehidratarOperacionFuenteAutoridad(
+	datos DatosOperacionFuenteAutoridad,
+) (OperacionFuenteAutoridad, error)
+
+func (o OperacionFuenteAutoridad) Datos() (DatosOperacionFuenteAutoridad, error)
+
+func (o OperacionFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (o OperacionFuenteAutoridad) GoString() string
+
+func (*OperacionFuenteAutoridad) GobDecode([]byte) error
+
+func (OperacionFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (o OperacionFuenteAutoridad) LogValue() slog.Value
+
+func (OperacionFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (OperacionFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (OperacionFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (OperacionFuenteAutoridad) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (OperacionFuenteAutoridad) String() string
+
+func (o OperacionFuenteAutoridad) Terminal() bool
+
+func (*OperacionFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*OperacionFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*OperacionFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*OperacionFuenteAutoridad) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
 type OrdenConsumoReciboCargaDirecta struct {
 	IndiceHMAC               string
 	GrupoHMAC                string
@@ -3728,6 +4464,62 @@ func (*OrdenDespachoDocumentalV3Nominal) UnmarshalText([]byte) error
 
 func (o OrdenDespachoDocumentalV3Nominal) Validar() error
 
+type OrdenRegistroDecisionAutorizacionSolicitudLigadaV2 struct {
+	// Has unexported fields.
+}
+```
+
+OrdenRegistroDecisionAutorizacionSolicitudLigadaV2 es una orden opaca
+y nominal. Evita que un registro V2 reciba solo la decision y pierda la
+preimagen catalogada necesaria para la revalidacion durable.
+
+```go
+func NuevaOrdenRegistroDecisionAutorizacionSolicitudLigadaV2(
+	decision domain.DecisionAutorizacion,
+	referenciaMotivo domain.ReferenciaEntradaCatalogo,
+) (OrdenRegistroDecisionAutorizacionSolicitudLigadaV2, error)
+
+func (o OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) Datos() (
+	DatosOrdenRegistroDecisionAutorizacionSolicitudLigadaV2,
+	error,
+)
+
+func (b OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) Format(estado fmt.State, _ rune)
+
+func (b OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) GoString() string
+
+func (*OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) GobDecode([]byte) error
+
+func (OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) GobEncode() ([]byte, error)
+
+func (b OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) LogValue() slog.Value
+
+func (OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) MarshalBinary() ([]byte, error)
+
+func (OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) MarshalCBOR() ([]byte, error)
+
+func (OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) MarshalJSON() ([]byte, error)
+
+func (OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) MarshalText() ([]byte, error)
+
+func (OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) MarshalYAML() (any, error)
+
+func (OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) String() string
+
+func (*OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) UnmarshalBinary([]byte) error
+
+func (*OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) UnmarshalCBOR([]byte) error
+
+func (*OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) UnmarshalJSON([]byte) error
+
+func (*OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) UnmarshalText([]byte) error
+
+func (*OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*OrdenRegistroDecisionAutorizacionSolicitudLigadaV2) UnmarshalYAML(func(any) error) error
+
 type OrgDirectoryPort interface {
 	LookupOrgUnit(context.Context, InteropRequest) (InteropResult, error)
 }
@@ -3743,6 +4535,26 @@ type OrigenPasarelaCobroPublicado struct {
 }
 
 func (o OrigenPasarelaCobroPublicado) Validar() error
+
+type PaginaHistoriaFuenteAutoridad struct {
+	Versiones        []domain.FuenteAutoridadVersionada
+	HayMas           bool
+	SiguienteVersion uint64
+}
+```
+
+PaginaHistoriaFuenteAutoridad conserva continuidad explicita. Si HayMas
+es cierto, SiguienteVersion es la primera version de la pagina siguiente;
+no existe cursor implicito ni selector de «ultima» version.
+
+```go
+func (p PaginaHistoriaFuenteAutoridad) ClonarPara(
+	consulta ConsultaPaginaHistoriaFuenteAutoridad,
+) (PaginaHistoriaFuenteAutoridad, error)
+
+func (p PaginaHistoriaFuenteAutoridad) ValidarPara(
+	consulta ConsultaPaginaHistoriaFuenteAutoridad,
+) error
 
 type PasarelaCobro interface {
 	VerificadorPasarelaCobro
@@ -4526,6 +5338,66 @@ func (ReciboCargaDirecta) String() string
 
 func (r ReciboCargaDirecta) Valido() bool
 
+type ReciboConsultaInternaFuenteAutoridad struct {
+	// Has unexported fields.
+}
+```
+
+ReciboConsultaInternaFuenteAutoridad acredita que la decision se consumio,
+la auditoria firmada y encadenada se registro y, si existia, que snapshot
+exacto se leyo. Solo puede salir de la barrera despues de su COMMIT.
+
+```go
+func NuevoReciboConsultaInternaFuenteAutoridad(
+	solicitud SolicitudConsultaInternaGobernadaFuenteAutoridad,
+	datos DatosReciboConsultaInternaFuenteAutoridad,
+) (ReciboConsultaInternaFuenteAutoridad, error)
+
+func (r ReciboConsultaInternaFuenteAutoridad) Datos() (
+	DatosReciboConsultaInternaFuenteAutoridad,
+	error,
+)
+
+func (r ReciboConsultaInternaFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (r ReciboConsultaInternaFuenteAutoridad) GoString() string
+
+func (*ReciboConsultaInternaFuenteAutoridad) GobDecode([]byte) error
+
+func (ReciboConsultaInternaFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (r ReciboConsultaInternaFuenteAutoridad) LogValue() slog.Value
+
+func (ReciboConsultaInternaFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (ReciboConsultaInternaFuenteAutoridad) MarshalCBOR() ([]byte, error)
+
+func (ReciboConsultaInternaFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (ReciboConsultaInternaFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (ReciboConsultaInternaFuenteAutoridad) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (ReciboConsultaInternaFuenteAutoridad) MarshalYAML() (any, error)
+
+func (ReciboConsultaInternaFuenteAutoridad) String() string
+
+func (*ReciboConsultaInternaFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*ReciboConsultaInternaFuenteAutoridad) UnmarshalCBOR([]byte) error
+
+func (*ReciboConsultaInternaFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*ReciboConsultaInternaFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*ReciboConsultaInternaFuenteAutoridad) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*ReciboConsultaInternaFuenteAutoridad) UnmarshalYAML(func(any) error) error
+
+func (r ReciboConsultaInternaFuenteAutoridad) ValidarPara(
+	solicitud SolicitudConsultaInternaGobernadaFuenteAutoridad,
+) error
+
 type ReciboEjecucionComponenteDocumentalNominal struct {
 	// Has unexported fields.
 }
@@ -4743,6 +5615,25 @@ type ReferenciaDevolucionCobro struct {
 
 func (r ReferenciaDevolucionCobro) Validar() error
 
+type ReferenciaEstadoFuenteAutoridad struct {
+	Fuente               domain.ReferenciaFuenteAutoridad
+	Revision             uint64
+	Estado               domain.EstadoFuenteAutoridad
+	HuellaHistoriaSHA256 string
+	HuellaEstadoSHA256   string
+}
+```
+
+ReferenciaEstadoFuenteAutoridad es la precondicion OCC completa. La
+referencia de contenido, por si sola, no detecta una transicion de estado.
+
+```go
+func EstadoExactoFuenteAutoridad(
+	fuente domain.FuenteAutoridadVersionada,
+) (ReferenciaEstadoFuenteAutoridad, error)
+
+func (r ReferenciaEstadoFuenteAutoridad) Validar() error
+
 type ReferenciaObjetoAlmacen struct {
 	Referencia string
 	Version    string
@@ -4759,6 +5650,78 @@ type ReferenciaOperacionCobro struct {
 }
 
 func (r ReferenciaOperacionCobro) Validar() error
+
+type ReferenciaOperacionFuenteAutoridad struct {
+	// Has unexported fields.
+}
+
+func NuevaReferenciaOperacionFuenteAutoridad(valor string) (ReferenciaOperacionFuenteAutoridad, error)
+
+func (r ReferenciaOperacionFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (r ReferenciaOperacionFuenteAutoridad) GoString() string
+
+func (*ReferenciaOperacionFuenteAutoridad) GobDecode([]byte) error
+
+func (ReferenciaOperacionFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (r ReferenciaOperacionFuenteAutoridad) LogValue() slog.Value
+
+func (ReferenciaOperacionFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (ReferenciaOperacionFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (ReferenciaOperacionFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (ReferenciaOperacionFuenteAutoridad) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (r ReferenciaOperacionFuenteAutoridad) Referencia() (string, error)
+
+func (ReferenciaOperacionFuenteAutoridad) String() string
+
+func (*ReferenciaOperacionFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*ReferenciaOperacionFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*ReferenciaOperacionFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*ReferenciaOperacionFuenteAutoridad) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+type ReferenciaSolicitudFuenteAutoridad struct {
+	// Has unexported fields.
+}
+
+func NuevaReferenciaSolicitudFuenteAutoridad(valor string) (ReferenciaSolicitudFuenteAutoridad, error)
+
+func (r ReferenciaSolicitudFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (r ReferenciaSolicitudFuenteAutoridad) GoString() string
+
+func (*ReferenciaSolicitudFuenteAutoridad) GobDecode([]byte) error
+
+func (ReferenciaSolicitudFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (r ReferenciaSolicitudFuenteAutoridad) LogValue() slog.Value
+
+func (ReferenciaSolicitudFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (ReferenciaSolicitudFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (ReferenciaSolicitudFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (ReferenciaSolicitudFuenteAutoridad) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (r ReferenciaSolicitudFuenteAutoridad) Referencia() (string, error)
+
+func (ReferenciaSolicitudFuenteAutoridad) String() string
+
+func (*ReferenciaSolicitudFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*ReferenciaSolicitudFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*ReferenciaSolicitudFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*ReferenciaSolicitudFuenteAutoridad) UnmarshalXML(*xml.Decoder, xml.StartElement) error
 
 type RegistroAuditoriaCobro struct {
 	ID                          string
@@ -4825,6 +5788,18 @@ ErrInstantaneaAutorizacionObsoleta y no inserta nada. Una concesion no es
 valida hasta completar este registro.
 
 ```go
+type RegistroDecisionesAutorizacionSolicitudLigadaV2 interface {
+	RegistrarDecisionSolicitudLigadaV2SiInstantaneaVigente(
+		context.Context,
+		OrdenRegistroDecisionAutorizacionSolicitudLigadaV2,
+	) error
+}
+```
+
+RegistroDecisionesAutorizacionSolicitudLigadaV2 nunca acepta V1. El nombre
+distinto obliga a seleccionar de forma visible el esquema durable.
+
+```go
 type RegistroDecisionesReglaFlujo interface {
 	RegistrarDecisionReglaFlujo(context.Context, domain.DecisionReglaFlujo, domain.AuditEntry, domain.Event) error
 	ObtenerDecisionReglaFlujo(context.Context, string) (domain.DecisionReglaFlujo, error)
@@ -4850,6 +5825,13 @@ Su almacen productivo debe ser append-only y estar separado del registro de
 concesiones.
 
 ```go
+type RegistroDenegacionesAutorizacionSolicitudLigadaV2 interface {
+	RegistrarDenegacionAutorizacionSolicitudLigadaV2(
+		context.Context,
+		OrdenRegistroDecisionAutorizacionSolicitudLigadaV2,
+	) error
+}
+
 type RegistroEfectosGeneracionDocumental interface {
 	ReservarEfectoGeneracionDocumental(
 		context.Context,
@@ -5541,6 +6523,62 @@ func (r ResultadoConsultaEfectoDocumentalV3Crudo) ValidarContra(
 	s SolicitudConsultarEfectoDocumentalV3,
 ) error
 
+type ResultadoConsultaFuenteAutoridad string
+
+func (r ResultadoConsultaFuenteAutoridad) Valido() bool
+
+type ResultadoConsultaInternaFuenteAutoridad struct {
+	Encontrada bool
+	Fuente     domain.FuenteAutoridadVersionada
+	Estado     ReferenciaEstadoFuenteAutoridad
+	Recibo     ReciboConsultaInternaFuenteAutoridad
+	// Has unexported fields.
+}
+
+func (r ResultadoConsultaInternaFuenteAutoridad) ClonarPara(
+	solicitud SolicitudConsultaInternaGobernadaFuenteAutoridad,
+) (ResultadoConsultaInternaFuenteAutoridad, error)
+
+func (b ResultadoConsultaInternaFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (b ResultadoConsultaInternaFuenteAutoridad) GoString() string
+
+func (*ResultadoConsultaInternaFuenteAutoridad) GobDecode([]byte) error
+
+func (ResultadoConsultaInternaFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (b ResultadoConsultaInternaFuenteAutoridad) LogValue() slog.Value
+
+func (ResultadoConsultaInternaFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (ResultadoConsultaInternaFuenteAutoridad) MarshalCBOR() ([]byte, error)
+
+func (ResultadoConsultaInternaFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (ResultadoConsultaInternaFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (ResultadoConsultaInternaFuenteAutoridad) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (ResultadoConsultaInternaFuenteAutoridad) MarshalYAML() (any, error)
+
+func (ResultadoConsultaInternaFuenteAutoridad) String() string
+
+func (*ResultadoConsultaInternaFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*ResultadoConsultaInternaFuenteAutoridad) UnmarshalCBOR([]byte) error
+
+func (*ResultadoConsultaInternaFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*ResultadoConsultaInternaFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*ResultadoConsultaInternaFuenteAutoridad) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*ResultadoConsultaInternaFuenteAutoridad) UnmarshalYAML(func(any) error) error
+
+func (r ResultadoConsultaInternaFuenteAutoridad) ValidarPara(
+	solicitud SolicitudConsultaInternaGobernadaFuenteAutoridad,
+) error
+
 type ResultadoConsumoReciboCargaDirecta struct {
 	IndiceHMAC               string
 	GrupoHMAC                string
@@ -6055,6 +7093,31 @@ func (*SeleccionPlanMaterialAlmacenV2) UnmarshalJSON([]byte) error
 
 func (*SeleccionPlanMaterialAlmacenV2) UnmarshalText([]byte) error
 
+type SelectorOperacionFuenteAutoridad struct {
+	OperacionRef string
+}
+```
+
+SelectorOperacionFuenteAutoridad permite validar una referencia recibida
+antes de consultar el repositorio. No concede acceso ni acredita que la
+operacion exista.
+
+```go
+func (s SelectorOperacionFuenteAutoridad) Validar() error
+
+type SelectorVersionFuenteAutoridad struct {
+	FuenteID string
+	Version  uint64
+}
+```
+
+SelectorVersionFuenteAutoridad identifica una fila exacta para tareas de
+gobierno. No equivale a una referencia consumible: esta ultima incorpora
+tambien la huella del contenido.
+
+```go
+func (s SelectorVersionFuenteAutoridad) Validar() error
+
 type SelladorDatosDocumento interface {
 	SellarDatos(context.Context, []byte) (string, error)
 }
@@ -6536,6 +7599,60 @@ func (*SolicitudAtestarMaterialAlmacenV2) UnmarshalJSON([]byte) error
 
 func (*SolicitudAtestarMaterialAlmacenV2) UnmarshalText([]byte) error
 
+type SolicitudComprobarActoFuenteAutoridad struct {
+	Solicitud      domain.SolicitudTransicionFuenteAutoridadV1
+	EstadoEsperado ReferenciaEstadoFuenteAutoridad
+	ComprobarEn    time.Time
+	// Has unexported fields.
+}
+```
+
+SolicitudComprobarActoFuenteAutoridad contiene la solicitud de dominio
+exacta y el snapshot OCC que la produjo. El adaptador recibe este valor
+desde aplicacion; nunca lo reconstruye con datos de un callback.
+
+```go
+func (s SolicitudComprobarActoFuenteAutoridad) Clonar() (
+	SolicitudComprobarActoFuenteAutoridad,
+	error,
+)
+
+func (s SolicitudComprobarActoFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (s SolicitudComprobarActoFuenteAutoridad) GoString() string
+
+func (*SolicitudComprobarActoFuenteAutoridad) GobDecode([]byte) error
+
+func (SolicitudComprobarActoFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (s SolicitudComprobarActoFuenteAutoridad) LogValue() slog.Value
+
+func (SolicitudComprobarActoFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (SolicitudComprobarActoFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (SolicitudComprobarActoFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (SolicitudComprobarActoFuenteAutoridad) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (SolicitudComprobarActoFuenteAutoridad) String() string
+
+func (*SolicitudComprobarActoFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*SolicitudComprobarActoFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*SolicitudComprobarActoFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*SolicitudComprobarActoFuenteAutoridad) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (s SolicitudComprobarActoFuenteAutoridad) Validar() error
+
 type SolicitudComprobarOrdenDespachoDocumentalV3 struct {
 	// Has unexported fields.
 }
@@ -6724,6 +7841,86 @@ type SolicitudConfirmarTransicionOrdenCobro struct {
 }
 
 func (s SolicitudConfirmarTransicionOrdenCobro) Validar() error
+
+type SolicitudConsultaInternaGobernadaFuenteAutoridad struct {
+	// Has unexported fields.
+}
+
+func NuevaSolicitudConsultaInternaGobernadaFuenteAutoridad(
+	selector SelectorVersionFuenteAutoridad,
+	autorizacion EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
+	auditoria domain.AuditEntry,
+	motivoCatalogo domain.ReferenciaEntradaCatalogo,
+	correlacion domain.ReferenciaCorrelacionAutorizacionV2,
+	solicitadaEn time.Time,
+) (SolicitudConsultaInternaGobernadaFuenteAutoridad, error)
+
+func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) Auditoria() (domain.AuditEntry, error)
+
+func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) Autorizacion() (
+	EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
+	error,
+)
+
+func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) Correlacion() (
+	domain.ReferenciaCorrelacionAutorizacionV2,
+	error,
+)
+```
+
+Correlacion conserva la capacidad nominal mientras la operacion permanece
+dentro del nucleo. CorrelacionRef revela el valor solo al adaptador durable.
+
+```go
+func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) CorrelacionRef() (string, error)
+
+func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) Format(estado fmt.State, _ rune)
+
+func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) GoString() string
+
+func (*SolicitudConsultaInternaGobernadaFuenteAutoridad) GobDecode([]byte) error
+
+func (SolicitudConsultaInternaGobernadaFuenteAutoridad) GobEncode() ([]byte, error)
+
+func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) LogValue() slog.Value
+
+func (SolicitudConsultaInternaGobernadaFuenteAutoridad) MarshalBinary() ([]byte, error)
+
+func (SolicitudConsultaInternaGobernadaFuenteAutoridad) MarshalCBOR() ([]byte, error)
+
+func (SolicitudConsultaInternaGobernadaFuenteAutoridad) MarshalJSON() ([]byte, error)
+
+func (SolicitudConsultaInternaGobernadaFuenteAutoridad) MarshalText() ([]byte, error)
+
+func (SolicitudConsultaInternaGobernadaFuenteAutoridad) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (SolicitudConsultaInternaGobernadaFuenteAutoridad) MarshalYAML() (any, error)
+
+func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) MotivoCatalogo() (
+	domain.ReferenciaEntradaCatalogo,
+	error,
+)
+
+func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) Selector() (
+	SelectorVersionFuenteAutoridad,
+	error,
+)
+
+func (s SolicitudConsultaInternaGobernadaFuenteAutoridad) SolicitadaEn() (time.Time, error)
+
+func (SolicitudConsultaInternaGobernadaFuenteAutoridad) String() string
+
+func (*SolicitudConsultaInternaGobernadaFuenteAutoridad) UnmarshalBinary([]byte) error
+
+func (*SolicitudConsultaInternaGobernadaFuenteAutoridad) UnmarshalCBOR([]byte) error
+
+func (*SolicitudConsultaInternaGobernadaFuenteAutoridad) UnmarshalJSON([]byte) error
+
+func (*SolicitudConsultaInternaGobernadaFuenteAutoridad) UnmarshalText([]byte) error
+
+func (*SolicitudConsultaInternaGobernadaFuenteAutoridad) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*SolicitudConsultaInternaGobernadaFuenteAutoridad) UnmarshalYAML(func(any) error) error
 
 type SolicitudConsultarEfectoDocumentalV3 struct {
 	ReservaRef             string
@@ -7990,6 +9187,20 @@ func (*TokenReservaOrdenCobro) UnmarshalXML(*xml.Decoder, xml.StartElement) erro
 
 func (t TokenReservaOrdenCobro) Valido() bool
 
+type ValidadorReferenciaMotivoAutorizacionV2 interface {
+	ValidarReferenciaMotivoAutorizacionV2(
+		context.Context,
+		domain.ReferenciaEntradaCatalogo,
+		time.Time,
+	) error
+}
+```
+
+ValidadorReferenciaMotivoAutorizacionV2 resuelve positivamente una entrada
+contra el catalogo publicado. La validacion estructural de una referencia no
+demuestra su existencia ni evita que un llamador fabrique una huella.
+
+```go
 type ValorCodigoCotejoGenerado struct {
 	Secreto          SecretoCodigoCotejo
 	EntropiaBits     int

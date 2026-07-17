@@ -65,8 +65,10 @@ Probado:
   denegaciones tambien estan implementados y probados. Sus parsers estrictos
   solo producen proyecciones nominales minimizadas, con limites previos a la
   reserva y canonicalidad byte a byte; nunca reconstruyen autoridad. No se
-  montan en produccion. El registro durable V2, el sobre y verificador
-  criptograficos y el consumo atomico del efecto siguen cerrados.
+  montan en produccion. La inspeccion y verificacion COSE Sign1 comun ya esta
+  separada del motor de persistencia y probada, pero es deliberadamente
+  nominal: no gobierna raices, revocacion ni consumo. El registro durable V2,
+  su perfil de confianza y el consumo atomico del efecto siguen cerrados.
 - Primer corte de [contexto canonico de actor](docs/portal_vec/registro_decisiones.md#dec-034--contexto-canonico-de-actor-con-perfil-expreso-y-denegacion-por-defecto):
   cuenta autenticada y perfil expreso resuelven exactamente una persona y sus
   enlaces opacos versionados, sin DNI ni autoridad inferida. Persistencia,

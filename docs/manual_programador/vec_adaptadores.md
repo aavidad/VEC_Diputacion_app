@@ -1014,9 +1014,19 @@ func (a *AlmacenAutorizacionMemoria) RegistrarDecisionSiInstantaneaVigente(
 	decision domain.DecisionAutorizacion,
 ) error
 
+func (a *AlmacenAutorizacionMemoria) RegistrarDecisionSolicitudLigadaV2SiInstantaneaVigente(
+	ctx context.Context,
+	orden ports.OrdenRegistroDecisionAutorizacionSolicitudLigadaV2,
+) error
+
 func (a *AlmacenAutorizacionMemoria) RegistrarDenegacionAutorizacion(
 	ctx context.Context,
 	decision domain.DecisionAutorizacion,
+) error
+
+func (a *AlmacenAutorizacionMemoria) RegistrarDenegacionAutorizacionSolicitudLigadaV2(
+	ctx context.Context,
+	orden ports.OrdenRegistroDecisionAutorizacionSolicitudLigadaV2,
 ) error
 
 func (a *AlmacenAutorizacionMemoria) SembrarAsignacionPerfil(asignacion domain.AsignacionPerfil) error
@@ -1417,7 +1427,42 @@ func (a *AlmacenAutorizacion) RegistrarDecisionSiInstantaneaVigente(
 	ctx context.Context,
 	decision domain.DecisionAutorizacion,
 ) error
+
+type ValidadorReferenciaMotivoPostgreSQLV2 struct {
+	// Has unexported fields.
+}
 ```
+
+ValidadorReferenciaMotivoPostgreSQLV2 comprueba una referencia contra la
+proyeccion historica publicada. Es de solo consulta: no proyecta catalogos,
+no resuelve la vigencia actual y no conserva ni administra conexiones.
+
+La composicion debe proporcionarle un pool exclusivo cuya identidad solo
+pueda ejecutar resolver_motivo_autorizacion_v2_historico. No debe reutilizar
+el pool del almacen V1 ni una identidad con privilegios de proyeccion.
+
+```go
+func NuevoValidadorReferenciaMotivoPostgreSQLV2(
+	pool *pgxpool.Pool,
+	catalogoID string,
+) (*ValidadorReferenciaMotivoPostgreSQLV2, error)
+```
+
+NuevoValidadorReferenciaMotivoPostgreSQLV2 recibe un pool ya creado por la
+composicion. No acepta ni conserva el DSN y no abre ni cierra conexiones.
+
+```go
+func (v *ValidadorReferenciaMotivoPostgreSQLV2) ValidarReferenciaMotivoAutorizacionV2(
+	ctx context.Context,
+	referencia domain.ReferenciaEntradaCatalogo,
+	instante time.Time,
+) error
+```
+
+ValidarReferenciaMotivoAutorizacionV2 resuelve exclusivamente el estado
+que existia en instante. La barrera de vigencia actual de una concesion
+pertenece a la misma transaccion que registra o consume su efecto y no a
+este puerto.
 
 ## Paquete `internal/vec/adapters/postgres/confianzadocumental`
 
@@ -2277,5 +2322,184 @@ GeneradorReferenciasCriptograficas crea identificadores opacos sin incluir
 DNI, nombre, correo ni ninguna clave de negocio.
 
 ```go
+func (GeneradorReferenciasCriptograficas) NuevaClaveMotivoAutorizacionV2(
+	ctx context.Context,
+) (string, error)
+
+func (GeneradorReferenciasCriptograficas) NuevaReferenciaCorrelacionAutorizacionV2(
+	ctx context.Context,
+) (string, error)
+
 func (GeneradorReferenciasCriptograficas) NuevaReferenciaDecisionAutorizacion() (string, error)
+
+func (GeneradorReferenciasCriptograficas) NuevaReferenciaOperacion(
+	ctx context.Context,
+) (ports.ReferenciaOperacionFuenteAutoridad, error)
+
+func (GeneradorReferenciasCriptograficas) NuevaReferenciaSolicitud(
+	ctx context.Context,
+) (ports.ReferenciaSolicitudFuenteAutoridad, error)
 ```
+
+## Paquete `internal/vec/adapters/seguridad/verificacioncose`
+
+> Package verificacioncose aplica el perfil criptografico comun de COSE_Sign1.
+
+Package verificacioncose aplica el perfil criptografico comun de COSE_Sign1.
+Solo comprueba forma canonica y firma contra una clave aportada: no gobierna
+confianza, revocacion, audiencia, vigencia ni consumo de una autorizacion.
+
+### Constantes
+
+```go
+const (
+	TamanoMaximoAbsolutoSobreSign1 = 1024 * 1024
+)
+```
+
+### Variables
+
+```go
+var (
+	ErrSobreSign1Invalido            = errors.New("vec: sobre COSE Sign1 estricto invalido")
+	ErrConfiguracionClaveInvalida    = errors.New("vec: configuracion de clave COSE Sign1 invalida")
+	ErrVerificacionFirmaSign1Fallida = errors.New("vec: verificacion de firma COSE Sign1 fallida")
+	ErrSerializacionCOSEProhibida    = errors.New("vec: serializacion de verificacion COSE Sign1 prohibida")
+)
+```
+
+### Tipos
+
+```go
+type Algoritmo string
+```
+
+Algoritmo es la lista positiva comun. Un protocolo consumidor puede
+restringirla aun mas, pero nunca ampliarla desde datos del sobre.
+
+```go
+const (
+	AlgoritmoEdDSA Algoritmo = "EdDSA"
+	AlgoritmoES256 Algoritmo = "ES256"
+)
+type SobreSign1Estricto struct {
+	// Has unexported fields.
+}
+```
+
+SobreSign1Estricto es una inspeccion nominal e inmutable. No contiene una
+raiz de confianza y superar su construccion no acredita procedencia.
+
+```go
+func InspeccionarSobreSign1(
+	contenido []byte,
+	limite int,
+) (SobreSign1Estricto, error)
+```
+
+InspeccionarSobreSign1 exige CBOR determinista, exactamente alg y kid como
+cabeceras protegidas, ninguna cabecera no protegida y firma canonica. El
+limite pertenece al protocolo consumidor y queda sujeto a un techo absoluto.
+
+```go
+func (s SobreSign1Estricto) Algoritmo() (Algoritmo, error)
+
+func (s SobreSign1Estricto) ClaveID() ([]byte, error)
+
+func (s SobreSign1Estricto) Format(estado fmt.State, _ rune)
+
+func (s SobreSign1Estricto) GoString() string
+
+func (*SobreSign1Estricto) GobDecode([]byte) error
+
+func (SobreSign1Estricto) GobEncode() ([]byte, error)
+
+func (s SobreSign1Estricto) LogValue() slog.Value
+
+func (SobreSign1Estricto) MarshalBinary() ([]byte, error)
+
+func (SobreSign1Estricto) MarshalCBOR() ([]byte, error)
+
+func (SobreSign1Estricto) MarshalJSON() ([]byte, error)
+
+func (SobreSign1Estricto) MarshalText() ([]byte, error)
+
+func (SobreSign1Estricto) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (SobreSign1Estricto) MarshalYAML() (any, error)
+
+func (SobreSign1Estricto) String() string
+
+func (*SobreSign1Estricto) UnmarshalBinary([]byte) error
+
+func (*SobreSign1Estricto) UnmarshalCBOR([]byte) error
+
+func (*SobreSign1Estricto) UnmarshalJSON([]byte) error
+
+func (*SobreSign1Estricto) UnmarshalText([]byte) error
+
+func (*SobreSign1Estricto) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*SobreSign1Estricto) UnmarshalYAML(func(any) error) error
+
+type VerificadorClave struct {
+	// Has unexported fields.
+}
+```
+
+VerificadorClave liga una clave publica clonada a algoritmo y kid.
+Su constructor no convierte esa clave en confiable; esa decision corresponde
+al catalogo privado del protocolo consumidor.
+
+```go
+func NuevoVerificadorClave(
+	claveID []byte,
+	algoritmo Algoritmo,
+	clavePublica crypto.PublicKey,
+) (*VerificadorClave, error)
+
+func (v *VerificadorClave) Format(estado fmt.State, _ rune)
+
+func (v *VerificadorClave) GoString() string
+
+func (*VerificadorClave) GobDecode([]byte) error
+
+func (*VerificadorClave) GobEncode() ([]byte, error)
+
+func (v *VerificadorClave) LogValue() slog.Value
+
+func (*VerificadorClave) MarshalBinary() ([]byte, error)
+
+func (*VerificadorClave) MarshalCBOR() ([]byte, error)
+
+func (*VerificadorClave) MarshalJSON() ([]byte, error)
+
+func (*VerificadorClave) MarshalText() ([]byte, error)
+
+func (*VerificadorClave) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (*VerificadorClave) MarshalYAML() (any, error)
+
+func (*VerificadorClave) String() string
+
+func (*VerificadorClave) UnmarshalBinary([]byte) error
+
+func (*VerificadorClave) UnmarshalCBOR([]byte) error
+
+func (*VerificadorClave) UnmarshalJSON([]byte) error
+
+func (*VerificadorClave) UnmarshalText([]byte) error
+
+func (*VerificadorClave) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*VerificadorClave) UnmarshalYAML(func(any) error) error
+
+func (v *VerificadorClave) Verificar(
+	sobre SobreSign1Estricto,
+	payloadEsperado []byte,
+	aadExterno []byte,
+) error
+```
+
+Verificar comprueba la firma, el payload exacto y el AAD externo exacto.
+No consulta tiempo, revocacion o audiencia y no devuelve una capacidad.

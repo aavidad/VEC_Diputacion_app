@@ -38,9 +38,11 @@ recibe la solicitud vinculada y el sobre criptografico como valores opacos y
 solo devuelve una confirmacion operativa tambien opaca. No expone `pgx`, SQL,
 socket, DSN, claves, raices ni repositorios al nucleo.
 
-La implementacion PostgreSQL, incluida la verificacion COSE, la emision HMAC,
-el cliente de socket Unix y la transaccion SQL, pertenece a
-`internal/vec/adapters/postgres/confianzadocumental`. El corte ofrece el
+La primitiva comun de inspeccion y verificacion COSE pertenece a
+`internal/vec/adapters/seguridad/verificacioncose`: no importa PostgreSQL, no
+elige raices y nunca devuelve autoridad. La configuracion de confianza, reloj,
+revocacion, emision HMAC, cliente de socket Unix y transaccion SQL permanecen
+en `internal/vec/adapters/postgres/confianzadocumental`. El corte ofrece el
 constructor que una raiz de composicion productiva debera inyectar en el caso
 de uso, pero todavia no lo conecta a HTTP, CLI ni MCP;
 `cmd/vec-emisor-capacidad-v4` si compone directamente la parte emisora del
@@ -425,6 +427,17 @@ El parser nominal separado
 las mismas barreras y rechaza expresamente una concesion o el dominio VEC-AD-2.
 Una denegacion temprana puede carecer aun de `garantia_minima`; si ese campo ya
 existe solo admite un nivel del vocabulario gobernado.
+
+El verificador comun `adapters/seguridad/verificacioncose` es reutilizable por
+el conector PostgreSQL actual y por futuros conectores Oracle u otros. Exige
+CBOR determinista, solo `alg` y `kid` protegidos, cero cabeceras no protegidas,
+payload y AAD exactos, EdDSA o ES256 de lista positiva y forma low-S para
+ES256. Copia sobre, `kid` y clave publica, aplica limites antes de interpretar
+y bloquea formateo y codecs. Su resultado de inspeccion sigue siendo nominal:
+el consumidor privado debe cotejar catalogo, audiencia, suite, entorno,
+vigencia y revocacion antes de promoverlo a una capacidad efimera. Para el
+perfil PDP actual ES256 continua sin estar aprobado aunque la primitiva comun
+sepa verificarlo.
 
 El formato Go `VEC-AD-1` actual ya no acepta el antiguo mensaje de 30 campos:
 se cambio el separador de dominio y el vector fijo. No existe lector, fallback
