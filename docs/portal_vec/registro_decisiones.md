@@ -2798,7 +2798,7 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 ## DEC-081 — Calculo oficial de experiencia con fuente exacta y rectificacion
 
 - Fecha: 2026-07-17.
-- Estado: nucleo de dominio, caso de uso, recibo tipado de lectura y
+- Estado: nucleo de dominio, caso de uso, recibo canonico V2 de lectura y
   persistencia inmutable del resultado implantados y probados; composicion
   PostgreSQL completa en **NO-GO productivo**.
 - Identidad del calculo: cada efecto queda fijado por sujeto seudonimizado,
@@ -2815,11 +2815,16 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   `VEC-AD-2`. Una rectificacion solo se admite desde el perfil interno de
   garantia alta. Denegacion, caducidad, mezcla de recurso o correlacion y
   reutilizacion de una decision fallan cerradas.
-- Lectura probatoria: la fuente debe devolver un recibo canonico y opaco que
-  ligue decision y huella V2, recurso y contexto, correlacion, selector,
-  fuente exacta, consumo de prueba, auditoria e instante. El caso de uso lo
-  coteja campo a campo y exige el orden
-  `evidencia verificada <= solicitud <= consumo <= obtencion`.
+- Lectura probatoria: la fuente debe devolver el recibo canonico
+  `vec.bolsa.calculo-experiencia-oficial.recibo-consumo-autorizacion-fuente.v2`.
+  Este liga decision y huella V2, recurso y contexto, correlacion, selector,
+  entrada exacta, fuente, verificador, consumo de prueba, auditoria y los
+  instantes exactos de emision, caducidad, consumo y obtencion. El caso de uso
+  lo coteja campo a campo, exige referencias nominales opacas y roles tecnicos
+  distintos, y aplica el orden
+  `prueba emitida <= solicitud <= consumo <= obtencion <= comprobacion`, con
+  caducidad exclusiva. Mutar la entrada o cualquiera de esos vinculos tras el
+  consumo invalida el calculo.
 - Resultado: alta y rectificacion son efectos inmutables e idempotentes. Una
   rectificacion conserva el predecesor inmediato, no permite ramas ni saltos
   y deja recibo, auditoria encadenada y outbox. Un resultado dudoso tras un
@@ -2831,9 +2836,118 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   aun concede insercion directa al rol de aplicacion: debe sustituirse por una
   unica funcion cerrada antes de componer el runtime productivo.
 - Barreras: la base actual acredita integridad binaria, pero no sustituye los
-  restauradores canonicos Go. Faltan el almacen autoritativo de reglas e
-  instantaneas, la funcion atomica que emita el recibo de lectura, el registro
-  atestado y consumo unico de `VEC-AD-2`, los adaptadores PostgreSQL reales,
+  restauradores canonicos Go. Ya existen, cerrados al runtime, el almacen
+  PostgreSQL autoritativo de reglas y la puerta de registro y consumo unico de
+  `VEC-AD-2`. Faltan la funcion V2 que los componga atomicamente con la
+  instantanea y emita el recibo de lectura, los adaptadores PostgreSQL reales,
   la reconciliacion durable tras reinicio y el conector HSM/KMS con ancla
   antirretroceso. Hasta cerrar y probar esas fronteras, ninguna composicion de
   produccion puede arrancar.
+
+## DEC-082 — Registro atestado VEC-AD-2 separado del efecto de negocio
+
+- Fecha: 2026-07-17.
+- Estado: cimiento PostgreSQL 18 ejecutable y probado, en **NO-GO productivo**
+  hasta disponer de broker Go, HSM/KMS, ancla externa antirretroceso y una
+  funcion del modulo que componga consumo y efecto en el mismo `COMMIT`.
+- Frontera de autoridad: una firma VEC-AD-2 valida no concede por si sola una
+  operacion. La puerta central exige ademas una capacidad HMAC de cinco
+  segundos emitida por un broker aislado y vuelve a ejecutar el registrador
+  nominal, que comprueba asignacion, RBAC/ABAC, sesion, motivo, recurso,
+  finalidad y vigencia actuales. Capacidad, firma y decision son pruebas
+  complementarias, no intercambiables.
+- Atomicidad central: la operacion liga los 39 campos de decision, payload,
+  COSE, verificacion, actor, sujeto seudonimizado, contexto, correlacion,
+  efecto y confianza historica; consume una sola vez nonce y decision, guarda
+  evidencia re-verificable y encadena auditoria. Cualquier error debe abortar
+  la transaccion completa, incluido el registro nominal.
+- Separacion criptografica: la lectura del catalogo publico de confianza, la
+  emision de capacidades y el consumo usan identidades tecnicas y pools
+  distintos. Ninguna cuenta runtime obtiene la clave HMAC ni DML sobre las
+  tablas. La pertenencia a roles sensibles debe ser directa, unica y sin un
+  rol puente que acumule capacidades efectivas.
+- Autoridad viva: revocaciones y rotaciones de autoridad y confianza se
+  coordinan mediante bloqueos y puntos de control mutables. Tras adquirir
+  cualquier espera potencial, la puerta repite en el mismo instante final el
+  cotejo completo de clave, autoridad y confianza, incluidas sus marcas
+  bitemporales de vigencia y conocimiento obtenidas despues de los bloqueos.
+  Una instantanea `SERIALIZABLE` obsoleta debe terminar en error de
+  serializacion, nunca en un consumo aparentemente valido. La insercion
+  nominal que deba ser visible dentro de la misma operacion usa una frontera
+  estrecha con instantanea fresca y reutiliza un unico instante nominal.
+- Gobierno de clave: versiones append-only, puntero monotono, ausencia de
+  secretos duplicados y rechazo de activaciones futuras. El secreto `bytea`
+  del corte de integracion no satisface produccion: debe residir en HSM/KMS o
+  broker institucional con rotacion y borrado aprobados.
+- ACL y trazabilidad: propietario y migrador son `NOLOGIN`; `PUBLIC` no tiene
+  acceso al esquema ni `EXECUTE`; RLS esta forzada y la historia rechaza
+  mutacion y truncado. La cadena local requiere ademas anclaje externo para
+  detectar restauraciones o replicas atrasadas.
+- Limite deliberado: esta puerta acredita y consume autoridad, pero no prueba
+  por si sola que un efecto de Bolsa haya ocurrido. El runtime solo podra
+  invocarla indirectamente desde una funcion propietaria del modulo que cree
+  el efecto, auditoria, outbox y recibo en la misma transaccion. Hasta entonces
+  no se concede su ejecucion a la aplicacion. Si falla la revalidacion final,
+  se revierte tambien cualquier registro nominal creado en esa transaccion.
+
+## DEC-083 — Almacen gobernado de reglas cerrado hasta la composicion V2
+
+- Fecha: 2026-07-17.
+- Estado: modelo durable, migraciones, retirada protegida y pruebas PostgreSQL
+  18 implantados, junto con el plan tipado y canonico Go V2; funciones V1
+  deliberadamente sin permisos runtime y composicion productiva en **NO-GO**.
+- Fuente de verdad: los bytes canonicos de
+  `reglasbaremo.VersionGobernadaReglasBaremo` y su SHA-256 son la autoridad.
+  Referencia, version, revision y estado SQL son proyecciones cotejables, no
+  una segunda implementacion del dominio. Toda lectura real debe restaurarse
+  con el restaurador Go y comparar de nuevo contenido, estado y huellas.
+- Separacion de agregados: el almacen de reglas conserva contenido inmutable,
+  revisiones, puntero CAS, consumos de decision y prueba, intencion confirmada,
+  auditoria y outbox. No comparte tabla ni ciclo de vida con la valoracion de
+  meritos de una persona.
+- Concurrencia e idempotencia: cada cambio nombra estado esperado y resultado
+  exactos; no existe «usar lo vigente». Una intencion identica puede recuperar
+  su mismo recibo mientras se satisfaga el contrato V1; una intencion
+  reutilizada con otro material y un CAS obsoleto fallan cerrados.
+- Cierre de despliegue: RLS forzada, historia append-only, propietario
+  `NOLOGIN`, retirada con confirmacion destructiva explicita y cero `USAGE`,
+  `EXECUTE` o DML para roles runtime. Haber superado las pruebas mecanicas no
+  autoriza a conceder las funciones V1.
+- Motivo del V2: V1 no compone el consumo atestado central con el cambio de
+  reglas, revalida antes de todas las esperas, admite referencias tecnicas
+  demasiado genericas y no puede reconciliar un `COMMIT` ambiguo despues de
+  caducar la autorizacion original. Estas limitaciones no se parchean abriendo
+  V1: se crea una frontera V2 nueva.
+- Cimiento Go V2: las operaciones de alta, publicacion, activacion,
+  sustitucion, retirada y descarte producen un manifiesto canonico de efecto
+  propuesto. Liga version y huellas exactas, CAS, evidencia incorporada,
+  principal de `ContextoActor`, motivo del catalogo VEC, correlacion, instante
+  de negocio, modulo, recurso, perfil `interno_alto` y los ambitos opacos
+  `rgl_<128 bits>`, `con_<128 bits>` y `exp_<128 bits>`. No es autorizacion,
+  atestacion, capacidad, orden ejecutable ni recibo.
+- Invariantes ejecutables V2: el material canonico compromete resolucion de
+  alcance en servidor, verificador confiable de evidencia, decision VEC V2
+  consumible, consumo atestado VEC-AD-2, reloj autoritativo y frescura,
+  transaccion `SERIALIZABLE` y creacion atomica de contenido, version, CAS,
+  evidencia, consumo, auditoria, outbox y recibo en el mismo `COMMIT`. El
+  recibo se genera al confirmar; el plan no anticipa su identidad.
+- Consulta exacta: el descriptor de consulta solo puede sellarse dentro del
+  paquete de aplicacion despues de resolver un indice o recibo durable en el
+  servidor. El adaptador debe cotejar vinculo e identidad contra la misma fila;
+  un cliente no puede aportar convocatoria, expediente o alcance libremente.
+- Integracion hexagonal: Bolsa consume el contrato de autoridad del kernel VEC
+  como nucleo compartido, sin depender de HTTP, SQL ni otros adaptadores. Los
+  validadores sintacticos de principal se mantienen por ahora duplicados para
+  no abrir construccion libre; deben unificarse sin ampliar la API antes del
+  GO productivo.
+- Reconciliacion: una consulta separada y minimizada observa una intencion
+  anterior por su identidad material exacta; nunca vuelve a ejecutar el
+  cambio ni reutiliza la decision consumida. Recuperar bytes de reglas requiere
+  una nueva consulta autorizada, aunque el recibo del cambio pueda cotejarse
+  tras expirar la autorizacion inicial.
+- Barreras restantes: faltan el resolvedor durable de alcance y misma fila, el
+  verificador de evidencia, el adaptador y funcion SQL V2 atomicos, consumo real
+  de VEC-AD-2, reloj autoritativo, restauracion y reconciliacion de plan/recibo,
+  broker Go, HSM/KMS y ancla externa antirretroceso. Antes de desplegar la nueva
+  gramatica opaca debe demostrarse que no existen filas canonicas V1 o ejecutar
+  una migracion/versionado explicitos; nunca se reinterpretaran en silencio.
