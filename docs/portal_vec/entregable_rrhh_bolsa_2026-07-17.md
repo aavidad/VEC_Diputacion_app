@@ -33,6 +33,7 @@ La superficie se divide sin herramienta de compilación en piezas cohesionadas:
   impresión;
 - `portal.js`: contrato, carga cerrada y vistas;
 - `portal-contrato.js`: validación pura de envelopes, panel y propuestas;
+- `portal-panel-interno.js`: presentación exclusiva del agregado seguro real;
 - `portal-eventos.js`: interacción sin decisiones de negocio;
 - `datos-presentacion.js`: único adaptador sintético, cargado solo de forma
   explícita;
@@ -79,6 +80,24 @@ Además, el servidor exige la activación explícita
 `VEC_RRHH_PRESENTATION_ENABLED=true`. La opción parte deshabilitada y, sin
 ella, `datos-presentacion.js` responde `404` incluso aunque alguien conozca la
 URL. La ruta normal y el resto de recursos definitivos permanecen disponibles.
+
+### Bolsa pública
+
+`/bolsa/`
+
+La zona anónima conserva una navegación propia, pero no hereda enlaces del
+Portal del Empleado ni del backoffice. El menú lateral solo permite acceder a
+convocatorias, búsqueda, categorías profesionales y ayuda pública. En
+pantallas estrechas se transforma en una cabecera compacta de dos columnas; no
+desaparece. Esta separación evita presentar accesos internos sin sacrificar la
+orientación ni la coherencia visual.
+
+La consulta sigue identificada como demostración mientras su fuente no sea una
+publicación oficial. El menú, el logotipo institucional, la adaptación móvil,
+el alto contraste y la ayuda son componentes definitivos. El cambio se
+incorporó en `29afe4d` y cuenta con una prueba específica que impide introducir
+en esta superficie enlaces a Cronos, Nóminas, Dietas, Administración o
+Auditoría interna.
 
 ## Inventario exhaustivo de elementos temporales
 
@@ -149,7 +168,8 @@ autorización vigente y trazabilidad atómica.
 | Consulta pública de convocatorias y categorías | Operativa extremo a extremo con fuente sintética y aviso DEMO en `/bolsa/` | Publicación oficial desde un expediente interno |
 | Portal del Empleado antiguo | Carcasa, perfiles, menús y numerosas vistas reutilizables | Portal privado estable: `/api/vec/workspace` falla cerrado sin ámbito resuelto |
 | Elaboración de bolsa histórica | Formulario visual que guardaba en `localStorage`; dominio nuevo de convocatoria gobernada | Persistencia, API, firma y publicación oficiales |
-| Llamamientos | Dominio y caso de uso avanzados, con orden, elegibilidad, autorización y pruebas | PostgreSQL, API, interfaz conectada y envío real |
+| Panel interno de Bolsa | Dominio, servicio de aplicación, contrato agregado sin datos personales, consulta PostgreSQL y pruebas de integración | Endpoint compuesto, identidad interna real, autoridad COSE de ejecución y productor de la proyección |
+| Llamamientos | Dominio y caso de uso probados; el comando de persistencia transporta la instantánea completa y el esquema PostgreSQL V1 conserva auditoría y outbox | El adaptador PostgreSQL permanece cerrado hasta disponer de contrato SQL atómico V2, fuente autoritativa, motor publicado, autoridad COSE, API y confirmación/envío real |
 | Integrantes/candidatos | Flujo propio del aspirante en API `fake`; datos de catálogo disponibles | Listado administrativo productivo y orden durable de bolsa |
 | Autobaremación | Flujo de demostración heredado y núcleo nuevo de baremación avanzado | Reglas configurables de RRHH conectadas extremo a extremo |
 | Revisión firmada de baremación | Dominio, aplicación y PostgreSQL avanzados | Composición en servidor, API e interfaz operativa |
@@ -158,31 +178,31 @@ autorización vigente y trazabilidad atómica.
 | Comunicaciones | Creación/listado parcial de avisos en modo `fake` | Entrega, acuse, Telegram, correo o notificación fehaciente conectados |
 | Auditoría | Auditoría heredada parcial y registro probatorio en baremación | Trazabilidad unificada de elaboración, llamamientos y comunicaciones |
 
-## Contrato de lectura definitivo previsto
+## Contrato de lectura seguro implementado
 
 La pantalla normal espera el envelope `{ "data": { ... } }`; dentro de `data`
-debe existir una proyección interna con esquema `vec.bolsa.panel.v1`. Una raíz
-raw se rechaza aunque contenga campos aparentemente válidos. La respuesta debe
-contener:
+debe existir la proyección interna mínima
+`vec.bolsa.panel.interno.v1`. Una raíz raw se rechaza aunque contenga campos
+aparentemente válidos. El contrato Go ya implementado contiene:
 
-- `sesion`: nombre visible, iniciales y perfil ya resuelto;
-- `indicadores`, `distribucion_global` y `series`:
-  agregados ya calculados y limitados al ámbito autorizado;
-- `avisos`: proyección mínima de avisos que la sesión puede consultar;
-- `configuracion_llamamiento` y `catalogos_llamamiento`: valores gobernados por
-  la versión de bases y catálogos, nunca listas decisorias incrustadas en el
-  cliente;
-- `bolsas`: solo bolsas accesibles al ámbito del técnico;
-- `necesidades_llamamiento`: referencias, condiciones, destino y bolsa
-  aplicable de necesidades accesibles, sin datos de personas;
-- `capacidades`: permisos positivos calculados por el servidor; la ausencia o
-  el valor `false` mantiene deshabilitado el comando correspondiente;
-- `elaboraciones`: expedientes de convocatoria asignados;
-- `proximos`: llamamientos programados dentro del ámbito;
-- `actividad`: eventos funcionales minimizados que el rol pueda consultar;
-- `contratos`, `reglas`, `documentos` y `canales`: proyecciones autorizadas de
-  las bandejas auxiliares;
-- `auditoria`: referencia opaca de la proyección trazable.
+- `selector`: organización o unidad de gestión exacta autorizada, nunca un
+  comodín;
+- `origen`: revisión, fecha de actualización y `demostracion: false`;
+- `prueba_lectura`: referencias opacas de lectura, decisión y auditoría
+  confirmadas;
+- doce `indicadores` agregados de convocatorias, bolsas, llamamientos,
+  documentos e incidencias;
+- `convocatorias`: referencias y claves gobernadas, sin datos de personas;
+- `actuaciones_pendientes`: trabajo administrativo agregado, sin actor ni
+  interesado.
+
+Las colecciones más amplias de la presentación —bolsas destacadas, contratos,
+reglas, documentos, canales, series y actividad— no forman parte de esta
+primera proyección segura. La aplicación real debe marcarlas como no disponibles
+hasta disponer de consultas autorizadas; no debe convertir su ausencia en
+ceros ni listas vacías que aparenten datos reales. La identidad visible de la
+sesión se proyectará por una frontera separada y no se mezclará con el agregado
+de Bolsa.
 
 El servidor debe devolver `demostracion: false`. La interfaz rechaza de forma
 explícita una fuente que intente mezclar datos de demostración en la ruta
@@ -214,9 +234,9 @@ reintroducir los literales conocidos fuera del adaptador aislado.
 | Pantalla | Base reutilizable existente | Corte real siguiente |
 | --- | --- | --- |
 | Portada | Registro de módulos y manifiestos VEC | Habilitación administrable por despliegue y rol, no lista fija del navegador |
-| Cuadro de mando | Catálogo profesional y consulta pública | Proyección interna paginada y autorizada |
+| Cuadro de mando | Dominio, aplicación y consulta PostgreSQL de `vec.bolsa.panel.interno.v1` | Identidad interna, autoridad COSE, publicador de proyección y adaptador HTTP dedicados |
 | Elaboración | `domain/convocatoria_gobernada*.go` | Repositorio PostgreSQL, aplicación, HTTP y composición |
-| Llamamientos | `application/llamamientos.go` y sus pruebas | Adaptador PostgreSQL, fachada HTTP interna y composición |
+| Llamamientos | `application/llamamientos.go`, comando indivisible con instantánea completa y esquema PostgreSQL V1 cerrado | Fuente y motor autoritativos, guardado SQL completo V2, fachada HTTP interna y composición |
 | Contratos/ceses | Estados de elegibilidad del núcleo de llamamientos | Agregado de relación temporal y eventos que recalculan disponibilidad |
 | Reglas | Estudios de baremación configurable y dominio de convocatoria | Catálogo versionado, editor, simulación, aprobación y publicación firmada |
 | Consulta candidato | `/bolsa/` y API pública | Zona privada propia separada de la gestión interna |
@@ -316,6 +336,21 @@ No se usa hotlink ni se presenta el favicon genérico de VEC como marca oficial.
 La prueba de interfaz comprueba además que el SVG no contiene `script`,
 `foreignObject` ni manejadores `onload`.
 
+## Autoridad criptográfica y motivo del cierre actual
+
+El formato canónico VEC-AD-2, el servicio de atestación, el COSE Sign1 de
+payload separado y el verificador Ed25519 estricto ya están implementados y
+probados. No es correcto describir esta parte como ausente.
+
+Lo que falta es la autoridad de ejecución productiva: catálogo PostgreSQL
+versionado de confianza, firmante HSM/KMS o proceso aislado, broker por socket
+Unix, capacidad efímera de un solo uso, registradores específicos para panel y
+llamamientos, y revalidación central de revocación dentro del mismo `COMMIT`
+que produce el efecto. Hasta completar esa cadena, las funciones PostgreSQL
+permanecen correctamente sin permiso `EXECUTE` y los endpoints internos no se
+montan. Una verificación local acredita integridad criptográfica, pero por sí
+sola no concede autoridad para alterar o consultar datos administrativos.
+
 ## Criterio para retirar el adaptador de presentación
 
 `datos-presentacion.js` se podrá retirar del artefacto productivo cuando:
@@ -335,14 +370,17 @@ política de empaquetado probada.
 
 ## Prioridad de implementación después de la presentación
 
-1. Proyección de lectura real del cuadro de mando.
-2. Persistencia y API de elaboración de convocatorias.
-3. Persistencia y API de llamamientos, empezando por propuesta de solo lectura.
-4. Confirmación atómica del llamamiento y trazabilidad.
-5. Respuestas, renuncias, contratos, ceses y reincorporaciones.
-6. Documentos, firmas, publicación y comunicaciones fehacientes.
-7. Estadísticas y explotación con anonimización aprobada.
+1. Completar la autoridad compartida COSE V2 y mantenerla cerrada por defecto.
+2. Componer la proyección PostgreSQL real del cuadro de mando con identidad
+   interna, PDP y motivo catalogado.
+3. Completar fuente, motor y transacción autoritativos de llamamientos.
+4. Persistencia y API de elaboración de convocatorias.
+5. Confirmación atómica del llamamiento y trazabilidad.
+6. Respuestas, renuncias, contratos, ceses y reincorporaciones.
+7. Documentos, firmas, publicación y comunicaciones fehacientes.
+8. Estadísticas y explotación con anonimización aprobada.
 
-La línea de confianza/atestación no prioritaria quedó preservada, sin activarse,
-en el commit `fd6e0ef` y en
-`docs/portal_vec/relevo_confianza_atestacion_v2_2026-07-17.md`.
+El relevo técnico de confianza se conserva en
+`docs/portal_vec/relevo_confianza_atestacion_v2_2026-07-17.md`; debe leerse
+junto con el estado actualizado de este entregable y no como autorización para
+abrir las funciones SQL.
