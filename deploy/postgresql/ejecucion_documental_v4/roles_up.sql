@@ -11,6 +11,19 @@ DO $prevalidacion$
 DECLARE
     encontrados text[];
 BEGIN
+    -- CREATEROLE y la propiedad de la base no equivalen a autoridad de
+    -- bootstrap. Se comprueba antes de inspeccionar dependencias y, sobre
+    -- todo, antes de crear el primer rol u objeto gobernado.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_roles
+         WHERE rolname = current_user
+           AND rolsuper IS TRUE
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'bootstrap documental V4 rechazado: requiere superusuario';
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1
           FROM pg_catalog.pg_extension AS extension
