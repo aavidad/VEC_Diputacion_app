@@ -128,4 +128,57 @@ psql_archivo deploy/postgresql/bolsa_panel/migraciones/000001_proyeccion_panel.d
 psql_archivo deploy/postgresql/bolsa_panel/migraciones_autorizacion/000001_revalidacion_panel_v2.down.sql
 psql_archivo deploy/postgresql/bolsa_panel/roles_down.sql
 
+# Segunda instalacion efimera: carrera controlada entre dos sesiones. Se deja
+# sin down porque contiene historia sintetica inmutable y el contenedor se
+# destruye inmediatamente; el ciclo limpio de down ya se verifico arriba.
+psql_archivo deploy/postgresql/bolsa_panel/roles_up.sql
+psql_archivo deploy/postgresql/bolsa_panel/migraciones_autorizacion/000001_revalidacion_panel_v2.up.sql
+psql_archivo deploy/postgresql/bolsa_panel/migraciones/000001_proyeccion_panel.up.sql
+psql_archivo deploy/postgresql/bolsa_panel/migraciones/000002_publicador_proyeccion.up.sql
+psql_archivo deploy/postgresql/bolsa_panel/migraciones/000003_consulta_panel_cerrada.up.sql
+psql_archivo deploy/postgresql/bolsa_panel/pruebas_sql/preparar_concurrencia_expiracion.sql
+
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+    < "$raiz/deploy/postgresql/bolsa_panel/pruebas_sql/retener_bloqueo_expiracion.sql" \
+    >/dev/null 2>&1 &
+retenedor=$!
+
+bloqueo_detectado=false
+for _ in $(seq 1 100); do
+    resultado_bloqueo=$(docker exec "$contenedor" psql -X --no-align \
+        --tuples-only --set ON_ERROR_STOP=1 --username postgres \
+        --dbname "$base" \
+        --command 'SELECT pg_try_advisory_lock(726163849201)')
+    if [[ $resultado_bloqueo == f ]]; then
+        bloqueo_detectado=true
+        break
+    fi
+    sleep 0.1
+done
+if [[ $bloqueo_detectado != true ]]; then
+    wait "$retenedor" || true
+    echo 'no se pudo confirmar el bloqueo concurrente' >&2
+    exit 1
+fi
+
+set +e
+salida_expiracion=$(docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+    < "$raiz/deploy/postgresql/bolsa_panel/pruebas_sql/consultar_con_bloqueo_expirado.sql" \
+    2>&1)
+estado_expiracion=$?
+set -e
+wait "$retenedor"
+if [[ $estado_expiracion -eq 0 ]]; then
+    echo 'la consulta confirmo con una hora anterior al bloqueo' >&2
+    exit 1
+fi
+if [[ $salida_expiracion != *'atestacion caducada durante la espera'* ]]; then
+    echo 'la carrera fallo por una causa distinta de la expiracion fresca' >&2
+    echo "$salida_expiracion" >&2
+    exit 1
+fi
+psql_archivo deploy/postgresql/bolsa_panel/pruebas_sql/verificar_bloqueo_expirado.sql
+
 echo 'integracion PostgreSQL del panel interno de bolsas: OK'

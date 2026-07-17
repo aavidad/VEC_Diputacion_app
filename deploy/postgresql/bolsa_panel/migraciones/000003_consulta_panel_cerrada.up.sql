@@ -44,6 +44,7 @@ DECLARE
     v_recurso_ref text;
     v_consultada_en timestamptz;
     v_verificada_en timestamptz;
+    v_prebloqueo timestamptz;
     v_ahora timestamptz;
     v_motivo jsonb;
     v_referencia_motivo jsonb;
@@ -218,9 +219,11 @@ BEGIN
         sha256(convert_to(p_operacion::text, 'UTF8')), 'hex'
     );
     v_huella_motivo := encode(sha256(p_motivo_canonico), 'hex');
-    v_ahora := clock_timestamp();
-    IF v_ahora < v_consultada_en
-       OR v_ahora - v_consultada_en > interval '30 seconds'
+    -- Este instante sirve solo como rechazo temprano. Nunca fecha un efecto:
+    -- las comprobaciones que siguen pueden esperar bloqueos ajenos.
+    v_prebloqueo := clock_timestamp();
+    IF v_prebloqueo < v_consultada_en
+       OR v_prebloqueo - v_consultada_en > interval '30 seconds'
        OR v_consultada_en < v_verificada_en THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'ventana temporal de consulta invalida';
@@ -228,7 +231,8 @@ BEGIN
 
     IF vec_autorizacion.revalidar_decision_panel_bolsa_v2(
            p_prueba, p_decision_canonica, p_motivo_canonico,
-           p_correlacion_ref, v_recurso_ref, v_huella_contexto, v_ahora
+           p_correlacion_ref, v_recurso_ref, v_huella_contexto,
+           v_prebloqueo
        ) IS NOT TRUE THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'autorizacion V2 del panel no revalidada';
@@ -236,7 +240,11 @@ BEGIN
 
     SELECT version_atestacion.atestacion_ref,
            version_atestacion.version,
-           version_atestacion.huella_evidencia_sha256
+           version_atestacion.estado,
+           version_atestacion.huella_decision_sha256,
+           version_atestacion.huella_evidencia_sha256,
+           version_atestacion.valida_desde,
+           version_atestacion.valida_hasta
       INTO v_atestacion
       FROM vec_bolsa_panel.atestacion_autorizacion_actual AS actual
       JOIN vec_bolsa_panel.atestacion_autorizacion_version AS version_atestacion
@@ -248,8 +256,8 @@ BEGIN
        AND actual.estado = 'activa'
        AND version_atestacion.huella_decision_sha256 =
            p_prueba ->> 'huella_decision_sha256'
-       AND v_ahora >= version_atestacion.valida_desde
-       AND v_ahora < version_atestacion.valida_hasta
+       AND v_prebloqueo >= version_atestacion.valida_desde
+       AND v_prebloqueo < version_atestacion.valida_hasta
      FOR SHARE OF actual, version_atestacion;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
@@ -277,6 +285,33 @@ BEGIN
            OR v_existente.unidad_gestion_ref <> v_unidad THEN
             RAISE EXCEPTION USING ERRCODE = '23505',
                 MESSAGE = 'decision ya consumida para otro efecto';
+        END IF;
+        -- Un reintento no crea efecto, pero tampoco puede recuperar el panel
+        -- con una capacidad, sesion o atestacion ya caducadas.
+        v_ahora := clock_timestamp();
+        IF vec_autorizacion.revalidar_decision_panel_bolsa_v2(
+               p_prueba, p_decision_canonica, p_motivo_canonico,
+               p_correlacion_ref, v_recurso_ref, v_huella_contexto,
+               v_ahora
+           ) IS NOT TRUE THEN
+            RAISE EXCEPTION USING ERRCODE = '42501',
+                MESSAGE = 'autorizacion V2 caducada durante la espera';
+        END IF;
+        IF v_ahora < v_consultada_en
+           OR v_ahora - v_consultada_en > interval '30 seconds'
+           OR v_ahora < v_verificada_en
+           OR v_ahora - v_verificada_en > interval '30 seconds'
+           OR v_consultada_en < v_verificada_en THEN
+            RAISE EXCEPTION USING ERRCODE = '22023',
+                MESSAGE = 'solicitud caducada durante la espera';
+        END IF;
+        IF v_atestacion.estado <> 'activa'
+           OR v_atestacion.huella_decision_sha256 <>
+              p_prueba ->> 'huella_decision_sha256'
+           OR v_ahora < v_atestacion.valida_desde
+           OR v_ahora >= v_atestacion.valida_hasta THEN
+            RAISE EXCEPTION USING ERRCODE = '42501',
+                MESSAGE = 'atestacion caducada durante la espera';
         END IF;
         panel_canonico := v_existente.panel_canonico;
         RETURN NEXT;
@@ -323,6 +358,34 @@ BEGIN
       FROM vec_bolsa_panel.auditoria_actual
      WHERE control_id = true
      FOR UPDATE;
+
+    -- Ya se conservan los bloqueos de decision/configuracion V2, motivo,
+    -- sesion/actor, atestacion, proyeccion y checkpoint. Solo este instante
+    -- fresco puede fechar o autorizar los efectos que siguen.
+    v_ahora := clock_timestamp();
+    IF vec_autorizacion.revalidar_decision_panel_bolsa_v2(
+           p_prueba, p_decision_canonica, p_motivo_canonico,
+           p_correlacion_ref, v_recurso_ref, v_huella_contexto, v_ahora
+       ) IS NOT TRUE THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'autorizacion V2 caducada durante la espera';
+    END IF;
+    IF v_ahora < v_consultada_en
+       OR v_ahora - v_consultada_en > interval '30 seconds'
+       OR v_ahora < v_verificada_en
+       OR v_ahora - v_verificada_en > interval '30 seconds'
+       OR v_consultada_en < v_verificada_en THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'solicitud caducada durante la espera';
+    END IF;
+    IF v_atestacion.estado <> 'activa'
+       OR v_atestacion.huella_decision_sha256 <>
+          p_prueba ->> 'huella_decision_sha256'
+       OR v_ahora < v_atestacion.valida_desde
+       OR v_ahora >= v_atestacion.valida_hasta THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'atestacion caducada durante la espera';
+    END IF;
     v_secuencia := v_secuencia + 1;
     v_lectura_ref := 'lec_' || encode(sha256(convert_to(
         'lectura:' || (p_prueba ->> 'decision_ref') || ':' ||

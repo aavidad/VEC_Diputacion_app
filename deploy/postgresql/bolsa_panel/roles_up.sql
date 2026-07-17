@@ -32,7 +32,9 @@ BEGIN
             MESSAGE = 'falta el nucleo de autorizacion requerido';
     END IF;
 
-    SELECT array_agg(rolname::text ORDER BY rolname)
+    SELECT array_agg(
+               rolname::text ORDER BY rolname::text COLLATE "C"
+           )
       INTO encontrados
       FROM pg_catalog.pg_roles
      WHERE rolname = ANY (ARRAY[

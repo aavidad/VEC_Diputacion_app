@@ -108,9 +108,14 @@ La frontera de autorización vuelve a comprobar en la transacción:
 - sesión y `ContextoActor` actuales;
 - ventanas máximas de 30 segundos con reloj autoritativo de PostgreSQL.
 
-Después exige una atestación activa, lee la proyección, bloquea el checkpoint
-de auditoría, inserta el eslabón y el consumo y devuelve el panel. Cualquier
-fallo revierte el conjunto completo.
+Después exige una atestación activa, lee y bloquea la proyección y bloquea el
+checkpoint de auditoría. La primera revalidación solo adquiere y conserva los
+bloqueos de decisión, configuración, motivo y sesión. Tras obtener todos los
+bloqueos se toma un nuevo `clock_timestamp()`, se repite la revalidación V2 y
+se vuelven a comprobar las ventanas de solicitud y atestación. Ese único
+instante fresco fecha auditoría, recibo y consumo. Así, una espera concurrente
+no puede confirmar con una hora anterior a la caducidad. Cualquier fallo
+revierte el conjunto completo.
 
 ## Recibo, replay y auditoría
 
@@ -152,7 +157,11 @@ resuelven objetos controlados por el llamador.
 
 La prueba usa PostgreSQL 18.4 fijado por digest, instala todas las
 dependencias, verifica RLS y ACL con identidades LOGIN distintas, publica una
-proyección real a través del único puerto y recorre ascenso y descenso.
+proyección real a través del único puerto y recorre ascenso y descenso. Una
+segunda instalación abre dos sesiones de prueba: una retiene la atestación
+hasta cruzar su caducidad y la otra intenta consultar. Se exige el rechazo por
+la hora fresca y se demuestra que no aparecen consumo, auditoría ni avance de
+checkpoint.
 
 Para probar composición, recibo, idempotencia y cadena sin fingir una
 autoridad productiva, una prueba SQL sustituye temporalmente la frontera de

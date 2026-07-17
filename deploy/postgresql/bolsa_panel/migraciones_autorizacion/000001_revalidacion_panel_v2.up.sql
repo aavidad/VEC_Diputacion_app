@@ -281,7 +281,9 @@ BEGIN
        AND c ->> 'modulo_id' = 'bolsa'
        AND c ->> 'tipo_recurso' = 'panel_interno_agregado'
        AND COALESCE(c -> 'obligaciones', '[]'::jsonb) = '[]'::jsonb
-       AND (SELECT COALESCE(jsonb_agg(valor ORDER BY valor), '[]'::jsonb)
+       AND (SELECT COALESCE(jsonb_agg(
+                  valor ORDER BY valor COLLATE "C"
+              ), '[]'::jsonb)
               FROM jsonb_array_elements_text(
                   COALESCE(c -> 'campos_permitidos', '[]'::jsonb)
               ) AS valor) =
@@ -309,17 +311,20 @@ BEGIN
 
     SELECT COALESCE(jsonb_object_agg(
                politica.politica_ref, politica.huella_sha256
-               ORDER BY politica.politica_ref
+               ORDER BY politica.politica_ref COLLATE "C"
            ), '{}'::jsonb),
            COALESCE(jsonb_agg(
-               politica.politica_ref ORDER BY politica.politica_ref
+               politica.politica_ref
+               ORDER BY politica.politica_ref COLLATE "C"
            ), '[]'::jsonb)
       INTO manifiesto_actual, referencias_actuales
       FROM vec_autorizacion.politica_restrictiva_actual AS actual
       JOIN vec_autorizacion.politica_restrictiva AS politica
         ON politica.politica_id = actual.politica_id
        AND politica.politica_ref = actual.politica_ref;
-    SELECT COALESCE(jsonb_agg(referencia ORDER BY referencia), '[]'::jsonb)
+    SELECT COALESCE(jsonb_agg(
+               referencia ORDER BY referencia COLLATE "C"
+           ), '[]'::jsonb)
       INTO referencias_decision
       FROM jsonb_array_elements_text(
           decision.documento_comun -> 'politicas_evaluadas_refs'
