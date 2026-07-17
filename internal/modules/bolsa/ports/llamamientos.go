@@ -86,6 +86,31 @@ type CreadorVinculoAutenticacionActor interface {
 	) (dominiovec.VinculoAutenticacionActorV1, error)
 }
 
+// VinculoAptoParaGestionLlamamientos comprueba la frontera de autenticacion
+// reforzada de una operacion interna de RRHH. No concede autorizacion: exige
+// que el vinculo opaco proceda de la superficie corporativa con cuenta
+// ordinaria o de administracion con cuenta privilegiada, y que conserve
+// exactamente el contexto y el perfil resueltos con garantia alta. La
+// superficie personal externa y el metodo de demostracion nunca habilitan el
+// acceso aunque un PDP defectuoso tratase de concederlo.
+func VinculoAptoParaGestionLlamamientos(
+	vinculo dominiovec.VinculoAutenticacionActorV1,
+	actor dominiovec.ContextoActor,
+	perfilActivoRef string,
+) bool {
+	datos, err := vinculo.Datos()
+	superficieCorporativa := datos.Superficie == dominiovec.SuperficieAutenticacionInternaCorporativaV1 &&
+		!datos.CuentaPrivilegiada
+	superficiePrivilegiada := datos.Superficie == dominiovec.SuperficieAutenticacionAdministracionPrivilegiadaV1 &&
+		datos.CuentaPrivilegiada
+	return err == nil && actor.Validar() == nil && vinculo.ValidarPara(actor) == nil &&
+		ReferenciaOpacaLlamamientoValida(perfilActivoRef) &&
+		perfilActivoRef == actor.PerfilActivoRef && datos.PerfilActivoRef == perfilActivoRef &&
+		datos.GarantiaObservada == dominiovec.AuthAssuranceHigh &&
+		datos.MetodoObservado != dominiovec.AuthMethodDemo &&
+		(superficieCorporativa || superficiePrivilegiada)
+}
+
 func (s SolicitudProponerLlamamiento) Clonar() (SolicitudProponerLlamamiento, error) {
 	if err := s.Validar(); err != nil {
 		return SolicitudProponerLlamamiento{}, err

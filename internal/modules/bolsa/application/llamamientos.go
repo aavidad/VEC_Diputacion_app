@@ -114,6 +114,13 @@ func (s *ServicioLlamamientos) ProponerPrimerLlamamiento(
 	if err := ctx.Err(); err != nil {
 		return dominiobolsa.PropuestaLlamamiento{}, errorPropuestaDenegada(err)
 	}
+	if !puertosbolsa.VinculoAptoParaGestionLlamamientos(
+		vinculo,
+		solicitudCanonica.Actor,
+		solicitudCanonica.PerfilActivoRef,
+	) {
+		return dominiobolsa.PropuestaLlamamiento{}, errorPropuestaDenegada(dominiovec.ErrVinculoAutenticacionActorInvalido)
+	}
 
 	instanteAutorizacion, err := s.ahoraCanonico()
 	if err != nil || !actorVigenteEn(solicitudCanonica, instanteAutorizacion) ||
@@ -331,6 +338,11 @@ func decisionLlamamientoExacta(
 ) bool {
 	huellaContexto, err := solicitud.Recurso.HuellaContextoAutorizacionSHA256()
 	return err == nil && decision.ValidarEvidenciaInstantanea() == nil && decision.Concedida && decision.VigenteEn(instante) &&
+		puertosbolsa.VinculoAptoParaGestionLlamamientos(
+			decision.VinculoAutenticacionActor,
+			solicitud.ContextoActor,
+			solicitud.PerfilActivoRef,
+		) &&
 		vinculosAutenticacionActorExactos(decision.VinculoAutenticacionActor, solicitud.VinculoAutenticacionActor) &&
 		decision.VinculoAutenticacionActor.VigenteEn(instante, solicitud.ContextoActor) &&
 		decision.PrincipalID == solicitud.Principal.ID && decision.PerfilActivoRef == solicitud.PerfilActivoRef &&
@@ -339,7 +351,7 @@ func decisionLlamamientoExacta(
 		decision.TipoRecurso == puertosbolsa.TipoRecursoNecesidad && decision.Finalidad == puertosbolsa.FinalidadProponerLlamamiento &&
 		decision.Finalidad == solicitud.Finalidad && decision.CorrelacionRef == solicitud.CorrelacionRef &&
 		decision.ContextoRecursoHuellaSHA256 == huellaContexto && len(decision.CamposPermitidos) == 0 &&
-		len(decision.Obligaciones) == 0
+		len(decision.Obligaciones) == 0 && decision.GarantiaMinima == dominiovec.AuthAssuranceHigh
 }
 
 func vinculosAutenticacionActorExactos(

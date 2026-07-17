@@ -120,6 +120,8 @@ type escenarioAplicacionLlamamiento struct {
 	autenticacionEsperadaRef string
 	sesionEsperadaRef        string
 	personaEsperadaRef       string
+	superficie               dominiovec.SuperficieAutenticacionActorV1
+	cuentaPrivilegiada       bool
 }
 
 func nuevoEscenarioAplicacionLlamamiento(t *testing.T) *escenarioAplicacionLlamamiento {
@@ -152,6 +154,7 @@ func nuevoEscenarioAplicacionLlamamiento(t *testing.T) *escenarioAplicacionLlama
 		datosFuente:              []puertosbolsa.DatosAutoritativosLlamamiento{datos},
 		autenticacionEsperadaRef: autenticacionRef, sesionEsperadaRef: sesionRef,
 		personaEsperadaRef: actor.PersonaRef,
+		superficie:         dominiovec.SuperficieAutenticacionInternaCorporativaV1,
 	}
 }
 
@@ -174,7 +177,7 @@ func (e *escenarioAplicacionLlamamiento) servicio(t *testing.T) *ServicioLlamami
 			actor.PersonaRef != e.personaEsperadaRef {
 			return dominiovec.VinculoAutenticacionActorV1{}, dominiovec.ErrVinculoAutenticacionActorInvalido
 		}
-		return vinculoActorAplicacionPrueba(t, actor, solicitud)
+		return vinculoActorAplicacionPrueba(t, actor, solicitud, e.superficie, e.cuentaPrivilegiada)
 	})
 	autorizador := autorizadorLlamamientoFunc(func(_ context.Context, solicitud dominiovec.SolicitudAutorizacion) (dominiovec.DecisionAutorizacion, error) {
 		e.secuencia = append(e.secuencia, "autorizar")
@@ -529,9 +532,22 @@ func (*resolutorPunteroNulo) ResolverRecursosNecesidad(context.Context, string) 
 
 func actorCanonicoAplicacionPrueba(t *testing.T) dominiovec.ContextoActor {
 	t.Helper()
+	return actorCanonicoAplicacionConAutenticacionPrueba(
+		t,
+		dominiovec.AuthMethodCertificate,
+		dominiovec.AuthAssuranceHigh,
+	)
+}
+
+func actorCanonicoAplicacionConAutenticacionPrueba(
+	t *testing.T,
+	metodo dominiovec.AuthMethod,
+	garantia dominiovec.AuthAssurance,
+) dominiovec.ContextoActor {
+	t.Helper()
 	token := func(caracter string) string { return strings.Repeat(caracter, 22) }
 	cuenta := dominiovec.CuentaAutenticadaContextoActor{
-		CuentaRef: "cta_" + token("c"), Metodo: dominiovec.AuthMethodCertificate, Garantia: dominiovec.AuthAssuranceHigh,
+		CuentaRef: "cta_" + token("c"), Metodo: metodo, Garantia: garantia,
 	}
 	instantanea := dominiovec.InstantaneaContextoActor{
 		VinculoRef: "vca_" + token("v"), VinculoVersion: 1, CuentaRef: cuenta.CuentaRef,
@@ -571,16 +587,22 @@ func vinculoActorAplicacionPrueba(
 	t *testing.T,
 	actor dominiovec.ContextoActor,
 	solicitud dominiovec.SolicitudRevalidacionAutenticacionActorV1,
+	superficie dominiovec.SuperficieAutenticacionActorV1,
+	cuentaPrivilegiada bool,
 ) (dominiovec.VinculoAutenticacionActorV1, error) {
 	t.Helper()
 	token := func(caracter string) string { return strings.Repeat(caracter, 22) }
+	cuentaOrdinariaRef := actor.Instantanea.CuentaRef
+	if cuentaPrivilegiada {
+		cuentaOrdinariaRef = "cta_" + token("o")
+	}
 	autenticacion := dominiovec.AutenticacionRevalidadaV1{
 		AutenticacionRef: solicitud.AutenticacionRef, AutenticacionHuellaSHA256: huellaAplicacionLlamamiento('a'),
 		AsercionRef: "ase_" + token("e"), SesionRef: solicitud.SesionRef,
 		ControlSesionRef: "cse_" + token("c"), ControlSesionRevision: 1,
 		ControlSesionHuellaSHA256: huellaAplicacionLlamamiento('b'),
-		CuentaRef:                 actor.Instantanea.CuentaRef, CuentaOrdinariaRef: actor.Instantanea.CuentaRef,
-		Superficie:      dominiovec.SuperficieAutenticacionExternaPersonalV1,
+		CuentaRef:                 actor.Instantanea.CuentaRef, CuentaOrdinariaRef: cuentaOrdinariaRef,
+		CuentaPrivilegiada: cuentaPrivilegiada, Superficie: superficie,
 		MetodoObservado: actor.Principal.AuthMethod, GarantiaObservada: actor.Principal.AuthAssurance,
 		PoliticaGarantiaRef: "pga_" + token("g"), PoliticaGarantiaHuellaSHA256: huellaAplicacionLlamamiento('c'),
 		SesionEmitidaEn:           instanteAplicacionLlamamientoPrueba.Add(-time.Hour),
