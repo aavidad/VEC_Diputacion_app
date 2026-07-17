@@ -1,0 +1,302 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Manual de usuario · Portal del Empleado — Gestión de Bolsas</title><style>
+body { font-family: "Segoe UI", system-ui, sans-serif; color: #1a2733; max-width: 210mm; margin: 0 auto; padding: 14mm; line-height: 1.55; font-size: 11pt; }
+h1 { color: #0d2d52; border-bottom: 3px solid #0d2d52; padding-bottom: 8px; font-size: 20pt; }
+h2 { color: #0d2d52; margin-top: 26px; border-bottom: 1px solid #c9d6e4; padding-bottom: 4px; page-break-after: avoid; }
+h3 { color: #17466e; page-break-after: avoid; }
+figure { margin: 14px 0; page-break-inside: avoid; }
+img { max-width: 100%; border: 1px solid #c9d6e4; border-radius: 6px; box-shadow: 0 1px 4px rgba(13,45,82,.12); }
+figcaption { font-size: 9pt; color: #55677a; margin-top: 4px; font-style: italic; }
+code { background: #eef3f8; padding: 1px 5px; border-radius: 4px; font-size: 10pt; }
+ul { margin: 8px 0; } li { margin: 3px 0; }
+hr { border: none; border-top: 1px solid #c9d6e4; margin: 20px 0; }
+@media print { body { padding: 0; } }
+</style></head><body><p><h1>Manual de usuario · Portal del Empleado — Gestión de Bolsas de Trabajo</h1>
+</p><p>
+<strong>Diputación de Granada · Ventanilla Electrónica del Empleado Público (VEC)</strong>
+</p><p>
+Versión del manual: 17 de julio de 2026.
+</p><p>
+<hr>
+</p><p>
+<h2>1. Qué es el Portal del Empleado</h2>
+</p><p>
+El Portal del Empleado es la aplicación web unificada de la Diputación de
+Granada para la gestión interna de Recursos Humanos. Los distintos ámbitos
+funcionales (Bolsas de trabajo, Personal, Nóminas, Cronos, Dietas,
+Solicitudes y certificados) se presentan como módulos de un mismo portal:
+comparten identidad, datos, documentos y criterios de seguridad, y se van
+habilitando por fases.
+</p><p>
+En la fase inicial está habilitado el módulo <strong>Bolsas de trabajo</strong>, que cubre
+el ciclo completo de una bolsa de empleo temporal: elaboración y publicación,
+llamamientos conforme a las bases y al Reglamento, contratos y ceses, motor de
+reglas, consulta para candidatos, estadísticas, generación documental,
+comunicaciones y auditoría.
+</p><p>
+Este manual describe cada pantalla del módulo y la forma correcta de operar
+con él. Las imágenes proceden del modo de demostración del portal: los datos
+que muestran son íntegramente sintéticos y así lo indica de forma permanente
+la franja superior amarilla. En la operación real esa franja no existe y la
+información procede de la API interna autorizada.
+</p><p>
+<h2>2. Acceso y estructura de la pantalla</h2>
+</p><p>
+El portal se abre desde el navegador corporativo, en la dirección interna
+<code>/portal-empleado/</code>. La sesión se resuelve en el servidor: la cabecera
+muestra en todo momento el nombre y el perfil efectivo de la persona
+conectada (en las imágenes, «María Pérez · Perfil de presentación RRHH»).
+</p><p>
+Todas las pantallas comparten la misma estructura:
+</p><p>
+<ul>
+<li><strong>Menú lateral izquierdo</strong>: acceso a la portada del portal, a los módulos y, dentro de Bolsas de trabajo, a los diez bloques de gestión numerados. El bloque activo queda resaltado.</li>
+<li><strong>Cabecera</strong>: migas de navegación (por ejemplo «Portal del Empleado → Bolsas de trabajo → Llamamientos»), título de la vista y los controles <strong>A+</strong> (aumento de texto), <strong>Contraste</strong> (alto contraste), <strong>Avisos</strong> (con el número de pendientes) y la identidad de la sesión.</li>
+<li><strong>Zona de contenido</strong>: paneles, tablas e indicadores propios de cada vista.</li>
+<li><strong>Pie</strong>: enlaces permanentes a Protección de datos, Accesibilidad y Ayuda.</li>
+</ul>
+</p><p>
+La navegación funciona con ratón y con teclado; existe un salto directo al
+contenido para lectores de pantalla y las tablas anchas se desplazan dentro
+de su propio marco sin romper la página.
+</p><p>
+<h2>3. Portada del portal</h2>
+</p><p>
+<figure><img src="capturas/01_portada.png" alt="Portada del Portal del Empleado"><figcaption>Portada del Portal del Empleado</figcaption></figure>
+</p><p>
+La portada presenta los módulos del portal como tarjetas. En la fase inicial
+solo <strong>Bolsas de trabajo</strong> aparece habilitado, con el botón <strong>Entrar</strong>; el
+resto (Personal, Nóminas, Cronos, Dietas, Solicitudes y certificados,
+Méritos y formación, Comunicaciones) se muestran como «No habilitado» hasta
+sus fases correspondientes.
+</p><p>
+La franja informativa recuerda el carácter del acceso: este portal es la
+zona interna de RRHH. La zona externa de aspirantes tendrá su propia sesión,
+permisos y proyección de datos, y nunca mostrará expedientes de terceras
+personas.
+</p><p>
+<h2>4. Cuadro de mando</h2>
+</p><p>
+<figure><img src="capturas/02_cuadro_mando.png" alt="Cuadro de mando de Bolsas"><figcaption>Cuadro de mando de Bolsas</figcaption></figure>
+</p><p>
+Es la vista de situación del módulo y la primera que conviene abrir cada
+mañana. Ofrece, de arriba abajo:
+</p><p>
+<ul>
+<li><strong>Cinco indicadores principales</strong>: bolsas activas, candidatos disponibles, llamamientos pendientes, contratos activos y cobertura media. Cada tarjeta enlaza con su detalle.</li>
+<li><strong>Bolsas destacadas</strong>: tabla con categoría, número de integrantes, candidaturas en llamamiento y barra de cobertura de cada bolsa, con acceso directo a cada expediente mediante <strong>Abrir</strong>.</li>
+<li><strong>Llamamientos próximos (7 días)</strong>: agenda con fecha, bolsa, número de llamamiento y estado.</li>
+<li><strong>Actividad reciente</strong>: últimos actos registrados (llamamientos preparados, contratos, ceses, reincorporaciones) con autor, fecha y hora, enlazados con la trazabilidad completa.</li>
+<li><strong>Indicadores clave</strong>: distribución de candidatos por estado, cobertura por bolsa y evolución mensual de contratos.</li>
+<li><strong>Accesos rápidos</strong>: nuevo llamamiento, elaborar una bolsa, registrar contrato, registrar cese, generar documento y preparar comunicación.</li>
+</ul>
+</p><p>
+Los botones <strong>Imprimir resumen</strong> y <strong>Nuevo llamamiento</strong> de la cabecera
+permiten, respectivamente, obtener una copia imprimible del cuadro y lanzar
+el asistente de llamamientos que se describe en el apartado 6.
+</p><p>
+<h2>5. Elaboración y gestión de bolsas</h2>
+</p><p>
+<figure><img src="capturas/03_elaboracion.png" alt="Elaboración y gestión de bolsas"><figcaption>Elaboración y gestión de bolsas</figcaption></figure>
+</p><p>
+Este bloque gobierna el ciclo de vida de cada bolsa desde su expediente de
+elaboración hasta su publicación. La vista principal lista los **expedientes
+de elaboración** con su fase (configuración de baremo, validación jurídica,
+publicación), la versión de reglas aplicable, el plazo, la unidad
+responsable y el estado.
+</p><p>
+<figure><img src="capturas/03b_detalle_expediente.png" alt="Detalle de un expediente de elaboración"><figcaption>Detalle de un expediente de elaboración</figcaption></figure>
+</p><p>
+Al seleccionar un expediente se abre su detalle con los **campos
+gobernados** (versión de bases con huella criptográfica registrada,
+calendario de solicitudes, circuito de firmantes) y las **comprobaciones
+para publicar**: la aplicación no permite publicar una bolsa hasta que las
+bases están aprobadas y firmadas, el baremo configurado y validado, y el
+calendario definido.
+</p><p>
+<figure><img src="capturas/03c_configurar_bases.png" alt="Configuración de bases y baremo"><figcaption>Configuración de bases y baremo</figcaption></figure>
+</p><p>
+El botón <strong>Configurar bases</strong> muestra las familias de configuración del
+baremo: criterios, puntuaciones, requisitos y versiones. Cada versión de
+bases publicada queda sellada con su huella y no puede alterarse sin dejar
+constancia; las convocatorias posteriores citan siempre la versión exacta
+con la que se resolvieron.
+</p><p>
+<h2>6. Nuevo llamamiento: asistente en cuatro pasos</h2>
+</p><p>
+El llamamiento es el acto más delicado de la gestión de bolsas y el portal lo
+conduce mediante un asistente que impide saltarse comprobaciones. Los cuatro
+pasos aparecen siempre visibles en la parte superior y puede volverse a un
+paso anterior sin perder lo introducido.
+</p><p>
+<h3>Paso 1 · Elegir necesidad de cobertura</h3>
+</p><p>
+<figure><img src="capturas/04a_llamamiento_paso1.png" alt="Paso 1: elegir necesidad"><figcaption>Paso 1: elegir necesidad</figcaption></figure>
+</p><p>
+Se parte de una <strong>necesidad de cobertura</strong> ya registrada (referencia, bolsa,
+destino, jornada, duración y tipo de cobertura). Basta con pulsar
+<strong>Seleccionar</strong> en la necesidad que se va a atender. La regla aplicable
+(Reglamento y bases vigentes) queda asociada desde este momento.
+</p><p>
+<h3>Paso 2 · Propuesta calculada por el servidor</h3>
+</p><p>
+<figure><img src="capturas/04b_llamamiento_paso2.png" alt="Paso 2: propuesta calculada"><figcaption>Paso 2: propuesta calculada</figcaption></figure>
+</p><p>
+Es el corazón del sistema. <strong>El servidor</strong> aplica la prelación, la
+elegibilidad y las reglas de la bolsa a la necesidad concreta y devuelve una
+propuesta ordenada; el navegador no elige personas ni puede alterar el orden.
+</p><p>
+Cada fila de la propuesta muestra la secuencia, el resultado (<em>Elegible</em>,
+<em>No disponible</em>, <em>Excluida por regla</em>), la puntuación, la regla aplicada y su
+fundamento. El panel <strong>Recibo de cálculo</strong> deja constancia de la propuesta:
+identificador, versión de bolsa (con huella registrada), versión de reglas,
+fecha de corte y número de personas incluidas.
+</p><p>
+Protección de datos: la interfaz no recibe nombre, documento, teléfono,
+correo ni ningún identificador individual reutilizable; el servidor conserva
+la relación probatoria completa bajo autorización. De este modo puede
+revisarse la legalidad del orden sin exponer identidades en pantalla.
+</p><p>
+<h3>Paso 3 · Configurar llamamiento</h3>
+</p><p>
+<figure><img src="capturas/04c_llamamiento_paso3.png" alt="Paso 3: configurar llamamiento"><figcaption>Paso 3: configurar llamamiento</figcaption></figure>
+</p><p>
+Se establecen las condiciones del llamamiento: apertura, plazo de respuesta
+(24, 48 o 72 horas desde la recepción fehaciente), tipo de cobertura,
+destino, jornada, duración y canales de comunicación previstos (correo,
+mensajería, aviso interno). Los valores proceden de catálogos gobernados,
+de modo que no pueden introducirse condiciones fuera de las previstas.
+</p><p>
+<h3>Paso 4 · Revisar y preparar</h3>
+</p><p>
+<figure><img src="capturas/04d_llamamiento_paso4.png" alt="Paso 4: revisar y preparar"><figcaption>Paso 4: revisar y preparar</figcaption></figure>
+</p><p>
+Resumen completo antes de preparar el acto: bolsa, personas seleccionadas
+según el orden visible, apertura, plazo de respuesta, canales, datos de
+destino y las <strong>evidencias previstas</strong> que quedarán registradas (identidad y
+rol de quien actúa, autorización sobre el expediente, versión de bolsa y de
+reglas, selección y orden aplicados, plantillas y firmas, recibos de
+entrega). El acto administrativo se genera después por el circuito de firma
+y notificación correspondiente.
+</p><p>
+<h2>7. Contratos, ceses y reincorporaciones</h2>
+</p><p>
+<figure><img src="capturas/05_contratos.png" alt="Contratos, ceses y reincorporaciones"><figcaption>Contratos, ceses y reincorporaciones</figcaption></figure>
+</p><p>
+Bandeja de <strong>relaciones y disponibilidad</strong>: cada movimiento (contrato, cese,
+reincorporación) conserva su causa, las fechas de inicio y fin, el efecto
+sobre la disponibilidad de la persona en la bolsa y la evidencia de su
+aprobación. Así, la disponibilidad que usa el motor de llamamientos deriva
+siempre de actos registrados y no de anotaciones manuales.
+</p><p>
+<h2>8. Motor de reglas configurable</h2>
+</p><p>
+<figure><img src="capturas/06_reglas.png" alt="Motor de reglas configurable"><figcaption>Motor de reglas configurable</figcaption></figure>
+</p><p>
+Las reglas de funcionamiento de cada bolsa (orden de prelación, causas de
+indisponibilidad, penalizaciones, desempates) se administran como
+<strong>conjuntos de reglas versionados</strong>. La vista lista cada conjunto con su
+versión, número de criterios y estado.
+</p><p>
+<figure><img src="capturas/06b_detalle_regla.png" alt="Detalle de una regla"><figcaption>Detalle de una regla</figcaption></figure>
+</p><p>
+El detalle de una regla muestra su definición y su fundamento normativo. Las
+versiones publicadas son inmutables: un cambio de reglas produce una versión
+nueva, y cada llamamiento cita la versión exacta con la que se calculó, lo
+que permite comparar versiones y justificar cualquier resultado pasado.
+</p><p>
+<h2>9. Consulta segura para candidatos</h2>
+</p><p>
+<figure><img src="capturas/07_consulta.png" alt="Consulta segura para candidatos"><figcaption>Consulta segura para candidatos</figcaption></figure>
+</p><p>
+Define lo que la <strong>zona pública</strong> puede mostrar a cada aspirante: su propia
+posición y estado, nunca el censo completo ni datos de terceros. La vista
+interna muestra la <strong>frontera de privacidad</strong> (qué campos se proyectan al
+exterior) y la <strong>política de contacto</strong>. La consulta pública queda así
+gobernada desde dentro, con los mismos catálogos y versiones.
+</p><p>
+<h2>10. Estadísticas y explotación de datos</h2>
+</p><p>
+<figure><img src="capturas/08_estadisticas.png" alt="Estadísticas y explotación"><figcaption>Estadísticas y explotación</figcaption></figure>
+</p><p>
+Indicadores agregados del módulo: evolución y cobertura, distribución por
+categorías y series temporales. Los agregados se calculan en el servidor con
+fecha de corte y ámbito; la explotación de datos con fines de informe se
+apoya en estos indicadores y no en descargas de datos personales.
+</p><p>
+<h2>11. Generación y firma de documentos</h2>
+</p><p>
+<figure><img src="capturas/09_documentos.png" alt="Generación y firma de documentos"><figcaption>Generación y firma de documentos</figcaption></figure>
+</p><p>
+Catálogo de <strong>plantillas y formatos</strong> para la salida documental del módulo
+(resoluciones, comunicaciones, certificados). Cada generación queda
+gobernada por su plantilla, formatos disponibles, versión, firmantes, CSV de
+cotejo, sello de tiempo y custodia, de modo que todo documento emitido es
+verificable posteriormente.
+</p><p>
+<h2>12. Correo y mensajería</h2>
+</p><p>
+<figure><img src="capturas/10_comunicaciones.png" alt="Correo y mensajería"><figcaption>Correo y mensajería</figcaption></figure>
+</p><p>
+Canales de comunicación con las personas candidatas, presentados como
+<strong>conectores intercambiables</strong> (correo, mensajería, aviso interno) con su
+uso, integración y estado. La preparación, el envío, la recepción y el acuse
+se registran por separado; ningún canal concede por sí solo efecto
+administrativo — el efecto lo dan los recibos y su incorporación al
+expediente.
+</p><p>
+<h2>13. Auditoría y trazabilidad</h2>
+</p><p>
+<figure><img src="capturas/11_auditoria.png" alt="Auditoría y trazabilidad"><figcaption>Auditoría y trazabilidad</figcaption></figure>
+</p><p>
+Línea temporal completa del expediente: cada acto (preparación de un
+llamamiento, registro de un contrato, cese, comunicación) aparece con su
+autor, fecha, hora y evidencias asociadas. La trazabilidad es de solo
+lectura y permite reconstruir cualquier decisión con las versiones de bolsa
+y reglas que estaban vigentes en ese momento.
+</p><p>
+<h2>14. Avisos y ayuda</h2>
+</p><p>
+<figure><img src="capturas/12_avisos.png" alt="Panel de avisos"><figcaption>Panel de avisos</figcaption></figure>
+</p><p>
+El botón <strong>Avisos</strong> de la cabecera muestra las notificaciones internas
+pendientes (llamamientos por preparar, plazos próximos, tareas de revisión).
+</p><p>
+<figure><img src="capturas/13_ayuda.png" alt="Ayuda del portal"><figcaption>Ayuda del portal</figcaption></figure>
+</p><p>
+El enlace <strong>Ayuda</strong>, disponible en el menú lateral y en el pie, ofrece la
+guía de uso contextual del módulo.
+</p><p>
+<h2>15. Accesibilidad</h2>
+</p><p>
+<figure><img src="capturas/14_alto_contraste.png" alt="Modo de alto contraste"><figcaption>Modo de alto contraste</figcaption></figure>
+</p><p>
+El portal cumple criterios de accesibilidad de uso diario:
+</p><p>
+<ul>
+<li><strong>A+</strong>: aumento del tamaño de texto, persistente entre sesiones.</li>
+<li><strong>Contraste</strong>: modo de alto contraste para entornos de baja visibilidad, también persistente.</li>
+<li>Navegación completa por teclado, foco visible, salto al contenido y región de anuncios para lectores de pantalla.</li>
+<li>Tablas desplazables y composición adaptable a pantallas pequeñas.</li>
+</ul>
+</p><p>
+Estas dos preferencias visuales son la única información que el navegador
+almacena localmente: el portal no guarda en el equipo datos de bolsas,
+candidatos ni expedientes.
+</p><p>
+<h2>16. Protección de datos</h2>
+</p><p>
+El módulo aplica minimización de datos por diseño:
+</p><p>
+<ul>
+<li>Los identificadores personales aparecen enmascarados en las vistas de gestión y no salen del servidor cuando no son imprescindibles.</li>
+<li>Las propuestas de llamamiento se revisan por secuencia, puntuación y regla, sin nombres ni documentos en pantalla; la relación probatoria completa queda custodiada en el servidor bajo autorización.</li>
+<li>La zona pública de candidatos solo proyecta a cada persona su propia información.</li>
+<li>Todos los actos quedan auditados con autor, momento y versión de las reglas aplicadas.</li>
+</ul>
+</p><p>
+<hr>
+</p><p>
+Portal del Empleado · Diputación de Granada. Las pantallas de este manual
+proceden del modo de demostración con datos sintéticos; los textos, cifras y
+personas que aparecen en ellas no corresponden a expedientes reales.
+</p><p></p></body></html>

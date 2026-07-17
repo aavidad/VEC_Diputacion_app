@@ -156,6 +156,12 @@ Pendiente productivo:
 
 ## Documentacion
 
+### Manuales
+
+- [Manual de usuario del Portal del Empleado · Bolsas](docs/manual_usuario/manual_portal_bolsas.md):
+  recorrido completo por pantallas con capturas; disponible tambien en
+  [PDF](docs/manual_usuario/manual_portal_bolsas.pdf).
+
 ### Manual del programador
 
 - [Manual del programador](docs/manual_programador/LEEME.md): arquitectura por
