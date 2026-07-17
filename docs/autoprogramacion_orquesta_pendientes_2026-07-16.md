@@ -18,6 +18,12 @@
   porte del ranking/desempate del heredado (hallazgo 4 de la brecha) y su
   API privada con UI conectada. Los demas frentes no se detienen, pero
   ceden el paso ante conflicto de recursos o de carril.
+- Orden de ataque recomendado por direccion (17/07 tarde): primero T11
+  (conformidad DEC-053, barato ahora y caro despues), despues T07 y T12
+  (coherencia y durabilidad de Bolsa), despues T02 y el resto de T03.
+  S-03 (identidad real por certificado/Kerberos) queda aparcada
+  deliberadamente: depende de Sistemas y no hay produccion hasta su visto
+  bueno; nada debe disenarse de forma que la estorbe.
 
 ## Pendientes Txx
 
@@ -164,20 +170,37 @@
 - `evidencia`: commits `8e95568`, `1448bc4`, `65d4bee`, `28721f2` del
   17/07/2026 usan prefijos `fix()`/`test()`.
 
-### T11 — Decidir CSRF/SameSite antes de compomer la identidad interna
+### T11 — Retirar cookies del portal interno conforme a DEC-053
 
-- `origen`: S-04 de la auditoria, que pasa de nota de diseno a urgente: el
-  panel interno de Bolsa ya se compone contra PostgreSQL y el cliente del
-  portal usa `credentials: "same-origin"`, es decir, la sesion interna
-  prevista sera de cookie.
-- `estado`: nuevo. Requiere DEC del responsable antes de cablear el
-  adaptador de identidad.
-- `area_hexagonal`: adaptador de identidad y composicion.
-- `accion`: fijar por DEC la estrategia anti-CSRF de la sesion interna
-  (cookie `SameSite=Strict` + token anti-CSRF por peticion mutadora, o
-  cabecera de sesion sin cookie) y programarla en el mismo corte que el
-  adaptador de aserciones; ninguna ruta mutadora puede abrirse con cookie
-  sin esa defensa.
+- `origen`: DEC-053 del registro de decisiones ("la web consume la API como
+  un cliente mas"; sin cookies de sesion, para que un cliente de escritorio
+  sea equivalente byte a byte). El cliente nuevo del portal la contradice.
+- `estado`: nuevo. Prioridad alta: corregir antes de componer el adaptador
+  de identidad, mientras el cambio es barato.
+- `area_hexagonal`: adaptador (frontend) y composicion.
+- `accion`: el cliente del portal interno no debe usar
+  `credentials: "same-origin"` ni asumir sesion de cookie: la autenticacion
+  viaja en cabecera `Authorization` (token de sesion emitido por el
+  adaptador de identidad; para tecnicos, derivado de mTLS+Kerberos segun
+  DEC-053). Sin credencial ambiental no hay CSRF que mitigar. La app de
+  administracion sera de escritorio: la API no puede exigir nada que un
+  cliente no navegador no pueda enviar.
 - `evidencia`: `web/static/portal-empleado/portal.js` envia
-  `credentials: "same-origin"` a `/api/vec/bolsa/panel`; commits `0bb5dfe` y
-  `26e1ad5` componen ese panel y las propuestas contra PostgreSQL.
+  `credentials: "same-origin"` a `/api/vec/bolsa/panel`; DEC-053 fija
+  clientes equivalentes sin cookies; el acceso tecnico previsto es
+  mTLS+Kerberos+allowlist.
+
+### T12 — Durabilidad probatoria productiva de Bolsa
+
+- `origen`: prioridad de negocio "Bolsa primero" y revision de direccion del
+  17/07: la semantica durable (saga de firma, auditoria encadenada,
+  expediente probatorio) esta probada solo en memoria.
+- `estado`: nuevo.
+- `area_hexagonal`: adaptadores de persistencia y composicion.
+- `accion`: llevar a PostgreSQL productivo, por este orden, la auditoria
+  encadenada, el registro de decisiones de autorizacion ya migrado y los
+  puntos de control de la saga de firma; incluir copias de seguridad
+  ensayadas y prueba de recuperacion tras reinicio completo. Sin esto un
+  incidente no pierde seguridad pero si trazabilidad.
+- `evidencia`: adaptadores en memoria en `internal/modules/bolsa` y
+  `internal/vec`; el flujo durable documenta sus conectores pendientes.
