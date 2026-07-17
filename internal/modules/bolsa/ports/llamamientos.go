@@ -40,6 +40,7 @@ var (
 	ErrDecisionAutorizacionLlamamientoUsada       = errors.New("bolsa: decision de autorizacion ya consumida")
 	ErrCapacidadMemoriaLlamamientosAgotada        = errors.New("bolsa: capacidad del adaptador de memoria agotada")
 	ErrSerializacionSolicitudLlamamientoProhibida = errors.New("bolsa: serializacion de solicitud interna de llamamiento prohibida")
+	ErrComandoGuardarPropuestaLlamamientoInvalido = errors.New("bolsa: comando para guardar propuesta de llamamiento invalido")
 )
 
 var (
@@ -231,6 +232,153 @@ type GeneradorReferenciasLlamamiento interface {
 	NuevaReferenciaPropuestaLlamamiento() (string, error)
 }
 
+// ComandoGuardarPropuestaLlamamiento conserva, como una unica capacidad opaca,
+// todos los datos que una persistencia duradera debe confirmar de forma
+// indivisible. La propuesta solo contiene el prefijo evaluado; por eso el
+// comando retiene ademas la instantanea completa que genero dicho prefijo.
+//
+// Sus campos son privados y Datos devuelve copias profundas. Un adaptador no
+// puede completar la instantanea consultando de nuevo una fuente mutable ni
+// aceptar propuesta y evidencia por parametros independientes.
+type ComandoGuardarPropuestaLlamamiento struct {
+	datos *datosComandoGuardarPropuestaLlamamiento
+}
+
+type datosComandoGuardarPropuestaLlamamiento struct {
+	instantanea dominiobolsa.InstantaneaOrdenBolsa
+	propuesta   dominiobolsa.PropuestaLlamamiento
+	evidencia   puertosvec.EvidenciaUsoDecisionAutorizacion
+}
+
+func NuevoComandoGuardarPropuestaLlamamiento(
+	instantanea dominiobolsa.InstantaneaOrdenBolsa,
+	propuesta dominiobolsa.PropuestaLlamamiento,
+	evidencia puertosvec.EvidenciaUsoDecisionAutorizacion,
+) (ComandoGuardarPropuestaLlamamiento, error) {
+	instantaneaCanonica, err := instantanea.ClonarCanonica()
+	if err != nil {
+		return ComandoGuardarPropuestaLlamamiento{}, ErrComandoGuardarPropuestaLlamamientoInvalido
+	}
+	propuestaCanonica, err := propuesta.ClonarCanonica()
+	if err != nil || !instantaneaYPropuestaLlamamientoCoinciden(instantaneaCanonica, propuestaCanonica) {
+		return ComandoGuardarPropuestaLlamamiento{}, ErrComandoGuardarPropuestaLlamamientoInvalido
+	}
+	if !evidenciaLlamamientoLigadaYVigente(evidencia, propuestaCanonica) {
+		return ComandoGuardarPropuestaLlamamiento{}, errors.Join(
+			ErrComandoGuardarPropuestaLlamamientoInvalido,
+			puertosvec.ErrEvidenciaUsoDecisionAutorizacionInvalida,
+		)
+	}
+	return ComandoGuardarPropuestaLlamamiento{datos: &datosComandoGuardarPropuestaLlamamiento{
+		instantanea: instantaneaCanonica,
+		propuesta:   propuestaCanonica,
+		evidencia:   evidencia,
+	}}, nil
+}
+
+// Datos devuelve una fotografia defensiva del conjunto indivisible. La
+// evidencia ya es una capacidad opaca e inmutable del nucleo; instantanea y
+// propuesta se clonan para no compartir slices con el adaptador.
+func (c ComandoGuardarPropuestaLlamamiento) Datos() (
+	dominiobolsa.InstantaneaOrdenBolsa,
+	dominiobolsa.PropuestaLlamamiento,
+	puertosvec.EvidenciaUsoDecisionAutorizacion,
+	error,
+) {
+	if c.datos == nil {
+		return dominiobolsa.InstantaneaOrdenBolsa{}, dominiobolsa.PropuestaLlamamiento{},
+			puertosvec.EvidenciaUsoDecisionAutorizacion{}, ErrComandoGuardarPropuestaLlamamientoInvalido
+	}
+	instantanea, err := c.datos.instantanea.ClonarCanonica()
+	if err != nil {
+		return dominiobolsa.InstantaneaOrdenBolsa{}, dominiobolsa.PropuestaLlamamiento{},
+			puertosvec.EvidenciaUsoDecisionAutorizacion{}, ErrComandoGuardarPropuestaLlamamientoInvalido
+	}
+	propuesta, err := c.datos.propuesta.ClonarCanonica()
+	if err != nil || !instantaneaYPropuestaLlamamientoCoinciden(instantanea, propuesta) ||
+		!evidenciaLlamamientoLigadaYVigente(c.datos.evidencia, propuesta) {
+		return dominiobolsa.InstantaneaOrdenBolsa{}, dominiobolsa.PropuestaLlamamiento{},
+			puertosvec.EvidenciaUsoDecisionAutorizacion{}, ErrComandoGuardarPropuestaLlamamientoInvalido
+	}
+	return instantanea, propuesta, c.datos.evidencia, nil
+}
+
+// ValidarEn revalida la capacidad en el reloj efectivo del adaptador. No
+// sustituye el bloqueo y la relectura autoritativa dentro de la transaccion.
+func (c ComandoGuardarPropuestaLlamamiento) ValidarEn(instante time.Time) error {
+	_, propuesta, evidencia, err := c.Datos()
+	if err != nil || !instanteCanonicoLlamamiento(instante) || propuesta.GeneradaEn.After(instante) ||
+		evidencia.ValidarEn(instante) != nil {
+		return errors.Join(
+			ErrComandoGuardarPropuestaLlamamientoInvalido,
+			puertosvec.ErrEvidenciaUsoDecisionAutorizacionInvalida,
+		)
+	}
+	return nil
+}
+
+func instantaneaYPropuestaLlamamientoCoinciden(
+	instantanea dominiobolsa.InstantaneaOrdenBolsa,
+	propuesta dominiobolsa.PropuestaLlamamiento,
+) bool {
+	if instantanea.Validar() != nil || propuesta.Validar() != nil ||
+		propuesta.InstantaneaRef != instantanea.InstantaneaRef ||
+		propuesta.VersionInstantanea != instantanea.Version ||
+		propuesta.HuellaInstantaneaSHA256 != instantanea.HuellaContenidoSHA256 ||
+		propuesta.BolsaRef != instantanea.BolsaRef ||
+		propuesta.VersionBolsa != instantanea.VersionBolsa ||
+		propuesta.HuellaBolsaSHA256 != instantanea.HuellaBolsaSHA256 ||
+		!propuesta.InstanteReferencia.Equal(instantanea.ReferidaEn) ||
+		!propuesta.InstantaneaGeneradaEn.Equal(instantanea.GeneradaEn) ||
+		propuesta.TotalParticipacionesInstantanea != uint64(len(instantanea.Entradas)) ||
+		len(propuesta.Evaluaciones) > len(instantanea.Entradas) {
+		return false
+	}
+	for indice, evaluacion := range propuesta.Evaluaciones {
+		entrada := instantanea.Entradas[indice]
+		situacion, vigente := entrada.Participacion.SituacionVigenteEn(instantanea.ReferidaEn)
+		if !vigente || evaluacion.Orden != entrada.Orden ||
+			evaluacion.ParticipacionRef != entrada.Participacion.ParticipacionRef ||
+			evaluacion.SujetoRef != entrada.Participacion.SujetoRef ||
+			evaluacion.SituacionSecuencia != situacion.Secuencia ||
+			evaluacion.EstadoClave != situacion.EstadoClave ||
+			evaluacion.EstadoVersion != situacion.EstadoVersion ||
+			evaluacion.HuellaEstadoSHA256 != situacion.HuellaEstadoSHA256 {
+			return false
+		}
+	}
+	return true
+}
+
+func evidenciaLlamamientoLigadaYVigente(
+	evidencia puertosvec.EvidenciaUsoDecisionAutorizacion,
+	propuesta dominiobolsa.PropuestaLlamamiento,
+) bool {
+	datos, err := evidencia.Datos()
+	if err != nil || evidencia.ValidarEn(propuesta.GeneradaEn) != nil ||
+		!datos.VerificadaEn.Equal(propuesta.GeneradaEn) {
+		return false
+	}
+	decision := datos.Decision
+	vinculo, err := decision.VinculoAutenticacionActor.Datos()
+	if err != nil {
+		return false
+	}
+	superficieCorporativa := vinculo.Superficie == dominiovec.SuperficieAutenticacionInternaCorporativaV1 &&
+		!vinculo.CuentaPrivilegiada
+	superficiePrivilegiada := vinculo.Superficie == dominiovec.SuperficieAutenticacionAdministracionPrivilegiadaV1 &&
+		vinculo.CuentaPrivilegiada
+	return decision.ValidarEvidenciaInstantanea() == nil && decision.Concedida &&
+		decision.Accion == AccionProponerLlamamiento && decision.RecursoRef == propuesta.NecesidadRef &&
+		decision.ModuloID == ModuloLlamamientos && decision.TipoRecurso == TipoRecursoNecesidad &&
+		decision.Finalidad == FinalidadProponerLlamamiento &&
+		decision.GarantiaMinima == dominiovec.AuthAssuranceHigh &&
+		len(decision.CamposPermitidos) == 0 && len(decision.Obligaciones) == 0 &&
+		vinculo.GarantiaObservada == dominiovec.AuthAssuranceHigh &&
+		vinculo.MetodoObservado != dominiovec.AuthMethodDemo &&
+		(superficieCorporativa || superficiePrivilegiada)
+}
+
 // TransaccionPropuestasLlamamiento consume la concesion y confirma el efecto
 // de negocio en una unica operacion. Un adaptador duradero debe bloquear/releer
 // necesidad y vigencia, validar la atestacion del PDP y hacer COMMIT de
@@ -242,8 +390,7 @@ type GeneradorReferenciasLlamamiento interface {
 type TransaccionPropuestasLlamamiento interface {
 	GuardarPropuestaLlamamiento(
 		context.Context,
-		dominiobolsa.PropuestaLlamamiento,
-		puertosvec.EvidenciaUsoDecisionAutorizacion,
+		ComandoGuardarPropuestaLlamamiento,
 	) error
 }
 

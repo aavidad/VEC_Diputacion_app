@@ -61,10 +61,13 @@ func (f motorLlamamientoFunc) EvaluarParticipacion(ctx context.Context, s puerto
 	return f(ctx, s)
 }
 
-type transaccionLlamamientoFunc func(context.Context, dominiobolsa.PropuestaLlamamiento, puertosvec.EvidenciaUsoDecisionAutorizacion) error
+type transaccionLlamamientoFunc func(context.Context, puertosbolsa.ComandoGuardarPropuestaLlamamiento) error
 
-func (f transaccionLlamamientoFunc) GuardarPropuestaLlamamiento(ctx context.Context, p dominiobolsa.PropuestaLlamamiento, e puertosvec.EvidenciaUsoDecisionAutorizacion) error {
-	return f(ctx, p, e)
+func (f transaccionLlamamientoFunc) GuardarPropuestaLlamamiento(
+	ctx context.Context,
+	comando puertosbolsa.ComandoGuardarPropuestaLlamamiento,
+) error {
+	return f(ctx, comando)
 }
 
 type relojFijoLlamamiento struct{ instante time.Time }
@@ -222,9 +225,15 @@ func (e *escenarioAplicacionLlamamiento) servicio(t *testing.T) *ServicioLlamami
 		}
 		return evaluacion, nil
 	})
-	transaccion := transaccionLlamamientoFunc(func(_ context.Context, propuesta dominiobolsa.PropuestaLlamamiento, evidencia puertosvec.EvidenciaUsoDecisionAutorizacion) error {
+	transaccion := transaccionLlamamientoFunc(func(_ context.Context, comando puertosbolsa.ComandoGuardarPropuestaLlamamiento) error {
 		e.secuencia = append(e.secuencia, "persistir")
 		e.persistencias++
+		instantanea, propuesta, evidencia, err := comando.Datos()
+		if err != nil || len(instantanea.Entradas) != len(e.datos.Entradas) ||
+			len(instantanea.Entradas) <= len(propuesta.Evaluaciones) {
+			t.Fatalf("la transaccion no recibio la instantanea completa: entradas=%d evaluaciones=%d error=%v",
+				len(instantanea.Entradas), len(propuesta.Evaluaciones), err)
+		}
 		if propuesta.Validar() != nil || evidencia.ValidarEn(propuesta.GeneradaEn) != nil {
 			t.Fatal("la transaccion recibio efecto o evidencia invalidos")
 		}
@@ -232,6 +241,11 @@ func (e *escenarioAplicacionLlamamiento) servicio(t *testing.T) *ServicioLlamami
 		if err != nil || datos.Decision.RecursoRef != propuesta.NecesidadRef ||
 			!datos.VerificadaEn.Equal(propuesta.GeneradaEn) {
 			t.Fatalf("evidencia no ligada al efecto: %+v / %v", datos, err)
+		}
+		instantanea.Entradas[0].Participacion.Situaciones[0].EstadoClave = "mutado_en_adaptador"
+		segundaInstantanea, _, _, err := comando.Datos()
+		if err != nil || segundaInstantanea.Entradas[0].Participacion.Situaciones[0].EstadoClave == "mutado_en_adaptador" {
+			t.Fatal("el comando compartio la instantanea interna con el adaptador")
 		}
 		return nil
 	})
@@ -473,7 +487,7 @@ func TestNuevoServicioLlamamientosRechazaDependenciasNulasYTipadasNulas(t *testi
 	})
 	reloj := &relojFijoLlamamiento{instante: instanteAplicacionLlamamientoPrueba}
 	generador := &generadorSecuencialLlamamiento{}
-	transaccion := transaccionLlamamientoFunc(func(context.Context, dominiobolsa.PropuestaLlamamiento, puertosvec.EvidenciaUsoDecisionAutorizacion) error {
+	transaccion := transaccionLlamamientoFunc(func(context.Context, puertosbolsa.ComandoGuardarPropuestaLlamamiento) error {
 		return nil
 	})
 	if servicio, err := NuevoServicioLlamamientos(resolutor, vinculador, autorizador, fuente, motor, reloj, generador, transaccion); err != nil || servicio == nil {

@@ -280,10 +280,17 @@ func (s *ServicioLlamamientos) ProponerPrimerLlamamiento(
 	if err != nil {
 		return dominiobolsa.PropuestaLlamamiento{}, errorPropuestaDenegada(err)
 	}
+	comando, err := puertosbolsa.NuevoComandoGuardarPropuestaLlamamiento(instantanea, propuesta, evidencia)
+	if err != nil {
+		return dominiobolsa.PropuestaLlamamiento{}, errors.Join(
+			puertosbolsa.ErrPersistenciaPropuestaNoDisponible,
+			err,
+		)
+	}
 	if err := ctx.Err(); err != nil {
 		return dominiobolsa.PropuestaLlamamiento{}, errorPropuestaDenegada(err)
 	}
-	if err := s.transaccion.GuardarPropuestaLlamamiento(ctx, propuesta, evidencia); err != nil {
+	if err := s.transaccion.GuardarPropuestaLlamamiento(ctx, comando); err != nil {
 		return dominiobolsa.PropuestaLlamamiento{}, errors.Join(puertosbolsa.ErrPersistenciaPropuestaNoDisponible, err)
 	}
 	clon, err := propuesta.ClonarCanonica()

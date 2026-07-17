@@ -30,9 +30,9 @@ const (
 
 var _ puertosbolsa.TransaccionPropuestasLlamamiento = (*TransaccionPropuestasLlamamientoPostgreSQL)(nil)
 
-// TransaccionPropuestasLlamamientoPostgreSQL solo queda operativa cuando el
-// despliegue concede EXECUTE tras instalar un registrador COSE real. Hasta
-// entonces PostgreSQL deniega la llamada, sin ruta degradada ni simulacion.
+// TransaccionPropuestasLlamamientoPostgreSQL permanece cerrada aunque exista
+// la funcion guardar_propuesta_v1: ese contrato antiguo no recibe ni confirma
+// la instantanea completa generada. Conceder EXECUTE no basta para habilitarla.
 type TransaccionPropuestasLlamamientoPostgreSQL struct {
 	pool  iniciadorTransacciones
 	reloj puertosbolsa.RelojLlamamientos
@@ -77,12 +77,15 @@ type pruebaLlamamientoPostgreSQLV1 struct {
 	PrincipalRef         string `json:"principal_ref"`
 }
 
-// GuardarPropuestaLlamamiento valida el recibo completo antes de COMMIT. Una
-// respuesta SQL manipulada nunca se convierte en un exito de aplicacion.
+// GuardarPropuestaLlamamiento valida el nuevo comando indivisible y falla
+// cerrado antes de iniciar una transaccion. TODO(produccion): sustituir
+// guardar_propuesta_v1 por un contrato SQL nuevo que inserte la instantanea
+// completa, todas sus entradas, el prefijo de evaluaciones, la propuesta, el
+// consumo de autorizacion, la atestacion COSE, auditoria y outbox en un unico
+// COMMIT; solo entonces podra retirarse este cierre explicito.
 func (r *TransaccionPropuestasLlamamientoPostgreSQL) GuardarPropuestaLlamamiento(
 	ctx context.Context,
-	propuesta dominiobolsa.PropuestaLlamamiento,
-	evidencia puertosvec.EvidenciaUsoDecisionAutorizacion,
+	comando puertosbolsa.ComandoGuardarPropuestaLlamamiento,
 ) error {
 	if ctx == nil {
 		return puertosbolsa.ErrPersistenciaPropuestaNoDisponible
@@ -93,41 +96,15 @@ func (r *TransaccionPropuestasLlamamientoPostgreSQL) GuardarPropuestaLlamamiento
 	if r == nil || valorNulo(r.pool) || valorNulo(r.reloj) {
 		return puertosbolsa.ErrPersistenciaPropuestaNoDisponible
 	}
-	propuestaCanonica, err := propuesta.ClonarCanonica()
+	_, propuestaCanonica, _, err := comando.Datos()
 	if err != nil {
-		return puertosbolsa.ErrPersistenciaPropuestaNoDisponible
+		return errors.Join(puertosbolsa.ErrPersistenciaPropuestaNoDisponible, err)
 	}
 	ahora := r.reloj.Ahora().UTC().Truncate(time.Microsecond)
-	if !instantePostgreSQLLlamamientoValido(ahora) || propuestaCanonica.GeneradaEn.After(ahora) ||
-		evidencia.ValidarEn(ahora) != nil {
+	if !instantePostgreSQLLlamamientoValido(ahora) || propuestaCanonica.GeneradaEn.After(ahora) || comando.ValidarEn(ahora) != nil {
 		return puertosvec.ErrEvidenciaUsoDecisionAutorizacionInvalida
 	}
-	operacion, prueba, decisionCanonica, propuestaDocumento, datos, err :=
-		serializarPropuestaLlamamientoPostgreSQL(propuestaCanonica, evidencia, ahora)
-	if err != nil {
-		return err
-	}
-	defer borrarBytesPostgreSQL(operacion, prueba, decisionCanonica, propuestaDocumento)
-
-	tx, err := r.iniciar(ctx)
-	if err != nil {
-		return err
-	}
-	defer revertir(tx)
-	recibo, err := ejecutarGuardadoLlamamientoPostgreSQL(
-		ctx, tx, operacion, prueba, decisionCanonica, propuestaDocumento,
-	)
-	if err != nil {
-		return err
-	}
-	defer recibo.borrar()
-	if err := recibo.validar(propuestaCanonica, datos, propuestaDocumento); err != nil {
-		return err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return errorPostgreSQLLlamamiento(ctx, err)
-	}
-	return nil
+	return puertosbolsa.ErrPersistenciaPropuestaNoDisponible
 }
 
 func (r *TransaccionPropuestasLlamamientoPostgreSQL) iniciar(ctx context.Context) (pgx.Tx, error) {

@@ -28,10 +28,12 @@ func (r relojLlamamientoPostgreSQLPrueba) Ahora() time.Time { return r.instante 
 type iniciadorLlamamientoPostgreSQLPrueba struct {
 	tx       pgx.Tx
 	opciones pgx.TxOptions
+	inicios  int
 }
 
 func (i *iniciadorLlamamientoPostgreSQLPrueba) BeginTx(_ context.Context, opciones pgx.TxOptions) (pgx.Tx, error) {
 	i.opciones = opciones
+	i.inicios++
 	return i.tx, nil
 }
 
@@ -95,8 +97,8 @@ func (t *transaccionLlamamientoPostgreSQLPrueba) Rollback(context.Context) error
 	return nil
 }
 
-func TestTransaccionLlamamientoPostgreSQLValidaReciboAntesDeCommit(t *testing.T) {
-	propuesta, evidencia := propuestaYEvidenciaLlamamientoPostgreSQLPrueba(t)
+func TestTransaccionLlamamientoPostgreSQLValidaComandoYPermaneceCerrada(t *testing.T) {
+	propuesta, evidencia, comando := propuestaYEvidenciaLlamamientoPostgreSQLPrueba(t)
 	recibo := reciboLlamamientoPostgreSQLPrueba(t, propuesta, evidencia)
 	tx := &transaccionLlamamientoPostgreSQLPrueba{fila: filaReciboLlamamientoPostgreSQLPrueba(recibo)}
 	iniciador := &iniciadorLlamamientoPostgreSQLPrueba{tx: tx}
@@ -106,17 +108,24 @@ func TestTransaccionLlamamientoPostgreSQLValidaReciboAntesDeCommit(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = repositorio.GuardarPropuestaLlamamiento(context.Background(), propuesta, evidencia); err != nil {
-		t.Fatalf("guardado valido rechazado: %v", err)
+	if err = repositorio.GuardarPropuestaLlamamiento(context.Background(), comando); !errors.Is(err, puertosbolsa.ErrPersistenciaPropuestaNoDisponible) {
+		t.Fatalf("el contrato antiguo no quedo cerrado: %v", err)
 	}
-	if tx.confirmaciones != 1 || iniciador.opciones.IsoLevel != pgx.Serializable ||
-		iniciador.opciones.AccessMode != pgx.ReadWrite || !strings.Contains(tx.consulta, funcionGuardarPropuestaLlamamientoV1) {
-		t.Fatalf("frontera transaccional incorrecta: commit=%d opciones=%+v consulta=%q", tx.confirmaciones, iniciador.opciones, tx.consulta)
+	if iniciador.inicios != 0 || tx.confirmaciones != 0 || tx.consulta != "" {
+		t.Fatalf("el cierre alcanzo PostgreSQL: inicios=%d commits=%d consulta=%q", iniciador.inicios, tx.confirmaciones, tx.consulta)
 	}
 }
 
-func TestTransaccionLlamamientoPostgreSQLRespuestaManipuladaNoConfirma(t *testing.T) {
-	propuesta, evidencia := propuestaYEvidenciaLlamamientoPostgreSQLPrueba(t)
+func TestReciboLlamamientoPostgreSQLRespuestaManipuladaNoValida(t *testing.T) {
+	propuesta, evidencia, _ := propuestaYEvidenciaLlamamientoPostgreSQLPrueba(t)
+	datos, err := evidencia.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	documento, err := json.Marshal(propuesta)
+	if err != nil {
+		t.Fatal(err)
+	}
 	casos := []struct {
 		nombre string
 		mutar  func(*reciboLlamamientoPostgreSQLV1)
@@ -146,17 +155,9 @@ func TestTransaccionLlamamientoPostgreSQLRespuestaManipuladaNoConfirma(t *testin
 		t.Run(caso.nombre, func(t *testing.T) {
 			recibo := reciboLlamamientoPostgreSQLPrueba(t, propuesta, evidencia)
 			caso.mutar(&recibo)
-			tx := &transaccionLlamamientoPostgreSQLPrueba{fila: filaReciboLlamamientoPostgreSQLPrueba(recibo)}
-			repositorio, err := nuevaTransaccionPropuestasLlamamientoPostgreSQL(
-				&iniciadorLlamamientoPostgreSQLPrueba{tx: tx},
-				relojLlamamientoPostgreSQLPrueba{instanteLlamamientoPostgreSQLPrueba.Add(time.Second)},
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
-			err = repositorio.GuardarPropuestaLlamamiento(context.Background(), propuesta, evidencia)
-			if !errors.Is(err, puertosbolsa.ErrPersistenciaPropuestaNoDisponible) || tx.confirmaciones != 0 {
-				t.Fatalf("respuesta manipulada aceptada: err=%v commits=%d", err, tx.confirmaciones)
+			err := recibo.validar(propuesta, datos, documento)
+			if !errors.Is(err, puertosbolsa.ErrPersistenciaPropuestaNoDisponible) {
+				t.Fatalf("respuesta manipulada aceptada: %v", err)
 			}
 		})
 	}
@@ -176,14 +177,23 @@ func anteponerClaveDuplicadaLlamamientoPrueba(contenido []byte) []byte {
 }
 
 func TestTransaccionLlamamientoPostgreSQLEvidenciaYCierreFallanSeguro(t *testing.T) {
-	propuesta, _ := propuestaYEvidenciaLlamamientoPostgreSQLPrueba(t)
+	propuesta, _, comando := propuestaYEvidenciaLlamamientoPostgreSQLPrueba(t)
+	instantanea, _, _, err := comando.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := puertosbolsa.NuevoComandoGuardarPropuestaLlamamiento(
+		instantanea, propuesta, puertosvec.EvidenciaUsoDecisionAutorizacion{},
+	); !errors.Is(err, puertosvec.ErrEvidenciaUsoDecisionAutorizacionInvalida) {
+		t.Fatalf("evidencia cero admitida por el comando: %v", err)
+	}
 	tx := &transaccionLlamamientoPostgreSQLPrueba{fila: filaReciboLlamamientoPostgreSQLPrueba(reciboLlamamientoPostgreSQLV1{})}
 	repositorio, _ := nuevaTransaccionPropuestasLlamamientoPostgreSQL(
 		&iniciadorLlamamientoPostgreSQLPrueba{tx: tx},
 		relojLlamamientoPostgreSQLPrueba{instanteLlamamientoPostgreSQLPrueba.Add(time.Second)},
 	)
-	if err := repositorio.GuardarPropuestaLlamamiento(context.Background(), propuesta, puertosvec.EvidenciaUsoDecisionAutorizacion{}); !errors.Is(err, puertosvec.ErrEvidenciaUsoDecisionAutorizacionInvalida) || tx.confirmaciones != 0 {
-		t.Fatalf("evidencia cero admitida: %v", err)
+	if err := repositorio.GuardarPropuestaLlamamiento(context.Background(), puertosbolsa.ComandoGuardarPropuestaLlamamiento{}); !errors.Is(err, puertosbolsa.ErrComandoGuardarPropuestaLlamamientoInvalido) || tx.confirmaciones != 0 {
+		t.Fatalf("comando cero admitido: %v", err)
 	}
 	if _, err := nuevaTransaccionPropuestasLlamamientoPostgreSQL(
 		nil, relojLlamamientoPostgreSQLPrueba{instanteLlamamientoPostgreSQLPrueba},
@@ -274,7 +284,11 @@ func pgtypeTimestamptzPrueba(instante time.Time) pgtype.Timestamptz {
 
 func propuestaYEvidenciaLlamamientoPostgreSQLPrueba(
 	t *testing.T,
-) (dominiobolsa.PropuestaLlamamiento, puertosvec.EvidenciaUsoDecisionAutorizacion) {
+) (
+	dominiobolsa.PropuestaLlamamiento,
+	puertosvec.EvidenciaUsoDecisionAutorizacion,
+	puertosbolsa.ComandoGuardarPropuestaLlamamiento,
+) {
 	t.Helper()
 	instante := instanteLlamamientoPostgreSQLPrueba
 	bolsa, err := dominiobolsa.NuevaBolsaConstituida(dominiobolsa.AltaBolsaConstituida{
@@ -393,7 +407,11 @@ func propuestaYEvidenciaLlamamientoPostgreSQLPrueba(
 	if err != nil {
 		t.Fatal(err)
 	}
-	return propuesta, evidencia
+	comando, err := puertosbolsa.NuevoComandoGuardarPropuestaLlamamiento(instantanea, propuesta, evidencia)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return propuesta, evidencia, comando
 }
 
 func huellaLlamamientoPostgreSQLPrueba(caracter byte) string {

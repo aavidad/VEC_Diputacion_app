@@ -37,11 +37,11 @@ func TestRegistroPropuestasLlamamientoIdempotenciaExactaYCopiasDefensivas(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	propuesta, evidencia := propuestaYEvidenciaMemoriaPrueba(t, "propuesta:memoria:0001", "instantanea:memoria:0001", "A", "decision:memoria:0001")
-	if err := registro.GuardarPropuestaLlamamiento(context.Background(), propuesta, evidencia); err != nil {
+	propuesta, comando := propuestaYEvidenciaMemoriaPrueba(t, "propuesta:memoria:0001", "instantanea:memoria:0001", "A", "decision:memoria:0001")
+	if err := registro.GuardarPropuestaLlamamiento(context.Background(), comando); err != nil {
 		t.Fatalf("primer guardado: %v", err)
 	}
-	if err := registro.GuardarPropuestaLlamamiento(context.Background(), propuesta, evidencia); err != nil {
+	if err := registro.GuardarPropuestaLlamamiento(context.Background(), comando); err != nil {
 		t.Fatalf("reintento exacto: %v", err)
 	}
 	if registro.NumeroPropuestasParaPruebas() != 1 {
@@ -57,6 +57,15 @@ func TestRegistroPropuestasLlamamientoIdempotenciaExactaYCopiasDefensivas(t *tes
 	if segunda.Evaluaciones[0].Motivos[0].Clave == "mutado_salida" {
 		t.Fatal("la consulta compartio memoria interna")
 	}
+	instantanea, err := registro.ObtenerInstantaneaParaPruebas(context.Background(), propuesta.PropuestaRef)
+	if err != nil || len(instantanea.Entradas) != 2 {
+		t.Fatalf("no se conservo la instantanea completa: entradas=%d error=%v", len(instantanea.Entradas), err)
+	}
+	instantanea.Entradas[0].Participacion.Situaciones[0].EstadoClave = "mutado_salida"
+	segundaInstantanea, _ := registro.ObtenerInstantaneaParaPruebas(context.Background(), propuesta.PropuestaRef)
+	if segundaInstantanea.Entradas[0].Participacion.Situaciones[0].EstadoClave == "mutado_salida" {
+		t.Fatal("la consulta compartio la instantanea interna")
+	}
 }
 
 func TestRegistroPropuestasLlamamientoDeniegaSegundoEfectoParaMismaVersionDeNecesidad(t *testing.T) {
@@ -65,16 +74,16 @@ func TestRegistroPropuestasLlamamientoDeniegaSegundoEfectoParaMismaVersionDeNece
 	if err != nil {
 		t.Fatal(err)
 	}
-	primera, evidenciaPrimera := propuestaYEvidenciaMemoriaPrueba(
+	_, comandoPrimera := propuestaYEvidenciaMemoriaPrueba(
 		t, "propuesta:memoria:negocio:0001", "instantanea:memoria:negocio:0001", "NA", "decision:memoria:negocio:0001",
 	)
-	segunda, evidenciaSegunda := propuestaYEvidenciaMemoriaPrueba(
+	_, comandoSegunda := propuestaYEvidenciaMemoriaPrueba(
 		t, "propuesta:memoria:negocio:0002", "instantanea:memoria:negocio:0002", "NB", "decision:memoria:negocio:0002",
 	)
-	if err := registro.GuardarPropuestaLlamamiento(context.Background(), primera, evidenciaPrimera); err != nil {
+	if err := registro.GuardarPropuestaLlamamiento(context.Background(), comandoPrimera); err != nil {
 		t.Fatalf("primer efecto: %v", err)
 	}
-	if err := registro.GuardarPropuestaLlamamiento(context.Background(), segunda, evidenciaSegunda); !errors.Is(err, puertosbolsa.ErrNecesidadLlamamientoYaPropuesta) {
+	if err := registro.GuardarPropuestaLlamamiento(context.Background(), comandoSegunda); !errors.Is(err, puertosbolsa.ErrNecesidadLlamamientoYaPropuesta) {
 		t.Fatalf("la misma necesidad/version admitio referencias y decision nuevas: %v", err)
 	}
 	if registro.NumeroPropuestasParaPruebas() != 1 {
@@ -97,21 +106,18 @@ func TestRegistroPropuestasLlamamientoMismaNecesidadConcurrenteSoloConfirmaUnEfe
 		grupo.Add(1)
 		go func() {
 			defer grupo.Done()
-			propuesta, err := propuestaMemoriaPrueba(
+			propuesta, comando, err := propuestaYEvidenciaMemoriaPruebaConcurrente(
 				fmt.Sprintf("propuesta:memoria:negocio:%04d", indice+100),
 				fmt.Sprintf("instantanea:memoria:negocio:%04d", indice+100),
 				fmt.Sprintf("NC%04d", indice),
+				fmt.Sprintf("decision:memoria:negocio:%04d", indice+100),
 			)
 			if err != nil {
 				t.Errorf("propuesta concurrente: %v", err)
 				return
 			}
-			evidencia, err := evidenciaMemoriaPrueba(propuesta, fmt.Sprintf("decision:memoria:negocio:%04d", indice+100))
-			if err != nil {
-				t.Errorf("evidencia concurrente: %v", err)
-				return
-			}
-			err = registro.GuardarPropuestaLlamamiento(context.Background(), propuesta, evidencia)
+			_ = propuesta
+			err = registro.GuardarPropuestaLlamamiento(context.Background(), comando)
 			switch {
 			case err == nil:
 				exitos.Add(1)
@@ -131,30 +137,30 @@ func TestRegistroPropuestasLlamamientoMismaNecesidadConcurrenteSoloConfirmaUnEfe
 func TestRegistroPropuestasLlamamientoDeniegaColisionesDePropuestaDecisionYRecibos(t *testing.T) {
 	reloj := &relojMemoriaLlamamiento{instante: instanteMemoriaLlamamientoPrueba.Add(time.Second)}
 	registro, _ := NuevoRegistroPropuestasLlamamiento(reloj, PerfilRegistroPropuestasSoloPruebas())
-	primera, evidenciaPrimera := propuestaYEvidenciaMemoriaPrueba(t, "propuesta:memoria:0010", "instantanea:memoria:0010", "B", "decision:memoria:0010")
-	if err := registro.GuardarPropuestaLlamamiento(context.Background(), primera, evidenciaPrimera); err != nil {
+	primera, comandoPrimero := propuestaYEvidenciaMemoriaPrueba(t, "propuesta:memoria:0010", "instantanea:memoria:0010", "B", "decision:memoria:0010")
+	if err := registro.GuardarPropuestaLlamamiento(context.Background(), comandoPrimero); err != nil {
 		t.Fatal(err)
 	}
 
-	mismaPropuestaOtroContenido, evidenciaOtra := propuestaYEvidenciaMemoriaPrueba(
+	_, comandoMismaPropuesta := propuestaYEvidenciaMemoriaPrueba(
 		t, primera.PropuestaRef, "instantanea:memoria:0011", "C", "decision:memoria:0011",
 	)
-	if err := registro.GuardarPropuestaLlamamiento(context.Background(), mismaPropuestaOtroContenido, evidenciaOtra); !errors.Is(err, puertosbolsa.ErrPropuestaLlamamientoYaExiste) {
+	if err := registro.GuardarPropuestaLlamamiento(context.Background(), comandoMismaPropuesta); !errors.Is(err, puertosbolsa.ErrPropuestaLlamamientoYaExiste) {
 		t.Fatalf("referencia de propuesta reutilizada: %v", err)
 	}
 
-	otraPropuestaMismaDecision, _ := propuestaYEvidenciaMemoriaPrueba(
+	_, comandoMismaDecision := propuestaYEvidenciaMemoriaPrueba(
 		t, "propuesta:memoria:0012", "instantanea:memoria:0012", "D", "decision:memoria:0010",
 	)
-	if err := registro.GuardarPropuestaLlamamiento(context.Background(), otraPropuestaMismaDecision, evidenciaPrimera); !errors.Is(err, puertosbolsa.ErrDecisionAutorizacionLlamamientoUsada) ||
+	if err := registro.GuardarPropuestaLlamamiento(context.Background(), comandoMismaDecision); !errors.Is(err, puertosbolsa.ErrDecisionAutorizacionLlamamientoUsada) ||
 		!errors.Is(err, puertosvec.ErrDecisionAutorizacionConsumida) {
 		t.Fatalf("decision reutilizada: %v", err)
 	}
 
-	otraPropuestaMismosRecibos, evidenciaNueva := propuestaYEvidenciaMemoriaPrueba(
+	_, comandoMismosRecibos := propuestaYEvidenciaMemoriaPrueba(
 		t, "propuesta:memoria:0013", primera.InstantaneaRef, "B", "decision:memoria:0013",
 	)
-	if err := registro.GuardarPropuestaLlamamiento(context.Background(), otraPropuestaMismosRecibos, evidenciaNueva); !errors.Is(err, puertosbolsa.ErrReferenciaLlamamientoYaUtilizada) {
+	if err := registro.GuardarPropuestaLlamamiento(context.Background(), comandoMismosRecibos); !errors.Is(err, puertosbolsa.ErrReferenciaLlamamientoYaUtilizada) {
 		t.Fatalf("recibos o instantanea reutilizados: %v", err)
 	}
 	if registro.NumeroPropuestasParaPruebas() != 1 {
@@ -172,14 +178,13 @@ func TestRegistroPropuestasLlamamientoDeniegaCancelacionEvidenciaCeroYPerfilProd
 		t.Fatalf("reloj tipado nulo admitido: %v", err)
 	}
 	registro, _ := NuevoRegistroPropuestasLlamamiento(reloj, PerfilRegistroPropuestasSoloPruebas())
-	propuesta, _ := propuestaYEvidenciaMemoriaPrueba(t, "propuesta:memoria:0020", "instantanea:memoria:0020", "E", "decision:memoria:0020")
 	ctx, cancelar := context.WithCancel(context.Background())
 	cancelar()
-	if err := registro.GuardarPropuestaLlamamiento(ctx, propuesta, puertosvec.EvidenciaUsoDecisionAutorizacion{}); !errors.Is(err, context.Canceled) {
+	if err := registro.GuardarPropuestaLlamamiento(ctx, puertosbolsa.ComandoGuardarPropuestaLlamamiento{}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("contexto cancelado no prevalecio: %v", err)
 	}
-	if err := registro.GuardarPropuestaLlamamiento(context.Background(), propuesta, puertosvec.EvidenciaUsoDecisionAutorizacion{}); !errors.Is(err, puertosvec.ErrEvidenciaUsoDecisionAutorizacionInvalida) {
-		t.Fatalf("evidencia cero admitida: %v", err)
+	if err := registro.GuardarPropuestaLlamamiento(context.Background(), puertosbolsa.ComandoGuardarPropuestaLlamamiento{}); !errors.Is(err, puertosbolsa.ErrComandoGuardarPropuestaLlamamientoInvalido) {
+		t.Fatalf("comando cero admitido: %v", err)
 	}
 	if registro.NumeroPropuestasParaPruebas() != 0 {
 		t.Fatal("una denegacion dejo efecto")
@@ -189,7 +194,7 @@ func TestRegistroPropuestasLlamamientoDeniegaCancelacionEvidenciaCeroYPerfilProd
 func TestRegistroPropuestasLlamamientoReintentosConcurrentesProducenUnSoloEfecto(t *testing.T) {
 	reloj := &relojMemoriaLlamamiento{instante: instanteMemoriaLlamamientoPrueba.Add(time.Second)}
 	registro, _ := NuevoRegistroPropuestasLlamamiento(reloj, PerfilRegistroPropuestasSoloPruebas())
-	propuesta, evidencia := propuestaYEvidenciaMemoriaPrueba(t, "propuesta:memoria:0030", "instantanea:memoria:0030", "F", "decision:memoria:0030")
+	_, comando := propuestaYEvidenciaMemoriaPrueba(t, "propuesta:memoria:0030", "instantanea:memoria:0030", "F", "decision:memoria:0030")
 	const total = 64
 	var grupo sync.WaitGroup
 	errores := make(chan error, total)
@@ -197,7 +202,7 @@ func TestRegistroPropuestasLlamamientoReintentosConcurrentesProducenUnSoloEfecto
 		grupo.Add(1)
 		go func() {
 			defer grupo.Done()
-			errores <- registro.GuardarPropuestaLlamamiento(context.Background(), propuesta, evidencia)
+			errores <- registro.GuardarPropuestaLlamamiento(context.Background(), comando)
 		}()
 	}
 	grupo.Wait()
@@ -215,7 +220,11 @@ func TestRegistroPropuestasLlamamientoReintentosConcurrentesProducenUnSoloEfecto
 func TestRegistroPropuestasLlamamientoUnaDecisionConcurrenteSoloConfirmaUnaPropuesta(t *testing.T) {
 	reloj := &relojMemoriaLlamamiento{instante: instanteMemoriaLlamamientoPrueba.Add(time.Second)}
 	registro, _ := NuevoRegistroPropuestasLlamamiento(reloj, PerfilRegistroPropuestasSoloPruebas())
-	_, evidencia := propuestaYEvidenciaMemoriaPrueba(t, "propuesta:memoria:0040", "instantanea:memoria:0040", "G", "decision:memoria:0040")
+	_, comandoBase := propuestaYEvidenciaMemoriaPrueba(t, "propuesta:memoria:0040", "instantanea:memoria:0040", "G", "decision:memoria:0040")
+	_, _, evidencia, err := comandoBase.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
 	const total = 32
 	var exitos atomic.Int32
 	var grupo sync.WaitGroup
@@ -224,12 +233,21 @@ func TestRegistroPropuestasLlamamientoUnaDecisionConcurrenteSoloConfirmaUnaPropu
 		grupo.Add(1)
 		go func() {
 			defer grupo.Done()
-			propuesta, _ := propuestaYEvidenciaMemoriaPruebaConcurrente(
+			instantanea, propuesta, err := propuestaMemoriaPrueba(
 				fmt.Sprintf("propuesta:memoria:04%02d", indice+1),
 				fmt.Sprintf("instantanea:memoria:04%02d", indice+1),
 				fmt.Sprintf("X%02d", indice),
 			)
-			if err := registro.GuardarPropuestaLlamamiento(context.Background(), propuesta, evidencia); err == nil {
+			if err != nil {
+				t.Errorf("propuesta concurrente: %v", err)
+				return
+			}
+			comando, err := puertosbolsa.NuevoComandoGuardarPropuestaLlamamiento(instantanea, propuesta, evidencia)
+			if err != nil {
+				t.Errorf("comando concurrente: %v", err)
+				return
+			}
+			if err := registro.GuardarPropuestaLlamamiento(context.Background(), comando); err == nil {
 				exitos.Add(1)
 			} else if !errors.Is(err, puertosbolsa.ErrDecisionAutorizacionLlamamientoUsada) {
 				t.Errorf("error concurrente inesperado: %v", err)
@@ -245,9 +263,9 @@ func TestRegistroPropuestasLlamamientoUnaDecisionConcurrenteSoloConfirmaUnaPropu
 func propuestaYEvidenciaMemoriaPrueba(
 	t *testing.T,
 	propuestaRef, instantaneaRef, sufijo, decisionRef string,
-) (dominiobolsa.PropuestaLlamamiento, puertosvec.EvidenciaUsoDecisionAutorizacion) {
+) (dominiobolsa.PropuestaLlamamiento, puertosbolsa.ComandoGuardarPropuestaLlamamiento) {
 	t.Helper()
-	propuesta, err := propuestaMemoriaPrueba(propuestaRef, instantaneaRef, sufijo)
+	instantanea, propuesta, err := propuestaMemoriaPrueba(propuestaRef, instantaneaRef, sufijo)
 	if err != nil {
 		t.Fatalf("propuesta de prueba: %v", err)
 	}
@@ -255,18 +273,31 @@ func propuestaYEvidenciaMemoriaPrueba(
 	if err != nil {
 		t.Fatalf("evidencia de prueba: %v", err)
 	}
-	return propuesta, evidencia
+	comando, err := puertosbolsa.NuevoComandoGuardarPropuestaLlamamiento(instantanea, propuesta, evidencia)
+	if err != nil {
+		t.Fatalf("comando de prueba: %v", err)
+	}
+	return propuesta, comando
 }
 
 func propuestaYEvidenciaMemoriaPruebaConcurrente(
-	propuestaRef, instantaneaRef, sufijo string,
-) (dominiobolsa.PropuestaLlamamiento, error) {
-	return propuestaMemoriaPrueba(propuestaRef, instantaneaRef, sufijo)
+	propuestaRef, instantaneaRef, sufijo, decisionRef string,
+) (dominiobolsa.PropuestaLlamamiento, puertosbolsa.ComandoGuardarPropuestaLlamamiento, error) {
+	instantanea, propuesta, err := propuestaMemoriaPrueba(propuestaRef, instantaneaRef, sufijo)
+	if err != nil {
+		return dominiobolsa.PropuestaLlamamiento{}, puertosbolsa.ComandoGuardarPropuestaLlamamiento{}, err
+	}
+	evidencia, err := evidenciaMemoriaPrueba(propuesta, decisionRef)
+	if err != nil {
+		return dominiobolsa.PropuestaLlamamiento{}, puertosbolsa.ComandoGuardarPropuestaLlamamiento{}, err
+	}
+	comando, err := puertosbolsa.NuevoComandoGuardarPropuestaLlamamiento(instantanea, propuesta, evidencia)
+	return propuesta, comando, err
 }
 
 func propuestaMemoriaPrueba(
 	propuestaRef, instantaneaRef, sufijo string,
-) (dominiobolsa.PropuestaLlamamiento, error) {
+) (dominiobolsa.InstantaneaOrdenBolsa, dominiobolsa.PropuestaLlamamiento, error) {
 	bolsa, err := dominiobolsa.NuevaBolsaConstituida(dominiobolsa.AltaBolsaConstituida{
 		BolsaRef: "bolsa:memoria:0001", Version: 1, ProcesoRef: "proceso:memoria:0001",
 		CategoriaRef: "categoria:memoria:0001", ListadoDefinitivoRef: "listado:memoria:0001",
@@ -276,7 +307,7 @@ func propuestaMemoriaPrueba(
 		VigenteDesde:  instanteMemoriaLlamamientoPrueba.Add(-24 * time.Hour),
 	})
 	if err != nil {
-		return dominiobolsa.PropuestaLlamamiento{}, err
+		return dominiobolsa.InstantaneaOrdenBolsa{}, dominiobolsa.PropuestaLlamamiento{}, err
 	}
 	huellaBolsa, _ := bolsa.HuellaCanonicaSHA256()
 	necesidad, err := dominiobolsa.NuevaNecesidadCobertura(dominiobolsa.AltaNecesidadCobertura{
@@ -288,7 +319,7 @@ func propuestaMemoriaPrueba(
 		CreadaEn:       instanteMemoriaLlamamientoPrueba.Add(-time.Hour),
 	})
 	if err != nil {
-		return dominiobolsa.PropuestaLlamamiento{}, err
+		return dominiobolsa.InstantaneaOrdenBolsa{}, dominiobolsa.PropuestaLlamamiento{}, err
 	}
 	politica, err := dominiobolsa.NuevaReferenciaPoliticaLlamamiento(dominiobolsa.ReferenciaPoliticaLlamamiento{
 		PoliticaRef: "politica:memoria:0001", Clave: "politica_memoria_gobernada", Version: 1,
@@ -296,7 +327,7 @@ func propuestaMemoriaPrueba(
 		VigenteDesde: instanteMemoriaLlamamientoPrueba.Add(-24 * time.Hour),
 	})
 	if err != nil {
-		return dominiobolsa.PropuestaLlamamiento{}, err
+		return dominiobolsa.InstantaneaOrdenBolsa{}, dominiobolsa.PropuestaLlamamiento{}, err
 	}
 	entradas := make([]dominiobolsa.EntradaOrdenBolsa, 2)
 	for indice := range entradas {
@@ -314,7 +345,7 @@ func propuestaMemoriaPrueba(
 			}},
 		})
 		if err != nil {
-			return dominiobolsa.PropuestaLlamamiento{}, err
+			return dominiobolsa.InstantaneaOrdenBolsa{}, dominiobolsa.PropuestaLlamamiento{}, err
 		}
 		entradas[indice] = dominiobolsa.EntradaOrdenBolsa{Orden: uint64(orden), Participacion: participacion}
 	}
@@ -323,7 +354,7 @@ func propuestaMemoriaPrueba(
 		ReferidaEn: instanteMemoriaLlamamientoPrueba, GeneradaEn: instanteMemoriaLlamamientoPrueba, Entradas: entradas,
 	})
 	if err != nil {
-		return dominiobolsa.PropuestaLlamamiento{}, err
+		return dominiobolsa.InstantaneaOrdenBolsa{}, dominiobolsa.PropuestaLlamamiento{}, err
 	}
 	evaluaciones := make([]dominiobolsa.EvaluacionParticipacionLlamamiento, 2)
 	for indice := range evaluaciones {
@@ -351,10 +382,14 @@ func propuestaMemoriaPrueba(
 			EvaluadaEn: instanteMemoriaLlamamientoPrueba,
 		}
 	}
-	return dominiobolsa.ProponerPrimerLlamamiento(dominiobolsa.OrdenProponerPrimerLlamamiento{
+	propuesta, err := dominiobolsa.ProponerPrimerLlamamiento(dominiobolsa.OrdenProponerPrimerLlamamiento{
 		PropuestaRef: propuestaRef, Bolsa: bolsa, Necesidad: necesidad, Instantanea: instantanea,
 		Politica: politica, Evaluaciones: evaluaciones, GeneradaEn: instanteMemoriaLlamamientoPrueba,
 	})
+	if err != nil {
+		return dominiobolsa.InstantaneaOrdenBolsa{}, dominiobolsa.PropuestaLlamamiento{}, err
+	}
+	return instantanea, propuesta, nil
 }
 
 func evidenciaMemoriaPrueba(
@@ -422,7 +457,7 @@ func vinculoActorMemoriaPrueba(
 		AsercionRef: "ase_" + token("e"), SesionRef: solicitud.SesionRef,
 		ControlSesionRef: "cse_" + token("c"), ControlSesionRevision: 1,
 		ControlSesionHuellaSHA256: huellaMemoriaLlamamiento('b'), CuentaRef: cuenta.CuentaRef,
-		CuentaOrdinariaRef: cuenta.CuentaRef, Superficie: dominiovec.SuperficieAutenticacionExternaPersonalV1,
+		CuentaOrdinariaRef: cuenta.CuentaRef, Superficie: dominiovec.SuperficieAutenticacionInternaCorporativaV1,
 		MetodoObservado: cuenta.Metodo, GarantiaObservada: cuenta.Garantia,
 		PoliticaGarantiaRef: "pga_" + token("g"), PoliticaGarantiaHuellaSHA256: huellaMemoriaLlamamiento('c'),
 		SesionEmitidaEn:           instanteMemoriaLlamamientoPrueba.Add(-time.Hour),

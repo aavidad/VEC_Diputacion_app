@@ -19,8 +19,9 @@ const maximoPropuestasLlamamientoMemoria = 65_536
 var _ puertosbolsa.TransaccionPropuestasLlamamiento = (*RegistroPropuestasLlamamiento)(nil)
 
 type propuestaLlamamientoGuardada struct {
-	propuesta dominiobolsa.PropuestaLlamamiento
-	evidencia puertosvec.DatosEvidenciaUsoDecisionAutorizacion
+	instantanea dominiobolsa.InstantaneaOrdenBolsa
+	propuesta   dominiobolsa.PropuestaLlamamiento
+	evidencia   puertosvec.DatosEvidenciaUsoDecisionAutorizacion
 }
 
 // claveNegocioPropuestaLlamamiento identifica la version inmutable de la
@@ -72,8 +73,7 @@ func NuevoRegistroPropuestasLlamamiento(
 
 func (r *RegistroPropuestasLlamamiento) GuardarPropuestaLlamamiento(
 	ctx context.Context,
-	propuesta dominiobolsa.PropuestaLlamamiento,
-	evidencia puertosvec.EvidenciaUsoDecisionAutorizacion,
+	comando puertosbolsa.ComandoGuardarPropuestaLlamamiento,
 ) error {
 	if ctx == nil {
 		return errorPersistenciaLlamamiento(puertosbolsa.ErrSolicitudPropuestaLlamamientoInvalida)
@@ -84,13 +84,13 @@ func (r *RegistroPropuestasLlamamiento) GuardarPropuestaLlamamiento(
 	if r == nil || interfazLlamamientoNula(r.reloj) {
 		return errorPersistenciaLlamamiento(puertosbolsa.ErrPersistenciaPropuestaNoDisponible)
 	}
-	propuestaCanonica, err := propuesta.ClonarCanonica()
+	instantaneaCanonica, propuestaCanonica, evidencia, err := comando.Datos()
 	if err != nil {
 		return errorPersistenciaLlamamiento(err)
 	}
 	datosEvidencia, err := evidencia.Datos()
 	if err != nil || !vinculoAutorizacionPropuestaValido(propuestaCanonica, datosEvidencia) {
-		return errorPersistenciaLlamamiento(err)
+		return errorPersistenciaLlamamiento(puertosvec.ErrEvidenciaUsoDecisionAutorizacionInvalida)
 	}
 	referencias, err := referenciasUnicasPropuesta(propuestaCanonica, datosEvidencia.Decision.DecisionRef)
 	if err != nil {
@@ -103,11 +103,12 @@ func (r *RegistroPropuestasLlamamiento) GuardarPropuestaLlamamiento(
 		return errorPersistenciaLlamamiento(err)
 	}
 	ahora, err := ahoraLlamamientoCanonico(r.reloj)
-	if err != nil || propuestaCanonica.GeneradaEn.After(ahora) || evidencia.ValidarEn(ahora) != nil {
+	if err != nil || comando.ValidarEn(ahora) != nil {
 		return errorPersistenciaLlamamiento(puertosvec.ErrEvidenciaUsoDecisionAutorizacionInvalida)
 	}
 	if existente, existe := r.propuestas[propuestaCanonica.PropuestaRef]; existe {
-		if reflect.DeepEqual(existente.propuesta, propuestaCanonica) &&
+		if reflect.DeepEqual(existente.instantanea, instantaneaCanonica) &&
+			reflect.DeepEqual(existente.propuesta, propuestaCanonica) &&
 			reflect.DeepEqual(existente.evidencia, datosEvidencia) {
 			return nil
 		}
@@ -138,8 +139,9 @@ func (r *RegistroPropuestasLlamamiento) GuardarPropuestaLlamamiento(
 	// Desde este punto no hay llamadas externas ni caminos de error: las cuatro
 	// escrituras representan un unico COMMIT logico en memoria.
 	r.propuestas[propuestaCanonica.PropuestaRef] = propuestaLlamamientoGuardada{
-		propuesta: propuestaCanonica,
-		evidencia: clonarDatosEvidencia(datosEvidencia),
+		instantanea: instantaneaCanonica,
+		propuesta:   propuestaCanonica,
+		evidencia:   clonarDatosEvidencia(datosEvidencia),
 	}
 	r.propuestaPorUso[datosEvidencia.Decision.DecisionRef] = propuestaCanonica.PropuestaRef
 	r.propuestaPorNecesidad[claveNegocio] = propuestaCanonica.PropuestaRef
@@ -147,6 +149,28 @@ func (r *RegistroPropuestasLlamamiento) GuardarPropuestaLlamamiento(
 		r.duenoReferencia[referencia] = propuestaCanonica.PropuestaRef
 	}
 	return nil
+}
+
+// ObtenerInstantaneaParaPruebas no forma parte del puerto productivo. Permite
+// demostrar que el adaptador conserva el orden completo, incluido el tramo no
+// evaluado que PropuestaLlamamiento no contiene.
+func (r *RegistroPropuestasLlamamiento) ObtenerInstantaneaParaPruebas(
+	ctx context.Context,
+	referenciaPropuesta string,
+) (dominiobolsa.InstantaneaOrdenBolsa, error) {
+	if ctx == nil || r == nil || !puertosbolsa.ReferenciaOpacaLlamamientoValida(referenciaPropuesta) {
+		return dominiobolsa.InstantaneaOrdenBolsa{}, puertosbolsa.ErrDatosLlamamientoNoEncontrados
+	}
+	if err := ctx.Err(); err != nil {
+		return dominiobolsa.InstantaneaOrdenBolsa{}, err
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	guardada, existe := r.propuestas[referenciaPropuesta]
+	if !existe {
+		return dominiobolsa.InstantaneaOrdenBolsa{}, puertosbolsa.ErrDatosLlamamientoNoEncontrados
+	}
+	return guardada.instantanea.ClonarCanonica()
 }
 
 func claveNegocioDePropuesta(propuesta dominiobolsa.PropuestaLlamamiento) claveNegocioPropuestaLlamamiento {
