@@ -163,6 +163,52 @@ psql_archivo deploy/postgresql/autorizacion/roles_up.sql
 psql_archivo deploy/postgresql/autorizacion/migraciones/000001_autorizacion.up.sql
 psql_archivo deploy/postgresql/ejecucion_documental_v4/migraciones_autorizacion/000002_vinculo_autenticacion_actor_actual.up.sql
 
+# CREATEROLE no equivale a autoridad de bootstrap. En PostgreSQL 18 un
+# creador no superusuario recibe opciones ADMIN implicitas sobre los roles que
+# crea; por eso el instalador debe rechazarlo antes de cualquier CREATE ROLE.
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" <<'SQL'
+CREATE ROLE vec_bolsa_instalador_no_super_prueba NOLOGIN NOSUPERUSER
+    NOCREATEDB CREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+DO $propietario_temporal$
+BEGIN
+    EXECUTE format(
+        'ALTER DATABASE %I OWNER TO vec_bolsa_instalador_no_super_prueba',
+        current_database()
+    );
+END
+$propietario_temporal$;
+SQL
+if docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+    --command 'SET SESSION AUTHORIZATION vec_bolsa_instalador_no_super_prueba' \
+    --file=- < "$raiz/deploy/postgresql/bolsa_baremacion/roles_up.sql" \
+    >/dev/null 2>&1; then
+    echo "roles_up Bolsa acepto un CREATEROLE no superusuario" >&2
+    exit 1
+fi
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" <<'SQL'
+DO $sin_mutacion_no_super$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_roles
+         WHERE rolname LIKE 'vec_bolsa_baremacion_%'
+    ) OR pg_catalog.to_regnamespace(
+        'vec_bolsa_baremacion_guardia'
+    ) IS NOT NULL THEN
+        RAISE EXCEPTION 'el bootstrap Bolsa no superusuario dejo estado';
+    END IF;
+    EXECUTE format(
+        'ALTER DATABASE %I OWNER TO postgres',
+        current_database()
+    );
+END
+$sin_mutacion_no_super$;
+DROP ROLE vec_bolsa_instalador_no_super_prueba;
+SQL
+
 # Primera pasada: toda la prueba funcional y adversaria revierte. A
 # continuacion se verifica que el down conservador funciona sobre un esquema
 # realmente vacio y que la instalacion completa es repetible.
@@ -1069,9 +1115,199 @@ $opciones_conservadas$;
 GRANT vec_bolsa_baremacion_propietario
     TO vec_bolsa_baremacion_migrador
     WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
+
 SQL
 
-psql_archivo deploy/postgresql/bolsa_baremacion/roles_down.sql
+# Contraseña, caducidad y ajustes por base son atributos ajenos al bootstrap.
+# Cada mutación vive en una transacción que el fallo de roles_down deja
+# abortada; al cerrarse psql se revierte sin alterar la instalación siguiente.
+mutaciones_atributos_bolsa=(
+    "ALTER ROLE vec_bolsa_baremacion_ejecutor PASSWORD 'fixture_no_secreta';"
+    "ALTER ROLE vec_bolsa_baremacion_ejecutor VALID UNTIL '2027-01-01 00:00:00+00';"
+    "ALTER ROLE vec_bolsa_baremacion_ejecutor SET statement_timeout = '1s';"
+    "ALTER ROLE vec_bolsa_baremacion_ejecutor IN DATABASE ${base} SET statement_timeout = '1s';"
+)
+for mutacion in "${mutaciones_atributos_bolsa[@]}"; do
+    if docker exec --interactive "$contenedor" psql -X --quiet \
+        --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+        --command "BEGIN; ${mutacion}" --file=- \
+        < "$raiz/deploy/postgresql/bolsa_baremacion/roles_down.sql" \
+        >/dev/null 2>&1; then
+        echo "roles_down acepto atributos Bolsa ajenos al bootstrap" >&2
+        exit 1
+    fi
+done
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" <<'SQL'
+DO $atributos_revertidos$
+DECLARE
+    oid_ejecutor oid;
+BEGIN
+    SELECT oid
+      INTO STRICT oid_ejecutor
+      FROM pg_catalog.pg_authid
+     WHERE rolname = 'vec_bolsa_baremacion_ejecutor'
+       AND rolpassword IS NULL
+       AND rolvaliduntil IS NULL;
+    IF EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_db_role_setting
+         WHERE setrole = oid_ejecutor
+    ) THEN
+        RAISE EXCEPTION 'una prueba de atributos Bolsa no revirtio su transaccion';
+    END IF;
+END
+$atributos_revertidos$;
+
+CREATE ROLE vec_bolsa_grant_carrera_prueba NOLOGIN NOSUPERUSER NOCREATEDB
+    NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+SQL
+
+# La retirada y el GRANT compiten desde bases distintas porque los roles son
+# globales al cluster. Se guardan primero los OID: tras el DROP permiten buscar
+# aristas residuales incluso aunque sus nombres ya no puedan resolverse.
+oids_roles_bolsa=$(docker exec "$contenedor" psql --tuples-only --no-align \
+    --username postgres --dbname "$base" \
+    --command "SELECT string_agg(oid::text, ',' ORDER BY rolname) FROM pg_catalog.pg_roles WHERE rolname IN ('vec_bolsa_baremacion_propietario', 'vec_bolsa_baremacion_migrador', 'vec_bolsa_baremacion_ejecutor', 'vec_bolsa_baremacion_lector_outbox', 'vec_bolsa_baremacion_registrador_atestacion')")
+if [[ ! "$oids_roles_bolsa" =~ ^[0-9]+(,[0-9]+){4}$ ]]; then
+    echo "no se pudieron fijar los OID de roles Bolsa" >&2
+    exit 1
+fi
+
+# El bloqueo de sesion permite que ambas conexiones existan antes de congelar
+# pg_database. Al liberar solo el advisory, roles_down toma pg_authid y
+# pg_auth_members y queda esperando al revocar la ACL de base. El GRANT se
+# inicia despues y debe esperar al propio down, no ser cancelado ni terminado.
+docker exec --interactive --env PGAPPNAME=vec_bolsa_roles_bloqueo "$contenedor" \
+    psql -X --quiet --set ON_ERROR_STOP=1 --username postgres \
+    --dbname "$base" >/dev/null <<'SQL' &
+SELECT pg_advisory_lock(
+    hashtextextended('vec_bolsa_baremacion:roles_down:v1', 0)
+);
+SELECT pg_sleep(4);
+BEGIN;
+LOCK TABLE pg_catalog.pg_database IN ACCESS EXCLUSIVE MODE;
+SELECT pg_advisory_unlock(
+    hashtextextended('vec_bolsa_baremacion:roles_down:v1', 0)
+);
+SELECT pg_sleep(8);
+ROLLBACK;
+SQL
+pid_bloqueo_roles=$!
+
+bloqueo_preparatorio_observado=false
+for _ in $(seq 1 40); do
+    estado=$(docker exec "$contenedor" psql --tuples-only --no-align \
+        --username postgres --dbname "$base" \
+        --command "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE application_name = 'vec_bolsa_roles_bloqueo' AND state = 'active' AND wait_event = 'PgSleep'")
+    if [[ "$estado" == "1" ]]; then
+        bloqueo_preparatorio_observado=true
+        break
+    fi
+    sleep 0.1
+done
+if [[ "$bloqueo_preparatorio_observado" != true ]]; then
+    wait "$pid_bloqueo_roles" || true
+    echo "no se observo el bloqueo preparatorio de roles_down Bolsa" >&2
+    exit 1
+fi
+
+docker exec --interactive --env PGAPPNAME=vec_bolsa_roles_down_carrera \
+    "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" \
+    < "$raiz/deploy/postgresql/bolsa_baremacion/roles_down.sql" \
+    >/dev/null &
+pid_roles_down=$!
+
+docker exec --interactive --env PGAPPNAME=vec_bolsa_grant_carrera \
+    "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+    --username postgres --dbname postgres >/dev/null 2>&1 <<'SQL' &
+SELECT pg_sleep(5);
+GRANT vec_bolsa_baremacion_lector_outbox
+    TO vec_bolsa_grant_carrera_prueba;
+SQL
+pid_grant=$!
+
+# El observador tambien conecta antes de congelar pg_database. Una conexion
+# creada despues quedaria esperando en el propio catalogo y solo veria el
+# estado final, no la intercalacion que se quiere acreditar.
+docker exec --interactive --env PGAPPNAME=vec_bolsa_observador_carrera \
+    "$contenedor" psql -X --quiet --tuples-only --no-align \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+    >"$salida_uno" <<'SQL' &
+SELECT pg_sleep(7);
+WITH actividad AS MATERIALIZED (
+    -- Se usa la funcion de estadisticas sin la vista pg_stat_activity: la
+    -- vista consulta pg_authid y quedaria legitimamente bloqueada por el down.
+    SELECT *
+      FROM pg_catalog.pg_stat_get_activity(NULL::integer)
+)
+SELECT count(*)
+  FROM actividad AS concesion
+  JOIN actividad AS retirada
+    ON retirada.application_name = 'vec_bolsa_roles_down_carrera'
+   AND retirada.pid = ANY (pg_catalog.pg_blocking_pids(concesion.pid))
+ WHERE concesion.application_name = 'vec_bolsa_grant_carrera'
+   AND concesion.state = 'active'
+   AND concesion.wait_event_type = 'Lock'
+   AND (
+       SELECT count(*)
+         FROM pg_catalog.pg_lock_status() AS bloqueo
+        WHERE bloqueo.pid = retirada.pid
+          AND bloqueo.locktype = 'relation'
+          AND bloqueo.relation IN (
+              'pg_catalog.pg_authid'::regclass::oid,
+              'pg_catalog.pg_auth_members'::regclass::oid
+          )
+          AND bloqueo.mode = 'AccessExclusiveLock'
+          AND bloqueo.granted
+   ) = 2;
+SQL
+pid_observador_roles=$!
+
+# Se acredita la relacion de bloqueo exacta: el GRANT esta esperando al PID
+# del down y este conserva ACCESS EXCLUSIVE sobre los dos catalogos de roles.
+if ! wait "$pid_observador_roles"; then
+    wait "$pid_bloqueo_roles" || true
+    wait "$pid_roles_down" || true
+    wait "$pid_grant" || true
+    echo "fallo el observador preconectado de la carrera roles_down Bolsa" >&2
+    exit 1
+fi
+if ! grep -qx '1' "$salida_uno"; then
+    wait "$pid_bloqueo_roles" || true
+    wait "$pid_roles_down" || true
+    wait "$pid_grant" || true
+    echo "no se demostro que el GRANT esperase al roles_down Bolsa" >&2
+    exit 1
+fi
+
+wait "$pid_bloqueo_roles"
+wait "$pid_roles_down"
+if wait "$pid_grant"; then
+    echo "un GRANT concurrente sobrevivio al DROP ROLE Bolsa" >&2
+    exit 1
+fi
+
+restos_membresias_bolsa=$(docker exec "$contenedor" psql \
+    --tuples-only --no-align --username postgres --dbname postgres \
+    --command "SELECT count(*) FROM pg_catalog.pg_auth_members WHERE roleid IN ($oids_roles_bolsa) OR member IN ($oids_roles_bolsa) OR grantor IN ($oids_roles_bolsa)")
+membresias_huerfanas=$(docker exec "$contenedor" psql \
+    --tuples-only --no-align --username postgres --dbname postgres \
+    --command "SELECT count(*) FROM pg_catalog.pg_auth_members AS membresia LEFT JOIN pg_catalog.pg_authid AS grupo ON grupo.oid = membresia.roleid LEFT JOIN pg_catalog.pg_authid AS miembro ON miembro.oid = membresia.member LEFT JOIN pg_catalog.pg_authid AS otorgante ON otorgante.oid = membresia.grantor WHERE grupo.oid IS NULL OR miembro.oid IS NULL OR otorgante.oid IS NULL")
+roles_bolsa_restantes=$(docker exec "$contenedor" psql \
+    --tuples-only --no-align --username postgres --dbname postgres \
+    --command "SELECT count(*) FROM pg_catalog.pg_roles WHERE oid IN ($oids_roles_bolsa)")
+if [[ "$restos_membresias_bolsa" != "0" \
+    || "$membresias_huerfanas" != "0" \
+    || "$roles_bolsa_restantes" != "0" ]]; then
+    echo "roles_down Bolsa dejo roles o membresias huerfanas" >&2
+    exit 1
+fi
+
+docker exec "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+    --username postgres --dbname postgres \
+    --command "DROP ROLE vec_bolsa_grant_carrera_prueba" >/dev/null
 docker exec --interactive "$contenedor" psql -X --quiet \
     --set ON_ERROR_STOP=1 --username postgres --dbname "$base" <<'SQL'
 DO $desmontaje_final$
@@ -1091,6 +1327,67 @@ BEGIN
     END IF;
 END
 $desmontaje_final$;
+SQL
+
+# La guarda puede pertenecer a un DBA nominativo distinto del bootstrap. El
+# GRANT estructural sigue registrado por PostgreSQL con grantor OID 10 y el
+# mismo DBA alternativo debe poder retirar limpiamente su instalación.
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" <<'SQL'
+CREATE ROLE vec_bolsa_dba_alternativo_prueba NOLOGIN SUPERUSER;
+SQL
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+    --command 'SET SESSION AUTHORIZATION vec_bolsa_dba_alternativo_prueba' \
+    --file=- < "$raiz/deploy/postgresql/bolsa_baremacion/roles_up.sql"
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" <<'SQL'
+DO $instalacion_dba_alternativo$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_namespace AS espacio
+          JOIN pg_catalog.pg_roles AS propietario
+            ON propietario.oid = espacio.nspowner
+         WHERE espacio.nspname = 'vec_bolsa_baremacion_guardia'
+           AND propietario.rolname = 'vec_bolsa_dba_alternativo_prueba'
+    ) OR NOT EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_auth_members AS membresia
+          JOIN pg_catalog.pg_roles AS grupo ON grupo.oid = membresia.roleid
+          JOIN pg_catalog.pg_roles AS miembro ON miembro.oid = membresia.member
+          JOIN pg_catalog.pg_authid AS otorgante ON otorgante.oid = membresia.grantor
+         WHERE grupo.rolname = 'vec_bolsa_baremacion_propietario'
+           AND miembro.rolname = 'vec_bolsa_baremacion_migrador'
+           AND otorgante.oid = 10
+           AND otorgante.rolsuper
+           AND membresia.admin_option IS FALSE
+           AND membresia.inherit_option IS FALSE
+           AND membresia.set_option IS TRUE
+    ) THEN
+        RAISE EXCEPTION 'la instalación del DBA alternativo no separo propiedad y grantor';
+    END IF;
+END
+$instalacion_dba_alternativo$;
+SQL
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+    --command 'SET SESSION AUTHORIZATION vec_bolsa_dba_alternativo_prueba' \
+    --file=- < "$raiz/deploy/postgresql/bolsa_baremacion/roles_down.sql"
+docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" <<'SQL'
+DO $retirada_dba_alternativo$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_roles
+         WHERE rolname LIKE 'vec_bolsa_baremacion_%'
+    ) OR pg_catalog.to_regnamespace('vec_bolsa_baremacion_guardia') IS NOT NULL THEN
+        RAISE EXCEPTION 'el DBA alternativo no completo la retirada Bolsa';
+    END IF;
+END
+$retirada_dba_alternativo$;
+DROP ROLE vec_bolsa_dba_alternativo_prueba;
 SQL
 "$raiz/deploy/postgresql/bolsa_baremacion/probar_integracion_v3.sh"
 echo "integracion Bolsa/PostgreSQL 18.4: correcta"

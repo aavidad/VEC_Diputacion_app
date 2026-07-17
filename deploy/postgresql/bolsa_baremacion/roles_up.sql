@@ -13,6 +13,16 @@ DECLARE
     encontrados text[];
 BEGIN
     IF NOT EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_roles
+         WHERE rolname = current_user
+           AND rolsuper IS TRUE
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'bootstrap Bolsa rechazado: requiere superusuario';
+    END IF;
+
+    IF NOT EXISTS (
         SELECT 1 FROM pg_catalog.pg_roles
          WHERE rolname = 'vec_autorizacion_propietario' AND NOT rolcanlogin
     ) OR NOT EXISTS (

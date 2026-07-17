@@ -41,7 +41,9 @@ abiertos ni acceso directo de emergencia desde las cuentas de servicio.
 
 ## Dependencias e instalación
 
-Las migraciones se aplican con una identidad DBA controlada. El orden es:
+Las migraciones se aplican con una identidad DBA controlada. `roles_up.sql`
+exige expresamente un superusuario: `CREATEROLE`, incluso siendo propietario
+de la base, no constituye autoridad suficiente. El orden es:
 
 1. `deploy/postgresql/autorizacion/roles_up.sql`
 2. `deploy/postgresql/autorizacion/migraciones/000001_autorizacion.up.sql`
@@ -310,9 +312,12 @@ La prueba usa PostgreSQL 18.4 real y comprueba:
   objetos gracias a `RESTRICT`;
 - desmontaje completo de una segunda instalación realmente vacía, sin vaciar
   ni alterar la primera instancia que conserva historia;
-- prevalidación de `roles_down.sql` frente a membresías entrantes, salientes,
-  opciones estructurales y manipulaciones de propietario, ACL, `search_path` y
-  etiquetas de la guarda DDL;
+- prevalidación de `roles_down.sql` frente a membresías entrantes, salientes y
+  opciones estructurales, además de atributos de rol, propietario, ACL,
+  `search_path` y etiquetas de la guarda DDL;
+- carrera real entre bases: el `GRANT` espera al `roles_down`, falla de forma
+  natural después de `DROP ROLE` y no queda ninguna arista relacionada con los
+  OID retirados ni ninguna membresía huérfana en el clúster;
 - dos sesiones PostgreSQL reales compitiendo por el mismo evento: exactamente
   una obtiene el arrendamiento;
 - ausencia del token de arrendamiento en la historia durable.
@@ -395,10 +400,30 @@ vista, función u otra dependencia externa hace abortar toda la transacción y s
 conserva.
 
 Tras retirar esquema y frontera se ejecuta `roles_down.sql`. Este prevalida
-íntegramente la guarda DDL, las opciones de los cinco roles y los dos extremos
-de todas sus membresías antes de revocar o eliminar nada. Solo admite el enlace
-estructural exacto propietario→migrador. Debe ejecutarlo el mismo principal DBA
-que creó la guarda.
+íntegramente la guarda DDL, las opciones de los cinco roles y las tres
+coordenadas de todas sus membresías antes de revocar o eliminar nada. La
+retirada exige superusuario y una ventana de mantenimiento sin administración
+concurrente de roles: después de su bloqueo advisory toma `ACCESS EXCLUSIVE`
+primero sobre `pg_authid` y después sobre `pg_auth_members`, en ese orden, hasta
+el `COMMIT`.
+Así un `GRANT` iniciado desde cualquier otra base no puede conservar OID que el
+down vaya a retirar.
+
+El inventario se hace sobre los cinco OID y las tres coordenadas `roleid`,
+`member` y `grantor`; solo admite una fila: el enlace estructural
+propietario→migrador, con `ADMIN FALSE`, `INHERIT FALSE`, `SET TRUE` y otorgado
+por el superusuario bootstrap gobernado del clúster (OID interno estable 10).
+PostgreSQL atribuye a ese principal las concesiones hechas por cualquier
+superusuario, aunque la guarda pertenezca a otro DBA nominativo. Contraseña,
+caducidad y cualquier ajuste global o por base también deben permanecer
+ausentes.
+
+Cualquier otra arista, atributo o procedencia aborta antes de mutar. El arnés
+conecta de antemano tres sesiones reales, demuestra con `pg_blocking_pids` que
+el `GRANT` espera al down, deja que ambos terminen sin cancelarlos y comprueba
+después que no quedan roles, aristas por ninguno de sus cinco OID ni huérfanos
+globales. Una segunda instalación ejecutada por un DBA alternativo prueba que
+propiedad administrativa y otorgante bootstrap se validan por separado.
 
 Una instancia con historia se conserva intacta. Su baja requiere un
 procedimiento independiente y aprobado de archivo, verificación, retención y

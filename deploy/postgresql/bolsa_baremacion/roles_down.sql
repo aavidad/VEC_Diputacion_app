@@ -6,11 +6,24 @@ SELECT pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('vec_bolsa_baremacion:roles_down:v1', 0)
 );
 
+-- Los roles y sus membresias son catalogo compartido por todo el cluster. Un
+-- GRANT iniciado desde otra base podria resolver los OID durante el down y
+-- escribir la arista despues de DROP ROLE. El orden es deliberado: primero se
+-- impide resolver o retirar roles y despues se inmovilizan todas las aristas.
+-- Requiere superusuario y una ventana de mantenimiento sin administracion de
+-- roles concurrente; los locks se conservan hasta el COMMIT.
+LOCK TABLE pg_catalog.pg_authid IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE pg_catalog.pg_auth_members IN ACCESS EXCLUSIVE MODE;
+
 DO $prevalidacion$
 DECLARE
     esperado record;
-    enlace record;
+    enlaces_inesperados text[];
     oid_dba oid;
+    oid_otorgante_bootstrap oid;
+    oid_propietario oid;
+    oid_migrador oid;
+    oids_bolsa oid[];
     oid_esquema_guardia oid;
     oid_funcion_guardia oid;
     etiquetas_esperadas constant text[] := ARRAY[
@@ -40,8 +53,13 @@ BEGIN
     END IF;
 
     SELECT oid INTO oid_dba
-      FROM pg_catalog.pg_roles
-     WHERE rolname = current_user;
+      FROM pg_catalog.pg_authid
+     WHERE rolname = current_user
+       AND rolsuper IS TRUE;
+    SELECT oid INTO oid_otorgante_bootstrap
+      FROM pg_catalog.pg_authid
+     WHERE oid = 10
+       AND rolsuper IS TRUE;
     SELECT oid INTO oid_esquema_guardia
       FROM pg_catalog.pg_namespace
      WHERE nspname = 'vec_bolsa_baremacion_guardia';
@@ -50,7 +68,8 @@ BEGIN
      WHERE oid = pg_catalog.to_regprocedure(
          'vec_bolsa_baremacion_guardia.cerrar_acl_tipos()'
      );
-    IF oid_dba IS NULL OR oid_esquema_guardia IS NULL
+    IF oid_dba IS NULL OR oid_otorgante_bootstrap IS NULL
+       OR oid_esquema_guardia IS NULL
        OR oid_funcion_guardia IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'down rechazado: falta la guarda DDL Bolsa';
@@ -194,7 +213,7 @@ BEGIN
     LOOP
         IF NOT EXISTS (
             SELECT 1
-              FROM pg_catalog.pg_roles
+              FROM pg_catalog.pg_authid
              WHERE rolname = esperado.rol
                AND rolcanlogin IS FALSE
                AND rolsuper IS FALSE
@@ -204,7 +223,13 @@ BEGIN
                AND rolreplication IS FALSE
                AND rolbypassrls IS FALSE
                AND rolconnlimit = -1
-               AND rolconfig IS NULL
+               AND rolpassword IS NULL
+               AND rolvaliduntil IS NULL
+               AND NOT EXISTS (
+                   SELECT 1
+                     FROM pg_catalog.pg_db_role_setting AS ajuste
+                    WHERE ajuste.setrole = pg_authid.oid
+               )
         ) THEN
             RAISE EXCEPTION USING ERRCODE = '55000',
                 MESSAGE = 'down rechazado: falta un rol Bolsa o sus opciones cambiaron',
@@ -212,13 +237,39 @@ BEGIN
         END IF;
     END LOOP;
 
+    SELECT oid
+      INTO oid_propietario
+      FROM pg_catalog.pg_authid
+     WHERE rolname = 'vec_bolsa_baremacion_propietario';
+    SELECT oid
+      INTO oid_migrador
+      FROM pg_catalog.pg_authid
+     WHERE rolname = 'vec_bolsa_baremacion_migrador';
+    SELECT pg_catalog.array_agg(oid ORDER BY oid)
+      INTO oids_bolsa
+      FROM pg_catalog.pg_authid
+     WHERE rolname = ANY (ARRAY[
+         'vec_bolsa_baremacion_propietario',
+         'vec_bolsa_baremacion_migrador',
+         'vec_bolsa_baremacion_ejecutor',
+         'vec_bolsa_baremacion_lector_outbox',
+         'vec_bolsa_baremacion_registrador_atestacion'
+     ]);
+    IF oid_propietario IS NULL OR oid_migrador IS NULL
+       OR cardinality(oids_bolsa) <> 5 THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'down rechazado: no se pudo fijar el inventario OID Bolsa';
+    END IF;
+
+    -- La unica arista gobernada fue creada por roles_up. PostgreSQL atribuye
+    -- toda concesion emitida por un superusuario al bootstrap del cluster,
+    -- aunque otro DBA sea el propietario de la guarda y ejecute este down.
     IF NOT EXISTS (
         SELECT 1
           FROM pg_catalog.pg_auth_members AS membresia
-          JOIN pg_catalog.pg_roles AS grupo ON grupo.oid = membresia.roleid
-          JOIN pg_catalog.pg_roles AS miembro ON miembro.oid = membresia.member
-         WHERE grupo.rolname = 'vec_bolsa_baremacion_propietario'
-           AND miembro.rolname = 'vec_bolsa_baremacion_migrador'
+         WHERE membresia.roleid = oid_propietario
+           AND membresia.member = oid_migrador
+           AND membresia.grantor = oid_otorgante_bootstrap
            AND membresia.admin_option IS FALSE
            AND membresia.inherit_option IS FALSE
            AND membresia.set_option IS TRUE
@@ -227,42 +278,71 @@ BEGIN
             MESSAGE = 'down rechazado: falta la membresia estructural Bolsa exacta';
     END IF;
 
-    -- Se inspeccionan ambos extremos: cuentas externas dentro de un grupo
-    -- Bolsa y roles Bolsa incorporados a cualquier grupo ajeno. Solo se admite
-    -- el enlace estructural creado por roles_up y con sus tres opciones exactas.
-    FOR enlace IN
-        SELECT miembro.rolname AS miembro, grupo.rolname AS grupo
-          FROM pg_catalog.pg_auth_members AS membresia
-          JOIN pg_catalog.pg_roles AS miembro
-            ON miembro.oid = membresia.member
-          JOIN pg_catalog.pg_roles AS grupo ON grupo.oid = membresia.roleid
-         WHERE (
-             grupo.rolname = ANY (ARRAY[
-                 'vec_bolsa_baremacion_propietario',
-                 'vec_bolsa_baremacion_migrador',
-                 'vec_bolsa_baremacion_ejecutor',
-                 'vec_bolsa_baremacion_lector_outbox',
-                 'vec_bolsa_baremacion_registrador_atestacion'
-             ]) OR miembro.rolname = ANY (ARRAY[
-                 'vec_bolsa_baremacion_propietario',
-                 'vec_bolsa_baremacion_migrador',
-                 'vec_bolsa_baremacion_ejecutor',
-                 'vec_bolsa_baremacion_lector_outbox',
-                 'vec_bolsa_baremacion_registrador_atestacion'
-             ])
-         )
-           AND NOT (
-               grupo.rolname = 'vec_bolsa_baremacion_propietario'
-               AND miembro.rolname = 'vec_bolsa_baremacion_migrador'
-               AND membresia.admin_option IS FALSE
-               AND membresia.inherit_option IS FALSE
-               AND membresia.set_option IS TRUE
+    -- El inventario usa los OID ya inmovilizados e inspecciona las tres
+    -- coordenadas. Asi tambien se rechaza que un rol Bolsa aparezca como
+    -- otorgante de una relacion cuyos extremos sean ajenos. Los LEFT JOIN no
+    -- ocultan una arista previamente corrupta con un OID sin principal.
+    SELECT pg_catalog.array_agg(
+               pg_catalog.format(
+                   '%s->%s; otorgante=%s; admin=%s; inherit=%s; set=%s',
+                   COALESCE(
+                       miembro.rolname,
+                       '<oid:' || membresia.member::text || '>'
+                   ),
+                   COALESCE(
+                       grupo.rolname,
+                       '<oid:' || membresia.roleid::text || '>'
+                   ),
+                   COALESCE(
+                       otorgante.rolname,
+                       '<oid:' || membresia.grantor::text || '>'
+                   ),
+                   membresia.admin_option,
+                   membresia.inherit_option,
+                   membresia.set_option
+               )
+               ORDER BY membresia.roleid, membresia.member, membresia.grantor
            )
-    LOOP
+      INTO enlaces_inesperados
+      FROM pg_catalog.pg_auth_members AS membresia
+      LEFT JOIN pg_catalog.pg_authid AS miembro
+        ON miembro.oid = membresia.member
+      LEFT JOIN pg_catalog.pg_authid AS grupo
+        ON grupo.oid = membresia.roleid
+      LEFT JOIN pg_catalog.pg_authid AS otorgante
+        ON otorgante.oid = membresia.grantor
+     WHERE (
+         membresia.roleid = ANY (oids_bolsa)
+         OR membresia.member = ANY (oids_bolsa)
+         OR membresia.grantor = ANY (oids_bolsa)
+     )
+       AND NOT (
+           membresia.roleid = oid_propietario
+           AND membresia.member = oid_migrador
+           AND membresia.grantor = oid_otorgante_bootstrap
+           AND membresia.admin_option IS FALSE
+           AND membresia.inherit_option IS FALSE
+           AND membresia.set_option IS TRUE
+       );
+    IF cardinality(enlaces_inesperados) > 0 THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'down rechazado: existe una membresia Bolsa inesperada',
-            DETAIL = enlace.miembro || ' -> ' || enlace.grupo;
-    END LOOP;
+            DETAIL = array_to_string(enlaces_inesperados, ',');
+    END IF;
+
+    -- Debe existir una sola fila relacionada con los cinco OID: la arista
+    -- estructural exacta. Esta cuenta evita aceptar duplicados o variantes que
+    -- una futura version de PostgreSQL pudiera representar por separado.
+    IF (
+        SELECT count(*)
+          FROM pg_catalog.pg_auth_members AS membresia
+         WHERE membresia.roleid = ANY (oids_bolsa)
+            OR membresia.member = ANY (oids_bolsa)
+            OR membresia.grantor = ANY (oids_bolsa)
+    ) <> 1 THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'down rechazado: el inventario de membresias Bolsa no es exacto';
+    END IF;
 END
 $prevalidacion$;
 
