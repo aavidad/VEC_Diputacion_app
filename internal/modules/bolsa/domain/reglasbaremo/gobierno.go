@@ -131,6 +131,28 @@ func (v VersionGobernadaReglasBaremo) VinculoEstado() (VinculoEstadoReglasBaremo
 	return NuevoVinculoEstadoReglasBaremo(referencia, v.revision, huella)
 }
 
+// ConvocatoriaActivacion devuelve la referencia exacta que el verificador de
+// dependencias ligo al activar la version. El segundo resultado distingue una
+// ausencia legitima de activacion en borradores, versiones publicadas y
+// descartadas. Las versiones sustituidas o retiradas conservan el vinculo para
+// permitir la reproduccion historica.
+//
+// No expone el acto ni la atestacion internos. La referencia se devuelve por
+// valor y no comparte estado mutable con la version gobernada.
+func (v VersionGobernadaReglasBaremo) ConvocatoriaActivacion() (
+	ReferenciaVersionada,
+	bool,
+	error,
+) {
+	if v.Validar() != nil {
+		return ReferenciaVersionada{}, false, ErrGobiernoInvarianteQuebrada
+	}
+	if v.activacion == nil {
+		return ReferenciaVersionada{}, false, nil
+	}
+	return v.activacion.dependencias.Convocatoria(), true, nil
+}
+
 // DependenciasContenido devuelve bases, definiciones y catalogos exactos en
 // orden canonico para que el verificador externo pueda atestarlos.
 func (v VersionGobernadaReglasBaremo) DependenciasContenido() ([]ReferenciaVersionada, error) {
