@@ -11,6 +11,9 @@ type CodigoError string
 
 const (
 	CodigoValorInvalido        CodigoError = "valor_invalido"
+	CodigoValorNoCanonico      CodigoError = "valor_no_canonico"
+	CodigoFueraDeLimites       CodigoError = "fuera_de_limites"
+	CodigoValorDuplicado       CodigoError = "valor_duplicado"
 	CodigoResultadoNegativo    CodigoError = "resultado_negativo"
 	CodigoDivisionPorCero      CodigoError = "division_por_cero"
 	CodigoResultadoNoExacto    CodigoError = "resultado_no_exacto"
@@ -18,6 +21,8 @@ const (
 	CodigoLimiteOperaciones    CodigoError = "limite_operaciones"
 	CodigoContextoIncompatible CodigoError = "contexto_incompatible"
 	CodigoModoRedondeoInvalido CodigoError = "modo_redondeo_invalido"
+	CodigoEsquemaIncompatible  CodigoError = "esquema_incompatible"
+	CodigoHuellaNoCoincide     CodigoError = "huella_no_coincide"
 )
 
 // ErrorCalculo permite clasificar un fallo sin depender de su texto. Campo es
@@ -65,6 +70,9 @@ func (e *ErrorCalculo) Is(objetivo error) bool {
 
 var (
 	ErrValorInvalido        = &ErrorCalculo{codigo: CodigoValorInvalido}
+	ErrValorNoCanonico      = &ErrorCalculo{codigo: CodigoValorNoCanonico}
+	ErrFueraDeLimites       = &ErrorCalculo{codigo: CodigoFueraDeLimites}
+	ErrValorDuplicado       = &ErrorCalculo{codigo: CodigoValorDuplicado}
 	ErrResultadoNegativo    = &ErrorCalculo{codigo: CodigoResultadoNegativo}
 	ErrDivisionPorCero      = &ErrorCalculo{codigo: CodigoDivisionPorCero}
 	ErrResultadoNoExacto    = &ErrorCalculo{codigo: CodigoResultadoNoExacto}
@@ -72,6 +80,8 @@ var (
 	ErrLimiteOperaciones    = &ErrorCalculo{codigo: CodigoLimiteOperaciones}
 	ErrContextoIncompatible = &ErrorCalculo{codigo: CodigoContextoIncompatible}
 	ErrModoRedondeoInvalido = &ErrorCalculo{codigo: CodigoModoRedondeoInvalido}
+	ErrEsquemaIncompatible  = &ErrorCalculo{codigo: CodigoEsquemaIncompatible}
+	ErrHuellaNoCoincide     = &ErrorCalculo{codigo: CodigoHuellaNoCoincide}
 )
 
 func nuevoError(campo string, codigo CodigoError) error {

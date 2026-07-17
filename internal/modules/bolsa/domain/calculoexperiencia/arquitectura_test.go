@@ -34,13 +34,39 @@ func TestArquitecturaExactaCerrada(t *testing.T) {
 	}
 }
 
+func TestArquitecturaDetectaIdentificadoresPersonalesCompuestos(t *testing.T) {
+	for _, nombre := range []string{
+		"PersonaID", "DNIHash", "datoSalud", "correo_electronico", "IBANRef",
+	} {
+		if !nombrePersonalProhibido(nombre) {
+			t.Errorf("no se detecto %q", nombre)
+		}
+	}
+	for _, nombre := range []string{"PeriodoServicio", "PuntosPorUnidad", "catalogoRef"} {
+		if nombrePersonalProhibido(nombre) {
+			t.Errorf("falso positivo para %q", nombre)
+		}
+	}
+}
+
 func comprobarImportacionesExactas(t *testing.T, ruta string, archivo *ast.File) {
 	t.Helper()
 	permitidas := map[string]struct{}{
 		"errors":   {},
 		"fmt":      {},
 		"math/big": {},
-		"vec-diputacion-granada/internal/shared/baremacion": {},
+		"vec-diputacion-granada/internal/modules/bolsa/domain/reglasbaremo": {},
+		"vec-diputacion-granada/internal/shared/baremacion":                 {},
+	}
+	porArchivo := map[string][]string{
+		"canonico.go": {
+			"bytes", "crypto/sha256", "crypto/subtle", "encoding/hex",
+			"encoding/json", "io", "unicode/utf8",
+		},
+		"entrada.go": {"sort", "strings"},
+	}
+	for _, nombre := range porArchivo[filepath.Base(ruta)] {
+		permitidas[nombre] = struct{}{}
 	}
 	for _, importacion := range archivo.Imports {
 		nombre, err := strconv.Unquote(importacion.Path.Value)
@@ -86,12 +112,29 @@ func comprobarNodoExacto(t *testing.T, ruta string, nodo ast.Node) {
 			if _, ok := campo.Type.(*ast.MapType); ok {
 				t.Errorf("%s declara un mapa dinamico en una estructura", ruta)
 			}
+			if campo.Tag != nil {
+				etiqueta, err := strconv.Unquote(campo.Tag.Value)
+				if err == nil {
+					for _, parte := range strings.Fields(etiqueta) {
+						if strings.HasPrefix(parte, `json:"`) {
+							nombreJSON := strings.Split(strings.TrimPrefix(parte, `json:"`), ",")[0]
+							nombreJSON = strings.TrimSuffix(nombreJSON, `"`)
+							if nombrePersonalProhibido(nombreJSON) {
+								t.Errorf("%s declara la clave JSON personal %q", ruta, nombreJSON)
+							}
+						}
+					}
+				}
+			}
 			for _, nombre := range campo.Names {
 				normalizado := strings.ToLower(nombre.Name)
 				for _, fragmento := range []string{"formula", "expresion", "script", "consulta", "plantilla"} {
 					if strings.Contains(normalizado, fragmento) {
 						t.Errorf("%s declara el campo dinamico %q", ruta, nombre.Name)
 					}
+				}
+				if nombrePersonalProhibido(nombre.Name) {
+					t.Errorf("%s declara el dato personal %q", ruta, nombre.Name)
 				}
 			}
 		}
@@ -100,6 +143,20 @@ func comprobarNodoExacto(t *testing.T, ruta string, nodo ast.Node) {
 			t.Errorf("%s expone math/big mediante %s", ruta, valor.Name.Name)
 		}
 	}
+}
+
+func nombrePersonalProhibido(nombre string) bool {
+	normalizado := strings.ToLower(nombre)
+	for _, prohibido := range []string{
+		"dni", "nif", "nie", "nombre", "apellido", "apellidos", "persona",
+		"diagnostico", "causa", "motivo", "direccion", "telefono", "correo",
+		"email", "salud", "nacimiento", "iban", "nss", "naf",
+	} {
+		if strings.Contains(normalizado, prohibido) {
+			return true
+		}
+	}
+	return false
 }
 
 func contieneBigMutable(tipo *ast.FuncType) bool {
