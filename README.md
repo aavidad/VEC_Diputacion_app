@@ -28,6 +28,11 @@ Probado:
 - UI estatica en `http://127.0.0.1:8080/` como carcasa del tablero VEC: modulos,
   expedientes, filtros, cola, detalle y flujo de acciones. Sus datos y acciones
   privadas permanecen cerrados hasta conectar identidad y autorizacion reales.
+- Portal anonimo en `http://127.0.0.1:8080/bolsa/` con menu propio y estable de
+  convocatorias, busqueda, categorias y ayuda. Conserva tema y logotipo
+  institucionales, pero no presenta enlaces a Cronos, Nominas, Dietas,
+  Administracion ni Auditoria interna; escritorio y movil tienen pruebas de
+  regresion especificas.
 - Registro de modulos Personal/Nominas (`vec.module.personal`), Cronos
   (`vec.module.cronos`), Dietas (`vec.module.dietas`) y Bolsa
   (`vec.module.bolsa`) via manifiestos. Menu, permisos y acciones demo con
@@ -65,10 +70,14 @@ Probado:
   denegaciones tambien estan implementados y probados. Sus parsers estrictos
   solo producen proyecciones nominales minimizadas, con limites previos a la
   reserva y canonicalidad byte a byte; nunca reconstruyen autoridad. No se
-  montan en produccion. La inspeccion y verificacion COSE Sign1 comun ya esta
-  separada del motor de persistencia y probada, pero es deliberadamente
-  nominal: no gobierna raices, revocacion ni consumo. El registro durable V2,
-  su perfil de confianza y el consumo atomico del efecto siguen cerrados.
+  montan en produccion. La inspeccion COSE Sign1 comun sigue siendo una
+  primitiva sin autoridad, pero el servicio estricto VEC-AD-2, el catalogo
+  PostgreSQL de confianza publica y su cargador Go ya gobiernan raices,
+  ventanas y revocaciones y pasan integracion conjunta sobre PostgreSQL 18.4.
+  No contienen claves privadas ni conceden efectos. El firmante aislado, el
+  manifiesto criptografico de gobierno, el anclaje externo anti-restauracion,
+  los registradores por consumidor y el consumo atomico del efecto permanecen
+  cerrados.
 - Primer corte de [contexto canonico de actor](docs/portal_vec/registro_decisiones.md#dec-034--contexto-canonico-de-actor-con-perfil-expreso-y-denegacion-por-defecto):
   cuenta autenticada y perfil expreso resuelven exactamente una persona y sus
   enlaces opacos versionados, sin DNI ni autoridad inferida. Persistencia,
@@ -76,7 +85,10 @@ Probado:
 - Dominio VS9 de [llamamientos por primer elegible](docs/portal_vec/registro_decisiones.md#dec-035--llamamiento-determinista-sobre-lista-constituida-y-primer-elegible):
   conserva el prefijo completo del orden, liga bolsa, necesidad, instantanea,
   politica y recibos por version y huella, y falla cerrado ante cualquier hueco
-  o caducidad. Fuente autoritativa, firma, persistencia y API siguen cerradas.
+  o caducidad. El adaptador disponible genera referencias con 256 bits de
+  aleatoriedad criptografica y espacios de nombres separados, pero aun no esta
+  cableado al flujo productivo. Fuente autoritativa, firma, persistencia
+  completa y API siguen cerradas.
 - Concesiones ejecutables y denegaciones probatorias usan puertos separados:
   una denegacion nunca entra en el almacen de capacidades ni pierde su causa
   funcional si falla su traza. El registro durable de denegaciones sigue
@@ -199,6 +211,7 @@ Pendiente productivo:
   validacion por los responsables del proyecto.
 - [Cumplimiento, seguridad y expediente electronico](docs/portal_vec/cumplimiento_y_seguridad.md)
 - [Atestacion criptografica de decisiones de autorizacion](docs/portal_vec/atestacion_criptografica_decisiones.md)
+- [Catalogo PostgreSQL de confianza publica VEC-AD-2](deploy/postgresql/confianza_atestacion_v2/README.md)
 - [Autenticacion fake local segura](docs/portal_vec/autenticacion_fake_local_segura.md)
 - [Seguridad y permisos de PostgreSQL](docs/portal_vec/seguridad_persistencia_postgresql.md)
 - [Integracion de autorizacion en la firma de baremaciones V1](docs/portal_vec/integracion_autorizacion_firma_baremacion_v1.md)
@@ -363,6 +376,10 @@ Consume exclusivamente `GET /api/vec/bolsa/panel` y falla cerrada mientras no
 existan sesión, ámbito y proyección real. No sustituye ese fallo por datos
 locales.
 
+La consulta anónima está en `http://127.0.0.1:8080/bolsa/`. Usa un menú lateral
+exclusivamente público que no desaparece en móvil y no hereda accesos del
+Portal del Empleado o del backoffice.
+
 Para la presentación urgente a RRHH existe un adaptador sintético separado,
 activado únicamente en
 `http://127.0.0.1:8080/portal-empleado/?presentacion=rrhh#portal`. El aviso
@@ -438,8 +455,9 @@ firma, notificacion fehaciente, archivo ENI ni persistencia duradera.
   interoperabilidad AAPP.
 - `internal/vec/application`: casos de uso del shell probados contra memoria.
 - `internal/vec/adapters`: HTTP y memoria.
-- `internal/vec/adapters/postgres`: primera barrera durable de autorizacion,
-  aislada y no cableada hasta completar atestacion y consumo atomico.
+- `internal/vec/adapters/postgres`: barreras durables de autorizacion y
+  catalogo publico VEC-AD-2 con cargador de confianza real; permanecen aislados
+  y sin cablear a efectos hasta completar firma, anclaje y consumo atomico.
 - `internal/modules/personal`: manifiesto de Personal/Nominas: expediente de
   empleado, puestos, situaciones administrativas, antiguedad, servicios
   prestados, certificados, nomina e incidencias retributivas.

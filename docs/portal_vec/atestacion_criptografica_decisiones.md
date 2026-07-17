@@ -1,16 +1,67 @@
 # Atestacion criptografica de decisiones de autorizacion
 
-Estado: **remediacion tecnica V4 y representaciones canonicas VEC-AD-2 y
-VEC-AD-D-1 validadas; NO-GO productivo**. El corte separa el nucleo, el conector
-PostgreSQL, el emisor aislado y el consumo atomico del efecto, y ha superado su
-matriz tecnica en un arbol limpio. Esto no autoriza el despliegue: una decision
-registrada o una huella canonica, por si solas, nunca conceden un efecto.
+Estado: **remediacion tecnica V4, representaciones canonicas y primer catalogo
+publico de confianza VEC-AD-2 validados; NO-GO productivo**. Los cortes separan
+el nucleo, los conectores PostgreSQL, la verificacion criptografica y el consumo
+atomico del efecto. Esto no autoriza el despliegue: una decision registrada,
+una firma valida o una huella canonica, por si solas, nunca conceden un efecto.
 
 Fecha de corte: 17 de julio de 2026.
 
 Las secciones 1 a 10 conservan el modelo de amenaza y el diseno previo que dio
 origen a la remediacion. Ante cualquier diferencia sobre verificacion COSE,
 credenciales o consumo PostgreSQL, el corte V4 siguiente es el contrato vigente.
+
+## Corte VEC-AD-2: catalogo publico compartido de confianza
+
+El 17 de julio de 2026 se completo el primer catalogo PostgreSQL real de claves
+publicas y el cargador Go de `confianza_atestacion_v2`. Es una lista positiva
+versionada para el perfil exacto `VEC-AD-2-COSE-EDDSA-1`; no contiene claves
+privadas, HMAC, credenciales HSM/KMS, decisiones, sesiones, payloads COSE ni
+datos personales. Tampoco concede permisos a panel, llamamientos, HTTP, CLI o
+MCP.
+
+El cargador reconstruye en Go el conjunto completo de una a sesenta y cuatro
+raices, incluidas las revocadas que pertenezcan a la revision. Vuelve a analizar
+y serializar cada SPKI Ed25519, contrasta su DER y SHA-256, reconstruye la
+configuracion con los constructores del dominio y compara en tiempo constante
+la huella durable recalculada. Un reloj es un conector explicito; el adaptador
+productivo no consulta directamente el reloj del proceso.
+
+La lectura usa un LOGIN dedicado con una unica membresia directa. El rol solo
+recibe `CONNECT`, `USAGE` y `EXECUTE` sobre una funcion sin parametros y sin
+selectores del cliente. Todas las tablas fuerzan RLS, cierran ACL actuales y por
+defecto y conservan historia append-only. Configuraciones y punteros son
+monotonos, no admiten activaciones futuras y la membresia de una configuracion
+queda sellada al activarla.
+
+La concurrencia se ordena antes de fijar la vista de datos. El cargador adquiere
+en una sentencia independiente el bloqueo compartido de gobierno y solo despues
+consulta identidad, hora PostgreSQL y catalogo bajo `READ COMMITTED`. Las
+publicaciones y revocaciones adquieren el bloqueo exclusivo antes de cualquier
+lectura o DML. Esto corrige el riesgo de cargar un snapshot anterior a una
+revocacion confirmada mientras el lector esperaba.
+
+El runner `deploy/postgresql/confianza_atestacion_v2/probar_integracion.sh`
+valida PostgreSQL 18.4 y el cargador Go real. Prueba las dieciseis columnas del
+contrato, huella cruzada Go/PostgreSQL, roles y membresias, ACL, RLS, tipos
+futuros, revocacion concurrente, caducidad durante una espera, sellado,
+desmontaje protegido y reinstalacion limpia.
+
+Este corte sigue siendo **NO-GO** por cuatro limites deliberados:
+
+1. una restauracion completa o un failover atrasado requiere un testigo monotono
+   externo, anclaje WORM o checkpoint firmado fuera de esta base;
+2. `acto_gobierno` conserva la huella del documento, pero aun no es un
+   manifiesto canonico autorizado criptograficamente por HSM/KMS;
+3. faltan el firmante aislado, el broker y los registradores especificos de cada
+   consumidor;
+4. cada efecto de negocio debe revalidar revocacion y consumir la autoridad en
+   su mismo `COMMIT`; una configuracion cargada en memoria puede quedar obsoleta
+   despues de finalizar la lectura.
+
+Por tanto, el catalogo es una base compartida reutilizable y probada, no una
+autorizacion para montar endpoints ni habilitar operaciones de Bolsa.
 
 ## Corte V4: autoridad COSE y capacidad SQL separadas
 
@@ -502,10 +553,10 @@ siendo metadato informativo y nunca sustituye el reloj interno confiable.
 La prueba resultante no es autoridad de negocio. Una composicion local puede
 crear una configuracion y, por tanto, PostgreSQL debe cotejar revision, huella,
 clave y estado contra su catalogo durable y consumir la decision una sola vez
-en la misma transaccion del efecto. Ese catalogo y el consumo atomico para
-VEC-AD-2 permanecen pendientes. Tampoco se acredita aun un adaptador HSM/KMS
-homologado para el firmante PDP. Por ambas razones la puerta productiva
-continua cerrada.
+en la misma transaccion del efecto. El catalogo publico y su cargador ya estan
+implementados y probados; permanecen pendientes la revalidacion y el consumo
+atomicos para VEC-AD-2. Tampoco se acredita aun un adaptador HSM/KMS homologado
+para el firmante PDP. Por ambas razones la puerta productiva continua cerrada.
 
 El envoltorio durable tendra esquema cerrado: version, suite, `clave_id`,
 audiencia, huella del mensaje, firma binaria, referencia opaca de operacion y

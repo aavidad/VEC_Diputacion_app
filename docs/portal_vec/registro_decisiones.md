@@ -2650,8 +2650,8 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 ## DEC-076 — Puerto de firma VEC-AD-2 separado y no autoritativo
 
 - Estado: contrato de puertos, servicio de aplicación y pruebas implantados el
-  17 de julio de 2026; adaptador HSM/KMS, perfil de confianza y consumo
-  transaccional pendientes.
+  17 de julio de 2026; perfil y catálogo público de confianza implantados;
+  adaptador HSM/KMS y consumo transaccional pendientes.
 - Versionado: V2 posee solicitud, resultado, atestación y firmante propios. No
   implementa V1, no lo reinterpreta y no permite entregar el resultado de una
   solicitud a otra aunque compartan cabecera.
@@ -2668,13 +2668,14 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - No autoridad: una firma opaca no acredita todavía clave institucional,
   audiencia, entorno, vigencia, revocación ni consumo único. Ningún handler
   obtiene por este contrato permiso para mutar una baremación.
-- Siguiente frontera: catálogo durable de confianza VEC-AD-2 y primera reserva
-  de cambio de Bolsa con revalidación y consumo atómicos en PostgreSQL.
+- Siguiente frontera: firmante aislado y primera reserva de cambio de Bolsa con
+  revalidación y consumo atómicos en PostgreSQL.
 
 ## DEC-077 — Confianza VEC-AD-2 local sin autoridad de negocio
 
 - Estado: perfil criptográfico y de configuración implantado y probado el 17
-  de julio de 2026; catálogo PostgreSQL y consumo atómico pendientes.
+  de julio de 2026; catálogo PostgreSQL y cargador real implantados; consumo
+  atómico pendiente.
 - Perfil: exclusivamente Ed25519, suite `VEC-AD-2-COSE-EDDSA-1`, audiencia de
   despliegue de cuatro segmentos y AAD específico del protocolo. ES256 continúa
   fuera de la lista positiva aunque el verificador común lo soporte.
@@ -2698,3 +2699,27 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - Evidencia: pruebas EdDSA/ES256, CBOR no mínimo, cabeceras extra, high-S,
   firma, payload, AAD, `kid` y claves cruzados, alias mutables, redacción,
   codecs, límites, fuzz, carrera, 32 bits y batería completa del adaptador V4.
+
+## DEC-078 — Catálogo público VEC-AD-2 sin autoridad de efecto
+
+- Estado: catálogo PostgreSQL, roles, migración, cargador Go y prueba de
+  integración real implantados el 17 de julio de 2026; **NO-GO productivo**.
+- Contenido: configuraciones, raíces públicas Ed25519, actos y revocaciones
+  append-only. Excluye claves privadas, HMAC, credenciales, decisiones,
+  sesiones, payloads COSE y datos personales.
+- Acceso: un LOGIN dedicado solo recibe `CONNECT`, `USAGE` y `EXECUTE` sobre
+  una función sin parámetros. RLS forzada, ACL actuales y futuras cerradas y
+  membresía de configuración sellada tras activación.
+- Concurrencia: el lector usa `READ COMMITTED`, adquiere primero el bloqueo
+  compartido de gobierno y después obtiene identidad, hora PostgreSQL y datos.
+  Publicaciones y revocaciones usan el bloqueo exclusivo antes de leer o mutar.
+- Integridad: el cargador vuelve a analizar SPKI Ed25519, recalcula DER y
+  SHA-256, reconstruye la configuración del dominio y contrasta su huella en
+  tiempo constante. El servicio verificador recibe un reloj inyectado y no
+  consulta directamente el reloj del proceso.
+- Límites: una restauración completa exige ancla monotónica externa; los actos
+  aún no son manifiestos autorizados por HSM/KMS; faltan firmante, broker y
+  registradores; el consumidor debe revalidar y consumir en el mismo `COMMIT`.
+- Evidencia: runner sobre PostgreSQL 18.4 con contrato de dieciséis columnas,
+  ACL/RLS, objetos futuros, huella cruzada Go/PostgreSQL, revocación concurrente,
+  caducidad bajo bloqueo, anti-rollback local, desmontaje y reinstalación.

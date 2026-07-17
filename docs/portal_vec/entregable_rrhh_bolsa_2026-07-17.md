@@ -11,9 +11,11 @@ El alcance visible pedido por RRHH es:
 
 1. portada con varios módulos del Portal del Empleado;
 2. solo `Bolsas de trabajo` habilitado en la fase inicial;
-3. cuadro de mando de Bolsa basado en `fotos/image006.png`;
+3. cuadro de mando de Bolsa basado en la referencia visual `image006.png`
+   facilitada por RRHH y deliberadamente no distribuida con el repositorio;
 4. elaboración y gestión de bolsas;
-5. asistente de llamamientos basado en `fotos/image004.png`;
+5. asistente de llamamientos basado en la referencia visual `image004.png`,
+   sometida a la misma política de no distribución;
 6. navegación por contratos, reglas, consulta, estadísticas, documentos,
    comunicaciones y auditoría;
 7. separación visible y técnica entre la zona interna y la zona externa.
@@ -49,7 +51,7 @@ Cada fichero cumple el tope de 800 líneas de DEC-051.
 
 `/portal-empleado/`
 
-- intenta cargar únicamente `GET /api/vec/bolsa/panel`;
+- en la carga inicial consulta únicamente `GET /api/vec/bolsa/panel`;
 - exige el envelope canónico `{ "data": { ... } }` y rechaza una proyección
   raw situada en la raíz;
 - usa credenciales de la sesión interna del mismo origen;
@@ -74,7 +76,7 @@ Accesos directos útiles:
 Solo el parámetro exacto `presentacion=rrhh` importa dinámicamente
 `web/static/portal-empleado/datos-presentacion.js`. La pantalla mantiene en
 todo momento un aviso visible de datos sintéticos y ausencia de validez
-administrativa. Ninguna acción envía, firma, registra ni persiste.
+administrativa. Ninguna acción de negocio envía, firma, registra ni persiste.
 
 Además, el servidor exige la activación explícita
 `VEC_RRHH_PRESENTATION_ENABLED=true`. La opción parte deshabilitada y, sin
@@ -96,8 +98,8 @@ La consulta sigue identificada como demostración mientras su fuente no sea una
 publicación oficial. El menú, el logotipo institucional, la adaptación móvil,
 el alto contraste y la ayuda son componentes definitivos. El cambio se
 incorporó en `29afe4d` y cuenta con una prueba específica que impide introducir
-en esta superficie enlaces a Cronos, Nóminas, Dietas, Administración o
-Auditoría interna.
+en esta superficie cualquier destino ajeno a la lista positiva de cinco rutas
+públicas y evita que una regla CSS de pantalla retire el menú.
 
 ## Inventario exhaustivo de elementos temporales
 
@@ -169,7 +171,7 @@ autorización vigente y trazabilidad atómica.
 | Portal del Empleado antiguo | Carcasa, perfiles, menús y numerosas vistas reutilizables | Portal privado estable: `/api/vec/workspace` falla cerrado sin ámbito resuelto |
 | Elaboración de bolsa histórica | Formulario visual que guardaba en `localStorage`; dominio nuevo de convocatoria gobernada | Persistencia, API, firma y publicación oficiales |
 | Panel interno de Bolsa | Dominio, servicio de aplicación, contrato agregado sin datos personales, consulta PostgreSQL y pruebas de integración | Endpoint compuesto, identidad interna real, autoridad COSE de ejecución y productor de la proyección |
-| Llamamientos | Dominio y caso de uso probados; el comando de persistencia transporta la instantánea completa y el esquema PostgreSQL V1 conserva auditoría y outbox | El adaptador PostgreSQL permanece cerrado hasta disponer de contrato SQL atómico V2, fuente autoritativa, motor publicado, autoridad COSE, API y confirmación/envío real |
+| Llamamientos | Dominio y caso de uso probados; el comando transporta la instantánea completa y un adaptador genera referencias opacas con 256 bits de aleatoriedad criptográfica; el esquema PostgreSQL V1 conserva auditoría y outbox | El adaptador PostgreSQL permanece cerrado hasta disponer de contrato SQL atómico V2, fuente autoritativa, motor publicado, autoridad COSE de efecto, API y confirmación/envío real |
 | Integrantes/candidatos | Flujo propio del aspirante en API `fake`; datos de catálogo disponibles | Listado administrativo productivo y orden durable de bolsa |
 | Autobaremación | Flujo de demostración heredado y núcleo nuevo de baremación avanzado | Reglas configurables de RRHH conectadas extremo a extremo |
 | Revisión firmada de baremación | Dominio, aplicación y PostgreSQL avanzados | Composición en servidor, API e interfaz operativa |
@@ -325,7 +327,7 @@ Referencia de control del activo: 281232 bytes; SHA-256
 Se reutiliza el activo institucional local ya empleado por el portal de la
 Diputación, copiado dentro del artefacto como
 `web/static/portal-empleado/assets/logo-diputacion-granada.svg`.
-Ambos ficheros tienen la misma huella SHA-256:
+El fichero incorporado tiene la huella SHA-256:
 `99ea04b463a34dbc9399e91eaee085dda6d22554278a4a115517ab4318014098`.
 
 La cabecera lo referencia desde el mismo origen, con texto alternativo
@@ -340,16 +342,21 @@ La prueba de interfaz comprueba además que el SVG no contiene `script`,
 
 El formato canónico VEC-AD-2, el servicio de atestación, el COSE Sign1 de
 payload separado y el verificador Ed25519 estricto ya están implementados y
-probados. No es correcto describir esta parte como ausente.
+probados. También existen ya el catálogo PostgreSQL versionado de confianza
+pública y su cargador Go real. El runner conjunto sobre PostgreSQL 18.4 prueba
+el contrato de dieciséis columnas, la huella cruzada Go/PostgreSQL, identidad y
+ACL mínimas, RLS, revocación concurrente y caducidad bajo bloqueo.
 
-Lo que falta es la autoridad de ejecución productiva: catálogo PostgreSQL
-versionado de confianza, firmante HSM/KMS o proceso aislado, broker por socket
-Unix, capacidad efímera de un solo uso, registradores específicos para panel y
-llamamientos, y revalidación central de revocación dentro del mismo `COMMIT`
-que produce el efecto. Hasta completar esa cadena, las funciones PostgreSQL
-permanecen correctamente sin permiso `EXECUTE` y los endpoints internos no se
-montan. Una verificación local acredita integridad criptográfica, pero por sí
-sola no concede autoridad para alterar o consultar datos administrativos.
+Este catálogo no contiene claves privadas ni concede autoridad de negocio. Lo
+que falta para una ejecución productiva es el firmante HSM/KMS o proceso
+aislado, el manifiesto criptográfico de los actos de gobierno, un anclaje
+externo que detecte la restauración de una copia antigua, el broker por socket
+Unix, la capacidad efímera de un solo uso, los registradores específicos para
+panel y llamamientos y la revalidación de revocación dentro del mismo `COMMIT`
+que produce el efecto. Hasta completar esa cadena, no se conceden permisos de
+negocio y los endpoints internos no se montan. Una verificación local acredita
+integridad criptográfica, pero por sí sola no concede autoridad para alterar o
+consultar datos administrativos.
 
 ## Criterio para retirar el adaptador de presentación
 
@@ -370,7 +377,9 @@ política de empaquetado probada.
 
 ## Prioridad de implementación después de la presentación
 
-1. Completar la autoridad compartida COSE V2 y mantenerla cerrada por defecto.
+1. Completar sobre el catálogo COSE V2 el firmante aislado, el manifiesto de
+   gobierno, el anclaje externo y los registradores de consumidores; mantener
+   todo cerrado por defecto.
 2. Componer la proyección PostgreSQL real del cuadro de mando con identidad
    interna, PDP y motivo catalogado.
 3. Completar fuente, motor y transacción autoritativos de llamamientos.
