@@ -11,13 +11,19 @@ func (r ReciboConsumoAutorizacionFuenteV1) ValidarPara(
 	decisionRef, esquemaHuellaDecision, huellaDecisionSHA256 string,
 	recursoRef, huellaContextoRecursoSHA256, correlacionRef string,
 	huellaSelectorSHA256 string,
+	huellaEntradaSHA256 string,
 	fuenteExacta ReferenciaExactaV1,
+	verificador ReferenciaExactaV1,
 	consumoPrueba ReferenciaExactaV1,
 	auditoria ReferenciaExactaV1,
+	pruebaEmitidaEn, pruebaValidaHasta time.Time,
 	noAntesDe, noDespuesDe time.Time,
 ) error {
 	if r.Validar() != nil || !instanteReciboConsumoFuenteValido(noAntesDe) ||
-		!instanteReciboConsumoFuenteValido(noDespuesDe) || noDespuesDe.Before(noAntesDe) {
+		!instanteReciboConsumoFuenteValido(noDespuesDe) ||
+		!instanteReciboConsumoFuenteValido(pruebaEmitidaEn) ||
+		!instanteReciboConsumoFuenteValido(pruebaValidaHasta) ||
+		noDespuesDe.Before(noAntesDe) || !pruebaValidaHasta.After(pruebaEmitidaEn) {
 		return nuevoError("recibo_consumo_fuente.cotejo", CodigoValorInvalido)
 	}
 	m := r.material
@@ -29,9 +35,13 @@ func (r ReciboConsumoAutorizacionFuenteV1) ValidarPara(
 		!cotejoHuellaReciboConsumo(m.HuellaContextoRecursoSHA256, huellaContextoRecursoSHA256) ||
 		m.CorrelacionRef != correlacionRef ||
 		!cotejoHuellaReciboConsumo(m.HuellaSelectorSHA256, huellaSelectorSHA256) ||
+		!cotejoHuellaReciboConsumo(m.HuellaEntradaSHA256, huellaEntradaSHA256) ||
 		!referenciasExactasIguales(m.FuenteExacta, fuenteExacta) ||
+		!referenciasExactasIguales(m.Verificador, verificador) ||
 		!referenciasExactasIguales(m.ConsumoPrueba, consumoPrueba) ||
-		!referenciasExactasIguales(m.Auditoria, auditoria) {
+		!referenciasExactasIguales(m.Auditoria, auditoria) ||
+		m.PruebaEmitidaEn != pruebaEmitidaEn.Format(formatoInstanteReciboConsumoFuenteV1) ||
+		m.PruebaValidaHasta != pruebaValidaHasta.Format(formatoInstanteReciboConsumoFuenteV1) {
 		return nuevoError("recibo_consumo_fuente.cotejo", CodigoHuellaNoCoincide)
 	}
 	return nil

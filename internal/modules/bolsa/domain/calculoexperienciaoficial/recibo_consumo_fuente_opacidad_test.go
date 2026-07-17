@@ -91,8 +91,10 @@ func TestReciboConsumoFuenteRedactaFmtYLogsSinFugas(t *testing.T) {
 		registro.String(),
 	}
 	secretos := []string{
-		"decision:fuente:1", "fuente:recurso:1", "correlacion:lectura:1",
-		"fuente:exacta:1", hashPrueba("a"), hashPrueba("c"),
+		"decision:fuente:1", "fuente:" + hashPrueba("9"),
+		"correlacion_0123456789abcdef0123456789abcdef",
+		"evidencia:fuente:exacta:1", "verificador:fuente:exacto:1",
+		hashPrueba("a"), hashPrueba("c"), hashPrueba("8"),
 	}
 	for _, texto := range textos {
 		if texto == "" || !strings.Contains(texto, textoReciboConsumoFuenteOculto) {

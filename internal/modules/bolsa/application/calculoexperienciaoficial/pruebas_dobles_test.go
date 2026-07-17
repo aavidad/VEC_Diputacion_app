@@ -18,31 +18,22 @@ type relojPrueba struct{ ahora time.Time }
 
 func (r relojPrueba) Ahora() time.Time { return r.ahora }
 
-type relojSecuencialPrueba struct {
-	actual time.Time
-	paso   time.Duration
-}
-
-func (r *relojSecuencialPrueba) Ahora() time.Time {
-	actual := r.actual
-	r.actual = r.actual.Add(r.paso)
-	return actual
-}
-
 type fuentePrueba struct {
-	resultado      puertosbolsa.FuenteExactaCalculoReglasBaremo
-	error          error
-	llamadas       int
-	cancelar       context.CancelFunc
-	alterarConsumo func(*datosReciboConsumoFuenteDoble)
-	omitirConsumo  bool
+	resultado                   puertosbolsa.FuenteExactaCalculoReglasBaremo
+	error                       error
+	llamadas                    int
+	cancelar                    context.CancelFunc
+	alterarConsumo              func(*datosReciboConsumoFuenteDoble)
+	alterarFuenteDespuesConsumo func(*puertosbolsa.FuenteExactaCalculoReglasBaremo)
+	omitirConsumo               bool
 }
 
 type datosReciboConsumoFuenteDoble struct {
-	consumo, fuenteExacta, consumoPrueba, auditoria            oficial.ReferenciaExactaV1
-	decisionRef, esquemaDecision, huellaDecision               string
-	recursoRef, huellaContexto, correlacionRef, huellaSelector string
-	consumidaEn                                                time.Time
+	consumo, fuenteExacta, verificador, consumoPrueba, auditoria oficial.ReferenciaExactaV1
+	decisionRef, esquemaDecision, huellaDecision                 string
+	recursoRef, huellaContexto, correlacionRef, huellaSelector   string
+	huellaEntrada                                                string
+	pruebaEmitidaEn, pruebaValidaHasta, consumidaEn              time.Time
 }
 
 func (f *fuentePrueba) ObtenerFuenteExacta(
@@ -64,6 +55,9 @@ func (f *fuentePrueba) ObtenerFuenteExacta(
 		resultado.ConsumoAutorizacion = construirReciboConsumoFuenteDoble(
 			solicitud, resultado, f.alterarConsumo,
 		)
+		if f.alterarFuenteDespuesConsumo != nil {
+			f.alterarFuenteDespuesConsumo(&resultado)
+		}
 	}
 	return resultado, f.error
 }
@@ -75,7 +69,8 @@ func construirReciboConsumoFuenteDoble(
 ) oficial.ReciboConsumoAutorizacionFuenteV1 {
 	datosAutorizacion, err := solicitud.Autorizacion.Datos()
 	huellaSelector, errSelector := solicitud.Selector.HuellaSHA256V1()
-	if err != nil || errSelector != nil {
+	huellaEntrada, errEntrada := resultado.Entrada.HuellaSHA256()
+	if err != nil || errSelector != nil || errEntrada != nil {
 		return oficial.ReciboConsumoAutorizacionFuenteV1{}
 	}
 	decision := datosAutorizacion.Decision
@@ -85,13 +80,15 @@ func construirReciboConsumoFuenteDoble(
 			HuellaSHA256: strings.Repeat("7", 64),
 		},
 		fuenteExacta:  referenciaExactaDoble(resultado.Prueba.Evidencia),
+		verificador:   referenciaExactaDoble(resultado.Prueba.Verificador),
 		consumoPrueba: referenciaExactaDoble(resultado.ConsumoPrueba),
 		auditoria:     referenciaExactaDoble(resultado.Auditoria),
 		decisionRef:   decision.DecisionRef, esquemaDecision: datosAutorizacion.EsquemaHuella,
 		huellaDecision: datosAutorizacion.HuellaDecisionSHA256,
 		recursoRef:     decision.RecursoRef, huellaContexto: decision.ContextoRecursoHuellaSHA256,
 		correlacionRef: decision.CorrelacionRef, huellaSelector: huellaSelector,
-		consumidaEn: resultado.ObtenidaEn,
+		huellaEntrada: huellaEntrada, pruebaEmitidaEn: resultado.Prueba.EmitidaEn,
+		pruebaValidaHasta: resultado.Prueba.ValidaHasta, consumidaEn: resultado.ObtenidaEn,
 	}
 	if alterar != nil {
 		alterar(&datos)
@@ -99,7 +96,9 @@ func construirReciboConsumoFuenteDoble(
 	recibo, err := oficial.NuevoReciboConsumoAutorizacionFuenteV1(
 		datos.consumo, datos.decisionRef, datos.esquemaDecision, datos.huellaDecision,
 		datos.recursoRef, datos.huellaContexto, datos.correlacionRef, datos.huellaSelector,
-		datos.fuenteExacta, datos.consumoPrueba, datos.auditoria, datos.consumidaEn,
+		datos.huellaEntrada, datos.fuenteExacta, datos.verificador,
+		datos.consumoPrueba, datos.auditoria, datos.pruebaEmitidaEn,
+		datos.pruebaValidaHasta, datos.consumidaEn,
 	)
 	if err != nil {
 		return oficial.ReciboConsumoAutorizacionFuenteV1{}

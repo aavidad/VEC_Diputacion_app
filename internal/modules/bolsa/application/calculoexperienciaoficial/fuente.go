@@ -2,6 +2,7 @@ package calculoexperienciaoficial
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	oficial "vec-diputacion-granada/internal/modules/bolsa/domain/calculoexperienciaoficial"
@@ -54,7 +55,8 @@ func validarFuenteExacta(
 		!referenciaValida(fuente.Auditoria) ||
 		fuente.ConsumoAutorizacion.Validar() != nil ||
 		!referenciaValida(fuente.ConsumoPrueba) ||
-		!referenciasFuenteDistintas(fuente) {
+		!referenciasFuenteDistintas(fuente, autorizacion) ||
+		!referenciasFuenteConRolNominal(fuente) {
 		return ErrFuenteNoConfiable
 	}
 	vinculo, errVinculo := fuente.Version.VinculoEstado()
@@ -91,9 +93,11 @@ func validarReciboConsumoFuente(
 ) error {
 	datos, errDatos := autorizacion.Datos()
 	huellaSelector, errSelector := selector.HuellaSHA256V1()
+	huellaEntrada, errEntrada := fuente.Entrada.HuellaSHA256()
 	recurso, errRecurso := recursoLectura(selector)
 	huellaContexto, errContexto := recurso.HuellaContextoAutorizacionSHA256()
-	if errDatos != nil || errSelector != nil || errRecurso != nil || errContexto != nil ||
+	if errDatos != nil || errSelector != nil || errEntrada != nil ||
+		errRecurso != nil || errContexto != nil ||
 		datos.EsquemaHuella != puertosvec.EsquemaHuellaDecisionAutorizacionReforzadaV2 ||
 		datos.VerificadaEn.After(solicitadaEn) {
 		return ErrFuenteNoConfiable
@@ -107,9 +111,12 @@ func validarReciboConsumoFuente(
 		decision.DecisionRef, datos.EsquemaHuella, datos.HuellaDecisionSHA256,
 		decision.RecursoRef, decision.ContextoRecursoHuellaSHA256,
 		decision.CorrelacionRef, huellaSelector,
+		huellaEntrada,
 		referenciaExactaOficial(fuente.Prueba.Evidencia),
+		referenciaExactaOficial(fuente.Prueba.Verificador),
 		referenciaExactaOficial(fuente.ConsumoPrueba),
 		referenciaExactaOficial(fuente.Auditoria),
+		fuente.Prueba.EmitidaEn, fuente.Prueba.ValidaHasta,
 		solicitadaEn, fuente.ObtenidaEn,
 	)
 }
@@ -133,27 +140,64 @@ func validarPruebaFuente(
 	return nil
 }
 
-func referenciasFuenteDistintas(fuente puertosbolsa.FuenteExactaCalculoReglasBaremo) bool {
+func referenciasFuenteDistintas(
+	fuente puertosbolsa.FuenteExactaCalculoReglasBaremo,
+	autorizacion puertosvec.EvidenciaUsoDecisionAutorizacionSolicitudLigadaV2,
+) bool {
 	consumo, err := fuente.ConsumoAutorizacion.Consumo()
-	if err != nil {
+	datos, errAutorizacion := autorizacion.Datos()
+	if err != nil || errAutorizacion != nil {
 		return false
 	}
-	referencias := []reglas.ReferenciaVersionada{
-		fuente.Prueba.Evidencia, fuente.Prueba.Verificador, fuente.Auditoria,
-		fuente.ConsumoPrueba,
-		fuente.Prueba.EstadoReglas.Contenido(), fuente.Prueba.InstantaneaEntrada,
-		fuente.Prueba.SujetoPseudonimo, fuente.Prueba.Convocatoria,
+	decision := datos.Decision
+	referencias := []string{
+		consumo.Referencia, decision.DecisionRef, decision.RecursoRef, decision.CorrelacionRef,
+		fuente.Prueba.Evidencia.Referencia(), fuente.Prueba.Verificador.Referencia(),
+		fuente.ConsumoPrueba.Referencia(), fuente.Auditoria.Referencia(),
+		fuente.Prueba.EstadoReglas.Contenido().Referencia(),
+		fuente.Prueba.InstantaneaEntrada.Referencia(),
+		fuente.Prueba.SujetoPseudonimo.Referencia(), fuente.Prueba.Convocatoria.Referencia(),
 	}
-	vistas := make(map[string]struct{}, len(referencias)+1)
-	vistas[consumo.Referencia] = struct{}{}
+	vistas := make(map[string]struct{}, len(referencias))
 	for _, referencia := range referencias {
-		clave := referencia.Referencia()
-		if _, existe := vistas[clave]; existe {
+		if _, existe := vistas[referencia]; existe {
 			return false
 		}
-		vistas[clave] = struct{}{}
+		vistas[referencia] = struct{}{}
 	}
 	return true
+}
+
+func referenciasFuenteConRolNominal(
+	fuente puertosbolsa.FuenteExactaCalculoReglasBaremo,
+) bool {
+	roles := []struct {
+		referencia reglas.ReferenciaVersionada
+		prefijo    string
+	}{
+		{fuente.Prueba.Evidencia, "evidencia:fuente:"},
+		{fuente.Prueba.Verificador, "verificador:fuente:"},
+		{fuente.ConsumoPrueba, "consumo:prueba:"},
+		{fuente.Auditoria, "auditoria:fuente:"},
+		{fuente.Prueba.EstadoReglas.Contenido(), "reglas:"},
+		{fuente.Prueba.InstantaneaEntrada, "iex_"},
+		{fuente.Prueba.Convocatoria, "convocatoria:"},
+	}
+	for _, rol := range roles {
+		valor := rol.referencia.Referencia()
+		if !referenciaValida(rol.referencia) || !strings.HasPrefix(valor, rol.prefijo) ||
+			len(valor) <= len(rol.prefijo) || strings.Contains(valor, "..") ||
+			strings.ContainsAny(valor, "/@\\") {
+			return false
+		}
+	}
+	return oficial.ReferenciaReglasFuenteExactaV1Valida(
+		fuente.Prueba.EstadoReglas.Contenido().Referencia(),
+	) && oficial.ReferenciaInstantaneaFuenteExactaV1Valida(
+		fuente.Prueba.InstantaneaEntrada.Referencia(),
+	) && oficial.ReferenciaConvocatoriaFuenteExactaV1Valida(
+		fuente.Prueba.Convocatoria.Referencia(),
+	)
 }
 
 func referenciaExactaOficial(referencia reglas.ReferenciaVersionada) oficial.ReferenciaExactaV1 {

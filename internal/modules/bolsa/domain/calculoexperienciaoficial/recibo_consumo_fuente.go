@@ -30,9 +30,13 @@ type materialReciboConsumoAutorizacionFuenteV1 struct {
 	HuellaContextoRecursoSHA256 string             `json:"huella_contexto_recurso_sha256"`
 	CorrelacionRef              string             `json:"correlacion_ref"`
 	HuellaSelectorSHA256        string             `json:"huella_selector_sha256"`
+	HuellaEntradaSHA256         string             `json:"huella_entrada_sha256"`
 	FuenteExacta                ReferenciaExactaV1 `json:"fuente_exacta"`
+	Verificador                 ReferenciaExactaV1 `json:"verificador"`
 	ConsumoPrueba               ReferenciaExactaV1 `json:"consumo_prueba"`
 	Auditoria                   ReferenciaExactaV1 `json:"auditoria"`
+	PruebaEmitidaEn             string             `json:"prueba_emitida_en"`
+	PruebaValidaHasta           string             `json:"prueba_valida_hasta"`
 	ConsumidaEn                 string             `json:"consumida_en"`
 }
 
@@ -43,16 +47,21 @@ func NuevoReciboConsumoAutorizacionFuenteV1(
 	decisionRef, esquemaHuellaDecision, huellaDecisionSHA256 string,
 	recursoRef, huellaContextoRecursoSHA256, correlacionRef string,
 	huellaSelectorSHA256 string,
+	huellaEntradaSHA256 string,
 	fuenteExacta ReferenciaExactaV1,
+	verificador ReferenciaExactaV1,
 	consumoPrueba ReferenciaExactaV1,
 	auditoria ReferenciaExactaV1,
+	pruebaEmitidaEn, pruebaValidaHasta time.Time,
 	consumidaEn time.Time,
 ) (ReciboConsumoAutorizacionFuenteV1, error) {
-	// No normalizar silenciosamente zona ni precision: el instante debe venir
-	// ya canonizado desde la frontera durable que acredita el consumo.
-	if !instanteReciboConsumoFuenteValido(consumidaEn) {
+	// No normalizar silenciosamente zona ni precision: los instantes deben
+	// venir ya canonizados desde la frontera durable que acredita el consumo.
+	if !instanteReciboConsumoFuenteValido(pruebaEmitidaEn) ||
+		!instanteReciboConsumoFuenteValido(pruebaValidaHasta) ||
+		!instanteReciboConsumoFuenteValido(consumidaEn) {
 		return ReciboConsumoAutorizacionFuenteV1{},
-			nuevoError("recibo_consumo_fuente.consumida_en", CodigoValorNoCanonico)
+			nuevoError("recibo_consumo_fuente.instantes", CodigoValorNoCanonico)
 	}
 	recibo := ReciboConsumoAutorizacionFuenteV1{material: materialReciboConsumoAutorizacionFuenteV1{
 		Esquema: EsquemaReciboConsumoAutorizacionFuenteV1,
@@ -61,8 +70,12 @@ func NuevoReciboConsumoAutorizacionFuenteV1(
 		HuellaDecisionSHA256:  huellaDecisionSHA256,
 		RecursoRef:            recursoRef, HuellaContextoRecursoSHA256: huellaContextoRecursoSHA256,
 		CorrelacionRef: correlacionRef, HuellaSelectorSHA256: huellaSelectorSHA256,
-		FuenteExacta: fuenteExacta, ConsumoPrueba: consumoPrueba, Auditoria: auditoria,
-		ConsumidaEn: consumidaEn.Format(formatoInstanteReciboConsumoFuenteV1),
+		HuellaEntradaSHA256: huellaEntradaSHA256,
+		FuenteExacta:        fuenteExacta, Verificador: verificador,
+		ConsumoPrueba: consumoPrueba, Auditoria: auditoria,
+		PruebaEmitidaEn:   pruebaEmitidaEn.Format(formatoInstanteReciboConsumoFuenteV1),
+		PruebaValidaHasta: pruebaValidaHasta.Format(formatoInstanteReciboConsumoFuenteV1),
+		ConsumidaEn:       consumidaEn.Format(formatoInstanteReciboConsumoFuenteV1),
 	}}
 	if err := recibo.Validar(); err != nil {
 		return ReciboConsumoAutorizacionFuenteV1{}, err
@@ -72,17 +85,35 @@ func NuevoReciboConsumoAutorizacionFuenteV1(
 
 func (r ReciboConsumoAutorizacionFuenteV1) Validar() error {
 	m := r.material
+	pruebaEmitidaEn, errEmitida := time.Parse(
+		formatoInstanteReciboConsumoFuenteV1, m.PruebaEmitidaEn,
+	)
+	pruebaValidaHasta, errValidez := time.Parse(
+		formatoInstanteReciboConsumoFuenteV1, m.PruebaValidaHasta,
+	)
 	consumidaEn, err := time.Parse(formatoInstanteReciboConsumoFuenteV1, m.ConsumidaEn)
 	if m.Esquema != EsquemaReciboConsumoAutorizacionFuenteV1 ||
-		validarReferencia(m.Consumo, "recibo_consumo_fuente.consumo") != nil ||
-		!referenciaOpacaValida(m.DecisionRef) || !tokenTecnicoValido(m.EsquemaHuellaDecision, 160) ||
-		!huellaSHA256Valida(m.HuellaDecisionSHA256) || !referenciaOpacaValida(m.RecursoRef) ||
+		!referenciaExactaNominalReciboValida(m.Consumo, "consumo:autorizacion:") ||
+		!decisionRefReciboConsumoFuenteValida(m.DecisionRef) ||
+		!tokenTecnicoValido(m.EsquemaHuellaDecision, 160) ||
+		!huellaSHA256Valida(m.HuellaDecisionSHA256) ||
+		!recursoLecturaReciboConsumoFuenteValido(m.RecursoRef) ||
 		!huellaSHA256Valida(m.HuellaContextoRecursoSHA256) ||
-		!referenciaOpacaValida(m.CorrelacionRef) || !huellaSHA256Valida(m.HuellaSelectorSHA256) ||
-		validarReferencia(m.FuenteExacta, "recibo_consumo_fuente.fuente_exacta") != nil ||
-		validarReferencia(m.ConsumoPrueba, "recibo_consumo_fuente.consumo_prueba") != nil ||
-		validarReferencia(m.Auditoria, "recibo_consumo_fuente.auditoria") != nil ||
-		err != nil || !instanteReciboConsumoFuenteValido(consumidaEn) ||
+		!correlacionReciboConsumoFuenteValida(m.CorrelacionRef) ||
+		!huellaSHA256Valida(m.HuellaSelectorSHA256) ||
+		!huellaSHA256Valida(m.HuellaEntradaSHA256) ||
+		!referenciaExactaNominalReciboValida(m.FuenteExacta, "evidencia:fuente:") ||
+		!referenciaExactaNominalReciboValida(m.Verificador, "verificador:fuente:") ||
+		!referenciaExactaNominalReciboValida(m.ConsumoPrueba, "consumo:prueba:") ||
+		!referenciaExactaNominalReciboValida(m.Auditoria, "auditoria:fuente:") ||
+		errEmitida != nil || errValidez != nil || err != nil ||
+		!instanteReciboConsumoFuenteValido(pruebaEmitidaEn) ||
+		!instanteReciboConsumoFuenteValido(pruebaValidaHasta) ||
+		!instanteReciboConsumoFuenteValido(consumidaEn) ||
+		!pruebaValidaHasta.After(pruebaEmitidaEn) || consumidaEn.Before(pruebaEmitidaEn) ||
+		!consumidaEn.Before(pruebaValidaHasta) ||
+		pruebaEmitidaEn.Format(formatoInstanteReciboConsumoFuenteV1) != m.PruebaEmitidaEn ||
+		pruebaValidaHasta.Format(formatoInstanteReciboConsumoFuenteV1) != m.PruebaValidaHasta ||
 		consumidaEn.Format(formatoInstanteReciboConsumoFuenteV1) != m.ConsumidaEn ||
 		!rolesReciboConsumoFuenteDistintos(m) {
 		return nuevoError("recibo_consumo_fuente", CodigoValorNoCanonico)
@@ -156,7 +187,8 @@ func instanteReciboConsumoFuenteValido(instante time.Time) bool {
 
 func rolesReciboConsumoFuenteDistintos(m materialReciboConsumoAutorizacionFuenteV1) bool {
 	referencias := []string{m.Consumo.Referencia, m.DecisionRef, m.RecursoRef, m.CorrelacionRef,
-		m.FuenteExacta.Referencia, m.ConsumoPrueba.Referencia, m.Auditoria.Referencia}
+		m.FuenteExacta.Referencia, m.Verificador.Referencia, m.ConsumoPrueba.Referencia,
+		m.Auditoria.Referencia}
 	vistas := make(map[string]struct{}, len(referencias))
 	for _, referencia := range referencias {
 		if _, existe := vistas[referencia]; existe {
