@@ -1,14 +1,15 @@
 # PostgreSQL del nucleo de autorizacion
 
-Estado: primer adaptador durable y proyeccion de motivos V2 implementados y
-probados, **no habilitados en la composicion productiva**. Fecha de corte: 17
-de julio de 2026.
+Estado: adaptadores durables V1/V2, proyeccion de motivos y registro nominal de
+concesiones ligadas a solicitud V2 implementados y probados, **no habilitados
+en la composicion productiva**. Fecha de corte: 17 de julio de 2026.
 
 Implementa `ports.FuenteAutorizacion`,
-`ports.RegistroDecisionesAutorizacion` y la consulta historica de
-`ports.ValidadorReferenciaMotivoAutorizacionV2` con `pgx` v5.10.0. No conecta
-HTTP, CLI, MCP ni modulos de negocio y la aplicacion no ejecuta migraciones al
-arrancar.
+`ports.RegistroDecisionesAutorizacion`,
+`ports.RegistroDecisionesAutorizacionSolicitudLigadaV2` y la consulta
+historica de `ports.ValidadorReferenciaMotivoAutorizacionV2` con `pgx` v5.10.0.
+No conecta HTTP, CLI, MCP ni modulos de negocio y la aplicacion no ejecuta
+migraciones al arrancar.
 
 ## Contenido
 
@@ -28,6 +29,10 @@ arrancar.
 - `migraciones/000003_proyeccion_motivos_autorizacion_v2.*.sql`: cabeceras
   publicadas inmutables, entradas temporales, retiradas append-only, eventos y
   checkpoint monotono del catalogo maestro de motivos V2.
+- `migraciones/000004_registro_decisiones_solicitud_ligada_v2.*.sql`: registro
+  V2 separado de V1, documentos semanticos cerrados de decision y motivo, CAS
+  de identidad, rol, politicas y motivo actual, RLS, ACL runtime cerrada y
+  conservacion obligatoria del historico.
 - `roles_down.sql`: retirada final gobernada de grupos V1; inventaria roles y
   los tres campos OID de cada membresia antes de mutar, y falla ante cualquier
   relacion, atributo o dependencia inesperados.
@@ -64,6 +69,19 @@ export VEC_POSTGRES_TEST_MOTIVOS_FUENTE_V1_DSN='postgresql://fuente_v1:...@host/
 go test ./internal/vec/adapters/postgres -run '^TestIntegracionMotivosAutorizacionV2PostgreSQL$' -count=1
 ```
 
+El registro V2 exige cuatro identidades de prueba separadas. El runner crea
+una base efimera exclusiva, comprueba primero la reversion vacia y, tras
+registrar evidencia, demuestra que la migracion descendente se niega a
+borrarla:
+
+```bash
+export VEC_POSTGRES_TEST_REGISTRO_V2_FUENTE_DSN='postgresql://fuente:...@host/base?sslmode=verify-full'
+export VEC_POSTGRES_TEST_REGISTRO_V2_REGISTRO_DSN='postgresql://registro:...@host/base?sslmode=verify-full'
+export VEC_POSTGRES_TEST_REGISTRO_V2_EVALUADOR_DSN='postgresql://evaluador:...@host/base?sslmode=verify-full'
+export VEC_POSTGRES_TEST_REGISTRO_V2_ADMIN_DSN='postgresql://administrador_pruebas:...@host/base?sslmode=verify-full'
+go test ./internal/vec/adapters/postgres -run '^TestIntegracionRegistroDecisionSolicitudLigadaV2PostgreSQL$' -count=1
+```
+
 Esas variables solo existen para pruebas. No deben imprimirse, guardarse en el
 repositorio ni reutilizarse en produccion. Fuera del runner, cada prueba se
 omite limpiamente si no esta completo su propio grupo de variables.
@@ -71,7 +89,8 @@ omite limpiamente si no esta completo su propio grupo de variables.
 ## Aplicacion de migraciones
 
 Se presupone una base dedicada. Un DBA ejecuta primero `roles_up.sql` y, antes
-de aplicar `000003`, `roles_v2_up.sql`. Cada bootstrap toma un bloqueo
+de aplicar `000003`, `roles_v2_up.sql`. Las migraciones se aplican por orden
+`000001`, `000002`, `000003` y `000004`. Cada bootstrap toma un bloqueo
 transaccional para serializar ejecuciones concurrentes y, antes de cualquier
 mutacion, aborta si ya existe uno solo de sus nombres reservados. No adopta ni
 corrige roles homonimos aunque sus atributos
@@ -136,7 +155,8 @@ Las identidades de ejecucion son cuentas `LOGIN` distintas por despliegue y
 solo heredan lo necesario:
 
 - `vec_autorizacion_fuente`: ejecutar la lectura de instantanea exacta;
-- `vec_autorizacion_registro`: ejecutar exclusivamente el CAS de registro.
+- `vec_autorizacion_registro`: ejecutar exclusivamente el CAS nominal V1; el
+  CAS V2 permanece sin `EXECUTE` runtime hasta completar su puerta COSE;
 - `vec_autorizacion_motivos_proyector`: proyectar una publicacion o retirada
   gobernada, sin lectura directa de tablas;
 - `vec_autorizacion_motivos_evaluador`: resolver exclusivamente la referencia
@@ -201,10 +221,11 @@ Hay dos semanticas de resolucion deliberadamente distintas:
   rol evaluador;
 - `resolver_motivo_autorizacion_v2_actual` usa siempre `clock_timestamp()` de
   PostgreSQL y mantiene `FOR SHARE` sobre el checkpoint hasta el `COMMIT` del
-  llamador. Es un helper privado, sin `EXECUTE` para roles runtime: una futura
-  funcion `SECURITY DEFINER` de registro o efecto lo invocara dentro de su misma
-  transaccion. La retirada necesita `FOR UPDATE`, por lo que no puede
-  adelantarse entre esta barrera y el efecto confirmado.
+  llamador. Es un helper privado, sin `EXECUTE` para roles runtime. El registro
+  V2 toma directamente el mismo checkpoint y coteja el motivo con su unico
+  instante final; los efectos deberan repetir esa barrera en su propia
+  transaccion atomica. La retirada necesita `FOR UPDATE`, por lo que no puede
+  adelantarse entre la barrera y el registro o efecto confirmado.
 
 `ValidadorReferenciaMotivoPostgreSQLV2` solo invoca la primera funcion mediante
 una consulta parametrizada y recibe un `pgxpool.Pool` ya administrado por la
@@ -216,13 +237,13 @@ coincidentes y no puede proyectar ni ejecutar la barrera actual. Tambien
 confirma que las identidades proyectora y fuente V1 no pueden usar el adaptador.
 
 El PDP usa la variante historica con el instante autoritativo de evaluacion que
-despues queda comprometido como `emitida_en`. Una futura funcion de registro V2
-repetira esa comprobacion historica y, para una concesion, llamara ademas a la
-variante `actual` dentro de su transaccion serializable. Una denegacion no
-produce efecto y solo necesita conservar la prueba historica. `emitida_en`, una
-fecha aportada por cliente o la consulta historica nunca sustituyen la barrera
-actual al conceder. Validar en una transaccion y confirmar el efecto en otra
-vuelve a abrir la ventana y no esta soportado.
+despues queda comprometido como `emitida_en`. El registro V2 vuelve a comprobar
+la referencia completa y, para una concesion, bloquea el checkpoint actual
+dentro de su transaccion serializable. Una denegacion no produce efecto y solo
+necesita conservar la prueba historica. `emitida_en`, una fecha aportada por
+cliente o la consulta historica nunca sustituyen la barrera actual al conceder.
+Registrar en una transaccion y confirmar el efecto en otra tampoco basta: el
+repositorio del efecto debe revalidar y consumir de nuevo de forma atomica.
 
 Las cinco tablas tienen RLS habilitada y forzada, una unica politica positiva
 para el propietario exacto y cero ACL directas para proyector o evaluador. Las
@@ -279,35 +300,92 @@ campos, obligaciones, finalidades y ambitos positivos. No existe
 `global=["*"]`. Las politicas ABAC pueden conservar el comodin restrictivo
 exacto porque solo reducen acceso; nunca conceden.
 
+## Registro nominal V2 implementado
+
+`registrar_decision_solicitud_ligada_v2_si_vigente(bytea,bytea)` recibe
+los bytes que el adaptador Go produce de forma determinista para la decision V2
+y la referencia opaca de motivo. PostgreSQL limita y conserva esos bytes, pero
+**no demuestra su canon lexico**: `jsonb` normaliza espacios, orden, escapes y
+claves duplicadas antes de que las funciones puedan inspeccionarlos. La barrera
+actual demuestra estructura y semantica cerradas, no unicidad de preimagen.
+Rechaza V1, claves semanticas desconocidas, correlaciones no opacas, listas o
+manifiestos no ordenados o repetidos, huellas nulas y motivos cuya preimagen
+recibida no coincida con el compromiso de la decision. El orden de listas y
+manifiestos usa explicitamente collation `C`, equivalente al orden por bytes
+UTF-8 de Go para este perfil ASCII.
+
+La funcion materializa una copia comun solo para aplicar las invariantes ya
+probadas de identidad y RBAC/ABAC. Esa copia no se inserta en
+`decision_autorizacion`: la fila vive en
+`decision_autorizacion_solicitud_ligada_v2`, con sus bytes y huellas propios.
+Por tanto, una decision V2 no puede reaparecer por una consulta o funcion V1 ni
+perder silenciosamente `solicitud_huella_sha256` o `motivo_huella_sha256`.
+
+Antes del `INSERT`, la misma transaccion serializable bloquea y coteja:
+
+1. asignacion, principal, perfil y huella actuales;
+2. version, control y huellas del rol;
+3. revision, huella y conjunto completo de politicas;
+4. sesion, control de sesion y ContextoActor actuales;
+5. checkpoint, publicacion, version, huella, entrada y ausencia de retirada del
+   motivo;
+6. un unico `clock_timestamp()` tomado despues de adquirir todos los locks y
+   aplicado a decision, sesion, actor y motivo antes del `INSERT` inmediato.
+
+La migracion no concede `EXECUTE` a ninguna identidad runtime. Fuente, registro,
+evaluador, proyector, `PUBLIC` e identidades de negocio quedan fuera; tampoco
+poseen privilegios de tabla. El runner abre `EXECUTE` a
+`vec_autorizacion_registro` solo en su base efimera, ejecuta la integracion, lo
+revoca y verifica el cierre de las cinco identidades antes de continuar. La
+tabla es append-only, tiene RLS forzada y la migracion descendente toma un
+bloqueo exclusivo y se niega a borrar una sola decision durable.
+
+La integracion real demuestra preservacion de los bytes emitidos por Go,
+separacion V1/V2, entradas hostiles, ACL, retirada entre evaluacion y CAS y
+expiracion del motivo mientras el registro espera un lock. Cuando se invoque
+tras abrir su puerta, este registro acreditara frescura al insertar, pero no
+concedera un efecto: faltan la capacidad efimera autenticada, la revalidacion y
+el consumo unico dentro de la transaccion final de Bolsa.
+
+El registro es **at-most-once, no idempotente**. `decision_ref` y la huella de
+los bytes son unicos: dos intentos concurrentes no crean dos filas. Un replay
+inmediato alcanza la unicidad y devuelve version existente; si antes cambian o
+expiran identidad, rol, politicas, motivo o decision, puede fallar cerrado como
+instantanea obsoleta antes de consultar esa unicidad. No equivale a consumo
+unico del efecto ni recupera automaticamente un `COMMIT` de resultado ambiguo.
+
 ## Puerta productiva que sigue cerrada
 
-El CAS demuestra frescura de la evidencia, pero no vuelve a ejecutar el PDP.
-Eso es deliberado: duplicar RBAC/ABAC en SQL crearia dos semanticas y rompería
-la portabilidad hexagonal. Con el contrato actual, la decision solo conserva
-la huella del contexto; no contiene los ambitos y atributos necesarios para
-rehacer `AsignacionPerfil.Cubre` y todas las restricciones ABAC.
+Los CAS demuestran frescura de la instantanea, pero no vuelven a ejecutar el
+PDP. Eso es deliberado: duplicar RBAC/ABAC en SQL crearia dos semanticas y
+romperia la portabilidad hexagonal. V1 solo conserva la huella del contexto;
+V2 añade los compromisos exactos de solicitud y motivo, pero PostgreSQL no
+puede deducir de esos SHA-256 que el PDP sea realmente su emisor.
 
-Por ello una credencial de `vec_autorizacion_registro` robada podria clonar
-una evidencia vigente, cambiar la tupla funcional y presentarla como otra
-decision.
+Conceder ahora la funcion a `vec_autorizacion_registro` permitiria a una
+credencial robada crear un documento nuevo coherente con la configuracion
+vigente y calcular sus huellas. No podria convertirlo en V1, pero el registro no
+autenticaria su procedencia. Por eso la migracion deja esa ACL cerrada.
 
 Eliminar la funcion general de lectura evita que ese rol recupere decisiones
-ajenas, pero no cierra esta falsificacion: quien controle la llamada de
-registro aun puede alterar el documento que recibe antes de ejecutar el CAS.
+ajenas, pero no autentica por si solo la procedencia del documento recibido.
 
 Hasta resolverlo se aplican estas prohibiciones:
 
-- esa credencial solo pertenece a la identidad tecnica nominativa del PDP
-  aislado; nunca al portal, a un modulo, a un trabajador general ni a HTTP;
+- ningun despliegue concede `EXECUTE` runtime sobre el registro V2;
 - el adaptador no se monta en composicion productiva;
 - una decision registrada no autoriza por si sola ningun efecto de negocio.
 
-Antes de abrir la puerta se exige una atestacion criptografica versionada de la
-decision completa, emitida con una credencial y clave separadas y verificada
-dentro de la funcion definidora. No se presupone que `pgcrypto` verifique firmas
-ni se aplica un fallback HMAC silencioso. Suite, representacion canonica,
-gobierno de claves, rotacion, revocacion, pruebas y perfil candidato PostgreSQL
-se especifican en
+Antes de abrir la puerta se exige consumir una atestacion criptografica
+versionada de la decision completa, emitida con credencial y clave separadas y
+verificada sobre los **bytes exactos antes de convertir a `jsonb`**. El parser
+de frontera debe detectar claves duplicadas y rechazar whitespace, orden,
+escapes, numeros, fechas o cualquier otra representacion alternativa al canon
+publicado; verificar solo el arbol `jsonb` no basta. El perfil VEC-AD-2 y su
+verificador COSE ya existen en Go; faltan su catalogo durable y la funcion final
+de consumo. No se presupone que `pgcrypto` verifique Ed25519 ni se aplica un
+HMAC alternativo silencioso. Suite, representacion canonica, gobierno de claves,
+rotacion, revocacion y pruebas se especifican en
 `docs/portal_vec/atestacion_criptografica_decisiones.md`.
 
 ## Punto de extension para consumo atomico

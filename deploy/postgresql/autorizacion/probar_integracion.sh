@@ -13,6 +13,7 @@ clave_proyector="vec-proyector-motivos-prueba-$$"
 clave_evaluador="vec-evaluador-motivos-prueba-$$"
 clave_dba_limitado="vec-dba-limitado-prueba-$$"
 base_concurrencia=vec_motivos_v2_concurrencia
+base_registro_v2=vec_autorizacion_registro_v2
 cache_go=$(mktemp -d /tmp/vec-autorizacion-gocache-XXXXXX)
 error_grant_v2=$(mktemp /tmp/vec-autorizacion-grant-v2-XXXXXX)
 error_grant_v1=$(mktemp /tmp/vec-autorizacion-grant-v1-XXXXXX)
@@ -338,6 +339,134 @@ export VEC_POSTGRES_TEST_ADMIN_DSN="postgresql://postgres:${clave_admin}@127.0.0
 
 (cd "$raiz" && GOCACHE="$cache_go" go test ./internal/vec/adapters/postgres \
     -run TestIntegracionAutorizacionPostgreSQL -count=1)
+
+# El registro nominal V2 se prueba en una base efimera independiente. Su down
+# debe negarse tras crear evidencia, mientras la bateria historica de motivos
+# conserva su propia prueba de down sobre una base sin decisiones V2.
+docker exec "$contenedor" createdb --username postgres "$base_registro_v2"
+docker exec --interactive "$contenedor" \
+    psql --set ON_ERROR_STOP=1 --username postgres --dbname "$base_registro_v2" <<SQL
+REVOKE ALL PRIVILEGES ON DATABASE $base_registro_v2 FROM PUBLIC;
+GRANT CONNECT, CREATE ON DATABASE $base_registro_v2
+    TO vec_autorizacion_propietario;
+GRANT CONNECT ON DATABASE $base_registro_v2
+    TO vec_autorizacion_migrador, vec_autorizacion_fuente,
+       vec_autorizacion_registro, vec_autorizacion_motivos_proyector,
+       vec_autorizacion_motivos_evaluador;
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+SQL
+for migracion in \
+    "$raiz/deploy/postgresql/autorizacion/migraciones/000001_autorizacion.up.sql" \
+    "${evolucion_vinculo}.up.sql" \
+    "$raiz/deploy/postgresql/autorizacion/migraciones/000003_proyeccion_motivos_autorizacion_v2.up.sql" \
+    "$raiz/deploy/postgresql/autorizacion/migraciones/000004_registro_decisiones_solicitud_ligada_v2.up.sql"
+do
+    docker exec --interactive --env PGPASSWORD="$clave_migrador" "$contenedor" \
+        psql --set ON_ERROR_STOP=1 --host 127.0.0.1 \
+        --username vec_autorizacion_migrador_prueba \
+        --dbname "$base_registro_v2" < "$migracion"
+done
+
+# Reversibilidad solo antes de existir evidencia.
+docker exec --interactive --env PGPASSWORD="$clave_migrador" "$contenedor" \
+    psql --set ON_ERROR_STOP=1 --host 127.0.0.1 \
+    --username vec_autorizacion_migrador_prueba --dbname "$base_registro_v2" \
+    < "$raiz/deploy/postgresql/autorizacion/migraciones/000004_registro_decisiones_solicitud_ligada_v2.down.sql"
+docker exec --interactive --env PGPASSWORD="$clave_migrador" "$contenedor" \
+    psql --set ON_ERROR_STOP=1 --host 127.0.0.1 \
+    --username vec_autorizacion_migrador_prueba --dbname "$base_registro_v2" \
+    < "$raiz/deploy/postgresql/autorizacion/migraciones/000004_registro_decisiones_solicitud_ligada_v2.up.sql"
+
+# 000004 queda cerrado en reposo. La capacidad se abre solo dentro de esta base
+# efimera para ejercitar el adaptador real y se revoca nada mas terminar.
+docker exec --interactive --env PGPASSWORD="$clave_migrador" "$contenedor" \
+    psql --set ON_ERROR_STOP=1 --host 127.0.0.1 \
+    --username vec_autorizacion_migrador_prueba --dbname "$base_registro_v2" <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_propietario;
+GRANT EXECUTE ON FUNCTION
+    vec_autorizacion.registrar_decision_solicitud_ligada_v2_si_vigente(
+        bytea, bytea
+    ) TO vec_autorizacion_registro;
+COMMIT;
+SQL
+
+export VEC_POSTGRES_TEST_REGISTRO_V2_FUENTE_DSN="postgresql://vec_autorizacion_fuente_prueba:${clave_fuente}@127.0.0.1:${puerto}/${base_registro_v2}?sslmode=disable"
+export VEC_POSTGRES_TEST_REGISTRO_V2_REGISTRO_DSN="postgresql://vec_autorizacion_registro_prueba:${clave_registro}@127.0.0.1:${puerto}/${base_registro_v2}?sslmode=disable"
+export VEC_POSTGRES_TEST_REGISTRO_V2_EVALUADOR_DSN="postgresql://vec_autorizacion_motivos_evaluador_prueba:${clave_evaluador}@127.0.0.1:${puerto}/${base_registro_v2}?sslmode=disable"
+export VEC_POSTGRES_TEST_REGISTRO_V2_ADMIN_DSN="postgresql://postgres:${clave_admin}@127.0.0.1:${puerto}/${base_registro_v2}?sslmode=disable"
+(cd "$raiz" && GOCACHE="$cache_go" go test ./internal/vec/adapters/postgres \
+    -run TestIntegracionRegistroDecisionSolicitudLigadaV2PostgreSQL -count=1)
+
+docker exec --interactive --env PGPASSWORD="$clave_migrador" "$contenedor" \
+    psql --set ON_ERROR_STOP=1 --host 127.0.0.1 \
+    --username vec_autorizacion_migrador_prueba --dbname "$base_registro_v2" <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_propietario;
+REVOKE ALL ON FUNCTION
+    vec_autorizacion.registrar_decision_solicitud_ligada_v2_si_vigente(
+        bytea, bytea
+    ) FROM vec_autorizacion_registro;
+COMMIT;
+SQL
+cierre_registro_v2=$(docker exec --interactive "$contenedor" \
+    psql --set ON_ERROR_STOP=1 --tuples-only --no-align \
+    --username postgres --dbname "$base_registro_v2" <<'SQL'
+SELECT has_function_privilege(
+           'vec_autorizacion_registro',
+           'vec_autorizacion.registrar_decision_solicitud_ligada_v2_si_vigente(bytea,bytea)',
+           'EXECUTE'
+       ),
+       EXISTS (
+           SELECT 1
+             FROM pg_catalog.pg_proc AS p
+             CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) AS acl
+            WHERE p.oid = 'vec_autorizacion.registrar_decision_solicitud_ligada_v2_si_vigente(bytea,bytea)'::regprocedure
+              AND acl.grantee = 0
+              AND acl.privilege_type = 'EXECUTE'
+       ),
+       has_function_privilege(
+           'vec_autorizacion_fuente',
+           'vec_autorizacion.registrar_decision_solicitud_ligada_v2_si_vigente(bytea,bytea)',
+           'EXECUTE'
+       ),
+       has_function_privilege(
+           'vec_autorizacion_motivos_evaluador',
+           'vec_autorizacion.registrar_decision_solicitud_ligada_v2_si_vigente(bytea,bytea)',
+           'EXECUTE'
+       ),
+       has_function_privilege(
+           'vec_autorizacion_motivos_proyector',
+           'vec_autorizacion.registrar_decision_solicitud_ligada_v2_si_vigente(bytea,bytea)',
+           'EXECUTE'
+       );
+SQL
+)
+if [[ "$cierre_registro_v2" != "f|f|f|f|f" ]]; then
+    echo "000004 dejo EXECUTE runtime tras la prueba: $cierre_registro_v2" >&2
+    exit 1
+fi
+
+if docker exec --interactive --env PGPASSWORD="$clave_migrador" "$contenedor" \
+    psql --set ON_ERROR_STOP=1 --host 127.0.0.1 \
+    --username vec_autorizacion_migrador_prueba --dbname "$base_registro_v2" \
+    < "$raiz/deploy/postgresql/autorizacion/migraciones/000004_registro_decisiones_solicitud_ligada_v2.down.sql" \
+    >/dev/null 2>&1; then
+    echo "000004 down borro decisiones V2 durables" >&2
+    exit 1
+fi
+filas_registro_v2=$(docker exec "$contenedor" psql --tuples-only --no-align \
+    --username postgres --dbname "$base_registro_v2" \
+    --command "SELECT count(*) FROM vec_autorizacion.decision_autorizacion_solicitud_ligada_v2")
+if [[ ! "$filas_registro_v2" =~ ^[1-9][0-9]*$ ]]; then
+    echo "000004 down altero o perdio el registro V2" >&2
+    exit 1
+fi
+docker exec "$contenedor" dropdb --force --username postgres "$base_registro_v2"
+unset VEC_POSTGRES_TEST_REGISTRO_V2_FUENTE_DSN
+unset VEC_POSTGRES_TEST_REGISTRO_V2_REGISTRO_DSN
+unset VEC_POSTGRES_TEST_REGISTRO_V2_EVALUADOR_DSN
+unset VEC_POSTGRES_TEST_REGISTRO_V2_ADMIN_DSN
 
 docker exec --interactive "$contenedor" \
     psql --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \

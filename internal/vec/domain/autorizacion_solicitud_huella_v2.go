@@ -174,18 +174,32 @@ func contextoActorSolicitudAutorizacionAusenteV2(c ContextoActor) bool {
 // adaptador durable. No recibe ni persiste texto libre: compromete la referencia
 // integra a una entrada catalogada ya resuelta por una frontera confiable.
 func HuellaSHA256MotivoAutorizacionV2(referencia ReferenciaEntradaCatalogo) (string, error) {
+	contenido, err := RepresentacionCanonicaMotivoAutorizacionV2(referencia)
+	if err != nil {
+		return "", err
+	}
+	suma := sha256.Sum256(contenido)
+	return hex.EncodeToString(suma[:]), nil
+}
+
+// RepresentacionCanonicaMotivoAutorizacionV2 entrega el documento cerrado que
+// un adaptador durable necesita para cotejar la huella ligada a la decision.
+// Solo contiene una referencia opaca y versionada; no incorpora texto libre ni
+// convierte la referencia en autoridad para ejecutar un efecto.
+func RepresentacionCanonicaMotivoAutorizacionV2(
+	referencia ReferenciaEntradaCatalogo,
+) ([]byte, error) {
 	if !ReferenciaMotivoAutorizacionV2Valida(referencia) {
-		return "", ErrSolicitudAutorizacionInvalida
+		return nil, ErrSolicitudAutorizacionInvalida
 	}
 	contenido, err := json.Marshal(motivoAutorizacionCanonicoV2{
 		Esquema:    EsquemaHuellaMotivoAutorizacionV2,
 		Referencia: referenciaMotivoAutorizacionCanonicaV2Desde(referencia),
 	})
 	if err != nil {
-		return "", ErrSolicitudAutorizacionInvalida
+		return nil, ErrSolicitudAutorizacionInvalida
 	}
-	suma := sha256.Sum256(contenido)
-	return hex.EncodeToString(suma[:]), nil
+	return contenido, nil
 }
 
 func referenciaMotivoAutorizacionCanonicaV2Desde(

@@ -2,6 +2,8 @@ package domain
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"reflect"
 	"testing"
@@ -100,6 +102,23 @@ func TestHuellaMotivoAutorizacionV2ComprometeReferenciaCompleta(t *testing.T) {
 	primera, err := HuellaSHA256MotivoAutorizacionV2(primeraReferencia)
 	if err != nil {
 		t.Fatalf("huella motivo: %v", err)
+	}
+	representacion, err := RepresentacionCanonicaMotivoAutorizacionV2(primeraReferencia)
+	if err != nil {
+		t.Fatalf("representacion motivo: %v", err)
+	}
+	esperada := `{"esquema":"vec.autorizacion.motivo.v2.referencia-opaca-catalogada","referencia":{"catalogo_id":"motivos_autorizacion","catalogo_version":3,"catalogo_huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","entrada_clave":"motivo_0123456789abcdef0123456789abcdef"}}`
+	if string(representacion) != esperada {
+		t.Fatalf("representacion canonica inesperada: %s", representacion)
+	}
+	suma := sha256.Sum256(representacion)
+	if hex.EncodeToString(suma[:]) != primera {
+		t.Fatal("la huella publica no procede de la representacion durable")
+	}
+	representacion[0] ^= 0xff
+	repetida, err := RepresentacionCanonicaMotivoAutorizacionV2(primeraReferencia)
+	if err != nil || string(repetida) != esperada {
+		t.Fatalf("la salida mutable altero una llamada posterior: %v", err)
 	}
 	segundaReferencia := primeraReferencia
 	segundaReferencia.CatalogoVersion++
