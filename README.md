@@ -198,6 +198,9 @@ Pendiente productivo:
 - [Gobierno y publicación de reglas de experiencia](docs/portal_vec/gobierno_publicacion_reglas_experiencia.md):
   secuencia administrativa, autorización, idempotencia, transacción y pruebas
   exigidas para que un baremo pase de borrador a proyección pública.
+- [Cálculo oficial de experiencia](docs/portal_vec/calculo_oficial_experiencia.md):
+  integración del motor puro con fuente exacta, doble autorización,
+  idempotencia semántica, persistencia y auditoría transaccional.
 - [Estudio profesional de pantallas VEC](docs/portal_vec/estudio_pantallas_profesionales.md):
   flujos completos por modulo/menu, datos visibles, acciones, estados,
   integraciones, validaciones y criterio de terminado.

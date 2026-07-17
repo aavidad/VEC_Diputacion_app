@@ -47,6 +47,7 @@ Diputación.
 - [Baremacion configurable, jornada y servicios obtenidos de oficio](baremacion_configurable_jornada_y_datos_de_oficio.md).
 - [Decisiones del calculador exacto de experiencia V1](../portal_vec/decisiones_calculador_experiencia_v1.md).
 - [Gobierno y publicación de reglas de experiencia](../portal_vec/gobierno_publicacion_reglas_experiencia.md).
+- [Cálculo oficial de experiencia](../portal_vec/calculo_oficial_experiencia.md).
 - [Brecha funcional verificada de Bolsa a 17 de julio de 2026](../portal_vec/brecha_funcional_bolsa_2026-07-17.md).
 - [Integracion del Baremador de puestos singularizados y otros procesos](integracion_baremador_concursos_provision.md).
 - [Modelo historico de RPT, plazas, puestos, ocupaciones y vacantes](modelo_historico_rpt_plazas_puestos_y_vacantes.md).
