@@ -49,7 +49,9 @@ def abrir_dialogo_y_capturar(pagina, accion, nombre):
 
 
 with sync_playwright() as p:
-    navegador = p.chromium.launch(channel="chrome")
+    entorno_navegador = dict(os.environ)
+    entorno_navegador.pop("SSLKEYLOGFILE", None)
+    navegador = p.chromium.launch(channel="chrome", env=entorno_navegador)
     pagina = navegador.new_page(viewport={"width": 1440, "height": 900}, device_scale_factor=2)
     pagina.goto(BASE + "#portal")
     esperar(pagina)
