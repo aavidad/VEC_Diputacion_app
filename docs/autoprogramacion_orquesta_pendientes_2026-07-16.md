@@ -12,6 +12,12 @@
 - Orden recomendado: T01 y T06 son documentales y desbloquean al resto;
   T02 tiene evidencia de fallo real en CI y precede a cualquier ampliacion
   de `internal/vec/ports`.
+- Prioridad de negocio (responsable, 2026-07-17): **Bolsa primero**. El
+  objetivo inmediato es una Bolsa operable de punta a punta: levantar el
+  NO-GO de la migracion V2, conectores productivos de la saga de firma,
+  porte del ranking/desempate del heredado (hallazgo 4 de la brecha) y su
+  API privada con UI conectada. Los demas frentes no se detienen, pero
+  ceden el paso ante conflicto de recursos o de carril.
 
 ## Pendientes Txx
 
@@ -128,3 +134,20 @@
   reactivando el agregado demo.
 - `evidencia`: `workspace.go` contiene solo `handleWorkspace`; no quedan
   simbolos `workspaceSnapshot*`, semillas Cronos ni datos RPT/nomina/dietas.
+
+### T09 — Regresion de tamano en la ola de autorizacion del 17/07
+
+- `origen`: puerta `scripts/comprobar_tamano_ficheros.sh` ejecutada por
+  direccion antes del push de la ola COSE/VEC-AD-2.
+- `estado`: corregido por direccion el 17/07/2026 (`nucleo: dividir
+  autorizacion para cumplir el tope de tamano`): `domain/autorizacion.go`
+  quedo en 434 lineas mas `autorizacion_politicas_decision.go` (600), y
+  `memory/autorizacion_test.go` en 667 mas `autorizacion_aislamiento_test.go`
+  (540). Linea base ratificada a la baja.
+- `area_hexagonal`: nucleo y adaptador de memoria.
+- `accion` (preventiva, para el agente): ejecutar la puerta de tamanos
+  antes de cada commit, no solo `go test`. Dos ficheros crecieron por
+  encima del tope duro (1024 y 1190 lineas frente a bases de 933 y 860)
+  a lo largo de 24 commits sin que ninguna puerta local lo detectara.
+- `evidencia`: salida de la puerta el 17/07 a las 11:14; el tope duro es
+  800 (DEC-051) y la linea base solo puede menguar.
