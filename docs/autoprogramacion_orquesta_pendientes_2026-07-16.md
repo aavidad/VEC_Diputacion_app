@@ -270,3 +270,37 @@
   busqueda usan derivaciones ciegas (HMAC) como ya hace la idempotencia.
 - `evidencia`: patron AEAD ya implantado en la saga de firma; falta
   extenderlo a las columnas personales del DDL nuevo.
+
+### T17 — Importador gobernado de exportaciones Convoca
+
+- `origen`: decision del responsable (17/07): hasta que exista un modulo
+  propio que sustituya a Convoca, las bolsas se alimentan con sus
+  exportaciones de hoja de calculo. Encaja con DEC-079 (el VEC importa) y
+  con las fuentes de autoridad verificables del nucleo.
+- `estado`: nuevo. Tras el motor de reglas en curso; antes del porte del
+  ciclo de Solicitud.
+- `area_hexagonal`: adaptador de importacion + nucleo (fuente de autoridad).
+- `accion`: caso de uso de importacion por lotes con dos formatos reales de
+  Convoca (.xls):
+  1. **Resumen por persona** (8 columnas): DNI/NIE enmascarado, Primer
+     Apellido, Segundo Apellido, Nombre, Turno, Experiencia, Formacion,
+     Total.
+  2. **Detallado "con claves"** (12 columnas, una fila por merito):
+     las cuatro de identidad mas Turno, Grupo, Descripcion del grupo,
+     Orden grupo, Descripcion del merito, Puntos autobaremacion, Puntos
+     tribunal, Motivo.
+  Requisitos: zona de ensayo (staging) con validacion antes de cargar;
+  huella SHA-256 del fichero e idempotencia (reimportar el mismo fichero no
+  duplica); acta de importacion auditada (quien, cuando, fichero, filas
+  aceptadas/rechazadas y motivo); la carga declara su fuente de autoridad
+  "Convoca (exportacion enmascarada)" con su nivel: **no habilita por si
+  sola actos con efectos** (la identidad completa debera confirmarse desde
+  el registro corporativo antes de un llamamiento o contrato); los "Puntos
+  autobaremacion" se importan como dato historico de contraste, nunca como
+  puntuacion oficial (DEC-079: puntua el motor); los ficheros reales jamas
+  entran en Git, en la imagen ni en fixtures (regla 8 de la auditoria):
+  los tests usan ficheros sinteticos con las mismas cabeceras.
+- `evidencia`: exportaciones reales inspeccionadas el 17/07 (52 filas
+  resumen; 307 filas detalladas) con las cabeceras literales citadas; el
+  DNI llega enmascarado desde origen (`***NNNN**`). Utilidad previa de
+  referencia en `Trabajo/Emilio/main.go` (cruce con certificados PDF).
