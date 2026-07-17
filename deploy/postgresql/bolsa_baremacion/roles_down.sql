@@ -9,11 +9,14 @@ SELECT pg_catalog.pg_advisory_xact_lock(
 -- Los roles y sus membresias son catalogo compartido por todo el cluster. Un
 -- GRANT iniciado desde otra base podria resolver los OID durante el down y
 -- escribir la arista despues de DROP ROLE. El orden es deliberado: primero se
--- impide resolver o retirar roles y despues se inmovilizan todas las aristas.
--- Requiere superusuario y una ventana de mantenimiento sin administracion de
--- roles concurrente; los locks se conservan hasta el COMMIT.
+-- impide resolver o retirar roles, despues se inmovilizan todas las aristas y
+-- finalmente las ACL de base y predeterminadas que el down va a retirar.
+-- Requiere superusuario y una ventana de mantenimiento sin administracion
+-- concurrente; los locks se conservan hasta el COMMIT.
 LOCK TABLE pg_catalog.pg_authid IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE pg_catalog.pg_auth_members IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE pg_catalog.pg_database IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE pg_catalog.pg_default_acl IN ACCESS EXCLUSIVE MODE;
 
 DO $prevalidacion$
 DECLARE
@@ -21,6 +24,7 @@ DECLARE
     enlaces_inesperados text[];
     oid_dba oid;
     oid_otorgante_bootstrap oid;
+    oid_propietario_base oid;
     oid_propietario oid;
     oid_migrador oid;
     oids_bolsa oid[];
@@ -259,6 +263,121 @@ BEGIN
        OR cardinality(oids_bolsa) <> 5 THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'down rechazado: no se pudo fijar el inventario OID Bolsa';
+    END IF;
+
+    SELECT datdba
+      INTO oid_propietario_base
+      FROM pg_catalog.pg_database
+     WHERE datname = current_database();
+    IF oid_propietario_base IS NULL
+       OR oid_propietario_base = ANY (oids_bolsa) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'down rechazado: el propietario de la base Bolsa no es gobernable';
+    END IF;
+
+    -- Solo se retiraran las cinco concesiones creadas por roles_up. El
+    -- otorgante de una ACL de base es su propietario, incluso cuando el GRANT
+    -- lo ejecuta otro superusuario. Cualquier privilegio o grant option extra
+    -- se conserva haciendo abortar la retirada antes del primer REVOKE.
+    IF (
+        SELECT count(*)
+          FROM pg_catalog.pg_database AS base
+          CROSS JOIN LATERAL pg_catalog.aclexplode(
+              COALESCE(
+                  base.datacl,
+                  pg_catalog.acldefault('d', base.datdba)
+              )
+          ) AS privilegio
+         WHERE base.datname = current_database()
+           AND (
+               privilegio.grantee = ANY (oids_bolsa)
+               OR privilegio.grantor = ANY (oids_bolsa)
+           )
+    ) <> 5 OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_database AS base
+          CROSS JOIN LATERAL pg_catalog.aclexplode(
+              COALESCE(
+                  base.datacl,
+                  pg_catalog.acldefault('d', base.datdba)
+              )
+          ) AS privilegio
+         WHERE base.datname = current_database()
+           AND (
+               privilegio.grantee = ANY (oids_bolsa)
+               OR privilegio.grantor = ANY (oids_bolsa)
+           )
+           AND NOT (
+               privilegio.grantor = oid_propietario_base
+               AND privilegio.is_grantable IS FALSE
+               AND (
+                   (
+                       privilegio.grantee = oid_propietario
+                       AND privilegio.privilege_type IN ('CONNECT', 'CREATE')
+                   ) OR (
+                       privilegio.grantee = ANY (ARRAY[
+                           oid_migrador,
+                           (
+                               SELECT oid
+                                 FROM pg_catalog.pg_authid
+                                WHERE rolname = 'vec_bolsa_baremacion_ejecutor'
+                           ),
+                           (
+                               SELECT oid
+                                 FROM pg_catalog.pg_authid
+                                WHERE rolname = 'vec_bolsa_baremacion_lector_outbox'
+                           )
+                       ]::oid[])
+                       AND privilegio.privilege_type = 'CONNECT'
+                   )
+               )
+           )
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'down rechazado: cambiaron las ACL de base Bolsa';
+    END IF;
+
+    -- Tras retirar el esquema solo deben quedar los dos defaults globales que
+    -- 000001 cerro: funciones y tipos. Se inspeccionan tambien grantor y
+    -- grantee para detectar dependencias creadas desde otro rol.
+    IF (
+        SELECT count(*)
+          FROM pg_catalog.pg_default_acl
+         WHERE defaclrole = ANY (oids_bolsa)
+    ) NOT IN (0, 2) OR (
+        SELECT count(*)
+          FROM pg_catalog.pg_default_acl AS defecto
+          CROSS JOIN LATERAL pg_catalog.aclexplode(defecto.defaclacl) AS privilegio
+         WHERE defecto.defaclrole = ANY (oids_bolsa)
+            OR privilegio.grantee = ANY (oids_bolsa)
+            OR privilegio.grantor = ANY (oids_bolsa)
+    ) <> (
+        SELECT count(*)
+          FROM pg_catalog.pg_default_acl
+         WHERE defaclrole = ANY (oids_bolsa)
+    ) OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_default_acl AS defecto
+          CROSS JOIN LATERAL pg_catalog.aclexplode(defecto.defaclacl) AS privilegio
+         WHERE (
+             defecto.defaclrole = ANY (oids_bolsa)
+             OR privilegio.grantee = ANY (oids_bolsa)
+             OR privilegio.grantor = ANY (oids_bolsa)
+         ) AND NOT (
+             defecto.defaclrole = oid_propietario
+             AND defecto.defaclnamespace = 0
+             AND defecto.defaclobjtype IN ('f', 'T')
+             AND privilegio.grantor = oid_propietario
+             AND privilegio.grantee = oid_propietario
+             AND privilegio.is_grantable IS FALSE
+             AND (
+                 (defecto.defaclobjtype = 'f' AND privilegio.privilege_type = 'EXECUTE')
+                 OR (defecto.defaclobjtype = 'T' AND privilegio.privilege_type = 'USAGE')
+             )
+         )
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'down rechazado: cambiaron los privilegios predeterminados Bolsa';
     END IF;
 
     -- La unica arista gobernada fue creada por roles_up. PostgreSQL atribuye

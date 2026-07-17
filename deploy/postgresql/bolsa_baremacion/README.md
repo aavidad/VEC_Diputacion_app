@@ -404,8 +404,8 @@ Tras retirar esquema y frontera se ejecuta `roles_down.sql`. Este prevalida
 coordenadas de todas sus membresías antes de revocar o eliminar nada. La
 retirada exige superusuario y una ventana de mantenimiento sin administración
 concurrente de roles: después de su bloqueo advisory toma `ACCESS EXCLUSIVE`
-primero sobre `pg_authid` y después sobre `pg_auth_members`, en ese orden, hasta
-el `COMMIT`.
+primero sobre `pg_authid`, después sobre `pg_auth_members`, `pg_database` y
+`pg_default_acl`, en ese orden, hasta el `COMMIT`.
 Así un `GRANT` iniciado desde cualquier otra base no puede conservar OID que el
 down vaya a retirar.
 
@@ -417,6 +417,14 @@ PostgreSQL atribuye a ese principal las concesiones hechas por cualquier
 superusuario, aunque la guarda pertenezca a otro DBA nominativo. Contraseña,
 caducidad y cualquier ajuste global o por base también deben permanecer
 ausentes.
+
+Las ACL de base se inventarían por otorgante, destinatario, privilegio y
+opción de concesión: solo existen `CONNECT`/`CREATE` para el propietario y
+`CONNECT` para migrador, ejecutor y lector. El registrador reservado carece de
+conexión. Tras retirar el esquema pueden no existir defaults si el bootstrap
+se abortó antes de migrar, o quedar exactamente los dos globales cerrados por
+`000001`, uno para funciones y otro para tipos; cualquier estado parcial, fila
+o destinatario adicional aborta antes de que el down revoque nada.
 
 Cualquier otra arista, atributo o procedencia aborta antes de mutar. El arnés
 conecta de antemano tres sesiones reales, demuestra con `pg_blocking_pids` que

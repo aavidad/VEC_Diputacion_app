@@ -1126,6 +1126,8 @@ mutaciones_atributos_bolsa=(
     "ALTER ROLE vec_bolsa_baremacion_ejecutor VALID UNTIL '2027-01-01 00:00:00+00';"
     "ALTER ROLE vec_bolsa_baremacion_ejecutor SET statement_timeout = '1s';"
     "ALTER ROLE vec_bolsa_baremacion_ejecutor IN DATABASE ${base} SET statement_timeout = '1s';"
+    "GRANT TEMPORARY ON DATABASE ${base} TO vec_bolsa_baremacion_registrador_atestacion;"
+    "ALTER DEFAULT PRIVILEGES FOR ROLE vec_bolsa_baremacion_propietario GRANT SELECT ON TABLES TO vec_bolsa_baremacion_ejecutor;"
 )
 for mutacion in "${mutaciones_atributos_bolsa[@]}"; do
     if docker exec --interactive "$contenedor" psql -X --quiet \
@@ -1155,6 +1157,23 @@ BEGIN
          WHERE setrole = oid_ejecutor
     ) THEN
         RAISE EXCEPTION 'una prueba de atributos Bolsa no revirtio su transaccion';
+    END IF;
+    IF has_database_privilege(
+        'vec_bolsa_baremacion_registrador_atestacion',
+        current_database(),
+        'TEMPORARY'
+    ) OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_default_acl AS defecto
+          CROSS JOIN LATERAL pg_catalog.aclexplode(defecto.defaclacl) AS privilegio
+          JOIN pg_catalog.pg_roles AS titular
+            ON titular.oid = defecto.defaclrole
+          JOIN pg_catalog.pg_roles AS destinatario
+            ON destinatario.oid = privilegio.grantee
+         WHERE titular.rolname = 'vec_bolsa_baremacion_propietario'
+           AND destinatario.rolname = 'vec_bolsa_baremacion_ejecutor'
+    ) THEN
+        RAISE EXCEPTION 'una prueba de ACL Bolsa no revirtio su transaccion';
     END IF;
 END
 $atributos_revertidos$;
