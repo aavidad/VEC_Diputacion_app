@@ -111,6 +111,8 @@ with sync_playwright() as p:
         path=str(manual_pdf),
         format="A4",
         print_background=True,
+        tagged=True,
+        outline=True,
         margin={"top": "12mm", "right": "12mm", "bottom": "12mm", "left": "12mm"},
     )
     print(f"generado {manual_pdf.name}")
