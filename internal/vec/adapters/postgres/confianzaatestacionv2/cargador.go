@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 var ErrCargaConfianzaAtestacionV2NoDisponible = errors.New(
@@ -49,12 +50,6 @@ type iniciadorTransaccion interface {
 	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
 }
 
-type relojSistema struct{}
-
-func (relojSistema) Ahora() time.Time {
-	return time.Now().UTC().Truncate(time.Microsecond)
-}
-
 // CargarConfiguracionActual reconstruye la revision completa mediante un pool
 // concreto. El llamante no puede inyectar una consulta, una identidad ni una
 // fuente alternativa en este constructor productivo.
@@ -70,29 +65,34 @@ func CargarConfiguracionActual(
 }
 
 // NuevoServicioActual carga una unica instantanea autoritativa y construye el
-// verificador con reloj de sistema UTC. No acepta relojes ni repositorios
-// sustituibles desde la composicion productiva.
+// verificador con el conector de tiempo elegido por la composicion. La fuente
+// PostgreSQL sigue siendo concreta y no admite repositorios alternativos.
 func NuevoServicioActual(
 	ctx context.Context,
 	pool *pgxpool.Pool,
+	reloj ports.Reloj,
 ) (*confianzaatestacion.ServicioConfianzaAtestacionAutorizacionV2, error) {
-	if pool == nil {
+	if pool == nil || valorNulo(reloj) {
 		return nil, ErrCargaConfianzaAtestacionV2NoDisponible
 	}
-	return nuevoServicioActual(ctx, pool)
+	return nuevoServicioActual(ctx, pool, reloj)
 }
 
 func nuevoServicioActual(
 	ctx context.Context,
 	iniciador iniciadorTransaccion,
+	reloj ports.Reloj,
 ) (*confianzaatestacion.ServicioConfianzaAtestacionAutorizacionV2, error) {
+	if valorNulo(reloj) {
+		return nil, ErrCargaConfianzaAtestacionV2NoDisponible
+	}
 	configuracion, err := cargarConfiguracionActual(ctx, iniciador)
 	if err != nil {
 		return nil, err
 	}
 	servicio, err := confianzaatestacion.NuevoServicioConfianzaAtestacionAutorizacionV2(
 		configuracion,
-		relojSistema{},
+		reloj,
 	)
 	if err != nil {
 		return nil, ErrCargaConfianzaAtestacionV2NoDisponible

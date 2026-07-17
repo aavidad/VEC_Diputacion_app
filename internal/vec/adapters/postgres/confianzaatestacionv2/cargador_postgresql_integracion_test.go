@@ -13,6 +13,12 @@ import (
 
 const variableDSNIntegracionConfianzaAtestacionV2 = "VEC_CONFIANZA_ATESTACION_V2_POSTGRES_DSN"
 
+type relojSistemaIntegracionConfianzaV2 struct{}
+
+func (relojSistemaIntegracionConfianzaV2) Ahora() time.Time {
+	return time.Now().UTC().Truncate(time.Microsecond)
+}
+
 // TestIntegracionPostgreSQLCargaConfianzaV2Real consume exclusivamente el
 // catalogo que el runner SQL haya sembrado. No instala datos, no usa memoria y
 // no dispone de una segunda fuente a la que recurrir si PostgreSQL falla.
@@ -52,7 +58,7 @@ func TestIntegracionPostgreSQLCargaConfianzaV2Real(t *testing.T) {
 		t.Fatal("la configuracion cargada no conserva la huella autoritativa")
 	}
 
-	servicio, err := NuevoServicioActual(ctx, pool)
+	servicio, err := NuevoServicioActual(ctx, pool, relojSistemaIntegracionConfianzaV2{})
 	if err != nil || servicio == nil {
 		t.Fatal("el constructor productivo no creo el servicio de confianza V2")
 	}

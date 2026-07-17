@@ -34,6 +34,12 @@ type iniciadorDoble struct {
 	opciones pgx.TxOptions
 }
 
+type relojConfianzaAtestacionV2Prueba struct {
+	ahora time.Time
+}
+
+func (r *relojConfianzaAtestacionV2Prueba) Ahora() time.Time { return r.ahora }
+
 func (i *iniciadorDoble) BeginTx(_ context.Context, opciones pgx.TxOptions) (pgx.Tx, error) {
 	i.llamadas++
 	i.opciones = opciones
@@ -240,7 +246,7 @@ func TestCargarConfiguracionActualReconstruyeConjuntoExactoYConfirma(t *testing.
 	}
 }
 
-func TestNuevoServicioActualUsaRelojInternoYConfiguracionCargada(t *testing.T) {
+func TestNuevoServicioActualUsaRelojExplicitoYConfiguracionCargada(t *testing.T) {
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
 	filas := filasConfianzaValidas(t, ahora, false)
 	huella := huellaConfiguracionPrueba(filas)
@@ -248,9 +254,27 @@ func TestNuevoServicioActualUsaRelojInternoYConfiguracionCargada(t *testing.T) {
 		filas[indice].huellaConfiguracionSHA256 = huella
 	}
 	tx := transaccionValida(ahora, filas)
-	servicio, err := nuevoServicioActual(context.Background(), &iniciadorDoble{tx: tx})
+	servicio, err := nuevoServicioActual(
+		context.Background(),
+		&iniciadorDoble{tx: tx},
+		&relojConfianzaAtestacionV2Prueba{ahora: ahora},
+	)
 	if err != nil || servicio == nil {
 		t.Fatalf("no se construyo el servicio productivo: %v", err)
+	}
+}
+
+func TestNuevoServicioActualRechazaRelojNuloAntesDeConsultar(t *testing.T) {
+	iniciador := &iniciadorDoble{}
+	if _, err := nuevoServicioActual(context.Background(), iniciador, nil); !errors.Is(err, ErrCargaConfianzaAtestacionV2NoDisponible) {
+		t.Fatalf("reloj nulo aceptado: %v", err)
+	}
+	var relojNulo *relojConfianzaAtestacionV2Prueba
+	if _, err := nuevoServicioActual(context.Background(), iniciador, relojNulo); !errors.Is(err, ErrCargaConfianzaAtestacionV2NoDisponible) {
+		t.Fatalf("reloj con nil tipado aceptado: %v", err)
+	}
+	if iniciador.llamadas != 0 {
+		t.Fatal("se consulto PostgreSQL pese a carecer de reloj")
 	}
 }
 
@@ -513,7 +537,7 @@ func TestConstructoresProductivosRechazanPoolNulo(t *testing.T) {
 	if _, err := CargarConfiguracionActual(context.Background(), nil); !errors.Is(err, ErrCargaConfianzaAtestacionV2NoDisponible) {
 		t.Fatalf("pool nulo aceptado: %v", err)
 	}
-	if _, err := NuevoServicioActual(context.Background(), nil); !errors.Is(err, ErrCargaConfianzaAtestacionV2NoDisponible) {
+	if _, err := NuevoServicioActual(context.Background(), nil, nil); !errors.Is(err, ErrCargaConfianzaAtestacionV2NoDisponible) {
 		t.Fatalf("pool nulo aceptado por servicio: %v", err)
 	}
 }
