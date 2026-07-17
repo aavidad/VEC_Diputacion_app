@@ -202,6 +202,33 @@ func (v *VerificadorClave) Verificar(
 	return nil
 }
 
+// VerificarPayloadSeparado comprueba un COSE_Sign1 cuyo campo payload es null
+// y reconstruye la Sig_structure con los bytes exactos aportados por el
+// protocolo consumidor. Permite firmar mensajes grandes sin duplicarlos en el
+// sobre. Un bstr vacio o un payload incrustado no se reinterpretan como modo
+// separado.
+func (v *VerificadorClave) VerificarPayloadSeparado(
+	sobre SobreSign1Estricto,
+	payloadEsperado []byte,
+	aadExterno []byte,
+) error {
+	if v.validar() != nil || sobre.validar() != nil ||
+		len(payloadEsperado) == 0 || len(payloadEsperado) > tamanoMaximoPayload ||
+		len(aadExterno) == 0 || len(aadExterno) > tamanoMaximoAADExterno ||
+		v.algoritmo != sobre.algoritmo ||
+		!bytes.Equal(v.claveID, sobre.claveID) ||
+		sobre.mensaje.Payload != nil {
+		return ErrVerificacionFirmaSign1Fallida
+	}
+	mensaje := sobre.mensaje
+	mensaje.Payload = append([]byte(nil), payloadEsperado...)
+	mensaje.Signature = append([]byte(nil), sobre.mensaje.Signature...)
+	if mensaje.Verify(aadExterno, v.verificador) != nil {
+		return ErrVerificacionFirmaSign1Fallida
+	}
+	return nil
+}
+
 func firmaCanonica(algoritmo Algoritmo, firma []byte) bool {
 	switch algoritmo {
 	case AlgoritmoEdDSA:

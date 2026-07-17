@@ -72,6 +72,90 @@ func TestVerificadorComunCompruebaEdDSAYES256SinAlias(t *testing.T) {
 	}
 }
 
+func TestVerificadorComunCompruebaPayloadSeparadoSinReinterpretarIncrustado(t *testing.T) {
+	for _, algoritmo := range []Algoritmo{AlgoritmoEdDSA, AlgoritmoES256} {
+		t.Run(string(algoritmo), func(t *testing.T) {
+			material := generarMaterialPrueba(t, algoritmo)
+			claveID := []byte("clave:comun:payload-separado")
+			payload := []byte("mensaje-canonico-no-duplicado-en-el-sobre")
+			aad := []byte("vec.audiencia.prueba\x00payload-separado")
+			contenido := firmarSobreSeparadoPrueba(t, material, claveID, payload, aad)
+			inspeccion, err := InspeccionarSobreSign1(contenido, len(contenido))
+			if err != nil {
+				t.Fatalf("inspeccionar sobre separado: %v", err)
+			}
+			verificador, err := NuevoVerificadorClave(claveID, algoritmo, material.publica)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := verificador.VerificarPayloadSeparado(
+				inspeccion,
+				payload,
+				aad,
+			); err != nil {
+				t.Fatalf("verificar payload separado: %v", err)
+			}
+			if err := verificador.Verificar(
+				inspeccion,
+				payload,
+				aad,
+			); !errors.Is(err, ErrVerificacionFirmaSign1Fallida) {
+				t.Fatalf("el modo incrustado acepto payload null: %v", err)
+			}
+
+			incrustado := firmarSobrePrueba(t, material, claveID, payload, aad, nil, nil)
+			inspeccionIncrustada, err := InspeccionarSobreSign1(incrustado, len(incrustado))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := verificador.VerificarPayloadSeparado(
+				inspeccionIncrustada,
+				payload,
+				aad,
+			); !errors.Is(err, ErrVerificacionFirmaSign1Fallida) {
+				t.Fatalf("el modo separado acepto payload incrustado: %v", err)
+			}
+		})
+	}
+}
+
+func TestVerificadorComunPayloadSeparadoRechazaCruces(t *testing.T) {
+	material := generarMaterialPrueba(t, AlgoritmoEdDSA)
+	claveID := []byte("clave:comun:separado:cruces")
+	payload := []byte("payload-separado-original")
+	aad := []byte("audiencia-separada-original")
+	contenido := firmarSobreSeparadoPrueba(t, material, claveID, payload, aad)
+	inspeccion, err := InspeccionarSobreSign1(contenido, len(contenido))
+	if err != nil {
+		t.Fatal(err)
+	}
+	verificador, err := NuevoVerificadorClave(claveID, AlgoritmoEdDSA, material.publica)
+	if err != nil {
+		t.Fatal(err)
+	}
+	casos := []struct {
+		nombre  string
+		payload []byte
+		aad     []byte
+	}{
+		{"payload_distinto", []byte("payload-separado-ajeno"), aad},
+		{"aad_distinto", payload, []byte("audiencia-separada-ajena")},
+		{"payload_vacio", nil, aad},
+		{"aad_vacio", payload, nil},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			if err := verificador.VerificarPayloadSeparado(
+				inspeccion,
+				caso.payload,
+				caso.aad,
+			); !errors.Is(err, ErrVerificacionFirmaSign1Fallida) {
+				t.Fatalf("cruce aceptado: %v", err)
+			}
+		})
+	}
+}
+
 func TestVerificadorComunRechazaCrucesYClavesIncompatibles(t *testing.T) {
 	material := generarMaterialPrueba(t, AlgoritmoEdDSA)
 	claveID := []byte("clave:cruces:1")
@@ -333,6 +417,27 @@ func firmarSobrePrueba(
 		t.Fatal(err)
 	}
 	return contenido
+}
+
+func firmarSobreSeparadoPrueba(
+	t *testing.T,
+	material materialFirmaPrueba,
+	claveID, payload, aad []byte,
+) []byte {
+	t.Helper()
+	contenido := firmarSobrePrueba(t, material, claveID, payload, aad, nil, nil)
+	var mensaje gocose.Sign1Message
+	if err := mensaje.UnmarshalCBOR(contenido); err != nil {
+		t.Fatal(err)
+	}
+	mensaje.Payload = nil
+	mensaje.Headers.RawProtected = nil
+	mensaje.Headers.RawUnprotected = nil
+	separado, err := mensaje.MarshalCBOR()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return separado
 }
 
 func normalizarFirmaES256Prueba(
