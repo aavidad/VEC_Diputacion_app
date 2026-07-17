@@ -70,8 +70,8 @@ func TestIntencionCanonicaRestaurableYJSONEstrictoRecursivo(t *testing.T) {
 	}
 	duplicada := bytes.Replace(
 		canonico,
-		[]byte(`"referencia":"SujetoPseudonimo/ABC#1","version":1`),
-		[]byte(`"referencia":"SujetoPseudonimo/ABC#1","version":1,"version":1`),
+		[]byte(`"referencia":"`+datosClavePrueba().SujetoPseudonimizado.Referencia+`","version":1`),
+		[]byte(`"referencia":"`+datosClavePrueba().SujetoPseudonimizado.Referencia+`","version":1,"version":1`),
 		1,
 	)
 	if bytes.Equal(duplicada, canonico) {

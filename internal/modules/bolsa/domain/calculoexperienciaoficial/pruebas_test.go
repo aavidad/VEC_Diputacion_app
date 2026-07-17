@@ -17,8 +17,10 @@ func referenciaPrueba(referencia, marca string) ReferenciaExactaV1 {
 
 func datosClavePrueba() DatosClaveEfectoV1 {
 	return DatosClaveEfectoV1{
-		SujetoPseudonimizado: referenciaPrueba("SujetoPseudonimo/ABC#1", "1"),
-		Convocatoria:         referenciaPrueba("Convocatoria/2026#1", "2"),
+		SujetoPseudonimizado: referenciaPrueba(
+			"hmac-sha256:seudonimo_oficial_v1:"+huellaPrueba("0"), "1",
+		),
+		Convocatoria: referenciaPrueba("Convocatoria/2026#1", "2"),
 		Reglas: VinculoReglasV1{
 			Contenido: referenciaPrueba("ReglasBaremo/2026#3", "3"),
 			Revision:  4, HuellaEstadoSHA256: huellaPrueba("4"),

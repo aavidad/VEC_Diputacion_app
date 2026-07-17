@@ -43,7 +43,8 @@ func TestClaveRechazaCadaComponenteInvalido(t *testing.T) {
 
 func TestLimitesReferenciaCausaVersionYSecreto(t *testing.T) {
 	datos := datosClavePrueba()
-	datos.SujetoPseudonimizado.Referencia = "A" + strings.Repeat("z", 511)
+	datos.SujetoPseudonimizado.Referencia = "hmac-sha256:a" +
+		strings.Repeat("z", 127) + ":" + huellaPrueba("0")
 	datos.SujetoPseudonimizado.Version = maximoVersionV1
 	datos.Causa.Clave = "a" + strings.Repeat("z", 127)
 	clave, err := NuevaClaveEfectoV1(datos)
@@ -67,6 +68,39 @@ func TestLimitesReferenciaCausaVersionYSecreto(t *testing.T) {
 	}
 	if _, err := CalcularIndiceHMACSHA256(clave, bytes.Repeat([]byte{1}, maximoBytesSecretoHMACV1+1)); !errors.Is(err, ErrSecretoInvalido) {
 		t.Fatalf("secreto excesivo aceptado: %v", err)
+	}
+}
+
+func TestSujetoDirectoSeRechazaEnConstructorYRestauracion(t *testing.T) {
+	base := datosClavePrueba()
+	clave, err := NuevaClaveEfectoV1(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonico, err := clave.RepresentacionCanonica()
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := []byte(base.SujetoPseudonimizado.Referencia)
+	for _, hostil := range []string{
+		"12345678Z", "persona@example.test", "../../expedientes/usuario",
+	} {
+		t.Run(hostil, func(t *testing.T) {
+			datos := base
+			datos.SujetoPseudonimizado.Referencia = hostil
+			if _, err := NuevaClaveEfectoV1(datos); !errors.Is(err, ErrValorNoCanonico) {
+				t.Fatalf("constructor acepto sujeto directo: %v", err)
+			}
+			alterado := bytes.Replace(canonico, original, []byte(hostil), 1)
+			if bytes.Equal(alterado, canonico) {
+				t.Fatal("la prueba no altero el sujeto")
+			}
+			if _, err := RestaurarClaveEfectoV1(alterado); !errors.Is(
+				err, ErrValorNoCanonico,
+			) {
+				t.Fatalf("restauracion acepto sujeto directo: %v", err)
+			}
+		})
 	}
 }
 

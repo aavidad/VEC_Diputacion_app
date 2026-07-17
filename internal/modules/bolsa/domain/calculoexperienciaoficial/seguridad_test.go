@@ -20,7 +20,8 @@ func TestTiposPrincipalesRedactanFormatoYLogs(t *testing.T) {
 	registrador.Info("prueba", "clave", clave, "intencion", intencion, "recibo", recibo)
 	texto := salida.String()
 	for _, sensible := range []string{
-		"SujetoPseudonimo/ABC#1", "Convocatoria/2026#1", huellaPrueba("1"),
+		datosClavePrueba().SujetoPseudonimizado.Referencia,
+		"Convocatoria/2026#1", huellaPrueba("1"),
 	} {
 		if strings.Contains(texto, sensible) {
 			t.Fatalf("formato o log filtró material: %q", sensible)

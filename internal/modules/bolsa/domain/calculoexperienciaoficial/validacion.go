@@ -2,8 +2,11 @@ package calculoexperienciaoficial
 
 import (
 	"encoding/hex"
+	"strings"
 	"unicode/utf8"
 )
+
+const prefijoSujetoPseudonimizadoHMACV1 = "hmac-sha256:"
 
 func validarReferencia(referencia ReferenciaExactaV1, campo string) error {
 	if !referenciaOpacaValida(referencia.Referencia) || referencia.Version == 0 ||
@@ -64,6 +67,9 @@ func validarDatosClave(datos DatosClaveEfectoV1) error {
 	if err := validarReferencia(datos.SujetoPseudonimizado, "clave.sujeto_pseudonimizado"); err != nil {
 		return err
 	}
+	if !referenciaSujetoPseudonimizadoHMACValida(datos.SujetoPseudonimizado.Referencia) {
+		return nuevoError("clave.sujeto_pseudonimizado", CodigoValorNoCanonico)
+	}
 	if err := validarReferencia(datos.Convocatoria, "clave.convocatoria"); err != nil {
 		return err
 	}
@@ -101,6 +107,17 @@ func validarDatosClave(datos DatosClaveEfectoV1) error {
 		return nuevoError("clave.tipo", CodigoValorNoCanonico)
 	}
 	return nil
+}
+
+// referenciaSujetoPseudonimizadoHMACValida aplica la misma gramatica cerrada
+// del seudonimo HMAC de baremacion sin acoplar el dominio a sus puertos.
+func referenciaSujetoPseudonimizadoHMACValida(valor string) bool {
+	if !strings.HasPrefix(valor, prefijoSujetoPseudonimizadoHMACV1) {
+		return false
+	}
+	partes := strings.Split(strings.TrimPrefix(valor, prefijoSujetoPseudonimizadoHMACV1), ":")
+	return len(partes) == 2 && claveCatalogadaValida(partes[0]) &&
+		huellaSHA256Valida(partes[1])
 }
 
 func referenciasClaveDistintas(datos DatosClaveEfectoV1) bool {

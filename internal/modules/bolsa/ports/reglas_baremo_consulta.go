@@ -5,6 +5,7 @@ import (
 	"time"
 
 	calculo "vec-diputacion-granada/internal/modules/bolsa/domain/calculoexperiencia"
+	oficial "vec-diputacion-granada/internal/modules/bolsa/domain/calculoexperienciaoficial"
 	reglas "vec-diputacion-granada/internal/modules/bolsa/domain/reglasbaremo"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
@@ -33,15 +34,11 @@ type ConsultaAutorizadaReglasBaremo interface {
 	) (ResultadoConsultaExactaReglasBaremo, error)
 }
 
-// SelectorFuenteExactaCalculoReglasBaremo liga el calculo a reglas, entrada,
-// sujeto pseudonimizado y convocatoria exactos. La referencia del sujeto la
-// crea la capa confiable; este contrato no acepta DNI ni otros datos directos.
-type SelectorFuenteExactaCalculoReglasBaremo struct {
-	EstadoReglas       reglas.VinculoEstadoReglasBaremo
-	InstantaneaEntrada reglas.ReferenciaVersionada
-	SujetoPseudonimo   reglas.ReferenciaVersionada
-	Convocatoria       reglas.ReferenciaVersionada
-}
+// SelectorFuenteExactaCalculoReglasBaremo conserva en la frontera hexagonal el
+// contrato canonico versionado del dominio. Sus metodos Validar,
+// RepresentacionCanonicaV1 y HuellaSHA256V1 son la unica fuente de verdad para
+// aplicacion y adaptadores; el algoritmo no debe copiarse fuera del dominio.
+type SelectorFuenteExactaCalculoReglasBaremo = oficial.SelectorFuenteExactaCalculoReglasBaremo
 
 type SolicitudFuenteExactaCalculoReglasBaremo struct {
 	Selector     SelectorFuenteExactaCalculoReglasBaremo
@@ -76,6 +73,11 @@ type FuenteExactaCalculoReglasBaremo struct {
 // FuenteReglasBaremoParaCalculo obtiene y verifica la procedencia de una
 // instantanea exacta. El adaptador devuelve el consumo durable de la prueba;
 // una entrada restaurada localmente no satisface este contrato.
+//
+// NO-GO PRODUCCION: el contrato actual no prueba todavia que
+// ConsumoAutorizacion ligue de forma durable decision_ref, huella de decision
+// V2, recurso y correlacion exactos. Ningun adaptador satisface la autorizacion
+// de produccion hasta incorporar y verificar esa atestacion tipada.
 type FuenteReglasBaremoParaCalculo interface {
 	ObtenerFuenteExacta(
 		context.Context,
