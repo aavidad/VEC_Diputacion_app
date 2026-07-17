@@ -151,3 +151,33 @@
   a lo largo de 24 commits sin que ninguna puerta local lo detectara.
 - `evidencia`: salida de la puerta el 17/07 a las 11:14; el tope duro es
   800 (DEC-051) y la linea base solo puede menguar.
+
+### T10 — Estilo de mensajes de commit desviado
+
+- `origen`: revision de direccion del 17/07 por la tarde.
+- `estado`: nuevo (correccion de conducta, no de codigo; el historico no se reescribe).
+- `area_hexagonal`: proceso.
+- `accion`: volver al estilo del repositorio `area: verbo en infinitivo`.
+  Los prefijos convencionales estan prohibidos por la directriz 5 de la
+  auditoria, incluida su variante con parentesis: `fix(web):`, `test(web):`,
+  `test(seguridad):`.
+- `evidencia`: commits `8e95568`, `1448bc4`, `65d4bee`, `28721f2` del
+  17/07/2026 usan prefijos `fix()`/`test()`.
+
+### T11 — Decidir CSRF/SameSite antes de compomer la identidad interna
+
+- `origen`: S-04 de la auditoria, que pasa de nota de diseno a urgente: el
+  panel interno de Bolsa ya se compone contra PostgreSQL y el cliente del
+  portal usa `credentials: "same-origin"`, es decir, la sesion interna
+  prevista sera de cookie.
+- `estado`: nuevo. Requiere DEC del responsable antes de cablear el
+  adaptador de identidad.
+- `area_hexagonal`: adaptador de identidad y composicion.
+- `accion`: fijar por DEC la estrategia anti-CSRF de la sesion interna
+  (cookie `SameSite=Strict` + token anti-CSRF por peticion mutadora, o
+  cabecera de sesion sin cookie) y programarla en el mismo corte que el
+  adaptador de aserciones; ninguna ruta mutadora puede abrirse con cookie
+  sin esa defensa.
+- `evidencia`: `web/static/portal-empleado/portal.js` envia
+  `credentials: "same-origin"` a `/api/vec/bolsa/panel`; commits `0bb5dfe` y
+  `26e1ad5` componen ese panel y las propuestas contra PostgreSQL.
