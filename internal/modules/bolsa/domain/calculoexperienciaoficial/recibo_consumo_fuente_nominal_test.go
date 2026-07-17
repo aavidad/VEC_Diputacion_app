@@ -112,14 +112,14 @@ func TestReferenciasSelectorFuenteRechazanPIIYAlias(t *testing.T) {
 		"persona@example.test", "../../expediente", strings.Repeat("a", 63),
 		strings.Repeat("a", 65), strings.Repeat("A", 64), strings.Repeat("g", 64),
 	} {
-		if ReferenciaReglasFuenteExactaV2Valida("reglas:"+hostil) ||
-			ReferenciaConvocatoriaFuenteExactaV2Valida("convocatoria:"+hostil) ||
+		if ReferenciaReglasFuenteExactaV2Valida("rgl_"+hostil) ||
+			ReferenciaConvocatoriaFuenteExactaV2Valida("con_"+hostil) ||
 			ReferenciaInstantaneaFuenteExactaV2Valida("iex_"+hostil) {
 			t.Fatalf("selector acepto PII, ruta o alias: %q", hostil)
 		}
 	}
-	if !ReferenciaReglasFuenteExactaV2Valida("reglas:"+hashPrueba("a")) ||
-		!ReferenciaConvocatoriaFuenteExactaV2Valida("convocatoria:"+hashPrueba("b")) ||
+	if !ReferenciaReglasFuenteExactaV2Valida("rgl_"+hashPrueba("a")[:32]) ||
+		!ReferenciaConvocatoriaFuenteExactaV2Valida("con_"+hashPrueba("b")[:32]) ||
 		!ReferenciaInstantaneaFuenteExactaV2Valida("iex_"+hashPrueba("c")) {
 		t.Fatal("perfil nominal rechazo referencias tecnicas reales")
 	}

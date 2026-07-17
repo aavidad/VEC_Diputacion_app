@@ -12,7 +12,7 @@ func actoComunValido(
 	motivo MotivoCatalogadoReglasBaremo,
 	instante, noAntes time.Time,
 ) bool {
-	return referenciaValida(actorRef) && motivo.validar() == nil &&
+	return referenciaPersonaOpacaValida(actorRef) && motivo.validar() == nil &&
 		instanteGobiernoReglasBaremoValido(instante) && !instante.Before(noAntes)
 }
 

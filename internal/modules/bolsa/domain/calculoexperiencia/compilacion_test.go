@@ -556,7 +556,9 @@ func conjuntoCompilacionPrueba(
 ) reglasbaremo.ConjuntoReglasBaremo {
 	t.Helper()
 	identidad := debeCompilacion(reglasbaremo.NuevaIdentidadConjuntoReglasBaremo(
-		"reglas:compilacion:v1", 7, "convocatoria:compilacion:v1", "expediente:compilacion:v1",
+		"rgl_11111111111111111111111111111111", 7,
+		"con_22222222222222222222222222222222",
+		"exp_33333333333333333333333333333333",
 	))
 	seccion := debeCompilacion(reglasbaremo.NuevaSeccionBaremo(
 		"experiencia", referenciaCompilacion(t, "definicion:seccion:experiencia", 3), 1,
@@ -593,8 +595,9 @@ func conjuntoOrdenadoCompilacion(t *testing.T) reglasbaremo.ConjuntoReglasBaremo
 		t, "regla_privada", "experiencia_privada", 1, "grupo_privado", configuracion,
 	)
 	identidad := debeCompilacion(reglasbaremo.NuevaIdentidadConjuntoReglasBaremo(
-		"reglas:compilacion:orden", 9,
-		"convocatoria:compilacion:orden", "expediente:compilacion:orden",
+		"rgl_44444444444444444444444444444444", 9,
+		"con_55555555555555555555555555555555",
+		"exp_66666666666666666666666666666666",
 	))
 	fecha := debeCompilacion(baremacion.NuevaFechaCivil(2026, 12, 31))
 	return debeCompilacion(reglasbaremo.NuevoConjuntoReglasBaremo(

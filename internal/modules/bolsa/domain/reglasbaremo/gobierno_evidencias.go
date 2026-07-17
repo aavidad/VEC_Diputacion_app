@@ -168,7 +168,7 @@ func (a AtestacionAprobacionFirmadaReglasBaremo) validar() error {
 		!referenciasVersionadasDistintas(
 			a.atestacion, a.vinculo.contenido, a.firma, a.politicaFirma,
 		) || len(a.firmantes) == 0 || len(a.firmantes) > maximoFirmantesAprobacionReglasBaremo ||
-		!referenciasOpacasUnicas(a.firmantes) ||
+		!referenciasPersonasOpacasUnicas(a.firmantes) ||
 		!instanteGobiernoReglasBaremoValido(a.firmadaEn) ||
 		!instanteGobiernoReglasBaremoValido(a.verificadaEn) ||
 		!instanteGobiernoReglasBaremoValido(a.validaHasta) ||
@@ -247,7 +247,7 @@ func (a AtestacionDependenciasVigentesReglasBaremo) validar() error {
 	if a.atestacion.validar("dependencias.atestacion") != nil || a.vinculo.validar() != nil ||
 		a.convocatoria.validar("dependencias.convocatoria") != nil ||
 		a.bases.validar("dependencias.bases") != nil ||
-		!referenciaValida(a.verificadorRef) || len(a.dependencias) == 0 ||
+		!referenciaServicioOpacaValida(a.verificadorRef) || len(a.dependencias) == 0 ||
 		!referenciasVersionadasUnicasYValidas(a.dependencias) ||
 		!contieneReferenciaVersionada(a.dependencias, a.bases) ||
 		!instanteGobiernoReglasBaremoValido(a.verificadaEn) ||
@@ -317,7 +317,7 @@ func (a AtestacionAutoridadReglasBaremo) validar() error {
 	relacionadaRequerida := a.accion == AccionSustituirReglasBaremo
 	if a.atestacion.validar("autoridad.atestacion") != nil || a.vinculo.validar() != nil ||
 		(a.accion != AccionSustituirReglasBaremo && a.accion != AccionRetirarReglasBaremo &&
-			a.accion != AccionDescartarReglasBaremo) || !referenciaValida(a.principalRef) ||
+			a.accion != AccionDescartarReglasBaremo) || !referenciaPersonaOpacaValida(a.principalRef) ||
 		(a.relacionada != nil) != relacionadaRequerida ||
 		(a.relacionada != nil && (a.relacionada.validar("autoridad.relacionada") != nil ||
 			referenciasVersionadasIguales(*a.relacionada, a.vinculo.contenido))) ||
@@ -352,16 +352,46 @@ func referenciasVersionadasDistintas(referencias ...ReferenciaVersionada) bool {
 	return true
 }
 
-func referenciasOpacasUnicas(referencias []string) bool {
+func referenciasPersonasOpacasUnicas(referencias []string) bool {
 	vistas := make(map[string]struct{}, len(referencias))
 	for _, referencia := range referencias {
-		if !referenciaValida(referencia) {
+		if !referenciaPersonaOpacaValida(referencia) {
 			return false
 		}
 		if _, existe := vistas[referencia]; existe {
 			return false
 		}
 		vistas[referencia] = struct{}{}
+	}
+	return true
+}
+
+func referenciaPersonaOpacaValida(referencia string) bool {
+	return referenciaOpacaConPrefijoValida(referencia, "per_")
+}
+
+func referenciaServicioOpacaValida(referencia string) bool {
+	return referenciaOpacaConPrefijoValida(referencia, "svc_")
+}
+
+func referenciaOpacaConPrefijoValida(referencia, prefijo string) bool {
+	const (
+		longitudMinimaToken = 22
+		longitudMaximaToken = 128
+	)
+	if len(prefijo) == 0 || len(referencia) < len(prefijo)+longitudMinimaToken ||
+		len(referencia) > len(prefijo)+longitudMaximaToken ||
+		referencia[:len(prefijo)] != prefijo {
+		return false
+	}
+	for indice := len(prefijo); indice < len(referencia); indice++ {
+		caracter := referencia[indice]
+		if (caracter >= 'a' && caracter <= 'z') ||
+			(caracter >= 'A' && caracter <= 'Z') ||
+			(caracter >= '0' && caracter <= '9') || caracter == '_' || caracter == '-' {
+			continue
+		}
+		return false
 	}
 	return true
 }

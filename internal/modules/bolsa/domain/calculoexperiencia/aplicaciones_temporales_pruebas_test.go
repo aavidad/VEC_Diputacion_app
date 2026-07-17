@@ -103,10 +103,10 @@ func planTemporalPrueba(
 	}
 
 	identidad := debeTemporal(reglasbaremo.NuevaIdentidadConjuntoReglasBaremo(
-		"reglas:temporal:v1",
+		"rgl_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		1,
-		"convocatoria:temporal:v1",
-		"expediente:temporal:v1",
+		"con_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"exp_cccccccccccccccccccccccccccccccc",
 	))
 	conjunto := debeTemporal(reglasbaremo.NuevoConjuntoReglasBaremo(
 		identidad,

@@ -12,6 +12,12 @@ import (
 	"vec-diputacion-granada/internal/shared/baremacion"
 )
 
+const (
+	referenciaReglasOficialPrueba       = "rgl_11111111111111111111111111111111"
+	referenciaConvocatoriaOficialPrueba = "con_22222222222222222222222222222222"
+	referenciaExpedienteOficialPrueba   = "exp_33333333333333333333333333333333"
+)
+
 func referenciaPrueba(t *testing.T, nombre string, version uint64) reglas.ReferenciaVersionada {
 	t.Helper()
 	suma := sha256.Sum256([]byte(nombre + "#" + strconv.FormatUint(version, 10)))
@@ -57,8 +63,8 @@ func conjuntoPrueba(t *testing.T) reglas.ConjuntoReglasBaremo {
 		reglas.SinLimiteUnidades(), reglas.SinLimitePuntos(),
 	))
 	identidad := debePrueba(reglas.NuevaIdentidadConjuntoReglasBaremo(
-		tokenPrueba("reglas:", "reglas-oficial-v2"), 1,
-		tokenPrueba("convocatoria:", "convocatoria-oficial-v2"), "expediente:oficial:v1",
+		referenciaReglasOficialPrueba, 1,
+		referenciaConvocatoriaOficialPrueba, referenciaExpedienteOficialPrueba,
 	))
 	return debePrueba(reglas.NuevoConjuntoReglasBaremo(
 		identidad, referenciaPrueba(t, "bases:oficial:v1", 1),
@@ -80,7 +86,7 @@ func versionActivaPrueba(
 		))
 	}
 	borrador := debePrueba(reglas.NuevaVersionGobernadaReglasBaremo(
-		conjunto, "principal:rrhh", motivo("creacion"), ahora.Add(-10*time.Minute),
+		conjunto, "per_0123456789abcdef0123456789abcdef", motivo("creacion"), ahora.Add(-10*time.Minute),
 	))
 	vinculoBorrador := debePrueba(borrador.VinculoEstado())
 	aprobacion := debePrueba(reglas.NuevaAtestacionAprobacionFirmadaReglasBaremo(
@@ -89,28 +95,28 @@ func versionActivaPrueba(
 			Vinculo:       vinculoBorrador,
 			Firma:         referenciaPrueba(t, "firma:aprobacion:oficial", 1),
 			PoliticaFirma: referenciaPrueba(t, "politica:firma:oficial", 1),
-			Firmantes:     []string{"principal:firmante:uno"},
+			Firmantes:     []string{"per_11111111111111111111111111111111"},
 			FirmadaEn:     ahora.Add(-9 * time.Minute),
 			VerificadaEn:  ahora.Add(-8 * time.Minute), ValidaHasta: ahora.Add(time.Minute),
 		},
 	))
 	publicada := debePrueba(borrador.Publicar(
-		borrador.Revision(), "principal:rrhh", motivo("publicacion"),
+		borrador.Revision(), "per_0123456789abcdef0123456789abcdef", motivo("publicacion"),
 		aprobacion, ahora.Add(-7*time.Minute),
 	))
 	vinculoPublicada := debePrueba(publicada.VinculoEstado())
 	dependencias := debePrueba(publicada.DependenciasContenido())
-	convocatoria := referenciaPrueba(t, tokenPrueba("convocatoria:", "convocatoria-oficial-v2"), 3)
+	convocatoria := referenciaPrueba(t, referenciaConvocatoriaOficialPrueba, 3)
 	atestacion := debePrueba(reglas.NuevaAtestacionDependenciasVigentesReglasBaremo(
 		reglas.DatosAtestacionDependenciasVigentesReglasBaremo{
 			Atestacion: referenciaPrueba(t, "atestacion:dependencias:oficial", 1),
 			Vinculo:    vinculoPublicada, Convocatoria: convocatoria, Bases: conjunto.Bases(),
-			Dependencias: dependencias, VerificadorRef: "servicio:verificador:oficial",
+			Dependencias: dependencias, VerificadorRef: "svc_0123456789abcdef0123456789abcdef",
 			VerificadaEn: ahora.Add(-6 * time.Minute), ValidaHasta: ahora.Add(time.Minute),
 		},
 	))
 	activa := debePrueba(publicada.Activar(
-		publicada.Revision(), "principal:rrhh", motivo("activacion"),
+		publicada.Revision(), "per_0123456789abcdef0123456789abcdef", motivo("activacion"),
 		atestacion, ahora.Add(-5*time.Minute),
 	))
 	return activa, convocatoria

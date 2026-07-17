@@ -44,8 +44,8 @@ func TestRestaurarVersionGobernadaRechazaOrdenNoCanonicoDeEvidencias(t *testing.
 	publicada, _ := versiones["publicada"].RepresentacionCanonica()
 	firmantesInvertidos := bytes.Replace(
 		publicada,
-		[]byte(`"firmantes":["principal:firmante:1","principal:firmante:2"]`),
-		[]byte(`"firmantes":["principal:firmante:2","principal:firmante:1"]`),
+		[]byte(`"firmantes":["per_11111111111111111111111111111111","per_22222222222222222222222222222222"]`),
+		[]byte(`"firmantes":["per_22222222222222222222222222222222","per_11111111111111111111111111111111"]`),
 		1,
 	)
 	if bytes.Equal(firmantesInvertidos, publicada) {
@@ -93,12 +93,12 @@ func TestRestaurarVersionGobernadaLimitaColeccionesDeEvidencias(t *testing.T) {
 	publicada, _ := versiones["publicada"].RepresentacionCanonica()
 	firmantes := make([]string, maximoFirmantesAprobacionReglasBaremo+1)
 	for indice := range firmantes {
-		firmantes[indice] = fmt.Sprintf("principal:firmante:%03d", indice)
+		firmantes[indice] = fmt.Sprintf("per_%032x", indice)
 	}
 	firmantesJSON, _ := json.Marshal(firmantes)
 	sobredimensionada := bytes.Replace(
 		publicada,
-		[]byte(`["principal:firmante:1","principal:firmante:2"]`),
+		[]byte(`["per_11111111111111111111111111111111","per_22222222222222222222222222222222"]`),
 		firmantesJSON,
 		1,
 	)

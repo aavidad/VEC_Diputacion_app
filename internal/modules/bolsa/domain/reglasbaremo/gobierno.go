@@ -77,7 +77,7 @@ func NuevaVersionGobernadaReglasBaremo(
 	instante time.Time,
 ) (VersionGobernadaReglasBaremo, error) {
 	clon, err := clonarConjuntoGobiernoReglasBaremo(conjunto)
-	if err != nil || !referenciaValida(actorRef) || motivo.validar() != nil ||
+	if err != nil || !referenciaPersonaOpacaValida(actorRef) || motivo.validar() != nil ||
 		!instanteGobiernoReglasBaremoValido(instante) {
 		return VersionGobernadaReglasBaremo{}, ErrGobiernoValorInvalido
 	}
@@ -99,6 +99,50 @@ func (v VersionGobernadaReglasBaremo) CreadaPor() string   { return v.creadaPor 
 func (v VersionGobernadaReglasBaremo) CreadaEn() time.Time { return v.creadaEn }
 func (v VersionGobernadaReglasBaremo) MotivoCreacion() MotivoCatalogadoReglasBaremo {
 	return v.motivoCreacion
+}
+
+// InstanteUltimaActuacion devuelve el instante de negocio que forma parte del
+// estado actual: creacion para el borrador o el acto de su ultima transicion.
+// No representa el reloj de persistencia ni el momento de registro durable.
+func (v VersionGobernadaReglasBaremo) InstanteUltimaActuacion() (time.Time, error) {
+	if v.Validar() != nil {
+		return time.Time{}, ErrGobiernoInvarianteQuebrada
+	}
+	instante := v.ultimaActuacionEn()
+	if !instanteGobiernoReglasBaremoValido(instante) {
+		return time.Time{}, ErrGobiernoInvarianteQuebrada
+	}
+	return instante, nil
+}
+
+// ActorUltimaActuacion devuelve la referencia de persona declarada opaca que
+// produjo el estado actual. Su formato no acredita por si solo procedencia ni
+// minimizacion; esa garantia corresponde a la frontera de identidad.
+func (v VersionGobernadaReglasBaremo) ActorUltimaActuacion() (string, error) {
+	if v.Validar() != nil {
+		return "", ErrGobiernoInvarianteQuebrada
+	}
+	actor, _ := v.actorYMotivoUltimaActuacion()
+	if !referenciaPersonaOpacaValida(actor) {
+		return "", ErrGobiernoInvarianteQuebrada
+	}
+	return actor, nil
+}
+
+// MotivoUltimaActuacion devuelve la entrada exacta del catalogo incorporada al
+// estado actual. Su etiqueta humana permanece fuera del agregado.
+func (v VersionGobernadaReglasBaremo) MotivoUltimaActuacion() (
+	MotivoCatalogadoReglasBaremo,
+	error,
+) {
+	if v.Validar() != nil {
+		return MotivoCatalogadoReglasBaremo{}, ErrGobiernoInvarianteQuebrada
+	}
+	_, motivo := v.actorYMotivoUltimaActuacion()
+	if motivo.validar() != nil {
+		return MotivoCatalogadoReglasBaremo{}, ErrGobiernoInvarianteQuebrada
+	}
+	return motivo, nil
 }
 
 func (v VersionGobernadaReglasBaremo) Conjunto() (ConjuntoReglasBaremo, error) {
@@ -339,7 +383,7 @@ func (v VersionGobernadaReglasBaremo) prepararTransicion(
 	if v.estado != estadoEsperado {
 		return ErrGobiernoTransicionProhibida
 	}
-	if !referenciaValida(actorRef) || motivo.validar() != nil {
+	if !referenciaPersonaOpacaValida(actorRef) || motivo.validar() != nil {
 		return ErrGobiernoValorInvalido
 	}
 	if !instanteGobiernoReglasBaremoValido(instante) || instante.Before(v.ultimaActuacionEn()) {
@@ -368,9 +412,25 @@ func (v VersionGobernadaReglasBaremo) ultimaActuacionEn() time.Time {
 	return v.creadaEn
 }
 
+func (v VersionGobernadaReglasBaremo) actorYMotivoUltimaActuacion() (
+	string,
+	MotivoCatalogadoReglasBaremo,
+) {
+	if v.terminal != nil {
+		return v.terminal.actorRef, v.terminal.motivo
+	}
+	if v.activacion != nil {
+		return v.activacion.actorRef, v.activacion.motivo
+	}
+	if v.publicacion != nil {
+		return v.publicacion.actorRef, v.publicacion.motivo
+	}
+	return v.creadaPor, v.motivoCreacion
+}
+
 func (v VersionGobernadaReglasBaremo) Validar() error {
 	if v.conjunto.Validar() != nil || v.revision == 0 || v.revision > maximoVersion ||
-		!v.estado.Valido() || !referenciaValida(v.creadaPor) ||
+		!v.estado.Valido() || !referenciaPersonaOpacaValida(v.creadaPor) ||
 		!instanteGobiernoReglasBaremoValido(v.creadaEn) || v.motivoCreacion.validar() != nil {
 		return ErrGobiernoInvarianteQuebrada
 	}

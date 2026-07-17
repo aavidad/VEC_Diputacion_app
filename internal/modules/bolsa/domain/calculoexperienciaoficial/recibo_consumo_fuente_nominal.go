@@ -30,11 +30,11 @@ func recursoLecturaReciboConsumoFuenteValido(valor string) bool {
 // los mismos perfiles nominales del recibo, sin abrir la gramatica a un
 // prefijo elegido por el llamador.
 func ReferenciaReglasFuenteExactaV2Valida(valor string) bool {
-	return referenciaOpacaAcuñadaReciboValida(valor, "reglas:")
+	return referenciaOpaca128SelectorValida(valor, "rgl_")
 }
 
 func ReferenciaConvocatoriaFuenteExactaV2Valida(valor string) bool {
-	return referenciaOpacaAcuñadaReciboValida(valor, "convocatoria:")
+	return referenciaOpaca128SelectorValida(valor, "con_")
 }
 
 func ReferenciaInstantaneaFuenteExactaV2Valida(valor string) bool {
@@ -60,4 +60,16 @@ func ReferenciaAuditoriaFuenteExactaV2Valida(valor string) bool {
 func referenciaOpacaAcuñadaReciboValida(valor, prefijo string) bool {
 	return strings.HasPrefix(valor, prefijo) && len(valor) == len(prefijo)+64 &&
 		huellaSHA256Valida(strings.TrimPrefix(valor, prefijo))
+}
+
+func referenciaOpaca128SelectorValida(valor, prefijo string) bool {
+	if !strings.HasPrefix(valor, prefijo) || len(valor) != len(prefijo)+32 {
+		return false
+	}
+	for _, caracter := range valor[len(prefijo):] {
+		if (caracter < '0' || caracter > '9') && (caracter < 'a' || caracter > 'f') {
+			return false
+		}
+	}
+	return true
 }

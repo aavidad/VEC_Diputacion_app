@@ -2,12 +2,14 @@ package reglasbaremo
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"testing"
 	"time"
 )
 
-const actorGobiernoPrueba = "principal:rrhh:tecnico-1"
+const actorGobiernoPrueba = "per_0123456789abcdef0123456789abcdef"
 
 var instanteBaseGobiernoPrueba = time.Date(2026, 7, 17, 8, 0, 0, 0, time.UTC)
 
@@ -254,14 +256,17 @@ func TestGobiernoReglasBaremoHaceCopiasYCanonizaSinMutacion(t *testing.T) {
 		t.Fatalf("una copia externa altero el estado: %v", err)
 	}
 
-	firmantes := []string{"principal:firmante:2", "principal:firmante:1"}
+	firmantes := []string{
+		"per_22222222222222222222222222222222",
+		"per_11111111111111111111111111111111",
+	}
 	aprobacion := aprobacionGobiernoPruebaConFirmantes(
 		t, borrador, instanteBaseGobiernoPrueba.Add(time.Minute), firmantes,
 	)
-	firmantes[0] = "principal:alterado"
+	firmantes[0] = "dni:12345678Z"
 	obtenidos := aprobacion.Firmantes()
-	obtenidos[0] = "principal:alterado-de-nuevo"
-	if aprobacion.Firmantes()[0] != "principal:firmante:1" {
+	obtenidos[0] = "nombre:alterado"
+	if aprobacion.Firmantes()[0] != "per_11111111111111111111111111111111" {
 		t.Fatal("los firmantes no quedaron ordenados y aislados")
 	}
 
@@ -366,8 +371,10 @@ func nuevaVersionGobiernoPrueba(t *testing.T, instante time.Time) VersionGoberna
 
 func motivoGobiernoPrueba(t *testing.T, clave string) MotivoCatalogadoReglasBaremo {
 	t.Helper()
+	suma := sha256.Sum256([]byte(clave))
+	claveOpaca := "motivo_" + hex.EncodeToString(suma[:16])
 	motivo, err := NuevoMotivoCatalogadoReglasBaremo(
-		referenciaPrueba(t, "catalogo:motivos-gobierno", 4, 'd'), clave,
+		referenciaPrueba(t, "motivos_autorizacion", 4, 'd'), claveOpaca,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -382,7 +389,10 @@ func aprobacionGobiernoPrueba(
 ) AtestacionAprobacionFirmadaReglasBaremo {
 	t.Helper()
 	return aprobacionGobiernoPruebaConFirmantes(
-		t, version, firmadaEn, []string{"principal:firmante:1", "principal:firmante:2"},
+		t, version, firmadaEn, []string{
+			"per_11111111111111111111111111111111",
+			"per_22222222222222222222222222222222",
+		},
 	)
 }
 
@@ -449,7 +459,7 @@ func dependenciasGobiernoPrueba(
 		DatosAtestacionDependenciasVigentesReglasBaremo{
 			Atestacion: referenciaPrueba(t, "atestacion:dependencias", 1, '2'), Vinculo: vinculo,
 			Convocatoria: convocatoria, Bases: publicada.conjunto.Bases(), Dependencias: dependencias,
-			VerificadorRef: "servicio:verificador-dependencias", VerificadaEn: verificadaEn,
+			VerificadorRef: "svc_0123456789abcdef0123456789abcdef", VerificadaEn: verificadaEn,
 			ValidaHasta: verificadaEn.Add(8 * time.Minute),
 		},
 	)

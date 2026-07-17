@@ -57,7 +57,8 @@ func (r ReferenciaVersionada) validar(campo string) error {
 }
 
 // IdentidadConjuntoReglasBaremo enlaza el conjunto con una convocatoria y un
-// expediente concretos. Todos los identificadores son referencias opacas.
+// expediente concretos mediante tokens opacos de 128 bits. Etiquetas, codigos
+// oficiales y datos personales permanecen fuera de esta identidad interna.
 type IdentidadConjuntoReglasBaremo struct {
 	referencia      string
 	version         uint64
@@ -98,16 +99,16 @@ func (i IdentidadConjuntoReglasBaremo) ConvocatoriaRef() string { return i.convo
 func (i IdentidadConjuntoReglasBaremo) ExpedienteRef() string { return i.expedienteRef }
 
 func (i IdentidadConjuntoReglasBaremo) validar() error {
-	if !referenciaValida(i.referencia) {
+	if !referenciaIdentidadOpaca128Valida(i.referencia, "rgl_") {
 		return nuevoError("identidad.referencia", CodigoValorNoCanonico)
 	}
 	if i.version == 0 || i.version > maximoVersion {
 		return nuevoError("identidad.version", CodigoFueraDeLimites)
 	}
-	if !referenciaValida(i.convocatoriaRef) {
+	if !referenciaIdentidadOpaca128Valida(i.convocatoriaRef, "con_") {
 		return nuevoError("identidad.convocatoria_ref", CodigoValorNoCanonico)
 	}
-	if !referenciaValida(i.expedienteRef) {
+	if !referenciaIdentidadOpaca128Valida(i.expedienteRef, "exp_") {
 		return nuevoError("identidad.expediente_ref", CodigoValorNoCanonico)
 	}
 	if i.referencia == i.convocatoriaRef || i.referencia == i.expedienteRef ||
@@ -115,6 +116,21 @@ func (i IdentidadConjuntoReglasBaremo) validar() error {
 		return nuevoError("identidad.referencias", CodigoValorDuplicado)
 	}
 	return nil
+}
+
+func referenciaIdentidadOpaca128Valida(valor, prefijo string) bool {
+	const longitudHex128 = 32
+	if len(prefijo) == 0 || len(valor) != len(prefijo)+longitudHex128 ||
+		valor[:len(prefijo)] != prefijo {
+		return false
+	}
+	for indice := len(prefijo); indice < len(valor); indice++ {
+		caracter := valor[indice]
+		if (caracter < '0' || caracter > '9') && (caracter < 'a' || caracter > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 // LimitePuntos distingue de forma expresa la ausencia de limite de un valor

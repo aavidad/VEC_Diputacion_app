@@ -12,6 +12,12 @@ import (
 	"vec-diputacion-granada/internal/shared/baremacion"
 )
 
+const (
+	referenciaReglasConjuntoPrueba       = "rgl_11111111111111111111111111111111"
+	referenciaConvocatoriaConjuntoPrueba = "con_22222222222222222222222222222222"
+	referenciaExpedienteConjuntoPrueba   = "exp_33333333333333333333333333333333"
+)
+
 func TestConjuntoOrdenaYGeneraHuellaCanonicaDeterminista(t *testing.T) {
 	primero := conjuntoPrueba(t, true)
 	segundo := conjuntoPrueba(t, false)
@@ -43,7 +49,7 @@ func TestConjuntoOrdenaYGeneraHuellaCanonicaDeterminista(t *testing.T) {
 	if huella != hex.EncodeToString(suma[:]) {
 		t.Fatalf("huella no corresponde a los bytes: %s", huella)
 	}
-	if huella != "4316d9a88d904941237fc72277b02c0ebb19b8fb50b316ac136ad31c269f3450" {
+	if huella != "e4a88c2a8ec116af75de99e2453881f370f677e6d3bb12aed6bd545f620c4b98" {
 		t.Fatalf("actualizar vector golden: %s\n%s", huella, bytesPrimero)
 	}
 
@@ -333,6 +339,37 @@ func TestValoresRechazanTextoNoCanonicoYHuellasInvalidas(t *testing.T) {
 	}
 }
 
+func TestIdentidadConjuntoSoloAdmiteTokensOpacos128(t *testing.T) {
+	if _, err := NuevaIdentidadConjuntoReglasBaremo(
+		referenciaReglasConjuntoPrueba, 1,
+		referenciaConvocatoriaConjuntoPrueba,
+		referenciaExpedienteConjuntoPrueba,
+	); err != nil {
+		t.Fatalf("identidad opaca valida rechazada: %v", err)
+	}
+	casos := []struct {
+		nombre       string
+		referencia   string
+		convocatoria string
+		expediente   string
+	}{
+		{"DNI como reglas", "dni:12345678Z", referenciaConvocatoriaConjuntoPrueba, referenciaExpedienteConjuntoPrueba},
+		{"codigo convocatoria", referenciaReglasConjuntoPrueba, "convocatoria:2026-001", referenciaExpedienteConjuntoPrueba},
+		{"expediente legible", referenciaReglasConjuntoPrueba, referenciaConvocatoriaConjuntoPrueba, "EXP-2026-001"},
+		{"prefijos cruzados", referenciaReglasConjuntoPrueba, referenciaExpedienteConjuntoPrueba, referenciaConvocatoriaConjuntoPrueba},
+		{"mayusculas", "rgl_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", referenciaConvocatoriaConjuntoPrueba, referenciaExpedienteConjuntoPrueba},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			if _, err := NuevaIdentidadConjuntoReglasBaremo(
+				caso.referencia, 1, caso.convocatoria, caso.expediente,
+			); err == nil {
+				t.Fatal("identidad legible o no canonica aceptada")
+			}
+		})
+	}
+}
+
 func conjuntoPrueba(t *testing.T, invertido bool) ConjuntoReglasBaremo {
 	t.Helper()
 	identidad, bases, fecha, secciones, grupos, reglas := componentesPrueba(t)
@@ -358,7 +395,9 @@ func componentesPrueba(t *testing.T) (
 ) {
 	t.Helper()
 	identidad, err := NuevaIdentidadConjuntoReglasBaremo(
-		"reglas:convocatoria-2026:1", 1, "convocatoria:2026-001", "expediente:2026-001",
+		referenciaReglasConjuntoPrueba, 1,
+		referenciaConvocatoriaConjuntoPrueba,
+		referenciaExpedienteConjuntoPrueba,
 	)
 	if err != nil {
 		t.Fatal(err)

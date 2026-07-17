@@ -110,10 +110,10 @@ func planSeleccionPrueba(
 	}
 
 	identidad := debeSeleccion(reglasbaremo.NuevaIdentidadConjuntoReglasBaremo(
-		"reglas:seleccion:v1",
+		"rgl_77777777777777777777777777777777",
 		1,
-		"convocatoria:seleccion:v1",
-		"expediente:seleccion:v1",
+		"con_88888888888888888888888888888888",
+		"exp_99999999999999999999999999999999",
 	))
 	fecha := debeSeleccion(baremacion.NuevaFechaCivil(2026, 7, 17))
 	conjunto := debeSeleccion(reglasbaremo.NuevoConjuntoReglasBaremo(
