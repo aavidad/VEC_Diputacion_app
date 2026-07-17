@@ -6,22 +6,77 @@ import {
   validarPanelBolsa,
   validarPropuestaLlamamiento,
 } from "./portal-contrato.js";
+import { obtenerDatosPresentacion } from "./datos-presentacion.js";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 
 const directorio = new URL("./", import.meta.url);
-const [html, javascript, eventos, contrato, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos] = await Promise.all([
+const [html, javascript, eventos, contrato, panelInterno, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos] = await Promise.all([
   readFile(new URL("index.html", directorio), "utf8"),
   readFile(new URL("portal.js", directorio), "utf8"),
   readFile(new URL("portal-eventos.js", directorio), "utf8"),
   readFile(new URL("portal-contrato.js", directorio), "utf8"),
+  readFile(new URL("portal-panel-interno.js", directorio), "utf8"),
   readFile(new URL("datos-presentacion.js", directorio), "utf8"),
   readFile(new URL("ayuda-contenido.js", directorio), "utf8"),
   readFile(new URL("portal.css", directorio), "utf8"),
   readFile(new URL("portal-componentes.css", directorio), "utf8"),
   readFile(new URL("portal-flujos.css", directorio), "utf8"),
 ]);
-const codigo = `${javascript}\n${eventos}\n${contrato}`;
+const codigo = `${javascript}\n${eventos}\n${contrato}\n${panelInterno}`;
 const estilos = `${estilosBase}\n${estilosComponentes}\n${estilosFlujos}`;
+
+function panelInternoReal() {
+  return {
+    esquema: "vec.bolsa.panel.interno.v1",
+    selector: { clase: "organizacion", organizacion_ref: "org_0123456789abcdef" },
+    origen: {
+      revision: "rev_0123456789abcdef",
+      actualizada_en: "2026-07-17T08:59:00Z",
+      demostracion: false,
+    },
+    prueba_lectura: {
+      lectura_ref: "lec_0123456789abcdef",
+      auditoria_ref: "aud_0123456789abcdef",
+      auditoria_secuencia: 17,
+      decision_ref: "dec_0123456789abcdef",
+      huella_decision_sha256: "a".repeat(64),
+      correlacion_ref: "cor_0123456789abcdef",
+      confirmada_en: "2026-07-17T09:00:00Z",
+    },
+    indicadores: {
+      convocatorias_borrador: 2,
+      convocatorias_revision: 1,
+      convocatorias_pendientes_firma: 1,
+      convocatorias_publicadas: 4,
+      bolsas_activas: 3,
+      bolsas_suspendidas: 0,
+      bolsas_agotadas: 0,
+      llamamientos_pendientes: 5,
+      llamamientos_en_curso: 2,
+      llamamientos_vencen_hoy: 1,
+      documentos_pendientes_firma: 3,
+      incidencias_abiertas: 1,
+    },
+    convocatorias: [{
+      convocatoria_ref: "cnv_0123456789abcdef",
+      categoria_clave: "auxiliar_administrativo",
+      estado_clave: "revision",
+      plazo_cierra_en: "2026-07-19T09:00:00Z",
+      numero_solicitudes: 120,
+      numero_pendientes: 7,
+    }],
+    actuaciones_pendientes: [{
+      actuacion_ref: "act_0123456789abcdef",
+      recurso_ref: "cnv_0123456789abcdef",
+      tipo_clave: "revisar_bases",
+      estado_clave: "pendiente",
+      prioridad_clave: "alta",
+      fecha_limite: "2026-07-18T09:00:00Z",
+      numero_elementos: 1,
+    }],
+  };
+}
 
 test("la ruta normal usa API protegida y no cae a datos sintéticos", () => {
   assert.match(javascript, /const API_PANEL_BOLSA = "\/api\/vec\/bolsa\/panel"/);
@@ -35,22 +90,17 @@ test("la ruta normal usa API protegida y no cae a datos sintéticos", () => {
 });
 
 test("el contrato real exige envelope canónico y rechaza una raíz raw", () => {
-  const panel = {
-    esquema: "vec.bolsa.panel.v1", demostracion: false,
-    bolsas: [], necesidades_llamamiento: [], elaboraciones: [], proximos: [],
-    actividad: [], contratos: [], reglas: [], documentos: [], canales: [], avisos: [],
-  };
+  const panel = panelInternoReal();
   assert.throws(() => extraerDatosEnvelopeCanonico(panel), /envelope canónico/);
   assert.deepEqual(extraerDatosEnvelopeCanonico({ data: panel }), panel);
-  assert.equal(validarPanelBolsa(extraerDatosEnvelopeCanonico({ data: panel })).esquema, "vec.bolsa.panel.v1");
+  const validado = validarPanelBolsa(extraerDatosEnvelopeCanonico({ data: panel }));
+  assert.equal(validado.esquema, "vec.bolsa.panel.interno.v1");
+  assert.equal(validado.convocatorias[0].numero_pendientes, 7);
+  assert.equal(validado.actuaciones_pendientes[0].tipo_clave, "revisar_bases");
 });
 
 test("el panel global prohíbe candidatos y la propuesta es un contrato separado", () => {
-  const panel = {
-    esquema: "vec.bolsa.panel.v1", demostracion: false,
-    bolsas: [], necesidades_llamamiento: [], elaboraciones: [], proximos: [],
-    actividad: [], contratos: [], reglas: [], documentos: [], canales: [], avisos: [], candidatos: [],
-  };
+  const panel = { ...panelInternoReal(), candidatos: [] };
   assert.throws(() => validarPanelBolsa(panel), /no admite listados/);
   assert.doesNotMatch(datos, /\bcandidatos\s*:/);
   assert.doesNotMatch(datos, /\bdni\s*:/i);
@@ -67,6 +117,69 @@ test("el panel global prohíbe candidatos y la propuesta es un contrato separado
   }, true), /no admite identidad ni contacto/);
 });
 
+test("el contrato real falla cerrado y no completa datos ausentes con ceros o listas", () => {
+  const sinIndicador = panelInternoReal();
+  delete sinIndicador.indicadores.llamamientos_en_curso;
+  assert.throws(() => validarPanelBolsa(sinIndicador), /indicadores no respeta el contrato cerrado/);
+
+  const sinActuaciones = panelInternoReal();
+  delete sinActuaciones.actuaciones_pendientes;
+  assert.throws(() => validarPanelBolsa(sinActuaciones), /panel interno no respeta el contrato cerrado/);
+
+  const demostracion = panelInternoReal();
+  demostracion.origen.demostracion = true;
+  assert.throws(() => validarPanelBolsa(demostracion), /no puede responder con datos de demostración/);
+
+  const sinFechasOpcionales = panelInternoReal();
+  delete sinFechasOpcionales.convocatorias[0].plazo_cierra_en;
+  delete sinFechasOpcionales.actuaciones_pendientes[0].fecha_limite;
+  const validado = validarPanelBolsa(sinFechasOpcionales);
+  assert.equal(Object.hasOwn(validado.convocatorias[0], "plazo_cierra_en"), false);
+  assert.equal(Object.hasOwn(validado.actuaciones_pendientes[0], "fecha_limite"), false);
+});
+
+test("el modo real renderiza solo indicadores, convocatorias y actuaciones acreditadas", () => {
+  let fuente = validarPanelBolsa(panelInternoReal());
+  const escapar = (valor) => String(valor).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: () => "neutro",
+    encabezadoVista: (_sobrelinea, titulo, descripcion) => `<header><h2>${escapar(titulo)}</h2><p>${escapar(descripcion)}</p></header>`,
+    escaparHTML: escapar,
+    numero: (valor) => String(valor),
+    obtenerDatosPanel: () => fuente,
+    tituloVista: (vista) => `Vista ${vista}`,
+  });
+  assert.equal(presentador.esActivo(), true);
+  const resumen = presentador.renderizarVista("resumen");
+  assert.match(resumen, /cnv_0123456789abcdef/);
+  assert.match(resumen, /120/);
+  assert.match(resumen, /act_0123456789abcdef/);
+  assert.match(resumen, /Prueba de lectura/);
+  assert.match(presentador.renderizarVista("contratos"), /Funcionalidad no conectada/);
+
+  fuente = validarPanelBolsa(obtenerDatosPresentacion(), true);
+  assert.equal(presentador.esActivo(), false);
+  assert.throws(() => presentador.renderizarVista("resumen"), /requiere un panel interno válido/);
+
+  assert.match(javascript, /crearPresentadorPanelInterno/);
+  assert.match(javascript, /portal-panel-interno\.js\?v=20260717-panel-interno-v1/);
+  for (const indicador of [
+    "convocatorias_borrador", "convocatorias_revision", "convocatorias_pendientes_firma",
+    "convocatorias_publicadas", "bolsas_activas", "bolsas_suspendidas", "bolsas_agotadas",
+    "llamamientos_pendientes", "llamamientos_en_curso", "llamamientos_vencen_hoy",
+    "documentos_pendientes_firma", "incidencias_abiertas",
+  ]) assert.match(panelInterno, new RegExp(`i\\.${indicador}`));
+  assert.match(panelInterno, /No se muestran valores cero, tablas vacías ni controles aparentes/);
+  assert.match(javascript, /estado\.modoPresentacion && datos/);
+  assert.match(javascript, /datos-presentacion\.js/);
+});
+
+test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
+  assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
+  assert.match(html, /portal\.js\?v=20260717-panel-interno-v1/);
+  assert.match(panelInterno, /export function crearPresentadorPanelInterno/);
+});
+
 test("solicitar una propuesta está preparado con idempotencia y cerrado por capacidad", () => {
   assert.match(javascript, /const API_PROPUESTAS_LLAMAMIENTO = "\/api\/vec\/bolsa\/propuestas-llamamiento"/);
   assert.match(javascript, /if \(!puedeSolicitarPropuesta\(\)\)[\s\S]{0,180}return/);
@@ -79,6 +192,10 @@ test("solicitar una propuesta está preparado con idempotencia y cerrado por cap
 });
 
 test("los datos de presentación están aislados y se activan de forma explícita", () => {
+  const presentacion = validarPanelBolsa(obtenerDatosPresentacion(), true);
+  assert.equal(presentacion.esquema, "vec.bolsa.panel.presentacion.v1");
+  assert.equal(presentacion.demostracion, true);
+  assert.ok(presentacion.bolsas.length > 0);
   assert.match(javascript, /get\("presentacion"\) === "rrhh"/);
   assert.match(javascript, /import\("\.\/datos-presentacion\.js/);
   assert.match(datos, /ADAPTADOR EXCLUSIVO DE PRESENTACIÓN RRHH/);

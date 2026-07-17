@@ -1,9 +1,10 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20260717-portal-rrhh";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260717-panel-interno-v1";
 import {
   extraerDatosEnvelopeCanonico,
   validarPanelBolsa,
   validarPropuestaLlamamiento,
-} from "./portal-contrato.js?v=20260717-dec-051";
+} from "./portal-contrato.js?v=20260717-panel-interno-v1";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
 
 /**
@@ -18,7 +19,7 @@ import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
 const API_PANEL_BOLSA = "/api/vec/bolsa/panel";
 const API_PROPUESTAS_LLAMAMIENTO = "/api/vec/bolsa/propuestas-llamamiento";
 const DATOS_VACIOS = Object.freeze({
-  esquema: "vec.bolsa.panel.v1",
+  esquema: "vec.bolsa.panel.no-cargado.v1",
   demostracion: false,
   sesion: null,
   indicadores: {},
@@ -110,7 +111,8 @@ function modoPresentacionSolicitado() {
 }
 
 function etiquetaFuentePanel() {
-  return estado.modoPresentacion ? "Datos sintéticos aislados" : "API interna autorizada";
+  if (estado.modoPresentacion) return "Datos sintéticos aislados";
+  return presentadorPanelInterno.etiquetaFuente() || "API interna autorizada";
 }
 
 function notaOperacionNoCompuesta() {
@@ -127,7 +129,7 @@ function actualizarSesionVisible() {
   const nombre = sesion.querySelector("strong");
   const perfil = sesion.querySelector("small");
   const avisos = document.querySelector(".boton-avisos span");
-  if (estado.fuenteLista && datos) {
+  if (estado.fuenteLista && estado.modoPresentacion && datos) {
     avatar.textContent = String(datos.iniciales || "RR").slice(0, 3);
     nombre.textContent = String(datos.nombre || "Sesión interna");
     perfil.textContent = String(datos.perfil || "Perfil autorizado");
@@ -135,6 +137,9 @@ function actualizarSesionVisible() {
       avisos.textContent = numero(DATOS_PANEL.indicadores.avisos_pendientes);
       avisos.setAttribute("aria-label", `${numero(DATOS_PANEL.indicadores.avisos_pendientes)} avisos pendientes`);
     }
+    return;
+  }
+  if (estado.fuenteLista && presentadorPanelInterno.actualizarContextoSesion({ avatar, nombre, perfil, avisos })) {
     return;
   }
   avatar.textContent = "—";
@@ -183,8 +188,6 @@ async function cargarFuenteDatos() {
     const envelope = await respuesta.json();
     DATOS_PANEL = validarPanelBolsa(extraerDatosEnvelopeCanonico(envelope), false);
     estado.fuenteLista = true;
-    estado.necesidadSeleccionada = DATOS_PANEL.necesidades_llamamiento[0]?.id || "";
-    estado.elaboracionSeleccionada = DATOS_PANEL.elaboraciones[0]?.id || "";
     actualizarSesionVisible();
   } catch (error) {
     estado.errorFuente = error instanceof Error ? error.message : "No se pudo cargar la fuente interna.";
@@ -304,6 +307,11 @@ function renderizar() {
 
   if (estado.vista !== "portal" && !estado.fuenteLista) {
     contenedor.innerHTML = renderizarFuenteNoDisponible();
+    return;
+  }
+
+  if (estado.vista !== "portal" && presentadorPanelInterno.esActivo()) {
+    contenedor.innerHTML = presentadorPanelInterno.renderizarVista(estado.vista);
     return;
   }
 
@@ -759,6 +767,15 @@ function aplicarBarrasDinamicas(contenedor) {
     elemento.style.background = `conic-gradient(#2b9ec5 0 ${a}%, #f2bc36 ${a}% ${limiteB}%, #ef8b1f ${limiteB}% ${limiteC}%, #d74646 ${limiteC}% 100%)`;
   });
 }
+
+const presentadorPanelInterno = crearPresentadorPanelInterno({
+  claseEstado,
+  encabezadoVista,
+  escaparHTML,
+  numero,
+  obtenerDatosPanel: () => DATOS_PANEL,
+  tituloVista: (vista) => TITULOS[vista]?.[1] || "Sección de Bolsa",
+});
 
 const controlador = crearControladorPortal({
   anunciar, cargarFuenteDatos, escaparHTML, estado,
