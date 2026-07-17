@@ -41,6 +41,424 @@ type relojContextoActorPrueba struct{ ahora time.Time }
 
 func (r *relojContextoActorPrueba) Ahora() time.Time { return r.ahora }
 
+type relojSecuenciaContextoActorPrueba struct {
+	mu        sync.Mutex
+	instantes []time.Time
+	llamadas  int
+}
+
+func (r *relojSecuenciaContextoActorPrueba) Ahora() time.Time {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	indice := r.llamadas
+	r.llamadas++
+	if len(r.instantes) == 0 {
+		return time.Time{}
+	}
+	if indice >= len(r.instantes) {
+		indice = len(r.instantes) - 1
+	}
+	return r.instantes[indice]
+}
+
+type resolutorRegistroContextoActorV1Prueba struct {
+	mu        sync.Mutex
+	resultado ports.ConfirmacionRegistroContextoActorV1
+	error     error
+	llamadas  int
+	solicitud ports.SolicitudResolucionRegistroContextoActorV1
+}
+
+func (r *resolutorRegistroContextoActorV1Prueba) ResolverYRegistrarContextoActorV1(
+	_ context.Context,
+	solicitud ports.SolicitudResolucionRegistroContextoActorV1,
+) (ports.ConfirmacionRegistroContextoActorV1, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.llamadas++
+	r.solicitud = solicitud
+	return r.resultado, r.error
+}
+
+func (r *resolutorRegistroContextoActorV1Prueba) observacion() (int, ports.SolicitudResolucionRegistroContextoActorV1) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.llamadas, r.solicitud
+}
+
+type generadorOperacionContextoActorV1Prueba struct {
+	mu       sync.Mutex
+	ref      string
+	error    error
+	llamadas int
+}
+
+func (g *generadorOperacionContextoActorV1Prueba) NuevaReferenciaOperacionContextoActorV1(
+	_ context.Context,
+) (string, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.llamadas++
+	return g.ref, g.error
+}
+
+func nuevoGeneradorOperacionContextoActorV1Prueba() *generadorOperacionContextoActorV1Prueba {
+	return &generadorOperacionContextoActorV1Prueba{
+		ref: referenciaServicioContextoActorPrueba("oca_", "o"),
+	}
+}
+
+func confirmacionRegistroContextoActorV1Prueba(
+	t *testing.T,
+	actor domain.ContextoActor,
+	operacionRef string,
+) ports.ConfirmacionRegistroContextoActorV1 {
+	t.Helper()
+	representacion, err := actor.RepresentacionCanonicaVinculadaV1()
+	if err != nil {
+		t.Fatalf("representar contexto: %v", err)
+	}
+	huella, err := actor.HuellaSHA256VinculadaV1()
+	if err != nil {
+		t.Fatalf("calcular huella contexto: %v", err)
+	}
+	return ports.ConfirmacionRegistroContextoActorV1{
+		OperacionRef:        operacionRef,
+		RegistroContextoRef: referenciaServicioContextoActorPrueba("rca_", "r"),
+		Contexto:            actor, RepresentacionCanonica: representacion, HuellaSHA256: huella,
+		ResueltoEnAutoritativo: actor.ResueltoEn,
+	}
+}
+
+func TestServicioContextoActorProductivoResuelveYRegistraEnUnaLlamadaExacta(t *testing.T) {
+	solicitadoEn := instanteServicioContextoActorPrueba()
+	resueltoEnDB := solicitadoEn.Add(2 * time.Millisecond)
+	comprobadoEn := resueltoEnDB.Add(time.Millisecond)
+	solicitud := solicitudServicioContextoActorPrueba()
+	generador := nuevoGeneradorOperacionContextoActorV1Prueba()
+	resolutor := &resolutorRegistroContextoActorV1Prueba{
+		resultado: confirmacionRegistroContextoActorV1Prueba(
+			t, contextoActorServicioPrueba(t, resueltoEnDB, solicitud), generador.ref,
+		),
+	}
+	servicio, err := NuevoServicioContextoActorProductivoV1(
+		resolutor, generador,
+		&relojSecuenciaContextoActorPrueba{instantes: []time.Time{solicitadoEn, comprobadoEn}},
+	)
+	if err != nil {
+		t.Fatalf("crear servicio productivo: %v", err)
+	}
+
+	resultado, err := servicio.Resolver(context.Background(), solicitud)
+	if err != nil || resultado.Validar() != nil {
+		t.Fatalf("resolver y registrar: resultado=%#v error=%v", resultado, err)
+	}
+	llamadas, recibida := resolutor.observacion()
+	if llamadas != 1 || recibida.Contexto != solicitud ||
+		recibida.OperacionRef != generador.ref || !recibida.SolicitadoEn.Equal(solicitadoEn) ||
+		resultado.Instantanea.CuentaRef != solicitud.Cuenta.CuentaRef ||
+		resultado.PerfilActivoRef != solicitud.PerfilActivoRef ||
+		resultado.Principal.AuthMethod != solicitud.Cuenta.Metodo ||
+		resultado.Principal.AuthAssurance != solicitud.Cuenta.Garantia ||
+		!resultado.ResueltoEn.Equal(resueltoEnDB) {
+		t.Fatalf("contrato productivo no exacto: llamadas=%d solicitud=%#v resultado=%#v",
+			llamadas, recibida, resultado)
+	}
+}
+
+func TestServicioContextoActorProductivoAcotaTiempoDBEntreExtremosLocales(t *testing.T) {
+	solicitadoEn := instanteServicioContextoActorPrueba()
+	solicitud := solicitudServicioContextoActorPrueba()
+	casos := []struct {
+		nombre       string
+		resueltoEnDB time.Time
+		comprobadoEn time.Time
+	}{
+		{"DB anterior a solicitud", solicitadoEn.Add(-time.Microsecond), solicitadoEn},
+		{"DB posterior a comprobacion", solicitadoEn.Add(2 * time.Millisecond), solicitadoEn.Add(time.Millisecond)},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			generador := nuevoGeneradorOperacionContextoActorV1Prueba()
+			actor := contextoActorServicioPrueba(t, caso.resueltoEnDB, solicitud)
+			resolutor := &resolutorRegistroContextoActorV1Prueba{resultado: confirmacionRegistroContextoActorV1Prueba(
+				t, actor, generador.ref,
+			)}
+			reloj := &relojSecuenciaContextoActorPrueba{instantes: []time.Time{solicitadoEn, caso.comprobadoEn}}
+			servicio, err := NuevoServicioContextoActorProductivoV1(resolutor, generador, reloj)
+			if err != nil {
+				t.Fatalf("crear servicio: %v", err)
+			}
+			resultado, err := servicio.Resolver(context.Background(), solicitud)
+			if resultado.Validar() == nil || !errors.Is(err, domain.ErrContextoActorNoResuelto) {
+				t.Fatalf("tiempo DB fuera de extremos aceptado: resultado=%#v error=%v", resultado, err)
+			}
+		})
+	}
+}
+
+func TestServicioContextoActorProductivoRechazaCapacidadNoExactaSinSegundoIntento(t *testing.T) {
+	instante := instanteServicioContextoActorPrueba()
+	solicitud := solicitudServicioContextoActorPrueba()
+	base := contextoActorServicioPrueba(t, instante, solicitud)
+	casos := []struct {
+		nombre string
+		mutar  func(contextoActorPruebaMutador) domain.ContextoActor
+	}{
+		{"cuenta distinta", func(m contextoActorPruebaMutador) domain.ContextoActor {
+			m.solicitud.Cuenta.CuentaRef = referenciaServicioContextoActorPrueba("cta_", "x")
+			m.instantanea.CuentaRef = m.solicitud.Cuenta.CuentaRef
+			return m.crear(t)
+		}},
+		{"perfil distinto", func(m contextoActorPruebaMutador) domain.ContextoActor {
+			m.solicitud.PerfilActivoRef = referenciaServicioContextoActorPrueba("prf_", "x")
+			m.instantanea.PerfilActivoRef = m.solicitud.PerfilActivoRef
+			return m.crear(t)
+		}},
+		{"metodo distinto", func(m contextoActorPruebaMutador) domain.ContextoActor {
+			m.solicitud.Cuenta.Metodo = domain.AuthMethodSSO
+			return m.crear(t)
+		}},
+		{"garantia distinta", func(m contextoActorPruebaMutador) domain.ContextoActor {
+			m.solicitud.Cuenta.Garantia = domain.AuthAssuranceSubstantial
+			return m.crear(t)
+		}},
+		{"capacidad invalida", func(m contextoActorPruebaMutador) domain.ContextoActor {
+			resultado := m.crear(t)
+			resultado.Principal.Roles = []string{"administrador"}
+			return resultado
+		}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			mutador := contextoActorPruebaMutador{
+				solicitud: solicitud,
+				instantanea: func() domain.InstantaneaContextoActor {
+					copia, err := base.Instantanea.ClonarCanonica()
+					if err != nil {
+						t.Fatalf("clonar instantanea: %v", err)
+					}
+					return copia
+				}(),
+				instante: instante,
+			}
+			generador := nuevoGeneradorOperacionContextoActorV1Prueba()
+			actor := caso.mutar(mutador)
+			confirmacion := confirmacionRegistroContextoActorV1Prueba(t, base, generador.ref)
+			if actor.Validar() == nil {
+				confirmacion = confirmacionRegistroContextoActorV1Prueba(t, actor, generador.ref)
+			} else {
+				confirmacion.Contexto = actor
+			}
+			resolutor := &resolutorRegistroContextoActorV1Prueba{resultado: confirmacion}
+			servicio, err := NuevoServicioContextoActorProductivoV1(
+				resolutor, generador, &relojContextoActorPrueba{ahora: instante},
+			)
+			if err != nil {
+				t.Fatalf("crear servicio: %v", err)
+			}
+			resultado, err := servicio.Resolver(context.Background(), solicitud)
+			llamadas, _ := resolutor.observacion()
+			if !errors.Is(err, domain.ErrContextoActorNoResuelto) || resultado.Validar() == nil || llamadas != 1 {
+				t.Fatalf("capacidad no exacta aceptada o reintentada: resultado=%#v error=%v llamadas=%d",
+					resultado, err, llamadas)
+			}
+		})
+	}
+}
+
+func TestServicioContextoActorProductivoRechazaReciboDurableAlterado(t *testing.T) {
+	instante := instanteServicioContextoActorPrueba()
+	solicitud := solicitudServicioContextoActorPrueba()
+	generadorBase := nuevoGeneradorOperacionContextoActorV1Prueba()
+	base := confirmacionRegistroContextoActorV1Prueba(
+		t, contextoActorServicioPrueba(t, instante, solicitud), generadorBase.ref,
+	)
+	casos := []struct {
+		nombre string
+		mutar  func(*ports.ConfirmacionRegistroContextoActorV1)
+	}{
+		{"operacion ajena", func(c *ports.ConfirmacionRegistroContextoActorV1) {
+			c.OperacionRef = referenciaServicioContextoActorPrueba("oca_", "x")
+		}},
+		{"registro no canonico", func(c *ports.ConfirmacionRegistroContextoActorV1) {
+			c.RegistroContextoRef = "rca_corto"
+		}},
+		{"preimagen alterada", func(c *ports.ConfirmacionRegistroContextoActorV1) {
+			c.RepresentacionCanonica[0] = '['
+		}},
+		{"huella alterada", func(c *ports.ConfirmacionRegistroContextoActorV1) {
+			c.HuellaSHA256 = strings.Repeat("0", 64)
+		}},
+		{"tiempo DB no ligado", func(c *ports.ConfirmacionRegistroContextoActorV1) {
+			c.ResueltoEnAutoritativo = c.ResueltoEnAutoritativo.Add(time.Microsecond)
+		}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			generador := nuevoGeneradorOperacionContextoActorV1Prueba()
+			confirmacion := base
+			confirmacion.RepresentacionCanonica = append([]byte(nil), base.RepresentacionCanonica...)
+			caso.mutar(&confirmacion)
+			resolutor := &resolutorRegistroContextoActorV1Prueba{resultado: confirmacion}
+			servicio, err := NuevoServicioContextoActorProductivoV1(
+				resolutor, generador, &relojContextoActorPrueba{ahora: instante},
+			)
+			if err != nil {
+				t.Fatalf("crear servicio: %v", err)
+			}
+			resultado, err := servicio.Resolver(context.Background(), solicitud)
+			llamadas, _ := resolutor.observacion()
+			if resultado.Validar() == nil || llamadas != 1 ||
+				!errors.Is(err, domain.ErrContextoActorNoResuelto) {
+				t.Fatalf("recibo alterado aceptado: resultado=%#v llamadas=%d error=%v",
+					resultado, llamadas, err)
+			}
+		})
+	}
+}
+
+func TestServicioContextoActorProductivoRevalidaTrasEsperasAntesDeEntregar(t *testing.T) {
+	instante := instanteServicioContextoActorPrueba()
+	solicitud := solicitudServicioContextoActorPrueba()
+	instantaneaBreve := instantaneaServicioContextoActorPrueba(instante, solicitud)
+	instantaneaBreve.VigenteHasta = instante.Add(time.Second)
+	for indice := range instantaneaBreve.Vinculos {
+		instantaneaBreve.Vinculos[indice].VigenteHasta = instante.Add(time.Second)
+	}
+	actorBreve, err := domain.NuevoContextoActor(solicitud.Cuenta, instantaneaBreve, instante)
+	if err != nil {
+		t.Fatalf("crear capacidad de vigencia breve: %v", err)
+	}
+	actorVigente := contextoActorServicioPrueba(t, instante, solicitud)
+
+	casos := []struct {
+		nombre     string
+		resultado  domain.ContextoActor
+		comprobado time.Time
+	}{
+		{"caduca mientras espera bloqueos", actorBreve, instante.Add(time.Second)},
+		{"respuesta pierde frescura", actorVigente, instante.Add(ports.VentanaMaximaFrescuraContextoActorV1 + time.Microsecond)},
+		{"reloj retrocede", actorVigente, instante.Add(-time.Microsecond)},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			generador := nuevoGeneradorOperacionContextoActorV1Prueba()
+			resolutor := &resolutorRegistroContextoActorV1Prueba{resultado: confirmacionRegistroContextoActorV1Prueba(
+				t, caso.resultado, generador.ref,
+			)}
+			reloj := &relojSecuenciaContextoActorPrueba{instantes: []time.Time{instante, caso.comprobado}}
+			servicio, err := NuevoServicioContextoActorProductivoV1(resolutor, generador, reloj)
+			if err != nil {
+				t.Fatalf("crear servicio: %v", err)
+			}
+			resultado, err := servicio.Resolver(context.Background(), solicitud)
+			llamadas, _ := resolutor.observacion()
+			if !errors.Is(err, domain.ErrContextoActorNoResuelto) || resultado.Validar() == nil ||
+				llamadas != 1 || reloj.llamadas != 2 {
+				t.Fatalf("se entrego capacidad no fresca: resultado=%#v error=%v resoluciones=%d relojes=%d",
+					resultado, err, llamadas, reloj.llamadas)
+			}
+		})
+	}
+}
+
+func TestServicioContextoActorProductivoSaneaFalloYNoUsaFuenteHeredada(t *testing.T) {
+	const detalleSensible = "fila=vca_secreta dsn=postgres://secreto@interno"
+	instante := instanteServicioContextoActorPrueba()
+	resolutor := &resolutorRegistroContextoActorV1Prueba{error: errors.New(detalleSensible)}
+	generador := nuevoGeneradorOperacionContextoActorV1Prueba()
+	servicio, err := NuevoServicioContextoActorProductivoV1(
+		resolutor, generador, &relojContextoActorPrueba{ahora: instante},
+	)
+	if err != nil {
+		t.Fatalf("crear servicio: %v", err)
+	}
+
+	resultado, err := servicio.Resolver(context.Background(), solicitudServicioContextoActorPrueba())
+	llamadas, _ := resolutor.observacion()
+	if resultado.Validar() == nil || llamadas != 1 ||
+		!errors.Is(err, domain.ErrContextoActorNoResuelto) ||
+		!errors.Is(err, ports.ErrResolutorRegistroContextoActorNoDisponible) ||
+		strings.Contains(err.Error(), detalleSensible) {
+		t.Fatalf("fallo productivo no cerrado: resultado=%#v llamadas=%d error=%v", resultado, llamadas, err)
+	}
+
+	// Una composicion imposible con ambas dependencias queda cerrada; nunca cae
+	// a la fuente heredada si el resolutor productivo falla.
+	fuente := &fuenteContextoActorPrueba{instantaneas: []domain.InstantaneaContextoActor{
+		instantaneaServicioContextoActorPrueba(instante, solicitudServicioContextoActorPrueba()),
+	}}
+	servicio.fuente = fuente
+	if _, err = servicio.Resolver(context.Background(), solicitudServicioContextoActorPrueba()); !errors.Is(err, ports.ErrResolutorRegistroContextoActorNoDisponible) || fuente.numeroLlamadas() != 0 {
+		t.Fatalf("se uso respaldo heredado: error=%v llamadas_fuente=%d", err, fuente.numeroLlamadas())
+	}
+}
+
+func TestNuevoServicioContextoActorProductivoRechazaDependenciasNulasTipadas(t *testing.T) {
+	var resolutorNulo *resolutorRegistroContextoActorV1Prueba
+	var generadorNulo *generadorOperacionContextoActorV1Prueba
+	var relojNulo *relojContextoActorPrueba
+	validoResolutor := &resolutorRegistroContextoActorV1Prueba{}
+	validoGenerador := nuevoGeneradorOperacionContextoActorV1Prueba()
+	validoReloj := &relojContextoActorPrueba{ahora: instanteServicioContextoActorPrueba()}
+	casos := []struct {
+		nombre    string
+		resolutor ports.ResolutorRegistroContextoActorV1
+		generador ports.GeneradorOperacionContextoActorV1
+		reloj     ports.Reloj
+	}{
+		{"resolutor nil", nil, validoGenerador, validoReloj},
+		{"resolutor nil tipado", resolutorNulo, validoGenerador, validoReloj},
+		{"generador nil", validoResolutor, nil, validoReloj},
+		{"generador nil tipado", validoResolutor, generadorNulo, validoReloj},
+		{"reloj nil", validoResolutor, validoGenerador, nil},
+		{"reloj nil tipado", validoResolutor, validoGenerador, relojNulo},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			servicio, err := NuevoServicioContextoActorProductivoV1(
+				caso.resolutor, caso.generador, caso.reloj,
+			)
+			if servicio != nil || !errors.Is(err, domain.ErrContextoActorInvalido) {
+				t.Fatalf("dependencia nula aceptada: servicio=%#v error=%v", servicio, err)
+			}
+		})
+	}
+}
+
+type contextoActorPruebaMutador struct {
+	solicitud   domain.SolicitudContextoActor
+	instantanea domain.InstantaneaContextoActor
+	instante    time.Time
+}
+
+func (m contextoActorPruebaMutador) crear(t *testing.T) domain.ContextoActor {
+	t.Helper()
+	actor, err := domain.NuevoContextoActor(m.solicitud.Cuenta, m.instantanea, m.instante)
+	if err != nil {
+		t.Fatalf("crear variante de contexto: %v", err)
+	}
+	return actor
+}
+
+func contextoActorServicioPrueba(
+	t *testing.T,
+	instante time.Time,
+	solicitud domain.SolicitudContextoActor,
+) domain.ContextoActor {
+	t.Helper()
+	actor, err := domain.NuevoContextoActor(
+		solicitud.Cuenta,
+		instantaneaServicioContextoActorPrueba(instante, solicitud),
+		instante,
+	)
+	if err != nil {
+		t.Fatalf("crear contexto actor: %v", err)
+	}
+	return actor
+}
+
 func TestServicioContextoActorResuelveUnaPersonaSinHeredarAutoridad(t *testing.T) {
 	instante := instanteServicioContextoActorPrueba()
 	solicitud := solicitudServicioContextoActorPrueba()
@@ -326,5 +744,5 @@ func instanteServicioContextoActorPrueba() time.Time {
 }
 
 func referenciaServicioContextoActorPrueba(prefijo, caracter string) string {
-	return prefijo + strings.Repeat(caracter, 22)
+	return prefijo + strings.Repeat(caracter, 24)
 }

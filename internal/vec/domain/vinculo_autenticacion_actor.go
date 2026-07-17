@@ -2,8 +2,6 @@ package domain
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -403,71 +401,8 @@ func (v VinculoAutenticacionActorV1) VigenteEn(instante time.Time, actor Context
 	return true
 }
 
-type vinculoReferenciaContextoActorCanonicoV1 struct {
-	VinculoRef   string `json:"vinculo_ref"`
-	Version      uint64 `json:"version"`
-	Tipo         string `json:"tipo"`
-	Referencia   string `json:"referencia"`
-	Estado       string `json:"estado"`
-	VigenteDesde string `json:"vigente_desde"`
-	VigenteHasta string `json:"vigente_hasta"`
-}
-
-type contextoActorCanonicoV1 struct {
-	Esquema          string                                     `json:"esquema"`
-	PrincipalRef     string                                     `json:"principal_ref"`
-	Metodo           AuthMethod                                 `json:"metodo"`
-	Garantia         AuthAssurance                              `json:"garantia"`
-	PerfilActivoRef  string                                     `json:"perfil_activo_ref"`
-	PersonaRef       string                                     `json:"persona_ref"`
-	ContextoActorRef string                                     `json:"contexto_actor_ref"`
-	ContextoVersion  uint64                                     `json:"contexto_version"`
-	CuentaRef        string                                     `json:"cuenta_ref"`
-	PersonaVersion   uint64                                     `json:"persona_version"`
-	PerfilVersion    uint64                                     `json:"perfil_version"`
-	Estado           string                                     `json:"estado"`
-	VigenteDesde     string                                     `json:"vigente_desde"`
-	VigenteHasta     string                                     `json:"vigente_hasta"`
-	ResueltoEn       string                                     `json:"resuelto_en"`
-	Vinculos         []vinculoReferenciaContextoActorCanonicoV1 `json:"vinculos"`
-}
-
 // HuellaSHA256VinculadaV1 compromete la identidad canonica, cuenta, perfil,
 // versiones, vigencias y referencias de modulo en un documento independiente.
 func (c ContextoActor) HuellaSHA256VinculadaV1() (string, error) {
-	canonica, err := c.Clonar()
-	if err != nil {
-		return "", ErrContextoActorInvalido
-	}
-	documento := contextoActorCanonicoV1{
-		Esquema:      esquemaHuellaContextoActorV1,
-		PrincipalRef: canonica.Principal.ID, Metodo: canonica.Principal.AuthMethod,
-		Garantia: canonica.Principal.AuthAssurance, PerfilActivoRef: canonica.PerfilActivoRef,
-		PersonaRef: canonica.PersonaRef, ContextoActorRef: canonica.Instantanea.VinculoRef,
-		ContextoVersion: canonica.Instantanea.VinculoVersion, CuentaRef: canonica.Instantanea.CuentaRef,
-		PersonaVersion: canonica.Instantanea.PersonaVersion,
-		PerfilVersion:  canonica.Instantanea.PerfilVersion, Estado: string(canonica.Instantanea.Estado),
-		VigenteDesde: instanteVinculoAutenticacionActorV1(canonica.Instantanea.VigenteDesde),
-		VigenteHasta: instanteVinculoAutenticacionActorV1(canonica.Instantanea.VigenteHasta),
-		ResueltoEn:   instanteVinculoAutenticacionActorV1(canonica.ResueltoEn),
-		Vinculos:     make([]vinculoReferenciaContextoActorCanonicoV1, 0, len(canonica.Instantanea.Vinculos)),
-	}
-	for _, vinculo := range canonica.Instantanea.Vinculos {
-		documento.Vinculos = append(documento.Vinculos, vinculoReferenciaContextoActorCanonicoV1{
-			VinculoRef: vinculo.VinculoRef, Version: vinculo.Version, Tipo: string(vinculo.Tipo),
-			Referencia: vinculo.Referencia, Estado: string(vinculo.Estado),
-			VigenteDesde: instanteVinculoAutenticacionActorV1(vinculo.VigenteDesde),
-			VigenteHasta: instanteVinculoAutenticacionActorV1(vinculo.VigenteHasta),
-		})
-	}
-	contenido, err := json.Marshal(documento)
-	if err != nil {
-		return "", ErrContextoActorInvalido
-	}
-	suma := sha256.Sum256(contenido)
-	return hex.EncodeToString(suma[:]), nil
-}
-
-func instanteVinculoAutenticacionActorV1(instante time.Time) string {
-	return instante.UTC().Format("2006-01-02T15:04:05.000000Z")
+	return c.huellaSHA256RepresentacionCanonicaVinculadaV1()
 }

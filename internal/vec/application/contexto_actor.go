@@ -15,10 +15,23 @@ import (
 // autoriza y no infiere perfiles; produce el contexto cerrado que consumiran
 // despues los casos de uso y el PDP.
 type ServicioContextoActor struct {
-	fuente ports.FuenteContextoActor
-	reloj  ports.Reloj
+	modo      modoServicioContextoActor
+	resolutor ports.ResolutorRegistroContextoActorV1
+	generador ports.GeneradorOperacionContextoActorV1
+	fuente    ports.FuenteContextoActor
+	reloj     ports.Reloj
 }
 
+type modoServicioContextoActor uint8
+
+const (
+	modoServicioContextoActorProductivoV1 modoServicioContextoActor = iota + 1
+	modoServicioContextoActorFuenteHeredada
+)
+
+// NuevoServicioContextoActor conserva la API heredada para pruebas y
+// migracion. No debe componerse en produccion: FuenteContextoActor no puede
+// demostrar que la capacidad fue registrada en la misma transaccion.
 func NuevoServicioContextoActor(
 	fuente ports.FuenteContextoActor,
 	reloj ports.Reloj,
@@ -26,7 +39,27 @@ func NuevoServicioContextoActor(
 	if dependenciaContextoActorNula(fuente) || dependenciaContextoActorNula(reloj) {
 		return nil, domain.ErrContextoActorInvalido
 	}
-	return &ServicioContextoActor{fuente: fuente, reloj: reloj}, nil
+	return &ServicioContextoActor{
+		modo: modoServicioContextoActorFuenteHeredada, fuente: fuente, reloj: reloj,
+	}, nil
+}
+
+// NuevoServicioContextoActorProductivoV1 exige el puerto que resuelve y
+// registra de forma atomica. No admite FuenteContextoActor ni cae a la ruta
+// heredada.
+func NuevoServicioContextoActorProductivoV1(
+	resolutor ports.ResolutorRegistroContextoActorV1,
+	generador ports.GeneradorOperacionContextoActorV1,
+	reloj ports.Reloj,
+) (*ServicioContextoActor, error) {
+	if dependenciaContextoActorNula(resolutor) || dependenciaContextoActorNula(generador) ||
+		dependenciaContextoActorNula(reloj) {
+		return nil, domain.ErrContextoActorInvalido
+	}
+	return &ServicioContextoActor{
+		modo: modoServicioContextoActorProductivoV1, resolutor: resolutor,
+		generador: generador, reloj: reloj,
+	}, nil
 }
 
 func (s *ServicioContextoActor) Resolver(
@@ -39,8 +72,8 @@ func (s *ServicioContextoActor) Resolver(
 	if err := ctx.Err(); err != nil {
 		return domain.ContextoActor{}, errorResolucionContextoActor(err)
 	}
-	if s == nil || dependenciaContextoActorNula(s.fuente) || dependenciaContextoActorNula(s.reloj) {
-		return domain.ContextoActor{}, errorResolucionContextoActor(ports.ErrFuenteContextoActorNoDisponible)
+	if s == nil || dependenciaContextoActorNula(s.reloj) {
+		return domain.ContextoActor{}, errorResolucionContextoActor(ports.ErrResolutorRegistroContextoActorNoDisponible)
 	}
 	if err := solicitud.Validar(); err != nil {
 		return domain.ContextoActor{}, errorResolucionContextoActor(err)
@@ -49,6 +82,92 @@ func (s *ServicioContextoActor) Resolver(
 	instante := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if instante.IsZero() {
 		return domain.ContextoActor{}, errorResolucionContextoActor(domain.ErrContextoActorInvalido)
+	}
+	switch s.modo {
+	case modoServicioContextoActorProductivoV1:
+		return s.resolverYRegistrarProductivoV1(ctx, solicitud, instante)
+	case modoServicioContextoActorFuenteHeredada:
+		return s.resolverDesdeFuenteHeredada(ctx, solicitud, instante)
+	default:
+		return domain.ContextoActor{}, errorResolucionContextoActor(ports.ErrResolutorRegistroContextoActorNoDisponible)
+	}
+}
+
+func (s *ServicioContextoActor) resolverYRegistrarProductivoV1(
+	ctx context.Context,
+	solicitud domain.SolicitudContextoActor,
+	instante time.Time,
+) (domain.ContextoActor, error) {
+	if dependenciaContextoActorNula(s.resolutor) || dependenciaContextoActorNula(s.generador) ||
+		s.fuente != nil {
+		return domain.ContextoActor{}, errorResolucionContextoActor(ports.ErrResolutorRegistroContextoActorNoDisponible)
+	}
+	operacionRef, err := s.generador.NuevaReferenciaOperacionContextoActorV1(ctx)
+	if err != nil {
+		if contextoErr := ctx.Err(); contextoErr != nil {
+			return domain.ContextoActor{}, errorResolucionContextoActor(contextoErr)
+		}
+		return domain.ContextoActor{}, errorResolucionContextoActor(ports.ErrGeneradorOperacionContextoActorNoDisponible)
+	}
+	if err := ctx.Err(); err != nil {
+		return domain.ContextoActor{}, errorResolucionContextoActor(err)
+	}
+	solicitudRegistro := ports.SolicitudResolucionRegistroContextoActorV1{
+		OperacionRef: operacionRef, Contexto: solicitud, SolicitadoEn: instante,
+	}
+	if solicitudRegistro.Validar() != nil {
+		return domain.ContextoActor{}, errorResolucionContextoActor(nil)
+	}
+	confirmacion, err := s.resolutor.ResolverYRegistrarContextoActorV1(ctx, solicitudRegistro)
+	if err != nil {
+		if contextoErr := ctx.Err(); contextoErr != nil {
+			return domain.ContextoActor{}, errorResolucionContextoActor(contextoErr)
+		}
+		return domain.ContextoActor{}, errorResolucionContextoActor(ports.ErrResolutorRegistroContextoActorNoDisponible)
+	}
+	if err := ctx.Err(); err != nil {
+		return domain.ContextoActor{}, errorResolucionContextoActor(err)
+	}
+	// El resolutor puede haber esperado bloqueos. El instante previo a la
+	// llamada no es autoridad: se contrasta el tiempo DB del recibo con ambos
+	// extremos locales y se comprueba de nuevo la vigencia antes de entregar.
+	comprobadoEn := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
+	if confirmacion.ValidarPara(solicitudRegistro) != nil || comprobadoEn.IsZero() ||
+		comprobadoEn.Before(instante) ||
+		comprobadoEn.Sub(instante) > ports.VentanaMaximaFrescuraContextoActorV1 ||
+		confirmacion.ResueltoEnAutoritativo.Before(instante) ||
+		confirmacion.ResueltoEnAutoritativo.After(comprobadoEn) ||
+		confirmacion.ResueltoEnAutoritativo.Sub(instante) > ports.VentanaMaximaFrescuraContextoActorV1 {
+		return domain.ContextoActor{}, errorResolucionContextoActor(nil)
+	}
+	copia, err := confirmacion.Contexto.Clonar()
+	if err != nil || !contextoActorVigenteEn(copia, confirmacion.ResueltoEnAutoritativo) ||
+		!contextoActorVigenteEn(copia, comprobadoEn) {
+		return domain.ContextoActor{}, errorResolucionContextoActor(nil)
+	}
+	return copia, nil
+}
+
+func contextoActorVigenteEn(actor domain.ContextoActor, instante time.Time) bool {
+	if actor.Validar() != nil || instante.Before(actor.ResueltoEn) ||
+		!actor.Instantanea.VigenteEn(instante) {
+		return false
+	}
+	for _, vinculo := range actor.Instantanea.Vinculos {
+		if !vinculo.VigenteEn(instante) {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *ServicioContextoActor) resolverDesdeFuenteHeredada(
+	ctx context.Context,
+	solicitud domain.SolicitudContextoActor,
+	instante time.Time,
+) (domain.ContextoActor, error) {
+	if dependenciaContextoActorNula(s.fuente) || s.resolutor != nil || s.generador != nil {
+		return domain.ContextoActor{}, errorResolucionContextoActor(ports.ErrFuenteContextoActorNoDisponible)
 	}
 	instantaneas, err := s.fuente.BuscarInstantaneasContextoActor(ctx, solicitud)
 	if err != nil {
