@@ -100,11 +100,18 @@ aislada. La orden liga y entrega defensivamente:
 - la decision V2 completa;
 - la referencia de motivo exacta cuya huella figura en la decision.
 
-El adaptador durable debe releer el catalogo dentro de la misma transaccion del
-registro, cotejar version, huella, entrada y vigencia, y solo entonces insertar
-la concesion o denegacion. El adaptador de memoria ya coteja la preimagen y la
-conserva junto a `DecisionRef`. PostgreSQL V2 requiere una migracion y un
-adaptador nuevos; el serializador y las tablas V1 no se ampliaran en silencio.
+El adaptador durable aplica dos semanticas deliberadamente distintas. Para una
+concesion relee el catalogo y toda la instantanea actual dentro de la misma
+transaccion, coteja version, huella, entrada y vigencia, y solo entonces crea la
+capacidad. Para una denegacion valida la estructura y la preimagen exacta del
+motivo, comprueba su procedencia historica en el instante evaluado y la conserva
+en un registro probatorio append-only, sin exigir que asignacion, rol o catalogo
+sigan siendo los actuales. Una revocacion posterior no puede borrar la prueba
+de que el PDP denego aquella solicitud. El adaptador de memoria ya separa ambos
+caminos, coteja la preimagen y conserva tambien las referencias de motivo en
+almacenes fisicamente independientes para concesiones y denegaciones, ligadas a
+`DecisionRef`. PostgreSQL V2 requiere una migracion y un adaptador nuevos; el
+serializador y las tablas V1 no se ampliaran en silencio.
 
 La proyeccion PostgreSQL de motivos no puede depender solo de un consumidor
 asíncrono: un retraso al retirar una entrada dejaria una ventana de aceptacion.

@@ -14,18 +14,19 @@ import (
 // instantaneas inmutables y el registro de decisiones protegido para acceso
 // concurrente; no sustituye al registro duradero y sellado de produccion.
 type AlmacenAutorizacionMemoria struct {
-	mu                  sync.RWMutex
-	roles               map[string]domain.VersionRol
-	controlesRoles      map[string]domain.ControlVigenciaVersionRol
-	asignaciones        map[string]domain.AsignacionPerfil
-	perfilesActuales    map[string]string
-	politicas           map[string]domain.PoliticaRestrictiva
-	politicasActuales   map[string]string
-	revisionPoliticas   uint64
-	huellaPoliticas     string
-	decisiones          map[string]domain.DecisionAutorizacion
-	denegaciones        map[string]domain.DecisionAutorizacion
-	referenciasMotivoV2 map[string]domain.ReferenciaEntradaCatalogo
+	mu                              sync.RWMutex
+	roles                           map[string]domain.VersionRol
+	controlesRoles                  map[string]domain.ControlVigenciaVersionRol
+	asignaciones                    map[string]domain.AsignacionPerfil
+	perfilesActuales                map[string]string
+	politicas                       map[string]domain.PoliticaRestrictiva
+	politicasActuales               map[string]string
+	revisionPoliticas               uint64
+	huellaPoliticas                 string
+	decisiones                      map[string]domain.DecisionAutorizacion
+	denegaciones                    map[string]domain.DecisionAutorizacion
+	referenciasMotivoConcesionesV2  map[string]domain.ReferenciaEntradaCatalogo
+	referenciasMotivoDenegacionesV2 map[string]domain.ReferenciaEntradaCatalogo
 }
 
 func NuevoAlmacenAutorizacionMemoria() *AlmacenAutorizacionMemoria {
@@ -34,17 +35,18 @@ func NuevoAlmacenAutorizacionMemoria() *AlmacenAutorizacionMemoria {
 		panic("calcular huella del catalogo de autorizacion vacio: " + err.Error())
 	}
 	return &AlmacenAutorizacionMemoria{
-		roles:               make(map[string]domain.VersionRol),
-		controlesRoles:      make(map[string]domain.ControlVigenciaVersionRol),
-		asignaciones:        make(map[string]domain.AsignacionPerfil),
-		perfilesActuales:    make(map[string]string),
-		politicas:           make(map[string]domain.PoliticaRestrictiva),
-		politicasActuales:   make(map[string]string),
-		revisionPoliticas:   1,
-		huellaPoliticas:     huellaPoliticas,
-		decisiones:          make(map[string]domain.DecisionAutorizacion),
-		denegaciones:        make(map[string]domain.DecisionAutorizacion),
-		referenciasMotivoV2: make(map[string]domain.ReferenciaEntradaCatalogo),
+		roles:                           make(map[string]domain.VersionRol),
+		controlesRoles:                  make(map[string]domain.ControlVigenciaVersionRol),
+		asignaciones:                    make(map[string]domain.AsignacionPerfil),
+		perfilesActuales:                make(map[string]string),
+		politicas:                       make(map[string]domain.PoliticaRestrictiva),
+		politicasActuales:               make(map[string]string),
+		revisionPoliticas:               1,
+		huellaPoliticas:                 huellaPoliticas,
+		decisiones:                      make(map[string]domain.DecisionAutorizacion),
+		denegaciones:                    make(map[string]domain.DecisionAutorizacion),
+		referenciasMotivoConcesionesV2:  make(map[string]domain.ReferenciaEntradaCatalogo),
+		referenciasMotivoDenegacionesV2: make(map[string]domain.ReferenciaEntradaCatalogo),
 	}
 }
 
@@ -240,7 +242,7 @@ func (a *AlmacenAutorizacionMemoria) RegistrarDecisionSiInstantaneaVigente(
 	if !decision.Concedida || decision.Codigo != "concedida" {
 		return ports.ErrRegistroDecisionNoDisponible
 	}
-	return a.registrarDecisionSiInstantaneaVigente(ctx, decision, true, nil)
+	return a.registrarDecisionAutorizacion(ctx, decision, true, nil)
 }
 
 func (a *AlmacenAutorizacionMemoria) RegistrarDecisionSolicitudLigadaV2SiInstantaneaVigente(
@@ -255,7 +257,7 @@ func (a *AlmacenAutorizacionMemoria) RegistrarDecisionSolicitudLigadaV2SiInstant
 	if !decision.Concedida || decision.Codigo != "concedida" {
 		return ports.ErrRegistroDecisionNoDisponible
 	}
-	return a.registrarDecisionSiInstantaneaVigente(ctx, decision, true, &datos.ReferenciaMotivo)
+	return a.registrarDecisionAutorizacion(ctx, decision, true, &datos.ReferenciaMotivo)
 }
 
 func (a *AlmacenAutorizacionMemoria) RegistrarDenegacionAutorizacion(
@@ -265,7 +267,7 @@ func (a *AlmacenAutorizacionMemoria) RegistrarDenegacionAutorizacion(
 	if decision.Concedida || decision.Codigo == "concedida" {
 		return ports.ErrRegistroDenegacionNoDisponible
 	}
-	return a.registrarDecisionSiInstantaneaVigente(ctx, decision, false, nil)
+	return a.registrarDecisionAutorizacion(ctx, decision, false, nil)
 }
 
 func (a *AlmacenAutorizacionMemoria) RegistrarDenegacionAutorizacionSolicitudLigadaV2(
@@ -280,10 +282,10 @@ func (a *AlmacenAutorizacionMemoria) RegistrarDenegacionAutorizacionSolicitudLig
 	if decision.Concedida || decision.Codigo == "concedida" {
 		return ports.ErrRegistroDenegacionNoDisponible
 	}
-	return a.registrarDecisionSiInstantaneaVigente(ctx, decision, false, &datos.ReferenciaMotivo)
+	return a.registrarDecisionAutorizacion(ctx, decision, false, &datos.ReferenciaMotivo)
 }
 
-func (a *AlmacenAutorizacionMemoria) registrarDecisionSiInstantaneaVigente(
+func (a *AlmacenAutorizacionMemoria) registrarDecisionAutorizacion(
 	ctx context.Context,
 	decision domain.DecisionAutorizacion,
 	esConcesion bool,
@@ -310,39 +312,45 @@ func (a *AlmacenAutorizacionMemoria) registrarDecisionSiInstantaneaVigente(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	referenciaActual, existe := a.perfilesActuales[decision.PerfilActivoRef]
-	if !existe {
-		return ports.ErrInstantaneaAutorizacionObsoleta
-	}
-	asignacionActual, existe := a.asignaciones[referenciaActual]
-	if !existe || asignacionActual.PrincipalID != decision.PrincipalID ||
-		referenciaActual != decision.AsignacionRef {
-		return ports.ErrInstantaneaAutorizacionObsoleta
-	}
-	huellaAsignacion, err := asignacionActual.HuellaSHA256()
-	if err != nil || huellaAsignacion != decision.AsignacionHuellaSHA256 {
-		return ports.ErrInstantaneaAutorizacionObsoleta
-	}
-	versionRol, existe := a.roles[asignacionActual.VersionRolRef]
-	if !existe || versionRol.Referencia() != decision.VersionRolRef {
-		return ports.ErrInstantaneaAutorizacionObsoleta
-	}
-	huellaRol, err := versionRol.HuellaSHA256()
-	if err != nil || huellaRol != decision.VersionRolHuellaSHA256 {
-		return ports.ErrInstantaneaAutorizacionObsoleta
-	}
-	controlVigenciaRol, existe := a.controlesRoles[asignacionActual.VersionRolRef]
-	if !existe || controlVigenciaRol.VersionRolRef != decision.ControlVigenciaVersionRolRef ||
-		controlVigenciaRol.Revision != decision.ControlVigenciaVersionRolRevision {
-		return ports.ErrInstantaneaAutorizacionObsoleta
-	}
-	huellaControlVigenciaRol, err := controlVigenciaRol.HuellaSHA256()
-	if err != nil || huellaControlVigenciaRol != decision.ControlVigenciaVersionRolHuellaSHA256 {
-		return ports.ErrInstantaneaAutorizacionObsoleta
-	}
-	if decision.RevisionCatalogoPoliticas != a.revisionPoliticas ||
-		decision.CatalogoPoliticasHuellaSHA256 != a.huellaPoliticas {
-		return ports.ErrInstantaneaAutorizacionObsoleta
+	// Solo una concesion crea una capacidad ejecutable y, por tanto, exige el
+	// CAS contra la configuracion actual. Una denegacion fija el resultado
+	// probatorio de una evaluacion ya realizada: una revocacion o publicacion
+	// posterior no debe borrar esa evidencia negativa.
+	if esConcesion {
+		referenciaActual, existe := a.perfilesActuales[decision.PerfilActivoRef]
+		if !existe {
+			return ports.ErrInstantaneaAutorizacionObsoleta
+		}
+		asignacionActual, existe := a.asignaciones[referenciaActual]
+		if !existe || asignacionActual.PrincipalID != decision.PrincipalID ||
+			referenciaActual != decision.AsignacionRef {
+			return ports.ErrInstantaneaAutorizacionObsoleta
+		}
+		huellaAsignacion, err := asignacionActual.HuellaSHA256()
+		if err != nil || huellaAsignacion != decision.AsignacionHuellaSHA256 {
+			return ports.ErrInstantaneaAutorizacionObsoleta
+		}
+		versionRol, existe := a.roles[asignacionActual.VersionRolRef]
+		if !existe || versionRol.Referencia() != decision.VersionRolRef {
+			return ports.ErrInstantaneaAutorizacionObsoleta
+		}
+		huellaRol, err := versionRol.HuellaSHA256()
+		if err != nil || huellaRol != decision.VersionRolHuellaSHA256 {
+			return ports.ErrInstantaneaAutorizacionObsoleta
+		}
+		controlVigenciaRol, existe := a.controlesRoles[asignacionActual.VersionRolRef]
+		if !existe || controlVigenciaRol.VersionRolRef != decision.ControlVigenciaVersionRolRef ||
+			controlVigenciaRol.Revision != decision.ControlVigenciaVersionRolRevision {
+			return ports.ErrInstantaneaAutorizacionObsoleta
+		}
+		huellaControlVigenciaRol, err := controlVigenciaRol.HuellaSHA256()
+		if err != nil || huellaControlVigenciaRol != decision.ControlVigenciaVersionRolHuellaSHA256 {
+			return ports.ErrInstantaneaAutorizacionObsoleta
+		}
+		if decision.RevisionCatalogoPoliticas != a.revisionPoliticas ||
+			decision.CatalogoPoliticasHuellaSHA256 != a.huellaPoliticas {
+			return ports.ErrInstantaneaAutorizacionObsoleta
+		}
 	}
 	if _, existe := a.decisiones[decision.DecisionRef]; existe {
 		return ports.ErrVersionAutorizacionYaExiste
@@ -352,11 +360,14 @@ func (a *AlmacenAutorizacionMemoria) registrarDecisionSiInstantaneaVigente(
 	}
 	if esConcesion {
 		a.decisiones[decision.DecisionRef] = clonarDecisionAutorizacion(decision)
+		if referenciaMotivoV2 != nil {
+			a.referenciasMotivoConcesionesV2[decision.DecisionRef] = *referenciaMotivoV2
+		}
 	} else {
 		a.denegaciones[decision.DecisionRef] = clonarDecisionAutorizacion(decision)
-	}
-	if referenciaMotivoV2 != nil {
-		a.referenciasMotivoV2[decision.DecisionRef] = *referenciaMotivoV2
+		if referenciaMotivoV2 != nil {
+			a.referenciasMotivoDenegacionesV2[decision.DecisionRef] = *referenciaMotivoV2
+		}
 	}
 	return nil
 }

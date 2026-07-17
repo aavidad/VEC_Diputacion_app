@@ -140,8 +140,11 @@ func TestAlmacenAutorizacionMemoriaSeparaRegistrosV1YV2(t *testing.T) {
 	if len(almacen.decisiones) != 2 {
 		t.Fatalf("numero inesperado de decisiones registradas: %d", len(almacen.decisiones))
 	}
-	if almacen.referenciasMotivoV2[decisionV2.DecisionRef] != referenciaMotivo {
+	if almacen.referenciasMotivoConcesionesV2[decisionV2.DecisionRef] != referenciaMotivo {
 		t.Fatal("el registro V2 no conservo la referencia exacta de motivo")
+	}
+	if _, existe := almacen.referenciasMotivoDenegacionesV2[decisionV2.DecisionRef]; existe {
+		t.Fatal("la preimagen de una concesion V2 aparecio en el almacen de denegaciones")
 	}
 }
 
@@ -320,6 +323,216 @@ func TestRegistrosDeConcesionYDenegacionNoIntercambianSemantica(t *testing.T) {
 		context.Background(), domain.DecisionAutorizacion{Concedida: true, Codigo: "concedida"},
 	); !errors.Is(err, ports.ErrRegistroDenegacionNoDisponible) {
 		t.Fatalf("el registro de denegaciones acepto una concesion: %v", err)
+	}
+}
+
+func TestRegistroDenegacionV1ConservaTrazaTrasRevocacionPosterior(t *testing.T) {
+	ahora := instanteAutorizacionPrueba()
+	autorizadorOrigen, origen := autorizadorBasePrueba(t, ahora)
+	politica := politicaAutorizacionPrueba("denegacion_probatoria_v1", domain.EfectoPoliticaDenegar)
+	sembrarPoliticaAutorizacion(t, origen, politica)
+	decision, err := autorizadorOrigen.Exigir(context.Background(), solicitudAutorizacionPrueba())
+	if !errors.Is(err, domain.ErrAutorizacionDenegada) || decision.Concedida ||
+		decision.Codigo != "denegada_por_politica" {
+		t.Fatalf("no se obtuvo la denegacion V1 de prueba: decision=%+v err=%v", decision, err)
+	}
+
+	_, destino := autorizadorBasePrueba(t, ahora)
+	revocada := asignacionAutorizacionPrueba(
+		perfilBolsaAutorizacionPrueba,
+		"asig-bolsa",
+		versionRolAutorizacionPrueba(
+			"tecnico_bolsa",
+			"bolsa.expediente.leer",
+			domain.AuthAssuranceSubstantial,
+			[]string{"gestion_bolsa"},
+		).Referencia(),
+		"seleccion",
+	)
+	revocada.Version = 2
+	revocada.Estado = domain.EstadoAsignacionPerfilRevocada
+	revocada.RevocadaPor = "responsable-seguridad"
+	revocada.RevocadaEn = ahora.Add(-time.Minute)
+	revocada.RevocacionRef = "acto:revocacion:posterior:denegacion:v1"
+	sembrarAsignacionAutorizacion(t, destino, revocada)
+
+	if err := destino.RegistrarDenegacionAutorizacion(context.Background(), decision); err != nil {
+		t.Fatalf("la revocacion posterior borro la traza negativa V1: %v", err)
+	}
+	referenciaPolitica := decision.PoliticasEvaluadasRefs[0]
+	huellaPolitica := decision.PoliticasEvaluadasHuellasSHA256[referenciaPolitica]
+	decision.PoliticasEvaluadasRefs[0] = "politica:mutada:v1"
+	decision.PoliticasEvaluadasHuellasSHA256[referenciaPolitica] = strings.Repeat("9", 64)
+	registrada, err := destino.ObtenerDenegacion(context.Background(), decision.DecisionRef)
+	if err != nil || registrada.PoliticasEvaluadasRefs[0] != referenciaPolitica ||
+		registrada.PoliticasEvaluadasHuellasSHA256[referenciaPolitica] != huellaPolitica {
+		t.Fatalf("la denegacion V1 no quedo copiada defensivamente: decision=%+v err=%v", registrada, err)
+	}
+
+	malformada := registrada
+	malformada.DecisionRef = "decision:denegacion:v1:malformada"
+	malformada.AsignacionHuellaSHA256 = "huella-no-canonica"
+	if err := destino.RegistrarDenegacionAutorizacion(context.Background(), malformada); !errors.Is(err, domain.ErrDecisionAutorizacionInvalida) {
+		t.Fatalf("el registro negativo V1 acepto evidencia malformada: %v", err)
+	}
+
+	// La unicidad es fisica y cruzada: una referencia ya materializada como
+	// capacidad no puede reaparecer en el almacen probatorio.
+	autorizadorConcesion, destinoCruce := autorizadorBasePrueba(t, ahora)
+	concesion, err := autorizadorConcesion.Exigir(context.Background(), solicitudAutorizacionPrueba())
+	if err != nil {
+		t.Fatalf("crear concesion para probar el cruce fisico: %v", err)
+	}
+	cruzada := registrada
+	cruzada.DecisionRef = concesion.DecisionRef
+	if err := destinoCruce.RegistrarDenegacionAutorizacion(context.Background(), cruzada); !errors.Is(err, ports.ErrVersionAutorizacionYaExiste) {
+		t.Fatalf("una referencia concedida reaparecio como denegacion: %v", err)
+	}
+}
+
+func TestRegistroDenegacionV2ConservaTrazaTrasCambioDeCatalogo(t *testing.T) {
+	ahora := instanteAutorizacionPrueba()
+	_, origen := autorizadorBasePrueba(t, ahora)
+	referenciaMotivo := domain.ReferenciaEntradaCatalogo{
+		CatalogoID: "motivos_autorizacion", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: strings.Repeat("f", 64),
+		EntradaClave:         claveMotivoAutorizacionV2Prueba,
+	}
+	servicioV2, err := vecapp.NuevoServicioAutorizacionSolicitudLigadaV2(
+		origen,
+		origen,
+		origen,
+		validadorMotivoAutorizacionMemoriaPrueba{referencia: referenciaMotivo},
+		relojAutorizacionPrueba{ahora: ahora},
+		generadorReferenciaAutorizacionPrueba("decision:denegacion:probatoria:v2"),
+		vecapp.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second},
+	)
+	if err != nil {
+		t.Fatalf("crear servicio V2: %v", err)
+	}
+	solicitudBase := solicitudAutorizacionPrueba()
+	solicitudBase.Recurso.Ambitos["unidad"] = "nominas"
+	solicitudV2 := nuevaSolicitudAutorizacionLigadaV2MemoriaPrueba(t, solicitudBase, referenciaMotivo)
+	decision, err := servicioV2.ExigirSolicitudLigadaV2(context.Background(), solicitudV2)
+	if !errors.Is(err, domain.ErrAutorizacionDenegada) || decision.Concedida ||
+		decision.Codigo != "ambito_no_autorizado" {
+		t.Fatalf("no se obtuvo la denegacion V2 de prueba: decision=%+v err=%v", decision, err)
+	}
+	orden, err := ports.NuevaOrdenRegistroDecisionAutorizacionSolicitudLigadaV2(decision, referenciaMotivo)
+	if err != nil {
+		t.Fatalf("crear orden V2: %v", err)
+	}
+
+	_, destino := autorizadorBasePrueba(t, ahora)
+	sembrarPoliticaAutorizacion(t, destino, politicaAutorizacionPrueba(
+		"publicada_despues_de_evaluar_v2",
+		domain.EfectoPoliticaRestringir,
+	))
+	if err := destino.RegistrarDenegacionAutorizacionSolicitudLigadaV2(context.Background(), orden); err != nil {
+		t.Fatalf("el cambio posterior de catalogo borro la traza negativa V2: %v", err)
+	}
+	registrada, err := destino.ObtenerDenegacion(context.Background(), decision.DecisionRef)
+	if err != nil || !registrada.TieneSolicitudLigadaV2() ||
+		destino.referenciasMotivoDenegacionesV2[decision.DecisionRef] != referenciaMotivo {
+		t.Fatalf("la denegacion V2 no conservo decision y preimagen: decision=%+v err=%v", registrada, err)
+	}
+	if _, existe := destino.referenciasMotivoConcesionesV2[decision.DecisionRef]; existe {
+		t.Fatal("la preimagen de una denegacion V2 aparecio en el almacen de concesiones")
+	}
+	if err := destino.RegistrarDenegacionAutorizacion(context.Background(), decision); !errors.Is(err, domain.ErrDecisionAutorizacionInvalida) {
+		t.Fatalf("el registro V1 acepto una denegacion V2: %v", err)
+	}
+	referenciaNoLigada := referenciaMotivo
+	referenciaNoLigada.EntradaClave = "motivo_44444444444444444444444444444444"
+	if _, err := ports.NuevaOrdenRegistroDecisionAutorizacionSolicitudLigadaV2(decision, referenciaNoLigada); !errors.Is(err, ports.ErrOrdenRegistroAutorizacionSolicitudLigadaV2Invalida) {
+		t.Fatalf("se acepto una preimagen de motivo no ligada: %v", err)
+	}
+
+	// Varias escrituras de la misma evidencia compiten bajo un unico cerrojo:
+	// exactamente una gana y el resto observa el duplicado.
+	_, destinoConcurrente := autorizadorBasePrueba(t, ahora)
+	const total = 16
+	errores := make(chan error, total)
+	var grupo sync.WaitGroup
+	for indice := 0; indice < total; indice++ {
+		grupo.Add(1)
+		go func() {
+			defer grupo.Done()
+			errores <- destinoConcurrente.RegistrarDenegacionAutorizacionSolicitudLigadaV2(
+				context.Background(),
+				orden,
+			)
+		}()
+	}
+	grupo.Wait()
+	close(errores)
+	correctas, duplicadas := 0, 0
+	for err := range errores {
+		switch {
+		case err == nil:
+			correctas++
+		case errors.Is(err, ports.ErrVersionAutorizacionYaExiste):
+			duplicadas++
+		default:
+			t.Fatalf("error concurrente inesperado: %v", err)
+		}
+	}
+	if correctas != 1 || duplicadas != total-1 {
+		t.Fatalf("registro concurrente V2: correctas=%d duplicadas=%d", correctas, duplicadas)
+	}
+}
+
+func TestRegistroConcesionV2MantieneCASTrasCambioDeCatalogo(t *testing.T) {
+	ahora := instanteAutorizacionPrueba()
+	_, origen := autorizadorBasePrueba(t, ahora)
+	referenciaMotivo := domain.ReferenciaEntradaCatalogo{
+		CatalogoID: "motivos_autorizacion", CatalogoVersion: 1,
+		CatalogoHuellaSHA256: strings.Repeat("f", 64),
+		EntradaClave:         claveMotivoAutorizacionV2Prueba,
+	}
+	servicioV2, err := vecapp.NuevoServicioAutorizacionSolicitudLigadaV2(
+		origen,
+		origen,
+		origen,
+		validadorMotivoAutorizacionMemoriaPrueba{referencia: referenciaMotivo},
+		relojAutorizacionPrueba{ahora: ahora},
+		generadorReferenciaAutorizacionPrueba("decision:concesion:cas:v2"),
+		vecapp.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second},
+	)
+	if err != nil {
+		t.Fatalf("crear servicio V2: %v", err)
+	}
+	solicitudV2 := nuevaSolicitudAutorizacionLigadaV2MemoriaPrueba(
+		t,
+		solicitudAutorizacionPrueba(),
+		referenciaMotivo,
+	)
+	decision, err := servicioV2.ExigirSolicitudLigadaV2(context.Background(), solicitudV2)
+	if err != nil || !decision.Concedida {
+		t.Fatalf("no se obtuvo la concesion V2 de prueba: decision=%+v err=%v", decision, err)
+	}
+	orden, err := ports.NuevaOrdenRegistroDecisionAutorizacionSolicitudLigadaV2(decision, referenciaMotivo)
+	if err != nil {
+		t.Fatalf("crear orden V2: %v", err)
+	}
+
+	_, destino := autorizadorBasePrueba(t, ahora)
+	sembrarPoliticaAutorizacion(t, destino, politicaAutorizacionPrueba(
+		"publicada_antes_del_registro_concesion_v2",
+		domain.EfectoPoliticaRestringir,
+	))
+	err = destino.RegistrarDecisionSolicitudLigadaV2SiInstantaneaVigente(
+		context.Background(),
+		orden,
+	)
+	if !errors.Is(err, ports.ErrInstantaneaAutorizacionObsoleta) {
+		t.Fatalf("la concesion V2 omitio el CAS del catalogo actual: %v", err)
+	}
+	if _, err := destino.ObtenerDecision(context.Background(), decision.DecisionRef); !errors.Is(err, ports.ErrDecisionAutorizacionNoEncontrada) {
+		t.Fatalf("la concesion V2 obsoleta llego al almacen ejecutable: %v", err)
+	}
+	if _, existe := destino.referenciasMotivoConcesionesV2[decision.DecisionRef]; existe {
+		t.Fatal("la concesion V2 obsoleta dejo una preimagen huerfana")
 	}
 }
 
@@ -862,6 +1075,33 @@ func (r revalidadorAutenticacionActorMemoriaPrueba) RevalidarAutenticacionActorV
 
 func solicitudAutorizacionPrueba() domain.SolicitudAutorizacion {
 	return solicitudAutorizacionPerfilPrueba(perfilBolsaAutorizacionPrueba, domain.AuthAssuranceHigh)
+}
+
+func nuevaSolicitudAutorizacionLigadaV2MemoriaPrueba(
+	t *testing.T,
+	solicitud domain.SolicitudAutorizacion,
+	referenciaMotivo domain.ReferenciaEntradaCatalogo,
+) domain.SolicitudAutorizacionLigadaV2 {
+	t.Helper()
+	referenciaCorrelacion, err := domain.GenerarReferenciaCorrelacionAutorizacionV2(
+		context.Background(),
+		generadorCorrelacionAutorizacionMemoriaPrueba(referenciaCorrelacionAutorizacionV2Prueba),
+	)
+	if err != nil {
+		t.Fatalf("generar correlacion nominal V2: %v", err)
+	}
+	solicitudV2, err := domain.NuevaSolicitudAutorizacionLigadaV2(
+		domain.DatosSolicitudAutorizacionLigadaV2{
+			ContextoActor: solicitud.ContextoActor, VinculoAutenticacionActor: solicitud.VinculoAutenticacionActor,
+			ReferenciaMotivo: referenciaMotivo, Accion: solicitud.Accion,
+			Recurso: solicitud.Recurso, Finalidad: solicitud.Finalidad,
+			Correlacion: referenciaCorrelacion,
+		},
+	)
+	if err != nil {
+		t.Fatalf("crear solicitud ligada V2: %v", err)
+	}
+	return solicitudV2
 }
 
 func solicitudAutorizacionPerfilPrueba(
