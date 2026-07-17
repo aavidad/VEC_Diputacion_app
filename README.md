@@ -242,6 +242,9 @@ Pendiente productivo:
 - [Brecha del nucleo heredado de Bolsa](docs/portal_vec/brecha_nucleo_heredado_bolsa.md):
   inventario y analisis de brecha de `internal/candidate` para la retirada
   por porte (DEC-050).
+- [Brecha funcional verificada de Bolsa a 17 de julio de 2026](docs/portal_vec/brecha_funcional_bolsa_2026-07-17.md):
+  separa modelos, demostraciones, integraciones y capacidades productivas, y
+  fija el siguiente corte vertical definitivo.
 - [Referencias para modulos Cronos y Dietas](docs/portal_vec/referencias_cronos_dietas.md)
 - [Dietas: matriz provincial de distancias](docs/portal_vec/dietas_matriz_distancias.md)
 - [Pagos, tasas y conciliacion](docs/portal_vec/pagos_tasas_y_conciliacion.md)
