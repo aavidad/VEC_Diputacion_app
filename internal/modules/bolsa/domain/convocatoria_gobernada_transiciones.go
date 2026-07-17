@@ -1,11 +1,15 @@
 package domain
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"io"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -262,6 +266,57 @@ func (v VersionConvocatoriaGobernada) RepresentacionCanonica() ([]byte, error) {
 		return nil, ErrVersionConvocatoriaGobernadaInvalida
 	}
 	return append([]byte(nil), bytes...), nil
+}
+
+// DecodificarVersionConvocatoriaGobernadaCanonica reconstruye exclusivamente
+// los bytes producidos por RepresentacionCanonica. No basta con que el JSON
+// represente un agregado valido: se rechazan claves desconocidas o duplicadas,
+// orden alternativo, espacios, formatos temporales equivalentes y cualquier
+// otra codificacion maleable. Esta frontera se usa al recuperar evidencias
+// duraderas de un almacenamiento que el dominio no debe confiar a ciegas.
+func DecodificarVersionConvocatoriaGobernadaCanonica(
+	contenido []byte,
+) (VersionConvocatoriaGobernada, error) {
+	if len(contenido) == 0 || len(contenido) > maximoBytesVersionConvocatoriaGobernada ||
+		!utf8.Valid(contenido) {
+		return VersionConvocatoriaGobernada{}, ErrVersionConvocatoriaGobernadaInvalida
+	}
+
+	var material materialEstadoVersionConvocatoria
+	decodificador := json.NewDecoder(bytes.NewReader(contenido))
+	decodificador.DisallowUnknownFields()
+	if err := decodificador.Decode(&material); err != nil {
+		return VersionConvocatoriaGobernada{}, ErrVersionConvocatoriaGobernadaInvalida
+	}
+	var resto any
+	if err := decodificador.Decode(&resto); !errors.Is(err, io.EOF) ||
+		material.Esquema != esquemaEstadoVersionConvocatoria {
+		return VersionConvocatoriaGobernada{}, ErrVersionConvocatoriaGobernadaInvalida
+	}
+
+	version := VersionConvocatoriaGobernada{
+		ID: material.ID, Secuencia: material.Secuencia,
+		CodigoVersionPublica: material.CodigoVersionPublica, Revision: material.Revision,
+		VersionAnteriorRef: material.VersionAnteriorRef, InstanciaFlujoRef: material.InstanciaFlujoRef,
+		Contenido: material.Contenido, Configuracion: material.Configuracion,
+		ExpedienteRef: material.ExpedienteRef, MotivoCreacion: material.MotivoCreacion,
+		EstadoGobierno: material.EstadoGobierno, CreadaPor: material.CreadaPor, CreadaEn: material.CreadaEn,
+		UltimaModificacionPor: material.UltimaModificacionPor,
+		UltimaModificacionEn:  material.UltimaModificacionEn, MotivoModificacion: material.MotivoModificacion,
+		PublicadaPor: material.PublicadaPor, PublicadaEn: material.PublicadaEn,
+		MotivoPublicacion:        material.MotivoPublicacion,
+		AprobacionPublicacion:    material.AprobacionPublicacion,
+		ComprobacionDependencias: material.ComprobacionDependencias,
+		SustituidaPorRef:         material.SustituidaPorRef, SustituidaPor: material.SustituidaPor,
+		SustituidaEn: material.SustituidaEn, RetiradaPor: material.RetiradaPor,
+		RetiradaEn: material.RetiradaEn, MotivoRetirada: material.MotivoRetirada,
+		AprobacionRetirada: material.AprobacionRetirada,
+	}
+	canonico, err := version.RepresentacionCanonica()
+	if err != nil || !bytes.Equal(canonico, contenido) {
+		return VersionConvocatoriaGobernada{}, ErrVersionConvocatoriaGobernadaInvalida
+	}
+	return version.ClonarCanonico()
 }
 
 // materialEstadoVersionConvocatoria es el contrato de bytes estable de las

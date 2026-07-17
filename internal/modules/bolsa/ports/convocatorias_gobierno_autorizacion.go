@@ -33,6 +33,9 @@ var (
 	ErrAutorizacionGobiernoConvocatoriaInvalida = errors.New("bolsa: autorizacion de gobierno de convocatoria invalida")
 	ErrConsultaGobiernoConvocatoriaInvalida     = errors.New("bolsa: consulta interna de convocatoria invalida")
 	ErrVersionGobernadaConvocatoriaNoEncontrada = errors.New("bolsa: version gobernada de convocatoria no encontrada")
+	ErrFuenteGobiernoConvocatoriasNoDisponible  = errors.New("bolsa: fuente de gobierno de convocatorias no disponible")
+	ErrConsultaGobiernoConvocatoriaEnCurso      = errors.New("bolsa: consulta de convocatoria en curso")
+	ErrEvidenciaConsultaConvocatoriaNoConfiable = errors.New("bolsa: evidencia de consulta de convocatoria no confiable")
 )
 
 type especificacionAutorizacionConvocatoria struct {
