@@ -182,7 +182,7 @@ autorización vigente y trazabilidad atómica.
 | --- | --- | --- |
 | Consulta pública de convocatorias y categorías | Operativa extremo a extremo con fuente sintética y aviso DEMO en `/bolsa/` | Publicación oficial desde un expediente interno |
 | Portal del Empleado antiguo | Carcasa, perfiles, menús y numerosas vistas reutilizables | Portal privado estable: `/api/vec/workspace` falla cerrado sin ámbito resuelto |
-| Elaboración de bolsa histórica | Formulario visual que guardaba en `localStorage`; dominio nuevo de convocatoria gobernada | Persistencia, API, firma y publicación oficiales |
+| Elaboración de bolsa histórica | Formulario visual heredado; dominio nuevo de convocatoria gobernada con organización/unidad inmutables, huellas canónicas y autorización ligada a la versión confirmada | Resolvedor autoritativo de ámbito desde expediente, persistencia, API, firma y publicación oficiales |
 | Panel interno de Bolsa | Dominio, servicio de aplicación, contrato agregado sin datos personales, consulta PostgreSQL y pruebas de integración | Endpoint compuesto, identidad interna real, autoridad COSE de ejecución y productor de la proyección |
 | Llamamientos | Dominio y caso de uso probados; el comando transporta la instantánea completa y un adaptador genera referencias opacas con 256 bits de aleatoriedad criptográfica; el esquema PostgreSQL V1 conserva auditoría y outbox | El adaptador PostgreSQL permanece cerrado hasta disponer de contrato SQL atómico V2, fuente autoritativa, motor publicado, autoridad COSE de efecto, API y confirmación/envío real |
 | Integrantes/candidatos | Flujo propio del aspirante en API `fake`; datos de catálogo disponibles | Listado administrativo productivo y orden durable de bolsa |
@@ -217,7 +217,10 @@ primera proyección segura. La aplicación real debe marcarlas como no disponibl
 hasta disponer de consultas autorizadas; no debe convertir su ausencia en
 ceros ni listas vacías que aparenten datos reales. La identidad visible de la
 sesión se proyectará por una frontera separada y no se mezclará con el agregado
-de Bolsa.
+de Bolsa. Su contrato ya liga referencias autoritativas `aut_`, `ase_`,
+`ses_`, `cse_` y `cta_`, distingue cuenta de acceso y cuenta ordinaria y vuelve
+a cotejarlas antes de cada proyección. No se montará hasta disponer del
+registro durable real que las emita y revoque.
 
 El servidor debe devolver `demostracion: false`. La interfaz rechaza de forma
 explícita una fuente que intente mezclar datos de demostración en la ruta
@@ -397,7 +400,8 @@ política de empaquetado probada.
 2. Componer la proyección PostgreSQL real del cuadro de mando con identidad
    interna, PDP y motivo catalogado.
 3. Completar fuente, motor y transacción autoritativos de llamamientos.
-4. Persistencia y API de elaboración de convocatorias.
+4. Resolvedor autoritativo del ámbito desde el expediente, persistencia y API
+   de elaboración de convocatorias.
 5. Confirmación atómica del llamamiento y trazabilidad.
 6. Respuestas, renuncias, contratos, ceses y reincorporaciones.
 7. Documentos, firmas, publicación y comunicaciones fehacientes.

@@ -3016,3 +3016,62 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   productor de la proyección del panel, ACL/RLS y pruebas de red de extremo a
   extremo. Hasta entonces la ruta interna continúa cerrada y no se sustituye
   por datos sintéticos.
+
+## DEC-085 — La sesión interna recibe referencias del registro autoritativo
+
+- Fecha: 2026-07-17.
+- Estado: contrato Go y pruebas adversarias implantados; adaptador durable y
+  montaje interno en **NO-GO productivo**.
+- Decisión: consumir la aserción y registrar la sesión es una única operación
+  que devuelve un recibo con referencias opacas `aut_`, `ase_`, `ses_`,
+  `cse_`, `cta_` y el eco exacto del alta. Ninguna se deriva del identificador
+  declarado por el IdP, de una cabecera, del cuerpo o de un valor por defecto.
+- Cuentas: una sesión ordinaria liga una sola cuenta canónica; una sesión
+  privilegiada distingue la cuenta elevada de su cuenta ordinaria. El registro
+  vuelve a cotejar ambas, la sesión, la política y los instantes antes de
+  proyectar un principal.
+- Capacidad: `IdentidadSesion` conserva el recibo en estado privado, redacta
+  formatos y logs y no se reconstruye mediante JSON, texto, binario o gob. Los
+  errores del registro se sanejan como sesión no válida.
+- Límite: el doble de memoria solo prueba el contrato. Producción exige un
+  registro durable con CSPRNG, unicidad, mapa estable de cuentas, revocación y
+  comprobación atómica de todos los campos.
+
+## DEC-086 — Ámbito organizativo inmutable de una convocatoria
+
+- Fecha: 2026-07-17.
+- Estado: dominio, puertos y pruebas implantados; resolución inicial desde el
+  expediente y persistencia histórica en **NO-GO productivo**.
+- Decisión: toda convocatoria nace con una referencia `org_` obligatoria y una
+  referencia `uni_` opcional. No existe clase, comodín, normalización, valor
+  implícito ni ámbito heredado del rol. Las sucesoras lo conservan exactamente.
+- Autorización: el recurso de una mutación obtiene organización y unidad de la
+  versión confirmada y exige que esta sea el nuevo estado exacto de la
+  intención. El material libre de la petición no aporta el alcance.
+- Integridad: el ámbito forma parte de las preimágenes canónicas
+  `bolsa.version-convocatoria.contenido.v3` y
+  `bolsa.version-convocatoria.estado.v2`; alterarlo cambia ambas huellas.
+- Compatibilidad: un estado histórico V1 no se interpreta como V2 ni recibe un
+  ámbito inventado. Antes de persistir datos reales deberá existir un lector
+  histórico separado o una migración explícita aprobada, y una fuente
+  autoritativa que resuelva el ámbito inicial desde el expediente.
+
+## DEC-087 — Resolver y registrar el contexto de actor en una operación
+
+- Fecha: 2026-07-17.
+- Estado: decisión de arquitectura; PostgreSQL y cableado en **NO-GO
+  productivo**.
+- Problema: la huella V1 de `ContextoActor` incluye `ResueltoEn`. Reconstruir la
+  misma instantánea con un reloj posterior produce otra huella, y el resumen
+  SQL actual no conserva la preimagen completa para comprobarla.
+- Decisión: no eliminar `ResueltoEn`, no reinterpretar V1 y no registrar
+  después de una lectura separada. La fuente productiva deberá resolver y
+  registrar atómicamente el contexto exacto, preimagen, huella, versiones,
+  vínculos y único instante, y devolverlo solo después del commit.
+- Persistencia: se añadirá un sidecar inmutable ligado a
+  `contexto_actor_v1`, con RLS forzada, rol exclusivo y CAS que exija el
+  documento completo. Las filas antiguas sin sidecar se conservan, pero no
+  autorizan efectos nuevos.
+- Barrera: no se montará el panel interno mientras no exista la fuente maestra
+  de cuenta, persona, perfil y vínculos capaz de participar en esa transacción;
+  inventar esos datos o registrar un resultado de memoria no es autoritativo.

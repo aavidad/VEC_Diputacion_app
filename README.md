@@ -455,6 +455,13 @@ de producción. `cmd/bolsa-server` está retirado y falla cerrado. El proceso
 interno productivo no se habilitará hasta componer identidad reforzada,
 autorización y persistencia reales.
 
+La frontera de identidad ya exige que el registro autoritativo devuelva, en
+la misma operación atómica que consume la aserción, las referencias opacas de
+autenticación, aserción, sesión, control y cuentas (`aut_`, `ase_`, `ses_`,
+`cse_` y `cta_`). Se revalidan completas antes de proyectar el principal y no
+pueden proceder de identificadores IdP o cabeceras. El contrato está cerrado;
+el adaptador PostgreSQL durable sigue siendo obligatorio antes del GO.
+
 ## Arranque local con Docker Compose
 
 ```bash
@@ -517,7 +524,9 @@ firma, notificacion fehaciente, archivo ENI ni persistencia duradera.
 - `internal/modules/bolsa`: modulo hexagonal de Bolsa: manifiesto, consulta
   publica, convocatorias gobernadas, baremacion, firma y adaptadores. Varias
   capacidades siguen siendo contratos o dobles de prueba y no superficies
-  productivas.
+  productivas. Cada convocatoria gobernada incorpora una organización
+  obligatoria y una unidad gestora opcional, inmutables en toda su cadena de
+  versiones; las mutaciones derivan su ámbito de la versión confirmada.
 - `internal/candidate`: nucleo heredado de Bolsa, usado por el primer modulo.
 - `cmd/vec-publico`: composición mínima de la superficie anónima de Bolsa.
 - `cmd/vec-server`: composición integrada heredada para desarrollo y
