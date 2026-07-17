@@ -1,11 +1,12 @@
 # Atestacion criptografica de decisiones de autorizacion
 
-Estado: **remediacion tecnica V4 validada y NO-GO productivo**. El corte separa
-el nucleo, el conector PostgreSQL, el emisor aislado y el consumo atomico del
-efecto, y ha superado su matriz tecnica en un arbol limpio. Esto no autoriza el
-despliegue: una decision registrada, por si sola, nunca concede un efecto.
+Estado: **remediacion tecnica V4 y representacion canonica VEC-AD-2 validadas;
+NO-GO productivo**. El corte separa el nucleo, el conector PostgreSQL, el emisor
+aislado y el consumo atomico del efecto, y ha superado su matriz tecnica en un
+arbol limpio. Esto no autoriza el despliegue: una decision registrada o una
+huella canonica, por si solas, nunca conceden un efecto.
 
-Fecha de corte: 15 de julio de 2026.
+Fecha de corte: 17 de julio de 2026.
 
 Las secciones 1 a 10 conservan el modelo de amenaza y el diseno previo que dio
 origen a la remediacion. Ante cualquier diferencia sobre verificacion COSE,
@@ -372,9 +373,32 @@ los 31 campos de una concesion reforzada â€”incluidos los 25 datos del vinculoâ€
 y publica una huella SHA-256 para
 vectores. No firma ni aprueba Ed25519, HSM, KMS o extension PostgreSQL alguna.
 
-El formato Go ya no acepta el antiguo mensaje de 30 campos: se cambio el
-separador de dominio y el vector fijo. No existe lector, fallback ni conversion
-automatica desde aquel borrador. La V4 aporta revalidacion de identidad,
+Las solicitudes ligadas usan una representacion nueva y no reinterpretan V1:
+`domain.SerializarMensajeAtestacionAutorizacionV2`. `VEC-AD-2` emplea version
+binaria 2 y el separador de dominio
+`VEC-AUTORIZACION-ATESTACION-V2-SOLICITUD-LIGADA-MOTIVO-CATALOGADO`. Tras
+`correlacion_ref` incorpora, en este orden, `esquema_huella_solicitud`,
+`solicitud_huella_sha256`, `esquema_huella_motivo` y
+`motivo_huella_sha256`. Despues de los restantes campos de la decision escribe
+la referencia completa del motivo: identificador de catalogo, version como
+`uint64`, huella de la instantanea publicada y clave opaca de entrada. Antes de
+emitir bytes recalcula la huella de esa referencia y la coteja con la decision.
+
+El contrato V2 congela de forma exhaustiva nombre Go, etiqueta JSON, orden y
+visibilidad de los 35 campos actuales de `DecisionAutorizacion`: si el tipo
+crece o cambia sin ampliar conscientemente el formato, la serializacion falla
+cerrada. Conserva el techo exacto de 512 KiB y hay vectores que cubren 512
+KiB menos un byte, el limite exacto y el limite mas un byte. El vector pequeno
+de interoperabilidad tiene 2.326 bytes y SHA-256
+`b095845f68d24df46361f110fa3dbfce82202d8021a87749ad054ef398289eab`.
+Este corte solo fija bytes canonicos y su huella: todavia no firma, no verifica
+procedencia, no selecciona una suite productiva y no sustituye la revalidacion
+atomica del catalogo, sesion, actor y efecto.
+
+El formato Go `VEC-AD-1` actual ya no acepta el antiguo mensaje de 30 campos:
+se cambio el separador de dominio y el vector fijo. No existe lector, fallback
+ni conversion automatica desde aquel borrador. La V4 aporta revalidacion de
+identidad,
 verificador aislado y migracion PostgreSQL sin reinterpretar V1. Cualquier
 cambio incompatible del esquema exigira una version nueva.
 
