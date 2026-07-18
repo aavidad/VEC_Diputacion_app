@@ -134,6 +134,10 @@ func TestComprobanteConservaProyeccionYAtestacionOpacas(t *testing.T) {
 	) {
 		t.Fatal("se acepto una atestacion fuera de su ventana")
 	}
+	segunda, err := comprobante.DatosVerificados()
+	if err != nil || !segunda.ValidaHasta.Equal(validaHasta) {
+		t.Fatal("la proyeccion permitio alterar el comprobante opaco")
+	}
 }
 
 func TestFormatoHMACEsCerradoYVersionado(t *testing.T) {

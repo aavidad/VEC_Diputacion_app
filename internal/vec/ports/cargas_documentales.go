@@ -490,10 +490,11 @@ func ValidarResultadoCargaDirectaConManifiesto(
 	capacidades CapacidadesAlmacenObjetos,
 	recursoBase domain.RecursoAutorizable,
 ) error {
+	comprobante, errComprobante := proyectarComprobanteConfirmacion(confirmacion)
 	if ValidarManifiestoPreparacionParaConfirmacion(
 		manifiesto, carga, confirmacion.contexto, recursoBase,
 	) != nil ||
-		confirmacion.Validar() != nil || resultado.Validar() != nil ||
+		errComprobante != nil || resultado.Validar() != nil ||
 		!capacidades.CargaDirectaTemporal || !capacidades.ReferenciasOpacas ||
 		!capacidades.IntegridadSHA256 {
 		return ErrConfirmacionCargaDocumentalInvalida
@@ -503,12 +504,12 @@ func ValidarResultadoCargaDirectaConManifiesto(
 		resultado.Objeto.ConectorID != capacidades.ConectorID ||
 		resultado.Objeto.ConectorID != datos.ConectorAlmacenID ||
 		resultado.Evidencia.Accion != AccionAlmacenConfirmarCargaDirecta ||
-		resultado.Evidencia.FundamentoRef != confirmacion.comprobante.intencionRef ||
-		resultado.Evidencia.RealizadaEn.Before(confirmacion.comprobante.consumidoEn) ||
-		!resultado.Evidencia.RealizadaEn.Before(confirmacion.comprobante.expiraEn) ||
-		!resultado.Evidencia.RealizadaEn.Before(confirmacion.comprobante.validaHasta) ||
-		confirmacion.comprobante.registradoEn.Before(datos.PreparadaEn) ||
-		!confirmacion.comprobante.expiraEn.Equal(datos.ExpiraEn) ||
+		resultado.Evidencia.FundamentoRef != comprobante.intencionRef ||
+		resultado.Evidencia.RealizadaEn.Before(comprobante.consumidoEn) ||
+		!resultado.Evidencia.RealizadaEn.Before(comprobante.expiraEn) ||
+		!resultado.Evidencia.RealizadaEn.Before(comprobante.validaHasta) ||
+		comprobante.registradoEn.Before(datos.PreparadaEn) ||
+		!comprobante.expiraEn.Equal(datos.ExpiraEn) ||
 		resultado.Objeto.Zona != ZonaAlmacenCuarentena || resultado.Objeto.MIME != datos.MIME ||
 		resultado.Objeto.Tamano != datos.Tamano ||
 		resultado.Objeto.HuellaSHA256 != datos.HuellaContenidoSHA256 ||
@@ -516,6 +517,27 @@ func ValidarResultadoCargaDirectaConManifiesto(
 		return ErrConfirmacionCargaDocumentalInvalida
 	}
 	return nil
+}
+
+// datosPrivadosConfirmacionCargaDirecta limita la proyeccion a los vinculos
+// temporales que necesitan los validadores del puerto; no incluye HMAC ni
+// atestacion y nunca forma parte de su API publica.
+type datosPrivadosConfirmacionCargaDirecta struct {
+	intencionRef                                     string
+	registradoEn, consumidoEn, expiraEn, validaHasta time.Time
+}
+
+func proyectarComprobanteConfirmacion(
+	confirmacion SolicitudConfirmarCargaDirecta,
+) (datosPrivadosConfirmacionCargaDirecta, error) {
+	if err := confirmacion.Validar(); err != nil {
+		return datosPrivadosConfirmacionCargaDirecta{}, err
+	}
+	c := confirmacion.comprobante
+	return datosPrivadosConfirmacionCargaDirecta{
+		intencionRef: c.intencionRef, registradoEn: c.registradoEn, consumidoEn: c.consumidoEn,
+		expiraEn: c.expiraEn, validaHasta: c.validaHasta,
+	}, nil
 }
 
 type GeneradorIDCargaDocumental interface {

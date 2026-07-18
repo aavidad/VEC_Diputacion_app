@@ -667,7 +667,7 @@ func TestResultadoCargaDirectaExigeCreacionCronologiaAccionYReciboExactos(t *tes
 	creadaEn := instanteCargaDirecta.Add(30 * time.Second)
 	evidencia := evidenciaAlmacenVinculadaPrueba(
 		contextoConfirmar, referencia, "evidencia:creacion:uno", "almacen_s3_corporativo",
-		confirmacion.comprobante.intencionRef, creadaEn,
+		"confirmacion:intencion:uno", creadaEn,
 	)
 	resultado := ResultadoOperacionObjeto{
 		Objeto: ObjetoAlmacenado{

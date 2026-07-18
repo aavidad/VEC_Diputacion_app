@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	almacencanonico "vec-diputacion-granada/internal/vec/canonico/almacen"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -22,7 +23,7 @@ var (
 	// ErrSerializacionContextoAlmacenProhibida evita que la capacidad o su
 	// proyeccion interna crucen accidentalmente una frontera HTTP, de mensajes
 	// o de persistencia generica.
-	ErrSerializacionContextoAlmacenProhibida = errors.New("vec: serializacion de contexto de almacen prohibida")
+	ErrSerializacionContextoAlmacenProhibida = almacencanonico.ErrSerializacionContextoAlmacenProhibida
 )
 
 const (
@@ -57,18 +58,18 @@ const (
 // PasoOperacionAlmacen identifica un paso previamente declarado por el
 // nucleo. Aunque su representacion sea texto, ninguna fabrica acepta valores
 // fuera del plan cerrado asociado a la accion de negocio.
-type PasoOperacionAlmacen string
+type PasoOperacionAlmacen = almacencanonico.PasoOperacionAlmacen
 
 const (
-	PasoAlmacenPrepararCargaDirecta  PasoOperacionAlmacen = "01_preparar_carga_directa"
-	PasoAlmacenAbandonarCargaDirecta PasoOperacionAlmacen = "02_abandonar_carga_directa"
-	PasoAlmacenConfirmarCargaDirecta PasoOperacionAlmacen = "01_confirmar_carga_directa"
-	PasoAlmacenLeerParaAnalisis      PasoOperacionAlmacen = "01_leer_para_analisis"
-	PasoAlmacenAnalizarContenido     PasoOperacionAlmacen = "02_analizar_contenido"
-	PasoAlmacenPromover              PasoOperacionAlmacen = "01_promover"
-	PasoAlmacenCustodiarDecision     PasoOperacionAlmacen = "01_custodiar_decision"
-	PasoAlmacenCustodiarFirmado      PasoOperacionAlmacen = "01_custodiar_documento_firmado"
-	PasoAlmacenRetenerFirmado        PasoOperacionAlmacen = "01_retener_documento_firmado"
+	PasoAlmacenPrepararCargaDirecta  = almacencanonico.PasoPrepararCargaDirecta
+	PasoAlmacenAbandonarCargaDirecta = almacencanonico.PasoAbandonarCargaDirecta
+	PasoAlmacenConfirmarCargaDirecta = almacencanonico.PasoConfirmarCargaDirecta
+	PasoAlmacenLeerParaAnalisis      = almacencanonico.PasoLeerParaAnalisis
+	PasoAlmacenAnalizarContenido     = almacencanonico.PasoAnalizarContenido
+	PasoAlmacenPromover              = almacencanonico.PasoPromover
+	PasoAlmacenCustodiarDecision     = almacencanonico.PasoCustodiarDecision
+	PasoAlmacenCustodiarFirmado      = almacencanonico.PasoCustodiarFirmado
+	PasoAlmacenRetenerFirmado        = almacencanonico.PasoRetenerFirmado
 )
 
 // VinculosOperacionAlmacen contiene datos no autoritativos que el constructor
@@ -138,32 +139,7 @@ type ContextoOperacionAlmacen struct {
 // ProyeccionContextoOperacionAlmacen es una copia defensiva para conectores
 // dentro del proceso. No permite reconstruir la capacidad y tampoco se puede
 // serializar mediante los codificadores habituales.
-type ProyeccionContextoOperacionAlmacen struct {
-	Esquema                string
-	OperacionRef           string
-	CorrelacionRef         string
-	AutorizacionRef        string
-	Finalidad              string
-	Clasificacion          string
-	AccionNegocio          string
-	AccionTecnica          string
-	CargaRef               string
-	SujetoSeudonimoHMAC    string
-	RecursoRef             string
-	ModuloID               string
-	TipoRecurso            string
-	HuellaRecursoSHA256    string
-	HuellaSolicitudHMAC    string
-	EfectoRef              string
-	HuellaPlanEfectoSHA256 string
-	HuellaManifiestoSHA256 string
-	HuellaPasoSHA256       string
-	PasoRef                PasoOperacionAlmacen
-	ObjetoVinculado        ReferenciaObjetoAlmacen
-	HuellaDecisionSHA256   string
-	VerificadaEn           time.Time
-	ValidaHasta            time.Time
-}
+type ProyeccionContextoOperacionAlmacen = almacencanonico.ProyeccionContextoOperacionAlmacen
 
 func NuevoContextoPrepararCargaDirectaAlmacen(
 	decision domain.DecisionAutorizacion,
@@ -764,34 +740,4 @@ func (c ContextoOperacionAlmacen) Format(estado fmt.State, _ rune) {
 
 func (c ContextoOperacionAlmacen) LogValue() slog.Value {
 	return slog.StringValue(c.String())
-}
-
-func (ProyeccionContextoOperacionAlmacen) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionContextoAlmacenProhibida
-}
-
-func (*ProyeccionContextoOperacionAlmacen) UnmarshalJSON([]byte) error {
-	return ErrSerializacionContextoAlmacenProhibida
-}
-
-func (ProyeccionContextoOperacionAlmacen) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionContextoAlmacenProhibida
-}
-
-func (*ProyeccionContextoOperacionAlmacen) UnmarshalText([]byte) error {
-	return ErrSerializacionContextoAlmacenProhibida
-}
-
-func (ProyeccionContextoOperacionAlmacen) String() string {
-	return "[PROYECCION-CONTEXTO-OPERACION-ALMACEN-INTERNA]"
-}
-
-func (p ProyeccionContextoOperacionAlmacen) GoString() string { return p.String() }
-
-func (p ProyeccionContextoOperacionAlmacen) Format(estado fmt.State, _ rune) {
-	_, _ = io.WriteString(estado, p.String())
-}
-
-func (p ProyeccionContextoOperacionAlmacen) LogValue() slog.Value {
-	return slog.StringValue(p.String())
 }
