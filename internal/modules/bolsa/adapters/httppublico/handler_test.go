@@ -64,7 +64,7 @@ func TestHTTPPublicoListaYDetalleSinIdentidadNiPII(t *testing.T) {
 		}
 	}
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, RutaConvocatorias+"/bolsa-auxiliar-administrativo-demo-2026", nil))
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, RutaConvocatorias+"/bolsa-operario-diputacion-2026", nil))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"documentos"`) {
 		t.Fatalf("detalle: %d %s", rec.Code, rec.Body.String())
 	}
@@ -108,7 +108,7 @@ func TestHTTPPublicoCategoriasGETHEADYMinimizacion(t *testing.T) {
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, RutaCategorias, nil))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"esquema":"vec.bolsa.publico.categorias.v1"`) ||
-		!strings.Contains(rec.Body.String(), `"total":58`) {
+		!strings.Contains(rec.Body.String(), `"total":68`) {
 		t.Fatalf("GET categorias=%d %s", rec.Code, rec.Body.String())
 	}
 	for _, prohibido := range []string{"source_path", "creado_por", "publicado_por", "aprobacion_ref", "origen_sha256"} {
@@ -140,8 +140,8 @@ func TestHTTPPublicoRechazaConsultaYRutaNoCanonicas(t *testing.T) {
 			t.Fatalf("%s = %d", ruta, rec.Code)
 		}
 	}
-	req := httptest.NewRequest(http.MethodGet, RutaConvocatorias+"/bolsa-auxiliar-administrativo-demo-2026", nil)
-	req.URL.RawPath = RutaConvocatorias + "/bolsa-auxiliar%2dadministrativo-demo-2026"
+	req := httptest.NewRequest(http.MethodGet, RutaConvocatorias+"/bolsa-operario-diputacion-2026", nil)
+	req.URL.RawPath = RutaConvocatorias + "/bolsa%2doperario-diputacion-2026"
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {

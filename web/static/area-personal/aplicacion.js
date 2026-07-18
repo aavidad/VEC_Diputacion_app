@@ -83,6 +83,11 @@ function crearURL(estado, vista, opciones = {}) {
 
 function actualizarEnlacesNavegacion(estado) {
   document.querySelectorAll("a[data-ruta]").forEach((enlace) => {
+    if (enlace.id === "enlace-inicio-institucional" && estado.presentacionSolicitada) {
+      enlace.setAttribute("href", "/presentacion/");
+      enlace.setAttribute("aria-label", "Volver al selector de recorridos de la presentación");
+      return;
+    }
     enlace.setAttribute("href", crearURL(estado, enlace.dataset.ruta || "inicio", {
       id: enlace.dataset.id || "",
     }));

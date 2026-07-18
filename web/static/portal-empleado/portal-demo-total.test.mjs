@@ -283,6 +283,21 @@ test("los filtros locales preservan valores y no se disfrazan de exportación", 
   }
 });
 
+test("la vista de convocatorias distingue la fuente pública del expediente sintético", () => {
+  const modo = { valor: true };
+  const salida = crearVistasConvocatorias(utilidades(modo)).renderizarConvocatorias(
+    obtenerDatosPresentacion(),
+    { elaboracionSeleccionada: "DEMO-BOL-009", filtros: {} },
+  );
+  assert.match(salida, /BOP-GRA-2026-043004/);
+  assert.match(salida, /Publicado 05\/03\/2026/);
+  assert.match(salida, /bases-operario-demo\.pdf/);
+  assert.match(salida, /bases-operario-demo\.html/);
+  assert.match(salida, /Fuente pública real/);
+  assert.match(salida, /expediente y su tramitación son sintéticos/);
+  assert.match(salida, /target="_blank" rel="noopener noreferrer"/);
+});
+
 test("los formularios gobernados envían nombres estables y comandos explícitos", () => {
   const modo = { valor: true };
   const u = utilidades(modo);

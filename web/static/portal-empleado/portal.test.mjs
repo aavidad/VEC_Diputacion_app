@@ -209,8 +209,37 @@ test("los datos de presentación están aislados y se activan de forma explícit
   assert.match(datos, /esquema: "vec\.bolsa\.panel\.presentacion\.v1"/);
   assert.match(datos, /demostracion: true/);
   assert.match(html, /class="aviso-presentacion" role="status" hidden/);
-  assert.match(html, /Datos íntegramente sintéticos/);
+  assert.match(html, /Referencias públicas de convocatoria y BOP reales/);
+  assert.match(html, /Personas, expedientes y actuaciones internas sintéticos/);
   assert.doesNotMatch(datos, /\b\d{8}[A-Z]\b/);
+});
+
+test("la presentación RRHH usa referencias públicas reales y bases adaptadas locales", async () => {
+  const elaboraciones = obtenerDatosPresentacion().elaboraciones;
+  assert.deepEqual(elaboraciones.map((item) => item.cve_bop), [
+    "BOP-GRA-2025-125002",
+    "BOP-GRA-2024-244002",
+    "BOP-GRA-2026-043004",
+  ]);
+  assert.deepEqual(elaboraciones.map((item) => item.publicacion_bop), [
+    "04/07/2025",
+    "19/12/2024",
+    "05/03/2026",
+  ]);
+  assert.match(elaboraciones[0].nombre, /Auxiliar de Servicios Generales/);
+  assert.equal(elaboraciones[1].nombre, "Ingreso en la Subescala de Gestión de Administración General");
+  assert.equal(elaboraciones[1].identificador_publico, "gestion-administracion-general-2024");
+  assert.match(elaboraciones[2].nombre, /Bolsa de empleo de Operario/);
+  for (const elaboracion of elaboraciones) {
+    assert.match(elaboracion.expediente, /^DEMO-/);
+    assert.match(elaboracion.fase, /DEMO/);
+    assert.equal(elaboracion.documentos_publicos.length, 2);
+    for (const documento of elaboracion.documentos_publicos) {
+      assert.match(documento.url, /^\/bolsa\/documentos\/bases-(?:auxiliar|gestion|operario)-demo\.(?:pdf|html)$/);
+      const ruta = new URL(`../${documento.url.slice(1)}`, directorio);
+      assert.ok((await stat(ruta)).size > 1_000, `${documento.url} debe ser un documento real de la presentación`);
+    }
+  }
 });
 
 test("el selector de perfil es cerrado y la navegación aplica mínimo privilegio", () => {
@@ -245,7 +274,11 @@ test("texto ampliado y contraste siguen disponibles en resoluciones compactas", 
 
 test("el portal expone solo Bolsa y hace alcanzables todas sus capacidades", () => {
   assert.match(html, /Bolsas de trabajo[\s\S]*etiqueta-menu">Activo/);
-  for (const modulo of ["Personal", "Nóminas", "Cronos", "Dietas", "Solicitudes y certificados"]) {
+  for (const modulo of [
+    "Personal", "Nóminas", "Cronos", "Dietas", "Solicitudes y certificados",
+    "Méritos y formación", "Comunicaciones", "Documentos y firma",
+    "Aprobaciones y portafirmas", "Auditoría", "Administración y configuración",
+  ]) {
     assert.match(html, new RegExp(`${modulo}[\\s\\S]{0,180}No habilitado`));
   }
   const vistas = ["resumen", "elaboracion", "convocatorias", "solicitudes", "meritos",

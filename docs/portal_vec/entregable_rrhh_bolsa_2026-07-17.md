@@ -29,9 +29,11 @@ El alcance visible pedido por RRHH es:
 El HTML, el CSS adaptable, la navegación, los renderizadores, los estados
 accesibles y los contratos son código de producto candidato a reutilizarse;
 RRHH aún debe aceptar los recorridos. No hay una maqueta alternativa que haya
-que desechar por completo. Los datos y efectos sintéticos necesarios para
-enseñarla antes de disponer de todas las APIs se aíslan en adaptadores de
-presentación intercambiables y no se mezclan con los clientes normales.
+que desechar por completo. Los títulos, fechas, categorías y CVE/BOP de la
+consulta son metadatos públicos reales contrastados. Los datos privados y
+efectos sintéticos necesarios para enseñar los recorridos antes de disponer de
+todas las APIs se aíslan en adaptadores de presentación intercambiables y no se
+mezclan con los clientes normales.
 
 El corte presentado consta de **32 vistas navegables**:
 
@@ -144,8 +146,9 @@ Accesos directos útiles:
 El binario exclusivo `vec-presentacion` exige el perfil, el selector y las dos
 guardas literales documentadas. Solo el parámetro exacto
 `presentacion=rrhh` selecciona en las superficies privadas sus adaptadores
-volátiles. Las pantallas mantienen un aviso visible de datos sintéticos y
-ausencia de validez administrativa. Las acciones pueden modificar el escenario
+volátiles. Las pantallas distinguen de forma visible las referencias públicas
+reales de los datos privados sintéticos y advierten de la ausencia de validez
+administrativa. Las acciones pueden modificar el escenario
 durante la visita y emitir un recibo `DEMO-`, pero el estado se pierde al
 recargar y nunca firma, registra, paga, envía ni persiste fuera de la memoria.
 
@@ -168,8 +171,10 @@ pantallas estrechas se transforma en una cabecera compacta de dos columnas; no
 desaparece. Esta separación evita presentar accesos internos sin sacrificar la
 orientación ni la coherencia visual.
 
-La consulta sigue identificada como demostración mientras su fuente no sea una
-publicación oficial. El menú, el logotipo institucional, la adaptación móvil,
+La consulta sigue identificada como demostración porque sus documentos son
+reproducciones adaptadas y no una publicación administrativa del sistema. Sus
+títulos, fechas, categorías y CVE proceden de publicaciones oficiales del BOP.
+El menú, el logotipo institucional, la adaptación móvil,
 el alto contraste y la ayuda son componentes reutilizables pendientes de
 aceptación. El cambio se
 incorporó en `29afe4d` y cuenta con una prueba específica que impide introducir
@@ -263,7 +268,7 @@ permanece deshabilitada si el cliente real no recibe una capacidad positiva.
 | Área | Estado comprobado | No se debe afirmar todavía |
 | --- | --- | --- |
 | Artefacto de presentación | Binario y perfil separados, lanzador en el puerto 8081, 32 vistas, 21 flujos y puerta reproducible 159/159 en tres resoluciones; adaptadores volátiles y cero cookies/almacenamiento de navegador | Integración productiva, E2E productivo, aceptación formal o validez administrativa |
-| Consulta pública de convocatorias y categorías | Recorrido local con fuente sintética y aviso DEMO en `/bolsa/` | Publicación oficial desde un expediente interno |
+| Consulta pública de convocatorias y categorías | Recorrido local con 36 procesos basados en 37 publicaciones BOP reales, documentos adaptados y aviso DEMO en `/bolsa/` | Publicación oficial desde un expediente interno |
 | Área personal del aspirante | 14 vistas reutilizables pendientes de aceptación, con cliente HTTP real cerrado y adaptador de presentación seleccionado en composición | Identidad real, autorización sobre datos propios, persistencia, pago, firma, registro, carga o descarga efectiva |
 | Gestión interna de Bolsa | Portal más 15 secciones reutilizables pendientes de aceptación; operaciones volátiles con confirmación y recibo `DEMO-` | Identidad interna reforzada, permisos reales, transacciones durables, firma, publicación, comunicación o integración corporativa |
 | Portal VEC heredado | Carcasa, perfiles, menús y numerosas vistas reutilizables fuera del corte de Bolsa | Portal privado estable: `/api/vec/workspace` falla cerrado sin ámbito resuelto |

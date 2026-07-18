@@ -1,10 +1,10 @@
 {
   "version_esquema": 1,
   "fuente": {
-    "revision": "demo-2026-07-v2",
-    "actualizada_en": "2026-07-16T00:00:00Z",
+    "revision": "demo-publico-real-2026-07-v4",
+    "actualizada_en": "2026-07-19T00:00:00Z",
     "demostracion": true,
-    "aviso": "DEMOSTRACIÓN: Contenido sintético sin validez administrativa ni datos personales."
+    "aviso": "DEMOSTRACIÓN: títulos, categorías, fechas y referencias BOP son datos públicos reales; los documentos adaptados no tienen validez administrativa y no se incluyen datos personales."
   },
   "catalogos": [
     {
@@ -21,7 +21,8 @@
       "entradas": [
         {"clave": "inscripcion", "version": 1, "etiqueta": "Inscripción abierta", "descripcion": "Admite solicitudes dentro del plazo publicado.", "semantica": "exito", "orden": 1, "publicable": true},
         {"clave": "proxima", "version": 1, "etiqueta": "Próxima apertura", "descripcion": "Publicada antes de abrir el plazo.", "semantica": "informacion", "orden": 2, "publicable": true},
-        {"clave": "borrador", "version": 1, "etiqueta": "Borrador interno", "descripcion": "Estado no publicable.", "semantica": "neutro", "orden": 3, "publicable": false}
+        {"clave": "cerrada", "version": 1, "etiqueta": "Histórico cerrado", "descripcion": "Referencia pública de un proceso cuyo plazo no está abierto.", "semantica": "neutro", "orden": 3, "publicable": true},
+        {"clave": "borrador", "version": 1, "etiqueta": "Borrador interno", "descripcion": "Estado no publicable.", "semantica": "neutro", "orden": 4, "publicable": false}
       ]
     },
     {
@@ -51,62 +52,508 @@
   ],
   "convocatorias": [
     {
-      "id": "proceso:demo:bolsa-auxiliar-2026",
-      "version": "v1",
-      "estado": "inscripcion",
+      "id": "proceso:publico:bolsa-operario-2026", "version": "v1", "estado": "cerrada",
       "datos_publicos": {
-        "identificador_publico": "bolsa-auxiliar-administrativo-demo-2026",
-        "tipo": "bolsa_temporal",
-        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "2a9aa4a903b765c2f46ceb7f429f342a13b229e54ca45813472cb9d0aa1a4f3e"},
-        "categorias": ["auxiliar-administrativo"],
-        "titulo": "Bolsa temporal de auxiliar administrativo — demostración",
-        "resumen": "Ejemplo sintético de una convocatoria con plazo de inscripción abierto.",
-        "descripcion": "Esta ficha permite comprobar la consulta pública de plazos, requisitos, documentos y ayuda. Todo el contenido es sintético y carece de validez administrativa.",
-        "publicada_en": "2026-07-01T08:00:00Z",
-        "actualizada_en": "2026-07-15T08:00:00Z",
-        "plazos": [
-          {"referencia": "plazo:demo:inscripcion-auxiliar", "tipo": "inscripcion", "titulo": "Presentación de solicitudes", "descripcion": "Periodo sintético usado para probar el portal.", "abre_en": "2026-07-01T08:00:00Z", "cierra_en": "2026-08-15T21:59:59Z"}
-        ],
+        "identificador_publico": "bolsa-operario-diputacion-2026", "tipo": "bolsa_temporal",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["operario"],
+        "titulo": "Bolsa de empleo de Operario de la Diputación de Granada",
+        "resumen": "Expediente 2026/BTN_01/000062 · BOP-GRA-2026-043004 · publicación 05/03/2026.",
+        "descripcion": "Bases públicas reales para elaborar una bolsa de empleo de Operario de la Escala de Administración Especial. La ficha de demostración no reconstruye ni inventa plazos no incorporados como dato estructurado.",
+        "publicada_en": "2026-03-05T00:00:00Z", "actualizada_en": "2026-03-05T00:00:00Z",
+        "plazos": [],
         "requisitos": [
-          {"referencia": "requisito:demo:titulacion-auxiliar", "orden": 1, "titulo": "Titulación requerida", "descripcion": "Titulación indicada en las bases de demostración.", "obligatorio": true},
-          {"referencia": "requisito:demo:capacidad-auxiliar", "orden": 2, "titulo": "Capacidad funcional", "descripcion": "Capacidad necesaria para las tareas descritas en las bases de demostración.", "obligatorio": true}
+          {"referencia": "requisito:nacionalidad", "orden": 1, "titulo": "Nacionalidad", "descripcion": "Nacionalidad española o alguno de los supuestos de acceso al empleo público previstos para ciudadanía de la Unión Europea, familiares y personas amparadas por tratados de libre circulación.", "obligatorio": true},
+          {"referencia": "requisito:edad", "orden": 2, "titulo": "Edad", "descripcion": "Tener cumplidos dieciséis años y no superar la edad máxima de jubilación forzosa.", "obligatorio": true},
+          {"referencia": "requisito:capacidad", "orden": 3, "titulo": "Capacidad funcional", "descripcion": "Poseer la capacidad funcional necesaria para desempeñar las tareas de la categoría.", "obligatorio": true},
+          {"referencia": "requisito:habilitacion", "orden": 4, "titulo": "Habilitación", "descripcion": "No haber sido separado mediante expediente disciplinario ni hallarse en situación de inhabilitación en los términos establecidos en las bases.", "obligatorio": true},
+          {"referencia": "requisito:titulacion", "orden": 5, "titulo": "Titulación", "descripcion": "La convocatoria no exige una titulación académica específica para esta agrupación profesional.", "obligatorio": true},
+          {"referencia": "requisito:ajeno", "orden": 6, "titulo": "Ámbito de participación", "descripcion": "Ser personal ajeno a la Función Pública de la Diputación de Granada, según la redacción de las bases.", "obligatorio": true}
         ],
         "documentos": [
-          {"referencia": "documento:demo:bases-auxiliar-v1", "tipo": "bases", "orden": 1, "titulo": "Bases de demostración", "descripcion": "Documento HTML sintético sin validez administrativa.", "formato": "html", "url": "/bolsa/documentos/bases-auxiliar-demo.html", "publicado_en": "2026-07-01T08:00:00Z"},
-          {"referencia": "documento:demo:anuncio-auxiliar-v1", "tipo": "anuncio", "orden": 2, "titulo": "Anuncio de demostración", "descripcion": "Anuncio HTML sintético sin validez administrativa.", "formato": "html", "url": "/bolsa/documentos/anuncio-auxiliar-demo.html", "publicado_en": "2026-07-01T08:00:00Z"}
+          {"referencia": "documento:bases-operario-pdf-demo", "tipo": "bases", "orden": 1, "titulo": "Bases adaptadas de la bolsa de Operario (PDF)", "descripcion": "Reproducción accesible y sanitizada basada en BOP-GRA-2026-043004. Documento de demostración sin validez administrativa.", "formato": "pdf", "url": "/bolsa/documentos/bases-operario-demo.pdf", "publicado_en": "2026-03-05T00:00:00Z"},
+          {"referencia": "documento:bases-operario-html-demo", "tipo": "bases", "orden": 2, "titulo": "Bases adaptadas de la bolsa de Operario (HTML accesible)", "descripcion": "Versión navegable de demostración, con fuentes oficiales enlazadas y sin datos personales.", "formato": "html", "url": "/bolsa/documentos/bases-operario-demo.html", "publicado_en": "2026-03-05T00:00:00Z"}
         ],
-        "ayuda": [
-          {"referencia": "ayuda:demo:participar-auxiliar", "categoria": "participacion", "orden": 1, "pregunta": "¿Cómo se participa en este ejemplo?", "respuesta": "Revise el plazo, los requisitos y las bases de demostración antes de usar el futuro trámite autenticado."},
-          {"referencia": "ayuda:demo:validez-auxiliar", "categoria": "documentacion", "orden": 2, "pregunta": "¿Estos documentos tienen validez?", "respuesta": "No. Son documentos sintéticos destinados exclusivamente a comprobar el portal."}
-        ]
+        "ayuda": []
       }
     },
     {
-      "id": "proceso:demo:seleccion-gestion-2026",
-      "version": "v1",
-      "estado": "proxima",
+      "id": "proceso:publico:auxiliar-servicios-generales-2025", "version": "v1", "estado": "cerrada",
       "datos_publicos": {
-        "identificador_publico": "proceso-tecnico-gestion-demo-2026",
-        "tipo": "proceso_selectivo",
-        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "2a9aa4a903b765c2f46ceb7f429f342a13b229e54ca45813472cb9d0aa1a4f3e"},
-        "categorias": ["tecnico-de-gestion"],
-        "titulo": "Proceso selectivo de técnico de gestión — demostración",
-        "resumen": "Ejemplo sintético de una convocatoria publicada antes de abrir su plazo.",
-        "descripcion": "Ficha sintética para comprobar estados próximos, filtrado y lectura accesible del detalle.",
-        "publicada_en": "2026-07-10T08:00:00Z",
-        "actualizada_en": "2026-07-14T08:00:00Z",
-        "plazos": [
-          {"referencia": "plazo:demo:inscripcion-gestion", "tipo": "inscripcion", "titulo": "Presentación de solicitudes", "descripcion": "Periodo futuro sintético usado para probar el portal.", "abre_en": "2026-09-01T08:00:00Z", "cierra_en": "2026-09-20T21:59:59Z"}
-        ],
+        "identificador_publico": "auxiliar-servicios-generales-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["auxiliar-servicios-generales"],
+        "titulo": "Ingreso en la categoría de Auxiliar de Servicios Generales",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-125002 · publicación 04/07/2025.",
+        "descripcion": "Proceso selectivo público de la Diputación de Granada para el ingreso en la categoría de Auxiliar de Servicios Generales de la Escala de Administración Especial.",
+        "publicada_en": "2025-07-04T00:00:00Z", "actualizada_en": "2025-07-04T00:00:00Z",
+        "plazos": [],
         "requisitos": [
-          {"referencia": "requisito:demo:titulacion-gestion", "orden": 1, "titulo": "Titulación requerida", "descripcion": "Titulación indicada en las bases de demostración.", "obligatorio": true}
+          {"referencia": "requisito:nacionalidad", "orden": 1, "titulo": "Nacionalidad", "descripcion": "Cumplir alguno de los supuestos de nacionalidad admitidos por las bases y la normativa de acceso al empleo público.", "obligatorio": true},
+          {"referencia": "requisito:edad", "orden": 2, "titulo": "Edad", "descripcion": "Tener cumplidos dieciséis años y no superar la edad máxima de jubilación forzosa.", "obligatorio": true},
+          {"referencia": "requisito:capacidad", "orden": 3, "titulo": "Capacidad funcional", "descripcion": "Poseer la capacidad funcional necesaria para desempeñar las funciones de las plazas convocadas.", "obligatorio": true},
+          {"referencia": "requisito:habilitacion", "orden": 4, "titulo": "Habilitación", "descripcion": "No haber sido separado mediante expediente disciplinario ni hallarse inhabilitado en los términos establecidos en las bases.", "obligatorio": true},
+          {"referencia": "requisito:titulacion", "orden": 5, "titulo": "Titulación", "descripcion": "Estar en posesión del título de Graduado en Educación Secundaria Obligatoria o equivalente indicado por las bases.", "obligatorio": true}
         ],
         "documentos": [
-          {"referencia": "documento:demo:bases-gestion-v1", "tipo": "bases", "orden": 1, "titulo": "Bases de demostración", "descripcion": "Documento HTML sintético sin validez administrativa.", "formato": "html", "url": "/bolsa/documentos/bases-gestion-demo.html", "publicado_en": "2026-07-10T08:00:00Z"}
+          {"referencia": "documento:bases-auxiliar-pdf-demo", "tipo": "bases", "orden": 1, "titulo": "Bases adaptadas de Auxiliar de Servicios Generales (PDF)", "descripcion": "Reproducción accesible y sanitizada basada en BOP-GRA-2025-125002. Documento de demostración sin validez administrativa.", "formato": "pdf", "url": "/bolsa/documentos/bases-auxiliar-demo.pdf", "publicado_en": "2025-07-04T00:00:00Z"},
+          {"referencia": "documento:bases-auxiliar-html-demo", "tipo": "bases", "orden": 2, "titulo": "Bases adaptadas de Auxiliar de Servicios Generales (HTML accesible)", "descripcion": "Versión navegable de demostración, con fuentes oficiales enlazadas y sin datos personales.", "formato": "html", "url": "/bolsa/documentos/bases-auxiliar-demo.html", "publicado_en": "2025-07-04T00:00:00Z"}
         ],
-        "ayuda": [
-          {"referencia": "ayuda:demo:apertura-gestion", "categoria": "participacion", "orden": 1, "pregunta": "¿Se puede presentar ya la solicitud?", "respuesta": "No. El ejemplo muestra un plazo próximo; la situación y las fechas se indican en la ficha."}
-        ]
+        "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:gestion-administracion-general-2024", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "gestion-administracion-general-2024", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["tecnico-de-gestion"],
+        "titulo": "Ingreso en la Subescala de Gestión de Administración General",
+        "resumen": "Bases y convocatoria · BOP-GRA-2024-244002 · publicación 19/12/2024.",
+        "descripcion": "Bases públicas de la Diputación de Granada para el ingreso en la Subescala de Gestión de Administración General.",
+        "publicada_en": "2024-12-19T00:00:00Z", "actualizada_en": "2024-12-19T00:00:00Z",
+        "plazos": [],
+        "requisitos": [
+          {"referencia": "requisito:nacionalidad", "orden": 1, "titulo": "Nacionalidad", "descripcion": "Cumplir alguno de los supuestos de nacionalidad admitidos por las bases y la normativa de acceso al empleo público.", "obligatorio": true},
+          {"referencia": "requisito:edad", "orden": 2, "titulo": "Edad", "descripcion": "Tener cumplidos dieciséis años y no superar la edad máxima de jubilación forzosa.", "obligatorio": true},
+          {"referencia": "requisito:capacidad", "orden": 3, "titulo": "Capacidad funcional", "descripcion": "Poseer la capacidad funcional necesaria para desempeñar las funciones de las plazas convocadas.", "obligatorio": true},
+          {"referencia": "requisito:habilitacion", "orden": 4, "titulo": "Habilitación", "descripcion": "No haber sido separado mediante expediente disciplinario ni hallarse inhabilitado en los términos establecidos en las bases.", "obligatorio": true},
+          {"referencia": "requisito:titulacion", "orden": 5, "titulo": "Titulación y turno", "descripcion": "Acreditar la titulación y, cuando corresponda, los requisitos de pertenencia y antigüedad establecidos en las bases oficiales.", "obligatorio": true}
+        ],
+        "documentos": [
+          {"referencia": "documento:bases-gestion-pdf-demo", "tipo": "bases", "orden": 1, "titulo": "Bases adaptadas de Gestión de Administración General (PDF)", "descripcion": "Reproducción accesible y sanitizada basada en BOP-GRA-2024-244002. Documento de demostración sin validez administrativa.", "formato": "pdf", "url": "/bolsa/documentos/bases-gestion-demo.pdf", "publicado_en": "2024-12-19T00:00:00Z"},
+          {"referencia": "documento:bases-gestion-html-demo", "tipo": "bases", "orden": 2, "titulo": "Bases adaptadas de Gestión de Administración General (HTML accesible)", "descripcion": "Versión navegable de demostración, con fuentes oficiales enlazadas y sin datos personales.", "formato": "html", "url": "/bolsa/documentos/bases-gestion-demo.html", "publicado_en": "2024-12-19T00:00:00Z"}
+        ],
+        "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:archivo-analista-programador-2024", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "archivo-analista-programador-2024", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["tecnico-superior-archivo", "analista-programador"],
+        "titulo": "Ingreso en Técnico/a Superior de Archivo y Analista Programador/a",
+        "resumen": "Bases y convocatoria · BOP-GRA-2024-244001 · publicación 19/12/2024.",
+        "descripcion": "Bases públicas de la Diputación de Granada para el ingreso en Técnico/a Superior de Archivo y Analista Programador/a.",
+        "publicada_en": "2024-12-19T00:00:00Z", "actualizada_en": "2024-12-19T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:tecnica-administracion-general-2024", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "tecnica-administracion-general-2024", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["tecnico-de-administracion-general"],
+        "titulo": "Ingreso en la Subescala Técnica de Administración General",
+        "resumen": "Bases y convocatoria · BOP n.º 69 de Granada · publicación 11/04/2024 · formato histórico sin CVE visible.",
+        "descripcion": "Bases públicas de la Diputación de Granada para el ingreso en la Subescala Técnica de Administración General.",
+        "publicada_en": "2024-04-11T00:00:00Z", "actualizada_en": "2024-04-11T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:bombero-bases-originales-2024", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "bombero-diecinueve-plazas-bases-2024", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["bombero"],
+        "titulo": "Bases originales para diecinueve plazas de Bombero/a",
+        "resumen": "Bases y convocatoria · BOP n.º 111 de Granada · publicación 11/06/2024 · formato histórico sin CVE visible.",
+        "descripcion": "Bases públicas originales del proceso selectivo para proveer diecinueve plazas de Bombero/a.",
+        "publicada_en": "2024-06-11T00:00:00Z", "actualizada_en": "2024-06-11T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:estabilizacion-subescalas-2024", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "estabilizacion-agronoma-medicina-arquitectura-2024", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["ingenieria-agronoma", "medico", "arquitecto-tecnico"],
+        "titulo": "Ingreso y estabilización en Ingeniería Agrónoma, Medicina y Arquitectura Técnica",
+        "resumen": "Bases y convocatoria · BOP-GRA-2024-130001 · publicación 08/07/2024.",
+        "descripcion": "Bases públicas de procesos de ingreso y estabilización de empleo temporal en las subescalas de Ingeniería Agrónoma, Medicina y Arquitectura Técnica.",
+        "publicada_en": "2024-07-08T00:00:00Z", "actualizada_en": "2024-07-08T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:igualdad-agricola-2024", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "igualdad-ingenieria-tecnica-agricola-2024", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["tecnico-medio-igualdad", "ingeniero-tecnico-agricola"],
+        "titulo": "Ingreso en Técnico/a Medio de Igualdad e Ingeniero/a Técnico/a Agrícola",
+        "resumen": "Bases y convocatoria · BOP-GRA-2024-229002 · publicación 26/11/2024.",
+        "descripcion": "Bases públicas de la Diputación de Granada para el ingreso en Técnico/a Medio de Igualdad e Ingeniero/a Técnico/a Agrícola.",
+        "publicada_en": "2024-11-26T00:00:00Z", "actualizada_en": "2024-11-26T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:medicina-2024", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "medicina-2024", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["medico"],
+        "titulo": "Ingreso en la especialidad de Medicina",
+        "resumen": "Bases y convocatoria · BOP-GRA-2024-229003 · publicación 26/11/2024.",
+        "descripcion": "Bases públicas de la Diputación de Granada para el ingreso en la especialidad de Medicina.",
+        "publicada_en": "2024-11-26T00:00:00Z", "actualizada_en": "2024-11-26T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:obras-delineante-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "auxiliar-obras-delineante-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["auxiliar-tecnico-superior-obras", "delineante"],
+        "titulo": "Ingreso en Auxiliar Técnico/a Superior de Obras y Delineante",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-024005 · publicación 06/02/2025.",
+        "descripcion": "Bases públicas de la Diputación de Granada para el ingreso en Auxiliar Técnico/a Superior de Obras y Delineante.",
+        "publicada_en": "2025-02-06T00:00:00Z", "actualizada_en": "2025-02-06T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:administrativa-general-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "administrativa-administracion-general-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["administrativo"],
+        "titulo": "Ingreso en la Subescala Administrativa de Administración General",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-024006 · publicación 06/02/2025.",
+        "descripcion": "Bases públicas de la Diputación de Granada para el ingreso en la Subescala Administrativa de Administración General.",
+        "publicada_en": "2025-02-06T00:00:00Z", "actualizada_en": "2025-02-06T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:enfermeria-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "enfermeria-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["enfermeria"],
+        "titulo": "Ingreso en la especialidad de Enfermería",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-062002 · publicación 02/04/2025.",
+        "descripcion": "Bases públicas de la Diputación de Granada para el ingreso en la especialidad de Enfermería.",
+        "publicada_en": "2025-04-02T00:00:00Z", "actualizada_en": "2025-04-02T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:arquitectura-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "arquitectura-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["arquitecto"],
+        "titulo": "Ingreso en la especialidad de Arquitectura",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-064004 · publicación 04/04/2025.",
+        "descripcion": "Bases públicas de la Diputación de Granada para el ingreso en la especialidad de Arquitectura.",
+        "publicada_en": "2025-04-04T00:00:00Z", "actualizada_en": "2025-04-04T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:operaciones-topograficas-promocion-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "operaciones-topograficas-promocion-interna-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["auxiliar-tecnico-superior-operaciones-topograficas"],
+        "titulo": "Promoción interna de Auxiliar Técnico/a Superior de Operaciones Topográficas",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-072005 · publicación 16/04/2025.",
+        "descripcion": "Bases públicas de promoción interna para Auxiliar Técnico/a Superior de Operaciones Topográficas.",
+        "publicada_en": "2025-04-16T00:00:00Z", "actualizada_en": "2025-04-16T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:spt-tecnico-agente-promocion-2026", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "spt-tecnico-agente-promocion-interna-2026", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["tecnico-medio-gestion-tributaria-recaudacion", "agente-gestion-tributaria-recaudacion"],
+        "titulo": "Promoción interna de Técnico Medio y Agente de Gestión Tributaria y Recaudación del SPT",
+        "resumen": "Bases y convocatoria · BOP-GRA-2026-018003 · publicación 29/01/2026.",
+        "descripcion": "Bases públicas del Servicio Provincial Tributario para la promoción interna de Técnico Medio y Agente de Gestión Tributaria y Recaudación.",
+        "publicada_en": "2026-01-29T00:00:00Z", "actualizada_en": "2026-01-29T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:bombero-rectificacion-2024", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "bombero-rectificacion-2024", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["bombero"],
+        "titulo": "Rectificación de bases para diecinueve plazas de Bombero/a",
+        "resumen": "Rectificación de bases · BOP-GRA-2024-130002 · publicación 08/07/2024.",
+        "descripcion": "Rectificación pública de las bases del proceso selectivo para proveer diecinueve plazas de Bombero/a mediante oposición libre.",
+        "publicada_en": "2024-07-08T00:00:00Z", "actualizada_en": "2024-07-08T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:oficial-letrado-2024", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "oficial-letrado-2024", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["oficial-letrado"],
+        "titulo": "Ingreso en la especialidad de Oficial Letrado/a",
+        "resumen": "Bases y convocatoria · BOP-GRA-2024-229001 · publicación 26/11/2024.",
+        "descripcion": "Bases públicas de la Diputación de Granada para el ingreso en la especialidad de Oficial Letrado/a de la Escala de Administración Especial.",
+        "publicada_en": "2024-11-26T00:00:00Z", "actualizada_en": "2024-11-26T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:economista-2024", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "economista-2024", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["economista"],
+        "titulo": "Ingreso en la especialidad de Economista",
+        "resumen": "Bases y convocatoria · BOP-GRA-2024-241001 · publicación 16/12/2024.",
+        "descripcion": "Bases públicas de la Diputación de Granada para el ingreso en la especialidad de Economista de la Escala de Administración Especial.",
+        "publicada_en": "2024-12-16T00:00:00Z", "actualizada_en": "2024-12-16T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:operario-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "operario-proceso-selectivo-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["operario"],
+        "titulo": "Ingreso en la categoría de Operario/a",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-037005 · publicación 25/02/2025.",
+        "descripcion": "Bases públicas para el ingreso en la categoría de Operario/a de la Escala de Administración Especial de la Diputación de Granada.",
+        "publicada_en": "2025-02-25T00:00:00Z", "actualizada_en": "2025-02-25T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:auxiliar-informatica-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "auxiliar-tecnico-superior-informatica-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["auxiliar-tecnico-superior-informatica"],
+        "titulo": "Ingreso en Auxiliar Técnico/a Superior de Informática",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-045008 · publicación 10/03/2025.",
+        "descripcion": "Bases públicas para el ingreso en la especialidad de Auxiliar Técnico/a Superior de Informática de la Escala de Administración Especial.",
+        "publicada_en": "2025-03-10T00:00:00Z", "actualizada_en": "2025-03-10T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:bombero-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "bombero-veintiocho-plazas-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["bombero"],
+        "titulo": "Proceso selectivo para veintiocho plazas de Bombero/a",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-047005 · publicación 12/03/2025.",
+        "descripcion": "Bases públicas del proceso selectivo para proveer veintiocho plazas de Bombero/a mediante oposición libre.",
+        "publicada_en": "2025-03-12T00:00:00Z", "actualizada_en": "2025-03-12T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:auxiliar-recaudacion-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "auxiliar-recaudacion-rentas-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["auxiliar-recaudacion-inspeccion-rentas"],
+        "titulo": "Ingreso en Auxiliar de Recaudación e Inspección de Rentas",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-058002 · publicación 27/03/2025.",
+        "descripcion": "Bases públicas del Servicio Provincial Tributario para el ingreso en la categoría de Auxiliar de Recaudación e Inspección de Rentas.",
+        "publicada_en": "2025-03-27T00:00:00Z", "actualizada_en": "2025-03-27T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:ingenieria-tecnica-industrial-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "ingenieria-tecnica-industrial-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["ingenieria-tecnica-industrial"],
+        "titulo": "Ingreso en Ingeniería Técnica Industrial",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-064001 · publicación 04/04/2025.",
+        "descripcion": "Bases públicas para el ingreso en la especialidad de Ingeniería Técnica Industrial de la Escala de Administración Especial.",
+        "publicada_en": "2025-04-04T00:00:00Z", "actualizada_en": "2025-04-04T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:auxiliar-tecnico-deportivo-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "auxiliar-tecnico-deportivo-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["auxiliar-tecnico-deportivo"],
+        "titulo": "Ingreso en Auxiliar Técnico/a Deportivo/a",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-064005 · publicación 04/04/2025.",
+        "descripcion": "Bases públicas para el ingreso en la categoría de Auxiliar Técnico/a Deportivo/a de la Escala de Administración Especial.",
+        "publicada_en": "2025-04-04T00:00:00Z", "actualizada_en": "2025-04-04T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:auxiliar-centros-sociales-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "auxiliar-centros-sociales-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["auxiliar-tecnico-superior-centros-sociales"],
+        "titulo": "Ingreso en Auxiliar Técnico/a Superior de Centros Sociales",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-070001 · publicación 14/04/2025.",
+        "descripcion": "Bases públicas para el ingreso en la categoría de Auxiliar Técnico/a Superior de Centros Sociales de la Escala de Administración Especial.",
+        "publicada_en": "2025-04-14T00:00:00Z", "actualizada_en": "2025-04-14T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:ingeniero-caminos-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "ingeniero-caminos-canales-puertos-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["ingeniero-caminos-canales-puertos"],
+        "titulo": "Ingreso en Ingeniería de Caminos, Canales y Puertos",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-070003 · publicación 14/04/2025.",
+        "descripcion": "Bases públicas para el ingreso en la especialidad de Ingeniero/a de Caminos, Canales y Puertos de la Escala de Administración Especial.",
+        "publicada_en": "2025-04-14T00:00:00Z", "actualizada_en": "2025-04-14T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:centros-sociales-promocion-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "centros-sociales-promocion-interna-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["auxiliar-tecnico-superior-centros-sociales"],
+        "titulo": "Promoción interna en Auxiliar Técnico/a Superior de Centros Sociales",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-072006 · publicación 16/04/2025.",
+        "descripcion": "Bases públicas para el ingreso mediante promoción interna en la categoría de Auxiliar Técnico/a Superior de Centros Sociales.",
+        "publicada_en": "2025-04-16T00:00:00Z", "actualizada_en": "2025-04-16T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:cuidador-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "cuidador-personas-dependientes-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["cuidador-tecnico-personas-dependientes"],
+        "titulo": "Ingreso en Cuidador/a Técnico/a de Personas Dependientes",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-073001 · publicación 21/04/2025.",
+        "descripcion": "Bases públicas para el ingreso en la categoría de Cuidador/a Técnico/a de Personas Dependientes de la Escala de Administración Especial.",
+        "publicada_en": "2025-04-21T00:00:00Z", "actualizada_en": "2025-04-21T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:servicios-culturales-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "tecnico-superior-servicios-culturales-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["tecnico-superior-servicios-culturales"],
+        "titulo": "Ingreso en Técnico/a Superior de Servicios Culturales",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-132003 · publicación 15/07/2025.",
+        "descripcion": "Bases públicas para el ingreso en la categoría de Técnico/a Superior de Servicios Culturales de la Escala de Administración Especial.",
+        "publicada_en": "2025-07-15T00:00:00Z", "actualizada_en": "2025-07-15T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:obras-publicas-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "ingenieria-tecnica-obras-publicas-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["ingenieria-tecnica-obras-publicas"],
+        "titulo": "Ingreso en Ingeniería Técnica de Obras Públicas",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-144004 · publicación 31/07/2025.",
+        "descripcion": "Bases públicas para el ingreso en la especialidad de Ingeniería Técnica de Obras Públicas de la Escala de Administración Especial.",
+        "publicada_en": "2025-07-31T00:00:00Z", "actualizada_en": "2025-07-31T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:spt-promocion-interna-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "spt-promocion-interna-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["auxiliar-recaudacion-inspeccion-rentas"],
+        "titulo": "Provisión de puestos por promoción interna del Servicio Provincial Tributario",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-174002 · publicación 12/09/2025.",
+        "descripcion": "Bases públicas para la provisión de puestos de trabajo por promoción interna del Servicio Provincial Tributario de la Diputación de Granada.",
+        "publicada_en": "2025-09-12T00:00:00Z", "actualizada_en": "2025-09-12T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:integracion-social-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "auxiliar-integracion-social-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["auxiliar-tecnico-superior-integracion-social"],
+        "titulo": "Ingreso en Auxiliar Técnico/a Superior de Integración Social",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-179003 · publicación 19/09/2025.",
+        "descripcion": "Bases públicas para el ingreso libre en Auxiliar Técnico/a Superior de Integración Social de la Escala de Administración Especial.",
+        "publicada_en": "2025-09-19T00:00:00Z", "actualizada_en": "2025-09-19T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:psicologia-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "psicologia-ingreso-libre-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["psicologo"],
+        "titulo": "Ingreso libre en la especialidad de Psicología",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-179004 · publicación 19/09/2025.",
+        "descripcion": "Bases públicas para el ingreso libre en la especialidad de Psicología de la Escala de Administración Especial de la Diputación de Granada.",
+        "publicada_en": "2025-09-19T00:00:00Z", "actualizada_en": "2025-09-19T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:cuidador-promocion-2025", "version": "v2", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "cuidador-promocion-interna-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["cuidador-tecnico-personas-dependientes"],
+        "titulo": "Promoción interna de Cuidador/a Técnico/a de Personas Dependientes",
+        "resumen": "Bases BOP-GRA-2025-209002, publicadas 03/11/2025; modificación BOP-GRA-2026-026002 de 10/02/2026.",
+        "descripcion": "Bases públicas para el ingreso mediante promoción interna en Cuidador/a Técnico/a de Personas Dependientes, con la modificación posterior identificada en la referencia.",
+        "publicada_en": "2025-11-03T00:00:00Z", "actualizada_en": "2026-02-10T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:educador-social-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "educador-social-ingreso-libre-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["educador-social"],
+        "titulo": "Ingreso libre en la especialidad de Educador/a Social",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-218002 · publicación 14/11/2025.",
+        "descripcion": "Bases públicas para el ingreso libre en la especialidad de Educador/a Social de la Escala de Administración Especial.",
+        "publicada_en": "2025-11-14T00:00:00Z", "actualizada_en": "2025-11-14T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
+      }
+    },
+    {
+      "id": "proceso:publico:preimpresion-2025", "version": "v1", "estado": "cerrada",
+      "datos_publicos": {
+        "identificador_publico": "auxiliar-tecnico-preimpresion-2025", "tipo": "proceso_selectivo",
+        "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
+        "categorias": ["auxiliar-tecnico-preimpresion"],
+        "titulo": "Ingreso libre en Auxiliar Técnico/a de Preimpresión",
+        "resumen": "Bases y convocatoria · BOP-GRA-2025-231005 · publicación 03/12/2025.",
+        "descripcion": "Bases públicas para el ingreso libre en la categoría de Auxiliar Técnico/a de Preimpresión de la Escala de Administración Especial.",
+        "publicada_en": "2025-12-03T00:00:00Z", "actualizada_en": "2025-12-03T00:00:00Z",
+        "plazos": [], "requisitos": [], "documentos": [], "ayuda": []
       }
     }
   ]

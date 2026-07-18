@@ -171,13 +171,21 @@ func TestAdaptadorPresentacionRRHHNoSeSirvePorDefecto(t *testing.T) {
 		NewHandler(http.NotFoundHandler()),
 		NewHandlerWithConfig(config.Config{RRHHPresentationEnabled: true}, http.NotFoundHandler()),
 		NewHandlerWithConfig(configuracionPresentacionValida(), http.NotFoundHandler()),
+		NewHandlerPublicoWithConfig(configuracionPresentacionValida(), http.NotFoundHandler()),
+		NewHandlerInternoWithConfig(configuracionPresentacionValida(), http.NotFoundHandler()),
 	} {
 		for _, ruta := range []string{
 			"/presentacion/",
 			"/area-personal/adaptador-presentacion.js",
 			"/portal-empleado/datos-presentacion.js?v=1",
 			"/portal-empleado/portal-presentacion-adaptador.js",
+			"/bolsa/documentos/bases-demo.css",
 			"/bolsa/documentos/bases-auxiliar-demo.html",
+			"/bolsa/documentos/bases-auxiliar-demo.pdf",
+			"/bolsa/documentos/bases-gestion-demo.html",
+			"/bolsa/documentos/bases-gestion-demo.pdf",
+			"/bolsa/documentos/bases-operario-demo.html",
+			"/bolsa/documentos/bases-operario-demo.pdf",
 		} {
 			for _, metodo := range []string{http.MethodGet, http.MethodHead} {
 				rec := httptest.NewRecorder()

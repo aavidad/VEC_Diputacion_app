@@ -3369,3 +3369,44 @@ autoritativos preexistentes) es de diseno juridico, no de infraestructura, y
 no la levanta ningun certificado de pega. Tampoco se habilita produccion ni
 carga de datos reales, que siguen condicionados a Sistemas, a T12/T13 y a la
 validacion de la EIPD por el DPD.
+
+## DEC-094 — Presentación con referencias públicas reales y expedientes privados sintéticos
+
+Fecha: 19 de julio de 2026. Estado: adoptada para el entregable urgente de
+Bolsa.
+
+**Decisión.** La muestra deja de inventar títulos, categorías y fechas de
+convocatorias. El portal público consume 36 procesos construidos a partir de 37
+publicaciones contrastadas con el BOP de Granada y muestra su título, fecha de
+publicación y CVE. Tres
+procesos incorporan reproducciones accesibles en PDF y HTML, marcadas como
+`DEMOSTRACIÓN · SIN VALIDEZ ADMINISTRATIVA`, sanitizadas y enlazadas con sus
+fuentes oficiales. El catálogo común pasa a 68 categorías: 58 recuperadas de
+OPES y diez denominaciones adicionales constatadas en bases públicas, con
+desglose 5/60/3 entre Administración general, Administración especial y
+organismos dependientes.
+
+**Corrección de procedencia.** Se excluyen `BOP-GRA-2025-132017` y
+`BOP-GRA-2026-026027` porque corresponden al Ayuntamiento de Maracena. La
+referencia `BOP-GRA-2024-244001` (Técnico/a Superior de Archivo y Analista
+Programador/a) no se fusiona con `BOP-GRA-2024-244002` (Subescala de Gestión de
+Administración General). En cambio, `BOP-GRA-2025-209002` y su modificación
+`BOP-GRA-2026-026002` se conservan como dos publicaciones fuente de un único
+proceso; por eso 37 publicaciones producen 36 procesos.
+
+**Frontera de privacidad.** No se copian nombres de aspirantes, DNI, firmas,
+tribunales nominales, teléfonos, cuentas, expedientes ni actuaciones reales.
+Las identidades, solicitudes, puntuaciones, llamamientos, plazos operativos y
+acciones de los recorridos candidato/RRHH siguen siendo sintéticos, llevan
+referencias `DEMO-` y no salen de memoria. Los avisos distinguen expresamente
+ambos orígenes.
+
+**Integridad temporal.** Una fecha de publicación no se reinterpreta como
+plazo. Los históricos permanecen cerrados y no reciben intervalos estructurados
+si no se ha contrastado el instante jurídico completo. Incorporar un plazo
+exige fuente, zona horaria y regla de cómputo verificables.
+
+**Sustitución.** Los HTML, componentes, contratos y puertos permanecen. El
+adaptador `.demo.json` se reemplazará por la publicación gobernada cuando
+exista; los expedientes sintéticos no se migran. El inventario y sus huellas se
+documentan en `docs/demo/fuentes_publicas_bolsa.md`.

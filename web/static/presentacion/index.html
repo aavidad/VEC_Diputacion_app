@@ -6,12 +6,14 @@
     <meta name="color-scheme" content="light">
     <title>Recorrido de presentación · Portal RRHH</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/presentacion/presentacion.css?v=20260718-2">
+    <link rel="stylesheet" href="/presentacion/presentacion.css?v=20260719-modulos-portal-v1">
   </head>
   <body class="presentacion-cuerpo">
     <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
     <header class="presentacion-cabecera">
-      <img src="/portal-empleado/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
+      <a class="presentacion-marca-inicio" href="/presentacion/" aria-label="Volver al selector de recorridos">
+        <img src="/portal-empleado/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
+      </a>
       <div>
         <p class="presentacion-sobrelinea">Revisión funcional · Bolsa de trabajo</p>
         <h1>Recorrido de presentación del portal</h1>
@@ -20,10 +22,96 @@
     <main id="contenido-principal" class="presentacion-contenido">
       <section class="presentacion-aviso" aria-labelledby="alcance-presentacion">
         <h2 id="alcance-presentacion">Demostración sin validez administrativa</h2>
-        <p>Todos los nombres, expedientes, fechas y cifras son sintéticos. Las acciones solo cambian memoria volátil: no persisten, firman, registran, pagan ni envían comunicaciones reales.</p>
+        <p>Los títulos, categorías, fechas de publicación y referencias BOP de las convocatorias son datos públicos reales. Las personas, expedientes y actuaciones privadas son sintéticos. Las acciones solo cambian memoria volátil: no persisten, firman, registran, pagan ni envían comunicaciones reales.</p>
+      </section>
+      <section class="presentacion-catalogo" aria-labelledby="modulos-portal">
+        <div class="presentacion-catalogo-cabecera">
+          <div>
+            <p class="presentacion-sobrelinea presentacion-sobrelinea-oscura">Portal genérico de Recursos Humanos</p>
+            <h2 id="modulos-portal">Módulos del portal</h2>
+          </div>
+          <p>Todos compartirán identidad, datos, documentos y trazabilidad. En esta fase solo está disponible Bolsa; el resto se muestra para conservar la visión completa sin simular accesos que todavía no existen.</p>
+        </div>
+        <div class="presentacion-rejilla-modulos" aria-label="Módulos previstos del Portal de Recursos Humanos">
+          <article class="presentacion-modulo presentacion-modulo-activo" aria-labelledby="modulo-bolsa">
+            <span class="presentacion-icono-modulo" aria-hidden="true">BOL</span>
+            <h3 id="modulo-bolsa">Bolsas de trabajo</h3>
+            <p>Convocatorias, solicitudes, méritos, elaboración de bolsas, llamamientos y trazabilidad.</p>
+            <div class="presentacion-pie-modulo">
+              <span class="presentacion-estado-activo">Disponible en esta fase</span>
+              <a href="#elegir-recorrido">Elegir acceso</a>
+            </div>
+          </article>
+          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-personal">
+            <span class="presentacion-icono-modulo" aria-hidden="true">PER</span>
+            <h3 id="modulo-personal">Personal</h3>
+            <p>Datos personales, puesto, situación administrativa y servicios prestados.</p>
+            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+          </article>
+          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-nominas">
+            <span class="presentacion-icono-modulo" aria-hidden="true">NOM</span>
+            <h3 id="modulo-nominas">Nóminas</h3>
+            <p>Recibos, certificados fiscales e incidencias retributivas.</p>
+            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+          </article>
+          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-cronos">
+            <span class="presentacion-icono-modulo" aria-hidden="true">CRO</span>
+            <h3 id="modulo-cronos">Cronos</h3>
+            <p>Fichajes, permisos, vacaciones, turnos y calendario laboral.</p>
+            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+          </article>
+          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-dietas">
+            <span class="presentacion-icono-modulo" aria-hidden="true">DIE</span>
+            <h3 id="modulo-dietas">Dietas</h3>
+            <p>Comisiones de servicio, kilometraje, gastos y liquidaciones.</p>
+            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+          </article>
+          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-solicitudes">
+            <span class="presentacion-icono-modulo" aria-hidden="true">SOL</span>
+            <h3 id="modulo-solicitudes">Solicitudes y certificados</h3>
+            <p>Ventanilla única, aportación documental y seguimiento.</p>
+            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+          </article>
+          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-meritos">
+            <span class="presentacion-icono-modulo" aria-hidden="true">RUM</span>
+            <h3 id="modulo-meritos">Méritos y formación</h3>
+            <p>Títulos, cursos, experiencia y evidencias reutilizables.</p>
+            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+          </article>
+          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-comunicaciones">
+            <span class="presentacion-icono-modulo" aria-hidden="true">AVI</span>
+            <h3 id="modulo-comunicaciones">Comunicaciones</h3>
+            <p>Avisos personales, notificaciones y preferencias de canal.</p>
+            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+          </article>
+          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-documentos">
+            <span class="presentacion-icono-modulo" aria-hidden="true">DOC</span>
+            <h3 id="modulo-documentos">Documentos y firma</h3>
+            <p>Repositorio documental, generación, firma, verificación y descarga autorizada.</p>
+            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+          </article>
+          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-aprobaciones">
+            <span class="presentacion-icono-modulo" aria-hidden="true">APR</span>
+            <h3 id="modulo-aprobaciones">Aprobaciones y portafirmas</h3>
+            <p>Circuitos de revisión, visto bueno, firma múltiple y seguimiento.</p>
+            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+          </article>
+          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-auditoria">
+            <span class="presentacion-icono-modulo" aria-hidden="true">AUD</span>
+            <h3 id="modulo-auditoria">Auditoría</h3>
+            <p>Registro de accesos, operaciones, decisiones, evidencias y exportaciones.</p>
+            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+          </article>
+          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-administracion">
+            <span class="presentacion-icono-modulo" aria-hidden="true">ADM</span>
+            <h3 id="modulo-administracion">Administración y configuración</h3>
+            <p>Roles, permisos, catálogos, calendarios, reglas y conectores.</p>
+            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+          </article>
+        </div>
       </section>
       <section aria-labelledby="elegir-recorrido">
-        <h2 id="elegir-recorrido">Elegir punto de vista</h2>
+        <h2 id="elegir-recorrido">Elegir acceso a Bolsa</h2>
         <div class="presentacion-opciones">
           <article>
             <span class="presentacion-etiqueta">Acceso público</span>

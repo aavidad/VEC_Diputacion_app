@@ -16,7 +16,7 @@
 
   <div class="portal-publico-shell">
     <aside class="menu-lateral-publico" aria-label="Navegación del portal público de empleo">
-      <a class="marca-publica" href="/bolsa/" aria-label="Inicio de Bolsa y procesos selectivos">
+      <a class="marca-publica" id="enlace-inicio-institucional" href="/bolsa/" aria-label="Inicio de Bolsa y procesos selectivos">
         <img class="marca-publica__logo" src="/portal-empleado/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
         <span><strong>Portal público de empleo</strong><small>Bolsas y procesos selectivos</small></span>
       </a>
@@ -49,14 +49,14 @@
 
       <div id="aviso-demostracion" class="aviso-demostracion" role="status">
         <strong>DEMOSTRACIÓN</strong>
-        <span id="texto-aviso-demostracion">Contenido sintético, sin validez administrativa ni datos personales.</span>
+        <span id="texto-aviso-demostracion">Las referencias BOP, títulos, categorías y fechas son públicas y reales. Los documentos adaptados no tienen validez administrativa y no contienen datos personales.</span>
       </div>
 
   <main id="contenido-principal" class="contenido-publico" tabindex="-1">
     <section class="presentacion-publica" aria-labelledby="titulo-portal">
       <p class="eyebrow">Consulta pública</p>
-      <h1 id="titulo-portal">Convocatorias abiertas y próximas</h1>
-      <p>Consulte fechas, requisitos, documentos públicos y respuestas de ayuda. Esta zona no muestra expedientes ni datos personales.</p>
+      <h1 id="titulo-portal">Bolsas y procesos selectivos</h1>
+      <p>Consulte el histórico público, sus fechas de publicación, requisitos y bases. Esta zona no muestra expedientes ni datos personales.</p>
     </section>
 
     <form id="filtros-convocatorias" class="panel-filtros" role="search" aria-label="Filtrar convocatorias">
@@ -135,6 +135,7 @@
         <article id="contenido-detalle" hidden>
           <div id="detalle-etiquetas" class="grupo-etiquetas"></div>
           <p id="detalle-resumen" class="detalle-resumen"></p>
+          <p id="detalle-publicacion" class="tarjeta-meta"></p>
           <p id="detalle-descripcion"></p>
           <section aria-labelledby="titulo-plazos"><h3 id="titulo-plazos">Plazos</h3><div id="detalle-plazos"></div></section>
           <section aria-labelledby="titulo-requisitos"><h3 id="titulo-requisitos">Requisitos</h3><ol id="detalle-requisitos" class="lista-detalle"></ol></section>

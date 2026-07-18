@@ -2,8 +2,10 @@ package fichero
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -14,8 +16,8 @@ import (
 const rutaCatalogoProfesionalDemo = "../../../../data/catalogos/categorias-profesionales/v1.demo.json"
 
 const (
-	huellaCatalogoProfesionalV1 = "2a9aa4a903b765c2f46ceb7f429f342a13b229e54ca45813472cb9d0aa1a4f3e"
-	huellaFuenteOPES            = "4c94c36a2f024edda8b0c4d7c0cec965b97096f0ffbc64df3e13f64dad568b1b"
+	huellaCatalogoProfesionalV1 = "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"
+	huellaFuentePublica         = "de9af856fea93e91340e77aef6403d607e49b3822e5d8f7856bca4a5d6ad5172"
 )
 
 func TestPaqueteCategoriasProfesionalesEsEstrictoCompletoEInmutable(t *testing.T) {
@@ -24,7 +26,7 @@ func TestPaqueteCategoriasProfesionalesEsEstrictoCompletoEInmutable(t *testing.T
 		t.Fatal(err)
 	}
 	catalogo, err := consulta.ObtenerCatalogo(context.Background(), "categorias-profesionales", 1)
-	if err != nil || len(catalogo.Entradas) != 58 {
+	if err != nil || len(catalogo.Entradas) != 68 {
 		t.Fatalf("catalogo=%#v error=%v", catalogo, err)
 	}
 	areas := map[string]int{}
@@ -34,7 +36,8 @@ func TestPaqueteCategoriasProfesionalesEsEstrictoCompletoEInmutable(t *testing.T
 			t.Fatalf("categoria %q sin area u orden canonico: %d", entrada.Clave, entrada.Orden)
 		}
 	}
-	if areas["administracion_general"] != 5 || areas["administracion_especial"] != 53 || len(areas) != 2 {
+	if areas["administracion_general"] != 5 || areas["administracion_especial"] != 60 ||
+		areas["organismos_dependientes"] != 3 || len(areas) != 3 {
 		t.Fatalf("distribucion de areas inesperada: %#v", areas)
 	}
 	huella, err := catalogo.HuellaSHA256()
@@ -46,10 +49,18 @@ func TestPaqueteCategoriasProfesionalesEsEstrictoCompletoEInmutable(t *testing.T
 		t.Fatal(err)
 	}
 	var paquete paqueteCatalogo
-	if err := json.Unmarshal(contenido, &paquete); err != nil || paquete.Fuente.OrigenSHA256 != huellaFuenteOPES {
+	if err := json.Unmarshal(contenido, &paquete); err != nil || paquete.Fuente.OrigenSHA256 != huellaFuentePublica {
 		t.Fatalf("huella de la fuente historica=%q error=%v", paquete.Fuente.OrigenSHA256, err)
 	}
-	// El 58 solo se fija en esta prueba de integridad del paquete inicial; el
+	contenidoFuente, err := os.ReadFile("../../../../docs/demo/fuentes_publicas_bolsa.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellaFuenteReal := sha256.Sum256(contenidoFuente)
+	if obtenida := fmt.Sprintf("%x", huellaFuenteReal); obtenida != paquete.Fuente.OrigenSHA256 {
+		t.Fatalf("huella real del inventario=%q declarada=%q", obtenida, paquete.Fuente.OrigenSHA256)
+	}
+	// El 68 solo se fija en esta prueba de integridad del paquete DEMO actual; el
 	// codigo de produccion admite cualquier version y numero valido de entradas.
 	catalogo.Entradas[0].Etiqueta = "alterada"
 	catalogo.Entradas[0].Atributos["source_path"] = "alterado"

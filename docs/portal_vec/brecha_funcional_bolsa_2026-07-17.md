@@ -48,11 +48,16 @@ La situación observada es:
   conectada» cuando reciben el contrato interno real;
 - **3 recursos públicos GET/HEAD** están registrados: listado, detalle y
   directorio de categorías;
-- la fuente pública de serie contiene **2 convocatorias, 3 documentos HTML, 3
-  requisitos, 2 plazos y 3 respuestas de ayuda**, todos sintéticos;
-- el catálogo profesional contiene **58 categorías históricas**, pero también
-  declara ser de demostración y estar pendiente de validación funcional por
-  RRHH.
+- la fuente pública de serie contiene **36 procesos históricos construidos a
+  partir de 37 publicaciones BOP, con título, categoría, fecha y CVE públicos
+  reales**; tres fichas incorporan además
+  **3 PDF, 3 HTML accesibles y 16 requisitos** adaptados. No se inventan plazos
+  estructurados para los demás procesos;
+- el catálogo profesional contiene **68 categorías históricas** (5 de
+  Administración general, 60 de Administración especial y 3 de organismos
+  dependientes), contrastadas
+  con OPES y publicaciones del BOP, pero declara ser de demostración y estar
+  pendiente de validación funcional por RRHH.
 
 Estas cifras expresan cobertura de recorridos, no calidad del código ni volumen
 de trabajo. La cimentación reutilizable es considerable, pero no se suma como
@@ -435,9 +440,11 @@ adaptador de lectura una vez exista la proyección oficial.
 
 Este corte aún no migra a producción candidaturas, la autobaremación preservada
 ni llamamientos. Sí crea la autoridad de convocatoria y reglas que todos ellos
-necesitan. La fuente sintética del recorrido público tampoco se elimina hasta
-que exista una proyección oficial de la misma versión aprobada; no se sustituirá
-por una vía de administración insegura.
+necesitan. La fuente DEMO del recorrido público ya emplea metadatos BOP reales,
+pero tampoco se elimina hasta que exista una proyección oficial de la misma
+versión aprobada; las reproducciones documentales adaptadas no se
+reinterpretarán como publicación administrativa ni se sustituirán por una vía
+de administración insegura.
 
 ## Regla de comunicación del avance
 

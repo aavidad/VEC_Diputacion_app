@@ -161,8 +161,9 @@ productiva verificada.
   duplicar ficheros por modulo ni confundir un dossier con un expediente legal.
 - Categorias profesionales y convocatorias dejan de ser listas estaticas: se
   gobiernan por catalogo y version exacta. La fuente de demostracion contiene
-  58 categorias y el arranque impide publicar una convocatoria que cite una
-  categoria ausente.
+  68 categorias —58 recuperadas de OPES y diez contrastadas en publicaciones
+  BOP— y el arranque impide publicar una convocatoria que cite una categoria
+  ausente.
 - Se implanta primero un registro canonico y versionado de fuentes de autoridad
   para que bases, RPT, calendarios, convenios y decisiones funcionales citen el
   documento, version, precepto, vigencia y estado exactos. Su primer corte de

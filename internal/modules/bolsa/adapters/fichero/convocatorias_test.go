@@ -21,7 +21,7 @@ func TestFuenteDemoCargaAgregadoCanonicoSinPIIYDevuelveCopias(t *testing.T) {
 	resultado, err := consulta.BuscarPublicadas(context.Background(), puertosbolsa.FiltroConvocatoriasPublicas{
 		Instante: time.Date(2026, 7, 15, 8, 0, 0, 0, time.UTC), Limite: 24,
 	})
-	if err != nil || resultado.Total != 2 || !resultado.Fuente.Demostracion {
+	if err != nil || resultado.Total != 36 || !resultado.Fuente.Demostracion {
 		t.Fatalf("resultado = %#v, error = %v", resultado, err)
 	}
 	resultado.Convocatorias[0].DatosPublicos.Titulo = "alterado"
@@ -31,26 +31,16 @@ func TestFuenteDemoCargaAgregadoCanonicoSinPIIYDevuelveCopias(t *testing.T) {
 	}
 }
 
-func TestFuenteDemoFiltraPlazoAbiertoConCierreInclusivo(t *testing.T) {
+func TestFuenteDemoHistoricaNoInventaPlazosAbiertos(t *testing.T) {
 	consulta, err := NuevaConsultaConvocatorias(rutaDemoPrueba)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cierre := time.Date(2026, 8, 15, 21, 59, 59, 0, time.UTC)
-	for _, prueba := range []struct {
-		nombre   string
-		instante time.Time
-		total    int
-	}{
-		{nombre: "instante exacto", instante: cierre, total: 1},
-		{nombre: "microsegundo posterior", instante: cierre.Add(time.Microsecond), total: 0},
-	} {
-		t.Run(prueba.nombre, func(t *testing.T) {
-			resultado, err := consulta.BuscarPublicadas(context.Background(), puertosbolsa.FiltroConvocatoriasPublicas{Instante: prueba.instante, Limite: 24, SoloPlazoAbierto: true})
-			if err != nil || resultado.Total != prueba.total {
-				t.Fatalf("total = %d, error = %v", resultado.Total, err)
-			}
-		})
+	resultado, err := consulta.BuscarPublicadas(context.Background(), puertosbolsa.FiltroConvocatoriasPublicas{
+		Instante: time.Date(2026, 7, 19, 8, 0, 0, 0, time.UTC), Limite: 24, SoloPlazoAbierto: true,
+	})
+	if err != nil || resultado.Total != 0 {
+		t.Fatalf("total = %d, error = %v", resultado.Total, err)
 	}
 }
 
@@ -60,12 +50,12 @@ func TestFuenteDemoCuentaCategoriasIgnorandoSoloEseFiltro(t *testing.T) {
 		t.Fatal(err)
 	}
 	resultado, err := consulta.BuscarPublicadas(context.Background(), puertosbolsa.FiltroConvocatoriasPublicas{
-		Categoria: "auxiliar-administrativo",
+		Categoria: "operario",
 		Instante:  time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC),
 		Limite:    24,
 	})
-	if err != nil || resultado.Total != 1 ||
-		resultado.ConteosCategorias["auxiliar-administrativo"].NumeroConvocatorias != 1 ||
+	if err != nil || resultado.Total != 2 ||
+		resultado.ConteosCategorias["operario"].NumeroConvocatorias != 2 ||
 		resultado.ConteosCategorias["tecnico-de-gestion"].NumeroConvocatorias != 1 {
 		t.Fatalf("resultado=%#v error=%v", resultado, err)
 	}
@@ -80,8 +70,8 @@ func TestFuenteDemoRechazaJSONLaxoDuplicadoYDatosPersonales(t *testing.T) {
 		"campo desconocido":            strings.Replace(string(base), `"version_esquema": 1,`, `"version_esquema": 1, "desconocido": true,`, 1),
 		"clave duplicada":              strings.Replace(string(base), `"version_esquema": 1,`, `"version_esquema": 1, "version_esquema": 1,`, 1),
 		"dni_sintetico":                strings.Replace(string(base), `"version_esquema": 1,`, `"version_esquema": 1, "dni": "00000000A",`, 1),
-		"espacio no canonico":          strings.Replace(string(base), `"titulo": "Bolsa temporal`, `"titulo": " Bolsa temporal`, 1),
-		"marca bidi":                   strings.Replace(string(base), `"titulo": "Bolsa temporal`, `"titulo": "Bolsa \u202etemporal`, 1),
+		"espacio no canonico":          strings.Replace(string(base), `"titulo": "Bolsa de empleo`, `"titulo": " Bolsa de empleo`, 1),
+		"marca bidi":                   strings.Replace(string(base), `"titulo": "Bolsa de empleo`, `"titulo": "Bolsa \u202ede empleo`, 1),
 		"version catalogo incoherente": strings.Replace(string(base), `"clave": "bolsa_temporal", "version": 1`, `"clave": "bolsa_temporal", "version": 2`, 1),
 		"categorias embebidas":         strings.Replace(string(base), `"catalogos": [`, `"catalogos": [{"referencia":"categorias_convocatoria","version":1,"entradas":[{"clave":"auxiliar-administrativo","version":1,"etiqueta":"Auxiliar administrativo","semantica":"informacion","orden":1,"publicable":true}]},`, 1),
 	}

@@ -488,10 +488,12 @@ detalle responde `{"category": categoria, "catalogo": referencia, "fuente": fuen
 la fuente contiene solo revision, fecha, marca de demostracion y aviso, nunca
 rutas, actores ni referencias internas de aprobacion.
 
-Las 58 entradas actuales (5 de Administracion general y 53 de Administracion
-especial) proceden del inventario historico OPES y son exclusivamente DEMO,
-pendientes de contraste y aprobacion formal por RRHH. La huella identifica el
-contenido exacto; no equivale a aprobacion ni firma administrativa.
+Las 68 entradas actuales (5 de Administracion general, 60 de Administracion
+especial y 3 de organismos dependientes) consolidan las 58 denominaciones del
+inventario historico OPES y diez categorias constatadas en bases publicas. Son
+exclusivamente DEMO, pendientes de contraste y aprobacion formal por RRHH. La
+huella identifica el contenido exacto; no equivale a aprobacion ni firma
+administrativa.
 
 Una mutacion directa autorizada responde:
 
@@ -509,7 +511,7 @@ recibo auditado. No esta implementado ni se presenta como productivo.
 ### `CatalogStats` (`GET /personal/rpt/stats`)
 
 ```json
-{ "positions": 0, "categories": 58, "catalog_entries": 0, "positions_by_group": {}, "categories_by_area": { "administracion_general": 5, "administracion_especial": 53 }, "pending_legend": 0 }
+{ "positions": 0, "categories": 68, "catalog_entries": 0, "positions_by_group": {}, "categories_by_area": { "administracion_general": 5, "administracion_especial": 60, "organismos_dependientes": 3 }, "pending_legend": 0 }
 ```
 
 Los contadores de categorias y por area se calculan desde la misma instantanea
@@ -610,7 +612,7 @@ del catalogo profesional publicado y vigente:
 {
   "esquema": "vec.bolsa.publico.categorias.v1",
   "fuente": { "revision": "opes-inventario-historico-demo-v1", "actualizada_en": "2026-07-16T00:00:00Z", "demostracion": true, "aviso": "..." },
-  "catalogo": { "referencia": "categorias-profesionales", "version": 1, "huella_sha256": "...", "total": 58 },
+  "catalogo": { "referencia": "categorias-profesionales", "version": 1, "huella_sha256": "...", "total": 68 },
   "categorias": [
     {
       "clave": "auxiliar-administrativo",
@@ -743,7 +745,7 @@ resultado de un `fetch`).
 | Dietas: dashboard, comisiones, kilometraje anual, dietas, justificantes, aprobaciones, liquidaciones | Ninguno | 100% local |
 | Dietas: mapa provincial, calculo de ruta punto a punto | `POST /api/vec/dietas/road-route` | Real solo para el calculo de distancia/geometria; el resto de la pantalla (listas de comisiones, dietas asociadas) es local |
 | Personal: puestos RPT (listado/detalle) | `GET /api/vec/personal/rpt/positions[/{code}]` | Real, pero catalogo vacio salvo import previo |
-| Personal: categorias profesionales, catalogos auxiliares | `GET /api/vec/personal/categories`, `GET /api/vec/personal/catalogs` | Categorias: autoridad gobernada compartida (58 DEMO pendientes de RRHH); auxiliares: vacios salvo carga previa |
+| Personal: categorias profesionales, catalogos auxiliares | `GET /api/vec/personal/categories`, `GET /api/vec/personal/catalogs` | Categorias: autoridad gobernada compartida (68 DEMO pendientes de RRHH); auxiliares: vacios salvo carga previa |
 | Personal: estadisticas de catalogo | `GET /api/vec/personal/rpt/stats` | Real |
 | Personal: expedientes, situaciones administrativas, antiguedad/trienios, servicios prestados, certificados | Ninguno | 100% local |
 | Personal: nominas, retribuciones, incidencias, integraciones | Ninguno | 100% local (incluye tablas `PAYROLL_HISTORY_MONTHS` y ajustes de productividad hardcodeados en el JS) |
@@ -829,5 +831,5 @@ servidor):
   Bolsa. Si un snapshot antiguo contiene `categories`, se valida una proyeccion
   tipada y se conserva inerte el subarbol JSON opaco, incluidas extensiones que
   esta version no conozca. Al persistir RPT no se destruye ese legado, pero no
-  se consulta, no se mezcla con las 58 entradas DEMO gobernadas, no se expone y
+  se consulta, no se mezcla con las 68 entradas DEMO gobernadas, no se expone y
   no acepta mutaciones nuevas.

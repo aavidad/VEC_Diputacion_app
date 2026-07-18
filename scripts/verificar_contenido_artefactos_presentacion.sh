@@ -35,6 +35,13 @@ for ruta in \
   app/web/static/area-personal/adaptador-presentacion.js \
   app/web/static/portal-empleado/datos-presentacion.js \
   app/web/static/portal-empleado/portal-presentacion-adaptador.js \
+  app/web/static/bolsa/documentos/bases-demo.css \
+  app/web/static/bolsa/documentos/bases-auxiliar-demo.html \
+  app/web/static/bolsa/documentos/bases-auxiliar-demo.pdf \
+  app/web/static/bolsa/documentos/bases-gestion-demo.html \
+  app/web/static/bolsa/documentos/bases-gestion-demo.pdf \
+  app/web/static/bolsa/documentos/bases-operario-demo.html \
+  app/web/static/bolsa/documentos/bases-operario-demo.pdf \
   app/data/demo/convocatorias_publicas.demo.json \
   usr/local/bin/vec-presentacion
 do

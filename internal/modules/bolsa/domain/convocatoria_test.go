@@ -99,6 +99,21 @@ func TestConvocatoriaPublicaRechazaDuplicadosYURLExterna(t *testing.T) {
 	}
 }
 
+func TestHistoricoCerradoNoInventaPlazoPeroUnEstadoOperativoLoExige(t *testing.T) {
+	historico := convocatoriaPublicaValidaPrueba()
+	historico.Estado = EstadoConvocatoriaCerrada
+	historico.DatosPublicos.Plazos = nil
+	if err := historico.ValidarPublicacion(); err != nil {
+		t.Fatalf("histórico cerrado sin plazo fiable rechazado: %v", err)
+	}
+
+	operativa := convocatoriaPublicaValidaPrueba()
+	operativa.DatosPublicos.Plazos = nil
+	if err := operativa.ValidarPublicacion(); !errors.Is(err, ErrConvocatoriaInvalida) {
+		t.Fatalf("estado operativo sin plazo aceptado: %v", err)
+	}
+}
+
 func TestURLPublicaRechazaTamanoAntesDeInterpretarla(t *testing.T) {
 	valor := "/bolsa/documentos/" + strings.Repeat("segmento/", 100_000)
 	if urlDocumentoPublicoValida(valor) {

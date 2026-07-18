@@ -49,7 +49,7 @@ func categoriasPublicasPrueba(t *testing.T) puertosbolsa.ConsultaCategoriasPubli
 func TestListadoPublicoMinimizaDatosYResuelveCatalogos(t *testing.T) {
 	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC))
 	resultado, err := servicio.Listar(context.Background(), aplicacionbolsa.SolicitudListadoPublico{Tamano: 12})
-	if err != nil || resultado.Paginacion.Total != 2 || len(resultado.Facetas.Tipos) != 2 {
+	if err != nil || resultado.Paginacion.Total != 36 || len(resultado.Facetas.Tipos) != 2 {
 		t.Fatalf("resultado = %#v, error = %v", resultado, err)
 	}
 	contenido, err := json.Marshal(resultado)
@@ -100,29 +100,31 @@ func TestValidacionAnticipadaFijaCatalogoExactoAntesDePublicarRutas(t *testing.T
 
 func TestListadoUsaFacetasProfesionalesConConteoSinConvertirConvocatoriasEnAutoridad(t *testing.T) {
 	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC))
-	resultado, err := servicio.Listar(context.Background(), aplicacionbolsa.SolicitudListadoPublico{Categoria: "auxiliar-administrativo"})
-	if err != nil || resultado.Paginacion.Total != 1 || len(resultado.Facetas.Categorias) != 2 {
+	resultado, err := servicio.Listar(context.Background(), aplicacionbolsa.SolicitudListadoPublico{Categoria: "operario"})
+	if err != nil || resultado.Paginacion.Total != 2 || len(resultado.Facetas.Categorias) != 35 {
 		t.Fatalf("resultado=%#v error=%v", resultado, err)
 	}
+	conteos := make(map[string]int, len(resultado.Facetas.Categorias))
 	for _, faceta := range resultado.Facetas.Categorias {
-		if faceta.NumeroResultados != 1 {
-			t.Fatalf("faceta sin conteo independiente del filtro: %#v", faceta)
-		}
+		conteos[faceta.Clave] = faceta.NumeroResultados
+	}
+	if conteos["operario"] != 2 || conteos["bombero"] != 3 || conteos["tecnico-de-gestion"] != 1 {
+		t.Fatalf("facetas sin conteo independiente del filtro: %#v", conteos)
 	}
 	contenido, err := json.Marshal(resultado)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Count(string(contenido), `"numero_resultados"`) != 2 {
+	if strings.Count(string(contenido), `"numero_resultados"`) != 35 {
 		t.Fatalf("numero_resultados se expuso fuera de facetas categoria: %s", contenido)
 	}
 }
 
-func TestDirectorioPublicoExpone58CategoriasMinimizadasYConteos(t *testing.T) {
+func TestDirectorioPublicoExpone68CategoriasMinimizadasYConteos(t *testing.T) {
 	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC))
 	resultado, err := servicio.ListarCategorias(context.Background())
 	if err != nil || resultado.Esquema != "vec.bolsa.publico.categorias.v1" ||
-		resultado.Catalogo.Total != 58 || len(resultado.Categorias) != 58 || !resultado.Fuente.Demostracion {
+		resultado.Catalogo.Total != 68 || len(resultado.Categorias) != 68 || !resultado.Fuente.Demostracion {
 		t.Fatalf("resultado=%#v error=%v", resultado, err)
 	}
 	if primera := resultado.Categorias[0]; primera.Clave != "administrativo" || primera.Orden != 1 ||
@@ -133,8 +135,8 @@ func TestDirectorioPublicoExpone58CategoriasMinimizadasYConteos(t *testing.T) {
 	for _, categoria := range resultado.Categorias {
 		conteos[categoria.Clave] = categoria
 	}
-	if conteos["auxiliar-administrativo"].NumeroConvocatorias != 1 ||
-		conteos["auxiliar-administrativo"].NumeroPlazosAbiertos != 1 ||
+	if conteos["operario"].NumeroConvocatorias != 2 ||
+		conteos["operario"].NumeroPlazosAbiertos != 0 ||
 		conteos["tecnico-de-gestion"].NumeroConvocatorias != 1 ||
 		conteos["tecnico-de-gestion"].NumeroPlazosAbiertos != 0 {
 		t.Fatalf("conteos=%#v", conteos)
@@ -171,20 +173,16 @@ func TestConsultaPublicaAcotaFiltrosYPaginacion(t *testing.T) {
 	}
 }
 
-func TestDetallePublicoCierreEsInclusivoAlMicrosegundo(t *testing.T) {
-	cierre := time.Date(2026, 8, 15, 21, 59, 59, 0, time.UTC)
-	for _, prueba := range []struct {
-		instante time.Time
-		quiere   string
-	}{
-		{instante: cierre, quiere: "abierto"},
-		{instante: cierre.Add(time.Microsecond), quiere: "cerrado"},
-	} {
-		servicio := servicioPublicoPrueba(t, prueba.instante)
-		detalle, err := servicio.Obtener(context.Background(), "bolsa-auxiliar-administrativo-demo-2026")
-		if err != nil || detalle.Plazos[0].Situacion != prueba.quiere {
-			t.Fatalf("situacion = %q, error = %v", detalle.Plazos[0].Situacion, err)
-		}
+func TestDetalleHistoricoExponePublicacionRealSinInventarPlazo(t *testing.T) {
+	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 19, 8, 0, 0, 0, time.UTC))
+	detalle, err := servicio.Obtener(context.Background(), "bolsa-operario-diputacion-2026")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(detalle.Plazos) != 0 || detalle.Convocatoria.Estado.Clave != "cerrada" ||
+		!detalle.Convocatoria.PublicadaEn.Equal(time.Date(2026, 3, 5, 0, 0, 0, 0, time.UTC)) ||
+		len(detalle.Requisitos) != 6 || len(detalle.Documentos) != 2 {
+		t.Fatalf("detalle histórico inesperado: %#v", detalle)
 	}
 }
 
@@ -192,7 +190,7 @@ func TestObtenerRespetaContextoCanceladoAntesDeFuente(t *testing.T) {
 	servicio := servicioPublicoPrueba(t, time.Now().UTC())
 	ctx, cancelar := context.WithCancel(context.Background())
 	cancelar()
-	if _, err := servicio.Obtener(ctx, "bolsa-auxiliar-administrativo-demo-2026"); !errors.Is(err, context.Canceled) {
+	if _, err := servicio.Obtener(ctx, "bolsa-operario-diputacion-2026"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -234,7 +232,7 @@ func TestDetalleFallaCerradoSiDocumentoPierdeCatalogoPublicable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = servicio.Obtener(context.Background(), "bolsa-auxiliar-administrativo-demo-2026")
+	_, err = servicio.Obtener(context.Background(), "bolsa-operario-diputacion-2026")
 	if !errors.Is(err, aplicacionbolsa.ErrDatosPublicosNoConfiables) {
 		t.Fatalf("error = %v", err)
 	}

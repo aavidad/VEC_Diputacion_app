@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -8,6 +9,74 @@ import (
 
 	"vec-diputacion-granada/config"
 )
+
+func TestPresentacionSirveBasesDemoPDFYAlternativaHTMLAccesible(t *testing.T) {
+	servidor, err := NewHTTPServerPresentacion(configuracionPresentacionValida(), http.NotFoundHandler())
+	if err != nil {
+		t.Fatal(err)
+	}
+	recCSS := httptest.NewRecorder()
+	servidor.Handler.ServeHTTP(recCSS, peticionServidorPrueba(http.MethodGet, "/bolsa/documentos/bases-demo.css", nil))
+	if recCSS.Code != http.StatusOK || !strings.Contains(recCSS.Header().Get("Content-Type"), "text/css") || !strings.Contains(recCSS.Body.String(), ".documento-administrativo") {
+		t.Fatalf("CSS común de bases = %d Content-Type=%q", recCSS.Code, recCSS.Header().Get("Content-Type"))
+	}
+	pruebas := []struct {
+		nombre string
+		base   string
+		cve    string
+		titulo string
+	}{
+		{"auxiliar", "bases-auxiliar-demo", "BOP-GRA-2025-125002", "Auxiliar de Servicios Generales"},
+		{"gestion", "bases-gestion-demo", "BOP-GRA-2024-244002", "Subescala de Gestión"},
+		{"operario", "bases-operario-demo", "BOP-GRA-2026-043004", "bolsa de empleo de Operario"},
+	}
+	for _, prueba := range pruebas {
+		t.Run(prueba.nombre, func(t *testing.T) {
+			rutaPDF := "/bolsa/documentos/" + prueba.base + ".pdf"
+			recPDF := httptest.NewRecorder()
+			servidor.Handler.ServeHTTP(recPDF, peticionServidorPrueba(http.MethodGet, rutaPDF, nil))
+			if recPDF.Code != http.StatusOK {
+				t.Fatalf("GET %s = %d", rutaPDF, recPDF.Code)
+			}
+			if tipo := recPDF.Header().Get("Content-Type"); !strings.Contains(tipo, "application/pdf") {
+				t.Errorf("GET %s Content-Type=%q", rutaPDF, tipo)
+			}
+			if cuerpo := recPDF.Body.Bytes(); !bytes.HasPrefix(cuerpo, []byte("%PDF-")) || !bytes.HasSuffix(bytes.TrimSpace(cuerpo), []byte("%%EOF")) {
+				t.Errorf("GET %s no entrego un PDF completo", rutaPDF)
+			}
+			if recPDF.Header().Get(cabeceraModoPresentacion) != valorModoPresentacion {
+				t.Errorf("GET %s sin marca tecnica de presentacion", rutaPDF)
+			}
+			if recPDF.Header().Get("Cache-Control") != "no-store" {
+				t.Errorf("GET %s Cache-Control=%q", rutaPDF, recPDF.Header().Get("Cache-Control"))
+			}
+
+			rutaHTML := "/bolsa/documentos/" + prueba.base + ".html"
+			recHTML := httptest.NewRecorder()
+			servidor.Handler.ServeHTTP(recHTML, peticionServidorPrueba(http.MethodGet, rutaHTML, nil))
+			contenido := recHTML.Body.String()
+			if recHTML.Code != http.StatusOK || !strings.Contains(recHTML.Header().Get("Content-Type"), "text/html") {
+				t.Fatalf("GET %s = %d Content-Type=%q", rutaHTML, recHTML.Code, recHTML.Header().Get("Content-Type"))
+			}
+			for _, esperado := range []string{`<html lang="es">`, "<main", prueba.titulo, prueba.cve, "DEMOSTRACIÓN · SIN VALIDEZ ADMINISTRATIVA"} {
+				if !strings.Contains(contenido, esperado) {
+					t.Errorf("GET %s no contiene %q", rutaHTML, esperado)
+				}
+			}
+			if strings.Contains(strings.ToLower(contenido), "<style") || strings.Contains(strings.ToLower(contenido), " style=") {
+				t.Errorf("GET %s contiene CSS inline", rutaHTML)
+			}
+
+			for _, ruta := range []string{rutaPDF, rutaHTML} {
+				recHEAD := httptest.NewRecorder()
+				servidor.Handler.ServeHTTP(recHEAD, peticionServidorPrueba(http.MethodHead, ruta, nil))
+				if recHEAD.Code != http.StatusOK || recHEAD.Body.Len() != 0 {
+					t.Errorf("HEAD %s = %d cuerpo=%d", ruta, recHEAD.Code, recHEAD.Body.Len())
+				}
+			}
+		})
+	}
+}
 
 func configuracionPresentacionValida() config.Config {
 	return config.Config{
@@ -159,7 +228,10 @@ func TestPresentacionEsSoloLecturaYRechazaCredencialesAmbientales(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, ruta := range []string{"/presentacion/", "/area-personal/", "/portal-empleado/", "/bolsa/", "/api/publico/consulta"} {
+	for _, ruta := range []string{
+		"/presentacion/", "/area-personal/", "/portal-empleado/", "/bolsa/", "/api/publico/consulta",
+		"/bolsa/documentos/bases-operario-demo.html", "/bolsa/documentos/bases-operario-demo.pdf",
+	} {
 		rec := httptest.NewRecorder()
 		servidor.Handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodPost, ruta, strings.NewReader("dato")))
 		if rec.Code != http.StatusMethodNotAllowed || rec.Header().Get("Allow") != "GET, HEAD" {

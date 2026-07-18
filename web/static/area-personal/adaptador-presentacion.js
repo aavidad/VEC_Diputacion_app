@@ -12,7 +12,7 @@ const BASE_PRESENTACION = {
   meta: {
     esquema: "vec.bolsa.area-personal.v1",
     presentacion: true,
-    origen: "Adaptador efímero de presentación",
+    origen: "Adaptador efímero con referencias públicas reales",
     generado_en: "2026-07-18T09:00:00Z",
   },
   sesion: {
@@ -23,7 +23,7 @@ const BASE_PRESENTACION = {
   },
   resumen: {
     acciones_pendientes: 3,
-    convocatorias_abiertas: 2,
+    convocatorias_abiertas: 0,
     solicitudes_activas: 2,
     mensajes_no_leidos: 2,
     puntuacion_provisional: 14.75,
@@ -67,30 +67,43 @@ const BASE_PRESENTACION = {
     noticias: false,
   },
   plazos: [
-    { id: "DEMO-PLAZO-001", dia: "21", mes: "JUL", titulo: "Completar solicitud", detalle: "Bolsa de Auxiliar de Gestión · 23:59", estado: "Quedan 3 días", ruta: "solicitud" },
+    { id: "DEMO-PLAZO-001", dia: "21", mes: "JUL", titulo: "Completar solicitud simulada", detalle: "Bolsa de empleo de Operario · plazo exclusivamente DEMO", estado: "Simulación sin efectos", ruta: "solicitud" },
     { id: "DEMO-PLAZO-002", dia: "23", mes: "JUL", titulo: "Responder subsanación", detalle: "Expediente DEMO-SOL-0027 · 14:00", estado: "Acción requerida", ruta: "subsanaciones" },
     { id: "DEMO-PLAZO-003", dia: "29", mes: "JUL", titulo: "Fin de alegaciones", detalle: "Listado provisional · 23:59", estado: "Próximamente", ruta: "alegaciones" },
   ],
   convocatorias: [
     {
-      id: "DEMO-CONV-001", referencia: "DEMO-BOL-2026-014", titulo: "Bolsa de Auxiliar de Gestión", categoria: "Administración general",
-      estado: "Plazo abierto", plazo: "Del 08/07/2026 al 21/07/2026", descripcion: "Selección temporal mediante concurso de méritos.",
-      plazas: "Bolsa sin número cerrado de integrantes", tasa: "12,00 € · bonificaciones configurables", presentacion_hasta: "21/07/2026 23:59",
-      requisitos: ["Titulación equivalente a Bachillerato o Técnico", "Capacidad funcional", "No concurrir en causa de inhabilitación"],
-      documentos: ["Bases de la convocatoria", "Anexo de solicitud", "Tabla de baremación"],
+      id: "DEMO-CONV-001", referencia: "BOP-GRA-2026-043004", titulo: "Bolsa de empleo de Operario de la Diputación de Granada", categoria: "Operario/a",
+      estado: "Histórico cerrado", plazo: "Sin plazo abierto en el portal · publicación 05/03/2026", descripcion: "Bases públicas para elaborar una bolsa de empleo de Operario de la Escala de Administración Especial. Expediente 2026/BTN_01/000062.",
+      plazas: "Bolsa de empleo temporal", tasa: "No incorporada como dato estructurado", presentacion_hasta: "Proceso histórico · sin plazo abierto",
+      publicada_en: "05/03/2026", cve_bop: "BOP-GRA-2026-043004", recorrido_demo: true,
+      requisitos: ["Nacionalidad en alguno de los supuestos admitidos por las bases", "Tener cumplidos dieciséis años y no superar la edad máxima de jubilación forzosa", "Capacidad funcional para las tareas", "No haber sido separado ni hallarse inhabilitado", "Sin titulación académica específica para esta agrupación profesional", "Ser personal ajeno a la Función Pública de la Diputación, según las bases"],
+      documentos: [
+        { titulo: "Bases adaptadas de la bolsa de Operario (PDF)", formato: "PDF", url: "/bolsa/documentos/bases-operario-demo.pdf", aviso: "Reproducción accesible DEMO basada en BOP-GRA-2026-043004; sin validez administrativa" },
+        { titulo: "Bases adaptadas de la bolsa de Operario (HTML accesible)", formato: "HTML", url: "/bolsa/documentos/bases-operario-demo.html", aviso: "Versión navegable DEMO con fuentes oficiales identificadas y sin datos personales" },
+      ],
     },
     {
-      id: "DEMO-CONV-002", referencia: "DEMO-OPE-2026-006", titulo: "Proceso de Técnico de Programas", categoria: "Administración especial",
-      estado: "Próxima apertura", plazo: "Del 01/08/2026 al 20/08/2026", descripcion: "Proceso selectivo sintético con fase de oposición y concurso.",
-      plazas: "2 plazas de demostración", tasa: "18,00 € · exenciones según bases", presentacion_hasta: "20/08/2026 23:59",
-      requisitos: ["Titulación universitaria indicada en las bases", "Nacionalidad o supuesto equiparado", "Capacidad funcional"],
-      documentos: ["Borrador de bases", "Programa orientativo"],
+      id: "DEMO-CONV-002", referencia: "BOP-GRA-2025-125002", titulo: "Ingreso en la categoría de Auxiliar de Servicios Generales", categoria: "Auxiliar de Servicios Generales",
+      estado: "Histórico cerrado", plazo: "Sin plazo abierto en el portal · publicación 04/07/2025", descripcion: "Proceso selectivo público de la Diputación de Granada para el ingreso en la categoría de Auxiliar de Servicios Generales de la Escala de Administración Especial.",
+      plazas: "Proceso selectivo · véanse las bases", tasa: "No incorporada como dato estructurado", presentacion_hasta: "Proceso histórico · sin plazo abierto",
+      publicada_en: "04/07/2025", cve_bop: "BOP-GRA-2025-125002", recorrido_demo: false,
+      requisitos: ["Nacionalidad en alguno de los supuestos admitidos por las bases", "Tener cumplidos dieciséis años y no superar la edad máxima de jubilación forzosa", "Capacidad funcional para las plazas", "No haber sido separado ni hallarse inhabilitado", "Título de Graduado en Educación Secundaria Obligatoria o equivalente indicado por las bases"],
+      documentos: [
+        { titulo: "Bases adaptadas de Auxiliar de Servicios Generales (PDF)", formato: "PDF", url: "/bolsa/documentos/bases-auxiliar-demo.pdf", aviso: "Reproducción accesible DEMO basada en BOP-GRA-2025-125002; sin validez administrativa" },
+        { titulo: "Bases adaptadas de Auxiliar de Servicios Generales (HTML accesible)", formato: "HTML", url: "/bolsa/documentos/bases-auxiliar-demo.html", aviso: "Versión navegable DEMO con fuentes oficiales identificadas y sin datos personales" },
+      ],
     },
     {
-      id: "DEMO-CONV-003", referencia: "DEMO-BOL-2025-031", titulo: "Bolsa de Apoyo a Servicios", categoria: "Servicios generales",
-      estado: "Cerrada · listado provisional", plazo: "Cerrada el 30/06/2026", descripcion: "Convocatoria sintética en fase de revisión de méritos.",
-      plazas: "Bolsa temporal", tasa: "Exenta", presentacion_hasta: "Plazo cerrado",
-      requisitos: ["Requisitos generales indicados en bases"], documentos: ["Bases", "Listado provisional anonimizado"],
+      id: "DEMO-CONV-003", referencia: "BOP-GRA-2024-244002", titulo: "Ingreso en la Subescala de Gestión de Administración General", categoria: "Técnico de Gestión",
+      estado: "Histórico cerrado", plazo: "Sin plazo abierto en el portal · publicación 19/12/2024", descripcion: "Bases del proceso selectivo de la Diputación de Granada para el ingreso en la Subescala de Gestión de Administración General, con turnos libre y de promoción interna según la publicación.",
+      plazas: "Proceso selectivo · véanse las bases", tasa: "No incorporada como dato estructurado", presentacion_hasta: "Proceso histórico · sin plazo abierto",
+      publicada_en: "19/12/2024", cve_bop: "BOP-GRA-2024-244002", recorrido_demo: false,
+      requisitos: ["Nacionalidad en alguno de los supuestos admitidos por las bases", "Tener cumplidos dieciséis años y no superar la edad máxima de jubilación forzosa", "Capacidad funcional para las plazas", "No haber sido separado ni hallarse inhabilitado", "Titulación y, para promoción interna, pertenencia y antigüedad exigidas para cada categoría"],
+      documentos: [
+        { titulo: "Bases adaptadas de Gestión de Administración General (PDF)", formato: "PDF", url: "/bolsa/documentos/bases-gestion-demo.pdf", aviso: "Reproducción accesible DEMO basada en BOP-GRA-2024-244002; sin validez administrativa" },
+        { titulo: "Bases adaptadas de Gestión de Administración General (HTML accesible)", formato: "HTML", url: "/bolsa/documentos/bases-gestion-demo.html", aviso: "Versión navegable DEMO con fuentes oficiales identificadas y sin datos personales" },
+      ],
     },
   ],
   meritos: [
@@ -106,8 +119,8 @@ const BASE_PRESENTACION = {
     { id: "DEMO-DOC-004", nombre: "contrato-demostracion.pdf", tipo: "Experiencia", fecha: "12/07/2026", estado: "Subsanación requerida", huella: "DEMO-SHA256-004" },
   ],
   solicitudes: [
-    { id: "DEMO-SOL-0027", convocatoria_id: "DEMO-CONV-001", referencia: "DEMO-REG-2026-0027", titulo: "Bolsa de Auxiliar de Gestión", estado: "Registrada · en revisión", actualizado: "17/07/2026 12:10", posicion: "18 de 146 (provisional)", puntuacion: 14.75, siguiente: "Responder subsanación antes del 23/07/2026", pago: "Tasa simulada abonada", firma: "Firma simulada válida" },
-    { id: "DEMO-SOL-0018", convocatoria_id: "DEMO-CONV-003", referencia: "DEMO-REG-2026-0018", titulo: "Bolsa de Apoyo a Servicios", estado: "Listado provisional", actualizado: "16/07/2026 09:20", posicion: "7 de 82 (provisional)", puntuacion: 11.2, siguiente: "Puede presentar alegaciones hasta el 29/07/2026", pago: "Exenta", firma: "Firma simulada válida" },
+    { id: "DEMO-SOL-0027", convocatoria_id: "DEMO-CONV-001", referencia: "DEMO-REG-2026-0027", titulo: "Bolsa de empleo de Operario de la Diputación de Granada", estado: "Tramitación íntegramente sintética", actualizado: "17/07/2026 12:10 · DEMO", posicion: "18 de 146 (dato sintético)", puntuacion: 14.75, siguiente: "Responder subsanación DEMO antes del 23/07/2026", pago: "Tasa simulada abonada", firma: "Firma simulada válida" },
+    { id: "DEMO-SOL-0018", convocatoria_id: "DEMO-CONV-003", referencia: "DEMO-REG-2026-0018", titulo: "Ingreso en la Subescala de Gestión de Administración General", estado: "Listado provisional sintético", actualizado: "16/07/2026 09:20 · DEMO", posicion: "7 de 82 (dato sintético)", puntuacion: 11.2, siguiente: "Puede presentar una alegación DEMO hasta el 29/07/2026", pago: "Exención simulada", firma: "Firma simulada válida" },
   ],
   baremo: [
     { id: "DEMO-BAR-001", merito_id: "DEMO-MER-002", nombre: "Experiencia en la Diputación", detalle: "18 meses × 0,30 puntos · jornada completa", estado: "De oficio · pendiente de revisión", puntos: 5.4, maximo: 8 },
@@ -120,12 +133,12 @@ const BASE_PRESENTACION = {
     disponible: true,
     estado: "Disponible para llamamientos",
     desde: "01/07/2026",
-    bolsas: ["Bolsa de Auxiliar de Gestión", "Bolsa de Apoyo a Servicios"],
+    bolsas: ["Bolsa de empleo de Operario de la Diputación de Granada (adscripción DEMO)", "Ingreso en la Subescala de Gestión de Administración General (adscripción DEMO)"],
     proxima_revision: "31/12/2026",
   },
   llamamientos: [
-    { id: "DEMO-LLA-0045", bolsa: "Bolsa de Auxiliar de Gestión", puesto: "Apoyo administrativo · Servicios Centrales", plazo: "Responder antes del 19/07/2026 14:00", estado: "Pendiente de respuesta", jornada: "Completa", duracion: "3 meses", posicion: "Primera persona elegible de demostración" },
-    { id: "DEMO-LLA-0031", bolsa: "Bolsa de Apoyo a Servicios", puesto: "Apoyo logístico · Centro sintético", plazo: "Respondido el 02/07/2026", estado: "Aceptado · comprobación pendiente", jornada: "Parcial 50 %", duracion: "1 mes", posicion: "Respuesta registrada en demostración" },
+    { id: "DEMO-LLA-0045", bolsa: "Bolsa de empleo de Operario de la Diputación de Granada · escenario DEMO", puesto: "Destino y puesto sintéticos", plazo: "Responder antes del 19/07/2026 14:00 · plazo DEMO", estado: "Pendiente de respuesta", jornada: "Completa (dato sintético)", duracion: "3 meses (dato sintético)", posicion: "Primera persona elegible de demostración" },
+    { id: "DEMO-LLA-0031", bolsa: "Ingreso en la Subescala de Gestión de Administración General · escenario DEMO", puesto: "Destino y puesto sintéticos", plazo: "Respondido el 02/07/2026 · DEMO", estado: "Aceptado · comprobación pendiente", jornada: "Parcial 50 % (dato sintético)", duracion: "1 mes (dato sintético)", posicion: "Respuesta registrada en demostración" },
   ],
   subsanaciones: [
     { id: "DEMO-SUB-0008", solicitud_ref: "DEMO-SOL-0027", motivo: "Acreditar la jornada de la experiencia externa", plazo: "23/07/2026 14:00", estado: "Pendiente", documento_solicitado: "Certificado con porcentaje de jornada y periodos exactos" },
@@ -285,8 +298,8 @@ export function crearAdaptadorPresentacion() {
       });
     } else if (accion === "guardar_borrador") {
       const convocatoriaId = referenciaDemo(payload.convocatoria_id, "");
-      const convocatoria = estado.convocatorias.find((item) => item.id === convocatoriaId && item.estado === "Plazo abierto");
-      if (!convocatoria) throw new Error("La convocatoria seleccionada no existe o no tiene el plazo abierto.");
+      const convocatoria = estado.convocatorias.find((item) => item.id === convocatoriaId && item.recorrido_demo === true);
+      if (!convocatoria) throw new Error("La convocatoria seleccionada no admite el recorrido simulado de solicitud.");
       const meritos = exigirContenidoCompleto(payload);
       let existente;
       if (payload.id) {

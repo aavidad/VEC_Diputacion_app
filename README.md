@@ -54,7 +54,7 @@ Probado:
   (`vec.module.bolsa`) via manifiestos. Menu, permisos y acciones demo con
   recibo auditable estan probados en casos de uso y adaptadores de prueba, no
   expuestos por el despliegue predeterminado.
-- Catalogo profesional comun y versionado, con 58 categorias de demostracion,
+- Catalogo profesional comun y versionado, con 68 categorias de demostracion,
   compartido por Personal y Bolsa. El arranque coteja que las categorias de
   cada convocatoria existan en la version exacta del catalogo; la UI ya no
   mantiene una lista de dos categorias escrita en el codigo.
@@ -459,8 +459,10 @@ VEC_HTTP_ADDR=127.0.0.1:8080 \
 
 Este proceso solo acepta `/healthz`, `/bolsa/`, los recursos públicos
 enumerados y `/api/publico/`; `/`, `/api/vec`, `/api/demo` y el Portal del
-Empleado responden `404`. La fuente predeterminada sigue siendo sintética y no
-equivale a una publicación oficial.
+Empleado responden `404`. La fuente predeterminada combina metadatos públicos
+reales contrastados —títulos, categorías, fechas y CVE del BOP— con un
+envoltorio de demostración sin validez administrativa. No importa expedientes
+ni datos personales.
 
 ### Entregable del Portal del Empleado y Bolsa
 
@@ -479,8 +481,9 @@ operaciones se representan mediante adaptadores volátiles: exigen
 confirmación, devuelven recibos `DEMO-` y se pierden al recargar.
 
 La muestra no utiliza cookies, `localStorage`, `sessionStorage`, volúmenes
-duraderos ni conectores externos. No contiene datos personales reales y sus
-referencias sintéticas se identifican de forma visible. El artefacto
+duraderos ni conectores externos. No contiene datos personales reales: las
+referencias BOP son públicas y reales, mientras personas, expedientes, actos y
+resultados privados son sintéticos y se identifican de forma visible. El artefacto
 productivo excluye físicamente el lanzador, los datos y los adaptadores de
 presentación.
 

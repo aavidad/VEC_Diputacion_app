@@ -67,6 +67,43 @@ test("la demo está aislada y el arranque normal solo compone HTTP", async () =>
   assert.match(await readFile(join(RAIZ, "index.html"), "utf8"), /id="aviso-presentacion" role="status" hidden/u);
 });
 
+test("las convocatorias del candidato reproducen el inventario público y aíslan la tramitación sintética", async () => {
+  const datos = await crearAdaptadorPresentacion().cargar();
+  const inventario = JSON.parse(await readFile(join(RAIZ, "../../../data/demo/convocatorias_publicas.demo.json"), "utf8"));
+  const correspondencias = [
+    ["DEMO-CONV-001", "proceso:publico:bolsa-operario-2026"],
+    ["DEMO-CONV-002", "proceso:publico:auxiliar-servicios-generales-2025"],
+    ["DEMO-CONV-003", "proceso:publico:gestion-administracion-general-2024"],
+  ];
+
+  for (const [idDemo, idPublico] of correspondencias) {
+    const mostrada = datos.convocatorias.find((item) => item.id === idDemo);
+    const publica = inventario.convocatorias.find((item) => item.id === idPublico)?.datos_publicos;
+    assert.ok(mostrada && publica, `${idDemo} debe resolver su fuente pública`);
+    assert.equal(mostrada.titulo, publica.titulo);
+    assert.match(publica.resumen, new RegExp(mostrada.cve_bop, "u"));
+    assert.equal(mostrada.publicada_en, new Intl.DateTimeFormat("es-ES", {
+      day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC",
+    }).format(new Date(publica.publicada_en)));
+    assert.deepEqual(mostrada.documentos.map((item) => item.url), publica.documentos.map((item) => item.url));
+    assert.equal(mostrada.estado, "Histórico cerrado");
+  }
+
+  assert.equal(datos.resumen.convocatorias_abiertas, 0);
+  const gestion = datos.convocatorias.find((item) => item.id === "DEMO-CONV-003");
+  assert.equal(gestion.titulo, "Ingreso en la Subescala de Gestión de Administración General");
+  assert.equal(gestion.categoria, "Técnico de Gestión");
+  assert.doesNotMatch(`${gestion.titulo} ${gestion.descripcion}`, /Archivo|Analista Programador/u);
+  assert.ok(datos.solicitudes.every((item) => item.id.startsWith("DEMO-") && item.referencia.startsWith("DEMO-")));
+  assert.ok(datos.plazos.every((item) => item.id.startsWith("DEMO-")));
+  assert.ok(datos.llamamientos.every((item) => item.id.startsWith("DEMO-") && /DEMO|demostración/iu.test(`${item.bolsa} ${item.posicion}`)));
+  const detalle = renderizarDetalleConvocatoria(datos, { convocatoriaSeleccionada: "DEMO-CONV-001" });
+  assert.match(detalle, /href="\/bolsa\/documentos\/bases-operario-demo\.pdf"/u);
+  assert.match(detalle, /BOP-GRA-2026-043004/u);
+  assert.match(detalle, /Simular solicitud DEMO/u);
+  assert.doesNotMatch(detalle, /\[object Object\]/u);
+});
+
 test("los mismos renderizadores eliminan etiquetas de simulación en modo productivo", async () => {
   const datos = structuredClone(await crearAdaptadorPresentacion().cargar());
   datos.meta.presentacion = false;

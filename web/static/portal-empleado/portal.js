@@ -161,6 +161,20 @@ function perfilPresentacionSolicitado() {
   return valores[0];
 }
 
+function configurarInicioInstitucional() {
+  const enlace = document.getElementById("enlace-inicio-institucional");
+  if (!enlace) return;
+  if (estado.modoPresentacion) {
+    enlace.href = "/presentacion/";
+    enlace.removeAttribute("data-vista");
+    enlace.setAttribute("aria-label", "Volver al selector de recorridos de la presentación");
+    return;
+  }
+  enlace.href = "#portal";
+  enlace.dataset.vista = "portal";
+  enlace.setAttribute("aria-label", "Ir al inicio del Portal del Empleado");
+}
+
 function vistaPermitida(vista) {
   if (!estado.modoPresentacion || !estado.fuenteLista) return true;
   const vistas = DATOS_PANEL.sesion?.vistas_permitidas;
@@ -525,6 +539,10 @@ function renderizarPortal() {
     { clave: "solicitudes", sigla: "SOL", titulo: "Solicitudes y certificados", texto: "Ventanilla única, aportación documental y seguimiento." },
     { clave: "meritos", sigla: "RUM", titulo: "Méritos y formación", texto: "Títulos, cursos, experiencia y evidencias reutilizables." },
     { clave: "comunicaciones", sigla: "AVI", titulo: "Comunicaciones", texto: "Avisos personales, notificaciones y preferencias de canal." },
+    { clave: "documentos", sigla: "DOC", titulo: "Documentos y firma", texto: "Repositorio documental, generación, firma, verificación y descarga autorizada." },
+    { clave: "aprobaciones", sigla: "APR", titulo: "Aprobaciones y portafirmas", texto: "Circuitos de revisión, visto bueno, firma múltiple y seguimiento." },
+    { clave: "auditoria", sigla: "AUD", titulo: "Auditoría", texto: "Registro de accesos, operaciones, decisiones, evidencias y exportaciones." },
+    { clave: "administracion", sigla: "ADM", titulo: "Administración y configuración", texto: "Roles, permisos, catálogos, calendarios, reglas y conectores." },
   ];
   return `
     ${encabezadoVista("Acceso unificado", "Portal del Empleado", "Los módulos comparten identidad, datos y documentos. En esta primera fase únicamente está habilitada la Gestión de Bolsas.")}
@@ -756,6 +774,7 @@ const controlador = crearControladorPortal({
 
 async function inicializar() {
   estado.modoPresentacion = modoPresentacionSolicitado();
+  configurarInicioInstitucional();
   controlador.restaurarPreferencias();
   estado.vista = vistaDesdeHash();
   renderizar();

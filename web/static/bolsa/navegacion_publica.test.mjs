@@ -49,7 +49,13 @@ function sinBloquesDeImpresion(contenido) {
 test("la consulta pública es anónima y nunca envía credenciales ambientales", () => {
   assert.match(javascript, /credentials: "omit"/);
   assert.doesNotMatch(javascript, /credentials: "(?:same-origin|include)"/);
-  assert.doesNotMatch(javascript, /document\.cookie|Authorization|localStorage.*(?:token|sesion|auth)/i);
+  assert.doesNotMatch(javascript, /document\.cookie|Authorization|localStorage|sessionStorage/i);
+});
+
+test("las preferencias visuales de la demostración son volátiles", () => {
+  assert.match(javascript, /function configurarPreferencia\(idBoton, clase\)/);
+  assert.match(javascript, /classList\.toggle\(clase, activa\)/);
+  assert.doesNotMatch(javascript, /Storage|getItem\(|setItem\(/);
 });
 
 test("la bolsa pública conserva una navegación lateral limitada a contenido público", () => {
@@ -57,6 +63,13 @@ test("la bolsa pública conserva una navegación lateral limitada a contenido p�
   const destinosPresentes = [...menu.matchAll(/<a\b[^>]*\bhref="([^"]+)"/g)].map((coincidencia) => coincidencia[1]);
   assert.deepEqual(destinosPresentes, destinosPermitidos);
   assert.doesNotMatch(menu, /Cronos|Nóminas|Dietas|Administración|Auditoría/);
+});
+
+test("la presentación identifica el origen real y devuelve al selector desde el logotipo", () => {
+  assert.match(html, /<h1 id="titulo-portal">Bolsas y procesos selectivos<\/h1>/);
+  assert.match(html, /referencias BOP, títulos, categorías y fechas son públicas y reales/);
+  assert.match(javascript, /inicioInstitucional\.href = esDemostracion \? "\/presentacion\/" : "\/bolsa\/"/);
+  assert.match(javascript, /Volver al selector de recorridos de la presentación/);
 });
 
 test("todos los destinos del menú público existen en el documento", () => {

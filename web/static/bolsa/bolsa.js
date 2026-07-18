@@ -16,6 +16,7 @@
     detalleEspera: porId("detalle-espera"), detalleCargando: porId("detalle-cargando"), detalleError: porId("detalle-error"),
     reintentarDetalle: porId("reintentar-detalle"),
     contenidoDetalle: porId("contenido-detalle"), detalleEtiquetas: porId("detalle-etiquetas"), detalleResumen: porId("detalle-resumen"),
+    detallePublicacion: porId("detalle-publicacion"),
     detalleDescripcion: porId("detalle-descripcion"), detallePlazos: porId("detalle-plazos"), detalleRequisitos: porId("detalle-requisitos"),
     detalleDocumentos: porId("detalle-documentos"), detalleAyuda: porId("detalle-ayuda"), detalleIntegridad: porId("detalle-integridad"),
     directorio: porId("directorio-categorias"), buscarCategoria: porId("buscar-categoria"), areaCategoria: porId("filtrar-area-categoria"),
@@ -23,6 +24,7 @@
     errorDirectorio: porId("error-directorio-categorias"), vacioDirectorio: porId("vacio-directorio-categorias"),
     gruposDirectorio: porId("grupos-directorio-categorias"), reintentarDirectorio: porId("reintentar-directorio-categorias"),
     integridadCategorias: porId("integridad-catalogo-categorias"),
+    inicioInstitucional: porId("enlace-inicio-institucional"),
   };
   const estado = {
     pagina: 1, paginas: 0, convocatoria: "", categorias: [], controladorListado: null, controladorDetalle: null,
@@ -30,6 +32,7 @@
     facetas: null,
   };
   const formatoFecha = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" });
+  const formatoDia = new Intl.DateTimeFormat("es-ES", { dateStyle: "long", timeZone: "Europe/Madrid" });
 
   function texto(tag, contenido, clase) {
     const nodo = document.createElement(tag);
@@ -57,7 +60,12 @@
     const aviso = String(fuente?.aviso || "").replace(/^DEMOSTRACI[ÓO]N\s*:?\s*/i, "").trim();
     if (aviso) estado.avisosDemostracion[origen] = aviso;
     const valores = Object.values(estado.fuentesDemostracion);
-    elementos.avisoContenedor.hidden = valores.every((valor) => valor !== null) && !valores.some(Boolean);
+    const esDemostracion = valores.some(Boolean);
+    elementos.avisoContenedor.hidden = valores.every((valor) => valor !== null) && !esDemostracion;
+    elementos.inicioInstitucional.href = esDemostracion ? "/presentacion/" : "/bolsa/";
+    elementos.inicioInstitucional.setAttribute("aria-label", esDemostracion
+      ? "Volver al selector de recorridos de la presentación"
+      : "Inicio de Bolsa y procesos selectivos");
     const avisos = [...new Set(Object.values(estado.avisosDemostracion))];
     if (avisos.length > 0) elementos.aviso.textContent = avisos.join(" ");
   }
@@ -83,17 +91,18 @@
     return contenedor;
   }
 
-  function configurarPreferencia(idBoton, clase, clave) {
+  function fechaPublicacion(instante) {
+    const valor = new Date(instante);
+    return Number.isNaN(valor.getTime()) ? instante : formatoDia.format(valor);
+  }
+
+  function configurarPreferencia(idBoton, clase) {
     const boton = porId(idBoton);
-    let activa = false;
-    try { activa = localStorage.getItem(clave) === "true"; } catch (_) { activa = false; }
-    document.body.classList.toggle(clase, activa);
-    boton.setAttribute("aria-pressed", String(activa));
+    boton.setAttribute("aria-pressed", "false");
     boton.addEventListener("click", () => {
-      activa = !document.body.classList.contains(clase);
+      const activa = !document.body.classList.contains(clase);
       document.body.classList.toggle(clase, activa);
       boton.setAttribute("aria-pressed", String(activa));
-      try { localStorage.setItem(clave, String(activa)); } catch (_) { /* preferencia no esencial */ }
     });
   }
 
@@ -222,6 +231,12 @@
     articulo.appendChild(etiquetas);
     articulo.appendChild(texto("h3", convocatoria.titulo));
     articulo.appendChild(texto("p", convocatoria.resumen));
+    const publicacion = texto("p", `Publicada el ${fechaPublicacion(convocatoria.publicada_en)}`, "tarjeta-meta");
+    const publicacionTiempo = document.createElement("time");
+    publicacionTiempo.dateTime = convocatoria.publicada_en;
+    publicacionTiempo.textContent = fechaPublicacion(convocatoria.publicada_en);
+    publicacion.replaceChildren("Publicada el ", publicacionTiempo);
+    articulo.appendChild(publicacion);
     if (convocatoria.plazo_destacado) {
       const plazo = document.createElement("div");
       plazo.className = "plazo-meta";
@@ -374,6 +389,10 @@
     elementos.detalleEtiquetas.append(etiqueta(convocatoria.tipo), etiqueta(convocatoria.estado));
     convocatoria.categorias.forEach((categoria) => elementos.detalleEtiquetas.appendChild(etiqueta(categoria)));
     elementos.detalleResumen.textContent = convocatoria.resumen;
+    const publicacionTiempo = document.createElement("time");
+    publicacionTiempo.dateTime = convocatoria.publicada_en;
+    publicacionTiempo.textContent = fechaPublicacion(convocatoria.publicada_en);
+    elementos.detallePublicacion.replaceChildren("Bases publicadas el ", publicacionTiempo);
     elementos.detalleDescripcion.textContent = datos.descripcion;
     renderizarPlazos(datos.plazos);
     renderizarRequisitos(datos.requisitos);
@@ -597,8 +616,8 @@
     cargarListado("none", true);
   });
 
-  configurarPreferencia("alternar-texto", "texto-grande", "vec.bolsa.texto_grande");
-  configurarPreferencia("alternar-contraste", "alto-contraste", "vec.bolsa.alto_contraste");
+  configurarPreferencia("alternar-texto", "texto-grande");
+  configurarPreferencia("alternar-contraste", "alto-contraste");
   cargarFiltrosDesdeURL();
   cargarListado("replace", true);
   cargarDirectorioCategorias();

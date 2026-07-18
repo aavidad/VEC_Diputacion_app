@@ -22,10 +22,12 @@ reglas, consulta para candidatos, estadísticas, generación documental,
 comunicaciones y auditoría.
 
 Este manual describe cada pantalla del módulo y la forma correcta de operar
-con él. Las imágenes proceden del modo de demostración del portal: los datos
-que muestran son íntegramente sintéticos y así lo indica de forma permanente
-la franja superior amarilla. En la operación real esa franja no existe y la
-información procede de la API interna autorizada.
+con él. Las imágenes proceden del modo de demostración del portal. Los títulos,
+categorías, fechas de publicación y referencias BOP de las convocatorias son
+datos públicos reales; las personas, expedientes y actuaciones privadas son
+sintéticos. La franja superior amarilla identifica este alcance. En la
+operación real esa franja no existe y la información procede de las API
+autorizadas.
 
 ## 2. Acceso y estructura de la pantalla
 
@@ -300,5 +302,6 @@ El módulo aplica minimización de datos por diseño:
 ---
 
 Portal del Empleado · Diputación de Granada. Las pantallas de este manual
-proceden del modo de demostración con datos sintéticos; los textos, cifras y
-personas que aparecen en ellas no corresponden a expedientes reales.
+proceden del modo de demostración. Sus referencias BOP son públicas y reales;
+las personas, expedientes, operaciones y resultados privados son sintéticos y
+no corresponden a expedientes reales.

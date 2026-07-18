@@ -21,7 +21,7 @@ func TestAPIPublicaBolsaSoloExponeConsultasAnonimas(t *testing.T) {
 		contenido string
 	}{
 		{ruta: "/api/publico/bolsa/convocatorias", contenido: "vec.bolsa.publico.convocatorias.v1"},
-		{ruta: "/api/publico/bolsa/categorias", contenido: `"total":58`},
+		{ruta: "/api/publico/bolsa/categorias", contenido: `"total":68`},
 	} {
 		rec := httptest.NewRecorder()
 		api.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, prueba.ruta, nil))

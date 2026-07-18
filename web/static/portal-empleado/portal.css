@@ -150,6 +150,13 @@ a:focus-visible,
   min-height: 126px;
   padding: 16px 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  text-decoration: none;
+}
+
+.marca-portal:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: -5px;
 }
 
 .logo-institucional {

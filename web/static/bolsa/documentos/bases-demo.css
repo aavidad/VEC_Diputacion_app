@@ -1,0 +1,361 @@
+:root {
+  --documento-tinta: #17212b;
+  --documento-suave: #52606d;
+  --documento-borde: #c9d2dc;
+  --documento-fondo: #f4f7fa;
+  --documento-marca: #8a1538;
+  --documento-marca-suave: #fff1f4;
+  --documento-acento: #174a7e;
+  --documento-aviso: #7a4b00;
+  --documento-aviso-fondo: #fff8e8;
+}
+
+.documento-bases-demo {
+  background: var(--documento-fondo);
+  color: var(--documento-tinta);
+  font-family: "Noto Sans", "Liberation Sans", Arial, sans-serif;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.marca-pdf-repetida,
+.pie-pdf-repetido {
+  display: none;
+}
+
+.navegacion-documento {
+  align-items: center;
+  background: #fff;
+  border-bottom: 1px solid var(--documento-borde);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: .75rem max(1rem, calc((100% - 72rem) / 2));
+}
+
+.navegacion-documento a {
+  color: var(--documento-acento);
+  font-weight: 700;
+}
+
+.navegacion-documento .etiqueta-documento {
+  color: var(--documento-suave);
+  font-size: .88rem;
+}
+
+.documento-bases-demo main {
+  margin: 1.5rem auto 3rem;
+  max-width: 72rem;
+  padding: 0 1rem;
+}
+
+.documento-administrativo {
+  background: #fff;
+  border: 1px solid var(--documento-borde);
+  box-shadow: 0 12px 34px rgb(23 33 43 / 9%);
+  padding: clamp(1.25rem, 4vw, 3rem);
+}
+
+.cabecera-documento {
+  border-bottom: 3px solid var(--documento-acento);
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+}
+
+.organismo-documento,
+.tipo-documento {
+  color: var(--documento-suave);
+  font-size: .85rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  margin: 0 0 .25rem;
+  text-transform: uppercase;
+}
+
+.tipo-documento {
+  color: var(--documento-acento);
+}
+
+.documento-administrativo h1 {
+  font-size: clamp(1.75rem, 4vw, 2.55rem);
+  line-height: 1.16;
+  margin: .35rem 0 .8rem;
+  text-wrap: balance;
+}
+
+.documento-administrativo h2 {
+  border-bottom: 1px solid var(--documento-borde);
+  color: var(--documento-acento);
+  font-size: 1.35rem;
+  line-height: 1.3;
+  margin: 2rem 0 .8rem;
+  padding-bottom: .3rem;
+}
+
+.documento-administrativo h3 {
+  font-size: 1.05rem;
+  margin: 1.25rem 0 .4rem;
+}
+
+.documento-administrativo p,
+.documento-administrativo li {
+  max-width: 82ch;
+}
+
+.documento-administrativo li + li {
+  margin-top: .3rem;
+}
+
+.aviso-demostracion {
+  background: var(--documento-marca-suave);
+  border: 2px solid var(--documento-marca);
+  border-left-width: .55rem;
+  color: #5f1029;
+  display: block;
+  margin: 1rem 0 1.4rem;
+  padding: 1rem 1.1rem;
+}
+
+.aviso-demostracion strong {
+  display: block;
+  font-size: 1.06rem;
+  margin-bottom: .2rem;
+}
+
+.nota-fuente,
+.nota-operativa {
+  background: var(--documento-aviso-fondo);
+  border-left: .35rem solid var(--documento-aviso);
+  color: #4c3308;
+  padding: .8rem 1rem;
+}
+
+.ficha-documento {
+  border-collapse: collapse;
+  margin: 1rem 0 1.5rem;
+  width: 100%;
+}
+
+.ficha-documento th,
+.ficha-documento td {
+  border: 1px solid var(--documento-borde);
+  padding: .55rem .7rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.ficha-documento th {
+  background: #edf3f8;
+  width: 29%;
+}
+
+.indice-documento {
+  background: #f5f8fb;
+  border: 1px solid var(--documento-borde);
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem;
+}
+
+.indice-documento h2 {
+  border: 0;
+  font-size: 1.15rem;
+  margin: 0 0 .5rem;
+  padding: 0;
+}
+
+.indice-documento ol {
+  columns: 2;
+  margin-bottom: 0;
+  padding-left: 1.35rem;
+}
+
+.indice-documento a {
+  color: var(--documento-acento);
+}
+
+.tabla-pruebas {
+  border-collapse: collapse;
+  font-size: .94rem;
+  margin: .75rem 0 1rem;
+  width: 100%;
+}
+
+.tabla-pruebas caption {
+  font-weight: 800;
+  margin-bottom: .4rem;
+  text-align: left;
+}
+
+.tabla-pruebas th,
+.tabla-pruebas td {
+  border: 1px solid var(--documento-borde);
+  padding: .55rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tabla-pruebas th {
+  background: #edf3f8;
+}
+
+.lista-programa {
+  padding-left: 1.4rem;
+}
+
+.lista-programa li {
+  break-inside: avoid;
+}
+
+.fuentes-documento {
+  border-top: 2px solid var(--documento-borde);
+  margin-top: 2.2rem;
+  padding-top: 1rem;
+}
+
+.acciones-documento {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .7rem;
+  margin-top: 1rem;
+}
+
+.acciones-documento a {
+  background: var(--documento-acento);
+  border-radius: .25rem;
+  color: #fff;
+  display: inline-block;
+  font-weight: 800;
+  padding: .65rem .9rem;
+  text-decoration: none;
+}
+
+.acciones-documento a.secundaria {
+  background: #fff;
+  border: 1px solid var(--documento-acento);
+  color: var(--documento-acento);
+}
+
+@media (max-width: 48rem) {
+  .indice-documento ol {
+    columns: 1;
+  }
+
+  .ficha-documento,
+  .ficha-documento tbody,
+  .ficha-documento tr,
+  .ficha-documento th,
+  .ficha-documento td {
+    display: block;
+  }
+
+  .ficha-documento th {
+    border-bottom: 0;
+    width: auto;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 22mm 16mm 20mm;
+  }
+
+  .documento-bases-demo {
+    background: #fff;
+    color: #111;
+    font-family: "Noto Sans", "Liberation Sans", Arial, sans-serif;
+    font-size: 9.8pt;
+    line-height: 1.42;
+  }
+
+  .navegacion-documento,
+  .acciones-documento {
+    display: none !important;
+  }
+
+  .documento-bases-demo main {
+    margin: 0;
+    max-width: none;
+    padding: 0;
+  }
+
+  .documento-administrativo {
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .marca-pdf-repetida {
+    color: #8a1538;
+    display: block;
+    font-size: 8pt;
+    font-weight: 800;
+    left: 16mm;
+    letter-spacing: .055em;
+    position: fixed;
+    right: 16mm;
+    text-align: center;
+    text-transform: uppercase;
+    top: -15mm;
+  }
+
+  .pie-pdf-repetido {
+    bottom: -14mm;
+    color: #56616d;
+    display: block;
+    font-size: 7.5pt;
+    left: 16mm;
+    position: fixed;
+    right: 16mm;
+    text-align: center;
+  }
+
+  .cabecera-documento {
+    margin-top: 2mm;
+  }
+
+  .documento-administrativo h1 {
+    font-size: 19pt;
+  }
+
+  .documento-administrativo h2 {
+    break-after: avoid;
+    font-size: 13pt;
+    margin-top: 1.4rem;
+  }
+
+  .documento-administrativo h3 {
+    break-after: avoid;
+    font-size: 10.5pt;
+  }
+
+  .documento-administrativo p,
+  .documento-administrativo li {
+    max-width: none;
+    orphans: 3;
+    widows: 3;
+  }
+
+  .indice-documento {
+    break-inside: avoid;
+  }
+
+  .indice-documento a,
+  .fuentes-documento a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .ficha-documento tr,
+  .tabla-pruebas tr,
+  .aviso-demostracion,
+  .nota-fuente,
+  .nota-operativa {
+    break-inside: avoid;
+  }
+
+  .fuentes-documento a {
+    pointer-events: none;
+  }
+}

@@ -176,7 +176,7 @@ func TestModoDisabledPublicaSoloConsultaAnonimaBolsa(t *testing.T) {
 	}
 	rec = httptest.NewRecorder()
 	api.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/publico/bolsa/categorias", nil))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"total":58`) {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"total":68`) {
 		t.Fatalf("directorio de categorias = %d %s", rec.Code, rec.Body.String())
 	}
 	for _, ruta := range []string{"/api/publico/bolsa/personas", "/api/publico/bolsa/solicitudes", "/api/demo"} {
@@ -275,7 +275,7 @@ func TestArranqueRechazaCategoriaDeConvocatoriaDesconocida(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	alterado := strings.Replace(string(base), `"categorias": ["auxiliar-administrativo"]`, `"categorias": ["categoria-inexistente"]`, 1)
+	alterado := strings.Replace(string(base), `"categorias": ["operario"]`, `"categorias": ["categoria-inexistente"]`, 1)
 	if alterado == string(base) {
 		t.Fatal("no se altero la categoria de prueba")
 	}

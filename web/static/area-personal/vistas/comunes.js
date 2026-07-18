@@ -63,5 +63,5 @@ export function estadoVacio(titulo, detalle, accion = "") {
 }
 
 export function notaDemostracion() {
-  return `<p class="nota demo"><strong>Recorrido de demostración.</strong> Los datos son sintéticos, las operaciones solo viven en memoria y cada confirmación genera un recibo DEMO sin validez administrativa.</p>`;
+  return `<p class="nota demo"><strong>Recorrido de demostración.</strong> Los títulos, CVE y fechas de publicación BOP son referencias públicas reales. La identidad, los expedientes, los plazos operativos, las puntuaciones y todas las acciones son sintéticos; solo viven en memoria y generan recibos DEMO sin validez administrativa.</p>`;
 }

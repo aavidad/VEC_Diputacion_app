@@ -69,7 +69,7 @@ const (
 	DefaultBolsaCategoriesSourcePath = "data/catalogos/categorias-profesionales/v1.demo.json"
 	DefaultBolsaCategoriesCatalogID  = "categorias-profesionales"
 	DefaultBolsaCategoriesVersion    = 1
-	DefaultBolsaCategoriesSHA256     = "2a9aa4a903b765c2f46ceb7f429f342a13b229e54ca45813472cb9d0aa1a4f3e"
+	DefaultBolsaCategoriesSHA256     = "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"
 	DefaultAuthMode                  = AuthModeDisabled
 	DefaultTrustedHeaderSubject      = "X-VEC-Subject"
 	DefaultTrustedHeaderRoles        = "X-VEC-Roles"

@@ -16,7 +16,7 @@ proyecto continúa.
 | Binario | `vec-presentacion` | Proceso interno por definir; `vec-server` sigue siendo composición heredada de desarrollo |
 | Perfil | `presentacion_rrhh` | `produccion` |
 | Datos privados | Prohibidos | Solo mediante conectores autorizados |
-| Datos de la muestra | Sintéticos y marcados | Excluidos físicamente de la imagen |
+| Datos de la muestra | Metadatos BOP públicos reales; personas, expedientes, actos y resultados privados sintéticos y marcados | El adaptador DEMO se excluye físicamente de la imagen |
 | Escrituras durables o de servidor | Ninguna; solo cambia memoria volátil de la pestaña | Casos de uso, autorización y recibos reales |
 | API | Consulta pública local de Bolsa | API pública/interna según frontera |
 | Firma, registro, pagos y mensajes | Simulación visual | Adaptadores productivos aún por integrar |
@@ -71,7 +71,9 @@ scripts/arrancar_presentacion_rrhh.sh
 ```
 
 Después se abre `http://127.0.0.1:8081/presentacion/`. El script fija las dos
-guardas, loopback, memoria y las fuentes sintéticas; no carga credenciales.
+guardas, loopback, memoria y las fuentes `.demo.json`; estas incorporan
+únicamente metadatos públicos reales del BOP y estado privado sintético. No
+carga credenciales.
 
 El arranque del binario y las fronteras HTTP se comprueban de extremo a extremo
 con un entorno limpio mediante:
@@ -136,7 +138,8 @@ si el artefacto de muestra carece de sus piezas declaradas.
 
 Este modo reduce, pero no convierte la muestra en producción:
 
-- evita introducir datos personales usando únicamente fixtures sintéticos;
+- evita introducir datos personales: solo reutiliza metadatos públicos del BOP
+  y fixtures sintéticos para identidad, expedientes y actuaciones;
 - impide que un botón visual produzca un acto administrativo;
 - evita que cookies o cabeceras del navegador se interpreten como identidad;
 - impide publicar por accidente otros directorios del repositorio;
@@ -148,7 +151,8 @@ Este modo reduce, pero no convierte la muestra en producción:
 
 No acredita autenticación, autorización nominal, persistencia, firma, registro,
 notificación fehaciente ni cumplimiento productivo. Tampoco debe recibir una
-copia de datos reales “para que la demo parezca más completa”.
+copia de datos personales o expedientes reales “para que la demo parezca más
+completa”; los datos públicos verificables se incorporan con su procedencia.
 
 ## Sustitución incremental de adaptadores
 
@@ -179,8 +183,8 @@ Si no se aprueba el proyecto, basta con retirar el perfil Compose
 productivo no depende de ellos.
 
 Si se aprueba, el artefacto puede mantenerse solo para formación y pruebas
-visuales, siempre en red local, con datos sintéticos y fuera del inventario de
-servicios productivos. Cada publicación debe volver a ejecutar las pruebas de
-contenido y seguridad.
+visuales, siempre en red local, con metadatos públicos verificables y datos
+privados sintéticos, fuera del inventario de servicios productivos. Cada
+publicación debe volver a ejecutar las pruebas de contenido y seguridad.
 
 `skill_ref: admin-data-web`

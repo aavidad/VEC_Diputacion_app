@@ -7,7 +7,7 @@ import {
   ofertaPerteneceAlCatalogoActual,
 } from "./catalogo-categorias.js";
 
-const HUELLA = "2a9aa4a903b765c2f46ceb7f429f342a13b229e54ca45813472cb9d0aa1a4f3e";
+const HUELLA = "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233";
 
 function herramientas() {
   return crearHerramientasCatalogoCategorias({
@@ -17,35 +17,35 @@ function herramientas() {
 }
 
 test("normaliza la respuesta gobernada sin perder categorías ni metadatos", () => {
-  const items = Array.from({ length: 58 }, (_, indice) => ({
+  const items = Array.from({ length: 68 }, (_, indice) => ({
     clave: `categoria-${indice + 1}`,
     etiqueta: `Categoría ${indice + 1}`,
   }));
   const pagina = normalizarPaginaCategoriasProfesionales({
     items,
-    total: 58,
+    total: 68,
     catalogo: { catalogo_id: "categorias-profesionales", catalogo_version: 1 },
     fuente: { demostracion: true, aviso: "Contenido de demostración" },
   });
 
-  assert.equal(pagina.items.length, 58);
-  assert.equal(pagina.total, 58);
+  assert.equal(pagina.items.length, 68);
+  assert.equal(pagina.total, 68);
   assert.equal(pagina.catalogo.catalogo_id, "categorias-profesionales");
   assert.equal(pagina.demostracion, true);
   assert.equal(pagina.aviso, "Contenido de demostración");
 });
 
-test("el directorio conserva las 58 categorías y sus claves estables", () => {
-  const items = Array.from({ length: 58 }, (_, indice) => ({
+test("el directorio conserva las 68 categorías y sus claves estables", () => {
+  const items = Array.from({ length: 68 }, (_, indice) => ({
     slug: `categoria-${indice + 1}`,
     name: `Categoría ${indice + 1}`,
-    orden: 58 - indice,
+    orden: 68 - indice,
   }));
   const vista = { personalCatalog: { categories: { items } } };
   const categorias = herramientas().obtenerCategoriasProfesionales(vista);
 
-  assert.equal(categorias.length, 58);
-  assert.equal(categorias[0].clave, "categoria-58");
+  assert.equal(categorias.length, 68);
+  assert.equal(categorias[0].clave, "categoria-68");
   assert.equal(categorias.at(-1).clave, "categoria-1");
 });
 

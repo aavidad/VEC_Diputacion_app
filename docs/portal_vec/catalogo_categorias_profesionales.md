@@ -1,20 +1,25 @@
 # Catalogo gobernado de categorias profesionales
 
-Fecha de referencia: 16-07-2026.
+Fecha de referencia: 19-07-2026.
 
 ## Estado y alcance
 
-El inventario recuperado contiene 58 categorias profesionales: 5 de
-Administracion general y 53 de Administracion especial. Procede del arbol
-historico OPES y coincide con la migracion local revisada, pero no se ha
-contrastado todavia con una resolucion oficial vigente ni ha sido aprobado por
+El inventario consolidado contiene 68 categorias profesionales: 5 de
+Administracion general, 60 de Administracion especial y 3 de organismos
+dependientes. Las 58 entradas recuperadas del arbol historico OPES se han
+complementado con diez denominaciones constatadas en bases publicas del BOP de
+Granada. No constituye una relacion oficial vigente ni ha sido aprobado por
 Recursos Humanos. Por tanto, se usa exclusivamente como contenido de
 demostracion y no tiene validez administrativa.
 
 Las huellas de las fuentes revisadas son:
 
 - migracion OPES: `4c94c36a2f024edda8b0c4d7c0cec965b97096f0ffbc64df3e13f64dad568b1b`;
-- documento descriptivo OPES: `b276518116527f357dcbbab992929f277fd69018b059de41ba72555812ed9af1`.
+- documento descriptivo OPES: `b276518116527f357dcbbab992929f277fd69018b059de41ba72555812ed9af1`;
+- inventario de fuentes publicas BOP:
+  `de9af856fea93e91340e77aef6403d607e49b3822e5d8f7856bca4a5d6ad5172`;
+- catalogo canonico resultante:
+  `b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233`.
 
 No se han incorporado bases de candidatos, DNI, nombres, correos, telefonos ni
 otros datos personales encontrados en aplicaciones auxiliares.
@@ -43,7 +48,7 @@ catalogo gobernado, versionado y publicado
 
 El paquete `data/catalogos/categorias-profesionales/v1.demo.json` es una
 instantanea reproducible para desarrollo y demostracion. No se siembra en el
-almacen al arrancar ni sustituye al gobierno del catalogo. Las 58 entradas
+almacen al arrancar ni sustituye al gobierno del catalogo. Las 68 entradas
 siguen siendo un inventario historico DEMO pendiente de contraste y aprobacion
 por RRHH. En produccion, una version se publicara por el caso de uso
 administrativo, con autenticacion alta, doble control, auditoria, aprobacion y
@@ -55,17 +60,18 @@ destruir datos heredados, pero ya no se carga como autoridad consultable ni
 admite altas, cambios o bajas. El workspace tampoco embebe la lista historica.
 
 En este envoltorio DEMO, `actualizada_en` indica cuando se genero la
-instantanea tecnica (16 de julio de 2026); no es la fecha de una actualizacion
+instantanea tecnica (19 de julio de 2026); no es la fecha de una actualizacion
 oficial de RRHH ni de la fuente OPES. Una importacion productiva separara fecha
 de fuente, fecha de extraccion y fecha de publicacion gobernada.
 
 ## Claves y compatibilidad
 
-Las claves publicas son estables, en minusculas y formato kebab-case. Las dos
-convocatorias sinteticas usan:
-
-- `auxiliar-administrativo`;
-- `tecnico-de-gestion`.
+Las claves publicas son estables, en minusculas y formato kebab-case. Los 36
+procesos publicos de la muestra proceden de 37 publicaciones BOP; una misma
+publicacion puede referenciar varias categorias y una categoria puede aparecer
+en varios procesos. La muestra expone 35 categorias con al menos un proceso y
+el directorio conserva las 68 entradas, incluidas las que no tienen convocatoria
+en este corte. La muestra no convierte esos usos en autoridad del catalogo.
 
 Las variantes antiguas con guion bajo no vuelven a publicarse. Los alias de
 directorios historicos se resolveran unicamente durante una importacion o
@@ -113,7 +119,7 @@ version en borrador, referencia a la version de partida, motivo y fuente,
 validaciones, doble aprobacion por personas distintas, firma/publicacion y
 recibo auditable. Hasta que ese caso de uso exista y haya contenido aprobado
 por RRHH, la pantalla interna es exclusivamente de consulta y no atribuye
-validez administrativa a las 58 entradas DEMO.
+validez administrativa a las 68 entradas DEMO.
 
 ## Seguridad e integridad
 
@@ -138,15 +144,18 @@ por si mismo el paquete DEMO.
 
 ## Criterios de aceptacion
 
-- el paquete inicial contiene exactamente 58 claves unicas, distribuidas 5/53;
-- el directorio publico devuelve esas 58 entradas sin metadatos internos;
+- el paquete inicial contiene exactamente 68 claves unicas, distribuidas
+  5/60/3 entre Administracion general, Administracion especial y organismos
+  dependientes;
+- el directorio publico devuelve esas 68 entradas sin metadatos internos;
 - Bolsa y Personal devuelven la misma referencia de catalogo, version y huella;
 - la proyeccion de Personal mantiene el contrato de lectura sin publicar
   `source_path`;
 - las mutaciones directas de Personal responden `409` y no alteran ni el
   catalogo gobernado ni las categorias heredadas del snapshot;
-- con la fuente sintetica actual, el filtro devuelve solo 2 categorias y un
-  resultado para cada una;
+- con la fuente publica DEMO actual, 37 publicaciones BOP se proyectan en 36
+  procesos y cero plazos declarados abiertos; el numero de facetas se verificara
+  al cerrar la nueva instantanea canonica;
 - una convocatoria no puede referenciar una categoria ausente, retirada o no
   vigente;
 - publicar una version que incorpore una categoria adicional permite verla sin
@@ -159,7 +168,7 @@ por si mismo el paquete DEMO.
 ## Pendiente antes de produccion
 
 1. Obtener de RRHH la relacion oficial, resolucion o fuente maestra vigente.
-2. Comparar altas, bajas, denominaciones, areas y equivalencias con las 58
+2. Comparar altas, bajas, denominaciones, areas y equivalencias con las 68
    entradas recuperadas.
 3. Generar una propuesta de version y un informe de diferencias.
 4. Aprobar y firmar la publicacion mediante doble control.

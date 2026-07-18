@@ -29,7 +29,7 @@ func TestConsultaCategoriasProyectaVersionExactaPublicadaYMinimizada(t *testing.
 	}
 	resultado, err := consulta.ObtenerPublicadas(context.Background(), time.Date(2026, 7, 16, 8, 0, 0, 0, time.UTC))
 	if err != nil || resultado.ID != "categorias-profesionales" || resultado.Version != 1 ||
-		len(resultado.HuellaSHA256) != 64 || len(resultado.Categorias) != 58 || !resultado.Fuente.Demostracion {
+		len(resultado.HuellaSHA256) != 64 || len(resultado.Categorias) != 68 || !resultado.Fuente.Demostracion {
 		t.Fatalf("resultado=%#v error=%v", resultado, err)
 	}
 	primera := resultado.Categorias[0]

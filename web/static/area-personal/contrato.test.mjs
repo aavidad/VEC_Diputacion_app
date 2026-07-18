@@ -15,7 +15,7 @@ test("el selector de presentación es único y explícito", () => {
   );
 });
 
-test("el contrato acepta el juego sintético completo y lo congela", async () => {
+test("el contrato acepta el juego mixto de presentación y lo congela", async () => {
   const datos = await crearAdaptadorPresentacion().cargar();
   assert.equal(datos.meta.presentacion, true);
   assert.equal(datos.meta.esquema, "vec.bolsa.area-personal.v1");

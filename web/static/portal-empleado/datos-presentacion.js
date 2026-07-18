@@ -3,7 +3,10 @@
  *
  * No es persistencia, no es una API y no puede habilitar actos administrativos.
  * La aplicación normal no importa este fichero: solo se carga dinámicamente con
- * `?presentacion=rrhh`. Véase el mapa de sustitución en
+ * `?presentacion=rrhh`. Los títulos, fechas de publicación y CVE/BOP de las tres
+ * convocatorias visibles proceden de fuentes públicas reales. Las personas,
+ * expedientes, fases, plazos operativos y actuaciones siguen siendo sintéticos.
+ * Véase el mapa de sustitución en
  * `docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md`.
  */
 const DATOS = {
@@ -80,9 +83,69 @@ const DATOS = {
     { id: "DEMO-NEC-0012", referencia: "DEMO-NECESIDAD-0012", puesto: "Trabajador Social", bolsa_id: "DEMO-BOL-TRABAJO-SOCIAL", bolsa: "Trabajador Social", destino: "Centro DEMO 03", jornada: "Parcial 50 %", duracion: "3 meses", cobertura: "Programa temporal", fecha_limite: "22/07/2026 09:30", regla: "Bases · versión de presentación", estado: "Pendiente de propuesta" },
   ],
   elaboraciones: [
-    { id: "DEMO-BOL-014", nombre: "Auxiliar Administrativo", expediente: "DEMO-EXP-014", fase: "Validación jurídica", reglas: "v3 · 8 criterios", plazo: "22/07/2026", responsable: "Unidad DEMO de Selección", estado: "En revisión", version_bases: "v3 · Huella SHA-256 sintética", calendario: "Solicitud 01/08–20/08/2026", firmantes: "Perfil DEMO Jefatura · Secretaría · Delegación" },
-    { id: "DEMO-BOL-021", nombre: "Trabajador Social", expediente: "DEMO-EXP-021", fase: "Configuración de baremo", reglas: "Borrador · 6 criterios", plazo: "29/07/2026", responsable: "Unidad DEMO de Selección", estado: "Borrador", version_bases: "v1 · Borrador", calendario: "Pendiente de aprobación", firmantes: "Pendientes de configurar" },
-    { id: "DEMO-BOL-009", nombre: "Operario Servicios Múltiples", expediente: "DEMO-EXP-009", fase: "Publicación", reglas: "v2 · 5 criterios", plazo: "Publicado 11/07/2026", responsable: "Perfil DEMO Jefatura", estado: "Publicada", version_bases: "v2 · Huella SHA-256 sintética", calendario: "Plazo cerrado 10/07/2026", firmantes: "Circuito demostrativo completado" },
+    {
+      id: "DEMO-BOL-014",
+      nombre: "Ingreso en la categoría de Auxiliar de Servicios Generales",
+      expediente: "DEMO-EXP-014",
+      fase: "Validación jurídica · escenario DEMO",
+      reglas: "v3 DEMO · 8 criterios",
+      plazo: "Escenario DEMO · 22/07/2026",
+      responsable: "Unidad DEMO de Selección",
+      estado: "En revisión",
+      version_bases: "BOP-GRA-2025-125002 · referencia pública real",
+      calendario: "Escenario DEMO · solicitud 01/08–20/08/2026",
+      firmantes: "Perfiles DEMO de Jefatura · Secretaría · Delegación",
+      identificador_publico: "auxiliar-servicios-generales-2025",
+      tipo_publico: "Proceso selectivo",
+      cve_bop: "BOP-GRA-2025-125002",
+      publicacion_bop: "04/07/2025",
+      documentos_publicos: [
+        { titulo: "Bases adaptadas (PDF)", formato: "PDF", url: "/bolsa/documentos/bases-auxiliar-demo.pdf" },
+        { titulo: "Bases adaptadas (HTML accesible)", formato: "HTML", url: "/bolsa/documentos/bases-auxiliar-demo.html" },
+      ],
+    },
+    {
+      id: "DEMO-BOL-021",
+      nombre: "Ingreso en la Subescala de Gestión de Administración General",
+      expediente: "DEMO-EXP-021",
+      fase: "Configuración de baremo · escenario DEMO",
+      reglas: "Borrador DEMO · 6 criterios",
+      plazo: "Escenario DEMO · 29/07/2026",
+      responsable: "Unidad DEMO de Selección",
+      estado: "Borrador",
+      version_bases: "BOP-GRA-2024-244002 · referencia pública real",
+      calendario: "Escenario DEMO · pendiente de aprobación",
+      firmantes: "Perfiles DEMO pendientes de configurar",
+      identificador_publico: "gestion-administracion-general-2024",
+      tipo_publico: "Proceso selectivo",
+      cve_bop: "BOP-GRA-2024-244002",
+      publicacion_bop: "19/12/2024",
+      documentos_publicos: [
+        { titulo: "Bases adaptadas (PDF)", formato: "PDF", url: "/bolsa/documentos/bases-gestion-demo.pdf" },
+        { titulo: "Bases adaptadas (HTML accesible)", formato: "HTML", url: "/bolsa/documentos/bases-gestion-demo.html" },
+      ],
+    },
+    {
+      id: "DEMO-BOL-009",
+      nombre: "Bolsa de empleo de Operario de la Diputación de Granada",
+      expediente: "DEMO-EXP-009",
+      fase: "Publicación · escenario DEMO",
+      reglas: "v2 DEMO · 5 criterios",
+      plazo: "Escenario DEMO · publicación simulada",
+      responsable: "Perfil DEMO Jefatura",
+      estado: "Publicada",
+      version_bases: "BOP-GRA-2026-043004 · referencia pública real",
+      calendario: "Sin reconstruir plazos históricos no estructurados",
+      firmantes: "Circuito demostrativo completado",
+      identificador_publico: "bolsa-operario-diputacion-2026",
+      tipo_publico: "Bolsa de trabajo",
+      cve_bop: "BOP-GRA-2026-043004",
+      publicacion_bop: "05/03/2026",
+      documentos_publicos: [
+        { titulo: "Bases adaptadas (PDF)", formato: "PDF", url: "/bolsa/documentos/bases-operario-demo.pdf" },
+        { titulo: "Bases adaptadas (HTML accesible)", formato: "HTML", url: "/bolsa/documentos/bases-operario-demo.html" },
+      ],
+    },
   ],
   proximos: [
     { dia: "20", mes: "JUL", bolsa: "Auxiliar Administrativo", numero: "45", fecha: "20/07/2026 09:00", estado: "Pendiente" },

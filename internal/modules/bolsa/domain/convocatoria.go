@@ -186,7 +186,7 @@ func (c Convocatoria) ValidarPublicacion() error {
 		!textoConvocatoriaValido(d.Descripcion, 12000, true) ||
 		d.PublicadaEn.IsZero() || d.ActualizadaEn.IsZero() || d.ActualizadaEn.Before(d.PublicadaEn) ||
 		len(d.Categorias) == 0 || len(d.Categorias) > maximoCategoriasConvocatoria ||
-		len(d.Plazos) == 0 || len(d.Plazos) > maximoPlazosConvocatoria ||
+		len(d.Plazos) > maximoPlazosConvocatoria ||
 		len(d.Requisitos) > maximoRequisitosConvocatoria || len(d.Documentos) > maximoDocumentosConvocatoria ||
 		len(d.Ayuda) > maximoAyudasConvocatoria {
 		return ErrConvocatoriaInvalida
@@ -194,7 +194,11 @@ func (c Convocatoria) ValidarPublicacion() error {
 	if !instanteUTCCanonico(d.PublicadaEn) || !instanteUTCCanonico(d.ActualizadaEn) {
 		return ErrConvocatoriaInvalida
 	}
-	if !clavesCatalogoUnicas(d.Categorias) || !plazosValidos(d.Plazos) || !requisitosValidos(d.Requisitos) ||
+	// Un histórico cerrado puede no conservar un plazo estructurado fiable. En
+	// ese caso se publica la fecha oficial de las bases y no se inventa un
+	// intervalo. Cualquier estado operativo sigue exigiendo al menos un plazo.
+	if (len(d.Plazos) == 0 && c.Estado != EstadoConvocatoriaCerrada) ||
+		!clavesCatalogoUnicas(d.Categorias) || !plazosValidos(d.Plazos) || !requisitosValidos(d.Requisitos) ||
 		!documentosValidos(d.Documentos) || !ayudasValidas(d.Ayuda) {
 		return ErrConvocatoriaInvalida
 	}

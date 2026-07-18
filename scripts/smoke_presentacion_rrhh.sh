@@ -47,12 +47,22 @@ until curl --fail --silent --max-time 1 "$base/healthz" >/dev/null 2>&1; do
 done
 
 curl --fail --silent --max-time 5 "$base/presentacion/" | grep -Fq 'href="/area-personal/?presentacion=rrhh"'
+curl --fail --silent --max-time 5 "$base/presentacion/" | grep -Fq '<h3 id="modulo-cronos">Cronos</h3>'
+curl --fail --silent --max-time 5 "$base/presentacion/" | grep -Fq 'Pendiente · No disponible'
 curl --fail --silent --head --max-time 5 "$base/presentacion/" | grep -Fiq 'X-Vec-Modo-Presentacion: aislada-sintetica-v1'
 curl --fail --silent --max-time 5 "$base/area-personal/?presentacion=rrhh" | grep -Fq 'MODO DEMOSTRACIÓN'
 curl --fail --silent --max-time 5 "$base/area-personal/adaptador-presentacion.js" | grep -Fq 'Adaptador efímero y exclusivo de presentación'
 curl --fail --silent --max-time 5 "$base/portal-empleado/?presentacion=rrhh&perfil=administrador" | grep -Fq 'Presentación para RRHH'
 curl --fail --silent --max-time 5 "$base/portal-empleado/portal-presentacion-adaptador.js" | grep -Fq 'Adaptador volátil y sustituible'
 curl --fail --silent --max-time 5 "$base/api/publico/bolsa/convocatorias" | grep -Fq 'vec.bolsa.publico.convocatorias.v1'
+curl --fail --silent --max-time 5 "$base/bolsa/documentos/bases-operario-demo.html" \
+  | grep -Fq 'CVE BOP-GRA-2026-043004'
+curl --fail --silent --max-time 5 \
+  --dump-header "$temporal/bases-operario.headers" \
+  --output "$temporal/bases-operario-demo.pdf" \
+  "$base/bolsa/documentos/bases-operario-demo.pdf"
+grep -Fiq 'Content-Type: application/pdf' "$temporal/bases-operario.headers"
+test "$(dd if="$temporal/bases-operario-demo.pdf" bs=5 count=1 2>/dev/null)" = '%PDF-'
 
 estado_privado="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 5 "$base/api/vec/session")"
 estado_cookie="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 5 --header 'Cookie: sesion=no-admitida' "$base/presentacion/")"
