@@ -1,100 +1,416 @@
-# Brecha funcional verificada de Bolsa a 17 de julio de 2026
+# Estado real y brecha funcional de Bolsa — verificación de 18 de julio de 2026
 
-## Finalidad
+## Finalidad y alcance
 
-Este documento separa las capacidades demostrables del producto de los modelos,
-contratos, dobles de prueba y pantallas que todavía no están conectados a una
-composición productiva. Su objetivo es impedir que una interfaz visible o un
-dominio bien probado se contabilicen como un recorrido terminado.
+Esta memoria sustituye la fotografía funcional redactada el 17 de julio por una
+verificación más estricta del código y de la composición existente el 18 de
+julio de 2026. Se conserva el nombre del fichero para no romper sus referencias.
 
-Los porcentajes son una estimación de alcance funcional, no una métrica de
-calidad ni de líneas de código:
+El objetivo es impedir que una pantalla visible, un conjunto de datos
+sintéticos, un dominio bien probado o una migración cerrada se contabilicen como
+un recorrido administrativo terminado. La revisión abarca el módulo Bolsa, sus
+portales público e interno, su raíz de composición, los adaptadores y las pruebas
+asociadas. No acredita el despliegue de infraestructura externa.
 
-- recorridos de Bolsa utilizables sin datos de demostración: **20-25 %**;
-- cimentación técnica reutilizable: **50-60 %**;
-- recorridos funcionales todavía pendientes: **75-80 %**.
+Los términos de esta memoria significan:
 
-La consulta pública es el único recorrido actualmente conectado de extremo a
-extremo. Aun así, la composición de serie publica dos convocatorias sintéticas,
-por lo que no se considerará productiva hasta que lea la proyección durable de
-las convocatorias aprobadas por RRHH.
+| Estado | Significado verificable |
+| --- | --- |
+| **Presentación** | Interfaz preparada para enseñar el recorrido. Puede contener datos sintéticos y controles sin efecto administrativo. |
+| **Demostración conectada** | Navegador, API y fuente se comunican de extremo a extremo, pero la fuente declara expresamente que carece de validez administrativa. |
+| **Contrato probado** | Dominio, caso de uso, puerto o adaptador pasa pruebas aisladas. No implica que una raíz de composición lo haga alcanzable. |
+| **Integrado** | La ruta está registrada con dependencias reales y puede recorrerse sin dobles ni semillas locales. Aún puede tener barreras operativas para producción. |
+| **Productivo E2E** | Recorrido integrado, durable, autorizado, auditable, recuperable tras reinicio y probado bajo concurrencia con todos sus conectores legales. |
 
-## Evidencia por capacidad
+Solo el último estado permite afirmar que una capacidad administrativa está
+terminada. Un manifiesto, un botón o una migración instalada pero cerrada no
+conceden por sí mismos una capacidad productiva.
 
-| Prioridad | Capacidad | Evidencia disponible | Brecha para considerarla terminada |
+## Resultado ejecutivo
+
+La situación observada es:
+
+- **0 recorridos administrativos productivos E2E** de Bolsa;
+- **1 recorrido público de demostración conectado**: consulta anónima de
+  convocatorias, detalle y categorías;
+- **1 vertical real de lectura interna contratada y probada**, el panel agregado
+  de Bolsa, pero no registrada en la composición ni abierta para producción;
+- **10 apartados visibles** en el portal RRHH de presentación;
+- **2 de esos 10 apartados** pueden representar el contrato interno real en modo
+  de solo lectura: resumen y convocatorias agregadas;
+- **0 de esos 10 apartados** resulta alcanzable actualmente en modo normal,
+  porque la ruta interna no está compuesta;
+- **8 de los 10 apartados** muestran de forma expresa «Funcionalidad no
+  conectada» cuando reciben el contrato interno real;
+- **3 recursos públicos GET/HEAD** están registrados: listado, detalle y
+  directorio de categorías;
+- la fuente pública de serie contiene **2 convocatorias, 3 documentos HTML, 3
+  requisitos, 2 plazos y 3 respuestas de ayuda**, todos sintéticos;
+- el catálogo profesional contiene **58 categorías históricas**, pero también
+  declara ser de demostración y estar pendiente de validación funcional por
+  RRHH.
+
+Estas cifras expresan cobertura de recorridos, no calidad del código ni volumen
+de trabajo. La cimentación reutilizable es considerable, pero no se suma como
+funcionalidad productiva mientras permanezca aislada o cerrada.
+
+## Composición y rutas observadas
+
+### Superficie pública
+
+La entrada dedicada `cmd/vec-publico/main.go` construye exclusivamente la API y
+el servidor públicos. La lista positiva de
+`internal/app/server/server.go` limita la superficie a `/bolsa`, sus recursos,
+`/api/publico` y salud; no expone el portal interno y rechaza credenciales
+ambientales.
+
+| Ruta registrada | Estado | Evidencia principal |
+| --- | --- | --- |
+| `GET/HEAD /api/publico/bolsa/convocatorias` | Demostración conectada | `internal/modules/bolsa/adapters/httppublico/handler.go`, `internal/app/bootstrap/bootstrap.go` |
+| `GET/HEAD /api/publico/bolsa/convocatorias/{identificador}` | Demostración conectada | `internal/modules/bolsa/adapters/httppublico/handler.go` |
+| `GET/HEAD /api/publico/bolsa/categorias` | Demostración conectada | `internal/modules/bolsa/adapters/httppublico/handler.go`, `internal/modules/bolsa/adapters/catalogosvec/categorias.go` |
+| `/bolsa/` | Interfaz integrada con la API anterior | `web/static/bolsa/index.html`, `web/static/bolsa/bolsa.js` |
+
+La interfaz pública incorpora búsqueda, filtros por tipo, categoría, estado y
+plazo, paginación, estados de carga/error/vacío, directorio de categorías,
+detalle de plazos, requisitos, documentos y ayuda, y preferencias de texto
+grande y alto contraste.
+
+No obstante, no es una publicación administrativa real:
+
+- `config/config.go` selecciona por defecto
+  `data/demo/convocatorias_publicas.demo.json` y
+  `data/catalogos/categorias-profesionales/v1.demo.json`;
+- `internal/modules/bolsa/adapters/fichero/convocatorias.go` exige que la fuente
+  indique `demostracion=true` y contenga un aviso de demostración; rechaza una
+  fuente que pretenda utilizar el mismo adaptador como publicación oficial;
+- los tres documentos visibles son páginas HTML sintéticas ubicadas en
+  `web/static/bolsa/documentos/`;
+- la propia interfaz informa de que no tramita solicitudes.
+
+Por tanto, existe un recorrido técnico completo y reutilizable, pero aún no una
+proyección pública durable de convocatorias aprobadas por RRHH.
+
+### Superficie interna
+
+El portal normal consulta únicamente:
+
+```text
+GET /api/vec/bolsa/panel
+```
+
+`web/static/portal-empleado/portal.js` usa `credentials: "omit"`, exige el
+envelope canónico `vec.bolsa.panel.interno.v1` y falla cerrado ante ausencia de
+sesión, autorización, ruta o servicio. No sustituye un fallo por datos
+sintéticos.
+
+La vertical real existe en piezas:
+
+- frontera HTTP estricta en
+  `internal/modules/bolsa/adapters/httpinterno/handler.go`;
+- PEP y exigencia de autorización PDP ligada V2, garantía alta y superficie
+  interna en `internal/modules/bolsa/application/panel_interno.go`;
+- consulta PostgreSQL serializable y validación del recibo en
+  `internal/modules/bolsa/adapters/postgres/panel_interno.go`;
+- esquema, funciones cerradas, auditoría y proyección en
+  `deploy/postgresql/bolsa_panel/`;
+- presentador de contrato real en
+  `web/static/portal-empleado/portal-panel-interno.js`.
+
+Sin embargo:
+
+- no hay importación ni registro productivo del adaptador `httpinterno` en la
+  raíz de composición;
+- no hay un proceso dedicado que componga el servidor interno con esa ruta;
+- falta el preparador de órdenes que resuelva identidad, sesión revalidada,
+  perfil, ámbito, motivo y correlación desde una frontera confiable;
+- `deploy/postgresql/bolsa_panel/README.md` mantiene la función de consulta
+  cerrada sin `EXECUTE` hasta disponer de verificación COSE, claves y
+  revocaciones productivas.
+
+La ruta preparada por el navegador para propuestas de llamamiento tampoco
+existe en la composición:
+
+```text
+POST /api/vec/bolsa/propuestas-llamamiento
+```
+
+El navegador solo intentaría usarla si el servidor concediese expresamente esa
+capacidad. El contrato real actual no la concede.
+
+### Modo de presentación RRHH
+
+El conjunto visual ampliado solo se carga cuando coinciden dos condiciones:
+
+1. parámetro exacto `?presentacion=rrhh`;
+2. configuración de servidor `VEC_RRHH_PRESENTATION_ENABLED=true`.
+
+`web/static/portal-empleado/datos-presentacion.js` se identifica como adaptador
+exclusivo de presentación, declara `demostracion=true`, no es una API ni una
+persistencia y mantiene deshabilitadas las capacidades de proponer y confirmar
+llamamientos. Contiene seis bolsas sintéticas, tres necesidades, tres
+elaboraciones, cuatro contratos, tres reglas, cuatro documentos, cuatro canales
+y cuatro eventos de actividad.
+
+`web/static/portal-empleado/portal-eventos.js` limita las acciones a navegación,
+impresión o diálogos explicativos. «Validar recorrido» no confirma, firma,
+comunica ni modifica un expediente. Este modo es adecuado para enseñar la
+distribución del futuro puesto de trabajo, pero no demuestra actos de negocio.
+
+## Matriz funcional estricta
+
+| Capacidad | Presentación o demo | Contrato probado reutilizable | Integrado sin demo | Productivo E2E | Brecha principal |
+| --- | --- | --- | --- | --- | --- |
+| Consulta pública | Sí: interfaz y fuente DEMO conectadas | Sí: servicio, filtros, minimización y handlers | No | No | Sustituir la fuente DEMO por una proyección durable de versiones aprobadas. |
+| Panel interno agregado | Sí: cuadro ampliado sintético | Sí: dominio, aplicación, HTTP y PostgreSQL de lectura | No | No | Identidad interna, autoridad COSE, publicador de proyección y raíz de composición. |
+| Gobierno de convocatorias | Sí: expedientes y botones sintéticos | Sí: borrador, actualización, publicación, sustitución y retirada en dominio y puertos | No | No | Servicio de aplicación de escritura, adaptador PostgreSQL, API autorizada y composición. |
+| Bases y reglas de baremo | Sí: pantalla y valores de ejemplo | Sí: versiones, topes, jornada, redondeo, cálculo exacto y planes de gobierno | No | No | Adaptador Go productivo, broker de capacidades, fuente autoritativa, editor y simulador RRHH. |
+| Autobaremación de aspirante | No como recorrido real | Sí: modelos y casos de uso aislados | No | No | Candidatura, fuente de méritos, cálculo oficial, repositorio y API personal. |
+| Revisión técnica de baremación | Sí: concepto visual | Sí: aceptación, desestimación, subsanación, rectificación, revocación, rehabilitación y firma | No | No | Bandeja RRHH, autorización, evidencia documental, firma/custodia y persistencia compuestas. |
+| Llamamientos | Sí: asistente sintético de cuatro pasos | Sí: selección del primer elegible, seguridad e idempotencia en dominio/aplicación | No | No | Persistencia completa, fuentes autoritativas, confirmación y ciclo de comunicación/respuesta. |
+| Contratos, ceses y reincorporaciones | Sí: tabla sintética | Parcial: conceptos relacionados con llamamientos | No | No | Modelo y casos de uso propios, integración con RRHH/nómina y trazabilidad del ciclo completo. |
+| Documentación y firma | Sí: plantillas y estados sintéticos | Sí: puertos PAdES, sello de tiempo, validación, custodia y flujo de firma de baremación | No | No | Subida, análisis, generación, firma, registro, custodia y descarga conectados al expediente. |
+| Comunicaciones | Sí: canales previstos | Parcial: contratos generales y outbox en algunos agregados | No | No | Conectores reales, notificación fehaciente, reintentos, recibos y preferencias. |
+| Ayuda | Sí: contenido real estático, FAQ, audio local y transcripción | Sí: contrato de contenido comprobado en web | Sí, como recurso estático | No como sistema administrable | Catálogo gobernado, contexto por perfil/expediente, cobertura exhaustiva y bot. |
+| Roles y permisos | Sí: contexto sintético de presentación | Sí: 7 permisos gruesos, 11 entradas de menú y políticas PDP de alta garantía | No para Bolsa interna | No | Identidad productiva, roles publicados, asignaciones, segregación y preparador de órdenes. |
+| Auditoría y trazabilidad | Sí: cronología sintética | Sí: huellas, CAS, idempotencia, outbox, recibos y auditoría en varias piezas | No en un acto web completo | No | Enlazar cada acción web con autorización, persistencia, recibo, recuperación y consulta. |
+| Candidatura, alegaciones y registro | Parcial en legado y presentación | Parcial en modelos heredados | No | No | Recorrido personal completo, firma, registro, subsanación, resolución y notificación. |
+
+### Precisión sobre los adaptadores durables
+
+La presencia de SQL o de un tipo PostgreSQL no equivale a disponibilidad
+productiva:
+
+- `deploy/postgresql/bolsa_reglas_baremo/README.md` declara la instalación
+  cerrada y pendiente del adaptador que restaure el canon Go y de las fronteras
+  confiables;
+- `deploy/postgresql/bolsa_calculo_experiencia/README.md` enumera barreras
+  `NO-GO`, incluido el repositorio autoritativo de reglas y el adaptador Go;
+- `internal/modules/bolsa/adapters/postgres/llamamientos_transaccion.go` valida
+  el comando pero devuelve deliberadamente
+  `ErrPersistenciaPropuestaNoDisponible` hasta que un nuevo contrato confirme la
+  instantánea completa, autorización, atestación, auditoría y outbox en un solo
+  `COMMIT`;
+- `deploy/postgresql/bolsa_baremacion/README.md` mantiene bloqueos explícitos de
+  producción y exige una prueba Go–PostgreSQL completa;
+- `internal/modules/bolsa/operational_contract.go` fija
+  `LegalProductionReady=false` y declara como no configuradas la firma
+  electrónica, el registro electrónico, la notificación fehaciente y la
+  auditoría probatoria externa.
+
+Tampoco se deben contabilizar como productivas las capacidades denominadas
+`real` en el manifiesto heredado de candidato: la raíz de composición solo monta
+esa API cuando la autenticación es `fake`.
+
+## Paneles RRHH: visible frente a operativo
+
+| Apartado visible | Presentación RRHH | Contrato interno real | Alcanzable ahora en modo normal |
 | --- | --- | --- | --- |
-| P0 | Composición productiva | El servidor monta la carcasa VEC y la consulta pública. La API heredada de candidatos solo se activa en modo `fake` en `internal/app/bootstrap/bootstrap.go`. | Montar exclusivamente casos de uso reales, con PostgreSQL y conectores productivos; ninguna ruta administrativa puede depender de semillas locales. |
-| P0 | Gobierno de convocatorias | El dominio representa borrador, publicación, sustitución y retirada; existen contratos exactos en `internal/modules/bolsa/ports/convocatorias_gobierno_*`. | Servicio de aplicación, repositorio transaccional, autorización, idempotencia, auditoría, outbox y API RRHH. |
-| P0 | Bases y reglas de baremo | `domain/reglasbaremo` modela versiones, topes, jornada, restos, redondeos y concurrencia; `domain/calculoexperiencia` está construyendo el motor exacto. | Persistencia y gobierno productivos, simulador y editor RRHH; ampliar después experiencia con titulaciones, cursos, exámenes y los restantes méritos tipados. |
-| P0 | Portal privado y candidatura | Hay un núcleo heredado en `internal/candidate` y modelos reutilizables. | Alta, borrador, firma, registro, subsanación, desistimiento y expediente conectados sin reglas fijas ni datos sintéticos. |
-| P0 | Documentación segura | Existen contratos de almacenamiento S3 compatible, cuarentena, análisis y custodia. | Reserva de subida directa, confirmación, análisis antimalware, firma, registro y recuperación conectados al flujo de candidatura. La ruta heredada devuelve `503` deliberadamente mientras falten estas garantías. |
-| P0 | Autobaremación y revisión | El dominio admite aceptación, desestimación, rectificación, revocación, rehabilitación y decisiones firmadas. | Fuente de méritos, cálculo oficial, firma, sello de tiempo, custodia, autorización y repositorio productivos; API y bandeja RRHH. |
-| P0 | Llamamientos | Existe selección segura del primer candidato elegible y una transacción PostgreSQL de propuesta. | Fuentes autoritativas y composición; confirmación, comunicación, respuesta, renuncia, no comparecencia, contratación y reincorporación. |
-| P0 | Alegaciones | El legado conserva un modelo inicial. | Presentación registrada, documentación cotejada, revisión, resolución firmada, notificación y recurso. La ruta heredada permanece cerrada con `503`. |
-| P0 | Trazabilidad integral | Los dominios aplican inmutabilidad, huellas, idempotencia y denegación por defecto. | Auditoría durable en todos los recorridos y pruebas integrales HTTP, navegador y PostgreSQL, incluida recuperación tras reinicio. |
-| P1 | Operación profesional | Hay contratos y diseños parciales. | Notificación multicanal, operaciones masivas, exportaciones, reconciliación, conservación y expurgo, accesibilidad real y firma longeva o múltiple. |
-| P2 | Ampliaciones | La arquitectura reserva adaptadores intercambiables. | CLI, MCP e IA, analítica, formatos y canales adicionales, nube y nuevos motores de persistencia. |
+| Cuadro de mando | Completo con datos sintéticos | Resumen agregado, 12 indicadores, convocatorias, actuaciones y prueba de lectura | No |
+| Elaboración y gestión | Expedientes sintéticos y controles informativos | Lista agregada de convocatorias en solo lectura | No |
+| Llamamientos | Asistente sintético sin confirmación | «Funcionalidad no conectada» | No |
+| Contratos, ceses y reincorporaciones | Tabla sintética | «Funcionalidad no conectada» | No |
+| Motor de reglas | Tabla y diálogos sintéticos | «Funcionalidad no conectada» | No |
+| Consulta segura | Explicación de minimización | «Funcionalidad no conectada» | No |
+| Estadísticas | Indicadores sintéticos | «Funcionalidad no conectada» | No |
+| Generación de documentos | Plantillas sintéticas | «Funcionalidad no conectada» | No |
+| Comunicaciones | Canales sintéticos | «Funcionalidad no conectada» | No |
+| Auditoría | Cronología sintética | «Funcionalidad no conectada» | No |
 
-## Estado de las pantallas
+El contrato real del panel está deliberadamente minimizado: admite hasta 40
+resúmenes de convocatoria y 80 actuaciones pendientes, pero no contiene nombres,
+documentos identificativos, correos, teléfonos ni una colección global de
+aspirantes. La prueba de lectura incluye referencias de lectura, auditoría,
+decisión y correlación, secuencia y fecha confirmada. Esta buena base de
+trazabilidad sigue sin ser un recorrido operativo mientras no se componga.
 
-La carcasa administrativa, la navegación lateral y la densidad de información
-son reutilizables. No acreditan por sí mismas una capacidad de negocio:
+## Pruebas ejecutadas en esta verificación
 
-- el panel RRHH solicita `/api/vec/bolsa/panel` y
-  `/api/vec/bolsa/propuestas-llamamiento`, pero esas rutas aún no están
-  registradas en la composición productiva;
-- varios botones muestran diálogos informativos y no ejecutan un caso de uso;
-- guardar una convocatoria y confirmar un llamamiento siguen siendo acciones
-  pendientes;
-- la consulta pública usa `GET` y `HEAD` reales, pero su fuente de serie es de
-  demostración y declara que no tramita solicitudes.
+Se ejecutaron, sin modificar datos del proyecto:
 
-Todo valor sintético o acción no conectada debe seguir etiquetado como
-demostración. Su retirada forma parte del criterio de aceptación, no de una
-limpieza opcional posterior.
+```text
+go test ./internal/modules/bolsa/domain/... \
+  ./internal/modules/bolsa/application/... \
+  ./internal/modules/bolsa/ports/... \
+  ./internal/modules/bolsa/adapters/httppublico \
+  ./internal/modules/bolsa/adapters/httpinterno \
+  ./internal/modules/bolsa/adapters/fichero
 
-## Dependencias que no se pueden invertir
+go test ./internal/modules/bolsa/adapters/postgres
 
-El camino crítico del producto es:
+go test ./internal/app/bootstrap ./internal/app/server ./config
 
-1. identidad y autorización central con denegación por defecto;
-2. PostgreSQL, auditoría durable, outbox y custodia documental;
-3. convocatoria y reglas aprobadas y versionadas;
-4. candidatura, documentos y registro;
-5. autobaremación, cálculo oficial y revisión firmada;
-6. listas provisionales, alegaciones y lista definitiva;
-7. bolsa constituida y llamamientos.
+node --test web/static/bolsa/*.test.mjs \
+  web/static/portal-empleado/*.test.mjs
+```
 
-La auditoría, el control de acceso por finalidad y la evidencia transaccional
-atraviesan todos los pasos. No son una fase final.
+Resultado: todos los paquetes Go anteriores finalizaron correctamente y las
+pruebas web finalizaron **18 de 18** sin fallos.
 
-## Siguiente corte vertical definitivo
+Esta evidencia acredita pruebas unitarias y de contrato, incluidas pruebas de
+adaptadores con dobles. En esta revisión no se ejecutaron:
 
-El siguiente entregable demostrable debe reutilizar código de producción y
-recorrer la misma información desde RRHH hasta el portal público:
+- los arneses PostgreSQL efímeros de `deploy/postgresql/bolsa_*/`;
+- un recorrido con navegador real;
+- una prueba de reinicio completo;
+- los conectores externos de identidad, firma, registro, custodia, antivirus o
+  notificación.
 
-1. crear y editar una convocatoria desde el área interna;
-2. configurar reglas reales de experiencia;
-3. ejecutar simulaciones contra el motor exacto;
-4. adjuntar y custodiar las bases;
-5. aprobar y publicar con autorización, idempotencia, PostgreSQL, auditoría y
-   outbox en una única transición coherente;
-6. proyectar esa misma versión en la consulta pública, sin JSON de ejemplo;
-7. probar denegación por defecto, publicación concurrente y conservación tras
-   reinicio completo.
+Por ello el resultado verde no debe describirse como despliegue productivo ni
+como prueba E2E legal.
 
-Este corte no completa todavía candidaturas ni llamamientos, pero elimina una
-cadena de demostración completa y crea la base productiva que ambos recorridos
-necesitan.
+## Bloqueos ordenados por camino crítico
 
-## Criterio de comunicación del avance
+1. **Identidad y autoridad interna**: falta componer autenticación de alta
+   garantía, revalidación, perfil activo, ámbito, motivo, correlación, PDP y
+   verificación COSE. La política continúa siendo denegar por defecto.
+2. **Escritura durable de convocatorias**: el dominio y los puertos existen,
+   pero no el servicio de aplicación ni el adaptador PostgreSQL que confirmen
+   altas, cambios y publicación. Además, el contrato actual obliga a sellar de
+   forma durable el motivo antes de poder construir el recurso exacto que debe
+   autorizar el PDP; la implementación permanece en `NO-GO` hasta separar un
+   precompromiso sin efectos del sellado consumible.
+3. **Gobierno ejecutable del baremo**: faltan el adaptador Go y las fuentes
+   autoritativas que permitan usar las reglas versionadas y el cálculo oficial
+   sin riesgos de incoherencia o TOCTOU.
+4. **Cadena documental legal**: faltan la subida directa, cuarentena, análisis,
+   custodia, generación, firma, sello de tiempo, registro y descarga conectados
+   al expediente.
+5. **Proyección pública oficial**: la API pública solo puede leer su fuente DEMO;
+   falta publicar la misma versión aprobada y auditable de la convocatoria.
+6. **Candidatura y revisión RRHH**: faltan los recorridos personales, la fuente
+   de méritos, la autobaremación oficial, la bandeja técnica y sus decisiones
+   firmadas.
+7. **Ciclo completo de llamamiento**: faltan persistencia productiva,
+   confirmación, comunicación, respuesta, renuncia, no comparecencia,
+   contratación, cese y reincorporación.
+8. **Prueba operacional**: faltan navegador, PostgreSQL real, concurrencia,
+   reinicio, reconciliación y conectores legales en un mismo corredor.
 
-En informes y demostraciones se distinguirán siempre cuatro estados:
+Las dependencias no deben invertirse: una bolsa constituida y sus llamamientos
+dependen de convocatoria, bases, candidaturas, baremación, listas y alegaciones
+previamente gobernadas.
 
-- **modelo**: reglas e invariantes representadas en el dominio;
-- **probado en aislamiento**: dominio o adaptador con pruebas, sin composición;
-- **integrado**: recorrido conectado con dependencias reales;
-- **productivo verificado**: integrado, durable, autorizado, auditable y
-  probado tras reinicio y bajo concurrencia.
+## Siguiente corte: expediente gobernado de convocatoria
 
-Solo el último estado se expresará como funcionalidad terminada.
+El corte de mayor valor para RRHH es sustituir una cadena completa de
+presentación por el expediente real de convocatoria, desde el borrador hasta su
+proyección pública. Debe construirse de dentro hacia fuera y permanecer sin
+rutas internas de escritura registradas mientras falte identidad segura.
+
+### Precondición de seguridad: romper el ciclo sellado–autorización
+
+El servicio de escritura no puede implementarse todavía sobre los contratos
+actuales sin introducir un efecto durable previo a la autorización. La
+secuencia exigida hoy es:
+
+```text
+versión canónica
+  → sellado durable del motivo y creación de TokenConsumoRef
+  → material exacto de alta
+  → recurso e intención autorizables
+  → PDP
+  → repositorio
+```
+
+El material de alta exige la atestación del sellador y el recurso del PDP exige
+la huella de ese material. Por ello, ni el material ni la autorización exacta
+pueden obtenerse sin crear antes una capacidad durable. Mover ese sellado al
+cliente, usar una huella provisional o autorizar solo la versión trasladaría o
+debilitaría el problema; no es una solución aceptable.
+
+Antes del servicio de aplicación se debe introducir un precompromiso
+determinista, no consumible y sin estado durable. El PDP autorizará ese
+precompromiso; solo después se materializará la atestación durable, que deberá
+quedar ligada al precompromiso y consumirse atómicamente con idempotencia,
+auditoría, outbox y mutación. Si la atestación final modifica el recurso
+autorizable, será obligatoria una segunda autorización exacta inmediatamente
+antes del `COMMIT`. Una denegación o fallo del PDP debe producir cero sellados
+durables y cero escrituras.
+
+### Trabajo propuesto
+
+1. Separar en los contratos de motivo el precompromiso puro de la atestación
+   durable consumible y probar que una denegación PDP no produce efectos.
+2. Crear el servicio de aplicación para alta, actualización y versionado de
+   borradores reutilizando `internal/modules/bolsa/domain/convocatoria_gobernada*`
+   y `internal/modules/bolsa/ports/convocatorias_gobierno_*`.
+3. Implementar el adaptador PostgreSQL de gobierno con transacción
+   `SERIALIZABLE`, CAS, idempotencia, auditoría y outbox. La función de escritura
+   debe permanecer sin privilegios runtime hasta abrir la autoridad productiva.
+4. Completar el adaptador Go de reglas de baremo y el simulador de experiencia;
+   la convocatoria fijará siempre referencia, versión y huella exactas, nunca
+   «la última versión».
+5. Relacionar las bases con documento lógico, representación, huella, firma
+   validada y recibo de custodia. El dominio ya exige esa correspondencia uno a
+   uno antes de publicar.
+6. Exponer primero un DTO interno de expediente en solo lectura y adaptar
+   `web/static/portal-empleado/portal-panel-interno.js`. No mostrar controles de
+   edición si el servidor no entrega una capacidad positiva.
+7. Crear una consulta PostgreSQL pública que solo proyecte versiones publicadas
+   y aprobadas. El adaptador de fichero continuará reservado a demostración.
+8. Montar las rutas mutantes únicamente después de disponer del preparador de
+   identidad y de la autorización productiva.
+
+Archivos propuestos —todavía no existentes— para concentrar el corte sin
+mezclar responsabilidades:
+
+```text
+internal/modules/bolsa/application/convocatorias_gobierno.go
+internal/modules/bolsa/application/convocatorias_gobierno_test.go
+internal/modules/bolsa/adapters/postgres/convocatorias_gobierno.go
+internal/modules/bolsa/adapters/postgres/convocatorias_gobierno_test.go
+internal/modules/bolsa/adapters/postgres/convocatorias_publicas.go
+deploy/postgresql/bolsa_convocatorias/pruebas_sql/gobierno_y_publicacion.sql
+```
+
+Rutas internas objetivo, no registrables antes de resolver identidad y
+autorización:
+
+```text
+GET   /api/vec/bolsa/convocatorias
+GET   /api/vec/bolsa/convocatorias/{id}/versiones/{secuencia}
+POST  /api/vec/bolsa/convocatorias/borradores
+PATCH /api/vec/bolsa/convocatorias/{id}/borradores/{revision}
+POST  /api/vec/bolsa/convocatorias/{id}/publicaciones
+```
+
+Las rutas públicas existentes no necesitan cambiar de forma; debe cambiar su
+adaptador de lectura una vez exista la proyección oficial.
+
+### Criterios de aceptación del corte
+
+- un borrador sobrevive a reinicio completo;
+- dos cambios concurrentes sobre la misma revisión no pueden confirmarse ambos;
+- un reintento materialmente idéntico devuelve el mismo recibo sin duplicar
+  auditoría ni eventos;
+- una regla, calendario, flujo, catálogo o documento con versión o huella
+  distinta se rechaza;
+- no aparece ningún contenido público antes de aprobación y publicación;
+- las bases publicadas tienen firma validada y recibo de custodia;
+- la proyección pública corresponde a la misma versión y huella aprobadas;
+- la denegación por defecto funciona sin identidad, con identidad caducada y sin
+  concesión exacta;
+- PostgreSQL, API y navegador se prueban conjuntamente, incluida concurrencia,
+  reinicio y reconciliación;
+- la UI muestra estado, versión, plazo, evidencia, recibo y siguiente acción sin
+  inventar datos ausentes.
+
+Este corte aún no completa candidaturas, autobaremación ni llamamientos. Sí crea
+la autoridad de convocatoria y reglas que todos ellos necesitan y elimina la
+primera fuente sintética del recorrido público sin introducir una vía insegura
+de administración.
+
+## Regla de comunicación del avance
+
+Los informes, demostraciones y porcentajes futuros deben acompañar cada
+capacidad de uno de los estados definidos al comienzo. En particular:
+
+- «visible» no significa «conectado»;
+- «probado» no significa «compuesto»;
+- «PostgreSQL» no significa «abierto para producción»;
+- «auditable en el dominio» no significa «trazabilidad E2E»;
+- «datos sintéticos completos» no significa «gestión RRHH terminada».
+
+No se afirmará que Bolsa está completa ni productiva hasta superar los criterios
+E2E con identidad, persistencia, documentación y conectores legales reales.
