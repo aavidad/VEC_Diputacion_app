@@ -9,9 +9,13 @@ export function crearControladorPortal(dependencias) {
   const {
     anunciar,
     cargarFuenteDatos,
+    cerrarMenuMovil,
+    confirmarOperacionPresentacion,
+    describirOperacionPresentacion,
     escaparHTML,
     estado,
     etiquetaFuentePanel,
+    ejecutarOperacionPresentacion,
     navegar,
     notaOperacionNoCompuesta,
     numero,
@@ -135,6 +139,32 @@ export function crearControladorPortal(dependencias) {
       case "validar-recorrido":
         abrirDialogo("Presentación comprobada", '<p class="nota-seguridad">Se ha revisado únicamente el recorrido sintético. No se ha creado expediente, enviado comunicación ni modificado dato alguno.</p>');
         break;
+      case "operacion-presentacion": {
+        if (!estado.modoPresentacion) {
+          detalleLimitacion(boton.textContent.trim() || "Acción administrativa");
+          break;
+        }
+        const operacion = boton.dataset.operacion || "";
+        const objetivo = boton.dataset.objetivo || "DEMO-SIN-OBJETIVO";
+        const descripcion = describirOperacionPresentacion(operacion, objetivo);
+        if (!descripcion) {
+          detalleLimitacion("Operación no permitida");
+          break;
+        }
+        const pregunta = `${descripcion.efecto}.\n\nObjetivo: ${descripcion.objetivo}\nActor: ${descripcion.actor}\n\n¿Desea ejecutar esta simulación sin efectos reales?`;
+        if (!confirmarOperacionPresentacion(pregunta)) {
+          anunciar("Simulación cancelada; no se ha modificado el estado en memoria");
+          break;
+        }
+        const recibo = ejecutarOperacionPresentacion(operacion, objetivo, boton.dataset.motivo || "Recorrido funcional de presentación");
+        renderizar();
+        abrirDialogo("Actuación simulada", `<section class="recibo-presentacion"><p class="nota-seguridad"><strong>Simulación completada.</strong> No tiene efectos administrativos y desaparecerá al recargar.</p><dl class="resumen-expediente"><div class="fila-resumen"><dt>Recibo</dt><dd><code>${escaparHTML(recibo.referencia)}</code></dd></div><div class="fila-resumen"><dt>Actor</dt><dd>${escaparHTML(recibo.actor)}</dd></div><div class="fila-resumen"><dt>Instante</dt><dd><time datetime="${escaparHTML(recibo.instante)}">${escaparHTML(recibo.instante)}</time></dd></div><div class="fila-resumen"><dt>Objetivo</dt><dd>${escaparHTML(recibo.objetivo)}</dd></div><div class="fila-resumen"><dt>Resultado</dt><dd>${escaparHTML(recibo.resultado)}</dd></div><div class="fila-resumen"><dt>Efectos reales</dt><dd>No</dd></div></dl></section>`);
+        anunciar(`Simulación completada con recibo ${recibo.referencia}`);
+        break;
+      }
+      case "bloqueo-presentacion":
+        abrirDialogo("Funcionalidad bloqueada", `<p class="nota-pendiente"><strong>No se ejecutará ninguna acción.</strong> ${escaparHTML(boton.dataset.motivo || "La capacidad productiva no está conectada ni autorizada.")}</p><p>El modo real permanece cerrado hasta recibir una capacidad positiva del servidor.</p>`);
+        break;
       case "imprimir":
         window.print();
         break;
@@ -163,30 +193,23 @@ export function crearControladorPortal(dependencias) {
     document.querySelector(".portal-lateral button:not(:disabled)")?.focus();
   }
 
-  function cerrarMenuMovil() {
-    delete document.body.dataset.menuAbierto;
-    porId("boton-menu")?.setAttribute("aria-expanded", "false");
-    if (porId("velo-menu")) porId("velo-menu").hidden = true;
-  }
-
   function alternarPreferencia(nombre, boton) {
     const atributo = nombre === "texto" ? "textoGrande" : "contraste";
     const activo = document.body.dataset[atributo] !== "true";
     document.body.dataset[atributo] = String(activo);
+    if (atributo === "textoGrande") {
+      document.documentElement.dataset.textoGrande = String(activo);
+    }
     boton.setAttribute("aria-pressed", String(activo));
-    try { localStorage.setItem(`vec_portal_${nombre}`, String(activo)); } catch { /* preferencia no crítica */ }
     anunciar(activo ? `${nombre} activado` : `${nombre} desactivado`);
   }
 
   function restaurarPreferencias() {
-    try {
-      const texto = localStorage.getItem("vec_portal_texto") === "true";
-      const contraste = localStorage.getItem("vec_portal_contraste") === "true";
-      document.body.dataset.textoGrande = String(texto);
-      document.body.dataset.contraste = String(contraste);
-      porId("boton-texto").setAttribute("aria-pressed", String(texto));
-      porId("boton-contraste").setAttribute("aria-pressed", String(contraste));
-    } catch { /* el portal funciona sin almacenamiento local */ }
+    document.body.dataset.textoGrande = "false";
+    document.documentElement.dataset.textoGrande = "false";
+    document.body.dataset.contraste = "false";
+    porId("boton-texto").setAttribute("aria-pressed", "false");
+    porId("boton-contraste").setAttribute("aria-pressed", "false");
   }
 
   function instalar() {

@@ -104,8 +104,8 @@ test("la presentación usa otro contrato, siempre demo y sin puntuaciones invent
   const demo = validarPropuestaLlamamientoPresentacion({
     esquema: "vec.bolsa.propuesta-llamamiento.presentacion.v1",
     demostracion: true,
-    id: "PRO-DEMO-0045",
-    necesidad_id: "NEC-DEMO-0045",
+    id: "DEMO-PRO-0045",
+    necesidad_id: "DEMO-NEC-0045",
     estado: "demostracion",
     version_bolsa: "versión sintética 3",
     version_regla: "regla sintética 3",

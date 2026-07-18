@@ -1,0 +1,62 @@
+/** Vistas compartidas de importación, llamamientos, relaciones, documentos y comunicaciones. */
+
+export function crearVistasOperaciones(u) {
+  const { escaparHTML: e, numero, chip, tabla, kpi, encabezadoVista,
+    avisoPresentacion, botonOperacion, botonBloqueado, campo, fuentePresentacion } = u;
+
+  function renderizarImportacion(datos) {
+    const filas = datos.importaciones.map((item) => [e(item.id), e(item.origen), e(item.lote), `<code>${e(item.huella)}</code>`, numero(item.validas), numero(item.incidencias), e(item.autoridad), chip(item.estado), `<div class="acciones-fila">${botonOperacion("Validar lote", "validar-importacion", item.id, "boton-terciario")}${botonOperacion("Descartar", "descartar-importacion", item.id, "boton-terciario")}</div>`]);
+    return `
+      ${encabezadoVista("Carga gobernada", "Importación desde Convoca", "Recorrido visual de staging, validación y conciliación. La fuente nunca se considera autoritativa por sí sola.", botonOperacion("Simular nueva lectura", "validar-importacion", "DEMO-IMP-NUEVA", "boton-primario"))}
+      ${avisoPresentacion("No se selecciona ni procesa ningún archivo del equipo. Los lotes son fixtures sintéticos ya incluidos en la demostración.")}
+      <div class="rejilla-kpi">${kpi("LOT", numero(datos.importaciones.length), "Lotes")}${kpi("VAL", numero(datos.importaciones.reduce((s, x) => s + x.validas, 0)), "Filas válidas")}${kpi("INC", numero(datos.importaciones.reduce((s, x) => s + x.incidencias, 0)), "Incidencias")}${kpi("AUT", "0", "Altas automáticas")}</div>
+      <section class="panel"><div class="cabecera-panel"><div><h3>Lotes en staging</h3><p>El original se identifica por huella y cada fila conserva procedencia.</p></div>${fuentePresentacion()}</div>${tabla({ titulo: "Importaciones Convoca", cabeceras: ["Lote", "Origen", "Contenido", "Huella", "Válidas", "Incidencias", "Autoridad", "Estado", "Acción"], filas })}</section>
+      <div class="rejilla-dos-columnas panel-separado"><section class="panel"><div class="cabecera-panel"><h3>Controles antes de conciliar</h3><span class="estado-chip violeta">Contrato cerrado</span></div><ul class="lista-comprobacion"><li>Formato y cabeceras exactos</li><li>Límites de tamaño, filas, columnas y celdas</li><li>Fórmulas y contenido activo rechazados</li><li>Normalización sin ocultar valores originales</li><li>Duplicados e incoherencias señalados</li><li>Acta con huella, actor y resultado</li><li class="pendiente">Conciliación corporativa pendiente de conector</li></ul></section><aside class="nota-pendiente"><strong>Bloqueo explícito.</strong> La importación no crea personas, contratos ni posiciones de Bolsa. ${botonBloqueado("Conciliar con datos corporativos", "Falta el conector corporativo autorizado, cifrado de identificadores y política de retención aprobada.")}</aside></div>`;
+  }
+
+  function renderizarLlamamientos(datos) {
+    const filas = datos.llamamientos_demo.map((item) => [e(item.id), e(item.necesidad), e(item.bolsa), e(item.orden), numero(item.incluidos), e(item.plazo), e(item.canal), chip(item.estado), `<div class="acciones-fila">${botonOperacion("Preparar", "emitir-llamamiento", item.id, "boton-terciario")}${botonOperacion("Registrar respuesta", "registrar-respuesta", item.id, "boton-terciario")}</div>`]);
+    return `
+      ${encabezadoVista("Prelación y disponibilidad", "Llamamientos", "Necesidad, selección reproducible, contactos, respuesta, incidencias y efecto sobre la posición.", botonOperacion("Nuevo llamamiento DEMO", "emitir-llamamiento", "DEMO-LLA-NUEVO", "boton-primario"))}
+      ${avisoPresentacion("No se identifica ni contacta a personas reales. El orden visible procede de una propuesta sintética sin datos personales.")}
+      <div class="rejilla-kpi">${kpi("PEN", numero(datos.llamamientos_demo.filter((x) => /pendiente/i.test(x.estado)).length), "Pendientes")}${kpi("PRE", numero(datos.llamamientos_demo.filter((x) => /preparado/i.test(x.estado)).length), "Preparados")}${kpi("RES", numero(datos.llamamientos_demo.filter((x) => /respuesta/i.test(x.estado)).length), "Con respuesta")}${kpi("HOY", "1", "Vencen hoy")}</div>
+      <section class="panel"><div class="cabecera-panel"><div><h3>Expedientes de llamamiento</h3><p>La persona concreta solo se resolverá en el comando autorizado del servidor.</p></div>${fuentePresentacion()}</div>${tabla({ titulo: "Llamamientos", cabeceras: ["Llamamiento", "Necesidad", "Bolsa", "Regla", "Incluidos", "Plazo", "Canal", "Estado", "Acción"], filas })}</section>
+      <section class="panel panel-separado"><div class="cabecera-panel"><div><h3>Configurar llamamiento</h3><p>Recorrido completo sin ejecutar conectores.</p></div><span class="estado-chip info">DEMO-LLA-NUEVO</span></div><form class="cuerpo-panel formulario-gobernado"><fieldset><legend>Necesidad de cobertura</legend><div class="rejilla-formulario">${campo("Bolsa", '<select><option>Auxiliar Administrativo</option><option>Trabajador Social</option></select>')}${campo("Destino", '<input value="Centro DEMO 01" readonly>')}${campo("Jornada", '<select><option>Completa</option><option>Parcial 50 %</option><option>Parcial 33 %</option></select>')}${campo("Duración prevista", '<input value="3 meses">')}</div></fieldset><fieldset><legend>Contacto y respuesta</legend><div class="rejilla-formulario">${campo("Regla de orden", '<select><option>Prelación estricta · v3</option></select>')}${campo("Plazo de respuesta", '<select><option>24 horas</option><option>48 horas</option></select>')}${campo("Canales", '<select><option>Correo + aviso interno</option><option>Notificación fehaciente</option></select>')}${campo("Plantilla", '<select><option>DEMO-PLT-LLA-v3</option></select>')}</div></fieldset>${botonOperacion("Revisar y preparar", "emitir-llamamiento", "DEMO-LLA-NUEVO", "boton-primario")}</form></section>`;
+  }
+
+  function renderizarContratos(datos) {
+    const filas = datos.contratos.map((item) => [e(item.expediente), e(item.bolsa), e(item.acto), e(item.inicio), e(item.fin), chip(item.estado), `<div class="acciones-fila">${botonOperacion("Contrato", "registrar-contrato", item.expediente, "boton-terciario")}${botonOperacion("Cese", "registrar-cese", item.expediente, "boton-terciario")}${botonOperacion("Reincorporar", "reincorporar-bolsa", item.expediente, "boton-terciario")}</div>`]);
+    return `
+      ${encabezadoVista("Continuidad del expediente", "Contratos, ceses y reincorporaciones", "Cada acto registra causa, vigencia, disponibilidad resultante, documentos y autorizaciones.", botonOperacion("Nueva relación DEMO", "registrar-contrato", "DEMO-CON-NUEVO", "boton-primario"))}
+      ${avisoPresentacion()}
+      <div class="rejilla-kpi">${kpi("ACT", numero(datos.contratos.filter((x) => x.estado === "Activo").length), "Activos")}${kpi("CES", numero(datos.contratos.filter((x) => /cese/i.test(x.estado)).length), "Ceses")}${kpi("REI", numero(datos.contratos.filter((x) => /reincorpor/i.test(x.estado)).length), "Reincorporaciones")}${kpi("REV", numero(datos.contratos.filter((x) => /revisión/i.test(x.estado)).length), "En revisión")}</div>
+      <section class="panel"><div class="cabecera-panel"><div><h3>Relaciones y disponibilidad</h3><p>Referencias sin datos identificativos en la bandeja.</p></div>${fuentePresentacion()}</div>${tabla({ titulo: "Contratos, ceses y reincorporaciones", cabeceras: ["Expediente", "Bolsa", "Acto", "Inicio", "Fin", "Estado", "Acciones"], filas })}</section>
+      <section class="nota-pendiente">En producción el alta o cese requerirá conciliación con el sistema corporativo y no podrá inferirse únicamente de la interfaz.</section>`;
+  }
+
+  function renderizarDocumentos(datos) {
+    const filas = datos.documentos.map((item) => [e(item.referencia), e(item.plantilla), e(item.formatos), e(item.version), chip(item.estado), `<div class="acciones-fila">${botonOperacion("Generar", "generar-documento", item.referencia, "boton-terciario")}${botonOperacion("Enviar a firma", "enviar-firma-documento", item.referencia, "boton-terciario")}${botonOperacion("Firmar DEMO", "firmar-documento", item.referencia, "boton-terciario")}</div>`]);
+    return `
+      ${encabezadoVista("Expediente documental", "Documentos y circuito de firma", "Plantillas, formatos intercambiables, firmantes, CSV/QR de cotejo, sello de tiempo y custodia.", botonOperacion("Generar documento", "generar-documento", "DEMO-DOC-NUEVO", "boton-primario"))}
+      ${avisoPresentacion("No se crea ni descarga un fichero binario y no se invoca Autofirma. El recibo acredita únicamente la simulación visual.")}
+      <section class="panel"><div class="cabecera-panel"><div><h3>Plantillas y documentos</h3><p>Una plantilla puede producir varios formatos mediante conectores de salida.</p></div>${fuentePresentacion()}</div>${tabla({ titulo: "Documentos", cabeceras: ["Referencia", "Plantilla", "Formatos", "Versión", "Estado", "Acciones"], filas })}</section>
+      <div class="rejilla-dos-columnas panel-separado"><section class="panel"><div class="cabecera-panel"><h3>Preparar documento</h3><span class="estado-chip violeta">Metadatos no sensibles</span></div><form class="cuerpo-panel formulario-gobernado"><fieldset><legend>Salida</legend><div class="rejilla-formulario">${campo("Plantilla", '<select><option>Resolución de llamamiento v2</option><option>Listado provisional v5</option></select>')}${campo("Formato", '<select><option>PDF/A</option><option>ODT</option><option>DOCX</option><option>CSV</option><option>JSON</option><option>TXT</option></select>')}${campo("Circuito", '<select><option>Jefatura → Secretaría → Delegación</option></select>')}${campo("Cotejo", '<select><option>CSV + QR verificable</option><option>CSV visible</option></select>')}</div></fieldset>${botonOperacion("Generar previsualización", "generar-documento", "DEMO-DOC-NUEVO", "boton-primario")}</form></section><aside class="nota-seguridad"><strong>Custodia prevista.</strong> Cifrado, control de acceso por finalidad, versiones inmutables, antivirus intercambiable y registro de cada lectura o descarga.</aside></div>`;
+  }
+
+  function renderizarComunicaciones(datos) {
+    const filas = datos.comunicaciones_demo.map((item) => [e(item.id), e(item.expediente), e(item.plantilla), e(item.canal), e(item.destinatario), e(item.acuse), chip(item.estado), `<div class="acciones-fila">${botonOperacion("Preparar", "preparar-comunicacion", item.id, "boton-terciario")}${botonOperacion("Simular envío", "enviar-comunicacion", item.id, "boton-terciario")}</div>`]);
+    return `
+      ${encabezadoVista("Conectores de comunicación", "Comunicaciones y notificaciones", "Contenido, canal, destinatario, consentimiento, intento, entrega y acuse se registran por separado.", botonOperacion("Nueva comunicación", "preparar-comunicacion", "DEMO-COM-NUEVA", "boton-primario"))}
+      ${avisoPresentacion("Correo, Telegram y notificación fehaciente permanecen desconectados. La acción de envío solo cambia el estado sintético.")}
+      <section class="panel"><div class="cabecera-panel"><div><h3>Bandeja de comunicaciones</h3><p>Identificadores sintéticos; no hay direcciones, teléfonos ni usuarios reales.</p></div>${fuentePresentacion()}</div>${tabla({ titulo: "Comunicaciones", cabeceras: ["Referencia", "Expediente", "Plantilla", "Canal", "Destinatario", "Acuse", "Estado", "Acción"], filas })}</section>
+      <section class="panel panel-separado"><div class="cabecera-panel"><h3>Componer comunicación</h3><span class="estado-chip info">Sin envío</span></div><form class="cuerpo-panel formulario-gobernado"><fieldset><legend>Mensaje</legend><div class="rejilla-formulario">${campo("Expediente", '<select><option>DEMO-LLA-045</option><option>DEMO-ALE-001</option></select>')}${campo("Plantilla", '<select><option>Aviso de llamamiento v3</option><option>Resolución de alegación v2</option></select>')}${campo("Canales", '<select><option>Correo + aviso interno</option><option>Notificación fehaciente</option></select>')}${campo("Plazo de comparecencia", '<input value="10 días hábiles">')}${campo("Asunto", '<input value="Comunicación DEMO del expediente">')}${campo("Contenido", '<textarea>Contenido sintético generado desde una plantilla versionada.</textarea>')}</div></fieldset>${botonOperacion("Preparar sin enviar", "preparar-comunicacion", "DEMO-COM-NUEVA", "boton-primario")}</form></section>`;
+  }
+
+  return Object.freeze({
+    renderizarComunicaciones,
+    renderizarContratos,
+    renderizarDocumentos,
+    renderizarImportacion,
+    renderizarLlamamientos,
+  });
+}

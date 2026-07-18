@@ -1,0 +1,189 @@
+/* Componentes definitivos de las capacidades administrativas de Bolsa. */
+
+body.portal-empleado-app {
+  font-size: 16px;
+}
+
+.navegacion-bolsa .enlace-lateral,
+.tabla-datos,
+.campo input,
+.campo select,
+.campo textarea,
+.control-formulario,
+.boton-primario,
+.boton-secundario,
+.boton-peligro,
+.boton-terciario {
+  font-size: 0.875rem;
+}
+
+.tabla-datos th,
+.campo > span,
+.grupo-campo legend,
+.campo small,
+.estado-chip,
+.insignia,
+.cabecera-panel p,
+.detalle-lista span {
+  font-size: 0.78rem;
+}
+
+.panel-separado {
+  margin-top: 14px;
+}
+
+.formulario-gobernado {
+  display: grid;
+  gap: 16px;
+}
+
+.formulario-gobernado fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: #fbfcfe;
+}
+
+.formulario-gobernado legend {
+  padding: 0 7px;
+  color: var(--portal-tinta);
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.rejilla-formulario {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.campo small {
+  color: var(--portal-muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.acciones-formulario,
+.acciones-verticales,
+.acciones-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.acciones-formulario {
+  justify-content: flex-end;
+}
+
+.acciones-verticales {
+  align-items: stretch;
+  flex-direction: column;
+  margin-top: 14px;
+}
+
+.acciones-fila {
+  min-width: 230px;
+}
+
+.acciones-fila .boton-terciario {
+  min-height: 36px;
+  padding-inline: 7px;
+  white-space: nowrap;
+}
+
+.recibo-presentacion code,
+.tabla-datos code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.recibo-presentacion .nota-seguridad {
+  margin-top: 0;
+}
+
+.navegacion-bolsa .titulo-navegacion:not(:first-child) {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.navegacion-bolsa .enlace-lateral {
+  min-height: 44px;
+}
+
+.navegacion-bolsa .numero-menu {
+  border-radius: 7px;
+}
+
+button,
+a.boton-primario,
+a.boton-secundario {
+  touch-action: manipulation;
+}
+
+.boton-primario,
+.boton-secundario,
+.boton-peligro,
+.boton-cabecera,
+.boton-menu-movil {
+  min-height: 44px;
+}
+
+button:active:not(:disabled),
+a.boton-primario:active,
+a.boton-secundario:active {
+  filter: brightness(0.94);
+}
+
+button:disabled,
+fieldset:disabled {
+  cursor: not-allowed;
+}
+
+button:disabled {
+  opacity: 0.5;
+}
+
+@media (max-width: 1280px) {
+  .rejilla-formulario {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 780px) {
+  .acciones-fila {
+    min-width: 180px;
+  }
+
+  .tabla-datos th,
+  .tabla-datos td {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 520px) {
+  .rejilla-formulario {
+    grid-template-columns: 1fr;
+  }
+
+  .acciones-formulario,
+  .acciones-fila {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .acciones-formulario button,
+  .acciones-fila button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:active:not(:disabled),
+  a.boton-primario:active,
+  a.boton-secundario:active {
+    filter: none;
+  }
+}

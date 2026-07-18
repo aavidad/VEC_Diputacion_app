@@ -111,10 +111,10 @@ test("el panel global prohíbe candidatos y la propuesta es un contrato separado
   assert.doesNotMatch(datos, /\bcandidatos\s*:/);
   assert.doesNotMatch(datos, /\bdni\s*:/i);
   assert.doesNotMatch(codigo, /data-candidato|Nombre o DNI parcial|filtros-candidatos/);
-  const propuesta = validarPropuestaLlamamientoPresentacion(obtenerPropuestaPresentacion("NEC-2026-0045"));
+  const propuesta = validarPropuestaLlamamientoPresentacion(obtenerPropuestaPresentacion("DEMO-NEC-0045"));
   assert.deepEqual(Object.keys(propuesta.evaluaciones[0]), ["orden", "resultado", "motivos"]);
   assert.throws(() => validarPropuestaLlamamientoPresentacion({
-    ...obtenerPropuestaPresentacion("NEC-2026-0045"),
+    ...obtenerPropuestaPresentacion("DEMO-NEC-0045"),
     nombre: "dato no permitido",
   }), /contrato cerrado/);
 });
@@ -188,9 +188,9 @@ test("la propuesta real usa el cliente cerrado y no habilita un detalle inexiste
   assert.match(apiLlamamientos, /esquema: "vec\.bolsa\.propuesta-llamamiento\.solicitud\.v1"/);
   assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /Idempotency-Key|randomUUID|claveIdempotenciaPropuesta/);
   assert.match(datos, /solicitar_propuesta_llamamiento: false/);
-  assert.match(codigo, /el navegador no elige personas/i);
-  assert.match(javascript, /adaptador local de presentación y no realiza tráfico de red/);
-  assert.match(javascript, /Propuesta sintética de elegibilidad/);
+  assert.match(flujoLlamamientos, /conoce el cliente HTTP/);
+  assert.match(javascript, /import\("\.\/portal-presentacion-adaptador\.js/);
+  assert.doesNotMatch(javascript, /^import .*portal-presentacion-adaptador/m);
   assert.match(`${flujoLlamamientos}\n${vistaLlamamientos}`, /Detalle no disponible/);
   assert.match(eventos, /if \(resultado\.avanzar === true\) estado\.pasoLlamamiento = 2/);
   assert.doesNotMatch(datos, /puntuacion|Puntuación/);
@@ -212,19 +212,22 @@ test("los datos de presentación están aislados y se activan de forma explícit
   assert.doesNotMatch(datos, /\b\d{8}[A-Z]\b/);
 });
 
-test("ningún dato de negocio se guarda en localStorage", () => {
-  const usos = [...codigo.matchAll(/localStorage\.(?:getItem|setItem)\(([^\n]+)/g)].map((coincidencia) => coincidencia[1]);
-  assert.ok(usos.length > 0, "deben existir preferencias visuales comprobables");
-  for (const uso of usos) assert.match(uso, /vec_portal_(?:\$\{nombre\}|texto|contraste)/);
-  assert.doesNotMatch(codigo, /localStorage.*(?:bolsa|candidato|llamamiento|expediente)/i);
+test("el portal interno no usa cookies ni almacenamiento del navegador", () => {
+  assert.doesNotMatch(codigo, /localStorage|sessionStorage|document\.cookie/);
+  assert.match(eventos, /document\.body\.dataset\.textoGrande/);
+  assert.match(eventos, /document\.documentElement\.dataset\.textoGrande/);
+  assert.match(estilosBase, /html\[data-texto-grande="true"\][\s\S]{0,80}font-size: 125%/);
+  assert.match(eventos, /document\.body\.dataset\.contraste/);
 });
 
-test("el portal expone solo Bolsa y conserva los diez paneles solicitados", () => {
+test("el portal expone solo Bolsa y hace alcanzables todas sus capacidades", () => {
   assert.match(html, /Bolsas de trabajo[\s\S]*etiqueta-menu">Activo/);
   for (const modulo of ["Personal", "Nóminas", "Cronos", "Dietas", "Solicitudes y certificados"]) {
     assert.match(html, new RegExp(`${modulo}[\\s\\S]{0,180}No habilitado`));
   }
-  const vistas = ["elaboracion", "llamamientos", "contratos", "reglas", "consulta", "resumen", "estadisticas", "documentos", "comunicaciones", "auditoria"];
+  const vistas = ["resumen", "elaboracion", "convocatorias", "solicitudes", "meritos",
+    "baremacion", "alegaciones", "importacion", "llamamientos", "contratos",
+    "documentos", "comunicaciones", "estadisticas", "auditoria", "configuracion"];
   for (const vista of vistas) assert.match(html, new RegExp(`data-vista="${vista}"`));
 });
 

@@ -9,6 +9,9 @@
 const LISTAS_PANEL_PRESENTACION = Object.freeze([
   "bolsas", "necesidades_llamamiento", "elaboraciones", "proximos",
   "actividad", "contratos", "reglas", "documentos", "canales", "avisos",
+  "solicitudes", "meritos_revision", "criterios_baremo", "ranking",
+  "alegaciones", "importaciones", "llamamientos_demo", "comunicaciones_demo",
+  "auditoria_eventos", "roles_demo", "configuraciones_demo",
 ]);
 
 const CAMPOS_PANEL_INTERNO = Object.freeze([
@@ -123,6 +126,17 @@ export function validarPanelBolsa(datos, admiteDemostracion = false) {
     reglas: [...datos.reglas],
     documentos: [...datos.documentos],
     canales: [...datos.canales],
+    solicitudes: [...datos.solicitudes],
+    meritos_revision: [...datos.meritos_revision],
+    criterios_baremo: [...datos.criterios_baremo],
+    ranking: [...datos.ranking],
+    alegaciones: [...datos.alegaciones],
+    importaciones: [...datos.importaciones],
+    llamamientos_demo: [...datos.llamamientos_demo],
+    comunicaciones_demo: [...datos.comunicaciones_demo],
+    auditoria_eventos: [...datos.auditoria_eventos],
+    roles_demo: [...datos.roles_demo],
+    configuraciones_demo: [...datos.configuraciones_demo],
     auditoria: esObjeto(datos.auditoria) ? { ...datos.auditoria } : {},
   };
 }

@@ -49,8 +49,8 @@ body.portal-empleado-app::before {
   display: none;
 }
 
-body.portal-empleado-app[data-texto-grande="true"] {
-  font-size: 112.5%;
+html[data-texto-grande="true"] {
+  font-size: 125%;
 }
 
 body.portal-empleado-app[data-contraste="true"] {

@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="/portal-empleado/portal.css?v=20260717-portal-rrhh">
     <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20260717-portal-rrhh">
     <link rel="stylesheet" href="/portal-empleado/portal-flujos.css?v=20260718-borradores-v1">
+    <link rel="stylesheet" href="/portal-empleado/portal-capacidades.css?v=20260718-demo-total-v1">
     <script type="module" src="/portal-empleado/portal.js?v=20260718-llamamientos-v1"></script>
   </head>
   <body class="portal-empleado-app">
@@ -76,46 +77,57 @@
         </nav>
 
         <nav class="navegacion-bolsa" id="navegacion-bolsa" aria-label="Gestión de Bolsas" hidden>
-          <p class="titulo-navegacion">Gestión de Bolsas</p>
-          <button type="button" class="enlace-lateral" data-vista="elaboracion">
-            <span class="numero-menu tono-azul" aria-hidden="true">1</span>
-            <span>Elaboración y borradores</span>
+          <p class="titulo-navegacion">Dirección</p>
+          <button type="button" class="enlace-lateral" data-vista="resumen">
+            <span class="numero-menu tono-rojo" aria-hidden="true">CM</span><span>Cuadro de mando</span>
           </button>
+          <button type="button" class="enlace-lateral" data-vista="elaboracion">
+            <span class="numero-menu tono-azul" aria-hidden="true">BO</span><span>Elaboración y borradores</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="convocatorias">
+            <span class="numero-menu tono-azul" aria-hidden="true">CB</span><span>Convocatorias, bases y calendario</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="solicitudes">
+            <span class="numero-menu tono-cian" aria-hidden="true">SO</span><span>Solicitudes y admisión</span>
+          </button>
+
+          <p class="titulo-navegacion">Valoración</p>
+          <button type="button" class="enlace-lateral" data-vista="meritos">
+            <span class="numero-menu tono-violeta" aria-hidden="true">ME</span><span>Revisión de méritos</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="baremacion">
+            <span class="numero-menu tono-violeta" aria-hidden="true">BA</span><span>Baremación y ranking</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="alegaciones">
+            <span class="numero-menu tono-naranja" aria-hidden="true">AL</span><span>Alegaciones</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="importacion">
+            <span class="numero-menu tono-cian" aria-hidden="true">IM</span><span>Importación Convoca</span>
+          </button>
+
+          <p class="titulo-navegacion">Gestión de Bolsa</p>
           <button type="button" class="enlace-lateral" data-vista="llamamientos">
-            <span class="numero-menu tono-verde" aria-hidden="true">2</span>
-            <span>Llamamientos según bases y Reglamento</span>
+            <span class="numero-menu tono-verde" aria-hidden="true">LL</span><span>Llamamientos</span>
           </button>
           <button type="button" class="enlace-lateral" data-vista="contratos">
-            <span class="numero-menu tono-naranja" aria-hidden="true">3</span>
-            <span>Contratos, ceses y reincorporaciones</span>
-          </button>
-          <button type="button" class="enlace-lateral" data-vista="reglas">
-            <span class="numero-menu tono-violeta" aria-hidden="true">4</span>
-            <span>Motor de reglas configurable</span>
-          </button>
-          <button type="button" class="enlace-lateral" data-vista="consulta">
-            <span class="numero-menu tono-cian" aria-hidden="true">5</span>
-            <span>Consulta segura para candidatos</span>
-          </button>
-          <button type="button" class="enlace-lateral" data-vista="resumen">
-            <span class="numero-menu tono-rojo" aria-hidden="true">6</span>
-            <span>Cuadro de mando</span>
-          </button>
-          <button type="button" class="enlace-lateral" data-vista="estadisticas">
-            <span class="numero-menu tono-oliva" aria-hidden="true">7</span>
-            <span>Estadísticas y explotación de datos</span>
+            <span class="numero-menu tono-naranja" aria-hidden="true">CR</span><span>Contratos, ceses y reincorporaciones</span>
           </button>
           <button type="button" class="enlace-lateral" data-vista="documentos">
-            <span class="numero-menu tono-ambar" aria-hidden="true">8</span>
-            <span>Generación de documentos</span>
+            <span class="numero-menu tono-ambar" aria-hidden="true">DO</span><span>Documentos y firma</span>
           </button>
           <button type="button" class="enlace-lateral" data-vista="comunicaciones">
-            <span class="numero-menu tono-turquesa" aria-hidden="true">9</span>
-            <span>Correo y mensajería</span>
+            <span class="numero-menu tono-turquesa" aria-hidden="true">CO</span><span>Comunicaciones</span>
+          </button>
+
+          <p class="titulo-navegacion">Control</p>
+          <button type="button" class="enlace-lateral" data-vista="estadisticas">
+            <span class="numero-menu tono-oliva" aria-hidden="true">ES</span><span>Estadísticas y exportación</span>
           </button>
           <button type="button" class="enlace-lateral" data-vista="auditoria">
-            <span class="numero-menu tono-morado" aria-hidden="true">10</span>
-            <span>Auditoría y trazabilidad</span>
+            <span class="numero-menu tono-morado" aria-hidden="true">AU</span><span>Auditoría y trazabilidad</span>
+          </button>
+          <button type="button" class="enlace-lateral" data-vista="configuracion">
+            <span class="numero-menu tono-morado" aria-hidden="true">CF</span><span>Configuración y roles</span>
           </button>
         </nav>
 

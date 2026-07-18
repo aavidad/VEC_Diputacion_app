@@ -11,6 +11,11 @@ import {
 } from "./portal-llamamientos-vista.js?v=20260718-llamamientos-v1";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
 import { PROVEEDOR_BEARER_BORRADORES, crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260718-borradores-v1";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260718-demo-total-v1";
+import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=20260718-demo-total-v1";
+import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260718-demo-total-v1";
+import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260718-demo-total-v1";
+import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-demo-total-v1";
 
 /**
  * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.
@@ -43,17 +48,36 @@ const DATOS_VACIOS = Object.freeze({
   reglas: [],
   documentos: [],
   canales: [],
+  solicitudes: [],
+  meritos_revision: [],
+  criterios_baremo: [],
+  ranking: [],
+  alegaciones: [],
+  importaciones: [],
+  llamamientos_demo: [],
+  comunicaciones_demo: [],
+  auditoria_eventos: [],
+  roles_demo: [],
+  configuraciones_demo: [],
   auditoria: {},
 });
 
 let DATOS_PANEL = DATOS_VACIOS;
 let obtenerPropuestaPresentacion = null;
+let adaptadorPresentacion = null;
+let superficieBorradoresPresentacion = null;
 const clientePropuestasLlamamiento = crearClientePropuestasLlamamiento();
 
 const TITULOS = Object.freeze({
   portal: ["Portal del Empleado", "Portal del Empleado"],
   resumen: ["Portal del Empleado → Bolsas de trabajo", "Cuadro de mando"],
   elaboracion: ["Portal del Empleado → Bolsas de trabajo", "Borradores de convocatorias"],
+  convocatorias: ["Portal del Empleado → Bolsas de trabajo", "Convocatorias, bases y calendario"],
+  solicitudes: ["Portal del Empleado → Bolsas de trabajo", "Solicitudes y admisión"],
+  meritos: ["Portal del Empleado → Bolsas de trabajo", "Revisión de méritos"],
+  baremacion: ["Portal del Empleado → Bolsas de trabajo", "Baremación y ranking"],
+  alegaciones: ["Portal del Empleado → Bolsas de trabajo", "Alegaciones"],
+  importacion: ["Portal del Empleado → Bolsas de trabajo", "Importación Convoca"],
   llamamientos: ["Portal del Empleado → Bolsas de trabajo → Llamamientos", "Nuevo llamamiento"],
   contratos: ["Portal del Empleado → Bolsas de trabajo", "Contratos, ceses y reincorporaciones"],
   reglas: ["Portal del Empleado → Bolsas de trabajo", "Motor de reglas configurable"],
@@ -62,6 +86,7 @@ const TITULOS = Object.freeze({
   documentos: ["Portal del Empleado → Bolsas de trabajo", "Generación y firma de documentos"],
   comunicaciones: ["Portal del Empleado → Bolsas de trabajo", "Correo y mensajería"],
   auditoria: ["Portal del Empleado → Bolsas de trabajo", "Auditoría y trazabilidad"],
+  configuracion: ["Portal del Empleado → Bolsas de trabajo", "Configuración y roles"],
 });
 
 const estado = {
@@ -79,6 +104,12 @@ const estado = {
 };
 
 const porId = (id) => document.getElementById(id);
+
+function cerrarMenuMovil() {
+  delete document.body.dataset.menuAbierto;
+  porId("boton-menu")?.setAttribute("aria-expanded", "false");
+  if (porId("velo-menu")) porId("velo-menu").hidden = true;
+}
 
 function escaparHTML(valor) {
   return String(valor ?? "")
@@ -127,6 +158,20 @@ function notaOperacionNoCompuesta() {
     : "Esta operación permanece deshabilitada hasta que su comando de servidor esté compuesto y autorizado.";
 }
 
+function describirOperacionPresentacion(operacion, objetivo) {
+  if (!estado.modoPresentacion || adaptadorPresentacion === null) return null;
+  return adaptadorPresentacion.describir(operacion, objetivo);
+}
+
+function ejecutarOperacionPresentacion(operacion, objetivo, motivo) {
+  if (!estado.modoPresentacion || adaptadorPresentacion === null) {
+    throw new Error("el adaptador de presentación no está activo");
+  }
+  const recibo = adaptadorPresentacion.ejecutar({ operacion, objetivo, motivo });
+  DATOS_PANEL = adaptadorPresentacion.obtenerDatos();
+  return recibo;
+}
+
 function actualizarSesionVisible() {
   const sesion = porId("sesion-visible");
   if (!sesion) return;
@@ -162,8 +207,22 @@ async function cargarFuenteDatos() {
   const aviso = document.querySelector(".aviso-presentacion");
   if (estado.modoPresentacion) {
     try {
-      const adaptador = await import("./datos-presentacion.js?v=20260717-portal-rrhh");
-      DATOS_PANEL = validarPanelBolsa(adaptador.obtenerDatosPresentacion(), true);
+      const [adaptador, moduloEfectos, moduloBorradores] = await Promise.all([
+        import("./datos-presentacion.js?v=20260718-demo-total-v1"),
+        import("./portal-presentacion-adaptador.js?v=20260718-demo-total-v1"),
+        import("./portal-borradores-demo-cliente.js?v=20260718-demo-total-v1"),
+      ]);
+      const datosIniciales = validarPanelBolsa(adaptador.obtenerDatosPresentacion(), true);
+      adaptadorPresentacion = moduloEfectos.crearAdaptadorPresentacion({ datosIniciales });
+      superficieBorradoresPresentacion = crearSuperficieBorradoresPortal({
+        escaparHTML,
+        anunciar,
+        alCambiar: () => { if (estado.vista === "elaboracion") renderizar(); },
+        resolverProveedorBearer: () => null,
+        confirmar: (mensaje) => window.confirm(mensaje),
+        crearClienteImpl: () => moduloBorradores.crearClienteBorradoresPresentacion(),
+      });
+      DATOS_PANEL = adaptadorPresentacion.obtenerDatos();
       obtenerPropuestaPresentacion = adaptador.obtenerPropuestaPresentacion;
       aviso.hidden = false;
       estado.fuenteLista = true;
@@ -178,6 +237,8 @@ async function cargarFuenteDatos() {
     return;
   }
 
+  adaptadorPresentacion = null;
+  superficieBorradoresPresentacion = null;
   aviso.hidden = true;
   try {
     const respuesta = await fetch(API_PANEL_BOLSA, {
@@ -293,9 +354,19 @@ function renderizar() {
     else boton.removeAttribute("aria-current");
   });
 
+  if (estado.vista === "elaboracion" && estado.modoPresentacion && !estado.fuenteLista) {
+    contenedor.innerHTML = renderizarFuenteNoDisponible();
+    return;
+  }
+
   if (estado.vista === "elaboracion") {
-    contenedor.innerHTML = superficieBorradores.renderizar();
-    void superficieBorradores.activar();
+    const superficie = estado.modoPresentacion ? superficieBorradoresPresentacion : superficieBorradores;
+    if (superficie === null) {
+      contenedor.innerHTML = renderizarFuenteNoDisponible();
+      return;
+    }
+    contenedor.innerHTML = superficie.renderizar();
+    void superficie.activar();
     return;
   }
 
@@ -304,22 +375,31 @@ function renderizar() {
     return;
   }
 
-  if (estado.vista !== "portal" && presentadorPanelInterno.esActivo()) {
+  if (estado.vista === "resumen" && presentadorPanelInterno.esActivo()) {
     contenedor.innerHTML = presentadorPanelInterno.renderizarVista(estado.vista);
     return;
   }
 
+  const datosVista = { ...DATOS_VACIOS, ...DATOS_PANEL };
+
   const renderizadores = {
     portal: renderizarPortal,
     resumen: renderizarResumen,
-    llamamientos: renderizarLlamamiento,
-    contratos: renderizarContratos,
-    reglas: renderizarReglas,
+    convocatorias: () => vistasConvocatorias.renderizarConvocatorias(datosVista, estado),
+    solicitudes: () => vistasConvocatorias.renderizarSolicitudes(datosVista),
+    meritos: () => vistasBaremacion.renderizarMeritos(datosVista),
+    baremacion: () => vistasBaremacion.renderizarBaremacion(datosVista),
+    alegaciones: () => vistasBaremacion.renderizarAlegaciones(datosVista),
+    importacion: () => vistasOperaciones.renderizarImportacion(datosVista),
+    llamamientos: () => vistasOperaciones.renderizarLlamamientos(datosVista),
+    contratos: () => vistasOperaciones.renderizarContratos(datosVista),
+    reglas: () => vistasBaremacion.renderizarBaremacion(datosVista),
     consulta: renderizarConsulta,
-    estadisticas: renderizarEstadisticas,
-    documentos: renderizarDocumentos,
-    comunicaciones: renderizarComunicaciones,
-    auditoria: renderizarAuditoria,
+    estadisticas: () => vistasGobierno.renderizarEstadisticas(datosVista),
+    documentos: () => vistasOperaciones.renderizarDocumentos(datosVista),
+    comunicaciones: () => vistasOperaciones.renderizarComunicaciones(datosVista),
+    auditoria: () => vistasGobierno.renderizarAuditoria(datosVista),
+    configuracion: () => vistasGobierno.renderizarConfiguracion(datosVista),
   };
   contenedor.innerHTML = (renderizadores[estado.vista] || renderizarPortal)();
   aplicarBarrasDinamicas(contenedor);
@@ -355,6 +435,14 @@ function encabezadoVista(sobrelinea, titulo, descripcion, acciones = "") {
       ${acciones ? `<div class="acciones-vista">${acciones}</div>` : ""}
     </header>`;
 }
+
+const utilidadesVista = crearUtilidadesVista({
+  escaparHTML, numero, claseEstado, encabezadoVista, esPresentacion: () => estado.modoPresentacion,
+});
+const vistasConvocatorias = crearVistasConvocatorias(utilidadesVista);
+const vistasBaremacion = crearVistasBaremacion(utilidadesVista);
+const vistasOperaciones = crearVistasOperaciones(utilidadesVista);
+const vistasGobierno = crearVistasGobierno(utilidadesVista);
 
 function renderizarPortal() {
   const modulos = [
@@ -481,142 +569,6 @@ function claseEstado(estadoTexto) {
   return "neutro";
 }
 
-function propuestaLlamamientoActual() {
-  const necesidad = necesidadLlamamientoSeleccionada();
-  return estado.propuestaLlamamiento?.necesidad_id === necesidad?.id ? estado.propuestaLlamamiento : null;
-}
-
-function confirmacionPropuestaActual() {
-  const necesidad = necesidadLlamamientoSeleccionada();
-  return estado.confirmacionPropuestaLlamamiento?.necesidad?.referencia === necesidad?.id
-    ? estado.confirmacionPropuestaLlamamiento
-    : null;
-}
-
-function renderizarLlamamiento() {
-  const necesidad = necesidadLlamamientoSeleccionada();
-  if (!necesidad) {
-    return `${encabezadoVista("Llamamientos según bases y Reglamento", "Nuevo llamamiento", "No existe ninguna necesidad de cobertura accesible.")}<section class="panel"><div class="vacio-controlado">No hay necesidades pendientes en el ámbito autorizado.</div></section>`;
-  }
-  const pasoVisible = estado.modoPresentacion ? estado.pasoLlamamiento : 1;
-  const bolsa = bolsaDeNecesidad(necesidad);
-  return `
-    ${encabezadoVista("Llamamientos según bases y Reglamento", pasoVisible === 1 ? "Nuevo llamamiento" : `Nuevo llamamiento · Paso ${pasoVisible}`, "El servidor aplica prelación, elegibilidad y reglas a una necesidad concreta; el navegador no elige personas.", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button>')}
-    <section class="nota-seguridad">Privacidad por diseño: la consulta global no descarga el censo de la bolsa. Solo el comando de propuesta puede evaluar la necesidad y su respuesta visible excluye identidad y contacto.</section>
-    ${renderizarPasosLlamamiento({ modoPresentacion: estado.modoPresentacion, pasoActual: pasoVisible })}
-    ${pasoVisible === 1 ? renderizarPasoNecesidad(necesidad, bolsa) : ""}
-    ${pasoVisible === 2 ? renderizarPasoPropuesta(necesidad, bolsa) : ""}
-    ${pasoVisible === 3 ? renderizarPasoConfiguracion(necesidad, bolsa) : ""}
-    ${pasoVisible === 4 ? renderizarPasoRevision(necesidad, bolsa) : ""}`;
-}
-
-function renderizarPasoNecesidad(necesidad, bolsa) {
-  const confirmacion = confirmacionPropuestaActual();
-  const puedeMostrar = (estado.modoPresentacion || puedeSolicitarPropuesta()) && !confirmacion;
-  const etiquetaAccion = estado.modoPresentacion ? "Mostrar propuesta sintética" : "Solicitar propuesta al servidor";
-  const notaCapacidad = estado.modoPresentacion
-    ? "La propuesta sintética se carga desde el adaptador local de presentación y no realiza tráfico de red."
-    : puedeMostrar
-      ? "La API devolverá únicamente una confirmación compacta ligada a esta necesidad."
-    : "Acción deshabilitada: la sesión no ha recibido la capacidad positiva del servidor.";
-  return `
-    <div class="distribucion-llamamiento">
-      <div class="columna-cuadro">
-        <section class="panel">
-          <div class="cabecera-panel"><div><h3>1. ${estado.modoPresentacion ? "Elegir necesidad de demostración" : "Elegir necesidad de cobertura"}</h3><p>La necesidad identifica puesto, destino, condiciones y bolsa aplicable antes de evaluar la prelación.</p></div>${estado.modoPresentacion ? '<span class="estado-chip info">Demostración</span>' : ""}</div>
-          <div class="tabla-contenedor">
-            <table class="tabla-datos tabla-necesidades">
-              <caption>${estado.modoPresentacion ? "Necesidades sintéticas de presentación" : "Necesidades pendientes de propuesta en el ámbito autorizado"}</caption>
-              <thead><tr><th scope="col">Referencia</th><th scope="col">Puesto o categoría</th><th scope="col">Destino</th><th scope="col">Cobertura</th><th scope="col">Jornada</th><th scope="col">Fecha límite</th><th scope="col">Estado</th><th scope="col">Acción</th></tr></thead>
-              <tbody>${DATOS_PANEL.necesidades_llamamiento.map((item) => `<tr aria-selected="${item.id === necesidad.id}"><td><strong>${escaparHTML(item.referencia)}</strong></td><td>${escaparHTML(item.puesto)}</td><td>${escaparHTML(item.destino)}</td><td>${escaparHTML(item.cobertura)}</td><td>${escaparHTML(item.jornada)}</td><td>${escaparHTML(item.fecha_limite)}</td><td><span class="estado-chip ${claseEstado(item.estado)}">${escaparHTML(item.estado)}</span></td><td><button type="button" class="boton-secundario" data-accion="seleccionar-necesidad" data-id="${escaparHTML(item.id)}" ${item.id === necesidad.id ? "disabled" : ""}>${item.id === necesidad.id ? "Seleccionada" : "Seleccionar"}</button></td></tr>`).join("")}</tbody>
-            </table>
-          </div>
-        </section>
-        <section class="panel">
-          <div class="cabecera-panel"><div><h3>Privacidad por diseño</h3><p>El panel global ofrece necesidades y agregados, nunca el listado de integrantes.</p></div></div>
-          <ul class="lista-comprobacion"><li>Sin búsqueda por nombre o documento</li><li>Sin casillas de selección de personas</li><li>Prelación calculada exclusivamente en servidor</li><li>Propuesta ligada a versión de bolsa y reglas</li><li>Revalidación obligatoria antes de confirmar</li></ul>
-        </section>
-      </div>
-      <aside class="resumen-lateral" aria-label="Configuración del llamamiento">
-        <section class="panel">
-          <div class="cabecera-panel"><h3>${estado.modoPresentacion ? "Necesidad sintética seleccionada" : "Necesidad seleccionada"}</h3>${estado.modoPresentacion ? '<span class="estado-chip info">Demostración</span>' : ""}</div>
-          <div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Referencia</dt><dd>${escaparHTML(necesidad.referencia)}</dd></div><div class="fila-resumen"><dt>Bolsa aplicable</dt><dd>${escaparHTML(bolsa?.nombre || necesidad.bolsa)}</dd></div><div class="fila-resumen"><dt>Destino</dt><dd>${escaparHTML(necesidad.destino)}</dd></div><div class="fila-resumen"><dt>Condiciones</dt><dd>${escaparHTML(necesidad.jornada)} · ${escaparHTML(necesidad.duracion)}</dd></div><div class="fila-resumen"><dt>Regla</dt><dd>${escaparHTML(bolsa?.regla || necesidad.regla)}</dd></div></dl></div>
-        </section>
-        <section class="panel">
-          <div class="cabecera-panel"><h3>${confirmacion ? "Confirmación de propuesta" : "Solicitar propuesta"}</h3></div>
-          ${confirmacion ? renderizarConfirmacionCompacta(confirmacion) : `<div class="cuerpo-panel"><p>${escaparHTML(notaCapacidad)}</p>${estado.errorPropuesta ? `<p class="nota-pendiente" role="alert">${escaparHTML(estado.errorPropuesta)}</p>` : ""}<button type="button" class="boton-primario" data-accion="solicitar-propuesta" ${puedeMostrar && !estado.solicitandoPropuesta ? "" : "disabled"}>${estado.solicitandoPropuesta ? "Solicitando…" : escaparHTML(etiquetaAccion)}</button></div>`}
-        </section>
-      </aside>
-    </div>`;
-}
-
-function renderizarPasoPropuesta(necesidad, bolsa) {
-  const propuesta = propuestaLlamamientoActual();
-  if (!estado.modoPresentacion || propuesta?.demostracion !== true) return renderizarDetalleLlamamientoBloqueado();
-  return `
-    <div class="rejilla-dos-columnas">
-      <section class="panel">
-        <div class="cabecera-panel"><div><h3>2. Propuesta sintética de elegibilidad</h3><p>${escaparHTML(necesidad.referencia)} · ${escaparHTML(bolsa?.nombre || necesidad.bolsa)}</p></div><span class="estado-chip info">Demostración</span></div>
-        <div class="tabla-contenedor"><table class="tabla-datos"><caption>Resultados sintéticos sin identidad ni contacto</caption><thead><tr><th scope="col">Orden</th><th scope="col">Resultado</th><th scope="col">Motivos</th></tr></thead><tbody>${propuesta.evaluaciones.map((item) => `<tr><td>${escaparHTML(item.orden)}</td><td><span class="estado-chip ${claseEstado(item.resultado)}">${item.resultado === "elegible" ? "Elegible" : "No elegible"}</span></td><td>${item.motivos.map((motivo) => `<strong>${escaparHTML(motivo.regla)}</strong>: ${escaparHTML(motivo.fundamento)}`).join(" · ")}</td></tr>`).join("")}</tbody></table></div>
-      </section>
-      <aside class="resumen-lateral">
-        <section class="panel"><div class="cabecera-panel"><h3>Resumen de demostración</h3></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Propuesta</dt><dd>${escaparHTML(propuesta.id)}</dd></div><div class="fila-resumen"><dt>Versión de bolsa</dt><dd>${escaparHTML(propuesta.version_bolsa)}</dd></div><div class="fila-resumen"><dt>Versión de reglas</dt><dd>${escaparHTML(propuesta.version_regla)}</dd></div><div class="fila-resumen"><dt>Fecha de corte</dt><dd>${escaparHTML(propuesta.fecha_corte)}</dd></div><div class="fila-resumen"><dt>Personas incluidas</dt><dd>${numero(propuesta.personas_incluidas)}</dd></div></dl></div></section>
-        <section class="nota-seguridad">La demostración no crea ni conserva un expediente. En producto, la relación probatoria permanecerá en servidor bajo autorización y no se expondrá en esta vista.</section>
-        <section class="panel"><div class="cuerpo-panel"><div class="acciones-paso"><button type="button" class="boton-secundario" data-accion="anterior-paso">← Volver</button><button type="button" class="boton-primario" data-accion="siguiente-paso">Configurar demostración →</button></div></div></section>
-      </aside>
-    </div>`;
-}
-
-function renderizarPasoConfiguracion(necesidad, bolsa) {
-  const propuesta = propuestaLlamamientoActual();
-  if (!estado.modoPresentacion || propuesta?.demostracion !== true) return renderizarDetalleLlamamientoBloqueado();
-  const configuracion = DATOS_PANEL.configuracion_llamamiento;
-  const catalogos = DATOS_PANEL.catalogos_llamamiento;
-  const canales = Array.isArray(configuracion.canales) ? configuracion.canales.join(" + ") : "";
-  return `
-    <div class="rejilla-dos-columnas">
-      <section class="panel">
-        <div class="cabecera-panel"><div><h3>3. Configurar demostración</h3><p>${escaparHTML(necesidad.referencia)} · propuesta sintética ${escaparHTML(propuesta?.id)}</p></div><span class="estado-chip info">Demostración</span></div>
-        <form class="cuerpo-panel formulario-llamamiento" id="configuracion-llamamiento">
-          <label class="campo"><span>Fecha y hora de apertura</span><input name="apertura" type="datetime-local" value="${escaparHTML(configuracion.apertura)}"></label>
-          <label class="campo"><span>Plazo para responder</span><select name="plazo">${opcionesSelect(catalogos.plazos_respuesta, configuracion.plazo_respuesta)}</select></label>
-          <label class="campo"><span>Tipo de cobertura</span><input name="tipo" value="${escaparHTML(necesidad.cobertura)}" readonly></label>
-          <label class="campo"><span>Centro o destino</span><input name="destino" value="${escaparHTML(necesidad.destino)}" readonly></label>
-          <label class="campo"><span>Jornada</span><input name="jornada" value="${escaparHTML(necesidad.jornada)}" readonly></label>
-          <label class="campo"><span>Duración prevista</span><input name="duracion" value="${escaparHTML(necesidad.duracion)}" readonly></label>
-          <label class="campo campo-ancho"><span>Canales</span><input name="canales" value="${escaparHTML(canales)}" readonly></label>
-          <label class="campo campo-ancho"><span>Observaciones visibles para la persona llamada</span><textarea name="observaciones">${escaparHTML(configuracion.observaciones)}</textarea></label>
-        </form>
-        <div class="cuerpo-panel acciones-paso"><button type="button" class="boton-secundario" data-accion="anterior-paso">← Volver</button><button type="button" class="boton-primario" data-accion="siguiente-paso">Revisar demostración →</button></div>
-      </section>
-      <aside class="resumen-lateral"><section class="panel"><div class="cabecera-panel"><h3>Política sintética de contacto</h3><span class="estado-chip info">Demostración</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Orden</dt><dd>Prelación estricta</dd></div><div class="fila-resumen"><dt>Intentos</dt><dd>Configurables por las bases</dd></div><div class="fila-resumen"><dt>Acuse</dt><dd>Obligatorio para efecto administrativo</dd></div><div class="fila-resumen"><dt>Silencio</dt><dd>No inferido: depende de la regla publicada</dd></div></dl></div></section><section class="nota-seguridad">Esta configuración solo ilustra la interfaz y no contacta a ninguna persona. En producto, el núcleo exigirá un recibo verificable del conector.</section></aside>
-    </div>`;
-}
-
-function renderizarPasoRevision(necesidad, bolsa) {
-  const propuesta = propuestaLlamamientoActual();
-  if (!estado.modoPresentacion || propuesta?.demostracion !== true) return renderizarDetalleLlamamientoBloqueado();
-  const configuracion = DATOS_PANEL.configuracion_llamamiento;
-  const canales = Array.isArray(configuracion.canales) ? configuracion.canales.join(", ") : "";
-  return `
-    <div class="rejilla-dos-columnas">
-      <section class="panel">
-        <div class="cabecera-panel"><div><h3>4. Comprobar presentación</h3><p>La demostración no envía mensajes, no modifica la bolsa y no crea un expediente.</p></div><span class="estado-chip info">Demostración</span></div>
-        <div class="cuerpo-panel">
-          <dl class="resumen-expediente"><div class="fila-resumen"><dt>Necesidad</dt><dd>${escaparHTML(necesidad.referencia)}</dd></div><div class="fila-resumen"><dt>Bolsa</dt><dd>${escaparHTML(bolsa?.nombre || necesidad.bolsa)}</dd></div><div class="fila-resumen"><dt>Propuesta</dt><dd>${escaparHTML(propuesta?.id)} · ${numero(propuesta?.personas_incluidas)} inclusiones</dd></div><div class="fila-resumen"><dt>Apertura</dt><dd>${escaparHTML(configuracion.apertura_visible)}</dd></div><div class="fila-resumen"><dt>Respuesta</dt><dd>${escaparHTML(configuracion.plazo_respuesta)} desde recepción fehaciente</dd></div><div class="fila-resumen"><dt>Canales</dt><dd>${escaparHTML(canales)}</dd></div><div class="fila-resumen"><dt>Datos de destino</dt><dd>${escaparHTML(necesidad.destino)} · ${escaparHTML(necesidad.jornada)} · ${escaparHTML(necesidad.duracion)}</dd></div><div class="fila-resumen"><dt>Evidencia prevista</dt><dd>Necesidad, versiones, propuesta, plantilla, recibos y actor</dd></div></dl>
-          <div class="nota-pendiente">La confirmación futura revalidará autorización, necesidad, elegibilidad y versiones en una única operación. El navegador nunca indicará a quién llamar.</div>
-          <div class="acciones-paso"><button type="button" class="boton-secundario" data-accion="anterior-paso">← Volver</button><button type="button" class="boton-primario" data-accion="validar-recorrido">Comprobar presentación</button></div>
-        </div>
-      </section>
-      <aside class="resumen-lateral"><section class="panel"><div class="cabecera-panel"><h3>Control de demostración</h3><span class="estado-chip info">Sin efectos</span></div><ul class="lista-comprobacion"><li>Necesidad y bolsa sintéticas identificadas</li><li>Propuesta cargada localmente</li><li>Datos personales ausentes de la vista</li><li>Condiciones y plazo visibles</li><li class="pendiente">Confirmación transaccional no ejecutada</li><li class="pendiente">Conector de notificación no ejecutado</li></ul></section></aside>
-    </div>`;
-}
-
-function renderizarContratos() {
-  const filas = DATOS_PANEL.contratos.map((item) => [item.expediente, item.bolsa, item.acto, item.inicio, item.fin, item.estado]);
-  return vistaTablaGenerica("Relaciones y disponibilidad", "Contratos, ceses y reincorporaciones", "Cada movimiento conserva causa, fechas, efecto sobre disponibilidad y evidencia de aprobación.", ["Expediente", "Bolsa", "Acto", "Inicio", "Fin", "Estado"], filas, "El dominio de llamamientos contempla estados y elegibilidad; esta bandeja necesita todavía su repositorio y API internos.");
-}
-
 function renderizarReglas() {
   const filas = DATOS_PANEL.reglas.map((item) => `<tr><td>${escaparHTML(item.nombre)}</td><td>${escaparHTML(item.ambito)}</td><td>${escaparHTML(item.version)}</td><td>${escaparHTML(item.vigencia)}</td><td><span class="estado-chip ${claseEstado(item.estado)}">${escaparHTML(item.estado)}</span></td><td><button class="boton-terciario" data-accion="detalle-regla">Abrir</button></td></tr>`).join("");
   return `
@@ -635,48 +587,6 @@ function renderizarConsulta() {
       <section class="panel"><div class="cabecera-panel"><h3>Consulta pública disponible</h3><span class="estado-chip exito">API pública separada</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Convocatorias</dt><dd>Listado y detalle con filtros</dd></div><div class="fila-resumen"><dt>Categorías</dt><dd>Catálogo profesional gobernado</dd></div><div class="fila-resumen"><dt>Contenido</dt><dd>Bases, requisitos, plazos, ayuda y documentos</dd></div><div class="fila-resumen"><dt>Transparencia</dt><dd>Versión y huella de la fuente publicada</dd></div></dl><a class="boton-primario" href="/bolsa/">Ver portal público</a></div></section>
       <aside class="resumen-lateral"><section class="panel"><div class="cabecera-panel"><h3>Frontera de privacidad</h3></div><ul class="lista-comprobacion"><li>Datos públicos sin autenticación</li><li>Expediente propio con identidad fuerte</li><li>Identificadores de listados minimizados</li><li>Gestión RRHH solo en red y sesión internas</li><li class="pendiente">Zona privada E2E pendiente de composición</li></ul></section></aside>
     </div>`;
-}
-
-function renderizarEstadisticas() {
-  const indicadores = DATOS_PANEL.indicadores;
-  const llamamientosMes = Array.isArray(DATOS_PANEL.series.llamamientos_mes) ? DATOS_PANEL.series.llamamientos_mes : [];
-  const distribucion = DATOS_PANEL.distribucion_global;
-  const total = Object.values(distribucion).reduce((suma, valor) => suma + (Number(valor) || 0), 0);
-  const segmentos = [distribucion.disponibles, distribucion.en_llamamiento, distribucion.contratados].map((valor) => total > 0 ? porcentajeSeguro((Number(valor) || 0) * 100 / total) : 0);
-  return `
-    ${encabezadoVista("Información agregada", "Estadísticas y explotación de datos", "Indicadores operativos anonimizados; cualquier exportación detallada exigirá permiso y finalidad.", '<button type="button" class="boton-secundario" data-accion="exportar">Preparar informe</button>')}
-    <div class="rejilla-kpi">${tarjetaKPI("COB", `${numero(indicadores.cobertura_media, 1)} %`, "Cobertura media", "estadisticas")}${tarjetaKPI("TME", indicadores.tiempo_medio_cobertura, "Tiempo medio de cobertura", "estadisticas")}${tarjetaKPI("REN", `${numero(indicadores.renuncias_porcentaje, 1)} %`, "Renuncias justificadas", "estadisticas")}${tarjetaKPI("RES", `${numero(indicadores.respuesta_mediana_horas)} h`, "Respuesta mediana", "estadisticas")}${tarjetaKPI("VIG", numero(indicadores.bolsas_activas), "Bolsas activas", "elaboracion")}</div>
-    <section class="panel"><div class="cabecera-panel"><h3>Evolución y cobertura</h3><span class="estado-chip info">Fuente del panel</span></div><div class="graficos-resumen"><article class="grafico-mini"><h4>Cobertura por categoría</h4><div class="barras-mini">${DATOS_PANEL.bolsas.slice(0, 5).map((bolsa) => `<span data-altura="${porcentajeSeguro(bolsa.cobertura)}"></span>`).join("")}</div><p class="texto-grafico">Bolsas visibles para el ámbito</p></article><article class="grafico-mini"><h4>Llamamientos por mes</h4><div class="linea-mini">${llamamientosMes.map((valor) => `<span data-altura="${porcentajeSeguro(valor)}"></span>`).join("")}</div><p class="texto-grafico">Serie aportada por la fuente</p></article><article class="grafico-mini"><h4>Resultado</h4><div class="grafico-anillo" data-anillo-a="${segmentos[0]}" data-anillo-b="${segmentos[1]}" data-anillo-c="${segmentos[2]}"></div><p class="texto-grafico">${numero(total)} personas en la distribución</p></article></div></section>`;
-}
-
-function renderizarDocumentos() {
-  const filas = DATOS_PANEL.documentos.map((item) => [item.referencia, item.plantilla, item.formatos, item.version, item.estado]);
-  return vistaTablaGenerica("Plantillas y formatos", "Generación y firma de documentos", "Salida gobernada por formato, plantilla, firmantes, CSV de cotejo, sello de tiempo y custodia.", ["Referencia", "Plantilla", "Formatos", "Versión", "Estado"], filas, "Los renderizadores PDF y DOCX y los contratos multiformato existen; la firma y publicación oficial de Bolsa todavía no están compuestas extremo a extremo.");
-}
-
-function renderizarComunicaciones() {
-  const filas = DATOS_PANEL.canales.map((item) => [item.canal, item.uso, item.integracion, item.estado]);
-  return vistaTablaGenerica("Conectores intercambiables", "Correo y mensajería", "Preparación, envío, recepción y acuse separados; ningún canal concede por sí solo efecto administrativo.", ["Canal", "Uso", "Integración", "Estado"], filas, "El envío y la lectura fallan de forma cerrada hasta disponer de autorización, persistencia y recibo verificable del conector.");
-}
-
-function renderizarAuditoria() {
-  return `
-    ${encabezadoVista("Hechos reconstruibles", "Auditoría y trazabilidad", "Actor, regla, versión, datos mínimos, decisión, recibos y resultado de cada actuación.", '<button type="button" class="boton-secundario" data-accion="exportar">Preparar paquete de auditoría</button>')}
-    <section class="nota-seguridad">La vista de auditoría no modifica negocio. Los datos personales se minimizan y los permisos se evalúan por expediente y finalidad.</section>
-    <div class="rejilla-dos-columnas">
-      <section class="panel"><div class="cabecera-panel"><h3>Línea temporal del expediente ${escaparHTML(DATOS_PANEL.auditoria.expediente)}</h3><span class="estado-chip info">Fuente del panel</span></div><ol class="lista-trazabilidad">${DATOS_PANEL.actividad.map((item, indice) => `<li class="elemento-trazabilidad"><span class="detalle-lista"><strong>${indice + 1}. ${escaparHTML(item.accion)}</strong><span>${escaparHTML(item.objeto)} · ${escaparHTML(item.actor)} · ${escaparHTML(item.fecha)}</span></span></li>`).join("")}<li class="elemento-trazabilidad"><span class="detalle-lista"><strong>${numero(DATOS_PANEL.actividad.length + 1)}. Revisión de la propuesta</strong><span>Pendiente · no se ha enviado ninguna comunicación</span></span></li></ol></section>
-      <aside class="resumen-lateral"><section class="panel"><div class="cabecera-panel"><h3>Evidencias previstas</h3></div><ul class="lista-comprobacion"><li>Identidad y rol autenticados</li><li>Autorización para el expediente</li><li>Versión de bolsa y reglas</li><li>Selección y orden aplicados</li><li>Plantillas y firmas</li><li class="pendiente">Recibos de entrega por conectar</li></ul></section></aside>
-    </div>`;
-}
-
-function vistaTablaGenerica(sobrelinea, titulo, descripcion, cabeceras, filas, aviso) {
-  return `
-    ${encabezadoVista(sobrelinea, titulo, descripcion, '<button type="button" class="boton-secundario" data-accion="exportar">Preparar exportación</button>')}
-    <section class="nota-pendiente">${escaparHTML(aviso)}</section>
-    <section class="panel">
-      <div class="cabecera-panel"><h3>${escaparHTML(titulo)}</h3><span class="estado-chip info">${escaparHTML(etiquetaFuentePanel())}</span></div>
-      <div class="tabla-contenedor"><table class="tabla-datos"><caption>${escaparHTML(titulo)}</caption><thead><tr>${cabeceras.map((cabecera) => `<th scope="col">${escaparHTML(cabecera)}</th>`).join("")}</tr></thead><tbody>${filas.map((fila) => `<tr>${fila.map((celda, indice) => `<td>${indice === fila.length - 1 ? `<span class="estado-chip ${claseEstado(celda)}">${escaparHTML(celda)}</span>` : escaparHTML(celda)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
-    </section>`;
 }
 
 function aplicarBarrasDinamicas(contenedor) {
@@ -703,6 +613,10 @@ function resolverProveedorBearerBorradores() {
   return proveedor === undefined ? null : proveedor;
 }
 
+function superficieBorradoresActiva() {
+  return estado.modoPresentacion ? superficieBorradoresPresentacion : superficieBorradores;
+}
+
 const superficieBorradores = crearSuperficieBorradoresPortal({
   escaparHTML,
   anunciar,
@@ -716,7 +630,7 @@ function instalarEventosBorradores() {
     const boton = evento.target.closest("[data-borrador-accion]");
     if (!boton || boton.disabled) return;
     evento.preventDefault();
-    void superficieBorradores.manejarAccion({ accion: boton.dataset.borradorAccion,
+    void superficieBorradoresActiva()?.manejarAccion({ accion: boton.dataset.borradorAccion,
       id: boton.dataset.id, coleccion: boton.dataset.coleccion, indice: boton.dataset.indice });
   });
   document.addEventListener("input", (evento) => {
@@ -724,7 +638,7 @@ function instalarEventosBorradores() {
     if (!control) return;
     const requiereRender = ["confirmar_reaplicacion", "plantilla_indice", "motivo_indice"]
       .includes(control.dataset.borradorRuta);
-    const actualizado = superficieBorradores.actualizarCampo({ ruta: control.dataset.borradorRuta,
+    const actualizado = superficieBorradoresActiva()?.actualizarCampo({ ruta: control.dataset.borradorRuta,
       valor: control.value, checked: control.checked, tipo: control.type });
     if (!actualizado) return;
     if (requiereRender) { renderizar(); return; }
@@ -743,12 +657,12 @@ function instalarEventosBorradores() {
     evento.preventDefault();
     if (formulario.dataset.borradorForm === "filtros") {
       const datos = new FormData(formulario);
-      void superficieBorradores.aplicarFiltro({ texto: datos.get("texto") || "",
+      void superficieBorradoresActiva()?.aplicarFiltro({ texto: datos.get("texto") || "",
         categoria: datos.get("categoria") || "" });
       return;
     }
     if (typeof formulario.reportValidity === "function" && !formulario.reportValidity()) return;
-    void superficieBorradores.guardar();
+    void superficieBorradoresActiva()?.guardar();
   });
 }
 
@@ -762,13 +676,15 @@ const presentadorPanelInterno = crearPresentadorPanelInterno({
 });
 
 const controlador = crearControladorPortal({
-  anunciar, cargarFuenteDatos, escaparHTML, estado,
-  etiquetaFuentePanel, navegar, notaOperacionNoCompuesta, numero,
+  anunciar, cargarFuenteDatos, confirmarOperacionPresentacion: (mensaje) => window.confirm(mensaje),
+  cerrarMenuMovil, describirOperacionPresentacion, escaparHTML, estado,
+  etiquetaFuentePanel, ejecutarOperacionPresentacion, navegar, notaOperacionNoCompuesta, numero,
   obtenerDatosPanel: () => DATOS_PANEL, porcentajeSeguro, porId, renderizar,
   renderizarContenidoAyuda, solicitarPropuestaLlamamiento, vistaDesdeHash,
 });
 
 async function inicializar() {
+  estado.modoPresentacion = modoPresentacionSolicitado();
   controlador.restaurarPreferencias();
   estado.vista = vistaDesdeHash();
   renderizar();

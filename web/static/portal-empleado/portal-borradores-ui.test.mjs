@@ -371,8 +371,9 @@ test("el contrato DOM es accesible, adaptable y no conecta storage ni presentaci
   assert.match(estilos, /\.espacio-borradores/);
   assert.match(estilos, /@media \(max-width: 1040px\)[\s\S]*\.espacio-borradores/);
   assert.match(estilos, /@media \(max-width: 780px\)[\s\S]*\.campos-editor-dos/);
-  const indiceBorradores = portal.indexOf('if (estado.vista === "elaboracion")');
-  const indicePresentador = portal.indexOf("if (estado.vista !== \"portal\" && presentadorPanelInterno.esActivo())");
-  assert.ok(indiceBorradores >= 0 && indiceBorradores < indicePresentador,
-    "los borradores reales deben resolverse antes que el adaptador de presentación");
+  assert.match(portal, /const superficie = estado\.modoPresentacion \? superficieBorradoresPresentacion : superficieBorradores/);
+  assert.match(portal, /crearClienteImpl: \(\) => moduloBorradores\.crearClienteBorradoresPresentacion\(\)/);
+  assert.match(portal, /import\("\.\/portal-borradores-demo-cliente\.js/);
+  assert.doesNotMatch(portal, /^import .*portal-borradores-demo-cliente/m,
+    "el adaptador DEMO debe poder excluirse físicamente de producción");
 });

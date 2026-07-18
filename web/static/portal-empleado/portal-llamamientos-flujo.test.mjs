@@ -6,8 +6,8 @@ function propuestaPresentacion() {
   return {
     esquema: "vec.bolsa.propuesta-llamamiento.presentacion.v1",
     demostracion: true,
-    id: "PRO-DEMO-1",
-    necesidad_id: "NEC-DEMO-1",
+    id: "DEMO-PRO-1",
+    necesidad_id: "DEMO-NEC-1",
     estado: "demostracion",
     version_bolsa: "versión sintética",
     version_regla: "regla sintética",
@@ -25,7 +25,7 @@ test("la demostración se resuelve localmente sin tocar el cliente HTTP", async 
   let llamadas = 0;
   const resultado = await resolverSolicitudPropuestaLlamamiento({
     modoPresentacion: true,
-    necesidadId: "NEC-DEMO-1",
+    necesidadId: "DEMO-NEC-1",
     capacidad: false,
     obtenerPresentacion: propuestaPresentacion,
     cliente: { async solicitar() { llamadas += 1; throw new Error("no debe ejecutarse"); } },
