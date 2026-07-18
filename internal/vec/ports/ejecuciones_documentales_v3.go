@@ -1,18 +1,15 @@
 package ports
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"reflect"
-	"strconv"
-	"strings"
 	"time"
 
+	documentalcanonico "vec-diputacion-granada/internal/vec/canonico/documental"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -23,29 +20,28 @@ var (
 	ErrTransicionEjecucionDocumentalV3Invalida = errors.New("vec: transicion de ejecucion documental v3 invalida")
 	ErrReconciliacionDocumentalV3Invalida      = errors.New("vec: reconciliacion documental v3 invalida")
 	ErrSelloEvidenciaDocumentalV3Invalido      = errors.New("vec: sello de evidencia documental v3 invalido")
-	ErrSerializacionSecretoDocumentalV3        = errors.New("vec: serializacion de secreto documental v3 prohibida")
+	ErrSerializacionSecretoDocumentalV3        = documentalcanonico.ErrSerializacionSecretoDocumentalV3
 	ErrReciboInicioDocumentalV3Invalido        = errors.New("vec: recibo durable de inicio documental v3 invalido")
-	ErrOrdenDespachoDocumentalV3Invalida       = errors.New("vec: orden de despacho documental v3 invalida")
+	ErrOrdenDespachoDocumentalV3Invalida       = documentalcanonico.ErrOrdenDespachoDocumentalV3Invalida
 )
 
 const (
 	EsquemaManifiestoEjecucionDocumentalV3 = "vec.documentos.manifiesto-ejecucion.v3"
 	EsquemaEvidenciaRenderizadoV3          = "vec.documentos.evidencia-renderizado.v3"
-	AlgoritmoSelloEvidenciaHMACSHA256V3    = "hmac-sha256"
+	AlgoritmoSelloEvidenciaHMACSHA256V3    = documentalcanonico.AlgoritmoHMACSHA256V3
 	AudienciaSelloEvidenciaRenderizadoV3   = "vec.documentos.evidencia-renderizado.v3"
-	AudienciaAtestacionTokenCercadoV3      = "vec.documentos.token-cercado.v3"
-	AudienciaAtestacionInicioEfectoV3      = "vec.documentos.inicio-efecto.v3"
-	AudienciaAtestacionReclamacionV3       = "vec.documentos.reclamacion-despacho.v3"
-	AudienciaComprobacionOrdenDespachoV3   = "vec.documentos.comprobacion-orden-despacho.v3"
-	ContextoAtestacionTokenCercadoV3       = "cercado"
-	ContextoAtestacionInicioEfectoV3       = "inicio"
-	ContextoAtestacionReclamacionV3        = "reclamacion"
-	ContextoComprobacionOrdenDespachoV3    = "inicio-reclamacion-cercada"
+	AudienciaAtestacionTokenCercadoV3      = documentalcanonico.AudienciaTokenCercadoV3
+	AudienciaAtestacionInicioEfectoV3      = documentalcanonico.AudienciaInicioEfectoV3
+	AudienciaAtestacionReclamacionV3       = documentalcanonico.AudienciaReclamacionDespachoV3
+	AudienciaComprobacionOrdenDespachoV3   = documentalcanonico.AudienciaComprobacionOrdenDespachoV3
+	ContextoAtestacionTokenCercadoV3       = documentalcanonico.ContextoTokenCercadoV3
+	ContextoAtestacionInicioEfectoV3       = documentalcanonico.ContextoInicioEfectoV3
+	ContextoAtestacionReclamacionV3        = documentalcanonico.ContextoReclamacionDespachoV3
+	ContextoComprobacionOrdenDespachoV3    = documentalcanonico.ContextoComprobacionOrdenDespachoV3
 
 	duracionMaximaReservaEjecucionDocumentalV3 = 15 * time.Minute
 	tamanoMaximoSalidaEjecucionDocumentalV3    = uint64(256 * 1024 * 1024)
-	tamanoFirmaHMACSHA256V3                    = sha256.Size
-	duracionMaximaReclamacionDespachoV3        = 10 * time.Minute
+	tamanoFirmaHMACSHA256V3                    = documentalcanonico.TamanoFirmaHMACSHA256V3
 )
 
 // DatosManifiestoEjecucionDocumentalV3 compromete una resolucion completa y
@@ -231,7 +227,7 @@ func (s SolicitudPrepararEjecucionDocumentalV3) Validar() error {
 	datos, err := s.Manifiesto.Datos()
 	if !hmacSHA256PuertoValido(s.IndiceIdempotenciaHMAC) ||
 		!hmacSHA256PuertoValido(s.HuellaSolicitudHMAC) || err != nil ||
-		!clavesHMACDocumentalesV3Distintas(
+		!documentalcanonico.ClavesHMACSHA256V3Distintas(
 			s.IndiceIdempotenciaHMAC, s.HuellaSolicitudHMAC, datos.HuellaEntradaHMAC,
 		) || !instanteEjecucionDocumentalV3Valido(s.SolicitadaEn) ||
 		!instanteEjecucionDocumentalV3Valido(s.ExpiraEn) ||
@@ -374,16 +370,8 @@ type VinculoEstableActivacionDocumentalV3 struct {
 }
 
 func (v VinculoEstableActivacionDocumentalV3) Validar() error {
-	datos, err := v.Manifiesto.Datos()
-	if !referenciaEjecucionDocumentalV3Valida(v.ReservaRef) ||
-		!hmacSHA256PuertoValido(v.IndiceIdempotenciaHMAC) ||
-		!hmacSHA256PuertoValido(v.HuellaSolicitudHMAC) || err != nil ||
-		!clavesHMACDocumentalesV3Distintas(
-			v.IndiceIdempotenciaHMAC, v.HuellaSolicitudHMAC, datos.HuellaEntradaHMAC,
-		) || v.ConsumoDecision.ValidarContra(v.Manifiesto) != nil ||
-		!referenciaEjecucionDocumentalV3Valida(v.OrdenConsumoDurableV4Ref) ||
-		v.OrdenConsumoDurableV4Ref != v.ConsumoDecision.EfectoRef ||
-		v.OrdenConsumoDurableV4Ref != datos.EfectoRef {
+	proyeccion, valida := proyectarVinculoActivacionDocumentalV3(v)
+	if !valida || !proyeccion.Validar() {
 		return ErrReservaEjecucionDocumentalV3Invalida
 	}
 	return nil
@@ -393,19 +381,11 @@ func (v VinculoEstableActivacionDocumentalV3) HuellaSHA256() (string, error) {
 	if v.Validar() != nil {
 		return "", ErrReservaEjecucionDocumentalV3Invalida
 	}
-	huellaManifiesto, err := v.Manifiesto.HuellaSHA256()
-	if err != nil {
+	proyeccion, valida := proyectarVinculoActivacionDocumentalV3(v)
+	if !valida {
 		return "", ErrReservaEjecucionDocumentalV3Invalida
 	}
-	return huellaCanonicaFormatoDocumental([]string{
-		"vec.documentos.vinculo-estable-activacion.v3",
-		v.ReservaRef, v.IndiceIdempotenciaHMAC, v.HuellaSolicitudHMAC,
-		huellaManifiesto, v.OrdenConsumoDurableV4Ref,
-		v.ConsumoDecision.DecisionRef, v.ConsumoDecision.EfectoRef,
-		v.ConsumoDecision.EsquemaHuellaDecision,
-		v.ConsumoDecision.HuellaDecisionSHA256,
-		v.ConsumoDecision.HuellaPlanSHA256,
-	}), nil
+	return proyeccion.HuellaSHA256(), nil
 }
 
 func (VinculoEstableActivacionDocumentalV3) String() string {
@@ -468,13 +448,7 @@ func NuevoTokenCercadoEjecucionDocumentalV3Nominal(
 	evidenciaOperacionRef string,
 ) (TokenCercadoEjecucionDocumentalV3Nominal, error) {
 	huellaVinculoEstable, errVinculo := vinculo.HuellaSHA256()
-	datosManifiesto, errManifiesto := vinculo.Manifiesto.Datos()
-	if !referenciaEjecucionDocumentalV3Valida(valor) || secuencia == 0 ||
-		errVinculo != nil || errManifiesto != nil ||
-		!referenciaEjecucionDocumentalV3Valida(claveAtestacionRef) || revisionClave == 0 ||
-		claveAtestacionRef == claveHMACDocumentalV3(datosManifiesto.HuellaEntradaHMAC) ||
-		!referenciaEjecucionDocumentalV3Valida(evidenciaOperacionRef) ||
-		len(macAtestacion) != tamanoFirmaHMACSHA256V3 {
+	if errVinculo != nil {
 		return TokenCercadoEjecucionDocumentalV3Nominal{}, ErrTokenCercadoDocumentalV3Invalido
 	}
 	token := TokenCercadoEjecucionDocumentalV3Nominal{
@@ -498,23 +472,8 @@ func NuevoTokenCercadoEjecucionDocumentalV3Nominal(
 func (t TokenCercadoEjecucionDocumentalV3Nominal) ValidarPara(
 	vinculo VinculoEstableActivacionDocumentalV3,
 ) error {
-	datos, err := vinculo.Manifiesto.Datos()
-	huellaVinculoEstable, errVinculo := vinculo.HuellaSHA256()
-	huellaVinculoInterno, errVinculoInterno := t.vinculoEstable.HuellaSHA256()
-	if !referenciaEjecucionDocumentalV3Valida(t.valor) || t.secuencia == 0 ||
-		!esSHA256Hexadecimal(t.huellaVinculoEstable) ||
-		!esSHA256Hexadecimal(t.huellaVinculo) ||
-		err != nil || errVinculo != nil || errVinculoInterno != nil ||
-		t.huellaVinculoEstable != huellaVinculoEstable ||
-		t.huellaVinculoEstable != huellaVinculoInterno ||
-		!referenciaEjecucionDocumentalV3Valida(t.claveAtestacionRef) || t.revisionClave == 0 ||
-		t.claveAtestacionRef == claveHMACDocumentalV3(datos.HuellaEntradaHMAC) ||
-		len(t.macAtestacion) != tamanoFirmaHMACSHA256V3 ||
-		bytesEjecucionDocumentalNulos(t.macAtestacion) ||
-		!referenciaEjecucionDocumentalV3Valida(t.evidenciaOperacionRef) ||
-		t.huellaVinculo != huellaVinculoCercadoEjecucionDocumentalV3(
-			t.secuencia, huellaVinculoEstable,
-		) {
+	proyeccion, valida := proyectarTokenCercadoDocumentalV3(t, vinculo)
+	if !valida || !proyeccion.Validar() {
 		return ErrTokenCercadoDocumentalV3Invalido
 	}
 	return nil
@@ -675,8 +634,8 @@ func NuevaPruebaCrudaAtestacionDespachoDocumentalV3(
 		evidenciaOperacionRef:   evidenciaOperacionRef,
 		mensajeCanonico:         append([]byte(nil), mensajeCanonico...),
 		sobreCriptografico:      append([]byte(nil), sobreCriptografico...),
-		huellaMensajeSHA256:     huellaBytesFormatoDocumental(mensajeCanonico),
-		huellaSobreSHA256:       huellaBytesFormatoDocumental(sobreCriptografico),
+		huellaMensajeSHA256:     documentalcanonico.HuellaBytesSHA256(mensajeCanonico),
+		huellaSobreSHA256:       documentalcanonico.HuellaBytesSHA256(sobreCriptografico),
 	}
 	if prueba.Validar() != nil {
 		return PruebaCrudaAtestacionDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
@@ -685,23 +644,7 @@ func NuevaPruebaCrudaAtestacionDespachoDocumentalV3(
 }
 
 func (p PruebaCrudaAtestacionDespachoDocumentalV3) Validar() error {
-	perfilValido := p.algoritmo == AlgoritmoSelloEvidenciaHMACSHA256V3 &&
-		((p.audiencia == AudienciaAtestacionTokenCercadoV3 &&
-			p.contexto == ContextoAtestacionTokenCercadoV3) ||
-			(p.audiencia == AudienciaAtestacionInicioEfectoV3 &&
-				p.contexto == ContextoAtestacionInicioEfectoV3) ||
-			(p.audiencia == AudienciaAtestacionReclamacionV3 &&
-				p.contexto == ContextoAtestacionReclamacionV3))
-	if !perfilValido || !referenciaEjecucionDocumentalV3Valida(p.claveGestionadaRef) ||
-		p.revisionClaveGestionada == 0 ||
-		!referenciaEjecucionDocumentalV3Valida(p.evidenciaOperacionRef) ||
-		len(p.mensajeCanonico) == 0 || len(p.mensajeCanonico) > 64*1024 ||
-		len(p.sobreCriptografico) != tamanoFirmaHMACSHA256V3 ||
-		bytesEjecucionDocumentalNulos(p.sobreCriptografico) ||
-		!esSHA256Hexadecimal(p.huellaMensajeSHA256) ||
-		p.huellaMensajeSHA256 != huellaBytesFormatoDocumental(p.mensajeCanonico) ||
-		!esSHA256Hexadecimal(p.huellaSobreSHA256) ||
-		p.huellaSobreSHA256 != huellaBytesFormatoDocumental(p.sobreCriptografico) {
+	if !proyectarPruebaAtestacionDespachoDocumentalV3(p).Validar() {
 		return ErrOrdenDespachoDocumentalV3Invalida
 	}
 	return nil
@@ -751,12 +694,7 @@ func (p PruebaCrudaAtestacionDespachoDocumentalV3) HuellasSHA256() (
 }
 
 func (p PruebaCrudaAtestacionDespachoDocumentalV3) huellaSHA256() string {
-	return huellaCanonicaFormatoDocumental([]string{
-		"vec.documentos.prueba-cruda-atestacion-despacho.v3", p.algoritmo,
-		p.audiencia, p.contexto, p.claveGestionadaRef,
-		strconvu64(p.revisionClaveGestionada), p.evidenciaOperacionRef,
-		p.huellaMensajeSHA256, p.huellaSobreSHA256,
-	})
+	return proyectarPruebaAtestacionDespachoDocumentalV3(p).HuellaSHA256()
 }
 
 func (PruebaCrudaAtestacionDespachoDocumentalV3) String() string {
@@ -803,8 +741,11 @@ func NuevosMetadatosComprobacionTokenCercadoDocumentalV3Nominal(
 	verificacionRef string,
 	verificadaEn time.Time,
 ) (MetadatosComprobacionTokenCercadoDocumentalV3Nominal, error) {
-	if solicitud.Validar() != nil || !referenciaEjecucionDocumentalV3Valida(verificacionRef) ||
-		!instanteEjecucionDocumentalV3Valido(verificadaEn) {
+	proyeccion := documentalcanonico.DatosMetadatosComprobacionV3{
+		HuellaSolicitud: solicitud.huella, HuellaSolicitudEsperada: solicitud.huella,
+		VerificacionRef: verificacionRef, VerificadaEn: verificadaEn,
+	}
+	if solicitud.Validar() != nil || !proyeccion.Validar() {
 		return MetadatosComprobacionTokenCercadoDocumentalV3Nominal{}, ErrTokenCercadoDocumentalV3Invalido
 	}
 	return MetadatosComprobacionTokenCercadoDocumentalV3Nominal{
@@ -815,9 +756,11 @@ func NuevosMetadatosComprobacionTokenCercadoDocumentalV3Nominal(
 func (r MetadatosComprobacionTokenCercadoDocumentalV3Nominal) ValidarPara(
 	solicitud SolicitudVerificacionTokenCercadoDocumentalV3,
 ) error {
-	if solicitud.Validar() != nil || r.huellaSolicitud != solicitud.huella ||
-		!referenciaEjecucionDocumentalV3Valida(r.verificacionRef) ||
-		!instanteEjecucionDocumentalV3Valido(r.verificadaEn) {
+	proyeccion := documentalcanonico.DatosMetadatosComprobacionV3{
+		HuellaSolicitud: r.huellaSolicitud, HuellaSolicitudEsperada: solicitud.huella,
+		VerificacionRef: r.verificacionRef, VerificadaEn: r.verificadaEn,
+	}
+	if solicitud.Validar() != nil || !proyeccion.Validar() {
 		return ErrTokenCercadoDocumentalV3Invalido
 	}
 	return nil
@@ -1035,24 +978,25 @@ func MensajeCanonicoAtestacionInicioEfectoDocumentalV3(
 	auditoriaInicioRef, outboxInicioRef, evidenciaOperacionRef string,
 ) ([]byte, error) {
 	huellaVinculo, err := solicitud.VinculoActivacion.HuellaSHA256()
-	if solicitud.Validar() != nil || err != nil ||
-		!referenciaEjecucionDocumentalV3Valida(inicioRef) || versionInicioCAS == 0 ||
-		!referenciaEjecucionDocumentalV3Valida(auditoriaInicioRef) ||
-		!referenciaEjecucionDocumentalV3Valida(outboxInicioRef) ||
-		!referenciaEjecucionDocumentalV3Valida(evidenciaOperacionRef) {
+	if solicitud.Validar() != nil || err != nil {
 		return nil, ErrReciboInicioDocumentalV3Invalido
 	}
-	return serializarCamposCanonicosEjecucionDocumentalV3([]string{
-		"vec.documentos.atestacion-inicio-efecto.v3", inicioRef,
-		solicitud.VinculoActivacion.ReservaRef, huellaVinculo,
-		strconvu64(solicitud.Token.Secuencia()), solicitud.Token.HuellaVinculoSHA256(),
-		solicitud.VinculoActivacion.OrdenConsumoDurableV4Ref,
-		strconvu64(versionInicioCAS), auditoriaInicioRef, outboxInicioRef,
-		AlgoritmoSelloEvidenciaHMACSHA256V3, AudienciaAtestacionInicioEfectoV3,
-		ContextoAtestacionInicioEfectoV3, solicitud.Token.claveAtestacionRef,
-		strconvu64(solicitud.Token.revisionClave), evidenciaOperacionRef,
-		solicitud.IniciadoEn.Format(time.RFC3339Nano),
-	}), nil
+	proyeccion := documentalcanonico.DatosAtestacionInicioEfectoV3{
+		InicioRef: inicioRef, ReservaRef: solicitud.VinculoActivacion.ReservaRef,
+		HuellaVinculoEstableSHA256: huellaVinculo,
+		SecuenciaCercado:           solicitud.Token.Secuencia(),
+		HuellaVinculoCercadoSHA256: solicitud.Token.HuellaVinculoSHA256(),
+		OrdenConsumoDurableV4Ref:   solicitud.VinculoActivacion.OrdenConsumoDurableV4Ref,
+		VersionInicioCAS:           versionInicioCAS, AuditoriaInicioRef: auditoriaInicioRef,
+		OutboxInicioRef: outboxInicioRef, ClaveAtestacionRef: solicitud.Token.claveAtestacionRef,
+		RevisionClave: solicitud.Token.revisionClave, EvidenciaOperacionRef: evidenciaOperacionRef,
+		IniciadoEn: solicitud.IniciadoEn,
+	}
+	mensaje := proyeccion.Bytes()
+	if len(mensaje) == 0 {
+		return nil, ErrReciboInicioDocumentalV3Invalido
+	}
+	return mensaje, nil
 }
 
 func NuevoReciboInicioEfectoDocumentalV3Nominal(
@@ -1077,7 +1021,7 @@ func NuevoReciboInicioEfectoDocumentalV3Nominal(
 		contexto != ContextoAtestacionInicioEfectoV3 ||
 		claveRef != solicitud.Token.claveAtestacionRef ||
 		revisionClave != solicitud.Token.revisionClave ||
-		!bytesEjecucionDocumentalV3Iguales(mensajeAtestacion, mensajeEsperado) {
+		!documentalcanonico.BytesIguales(mensajeAtestacion, mensajeEsperado) {
 		return ReciboInicioEfectoDocumentalV3Nominal{}, ErrReciboInicioDocumentalV3Invalido
 	}
 	datos := &DatosReciboInicioEfectoDocumentalV3Nominal{
@@ -1102,26 +1046,8 @@ func (r ReciboInicioEfectoDocumentalV3Nominal) Validar() error {
 	if r.datos == nil {
 		return ErrReciboInicioDocumentalV3Invalido
 	}
-	d := r.datos
-	evidenciaRef, errEvidencia := d.AtestacionInicio.EvidenciaOperacionRef()
-	referencias := []string{
-		d.InicioRef, d.ReservaRef, d.OrdenConsumoDurableV4Ref, d.AuditoriaInicioRef,
-		d.OutboxInicioRef, evidenciaRef,
-	}
-	for indice, referencia := range referencias {
-		if !referenciaEjecucionDocumentalV3Valida(referencia) {
-			return ErrReciboInicioDocumentalV3Invalido
-		}
-		for otra := indice + 1; otra < len(referencias); otra++ {
-			if referencia == referencias[otra] {
-				return ErrReciboInicioDocumentalV3Invalido
-			}
-		}
-	}
-	if errEvidencia != nil || !esSHA256Hexadecimal(d.HuellaVinculoEstableSHA256) || d.SecuenciaCercado == 0 ||
-		!esSHA256Hexadecimal(d.HuellaVinculoCercadoSHA256) || d.VersionInicioCAS == 0 ||
-		d.AtestacionInicio.Validar() != nil ||
-		!instanteEjecucionDocumentalV3Valido(d.IniciadoEn) {
+	proyeccion, valida := proyectarReciboInicioEfectoDocumentalV3(*r.datos)
+	if !valida || !proyeccion.Validar() {
 		return ErrReciboInicioDocumentalV3Invalido
 	}
 	return nil
@@ -1146,7 +1072,7 @@ func (r ReciboInicioEfectoDocumentalV3Nominal) ValidarContra(
 	mensajeAtestacion, errMaterial := datos.AtestacionInicio.MensajeCanonico()
 	if err != nil ||
 		errEvidencia != nil || errMensaje != nil || errMaterial != nil ||
-		!bytesEjecucionDocumentalV3Iguales(mensajeAtestacion, mensajeEsperado) ||
+		!documentalcanonico.BytesIguales(mensajeAtestacion, mensajeEsperado) ||
 		datos.ReservaRef != solicitud.VinculoActivacion.ReservaRef ||
 		datos.HuellaVinculoEstableSHA256 != huellaVinculo ||
 		datos.SecuenciaCercado != solicitud.Token.Secuencia() ||
@@ -1171,15 +1097,8 @@ func (r ReciboInicioEfectoDocumentalV3Nominal) HuellaSHA256() (string, error) {
 	if r.Validar() != nil {
 		return "", ErrReciboInicioDocumentalV3Invalido
 	}
-	d := r.datos
-	return huellaCanonicaFormatoDocumental([]string{
-		"vec.documentos.recibo-inicio-efecto.v3", d.InicioRef, d.ReservaRef,
-		d.HuellaVinculoEstableSHA256, strconvu64(d.SecuenciaCercado),
-		d.HuellaVinculoCercadoSHA256, d.OrdenConsumoDurableV4Ref,
-		strconvu64(d.VersionInicioCAS), d.AuditoriaInicioRef, d.OutboxInicioRef,
-		d.AtestacionInicio.huellaSHA256(),
-		d.IniciadoEn.Format(time.RFC3339Nano),
-	}), nil
+	proyeccion, _ := proyectarReciboInicioEfectoDocumentalV3(*r.datos)
+	return proyeccion.HuellaSHA256(), nil
 }
 
 func (ReciboInicioEfectoDocumentalV3Nominal) String() string {
@@ -1214,63 +1133,7 @@ func (*ReciboInicioEfectoDocumentalV3Nominal) UnmarshalBinary([]byte) error {
 // SolicitudReclamarOrdenDespachoDocumentalV3 identifica una unica reclamacion
 // CAS del evento outbox de inicio. El llamador solo aporta referencias opacas;
 // nunca un resultado de verificacion ni un token.
-type SolicitudReclamarOrdenDespachoDocumentalV3 struct {
-	ReclamacionRef string
-	InicioRef      string
-	OutboxRef      string
-	ConsumidorRef  string
-	ReclamadaEn    time.Time
-	ExpiraEn       time.Time
-}
-
-func (s SolicitudReclamarOrdenDespachoDocumentalV3) Validar() error {
-	referencias := []string{s.ReclamacionRef, s.InicioRef, s.OutboxRef, s.ConsumidorRef}
-	for indice, referencia := range referencias {
-		if !referenciaEjecucionDocumentalV3Valida(referencia) {
-			return ErrOrdenDespachoDocumentalV3Invalida
-		}
-		for otra := indice + 1; otra < len(referencias); otra++ {
-			if referencia == referencias[otra] {
-				return ErrOrdenDespachoDocumentalV3Invalida
-			}
-		}
-	}
-	if !instanteEjecucionDocumentalV3Valido(s.ReclamadaEn) ||
-		!instanteEjecucionDocumentalV3Valido(s.ExpiraEn) || !s.ExpiraEn.After(s.ReclamadaEn) ||
-		s.ExpiraEn.Sub(s.ReclamadaEn) > duracionMaximaReclamacionDespachoV3 {
-		return ErrOrdenDespachoDocumentalV3Invalida
-	}
-	return nil
-}
-
-func (SolicitudReclamarOrdenDespachoDocumentalV3) String() string {
-	return "[SOLICITUD-RECLAMAR-DESPACHO-DOCUMENTAL-V3-REDACTADA]"
-}
-func (s SolicitudReclamarOrdenDespachoDocumentalV3) GoString() string { return s.String() }
-func (s SolicitudReclamarOrdenDespachoDocumentalV3) Format(estado fmt.State, _ rune) {
-	_, _ = io.WriteString(estado, s.String())
-}
-func (s SolicitudReclamarOrdenDespachoDocumentalV3) LogValue() slog.Value {
-	return slog.StringValue(s.String())
-}
-func (SolicitudReclamarOrdenDespachoDocumentalV3) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionSecretoDocumentalV3
-}
-func (*SolicitudReclamarOrdenDespachoDocumentalV3) UnmarshalJSON([]byte) error {
-	return ErrSerializacionSecretoDocumentalV3
-}
-func (SolicitudReclamarOrdenDespachoDocumentalV3) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionSecretoDocumentalV3
-}
-func (*SolicitudReclamarOrdenDespachoDocumentalV3) UnmarshalText([]byte) error {
-	return ErrSerializacionSecretoDocumentalV3
-}
-func (SolicitudReclamarOrdenDespachoDocumentalV3) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionSecretoDocumentalV3
-}
-func (*SolicitudReclamarOrdenDespachoDocumentalV3) UnmarshalBinary([]byte) error {
-	return ErrSerializacionSecretoDocumentalV3
-}
+type SolicitudReclamarOrdenDespachoDocumentalV3 = documentalcanonico.DatosSolicitudReclamacionV3
 
 type DatosOrdenDespachoDocumentalV3Nominal struct {
 	ReciboInicio             DatosReciboInicioEfectoDocumentalV3Nominal
@@ -1330,27 +1193,27 @@ func MensajeCanonicoAtestacionReclamacionDespachoDocumentalV3(
 	huellaRecibo, errHuella := recibo.HuellaSHA256()
 	algoritmo, _, _, claveRef, revisionClave, errPerfil := datosRecibo.AtestacionInicio.Perfil()
 	if solicitud.Validar() != nil || errDatos != nil || errHuella != nil || errPerfil != nil ||
-		algoritmo != AlgoritmoSelloEvidenciaHMACSHA256V3 || versionReclamacionCAS == 0 ||
-		!referenciaEjecucionDocumentalV3Valida(auditoriaReclamacionRef) ||
-		!referenciaEjecucionDocumentalV3Valida(evidenciaOperacionRef) ||
-		solicitud.InicioRef != datosRecibo.InicioRef ||
-		solicitud.OutboxRef != datosRecibo.OutboxInicioRef ||
-		solicitud.ReclamadaEn.Before(datosRecibo.IniciadoEn) {
+		algoritmo != AlgoritmoSelloEvidenciaHMACSHA256V3 {
 		return nil, ErrOrdenDespachoDocumentalV3Invalida
 	}
-	return serializarCamposCanonicosEjecucionDocumentalV3([]string{
-		"vec.documentos.atestacion-reclamacion-despacho.v3", huellaRecibo,
-		datosRecibo.InicioRef, solicitud.ReclamacionRef, solicitud.ConsumidorRef,
-		strconvu64(versionReclamacionCAS), auditoriaReclamacionRef,
-		AlgoritmoSelloEvidenciaHMACSHA256V3, AudienciaAtestacionReclamacionV3,
-		ContextoAtestacionReclamacionV3, claveRef, strconvu64(revisionClave),
-		evidenciaOperacionRef, strconvu64(datosRecibo.SecuenciaCercado),
-		datosRecibo.HuellaVinculoEstableSHA256,
-		datosRecibo.HuellaVinculoCercadoSHA256,
-		datosRecibo.OrdenConsumoDurableV4Ref,
-		solicitud.ReclamadaEn.Format(time.RFC3339Nano),
-		solicitud.ExpiraEn.Format(time.RFC3339Nano),
-	}), nil
+	proyeccion := documentalcanonico.DatosAtestacionReclamacionV3{
+		Solicitud:                proyectarSolicitudReclamacionDocumentalV3(solicitud),
+		HuellaReciboInicioSHA256: huellaRecibo, InicioReciboRef: datosRecibo.InicioRef,
+		OutboxInicioReciboRef: datosRecibo.OutboxInicioRef, IniciadoEn: datosRecibo.IniciadoEn,
+		VersionReclamacionCAS:   versionReclamacionCAS,
+		AuditoriaReclamacionRef: auditoriaReclamacionRef,
+		ClaveAtestacionRef:      claveRef, RevisionClave: revisionClave,
+		EvidenciaOperacionRef:      evidenciaOperacionRef,
+		SecuenciaCercado:           datosRecibo.SecuenciaCercado,
+		HuellaVinculoEstableSHA256: datosRecibo.HuellaVinculoEstableSHA256,
+		HuellaVinculoCercadoSHA256: datosRecibo.HuellaVinculoCercadoSHA256,
+		OrdenConsumoDurableV4Ref:   datosRecibo.OrdenConsumoDurableV4Ref,
+	}
+	mensaje := proyeccion.Bytes()
+	if len(mensaje) == 0 {
+		return nil, ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return mensaje, nil
 }
 
 func NuevaOrdenDespachoDocumentalV3Nominal(
@@ -1375,7 +1238,7 @@ func NuevaOrdenDespachoDocumentalV3Nominal(
 		algoritmoInicio != algoritmo || audiencia != AudienciaAtestacionReclamacionV3 ||
 		contexto != ContextoAtestacionReclamacionV3 || claveRef != claveInicioRef ||
 		revisionClave != revisionInicio ||
-		!bytesEjecucionDocumentalV3Iguales(mensajeAtestacion, mensajeEsperado) ||
+		!documentalcanonico.BytesIguales(mensajeAtestacion, mensajeEsperado) ||
 		solicitud.InicioRef != datosRecibo.InicioRef || solicitud.OutboxRef != datosRecibo.OutboxInicioRef ||
 		solicitud.ReclamadaEn.Before(datosRecibo.IniciadoEn) {
 		return OrdenDespachoDocumentalV3Nominal{}, ErrOrdenDespachoDocumentalV3Invalida
@@ -1413,28 +1276,20 @@ func (o OrdenDespachoDocumentalV3Nominal) Validar() error {
 		evidenciaRef,
 	)
 	mensajeAtestacion, errMaterial := d.AtestacionReclamacion.MensajeCanonico()
-	referencias := []string{
-		d.ReclamacionRef, d.ConsumidorRef, d.AuditoriaReclamacionRef,
-		evidenciaRef,
-	}
-	for indice, referencia := range referencias {
-		if !referenciaEjecucionDocumentalV3Valida(referencia) {
-			return ErrOrdenDespachoDocumentalV3Invalida
-		}
-		for otra := indice + 1; otra < len(referencias); otra++ {
-			if referencia == referencias[otra] {
-				return ErrOrdenDespachoDocumentalV3Invalida
-			}
-		}
+	proyeccion := documentalcanonico.DatosOrdenDespachoV3{
+		Solicitud:                   proyectarSolicitudReclamacionDocumentalV3(solicitud),
+		HuellaReciboInicioSHA256:    d.HuellaReciboInicioSHA256,
+		HuellaReciboCalculadaSHA256: huellaRecibo,
+		VersionReclamacionCAS:       d.VersionReclamacionCAS,
+		AuditoriaReclamacionRef:     d.AuditoriaReclamacionRef,
+		EvidenciaOperacionRef:       evidenciaRef,
+		AtestacionValida:            d.AtestacionReclamacion.Validar() == nil,
+		HuellaAtestacionSHA256:      d.AtestacionReclamacion.huellaSHA256(),
+		MensajeAtestacion:           mensajeAtestacion, MensajeEsperado: mensajeEsperado,
+		IniciadoEn: d.ReciboInicio.IniciadoEn,
 	}
 	if err != nil || errEvidencia != nil || errMensaje != nil || errMaterial != nil ||
-		!bytesEjecucionDocumentalV3Iguales(mensajeAtestacion, mensajeEsperado) ||
-		d.HuellaReciboInicioSHA256 != huellaRecibo ||
-		d.VersionReclamacionCAS == 0 || d.AtestacionReclamacion.Validar() != nil ||
-		!instanteEjecucionDocumentalV3Valido(d.ReclamadaEn) ||
-		!instanteEjecucionDocumentalV3Valido(d.ExpiraEn) || !d.ExpiraEn.After(d.ReclamadaEn) ||
-		d.ExpiraEn.Sub(d.ReclamadaEn) > duracionMaximaReclamacionDespachoV3 ||
-		d.ReclamadaEn.Before(d.ReciboInicio.IniciadoEn) {
+		!proyeccion.Validar() {
 		return ErrOrdenDespachoDocumentalV3Invalida
 	}
 	return nil
@@ -1458,14 +1313,11 @@ func (o OrdenDespachoDocumentalV3Nominal) HuellaSHA256() (string, error) {
 	if o.Validar() != nil {
 		return "", ErrOrdenDespachoDocumentalV3Invalida
 	}
-	d := o.datos
-	return huellaCanonicaFormatoDocumental([]string{
-		"vec.documentos.orden-despacho-nominal.v3", d.HuellaReciboInicioSHA256,
-		d.ReclamacionRef, d.ConsumidorRef, strconvu64(d.VersionReclamacionCAS),
-		d.AuditoriaReclamacionRef, d.AtestacionReclamacion.huellaSHA256(),
-		d.ReclamadaEn.Format(time.RFC3339Nano),
-		d.ExpiraEn.Format(time.RFC3339Nano),
-	}), nil
+	proyeccion, valida := proyectarOrdenDespachoDocumentalV3(*o.datos)
+	if !valida {
+		return "", ErrOrdenDespachoDocumentalV3Invalida
+	}
+	return proyeccion.HuellaSHA256(), nil
 }
 
 func (OrdenDespachoDocumentalV3Nominal) String() string {
@@ -1497,51 +1349,7 @@ func (*OrdenDespachoDocumentalV3Nominal) UnmarshalBinary([]byte) error {
 	return ErrSerializacionSecretoDocumentalV3
 }
 
-type VinculosCrudosVerificacionOrdenDespachoDocumentalV3 struct {
-	InicioRef                  string
-	AtestacionInicioRef        string
-	ReclamacionRef             string
-	AtestacionReclamacionRef   string
-	OrdenConsumoDurableV4Ref   string
-	HuellaOrdenDespachoSHA256  string
-	HuellaReciboInicioSHA256   string
-	HuellaVinculoEstableSHA256 string
-	HuellaVinculoCercadoSHA256 string
-	SecuenciaCercado           uint64
-	VersionInicioCAS           uint64
-	VersionReclamacionCAS      uint64
-}
-
-func (VinculosCrudosVerificacionOrdenDespachoDocumentalV3) String() string {
-	return "[VINCULOS-CRUDOS-VERIFICACION-DESPACHO-V3-NOMINALES-NO-AUTORITATIVOS-REDACTADOS]"
-}
-func (v VinculosCrudosVerificacionOrdenDespachoDocumentalV3) GoString() string {
-	return v.String()
-}
-func (v VinculosCrudosVerificacionOrdenDespachoDocumentalV3) Format(estado fmt.State, _ rune) {
-	_, _ = io.WriteString(estado, v.String())
-}
-func (v VinculosCrudosVerificacionOrdenDespachoDocumentalV3) LogValue() slog.Value {
-	return slog.StringValue(v.String())
-}
-func (VinculosCrudosVerificacionOrdenDespachoDocumentalV3) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionSecretoDocumentalV3
-}
-func (*VinculosCrudosVerificacionOrdenDespachoDocumentalV3) UnmarshalJSON([]byte) error {
-	return ErrSerializacionSecretoDocumentalV3
-}
-func (VinculosCrudosVerificacionOrdenDespachoDocumentalV3) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionSecretoDocumentalV3
-}
-func (*VinculosCrudosVerificacionOrdenDespachoDocumentalV3) UnmarshalText([]byte) error {
-	return ErrSerializacionSecretoDocumentalV3
-}
-func (VinculosCrudosVerificacionOrdenDespachoDocumentalV3) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionSecretoDocumentalV3
-}
-func (*VinculosCrudosVerificacionOrdenDespachoDocumentalV3) UnmarshalBinary([]byte) error {
-	return ErrSerializacionSecretoDocumentalV3
-}
+type VinculosCrudosVerificacionOrdenDespachoDocumentalV3 = documentalcanonico.VinculosMaterialDespachoV3
 
 // MaterialCrudoVerificacionOrdenDespachoDocumentalV3 agrupa el mensaje
 // canonico, tres pruebas HMAC y todos los vinculos durables que debe cotejar un
@@ -1612,7 +1420,7 @@ func nuevoMaterialCrudoVerificacionOrdenDespachoDocumentalV3(
 		inicio:      clonarPruebaCrudaAtestacionDespachoDocumentalV3(datos.ReciboInicio.AtestacionInicio),
 		reclamacion: clonarPruebaCrudaAtestacionDespachoDocumentalV3(datos.AtestacionReclamacion),
 		vinculos:    vinculos, mensaje: append([]byte(nil), mensaje...),
-		huella: huellaBytesFormatoDocumental(mensaje),
+		huella: documentalcanonico.HuellaBytesSHA256(mensaje),
 	}
 	if material.Validar() != nil {
 		return MaterialCrudoVerificacionOrdenDespachoDocumentalV3{}, ErrOrdenDespachoDocumentalV3Invalida
@@ -1624,32 +1432,26 @@ func (m MaterialCrudoVerificacionOrdenDespachoDocumentalV3) Validar() error {
 	datos, errDatos := m.orden.Datos()
 	huellaOrden, errOrden := m.orden.HuellaSHA256()
 	huellaVinculo, errVinculo := m.vinculo.HuellaSHA256()
-	perfiles := []PruebaCrudaAtestacionDespachoDocumentalV3{m.cercado, m.inicio, m.reclamacion}
-	for _, prueba := range perfiles {
-		if prueba.Validar() != nil || prueba.claveGestionadaRef != m.token.claveAtestacionRef ||
-			prueba.revisionClaveGestionada != m.token.revisionClave {
-			return ErrOrdenDespachoDocumentalV3Invalida
-		}
+	proyeccion := documentalcanonico.DatosMaterialDespachoV3{
+		Vinculos:         proyectarVinculosMaterialDespachoDocumentalV3(m.vinculos),
+		Cercado:          proyectarPerfilMaterialDespachoDocumentalV3(m.cercado),
+		Inicio:           proyectarPerfilMaterialDespachoDocumentalV3(m.inicio),
+		Reclamacion:      proyectarPerfilMaterialDespachoDocumentalV3(m.reclamacion),
+		ClaveEsperadaRef: m.token.claveAtestacionRef, RevisionEsperada: m.token.revisionClave,
+		HuellaOrdenEsperadaSHA256:       huellaOrden,
+		HuellaReciboEsperadaSHA256:      datos.HuellaReciboInicioSHA256,
+		HuellaVinculoEsperadaSHA256:     huellaVinculo,
+		HuellaCercadoEsperadaSHA256:     m.token.HuellaVinculoSHA256(),
+		SecuenciaEsperada:               m.token.Secuencia(),
+		VersionInicioEsperada:           datos.ReciboInicio.VersionInicioCAS,
+		VersionReclamacionEsperada:      datos.VersionReclamacionCAS,
+		HuellaInicioEsperadaSHA256:      datos.ReciboInicio.AtestacionInicio.huellaSHA256(),
+		HuellaReclamacionEsperadaSHA256: datos.AtestacionReclamacion.huellaSHA256(),
+		Mensaje:                         m.mensaje, HuellaMensajeSHA256: m.huella,
 	}
-	mensajeEsperado := serializarMaterialCrudoVerificacionOrdenDespachoDocumentalV3(
-		m.vinculos, m.cercado, m.inicio, m.reclamacion,
-	)
 	if errDatos != nil || errOrden != nil || errVinculo != nil ||
 		m.token.ValidarPara(m.vinculo) != nil ||
-		m.cercado.audiencia != AudienciaAtestacionTokenCercadoV3 ||
-		m.inicio.audiencia != AudienciaAtestacionInicioEfectoV3 ||
-		m.reclamacion.audiencia != AudienciaAtestacionReclamacionV3 ||
-		m.vinculos.HuellaOrdenDespachoSHA256 != huellaOrden ||
-		m.vinculos.HuellaReciboInicioSHA256 != datos.HuellaReciboInicioSHA256 ||
-		m.vinculos.HuellaVinculoEstableSHA256 != huellaVinculo ||
-		m.vinculos.HuellaVinculoCercadoSHA256 != m.token.HuellaVinculoSHA256() ||
-		m.vinculos.SecuenciaCercado != m.token.Secuencia() ||
-		m.vinculos.VersionInicioCAS != datos.ReciboInicio.VersionInicioCAS ||
-		m.vinculos.VersionReclamacionCAS != datos.VersionReclamacionCAS ||
-		m.inicio.huellaSHA256() != datos.ReciboInicio.AtestacionInicio.huellaSHA256() ||
-		m.reclamacion.huellaSHA256() != datos.AtestacionReclamacion.huellaSHA256() ||
-		!bytesEjecucionDocumentalV3Iguales(m.mensaje, mensajeEsperado) ||
-		!esSHA256Hexadecimal(m.huella) || m.huella != huellaBytesFormatoDocumental(m.mensaje) {
+		!proyeccion.Validar() {
 		return ErrOrdenDespachoDocumentalV3Invalida
 	}
 	return nil
@@ -1765,12 +1567,12 @@ func (s SolicitudComprobarOrdenDespachoDocumentalV3) Validar() error {
 		errVinculo != nil || errVinculoMaterial != nil ||
 		errToken != nil || errMensajeToken != nil || errMACToken != nil ||
 		huellaOrden != huellaOrdenMaterial || huellaVinculo != huellaVinculoMaterial ||
-		!bytesEjecucionDocumentalV3Iguales(mensajeToken, s.material.cercado.mensajeCanonico) ||
-		!bytesEjecucionDocumentalV3Iguales(macToken, s.material.cercado.sobreCriptografico) ||
+		!documentalcanonico.BytesIguales(mensajeToken, s.material.cercado.mensajeCanonico) ||
+		!documentalcanonico.BytesIguales(macToken, s.material.cercado.sobreCriptografico) ||
 		s.token.ValidarPara(s.vinculo) != nil || len(s.mensaje) == 0 ||
-		!esSHA256Hexadecimal(s.huella) || s.huella != huellaBytesFormatoDocumental(s.mensaje) ||
+		!esSHA256Hexadecimal(s.huella) || s.huella != documentalcanonico.HuellaBytesSHA256(s.mensaje) ||
 		s.huella != s.material.huella ||
-		!bytesEjecucionDocumentalV3Iguales(s.mensaje, s.material.mensaje) {
+		!documentalcanonico.BytesIguales(s.mensaje, s.material.mensaje) {
 		return ErrOrdenDespachoDocumentalV3Invalida
 	}
 	return nil
@@ -1993,7 +1795,7 @@ func (r ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) validarEstructuraPa
 }
 
 func (r ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) huellaSHA256() string {
-	return huellaCanonicaFormatoDocumental([]string{
+	return documentalcanonico.HuellaCamposSHA256V3([]string{
 		"vec.documentos.resultado-crudo-verificacion-despacho.v3", r.huellaSolicitud,
 		r.huellaMaterialCrudo, r.comprobacionRef, r.algoritmo, r.audiencia,
 		r.contexto, r.claveGestionadaRef, strconvu64(r.revisionClaveGestionada),
@@ -2121,7 +1923,7 @@ func (e EstadoCrudoOrdenDespachoDocumentalV3) ValidarPara(
 }
 
 func (e EstadoCrudoOrdenDespachoDocumentalV3) huellaSHA256() string {
-	return huellaCanonicaFormatoDocumental([]string{
+	return documentalcanonico.HuellaCamposSHA256V3([]string{
 		"vec.documentos.estado-crudo-despacho.v3", e.huellaOrdenSHA256,
 		e.huellaResultadoKMSSHA256, e.estadoRef, e.auditoriaRef, e.consumoRef,
 		e.outboxConsumoRef,
@@ -2202,7 +2004,7 @@ func NuevaOrdenDespachoDocumentalV3ConsumidaNominal(
 ) (OrdenDespachoDocumentalV3ConsumidaNominal, error) {
 	orden := OrdenDespachoDocumentalV3ConsumidaNominal{
 		solicitud: solicitud, resultado: resultado, estado: estado,
-		huellaConsumo: huellaCanonicaFormatoDocumental([]string{
+		huellaConsumo: documentalcanonico.HuellaCamposSHA256V3([]string{
 			"vec.documentos.orden-despacho-consumida-nominal.v3", solicitud.huella,
 			resultado.huellaSHA256(), estado.huellaSHA256(),
 		}),
@@ -2218,7 +2020,7 @@ func (o OrdenDespachoDocumentalV3ConsumidaNominal) ValidarEn(instante time.Time)
 		o.resultado.ValidarPara(o.solicitud) != nil ||
 		o.estado.ValidarPara(o.solicitud, o.resultado) != nil ||
 		!esSHA256Hexadecimal(o.huellaConsumo) ||
-		o.huellaConsumo != huellaCanonicaFormatoDocumental([]string{
+		o.huellaConsumo != documentalcanonico.HuellaCamposSHA256V3([]string{
 			"vec.documentos.orden-despacho-consumida-nominal.v3", o.solicitud.huella,
 			o.resultado.huellaSHA256(), o.estado.huellaSHA256(),
 		}) {
@@ -2519,7 +2321,8 @@ func (c ConsultaEjecucionDocumentalV3) Validar() error {
 		referenciaEjecucionDocumentalV3Valida(c.ReservaRef)
 	porIndice := c.ReservaRef == "" && hmacSHA256PuertoValido(c.IndiceIdempotenciaHMAC) &&
 		hmacSHA256PuertoValido(c.HuellaSolicitudHMAC) &&
-		claveHMACDocumentalV3(c.IndiceIdempotenciaHMAC) != claveHMACDocumentalV3(c.HuellaSolicitudHMAC)
+		documentalcanonico.ClaveHMACSHA256V3(c.IndiceIdempotenciaHMAC) !=
+			documentalcanonico.ClaveHMACSHA256V3(c.HuellaSolicitudHMAC)
 	if porReserva == porIndice {
 		return ErrReservaEjecucionDocumentalV3Invalida
 	}
@@ -2581,7 +2384,7 @@ func (i InstantaneaEjecucionDocumentalV3Nominal) Validar() error {
 	if err != nil || !referenciaEjecucionDocumentalV3Valida(i.ReservaRef) ||
 		!hmacSHA256PuertoValido(i.IndiceIdempotenciaHMAC) ||
 		!hmacSHA256PuertoValido(i.HuellaSolicitudHMAC) ||
-		!clavesHMACDocumentalesV3Distintas(
+		!documentalcanonico.ClavesHMACSHA256V3Distintas(
 			i.IndiceIdempotenciaHMAC, i.HuellaSolicitudHMAC, datos.HuellaEntradaHMAC,
 		) || !i.Estado.Valido() || !instanteEjecucionDocumentalV3Valido(i.ActualizadaEn) {
 		return ErrReservaEjecucionDocumentalV3Invalida
@@ -2721,7 +2524,7 @@ func (d DatosEvidenciaRenderizadoDocumentalV3) Validar() error {
 		!referenciaEjecucionDocumentalV3Valida(d.ReservaRef) ||
 		!hmacSHA256PuertoValido(d.IndiceIdempotenciaHMAC) ||
 		!hmacSHA256PuertoValido(d.HuellaSolicitudHMAC) ||
-		!clavesHMACDocumentalesV3Distintas(
+		!documentalcanonico.ClavesHMACSHA256V3Distintas(
 			d.IndiceIdempotenciaHMAC, d.HuellaSolicitudHMAC, datosManifiesto.HuellaEntradaHMAC,
 		) || d.SecuenciaCercado == 0 || !esSHA256Hexadecimal(d.HuellaVinculoSHA256) ||
 		!referenciaEjecucionDocumentalV3Valida(d.ClaveAtestacionCercadoRef) ||
@@ -2853,19 +2656,19 @@ func NuevaSolicitudFirmaEvidenciaRenderizadoDocumentalV3(
 	datos DatosEvidenciaRenderizadoDocumentalV3,
 ) (SolicitudFirmaEvidenciaRenderizadoDocumentalV3, error) {
 	if perfil.Validar() != nil || datos.Validar() != nil ||
-		perfil.ClaveID == claveHMACDocumentalV3(datos.IndiceIdempotenciaHMAC) ||
-		perfil.ClaveID == claveHMACDocumentalV3(datos.HuellaSolicitudHMAC) ||
+		perfil.ClaveID == documentalcanonico.ClaveHMACSHA256V3(datos.IndiceIdempotenciaHMAC) ||
+		perfil.ClaveID == documentalcanonico.ClaveHMACSHA256V3(datos.HuellaSolicitudHMAC) ||
 		perfil.ClaveID == datos.ClaveAtestacionCercadoRef {
 		return SolicitudFirmaEvidenciaRenderizadoDocumentalV3{}, ErrSelloEvidenciaDocumentalV3Invalido
 	}
 	datosManifiesto, _ := datos.Manifiesto.Datos()
-	if perfil.ClaveID == claveHMACDocumentalV3(datosManifiesto.HuellaEntradaHMAC) {
+	if perfil.ClaveID == documentalcanonico.ClaveHMACSHA256V3(datosManifiesto.HuellaEntradaHMAC) {
 		return SolicitudFirmaEvidenciaRenderizadoDocumentalV3{}, ErrSelloEvidenciaDocumentalV3Invalido
 	}
 	mensaje := serializarEvidenciaRenderizadoDocumentalV3(datos)
 	solicitud := SolicitudFirmaEvidenciaRenderizadoDocumentalV3{
 		perfil: perfil, datos: datos, mensaje: append([]byte(nil), mensaje...),
-		huella: huellaBytesFormatoDocumental(mensaje),
+		huella: documentalcanonico.HuellaBytesSHA256(mensaje),
 	}
 	if solicitud.Validar() != nil {
 		return SolicitudFirmaEvidenciaRenderizadoDocumentalV3{}, ErrSelloEvidenciaDocumentalV3Invalido
@@ -2876,7 +2679,7 @@ func NuevaSolicitudFirmaEvidenciaRenderizadoDocumentalV3(
 func (s SolicitudFirmaEvidenciaRenderizadoDocumentalV3) Validar() error {
 	if s.perfil.Validar() != nil || s.datos.Validar() != nil || len(s.mensaje) == 0 ||
 		!esSHA256Hexadecimal(s.huella) ||
-		huellaBytesFormatoDocumental(s.mensaje) != s.huella ||
+		documentalcanonico.HuellaBytesSHA256(s.mensaje) != s.huella ||
 		string(s.mensaje) != string(serializarEvidenciaRenderizadoDocumentalV3(s.datos)) {
 		return ErrSelloEvidenciaDocumentalV3Invalido
 	}
@@ -3301,7 +3104,7 @@ func NuevoSobreAtestacionReconciliacionDocumentalV3Crudo(
 	sobre := SobreAtestacionReconciliacionDocumentalV3Crudo{
 		coseSign1: append([]byte(nil), coseSign1...),
 	}
-	sobre.huella = huellaBytesFormatoDocumental(sobre.coseSign1)
+	sobre.huella = documentalcanonico.HuellaBytesSHA256(sobre.coseSign1)
 	if sobre.Validar() != nil {
 		return SobreAtestacionReconciliacionDocumentalV3Crudo{}, ErrReconciliacionDocumentalV3Invalida
 	}
@@ -3312,7 +3115,7 @@ func (s SobreAtestacionReconciliacionDocumentalV3Crudo) Validar() error {
 	if len(s.coseSign1) < minimoBytesSobreCOSEDocumental ||
 		len(s.coseSign1) > maximoBytesSobreCOSEDocumental ||
 		bytesEjecucionDocumentalNulos(s.coseSign1) || !esSHA256Hexadecimal(s.huella) ||
-		huellaBytesFormatoDocumental(s.coseSign1) != s.huella {
+		documentalcanonico.HuellaBytesSHA256(s.coseSign1) != s.huella {
 		return ErrReconciliacionDocumentalV3Invalida
 	}
 	return nil
@@ -3451,9 +3254,9 @@ func NuevaSolicitudVerificacionReconciliacionDocumentalV3(
 	solicitud := SolicitudVerificacionReconciliacionDocumentalV3{
 		consulta: consulta, resultado: resultado,
 		mensaje: append([]byte(nil), mensaje...),
-		huella: huellaCanonicaFormatoDocumental([]string{
+		huella: documentalcanonico.HuellaCamposSHA256V3([]string{
 			"vec.documentos.solicitud-verificacion-reconciliacion.v3",
-			huellaBytesFormatoDocumental(mensaje), resultado.HuellaAtestacionSHA256,
+			documentalcanonico.HuellaBytesSHA256(mensaje), resultado.HuellaAtestacionSHA256,
 		}),
 	}
 	if solicitud.Validar() != nil {
@@ -3465,9 +3268,9 @@ func NuevaSolicitudVerificacionReconciliacionDocumentalV3(
 func (s SolicitudVerificacionReconciliacionDocumentalV3) Validar() error {
 	if s.resultado.ValidarContra(s.consulta) != nil || len(s.mensaje) == 0 ||
 		!esSHA256Hexadecimal(s.huella) ||
-		huellaCanonicaFormatoDocumental([]string{
+		documentalcanonico.HuellaCamposSHA256V3([]string{
 			"vec.documentos.solicitud-verificacion-reconciliacion.v3",
-			huellaBytesFormatoDocumental(s.mensaje), s.resultado.HuellaAtestacionSHA256,
+			documentalcanonico.HuellaBytesSHA256(s.mensaje), s.resultado.HuellaAtestacionSHA256,
 		}) != s.huella ||
 		string(s.mensaje) != string(serializarResultadoReconciliacionDocumentalV3(s.resultado)) {
 		return ErrReconciliacionDocumentalV3Invalida
@@ -3776,11 +3579,11 @@ func huellaManifiestoEjecucionDocumentalV3(d DatosManifiestoEjecucionDocumentalV
 	render := d.ComponenteRender
 	verificador := d.ComponenteVerificador
 	semantico := d.ComponenteSemantico
-	return huellaCanonicaFormatoDocumental([]string{
+	return documentalcanonico.HuellaCamposSHA256V3([]string{
 		EsquemaManifiestoEjecucionDocumentalV3,
 		d.Consulta.Identidad.Identificador(), d.Consulta.PerfilRef.Identificador(),
-		strconv.FormatUint(d.Consulta.PerfilRef.Version(), 10), d.Consulta.DigestPerfilSHA256,
-		strconv.FormatUint(d.Consulta.RevisionCatalogo.Numero(), 10),
+		documentalcanonico.Uint64Decimal(d.Consulta.PerfilRef.Version()), d.Consulta.DigestPerfilSHA256,
+		documentalcanonico.Uint64Decimal(d.Consulta.RevisionCatalogo.Numero()),
 		d.Consulta.RevisionCatalogo.HuellaSHA256(), d.DescriptorPerfil.Referencia(),
 		d.DescriptorPerfil.PublicacionRef(), perfil.DigestSHA256(),
 		strconvu64(d.DescriptorPerfil.Revision().Numero()), d.DescriptorPerfil.Revision().HuellaSHA256(),
@@ -3798,13 +3601,7 @@ func huellaVinculoCercadoEjecucionDocumentalV3(
 	secuencia uint64,
 	huellaVinculoEstable string,
 ) string {
-	if secuencia == 0 || !esSHA256Hexadecimal(huellaVinculoEstable) {
-		return ""
-	}
-	return huellaCanonicaFormatoDocumental([]string{
-		"vec.documentos.cercado-ejecucion.v3", strconvu64(secuencia),
-		huellaVinculoEstable,
-	})
+	return documentalcanonico.HuellaVinculoCercadoV3(secuencia, huellaVinculoEstable)
 }
 
 func vinculoCercadoProyectadoDocumentalV3Valido(i InstantaneaEjecucionDocumentalV3Nominal) bool {
@@ -3859,72 +3656,31 @@ func serializarEvidenciaRenderizadoDocumentalV3(d DatosEvidenciaRenderizadoDocum
 		d.HuellaReconciliacionSHA256, d.ReconciliacionConsultadaEn.Format(time.RFC3339Nano),
 		d.VerificacionReconciliacionRef, d.ReconciliacionVerificadaEn.Format(time.RFC3339Nano),
 	}
-	var salida []byte
-	for _, valor := range valores {
-		salida = strconv.AppendInt(salida, int64(len(valor)), 10)
-		salida = append(salida, ':')
-		salida = append(salida, valor...)
-		salida = append(salida, '\n')
-	}
-	return salida
+	return documentalcanonico.SerializarCamposV3(valores)
 }
 
 func serializarAtestacionTokenCercadoDocumentalV3(
 	vinculo VinculoEstableActivacionDocumentalV3,
 	token TokenCercadoEjecucionDocumentalV3Nominal,
 ) []byte {
-	huellaVinculoEstable, err := vinculo.HuellaSHA256()
-	if err != nil || token.ValidarPara(vinculo) != nil {
+	proyeccion, valida := proyectarTokenCercadoDocumentalV3(token, vinculo)
+	if !valida || token.ValidarPara(vinculo) != nil {
 		return nil
 	}
-	valores := []string{
-		"vec.documentos.atestacion-token-cercado.v3", token.valor,
-		strconvu64(token.secuencia), huellaVinculoEstable, token.huellaVinculo,
-		AlgoritmoSelloEvidenciaHMACSHA256V3, AudienciaAtestacionTokenCercadoV3,
-		ContextoAtestacionTokenCercadoV3, token.claveAtestacionRef,
-		strconvu64(token.revisionClave), token.evidenciaOperacionRef,
-	}
-	var salida []byte
-	for _, valor := range valores {
-		salida = strconv.AppendInt(salida, int64(len(valor)), 10)
-		salida = append(salida, ':')
-		salida = append(salida, valor...)
-		salida = append(salida, '\n')
-	}
-	return salida
+	return proyeccion.MensajeAtestacion()
 }
 
 func serializarMaterialCrudoVerificacionOrdenDespachoDocumentalV3(
 	v VinculosCrudosVerificacionOrdenDespachoDocumentalV3,
 	cercado, inicio, reclamacion PruebaCrudaAtestacionDespachoDocumentalV3,
 ) []byte {
-	return serializarCamposCanonicosEjecucionDocumentalV3([]string{
-		"vec.documentos.material-crudo-verificacion-despacho.v3",
-		AlgoritmoSelloEvidenciaHMACSHA256V3, AudienciaComprobacionOrdenDespachoV3,
-		ContextoComprobacionOrdenDespachoV3,
-		v.InicioRef, v.AtestacionInicioRef, v.ReclamacionRef,
-		v.AtestacionReclamacionRef, v.OrdenConsumoDurableV4Ref,
-		v.HuellaOrdenDespachoSHA256, v.HuellaReciboInicioSHA256,
-		v.HuellaVinculoEstableSHA256, v.HuellaVinculoCercadoSHA256,
-		strconvu64(v.SecuenciaCercado), strconvu64(v.VersionInicioCAS),
-		strconvu64(v.VersionReclamacionCAS), cercado.huellaSHA256(),
-		inicio.huellaSHA256(), reclamacion.huellaSHA256(),
-	})
-}
-
-func serializarCamposCanonicosEjecucionDocumentalV3(valores []string) []byte {
-	var salida []byte
-	for _, valor := range valores {
-		salida = strconv.AppendInt(salida, int64(len(valor)), 10)
-		salida = append(salida, ':')
-		salida = append(salida, valor...)
-		salida = append(salida, '\n')
+	proyeccion := documentalcanonico.DatosMaterialDespachoV3{
+		Vinculos:    proyectarVinculosMaterialDespachoDocumentalV3(v),
+		Cercado:     proyectarPerfilMaterialDespachoDocumentalV3(cercado),
+		Inicio:      proyectarPerfilMaterialDespachoDocumentalV3(inicio),
+		Reclamacion: proyectarPerfilMaterialDespachoDocumentalV3(reclamacion),
 	}
-	return salida
-}
-
-func bytesEjecucionDocumentalV3Iguales(primero, segundo []byte) bool {
-	return bytes.Equal(primero, segundo)
+	return proyeccion.Bytes()
 }
 
 func clonarPruebaCrudaAtestacionDespachoDocumentalV3(
@@ -3995,23 +3751,13 @@ func serializarResultadoReconciliacionDocumentalV3(
 		strconvu64(r.Resultado.TamanoSalida), r.Resultado.EvidenciaOperacionRef,
 		r.AtestacionRef, r.ConsultadaEn.Format(time.RFC3339Nano),
 	}
-	var salida []byte
-	for _, valor := range valores {
-		salida = strconv.AppendInt(salida, int64(len(valor)), 10)
-		salida = append(salida, ':')
-		salida = append(salida, valor...)
-		salida = append(salida, '\n')
-	}
-	return salida
+	return documentalcanonico.SerializarCamposV3(valores)
 }
 
 func huellaSolicitudVerificacionTokenCercadoDocumentalV3(
 	mensaje, mac []byte,
 ) string {
-	return huellaCanonicaFormatoDocumental([]string{
-		"vec.documentos.solicitud-verificacion-token-cercado.v3",
-		huellaBytesFormatoDocumental(mensaje), huellaBytesFormatoDocumental(mac),
-	})
+	return documentalcanonico.HuellaSolicitudVerificacionTokenV3(mensaje, mac)
 }
 
 func huellaSolicitudVerificacionEvidenciaDocumentalV3(
@@ -4020,10 +3766,10 @@ func huellaSolicitudVerificacionEvidenciaDocumentalV3(
 ) string {
 	huellaMensaje, _ := firma.HuellaMensajeSHA256()
 	datos, _ := sello.Datos()
-	return huellaCanonicaFormatoDocumental([]string{
+	return documentalcanonico.HuellaCamposSHA256V3([]string{
 		"vec.documentos.solicitud-verificacion-evidencia.v3", huellaMensaje,
 		datos.Algoritmo, datos.ClaveID, datos.Audiencia,
-		huellaBytesFormatoDocumental(datos.Firma), datos.EvidenciaOperacionRef,
+		documentalcanonico.HuellaBytesSHA256(datos.Firma), datos.EvidenciaOperacionRef,
 		datos.FirmadoEn.Format(time.RFC3339Nano),
 	})
 }
@@ -4048,46 +3794,154 @@ func ordenDespachoDocumentalV3ConsumidaNominalEsCero(
 	return reflect.ValueOf(orden).IsZero()
 }
 
+func proyectarVinculoActivacionDocumentalV3(
+	v VinculoEstableActivacionDocumentalV3,
+) (documentalcanonico.DatosVinculoActivacionV3, bool) {
+	datos, errDatos := v.Manifiesto.Datos()
+	huellaManifiesto, errHuella := v.Manifiesto.HuellaSHA256()
+	if errDatos != nil || errHuella != nil {
+		return documentalcanonico.DatosVinculoActivacionV3{}, false
+	}
+	return documentalcanonico.DatosVinculoActivacionV3{
+		ReservaRef: v.ReservaRef, IndiceIdempotenciaHMAC: v.IndiceIdempotenciaHMAC,
+		HuellaSolicitudHMAC: v.HuellaSolicitudHMAC, HuellaEntradaHMAC: datos.HuellaEntradaHMAC,
+		HuellaManifiestoSHA256: huellaManifiesto, EfectoManifiestoRef: datos.EfectoRef,
+		HuellaPlanManifiestoSHA256: datos.HuellaPlanSHA256,
+		OrdenConsumoDurableV4Ref:   v.OrdenConsumoDurableV4Ref,
+		DecisionRef:                v.ConsumoDecision.DecisionRef, EfectoDecisionRef: v.ConsumoDecision.EfectoRef,
+		EsquemaHuellaDecision:         v.ConsumoDecision.EsquemaHuellaDecision,
+		EsquemaHuellaDecisionEsperado: EsquemaHuellaDecisionAutorizacionReforzadaV1,
+		HuellaDecisionSHA256:          v.ConsumoDecision.HuellaDecisionSHA256,
+		HuellaPlanDecisionSHA256:      v.ConsumoDecision.HuellaPlanSHA256,
+	}, true
+}
+
+func proyectarTokenCercadoDocumentalV3(
+	t TokenCercadoEjecucionDocumentalV3Nominal,
+	vinculo VinculoEstableActivacionDocumentalV3,
+) (documentalcanonico.DatosTokenCercadoV3, bool) {
+	datos, errDatos := vinculo.Manifiesto.Datos()
+	huellaEsperada, errEsperada := vinculo.HuellaSHA256()
+	huellaInterna, errInterna := t.vinculoEstable.HuellaSHA256()
+	if errDatos != nil || errEsperada != nil || errInterna != nil {
+		return documentalcanonico.DatosTokenCercadoV3{}, false
+	}
+	return documentalcanonico.DatosTokenCercadoV3{
+		Valor: t.valor, Secuencia: t.secuencia,
+		HuellaVinculoEstableSHA256:  t.huellaVinculoEstable,
+		HuellaVinculoEsperadoSHA256: huellaEsperada,
+		HuellaVinculoInternoSHA256:  huellaInterna,
+		HuellaVinculoCercadoSHA256:  t.huellaVinculo,
+		ClaveAtestacionRef:          t.claveAtestacionRef, RevisionClave: t.revisionClave,
+		MACAtestacion: t.macAtestacion, EvidenciaOperacionRef: t.evidenciaOperacionRef,
+		ClaveHuellaEntradaHMAC: documentalcanonico.ClaveHMACSHA256V3(datos.HuellaEntradaHMAC),
+	}, true
+}
+
+func proyectarPruebaAtestacionDespachoDocumentalV3(
+	p PruebaCrudaAtestacionDespachoDocumentalV3,
+) documentalcanonico.DatosPruebaAtestacionDespachoV3 {
+	return documentalcanonico.DatosPruebaAtestacionDespachoV3{
+		Algoritmo: p.algoritmo, Audiencia: p.audiencia, Contexto: p.contexto,
+		ClaveGestionadaRef:      p.claveGestionadaRef,
+		RevisionClaveGestionada: p.revisionClaveGestionada,
+		EvidenciaOperacionRef:   p.evidenciaOperacionRef,
+		MensajeCanonico:         p.mensajeCanonico, SobreCriptografico: p.sobreCriptografico,
+		HuellaMensajeSHA256: p.huellaMensajeSHA256, HuellaSobreSHA256: p.huellaSobreSHA256,
+	}
+}
+
+func proyectarReciboInicioEfectoDocumentalV3(
+	d DatosReciboInicioEfectoDocumentalV3Nominal,
+) (documentalcanonico.DatosReciboInicioEfectoV3, bool) {
+	prueba := proyectarPruebaAtestacionDespachoDocumentalV3(d.AtestacionInicio)
+	return documentalcanonico.DatosReciboInicioEfectoV3{
+		InicioRef: d.InicioRef, ReservaRef: d.ReservaRef,
+		HuellaVinculoEstableSHA256: d.HuellaVinculoEstableSHA256,
+		SecuenciaCercado:           d.SecuenciaCercado,
+		HuellaVinculoCercadoSHA256: d.HuellaVinculoCercadoSHA256,
+		OrdenConsumoDurableV4Ref:   d.OrdenConsumoDurableV4Ref,
+		VersionInicioCAS:           d.VersionInicioCAS, AuditoriaInicioRef: d.AuditoriaInicioRef,
+		OutboxInicioRef: d.OutboxInicioRef, EvidenciaOperacionRef: d.AtestacionInicio.evidenciaOperacionRef,
+		AtestacionValida: prueba.Validar(), HuellaAtestacionSHA256: prueba.HuellaSHA256(),
+		IniciadoEn: d.IniciadoEn,
+	}, true
+}
+
+func proyectarSolicitudReclamacionDocumentalV3(
+	s SolicitudReclamarOrdenDespachoDocumentalV3,
+) documentalcanonico.DatosSolicitudReclamacionV3 {
+	return documentalcanonico.DatosSolicitudReclamacionV3{
+		ReclamacionRef: s.ReclamacionRef, InicioRef: s.InicioRef,
+		OutboxRef: s.OutboxRef, ConsumidorRef: s.ConsumidorRef,
+		ReclamadaEn: s.ReclamadaEn, ExpiraEn: s.ExpiraEn,
+	}
+}
+
+func proyectarOrdenDespachoDocumentalV3(
+	d DatosOrdenDespachoDocumentalV3Nominal,
+) (documentalcanonico.DatosOrdenDespachoV3, bool) {
+	recibo := ReciboInicioEfectoDocumentalV3Nominal{datos: &d.ReciboInicio}
+	huellaRecibo, errRecibo := recibo.HuellaSHA256()
+	evidenciaRef, errEvidencia := d.AtestacionReclamacion.EvidenciaOperacionRef()
+	solicitud := SolicitudReclamarOrdenDespachoDocumentalV3{
+		ReclamacionRef: d.ReclamacionRef, InicioRef: d.ReciboInicio.InicioRef,
+		OutboxRef: d.ReciboInicio.OutboxInicioRef, ConsumidorRef: d.ConsumidorRef,
+		ReclamadaEn: d.ReclamadaEn, ExpiraEn: d.ExpiraEn,
+	}
+	mensajeEsperado, errMensaje := MensajeCanonicoAtestacionReclamacionDespachoDocumentalV3(
+		recibo, solicitud, d.VersionReclamacionCAS, d.AuditoriaReclamacionRef, evidenciaRef,
+	)
+	mensajeAtestacion, errMaterial := d.AtestacionReclamacion.MensajeCanonico()
+	if errRecibo != nil || errEvidencia != nil || errMensaje != nil || errMaterial != nil {
+		return documentalcanonico.DatosOrdenDespachoV3{}, false
+	}
+	return documentalcanonico.DatosOrdenDespachoV3{
+		Solicitud:                   proyectarSolicitudReclamacionDocumentalV3(solicitud),
+		HuellaReciboInicioSHA256:    d.HuellaReciboInicioSHA256,
+		HuellaReciboCalculadaSHA256: huellaRecibo,
+		VersionReclamacionCAS:       d.VersionReclamacionCAS,
+		AuditoriaReclamacionRef:     d.AuditoriaReclamacionRef,
+		EvidenciaOperacionRef:       evidenciaRef,
+		AtestacionValida:            d.AtestacionReclamacion.Validar() == nil,
+		HuellaAtestacionSHA256:      d.AtestacionReclamacion.huellaSHA256(),
+		MensajeAtestacion:           mensajeAtestacion, MensajeEsperado: mensajeEsperado,
+		IniciadoEn: d.ReciboInicio.IniciadoEn,
+	}, true
+}
+
+func proyectarVinculosMaterialDespachoDocumentalV3(
+	v VinculosCrudosVerificacionOrdenDespachoDocumentalV3,
+) documentalcanonico.VinculosMaterialDespachoV3 {
+	return documentalcanonico.VinculosMaterialDespachoV3{
+		InicioRef: v.InicioRef, AtestacionInicioRef: v.AtestacionInicioRef,
+		ReclamacionRef: v.ReclamacionRef, AtestacionReclamacionRef: v.AtestacionReclamacionRef,
+		OrdenConsumoDurableV4Ref:   v.OrdenConsumoDurableV4Ref,
+		HuellaOrdenDespachoSHA256:  v.HuellaOrdenDespachoSHA256,
+		HuellaReciboInicioSHA256:   v.HuellaReciboInicioSHA256,
+		HuellaVinculoEstableSHA256: v.HuellaVinculoEstableSHA256,
+		HuellaVinculoCercadoSHA256: v.HuellaVinculoCercadoSHA256,
+		SecuenciaCercado:           v.SecuenciaCercado, VersionInicioCAS: v.VersionInicioCAS,
+		VersionReclamacionCAS: v.VersionReclamacionCAS,
+	}
+}
+
+func proyectarPerfilMaterialDespachoDocumentalV3(
+	p PruebaCrudaAtestacionDespachoDocumentalV3,
+) documentalcanonico.PerfilMaterialDespachoV3 {
+	return documentalcanonico.PerfilMaterialDespachoV3{
+		Valido: p.Validar() == nil, Audiencia: p.audiencia,
+		ClaveGestionadaRef:      p.claveGestionadaRef,
+		RevisionClaveGestionada: p.revisionClaveGestionada, HuellaSHA256: p.huellaSHA256(),
+	}
+}
+
 func referenciaEjecucionDocumentalV3Valida(valor string) bool {
-	if !referenciaDescriptorDocumentalValida.MatchString(valor) || strings.ContainsRune(valor, '*') ||
-		strings.Contains(valor, "://") || strings.ContainsAny(valor, "/\\@?#%=") {
-		return false
-	}
-	minusculas := strings.ToLower(valor)
-	for _, prefijo := range []string{"dni:", "nif:", "nie:", "email:", "mailto:"} {
-		if strings.HasPrefix(minusculas, prefijo) {
-			return false
-		}
-	}
-	return true
+	return documentalcanonico.ReferenciaEjecucionV3Valida(valor)
 }
 
 func instanteEjecucionDocumentalV3Valido(instante time.Time) bool {
-	return !instante.IsZero() && instante.Location() == time.UTC &&
-		instante.Year() >= 1 && instante.Year() <= 9999 && instante.Nanosecond()%1_000 == 0
-}
-
-func claveHMACDocumentalV3(valor string) string {
-	partes := strings.Split(valor, ":")
-	if len(partes) != 3 || partes[0] != "hmac-sha256" {
-		return ""
-	}
-	return partes[1]
-}
-
-func clavesHMACDocumentalesV3Distintas(valores ...string) bool {
-	claves := make(map[string]struct{}, len(valores))
-	for _, valor := range valores {
-		clave := claveHMACDocumentalV3(valor)
-		if clave == "" {
-			return false
-		}
-		if _, existe := claves[clave]; existe {
-			return false
-		}
-		claves[clave] = struct{}{}
-	}
-	return true
+	return documentalcanonico.InstanteV3Valido(instante)
 }
 
 func solicitudConfirmacionDocumentalV3EsCero(
@@ -4119,4 +3973,4 @@ func datosSelloEvidenciaDocumentalV3ValidosPara(
 		instanteEjecucionDocumentalV3Valido(datos.FirmadoEn)
 }
 
-func strconvu64(valor uint64) string { return strconv.FormatUint(valor, 10) }
+func strconvu64(valor uint64) string { return documentalcanonico.Uint64Decimal(valor) }
