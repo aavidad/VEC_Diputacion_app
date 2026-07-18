@@ -119,7 +119,7 @@ func (f FirmaEvidenciaBorrador) DatosParaVerificacion(
 }
 
 func (f FirmaEvidenciaBorrador) FirmaBase64URLParaPersistencia() (string, error) {
-	if f.firmaBase64URLSinRelleno == "" {
+	if !f.formaValida() {
 		return "", ErrRevalidacionKMSBorradorFallo
 	}
 	return f.firmaBase64URLSinRelleno, nil

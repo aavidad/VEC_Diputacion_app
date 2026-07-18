@@ -417,6 +417,31 @@ func TestFirmasKMSPersistidasSeRehidratanSinClavePrivada(t *testing.T) {
 	}
 }
 
+func TestFirmaParaPersistenciaRechazaMetadatosAlterados(t *testing.T) {
+	e := nuevoEscenario(t, confirmarBien, 3, 2)
+	recibo, err := e.servicio.Crear(context.Background(), e.orden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := recibo.AcreditacionKMS.FirmaAtestacionKMS
+	mutaciones := map[string]func(*FirmaEvidenciaBorrador){
+		"algoritmo":     func(f *FirmaEvidenciaBorrador) { f.AlgoritmoFirma = "" },
+		"verificador":   func(f *FirmaEvidenciaBorrador) { f.VerificadorRef = "" },
+		"clave publica": func(f *FirmaEvidenciaBorrador) { f.HuellaClavePublicaSHA256 = "" },
+		"preimagen":     func(f *FirmaEvidenciaBorrador) { f.HuellaPreimagenSHA256 = "" },
+		"firma":         func(f *FirmaEvidenciaBorrador) { f.firmaBase64URLSinRelleno = "!" },
+	}
+	for nombre, mutar := range mutaciones {
+		t.Run(nombre, func(t *testing.T) {
+			alterada := original
+			mutar(&alterada)
+			if persistida, err := alterada.FirmaBase64URLParaPersistencia(); !errors.Is(err, ErrRevalidacionKMSBorradorFallo) || persistida != "" {
+				t.Fatalf("la firma alterada se expuso para persistencia: %q, %v", persistida, err)
+			}
+		})
+	}
+}
+
 func restaurarFirmaEvidenciaPrueba(
 	t *testing.T,
 	firma FirmaEvidenciaBorrador,
