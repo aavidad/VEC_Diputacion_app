@@ -3102,3 +3102,60 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   interior deberán llegar como aserciones protegidas, breves, de audiencia
   exacta y consumidas por el registro durable de sesión; no como cabeceras de
   identidad confiadas por la aplicación.
+
+## DEC-089 — Compromiso HMAC previo al gobierno de convocatorias
+
+- Fecha: 2026-07-18.
+- Estado: diseño decidido; parche de vínculo entre actor y motivo en curso;
+  rediseño contractual y adaptador durable en **NO-GO productivo**. No existe
+  todavía un servicio de escritura ni una ruta mutante que pueda exponerse.
+- Hallazgo de secuencia: el contrato actual exige obtener primero un sellado
+  durable del motivo, incluido `TokenConsumoRef`, para construir el material
+  exacto de alta o transición. Como la intención y el recurso del PDP dependen
+  de la huella de ese material, se crea una capacidad durable antes de saber si
+  la operación está autorizada. La secuencia sellado durable → material → PDP
+  no es admisible para producción.
+- Hallazgo de vínculo: validar por separado la huella de la versión y el HMAC
+  del motivo no demuestra que el motivo sellado sea el aplicable a esa acción
+  y esa misma versión, ni que el principal del sellado sea el actor atribuido a
+  la transición. Acción, versión, motivo, actor y correlación deben quedar
+  ligados en una única preimagen canónica.
+- Decisión: el HSM/KMS calculará primero un compromiso HMAC determinista,
+  separado por dominio, no consumible y sin crear token ni estado durable. El
+  compromiso no concede autoridad: únicamente fija la intención exacta que se
+  presentará al PDP.
+- Secuencia ordinaria: construir la versión candidata; fijar la huella
+  semántica con acción, referencia de versión, motivo aplicable, actor y
+  correlación; calcular el compromiso HMAC; formar con ese compromiso y con el
+  estado y las huellas exactas de la versión el material y recurso autorizables;
+  obtener una única autorización exacta; y, solo tras la concesión, proteger la
+  idempotencia y materializar la atestación durable ligada al mismo compromiso,
+  intención, decisión, actor, motivo y correlación. La materialización no podrá
+  cambiar ningún atributo del recurso ya autorizado.
+- Confirmación: el adaptador durable deberá releer la decisión y las
+  atestaciones vigentes y consumir sus capacidades en la misma confirmación
+  gobernada que aplique CAS, mutación, auditoría y outbox. La reserva de
+  idempotencia y los recibos deberán permitir recuperar el resultado sin
+  repetir la autorización, el sellado ni el efecto.
+- Invariantes: una denegación o fallo del PDP produce cero sellados durables y
+  cero mutaciones; cambiar acción, versión, motivo, actor, correlación,
+  compromiso o decisión invalida la cadena; una atestación aislada nunca
+  autoriza el efecto; el motivo en claro no aparece en autorización,
+  idempotencia, auditoría técnica ni trazas; y ninguna reconstrucción desde el
+  cliente puede aportar o sustituir estos vínculos.
+- Caídas y huérfanos: un fallo anterior a la materialización deja como máximo
+  una decisión sin efecto, nunca un token de sellado. Una caída después de
+  materializar y antes de confirmar puede dejar una atestación huérfana, que
+  deberá quedar identificada por la intención e idempotencia, no ser
+  reutilizable como autoridad y resolverse mediante caducidad, cancelación o
+  reconciliación explícita. Una caída tras el commit se resuelve recuperando el
+  recibo confirmado, sin reejecutar la transición.
+- Alternativa condicionada: solo si el HSM/KMS seleccionado no admite calcular
+  una MAC sin crear estado consumible se usará una autorización preliminar
+  específica para crear el sellado y, después, una segunda autorización sobre
+  el material exacto. Este fallback deberá consumir y reconciliar ambas
+  decisiones y sus posibles huérfanos; no es la arquitectura de serie.
+- Barrera: no se implementarán ni montarán escrituras de convocatoria hasta
+  cerrar el contrato no consumible, el vínculo actor/motivo, el protocolo de
+  recuperación y las pruebas durables de denegación, caída, reintento,
+  concurrencia y consumo único. Un doble de memoria no levanta este **NO-GO**.
