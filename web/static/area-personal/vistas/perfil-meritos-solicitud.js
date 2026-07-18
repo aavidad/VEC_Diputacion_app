@@ -3,16 +3,18 @@ import {
   escaparHTML, formatoPuntos, listaDatos, notaDemostracion, panel, tabla,
 } from "./comunes.js";
 import { estadoActosSolicitud, localizarSolicitudEdicion } from "../flujo-solicitud.js";
+import { calcularAutobaremo } from "../calculo-autobaremo.js";
 
 export function renderizarPerfil(datos) {
   const perfil = datos.perfil;
+  const preferenciasAviso = datos.preferencias_notificacion || {};
   const formularioContacto = `<form id="formulario-contacto" data-operacion="actualizar_contacto">
     <div class="formulario-rejilla">
       <div class="campo"><label for="perfil-correo">Correo de avisos</label><input id="perfil-correo" name="correo" type="email" autocomplete="email" value="${escaparAtributo(perfil.correo)}" required><small>Los actos que requieran notificación fehaciente usarán el canal administrativo configurado.</small></div>
       <div class="campo"><label for="perfil-telefono">Teléfono de contacto</label><input id="perfil-telefono" name="telefono" type="tel" autocomplete="tel" value="${escaparAtributo(perfil.telefono)}" required></div>
       <div class="campo ancho-completo"><label for="perfil-domicilio">Domicilio a efectos de contacto</label><textarea id="perfil-domicilio" name="domicilio" autocomplete="street-address" required>${escaparHTML(perfil.domicilio)}</textarea></div>
     </div><div class="fila-acciones"><button type="submit" class="boton-primario">Revisar y guardar cambios</button></div></form>`;
-  const preferencias = `<form id="formulario-notificaciones" data-operacion="actualizar_notificaciones"><fieldset><legend>Canales de aviso voluntarios</legend><label class="opcion-check"><input type="checkbox" name="correo" checked><span><strong>Correo electrónico</strong><small>Avisos de plazos, cambios y llamamientos.</small></span></label><label class="opcion-check"><input type="checkbox" name="telegram"><span><strong>Telegram</strong><small>Se activará cuando el conector y el consentimiento estén disponibles.</small></span></label><label class="opcion-check"><input type="checkbox" name="interno" checked><span><strong>Bandeja interna</strong><small>Siempre disponible dentro del área personal.</small></span></label></fieldset><p class="nota">Los avisos complementan, pero no sustituyen, una notificación administrativa cuando esta sea exigible.</p><button type="submit" class="boton-secundario">Guardar preferencias</button></form>`;
+  const preferencias = `<form id="formulario-notificaciones" data-operacion="actualizar_notificaciones"><fieldset><legend>Canales de aviso voluntarios</legend><label class="opcion-check"><input type="checkbox" name="correo" ${preferenciasAviso.correo ? "checked" : ""}><span><strong>Correo electrónico</strong><small>Avisos de plazos, cambios y llamamientos.</small></span></label><label class="opcion-check"><input type="checkbox" name="telegram" ${preferenciasAviso.telegram ? "checked" : ""}><span><strong>Telegram</strong><small>Se activará cuando el conector y el consentimiento estén disponibles.</small></span></label><label class="opcion-check"><input type="checkbox" name="interno" ${preferenciasAviso.interno ? "checked" : ""}><span><strong>Bandeja interna</strong><small>Siempre disponible dentro del área personal.</small></span></label></fieldset><p class="nota">Los avisos complementan, pero no sustituyen, una notificación administrativa cuando esta sea exigible.</p><button type="submit" class="boton-secundario">Guardar preferencias</button></form>`;
 
   return `${encabezadoVista("Perfil, identidad y contacto", "Una identidad común para solicitudes, bolsas, certificados y futuros módulos.")}
     ${datos.meta.presentacion ? notaDemostracion() : ""}
@@ -61,6 +63,23 @@ function accionesPaso(paso) {
   return `<div class="fila-acciones">${paso > 1 ? '<button type="button" class="boton-secundario" data-accion="paso-anterior">Anterior</button>' : ""}${paso < 5 ? `<button type="submit" class="boton-primario">${etiqueta}</button>` : ""}</div>`;
 }
 
+function meritosAutobaremacion(datos, estado, convocatoriaId) {
+  if (datos.resultado_autobaremo?.convocatoria_id === convocatoriaId
+    && Array.isArray(datos.resultado_autobaremo.meritos_ids)) {
+    return datos.resultado_autobaremo.meritos_ids;
+  }
+  if (estado.progresoSolicitud?.convocatoria_id === convocatoriaId
+    && estado.progresoSolicitud.meritos_ids?.length) {
+    return estado.progresoSolicitud.meritos_ids;
+  }
+  const borrador = localizarSolicitudEdicion(datos, {
+    solicitudId: estado.solicitudEdicionId,
+    convocatoriaId,
+  });
+  if (borrador?.meritos_ids?.length) return borrador.meritos_ids;
+  return datos.meritos.map((item) => item.id);
+}
+
 function contenidoPaso(datos, estado, convocatoria) {
   const paso = estado.pasoSolicitud;
   if (paso === 1) {
@@ -76,8 +95,8 @@ function contenidoPaso(datos, estado, convocatoria) {
     return `<fieldset><legend>Méritos que desea asociar</legend>${datos.meritos.map((item) => `<label class="opcion-check"><input type="checkbox" name="meritos" value="${escaparAtributo(item.id)}" ${seleccionados.has(item.id) ? "checked" : ""}><span><strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.estado)} · ${formatoPuntos(item.puntos_estimados)} puntos estimados</small></span></label>`).join("")}</fieldset><p class="nota aviso">Seleccione al menos un mérito. Los documentos se reutilizan sin duplicar el fichero y la solicitud conserva la referencia y versión exactas.</p>`;
   }
   if (paso === 4) {
-    const total = datos.baremo.reduce((suma, item) => suma + Number(item.puntos), 0);
-    return `<div class="rejilla-dos"><div>${datos.baremo.map((item) => `<div class="criterio-baremo"><span><strong>${escaparHTML(item.nombre)}</strong><small>${escaparHTML(item.detalle)}</small></span>${barraProgreso(item.puntos, item.maximo)}<output>${formatoPuntos(item.puntos)}</output></div>`).join("")}</div><aside class="puntuacion-total"><span>Total autobaremado</span><output>${formatoPuntos(total)}</output><span>puntos provisionales</span></aside></div><p class="nota aviso">El cálculo no vincula a RRHH. Cada mérito será revisado conforme a las bases y quedará constancia de la decisión.</p>`;
+    const calculo = calcularAutobaremo(datos, estado.progresoSolicitud?.meritos_ids);
+    return `<div class="rejilla-dos"><div>${calculo.criterios.map((item) => `<div class="criterio-baremo"><span><strong>${escaparHTML(item.nombre)}</strong><small>${escaparHTML(item.detalle)}</small></span>${barraProgreso(item.puntos, item.maximo)}<output>${formatoPuntos(item.puntos)}</output></div>`).join("")}</div><aside class="puntuacion-total"><span>Total autobaremado para los méritos seleccionados y datos de oficio</span><output>${formatoPuntos(calculo.total)}</output><span>puntos provisionales</span></aside></div><p class="nota aviso">El cálculo usa los méritos elegidos y los conceptos obtenidos de oficio para esta convocatoria. No vincula a RRHH y cada concepto será revisado conforme a las bases.</p>`;
   }
   const demo = datos.meta.presentacion;
   const solicitud = localizarSolicitudEdicion(datos, {
@@ -119,11 +138,16 @@ export function renderizarSolicitud(datos, estado) {
   return `${encabezadoVista("Nueva solicitud", `${convocatoria.titulo} · ${convocatoria.referencia}`, chip(solicitud?.estado || "Borrador sin guardar"))}${asistente}`;
 }
 
-export function renderizarAutobaremacion(datos) {
-  const total = datos.baremo.reduce((suma, criterio) => suma + Number(criterio.puntos), 0);
-  const maximo = datos.baremo.reduce((suma, criterio) => suma + Number(criterio.maximo), 0);
-  const criterios = datos.baremo.map((criterio) => `<article class="criterio-baremo"><span><strong>${escaparHTML(criterio.nombre)}</strong><small>${escaparHTML(criterio.detalle)} · ${escaparHTML(criterio.estado)}</small></span>${barraProgreso(criterio.puntos, criterio.maximo)}<output>${formatoPuntos(criterio.puntos)}</output></article>`).join("");
-  const convocatoria = datos.convocatorias[0];
+export function renderizarAutobaremacion(datos, estado = {}) {
+  const convocatoria = datos.convocatorias.find((item) => item.id === estado.convocatoriaSolicitud)
+    || datos.convocatorias.find((item) => item.estado === "Plazo abierto")
+    || datos.convocatorias[0];
+  const meritosIds = meritosAutobaremacion(datos, estado, convocatoria?.id || "");
+  const calculo = calcularAutobaremo(datos, meritosIds);
+  const criterios = calculo.criterios.map((criterio) => `<article class="criterio-baremo"><span><strong>${escaparHTML(criterio.nombre)}</strong><small>${escaparHTML(criterio.detalle)} · ${escaparHTML(criterio.estado)}</small></span>${barraProgreso(criterio.puntos, criterio.maximo)}<output>${formatoPuntos(criterio.puntos)}</output></article>`).join("");
+  const recalculado = datos.resultado_autobaremo?.convocatoria_id === convocatoria?.id
+    ? `<p class="nota ${datos.meta.presentacion ? "demo" : ""}"><strong>Resultado recalculado.</strong> ${escaparHTML(datos.resultado_autobaremo.calculado_en)} · ${meritosIds.length} méritos.</p>`
+    : "";
   return `${encabezadoVista("Autobaremación desglosada", "Estimación trazable aplicada a la versión de bases de la convocatoria.", botonOperacion("calcular_autobaremo", datos.meta.presentacion ? "Recalcular autobaremo DEMO" : "Recalcular autobaremo", { id: convocatoria?.id || "", descripcion: "Recalcular la autobaremación con los méritos seleccionados" }))}
-    <div class="rejilla-principal"><div>${panel("Criterios aplicados", `${convocatoria?.titulo || "Convocatoria seleccionada"} · ${datos.meta.presentacion ? "versión sintética de bases" : "versión vigente de bases"}`, `<div class="desglose-baremo">${criterios}</div>`)}</div><aside>${panel("Resultado provisional", "Pendiente de revisión técnica", `<div class="puntuacion-total"><span>Puntuación estimada</span><output>${formatoPuntos(total)}</output><span>de ${formatoPuntos(maximo)} posibles</span></div><p>${barraProgreso(total, maximo)}</p><p class="nota aviso">No constituye puntuación oficial. RRHH aceptará, rechazará o ajustará cada concepto con motivación y trazabilidad.</p>`, { estado: "Provisional" })}${panel("Qué se tendrá en cuenta", "Reglas parametrizadas desde las bases", `<ul><li>Periodos exactos y solapamientos.</li><li>Porcentaje de jornada y reducciones.</li><li>Administración, categoría y rama.</li><li>Topes por bloque y puntuación máxima.</li><li>Documentos de oficio y aportados.</li></ul>`)}</aside></div>`;
+    ${recalculado}<div class="rejilla-principal"><div>${panel("Criterios aplicados", `${convocatoria?.titulo || "Convocatoria seleccionada"} · ${datos.meta.presentacion ? "versión sintética de bases" : "versión vigente de bases"}`, `<div class="desglose-baremo">${criterios}</div>`)}</div><aside>${panel("Resultado provisional", `${meritosIds.length} méritos seleccionados más conceptos de oficio`, `<div class="puntuacion-total"><span>Puntuación estimada</span><output>${formatoPuntos(calculo.total)}</output><span>de ${formatoPuntos(calculo.maximo)} posibles</span></div><p>${barraProgreso(calculo.total, calculo.maximo)}</p><p class="nota aviso">No constituye puntuación oficial. RRHH aceptará, rechazará o ajustará cada concepto con motivación y trazabilidad.</p>`, { estado: "Provisional" })}${panel("Qué se tendrá en cuenta", "Reglas parametrizadas desde las bases", `<ul><li>Periodos exactos y solapamientos.</li><li>Porcentaje de jornada y reducciones.</li><li>Administración, categoría y rama.</li><li>Topes por bloque y puntuación máxima.</li><li>Documentos de oficio y aportados.</li></ul>`)}</aside></div>`;
 }

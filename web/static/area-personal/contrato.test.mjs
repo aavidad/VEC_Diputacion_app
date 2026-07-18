@@ -9,6 +9,10 @@ test("el selector de presentación es único y explícito", () => {
   assert.equal(esModoPresentacion(new URLSearchParams("presentacion=aspirante")), false);
   assert.equal(esModoPresentacion(new URLSearchParams()), false);
   assert.equal(esModoPresentacion(new URLSearchParams("presentacion=RRHH")), false);
+  assert.throws(
+    () => esModoPresentacion(new URLSearchParams("presentacion=rrhh&presentacion=otro")),
+    /selector de presentación es ambiguo/iu,
+  );
 });
 
 test("el contrato acepta el juego sintético completo y lo congela", async () => {
@@ -53,6 +57,7 @@ test("el recibo DEMO es inequívoco y no pasa como recibo real", () => {
     presentacion: true,
     referencia: "DEMO-REC-0001",
     accion: "guardar_borrador",
+    objetivo: "DEMO-CONV-001",
     resultado: "Simulación completada sin efectos administrativos",
     actor: "Persona Aspirante de Demostración",
     fecha: "2026-07-18T09:00:00Z",

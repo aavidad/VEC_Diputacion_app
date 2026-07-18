@@ -83,6 +83,7 @@ test("una acción real exige confirmación, idempotencia y recibo productivo", a
     presentacion: false,
     referencia: "REC-PRUEBA-0001",
     accion: "guardar_borrador",
+    objetivo: "PERSONA-PRUEBA-0001",
     resultado: "Borrador guardado",
     actor: "PERSONA-PRUEBA-0001",
     fecha: "2026-07-18T09:00:00Z",

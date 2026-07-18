@@ -1,4 +1,5 @@
 import { validarDatosAreaPersonal, validarRecibo } from "./contrato.js";
+import { calcularAutobaremo } from "./calculo-autobaremo.js";
 
 /**
  * Adaptador efímero y exclusivo de presentación.
@@ -56,6 +57,15 @@ const BASE_PRESENTACION = {
     idioma: "Castellano",
     canales: ["Correo de demostración", "Aviso interno"],
   },
+  preferencias_notificacion: {
+    correo: true,
+    telegram: false,
+    interno: true,
+    convocatorias: true,
+    plazos: true,
+    llamamientos: true,
+    noticias: false,
+  },
   plazos: [
     { id: "DEMO-PLAZO-001", dia: "21", mes: "JUL", titulo: "Completar solicitud", detalle: "Bolsa de Auxiliar de Gestión · 23:59", estado: "Quedan 3 días", ruta: "solicitud" },
     { id: "DEMO-PLAZO-002", dia: "23", mes: "JUL", titulo: "Responder subsanación", detalle: "Expediente DEMO-SOL-0027 · 14:00", estado: "Acción requerida", ruta: "subsanaciones" },
@@ -100,11 +110,11 @@ const BASE_PRESENTACION = {
     { id: "DEMO-SOL-0018", convocatoria_id: "DEMO-CONV-003", referencia: "DEMO-REG-2026-0018", titulo: "Bolsa de Apoyo a Servicios", estado: "Listado provisional", actualizado: "16/07/2026 09:20", posicion: "7 de 82 (provisional)", puntuacion: 11.2, siguiente: "Puede presentar alegaciones hasta el 29/07/2026", pago: "Exenta", firma: "Firma simulada válida" },
   ],
   baremo: [
-    { id: "DEMO-BAR-001", nombre: "Experiencia en la Diputación", detalle: "18 meses × 0,30 puntos · jornada completa", estado: "De oficio · pendiente de revisión", puntos: 5.4, maximo: 8 },
-    { id: "DEMO-BAR-002", nombre: "Experiencia en otras administraciones", detalle: "12 meses × 50 % × 0,30 puntos", estado: "Autobaremado", puntos: 1.8, maximo: 4 },
-    { id: "DEMO-BAR-003", nombre: "Titulaciones adicionales", detalle: "Una titulación de la misma rama", estado: "Validado", puntos: 2, maximo: 3 },
-    { id: "DEMO-BAR-004", nombre: "Formación relacionada", detalle: "60 horas computables × 0,01 puntos", estado: "Pendiente de validación", puntos: 0.6, maximo: 2 },
-    { id: "DEMO-BAR-005", nombre: "Ejercicio superado", detalle: "Resultado sintético importado del proceso", estado: "De oficio", puntos: 4.95, maximo: 5 },
+    { id: "DEMO-BAR-001", merito_id: "DEMO-MER-002", nombre: "Experiencia en la Diputación", detalle: "18 meses × 0,30 puntos · jornada completa", estado: "De oficio · pendiente de revisión", puntos: 5.4, maximo: 8 },
+    { id: "DEMO-BAR-002", merito_id: "DEMO-MER-004", nombre: "Experiencia en otras administraciones", detalle: "12 meses × 50 % × 0,30 puntos", estado: "Autobaremado", puntos: 1.8, maximo: 4 },
+    { id: "DEMO-BAR-003", merito_id: "DEMO-MER-001", nombre: "Titulaciones adicionales", detalle: "Una titulación de la misma rama", estado: "Validado", puntos: 2, maximo: 3 },
+    { id: "DEMO-BAR-004", merito_id: "DEMO-MER-003", nombre: "Formación relacionada", detalle: "60 horas computables × 0,01 puntos", estado: "Pendiente de validación", puntos: 0.6, maximo: 2 },
+    { id: "DEMO-BAR-005", nombre: "Ejercicio superado", detalle: "Resultado sintético importado del proceso", estado: "De oficio", puntos: 4.95, maximo: 5, de_oficio: true },
   ],
   disponibilidad: {
     disponible: true,
@@ -182,13 +192,18 @@ export function crearAdaptadorPresentacion() {
     return validarDatosAreaPersonal(estado, { presentacionEsperada: true });
   }
 
-  function crearRecibo(accion) {
+  function crearRecibo(accion, payload) {
     secuencia += 1;
+    const objetivo = referenciaDemo(
+      payload.id || payload.convocatoria_id || estado.sesion.persona_ref,
+      estado.sesion.persona_ref,
+    );
     return validarRecibo({
       esquema: "vec.bolsa.area-personal.recibo-demo.v1",
       presentacion: true,
       referencia: `DEMO-REC-${String(secuencia).padStart(4, "0")}`,
       accion,
+      objetivo,
       resultado: "Simulación completada sin efectos administrativos",
       actor: "Persona Aspirante de Demostración",
       fecha: new Date().toISOString(),
@@ -231,18 +246,42 @@ export function crearAdaptadorPresentacion() {
     return !/pendiente/i.test(solicitud.firma) && /confirmad|firmad|válid/i.test(solicitud.firma);
   }
 
+  function exigirElemento(coleccion, id, etiqueta, estadosPermitidos = null) {
+    const referencia = referenciaDemo(id, "");
+    if (!referencia) throw new Error(`La operación exige una referencia válida de ${etiqueta}.`);
+    const elemento = coleccion.find((item) => item.id === referencia);
+    if (!elemento) throw new Error(`El ${etiqueta} indicado no existe en el ámbito de la presentación.`);
+    if (estadosPermitidos && !estadosPermitidos.includes(elemento.estado)) {
+      throw new Error(`El ${etiqueta} indicado ya no admite esta operación.`);
+    }
+    return elemento;
+  }
+
   function aplicar(accion, payload) {
     if (accion === "actualizar_contacto") {
-      estado.perfil.correo = String(payload.correo || estado.perfil.correo).slice(0, 160);
+      const correo = String(payload.correo || estado.perfil.correo).trim().slice(0, 160);
+      if (!/^[^\s@]+@[^\s@]+\.test$/iu.test(correo)) {
+        throw new Error("En presentación, el correo debe ser sintético y usar un dominio reservado .test.");
+      }
+      estado.perfil.correo = correo;
       estado.perfil.telefono = String(payload.telefono || estado.perfil.telefono).slice(0, 40);
       estado.perfil.domicilio = String(payload.domicilio || estado.perfil.domicilio).slice(0, 300);
     } else if (accion === "incorporar_merito") {
       secuencia += 1;
+      const documentoRef = `DEMO-DOC-NUEVO-${secuencia}`;
       estado.meritos.push({
         id: `DEMO-MER-NUEVO-${secuencia}`, tipo: String(payload.tipo || "Otro").slice(0, 80),
         titulo: String(payload.titulo || "Mérito incorporado en demostración").slice(0, 300),
         detalle: "Documento sintético pendiente de validación", estado: "Aportado en demostración",
-        documento_ref: `DEMO-DOC-NUEVO-${secuencia}`, puntos_estimados: 0,
+        documento_ref: documentoRef, puntos_estimados: 0,
+      });
+      estado.documentos.push({
+        id: documentoRef,
+        nombre: `evidencia-merito-${String(secuencia).padStart(4, "0")}-demo.pdf`,
+        tipo: "Evidencia de mérito",
+        fecha: "Ahora · se perderá al recargar",
+        estado: payload.documento ? "Nombre original no conservado · contenido no leído" : "Sin fichero aportado",
+        huella: `DEMO-SIN-HUELLA-${String(secuencia).padStart(4, "0")}`,
       });
     } else if (accion === "guardar_borrador") {
       const convocatoriaId = referenciaDemo(payload.convocatoria_id, "");
@@ -282,11 +321,21 @@ export function crearAdaptadorPresentacion() {
       existente.datos_confirmados = true;
       existente.meritos_ids = meritos;
       existente.autobaremo_revisado = true;
-      existente.puntuacion = estado.meritos
-        .filter((item) => meritos.includes(item.id))
-        .reduce((total, item) => total + Number(item.puntos_estimados || 0), 0);
+      existente.puntuacion = calcularAutobaremo(estado, meritos).total;
       existente.firma = "Pendiente";
       existente.actualizado = "Ahora · se perderá al recargar";
+    } else if (accion === "calcular_autobaremo") {
+      const convocatoria = exigirElemento(estado.convocatorias, payload.convocatoria_id || payload.id, "convocatoria");
+      const meritos = referencias(payload.meritos_ids);
+      if (meritos.length === 0 || meritos.some((id) => !estado.meritos.some((item) => item.id === id))) {
+        throw new Error("Seleccione méritos válidos del inventario antes de recalcular la autobaremación.");
+      }
+      estado.resultado_autobaremo = {
+        convocatoria_id: convocatoria.id,
+        meritos_ids: meritos,
+        puntos: calcularAutobaremo(estado, meritos).total,
+        calculado_en: new Date().toISOString(),
+      };
     } else if (accion === "iniciar_pago") {
       const solicitud = exigirBorrador(payload);
       exigirContenidoCompleto(solicitud);
@@ -309,20 +358,27 @@ export function crearAdaptadorPresentacion() {
       estado.disponibilidad.disponible = payload.disponible === true;
       estado.disponibilidad.estado = payload.disponible === true ? "Disponible para llamamientos" : "No disponible (demostración)";
     } else if (accion === "responder_llamamiento") {
-      const item = estado.llamamientos.find((llamamiento) => llamamiento.id === payload.id);
-      if (item) item.estado = payload.respuesta === "aceptar" ? "Aceptado en demostración" : "Rechazado en demostración";
+      const item = exigirElemento(estado.llamamientos, payload.id, "llamamiento", ["Pendiente de respuesta"]);
+      if (!new Set(["aceptar", "rechazar"]).has(payload.respuesta)) throw new Error("La respuesta al llamamiento no es válida.");
+      item.estado = payload.respuesta === "aceptar" ? "Aceptado en demostración" : "Rechazado en demostración";
     } else if (accion === "presentar_subsanacion") {
-      const item = estado.subsanaciones.find((subsanacion) => subsanacion.id === payload.id);
-      if (item) item.estado = "Presentada en demostración";
+      const item = exigirElemento(estado.subsanaciones, payload.id, "requerimiento de subsanación", ["Pendiente"]);
+      item.estado = "Presentada en demostración";
     } else if (accion === "presentar_alegacion") {
-      const item = estado.alegaciones.find((alegacion) => alegacion.id === payload.id);
-      if (item) item.estado = "Presentada en demostración";
+      const item = exigirElemento(estado.alegaciones, payload.id, "borrador de alegación", ["Borrador"]);
+      item.estado = "Presentada en demostración";
     } else if (accion === "marcar_mensaje") {
-      const item = estado.mensajes.find((mensaje) => mensaje.id === payload.id);
-      if (item) item.estado = "Leído";
+      const item = exigirElemento(estado.mensajes, payload.id, "mensaje", ["No leído"]);
+      item.estado = "Leído";
+    } else if (accion === "actualizar_notificaciones") {
+      const nombres = ["correo", "telegram", "interno", "convocatorias", "plazos", "llamamientos", "noticias"];
+      nombres.forEach((nombre) => { estado.preferencias_notificacion[nombre] = marcado(payload[nombre]); });
     } else if (accion === "solicitar_certificado") {
-      const item = estado.certificados.find((certificado) => certificado.id === payload.id);
-      if (item) item.estado = `Generado en demostración · ${String(payload.formato || "PDF").toUpperCase()}`;
+      const item = exigirElemento(estado.certificados, payload.id, "certificado");
+      item.estado = `Generado en demostración · ${String(payload.formato || "PDF").toUpperCase()}`;
+    } else if (accion === "solicitar_descarga") {
+      const recursos = [...estado.documentos, ...estado.solicitudes, ...estado.convocatorias];
+      exigirElemento(recursos, payload.id, "recurso descargable");
     }
   }
 
@@ -330,8 +386,18 @@ export function crearAdaptadorPresentacion() {
     if (!ACCIONES.has(accion)) throw new Error("La acción no pertenece al adaptador de presentación.");
     if (capacidad !== true || estado.capacidades[accion] !== true) throw new Error("La capacidad no está concedida en la presentación.");
     if (confirmacion !== true) throw new Error("La simulación requiere confirmación explícita.");
-    aplicar(accion, payload && typeof payload === "object" ? payload : {});
-    return Object.freeze({ recibo: crearRecibo(accion), datos: await cargar() });
+    const entrada = payload && typeof payload === "object" ? payload : {};
+    const estadoAnterior = structuredClone(estado);
+    const secuenciaAnterior = secuencia;
+    try {
+      aplicar(accion, entrada);
+      const datos = await cargar();
+      return Object.freeze({ recibo: crearRecibo(accion, entrada), datos });
+    } catch (error) {
+      estado = estadoAnterior;
+      secuencia = secuenciaAnterior;
+      throw error;
+    }
   }
 
   return Object.freeze({ modo: "presentacion", cargar, ejecutar });

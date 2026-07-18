@@ -26,7 +26,7 @@ test("el launcher y el área personal comparten el selector único rrhh", async 
   const launcher = await readFile(join(RAIZ, "../presentacion/index.html"), "utf8");
   const contrato = await readFile(join(RAIZ, "contrato.js"), "utf8");
   assert.match(launcher, /\/area-personal\/\?presentacion=rrhh/u);
-  assert.match(contrato, /get\("presentacion"\) === "rrhh"/u);
+  assert.match(contrato, /getAll\("presentacion"\)[\s\S]*selectores\.length === 1 && selectores\[0\] === "rrhh"/u);
   assert.doesNotMatch(launcher, /area-personal\/\?presentacion=aspirante/u);
 });
 
@@ -170,4 +170,12 @@ test("el registro final exige declaración y una referencia exacta de solicitud"
   assert.match(html, /data-operacion="registrar_solicitud" data-id="DEMO-SOL-BORRADOR-0001"/u);
   assert.match(html, /name="declaracion_final" value="true" required/u);
   assert.doesNotMatch(await readFile(join(RAIZ, "adaptador-presentacion.js"), "utf8"), /solicitudes\[0\]/u);
+});
+
+test("la composición conserva el modo en enlaces y bloquea capacidades antes del diálogo", async () => {
+  const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
+  assert.match(aplicacion, /function actualizarEnlacesNavegacion\(estado\)[\s\S]*setAttribute\("href", crearURL\(estado/u);
+  assert.match(aplicacion, /function aplicarCapacidadesVisibles\(estado\)[\s\S]*estado\.datos\.capacidades\[operacion\] === true/u);
+  assert.match(aplicacion, /function prepararOperacion[\s\S]*estado\.datos\.capacidades\[operacion\] !== true[\s\S]*Operación no disponible/u);
+  assert.match(aplicacion, /\["Objetivo", escaparHTML\(recibo\.objetivo\)\]/u);
 });

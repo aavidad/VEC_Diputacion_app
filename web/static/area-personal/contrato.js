@@ -142,6 +142,18 @@ export function validarDatosAreaPersonal(entrada, { presentacionEsperada = false
   });
   const capacidades = exigirObjeto(datos.capacidades, "capacidades");
   Object.entries(capacidades).forEach(([nombre, valor]) => exigirBooleano(valor, `capacidades.${nombre}`));
+  if (datos.preferencias_notificacion !== undefined) {
+    const preferencias = exigirObjeto(datos.preferencias_notificacion, "preferencias_notificacion");
+    Object.entries(preferencias).forEach(([nombre, valor]) => exigirBooleano(valor, `preferencias_notificacion.${nombre}`));
+  }
+  if (datos.resultado_autobaremo !== undefined) {
+    const resultado = exigirObjeto(datos.resultado_autobaremo, "resultado_autobaremo");
+    exigirReferencia(resultado.convocatoria_id, "resultado_autobaremo.convocatoria_id", { demostracion: presentacion });
+    exigirLista(resultado.meritos_ids, "resultado_autobaremo.meritos_ids")
+      .forEach((id, indice) => exigirReferencia(id, `resultado_autobaremo.meritos_ids[${indice}]`, { demostracion: presentacion }));
+    exigirNumero(resultado.puntos, "resultado_autobaremo.puntos", { maximo: 10_000 });
+    exigirInstante(resultado.calculado_en, "resultado_autobaremo.calculado_en");
+  }
 
   if (presentacion) validarPrivacidadPresentacion(datos);
   return congelarProfundo(datos);
@@ -158,6 +170,7 @@ export function validarRecibo(entrada, { presentacionEsperada = false } = {}) {
   }
   exigirReferencia(recibo.referencia, "recibo.referencia", { demostracion: presentacionEsperada });
   exigirCadena(recibo.accion, "recibo.accion", 80);
+  exigirReferencia(recibo.objetivo, "recibo.objetivo", { demostracion: presentacionEsperada });
   exigirCadena(recibo.resultado, "recibo.resultado", 80);
   exigirCadena(recibo.actor, "recibo.actor", 100);
   exigirInstante(recibo.fecha, "recibo.fecha");
@@ -166,7 +179,9 @@ export function validarRecibo(entrada, { presentacionEsperada = false } = {}) {
 }
 
 export function esModoPresentacion(parametros = new URLSearchParams()) {
-  return parametros.get("presentacion") === "rrhh";
+  const selectores = parametros.getAll("presentacion");
+  if (selectores.length > 1) throw new TypeError("El selector de presentación es ambiguo.");
+  return selectores.length === 1 && selectores[0] === "rrhh";
 }
 
 export const CONTRATO_AREA_PERSONAL = Object.freeze({

@@ -81,6 +81,38 @@ function crearURL(estado, vista, opciones = {}) {
   return `${url.pathname}${url.search}`;
 }
 
+function actualizarEnlacesNavegacion(estado) {
+  document.querySelectorAll("a[data-ruta]").forEach((enlace) => {
+    enlace.setAttribute("href", crearURL(estado, enlace.dataset.ruta || "inicio", {
+      id: enlace.dataset.id || "",
+    }));
+  });
+}
+
+function aplicarCapacidadesVisibles(estado) {
+  let secuencia = 0;
+  document.querySelectorAll("[data-operacion]").forEach((control) => {
+    const operacion = control.dataset.operacion || "";
+    if (estado.datos.capacidades[operacion] === true) return;
+    secuencia += 1;
+    const idAyuda = `capacidad-bloqueada-${secuencia}`;
+    const botones = control.matches("button")
+      ? [control]
+      : [...control.querySelectorAll('button[type="submit"], input[type="submit"]')];
+    botones.forEach((boton) => {
+      boton.disabled = true;
+      boton.setAttribute("aria-disabled", "true");
+      boton.setAttribute("aria-describedby", idAyuda);
+      boton.title = "Acción no habilitada por el servicio autorizado";
+    });
+    const ayuda = document.createElement("small");
+    ayuda.id = idAyuda;
+    ayuda.className = "nota aviso ayuda-capacidad";
+    ayuda.textContent = `${TITULOS_OPERACION[operacion] || "Esta acción"} no está habilitada para la identidad y el expediente actuales.`;
+    control.insertAdjacentElement("afterend", ayuda);
+  });
+}
+
 function anunciar(mensaje) {
   const region = porId("anuncios");
   if (!region) return;
@@ -133,6 +165,8 @@ function renderizar(estado, { enfocar = false } = {}) {
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
+  actualizarEnlacesNavegacion(estado);
+  aplicarCapacidadesVisibles(estado);
   if (enfocar) {
     porId("contenido-principal").focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -213,6 +247,11 @@ function prepararOperacion(estado, operacion, {
     notificar("La acción no está reconocida por esta superficie.");
     return;
   }
+  if (estado.datos.capacidades[operacion] !== true) {
+    notificar(`${TITULOS_OPERACION[operacion]} no está habilitada para la identidad y el expediente actuales.`);
+    anunciar("Operación no disponible.");
+    return;
+  }
   estado.operacionPendiente = { operacion, payload: { ...payload, id }, descripcion, alCompletar };
   porId("titulo-confirmacion").textContent = TITULOS_OPERACION[operacion];
   porId("contenido-confirmacion").innerHTML = `<p>${escaparHTML(descripcion || TITULOS_OPERACION[operacion])}</p><dl class="dato-lista"><dt>Acción</dt><dd>${escaparHTML(operacion)}</dd><dt>Objeto</dt><dd>${escaparHTML(id || "Expediente personal")}</dd><dt>Resultado esperado</dt><dd>${estado.datos.meta.presentacion ? "Recibo DEMO sin efectos administrativos" : "Confirmación emitida por el servicio autorizado"}</dd></dl><p class="nota ${estado.datos.meta.presentacion ? "demo" : "aviso"}">${estado.datos.meta.presentacion ? "Esta confirmación solo modifica el estado efímero de la demostración." : "El servidor volverá a comprobar identidad, permiso, estado e idempotencia."}</p>`;
@@ -256,7 +295,7 @@ async function ejecutarPendiente(estado) {
 }
 
 function mostrarRecibo(estado, recibo) {
-  porId("contenido-recibo").innerHTML = `<div class="${recibo.presentacion ? "recibo-demo" : ""}"><p><strong>${escaparHTML(recibo.resultado)}</strong></p>${listaDatos([["Referencia", escaparHTML(recibo.referencia)], ["Acción", escaparHTML(recibo.accion)], ["Fecha UTC", escaparHTML(recibo.fecha)], ["Actor", escaparHTML(recibo.actor)]])}<p>${escaparHTML(recibo.advertencia)}</p></div>`;
+  porId("contenido-recibo").innerHTML = `<div class="${recibo.presentacion ? "recibo-demo" : ""}"><p><strong>${escaparHTML(recibo.resultado)}</strong></p>${listaDatos([["Referencia", escaparHTML(recibo.referencia)], ["Acción", escaparHTML(recibo.accion)], ["Objetivo", escaparHTML(recibo.objetivo)], ["Fecha UTC", escaparHTML(recibo.fecha)], ["Actor", escaparHTML(recibo.actor)]])}<p>${escaparHTML(recibo.advertencia)}</p></div>`;
   porId("dialogo-recibo").showModal();
   anunciar(`Operación completada. Recibo ${recibo.referencia}.`);
 }
@@ -361,6 +400,18 @@ function atenderAccion(estado, boton) {
       payload.respuesta = respuesta;
     }
     if (boton.dataset.operacion === "cambiar_disponibilidad") payload.disponible = id === "true";
+    if (boton.dataset.operacion === "calcular_autobaremo") {
+      const borrador = localizarSolicitudEdicion(estado.datos, {
+        solicitudId: estado.solicitudEdicionId,
+        convocatoriaId: id,
+      });
+      const seleccionados = estado.progresoSolicitud?.convocatoria_id === id
+        && estado.progresoSolicitud.meritos_ids?.length
+        ? estado.progresoSolicitud.meritos_ids
+        : borrador?.meritos_ids?.length ? borrador.meritos_ids : estado.datos.meritos.map((item) => item.id);
+      payload.convocatoria_id = id;
+      payload.meritos_ids = [...seleccionados];
+    }
     if (["iniciar_pago", "firmar_solicitud"].includes(boton.dataset.operacion) && !id) {
       notificar("Guarde primero el borrador y espere a que el servicio devuelva su referencia.");
       return;
@@ -433,6 +484,11 @@ function conectarEventos(estado) {
       return;
     }
     if (formulario.dataset.operacion) {
+      if (estado.datos.capacidades[formulario.dataset.operacion] !== true) {
+        notificar("La acción no está habilitada para la identidad y el expediente actuales.");
+        anunciar("Operación no disponible.");
+        return;
+      }
       const payload = formularioAObjeto(formulario);
       if (formulario.dataset.operacion === "registrar_solicitud") {
         if (!declaracionFinalConfirmada(payload.declaracion_final)) {

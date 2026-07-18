@@ -16,7 +16,7 @@ const CASOS = [
   ["actualizar_contacto", { correo: "nuevo@vec-demo.test", telefono: "000 000 001", domicilio: "Domicilio sintético actualizado" }],
   ["incorporar_merito", { tipo: "Formación", titulo: "Mérito añadido durante la prueba" }],
   ["guardar_borrador", BORRADOR_COMPLETO],
-  ["calcular_autobaremo", { convocatoria_id: "DEMO-CONV-001" }],
+  ["calcular_autobaremo", { convocatoria_id: "DEMO-CONV-001", meritos_ids: ["DEMO-MER-001"] }],
   ["iniciar_pago", { id: SOLICITUD_BORRADOR }],
   ["firmar_solicitud", { id: SOLICITUD_BORRADOR }],
   ["registrar_solicitud", { id: SOLICITUD_BORRADOR, declaracion_final: true }],
@@ -36,9 +36,68 @@ test("todas las operaciones de presentación devuelven recibo DEMO y estado vál
     const resultado = await adaptador.ejecutar({ accion, payload, confirmacion: true, capacidad: true });
     assert.equal(resultado.recibo.presentacion, true, accion);
     assert.match(resultado.recibo.referencia, /^DEMO-REC-\d{4}$/u, accion);
+    assert.match(resultado.recibo.objetivo, /^DEMO-/u, accion);
     assert.match(resultado.recibo.advertencia, /RECIBO DEMO/u, accion);
     assert.equal(resultado.datos.meta.presentacion, true, accion);
   }
+});
+
+test("las operaciones sobre recursos inexistentes no generan falsos recibos", async () => {
+  const adaptador = crearAdaptadorPresentacion();
+  for (const accion of [
+    "responder_llamamiento", "presentar_subsanacion", "presentar_alegacion",
+    "marcar_mensaje", "solicitar_certificado", "solicitar_descarga",
+  ]) {
+    await assert.rejects(() => adaptador.ejecutar({
+      accion,
+      payload: { id: "DEMO-INEXISTENTE", respuesta: "aceptar" },
+      confirmacion: true,
+      capacidad: true,
+    }), /no existe/iu, accion);
+  }
+});
+
+test("una entrada privada rechazada no envenena el estado de presentación", async () => {
+  const adaptador = crearAdaptadorPresentacion();
+  await assert.rejects(() => adaptador.ejecutar({
+    accion: "actualizar_contacto",
+    payload: { correo: "persona@example.com" },
+    confirmacion: true,
+    capacidad: true,
+  }), /dominio reservado \.test/iu);
+  assert.equal((await adaptador.cargar()).perfil.correo, "aspirante@vec-demo.test");
+});
+
+test("un mérito incorporado conserva una referencia de evidencia resoluble", async () => {
+  const adaptador = crearAdaptadorPresentacion();
+  const resultado = await adaptador.ejecutar({
+    accion: "incorporar_merito",
+    payload: { tipo: "Formación", titulo: "Mérito sintético" },
+    confirmacion: true,
+    capacidad: true,
+  });
+  const merito = resultado.datos.meritos.at(-1);
+  assert.ok(resultado.datos.documentos.some((item) => item.id === merito.documento_ref));
+});
+
+test("preferencias y recálculo producen un cambio observable y volátil", async () => {
+  const adaptador = crearAdaptadorPresentacion();
+  let resultado = await adaptador.ejecutar({
+    accion: "actualizar_notificaciones",
+    payload: { telegram: "on", noticias: "on" },
+    confirmacion: true,
+    capacidad: true,
+  });
+  assert.equal(resultado.datos.preferencias_notificacion.telegram, true);
+  assert.equal(resultado.datos.preferencias_notificacion.correo, false);
+  resultado = await adaptador.ejecutar({
+    accion: "calcular_autobaremo",
+    payload: { convocatoria_id: "DEMO-CONV-001", meritos_ids: ["DEMO-MER-001"] },
+    confirmacion: true,
+    capacidad: true,
+  });
+  assert.deepEqual(resultado.datos.resultado_autobaremo.meritos_ids, ["DEMO-MER-001"]);
+  assert.equal(resultado.datos.resultado_autobaremo.puntos, 6.95);
 });
 
 test("el estado de la demo vive en la instancia y desaparece al crear otra", async () => {
