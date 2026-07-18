@@ -524,6 +524,21 @@ y errores observables.
   **T20E**, E2E con PostgreSQL, reinicio, idempotencia multigeneracion,
   concurrencia y fallos en fronteras. El nucleo probatorio quedo fijado en
   `6483109`; no acredita por si solo ninguna vertical operativa.
+- `avance verificable 18/07/2026`: el diario PostgreSQL de T20B quedo
+  implementado en `418b4e1` con transacciones `SERIALIZABLE`, identidad
+  primaria y alias HMAC multigeneracion, reconciliacion, reclamacion CAS y
+  saneamiento de errores. Una revision independiente detecto antes del commit
+  que un `Scan` parcialmente escrito podia dejar recibos o identidades en
+  memoria; se corrigio instalando la limpieza inmediatamente tras cada lectura
+  y la prueba reproduce el borde y comprueba el borrado byte a byte. Pruebas
+  normales, de carrera y `go vet` quedaron verdes. El resolvedor historico
+  exacto de motivos de T20C quedo en `411b3eb`: usa exclusivamente el validador
+  PostgreSQL V2, conserva catalogo/version/huella/entrada/instante y deja la
+  vinculacion actor/recurso/accion al PDP. La rehidratacion del agregado cifrado
+  (`c29d0cc`) y la autenticacion web interna sin cookies ni Bearer obligatorio
+  bajo mTLS (`194019d`) estan cerradas como subpartes. **T20 no esta cerrado**:
+  siguen pendientes la confirmacion y lectura PostgreSQL, el resto de
+  adaptadores gobernados, la composicion HTTP y T20E.
 
 ### T21 — Perfil `desarrollo` con credenciales propias para desbloquear todo
 
