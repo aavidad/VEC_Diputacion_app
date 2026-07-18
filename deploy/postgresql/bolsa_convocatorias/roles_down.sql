@@ -38,9 +38,10 @@ BEGIN
          'vec_bolsa_convocatorias_migrador',
          'vec_bolsa_convocatorias_ejecutor_consulta',
          'vec_bolsa_convocatorias_proyector_gobierno',
-         'vec_bolsa_convocatorias_registrador_atestacion'
+         'vec_bolsa_convocatorias_registrador_atestacion',
+         'vec_bolsa_convocatorias_verificador_recibo'
      ]);
-    IF cardinality(oid_roles) <> 5 THEN
+    IF cardinality(oid_roles) <> 6 THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'down rechazado: inventario de roles incompleto';
     END IF;
@@ -64,7 +65,8 @@ BEGIN
         'vec_bolsa_convocatorias_migrador',
         'vec_bolsa_convocatorias_ejecutor_consulta',
         'vec_bolsa_convocatorias_proyector_gobierno',
-        'vec_bolsa_convocatorias_registrador_atestacion'
+        'vec_bolsa_convocatorias_registrador_atestacion',
+        'vec_bolsa_convocatorias_verificador_recibo'
     ] LOOP
         IF EXISTS (
             SELECT 1 FROM pg_catalog.pg_roles
@@ -92,7 +94,8 @@ BEGIN
         'vec_bolsa_convocatorias_migrador',
         'vec_bolsa_convocatorias_ejecutor_consulta',
         'vec_bolsa_convocatorias_proyector_gobierno',
-        'vec_bolsa_convocatorias_registrador_atestacion'
+        'vec_bolsa_convocatorias_registrador_atestacion',
+        'vec_bolsa_convocatorias_verificador_recibo'
     ] LOOP
         EXECUTE format('REVOKE ALL ON DATABASE %I FROM %I', current_database(), rol);
     END LOOP;
@@ -100,6 +103,7 @@ END
 $retirar_acl_base$;
 
 DROP ROLE vec_bolsa_convocatorias_registrador_atestacion;
+DROP ROLE vec_bolsa_convocatorias_verificador_recibo;
 DROP ROLE vec_bolsa_convocatorias_proyector_gobierno;
 DROP ROLE vec_bolsa_convocatorias_ejecutor_consulta;
 DROP ROLE vec_bolsa_convocatorias_migrador;

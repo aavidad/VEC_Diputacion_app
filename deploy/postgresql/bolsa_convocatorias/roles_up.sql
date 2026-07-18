@@ -41,7 +41,8 @@ BEGIN
          'vec_bolsa_convocatorias_migrador',
          'vec_bolsa_convocatorias_ejecutor_consulta',
          'vec_bolsa_convocatorias_proyector_gobierno',
-         'vec_bolsa_convocatorias_registrador_atestacion'
+         'vec_bolsa_convocatorias_registrador_atestacion',
+         'vec_bolsa_convocatorias_verificador_recibo'
      ]);
     IF cardinality(encontrados) > 0 THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
@@ -61,6 +62,8 @@ CREATE ROLE vec_bolsa_convocatorias_proyector_gobierno NOLOGIN NOSUPERUSER
     NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
 CREATE ROLE vec_bolsa_convocatorias_registrador_atestacion NOLOGIN NOSUPERUSER
     NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+CREATE ROLE vec_bolsa_convocatorias_verificador_recibo NOLOGIN NOSUPERUSER
+    NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
 
 GRANT vec_bolsa_convocatorias_propietario
     TO vec_bolsa_convocatorias_migrador
@@ -78,7 +81,8 @@ BEGIN
         'vec_bolsa_convocatorias_migrador',
         'vec_bolsa_convocatorias_ejecutor_consulta',
         'vec_bolsa_convocatorias_proyector_gobierno',
-        'vec_bolsa_convocatorias_registrador_atestacion'
+        'vec_bolsa_convocatorias_registrador_atestacion',
+        'vec_bolsa_convocatorias_verificador_recibo'
     ] LOOP
         EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), rol);
     END LOOP;
