@@ -1,4 +1,4 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260717-portal-rrhh";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260718-formularios-v2";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260717-panel-interno-v1";
 import {
   extraerDatosEnvelopeCanonico,
@@ -11,11 +11,11 @@ import {
 } from "./portal-llamamientos-vista.js?v=20260718-llamamientos-v1";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
 import { PROVEEDOR_BEARER_BORRADORES, crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260718-borradores-v1";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260718-demo-total-v1";
-import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=20260718-demo-total-v1";
-import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260718-demo-total-v1";
-import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260718-demo-total-v1";
-import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-demo-total-v1";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260718-formularios-v2";
+import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=20260718-formularios-v2";
+import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260718-formularios-v2";
+import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260718-formularios-v2";
+import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-formularios-v2";
 
 /**
  * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.
@@ -101,14 +101,21 @@ const estado = {
   confirmacionPropuestaLlamamiento: null,
   solicitandoPropuesta: false,
   errorPropuesta: "",
+  filtros: {
+    convocatorias: Object.freeze({ texto: "", estado: "Todos", unidad: "Todas" }),
+    solicitudes: Object.freeze({ referencia: "", convocatoria: "Todas", estado: "Todos" }),
+    meritos: Object.freeze({ referencia: "", tipo: "Todos", estado: "Todos" }),
+  },
 };
 
 const porId = (id) => document.getElementById(id);
 
-function cerrarMenuMovil() {
+function cerrarMenuMovil({ restaurarFoco = false } = {}) {
   delete document.body.dataset.menuAbierto;
-  porId("boton-menu")?.setAttribute("aria-expanded", "false");
+  const boton = porId("boton-menu");
+  boton?.setAttribute("aria-expanded", "false");
   if (porId("velo-menu")) porId("velo-menu").hidden = true;
+  if (restaurarFoco) boton?.focus({ preventScroll: true });
 }
 
 function escaparHTML(valor) {
@@ -144,7 +151,41 @@ function opcionesSelect(valores, seleccionada = "") {
 }
 
 function modoPresentacionSolicitado() {
-  return new URLSearchParams(window.location.search).get("presentacion") === "rrhh";
+  const valores = new URLSearchParams(window.location.search).getAll("presentacion");
+  return valores.length === 1 && valores[0] === "rrhh";
+}
+
+function perfilPresentacionSolicitado() {
+  const valores = new URLSearchParams(window.location.search).getAll("perfil");
+  if (valores.length !== 1 || !["administrador", "tecnico"].includes(valores[0])) return null;
+  return valores[0];
+}
+
+function vistaPermitida(vista) {
+  if (!estado.modoPresentacion || !estado.fuenteLista) return true;
+  const vistas = DATOS_PANEL.sesion?.vistas_permitidas;
+  return Array.isArray(vistas) && (vistas.includes("*") || vistas.includes(vista));
+}
+
+function aplicarRestriccionesVistas() {
+  if (!estado.modoPresentacion || !estado.fuenteLista) return;
+  document.querySelectorAll("[data-vista], [data-requiere-vista]").forEach((control) => {
+    const vistaRequerida = control.dataset.vista || control.dataset.requiereVista;
+    const permitida = vistaPermitida(vistaRequerida);
+    if (permitida) {
+      if (control.dataset.restringidoPerfil === "true") {
+        control.disabled = false;
+        control.removeAttribute("aria-disabled");
+        control.removeAttribute("title");
+        delete control.dataset.restringidoPerfil;
+      }
+      return;
+    }
+    control.disabled = true;
+    control.setAttribute("aria-disabled", "true");
+    control.setAttribute("title", "No disponible para el perfil activo");
+    control.dataset.restringidoPerfil = "true";
+  });
 }
 
 function etiquetaFuentePanel() {
@@ -163,11 +204,18 @@ function describirOperacionPresentacion(operacion, objetivo) {
   return adaptadorPresentacion.describir(operacion, objetivo);
 }
 
-function ejecutarOperacionPresentacion(operacion, objetivo, motivo) {
+function operacionPermitida(operacion) {
+  if (!estado.modoPresentacion) return false;
+  const operaciones = DATOS_PANEL.sesion?.operaciones_permitidas;
+  return Array.isArray(operaciones) && (operaciones.includes("*") || operaciones.includes(operacion));
+}
+
+function ejecutarOperacionPresentacion(operacion, objetivo, motivo, campos) {
   if (!estado.modoPresentacion || adaptadorPresentacion === null) {
     throw new Error("el adaptador de presentación no está activo");
   }
-  const recibo = adaptadorPresentacion.ejecutar({ operacion, objetivo, motivo });
+  if (!operacionPermitida(operacion)) throw new Error("operación no autorizada para el perfil activo");
+  const recibo = adaptadorPresentacion.ejecutar({ operacion, objetivo, motivo, campos });
   DATOS_PANEL = adaptadorPresentacion.obtenerDatos();
   return recibo;
 }
@@ -184,6 +232,8 @@ function actualizarSesionVisible() {
     avatar.textContent = String(datos.iniciales || "RR").slice(0, 3);
     nombre.textContent = String(datos.nombre || "Sesión interna");
     perfil.textContent = String(datos.perfil || "Perfil autorizado");
+    sesion.dataset.actorRef = String(datos.actor_ref || "");
+    sesion.setAttribute("aria-label", `${nombre.textContent}. ${perfil.textContent}`);
     if (avisos) {
       avisos.textContent = numero(DATOS_PANEL.indicadores.avisos_pendientes);
       avisos.setAttribute("aria-label", `${numero(DATOS_PANEL.indicadores.avisos_pendientes)} avisos pendientes`);
@@ -196,6 +246,8 @@ function actualizarSesionVisible() {
   avatar.textContent = "—";
   nombre.textContent = "Sesión no resuelta";
   perfil.textContent = estado.errorFuente || "La API interna debe identificar al usuario";
+  delete sesion.dataset.actorRef;
+  sesion.setAttribute("aria-label", "Contexto de sesión no resuelto");
   if (avisos) {
     avisos.textContent = "—";
     avisos.setAttribute("aria-label", "Avisos pendientes sin resolver");
@@ -212,7 +264,9 @@ async function cargarFuenteDatos() {
         import("./portal-presentacion-adaptador.js?v=20260718-demo-total-v1"),
         import("./portal-borradores-demo-cliente.js?v=20260718-demo-total-v1"),
       ]);
-      const datosIniciales = validarPanelBolsa(adaptador.obtenerDatosPresentacion(), true);
+      const perfil = perfilPresentacionSolicitado();
+      if (perfil === null) throw new Error("perfil de presentación no permitido");
+      const datosIniciales = validarPanelBolsa(adaptador.obtenerDatosPresentacion(perfil), true);
       adaptadorPresentacion = moduloEfectos.crearAdaptadorPresentacion({ datosIniciales });
       superficieBorradoresPresentacion = crearSuperficieBorradoresPortal({
         escaparHTML,
@@ -330,6 +384,17 @@ function anunciar(mensaje) {
 
 function navegar(vista, opciones = {}) {
   if (!Object.hasOwn(TITULOS, vista)) return;
+  if (!vistaPermitida(vista)) {
+    const vistaSegura = "portal";
+    const hashSeguro = rutaDeVista(vistaSegura);
+    if (window.location.hash !== hashSeguro) history.replaceState(null, "", hashSeguro);
+    estado.vista = vistaSegura;
+    renderizar();
+    cerrarMenuMovil();
+    if (opciones.enfocar !== false) porId("contenido-principal")?.focus({ preventScroll: true });
+    anunciar("La vista solicitada no está autorizada para el perfil activo");
+    return;
+  }
   const hash = rutaDeVista(vista);
   if (window.location.hash !== hash) history.pushState(null, "", hash);
   estado.vista = vista;
@@ -342,6 +407,11 @@ function navegar(vista, opciones = {}) {
 function renderizar() {
   const contenedor = porId("espacio-trabajo");
   if (!contenedor) return;
+  if (!vistaPermitida(estado.vista)) {
+    estado.vista = "portal";
+    history.replaceState(null, "", rutaDeVista("portal"));
+  }
+  queueMicrotask(aplicarRestriccionesVistas);
   const [migas, titulo] = TITULOS[estado.vista] || TITULOS.portal;
   porId("migas-pan").textContent = migas;
   porId("titulo-vista").textContent = titulo;
@@ -386,8 +456,8 @@ function renderizar() {
     portal: renderizarPortal,
     resumen: renderizarResumen,
     convocatorias: () => vistasConvocatorias.renderizarConvocatorias(datosVista, estado),
-    solicitudes: () => vistasConvocatorias.renderizarSolicitudes(datosVista),
-    meritos: () => vistasBaremacion.renderizarMeritos(datosVista),
+    solicitudes: () => vistasConvocatorias.renderizarSolicitudes(datosVista, estado),
+    meritos: () => vistasBaremacion.renderizarMeritos(datosVista, estado),
     baremacion: () => vistasBaremacion.renderizarBaremacion(datosVista),
     alegaciones: () => vistasBaremacion.renderizarAlegaciones(datosVista),
     importacion: () => vistasOperaciones.renderizarImportacion(datosVista),
@@ -438,6 +508,7 @@ function encabezadoVista(sobrelinea, titulo, descripcion, acciones = "") {
 
 const utilidadesVista = crearUtilidadesVista({
   escaparHTML, numero, claseEstado, encabezadoVista, esPresentacion: () => estado.modoPresentacion,
+  operacionPermitida,
 });
 const vistasConvocatorias = crearVistasConvocatorias(utilidadesVista);
 const vistasBaremacion = crearVistasBaremacion(utilidadesVista);
@@ -503,7 +574,7 @@ function renderizarResumen() {
       <td><button type="button" class="boton-terciario" data-accion="ver-bolsa" data-id="${escaparHTML(bolsa.id)}">Abrir</button></td>
     </tr>`).join("");
   return `
-    ${encabezadoVista("Gestión interna de Bolsas", "Cuadro de mando", "Situación operativa, próximos llamamientos, cobertura y actividad trazada.", '<button type="button" class="boton-secundario" data-accion="imprimir">Imprimir resumen</button><button type="button" class="boton-primario" data-accion="nuevo-llamamiento">Nuevo llamamiento</button>')}
+    ${encabezadoVista("Gestión interna de Bolsas", "Cuadro de mando", "Situación operativa, próximos llamamientos, cobertura y actividad trazada.", '<button type="button" class="boton-secundario" data-accion="imprimir">Imprimir resumen</button><button type="button" class="boton-primario" data-accion="nuevo-llamamiento" data-requiere-vista="llamamientos">Nuevo llamamiento</button>')}
     <div class="rejilla-kpi" aria-label="Indicadores de Bolsa">
       ${tarjetaKPI("BOL", numero(indicadores.bolsas_activas), "Bolsas activas", "elaboracion")}
       ${tarjetaKPI("DIS", numero(indicadores.candidatos_disponibles), "Candidatos disponibles", "elaboracion")}
@@ -550,7 +621,7 @@ function renderizarResumen() {
     <section class="panel">
       <div class="cabecera-panel"><h3>Accesos rápidos</h3><span class="estado-chip info">${escaparHTML(etiquetaFuentePanel())}</span></div>
       <div class="accesos-rapidos">
-        <button type="button" class="acceso-rapido" data-accion="nuevo-llamamiento">Nuevo llamamiento</button>
+        <button type="button" class="acceso-rapido" data-accion="nuevo-llamamiento" data-requiere-vista="llamamientos">Nuevo llamamiento</button>
         <button type="button" class="acceso-rapido" data-vista="elaboracion">Elaborar una bolsa</button>
         <button type="button" class="acceso-rapido" data-vista="contratos">Registrar contrato</button>
         <button type="button" class="acceso-rapido" data-vista="contratos">Registrar cese</button>
@@ -679,7 +750,7 @@ const controlador = crearControladorPortal({
   anunciar, cargarFuenteDatos, confirmarOperacionPresentacion: (mensaje) => window.confirm(mensaje),
   cerrarMenuMovil, describirOperacionPresentacion, escaparHTML, estado,
   etiquetaFuentePanel, ejecutarOperacionPresentacion, navegar, notaOperacionNoCompuesta, numero,
-  obtenerDatosPanel: () => DATOS_PANEL, porcentajeSeguro, porId, renderizar,
+  obtenerDatosPanel: () => DATOS_PANEL, operacionPermitida, porcentajeSeguro, porId, renderizar,
   renderizarContenidoAyuda, solicitarPropuestaLlamamiento, vistaDesdeHash,
 });
 

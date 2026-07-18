@@ -5,6 +5,82 @@
  * negocio. Las acciones sin comando de servidor compuesto permanecen
  * informativas y nunca producen efectos administrativos en el navegador.
  */
+const NOMBRES_CAMPOS_OPERACION = new Set([
+  "denominacion", "categoria", "expediente", "tipo_proceso", "apertura", "cierre",
+  "subsanacion_desde", "subsanacion_hasta", "version_bases", "medio_publicacion", "plantilla",
+  "circuito_firma", "criterio", "motivo_tipificado", "observacion", "unidad_tiempo",
+  "puntos_unidad", "fraccion_jornada", "tope_bloque", "ambito_experiencia", "redondeo",
+  "desempate_1", "desempate_2", "desempate_3", "ultimo_recurso", "bolsa", "destino",
+  "jornada", "duracion", "regla", "plazo_respuesta", "canales", "formato", "circuito",
+  "cotejo", "plazo", "asunto", "contenido", "informe", "ambito", "finalidad", "nombre",
+  "unidad", "recursos", "acciones", "vigencia_desde", "revision",
+]);
+
+const NOMBRES_FILTRO = Object.freeze({
+  convocatorias: new Set(["texto", "estado", "unidad"]),
+  solicitudes: new Set(["referencia", "convocatoria", "estado"]),
+  meritos: new Set(["referencia", "tipo", "estado"]),
+});
+
+function serializarEntradasCerradas(entradas, nombresPermitidos) {
+  if (!entradas || typeof entradas[Symbol.iterator] !== "function") {
+    throw new TypeError("el formulario no proporciona entradas válidas");
+  }
+  const salida = {};
+  let cantidad = 0;
+  for (const entrada of entradas) {
+    if (!Array.isArray(entrada) || entrada.length !== 2) throw new TypeError("entrada de formulario no válida");
+    cantidad += 1;
+    if (cantidad > 32) throw new RangeError("el formulario supera el máximo de campos");
+    const [nombre, valor] = entrada;
+    if (typeof nombre !== "string" || !/^[a-z][a-z0-9_]{0,47}$/.test(nombre)
+      || !nombresPermitidos.has(nombre)) {
+      throw new TypeError("nombre de campo no canónico");
+    }
+    if (Object.hasOwn(salida, nombre)) throw new TypeError("el formulario contiene campos duplicados");
+    if (typeof valor !== "string") throw new TypeError("el formulario no admite ficheros");
+    if (valor.length > 2_000 || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(valor)) {
+      throw new RangeError("valor de formulario no válido");
+    }
+    salida[nombre] = valor.trim();
+  }
+  return Object.freeze(salida);
+}
+
+export function serializarCamposOperacion(formData) {
+  return serializarEntradasCerradas(formData, NOMBRES_CAMPOS_OPERACION);
+}
+
+export function serializarCamposFiltro(tipo, formData) {
+  const nombresPermitidos = NOMBRES_FILTRO[tipo];
+  if (!nombresPermitidos) throw new TypeError("tipo de filtro no permitido");
+  return serializarEntradasCerradas(formData, nombresPermitidos);
+}
+
+export function contenerTabulacionMenu(evento, lateral, elementoActivo) {
+  if (evento?.key !== "Tab" || !lateral) return false;
+  const controles = [...lateral.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])')]
+    .filter((control) => control.getAttribute?.("aria-hidden") !== "true" && !control.closest?.("[hidden]"));
+  if (controles.length === 0) {
+    evento.preventDefault();
+    return true;
+  }
+  const primero = controles[0];
+  const ultimo = controles.at(-1);
+  const activoDentro = lateral.contains(elementoActivo);
+  if (evento.shiftKey && (!activoDentro || elementoActivo === primero)) {
+    evento.preventDefault();
+    ultimo.focus();
+    return true;
+  }
+  if (!evento.shiftKey && (!activoDentro || elementoActivo === ultimo)) {
+    evento.preventDefault();
+    primero.focus();
+    return true;
+  }
+  return false;
+}
+
 export function crearControladorPortal(dependencias) {
   const {
     anunciar,
@@ -20,6 +96,7 @@ export function crearControladorPortal(dependencias) {
     notaOperacionNoCompuesta,
     numero,
     obtenerDatosPanel,
+    operacionPermitida,
     porcentajeSeguro,
     porId,
     renderizar,
@@ -145,6 +222,12 @@ export function crearControladorPortal(dependencias) {
           break;
         }
         const operacion = boton.dataset.operacion || "";
+        const comando = boton.dataset.comando || "";
+        if (comando !== operacion || !operacionPermitida(operacion)) {
+          abrirDialogo("Operación no autorizada", '<p class="nota-pendiente"><strong>No se ha ejecutado ninguna actuación.</strong> El perfil actual no dispone de autorización explícita para este comando.</p>');
+          anunciar("Operación rechazada por falta de autorización explícita");
+          break;
+        }
         const objetivo = boton.dataset.objetivo || "DEMO-SIN-OBJETIVO";
         const descripcion = describirOperacionPresentacion(operacion, objetivo);
         if (!descripcion) {
@@ -156,10 +239,25 @@ export function crearControladorPortal(dependencias) {
           anunciar("Simulación cancelada; no se ha modificado el estado en memoria");
           break;
         }
-        const recibo = ejecutarOperacionPresentacion(operacion, objetivo, boton.dataset.motivo || "Recorrido funcional de presentación");
-        renderizar();
-        abrirDialogo("Actuación simulada", `<section class="recibo-presentacion"><p class="nota-seguridad"><strong>Simulación completada.</strong> No tiene efectos administrativos y desaparecerá al recargar.</p><dl class="resumen-expediente"><div class="fila-resumen"><dt>Recibo</dt><dd><code>${escaparHTML(recibo.referencia)}</code></dd></div><div class="fila-resumen"><dt>Actor</dt><dd>${escaparHTML(recibo.actor)}</dd></div><div class="fila-resumen"><dt>Instante</dt><dd><time datetime="${escaparHTML(recibo.instante)}">${escaparHTML(recibo.instante)}</time></dd></div><div class="fila-resumen"><dt>Objetivo</dt><dd>${escaparHTML(recibo.objetivo)}</dd></div><div class="fila-resumen"><dt>Resultado</dt><dd>${escaparHTML(recibo.resultado)}</dd></div><div class="fila-resumen"><dt>Efectos reales</dt><dd>No</dd></div></dl></section>`);
-        anunciar(`Simulación completada con recibo ${recibo.referencia}`);
+        try {
+          const formulario = boton.closest("form.formulario-gobernado");
+          if (formulario?.dataset.comando && formulario.dataset.comando !== comando) {
+            throw new Error("el formulario no corresponde al comando");
+          }
+          if (formulario && typeof formulario.reportValidity === "function" && !formulario.reportValidity()) {
+            anunciar("Revise los campos obligatorios antes de continuar");
+            break;
+          }
+          const campos = formulario ? serializarCamposOperacion(new FormData(formulario)) : {};
+          const recibo = ejecutarOperacionPresentacion(operacion, objetivo,
+            boton.dataset.motivo || "Recorrido funcional de presentación", campos);
+          renderizar();
+          abrirDialogo("Actuación simulada", `<section class="recibo-presentacion"><p class="nota-seguridad"><strong>Simulación completada.</strong> No tiene efectos administrativos y desaparecerá al recargar.</p><dl class="resumen-expediente"><div class="fila-resumen"><dt>Recibo</dt><dd><code>${escaparHTML(recibo.referencia)}</code></dd></div><div class="fila-resumen"><dt>Actor</dt><dd>${escaparHTML(recibo.actor)}</dd></div><div class="fila-resumen"><dt>Instante</dt><dd><time datetime="${escaparHTML(recibo.instante)}">${escaparHTML(recibo.instante)}</time></dd></div><div class="fila-resumen"><dt>Objetivo</dt><dd>${escaparHTML(recibo.objetivo)}</dd></div><div class="fila-resumen"><dt>Resultado</dt><dd>${escaparHTML(recibo.resultado)}</dd></div><div class="fila-resumen"><dt>Campos aplicados</dt><dd>${escaparHTML(recibo.campos_aplicados)}</dd></div><div class="fila-resumen"><dt>Efectos reales</dt><dd>No</dd></div></dl></section>`);
+          anunciar(`Simulación completada con recibo ${recibo.referencia}`);
+        } catch {
+          abrirDialogo("Actuación no realizada", '<p class="nota-pendiente"><strong>La operación se ha rechazado de forma segura.</strong> Los datos del formulario o el estado del expediente no cumplen el contrato vigente. No se ha emitido un recibo de éxito.</p>');
+          anunciar("Operación rechazada de forma segura; revise el formulario y el estado del expediente");
+        }
         break;
       }
       case "bloqueo-presentacion":
@@ -223,22 +321,45 @@ export function crearControladorPortal(dependencias) {
       const botonAccion = evento.target.closest("[data-accion]");
       if (botonAccion) void manejarAccion(botonAccion);
     });
+    document.addEventListener("submit", (evento) => {
+      const formulario = evento.target.closest?.("form[data-filtro]");
+      if (!formulario) return;
+      evento.preventDefault();
+      try {
+        const tipo = formulario.dataset.filtro;
+        const campos = serializarCamposFiltro(tipo, new FormData(formulario));
+        estado.filtros[tipo] = campos;
+        renderizar();
+        const resultado = document.querySelector(`[data-total-filtro="${tipo}"]`);
+        const total = Number(resultado?.dataset.total || 0);
+        anunciar(`${total} resultados tras aplicar los filtros`);
+      } catch {
+        abrirDialogo("Filtros no aplicados", '<p class="nota-pendiente">El formulario de filtros no cumple el contrato cerrado. No se ha modificado la vista.</p>');
+        anunciar("Filtros rechazados de forma segura");
+      }
+    });
     porId("boton-menu").addEventListener("click", () => {
-      if (document.body.dataset.menuAbierto === "true") cerrarMenuMovil();
+      if (document.body.dataset.menuAbierto === "true") cerrarMenuMovil({ restaurarFoco: true });
       else abrirMenuMovil();
     });
-    porId("velo-menu").addEventListener("click", cerrarMenuMovil);
+    porId("velo-menu").addEventListener("click", () => cerrarMenuMovil({ restaurarFoco: true }));
     porId("boton-texto").addEventListener("click", (evento) => alternarPreferencia("texto", evento.currentTarget));
     porId("boton-contraste").addEventListener("click", (evento) => alternarPreferencia("contraste", evento.currentTarget));
     window.addEventListener("hashchange", () => {
       const vista = vistaDesdeHash();
       if (vista !== estado.vista) {
-        estado.vista = vista;
-        renderizar();
+        navegar(vista, { enfocar: false });
       }
     });
     window.addEventListener("keydown", (evento) => {
-      if (evento.key === "Escape" && document.body.dataset.menuAbierto === "true") cerrarMenuMovil();
+      if (document.body.dataset.menuAbierto === "true" && evento.key === "Tab") {
+        contenerTabulacionMenu(evento, document.querySelector(".portal-lateral"), document.activeElement);
+        return;
+      }
+      if (evento.key === "Escape" && document.body.dataset.menuAbierto === "true") {
+        evento.preventDefault();
+        cerrarMenuMovil({ restaurarFoco: true });
+      }
     });
   }
 

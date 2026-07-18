@@ -557,7 +557,9 @@
   .portal-lateral { width: 228px; }
   .enlace-lateral { padding-right: 9px; font-size: 0.77rem; }
   .etiqueta-menu { display: none; }
-  .acciones-cabecera .boton-cabecera:not(.boton-avisos) { display: none; }
+  .acciones-cabecera .boton-cabecera { min-width: 38px; padding-inline: 8px; }
+  .acciones-cabecera .boton-avisos,
+  .etiqueta-contraste { display: none; }
   .rejilla-cuadro-mando,
   .rejilla-elaboracion,
   .distribucion-llamamiento { grid-template-columns: 1fr; }

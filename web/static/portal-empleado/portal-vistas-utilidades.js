@@ -3,8 +3,8 @@
  * No acceden al DOM, a red ni a almacenamiento del navegador.
  */
 
-export function crearUtilidadesVista({ escaparHTML, numero, claseEstado, encabezadoVista, esPresentacion }) {
-  if ([escaparHTML, numero, claseEstado, encabezadoVista, esPresentacion]
+export function crearUtilidadesVista({ escaparHTML, numero, claseEstado, encabezadoVista, esPresentacion, operacionPermitida }) {
+  if ([escaparHTML, numero, claseEstado, encabezadoVista, esPresentacion, operacionPermitida]
     .some((dependencia) => typeof dependencia !== "function")) {
     throw new TypeError("dependencias de vista no válidas");
   }
@@ -14,8 +14,13 @@ export function crearUtilidadesVista({ escaparHTML, numero, claseEstado, encabez
   }
 
   function botonOperacion(etiqueta, operacion, objetivo, clase = "boton-secundario") {
-    const bloqueado = esPresentacion() ? "" : ' disabled aria-disabled="true" title="Capacidad de servidor no conectada"';
-    return `<button type="button" class="${clase}" data-accion="operacion-presentacion" data-operacion="${escaparHTML(operacion)}" data-objetivo="${escaparHTML(objetivo)}"${bloqueado}>${escaparHTML(etiqueta)}</button>`;
+    const esDemo = esPresentacion();
+    const permitido = esDemo && operacionPermitida(operacion);
+    const titulo = esDemo
+      ? "El perfil de presentación no permite esta operación"
+      : "Capacidad de servidor no conectada";
+    const bloqueado = permitido ? "" : ` disabled aria-disabled="true" title="${escaparHTML(titulo)}"`;
+    return `<button type="button" class="${clase}" data-accion="operacion-presentacion" data-comando="${escaparHTML(operacion)}" data-operacion="${escaparHTML(operacion)}" data-objetivo="${escaparHTML(objetivo)}"${bloqueado}>${escaparHTML(etiqueta)}</button>`;
   }
 
   function botonBloqueado(etiqueta, motivo) {

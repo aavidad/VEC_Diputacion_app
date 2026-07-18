@@ -9,7 +9,14 @@
 const DATOS = {
   esquema: "vec.bolsa.panel.presentacion.v1",
   demostracion: true,
-  sesion: { iniciales: "DM", nombre: "Operador DEMO 01", perfil: "Administrador funcional de Bolsa · ámbito DEMO completo" },
+  sesion: {
+    actor_ref: "DEMO-PERFIL-ADMIN-FUNCIONAL-BOLSA-01",
+    iniciales: "AD",
+    nombre: "Administrador DEMO 01",
+    perfil: "Administrador funcional de Bolsa · ámbito DEMO completo",
+    vistas_permitidas: ["*"],
+    operaciones_permitidas: ["*"],
+  },
   indicadores: {
     avisos_pendientes: 3,
     bolsas_activas: 6,
@@ -167,8 +174,27 @@ const DATOS = {
   auditoria: { expediente: "DEMO-LLA-0045" },
 };
 
-export function obtenerDatosPresentacion() {
-  return structuredClone(DATOS);
+const PERFIL_TECNICO = Object.freeze({
+  actor_ref: "DEMO-PERFIL-TECNICO-RRHH-01",
+  iniciales: "TR",
+  nombre: "Técnico DEMO 01",
+  perfil: "Técnico revisor de RRHH · ámbito DEMO restringido",
+  vistas_permitidas: ["portal", "resumen", "solicitudes", "meritos", "baremacion", "alegaciones", "documentos", "auditoria"],
+  operaciones_permitidas: [
+    "admitir-solicitud", "excluir-solicitud", "registrar-subsanacion",
+    "aceptar-merito", "rechazar-merito", "revocar-merito", "rehabilitar-merito",
+    "calcular-baremo", "resolver-alegacion", "desestimar-alegacion",
+    "generar-documento", "exportar-informe",
+  ],
+});
+
+export function obtenerDatosPresentacion(perfil = "administrador") {
+  if (perfil !== "administrador" && perfil !== "tecnico") {
+    throw new Error("perfil de presentación no permitido");
+  }
+  const datos = structuredClone(DATOS);
+  if (perfil === "tecnico") datos.sesion = structuredClone(PERFIL_TECNICO);
+  return datos;
 }
 
 const EVALUACIONES_PRESENTACION = Object.freeze({

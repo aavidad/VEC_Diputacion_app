@@ -11,7 +11,7 @@ import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 
 const directorio = new URL("./", import.meta.url);
-const [html, javascript, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, vistaLlamamientos, panelInterno, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos] = await Promise.all([
+const [html, javascript, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, vistaLlamamientos, panelInterno, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
   readFile(new URL("index.html", directorio), "utf8"),
   readFile(new URL("portal.js", directorio), "utf8"),
   readFile(new URL("portal-eventos.js", directorio), "utf8"),
@@ -26,9 +26,10 @@ const [html, javascript, eventos, contrato, contratoLlamamientos, apiLlamamiento
   readFile(new URL("portal.css", directorio), "utf8"),
   readFile(new URL("portal-componentes.css", directorio), "utf8"),
   readFile(new URL("portal-flujos.css", directorio), "utf8"),
+  readFile(new URL("portal-capacidades.css", directorio), "utf8"),
 ]);
 const codigo = `${javascript}\n${eventos}\n${contrato}\n${contratoLlamamientos}\n${apiLlamamientos}\n${flujoLlamamientos}\n${vistaLlamamientos}\n${panelInterno}`;
-const estilos = `${estilosBase}\n${estilosComponentes}\n${estilosFlujos}`;
+const estilos = `${estilosBase}\n${estilosComponentes}\n${estilosFlujos}\n${estilosCapacidades}`;
 
 function panelInternoReal() {
   return {
@@ -178,7 +179,7 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260718-llamamientos-v1/);
+  assert.match(html, /portal\.js\?v=20260718-perfiles-v1/);
   assert.match(panelInterno, /export function crearPresentadorPanelInterno/);
 });
 
@@ -202,7 +203,7 @@ test("los datos de presentación están aislados y se activan de forma explícit
   assert.equal(presentacion.esquema, "vec.bolsa.panel.presentacion.v1");
   assert.equal(presentacion.demostracion, true);
   assert.ok(presentacion.bolsas.length > 0);
-  assert.match(javascript, /get\("presentacion"\) === "rrhh"/);
+  assert.match(javascript, /getAll\("presentacion"\)/);
   assert.match(javascript, /import\("\.\/datos-presentacion\.js/);
   assert.match(datos, /ADAPTADOR EXCLUSIVO DE PRESENTACIÓN RRHH/);
   assert.match(datos, /esquema: "vec\.bolsa\.panel\.presentacion\.v1"/);
@@ -212,12 +213,34 @@ test("los datos de presentación están aislados y se activan de forma explícit
   assert.doesNotMatch(datos, /\b\d{8}[A-Z]\b/);
 });
 
+test("el selector de perfil es cerrado y la navegación aplica mínimo privilegio", () => {
+  assert.match(javascript, /getAll\("presentacion"\)/);
+  assert.match(javascript, /getAll\("perfil"\)/);
+  assert.match(javascript, /valores\.length !== 1[\s\S]{0,100}return null/);
+  assert.doesNotMatch(javascript, /valores\.length === 0\) return "administrador"/);
+  assert.match(javascript, /\["administrador", "tecnico"\]\.includes/);
+  assert.match(javascript, /adaptador\.obtenerDatosPresentacion\(perfil\)/);
+  assert.match(javascript, /function vistaPermitida\(vista\)/);
+  assert.match(javascript, /history\.replaceState\(null, "", hashSeguro\)/);
+  assert.match(javascript, /control\.disabled = true/);
+  assert.match(javascript, /querySelectorAll\("\[data-vista\], \[data-requiere-vista\]"\)/);
+  assert.equal((javascript.match(/data-requiere-vista="llamamientos"/g) || []).length, 2);
+  assert.match(eventos, /navegar\(vista, \{ enfocar: false \}\)/);
+});
+
 test("el portal interno no usa cookies ni almacenamiento del navegador", () => {
   assert.doesNotMatch(codigo, /localStorage|sessionStorage|document\.cookie/);
   assert.match(eventos, /document\.body\.dataset\.textoGrande/);
   assert.match(eventos, /document\.documentElement\.dataset\.textoGrande/);
   assert.match(estilosBase, /html\[data-texto-grande="true"\][\s\S]{0,80}font-size: 125%/);
   assert.match(eventos, /document\.body\.dataset\.contraste/);
+});
+
+test("texto ampliado y contraste siguen disponibles en resoluciones compactas", () => {
+  assert.match(html, /id="boton-texto"[^>]+aria-label="Aumentar o restablecer el tamaño del texto"/);
+  assert.match(html, /id="boton-contraste"[^>]+aria-label="Activar o desactivar el alto contraste"/);
+  assert.doesNotMatch(estilosFlujos, /boton-cabecera:not\(\.boton-avisos\)[^{]*\{[^}]*display:\s*none/);
+  assert.match(estilosCapacidades, /body\.portal-empleado-app\s*\{[^}]*font-size:\s*1rem/);
 });
 
 test("el portal expone solo Bolsa y hace alcanzables todas sus capacidades", () => {
