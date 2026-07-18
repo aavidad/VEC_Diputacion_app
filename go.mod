@@ -12,6 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.105.1
 	github.com/aws/smithy-go v1.27.3
 	github.com/fxamacker/cbor/v2 v2.9.2
+	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/veraison/go-cose v1.3.0
 	golang.org/x/image v0.44.0

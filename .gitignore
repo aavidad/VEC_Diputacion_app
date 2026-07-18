@@ -50,3 +50,10 @@ id_rsa*
 id_ecdsa*
 id_ed25519*
 /deploy/desarrollo/credenciales/
+
+# Rutas locales exactas de defensa en profundidad para T21. El generador
+# rechaza escribir dentro del repositorio, aunque una ruta este ignorada.
+/.vec-desarrollo/
+/config/desarrollo.local.env
+/config/desarrollo.local/
+/scripts/.credenciales-desarrollo/

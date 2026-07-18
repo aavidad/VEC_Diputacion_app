@@ -13,6 +13,7 @@ func TestAutenticacionParteDeshabilitadaYNoInfiereModo(t *testing.T) {
 		{nombre: "deshabilitado expreso", modo: AuthModeDisabled, quiere: AuthModeDisabled},
 		{nombre: "demostracion expresa", modo: AuthModeFake, quiere: AuthModeFake},
 		{nombre: "cabeceras heredadas expresas", modo: AuthModeTrustedHeaders, quiere: AuthModeTrustedHeaders},
+		{nombre: "desarrollo expreso", modo: AuthModeDevelopment, quiere: AuthModeDevelopment},
 	} {
 		t.Run(prueba.nombre, func(t *testing.T) {
 			obtenido := (Config{AuthMode: prueba.modo}).Normalize().AuthMode
@@ -20,6 +21,81 @@ func TestAutenticacionParteDeshabilitadaYNoInfiereModo(t *testing.T) {
 				t.Fatalf("AuthMode = %q; se esperaba %q", obtenido, prueba.quiere)
 			}
 		})
+	}
+}
+
+func TestPerfilDesarrolloNoEsPredeterminadoYExigeDobleLlave(t *testing.T) {
+	predeterminada := (Config{}).Normalize()
+	if predeterminada.ExecutionProfile != ExecutionProfileProduction {
+		t.Fatalf("perfil predeterminado = %q; debe ser produccion", predeterminada.ExecutionProfile)
+	}
+	if predeterminada.DevelopmentEnabledByDoubleKey() {
+		t.Fatal("perfil desarrollo activado sin configuracion")
+	}
+
+	base := Config{
+		ExecutionProfile: ExecutionProfileDevelopment,
+		AuthMode:         AuthModeDevelopment,
+		DevelopmentGuard: DevelopmentGuardAcknowledgement,
+	}
+	if !base.DevelopmentEnabledByDoubleKey() {
+		t.Fatal("las dos llaves expresas y el modo desarrollo no activaron el perfil")
+	}
+
+	for nombre, mutar := range map[string]func(*Config){
+		"sin perfil": func(c *Config) { c.ExecutionProfile = "" },
+		"sin modo":   func(c *Config) { c.AuthMode = "" },
+		"sin guarda": func(c *Config) { c.DevelopmentGuard = "" },
+		"guarda mal escrita": func(c *Config) {
+			c.DevelopmentGuard = "true"
+		},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			configuracion := base
+			mutar(&configuracion)
+			if configuracion.DevelopmentEnabledByDoubleKey() {
+				t.Fatal("una configuracion parcial activo desarrollo")
+			}
+		})
+	}
+}
+
+func TestLoadCargaPerfilDesarrolloSinHeredarloDeBolsa(t *testing.T) {
+	t.Setenv(EnvExecutionProfile, ExecutionProfileDevelopment)
+	t.Setenv(EnvAuthMode, AuthModeDevelopment)
+	t.Setenv(EnvDevelopmentGuard, DevelopmentGuardAcknowledgement)
+	t.Setenv(EnvDevelopmentMaterialDir, " /estado-local/vec/desarrollo ")
+	configuracion := Load()
+	if !configuracion.DevelopmentEnabledByDoubleKey() {
+		t.Fatal("Load no conservo la activacion explicita")
+	}
+	if configuracion.DevelopmentMaterialDir != "/estado-local/vec/desarrollo" {
+		t.Fatalf("directorio material = %q", configuracion.DevelopmentMaterialDir)
+	}
+}
+
+func TestPerfilDesarrolloDerivaSoloSusRutasLocalesYNoSeActivaPorVariableHeredada(t *testing.T) {
+	t.Setenv(LegacyEnvAuthMode, AuthModeDevelopment)
+	heredada := Load()
+	if heredada.DevelopmentEnabledByDoubleKey() || heredada.ExecutionProfile != ExecutionProfileProduction {
+		t.Fatalf("la variable heredada activo desarrollo: %+v", heredada)
+	}
+
+	raiz := "/estado-local/vec/desarrollo"
+	configuracion := (Config{
+		ExecutionProfile:       ExecutionProfileDevelopment,
+		AuthMode:               AuthModeDevelopment,
+		DevelopmentGuard:       DevelopmentGuardAcknowledgement,
+		DevelopmentMaterialDir: raiz,
+		TLSCertFile:            " ", TLSKeyFile: " ",
+	}).Normalize()
+	rutas := configuracion.DevelopmentPaths()
+	if configuracion.TLSCertFile != rutas.ServerCertificate || configuracion.TLSKeyFile != rutas.ServerPrivateKey ||
+		rutas.KMSAttestationKey != "/estado-local/vec/desarrollo/kms/atestacion-ed25519.key" ||
+		rutas.KMSAttestationPublic != "/estado-local/vec/desarrollo/kms/atestacion-ed25519.pub" ||
+		rutas.KMSRevalidationKey != "/estado-local/vec/desarrollo/kms/revalidacion-ed25519.key" ||
+		rutas.KMSRevalidationPublic != "/estado-local/vec/desarrollo/kms/revalidacion-ed25519.pub" {
+		t.Fatalf("rutas de desarrollo incoherentes: %+v / %+v", configuracion, rutas)
 	}
 }
 

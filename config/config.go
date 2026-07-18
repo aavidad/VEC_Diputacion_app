@@ -87,6 +87,9 @@ type Config struct {
 	DataDir                   string
 	DataPath                  string
 	AuthMode                  string
+	ExecutionProfile          string
+	DevelopmentGuard          string
+	DevelopmentMaterialDir    string
 	FakeCredentialsPath       string
 	TrustedHeaderSubject      string
 	TrustedHeaderRoles        string
@@ -122,6 +125,9 @@ func Load() Config {
 		DataDir:                   envFirst(EnvDataDir, LegacyEnvDataDir),
 		DataPath:                  envFirst(EnvDataPath, LegacyEnvDataPath),
 		AuthMode:                  envFirst(EnvAuthMode, LegacyEnvAuthMode),
+		ExecutionProfile:          envFirst(EnvExecutionProfile),
+		DevelopmentGuard:          envFirst(EnvDevelopmentGuard),
+		DevelopmentMaterialDir:    envFirst(EnvDevelopmentMaterialDir),
 		FakeCredentialsPath:       envFirst(EnvFakeCredentialsPath),
 		TrustedHeaderSubject:      envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),
 		TrustedHeaderRoles:        envFirst(EnvTrustedHeaderRoles, LegacyTrustedHeaderRoles),
@@ -173,6 +179,19 @@ func (c Config) Normalize() Config {
 	c.DataDir = defaultString(c.DataDir, DefaultDataDir)
 	c.DataPath = defaultDataPath(c.DataPath, c.DataDir)
 	c.AuthMode = normalizeAuthMode(c.AuthMode)
+	c.ExecutionProfile = normalizeExecutionProfile(c.ExecutionProfile)
+	c.DevelopmentGuard = strings.TrimSpace(c.DevelopmentGuard)
+	c.DevelopmentMaterialDir = strings.TrimSpace(c.DevelopmentMaterialDir)
+	if c.ExecutionProfile == ExecutionProfileDevelopment && c.AuthMode == AuthModeDevelopment &&
+		c.DevelopmentGuard == DevelopmentGuardAcknowledgement && c.DevelopmentMaterialDir != "" {
+		rutas := c.DevelopmentPaths()
+		if strings.TrimSpace(c.TLSCertFile) == "" {
+			c.TLSCertFile = rutas.ServerCertificate
+		}
+		if strings.TrimSpace(c.TLSKeyFile) == "" {
+			c.TLSKeyFile = rutas.ServerPrivateKey
+		}
+	}
 	c.FakeCredentialsPath = strings.TrimSpace(c.FakeCredentialsPath)
 	c.TrustedHeaderSubject = defaultString(c.TrustedHeaderSubject, DefaultTrustedHeaderSubject)
 	c.TrustedHeaderRoles = defaultString(c.TrustedHeaderRoles, DefaultTrustedHeaderRoles)
@@ -266,6 +285,8 @@ func normalizeAuthMode(mode string) string {
 		return AuthModeFake
 	case AuthModeTrustedHeaders:
 		return AuthModeTrustedHeaders
+	case AuthModeDevelopment:
+		return AuthModeDevelopment
 	case AuthModeDisabled:
 		return AuthModeDisabled
 	default:

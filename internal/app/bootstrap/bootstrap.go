@@ -53,6 +53,14 @@ func NewHTTPServer() (*http.Server, error) {
 
 func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 	cfg = cfg.Normalize()
+	if err := rechazarTLSDesarrolloEnProduccion(cfg); err != nil {
+		return nil, err
+	}
+	if cfg.ExecutionProfile == config.ExecutionProfileDevelopment || cfg.AuthMode == config.AuthModeDevelopment ||
+		cfg.DevelopmentGuard != "" || cfg.DevelopmentMaterialDir != "" {
+		servidor, _, err := NewHTTPServerDesarrolloWithConfig(cfg, os.Stderr)
+		return servidor, err
+	}
 	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
 		return nil, err
 	}
@@ -68,6 +76,18 @@ func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 // heredada de candidatos.
 func NewHTTPServerPublicoWithConfig(cfg config.Config) (*http.Server, error) {
 	cfg = cfg.Normalize()
+	if err := rechazarTLSDesarrolloEnProduccion(cfg); err != nil {
+		return nil, err
+	}
+	// El binario público no es una vía alternativa para activar T21: carece
+	// deliberadamente de identidad mTLS y de la composición KMS/TSA completa.
+	// Cualquier selector del perfil local se rechaza antes de neutralizar el
+	// AuthMode de la superficie anónima.
+	if cfg.ExecutionProfile == config.ExecutionProfileDevelopment ||
+		cfg.AuthMode == config.AuthModeDevelopment || cfg.DevelopmentGuard != "" ||
+		cfg.DevelopmentMaterialDir != "" {
+		return nil, ErrActivacionDesarrolloInvalida
+	}
 	api, err := NewAPIPublicaBolsaWithConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -161,6 +181,14 @@ func newVECShellAPICompuesta(
 	credencialesFake *almacenCredencialesFake,
 	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
 ) (http.Handler, error) {
+	return newVECShellAPICompuestaConIdentidad(cfg, credencialesFake, categoriasPersonal)
+}
+
+func newVECShellAPICompuestaConIdentidad(
+	cfg config.Config,
+	resolvedorIdentidad vechttp.DemoIdentityResolver,
+	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
+) (http.Handler, error) {
 	personalCatalog, err := nuevoServicioCatalogoPersonal(cfg.PersonalCatalogPath)
 	if err != nil {
 		return nil, err
@@ -189,8 +217,8 @@ func newVECShellAPICompuesta(
 		OSRMScopeName:           cfg.OSRMScopeName,
 		OSRMScopeBounds:         cfg.OSRMScopeBounds,
 		OSRMAllowedCIDRs:        append([]string(nil), cfg.OSRMAllowedCIDRs...),
-		AllowDemoIdentity:       cfg.AuthMode == config.AuthModeFake,
-		DemoIdentityResolver:    credencialesFake,
+		AllowDemoIdentity:       resolvedorIdentidad != nil,
+		DemoIdentityResolver:    resolvedorIdentidad,
 	})
 }
 
@@ -198,7 +226,8 @@ func validarModoAutenticacionIntegrado(cfg config.Config) error {
 	if cfg.AuthMode == config.AuthModeTrustedHeaders {
 		return ErrModoCabecerasConfiablesRetirado
 	}
-	return nil
+	_, _, err := validarComposicionPerfil(cfg.Normalize(), nil)
+	return err
 }
 
 // nuevoServicioCatalogoPersonal pertenece a la raiz de composicion: el
