@@ -8,8 +8,11 @@ import (
 )
 
 var (
-	ErrOrdenDespachoDocumentalV3Invalida = errors.New("vec: orden de despacho documental v3 invalida")
-	ErrSerializacionSecretoDocumentalV3  = errors.New("vec: serializacion de secreto documental v3 prohibida")
+	ErrOrdenDespachoDocumentalV3Invalida  = errors.New("vec: orden de despacho documental v3 invalida")
+	ErrTokenCercadoDocumentalV3Invalido   = errors.New("vec: token de cercado documental v3 invalido")
+	ErrSelloEvidenciaDocumentalV3Invalido = errors.New("vec: sello de evidencia documental v3 invalido")
+	ErrReconciliacionDocumentalV3Invalida = errors.New("vec: reconciliacion documental v3 invalida")
+	ErrSerializacionSecretoDocumentalV3   = errors.New("vec: serializacion de secreto documental v3 prohibida")
 )
 
 func (d DatosSolicitudReclamacionV3) Validar() error {

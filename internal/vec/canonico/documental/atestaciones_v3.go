@@ -1,6 +1,11 @@
 package documental
 
-import "time"
+import (
+	"fmt"
+	"io"
+	"log/slog"
+	"time"
+)
 
 const (
 	AlgoritmoHMACSHA256V3                = "hmac-sha256"
@@ -172,6 +177,35 @@ func (d DatosPruebaAtestacionDespachoV3) HuellaSHA256() string {
 		d.ClaveGestionadaRef, Uint64Decimal(d.RevisionClaveGestionada),
 		d.EvidenciaOperacionRef, d.HuellaMensajeSHA256, d.HuellaSobreSHA256,
 	})
+}
+
+func (DatosPruebaAtestacionDespachoV3) String() string {
+	return "[DATOS-PRUEBA-ATESTACION-DESPACHO-V3-CONFIDENCIALES-REDACTADOS]"
+}
+func (d DatosPruebaAtestacionDespachoV3) GoString() string { return d.String() }
+func (d DatosPruebaAtestacionDespachoV3) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, d.String())
+}
+func (d DatosPruebaAtestacionDespachoV3) LogValue() slog.Value {
+	return slog.StringValue(d.String())
+}
+func (DatosPruebaAtestacionDespachoV3) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosPruebaAtestacionDespachoV3) UnmarshalJSON([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosPruebaAtestacionDespachoV3) MarshalText() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosPruebaAtestacionDespachoV3) UnmarshalText([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
+}
+func (DatosPruebaAtestacionDespachoV3) MarshalBinary() ([]byte, error) {
+	return nil, ErrSerializacionSecretoDocumentalV3
+}
+func (*DatosPruebaAtestacionDespachoV3) UnmarshalBinary([]byte) error {
+	return ErrSerializacionSecretoDocumentalV3
 }
 
 // DatosMetadatosComprobacionV3 concentra el cotejo nominal de una comprobacion.

@@ -39,7 +39,7 @@
 1206 internal/vec/ports/almacen_objetos.go
 1160 internal/vec/ports/ejecucion_componentes_documentales_atestada.go
 1010 internal/vec/ports/ejecucion_componentes_documentales_atestada_test.go
-3976 internal/vec/ports/ejecuciones_documentales_v3.go
+3975 internal/vec/ports/ejecuciones_documentales_v3.go
 1565 internal/vec/ports/ejecuciones_documentales_v3_test.go
 1590 internal/vec/ports/materializacion_documental_v4.go
 1094 internal/vec/ports/materializacion_documental_v4_test.go
