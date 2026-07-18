@@ -4,45 +4,33 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
-	"reflect"
-	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
+
+	recibomaterial "vec-diputacion-granada/internal/vec/canonico/recibomaterial"
 )
 
 var (
 	// ErrReciboEscrituraObjetoMaterialV2NoValido es deliberadamente opaco:
 	// un dato ausente, un cruce de contexto y una prueba criptografica falsa
 	// producen la misma denegacion cerrada.
-	ErrReciboEscrituraObjetoMaterialV2NoValido = errors.New(
-		"vec: recibo material v2 de escritura no valido",
-	)
-	ErrAtestacionMaterialAlmacenV2NoValida = errors.New(
-		"vec: atestacion material v2 de almacen no valida",
-	)
-	ErrSerializacionMaterialAlmacenV2Prohibida = errors.New(
-		"vec: serializacion generica de material v2 de almacen prohibida",
-	)
+	ErrReciboEscrituraObjetoMaterialV2NoValido = recibomaterial.ErrReciboNoValido
+	ErrAtestacionMaterialAlmacenV2NoValida     = recibomaterial.ErrAtestacionNoValida
+	ErrSerializacionMaterialAlmacenV2Prohibida = recibomaterial.ErrSerializacionProhibida
 )
 
 const (
-	EsquemaPerfilCapacidadesAlmacenMaterialV2 = "vec.almacen.perfil-capacidades-material.v2"
-	EsquemaInstantaneaObjetoMaterialV2        = "vec.almacen.instantanea-objeto-material.v2"
-	EsquemaReciboEscrituraObjetoMaterialV2    = "vec.almacen.recibo-escritura-material.v2"
+	EsquemaPerfilCapacidadesAlmacenMaterialV2 = recibomaterial.EsquemaPerfil
+	EsquemaInstantaneaObjetoMaterialV2        = recibomaterial.EsquemaInstantanea
+	EsquemaReciboEscrituraObjetoMaterialV2    = recibomaterial.EsquemaRecibo
 
-	VersionEsquemaMaterialAlmacenV2 uint16 = 2
+	VersionEsquemaMaterialAlmacenV2 uint16 = recibomaterial.EsquemaVersion
 
-	dominioAtestacionPerfilCapacidadesMaterialV2 = "perfil-capacidades-almacen-material-v2"
-	dominioAtestacionReciboEscrituraMaterialV2   = "recibo-escritura-objeto-material-v2"
-
-	tamanoMaximoAtestacionMaterialAlmacenV2 = 16 * 1024
+	dominioAtestacionPerfilCapacidadesMaterialV2 = recibomaterial.DominioPerfil
+	dominioAtestacionReciboEscrituraMaterialV2   = recibomaterial.DominioRecibo
 )
 
 // EstadoInmovilizacionObjetoMaterialV2 evita representar el bloqueo legal con
@@ -101,7 +89,7 @@ func NuevaSeleccionPlanMaterialAlmacenV2(
 }
 
 func (s SeleccionPlanMaterialAlmacenV2) valida() bool {
-	return aliasLogicoMaterialV2Valido(s.referencia, 512) && s.version > 0
+	return recibomaterial.SeleccionPlanValida(datosSeleccionPlanMaterialV2(s))
 }
 
 // HuellaPlanMaterialAlmacenV2 es una capacidad opaca creada exclusivamente
@@ -114,8 +102,7 @@ type HuellaPlanMaterialAlmacenV2 struct {
 }
 
 func (h HuellaPlanMaterialAlmacenV2) valida() bool {
-	return aliasLogicoMaterialV2Valido(h.referencia, 512) && h.version > 0 &&
-		h.suma != ([sha256.Size]byte{}) && h.huellaVinculo != ([sha256.Size]byte{})
+	return recibomaterial.HuellaPlanValida(datosHuellaPlanMaterialV2(h))
 }
 
 func (h HuellaPlanMaterialAlmacenV2) Bytes() ([]byte, error) {
@@ -163,31 +150,10 @@ func nuevaSolicitudVerificarPlanMaterialAlmacenV2(
 }
 
 func (s SolicitudVerificarPlanMaterialAlmacenV2) canonicoSinHuella() ([]byte, error) {
-	if !s.seleccion.valida() || !aliasLogicoMaterialV2Valido(s.conectorLogicoID, 128) ||
-		!aliasLogicoMaterialV2Valido(s.moduloID, 128) ||
-		!aliasLogicoMaterialV2Valido(s.accionNegocio, 256) ||
-		s.accionTecnica != AccionAlmacenEscribir ||
-		!aliasLogicoMaterialV2Valido(s.recursoRef, 512) ||
-		!aliasLogicoMaterialV2Valido(s.operacionRef, 512) ||
-		!aliasLogicoMaterialV2Valido(s.cargaRef, 512) ||
-		!aliasLogicoMaterialV2Valido(s.efectoRef, 512) ||
-		!aliasLogicoMaterialV2Valido(s.clasificacion, 256) {
+	canonico, err := recibomaterial.CanonicoVinculoPlan(datosVinculoPlanMaterialV2(s))
+	if err != nil {
 		return nil, errorReciboMaterialV2()
 	}
-	var canonico []byte
-	canonico = anexarTLVMaterialV2(canonico, 0, []byte("vec.almacen.vinculo-plan-material.v2"))
-	canonico = anexarTLVMaterialV2(canonico, 1, uint16MaterialV2(VersionEsquemaMaterialAlmacenV2))
-	canonico = anexarTLVMaterialV2(canonico, 2, []byte(s.seleccion.referencia))
-	canonico = anexarTLVMaterialV2(canonico, 3, uint32MaterialV2(s.seleccion.version))
-	canonico = anexarTLVMaterialV2(canonico, 4, []byte(s.conectorLogicoID))
-	canonico = anexarTLVMaterialV2(canonico, 5, []byte(s.moduloID))
-	canonico = anexarTLVMaterialV2(canonico, 6, []byte(s.accionNegocio))
-	canonico = anexarTLVMaterialV2(canonico, 7, []byte(s.accionTecnica))
-	canonico = anexarTLVMaterialV2(canonico, 8, []byte(s.recursoRef))
-	canonico = anexarTLVMaterialV2(canonico, 9, []byte(s.operacionRef))
-	canonico = anexarTLVMaterialV2(canonico, 10, []byte(s.cargaRef))
-	canonico = anexarTLVMaterialV2(canonico, 11, []byte(s.efectoRef))
-	canonico = anexarTLVMaterialV2(canonico, 12, []byte(s.clasificacion))
 	return canonico, nil
 }
 
@@ -238,10 +204,7 @@ func (r ResultadoVerificacionPlanMaterialAlmacenV2) validarPara(
 ) error {
 	_, _, _, _, _, _, _, _, _, _, _, vinculo, err :=
 		solicitud.RevelarParaVerificacionPlanMaterial()
-	if err != nil || r.huellaPlan == ([sha256.Size]byte{}) ||
-		r.huellaVinculo == ([sha256.Size]byte{}) ||
-		subtle.ConstantTimeCompare(r.huellaVinculo[:], vinculo[:]) != 1 ||
-		huellasMaterialV2Iguales(r.huellaPlan, vinculo) {
+	if err != nil || !recibomaterial.ResultadoLigado(vinculo, r.huellaPlan, r.huellaVinculo) {
 		return errorReciboMaterialV2()
 	}
 	return nil
@@ -273,7 +236,7 @@ func nuevaSolicitudAtestarMaterialAlmacenV2(
 	dominio string,
 	mensaje []byte,
 ) (SolicitudAtestarMaterialAlmacenV2, error) {
-	if !dominioAtestacionMaterialV2Valido(dominio) || len(mensaje) == 0 {
+	if !recibomaterial.DominioAtestacionValido(dominio) || len(mensaje) == 0 {
 		return SolicitudAtestarMaterialAlmacenV2{}, errorAtestacionMaterialV2()
 	}
 	copia := append([]byte(nil), mensaje...)
@@ -283,10 +246,7 @@ func nuevaSolicitudAtestarMaterialAlmacenV2(
 }
 
 func (s SolicitudAtestarMaterialAlmacenV2) validar() error {
-	esperada := sumaSHA256MaterialV2(s.mensaje)
-	if !dominioAtestacionMaterialV2Valido(s.dominio) || len(s.mensaje) == 0 ||
-		s.huella == ([sha256.Size]byte{}) ||
-		subtle.ConstantTimeCompare(s.huella[:], esperada[:]) != 1 {
+	if !recibomaterial.SolicitudAtestacionValida(s.dominio, s.mensaje, s.huella) {
 		return errorAtestacionMaterialV2()
 	}
 	return nil
@@ -343,11 +303,10 @@ func NuevaAtestacionCriptograficaMaterialAlmacenV2(
 func (a AtestacionCriptograficaMaterialAlmacenV2) validarPara(
 	solicitud SolicitudAtestarMaterialAlmacenV2,
 ) error {
-	if solicitud.validar() != nil || !a.algoritmo.valida() ||
-		!aliasLogicoMaterialV2Valido(a.claveRef, 256) || a.claveVersion == 0 ||
-		a.dominio != solicitud.dominio ||
-		subtle.ConstantTimeCompare(a.huella[:], solicitud.huella[:]) != 1 ||
-		!codigoAtestacionMaterialV2Valido(a.algoritmo, a.codigo) {
+	if !recibomaterial.AtestacionValida(
+		solicitud.dominio, solicitud.mensaje, solicitud.huella, string(a.algoritmo),
+		a.claveRef, a.claveVersion, a.dominio, a.huella, a.codigo,
+	) {
 		return errorAtestacionMaterialV2()
 	}
 	return nil
@@ -441,8 +400,8 @@ func (s SolicitudVerificarPerfilPublicadoMaterialV2) RevelarParaHomologacion() (
 	canonico []byte,
 	err error,
 ) {
-	if !aliasLogicoMaterialV2Valido(s.referencia, 512) || s.version == 0 ||
-		!aliasLogicoMaterialV2Valido(s.conectorLogicoID, 128) ||
+	if !recibomaterial.AliasLogicoValido(s.referencia, 512) || s.version == 0 ||
+		!recibomaterial.AliasLogicoValido(s.conectorLogicoID, 128) ||
 		s.huella == ([sha256.Size]byte{}) || len(s.canonico) == 0 {
 		return "", 0, "", [sha256.Size]byte{}, nil, errorReciboMaterialV2()
 	}
@@ -556,13 +515,7 @@ func NuevoPerfilCapacidadesAlmacenMaterialV2(
 }
 
 func (p PerfilCapacidadesAlmacenMaterialV2) validarHechos() error {
-	if p.esquema != EsquemaPerfilCapacidadesAlmacenMaterialV2 ||
-		p.versionEsquema != VersionEsquemaMaterialAlmacenV2 ||
-		!aliasLogicoMaterialV2Valido(p.referencia, 512) || p.version == 0 ||
-		!aliasLogicoMaterialV2Valido(p.conectorLogicoID, 128) ||
-		!p.escrituraEnFlujo || !p.referenciasOpacas || !p.integridadSHA256 ||
-		!p.versionado || !p.cifradoEnTransito || !p.cifradoEnReposo ||
-		p.tamanoMaximoObjeto < 1 {
+	if !recibomaterial.PerfilValido(datosPerfilMaterialV2(p)) {
 		return errorReciboMaterialV2()
 	}
 	return nil
@@ -573,7 +526,7 @@ func (p PerfilCapacidadesAlmacenMaterialV2) Validar() error {
 		return errorReciboMaterialV2()
 	}
 	canonico, err := p.canonicoSinAtestacion()
-	esperada := sumaSHA256MaterialV2(canonico)
+	esperada := recibomaterial.SumaSHA256(canonico)
 	if err != nil || subtle.ConstantTimeCompare(p.huella[:], esperada[:]) != 1 {
 		return errorReciboMaterialV2()
 	}
@@ -634,43 +587,17 @@ func (p PerfilCapacidadesAlmacenMaterialV2) VerificarPublicacion(
 func (p PerfilCapacidadesAlmacenMaterialV2) cotejar(
 	capacidades CapacidadesAlmacenObjetos,
 ) error {
-	if p.Validar() != nil || p.conectorLogicoID != capacidades.ConectorID ||
-		p.escrituraEnFlujo != capacidades.EscrituraEnFlujo ||
-		p.referenciasOpacas != capacidades.ReferenciasOpacas ||
-		p.integridadSHA256 != capacidades.IntegridadSHA256 ||
-		p.versionado != capacidades.Versionado || p.retencion != capacidades.Retencion ||
-		p.bloqueoLegal != capacidades.BloqueoLegal ||
-		p.cifradoEnTransito != capacidades.CifradoEnTransito ||
-		p.cifradoEnReposo != capacidades.CifradoEnReposo ||
-		p.cifradoPorObjeto != capacidades.CifradoPorObjeto ||
-		p.preservaObjetoOriginal != capacidades.PreservaObjetoOriginal ||
-		p.tamanoMaximoObjeto != capacidades.TamanoMaximoObjeto {
+	if p.Validar() != nil || !recibomaterial.PerfilCotejaCapacidades(datosPerfilMaterialV2(p), capacidades) {
 		return errorReciboMaterialV2()
 	}
 	return nil
 }
 
 func (p PerfilCapacidadesAlmacenMaterialV2) canonicoSinAtestacion() ([]byte, error) {
-	if p.validarHechos() != nil {
+	canonico, err := recibomaterial.CanonicoPerfil(datosPerfilMaterialV2(p))
+	if err != nil {
 		return nil, errorReciboMaterialV2()
 	}
-	var canonico []byte
-	canonico = anexarTLVMaterialV2(canonico, 0, []byte(p.esquema))
-	canonico = anexarTLVMaterialV2(canonico, 1, uint16MaterialV2(p.versionEsquema))
-	canonico = anexarTLVMaterialV2(canonico, 2, []byte(p.referencia))
-	canonico = anexarTLVMaterialV2(canonico, 3, uint32MaterialV2(p.version))
-	canonico = anexarTLVMaterialV2(canonico, 4, []byte(p.conectorLogicoID))
-	canonico = anexarTLVMaterialV2(canonico, 5, boolMaterialV2(p.escrituraEnFlujo))
-	canonico = anexarTLVMaterialV2(canonico, 6, boolMaterialV2(p.referenciasOpacas))
-	canonico = anexarTLVMaterialV2(canonico, 7, boolMaterialV2(p.integridadSHA256))
-	canonico = anexarTLVMaterialV2(canonico, 8, boolMaterialV2(p.versionado))
-	canonico = anexarTLVMaterialV2(canonico, 9, boolMaterialV2(p.retencion))
-	canonico = anexarTLVMaterialV2(canonico, 10, boolMaterialV2(p.bloqueoLegal))
-	canonico = anexarTLVMaterialV2(canonico, 11, boolMaterialV2(p.cifradoEnTransito))
-	canonico = anexarTLVMaterialV2(canonico, 12, boolMaterialV2(p.cifradoEnReposo))
-	canonico = anexarTLVMaterialV2(canonico, 13, boolMaterialV2(p.cifradoPorObjeto))
-	canonico = anexarTLVMaterialV2(canonico, 14, boolMaterialV2(p.preservaObjetoOriginal))
-	canonico = anexarTLVMaterialV2(canonico, 15, int64MaterialV2(p.tamanoMaximoObjeto))
 	return canonico, nil
 }
 
@@ -738,51 +665,17 @@ func nuevaInstantaneaObjetoMaterialV2(
 }
 
 func (i InstantaneaObjetoMaterialV2) Validar() error {
-	if i.esquema != EsquemaInstantaneaObjetoMaterialV2 ||
-		i.versionEsquema != VersionEsquemaMaterialAlmacenV2 ||
-		!aliasLogicoMaterialV2Valido(i.conectorLogicoID, 128) ||
-		!aliasLogicoMaterialV2Valido(i.objetoRef, 512) ||
-		!aliasLogicoMaterialV2Valido(i.objetoVersion, 256) || !i.zona.Valida() ||
-		!mimeMaterialV2Valido(i.mime) || i.tamano < 1 ||
-		i.huellaContenido == ([sha256.Size]byte{}) ||
-		!aliasLogicoMaterialV2Valido(i.evidenciaCreacionRef, 512) ||
-		!instanteMaterialV2Valido(i.almacenadoEn) ||
-		!i.estadoInmovilizacion.valida() || !i.estadoObjeto.valida() {
-		return errorReciboMaterialV2()
-	}
-	if i.tieneRetencion {
-		if !instanteMaterialV2Valido(i.retenidoHasta) ||
-			!i.retenidoHasta.After(i.almacenadoEn) {
-			return errorReciboMaterialV2()
-		}
-	} else if !i.retenidoHasta.IsZero() {
+	if !recibomaterial.InstantaneaValida(datosInstantaneaMaterialV2(i)) {
 		return errorReciboMaterialV2()
 	}
 	return nil
 }
 
 func (i InstantaneaObjetoMaterialV2) canonico() ([]byte, error) {
-	if i.Validar() != nil {
+	canonico, err := recibomaterial.CanonicoInstantanea(datosInstantaneaMaterialV2(i))
+	if err != nil {
 		return nil, errorReciboMaterialV2()
 	}
-	var canonico []byte
-	canonico = anexarTLVMaterialV2(canonico, 0, []byte(i.esquema))
-	canonico = anexarTLVMaterialV2(canonico, 1, uint16MaterialV2(i.versionEsquema))
-	canonico = anexarTLVMaterialV2(canonico, 2, []byte(i.conectorLogicoID))
-	canonico = anexarTLVMaterialV2(canonico, 3, []byte(i.objetoRef))
-	canonico = anexarTLVMaterialV2(canonico, 4, []byte(i.objetoVersion))
-	canonico = anexarTLVMaterialV2(canonico, 5, []byte(i.zona))
-	canonico = anexarTLVMaterialV2(canonico, 6, []byte(i.mime))
-	canonico = anexarTLVMaterialV2(canonico, 7, int64MaterialV2(i.tamano))
-	canonico = anexarTLVMaterialV2(canonico, 8, i.huellaContenido[:])
-	canonico = anexarTLVMaterialV2(canonico, 9, []byte(i.evidenciaCreacionRef))
-	canonico = anexarTLVMaterialV2(canonico, 10, int64MaterialV2(i.almacenadoEn.UnixMicro()))
-	canonico = anexarTLVMaterialV2(canonico, 11, boolMaterialV2(i.tieneRetencion))
-	if i.tieneRetencion {
-		canonico = anexarTLVMaterialV2(canonico, 12, int64MaterialV2(i.retenidoHasta.UnixMicro()))
-	}
-	canonico = anexarTLVMaterialV2(canonico, 13, []byte(i.estadoInmovilizacion))
-	canonico = anexarTLVMaterialV2(canonico, 14, []byte(i.estadoObjeto))
 	return canonico, nil
 }
 
@@ -795,7 +688,7 @@ func (i InstantaneaObjetoMaterialV2) HuellaSHA256() ([sha256.Size]byte, error) {
 	if err != nil {
 		return [sha256.Size]byte{}, err
 	}
-	return sha256.Sum256(canonico), nil
+	return recibomaterial.SumaSHA256(canonico), nil
 }
 
 // SolicitudReservarReferenciaReciboMaterialV2 identifica el recibo por todos
@@ -1048,29 +941,14 @@ func NuevoReciboEscrituraObjetoMaterialV2(
 }
 
 func (r ReciboEscrituraObjetoMaterialV2) validarHechos() error {
-	if r.validarHechosMateriales() != nil ||
-		!aliasLogicoMaterialV2Valido(r.referenciaDurableOriginal, 512) {
+	if !recibomaterial.ReciboValido(datosReciboMaterialV2(r)) {
 		return errorReciboMaterialV2()
 	}
 	return nil
 }
 
 func (r ReciboEscrituraObjetoMaterialV2) validarHechosMateriales() error {
-	if r.esquema != EsquemaReciboEscrituraObjetoMaterialV2 ||
-		r.versionEsquema != VersionEsquemaMaterialAlmacenV2 ||
-		!aliasLogicoMaterialV2Valido(r.perfilReferencia, 512) || r.perfilVersion == 0 ||
-		r.huellaPerfil == ([sha256.Size]byte{}) ||
-		!aliasLogicoMaterialV2Valido(r.moduloID, 128) ||
-		!aliasLogicoMaterialV2Valido(r.accionNegocio, 256) ||
-		r.accionTecnica != AccionAlmacenEscribir ||
-		!aliasLogicoMaterialV2Valido(r.accionTecnica, 128) ||
-		!aliasLogicoMaterialV2Valido(r.recursoRef, 512) ||
-		!aliasLogicoMaterialV2Valido(r.operacionRef, 512) ||
-		!aliasLogicoMaterialV2Valido(r.cargaRef, 512) ||
-		!aliasLogicoMaterialV2Valido(r.efectoRef, 512) ||
-		!r.huellaPlanMaterial.valida() ||
-		!aliasLogicoMaterialV2Valido(r.clasificacion, 256) ||
-		r.instantanea.Validar() != nil {
+	if !recibomaterial.HechosMaterialesReciboValidos(datosReciboMaterialV2(r)) {
 		return errorReciboMaterialV2()
 	}
 	return nil
@@ -1081,7 +959,7 @@ func (r ReciboEscrituraObjetoMaterialV2) Validar() error {
 		return errorReciboMaterialV2()
 	}
 	canonico, err := r.canonicoSinAtestacion()
-	esperada := sumaSHA256MaterialV2(canonico)
+	esperada := recibomaterial.SumaSHA256(canonico)
 	if err != nil || subtle.ConstantTimeCompare(r.huella[:], esperada[:]) != 1 ||
 		huellasMaterialV2Iguales(r.huella, r.instantanea.huellaContenido) ||
 		huellasMaterialV2Iguales(r.huella, r.huellaPerfil) ||
@@ -1118,61 +996,19 @@ func (r ReciboEscrituraObjetoMaterialV2) VerificarAtestacion(
 }
 
 func (r ReciboEscrituraObjetoMaterialV2) canonicoSinAtestacion() ([]byte, error) {
-	if r.validarHechos() != nil {
+	canonico, err := recibomaterial.CanonicoRecibo(datosReciboMaterialV2(r))
+	if err != nil {
 		return nil, errorReciboMaterialV2()
 	}
-	var canonico []byte
-	canonico = anexarTLVMaterialV2(canonico, 0, []byte(r.esquema))
-	canonico = anexarTLVMaterialV2(canonico, 1, uint16MaterialV2(r.versionEsquema))
-	canonico = anexarTLVMaterialV2(canonico, 2, []byte(r.referenciaDurableOriginal))
-	return r.anexarHechosCanonicos(canonico), nil
+	return canonico, nil
 }
 
 func (r ReciboEscrituraObjetoMaterialV2) canonicoIdentidadDurable() ([]byte, error) {
-	if r.validarHechosMateriales() != nil || r.referenciaDurableOriginal != "" {
+	canonico, err := recibomaterial.CanonicoIdentidadDurable(datosReciboMaterialV2(r))
+	if err != nil {
 		return nil, errorReciboMaterialV2()
 	}
-	var canonico []byte
-	canonico = anexarTLVMaterialV2(
-		canonico, 0, []byte("vec.almacen.identidad-recibo-escritura-material.v2"),
-	)
-	canonico = anexarTLVMaterialV2(canonico, 1, uint16MaterialV2(r.versionEsquema))
-	return r.anexarHechosCanonicos(canonico), nil
-}
-
-func (r ReciboEscrituraObjetoMaterialV2) anexarHechosCanonicos(canonico []byte) []byte {
-	i := r.instantanea
-	canonico = anexarTLVMaterialV2(canonico, 3, []byte(i.conectorLogicoID))
-	canonico = anexarTLVMaterialV2(canonico, 4, []byte(r.perfilReferencia))
-	canonico = anexarTLVMaterialV2(canonico, 5, uint32MaterialV2(r.perfilVersion))
-	canonico = anexarTLVMaterialV2(canonico, 6, r.huellaPerfil[:])
-	canonico = anexarTLVMaterialV2(canonico, 7, []byte(r.moduloID))
-	canonico = anexarTLVMaterialV2(canonico, 8, []byte(r.accionNegocio))
-	canonico = anexarTLVMaterialV2(canonico, 9, []byte(r.accionTecnica))
-	canonico = anexarTLVMaterialV2(canonico, 10, []byte(r.recursoRef))
-	canonico = anexarTLVMaterialV2(canonico, 11, []byte(r.operacionRef))
-	canonico = anexarTLVMaterialV2(canonico, 12, []byte(r.cargaRef))
-	canonico = anexarTLVMaterialV2(canonico, 13, []byte(r.efectoRef))
-	canonico = anexarTLVMaterialV2(canonico, 14, []byte(r.huellaPlanMaterial.referencia))
-	canonico = anexarTLVMaterialV2(canonico, 15, uint32MaterialV2(r.huellaPlanMaterial.version))
-	canonico = anexarTLVMaterialV2(canonico, 16, r.huellaPlanMaterial.suma[:])
-	canonico = anexarTLVMaterialV2(canonico, 17, r.huellaPlanMaterial.huellaVinculo[:])
-	canonico = anexarTLVMaterialV2(canonico, 18, []byte(r.clasificacion))
-	canonico = anexarTLVMaterialV2(canonico, 19, []byte(i.objetoRef))
-	canonico = anexarTLVMaterialV2(canonico, 20, []byte(i.objetoVersion))
-	canonico = anexarTLVMaterialV2(canonico, 21, []byte(i.zona))
-	canonico = anexarTLVMaterialV2(canonico, 22, []byte(i.mime))
-	canonico = anexarTLVMaterialV2(canonico, 23, int64MaterialV2(i.tamano))
-	canonico = anexarTLVMaterialV2(canonico, 24, i.huellaContenido[:])
-	canonico = anexarTLVMaterialV2(canonico, 25, []byte(i.evidenciaCreacionRef))
-	canonico = anexarTLVMaterialV2(canonico, 26, int64MaterialV2(i.almacenadoEn.UnixMicro()))
-	canonico = anexarTLVMaterialV2(canonico, 27, boolMaterialV2(i.tieneRetencion))
-	if i.tieneRetencion {
-		canonico = anexarTLVMaterialV2(canonico, 28, int64MaterialV2(i.retenidoHasta.UnixMicro()))
-	}
-	canonico = anexarTLVMaterialV2(canonico, 29, []byte(i.estadoInmovilizacion))
-	canonico = anexarTLVMaterialV2(canonico, 30, []byte(i.estadoObjeto))
-	return canonico
+	return canonico, nil
 }
 
 func (r ReciboEscrituraObjetoMaterialV2) BytesCanonicos() ([]byte, error) {
@@ -1199,186 +1035,104 @@ func (r ReciboEscrituraObjetoMaterialV2) Instantanea() (
 	return r.instantanea, nil
 }
 
+func datosSeleccionPlanMaterialV2(s SeleccionPlanMaterialAlmacenV2) recibomaterial.SeleccionPlan {
+	return recibomaterial.SeleccionPlan{Referencia: s.referencia, Version: s.version}
+}
+
+func datosHuellaPlanMaterialV2(h HuellaPlanMaterialAlmacenV2) recibomaterial.HuellaPlan {
+	return recibomaterial.HuellaPlan{
+		Referencia: h.referencia, Version: h.version, Suma: h.suma, HuellaVinculo: h.huellaVinculo,
+	}
+}
+
+func datosHechosContextoMaterialV2(p ProyeccionContextoOperacionAlmacen) recibomaterial.HechosContexto {
+	return recibomaterial.HechosContexto{
+		ModuloID: p.ModuloID, AccionNegocio: p.AccionNegocio, AccionTecnica: p.AccionTecnica,
+		RecursoRef: p.RecursoRef, OperacionRef: p.OperacionRef, CargaRef: p.CargaRef,
+		EfectoRef: p.EfectoRef, Clasificacion: p.Clasificacion,
+	}
+}
+
+func datosVinculoPlanMaterialV2(s SolicitudVerificarPlanMaterialAlmacenV2) recibomaterial.VinculoPlan {
+	return recibomaterial.VinculoPlan{
+		Seleccion: datosSeleccionPlanMaterialV2(s.seleccion), ConectorLogicoID: s.conectorLogicoID,
+		Hechos: recibomaterial.HechosContexto{
+			ModuloID: s.moduloID, AccionNegocio: s.accionNegocio, AccionTecnica: s.accionTecnica,
+			RecursoRef: s.recursoRef, OperacionRef: s.operacionRef, CargaRef: s.cargaRef,
+			EfectoRef: s.efectoRef, Clasificacion: s.clasificacion,
+		},
+	}
+}
+
+func datosPerfilMaterialV2(p PerfilCapacidadesAlmacenMaterialV2) recibomaterial.Perfil {
+	return recibomaterial.Perfil{
+		Esquema: p.esquema, VersionEsquema: p.versionEsquema, Referencia: p.referencia,
+		Version: p.version, ConectorLogicoID: p.conectorLogicoID, EscrituraEnFlujo: p.escrituraEnFlujo,
+		ReferenciasOpacas: p.referenciasOpacas, IntegridadSHA256: p.integridadSHA256,
+		Versionado: p.versionado, Retencion: p.retencion, BloqueoLegal: p.bloqueoLegal,
+		CifradoEnTransito: p.cifradoEnTransito, CifradoEnReposo: p.cifradoEnReposo,
+		CifradoPorObjeto: p.cifradoPorObjeto, PreservaObjetoOriginal: p.preservaObjetoOriginal,
+		TamanoMaximoObjeto: p.tamanoMaximoObjeto,
+	}
+}
+
+func datosInstantaneaMaterialV2(i InstantaneaObjetoMaterialV2) recibomaterial.Instantanea {
+	return recibomaterial.Instantanea{
+		Esquema: i.esquema, VersionEsquema: i.versionEsquema, ConectorLogicoID: i.conectorLogicoID,
+		ObjetoRef: i.objetoRef, ObjetoVersion: i.objetoVersion, Zona: i.zona, MIME: i.mime,
+		Tamano: i.tamano, HuellaContenido: i.huellaContenido, EvidenciaCreacionRef: i.evidenciaCreacionRef,
+		AlmacenadoEn: i.almacenadoEn, TieneRetencion: i.tieneRetencion, RetenidoHasta: i.retenidoHasta,
+		EstadoInmovilizacion: string(i.estadoInmovilizacion), EstadoObjeto: string(i.estadoObjeto),
+	}
+}
+
+func datosReciboMaterialV2(r ReciboEscrituraObjetoMaterialV2) recibomaterial.Recibo {
+	return recibomaterial.Recibo{
+		Esquema: r.esquema, VersionEsquema: r.versionEsquema,
+		ReferenciaDurableOriginal: r.referenciaDurableOriginal,
+		PerfilReferencia:          r.perfilReferencia, PerfilVersion: r.perfilVersion, HuellaPerfil: r.huellaPerfil,
+		Hechos: recibomaterial.HechosContexto{
+			ModuloID: r.moduloID, AccionNegocio: r.accionNegocio, AccionTecnica: r.accionTecnica,
+			RecursoRef: r.recursoRef, OperacionRef: r.operacionRef, CargaRef: r.cargaRef,
+			EfectoRef: r.efectoRef, Clasificacion: r.clasificacion,
+		},
+		HuellaPlan:  datosHuellaPlanMaterialV2(r.huellaPlanMaterial),
+		Instantanea: datosInstantaneaMaterialV2(r.instantanea),
+	}
+}
+
 func hechosEstablesContextoMaterialV2Validos(p ProyeccionContextoOperacionAlmacen) bool {
-	return aliasLogicoMaterialV2Valido(p.ModuloID, 128) &&
-		aliasLogicoMaterialV2Valido(p.AccionNegocio, 256) &&
-		aliasLogicoMaterialV2Valido(p.AccionTecnica, 128) &&
-		aliasLogicoMaterialV2Valido(p.RecursoRef, 512) &&
-		aliasLogicoMaterialV2Valido(p.OperacionRef, 512) &&
-		aliasLogicoMaterialV2Valido(p.CargaRef, 512) &&
-		aliasLogicoMaterialV2Valido(p.EfectoRef, 512) &&
-		aliasLogicoMaterialV2Valido(p.Clasificacion, 256)
+	return recibomaterial.HechosContextoValidos(datosHechosContextoMaterialV2(p))
 }
 
 func aliasLogicoMaterialV2Valido(valor string, maximo int) bool {
-	if valor == "" || len(valor) > maximo || valor != strings.TrimSpace(valor) ||
-		!utf8.ValidString(valor) || !textoASCIICanonicoMaterialV2(valor) ||
-		strings.Contains(valor, "/") ||
-		strings.Contains(valor, "\\") || strings.Contains(valor, "..") ||
-		strings.Contains(valor, "://") || strings.ContainsAny(valor, "?#@*") {
-		return false
-	}
-	minusculas := strings.ToLower(valor)
-	for _, marcaFisica := range []string{
-		"arn:", "etag:", "kms:", "bucket:", "bucket_", "endpoint:",
-		"ruta:", "path:", "file:", "s3:", "http:", "https:",
-		"dni:", "nif:", "nie:", "nombre:", "apellido:", "correo:",
-		"email:", "telefono:", "direccion:",
-	} {
-		if strings.Contains(minusculas, marcaFisica) {
-			return false
-		}
-	}
-	for _, caracter := range valor {
-		if unicode.IsControl(caracter) || unicode.IsSpace(caracter) {
-			return false
-		}
-	}
-	return !pareceIdentificadorPersonalMaterialV2(valor)
-}
-
-func textoASCIICanonicoMaterialV2(valor string) bool {
-	for indice := 0; indice < len(valor); indice++ {
-		if valor[indice] < 0x21 || valor[indice] > 0x7e {
-			return false
-		}
-	}
-	return true
-}
-
-func pareceIdentificadorPersonalMaterialV2(valor string) bool {
-	mayusculas := strings.ToUpper(valor)
-	if len(mayusculas) == 9 {
-		digitosDNI := true
-		for _, caracter := range mayusculas[:8] {
-			if caracter < '0' || caracter > '9' {
-				digitosDNI = false
-				break
-			}
-		}
-		ultima := mayusculas[8]
-		if digitosDNI && ultima >= 'A' && ultima <= 'Z' {
-			return true
-		}
-		primera := mayusculas[0]
-		digitosNIE := primera == 'X' || primera == 'Y' || primera == 'Z'
-		for _, caracter := range mayusculas[1:8] {
-			if caracter < '0' || caracter > '9' {
-				digitosNIE = false
-				break
-			}
-		}
-		if digitosNIE && ultima >= 'A' && ultima <= 'Z' {
-			return true
-		}
-	}
-	return false
-}
-
-func mimeMaterialV2Valido(valor string) bool {
-	if !textoSeguroAlmacen(valor, 255) || strings.Count(valor, "/") != 1 ||
-		!textoASCIICanonicoMaterialV2(valor) ||
-		strings.ContainsAny(valor, ";?#\\") || valor != strings.ToLower(valor) {
-		return false
-	}
-	partes := strings.Split(valor, "/")
-	return len(partes) == 2 && partes[0] != "" && partes[1] != ""
-}
-
-func instanteMaterialV2Valido(instante time.Time) bool {
-	return !instante.IsZero() && instante.Location() == time.UTC &&
-		instante.Year() >= 1 && instante.Year() <= 9999 &&
-		instante.Nanosecond()%1_000 == 0
+	return recibomaterial.AliasLogicoValido(valor, maximo)
 }
 
 func codigoAtestacionMaterialV2Valido(
 	algoritmo AlgoritmoAtestacionMaterialAlmacenV2,
 	codigo []byte,
 ) bool {
-	if algoritmo == AlgoritmoAtestacionMaterialHMACSHA256 {
-		return len(codigo) == sha256.Size
-	}
-	return algoritmo == AlgoritmoAtestacionMaterialCOSESign1 &&
-		len(codigo) >= 16 && len(codigo) <= tamanoMaximoAtestacionMaterialAlmacenV2
-}
-
-func dominioAtestacionMaterialV2Valido(dominio string) bool {
-	return dominio == dominioAtestacionPerfilCapacidadesMaterialV2 ||
-		dominio == dominioAtestacionReciboEscrituraMaterialV2
+	return recibomaterial.CodigoAtestacionValido(string(algoritmo), codigo)
 }
 
 func decodificarSHA256MaterialV2(valor string) ([sha256.Size]byte, error) {
-	var resultado [sha256.Size]byte
-	if len(valor) != sha256.Size*2 || valor != strings.ToLower(valor) {
-		return resultado, errorReciboMaterialV2()
-	}
-	contenido, err := hex.DecodeString(valor)
-	if err != nil || len(contenido) != sha256.Size {
-		return resultado, errorReciboMaterialV2()
-	}
-	copy(resultado[:], contenido)
-	if resultado == ([sha256.Size]byte{}) {
+	resultado, err := recibomaterial.DecodificarSHA256(valor)
+	if err != nil {
 		return [sha256.Size]byte{}, errorReciboMaterialV2()
 	}
 	return resultado, nil
-}
-
-func sumaSHA256MaterialV2(contenido []byte) [sha256.Size]byte {
-	return sha256.Sum256(contenido)
 }
 
 func huellasMaterialV2Iguales(
 	primera [sha256.Size]byte,
 	segunda [sha256.Size]byte,
 ) bool {
-	return subtle.ConstantTimeCompare(primera[:], segunda[:]) == 1
-}
-
-func anexarTLVMaterialV2(destino []byte, etiqueta uint16, valor []byte) []byte {
-	var cabecera [10]byte
-	binary.BigEndian.PutUint16(cabecera[0:2], etiqueta)
-	binary.BigEndian.PutUint64(cabecera[2:10], uint64(len(valor)))
-	destino = append(destino, cabecera[:]...)
-	return append(destino, valor...)
-}
-
-func uint16MaterialV2(valor uint16) []byte {
-	resultado := make([]byte, 2)
-	binary.BigEndian.PutUint16(resultado, valor)
-	return resultado
-}
-
-func uint32MaterialV2(valor uint32) []byte {
-	resultado := make([]byte, 4)
-	binary.BigEndian.PutUint32(resultado, valor)
-	return resultado
-}
-
-func int64MaterialV2(valor int64) []byte {
-	resultado := make([]byte, 8)
-	binary.BigEndian.PutUint64(resultado, uint64(valor))
-	return resultado
-}
-
-func boolMaterialV2(valor bool) []byte {
-	if valor {
-		return []byte{1}
-	}
-	return []byte{0}
+	return recibomaterial.HuellasIguales(primera, segunda)
 }
 
 func dependenciaMaterialV2Nula(dependencia any) bool {
-	if dependencia == nil {
-		return true
-	}
-	valor := reflect.ValueOf(dependencia)
-	switch valor.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map,
-		reflect.Pointer, reflect.Slice:
-		return valor.IsNil()
-	default:
-		return false
-	}
+	return recibomaterial.DependenciaNula(dependencia)
 }
 
 func errorReciboMaterialV2() error {
@@ -1392,34 +1146,41 @@ func errorAtestacionMaterialV2() error {
 	return errors.Join(errorReciboMaterialV2(), ErrAtestacionMaterialAlmacenV2NoValida)
 }
 
-const textoRedactadoMaterialAlmacenV2 = "[MATERIAL-ALMACEN-V2-REDACTADO]"
+const textoRedactadoMaterialAlmacenV2 = recibomaterial.TextoRedactado
 
-func formatoRedactadoMaterialV2(estado fmt.State) {
-	_, _ = io.WriteString(estado, textoRedactadoMaterialAlmacenV2)
+func formatoRedactadoMaterialV2(estado fmt.State) { recibomaterial.FormatoRedactado(estado) }
+func serializacionMaterialV2Prohibida() ([]byte, error) {
+	return recibomaterial.SerializacionProhibida()
+}
+func deserializacionMaterialV2Prohibida() error { return recibomaterial.DeserializacionProhibida() }
+func valorLogRedactadoMaterialV2() slog.Value {
+	return slog.StringValue(textoRedactadoMaterialAlmacenV2)
 }
 
-func (SeleccionPlanMaterialAlmacenV2) String() string               { return textoRedactadoMaterialAlmacenV2 }
-func (SeleccionPlanMaterialAlmacenV2) GoString() string             { return textoRedactadoMaterialAlmacenV2 }
-func (s SeleccionPlanMaterialAlmacenV2) Format(e fmt.State, _ rune) { formatoRedactadoMaterialV2(e) }
+// Los metodos permanecen declarados sobre cada tipo para conservar su forma,
+// tamaño y reflexión. Las funciones comunes solo centralizan el resultado.
+func (SeleccionPlanMaterialAlmacenV2) String() string             { return textoRedactadoMaterialAlmacenV2 }
+func (SeleccionPlanMaterialAlmacenV2) GoString() string           { return textoRedactadoMaterialAlmacenV2 }
+func (SeleccionPlanMaterialAlmacenV2) Format(e fmt.State, _ rune) { formatoRedactadoMaterialV2(e) }
 func (SeleccionPlanMaterialAlmacenV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*SeleccionPlanMaterialAlmacenV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (SeleccionPlanMaterialAlmacenV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*SeleccionPlanMaterialAlmacenV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (SeleccionPlanMaterialAlmacenV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*SeleccionPlanMaterialAlmacenV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
-func (s SeleccionPlanMaterialAlmacenV2) LogValue() slog.Value { return slog.StringValue(s.String()) }
+func (SeleccionPlanMaterialAlmacenV2) LogValue() slog.Value { return valorLogRedactadoMaterialV2() }
 
 func (SolicitudVerificarPlanMaterialAlmacenV2) String() string {
 	return textoRedactadoMaterialAlmacenV2
@@ -1427,29 +1188,29 @@ func (SolicitudVerificarPlanMaterialAlmacenV2) String() string {
 func (SolicitudVerificarPlanMaterialAlmacenV2) GoString() string {
 	return textoRedactadoMaterialAlmacenV2
 }
-func (s SolicitudVerificarPlanMaterialAlmacenV2) Format(e fmt.State, _ rune) {
+func (SolicitudVerificarPlanMaterialAlmacenV2) Format(e fmt.State, _ rune) {
 	formatoRedactadoMaterialV2(e)
 }
 func (SolicitudVerificarPlanMaterialAlmacenV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*SolicitudVerificarPlanMaterialAlmacenV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (SolicitudVerificarPlanMaterialAlmacenV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*SolicitudVerificarPlanMaterialAlmacenV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (SolicitudVerificarPlanMaterialAlmacenV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*SolicitudVerificarPlanMaterialAlmacenV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
-func (s SolicitudVerificarPlanMaterialAlmacenV2) LogValue() slog.Value {
-	return slog.StringValue(s.String())
+func (SolicitudVerificarPlanMaterialAlmacenV2) LogValue() slog.Value {
+	return valorLogRedactadoMaterialV2()
 }
 
 func (ResultadoVerificacionPlanMaterialAlmacenV2) String() string {
@@ -1458,165 +1219,53 @@ func (ResultadoVerificacionPlanMaterialAlmacenV2) String() string {
 func (ResultadoVerificacionPlanMaterialAlmacenV2) GoString() string {
 	return textoRedactadoMaterialAlmacenV2
 }
-func (r ResultadoVerificacionPlanMaterialAlmacenV2) Format(e fmt.State, _ rune) {
+func (ResultadoVerificacionPlanMaterialAlmacenV2) Format(e fmt.State, _ rune) {
 	formatoRedactadoMaterialV2(e)
 }
 func (ResultadoVerificacionPlanMaterialAlmacenV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*ResultadoVerificacionPlanMaterialAlmacenV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (ResultadoVerificacionPlanMaterialAlmacenV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*ResultadoVerificacionPlanMaterialAlmacenV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (ResultadoVerificacionPlanMaterialAlmacenV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*ResultadoVerificacionPlanMaterialAlmacenV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
-func (r ResultadoVerificacionPlanMaterialAlmacenV2) LogValue() slog.Value {
-	return slog.StringValue(r.String())
-}
-
-func (SolicitudVerificarPerfilPublicadoMaterialV2) String() string {
-	return textoRedactadoMaterialAlmacenV2
-}
-func (SolicitudVerificarPerfilPublicadoMaterialV2) GoString() string {
-	return textoRedactadoMaterialAlmacenV2
-}
-func (s SolicitudVerificarPerfilPublicadoMaterialV2) Format(e fmt.State, _ rune) {
-	formatoRedactadoMaterialV2(e)
-}
-func (SolicitudVerificarPerfilPublicadoMaterialV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (*SolicitudVerificarPerfilPublicadoMaterialV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (SolicitudVerificarPerfilPublicadoMaterialV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (*SolicitudVerificarPerfilPublicadoMaterialV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (SolicitudVerificarPerfilPublicadoMaterialV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (*SolicitudVerificarPerfilPublicadoMaterialV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (s SolicitudVerificarPerfilPublicadoMaterialV2) LogValue() slog.Value {
-	return slog.StringValue(s.String())
+func (ResultadoVerificacionPlanMaterialAlmacenV2) LogValue() slog.Value {
+	return valorLogRedactadoMaterialV2()
 }
 
-func (SolicitudReservarReferenciaReciboMaterialV2) String() string {
-	return textoRedactadoMaterialAlmacenV2
-}
-func (SolicitudReservarReferenciaReciboMaterialV2) GoString() string {
-	return textoRedactadoMaterialAlmacenV2
-}
-func (s SolicitudReservarReferenciaReciboMaterialV2) Format(e fmt.State, _ rune) {
-	formatoRedactadoMaterialV2(e)
-}
-func (SolicitudReservarReferenciaReciboMaterialV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (*SolicitudReservarReferenciaReciboMaterialV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (SolicitudReservarReferenciaReciboMaterialV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (*SolicitudReservarReferenciaReciboMaterialV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (SolicitudReservarReferenciaReciboMaterialV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (*SolicitudReservarReferenciaReciboMaterialV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (s SolicitudReservarReferenciaReciboMaterialV2) LogValue() slog.Value {
-	return slog.StringValue(s.String())
-}
-
-func (ResultadoReferenciaReciboMaterialV2) String() string   { return textoRedactadoMaterialAlmacenV2 }
-func (ResultadoReferenciaReciboMaterialV2) GoString() string { return textoRedactadoMaterialAlmacenV2 }
-func (r ResultadoReferenciaReciboMaterialV2) Format(e fmt.State, _ rune) {
-	formatoRedactadoMaterialV2(e)
-}
-func (ResultadoReferenciaReciboMaterialV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (*ResultadoReferenciaReciboMaterialV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (ResultadoReferenciaReciboMaterialV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (*ResultadoReferenciaReciboMaterialV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (ResultadoReferenciaReciboMaterialV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (*ResultadoReferenciaReciboMaterialV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (r ResultadoReferenciaReciboMaterialV2) LogValue() slog.Value {
-	return slog.StringValue(r.String())
-}
-
-func (HuellaPlanMaterialAlmacenV2) String() string               { return textoRedactadoMaterialAlmacenV2 }
-func (HuellaPlanMaterialAlmacenV2) GoString() string             { return textoRedactadoMaterialAlmacenV2 }
-func (h HuellaPlanMaterialAlmacenV2) Format(e fmt.State, _ rune) { formatoRedactadoMaterialV2(e) }
-func (HuellaPlanMaterialAlmacenV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (*HuellaPlanMaterialAlmacenV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (HuellaPlanMaterialAlmacenV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (*HuellaPlanMaterialAlmacenV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (HuellaPlanMaterialAlmacenV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (*HuellaPlanMaterialAlmacenV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
-}
-func (h HuellaPlanMaterialAlmacenV2) LogValue() slog.Value { return slog.StringValue(h.String()) }
-
-func (SolicitudAtestarMaterialAlmacenV2) String() string               { return textoRedactadoMaterialAlmacenV2 }
-func (SolicitudAtestarMaterialAlmacenV2) GoString() string             { return textoRedactadoMaterialAlmacenV2 }
-func (s SolicitudAtestarMaterialAlmacenV2) Format(e fmt.State, _ rune) { formatoRedactadoMaterialV2(e) }
+func (SolicitudAtestarMaterialAlmacenV2) String() string             { return textoRedactadoMaterialAlmacenV2 }
+func (SolicitudAtestarMaterialAlmacenV2) GoString() string           { return textoRedactadoMaterialAlmacenV2 }
+func (SolicitudAtestarMaterialAlmacenV2) Format(e fmt.State, _ rune) { formatoRedactadoMaterialV2(e) }
 func (SolicitudAtestarMaterialAlmacenV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*SolicitudAtestarMaterialAlmacenV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (SolicitudAtestarMaterialAlmacenV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*SolicitudAtestarMaterialAlmacenV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (SolicitudAtestarMaterialAlmacenV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*SolicitudAtestarMaterialAlmacenV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
-func (s SolicitudAtestarMaterialAlmacenV2) LogValue() slog.Value { return slog.StringValue(s.String()) }
+func (SolicitudAtestarMaterialAlmacenV2) LogValue() slog.Value { return valorLogRedactadoMaterialV2() }
 
 func (AtestacionCriptograficaMaterialAlmacenV2) String() string {
 	return textoRedactadoMaterialAlmacenV2
@@ -1624,29 +1273,29 @@ func (AtestacionCriptograficaMaterialAlmacenV2) String() string {
 func (AtestacionCriptograficaMaterialAlmacenV2) GoString() string {
 	return textoRedactadoMaterialAlmacenV2
 }
-func (a AtestacionCriptograficaMaterialAlmacenV2) Format(e fmt.State, _ rune) {
+func (AtestacionCriptograficaMaterialAlmacenV2) Format(e fmt.State, _ rune) {
 	formatoRedactadoMaterialV2(e)
 }
 func (AtestacionCriptograficaMaterialAlmacenV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*AtestacionCriptograficaMaterialAlmacenV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (AtestacionCriptograficaMaterialAlmacenV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*AtestacionCriptograficaMaterialAlmacenV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (AtestacionCriptograficaMaterialAlmacenV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*AtestacionCriptograficaMaterialAlmacenV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
-func (a AtestacionCriptograficaMaterialAlmacenV2) LogValue() slog.Value {
-	return slog.StringValue(a.String())
+func (AtestacionCriptograficaMaterialAlmacenV2) LogValue() slog.Value {
+	return valorLogRedactadoMaterialV2()
 }
 
 func (SolicitudVerificarAtestacionMaterialAlmacenV2) String() string {
@@ -1655,100 +1304,206 @@ func (SolicitudVerificarAtestacionMaterialAlmacenV2) String() string {
 func (SolicitudVerificarAtestacionMaterialAlmacenV2) GoString() string {
 	return textoRedactadoMaterialAlmacenV2
 }
-func (s SolicitudVerificarAtestacionMaterialAlmacenV2) Format(e fmt.State, _ rune) {
+func (SolicitudVerificarAtestacionMaterialAlmacenV2) Format(e fmt.State, _ rune) {
 	formatoRedactadoMaterialV2(e)
 }
 func (SolicitudVerificarAtestacionMaterialAlmacenV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*SolicitudVerificarAtestacionMaterialAlmacenV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (SolicitudVerificarAtestacionMaterialAlmacenV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*SolicitudVerificarAtestacionMaterialAlmacenV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (SolicitudVerificarAtestacionMaterialAlmacenV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*SolicitudVerificarAtestacionMaterialAlmacenV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
-func (s SolicitudVerificarAtestacionMaterialAlmacenV2) LogValue() slog.Value {
-	return slog.StringValue(s.String())
+func (SolicitudVerificarAtestacionMaterialAlmacenV2) LogValue() slog.Value {
+	return valorLogRedactadoMaterialV2()
 }
 
-func (PerfilCapacidadesAlmacenMaterialV2) String() string   { return textoRedactadoMaterialAlmacenV2 }
-func (PerfilCapacidadesAlmacenMaterialV2) GoString() string { return textoRedactadoMaterialAlmacenV2 }
-func (p PerfilCapacidadesAlmacenMaterialV2) Format(e fmt.State, _ rune) {
+func (SolicitudVerificarPerfilPublicadoMaterialV2) String() string {
+	return textoRedactadoMaterialAlmacenV2
+}
+func (SolicitudVerificarPerfilPublicadoMaterialV2) GoString() string {
+	return textoRedactadoMaterialAlmacenV2
+}
+func (SolicitudVerificarPerfilPublicadoMaterialV2) Format(e fmt.State, _ rune) {
 	formatoRedactadoMaterialV2(e)
 }
+func (SolicitudVerificarPerfilPublicadoMaterialV2) MarshalJSON() ([]byte, error) {
+	return serializacionMaterialV2Prohibida()
+}
+func (*SolicitudVerificarPerfilPublicadoMaterialV2) UnmarshalJSON([]byte) error {
+	return deserializacionMaterialV2Prohibida()
+}
+func (SolicitudVerificarPerfilPublicadoMaterialV2) MarshalText() ([]byte, error) {
+	return serializacionMaterialV2Prohibida()
+}
+func (*SolicitudVerificarPerfilPublicadoMaterialV2) UnmarshalText([]byte) error {
+	return deserializacionMaterialV2Prohibida()
+}
+func (SolicitudVerificarPerfilPublicadoMaterialV2) MarshalBinary() ([]byte, error) {
+	return serializacionMaterialV2Prohibida()
+}
+func (*SolicitudVerificarPerfilPublicadoMaterialV2) UnmarshalBinary([]byte) error {
+	return deserializacionMaterialV2Prohibida()
+}
+func (SolicitudVerificarPerfilPublicadoMaterialV2) LogValue() slog.Value {
+	return valorLogRedactadoMaterialV2()
+}
+
+func (SolicitudReservarReferenciaReciboMaterialV2) String() string {
+	return textoRedactadoMaterialAlmacenV2
+}
+func (SolicitudReservarReferenciaReciboMaterialV2) GoString() string {
+	return textoRedactadoMaterialAlmacenV2
+}
+func (SolicitudReservarReferenciaReciboMaterialV2) Format(e fmt.State, _ rune) {
+	formatoRedactadoMaterialV2(e)
+}
+func (SolicitudReservarReferenciaReciboMaterialV2) MarshalJSON() ([]byte, error) {
+	return serializacionMaterialV2Prohibida()
+}
+func (*SolicitudReservarReferenciaReciboMaterialV2) UnmarshalJSON([]byte) error {
+	return deserializacionMaterialV2Prohibida()
+}
+func (SolicitudReservarReferenciaReciboMaterialV2) MarshalText() ([]byte, error) {
+	return serializacionMaterialV2Prohibida()
+}
+func (*SolicitudReservarReferenciaReciboMaterialV2) UnmarshalText([]byte) error {
+	return deserializacionMaterialV2Prohibida()
+}
+func (SolicitudReservarReferenciaReciboMaterialV2) MarshalBinary() ([]byte, error) {
+	return serializacionMaterialV2Prohibida()
+}
+func (*SolicitudReservarReferenciaReciboMaterialV2) UnmarshalBinary([]byte) error {
+	return deserializacionMaterialV2Prohibida()
+}
+func (SolicitudReservarReferenciaReciboMaterialV2) LogValue() slog.Value {
+	return valorLogRedactadoMaterialV2()
+}
+
+func (ResultadoReferenciaReciboMaterialV2) String() string             { return textoRedactadoMaterialAlmacenV2 }
+func (ResultadoReferenciaReciboMaterialV2) GoString() string           { return textoRedactadoMaterialAlmacenV2 }
+func (ResultadoReferenciaReciboMaterialV2) Format(e fmt.State, _ rune) { formatoRedactadoMaterialV2(e) }
+func (ResultadoReferenciaReciboMaterialV2) MarshalJSON() ([]byte, error) {
+	return serializacionMaterialV2Prohibida()
+}
+func (*ResultadoReferenciaReciboMaterialV2) UnmarshalJSON([]byte) error {
+	return deserializacionMaterialV2Prohibida()
+}
+func (ResultadoReferenciaReciboMaterialV2) MarshalText() ([]byte, error) {
+	return serializacionMaterialV2Prohibida()
+}
+func (*ResultadoReferenciaReciboMaterialV2) UnmarshalText([]byte) error {
+	return deserializacionMaterialV2Prohibida()
+}
+func (ResultadoReferenciaReciboMaterialV2) MarshalBinary() ([]byte, error) {
+	return serializacionMaterialV2Prohibida()
+}
+func (*ResultadoReferenciaReciboMaterialV2) UnmarshalBinary([]byte) error {
+	return deserializacionMaterialV2Prohibida()
+}
+func (ResultadoReferenciaReciboMaterialV2) LogValue() slog.Value {
+	return valorLogRedactadoMaterialV2()
+}
+
+func (HuellaPlanMaterialAlmacenV2) String() string             { return textoRedactadoMaterialAlmacenV2 }
+func (HuellaPlanMaterialAlmacenV2) GoString() string           { return textoRedactadoMaterialAlmacenV2 }
+func (HuellaPlanMaterialAlmacenV2) Format(e fmt.State, _ rune) { formatoRedactadoMaterialV2(e) }
+func (HuellaPlanMaterialAlmacenV2) MarshalJSON() ([]byte, error) {
+	return serializacionMaterialV2Prohibida()
+}
+func (*HuellaPlanMaterialAlmacenV2) UnmarshalJSON([]byte) error {
+	return deserializacionMaterialV2Prohibida()
+}
+func (HuellaPlanMaterialAlmacenV2) MarshalText() ([]byte, error) {
+	return serializacionMaterialV2Prohibida()
+}
+func (*HuellaPlanMaterialAlmacenV2) UnmarshalText([]byte) error {
+	return deserializacionMaterialV2Prohibida()
+}
+func (HuellaPlanMaterialAlmacenV2) MarshalBinary() ([]byte, error) {
+	return serializacionMaterialV2Prohibida()
+}
+func (*HuellaPlanMaterialAlmacenV2) UnmarshalBinary([]byte) error {
+	return deserializacionMaterialV2Prohibida()
+}
+func (HuellaPlanMaterialAlmacenV2) LogValue() slog.Value { return valorLogRedactadoMaterialV2() }
+
+func (PerfilCapacidadesAlmacenMaterialV2) String() string             { return textoRedactadoMaterialAlmacenV2 }
+func (PerfilCapacidadesAlmacenMaterialV2) GoString() string           { return textoRedactadoMaterialAlmacenV2 }
+func (PerfilCapacidadesAlmacenMaterialV2) Format(e fmt.State, _ rune) { formatoRedactadoMaterialV2(e) }
 func (PerfilCapacidadesAlmacenMaterialV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*PerfilCapacidadesAlmacenMaterialV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (PerfilCapacidadesAlmacenMaterialV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*PerfilCapacidadesAlmacenMaterialV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (PerfilCapacidadesAlmacenMaterialV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*PerfilCapacidadesAlmacenMaterialV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
-func (p PerfilCapacidadesAlmacenMaterialV2) LogValue() slog.Value {
-	return slog.StringValue(p.String())
-}
+func (PerfilCapacidadesAlmacenMaterialV2) LogValue() slog.Value { return valorLogRedactadoMaterialV2() }
 
-func (InstantaneaObjetoMaterialV2) String() string               { return textoRedactadoMaterialAlmacenV2 }
-func (InstantaneaObjetoMaterialV2) GoString() string             { return textoRedactadoMaterialAlmacenV2 }
-func (i InstantaneaObjetoMaterialV2) Format(e fmt.State, _ rune) { formatoRedactadoMaterialV2(e) }
+func (InstantaneaObjetoMaterialV2) String() string             { return textoRedactadoMaterialAlmacenV2 }
+func (InstantaneaObjetoMaterialV2) GoString() string           { return textoRedactadoMaterialAlmacenV2 }
+func (InstantaneaObjetoMaterialV2) Format(e fmt.State, _ rune) { formatoRedactadoMaterialV2(e) }
 func (InstantaneaObjetoMaterialV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*InstantaneaObjetoMaterialV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (InstantaneaObjetoMaterialV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*InstantaneaObjetoMaterialV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (InstantaneaObjetoMaterialV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*InstantaneaObjetoMaterialV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
-func (i InstantaneaObjetoMaterialV2) LogValue() slog.Value { return slog.StringValue(i.String()) }
+func (InstantaneaObjetoMaterialV2) LogValue() slog.Value { return valorLogRedactadoMaterialV2() }
 
-func (ReciboEscrituraObjetoMaterialV2) String() string               { return textoRedactadoMaterialAlmacenV2 }
-func (ReciboEscrituraObjetoMaterialV2) GoString() string             { return textoRedactadoMaterialAlmacenV2 }
-func (r ReciboEscrituraObjetoMaterialV2) Format(e fmt.State, _ rune) { formatoRedactadoMaterialV2(e) }
+func (ReciboEscrituraObjetoMaterialV2) String() string             { return textoRedactadoMaterialAlmacenV2 }
+func (ReciboEscrituraObjetoMaterialV2) GoString() string           { return textoRedactadoMaterialAlmacenV2 }
+func (ReciboEscrituraObjetoMaterialV2) Format(e fmt.State, _ rune) { formatoRedactadoMaterialV2(e) }
 func (ReciboEscrituraObjetoMaterialV2) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*ReciboEscrituraObjetoMaterialV2) UnmarshalJSON([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (ReciboEscrituraObjetoMaterialV2) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*ReciboEscrituraObjetoMaterialV2) UnmarshalText([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
 func (ReciboEscrituraObjetoMaterialV2) MarshalBinary() ([]byte, error) {
-	return nil, ErrSerializacionMaterialAlmacenV2Prohibida
+	return serializacionMaterialV2Prohibida()
 }
 func (*ReciboEscrituraObjetoMaterialV2) UnmarshalBinary([]byte) error {
-	return ErrSerializacionMaterialAlmacenV2Prohibida
+	return deserializacionMaterialV2Prohibida()
 }
-func (r ReciboEscrituraObjetoMaterialV2) LogValue() slog.Value { return slog.StringValue(r.String()) }
+func (ReciboEscrituraObjetoMaterialV2) LogValue() slog.Value { return valorLogRedactadoMaterialV2() }
