@@ -390,7 +390,7 @@ hr {
 <tr>
 <td>Shell modular</td>
 <td>Existe registro de módulos, menús, API y frontend estático.</td>
-<td>Carcasa común con identidad, sesión, navegación, i18n, documentos, notificaciones y auditoría.</td>
+<td>Carcasa común con identidad, contexto autenticado, navegación, i18n, documentos, notificaciones y auditoría.</td>
 <td>Base útil; falta cerrar contrato productivo y despliegue.</td>
 </tr>
 <tr>
@@ -401,7 +401,7 @@ hr {
 </tr>
 <tr>
 <td>Autenticación</td>
-<td><code>disabled</code> por defecto; <code>fake</code> y <code>trusted_headers</code> limitados a laboratorio.</td>
+<td><code>disabled</code> por defecto; <code>fake</code> limitado a laboratorio; la composición integrada rechaza <code>trusted_headers</code> al arrancar.</td>
 <td>Certificado/Cl@ve para exterior; AD/Kerberos y autenticación reforzada para interior; cuentas separadas para privilegio.</td>
 <td>Bloqueante productivo.</td>
 </tr>
@@ -444,7 +444,7 @@ hr {
 <tr>
 <td>Zonas de red</td>
 <td>Especificadas documentalmente; escucha local por defecto.</td>
-<td>Entradas, audiencias, sesiones, datos y operación segregados.</td>
+<td>Entradas, audiencias, credenciales, datos y operación segregados.</td>
 <td>No demostrada en infraestructura.</td>
 </tr>
 <tr>
@@ -529,14 +529,31 @@ capacidades implementadas, parciales, objetivo y cerradas a producción.</p>
 <li>zona anónima, solo para información expresamente publicable;</li>
 <li>área personal autenticada para el titular o representante acreditado;</li>
 <li>entrada pública mediante WAF/proxy y proveedor de identidad admitido;</li>
-<li>API exterior con audiencia, sesión, límites y credenciales técnicas propias.</li>
+<li>API exterior con audiencia, credencial explícita por petición, límites y
+credenciales técnicas propias.</li>
 </ul>
 <p>Una persona empleada que acceda como aspirante no obtiene por ello funciones internas. La titularidad y representación deben resolverse en el servidor.</p>
 <h3>7.2 Zona interna de empleado y gestión</h3>
-<p>Se prevé para Mulhacén o VPN corporativa autorizada, con proxy interno, AD/Kerberos y autenticación reforzada. Debe disponer de listener, DNS, certificado, audiencia, cookies, API y pool de base de datos distintos de la superficie exterior.</p>
+<p>Se prevé para Mulhacén o VPN corporativa autorizada mediante aplicación de
+escritorio, con pasarela interna, mTLS del dispositivo, AD/Kerberos y
+autenticación reforzada. Debe disponer de listener, DNS, certificado, audiencia,
+API y pool de base de datos distintos de la superficie exterior. No usa cookies
+de sesión: la aserción breve se presenta explícitamente en cada petición y no se
+persiste en almacenamiento web.</p>
+<p>La aplicación interna de escritorio no se ejecuta en un contexto web entre
+sitios. Los clientes web autorizados usan <code>Authorization</code> explícita y
+<code>credentials: &quot;omit&quot;</code>; bajo ese contrato el navegador no adjunta credenciales
+ambientales susceptibles de CSRF. CORS y la validación de origen se mantienen
+como defensa en profundidad; XSS continúa siendo una amenaza para cualquier
+cliente web exterior. Si un futuro navegador negocia Kerberos/SPNEGO o presenta
+mTLS automáticamente, esas credenciales pueden ser ambientales y deberán
+reevaluarse CSRF y origen antes de habilitar la superficie.</p>
 <p>La red interna autentica el origen técnico, pero no concede un expediente ni una acción. Cada operación sigue necesitando autorización por perfil, unidad, relación, recurso, finalidad, campos y vigencia.</p>
 <h3>7.3 Administración privilegiada</h3>
-<p>Debe quedar fuera de la sesión ordinaria de RRHH. Requiere cuenta nominativa distinta, puesto o bastión administrado, elevación temporal, reautenticación, doble control cuando proceda y auditoría en un destino que el administrador no pueda alterar.</p>
+<p>Debe quedar fuera del contexto autenticado ordinario de RRHH. Requiere cuenta
+nominativa distinta, puesto o bastión administrado, elevación temporal,
+reautenticación, doble control cuando proceda y auditoría en un destino que el
+administrador no pueda alterar.</p>
 <p>No se prevé un superadministrador funcional universal. Operar despliegues, base de datos o claves no concede acceso ordinario a expedientes.</p>
 <h3>7.4 Enclave Cronos</h3>
 <p>La especificación propone para Cronos una segregación reforzada: sin rutas desde Internet, con base, almacenamiento, copias, secretos, audiencia, telemetría y servicios cartográficos propios. Esa topología es todavía una decisión de diseño, no una infraestructura demostrada.</p>
@@ -560,7 +577,10 @@ capacidades implementadas, parciales, objetivo y cerradas a producción.</p>
 <ul>
 <li>El modo normal parte con autenticación deshabilitada.</li>
 <li><code>fake</code> exige loopback, fichero local restrictivo y token opaco; es solo una herramienta de desarrollo.</li>
-<li><code>trusted_headers</code> no debe considerarse autenticación productiva sin una aserción criptográfica y un canal confiable.</li>
+<li><code>trusted_headers</code> está retirado de la composición integrada: el arranque lo
+rechaza y nunca configura al adaptador HTTP para confiar en identidad
+ambiental. La futura identidad productiva exige una aserción criptográfica
+de vida corta y canal autenticado, no un renombrado de cabeceras.</li>
 <li>Existe modelo de contexto de actor, pero no una fuente corporativa durable conectada.</li>
 <li>No están integrados Cl@ve, certificado/DNIe, AD/Kerberos, MFA, representación ni revocación corporativa.</li>
 </ul>
@@ -735,7 +755,8 @@ contratos existentes de los servicios productivos que continúan pendientes.</p>
 <ul>
 <li>suplantación mediante cabeceras, tokens de demostración o certificados no verificados;</li>
 <li>acceso horizontal a expedientes de otra persona y acceso vertical por rol amplio;</li>
-<li>mezcla de sesiones exterior, interior y privilegiada;</li>
+<li>mezcla de audiencias, credenciales o perfiles exterior, interior y
+privilegiado;</li>
 <li>revocación concurrente entre autorización y escritura;</li>
 <li>alteración o repetición de una decisión de autorización;</li>
 <li>inyección SQL, de plantillas, documentos activos o contenido hostil;</li>
@@ -892,7 +913,7 @@ contratos existentes de los servicios productivos que continúan pendientes.</p>
 <tr>
 <td>R-14</td>
 <td>Media</td>
-<td>Observabilidad, límites, cabeceras, CSRF, rate limiting y hardening productivo incompletos.</td>
+<td>Observabilidad, límites, cabeceras, CORS/origen, defensa XSS, rate limiting y hardening productivo incompletos.</td>
 <td>Timeouts y restricciones locales iniciales.</td>
 <td>Perfil de despliegue endurecido, WAF, límites por operación, métricas, alertas y pruebas de abuso.</td>
 <td>Operación + Seguridad + Desarrollo</td>
@@ -971,7 +992,8 @@ aprobadas en cada puerta, no del calendario ni de un porcentaje de desarrollo.</
 <p><strong>Objetivo:</strong> demostrar que toda operación parte de una identidad y una concesión válidas.</p>
 <p>Evidencias mínimas:</p>
 <ul>
-<li>IdP exterior e interior aprobados y sesiones separadas;</li>
+<li>IdP exterior e interior aprobados, con audiencias y credenciales separadas y
+sin cookies de sesión;</li>
 <li>perfil único, representación, ciclo de alta/baja y cuentas privilegiadas;</li>
 <li>PDP central con matriz validada por propietarios funcionales;</li>
 <li>atestación de decisiones y consumo transaccional de un primer efecto;</li>

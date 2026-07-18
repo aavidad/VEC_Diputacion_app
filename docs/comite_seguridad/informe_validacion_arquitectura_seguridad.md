@@ -130,7 +130,7 @@ Una capacidad puede estar diseñada e implementada sin estar verificada ni opera
 | --- | --- | --- | --- |
 | Shell modular | Existe registro de módulos, menús, API y frontend estático. | Carcasa común con identidad, contexto autenticado, navegación, i18n, documentos, notificaciones y auditoría. | Base útil; falta cerrar contrato productivo y despliegue. |
 | Dominio y casos de uso | Amplio modelo Go con pruebas unitarias en múltiples paquetes. | Reglas puras e independientes de HTTP, base de datos y proveedores. | Dirección adecuada; el árbol activo no es una versión estable. |
-| Autenticación | `disabled` por defecto; `fake` y `trusted_headers` limitados a laboratorio. | Certificado/Cl@ve para exterior; AD/Kerberos y autenticación reforzada para interior; cuentas separadas para privilegio. | Bloqueante productivo. |
+| Autenticación | `disabled` por defecto; `fake` limitado a laboratorio; la composición integrada rechaza `trusted_headers` al arrancar. | Certificado/Cl@ve para exterior; AD/Kerberos y autenticación reforzada para interior; cuentas separadas para privilegio. | Bloqueante productivo. |
 | Contexto de actor | Existen modelo y resolución canónica en memoria, con denegación ante ambigüedad. | Fuente corporativa durable que enlace cuenta, persona, perfil y representaciones. | Parcial; no conectado a una fuente autoritativa real. |
 | Autorización | Núcleo RBAC+ABAC de lista positiva y pruebas adversarias. | PDP central, decisión exacta y atestada, revalidada y consumida atómicamente con el efecto. | Diseño fuerte; atestación y consumo productivo incompletos. |
 | Persistencia | Memoria por defecto, fichero durable opt-in para Bolsa y primer adaptador PostgreSQL de autorización aislado. | PostgreSQL por módulo/superficie, RLS, transacciones, migraciones, outbox, copias y restauración. | No existe persistencia productiva completa. |
@@ -251,7 +251,10 @@ Todo flujo entre zonas deberá estar inventariado con origen, destino, protocolo
 
 - El modo normal parte con autenticación deshabilitada.
 - `fake` exige loopback, fichero local restrictivo y token opaco; es solo una herramienta de desarrollo.
-- `trusted_headers` no debe considerarse autenticación productiva sin una aserción criptográfica y un canal confiable.
+- `trusted_headers` está retirado de la composición integrada: el arranque lo
+  rechaza y nunca configura al adaptador HTTP para confiar en identidad
+  ambiental. La futura identidad productiva exige una aserción criptográfica
+  de vida corta y canal autenticado, no un renombrado de cabeceras.
 - Existe modelo de contexto de actor, pero no una fuente corporativa durable conectada.
 - No están integrados Cl@ve, certificado/DNIe, AD/Kerberos, MFA, representación ni revocación corporativa.
 

@@ -11,7 +11,7 @@ Dietas y Bolsa son modulos independientes con `ModuleID`, permisos y menus
 propios; VEC solo los agrega y permite relacionarlos por empleado, expediente,
 justificante o auditoria.
 
-Fecha de corte de este estado: **17 de julio de 2026**. El repositorio es una
+Fecha de corte de este estado: **18 de julio de 2026**. El repositorio es una
 base de desarrollo y demostracion verificable; no acredita por si solo
 conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
 
@@ -28,7 +28,9 @@ Probado:
 - Raíces HTTP de lista positiva separadas para la superficie pública y la
   interna. La primera no sirve el Portal del Empleado ni `/api/vec`; la segunda
   no sirve la Bolsa pública, rechaza cookies, `Proxy-Authorization` y
-  cabeceras heredadas de identidad, y nunca emite `Set-Cookie`.
+  cabeceras heredadas de identidad, y nunca emite `Set-Cookie`. Ninguna raíz
+  entrega trailers de petición a la aplicación: los materializa con un límite
+  previo al caso de uso y rechaza tanto los declarados como los tardíos.
 - UI estatica en `http://127.0.0.1:8080/` como carcasa del tablero VEC: modulos,
   expedientes, filtros, cola, detalle y flujo de acciones. Sus datos y acciones
   privadas permanecen cerrados hasta conectar identidad y autorizacion reales.
@@ -64,7 +66,8 @@ Probado:
 - Con `fake` habilitado expresamente, API Bolsa heredada con
   `GET /api/portal`, `POST /api/demo`, candidatos, manifiesto operacional,
   documentos, alegaciones, avisos, auditoria y persistencia local opt-in. Esa
-  API no se registra en `disabled` ni en `trusted_headers`.
+  API no se registra en `disabled`; `trusted_headers` se rechaza ya durante el
+  arranque de cualquier composicion integrada.
 - Casos de dominio, puertos, repositorios en memoria y handlers HTTP.
 - Nucleo RBAC+ABAC de lista positiva cerrada: sin comodines positivos,
   asignacion/rol/politicas versionados, CAS y decisiones breves. El primer
@@ -152,10 +155,12 @@ Probado:
 
 Simulado:
 
-- La autenticacion parte deshabilitada. `fake` y `trusted_headers` solo se
-  habilitan de forma expresa para pruebas locales; ninguno es apto para
-  produccion ni concede autoridad en la arquitectura nueva. El servidor
-  rechaza el modo `fake` si alguna red HTTP permitida no es loopback.
+- La autenticacion parte deshabilitada. Solo `fake` puede habilitarse de forma
+  expresa para pruebas locales; no es apto para produccion ni concede
+  autoridad en la arquitectura nueva. El servidor rechaza el modo `fake` si
+  alguna red HTTP permitida no es loopback. El valor heredado
+  `trusted_headers` permanece reconocible en configuracion para fallar con un
+  diagnostico explicito, pero ninguna composicion integrada lo admite.
 - Persistencia en memoria por defecto. `file` y su alias `local_durable` solo
   afectan ahora a la API Bolsa heredada cuando se habilita `fake`; no convierten
   el despliegue `disabled` en una aplicacion privada durable.
@@ -349,14 +354,14 @@ Pendiente productivo:
 | --- | --- | --- |
 | `VEC_HTTP_ADDR` | `127.0.0.1:8080` | Direccion de escucha HTTP canonica; parte cerrada en loopback. |
 | `BOLSA_HTTP_ADDR` | vacio | Alias legado, usado solo si `VEC_HTTP_ADDR` no existe. |
-| `VEC_AUTH_MODE` | `disabled` | `disabled`; `fake` o `trusted_headers` unicamente para pruebas locales heredadas. |
+| `VEC_AUTH_MODE` | `disabled` | `disabled` o `fake` local. `trusted_headers` hace fallar el arranque integrado; `cmd/vec-publico` lo ignora porque no compone autenticacion. |
 | `VEC_FAKE_CREDENTIALS_FILE` | vacio | Fichero JSON local obligatorio en `fake`; debe ser regular, `0600` o mas restrictivo y guardar solo SHA-256 de tokens opacos. |
 | `VEC_HTTP_ALLOWED_CIDRS` | `127.0.0.1/32,::1/128` | Lista positiva de redes remotas que pueden alcanzar el servidor HTTP. Una entrada invalida cierra el acceso. |
 | `VEC_BOLSA_STORAGE_MODE` | `memory` | `memory`, `file` o `local_durable` para datos Bolsa. |
 | `VEC_BOLSA_DATA_DIR` | `var/bolsa` | Directorio durable del modulo Bolsa. |
 | `VEC_BOLSA_DATA_PATH` | `var/bolsa/bolsa_store.json` | Fichero exacto del adaptador durable heredado; prevalece sobre el directorio. |
 | `VEC_BOLSA_PUBLIC_SOURCE_PATH` | `data/demo/convocatorias_publicas.demo.json` | Fuente de solo lectura de la consulta publica; el arranque falla si no existe o no es un fichero. |
-| `VEC_TRUSTED_PROXY_CIDRS` | `127.0.0.1/32,::1/128` | Proxies admitidos como origen de cabeceras solo cuando se activa el prototipo `trusted_headers`. |
+| `VEC_TRUSTED_PROXY_CIDRS` | `127.0.0.1/32,::1/128` | Parametro heredado conservado para compatibilidad de configuracion y pruebas aisladas; ninguna raiz integrada lo usa como origen de identidad. |
 | `VEC_OSRM_BASE_URL` | vacio | URL exacta del OSRM interno; vacio mantiene Dietas sin motor de rutas. |
 | `VEC_OSRM_SCOPE_NAME` | vacio | Nombre explicito del ambito geografico autorizado. |
 | `VEC_OSRM_SCOPE_BOUNDS` | vacio | Limites canonicos `lat_min,lon_min,lat_max,lon_max`. |
@@ -454,9 +459,10 @@ scripts/verificar_calidad.sh
 `cmd/vec-publico` es la única composición nueva desplegable de este corte.
 `cmd/vec-server` se conserva como composición integrada heredada para
 desarrollo y presentación local; no representa la separación de superficies
-de producción. `cmd/bolsa-server` está retirado y falla cerrado. El proceso
-interno productivo no se habilitará hasta componer identidad reforzada,
-autorización y persistencia reales.
+de producción y rechaza `VEC_AUTH_MODE=trusted_headers` antes de construir sus
+handlers. `cmd/bolsa-server` está retirado y falla cerrado. El proceso interno
+productivo no se habilitará hasta componer identidad reforzada, autorización y
+persistencia reales.
 
 La frontera de identidad ya exige que el registro autoritativo devuelva, en
 la misma operación atómica que consume la aserción, las referencias opacas de

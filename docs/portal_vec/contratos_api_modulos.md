@@ -56,14 +56,15 @@ usa un envelope distinto propio (ver su seccion).
 
 ### Autenticacion
 
-No hay cookies de sesion en ninguna superficie (DEC-053). La identidad se
-resuelve en cada peticion segun `VEC_AUTH_MODE` (`config.AuthMode`):
+No hay cookies de sesion en ninguna superficie (DEC-053). La composicion
+integrada solo admite estos resultados al interpretar `VEC_AUTH_MODE`
+(`config.AuthMode`):
 
 | Modo | Como se resuelve el `Principal` | Cabeceras que acepta |
 | --- | --- | --- |
 | `disabled` (por defecto) | Nunca hay identidad (`identityFromRequest` con `acceptHeaders=false`); toda peticion falla `401`. | Ninguna. |
 | `fake` | `DemoIdentityResolver.ResolveDemoIdentity` exige `Authorization: Bearer <token>` opaco (43-128 car. base64url), resuelto contra SHA-256 de un fichero local (`VEC_FAKE_CREDENTIALS_FILE`). Solo desde loopback. | `Authorization` unicamente; `X-VEC-*`/`X-Auth-*` se ignoran. |
-| `trusted_headers` | Solo si la IP de origen esta en `VEC_TRUSTED_PROXY_CIDRS`; entonces lee `X-VEC-Subject`, `X-VEC-Roles`, `X-VEC-Auth-Mechanism` (nombres configurables) y variantes `X-Auth-*`. Alias contradictorios deniegan. | Cabeceras de identidad + certificado TLS de cliente verificado. |
+| `trusted_headers` (retirado) | `NewHTTPServerWithConfig`, `NewDemoAPIWithConfig` y `NewVECShellAPIWithConfig` fallan antes de construir el handler. No existe una peticion autenticable en este modo. | Ninguna. |
 
 En **ningun** modo el rol o permiso declarado por el cliente concede nada por
 si mismo:
@@ -71,14 +72,10 @@ si mismo:
 - En `fake`, el fichero declara `roles`; los **permisos** los calcula el
   servidor (`permissionsForRoles` en `handler.go`) a partir de una lista
   positiva cerrada por perfil (ver DEC-030). El cliente nunca envia permisos.
-- En `trusted_headers`, `Principal.Permissions` llega siempre `nil`
-  (`principalFromRequest`, rama no-demo): los roles/mecanismo de la cabecera
-  son informativos, no autorizan nada. **A dia de hoy ningun caso de uso del
-  shell VEC concede permisos a partir de esta rama**: el modo esta preparado
-  para transportar identidad, pero el PDP real que traduciria esa identidad en
-  permisos todavia no existe (DEC-020, "conexion del arranque productivo
-  pendiente"). En la practica, `trusted_headers` autentica sujeto pero no
-  autoriza ninguna operacion del shell.
+- El adaptador HTTP de bajo nivel conserva una opcion aislada para sus pruebas
+  historicas, pero la raiz integrada nunca configura
+  `TrustIdentityHeaders=true` ni pasa nombres de cabeceras o redes proxy como
+  fuente de identidad. No forma parte del contrato desplegable.
 
 Cada handler comprueba `principal.HasPermission("clave.exacta")` antes de
 tocar datos; ausencia, permiso repetido no exacto o comodin siempre deniegan
@@ -537,7 +534,10 @@ Fuente: `internal/modules/bolsa/adapters/httppublico/handler.go` +
 `internal/modules/bolsa/application/consulta_publica.go`. Es el unico modulo
 sin autenticacion: proyeccion publica minimizada, sin datos personales, para
 visitantes anonimos. Montado en `/api/publico/bolsa/convocatorias` en
-**todos** los modos de `VEC_AUTH_MODE` (no depende de `fake`).
+la composición pública con independencia del valor compartido de
+`VEC_AUTH_MODE` (no depende de `fake`). En la composición integrada solo se
+alcanza con `disabled` o `fake`, porque `trusted_headers` impide su arranque
+completo antes de montar rutas.
 
 | Metodo | Ruta | Auth | Descripcion |
 | --- | --- | --- | --- |
@@ -697,6 +697,13 @@ punto de entrada de enrutado.
 - Modo `fake` exige ademas que `VEC_HTTP_ADDR` sea una IP loopback literal y
   que las redes permitidas sean exclusivamente loopback (`server.go`,
   `redesExclusivamenteLocales`); si no, el servidor rehusa arrancar.
+- `VEC_AUTH_MODE=trusted_headers` rehusa el arranque de la composicion
+  integrada. La composicion publica anonima ignora este parametro compartido y
+  no construye ningun autenticador.
+- Ninguna superficie admite trailers de peticion. Si el protocolo permite
+  transportarlos, el servidor materializa el cuerpo bajo
+  `cfg.MaxRequestBodyBytes` antes del handler: exceso responde `413` y todo
+  trailer declarado o tardio responde `400`, sin ejecutar el caso de uso.
 - Cabeceras de seguridad fijas en toda respuesta: CSP restrictiva,
   `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, HSTS,
   `Cache-Control: no-store` (recursos estaticos versionados con `?v=` son la
@@ -804,8 +811,8 @@ codigo):
    `internal/candidate/adapters/handler` (la API heredada, solo montada en
    modo `fake`), no `internal/vec/adapters/httpapi` (que expone su propia
    raiz equivalente en `/api/vec`, con una lista de rutas distinta y mas
-   completa). En modos `disabled`/`trusted_headers` (sin la rama heredada
-   montada) `GET /api` no tiene handler registrado y depende del
+   completa). En modo `disabled` (sin la rama heredada montada) `GET /api` no
+   tiene handler registrado y depende del
    comportamiento por defecto de Go (`404 page not found`, sin el envelope
    JSON del shell). Un cliente de escritorio que quiera "listar rutas
    disponibles" debe usar `GET /api/vec`, nunca `GET /api`.

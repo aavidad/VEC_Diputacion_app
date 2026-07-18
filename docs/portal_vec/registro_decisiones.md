@@ -435,19 +435,19 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   frases libres ni textos normalizados por el servidor. El motivo humano se
   registra aparte y nunca amplia la concesion.
 - Compatibilidad: el traductor heredado de roles a permisos solo existe en el
-  modo de demostracion. En modos reales, incluso una cabecera procedente de un
-  proxy admitido autentica como maximo la identidad; no concede por si sola
-  ninguna operacion funcional.
+  modo de demostracion. La rama histórica capaz de leer identidad de un proxy
+  queda aislada en el adaptador y sus pruebas: DEC-088 impide componerla en
+  cualquier raíz integrada.
 - Contencion heredada: la API antigua de Bolsa, que todavia decide con roles
   gruesos, no acepta identidades por cabeceras en modos reales. Permanece
   cerrada hasta sustituir cada comprobacion por autorizacion RBAC+ABAC de
   accion, recurso, ambito, finalidad y campos. La consulta de sesion y el
   calculo de rutas de Dietas tambien exigen permisos concretos.
 - Arranque seguro: sin conector configurado la autenticacion queda
-  deshabilitada. Los modos `fake` y `trusted_headers` solo pueden habilitarse
-  expresamente para pruebas heredadas; la imagen y Compose parten cerrados. El
-  servidor impide arrancar `fake` si el acceso HTTP incluye una red distinta de
-  loopback.
+  deshabilitada. `fake` solo puede habilitarse expresamente para pruebas
+  heredadas y `trusted_headers` se rechaza antes de construir handlers; la
+  imagen y Compose parten cerrados. El servidor impide arrancar `fake` si el
+  acceso HTTP incluye una red distinta de loopback.
 - Certificados: presentar `PeerCertificates` no autentica. La terminacion mTLS
   directa exige cadena verificada y coincidencia exacta con el certificado
   par. Un PEM reenviado y una cabecera `SUCCESS` no cuentan, ni siquiera desde
@@ -2998,7 +2998,10 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   `Proxy-Authorization`, no emite `Set-Cookie` y deniega cabeceras heredadas de
   identidad, rol o forwarding. `Authorization` queda reservado para una
   credencial explícita del cliente nativo; esta frontera no la convierte por
-  sí sola en identidad ni autoridad.
+  sí sola en identidad ni autoridad. Las raíces HTTP tampoco entregan trailers
+  de petición al caso de uso: para impedir que aparezcan después de leer el
+  cuerpo, los materializan bajo el límite configurado y rechazan cualquier
+  trailer declarado o tardío antes de invocar la aplicación.
 - Panel de Bolsa: el adaptador no montado de
   `GET/HEAD /api/vec/bolsa/panel` acepta exclusivamente la ruta exacta sin
   query ni cuerpo. Delega en una frontera de confianza la preparación de actor,
@@ -3075,3 +3078,27 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - Barrera: no se montará el panel interno mientras no exista la fuente maestra
   de cuenta, persona, perfil y vínculos capaz de participar en esa transacción;
   inventar esos datos o registrar un resultado de memoria no es autoritativo.
+
+## DEC-088 — Retirada de identidad ambiental en la composición integrada
+
+- Fecha: 2026-07-18.
+- Estado: implantado y probado en las raíces integradas; identidad productiva
+  continúa en **NO-GO** hasta conectar el registro autoritativo.
+- Decisión: `NewHTTPServerWithConfig`, `NewDemoAPIWithConfig` y
+  `NewVECShellAPIWithConfig` rechazan `trusted_headers` antes de construir un
+  handler. La composición nunca activa `TrustIdentityHeaders` ni transforma
+  redes proxy o cabeceras declaradas por el transporte en un principal.
+- Superficie pública: `cmd/vec-publico` permanece anónimo y puede ignorar el
+  modo de autenticación de una configuración compartida, porque no carga
+  autenticador, datos privados ni shell interno.
+- Compatibilidad: el literal y las opciones de bajo nivel se conservan por
+  ahora para reconocer configuraciones antiguas y mantener pruebas aisladas;
+  no constituyen una ruta de despliegue. Su retirada física será una migración
+  posterior y no podrá reabrir compatibilidad permisiva.
+- Pruebas locales: el smoke heredado utiliza exclusivamente `fake`, tres tokens
+  opacos separados por perfil y un fichero `0600` con sus huellas SHA-256.
+  Sigue siendo una verificación local sin autoridad ni valor productivo.
+- Objetivo: certificado/Cl@ve en exterior y Kerberos/certificado reforzado en
+  interior deberán llegar como aserciones protegidas, breves, de audiencia
+  exacta y consumidas por el registro durable de sesión; no como cabeceras de
+  identidad confiadas por la aplicación.
