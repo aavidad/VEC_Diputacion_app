@@ -44,7 +44,7 @@
 1590 internal/vec/ports/materializacion_documental_v4.go
 1094 internal/vec/ports/materializacion_documental_v4_test.go
 1192 internal/vec/ports/pagos_test.go
-1509 internal/vec/ports/recibo_escritura_objeto_material_v2.go
+1474 internal/vec/ports/recibo_escritura_objeto_material_v2.go
 964 internal/vec/ports/recibo_escritura_objeto_material_v2_test.go
 875 internal/vec/ports/reconciliacion_documental_v4.go
 1179 scripts/smoke_nominas_peoplenet.js

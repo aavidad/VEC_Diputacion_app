@@ -65,11 +65,6 @@ const (
 	AlgoritmoAtestacionMaterialCOSESign1  AlgoritmoAtestacionMaterialAlmacenV2 = "cose-sign1"
 )
 
-func (a AlgoritmoAtestacionMaterialAlmacenV2) valida() bool {
-	return a == AlgoritmoAtestacionMaterialHMACSHA256 ||
-		a == AlgoritmoAtestacionMaterialCOSESign1
-}
-
 // SeleccionPlanMaterialAlmacenV2 identifica un plan publicado. No contiene su
 // huella: esta solo puede proceder del verificador autoritativo del registro.
 type SeleccionPlanMaterialAlmacenV2 struct {
@@ -167,10 +162,7 @@ func (s SolicitudVerificarPlanMaterialAlmacenV2) RevelarParaVerificacionPlanMate
 	huellaVinculo [sha256.Size]byte,
 	err error,
 ) {
-	canonico, err := s.canonicoSinHuella()
-	esperada := sha256.Sum256(canonico)
-	if err != nil || s.huellaVinculo == ([sha256.Size]byte{}) ||
-		subtle.ConstantTimeCompare(s.huellaVinculo[:], esperada[:]) != 1 {
+	if !recibomaterial.SolicitudPlanValida(datosVinculoPlanMaterialV2(s), s.huellaVinculo) {
 		return "", 0, "", "", "", "", "", "", "", "", "",
 			[sha256.Size]byte{}, errorReciboMaterialV2()
 	}
@@ -202,9 +194,9 @@ func NuevoResultadoVerificacionPlanMaterialAlmacenV2(
 func (r ResultadoVerificacionPlanMaterialAlmacenV2) validarPara(
 	solicitud SolicitudVerificarPlanMaterialAlmacenV2,
 ) error {
-	_, _, _, _, _, _, _, _, _, _, _, vinculo, err :=
-		solicitud.RevelarParaVerificacionPlanMaterial()
-	if err != nil || !recibomaterial.ResultadoLigado(vinculo, r.huellaPlan, r.huellaVinculo) {
+	if !recibomaterial.ResultadoPlanValido(
+		datosVinculoPlanMaterialV2(solicitud), solicitud.huellaVinculo, r.huellaPlan, r.huellaVinculo,
+	) {
 		return errorReciboMaterialV2()
 	}
 	return nil
@@ -236,17 +228,17 @@ func nuevaSolicitudAtestarMaterialAlmacenV2(
 	dominio string,
 	mensaje []byte,
 ) (SolicitudAtestarMaterialAlmacenV2, error) {
-	if !recibomaterial.DominioAtestacionValido(dominio) || len(mensaje) == 0 {
+	preparada, err := recibomaterial.PrepararSolicitudAtestacion(dominio, mensaje)
+	if err != nil {
 		return SolicitudAtestarMaterialAlmacenV2{}, errorAtestacionMaterialV2()
 	}
-	copia := append([]byte(nil), mensaje...)
 	return SolicitudAtestarMaterialAlmacenV2{
-		dominio: dominio, mensaje: copia, huella: sha256.Sum256(copia),
+		dominio: preparada.Dominio, mensaje: preparada.Mensaje, huella: preparada.Huella,
 	}, nil
 }
 
 func (s SolicitudAtestarMaterialAlmacenV2) validar() error {
-	if !recibomaterial.SolicitudAtestacionValida(s.dominio, s.mensaje, s.huella) {
+	if _, err := recibomaterial.RevelarSolicitudAtestacion(datosSolicitudAtestacionMaterialV2(s)); err != nil {
 		return errorAtestacionMaterialV2()
 	}
 	return nil
@@ -260,10 +252,11 @@ func (s SolicitudAtestarMaterialAlmacenV2) RevelarParaAtestacion() (
 	huellaSHA256 [sha256.Size]byte,
 	err error,
 ) {
-	if err = s.validar(); err != nil {
-		return "", nil, [sha256.Size]byte{}, err
+	revelada, err := recibomaterial.RevelarSolicitudAtestacion(datosSolicitudAtestacionMaterialV2(s))
+	if err != nil {
+		return "", nil, [sha256.Size]byte{}, errorAtestacionMaterialV2()
 	}
-	return s.dominio, append([]byte(nil), s.mensaje...), s.huella, nil
+	return revelada.Dominio, revelada.Mensaje, revelada.Huella, nil
 }
 
 // AtestacionCriptograficaMaterialAlmacenV2 liga algoritmo, clave versionada,
@@ -284,29 +277,25 @@ func NuevaAtestacionCriptograficaMaterialAlmacenV2(
 	claveVersion uint32,
 	codigo []byte,
 ) (AtestacionCriptograficaMaterialAlmacenV2, error) {
-	if solicitud.validar() != nil || !algoritmo.valida() ||
-		!aliasLogicoMaterialV2Valido(claveRef, 256) || claveVersion == 0 ||
-		!codigoAtestacionMaterialV2Valido(algoritmo, codigo) {
+	datos, err := recibomaterial.NuevaAtestacion(
+		datosSolicitudAtestacionMaterialV2(solicitud),
+		recibomaterial.DatosAtestacion{
+			Algoritmo: string(algoritmo), ClaveRef: claveRef, ClaveVersion: claveVersion,
+			Dominio: solicitud.dominio, Huella: solicitud.huella, Codigo: codigo,
+		},
+	)
+	if err != nil {
 		return AtestacionCriptograficaMaterialAlmacenV2{}, errorAtestacionMaterialV2()
 	}
-	atestacion := AtestacionCriptograficaMaterialAlmacenV2{
-		algoritmo: algoritmo, claveRef: claveRef, claveVersion: claveVersion,
-		dominio: solicitud.dominio, huella: solicitud.huella,
-		codigo: append([]byte(nil), codigo...),
-	}
-	if atestacion.validarPara(solicitud) != nil {
-		return AtestacionCriptograficaMaterialAlmacenV2{}, errorAtestacionMaterialV2()
-	}
-	return atestacion, nil
+	return atestacionMaterialV2DesdeDatos(datos), nil
 }
 
 func (a AtestacionCriptograficaMaterialAlmacenV2) validarPara(
 	solicitud SolicitudAtestarMaterialAlmacenV2,
 ) error {
-	if !recibomaterial.AtestacionValida(
-		solicitud.dominio, solicitud.mensaje, solicitud.huella, string(a.algoritmo),
-		a.claveRef, a.claveVersion, a.dominio, a.huella, a.codigo,
-	) {
+	if _, _, err := recibomaterial.RevelarVerificacionAtestacion(
+		datosSolicitudAtestacionMaterialV2(solicitud), datosAtestacionMaterialV2(a),
+	); err != nil {
 		return errorAtestacionMaterialV2()
 	}
 	return nil
@@ -342,12 +331,14 @@ func (s SolicitudVerificarAtestacionMaterialAlmacenV2) RevelarParaVerificacion()
 	codigo []byte,
 	err error,
 ) {
-	if s.atestacion.validarPara(s.solicitud) != nil {
+	solicitud, atestacion, err := recibomaterial.RevelarVerificacionAtestacion(
+		datosSolicitudAtestacionMaterialV2(s.solicitud), datosAtestacionMaterialV2(s.atestacion),
+	)
+	if err != nil {
 		return "", nil, "", "", 0, nil, errorAtestacionMaterialV2()
 	}
-	return s.solicitud.dominio, append([]byte(nil), s.solicitud.mensaje...),
-		s.atestacion.algoritmo, s.atestacion.claveRef, s.atestacion.claveVersion,
-		append([]byte(nil), s.atestacion.codigo...), nil
+	return solicitud.Dominio, solicitud.Mensaje, AlgoritmoAtestacionMaterialAlmacenV2(atestacion.Algoritmo),
+		atestacion.ClaveRef, atestacion.ClaveVersion, atestacion.Codigo, nil
 }
 
 type AtestadorMaterialAlmacenV2 interface {
@@ -400,17 +391,11 @@ func (s SolicitudVerificarPerfilPublicadoMaterialV2) RevelarParaHomologacion() (
 	canonico []byte,
 	err error,
 ) {
-	if !recibomaterial.AliasLogicoValido(s.referencia, 512) || s.version == 0 ||
-		!recibomaterial.AliasLogicoValido(s.conectorLogicoID, 128) ||
-		s.huella == ([sha256.Size]byte{}) || len(s.canonico) == 0 {
+	datos, err := recibomaterial.RevelarPerfilPublicado(datosPerfilPublicadoMaterialV2(s))
+	if err != nil {
 		return "", 0, "", [sha256.Size]byte{}, nil, errorReciboMaterialV2()
 	}
-	esperada := sha256.Sum256(s.canonico)
-	if subtle.ConstantTimeCompare(s.huella[:], esperada[:]) != 1 {
-		return "", 0, "", [sha256.Size]byte{}, nil, errorReciboMaterialV2()
-	}
-	return s.referencia, s.version, s.conectorLogicoID, s.huella,
-		append([]byte(nil), s.canonico...), nil
+	return datos.Referencia, datos.Version, datos.ConectorLogicoID, datos.Huella, datos.Canonico, nil
 }
 
 // VerificadorPerfilPublicadoMaterialV2 debe consultar el catalogo
@@ -522,18 +507,9 @@ func (p PerfilCapacidadesAlmacenMaterialV2) validarHechos() error {
 }
 
 func (p PerfilCapacidadesAlmacenMaterialV2) Validar() error {
-	if p.validarHechos() != nil || p.huella == ([sha256.Size]byte{}) {
-		return errorReciboMaterialV2()
-	}
-	canonico, err := p.canonicoSinAtestacion()
-	esperada := recibomaterial.SumaSHA256(canonico)
-	if err != nil || subtle.ConstantTimeCompare(p.huella[:], esperada[:]) != 1 {
-		return errorReciboMaterialV2()
-	}
-	solicitud, err := nuevaSolicitudAtestarMaterialAlmacenV2(
-		dominioAtestacionPerfilCapacidadesMaterialV2, canonico,
-	)
-	if err != nil || p.atestacion.validarPara(solicitud) != nil {
+	if !recibomaterial.PerfilSelladoValido(
+		datosPerfilMaterialV2(p), p.huella, datosAtestacionMaterialV2(p.atestacion),
+	) {
 		return errorReciboMaterialV2()
 	}
 	return nil
@@ -702,11 +678,8 @@ type SolicitudReservarReferenciaReciboMaterialV2 struct {
 func nuevaSolicitudReservarReferenciaReciboMaterialV2(
 	canonicoIdentidad []byte,
 ) (SolicitudReservarReferenciaReciboMaterialV2, error) {
-	if len(canonicoIdentidad) == 0 {
-		return SolicitudReservarReferenciaReciboMaterialV2{}, errorReciboMaterialV2()
-	}
-	huella := sha256.Sum256(canonicoIdentidad)
-	if huella == ([sha256.Size]byte{}) {
+	huella, err := recibomaterial.NuevaHuellaIdentidad(canonicoIdentidad)
+	if err != nil {
 		return SolicitudReservarReferenciaReciboMaterialV2{}, errorReciboMaterialV2()
 	}
 	return SolicitudReservarReferenciaReciboMaterialV2{huellaIdentidad: huella}, nil
@@ -746,10 +719,10 @@ func NuevoResultadoReferenciaReciboMaterialV2(
 func (r ResultadoReferenciaReciboMaterialV2) validarPara(
 	solicitud SolicitudReservarReferenciaReciboMaterialV2,
 ) error {
-	huella, err := solicitud.HuellaIdentidad()
-	if err != nil || !aliasLogicoMaterialV2Valido(r.referencia, 512) ||
-		r.huellaIdentidad == ([sha256.Size]byte{}) ||
-		subtle.ConstantTimeCompare(r.huellaIdentidad[:], huella[:]) != 1 {
+	if !recibomaterial.ResultadoReferenciaValido(
+		solicitud.huellaIdentidad,
+		recibomaterial.DatosResultadoReferencia{Referencia: r.referencia, HuellaIdentidad: r.huellaIdentidad},
+	) {
 		return errorReciboMaterialV2()
 	}
 	return nil
@@ -940,36 +913,10 @@ func NuevoReciboEscrituraObjetoMaterialV2(
 	return recibo, nil
 }
 
-func (r ReciboEscrituraObjetoMaterialV2) validarHechos() error {
-	if !recibomaterial.ReciboValido(datosReciboMaterialV2(r)) {
-		return errorReciboMaterialV2()
-	}
-	return nil
-}
-
-func (r ReciboEscrituraObjetoMaterialV2) validarHechosMateriales() error {
-	if !recibomaterial.HechosMaterialesReciboValidos(datosReciboMaterialV2(r)) {
-		return errorReciboMaterialV2()
-	}
-	return nil
-}
-
 func (r ReciboEscrituraObjetoMaterialV2) Validar() error {
-	if r.validarHechos() != nil || r.huella == ([sha256.Size]byte{}) {
-		return errorReciboMaterialV2()
-	}
-	canonico, err := r.canonicoSinAtestacion()
-	esperada := recibomaterial.SumaSHA256(canonico)
-	if err != nil || subtle.ConstantTimeCompare(r.huella[:], esperada[:]) != 1 ||
-		huellasMaterialV2Iguales(r.huella, r.instantanea.huellaContenido) ||
-		huellasMaterialV2Iguales(r.huella, r.huellaPerfil) ||
-		huellasMaterialV2Iguales(r.huella, r.huellaPlanMaterial.suma) {
-		return errorReciboMaterialV2()
-	}
-	solicitud, err := nuevaSolicitudAtestarMaterialAlmacenV2(
-		dominioAtestacionReciboEscrituraMaterialV2, canonico,
-	)
-	if err != nil || r.atestacion.validarPara(solicitud) != nil {
+	if !recibomaterial.ReciboSelladoValido(
+		datosReciboMaterialV2(r), r.huella, datosAtestacionMaterialV2(r.atestacion),
+	) {
 		return errorReciboMaterialV2()
 	}
 	return nil
@@ -1064,6 +1011,24 @@ func datosVinculoPlanMaterialV2(s SolicitudVerificarPlanMaterialAlmacenV2) recib
 	}
 }
 
+func datosSolicitudAtestacionMaterialV2(s SolicitudAtestarMaterialAlmacenV2) recibomaterial.DatosSolicitudAtestacion {
+	return recibomaterial.DatosSolicitudAtestacion{Dominio: s.dominio, Mensaje: s.mensaje, Huella: s.huella}
+}
+
+func datosAtestacionMaterialV2(a AtestacionCriptograficaMaterialAlmacenV2) recibomaterial.DatosAtestacion {
+	return recibomaterial.DatosAtestacion{
+		Algoritmo: string(a.algoritmo), ClaveRef: a.claveRef, ClaveVersion: a.claveVersion,
+		Dominio: a.dominio, Huella: a.huella, Codigo: a.codigo,
+	}
+}
+
+func atestacionMaterialV2DesdeDatos(a recibomaterial.DatosAtestacion) AtestacionCriptograficaMaterialAlmacenV2 {
+	return AtestacionCriptograficaMaterialAlmacenV2{
+		algoritmo: AlgoritmoAtestacionMaterialAlmacenV2(a.Algoritmo), claveRef: a.ClaveRef,
+		claveVersion: a.ClaveVersion, dominio: a.Dominio, huella: a.Huella, codigo: a.Codigo,
+	}
+}
+
 func datosPerfilMaterialV2(p PerfilCapacidadesAlmacenMaterialV2) recibomaterial.Perfil {
 	return recibomaterial.Perfil{
 		Esquema: p.esquema, VersionEsquema: p.versionEsquema, Referencia: p.referencia,
@@ -1073,6 +1038,13 @@ func datosPerfilMaterialV2(p PerfilCapacidadesAlmacenMaterialV2) recibomaterial.
 		CifradoEnTransito: p.cifradoEnTransito, CifradoEnReposo: p.cifradoEnReposo,
 		CifradoPorObjeto: p.cifradoPorObjeto, PreservaObjetoOriginal: p.preservaObjetoOriginal,
 		TamanoMaximoObjeto: p.tamanoMaximoObjeto,
+	}
+}
+
+func datosPerfilPublicadoMaterialV2(s SolicitudVerificarPerfilPublicadoMaterialV2) recibomaterial.DatosPerfilPublicado {
+	return recibomaterial.DatosPerfilPublicado{
+		Referencia: s.referencia, Version: s.version, ConectorLogicoID: s.conectorLogicoID,
+		Huella: s.huella, Canonico: s.canonico,
 	}
 }
 
@@ -1107,13 +1079,6 @@ func hechosEstablesContextoMaterialV2Validos(p ProyeccionContextoOperacionAlmace
 
 func aliasLogicoMaterialV2Valido(valor string, maximo int) bool {
 	return recibomaterial.AliasLogicoValido(valor, maximo)
-}
-
-func codigoAtestacionMaterialV2Valido(
-	algoritmo AlgoritmoAtestacionMaterialAlmacenV2,
-	codigo []byte,
-) bool {
-	return recibomaterial.CodigoAtestacionValido(string(algoritmo), codigo)
 }
 
 func decodificarSHA256MaterialV2(valor string) ([sha256.Size]byte, error) {
