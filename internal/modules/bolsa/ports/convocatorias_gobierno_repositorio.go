@@ -90,7 +90,8 @@ func MaterialAltaBorradorConvocatoria(
 	}
 	if err != nil || errCompromiso != nil || errMotivo != nil || version.Validar() != nil ||
 		version.EstadoGobierno != dominiobolsa.EstadoGobiernoConvocatoriaBorrador ||
-		!relacionValida || material.Validar() != nil || !motivo.coincideMaterial(material) ||
+		!relacionValida || material.EstadoRelacionadoEsperado != nil ||
+		material.Validar() != nil || !motivo.coincideMaterial(material) ||
 		validarMotivoTransicionConvocatoria(motivo, material.Accion, version) != nil {
 		return MaterialIntencionGobiernoConvocatoria{}, ErrMaterialIntencionConvocatoriaInvalido
 	}

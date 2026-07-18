@@ -139,8 +139,8 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 			t, AccionCrearBorradorConvocatoria, borradorV2,
 			borradorV2.CreadaPor, borradorV2.MotivoCreacion, 'f',
 		),
-	); err != nil {
-		t.Fatalf("alta de sucesora exacta rechazada: %v", err)
+	); !errors.Is(err, ErrMaterialIntencionConvocatoriaInvalido) {
+		t.Fatalf("material V2 de alta acepto estado relacionado esperado: %v", err)
 	}
 	borradorConFlujoGemelo := borradorV2
 	borradorConFlujoGemelo.InstanciaFlujoRef = "instancia:flujo:convocatoria:gemela"
