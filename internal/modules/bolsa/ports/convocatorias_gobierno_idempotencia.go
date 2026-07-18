@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	VersionTestimonioIdempotenciaConvocatoriaV1 = 1
-	VigenciaMaximaTestimonioConvocatoria        = 10 * time.Minute
+	VersionTestimonioIdempotenciaConvocatoriaV1    = 1
+	VigenciaMaximaTestimonioConvocatoria           = 10 * time.Minute
+	EsquemaMaterialIntencionGobiernoConvocatoriaV2 = "bolsa.convocatoria.intencion.v2"
 )
 
 var (
@@ -27,7 +28,9 @@ var (
 )
 
 // ReferenciaEstadoVersionConvocatoria fija referencia, revision y huella del
-// agregado completo. No es una referencia a contenido ni a «la ultima» fila.
+// agregado completo. Las huellas de estado son identificadores pseudonimizados
+// internos, no datos anonimos: mantienen la clasificacion y proteccion del
+// expediente. No es una referencia a contenido ni a «la ultima» fila.
 type ReferenciaEstadoVersionConvocatoria struct {
 	Referencia         string `json:"referencia"`
 	Revision           int    `json:"revision"`
@@ -55,28 +58,27 @@ func EstadoVersionConvocatoria(
 	return estado, nil
 }
 
-// MaterialIntencionGobiernoConvocatoria es la preimagen semantica estable de
-// una mutacion. Solo contiene referencias y huellas; nunca motivos en claro.
+// MaterialIntencionGobiernoConvocatoria es la preimagen V2 estable de una
+// mutacion. Autoriza exclusivamente el compromiso HMAC con clave; nunca el
+// motivo, su huella SHA-256 cruda ni una representacion V1 heredada.
 type MaterialIntencionGobiernoConvocatoria struct {
-	Esquema                     string                               `json:"esquema"`
-	Accion                      string                               `json:"accion"`
-	EstadoPrincipalEsperado     *ReferenciaEstadoVersionConvocatoria `json:"estado_principal_esperado,omitempty"`
-	EstadoPrincipalNuevo        ReferenciaEstadoVersionConvocatoria  `json:"estado_principal_nuevo"`
-	EstadoRelacionadoEsperado   *ReferenciaEstadoVersionConvocatoria `json:"estado_relacionado_esperado,omitempty"`
-	EstadoRelacionadoNuevo      *ReferenciaEstadoVersionConvocatoria `json:"estado_relacionado_nuevo,omitempty"`
-	DominioCriptograficoMotivo  string                               `json:"dominio_criptografico_motivo"`
-	GeneracionClaveMotivo       uint32                               `json:"generacion_clave_motivo"`
-	HuellaSolicitudMotivoSHA256 string                               `json:"huella_solicitud_motivo_sha256"`
-	HuellaMotivoHMACSHA256      string                               `json:"huella_motivo_hmac_sha256"`
+	Esquema                    string                               `json:"esquema"`
+	Accion                     string                               `json:"accion"`
+	EstadoPrincipalEsperado    *ReferenciaEstadoVersionConvocatoria `json:"estado_principal_esperado,omitempty"`
+	EstadoPrincipalNuevo       ReferenciaEstadoVersionConvocatoria  `json:"estado_principal_nuevo"`
+	EstadoRelacionadoEsperado  *ReferenciaEstadoVersionConvocatoria `json:"estado_relacionado_esperado,omitempty"`
+	EstadoRelacionadoNuevo     *ReferenciaEstadoVersionConvocatoria `json:"estado_relacionado_nuevo,omitempty"`
+	DominioCriptograficoMotivo string                               `json:"dominio_criptografico_motivo"`
+	GeneracionClaveMotivo      uint32                               `json:"generacion_clave_motivo"`
+	HuellaMotivoHMACSHA256     string                               `json:"huella_motivo_hmac_sha256"`
 }
 
 func (m MaterialIntencionGobiernoConvocatoria) Validar() error {
 	especificacion, conocida := especificacionesAutorizacionConvocatoria[m.Accion]
-	if m.Esquema != "bolsa.convocatoria.intencion.v1" || !conocida || !especificacion.mutacion ||
+	if m.Esquema != EsquemaMaterialIntencionGobiernoConvocatoriaV2 || !conocida || !especificacion.mutacion ||
 		m.EstadoPrincipalNuevo.Validar() != nil ||
 		m.DominioCriptograficoMotivo != DominioCriptograficoMotivoGobiernoConvocatoriaV1 ||
 		m.GeneracionClaveMotivo < 1 ||
-		!huellaGobiernoConvocatoriaValida(m.HuellaSolicitudMotivoSHA256) ||
 		!huellaHMACGobiernoConvocatoriaValida(m.HuellaMotivoHMACSHA256) {
 		return ErrMaterialIntencionConvocatoriaInvalido
 	}

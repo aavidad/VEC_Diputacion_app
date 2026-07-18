@@ -18,7 +18,7 @@ var instanteGobiernoConvocatoriaPrueba = time.Date(2026, time.July, 16, 8, 0, 0,
 
 func TestAltaExigeIntencionAutorizacionIdempotenciaYReciboLigados(t *testing.T) {
 	version := versionGobernadaPuertosPrueba(t)
-	selladoMotivo := atestacionMotivoConvocatoriaPrueba(
+	selladoMotivo := compromisoMotivoConvocatoriaPrueba(
 		t, AccionCrearBorradorConvocatoria, version,
 		version.CreadaPor, version.MotivoCreacion, 'a',
 	)
@@ -28,10 +28,13 @@ func TestAltaExigeIntencionAutorizacionIdempotenciaYReciboLigados(t *testing.T) 
 	}
 	autorizacion := autorizacionMutacionConvocatoriaPrueba(t, material, version)
 	testimonio := testimonioIdempotenciaConvocatoriaPrueba(t, material, autorizacion)
+	atestacionMotivo := atestacionMotivoMaterializadaConvocatoriaPrueba(
+		t, selladoMotivo, material, autorizacion, testimonio, version, 'a',
+	)
 	preparacion := PreparacionTransaccionGobiernoConvocatoria{
 		Material: material, Idempotencia: testimonio, Autorizacion: autorizacion,
-		SelladoMotivo: selladoMotivo,
-		SolicitadaEn:  instanteGobiernoConvocatoriaPrueba,
+		CompromisoMotivo: selladoMotivo, SelladoMotivo: atestacionMotivo,
+		SolicitadaEn: instanteGobiernoConvocatoriaPrueba,
 	}
 	confirmacion := ConfirmacionAltaBorradorConvocatoria{Version: version, Transaccion: preparacion}
 	if err := confirmacion.Validar(); err != nil {
@@ -48,7 +51,7 @@ func TestAltaExigeIntencionAutorizacionIdempotenciaYReciboLigados(t *testing.T) 
 
 	datosAutorizacion, _ := autorizacion.Datos()
 	datosIdempotencia, _ := testimonio.Datos()
-	datosSellado, _ := selladoMotivo.DatosParaConsumo()
+	datosSellado, _ := atestacionMotivo.DatosParaConsumo()
 	huellaIntencion, _ := material.HuellaSHA256()
 	recibo := ReciboGobiernoConvocatoria{
 		TransaccionRef: "transaccion:convocatoria:001", Accion: material.Accion,
@@ -105,7 +108,7 @@ func TestAltaExigeIntencionAutorizacionIdempotenciaYReciboLigados(t *testing.T) 
 
 func TestClaveIdempotenciaExigeEntropiaYNoSeFiltra(t *testing.T) {
 	version := versionGobernadaPuertosPrueba(t)
-	material, _ := MaterialAltaBorradorConvocatoria(version, nil, nil, atestacionMotivoConvocatoriaPrueba(
+	material, _ := MaterialAltaBorradorConvocatoria(version, nil, nil, compromisoMotivoConvocatoriaPrueba(
 		t, AccionCrearBorradorConvocatoria, version,
 		version.CreadaPor, version.MotivoCreacion, 'a',
 	))
@@ -130,80 +133,104 @@ func TestClaveIdempotenciaExigeEntropiaYNoSeFiltra(t *testing.T) {
 	}
 }
 
-func TestMotivoSoloCruzaSelladorVersionadoYNoSeFiltra(t *testing.T) {
+func TestMotivoSeComprometeSinClaroNiCapacidadConsumibleAntesDelPDP(t *testing.T) {
 	version := versionGobernadaPuertosPrueba(t)
-	motivo := "Motivo administrativo reservado para el expediente."
-	solicitud := SolicitudSellarMotivoGobiernoConvocatoria{
+	motivo := version.MotivoCreacion
+	semantica := SolicitudSemanticaMotivoGobiernoConvocatoria{
 		DominioCriptografico: DominioCriptograficoMotivoGobiernoConvocatoriaV1,
 		Accion:               AccionCrearBorradorConvocatoria, ConvocatoriaRef: version.Referencia(),
-		PrincipalRef: "per_0123456789abcdefghijkl", CorrelacionRef: "correlacion:convocatoria:motivo:001",
+		PrincipalRef: version.CreadaPor, CorrelacionRef: "correlacion:convocatoria:001",
 		Motivo: motivo, SolicitadaEn: instanteGobiernoConvocatoriaPrueba,
 	}
-	if err := solicitud.Validar(); err != nil {
-		t.Fatalf("solicitud de sellado valida rechazada: %v", err)
-	}
-	if _, err := json.Marshal(solicitud); !errors.Is(err, ErrSerializacionMotivoGobiernoConvocatoria) {
-		t.Fatalf("motivo serializable: %v", err)
-	}
-	for _, formato := range []string{"%v", "%+v", "%#v"} {
-		if salida := fmt.Sprintf(formato, solicitud); strings.Contains(salida, motivo) {
-			t.Fatalf("motivo filtrado con %s: %s", formato, salida)
-		}
-	}
-	hmac := hmacMotivoConvocatoriaPrueba('a')
-	if err := hmac.Validar(); err != nil || hmac.GeneracionClave != 3 || hmac.ClaveHMACRef != "motivo-gobierno-v3" {
-		t.Fatalf("HMAC tipado sin clave versionada: %+v / %v", hmac, err)
-	}
-	huellaSolicitud, err := solicitud.HuellaSHA256()
+	huellaSolicitud, err := semantica.HuellaSHA256()
 	if err != nil {
 		t.Fatal(err)
 	}
-	reintento := solicitud
-	reintento.SolicitadaEn = solicitud.SolicitadaEn.Add(time.Minute)
+	reintento := semantica
+	reintento.SolicitadaEn = semantica.SolicitadaEn.Add(time.Minute)
 	huellaReintento, err := reintento.HuellaSHA256()
 	if err != nil || huellaReintento != huellaSolicitud {
 		t.Fatalf("un reintento temporal altero la intencion semantica: %v", err)
 	}
-	atestacion, err := NuevaAtestacionSelladoMotivoConvocatoria(
-		solicitud,
-		DatosAtestacionSelladoMotivoConvocatoria{
-			HMAC: hmac, Accion: solicitud.Accion, ConvocatoriaRef: solicitud.ConvocatoriaRef,
-			PrincipalRef: solicitud.PrincipalRef, CorrelacionRef: solicitud.CorrelacionRef,
-			HuellaSolicitudSHA256: huellaSolicitud, SelladorRef: "sellador:motivo:v3",
-			AtestacionRef: "atestacion:motivo:001", HuellaAtestacionSHA256: huellaConvocatoriaPrueba('b'),
-			TokenConsumoRef:       "consumo:motivo:001",
-			AtestacionEmitidaEn:   instanteGobiernoConvocatoriaPrueba.Add(time.Minute),
-			AtestacionValidaHasta: instanteGobiernoConvocatoriaPrueba.Add(4 * time.Minute),
-		},
-	)
+	solicitudHSM, err := NuevaSolicitudComprometerMotivoGobiernoConvocatoria(semantica)
+	if err != nil || solicitudHSM.HuellaSolicitudSHA256 != huellaSolicitud {
+		t.Fatalf("solicitud HSM minimizada invalida: %v", err)
+	}
+	tipoSolicitudHSM := reflect.TypeOf(solicitudHSM)
+	for indice := 0; indice < tipoSolicitudHSM.NumField(); indice++ {
+		nombre := tipoSolicitudHSM.Field(indice).Name
+		if nombre == "Motivo" || nombre == "Accion" || nombre == "PrincipalRef" || nombre == "ConvocatoriaRef" || nombre == "CorrelacionRef" {
+			t.Fatalf("el puerto HSM recibe contexto semantico innecesario: %s", nombre)
+		}
+	}
+	for _, valor := range []any{semantica, solicitudHSM} {
+		if _, err := json.Marshal(valor); !errors.Is(err, ErrSerializacionMotivoGobiernoConvocatoria) {
+			t.Fatalf("valor de motivo serializable: %v", err)
+		}
+		for _, formato := range []string{"%v", "%+v", "%#v"} {
+			if salida := fmt.Sprintf(formato, valor); strings.Contains(salida, motivo) {
+				t.Fatalf("motivo filtrado con %s: %s", formato, salida)
+			}
+		}
+	}
+	hmac := hmacMotivoConvocatoriaPrueba('a', solicitudHSM.HuellaSolicitudSHA256)
+	proyeccion, err := hmac.ProyeccionDurable()
+	if err != nil || proyeccion.DominioCriptografico != hmac.DominioCriptografico ||
+		proyeccion.GeneracionClave != hmac.GeneracionClave ||
+		proyeccion.ClaveHMACRef != hmac.ClaveHMACRef ||
+		proyeccion.ValorHMACSHA256 != hmac.ValorHMACSHA256 {
+		t.Fatalf("el adaptador no puede obtener la proyeccion durable nominal: %v", err)
+	}
+	if _, existe := reflect.TypeOf(proyeccion).FieldByName("HuellaEntradaSHA256"); existe {
+		t.Fatal("la proyeccion durable conserva la entrada cruda")
+	}
+	if _, existe := reflect.TypeOf(hmac).MethodByName("ProyeccionDurable"); !existe {
+		t.Fatal("falta el metodo exportado estrecho para el adaptador materializador")
+	}
+	compromiso, err := NuevoCompromisoMotivoGobiernoConvocatoria(semantica, hmac)
 	if err != nil {
-		t.Fatalf("atestacion de sellado valida rechazada: %v", err)
+		t.Fatal(err)
 	}
-	solicitudDistinta := solicitud
-	solicitudDistinta.Motivo += " Otro contenido."
-	if _, err := NuevaAtestacionSelladoMotivoConvocatoria(
-		solicitudDistinta, func() DatosAtestacionSelladoMotivoConvocatoria {
-			datos, _ := atestacion.DatosParaConsumo()
-			return datos
-		}(),
-	); !errors.Is(err, ErrSelladoMotivoGobiernoConvocatoriaInvalido) {
-		t.Fatalf("atestacion se reutilizo para otro motivo: %v", err)
+	for _, tipo := range []reflect.Type{
+		reflect.TypeOf(CompromisoMotivoGobiernoConvocatoria{}),
+		reflect.TypeOf(DatosCompromisoMotivoGobiernoConvocatoria{}),
+	} {
+		for indice := 0; indice < tipo.NumField(); indice++ {
+			nombre := tipo.Field(indice).Name
+			if strings.Contains(nombre, "Atestacion") || strings.Contains(nombre, "TokenConsumo") {
+				t.Fatalf("el compromiso previo contiene capacidad consumible: %s", nombre)
+			}
+		}
 	}
-	tipoFabrica := reflect.TypeOf(MaterialAltaBorradorConvocatoria)
-	if tipoFabrica.In(3) != reflect.TypeOf(AtestacionSelladoMotivoConvocatoria{}) {
-		t.Fatal("la mutacion acepta un HMAC fabricable sin atestacion del sellador")
+	material, err := MaterialAltaBorradorConvocatoria(version, nil, nil, compromiso)
+	if err != nil {
+		t.Fatalf("material previo al PDP rechazado: %v", err)
+	}
+	if reflect.TypeOf(MaterialAltaBorradorConvocatoria).In(3) != reflect.TypeOf(CompromisoMotivoGobiernoConvocatoria{}) {
+		t.Fatal("la fabrica de material no exige el compromiso nominal")
+	}
+	semanticaDistinta := semantica
+	semanticaDistinta.Motivo += " Otro contenido."
+	if _, err := NuevoCompromisoMotivoGobiernoConvocatoria(semanticaDistinta, hmac); !errors.Is(err, ErrSelladoMotivoGobiernoConvocatoriaInvalido) {
+		t.Fatalf("HMAC de otro motivo se reutilizo: %v", err)
+	}
+	if _, err := material.HuellaSHA256(); err != nil {
+		t.Fatalf("la denegacion PDP no puede modelarse sin atestacion previa: %v", err)
 	}
 }
 
 func TestAutorizacionNoSeReutilizaParaOtraIntencionAccionORecurso(t *testing.T) {
 	version := versionGobernadaPuertosPrueba(t)
-	selladoMotivo := atestacionMotivoConvocatoriaPrueba(
+	selladoMotivo := compromisoMotivoConvocatoriaPrueba(
 		t, AccionCrearBorradorConvocatoria, version,
 		version.CreadaPor, version.MotivoCreacion, 'a',
 	)
 	material, _ := MaterialAltaBorradorConvocatoria(version, nil, nil, selladoMotivo)
 	autorizacion := autorizacionMutacionConvocatoriaPrueba(t, material, version)
 	testimonio := testimonioIdempotenciaConvocatoriaPrueba(t, material, autorizacion)
+	atestacionMotivo := atestacionMotivoMaterializadaConvocatoriaPrueba(
+		t, selladoMotivo, material, autorizacion, testimonio, version, 'a',
+	)
 
 	otroMaterial := material
 	otroMaterial.HuellaMotivoHMACSHA256 = hmacConvocatoriaPrueba("motivo", 'b')
@@ -215,8 +242,8 @@ func TestAutorizacionNoSeReutilizaParaOtraIntencionAccionORecurso(t *testing.T) 
 	}
 	preparacion := PreparacionTransaccionGobiernoConvocatoria{
 		Material: otroMaterial, Idempotencia: testimonio, Autorizacion: autorizacion,
-		SelladoMotivo: selladoMotivo,
-		SolicitadaEn:  instanteGobiernoConvocatoriaPrueba,
+		CompromisoMotivo: selladoMotivo, SelladoMotivo: atestacionMotivo,
+		SolicitadaEn: instanteGobiernoConvocatoriaPrueba,
 	}
 	if err := preparacion.ValidarPara(version); !errors.Is(err, ErrConfirmacionGobiernoConvocatoriaInvalida) {
 		t.Fatalf("autorizacion se reutilizo con otra preimagen: %v", err)
@@ -361,17 +388,27 @@ func TestAtestacionesRevalidablesNoAceptanReplayDeRevision(t *testing.T) {
 func TestInterfacesDelContratoQuedanSeparadasDeHTTP(t *testing.T) {
 	var _ ConsultaGobiernoConvocatorias = consultaGobiernoConvocatoriasContrato{}
 	var _ ProtectorIdempotenciaConvocatorias = protectorIdempotenciaConvocatoriasContrato{}
-	var _ SelladorMotivoGobiernoConvocatoria = selladorMotivoGobiernoConvocatoriaContrato{}
+	var _ ComprometedorMotivoGobiernoConvocatoria = comprometedorMotivoGobiernoConvocatoriaContrato{}
+	var _ MaterializadorSelladoMotivoGobiernoConvocatoria = materializadorMotivoGobiernoConvocatoriaContrato{}
 	var _ VerificadorDependenciasConvocatoria = verificadorDependenciasConvocatoriaContrato{}
 	var _ VerificadorAprobacionConvocatoria = verificadorAprobacionConvocatoriaContrato{}
 	var _ RepositorioGobiernoConvocatorias = repositorioGobiernoConvocatoriasContrato{}
 }
 
-type selladorMotivoGobiernoConvocatoriaContrato struct{}
+type comprometedorMotivoGobiernoConvocatoriaContrato struct{}
 
-func (selladorMotivoGobiernoConvocatoriaContrato) SellarMotivo(
+func (comprometedorMotivoGobiernoConvocatoriaContrato) ComprometerMotivo(
 	context.Context,
-	SolicitudSellarMotivoGobiernoConvocatoria,
+	SolicitudComprometerMotivoGobiernoConvocatoria,
+) (HMACMotivoGobiernoConvocatoria, error) {
+	return HMACMotivoGobiernoConvocatoria{}, nil
+}
+
+type materializadorMotivoGobiernoConvocatoriaContrato struct{}
+
+func (materializadorMotivoGobiernoConvocatoriaContrato) VerificarYMaterializarSelladoMotivo(
+	context.Context,
+	SolicitudMaterializarSelladoMotivoGobiernoConvocatoria,
 ) (AtestacionSelladoMotivoConvocatoria, error) {
 	return AtestacionSelladoMotivoConvocatoria{}, nil
 }

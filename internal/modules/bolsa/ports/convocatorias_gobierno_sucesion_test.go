@@ -135,7 +135,7 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 		t.Fatal(err)
 	}
 	if _, err := MaterialAltaBorradorConvocatoria(
-		borradorV2, &esperadaV1, &publicadaV1, atestacionMotivoConvocatoriaPrueba(
+		borradorV2, &esperadaV1, &publicadaV1, compromisoMotivoConvocatoriaPrueba(
 			t, AccionCrearBorradorConvocatoria, borradorV2,
 			borradorV2.CreadaPor, borradorV2.MotivoCreacion, 'f',
 		),
@@ -149,7 +149,7 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 	}
 	if _, err := MaterialAltaBorradorConvocatoria(
 		borradorConFlujoGemelo, &esperadaV1, &publicadaV1,
-		atestacionMotivoConvocatoriaPrueba(
+		compromisoMotivoConvocatoriaPrueba(
 			t, AccionCrearBorradorConvocatoria, borradorConFlujoGemelo,
 			borradorConFlujoGemelo.CreadaPor, borradorConFlujoGemelo.MotivoCreacion, 'f',
 		),
@@ -158,7 +158,7 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 	}
 
 	if _, err := MaterialPublicacionConvocatoria(
-		esperadaV2, resultado.Publicada, nil, nil, atestacionMotivoConvocatoriaPrueba(
+		esperadaV2, resultado.Publicada, nil, nil, compromisoMotivoConvocatoriaPrueba(
 			t, AccionPublicarYSustituirConvocatoria, resultado.Publicada,
 			resultado.Publicada.PublicadaPor, resultado.Publicada.MotivoPublicacion, 'e',
 		),
@@ -167,7 +167,7 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 	}
 	material, err := MaterialPublicacionConvocatoria(
 		esperadaV2, resultado.Publicada, &esperadaV1, &resultado.Predecesora,
-		atestacionMotivoConvocatoriaPrueba(
+		compromisoMotivoConvocatoriaPrueba(
 			t, AccionPublicarYSustituirConvocatoria, resultado.Publicada,
 			resultado.Publicada.PublicadaPor, resultado.Publicada.MotivoPublicacion, 'e',
 		),
@@ -189,7 +189,7 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 	}
 	if _, err := MaterialPublicacionConvocatoria(
 		esperadaV2, resultado.Publicada, &esperadaV1, &parejaFabricada,
-		atestacionMotivoConvocatoriaPrueba(
+		compromisoMotivoConvocatoriaPrueba(
 			t, AccionPublicarYSustituirConvocatoria, resultado.Publicada,
 			resultado.Publicada.PublicadaPor, resultado.Publicada.MotivoPublicacion, 'e',
 		),
@@ -201,7 +201,7 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 	predecesoraAjena.Referencia = "proceso:bolsa:ajeno#1"
 	if _, err := MaterialPublicacionConvocatoria(
 		esperadaV2, resultado.Publicada, &predecesoraAjena, &resultado.Predecesora,
-		atestacionMotivoConvocatoriaPrueba(
+		compromisoMotivoConvocatoriaPrueba(
 			t, AccionPublicarYSustituirConvocatoria, resultado.Publicada,
 			resultado.Publicada.PublicadaPor, resultado.Publicada.MotivoPublicacion, 'e',
 		),

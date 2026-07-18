@@ -25,11 +25,12 @@ var (
 
 type PreparacionTransaccionGobiernoConvocatoria struct {
 	bloqueoSerializacionGobiernoConvocatoria
-	Material      MaterialIntencionGobiernoConvocatoria
-	Idempotencia  TestimonioIdempotenciaConvocatoria
-	Autorizacion  puertosvec.EvidenciaUsoDecisionAutorizacion
-	SelladoMotivo AtestacionSelladoMotivoConvocatoria
-	SolicitadaEn  time.Time
+	Material         MaterialIntencionGobiernoConvocatoria
+	Idempotencia     TestimonioIdempotenciaConvocatoria
+	Autorizacion     puertosvec.EvidenciaUsoDecisionAutorizacion
+	CompromisoMotivo CompromisoMotivoGobiernoConvocatoria
+	SelladoMotivo    AtestacionSelladoMotivoConvocatoria
+	SolicitadaEn     time.Time
 }
 
 func (p PreparacionTransaccionGobiernoConvocatoria) ValidarPara(
@@ -53,8 +54,9 @@ func (p PreparacionTransaccionGobiernoConvocatoria) validarEn(
 			p.Autorizacion, p.Material.Accion, p.Material, versionConfirmada, instante,
 		) != nil || p.Idempotencia.ValidarPara(
 		p.Material, datosAutorizacion.Decision.PrincipalID,
-	) != nil || p.SelladoMotivo.validarParaMaterial(p.Material, instante) != nil ||
-		datosSellado.PrincipalRef != datosAutorizacion.Decision.PrincipalID ||
+	) != nil || p.SelladoMotivo.validarPara(
+		p.CompromisoMotivo, p.Material, p.Autorizacion, p.Idempotencia, instante,
+	) != nil || datosSellado.PrincipalRef != datosAutorizacion.Decision.PrincipalID ||
 		datosSellado.CorrelacionRef != datosAutorizacion.Decision.CorrelacionRef ||
 		instante.Before(datosIdempotencia.EmitidoEn) ||
 		!instante.Before(datosIdempotencia.ValidoHasta) {
@@ -67,18 +69,17 @@ func MaterialAltaBorradorConvocatoria(
 	version dominiobolsa.VersionConvocatoriaGobernada,
 	predecesora *ReferenciaEstadoVersionConvocatoria,
 	versionPredecesora *dominiobolsa.VersionConvocatoriaGobernada,
-	motivo AtestacionSelladoMotivoConvocatoria,
+	motivo CompromisoMotivoGobiernoConvocatoria,
 ) (MaterialIntencionGobiernoConvocatoria, error) {
 	nuevo, err := estadoVersionConvocatoria(version)
-	hmacMotivo, huellaSolicitudMotivo, errAtestacion := motivo.material()
+	hmacMotivo, errCompromiso := motivo.material()
 	representacionMotivo, errMotivo := hmacMotivo.representacionMaterial()
 	material := MaterialIntencionGobiernoConvocatoria{
-		Esquema: "bolsa.convocatoria.intencion.v1", Accion: AccionCrearBorradorConvocatoria,
+		Esquema: EsquemaMaterialIntencionGobiernoConvocatoriaV2, Accion: AccionCrearBorradorConvocatoria,
 		EstadoPrincipalNuevo: nuevo, EstadoRelacionadoEsperado: clonarEstadoVersion(predecesora),
-		DominioCriptograficoMotivo:  hmacMotivo.DominioCriptografico,
-		GeneracionClaveMotivo:       hmacMotivo.GeneracionClave,
-		HuellaSolicitudMotivoSHA256: huellaSolicitudMotivo,
-		HuellaMotivoHMACSHA256:      representacionMotivo,
+		DominioCriptograficoMotivo: hmacMotivo.DominioCriptografico,
+		GeneracionClaveMotivo:      hmacMotivo.GeneracionClave,
+		HuellaMotivoHMACSHA256:     representacionMotivo,
 	}
 	relacionValida := version.Secuencia == 1 && predecesora == nil &&
 		versionPredecesora == nil && version.VersionAnteriorRef == ""
@@ -87,7 +88,7 @@ func MaterialAltaBorradorConvocatoria(
 		relacionValida = errEstado == nil && estadoPredecesora == *predecesora &&
 			predecesoraExactaParaBorradorSucesor(version, *versionPredecesora)
 	}
-	if err != nil || errAtestacion != nil || errMotivo != nil || version.Validar() != nil ||
+	if err != nil || errCompromiso != nil || errMotivo != nil || version.Validar() != nil ||
 		version.EstadoGobierno != dominiobolsa.EstadoGobiernoConvocatoriaBorrador ||
 		!relacionValida || material.Validar() != nil || !motivo.coincideMaterial(material) ||
 		validarMotivoTransicionConvocatoria(motivo, material.Accion, version) != nil {
@@ -99,7 +100,7 @@ func MaterialAltaBorradorConvocatoria(
 func MaterialActualizacionBorradorConvocatoria(
 	esperada ReferenciaEstadoVersionConvocatoria,
 	version dominiobolsa.VersionConvocatoriaGobernada,
-	motivo AtestacionSelladoMotivoConvocatoria,
+	motivo CompromisoMotivoGobiernoConvocatoria,
 ) (MaterialIntencionGobiernoConvocatoria, error) {
 	return materialCambioSimpleConvocatoria(
 		AccionActualizarBorradorConvocatoria, esperada, version,
@@ -115,18 +116,17 @@ func MaterialPublicacionConvocatoria(
 	version dominiobolsa.VersionConvocatoriaGobernada,
 	predecesoraEsperada *ReferenciaEstadoVersionConvocatoria,
 	predecesoraResultado *dominiobolsa.VersionConvocatoriaGobernada,
-	motivo AtestacionSelladoMotivoConvocatoria,
+	motivo CompromisoMotivoGobiernoConvocatoria,
 ) (MaterialIntencionGobiernoConvocatoria, error) {
 	nuevo, errNuevo := estadoVersionConvocatoria(version)
-	hmacMotivo, huellaSolicitudMotivo, errAtestacion := motivo.material()
+	hmacMotivo, errCompromiso := motivo.material()
 	representacionMotivo, errMotivo := hmacMotivo.representacionMaterial()
 	material := MaterialIntencionGobiernoConvocatoria{
-		Esquema: "bolsa.convocatoria.intencion.v1", Accion: AccionPublicarVersionConvocatoria,
+		Esquema: EsquemaMaterialIntencionGobiernoConvocatoriaV2, Accion: AccionPublicarVersionConvocatoria,
 		EstadoPrincipalEsperado: clonarEstadoVersion(&esperada), EstadoPrincipalNuevo: nuevo,
-		DominioCriptograficoMotivo:  hmacMotivo.DominioCriptografico,
-		GeneracionClaveMotivo:       hmacMotivo.GeneracionClave,
-		HuellaSolicitudMotivoSHA256: huellaSolicitudMotivo,
-		HuellaMotivoHMACSHA256:      representacionMotivo,
+		DominioCriptograficoMotivo: hmacMotivo.DominioCriptografico,
+		GeneracionClaveMotivo:      hmacMotivo.GeneracionClave,
+		HuellaMotivoHMACSHA256:     representacionMotivo,
 	}
 	if version.Secuencia == 1 {
 		if predecesoraEsperada != nil || predecesoraResultado != nil {
@@ -155,7 +155,7 @@ func MaterialPublicacionConvocatoria(
 			return MaterialIntencionGobiernoConvocatoria{}, ErrMaterialIntencionConvocatoriaInvalido
 		}
 	}
-	if errNuevo != nil || errAtestacion != nil || errMotivo != nil || version.Validar() != nil ||
+	if errNuevo != nil || errCompromiso != nil || errMotivo != nil || version.Validar() != nil ||
 		version.EstadoGobierno != dominiobolsa.EstadoGobiernoConvocatoriaPublicada ||
 		esperada.Referencia != version.Referencia() || esperada.Revision != version.Revision ||
 		material.Validar() != nil || !motivo.coincideMaterial(material) ||
@@ -168,7 +168,7 @@ func MaterialPublicacionConvocatoria(
 func MaterialRetiradaConvocatoria(
 	esperada ReferenciaEstadoVersionConvocatoria,
 	version dominiobolsa.VersionConvocatoriaGobernada,
-	motivo AtestacionSelladoMotivoConvocatoria,
+	motivo CompromisoMotivoGobiernoConvocatoria,
 ) (MaterialIntencionGobiernoConvocatoria, error) {
 	return materialCambioSimpleConvocatoria(
 		AccionRetirarVersionConvocatoria, esperada, version,
@@ -182,20 +182,19 @@ func materialCambioSimpleConvocatoria(
 	version dominiobolsa.VersionConvocatoriaGobernada,
 	estado dominiobolsa.EstadoGobiernoConvocatoria,
 	aumentoRevision int,
-	motivo AtestacionSelladoMotivoConvocatoria,
+	motivo CompromisoMotivoGobiernoConvocatoria,
 ) (MaterialIntencionGobiernoConvocatoria, error) {
 	nuevo, err := estadoVersionConvocatoria(version)
-	hmacMotivo, huellaSolicitudMotivo, errAtestacion := motivo.material()
+	hmacMotivo, errCompromiso := motivo.material()
 	representacionMotivo, errMotivo := hmacMotivo.representacionMaterial()
 	material := MaterialIntencionGobiernoConvocatoria{
-		Esquema: "bolsa.convocatoria.intencion.v1", Accion: accion,
+		Esquema: EsquemaMaterialIntencionGobiernoConvocatoriaV2, Accion: accion,
 		EstadoPrincipalEsperado: clonarEstadoVersion(&esperada), EstadoPrincipalNuevo: nuevo,
-		DominioCriptograficoMotivo:  hmacMotivo.DominioCriptografico,
-		GeneracionClaveMotivo:       hmacMotivo.GeneracionClave,
-		HuellaSolicitudMotivoSHA256: huellaSolicitudMotivo,
-		HuellaMotivoHMACSHA256:      representacionMotivo,
+		DominioCriptograficoMotivo: hmacMotivo.DominioCriptografico,
+		GeneracionClaveMotivo:      hmacMotivo.GeneracionClave,
+		HuellaMotivoHMACSHA256:     representacionMotivo,
 	}
-	if err != nil || errAtestacion != nil || errMotivo != nil || version.Validar() != nil || version.EstadoGobierno != estado ||
+	if err != nil || errCompromiso != nil || errMotivo != nil || version.Validar() != nil || version.EstadoGobierno != estado ||
 		esperada.Referencia != version.Referencia() ||
 		version.Revision != esperada.Revision+aumentoRevision || material.Validar() != nil ||
 		!motivo.coincideMaterial(material) ||
@@ -206,11 +205,11 @@ func materialCambioSimpleConvocatoria(
 }
 
 func validarMotivoTransicionConvocatoria(
-	motivo AtestacionSelladoMotivoConvocatoria,
+	motivo CompromisoMotivoGobiernoConvocatoria,
 	accionFinal string,
 	version dominiobolsa.VersionConvocatoriaGobernada,
 ) error {
-	datos, err := motivo.DatosParaConsumo()
+	datos, err := motivo.DatosParaMaterial()
 	if err != nil {
 		return ErrSelladoMotivoGobiernoConvocatoriaInvalido
 	}
@@ -222,7 +221,7 @@ func validarMotivoTransicionConvocatoria(
 	huella, err := huellaSemanticaMotivoGobiernoConvocatoria(
 		accionFinal, version.Referencia(), actor, datos.CorrelacionRef, motivoEnClaro,
 	)
-	if err != nil || datos.HuellaSolicitudSHA256 != huella {
+	if err != nil || !huellaMotivoGobiernoIgualConstante(datos.HuellaSolicitudSHA256, huella) {
 		return ErrSelladoMotivoGobiernoConvocatoriaInvalido
 	}
 	return nil
@@ -258,7 +257,7 @@ type ConfirmacionAltaBorradorConvocatoria struct {
 
 func (c ConfirmacionAltaBorradorConvocatoria) Validar() error {
 	material, err := MaterialAltaBorradorConvocatoria(
-		c.Version, c.PredecesoraEsperada, c.Predecesora, c.Transaccion.SelladoMotivo,
+		c.Version, c.PredecesoraEsperada, c.Predecesora, c.Transaccion.CompromisoMotivo,
 	)
 	if err != nil || !materialesIntencionConvocatoriaIguales(material, c.Transaccion.Material) ||
 		c.Transaccion.ValidarPara(c.Version) != nil {
@@ -299,7 +298,7 @@ type ConfirmacionActualizacionBorradorConvocatoria struct {
 
 func (c ConfirmacionActualizacionBorradorConvocatoria) Validar() error {
 	material, err := MaterialActualizacionBorradorConvocatoria(
-		c.Esperada, c.Version, c.Transaccion.SelladoMotivo,
+		c.Esperada, c.Version, c.Transaccion.CompromisoMotivo,
 	)
 	if err != nil || !materialesIntencionConvocatoriaIguales(material, c.Transaccion.Material) ||
 		c.Transaccion.ValidarPara(c.Version) != nil {
@@ -345,7 +344,7 @@ type ConfirmacionPublicacionConvocatoria struct {
 func (c ConfirmacionPublicacionConvocatoria) Validar() error {
 	material, err := MaterialPublicacionConvocatoria(
 		c.PublicadaEsperada, c.VersionPublicada, c.PredecesoraEsperada,
-		c.PredecesoraResultado, c.Transaccion.SelladoMotivo,
+		c.PredecesoraResultado, c.Transaccion.CompromisoMotivo,
 	)
 	datosDependencias, errDependencias := c.Dependencias.DatosParaConsumo()
 	datosAprobacion, errAprobacion := c.Aprobacion.DatosParaConsumo()
@@ -420,7 +419,7 @@ type ConfirmacionRetiradaConvocatoria struct {
 
 func (c ConfirmacionRetiradaConvocatoria) Validar() error {
 	material, err := MaterialRetiradaConvocatoria(
-		c.Esperada, c.Version, c.Transaccion.SelladoMotivo,
+		c.Esperada, c.Version, c.Transaccion.CompromisoMotivo,
 	)
 	datosAprobacion, errAprobacion := c.Aprobacion.DatosParaConsumo()
 	if err != nil || !materialesIntencionConvocatoriaIguales(material, c.Transaccion.Material) ||

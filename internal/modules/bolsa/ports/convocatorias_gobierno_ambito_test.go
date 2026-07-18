@@ -9,7 +9,7 @@ import (
 
 func TestRecursoMutacionDerivaAmbitosExactosDeVersionConfirmada(t *testing.T) {
 	version := versionGobernadaPuertosPrueba(t)
-	sellado := atestacionMotivoConvocatoriaPrueba(
+	sellado := compromisoMotivoConvocatoriaPrueba(
 		t, AccionCrearBorradorConvocatoria, version,
 		version.CreadaPor, version.MotivoCreacion, 'a',
 	)

@@ -132,7 +132,7 @@ func publicarInicialConvocatoriaPuertosPrueba(
 		VerificadaEn: publicadaEn.Add(-time.Minute),
 	}
 	publicada, err := borrador.PublicarInicial(
-		"persona:gestora:001", aprobacion, dependencias, "Publicacion inicial.", publicadaEn,
+		"per_publica_inicial_0123456789", aprobacion, dependencias, "Publicacion inicial.", publicadaEn,
 	)
 	if err != nil {
 		t.Fatalf("publicar version inicial: %v", err)
@@ -165,7 +165,20 @@ func autorizacionMutacionConvocatoriaPrueba(
 	if err != nil {
 		t.Fatal(err)
 	}
-	return evidenciaAutorizacionConvocatoriaPrueba(t, material.Accion, recurso, instanteGobiernoConvocatoriaPrueba)
+	principal, _, err := actorYMotivoTransicionConvocatoria(material.Accion, version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, vinculo, err := pruebasvec.NuevoContextoYVinculo(
+		instanteGobiernoConvocatoriaPrueba, principal, "prf_0123456789abcdefghijkl",
+		dominiovec.AuthMethodCertificate, dominiovec.AuthAssuranceHigh,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return evidenciaAutorizacionConvocatoriaConVinculoPrueba(
+		t, material.Accion, recurso, instanteGobiernoConvocatoriaPrueba, vinculo,
+	)
 }
 
 func evidenciaAutorizacionConvocatoriaPrueba(
@@ -354,34 +367,39 @@ func hmacConvocatoriaPrueba(clave string, marca byte) string {
 	return "hmac-sha256:" + clave + ":" + huellaConvocatoriaPrueba(marca)
 }
 
-func hmacMotivoConvocatoriaPrueba(marca byte) HMACMotivoGobiernoConvocatoria {
+func hmacMotivoConvocatoriaPrueba(marca byte, huellaEntrada ...string) HMACMotivoGobiernoConvocatoria {
+	huella := huellaConvocatoriaPrueba('e')
+	if len(huellaEntrada) == 1 {
+		huella = huellaEntrada[0]
+	}
 	return HMACMotivoGobiernoConvocatoria{
 		DominioCriptografico: DominioCriptograficoMotivoGobiernoConvocatoriaV1,
-		GeneracionClave:      3, ClaveHMACRef: "motivo-gobierno-v3", ValorHMACSHA256: huellaConvocatoriaPrueba(marca),
+		GeneracionClave:      3, ClaveHMACRef: "motivo-gobierno-v3",
+		HuellaEntradaSHA256: huella, ValorHMACSHA256: huellaConvocatoriaPrueba(marca),
 	}
 }
 
-func atestacionMotivoConvocatoriaPrueba(
+func compromisoMotivoConvocatoriaPrueba(
 	t *testing.T,
 	accion string,
 	version dominiobolsa.VersionConvocatoriaGobernada,
 	principalRef, motivo string,
 	marca byte,
-) AtestacionSelladoMotivoConvocatoria {
+) CompromisoMotivoGobiernoConvocatoria {
 	t.Helper()
-	return atestacionMotivoConvocatoriaConDatosPrueba(
+	return compromisoMotivoConvocatoriaConDatosPrueba(
 		t, accion, version.Referencia(), principalRef,
 		"correlacion:convocatoria:001", motivo, marca,
 	)
 }
 
-func atestacionMotivoConvocatoriaConDatosPrueba(
+func compromisoMotivoConvocatoriaConDatosPrueba(
 	t *testing.T,
 	accion, convocatoriaRef, principalRef, correlacionRef, motivo string,
 	marca byte,
-) AtestacionSelladoMotivoConvocatoria {
+) CompromisoMotivoGobiernoConvocatoria {
 	t.Helper()
-	solicitud := SolicitudSellarMotivoGobiernoConvocatoria{
+	solicitud := SolicitudSemanticaMotivoGobiernoConvocatoria{
 		DominioCriptografico: DominioCriptograficoMotivoGobiernoConvocatoriaV1,
 		Accion:               accion, ConvocatoriaRef: convocatoriaRef,
 		PrincipalRef:   principalRef,
@@ -393,21 +411,66 @@ func atestacionMotivoConvocatoriaConDatosPrueba(
 	if err != nil {
 		t.Fatal(err)
 	}
+	compromiso, err := NuevoCompromisoMotivoGobiernoConvocatoria(
+		solicitud, hmacMotivoConvocatoriaPrueba(marca, huella),
+	)
+	if err != nil {
+		t.Fatalf("crear compromiso de motivo: %v", err)
+	}
+	datos, err := compromiso.DatosParaMaterial()
+	if err != nil || !huellaMotivoGobiernoIgualConstante(datos.HuellaSolicitudSHA256, huella) {
+		t.Fatalf("compromiso de motivo no conserva la huella semantica: %v", err)
+	}
+	return compromiso
+}
+
+func atestacionMotivoMaterializadaConvocatoriaPrueba(
+	t *testing.T,
+	compromiso CompromisoMotivoGobiernoConvocatoria,
+	material MaterialIntencionGobiernoConvocatoria,
+	autorizacion puertosvec.EvidenciaUsoDecisionAutorizacion,
+	testimonio TestimonioIdempotenciaConvocatoria,
+	version dominiobolsa.VersionConvocatoriaGobernada,
+	marca byte,
+) AtestacionSelladoMotivoConvocatoria {
+	t.Helper()
+	solicitud, err := NuevaSolicitudMaterializarSelladoMotivoGobiernoConvocatoria(
+		compromiso, material, autorizacion, testimonio, version, instanteGobiernoConvocatoriaPrueba,
+	)
+	if err != nil {
+		t.Fatalf("crear solicitud de materializacion del motivo: %v", err)
+	}
+	datosSolicitud, err := solicitud.DatosParaMaterializacion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	datosCompromiso, err := compromiso.DatosParaMaterial()
+	if err != nil {
+		t.Fatal(err)
+	}
+	proyeccionHMAC, err := datosCompromiso.HMAC.ProyeccionDurable()
+	if err != nil {
+		t.Fatal(err)
+	}
 	atestacion, err := NuevaAtestacionSelladoMotivoConvocatoria(
 		solicitud,
 		DatosAtestacionSelladoMotivoConvocatoria{
-			HMAC: hmacMotivoConvocatoriaPrueba(marca), Accion: accion,
-			ConvocatoriaRef: convocatoriaRef, PrincipalRef: solicitud.PrincipalRef,
-			CorrelacionRef: solicitud.CorrelacionRef, HuellaSolicitudSHA256: huella,
-			SelladorRef: "sellador:motivo:v3", AtestacionRef: "atestacion:motivo:" + string(marca),
-			HuellaAtestacionSHA256: huellaConvocatoriaPrueba(marca),
-			TokenConsumoRef:        "consumo:motivo:" + string(marca),
-			AtestacionEmitidaEn:    instanteGobiernoConvocatoriaPrueba.Add(-time.Minute),
-			AtestacionValidaHasta:  instanteGobiernoConvocatoriaPrueba.Add(3 * time.Minute),
+			HMAC: proyeccionHMAC, Accion: datosCompromiso.Accion,
+			ConvocatoriaRef: datosCompromiso.ConvocatoriaRef,
+			PrincipalRef:    datosSolicitud.PrincipalRef, CorrelacionRef: datosSolicitud.CorrelacionRef,
+			HuellaIntencionSHA256: datosSolicitud.HuellaIntencionSHA256,
+			DecisionRef:           datosSolicitud.DecisionRef, HuellaDecisionSHA256: datosSolicitud.HuellaDecisionSHA256,
+			IndiceIdempotenciaHMACSHA256:       datosSolicitud.IndiceIdempotenciaHMACSHA256,
+			AtestacionIdempotenciaRef:          datosSolicitud.AtestacionIdempotenciaRef,
+			HuellaAtestacionIdempotenciaSHA256: datosSolicitud.HuellaAtestacionIdempotenciaSHA256,
+			MaterializadorRef:                  "materializador:motivo:v3", AtestacionRef: "atestacion:motivo:" + string(marca),
+			HuellaAtestacionSHA256: huellaConvocatoriaPrueba(marca), TokenConsumoRef: "consumo:motivo:" + string(marca),
+			AtestacionEmitidaEn:   instanteGobiernoConvocatoriaPrueba,
+			AtestacionValidaHasta: instanteGobiernoConvocatoriaPrueba.Add(3 * time.Minute),
 		},
 	)
 	if err != nil {
-		t.Fatalf("crear atestacion de motivo: %v", err)
+		t.Fatalf("crear atestacion materializada de motivo: %v", err)
 	}
 	return atestacion
 }

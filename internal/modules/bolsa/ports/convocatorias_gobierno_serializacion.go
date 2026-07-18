@@ -38,6 +38,22 @@ func (*bloqueoSerializacionGobiernoConvocatoria) UnmarshalBinary([]byte) error {
 	return ErrSerializacionGobiernoConvocatoriaProhibida
 }
 
+func (bloqueoSerializacionGobiernoConvocatoria) MarshalCBOR() ([]byte, error) {
+	return nil, ErrSerializacionGobiernoConvocatoriaProhibida
+}
+
+func (*bloqueoSerializacionGobiernoConvocatoria) UnmarshalCBOR([]byte) error {
+	return ErrSerializacionGobiernoConvocatoriaProhibida
+}
+
+func (bloqueoSerializacionGobiernoConvocatoria) MarshalYAML() (any, error) {
+	return nil, ErrSerializacionGobiernoConvocatoriaProhibida
+}
+
+func (*bloqueoSerializacionGobiernoConvocatoria) UnmarshalYAML(func(any) error) error {
+	return ErrSerializacionGobiernoConvocatoriaProhibida
+}
+
 func (bloqueoSerializacionGobiernoConvocatoria) GobEncode() ([]byte, error) {
 	return nil, ErrSerializacionGobiernoConvocatoriaProhibida
 }
