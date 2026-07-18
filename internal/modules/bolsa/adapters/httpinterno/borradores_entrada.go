@@ -341,13 +341,18 @@ func validarJSONSinDuplicados(contenido []byte) error {
 				}
 				claveToken, err := decodificador.Token()
 				clave, correcta := claveToken.(string)
-				if err != nil || !correcta {
+				// encoding/json enlaza nombres de campos sin distinguir
+				// mayusculas. El contrato HTTP, en cambio, solo admite las
+				// claves snake_case exactas: aceptar "Data" como "data"
+				// permitiria representaciones ambiguas y un ultimo valor ganador.
+				claveCanonica := strings.ToLower(clave)
+				if err != nil || !correcta || clave != claveCanonica {
 					return errEntradaBorradorInvalida
 				}
-				if _, repetida := vistas[clave]; repetida {
+				if _, repetida := vistas[claveCanonica]; repetida {
 					return errEntradaBorradorInvalida
 				}
-				vistas[clave] = struct{}{}
+				vistas[claveCanonica] = struct{}{}
 				if err := recorrer(profundidad + 1); err != nil {
 					return err
 				}

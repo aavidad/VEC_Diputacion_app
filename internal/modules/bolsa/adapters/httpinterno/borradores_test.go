@@ -396,6 +396,13 @@ func TestHandlerBorradoresRechazaLimitesJSONAmbiguoCookiesEIdentidadDeclarada(t 
 		{"clave JSON repetida", func() *http.Request {
 			return peticionMutacionBorrador(http.MethodPost, RutaBorradores, `{"data":{},"data":{}}`)
 		}, http.StatusBadRequest},
+		{"clave JSON con capitalizacion ambigua", func() *http.Request {
+			cuerpo := strings.Replace(cuerpoAltaBorradorPrueba(), `"data":`, `"Data":`, 1)
+			return peticionMutacionBorrador(http.MethodPost, RutaBorradores, cuerpo)
+		}, http.StatusBadRequest},
+		{"clave JSON repetida sin distinguir mayusculas", func() *http.Request {
+			return peticionMutacionBorrador(http.MethodPost, RutaBorradores, `{"data":{},"Data":{}}`)
+		}, http.StatusBadRequest},
 		{"campo identidad en cuerpo", func() *http.Request {
 			cuerpo := strings.Replace(cuerpoAltaBorradorPrueba(), `"esquema":`, `"actor_ref":"per_admin","esquema":`, 1)
 			return peticionMutacionBorrador(http.MethodPost, RutaBorradores, cuerpo)
