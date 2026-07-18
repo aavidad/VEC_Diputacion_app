@@ -98,6 +98,24 @@ func SHA256HexadecimalValido(valor string) bool {
 	return err == nil && len(decodificado) == sha256.Size
 }
 
+// HuellasSHA256Distintas exige forma hexadecimal canonica y ausencia de
+// reutilizacion entre compromisos que representan finalidades distintas.
+// La coleccion vacia satisface la condicion de forma vacua, igual que el
+// contrato historico de materializacion documental.
+func HuellasSHA256Distintas(huellas ...string) bool {
+	vistas := make(map[string]struct{}, len(huellas))
+	for _, huella := range huellas {
+		if !SHA256HexadecimalValido(huella) {
+			return false
+		}
+		if _, repetida := vistas[huella]; repetida {
+			return false
+		}
+		vistas[huella] = struct{}{}
+	}
+	return true
+}
+
 func referenciaClaveHMACValida(valor string) bool {
 	if valor == "" || len(valor) > 64 || valor != strings.TrimSpace(valor) || !utf8.ValidString(valor) {
 		return false

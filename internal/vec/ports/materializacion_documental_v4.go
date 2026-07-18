@@ -471,7 +471,7 @@ func NuevoVinculoPoliticaInmutabilidadDocumental(
 }
 
 func (v VinculoPoliticaInmutabilidadDocumental) Validar() error {
-	if !referenciaMaterialDocumentalV4Valida(v.PoliticaRef) || v.Version == 0 ||
+	if !documentalcanonico.ReferenciaEjecucionV3Valida(v.PoliticaRef) || v.Version == 0 ||
 		!esSHA256Hexadecimal(v.HuellaSHA256) ||
 		!requisitosBaseEscrituraDocumentalV4(v.Requisitos) ||
 		v.HuellaRequisitosSHA256 != huellaRequisitosAlmacenDocumentalV4(v.Requisitos) ||
@@ -479,7 +479,7 @@ func (v VinculoPoliticaInmutabilidadDocumental) Validar() error {
 		(!v.RetencionHasta.IsZero() &&
 			(!v.Requisitos.Retencion || !instanteEjecucionDocumentalV3Valido(v.RetencionHasta))) ||
 		(v.ExigeInmovilizacionInicial && !v.Requisitos.BloqueoLegal) ||
-		!huellasMaterialDocumentalV4Distintas(
+		!documentalcanonico.HuellasSHA256Distintas(
 			v.HuellaSHA256, v.HuellaRequisitosSHA256, v.HuellaCapacidadesSHA256,
 		) {
 		return ErrPruebaEscrituraAlmacenInvalida
@@ -603,7 +603,7 @@ func (v VinculoEjecucionEscrituraAlmacenDocumental) Validar() error {
 		datos.OutboxConsumoRef, datos.ComprobacionKMSRef,
 	}
 	for indice, referencia := range referencias {
-		if !referenciaMaterialDocumentalV4Valida(referencia) {
+		if !documentalcanonico.ReferenciaEjecucionV3Valida(referencia) {
 			return ErrPruebaEscrituraAlmacenInvalida
 		}
 		for otra := indice + 1; otra < len(referencias); otra++ {
@@ -634,7 +634,7 @@ func (v VinculoEjecucionEscrituraAlmacenDocumental) Validar() error {
 		datos.HuellaDecisionSHA256 != consumo.HuellaDecisionSHA256 ||
 		datos.SecuenciaCercado != datosOrden.ReciboInicio.SecuenciaCercado ||
 		datos.HuellaVinculoCercadoSHA256 != datosOrden.ReciboInicio.HuellaVinculoCercadoSHA256 ||
-		!huellasMaterialDocumentalV4Distintas(
+		!documentalcanonico.HuellasSHA256Distintas(
 			datos.HuellaPlanSHA256, datos.HuellaDecisionSHA256, datos.HuellaVinculoCercadoSHA256,
 		) || !esSHA256Hexadecimal(datos.HuellaVinculoEstableSHA256) ||
 		!esSHA256Hexadecimal(datos.HuellaOrdenDespachoSHA256) || datos.SecuenciaCercado == 0 ||
@@ -964,7 +964,7 @@ func NuevaPruebaCrudaEscrituraAlmacen(
 	sobre SobreCriptograficoDocumentalCrudoV4,
 ) (PruebaCrudaEscrituraAlmacen, error) {
 	huellaSobre, err := sobre.HuellaSHA256()
-	if !referenciaMaterialDocumentalV4Valida(pruebaRef) || declaracion.Validar() != nil || err != nil {
+	if !documentalcanonico.ReferenciaEjecucionV3Valida(pruebaRef) || declaracion.Validar() != nil || err != nil {
 		return PruebaCrudaEscrituraAlmacen{}, ErrPruebaEscrituraAlmacenInvalida
 	}
 	mensaje := serializarDeclaracionEscrituraAlmacenDocumental(declaracion)
@@ -977,7 +977,7 @@ func NuevaPruebaCrudaEscrituraAlmacen(
 			datos: clonarDatosPreparacionEscrituraAlmacenDocumentalV4(declaracion.datos),
 		},
 		mensaje:             append([]byte(nil), mensaje...),
-		huellaMensajeSHA256: huellaSHA256MaterialDocumental(mensaje),
+		huellaMensajeSHA256: documentalcanonico.HuellaBytesSHA256(mensaje),
 		sobre:               sobre,
 		huellaSobreSHA256:   huellaSobre,
 	}
@@ -992,10 +992,10 @@ func NuevaPruebaCrudaEscrituraAlmacen(
 func (p PruebaCrudaEscrituraAlmacen) ValidarSintaxis() error {
 	mensaje := serializarDeclaracionEscrituraAlmacenDocumental(p.declaracion)
 	huellaSobre, err := p.sobre.HuellaSHA256()
-	if !referenciaMaterialDocumentalV4Valida(p.pruebaRef) || p.declaracion.Validar() != nil ||
+	if !documentalcanonico.ReferenciaEjecucionV3Valida(p.pruebaRef) || p.declaracion.Validar() != nil ||
 		len(p.mensaje) == 0 || len(p.mensaje) > maximoBytesMensajeEscrituraAlmacenV4 ||
 		!bytes.Equal(p.mensaje, mensaje) ||
-		p.huellaMensajeSHA256 != huellaSHA256MaterialDocumental(p.mensaje) ||
+		p.huellaMensajeSHA256 != documentalcanonico.HuellaBytesSHA256(p.mensaje) ||
 		err != nil || p.huellaSobreSHA256 != huellaSobre {
 		return ErrPruebaEscrituraAlmacenInvalida
 	}
@@ -1135,7 +1135,7 @@ func validarDatosPreparacionEscrituraAlmacenDocumentalV4(
 		(!d.resultado.Evidencia.ReintentoIdempotente &&
 			d.resultado.Objeto.AlmacenadoEn.Before(instanteCercado)) ||
 		d.resultado.Objeto.Zona != ZonaAlmacenCuarentena || d.resultado.Objeto.Eliminado ||
-		!huellasMaterialDocumentalV4Distintas(
+		!documentalcanonico.HuellasSHA256Distintas(
 			d.resultado.Objeto.HuellaSHA256, vinculo.HuellaPlanSHA256,
 			vinculo.HuellaDecisionSHA256, vinculo.HuellaVinculoCercadoSHA256,
 			vinculo.HuellaVinculoEstableSHA256, vinculo.HuellaOrdenDespachoSHA256,
@@ -1173,8 +1173,8 @@ func huellaRequisitosAlmacenDocumentalV4(requisitos RequisitosAlmacenObjetos) st
 		strconv.FormatInt(requisitos.TamanoMinimoObjeto, 10),
 		strconv.FormatBool(requisitos.PreservaObjetoOriginal),
 	}
-	return huellaSHA256MaterialDocumental(
-		serializarValoresLongitudPrefijadaMaterialDocumental(valores),
+	return documentalcanonico.HuellaBytesSHA256(
+		documentalcanonico.SerializarCamposV3(valores),
 	)
 }
 
@@ -1203,8 +1203,8 @@ func huellaCapacidadesAlmacenDocumentalV4(capacidades CapacidadesAlmacenObjetos)
 		strconv.Itoa(len(capacidades.OrigenesCargaDirecta)),
 	}
 	valores = append(valores, capacidades.OrigenesCargaDirecta...)
-	return huellaSHA256MaterialDocumental(
-		serializarValoresLongitudPrefijadaMaterialDocumental(valores),
+	return documentalcanonico.HuellaBytesSHA256(
+		documentalcanonico.SerializarCamposV3(valores),
 	)
 }
 
@@ -1328,7 +1328,7 @@ func valoresSolicitudEscrituraAlmacenDocumentalV4(
 func huellaSolicitudEscrituraAlmacenDocumentalV4(
 	solicitud instantaneaSolicitudEscrituraAlmacenDocumentalV4,
 ) string {
-	return huellaSHA256MaterialDocumental(serializarValoresLongitudPrefijadaMaterialDocumental(
+	return documentalcanonico.HuellaBytesSHA256(documentalcanonico.SerializarCamposV3(
 		valoresSolicitudEscrituraAlmacenDocumentalV4(solicitud),
 	))
 }
@@ -1452,33 +1452,17 @@ func serializarDeclaracionEscrituraAlmacenDocumental(
 		strconv.FormatInt(requisitos.TamanoMinimoObjeto, 10),
 		strconv.FormatBool(requisitos.PreservaObjetoOriginal),
 	)
-	return serializarValoresLongitudPrefijadaMaterialDocumental(valores)
-}
-
-func huellaSHA256MaterialDocumental(contenido []byte) string {
-	suma := sha256.Sum256(contenido)
-	return hex.EncodeToString(suma[:])
-}
-
-func serializarValoresLongitudPrefijadaMaterialDocumental(valores []string) []byte {
-	var contenido []byte
-	for _, valor := range valores {
-		contenido = strconv.AppendInt(contenido, int64(len(valor)), 10)
-		contenido = append(contenido, ':')
-		contenido = append(contenido, valor...)
-		contenido = append(contenido, '\n')
-	}
-	return contenido
+	return documentalcanonico.SerializarCamposV3(valores)
 }
 
 func huellaEvidenciaOperacionAlmacenDocumental(evidencia EvidenciaOperacionAlmacen) string {
 	if evidencia.Validar() != nil {
 		return ""
 	}
-	contenido := serializarValoresLongitudPrefijadaMaterialDocumental(
+	contenido := documentalcanonico.SerializarCamposV3(
 		valoresEvidenciaOperacionAlmacenDocumentalV4(evidencia),
 	)
-	return huellaSHA256MaterialDocumental(contenido)
+	return documentalcanonico.HuellaBytesSHA256(contenido)
 }
 
 func valoresEvidenciaOperacionAlmacenDocumentalV4(
@@ -1498,24 +1482,6 @@ func valoresEvidenciaOperacionAlmacenDocumentalV4(
 		evidencia.HuellaSolicitudHMAC, evidencia.FundamentoRef,
 		strconv.FormatBool(evidencia.ReintentoIdempotente),
 	}
-}
-
-func huellasMaterialDocumentalV4Distintas(huellas ...string) bool {
-	vistas := make(map[string]struct{}, len(huellas))
-	for _, huella := range huellas {
-		if !esSHA256Hexadecimal(huella) {
-			return false
-		}
-		if _, repetida := vistas[huella]; repetida {
-			return false
-		}
-		vistas[huella] = struct{}{}
-	}
-	return true
-}
-
-func referenciaMaterialDocumentalV4Valida(valor string) bool {
-	return referenciaEjecucionDocumentalV3Valida(valor)
 }
 
 func interfazMaterialDocumentalNula(valor any) bool {

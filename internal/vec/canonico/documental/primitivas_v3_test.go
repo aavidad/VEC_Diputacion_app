@@ -1,6 +1,7 @@
 package documental
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +23,52 @@ func TestSerializarCamposV3FijaLongitudEnBytesYCamposVacios(t *testing.T) {
 	}
 	if !BytesIguales(serializado, append([]byte(nil), serializado...)) || BytesIguales(serializado, nil) {
 		t.Fatal("la comparacion de preimagenes no conserva igualdad exacta")
+	}
+}
+
+func TestSerializarCamposV3ConservaFronterasDelCodecMaterialV4(t *testing.T) {
+	t.Parallel()
+
+	if SerializarCamposV3(nil) != nil || SerializarCamposV3([]string{}) != nil {
+		t.Fatal("la coleccion vacia dejo de producir una preimagen nil")
+	}
+	valores := []string{"x:y\n", "\x00", "á"}
+	esperada := []byte("4:x:y\n\n1:\x00\n2:á\n")
+	obtenida := SerializarCamposV3(valores)
+	if !bytes.Equal(obtenida, esperada) {
+		t.Fatalf("preimagen de frontera distinta: %q", obtenida)
+	}
+	if HuellaBytesSHA256(obtenida) != HuellaCamposSHA256V3(valores) {
+		t.Fatal("la huella de bytes y la de campos dejaron de compartir preimagen")
+	}
+	if HuellaBytesSHA256(nil) != "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" {
+		t.Fatal("la frontera SHA-256 de la preimagen vacia cambio")
+	}
+	malformado := string([]byte{0xff, 0xfe})
+	if obtenido := SerializarCamposV3([]string{malformado}); !bytes.Equal(obtenido, []byte{'2', ':', 0xff, 0xfe, '\n'}) {
+		t.Fatalf("se alteraron bytes UTF-8 malformados: %x", obtenido)
+	}
+}
+
+func TestHuellasSHA256DistintasConservaFormaCardinalidadYFronteras(t *testing.T) {
+	t.Parallel()
+
+	a := strings.Repeat("a", 64)
+	b := strings.Repeat("b", 64)
+	if !HuellasSHA256Distintas() || !HuellasSHA256Distintas(a) ||
+		!HuellasSHA256Distintas(a, b) {
+		t.Fatal("se rechazo una coleccion canonica de huellas distintas")
+	}
+	for nombre, huellas := range map[string][]string{
+		"repetida":  {a, a},
+		"mayuscula": {a, strings.ToUpper(b)},
+		"corta":     {a, strings.Repeat("b", 63)},
+		"no hex":    {a, strings.Repeat("g", 64)},
+		"espacio":   {a, b + " "},
+	} {
+		if HuellasSHA256Distintas(huellas...) {
+			t.Errorf("%s: se acepto una coleccion no canonica", nombre)
+		}
 	}
 }
 

@@ -667,7 +667,7 @@ func TestPruebaCrudaEscrituraAlmacenEsNominalOpacaYCopia(t *testing.T) {
 	}
 	excesiva := prueba
 	excesiva.mensaje = bytes.Repeat([]byte{'x'}, maximoBytesMensajeEscrituraAlmacenV4+1)
-	excesiva.huellaMensajeSHA256 = huellaSHA256MaterialDocumental(excesiva.mensaje)
+	excesiva.huellaMensajeSHA256 = huellaBytesDocumentalesPrueba(excesiva.mensaje)
 	if excesiva.ValidarSintaxis() == nil {
 		t.Fatal("un mensaje un byte sobre el limite COSE fue aceptado")
 	}
