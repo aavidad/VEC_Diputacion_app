@@ -23,20 +23,36 @@
   aplicacion**, no pulir su estructura interna. El refactor estructural se
   salda en v2.
 
-  1. **T12** (durabilidad probatoria) y **T13** (registro de accesos con
-     finalidad). Van primero porque **no son mejoras: la EIPD los declara
-     condicion previa para el piloto con datos reales**. Sin ellos la
+  1. **T20** (adaptador Go PostgreSQL de borradores y diario). Va el primero
+     de todos porque es **lo unico que hoy separa a la vertical de borradores
+     de funcionar de verdad**: la pantalla existe, esta probada y falla
+     cerrada solo por falta de este adaptador. No depende de Sistemas.
+  2. **T12** (durabilidad probatoria) y **T13** (registro de accesos con
+     finalidad). Van a continuacion porque **no son mejoras: la EIPD los
+     declara condicion previa para el piloto con datos reales**. Sin ellos la
      aplicacion solo puede demostrarse con datos sinteticos.
-  2. **T17** (importador gobernado de Convoca): es lo que permite que la
+
+  3. **T17** (importador gobernado de Convoca): es lo que permite que la
      aplicacion coma datos reales de bolsas.
-  3. **T07** (coherencia frontend-API verificada en ejecucion) y el resto de
+  4. **T07** (coherencia frontend-API verificada en ejecucion) y el resto de
      **T03**.
-  4. **T14 a T16** (conservacion, derechos RGPD, cifrado en reposo), del
+  5. **T14 a T16** (conservacion, derechos RGPD, cifrado en reposo), del
      paquete `docs/cumplimiento/`, redactadas para programarse sin esperar a
      las mesas: los plazos y politicas que solo las mesas pueden fijar entran
      como configuracion, no como codigo.
-  5. **T18** (Formacion) y **T19** (adaptador TSA), este ultimo cuando haya
+  6. **T18** (Formacion) y **T19** (adaptador TSA), este ultimo cuando haya
      decision de proveedor.
+
+  Criterio general que corrige el patron observado el 18/07: **cuando un
+  camino a lo operativo este bloqueado, no se sustituye por mas contrato de
+  nucleo probado en memoria.** Construir contratos verificables mientras la
+  infraestructura falta es razonable, pero produce paquetes verdes sin flujo
+  utilizable. Ante un bloqueo, la conducta correcta es informar del bloqueo y
+  pasar a la siguiente tarea desbloqueada de la cola, no profundizar en la
+  bloqueada. Y si una tarea necesaria no esta en esta cola, el agente debe
+  senalarlo a direccion en vez de asumir que no es prioritaria: T20 existio
+  como trabajo propuesto en un documento de brecha durante dias sin que nadie
+  lo encolara, y esa omision fue de direccion.
 
   **T02 queda aparcado para v2** (ver su nota de aparcamiento): no se abren
   mas tandas, pero sus reglas de contencion siguen siendo obligatorias.
@@ -75,7 +91,6 @@
   `internal/modules/bolsa/ports` desde el ancla de la auditoria. Tres tandas
   (`2cf445f..65acc4c`) redujeron 1.818 lineas netas y dejaron
   `internal/vec/canonico` con cuatro subpaquetes utiles, que se conservan.
-- `area_hexagonal`: puerto hacia nucleo/subpaquetes.
 - `area_hexagonal`: puerto hacia nucleo/subpaquetes.
 - `accion`: **ninguna hasta v2.** Cuando se retome, el troceo por capacidad
   (autorizacion, documental, almacen, auditoria) mueve derivaciones canonicas
@@ -457,6 +472,36 @@ y errores observables.
   incidente no pierde seguridad pero si trazabilidad.
 - `evidencia`: adaptadores en memoria en `internal/modules/bolsa` y
   `internal/vec`; el flujo durable documenta sus conectores pendientes.
+
+### T20 — Adaptador Go PostgreSQL de borradores y diario de convocatorias
+
+- `origen`: direccion, 18/07/2026. Correccion de un descuido de la propia
+  direccion: este trabajo estaba descrito como «Trabajo propuesto, punto 1»
+  dentro de [brecha funcional](portal_vec/brecha_funcional_bolsa_2026-07-17.md)
+  pero **nunca se convirtio en tarea numerada**, por lo que la cola jamas
+  apunto a el y el agente no tenia como saber que era prioritario.
+- `estado`: nuevo. **Cabecera de cola junto a T12 y T13.**
+- `area_hexagonal`: adaptador de persistencia.
+- `accion`: implementar el adaptador Go PostgreSQL del diario y del agregado
+  cifrado de borradores de convocatorias: restaurar la identidad primaria y
+  todos sus alias HMAC multigeneracion, y revalidar la atestacion KMS dentro
+  de la transaccion de confirmacion. Corregir antes el defecto alto de
+  idempotencia multigeneracion que la revision cruzada dejo en NO-GO (ventanas
+  de rotacion solapadas tipo `[g3,g2]` y `[g2,g1]`).
+- **Por que si se puede hacer ahora**: no depende de Sistemas. El proveedor
+  KMS entra **inyectado tras una interfaz**, igual que se decidio para la TSA
+  en T19: en pruebas, un KMS simulado determinista; en produccion, el real
+  cuando Sistemas lo provea. Construir el adaptador contra la interfaz no
+  requiere infraestructura productiva y es exactamente lo que hoy falta para
+  que la pantalla de borradores deje de fallar cerrada.
+- **Lo que NO entra en T20** (sigue bloqueado y no debe forzarse): identidad
+  de alta garantia (S-03, pendiente de Sistemas), composicion productiva que
+  dependa de ella, y publicacion/retirada de convocatorias, que tienen la
+  barrera adicional de DEC-091 (aprobacion firmada y dependencias como hechos
+  autoritativos preexistentes). T20 cubre alta y actualizacion.
+- `evidencia`: migraciones `000003` de borradores durables y pruebas SQL ya
+  presentes en `deploy/postgresql/bolsa_convocatorias/`; revisiones cruzadas
+  en NO-GO del cliente web, del servicio Go y de la migracion SQL.
 
 ### T13 — Registro durable de accesos a datos personales con finalidad
 
