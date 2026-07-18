@@ -68,17 +68,21 @@ func aadCanonicaCifradoBorrador(
 	reserva ProyeccionReservaDecision,
 	control ResultadoOperacionDiario,
 	sellado ProyeccionSelladoMotivoBorrador,
-	perfil PerfilCifradoBorrador,
+	resolucionPerfil ResolucionPerfilCifradoBorrador,
+	procedencia ProcedenciaActoBorrador,
 	correlacionRef string,
 ) (AADCanonicaCifradoBorrador, error) {
 	estado, errEstado := puertosbolsa.EstadoVersionConvocatoria(version)
 	huellaMaterial, errMaterial := material.HuellaSHA256()
+	perfil := resolucionPerfil.Perfil
 	if errEstado != nil || errMaterial != nil || estado != material.EstadoPrincipalNuevo ||
 		!reserva.valida() || !resultadoDiarioValido(control) ||
 		control.Estado != ResultadoDiarioReservado || control.Revision == 0 || control.Cercado == 0 ||
 		!control.ArrendamientoIniciaEn.Equal(reserva.ArrendamientoIniciaEn) ||
 		!control.ArrendamientoVenceEn.Equal(reserva.ArrendamientoVenceEn) ||
-		!sellado.validaEstructural() || !perfil.valida() ||
+		!sellado.validaEstructural() ||
+		!resolucionPerfil.validaVinculo(reserva, control, material) ||
+		!procedencia.valida() ||
 		!referenciaProyeccionValida(correlacionRef) {
 		return AADCanonicaCifradoBorrador{}, ErrCifradoBorradorInvalido
 	}
@@ -98,6 +102,12 @@ func aadCanonicaCifradoBorrador(
 		HuellaPerfilSHA256        string `json:"huella_perfil_cifrado_sha256"`
 		AlgoritmoAEAD             string `json:"algoritmo_aead"`
 		AlgoritmoEnvolturaClave   string `json:"algoritmo_envoltura_clave"`
+		EvidenciaPerfilRef        string `json:"evidencia_perfil_ref"`
+		EvidenciaPerfilVersion    uint32 `json:"evidencia_perfil_version"`
+		HuellaEvidenciaPerfil     string `json:"huella_evidencia_perfil_sha256"`
+		DecisionPoliticaRef       string `json:"decision_politica_ref"`
+		DecisionPoliticaVersion   uint32 `json:"decision_politica_version"`
+		HuellaDecisionPolitica    string `json:"huella_decision_politica_sha256"`
 		LocalizadorEsquema        uint16 `json:"localizador_esquema"`
 		LocalizadorDominio        string `json:"localizador_dominio"`
 		LocalizadorClaveRef       string `json:"localizador_clave_ref"`
@@ -117,6 +127,11 @@ func aadCanonicaCifradoBorrador(
 		HuellaAtestacionSellado   string `json:"huella_atestacion_sellado_sha256"`
 		TokenConsumoSelladoRef    string `json:"token_consumo_sellado_ref"`
 		HuellaCorrelacionSHA256   string `json:"huella_correlacion_sha256"`
+		ProcedenciaEsquema        string `json:"procedencia_esquema"`
+		PerfilEjecucion           string `json:"perfil_ejecucion"`
+		AutoridadActo             string `json:"autoridad_acto"`
+		ProveedorProcedenciaRef   string `json:"proveedor_procedencia_ref"`
+		MigrableProduccion        bool   `json:"migrable_produccion"`
 	}{
 		Esquema:    esquemaAADCifradoBorradorV1,
 		VersionRef: estado.Referencia, VersionRevision: estado.Revision,
@@ -126,6 +141,12 @@ func aadCanonicaCifradoBorrador(
 		HuellaPerfilSHA256:        perfil.HuellaContenidoSHA256,
 		AlgoritmoAEAD:             perfil.AlgoritmoAEAD,
 		AlgoritmoEnvolturaClave:   perfil.AlgoritmoEnvolturaClave,
+		EvidenciaPerfilRef:        resolucionPerfil.Evidencia.EvidenciaRef,
+		EvidenciaPerfilVersion:    resolucionPerfil.Evidencia.VersionEvidencia,
+		HuellaEvidenciaPerfil:     resolucionPerfil.Evidencia.HuellaEvidenciaSHA256,
+		DecisionPoliticaRef:       resolucionPerfil.Evidencia.DecisionPoliticaRef,
+		DecisionPoliticaVersion:   resolucionPerfil.Evidencia.VersionDecisionPolitica,
+		HuellaDecisionPolitica:    resolucionPerfil.Evidencia.HuellaDecisionPoliticaSHA256,
 		LocalizadorEsquema:        identidad.Localizador.VersionEsquema,
 		LocalizadorDominio:        identidad.Localizador.Dominio,
 		LocalizadorClaveRef:       identidad.Localizador.ClaveRef,
@@ -144,6 +165,11 @@ func aadCanonicaCifradoBorrador(
 		HuellaAtestacionSellado:  sellado.HuellaAtestacionSHA256,
 		TokenConsumoSelladoRef:   sellado.TokenConsumoRef,
 		HuellaCorrelacionSHA256:  hex.EncodeToString(huellaCorrelacion[:]),
+		ProcedenciaEsquema:       procedencia.Esquema,
+		PerfilEjecucion:          procedencia.PerfilEjecucion,
+		AutoridadActo:            procedencia.Autoridad,
+		ProveedorProcedenciaRef:  procedencia.ProveedorRef,
+		MigrableProduccion:       procedencia.MigrableProduccion,
 	}
 	representacion, err := json.Marshal(materialAAD)
 	if err != nil {
@@ -198,33 +224,53 @@ func (p PerfilCifradoBorrador) valida() bool {
 // debe leer un catalogo inmutable y versionado; el cifrador no elige el perfil.
 type SolicitudResolucionPerfilCifradoBorrador struct {
 	bloqueoSerializacionDiario
-	Reserva       ProyeccionReservaDecision
-	Control       ResultadoOperacionDiario
-	Material      puertosbolsa.MaterialIntencionGobiernoConvocatoria
-	SelladoMotivo ProyeccionSelladoMotivoBorrador
-	SolicitadaEn  time.Time
+	Reserva          ProyeccionReservaDecision
+	Control          ResultadoOperacionDiario
+	Material         puertosbolsa.MaterialIntencionGobiernoConvocatoria
+	SelladoMotivo    ProyeccionSelladoMotivoBorrador
+	PoliticaEsperada PoliticaGobernadaCifradoBorrador
+	SolicitadaEn     time.Time
 }
 
 func (s SolicitudResolucionPerfilCifradoBorrador) Validar() error {
-	if !s.Reserva.valida() || s.Material.Validar() != nil ||
-		s.Reserva.Accion != s.Material.Accion || s.Control.Estado != ResultadoDiarioReservado ||
-		s.Control.Revision == 0 || s.Control.Cercado == 0 ||
-		!s.Control.ArrendamientoIniciaEn.Equal(s.Reserva.ArrendamientoIniciaEn) ||
-		!s.Control.ArrendamientoVenceEn.Equal(s.Reserva.ArrendamientoVenceEn) ||
-		!instanteOperacionCanonico(s.SolicitadaEn) ||
-		!s.SelladoMotivo.validaPara(s.Material, s.SolicitadaEn) ||
-		s.SolicitadaEn.Before(s.Reserva.ArrendamientoIniciaEn) ||
-		!s.SolicitadaEn.Before(s.Reserva.ArrendamientoVenceEn) {
+	seleccion := SolicitudSeleccionPoliticaCifradoBorrador{
+		Reserva: s.Reserva, Control: s.Control, Material: s.Material,
+		SelladoMotivo: s.SelladoMotivo, SolicitadaEn: s.PoliticaEsperada.SolicitadaEn,
+	}
+	if !solicitudBasePerfilCifradoValida(
+		s.Reserva, s.Control, s.Material, s.SelladoMotivo, s.SolicitadaEn,
+	) || !s.PoliticaEsperada.validaPara(seleccion) ||
+		s.SolicitadaEn.Before(s.PoliticaEsperada.SolicitadaEn) ||
+		s.SolicitadaEn.Before(s.PoliticaEsperada.VerificadaEn) ||
+		!s.SolicitadaEn.Before(s.PoliticaEsperada.ValidaHasta) {
 		return ErrCifradoBorradorInvalido
 	}
 	return nil
 }
 
+func solicitudBasePerfilCifradoValida(
+	reserva ProyeccionReservaDecision,
+	control ResultadoOperacionDiario,
+	material puertosbolsa.MaterialIntencionGobiernoConvocatoria,
+	sellado ProyeccionSelladoMotivoBorrador,
+	solicitadaEn time.Time,
+) bool {
+	return reserva.valida() && material.Validar() == nil && reserva.Accion == material.Accion &&
+		resultadoDiarioValido(control) && control.Estado == ResultadoDiarioReservado &&
+		control.Revision > 0 && control.Cercado > 0 &&
+		control.ArrendamientoIniciaEn.Equal(reserva.ArrendamientoIniciaEn) &&
+		control.ArrendamientoVenceEn.Equal(reserva.ArrendamientoVenceEn) &&
+		instanteOperacionCanonico(solicitadaEn) && sellado.validaPara(material, solicitadaEn) &&
+		!solicitadaEn.Before(reserva.ArrendamientoIniciaEn) &&
+		solicitadaEn.Before(reserva.ArrendamientoVenceEn)
+}
+
 type ResolvedorPerfilCifradoBorrador interface {
+	DescriptorAutoridadBorrador
 	ResolverPerfilCifradoBorrador(
 		context.Context,
 		SolicitudResolucionPerfilCifradoBorrador,
-	) (PerfilCifradoBorrador, error)
+	) (ResolucionPerfilCifradoBorrador, error)
 }
 
 // EnvolturaClaveKMSBorrador y SobreCifradoAEADBorrador mantienen los buffers
@@ -366,58 +412,6 @@ func (s SobreCifradoAEADBorrador) DatosParaPersistencia() (
 		s.huellaAAD, s.huellaSHA256, nil
 }
 
-type AtestacionKMSBorrador struct {
-	bloqueoSerializacionDiario
-	Esquema               string
-	AtestacionRef         string
-	VersionAtestacion     uint32
-	Estado                string
-	Perfil                PerfilCifradoBorrador
-	ClaveMaestraRef       string
-	VersionClave          uint32
-	HuellaAAD             string
-	HuellaEnvolturaSHA256 string
-	HuellaSobreSHA256     string
-	VerificadorRef        string
-	EmitidaEn             time.Time
-	ValidaHasta           time.Time
-}
-
-func NuevaAtestacionKMSBorrador(
-	atestacionRef string,
-	versionAtestacion uint32,
-	perfil PerfilCifradoBorrador,
-	claveMaestraRef string,
-	versionClave uint32,
-	huellaAAD, huellaEnvoltura, huellaSobre, verificadorRef string,
-	emitidaEn, validaHasta time.Time,
-) (AtestacionKMSBorrador, error) {
-	a := AtestacionKMSBorrador{
-		Esquema: esquemaAtestacionKMSBorradorV1, AtestacionRef: atestacionRef,
-		VersionAtestacion: versionAtestacion, Estado: estadoAtestacionKMSVigente,
-		Perfil: perfil, ClaveMaestraRef: claveMaestraRef, VersionClave: versionClave,
-		HuellaAAD: huellaAAD, HuellaEnvolturaSHA256: huellaEnvoltura,
-		HuellaSobreSHA256: huellaSobre, VerificadorRef: verificadorRef,
-		EmitidaEn: emitidaEn, ValidaHasta: validaHasta,
-	}
-	if !a.validaEstructural() {
-		return AtestacionKMSBorrador{}, ErrCifradoBorradorInvalido
-	}
-	return a, nil
-}
-
-func (a AtestacionKMSBorrador) validaEstructural() bool {
-	return a.Esquema == esquemaAtestacionKMSBorradorV1 &&
-		referenciaProyeccionValida(a.AtestacionRef) && a.VersionAtestacion > 0 &&
-		a.Estado == estadoAtestacionKMSVigente && a.Perfil.valida() &&
-		referenciaProyeccionValida(a.ClaveMaestraRef) && a.VersionClave > 0 &&
-		huellaHexValida(a.HuellaAAD) && huellaHexValida(a.HuellaEnvolturaSHA256) &&
-		huellaHexValida(a.HuellaSobreSHA256) && referenciaProyeccionValida(a.VerificadorRef) &&
-		a.AtestacionRef != a.VerificadorRef && instanteOperacionCanonico(a.EmitidaEn) &&
-		instanteOperacionCanonico(a.ValidaHasta) && a.ValidaHasta.After(a.EmitidaEn) &&
-		a.ValidaHasta.Sub(a.EmitidaEn) <= 10*time.Minute
-}
-
 type ResultadoCifradoBorrador struct {
 	bloqueoSerializacionDiario
 	AAD            AADCanonicaCifradoBorrador
@@ -426,6 +420,35 @@ type ResultadoCifradoBorrador struct {
 	AtestacionKMS  AtestacionKMSBorrador
 	SolicitadaEn   time.Time
 	CifradoEn      time.Time
+}
+
+// NuevoResultadoCifradoBorrador es la única fábrica pública del resultado
+// que devuelve un adaptador KMS. Conserva privada la AAD tipada de la
+// solicitud, copia su representación y evita que el adaptador pueda sustituir
+// los datos asociados por otros bytes que también tengan forma válida.
+func NuevoResultadoCifradoBorrador(
+	s SolicitudCifradoBorrador,
+	envoltura EnvolturaClaveKMSBorrador,
+	sobre SobreCifradoAEADBorrador,
+	atestacion AtestacionKMSBorrador,
+	cifradoEn time.Time,
+) (ResultadoCifradoBorrador, error) {
+	if s.Validar() != nil || !s.aad.valida() {
+		return ResultadoCifradoBorrador{}, ErrCifradoBorradorInvalido
+	}
+	aad := AADCanonicaCifradoBorrador{
+		representacion: append([]byte(nil), s.aad.representacion...),
+		huellaSHA256:   s.aad.huellaSHA256,
+	}
+	r := ResultadoCifradoBorrador{
+		AAD: aad, EnvolturaClave: envoltura, SobreCifrado: sobre,
+		AtestacionKMS: atestacion, SolicitadaEn: s.SolicitadaEn,
+		CifradoEn: cifradoEn,
+	}
+	if !r.validaPara(s) {
+		return ResultadoCifradoBorrador{}, ErrCifradoBorradorInvalido
+	}
+	return r, nil
 }
 
 func (r ResultadoCifradoBorrador) validaPara(s SolicitudCifradoBorrador) bool {
@@ -471,15 +494,17 @@ func aadCoincide(a, b AADCanonicaCifradoBorrador) bool {
 // buffer tras cifrarlo; el servicio nunca maneja una copia []byte en claro.
 type SolicitudCifradoBorrador struct {
 	bloqueoSerializacionDiario
-	version        dominiobolsa.VersionConvocatoriaGobernada
-	Reserva        ProyeccionReservaDecision
-	Control        ResultadoOperacionDiario
-	Material       puertosbolsa.MaterialIntencionGobiernoConvocatoria
-	SelladoMotivo  ProyeccionSelladoMotivoBorrador
-	PerfilEsperado PerfilCifradoBorrador
-	CorrelacionRef string
-	aad            AADCanonicaCifradoBorrador
-	SolicitadaEn   time.Time
+	version          dominiobolsa.VersionConvocatoriaGobernada
+	Reserva          ProyeccionReservaDecision
+	Control          ResultadoOperacionDiario
+	Material         puertosbolsa.MaterialIntencionGobiernoConvocatoria
+	SelladoMotivo    ProyeccionSelladoMotivoBorrador
+	PerfilEsperado   PerfilCifradoBorrador
+	ResolucionPerfil ResolucionPerfilCifradoBorrador
+	Procedencia      ProcedenciaActoBorrador
+	CorrelacionRef   string
+	aad              AADCanonicaCifradoBorrador
+	SolicitadaEn     time.Time
 }
 
 func nuevaSolicitudCifradoBorrador(
@@ -488,7 +513,8 @@ func nuevaSolicitudCifradoBorrador(
 	control ResultadoOperacionDiario,
 	material puertosbolsa.MaterialIntencionGobiernoConvocatoria,
 	sellado ProyeccionSelladoMotivoBorrador,
-	perfilEsperado PerfilCifradoBorrador,
+	resolucionPerfil ResolucionPerfilCifradoBorrador,
+	procedencia ProcedenciaActoBorrador,
 	correlacionRef string,
 	solicitadaEn time.Time,
 ) (SolicitudCifradoBorrador, error) {
@@ -497,15 +523,17 @@ func nuevaSolicitudCifradoBorrador(
 		return SolicitudCifradoBorrador{}, ErrCifradoBorradorInvalido
 	}
 	aad, err := aadCanonicaCifradoBorrador(
-		clon, material, reserva, control, sellado, perfilEsperado, correlacionRef,
+		clon, material, reserva, control, sellado, resolucionPerfil, procedencia, correlacionRef,
 	)
 	if err != nil {
 		return SolicitudCifradoBorrador{}, err
 	}
 	s := SolicitudCifradoBorrador{
 		version: clon, Reserva: reserva, Control: control, Material: material,
-		SelladoMotivo: sellado, PerfilEsperado: perfilEsperado,
-		CorrelacionRef: correlacionRef, aad: aad,
+		SelladoMotivo: sellado, PerfilEsperado: resolucionPerfil.Perfil,
+		ResolucionPerfil: resolucionPerfil,
+		Procedencia:      procedencia,
+		CorrelacionRef:   correlacionRef, aad: aad,
 		SolicitadaEn: solicitadaEn,
 	}
 	if s.Validar() != nil {
@@ -532,9 +560,14 @@ func (s SolicitudCifradoBorrador) Validar() error {
 	estado, errEstado := puertosbolsa.EstadoVersionConvocatoria(s.version)
 	aad, errAAD := aadCanonicaCifradoBorrador(
 		s.version, s.Material, s.Reserva, s.Control, s.SelladoMotivo,
-		s.PerfilEsperado, s.CorrelacionRef,
+		s.ResolucionPerfil, s.Procedencia, s.CorrelacionRef,
 	)
 	if errEstado != nil || errAAD != nil || estado != s.Material.EstadoPrincipalNuevo ||
+		!perfilesCifradoCoinciden(s.PerfilEsperado, s.ResolucionPerfil.Perfil) ||
+		!s.Procedencia.valida() ||
+		!s.ResolucionPerfil.validaVinculo(s.Reserva, s.Control, s.Material) ||
+		s.SolicitadaEn.Before(s.ResolucionPerfil.Evidencia.VerificadaEn) ||
+		!s.SolicitadaEn.Before(s.ResolucionPerfil.Evidencia.ValidaHasta) ||
 		!instanteOperacionCanonico(s.SolicitadaEn) ||
 		s.SolicitadaEn.Before(s.SelladoMotivo.AtestacionEmitidaEn) ||
 		!s.SolicitadaEn.Before(s.SelladoMotivo.AtestacionValidaHasta) ||
@@ -560,6 +593,7 @@ type SolicitudRevalidacionAtestacionKMSBorrador struct {
 	AtestacionKMS            AtestacionKMSBorrador
 	IdentidadPrimaria        ProyeccionIdentidadOperacion
 	HuellaAAD                string
+	HuellaCuerpoReciboSHA256 string
 	Revision                 uint64
 	Cercado                  uint64
 	ArrendamientoVenceEn     time.Time
@@ -569,13 +603,15 @@ type SolicitudRevalidacionAtestacionKMSBorrador struct {
 
 func NuevaSolicitudRevalidacionAtestacionKMSBorrador(
 	confirmacion SolicitudConfirmacionBorrador,
+	huellaCuerpoReciboSHA256 string,
 	solicitadaEn time.Time,
 ) (SolicitudRevalidacionAtestacionKMSBorrador, error) {
 	huellaAAD, err := confirmacion.Cifrado.AAD.HuellaSHA256()
 	s := SolicitudRevalidacionAtestacionKMSBorrador{
 		AtestacionKMS:     confirmacion.Cifrado.AtestacionKMS,
 		IdentidadPrimaria: confirmacion.Reserva.IdentidadPrimaria, HuellaAAD: huellaAAD,
-		Revision: confirmacion.Control.Revision, Cercado: confirmacion.Control.Cercado,
+		HuellaCuerpoReciboSHA256: huellaCuerpoReciboSHA256,
+		Revision:                 confirmacion.Control.Revision, Cercado: confirmacion.Control.Cercado,
 		ArrendamientoVenceEn:     confirmacion.Control.ArrendamientoVenceEn,
 		ConfirmacionSolicitadaEn: confirmacion.SolicitadaEn,
 		SolicitadaEn:             solicitadaEn,
@@ -590,6 +626,7 @@ func (s SolicitudRevalidacionAtestacionKMSBorrador) Validar() error {
 	if !s.AtestacionKMS.validaEstructural() ||
 		!s.IdentidadPrimaria.valida() ||
 		!coincideTextoConstante(s.AtestacionKMS.HuellaAAD, s.HuellaAAD) ||
+		!huellaHexValida(s.HuellaCuerpoReciboSHA256) ||
 		s.Revision == 0 || s.Cercado == 0 || !instanteOperacionCanonico(s.SolicitadaEn) ||
 		!instanteOperacionCanonico(s.ArrendamientoVenceEn) ||
 		!instanteOperacionCanonico(s.ConfirmacionSolicitadaEn) ||
@@ -611,6 +648,96 @@ type ResultadoRevalidacionAtestacionKMSBorrador struct {
 	ComprobacionRef          string
 	HuellaComprobacionSHA256 string
 	ComprobadaEn             time.Time
+	Firma                    FirmaEvidenciaBorrador
+}
+
+func NuevoResultadoRevalidacionAtestacionKMSBorrador(
+	s SolicitudRevalidacionAtestacionKMSBorrador,
+	comprobacionRef, huellaComprobacionSHA256 string,
+	comprobadaEn time.Time,
+	algoritmoFirma, verificadorRef, huellaClavePublicaSHA256 string,
+	firmar FuncionFirmaEvidenciaBorrador,
+) (ResultadoRevalidacionAtestacionKMSBorrador, error) {
+	r := ResultadoRevalidacionAtestacionKMSBorrador{
+		AtestacionRef:     s.AtestacionKMS.AtestacionRef,
+		VersionAtestacion: s.AtestacionKMS.VersionAtestacion,
+		Estado:            estadoRevalidacionKMSAutorizada, HuellaAAD: s.HuellaAAD,
+		ComprobacionRef: comprobacionRef, HuellaComprobacionSHA256: huellaComprobacionSHA256,
+		ComprobadaEn: comprobadaEn,
+		Firma: FirmaEvidenciaBorrador{
+			AlgoritmoFirma: algoritmoFirma, VerificadorRef: verificadorRef,
+			HuellaClavePublicaSHA256: huellaClavePublicaSHA256,
+		},
+	}
+	firma, err := FirmarEvidenciaBorrador(
+		algoritmoFirma, verificadorRef, huellaClavePublicaSHA256,
+		r.preimagenFirma(s), firmar,
+	)
+	if err != nil {
+		return ResultadoRevalidacionAtestacionKMSBorrador{}, ErrRevalidacionKMSBorradorFallo
+	}
+	r.Firma = firma
+	if r.ValidarPara(s) != nil {
+		return ResultadoRevalidacionAtestacionKMSBorrador{}, ErrRevalidacionKMSBorradorFallo
+	}
+	return r, nil
+}
+
+func (r ResultadoRevalidacionAtestacionKMSBorrador) preimagenFirma(
+	s SolicitudRevalidacionAtestacionKMSBorrador,
+) []byte {
+	identidad, valida := representacionIdentidadCanonica(s.IdentidadPrimaria)
+	preimagenAtestacion, algoritmoAtestacion, verificadorAtestacion,
+		huellaClaveAtestacion, firmaAtestacion, err := s.AtestacionKMS.DatosParaVerificacionFirma()
+	if !valida || err != nil {
+		return nil
+	}
+	huellaPreimagenAtestacion := sha256.Sum256(preimagenAtestacion)
+	huellaFirmaAtestacion := sha256.Sum256(firmaAtestacion)
+	representacion, err := json.Marshal(struct {
+		Esquema, AtestacionRef, Estado, HuellaAAD          string
+		HuellaCuerpoRecibo                                 string
+		ComprobacionRef, HuellaComprobacion                string
+		AlgoritmoFirma, VerificadorRef, HuellaClavePublica string
+		AlgoritmoAtestacion, VerificadorAtestacion         string
+		HuellaClaveAtestacion, HuellaPreimagenAtestacion   string
+		HuellaFirmaAtestacion                              string
+		VersionAtestacion                                  uint32
+		Revision, Cercado                                  uint64
+		Identidad                                          representacionIdentidadCanonicaBorrador
+		ArrendamientoVenceEn, ConfirmacionSolicitadaEn     string
+		RevalidacionSolicitadaEn, ComprobadaEn             string
+	}{
+		"bolsa.convocatoria.borrador.revalidacion-kms.v1", r.AtestacionRef,
+		r.Estado, r.HuellaAAD, s.HuellaCuerpoReciboSHA256,
+		r.ComprobacionRef, r.HuellaComprobacionSHA256,
+		r.Firma.AlgoritmoFirma, r.Firma.VerificadorRef, r.Firma.HuellaClavePublicaSHA256,
+		algoritmoAtestacion, verificadorAtestacion, huellaClaveAtestacion,
+		hex.EncodeToString(huellaPreimagenAtestacion[:]),
+		hex.EncodeToString(huellaFirmaAtestacion[:]), r.VersionAtestacion,
+		s.Revision, s.Cercado, identidad,
+		s.ArrendamientoVenceEn.Format(time.RFC3339Nano),
+		s.ConfirmacionSolicitadaEn.Format(time.RFC3339Nano),
+		s.SolicitadaEn.Format(time.RFC3339Nano), r.ComprobadaEn.Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		return nil
+	}
+	return representacion
+}
+
+func (r ResultadoRevalidacionAtestacionKMSBorrador) DatosParaVerificacionFirma(
+	s SolicitudRevalidacionAtestacionKMSBorrador,
+) (
+	preimagen []byte,
+	algoritmoFirma, verificadorRef, huellaClavePublicaSHA256 string,
+	firma []byte,
+	err error,
+) {
+	preimagen = r.preimagenFirma(s)
+	algoritmoFirma, verificadorRef, huellaClavePublicaSHA256, firma, err =
+		r.Firma.DatosParaVerificacion(preimagen)
+	return
 }
 
 func (r ResultadoRevalidacionAtestacionKMSBorrador) ValidarPara(
@@ -623,7 +750,8 @@ func (r ResultadoRevalidacionAtestacionKMSBorrador) ValidarPara(
 		!referenciaProyeccionValida(r.ComprobacionRef) ||
 		!huellaHexValida(r.HuellaComprobacionSHA256) ||
 		r.ComprobacionRef == r.AtestacionRef || !instanteOperacionCanonico(r.ComprobadaEn) ||
-		r.ComprobadaEn.Before(s.SolicitadaEn) || !r.ComprobadaEn.Before(s.AtestacionKMS.ValidaHasta) {
+		r.ComprobadaEn.Before(s.SolicitadaEn) || !r.ComprobadaEn.Before(s.AtestacionKMS.ValidaHasta) ||
+		!r.Firma.validaPara(r.preimagenFirma(s)) {
 		return ErrRevalidacionKMSBorradorFallo
 	}
 	return nil

@@ -413,6 +413,8 @@ type ProyeccionReciboBorrador struct {
 	HuellaAuditoriaSHA256    string
 	EventoOutboxRef          string
 	HuellaEventoOutboxSHA256 string
+	Procedencia              ProcedenciaActoBorrador
+	AcreditacionKMS          AcreditacionKMSConfirmacionBorrador
 	ConfirmadaEn             time.Time
 }
 
@@ -612,17 +614,19 @@ type SelladorMotivoBorrador interface {
 // al almacen de negocio cifrado y conserva su trazabilidad legal.
 type SolicitudConfirmacionBorrador struct {
 	bloqueoSerializacionDiario
-	Reserva        ProyeccionReservaDecision
-	Control        ResultadoOperacionDiario
-	Version        dominiobolsa.VersionConvocatoriaGobernada
-	Material       puertosbolsa.MaterialIntencionGobiernoConvocatoria
-	Actor          dominiovec.ContextoActor
-	CorrelacionRef string
-	Concesion      ConcesionBorradorDurable
-	SelladoMotivo  ProyeccionSelladoMotivoBorrador
-	PerfilCifrado  PerfilCifradoBorrador
-	Cifrado        ResultadoCifradoBorrador
-	SolicitadaEn   time.Time
+	Reserva                 ProyeccionReservaDecision
+	Control                 ResultadoOperacionDiario
+	Version                 dominiobolsa.VersionConvocatoriaGobernada
+	Material                puertosbolsa.MaterialIntencionGobiernoConvocatoria
+	Actor                   dominiovec.ContextoActor
+	CorrelacionRef          string
+	Concesion               ConcesionBorradorDurable
+	SelladoMotivo           ProyeccionSelladoMotivoBorrador
+	PerfilCifrado           PerfilCifradoBorrador
+	ResolucionPerfilCifrado ResolucionPerfilCifradoBorrador
+	Cifrado                 ResultadoCifradoBorrador
+	Procedencia             ProcedenciaActoBorrador
+	SolicitadaEn            time.Time
 }
 
 func (s SolicitudConfirmacionBorrador) valida() bool {
@@ -634,10 +638,11 @@ func (s SolicitudConfirmacionBorrador) valida() bool {
 	)
 	solicitudCifrado, errCifrado := nuevaSolicitudCifradoBorrador(
 		s.Version, s.Reserva, s.Control, s.Material, s.SelladoMotivo,
-		s.PerfilCifrado, s.CorrelacionRef, s.Cifrado.SolicitadaEn,
+		s.ResolucionPerfilCifrado, s.Procedencia, s.CorrelacionRef, s.Cifrado.SolicitadaEn,
 	)
 	return err == nil && errDecision == nil && s.Version.Validar() == nil &&
 		errProyeccion == nil && errCifrado == nil && s.Cifrado.validaPara(solicitudCifrado) &&
+		perfilesCifradoCoinciden(s.PerfilCifrado, s.ResolucionPerfilCifrado.Perfil) &&
 		s.Reserva.Decision == decisionEsperada &&
 		s.Material.Validar() == nil && estado == s.Material.EstadoPrincipalNuevo &&
 		s.Reserva.valida() && s.Reserva.Accion == s.Material.Accion &&
@@ -647,6 +652,8 @@ func (s SolicitudConfirmacionBorrador) valida() bool {
 		s.Reserva.Decision.DecisionRef == datosDecision.Decision.DecisionRef &&
 		s.Reserva.Decision.HuellaDecisionSHA256 == datosDecision.HuellaDecisionSHA256 &&
 		s.SelladoMotivo.validaPara(s.Material, s.SolicitadaEn) &&
+		!s.SolicitadaEn.Before(s.ResolucionPerfilCifrado.Evidencia.VerificadaEn) &&
+		s.SolicitadaEn.Before(s.ResolucionPerfilCifrado.Evidencia.ValidaHasta) &&
 		!s.SolicitadaEn.Before(s.Cifrado.CifradoEn) &&
 		s.SolicitadaEn.Before(s.Cifrado.AtestacionKMS.ValidaHasta) &&
 		instanteOperacionCanonico(s.SolicitadaEn) &&
@@ -662,6 +669,7 @@ func (s SolicitudConfirmacionBorrador) Validar() error {
 }
 
 type ConfirmadorAtomicoBorrador interface {
+	DescriptorAutoridadBorrador
 	// ConfirmarBorrador bloquea y relee diario, decision/atestacion y agregado;
 	// revalida de forma autoritativa la atestacion KMS dentro de esa misma
 	// seccion critica; aplica CAS sobre revision+cercado y persiste solo el sobre
@@ -669,19 +677,55 @@ type ConfirmadorAtomicoBorrador interface {
 	// outbox, recibo y estado terminal en un unico COMMIT. Un cercado
 	// obsoleto nunca produce efecto; los recibos terminales se recuperan por la
 	// consulta idempotente, no reutilizando una orden de confirmacion obsoleta.
+	// Todo resultado confirmado incluye la acreditacion KMS exacta que también
+	// queda proyectada en el recibo; sin ella el núcleo no devuelve éxito.
 	ConfirmarBorrador(
 		context.Context,
 		SolicitudConfirmacionBorrador,
 	) (ResultadoConfirmacionAtomica, error)
 }
 
+// VerificadorReciboBorrador relee el recibo inmutable tras COMMIT y verifica
+// su evidencia KMS con una credencial y rol sin capacidad de confirmar. Debe
+// aplicarse también a replay y reconciliación antes de devolver éxito.
+type VerificadorReciboBorrador interface {
+	DescriptorAutoridadBorrador
+	VerificarReciboBorrador(context.Context, ProyeccionReciboBorrador) error
+}
+
 // ResultadoConfirmacionAtomica obliga al adaptador a distinguir COMMIT,
 // ROLLBACK demostrado y desenlace desconocido. Un error de transporte sin un
-// estado valido se trata siempre como indeterminado.
+// estado valido se trata siempre como indeterminado. AcreditacionKMS es
+// obligatoria únicamente para confirmado y debe coincidir con la del recibo.
 type ResultadoConfirmacionAtomica struct {
 	bloqueoSerializacionDiario
-	Estado EstadoResultadoDiario
-	Recibo ProyeccionReciboBorrador
+	Estado          EstadoResultadoDiario
+	Recibo          ProyeccionReciboBorrador
+	AcreditacionKMS AcreditacionKMSConfirmacionBorrador
+}
+
+func (r ResultadoConfirmacionAtomica) ValidarPara(s SolicitudConfirmacionBorrador) error {
+	if s.Validar() != nil {
+		return ErrResultadoBorradorInseguro
+	}
+	switch r.Estado {
+	case ResultadoDiarioConfirmado:
+		if r.Recibo == (ProyeccionReciboBorrador{}) ||
+			r.AcreditacionKMS == (AcreditacionKMSConfirmacionBorrador{}) ||
+			r.Recibo.AcreditacionKMS != r.AcreditacionKMS ||
+			!procedenciasActoCoinciden(r.Recibo.Procedencia, s.Procedencia) ||
+			!r.AcreditacionKMS.validaParaConfirmacion(s, r.Recibo) {
+			return ErrResultadoBorradorInseguro
+		}
+	case ResultadoDiarioNoAplicado, ResultadoDiarioIndeterminado:
+		if r.Recibo != (ProyeccionReciboBorrador{}) ||
+			r.AcreditacionKMS != (AcreditacionKMSConfirmacionBorrador{}) {
+			return ErrResultadoBorradorInseguro
+		}
+	default:
+		return ErrResultadoBorradorInseguro
+	}
+	return nil
 }
 
 func (p ProyeccionDecisionDiario) valida() bool {

@@ -111,6 +111,33 @@ func TestCifradoRechazaCambiosDeAADYBuffers(t *testing.T) {
 	})
 }
 
+func TestFabricaResultadoCifradoCopiaAADPrivadaDeLaSolicitud(t *testing.T) {
+	e := nuevoEscenario(t, confirmarBien, 3, 2)
+	if _, err := e.servicio.Crear(context.Background(), e.orden); err != nil {
+		t.Fatal(err)
+	}
+	solicitud := *e.cifrador.ultima
+	antes, err := solicitud.AADCanonica()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultado := e.confirmador.ultima.Cifrado
+	resultado.AAD.representacion[0] ^= 0xff
+	despues, err := solicitud.AADCanonica()
+	if err != nil {
+		t.Fatalf("la salida pudo mutar la AAD privada de entrada: %v", err)
+	}
+	if string(antes) != string(despues) {
+		t.Fatal("la fábrica compartió el buffer AAD con el adaptador")
+	}
+	if _, err := NuevoResultadoCifradoBorrador(
+		solicitud, resultado.EnvolturaClave, resultado.SobreCifrado,
+		resultado.AtestacionKMS, solicitud.Reserva.ArrendamientoVenceEn,
+	); !errors.Is(err, ErrCifradoBorradorInvalido) {
+		t.Fatalf("la fábrica aceptó un cifrado fuera del lease: %v", err)
+	}
+}
+
 func TestTiposCifradoBloqueanCodecsYNoFiltranBuffers(t *testing.T) {
 	e := nuevoEscenario(t, confirmarBien, 2, 1)
 	if _, err := e.servicio.Crear(context.Background(), e.orden); err != nil {
@@ -118,10 +145,12 @@ func TestTiposCifradoBloqueanCodecsYNoFiltranBuffers(t *testing.T) {
 	}
 	confirmacion := *e.confirmador.ultima
 	valores := []any{
-		confirmacion.PerfilCifrado, SolicitudResolucionPerfilCifradoBorrador{},
+		confirmacion.PerfilCifrado, SolicitudSeleccionPoliticaCifradoBorrador{},
+		PoliticaGobernadaCifradoBorrador{}, SolicitudResolucionPerfilCifradoBorrador{},
+		confirmacion.ResolucionPerfilCifrado, confirmacion.ResolucionPerfilCifrado.Evidencia,
 		confirmacion.Cifrado.AAD, confirmacion.Cifrado.EnvolturaClave,
 		confirmacion.Cifrado.SobreCifrado, confirmacion.Cifrado.AtestacionKMS,
-		confirmacion.Cifrado, *e.cifrador.ultima,
+		confirmacion.Cifrado, *e.cifrador.ultima, AcreditacionKMSConfirmacionBorrador{},
 	}
 	for _, valor := range valores {
 		if _, err := json.Marshal(valor); !errors.Is(err, ErrSerializacionDiarioProhibida) {
@@ -144,23 +173,24 @@ func TestTiposCifradoBloqueanCodecsYNoFiltranBuffers(t *testing.T) {
 
 func TestPersistenciaDebeRevalidarAtestacionKMSAutoritativa(t *testing.T) {
 	e := nuevoEscenario(t, confirmarBien, 2, 1)
-	if _, err := e.servicio.Crear(context.Background(), e.orden); err != nil {
+	recibo, err := e.servicio.Crear(context.Background(), e.orden)
+	if err != nil {
 		t.Fatal(err)
 	}
 	confirmacion := *e.confirmador.ultima
 	instante := confirmacion.SolicitadaEn.Add(time.Microsecond)
-	solicitud, err := NuevaSolicitudRevalidacionAtestacionKMSBorrador(confirmacion, instante)
+	solicitud, err := NuevaSolicitudRevalidacionAtestacionKMSBorrador(
+		confirmacion, huellaCuerpoReciboBorrador(recibo), instante,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	resultado := ResultadoRevalidacionAtestacionKMSBorrador{
-		AtestacionRef:     solicitud.AtestacionKMS.AtestacionRef,
-		VersionAtestacion: solicitud.AtestacionKMS.VersionAtestacion,
-		Estado:            estadoRevalidacionKMSAutorizada, HuellaAAD: solicitud.HuellaAAD,
-		ComprobacionRef:          "comprobacion:kms:persistencia:001",
-		HuellaComprobacionSHA256: huellaHexPrueba('f'), ComprobadaEn: instante,
-	}
-	if err := resultado.ValidarPara(solicitud); err != nil {
+	resultado, err := NuevoResultadoRevalidacionAtestacionKMSBorrador(
+		solicitud, "comprobacion:kms:persistencia:001", huellaHexPrueba('f'), instante,
+		"Ed25519", verificadorRevalidacionKMSPrueba,
+		huellaPublicaKMSPrueba("revalidacion"), firmarKMSPrueba("revalidacion"),
+	)
+	if err != nil || resultado.ValidarPara(solicitud) != nil {
 		t.Fatal(err)
 	}
 	resultado.HuellaAAD = huellaHexPrueba('0')

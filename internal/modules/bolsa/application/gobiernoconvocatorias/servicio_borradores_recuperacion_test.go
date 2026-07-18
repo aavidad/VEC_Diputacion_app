@@ -30,7 +30,8 @@ func TestCrashTrasReservaLeaseVivoYReclamacionExpirada(t *testing.T) {
 		t.Fatalf("lease expirado no se recupero: %v", err)
 	}
 	if e.diario.reclamos != 1 || e.confirmador.efectos != 1 ||
-		recibo.CercadoConfirmado < 3 || recibo.RevisionConfirmada < 4 {
+		recibo.CercadoConfirmado < 3 || recibo.RevisionConfirmada < 4 ||
+		e.verificador.llamadas != 1 {
 		t.Fatalf("reclamacion no elevo controles: reclamos=%d rev=%d fence=%d efectos=%d",
 			e.diario.reclamos, recibo.RevisionConfirmada, recibo.CercadoConfirmado,
 			e.confirmador.efectos)
@@ -45,12 +46,26 @@ func TestIndeterminadoSeReconciliaACommitSinRepetir(t *testing.T) {
 	}
 	recibo, err := e.servicio.Crear(context.Background(), e.orden)
 	if err != nil || !reciboProyectadoValido(recibo, recibo.IdentidadPrimaria) ||
-		e.confirmador.llamadas != 1 || e.confirmador.efectos != 1 || e.diario.reclamos != 0 {
+		e.confirmador.llamadas != 1 || e.confirmador.efectos != 1 || e.diario.reclamos != 0 ||
+		e.verificador.llamadas != 1 {
 		t.Fatalf("reconciliacion repitio el commit: %v", err)
 	}
 	if recibo.RevisionConfirmada <= 1 || recibo.CercadoConfirmado != 1 {
 		t.Fatalf("commit reconciliado no conservo epoch: rev=%d fence=%d",
 			recibo.RevisionConfirmada, recibo.CercadoConfirmado)
+	}
+}
+
+func TestErrorDeTransporteSinResultadoSeClasificaIndeterminado(t *testing.T) {
+	e := nuevoEscenario(t, confirmarErrorSinResultado, 2, 1)
+	_, err := e.servicio.Crear(context.Background(), e.orden)
+	if !errors.Is(err, ErrOperacionBorradorIndeterminada) ||
+		errors.Is(err, ErrResultadoBorradorInseguro) {
+		t.Fatalf("un transporte sin veredicto no quedó indeterminado: %v", err)
+	}
+	if e.confirmador.llamadas != 1 || e.confirmador.efectos != 0 {
+		t.Fatalf("resultado inesperado: llamadas=%d efectos=%d",
+			e.confirmador.llamadas, e.confirmador.efectos)
 	}
 }
 
@@ -100,6 +115,9 @@ func TestReciboInmediatoYReplayAplicanMismoVeredictoTemporal(t *testing.T) {
 	replay, err := e.reiniciar(t, 2, 1).Crear(context.Background(), e.orden)
 	if err != nil || !reflect.DeepEqual(inmediato, replay) {
 		t.Fatalf("replay temporal divergio del inmediato: %v", err)
+	}
+	if e.verificador.llamadas != 2 {
+		t.Fatalf("recibo inmediato y replay no se verificaron por separado: %d", e.verificador.llamadas)
 	}
 	if !reciboProyectadoValido(replay, replay.IdentidadPrimaria) ||
 		!replay.ConfirmadaEn.Before(replay.ArrendamientoVenceEn) ||
@@ -213,7 +231,7 @@ func solicitudConsultaEscenario(
 	if err != nil {
 		return SolicitudConsultaIdentidadesBorrador{}, err
 	}
-	return nuevaSolicitudConsultaIdentidadesBorrador(conjunto)
+	return nuevaSolicitudConsultaIdentidadesBorrador(conjunto, e.reloj.Ahora())
 }
 
 func TestValoresNuevosBloqueanCodecsYFormato(t *testing.T) {
@@ -223,10 +241,12 @@ func TestValoresNuevosBloqueanCodecsYFormato(t *testing.T) {
 		PreparacionAltaBorrador{}, IntencionBorradorCanonica{}, SolicitudDerivacionIdempotencia{},
 		IdentidadOperacionDerivada{}, ConjuntoIdentidadesOperacion{},
 		SolicitudConsultaIdentidadesBorrador{}, ResultadoConsultaIdentidadesBorrador{},
+		ResolucionIdentidadBorrador{},
 		ResultadoReservaDecisionBorrador{}, SolicitudReservaDecisionBorrador{},
 		SolicitudReconciliacionBorrador{}, ResultadoReconciliacionBorrador{},
 		SolicitudReclamacionDecisionBorrador{}, ProyeccionReciboBorrador{ReciboRef: secreto},
 		SolicitudSelladoMotivoBorrador{}, SolicitudConfirmacionBorrador{}, ResultadoConfirmacionAtomica{},
+		AcreditacionKMSConfirmacionBorrador{},
 	}
 	for _, valor := range valores {
 		if _, err := json.Marshal(valor); !errors.Is(err, ErrSerializacionDiarioProhibida) {

@@ -17,18 +17,21 @@ const duracionArrendamientoBorrador = 2 * time.Minute
 // ServicioBorradores gobierna exclusivamente alta y actualizacion. La
 // idempotencia se resuelve antes de construir una ejecucion mutable.
 type ServicioBorradores struct {
-	reloj           puertosvec.Reloj
-	preparadorAlta  PreparadorAltaBorrador
-	motivos         ResolvedorMotivoBorrador
-	lector          LectorBorradorExacto
-	comprometedor   puertosbolsa.ComprometedorMotivoGobiernoConvocatoria
-	derivador       DerivadorIdentidadOperacion
-	autorizador     AutorizadorIntencionBorrador
-	diario          DiarioOperacionesBorrador
-	sellador        SelladorMotivoBorrador
-	perfilesCifrado ResolvedorPerfilCifradoBorrador
-	cifrador        CifradorAEADKMSBorrador
-	confirmador     ConfirmadorAtomicoBorrador
+	reloj            puertosvec.Reloj
+	preparadorAlta   PreparadorAltaBorrador
+	motivos          ResolvedorMotivoBorrador
+	lector           LectorBorradorExacto
+	comprometedor    puertosbolsa.ComprometedorMotivoGobiernoConvocatoria
+	derivador        DerivadorIdentidadOperacion
+	autorizador      AutorizadorIntencionBorrador
+	diario           DiarioOperacionesBorrador
+	sellador         SelladorMotivoBorrador
+	politicasCifrado ProveedorPoliticaGobernadaCifradoBorrador
+	perfilesCifrado  ResolvedorPerfilCifradoBorrador
+	cifrador         CifradorAEADKMSBorrador
+	confirmador      ConfirmadorAtomicoBorrador
+	verificador      VerificadorReciboBorrador
+	procedencia      ProcedenciaActoBorrador
 }
 
 func NuevoServicioBorradores(
@@ -41,22 +44,37 @@ func NuevoServicioBorradores(
 	autorizador AutorizadorIntencionBorrador,
 	diario DiarioOperacionesBorrador,
 	sellador SelladorMotivoBorrador,
+	politicasCifrado ProveedorPoliticaGobernadaCifradoBorrador,
 	perfilesCifrado ResolvedorPerfilCifradoBorrador,
 	cifrador CifradorAEADKMSBorrador,
 	confirmador ConfirmadorAtomicoBorrador,
+	verificador VerificadorReciboBorrador,
+	procedencia ProcedenciaActoBorrador,
 ) (*ServicioBorradores, error) {
 	dependencias := []any{reloj, preparadorAlta, motivos, lector, comprometedor, derivador,
-		autorizador, diario, sellador, perfilesCifrado, cifrador, confirmador}
+		autorizador, diario, sellador, politicasCifrado, perfilesCifrado, cifrador, confirmador,
+		verificador}
 	for _, dependencia := range dependencias {
 		if dependenciaNulaBorrador(dependencia) {
 			return nil, ErrServicioBorradoresInvalido
 		}
 	}
+	if !procedencia.valida() || !autoridadesPoliticaBorradorSeparadas(
+		politicasCifrado.IdentidadAutoridadBorrador(),
+		perfilesCifrado.IdentidadAutoridadBorrador(),
+	) || !autoridadesOperativasBorradorSeparadas(
+		confirmador.IdentidadAutoridadBorrador(),
+		verificador.IdentidadAutoridadBorrador(),
+	) {
+		return nil, ErrServicioBorradoresInvalido
+	}
 	return &ServicioBorradores{
 		reloj: reloj, preparadorAlta: preparadorAlta, motivos: motivos, lector: lector,
 		comprometedor: comprometedor, derivador: derivador, autorizador: autorizador,
-		diario: diario, sellador: sellador, perfilesCifrado: perfilesCifrado,
-		cifrador: cifrador, confirmador: confirmador,
+		diario: diario, sellador: sellador, politicasCifrado: politicasCifrado,
+		perfilesCifrado: perfilesCifrado,
+		cifrador:        cifrador, confirmador: confirmador, verificador: verificador,
+		procedencia: procedencia,
 	}, nil
 }
 
@@ -285,7 +303,7 @@ func (s *ServicioBorradores) ejecutar(
 	if err != nil || !conjunto.valido() {
 		return ProyeccionReciboBorrador{}, errors.Join(ErrRotacionIdempotenciaInvalida, err)
 	}
-	consulta, err := nuevaSolicitudConsultaIdentidadesBorrador(conjunto)
+	consulta, err := nuevaSolicitudConsultaIdentidadesBorrador(conjunto, s.ahora())
 	if err != nil {
 		return ProyeccionReciboBorrador{}, err
 	}
@@ -302,7 +320,7 @@ func (s *ServicioBorradores) ejecutar(
 			return ProyeccionReciboBorrador{}, puertosbolsa.ErrClaveIdempotenciaConvocatoriaReusada
 		}
 		if coincidencia.Resultado.Estado == ResultadoDiarioConfirmado {
-			return resolverResultadoDiario(
+			return s.resolverResultadoDiario(ctx,
 				coincidencia.Resultado, coincidencia.Resolucion.IdentidadPrimaria,
 			)
 		}
@@ -341,7 +359,7 @@ func (s *ServicioBorradores) recuperar(
 	}
 	switch reconciliacion.Resultado.Estado {
 	case ResultadoDiarioConfirmado:
-		return resolverResultadoDiario(
+		return s.resolverResultadoDiario(ctx,
 			reconciliacion.Resultado, coincidencia.Resolucion.IdentidadPrimaria,
 		)
 	case ResultadoDiarioNoAplicado:
@@ -442,7 +460,7 @@ func (s *ServicioBorradores) autorizarYReservar(
 			return ProyeccionReciboBorrador{}, err
 		}
 		if reservada.Resultado.Estado != ResultadoDiarioReservado {
-			return resolverResultadoDiario(
+			return s.resolverResultadoDiario(ctx,
 				reservada.Resultado, reservada.Resolucion.IdentidadPrimaria,
 			)
 		}
@@ -495,25 +513,44 @@ func (s *ServicioBorradores) confirmar(
 	if err != nil {
 		return ProyeccionReciboBorrador{}, errors.Join(ErrOperacionBorradorIndeterminada, err)
 	}
+	instantePolitica := s.ahora()
+	solicitudPolitica := SolicitudSeleccionPoliticaCifradoBorrador{
+		Reserva: proyeccion, Control: reserva, Material: ejecutar.material,
+		SelladoMotivo: sellado, SolicitadaEn: instantePolitica,
+	}
+	if solicitudPolitica.Validar() != nil {
+		return ProyeccionReciboBorrador{}, ErrResultadoBorradorInseguro
+	}
+	politicaCifrado, err := s.politicasCifrado.SeleccionarPoliticaCifradoBorrador(
+		ctx, solicitudPolitica,
+	)
+	if err != nil {
+		return ProyeccionReciboBorrador{}, errors.Join(ErrOperacionBorradorIndeterminada, err)
+	}
+	if !politicaCifrado.validaPara(solicitudPolitica) {
+		return ProyeccionReciboBorrador{}, ErrResultadoBorradorInseguro
+	}
 	instantePerfil := s.ahora()
 	solicitudPerfil := SolicitudResolucionPerfilCifradoBorrador{
 		Reserva: proyeccion, Control: reserva, Material: ejecutar.material,
-		SelladoMotivo: sellado, SolicitadaEn: instantePerfil,
+		SelladoMotivo: sellado, PoliticaEsperada: politicaCifrado,
+		SolicitadaEn: instantePerfil,
 	}
 	if solicitudPerfil.Validar() != nil {
 		return ProyeccionReciboBorrador{}, ErrResultadoBorradorInseguro
 	}
-	perfilCifrado, err := s.perfilesCifrado.ResolverPerfilCifradoBorrador(ctx, solicitudPerfil)
+	resolucionPerfil, err := s.perfilesCifrado.ResolverPerfilCifradoBorrador(ctx, solicitudPerfil)
 	if err != nil {
 		return ProyeccionReciboBorrador{}, errors.Join(ErrOperacionBorradorIndeterminada, err)
 	}
-	if !perfilCifrado.valida() {
+	if resolucionPerfil.ValidarPara(solicitudPerfil) != nil {
 		return ProyeccionReciboBorrador{}, ErrResultadoBorradorInseguro
 	}
+	perfilCifrado := resolucionPerfil.Perfil
 	instanteCifrado := s.ahora()
 	solicitudCifrado, err := nuevaSolicitudCifradoBorrador(
 		ejecutar.version, proyeccion, reserva, ejecutar.material, sellado,
-		perfilCifrado, base.correlacionRef, instanteCifrado,
+		resolucionPerfil, s.procedencia, base.correlacionRef, instanteCifrado,
 	)
 	if err != nil {
 		return ProyeccionReciboBorrador{}, ErrResultadoBorradorInseguro
@@ -534,20 +571,35 @@ func (s *ServicioBorradores) confirmar(
 		Reserva: proyeccion, Control: reserva, Version: ejecutar.version, Material: ejecutar.material,
 		Actor: actor, CorrelacionRef: base.correlacionRef, Concesion: concesion,
 		SelladoMotivo: sellado, PerfilCifrado: perfilCifrado,
-		Cifrado: cifrado, SolicitadaEn: instanteConfirmacion,
+		ResolucionPerfilCifrado: resolucionPerfil,
+		Cifrado:                 cifrado, Procedencia: s.procedencia, SolicitadaEn: instanteConfirmacion,
 	}
 	if solicitud.Validar() != nil {
 		return ProyeccionReciboBorrador{}, ErrResultadoBorradorInseguro
 	}
 	resultado, err := s.confirmador.ConfirmarBorrador(ctx, solicitud)
-	if resultado.Estado != ResultadoDiarioConfirmado && resultado.Recibo != (ProyeccionReciboBorrador{}) {
+	if err != nil && resultado == (ResultadoConfirmacionAtomica{}) {
+		// Un fallo de transporte sin veredicto no demuestra rollback. El COMMIT
+		// pudo consumarse y la unica salida segura es reconciliar por el diario.
+		return ProyeccionReciboBorrador{}, errors.Join(ErrOperacionBorradorIndeterminada, err)
+	}
+	if validacion := resultado.ValidarPara(solicitud); validacion != nil {
+		if resultado.Estado == ResultadoDiarioConfirmado {
+			return ProyeccionReciboBorrador{}, errors.Join(ErrOperacionBorradorIndeterminada, validacion)
+		}
 		return ProyeccionReciboBorrador{}, ErrResultadoBorradorInseguro
 	}
 	switch resultado.Estado {
 	case ResultadoDiarioConfirmado:
 		if err != nil || !reciboProyectadoValido(resultado.Recibo, proyeccion.IdentidadPrimaria) ||
-			!reciboCoincideReserva(resultado.Recibo, proyeccion, reserva, sellado) {
+			!reciboCoincideReserva(resultado.Recibo, proyeccion, reserva, sellado) ||
+			!procedenciasActoCoinciden(resultado.Recibo.Procedencia, s.procedencia) {
 			return ProyeccionReciboBorrador{}, ErrOperacionBorradorIndeterminada
+		}
+		if err := s.verificador.VerificarReciboBorrador(ctx, resultado.Recibo); err != nil {
+			return ProyeccionReciboBorrador{}, errors.Join(
+				ErrOperacionBorradorIndeterminada, ErrResultadoBorradorInseguro, err,
+			)
 		}
 		return resultado.Recibo, nil
 	case ResultadoDiarioNoAplicado:
@@ -557,7 +609,8 @@ func (s *ServicioBorradores) confirmar(
 	}
 }
 
-func resolverResultadoDiario(
+func (s *ServicioBorradores) resolverResultadoDiario(
+	ctx context.Context,
 	r ResultadoOperacionDiario,
 	identidad ProyeccionIdentidadOperacion,
 ) (ProyeccionReciboBorrador, error) {
@@ -568,8 +621,14 @@ func resolverResultadoDiario(
 	case ResultadoDiarioConflicto:
 		return ProyeccionReciboBorrador{}, puertosbolsa.ErrClaveIdempotenciaConvocatoriaReusada
 	case ResultadoDiarioConfirmado:
-		if r.Recibo == nil || !reciboProyectadoValido(*r.Recibo, identidad) {
+		if r.Recibo == nil || !reciboProyectadoValido(*r.Recibo, identidad) ||
+			!procedenciasActoCoinciden(r.Recibo.Procedencia, s.procedencia) {
 			return ProyeccionReciboBorrador{}, ErrResultadoBorradorInseguro
+		}
+		if err := s.verificador.VerificarReciboBorrador(ctx, *r.Recibo); err != nil {
+			return ProyeccionReciboBorrador{}, errors.Join(
+				ErrOperacionBorradorIndeterminada, ErrResultadoBorradorInseguro, err,
+			)
 		}
 		return *r.Recibo, nil
 	case ResultadoDiarioNoAplicado:
@@ -598,7 +657,8 @@ func resultadoDiarioValido(r ResultadoOperacionDiario) bool {
 		return r.Recibo == nil || r.Recibo.RevisionConfirmada == r.Revision &&
 			r.Recibo.CercadoConfirmado == r.Cercado &&
 			r.Recibo.ArrendamientoIniciaEn.Equal(r.ArrendamientoIniciaEn) &&
-			r.Recibo.ArrendamientoVenceEn.Equal(r.ArrendamientoVenceEn)
+			r.Recibo.ArrendamientoVenceEn.Equal(r.ArrendamientoVenceEn) &&
+			reciboProyectadoValido(*r.Recibo, r.Recibo.IdentidadPrimaria)
 	default:
 		return false
 	}
@@ -619,8 +679,10 @@ func reciboProyectadoValido(r ProyeccionReciboBorrador, identidad ProyeccionIden
 		r.ArrendamientoVenceEn.After(r.ArrendamientoIniciaEn) &&
 		referenciaProyeccionValida(r.AuditoriaRef) && huellaHexValida(r.HuellaAuditoriaSHA256) &&
 		referenciaProyeccionValida(r.EventoOutboxRef) && huellaHexValida(r.HuellaEventoOutboxSHA256) &&
+		r.Procedencia.valida() &&
 		r.TransaccionRef != r.AuditoriaRef && r.TransaccionRef != r.EventoOutboxRef &&
-		r.AuditoriaRef != r.EventoOutboxRef && instanteOperacionCanonico(r.ConfirmadaEn) &&
+		r.AuditoriaRef != r.EventoOutboxRef && r.AcreditacionKMS.validaParaRecibo(r) &&
+		instanteOperacionCanonico(r.ConfirmadaEn) &&
 		!r.ConfirmadaEn.Before(r.ArrendamientoIniciaEn) && r.ConfirmadaEn.Before(r.ArrendamientoVenceEn) &&
 		!r.ConfirmadaEn.Before(r.Decision.VerificadaEn) && r.ConfirmadaEn.Before(r.Decision.ValidaHasta) &&
 		!r.ConfirmadaEn.Before(r.SelladoMotivo.AtestacionEmitidaEn) &&

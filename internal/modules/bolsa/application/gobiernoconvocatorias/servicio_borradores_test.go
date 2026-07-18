@@ -239,8 +239,10 @@ type diarioPrueba struct {
 	aliases            map[string]aliasDiarioPrueba
 	reservas, reclamos int
 	fallarTrasReserva  bool
+	forzarMergeG2      bool
 	ultima             *SolicitudReservaDecisionBorrador
 	ultimaReconciliada *ProyeccionIdentidadOperacion
+	ultimaReclamacion  *SolicitudReclamacionDecisionBorrador
 }
 
 func nuevoDiarioPrueba() *diarioPrueba {
@@ -266,6 +268,17 @@ func copiarResultado(r ResultadoOperacionDiario) ResultadoOperacionDiario {
 		r.Recibo = &copia
 	}
 	return r
+}
+
+func resolucionIdentidadPrueba(
+	primaria ProyeccionIdentidadOperacion,
+	aliases []ProyeccionIdentidadOperacion,
+	_ time.Time,
+) (ResolucionIdentidadBorrador, error) {
+	return ResolucionIdentidadBorrador{
+		IdentidadesConsultadas: append([]ProyeccionIdentidadOperacion(nil), aliases...),
+		IdentidadPrimaria:      primaria,
+	}, nil
 }
 
 func (d *diarioPrueba) ConsultarIdentidades(
@@ -311,6 +324,18 @@ func (d *diarioPrueba) ConsultarIdentidades(
 			Resultado: estado,
 		})
 	}
+	for indice := range resultado.Coincidencias {
+		actual := &resultado.Coincidencias[indice]
+		resolucion, err := resolucionIdentidadPrueba(
+			actual.Resolucion.IdentidadPrimaria,
+			actual.Resolucion.IdentidadesConsultadas,
+			s.SolicitadaEn,
+		)
+		if err != nil {
+			return ResultadoConsultaIdentidadesBorrador{}, err
+		}
+		actual.Resolucion = resolucion
+	}
 	return resultado, nil
 }
 
@@ -335,14 +360,63 @@ func (d *diarioPrueba) ReservarDecision(
 			} else if resultado.Estado == ResultadoDiarioReservado {
 				resultado.Estado = ResultadoDiarioEnCurso
 			}
+			identidadesResueltas := s.IdentidadesConsulta
+			if resultado.Estado == ResultadoDiarioConflicto {
+				identidadesResueltas = []ProyeccionIdentidadOperacion{identidad}
+			}
+			resolucion, err := resolucionIdentidadPrueba(
+				fila.identidadPrimaria,
+				identidadesResueltas,
+				s.SolicitadaEn,
+			)
+			if err != nil {
+				return ResultadoReservaDecisionBorrador{}, err
+			}
 			return ResultadoReservaDecisionBorrador{
-				Resolucion: ResolucionIdentidadBorrador{
-					IdentidadesConsultadas: []ProyeccionIdentidadOperacion{identidad},
-					IdentidadPrimaria:      fila.identidadPrimaria,
-				},
-				Resultado: resultado,
+				Resolucion: resolucion,
+				Resultado:  resultado,
 			}, nil
 		}
+	}
+	if d.forzarMergeG2 {
+		if len(s.IdentidadesConsulta) < 2 {
+			return ResultadoReservaDecisionBorrador{}, ErrReservaBorradorInvalida
+		}
+		d.forzarMergeG2 = false
+		primaria := s.IdentidadesConsulta[1]
+		// Modela al ganador real: reservó con otra decisión y, por tanto, con
+		// otro instante/lease. La función SQL proyecta esa reserva ajena como
+		// en_curso para que el perdedor no pueda confirmarla.
+		inicioGanador := s.Proyeccion.ArrendamientoIniciaEn.Add(-time.Second)
+		venceGanador := s.Proyeccion.ArrendamientoVenceEn.Add(-time.Second)
+		resultadoPersistido := ResultadoOperacionDiario{
+			Estado: ResultadoDiarioReservado, Revision: 1, Cercado: 1,
+			ArrendamientoIniciaEn: inicioGanador,
+			ArrendamientoVenceEn:  venceGanador,
+		}
+		clavePrimaria := claveL(primaria)
+		d.filas[clavePrimaria] = filaDiarioPrueba{
+			identidadPrimaria: primaria, resultado: resultadoPersistido,
+		}
+		for _, identidad := range s.IdentidadesConsulta {
+			d.aliases[claveL(identidad)] = aliasDiarioPrueba{
+				identidad: identidad, clavePrimaria: clavePrimaria,
+			}
+		}
+		final, err := resolucionIdentidadPrueba(
+			primaria, s.IdentidadesConsulta, s.SolicitadaEn,
+		)
+		if err != nil {
+			return ResultadoReservaDecisionBorrador{}, err
+		}
+		d.reservas++
+		copia := s
+		d.ultima = &copia
+		resultadoRespuesta := resultadoPersistido
+		resultadoRespuesta.Estado = ResultadoDiarioEnCurso
+		return ResultadoReservaDecisionBorrador{
+			Resolucion: final, Resultado: resultadoRespuesta,
+		}, nil
 	}
 	p := s.Proyeccion
 	resultado := ResultadoOperacionDiario{
@@ -361,12 +435,15 @@ func (d *diarioPrueba) ReservarDecision(
 	d.reservas++
 	copia := s
 	d.ultima = &copia
+	resolucion, err := resolucionIdentidadPrueba(
+		p.IdentidadPrimaria, s.IdentidadesConsulta, s.SolicitadaEn,
+	)
+	if err != nil {
+		return ResultadoReservaDecisionBorrador{}, err
+	}
 	respuesta := ResultadoReservaDecisionBorrador{
-		Resolucion: ResolucionIdentidadBorrador{
-			IdentidadesConsultadas: []ProyeccionIdentidadOperacion{p.IdentidadPrimaria},
-			IdentidadPrimaria:      p.IdentidadPrimaria,
-		},
-		Resultado: resultado,
+		Resolucion: resolucion,
+		Resultado:  resultado,
 	}
 	if d.fallarTrasReserva {
 		d.fallarTrasReserva = false

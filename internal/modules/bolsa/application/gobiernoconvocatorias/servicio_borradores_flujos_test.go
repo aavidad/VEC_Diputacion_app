@@ -130,24 +130,32 @@ func TestRotacionRechazaGeneracionDominioDuplicadosYAmbiguedad(t *testing.T) {
 	if _, err := NuevoLocalizadorOperacion(2, refF, huellaHexPrueba('d')); err == nil {
 		t.Fatal("el dominio de huella se acepto como localizador")
 	}
-	consulta, err := nuevaSolicitudConsultaIdentidadesBorrador(conjunto)
+	consulta, err := nuevaSolicitudConsultaIdentidadesBorrador(conjunto, instanteBorradorPrueba)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolucionPrimera, err := resolucionIdentidadPrueba(
+		consulta.Identidades[0], []ProyeccionIdentidadOperacion{consulta.Identidades[0]},
+		consulta.SolicitadaEn,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolucionSegunda, err := resolucionIdentidadPrueba(
+		consulta.Identidades[1], []ProyeccionIdentidadOperacion{consulta.Identidades[1]},
+		consulta.SolicitadaEn,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ambiguo := ResultadoConsultaIdentidadesBorrador{Coincidencias: []CoincidenciaIdentidadBorrador{
 		{
-			Resolucion: ResolucionIdentidadBorrador{
-				IdentidadesConsultadas: []ProyeccionIdentidadOperacion{consulta.Identidades[0]},
-				IdentidadPrimaria:      consulta.Identidades[0],
-			},
-			Resultado: ResultadoOperacionDiario{Estado: ResultadoDiarioConflicto},
+			Resolucion: resolucionPrimera,
+			Resultado:  ResultadoOperacionDiario{Estado: ResultadoDiarioConflicto},
 		},
 		{
-			Resolucion: ResolucionIdentidadBorrador{
-				IdentidadesConsultadas: []ProyeccionIdentidadOperacion{consulta.Identidades[1]},
-				IdentidadPrimaria:      consulta.Identidades[1],
-			},
-			Resultado: ResultadoOperacionDiario{Estado: ResultadoDiarioConflicto},
+			Resolucion: resolucionSegunda,
+			Resultado:  ResultadoOperacionDiario{Estado: ResultadoDiarioConflicto},
 		},
 	}}
 	if !errors.Is(ambiguo.ValidarPara(consulta), ErrConsultaIdempotenciaAmbigua) {
