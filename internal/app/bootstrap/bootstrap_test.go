@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -125,8 +126,6 @@ func TestNewHTTPServerWithConfigComponeAPISinDarFuncionBolsaAlAdministradorTecni
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/demo", nil)
 	req.RemoteAddr = "127.0.0.1:12345"
-	req.Header.Set("X-Auth-Mechanism", string(ports.AuthMechanismKerberosAD))
-	req.Header.Set("X-Auth-Subject", "staff")
 	req.Header.Set("Authorization", "Bearer "+tokenFakePruebas)
 	srv.Handler.ServeHTTP(rec, req)
 
@@ -150,9 +149,6 @@ func TestModoDisabledNoPublicaBolsaHeredadaYMantieneVECCerrada(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/demo", nil)
 	req.RemoteAddr = "127.0.0.1:12345"
-	req.Header.Set("X-Auth-Mechanism", string(ports.AuthMechanismKerberosAD))
-	req.Header.Set("X-Auth-Subject", "staff")
-	req.Header.Set("Authorization", "Bearer staff-token")
 	srv.Handler.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("la ruta heredada existe en modo disabled: estado=%d cuerpo=%s", rec.Code, rec.Body.String())
@@ -299,39 +295,32 @@ func TestArranqueRechazaCategoriaDeConvocatoriaDesconocida(t *testing.T) {
 	}
 }
 
-func TestCabecerasConfiablesNoConcedenRolesEnAPILegacyNiCarcasa(t *testing.T) {
-	srv, err := NewHTTPServerWithConfig(config.Config{
+func TestComposicionIntegradaRechazaCabecerasConfiablesHeredadas(t *testing.T) {
+	cfg := config.Config{
 		Address:             "127.0.0.1:0",
 		PersonalCatalogPath: "memory",
 		AuthMode:            config.AuthModeTrustedHeaders,
 		TrustedProxyCIDRs:   []string{"127.0.0.1/32"},
-	})
-	if err != nil {
-		t.Fatalf("NewHTTPServerWithConfig() error = %v", err)
 	}
 
-	peticion := func(ruta string) *httptest.ResponseRecorder {
-		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, ruta, nil)
-		req.RemoteAddr = "127.0.0.1:12345"
-		req.Header.Set(config.DefaultTrustedHeaderSubject, "persona-cabecera")
-		req.Header.Set(config.DefaultTrustedHeaderRoles, "system_admin,validator_l2")
-		req.Header.Set(config.DefaultTrustedHeaderMechanism, string(ports.AuthMechanismKerberosAD))
-		req.Header.Set("X-Auth-Assurance", string(vecdomain.AuthAssuranceSubstantial))
-		srv.Handler.ServeHTTP(rec, req)
-		return rec
+	if servidor, err := NewHTTPServerWithConfig(cfg); !errors.Is(err, ErrModoCabecerasConfiablesRetirado) || servidor != nil {
+		t.Fatalf("NewHTTPServerWithConfig() = (%v, %v); debe rechazar trusted_headers", servidor, err)
+	}
+	if api, err := NewDemoAPIWithConfig(cfg); !errors.Is(err, ErrModoCabecerasConfiablesRetirado) || api != nil {
+		t.Fatalf("NewDemoAPIWithConfig() = (%v, %v); debe rechazar trusted_headers", api, err)
+	}
+	if api, err := NewVECShellAPIWithConfig(cfg); !errors.Is(err, ErrModoCabecerasConfiablesRetirado) || api != nil {
+		t.Fatalf("NewVECShellAPIWithConfig() = (%v, %v); debe rechazar trusted_headers", api, err)
 	}
 
-	if rec := peticion("/api/audit"); rec.Code != http.StatusNotFound {
-		t.Fatalf("la API heredada existe en trusted_headers: estado=%d cuerpo=%s", rec.Code, rec.Body.String())
-	}
-	if rec := peticion("/api/vec/audit"); rec.Code != http.StatusForbidden {
-		t.Fatalf("carcasa VEC obtuvo estado %d: %s", rec.Code, rec.Body.String())
+	servidorPublico, err := NewHTTPServerPublicoWithConfig(cfg)
+	if err != nil || servidorPublico == nil {
+		t.Fatalf("NewHTTPServerPublicoWithConfig() = (%v, %v); la superficie anonima no debe cargar autenticacion", servidorPublico, err)
 	}
 }
 
 func TestModosNoFakeNoConstruyenNiMontanBolsaHeredada(t *testing.T) {
-	for _, modo := range []string{config.AuthModeDisabled, config.AuthModeTrustedHeaders} {
+	for _, modo := range []string{config.AuthModeDisabled} {
 		t.Run(modo, func(t *testing.T) {
 			// Un directorio no es un fichero durable valido. Si la composicion
 			// intentase construir el almacenamiento de Bolsa, el arranque fallaria.
@@ -410,8 +399,6 @@ func TestNewHTTPServerExposesUnifiedVECShellModules(t *testing.T) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(tc.method, tc.path, nil)
 		req.RemoteAddr = "127.0.0.1:12345"
-		req.Header.Set("X-Auth-Mechanism", string(ports.AuthMechanismKerberosAD))
-		req.Header.Set("X-Auth-Subject", "staff")
 		req.Header.Set("Authorization", "Bearer "+tokenFakePruebas)
 		srv.Handler.ServeHTTP(rec, req)
 		if rec.Code != tc.status {
@@ -476,14 +463,18 @@ func TestFakeSoloAceptaBearerConfiguradoYNoCabecerasDeIdentidad(t *testing.T) {
 		req.Header.Set("X-Auth-Roles", "system_admin")
 		req.Header.Set("X-Auth-Mechanism", "dnie")
 		req.Header.Set("X-Auth-Token", tokenFakePruebas)
-	}, http.StatusUnauthorized)
+	}, http.StatusBadRequest)
 
-	valido := probar("bearer valido con cabeceras falsas", func(req *http.Request) {
+	probar("bearer valido con cabeceras falsas", func(req *http.Request) {
 		req.Header.Set("Authorization", "Bearer "+tokenFakePruebas)
 		req.Header.Set("X-VEC-Subject", "atacante")
 		req.Header.Set("X-VEC-Roles", "ciudadano")
 		req.Header.Set("X-VEC-Auth-Mechanism", "clave")
 		req.Header.Set("X-Auth-Assurance", "bajo")
+	}, http.StatusBadRequest)
+
+	valido := probar("bearer valido", func(req *http.Request) {
+		req.Header.Set("Authorization", "Bearer "+tokenFakePruebas)
 	}, http.StatusOK)
 	cuerpo := valido.Body.String()
 	if !strings.Contains(cuerpo, `"id":"principal-configurado-prueba"`) ||

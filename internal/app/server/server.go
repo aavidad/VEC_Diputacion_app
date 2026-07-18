@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -67,6 +69,9 @@ func NewHandler(api http.Handler) http.Handler {
 	return NewHandlerWithConfig(config.Config{}, api)
 }
 
+// NewHandlerWithConfig conserva la composicion integrada de desarrollo. Aunque
+// no constituye una frontera productiva, aplica la misma prohibicion de cookies
+// y credenciales ambientales para que una presentacion no degrade el contrato.
 func NewHandlerWithConfig(cfg config.Config, api http.Handler) http.Handler {
 	cfg = cfg.Normalize()
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
@@ -78,7 +83,8 @@ func NewHandlerWithConfig(cfg config.Config, api http.Handler) http.Handler {
 	mux.Handle(cfg.APIBasePath+"/", api)
 	mux.Handle("/candidates", api)
 	mux.Handle("/candidates/", api)
-	handler := restrictRemoteAddrs(mux, cfg.HTTPAllowedCIDRs)
+	handler := prohibirCookiesYAutorizacionProxyConLimite(mux, cfg.MaxRequestBodyBytes)
+	handler = restrictRemoteAddrs(handler, cfg.HTTPAllowedCIDRs)
 	if cfg.AuthMode == config.AuthModeFake {
 		handler = rechazarCabecerasProxyFake(handler)
 	}
@@ -87,7 +93,8 @@ func NewHandlerWithConfig(cfg config.Config, api http.Handler) http.Handler {
 
 // NewHandlerPublicoWithConfig expone unicamente la consulta anonima de Bolsa,
 // sus recursos imprescindibles y la API publica. La lista positiva evita que
-// una nueva carpeta estatica o ruta interna se publique por accidente.
+// una nueva carpeta estatica o ruta interna se publique por accidente. Al ser
+// anonima tampoco acepta cookies ni permite que una API emita Set-Cookie.
 func NewHandlerPublicoWithConfig(cfg config.Config, api http.Handler) http.Handler {
 	cfg = cfg.Normalize()
 	if api == nil {
@@ -105,7 +112,10 @@ func NewHandlerPublicoWithConfig(cfg config.Config, api http.Handler) http.Handl
 	mux.Handle("/api/publico", api)
 	mux.Handle("/api/publico/", api)
 
-	return protegerSuperficie(cfg, rechazarRutasNoCanonicas(mux))
+	handler := rechazarRutasNoCanonicas(mux)
+	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
+	handler = prohibirAutorizacionSuperficieAnonima(handler)
+	return protegerSuperficie(cfg, handler)
 }
 
 // NewHandlerInternoWithConfig expone unicamente el Portal del Empleado y la
@@ -128,7 +138,7 @@ func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handl
 	mux.Handle("/api/vec/", api)
 
 	handler := rechazarRutasNoCanonicas(mux)
-	handler = prohibirCookiesYAutorizacionProxy(handler)
+	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
 	return protegerSuperficie(cfg, handler)
 }
 
@@ -238,16 +248,99 @@ func rutaHTTPCanonica(r *http.Request) bool {
 }
 
 func prohibirCookiesYAutorizacionProxy(next http.Handler) http.Handler {
+	return prohibirCookiesYAutorizacionProxyConLimite(next, config.DefaultMaxRequestBodyBytes)
+}
+
+var errCuerpoHTTPDemasiadoGrande = errors.New("server: request body too large")
+
+func prohibirCookiesYAutorizacionProxyConLimite(next http.Handler, limite int64) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if contieneCabecera(r.Header, "Cookie") || contieneCabecera(r.Header, "Proxy-Authorization") ||
-			contieneCabeceraIdentidadHeredada(r.Header) {
+		if credencialAmbientalPresente(r.Header) ||
+			contieneCabecera(r.Header, "Trailer") || len(r.Trailer) != 0 {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
-		escritor := &escritorSinCookies{ResponseWriter: w}
-		next.ServeHTTP(escritor, r)
+		if peticionPuedeTransportarTrailers(r) {
+			if err := materializarCuerpoYTrailers(r, limite); err != nil {
+				if errors.Is(err, errCuerpoHTTPDemasiadoGrande) {
+					http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+					return
+				}
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			if len(r.Trailer) != 0 {
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+		}
+		// Defensa adicional para peticiones construidas fuera de net/http: el
+		// handler recibe mapas propios y nunca puede observar un trailer que el
+		// transporte materialice sobre la peticion original.
+		peticionAislada := r.Clone(r.Context())
+		peticionAislada.Header.Del("Trailer")
+		peticionAislada.Trailer = make(http.Header)
+		peticionAislada.GetBody = nil
+		escritor := &escritorSinCookies{destino: w}
+		next.ServeHTTP(escritor, peticionAislada)
 		eliminarCookiesRespuesta(escritor.Header())
 	})
+}
+
+func peticionPuedeTransportarTrailers(r *http.Request) bool {
+	return len(r.TransferEncoding) != 0 ||
+		(r.ProtoMajor >= 2 && r.Body != nil && r.Body != http.NoBody)
+}
+
+func materializarCuerpoYTrailers(r *http.Request, limite int64) error {
+	if r.Body == nil || r.Body == http.NoBody {
+		return nil
+	}
+	if limite <= 0 {
+		limite = config.DefaultMaxRequestBodyBytes
+	}
+	original := r.Body
+	contenido, err := io.ReadAll(io.LimitReader(original, limite))
+	if err != nil {
+		_ = original.Close()
+		return err
+	}
+	if int64(len(contenido)) == limite {
+		extra, err := io.ReadAll(io.LimitReader(original, 1))
+		if err != nil {
+			_ = original.Close()
+			return err
+		}
+		if len(extra) != 0 {
+			_ = original.Close()
+			return errCuerpoHTTPDemasiadoGrande
+		}
+	}
+	if err := original.Close(); err != nil {
+		return err
+	}
+	r.Body = io.NopCloser(bytes.NewReader(contenido))
+	r.ContentLength = int64(len(contenido))
+	r.TransferEncoding = nil
+	r.GetBody = nil
+	return nil
+}
+
+func prohibirAutorizacionSuperficieAnonima(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if contieneCabecera(r.Header, "Authorization") ||
+			contieneCabecera(r.Trailer, "Authorization") {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func credencialAmbientalPresente(cabeceras http.Header) bool {
+	return contieneCabecera(cabeceras, "Cookie") ||
+		contieneCabecera(cabeceras, "Proxy-Authorization") ||
+		contieneCabeceraIdentidadHeredada(cabeceras)
 }
 
 func contieneCabecera(cabeceras http.Header, buscada string) bool {
@@ -265,7 +358,8 @@ func contieneCabeceraIdentidadHeredada(cabeceras http.Header) bool {
 		if strings.HasPrefix(normalizado, "x-vec-") ||
 			strings.HasPrefix(normalizado, "x-auth-") ||
 			strings.HasPrefix(normalizado, "x-forwarded-") ||
-			normalizado == "x-remote-user" || normalizado == "remote-user" {
+			normalizado == "x-remote-user" || normalizado == "remote-user" ||
+			normalizado == "forwarded" || normalizado == "via" {
 			return true
 		}
 	}
@@ -273,10 +367,20 @@ func contieneCabeceraIdentidadHeredada(cabeceras http.Header) bool {
 }
 
 func eliminarCookiesRespuesta(cabeceras http.Header) {
-	cabeceras.Del("Set-Cookie")
-	cabeceras.Del(http.TrailerPrefix + "Set-Cookie")
-
-	declaraciones := cabeceras.Values("Trailer")
+	declaraciones := make([]string, 0, len(cabeceras))
+	for nombre, valores := range cabeceras {
+		normalizado := strings.TrimSpace(nombre)
+		esCookieTrailer := len(normalizado) >= len(http.TrailerPrefix) &&
+			strings.EqualFold(normalizado[:len(http.TrailerPrefix)], http.TrailerPrefix) &&
+			strings.EqualFold(strings.TrimSpace(normalizado[len(http.TrailerPrefix):]), "Set-Cookie")
+		switch {
+		case strings.EqualFold(normalizado, "Set-Cookie"), esCookieTrailer:
+			delete(cabeceras, nombre)
+		case strings.EqualFold(normalizado, "Trailer"):
+			declaraciones = append(declaraciones, valores...)
+			delete(cabeceras, nombre)
+		}
+	}
 	if len(declaraciones) == 0 {
 		return
 	}
@@ -289,16 +393,17 @@ func eliminarCookiesRespuesta(cabeceras http.Header) {
 			}
 		}
 	}
-	cabeceras.Del("Trailer")
 	for _, permitida := range permitidas {
 		cabeceras.Add("Trailer", permitida)
 	}
 }
 
 type escritorSinCookies struct {
-	http.ResponseWriter
+	destino http.ResponseWriter
 	escrito bool
 }
+
+func (w *escritorSinCookies) Header() http.Header { return w.destino.Header() }
 
 func (w *escritorSinCookies) WriteHeader(estado int) {
 	if w.escrito {
@@ -308,14 +413,14 @@ func (w *escritorSinCookies) WriteHeader(estado int) {
 	if !esRespuestaInformativa(estado) {
 		w.escrito = true
 	}
-	w.ResponseWriter.WriteHeader(estado)
+	w.destino.WriteHeader(estado)
 }
 
 func (w *escritorSinCookies) Write(contenido []byte) (int, error) {
 	if !w.escrito {
 		w.WriteHeader(http.StatusOK)
 	}
-	return w.ResponseWriter.Write(contenido)
+	return w.destino.Write(contenido)
 }
 
 func (w *escritorSinCookies) Flush() {
@@ -327,11 +432,7 @@ func (w *escritorSinCookies) FlushError() error {
 	if !w.escrito {
 		w.WriteHeader(http.StatusOK)
 	}
-	return http.NewResponseController(w.ResponseWriter).Flush()
-}
-
-func (w *escritorSinCookies) Unwrap() http.ResponseWriter {
-	return w.ResponseWriter
+	return http.NewResponseController(w.destino).Flush()
 }
 
 func esRespuestaInformativa(estado int) bool {

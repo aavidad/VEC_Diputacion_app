@@ -41,11 +41,21 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
+// ErrModoCabecerasConfiablesRetirado indica que una raiz de composicion
+// integrada ha recibido el prototipo heredado trusted_headers. Las cabeceras
+// ambientales no son una credencial y no se admiten como puente temporal hacia
+// la identidad productiva.
+var ErrModoCabecerasConfiablesRetirado = errors.New("bootstrap: trusted_headers retirado de la composicion integrada")
+
 func NewHTTPServer() (*http.Server, error) {
 	return NewHTTPServerWithConfig(config.Load())
 }
 
 func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
+	cfg = cfg.Normalize()
+	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
+		return nil, err
+	}
 	api, err := NewDemoAPIWithConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -93,6 +103,9 @@ func NewDemoAPI() (http.Handler, error) {
 
 func NewDemoAPIWithConfig(cfg config.Config) (http.Handler, error) {
 	cfg = cfg.Normalize()
+	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
+		return nil, err
+	}
 	credencialesFake, err := cargarAlmacenFakeConfigurado(cfg)
 	if err != nil {
 		return nil, err
@@ -125,6 +138,9 @@ func NewVECShellAPI() (http.Handler, error) {
 
 func NewVECShellAPIWithConfig(cfg config.Config) (http.Handler, error) {
 	cfg = cfg.Normalize()
+	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
+		return nil, err
+	}
 	credencialesFake, err := cargarAlmacenFakeConfigurado(cfg)
 	if err != nil {
 		return nil, err
@@ -175,12 +191,14 @@ func newVECShellAPICompuesta(
 		OSRMAllowedCIDRs:        append([]string(nil), cfg.OSRMAllowedCIDRs...),
 		AllowDemoIdentity:       cfg.AuthMode == config.AuthModeFake,
 		DemoIdentityResolver:    credencialesFake,
-		TrustIdentityHeaders:    cfg.AuthMode == config.AuthModeTrustedHeaders,
-		TrustedProxyCIDRs:       append([]string(nil), cfg.TrustedProxyCIDRs...),
-		IdentitySubjectHeader:   cfg.TrustedHeaderSubject,
-		IdentityRolesHeader:     cfg.TrustedHeaderRoles,
-		IdentityMechanismHeader: cfg.TrustedHeaderMechanism,
 	})
+}
+
+func validarModoAutenticacionIntegrado(cfg config.Config) error {
+	if cfg.AuthMode == config.AuthModeTrustedHeaders {
+		return ErrModoCabecerasConfiablesRetirado
+	}
+	return nil
 }
 
 // nuevoServicioCatalogoPersonal pertenece a la raiz de composicion: el
