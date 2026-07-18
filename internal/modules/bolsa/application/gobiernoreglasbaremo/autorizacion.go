@@ -267,7 +267,7 @@ func nuevoDescriptorConsultaExactaReglasBaremoV2(
 ) (DescriptorConsultaExactaReglasBaremoV2, error) {
 	alcance, err := nuevoAlcanceAutorizacionDesdeIdentidad(identidad)
 	contenido := vinculo.Contenido()
-	if err != nil || !vinculoEstadoValido(vinculo) || alcance.validar() != nil ||
+	if err != nil || vinculo.Validar() != nil || alcance.validar() != nil ||
 		contenido.Referencia() != identidad.Referencia() ||
 		contenido.Version() != identidad.Version() {
 		return DescriptorConsultaExactaReglasBaremoV2{}, ErrConsultaExactaInvalida
@@ -284,7 +284,7 @@ func (d DescriptorConsultaExactaReglasBaremoV2) validar() error {
 	}
 	alcance, err := nuevoAlcanceAutorizacionDesdeIdentidad(*d.identidad)
 	contenido := d.vinculo.Contenido()
-	if err != nil || !vinculoEstadoValido(*d.vinculo) || alcance.validar() != nil ||
+	if err != nil || d.vinculo.Validar() != nil || alcance.validar() != nil ||
 		contenido.Referencia() != d.identidad.Referencia() ||
 		contenido.Version() != d.identidad.Version() {
 		return ErrConsultaExactaInvalida

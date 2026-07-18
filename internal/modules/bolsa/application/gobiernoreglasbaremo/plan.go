@@ -125,18 +125,18 @@ func (v VinculoEvidenciaTransicionReglasBaremoV2) Referencia() (
 
 func (v VinculoEvidenciaTransicionReglasBaremoV2) validar() error {
 	if !referenciaTecnicaV2Valida(v.atestacion, prefijoAtestacionV2) ||
-		!vinculoEstadoValido(v.cas) {
+		v.cas.Validar() != nil {
 		return ErrPlanCambioInvalido
 	}
 	switch v.operacion {
 	case OperacionPublicar:
-		if referenciasIguales(v.aprobacion.Atestacion(), v.atestacion) &&
-			vinculosIguales(v.aprobacion.Vinculo(), v.cas) {
+		if v.aprobacion.Atestacion().CoincideExactamenteCon(v.atestacion) &&
+			v.aprobacion.Vinculo().CoincideExactamenteCon(v.cas) {
 			return nil
 		}
 	case OperacionActivar:
-		if referenciasIguales(v.dependencias.Atestacion(), v.atestacion) &&
-			vinculosIguales(v.dependencias.Vinculo(), v.cas) {
+		if v.dependencias.Atestacion().CoincideExactamenteCon(v.atestacion) &&
+			v.dependencias.Vinculo().CoincideExactamenteCon(v.cas) {
 			return nil
 		}
 	case OperacionSustituir, OperacionRetirar, OperacionDescartar:
@@ -147,8 +147,8 @@ func (v VinculoEvidenciaTransicionReglasBaremoV2) validar() error {
 		if v.operacion == OperacionDescartar {
 			accionEsperada = reglas.AccionDescartarReglasBaremo
 		}
-		if referenciasIguales(v.autoridad.Atestacion(), v.atestacion) &&
-			vinculosIguales(v.autoridad.Vinculo(), v.cas) &&
+		if v.autoridad.Atestacion().CoincideExactamenteCon(v.atestacion) &&
+			v.autoridad.Vinculo().CoincideExactamenteCon(v.cas) &&
 			v.autoridad.Accion() == accionEsperada {
 			return nil
 		}
@@ -398,7 +398,7 @@ func (p PlanCambioReglasBaremoV2) validarEstructura() error {
 		p.datos.versionCanonica,
 		p.datos.huellaVersionSHA256,
 	)
-	if err != nil || !vinculoEstadoValido(p.datos.vinculoResultado) {
+	if err != nil || p.datos.vinculoResultado.Validar() != nil {
 		return ErrPlanCambioInvalido
 	}
 	instanteVersion, err := version.InstanteUltimaActuacion()
@@ -426,7 +426,7 @@ func (p PlanCambioReglasBaremoV2) validarEstructura() error {
 		return ErrPlanCambioInvalido
 	}
 	vinculo, err := version.VinculoEstado()
-	if err != nil || !vinculosIguales(vinculo, p.datos.vinculoResultado) {
+	if err != nil || !vinculo.CoincideExactamenteCon(p.datos.vinculoResultado) {
 		return ErrPlanCambioInvalido
 	}
 	estado, revision, existe := p.datos.operacion.estadoResultado()
@@ -440,18 +440,17 @@ func (p PlanCambioReglasBaremoV2) validarEstructura() error {
 		return nil
 	}
 	if !p.datos.tieneCAS || !p.datos.tieneVinculoEvidencia ||
-		!vinculoEstadoValido(p.datos.cas) ||
+		p.datos.cas.Validar() != nil ||
 		p.datos.cas.Revision()+1 != p.datos.vinculoResultado.Revision() {
 		return ErrPlanCambioInvalido
 	}
 	if p.datos.vinculoEvidencia.validar() != nil ||
 		p.datos.vinculoEvidencia.operacion != p.datos.operacion ||
-		!vinculosIguales(p.datos.vinculoEvidencia.cas, p.datos.cas) ||
+		!p.datos.vinculoEvidencia.cas.CoincideExactamenteCon(p.datos.cas) ||
 		!p.datos.vinculoEvidencia.incorporadaEn(version) {
 		return ErrPlanCambioInvalido
 	}
-	if !referenciasIguales(
-		p.datos.cas.Contenido(),
+	if !p.datos.cas.Contenido().CoincideExactamenteCon(
 		p.datos.vinculoResultado.Contenido(),
 	) {
 		return ErrPlanCambioInvalido
@@ -687,32 +686,6 @@ func referenciaTecnicaV2Valida(
 	}
 	sufijo := strings.TrimPrefix(referencia.Referencia(), prefijo)
 	return sufijo == referencia.HuellaSHA256()
-}
-
-func vinculoEstadoValido(vinculo reglas.VinculoEstadoReglasBaremo) bool {
-	contenido := vinculo.Contenido()
-	if contenido.Referencia() == "" || contenido.Version() == 0 ||
-		!huellaSHA256Valida(contenido.HuellaSHA256()) ||
-		vinculo.Revision() == 0 || !huellaSHA256Valida(vinculo.HuellaEstadoSHA256()) {
-		return false
-	}
-	reconstruido, err := reglas.NuevoVinculoEstadoReglasBaremo(
-		contenido,
-		vinculo.Revision(),
-		vinculo.HuellaEstadoSHA256(),
-	)
-	return err == nil && vinculosIguales(vinculo, reconstruido)
-}
-
-func referenciasIguales(a, b reglas.ReferenciaVersionada) bool {
-	return a.Referencia() == b.Referencia() && a.Version() == b.Version() &&
-		a.HuellaSHA256() == b.HuellaSHA256()
-}
-
-func vinculosIguales(a, b reglas.VinculoEstadoReglasBaremo) bool {
-	return referenciasIguales(a.Contenido(), b.Contenido()) &&
-		a.Revision() == b.Revision() &&
-		a.HuellaEstadoSHA256() == b.HuellaEstadoSHA256()
 }
 
 func componentesExactos(componentes []ComponenteEscrituraReglasBaremoV2) bool {

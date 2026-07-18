@@ -72,8 +72,8 @@ func validarVinculosResultado(
 		motor.HuellaContratoSHA256() != datos.MotorEsperado.HuellaContratoSHA256 {
 		return ErrMotorNoCoincide
 	}
-	if !referenciasIguales(vinculos.Conjunto(), datos.Selector.EstadoReglas.Contenido()) ||
-		!referenciasIguales(entrada.Instantanea(), datos.Selector.InstantaneaEntrada) ||
+	if !vinculos.Conjunto().CoincideExactamenteCon(datos.Selector.EstadoReglas.Contenido()) ||
+		!entrada.Instantanea().CoincideExactamenteCon(datos.Selector.InstantaneaEntrada) ||
 		entrada.HuellaContenidoSHA256() != fuente.Prueba.HuellaEntradaSHA256 ||
 		!huellaSHA256Valida(vinculos.Plan().HuellaSHA256()) {
 		return ErrResultadoNoConfiable

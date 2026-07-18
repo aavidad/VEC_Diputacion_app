@@ -1,6 +1,7 @@
 package reglasbaremo
 
 import (
+	"crypto/subtle"
 	"sort"
 
 	"vec-diputacion-granada/internal/shared/baremacion"
@@ -42,6 +43,46 @@ func (r ReferenciaVersionada) Version() uint64 { return r.version }
 
 // HuellaSHA256 devuelve la huella hexadecimal canonica.
 func (r ReferenciaVersionada) HuellaSHA256() string { return r.huellaSHA256 }
+
+// Validar comprueba que la referencia conserva su forma canonica cerrada.
+func (r ReferenciaVersionada) Validar() error {
+	return r.validar("referencia_versionada")
+}
+
+// CoincideExactamenteCon compara en tiempo constante dos referencias validas,
+// sin normalizar ni omitir campos. Un valor cero o invalido nunca coincide.
+func (r ReferenciaVersionada) CoincideExactamenteCon(otra ReferenciaVersionada) bool {
+	if r.Validar() != nil || otra.Validar() != nil {
+		return false
+	}
+	return r.coincidenciaExactaConstante(otra) == 1
+}
+
+func (r ReferenciaVersionada) coincidenciaExactaConstante(otra ReferenciaVersionada) int {
+	coincide := textoReglasBaremoIgualConstante(r.referencia, otra.referencia)
+	coincide &= numeroReglasBaremoIgualConstante(r.version, otra.version)
+	coincide &= textoReglasBaremoIgualConstante(r.huellaSHA256, otra.huellaSHA256)
+	return coincide
+}
+
+func textoReglasBaremoIgualConstante(izquierda, derecha string) int {
+	// Las entradas validas ya respetan el limite. El relleno impide que una
+	// diferencia de longitud acorte la comparacion de referencias HMAC.
+	if len(izquierda) > maximoCaracteresReferencia || len(derecha) > maximoCaracteresReferencia {
+		return 0
+	}
+	var canonicaIzquierda, canonicaDerecha [maximoCaracteresReferencia]byte
+	copy(canonicaIzquierda[:], izquierda)
+	copy(canonicaDerecha[:], derecha)
+	coincide := subtle.ConstantTimeEq(int32(len(izquierda)), int32(len(derecha)))
+	coincide &= subtle.ConstantTimeCompare(canonicaIzquierda[:], canonicaDerecha[:])
+	return coincide
+}
+
+func numeroReglasBaremoIgualConstante(izquierdo, derecho uint64) int {
+	// Versiones y revisiones validas no superan maximoVersion (< MaxInt32).
+	return subtle.ConstantTimeEq(int32(izquierdo), int32(derecho))
+}
 
 func (r ReferenciaVersionada) validar(campo string) error {
 	if !referenciaValida(r.referencia) {

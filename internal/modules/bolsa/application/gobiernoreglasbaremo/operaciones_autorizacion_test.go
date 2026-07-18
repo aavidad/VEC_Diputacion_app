@@ -125,7 +125,7 @@ func TestConsultaExactaConservaTodoElVinculo(t *testing.T) {
 		t.Fatal(err)
 	}
 	recuperado, err := consulta.Vinculo()
-	if err != nil || !vinculosIguales(vinculo, recuperado) {
+	if err != nil || !vinculo.CoincideExactamenteCon(recuperado) {
 		t.Fatalf("vinculo alterado: %#v, %v", recuperado, err)
 	}
 	identidadRecuperada, err := consulta.Identidad()

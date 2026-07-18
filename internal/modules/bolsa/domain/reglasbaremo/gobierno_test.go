@@ -13,6 +13,80 @@ const actorGobiernoPrueba = "per_0123456789abcdef0123456789abcdef"
 
 var instanteBaseGobiernoPrueba = time.Date(2026, 7, 17, 8, 0, 0, 0, time.UTC)
 
+func TestVinculoEstadoReglasBaremoValidaYCoincideExactamente(t *testing.T) {
+	contenido := referenciaPrueba(t, "reglas:convocatoria-2026:1", 1, 'a')
+	sumaEstado := sha256.Sum256([]byte("estado-reglas-1"))
+	huellaEstado := hex.EncodeToString(sumaEstado[:])
+	original, err := NuevoVinculoEstadoReglasBaremo(contenido, 3, huellaEstado)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clon, err := NuevoVinculoEstadoReglasBaremo(contenido, 3, huellaEstado)
+	if err != nil || original.Validar() != nil || clon.Validar() != nil {
+		t.Fatalf("vinculo valido rechazado: %v", err)
+	}
+	if !original.CoincideExactamenteCon(clon) || !clon.CoincideExactamenteCon(original) {
+		t.Fatal("vinculos exactos no coincidieron simetricamente")
+	}
+
+	contenidoDistinto, err := NuevaReferenciaVersionada(
+		"reglas:convocatoria-2026:2", contenido.Version(), contenido.HuellaSHA256(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conContenidoDistinto, err := NuevoVinculoEstadoReglasBaremo(
+		contenidoDistinto, original.Revision(), original.HuellaEstadoSHA256(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conRevisionDistinta, err := NuevoVinculoEstadoReglasBaremo(
+		contenido, original.Revision()+1, original.HuellaEstadoSHA256(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sumaOtroEstado := sha256.Sum256([]byte("estado-reglas-2"))
+	conHuellaDistinta, err := NuevoVinculoEstadoReglasBaremo(
+		contenido, original.Revision(), hex.EncodeToString(sumaOtroEstado[:]),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for nombre, distinto := range map[string]VinculoEstadoReglasBaremo{
+		"contenido":     conContenidoDistinto,
+		"revision":      conRevisionDistinta,
+		"huella_estado": conHuellaDistinta,
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			if original.CoincideExactamenteCon(distinto) ||
+				distinto.CoincideExactamenteCon(original) {
+				t.Fatal("vinculos distintos coincidieron")
+			}
+		})
+	}
+
+	invalido := original
+	invalido.revision = 0
+	var cero VinculoEstadoReglasBaremo
+	for nombre, valor := range map[string]VinculoEstadoReglasBaremo{
+		"invalido": invalido,
+		"cero":     cero,
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			if valor.Validar() == nil {
+				t.Fatal("vinculo invalido aceptado")
+			}
+			if valor.CoincideExactamenteCon(valor) ||
+				original.CoincideExactamenteCon(valor) ||
+				valor.CoincideExactamenteCon(original) {
+				t.Fatal("vinculo invalido participo en una coincidencia")
+			}
+		})
+	}
+}
+
 func TestGobiernoReglasBaremoRecorreCicloYFijaRevisiones(t *testing.T) {
 	borrador := nuevaVersionGobiernoPrueba(t, instanteBaseGobiernoPrueba)
 	huellaBorrador := huellaGobiernoPrueba(t, borrador)

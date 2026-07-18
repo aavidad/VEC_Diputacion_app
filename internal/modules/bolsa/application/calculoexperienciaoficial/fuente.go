@@ -51,9 +51,9 @@ func validarFuenteExacta(
 		fuente.Entrada.Validar() != nil || !instanteFuenteValido(fuente.ObtenidaEn) ||
 		fuente.ObtenidaEn.Before(solicitadaEn) || fuente.ObtenidaEn.After(comprobadaEn) ||
 		validarPruebaFuente(fuente.Prueba, selector, fuente.ObtenidaEn, comprobadaEn) != nil ||
-		!referenciaValida(fuente.Auditoria) ||
+		fuente.Auditoria.Validar() != nil ||
 		fuente.ConsumoAutorizacion.Validar() != nil ||
-		!referenciaValida(fuente.ConsumoPrueba) ||
+		fuente.ConsumoPrueba.Validar() != nil ||
 		!referenciasFuenteDistintas(fuente, autorizacion) ||
 		!referenciasFuenteConRolNominal(fuente) {
 		return ErrFuenteNoConfiable
@@ -65,15 +65,15 @@ func validarFuenteExacta(
 	huellaEntrada, errHuella := fuente.Entrada.HuellaSHA256()
 	if errVinculo != nil || errConvocatoria != nil || !activa || errContenido != nil ||
 		errConjunto != nil || conjunto.Validar() != nil || errHuella != nil ||
-		!vinculosEstadoIguales(vinculo, selector.EstadoReglas) ||
-		!referenciasIguales(contenido, selector.EstadoReglas.Contenido()) ||
-		!referenciasIguales(convocatoria, selector.Convocatoria) ||
-		!referenciasIguales(fuente.Entrada.Instantanea(), selector.InstantaneaEntrada) ||
+		!vinculo.CoincideExactamenteCon(selector.EstadoReglas) ||
+		!contenido.CoincideExactamenteCon(selector.EstadoReglas.Contenido()) ||
+		!convocatoria.CoincideExactamenteCon(selector.Convocatoria) ||
+		!fuente.Entrada.Instantanea().CoincideExactamenteCon(selector.InstantaneaEntrada) ||
 		huellaEntrada != fuente.Prueba.HuellaEntradaSHA256 {
 		return ErrFuenteNoConfiable
 	}
 	referenciaConjunto, err := conjunto.ReferenciaVersionada()
-	if err != nil || !referenciasIguales(referenciaConjunto, contenido) {
+	if err != nil || !referenciaConjunto.CoincideExactamenteCon(contenido) {
 		return ErrFuenteNoConfiable
 	}
 	if validarReciboConsumoFuente(
@@ -125,11 +125,11 @@ func validarPruebaFuente(
 	selector puertosbolsa.SelectorFuenteExactaCalculoReglasBaremo,
 	obtenidaEn, comprobadaEn time.Time,
 ) error {
-	if !referenciaValida(prueba.Evidencia) || !referenciaValida(prueba.Verificador) ||
-		!vinculosEstadoIguales(prueba.EstadoReglas, selector.EstadoReglas) ||
-		!referenciasIguales(prueba.InstantaneaEntrada, selector.InstantaneaEntrada) ||
-		!referenciasIguales(prueba.SujetoPseudonimo, selector.SujetoPseudonimo) ||
-		!referenciasIguales(prueba.Convocatoria, selector.Convocatoria) ||
+	if prueba.Evidencia.Validar() != nil || prueba.Verificador.Validar() != nil ||
+		!prueba.EstadoReglas.CoincideExactamenteCon(selector.EstadoReglas) ||
+		!prueba.InstantaneaEntrada.CoincideExactamenteCon(selector.InstantaneaEntrada) ||
+		!prueba.SujetoPseudonimo.CoincideExactamenteCon(selector.SujetoPseudonimo) ||
+		!prueba.Convocatoria.CoincideExactamenteCon(selector.Convocatoria) ||
 		!huellaSHA256Valida(prueba.HuellaEntradaSHA256) ||
 		!instanteFuenteValido(prueba.EmitidaEn) || !instanteFuenteValido(prueba.ValidaHasta) ||
 		!prueba.ValidaHasta.After(prueba.EmitidaEn) || prueba.EmitidaEn.After(obtenidaEn) ||
@@ -192,16 +192,6 @@ func referenciaExactaOficial(referencia reglas.ReferenciaVersionada) oficial.Ref
 		Referencia: referencia.Referencia(), Version: referencia.Version(),
 		HuellaSHA256: referencia.HuellaSHA256(),
 	}
-}
-
-func referenciasIguales(a, b reglas.ReferenciaVersionada) bool {
-	return a.Referencia() == b.Referencia() && a.Version() == b.Version() &&
-		a.HuellaSHA256() == b.HuellaSHA256()
-}
-
-func vinculosEstadoIguales(a, b reglas.VinculoEstadoReglasBaremo) bool {
-	return referenciasIguales(a.Contenido(), b.Contenido()) && a.Revision() == b.Revision() &&
-		a.HuellaEstadoSHA256() == b.HuellaEstadoSHA256()
 }
 
 func instanteFuenteValido(instante time.Time) bool {

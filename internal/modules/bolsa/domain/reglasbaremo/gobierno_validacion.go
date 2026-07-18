@@ -105,8 +105,7 @@ func (a AtestacionAutoridadReglasBaremo) validarPara(
 }
 
 func vinculosEstadoIguales(a, b VinculoEstadoReglasBaremo) bool {
-	return referenciasVersionadasIguales(a.contenido, b.contenido) &&
-		a.revision == b.revision && a.huellaEstadoSHA256 == b.huellaEstadoSHA256
+	return a.CoincideExactamenteCon(b)
 }
 
 func referenciasOpcionalesIguales(a, b *ReferenciaVersionada) bool {

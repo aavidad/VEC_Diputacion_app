@@ -5,7 +5,6 @@ import (
 	"time"
 
 	oficial "vec-diputacion-granada/internal/modules/bolsa/domain/calculoexperienciaoficial"
-	reglas "vec-diputacion-granada/internal/modules/bolsa/domain/reglasbaremo"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -67,20 +66,6 @@ func validarDatosOrdenEstaticos(datos DatosOrdenConfiable) error {
 
 func selectorValido(selector puertosbolsa.SelectorFuenteExactaCalculoReglasBaremo) bool {
 	return selector.Validar() == nil
-}
-
-func referenciaValida(referencia reglas.ReferenciaVersionada) bool {
-	reconstruida, err := reglas.NuevaReferenciaVersionada(
-		referencia.Referencia(), referencia.Version(), referencia.HuellaSHA256(),
-	)
-	return err == nil && referenciasIguales(reconstruida, referencia)
-}
-
-func vinculoEstadoValido(vinculo reglas.VinculoEstadoReglasBaremo) bool {
-	reconstruido, err := reglas.NuevoVinculoEstadoReglasBaremo(
-		vinculo.Contenido(), vinculo.Revision(), vinculo.HuellaEstadoSHA256(),
-	)
-	return err == nil && vinculosEstadoIguales(reconstruido, vinculo)
 }
 
 func causaCoincideConMotivo(

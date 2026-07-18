@@ -339,6 +339,83 @@ func TestValoresRechazanTextoNoCanonicoYHuellasInvalidas(t *testing.T) {
 	}
 }
 
+func TestReferenciaVersionadaValidaYCoincideExactamente(t *testing.T) {
+	original := referenciaPrueba(t, "documento:bases", 1, 'a')
+	clon, err := NuevaReferenciaVersionada(
+		original.Referencia(), original.Version(), original.HuellaSHA256(),
+	)
+	if err != nil || original.Validar() != nil || clon.Validar() != nil {
+		t.Fatalf("referencia valida rechazada: %v", err)
+	}
+	if !original.CoincideExactamenteCon(clon) || !clon.CoincideExactamenteCon(original) {
+		t.Fatal("referencias exactas no coincidieron simetricamente")
+	}
+
+	otraReferencia, err := NuevaReferenciaVersionada(
+		"documento:otras-bases", original.Version(), original.HuellaSHA256(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otraVersion, err := NuevaReferenciaVersionada(
+		original.Referencia(), original.Version()+1, original.HuellaSHA256(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otraHuella := referenciaPrueba(t, original.Referencia(), original.Version(), 'b')
+	for nombre, distinta := range map[string]ReferenciaVersionada{
+		"referencia": otraReferencia,
+		"version":    otraVersion,
+		"huella":     otraHuella,
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			if original.CoincideExactamenteCon(distinta) ||
+				distinta.CoincideExactamenteCon(original) {
+				t.Fatal("referencias distintas coincidieron")
+			}
+		})
+	}
+
+	pseudonimo, err := NuevaReferenciaVersionada(
+		"hmac-sha256:clave-prueba:"+strings.Repeat("a", 64),
+		1, strings.Repeat("c", 64),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pseudonimoDistinto, err := NuevaReferenciaVersionada(
+		"hmac-sha256:clave-prueba:"+strings.Repeat("a", 63)+"b",
+		1, strings.Repeat("c", 64),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pseudonimo.CoincideExactamenteCon(pseudonimoDistinto) ||
+		pseudonimoDistinto.CoincideExactamenteCon(pseudonimo) {
+		t.Fatal("seudonimos HMAC distintos coincidieron")
+	}
+
+	invalida := original
+	invalida.version = 0
+	var cero ReferenciaVersionada
+	for nombre, valor := range map[string]ReferenciaVersionada{
+		"invalida": invalida,
+		"cero":     cero,
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			if valor.Validar() == nil {
+				t.Fatal("referencia invalida aceptada")
+			}
+			if valor.CoincideExactamenteCon(valor) ||
+				original.CoincideExactamenteCon(valor) ||
+				valor.CoincideExactamenteCon(original) {
+				t.Fatal("referencia invalida participo en una coincidencia")
+			}
+		})
+	}
+}
+
 func TestIdentidadConjuntoSoloAdmiteTokensOpacos128(t *testing.T) {
 	if _, err := NuevaIdentidadConjuntoReglasBaremo(
 		referenciaReglasConjuntoPrueba, 1,

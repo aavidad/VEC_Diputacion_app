@@ -89,6 +89,23 @@ func (v VinculoEstadoReglasBaremo) Contenido() ReferenciaVersionada { return v.c
 func (v VinculoEstadoReglasBaremo) Revision() uint64                { return v.revision }
 func (v VinculoEstadoReglasBaremo) HuellaEstadoSHA256() string      { return v.huellaEstadoSHA256 }
 
+// Validar comprueba que el vinculo fija contenido, revision y estado exactos.
+func (v VinculoEstadoReglasBaremo) Validar() error { return v.validar() }
+
+// CoincideExactamenteCon compara en tiempo constante dos vinculos validos por
+// todos sus campos. Un valor cero o invalido nunca coincide con otro.
+func (v VinculoEstadoReglasBaremo) CoincideExactamenteCon(
+	otro VinculoEstadoReglasBaremo,
+) bool {
+	if v.Validar() != nil || otro.Validar() != nil {
+		return false
+	}
+	coincide := v.contenido.coincidenciaExactaConstante(otro.contenido)
+	coincide &= numeroReglasBaremoIgualConstante(v.revision, otro.revision)
+	coincide &= textoReglasBaremoIgualConstante(v.huellaEstadoSHA256, otro.huellaEstadoSHA256)
+	return coincide == 1
+}
+
 func (v VinculoEstadoReglasBaremo) validar() error {
 	if v.contenido.validar("vinculo.contenido") != nil || v.revision == 0 ||
 		v.revision > maximoVersion || !huellaSHA256Valida(v.huellaEstadoSHA256) {
@@ -336,8 +353,7 @@ func instanteGobiernoReglasBaremoValido(instante time.Time) bool {
 }
 
 func referenciasVersionadasIguales(a, b ReferenciaVersionada) bool {
-	return a.referencia == b.referencia && a.version == b.version &&
-		a.huellaSHA256 == b.huellaSHA256
+	return a.CoincideExactamenteCon(b)
 }
 
 func referenciasVersionadasDistintas(referencias ...ReferenciaVersionada) bool {
