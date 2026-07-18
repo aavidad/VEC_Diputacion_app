@@ -23,6 +23,35 @@ entrega.
 
 ## Dónde estamos ahora
 
+### Corte de presentación de Bolsa
+
+El artefacto local `vec-presentacion`, cerrado entre los commits `0f113ee` y
+`8b0d14f`, permite enseñar **32 vistas** desde
+`http://127.0.0.1:8081/presentacion/`:
+
+| Punto de vista | Vistas navegables | Alcance |
+| --- | ---: | --- |
+| Lanzador | 1 | Selección inequívoca de los tres recorridos. |
+| Consulta pública | 1 | Convocatorias, categorías, plazos y ayuda sin identidad. |
+| Área personal del aspirante | 14 | Inicio, convocatorias y detalle, perfil, méritos, solicitud, autobaremación, expediente, llamamientos, subsanaciones, alegaciones, mensajes, certificados y ayuda. |
+| Gestión interna | 16 | Portal del Empleado más 15 secciones de gestión de Bolsa. |
+
+Las pantallas, contratos y renderizadores son reutilizables en producción; el
+perfil de presentación inyecta adaptadores en memoria volátil. No emplea
+cookies, `localStorage`, `sessionStorage`, volumen durable ni conectores
+externos. Esta entrega acredita una **presentación navegable**, no integración
+productiva, E2E productivo, identidad real, persistencia, firma, registro,
+pagos o comunicaciones reales.
+
+La revisión reproducible recorre las 32 vistas y 21 estados de interacción en
+1440×1000, 1024×900 y 390×844: **159 de 159 escenarios correctos, 159
+capturas y cero hallazgos** en el último cierre. Este resultado acredita la
+puerta automática de presentación; no sustituye la revisión humana ni la
+aceptación formal de RRHH. Véanse la
+[revisión automatizada](docs/portal_vec/revision_web_presentacion.md), el
+[modo de presentación](docs/portal_vec/modo_presentacion_rrhh.md) y la
+[matriz de aceptación](docs/portal_vec/matriz_aceptacion_web_bolsa_2026-07-18.md).
+
 **Primera funcionalidad real: paso 3 de 6.**
 
 | Paso del objetivo actual | Estado | Evidencia o condición de cierre |
@@ -53,14 +82,16 @@ registro de accesos, necesarios antes de introducir datos personales reales.
 - **Integrado:** el servidor soportado registra la capacidad con sus
   dependencias reales; una pantalla o un test aislado no cuentan.
 - **E2E técnico:** se ha probado el recorrido técnico de extremo a extremo.
-- **Probable ahora:** Alberto o RRHH pueden recorrerlo manualmente sin dobles de
-  prueba. `DEMO` significa que funciona, pero sin validez administrativa.
+- **Probable ahora:** Alberto o RRHH pueden recorrerlo manualmente. La marca
+  `Presentación` o `DEMO` indica adaptadores sintéticos y ausencia de validez
+  administrativa; una marca sin esos términos exige conectores reales.
 - **Aceptado RRHH:** existe una prueba de aceptación formal registrada.
 - **Producción:** está desplegado con infraestructura y conectores autorizados.
 
-`E2E` significa *end to end* o «de extremo a extremo». `UAT` significa pruebas
-de aceptación de usuario; aquí se escribe siempre **Aceptado RRHH** para evitar
-la sigla.
+`E2E` significa *end to end* o «de extremo a extremo». Un E2E marcado `DEMO`
+solo prueba el artefacto local y no cuenta como E2E productivo. `UAT` significa
+pruebas de aceptación de usuario; aquí se escribe siempre **Aceptado RRHH**
+para evitar la sigla.
 
 ## Tabla principal de capacidades
 
@@ -71,22 +102,22 @@ la sigla.
 | Creación y edición de convocatorias | ✅ | 🚧 En curso | ❌ | 🧪 Presentación | ❌ | ❌ |
 | Publicación, sustitución y retirada | 🟡 Parcial | ❌ | ❌ | 🧪 Presentación | ❌ | ❌ |
 | Bases y reglas de baremo | ✅ | ❌ | 🟡 Núcleo/BD | 🧪 Presentación | ❌ | ❌ |
-| Autobaremación del aspirante | ✅ | 🧪 Legado | 🧪 Legado | ✅ DEMO | ❌ | ❌ |
+| Autobaremación del aspirante | ✅ | 🧪 Legado | 🧪 Legado | 🧪 Presentación | ❌ | ❌ |
 | Revisión técnica y rectificación firmada | ✅ | ❌ | 🟡 Aplicación/BD | 🧪 Presentación | ❌ | ❌ |
 | Listas, ranking y desempates | 🟡 Parcial | ❌ | ❌ | 🧪 Presentación | ❌ | ❌ |
 | Llamamientos | ✅ | ❌ | ❌ | 🧪 Presentación | ❌ | ❌ |
 | Contratos, ceses y reincorporaciones | 🟡 Parcial | ❌ | ❌ | 🧪 Presentación | ❌ | ❌ |
-| Candidatura, solicitud y registro | 🟡 Parcial | 🧪 Legado | 🧪 Legado | 🧪 Parcial | ❌ | ❌ |
-| Subsanaciones y alegaciones | 🟡 Parcial | 🧪 Legado | ❌ | 🧪 Parcial | ❌ | ❌ |
-| Documentos, carga, cuarentena y antivirus | ✅ | ❌ | 🟡 Piezas aisladas | ❌ | ❌ | ❌ |
-| Firma, sello de tiempo, CSV/QR y cotejo | ✅ | ❌ | 🟡 Piezas aisladas | ❌ | ❌ | ❌ |
-| Generación y descarga de PDF/DOCX/ODT/CSV/JSON/etc. | ✅ | ❌ | 🟡 Renderizadores | ❌ | ❌ | ❌ |
+| Candidatura, solicitud y registro | 🟡 Parcial | 🧪 Legado | 🧪 Legado | 🧪 Presentación | ❌ | ❌ |
+| Subsanaciones y alegaciones | 🟡 Parcial | 🧪 Legado | ❌ | 🧪 Presentación | ❌ | ❌ |
+| Documentos, carga, cuarentena y antivirus | ✅ | ❌ | 🟡 Piezas aisladas | 🧪 Presentación | ❌ | ❌ |
+| Firma, sello de tiempo, CSV/QR y cotejo | ✅ | ❌ | 🟡 Piezas aisladas | 🧪 Presentación | ❌ | ❌ |
+| Generación y descarga de PDF/DOCX/ODT/CSV/JSON/etc. | ✅ | ❌ | 🟡 Renderizadores | 🧪 Presentación | ❌ | ❌ |
 | Comunicaciones, correo, Telegram y notificación | 🟡 Parcial | ❌ | ❌ | 🧪 Presentación | ❌ | ❌ |
-| Tasas, pagos, devoluciones y conciliación | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Tasas, pagos, devoluciones y conciliación | ✅ | ❌ | ❌ | 🧪 Presentación | ❌ | ❌ |
 | Ayuda, audio y transcripción | ✅ | ✅ Estática | ✅ Estática | ✅ | ❌ formal | ❌ administrable |
 | Bot de ayuda pública | 🟡 Diseño | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Identidad y separación público/interno | ✅ | 🟡 Desarrollo | ✅ Desarrollo | 🟡 Desarrollo | ❌ | ❌ |
-| Roles, permisos y autorización por operación | ✅ | ❌ en Bolsa | 🟡 Piezas aisladas | ❌ | ❌ | ❌ |
+| Identidad y separación público/interno | ✅ | 🟡 Desarrollo | ✅ Desarrollo | 🧪 Presentación | ❌ | ❌ |
+| Roles, permisos y autorización por operación | ✅ | ❌ en Bolsa | 🟡 Piezas aisladas | 🧪 Presentación | ❌ | ❌ |
 | Auditoría, recibos y registro de accesos | ✅ | ❌ completo | 🟡 Piezas aisladas | 🧪 Cronología | ❌ | ❌ |
 | Catálogos, configuración y plazos administrables | 🟡 Parcial | 🧪 Consulta | 🧪 Consulta | 🧪 Parcial | ❌ | ❌ |
 | Importación de datos de Convoca | 🟡 Base sintética; auditoría `NO-GO` | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -128,6 +159,8 @@ Cada cierre debe actualizar, en este orden:
 
 | Fecha | Cambio |
 | --- | --- |
+| 18/07/2026 | Puerta automática de presentación cerrada: 159/159 escenarios correctos, 159 capturas y cero hallazgos sobre 32 vistas, 21 flujos y tres resoluciones. Queda pendiente la aceptación humana de RRHH y no cambia las columnas de integración, E2E productivo o producción. |
+| 18/07/2026 | Presentación aislada de Bolsa cerrada: 32 vistas (1 lanzador + 1 pública + 14 del aspirante + 16 internas), adaptadores volátiles y cero cookies o almacenamiento de navegador. |
 | 18/07/2026 | Piloto de Orquesta para Convoca cerrado en `NO-GO`: un proceso, cero revisiones y código no compilable. La auditoría bloquea datos reales hasta endurecer parser XLS, huella e invariantes. |
 | 18/07/2026 | PostgreSQL/KMS y HMAC rotatorio obtienen `GO` independiente; comienza el recorrido durable Go→PostgreSQL y el ensayo aislado de Orquesta. |
 | 18/07/2026 | Creación del tablero único; separación entre código probado, integración, E2E técnico, prueba manual, aceptación RRHH y producción. |

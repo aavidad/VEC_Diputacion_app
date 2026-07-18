@@ -17,7 +17,7 @@ proyecto continúa.
 | Perfil | `presentacion_rrhh` | `produccion` |
 | Datos privados | Prohibidos | Solo mediante conectores autorizados |
 | Datos de la muestra | Sintéticos y marcados | Excluidos físicamente de la imagen |
-| Escrituras | Ninguna | Casos de uso, autorización y recibos reales |
+| Escrituras durables o de servidor | Ninguna; solo cambia memoria volátil de la pestaña | Casos de uso, autorización y recibos reales |
 | API | Consulta pública local de Bolsa | API pública/interna según frontera |
 | Firma, registro, pagos y mensajes | Simulación visual | Adaptadores productivos aún por integrar |
 | Red saliente de la aplicación | Ninguna composición con clientes externos | Según allowlist y decisión de Sistemas |
@@ -79,6 +79,21 @@ con un entorno limpio mediante:
 ```bash
 scripts/smoke_presentacion_rrhh.sh
 ```
+
+La revisión funcional y visual automatizada se ejecuta con:
+
+```bash
+python3 scripts/capturar_presentacion_web.py \
+  --url-base http://127.0.0.1:8081 \
+  --ejecutable-navegador /snap/bin/chromium
+```
+
+Recorre 32 vistas y 21 estados de interacción en escritorio, tableta y móvil:
+159 escenarios en total. Exige la cabecera técnica exclusiva de presentación,
+comprueba menús y recibos DEMO, y falla ante almacenamiento del navegador,
+errores, recursos fallidos, controles sin nombre o desbordamientos. El detalle
+y los informes generados se describen en
+[captura y revisión de la presentación](revision_web_presentacion.md).
 
 El contenedor aislado se arranca con:
 

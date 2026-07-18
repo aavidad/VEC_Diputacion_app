@@ -2,43 +2,79 @@
 
 ## Decisión y alcance
 
-La interfaz se construye como superficie definitiva del Portal del Empleado,
-reutilizando la carcasa y el lenguaje visual VEC ya incorporados al repositorio.
-No se crea un segundo producto ni se copia la aplicación antigua a otra base de
-código.
+La interfaz se construye como tres superficies definitivas y separadas:
+consulta pública, área personal del aspirante y gestión interna de RRHH. Todas
+reutilizan el lenguaje visual VEC ya incorporado al repositorio. No se crea un
+segundo producto ni se copia la aplicación antigua a otra base de código.
 
 El alcance visible pedido por RRHH es:
 
-1. portada con varios módulos del Portal del Empleado;
-2. solo `Bolsas de trabajo` habilitado en la fase inicial;
-3. cuadro de mando de Bolsa basado en la referencia visual `image006.png`
+1. lanzador explícito de los tres puntos de vista;
+2. consulta pública de convocatorias, categorías, plazos y ayuda;
+3. área personal del aspirante con su expediente completo de Bolsa;
+4. portada con varios módulos del Portal del Empleado y solo `Bolsas de
+   trabajo` habilitado en la fase inicial;
+5. cuadro de mando de Bolsa basado en la referencia visual `image006.png`
    facilitada por RRHH y deliberadamente no distribuida con el repositorio;
-4. elaboración y gestión de bolsas;
-5. asistente de llamamientos basado en la referencia visual `image004.png`,
+6. elaboración y gestión de bolsas;
+7. asistente de llamamientos basado en la referencia visual `image004.png`,
    sometida a la misma política de no distribución;
-6. navegación por contratos, reglas, consulta, estadísticas, documentos,
+8. navegación por convocatorias, solicitudes, méritos, baremación,
+   alegaciones, importación, llamamientos, contratos, estadísticas, documentos,
    comunicaciones y auditoría;
-7. separación visible y técnica entre la zona interna y la zona externa.
+9. configuración de roles y permisos con política de denegación por defecto;
+10. separación visible y técnica entre la zona interna y la zona externa.
 
-El HTML, el CSS adaptable, la navegación, los estados accesibles y el contrato
-de lectura pertenecen a la aplicación final. No hay una maqueta alternativa
-que después haya que reescribir. Los datos sintéticos necesarios para enseñarla
-antes de disponer de la API se aíslan en un único adaptador eliminable y no se
-mezclan con el cliente normal.
+El HTML, el CSS adaptable, la navegación, los renderizadores, los estados
+accesibles y los contratos pertenecen a la aplicación final. No hay una
+maqueta alternativa que después haya que reescribir. Los datos y efectos
+sintéticos necesarios para enseñarla antes de disponer de todas las APIs se
+aíslan en adaptadores de presentación intercambiables y no se mezclan con los
+clientes normales.
 
-La superficie se divide sin herramienta de compilación en piezas cohesionadas:
+El corte presentado consta de **32 vistas navegables**:
+
+| Superficie | Número | Contenido |
+| --- | ---: | --- |
+| Lanzador | 1 | Entrada controlada a cada recorrido. |
+| Bolsa pública | 1 | Consulta anónima. |
+| Área personal | 14 | Inicio; convocatorias; detalle; perfil; méritos; solicitud; autobaremación; seguimiento; llamamientos; subsanaciones; alegaciones; mensajes; certificados; ayuda. |
+| Gestión interna | 16 | Portal del Empleado más 15 secciones de gestión de Bolsa. |
+
+El inventario anterior describe pantallas evaluables, no capacidades
+productivas. Una vista marcada `DEMO` no acredita integración, una prueba E2E
+productiva ni un acto administrativo válido.
+
+La puerta automática de presentación recorre, además, **21 estados de
+interacción** representativos en tres resoluciones. El último cierre produjo
+**159 capturas, 159 escenarios correctos y cero hallazgos**. Incluye los menús
+móviles abiertos, el perfil técnico restringido, el recorrido de solicitud del
+aspirante y operaciones internas con recibo `DEMO-REC-*`. Es evidencia de la
+muestra aislada, no aceptación de RRHH ni prueba E2E productiva.
+
+Las superficies se dividen sin herramienta de compilación en piezas
+cohesionadas:
 
 - `index.html`: estructura semántica y zonas de navegación;
 - `portal.css`: tema, carcasa y controles comunes;
 - `portal-componentes.css`: paneles, tarjetas, tablas e indicadores;
 - `portal-flujos.css`: formularios, asistente, accesibilidad adaptable e
   impresión;
-- `portal.js`: contrato, carga cerrada y vistas;
+- `portal.js`: composición, carga cerrada y navegación interna;
 - `portal-contrato.js`: validación pura de envelopes, panel y propuestas;
 - `portal-panel-interno.js`: presentación exclusiva del agregado seguro real;
 - `portal-eventos.js`: interacción sin decisiones de negocio;
-- `datos-presentacion.js`: único adaptador sintético, cargado solo de forma
-  explícita;
+- `portal-vistas-*.js`: renderizadores compartidos por producción y
+  presentación;
+- `portal-presentacion-adaptador.js`, `portal-borradores-demo-cliente.js` y
+  `datos-presentacion.js`: adaptadores y datos internos volátiles, cargados
+  solo de forma explícita;
+- `area-personal/aplicacion.js` y `area-personal/vistas/*.js`: navegación y 14
+  renderizadores del aspirante compartidos por ambos modos;
+- `area-personal/cliente-http.js`: cliente real que falla cerrado;
+- `area-personal/adaptador-presentacion.js`: estado sintético del aspirante en
+  memoria volátil;
+- `presentacion/index.html`: lanzador exclusivo del artefacto de muestra;
 - `ayuda-contenido.js`: pasos, FAQ, transcripción y referencia de audio
   sustituibles por catálogo;
 - `assets/ayuda-llamamiento-bolsa.mp3`: guía local sin datos personales.
@@ -49,7 +85,15 @@ Cada fichero cumple el tope de 800 líneas de DEC-051.
 
 ### Aplicación normal
 
-`/portal-empleado/`
+`/bolsa/`, `/area-personal/` y `/portal-empleado/`
+
+La consulta pública no comparte identidad ni navegación con las dos
+superficies privadas. El área personal y el portal interno seleccionan sus
+clientes HTTP reales en la raíz de composición y fallan cerrados si faltan
+identidad, permiso, capacidad o API. Nunca recurren de forma automática al
+estado de presentación.
+
+En particular, el agregado inicial de `/portal-empleado/`:
 
 - en la carga inicial consulta únicamente `GET /api/vec/bolsa/panel`;
 - exige el envelope canónico `{ "data": { ... } }` y rechaza una proyección
@@ -62,6 +106,10 @@ Cada fichero cumple el tope de 800 líneas de DEC-051.
 - no sustituye el error por datos locales;
 - no guarda datos de negocio en el navegador.
 
+El área personal aplica la misma regla a cada operación: usa
+`credentials: "omit"`, no guarda credenciales y solo habilita una acción si el
+servicio real anuncia la capacidad correspondiente.
+
 Ya existe el adaptador HTTP estricto para `GET/HEAD` de esta ruta, pero aún no
 está montado. Rechaza query, cuerpo, cookies, credenciales de proxy y cabeceras
 heredadas de identidad o rol; tampoco interpreta `Authorization`. La frontera
@@ -71,7 +119,20 @@ cerrada hasta que se complete la vertical real.
 
 ### Presentación explícita para RRHH
 
-`/portal-empleado/?presentacion=rrhh#portal`
+La forma soportada de arrancar la muestra es:
+
+```bash
+scripts/arrancar_presentacion_rrhh.sh
+```
+
+El punto de entrada es
+`http://127.0.0.1:8081/presentacion/`. Desde él se abren:
+
+- consulta pública: `/bolsa/`;
+- área personal: `/area-personal/?presentacion=rrhh`;
+- gestión interna: `/portal-empleado/?presentacion=rrhh&perfil=tecnico#portal`
+  o `perfil=administrador`; el perfil es obligatorio y nunca se eleva por
+  omisión.
 
 Accesos directos útiles:
 
@@ -79,15 +140,21 @@ Accesos directos útiles:
 - elaboración: `#bolsa/elaboracion`;
 - llamamientos: `#bolsa/llamamientos`.
 
-Solo el parámetro exacto `presentacion=rrhh` importa dinámicamente
-`web/static/portal-empleado/datos-presentacion.js`. La pantalla mantiene en
-todo momento un aviso visible de datos sintéticos y ausencia de validez
-administrativa. Ninguna acción de negocio envía, firma, registra ni persiste.
+El binario exclusivo `vec-presentacion` exige el perfil, el selector y las dos
+guardas literales documentadas. Solo el parámetro exacto
+`presentacion=rrhh` selecciona en las superficies privadas sus adaptadores
+volátiles. Las pantallas mantienen un aviso visible de datos sintéticos y
+ausencia de validez administrativa. Las acciones pueden modificar el escenario
+durante la visita y emitir un recibo `DEMO-`, pero el estado se pierde al
+recargar y nunca firma, registra, paga, envía ni persiste fuera de la memoria.
 
-Además, el servidor exige la activación explícita
-`VEC_RRHH_PRESENTATION_ENABLED=true`. La opción parte deshabilitada y, sin
-ella, `datos-presentacion.js` responde `404` incluso aunque alguien conozca la
-URL. La ruta normal y el resto de recursos definitivos permanecen disponibles.
+La muestra no usa cookies, `localStorage`, `sessionStorage`, volumen durable ni
+conectores externos. El destino Docker productivo elimina físicamente el
+lanzador, los ficheros `.demo.json`, el binario y cualquier ruta cuyo nombre
+contenga `presentacion` o `demo`. La explicación reproducible está en el
+[modo de presentación RRHH](modo_presentacion_rrhh.md) y la correspondencia
+pantalla/contrato/adaptador en la
+[matriz de aceptación](matriz_aceptacion_web_bolsa_2026-07-18.md).
 
 ### Bolsa pública
 
@@ -118,20 +185,23 @@ separada, todavía sin proceso productivo, que solo admite Portal del Empleado y
 
 | Elemento | Ubicación | Qué hace ahora | Sustitución obligatoria |
 | --- | --- | --- | --- |
-| Juego de datos sintéticos | `datos-presentacion.js` | Aporta bolsas, necesidades, expedientes, agregados y una propuesta sintética separada sin identidad ni contacto | Eliminar del despliegue productivo o mantener solo en artefacto de demostración; la aplicación normal consume la API interna |
-| Contexto «María Pérez» | `datos-presentacion.js.sesion` | Permite revisar el encabezado con un perfil ficticio | Proyección del principal autenticado, obtenida en servidor y limitada a nombre, iniciales y perfil efectivo |
-| Indicadores y gráficos | mismo adaptador | Facilitan validar composición y jerarquía visual | Agregados calculados en servidor con fecha de corte, ámbito y origen; nunca sumar expedientes ajenos en el navegador |
-| Botones de alta, firma, envío y exportación | `portal-eventos.js`, controlador creado por inyección | Navegan o explican la limitación; no ejecutan negocio | Comandos API autenticados, autorizados por recurso, idempotentes, con control de versión y recibo de auditoría |
-| Propuesta de llamamiento | función aislada `obtenerPropuestaPresentacion` | Permite revisar evaluaciones sintéticas sin realizar una petición | `POST /api/vec/bolsa/propuestas-llamamiento`, autorizado e idempotente; el servidor decide elegibilidad y prelación |
-| Evaluaciones visibles | tabla de propuesta | Muestra secuencia, resultado, puntuación, regla y fundamento sintéticos | Proyección del comando específico sin nombre, documento, contacto ni identificador individual reutilizable |
-| Configuración de bases/baremo | diálogo explicativo | Enseña las familias de configuración | Caso de uso de convocatoria gobernada y repositorio PostgreSQL, con versión, vigencia, fuente jurídica, firmas y publicación |
-| Canales correo/Telegram | estado visible «no conectado» | Enseña el diseño previsto | Puertos de comunicación y adaptadores aprobados que devuelvan recibos verificables; ningún conector simulado concede efecto |
-| Preferencias de texto y contraste | `localStorage` con prefijo `vec_portal_` | Guarda exclusivamente dos preferencias visuales | Puede permanecer; no contiene identidad, expediente, selección ni otro dato de negocio |
-| Ayuda y audio | `ayuda-contenido.js` y MP3 local | Pasos, FAQ, audio y transcripción accesibles | Catálogo de ayuda versionado y conector de formatos/audio; la interfaz conserva el mismo contrato |
+| Datos sintéticos internos | `portal-empleado/datos-presentacion.js` | Aporta bolsas, expedientes, reglas, lotes y agregados con referencias `DEMO-` | Se excluye físicamente de producción; los renderizadores reciben proyecciones autorizadas de la API interna |
+| Adaptador interno volátil | `portal-presentacion-adaptador.js` y `portal-borradores-demo-cliente.js` | Aplica durante la visita las operaciones permitidas y emite recibos `DEMO-` | Casos de uso reales, autorizados por operación, recurso, ámbito y finalidad, con transacción e idempotencia |
+| Perfiles internos sintéticos | `datos-presentacion.js.sesion` | Se elige explícitamente técnico revisor o administrador; cada uno tiene actor opaco, vistas y operaciones propias | Proyección mínima del principal autenticado, resuelta y revalidada en servidor |
+| Datos y perfil del aspirante | `area-personal/adaptador-presentacion.js` | Muestra exclusivamente `Persona Aspirante de Demostración`, referencias `DEMO-` y correo reservado `.test` | API privada que solo proyecte información propia tras identidad y autorización reales |
+| Indicadores y gráficos | adaptadores de presentación | Facilitan validar composición y jerarquía visual | Agregados calculados en servidor con fecha de corte, ámbito y origen; nunca sumar expedientes ajenos en el navegador |
+| Botones de alta, revisión, firma, registro, pago, envío y exportación | controladores inyectados de ambas superficies | Exigen confirmación, cambian solo memoria y muestran actor, objetivo y recibo sin efectos reales | Comandos API autenticados, autorizados, idempotentes, con control de versión y recibo durable |
+| Propuesta de llamamiento | `obtenerPropuestaPresentacion` | Permite revisar evaluaciones sintéticas sin realizar una petición | `POST /api/vec/bolsa/propuestas-llamamiento`, autorizado e idempotente; el servidor decide elegibilidad y prelación |
+| Ficheros seleccionados | formularios del aspirante | Conservan como máximo el nombre durante la interacción; no leen ni envían el contenido | Carga directa al almacén autorizado, cuarentena, antivirus, huella, cifrado, autorización y recibo |
+| Configuración de bases, baremo, roles y calendarios | vistas internas compartidas | Versiona únicamente el escenario efímero para evaluar el flujo | Casos de uso gobernados y repositorios autorizados, con vigencia, fuente jurídica, segregación, firmas y publicación |
+| Canales correo/Telegram | estado visible «no conectado» | Enseña el diseño y simula el cambio de estado sin destinatario real | Puertos de comunicación y adaptadores aprobados que devuelvan recibos verificables; ningún conector simulado concede efecto |
+| Preferencias de texto y contraste | estado de la instancia de la página | Permite evaluar accesibilidad durante la visita | Preferencias del usuario mediante un contrato aprobado; la presentación no usa almacenamiento del navegador |
+| Ayuda y audio | `ayuda-contenido.js`, vistas de ayuda y MP3 local | Pasos, FAQ, audio y transcripción accesibles | Catálogo de ayuda versionado y conector de formatos/audio; la interfaz conserva el mismo contrato |
 
-No hay `localStorage` de bolsas, llamamientos, candidatos o expedientes en esta
-nueva superficie. Si en el futuro aparece uno, una prueba deberá impedir su
-integración.
+No existe uso de `localStorage`, `sessionStorage` ni cookies en las superficies
+de presentación. Una recarga restaura el escenario inicial completo. Las
+pruebas automáticas impiden reintroducir almacenamiento de navegador, tráfico
+externo o identidades con apariencia real.
 
 ## Correspondencia con las fotografías
 
@@ -139,7 +209,7 @@ integración.
 
 Se conservan:
 
-- navegación funcional de los diez bloques;
+- navegación funcional del portal y las 15 secciones internas de Bolsa;
 - cinco indicadores principales;
 - bolsas destacadas con cobertura;
 - próximos llamamientos;
@@ -176,21 +246,34 @@ selección, búsqueda por nombre o búsqueda por documento. El servidor propondr
 y revalidará las personas elegibles con la versión exacta de bolsa y reglas,
 autorización vigente y trazabilidad atómica.
 
+### Área personal del aspirante
+
+Las 14 vistas cubren el recorrido desde la consulta de una convocatoria hasta
+el seguimiento del expediente: perfil propio, inventario reutilizable de
+méritos y documentos, solicitud por pasos, autobaremación, pago o exención,
+firma y registro, disponibilidad y llamamientos, subsanaciones, alegaciones,
+mensajes, certificados y ayuda accesible. Cada acción de presentación exige
+confirmación y devuelve un recibo sintético; la misma acción en modo normal
+permanece deshabilitada si el cliente real no recibe una capacidad positiva.
+
 ## Cobertura funcional real a 18 de julio de 2026
 
 | Área | Estado comprobado | No se debe afirmar todavía |
 | --- | --- | --- |
-| Consulta pública de convocatorias y categorías | Operativa extremo a extremo con fuente sintética y aviso DEMO en `/bolsa/` | Publicación oficial desde un expediente interno |
-| Portal del Empleado antiguo | Carcasa, perfiles, menús y numerosas vistas reutilizables | Portal privado estable: `/api/vec/workspace` falla cerrado sin ámbito resuelto |
+| Artefacto de presentación | Binario y perfil separados, lanzador en el puerto 8081, 32 vistas, 21 flujos y puerta reproducible 159/159 en tres resoluciones; adaptadores volátiles y cero cookies/almacenamiento de navegador | Integración productiva, E2E productivo, aceptación formal o validez administrativa |
+| Consulta pública de convocatorias y categorías | Recorrido local con fuente sintética y aviso DEMO en `/bolsa/` | Publicación oficial desde un expediente interno |
+| Área personal del aspirante | 14 vistas definitivas con cliente HTTP real cerrado y adaptador de presentación seleccionado en composición | Identidad real, autorización sobre datos propios, persistencia, pago, firma, registro, carga o descarga efectiva |
+| Gestión interna de Bolsa | Portal más 15 secciones definitivas; operaciones volátiles con confirmación y recibo `DEMO-` | Identidad interna reforzada, permisos reales, transacciones durables, firma, publicación, comunicación o integración corporativa |
+| Portal VEC heredado | Carcasa, perfiles, menús y numerosas vistas reutilizables fuera del corte de Bolsa | Portal privado estable: `/api/vec/workspace` falla cerrado sin ámbito resuelto |
 | Elaboración de bolsa histórica | Formulario visual heredado; dominio de convocatoria gobernada y contrato HMAC V2 probado, sin sellado durable previo al PDP ni huella semántica cruda durable | Resolvedor autoritativo de ámbito, diario de recuperación, persistencia, API, firma, dependencias y publicación oficiales |
 | Panel interno de Bolsa | Dominio, servicio de aplicación, contrato agregado sin datos personales, consulta PostgreSQL y pruebas de integración | Endpoint compuesto, identidad interna real, autoridad COSE de ejecución y productor de la proyección |
 | Llamamientos | Dominio y caso de uso probados; el comando transporta la instantánea completa y un adaptador genera referencias opacas con 256 bits de aleatoriedad criptográfica; el esquema PostgreSQL V1 conserva auditoría y outbox | El adaptador PostgreSQL permanece cerrado hasta disponer de contrato SQL atómico V2, fuente autoritativa, motor publicado, autoridad COSE de efecto, API y confirmación/envío real |
-| Integrantes/candidatos | Flujo propio del aspirante en API `fake`; datos de catálogo disponibles | Listado administrativo productivo y orden durable de bolsa |
-| Autobaremación | Flujo de demostración heredado y núcleo nuevo de baremación avanzado | Reglas configurables de RRHH conectadas extremo a extremo |
+| Integrantes/candidatos | Área personal completa en presentación y datos de catálogo disponibles | Listado administrativo productivo y orden durable de bolsa |
+| Autobaremación | Flujo definitivo evaluable con adaptador volátil y núcleo nuevo de baremación avanzado | Reglas configurables de RRHH conectadas extremo a extremo |
 | Revisión firmada de baremación | Dominio, aplicación y PostgreSQL avanzados | Composición en servidor, API e interfaz operativa |
 | Documentos de aspirantes | Puertos S3, cuarentena y firma modelados | Subida y firma de Bolsa operativas; el endpoint actual responde `503` |
-| Alegaciones | Lectura parcial en demostración | Presentación probatoria; el `POST` falla cerrado |
-| Comunicaciones | Creación/listado parcial de avisos en modo `fake` | Entrega, acuse, Telegram, correo o notificación fehaciente conectados |
+| Alegaciones | Presentación completa del aspirante y resolución interna volátil | Persistencia probatoria y resolución real; el cliente normal falla cerrado sin capacidad |
+| Comunicaciones | Preparación y envío simulados con referencias sintéticas y sin tráfico externo | Entrega, acuse, Telegram, correo o notificación fehaciente conectados |
 | Auditoría | Auditoría heredada parcial y registro probatorio en baremación | Trazabilidad unificada de elaboración, llamamientos y comunicaciones |
 
 ## Contrato de lectura seguro implementado
@@ -243,15 +326,18 @@ Antes de estabilizar el contrato se añadirán:
   capacidad inicial de solicitar propuesta;
 - política de minimización por rol y finalidad.
 
-El cliente definitivo no contiene nombres, DNI, expedientes, categorías,
-fechas ni cifras del juego de presentación. Una prueba automatizada impide
-reintroducir los literales conocidos fuera del adaptador aislado.
+Los clientes y renderizadores definitivos no contienen nombres, DNI,
+expedientes, categorías, fechas ni cifras del juego de presentación. Las
+pruebas automatizadas impiden reintroducir identidades con apariencia real y
+mantienen los fixtures dentro de los adaptadores aislados.
 
 ## Mapa de sustitución por pantalla
 
 | Pantalla | Base reutilizable existente | Corte real siguiente |
 | --- | --- | --- |
+| Lanzador | Artefacto exclusivo `vec-presentacion` | No se incorpora a producción; solo se conserva para formación o validación visual local |
 | Portada | Registro de módulos y manifiestos VEC | Habilitación administrable por despliegue y rol, no lista fija del navegador |
+| Área personal | 14 renderizadores, contrato validado y cliente HTTP de fallo cerrado | Identidad de aspirante, autorización sobre información propia y composición de cada API real |
 | Cuadro de mando | Dominio, aplicación, consulta PostgreSQL y adaptador HTTP no montado de `vec.bolsa.panel.interno.v1` | Identidad interna, autoridad COSE, publicador de proyección y composición productiva dedicados |
 | Elaboración | `domain/convocatoria_gobernada*.go` | Repositorio PostgreSQL, aplicación, HTTP y composición |
 | Llamamientos | `application/llamamientos.go`, comando indivisible con instantánea completa y esquema PostgreSQL V1 cerrado | Fuente y motor autoritativos, guardado SQL completo V2, fachada HTTP interna y composición |
@@ -374,23 +460,28 @@ negocio y los endpoints internos no se montan. Una verificación local acredita
 integridad criptográfica, pero por sí sola no concede autoridad para alterar o
 consultar datos administrativos.
 
-## Criterio para retirar el adaptador de presentación
+## Criterio para sustituir los adaptadores de presentación
 
-`datos-presentacion.js` se podrá retirar del artefacto productivo cuando:
+Los adaptadores, el lanzador, los datos `.demo.json` y el binario de
+presentación **ya están excluidos físicamente** del destino Docker productivo.
+No se espera a terminar las APIs para obtener esa separación. La prueba
+`scripts/verificar_contenido_artefactos_presentacion.sh` inspecciona ambos
+artefactos y falla si producción contiene una pieza de muestra.
 
-1. `GET /api/vec/bolsa/panel` esté montado y probado de extremo a extremo con
-   PostgreSQL e identidad real;
-2. la sesión interna proyecte el perfil y ámbito efectivos;
-3. elaboración y llamamientos dispongan de consultas reales;
-4. las pruebas de seguridad verifiquen que otro ámbito no puede consultar la
-   misma bolsa, expediente o persona;
-5. las pruebas del navegador cubran carga, vacío, error, permiso denegado,
-   paginación y datos reales;
-6. Sistemas disponga de un artefacto separado si decide conservar una demo.
+Cada adaptador volátil dejará de ser necesario para una capacidad cuando:
 
-No basta con ocultar el parámetro de URL. El despliegue productivo deberá poder
-excluir físicamente el adaptador sintético o bloquear su servicio mediante una
-política de empaquetado probada.
+1. su contrato y caso de uso estén cerrados;
+2. la API esté montada con identidad, ámbito y permisos reales;
+3. la operación sea durable, idempotente y devuelva un recibo verificable;
+4. las pruebas de seguridad impidan consultar o modificar otro ámbito,
+   expediente o persona;
+5. exista una prueba E2E técnica con los conectores autorizados y los casos de
+   carga, vacío, error, denegación, concurrencia y recuperación;
+6. RRHH haya aceptado formalmente el recorrido correspondiente.
+
+La sustitución se realiza en la raíz de composición, no reescribiendo la
+pantalla. La presentación puede conservar su adaptador para formación local,
+pero producción nunca lo importa ni cae a él si falla un servicio real.
 
 ## Prioridad de implementación después de la presentación
 

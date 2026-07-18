@@ -260,6 +260,17 @@ Pendiente productivo:
 - [Estudio profesional de pantallas VEC](docs/portal_vec/estudio_pantallas_profesionales.md):
   flujos completos por modulo/menu, datos visibles, acciones, estados,
   integraciones, validaciones y criterio de terminado.
+- [Entregable de presentación de Bolsa para RRHH](docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md):
+  inventario de las 32 vistas, elementos temporales y sustitución por
+  conectores autorizados.
+- [Modo de presentación RRHH](docs/portal_vec/modo_presentacion_rrhh.md):
+  arranque del artefacto aislado, guardas, red y exclusión física de
+  presentación en producción.
+- [Matriz de aceptación de la web de Bolsa](docs/portal_vec/matriz_aceptacion_web_bolsa_2026-07-18.md):
+  correspondencia entre pantallas definitivas, contratos y adaptadores de
+  presentación o producción.
+- [Captura y revisión de la presentación](docs/portal_vec/revision_web_presentacion.md):
+  puerta reproducible de 32 vistas y 21 flujos en tres resoluciones.
 - [UX portal empleado tipo VEC](docs/portal_vec/ux_portal_empleado.md)
 - [Matriz inicial de perfiles, roles y ambitos](docs/portal_vec/matriz_roles_y_ambitos.md)
 - [Catalogos configurables y gobernados](docs/portal_vec/catalogos_configurables.md)
@@ -453,32 +464,59 @@ equivale a una publicación oficial.
 
 ### Entregable del Portal del Empleado y Bolsa
 
-La interfaz final interna vive en `/portal-empleado/`. Consume exclusivamente
-`GET /api/vec/bolsa/panel`, con `credentials: "omit"`, y falla cerrada mientras
-no existan identidad, ámbito y proyección reales. No usa cookies, no almacena
-tokens en JavaScript y no sustituye ese fallo por datos locales. El cliente
-nativo y la frontera de identidad deberán aportar la autorización explícita
-por el canal autenticado que se apruebe.
+La presentación completa de Bolsa se distribuye como un artefacto separado del
+servidor productivo. Se arranca deliberadamente con:
 
-La consulta anónima está en `http://127.0.0.1:8080/bolsa/`. Usa un menú lateral
-exclusivamente público que no desaparece en móvil y no hereda accesos del
-Portal del Empleado o del backoffice.
+```bash
+scripts/arrancar_presentacion_rrhh.sh
+```
 
-Para la presentación urgente a RRHH existe un adaptador sintético separado,
-activado únicamente en
-`http://127.0.0.1:8080/portal-empleado/?presentacion=rrhh#portal`. El aviso
-visible identifica que no tiene validez administrativa y ninguna acción
-persiste, firma o envía. Su inventario y sustitución están documentados en
-[el entregable RRHH de Bolsa](docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md).
+Su lanzador queda en `http://127.0.0.1:8081/presentacion/` y permite recorrer
+32 vistas: un lanzador, una consulta pública, 14 vistas del área personal del
+aspirante y, en gestión interna, el portal más 15 secciones de Bolsa. Las
+acciones de firma, registro, pago, carga documental, comunicación y demás
+operaciones se representan mediante adaptadores volátiles: exigen
+confirmación, devuelven recibos `DEMO-` y se pierden al recargar.
 
-El servidor no sirve ese adaptador por defecto. Para una muestra local debe
-arrancarse deliberadamente con `VEC_RRHH_PRESENTATION_ENABLED=true`; en un
-despliegue normal la petición al fichero sintético responde `404`.
+La muestra no utiliza cookies, `localStorage`, `sessionStorage`, volúmenes
+duraderos ni conectores externos. No contiene datos personales reales y sus
+referencias sintéticas se identifican de forma visible. El artefacto
+productivo excluye físicamente el lanzador, los datos y los adaptadores de
+presentación.
 
-La interfaz, sus diez paneles, el asistente de llamamientos, el diseño
-adaptable y el contrato de lectura son los definitivos; solo el adaptador de
-datos se excluye del despliegue productivo cuando la vertical PostgreSQL/API
-esté compuesta.
+Las pantallas, los componentes, los contratos y los renderizadores son los
+mismos que usará producción. La raíz de composición selecciona un adaptador
+volátil para la muestra o un conector autorizado para producción; producción
+nunca cae automáticamente al adaptador de presentación. Por tanto, disponer de
+las 32 vistas navegables acredita el recorrido visual y funcional de la demo,
+pero **no** acredita integración con PostgreSQL, identidad, firma, registro u
+otros servicios, ni una prueba E2E productiva ni validez administrativa.
+
+La revisión automática completa se ejecuta, con el servidor anterior activo,
+mediante:
+
+```bash
+python3 scripts/capturar_presentacion_web.py \
+  --url-base http://127.0.0.1:8081 \
+  --ejecutable-navegador /snap/bin/chromium
+```
+
+El último cierre obtuvo **159/159 escenarios correctos y cero hallazgos**:
+32 vistas más 21 estados de interacción, repetidos en escritorio, tableta y
+móvil. La herramienta exige la marca técnica del servidor de presentación,
+rechaza cualquier host que no sea una IP literal de loopback y revisa menús,
+recibos DEMO, accesibilidad básica, almacenamiento del navegador, errores y
+desbordamientos. Esta puerta no sustituye la aceptación humana de RRHH.
+
+La aplicación normal mantiene las fronteras separadas: `/bolsa/` para consulta
+anónima, `/area-personal/` para la persona aspirante y `/portal-empleado/` para
+gestión interna. Sin identidad, autorización y conectores reales, las dos
+superficies privadas fallan cerradas; no sustituyen el error por datos locales.
+El detalle operativo está en el
+[modo de presentación RRHH](docs/portal_vec/modo_presentacion_rrhh.md), la
+[matriz de aceptación](docs/portal_vec/matriz_aceptacion_web_bolsa_2026-07-18.md)
+y el
+[inventario del entregable](docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md).
 
 La puerta completa y reproducible para desarrollo y CI se ejecuta con:
 
@@ -486,9 +524,10 @@ La puerta completa y reproducible para desarrollo y CI se ejecuta con:
 scripts/verificar_calidad.sh
 ```
 
-`cmd/vec-publico` es la única composición nueva desplegable de este corte.
-`cmd/vec-server` se conserva como composición integrada heredada para
-desarrollo y presentación local; no representa la separación de superficies
+`cmd/vec-presentacion` es la composición exclusiva, local y no autoritativa de
+la muestra; no es un servidor productivo. `cmd/vec-publico` conserva la
+superficie pública aislada. `cmd/vec-server` se mantiene como composición
+integrada heredada para desarrollo; no representa la separación de superficies
 de producción y rechaza `VEC_AUTH_MODE=trusted_headers` antes de construir sus
 handlers. `cmd/bolsa-server` está retirado y falla cerrado. El proceso interno
 productivo no se habilitará hasta componer identidad reforzada, autorización y
