@@ -102,16 +102,36 @@ func TestKMSDesarrolloCifraEnvuelveYDetectaAlteraciones(t *testing.T) {
 	if err != nil || !bytes.Equal(recuperado, claro) {
 		t.Fatalf("round-trip = %q, %v", recuperado, err)
 	}
+	recuperadoKMS, err := kms.descifrarContenido(aad, envuelta, nonce, cifrado)
+	if err != nil || !bytes.Equal(recuperadoKMS, claro) {
+		t.Fatalf("round-trip por conector = %q, %v", recuperadoKMS, err)
+	}
 
 	cifradoAlterado := append([]byte(nil), cifrado...)
 	cifradoAlterado[0] ^= 0x80
 	if _, err := aead.Open(nil, nonce, cifradoAlterado, aad); err == nil {
 		t.Fatal("AES-GCM acepto texto alterado")
 	}
+	aadAlterada := append([]byte(nil), aad...)
+	aadAlterada[0] ^= 0x01
+	if _, err := kms.descifrarContenido(aadAlterada, envuelta, nonce, cifrado); err == nil {
+		t.Fatal("AES-GCM aceptó AAD alterada")
+	}
+	nonceAlterado := append([]byte(nil), nonce...)
+	nonceAlterado[0] ^= 0x01
+	if _, err := kms.descifrarContenido(aad, envuelta, nonceAlterado, cifrado); err == nil {
+		t.Fatal("AES-GCM aceptó nonce alterado")
+	}
+	if _, err := kms.descifrarContenido(aad, envuelta, nonce, cifradoAlterado); err == nil {
+		t.Fatal("el conector aceptó texto cifrado alterado")
+	}
 	envueltaAlterada := append([]byte(nil), envuelta...)
 	envueltaAlterada[len(envueltaAlterada)-1] ^= 0x01
 	if _, err := josecipher.KeyUnwrap(bloqueEnvoltura, envueltaAlterada); err == nil {
 		t.Fatal("A256KW acepto clave envuelta alterada")
+	}
+	if _, err := kms.descifrarContenido(aad, envueltaAlterada, nonce, cifrado); err == nil {
+		t.Fatal("el conector aceptó clave envuelta alterada")
 	}
 }
 

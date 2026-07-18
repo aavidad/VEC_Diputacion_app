@@ -664,31 +664,6 @@ func resultadoDiarioValido(r ResultadoOperacionDiario) bool {
 	}
 }
 
-func reciboProyectadoValido(r ProyeccionReciboBorrador, identidad ProyeccionIdentidadOperacion) bool {
-	return r.Esquema == esquemaReciboBorradorV2 && referenciaProyeccionValida(r.ReciboRef) &&
-		referenciaProyeccionValida(r.TransaccionRef) &&
-		(r.Accion == puertosbolsa.AccionCrearBorradorConvocatoria ||
-			r.Accion == puertosbolsa.AccionActualizarBorradorConvocatoria) &&
-		r.EstadoPrincipal.Validar() == nil && identidadesProyectadasCoinciden(r.IdentidadPrimaria, identidad) &&
-		r.Decision.valida() && r.Decision.Accion == r.Accion &&
-		r.Decision.RecursoRef == r.EstadoPrincipal.Referencia &&
-		r.SelladoMotivo.validaEstructural() && r.SelladoMotivo.Accion == r.Accion &&
-		r.SelladoMotivo.ConvocatoriaRef == r.EstadoPrincipal.Referencia &&
-		r.RevisionConfirmada > 0 && r.CercadoConfirmado > 0 &&
-		instanteOperacionCanonico(r.ArrendamientoIniciaEn) && instanteOperacionCanonico(r.ArrendamientoVenceEn) &&
-		r.ArrendamientoVenceEn.After(r.ArrendamientoIniciaEn) &&
-		referenciaProyeccionValida(r.AuditoriaRef) && huellaHexValida(r.HuellaAuditoriaSHA256) &&
-		referenciaProyeccionValida(r.EventoOutboxRef) && huellaHexValida(r.HuellaEventoOutboxSHA256) &&
-		r.Procedencia.valida() &&
-		r.TransaccionRef != r.AuditoriaRef && r.TransaccionRef != r.EventoOutboxRef &&
-		r.AuditoriaRef != r.EventoOutboxRef && r.AcreditacionKMS.validaParaRecibo(r) &&
-		instanteOperacionCanonico(r.ConfirmadaEn) &&
-		!r.ConfirmadaEn.Before(r.ArrendamientoIniciaEn) && r.ConfirmadaEn.Before(r.ArrendamientoVenceEn) &&
-		!r.ConfirmadaEn.Before(r.Decision.VerificadaEn) && r.ConfirmadaEn.Before(r.Decision.ValidaHasta) &&
-		!r.ConfirmadaEn.Before(r.SelladoMotivo.AtestacionEmitidaEn) &&
-		r.ConfirmadaEn.Before(r.SelladoMotivo.AtestacionValidaHasta)
-}
-
 func reciboCoincideReserva(
 	r ProyeccionReciboBorrador,
 	p ProyeccionReservaDecision,

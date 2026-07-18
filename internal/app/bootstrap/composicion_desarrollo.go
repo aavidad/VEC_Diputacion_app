@@ -112,6 +112,16 @@ func (c *ComposicionSeguridadDesarrollo) CifradorBorradores() (gobiernoconvocato
 	return c.emisorKMS, nil
 }
 
+func (c *ComposicionSeguridadDesarrollo) DescifradorBorradores() (
+	gobiernoconvocatorias.DescifradorBorradorDurable,
+	error,
+) {
+	if c == nil || c.emisorKMS == nil {
+		return nil, ErrComposicionDesarrolloIncompleta
+	}
+	return c.emisorKMS, nil
+}
+
 func (c *ComposicionSeguridadDesarrollo) RevalidadorKMSBorradores() (gobiernoconvocatorias.RevalidadorAtestacionKMSBorrador, error) {
 	if c == nil || c.revalidadorKMS == nil {
 		return nil, ErrComposicionDesarrolloIncompleta

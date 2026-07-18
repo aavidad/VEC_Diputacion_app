@@ -59,7 +59,8 @@ func (a AADCanonicaCifradoBorrador) valida() bool {
 		return false
 	}
 	suma := sha256.Sum256(a.representacion)
-	return coincideTextoConstante(hex.EncodeToString(suma[:]), a.huellaSHA256)
+	_, canonica := decodificarMaterialAADCanonicaBorrador(a.representacion)
+	return canonica && coincideTextoConstante(hex.EncodeToString(suma[:]), a.huellaSHA256)
 }
 
 func aadCanonicaCifradoBorrador(
@@ -90,49 +91,7 @@ func aadCanonicaCifradoBorrador(
 		"bolsa.convocatoria.borrador.correlacion.v1\x00" + correlacionRef,
 	))
 	identidad := reserva.IdentidadPrimaria
-	materialAAD := struct {
-		Esquema                   string `json:"esquema"`
-		VersionRef                string `json:"version_ref"`
-		VersionRevision           int    `json:"version_revision"`
-		HuellaVersionSHA256       string `json:"huella_version_sha256"`
-		EsquemaMaterial           string `json:"esquema_material"`
-		HuellaMaterialSHA256      string `json:"huella_material_sha256"`
-		PerfilCifradoRef          string `json:"perfil_cifrado_ref"`
-		PerfilCifradoVersion      uint32 `json:"perfil_cifrado_version"`
-		HuellaPerfilSHA256        string `json:"huella_perfil_cifrado_sha256"`
-		AlgoritmoAEAD             string `json:"algoritmo_aead"`
-		AlgoritmoEnvolturaClave   string `json:"algoritmo_envoltura_clave"`
-		EvidenciaPerfilRef        string `json:"evidencia_perfil_ref"`
-		EvidenciaPerfilVersion    uint32 `json:"evidencia_perfil_version"`
-		HuellaEvidenciaPerfil     string `json:"huella_evidencia_perfil_sha256"`
-		DecisionPoliticaRef       string `json:"decision_politica_ref"`
-		DecisionPoliticaVersion   uint32 `json:"decision_politica_version"`
-		HuellaDecisionPolitica    string `json:"huella_decision_politica_sha256"`
-		LocalizadorEsquema        uint16 `json:"localizador_esquema"`
-		LocalizadorDominio        string `json:"localizador_dominio"`
-		LocalizadorClaveRef       string `json:"localizador_clave_ref"`
-		LocalizadorGeneracion     uint32 `json:"localizador_generacion"`
-		LocalizadorHMACSHA256     string `json:"localizador_hmac_sha256"`
-		HuellaSolicitudEsquema    uint16 `json:"huella_solicitud_esquema"`
-		HuellaSolicitudDominio    string `json:"huella_solicitud_dominio"`
-		HuellaSolicitudClaveRef   string `json:"huella_solicitud_clave_ref"`
-		HuellaSolicitudGeneracion uint32 `json:"huella_solicitud_generacion"`
-		HuellaSolicitudHMACSHA256 string `json:"huella_solicitud_hmac_sha256"`
-		RevisionDiario            uint64 `json:"revision_diario"`
-		CercadoDiario             uint64 `json:"cercado_diario"`
-		ArrendamientoIniciaEn     string `json:"arrendamiento_inicia_en"`
-		ArrendamientoVenceEn      string `json:"arrendamiento_vence_en"`
-		AtestacionSelladoRef      string `json:"atestacion_sellado_ref"`
-		AtestacionSelladoVersion  uint32 `json:"atestacion_sellado_version"`
-		HuellaAtestacionSellado   string `json:"huella_atestacion_sellado_sha256"`
-		TokenConsumoSelladoRef    string `json:"token_consumo_sellado_ref"`
-		HuellaCorrelacionSHA256   string `json:"huella_correlacion_sha256"`
-		ProcedenciaEsquema        string `json:"procedencia_esquema"`
-		PerfilEjecucion           string `json:"perfil_ejecucion"`
-		AutoridadActo             string `json:"autoridad_acto"`
-		ProveedorProcedenciaRef   string `json:"proveedor_procedencia_ref"`
-		MigrableProduccion        bool   `json:"migrable_produccion"`
-	}{
+	materialAAD := materialAADCanonicaCifradoBorrador{
 		Esquema:    esquemaAADCifradoBorradorV1,
 		VersionRef: estado.Referencia, VersionRevision: estado.Revision,
 		HuellaVersionSHA256: estado.HuellaEstadoSHA256,

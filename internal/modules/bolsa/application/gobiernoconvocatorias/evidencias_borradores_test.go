@@ -349,6 +349,25 @@ func TestAcreditacionKMSLigaElCuerpoCompletoDelRecibo(t *testing.T) {
 	}
 }
 
+func TestHuellaCuerpoParaRevalidacionAceptaReciboProvisionalValido(t *testing.T) {
+	e := nuevoEscenario(t, confirmarBien, 3, 2)
+	recibo, err := e.servicio.Crear(context.Background(), e.orden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	esperada := recibo.AcreditacionKMS.HuellaCuerpoReciboSHA256
+	provisional := recibo
+	provisional.AcreditacionKMS = AcreditacionKMSConfirmacionBorrador{}
+	huella, err := provisional.HuellaCuerpoParaRevalidacion()
+	if err != nil || huella != esperada || huella != huellaCuerpoReciboBorrador(provisional) {
+		t.Fatalf("huella provisional distinta: %q, %v", huella, err)
+	}
+	provisional.Procedencia = ProcedenciaActoBorrador{}
+	if huella, err := provisional.HuellaCuerpoParaRevalidacion(); !errors.Is(err, ErrResultadoBorradorInseguro) || huella != "" {
+		t.Fatalf("cuerpo sin procedencia produjo huella: %q, %v", huella, err)
+	}
+}
+
 func TestVerificadorReciboRechazaFirmasKMSAlteradas(t *testing.T) {
 	e := nuevoEscenario(t, confirmarBien, 3, 2)
 	recibo, err := e.servicio.Crear(context.Background(), e.orden)

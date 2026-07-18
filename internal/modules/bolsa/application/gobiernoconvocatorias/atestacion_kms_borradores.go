@@ -63,6 +63,35 @@ func NuevaAtestacionKMSBorrador(
 	return a, nil
 }
 
+// RestaurarAtestacionKMSBorrador recompone la evidencia persistida sin
+// atribuirle autoridad. El descifrador debe verificar después la firma con la
+// clave pública fijada antes de desenvolver ninguna DEK.
+func RestaurarAtestacionKMSBorrador(
+	esquema, atestacionRef string,
+	versionAtestacion uint32,
+	estado string,
+	perfil PerfilCifradoBorrador,
+	claveMaestraRef string,
+	versionClave uint32,
+	huellaAAD, huellaEnvoltura, huellaSobre, verificadorRef string,
+	procedencia ProcedenciaActoBorrador,
+	firma FirmaEvidenciaBorrador,
+	emitidaEn, validaHasta time.Time,
+) (AtestacionKMSBorrador, error) {
+	atestacion := AtestacionKMSBorrador{
+		Esquema: esquema, AtestacionRef: atestacionRef, VersionAtestacion: versionAtestacion,
+		Estado: estado, Perfil: perfil, ClaveMaestraRef: claveMaestraRef,
+		VersionClave: versionClave, HuellaAAD: huellaAAD,
+		HuellaEnvolturaSHA256: huellaEnvoltura, HuellaSobreSHA256: huellaSobre,
+		VerificadorRef: verificadorRef, Procedencia: procedencia, Firma: firma,
+		EmitidaEn: emitidaEn, ValidaHasta: validaHasta,
+	}
+	if !atestacion.validaEstructural() {
+		return AtestacionKMSBorrador{}, ErrDescifradoBorradorInvalido
+	}
+	return atestacion, nil
+}
+
 func (a AtestacionKMSBorrador) preimagenFirma() []byte {
 	p := a.Perfil
 	representacion, err := json.Marshal(struct {

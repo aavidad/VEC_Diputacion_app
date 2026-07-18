@@ -209,6 +209,52 @@ func (e *emisorKMSDesarrollo) CifrarBorrador(
 	return resultado, nil
 }
 
+func (e *emisorKMSDesarrollo) DescifrarBorrador(
+	ctx context.Context,
+	solicitud gobiernoconvocatorias.SolicitudDescifradoBorradorDurable,
+) (gobiernoconvocatorias.ResultadoDescifradoBorradorDurable, error) {
+	if e == nil || ctx == nil || ctx.Err() != nil ||
+		len(e.firmaAtestacion) != ed25519.PrivateKeySize || solicitud.Validar() != nil ||
+		!procedenciaKMSDesarrolloValida(solicitud.Procedencia) ||
+		solicitud.PerfilEsperado.AlgoritmoAEAD != algoritmoContenidoDesarrollo ||
+		solicitud.PerfilEsperado.AlgoritmoEnvolturaClave != algoritmoEnvolturaDesarrollo ||
+		solicitud.AtestacionKMS.ClaveMaestraRef != claveMaestraDesarrolloRef ||
+		solicitud.AtestacionKMS.VersionClave != 1 {
+		return gobiernoconvocatorias.ResultadoDescifradoBorradorDurable{}, ErrKMSDesarrolloNoDisponible
+	}
+	publica := append(ed25519.PublicKey(nil), e.firmaAtestacion.Public().(ed25519.PublicKey)...)
+	defer borrarBytes(publica)
+	preimagen, firma, err := verificarAtestacionKMSDesarrollo(
+		solicitud.AtestacionKMS, publica, e.huellaPublicaAtestacion,
+	)
+	if err != nil {
+		return gobiernoconvocatorias.ResultadoDescifradoBorradorDurable{}, ErrKMSDesarrolloNoDisponible
+	}
+	defer borrarBytes(preimagen)
+	defer borrarBytes(firma)
+	aad, claveEnvuelta, nonce, textoCifrado, err := solicitud.MaterialParaConectorConfiable()
+	if err != nil {
+		return gobiernoconvocatorias.ResultadoDescifradoBorradorDurable{}, ErrKMSDesarrolloNoDisponible
+	}
+	defer borrarBytes(aad)
+	defer borrarBytes(claveEnvuelta)
+	defer borrarBytes(nonce)
+	defer borrarBytes(textoCifrado)
+	claro, err := e.descifrarContenido(aad, claveEnvuelta, nonce, textoCifrado)
+	if err != nil {
+		return gobiernoconvocatorias.ResultadoDescifradoBorradorDurable{}, ErrKMSDesarrolloNoDisponible
+	}
+	defer borrarBytes(claro)
+	if ctx.Err() != nil {
+		return gobiernoconvocatorias.ResultadoDescifradoBorradorDurable{}, ErrKMSDesarrolloNoDisponible
+	}
+	resultado, err := gobiernoconvocatorias.NuevoResultadoDescifradoBorradorDurable(solicitud, claro)
+	if err != nil {
+		return gobiernoconvocatorias.ResultadoDescifradoBorradorDurable{}, ErrKMSDesarrolloNoDisponible
+	}
+	return resultado, nil
+}
+
 func (e *emisorKMSDesarrollo) cifrarContenido(claro, aad []byte) ([]byte, []byte, []byte, error) {
 	if e == nil || e.aleatorio == nil || len(claro) == 0 || len(aad) == 0 {
 		return nil, nil, nil, ErrKMSDesarrolloNoDisponible
@@ -245,6 +291,43 @@ func (e *emisorKMSDesarrollo) cifrarContenido(claro, aad []byte) ([]byte, []byte
 		return nil, nil, nil, ErrKMSDesarrolloNoDisponible
 	}
 	return nonce, textoCifrado, claveEnvuelta, nil
+}
+
+func (e *emisorKMSDesarrollo) descifrarContenido(
+	aad, claveEnvuelta, nonce, textoCifrado []byte,
+) ([]byte, error) {
+	if e == nil || len(aad) == 0 || len(claveEnvuelta) == 0 ||
+		len(nonce) == 0 || len(textoCifrado) == 0 {
+		return nil, ErrKMSDesarrolloNoDisponible
+	}
+	bloqueEnvoltura, err := aes.NewCipher(e.claveEnvoltura[:])
+	if err != nil {
+		return nil, ErrKMSDesarrolloNoDisponible
+	}
+	dek, err := josecipher.KeyUnwrap(bloqueEnvoltura, claveEnvuelta)
+	if err != nil || len(dek) != sha256.Size {
+		borrarBytes(dek)
+		return nil, ErrKMSDesarrolloNoDisponible
+	}
+	// El borrado es best-effort en Go: la DEK y el claro se sobreescriben,
+	// pero aes.Block puede conservar su expansión hasta que actúe el GC. El
+	// proveedor de producción debe ejecutar envoltura/descifrado dentro de un
+	// HSM/KMS para que ese material no resida en el heap del proceso.
+	defer borrarBytes(dek)
+	bloqueContenido, err := aes.NewCipher(dek)
+	if err != nil {
+		return nil, ErrKMSDesarrolloNoDisponible
+	}
+	aead, err := cipher.NewGCM(bloqueContenido)
+	if err != nil || len(nonce) != aead.NonceSize() {
+		return nil, ErrKMSDesarrolloNoDisponible
+	}
+	claro, err := aead.Open(nil, nonce, textoCifrado, aad)
+	if err != nil || len(claro) == 0 {
+		borrarBytes(claro)
+		return nil, ErrKMSDesarrolloNoDisponible
+	}
+	return claro, nil
 }
 
 func (e *emisorKMSDesarrollo) nuevaReferenciaAtestacion() (string, error) {
@@ -443,6 +526,7 @@ func derivarClaveDesarrollo(maestra [sha256.Size]byte, dominio string) [sha256.S
 
 var (
 	_ gobiernoconvocatorias.CifradorAEADKMSBorrador          = (*emisorKMSDesarrollo)(nil)
+	_ gobiernoconvocatorias.DescifradorBorradorDurable       = (*emisorKMSDesarrollo)(nil)
 	_ gobiernoconvocatorias.RevalidadorAtestacionKMSBorrador = (*revalidadorKMSDesarrollo)(nil)
 	_ gobiernoconvocatorias.DescriptorAutoridadBorrador      = (*emisorKMSDesarrollo)(nil)
 	_ gobiernoconvocatorias.DescriptorAutoridadBorrador      = (*revalidadorKMSDesarrollo)(nil)
