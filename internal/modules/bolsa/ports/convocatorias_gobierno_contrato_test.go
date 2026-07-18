@@ -19,7 +19,8 @@ var instanteGobiernoConvocatoriaPrueba = time.Date(2026, time.July, 16, 8, 0, 0,
 func TestAltaExigeIntencionAutorizacionIdempotenciaYReciboLigados(t *testing.T) {
 	version := versionGobernadaPuertosPrueba(t)
 	selladoMotivo := atestacionMotivoConvocatoriaPrueba(
-		t, AccionCrearBorradorConvocatoria, version.Referencia(), 'a',
+		t, AccionCrearBorradorConvocatoria, version,
+		version.CreadaPor, version.MotivoCreacion, 'a',
 	)
 	material, err := MaterialAltaBorradorConvocatoria(version, nil, nil, selladoMotivo)
 	if err != nil {
@@ -105,7 +106,8 @@ func TestAltaExigeIntencionAutorizacionIdempotenciaYReciboLigados(t *testing.T) 
 func TestClaveIdempotenciaExigeEntropiaYNoSeFiltra(t *testing.T) {
 	version := versionGobernadaPuertosPrueba(t)
 	material, _ := MaterialAltaBorradorConvocatoria(version, nil, nil, atestacionMotivoConvocatoriaPrueba(
-		t, AccionCrearBorradorConvocatoria, version.Referencia(), 'a',
+		t, AccionCrearBorradorConvocatoria, version,
+		version.CreadaPor, version.MotivoCreacion, 'a',
 	))
 	solicitud := SolicitudProtegerIdempotenciaConvocatoria{
 		ClaveIdempotencia: strings.Repeat("k", 31), PrincipalRef: "per_0123456789abcdefghijkl",
@@ -196,7 +198,8 @@ func TestMotivoSoloCruzaSelladorVersionadoYNoSeFiltra(t *testing.T) {
 func TestAutorizacionNoSeReutilizaParaOtraIntencionAccionORecurso(t *testing.T) {
 	version := versionGobernadaPuertosPrueba(t)
 	selladoMotivo := atestacionMotivoConvocatoriaPrueba(
-		t, AccionCrearBorradorConvocatoria, version.Referencia(), 'a',
+		t, AccionCrearBorradorConvocatoria, version,
+		version.CreadaPor, version.MotivoCreacion, 'a',
 	)
 	material, _ := MaterialAltaBorradorConvocatoria(version, nil, nil, selladoMotivo)
 	autorizacion := autorizacionMutacionConvocatoriaPrueba(t, material, version)

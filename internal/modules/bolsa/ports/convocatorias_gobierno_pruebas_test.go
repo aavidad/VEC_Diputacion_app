@@ -71,7 +71,7 @@ func versionGobernadaPuertosPrueba(t *testing.T) dominiobolsa.VersionConvocatori
 			AmbitoOrganizativo: ambito,
 			Contenido:          contenido, Configuracion: configuracion,
 			ExpedienteRef: "expediente:seleccion:2026-001", Motivo: "Preparacion administrativa.",
-			ActorID: "persona:tecnica:001", Instante: instanteGobiernoConvocatoriaPrueba.Add(-time.Hour),
+			ActorID: "per_0123456789abcdefghijkl", Instante: instanteGobiernoConvocatoriaPrueba.Add(-time.Hour),
 		},
 	)
 	if err != nil {
@@ -363,16 +363,30 @@ func hmacMotivoConvocatoriaPrueba(marca byte) HMACMotivoGobiernoConvocatoria {
 
 func atestacionMotivoConvocatoriaPrueba(
 	t *testing.T,
-	accion, convocatoriaRef string,
+	accion string,
+	version dominiobolsa.VersionConvocatoriaGobernada,
+	principalRef, motivo string,
+	marca byte,
+) AtestacionSelladoMotivoConvocatoria {
+	t.Helper()
+	return atestacionMotivoConvocatoriaConDatosPrueba(
+		t, accion, version.Referencia(), principalRef,
+		"correlacion:convocatoria:001", motivo, marca,
+	)
+}
+
+func atestacionMotivoConvocatoriaConDatosPrueba(
+	t *testing.T,
+	accion, convocatoriaRef, principalRef, correlacionRef, motivo string,
 	marca byte,
 ) AtestacionSelladoMotivoConvocatoria {
 	t.Helper()
 	solicitud := SolicitudSellarMotivoGobiernoConvocatoria{
 		DominioCriptografico: DominioCriptograficoMotivoGobiernoConvocatoriaV1,
 		Accion:               accion, ConvocatoriaRef: convocatoriaRef,
-		PrincipalRef:   "per_0123456789abcdefghijkl",
-		CorrelacionRef: "correlacion:convocatoria:001",
-		Motivo:         "Motivo administrativo exacto de la operacion.",
+		PrincipalRef:   principalRef,
+		CorrelacionRef: correlacionRef,
+		Motivo:         motivo,
 		SolicitadaEn:   instanteGobiernoConvocatoriaPrueba.Add(-2 * time.Minute),
 	}
 	huella, err := solicitud.HuellaSHA256()

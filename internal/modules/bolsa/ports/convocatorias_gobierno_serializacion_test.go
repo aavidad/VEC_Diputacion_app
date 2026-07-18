@@ -67,7 +67,8 @@ func TestMaterialIntencionMantieneRepresentacionCanonicaSerializable(t *testing.
 	version := versionGobernadaPuertosPrueba(t)
 	material, err := MaterialAltaBorradorConvocatoria(
 		version, nil, nil, atestacionMotivoConvocatoriaPrueba(
-			t, AccionCrearBorradorConvocatoria, version.Referencia(), 'a',
+			t, AccionCrearBorradorConvocatoria, version,
+			version.CreadaPor, version.MotivoCreacion, 'a',
 		),
 	)
 	if err != nil {

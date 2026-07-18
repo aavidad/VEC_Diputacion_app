@@ -57,6 +57,25 @@ func (s SolicitudSellarMotivoGobiernoConvocatoria) HuellaSHA256() (string, error
 	if s.Validar() != nil {
 		return "", ErrSelladoMotivoGobiernoConvocatoriaInvalido
 	}
+	return huellaSemanticaMotivoGobiernoConvocatoria(
+		s.Accion, s.ConvocatoriaRef, s.PrincipalRef, s.CorrelacionRef, s.Motivo,
+	)
+}
+
+// huellaSemanticaMotivoGobiernoConvocatoria es la unica representacion de la
+// solicitud que liga el motivo en claro con la transicion administrativa. No
+// incluye el instante: un reintento de la misma intencion conserva su huella.
+func huellaSemanticaMotivoGobiernoConvocatoria(
+	accion, convocatoriaRef, principalRef, correlacionRef, motivo string,
+) (string, error) {
+	especificacion, conocida := especificacionesAutorizacionConvocatoria[accion]
+	if !conocida || !especificacion.mutacion ||
+		!referenciaVersionGobernadaConvocatoriaValida(convocatoriaRef) ||
+		!referenciaGobiernoConvocatoriaValida(principalRef) ||
+		!referenciaGobiernoConvocatoriaValida(correlacionRef) ||
+		!textoMotivoGobiernoConvocatoriaValido(motivo) {
+		return "", ErrSelladoMotivoGobiernoConvocatoriaInvalido
+	}
 	preimagen := struct {
 		Esquema         string `json:"esquema"`
 		Dominio         string `json:"dominio"`
@@ -66,8 +85,9 @@ func (s SolicitudSellarMotivoGobiernoConvocatoria) HuellaSHA256() (string, error
 		CorrelacionRef  string `json:"correlacion_ref"`
 		Motivo          string `json:"motivo"`
 	}{
-		"bolsa.convocatoria.solicitud-sellado-motivo.v1", s.DominioCriptografico,
-		s.Accion, s.ConvocatoriaRef, s.PrincipalRef, s.CorrelacionRef, s.Motivo,
+		"bolsa.convocatoria.solicitud-sellado-motivo.v1",
+		DominioCriptograficoMotivoGobiernoConvocatoriaV1,
+		accion, convocatoriaRef, principalRef, correlacionRef, motivo,
 	}
 	contenido, err := json.Marshal(preimagen)
 	if err != nil {

@@ -136,7 +136,8 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 	}
 	if _, err := MaterialAltaBorradorConvocatoria(
 		borradorV2, &esperadaV1, &publicadaV1, atestacionMotivoConvocatoriaPrueba(
-			t, AccionCrearBorradorConvocatoria, borradorV2.Referencia(), 'f',
+			t, AccionCrearBorradorConvocatoria, borradorV2,
+			borradorV2.CreadaPor, borradorV2.MotivoCreacion, 'f',
 		),
 	); err != nil {
 		t.Fatalf("alta de sucesora exacta rechazada: %v", err)
@@ -149,7 +150,8 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 	if _, err := MaterialAltaBorradorConvocatoria(
 		borradorConFlujoGemelo, &esperadaV1, &publicadaV1,
 		atestacionMotivoConvocatoriaPrueba(
-			t, AccionCrearBorradorConvocatoria, borradorConFlujoGemelo.Referencia(), 'f',
+			t, AccionCrearBorradorConvocatoria, borradorConFlujoGemelo,
+			borradorConFlujoGemelo.CreadaPor, borradorConFlujoGemelo.MotivoCreacion, 'f',
 		),
 	); !errors.Is(err, ErrMaterialIntencionConvocatoriaInvalido) {
 		t.Fatalf("alta acepto una instancia de flujo distinta de la predecesora: %v", err)
@@ -157,7 +159,8 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 
 	if _, err := MaterialPublicacionConvocatoria(
 		esperadaV2, resultado.Publicada, nil, nil, atestacionMotivoConvocatoriaPrueba(
-			t, AccionPublicarYSustituirConvocatoria, resultado.Publicada.Referencia(), 'e',
+			t, AccionPublicarYSustituirConvocatoria, resultado.Publicada,
+			resultado.Publicada.PublicadaPor, resultado.Publicada.MotivoPublicacion, 'e',
 		),
 	); !errors.Is(err, ErrMaterialIntencionConvocatoriaInvalido) {
 		t.Fatalf("publicacion sucesora sin CAS de predecesora aceptada: %v", err)
@@ -165,7 +168,8 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 	material, err := MaterialPublicacionConvocatoria(
 		esperadaV2, resultado.Publicada, &esperadaV1, &resultado.Predecesora,
 		atestacionMotivoConvocatoriaPrueba(
-			t, AccionPublicarYSustituirConvocatoria, resultado.Publicada.Referencia(), 'e',
+			t, AccionPublicarYSustituirConvocatoria, resultado.Publicada,
+			resultado.Publicada.PublicadaPor, resultado.Publicada.MotivoPublicacion, 'e',
 		),
 	)
 	if err != nil {
@@ -186,7 +190,8 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 	if _, err := MaterialPublicacionConvocatoria(
 		esperadaV2, resultado.Publicada, &esperadaV1, &parejaFabricada,
 		atestacionMotivoConvocatoriaPrueba(
-			t, AccionPublicarYSustituirConvocatoria, resultado.Publicada.Referencia(), 'e',
+			t, AccionPublicarYSustituirConvocatoria, resultado.Publicada,
+			resultado.Publicada.PublicadaPor, resultado.Publicada.MotivoPublicacion, 'e',
 		),
 	); !errors.Is(err, ErrMaterialIntencionConvocatoriaInvalido) {
 		t.Fatalf("se aceptaron instantaneas que no forman la misma transicion: %v", err)
@@ -197,7 +202,8 @@ func TestPublicacionSucesoraMaterializaCASAtomicoDeAmbasVersiones(t *testing.T) 
 	if _, err := MaterialPublicacionConvocatoria(
 		esperadaV2, resultado.Publicada, &predecesoraAjena, &resultado.Predecesora,
 		atestacionMotivoConvocatoriaPrueba(
-			t, AccionPublicarYSustituirConvocatoria, resultado.Publicada.Referencia(), 'e',
+			t, AccionPublicarYSustituirConvocatoria, resultado.Publicada,
+			resultado.Publicada.PublicadaPor, resultado.Publicada.MotivoPublicacion, 'e',
 		),
 	); !errors.Is(err, ErrMaterialIntencionConvocatoriaInvalido) {
 		t.Fatalf("se acepto una predecesora ajena: %v", err)

@@ -89,7 +89,8 @@ func MaterialAltaBorradorConvocatoria(
 	}
 	if err != nil || errAtestacion != nil || errMotivo != nil || version.Validar() != nil ||
 		version.EstadoGobierno != dominiobolsa.EstadoGobiernoConvocatoriaBorrador ||
-		!relacionValida || material.Validar() != nil || !motivo.coincideMaterial(material) {
+		!relacionValida || material.Validar() != nil || !motivo.coincideMaterial(material) ||
+		validarMotivoTransicionConvocatoria(motivo, material.Accion, version) != nil {
 		return MaterialIntencionGobiernoConvocatoria{}, ErrMaterialIntencionConvocatoriaInvalido
 	}
 	return material, nil
@@ -157,7 +158,8 @@ func MaterialPublicacionConvocatoria(
 	if errNuevo != nil || errAtestacion != nil || errMotivo != nil || version.Validar() != nil ||
 		version.EstadoGobierno != dominiobolsa.EstadoGobiernoConvocatoriaPublicada ||
 		esperada.Referencia != version.Referencia() || esperada.Revision != version.Revision ||
-		material.Validar() != nil || !motivo.coincideMaterial(material) {
+		material.Validar() != nil || !motivo.coincideMaterial(material) ||
+		validarMotivoTransicionConvocatoria(motivo, material.Accion, version) != nil {
 		return MaterialIntencionGobiernoConvocatoria{}, ErrMaterialIntencionConvocatoriaInvalido
 	}
 	return material, nil
@@ -196,10 +198,54 @@ func materialCambioSimpleConvocatoria(
 	if err != nil || errAtestacion != nil || errMotivo != nil || version.Validar() != nil || version.EstadoGobierno != estado ||
 		esperada.Referencia != version.Referencia() ||
 		version.Revision != esperada.Revision+aumentoRevision || material.Validar() != nil ||
-		!motivo.coincideMaterial(material) {
+		!motivo.coincideMaterial(material) ||
+		validarMotivoTransicionConvocatoria(motivo, material.Accion, version) != nil {
 		return MaterialIntencionGobiernoConvocatoria{}, ErrMaterialIntencionConvocatoriaInvalido
 	}
 	return material, nil
+}
+
+func validarMotivoTransicionConvocatoria(
+	motivo AtestacionSelladoMotivoConvocatoria,
+	accionFinal string,
+	version dominiobolsa.VersionConvocatoriaGobernada,
+) error {
+	datos, err := motivo.DatosParaConsumo()
+	if err != nil {
+		return ErrSelladoMotivoGobiernoConvocatoriaInvalido
+	}
+	actor, motivoEnClaro, err := actorYMotivoTransicionConvocatoria(accionFinal, version)
+	if err != nil || datos.Accion != accionFinal || datos.ConvocatoriaRef != version.Referencia() ||
+		datos.PrincipalRef != actor {
+		return ErrSelladoMotivoGobiernoConvocatoriaInvalido
+	}
+	huella, err := huellaSemanticaMotivoGobiernoConvocatoria(
+		accionFinal, version.Referencia(), actor, datos.CorrelacionRef, motivoEnClaro,
+	)
+	if err != nil || datos.HuellaSolicitudSHA256 != huella {
+		return ErrSelladoMotivoGobiernoConvocatoriaInvalido
+	}
+	return nil
+}
+
+func actorYMotivoTransicionConvocatoria(
+	accion string,
+	version dominiobolsa.VersionConvocatoriaGobernada,
+) (string, string, error) {
+	switch accion {
+	case AccionCrearBorradorConvocatoria:
+		return version.CreadaPor, version.MotivoCreacion, nil
+	case AccionActualizarBorradorConvocatoria:
+		return version.UltimaModificacionPor, version.MotivoModificacion, nil
+	case AccionPublicarVersionConvocatoria,
+		AccionPublicarYSustituirConvocatoria,
+		AccionPublicarTrasRetiradaConvocatoria:
+		return version.PublicadaPor, version.MotivoPublicacion, nil
+	case AccionRetirarVersionConvocatoria:
+		return version.RetiradaPor, version.MotivoRetirada, nil
+	default:
+		return "", "", ErrSelladoMotivoGobiernoConvocatoriaInvalido
+	}
 }
 
 type ConfirmacionAltaBorradorConvocatoria struct {

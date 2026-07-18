@@ -10,7 +10,8 @@ import (
 func TestRecursoMutacionDerivaAmbitosExactosDeVersionConfirmada(t *testing.T) {
 	version := versionGobernadaPuertosPrueba(t)
 	sellado := atestacionMotivoConvocatoriaPrueba(
-		t, AccionCrearBorradorConvocatoria, version.Referencia(), 'a',
+		t, AccionCrearBorradorConvocatoria, version,
+		version.CreadaPor, version.MotivoCreacion, 'a',
 	)
 	material, err := MaterialAltaBorradorConvocatoria(version, nil, nil, sellado)
 	if err != nil {
