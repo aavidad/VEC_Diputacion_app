@@ -38,6 +38,7 @@ type materialSeguridadDesarrollo struct {
 	verificadorRevalidacionKMS   ed25519.PublicKey
 	huellaPublicaRevalidacionKMS [sha256.Size]byte
 	claveTSA                     [sha256.Size]byte
+	idempotencia                 materialIdempotenciaDesarrollo
 }
 
 type archivoIdentidadDesarrollo struct {
@@ -83,6 +84,7 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 		rutas.ClientCertificate, rutas.ClientPrivateKey, rutas.KMSSecret,
 		rutas.KMSAttestationKey, rutas.KMSAttestationPublic, rutas.TSASecret, rutas.Identity,
 		rutas.KMSRevalidationKey, rutas.KMSRevalidationPublic,
+		rutas.IdempotencyHMACConfig,
 		filepath.Join(cfg.DevelopmentMaterialDir, "ca", "serie"),
 		filepath.Join(cfg.DevelopmentMaterialDir, "manifiesto.json"),
 		filepath.Join(cfg.DevelopmentMaterialDir, "desarrollo.env"),
@@ -147,9 +149,26 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
 	}
+	defer borrarBytes(claveKMS[:])
 	claveTSA, err := leerSecreto32Desarrollo(rutas.TSASecret)
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
+	}
+	defer borrarBytes(claveTSA[:])
+	materialIdempotencia, err := cargarMaterialIdempotenciaDesarrollo(
+		cfg.DevelopmentMaterialDir, rutas.IdempotencyHMACConfig,
+	)
+	if err != nil {
+		return materialSeguridadDesarrollo{}, err
+	}
+	materialIdempotenciaEntregado := false
+	defer func() {
+		if !materialIdempotenciaEntregado {
+			materialIdempotencia.borrar()
+		}
+	}()
+	if !materialIdempotencia.separadoDe(&claveKMS, &claveTSA) {
+		return materialSeguridadDesarrollo{}, ErrMaterialDesarrolloInvalido
 	}
 	identidad, err := cargarIdentidadDesarrollo(rutas.Identity, certificadoCliente)
 	if err != nil {
@@ -180,7 +199,7 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 		return materialSeguridadDesarrollo{}, err
 	}
 
-	return materialSeguridadDesarrollo{
+	resultado := materialSeguridadDesarrollo{
 		configuracionTLS: &tls.Config{
 			Certificates: []tls.Certificate{parServidor},
 			ClientAuth:   tls.RequireAndVerifyClientCert,
@@ -197,7 +216,10 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 		verificadorRevalidacionKMS:   append(ed25519.PublicKey(nil), verificadorRevalidacionKMS...),
 		huellaPublicaRevalidacionKMS: huellaPublicaRevalidacionKMS,
 		claveTSA:                     claveTSA,
-	}, nil
+		idempotencia:                 materialIdempotencia,
+	}
+	materialIdempotenciaEntregado = true
+	return resultado, nil
 }
 
 func validarFicheroMaterialPresente(ruta string) error {
@@ -363,12 +385,13 @@ func validarManifiestoDesarrollo(
 	}
 	esperados := map[string]string{
 		"identidad":              "identidad-mtls-local-v1",
+		"idempotencia_hmac":      referenciaProveedorIdempotenciaDesarrollo,
 		"kms_emisor":             "kms-emisor-fichero-local-v2",
 		"kms_revalidador":        "kms-revalidador-ed25519-local-v1",
 		"kms_verificador_recibo": "kms-verificador-publico-local-v1",
 		"tsa":                    "tsa-determinista-local-v1", "tls": "tls-ca-local-v1",
 	}
-	if manifiesto.Version != 2 || manifiesto.Perfil != config.ExecutionProfileDevelopment ||
+	if manifiesto.Version != 3 || manifiesto.Perfil != config.ExecutionProfileDevelopment ||
 		manifiesto.Autoridad != AutoridadNoAutoritativa || manifiesto.MigrableAProduccion ||
 		len(manifiesto.Proveedores) != len(esperados) {
 		return ErrMaterialDesarrolloInvalido

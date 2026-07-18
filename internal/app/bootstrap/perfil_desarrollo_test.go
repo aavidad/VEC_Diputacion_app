@@ -29,6 +29,7 @@ func proveedoresPerfilDesarrollo(t *testing.T) []DescriptorProveedorSeguridad {
 		referencia string
 	}{
 		{ProveedorIdentidad, "identidad-mtls-local-v1"},
+		{ProveedorIdempotencia, referenciaProveedorIdempotenciaDesarrollo},
 		{ProveedorKMS, "kms-fichero-local-v2"},
 		{ProveedorTSA, "tsa-determinista-local-v1"},
 		{ProveedorTLS, "tls-ca-local-v1"},
@@ -53,7 +54,8 @@ func TestPrepararPerfilDesarrolloMarcaActosYEmiteAvisoSinSecretos(t *testing.T) 
 	}
 	datos := metadatos.Datos()
 	if datos.Autoridad != AutoridadNoAutoritativa || datos.PerfilEjecucion != config.ExecutionProfileDevelopment ||
-		datos.MigrableAProduccion || !datos.DescartableAlCambiarPerfil || len(datos.Proveedores) != 4 {
+		datos.MigrableAProduccion || !datos.DescartableAlCambiarPerfil ||
+		len(datos.Proveedores) != len(tiposProveedorDesarrollo) {
 		t.Fatalf("marca no autoritativa incompleta: %+v", datos)
 	}
 	serializados, err := json.Marshal(metadatos)
@@ -66,12 +68,15 @@ func TestPrepararPerfilDesarrolloMarcaActosYEmiteAvisoSinSecretos(t *testing.T) 
 	}
 
 	aviso := registro.String()
-	for _, esperado := range []string{"ADVERTENCIA", "credenciales_no_autoritativas", "identidad", "kms", "tsa", "tls"} {
+	for _, esperado := range []string{
+		"ADVERTENCIA", "credenciales_no_autoritativas", "identidad", "idempotencia_hmac", "kms", "tsa", "tls",
+	} {
 		if !strings.Contains(aviso, esperado) {
 			t.Fatalf("aviso de arranque no contiene %q: %s", esperado, aviso)
 		}
 	}
-	if strings.Contains(aviso, cfg.DevelopmentMaterialDir) || strings.Contains(aviso, "kms-fichero-local-v2") {
+	if strings.Contains(aviso, cfg.DevelopmentMaterialDir) || strings.Contains(aviso, "kms-fichero-local-v2") ||
+		strings.Contains(aviso, referenciaProveedorIdempotenciaDesarrollo) {
 		t.Fatalf("el aviso filtro ruta o referencia interna: %s", aviso)
 	}
 }
@@ -120,7 +125,9 @@ func TestPerfilDesarrolloFallaCerradoSiFaltaLlaveProveedorORuido(t *testing.T) {
 	if _, err := PrepararPerfilEjecucion(sinGuarda, proveedores, io.Discard); !errors.Is(err, ErrActivacionDesarrolloInvalida) {
 		t.Fatalf("sin guarda: %v", err)
 	}
-	if _, err := PrepararPerfilEjecucion(cfg, proveedores[:3], io.Discard); !errors.Is(err, ErrComposicionDesarrolloIncompleta) {
+	if _, err := PrepararPerfilEjecucion(
+		cfg, proveedores[:len(proveedores)-1], io.Discard,
+	); !errors.Is(err, ErrComposicionDesarrolloIncompleta) {
 		t.Fatalf("sin TLS: %v", err)
 	}
 	if _, err := PrepararPerfilEjecucion(cfg, proveedores, nil); !errors.Is(err, ErrRegistroArranqueDesarrollo) {

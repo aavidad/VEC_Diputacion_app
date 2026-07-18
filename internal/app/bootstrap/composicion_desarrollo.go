@@ -19,14 +19,15 @@ import (
 // Los campos privados impiden extraer las claves locales; solo se entregan las
 // interfaces existentes y la marca obligatoria para persistencia.
 type ComposicionSeguridadDesarrollo struct {
-	metadatos            MetadatosNoAutoritativos
-	procedencia          gobiernoconvocatorias.ProcedenciaActoBorrador
-	tls                  *tls.Config
-	identidad            vechttp.DemoIdentityResolver
-	emisorKMS            *emisorKMSDesarrollo
-	revalidadorKMS       *revalidadorKMSDesarrollo
-	verificadorFirmasKMS *verificadorFirmasKMSDesarrollo
-	tsa                  vecports.TimestampPort
+	metadatos             MetadatosNoAutoritativos
+	procedencia           gobiernoconvocatorias.ProcedenciaActoBorrador
+	tls                   *tls.Config
+	identidad             vechttp.DemoIdentityResolver
+	emisorKMS             *emisorKMSDesarrollo
+	revalidadorKMS        *revalidadorKMSDesarrollo
+	verificadorFirmasKMS  *verificadorFirmasKMSDesarrollo
+	tsa                   vecports.TimestampPort
+	derivadorIdempotencia *derivadorIdentidadOperacionDesarrollo
 }
 
 func NuevaComposicionSeguridadDesarrollo(
@@ -45,6 +46,17 @@ func NuevaComposicionSeguridadDesarrollo(
 	defer borrarBytes(material.firmaRevalidacionKMS)
 	defer borrarBytes(material.claveKMS[:])
 	defer borrarBytes(material.claveTSA[:])
+	defer material.idempotencia.borrar()
+	derivadorIdempotencia, err := nuevoDerivadorIdentidadOperacionDesarrollo(&material.idempotencia)
+	if err != nil {
+		return nil, err
+	}
+	derivadorEntregado := false
+	defer func() {
+		if !derivadorEntregado {
+			derivadorIdempotencia.borrar()
+		}
+	}()
 	emisorKMS, revalidadorKMS, verificadorFirmasKMS, err := nuevosProveedoresKMSDesarrollo(
 		material.claveKMS,
 		material.firmaAtestacionKMS, material.verificadorAtestacionKMS,
@@ -58,7 +70,7 @@ func NuevaComposicionSeguridadDesarrollo(
 	selladorTSA := nuevoSelladorTiempoDesarrollo(material.claveTSA)
 	proveedores, err := descriptoresProveedoresDesarrollo(
 		material.identidad, emisorKMS, revalidadorKMS, verificadorFirmasKMS,
-		selladorTSA, material.configuracionTLS,
+		selladorTSA, derivadorIdempotencia, material.configuracionTLS,
 	)
 	if err != nil {
 		return nil, err
@@ -76,21 +88,25 @@ func NuevaComposicionSeguridadDesarrollo(
 	if err != nil {
 		return nil, err
 	}
-	return &ComposicionSeguridadDesarrollo{
-		metadatos:            metadatos,
-		procedencia:          procedencia,
-		tls:                  material.configuracionTLS.Clone(),
-		identidad:            material.identidad,
-		emisorKMS:            emisorKMS,
-		revalidadorKMS:       revalidadorKMS,
-		verificadorFirmasKMS: verificadorFirmasKMS,
-		tsa:                  selladorTSA,
-	}, nil
+	resultado := &ComposicionSeguridadDesarrollo{
+		metadatos:             metadatos,
+		procedencia:           procedencia,
+		tls:                   material.configuracionTLS.Clone(),
+		identidad:             material.identidad,
+		emisorKMS:             emisorKMS,
+		revalidadorKMS:        revalidadorKMS,
+		verificadorFirmasKMS:  verificadorFirmasKMS,
+		tsa:                   selladorTSA,
+		derivadorIdempotencia: derivadorIdempotencia,
+	}
+	derivadorEntregado = true
+	return resultado, nil
 }
 
 func (c *ComposicionSeguridadDesarrollo) MetadatosComposicion() (MetadatosNoAutoritativos, error) {
 	if c == nil || c.tls == nil || c.identidad == nil || c.emisorKMS == nil ||
-		c.revalidadorKMS == nil || c.verificadorFirmasKMS == nil || c.tsa == nil {
+		c.revalidadorKMS == nil || c.verificadorFirmasKMS == nil || c.tsa == nil ||
+		c.derivadorIdempotencia == nil || !c.derivadorIdempotencia.valido() {
 		return MetadatosNoAutoritativos{}, ErrComposicionDesarrolloIncompleta
 	}
 	return c.metadatos, nil
@@ -160,6 +176,18 @@ func (c *ComposicionSeguridadDesarrollo) SelladorTiempo() (vecports.TimestampPor
 	return c.tsa, nil
 }
 
+// DerivadorIdentidadesBorrador entrega el puerto HMAC ya compuesto. Las claves
+// siguen encapsuladas en el adaptador privado y no tienen getters.
+func (c *ComposicionSeguridadDesarrollo) DerivadorIdentidadesBorrador() (
+	gobiernoconvocatorias.DerivadorIdentidadOperacion,
+	error,
+) {
+	if c == nil || c.derivadorIdempotencia == nil || !c.derivadorIdempotencia.valido() {
+		return nil, ErrComposicionDesarrolloIncompleta
+	}
+	return c.derivadorIdempotencia, nil
+}
+
 // NewHTTPServerDesarrolloWithConfig arranca una vertical web real sobre mTLS.
 // Devuelve tambien la composicion: T20 debe consumir ProcedenciaActosBorrador
 // y su KMS en la misma raiz antes de admitir escrituras durables.
@@ -205,13 +233,15 @@ func descriptoresProveedoresDesarrollo(
 	revalidador *revalidadorKMSDesarrollo,
 	verificador *verificadorFirmasKMSDesarrollo,
 	tsa *selladorTiempoDesarrollo,
+	derivadorIdempotencia *derivadorIdentidadOperacionDesarrollo,
 	configuracionTLS *tls.Config,
 ) ([]DescriptorProveedorSeguridad, error) {
 	// Los descriptores sólo se emiten después de comprobar los adaptadores
 	// concretos que realmente formarán la composición. Así la guarda no puede
 	// aprobar un inventario declarativo desconectado del cableado efectivo.
 	if identidad == nil || emisor == nil || revalidador == nil || verificador == nil ||
-		tsa == nil || configuracionTLS == nil ||
+		tsa == nil || derivadorIdempotencia == nil || !derivadorIdempotencia.valido() ||
+		configuracionTLS == nil ||
 		configuracionTLS.ClientAuth != tls.RequireAndVerifyClientCert ||
 		configuracionTLS.MinVersion != tls.VersionTLS13 ||
 		configuracionTLS.MaxVersion != tls.VersionTLS13 {
@@ -222,6 +252,7 @@ func descriptoresProveedoresDesarrollo(
 		referencia string
 	}{
 		{ProveedorIdentidad, "identidad-mtls-local-v1"},
+		{ProveedorIdempotencia, referenciaProveedorIdempotenciaDesarrollo},
 		{ProveedorKMS, "kms-fichero-local-v2"},
 		{ProveedorTSA, "tsa-determinista-local-v1"},
 		{ProveedorTLS, "tls-ca-local-v1"},

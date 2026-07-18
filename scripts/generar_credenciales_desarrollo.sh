@@ -42,8 +42,12 @@ archivos_obligatorios=(
   kms/atestacion-ed25519.key kms/atestacion-ed25519.pub
   kms/revalidacion-ed25519.key kms/revalidacion-ed25519.pub
   tsa/clave-hmac.bin
+  idempotencia/configuracion.json
+  idempotencia/g2-localizador.bin idempotencia/g2-huella-solicitud.bin
+  idempotencia/g1-localizador.bin idempotencia/g1-huella-solicitud.bin
   identidad/identidad.json manifiesto.json desarrollo.env
 )
+CONFIGURACION_IDEMPOTENCIA_CANONICA='{"version":1,"esquema":"vec.bolsa.convocatoria.idempotencia-hmac.desarrollo.v1","autoridad":"no_autoritativo","version_esquema_hmac":2,"generaciones":[{"generacion":2,"referencia_localizador":"clave:hmac:convocatorias:localizador:desarrollo:v2","referencia_huella_solicitud":"clave:hmac:convocatorias:huella:desarrollo:v2"},{"generacion":1,"referencia_localizador":"clave:hmac:convocatorias:localizador:desarrollo:v1","referencia_huella_solicitud":"clave:hmac:convocatorias:huella:desarrollo:v1"}]}'
 
 huella_clave_publica_certificado() {
   openssl x509 -in "$1" -pubkey -noout |
@@ -59,6 +63,8 @@ huella_clave_publica_privada() {
 verificar_directorio() {
   local raiz=$1 archivo modo huella_ca huella_servidor huella_cliente
   local huella_publica_atestacion_kms huella_publica_revalidacion_kms
+  local -a secretos_hmac
+  local indice anterior huella
   [[ -d "$raiz" && ! -L "$raiz" ]] || fallar "directorio de credenciales no valido: $raiz"
   [[ -z "$(find "$raiz" -type l -print -quit)" ]] || fallar "hay enlaces simbolicos en el material local"
   [[ -z "$(find "$raiz" -type d -perm /077 -print -quit)" ]] || fallar "hay directorios accesibles por grupo u otros"
@@ -71,6 +77,23 @@ verificar_directorio() {
 
   [[ $(stat -c '%s' -- "$raiz/kms/clave-maestra.bin") -eq 32 ]] || fallar "secreto KMS con longitud incorrecta"
   [[ $(stat -c '%s' -- "$raiz/tsa/clave-hmac.bin") -eq 32 ]] || fallar "secreto TSA con longitud incorrecta"
+  secretos_hmac=(
+    "$raiz/kms/clave-maestra.bin"
+    "$raiz/tsa/clave-hmac.bin"
+    "$raiz/idempotencia/g2-localizador.bin"
+    "$raiz/idempotencia/g2-huella-solicitud.bin"
+    "$raiz/idempotencia/g1-localizador.bin"
+    "$raiz/idempotencia/g1-huella-solicitud.bin"
+  )
+  for indice in "${!secretos_hmac[@]}"; do
+    [[ $(stat -c '%s' -- "${secretos_hmac[$indice]}") -eq 32 ]] ||
+      fallar "secreto HMAC con longitud incorrecta: ${secretos_hmac[$indice]}"
+    huella=$(sha256sum -- "${secretos_hmac[$indice]}" | awk '{print $1}')
+    for (( anterior = 0; anterior < indice; anterior++ )); do
+      [[ "$huella" != "$(sha256sum -- "${secretos_hmac[$anterior]}" | awk '{print $1}')" ]] ||
+        fallar "se reutilizo material entre dominios criptograficos"
+    done
+  done
   openssl verify -purpose sslserver -CAfile "$raiz/ca/ca.crt" "$raiz/tls/servidor.crt" >/dev/null
   openssl verify -purpose sslclient -CAfile "$raiz/ca/ca.crt" "$raiz/mtls/cliente.crt" >/dev/null
   openssl x509 -in "$raiz/ca/ca.crt" -noout -checkend 0 >/dev/null
@@ -103,6 +126,20 @@ verificar_directorio() {
   grep -Fq "\"huella_publica_revalidacion_kms_sha256\":\"$huella_publica_revalidacion_kms\"" "$raiz/manifiesto.json" ||
     fallar "huella publica de revalidacion KMS incoherente en manifiesto"
   grep -Fq "\"certificate_sha256\":\"$huella_cliente\"" "$raiz/identidad/identidad.json" || fallar "identidad no ligada al certificado cliente"
+  grep -Fq '"esquema":"vec.bolsa.convocatoria.idempotencia-hmac.desarrollo.v1"' \
+    "$raiz/idempotencia/configuracion.json" || fallar "esquema HMAC de idempotencia ausente"
+  grep -Fq '"version_esquema_hmac":2' "$raiz/idempotencia/configuracion.json" ||
+    fallar "version HMAC de idempotencia incoherente"
+  grep -Fq '"generacion":2,"referencia_localizador":"clave:hmac:convocatorias:localizador:desarrollo:v2","referencia_huella_solicitud":"clave:hmac:convocatorias:huella:desarrollo:v2"' \
+    "$raiz/idempotencia/configuracion.json" || fallar "generacion primaria HMAC incoherente"
+  grep -Fq '"generacion":1,"referencia_localizador":"clave:hmac:convocatorias:localizador:desarrollo:v1","referencia_huella_solicitud":"clave:hmac:convocatorias:huella:desarrollo:v1"' \
+    "$raiz/idempotencia/configuracion.json" || fallar "generacion historica HMAC incoherente"
+  grep -Fq '"idempotencia_hmac":"idempotencia-hmac-fichero-local-v1"' "$raiz/manifiesto.json" ||
+    fallar "proveedor HMAC de idempotencia ausente en manifiesto"
+  grep -Fq '"version":3' "$raiz/manifiesto.json" || fallar "version de manifiesto incoherente"
+  [[ "$(sha256sum -- "$raiz/idempotencia/configuracion.json" | awk '{print $1}')" == \
+    "$(printf '%s\n' "$CONFIGURACION_IDEMPOTENCIA_CANONICA" | sha256sum | awk '{print $1}')" ]] ||
+    fallar "configuracion HMAC alterada respecto del acuerdo generado"
   grep -Fxq 'VEC_EXECUTION_PROFILE=desarrollo' "$raiz/desarrollo.env" || fallar "perfil ausente en desarrollo.env"
   grep -Fxq 'VEC_AUTH_MODE=desarrollo' "$raiz/desarrollo.env" || fallar "modo ausente en desarrollo.env"
   grep -Fxq 'VEC_DEVELOPMENT_GUARD=ACEPTO_CREDENCIALES_NO_AUTORITATIVAS_SOLO_DESARROLLO' "$raiz/desarrollo.env" ||
@@ -123,7 +160,7 @@ limpiar() {
 }
 trap limpiar EXIT HUP INT TERM
 
-for subdirectorio in ca tls mtls kms tsa identidad; do
+for subdirectorio in ca tls mtls kms tsa identidad idempotencia; do
   install -d -m 700 -- "$TEMPORAL/$subdirectorio"
 done
 
@@ -176,6 +213,10 @@ openssl pkey -in "$TEMPORAL/kms/atestacion-ed25519.key" -pubout -out "$TEMPORAL/
 openssl genpkey -algorithm ED25519 -out "$TEMPORAL/kms/revalidacion-ed25519.key" 2>/dev/null
 openssl pkey -in "$TEMPORAL/kms/revalidacion-ed25519.key" -pubout -out "$TEMPORAL/kms/revalidacion-ed25519.pub" 2>/dev/null
 openssl rand 32 >"$TEMPORAL/tsa/clave-hmac.bin"
+openssl rand 32 >"$TEMPORAL/idempotencia/g2-localizador.bin"
+openssl rand 32 >"$TEMPORAL/idempotencia/g2-huella-solicitud.bin"
+openssl rand 32 >"$TEMPORAL/idempotencia/g1-localizador.bin"
+openssl rand 32 >"$TEMPORAL/idempotencia/g1-huella-solicitud.bin"
 
 HUELLA_CA=$(openssl x509 -in "$TEMPORAL/ca/ca.crt" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':')
 HUELLA_SERVIDOR=$(openssl x509 -in "$TEMPORAL/tls/servidor.crt" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':')
@@ -186,8 +227,9 @@ HUELLA_PUBLICA_REVALIDACION_KMS=$(openssl pkey -pubin -in "$TEMPORAL/kms/revalid
 cat >"$TEMPORAL/identidad/identidad.json" <<JSON
 {"version":1,"autoridad":"no_autoritativo","certificate_sha256":"$HUELLA_CLIENTE","subject":"desarrollo:operador-rrhh","display_name":"Operador RRHH de desarrollo","roles":["tecnico_rrhh"]}
 JSON
+printf '%s\n' "$CONFIGURACION_IDEMPOTENCIA_CANONICA" >"$TEMPORAL/idempotencia/configuracion.json"
 cat >"$TEMPORAL/manifiesto.json" <<JSON
-{"version":2,"perfil":"desarrollo","autoridad":"no_autoritativo","migrable_a_produccion":false,"huella_ca_sha256":"$HUELLA_CA","huella_servidor_sha256":"$HUELLA_SERVIDOR","huella_cliente_sha256":"$HUELLA_CLIENTE","huella_publica_atestacion_kms_sha256":"$HUELLA_PUBLICA_ATESTACION_KMS","huella_publica_revalidacion_kms_sha256":"$HUELLA_PUBLICA_REVALIDACION_KMS","proveedores":{"identidad":"identidad-mtls-local-v1","kms_emisor":"kms-emisor-fichero-local-v2","kms_revalidador":"kms-revalidador-ed25519-local-v1","kms_verificador_recibo":"kms-verificador-publico-local-v1","tsa":"tsa-determinista-local-v1","tls":"tls-ca-local-v1"}}
+{"version":3,"perfil":"desarrollo","autoridad":"no_autoritativo","migrable_a_produccion":false,"huella_ca_sha256":"$HUELLA_CA","huella_servidor_sha256":"$HUELLA_SERVIDOR","huella_cliente_sha256":"$HUELLA_CLIENTE","huella_publica_atestacion_kms_sha256":"$HUELLA_PUBLICA_ATESTACION_KMS","huella_publica_revalidacion_kms_sha256":"$HUELLA_PUBLICA_REVALIDACION_KMS","proveedores":{"identidad":"identidad-mtls-local-v1","idempotencia_hmac":"idempotencia-hmac-fichero-local-v1","kms_emisor":"kms-emisor-fichero-local-v2","kms_revalidador":"kms-revalidador-ed25519-local-v1","kms_verificador_recibo":"kms-verificador-publico-local-v1","tsa":"tsa-determinista-local-v1","tls":"tls-ca-local-v1"}}
 JSON
 {
   printf 'VEC_EXECUTION_PROFILE=desarrollo\n'

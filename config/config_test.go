@@ -94,7 +94,8 @@ func TestPerfilDesarrolloDerivaSoloSusRutasLocalesYNoSeActivaPorVariableHeredada
 		rutas.KMSAttestationKey != "/estado-local/vec/desarrollo/kms/atestacion-ed25519.key" ||
 		rutas.KMSAttestationPublic != "/estado-local/vec/desarrollo/kms/atestacion-ed25519.pub" ||
 		rutas.KMSRevalidationKey != "/estado-local/vec/desarrollo/kms/revalidacion-ed25519.key" ||
-		rutas.KMSRevalidationPublic != "/estado-local/vec/desarrollo/kms/revalidacion-ed25519.pub" {
+		rutas.KMSRevalidationPublic != "/estado-local/vec/desarrollo/kms/revalidacion-ed25519.pub" ||
+		rutas.IdempotencyHMACConfig != "/estado-local/vec/desarrollo/idempotencia/configuracion.json" {
 		t.Fatalf("rutas de desarrollo incoherentes: %+v / %+v", configuracion, rutas)
 	}
 }

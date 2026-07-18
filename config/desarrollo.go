@@ -38,6 +38,7 @@ const (
 	DevelopmentKMSRevalidationPublicRelativePath = "kms/revalidacion-ed25519.pub"
 	DevelopmentTSASecretRelativePath             = "tsa/clave-hmac.bin"
 	DevelopmentIdentityRelativePath              = "identidad/identidad.json"
+	DevelopmentIdempotencyHMACConfigRelativePath = "idempotencia/configuracion.json"
 )
 
 type DevelopmentMaterialPaths struct {
@@ -54,6 +55,7 @@ type DevelopmentMaterialPaths struct {
 	KMSRevalidationPublic string
 	TSASecret             string
 	Identity              string
+	IdempotencyHMACConfig string
 }
 
 func normalizeExecutionProfile(profile string) string {
@@ -101,5 +103,6 @@ func (c Config) DevelopmentPaths() DevelopmentMaterialPaths {
 		KMSRevalidationPublic: unir(DevelopmentKMSRevalidationPublicRelativePath),
 		TSASecret:             unir(DevelopmentTSASecretRelativePath),
 		Identity:              unir(DevelopmentIdentityRelativePath),
+		IdempotencyHMACConfig: unir(DevelopmentIdempotencyHMACConfigRelativePath),
 	}
 }

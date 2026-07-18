@@ -127,6 +127,9 @@ func TestComposicionDesarrolloOperaConTLSMutuoEIdentidadAlta(t *testing.T) {
 	if _, err := composicion.VerificadorFirmasKMSBorradores(); err != nil {
 		t.Fatalf("verificador publico KMS no compuesto: %v", err)
 	}
+	if _, err := composicion.DerivadorIdentidadesBorrador(); err != nil {
+		t.Fatalf("derivador HMAC de idempotencia no compuesto: %v", err)
+	}
 
 	prueba := httptest.NewUnstartedServer(servidor.Handler)
 	prueba.TLS = servidor.TLSConfig.Clone()

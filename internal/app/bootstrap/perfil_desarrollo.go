@@ -28,14 +28,16 @@ const (
 type TipoProveedorSeguridad string
 
 const (
-	ProveedorIdentidad TipoProveedorSeguridad = "identidad"
-	ProveedorKMS       TipoProveedorSeguridad = "kms"
-	ProveedorTSA       TipoProveedorSeguridad = "tsa"
-	ProveedorTLS       TipoProveedorSeguridad = "tls"
+	ProveedorIdentidad    TipoProveedorSeguridad = "identidad"
+	ProveedorIdempotencia TipoProveedorSeguridad = "idempotencia_hmac"
+	ProveedorKMS          TipoProveedorSeguridad = "kms"
+	ProveedorTSA          TipoProveedorSeguridad = "tsa"
+	ProveedorTLS          TipoProveedorSeguridad = "tls"
 )
 
 var tiposProveedorDesarrollo = []TipoProveedorSeguridad{
 	ProveedorIdentidad,
+	ProveedorIdempotencia,
 	ProveedorKMS,
 	ProveedorTSA,
 	ProveedorTLS,
