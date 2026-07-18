@@ -134,8 +134,8 @@ func TestEntradaNeutralDocumentalPreflightRechazaAntesDeCanonizar(t *testing.T) 
 		{Titulo: "invalido\x00"},
 		{Titulo: "invalido\x01"},
 		{Titulo: "invalido\x7f"},
-		{Titulo: strings.Repeat("x", maximoBytesEntradaNeutralDocumental)},
-		{Titulo: "titulo", Parrafos: make([]string, maximosParrafosEntradaNeutral+1)},
+		{Titulo: strings.Repeat("x", 16*1024*1024)},
+		{Titulo: "titulo", Parrafos: make([]string, 100_001)},
 	}
 	for indice, contenido := range casos {
 		if _, err := NuevaPreparacionEntradaNeutralDocumentalNominal(contenido); !errors.Is(err, ErrEntradaNeutralDocumentalInvalida) {

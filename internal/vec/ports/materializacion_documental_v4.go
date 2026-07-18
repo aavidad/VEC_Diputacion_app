@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	"unicode/utf8"
 
+	documentalcanonico "vec-diputacion-granada/internal/vec/canonico/documental"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -31,15 +31,13 @@ var (
 )
 
 const (
-	EsquemaCanonizacionEntradaNeutralDocumentalV1 = "vec.documentos.entrada-neutral.contenido-longitud-prefijada.v1"
+	EsquemaCanonizacionEntradaNeutralDocumentalV1 = documentalcanonico.EsquemaCanonizacionEntradaNeutralV1
 	EsquemaPruebaEscrituraAlmacenDocumentalV1     = "vec.documentos.prueba-escritura-almacen.v1"
 	EsquemaPruebaEscrituraAlmacenDocumentalV2     = "vec.documentos.prueba-escritura-almacen.v2"
 
-	maximoBytesEntradaNeutralDocumental = 16 * 1024 * 1024
-	maximosParrafosEntradaNeutral       = 100_000
-	maximoBytesSalidaDocumental         = uint64(256 * 1024 * 1024)
-	maximoBytesOrigenCargaDirectaV4     = 512
-	maximoBytesOrigenesCargaDirectaV4   = 8 * 1024
+	maximoBytesSalidaDocumental       = uint64(256 * 1024 * 1024)
+	maximoBytesOrigenCargaDirectaV4   = 512
+	maximoBytesOrigenesCargaDirectaV4 = 8 * 1024
 	// Debe permanecer igual o por debajo del limite de las audiencias COSE
 	// documentales ordinarias del conector de confianza homologado.
 	maximoBytesMensajeEscrituraAlmacenV4 = 64 * 1024
@@ -1342,48 +1340,10 @@ func huellaSolicitudEscrituraAlmacenDocumentalV4(
 func canonizarContenidoEntradaNeutralDocumental(
 	contenido domain.ContenidoDocumento,
 ) ([]byte, error) {
-	if len(contenido.Parrafos) > maximosParrafosEntradaNeutral ||
-		!textoEntradaNeutralDocumentalValido(contenido.Titulo) {
-		return nil, ErrEntradaNeutralDocumentalInvalida
-	}
-	if contenido.Titulo == "" && len(contenido.Parrafos) == 0 {
-		return nil, ErrEntradaNeutralDocumentalInvalida
-	}
-	contador := strconv.Itoa(len(contenido.Parrafos))
-	tamano := 0
-	reservar := func(valor string) bool {
-		for _, incremento := range []int{len(strconv.Itoa(len(valor))), 1, len(valor), 1} {
-			if incremento < 0 || incremento > maximoBytesEntradaNeutralDocumental ||
-				tamano > maximoBytesEntradaNeutralDocumental-incremento {
-				return false
-			}
-			tamano += incremento
-		}
-		return true
-	}
-	if !reservar(EsquemaCanonizacionEntradaNeutralDocumentalV1) ||
-		!reservar(contenido.Titulo) || !reservar(contador) {
-		return nil, ErrEntradaNeutralDocumentalInvalida
-	}
-	for _, parrafo := range contenido.Parrafos {
-		if !textoEntradaNeutralDocumentalValido(parrafo) || !reservar(parrafo) {
-			return nil, ErrEntradaNeutralDocumentalInvalida
-		}
-	}
-	canonico := make([]byte, 0, tamano)
-	anadir := func(valor string) {
-		canonico = strconv.AppendInt(canonico, int64(len(valor)), 10)
-		canonico = append(canonico, ':')
-		canonico = append(canonico, valor...)
-		canonico = append(canonico, '\n')
-	}
-	anadir(EsquemaCanonizacionEntradaNeutralDocumentalV1)
-	anadir(contenido.Titulo)
-	anadir(contador)
-	for _, parrafo := range contenido.Parrafos {
-		anadir(parrafo)
-	}
-	if len(canonico) != tamano {
+	canonico, valido := documentalcanonico.CanonizarEntradaNeutralV1(
+		contenido.Titulo, contenido.Parrafos,
+	)
+	if !valido {
 		return nil, ErrEntradaNeutralDocumentalInvalida
 	}
 	return canonico, nil
@@ -1396,12 +1356,9 @@ func validarDatosCanonicosEntradaNeutralDocumental(
 	tamano uint64,
 ) error {
 	if canonicalizacionRef != EsquemaCanonizacionEntradaNeutralDocumentalV1 ||
-		len(contenidoCanonico) == 0 || uint64(len(contenidoCanonico)) != tamano ||
-		tamano > maximoBytesEntradaNeutralDocumental {
-		return ErrEntradaNeutralDocumentalInvalida
-	}
-	canonico, err := canonizarContenidoEntradaNeutralDocumental(contenido)
-	if err != nil || !bytes.Equal(canonico, contenidoCanonico) {
+		!documentalcanonico.PreimagenEntradaNeutralV1Valida(
+			contenido.Titulo, contenido.Parrafos, contenidoCanonico, tamano,
+		) {
 		return ErrEntradaNeutralDocumentalInvalida
 	}
 	return nil
@@ -1413,21 +1370,6 @@ func clonarContenidoEntradaNeutralDocumental(
 	return domain.ContenidoDocumento{
 		Titulo: contenido.Titulo, Parrafos: append([]string(nil), contenido.Parrafos...),
 	}
-}
-
-func textoEntradaNeutralDocumentalValido(valor string) bool {
-	if !utf8.ValidString(valor) {
-		return false
-	}
-	for _, caracter := range valor {
-		if caracter == '\t' || caracter == '\n' || caracter == '\r' {
-			continue
-		}
-		if caracter < 0x20 || caracter == 0x7f {
-			return false
-		}
-	}
-	return true
 }
 
 func serializarDeclaracionEscrituraAlmacenDocumental(

@@ -41,7 +41,7 @@
 1010 internal/vec/ports/ejecucion_componentes_documentales_atestada_test.go
 3975 internal/vec/ports/ejecuciones_documentales_v3.go
 1565 internal/vec/ports/ejecuciones_documentales_v3_test.go
-1590 internal/vec/ports/materializacion_documental_v4.go
+1532 internal/vec/ports/materializacion_documental_v4.go
 1094 internal/vec/ports/materializacion_documental_v4_test.go
 1192 internal/vec/ports/pagos_test.go
 1474 internal/vec/ports/recibo_escritura_objeto_material_v2.go
