@@ -876,14 +876,20 @@ AutenticarCanalTLSMutuo crea un canal solo desde un handshake mTLS terminado
 y una cadena que la biblioteca TLS ya haya verificado.
 
 ```go
-func (s *ServicioIdentidad) ProyectarPrincipal(
+func (s *ServicioIdentidad) ProyectarCuentaAutenticada(
 	ctx context.Context,
 	identidad IdentidadSesion,
-) (dominiovec.Principal, ContextoAuditoriaAutenticada, error)
+) (dominiovec.CuentaAutenticadaContextoActor, ContextoAuditoriaAutenticada, error)
 ```
 
-ProyectarPrincipal es la unica conversion al principal del nucleo. Revalida
-politica, vigencia, version de garantia, sesion y cuenta activa.
+ProyectarCuentaAutenticada revalida politica, vigencia, version de garantia,
+sesion y cuenta activa. Devuelve exclusivamente una
+`CuentaAutenticadaContextoActor` con la `CuentaRef` opaca `cta_` confirmada por
+el registro durable, el metodo de autenticacion y la garantia acreditada. No
+deriva ni devuelve un `Principal` o una `PersonaRef` a partir de `CuentaID` o
+`SujetoID` declarados por el proveedor de identidad. La resolucion posterior
+`cta_` -> `per_` -> `prf_` corresponde a `ServicioContextoActorProductivoV1`,
+que obtiene y registra atomicamente el contexto de actor canonico.
 
 ```go
 func (s *ServicioIdentidad) Resolver(ctx context.Context, credencial CredencialProxy) (IdentidadSesion, error)

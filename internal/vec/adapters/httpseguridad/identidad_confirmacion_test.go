@@ -142,17 +142,19 @@ func TestProyeccionConservaYRevalidaConfirmacionExacta(t *testing.T) {
 		t.Fatalf("resolver: %v", err)
 	}
 
-	principal, auditoria, err := servicio.ProyectarPrincipal(context.Background(), identidad)
+	cuenta, auditoria, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad)
 	if err != nil {
 		t.Fatalf("proyectar: %v", err)
 	}
 	confirmacion := identidad.confirmacion
-	if principal.ID != "cuenta-tecnica" || auditoria.AutenticacionRef() != confirmacion.AutenticacionRef ||
+	if cuenta.CuentaRef != confirmacion.CuentaRef || cuenta.Metodo != confirmacion.AltaConfirmada.MetodoObservado ||
+		cuenta.Garantia != confirmacion.AltaConfirmada.GarantiaObservada ||
+		auditoria.AutenticacionRef() != confirmacion.AutenticacionRef ||
 		auditoria.AsercionRef() != confirmacion.AsercionRef || auditoria.SesionRef() != confirmacion.SesionRef ||
 		auditoria.ControlSesionRef() != confirmacion.ControlSesionRef || auditoria.CuentaRef() != confirmacion.CuentaRef ||
 		auditoria.CuentaOrdinariaRef() != confirmacion.CuentaOrdinariaRef ||
-		auditoria.CuentaRef() != auditoria.CuentaOrdinariaRef() || auditoria.CuentaRef() == principal.ID {
-		t.Fatalf("proyeccion durable incompleta: principal=%#v auditoria=%#v", principal, auditoria)
+		auditoria.CuentaRef() != auditoria.CuentaOrdinariaRef() || auditoria.CuentaRef() != cuenta.CuentaRef {
+		t.Fatalf("proyeccion durable incompleta: cuenta=%#v auditoria=%#v", cuenta, auditoria)
 	}
 
 	registro.mu.Lock()
@@ -178,12 +180,18 @@ func TestProyeccionConservaYRevalidaConfirmacionExacta(t *testing.T) {
 		t.Fatalf("consulta de revalidacion no reproduce la confirmacion: %#v", consulta)
 	}
 
+	identidadConReciboAlterado := identidad
+	identidadConReciboAlterado.confirmacion.ControlSesionHuellaSHA256 = strings.Repeat("b", 64)
+	if _, _, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidadConReciboAlterado); !errors.Is(err, ErrSesionNoValida) {
+		t.Fatalf("un recibo durable alterado fue aceptado: %v", err)
+	}
+
 	registro.mu.Lock()
 	alterada := registro.sesiones[confirmacion.SesionRef]
 	alterada.ControlSesionRef = "cse_alterado567890abcdefghijkl"
 	registro.sesiones[confirmacion.SesionRef] = alterada
 	registro.mu.Unlock()
-	if _, _, err := servicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
+	if _, _, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
 		t.Fatalf("el registro alterado durante la revalidacion fue aceptado: %v", err)
 	}
 }
@@ -202,10 +210,17 @@ func TestCuentaPrivilegiadaConservaReferenciasDeCuentaSeparadas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolver: %v", err)
 	}
-	principal, auditoria, err := servicio.ProyectarPrincipal(context.Background(), identidad)
+	cuenta, auditoria, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad)
 	if err != nil || auditoria.CuentaRef() == auditoria.CuentaOrdinariaRef() ||
-		auditoria.CuentaRef() == principal.ID || auditoria.CuentaOrdinariaRef() == principal.ID {
-		t.Fatalf("referencias de cuenta privilegiada no separadas: %#v %v", auditoria, err)
+		cuenta.CuentaRef != identidad.confirmacion.CuentaRef || cuenta.CuentaRef != auditoria.CuentaRef() ||
+		cuenta.CuentaRef == auditoria.CuentaOrdinariaRef() {
+		t.Fatalf("referencias de cuenta privilegiada no separadas: cuenta=%#v auditoria=%#v %v", cuenta, auditoria, err)
+	}
+	resultado := fmt.Sprintf("%#v %#v %s %s", cuenta, auditoria, debeJSON(t, cuenta), debeJSON(t, auditoria))
+	for _, identificadorIdP := range []string{asercion.Cuenta.ID, asercion.Cuenta.CuentaOrdinariaID, asercion.SujetoID} {
+		if strings.Contains(resultado, identificadorIdP) {
+			t.Fatalf("la cuenta privilegiada filtro el identificador del IdP %q: %q", identificadorIdP, resultado)
+		}
 	}
 }
 
@@ -269,7 +284,7 @@ func TestIdentidadSesionNoFiltraNiSeReconstruyePorSerializacion(t *testing.T) {
 	if err := gob.NewDecoder(bytes.NewReader(gobRedactado.Bytes())).Decode(&reconstruida); !errors.Is(err, ErrIdentidadNoSerializable) {
 		t.Fatalf("gob reconstruyo una identidad: %v", err)
 	}
-	if _, _, err := servicio.ProyectarPrincipal(context.Background(), reconstruida); !errors.Is(err, ErrSesionNoValida) {
+	if _, _, err := servicio.ProyectarCuentaAutenticada(context.Background(), reconstruida); !errors.Is(err, ErrSesionNoValida) {
 		t.Fatalf("identidad reconstruida aceptada: %v", err)
 	}
 }

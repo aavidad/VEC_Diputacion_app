@@ -56,21 +56,21 @@ func TestProyeccionRevalidaRevocacionCuentaYVigencia(t *testing.T) {
 	t.Run("sesion revocada", func(t *testing.T) {
 		servicio, identidad, registro, _ := crear(t)
 		registro.revocar("sesion-001")
-		if _, _, err := servicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
+		if _, _, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
 			t.Fatalf("sesion revocada aceptada: %v", err)
 		}
 	})
 	t.Run("cuenta inactiva", func(t *testing.T) {
 		servicio, identidad, registro, _ := crear(t)
 		registro.inactivar("cuenta-tecnica")
-		if _, _, err := servicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
+		if _, _, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
 			t.Fatalf("cuenta inactiva aceptada: %v", err)
 		}
 	})
 	t.Run("asercion caducada", func(t *testing.T) {
 		servicio, identidad, _, reloj := crear(t)
 		reloj.fijar(time.Date(2026, 7, 15, 8, 2, 0, 0, time.UTC))
-		if _, _, err := servicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
+		if _, _, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
 			t.Fatalf("sesion caducada aceptada: %v", err)
 		}
 	})
@@ -142,8 +142,8 @@ func TestProyeccionCierraSiCaducaAutenticacionDuranteRevalidacion(t *testing.T) 
 	}
 
 	servicio.reloj = &relojSecuenciaIdentidad{instantes: []time.Time{ahora, frontera}}
-	if _, _, err = servicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
-		t.Fatalf("principal devuelto tras caducar la autenticacion: %v", err)
+	if _, _, err = servicio.ProyectarCuentaAutenticada(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
+		t.Fatalf("cuenta autenticada devuelta tras caducar la autenticacion: %v", err)
 	}
 	registro.mu.Lock()
 	consultaRealizada := registro.ultimaConsulta.SesionRef

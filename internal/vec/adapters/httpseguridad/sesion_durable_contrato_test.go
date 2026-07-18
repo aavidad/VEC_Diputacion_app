@@ -35,7 +35,7 @@ func TestContratosDurablesPublicosFallanCerrados(t *testing.T) {
 	if identidad.confirmacion.ValidarPara(otraAlta) == nil {
 		t.Fatal("un recibo de otra alta fue aceptado")
 	}
-	if _, _, err := servicio.ProyectarPrincipal(context.Background(), identidad); err != nil {
+	if _, _, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad); err != nil {
 		t.Fatalf("proyectar: %v", err)
 	}
 	registro.mu.Lock()

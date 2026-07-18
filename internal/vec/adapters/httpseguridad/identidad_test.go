@@ -136,14 +136,20 @@ func TestServicioIdentidadResuelveYProyectaContextoAuditable(t *testing.T) {
 		t.Fatalf("alta sin espacio de identidad protegido: %q", identidad.confirmacion.AltaConfirmada.EspacioIdentidad)
 	}
 
-	principal, auditoria, err := servicio.ProyectarPrincipal(context.Background(), identidad)
+	cuenta, auditoria, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad)
 	if err != nil {
-		t.Fatalf("proyectar principal: %v", err)
+		t.Fatalf("proyectar cuenta autenticada: %v", err)
 	}
-	if principal.ID != "cuenta-tecnica" || principal.AuthMethod != dominiovec.AuthMethodCertificate ||
-		principal.AuthAssurance != dominiovec.AuthAssuranceHigh || principal.Roles != nil ||
-		principal.Permissions != nil || principal.Attributes != nil {
-		t.Fatalf("principal minimo inesperado: %#v", principal)
+	if cuenta.CuentaRef != identidad.confirmacion.CuentaRef ||
+		cuenta.Metodo != dominiovec.AuthMethodCertificate ||
+		cuenta.Garantia != dominiovec.AuthAssuranceHigh || cuenta.Validar() != nil {
+		t.Fatalf("cuenta autenticada inesperada: %#v", cuenta)
+	}
+	resultado := fmt.Sprintf("%#v %#v %s %s", cuenta, auditoria, debeJSON(t, cuenta), debeJSON(t, auditoria))
+	for _, identificadorIdP := range []string{identidad.estado.cuenta.ID, identidad.estado.sujetoID} {
+		if strings.Contains(resultado, identificadorIdP) {
+			t.Fatalf("la proyeccion filtro el identificador del IdP %q: %q", identificadorIdP, resultado)
+		}
 	}
 	if auditoria.Superficie() != SuperficieInternaCorporativa ||
 		auditoria.Garantia() != dominiovec.AuthAssuranceHigh || len(auditoria.Factores()) != 2 ||
@@ -254,17 +260,17 @@ func TestCanalYSesionQuedanLigadosAUnaInstancia(t *testing.T) {
 	if _, err := s2.Resolver(context.Background(), credencial); !errors.Is(err, ErrCanalProxyNoAutenticado) || v2.llamadas.Load() != 0 {
 		t.Fatalf("otra instancia no debe usar el canal: %v", err)
 	}
-	if _, _, err := s2.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
+	if _, _, err := s2.ProyectarCuentaAutenticada(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
 		t.Fatalf("otra instancia no debe proyectar la sesion: %v", err)
 	}
-	if _, _, err := s1.ProyectarPrincipal(context.Background(), IdentidadSesion{}); !errors.Is(err, ErrSesionNoValida) {
+	if _, _, err := s1.ProyectarCuentaAutenticada(context.Background(), IdentidadSesion{}); !errors.Is(err, ErrSesionNoValida) {
 		t.Fatalf("el valor cero opaco debe fallar cerrado: %v", err)
 	}
 	copiaServicio := *s1
 	if _, err := copiaServicio.Resolver(context.Background(), credencial); !errors.Is(err, ErrCanalProxyNoAutenticado) {
 		t.Fatalf("una copia estructural no es la instancia que autentico el canal: %v", err)
 	}
-	if _, _, err := copiaServicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
+	if _, _, err := copiaServicio.ProyectarCuentaAutenticada(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
 		t.Fatalf("una copia estructural no debe proyectar la sesion: %v", err)
 	}
 }
@@ -413,7 +419,7 @@ func TestGarantiaSeCalculaYSeLigaALaPolitica(t *testing.T) {
 		Garantia: dominiovec.AuthAssuranceHigh, PoliticaRef: "pga_otra23456789abcdefghijkl",
 		HuellaPolitica: "sha256:" + strings.Repeat("b", 64),
 	})
-	if _, _, err := servicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
+	if _, _, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
 		t.Fatalf("un cambio de politica obliga a reautenticar: %v", err)
 	}
 }
@@ -451,9 +457,9 @@ func TestAreaPersonalMantieneConectoresAlternativosIntercambiables(t *testing.T)
 		if err != nil {
 			t.Fatalf("resolver con %s: %v", factor.Metodo, err)
 		}
-		principal, _, err := servicio.ProyectarPrincipal(context.Background(), identidad)
-		if err != nil || principal.AuthMethod != tipo.esperado {
-			t.Fatalf("proyectar con %s: %#v %v", factor.Metodo, principal, err)
+		cuenta, _, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad)
+		if err != nil || cuenta.Metodo != tipo.esperado {
+			t.Fatalf("proyectar con %s: %#v %v", factor.Metodo, cuenta, err)
 		}
 	}
 }
@@ -472,13 +478,13 @@ func TestAdministracionComparaCuentasCanonicalizadas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cuenta administrativa nominativa: %v", err)
 	}
-	principal, auditoria, err := servicio.ProyectarPrincipal(context.Background(), identidad)
-	if err != nil || principal.ID != "adm-cuenta-tecnica" ||
+	cuenta, auditoria, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad)
+	if err != nil || cuenta.CuentaRef != identidad.confirmacion.CuentaRef ||
 		identidad.estado.cuenta.CuentaOrdinariaID != "cuenta-tecnica" || !auditoria.CuentaPrivilegiada() {
-		t.Fatalf("cuentas no canonicalizadas: %#v %#v %v", principal, auditoria, err)
+		t.Fatalf("cuentas no canonicalizadas: %#v %#v %v", cuenta, auditoria, err)
 	}
 	registro.inactivar("cuenta-tecnica")
-	if _, _, err := servicio.ProyectarPrincipal(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
+	if _, _, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad); !errors.Is(err, ErrSesionNoValida) {
 		t.Fatalf("la cuenta ordinaria inactiva debe revocar la privilegiada: %v", err)
 	}
 

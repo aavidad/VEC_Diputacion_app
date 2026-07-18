@@ -570,36 +570,39 @@ func (s *ServicioIdentidad) Resolver(ctx context.Context, credencial CredencialP
 	}, nil
 }
 
-// ProyectarPrincipal es la unica conversion al principal del nucleo. Revalida
-// politica, vigencia, version de garantia, sesion y cuenta activa.
-func (s *ServicioIdentidad) ProyectarPrincipal(
+// ProyectarCuentaAutenticada entrega exclusivamente la referencia opaca de la
+// cuenta confirmada por el registro durable y la garantia autenticada. Revalida
+// politica, vigencia, version de garantia, sesion y cuenta activa. La persona
+// canonica que actuara como principal se resuelve despues, fuera de esta
+// frontera, y nunca se deriva de CuentaID ni de SujetoID del IdP.
+func (s *ServicioIdentidad) ProyectarCuentaAutenticada(
 	ctx context.Context,
 	identidad IdentidadSesion,
-) (dominiovec.Principal, ContextoAuditoriaAutenticada, error) {
+) (dominiovec.CuentaAutenticadaContextoActor, ContextoAuditoriaAutenticada, error) {
 	if s == nil || s.evaluadorGarantia == nil || s.registroSesiones == nil || s.reloj == nil ||
 		identidad.servicio != s ||
 		identidad.instanciaRef != s.instanciaRef || identidad.huellaConfiguracion != s.huellaConfiguracion {
-		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
 	if err := validarContexto(ctx); err != nil {
-		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, err
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, err
 	}
 	ahora := s.reloj.Ahora()
 	if ahora.IsZero() || validarEstadoSesion(identidad.estado, s.configuracion, ahora) != nil {
-		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
 	alta := altaSesion(identidad.estado)
 	if validarConfirmacionAltaSesion(identidad.confirmacion, alta) != nil {
-		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
 	resultado, err := s.evaluarGarantia(ctx, identidad.estado)
 	if err != nil || resultado.Garantia != identidad.estado.garantia ||
 		resultado.PoliticaRef != identidad.estado.politicaGarantiaRef ||
 		resultado.HuellaPolitica != identidad.estado.huellaPolitica {
-		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
 	if err := ctx.Err(); err != nil {
-		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, err
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, err
 	}
 	consulta := ConsultaSesionActiva{
 		AutenticacionRef:             identidad.confirmacion.AutenticacionRef,
@@ -625,33 +628,33 @@ func (s *ServicioIdentidad) ProyectarPrincipal(
 	}
 	if err := s.registroSesiones.ComprobarSesionYCuentaActivas(ctx, consulta); err != nil {
 		if ctx.Err() != nil {
-			return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ctx.Err()
+			return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ctx.Err()
 		}
-		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
 	if err := ctx.Err(); err != nil {
-		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, err
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, err
 	}
 	metodo, valido := metodoAutenticacionDominio(identidad.estado.metodoPrimario)
 	if !valido || metodo != identidad.estado.metodoObservado {
-		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
-	principal := dominiovec.Principal{
-		ID:            identidad.estado.cuenta.ID,
-		AuthMethod:    metodo,
-		AuthAssurance: identidad.estado.garantia,
+	cuenta := dominiovec.CuentaAutenticadaContextoActor{
+		CuentaRef: identidad.confirmacion.CuentaRef,
+		Metodo:    metodo,
+		Garantia:  identidad.estado.garantia,
 	}
-	if err := principal.Validate(); err != nil {
-		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+	if err := cuenta.Validar(); err != nil {
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
 	ahoraFinal := s.reloj.Ahora()
 	if ahoraFinal.IsZero() || ahoraFinal.Before(identidad.confirmacion.SesionRevalidadaEn) ||
 		validarEstadoSesion(identidad.estado, s.configuracion, ahoraFinal) != nil ||
 		!ahoraFinal.Before(identidad.estado.expiraEn) ||
 		!ahoraFinal.Before(identidad.confirmacion.SesionValidaHasta) {
-		return dominiovec.Principal{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
+		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
-	return principal, nuevoContextoAuditoria(identidad.estado, identidad.confirmacion, s.huellaConfiguracion), nil
+	return cuenta, nuevoContextoAuditoria(identidad.estado, identidad.confirmacion, s.huellaConfiguracion), nil
 }
 
 func validarContexto(ctx context.Context) error {

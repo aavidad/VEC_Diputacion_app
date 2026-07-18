@@ -27,7 +27,7 @@ func TestDatosDurablesNoFiltranNiCreanCapacidadSerializable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolver: %v", err)
 	}
-	_, contextoAuditoria, err := servicio.ProyectarPrincipal(context.Background(), identidad)
+	_, contextoAuditoria, err := servicio.ProyectarCuentaAutenticada(context.Background(), identidad)
 	if err != nil {
 		t.Fatalf("proyectar: %v", err)
 	}
