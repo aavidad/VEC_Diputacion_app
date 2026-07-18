@@ -39,9 +39,9 @@ entrega.
 | Carril | Trabajo actual | Puede avanzar sin bloquear al resto | Siguiente entrega |
 | --- | --- | --- | --- |
 | 1. Camino crítico | Adaptador Go→PostgreSQL y verificación poscommit | Sí; consume los contratos y funciones SQL ya revisados | Recorrido A/B real, reinicio y recibo verificado desde Go. |
-| 2. Datos heredados | Importador de Convoca | Sí, con hojas sintéticas y sin cargar datos personales reales | Reconocer los dos formatos, validar en staging y emitir acta idempotente. |
+| 2. Datos heredados | Importador de Convoca | Sí, exclusivamente con hojas sintéticas | Endurecer el parser XLS, las invariantes y la huella antes de PostgreSQL. |
 | 3. Calidad y seguridad | Supervisión independiente de cada entrega | Sí; el revisor no modifica el código revisado | GO o defectos reproducibles antes de cada commit. |
-| 4. Orquestación ampliada | Ensayo aislado de Orquesta antigua | Sí; no escribe en el árbol principal | Confirmar si acelera con hogares y árboles separados sin aumentar defectos. |
+| 4. Orquestación ampliada | Ensayo de Orquesta antigua cerrado en `NO-GO` | No se amplía; la entrega rechazada quedó fuera del árbol principal | Corregir Convoca con agentes directos y repetir las puertas independientes. |
 | 5. Dirección e integración | Tablero, pruebas globales y commits acotados | Sí | Integrar solo entregas revisadas y mantener una única verdad. |
 
 **Siguiente carril que se abrirá al quedar uno libre:** durabilidad probatoria y
@@ -89,7 +89,7 @@ la sigla.
 | Roles, permisos y autorización por operación | ✅ | ❌ en Bolsa | 🟡 Piezas aisladas | ❌ | ❌ | ❌ |
 | Auditoría, recibos y registro de accesos | ✅ | ❌ completo | 🟡 Piezas aisladas | 🧪 Cronología | ❌ | ❌ |
 | Catálogos, configuración y plazos administrables | 🟡 Parcial | 🧪 Consulta | 🧪 Consulta | 🧪 Parcial | ❌ | ❌ |
-| Importación de datos de Convoca | 🚧 En desarrollo | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Importación de datos de Convoca | 🟡 Base sintética; auditoría `NO-GO` | ❌ | ❌ | ❌ | ❌ | ❌ |
 | API pública | ✅ | 🧪 DEMO | 🧪 DEMO | ✅ DEMO | ❌ | ❌ |
 | API interna completa | 🟡 Parcial | ❌ | ❌ | ❌ | ❌ | ❌ |
 | CLI, MCP y acceso gobernado para IA | 🟡 Contratos | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -107,7 +107,7 @@ contradicción.
 | --- | --- | --- | --- |
 | 1 | Crear y editar convocatorias reales | 🚧 **Ahora** | RRHH puede crear, listar, abrir y modificar un borrador desde la web; persiste tras reinicio y deja autorización, cifrado, auditoría y recibo. |
 | 2 | Poder usar datos reales en un piloto seguro | ⬜ Después | Toda prueba y acceso queda durable; se registra quién accede, para qué y cuándo. |
-| 3 | Importar la información existente de Convoca | 🚧 **En paralelo**, sin datos reales | Importación repetible, validada, con incidencias, procedencia y sin duplicados. |
+| 3 | Importar la información existente de Convoca | 🚧 **Corrección de seguridad**, sin datos reales | Parser aislado y estricto, importación repetible, validada, con incidencias, procedencia y sin duplicados. |
 | 4 | Gestionar bases, reglas, puntuaciones y publicación | ⬜ Pendiente | RRHH configura las bases sin programar; se calculan puntuaciones y se publican actos aprobados y firmados. |
 | 5 | Completar el expediente del aspirante | ⬜ Pendiente | Perfil, documentos, solicitud, autobaremación, registro, subsanación y alegaciones funcionan juntos. |
 | 6 | Completar revisión técnica, listas y llamamientos | ⬜ Pendiente | RRHH revisa, firma, rectifica, genera listas y realiza llamamientos trazables. |
@@ -128,6 +128,7 @@ Cada cierre debe actualizar, en este orden:
 
 | Fecha | Cambio |
 | --- | --- |
+| 18/07/2026 | Piloto de Orquesta para Convoca cerrado en `NO-GO`: un proceso, cero revisiones y código no compilable. La auditoría bloquea datos reales hasta endurecer parser XLS, huella e invariantes. |
 | 18/07/2026 | PostgreSQL/KMS y HMAC rotatorio obtienen `GO` independiente; comienza el recorrido durable Go→PostgreSQL y el ensayo aislado de Orquesta. |
 | 18/07/2026 | Creación del tablero único; separación entre código probado, integración, E2E técnico, prueba manual, aceptación RRHH y producción. |
 
