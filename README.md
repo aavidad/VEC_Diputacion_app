@@ -52,6 +52,14 @@ Probado:
   rectificacion mediante version sucesora y cierre conservan flujo, bases,
   catalogos, autorizacion, motivo e idempotencia exactos. Todavia no existe la
   pantalla administrativa ni el repositorio productivo que completen el flujo.
+- Contrato V2 de motivo para esas convocatorias: un compromiso HMAC no
+  consumible fija accion, version, actor, motivo y correlacion antes del PDP;
+  la atestacion durable solo puede nacer tras una concesion exacta. El material,
+  la atestacion y la reconciliacion no conservan el motivo ni su SHA semantico
+  crudo, y los valores efimeros fallan cerrados ante los formatos de
+  serializacion probados. Es un
+  GO tecnico del contrato, no un flujo RRHH operativo: diario durable,
+  PostgreSQL, recuperacion y fuentes autoritativas siguen pendientes.
 - Contrato reservado para un futuro espacio de trabajo interno. Su endpoint
   permanece cerrado (`503`) hasta resolver en servidor persona, relacion,
   ambito, finalidad y campos exactos; el antiguo agregado sintetico fue

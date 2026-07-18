@@ -114,8 +114,11 @@ adapters  ->  application  ->  ports  ->  domain
   puertos y aplican autorizacion por caso de uso.
 - `adapters`: implementaciones concretas (HTTP, memoria, PostgreSQL, S3,
   PDF/DOCX, criptografia). Solo aqui hay infraestructura real.
-- `cmd/vec-server` y `config` componen todo: es el unico punto de arranque
-  soportado.
+- `cmd/vec-publico` compone solo la superficie anonima de Bolsa;
+  `cmd/vec-server` conserva la composicion integrada de desarrollo, y los
+  demas ejecutables de `cmd/` mantienen una finalidad aislada. `config` valida
+  la configuracion comun. Ninguna raiz obtiene por ello autorizacion para
+  exponer superficies que no figuren en su lista positiva.
 
 Convenciones transversales del codigo:
 

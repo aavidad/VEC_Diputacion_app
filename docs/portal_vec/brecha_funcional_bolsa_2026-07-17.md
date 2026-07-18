@@ -270,10 +270,10 @@ como prueba E2E legal.
    esa autoridad de identidad.
 2. **Escritura durable de convocatorias**: el dominio y los puertos existen,
    pero no el servicio de aplicación ni el adaptador PostgreSQL que confirmen
-   altas, cambios y publicación. Además, el contrato actual obliga a sellar de
-   forma durable el motivo antes de poder construir el recurso exacto que debe
-   autorizar el PDP; la implementación permanece en `NO-GO` hasta separar un
-   precompromiso sin efectos del sellado consumible.
+   altas, cambios y publicación. El contrato V2 ya separa el compromiso HMAC
+   no consumible del sellado durable posterior al PDP, pero faltan el diario de
+   recuperación, el confirmador transaccional y las fuentes autoritativas de
+   aprobación y dependencias. Por ello la composición sigue en `NO-GO`.
 3. **Gobierno ejecutable del baremo**: faltan el adaptador Go y las fuentes
    autoritativas que permitan usar las reglas versionadas y el cálculo oficial
    sin riesgos de incoherencia o TOCTOU.
@@ -302,60 +302,64 @@ presentación por el expediente real de convocatoria, desde el borrador hasta su
 proyección pública. Debe construirse de dentro hacia fuera y permanecer sin
 rutas internas de escritura registradas mientras falte identidad segura.
 
-### Precondición de seguridad: romper el ciclo sellado–autorización
+### Estado de seguridad del ciclo sellado–autorización
 
-El servicio de escritura no puede implementarse todavía sobre los contratos
-actuales sin introducir un efecto durable previo a la autorización. La
-secuencia exigida hoy es:
+El contrato V2 implantado en `5d9fa80` ya elimina el efecto durable del sellado
+de motivo previo a la autorización. El corte entre lo implantado y lo aún
+decidido es:
 
 ```text
-versión canónica
-  → sellado durable del motivo y creación de TokenConsumoRef
-  → material exacto de alta
-  → recurso e intención autorizables
-  → PDP
-  → repositorio
+versión canónica y motivo local
+  → compromiso HMAC determinista no durable
+  → material V2 exacto, sin motivo ni SHA semántico crudo
+  → solicitud de concesión PDP exacta
+  [contratos y pruebas implantados]
+  → concesión PDP exacta
+  → reserva durable por CAS
+  → atestación HSM consumible
+  → confirmación transaccional
+  [diario, adaptadores y composición pendientes]
 ```
 
-El material de alta exige la atestación del sellador y el recurso del PDP exige
-la huella de ese material. Por ello, ni el material ni la autorización exacta
-pueden obtenerse sin crear antes una capacidad durable. Mover ese sellado al
-cliente, usar una huella provisional o autorizar solo la versión trasladaría o
-debilitaría el problema; no es una solución aceptable.
+Acción, versión, motivo aplicable, actor y correlación forman una única preimagen
+canónica. El contrato del futuro adaptador solo permite enviar al HSM/KMS
+dominio y huella; al material durable solo la representación HMAC con clave. La
+huella semántica cruda no aparece en el material, la atestación final ni la
+reconciliación, y los valores efímeros fallan cerrados ante JSON, XML, Gob,
+texto, binario, CBOR y YAML. El esquema de intención V1 se rechaza sin
+reinterpretación; el dominio criptográfico del motivo conserva su propia
+versión nominal V1. El motivo administrativo sí permanece en el expediente
+gobernado y sujeto a sus permisos; no se replica en el material HMAC.
 
-La revisión también ha detectado que los constructores actuales incorporan la
-huella de la versión y el HMAC del motivo, pero no prueban que ese HMAC
-corresponda al motivo de creación, modificación, publicación o retirada
-registrado en esa misma versión, ni que el principal del sellado sea el actor
-atribuido a la transición. El nuevo contrato debe ligar explícitamente acción,
-versión, motivo aplicable, actor, correlación y precompromiso; no basta con que
-cada pieza sea válida por separado.
+El contrato ha superado pruebas normales, de carrera, manipulación, formatos
+de serialización reales y vectores de referencia. Esto es un GO técnico del
+vínculo de motivo, no un GO productivo: aún no existe el diario durable ni una
+transacción que una reserva, decisión, sellado, CAS de negocio, auditoría,
+bandeja transaccional y recibo en un solo commit.
 
-Antes del servicio de aplicación se debe introducir un compromiso HMAC
-determinista, no consumible y sin token ni estado durable. Ese compromiso forma
-parte del material exacto que autoriza el PDP. Solo después de una concesión se
-materializa la atestación durable, ligada al mismo compromiso, intención,
-decisión, principal y correlación; esa fase no puede alterar el recurso ya
-autorizado. La decisión y los tokens se releen y consumen atómicamente con
-idempotencia, auditoría, outbox y mutación. Una denegación o fallo del PDP debe
-producir cero sellados durables y cero escrituras.
+La secuencia decidida consulta el localizador y la huella HMAC de
+idempotencia antes del PDP, pero solo reserva después de la concesión. Una
+denegación deja cero reservas de negocio y cero sellados. Una respuesta perdida
+se recuperará desde el diario antes de repetir PDP/HSM; entregar el recibo o
+datos actuales exigirá una autorización nueva de lectura.
 
-Si el HSM/KMS elegido no puede calcular el compromiso sin crear previamente un
-registro o token consumible, se aplicará como alternativa una autorización
-preliminar específica y una segunda autorización exacta. Esa opción exige más
-recibos, consumos y reconciliación de huérfanos, por lo que no es la opción de
-serie.
+Publicar y retirar tienen además otra barrera: aprobación firmada y
+dependencias deben ser hechos autoritativos, inmutables y versionados que ya
+existan antes del PDP y se relean localmente durante el commit. Las
+atestaciones reconstruibles actuales no levantan esa barrera.
 
 ### Trabajo propuesto
 
-1. Separar en los contratos de motivo el compromiso HMAC no consumible de la
-   atestación durable y probar que una denegación PDP no produce efectos.
+1. Implantar el diario durable posterior al PDP, el cercado, la recuperación de recibo
+   y el confirmador que incluya efecto y diario en un único `COMMIT`.
 2. Crear el servicio de aplicación para alta, actualización y versionado de
    borradores reutilizando `internal/modules/bolsa/domain/convocatoria_gobernada*`
    y `internal/modules/bolsa/ports/convocatorias_gobierno_*`.
-3. Implementar el adaptador PostgreSQL de gobierno con transacción
-   `SERIALIZABLE`, CAS, idempotencia, auditoría y outbox. La función de escritura
-   debe permanecer sin privilegios runtime hasta abrir la autoridad productiva.
+3. Migrar aprobación y dependencias a hechos autoritativos preexistentes e
+   implementar el adaptador PostgreSQL de gobierno con transacción
+   `SERIALIZABLE`, CAS, idempotencia, auditoría y bandeja transaccional. La
+   función de escritura debe permanecer sin privilegios de ejecución hasta
+   abrir la autoridad productiva.
 4. Completar el adaptador Go de reglas de baremo y el simulador de experiencia;
    la convocatoria fijará siempre referencia, versión y huella exactas, nunca
    «la última versión».
@@ -374,8 +378,9 @@ Archivos propuestos —todavía no existentes— para concentrar el corte sin
 mezclar responsabilidades:
 
 ```text
-internal/modules/bolsa/application/convocatorias_gobierno.go
-internal/modules/bolsa/application/convocatorias_gobierno_test.go
+internal/modules/bolsa/application/gobiernoconvocatorias/diario.go
+internal/modules/bolsa/application/gobiernoconvocatorias/servicio.go
+internal/modules/bolsa/application/gobiernoconvocatorias/reconciliacion.go
 internal/modules/bolsa/adapters/postgres/convocatorias_gobierno.go
 internal/modules/bolsa/adapters/postgres/convocatorias_gobierno_test.go
 internal/modules/bolsa/adapters/postgres/convocatorias_publicas.go

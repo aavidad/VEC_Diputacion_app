@@ -176,13 +176,13 @@ selección, búsqueda por nombre o búsqueda por documento. El servidor propondr
 y revalidará las personas elegibles con la versión exacta de bolsa y reglas,
 autorización vigente y trazabilidad atómica.
 
-## Cobertura funcional real a 17 de julio de 2026
+## Cobertura funcional real a 18 de julio de 2026
 
 | Área | Estado comprobado | No se debe afirmar todavía |
 | --- | --- | --- |
 | Consulta pública de convocatorias y categorías | Operativa extremo a extremo con fuente sintética y aviso DEMO en `/bolsa/` | Publicación oficial desde un expediente interno |
 | Portal del Empleado antiguo | Carcasa, perfiles, menús y numerosas vistas reutilizables | Portal privado estable: `/api/vec/workspace` falla cerrado sin ámbito resuelto |
-| Elaboración de bolsa histórica | Formulario visual heredado; dominio nuevo de convocatoria gobernada con organización/unidad inmutables, huellas canónicas y autorización ligada a la versión confirmada | Resolvedor autoritativo de ámbito desde expediente, persistencia, API, firma y publicación oficiales |
+| Elaboración de bolsa histórica | Formulario visual heredado; dominio de convocatoria gobernada y contrato HMAC V2 probado, sin sellado durable previo al PDP ni huella semántica cruda durable | Resolvedor autoritativo de ámbito, diario de recuperación, persistencia, API, firma, dependencias y publicación oficiales |
 | Panel interno de Bolsa | Dominio, servicio de aplicación, contrato agregado sin datos personales, consulta PostgreSQL y pruebas de integración | Endpoint compuesto, identidad interna real, autoridad COSE de ejecución y productor de la proyección |
 | Llamamientos | Dominio y caso de uso probados; el comando transporta la instantánea completa y un adaptador genera referencias opacas con 256 bits de aleatoriedad criptográfica; el esquema PostgreSQL V1 conserva auditoría y outbox | El adaptador PostgreSQL permanece cerrado hasta disponer de contrato SQL atómico V2, fuente autoritativa, motor publicado, autoridad COSE de efecto, API y confirmación/envío real |
 | Integrantes/candidatos | Flujo propio del aspirante en API `fake`; datos de catálogo disponibles | Listado administrativo productivo y orden durable de bolsa |

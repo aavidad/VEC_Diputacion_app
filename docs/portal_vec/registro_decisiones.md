@@ -3106,35 +3106,54 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 ## DEC-089 — Compromiso HMAC previo al gobierno de convocatorias
 
 - Fecha: 2026-07-18.
-- Estado: diseño decidido; parche de vínculo entre actor y motivo en curso;
-  rediseño contractual y adaptador durable en **NO-GO productivo**. No existe
+- Estado: contrato V2 implantado y probado en `5d9fa80`; adaptador durable,
+  diario de recuperación y composición productiva en **NO-GO**. No existe
   todavía un servicio de escritura ni una ruta mutante que pueda exponerse.
-- Hallazgo de secuencia: el contrato actual exige obtener primero un sellado
+- Hallazgo de secuencia: el contrato sustituido exigía obtener primero un sellado
   durable del motivo, incluido `TokenConsumoRef`, para construir el material
   exacto de alta o transición. Como la intención y el recurso del PDP dependen
   de la huella de ese material, se crea una capacidad durable antes de saber si
   la operación está autorizada. La secuencia sellado durable → material → PDP
   no es admisible para producción.
-- Hallazgo de vínculo: validar por separado la huella de la versión y el HMAC
-  del motivo no demuestra que el motivo sellado sea el aplicable a esa acción
+- Hallazgo de vínculo: el diseño sustituido validaba por separado la huella de
+  la versión y el HMAC del motivo. Eso no demuestra que el motivo sellado sea
+  el aplicable a esa acción
   y esa misma versión, ni que el principal del sellado sea el actor atribuido a
   la transición. Acción, versión, motivo, actor y correlación deben quedar
   ligados en una única preimagen canónica.
-- Decisión: el HSM/KMS calculará primero un compromiso HMAC determinista,
-  separado por dominio, no consumible y sin crear token ni estado durable. El
-  compromiso no concede autoridad: únicamente fija la intención exacta que se
-  presentará al PDP.
-- Secuencia ordinaria: construir la versión candidata; fijar la huella
+- Decisión implantada en el contrato: el puerto exige que el futuro adaptador
+  HSM/KMS calcule primero un compromiso HMAC determinista, separado por dominio,
+  no consumible y sin crear token ni estado durable. El compromiso no concede
+  autoridad: únicamente fija la intención exacta que se presentará al PDP.
+- Secuencia ordinaria: construir la versión candidata; fijar localmente la huella
   semántica con acción, referencia de versión, motivo aplicable, actor y
-  correlación; calcular el compromiso HMAC; formar con ese compromiso y con el
-  estado y las huellas exactas de la versión el material y recurso autorizables;
-  obtener una única autorización exacta; y, solo tras la concesión, proteger la
-  idempotencia y materializar la atestación durable ligada al mismo compromiso,
-  intención, decisión, actor, motivo y correlación. La materialización no podrá
-  cambiar ningún atributo del recurso ya autorizado.
-- Confirmación: el adaptador durable deberá releer la decisión y las
-  atestaciones vigentes y consumir sus capacidades en la misma confirmación
-  gobernada que aplique CAS, mutación, auditoría y outbox. La reserva de
+  correlación; enviar al HSM/KMS únicamente dominio y huella; calcular el
+  compromiso HMAC; formar con este y con el estado exacto de la versión el
+  material V2 y el recurso autorizable; obtener una autorización exacta;
+  reservar por CAS la operación idempotente; y, solo después de ganar esa
+  reserva, materializar la atestación durable ligada al mismo compromiso,
+  intención, decisión, actor, idempotencia y correlación. La materialización no
+  puede cambiar ningún atributo del recurso autorizado. La reserva y el
+  adaptador HSM/KMS siguen pendientes según DEC-090.
+- Minimización V2: `bolsa.convocatoria.intencion.v2` no conserva el motivo ni
+  su SHA-256 semántico sin clave. La proyección HMAC durable contiene solo
+  dominio, generación, referencia de clave y MAC. La atestación final y su
+  huella de reconciliación tampoco contienen la huella de entrada. El esquema
+  de intención V1 se rechaza expresamente y no se reinterpreta; esto no cambia
+  el nombre versionado del dominio criptográfico del motivo.
+- Frontera de serialización: la solicitud semántica local y las huellas crudas
+  usadas para comprometer el motivo permanecen en valores efímeros que fallan
+  cerrados ante JSON, XML, Gob, texto, binario, CBOR y YAML y se redactan al
+  formatear o registrar. El motivo administrativo continúa formando parte del
+  expediente gobernado con sus controles de acceso; no se replica en el
+  material HMAC durable. Las pruebas incluyen formatos de serialización reales,
+  `BinaryMarshalerNone`, vectores de referencia V2, manipulaciones y
+  comparaciones constantes.
+- Confirmación: el adaptador durable deberá releer la decisión, el sellado de
+  motivo y los hechos autoritativos vigentes; consumirá únicamente la decisión
+  y el sellado en la misma confirmación gobernada que aplique CAS, mutación,
+  auditoría y bandeja transaccional. Aprobación y dependencias se registran
+  como usos, no como consumos. La reserva de
   idempotencia y los recibos deberán permitir recuperar el resultado sin
   repetir la autorización, el sellado ni el efecto.
 - Invariantes: una denegación o fallo del PDP produce cero sellados durables y
@@ -3143,6 +3162,11 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   autoriza el efecto; el motivo en claro no aparece en autorización,
   idempotencia, auditoría técnica ni trazas; y ninguna reconstrucción desde el
   cliente puede aportar o sustituir estos vínculos.
+- Clasificación: las huellas del estado completo siguen siendo datos
+  pseudonimizados, no anónimos. Permanecerán en superficies internas cifradas,
+  con mínimo privilegio, acceso y exportación auditados, retención definida y
+  sin exposición en API pública, registros ni métricas. Este tratamiento debe
+  quedar incluido en el análisis de riesgos y la EIPD.
 - Caídas y huérfanos: un fallo anterior a la materialización deja como máximo
   una decisión sin efecto, nunca un token de sellado. Una caída después de
   materializar y antes de confirmar puede dejar una atestación huérfana, que
@@ -3153,9 +3177,74 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 - Alternativa condicionada: solo si el HSM/KMS seleccionado no admite calcular
   una MAC sin crear estado consumible se usará una autorización preliminar
   específica para crear el sellado y, después, una segunda autorización sobre
-  el material exacto. Este fallback deberá consumir y reconciliar ambas
+  el material exacto. Esta alternativa deberá consumir y reconciliar ambas
   decisiones y sus posibles huérfanos; no es la arquitectura de serie.
-- Barrera: no se implementarán ni montarán escrituras de convocatoria hasta
-  cerrar el contrato no consumible, el vínculo actor/motivo, el protocolo de
-  recuperación y las pruebas durables de denegación, caída, reintento,
-  concurrencia y consumo único. Un doble de memoria no levanta este **NO-GO**.
+- Barrera residual: el contrato no consumible y el vínculo actor/motivo ya
+  están cerrados. No se montarán escrituras hasta implantar el diario durable,
+  el adaptador transaccional y las pruebas reales de denegación, caída,
+  reintento, concurrencia, recuperación y consumo único. Un doble de memoria
+  no levanta este **NO-GO**.
+
+## DEC-090 — Idempotencia y diario durable después de la concesión PDP
+
+- Fecha: 2026-07-18.
+- Estado: secuencia decidida; contratos de aplicación y PostgreSQL en
+  **NO-GO productivo** hasta su implantación y prueba concurrente.
+- Decisión: la consulta de idempotencia se realiza antes del PDP, pero la
+  reserva durable solo se crea después de una concesión exacta. Una identidad
+  autenticada pero no autorizada no puede llenar el almacén de operaciones y
+  una denegación deja cero reservas de negocio, cero sellados y cero mutaciones.
+- Localización: el cliente genera 32 bytes con un generador criptográficamente
+  seguro (CSPRNG). El servidor deriva un
+  localizador HMAC estable `L` sobre organización, módulo, principal operativo
+  y clave cliente, y una huella HMAC `F` de la orden semántica canónica.
+  No se persisten la clave cliente, el principal bruto, el motivo ni el cuerpo
+  recibido. La forma canónica es base64url sin relleno; la entropía no se
+  pretende deducir observando una sola muestra.
+- Secuencia: autenticar y resolver el principal; convertir la orden a su forma
+  canónica; derivar `L/F`
+  sin persistir; consultar el diario; recuperar o esperar si coincide `L/F`,
+  rechazar de forma uniforme si el mismo `L` tiene otro `F`, y solo si no
+  existe construir la intención y solicitar el PDP. Tras la concesión, un CAS
+  único reserva `L/F`, intención, decisión y cercado. El ganador continúa al
+  HSM y los perdedores cancelan o dejan expirar sus decisiones sin llegar al
+  efecto.
+- Confirmación: decisión, idempotencia, cercado, atestaciones, CAS de negocio,
+  auditoría, bandeja transaccional, recibo y estado confirmado se escriben en un único
+  `COMMIT`. Separar el efecto y el diario en dos transacciones queda prohibido.
+- Recuperación: una respuesta perdida se resuelve consultando el diario antes
+  de repetir PDP o HSM. El recibo se valida como evidencia histórica sin exigir
+  que la decisión mutante consumida siga vigente. Su entrega o la lectura de
+  datos actuales exige una autorización nueva de lectura/recuperación.
+- Estados mínimos: reservada, decisión vinculada, confirmación iniciada,
+  indeterminada, confirmada y no aplicada. Cada transición usa revisión CAS,
+  arrendamiento y cercado; un trabajador con cercado antiguo no puede confirmar
+  aunque termine una llamada externa.
+- Barrera: faltan contrato nominal de diario, reconciliador, confirmador
+  transaccional, rotación de claves, tumbas de idempotencia y pruebas de cien
+  carreras, reinicio y fallo en cada frontera. Hasta entonces no hay ruta de
+  escritura productiva.
+
+## DEC-091 — Aprobación y dependencias como hechos autoritativos preexistentes
+
+- Fecha: 2026-07-18.
+- Estado: decisión de arquitectura; migración contractual y persistencia en
+  **NO-GO**, por lo que publicar y retirar siguen cerrados.
+- Decisión: la aprobación firmada y la verificación de dependencias son hechos
+  autoritativos, inmutables, versionados y no consumibles que deben existir
+  antes de construir el material y consultar el PDP. No pueden fabricarse como
+  atestaciones reconstruibles ni obtener una capacidad nueva después de la
+  autorización de la mutación.
+- Lectura y revalidación: puertos nominales y separados obtendrán una
+  `AprobacionFirmadaConvocatoria` y una
+  `PruebaAutoritativaDependenciasConvocatoria` desde una proyección local de la
+  misma base o perímetro de confianza. El `COMMIT SERIALIZABLE` releerá versión,
+  firma, custodia, vigencia y revocación sin depender de una llamada remota.
+- Evidencia: el recibo registra el uso exacto de esos hechos y sus huellas; no
+  registra su «consumo», porque pueden acreditar de forma legítima más de una
+  comprobación del mismo expediente. Las sustituciones o revocaciones crean
+  otra versión y conservan la historia.
+- Barrera: los contratos reconstructibles actuales son útiles como pruebas de
+  forma, pero no autoridad productiva. Publicación y retirada no se abrirán
+  hasta disponer de registradores confiables, verificación de firma/custodia,
+  revalidación transaccional y pruebas de sustitución y revocación concurrentes.

@@ -2,7 +2,7 @@
 
 ## Estado del corte
 
-Fecha de referencia: 16 de julio de 2026.
+Fecha de referencia: 18 de julio de 2026.
 
 El dominio de este documento está implementado en
 `internal/modules/bolsa/domain` desde el commit `dde04bd` y fue endurecido tras
@@ -83,8 +83,11 @@ del contenido. La versión fija:
 Antes de publicar, un verificador de dependencias debe demostrar que todas las
 referencias existen, están publicadas, pertenecen al módulo y tipo correctos y
 coinciden con sus huellas. Su evidencia queda vinculada a la huella semántica
-de la convocatoria. La comprobación tiene una vigencia corta y se repetirá
-dentro de la transacción durable.
+de la convocatoria. En producción no será una atestación reconstruida durante
+la orden: será un hecho autoritativo, inmutable y versionado, existente antes
+de construir el material autorizable. Una proyección local de la misma base o
+perímetro de confianza se releerá dentro de la transacción durable para evitar
+una dependencia remota y una ventana TOCTOU.
 
 Mientras catálogos, reglas y flujos no dispongan de persistencia durable o de
 un paquete canónico autocontenido, se permiten borradores, pero no publicación
@@ -155,10 +158,15 @@ no puede sustituirse por una instancia gemela sin cambiar la evidencia.
 
 Los bytes no se obtienen serializando directamente el agregado mutable. Dos DTO
 cerrados declaran los esquemas
-`bolsa.version-convocatoria.contenido.v2` y
-`bolsa.version-convocatoria.estado.v1`; sus vectores SHA-256 quedan fijados por
+`bolsa.version-convocatoria.contenido.v3` y
+`bolsa.version-convocatoria.estado.v2`; sus vectores SHA-256 quedan fijados por
 pruebas golden. Una futura modificación del contrato deberá publicar otro
 esquema y conservar el lector histórico del anterior.
+
+Las huellas del estado completo son datos pseudonimizados, no anónimos. No se
+publicarán ni se enviarán a registros o métricas; su persistencia y exportación
+requieren cifrado, mínimo privilegio, auditoría y retención vinculada al
+expediente.
 
 ## Persistencia prevista
 
@@ -169,7 +177,8 @@ Oracle u otro conector. El esquema `vec_bolsa` debe ofrecer:
 - puntero actual con CAS;
 - índice de publicación activa;
 - idempotencia semántica estable;
-- consumo único de la decisión autorizativa;
+- consumo único de la decisión autorizativa y del sellado de motivo;
+- uso trazado, no consumo, de la aprobación y dependencias autoritativas;
 - revalidación de sesión, perfil, rol y políticas dentro de la transacción;
 - auditoría encadenada;
 - bandeja transaccional de eventos;
@@ -216,9 +225,9 @@ referencia exacta + revisión de dominio + número de estado + huella completa
 
 La publicación de una sucesora bloqueará la cadena y ambas versiones en orden
 determinista. La nueva versión publicada, la predecesora sustituida, el puntero
-de publicación activa, los consumos de autorización y verificaciones, la
-auditoría, la bandeja de eventos y el resultado idempotente se confirmarán en
-un único `COMMIT`.
+de publicación activa, los consumos de autorización y sellado, los usos de
+aprobación y dependencias, la auditoría, la bandeja de eventos, el recibo y el
+estado del diario idempotente se confirmarán en un único `COMMIT`.
 
 ### Secuencia de migraciones
 
@@ -227,7 +236,7 @@ La implantación se dividirá para mantener una superficie verificable:
 1. roles sin inicio de sesión y cierre de privilegios predeterminados;
 2. revalidación nominal de decisiones en `vec_autorizacion`;
 3. estados, punteros, cadena de versiones y publicación activa;
-4. atestaciones, consumos e idempotencia semántica;
+4. hechos autoritativos, sellado, consumos y diario idempotente;
 5. operaciones de gobierno mediante fachadas separadas;
 6. proyección pública minimizada y rol lector exclusivo;
 7. entrega durable de la bandeja de eventos.
@@ -265,8 +274,8 @@ saltos sobre una instancia limpia y con sus roles efectivos.
 
 ## Siguiente secuencia de implantación
 
-1. Cerrar puertos y servicio de aplicación con órdenes opacas, autorización
-   previa, idempotencia y CAS.
+1. Implantar el diario durable posterior al PDP y migrar aprobación y dependencias a
+   hechos autoritativos preexistentes, con órdenes opacas, idempotencia y CAS.
 2. Implementar memoria únicamente como doble contractual de pruebas.
 3. Crear el esquema durable `vec_bolsa`, migraciones, roles y pruebas reales.
 4. Componer gestión interna sin exponerla en la superficie exterior.

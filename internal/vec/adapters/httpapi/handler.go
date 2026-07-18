@@ -44,8 +44,9 @@ type HandlerOptions struct {
 }
 
 // DemoIdentityResolver es el unico origen admitido para el modo fake. La
-// implementacion productiva de composicion resuelve un Bearer opaco contra un
-// fichero local y no consume identidad, roles ni garantia desde cabeceras.
+// implementacion local de demostracion resuelve un Bearer opaco contra un
+// fichero local y no consume identidad, roles ni garantia desde cabeceras. No
+// es una fuente de identidad productiva y solo puede habilitarse en loopback.
 type DemoIdentityResolver interface {
 	ResolveDemoIdentity(context.Context, *http.Request) (domain.Principal, error)
 }
