@@ -2,30 +2,27 @@ package ports
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
-	"sort"
 	"strings"
 	"time"
-	"unicode"
 
+	pagoscanonicos "vec-diputacion-granada/internal/vec/canonico/pagos"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
 var (
 	ErrPasarelaCobroNoDisponible          = errors.New("vec: pasarela de cobro no disponible")
-	ErrCapacidadPasarelaCobroNoDisponible = errors.New("vec: capacidad de pasarela de cobro no disponible")
-	ErrSolicitudOperacionCobroInvalida    = errors.New("vec: solicitud de operacion de cobro invalida")
-	ErrInicioOperacionCobroInvalido       = errors.New("vec: inicio de operacion de cobro invalido")
-	ErrReferenciaOperacionCobroInvalida   = errors.New("vec: referencia de operacion de cobro invalida")
-	ErrNotificacionCobroInvalida          = errors.New("vec: notificacion de cobro invalida")
-	ErrSolicitudDevolucionCobroInvalida   = errors.New("vec: solicitud de devolucion de cobro invalida")
-	ErrSolicitudConciliacionCobroInvalida = errors.New("vec: solicitud de conciliacion de cobro invalida")
-	ErrResultadoPasarelaCobroInvalido     = errors.New("vec: resultado de pasarela de cobro invalido")
+	ErrCapacidadPasarelaCobroNoDisponible = pagoscanonicos.ErrCapacidadPasarelaCobroNoDisponible
+	ErrSolicitudOperacionCobroInvalida    = pagoscanonicos.ErrSolicitudOperacionCobroInvalida
+	ErrInicioOperacionCobroInvalido       = pagoscanonicos.ErrInicioOperacionCobroInvalido
+	ErrReferenciaOperacionCobroInvalida   = pagoscanonicos.ErrReferenciaOperacionCobroInvalida
+	ErrNotificacionCobroInvalida          = pagoscanonicos.ErrNotificacionCobroInvalida
+	ErrSolicitudDevolucionCobroInvalida   = pagoscanonicos.ErrSolicitudDevolucionCobroInvalida
+	ErrSolicitudConciliacionCobroInvalida = pagoscanonicos.ErrSolicitudConciliacionCobroInvalida
+	ErrResultadoPasarelaCobroInvalido     = pagoscanonicos.ErrResultadoPasarelaCobroInvalido
 	ErrIdempotenciaCobroReutilizada       = errors.New("vec: idempotencia de cobro reutilizada con otros datos")
 	ErrResultadoPasarelaCobroConflictivo  = errors.New("vec: resultados de pasarela de cobro incompatibles")
 	ErrOrdenCobroNoEncontrada             = errors.New("vec: orden de cobro no encontrada")
@@ -36,7 +33,7 @@ var (
 	ErrReservaOrdenCobroCaducada          = errors.New("vec: reserva de orden de cobro caducada")
 	ErrControlAutorizacionCobroConflicto  = errors.New("vec: control autoritativo de autorizacion de cobro en conflicto")
 	ErrControlLiquidacionCobroConflicto   = errors.New("vec: control autoritativo de liquidacion en conflicto")
-	ErrMutacionOrdenCobroInvalida         = errors.New("vec: mutacion de orden de cobro invalida")
+	ErrMutacionOrdenCobroInvalida         = pagoscanonicos.ErrMutacionOrdenCobroInvalida
 	ErrNotificacionCobroYaConsumida       = errors.New("vec: notificacion de cobro ya consumida")
 	ErrNotificacionCobroCaducada          = errors.New("vec: notificacion de cobro caducada")
 )
@@ -95,290 +92,53 @@ func (r ReservaOrdenCobro) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, r.String())
 }
 
-type RegistroAuditoriaCobro struct {
-	ID                          string
-	ActorRef                    string
-	PerfilActivoRef             string
-	DecisionAutorizacionRef     string
-	HuellaDecisionSHA256        string
-	AutorizacionEmitidaEn       time.Time
-	AutorizacionValidaHasta     time.Time
-	AutorizacionEvaluadaEn      time.Time
-	AtestacionAutenticacionRef  string
-	AtestacionEmitidaEn         time.Time
-	AtestacionValidaHasta       time.Time
-	AutenticacionVerificadaEn   time.Time
-	SesionRef                   string
-	HuellaSesionHMAC            string
-	MetodoAutenticacion         domain.AuthMethod
-	GarantiaAutenticacion       domain.AuthAssurance
-	Accion                      domain.AccionCobro
-	Hecho                       domain.TipoHechoCobro
-	OrdenRef                    string
-	ExpedienteRef               string
-	VersionAnterior             int
-	VersionPosterior            int
-	HuellaAnteriorSHA256        string
-	HuellaPosteriorSHA256       string
-	EvidenciaRef                string
-	HuellaEvidenciaSHA256       string
-	VerificacionEvidenciaRef    string
-	HuellaVerificacionSHA256    string
-	MetodoVerificacionEvidencia domain.MetodoAutenticacionEvidenciaCobro
-	AudienciaEvidencia          string
-	EvidenciaEmitidaEn          time.Time
-	EvidenciaRecibidaEn         time.Time
-	EvidenciaVerificadaEn       time.Time
-	Resultado                   string
-	Motivo                      string
-	CorrelacionRef              string
-	OcurridoEn                  time.Time
-	Metadatos                   MetadatosAuditoriaCobro
-}
+type RegistroAuditoriaCobro = pagoscanonicos.RegistroAuditoriaCobro
 
-// CanalAuditoriaCobro es informativo y nunca concede acceso ni cambia una
-// decision. Se mantiene cerrado para evitar convertir metadatos libres en una
-// segunda politica de autorizacion accidental.
-type CanalAuditoriaCobro string
+type CanalAuditoriaCobro = pagoscanonicos.CanalAuditoriaCobro
 
 const (
-	CanalAuditoriaCobroInterno           CanalAuditoriaCobro = "interno"
-	CanalAuditoriaCobroPasarela          CanalAuditoriaCobro = "pasarela"
-	CanalAuditoriaCobroProcesoAutomatico CanalAuditoriaCobro = "proceso_automatico"
+	CanalAuditoriaCobroInterno           = pagoscanonicos.CanalAuditoriaCobroInterno
+	CanalAuditoriaCobroPasarela          = pagoscanonicos.CanalAuditoriaCobroPasarela
+	CanalAuditoriaCobroProcesoAutomatico = pagoscanonicos.CanalAuditoriaCobroProcesoAutomatico
 )
 
-type MetadatosAuditoriaCobro struct {
-	Canal CanalAuditoriaCobro
-}
-
-func (m MetadatosAuditoriaCobro) validar() error {
-	switch m.Canal {
-	case CanalAuditoriaCobroInterno, CanalAuditoriaCobroPasarela, CanalAuditoriaCobroProcesoAutomatico:
-		return nil
-	default:
-		return ErrMutacionOrdenCobroInvalida
-	}
-}
-
-func (r RegistroAuditoriaCobro) Validar() error {
-	canalEsperado, existeCanal := canalAuditoriaCobroParaHecho(r.Hecho, r.Accion)
-	if !idPersonaPuertoCobroValido(r.ActorRef) || !idPerfilPuertoCobroValido(r.PerfilActivoRef) ||
-		!referenciaPuertoCobroValida(r.DecisionAutorizacionRef) || !huellaSHA256PuertoCobroValida(r.HuellaDecisionSHA256) ||
-		r.AutorizacionEmitidaEn.IsZero() || !r.AutorizacionValidaHasta.After(r.AutorizacionEmitidaEn) ||
-		r.AutorizacionEvaluadaEn.Before(r.AutorizacionEmitidaEn) ||
-		!r.AutorizacionEvaluadaEn.Before(r.AutorizacionValidaHasta) ||
-		!referenciaOpacaPuertoCobroValida(r.AtestacionAutenticacionRef, "aut_") ||
-		r.AtestacionEmitidaEn.IsZero() || !r.AtestacionValidaHasta.After(r.AtestacionEmitidaEn) ||
-		r.AutenticacionVerificadaEn.Before(r.AtestacionEmitidaEn) ||
-		!r.AutenticacionVerificadaEn.Before(r.AtestacionValidaHasta) ||
-		!referenciaOpacaPuertoCobroValida(r.SesionRef, "ses_") || !huellaSesionPuertoCobroValida(r.HuellaSesionHMAC) ||
-		!metodoAutenticacionPuertoCobroPermitido(r.MetodoAutenticacion) ||
-		!garantiaAutenticacionPuertoCobroPermitida(r.GarantiaAutenticacion) ||
-		!accionAuditoriaPuertoCobroPermitida(r.Accion) || !r.Hecho.Valido() ||
-		!domain.TuplaHechoCobroValida(r.Hecho, domain.EstadoCobro(r.Resultado), r.Accion) ||
-		!idOrdenPuertoCobroValido(r.OrdenRef) || !referenciaPuertoCobroValida(r.ExpedienteRef) ||
-		r.VersionAnterior < 0 || r.VersionPosterior != r.VersionAnterior+1 ||
-		!huellaSHA256PuertoCobroValida(r.HuellaAnteriorSHA256) || !huellaSHA256PuertoCobroValida(r.HuellaPosteriorSHA256) ||
-		!referenciaPuertoCobroValida(r.EvidenciaRef) || !huellaSHA256PuertoCobroValida(r.HuellaEvidenciaSHA256) ||
-		!textoPuertoCobroValido(r.Resultado, 128) || !textoPuertoCobroValido(r.Motivo, maximoCaracteresPuertoCobro) ||
-		!referenciaPuertoCobroValida(r.CorrelacionRef) || r.OcurridoEn.IsZero() ||
-		r.Metadatos.validar() != nil || !existeCanal || r.Metadatos.Canal != canalEsperado ||
-		!matrizEvidenciaAuditoriaCobroValida(r) ||
-		r.ID != idDeterministaAuditoriaCobro(r.OrdenRef, r.VersionPosterior, r.HuellaPosteriorSHA256, r.Hecho, r.Accion) {
-		return ErrMutacionOrdenCobroInvalida
-	}
-	return nil
-}
-
-func canalAuditoriaCobroParaHecho(hecho domain.TipoHechoCobro, accion domain.AccionCobro) (CanalAuditoriaCobro, bool) {
-	switch hecho {
-	case domain.HechoCobroOrdenCreada, domain.HechoCobroDevolucionSolicitada, domain.HechoCobroCancelado:
-		return CanalAuditoriaCobroInterno, true
-	case domain.HechoCobroCaducado:
-		return CanalAuditoriaCobroProcesoAutomatico, true
-	case domain.HechoCobroOperacionEnviada, domain.HechoCobroResultadoPendiente,
-		domain.HechoCobroResultadoDesconocido, domain.HechoCobroConfirmado, domain.HechoCobroRechazado,
-		domain.HechoCobroConciliado, domain.HechoCobroDevolucionResultadoPendiente,
-		domain.HechoCobroDevolucionResultadoDesconocido, domain.HechoCobroDevolucionRechazada,
-		domain.HechoCobroDevuelto, domain.HechoCobroDevolucionConciliada:
-		return CanalAuditoriaCobroPasarela, true
-	case domain.HechoCobroIncidenciaDetectada, domain.HechoCobroEvidenciaAdicional:
-		switch accion {
-		case domain.AccionCobroIniciarOperacion, domain.AccionCobroProcesarResultado,
-			domain.AccionCobroProcesarDevolucion, domain.AccionCobroConciliar:
-			return CanalAuditoriaCobroPasarela, true
-		case domain.AccionCobroSolicitarDevolucion, domain.AccionCobroCancelar:
-			return CanalAuditoriaCobroInterno, true
-		case domain.AccionCobroCaducar:
-			return CanalAuditoriaCobroProcesoAutomatico, true
-		}
-	}
-	return "", false
-}
+type MetadatosAuditoriaCobro = pagoscanonicos.MetadatosAuditoriaCobro
 
 func matrizEvidenciaAuditoriaCobroValida(r RegistroAuditoriaCobro) bool {
-	remota := r.VerificacionEvidenciaRef != "" || r.HuellaVerificacionSHA256 != "" ||
-		r.MetodoVerificacionEvidencia != "" || r.AudienciaEvidencia != "" ||
-		!r.EvidenciaEmitidaEn.IsZero() || !r.EvidenciaRecibidaEn.IsZero() || !r.EvidenciaVerificadaEn.IsZero()
-	esperadaRemota := false
-	switch r.Hecho {
-	case domain.HechoCobroOperacionEnviada, domain.HechoCobroResultadoPendiente,
-		domain.HechoCobroResultadoDesconocido, domain.HechoCobroConfirmado, domain.HechoCobroRechazado,
-		domain.HechoCobroConciliado, domain.HechoCobroDevolucionResultadoPendiente,
-		domain.HechoCobroDevolucionResultadoDesconocido, domain.HechoCobroDevolucionRechazada,
-		domain.HechoCobroDevuelto, domain.HechoCobroDevolucionConciliada,
-		domain.HechoCobroEvidenciaAdicional:
-		esperadaRemota = true
-	case domain.HechoCobroIncidenciaDetectada:
-		switch r.Accion {
-		case domain.AccionCobroIniciarOperacion, domain.AccionCobroProcesarResultado,
-			domain.AccionCobroProcesarDevolucion, domain.AccionCobroConciliar:
-			esperadaRemota = true
-		case domain.AccionCobroSolicitarDevolucion, domain.AccionCobroCancelar, domain.AccionCobroCaducar:
-			esperadaRemota = false
-		default:
-			return false
-		}
-	}
-	if remota != esperadaRemota {
-		return false
-	}
-	if !remota {
-		return true
-	}
-	return referenciaPuertoCobroValida(r.VerificacionEvidenciaRef) &&
-		huellaSHA256PuertoCobroValida(r.HuellaVerificacionSHA256) &&
-		r.MetodoVerificacionEvidencia.Valido() && r.AudienciaEvidencia == audienciaPuertoCobro &&
-		!r.EvidenciaEmitidaEn.IsZero() && !r.EvidenciaRecibidaEn.Before(r.EvidenciaEmitidaEn) &&
-		!r.EvidenciaVerificadaEn.Before(r.EvidenciaRecibidaEn) &&
-		r.EvidenciaVerificadaEn.Sub(r.EvidenciaRecibidaEn) <= 2*time.Minute
+	return pagoscanonicos.MatrizEvidenciaAuditoriaValida(r)
 }
 
-func idDeterministaAuditoriaCobro(
-	ordenRef string,
-	version int,
-	huellaPosterior string,
-	hecho domain.TipoHechoCobro,
-	accion domain.AccionCobro,
-) string {
-	contenido := fmt.Sprintf("vec.cobros.auditoria.v1\x00%s\x00%d\x00%s\x00%s\x00%s",
-		ordenRef, version, huellaPosterior, hecho, accion)
-	huella := sha256.Sum256([]byte(contenido))
-	return fmt.Sprintf("aud_cob_%x", huella)
-}
-
-type TipoEventoSalidaCobro string
+type TipoEventoSalidaCobro = pagoscanonicos.TipoEventoSalidaCobro
 
 const (
-	EventoCobroOrdenCreada                    TipoEventoSalidaCobro = "cobro.orden.creada"
-	EventoCobroOperacionEnviada               TipoEventoSalidaCobro = "cobro.operacion.enviada"
-	EventoCobroResultadoPendiente             TipoEventoSalidaCobro = "cobro.resultado.pendiente"
-	EventoCobroResultadoDesconocido           TipoEventoSalidaCobro = "cobro.resultado.desconocido"
-	EventoCobroConfirmado                     TipoEventoSalidaCobro = "cobro.confirmado"
-	EventoCobroRechazado                      TipoEventoSalidaCobro = "cobro.rechazado"
-	EventoCobroCancelado                      TipoEventoSalidaCobro = "cobro.cancelado"
-	EventoCobroCaducado                       TipoEventoSalidaCobro = "cobro.caducado"
-	EventoCobroConciliado                     TipoEventoSalidaCobro = "cobro.conciliado"
-	EventoCobroDevolucionSolicitada           TipoEventoSalidaCobro = "cobro.devolucion.solicitada"
-	EventoCobroDevolucionResultadoPendiente   TipoEventoSalidaCobro = "cobro.devolucion.resultado_pendiente"
-	EventoCobroDevolucionResultadoDesconocido TipoEventoSalidaCobro = "cobro.devolucion.resultado_desconocido"
-	EventoCobroDevolucionRechazada            TipoEventoSalidaCobro = "cobro.devolucion.rechazada"
-	EventoCobroDevuelto                       TipoEventoSalidaCobro = "cobro.devuelto"
-	EventoCobroDevolucionConciliada           TipoEventoSalidaCobro = "cobro.devolucion.conciliada"
-	EventoCobroIncidenciaDetectada            TipoEventoSalidaCobro = "cobro.incidencia.detectada"
-	EventoCobroEvidenciaAdicional             TipoEventoSalidaCobro = "cobro.evidencia.adicional"
+	EventoCobroOrdenCreada                    = pagoscanonicos.EventoCobroOrdenCreada
+	EventoCobroOperacionEnviada               = pagoscanonicos.EventoCobroOperacionEnviada
+	EventoCobroResultadoPendiente             = pagoscanonicos.EventoCobroResultadoPendiente
+	EventoCobroResultadoDesconocido           = pagoscanonicos.EventoCobroResultadoDesconocido
+	EventoCobroConfirmado                     = pagoscanonicos.EventoCobroConfirmado
+	EventoCobroRechazado                      = pagoscanonicos.EventoCobroRechazado
+	EventoCobroCancelado                      = pagoscanonicos.EventoCobroCancelado
+	EventoCobroCaducado                       = pagoscanonicos.EventoCobroCaducado
+	EventoCobroConciliado                     = pagoscanonicos.EventoCobroConciliado
+	EventoCobroDevolucionSolicitada           = pagoscanonicos.EventoCobroDevolucionSolicitada
+	EventoCobroDevolucionResultadoPendiente   = pagoscanonicos.EventoCobroDevolucionResultadoPendiente
+	EventoCobroDevolucionResultadoDesconocido = pagoscanonicos.EventoCobroDevolucionResultadoDesconocido
+	EventoCobroDevolucionRechazada            = pagoscanonicos.EventoCobroDevolucionRechazada
+	EventoCobroDevuelto                       = pagoscanonicos.EventoCobroDevuelto
+	EventoCobroDevolucionConciliada           = pagoscanonicos.EventoCobroDevolucionConciliada
+	EventoCobroIncidenciaDetectada            = pagoscanonicos.EventoCobroIncidenciaDetectada
+	EventoCobroEvidenciaAdicional             = pagoscanonicos.EventoCobroEvidenciaAdicional
 )
 
-func (t TipoEventoSalidaCobro) Valido() bool {
-	switch t {
-	case EventoCobroOrdenCreada, EventoCobroOperacionEnviada, EventoCobroResultadoPendiente,
-		EventoCobroResultadoDesconocido, EventoCobroConfirmado, EventoCobroRechazado,
-		EventoCobroCancelado, EventoCobroCaducado, EventoCobroConciliado,
-		EventoCobroDevolucionSolicitada, EventoCobroDevolucionResultadoPendiente,
-		EventoCobroDevolucionResultadoDesconocido, EventoCobroDevolucionRechazada,
-		EventoCobroDevuelto, EventoCobroDevolucionConciliada, EventoCobroIncidenciaDetectada,
-		EventoCobroEvidenciaAdicional:
-		return true
-	default:
-		return false
-	}
-}
+type AtributosEventoSalidaCobro = pagoscanonicos.AtributosEventoSalidaCobro
 
-// AtributosEventoSalidaCobro sustituye el mapa abierto del outbox. Todos sus
-// valores se derivan del ultimo hecho confirmado y no pueden describir un
-// resultado distinto del realmente persistido.
-type AtributosEventoSalidaCobro struct {
-	Hecho  domain.TipoHechoCobro
-	Estado domain.EstadoCobro
-	Accion domain.AccionCobro
-}
-
-func (a AtributosEventoSalidaCobro) validar() error {
-	if !a.Hecho.Valido() || !a.Estado.Valido() || !a.Accion.Valida() {
-		return ErrMutacionOrdenCobroInvalida
-	}
-	return nil
-}
-
-type EventoSalidaCobro struct {
-	ID                string
-	Tipo              TipoEventoSalidaCobro
-	OrdenRef          string
-	VersionOrden      int
-	SecuenciaHecho    int64
-	HuellaHechoSHA256 string
-	HuellaOrdenSHA256 string
-	CorrelacionRef    string
-	OcurridoEn        time.Time
-	Atributos         AtributosEventoSalidaCobro
-}
-
-func (e EventoSalidaCobro) Validar() error {
-	tipoEsperado, existe := tipoEventoSalidaCobroParaHecho(e.Atributos.Hecho)
-	if !e.Tipo.Valido() || !existe || e.Tipo != tipoEsperado || !idOrdenPuertoCobroValido(e.OrdenRef) ||
-		e.VersionOrden < 1 || e.SecuenciaHecho < 1 || int64(e.VersionOrden) != e.SecuenciaHecho ||
-		!huellaSHA256PuertoCobroValida(e.HuellaHechoSHA256) || e.HuellaHechoSHA256 != e.HuellaOrdenSHA256 ||
-		!referenciaPuertoCobroValida(e.CorrelacionRef) || e.OcurridoEn.IsZero() ||
-		e.Atributos.validar() != nil ||
-		!domain.TuplaHechoCobroValida(e.Atributos.Hecho, e.Atributos.Estado, e.Atributos.Accion) ||
-		e.ID != idDeterministaEventoSalidaCobro(e.OrdenRef, e.VersionOrden, e.SecuenciaHecho,
-			e.HuellaHechoSHA256, e.Atributos.Hecho, e.Atributos.Estado, e.Atributos.Accion) {
-		return ErrMutacionOrdenCobroInvalida
-	}
-	return nil
-}
+type EventoSalidaCobro = pagoscanonicos.EventoSalidaCobro
 
 // NuevoEventoSalidaCobro deriva el mensaje completo, incluido un identificador
 // determinista ligado a orden, version, secuencia y huella del ultimo hecho.
 // No recibe ningun campo semantico del llamador.
 func NuevoEventoSalidaCobro(orden domain.OrdenCobro) (EventoSalidaCobro, error) {
-	if orden.Validar() != nil || len(orden.Historial) == 0 {
-		return EventoSalidaCobro{}, ErrMutacionOrdenCobroInvalida
-	}
-	version, huella, err := orden.ControlConcurrencia()
-	if err != nil {
-		return EventoSalidaCobro{}, ErrMutacionOrdenCobroInvalida
-	}
-	hecho := orden.Historial[len(orden.Historial)-1]
-	tipo, existe := tipoEventoSalidaCobroParaHecho(hecho.Tipo)
-	if !existe {
-		return EventoSalidaCobro{}, ErrMutacionOrdenCobroInvalida
-	}
-	evento := EventoSalidaCobro{
-		Tipo: tipo, OrdenRef: orden.ID, VersionOrden: version, SecuenciaHecho: hecho.Secuencia,
-		HuellaHechoSHA256: hecho.HuellaEstadoPosteriorSHA256,
-		HuellaOrdenSHA256: huella, CorrelacionRef: orden.CorrelacionRef,
-		OcurridoEn: hecho.OcurridoEn,
-		Atributos: AtributosEventoSalidaCobro{
-			Hecho: hecho.Tipo, Estado: hecho.EstadoPosterior, Accion: hecho.AccionAutorizada,
-		},
-	}
-	evento.ID = idDeterministaEventoSalidaCobro(evento.OrdenRef, evento.VersionOrden, evento.SecuenciaHecho,
-		evento.HuellaHechoSHA256, evento.Atributos.Hecho, evento.Atributos.Estado, evento.Atributos.Accion)
-	if evento.Validar() != nil {
-		return EventoSalidaCobro{}, ErrMutacionOrdenCobroInvalida
-	}
-	return evento, nil
+	return pagoscanonicos.NuevoEventoSalidaCobro(orden)
 }
 
 func idDeterministaEventoSalidaCobro(
@@ -390,10 +150,7 @@ func idDeterministaEventoSalidaCobro(
 	estado domain.EstadoCobro,
 	accion domain.AccionCobro,
 ) string {
-	contenido := fmt.Sprintf("vec.cobros.evento.v1\x00%s\x00%d\x00%d\x00%s\x00%s\x00%s\x00%s",
-		ordenRef, version, secuencia, huellaHecho, hecho, estado, accion)
-	huella := sha256.Sum256([]byte(contenido))
-	return fmt.Sprintf("evt_cob_%x", huella)
+	return pagoscanonicos.IDEvento(ordenRef, version, secuencia, huellaHecho, hecho, estado, accion)
 }
 
 type datosMutacionOrdenCobro struct {
@@ -445,7 +202,7 @@ func nuevoRegistroAuditoriaCobro(orden domain.OrdenCobro) (RegistroAuditoriaCobr
 		return RegistroAuditoriaCobro{}, ErrMutacionOrdenCobroInvalida
 	}
 	hecho := orden.Historial[len(orden.Historial)-1]
-	canal, existe := canalAuditoriaCobroParaHecho(hecho.Tipo, hecho.AccionAutorizada)
+	canal, existe := pagoscanonicos.CanalAuditoriaParaHecho(hecho.Tipo, hecho.AccionAutorizada)
 	if !existe {
 		return RegistroAuditoriaCobro{}, ErrMutacionOrdenCobroInvalida
 	}
@@ -474,7 +231,7 @@ func nuevoRegistroAuditoriaCobro(orden domain.OrdenCobro) (RegistroAuditoriaCobr
 		CorrelacionRef: orden.CorrelacionRef, OcurridoEn: hecho.OcurridoEn,
 		Metadatos: MetadatosAuditoriaCobro{Canal: canal},
 	}
-	registro.ID = idDeterministaAuditoriaCobro(registro.OrdenRef, registro.VersionPosterior,
+	registro.ID = pagoscanonicos.IDAuditoria(registro.OrdenRef, registro.VersionPosterior,
 		registro.HuellaPosteriorSHA256, registro.Hecho, registro.Accion)
 	if registro.Validar() != nil {
 		return RegistroAuditoriaCobro{}, ErrMutacionOrdenCobroInvalida
@@ -769,44 +526,7 @@ func (m MutacionOrdenCobro) Validar() error {
 }
 
 func tipoEventoSalidaCobroParaHecho(hecho domain.TipoHechoCobro) (TipoEventoSalidaCobro, bool) {
-	switch hecho {
-	case domain.HechoCobroOrdenCreada:
-		return EventoCobroOrdenCreada, true
-	case domain.HechoCobroOperacionEnviada:
-		return EventoCobroOperacionEnviada, true
-	case domain.HechoCobroResultadoPendiente:
-		return EventoCobroResultadoPendiente, true
-	case domain.HechoCobroResultadoDesconocido:
-		return EventoCobroResultadoDesconocido, true
-	case domain.HechoCobroConfirmado:
-		return EventoCobroConfirmado, true
-	case domain.HechoCobroRechazado:
-		return EventoCobroRechazado, true
-	case domain.HechoCobroCancelado:
-		return EventoCobroCancelado, true
-	case domain.HechoCobroCaducado:
-		return EventoCobroCaducado, true
-	case domain.HechoCobroConciliado:
-		return EventoCobroConciliado, true
-	case domain.HechoCobroDevolucionSolicitada:
-		return EventoCobroDevolucionSolicitada, true
-	case domain.HechoCobroDevolucionResultadoPendiente:
-		return EventoCobroDevolucionResultadoPendiente, true
-	case domain.HechoCobroDevolucionResultadoDesconocido:
-		return EventoCobroDevolucionResultadoDesconocido, true
-	case domain.HechoCobroDevolucionRechazada:
-		return EventoCobroDevolucionRechazada, true
-	case domain.HechoCobroDevuelto:
-		return EventoCobroDevuelto, true
-	case domain.HechoCobroDevolucionConciliada:
-		return EventoCobroDevolucionConciliada, true
-	case domain.HechoCobroIncidenciaDetectada:
-		return EventoCobroIncidenciaDetectada, true
-	case domain.HechoCobroEvidenciaAdicional:
-		return EventoCobroEvidenciaAdicional, true
-	default:
-		return "", false
-	}
+	return pagoscanonicos.TipoEventoParaHecho(hecho)
 }
 
 // RepositorioOrdenesCobro debe aplicar cada confirmacion en una unica
@@ -864,91 +584,21 @@ type GeneradorIDOrdenCobro interface {
 	NuevoIDDevolucionCobro() (string, error)
 }
 
-// CapacidadesPasarelaCobro evita suponer funciones de un proveedor concreto.
-// El perfil se versiona y se valida antes de habilitar un flujo de cobro.
-type CapacidadesPasarelaCobro struct {
-	ConectorID              string `json:"conector_id"`
-	VersionConector         int    `json:"version_conector"`
-	RedireccionAlojada      bool   `json:"redireccion_alojada"`
-	NotificacionAutenticada bool   `json:"notificacion_autenticada"`
-	ConsultaOperacion       bool   `json:"consulta_operacion"`
-	Devolucion              bool   `json:"devolucion"`
-	Conciliacion            bool   `json:"conciliacion"`
-	Justificante            bool   `json:"justificante"`
-	TLSMutuo                bool   `json:"tls_mutuo"`
-	IdempotenciaProveedor   bool   `json:"idempotencia_proveedor"`
-}
+type CapacidadesPasarelaCobro = pagoscanonicos.CapacidadesPasarelaCobro
 
-func (c CapacidadesPasarelaCobro) Validar() error {
-	if !clavePuertoCobroValida(c.ConectorID) || c.VersionConector < 1 || !c.RedireccionAlojada ||
-		(!c.NotificacionAutenticada && !c.ConsultaOperacion) || !c.IdempotenciaProveedor {
-		return ErrCapacidadPasarelaCobroNoDisponible
-	}
-	return nil
-}
+type SolicitudOperacionCobro = pagoscanonicos.SolicitudOperacionCobro
 
-type SolicitudOperacionCobro struct {
-	Comando domain.ComandoInicioOperacionCobro
-}
+type MetodoHandoffCobro = pagoscanonicos.MetodoHandoffCobro
 
-func (s SolicitudOperacionCobro) Validar() error {
-	if s.Comando.Validar() != nil {
-		return ErrSolicitudOperacionCobroInvalida
-	}
-	return nil
-}
+const MetodoHandoffCobroPOSTFormulario = pagoscanonicos.MetodoHandoffCobroPOSTFormulario
 
-type MetodoHandoffCobro string
-
-const MetodoHandoffCobroPOSTFormulario MetodoHandoffCobro = "post_formulario"
-
-type OrigenPasarelaCobroPublicado struct {
-	ID                        string
-	Version                   int
-	BaseHTTPS                 string
-	RutasPermitidas           []string
-	CamposHandoffPermitidos   []string
-	HuellaConfiguracionSHA256 string
-	PublicadaEn               time.Time
-}
-
-func (o OrigenPasarelaCobroPublicado) validarSinHuella() error {
-	base, err := url.Parse(o.BaseHTTPS)
-	if err != nil || !clavePuertoCobroValida(o.ID) || o.Version < 1 || base.Scheme != "https" ||
-		base.Host == "" || base.Hostname() == "" || base.User != nil || base.Opaque != "" ||
-		base.RawQuery != "" || base.ForceQuery || base.Fragment != "" || base.RawPath != "" ||
-		(base.Path != "" && base.Path != "/") || len(o.BaseHTTPS) > 2048 || o.PublicadaEn.IsZero() ||
-		!listaCerradaPuertoCobroValida(o.RutasPermitidas, true) ||
-		!listaCerradaPuertoCobroValida(o.CamposHandoffPermitidos, false) {
-		return ErrInicioOperacionCobroInvalido
-	}
-	return nil
-}
+type OrigenPasarelaCobroPublicado = pagoscanonicos.OrigenPasarelaCobroPublicado
 
 // BytesCanonicosConfiguracionOrigenPasarelaCobro fija el origen, las rutas y
 // los campos publicados. Las listas son conjuntos y se ordenan en copias para
 // que su orden accidental no cambie la huella.
 func BytesCanonicosConfiguracionOrigenPasarelaCobro(o OrigenPasarelaCobroPublicado) ([]byte, error) {
-	if o.validarSinHuella() != nil {
-		return nil, ErrInicioOperacionCobroInvalido
-	}
-	rutas := append([]string(nil), o.RutasPermitidas...)
-	campos := append([]string(nil), o.CamposHandoffPermitidos...)
-	sort.Strings(rutas)
-	sort.Strings(campos)
-	valor := struct {
-		VersionEsquema int
-		ID             string
-		Version        int
-		BaseHTTPS      string
-		Rutas          []string
-		Campos         []string
-		PublicadaEn    string
-	}{
-		VersionEsquema: 1, ID: o.ID, Version: o.Version, BaseHTTPS: o.BaseHTTPS,
-		Rutas: rutas, Campos: campos, PublicadaEn: o.PublicadaEn.UTC().Format(time.RFC3339Nano),
-	}
-	bytes, err := json.Marshal(valor)
+	bytes, err := pagoscanonicos.BytesConfiguracionOrigen(o)
 	if err != nil {
 		return nil, ErrInicioOperacionCobroInvalido
 	}
@@ -956,230 +606,34 @@ func BytesCanonicosConfiguracionOrigenPasarelaCobro(o OrigenPasarelaCobroPublica
 }
 
 func CalcularHuellaConfiguracionOrigenPasarelaCobro(o OrigenPasarelaCobroPublicado) (string, error) {
-	bytes, err := BytesCanonicosConfiguracionOrigenPasarelaCobro(o)
+	huella, err := pagoscanonicos.HuellaConfiguracionOrigen(o)
 	if err != nil {
-		return "", err
+		return "", ErrInicioOperacionCobroInvalido
 	}
-	huella := sha256.Sum256(bytes)
-	return fmt.Sprintf("%x", huella), nil
+	return huella, nil
 }
 
-func (o OrigenPasarelaCobroPublicado) Validar() error {
-	huella, err := CalcularHuellaConfiguracionOrigenPasarelaCobro(o)
-	if err != nil || !huellaSHA256PuertoCobroValida(o.HuellaConfiguracionSHA256) ||
-		o.HuellaConfiguracionSHA256 != huella {
-		return ErrInicioOperacionCobroInvalido
-	}
-	return nil
-}
+type CampoHandoffCobro = pagoscanonicos.CampoHandoffCobro
 
-type CampoHandoffCobro struct {
-	Nombre string
-	Valor  string
-}
-
-type CargaHandoffCobro struct{ campos []CampoHandoffCobro }
+type CargaHandoffCobro = pagoscanonicos.CargaHandoffCobro
 
 func NuevaCargaHandoffCobro(campos []CampoHandoffCobro, permitidos []string) (CargaHandoffCobro, error) {
-	if len(campos) == 0 || len(campos) > 32 || !listaCerradaPuertoCobroValida(permitidos, false) {
-		return CargaHandoffCobro{}, ErrInicioOperacionCobroInvalido
-	}
-	permitido := make(map[string]struct{}, len(permitidos))
-	for _, campo := range permitidos {
-		permitido[campo] = struct{}{}
-	}
-	vistos := make(map[string]struct{}, len(campos))
-	copia := make([]CampoHandoffCobro, len(campos))
-	for indice, campo := range campos {
-		if !clavePuertoCobroValida(campo.Nombre) || !textoPuertoCobroValido(campo.Valor, 4096) ||
-			contieneDatoTarjetaPuertoCobro(campo.Valor) {
-			return CargaHandoffCobro{}, ErrInicioOperacionCobroInvalido
-		}
-		if _, existe := permitido[campo.Nombre]; !existe {
-			return CargaHandoffCobro{}, ErrInicioOperacionCobroInvalido
-		}
-		if _, repetido := vistos[campo.Nombre]; repetido {
-			return CargaHandoffCobro{}, ErrInicioOperacionCobroInvalido
-		}
-		vistos[campo.Nombre] = struct{}{}
-		copia[indice] = campo
-	}
-	return CargaHandoffCobro{campos: copia}, nil
+	return pagoscanonicos.NuevaCargaHandoffCobro(campos, permitidos)
 }
 
-func (c CargaHandoffCobro) copiarCampos() ([]CampoHandoffCobro, error) {
-	if len(c.campos) == 0 {
-		return nil, ErrInicioOperacionCobroInvalido
-	}
-	return append([]CampoHandoffCobro(nil), c.campos...), nil
-}
-
-func (CargaHandoffCobro) MarshalJSON() ([]byte, error) { return nil, ErrInicioOperacionCobroInvalido }
-func (CargaHandoffCobro) String() string               { return "[CARGA-HANDOFF-OCULTA]" }
-func (c CargaHandoffCobro) GoString() string           { return c.String() }
-
-// InicioOperacionCobro separa el origen publicado de la carga de handoff. No
-// acepta una URL devuelta libremente por el proveedor ni secretos en query.
-type InicioOperacionCobro struct {
-	Evidencia                 domain.EvidenciaInicioOperacionCobro
-	Origen                    OrigenPasarelaCobroPublicado
-	VersionOrden              int
-	HuellaOrdenSHA256         string
-	HuellaConfiguracionSHA256 string
-	Ruta                      string
-	Metodo                    MetodoHandoffCobro
-	Carga                     CargaHandoffCobro
-	GeneradaEn                time.Time
-	ExpiraEn                  time.Time
-}
-
-func (i InicioOperacionCobro) Validar() error {
-	control, errControl := i.Evidencia.Control()
-	if i.Origen.Validar() != nil || i.VersionOrden < 1 ||
-		!huellaSHA256PuertoCobroValida(i.HuellaOrdenSHA256) ||
-		!huellaSHA256PuertoCobroValida(i.HuellaConfiguracionSHA256) ||
-		i.HuellaConfiguracionSHA256 != i.Origen.HuellaConfiguracionSHA256 ||
-		i.Metodo != MetodoHandoffCobroPOSTFormulario ||
-		i.GeneradaEn.IsZero() || !i.ExpiraEn.After(i.GeneradaEn) ||
-		i.ExpiraEn.Sub(i.GeneradaEn) > 15*time.Minute || i.GeneradaEn.Before(i.Origen.PublicadaEn) ||
-		errControl != nil || control.ConectorID != i.Origen.ID || control.VersionConector != i.Origen.Version ||
-		i.GeneradaEn.Before(control.RecibidaEn) || i.GeneradaEn.Sub(control.RecibidaEn) > 2*time.Minute ||
-		len(i.Ruta) > 1024 ||
-		!contieneCadenaExacta(i.Origen.RutasPermitidas, i.Ruta) {
-		return ErrInicioOperacionCobroInvalido
-	}
-	if !rutaHandoffPuertoCobroValida(i.Ruta) {
-		return ErrInicioOperacionCobroInvalido
-	}
-	campos, err := i.Carga.copiarCampos()
-	if err != nil || !camposHandoffCoinciden(campos, i.Origen.CamposHandoffPermitidos) {
-		return ErrInicioOperacionCobroInvalido
-	}
-	return nil
-}
-
-// ValidarContra es la unica validacion suficiente para entregar un handoff.
-// Liga la respuesta al comando sellado, al origen exacto publicado y al reloj
-// confiable. Validar solo comprueba estructura y no autoriza su entrega.
-func (i InicioOperacionCobro) ValidarContra(
-	comando domain.ComandoInicioOperacionCobro,
-	origen OrigenPasarelaCobroPublicado,
-	ahora time.Time,
-) error {
-	datos, errComando := comando.Datos()
-	control, errControl := i.Evidencia.Control()
-	if i.Validar() != nil || errComando != nil || errControl != nil || origen.Validar() != nil || ahora.IsZero() ||
-		!origenesPasarelaCobroIguales(i.Origen, origen) ||
-		i.VersionOrden != datos.VersionOrden || i.HuellaOrdenSHA256 != datos.HuellaOrdenSHA256 ||
-		i.HuellaConfiguracionSHA256 != origen.HuellaConfiguracionSHA256 ||
-		control.OrdenRef != datos.OrdenRef || control.LiquidacionRef != datos.LiquidacionRef ||
-		!control.Importe.Igual(datos.Importe) || control.Concepto != datos.Concepto ||
-		ahora.UTC().Before(i.GeneradaEn.UTC()) || !ahora.UTC().Before(i.ExpiraEn.UTC()) ||
-		i.ExpiraEn.After(datos.CaducaEn) {
-		return ErrInicioOperacionCobroInvalido
-	}
-	return nil
-}
-
-// CamposRespuestaPOSTContra devuelve una copia solo tras la validacion
-// completa. No promete consumo unico: esa propiedad requiere una custodia
-// durable aun no implementada y el modulo permanece NO EXPUESTO hasta tenerla.
-func (i InicioOperacionCobro) CamposRespuestaPOSTContra(
-	comando domain.ComandoInicioOperacionCobro,
-	origen OrigenPasarelaCobroPublicado,
-	ahora time.Time,
-) ([]CampoHandoffCobro, error) {
-	if i.ValidarContra(comando, origen, ahora) != nil {
-		return nil, ErrInicioOperacionCobroInvalido
-	}
-	return i.Carga.copiarCampos()
-}
-
-func origenesPasarelaCobroIguales(a, b OrigenPasarelaCobroPublicado) bool {
-	if a.ID != b.ID || a.Version != b.Version || a.BaseHTTPS != b.BaseHTTPS ||
-		a.HuellaConfiguracionSHA256 != b.HuellaConfiguracionSHA256 || !a.PublicadaEn.Equal(b.PublicadaEn) ||
-		len(a.RutasPermitidas) != len(b.RutasPermitidas) || len(a.CamposHandoffPermitidos) != len(b.CamposHandoffPermitidos) {
-		return false
-	}
-	bytesA, errA := BytesCanonicosConfiguracionOrigenPasarelaCobro(a)
-	bytesB, errB := BytesCanonicosConfiguracionOrigenPasarelaCobro(b)
-	return errA == nil && errB == nil && string(bytesA) == string(bytesB)
-}
+type InicioOperacionCobro = pagoscanonicos.InicioOperacionCobro
 
 type CatalogoOrigenesPasarelaCobro interface {
 	ObtenerOrigenPublicado(context.Context, string, int) (OrigenPasarelaCobroPublicado, error)
 }
 
-type ReferenciaOperacionCobro struct {
-	ConectorID            string `json:"conector_id"`
-	VersionConector       int    `json:"version_conector"`
-	OrdenRef              string `json:"orden_ref"`
-	OperacionProveedorRef string `json:"operacion_proveedor_ref"`
-	CorrelacionRef        string `json:"correlacion_ref"`
-}
+type ReferenciaOperacionCobro = pagoscanonicos.ReferenciaOperacionCobro
 
-func (r ReferenciaOperacionCobro) Validar() error {
-	if !clavePuertoCobroValida(r.ConectorID) || r.VersionConector < 1 ||
-		!idOrdenPuertoCobroValido(r.OrdenRef) || !referenciaPuertoCobroValida(r.OperacionProveedorRef) ||
-		!referenciaPuertoCobroValida(r.CorrelacionRef) {
-		return ErrReferenciaOperacionCobroInvalida
-	}
-	return nil
-}
+type NotificacionCobro = pagoscanonicos.NotificacionCobro
 
-// NotificacionCobro solo transporta una referencia opaca a una recepcion
-// temporal controlada por el adaptador. El nucleo no recibe cuerpos, cookies,
-// cabeceras ni datos de tarjeta del proveedor.
-type NotificacionCobro struct {
-	ConectorID      string    `json:"conector_id"`
-	VersionConector int       `json:"version_conector"`
-	RecepcionRef    string    `json:"recepcion_ref"`
-	Audiencia       string    `json:"audiencia"`
-	RecibidaEn      time.Time `json:"recibida_en"`
-}
+type SolicitudCustodiarNotificacionCobro = pagoscanonicos.SolicitudCustodiarNotificacionCobro
 
-func (n NotificacionCobro) Validar() error {
-	if !clavePuertoCobroValida(n.ConectorID) || n.VersionConector < 1 ||
-		!referenciaOpacaPuertoCobroValida(n.RecepcionRef, "rec_") || n.Audiencia != audienciaPuertoCobro || n.RecibidaEn.IsZero() {
-		return ErrNotificacionCobroInvalida
-	}
-	return nil
-}
-
-type SolicitudCustodiarNotificacionCobro struct {
-	ConectorID      string
-	VersionConector int
-	RecepcionRef    string
-	Audiencia       string
-	TipoContenido   string
-	Tamano          int64
-	HuellaSHA256    string
-	RecibidaEn      time.Time
-	ExpiraEn        time.Time
-}
-
-func (s SolicitudCustodiarNotificacionCobro) Validar() error {
-	if !clavePuertoCobroValida(s.ConectorID) || s.VersionConector < 1 ||
-		!referenciaOpacaPuertoCobroValida(s.RecepcionRef, "rec_") || s.Audiencia != audienciaPuertoCobro ||
-		!tipoContenidoNotificacionCobroPermitido(s.TipoContenido) || s.Tamano < 1 || s.Tamano > 1024*1024 ||
-		!huellaSHA256PuertoCobroValida(s.HuellaSHA256) || s.RecibidaEn.IsZero() ||
-		!s.ExpiraEn.After(s.RecibidaEn) || s.ExpiraEn.Sub(s.RecibidaEn) > 15*time.Minute {
-		return ErrNotificacionCobroInvalida
-	}
-	return nil
-}
-
-type ContenidoNotificacionCobroUnico struct {
-	Metadatos SolicitudCustodiarNotificacionCobro
-	Contenido io.ReadCloser
-}
-
-func (c ContenidoNotificacionCobroUnico) Validar() error {
-	if c.Metadatos.Validar() != nil || c.Contenido == nil {
-		return ErrNotificacionCobroInvalida
-	}
-	return nil
-}
+type ContenidoNotificacionCobroUnico = pagoscanonicos.ContenidoNotificacionCobroUnico
 
 type CustodiaNotificacionesCobro interface {
 	Custodiar(context.Context, SolicitudCustodiarNotificacionCobro, io.Reader) (NotificacionCobro, error)
@@ -1196,90 +650,17 @@ type VerificadorPasarelaCobro interface {
 	VerificarNotificacionDevolucion(context.Context, NotificacionCobro, ReferenciaDevolucionCobro) (ResultadoDevolucionCobro, error)
 }
 
-type ResultadoOperacionCobro struct {
-	Evidencia domain.EvidenciaResultadoCobro `json:"-"`
-}
+type ResultadoOperacionCobro = pagoscanonicos.ResultadoOperacionCobro
 
-func (r ResultadoOperacionCobro) Validar() error {
-	if r.Evidencia.Validar() != nil {
-		return ErrResultadoPasarelaCobroInvalido
-	}
-	return nil
-}
+type SolicitudDevolucionCobro = pagoscanonicos.SolicitudDevolucionCobro
 
-func (ResultadoOperacionCobro) MarshalJSON() ([]byte, error) {
-	return nil, ErrResultadoPasarelaCobroInvalido
-}
+type ResultadoDevolucionCobro = pagoscanonicos.ResultadoDevolucionCobro
 
-type SolicitudDevolucionCobro struct {
-	Comando domain.ComandoDevolucionCobro
-}
+type ReferenciaDevolucionCobro = pagoscanonicos.ReferenciaDevolucionCobro
 
-func (s SolicitudDevolucionCobro) Validar() error {
-	if s.Comando.Validar() != nil {
-		return ErrSolicitudDevolucionCobroInvalida
-	}
-	return nil
-}
+type SolicitudConciliacionCobro = pagoscanonicos.SolicitudConciliacionCobro
 
-type ResultadoDevolucionCobro struct {
-	Evidencia domain.EvidenciaResultadoDevolucionCobro `json:"-"`
-}
-
-type ReferenciaDevolucionCobro struct {
-	ConectorID            string
-	VersionConector       int
-	OrdenRef              string
-	DevolucionRef         string
-	OperacionProveedorRef string
-	CorrelacionRef        string
-}
-
-func (r ReferenciaDevolucionCobro) Validar() error {
-	if !clavePuertoCobroValida(r.ConectorID) || r.VersionConector < 1 ||
-		!idOrdenPuertoCobroValido(r.OrdenRef) || !idDevolucionPuertoCobroValido(r.DevolucionRef) ||
-		!referenciaPuertoCobroValida(r.OperacionProveedorRef) || !referenciaPuertoCobroValida(r.CorrelacionRef) {
-		return ErrReferenciaOperacionCobroInvalida
-	}
-	return nil
-}
-
-func (r ResultadoDevolucionCobro) Validar() error {
-	if r.Evidencia.Validar() != nil {
-		return ErrResultadoPasarelaCobroInvalido
-	}
-	return nil
-}
-
-func (ResultadoDevolucionCobro) MarshalJSON() ([]byte, error) {
-	return nil, ErrResultadoPasarelaCobroInvalido
-}
-
-type SolicitudConciliacionCobro struct {
-	Comando domain.ComandoConciliacionCobro
-}
-
-func (s SolicitudConciliacionCobro) Validar() error {
-	if s.Comando.Validar() != nil {
-		return ErrSolicitudConciliacionCobroInvalida
-	}
-	return nil
-}
-
-type ResultadoConciliacionCobro struct {
-	Evidencia domain.EvidenciaConciliacionCobro `json:"-"`
-}
-
-func (r ResultadoConciliacionCobro) Validar() error {
-	if r.Evidencia.Validar() != nil {
-		return ErrResultadoPasarelaCobroInvalido
-	}
-	return nil
-}
-
-func (ResultadoConciliacionCobro) MarshalJSON() ([]byte, error) {
-	return nil, ErrResultadoPasarelaCobroInvalido
-}
+type ResultadoConciliacionCobro = pagoscanonicos.ResultadoConciliacionCobro
 
 // PasarelaCobro es el unico contrato remoto del nucleo de cobros. No conoce
 // proveedores, protocolos ni redes concretas y no sirve para pagos salientes.
@@ -1293,20 +674,6 @@ type PasarelaCobro interface {
 	Conciliar(context.Context, SolicitudConciliacionCobro) (ResultadoConciliacionCobro, error)
 }
 
-func clavePuertoCobroValida(valor string) bool {
-	if valor == "" || valor != strings.TrimSpace(valor) || len(valor) > 128 {
-		return false
-	}
-	for indice, caracter := range valor {
-		if (caracter >= 'a' && caracter <= 'z') || (indice > 0 && caracter >= '0' && caracter <= '9') ||
-			(indice > 0 && (caracter == '.' || caracter == '_' || caracter == '-')) {
-			continue
-		}
-		return false
-	}
-	return true
-}
-
 func idOrdenPuertoCobroValido(valor string) bool {
 	return referenciaOpacaPuertoCobroValida(valor, "cob_")
 }
@@ -1316,83 +683,23 @@ func idDevolucionPuertoCobroValido(valor string) bool {
 }
 
 func referenciaOpacaPuertoCobroValida(valor, prefijo string) bool {
-	if !strings.HasPrefix(valor, prefijo) {
-		return false
-	}
-	parte := strings.TrimPrefix(valor, prefijo)
-	if len(parte) < 22 || len(parte) > 128 {
-		return false
-	}
-	for _, caracter := range parte {
-		if (caracter >= 'a' && caracter <= 'z') || (caracter >= 'A' && caracter <= 'Z') ||
-			(caracter >= '0' && caracter <= '9') || caracter == '_' || caracter == '-' {
-			continue
-		}
-		return false
-	}
-	return true
+	return pagoscanonicos.ReferenciaOpacaValida(valor, prefijo)
 }
 
 func huellaHMACPuertoCobroDeDominioValida(valor, dominio string) bool {
-	partes := strings.Split(valor, ":")
-	return len(partes) == 3 && partes[0] == "hmac-sha256" && partes[1] == dominio &&
-		huellaSHA256PuertoCobroValida(partes[2])
+	return pagoscanonicos.HuellaHMACDeDominioValida(valor, dominio)
 }
 
 func idPersonaPuertoCobroValido(valor string) bool {
 	return referenciaOpacaPuertoCobroValida(valor, "per_")
 }
 
-func idPerfilPuertoCobroValido(valor string) bool {
-	return referenciaOpacaPuertoCobroValida(valor, "prf_")
-}
-
 func huellaSesionPuertoCobroValida(valor string) bool {
-	partes := strings.Split(valor, ":")
-	return len(partes) == 3 && partes[0] == "hmac-sha256" && partes[1] == "sesion-v1" &&
-		huellaSHA256PuertoCobroValida(partes[2])
-}
-
-func metodoAutenticacionPuertoCobroPermitido(metodo domain.AuthMethod) bool {
-	switch metodo {
-	case domain.AuthMethodCertificate, domain.AuthMethodDNIe, domain.AuthMethodSSO,
-		domain.AuthMethodClave, domain.AuthMethodKerberos:
-		return true
-	default:
-		return false
-	}
-}
-
-func garantiaAutenticacionPuertoCobroPermitida(garantia domain.AuthAssurance) bool {
-	switch garantia {
-	case domain.AuthAssuranceLow, domain.AuthAssuranceSubstantial, domain.AuthAssuranceHigh:
-		return true
-	default:
-		return false
-	}
-}
-
-func accionAuditoriaPuertoCobroPermitida(accion domain.AccionCobro) bool {
-	switch accion {
-	case domain.AccionCobroCrearOrden, domain.AccionCobroIniciarOperacion, domain.AccionCobroProcesarResultado,
-		domain.AccionCobroSolicitarDevolucion, domain.AccionCobroProcesarDevolucion, domain.AccionCobroConciliar,
-		domain.AccionCobroCancelar, domain.AccionCobroCaducar:
-		return true
-	default:
-		return false
-	}
+	return pagoscanonicos.HuellaHMACDeDominioValida(valor, "sesion-v1")
 }
 
 func huellaSHA256PuertoCobroValida(valor string) bool {
-	if len(valor) != 64 {
-		return false
-	}
-	for _, caracter := range valor {
-		if (caracter < '0' || caracter > '9') && (caracter < 'a' || caracter > 'f') {
-			return false
-		}
-	}
-	return true
+	return pagoscanonicos.HuellaSHA256Valida(valor)
 }
 
 func referenciaPuertoCobroValida(valor string) bool {
@@ -1400,166 +707,7 @@ func referenciaPuertoCobroValida(valor string) bool {
 }
 
 func textoPuertoCobroValido(valor string, maximo int) bool {
-	if valor == "" || valor != strings.TrimSpace(valor) || len(valor) > maximo {
-		return false
-	}
-	for _, caracter := range valor {
-		if caracter < 0x20 || caracter == 0x7f {
-			return false
-		}
-	}
-	return !contieneDatoTarjetaPuertoCobro(valor)
-}
-
-func contieneDatoTarjetaPuertoCobro(valor string) bool {
-	minusculas := strings.Map(func(caracter rune) rune {
-		if unicode.Is(unicode.Cf, caracter) {
-			return -1
-		}
-		return unicode.ToLower(caracter)
-	}, valor)
-	reemplazador := strings.NewReplacer("_", " ", "-", " ", ":", " ", "=", " ", ".", " ", "/", " ")
-	for _, palabra := range strings.Fields(reemplazador.Replace(minusculas)) {
-		switch palabra {
-		case "pan", "cvv", "cvc", "cvn", "pin", "criptograma", "cryptogram", "tarjeta", "card", "cardnumber":
-			return true
-		}
-	}
-	digitos := make([]byte, 0, 32)
-	comprobar := func() bool {
-		for longitud := 13; longitud <= 19 && longitud <= len(digitos); longitud++ {
-			for inicio := 0; inicio+longitud <= len(digitos); inicio++ {
-				if numeroTarjetaPuertoCobroValido(digitos[inicio : inicio+longitud]) {
-					return true
-				}
-			}
-		}
-		return false
-	}
-	for _, caracter := range valor {
-		if numero, esDigito := valorDigitoDecimalPuertoCobro(caracter); esDigito {
-			digitos = append(digitos, byte('0'+numero))
-			continue
-		}
-		if (unicode.IsSpace(caracter) || unicode.Is(unicode.Dash, caracter) ||
-			unicode.Is(unicode.Cf, caracter) || caracter == '.') && len(digitos) > 0 {
-			continue
-		}
-		if comprobar() {
-			return true
-		}
-		digitos = digitos[:0]
-	}
-	if comprobar() {
-		return true
-	}
-	return false
-}
-
-func valorDigitoDecimalPuertoCobro(caracter rune) (byte, bool) {
-	switch {
-	case caracter >= '0' && caracter <= '9':
-		return byte(caracter - '0'), true
-	case caracter >= '\u0660' && caracter <= '\u0669':
-		return byte(caracter - '\u0660'), true
-	case caracter >= '\u06f0' && caracter <= '\u06f9':
-		return byte(caracter - '\u06f0'), true
-	case caracter >= '\uff10' && caracter <= '\uff19':
-		return byte(caracter - '\uff10'), true
-	default:
-		return 0, false
-	}
-}
-
-func numeroTarjetaPuertoCobroValido(digitos []byte) bool {
-	suma := 0
-	par := len(digitos)%2 == 0
-	for indice, caracter := range digitos {
-		numero := int(caracter - '0')
-		if (indice%2 == 0) == par {
-			numero *= 2
-			if numero > 9 {
-				numero -= 9
-			}
-		}
-		suma += numero
-	}
-	return suma > 0 && suma%10 == 0
-}
-
-func listaCerradaPuertoCobroValida(valores []string, rutas bool) bool {
-	if len(valores) == 0 || len(valores) > 64 {
-		return false
-	}
-	vistos := make(map[string]struct{}, len(valores))
-	for _, valor := range valores {
-		valido := clavePuertoCobroValida(valor)
-		if rutas {
-			valido = rutaHandoffPuertoCobroValida(valor)
-		}
-		if !valido {
-			return false
-		}
-		if _, repetido := vistos[valor]; repetido {
-			return false
-		}
-		vistos[valor] = struct{}{}
-	}
-	return true
-}
-
-func rutaHandoffPuertoCobroValida(valor string) bool {
-	if valor == "" || valor != strings.TrimSpace(valor) || len(valor) > 1024 ||
-		!strings.HasPrefix(valor, "/") || strings.HasPrefix(valor, "//") || strings.Contains(valor, "\\") ||
-		contieneDatoTarjetaPuertoCobro(valor) {
-		return false
-	}
-	ruta, err := url.Parse(valor)
-	if err != nil || ruta.IsAbs() || ruta.Opaque != "" || ruta.Host != "" || ruta.User != nil ||
-		ruta.RawQuery != "" || ruta.ForceQuery || ruta.Fragment != "" || ruta.RawPath != "" || ruta.Path != valor {
-		return false
-	}
-	segmentos := strings.Split(strings.TrimPrefix(valor, "/"), "/")
-	for _, segmento := range segmentos {
-		if segmento == "" || segmento == "." || segmento == ".." {
-			return false
-		}
-		for _, caracter := range segmento {
-			if (caracter >= 'a' && caracter <= 'z') || (caracter >= 'A' && caracter <= 'Z') ||
-				(caracter >= '0' && caracter <= '9') || caracter == '-' || caracter == '_' || caracter == '.' || caracter == '~' {
-				continue
-			}
-			return false
-		}
-	}
-	return true
-}
-
-func contieneCadenaExacta(valores []string, buscado string) bool {
-	for _, valor := range valores {
-		if valor == buscado {
-			return true
-		}
-	}
-	return false
-}
-
-func camposHandoffCoinciden(campos []CampoHandoffCobro, permitidos []string) bool {
-	for _, campo := range campos {
-		if !contieneCadenaExacta(permitidos, campo.Nombre) {
-			return false
-		}
-	}
-	return len(campos) > 0
-}
-
-func tipoContenidoNotificacionCobroPermitido(valor string) bool {
-	switch valor {
-	case "application/json", "application/jose", "application/jose+json":
-		return true
-	default:
-		return false
-	}
+	return pagoscanonicos.TextoValido(valor, maximo)
 }
 
 var (
