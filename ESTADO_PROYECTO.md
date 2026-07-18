@@ -29,7 +29,7 @@ entrega.
 | --- | --- | --- |
 | 1. Entorno seguro de desarrollo | ✅ Terminado | mTLS 1.3, identidad local de alta garantía, cifrado KMS y sello de tiempo de desarrollo, sin claves en Git. |
 | 2. Diario durable y cifrado de borradores | ✅ Terminado | PostgreSQL, reintentos, recuperación, alias de distintas generaciones y borrado de memoria probados. |
-| 3. Guardado transaccional e identificadores seguros | 🚧 En revisión | PostgreSQL/KMS ha superado PostgreSQL 18 y espera revisión independiente. El identificador HMAC necesita dos pruebas públicas adicionales antes del GO. |
+| 3. Guardado transaccional e identificadores seguros | 🚧 Integración Go en curso | PostgreSQL/KMS y el identificador HMAC ya tienen `GO` independiente. Falta recorrer desde Go la transacción A/B real y verificar el recibo después del commit. |
 | 4. Autorización y lectura gobernada | ⬜ Pendiente inmediato | Migrar la lectura a autorización V2 real y devolver el sobre cifrado completo sin acceso directo a tablas. |
 | 5. Conexión definitiva con la web | ⬜ Pendiente | Registrar servicios y rutas reales bajo identidad mTLS, sin cookies, fixtures ni adaptadores falsos. |
 | 6. Prueba completa y entrega manual | ⬜ Pendiente | Web → API → autorización → PostgreSQL/KMS → auditoría → respuesta; reinicio, concurrencia y fallos; después guía para que Alberto/RRHH lo prueben. |
@@ -38,10 +38,11 @@ entrega.
 
 | Carril | Trabajo actual | Puede avanzar sin bloquear al resto | Siguiente entrega |
 | --- | --- | --- | --- |
-| 1. Camino crítico | Guardado real de borradores | Sí; concentra los contratos compartidos de identidad, autorización y PostgreSQL | Transacción e identificadores con revisión independiente cerrada. |
+| 1. Camino crítico | Adaptador Go→PostgreSQL y verificación poscommit | Sí; consume los contratos y funciones SQL ya revisados | Recorrido A/B real, reinicio y recibo verificado desde Go. |
 | 2. Datos heredados | Importador de Convoca | Sí, con hojas sintéticas y sin cargar datos personales reales | Reconocer los dos formatos, validar en staging y emitir acta idempotente. |
-| 3. Calidad y seguridad | Revisión cruzada de PostgreSQL/KMS y HMAC | Sí; no modifica el código revisado | GO o defectos reproducibles antes de cada commit. |
-| 4. Dirección e integración | Tablero, revisión final, pruebas globales y commits acotados | Sí | Mantener una única verdad y encadenar el siguiente trabajo desbloqueado. |
+| 3. Calidad y seguridad | Supervisión independiente de cada entrega | Sí; el revisor no modifica el código revisado | GO o defectos reproducibles antes de cada commit. |
+| 4. Orquestación ampliada | Ensayo aislado de Orquesta antigua | Sí; no escribe en el árbol principal | Confirmar si acelera con hogares y árboles separados sin aumentar defectos. |
+| 5. Dirección e integración | Tablero, pruebas globales y commits acotados | Sí | Integrar solo entregas revisadas y mantener una única verdad. |
 
 **Siguiente carril que se abrirá al quedar uno libre:** durabilidad probatoria y
 registro de accesos, necesarios antes de introducir datos personales reales.
@@ -127,6 +128,7 @@ Cada cierre debe actualizar, en este orden:
 
 | Fecha | Cambio |
 | --- | --- |
+| 18/07/2026 | PostgreSQL/KMS y HMAC rotatorio obtienen `GO` independiente; comienza el recorrido durable Go→PostgreSQL y el ensayo aislado de Orquesta. |
 | 18/07/2026 | Creación del tablero único; separación entre código probado, integración, E2E técnico, prueba manual, aceptación RRHH y producción. |
 
 Para el detalle técnico y la brecha de cada fila se mantiene la
