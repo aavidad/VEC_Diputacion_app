@@ -18,12 +18,36 @@
   porte del ranking/desempate del heredado (hallazgo 4 de la brecha) y su
   API privada con UI conectada. Los demas frentes no se detienen, pero
   ceden el paso ante conflicto de recursos o de carril.
-- Orden de ataque recomendado por direccion (17/07 tarde): primero T11
-  (conformidad DEC-053, barato ahora y caro despues), despues T07 y T12
-  (coherencia y durabilidad de Bolsa), despues T02 y el resto de T03; tras T12 entran las medidas de cumplimiento T13 a T16 (paquete docs/cumplimiento/), redactadas para programarse sin esperar a las mesas: los plazos y politicas que solo las mesas pueden fijar entran como configuracion, no como codigo.
-  S-03 (identidad real por certificado/Kerberos) queda aparcada
-  deliberadamente: depende de Sistemas y no hay produccion hasta su visto
-  bueno; nada debe disenarse de forma que la estorbe.
+- **Orden de ataque vigente (direccion, 18/07/2026). Sustituye al del 17/07.**
+  El criterio ha cambiado: la prioridad es **terminar la funcionalidad de la
+  aplicacion**, no pulir su estructura interna. El refactor estructural se
+  salda en v2.
+
+  1. **T12** (durabilidad probatoria) y **T13** (registro de accesos con
+     finalidad). Van primero porque **no son mejoras: la EIPD los declara
+     condicion previa para el piloto con datos reales**. Sin ellos la
+     aplicacion solo puede demostrarse con datos sinteticos.
+  2. **T17** (importador gobernado de Convoca): es lo que permite que la
+     aplicacion coma datos reales de bolsas.
+  3. **T07** (coherencia frontend-API verificada en ejecucion) y el resto de
+     **T03**.
+  4. **T14 a T16** (conservacion, derechos RGPD, cifrado en reposo), del
+     paquete `docs/cumplimiento/`, redactadas para programarse sin esperar a
+     las mesas: los plazos y politicas que solo las mesas pueden fijar entran
+     como configuracion, no como codigo.
+  5. **T18** (Formacion) y **T19** (adaptador TSA), este ultimo cuando haya
+     decision de proveedor.
+
+  **T02 queda aparcado para v2** (ver su nota de aparcamiento): no se abren
+  mas tandas, pero sus reglas de contencion siguen siendo obligatorias.
+  **S-03** (identidad real por certificado/Kerberos) sigue aparcada: depende
+  de Sistemas y no hay produccion hasta su visto bueno; nada debe disenarse
+  de forma que la estorbe.
+
+  Nota de criterio para el agente: aparcar T02 **no** autoriza a bajar el
+  liston de calidad en lo que si se programa. Sigue exigido el mismo rigor
+  de pruebas, `go vet`, carrera donde toque y evidencia medida en cada
+  entrega. Lo que se aparca es un refactor estructural, no la disciplina.
 
 ## Pendientes Txx
 
@@ -42,21 +66,54 @@
 ### T02 — Extraer la logica canonica de `internal/vec/ports` (H-01)
 
 - `origen`: auditoria H-01 y fallo real de CI.
-- `estado`: **en curso — primera tanda cerrada y medida el 18/07/2026; T02
-  todavia no esta completada**. El 17/07 se detecto la desviacion historica
-  de +6.563 lineas en `internal/vec/ports` y +10.336 lineas con 45 ficheros
-  nuevos en `internal/modules/bolsa/ports` desde el ancla de la auditoria. La
-  primera tanda reduce en 1.821 lineas la produccion de `internal/vec/ports`,
-  pero Bolsa no cambia y aun quedan derivaciones y ficheros muy por encima
-  del limite. Sigue vigente la regla reforzada hasta cerrar T02: ningun
-  fichero nuevo en `*/ports`; los contratos nuevos nacen en subpaquetes de
-  dominio (`reglasbaremo`, `calculoexperiencia` son el patron correcto ya
-  usado) y `ports` solo reexporta interfaces.
+- `estado`: **APARCADO PARA v2 por decision de direccion el 18/07/2026. No
+  abrir mas tandas de T02.** La limpieza se pospone; la contencion NO. Ver
+  la nota de aparcamiento mas abajo, que es de cumplimiento obligatorio.
+
+  Historico: el 17/07 se detecto la desviacion de +6.563 lineas en
+  `internal/vec/ports` y +10.336 lineas con 45 ficheros nuevos en
+  `internal/modules/bolsa/ports` desde el ancla de la auditoria. Tres tandas
+  (`2cf445f..65acc4c`) redujeron 1.818 lineas netas y dejaron
+  `internal/vec/canonico` con cuatro subpaquetes utiles, que se conservan.
 - `area_hexagonal`: puerto hacia nucleo/subpaquetes.
-- `accion`: programar el troceo por capacidad (autorizacion, documental,
-  almacen, auditoria) moviendo derivaciones canonicas y criptograficas a
-  subpaquetes; `ports` conserva interfaces y tipos de intercambio. Aplicar
-  DEC-051 a cada fichero resultante.
+- `area_hexagonal`: puerto hacia nucleo/subpaquetes.
+- `accion`: **ninguna hasta v2.** Cuando se retome, el troceo por capacidad
+  (autorizacion, documental, almacen, auditoria) mueve derivaciones canonicas
+  a subpaquetes; `ports` conserva interfaces y tipos de intercambio.
+
+#### Nota de aparcamiento T02 — 18/07/2026 (vigente, no opcional)
+
+Motivo del aparcamiento, con los numeros que lo sostienen: tres tandas
+movieron 1.818 lineas netas, y el tercer corte —el mas caro, con carrera
+`-race` de 101 s y pruebas de equivalencia byte a byte— movio 34 lineas.
+Los tres ficheros que de verdad pesan siguen intactos
+(`ejecuciones_documentales_v3.go` 3.975, `idempotencia_semantica_baremacion.go`
+3.864, `baremacion.go` 2.055). A ese ritmo el cierre de T02 esta a cientos de
+tandas, y compite por presupuesto con trabajo que desbloquea el piloto. La
+prioridad pasa a terminar funcionalidad; la deuda de `ports` se asume
+conscientemente y se salda en v2.
+
+Lo que **sigue vigente pese al aparcamiento**:
+
+1. **Ningun fichero nuevo en `*/ports`.** Los contratos nuevos nacen en
+   subpaquetes de dominio (`reglasbaremo`, `calculoexperiencia`,
+   `internal/vec/canonico` son el patron correcto ya usado); `ports` solo
+   reexporta interfaces. Esta regla congela la deuda donde esta; sin ella la
+   v2 hereda un problema peor que el actual.
+2. **DEC-051 sin excepciones**: ningun fichero supera el tope, y el control
+   ratcheado de `scripts/tamano_ficheros_base.txt` solo baja.
+3. **`internal/vec/canonico` se conserva y se usa.** Lo ya extraido no se
+   revierte, y si una capacidad nueva encaja de forma natural en un
+   subpaquete canonico existente, va ahi y no al puerto.
+
+Correccion de tecnica para cuando se retome en v2, porque la tecnica elegida
+fue la principal causa del coste: la consolidacion primitiva a primitiva con
+prueba de equivalencia byte a byte **no es el metodo por defecto**. Si un
+fichero es autocontenido, se mueve entero (cambio de paquete) y la
+equivalencia la demuestra el compilador. La prueba byte a byte se reserva a
+funciones que participan en preimagenes de firma, huella o serializacion
+canonica, donde un cambio de un solo byte invalidaria evidencia. Aplicada
+asi, estaba bien empleada en `65acc4c`; como metodo general, no.
 - `evidencia`: run de CI 29462846251 fallo por timeout de `go test -race`
   (600 s) en `internal/vec/ports`; el paquete tiene 19.733 lineas de fuente
   en el ancla de la auditoria. La linea base inmediatamente anterior a T02,

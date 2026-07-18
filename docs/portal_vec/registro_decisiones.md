@@ -3248,3 +3248,45 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   forma, pero no autoridad productiva. Publicación y retirada no se abrirán
   hasta disponer de registradores confiables, verificación de firma/custodia,
   revalidación transaccional y pruebas de sustitución y revocación concurrentes.
+
+## DEC-092 — Aparcar el refactor estructural de `ports` hasta la v2
+
+Fecha: 18 de julio de 2026. Adoptada por: responsable del proyecto, a
+propuesta razonada de la direccion tecnica. Sustituye la prioridad de T02
+fijada el 17/07.
+
+**Decision.** T02 (extraccion de la logica canonica de `internal/vec/ports` y
+`internal/modules/bolsa/ports`) se aparca hasta una version 2. La prioridad
+pasa a terminar la funcionalidad de la aplicacion. La deuda estructural de
+`ports` se asume de forma consciente y documentada, no por descuido.
+
+**Motivo, con la medicion que lo sostiene.** Tres tandas de T02
+(`2cf445f..65acc4c`) movieron 1.818 lineas netas; el tercer corte, el mas
+caro, movio 34 lineas con una carrera `-race` de 101 segundos y pruebas de
+equivalencia byte a byte. Los tres ficheros de mayor peso seguian intactos
+(3.975, 3.864 y 2.055 lineas). El cierre completo quedaba a cientos de
+tandas, compitiendo por recursos con trabajo que desbloquea el piloto. Lo que
+T02 compraba a corto plazo era tiempo de compilacion (unos 3,5 s a ~1 s), sin
+efecto visible para el usuario ni para el cumplimiento.
+
+**Lo que NO se aparca**, y es la condicion que hace aceptable la decision:
+
+1. Ningun fichero nuevo en `*/ports`; los contratos nuevos nacen en
+   subpaquetes de dominio o en `internal/vec/canonico`. Sin esta regla la
+   deuda seguiria creciendo y la v2 heredaria un problema peor que el actual.
+2. DEC-051 sin excepciones y control ratcheado de tamanos que solo baja.
+3. `internal/vec/canonico` se conserva y se sigue usando; lo extraido no se
+   revierte.
+
+**Correccion de tecnica para la v2.** La consolidacion primitiva a primitiva
+con prueba de equivalencia byte a byte no sera el metodo por defecto: un
+fichero autocontenido se mueve entero y la equivalencia la demuestra el
+compilador. La prueba byte a byte se reserva a funciones que participan en
+preimagenes de firma, huella o serializacion canonica, donde un solo byte
+distinto invalidaria evidencia.
+
+**Consecuencia asumida y advertida.** T12 (durabilidad probatoria) y T13
+(registro de accesos con finalidad) **no** se aparcan: la EIPD los declara
+condicion previa del piloto con datos reales. Si tambien se pospusieran, la
+aplicacion quedaria funcionalmente terminada pero solo demostrable con datos
+sinteticos. Por eso encabezan el orden de ataque vigente.
