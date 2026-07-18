@@ -42,15 +42,16 @@
 ### T02 — Extraer la logica canonica de `internal/vec/ports` (H-01)
 
 - `origen`: auditoria H-01 y fallo real de CI.
-- `estado`: **urgente — desviacion activa detectada el 17/07**. La directriz
-  1 de la auditoria congelo ambos `ports` ("contratos nuevos limitados a
-  interfaces y tipos; toda derivacion a subpaquetes") y desde el ancla de la
-  auditoria han entrado +6.563 lineas en `internal/vec/ports` y +10.336
-  lineas con 45 ficheros nuevos en `internal/modules/bolsa/ports`. Regla
-  reforzada hasta cerrar T02: ningun fichero nuevo en `*/ports`; los
-  contratos nuevos nacen en subpaquetes de dominio (`reglasbaremo`,
-  `calculoexperiencia` son el patron correcto ya usado) y `ports` solo
-  reexporta interfaces.
+- `estado`: **en curso — primera tanda cerrada y medida el 18/07/2026; T02
+  todavia no esta completada**. El 17/07 se detecto la desviacion historica
+  de +6.563 lineas en `internal/vec/ports` y +10.336 lineas con 45 ficheros
+  nuevos en `internal/modules/bolsa/ports` desde el ancla de la auditoria. La
+  primera tanda reduce en 1.821 lineas la produccion de `internal/vec/ports`,
+  pero Bolsa no cambia y aun quedan derivaciones y ficheros muy por encima
+  del limite. Sigue vigente la regla reforzada hasta cerrar T02: ningun
+  fichero nuevo en `*/ports`; los contratos nuevos nacen en subpaquetes de
+  dominio (`reglasbaremo`, `calculoexperiencia` son el patron correcto ya
+  usado) y `ports` solo reexporta interfaces.
 - `area_hexagonal`: puerto hacia nucleo/subpaquetes.
 - `accion`: programar el troceo por capacidad (autorizacion, documental,
   almacen, auditoria) moviendo derivaciones canonicas y criptograficas a
@@ -58,7 +59,146 @@
   DEC-051 a cada fichero resultante.
 - `evidencia`: run de CI 29462846251 fallo por timeout de `go test -race`
   (600 s) en `internal/vec/ports`; el paquete tiene 19.733 lineas de fuente
-  y ficheros de 4.122 lineas (`ejecuciones_documentales_v3.go`).
+  en el ancla de la auditoria. La linea base inmediatamente anterior a T02,
+  `8ac2aa2`, ya habia crecido hasta 23.525 lineas de produccion y conservaba
+  un fichero de 4.122 lineas (`ejecuciones_documentales_v3.go`). El cierre
+  medido de la primera tanda queda a continuacion.
+
+#### Cierre medido de la primera tanda T02 — 18/07/2026
+
+El corte comprende `2cf445f..5ed064e`, tomando `8ac2aa2` (`2cf445f^`) como
+linea base previa. Es un cierre de tanda, no el cierre de T02.
+
+| Commit | Resultado incorporado |
+|---|---|
+| `2cf445f` | Extrae a `canonico/pagos` validacion, auditoria, entrega, operacion remota y derivaciones; `ports/pagos.go` conserva el contrato y las reexportaciones compatibles. |
+| `35cadc5` | Funda `canonico/almacen` con capacidades, requisitos, objetos, instrucciones, resultados, recibos y seudonimizacion. |
+| `98209b7` | Extrae primitivas, intercambio, atestaciones y despacho documental V3 a `canonico/documental`. |
+| `842aaf9` | Funda `canonico/recibomaterial` con perfil, plan, instantanea, recibo, atestacion y reglas primitivas. |
+| `02bf26b` | Extrae el contexto canonico de almacenamiento y liga su validacion a cargas documentales. |
+| `e49ff6b` | Extrae capacidades del recibo material mediante proyecciones explicitas y copias defensivas, sin convertir capacidades nominales en alias de tipo. |
+| `bbff751` | Extrae sellos de evidencia, sobre de prueba y reconciliacion documental V3. |
+| `9bbe338` | Endurece la nominalidad criptografica: la forma de una atestacion no se presenta como autoridad y los DTO internos sensibles quedan redactados, con JSON, texto y binario denegados. |
+| `5ed064e` | Sustituye tres expresiones regulares calientes por escaneres ASCII con equivalencia exhaustiva frente a las expresiones anteriores. |
+
+##### Tamano antes y despues
+
+Los conteos son lineas fisicas de ficheros Go versionados. Se separan
+produccion y pruebas para no esconder el coste de la evidencia nueva.
+
+| Superficie | `8ac2aa2` | `5ed064e` | Variacion |
+|---|---:|---:|---:|
+| `internal/vec/ports`, produccion | 42 ficheros / 23.525 lineas | 42 / 21.704 | -1.821 lineas (-7,7 %) |
+| `internal/vec/ports`, pruebas | 30 / 14.270 | 30 / 14.270 | sin cambio |
+| `internal/vec/ports`, total | 72 / 37.795 | 72 / 35.974 | -1.821 lineas (-4,8 %) |
+| `internal/vec/canonico`, produccion | 0 / 0 | 30 / 4.373 | +30 / +4.373 |
+| `internal/vec/canonico`, pruebas | 0 / 0 | 12 / 1.664 | +12 / +1.664 |
+| `ports` + `canonico`, produccion | 42 / 23.525 | 72 / 26.077 | +30 / +2.552 |
+| `ports` + `canonico`, total | 72 / 37.795 | 114 / 42.011 | +42 / +4.216 |
+| `internal/modules/bolsa/ports`, produccion | 34 / 14.424 | 34 / 14.424 | sin cambio |
+| `internal/modules/bolsa/ports`, pruebas | 29 / 12.342 | 29 / 12.342 | sin cambio |
+
+El crecimiento de `canonico` no se interpreta como ahorro global: contiene la
+logica extraida, proyecciones de compatibilidad y 1.664 lineas de pruebas
+nuevas. La metrica de arquitectura relevante en esta tanda es que la
+derivacion deja de vivir en el paquete de contratos.
+
+| Fichero de produccion de `internal/vec/ports` | Antes | Actual | Delta |
+|---|---:|---:|---:|
+| `pagos.go` | 1.571 | 719 | -852 |
+| `almacen_objetos.go` | 1.716 | 1.206 | -510 |
+| `recibo_escritura_objeto_material_v2.go` | 1.754 | 1.474 | -280 |
+| `ejecuciones_documentales_v3.go` | 4.122 | 3.975 | -147 |
+| `autorizacion_almacen.go` | 797 | 743 | -54 |
+| `ejecucion_componentes_documentales_atestada.go` | 1.160 | 1.154 | -6 |
+| `cargas_documentales.go` | 757 | 779 | +22 |
+| `formatos_documentales_gobernados.go` | 745 | 751 | +6 |
+
+##### Medidas reproducibles
+
+La medida completa compara la linea base pre-T02 `8ac2aa2` con `5ed064e`:
+
+```bash
+/usr/bin/time -f 'elapsed=%e user=%U sys=%S maxrss=%M' \
+  go test -race -count=1 ./internal/vec/ports
+```
+
+| Carrera completa de `internal/vec/ports` | Base `8ac2aa2` | Despues `5ed064e` | Mejora |
+|---|---:|---:|---:|
+| Tiempo comunicado por `go test` | `582.884 s` | `485.223 s` | `-97.661 s` (-16,8 %) |
+| Tiempo de pared | `586.29 s` | `485.51 s` | `-100.78 s` (-17,2 %) |
+| CPU usuario / sistema | no conservado | `1042.88 s` / `10.43 s` | no comparable |
+| RSS maximo | `365664 KiB` | `184860 KiB` | `-180804 KiB` (-49,4 %) |
+
+El escaner ASCII se midio ademas con un A/B causal aislado: worktree
+`bbff751` frente a `5ed064e`. El commit intermedio `9bbe338` solo endurece
+`recibomaterial` y no esta en el camino ejecutado por la prueba focal.
+
+```bash
+/usr/bin/time -f 'elapsed=%e user=%U sys=%S maxrss=%M' \
+  go test -count=1 ./internal/vec/ports \
+  -run '^TestPreparacionAlmacenV4DetectaCadaCampoDeContextoCapacidadesYPolitica$'
+
+/usr/bin/time -f 'elapsed=%e user=%U sys=%S maxrss=%M' \
+  go test -race -count=1 ./internal/vec/ports \
+  -run '^TestPreparacionAlmacenV4DetectaCadaCampoDeContextoCapacidadesYPolitica$'
+```
+
+| Prueba focal | Base `bbff751` | Despues `5ed064e` | Mejora |
+|---|---:|---:|---:|
+| Normal, tiempo de paquete | `5.912 s` | `3.915 s` | -33,8 % |
+| Normal, pared | `6.12 s` | `4.12 s` | -32,7 % |
+| Normal, CPU usuario / sistema | no conservado | `4.63 s` / `0.28 s` | no comparable |
+| Normal, RSS maximo | `144800 KiB` | `144812 KiB` | sin variacion material |
+| Race, tiempo de paquete | `85.784 s` | `50.100 s` | -41,6 % |
+| Race, pared | `90.14 s` | `50.38 s` | -44,1 % |
+| Race, CPU usuario / sistema | `93.88 s` / `1.19 s` | `51.35 s` / `0.53 s` | -45,3 % / -55,5 % |
+| Race, RSS maximo | `340300 KiB` | `161552 KiB` | `-178748 KiB` (-52,5 %) |
+
+La carrera completa local vuelve a terminar por debajo del timeout de 600 s
+que origino T02, pero `485.51 s` todavia consume el 80,9 % de ese margen. La
+medida corrige localmente el sintoma observado; no sustituye una nueva
+ejecucion verde de CI ni justifica cerrar el riesgo de rendimiento o T02.
+
+##### Decisiones de seguridad conservadas
+
+- Las capacidades nominales con campos privados permanecen en `ports`. No se
+  sustituyen por alias de tipo reflectivos ni se reconstruye autoridad con
+  `reflect`; su paso al nucleo usa conversores explicitos hacia proyecciones
+  `Datos*`. Los alias se reservan a vocabulario o datos pasivos cuya
+  construccion no concede autoridad.
+- `DatosSolicitudAtestacion`, `DatosAtestacion`, `DatosPerfilPublicado` y
+  `DatosResultadoReferencia` redactan `String`, `GoString`, `Format` y
+  `LogValue`, y deniegan serializacion y deserializacion JSON, texto y binaria.
+  No son DTO HTTP ni prueba criptografica; solo transportan forma nominal hacia
+  una autoridad homologada y una relectura durable.
+- Los mensajes, codigos y canonicos cruzan las fronteras con copias defensivas;
+  las huellas sensibles se comparan en tiempo constante. La extraccion no
+  introduce un conector productivo ni una autoridad por defecto.
+- Los escaneres ASCII mantienen exactamente los lenguajes previos, incluidos
+  limites, UTF-8 no ASCII y bytes invalidos. Las pruebas comparan las funciones
+  nuevas con las expresiones regulares originales en fronteras, todos los
+  octetos, mutaciones completas de DNI/NIE, 100.000 entradas deterministas y
+  semillas de fuzzing.
+
+##### Trabajo restante para cerrar T02
+
+1. Continuar el troceo por capacidad de
+   `ejecuciones_documentales_v3.go` (3.975 lineas),
+   `materializacion_documental_v4.go` (1.590),
+   `recibo_escritura_objeto_material_v2.go` (1.474),
+   `almacen_objetos.go` (1.206) y
+   `ejecucion_componentes_documentales_atestada.go` (1.154), sin ampliar sus
+   superficies publicas ni usar alias para capacidades nominales.
+2. Inventariar y extraer la logica de `internal/modules/bolsa/ports`: esta
+   tanda no modifica sus 14.424 lineas de produccion ni sus 12.342 de pruebas.
+3. Reducir de nuevo el coste de la carrera completa y confirmar el resultado
+   en CI: aunque la medida local ya no supera 600 s, el margen del 19,1 % es
+   insuficiente frente a variacion y crecimiento futuro. Mantener medidas A/B
+   con el mismo comando, revision exacta y estado de cache documentado.
+4. Mantener congelada la creacion de ficheros en ambos `*/ports` y ratchear la
+   base de tamanos solo a la baja. T02 se cerrara cuando `ports` sea contrato y
+   proyeccion fina, no por el mero hecho de que la prueba quede bajo el timeout.
 
 ### T03 — Cableado de modulos fuera de `httpapi` (H-02)
 
