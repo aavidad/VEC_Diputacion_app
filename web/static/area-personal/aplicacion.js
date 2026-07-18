@@ -9,6 +9,10 @@ import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
 } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
+import {
+  aplicarPasoSolicitud, crearPayloadBorrador, crearProgresoSolicitud,
+  declaracionFinalConfirmada, localizarSolicitudEdicion,
+} from "./flujo-solicitud.js";
 
 const RUTAS = Object.freeze({
   inicio: ["Inicio y plazos", renderizarInicio],
@@ -145,20 +149,41 @@ function navegar(estado, vista, opciones = {}) {
   renderizar(estado, { enfocar: true });
 }
 
-function cerrarMenu() {
+function cerrarMenu({ restaurarFoco = false } = {}) {
   document.body.dataset.menuAbierto = "false";
   const boton = document.querySelector('[data-accion="alternar-menu"]');
   boton?.setAttribute("aria-expanded", "false");
   const velo = document.querySelector(".velo-menu");
   if (velo) velo.hidden = true;
+  if (restaurarFoco) boton?.focus({ preventScroll: true });
 }
 
 function alternarMenu() {
   const abierto = document.body.dataset.menuAbierto !== "true";
+  if (!abierto) {
+    cerrarMenu({ restaurarFoco: true });
+    return;
+  }
   document.body.dataset.menuAbierto = String(abierto);
   document.querySelector('[data-accion="alternar-menu"]')?.setAttribute("aria-expanded", String(abierto));
   const velo = document.querySelector(".velo-menu");
   if (velo) velo.hidden = !abierto;
+  document.querySelector(".ap-navegacion a[href]")?.focus({ preventScroll: true });
+}
+
+function mantenerFocoEnMenu(evento) {
+  if (evento.key !== "Tab" || document.body.dataset.menuAbierto !== "true") return;
+  const controles = [...document.querySelectorAll('#navegacion-lateral a[href], #navegacion-lateral button:not([disabled]), #navegacion-lateral [tabindex]:not([tabindex="-1"])')];
+  if (controles.length === 0) return;
+  const primero = controles[0];
+  const ultimo = controles.at(-1);
+  if (evento.shiftKey && (document.activeElement === primero || !document.getElementById("navegacion-lateral")?.contains(document.activeElement))) {
+    evento.preventDefault();
+    ultimo.focus();
+  } else if (!evento.shiftKey && document.activeElement === ultimo) {
+    evento.preventDefault();
+    primero.focus();
+  }
 }
 
 function mostrarDetalle(titulo, contenido) {
@@ -181,12 +206,14 @@ function verDocumento(estado, id) {
   mostrarDetalle(documento.nombre, listaDatos([["Referencia", escaparHTML(documento.id)], ["Tipo", escaparHTML(documento.tipo)], ["Fecha", escaparHTML(documento.fecha)], ["Estado", escaparHTML(documento.estado)], ["Huella", escaparHTML(documento.huella || "Pendiente del servicio documental")]]));
 }
 
-function prepararOperacion(estado, operacion, { id = "", descripcion = "", payload = {} } = {}) {
+function prepararOperacion(estado, operacion, {
+  id = "", descripcion = "", payload = {}, alCompletar = null,
+} = {}) {
   if (!TITULOS_OPERACION[operacion]) {
     notificar("La acción no está reconocida por esta superficie.");
     return;
   }
-  estado.operacionPendiente = { operacion, payload: { ...payload, id }, descripcion };
+  estado.operacionPendiente = { operacion, payload: { ...payload, id }, descripcion, alCompletar };
   porId("titulo-confirmacion").textContent = TITULOS_OPERACION[operacion];
   porId("contenido-confirmacion").innerHTML = `<p>${escaparHTML(descripcion || TITULOS_OPERACION[operacion])}</p><dl class="dato-lista"><dt>Acción</dt><dd>${escaparHTML(operacion)}</dd><dt>Objeto</dt><dd>${escaparHTML(id || "Expediente personal")}</dd><dt>Resultado esperado</dt><dd>${estado.datos.meta.presentacion ? "Recibo DEMO sin efectos administrativos" : "Confirmación emitida por el servicio autorizado"}</dd></dl><p class="nota ${estado.datos.meta.presentacion ? "demo" : "aviso"}">${estado.datos.meta.presentacion ? "Esta confirmación solo modifica el estado efímero de la demostración." : "El servidor volverá a comprobar identidad, permiso, estado e idempotencia."}</p>`;
   const confirmar = porId("formulario-confirmacion").querySelector('[value="confirmar"]');
@@ -208,7 +235,18 @@ async function ejecutarPendiente(estado) {
     estado.ultimoRecibo = resultado.recibo;
     if (resultado.datos?.meta) estado.datos = resultado.datos;
     else estado.datos = await estado.cliente.cargar();
-    estado.operacionesSolicitud[pendiente.operacion] = true;
+    if (pendiente.alCompletar?.seleccionarBorrador === true) {
+      const solicitud = localizarSolicitudEdicion(estado.datos, {
+        solicitudId: pendiente.payload.id,
+        convocatoriaId: pendiente.payload.convocatoria_id,
+      });
+      if (!solicitud) throw new Error("El servicio guardó el borrador, pero no devolvió su referencia autorizada.");
+      estado.solicitudEdicionId = solicitud.id;
+    }
+    if (Number.isInteger(pendiente.alCompletar?.pasoSolicitud)) {
+      estado.pasoSolicitud = pendiente.alCompletar.pasoSolicitud;
+    }
+    estado.errorPasoSolicitud = "";
     renderizar(estado);
     mostrarRecibo(estado, resultado.recibo);
   } catch (error) {
@@ -238,16 +276,33 @@ function descargarRecibo(estado) {
   notificar("Recibo preparado para descarga.");
 }
 
-function leerPantalla() {
+function remitirALecturaLocal(estado, mensaje) {
+  notificar(mensaje);
+  anunciar("Lectura por voz no iniciada. Se abre la ayuda con audio local y transcripción.");
+  if (estado.vista !== "ayuda") navegar(estado, "ayuda");
+}
+
+function leerPantalla(estado) {
+  if (estado.datos?.meta?.presentacion !== true) {
+    remitirALecturaLocal(estado, "La lectura de expedientes privados requiere un conector y una política aprobados. Use el audio local y la transcripción de Ayuda.");
+    return;
+  }
   const sintetizador = window.speechSynthesis;
   if (!sintetizador || typeof window.SpeechSynthesisUtterance !== "function") {
-    notificar("La lectura por voz no está disponible en este navegador.");
+    remitirALecturaLocal(estado, "La síntesis local no está disponible. Use el audio local y la transcripción de Ayuda.");
+    return;
+  }
+  const voz = sintetizador.getVoices?.().find((candidata) => candidata?.localService === true
+    && /^es(?:-|$)/i.test(String(candidata.lang || "")));
+  if (!voz) {
+    remitirALecturaLocal(estado, "No hay una voz local en español. No se ha enviado texto a ningún servicio; use el audio local y la transcripción de Ayuda.");
     return;
   }
   sintetizador.cancel();
   const texto = porId("contenido-principal")?.innerText?.trim().slice(0, 12_000) || "No hay contenido para leer.";
   const locucion = new SpeechSynthesisUtterance(texto);
   locucion.lang = "es-ES";
+  locucion.voice = voz;
   locucion.rate = 1;
   sintetizador.speak(locucion);
   notificar("Lectura por voz iniciada. Pulse Esc o cambie de página para detenerla.");
@@ -266,9 +321,9 @@ function alternarPreferencia(accion, boton) {
 function atenderAccion(estado, boton) {
   const accion = boton.dataset.accion;
   if (accion === "alternar-menu") return alternarMenu();
-  if (accion === "cerrar-menu") return cerrarMenu();
+  if (accion === "cerrar-menu") return cerrarMenu({ restaurarFoco: true });
   if (accion === "alternar-texto" || accion === "alternar-contraste") return alternarPreferencia(accion, boton);
-  if (accion === "leer-pantalla") return leerPantalla();
+  if (accion === "leer-pantalla") return leerPantalla(estado);
   if (accion === "ver-sesion") return verSesion(estado);
   if (accion === "descargar-recibo") return descargarRecibo(estado);
   if (accion === "reintentar") return cargar(estado);
@@ -276,12 +331,21 @@ function atenderAccion(estado, boton) {
   if (accion === "volver-convocatorias") return navegar(estado, "convocatorias");
   if (accion === "iniciar-solicitud") {
     estado.convocatoriaSolicitud = boton.dataset.id;
+    estado.progresoSolicitud = crearProgresoSolicitud(boton.dataset.id);
+    estado.solicitudEdicionId = "";
+    estado.errorPasoSolicitud = "";
     estado.pasoSolicitud = 1;
     return navegar(estado, "solicitud");
   }
   if (accion === "paso-anterior") { estado.pasoSolicitud = Math.max(1, estado.pasoSolicitud - 1); return renderizar(estado); }
-  if (accion === "paso-siguiente") { estado.pasoSolicitud = Math.min(5, estado.pasoSolicitud + 1); return renderizar(estado); }
-  if (accion === "seleccionar-convocatoria") { estado.convocatoriaSolicitud = boton.value; return; }
+  if (accion === "seleccionar-convocatoria") {
+    if (estado.convocatoriaSolicitud !== boton.value) {
+      estado.convocatoriaSolicitud = boton.value;
+      estado.progresoSolicitud = crearProgresoSolicitud(boton.value);
+      estado.solicitudEdicionId = "";
+    }
+    return;
+  }
   if (accion === "abrir-expediente") { estado.expedienteSeleccionado = boton.dataset.id; return navegar(estado, "seguimiento", { id: boton.dataset.id }); }
   if (accion === "abrir-documento") return verDocumento(estado, boton.dataset.id);
   if (accion === "enfocar-nuevo-merito") {
@@ -297,6 +361,10 @@ function atenderAccion(estado, boton) {
       payload.respuesta = respuesta;
     }
     if (boton.dataset.operacion === "cambiar_disponibilidad") payload.disponible = id === "true";
+    if (["iniciar_pago", "firmar_solicitud"].includes(boton.dataset.operacion) && !id) {
+      notificar("Guarde primero el borrador y espere a que el servicio devuelva su referencia.");
+      return;
+    }
     return prepararOperacion(estado, boton.dataset.operacion, { id, descripcion: boton.dataset.descripcion, payload });
   }
 }
@@ -315,7 +383,7 @@ function conectarEventos(estado) {
   document.addEventListener("submit", (evento) => {
     const formulario = evento.target;
     if (!(formulario instanceof HTMLFormElement)) return;
-    if (formulario.id === "formulario-confirmacion") return;
+    if (formulario.method === "dialog") return;
     evento.preventDefault();
     if (formulario.id === "busqueda-global") {
       estado.filtros.termino = formularioAObjeto(formulario).consulta || "";
@@ -332,11 +400,53 @@ function conectarEventos(estado) {
       renderizar(estado);
       return;
     }
+    if (formulario.id === "formulario-solicitud-paso") {
+      try {
+        const paso = Number(formulario.dataset.paso);
+        const progreso = aplicarPasoSolicitud(estado.progresoSolicitud, paso, formularioAObjeto(formulario));
+        estado.progresoSolicitud = progreso;
+        estado.convocatoriaSolicitud = progreso.convocatoria_id;
+        estado.errorPasoSolicitud = "";
+        if (paso < 4) {
+          estado.pasoSolicitud = paso + 1;
+          renderizar(estado, { enfocar: true });
+          return;
+        }
+        const solicitud = localizarSolicitudEdicion(estado.datos, {
+          solicitudId: estado.solicitudEdicionId,
+          convocatoriaId: progreso.convocatoria_id,
+        });
+        const payload = crearPayloadBorrador(progreso, solicitud?.id || "");
+        prepararOperacion(estado, "guardar_borrador", {
+          id: solicitud?.id || "",
+          descripcion: estado.datos.meta.presentacion
+            ? "Guardar el borrador completo en memoria antes de pago, firma y registro"
+            : "Guardar el borrador completo antes de pago, firma y registro",
+          payload,
+          alCompletar: { seleccionarBorrador: true, pasoSolicitud: 5 },
+        });
+      } catch (error) {
+        estado.errorPasoSolicitud = error instanceof Error ? error.message : "El paso no supera las validaciones.";
+        anunciar("No se puede continuar. Revise los campos indicados.");
+        renderizar(estado);
+      }
+      return;
+    }
     if (formulario.dataset.operacion) {
+      const payload = formularioAObjeto(formulario);
+      if (formulario.dataset.operacion === "registrar_solicitud") {
+        if (!declaracionFinalConfirmada(payload.declaracion_final)) {
+          estado.errorPasoSolicitud = "Debe confirmar la declaración final antes de registrar la solicitud.";
+          anunciar("No se puede registrar sin la declaración final.");
+          renderizar(estado);
+          return;
+        }
+        payload.declaracion_final = true;
+      }
       prepararOperacion(estado, formulario.dataset.operacion, {
         id: formulario.dataset.id || "",
         descripcion: TITULOS_OPERACION[formulario.dataset.operacion],
-        payload: formularioAObjeto(formulario),
+        payload,
       });
     }
   });
@@ -345,12 +455,19 @@ function conectarEventos(estado) {
     else estado.operacionPendiente = null;
   });
   window.addEventListener("popstate", () => {
+    cerrarMenu();
     estado.vista = rutaDesdeURL();
     estado.convocatoriaSeleccionada = new URLSearchParams(window.location.search).get("id") || estado.convocatoriaSeleccionada;
     renderizar(estado, { enfocar: true });
   });
   window.addEventListener("keydown", (evento) => {
-    if (evento.key === "Escape") window.speechSynthesis?.cancel?.();
+    mantenerFocoEnMenu(evento);
+    if (evento.key !== "Escape") return;
+    window.speechSynthesis?.cancel?.();
+    if (document.body.dataset.menuAbierto === "true") {
+      evento.preventDefault();
+      cerrarMenu({ restaurarFoco: true });
+    }
   });
 }
 
@@ -363,6 +480,10 @@ async function cargar(estado) {
     const datos = await estado.cliente.cargar();
     if (datos.meta.presentacion !== estado.presentacionSolicitada) throw new Error("El origen recibido no coincide con el modo solicitado.");
     estado.datos = datos;
+    if (!estado.convocatoriaSolicitud) {
+      estado.convocatoriaSolicitud = datos.convocatorias.find((item) => item.estado === "Plazo abierto")?.id || "";
+      estado.progresoSolicitud = crearProgresoSolicitud(estado.convocatoriaSolicitud);
+    }
     estado.error = null;
     renderizar(estado);
   } catch (error) {
@@ -386,7 +507,9 @@ export async function iniciarAreaPersonal({ cliente, presentacionSolicitada = fa
     convocatoriaSeleccionada: parametros.get("id") || "",
     convocatoriaSolicitud: "",
     expedienteSeleccionado: parametros.get("id") || "",
-    operacionesSolicitud: {},
+    progresoSolicitud: crearProgresoSolicitud(),
+    solicitudEdicionId: "",
+    errorPasoSolicitud: "",
     operacionPendiente: null,
     ultimoRecibo: null,
   };

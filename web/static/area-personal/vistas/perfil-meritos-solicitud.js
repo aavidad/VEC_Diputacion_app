@@ -2,6 +2,7 @@ import {
   barraProgreso, botonOperacion, chip, encabezadoVista, enlaceRuta, escaparAtributo,
   escaparHTML, formatoPuntos, listaDatos, notaDemostracion, panel, tabla,
 } from "./comunes.js";
+import { estadoActosSolicitud, localizarSolicitudEdicion } from "../flujo-solicitud.js";
 
 export function renderizarPerfil(datos) {
   const perfil = datos.perfil;
@@ -56,35 +57,66 @@ function pasosSolicitud(paso) {
 }
 
 function accionesPaso(paso) {
-  return `<div class="fila-acciones">${paso > 1 ? `<button type="button" class="boton-secundario" data-accion="paso-anterior">Anterior</button>` : ""}${paso < 5 ? `<button type="button" class="boton-primario" data-accion="paso-siguiente">Guardar y continuar</button>` : ""}</div>`;
+  const etiqueta = paso === 4 ? "Guardar borrador y continuar" : "Guardar y continuar";
+  return `<div class="fila-acciones">${paso > 1 ? '<button type="button" class="boton-secundario" data-accion="paso-anterior">Anterior</button>' : ""}${paso < 5 ? `<button type="submit" class="boton-primario">${etiqueta}</button>` : ""}</div>`;
 }
 
 function contenidoPaso(datos, estado, convocatoria) {
   const paso = estado.pasoSolicitud;
   if (paso === 1) {
-    return `<fieldset><legend>Convocatoria seleccionada</legend>${datos.convocatorias.map((item) => `<label class="opcion-check"><input type="radio" name="convocatoria" value="${escaparAtributo(item.id)}" ${item.id === convocatoria.id ? "checked" : ""} data-accion="seleccionar-convocatoria"><span><strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.referencia)} · ${escaparHTML(item.plazo)}</small></span></label>`).join("")}</fieldset><p class="nota aviso">Al continuar declara haber consultado las bases. La comprobación de requisitos se efectuará también en el servidor.</p>`;
+    const abiertas = datos.convocatorias.filter((item) => item.estado === "Plazo abierto");
+    const requisitosConfirmados = estado.progresoSolicitud?.requisitos_confirmados === true;
+    return `<fieldset><legend>Convocatoria con plazo abierto</legend>${abiertas.map((item) => `<label class="opcion-check"><input type="radio" name="convocatoria" value="${escaparAtributo(item.id)}" ${item.id === convocatoria.id ? "checked" : ""} required data-accion="seleccionar-convocatoria"><span><strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.referencia)} · ${escaparHTML(item.plazo)}</small></span></label>`).join("")}</fieldset><label class="opcion-check"><input type="checkbox" name="requisitos_confirmados" value="true" required ${requisitosConfirmados ? "checked" : ""}><span><strong>He leído las bases y declaro cumplir los requisitos</strong><small>El servicio volverá a comprobar plazo, requisitos y causas de exclusión antes del registro.</small></span></label>`;
   }
   if (paso === 2) {
-    return `${listaDatos([["Identidad", escaparHTML(datos.perfil.nombre_visible)], ["Identificador", escaparHTML(datos.perfil.identificador_visible)], ["Correo", escaparHTML(datos.perfil.correo)], ["Teléfono", escaparHTML(datos.perfil.telefono)], ["Verificación", chip(datos.perfil.estado_verificacion)]])}<label class="opcion-check"><input type="checkbox" checked data-requisito-paso><span><strong>Confirmo que los datos de contacto están actualizados</strong><small>Puede modificarlos desde Perfil y contacto.</small></span></label>`;
+    return `${listaDatos([["Identidad", escaparHTML(datos.perfil.nombre_visible)], ["Identificador", escaparHTML(datos.perfil.identificador_visible)], ["Correo", escaparHTML(datos.perfil.correo)], ["Teléfono", escaparHTML(datos.perfil.telefono)], ["Verificación", chip(datos.perfil.estado_verificacion)]])}<label class="opcion-check"><input type="checkbox" name="datos_confirmados" value="true" required ${estado.progresoSolicitud?.datos_confirmados === true ? "checked" : ""}><span><strong>Confirmo que mis datos personales y de contacto son correctos</strong><small>Puede modificarlos desde Perfil y contacto antes de continuar.</small></span></label>`;
   }
   if (paso === 3) {
-    return `<fieldset><legend>Méritos que desea asociar</legend>${datos.meritos.map((item) => `<label class="opcion-check"><input type="checkbox" name="meritos" value="${escaparAtributo(item.id)}" checked><span><strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.estado)} · ${formatoPuntos(item.puntos_estimados)} puntos estimados</small></span></label>`).join("")}</fieldset><p class="nota">Los documentos se reutilizan sin duplicar el fichero. La solicitud conserva la referencia y versión exactas.</p>`;
+    const seleccionados = new Set(estado.progresoSolicitud?.meritos_ids || []);
+    return `<fieldset><legend>Méritos que desea asociar</legend>${datos.meritos.map((item) => `<label class="opcion-check"><input type="checkbox" name="meritos" value="${escaparAtributo(item.id)}" ${seleccionados.has(item.id) ? "checked" : ""}><span><strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.estado)} · ${formatoPuntos(item.puntos_estimados)} puntos estimados</small></span></label>`).join("")}</fieldset><p class="nota aviso">Seleccione al menos un mérito. Los documentos se reutilizan sin duplicar el fichero y la solicitud conserva la referencia y versión exactas.</p>`;
   }
   if (paso === 4) {
     const total = datos.baremo.reduce((suma, item) => suma + Number(item.puntos), 0);
     return `<div class="rejilla-dos"><div>${datos.baremo.map((item) => `<div class="criterio-baremo"><span><strong>${escaparHTML(item.nombre)}</strong><small>${escaparHTML(item.detalle)}</small></span>${barraProgreso(item.puntos, item.maximo)}<output>${formatoPuntos(item.puntos)}</output></div>`).join("")}</div><aside class="puntuacion-total"><span>Total autobaremado</span><output>${formatoPuntos(total)}</output><span>puntos provisionales</span></aside></div><p class="nota aviso">El cálculo no vincula a RRHH. Cada mérito será revisado conforme a las bases y quedará constancia de la decisión.</p>`;
   }
-  const operaciones = estado.operacionesSolicitud || {};
   const demo = datos.meta.presentacion;
-  return `<div class="rejilla-dos"><section><h3>1. Tasa o exención</h3><p>Importe mostrado: <strong>${escaparHTML(convocatoria.tasa)}</strong></p>${operaciones.iniciar_pago ? chip(demo ? "Pago DEMO confirmado" : "Pago confirmado") : botonOperacion("iniciar_pago", demo ? "Simular pago o exención" : "Pagar o acreditar exención", { id: convocatoria.id, descripcion: demo ? "Confirmar la simulación de pago o exención" : "Confirmar el pago o la acreditación de exención" })}</section><section><h3>2. Firma electrónica</h3><p>Se firmará la representación exacta de la solicitud.</p>${operaciones.firmar_solicitud ? chip(demo ? "Firma DEMO confirmada" : "Firma confirmada") : botonOperacion("firmar_solicitud", demo ? "Simular firma" : "Firmar solicitud", { id: convocatoria.id, descripcion: demo ? "Confirmar la simulación de firma electrónica" : "Firmar electrónicamente la solicitud" })}</section></div><section class="panel separacion-superior"><div class="panel-contenido"><h3>3. Registro</h3><p>Revise convocatoria, méritos, puntuación, tasa y firma. El registro es el acto que presenta la solicitud.</p>${operaciones.registrar_solicitud ? `<p class="nota ${demo ? "demo" : ""}"><strong>${demo ? "Registro DEMO completado." : "Solicitud registrada."}</strong> ${demo ? "Consulte el recibo mostrado; no existe asiento administrativo real." : "Conserve el recibo y el asiento devueltos por el servicio."}</p>` : botonOperacion("registrar_solicitud", demo ? "Simular firma y registro final" : "Registrar solicitud", { id: convocatoria.id, descripcion: demo ? "Registrar la solicitud de demostración sin efectos administrativos" : "Presentar la solicitud en el registro autorizado" })}</div></section>`;
+  const solicitud = localizarSolicitudEdicion(datos, {
+    solicitudId: estado.solicitudEdicionId,
+    convocatoriaId: convocatoria.id,
+  });
+  if (!solicitud) return '<p class="nota error" role="alert"><strong>Borrador no disponible.</strong> Vuelva al paso anterior y guárdelo antes de iniciar pago, firma o registro.</p>';
+  const actos = estadoActosSolicitud(solicitud);
+  const pago = actos.pagoConfirmado
+    ? chip(demo ? "Pago o exención DEMO confirmado" : "Pago o exención confirmado")
+    : botonOperacion("iniciar_pago", demo ? "Simular pago o exención" : "Pagar o acreditar exención", { id: solicitud.id, descripcion: demo ? "Confirmar la simulación de pago o exención" : "Confirmar el pago o la acreditación de exención" });
+  const firma = actos.firmaConfirmada
+    ? chip(demo ? "Firma DEMO confirmada" : "Firma confirmada")
+    : actos.pagoConfirmado
+      ? botonOperacion("firmar_solicitud", demo ? "Simular firma" : "Firmar solicitud", { id: solicitud.id, descripcion: demo ? "Confirmar la simulación de firma electrónica" : "Firmar electrónicamente la solicitud" })
+      : '<button type="button" class="boton-secundario" disabled aria-disabled="true" title="Confirme antes el pago o la exención">Firma bloqueada hasta confirmar pago o exención</button>';
+  let registro = `<p class="nota ${demo ? "demo" : ""}"><strong>${demo ? "Registro DEMO completado." : "Solicitud registrada."}</strong> ${demo ? "Consulte el recibo mostrado; no existe asiento administrativo real." : "Conserve el recibo y el asiento devueltos por el servicio."}</p>`;
+  if (!actos.registrada) {
+    registro = actos.pagoConfirmado && actos.firmaConfirmada
+      ? `<form id="formulario-registro-solicitud" data-operacion="registrar_solicitud" data-id="${escaparAtributo(solicitud.id)}"><label class="opcion-check"><input type="checkbox" name="declaracion_final" value="true" required><span><strong>Confirmo la solicitud completa que se va a presentar</strong><small>He revisado convocatoria, requisitos, datos, méritos, autobaremación, tasa o exención y firma.</small></span></label><button type="submit" class="boton-primario">${demo ? "Registrar solicitud DEMO" : "Registrar solicitud"}</button></form>`
+      : '<p class="nota aviso"><strong>Registro bloqueado.</strong> Debe confirmar primero el pago o la exención y la firma.</p>';
+  }
+  return `<p class="nota"><strong>Borrador seleccionado:</strong> ${escaparHTML(solicitud.id)}</p><div class="rejilla-dos"><section><h3>1. Tasa o exención</h3><p>Importe mostrado: <strong>${escaparHTML(convocatoria.tasa)}</strong></p>${pago}</section><section><h3>2. Firma electrónica</h3><p>Se firmará la representación exacta de la solicitud.</p>${firma}</section></div><section class="panel separacion-superior"><div class="panel-contenido"><h3>3. Registro</h3><p>El registro es el acto que presenta la solicitud y solo se habilita tras pago o exención y firma.</p>${registro}</div></section>`;
 }
 
 export function renderizarSolicitud(datos, estado) {
   const convocatoria = datos.convocatorias.find((item) => item.id === estado.convocatoriaSolicitud) || datos.convocatorias.find((item) => item.estado === "Plazo abierto") || datos.convocatorias[0];
-  return `${encabezadoVista("Nueva solicitud", `${convocatoria.titulo} · ${convocatoria.referencia}`, botonOperacion("guardar_borrador", datos.meta.presentacion ? "Guardar borrador DEMO" : "Guardar borrador", { id: convocatoria.id, clase: "boton-secundario", descripcion: datos.meta.presentacion ? "Guardar un borrador efímero de la solicitud" : "Guardar el borrador de forma segura" }))}
-    ${pasosSolicitud(estado.pasoSolicitud)}
-    <section class="panel"><header><div><h3>Paso ${estado.pasoSolicitud} de 5</h3><p>Los controles definitivos se reutilizan con el cliente productivo</p></div>${chip(estado.pasoSolicitud === 5 ? "Revisión final" : "En preparación")}</header><div class="panel-contenido">${contenidoPaso(datos, estado, convocatoria)}</div></section>
-    ${accionesPaso(estado.pasoSolicitud)}`;
+  const solicitud = localizarSolicitudEdicion(datos, {
+    solicitudId: estado.solicitudEdicionId,
+    convocatoriaId: convocatoria.id,
+  });
+  const error = estado.errorPasoSolicitud
+    ? `<p class="nota error" role="alert"><strong>No se puede continuar.</strong> ${escaparHTML(estado.errorPasoSolicitud)}</p>`
+    : "";
+  const contenido = `${pasosSolicitud(estado.pasoSolicitud)}${error}<section class="panel"><header><div><h3>Paso ${estado.pasoSolicitud} de 5</h3><p>Los controles definitivos se reutilizan con el cliente productivo</p></div>${chip(estado.pasoSolicitud === 5 ? "Revisión final" : "En preparación")}</header><div class="panel-contenido">${contenidoPaso(datos, estado, convocatoria)}</div></section>`;
+  const asistente = estado.pasoSolicitud < 5
+    ? `<form id="formulario-solicitud-paso" data-paso="${estado.pasoSolicitud}">${contenido}${accionesPaso(estado.pasoSolicitud)}</form>`
+    : contenido;
+  return `${encabezadoVista("Nueva solicitud", `${convocatoria.titulo} · ${convocatoria.referencia}`, chip(solicitud?.estado || "Borrador sin guardar"))}${asistente}`;
 }
 
 export function renderizarAutobaremacion(datos) {

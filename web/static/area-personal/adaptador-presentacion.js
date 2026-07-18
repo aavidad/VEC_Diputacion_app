@@ -159,6 +159,16 @@ function referenciaDemo(valor, alternativa) {
   return texto.slice(0, 100);
 }
 
+function marcado(valor) {
+  return valor === true || valor === "true" || valor === "on";
+}
+
+function referencias(valor) {
+  return [...new Set((Array.isArray(valor) ? valor : valor ? [valor] : [])
+    .filter((item) => typeof item === "string" && /^DEMO-[A-Z0-9._/-]+$/i.test(item))
+    .map((item) => item.slice(0, 100)))];
+}
+
 export function crearAdaptadorPresentacion() {
   let estado = structuredClone(BASE_PRESENTACION);
   let secuencia = 0;
@@ -186,6 +196,41 @@ export function crearAdaptadorPresentacion() {
     }, { presentacionEsperada: true });
   }
 
+  function exigirBorrador(payload) {
+    const id = referenciaDemo(payload.id, "");
+    if (!id) throw new Error("La operación exige la referencia exacta del borrador seleccionado.");
+    const solicitud = estado.solicitudes.find((item) => item.id === id);
+    if (!solicitud) throw new Error("El borrador seleccionado no existe en el ámbito de la presentación.");
+    if (!/borrador/i.test(solicitud.estado)) throw new Error("La solicitud seleccionada ya no admite esta operación de borrador.");
+    return solicitud;
+  }
+
+  function exigirContenidoCompleto(payload) {
+    const meritosRecibidos = Array.isArray(payload.meritos_ids)
+      ? payload.meritos_ids
+      : payload.meritos_ids ? [payload.meritos_ids] : [];
+    if (meritosRecibidos.some((id) => typeof id !== "string" || !/^DEMO-[A-Z0-9._/-]+$/i.test(id))) {
+      throw new Error("La solicitud contiene una referencia de mérito no válida.");
+    }
+    const meritos = referencias(payload.meritos_ids);
+    if (!marcado(payload.requisitos_confirmados)) throw new Error("Falta la declaración de requisitos y lectura de bases.");
+    if (!marcado(payload.datos_confirmados)) throw new Error("Falta la confirmación de datos personales y de contacto.");
+    if (meritos.length === 0) throw new Error("La solicitud debe asociar al menos un mérito.");
+    if (!marcado(payload.autobaremo_revisado)) throw new Error("Falta revisar la autobaremación antes de guardar el borrador.");
+    if (meritos.some((id) => !estado.meritos.some((item) => item.id === id))) {
+      throw new Error("La solicitud contiene un mérito ajeno al inventario autorizado.");
+    }
+    return meritos;
+  }
+
+  function pagoConfirmado(solicitud) {
+    return !/pendiente/i.test(solicitud.pago) && /confirmad|abonad|exent/i.test(solicitud.pago);
+  }
+
+  function firmaConfirmada(solicitud) {
+    return !/pendiente/i.test(solicitud.firma) && /confirmad|firmad|válid/i.test(solicitud.firma);
+  }
+
   function aplicar(accion, payload) {
     if (accion === "actualizar_contacto") {
       estado.perfil.correo = String(payload.correo || estado.perfil.correo).slice(0, 160);
@@ -200,20 +245,66 @@ export function crearAdaptadorPresentacion() {
         documento_ref: `DEMO-DOC-NUEVO-${secuencia}`, puntos_estimados: 0,
       });
     } else if (accion === "guardar_borrador") {
-      const existente = estado.solicitudes.find((item) => item.id === "DEMO-SOL-BORRADOR");
-      if (!existente) estado.solicitudes.unshift({
-        id: "DEMO-SOL-BORRADOR", convocatoria_id: referenciaDemo(payload.convocatoria_id, "DEMO-CONV-001"),
-        referencia: "DEMO-BORRADOR-0001", titulo: "Solicitud de demostración en preparación",
-        estado: "Borrador efímero", actualizado: "Ahora · se perderá al recargar", posicion: "No aplica",
-        puntuacion: 0, siguiente: "Completar, firmar y registrar", pago: "Pendiente", firma: "Pendiente",
-      });
+      const convocatoriaId = referenciaDemo(payload.convocatoria_id, "");
+      const convocatoria = estado.convocatorias.find((item) => item.id === convocatoriaId && item.estado === "Plazo abierto");
+      if (!convocatoria) throw new Error("La convocatoria seleccionada no existe o no tiene el plazo abierto.");
+      const meritos = exigirContenidoCompleto(payload);
+      let existente;
+      if (payload.id) {
+        const solicitudId = referenciaDemo(payload.id, "");
+        if (!solicitudId) throw new Error("La referencia de borrador no es válida.");
+        existente = estado.solicitudes.find((item) => item.id === solicitudId);
+        if (!existente) throw new Error("El borrador seleccionado no existe en el ámbito de la presentación.");
+      } else {
+        existente = estado.solicitudes.find((item) => item.convocatoria_id === convocatoriaId && /borrador/i.test(item.estado));
+      }
+      if (existente && (!/borrador/i.test(existente.estado) || existente.convocatoria_id !== convocatoriaId)) {
+        throw new Error("La referencia indicada no corresponde al borrador de esta convocatoria.");
+      }
+      if (!existente) {
+        const numero = estado.solicitudes.filter((item) => /borrador/i.test(item.estado)).length + 1;
+        existente = {
+          id: `DEMO-SOL-BORRADOR-${String(numero).padStart(4, "0")}`,
+          convocatoria_id: convocatoriaId,
+          referencia: `DEMO-BORRADOR-${String(numero).padStart(4, "0")}`,
+          titulo: convocatoria.titulo,
+          estado: "Borrador efímero",
+          actualizado: "Ahora · se perderá al recargar",
+          posicion: "No aplica",
+          puntuacion: 0,
+          siguiente: "Confirmar pago o exención, firmar y registrar",
+          pago: "Pendiente",
+          firma: "Pendiente",
+        };
+        estado.solicitudes.push(existente);
+      }
+      existente.requisitos_confirmados = true;
+      existente.datos_confirmados = true;
+      existente.meritos_ids = meritos;
+      existente.autobaremo_revisado = true;
+      existente.puntuacion = estado.meritos
+        .filter((item) => meritos.includes(item.id))
+        .reduce((total, item) => total + Number(item.puntos_estimados || 0), 0);
+      existente.firma = "Pendiente";
+      existente.actualizado = "Ahora · se perderá al recargar";
     } else if (accion === "iniciar_pago") {
-      estado.solicitudes[0].pago = "Pago DEMO confirmado · sin cargo real";
+      const solicitud = exigirBorrador(payload);
+      exigirContenidoCompleto(solicitud);
+      solicitud.pago = "Pago o exención DEMO confirmado · sin cargo real";
     } else if (accion === "firmar_solicitud") {
-      estado.solicitudes[0].firma = "Firma DEMO confirmada · sin firma electrónica real";
+      const solicitud = exigirBorrador(payload);
+      exigirContenidoCompleto(solicitud);
+      if (!pagoConfirmado(solicitud)) throw new Error("Debe confirmar el pago o la exención antes de firmar.");
+      solicitud.firma = "Firma DEMO confirmada · sin firma electrónica real";
     } else if (accion === "registrar_solicitud") {
-      estado.solicitudes[0].estado = "Registro DEMO completado · sin asiento real";
-      estado.solicitudes[0].referencia = "DEMO-REG-NUEVO-0001";
+      const solicitud = exigirBorrador(payload);
+      exigirContenidoCompleto(solicitud);
+      if (!pagoConfirmado(solicitud)) throw new Error("No se puede registrar sin pago o exención confirmados.");
+      if (!firmaConfirmada(solicitud)) throw new Error("No se puede registrar sin firma confirmada.");
+      if (!marcado(payload.declaracion_final)) throw new Error("Debe confirmar la declaración final antes del registro.");
+      solicitud.estado = "Registro DEMO completado · sin asiento real";
+      solicitud.referencia = `DEMO-REG-NUEVO-${solicitud.id.slice(-4)}`;
+      solicitud.siguiente = "Consultar el recibo DEMO sin validez administrativa";
     } else if (accion === "cambiar_disponibilidad") {
       estado.disponibilidad.disponible = payload.disponible === true;
       estado.disponibilidad.estado = payload.disponible === true ? "Disponible para llamamientos" : "No disponible (demostración)";

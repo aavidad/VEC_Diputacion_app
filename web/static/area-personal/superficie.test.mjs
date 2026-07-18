@@ -124,3 +124,50 @@ test("los archivos se mantienen acotados y la UI cubre 390, 1024 y 1440", async 
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
   assert.match(aplicacion, /accion === "alternar-texto" \? document\.documentElement : document\.body/u);
 });
+
+test("el menú móvil gestiona foco, Escape y contención de teclado", async () => {
+  const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
+  assert.match(aplicacion, /\.ap-navegacion a\[href\]["']\)\?\.focus/);
+  assert.match(aplicacion, /function mantenerFocoEnMenu\(evento\)/);
+  assert.match(aplicacion, /evento\.key !== "Escape"[\s\S]{0,220}cerrarMenu\(\{ restaurarFoco: true \}\)/);
+});
+
+test("la lectura por voz nunca expone un expediente a una voz remota", async () => {
+  const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
+  const inicio = aplicacion.indexOf("function leerPantalla(estado)");
+  const fin = aplicacion.indexOf("function alternarPreferencia", inicio);
+  const funcion = aplicacion.slice(inicio, fin);
+  assert.ok(inicio >= 0 && fin > inicio, "debe existir la lectura gobernada");
+  assert.match(funcion, /meta\?\.presentacion !== true[\s\S]*conector y una política aprobados[\s\S]*return;/u);
+  assert.match(funcion, /localService === true[\s\S]*\^es\(\?:-\|\$\)\/i/u);
+  assert.match(funcion, /if \(!voz\)[\s\S]*No hay una voz local en español[\s\S]*return;/u);
+  assert.match(funcion, /locucion\.voice = voz/u);
+  assert.ok(funcion.indexOf("meta?.presentacion !== true") < funcion.indexOf("innerText"), "el bloqueo real debe preceder a la lectura del contenido");
+  const ayuda = await readFile(join(RAIZ, "vistas/comunicaciones-ayuda.js"), "utf8");
+  assert.match(ayuda, /<audio[\s\S]*ayuda-llamamiento-bolsa\.mp3[\s\S]*Leer la transcripción/u);
+});
+
+test("el registro final exige declaración y una referencia exacta de solicitud", async () => {
+  const adaptador = crearAdaptadorPresentacion();
+  const ejecutar = (accion, payload) => adaptador.ejecutar({ accion, payload, confirmacion: true, capacidad: true });
+  await ejecutar("guardar_borrador", {
+    convocatoria_id: "DEMO-CONV-001",
+    requisitos_confirmados: true,
+    datos_confirmados: true,
+    meritos_ids: ["DEMO-MER-001"],
+    autobaremo_revisado: true,
+  });
+  await ejecutar("iniciar_pago", { id: "DEMO-SOL-BORRADOR-0001" });
+  await ejecutar("firmar_solicitud", { id: "DEMO-SOL-BORRADOR-0001" });
+  const datos = await adaptador.cargar();
+  const html = renderizarSolicitud(datos, {
+    pasoSolicitud: 5,
+    convocatoriaSolicitud: "DEMO-CONV-001",
+    solicitudEdicionId: "DEMO-SOL-BORRADOR-0001",
+    progresoSolicitud: {},
+    errorPasoSolicitud: "",
+  });
+  assert.match(html, /data-operacion="registrar_solicitud" data-id="DEMO-SOL-BORRADOR-0001"/u);
+  assert.match(html, /name="declaracion_final" value="true" required/u);
+  assert.doesNotMatch(await readFile(join(RAIZ, "adaptador-presentacion.js"), "utf8"), /solicitudes\[0\]/u);
+});

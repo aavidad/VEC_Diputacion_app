@@ -284,12 +284,13 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .rejilla-principal > *, .rejilla-dos > * { min-width: 0; }
 .panel { min-width: 0; margin-bottom: 14px; border: 1px solid var(--ap-borde); border-radius: var(--ap-radio); background: var(--ap-superficie); box-shadow: var(--ap-sombra); }
 .panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px 16px 11px; border-bottom: 1px solid var(--ap-borde); }
+.panel > header > :first-child { min-width: 0; }
 .panel > header h2, .panel > header h3 { margin: 0; font-size: 1rem; }
 .panel > header p { margin: 2px 0 0; color: var(--ap-muted); font-size: .8125rem; }
 .panel-contenido { padding: 15px 16px; }
 .panel-contenido > :first-child { margin-top: 0; }
 .panel-contenido > :last-child { margin-bottom: 0; }
-.estado-chip { display: inline-flex; min-height: 26px; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid var(--ap-borde); border-radius: 999px; background: #f4f7fa; color: #3d4e66; font-size: .75rem; font-weight: 800; overflow-wrap: anywhere; text-align: left; }
+.estado-chip { display: inline-flex; min-height: 26px; flex-shrink: 0; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid var(--ap-borde); border-radius: 999px; background: #f4f7fa; color: #3d4e66; font-size: .75rem; font-weight: 800; hyphens: none; overflow-wrap: normal; text-align: left; word-break: normal; }
 .estado-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .estado-chip.exito { border-color: #abd8ba; background: var(--ap-verde-suave); color: var(--ap-verde); }
 .estado-chip.aviso { border-color: #e3c98b; background: var(--ap-ambar-suave); color: var(--ap-ambar); }
