@@ -13,14 +13,14 @@ proyecto continúa.
 
 | Elemento | Presentación | Producción |
 | --- | --- | --- |
-| Binario | `vec-presentacion` | `vec-server` y superficies aisladas aprobadas |
+| Binario | `vec-presentacion` | Proceso interno por definir; `vec-server` sigue siendo composición heredada de desarrollo |
 | Perfil | `presentacion_rrhh` | `produccion` |
 | Datos privados | Prohibidos | Solo mediante conectores autorizados |
 | Datos de la muestra | Sintéticos y marcados | Excluidos físicamente de la imagen |
 | Escrituras durables o de servidor | Ninguna; solo cambia memoria volátil de la pestaña | Casos de uso, autorización y recibos reales |
 | API | Consulta pública local de Bolsa | API pública/interna según frontera |
 | Firma, registro, pagos y mensajes | Simulación visual | Adaptadores productivos aún por integrar |
-| Red saliente de la aplicación | Ninguna composición con clientes externos | Según allowlist y decisión de Sistemas |
+| Red saliente de la aplicación | Local: no compone clientes externos; Docker: red `internal` sin salida | Según allowlist y decisión de Sistemas |
 
 ## Activación cerrada
 
@@ -141,8 +141,9 @@ Este modo reduce, pero no convierte la muestra en producción:
 - evita que cookies o cabeceras del navegador se interpreten como identidad;
 - impide publicar por accidente otros directorios del repositorio;
 - impide seleccionar la muestra desde el binario normal;
-- impide que la aplicación de presentación alcance PostgreSQL, S3, OSRM,
-  Autofirma, registro, pasarela de pago o conectores de comunicación;
+- el arranque local no compone clientes para PostgreSQL, S3, OSRM, Autofirma,
+  registro, pasarela de pago o comunicaciones; el perfil Docker añade una red
+  `internal` sin salida que impide alcanzarlos por red;
 - muestra siempre avisos de “demostración” y “sin validez administrativa”.
 
 No acredita autenticación, autorización nominal, persistencia, firma, registro,

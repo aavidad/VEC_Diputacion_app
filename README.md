@@ -267,7 +267,7 @@ Pendiente productivo:
   arranque del artefacto aislado, guardas, red y exclusión física de
   presentación en producción.
 - [Matriz de aceptación de la web de Bolsa](docs/portal_vec/matriz_aceptacion_web_bolsa_2026-07-18.md):
-  correspondencia entre pantallas definitivas, contratos y adaptadores de
+  correspondencia entre pantallas reutilizables, contratos y adaptadores de
   presentación o producción.
 - [Captura y revisión de la presentación](docs/portal_vec/revision_web_presentacion.md):
   puerta reproducible de 32 vistas y 21 flujos en tres resoluciones.
@@ -484,13 +484,15 @@ referencias sintéticas se identifican de forma visible. El artefacto
 productivo excluye físicamente el lanzador, los datos y los adaptadores de
 presentación.
 
-Las pantallas, los componentes, los contratos y los renderizadores son los
-mismos que usará producción. La raíz de composición selecciona un adaptador
-volátil para la muestra o un conector autorizado para producción; producción
-nunca cae automáticamente al adaptador de presentación. Por tanto, disponer de
-las 32 vistas navegables acredita el recorrido visual y funcional de la demo,
-pero **no** acredita integración con PostgreSQL, identidad, firma, registro u
-otros servicios, ni una prueba E2E productiva ni validez administrativa.
+Las pantallas, los componentes, los contratos y los renderizadores se han
+diseñado como candidatos reutilizables en producción. RRHH deberá validarlos y
+la composición productiva aún no existe. La raíz de composición selecciona un
+adaptador volátil para la muestra y permitirá incorporar conectores
+autorizados; la ruta normal nunca cae automáticamente al adaptador de
+presentación. Por tanto, disponer de las 32 vistas navegables acredita el
+recorrido visual y funcional de la demo, pero **no** acredita integración con
+PostgreSQL, identidad, firma, registro u otros servicios, ni una prueba E2E
+productiva ni validez administrativa.
 
 La revisión automática completa se ejecuta, con el servidor anterior activo,
 mediante:
