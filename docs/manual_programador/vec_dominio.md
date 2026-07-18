@@ -88,6 +88,13 @@ const (
 	AccionCatalogoRetirado            = "vec.catalogos.retirado"
 )
 const (
+	// TamanoMaximoRepresentacionContextoActorV1 limita la entrada antes de
+	// decodificarla. La cota supera holgadamente cualquier documento valido con
+	// los tipos V1 cerrados, pero evita usar el rehidratador como analizador JSON
+	// generico.
+	TamanoMaximoRepresentacionContextoActorV1 = 64 * 1024
+)
+const (
 	AccionPoliticaCotejoBorradorCreada      = "vec.documentos.cotejo.politica.borrador.creado"
 	AccionPoliticaCotejoBorradorActualizada = "vec.documentos.cotejo.politica.borrador.actualizado"
 	AccionPoliticaCotejoPublicada           = "vec.documentos.cotejo.politica.publicada"
@@ -292,6 +299,7 @@ var (
 )
 var ErrEstadoPersistibleFuenteAutoridadInvalido = errors.New("vec: estado persistible de fuente de autoridad invalido")
 var ErrMensajeAtestacionAutorizacionInvalido = errors.New("vec: mensaje de atestacion de autorizacion invalido")
+var ErrRepresentacionContextoActorV1Invalida = errors.New("vec: representacion canonica de contexto de actor v1 invalida")
 ```
 
 ### Funciones
@@ -1309,6 +1317,20 @@ func NuevoContextoActor(
 	resueltoEn time.Time,
 ) (ContextoActor, error)
 
+func RehidratarContextoActorVinculadoV1(contenido []byte) (ContextoActor, error)
+```
+
+RehidratarContextoActorVinculadoV1 reconstruye exclusivamente una evidencia
+V1 canónica. La canonicidad no acredita autenticidad, vigencia actual ni
+existencia en el registro autoritativo: el resultado no puede autorizar
+por si solo. Un adaptador debe cotejarlo con la huella esperada y con el
+registro y la version actuales antes de convertirlo en una capacidad de uso.
+
+Rechaza extensiones, claves repetidas, orden alternativo, espacios, null,
+numeros no canónicos y cualquier instante que no sea UTC con seis cifras
+decimales.
+
+```go
 func (c ContextoActor) Clonar() (ContextoActor, error)
 
 func (c ContextoActor) HuellaSHA256VinculadaV1() (string, error)
@@ -1323,6 +1345,14 @@ func (c ContextoActor) Referencias(tipo TipoReferenciaContextoActor) ([]string, 
 
 Referencias devuelve copias de las referencias opacas vigentes de un tipo.
 Una clase desconocida nunca se interpreta como "todas".
+
+```go
+func (c ContextoActor) RepresentacionCanonicaVinculadaV1() ([]byte, error)
+```
+
+RepresentacionCanonicaVinculadaV1 entrega una copia de los bytes exactos
+comprometidos por HuellaSHA256VinculadaV1. Este es el unico documento V1 que
+un adaptador durable puede registrar o recuperar; no contiene claims libres.
 
 ```go
 func (c ContextoActor) Validar() error

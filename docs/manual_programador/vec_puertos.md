@@ -11,17 +11,17 @@ Parte del [Manual del programador](LEEME.md). Fichero generado con
 
 ```go
 const (
-	AccionAlmacenEscribir               = "escribir"
-	AccionAlmacenLeer                   = "leer"
-	AccionAlmacenPrepararCargaDirecta   = "preparar_carga_directa"
-	AccionAlmacenConfirmarCargaDirecta  = "confirmar_carga_directa"
-	AccionAlmacenAbandonarCargaDirecta  = "abandonar_carga_directa"
-	AccionAlmacenPromover               = "promover"
-	AccionAlmacenAplicarRetencion       = "aplicar_retencion"
-	AccionAlmacenInmovilizar            = "inmovilizar"
-	AccionAlmacenLevantarInmovilizacion = "levantar_inmovilizacion"
-	AccionAlmacenEliminar               = "eliminar"
-	AccionAlmacenAnalizarContenido      = "analizar_contenido"
+	AccionAlmacenEscribir               = almacencanonico.AccionEscribir
+	AccionAlmacenLeer                   = almacencanonico.AccionLeer
+	AccionAlmacenPrepararCargaDirecta   = almacencanonico.AccionPrepararCargaDirecta
+	AccionAlmacenConfirmarCargaDirecta  = almacencanonico.AccionConfirmarCargaDirecta
+	AccionAlmacenAbandonarCargaDirecta  = almacencanonico.AccionAbandonarCargaDirecta
+	AccionAlmacenPromover               = almacencanonico.AccionPromover
+	AccionAlmacenAplicarRetencion       = almacencanonico.AccionAplicarRetencion
+	AccionAlmacenInmovilizar            = almacencanonico.AccionInmovilizar
+	AccionAlmacenLevantarInmovilizacion = almacencanonico.AccionLevantarInmovilizacion
+	AccionAlmacenEliminar               = almacencanonico.AccionEliminar
+	AccionAlmacenAnalizarContenido      = almacencanonico.AccionAnalizarContenido
 )
 ```
 
@@ -30,6 +30,14 @@ tecnicas, no permisos de negocio, y nunca se infieren de la ruta, el rol o
 la finalidad. Una autorizacion para una accion no habilita ninguna otra.
 
 ```go
+const (
+	ZonaAlmacenCuarentena = almacencanonico.ZonaCuarentena
+	ZonaAlmacenAdmitida   = almacencanonico.ZonaAdmitida
+)
+const (
+	MetodoCargaDirectaPUT  = almacencanonico.MetodoCargaDirectaPUT
+	MetodoCargaDirectaPOST = almacencanonico.MetodoCargaDirectaPOST
+)
 const (
 	ModuloFuentesAutoridad                                                          = "vec"
 	TipoRecursoFuenteAutoridad                                                      = "fuente_autoridad_versionada"
@@ -76,6 +84,17 @@ const (
 	AtributoAlmacenHuellaManifiestoSHA256 = "almacen_manifiesto_generacion_sha256"
 )
 const (
+	PasoAlmacenPrepararCargaDirecta  = almacencanonico.PasoPrepararCargaDirecta
+	PasoAlmacenAbandonarCargaDirecta = almacencanonico.PasoAbandonarCargaDirecta
+	PasoAlmacenConfirmarCargaDirecta = almacencanonico.PasoConfirmarCargaDirecta
+	PasoAlmacenLeerParaAnalisis      = almacencanonico.PasoLeerParaAnalisis
+	PasoAlmacenAnalizarContenido     = almacencanonico.PasoAnalizarContenido
+	PasoAlmacenPromover              = almacencanonico.PasoPromover
+	PasoAlmacenCustodiarDecision     = almacencanonico.PasoCustodiarDecision
+	PasoAlmacenCustodiarFirmado      = almacencanonico.PasoCustodiarFirmado
+	PasoAlmacenRetenerFirmado        = almacencanonico.PasoRetenerFirmado
+)
+const (
 	EsquemaSolicitudVinculadaAutorizacionEjecucionDocumentalV4  = "vec.documentos.autorizacion-ejecucion.solicitud-vinculada.v4"
 	EsquemaSolicitudAplicacionAutorizacionEjecucionDocumentalV4 = "vec.documentos.autorizacion-ejecucion.solicitud-aplicacion.v4"
 
@@ -100,16 +119,16 @@ const (
 const (
 	EsquemaManifiestoEjecucionDocumentalV3 = "vec.documentos.manifiesto-ejecucion.v3"
 	EsquemaEvidenciaRenderizadoV3          = "vec.documentos.evidencia-renderizado.v3"
-	AlgoritmoSelloEvidenciaHMACSHA256V3    = "hmac-sha256"
-	AudienciaSelloEvidenciaRenderizadoV3   = "vec.documentos.evidencia-renderizado.v3"
-	AudienciaAtestacionTokenCercadoV3      = "vec.documentos.token-cercado.v3"
-	AudienciaAtestacionInicioEfectoV3      = "vec.documentos.inicio-efecto.v3"
-	AudienciaAtestacionReclamacionV3       = "vec.documentos.reclamacion-despacho.v3"
-	AudienciaComprobacionOrdenDespachoV3   = "vec.documentos.comprobacion-orden-despacho.v3"
-	ContextoAtestacionTokenCercadoV3       = "cercado"
-	ContextoAtestacionInicioEfectoV3       = "inicio"
-	ContextoAtestacionReclamacionV3        = "reclamacion"
-	ContextoComprobacionOrdenDespachoV3    = "inicio-reclamacion-cercada"
+	AlgoritmoSelloEvidenciaHMACSHA256V3    = documentalcanonico.AlgoritmoHMACSHA256V3
+	AudienciaSelloEvidenciaRenderizadoV3   = documentalcanonico.AudienciaSelloEvidenciaRenderizadoV3
+	AudienciaAtestacionTokenCercadoV3      = documentalcanonico.AudienciaTokenCercadoV3
+	AudienciaAtestacionInicioEfectoV3      = documentalcanonico.AudienciaInicioEfectoV3
+	AudienciaAtestacionReclamacionV3       = documentalcanonico.AudienciaReclamacionDespachoV3
+	AudienciaComprobacionOrdenDespachoV3   = documentalcanonico.AudienciaComprobacionOrdenDespachoV3
+	ContextoAtestacionTokenCercadoV3       = documentalcanonico.ContextoTokenCercadoV3
+	ContextoAtestacionInicioEfectoV3       = documentalcanonico.ContextoInicioEfectoV3
+	ContextoAtestacionReclamacionV3        = documentalcanonico.ContextoReclamacionDespachoV3
+	ContextoComprobacionOrdenDespachoV3    = documentalcanonico.ContextoComprobacionOrdenDespachoV3
 )
 const (
 	// EsquemaHuellaDecisionAutorizacionReforzadaV1 identifica tanto el dominio
@@ -124,19 +143,53 @@ const (
 	EsquemaManifiestoGeneracionDocumentalV1 = "vec.documentos.manifiesto-generacion.v1"
 )
 const (
-	EsquemaCanonizacionEntradaNeutralDocumentalV1 = "vec.documentos.entrada-neutral.contenido-longitud-prefijada.v1"
+	EsquemaCanonizacionEntradaNeutralDocumentalV1 = documentalcanonico.EsquemaCanonizacionEntradaNeutralV1
 	EsquemaPruebaEscrituraAlmacenDocumentalV1     = "vec.documentos.prueba-escritura-almacen.v1"
 	EsquemaPruebaEscrituraAlmacenDocumentalV2     = "vec.documentos.prueba-escritura-almacen.v2"
 )
 const (
-	EsquemaPerfilCapacidadesAlmacenMaterialV2 = "vec.almacen.perfil-capacidades-material.v2"
-	EsquemaInstantaneaObjetoMaterialV2        = "vec.almacen.instantanea-objeto-material.v2"
-	EsquemaReciboEscrituraObjetoMaterialV2    = "vec.almacen.recibo-escritura-material.v2"
+	CanalAuditoriaCobroInterno           = pagoscanonicos.CanalAuditoriaCobroInterno
+	CanalAuditoriaCobroPasarela          = pagoscanonicos.CanalAuditoriaCobroPasarela
+	CanalAuditoriaCobroProcesoAutomatico = pagoscanonicos.CanalAuditoriaCobroProcesoAutomatico
+)
+const (
+	EventoCobroOrdenCreada                    = pagoscanonicos.EventoCobroOrdenCreada
+	EventoCobroOperacionEnviada               = pagoscanonicos.EventoCobroOperacionEnviada
+	EventoCobroResultadoPendiente             = pagoscanonicos.EventoCobroResultadoPendiente
+	EventoCobroResultadoDesconocido           = pagoscanonicos.EventoCobroResultadoDesconocido
+	EventoCobroConfirmado                     = pagoscanonicos.EventoCobroConfirmado
+	EventoCobroRechazado                      = pagoscanonicos.EventoCobroRechazado
+	EventoCobroCancelado                      = pagoscanonicos.EventoCobroCancelado
+	EventoCobroCaducado                       = pagoscanonicos.EventoCobroCaducado
+	EventoCobroConciliado                     = pagoscanonicos.EventoCobroConciliado
+	EventoCobroDevolucionSolicitada           = pagoscanonicos.EventoCobroDevolucionSolicitada
+	EventoCobroDevolucionResultadoPendiente   = pagoscanonicos.EventoCobroDevolucionResultadoPendiente
+	EventoCobroDevolucionResultadoDesconocido = pagoscanonicos.EventoCobroDevolucionResultadoDesconocido
+	EventoCobroDevolucionRechazada            = pagoscanonicos.EventoCobroDevolucionRechazada
+	EventoCobroDevuelto                       = pagoscanonicos.EventoCobroDevuelto
+	EventoCobroDevolucionConciliada           = pagoscanonicos.EventoCobroDevolucionConciliada
+	EventoCobroIncidenciaDetectada            = pagoscanonicos.EventoCobroIncidenciaDetectada
+	EventoCobroEvidenciaAdicional             = pagoscanonicos.EventoCobroEvidenciaAdicional
+)
+const (
+	EsquemaPerfilCapacidadesAlmacenMaterialV2 = recibomaterial.EsquemaPerfil
+	EsquemaInstantaneaObjetoMaterialV2        = recibomaterial.EsquemaInstantanea
+	EsquemaReciboEscrituraObjetoMaterialV2    = recibomaterial.EsquemaRecibo
 
-	VersionEsquemaMaterialAlmacenV2 uint16 = 2
+	VersionEsquemaMaterialAlmacenV2 uint16 = recibomaterial.EsquemaVersion
 )
 const EsquemaHuellaRecursoBaseCargaDocumentalV1 = "vec.carga-documental.recurso-base.v1"
 const MaximoVersionesPaginaFuenteAutoridad uint16 = 100
+const MetodoHandoffCobroPOSTFormulario = pagoscanonicos.MetodoHandoffCobroPOSTFormulario
+const VentanaMaximaFrescuraContextoActorV1 = 5 * time.Second
+```
+
+VentanaMaximaFrescuraContextoActorV1 acota el tiempo entre el instante
+solicitado y la confirmacion durable. No es una gracia de vigencia: tanto
+el adaptador como el servicio deben exigir ademas que perfil y referencias
+sigan activos en el instante autoritativo de su comprobacion.
+
+```go
 const VigenciaMaximaAtestacionActoFuenteAutoridad = 5 * time.Minute
 ```
 
@@ -144,7 +197,7 @@ const VigenciaMaximaAtestacionActoFuenteAutoridad = 5 * time.Minute
 
 ```go
 var (
-	ErrSolicitudAlmacenInvalida              = errors.New("vec: solicitud de almacen invalida")
+	ErrSolicitudAlmacenInvalida              = almacencanonico.ErrSolicitudAlmacenInvalida
 	ErrObjetoAlmacenNoEncontrado             = errors.New("vec: objeto de almacen no encontrado")
 	ErrIntegridadObjetoAlmacen               = errors.New("vec: integridad del objeto de almacen no valida")
 	ErrLimiteObjetoAlmacenExcedido           = errors.New("vec: limite del objeto de almacen excedido")
@@ -156,17 +209,17 @@ var (
 	ErrObjetoAlmacenEliminado                = errors.New("vec: objeto de almacen eliminado")
 	ErrSesionCargaDirectaNoValida            = errors.New("vec: sesion de carga directa no valida")
 	ErrConfirmacionCargaDirectaNoDisponible  = errors.New("vec: confirmacion de carga directa no disponible")
-	ErrInstruccionesCargaDirectaNoValidas    = errors.New("vec: instrucciones de carga directa no validas")
+	ErrInstruccionesCargaDirectaNoValidas    = almacencanonico.ErrInstruccionesCargaDirectaNoValidas
 	ErrSerializacionCargaDirectaProhibida    = errors.New("vec: serializacion accidental de carga directa prohibida")
 	ErrSelladoIdempotenciaCargaNoDisponible  = errors.New("vec: sellado de idempotencia de carga no disponible")
-	ErrReciboCargaDirectaNoValido            = errors.New("vec: recibo de carga directa no valido")
+	ErrReciboCargaDirectaNoValido            = almacencanonico.ErrReciboCargaDirectaNoValido
 	ErrReciboCargaDirectaNoDisponible        = errors.New("vec: verificacion del recibo de carga directa no disponible")
 	ErrAtestacionReciboCargaDirectaNoValida  = errors.New("vec: atestacion de consumo de carga directa no valida")
 	ErrRegistroReciboCargaDirectaConflicto   = errors.New("vec: indice de recibo de carga directa ya registrado")
 	ErrConsumoReciboCargaDirectaDenegado     = errors.New("vec: consumo de recibo de carga directa denegado")
-	ErrSerializacionReciboCargaProhibida     = errors.New("vec: serializacion accidental del recibo de carga directa prohibida")
-	ErrSerializacionSeudonimizacionProhibida = errors.New("vec: serializacion accidental de seudonimizacion de almacen prohibida")
-	ErrSeudonimizacionAlmacenNoDisponible    = errors.New("vec: seudonimizacion de sujeto para almacen no disponible")
+	ErrSerializacionReciboCargaProhibida     = almacencanonico.ErrSerializacionReciboCargaProhibida
+	ErrSerializacionSeudonimizacionProhibida = almacencanonico.ErrSerializacionSeudonimizacionProhibida
+	ErrSeudonimizacionAlmacenNoDisponible    = almacencanonico.ErrSeudonimizacionAlmacenNoDisponible
 )
 var (
 	ErrCapacidadAnalisisContenidoNoDisponible = errors.New("vec: capacidad de analisis de contenido no disponible")
@@ -226,7 +279,7 @@ var (
 	// ErrSerializacionContextoAlmacenProhibida evita que la capacidad o su
 	// proyeccion interna crucen accidentalmente una frontera HTTP, de mensajes
 	// o de persistencia generica.
-	ErrSerializacionContextoAlmacenProhibida = errors.New("vec: serializacion de contexto de almacen prohibida")
+	ErrSerializacionContextoAlmacenProhibida = almacencanonico.ErrSerializacionContextoAlmacenProhibida
 )
 var (
 	// ErrAutorizacionEjecucionDocumentalV4Invalida representa una denegacion
@@ -256,6 +309,13 @@ var (
 	ErrVersionCatalogoYaExiste     = errors.New("vec: version de catalogo ya existe")
 	ErrRevisionCatalogoEnConflicto = errors.New("vec: revision de catalogo en conflicto")
 	ErrSecuenciaCatalogoInvalida   = errors.New("vec: secuencia de catalogo invalida")
+)
+var (
+	ErrFuenteContextoActorNoDisponible             = errors.New("vec: fuente de contexto de actor no disponible")
+	ErrResolutorRegistroContextoActorNoDisponible  = errors.New("vec: resolutor y registro de contexto de actor no disponible")
+	ErrGeneradorOperacionContextoActorNoDisponible = errors.New("vec: generador de operacion de contexto de actor no disponible")
+	ErrSolicitudRegistroContextoActorV1Invalida    = errors.New("vec: solicitud de registro de contexto de actor v1 invalida")
+	ErrConfirmacionRegistroContextoActorV1Invalida = errors.New("vec: confirmacion de registro de contexto de actor v1 invalida")
 )
 var (
 	ErrPoliticaCotejoNoEncontrada               = errors.New("vec: politica de cotejo no encontrada")
@@ -310,13 +370,13 @@ var (
 var (
 	ErrManifiestoEjecucionDocumentalV3Invalido = errors.New("vec: manifiesto de ejecucion documental v3 invalido")
 	ErrReservaEjecucionDocumentalV3Invalida    = errors.New("vec: reserva de ejecucion documental v3 invalida")
-	ErrTokenCercadoDocumentalV3Invalido        = errors.New("vec: token de cercado documental v3 invalido")
+	ErrTokenCercadoDocumentalV3Invalido        = documentalcanonico.ErrTokenCercadoDocumentalV3Invalido
 	ErrTransicionEjecucionDocumentalV3Invalida = errors.New("vec: transicion de ejecucion documental v3 invalida")
-	ErrReconciliacionDocumentalV3Invalida      = errors.New("vec: reconciliacion documental v3 invalida")
-	ErrSelloEvidenciaDocumentalV3Invalido      = errors.New("vec: sello de evidencia documental v3 invalido")
-	ErrSerializacionSecretoDocumentalV3        = errors.New("vec: serializacion de secreto documental v3 prohibida")
+	ErrReconciliacionDocumentalV3Invalida      = documentalcanonico.ErrReconciliacionDocumentalV3Invalida
+	ErrSelloEvidenciaDocumentalV3Invalido      = documentalcanonico.ErrSelloEvidenciaDocumentalV3Invalido
+	ErrSerializacionSecretoDocumentalV3        = documentalcanonico.ErrSerializacionSecretoDocumentalV3
 	ErrReciboInicioDocumentalV3Invalido        = errors.New("vec: recibo durable de inicio documental v3 invalido")
-	ErrOrdenDespachoDocumentalV3Invalida       = errors.New("vec: orden de despacho documental v3 invalida")
+	ErrOrdenDespachoDocumentalV3Invalida       = documentalcanonico.ErrOrdenDespachoDocumentalV3Invalida
 )
 var (
 	// ErrEvidenciaUsoDecisionAutorizacionInvalida se devuelve siempre que no
@@ -369,14 +429,14 @@ var (
 )
 var (
 	ErrPasarelaCobroNoDisponible          = errors.New("vec: pasarela de cobro no disponible")
-	ErrCapacidadPasarelaCobroNoDisponible = errors.New("vec: capacidad de pasarela de cobro no disponible")
-	ErrSolicitudOperacionCobroInvalida    = errors.New("vec: solicitud de operacion de cobro invalida")
-	ErrInicioOperacionCobroInvalido       = errors.New("vec: inicio de operacion de cobro invalido")
-	ErrReferenciaOperacionCobroInvalida   = errors.New("vec: referencia de operacion de cobro invalida")
-	ErrNotificacionCobroInvalida          = errors.New("vec: notificacion de cobro invalida")
-	ErrSolicitudDevolucionCobroInvalida   = errors.New("vec: solicitud de devolucion de cobro invalida")
-	ErrSolicitudConciliacionCobroInvalida = errors.New("vec: solicitud de conciliacion de cobro invalida")
-	ErrResultadoPasarelaCobroInvalido     = errors.New("vec: resultado de pasarela de cobro invalido")
+	ErrCapacidadPasarelaCobroNoDisponible = pagoscanonicos.ErrCapacidadPasarelaCobroNoDisponible
+	ErrSolicitudOperacionCobroInvalida    = pagoscanonicos.ErrSolicitudOperacionCobroInvalida
+	ErrInicioOperacionCobroInvalido       = pagoscanonicos.ErrInicioOperacionCobroInvalido
+	ErrReferenciaOperacionCobroInvalida   = pagoscanonicos.ErrReferenciaOperacionCobroInvalida
+	ErrNotificacionCobroInvalida          = pagoscanonicos.ErrNotificacionCobroInvalida
+	ErrSolicitudDevolucionCobroInvalida   = pagoscanonicos.ErrSolicitudDevolucionCobroInvalida
+	ErrSolicitudConciliacionCobroInvalida = pagoscanonicos.ErrSolicitudConciliacionCobroInvalida
+	ErrResultadoPasarelaCobroInvalido     = pagoscanonicos.ErrResultadoPasarelaCobroInvalido
 	ErrIdempotenciaCobroReutilizada       = errors.New("vec: idempotencia de cobro reutilizada con otros datos")
 	ErrResultadoPasarelaCobroConflictivo  = errors.New("vec: resultados de pasarela de cobro incompatibles")
 	ErrOrdenCobroNoEncontrada             = errors.New("vec: orden de cobro no encontrada")
@@ -387,7 +447,7 @@ var (
 	ErrReservaOrdenCobroCaducada          = errors.New("vec: reserva de orden de cobro caducada")
 	ErrControlAutorizacionCobroConflicto  = errors.New("vec: control autoritativo de autorizacion de cobro en conflicto")
 	ErrControlLiquidacionCobroConflicto   = errors.New("vec: control autoritativo de liquidacion en conflicto")
-	ErrMutacionOrdenCobroInvalida         = errors.New("vec: mutacion de orden de cobro invalida")
+	ErrMutacionOrdenCobroInvalida         = pagoscanonicos.ErrMutacionOrdenCobroInvalida
 	ErrNotificacionCobroYaConsumida       = errors.New("vec: notificacion de cobro ya consumida")
 	ErrNotificacionCobroCaducada          = errors.New("vec: notificacion de cobro caducada")
 )
@@ -404,15 +464,9 @@ var (
 	// ErrReciboEscrituraObjetoMaterialV2NoValido es deliberadamente opaco:
 	// un dato ausente, un cruce de contexto y una prueba criptografica falsa
 	// producen la misma denegacion cerrada.
-	ErrReciboEscrituraObjetoMaterialV2NoValido = errors.New(
-		"vec: recibo material v2 de escritura no valido",
-	)
-	ErrAtestacionMaterialAlmacenV2NoValida = errors.New(
-		"vec: atestacion material v2 de almacen no valida",
-	)
-	ErrSerializacionMaterialAlmacenV2Prohibida = errors.New(
-		"vec: serializacion generica de material v2 de almacen prohibida",
-	)
+	ErrReciboEscrituraObjetoMaterialV2NoValido = recibomaterial.ErrReciboNoValido
+	ErrAtestacionMaterialAlmacenV2NoValida     = recibomaterial.ErrAtestacionNoValida
+	ErrSerializacionMaterialAlmacenV2Prohibida = recibomaterial.ErrSerializacionProhibida
 )
 var (
 	ErrRetoConsultaReconciliacionDocumentalV4Invalido = errors.New(
@@ -434,7 +488,6 @@ var (
 var ErrEjecucionDocumentalAtestadaV4NoDisponible = errors.New(
 	"vec: ejecucion documental atestada v4 no disponible",
 )
-var ErrFuenteContextoActorNoDisponible = errors.New("vec: fuente de contexto de actor no disponible")
 var ErrGeneracionReferenciaAutorizacionV2 = errors.New(
 	"vec: no se pudo generar una referencia de autorizacion V2",
 )
@@ -842,11 +895,11 @@ func NuevaAtestacionCriptograficaMaterialAlmacenV2(
 	codigo []byte,
 ) (AtestacionCriptograficaMaterialAlmacenV2, error)
 
-func (a AtestacionCriptograficaMaterialAlmacenV2) Format(e fmt.State, _ rune)
+func (AtestacionCriptograficaMaterialAlmacenV2) Format(e fmt.State, _ rune)
 
 func (AtestacionCriptograficaMaterialAlmacenV2) GoString() string
 
-func (a AtestacionCriptograficaMaterialAlmacenV2) LogValue() slog.Value
+func (AtestacionCriptograficaMaterialAlmacenV2) LogValue() slog.Value
 
 func (AtestacionCriptograficaMaterialAlmacenV2) MarshalBinary() ([]byte, error)
 
@@ -904,18 +957,8 @@ type AtestadorMaterialAlmacenV2 interface {
 	) (AtestacionCriptograficaMaterialAlmacenV2, error)
 }
 
-type AtributosEventoSalidaCobro struct {
-	Hecho  domain.TipoHechoCobro
-	Estado domain.EstadoCobro
-	Accion domain.AccionCobro
-}
-```
+type AtributosEventoSalidaCobro = pagoscanonicos.AtributosEventoSalidaCobro
 
-AtributosEventoSalidaCobro sustituye el mapa abierto del outbox. Todos sus
-valores se derivan del ultimo hecho confirmado y no pueden describir un
-resultado distinto del realmente persistido.
-
-```go
 type AuditStore interface {
 	AppendAudit(context.Context, domain.AuditEntry) (domain.AuditEntry, error)
 	ListAudit(context.Context, string) ([]domain.AuditEntry, error)
@@ -942,10 +985,7 @@ AutorizadorSolicitudLigadaV2 es deliberadamente distinto de Autorizador.
 Impide que un flujo nuevo acepte por accidente una decision historica V1.
 
 ```go
-type CabeceraCargaDirecta struct {
-	Nombre string
-	Valor  string
-}
+type CabeceraCargaDirecta = almacencanonico.CabeceraCargaDirecta
 ```
 
 CabeceraCargaDirecta es una condicion puntual de la carga, no una credencial
@@ -953,43 +993,11 @@ general. Se mantiene dentro de InstruccionesCargaDirecta hasta la revelacion
 deliberada para impedir que aparezca en registros.
 
 ```go
-type CampoHandoffCobro struct {
-	Nombre string
-	Valor  string
-}
+type CampoHandoffCobro = pagoscanonicos.CampoHandoffCobro
 
-type CanalAuditoriaCobro string
-```
+type CanalAuditoriaCobro = pagoscanonicos.CanalAuditoriaCobro
 
-CanalAuditoriaCobro es informativo y nunca concede acceso ni cambia una
-decision. Se mantiene cerrado para evitar convertir metadatos libres en una
-segunda politica de autorizacion accidental.
-
-```go
-const (
-	CanalAuditoriaCobroInterno           CanalAuditoriaCobro = "interno"
-	CanalAuditoriaCobroPasarela          CanalAuditoriaCobro = "pasarela"
-	CanalAuditoriaCobroProcesoAutomatico CanalAuditoriaCobro = "proceso_automatico"
-)
-type CapacidadesAlmacenObjetos struct {
-	ConectorID                  string
-	EscrituraEnFlujo            bool
-	LecturaEnFlujo              bool
-	ReferenciasOpacas           bool
-	IntegridadSHA256            bool
-	Versionado                  bool
-	Retencion                   bool
-	BloqueoLegal                bool
-	PromocionAtomica            bool
-	RetencionAtomicaEnPromocion bool
-	CargaDirectaTemporal        bool
-	CifradoEnTransito           bool
-	CifradoEnReposo             bool
-	CifradoPorObjeto            bool
-	TamanoMaximoObjeto          int64
-	PreservaObjetoOriginal      bool
-	OrigenesCargaDirecta        []string
-}
+type CapacidadesAlmacenObjetos = almacencanonico.Capacidades
 ```
 
 CapacidadesAlmacenObjetos permite validar el perfil de despliegue al
@@ -1017,37 +1025,11 @@ el nucleo. MCP no es el transporte de seguridad: el analisis debe ser una
 integracion autenticada, determinista y observable entre servicios.
 
 ```go
-type CapacidadesPasarelaCobro struct {
-	ConectorID              string `json:"conector_id"`
-	VersionConector         int    `json:"version_conector"`
-	RedireccionAlojada      bool   `json:"redireccion_alojada"`
-	NotificacionAutenticada bool   `json:"notificacion_autenticada"`
-	ConsultaOperacion       bool   `json:"consulta_operacion"`
-	Devolucion              bool   `json:"devolucion"`
-	Conciliacion            bool   `json:"conciliacion"`
-	Justificante            bool   `json:"justificante"`
-	TLSMutuo                bool   `json:"tls_mutuo"`
-	IdempotenciaProveedor   bool   `json:"idempotencia_proveedor"`
-}
-```
+type CapacidadesPasarelaCobro = pagoscanonicos.CapacidadesPasarelaCobro
 
-CapacidadesPasarelaCobro evita suponer funciones de un proveedor concreto.
-El perfil se versiona y se valida antes de habilitar un flujo de cobro.
-
-```go
-func (c CapacidadesPasarelaCobro) Validar() error
-
-type CargaHandoffCobro struct {
-	// Has unexported fields.
-}
+type CargaHandoffCobro = pagoscanonicos.CargaHandoffCobro
 
 func NuevaCargaHandoffCobro(campos []CampoHandoffCobro, permitidos []string) (CargaHandoffCobro, error)
-
-func (c CargaHandoffCobro) GoString() string
-
-func (CargaHandoffCobro) MarshalJSON() ([]byte, error)
-
-func (CargaHandoffCobro) String() string
 
 type CatalogoFormatosDocumentales interface {
 	BuscarDescriptoresFormatoDocumental(
@@ -1203,13 +1185,7 @@ func (c ComprobanteConsumoReciboCargaDirecta) RevelarParaVerificacion() (
 	atestacionHMAC string,
 	err error,
 )
-```
 
-RevelarParaVerificacion es la unica salida deliberada para el adaptador de
-atestacion. No revela el recibo ni la sesion; estos ultimos se reciben de la
-solicitud exacta que el nucleo pretende confirmar.
-
-```go
 func (ComprobanteConsumoReciboCargaDirecta) String() string
 
 type CompromisoEjecucionComponenteDocumental struct {
@@ -1338,6 +1314,32 @@ atomico, pero el caso de uso no conoce su motor, transporte ni credenciales.
 La solicitud vinculada y el sobre son valores opacos y de valor cero
 invalido. El conector debe volver a verificar la autorizacion y confirmar el
 efecto, la auditoria y el outbox en una unica frontera transaccional.
+
+```go
+type ConfirmacionRegistroContextoActorV1 struct {
+	OperacionRef           string
+	RegistroContextoRef    string
+	Contexto               domain.ContextoActor
+	RepresentacionCanonica []byte
+	HuellaSHA256           string
+	ResueltoEnAutoritativo time.Time
+}
+```
+
+ConfirmacionRegistroContextoActorV1 es el recibo exacto que el adaptador
+recupera de la persistencia y devuelve unicamente despues de un COMMIT
+confirmado o reconciliado. RepresentacionCanonica y HuellaSHA256 son los
+valores almacenados, no una reconstruccion oportunista posterior al commit.
+
+```go
+func (c ConfirmacionRegistroContextoActorV1) ValidarPara(
+	solicitud SolicitudResolucionRegistroContextoActorV1,
+) error
+```
+
+ValidarPara comprueba el eco exacto de la solicitud y liga el recibo a los
+mismos bytes que compromete Contexto. No demuestra por si solo que exista la
+fila: esa autoridad pertenece al puerto durable y a su reconciliacion.
 
 ```go
 type ConfirmacionTransicionCargaDocumental struct {
@@ -1701,12 +1703,7 @@ type ContenidoDocumentoLeido struct {
 	EvidenciaOperacion EvidenciaOperacionAlmacen
 }
 
-type ContenidoNotificacionCobroUnico struct {
-	Metadatos SolicitudCustodiarNotificacionCobro
-	Contenido io.ReadCloser
-}
-
-func (c ContenidoNotificacionCobroUnico) Validar() error
+type ContenidoNotificacionCobroUnico = pagoscanonicos.ContenidoNotificacionCobroUnico
 
 type ContextoEliminarCodigoCotejoHuerfano struct {
 	// Has unexported fields.
@@ -3164,18 +3161,7 @@ type EventStore interface {
 	ListEvents(context.Context, []string) ([]domain.Event, error)
 }
 
-type EventoSalidaCobro struct {
-	ID                string
-	Tipo              TipoEventoSalidaCobro
-	OrdenRef          string
-	VersionOrden      int
-	SecuenciaHecho    int64
-	HuellaHechoSHA256 string
-	HuellaOrdenSHA256 string
-	CorrelacionRef    string
-	OcurridoEn        time.Time
-	Atributos         AtributosEventoSalidaCobro
-}
+type EventoSalidaCobro = pagoscanonicos.EventoSalidaCobro
 
 func NuevoEventoSalidaCobro(orden domain.OrdenCobro) (EventoSalidaCobro, error)
 ```
@@ -3185,8 +3171,6 @@ determinista ligado a orden, version, secuencia y huella del ultimo hecho.
 No recibe ningun campo semantico del llamador.
 
 ```go
-func (e EventoSalidaCobro) Validar() error
-
 type EvidenciaOperacionAlmacen struct {
 	Referencia             string
 	ConectorID             string
@@ -3517,10 +3501,12 @@ type FuenteContextoActor interface {
 }
 ```
 
-FuenteContextoActor devuelve todas las instantaneas que coincidan
-exactamente con cuenta y perfil. No debe usar LIMIT 1, precedencia ni perfil
-por defecto: el servicio de aplicacion es quien exige una coincidencia
-unica.
+FuenteContextoActor es un puerto heredado para pruebas y migracion. No es
+una frontera productiva porque separa la lectura del registro durable.
+
+Devuelve todas las instantaneas que coincidan exactamente con cuenta y
+perfil. No debe usar LIMIT 1, precedencia ni perfil por defecto: el servicio
+de aplicacion es quien exige una coincidencia unica.
 
 La implementacion devuelve copias defensivas y nunca consulta por DNI,
 nombre, correo ni otro dato personal. Cuenta y referencias son
@@ -3558,6 +3544,18 @@ type GeneradorIDOrdenCobro interface {
 	NuevoIDDevolucionCobro() (string, error)
 }
 
+type GeneradorOperacionContextoActorV1 interface {
+	NuevaReferenciaOperacionContextoActorV1(context.Context) (string, error)
+}
+```
+
+GeneradorOperacionContextoActorV1 crea una referencia nueva antes de
+entrar en la operacion durable. Cada token debe proceder de un CSPRNG,
+aportar como minimo 144 bits de entropia y pertenecer al espacio oca_. La
+misma invocacion logica conserva el token al reconciliar un COMMIT ambiguo;
+una invocacion nueva nunca reutiliza el anterior.
+
+```go
 type GeneradorReferenciaBorradorDocumental interface {
 	NuevaReferenciaBorradorDocumental(context.Context) (string, error)
 }
@@ -3644,13 +3642,13 @@ tras cotejar el plan publicado con todos los hechos estables del recibo.
 ```go
 func (h HuellaPlanMaterialAlmacenV2) Bytes() ([]byte, error)
 
-func (h HuellaPlanMaterialAlmacenV2) Format(e fmt.State, _ rune)
+func (HuellaPlanMaterialAlmacenV2) Format(e fmt.State, _ rune)
 
 func (HuellaPlanMaterialAlmacenV2) GoString() string
 
 func (h HuellaPlanMaterialAlmacenV2) Hexadecimal() (string, error)
 
-func (h HuellaPlanMaterialAlmacenV2) LogValue() slog.Value
+func (HuellaPlanMaterialAlmacenV2) LogValue() slog.Value
 
 func (HuellaPlanMaterialAlmacenV2) MarshalBinary() ([]byte, error)
 
@@ -3740,50 +3738,8 @@ type IdentityPort interface {
 	Identify(context.Context, InteropRequest) (InteropResult, error)
 }
 
-type InicioOperacionCobro struct {
-	Evidencia                 domain.EvidenciaInicioOperacionCobro
-	Origen                    OrigenPasarelaCobroPublicado
-	VersionOrden              int
-	HuellaOrdenSHA256         string
-	HuellaConfiguracionSHA256 string
-	Ruta                      string
-	Metodo                    MetodoHandoffCobro
-	Carga                     CargaHandoffCobro
-	GeneradaEn                time.Time
-	ExpiraEn                  time.Time
-}
-```
+type InicioOperacionCobro = pagoscanonicos.InicioOperacionCobro
 
-InicioOperacionCobro separa el origen publicado de la carga de handoff.
-No acepta una URL devuelta libremente por el proveedor ni secretos en query.
-
-```go
-func (i InicioOperacionCobro) CamposRespuestaPOSTContra(
-	comando domain.ComandoInicioOperacionCobro,
-	origen OrigenPasarelaCobroPublicado,
-	ahora time.Time,
-) ([]CampoHandoffCobro, error)
-```
-
-CamposRespuestaPOSTContra devuelve una copia solo tras la validacion
-completa. No promete consumo unico: esa propiedad requiere una custodia
-durable aun no implementada y el modulo permanece NO EXPUESTO hasta tenerla.
-
-```go
-func (i InicioOperacionCobro) Validar() error
-
-func (i InicioOperacionCobro) ValidarContra(
-	comando domain.ComandoInicioOperacionCobro,
-	origen OrigenPasarelaCobroPublicado,
-	ahora time.Time,
-) error
-```
-
-ValidarContra es la unica validacion suficiente para entregar un handoff.
-Liga la respuesta al comando sellado, al origen exacto publicado y al reloj
-confiable. Validar solo comprueba estructura y no autoriza su entrega.
-
-```go
 type InstantaneaEjecucionDocumentalV3Nominal struct {
 	ReservaRef                 string
 	IndiceIdempotenciaHMAC     string
@@ -3838,13 +3794,13 @@ No incorpora la evidencia nueva de un reintento ni datos del intento.
 ```go
 func (i InstantaneaObjetoMaterialV2) BytesCanonicos() ([]byte, error)
 
-func (i InstantaneaObjetoMaterialV2) Format(e fmt.State, _ rune)
+func (InstantaneaObjetoMaterialV2) Format(e fmt.State, _ rune)
 
 func (InstantaneaObjetoMaterialV2) GoString() string
 
 func (i InstantaneaObjetoMaterialV2) HuellaSHA256() ([sha256.Size]byte, error)
 
-func (i InstantaneaObjetoMaterialV2) LogValue() slog.Value
+func (InstantaneaObjetoMaterialV2) LogValue() slog.Value
 
 func (InstantaneaObjetoMaterialV2) MarshalBinary() ([]byte, error)
 
@@ -4142,9 +4098,7 @@ func (m MaterialCrudoVerificacionOrdenDespachoDocumentalV3) Vinculos() (
 	error,
 )
 
-type MetadatosAuditoriaCobro struct {
-	Canal CanalAuditoriaCobro
-}
+type MetadatosAuditoriaCobro = pagoscanonicos.MetadatosAuditoriaCobro
 
 type MetadatosComprobacionEvidenciaDocumentalV3Nominal struct {
 	// Has unexported fields.
@@ -4282,17 +4236,10 @@ La huella de procedencia declarada no equivale a una firma verificable del
 paquete.
 
 ```go
-type MetodoCargaDirecta string
+type MetodoCargaDirecta = almacencanonico.MetodoCargaDirecta
 
-const (
-	MetodoCargaDirectaPUT  MetodoCargaDirecta = "PUT"
-	MetodoCargaDirectaPOST MetodoCargaDirecta = "POST"
-)
-func (m MetodoCargaDirecta) Valido() bool
+type MetodoHandoffCobro = pagoscanonicos.MetodoHandoffCobro
 
-type MetodoHandoffCobro string
-
-const MetodoHandoffCobroPOSTFormulario MetodoHandoffCobro = "post_formulario"
 type ModuleRegistryStore interface {
 	SaveModule(context.Context, domain.ModuleManifest) error
 	ListModules(context.Context) ([]domain.ModuleManifest, error)
@@ -4326,41 +4273,13 @@ func (*MutacionOrdenCobro) UnmarshalJSON([]byte) error
 
 func (m MutacionOrdenCobro) Validar() error
 
-type NotificacionCobro struct {
-	ConectorID      string    `json:"conector_id"`
-	VersionConector int       `json:"version_conector"`
-	RecepcionRef    string    `json:"recepcion_ref"`
-	Audiencia       string    `json:"audiencia"`
-	RecibidaEn      time.Time `json:"recibida_en"`
-}
-```
-
-NotificacionCobro solo transporta una referencia opaca a una recepcion
-temporal controlada por el adaptador. El nucleo no recibe cuerpos, cookies,
-cabeceras ni datos de tarjeta del proveedor.
-
-```go
-func (n NotificacionCobro) Validar() error
+type NotificacionCobro = pagoscanonicos.NotificacionCobro
 
 type NotificationPort interface {
 	SendNotification(context.Context, InteropRequest) (InteropResult, error)
 }
 
-type ObjetoAlmacenado struct {
-	Objeto               ReferenciaObjetoAlmacen
-	ConectorID           string
-	Zona                 ZonaAlmacen
-	MIME                 string
-	Tamano               int64
-	HuellaSHA256         string
-	EvidenciaCreacionRef string
-	AlmacenadoEn         time.Time
-	RetenidoHasta        time.Time
-	Inmovilizado         bool
-	Eliminado            bool
-}
-
-func (o ObjetoAlmacenado) Validar() error
+type ObjetoAlmacenado = almacencanonico.ObjetoAlmacenado
 
 type OperacionComponenteDocumental string
 ```
@@ -4433,16 +4352,7 @@ func (*OperacionFuenteAutoridad) UnmarshalXML(
 	xml.StartElement,
 ) error
 
-type OrdenConsumoReciboCargaDirecta struct {
-	IndiceHMAC               string
-	GrupoHMAC                string
-	VinculoHMAC              string
-	EvidenciaConsumoRef      string
-	IntencionConfirmacionRef string
-	HuellaIntencionHMAC      string
-	RegistradoEn             time.Time
-	ValidaHasta              time.Time
-}
+type OrdenConsumoReciboCargaDirecta = almacencanonico.OrdenConsumoReciboCargaDirecta
 ```
 
 OrdenConsumoReciboCargaDirecta no contiene secreto ni una hora de consumo
@@ -4451,8 +4361,6 @@ alta y debe coincidir con el registro; el repositorio decide ConsumidoEn con
 su reloj transaccional autoritativo y lo devuelve despues de persistirlo.
 
 ```go
-func (o OrdenConsumoReciboCargaDirecta) Validar() error
-
 type OrdenDespachoDocumentalV3ConsumidaNominal struct {
 	// Has unexported fields.
 }
@@ -4607,17 +4515,7 @@ type OrgDirectoryPort interface {
 	LookupOrgUnit(context.Context, InteropRequest) (InteropResult, error)
 }
 
-type OrigenPasarelaCobroPublicado struct {
-	ID                        string
-	Version                   int
-	BaseHTTPS                 string
-	RutasPermitidas           []string
-	CamposHandoffPermitidos   []string
-	HuellaConfiguracionSHA256 string
-	PublicadaEn               time.Time
-}
-
-func (o OrigenPasarelaCobroPublicado) Validar() error
+type OrigenPasarelaCobroPublicado = pagoscanonicos.OrigenPasarelaCobroPublicado
 
 type PaginaHistoriaFuenteAutoridad struct {
 	Versiones        []domain.FuenteAutoridadVersionada
@@ -4654,7 +4552,7 @@ PasarelaCobro es el unico contrato remoto del nucleo de cobros. No conoce
 proveedores, protocolos ni redes concretas y no sirve para pagos salientes.
 
 ```go
-type PasoOperacionAlmacen string
+type PasoOperacionAlmacen = almacencanonico.PasoOperacionAlmacen
 ```
 
 PasoOperacionAlmacen identifica un paso previamente declarado por el nucleo.
@@ -4662,17 +4560,6 @@ Aunque su representacion sea texto, ninguna fabrica acepta valores fuera del
 plan cerrado asociado a la accion de negocio.
 
 ```go
-const (
-	PasoAlmacenPrepararCargaDirecta  PasoOperacionAlmacen = "01_preparar_carga_directa"
-	PasoAlmacenAbandonarCargaDirecta PasoOperacionAlmacen = "02_abandonar_carga_directa"
-	PasoAlmacenConfirmarCargaDirecta PasoOperacionAlmacen = "01_confirmar_carga_directa"
-	PasoAlmacenLeerParaAnalisis      PasoOperacionAlmacen = "01_leer_para_analisis"
-	PasoAlmacenAnalizarContenido     PasoOperacionAlmacen = "02_analizar_contenido"
-	PasoAlmacenPromover              PasoOperacionAlmacen = "01_promover"
-	PasoAlmacenCustodiarDecision     PasoOperacionAlmacen = "01_custodiar_decision"
-	PasoAlmacenCustodiarFirmado      PasoOperacionAlmacen = "01_custodiar_documento_firmado"
-	PasoAlmacenRetenerFirmado        PasoOperacionAlmacen = "01_retener_documento_firmado"
-)
 type PerfilCapacidadesAlmacenMaterialV2 struct {
 	// Has unexported fields.
 }
@@ -4695,13 +4582,13 @@ func NuevoPerfilCapacidadesAlmacenMaterialV2(
 
 func (p PerfilCapacidadesAlmacenMaterialV2) BytesCanonicos() ([]byte, error)
 
-func (p PerfilCapacidadesAlmacenMaterialV2) Format(e fmt.State, _ rune)
+func (PerfilCapacidadesAlmacenMaterialV2) Format(e fmt.State, _ rune)
 
 func (PerfilCapacidadesAlmacenMaterialV2) GoString() string
 
 func (p PerfilCapacidadesAlmacenMaterialV2) HuellaSHA256() ([sha256.Size]byte, error)
 
-func (p PerfilCapacidadesAlmacenMaterialV2) LogValue() slog.Value
+func (PerfilCapacidadesAlmacenMaterialV2) LogValue() slog.Value
 
 func (PerfilCapacidadesAlmacenMaterialV2) MarshalBinary() ([]byte, error)
 
@@ -4805,12 +4692,7 @@ func (p PoliticaInstitucionalDocumentalAtestada) Revision() uint64
 
 func (p PoliticaInstitucionalDocumentalAtestada) Validar() error
 
-type PredecesorReciboCargaDirecta struct {
-	IndiceHMAC             string
-	GrupoHMAC              string
-	AutorizacionEmisionRef string
-	SustituidoEn           time.Time
-}
+type PredecesorReciboCargaDirecta = almacencanonico.PredecesorReciboCargaDirecta
 ```
 
 PredecesorReciboCargaDirecta conserva el enlace tipado que el repositorio
@@ -4819,8 +4701,6 @@ evento de auditoria: el adaptador durable debera incorporarlo a su registro
 transaccional y al outbox cuando estos existan.
 
 ```go
-func (p PredecesorReciboCargaDirecta) Validar() error
-
 type PreimagenRecursoAutorizacionEjecucionDocumentalV4 struct {
 	// Has unexported fields.
 }
@@ -5063,32 +4943,7 @@ func (*ProyeccionAplicacionAutorizacionEjecucionDocumentalV4) UnmarshalJSON([]by
 
 func (*ProyeccionAplicacionAutorizacionEjecucionDocumentalV4) UnmarshalText([]byte) error
 
-type ProyeccionContextoOperacionAlmacen struct {
-	Esquema                string
-	OperacionRef           string
-	CorrelacionRef         string
-	AutorizacionRef        string
-	Finalidad              string
-	Clasificacion          string
-	AccionNegocio          string
-	AccionTecnica          string
-	CargaRef               string
-	SujetoSeudonimoHMAC    string
-	RecursoRef             string
-	ModuloID               string
-	TipoRecurso            string
-	HuellaRecursoSHA256    string
-	HuellaSolicitudHMAC    string
-	EfectoRef              string
-	HuellaPlanEfectoSHA256 string
-	HuellaManifiestoSHA256 string
-	HuellaPasoSHA256       string
-	PasoRef                PasoOperacionAlmacen
-	ObjetoVinculado        ReferenciaObjetoAlmacen
-	HuellaDecisionSHA256   string
-	VerificadaEn           time.Time
-	ValidaHasta            time.Time
-}
+type ProyeccionContextoOperacionAlmacen = almacencanonico.ProyeccionContextoOperacionAlmacen
 ```
 
 ProyeccionContextoOperacionAlmacen es una copia defensiva para conectores
@@ -5096,22 +4951,6 @@ dentro del proceso. No permite reconstruir la capacidad y tampoco se puede
 serializar mediante los codificadores habituales.
 
 ```go
-func (p ProyeccionContextoOperacionAlmacen) Format(estado fmt.State, _ rune)
-
-func (p ProyeccionContextoOperacionAlmacen) GoString() string
-
-func (p ProyeccionContextoOperacionAlmacen) LogValue() slog.Value
-
-func (ProyeccionContextoOperacionAlmacen) MarshalJSON() ([]byte, error)
-
-func (ProyeccionContextoOperacionAlmacen) MarshalText() ([]byte, error)
-
-func (ProyeccionContextoOperacionAlmacen) String() string
-
-func (*ProyeccionContextoOperacionAlmacen) UnmarshalJSON([]byte) error
-
-func (*ProyeccionContextoOperacionAlmacen) UnmarshalText([]byte) error
-
 type ProyeccionIntentoCASReconciliacionDocumentalV4 struct {
 	// Has unexported fields.
 }
@@ -5393,9 +5232,7 @@ func (*PruebaCrudaTokenCercadoDocumentalV4) UnmarshalText([]byte) error
 
 func (p PruebaCrudaTokenCercadoDocumentalV4) ValidarSintaxis() error
 
-type ReciboCargaDirecta struct {
-	// Has unexported fields.
-}
+type ReciboCargaDirecta = almacencanonico.ReciboCargaDirecta
 ```
 
 ReciboCargaDirecta es el valor opaco y de un uso entregado junto a la
@@ -5404,22 +5241,6 @@ nunca se persiste en claro, serializa por reflexion ni registra.
 
 ```go
 func NuevoReciboCargaDirecta(valor string) (ReciboCargaDirecta, error)
-
-func (r ReciboCargaDirecta) Format(estado fmt.State, _ rune)
-
-func (ReciboCargaDirecta) GoString() string
-
-func (r ReciboCargaDirecta) LogValue() slog.Value
-
-func (ReciboCargaDirecta) MarshalJSON() ([]byte, error)
-
-func (ReciboCargaDirecta) MarshalText() ([]byte, error)
-
-func (r ReciboCargaDirecta) RevelarParaEntregaOConsumo() (string, error)
-
-func (ReciboCargaDirecta) String() string
-
-func (r ReciboCargaDirecta) Valido() bool
 
 type ReciboConsultaInternaFuenteAutoridad struct {
 	// Has unexported fields.
@@ -5573,7 +5394,7 @@ func NuevoReciboEscrituraObjetoMaterialV2(
 
 func (r ReciboEscrituraObjetoMaterialV2) BytesCanonicos() ([]byte, error)
 
-func (r ReciboEscrituraObjetoMaterialV2) Format(e fmt.State, _ rune)
+func (ReciboEscrituraObjetoMaterialV2) Format(e fmt.State, _ rune)
 
 func (ReciboEscrituraObjetoMaterialV2) GoString() string
 
@@ -5584,7 +5405,7 @@ func (r ReciboEscrituraObjetoMaterialV2) Instantanea() (
 	error,
 )
 
-func (r ReciboEscrituraObjetoMaterialV2) LogValue() slog.Value
+func (ReciboEscrituraObjetoMaterialV2) LogValue() slog.Value
 
 func (ReciboEscrituraObjetoMaterialV2) MarshalBinary() ([]byte, error)
 
@@ -5687,16 +5508,7 @@ type RecuperacionCodigoCotejo struct {
 	EvidenciaRef string
 }
 
-type ReferenciaDevolucionCobro struct {
-	ConectorID            string
-	VersionConector       int
-	OrdenRef              string
-	DevolucionRef         string
-	OperacionProveedorRef string
-	CorrelacionRef        string
-}
-
-func (r ReferenciaDevolucionCobro) Validar() error
+type ReferenciaDevolucionCobro = pagoscanonicos.ReferenciaDevolucionCobro
 
 type ReferenciaEstadoFuenteAutoridad struct {
 	Fuente               domain.ReferenciaFuenteAutoridad
@@ -5717,22 +5529,9 @@ func EstadoExactoFuenteAutoridad(
 
 func (r ReferenciaEstadoFuenteAutoridad) Validar() error
 
-type ReferenciaObjetoAlmacen struct {
-	Referencia string
-	Version    string
-}
+type ReferenciaObjetoAlmacen = almacencanonico.ReferenciaObjetoAlmacen
 
-func (r ReferenciaObjetoAlmacen) Validar() error
-
-type ReferenciaOperacionCobro struct {
-	ConectorID            string `json:"conector_id"`
-	VersionConector       int    `json:"version_conector"`
-	OrdenRef              string `json:"orden_ref"`
-	OperacionProveedorRef string `json:"operacion_proveedor_ref"`
-	CorrelacionRef        string `json:"correlacion_ref"`
-}
-
-func (r ReferenciaOperacionCobro) Validar() error
+type ReferenciaOperacionCobro = pagoscanonicos.ReferenciaOperacionCobro
 
 type ReferenciaOperacionFuenteAutoridad struct {
 	// Has unexported fields.
@@ -5806,48 +5605,7 @@ func (*ReferenciaSolicitudFuenteAutoridad) UnmarshalText([]byte) error
 
 func (*ReferenciaSolicitudFuenteAutoridad) UnmarshalXML(*xml.Decoder, xml.StartElement) error
 
-type RegistroAuditoriaCobro struct {
-	ID                          string
-	ActorRef                    string
-	PerfilActivoRef             string
-	DecisionAutorizacionRef     string
-	HuellaDecisionSHA256        string
-	AutorizacionEmitidaEn       time.Time
-	AutorizacionValidaHasta     time.Time
-	AutorizacionEvaluadaEn      time.Time
-	AtestacionAutenticacionRef  string
-	AtestacionEmitidaEn         time.Time
-	AtestacionValidaHasta       time.Time
-	AutenticacionVerificadaEn   time.Time
-	SesionRef                   string
-	HuellaSesionHMAC            string
-	MetodoAutenticacion         domain.AuthMethod
-	GarantiaAutenticacion       domain.AuthAssurance
-	Accion                      domain.AccionCobro
-	Hecho                       domain.TipoHechoCobro
-	OrdenRef                    string
-	ExpedienteRef               string
-	VersionAnterior             int
-	VersionPosterior            int
-	HuellaAnteriorSHA256        string
-	HuellaPosteriorSHA256       string
-	EvidenciaRef                string
-	HuellaEvidenciaSHA256       string
-	VerificacionEvidenciaRef    string
-	HuellaVerificacionSHA256    string
-	MetodoVerificacionEvidencia domain.MetodoAutenticacionEvidenciaCobro
-	AudienciaEvidencia          string
-	EvidenciaEmitidaEn          time.Time
-	EvidenciaRecibidaEn         time.Time
-	EvidenciaVerificadaEn       time.Time
-	Resultado                   string
-	Motivo                      string
-	CorrelacionRef              string
-	OcurridoEn                  time.Time
-	Metadatos                   MetadatosAuditoriaCobro
-}
-
-func (r RegistroAuditoriaCobro) Validar() error
+type RegistroAuditoriaCobro = pagoscanonicos.RegistroAuditoriaCobro
 
 type RegistroComponentesDocumentalesAtestados interface {
 	BuscarComponentesDocumentalesAtestados(
@@ -6031,14 +5789,7 @@ type RegistroMarcadoresMetadatoInstitucional interface {
 	) ([]MarcadorMetadatoInstitucionalDocumental, error)
 }
 
-type RegistroReciboCargaDirecta struct {
-	IndiceHMAC             string
-	GrupoHMAC              string
-	VinculoHMAC            string
-	EvidenciaAltaRef       string
-	AutorizacionEmisionRef string
-	ExpiraEn               time.Time
-}
+type RegistroReciboCargaDirecta = almacencanonico.RegistroReciboCargaDirecta
 ```
 
 RegistroReciboCargaDirecta es la unica informacion propuesta al alta
@@ -6049,8 +5800,6 @@ VinculoHMAC autentica sus invariantes y la sesion. Ninguno puede sustituirse
 por el recibo o por la referencia de sesion.
 
 ```go
-func (r RegistroReciboCargaDirecta) Validar() error
-
 type RegistroReferenciasReciboMaterialV2 interface {
 	ReservarORecuperarReferenciaReciboMaterialV2(
 		context.Context,
@@ -6328,23 +6077,7 @@ type RepresentationPort interface {
 	CheckRepresentation(context.Context, InteropRequest) (InteropResult, error)
 }
 
-type RequisitosAlmacenObjetos struct {
-	EscrituraEnFlujo            bool
-	LecturaEnFlujo              bool
-	ReferenciasOpacas           bool
-	IntegridadSHA256            bool
-	Versionado                  bool
-	Retencion                   bool
-	BloqueoLegal                bool
-	PromocionAtomica            bool
-	RetencionAtomicaEnPromocion bool
-	CargaDirectaTemporal        bool
-	CifradoEnTransito           bool
-	CifradoEnReposo             bool
-	CifradoPorObjeto            bool
-	TamanoMinimoObjeto          int64
-	PreservaObjetoOriginal      bool
-}
+type RequisitosAlmacenObjetos = almacencanonico.Requisitos
 
 type RequisitosAnalizadorContenido struct {
 	AnalisisEnFlujo        bool
@@ -6426,6 +6159,40 @@ func (ReservaOrdenCobro) String() string
 
 func (r ReservaOrdenCobro) Validar() error
 
+type ResolutorRegistroContextoActorV1 interface {
+	ResolverYRegistrarContextoActorV1(
+		context.Context,
+		SolicitudResolucionRegistroContextoActorV1,
+	) (ConfirmacionRegistroContextoActorV1, error)
+}
+```
+
+ResolutorRegistroContextoActorV1 es la unica frontera productiva para
+resolver y dejar registrada una capacidad de actor. La implementacion debe
+ejecutar ambas operaciones en una sola transaccion: no puede leer primero y
+registrar despues ni devolver una capacidad si el registro durable falla.
+
+La operacion, la cuenta, el perfil, el metodo y la garantia son entradas
+exactas. La implementacion no los normaliza, completa ni sustituye.
+SolicitadoEn no reemplaza al reloj autoritativo del adaptador. Tras
+adquirir todos los bloqueos, la implementacion debe releer cuenta, perfil,
+persona y vinculos; obtener clock_timestamp() despues de esos bloqueos;
+exigir que no sea anterior a SolicitadoEn ni lo supere en la ventana maxima;
+comprobar toda la vigencia en ese instante; y solo entonces registrar y
+confirmar en la misma transaccion. Antes del commit debe conservar los
+bytes de RepresentacionCanonicaVinculadaV1 y su huella SHA-256, ligados a la
+version resuelta. Una espera que alcance caducidad o exceda la ventana debe
+abortar.
+
+operacion_ref es clave idempotente. Ante un resultado de COMMIT ambiguo,
+el adaptador consulta de nuevo por esa referencia y solo devuelve la fila
+si la solicitud, el recibo, los bytes y la huella coinciden exactamente.
+Una colision con otro contenido falla cerrada. Si la ausencia queda
+confirmada, la misma invocacion puede reintentarse con la misma referencia;
+nunca con una nueva. RegistroContextoRef pertenece a un espacio CSPRNG rca_
+independiente.
+
+```go
 type RespuestaCrudaReconciliacionDocumentalV4 struct {
 	// Has unexported fields.
 }
@@ -6513,13 +6280,7 @@ func (r ResultadoAnalisisContenido) Validar() error
 
 func (r ResultadoAnalisisContenido) ValidarContra(s SolicitudAnalizarContenido) error
 
-type ResultadoConciliacionCobro struct {
-	Evidencia domain.EvidenciaConciliacionCobro `json:"-"`
-}
-
-func (ResultadoConciliacionCobro) MarshalJSON() ([]byte, error)
-
-func (r ResultadoConciliacionCobro) Validar() error
+type ResultadoConciliacionCobro = pagoscanonicos.ResultadoConciliacionCobro
 
 type ResultadoConectorEjecucionDocumentalAtestadaV4 struct {
 	// Has unexported fields.
@@ -6662,17 +6423,7 @@ func (r ResultadoConsultaInternaFuenteAutoridad) ValidarPara(
 	solicitud SolicitudConsultaInternaGobernadaFuenteAutoridad,
 ) error
 
-type ResultadoConsumoReciboCargaDirecta struct {
-	IndiceHMAC               string
-	GrupoHMAC                string
-	VinculoHMAC              string
-	EvidenciaConsumoRef      string
-	IntencionConfirmacionRef string
-	HuellaIntencionHMAC      string
-	RegistradoEn             time.Time
-	ConsumidoEn              time.Time
-	ExpiraEn                 time.Time
-}
+type ResultadoConsumoReciboCargaDirecta = almacencanonico.ResultadoConsumoReciboCargaDirecta
 ```
 
 ResultadoConsumoReciboCargaDirecta acredita la escritura condicional del
@@ -6681,10 +6432,6 @@ durable, no de datos propuestos por el proceso. Todos los identificadores
 deben coincidir exactamente con la orden.
 
 ```go
-func (r ResultadoConsumoReciboCargaDirecta) Validar() error
-
-func (r ResultadoConsumoReciboCargaDirecta) ValidarContra(o OrdenConsumoReciboCargaDirecta) error
-
 type ResultadoCrudoVerificacionOrdenDespachoDocumentalV3 struct {
 	// Has unexported fields.
 }
@@ -6738,13 +6485,7 @@ func (r ResultadoCrudoVerificacionOrdenDespachoDocumentalV3) ValidarPara(
 	solicitud SolicitudComprobarOrdenDespachoDocumentalV3,
 ) error
 
-type ResultadoDevolucionCobro struct {
-	Evidencia domain.EvidenciaResultadoDevolucionCobro `json:"-"`
-}
-
-func (ResultadoDevolucionCobro) MarshalJSON() ([]byte, error)
-
-func (r ResultadoDevolucionCobro) Validar() error
+type ResultadoDevolucionCobro = pagoscanonicos.ResultadoDevolucionCobro
 
 type ResultadoEfectoRenderizadoDocumentalV3Crudo struct {
 	BorradorRef           string
@@ -6944,13 +6685,7 @@ Un formato sin metadato estandar queda cerrado hasta disponer de un puerto
 distinto de manifiesto lateral; nunca se simula con contenido invisible.
 
 ```go
-type ResultadoOperacionCobro struct {
-	Evidencia domain.EvidenciaResultadoCobro `json:"-"`
-}
-
-func (ResultadoOperacionCobro) MarshalJSON() ([]byte, error)
-
-func (r ResultadoOperacionCobro) Validar() error
+type ResultadoOperacionCobro = pagoscanonicos.ResultadoOperacionCobro
 
 type ResultadoOperacionObjeto struct {
 	Objeto    ObjetoAlmacenado
@@ -7029,11 +6764,11 @@ func NuevoResultadoReferenciaReciboMaterialV2(
 	referencia string,
 ) (ResultadoReferenciaReciboMaterialV2, error)
 
-func (r ResultadoReferenciaReciboMaterialV2) Format(e fmt.State, _ rune)
+func (ResultadoReferenciaReciboMaterialV2) Format(e fmt.State, _ rune)
 
 func (ResultadoReferenciaReciboMaterialV2) GoString() string
 
-func (r ResultadoReferenciaReciboMaterialV2) LogValue() slog.Value
+func (ResultadoReferenciaReciboMaterialV2) LogValue() slog.Value
 
 func (ResultadoReferenciaReciboMaterialV2) MarshalBinary() ([]byte, error)
 
@@ -7049,13 +6784,7 @@ func (*ResultadoReferenciaReciboMaterialV2) UnmarshalJSON([]byte) error
 
 func (*ResultadoReferenciaReciboMaterialV2) UnmarshalText([]byte) error
 
-type ResultadoRegistroReciboCargaDirecta struct {
-	IndiceHMAC             string
-	GrupoHMAC              string
-	AutorizacionEmisionRef string
-	RegistradoEn           time.Time
-	Predecesor             *PredecesorReciboCargaDirecta
-}
+type ResultadoRegistroReciboCargaDirecta = almacencanonico.ResultadoRegistroReciboCargaDirecta
 ```
 
 ResultadoRegistroReciboCargaDirecta acredita la fecha del alta durable y,
@@ -7063,8 +6792,6 @@ cuando procede, la relacion con el predecesor del mismo grupo sustituido en
 la misma transaccion.
 
 ```go
-func (r ResultadoRegistroReciboCargaDirecta) ValidarContra(registro RegistroReciboCargaDirecta) error
-
 type ResultadoReservaEfectoGeneracionDocumental struct {
 	ReservaRef             string
 	EfectoRef              string
@@ -7088,11 +6815,11 @@ func NuevoResultadoVerificacionPlanMaterialAlmacenV2(
 	huellaPlanHexadecimal string,
 ) (ResultadoVerificacionPlanMaterialAlmacenV2, error)
 
-func (r ResultadoVerificacionPlanMaterialAlmacenV2) Format(e fmt.State, _ rune)
+func (ResultadoVerificacionPlanMaterialAlmacenV2) Format(e fmt.State, _ rune)
 
 func (ResultadoVerificacionPlanMaterialAlmacenV2) GoString() string
 
-func (r ResultadoVerificacionPlanMaterialAlmacenV2) LogValue() slog.Value
+func (ResultadoVerificacionPlanMaterialAlmacenV2) LogValue() slog.Value
 
 func (ResultadoVerificacionPlanMaterialAlmacenV2) MarshalBinary() ([]byte, error)
 
@@ -7230,11 +6957,11 @@ func NuevaSeleccionPlanMaterialAlmacenV2(
 	version uint32,
 ) (SeleccionPlanMaterialAlmacenV2, error)
 
-func (s SeleccionPlanMaterialAlmacenV2) Format(e fmt.State, _ rune)
+func (SeleccionPlanMaterialAlmacenV2) Format(e fmt.State, _ rune)
 
 func (SeleccionPlanMaterialAlmacenV2) GoString() string
 
-func (s SeleccionPlanMaterialAlmacenV2) LogValue() slog.Value
+func (SeleccionPlanMaterialAlmacenV2) LogValue() slog.Value
 
 func (SeleccionPlanMaterialAlmacenV2) MarshalBinary() ([]byte, error)
 
@@ -7243,7 +6970,12 @@ func (SeleccionPlanMaterialAlmacenV2) MarshalJSON() ([]byte, error)
 func (SeleccionPlanMaterialAlmacenV2) MarshalText() ([]byte, error)
 
 func (SeleccionPlanMaterialAlmacenV2) String() string
+```
 
+Los metodos permanecen declarados sobre cada tipo para conservar su forma,
+tamaño y reflexión. Las funciones comunes solo centralizan el resultado.
+
+```go
 func (*SeleccionPlanMaterialAlmacenV2) UnmarshalBinary([]byte) error
 
 func (*SeleccionPlanMaterialAlmacenV2) UnmarshalJSON([]byte) error
@@ -7362,7 +7094,10 @@ func NuevoSelloEvidenciaDocumentalV3Nominal(
 	firmadoEn time.Time,
 ) (SelloEvidenciaDocumentalV3Nominal, error)
 
-func (s SelloEvidenciaDocumentalV3Nominal) Datos() (DatosSelloEvidenciaDocumentalV3Crudos, error)
+func (s SelloEvidenciaDocumentalV3Nominal) Datos() (
+	DatosSelloEvidenciaDocumentalV3Crudos,
+	error,
+)
 
 func (s SelloEvidenciaDocumentalV3Nominal) Format(estado fmt.State, _ rune)
 
@@ -7724,11 +7459,11 @@ SolicitudAtestarMaterialAlmacenV2 es la unica apertura de los bytes hacia el
 adaptador criptografico. Entrega siempre una copia defensiva.
 
 ```go
-func (s SolicitudAtestarMaterialAlmacenV2) Format(e fmt.State, _ rune)
+func (SolicitudAtestarMaterialAlmacenV2) Format(e fmt.State, _ rune)
 
 func (SolicitudAtestarMaterialAlmacenV2) GoString() string
 
-func (s SolicitudAtestarMaterialAlmacenV2) LogValue() slog.Value
+func (SolicitudAtestarMaterialAlmacenV2) LogValue() slog.Value
 
 func (SolicitudAtestarMaterialAlmacenV2) MarshalBinary() ([]byte, error)
 
@@ -7849,11 +7584,7 @@ func (*SolicitudComprobarOrdenDespachoDocumentalV3) UnmarshalText([]byte) error
 
 func (s SolicitudComprobarOrdenDespachoDocumentalV3) Validar() error
 
-type SolicitudConciliacionCobro struct {
-	Comando domain.ComandoConciliacionCobro
-}
-
-func (s SolicitudConciliacionCobro) Validar() error
+type SolicitudConciliacionCobro = pagoscanonicos.SolicitudConciliacionCobro
 
 type SolicitudConfirmarCargaDirecta struct {
 	// Has unexported fields.
@@ -8119,25 +7850,9 @@ func (SolicitudConsumirReciboCargaDirecta) String() string
 
 func (s SolicitudConsumirReciboCargaDirecta) Validar() error
 
-type SolicitudCustodiarNotificacionCobro struct {
-	ConectorID      string
-	VersionConector int
-	RecepcionRef    string
-	Audiencia       string
-	TipoContenido   string
-	Tamano          int64
-	HuellaSHA256    string
-	RecibidaEn      time.Time
-	ExpiraEn        time.Time
-}
+type SolicitudCustodiarNotificacionCobro = pagoscanonicos.SolicitudCustodiarNotificacionCobro
 
-func (s SolicitudCustodiarNotificacionCobro) Validar() error
-
-type SolicitudDevolucionCobro struct {
-	Comando domain.ComandoDevolucionCobro
-}
-
-func (s SolicitudDevolucionCobro) Validar() error
+type SolicitudDevolucionCobro = pagoscanonicos.SolicitudDevolucionCobro
 
 type SolicitudEliminarCodigoCotejoHuerfano struct {
 	Contexto      ContextoEliminarCodigoCotejoHuerfano
@@ -8485,11 +8200,7 @@ type SolicitudObtenerEvidenciaEmisionDocumento struct {
 	CorrelacionRef   string
 }
 
-type SolicitudOperacionCobro struct {
-	Comando domain.ComandoInicioOperacionCobro
-}
-
-func (s SolicitudOperacionCobro) Validar() error
+type SolicitudOperacionCobro = pagoscanonicos.SolicitudOperacionCobro
 
 type SolicitudPrepararCargaDirecta struct {
 	Contexto          ContextoOperacionAlmacen
@@ -8550,14 +8261,7 @@ type SolicitudProtegerCodigoCotejo struct {
 
 func (s SolicitudProtegerCodigoCotejo) ValidarEn(instante time.Time) error
 
-type SolicitudReclamarOrdenDespachoDocumentalV3 struct {
-	ReclamacionRef string
-	InicioRef      string
-	OutboxRef      string
-	ConsumidorRef  string
-	ReclamadaEn    time.Time
-	ExpiraEn       time.Time
-}
+type SolicitudReclamarOrdenDespachoDocumentalV3 = documentalcanonico.DatosSolicitudReclamacionV3
 ```
 
 SolicitudReclamarOrdenDespachoDocumentalV3 identifica una unica reclamacion
@@ -8565,28 +8269,6 @@ CAS del evento outbox de inicio. El llamador solo aporta referencias opacas;
 nunca un resultado de verificacion ni un token.
 
 ```go
-func (s SolicitudReclamarOrdenDespachoDocumentalV3) Format(estado fmt.State, _ rune)
-
-func (s SolicitudReclamarOrdenDespachoDocumentalV3) GoString() string
-
-func (s SolicitudReclamarOrdenDespachoDocumentalV3) LogValue() slog.Value
-
-func (SolicitudReclamarOrdenDespachoDocumentalV3) MarshalBinary() ([]byte, error)
-
-func (SolicitudReclamarOrdenDespachoDocumentalV3) MarshalJSON() ([]byte, error)
-
-func (SolicitudReclamarOrdenDespachoDocumentalV3) MarshalText() ([]byte, error)
-
-func (SolicitudReclamarOrdenDespachoDocumentalV3) String() string
-
-func (*SolicitudReclamarOrdenDespachoDocumentalV3) UnmarshalBinary([]byte) error
-
-func (*SolicitudReclamarOrdenDespachoDocumentalV3) UnmarshalJSON([]byte) error
-
-func (*SolicitudReclamarOrdenDespachoDocumentalV3) UnmarshalText([]byte) error
-
-func (s SolicitudReclamarOrdenDespachoDocumentalV3) Validar() error
-
 type SolicitudRecuperarCodigoCotejo struct {
 	Contexto                 ContextoRecuperarCodigoCotejo
 	ProteccionRef            string
@@ -8683,7 +8365,7 @@ sus hechos materiales, sin aceptar una referencia propuesta por el llamador.
 El registro debe reservarla o recuperar la original atomica y durablemente.
 
 ```go
-func (s SolicitudReservarReferenciaReciboMaterialV2) Format(e fmt.State, _ rune)
+func (SolicitudReservarReferenciaReciboMaterialV2) Format(e fmt.State, _ rune)
 
 func (SolicitudReservarReferenciaReciboMaterialV2) GoString() string
 
@@ -8692,7 +8374,7 @@ func (s SolicitudReservarReferenciaReciboMaterialV2) HuellaIdentidad() (
 	error,
 )
 
-func (s SolicitudReservarReferenciaReciboMaterialV2) LogValue() slog.Value
+func (SolicitudReservarReferenciaReciboMaterialV2) LogValue() slog.Value
 
 func (SolicitudReservarReferenciaReciboMaterialV2) MarshalBinary() ([]byte, error)
 
@@ -8708,6 +8390,21 @@ func (*SolicitudReservarReferenciaReciboMaterialV2) UnmarshalJSON([]byte) error
 
 func (*SolicitudReservarReferenciaReciboMaterialV2) UnmarshalText([]byte) error
 
+type SolicitudResolucionRegistroContextoActorV1 struct {
+	OperacionRef string
+	Contexto     domain.SolicitudContextoActor
+	SolicitadoEn time.Time
+}
+```
+
+SolicitudResolucionRegistroContextoActorV1 fija la identidad de una unica
+invocacion durable. SolicitadoEn es una observacion local para acotar
+frescura y deriva de reloj; no es el instante autoritativo que debe guardar
+el adaptador.
+
+```go
+func (s SolicitudResolucionRegistroContextoActorV1) Validar() error
+
 type SolicitudRetenerObjeto struct {
 	Contexto    ContextoOperacionAlmacen
 	Objeto      ReferenciaObjetoAlmacen
@@ -8719,21 +8416,9 @@ func (s SolicitudRetenerObjeto) Validar() error
 
 func (s SolicitudRetenerObjeto) ValidarEn(instante time.Time) error
 
-type SolicitudSellarIdempotenciaCarga struct {
-	OperacionRef     string
-	PrincipalRef     string
-	RecursoRef       string
-	MIME             string
-	Tamano           int64
-	HuellaSHA256     string
-	ClaveSolicitante string
-}
+type SolicitudSellarIdempotenciaCarga = almacencanonico.SolicitudSellarIdempotenciaCarga
 
-func (s SolicitudSellarIdempotenciaCarga) Validar() error
-
-type SolicitudSeudonimizarSujetoAlmacen struct {
-	// Has unexported fields.
-}
+type SolicitudSeudonimizarSujetoAlmacen = almacencanonico.SolicitudSeudonimizarSujetoAlmacen
 ```
 
 SolicitudSeudonimizarSujetoAlmacen mantiene el identificador interno fuera
@@ -8744,23 +8429,6 @@ confiable lo revela durante la operacion HMAC con clave exclusiva.
 func NuevaSolicitudSeudonimizarSujetoAlmacen(
 	sujetoRef, ambitoRef string,
 ) (SolicitudSeudonimizarSujetoAlmacen, error)
-
-func (s SolicitudSeudonimizarSujetoAlmacen) Format(estado fmt.State, _ rune)
-
-func (SolicitudSeudonimizarSujetoAlmacen) GoString() string
-
-func (s SolicitudSeudonimizarSujetoAlmacen) LogValue() slog.Value
-
-func (SolicitudSeudonimizarSujetoAlmacen) MarshalJSON() ([]byte, error)
-
-func (SolicitudSeudonimizarSujetoAlmacen) MarshalText() ([]byte, error)
-
-func (s SolicitudSeudonimizarSujetoAlmacen) RevelarParaSellado() (
-	sujetoRef, ambitoRef string,
-	err error,
-)
-
-func (SolicitudSeudonimizarSujetoAlmacen) String() string
 
 type SolicitudVerificacionEvidenciaDocumentalV3 struct {
 	// Has unexported fields.
@@ -8902,11 +8570,11 @@ SolicitudVerificarAtestacionMaterialAlmacenV2 impide verificar una firma
 descontextualizada o sobre bytes recompuestos por otro componente.
 
 ```go
-func (s SolicitudVerificarAtestacionMaterialAlmacenV2) Format(e fmt.State, _ rune)
+func (SolicitudVerificarAtestacionMaterialAlmacenV2) Format(e fmt.State, _ rune)
 
 func (SolicitudVerificarAtestacionMaterialAlmacenV2) GoString() string
 
-func (s SolicitudVerificarAtestacionMaterialAlmacenV2) LogValue() slog.Value
+func (SolicitudVerificarAtestacionMaterialAlmacenV2) LogValue() slog.Value
 
 func (SolicitudVerificarAtestacionMaterialAlmacenV2) MarshalBinary() ([]byte, error)
 
@@ -8947,11 +8615,11 @@ criptografica de homologacion. Una firma valida sobre capacidades elegidas
 por el llamador no convierte el perfil en un perfil publicado.
 
 ```go
-func (s SolicitudVerificarPerfilPublicadoMaterialV2) Format(e fmt.State, _ rune)
+func (SolicitudVerificarPerfilPublicadoMaterialV2) Format(e fmt.State, _ rune)
 
 func (SolicitudVerificarPerfilPublicadoMaterialV2) GoString() string
 
-func (s SolicitudVerificarPerfilPublicadoMaterialV2) LogValue() slog.Value
+func (SolicitudVerificarPerfilPublicadoMaterialV2) LogValue() slog.Value
 
 func (SolicitudVerificarPerfilPublicadoMaterialV2) MarshalBinary() ([]byte, error)
 
@@ -8986,11 +8654,11 @@ registro debe reconocer como estables. Operacion, carga y efecto nunca se
 aceptan solo porque aparezcan en el contexto V1.
 
 ```go
-func (s SolicitudVerificarPlanMaterialAlmacenV2) Format(e fmt.State, _ rune)
+func (SolicitudVerificarPlanMaterialAlmacenV2) Format(e fmt.State, _ rune)
 
 func (SolicitudVerificarPlanMaterialAlmacenV2) GoString() string
 
-func (s SolicitudVerificarPlanMaterialAlmacenV2) LogValue() slog.Value
+func (SolicitudVerificarPlanMaterialAlmacenV2) LogValue() slog.Value
 
 func (SolicitudVerificarPlanMaterialAlmacenV2) MarshalBinary() ([]byte, error)
 
@@ -9106,28 +8774,7 @@ type TimestampPort interface {
 	Timestamp(context.Context, InteropRequest) (InteropResult, error)
 }
 
-type TipoEventoSalidaCobro string
-
-const (
-	EventoCobroOrdenCreada                    TipoEventoSalidaCobro = "cobro.orden.creada"
-	EventoCobroOperacionEnviada               TipoEventoSalidaCobro = "cobro.operacion.enviada"
-	EventoCobroResultadoPendiente             TipoEventoSalidaCobro = "cobro.resultado.pendiente"
-	EventoCobroResultadoDesconocido           TipoEventoSalidaCobro = "cobro.resultado.desconocido"
-	EventoCobroConfirmado                     TipoEventoSalidaCobro = "cobro.confirmado"
-	EventoCobroRechazado                      TipoEventoSalidaCobro = "cobro.rechazado"
-	EventoCobroCancelado                      TipoEventoSalidaCobro = "cobro.cancelado"
-	EventoCobroCaducado                       TipoEventoSalidaCobro = "cobro.caducado"
-	EventoCobroConciliado                     TipoEventoSalidaCobro = "cobro.conciliado"
-	EventoCobroDevolucionSolicitada           TipoEventoSalidaCobro = "cobro.devolucion.solicitada"
-	EventoCobroDevolucionResultadoPendiente   TipoEventoSalidaCobro = "cobro.devolucion.resultado_pendiente"
-	EventoCobroDevolucionResultadoDesconocido TipoEventoSalidaCobro = "cobro.devolucion.resultado_desconocido"
-	EventoCobroDevolucionRechazada            TipoEventoSalidaCobro = "cobro.devolucion.rechazada"
-	EventoCobroDevuelto                       TipoEventoSalidaCobro = "cobro.devuelto"
-	EventoCobroDevolucionConciliada           TipoEventoSalidaCobro = "cobro.devolucion.conciliada"
-	EventoCobroIncidenciaDetectada            TipoEventoSalidaCobro = "cobro.incidencia.detectada"
-	EventoCobroEvidenciaAdicional             TipoEventoSalidaCobro = "cobro.evidencia.adicional"
-)
-func (t TipoEventoSalidaCobro) Valido() bool
+type TipoEventoSalidaCobro = pagoscanonicos.TipoEventoSalidaCobro
 
 type TokenCercadoEjecucionDocumentalV3Nominal struct {
 	// Has unexported fields.
@@ -9701,40 +9348,7 @@ func NuevoVinculoPoliticaInmutabilidadDocumental(
 
 func (v VinculoPoliticaInmutabilidadDocumental) Validar() error
 
-type VinculosCrudosVerificacionOrdenDespachoDocumentalV3 struct {
-	InicioRef                  string
-	AtestacionInicioRef        string
-	ReclamacionRef             string
-	AtestacionReclamacionRef   string
-	OrdenConsumoDurableV4Ref   string
-	HuellaOrdenDespachoSHA256  string
-	HuellaReciboInicioSHA256   string
-	HuellaVinculoEstableSHA256 string
-	HuellaVinculoCercadoSHA256 string
-	SecuenciaCercado           uint64
-	VersionInicioCAS           uint64
-	VersionReclamacionCAS      uint64
-}
-
-func (v VinculosCrudosVerificacionOrdenDespachoDocumentalV3) Format(estado fmt.State, _ rune)
-
-func (v VinculosCrudosVerificacionOrdenDespachoDocumentalV3) GoString() string
-
-func (v VinculosCrudosVerificacionOrdenDespachoDocumentalV3) LogValue() slog.Value
-
-func (VinculosCrudosVerificacionOrdenDespachoDocumentalV3) MarshalBinary() ([]byte, error)
-
-func (VinculosCrudosVerificacionOrdenDespachoDocumentalV3) MarshalJSON() ([]byte, error)
-
-func (VinculosCrudosVerificacionOrdenDespachoDocumentalV3) MarshalText() ([]byte, error)
-
-func (VinculosCrudosVerificacionOrdenDespachoDocumentalV3) String() string
-
-func (*VinculosCrudosVerificacionOrdenDespachoDocumentalV3) UnmarshalBinary([]byte) error
-
-func (*VinculosCrudosVerificacionOrdenDespachoDocumentalV3) UnmarshalJSON([]byte) error
-
-func (*VinculosCrudosVerificacionOrdenDespachoDocumentalV3) UnmarshalText([]byte) error
+type VinculosCrudosVerificacionOrdenDespachoDocumentalV3 = documentalcanonico.VinculosMaterialDespachoV3
 
 type VinculosOperacionAlmacen struct {
 	OperacionRef        string
@@ -9753,17 +9367,9 @@ ObjetoVinculado es obligatorio solo en planes de lectura, promocion o
 retencion; en el resto debe ser el valor cero.
 
 ```go
-type ZonaAlmacen string
+type ZonaAlmacen = almacencanonico.Zona
 ```
 
 ZonaAlmacen separa tecnicamente objetos que aun no son confiables de los que
 ya pueden incorporarse a un expediente. No representa un estado de negocio
 configurable.
-
-```go
-const (
-	ZonaAlmacenCuarentena ZonaAlmacen = "cuarentena"
-	ZonaAlmacenAdmitida   ZonaAlmacen = "admitida"
-)
-func (z ZonaAlmacen) Valida() bool
-```

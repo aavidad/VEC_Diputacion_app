@@ -431,8 +431,9 @@ type DemoIdentityResolver interface {
 ```
 
 DemoIdentityResolver es el unico origen admitido para el modo fake.
-La implementacion productiva de composicion resuelve un Bearer opaco contra
-un fichero local y no consume identidad, roles ni garantia desde cabeceras.
+La implementacion local de demostracion resuelve un Bearer opaco contra un
+fichero local y no consume identidad, roles ni garantia desde cabeceras. No
+es una fuente de identidad productiva y solo puede habilitarse en loopback.
 
 ```go
 type Handler struct {
@@ -485,12 +486,15 @@ var (
 	ErrEvaluadorGarantiaAusente = errors.New("evaluador de garantia ausente")
 	ErrRegistroSesionesAusente  = errors.New("registro de sesiones ausente")
 	ErrCredencialNoSerializable = errors.New("la credencial de identidad no se puede reconstruir desde una serializacion")
+	ErrIdentidadNoSerializable  = errors.New("la identidad de sesion no se puede reconstruir desde una serializacion")
 	ErrInicializacionIdentidad  = errors.New("no se pudo inicializar el servicio de identidad")
 )
 var (
 	ErrConfiguracionSuperficie = errors.New("configuracion de superficie no valida")
 	ErrSuperficiesCompartidas  = errors.New("las superficies comparten un limite de seguridad")
 )
+var ErrContextoAuditoriaNoSerializable = errors.New("el contexto de auditoria autenticada no se reconstruye desde una serializacion")
+var ErrDatosSesionNoSerializables = errors.New("los datos autoritativos de sesion no se reconstruyen desde una serializacion")
 var ErrRedNoAutorizada = errors.New("red no autorizada")
 ```
 
@@ -523,15 +527,66 @@ type AltaSesionAtomica struct {
 	CuentaOrdinariaID  string
 	CuentaPrivilegiada bool
 	Superficie         Superficie
-	EmitidaEn          time.Time
-	ExpiraEn           time.Time
-	PoliticaRef        string
-	HuellaPolitica     string
+	// EspacioIdentidad es el emisor HTTPS exacto, protegido y ya cotejado con
+	// la configuracion. Permite que el adaptador HMAC demuestre que el dominio
+	// de seudonimizacion pertenece al IdP correcto sin persistir este URL.
+	EspacioIdentidad  string
+	MetodoObservado   dominiovec.AuthMethod
+	GarantiaObservada dominiovec.AuthAssurance
+	// AutenticacionHuellaSHA256 es SHA-256 hexadecimal, sin prefijo, de los
+	// bytes exactos de la copia privada de la asercion protegida que el
+	// verificador acepto. Solo se incorpora al alta tras verificar con exito.
+	AutenticacionHuellaSHA256 string
+	// AutenticacionVerificadaEn procede del resultado protegido/verificado;
+	// nunca se sustituye por el reloj local posterior.
+	AutenticacionVerificadaEn time.Time
+	// SesionEmitidaEn procede de AsercionProxyIdentidad.EmitidaEn y acredita
+	// la emision de la sesion, no la serializacion material del token.
+	SesionEmitidaEn     time.Time
+	AsercionExpiraEn    time.Time
+	PoliticaGarantiaRef string
+	// PoliticaGarantiaHuellaSHA256 es la parte hexadecimal exacta de la huella
+	// canonica sha256:... ya validada del evaluador.
+	PoliticaGarantiaHuellaSHA256 string
 }
 ```
 
-AltaSesionAtomica es el dato que recibe el registro de reproduccion.
-No contiene el mensaje protegido.
+AltaSesionAtomica contiene todos los valores verificados que el registro
+necesita para escribir sesion_autenticacion_v1. Los identificadores IdP se
+conservan separados de las referencias canonicas emitidas por el registro.
+AsercionExpiraEn es el limite superior que el control no puede ampliar.
+
+```go
+func (AltaSesionAtomica) Format(estado fmt.State, _ rune)
+
+func (AltaSesionAtomica) GoString() string
+
+func (*AltaSesionAtomica) GobDecode([]byte) error
+
+func (AltaSesionAtomica) GobEncode() ([]byte, error)
+
+func (AltaSesionAtomica) LogValue() slog.Value
+
+func (AltaSesionAtomica) MarshalBinary() ([]byte, error)
+
+func (AltaSesionAtomica) MarshalJSON() ([]byte, error)
+
+func (AltaSesionAtomica) MarshalText() ([]byte, error)
+
+func (AltaSesionAtomica) String() string
+
+func (*AltaSesionAtomica) UnmarshalBinary([]byte) error
+
+func (*AltaSesionAtomica) UnmarshalJSON([]byte) error
+
+func (*AltaSesionAtomica) UnmarshalText([]byte) error
+
+func (a AltaSesionAtomica) Validar() error
+```
+
+Validar permite al adaptador durable rechazar el alta antes de abrir una
+transaccion. No concede autoridad: el servicio vuelve a validarla y coteja
+el recibo al regresar del puerto.
 
 ```go
 type AsercionProxyIdentidad struct {
@@ -543,12 +598,20 @@ type AsercionProxyIdentidad struct {
 	Cuenta            CuentaAcceso
 	SesionID          string
 	CanalVinculadoRef string
-	EmitidaEn         time.Time
-	NoAntesDe         time.Time
-	ExpiraEn          time.Time
-	MetodoPrimario    MetodoAutenticacion
-	ACRVerificado     string
-	Factores          []FactorAutenticacion
+	// AutenticacionVerificadaEn es el instante de autenticacion afirmado por
+	// el documento protegido y aceptado por el verificador. No es el reloj
+	// local posterior a la verificacion.
+	AutenticacionVerificadaEn time.Time
+	// EmitidaEn es el instante de emision de la sesion acreditado por el
+	// documento protegido; no es la mera hora de serializacion del token.
+	EmitidaEn time.Time
+	NoAntesDe time.Time
+	// ExpiraEn limita la asercion y es el maximo que el registro puede conceder
+	// como vigencia de la sesion, aunque puede devolver un plazo menor.
+	ExpiraEn       time.Time
+	MetodoPrimario MetodoAutenticacion
+	ACRVerificado  string
+	Factores       []FactorAutenticacion
 }
 ```
 
@@ -576,15 +639,19 @@ func (c CanalProxyAutenticado) Superficie() Superficie
 func (c CanalProxyAutenticado) Tipo() TipoCanalProxy
 
 type ConfiguracionSuperficie struct {
-	Superficie                          Superficie
-	ZonaRed                             ZonaRed
-	DireccionEscucha                    string
-	Audiencia                           string
-	EmisorIdentidad                     string
-	RedesPermitidas                     []string
-	HuellasProxyTLSPermitidas           []string
-	IdentidadesSANProxyPermitidas       []string
-	DuracionMaximaAsercion              time.Duration
+	Superficie                    Superficie
+	ZonaRed                       ZonaRed
+	DireccionEscucha              string
+	Audiencia                     string
+	EmisorIdentidad               string
+	RedesPermitidas               []string
+	HuellasProxyTLSPermitidas     []string
+	IdentidadesSANProxyPermitidas []string
+	DuracionMaximaAsercion        time.Duration
+	// EdadMaximaAutenticacion limita la antiguedad del acto de
+	// autenticacion protegido, no solo la de la asercion que lo transporta.
+	// Cada superficie admite un limite duro y puede configurarse uno menor.
+	EdadMaximaAutenticacion             time.Duration
 	ToleranciaReloj                     time.Duration
 	PermiteAnonimo                      bool
 	MetodosAdmitidos                    []MetodoAutenticacion
@@ -608,19 +675,127 @@ Validar aplica invariantes de una superficie individual. Ante cualquier
 omision la configuracion se rechaza; no se completan valores de seguridad.
 
 ```go
-type ConsultaSesionActiva struct {
-	AsercionID         string
-	SesionID           string
-	SujetoID           string
-	CuentaID           string
-	CuentaOrdinariaID  string
-	CuentaPrivilegiada bool
-	Superficie         Superficie
-	ExpiraEn           time.Time
+type ConfirmacionAltaSesion struct {
+	AutenticacionRef          string
+	AsercionRef               string
+	SesionRef                 string
+	ControlSesionRef          string
+	ControlSesionRevision     uint64
+	ControlSesionEstado       EstadoControlSesion
+	ControlSesionHuellaSHA256 string
+	CuentaRef                 string
+	CuentaOrdinariaRef        string
+	SesionRevalidadaEn        time.Time
+	SesionValidaHasta         time.Time
+	AltaConfirmada            AltaSesionAtomica
 }
 ```
 
-ConsultaSesionActiva identifica de forma completa la sesion que se proyecta.
+ConfirmacionAltaSesion es el recibo emitido por el registro autoritativo en
+la misma operacion que consume la asercion y crea la sesion.
+
+```go
+func (ConfirmacionAltaSesion) Format(estado fmt.State, _ rune)
+
+func (ConfirmacionAltaSesion) GoString() string
+
+func (*ConfirmacionAltaSesion) GobDecode([]byte) error
+
+func (ConfirmacionAltaSesion) GobEncode() ([]byte, error)
+
+func (ConfirmacionAltaSesion) LogValue() slog.Value
+
+func (ConfirmacionAltaSesion) MarshalBinary() ([]byte, error)
+
+func (ConfirmacionAltaSesion) MarshalJSON() ([]byte, error)
+
+func (ConfirmacionAltaSesion) MarshalText() ([]byte, error)
+
+func (ConfirmacionAltaSesion) String() string
+
+func (*ConfirmacionAltaSesion) UnmarshalBinary([]byte) error
+
+func (*ConfirmacionAltaSesion) UnmarshalJSON([]byte) error
+
+func (*ConfirmacionAltaSesion) UnmarshalText([]byte) error
+
+func (c ConfirmacionAltaSesion) Validar() error
+```
+
+Validar comprueba la estructura y la ligadura interna del recibo.
+
+```go
+func (c ConfirmacionAltaSesion) ValidarPara(alta AltaSesionAtomica) error
+```
+
+ValidarPara impide que un recibo valido de otra escritura confirme el alta.
+
+```go
+type ConsultaSesionActiva struct {
+	AutenticacionRef             string
+	AutenticacionHuellaSHA256    string
+	AsercionRef                  string
+	SesionRef                    string
+	CuentaRef                    string
+	CuentaOrdinariaRef           string
+	CuentaPrivilegiada           bool
+	Superficie                   Superficie
+	MetodoObservado              dominiovec.AuthMethod
+	GarantiaObservada            dominiovec.AuthAssurance
+	PoliticaGarantiaRef          string
+	PoliticaGarantiaHuellaSHA256 string
+	AutenticacionVerificadaEn    time.Time
+	SesionEmitidaEn              time.Time
+	ControlSesionRef             string
+	ControlSesionRevision        uint64
+	ControlSesionEstado          EstadoControlSesion
+	ControlSesionHuellaSHA256    string
+	SesionRevalidadaEn           time.Time
+	SesionValidaHasta            time.Time
+}
+```
+
+ConsultaSesionActiva reproduce exactamente las columnas autoritativas de
+sesion_autenticacion_v1 y control_sesion_v1 que deben seguir vigentes.
+No transporta identificadores IdP ni atributos declarados por el cliente.
+
+```go
+func (c ConsultaSesionActiva) CoincideExactamente(otra ConsultaSesionActiva) bool
+```
+
+CoincideExactamente compara dos proyecciones ya validadas sin depender de la
+representacion interna de time.Time.
+
+```go
+func (ConsultaSesionActiva) Format(estado fmt.State, _ rune)
+
+func (ConsultaSesionActiva) GoString() string
+
+func (*ConsultaSesionActiva) GobDecode([]byte) error
+
+func (ConsultaSesionActiva) GobEncode() ([]byte, error)
+
+func (ConsultaSesionActiva) LogValue() slog.Value
+
+func (ConsultaSesionActiva) MarshalBinary() ([]byte, error)
+
+func (ConsultaSesionActiva) MarshalJSON() ([]byte, error)
+
+func (ConsultaSesionActiva) MarshalText() ([]byte, error)
+
+func (ConsultaSesionActiva) String() string
+
+func (*ConsultaSesionActiva) UnmarshalBinary([]byte) error
+
+func (*ConsultaSesionActiva) UnmarshalJSON([]byte) error
+
+func (*ConsultaSesionActiva) UnmarshalText([]byte) error
+
+func (c ConsultaSesionActiva) Validar() error
+```
+
+Validar comprueba el conjunto exacto que puede cotejarse directamente con
+las dos tablas autoritativas, sin completar omisiones.
 
 ```go
 type ContextoAuditoriaAutenticada struct {
@@ -628,22 +803,36 @@ type ContextoAuditoriaAutenticada struct {
 }
 ```
 
-ContextoAuditoriaAutenticada conserva la identidad humana, la cuenta, la
-sesion, la superficie y la politica verificadas. Deliberadamente no contiene
-roles, permisos ni atributos de autorizacion.
+ContextoAuditoriaAutenticada conserva referencias canonicas de cuenta,
+sesion y politica verificadas. Deliberadamente no conserva los IDs crudos de
+sujeto, cuenta, asercion o sesion del IdP, ni roles, permisos o atributos.
 
 ```go
-func (c ContextoAuditoriaAutenticada) AsercionID() string
+func (c ContextoAuditoriaAutenticada) AsercionRef() string
 
 func (c ContextoAuditoriaAutenticada) Audiencia() string
 
+func (c ContextoAuditoriaAutenticada) AutenticacionHuellaSHA256() string
+
+func (c ContextoAuditoriaAutenticada) AutenticacionRef() string
+
+func (c ContextoAuditoriaAutenticada) AutenticacionVerificadaEn() time.Time
+
 func (c ContextoAuditoriaAutenticada) CanalVinculadoRef() string
 
-func (c ContextoAuditoriaAutenticada) CuentaID() string
+func (c ContextoAuditoriaAutenticada) ControlSesionEstado() EstadoControlSesion
 
-func (c ContextoAuditoriaAutenticada) CuentaOrdinariaID() string
+func (c ContextoAuditoriaAutenticada) ControlSesionHuellaSHA256() string
+
+func (c ContextoAuditoriaAutenticada) ControlSesionRef() string
+
+func (c ContextoAuditoriaAutenticada) ControlSesionRevision() uint64
+
+func (c ContextoAuditoriaAutenticada) CuentaOrdinariaRef() string
 
 func (c ContextoAuditoriaAutenticada) CuentaPrivilegiada() bool
+
+func (c ContextoAuditoriaAutenticada) CuentaRef() string
 
 func (c ContextoAuditoriaAutenticada) Emisor() string
 
@@ -653,23 +842,57 @@ func (c ContextoAuditoriaAutenticada) ExpiraEn() time.Time
 
 func (c ContextoAuditoriaAutenticada) Factores() []ResumenFactorAuditoria
 
+func (ContextoAuditoriaAutenticada) Format(estado fmt.State, _ rune)
+
 func (c ContextoAuditoriaAutenticada) Garantia() dominiovec.AuthAssurance
+
+func (c ContextoAuditoriaAutenticada) GarantiaObservada() dominiovec.AuthAssurance
+
+func (ContextoAuditoriaAutenticada) GoString() string
+
+func (*ContextoAuditoriaAutenticada) GobDecode([]byte) error
+
+func (ContextoAuditoriaAutenticada) GobEncode() ([]byte, error)
 
 func (c ContextoAuditoriaAutenticada) HuellaConfiguracion() string
 
 func (c ContextoAuditoriaAutenticada) HuellaPolitica() string
 
+func (ContextoAuditoriaAutenticada) LogValue() slog.Value
+
+func (ContextoAuditoriaAutenticada) MarshalBinary() ([]byte, error)
+
+func (ContextoAuditoriaAutenticada) MarshalJSON() ([]byte, error)
+
+func (ContextoAuditoriaAutenticada) MarshalText() ([]byte, error)
+
+func (c ContextoAuditoriaAutenticada) MetodoObservado() dominiovec.AuthMethod
+
 func (c ContextoAuditoriaAutenticada) MetodoPrimario() MetodoAutenticacion
 
 func (c ContextoAuditoriaAutenticada) NoAntesDe() time.Time
 
+func (c ContextoAuditoriaAutenticada) PoliticaGarantiaHuellaSHA256() string
+
 func (c ContextoAuditoriaAutenticada) PoliticaGarantiaRef() string
 
-func (c ContextoAuditoriaAutenticada) SesionID() string
+func (c ContextoAuditoriaAutenticada) SesionEmitidaEn() time.Time
 
-func (c ContextoAuditoriaAutenticada) SujetoID() string
+func (c ContextoAuditoriaAutenticada) SesionRef() string
+
+func (c ContextoAuditoriaAutenticada) SesionRevalidadaEn() time.Time
+
+func (c ContextoAuditoriaAutenticada) SesionValidaHasta() time.Time
+
+func (ContextoAuditoriaAutenticada) String() string
 
 func (c ContextoAuditoriaAutenticada) Superficie() Superficie
+
+func (*ContextoAuditoriaAutenticada) UnmarshalBinary([]byte) error
+
+func (*ContextoAuditoriaAutenticada) UnmarshalJSON([]byte) error
+
+func (*ContextoAuditoriaAutenticada) UnmarshalText([]byte) error
 
 type CredencialProxy struct {
 	// Has unexported fields.
@@ -732,6 +955,19 @@ EntradaEvaluacionGarantia contiene exclusivamente valores ya verificados y
 copias defensivas de los factores.
 
 ```go
+type EstadoControlSesion string
+```
+
+EstadoControlSesion es el estado persistido en control_sesion_v1. Una
+confirmacion de alta solo puede devolver el primer control activo.
+
+```go
+const (
+	EstadoControlSesionActiva   EstadoControlSesion = "activa"
+	EstadoControlSesionRevocada EstadoControlSesion = "revocada"
+)
+func (e EstadoControlSesion) Valido() bool
+
 type EvaluadorGarantia interface {
 	Evaluar(context.Context, EntradaEvaluacionGarantia) (ResultadoEvaluacionGarantia, error)
 }
@@ -773,7 +1009,25 @@ func (IdentidadSesion) Format(estado fmt.State, _ rune)
 
 func (IdentidadSesion) GoString() string
 
+func (*IdentidadSesion) GobDecode([]byte) error
+
+func (IdentidadSesion) GobEncode() ([]byte, error)
+
+func (IdentidadSesion) LogValue() slog.Value
+
+func (IdentidadSesion) MarshalBinary() ([]byte, error)
+
+func (IdentidadSesion) MarshalJSON() ([]byte, error)
+
+func (IdentidadSesion) MarshalText() ([]byte, error)
+
 func (IdentidadSesion) String() string
+
+func (*IdentidadSesion) UnmarshalBinary([]byte) error
+
+func (*IdentidadSesion) UnmarshalJSON([]byte) error
+
+func (*IdentidadSesion) UnmarshalText([]byte) error
 
 type MetodoAutenticacion string
 ```
@@ -815,16 +1069,13 @@ ser declarada por una peticion o por una cabecera de proxy.
 
 ```go
 type RegistroSesiones interface {
-	ConsumirAsercionYRegistrar(context.Context, AltaSesionAtomica) error
+	ConsumirAsercionYRegistrar(context.Context, AltaSesionAtomica) (ConfirmacionAltaSesion, error)
 	ComprobarSesionYCuentaActivas(context.Context, ConsultaSesionActiva) error
 }
 ```
 
-RegistroSesiones consume el identificador de asercion, comprueba que la
-cuenta de acceso y, en administracion, su cuenta ordinaria esten activas, y
-registra la sesion en una unica operacion atomica. Al proyectar debe volver
-a comprobar ambas cuentas activas y sesion no revocada. Una implementacion
-que separase esas operaciones abriria una carrera TOCTOU.
+RegistroSesiones consume la asercion y registra la sesion atomica;
+al proyectar vuelve a comprobar cuentas activas y sesion no revocada.
 
 ```go
 type Reloj interface {
@@ -882,14 +1133,11 @@ func (s *ServicioIdentidad) ProyectarCuentaAutenticada(
 ) (dominiovec.CuentaAutenticadaContextoActor, ContextoAuditoriaAutenticada, error)
 ```
 
-ProyectarCuentaAutenticada revalida politica, vigencia, version de garantia,
-sesion y cuenta activa. Devuelve exclusivamente una
-`CuentaAutenticadaContextoActor` con la `CuentaRef` opaca `cta_` confirmada por
-el registro durable, el metodo de autenticacion y la garantia acreditada. No
-deriva ni devuelve un `Principal` o una `PersonaRef` a partir de `CuentaID` o
-`SujetoID` declarados por el proveedor de identidad. La resolucion posterior
-`cta_` -> `per_` -> `prf_` corresponde a `ServicioContextoActorProductivoV1`,
-que obtiene y registra atomicamente el contexto de actor canonico.
+ProyectarCuentaAutenticada entrega exclusivamente la referencia opaca de
+la cuenta confirmada por el registro durable y la garantia autenticada.
+Revalida politica, vigencia, version de garantia, sesion y cuenta activa.
+La persona canonica que actuara como principal se resuelve despues, fuera de
+esta frontera, y nunca se deriva de CuentaID ni de SujetoID del IdP.
 
 ```go
 func (s *ServicioIdentidad) Resolver(ctx context.Context, credencial CredencialProxy) (IdentidadSesion, error)
@@ -953,6 +1201,98 @@ func (z ZonaRed) Valida() bool
 ```
 
 Valida informa de si la zona pertenece al conjunto cerrado.
+
+## Paquete `internal/vec/adapters/httpseguridad/postgres`
+
+> Package postgres implementa el registro durable de sesiones HTTP sobre la fuente V1 de autorizacion.
+
+Package postgres implementa el registro durable de sesiones HTTP sobre la fuente
+V1 de autorizacion. No abre conexiones, no conserva DSN ni incorpora claves
+HMAC: la seudonimizacion procede de un conector HSM/KMS obligatorio.
+
+### Constantes
+
+```go
+const EsquemaHMACSHA256V1 = "vec.identidad.hmac-sha256.v1"
+```
+
+### Tipos
+
+```go
+type IdentificadoresAlta struct {
+	EspacioIdentidad  string
+	AsercionID        string
+	SesionID          string
+	SujetoID          string
+	CuentaID          string
+	CuentaOrdinariaID string
+}
+```
+
+IdentificadoresAlta limita los datos que recibe el conector HMAC. Cada campo
+debe usar una etiqueta de proposito distinta dentro del dominio configurado.
+
+```go
+type RegistroSesionesPostgreSQL struct {
+	// Has unexported fields.
+}
+```
+
+RegistroSesionesPostgreSQL usa pools con LOGIN distintos para mutacion y
+revalidacion. La composicion conserva su ciclo de vida y sus secretos.
+
+```go
+func NuevoRegistroSesionesPostgreSQL(
+	ctx context.Context,
+	poolRegistro, poolRevalidacion *pgxpool.Pool,
+	seudonimizador SeudonimizadorAlta,
+	espacioIdentidad string,
+	dominioHMACRef string,
+) (*RegistroSesionesPostgreSQL, error)
+```
+
+NuevoRegistroSesionesPostgreSQL no acepta un DSN. Acredita contra PostgreSQL
+que cada pool usa un LOGIN distinto, sin SET ROLE y ligado exclusivamente a
+la capacidad tecnica correspondiente.
+
+```go
+func (r *RegistroSesionesPostgreSQL) ComprobarSesionYCuentaActivas(
+	ctx context.Context,
+	consulta httpseguridad.ConsultaSesionActiva,
+) error
+
+func (r *RegistroSesionesPostgreSQL) ConsumirAsercionYRegistrar(
+	ctx context.Context,
+	alta httpseguridad.AltaSesionAtomica,
+) (httpseguridad.ConfirmacionAltaSesion, error)
+
+type SeudonimizadorAlta interface {
+	SeudonimizarAlta(context.Context, IdentificadoresAlta) (SeudonimosAlta, error)
+}
+```
+
+SeudonimizadorAlta debe usar HMAC-SHA-256 dentro de HSM/KMS, separar los
+cinco propositos y ligar el dominio a un emisor/namespace de identidad.
+No existe implementacion software por defecto: sin conector real el arranque
+de esta frontera debe fallar.
+
+```go
+type SeudonimosAlta struct {
+	Esquema               string
+	EspacioIdentidad      string
+	DominioRef            string
+	ClaveID               string
+	ClaveVersion          uint64
+	AsercionIDHMAC        [32]byte
+	SesionIDHMAC          [32]byte
+	SujetoIDHMAC          [32]byte
+	CuentaIDHMAC          [32]byte
+	CuentaOrdinariaIDHMAC [32]byte
+}
+```
+
+SeudonimosAlta contiene exclusivamente digests y coordenadas de clave.
+El material secreto y los identificadores fuente nunca llegan a PostgreSQL.
 
 ## Paquete `internal/vec/adapters/memory`
 

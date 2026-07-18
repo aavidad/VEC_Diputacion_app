@@ -1457,7 +1457,25 @@ func NuevoServicioContextoActor(
 	fuente ports.FuenteContextoActor,
 	reloj ports.Reloj,
 ) (*ServicioContextoActor, error)
+```
 
+NuevoServicioContextoActor conserva la API heredada para pruebas y
+migracion. No debe componerse en produccion: FuenteContextoActor no puede
+demostrar que la capacidad fue registrada en la misma transaccion.
+
+```go
+func NuevoServicioContextoActorProductivoV1(
+	resolutor ports.ResolutorRegistroContextoActorV1,
+	generador ports.GeneradorOperacionContextoActorV1,
+	reloj ports.Reloj,
+) (*ServicioContextoActor, error)
+```
+
+NuevoServicioContextoActorProductivoV1 exige el puerto que resuelve y
+registra de forma atomica. No admite FuenteContextoActor ni cae a la ruta
+heredada.
+
+```go
 func (s *ServicioContextoActor) Resolver(
 	ctx context.Context,
 	solicitud domain.SolicitudContextoActor,

@@ -35,8 +35,11 @@ adapters  ->  application  ->  ports  ->  domain
   puertos y aplican autorizacion por caso de uso.
 - `adapters`: implementaciones concretas (HTTP, memoria, PostgreSQL, S3,
   PDF/DOCX, criptografia). Solo aqui hay infraestructura real.
-- `cmd/vec-server` y `config` componen todo: es el unico punto de arranque
-  soportado.
+- `cmd/vec-publico` compone solo la superficie anonima de Bolsa;
+  `cmd/vec-server` conserva la composicion integrada de desarrollo, y los
+  demas ejecutables de `cmd/` mantienen una finalidad aislada. `config` valida
+  la configuracion comun. Ninguna raiz obtiene por ello autorizacion para
+  exponer superficies que no figuren en su lista positiva.
 
 Convenciones transversales del codigo:
 
@@ -76,6 +79,7 @@ Documentos de contexto recomendados antes de tocar codigo:
 | --- | --- | --- |
 | [`cmd/bolsa-server`](cmd_y_configuracion.md#paquete-cmdbolsa-server) | Arranque, composicion y configuracion | Centinela retirado: falla cerrado y no arranca ningun servidor. |
 | [`cmd/vec-emisor-capacidad-v4`](cmd_y_configuracion.md#paquete-cmdvec-emisor-capacidad-v4) | Arranque, composicion y configuracion | Command vec-emisor-capacidad-v4 ejecuta exclusivamente el verificador COSE y emisor de capacidades V4. |
+| [`cmd/vec-publico`](cmd_y_configuracion.md#paquete-cmdvec-publico) | Arranque, composicion y configuracion |  |
 | [`cmd/vec-server`](cmd_y_configuracion.md#paquete-cmdvec-server) | Arranque, composicion y configuracion | Composicion canonica y arranque del servidor HTTP del portal VEC. |
 | [`config`](cmd_y_configuracion.md#paquete-config) | Arranque, composicion y configuracion | Carga y validacion de la configuracion canonica por variables de entorno. |
 | [`internal/app/bootstrap`](cmd_y_configuracion.md#paquete-internalappbootstrap) | Arranque, composicion y configuracion | Composicion de la API y montaje de modulos para el arranque. |
@@ -91,12 +95,14 @@ Documentos de contexto recomendados antes de tocar codigo:
 | [`internal/modules/bolsa`](modulo_bolsa.md#paquete-internalmodulesbolsa) | Modulo Bolsa | Manifiesto del modulo Bolsa: identidad, permisos y menus para el shell VEC. |
 | [`internal/modules/bolsa/adapters/catalogosvec`](modulo_bolsa.md#paquete-internalmodulesbolsaadapterscatalogosvec) | Modulo Bolsa | Package catalogosvec adapta catalogos configurables gobernados por el nucleo a las proyecciones publicas minimizadas del modulo Bolsa. |
 | [`internal/modules/bolsa/adapters/fichero`](modulo_bolsa.md#paquete-internalmodulesbolsaadaptersfichero) | Modulo Bolsa | Package fichero aporta únicamente una fuente local de demostración. |
+| [`internal/modules/bolsa/adapters/httpinterno`](modulo_bolsa.md#paquete-internalmodulesbolsaadaptershttpinterno) | Modulo Bolsa | Package httpinterno expone exclusivamente la frontera HTTP del panel operativo interno de Bolsa. |
 | [`internal/modules/bolsa/adapters/httppublico`](modulo_bolsa.md#paquete-internalmodulesbolsaadaptershttppublico) | Modulo Bolsa | Package httppublico expone únicamente proyecciones públicas minimizadas. |
 | [`internal/modules/bolsa/adapters/memory`](modulo_bolsa.md#paquete-internalmodulesbolsaadaptersmemory) | Modulo Bolsa | Package memory contiene adaptadores efimeros y defensivos del modulo de bolsas. |
 | [`internal/modules/bolsa/adapters/postgres`](modulo_bolsa.md#paquete-internalmodulesbolsaadapterspostgres) | Modulo Bolsa | Package postgres implementa la persistencia durable del agregado de baremacion. |
 | [`internal/modules/bolsa/adapters/referencias`](modulo_bolsa.md#paquete-internalmodulesbolsaadaptersreferencias) | Modulo Bolsa | Package referencias contiene emisores productivos de identificadores opacos del modulo de Bolsa. |
 | [`internal/modules/bolsa/application`](modulo_bolsa.md#paquete-internalmodulesbolsaapplication) | Modulo Bolsa | Package application contiene casos de uso del modulo de bolsa. |
 | [`internal/modules/bolsa/application/calculoexperienciaoficial`](modulo_bolsa.md#paquete-internalmodulesbolsaapplicationcalculoexperienciaoficial) | Modulo Bolsa |  |
+| [`internal/modules/bolsa/application/gobiernoreglasbaremo`](modulo_bolsa.md#paquete-internalmodulesbolsaapplicationgobiernoreglasbaremo) | Modulo Bolsa |  |
 | [`internal/modules/bolsa/domain`](modulo_bolsa.md#paquete-internalmodulesbolsadomain) | Modulo Bolsa | Package domain contiene las reglas puras del modulo de bolsas. |
 | [`internal/modules/bolsa/domain/calculoexperiencia`](modulo_bolsa.md#paquete-internalmodulesbolsadomaincalculoexperiencia) | Modulo Bolsa |  |
 | [`internal/modules/bolsa/domain/calculoexperienciaoficial`](modulo_bolsa.md#paquete-internalmodulesbolsadomaincalculoexperienciaoficial) | Modulo Bolsa |  |
@@ -126,6 +132,7 @@ Documentos de contexto recomendados antes de tocar codigo:
 | [`internal/vec/adapters/fichero`](vec_adaptadores.md#paquete-internalvecadaptersfichero) | Nucleo VEC: adaptadores | Package fichero aporta adaptadores locales de solo lectura para paquetes de demostracion. |
 | [`internal/vec/adapters/httpapi`](vec_adaptadores.md#paquete-internalvecadaptershttpapi) | Nucleo VEC: adaptadores | Adaptador HTTP del shell VEC: rutas publicas y privadas. |
 | [`internal/vec/adapters/httpseguridad`](vec_adaptadores.md#paquete-internalvecadaptershttpseguridad) | Nucleo VEC: adaptadores | Package httpseguridad define la frontera de seguridad HTTP entre las superficies publica, personal, interna y de administracion. |
+| [`internal/vec/adapters/httpseguridad/postgres`](vec_adaptadores.md#paquete-internalvecadaptershttpseguridadpostgres) | Nucleo VEC: adaptadores | Package postgres implementa el registro durable de sesiones HTTP sobre la fuente V1 de autorizacion. |
 | [`internal/vec/adapters/memory`](vec_adaptadores.md#paquete-internalvecadaptersmemory) | Nucleo VEC: adaptadores | Adaptadores en memoria del nucleo VEC para pruebas y arranque local. |
 | [`internal/vec/adapters/postgres`](vec_adaptadores.md#paquete-internalvecadapterspostgres) | Nucleo VEC: adaptadores | Package postgres contiene adaptadores duraderos del nucleo para PostgreSQL. |
 | [`internal/vec/adapters/postgres/confianzaatestacionv2`](vec_adaptadores.md#paquete-internalvecadapterspostgresconfianzaatestacionv2) | Nucleo VEC: adaptadores | Package confianzaatestacionv2 carga la lista positiva VEC-AD-2 desde una autoridad PostgreSQL aislada. |
@@ -134,6 +141,10 @@ Documentos de contexto recomendados antes de tocar codigo:
 | [`internal/vec/adapters/seguridad/confianzaatestacion`](vec_adaptadores.md#paquete-internalvecadaptersseguridadconfianzaatestacion) | Nucleo VEC: adaptadores | Package confianzaatestacion aplica el perfil institucional de confianza a atestaciones de autorizacion VEC-AD-2. |
 | [`internal/vec/adapters/seguridad/verificacioncose`](vec_adaptadores.md#paquete-internalvecadaptersseguridadverificacioncose) | Nucleo VEC: adaptadores | Package verificacioncose aplica el perfil criptografico comun de COSE_Sign1. |
 | [`internal/vec/application`](vec_aplicacion.md#paquete-internalvecapplication) | Nucleo VEC: aplicacion y dobles de prueba | Casos de uso del shell VEC: modulos, auditoria, documentos, flujos y cotejo. |
+| [`internal/vec/canonico/almacen`](compartido.md#paquete-internalveccanonicoalmacen) | Paquetes compartidos | Package almacen concentra las reglas puras y deterministas del contrato de almacenamiento. |
+| [`internal/vec/canonico/documental`](compartido.md#paquete-internalveccanonicodocumental) | Paquetes compartidos | Package documental concentra reglas puras y deterministas de la ejecucion documental. |
+| [`internal/vec/canonico/pagos`](compartido.md#paquete-internalveccanonicopagos) | Paquetes compartidos | Package pagos concentra las reglas puras y deterministas del contrato de cobros. |
+| [`internal/vec/canonico/recibomaterial`](compartido.md#paquete-internalveccanonicorecibomaterial) | Paquetes compartidos | Package recibomaterial concentra la validacion y la representacion canonica del recibo material de escritura. |
 | [`internal/vec/domain`](vec_dominio.md#paquete-internalvecdomain) | Nucleo VEC: dominio | Tipos puros del shell VEC, sin HTTP ni persistencia concreta. |
 | [`internal/vec/ports`](vec_puertos.md#paquete-internalvecports) | Nucleo VEC: puertos | Contratos hexagonales del nucleo VEC: autorizacion, auditoria, documental y almacen. |
 | [`internal/vec/pruebas`](vec_aplicacion.md#paquete-internalvecpruebas) | Nucleo VEC: aplicacion y dobles de prueba | Package pruebas contiene fabricas exclusivas para dobles automatizados. |

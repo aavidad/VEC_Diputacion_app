@@ -15,6 +15,8 @@ Command vec-emisor-capacidad-v4 ejecuta exclusivamente el verificador COSE y
 emisor de capacidades V4. No importa la fachada ejecutora y no debe recibir la
 credencial PostgreSQL del portal.
 
+## Paquete `cmd/vec-publico`
+
 ## Paquete `cmd/vec-server`
 
 > Composicion canonica y arranque del servidor HTTP del portal VEC.
@@ -139,12 +141,38 @@ func (c Config) Normalize() Config
 
 > Composicion de la API y montaje de modulos para el arranque.
 
+### Variables
+
+```go
+var ErrModoCabecerasConfiablesRetirado = errors.New("bootstrap: trusted_headers retirado de la composicion integrada")
+```
+
+ErrModoCabecerasConfiablesRetirado indica que una raiz de composicion
+integrada ha recibido el prototipo heredado trusted_headers. Las cabeceras
+ambientales no son una credencial y no se admiten como puente temporal hacia
+la identidad productiva.
+
 ### Funciones
+
+```go
+func NewAPIPublicaBolsaWithConfig(cfg config.Config) (http.Handler, error)
+```
+
+NewAPIPublicaBolsaWithConfig es la raiz de composicion minima del portal
+publico. Su tabla de rutas solo contiene consultas anonimas de Bolsa.
 
 ```go
 func NewDemoAPI() (http.Handler, error)
 func NewDemoAPIWithConfig(cfg config.Config) (http.Handler, error)
 func NewHTTPServer() (*http.Server, error)
+func NewHTTPServerPublicoWithConfig(cfg config.Config) (*http.Server, error)
+```
+
+NewHTTPServerPublicoWithConfig construye el listener anonimo de Bolsa sin
+componer la superficie interna, la autenticacion de demostracion ni la API
+heredada de candidatos.
+
+```go
 func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error)
 func NewVECShellAPI() (http.Handler, error)
 func NewVECShellAPIWithConfig(cfg config.Config) (http.Handler, error)
@@ -158,6 +186,45 @@ func NewVECShellAPIWithConfig(cfg config.Config) (http.Handler, error)
 
 ```go
 func NewHTTPServer(cfg config.Config, api http.Handler) (*http.Server, error)
+func NewHTTPServerInterno(cfg config.Config, api http.Handler) (*http.Server, error)
+```
+
+NewHTTPServerInterno construye el listener exclusivo para el Portal del
+Empleado y la API VEC. Este listener no expone contenido publico ni la SPA
+historica que mezclaba ambas superficies.
+
+```go
+func NewHTTPServerPublico(cfg config.Config, api http.Handler) (*http.Server, error)
+```
+
+NewHTTPServerPublico construye el listener exclusivo para contenido anonimo
+y API publica. Su tabla de rutas no incluye ninguna superficie de empleado o
+administracion.
+
+```go
 func NewHandler(api http.Handler) http.Handler
+func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handler
+```
+
+NewHandlerInternoWithConfig expone unicamente el Portal del Empleado y la
+API VEC. No acepta estado de sesion del navegador ni credenciales de proxy;
+la identidad interna debe llegar por el canal autenticado que componga el
+listener, nunca mediante cookies.
+
+```go
+func NewHandlerPublicoWithConfig(cfg config.Config, api http.Handler) http.Handler
+```
+
+NewHandlerPublicoWithConfig expone unicamente la consulta anonima de Bolsa,
+sus recursos imprescindibles y la API publica. La lista positiva evita que
+una nueva carpeta estatica o ruta interna se publique por accidente. Al ser
+anonima tampoco acepta cookies ni permite que una API emita Set-Cookie.
+
+```go
 func NewHandlerWithConfig(cfg config.Config, api http.Handler) http.Handler
 ```
+
+NewHandlerWithConfig conserva la composicion integrada de desarrollo.
+Aunque no constituye una frontera productiva, aplica la misma prohibicion de
+cookies y credenciales ambientales para que una presentacion no degrade el
+contrato.

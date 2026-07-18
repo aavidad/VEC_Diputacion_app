@@ -172,6 +172,77 @@ func (c *ConsultaConvocatorias) BuscarPublicadas(ctx context.Context, filtro pue
 func (c *ConsultaConvocatorias) ObtenerPublicada(ctx context.Context, identificador string) (puertosbolsa.DetalleConvocatoria, error)
 ```
 
+## Paquete `internal/modules/bolsa/adapters/httpinterno`
+
+> Package httpinterno expone exclusivamente la frontera HTTP del panel operativo interno de Bolsa.
+
+Package httpinterno expone exclusivamente la frontera HTTP del panel operativo
+interno de Bolsa. La identidad, el perfil activo, el alcance y el motivo de
+acceso se resuelven fuera de este adaptador por una frontera de confianza;
+nunca se reconstruyen desde parámetros enviados por el cliente.
+
+### Constantes
+
+```go
+const RutaPanel = "/api/vec/bolsa/panel"
+```
+
+### Variables
+
+```go
+var (
+	ErrHandlerPanelInternoInvalido = errors.New("bolsa http interno: handler de panel invalido")
+	// ErrAutenticacionInternaAusente permite a la frontera de confianza indicar
+	// que no existe una autenticación apta. No convierte una cabecera HTTP en
+	// identidad ni afirma qué mecanismo debe utilizar la composición final.
+	ErrAutenticacionInternaAusente = errors.New("bolsa http interno: autenticacion interna ausente")
+	// ErrDependenciaPanelInternoNoDisponible es el error estable con el que una
+	// composición puede ocultar fallos de identidad, PDP o persistencia sin
+	// filtrar detalles de infraestructura a la respuesta HTTP.
+	ErrDependenciaPanelInternoNoDisponible = errors.New("bolsa http interno: dependencia no disponible")
+)
+```
+
+### Funciones
+
+```go
+func NuevoHandler(
+	preparador PreparadorOrdenConsultaPanelInterno,
+	consultor ConsultorPanelInterno,
+) (http.Handler, error)
+```
+
+### Tipos
+
+```go
+type ConsultorPanelInterno interface {
+	Consultar(
+		context.Context,
+		aplicacionbolsa.OrdenConsultaPanelInterno,
+	) (puertosbolsa.InstantaneaPanelInterno, error)
+}
+```
+
+ConsultorPanelInterno es la superficie mínima que satisface el caso de uso
+de aplicación. Mantiene este adaptador independiente de su composición.
+
+```go
+type Handler struct {
+	// Has unexported fields.
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request)
+
+type PreparadorOrdenConsultaPanelInterno interface {
+	PrepararOrdenConsultaPanelInterno(*http.Request) (aplicacionbolsa.OrdenConsultaPanelInterno, error)
+}
+```
+
+PreparadorOrdenConsultaPanelInterno constituye la frontera de confianza.
+Su implementación productiva debe resolver del lado servidor el actor,
+la sesión revalidada, el perfil, el selector, el motivo catalogado y la
+correlación. El handler no intenta obtenerlos de cabeceras, query ni cuerpo.
+
 ## Paquete `internal/modules/bolsa/adapters/httppublico`
 
 > Package httppublico expone únicamente proyecciones públicas minimizadas.
@@ -2098,6 +2169,599 @@ func (*SolicitudReconciliacionDuradera) UnmarshalXML(*xml.Decoder, xml.StartElem
 func (*SolicitudReconciliacionDuradera) UnmarshalYAML(func(any) error) error
 ```
 
+## Paquete `internal/modules/bolsa/application/gobiernoreglasbaremo`
+
+### Variables
+
+```go
+var (
+	ErrOperacionInvalida            = errors.New("bolsa: operacion de gobierno de reglas de baremo invalida")
+	ErrContratoAutorizacionInvalido = errors.New(
+		"bolsa: contrato de autorizacion de reglas de baremo invalido",
+	)
+	ErrPlanCambioInvalido          = errors.New("bolsa: plan de cambio de reglas de baremo invalido")
+	ErrConsultaExactaInvalida      = errors.New("bolsa: consulta exacta de reglas de baremo invalida")
+	ErrSujetoSeudonimoHMACInvalido = errors.New(
+		"bolsa: sujeto seudonimo HMAC de reglas de baremo invalido",
+	)
+	ErrSerializacionProhibida = errors.New(
+		"bolsa: serializacion generica de gobierno de reglas de baremo prohibida",
+	)
+)
+```
+
+### Tipos
+
+```go
+type ComponenteEscrituraReglasBaremoV2 uint8
+```
+
+ComponenteEscrituraReglasBaremoV2 enumera todas las partes del efecto. La
+lista es fija incluso cuando CAS o evidencia se materializan como ausencia
+explicita en un alta.
+
+```go
+const (
+	ComponenteNoDeclarado ComponenteEscrituraReglasBaremoV2 = iota
+	ComponenteContenido
+	ComponenteVersion
+	ComponentePunteroCAS
+	ComponenteVinculoEvidencia
+	ComponenteConsumoVEC
+	ComponenteAuditoria
+	ComponenteOutbox
+	// ComponenteRecibo obliga al ejecutor a generar el recibo en el mismo
+	// COMMIT. El plan no inventa ni anticipa su identidad.
+	ComponenteRecibo
+)
+type ConsultaExactaReglasBaremoV2 struct {
+	// Has unexported fields.
+}
+```
+
+ConsultaExactaReglasBaremoV2 impide sustituir una seleccion historica por
+"la vigente" sin exigir haber leido antes la version completa.
+
+```go
+func (c ConsultaExactaReglasBaremoV2) ContratoAutorizacionV2() (
+	ContratoAutorizacionV2,
+	error,
+)
+
+func (b ConsultaExactaReglasBaremoV2) Format(estado fmt.State, _ rune)
+
+func (b ConsultaExactaReglasBaremoV2) GoString() string
+
+func (*ConsultaExactaReglasBaremoV2) GobDecode([]byte) error
+
+func (ConsultaExactaReglasBaremoV2) GobEncode() ([]byte, error)
+
+func (c ConsultaExactaReglasBaremoV2) Identidad() (
+	reglas.IdentidadConjuntoReglasBaremo,
+	error,
+)
+```
+
+Identidad devuelve la identidad opaca que el adaptador debe cotejar en la
+misma fila que Vinculo. Se devuelve por valor y no comparte estado mutable.
+
+```go
+func (b ConsultaExactaReglasBaremoV2) LogValue() slog.Value
+
+func (ConsultaExactaReglasBaremoV2) MarshalBinary() ([]byte, error)
+
+func (ConsultaExactaReglasBaremoV2) MarshalCBOR() ([]byte, error)
+
+func (ConsultaExactaReglasBaremoV2) MarshalJSON() ([]byte, error)
+
+func (ConsultaExactaReglasBaremoV2) MarshalText() ([]byte, error)
+
+func (ConsultaExactaReglasBaremoV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (ConsultaExactaReglasBaremoV2) MarshalYAML() (any, error)
+
+func (ConsultaExactaReglasBaremoV2) String() string
+
+func (*ConsultaExactaReglasBaremoV2) UnmarshalBinary([]byte) error
+
+func (*ConsultaExactaReglasBaremoV2) UnmarshalCBOR([]byte) error
+
+func (*ConsultaExactaReglasBaremoV2) UnmarshalJSON([]byte) error
+
+func (*ConsultaExactaReglasBaremoV2) UnmarshalText([]byte) error
+
+func (*ConsultaExactaReglasBaremoV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*ConsultaExactaReglasBaremoV2) UnmarshalYAML(func(any) error) error
+
+func (c ConsultaExactaReglasBaremoV2) Vinculo() (
+	reglas.VinculoEstadoReglasBaremo,
+	error,
+)
+
+type ContratoAutorizacionV2 struct {
+	// Has unexported fields.
+}
+```
+
+ContratoAutorizacionV2 contiene exclusivamente el recurso y la politica
+cerrados que el futuro servicio pasara a la fachada VEC ligada a solicitud.
+No expone acciones o finalidades como parametros de texto.
+
+```go
+func (b ContratoAutorizacionV2) Format(estado fmt.State, _ rune)
+
+func (b ContratoAutorizacionV2) GoString() string
+
+func (*ContratoAutorizacionV2) GobDecode([]byte) error
+
+func (ContratoAutorizacionV2) GobEncode() ([]byte, error)
+
+func (b ContratoAutorizacionV2) LogValue() slog.Value
+
+func (ContratoAutorizacionV2) MarshalBinary() ([]byte, error)
+
+func (ContratoAutorizacionV2) MarshalCBOR() ([]byte, error)
+
+func (ContratoAutorizacionV2) MarshalJSON() ([]byte, error)
+
+func (ContratoAutorizacionV2) MarshalText() ([]byte, error)
+
+func (ContratoAutorizacionV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (ContratoAutorizacionV2) MarshalYAML() (any, error)
+
+func (c ContratoAutorizacionV2) Politica() (
+	aplicacionvec.PoliticaUsoDecisionAutorizacion,
+	error,
+)
+```
+
+Politica devuelve la politica opaca e inmutable de la fachada VEC.
+
+```go
+func (c ContratoAutorizacionV2) Recurso() (dominiovec.RecursoAutorizable, error)
+```
+
+Recurso devuelve una copia sin mapas compartidos. Sus dos ambitos proceden
+de la identidad tipada del plan o descriptor. En consultas, el adaptador
+debe cotejarlos con la fila antes de devolver datos.
+
+```go
+func (ContratoAutorizacionV2) String() string
+
+func (*ContratoAutorizacionV2) UnmarshalBinary([]byte) error
+
+func (*ContratoAutorizacionV2) UnmarshalCBOR([]byte) error
+
+func (*ContratoAutorizacionV2) UnmarshalJSON([]byte) error
+
+func (*ContratoAutorizacionV2) UnmarshalText([]byte) error
+
+func (*ContratoAutorizacionV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*ContratoAutorizacionV2) UnmarshalYAML(func(any) error) error
+
+type DatosNuevoPlanCambioReglasBaremoV2 struct {
+	Operacion           OperacionGobiernoReglasBaremoV2
+	Intencion           IntencionGobiernoReglasBaremoV2
+	CASEsperado         *reglas.VinculoEstadoReglasBaremo
+	VersionResultado    reglas.VersionGobernadaReglasBaremo
+	VinculoEvidencia    *VinculoEvidenciaTransicionReglasBaremoV2
+	SujetoSeudonimoHMAC SujetoSeudonimoHMAC
+	ContextoActor       dominiovec.ContextoActor
+	ReferenciaMotivo    dominiovec.ReferenciaEntradaCatalogo
+	Correlacion         dominiovec.ReferenciaCorrelacionAutorizacionV2
+	// InstanteTransicion es el instante de negocio incorporado a la version.
+	// El plan solo puede validar su forma y coherencia interna: la frontera
+	// ejecutora debe obtenerlo o cotejarlo contra un reloj confiable y aplicar
+	// su politica de frescura antes del COMMIT.
+	InstanteTransicion time.Time
+	// Has unexported fields.
+}
+
+func (b DatosNuevoPlanCambioReglasBaremoV2) Format(estado fmt.State, _ rune)
+
+func (b DatosNuevoPlanCambioReglasBaremoV2) GoString() string
+
+func (*DatosNuevoPlanCambioReglasBaremoV2) GobDecode([]byte) error
+
+func (DatosNuevoPlanCambioReglasBaremoV2) GobEncode() ([]byte, error)
+
+func (b DatosNuevoPlanCambioReglasBaremoV2) LogValue() slog.Value
+
+func (DatosNuevoPlanCambioReglasBaremoV2) MarshalBinary() ([]byte, error)
+
+func (DatosNuevoPlanCambioReglasBaremoV2) MarshalCBOR() ([]byte, error)
+
+func (DatosNuevoPlanCambioReglasBaremoV2) MarshalJSON() ([]byte, error)
+
+func (DatosNuevoPlanCambioReglasBaremoV2) MarshalText() ([]byte, error)
+
+func (DatosNuevoPlanCambioReglasBaremoV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (DatosNuevoPlanCambioReglasBaremoV2) MarshalYAML() (any, error)
+
+func (DatosNuevoPlanCambioReglasBaremoV2) String() string
+
+func (*DatosNuevoPlanCambioReglasBaremoV2) UnmarshalBinary([]byte) error
+
+func (*DatosNuevoPlanCambioReglasBaremoV2) UnmarshalCBOR([]byte) error
+
+func (*DatosNuevoPlanCambioReglasBaremoV2) UnmarshalJSON([]byte) error
+
+func (*DatosNuevoPlanCambioReglasBaremoV2) UnmarshalText([]byte) error
+
+func (*DatosNuevoPlanCambioReglasBaremoV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*DatosNuevoPlanCambioReglasBaremoV2) UnmarshalYAML(func(any) error) error
+
+type DatosPlanCambioReglasBaremoV2 struct {
+	Operacion             OperacionGobiernoReglasBaremoV2
+	Intencion             IntencionGobiernoReglasBaremoV2
+	CASEsperado           reglas.VinculoEstadoReglasBaremo
+	TieneCAS              bool
+	VersionResultado      reglas.VersionGobernadaReglasBaremo
+	VersionCanonica       []byte
+	HuellaVersionSHA256   string
+	VinculoResultado      reglas.VinculoEstadoReglasBaremo
+	VinculoEvidencia      VinculoEvidenciaTransicionReglasBaremoV2
+	TieneVinculoEvidencia bool
+	SujetoSeudonimoHMAC   SujetoSeudonimoHMAC
+	PrincipalRef          string
+	ReferenciaMotivo      dominiovec.ReferenciaEntradaCatalogo
+	MotivoCanonico        []byte
+	HuellaMotivoSHA256    string
+	Correlacion           dominiovec.ReferenciaCorrelacionAutorizacionV2
+	InstanteTransicion    time.Time
+	Componentes           []ComponenteEscrituraReglasBaremoV2
+	// Has unexported fields.
+}
+
+func (b DatosPlanCambioReglasBaremoV2) Format(estado fmt.State, _ rune)
+
+func (b DatosPlanCambioReglasBaremoV2) GoString() string
+
+func (*DatosPlanCambioReglasBaremoV2) GobDecode([]byte) error
+
+func (DatosPlanCambioReglasBaremoV2) GobEncode() ([]byte, error)
+
+func (b DatosPlanCambioReglasBaremoV2) LogValue() slog.Value
+
+func (DatosPlanCambioReglasBaremoV2) MarshalBinary() ([]byte, error)
+
+func (DatosPlanCambioReglasBaremoV2) MarshalCBOR() ([]byte, error)
+
+func (DatosPlanCambioReglasBaremoV2) MarshalJSON() ([]byte, error)
+
+func (DatosPlanCambioReglasBaremoV2) MarshalText() ([]byte, error)
+
+func (DatosPlanCambioReglasBaremoV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (DatosPlanCambioReglasBaremoV2) MarshalYAML() (any, error)
+
+func (DatosPlanCambioReglasBaremoV2) String() string
+
+func (*DatosPlanCambioReglasBaremoV2) UnmarshalBinary([]byte) error
+
+func (*DatosPlanCambioReglasBaremoV2) UnmarshalCBOR([]byte) error
+
+func (*DatosPlanCambioReglasBaremoV2) UnmarshalJSON([]byte) error
+
+func (*DatosPlanCambioReglasBaremoV2) UnmarshalText([]byte) error
+
+func (*DatosPlanCambioReglasBaremoV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*DatosPlanCambioReglasBaremoV2) UnmarshalYAML(func(any) error) error
+
+type DescriptorConsultaExactaReglasBaremoV2 struct {
+	// Has unexported fields.
+}
+```
+
+DescriptorConsultaExactaReglasBaremoV2 declara el vinculo historico y el
+alcance minimo solicitado antes de leer la fila. No demuestra existencia
+ni concede acceso: el adaptador durable debe cotejar contenido, revision,
+huella e identidad contra una misma fila antes de devolverla.
+
+```go
+func (b DescriptorConsultaExactaReglasBaremoV2) Format(estado fmt.State, _ rune)
+
+func (b DescriptorConsultaExactaReglasBaremoV2) GoString() string
+
+func (*DescriptorConsultaExactaReglasBaremoV2) GobDecode([]byte) error
+
+func (DescriptorConsultaExactaReglasBaremoV2) GobEncode() ([]byte, error)
+
+func (b DescriptorConsultaExactaReglasBaremoV2) LogValue() slog.Value
+
+func (DescriptorConsultaExactaReglasBaremoV2) MarshalBinary() ([]byte, error)
+
+func (DescriptorConsultaExactaReglasBaremoV2) MarshalCBOR() ([]byte, error)
+
+func (DescriptorConsultaExactaReglasBaremoV2) MarshalJSON() ([]byte, error)
+
+func (DescriptorConsultaExactaReglasBaremoV2) MarshalText() ([]byte, error)
+
+func (DescriptorConsultaExactaReglasBaremoV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (DescriptorConsultaExactaReglasBaremoV2) MarshalYAML() (any, error)
+
+func (DescriptorConsultaExactaReglasBaremoV2) String() string
+
+func (*DescriptorConsultaExactaReglasBaremoV2) UnmarshalBinary([]byte) error
+
+func (*DescriptorConsultaExactaReglasBaremoV2) UnmarshalCBOR([]byte) error
+
+func (*DescriptorConsultaExactaReglasBaremoV2) UnmarshalJSON([]byte) error
+
+func (*DescriptorConsultaExactaReglasBaremoV2) UnmarshalText([]byte) error
+
+func (*DescriptorConsultaExactaReglasBaremoV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*DescriptorConsultaExactaReglasBaremoV2) UnmarshalYAML(func(any) error) error
+
+type IntencionGobiernoReglasBaremoV2 struct {
+	// Has unexported fields.
+}
+```
+
+IntencionGobiernoReglasBaremoV2 conserva una identidad idempotente
+declarada. Su validacion sintactica no le otorga autoridad ni demuestra
+unicidad. La generacion segura y su persistencia corresponden al servicio y
+al adaptador.
+
+```go
+func NuevaIntencionGobiernoReglasBaremoV2(
+	referencia reglas.ReferenciaVersionada,
+) (IntencionGobiernoReglasBaremoV2, error)
+
+func (b IntencionGobiernoReglasBaremoV2) Format(estado fmt.State, _ rune)
+
+func (b IntencionGobiernoReglasBaremoV2) GoString() string
+
+func (*IntencionGobiernoReglasBaremoV2) GobDecode([]byte) error
+
+func (IntencionGobiernoReglasBaremoV2) GobEncode() ([]byte, error)
+
+func (b IntencionGobiernoReglasBaremoV2) LogValue() slog.Value
+
+func (IntencionGobiernoReglasBaremoV2) MarshalBinary() ([]byte, error)
+
+func (IntencionGobiernoReglasBaremoV2) MarshalCBOR() ([]byte, error)
+
+func (IntencionGobiernoReglasBaremoV2) MarshalJSON() ([]byte, error)
+
+func (IntencionGobiernoReglasBaremoV2) MarshalText() ([]byte, error)
+
+func (IntencionGobiernoReglasBaremoV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (IntencionGobiernoReglasBaremoV2) MarshalYAML() (any, error)
+
+func (i IntencionGobiernoReglasBaremoV2) Referencia() (
+	reglas.ReferenciaVersionada,
+	error,
+)
+
+func (IntencionGobiernoReglasBaremoV2) String() string
+
+func (*IntencionGobiernoReglasBaremoV2) UnmarshalBinary([]byte) error
+
+func (*IntencionGobiernoReglasBaremoV2) UnmarshalCBOR([]byte) error
+
+func (*IntencionGobiernoReglasBaremoV2) UnmarshalJSON([]byte) error
+
+func (*IntencionGobiernoReglasBaremoV2) UnmarshalText([]byte) error
+
+func (*IntencionGobiernoReglasBaremoV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*IntencionGobiernoReglasBaremoV2) UnmarshalYAML(func(any) error) error
+
+type OperacionGobiernoReglasBaremoV2 uint8
+```
+
+OperacionGobiernoReglasBaremoV2 es un catalogo compilado y cerrado. No es
+texto procedente de formularios, JSON ni configuracion.
+
+```go
+const (
+	OperacionNoDeclarada OperacionGobiernoReglasBaremoV2 = iota
+	OperacionAltaBorrador
+	OperacionPublicar
+	OperacionActivar
+	OperacionSustituir
+	OperacionRetirar
+	OperacionDescartar
+	OperacionConsultaExacta
+)
+type PlanCambioReglasBaremoV2 struct {
+	// Has unexported fields.
+}
+```
+
+PlanCambioReglasBaremoV2 es un manifiesto de efecto de negocio propuesto. No
+es ejecutable, una autorizacion, una atestacion ni un recibo: su consumidor
+debe obtener y consumir una decision VEC V2 y volver a cotejar la evidencia
+mediante un verificador confiable antes de cualquier persistencia durable.
+
+```go
+func NuevoPlanCambioReglasBaremoV2(
+	datos DatosNuevoPlanCambioReglasBaremoV2,
+) (PlanCambioReglasBaremoV2, error)
+
+func (p PlanCambioReglasBaremoV2) ContratoAutorizacionV2() (
+	ContratoAutorizacionV2,
+	error,
+)
+
+func (p PlanCambioReglasBaremoV2) Datos() (DatosPlanCambioReglasBaremoV2, error)
+
+func (b PlanCambioReglasBaremoV2) Format(estado fmt.State, _ rune)
+
+func (b PlanCambioReglasBaremoV2) GoString() string
+
+func (*PlanCambioReglasBaremoV2) GobDecode([]byte) error
+
+func (PlanCambioReglasBaremoV2) GobEncode() ([]byte, error)
+
+func (p PlanCambioReglasBaremoV2) HuellaSHA256() (string, error)
+
+func (b PlanCambioReglasBaremoV2) LogValue() slog.Value
+
+func (PlanCambioReglasBaremoV2) MarshalBinary() ([]byte, error)
+
+func (PlanCambioReglasBaremoV2) MarshalCBOR() ([]byte, error)
+
+func (PlanCambioReglasBaremoV2) MarshalJSON() ([]byte, error)
+
+func (PlanCambioReglasBaremoV2) MarshalText() ([]byte, error)
+
+func (PlanCambioReglasBaremoV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (PlanCambioReglasBaremoV2) MarshalYAML() (any, error)
+
+func (p PlanCambioReglasBaremoV2) RepresentacionCanonica() ([]byte, error)
+
+func (PlanCambioReglasBaremoV2) String() string
+
+func (*PlanCambioReglasBaremoV2) UnmarshalBinary([]byte) error
+
+func (*PlanCambioReglasBaremoV2) UnmarshalCBOR([]byte) error
+
+func (*PlanCambioReglasBaremoV2) UnmarshalJSON([]byte) error
+
+func (*PlanCambioReglasBaremoV2) UnmarshalText([]byte) error
+
+func (*PlanCambioReglasBaremoV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*PlanCambioReglasBaremoV2) UnmarshalYAML(func(any) error) error
+
+type SujetoSeudonimoHMAC struct {
+	// Has unexported fields.
+}
+```
+
+SujetoSeudonimoHMAC es un compromiso opaco sobre el sujeto del efecto.
+No es autoridad ni identifica al actor. Un futuro puerto confiable debe
+acunarlo y cotejarlo, con la separacion de dominio fija de este modulo,
+sobre tenant+convocatoria+expediente+contenido; un handler nunca debe
+calcularlo ni decidir su valor.
+
+```go
+func RestaurarSujetoSeudonimoHMAC(valor string) (SujetoSeudonimoHMAC, error)
+```
+
+RestaurarSujetoSeudonimoHMAC valida la representacion recibida de la
+frontera confiable. No calcula ni acredita el HMAC.
+
+```go
+func (b SujetoSeudonimoHMAC) Format(estado fmt.State, _ rune)
+
+func (b SujetoSeudonimoHMAC) GoString() string
+
+func (*SujetoSeudonimoHMAC) GobDecode([]byte) error
+
+func (SujetoSeudonimoHMAC) GobEncode() ([]byte, error)
+
+func (b SujetoSeudonimoHMAC) LogValue() slog.Value
+
+func (SujetoSeudonimoHMAC) MarshalBinary() ([]byte, error)
+
+func (SujetoSeudonimoHMAC) MarshalCBOR() ([]byte, error)
+
+func (SujetoSeudonimoHMAC) MarshalJSON() ([]byte, error)
+
+func (SujetoSeudonimoHMAC) MarshalText() ([]byte, error)
+
+func (SujetoSeudonimoHMAC) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (SujetoSeudonimoHMAC) MarshalYAML() (any, error)
+
+func (SujetoSeudonimoHMAC) String() string
+
+func (*SujetoSeudonimoHMAC) UnmarshalBinary([]byte) error
+
+func (*SujetoSeudonimoHMAC) UnmarshalCBOR([]byte) error
+
+func (*SujetoSeudonimoHMAC) UnmarshalJSON([]byte) error
+
+func (*SujetoSeudonimoHMAC) UnmarshalText([]byte) error
+
+func (*SujetoSeudonimoHMAC) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*SujetoSeudonimoHMAC) UnmarshalYAML(func(any) error) error
+
+func (s SujetoSeudonimoHMAC) ValorCanonico() (string, error)
+```
+
+ValorCanonico permite al adaptador confiable cotejar o persistir el
+compromiso por una via explicita; los codecs y registros siguen cerrados.
+
+```go
+type VinculoEvidenciaTransicionReglasBaremoV2 struct {
+	// Has unexported fields.
+}
+```
+
+VinculoEvidenciaTransicionReglasBaremoV2 solo se construye desde evidencia
+de dominio estructuralmente valida. Liga operacion, CAS y referencia exacta,
+pero no es autoridad ni capacidad; el plan coteja despues su incorporacion.
+
+```go
+func NuevoVinculoEvidenciaActivacionReglasBaremoV2(
+	evidencia reglas.AtestacionDependenciasVigentesReglasBaremo,
+) (VinculoEvidenciaTransicionReglasBaremoV2, error)
+
+func NuevoVinculoEvidenciaPublicacionReglasBaremoV2(
+	evidencia reglas.AtestacionAprobacionFirmadaReglasBaremo,
+) (VinculoEvidenciaTransicionReglasBaremoV2, error)
+
+func NuevoVinculoEvidenciaTerminalReglasBaremoV2(
+	evidencia reglas.AtestacionAutoridadReglasBaremo,
+) (VinculoEvidenciaTransicionReglasBaremoV2, error)
+
+func (b VinculoEvidenciaTransicionReglasBaremoV2) Format(estado fmt.State, _ rune)
+
+func (b VinculoEvidenciaTransicionReglasBaremoV2) GoString() string
+
+func (*VinculoEvidenciaTransicionReglasBaremoV2) GobDecode([]byte) error
+
+func (VinculoEvidenciaTransicionReglasBaremoV2) GobEncode() ([]byte, error)
+
+func (b VinculoEvidenciaTransicionReglasBaremoV2) LogValue() slog.Value
+
+func (VinculoEvidenciaTransicionReglasBaremoV2) MarshalBinary() ([]byte, error)
+
+func (VinculoEvidenciaTransicionReglasBaremoV2) MarshalCBOR() ([]byte, error)
+
+func (VinculoEvidenciaTransicionReglasBaremoV2) MarshalJSON() ([]byte, error)
+
+func (VinculoEvidenciaTransicionReglasBaremoV2) MarshalText() ([]byte, error)
+
+func (VinculoEvidenciaTransicionReglasBaremoV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (VinculoEvidenciaTransicionReglasBaremoV2) MarshalYAML() (any, error)
+
+func (v VinculoEvidenciaTransicionReglasBaremoV2) Referencia() (
+	reglas.ReferenciaVersionada,
+	error,
+)
+
+func (VinculoEvidenciaTransicionReglasBaremoV2) String() string
+
+func (*VinculoEvidenciaTransicionReglasBaremoV2) UnmarshalBinary([]byte) error
+
+func (*VinculoEvidenciaTransicionReglasBaremoV2) UnmarshalCBOR([]byte) error
+
+func (*VinculoEvidenciaTransicionReglasBaremoV2) UnmarshalJSON([]byte) error
+
+func (*VinculoEvidenciaTransicionReglasBaremoV2) UnmarshalText([]byte) error
+
+func (*VinculoEvidenciaTransicionReglasBaremoV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*VinculoEvidenciaTransicionReglasBaremoV2) UnmarshalYAML(func(any) error) error
+```
+
 ## Paquete `internal/modules/bolsa/domain`
 
 > Package domain contiene las reglas puras del modulo de bolsas.
@@ -2192,6 +2856,38 @@ conjunto, acreditan el mismo merito y no deben puntuar por separado.
 type AltaNecesidadCobertura = NecesidadCobertura
 
 type AltaParticipacionBolsa = ParticipacionBolsa
+
+type AmbitoOrganizativoConvocatoria struct {
+	// Has unexported fields.
+}
+```
+
+AmbitoOrganizativoConvocatoria fija el alcance organizativo de toda la
+cadena de versiones. Sus referencias son opacas y su estado no se puede
+modificar tras construirlo.
+
+```go
+func NuevoAmbitoOrganizativoConvocatoria(
+	organizacionRef, unidadGestionRef string,
+) (AmbitoOrganizativoConvocatoria, error)
+```
+
+NuevoAmbitoOrganizativoConvocatoria no normaliza ni completa referencias:
+solo admite la representacion canonica exacta recibida.
+
+```go
+func (a AmbitoOrganizativoConvocatoria) ClonarCanonico() (
+	AmbitoOrganizativoConvocatoria,
+	error,
+)
+
+func (a AmbitoOrganizativoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (a AmbitoOrganizativoConvocatoria) OrganizacionRef() string
+
+func (a AmbitoOrganizativoConvocatoria) UnidadGestionRef() string
+
+func (a AmbitoOrganizativoConvocatoria) Validar() error
 
 type AyudaConvocatoria struct {
 	Referencia string `json:"referencia"`
@@ -2484,6 +3180,7 @@ type DatosNuevaVersionConvocatoriaGobernada struct {
 	ID                   string
 	CodigoVersionPublica string
 	InstanciaFlujoRef    string
+	AmbitoOrganizativo   AmbitoOrganizativoConvocatoria
 	Contenido            ContenidoPublicableConvocatoria
 	Configuracion        ConfiguracionFijadaConvocatoria
 	ExpedienteRef        string
@@ -3151,6 +3848,7 @@ type VersionConvocatoriaGobernada struct {
 	Revision                 int                                `json:"revision"`
 	VersionAnteriorRef       string                             `json:"version_anterior_ref,omitempty"`
 	InstanciaFlujoRef        string                             `json:"instancia_flujo_ref"`
+	AmbitoOrganizativo       AmbitoOrganizativoConvocatoria     `json:"ambito_organizativo"`
 	Contenido                ContenidoPublicableConvocatoria    `json:"contenido"`
 	Configuracion            ConfiguracionFijadaConvocatoria    `json:"configuracion"`
 	ExpedienteRef            string                             `json:"expediente_ref"`
@@ -4011,6 +4709,9 @@ func (v VinculosResultadoExperienciaV1) Plan() VinculoPlanResultadoExperienciaV1
 ### Constantes
 
 ```go
+const (
+	EsquemaReciboConsumoAutorizacionFuenteV2 = "vec.bolsa.calculo-experiencia-oficial.recibo-consumo-autorizacion-fuente.v2"
+)
 const EsquemaSelectorFuenteExactaCalculoReglasBaremoV1 = "vec.bolsa.calculo-experiencia.selector-fuente-exacta.v1"
 ```
 
@@ -4038,6 +4739,23 @@ func CalcularIndiceHMACSHA256(clave ClaveEfectoV1, secretoServidor []byte) (stri
 
 CalcularIndiceHMACSHA256 deriva el índice durable sin exponer el pseudónimo
 ni permitir que una clave elegida por el cliente controle la idempotencia.
+
+```go
+func ReferenciaAuditoriaFuenteExactaV2Valida(valor string) bool
+func ReferenciaConsumoPruebaFuenteExactaV2Valida(valor string) bool
+func ReferenciaConvocatoriaFuenteExactaV2Valida(valor string) bool
+func ReferenciaEvidenciaFuenteExactaV2Valida(valor string) bool
+func ReferenciaInstantaneaFuenteExactaV2Valida(valor string) bool
+func ReferenciaReglasFuenteExactaV2Valida(valor string) bool
+```
+
+ReferenciaReglasFuenteExactaV2Valida y sus variantes aplican en application
+los mismos perfiles nominales del recibo, sin abrir la gramatica a un
+prefijo elegido por el llamador.
+
+```go
+func ReferenciaVerificadorFuenteExactaV2Valida(valor string) bool
+```
 
 ### Tipos
 
@@ -4234,6 +4952,109 @@ func (i IntencionResultadoV1) ValidarPara(
 	fase FaseResultadoV1,
 ) error
 
+type ReciboConsumoAutorizacionFuenteV2 struct {
+	// Has unexported fields.
+}
+```
+
+ReciboConsumoAutorizacionFuenteV2 es la atestacion opaca que devuelve una
+fuente durable tras consumir una decision de lectura. No concede autoridad:
+permite cotejar que la decision, el selector y los artefactos leidos fueron
+exactamente los mismos que intervienen en el calculo.
+
+```go
+func NuevoReciboConsumoAutorizacionFuenteV2(
+	consumo ReferenciaExactaV1,
+	decisionRef, esquemaHuellaDecision, huellaDecisionSHA256 string,
+	recursoRef, huellaContextoRecursoSHA256, correlacionRef string,
+	huellaSelectorSHA256 string,
+	huellaEntradaSHA256 string,
+	fuenteExacta ReferenciaExactaV1,
+	verificador ReferenciaExactaV1,
+	consumoPrueba ReferenciaExactaV1,
+	auditoria ReferenciaExactaV1,
+	pruebaEmitidaEn, pruebaValidaHasta time.Time,
+	consumidaEn, obtenidaEn time.Time,
+) (ReciboConsumoAutorizacionFuenteV2, error)
+```
+
+NuevoReciboConsumoAutorizacionFuenteV2 no acepta un DTO libre para evitar
+reconstrucciones parciales en fronteras de transporte.
+
+```go
+func RestaurarReciboConsumoAutorizacionFuenteV2ConHuellaSHA256(
+	contenido []byte,
+	huellaEsperada string,
+) (ReciboConsumoAutorizacionFuenteV2, error)
+
+func (r ReciboConsumoAutorizacionFuenteV2) ConsumidaEn() (time.Time, error)
+
+func (r ReciboConsumoAutorizacionFuenteV2) Consumo() (ReferenciaExactaV1, error)
+
+func (r ReciboConsumoAutorizacionFuenteV2) Format(estado fmt.State, _ rune)
+
+func (r ReciboConsumoAutorizacionFuenteV2) GoString() string
+
+func (*ReciboConsumoAutorizacionFuenteV2) GobDecode([]byte) error
+
+func (ReciboConsumoAutorizacionFuenteV2) GobEncode() ([]byte, error)
+
+func (r ReciboConsumoAutorizacionFuenteV2) HuellaSHA256V2() (string, error)
+
+func (r ReciboConsumoAutorizacionFuenteV2) LogValue() slog.Value
+
+func (ReciboConsumoAutorizacionFuenteV2) MarshalBinary() ([]byte, error)
+
+func (ReciboConsumoAutorizacionFuenteV2) MarshalCBOR() ([]byte, error)
+
+func (ReciboConsumoAutorizacionFuenteV2) MarshalJSON() ([]byte, error)
+
+func (ReciboConsumoAutorizacionFuenteV2) MarshalText() ([]byte, error)
+
+func (ReciboConsumoAutorizacionFuenteV2) MarshalXML(*xml.Encoder, xml.StartElement) error
+
+func (ReciboConsumoAutorizacionFuenteV2) MarshalYAML() (any, error)
+
+func (r ReciboConsumoAutorizacionFuenteV2) ObtenidaEn() (time.Time, error)
+
+func (r ReciboConsumoAutorizacionFuenteV2) RepresentacionCanonicaV2() ([]byte, error)
+
+func (ReciboConsumoAutorizacionFuenteV2) String() string
+
+func (*ReciboConsumoAutorizacionFuenteV2) UnmarshalBinary([]byte) error
+
+func (*ReciboConsumoAutorizacionFuenteV2) UnmarshalCBOR([]byte) error
+
+func (*ReciboConsumoAutorizacionFuenteV2) UnmarshalJSON([]byte) error
+
+func (*ReciboConsumoAutorizacionFuenteV2) UnmarshalText([]byte) error
+
+func (*ReciboConsumoAutorizacionFuenteV2) UnmarshalXML(*xml.Decoder, xml.StartElement) error
+
+func (*ReciboConsumoAutorizacionFuenteV2) UnmarshalYAML(func(any) error) error
+
+func (r ReciboConsumoAutorizacionFuenteV2) Validar() error
+
+func (r ReciboConsumoAutorizacionFuenteV2) ValidarPara(
+	decisionRef, esquemaHuellaDecision, huellaDecisionSHA256 string,
+	recursoRef, huellaContextoRecursoSHA256, correlacionRef string,
+	huellaSelectorSHA256 string,
+	huellaEntradaSHA256 string,
+	fuenteExacta ReferenciaExactaV1,
+	verificador ReferenciaExactaV1,
+	consumoPrueba ReferenciaExactaV1,
+	auditoria ReferenciaExactaV1,
+	pruebaEmitidaEn, pruebaValidaHasta time.Time,
+	obtenidaEn time.Time,
+	noAntesDe, noDespuesDe time.Time,
+) error
+```
+
+ValidarPara coteja el recibo con la evidencia V2 y los artefactos exactos
+esperados por el caso de uso. Los limites de solicitud y comprobacion son
+inclusivos; la caducidad de la prueba es exclusiva.
+
+```go
 type ReciboV1 struct {
 	// Has unexported fields.
 }
@@ -4860,7 +5681,8 @@ type IdentidadConjuntoReglasBaremo struct {
 ```
 
 IdentidadConjuntoReglasBaremo enlaza el conjunto con una convocatoria y un
-expediente concretos. Todos los identificadores son referencias opacas.
+expediente concretos mediante tokens opacos de 128 bits. Etiquetas, codigos
+oficiales y datos personales permanecen fuera de esta identidad interna.
 
 ```go
 func NuevaIdentidadConjuntoReglasBaremo(
@@ -5245,6 +6067,13 @@ func NuevaReferenciaVersionada(referencia string, version uint64, huellaSHA256 s
 NuevaReferenciaVersionada construye una referencia cerrada y reproducible.
 
 ```go
+func (r ReferenciaVersionada) CoincideExactamenteCon(otra ReferenciaVersionada) bool
+```
+
+CoincideExactamenteCon compara en tiempo constante dos referencias validas,
+sin normalizar ni omitir campos. Un valor cero o invalido nunca coincide.
+
+```go
 func (r ReferenciaVersionada) HuellaSHA256() string
 ```
 
@@ -5255,6 +6084,12 @@ func (r ReferenciaVersionada) Referencia() string
 ```
 
 Referencia devuelve el identificador opaco exacto.
+
+```go
+func (r ReferenciaVersionada) Validar() error
+```
+
+Validar comprueba que la referencia conserva su forma canonica cerrada.
 
 ```go
 func (r ReferenciaVersionada) Version() uint64
@@ -5420,6 +6255,14 @@ func (v VersionGobernadaReglasBaremo) Activar(
 	instante time.Time,
 ) (VersionGobernadaReglasBaremo, error)
 
+func (v VersionGobernadaReglasBaremo) ActorUltimaActuacion() (string, error)
+```
+
+ActorUltimaActuacion devuelve la referencia de persona declarada opaca que
+produjo el estado actual. Su formato no acredita por si solo procedencia ni
+minimizacion; esa garantia corresponde a la frontera de identidad.
+
+```go
 func (v VersionGobernadaReglasBaremo) Clonar() (VersionGobernadaReglasBaremo, error)
 
 func (v VersionGobernadaReglasBaremo) Conjunto() (ConjuntoReglasBaremo, error)
@@ -5464,8 +6307,54 @@ func (v VersionGobernadaReglasBaremo) Estado() EstadoGobiernoReglasBaremo
 
 func (v VersionGobernadaReglasBaremo) HuellaSHA256() (string, error)
 
+func (v VersionGobernadaReglasBaremo) IncorporaAprobacionExacta(
+	evidencia AtestacionAprobacionFirmadaReglasBaremo,
+) bool
+```
+
+IncorporaAprobacionExacta indica si esta version conserva exactamente la
+atestacion recibida en su transicion de publicacion. No compara solo una
+referencia: coteja todos los vinculos, firmantes y tiempos de la evidencia.
+
+```go
+func (v VersionGobernadaReglasBaremo) IncorporaAutoridadExacta(
+	evidencia AtestacionAutoridadReglasBaremo,
+) bool
+```
+
+IncorporaAutoridadExacta comprueba la autoridad terminal completa, incluida
+la accion y la referencia relacionada cuando la sustitucion la exige.
+
+```go
+func (v VersionGobernadaReglasBaremo) IncorporaDependenciasExactas(
+	evidencia AtestacionDependenciasVigentesReglasBaremo,
+) bool
+```
+
+IncorporaDependenciasExactas comprueba la atestacion completa que llevo a la
+activacion. Las colecciones canonicas se comparan en su orden exacto.
+
+```go
+func (v VersionGobernadaReglasBaremo) InstanteUltimaActuacion() (time.Time, error)
+```
+
+InstanteUltimaActuacion devuelve el instante de negocio que forma parte del
+estado actual: creacion para el borrador o el acto de su ultima transicion.
+No representa el reloj de persistencia ni el momento de registro durable.
+
+```go
 func (v VersionGobernadaReglasBaremo) MotivoCreacion() MotivoCatalogadoReglasBaremo
 
+func (v VersionGobernadaReglasBaremo) MotivoUltimaActuacion() (
+	MotivoCatalogadoReglasBaremo,
+	error,
+)
+```
+
+MotivoUltimaActuacion devuelve la entrada exacta del catalogo incorporada al
+estado actual. Su etiqueta humana permanece fuera del agregado.
+
+```go
 func (v VersionGobernadaReglasBaremo) Publicar(
 	revisionEsperada uint64,
 	actorRef string,
@@ -5516,12 +6405,25 @@ func NuevoVinculoEstadoReglasBaremo(
 	huellaEstadoSHA256 string,
 ) (VinculoEstadoReglasBaremo, error)
 
+func (v VinculoEstadoReglasBaremo) CoincideExactamenteCon(
+	otro VinculoEstadoReglasBaremo,
+) bool
+```
+
+CoincideExactamenteCon compara en tiempo constante dos vinculos validos por
+todos sus campos. Un valor cero o invalido nunca coincide con otro.
+
+```go
 func (v VinculoEstadoReglasBaremo) Contenido() ReferenciaVersionada
 
 func (v VinculoEstadoReglasBaremo) HuellaEstadoSHA256() string
 
 func (v VinculoEstadoReglasBaremo) Revision() uint64
+
+func (v VinculoEstadoReglasBaremo) Validar() error
 ```
+
+Validar comprueba que el vinculo fija contenido, revision y estado exactos.
 
 ## Paquete `internal/modules/bolsa/internal/transaccion`
 
@@ -5746,8 +6648,9 @@ const (
 	VentanaMaximaUsoAutorizacionConvocatoria   = 30 * time.Second
 )
 const (
-	VersionTestimonioIdempotenciaConvocatoriaV1 = 1
-	VigenciaMaximaTestimonioConvocatoria        = 10 * time.Minute
+	VersionTestimonioIdempotenciaConvocatoriaV1    = 1
+	VigenciaMaximaTestimonioConvocatoria           = 10 * time.Minute
+	EsquemaMaterialIntencionGobiernoConvocatoriaV2 = "bolsa.convocatoria.intencion.v2"
 )
 const (
 	VigenciaMaximaComprobacionDependenciasConvocatoria = 15 * time.Minute
@@ -6128,6 +7031,7 @@ declarados por el cliente.
 ```go
 func RecursoAutorizableMutacionConvocatoria(
 	material MaterialIntencionGobiernoConvocatoria,
+	versionConfirmada dominiobolsa.VersionConvocatoriaGobernada,
 ) (dominiovec.RecursoAutorizable, error)
 ```
 
@@ -6512,6 +7416,8 @@ func (c AtestacionAprobacionConvocatoria) LogValue() slog.Value
 
 func (AtestacionAprobacionConvocatoria) MarshalBinary() ([]byte, error)
 
+func (AtestacionAprobacionConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (AtestacionAprobacionConvocatoria) MarshalJSON() ([]byte, error)
 
 func (AtestacionAprobacionConvocatoria) MarshalText() ([]byte, error)
@@ -6521,9 +7427,13 @@ func (AtestacionAprobacionConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (AtestacionAprobacionConvocatoria) MarshalYAML() (any, error)
+
 func (AtestacionAprobacionConvocatoria) String() string
 
 func (*AtestacionAprobacionConvocatoria) UnmarshalBinary([]byte) error
+
+func (*AtestacionAprobacionConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*AtestacionAprobacionConvocatoria) UnmarshalJSON([]byte) error
 
@@ -6533,6 +7443,8 @@ func (*AtestacionAprobacionConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*AtestacionAprobacionConvocatoria) UnmarshalYAML(func(any) error) error
 
 func (c AtestacionAprobacionConvocatoria) ValidarPara(
 	solicitud SolicitudComprobarAprobacionConvocatoria,
@@ -6576,6 +7488,8 @@ func (c AtestacionDependenciasConvocatoria) LogValue() slog.Value
 
 func (AtestacionDependenciasConvocatoria) MarshalBinary() ([]byte, error)
 
+func (AtestacionDependenciasConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (AtestacionDependenciasConvocatoria) MarshalJSON() ([]byte, error)
 
 func (AtestacionDependenciasConvocatoria) MarshalText() ([]byte, error)
@@ -6585,9 +7499,13 @@ func (AtestacionDependenciasConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (AtestacionDependenciasConvocatoria) MarshalYAML() (any, error)
+
 func (AtestacionDependenciasConvocatoria) String() string
 
 func (*AtestacionDependenciasConvocatoria) UnmarshalBinary([]byte) error
+
+func (*AtestacionDependenciasConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*AtestacionDependenciasConvocatoria) UnmarshalJSON([]byte) error
 
@@ -6597,6 +7515,8 @@ func (*AtestacionDependenciasConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*AtestacionDependenciasConvocatoria) UnmarshalYAML(func(any) error) error
 
 func (c AtestacionDependenciasConvocatoria) ValidarPara(
 	solicitud SolicitudVerificarDependenciasConvocatoria,
@@ -6608,13 +7528,12 @@ type AtestacionSelladoMotivoConvocatoria struct {
 }
 ```
 
-AtestacionSelladoMotivoConvocatoria es reconstruible y no concede autoridad.
-La barrera durable debe releerla desde el registro del HSM/KMS, comprobar su
-huella y consumir TokenConsumoRef en la misma transaccion que la mutacion.
+AtestacionSelladoMotivoConvocatoria es la unica fase consumible. La barrera
+durable debe releerla y consumir su token en la transaccion de la mutacion.
 
 ```go
 func NuevaAtestacionSelladoMotivoConvocatoria(
-	solicitud SolicitudSellarMotivoGobiernoConvocatoria,
+	solicitud SolicitudMaterializarSelladoMotivoGobiernoConvocatoria,
 	datos DatosAtestacionSelladoMotivoConvocatoria,
 ) (AtestacionSelladoMotivoConvocatoria, error)
 
@@ -6635,6 +7554,8 @@ func (a AtestacionSelladoMotivoConvocatoria) LogValue() slog.Value
 
 func (AtestacionSelladoMotivoConvocatoria) MarshalBinary() ([]byte, error)
 
+func (AtestacionSelladoMotivoConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (AtestacionSelladoMotivoConvocatoria) MarshalJSON() ([]byte, error)
 
 func (AtestacionSelladoMotivoConvocatoria) MarshalText() ([]byte, error)
@@ -6644,9 +7565,13 @@ func (AtestacionSelladoMotivoConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (AtestacionSelladoMotivoConvocatoria) MarshalYAML() (any, error)
+
 func (AtestacionSelladoMotivoConvocatoria) String() string
 
 func (*AtestacionSelladoMotivoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*AtestacionSelladoMotivoConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*AtestacionSelladoMotivoConvocatoria) UnmarshalJSON([]byte) error
 
@@ -6656,6 +7581,8 @@ func (*AtestacionSelladoMotivoConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*AtestacionSelladoMotivoConvocatoria) UnmarshalYAML(func(any) error) error
 
 type AumentadorFirmaLongeva interface {
 	AumentarFirma(context.Context, SolicitudAumentarFirma) (ResultadoAumentoFirma, error)
@@ -7008,6 +7935,75 @@ type ComprobacionFirma struct {
 
 func (c ComprobacionFirma) Validar() error
 
+type ComprometedorMotivoGobiernoConvocatoria interface {
+	ComprometerMotivo(
+		context.Context,
+		SolicitudComprometerMotivoGobiernoConvocatoria,
+	) (HMACMotivoGobiernoConvocatoria, error)
+}
+```
+
+ComprometedorMotivoGobiernoConvocatoria calcula de forma determinista
+HMAC-SHA256(DominioCriptografico || 0x00 || HuellaSolicitudSHA256), sin
+crear estado durable ni una capacidad consumible antes de consultar al PDP.
+
+```go
+type CompromisoMotivoGobiernoConvocatoria struct {
+	// Has unexported fields.
+}
+
+func NuevoCompromisoMotivoGobiernoConvocatoria(
+	solicitud SolicitudSemanticaMotivoGobiernoConvocatoria,
+	hmac HMACMotivoGobiernoConvocatoria,
+) (CompromisoMotivoGobiernoConvocatoria, error)
+
+func (c CompromisoMotivoGobiernoConvocatoria) DatosParaMaterial() (
+	DatosCompromisoMotivoGobiernoConvocatoria,
+	error,
+)
+
+func (c CompromisoMotivoGobiernoConvocatoria) Format(estado fmt.State, _ rune)
+
+func (c CompromisoMotivoGobiernoConvocatoria) GoString() string
+
+func (*CompromisoMotivoGobiernoConvocatoria) GobDecode([]byte) error
+
+func (CompromisoMotivoGobiernoConvocatoria) GobEncode() ([]byte, error)
+
+func (c CompromisoMotivoGobiernoConvocatoria) LogValue() slog.Value
+
+func (CompromisoMotivoGobiernoConvocatoria) MarshalBinary() ([]byte, error)
+
+func (CompromisoMotivoGobiernoConvocatoria) MarshalCBOR() ([]byte, error)
+
+func (CompromisoMotivoGobiernoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (CompromisoMotivoGobiernoConvocatoria) MarshalText() ([]byte, error)
+
+func (CompromisoMotivoGobiernoConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (CompromisoMotivoGobiernoConvocatoria) MarshalYAML() (any, error)
+
+func (CompromisoMotivoGobiernoConvocatoria) String() string
+
+func (*CompromisoMotivoGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*CompromisoMotivoGobiernoConvocatoria) UnmarshalCBOR([]byte) error
+
+func (*CompromisoMotivoGobiernoConvocatoria) UnmarshalJSON([]byte) error
+
+func (*CompromisoMotivoGobiernoConvocatoria) UnmarshalText([]byte) error
+
+func (*CompromisoMotivoGobiernoConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*CompromisoMotivoGobiernoConvocatoria) UnmarshalYAML(func(any) error) error
+
 type ConfirmacionActualizacionBorradorConvocatoria struct {
 	Version     dominiobolsa.VersionConvocatoriaGobernada
 	Esperada    ReferenciaEstadoVersionConvocatoria
@@ -7027,6 +8023,8 @@ func (c ConfirmacionActualizacionBorradorConvocatoria) LogValue() slog.Value
 
 func (ConfirmacionActualizacionBorradorConvocatoria) MarshalBinary() ([]byte, error)
 
+func (ConfirmacionActualizacionBorradorConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (ConfirmacionActualizacionBorradorConvocatoria) MarshalJSON() ([]byte, error)
 
 func (ConfirmacionActualizacionBorradorConvocatoria) MarshalText() ([]byte, error)
@@ -7036,9 +8034,13 @@ func (ConfirmacionActualizacionBorradorConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (ConfirmacionActualizacionBorradorConvocatoria) MarshalYAML() (any, error)
+
 func (ConfirmacionActualizacionBorradorConvocatoria) String() string
 
 func (*ConfirmacionActualizacionBorradorConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ConfirmacionActualizacionBorradorConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*ConfirmacionActualizacionBorradorConvocatoria) UnmarshalJSON([]byte) error
 
@@ -7048,6 +8050,8 @@ func (*ConfirmacionActualizacionBorradorConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*ConfirmacionActualizacionBorradorConvocatoria) UnmarshalYAML(func(any) error) error
 
 func (c ConfirmacionActualizacionBorradorConvocatoria) Validar() error
 
@@ -7075,6 +8079,8 @@ func (c ConfirmacionAltaBorradorConvocatoria) LogValue() slog.Value
 
 func (ConfirmacionAltaBorradorConvocatoria) MarshalBinary() ([]byte, error)
 
+func (ConfirmacionAltaBorradorConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (ConfirmacionAltaBorradorConvocatoria) MarshalJSON() ([]byte, error)
 
 func (ConfirmacionAltaBorradorConvocatoria) MarshalText() ([]byte, error)
@@ -7084,9 +8090,13 @@ func (ConfirmacionAltaBorradorConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (ConfirmacionAltaBorradorConvocatoria) MarshalYAML() (any, error)
+
 func (ConfirmacionAltaBorradorConvocatoria) String() string
 
 func (*ConfirmacionAltaBorradorConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ConfirmacionAltaBorradorConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*ConfirmacionAltaBorradorConvocatoria) UnmarshalJSON([]byte) error
 
@@ -7096,6 +8106,8 @@ func (*ConfirmacionAltaBorradorConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*ConfirmacionAltaBorradorConvocatoria) UnmarshalYAML(func(any) error) error
 
 func (c ConfirmacionAltaBorradorConvocatoria) Validar() error
 
@@ -7126,6 +8138,8 @@ func (c ConfirmacionPublicacionConvocatoria) LogValue() slog.Value
 
 func (ConfirmacionPublicacionConvocatoria) MarshalBinary() ([]byte, error)
 
+func (ConfirmacionPublicacionConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (ConfirmacionPublicacionConvocatoria) MarshalJSON() ([]byte, error)
 
 func (ConfirmacionPublicacionConvocatoria) MarshalText() ([]byte, error)
@@ -7135,9 +8149,13 @@ func (ConfirmacionPublicacionConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (ConfirmacionPublicacionConvocatoria) MarshalYAML() (any, error)
+
 func (ConfirmacionPublicacionConvocatoria) String() string
 
 func (*ConfirmacionPublicacionConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ConfirmacionPublicacionConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*ConfirmacionPublicacionConvocatoria) UnmarshalJSON([]byte) error
 
@@ -7147,6 +8165,8 @@ func (*ConfirmacionPublicacionConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*ConfirmacionPublicacionConvocatoria) UnmarshalYAML(func(any) error) error
 
 func (c ConfirmacionPublicacionConvocatoria) Validar() error
 
@@ -7174,6 +8194,8 @@ func (c ConfirmacionRetiradaConvocatoria) LogValue() slog.Value
 
 func (ConfirmacionRetiradaConvocatoria) MarshalBinary() ([]byte, error)
 
+func (ConfirmacionRetiradaConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (ConfirmacionRetiradaConvocatoria) MarshalJSON() ([]byte, error)
 
 func (ConfirmacionRetiradaConvocatoria) MarshalText() ([]byte, error)
@@ -7183,9 +8205,13 @@ func (ConfirmacionRetiradaConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (ConfirmacionRetiradaConvocatoria) MarshalYAML() (any, error)
+
 func (ConfirmacionRetiradaConvocatoria) String() string
 
 func (*ConfirmacionRetiradaConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ConfirmacionRetiradaConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*ConfirmacionRetiradaConvocatoria) UnmarshalJSON([]byte) error
 
@@ -7195,6 +8221,8 @@ func (*ConfirmacionRetiradaConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*ConfirmacionRetiradaConvocatoria) UnmarshalYAML(func(any) error) error
 
 func (c ConfirmacionRetiradaConvocatoria) Validar() error
 
@@ -7538,6 +8566,8 @@ func (d DatosAtestacionAprobacionConvocatoria) LogValue() slog.Value
 
 func (DatosAtestacionAprobacionConvocatoria) MarshalBinary() ([]byte, error)
 
+func (DatosAtestacionAprobacionConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (DatosAtestacionAprobacionConvocatoria) MarshalJSON() ([]byte, error)
 
 func (DatosAtestacionAprobacionConvocatoria) MarshalText() ([]byte, error)
@@ -7547,9 +8577,13 @@ func (DatosAtestacionAprobacionConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (DatosAtestacionAprobacionConvocatoria) MarshalYAML() (any, error)
+
 func (DatosAtestacionAprobacionConvocatoria) String() string
 
 func (*DatosAtestacionAprobacionConvocatoria) UnmarshalBinary([]byte) error
+
+func (*DatosAtestacionAprobacionConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*DatosAtestacionAprobacionConvocatoria) UnmarshalJSON([]byte) error
 
@@ -7559,6 +8593,8 @@ func (*DatosAtestacionAprobacionConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*DatosAtestacionAprobacionConvocatoria) UnmarshalYAML(func(any) error) error
 
 type DatosAtestacionDependenciasConvocatoria struct {
 	Evidencia                 dominiobolsa.EvidenciaDependenciasConvocatoria
@@ -7585,6 +8621,8 @@ func (d DatosAtestacionDependenciasConvocatoria) LogValue() slog.Value
 
 func (DatosAtestacionDependenciasConvocatoria) MarshalBinary() ([]byte, error)
 
+func (DatosAtestacionDependenciasConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (DatosAtestacionDependenciasConvocatoria) MarshalJSON() ([]byte, error)
 
 func (DatosAtestacionDependenciasConvocatoria) MarshalText() ([]byte, error)
@@ -7594,9 +8632,13 @@ func (DatosAtestacionDependenciasConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (DatosAtestacionDependenciasConvocatoria) MarshalYAML() (any, error)
+
 func (DatosAtestacionDependenciasConvocatoria) String() string
 
 func (*DatosAtestacionDependenciasConvocatoria) UnmarshalBinary([]byte) error
+
+func (*DatosAtestacionDependenciasConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*DatosAtestacionDependenciasConvocatoria) UnmarshalJSON([]byte) error
 
@@ -7607,19 +8649,26 @@ func (*DatosAtestacionDependenciasConvocatoria) UnmarshalXML(
 	xml.StartElement,
 ) error
 
+func (*DatosAtestacionDependenciasConvocatoria) UnmarshalYAML(func(any) error) error
+
 type DatosAtestacionSelladoMotivoConvocatoria struct {
-	HMAC                   HMACMotivoGobiernoConvocatoria
-	Accion                 string
-	ConvocatoriaRef        string
-	PrincipalRef           string
-	CorrelacionRef         string
-	HuellaSolicitudSHA256  string
-	SelladorRef            string
-	AtestacionRef          string
-	HuellaAtestacionSHA256 string
-	TokenConsumoRef        string
-	AtestacionEmitidaEn    time.Time
-	AtestacionValidaHasta  time.Time
+	HMAC                               ProyeccionHMACMotivoGobiernoConvocatoriaDurable
+	Accion                             string
+	ConvocatoriaRef                    string
+	PrincipalRef                       string
+	CorrelacionRef                     string
+	HuellaIntencionSHA256              string
+	DecisionRef                        string
+	HuellaDecisionSHA256               string
+	IndiceIdempotenciaHMACSHA256       string
+	AtestacionIdempotenciaRef          string
+	HuellaAtestacionIdempotenciaSHA256 string
+	MaterializadorRef                  string
+	AtestacionRef                      string
+	HuellaAtestacionSHA256             string
+	TokenConsumoRef                    string
+	AtestacionEmitidaEn                time.Time
+	AtestacionValidaHasta              time.Time
 	// Has unexported fields.
 }
 
@@ -7635,6 +8684,8 @@ func (b DatosAtestacionSelladoMotivoConvocatoria) LogValue() slog.Value
 
 func (DatosAtestacionSelladoMotivoConvocatoria) MarshalBinary() ([]byte, error)
 
+func (DatosAtestacionSelladoMotivoConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (DatosAtestacionSelladoMotivoConvocatoria) MarshalJSON() ([]byte, error)
 
 func (DatosAtestacionSelladoMotivoConvocatoria) MarshalText() ([]byte, error)
@@ -7644,9 +8695,13 @@ func (DatosAtestacionSelladoMotivoConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (DatosAtestacionSelladoMotivoConvocatoria) MarshalYAML() (any, error)
+
 func (DatosAtestacionSelladoMotivoConvocatoria) String() string
 
 func (*DatosAtestacionSelladoMotivoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*DatosAtestacionSelladoMotivoConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*DatosAtestacionSelladoMotivoConvocatoria) UnmarshalJSON([]byte) error
 
@@ -7656,6 +8711,8 @@ func (*DatosAtestacionSelladoMotivoConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*DatosAtestacionSelladoMotivoConvocatoria) UnmarshalYAML(func(any) error) error
 
 type DatosAutoritativosLlamamiento struct {
 	Bolsa     dominiobolsa.BolsaConstituida
@@ -7674,6 +8731,64 @@ esa garantia exige una atestacion criptografica en el adaptador duradero.
 ```go
 func (d DatosAutoritativosLlamamiento) Clonar() (DatosAutoritativosLlamamiento, error)
 
+type DatosCompromisoMotivoGobiernoConvocatoria struct {
+	HMAC                  HMACMotivoGobiernoConvocatoria
+	Accion                string
+	ConvocatoriaRef       string
+	PrincipalRef          string
+	CorrelacionRef        string
+	HuellaSolicitudSHA256 string
+	// Has unexported fields.
+}
+```
+
+DatosCompromisoMotivoGobiernoConvocatoria no contiene identificadores de
+atestacion ni tokens consumibles. Es el resultado determinista y no durable
+necesario para formar la intencion que evalua el PDP.
+
+```go
+func (b DatosCompromisoMotivoGobiernoConvocatoria) Format(estado fmt.State, _ rune)
+
+func (b DatosCompromisoMotivoGobiernoConvocatoria) GoString() string
+
+func (*DatosCompromisoMotivoGobiernoConvocatoria) GobDecode([]byte) error
+
+func (DatosCompromisoMotivoGobiernoConvocatoria) GobEncode() ([]byte, error)
+
+func (b DatosCompromisoMotivoGobiernoConvocatoria) LogValue() slog.Value
+
+func (DatosCompromisoMotivoGobiernoConvocatoria) MarshalBinary() ([]byte, error)
+
+func (DatosCompromisoMotivoGobiernoConvocatoria) MarshalCBOR() ([]byte, error)
+
+func (DatosCompromisoMotivoGobiernoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (DatosCompromisoMotivoGobiernoConvocatoria) MarshalText() ([]byte, error)
+
+func (DatosCompromisoMotivoGobiernoConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (DatosCompromisoMotivoGobiernoConvocatoria) MarshalYAML() (any, error)
+
+func (DatosCompromisoMotivoGobiernoConvocatoria) String() string
+
+func (*DatosCompromisoMotivoGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*DatosCompromisoMotivoGobiernoConvocatoria) UnmarshalCBOR([]byte) error
+
+func (*DatosCompromisoMotivoGobiernoConvocatoria) UnmarshalJSON([]byte) error
+
+func (*DatosCompromisoMotivoGobiernoConvocatoria) UnmarshalText([]byte) error
+
+func (*DatosCompromisoMotivoGobiernoConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*DatosCompromisoMotivoGobiernoConvocatoria) UnmarshalYAML(func(any) error) error
+
 type DatosPersistenciaEstadoProtegidoFlujoFirmaBaremacion struct {
 	Esquema      string
 	Algoritmo    string
@@ -7682,6 +8797,66 @@ type DatosPersistenciaEstadoProtegidoFlujoFirmaBaremacion struct {
 	Cifrado      []byte
 	HuellaSHA256 string
 }
+
+type DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria struct {
+	Compromiso                         CompromisoMotivoGobiernoConvocatoria
+	HuellaIntencionSHA256              string
+	DecisionRef                        string
+	HuellaDecisionSHA256               string
+	IndiceIdempotenciaHMACSHA256       string
+	AtestacionIdempotenciaRef          string
+	HuellaAtestacionIdempotenciaSHA256 string
+	IdempotenciaEmitidaEn              time.Time
+	IdempotenciaValidaHasta            time.Time
+	PrincipalRef                       string
+	CorrelacionRef                     string
+	AutorizacionVerificadaEn           time.Time
+	DecisionValidaHasta                time.Time
+	SolicitadaEn                       time.Time
+	// Has unexported fields.
+}
+
+func (b DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) Format(estado fmt.State, _ rune)
+
+func (b DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) GoString() string
+
+func (*DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) GobDecode([]byte) error
+
+func (DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) GobEncode() ([]byte, error)
+
+func (b DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) LogValue() slog.Value
+
+func (DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) MarshalBinary() ([]byte, error)
+
+func (DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) MarshalCBOR() ([]byte, error)
+
+func (DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) MarshalText() ([]byte, error)
+
+func (DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) MarshalYAML() (any, error)
+
+func (DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) String() string
+
+func (*DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) UnmarshalCBOR([]byte) error
+
+func (*DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) UnmarshalJSON([]byte) error
+
+func (*DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) UnmarshalText([]byte) error
+
+func (*DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria) UnmarshalYAML(func(any) error) error
 
 type DatosTestimonioIdempotenciaConvocatoria struct {
 	Version                   uint16
@@ -7710,6 +8885,8 @@ func (b DatosTestimonioIdempotenciaConvocatoria) LogValue() slog.Value
 
 func (DatosTestimonioIdempotenciaConvocatoria) MarshalBinary() ([]byte, error)
 
+func (DatosTestimonioIdempotenciaConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (DatosTestimonioIdempotenciaConvocatoria) MarshalJSON() ([]byte, error)
 
 func (DatosTestimonioIdempotenciaConvocatoria) MarshalText() ([]byte, error)
@@ -7719,9 +8896,13 @@ func (DatosTestimonioIdempotenciaConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (DatosTestimonioIdempotenciaConvocatoria) MarshalYAML() (any, error)
+
 func (DatosTestimonioIdempotenciaConvocatoria) String() string
 
 func (*DatosTestimonioIdempotenciaConvocatoria) UnmarshalBinary([]byte) error
+
+func (*DatosTestimonioIdempotenciaConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*DatosTestimonioIdempotenciaConvocatoria) UnmarshalJSON([]byte) error
 
@@ -7731,6 +8912,8 @@ func (*DatosTestimonioIdempotenciaConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*DatosTestimonioIdempotenciaConvocatoria) UnmarshalYAML(func(any) error) error
 
 type DetalleConvocatoria struct {
 	Convocatoria dominiobolsa.Convocatoria
@@ -8368,7 +9551,7 @@ type FuenteExactaCalculoReglasBaremo struct {
 	Entrada             calculo.EntradaExperiencia
 	Prueba              PruebaFuenteExactaCalculoReglasBaremo
 	Auditoria           reglas.ReferenciaVersionada
-	ConsumoAutorizacion reglas.ReferenciaVersionada
+	ConsumoAutorizacion oficial.ReciboConsumoAutorizacionFuenteV2
 	ConsumoPrueba       reglas.ReferenciaVersionada
 	ObtenidaEn          time.Time
 }
@@ -8385,11 +9568,10 @@ FuenteReglasBaremoParaCalculo obtiene y verifica la procedencia de una
 instantanea exacta. El adaptador devuelve el consumo durable de la prueba;
 una entrada restaurada localmente no satisface este contrato.
 
-NO-GO PRODUCCION: el contrato actual no prueba todavia que
-ConsumoAutorizacion ligue de forma durable decision_ref, huella de
-decision V2, recurso y correlacion exactos. Ningun adaptador satisface
-la autorizacion de produccion hasta incorporar y verificar esa atestacion
-tipada.
+NO-GO PRODUCCION: el contrato exige un recibo canonico que liga la decision
+V2, el selector, la fuente, la prueba y la auditoria exactas. Aun no existe
+un adaptador PostgreSQL productivo que lo cree atomicamente con el consumo;
+una construccion en memoria o posterior a la lectura no satisface el puerto.
 
 ```go
 type GeneradorReferenciasFlujoFirmaBaremacion interface {
@@ -8521,13 +9703,15 @@ type HMACMotivoGobiernoConvocatoria struct {
 	DominioCriptografico string
 	GeneracionClave      uint32
 	ClaveHMACRef         string
+	HuellaEntradaSHA256  string
 	ValorHMACSHA256      string
 	// Has unexported fields.
 }
 ```
 
-HMACMotivoGobiernoConvocatoria identifica dominio y generacion de clave.
-No contiene la clave ni permite calcular otro HMAC.
+HMACMotivoGobiernoConvocatoria es efimero y no serializable: identifica
+dominio, entrada y generacion sin contener la clave. Su autenticidad se
+verifica otra vez en el HSM al materializar.
 
 ```go
 func (h HMACMotivoGobiernoConvocatoria) Format(estado fmt.State, _ rune)
@@ -8542,6 +9726,8 @@ func (h HMACMotivoGobiernoConvocatoria) LogValue() slog.Value
 
 func (HMACMotivoGobiernoConvocatoria) MarshalBinary() ([]byte, error)
 
+func (HMACMotivoGobiernoConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (HMACMotivoGobiernoConvocatoria) MarshalJSON() ([]byte, error)
 
 func (HMACMotivoGobiernoConvocatoria) MarshalText() ([]byte, error)
@@ -8551,9 +9737,22 @@ func (HMACMotivoGobiernoConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (HMACMotivoGobiernoConvocatoria) MarshalYAML() (any, error)
+
+func (h HMACMotivoGobiernoConvocatoria) ProyeccionDurable() (
+	ProyeccionHMACMotivoGobiernoConvocatoriaDurable,
+	error,
+)
+```
+
+ProyeccionDurable elimina la huella de entrada antes de cruzar al almacen.
+
+```go
 func (HMACMotivoGobiernoConvocatoria) String() string
 
 func (*HMACMotivoGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*HMACMotivoGobiernoConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*HMACMotivoGobiernoConvocatoria) UnmarshalJSON([]byte) error
 
@@ -8563,6 +9762,8 @@ func (*HMACMotivoGobiernoConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*HMACMotivoGobiernoConvocatoria) UnmarshalYAML(func(any) error) error
 
 func (h HMACMotivoGobiernoConvocatoria) Validar() error
 
@@ -9025,34 +10226,34 @@ func (m MaterialCanonicoEfimeroBaremacion) VisitarBytes(
 ) (errRetorno error)
 
 type MaterialIntencionGobiernoConvocatoria struct {
-	Esquema                     string                               `json:"esquema"`
-	Accion                      string                               `json:"accion"`
-	EstadoPrincipalEsperado     *ReferenciaEstadoVersionConvocatoria `json:"estado_principal_esperado,omitempty"`
-	EstadoPrincipalNuevo        ReferenciaEstadoVersionConvocatoria  `json:"estado_principal_nuevo"`
-	EstadoRelacionadoEsperado   *ReferenciaEstadoVersionConvocatoria `json:"estado_relacionado_esperado,omitempty"`
-	EstadoRelacionadoNuevo      *ReferenciaEstadoVersionConvocatoria `json:"estado_relacionado_nuevo,omitempty"`
-	DominioCriptograficoMotivo  string                               `json:"dominio_criptografico_motivo"`
-	GeneracionClaveMotivo       uint32                               `json:"generacion_clave_motivo"`
-	HuellaSolicitudMotivoSHA256 string                               `json:"huella_solicitud_motivo_sha256"`
-	HuellaMotivoHMACSHA256      string                               `json:"huella_motivo_hmac_sha256"`
+	Esquema                    string                               `json:"esquema"`
+	Accion                     string                               `json:"accion"`
+	EstadoPrincipalEsperado    *ReferenciaEstadoVersionConvocatoria `json:"estado_principal_esperado,omitempty"`
+	EstadoPrincipalNuevo       ReferenciaEstadoVersionConvocatoria  `json:"estado_principal_nuevo"`
+	EstadoRelacionadoEsperado  *ReferenciaEstadoVersionConvocatoria `json:"estado_relacionado_esperado,omitempty"`
+	EstadoRelacionadoNuevo     *ReferenciaEstadoVersionConvocatoria `json:"estado_relacionado_nuevo,omitempty"`
+	DominioCriptograficoMotivo string                               `json:"dominio_criptografico_motivo"`
+	GeneracionClaveMotivo      uint32                               `json:"generacion_clave_motivo"`
+	HuellaMotivoHMACSHA256     string                               `json:"huella_motivo_hmac_sha256"`
 }
 ```
 
-MaterialIntencionGobiernoConvocatoria es la preimagen semantica estable de
-una mutacion. Solo contiene referencias y huellas; nunca motivos en claro.
+MaterialIntencionGobiernoConvocatoria es la preimagen V2 estable de una
+mutacion. Autoriza exclusivamente el compromiso HMAC con clave; nunca el
+motivo, su huella SHA-256 cruda ni una representacion V1 heredada.
 
 ```go
 func MaterialActualizacionBorradorConvocatoria(
 	esperada ReferenciaEstadoVersionConvocatoria,
 	version dominiobolsa.VersionConvocatoriaGobernada,
-	motivo AtestacionSelladoMotivoConvocatoria,
+	motivo CompromisoMotivoGobiernoConvocatoria,
 ) (MaterialIntencionGobiernoConvocatoria, error)
 
 func MaterialAltaBorradorConvocatoria(
 	version dominiobolsa.VersionConvocatoriaGobernada,
 	predecesora *ReferenciaEstadoVersionConvocatoria,
 	versionPredecesora *dominiobolsa.VersionConvocatoriaGobernada,
-	motivo AtestacionSelladoMotivoConvocatoria,
+	motivo CompromisoMotivoGobiernoConvocatoria,
 ) (MaterialIntencionGobiernoConvocatoria, error)
 
 func MaterialPublicacionConvocatoria(
@@ -9060,7 +10261,7 @@ func MaterialPublicacionConvocatoria(
 	version dominiobolsa.VersionConvocatoriaGobernada,
 	predecesoraEsperada *ReferenciaEstadoVersionConvocatoria,
 	predecesoraResultado *dominiobolsa.VersionConvocatoriaGobernada,
-	motivo AtestacionSelladoMotivoConvocatoria,
+	motivo CompromisoMotivoGobiernoConvocatoria,
 ) (MaterialIntencionGobiernoConvocatoria, error)
 ```
 
@@ -9072,13 +10273,33 @@ devuelve sin alteracion. En ambos casos el repositorio bloquea ambas filas.
 func MaterialRetiradaConvocatoria(
 	esperada ReferenciaEstadoVersionConvocatoria,
 	version dominiobolsa.VersionConvocatoriaGobernada,
-	motivo AtestacionSelladoMotivoConvocatoria,
+	motivo CompromisoMotivoGobiernoConvocatoria,
 ) (MaterialIntencionGobiernoConvocatoria, error)
 
 func (m MaterialIntencionGobiernoConvocatoria) HuellaSHA256() (string, error)
 
 func (m MaterialIntencionGobiernoConvocatoria) Validar() error
 
+type MaterializadorSelladoMotivoGobiernoConvocatoria interface {
+	VerificarYMaterializarSelladoMotivo(
+		context.Context,
+		SolicitudMaterializarSelladoMotivoGobiernoConvocatoria,
+	) (AtestacionSelladoMotivoConvocatoria, error)
+}
+```
+
+MaterializadorSelladoMotivoGobiernoConvocatoria crea la atestacion durable
+y consumible exclusivamente despues de recibir la decision PDP ligada. Debe
+pedir al HSM/KMS que verifique de nuevo el HMAC sobre HuellaEntradaSHA256
+con la generacion y ClaveHMACRef exactas, incluida la vigencia/no revocacion
+de esa clave. Si la clave ha rotado o ha sido revocada, falla con el error
+generico de sellado: nunca recalcula con la clave actual porque cambiaria
+el material ya autorizado. Tambien debe ser idempotente y reconciliable
+por intencion+indice HMAC+atestacion de idempotencia: la misma solicitud
+devuelve la misma atestacion y cualquier colision con otro contenido falla
+cerrada.
+
+```go
 type MetadatosFuenteCategorias struct {
 	Revision      string
 	ActualizadaEn time.Time
@@ -9205,11 +10426,12 @@ func (p PoliticaFirmaBaremacion) ValidarPara(s SolicitudObtenerPoliticaFirma) er
 func (p PoliticaFirmaBaremacion) VigenteEn(instante time.Time) bool
 
 type PreparacionTransaccionGobiernoConvocatoria struct {
-	Material      MaterialIntencionGobiernoConvocatoria
-	Idempotencia  TestimonioIdempotenciaConvocatoria
-	Autorizacion  puertosvec.EvidenciaUsoDecisionAutorizacion
-	SelladoMotivo AtestacionSelladoMotivoConvocatoria
-	SolicitadaEn  time.Time
+	Material         MaterialIntencionGobiernoConvocatoria
+	Idempotencia     TestimonioIdempotenciaConvocatoria
+	Autorizacion     puertosvec.EvidenciaUsoDecisionAutorizacion
+	CompromisoMotivo CompromisoMotivoGobiernoConvocatoria
+	SelladoMotivo    AtestacionSelladoMotivoConvocatoria
+	SolicitadaEn     time.Time
 	// Has unexported fields.
 }
 
@@ -9225,6 +10447,8 @@ func (b PreparacionTransaccionGobiernoConvocatoria) LogValue() slog.Value
 
 func (PreparacionTransaccionGobiernoConvocatoria) MarshalBinary() ([]byte, error)
 
+func (PreparacionTransaccionGobiernoConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (PreparacionTransaccionGobiernoConvocatoria) MarshalJSON() ([]byte, error)
 
 func (PreparacionTransaccionGobiernoConvocatoria) MarshalText() ([]byte, error)
@@ -9234,9 +10458,13 @@ func (PreparacionTransaccionGobiernoConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (PreparacionTransaccionGobiernoConvocatoria) MarshalYAML() (any, error)
+
 func (PreparacionTransaccionGobiernoConvocatoria) String() string
 
 func (*PreparacionTransaccionGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*PreparacionTransaccionGobiernoConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*PreparacionTransaccionGobiernoConvocatoria) UnmarshalJSON([]byte) error
 
@@ -9247,7 +10475,11 @@ func (*PreparacionTransaccionGobiernoConvocatoria) UnmarshalXML(
 	xml.StartElement,
 ) error
 
-func (p PreparacionTransaccionGobiernoConvocatoria) Validar() error
+func (*PreparacionTransaccionGobiernoConvocatoria) UnmarshalYAML(func(any) error) error
+
+func (p PreparacionTransaccionGobiernoConvocatoria) ValidarPara(
+	versionConfirmada dominiobolsa.VersionConvocatoriaGobernada,
+) error
 
 type ProductorTestimonioAtomicoIdempotenciaBaremacion interface {
 	ProducirTestimonioAtomicoIdempotenciaBaremacion(
@@ -9311,6 +10543,64 @@ ProyeccionAutorizacionBaremacion es una copia solo de lectura para construir
 trazabilidad. Modificarla nunca modifica ni concede la capacidad original.
 
 ```go
+type ProyeccionHMACMotivoGobiernoConvocatoriaDurable struct {
+	DominioCriptografico string
+	GeneracionClave      uint32
+	ClaveHMACRef         string
+	ValorHMACSHA256      string
+	// Has unexported fields.
+}
+```
+
+ProyeccionHMACMotivoGobiernoConvocatoriaDurable conserva unicamente el
+compromiso con clave que puede persistirse en la atestacion. Deliberadamente
+no contiene HuellaEntradaSHA256 ni permite recuperar la huella semantica.
+
+```go
+func (p ProyeccionHMACMotivoGobiernoConvocatoriaDurable) Format(estado fmt.State, _ rune)
+
+func (p ProyeccionHMACMotivoGobiernoConvocatoriaDurable) GoString() string
+
+func (*ProyeccionHMACMotivoGobiernoConvocatoriaDurable) GobDecode([]byte) error
+
+func (ProyeccionHMACMotivoGobiernoConvocatoriaDurable) GobEncode() ([]byte, error)
+
+func (p ProyeccionHMACMotivoGobiernoConvocatoriaDurable) LogValue() slog.Value
+
+func (ProyeccionHMACMotivoGobiernoConvocatoriaDurable) MarshalBinary() ([]byte, error)
+
+func (ProyeccionHMACMotivoGobiernoConvocatoriaDurable) MarshalCBOR() ([]byte, error)
+
+func (ProyeccionHMACMotivoGobiernoConvocatoriaDurable) MarshalJSON() ([]byte, error)
+
+func (ProyeccionHMACMotivoGobiernoConvocatoriaDurable) MarshalText() ([]byte, error)
+
+func (ProyeccionHMACMotivoGobiernoConvocatoriaDurable) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (ProyeccionHMACMotivoGobiernoConvocatoriaDurable) MarshalYAML() (any, error)
+
+func (ProyeccionHMACMotivoGobiernoConvocatoriaDurable) String() string
+
+func (*ProyeccionHMACMotivoGobiernoConvocatoriaDurable) UnmarshalBinary([]byte) error
+
+func (*ProyeccionHMACMotivoGobiernoConvocatoriaDurable) UnmarshalCBOR([]byte) error
+
+func (*ProyeccionHMACMotivoGobiernoConvocatoriaDurable) UnmarshalJSON([]byte) error
+
+func (*ProyeccionHMACMotivoGobiernoConvocatoriaDurable) UnmarshalText([]byte) error
+
+func (*ProyeccionHMACMotivoGobiernoConvocatoriaDurable) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*ProyeccionHMACMotivoGobiernoConvocatoriaDurable) UnmarshalYAML(func(any) error) error
+
+func (p ProyeccionHMACMotivoGobiernoConvocatoriaDurable) Validar() error
+
 type ProyeccionLanzamientoFirmaBaremacion struct {
 	FlujoRef              string
 	SesionFirmaRef        string
@@ -9494,6 +10784,8 @@ func (b ReciboConsumoVerificacionConvocatoria) LogValue() slog.Value
 
 func (ReciboConsumoVerificacionConvocatoria) MarshalBinary() ([]byte, error)
 
+func (ReciboConsumoVerificacionConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (ReciboConsumoVerificacionConvocatoria) MarshalJSON() ([]byte, error)
 
 func (ReciboConsumoVerificacionConvocatoria) MarshalText() ([]byte, error)
@@ -9503,9 +10795,13 @@ func (ReciboConsumoVerificacionConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (ReciboConsumoVerificacionConvocatoria) MarshalYAML() (any, error)
+
 func (ReciboConsumoVerificacionConvocatoria) String() string
 
 func (*ReciboConsumoVerificacionConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ReciboConsumoVerificacionConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*ReciboConsumoVerificacionConvocatoria) UnmarshalJSON([]byte) error
 
@@ -9515,6 +10811,8 @@ func (*ReciboConsumoVerificacionConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*ReciboConsumoVerificacionConvocatoria) UnmarshalYAML(func(any) error) error
 
 type ReciboGobiernoConvocatoria struct {
 	TransaccionRef                     string
@@ -9561,6 +10859,8 @@ func (r ReciboGobiernoConvocatoria) LogValue() slog.Value
 
 func (ReciboGobiernoConvocatoria) MarshalBinary() ([]byte, error)
 
+func (ReciboGobiernoConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (ReciboGobiernoConvocatoria) MarshalJSON() ([]byte, error)
 
 func (ReciboGobiernoConvocatoria) MarshalText() ([]byte, error)
@@ -9570,9 +10870,13 @@ func (ReciboGobiernoConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (ReciboGobiernoConvocatoria) MarshalYAML() (any, error)
+
 func (ReciboGobiernoConvocatoria) String() string
 
 func (*ReciboGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ReciboGobiernoConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*ReciboGobiernoConvocatoria) UnmarshalJSON([]byte) error
 
@@ -9583,8 +10887,11 @@ func (*ReciboGobiernoConvocatoria) UnmarshalXML(
 	xml.StartElement,
 ) error
 
+func (*ReciboGobiernoConvocatoria) UnmarshalYAML(func(any) error) error
+
 func (r ReciboGobiernoConvocatoria) ValidarPara(
 	preparacion PreparacionTransaccionGobiernoConvocatoria,
+	versionConfirmada dominiobolsa.VersionConvocatoriaGobernada,
 ) error
 
 type RecuperadorBinarioFirmado interface {
@@ -9603,7 +10910,9 @@ type ReferenciaEstadoVersionConvocatoria struct {
 ```
 
 ReferenciaEstadoVersionConvocatoria fija referencia, revision y huella del
-agregado completo. No es una referencia a contenido ni a «la ultima» fila.
+agregado completo. Las huellas de estado son identificadores pseudonimizados
+internos, no datos anonimos: mantienen la clasificacion y proteccion del
+expediente. No es una referencia a contenido ni a «la ultima» fila.
 
 ```go
 func EstadoVersionConvocatoria(
@@ -9918,6 +11227,8 @@ func (b ResultadoConsultaVersionConvocatoria) LogValue() slog.Value
 
 func (ResultadoConsultaVersionConvocatoria) MarshalBinary() ([]byte, error)
 
+func (ResultadoConsultaVersionConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (ResultadoConsultaVersionConvocatoria) MarshalJSON() ([]byte, error)
 
 func (ResultadoConsultaVersionConvocatoria) MarshalText() ([]byte, error)
@@ -9927,9 +11238,13 @@ func (ResultadoConsultaVersionConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (ResultadoConsultaVersionConvocatoria) MarshalYAML() (any, error)
+
 func (ResultadoConsultaVersionConvocatoria) String() string
 
 func (*ResultadoConsultaVersionConvocatoria) UnmarshalBinary([]byte) error
+
+func (*ResultadoConsultaVersionConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*ResultadoConsultaVersionConvocatoria) UnmarshalJSON([]byte) error
 
@@ -9939,6 +11254,8 @@ func (*ResultadoConsultaVersionConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*ResultadoConsultaVersionConvocatoria) UnmarshalYAML(func(any) error) error
 
 func (r ResultadoConsultaVersionConvocatoria) ValidarPara(
 	s SolicitudConsultaVersionConvocatoriaAutorizada,
@@ -10102,18 +11419,6 @@ func (s SelectorVersionConvocatoriaExacta) Referencia() string
 
 func (s SelectorVersionConvocatoriaExacta) Validar() error
 
-type SelladorMotivoGobiernoConvocatoria interface {
-	SellarMotivo(
-		context.Context,
-		SolicitudSellarMotivoGobiernoConvocatoria,
-	) (AtestacionSelladoMotivoConvocatoria, error)
-}
-```
-
-SelladorMotivoGobiernoConvocatoria debe usar un HSM/KMS o servicio de claves
-versionadas. El contrato no admite una clave recibida por parametro.
-
-```go
 type SelladorSellosBaremacion interface {
 	SellarSelloBaremacion(context.Context, SolicitudSellarSelloBaremacion) (string, error)
 }
@@ -10298,6 +11603,8 @@ func (b SolicitudComprobarAprobacionConvocatoria) LogValue() slog.Value
 
 func (SolicitudComprobarAprobacionConvocatoria) MarshalBinary() ([]byte, error)
 
+func (SolicitudComprobarAprobacionConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (SolicitudComprobarAprobacionConvocatoria) MarshalJSON() ([]byte, error)
 
 func (SolicitudComprobarAprobacionConvocatoria) MarshalText() ([]byte, error)
@@ -10307,9 +11614,13 @@ func (SolicitudComprobarAprobacionConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (SolicitudComprobarAprobacionConvocatoria) MarshalYAML() (any, error)
+
 func (SolicitudComprobarAprobacionConvocatoria) String() string
 
 func (*SolicitudComprobarAprobacionConvocatoria) UnmarshalBinary([]byte) error
+
+func (*SolicitudComprobarAprobacionConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*SolicitudComprobarAprobacionConvocatoria) UnmarshalJSON([]byte) error
 
@@ -10320,7 +11631,69 @@ func (*SolicitudComprobarAprobacionConvocatoria) UnmarshalXML(
 	xml.StartElement,
 ) error
 
+func (*SolicitudComprobarAprobacionConvocatoria) UnmarshalYAML(func(any) error) error
+
 func (s SolicitudComprobarAprobacionConvocatoria) Validar() error
+
+type SolicitudComprometerMotivoGobiernoConvocatoria struct {
+	DominioCriptografico  string
+	HuellaSolicitudSHA256 string
+	// Has unexported fields.
+}
+```
+
+SolicitudComprometerMotivoGobiernoConvocatoria es la peticion minimizada
+al HSM/KMS. El servicio de claves recibe exclusivamente dominio y huella;
+no conoce accion, referencia, actor, correlacion ni motivo en claro.
+
+```go
+func NuevaSolicitudComprometerMotivoGobiernoConvocatoria(
+	semantica SolicitudSemanticaMotivoGobiernoConvocatoria,
+) (SolicitudComprometerMotivoGobiernoConvocatoria, error)
+
+func (s SolicitudComprometerMotivoGobiernoConvocatoria) Format(estado fmt.State, _ rune)
+
+func (s SolicitudComprometerMotivoGobiernoConvocatoria) GoString() string
+
+func (*SolicitudComprometerMotivoGobiernoConvocatoria) GobDecode([]byte) error
+
+func (SolicitudComprometerMotivoGobiernoConvocatoria) GobEncode() ([]byte, error)
+
+func (s SolicitudComprometerMotivoGobiernoConvocatoria) LogValue() slog.Value
+
+func (SolicitudComprometerMotivoGobiernoConvocatoria) MarshalBinary() ([]byte, error)
+
+func (SolicitudComprometerMotivoGobiernoConvocatoria) MarshalCBOR() ([]byte, error)
+
+func (SolicitudComprometerMotivoGobiernoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (SolicitudComprometerMotivoGobiernoConvocatoria) MarshalText() ([]byte, error)
+
+func (SolicitudComprometerMotivoGobiernoConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (SolicitudComprometerMotivoGobiernoConvocatoria) MarshalYAML() (any, error)
+
+func (SolicitudComprometerMotivoGobiernoConvocatoria) String() string
+
+func (*SolicitudComprometerMotivoGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*SolicitudComprometerMotivoGobiernoConvocatoria) UnmarshalCBOR([]byte) error
+
+func (*SolicitudComprometerMotivoGobiernoConvocatoria) UnmarshalJSON([]byte) error
+
+func (*SolicitudComprometerMotivoGobiernoConvocatoria) UnmarshalText([]byte) error
+
+func (*SolicitudComprometerMotivoGobiernoConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*SolicitudComprometerMotivoGobiernoConvocatoria) UnmarshalYAML(func(any) error) error
+
+func (s SolicitudComprometerMotivoGobiernoConvocatoria) Validar() error
 
 type SolicitudConfirmarCambioBaremacion struct {
 	Contexto                     ContextoOperacionBaremacion
@@ -10406,6 +11779,8 @@ func (b SolicitudConsultaVersionConvocatoriaAutorizada) LogValue() slog.Value
 
 func (SolicitudConsultaVersionConvocatoriaAutorizada) MarshalBinary() ([]byte, error)
 
+func (SolicitudConsultaVersionConvocatoriaAutorizada) MarshalCBOR() ([]byte, error)
+
 func (SolicitudConsultaVersionConvocatoriaAutorizada) MarshalJSON() ([]byte, error)
 
 func (SolicitudConsultaVersionConvocatoriaAutorizada) MarshalText() ([]byte, error)
@@ -10415,9 +11790,13 @@ func (SolicitudConsultaVersionConvocatoriaAutorizada) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (SolicitudConsultaVersionConvocatoriaAutorizada) MarshalYAML() (any, error)
+
 func (SolicitudConsultaVersionConvocatoriaAutorizada) String() string
 
 func (*SolicitudConsultaVersionConvocatoriaAutorizada) UnmarshalBinary([]byte) error
+
+func (*SolicitudConsultaVersionConvocatoriaAutorizada) UnmarshalCBOR([]byte) error
 
 func (*SolicitudConsultaVersionConvocatoriaAutorizada) UnmarshalJSON([]byte) error
 
@@ -10427,6 +11806,8 @@ func (*SolicitudConsultaVersionConvocatoriaAutorizada) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*SolicitudConsultaVersionConvocatoriaAutorizada) UnmarshalYAML(func(any) error) error
 
 func (s SolicitudConsultaVersionConvocatoriaAutorizada) Validar() error
 
@@ -10562,6 +11943,83 @@ func (s SolicitudGuardarFlujoFirmaBaremacion) Validar() error
 type SolicitudLiberarArrendamientoFlujoFirmaBaremacion struct {
 	Arrendamiento ArrendamientoFlujoFirmaBaremacion
 }
+
+type SolicitudMaterializarSelladoMotivoGobiernoConvocatoria struct {
+	// Has unexported fields.
+}
+```
+
+SolicitudMaterializarSelladoMotivoGobiernoConvocatoria nace solo despues
+de una concesion PDP exacta. No porta el motivo en claro ni un token
+consumible.
+
+```go
+func NuevaSolicitudMaterializarSelladoMotivoGobiernoConvocatoria(
+	compromiso CompromisoMotivoGobiernoConvocatoria,
+	material MaterialIntencionGobiernoConvocatoria,
+	autorizacion puertosvec.EvidenciaUsoDecisionAutorizacion,
+	testimonio TestimonioIdempotenciaConvocatoria,
+	version dominiobolsa.VersionConvocatoriaGobernada,
+	solicitadaEn time.Time,
+) (SolicitudMaterializarSelladoMotivoGobiernoConvocatoria, error)
+
+func (s SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) DatosParaMaterializacion() (
+	DatosSolicitudMaterializarSelladoMotivoGobiernoConvocatoria,
+	error,
+)
+
+func (s SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) Format(estado fmt.State, _ rune)
+
+func (s SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) GoString() string
+
+func (*SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) GobDecode([]byte) error
+
+func (SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) GobEncode() ([]byte, error)
+
+func (s SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) HuellaReconciliacionSHA256() (
+	string,
+	error,
+)
+```
+
+HuellaReconciliacionSHA256 identifica de forma estable la materializacion.
+Excluye instantes de reintento: la misma intencion, decision e idempotencia
+debe recuperar la misma atestacion durable.
+
+```go
+func (s SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) LogValue() slog.Value
+
+func (SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) MarshalBinary() ([]byte, error)
+
+func (SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) MarshalCBOR() ([]byte, error)
+
+func (SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) MarshalText() ([]byte, error)
+
+func (SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) MarshalYAML() (any, error)
+
+func (SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) String() string
+
+func (*SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) UnmarshalCBOR([]byte) error
+
+func (*SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) UnmarshalJSON([]byte) error
+
+func (*SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) UnmarshalText([]byte) error
+
+func (*SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*SolicitudMaterializarSelladoMotivoGobiernoConvocatoria) UnmarshalYAML(func(any) error) error
 
 type SolicitudNominalNoAutoritativaSeparacionDominiosClaveBaremacion struct {
 	// Has unexported fields.
@@ -10744,6 +12202,8 @@ func (s SolicitudProtegerIdempotenciaConvocatoria) LogValue() slog.Value
 
 func (SolicitudProtegerIdempotenciaConvocatoria) MarshalBinary() ([]byte, error)
 
+func (SolicitudProtegerIdempotenciaConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (SolicitudProtegerIdempotenciaConvocatoria) MarshalJSON() ([]byte, error)
 
 func (SolicitudProtegerIdempotenciaConvocatoria) MarshalText() ([]byte, error)
@@ -10753,9 +12213,13 @@ func (SolicitudProtegerIdempotenciaConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (SolicitudProtegerIdempotenciaConvocatoria) MarshalYAML() (any, error)
+
 func (SolicitudProtegerIdempotenciaConvocatoria) String() string
 
 func (*SolicitudProtegerIdempotenciaConvocatoria) UnmarshalBinary([]byte) error
+
+func (*SolicitudProtegerIdempotenciaConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*SolicitudProtegerIdempotenciaConvocatoria) UnmarshalJSON([]byte) error
 
@@ -10765,6 +12229,8 @@ func (*SolicitudProtegerIdempotenciaConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*SolicitudProtegerIdempotenciaConvocatoria) UnmarshalYAML(func(any) error) error
 
 func (s SolicitudProtegerIdempotenciaConvocatoria) Validar() error
 
@@ -10871,67 +12337,6 @@ VisitarReferencias entrega las referencias opacas solo durante la llamada al
 adaptador de identidad; evita getters y colecciones reutilizables.
 
 ```go
-type SolicitudSellarMotivoGobiernoConvocatoria struct {
-	DominioCriptografico string
-	Accion               string
-	ConvocatoriaRef      string
-	PrincipalRef         string
-	CorrelacionRef       string
-	Motivo               string
-	SolicitadaEn         time.Time
-	// Has unexported fields.
-}
-```
-
-SolicitudSellarMotivoGobiernoConvocatoria es una orden interna. El motivo en
-claro solo cruza este puerto hacia un servicio de claves; nunca se guarda en
-idempotencia ni se registra en trazas.
-
-```go
-func (s SolicitudSellarMotivoGobiernoConvocatoria) Format(estado fmt.State, _ rune)
-
-func (s SolicitudSellarMotivoGobiernoConvocatoria) GoString() string
-
-func (*SolicitudSellarMotivoGobiernoConvocatoria) GobDecode([]byte) error
-
-func (SolicitudSellarMotivoGobiernoConvocatoria) GobEncode() ([]byte, error)
-
-func (s SolicitudSellarMotivoGobiernoConvocatoria) HuellaSHA256() (string, error)
-```
-
-HuellaSHA256 fija la preimagen que el sellador debe autenticar. El HSM/KMS
-calcula su HMAC sobre dominio || 0x00 || esta huella, nunca solo sobre el
-motivo. Asi quedan ligados accion, version, principal y correlacion.
-
-```go
-func (s SolicitudSellarMotivoGobiernoConvocatoria) LogValue() slog.Value
-
-func (SolicitudSellarMotivoGobiernoConvocatoria) MarshalBinary() ([]byte, error)
-
-func (SolicitudSellarMotivoGobiernoConvocatoria) MarshalJSON() ([]byte, error)
-
-func (SolicitudSellarMotivoGobiernoConvocatoria) MarshalText() ([]byte, error)
-
-func (SolicitudSellarMotivoGobiernoConvocatoria) MarshalXML(
-	*xml.Encoder,
-	xml.StartElement,
-) error
-
-func (SolicitudSellarMotivoGobiernoConvocatoria) String() string
-
-func (*SolicitudSellarMotivoGobiernoConvocatoria) UnmarshalBinary([]byte) error
-
-func (*SolicitudSellarMotivoGobiernoConvocatoria) UnmarshalJSON([]byte) error
-
-func (*SolicitudSellarMotivoGobiernoConvocatoria) UnmarshalText([]byte) error
-
-func (*SolicitudSellarMotivoGobiernoConvocatoria) UnmarshalXML(
-	*xml.Decoder,
-	xml.StartElement,
-) error
-
-func (s SolicitudSellarMotivoGobiernoConvocatoria) Validar() error
-
 type SolicitudSellarSelloBaremacion struct {
 	Finalidad              FinalidadSelloBaremacion
 	RepresentacionCanonica CargaProtegida
@@ -10969,6 +12374,73 @@ type SolicitudSellarTiempoFirma struct {
 }
 
 func (s SolicitudSellarTiempoFirma) Validar() error
+
+type SolicitudSemanticaMotivoGobiernoConvocatoria struct {
+	DominioCriptografico string
+	Accion               string
+	ConvocatoriaRef      string
+	PrincipalRef         string
+	CorrelacionRef       string
+	Motivo               string
+	SolicitadaEn         time.Time
+	// Has unexported fields.
+}
+```
+
+SolicitudSemanticaMotivoGobiernoConvocatoria es un valor interno local.
+Es el unico que porta el motivo en claro y nunca cruza el puerto HSM/KMS.
+
+```go
+func (s SolicitudSemanticaMotivoGobiernoConvocatoria) Format(estado fmt.State, _ rune)
+
+func (s SolicitudSemanticaMotivoGobiernoConvocatoria) GoString() string
+
+func (*SolicitudSemanticaMotivoGobiernoConvocatoria) GobDecode([]byte) error
+
+func (SolicitudSemanticaMotivoGobiernoConvocatoria) GobEncode() ([]byte, error)
+
+func (s SolicitudSemanticaMotivoGobiernoConvocatoria) HuellaSHA256() (string, error)
+```
+
+HuellaSHA256 mantiene la preimagen semantica V1. El instante queda fuera:
+los reintentos de una misma intencion producen el mismo compromiso HMAC.
+
+```go
+func (s SolicitudSemanticaMotivoGobiernoConvocatoria) LogValue() slog.Value
+
+func (SolicitudSemanticaMotivoGobiernoConvocatoria) MarshalBinary() ([]byte, error)
+
+func (SolicitudSemanticaMotivoGobiernoConvocatoria) MarshalCBOR() ([]byte, error)
+
+func (SolicitudSemanticaMotivoGobiernoConvocatoria) MarshalJSON() ([]byte, error)
+
+func (SolicitudSemanticaMotivoGobiernoConvocatoria) MarshalText() ([]byte, error)
+
+func (SolicitudSemanticaMotivoGobiernoConvocatoria) MarshalXML(
+	*xml.Encoder,
+	xml.StartElement,
+) error
+
+func (SolicitudSemanticaMotivoGobiernoConvocatoria) MarshalYAML() (any, error)
+
+func (SolicitudSemanticaMotivoGobiernoConvocatoria) String() string
+
+func (*SolicitudSemanticaMotivoGobiernoConvocatoria) UnmarshalBinary([]byte) error
+
+func (*SolicitudSemanticaMotivoGobiernoConvocatoria) UnmarshalCBOR([]byte) error
+
+func (*SolicitudSemanticaMotivoGobiernoConvocatoria) UnmarshalJSON([]byte) error
+
+func (*SolicitudSemanticaMotivoGobiernoConvocatoria) UnmarshalText([]byte) error
+
+func (*SolicitudSemanticaMotivoGobiernoConvocatoria) UnmarshalXML(
+	*xml.Decoder,
+	xml.StartElement,
+) error
+
+func (*SolicitudSemanticaMotivoGobiernoConvocatoria) UnmarshalYAML(func(any) error) error
+
+func (s SolicitudSemanticaMotivoGobiernoConvocatoria) Validar() error
 
 type SolicitudTestimonioAtomicoIdempotenciaBaremacion struct {
 	// Has unexported fields.
@@ -11070,6 +12542,8 @@ func (b SolicitudVerificarDependenciasConvocatoria) LogValue() slog.Value
 
 func (SolicitudVerificarDependenciasConvocatoria) MarshalBinary() ([]byte, error)
 
+func (SolicitudVerificarDependenciasConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (SolicitudVerificarDependenciasConvocatoria) MarshalJSON() ([]byte, error)
 
 func (SolicitudVerificarDependenciasConvocatoria) MarshalText() ([]byte, error)
@@ -11079,9 +12553,13 @@ func (SolicitudVerificarDependenciasConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (SolicitudVerificarDependenciasConvocatoria) MarshalYAML() (any, error)
+
 func (SolicitudVerificarDependenciasConvocatoria) String() string
 
 func (*SolicitudVerificarDependenciasConvocatoria) UnmarshalBinary([]byte) error
+
+func (*SolicitudVerificarDependenciasConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*SolicitudVerificarDependenciasConvocatoria) UnmarshalJSON([]byte) error
 
@@ -11091,6 +12569,8 @@ func (*SolicitudVerificarDependenciasConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*SolicitudVerificarDependenciasConvocatoria) UnmarshalYAML(func(any) error) error
 
 func (s SolicitudVerificarDependenciasConvocatoria) Validar() error
 
@@ -11172,6 +12652,8 @@ func (t TestimonioIdempotenciaConvocatoria) LogValue() slog.Value
 
 func (TestimonioIdempotenciaConvocatoria) MarshalBinary() ([]byte, error)
 
+func (TestimonioIdempotenciaConvocatoria) MarshalCBOR() ([]byte, error)
+
 func (TestimonioIdempotenciaConvocatoria) MarshalJSON() ([]byte, error)
 
 func (TestimonioIdempotenciaConvocatoria) MarshalText() ([]byte, error)
@@ -11181,9 +12663,13 @@ func (TestimonioIdempotenciaConvocatoria) MarshalXML(
 	xml.StartElement,
 ) error
 
+func (TestimonioIdempotenciaConvocatoria) MarshalYAML() (any, error)
+
 func (TestimonioIdempotenciaConvocatoria) String() string
 
 func (*TestimonioIdempotenciaConvocatoria) UnmarshalBinary([]byte) error
+
+func (*TestimonioIdempotenciaConvocatoria) UnmarshalCBOR([]byte) error
 
 func (*TestimonioIdempotenciaConvocatoria) UnmarshalJSON([]byte) error
 
@@ -11193,6 +12679,8 @@ func (*TestimonioIdempotenciaConvocatoria) UnmarshalXML(
 	*xml.Decoder,
 	xml.StartElement,
 ) error
+
+func (*TestimonioIdempotenciaConvocatoria) UnmarshalYAML(func(any) error) error
 
 func (t TestimonioIdempotenciaConvocatoria) ValidarPara(
 	material MaterialIntencionGobiernoConvocatoria,
