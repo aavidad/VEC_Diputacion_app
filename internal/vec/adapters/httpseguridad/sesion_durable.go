@@ -300,7 +300,7 @@ func altasSesionCoinciden(primera, segunda AltaSesionAtomica) bool {
 }
 
 func huellaSHA256SesionValida(valor string) bool {
-	if len(valor) != 64 {
+	if len(valor) != 64 || strings.Trim(valor, "0") == "" {
 		return false
 	}
 	for _, caracter := range valor {

@@ -52,6 +52,7 @@ func TestContratosDurablesPublicosFallanCerrados(t *testing.T) {
 		func(a *AltaSesionAtomica) { a.EspacioIdentidad = "http://idp-inseguro.example.test" },
 		func(a *AltaSesionAtomica) { a.MetodoObservado = dominiovec.AuthMethodDemo },
 		func(a *AltaSesionAtomica) { a.AutenticacionHuellaSHA256 = strings.Repeat("A", 64) },
+		func(a *AltaSesionAtomica) { a.AutenticacionHuellaSHA256 = strings.Repeat("0", 64) },
 		func(a *AltaSesionAtomica) { a.AutenticacionVerificadaEn = a.SesionEmitidaEn.Add(time.Microsecond) },
 		func(a *AltaSesionAtomica) { a.SesionEmitidaEn = a.SesionEmitidaEn.Add(time.Nanosecond) },
 		func(a *AltaSesionAtomica) {
@@ -59,6 +60,7 @@ func TestContratosDurablesPublicosFallanCerrados(t *testing.T) {
 		},
 		func(a *AltaSesionAtomica) { a.PoliticaGarantiaRef = "pga_corta" },
 		func(a *AltaSesionAtomica) { a.PoliticaGarantiaHuellaSHA256 = "sha256:" + strings.Repeat("a", 64) },
+		func(a *AltaSesionAtomica) { a.PoliticaGarantiaHuellaSHA256 = strings.Repeat("0", 64) },
 	}
 	for indice, mutar := range mutacionesAlta {
 		alterada := identidad.confirmacion.AltaConfirmada
@@ -73,6 +75,7 @@ func TestContratosDurablesPublicosFallanCerrados(t *testing.T) {
 		func(c *ConsultaSesionActiva) { c.ControlSesionRevision = 0 },
 		func(c *ConsultaSesionActiva) { c.ControlSesionEstado = EstadoControlSesionRevocada },
 		func(c *ConsultaSesionActiva) { c.ControlSesionHuellaSHA256 = strings.Repeat("A", 64) },
+		func(c *ConsultaSesionActiva) { c.ControlSesionHuellaSHA256 = strings.Repeat("0", 64) },
 		func(c *ConsultaSesionActiva) { c.SesionRevalidadaEn = c.SesionRevalidadaEn.Add(time.Nanosecond) },
 		func(c *ConsultaSesionActiva) { c.SesionValidaHasta = c.SesionRevalidadaEn },
 		func(c *ConsultaSesionActiva) { c.CuentaOrdinariaRef = "cta_otra23456789abcdefghijkl" },
