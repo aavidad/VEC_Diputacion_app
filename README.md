@@ -15,6 +15,13 @@ Fecha de corte de este estado: **18 de julio de 2026**. El repositorio es una
 base de desarrollo y demostracion verificable; no acredita por si solo
 conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
 
+## Seguimiento sencillo
+
+El estado comprensible, el frente actual y el orden de trabajo se mantienen en
+[ESTADO_PROYECTO.md](ESTADO_PROYECTO.md). Esta es la tabla de dirección que se
+actualiza cada vez que se cierra una capacidad o cambia el frente principal;
+los códigos internos `Txx` quedan relegados a la documentación técnica.
+
 ## Estado honesto
 
 Probado:
