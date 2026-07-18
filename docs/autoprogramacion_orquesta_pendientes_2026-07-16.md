@@ -201,11 +201,33 @@ comunico `485.657 s`. No acredita una mejora del coste global frente a los
 timeout de 600 s. Se conserva por ello como medida de no regresion, no como
 motivo para declarar resuelto el riesgo de rendimiento ni para cerrar T02.
 
+##### Tercer corte incremental T02 — 18/07/2026
+
+El commit `65acc4c` elimina de `materializacion_documental_v4.go` las copias
+locales de serializacion, huella y validacion de referencias, y hace que el
+puerto consuma `SerializarCamposV3`, `HuellaBytesSHA256` y
+`ReferenciaEjecucionV3Valida` desde `internal/vec/canonico/documental`. La
+comprobacion de forma canonica y no reutilizacion de huellas se incorpora al
+mismo nucleo como la nueva `HuellasSHA256Distintas`. El fichero del puerto
+baja de 1.532 a 1.498 lineas, 34 menos.
+
+La prueba explicita fija que las colecciones `nil` y vacia producen una
+preimagen `nil`; conserva byte a byte Unicode valido, UTF-8 malformado, NUL y
+delimitadores; comprueba la SHA-256 de la preimagen vacia; y cubre forma,
+cardinalidad y duplicados de huellas. Desde la raiz quedaron verdes las
+pruebas normales de `canonico/documental` y `ports`, la carrera completa del
+canonico y la carrera focal del puerto (`101.679 s`), ademas de `go vet`, el
+control ratcheado de tamanos y el control de diff.
+
+Una revision GO independiente confirmo equivalencia byte a byte con las
+implementaciones retiradas y ausencia de cambios en API, conjuntos de metodos
+y errores observables.
+
 ##### Trabajo restante para cerrar T02
 
 1. Continuar el troceo por capacidad de
    `ejecuciones_documentales_v3.go` (3.975 lineas),
-   `materializacion_documental_v4.go` (1.532),
+   `materializacion_documental_v4.go` (1.498),
    `recibo_escritura_objeto_material_v2.go` (1.474),
    `almacen_objetos.go` (1.206) y
    `ejecucion_componentes_documentales_atestada.go` (1.154), sin ampliar sus
