@@ -1,0 +1,346 @@
+"""Auditorías de DOM, navegación, menús y flujos de interacción."""
+
+from __future__ import annotations
+
+import json
+import re
+import time
+from typing import Any, Iterable
+
+from .modelo import Escenario, Flujo, Superficie, hallazgo as _hallazgo
+
+
+AUDITORIA_DOM_JS = r"""
+() => {
+  const visible = (elemento) => {
+    if (!(elemento instanceof Element)) return false;
+    const estilo = getComputedStyle(elemento);
+    const caja = elemento.getBoundingClientRect();
+    return !elemento.hidden && estilo.display !== "none" &&
+      estilo.visibility !== "hidden" && estilo.visibility !== "collapse" &&
+      caja.width > 0 && caja.height > 0;
+  };
+  const textoUtil = (valor) => String(valor || "").replace(/\s+/g, " ").trim();
+  const textoDescendiente = (elemento) => {
+    const clon = elemento.cloneNode(true);
+    clon.querySelectorAll('[aria-hidden="true"], [hidden], script, style').forEach((nodo) => nodo.remove());
+    const textosImagen = Array.from(clon.querySelectorAll("img[alt]"), (imagen) => imagen.alt).join(" ");
+    return textoUtil(`${clon.textContent || ""} ${textosImagen}`);
+  };
+  const nombreAccesible = (elemento) => {
+    const referencias = textoUtil(elemento.getAttribute("aria-labelledby"));
+    if (referencias) {
+      const nombre = referencias.split(/\s+/).map((id) => document.getElementById(id)?.textContent || "").join(" ");
+      if (textoUtil(nombre)) return textoUtil(nombre);
+    }
+    const aria = textoUtil(elemento.getAttribute("aria-label"));
+    if (aria) return aria;
+    if (elemento.labels?.length) {
+      const etiquetas = Array.from(elemento.labels, (etiqueta) => etiqueta.textContent || "").join(" ");
+      if (textoUtil(etiquetas)) return textoUtil(etiquetas);
+    }
+    const tipo = textoUtil(elemento.getAttribute("type")).toLowerCase();
+    if (elemento.tagName === "INPUT" && ["button", "submit", "reset"].includes(tipo)) {
+      if (textoUtil(elemento.value)) return textoUtil(elemento.value);
+    }
+    if (elemento.tagName === "INPUT" && tipo === "image" && textoUtil(elemento.alt)) return textoUtil(elemento.alt);
+    const descendiente = textoDescendiente(elemento);
+    if (descendiente) return descendiente;
+    return textoUtil(elemento.getAttribute("title"));
+  };
+  const selectorBreve = (elemento) => {
+    if (elemento.id) return `#${CSS.escape(elemento.id)}`;
+    const partes = [];
+    let actual = elemento;
+    while (actual && actual !== document.documentElement && partes.length < 4) {
+      let parte = actual.tagName.toLowerCase();
+      if (actual.classList.length) parte += `.${CSS.escape(actual.classList[0])}`;
+      const hermanos = actual.parentElement ? Array.from(actual.parentElement.children).filter((n) => n.tagName === actual.tagName) : [];
+      if (hermanos.length > 1) parte += `:nth-of-type(${hermanos.indexOf(actual) + 1})`;
+      partes.unshift(parte);
+      actual = actual.parentElement;
+    }
+    return partes.join(" > ");
+  };
+
+  const ids = new Map();
+  document.querySelectorAll("[id]").forEach((elemento) => {
+    if (elemento.id) ids.set(elemento.id, (ids.get(elemento.id) || 0) + 1);
+  });
+  const idsDuplicados = Array.from(ids, ([id, cantidad]) => ({ id, cantidad }))
+    .filter((item) => item.cantidad > 1);
+
+  const selectorControles = [
+    "button", "input:not([type=hidden])", "select", "textarea", "a[href]", "summary",
+    "[contenteditable=true]", "[role=button]", "[role=link]", "[role=checkbox]",
+    "[role=radio]", "[role=switch]", "[role=tab]", "[role=menuitem]"
+  ].join(",");
+  const controlesSinNombre = Array.from(new Set(document.querySelectorAll(selectorControles)))
+    .filter(visible).filter((elemento) => !nombreAccesible(elemento)).slice(0, 100)
+    .map((elemento) => ({
+      selector: selectorBreve(elemento), etiqueta: elemento.tagName.toLowerCase(),
+      tipo: elemento.getAttribute("type") || elemento.getAttribute("role") || "",
+    }));
+
+  const anchoCliente = document.documentElement.clientWidth;
+  const anchoDocumento = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth || 0);
+  const hayDesbordamiento = anchoDocumento > anchoCliente + 2;
+  const elementosDesbordados = hayDesbordamiento
+    ? Array.from(document.body.querySelectorAll("*")).filter(visible).filter((elemento) => {
+        const caja = elemento.getBoundingClientRect();
+        return caja.right > anchoCliente + 2 || caja.left < -2;
+      }).slice(0, 30).map((elemento) => ({
+        selector: selectorBreve(elemento), izquierda: Math.round(elemento.getBoundingClientRect().left),
+        derecha: Math.round(elemento.getBoundingClientRect().right),
+      }))
+    : [];
+
+  const leerAlmacen = (almacen) => {
+    try { return Array.from({ length: almacen.length }, (_, indice) => almacen.key(indice)).filter(Boolean); }
+    catch (error) { return [`<no se pudo inspeccionar: ${error}>`]; }
+  };
+  let cookie = "";
+  try { cookie = document.cookie || ""; } catch (error) { cookie = `<no se pudo inspeccionar: ${error}>`; }
+  return {
+    ids_duplicados: idsDuplicados,
+    controles_sin_nombre: controlesSinNombre,
+    desbordamiento_horizontal: {
+      existe: hayDesbordamiento, ancho_cliente: anchoCliente,
+      ancho_documento: anchoDocumento, elementos: elementosDesbordados,
+    },
+    almacenamiento: {
+      local: leerAlmacen(window.localStorage), sesion: leerAlmacen(window.sessionStorage),
+      cookie_documento: cookie,
+    },
+  };
+}
+"""
+
+CSS_ESTABILIZAR = """
+*, *::before, *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  caret-color: transparent !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+}
+"""
+
+
+def milisegundos_restantes(fin: float) -> int:
+    return max(1, int((fin - time.monotonic()) * 1000))
+
+
+def esperar_vista(page: Any, escenario: Escenario, timeout_ms: int) -> tuple[bool, str]:
+    fin = time.monotonic() + timeout_ms / 1000
+    try:
+        for selector in escenario.selectores_listos:
+            page.wait_for_selector(selector, state="visible", timeout=milisegundos_restantes(fin))
+        page.wait_for_function(
+            r"""([selector, esperado]) => {
+              const nodo = document.querySelector(selector);
+              return nodo && nodo.textContent.replace(/\s+/g, " ").trim() === esperado;
+            }""",
+            arg=[escenario.selector_titulo, escenario.titulo_esperado],
+            timeout=milisegundos_restantes(fin),
+        )
+        return True, ""
+    except Exception as error:
+        return False, str(error)
+
+
+def nombre_elemento(locator: Any) -> str:
+    return locator.evaluate(r"""(elemento) => {
+      const normalizar = (texto) => String(texto || "").replace(/\s+/g, " ").trim();
+      const referencias = normalizar(elemento.getAttribute("aria-labelledby"));
+      if (referencias) {
+        const texto = referencias.split(/\s+/).map((id) => document.getElementById(id)?.textContent || "").join(" ");
+        if (normalizar(texto)) return normalizar(texto);
+      }
+      return normalizar(elemento.getAttribute("aria-label")) || normalizar(elemento.innerText) ||
+        normalizar(elemento.getAttribute("title")) || normalizar(elemento.getAttribute("alt"));
+    }""")
+
+
+def primer_locator_visible(page: Any, selector: str) -> Any | None:
+    localizadores = page.locator(selector)
+    for indice in range(localizadores.count()):
+        candidato = localizadores.nth(indice)
+        try:
+            if candidato.is_visible():
+                return candidato
+        except Exception:
+            continue
+    return None
+
+
+def revisar_menu(page: Any, escenario: Escenario, superficie: Superficie, timeout_ms: int) -> list[dict[str, Any]]:
+    hallazgos: list[dict[str, Any]] = []
+    menu_abierto = False
+    try:
+        if superficie.selector_contenedor_menu:
+            contenedor = page.locator(superficie.selector_contenedor_menu).first
+            if contenedor.count() == 0:
+                return [_hallazgo("menu_ausente", f"No existe el menú esperado {superficie.selector_contenedor_menu}.")]
+            if not contenedor.is_visible() and superficie.selector_abrir_menu:
+                apertura = primer_locator_visible(page, superficie.selector_abrir_menu)
+                if apertura is None or not apertura.is_enabled() or not nombre_elemento(apertura):
+                    return [_hallazgo("menu_inaccesible", "El menú está oculto y su control de apertura no es accesible.")]
+                apertura.click(timeout=timeout_ms)
+                contenedor.wait_for(state="visible", timeout=min(timeout_ms, 2_000))
+                menu_abierto = True
+            if not contenedor.is_visible():
+                return [_hallazgo("menu_inaccesible", "El contenedor del menú no es visible.")]
+            if not nombre_elemento(contenedor):
+                hallazgos.append(_hallazgo("menu_sin_nombre", "El contenedor del menú no tiene nombre accesible."))
+
+        for selector in escenario.selectores_menu or superficie.selectores_menu:
+            opcion = primer_locator_visible(page, selector)
+            if opcion is None:
+                hallazgos.append(_hallazgo("opcion_menu_ausente", f"No hay una opción de menú visible para {selector}."))
+                continue
+            if not opcion.is_enabled() or opcion.get_attribute("aria-disabled") == "true":
+                hallazgos.append(_hallazgo("opcion_menu_inaccesible", f"La opción de menú {selector} está deshabilitada."))
+            if not nombre_elemento(opcion):
+                hallazgos.append(_hallazgo("opcion_menu_sin_nombre", f"La opción de menú {selector} no tiene nombre accesible."))
+
+        if escenario.selector_menu_actual:
+            actuales = page.locator(escenario.selector_menu_actual)
+            marcado = any(
+                actuales.nth(indice).is_visible() and actuales.nth(indice).get_attribute("aria-current") == "page"
+                for indice in range(actuales.count())
+            )
+            if not marcado:
+                hallazgos.append(_hallazgo(
+                    "menu_sin_estado_actual",
+                    f"La vista no está marcada en el menú mediante aria-current: {escenario.selector_menu_actual}.",
+                ))
+    except Exception as error:
+        hallazgos.append(_hallazgo("revision_menu_fallida", "No se pudo completar la revisión del menú.", str(error)))
+    finally:
+        if menu_abierto:
+            try:
+                cierre = primer_locator_visible(page, superficie.selector_cerrar_menu) if superficie.selector_cerrar_menu else None
+                if cierre is not None:
+                    cierre.click(timeout=min(timeout_ms, 2_000))
+                else:
+                    page.locator(superficie.selector_abrir_menu).first.evaluate("(elemento) => elemento.click()")
+            except Exception as error:
+                hallazgos.append(_hallazgo("menu_no_cierra", "El menú móvil no se pudo cerrar tras revisarlo.", str(error)))
+    return hallazgos
+
+
+def revisar_banner_demo(page: Any, superficie: Superficie) -> tuple[bool, list[dict[str, Any]]]:
+    if not superficie.privada:
+        return True, []
+    selector = superficie.selector_banner_demo
+    if not selector:
+        return False, [_hallazgo("banner_demo_no_definido", "La superficie privada no define su banner DEMO.")]
+    banner = primer_locator_visible(page, selector)
+    if banner is None:
+        return False, [_hallazgo("banner_demo_ausente", f"El banner DEMO privado no está visible: {selector}.")]
+    texto = re.sub(r"\s+", " ", banner.inner_text()).strip()
+    marcador = re.search(r"\b(?:demo|demostraci[oó]n|presentaci[oó]n)\b", texto, re.IGNORECASE)
+    sintetico = re.search(r"sint[eé]tic|sin validez|sin efectos", texto, re.IGNORECASE)
+    if not marcador or not sintetico:
+        return False, [_hallazgo(
+            "banner_demo_invalido",
+            "El banner privado no identifica claramente la demostración y sus datos/efectos sintéticos.",
+            {"texto": texto},
+        )]
+    return True, []
+
+
+def ejecutar_flujo(page: Any, flujo: Flujo, timeout_ms: int, demo_confirmada: bool) -> list[dict[str, Any]]:
+    if flujo.requiere_demo and not demo_confirmada:
+        return [_hallazgo("flujo_demo_bloqueado", "El flujo no se ejecutó porque no se pudo confirmar el aislamiento DEMO.")]
+    fin = time.monotonic() + timeout_ms / 1000
+    for numero, paso in enumerate(flujo.pasos, start=1):
+        try:
+            restante = milisegundos_restantes(fin)
+            locator = page.locator(paso.selector).first
+            if paso.accion == "esperar":
+                locator.wait_for(state="visible", timeout=restante)
+                if paso.texto_esperado:
+                    texto = re.sub(r"\s+", " ", locator.inner_text(timeout=restante)).strip()
+                    if paso.texto_esperado.casefold() not in texto.casefold():
+                        raise RuntimeError(f"no aparece el texto esperado {paso.texto_esperado!r}")
+            elif paso.accion in {"esperar-habilitado", "esperar-deshabilitado"}:
+                locator.wait_for(state="attached", timeout=restante)
+                deshabilitado = locator.is_disabled() or locator.get_attribute("aria-disabled") == "true"
+                esperado = paso.accion == "esperar-deshabilitado"
+                if deshabilitado != esperado:
+                    estado = "deshabilitado" if esperado else "habilitado"
+                    raise RuntimeError(f"el control no está {estado}")
+            elif paso.accion == "enfocar":
+                locator.scroll_into_view_if_needed(timeout=restante)
+            elif paso.accion == "clic-confirmando":
+                if not flujo.requiere_demo or "operacion-presentacion" not in paso.selector:
+                    raise RuntimeError("se rechazó un intento de confirmar una operación fuera del adaptador DEMO")
+                page.once("dialog", lambda dialogo: dialogo.accept())
+                locator.click(timeout=restante)
+            elif paso.accion == "clic":
+                locator.click(timeout=restante)
+            else:
+                raise RuntimeError(f"acción de flujo no admitida: {paso.accion}")
+        except Exception as error:
+            return [_hallazgo(
+                "flujo_interrumpido", f"Falló el paso {numero} ({paso.accion}) del flujo {flujo.nombre}.",
+                {"selector": paso.selector, "error": str(error)},
+            )]
+    return []
+
+
+def auditar_dom_y_estado(page: Any, context: Any) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    try:
+        auditoria = page.evaluate(AUDITORIA_DOM_JS)
+    except Exception as error:
+        return {}, [_hallazgo("auditoria_dom_fallida", "No se pudo ejecutar la auditoría del DOM.", str(error))]
+    hallazgos: list[dict[str, Any]] = []
+    if auditoria["ids_duplicados"]:
+        hallazgos.append(_hallazgo("ids_duplicados", f"Se encontraron {len(auditoria['ids_duplicados'])} identificadores HTML duplicados.", auditoria["ids_duplicados"]))
+    if auditoria["controles_sin_nombre"]:
+        hallazgos.append(_hallazgo("controles_sin_nombre_accesible", f"Hay {len(auditoria['controles_sin_nombre'])} controles visibles sin nombre accesible.", auditoria["controles_sin_nombre"]))
+    if auditoria["desbordamiento_horizontal"]["existe"]:
+        hallazgos.append(_hallazgo("desbordamiento_horizontal", "La página desborda horizontalmente el ancho disponible.", auditoria["desbordamiento_horizontal"]))
+
+    almacen = auditoria["almacenamiento"]
+    try:
+        cookies = context.cookies()
+    except Exception as error:
+        cookies = [{"error": str(error)}]
+    auditoria["almacenamiento"]["cookies_contexto"] = [
+        {"nombre": cookie.get("name", ""), "dominio": cookie.get("domain", ""), "ruta": cookie.get("path", "")}
+        for cookie in cookies
+    ]
+    if almacen["local"] or almacen["sesion"] or almacen["cookie_documento"] or cookies:
+        hallazgos.append(_hallazgo("estado_navegador_detectado", "La superficie creó o expuso cookies/localStorage/sessionStorage en un contexto limpio.", auditoria["almacenamiento"]))
+    return auditoria, hallazgos
+
+
+def deduplicar_registros(registros: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    unicos: list[dict[str, Any]] = []
+    vistos: set[str] = set()
+    for registro in registros:
+        clave = json.dumps(registro, ensure_ascii=False, sort_keys=True, default=str)
+        if clave not in vistos:
+            vistos.add(clave)
+            unicos.append(registro)
+    return unicos
+
+
+def filtrar_abortos_media_exitosos(
+    recursos_fallidos: Iterable[dict[str, Any]],
+    respuestas_correctas: Iterable[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Descarta un aborto normal de ``preload=metadata`` tras un HTTP válido."""
+    media_correctos = {
+        respuesta.get("url") for respuesta in respuestas_correctas
+        if respuesta.get("tipo") == "media" and int(respuesta.get("estado", 999)) < 400
+    }
+    return [
+        recurso for recurso in recursos_fallidos
+        if not (recurso.get("tipo") == "media" and recurso.get("url") in media_correctos
+                and "ERR_ABORTED" in str(recurso.get("error", "")))
+    ]
