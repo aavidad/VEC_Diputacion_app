@@ -3291,20 +3291,20 @@ condicion previa del piloto con datos reales. Si tambien se pospusieran, la
 aplicacion quedaria funcionalmente terminada pero solo demostrable con datos
 sinteticos. Por eso encabezan el orden de ataque vigente.
 
-## DEC-093 — Autobaremación aparcada y cobertura extremo a extremo obligatoria
+## DEC-093 — Preservar la autobaremación y exigir cobertura extremo a extremo
 
 - Fecha: 2026-07-18.
-- Estado: adoptada por el responsable del proyecto.
-- Decisión de alcance: la autobaremación declarada por la persona aspirante
-  queda aparcada. No se anuncia en menús, capacidades, eventos ni contratos
-  activos y no condiciona la primera entrega de Bolsa. El dominio y los
-  estudios anteriores se conservan como trabajo reutilizable, sin montarlos en
-  producción ni presentarlos como funcionalidad disponible.
-- Distinción: no se retira el baremo oficial gobernado por las bases. RRHH
-  seguirá necesitando reglas versionadas y el cálculo oficial que permita
-  ordenar la bolsa. Se aparca la captura y confirmación de una puntuación
-  propuesta por la persona interesada, no la aplicación administrativa de las
-  bases.
+- Estado: adoptada por el responsable del proyecto; sustituye en la misma fecha
+  el corte provisional que proponía aparcar la autobaremación.
+- Decisión de alcance: se conserva la autobaremación declarada por la persona
+  aspirante porque su dominio, casos de uso, persistencia, firma y pruebas ya
+  representan una inversión reutilizable considerable. No se borra, simplifica
+  ni reprograma. Convocatorias y llamamientos mantienen la prioridad inmediata;
+  después se completará la conexión web y productiva que todavía falte.
+- Distinción: la autobaremación de la persona interesada y el baremo oficial
+  gobernado por las bases son capacidades relacionadas pero diferentes. Ambas
+  se preservan. RRHH aplica y revisa el cálculo oficial; la puntuación propuesta
+  nunca sustituye esa decisión administrativa.
 - Criterio de cierre: ninguna capacidad funcional activa de Bolsa se considera
   terminada si no existe una cadena comprobada
   `web -> API -> caso de uso -> puerto -> adaptador productivo -> persistencia`
@@ -3316,6 +3316,6 @@ sinteticos. Por eso encabezan el orden de ataque vigente.
   través del caso de uso autorizado que materializa la capacidad funcional y
   sus evidencias.
 - Control: se mantendrá una matriz por capacidad con pantalla, ruta, caso de
-  uso, puertos, adaptadores, permisos, auditoría y pruebas. Las capacidades
-  aparcadas o heredadas se etiquetan de forma expresa y no pueden aparecer en
-  el manifiesto activo.
+  uso, puertos, adaptadores, permisos, auditoría y pruebas. Una capacidad
+  heredada puede conservarse mientras se completa su integración, pero su
+  estado real debe declararse sin confundir código probado con recorrido E2E.

@@ -36,6 +36,7 @@ func Manifest() domain.ModuleManifest {
 			menu("bolsa.convocatorias", "ui.vec.menu.bolsa.convocatorias", "/modules/bolsa/convocatorias", "calendar-days", 110, PermissionRead),
 			menu("bolsa.solicitudes", "ui.vec.menu.bolsa.solicitudes", "/modules/bolsa/solicitudes", "file-text", 120, PermissionRead),
 			menu("bolsa.meritos", "ui.vec.menu.bolsa.meritos", "/modules/bolsa/meritos", "graduation-cap", 130, PermissionRead),
+			menu("bolsa.autobaremo", "ui.vec.menu.bolsa.autobaremo", "/modules/bolsa/autobaremo", "calculator", 140, PermissionRead),
 			menu("bolsa.documentos", "ui.vec.menu.bolsa.documentos", "/modules/bolsa/documentos", "folder-check", 150, PermissionDocument),
 			menu("bolsa.alegaciones", "ui.vec.menu.bolsa.alegaciones", "/modules/bolsa/alegaciones", "message-square-warning", 160, PermissionClaim),
 			menu("bolsa.notificaciones", "ui.vec.menu.bolsa.notificaciones", "/modules/bolsa/notificaciones", "bell", 170, PermissionNotification),

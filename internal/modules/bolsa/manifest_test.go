@@ -14,9 +14,6 @@ func TestManifestRegistersBolsaAsVECModule(t *testing.T) {
 		t.Fatalf("manifest menu is empty")
 	}
 	for _, entry := range manifest.Menu {
-		if entry.ID == "bolsa.autobaremo" || entry.Path == "/modules/bolsa/autobaremo" {
-			t.Fatalf("la autobaremacion aparcada no puede anunciarse en el menu activo: %+v", entry)
-		}
 		if entry.ModuleID != ModuleID {
 			t.Fatalf("entry %s module = %q", entry.ID, entry.ModuleID)
 		}
