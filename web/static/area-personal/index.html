@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#073866">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <title>Mi área personal · Bolsas de trabajo</title>
+    <link rel="stylesheet" href="/area-personal/area-personal.css?v=20260718-1">
+    <script type="module" src="/area-personal/arranque.js?v=20260718-1"></script>
+  </head>
+  <body class="area-personal-app">
+    <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
+
+    <div class="aviso-presentacion" id="aviso-presentacion" role="status" hidden>
+      <strong>MODO DEMOSTRACIÓN</strong>
+      <span>Datos íntegramente sintéticos · Sin validez administrativa · Ninguna acción afecta a expedientes reales</span>
+    </div>
+
+    <div class="ap-shell">
+      <aside class="ap-lateral" id="navegacion-lateral" aria-label="Navegación del área personal">
+        <a class="marca-portal" href="?vista=inicio" data-ruta="inicio" aria-label="Ir al inicio del área personal">
+          <img src="/portal-empleado/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
+          <span><strong>Mi área personal</strong><small>Empleo público y bolsas</small></span>
+        </a>
+
+        <div class="contexto-modulo"><span aria-hidden="true"></span>Bolsa de trabajo habilitada</div>
+
+        <nav class="ap-navegacion" aria-label="Opciones del área personal">
+          <p>Resumen</p>
+          <a href="?vista=inicio" data-ruta="inicio"><svg aria-hidden="true"><use href="#icono-inicio"></use></svg><span>Inicio y plazos</span></a>
+          <a href="?vista=convocatorias" data-ruta="convocatorias"><svg aria-hidden="true"><use href="#icono-convocatoria"></use></svg><span>Convocatorias</span></a>
+
+          <p>Mi información</p>
+          <a href="?vista=perfil" data-ruta="perfil"><svg aria-hidden="true"><use href="#icono-persona"></use></svg><span>Perfil y contacto</span></a>
+          <a href="?vista=meritos" data-ruta="meritos"><svg aria-hidden="true"><use href="#icono-merito"></use></svg><span>Méritos y documentos</span></a>
+
+          <p>Tramitación</p>
+          <a href="?vista=solicitud" data-ruta="solicitud"><svg aria-hidden="true"><use href="#icono-solicitud"></use></svg><span>Nueva solicitud</span></a>
+          <a href="?vista=autobaremacion" data-ruta="autobaremacion"><svg aria-hidden="true"><use href="#icono-baremo"></use></svg><span>Autobaremación</span></a>
+          <a href="?vista=seguimiento" data-ruta="seguimiento"><svg aria-hidden="true"><use href="#icono-seguimiento"></use></svg><span>Mis expedientes</span></a>
+          <a href="?vista=llamamientos" data-ruta="llamamientos"><svg aria-hidden="true"><use href="#icono-llamamiento"></use></svg><span>Disponibilidad y llamamientos</span><span class="contador-menu" id="contador-llamamientos" hidden>0</span></a>
+          <a href="?vista=subsanaciones" data-ruta="subsanaciones"><svg aria-hidden="true"><use href="#icono-subsanacion"></use></svg><span>Subsanaciones</span></a>
+          <a href="?vista=alegaciones" data-ruta="alegaciones"><svg aria-hidden="true"><use href="#icono-alegacion"></use></svg><span>Alegaciones</span></a>
+
+          <p>Comunicaciones</p>
+          <a href="?vista=mensajes" data-ruta="mensajes"><svg aria-hidden="true"><use href="#icono-mensaje"></use></svg><span>Mensajes y noticias</span><span class="contador-menu" id="contador-mensajes" hidden>0</span></a>
+          <a href="?vista=certificados" data-ruta="certificados"><svg aria-hidden="true"><use href="#icono-certificado"></use></svg><span>Certificados y descargas</span></a>
+          <a href="?vista=ayuda" data-ruta="ayuda"><svg aria-hidden="true"><use href="#icono-ayuda"></use></svg><span>Ayuda y accesibilidad</span></a>
+        </nav>
+
+        <div class="pie-lateral"><span>Portal genérico de RRHH</span><small>Fase inicial · Módulo Bolsa</small></div>
+      </aside>
+
+      <div class="ap-superficie">
+        <header class="cabecera-portal">
+          <button type="button" class="boton-icono boton-menu" data-accion="alternar-menu" aria-controls="navegacion-lateral" aria-expanded="false">
+            <svg aria-hidden="true"><use href="#icono-menu"></use></svg><span class="solo-lectura">Abrir navegación</span>
+          </button>
+          <div class="contexto-cabecera">
+            <nav class="migas" id="migas-pan" aria-label="Migas de pan">Mi área personal</nav>
+            <h1 id="titulo-vista">Cargando área personal…</h1>
+          </div>
+          <form class="busqueda-global" id="busqueda-global" role="search">
+            <label class="solo-lectura" for="consulta-global">Buscar en convocatorias y ayuda</label>
+            <input id="consulta-global" name="consulta" type="search" placeholder="Buscar convocatoria o ayuda" autocomplete="off">
+            <button type="submit" class="boton-icono" aria-label="Buscar"><svg aria-hidden="true"><use href="#icono-buscar"></use></svg></button>
+          </form>
+          <div class="acciones-cabecera">
+            <button type="button" class="boton-utilidad" data-accion="leer-pantalla">Escuchar</button>
+            <button type="button" class="boton-utilidad" data-accion="alternar-texto" aria-label="Aumentar o restablecer el tamaño del texto" aria-pressed="false"><span class="etiqueta-amplia">Texto </span>A+</button>
+            <button type="button" class="boton-utilidad" data-accion="alternar-contraste" aria-label="Activar o desactivar el alto contraste" aria-pressed="false"><span class="etiqueta-amplia">Contraste</span><span class="etiqueta-corta" aria-hidden="true">AC</span></button>
+            <button type="button" class="sesion-usuario" data-accion="ver-sesion" aria-label="Ver contexto de identidad y sesión">
+              <span class="avatar" id="avatar-sesion" aria-hidden="true">—</span>
+              <span><strong id="nombre-sesion">Sesión sin resolver</strong><small id="perfil-sesion">Identificación requerida</small></span>
+            </button>
+          </div>
+        </header>
+
+        <main id="contenido-principal" class="contenido-principal" tabindex="-1">
+          <div id="estado-carga" class="estado-carga" role="status"><span aria-hidden="true"></span>Cargando información autorizada…</div>
+          <div id="espacio-trabajo"></div>
+        </main>
+
+        <footer class="pie-portal">
+          <span>© 2026 Diputación de Granada · Mi área personal</span>
+          <nav aria-label="Información legal"><a href="?vista=ayuda" data-ruta="ayuda">Accesibilidad</a><a href="?vista=ayuda" data-ruta="ayuda">Protección de datos</a><a href="?vista=ayuda" data-ruta="ayuda">Ayuda</a></nav>
+        </footer>
+      </div>
+    </div>
+
+    <div class="velo-menu" data-accion="cerrar-menu" hidden></div>
+    <div id="anuncios" class="solo-lectura" aria-live="polite"></div>
+    <div id="notificaciones" class="notificaciones" aria-live="polite"></div>
+
+    <dialog id="dialogo-confirmacion" class="dialogo" aria-labelledby="titulo-confirmacion">
+      <form method="dialog" id="formulario-confirmacion">
+        <header><span class="marca-paso" aria-hidden="true">!</span><div><p>Confirmación necesaria</p><h2 id="titulo-confirmacion">Confirmar acción</h2></div></header>
+        <div id="contenido-confirmacion" class="contenido-dialogo"></div>
+        <footer><button type="submit" value="cancelar" class="boton-secundario">Cancelar</button><button type="submit" value="confirmar" class="boton-primario">Confirmar demostración</button></footer>
+      </form>
+    </dialog>
+
+    <dialog id="dialogo-recibo" class="dialogo" aria-labelledby="titulo-recibo">
+      <form method="dialog">
+        <header><span class="marca-paso marca-exito" aria-hidden="true">✓</span><div><p>Resultado de la operación</p><h2 id="titulo-recibo">Recibo</h2></div></header>
+        <div id="contenido-recibo" class="contenido-dialogo"></div>
+        <footer><button type="button" class="boton-secundario" data-accion="descargar-recibo">Descargar recibo</button><button type="submit" class="boton-primario">Cerrar</button></footer>
+      </form>
+    </dialog>
+
+    <dialog id="dialogo-detalle" class="dialogo dialogo-amplio" aria-labelledby="titulo-detalle">
+      <form method="dialog">
+        <header><div><p>Información detallada</p><h2 id="titulo-detalle">Detalle</h2></div><button type="submit" class="boton-icono" aria-label="Cerrar detalle">×</button></header>
+        <div id="contenido-detalle" class="contenido-dialogo"></div>
+        <footer><button type="submit" class="boton-secundario">Cerrar</button></footer>
+      </form>
+    </dialog>
+
+    <svg class="biblioteca-iconos" aria-hidden="true">
+      <symbol id="icono-inicio" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5M5.5 10v10h13V10M9 20v-6h6v6"/></symbol>
+      <symbol id="icono-convocatoria" viewBox="0 0 24 24"><path d="M4 5h12v14H4zM8 9h5M8 13h5M18 8l3-2v12l-3-2z"/></symbol>
+      <symbol id="icono-persona" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-5 3.4-7 8-7s7.2 2 8 7"/></symbol>
+      <symbol id="icono-merito" viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.4l6.1-.9z"/></symbol>
+      <symbol id="icono-solicitud" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5zM15 3v5h4M8 12h8M8 16h8"/></symbol>
+      <symbol id="icono-baremo" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+      <symbol id="icono-seguimiento" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></symbol>
+      <symbol id="icono-llamamiento" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9M10 21h4"/></symbol>
+      <symbol id="icono-subsanacion" viewBox="0 0 24 24"><path d="M5 3h14v18H5zM8 8h8M8 12h5M15 17l2 2 4-5"/></symbol>
+      <symbol id="icono-alegacion" viewBox="0 0 24 24"><path d="M4 4h16v12H8l-4 4zM8 8h8M8 12h5"/></symbol>
+      <symbol id="icono-mensaje" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 6l9 7 9-7"/></symbol>
+      <symbol id="icono-certificado" viewBox="0 0 24 24"><path d="M5 3h14v18H5zM8 8h8M8 12h8M9 17h6"/></symbol>
+      <symbol id="icono-ayuda" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.5 2.5 0 1 1 3.2 2.4c-.9.4-.9 1.1-.9 2.1M12 17h.01"/></symbol>
+      <symbol id="icono-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+      <symbol id="icono-buscar" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></symbol>
+    </svg>
+
+    <noscript><p class="sin-javascript">Esta aplicación necesita JavaScript para conectarse de forma segura al servicio. No se ha realizado ninguna operación.</p></noscript>
+  </body>
+</html>

@@ -1,0 +1,41 @@
+import {
+  botonOperacion, chip, encabezadoVista, enlaceRuta, escaparAtributo, escaparHTML,
+  panel, tabla,
+} from "./comunes.js";
+
+export function renderizarMensajes(datos) {
+  const mensajes = datos.mensajes.map((item) => `<li><span class="fecha-bloque" aria-hidden="true">${item.estado === "No leído" ? "!" : "·"}</span><span><strong>${escaparHTML(item.asunto)}</strong><small>${escaparHTML(item.resumen)}</small><small>${escaparHTML(item.fecha)} · ${escaparHTML(item.tipo)}</small></span><div class="fila-acciones">${item.estado === "No leído" ? botonOperacion("marcar_mensaje", "Marcar como leído", { id: item.id, clase: "boton-secundario", descripcion: `Marcar como leído: ${item.asunto}` }) : chip(item.estado)}${enlaceRuta(item.ruta, "Abrir asunto", "enlace-boton")}</div></li>`).join("");
+  const preferencias = `<form data-operacion="actualizar_notificaciones"><fieldset><legend>Avisos que desea recibir</legend><label class="opcion-check"><input type="checkbox" name="convocatorias" checked><span><strong>Nuevas convocatorias de categorías compatibles</strong><small>Según titulaciones validadas y sus preferencias.</small></span></label><label class="opcion-check"><input type="checkbox" name="plazos" checked><span><strong>Plazos de mis expedientes</strong><small>Subsanaciones, alegaciones y publicaciones.</small></span></label><label class="opcion-check"><input type="checkbox" name="llamamientos" checked><span><strong>Llamamientos personales</strong><small>Aviso complementario por canales autorizados.</small></span></label><label class="opcion-check"><input type="checkbox" name="noticias"><span><strong>Noticias generales de empleo público</strong><small>Información sin efectos administrativos.</small></span></label></fieldset><button type="submit" class="boton-secundario">Guardar preferencias</button></form>`;
+  return `${encabezadoVista("Mensajes, avisos y noticias", "Bandeja personal con el proceso relacionado, plazo y canal.")}
+    <div class="rejilla-principal"><div>${panel("Bandeja de entrada", "Las notificaciones administrativas se identificarán expresamente", `<ul class="lista-mensajes">${mensajes}</ul>`, { estado: `${datos.resumen.mensajes_no_leidos} no leídos` })}</div><aside>${panel("Preferencias", "Configure avisos complementarios", preferencias)}${panel("Diferencia importante", "Aviso frente a notificación", `<p class="nota aviso">Un correo o mensaje de Telegram puede ser un aviso. Cuando la ley exija notificación administrativa, el portal mostrará su carácter, acceso, fecha y efectos.</p>`)}</aside></div>`;
+}
+
+export function renderizarCertificados(datos) {
+  const demo = datos.meta.presentacion;
+  const certificados = datos.certificados.map((item) => `<article class="panel"><header><div><h3>${escaparHTML(item.tipo)}</h3><p>${escaparHTML(item.id)}</p></div>${chip(item.estado)}</header><div class="panel-contenido"><p>${escaparHTML(item.descripcion)}</p><form class="fila-acciones" data-operacion="solicitar_certificado" data-id="${escaparAtributo(item.id)}"><div class="campo"><label for="formato-${escaparAtributo(item.id)}">Formato</label><select id="formato-${escaparAtributo(item.id)}" name="formato">${item.formatos.split(/, | o /).map((formato) => `<option>${escaparHTML(formato)}</option>`).join("")}</select></div><button type="submit" class="boton-primario">Generar certificado${demo ? " DEMO" : ""}</button></form></div></article>`).join("");
+  const filas = datos.documentos.map((item) => [
+    `<strong>${escaparHTML(item.nombre)}</strong><small>${escaparHTML(item.id)}</small>`, escaparHTML(item.tipo),
+    escaparHTML(item.fecha), chip(item.estado),
+    `<div class="acciones-tabla">${botonOperacion("solicitar_descarga", "Descargar", { id: item.id, clase: "boton-secundario", descripcion: `Preparar descarga de ${item.nombre}` })}</div>`,
+  ]);
+  return `${encabezadoVista("Certificados y descargas", "Obtenga documentos en formatos configurados y consulte su procedencia.")}
+    <p class="nota aviso">${demo ? "En producción, los certificados indicarán firma, sello, CSV/QR de verificación, versión y, cuando corresponda, vigencia o revocación. Esta demo solo genera un recibo sintético." : "Los certificados deben indicar firma, sello, CSV/QR de verificación, versión y, cuando corresponda, vigencia o revocación."}</p>
+    <div class="rejilla-dos">${certificados}</div>
+    ${panel("Mis documentos", "Descargas autorizadas asociadas a la identidad", tabla({ descripcion: "Documentación disponible para la persona interesada", columnas: ["Documento", "Tipo", "Fecha", "Estado", "Acción"], filas }))}`;
+}
+
+export function renderizarAyuda(datos, estado) {
+  const termino = (estado.consultaAyuda || "").trim().toLowerCase();
+  const preguntas = datos.ayuda.filter((item) => !termino || `${item.pregunta} ${item.respuesta}`.toLowerCase().includes(termino));
+  const faq = preguntas.map((item) => `<details><summary>${escaparHTML(item.pregunta)}</summary><p>${escaparHTML(item.respuesta)}</p></details>`).join("") || `<div class="estado-vacio"><strong>Sin coincidencias</strong>Pruebe con otras palabras o borre la búsqueda.</div>`;
+  const transcripcion = `Esta guía explica el área personal de Bolsa. En Inicio aparecen plazos y acciones pendientes. En Convocatorias puede revisar bases y comenzar una solicitud. El inventario de Méritos permite reutilizar títulos, experiencia y documentos. La Autobaremación es provisional y será revisada por Recursos Humanos. Las acciones de pago, firma, registro, llamamiento, subsanación y alegación necesitan confirmación y recibo.${datos.meta.presentacion ? " En esta demostración ningún dato ni documento sale del navegador y ningún acto tiene validez administrativa." : " Cada operación real depende de la confirmación del servicio autorizado."}`;
+  return `${encabezadoVista("Ayuda y accesibilidad", "Guías, audio, preguntas frecuentes y opciones de lectura.", `<button type="button" class="boton-primario" data-accion="leer-pantalla">Leer esta página</button>`)}
+    <div class="rejilla-principal"><div>
+      ${panel("Buscar en la ayuda", "Respuestas sobre inscripción, méritos, baremo y llamamientos", `<form id="busqueda-ayuda" data-accion="buscar-ayuda"><div class="campo"><label for="consulta-ayuda">¿Qué necesita saber?</label><input id="consulta-ayuda" name="consulta" type="search" value="${escaparAtributo(estado.consultaAyuda || "")}" placeholder="Ejemplo: presentar una subsanación"></div><button type="submit" class="boton-primario">Buscar</button></form><div class="resultado-ayuda">${faq}</div>`)}
+      ${panel("Guía sonora", "Audio local con transcripción completa", `<audio class="reproductor-ayuda" controls preload="metadata"><source src="/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3" type="audio/mpeg">Su navegador no puede reproducir el audio.</audio><details><summary>Leer la transcripción</summary><p>${escaparHTML(transcripcion)}</p></details>`)}
+    </div><aside>
+      ${panel("Opciones de visualización", "Se aplican solo durante esta visita", `<div class="fila-acciones"><button type="button" class="boton-secundario" data-accion="alternar-texto">Aumentar texto</button><button type="button" class="boton-secundario" data-accion="alternar-contraste">Alto contraste</button><button type="button" class="boton-secundario" data-accion="leer-pantalla">Lectura por voz</button></div><p>La interfaz admite teclado, ampliación del navegador, lectura de pantalla y reducción de movimiento.</p>`)}
+      ${panel("Canales de soporte", "Ayuda sin exponer datos personales", `<dl class="dato-lista"><dt>Asistente</dt><dd>Consultas públicas sobre plazos, requisitos y uso del portal.</dd><dt>Soporte técnico</dt><dd>${datos.meta.presentacion ? "Referencia sintética: DEMO-AYUDA-001" : "Canal autorizado indicado por el servicio"}</dd><dt>Protección de datos</dt><dd>Información de derechos y tratamiento en el aviso aplicable.</dd></dl><p class="nota">No incluya documentación personal en consultas generales de ayuda.</p>`)}
+      ${panel("Navegación rápida", "Recorridos habituales", `<div class="fila-acciones">${enlaceRuta("convocatorias", "Inscribirme", "enlace-boton")}${enlaceRuta("meritos", "Aportar méritos", "enlace-boton")}${enlaceRuta("llamamientos", "Responder llamamiento", "enlace-boton")}</div>`)}
+    </aside></div>`;
+}

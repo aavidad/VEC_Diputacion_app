@@ -1,0 +1,247 @@
+import { validarDatosAreaPersonal, validarRecibo } from "./contrato.js";
+
+/**
+ * Adaptador efímero y exclusivo de presentación.
+ *
+ * No usa red, cookies ni almacenamiento del navegador. Todo el estado vive en
+ * la instancia y desaparece al recargar. La aplicación productiva no importa
+ * este módulo: `arranque.js` solo lo carga con `?presentacion=rrhh`.
+ */
+const BASE_PRESENTACION = {
+  meta: {
+    esquema: "vec.bolsa.area-personal.v1",
+    presentacion: true,
+    origen: "Adaptador efímero de presentación",
+    generado_en: "2026-07-18T09:00:00Z",
+  },
+  sesion: {
+    persona_ref: "DEMO-PER-0001",
+    nombre_visible: "Persona Aspirante de Demostración",
+    iniciales: "PD",
+    metodo: "Certificado electrónico simulado",
+  },
+  resumen: {
+    acciones_pendientes: 3,
+    convocatorias_abiertas: 2,
+    solicitudes_activas: 2,
+    mensajes_no_leidos: 2,
+    puntuacion_provisional: 14.75,
+  },
+  capacidades: {
+    actualizar_contacto: true,
+    incorporar_merito: true,
+    guardar_borrador: true,
+    calcular_autobaremo: true,
+    iniciar_pago: true,
+    firmar_solicitud: true,
+    registrar_solicitud: true,
+    cambiar_disponibilidad: true,
+    responder_llamamiento: true,
+    presentar_subsanacion: true,
+    presentar_alegacion: true,
+    marcar_mensaje: true,
+    actualizar_notificaciones: true,
+    solicitar_certificado: true,
+    solicitar_descarga: true,
+  },
+  perfil: {
+    referencia: "DEMO-PERFIL-0001",
+    nombre_visible: "Persona Aspirante de Demostración",
+    identificador_visible: "ID-DEMO-SIN-VALIDEZ",
+    correo: "aspirante@vec-demo.test",
+    telefono: "000 000 000",
+    domicilio: "Domicilio sintético sin localización real",
+    estado_verificacion: "Identidad simulada · Contacto pendiente de revisión",
+    provincia: "Granada (dato sintético)",
+    idioma: "Castellano",
+    canales: ["Correo de demostración", "Aviso interno"],
+  },
+  plazos: [
+    { id: "DEMO-PLAZO-001", dia: "21", mes: "JUL", titulo: "Completar solicitud", detalle: "Bolsa de Auxiliar de Gestión · 23:59", estado: "Quedan 3 días", ruta: "solicitud" },
+    { id: "DEMO-PLAZO-002", dia: "23", mes: "JUL", titulo: "Responder subsanación", detalle: "Expediente DEMO-SOL-0027 · 14:00", estado: "Acción requerida", ruta: "subsanaciones" },
+    { id: "DEMO-PLAZO-003", dia: "29", mes: "JUL", titulo: "Fin de alegaciones", detalle: "Listado provisional · 23:59", estado: "Próximamente", ruta: "alegaciones" },
+  ],
+  convocatorias: [
+    {
+      id: "DEMO-CONV-001", referencia: "DEMO-BOL-2026-014", titulo: "Bolsa de Auxiliar de Gestión", categoria: "Administración general",
+      estado: "Plazo abierto", plazo: "Del 08/07/2026 al 21/07/2026", descripcion: "Selección temporal mediante concurso de méritos.",
+      plazas: "Bolsa sin número cerrado de integrantes", tasa: "12,00 € · bonificaciones configurables", presentacion_hasta: "21/07/2026 23:59",
+      requisitos: ["Titulación equivalente a Bachillerato o Técnico", "Capacidad funcional", "No concurrir en causa de inhabilitación"],
+      documentos: ["Bases de la convocatoria", "Anexo de solicitud", "Tabla de baremación"],
+    },
+    {
+      id: "DEMO-CONV-002", referencia: "DEMO-OPE-2026-006", titulo: "Proceso de Técnico de Programas", categoria: "Administración especial",
+      estado: "Próxima apertura", plazo: "Del 01/08/2026 al 20/08/2026", descripcion: "Proceso selectivo sintético con fase de oposición y concurso.",
+      plazas: "2 plazas de demostración", tasa: "18,00 € · exenciones según bases", presentacion_hasta: "20/08/2026 23:59",
+      requisitos: ["Titulación universitaria indicada en las bases", "Nacionalidad o supuesto equiparado", "Capacidad funcional"],
+      documentos: ["Borrador de bases", "Programa orientativo"],
+    },
+    {
+      id: "DEMO-CONV-003", referencia: "DEMO-BOL-2025-031", titulo: "Bolsa de Apoyo a Servicios", categoria: "Servicios generales",
+      estado: "Cerrada · listado provisional", plazo: "Cerrada el 30/06/2026", descripcion: "Convocatoria sintética en fase de revisión de méritos.",
+      plazas: "Bolsa temporal", tasa: "Exenta", presentacion_hasta: "Plazo cerrado",
+      requisitos: ["Requisitos generales indicados en bases"], documentos: ["Bases", "Listado provisional anonimizado"],
+    },
+  ],
+  meritos: [
+    { id: "DEMO-MER-001", tipo: "Titulación", titulo: "Titulación de demostración de nivel 4", detalle: "Rama administrativa · emitida 2021 (dato sintético)", estado: "Validado", documento_ref: "DEMO-DOC-001", puntos_estimados: 2.0 },
+    { id: "DEMO-MER-002", tipo: "Experiencia", titulo: "Experiencia en administración pública simulada", detalle: "18 meses · jornada completa · origen de oficio simulado", estado: "Pendiente de contraste", documento_ref: "DEMO-DOC-002", puntos_estimados: 5.4 },
+    { id: "DEMO-MER-003", tipo: "Formación", titulo: "Curso sintético de procedimiento administrativo", detalle: "60 horas · entidad de formación de demostración", estado: "Aportado", documento_ref: "DEMO-DOC-003", puntos_estimados: 0.6 },
+    { id: "DEMO-MER-004", tipo: "Experiencia", titulo: "Experiencia externa simulada", detalle: "12 meses · jornada 50 % · equivalencia calculada: 6 meses", estado: "Requiere subsanación", documento_ref: "DEMO-DOC-004", puntos_estimados: 1.8 },
+  ],
+  documentos: [
+    { id: "DEMO-DOC-001", nombre: "titulo-demostracion.pdf", tipo: "Titulación", fecha: "10/07/2026", estado: "Firma simulada verificada", huella: "DEMO-SHA256-001" },
+    { id: "DEMO-DOC-002", nombre: "servicios-previos-demostracion.pdf", tipo: "Experiencia", fecha: "10/07/2026", estado: "Obtenido de oficio (simulado)", huella: "DEMO-SHA256-002" },
+    { id: "DEMO-DOC-003", nombre: "curso-demostracion.pdf", tipo: "Formación", fecha: "11/07/2026", estado: "Pendiente de validación", huella: "DEMO-SHA256-003" },
+    { id: "DEMO-DOC-004", nombre: "contrato-demostracion.pdf", tipo: "Experiencia", fecha: "12/07/2026", estado: "Subsanación requerida", huella: "DEMO-SHA256-004" },
+  ],
+  solicitudes: [
+    { id: "DEMO-SOL-0027", convocatoria_id: "DEMO-CONV-001", referencia: "DEMO-REG-2026-0027", titulo: "Bolsa de Auxiliar de Gestión", estado: "Registrada · en revisión", actualizado: "17/07/2026 12:10", posicion: "18 de 146 (provisional)", puntuacion: 14.75, siguiente: "Responder subsanación antes del 23/07/2026", pago: "Tasa simulada abonada", firma: "Firma simulada válida" },
+    { id: "DEMO-SOL-0018", convocatoria_id: "DEMO-CONV-003", referencia: "DEMO-REG-2026-0018", titulo: "Bolsa de Apoyo a Servicios", estado: "Listado provisional", actualizado: "16/07/2026 09:20", posicion: "7 de 82 (provisional)", puntuacion: 11.2, siguiente: "Puede presentar alegaciones hasta el 29/07/2026", pago: "Exenta", firma: "Firma simulada válida" },
+  ],
+  baremo: [
+    { id: "DEMO-BAR-001", nombre: "Experiencia en la Diputación", detalle: "18 meses × 0,30 puntos · jornada completa", estado: "De oficio · pendiente de revisión", puntos: 5.4, maximo: 8 },
+    { id: "DEMO-BAR-002", nombre: "Experiencia en otras administraciones", detalle: "12 meses × 50 % × 0,30 puntos", estado: "Autobaremado", puntos: 1.8, maximo: 4 },
+    { id: "DEMO-BAR-003", nombre: "Titulaciones adicionales", detalle: "Una titulación de la misma rama", estado: "Validado", puntos: 2, maximo: 3 },
+    { id: "DEMO-BAR-004", nombre: "Formación relacionada", detalle: "60 horas computables × 0,01 puntos", estado: "Pendiente de validación", puntos: 0.6, maximo: 2 },
+    { id: "DEMO-BAR-005", nombre: "Ejercicio superado", detalle: "Resultado sintético importado del proceso", estado: "De oficio", puntos: 4.95, maximo: 5 },
+  ],
+  disponibilidad: {
+    disponible: true,
+    estado: "Disponible para llamamientos",
+    desde: "01/07/2026",
+    bolsas: ["Bolsa de Auxiliar de Gestión", "Bolsa de Apoyo a Servicios"],
+    proxima_revision: "31/12/2026",
+  },
+  llamamientos: [
+    { id: "DEMO-LLA-0045", bolsa: "Bolsa de Auxiliar de Gestión", puesto: "Apoyo administrativo · Servicios Centrales", plazo: "Responder antes del 19/07/2026 14:00", estado: "Pendiente de respuesta", jornada: "Completa", duracion: "3 meses", posicion: "Primera persona elegible de demostración" },
+    { id: "DEMO-LLA-0031", bolsa: "Bolsa de Apoyo a Servicios", puesto: "Apoyo logístico · Centro sintético", plazo: "Respondido el 02/07/2026", estado: "Aceptado · comprobación pendiente", jornada: "Parcial 50 %", duracion: "1 mes", posicion: "Respuesta registrada en demostración" },
+  ],
+  subsanaciones: [
+    { id: "DEMO-SUB-0008", solicitud_ref: "DEMO-SOL-0027", motivo: "Acreditar la jornada de la experiencia externa", plazo: "23/07/2026 14:00", estado: "Pendiente", documento_solicitado: "Certificado con porcentaje de jornada y periodos exactos" },
+  ],
+  alegaciones: [
+    { id: "DEMO-ALE-0003", solicitud_ref: "DEMO-SOL-0018", asunto: "Revisión de formación no computada", estado: "Borrador", fecha: "Creada 17/07/2026" },
+  ],
+  mensajes: [
+    { id: "DEMO-MSG-001", asunto: "Subsanación disponible", resumen: "Revise el requerimiento de su solicitud DEMO-SOL-0027.", fecha: "17/07/2026 12:10", estado: "No leído", tipo: "Acción requerida", ruta: "subsanaciones" },
+    { id: "DEMO-MSG-002", asunto: "Nuevo llamamiento", resumen: "Dispone de un llamamiento pendiente de respuesta.", fecha: "17/07/2026 10:30", estado: "No leído", tipo: "Plazo activo", ruta: "llamamientos" },
+    { id: "DEMO-MSG-003", asunto: "Listado provisional publicado", resumen: "Puede consultar su posición y puntuación desglosada.", fecha: "16/07/2026 09:20", estado: "Leído", tipo: "Información", ruta: "seguimiento" },
+  ],
+  certificados: [
+    { id: "DEMO-CER-001", tipo: "Certificado de inscripción en bolsa", descripcion: "Acredita la situación mostrada en una bolsa concreta.", estado: "Disponible bajo solicitud", formatos: "PDF, ODT o JSON" },
+    { id: "DEMO-CER-002", tipo: "Justificante de registro", descripcion: "Copia de la solicitud y del asiento de presentación.", estado: "Disponible", formatos: "PDF o JSON" },
+    { id: "DEMO-CER-003", tipo: "Informe de méritos aportados", descripcion: "Relación de méritos y documentos del expediente personal.", estado: "Disponible bajo solicitud", formatos: "PDF, CSV, ODT o JSON" },
+  ],
+  actividad: [
+    { id: "DEMO-ACT-001", titulo: "Requerimiento de subsanación", detalle: "Se abrió un plazo para completar una experiencia.", fecha: "17/07/2026 12:10", actor: "Servicio de Selección (demostración)", recibo: "DEMO-EVT-001" },
+    { id: "DEMO-ACT-002", titulo: "Puntuación provisional calculada", detalle: "Resultado sujeto a revisión técnica y alegaciones.", fecha: "16/07/2026 09:20", actor: "Motor de baremación (demostración)", recibo: "DEMO-EVT-002" },
+    { id: "DEMO-ACT-003", titulo: "Solicitud registrada", detalle: "Firma, tasa y asiento simulados.", fecha: "12/07/2026 18:42", actor: "Persona Aspirante de Demostración", recibo: "DEMO-REG-2026-0027" },
+  ],
+  ayuda: [
+    { pregunta: "¿Cómo me inscribo en una convocatoria?", respuesta: "Abra Convocatorias, revise bases y requisitos, y seleccione Iniciar solicitud. El recorrido separa borrador, pago, firma y registro." },
+    { pregunta: "¿Puedo reutilizar mis méritos?", respuesta: "Sí. El inventario personal permite reutilizar documentación, pero cada convocatoria aplica sus propias bases y puede exigir acreditación adicional." },
+    { pregunta: "¿La autobaremación es definitiva?", respuesta: "No. Es una estimación trazable aplicada a las bases de la convocatoria. El personal técnico revisa cada mérito y puede aceptar o rechazar su cómputo con constancia." },
+    { pregunta: "¿Cómo respondo a un llamamiento?", respuesta: "Abra Disponibilidad y llamamientos, revise puesto, jornada, duración y plazo, y confirme su respuesta. La respuesta administrativa real requerirá el servicio conectado." },
+    { pregunta: "¿Qué ocurre en esta demostración?", respuesta: "Nada sale del navegador ni afecta a expedientes. Cada acción genera un recibo inequívoco DEMO y el estado se pierde al recargar." },
+  ],
+};
+
+const ACCIONES = new Set([
+  "actualizar_contacto", "incorporar_merito", "guardar_borrador", "calcular_autobaremo",
+  "iniciar_pago", "firmar_solicitud", "registrar_solicitud", "cambiar_disponibilidad",
+  "responder_llamamiento", "presentar_subsanacion", "presentar_alegacion", "marcar_mensaje",
+  "actualizar_notificaciones", "solicitar_certificado", "solicitar_descarga",
+]);
+
+function referenciaDemo(valor, alternativa) {
+  const texto = typeof valor === "string" && /^DEMO-[A-Z0-9._/-]+$/i.test(valor) ? valor : alternativa;
+  return texto.slice(0, 100);
+}
+
+export function crearAdaptadorPresentacion() {
+  let estado = structuredClone(BASE_PRESENTACION);
+  let secuencia = 0;
+
+  async function cargar() {
+    estado.meta.generado_en = new Date().toISOString();
+    estado.resumen.mensajes_no_leidos = estado.mensajes.filter((item) => item.estado === "No leído").length;
+    estado.resumen.acciones_pendientes = estado.subsanaciones.filter((item) => item.estado === "Pendiente").length
+      + estado.llamamientos.filter((item) => item.estado === "Pendiente de respuesta").length
+      + estado.mensajes.filter((item) => item.estado === "No leído").length;
+    return validarDatosAreaPersonal(estado, { presentacionEsperada: true });
+  }
+
+  function crearRecibo(accion) {
+    secuencia += 1;
+    return validarRecibo({
+      esquema: "vec.bolsa.area-personal.recibo-demo.v1",
+      presentacion: true,
+      referencia: `DEMO-REC-${String(secuencia).padStart(4, "0")}`,
+      accion,
+      resultado: "Simulación completada sin efectos administrativos",
+      actor: "Persona Aspirante de Demostración",
+      fecha: new Date().toISOString(),
+      advertencia: "RECIBO DEMO · No acredita presentación, firma, pago, registro ni comunicación real.",
+    }, { presentacionEsperada: true });
+  }
+
+  function aplicar(accion, payload) {
+    if (accion === "actualizar_contacto") {
+      estado.perfil.correo = String(payload.correo || estado.perfil.correo).slice(0, 160);
+      estado.perfil.telefono = String(payload.telefono || estado.perfil.telefono).slice(0, 40);
+      estado.perfil.domicilio = String(payload.domicilio || estado.perfil.domicilio).slice(0, 300);
+    } else if (accion === "incorporar_merito") {
+      secuencia += 1;
+      estado.meritos.push({
+        id: `DEMO-MER-NUEVO-${secuencia}`, tipo: String(payload.tipo || "Otro").slice(0, 80),
+        titulo: String(payload.titulo || "Mérito incorporado en demostración").slice(0, 300),
+        detalle: "Documento sintético pendiente de validación", estado: "Aportado en demostración",
+        documento_ref: `DEMO-DOC-NUEVO-${secuencia}`, puntos_estimados: 0,
+      });
+    } else if (accion === "guardar_borrador") {
+      const existente = estado.solicitudes.find((item) => item.id === "DEMO-SOL-BORRADOR");
+      if (!existente) estado.solicitudes.unshift({
+        id: "DEMO-SOL-BORRADOR", convocatoria_id: referenciaDemo(payload.convocatoria_id, "DEMO-CONV-001"),
+        referencia: "DEMO-BORRADOR-0001", titulo: "Solicitud de demostración en preparación",
+        estado: "Borrador efímero", actualizado: "Ahora · se perderá al recargar", posicion: "No aplica",
+        puntuacion: 0, siguiente: "Completar, firmar y registrar", pago: "Pendiente", firma: "Pendiente",
+      });
+    } else if (accion === "iniciar_pago") {
+      estado.solicitudes[0].pago = "Pago DEMO confirmado · sin cargo real";
+    } else if (accion === "firmar_solicitud") {
+      estado.solicitudes[0].firma = "Firma DEMO confirmada · sin firma electrónica real";
+    } else if (accion === "registrar_solicitud") {
+      estado.solicitudes[0].estado = "Registro DEMO completado · sin asiento real";
+      estado.solicitudes[0].referencia = "DEMO-REG-NUEVO-0001";
+    } else if (accion === "cambiar_disponibilidad") {
+      estado.disponibilidad.disponible = payload.disponible === true;
+      estado.disponibilidad.estado = payload.disponible === true ? "Disponible para llamamientos" : "No disponible (demostración)";
+    } else if (accion === "responder_llamamiento") {
+      const item = estado.llamamientos.find((llamamiento) => llamamiento.id === payload.id);
+      if (item) item.estado = payload.respuesta === "aceptar" ? "Aceptado en demostración" : "Rechazado en demostración";
+    } else if (accion === "presentar_subsanacion") {
+      const item = estado.subsanaciones.find((subsanacion) => subsanacion.id === payload.id);
+      if (item) item.estado = "Presentada en demostración";
+    } else if (accion === "presentar_alegacion") {
+      const item = estado.alegaciones.find((alegacion) => alegacion.id === payload.id);
+      if (item) item.estado = "Presentada en demostración";
+    } else if (accion === "marcar_mensaje") {
+      const item = estado.mensajes.find((mensaje) => mensaje.id === payload.id);
+      if (item) item.estado = "Leído";
+    } else if (accion === "solicitar_certificado") {
+      const item = estado.certificados.find((certificado) => certificado.id === payload.id);
+      if (item) item.estado = `Generado en demostración · ${String(payload.formato || "PDF").toUpperCase()}`;
+    }
+  }
+
+  async function ejecutar({ accion, payload = {}, confirmacion = false, capacidad = false } = {}) {
+    if (!ACCIONES.has(accion)) throw new Error("La acción no pertenece al adaptador de presentación.");
+    if (capacidad !== true || estado.capacidades[accion] !== true) throw new Error("La capacidad no está concedida en la presentación.");
+    if (confirmacion !== true) throw new Error("La simulación requiere confirmación explícita.");
+    aplicar(accion, payload && typeof payload === "object" ? payload : {});
+    return Object.freeze({ recibo: crearRecibo(accion), datos: await cargar() });
+  }
+
+  return Object.freeze({ modo: "presentacion", cargar, ejecutar });
+}
