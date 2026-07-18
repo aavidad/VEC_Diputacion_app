@@ -16,7 +16,7 @@ func atestacionPrueba(t *testing.T, dominio string, mensaje []byte) (DatosSolici
 	if err != nil {
 		t.Fatal(err)
 	}
-	atestacion, err := NuevaAtestacion(solicitud, DatosAtestacion{
+	atestacion, err := NuevaAtestacionNominal(solicitud, DatosAtestacion{
 		Algoritmo: AlgoritmoHMACSHA256, ClaveRef: "clave:atestacion:material:v2",
 		ClaveVersion: 7, Dominio: dominio, Huella: solicitud.Huella,
 		Codigo: make([]byte, sha256.Size),
@@ -83,7 +83,7 @@ func TestCapacidadesPlanPerfilYReferenciaFallanCerradas(t *testing.T) {
 	canonico, _ := CanonicoPerfil(perfil)
 	huellaPerfil := sha256.Sum256(canonico)
 	_, atestacionPerfil := atestacionPrueba(t, DominioPerfil, canonico)
-	if !PerfilSelladoValido(perfil, huellaPerfil, atestacionPerfil) {
+	if !PerfilSelladoNominalValido(perfil, huellaPerfil, atestacionPerfil) {
 		t.Fatal("perfil sellado valido rechazado")
 	}
 	publicado := DatosPerfilPublicado{
@@ -103,10 +103,18 @@ func TestCapacidadesPlanPerfilYReferenciaFallanCerradas(t *testing.T) {
 	}
 
 	huellaIdentidad, err := NuevaHuellaIdentidad([]byte("identidad durable"))
-	if err != nil || !ResultadoReferenciaValido(huellaIdentidad, DatosResultadoReferencia{
+	resultadoReferencia := DatosResultadoReferencia{
 		Referencia: "recibo:material:durable:001", HuellaIdentidad: huellaIdentidad,
-	}) {
+	}
+	if err != nil || !ResultadoReferenciaValido(huellaIdentidad, resultadoReferencia) {
 		t.Fatal("referencia durable valida rechazada")
+	}
+	if _, err := json.Marshal(resultadoReferencia); !errors.Is(err, ErrSerializacionProhibida) {
+		t.Fatalf("el resultado de referencia permitio JSON: %v", err)
+	}
+	texto := fmt.Sprintf("%v|%+v|%#v", resultadoReferencia, resultadoReferencia, resultadoReferencia)
+	if strings.Contains(texto, resultadoReferencia.Referencia) {
+		t.Fatal("el resultado de referencia filtro la referencia durable")
 	}
 }
 
@@ -118,11 +126,11 @@ func TestCapacidadReciboSelladoCubreTodosLosDominios(t *testing.T) {
 	}
 	huella := sha256.Sum256(canonico)
 	_, atestacion := atestacionPrueba(t, DominioRecibo, canonico)
-	if !ReciboSelladoValido(recibo, huella, atestacion) {
+	if !ReciboSelladoNominalValido(recibo, huella, atestacion) {
 		t.Fatal("recibo sellado valido rechazado")
 	}
 	recibo.HuellaPlan.Suma = huella
-	if ReciboSelladoValido(recibo, huella, atestacion) {
+	if ReciboSelladoNominalValido(recibo, huella, atestacion) {
 		t.Fatal("huella de recibo reutilizada como plan aceptada")
 	}
 }

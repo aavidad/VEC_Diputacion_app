@@ -277,7 +277,7 @@ func NuevaAtestacionCriptograficaMaterialAlmacenV2(
 	claveVersion uint32,
 	codigo []byte,
 ) (AtestacionCriptograficaMaterialAlmacenV2, error) {
-	datos, err := recibomaterial.NuevaAtestacion(
+	datos, err := recibomaterial.NuevaAtestacionNominal(
 		datosSolicitudAtestacionMaterialV2(solicitud),
 		recibomaterial.DatosAtestacion{
 			Algoritmo: string(algoritmo), ClaveRef: claveRef, ClaveVersion: claveVersion,
@@ -507,7 +507,7 @@ func (p PerfilCapacidadesAlmacenMaterialV2) validarHechos() error {
 }
 
 func (p PerfilCapacidadesAlmacenMaterialV2) Validar() error {
-	if !recibomaterial.PerfilSelladoValido(
+	if !recibomaterial.PerfilSelladoNominalValido(
 		datosPerfilMaterialV2(p), p.huella, datosAtestacionMaterialV2(p.atestacion),
 	) {
 		return errorReciboMaterialV2()
@@ -914,7 +914,7 @@ func NuevoReciboEscrituraObjetoMaterialV2(
 }
 
 func (r ReciboEscrituraObjetoMaterialV2) Validar() error {
-	if !recibomaterial.ReciboSelladoValido(
+	if !recibomaterial.ReciboSelladoNominalValido(
 		datosReciboMaterialV2(r), r.huella, datosAtestacionMaterialV2(r.atestacion),
 	) {
 		return errorReciboMaterialV2()

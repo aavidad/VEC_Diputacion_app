@@ -10,6 +10,7 @@ const (
 	redaccionSolicitudAtestacion = "[SOLICITUD-ATESTACION-MATERIAL-V2-CONFIDENCIAL-REDACTADA]"
 	redaccionDatosAtestacion     = "[DATOS-ATESTACION-MATERIAL-V2-CONFIDENCIALES-REDACTADOS]"
 	redaccionPerfilPublicado     = "[PERFIL-PUBLICADO-MATERIAL-V2-CANONICO-REDACTADO]"
+	redaccionResultadoReferencia = "[RESULTADO-REFERENCIA-MATERIAL-V2-CONFIDENCIAL-REDACTADO]"
 )
 
 func escribirRedaccionMaterial(estado fmt.State, valor string) {
@@ -54,3 +55,28 @@ func (DatosPerfilPublicado) MarshalText() ([]byte, error)   { return Serializaci
 func (*DatosPerfilPublicado) UnmarshalText([]byte) error    { return DeserializacionProhibida() }
 func (DatosPerfilPublicado) MarshalBinary() ([]byte, error) { return SerializacionProhibida() }
 func (*DatosPerfilPublicado) UnmarshalBinary([]byte) error  { return DeserializacionProhibida() }
+
+func (DatosResultadoReferencia) String() string     { return redaccionResultadoReferencia }
+func (d DatosResultadoReferencia) GoString() string { return d.String() }
+func (d DatosResultadoReferencia) Format(estado fmt.State, _ rune) {
+	escribirRedaccionMaterial(estado, d.String())
+}
+func (d DatosResultadoReferencia) LogValue() slog.Value { return slog.StringValue(d.String()) }
+func (DatosResultadoReferencia) MarshalJSON() ([]byte, error) {
+	return SerializacionProhibida()
+}
+func (*DatosResultadoReferencia) UnmarshalJSON([]byte) error {
+	return DeserializacionProhibida()
+}
+func (DatosResultadoReferencia) MarshalText() ([]byte, error) {
+	return SerializacionProhibida()
+}
+func (*DatosResultadoReferencia) UnmarshalText([]byte) error {
+	return DeserializacionProhibida()
+}
+func (DatosResultadoReferencia) MarshalBinary() ([]byte, error) {
+	return SerializacionProhibida()
+}
+func (*DatosResultadoReferencia) UnmarshalBinary([]byte) error {
+	return DeserializacionProhibida()
+}

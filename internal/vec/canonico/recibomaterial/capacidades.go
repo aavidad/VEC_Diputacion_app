@@ -30,7 +30,9 @@ func RevelarSolicitudAtestacion(s DatosSolicitudAtestacion) (DatosSolicitudAtest
 	return s, nil
 }
 
-// DatosAtestacion representa el resultado criptografico ligado al mensaje.
+// DatosAtestacion representa material criptografico nominal ligado al mensaje.
+// Su forma valida no acredita la firma: la autoridad corresponde al conector
+// criptografico homologado y a la relectura durable del flujo de aplicacion.
 type DatosAtestacion struct {
 	Algoritmo    string
 	ClaveRef     string
@@ -40,7 +42,7 @@ type DatosAtestacion struct {
 	Codigo       []byte
 }
 
-func NuevaAtestacion(s DatosSolicitudAtestacion, a DatosAtestacion) (DatosAtestacion, error) {
+func NuevaAtestacionNominal(s DatosSolicitudAtestacion, a DatosAtestacion) (DatosAtestacion, error) {
 	if !AtestacionValida(s.Dominio, s.Mensaje, s.Huella, a.Algoritmo, a.ClaveRef,
 		a.ClaveVersion, a.Dominio, a.Huella, a.Codigo) {
 		return DatosAtestacion{}, ErrAtestacionNoValida
@@ -106,8 +108,9 @@ func RevelarPerfilPublicado(p DatosPerfilPublicado) (DatosPerfilPublicado, error
 	return p, nil
 }
 
-// PerfilSelladoValido coteja hechos, huella y atestacion en una sola regla.
-func PerfilSelladoValido(p Perfil, huella [sha256.Size]byte, a DatosAtestacion) bool {
+// PerfilSelladoNominalValido coteja forma, huella y ligadura nominal. No
+// sustituye la verificacion criptografica del conector homologado.
+func PerfilSelladoNominalValido(p Perfil, huella [sha256.Size]byte, a DatosAtestacion) bool {
 	canonico, err := CanonicoPerfil(p)
 	if err != nil || huella == ([sha256.Size]byte{}) {
 		return false
@@ -142,8 +145,9 @@ func ResultadoReferenciaValido(huella [sha256.Size]byte, r DatosResultadoReferen
 		subtle.ConstantTimeCompare(r.HuellaIdentidad[:], huella[:]) == 1
 }
 
-// ReciboSelladoValido coteja el recibo, sus dominios y huellas independientes.
-func ReciboSelladoValido(r Recibo, huella [sha256.Size]byte, a DatosAtestacion) bool {
+// ReciboSelladoNominalValido coteja el recibo, sus dominios, huellas y
+// ligadura nominal. No promueve la atestacion a autoridad criptografica.
+func ReciboSelladoNominalValido(r Recibo, huella [sha256.Size]byte, a DatosAtestacion) bool {
 	canonico, err := CanonicoRecibo(r)
 	if err != nil || huella == ([sha256.Size]byte{}) {
 		return false
