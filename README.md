@@ -22,6 +22,9 @@ El estado comprensible, el frente actual y el orden de trabajo se mantienen en
 actualiza cada vez que se cierra una capacidad o cambia el frente principal;
 los códigos internos `Txx` quedan relegados a la documentación técnica.
 
+Los agentes paralelos, incluidos los que se arranquen manualmente, deben leer
+[ORQUESTACION_AGENTES.md](ORQUESTACION_AGENTES.md) antes de tomar una tarea.
+
 ## Estado honesto
 
 Probado:
