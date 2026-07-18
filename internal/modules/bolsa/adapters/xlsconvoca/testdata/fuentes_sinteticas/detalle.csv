@@ -1,0 +1,4 @@
+DNI/NIE,Primer Apellido,Segundo Apellido,Nombre,Turno,Grupo,Descripcion del grupo,Orden grupo,Descripcion del merito,Puntos autobaremacion,Puntos tribunal,Motivo
+***0001**,Sintetica,Uno,Ana,Libre,EXP,Experiencia profesional,1,Servicio sintetico A,0.5,0.4,Contraste sintetico
+***0001**,Sintetica,Uno,Ana,Libre,FOR,Formacion,2,Curso sintetico B,1.25,,
+***00X3**,Prueba,Rechazada,Carla,Libre,EXP,Experiencia profesional,1,Servicio sintetico C,1,1,
