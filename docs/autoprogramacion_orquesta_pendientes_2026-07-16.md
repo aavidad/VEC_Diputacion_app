@@ -181,11 +181,31 @@ ejecucion verde de CI ni justifica cerrar el riesgo de rendimiento o T02.
   octetos, mutaciones completas de DNI/NIE, 100.000 entradas deterministas y
   semillas de fuzzing.
 
+##### Siguiente corte incremental T02 — 18/07/2026
+
+El commit `af1a79c` extrae la canonizacion y la comprobacion de la preimagen de
+la entrada neutral documental V1 desde el puerto a
+`internal/vec/canonico/documental/entrada_neutral_v1.go`. El fichero canonico
+tiene 94 lineas de produccion y su prueba dedicada, 113. Como resultado,
+`materializacion_documental_v4.go` baja de 1.590 a 1.532 lineas.
+
+Los limites del codec permanecen privados en el canonico. El puerto conserva
+sin cambios su superficie publica, sus tipos, sus errores observables y la
+preimagen historica; solo traduce el resultado cerrado del canonico a su error
+nominal. El corte supero las pruebas normales y con detector de carreras de
+los paquetes afectados, `go vet` y el control ratcheado de tamanos.
+
+La carrera completa de `internal/vec/ports` con `go test -race -count=1`
+comunico `485.657 s`. No acredita una mejora del coste global frente a los
+`485.223 s` del corte anterior, pero mantiene la linea base local bajo el
+timeout de 600 s. Se conserva por ello como medida de no regresion, no como
+motivo para declarar resuelto el riesgo de rendimiento ni para cerrar T02.
+
 ##### Trabajo restante para cerrar T02
 
 1. Continuar el troceo por capacidad de
    `ejecuciones_documentales_v3.go` (3.975 lineas),
-   `materializacion_documental_v4.go` (1.590),
+   `materializacion_documental_v4.go` (1.532),
    `recibo_escritura_objeto_material_v2.go` (1.474),
    `almacen_objetos.go` (1.206) y
    `ejecucion_componentes_documentales_atestada.go` (1.154), sin ampliar sus
