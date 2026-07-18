@@ -4,6 +4,18 @@ Autor de la peticion: responsable del proyecto.
 Ejecutor: Codex a traves de Orquesta.
 Fecha: 2026-06-19.
 
+> **Política de ejecución vigente desde 2026-07-18.** Este documento conserva
+> decisiones de alcance e historia, pero ya no autoriza a Orquesta a programar
+> ni a modificar el repositorio. Orquesta se usa exclusivamente en solo lectura
+> para seguridad, auditoría, revisión cruzada y gates de integración. Codex y
+> sus subagentes implementan con write-sets disjuntos; otro agente de Orquesta
+> revisa la entrega y una metarrevisión independiente valida los hallazgos antes
+> de integrarla. No se usa Orquesta para trabajo mecánico o rutinario cuando el
+> coste no aporta garantías proporcionales. Un `stub`, `noop`, fixture o dato de
+> presentación puede conservar un contrato o habilitar una prueba explícita,
+> pero nunca se presenta como funcionalidad terminada ni sustituye la vertical
+> real solicitada.
+
 Este documento es la **orden de trabajo** para que Orquesta construya la primera
 version del portal VEC (Ventanilla Electronica del/de la empleado/a publico/a).
 Es ejecutable: define alcance, arquitectura, contratos, base de datos, gates de
