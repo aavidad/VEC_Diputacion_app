@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	documentalcanonico "vec-diputacion-granada/internal/vec/canonico/documental"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -28,12 +28,6 @@ const (
 	maximoBytesSobreCOSEDocumental                  = 64 * 1024
 	minimoBytesSobreCOSEDocumental                  = 16
 	maximaVigenciaCompromisoDocumental              = 10 * time.Minute
-)
-
-var (
-	referenciaEjecucionDocumentalValida  = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,255}$`)
-	idClaveHMACEjecucionDocumentalValido = regexp.MustCompile(`^[a-z][a-z0-9._-]{0,127}$`)
-	dniNIEEjecucionDocumentalEvidente    = regexp.MustCompile(`^(?:[0-9]{8}[a-z]|[xyz][0-9]{7}[a-z])$`)
 )
 
 // OperacionComponenteDocumental es vocabulario cerrado del protocolo entre el
@@ -1068,7 +1062,7 @@ type VerificadorCrudoRecibosDocumentales interface {
 }
 
 func referenciaOpacaEjecucionDocumentalSegura(valor string) bool {
-	if !referenciaEjecucionDocumentalValida.MatchString(valor) ||
+	if !documentalcanonico.ReferenciaASCIIBasicaValida(valor) ||
 		strings.ContainsRune(valor, '*') || valor == "nil" || valor == "null" {
 		return false
 	}
@@ -1080,7 +1074,7 @@ func referenciaOpacaEjecucionDocumentalSegura(valor string) bool {
 		case "dni", "nie", "nif", "email", "correo", "telefono", "movil", "nombre", "apellidos":
 			return false
 		}
-		if dniNIEEjecucionDocumentalEvidente.MatchString(segmento) {
+		if documentalcanonico.DNINIEASCIIMinusculoEvidente(segmento) {
 			return false
 		}
 	}
@@ -1130,7 +1124,7 @@ func huellaHMACEjecucionDocumentalValida(valor string) bool {
 	}
 	partes := strings.Split(valor, ":")
 	if len(partes) != 3 || partes[0] != "hmac-sha256" ||
-		!idClaveHMACEjecucionDocumentalValido.MatchString(partes[1]) ||
+		!documentalcanonico.IDClaveHMACASCIIBasicoValido(partes[1]) ||
 		!referenciaOpacaEjecucionDocumentalSegura(partes[1]) ||
 		len(partes[2]) != sha256.Size*2 || partes[2] != strings.ToLower(partes[2]) {
 		return false

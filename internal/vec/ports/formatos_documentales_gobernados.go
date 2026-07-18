@@ -9,11 +9,11 @@ import (
 	"net"
 	"net/url"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	documentalcanonico "vec-diputacion-granada/internal/vec/canonico/documental"
 	"vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -29,7 +29,13 @@ var (
 	ErrPoliticaInstitucionalDocumentalInvalida  = errors.New("vec: politica institucional documental invalida")
 )
 
-var referenciaDescriptorDocumentalValida = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,255}$`)
+type escanerReferenciaDescriptorDocumental struct{}
+
+func (escanerReferenciaDescriptorDocumental) MatchString(valor string) bool {
+	return documentalcanonico.ReferenciaASCIIBasicaValida(valor)
+}
+
+var referenciaDescriptorDocumentalValida escanerReferenciaDescriptorDocumental
 
 // ConsultaFormatoDocumental fija todos los ejes gobernados. El digest del
 // perfil impide reutilizar el mismo ID/version con otra especificacion y la

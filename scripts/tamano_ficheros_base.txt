@@ -37,7 +37,7 @@
 1464 internal/vec/domain/pagos_test.go
 861 internal/vec/ports/almacen_objetos_carga_test.go
 1206 internal/vec/ports/almacen_objetos.go
-1160 internal/vec/ports/ejecucion_componentes_documentales_atestada.go
+1154 internal/vec/ports/ejecucion_componentes_documentales_atestada.go
 1010 internal/vec/ports/ejecucion_componentes_documentales_atestada_test.go
 3975 internal/vec/ports/ejecuciones_documentales_v3.go
 1565 internal/vec/ports/ejecuciones_documentales_v3_test.go
