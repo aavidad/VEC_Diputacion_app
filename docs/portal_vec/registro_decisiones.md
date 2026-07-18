@@ -3319,3 +3319,53 @@ sinteticos. Por eso encabezan el orden de ataque vigente.
   uso, puertos, adaptadores, permisos, auditoría y pruebas. Una capacidad
   heredada puede conservarse mientras se completa su integración, pero su
   estado real debe declararse sin confundir código probado con recorrido E2E.
+
+## DEC-093 — Perfil `desarrollo` con credenciales propias: ningun frente se detiene
+
+Fecha: 18 de julio de 2026. Adoptada por: responsable del proyecto.
+Complementa DEC-092 y modifica el alcance del aparcamiento de S-03.
+
+**Decision.** No se detiene ningun frente de desarrollo esperando a que
+Sistemas provea identidad, KMS, TSA o TLS autoritativos. Se generan
+credenciales propias de pega bajo un perfil de ejecucion `desarrollo` y se
+compone la vertical completa contra ellas. Los proveedores autoritativos
+entran despues **por configuracion**, no por rediseno, porque todos estan
+inyectados tras interfaz. Se programa como T21, junto a T20.
+
+**Motivo.** La aplicacion habia acumulado contrato de nucleo probado en
+memoria porque el camino a lo operativo estaba cerrado por dependencias
+externas. Eso produce paquetes verdes sin flujo utilizable. Un proveedor
+propio detras de la misma interfaz elimina la espera sin alterar el diseno.
+
+**Alcance de lo que S-03 sigue bloqueando.** Sigue vigente que **no hay
+produccion** hasta el visto bueno de Sistemas. Lo que deja de estar bloqueado
+es el **desarrollo**. La distincion es deliberada: se aparca el despliegue
+real, no el trabajo.
+
+**Guardarrailes, que son condicion de la decision y no recomendaciones.** El
+riesgo de este atajo no es tecnico sino de trasvase: que material de pega, o
+actos firmados con el, terminen tratados como autoritativos.
+
+1. Ningun material criptografico se commitea jamas. El repositorio es
+   **publico**; claves y certificados se generan en local y quedan excluidos
+   por `.gitignore`, incluidos los de pega.
+2. El perfil `desarrollo` no puede ser el valor por defecto ni seleccionarse
+   desde el perfil productivo. Se replica el patron anti-fuga ya empleado
+   para los datos sinteticos de demostracion.
+3. Todo acto producido bajo `desarrollo` queda marcado de forma estructural e
+   imborrable como no autoritativo, en el dato persistido y no solo en la
+   configuracion. Los datos de desarrollo **no se migran** a produccion: se
+   descartan al cambiar de perfil. Un sello de la TSA de desarrollo no debe
+   poder confundirse nunca con uno cualificado.
+4. El arranque declara en el log que corre con credenciales no autoritativas.
+5. Una prueba verifica que el perfil productivo **rechaza arrancar** si algun
+   proveedor de desarrollo esta compuesto. El fallo cerrado se conserva: lo
+   que cambia es que en `desarrollo` hay un proveedor que responde, no que
+   desaparezca la exigencia.
+
+**Lo que esta decision NO levanta.** La barrera de DEC-091 sobre publicacion
+y retirada de convocatorias (aprobacion firmada y dependencias como hechos
+autoritativos preexistentes) es de diseno juridico, no de infraestructura, y
+no la levanta ningun certificado de pega. Tampoco se habilita produccion ni
+carga de datos reales, que siguen condicionados a Sistemas, a T12/T13 y a la
+validacion de la EIPD por el DPD.

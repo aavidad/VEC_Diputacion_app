@@ -33,3 +33,20 @@ var/
 # Cachés locales.
 __pycache__/
 *.py[cod]
+
+# Material criptografico. El repositorio es publico: no entra ninguna clave ni
+# certificado, tampoco los de pega del perfil `desarrollo` (T21/DEC-093). Un
+# certificado en el historico publico es un hallazgo aunque no valga nada.
+*.pem
+*.key
+*.crt
+*.csr
+*.der
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ecdsa*
+id_ed25519*
+/deploy/desarrollo/credenciales/

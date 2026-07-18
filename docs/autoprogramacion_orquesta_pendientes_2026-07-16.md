@@ -23,10 +23,10 @@
   aplicacion**, no pulir su estructura interna. El refactor estructural se
   salda en v2.
 
-  1. **T20** (adaptador Go PostgreSQL de borradores y diario). Va el primero
-     de todos porque es **lo unico que hoy separa a la vertical de borradores
-     de funcionar de verdad**: la pantalla existe, esta probada y falla
-     cerrada solo por falta de este adaptador. No depende de Sistemas.
+  1. **T21 + T20 juntas**: el perfil `desarrollo` con credenciales propias y
+     el adaptador Go PostgreSQL de borradores. Van primero y en paralelo
+     porque entre las dos convierten la primera vertical en algo que funciona
+     de verdad de punta a punta. Nada de esto espera a Sistemas.
   2. **T12** (durabilidad probatoria) y **T13** (registro de accesos con
      finalidad). Van a continuacion porque **no son mejoras: la EIPD los
      declara condicion previa para el piloto con datos reales**. Sin ellos la
@@ -56,9 +56,14 @@
 
   **T02 queda aparcado para v2** (ver su nota de aparcamiento): no se abren
   mas tandas, pero sus reglas de contencion siguen siendo obligatorias.
-  **S-03** (identidad real por certificado/Kerberos) sigue aparcada: depende
-  de Sistemas y no hay produccion hasta su visto bueno; nada debe disenarse
-  de forma que la estorbe.
+
+  **S-03 cambia de naturaleza el 18/07**: sigue siendo cierto que no hay
+  **produccion** hasta el visto bueno de Sistemas, pero ya **no bloquea el
+  desarrollo**. La identidad, el KMS y el TLS se componen contra proveedores
+  propios bajo el perfil `desarrollo` de T21, y los autoritativos entran
+  despues por configuracion. Lo que se aparca es el despliegue real, no el
+  trabajo. Sigue vigente que nada debe disenarse de forma que estorbe la
+  llegada de la identidad definitiva.
 
   Nota de criterio para el agente: aparcar T02 **no** autoriza a bajar el
   liston de calidad en lo que si se programa. Sigue exigido el mismo rigor
@@ -494,14 +499,73 @@ y errores observables.
   cuando Sistemas lo provea. Construir el adaptador contra la interfaz no
   requiere infraestructura productiva y es exactamente lo que hoy falta para
   que la pantalla de borradores deje de fallar cerrada.
-- **Lo que NO entra en T20** (sigue bloqueado y no debe forzarse): identidad
-  de alta garantia (S-03, pendiente de Sistemas), composicion productiva que
-  dependa de ella, y publicacion/retirada de convocatorias, que tienen la
-  barrera adicional de DEC-091 (aprobacion firmada y dependencias como hechos
-  autoritativos preexistentes). T20 cubre alta y actualizacion.
+- **Alcance ampliado el 18/07 por decision del responsable**: T20 ya no se
+  detiene ante la falta de identidad, KMS o TLS reales. Se compone entero
+  contra el perfil `desarrollo` de **T21**, que aporta CA, certificados, KMS
+  e identidad propios. La sustitucion por los proveedores autoritativos sera
+  un cambio de configuracion, no un rediseno, porque todos entran inyectados
+  tras interfaz. La pantalla de borradores debe quedar **funcionando de punta
+  a punta** bajo ese perfil.
+- **Lo unico que sigue fuera de T20**: publicacion y retirada de
+  convocatorias, que tienen la barrera adicional de DEC-091 (aprobacion
+  firmada y dependencias como hechos autoritativos preexistentes). Esa
+  barrera es de diseno juridico, no de infraestructura, y no la levanta un
+  certificado de pega. T20 cubre alta y actualizacion.
 - `evidencia`: migraciones `000003` de borradores durables y pruebas SQL ya
   presentes en `deploy/postgresql/bolsa_convocatorias/`; revisiones cruzadas
   en NO-GO del cliente web, del servicio Go y de la migracion SQL.
+
+### T21 — Perfil `desarrollo` con credenciales propias para desbloquear todo
+
+- `origen`: direccion, 18/07/2026, por decision expresa del responsable: no se
+  detiene ningun frente esperando a Sistemas. Se generan credenciales propias
+  de pega y se sustituyen por las autoritativas cuando esten disponibles.
+- `estado`: nuevo. **Habilitador transversal: desbloquea T20 y levanta las
+  barreras de composicion. Se hace junto con T20, no despues.**
+- `area_hexagonal`: composicion, adaptadores de seguridad y configuracion.
+- `accion`: crear un perfil de ejecucion `desarrollo` que componga la vertical
+  completa con proveedores propios tras las interfaces ya existentes:
+  1. **CA propia y certificados**: script que genere una CA local, certificado
+     de servidor y certificados de cliente para mTLS. Extiende el `AuthMode`
+     ya existente en `config`; no se crea un mecanismo paralelo.
+  2. **KMS de desarrollo**: proveedor respaldado por fichero tras la interfaz
+     KMS, con envoltura de clave y atestacion reales en forma pero emitidas
+     localmente. Habilita el adaptador de T20 sin esperar a HSM.
+  3. **Identidad de alta garantia simulada**: resolutor que entregue un actor
+     con la misma forma que dara el certificado/Kerberos real, para que la
+     composicion productiva se pueda cablear y probar entera.
+  4. **TSA de desarrollo**: sello determinista para pruebas, sujeto a la
+     restriccion de marcado del punto 3 de guardarrailes.
+  5. **TLS**: certificado autofirmado de la CA propia para el listener interno.
+- **Guardarrailes de cumplimiento obligatorio.** El riesgo de este atajo no es
+  tecnico sino de trasvase: que material de pega o actos firmados con el
+  acaben tratados como autoritativos. Se contiene asi:
+  1. **Ningun material criptografico se commitea jamas.** El repositorio es
+     **publico**. Claves, certificados y semillas se generan con el script en
+     local y van a `.gitignore`. Ni siquiera los de pega: un certificado en el
+     historico publico es un hallazgo de seguridad aunque no valga nada.
+  2. **El perfil `desarrollo` no puede ser el valor por defecto** y no puede
+     seleccionarse desde el perfil productivo. Se replica el patron anti-fuga
+     ya usado para los datos sinteticos de demostracion (doble llave y prueba
+     que impide su activacion accidental), que es el precedente correcto ya
+     existente en el codigo.
+  3. **Todo acto producido bajo el perfil `desarrollo` queda marcado de forma
+     estructural e imborrable como no autoritativo**, en el propio dato
+     persistido y no solo en la configuracion. Un sello emitido por la TSA de
+     desarrollo nunca debe poder confundirse con uno cualificado, ni sobrevivir
+     a una migracion a produccion. Los datos generados en desarrollo **no se
+     migran**: se descartan al cambiar de perfil.
+  4. **Arranque ruidoso**: el proceso declara en el log, en cada arranque, que
+     corre con credenciales no autoritativas y cuales.
+  5. **Prueba de conmutacion**: una prueba verifica que el perfil productivo
+     rechaza arrancar si algun proveedor de desarrollo esta compuesto. El
+     fallo cerrado se conserva; lo que cambia es que en `desarrollo` hay un
+     proveedor que responde, no que se elimine la exigencia.
+- `evidencia`: `config.AuthMode` y los modos `fake`/`trusted`/`disabled` ya
+  existentes en `internal/app/bootstrap`; patron anti-fuga de la demo
+  sintetica; interfaz KMS de `gobiernoconvocatorias/cifrado_borradores.go`,
+  que hoy rechaza texto cifrado sintetico y debera admitir el proveedor de
+  desarrollo solo bajo el perfil correspondiente.
 
 ### T13 — Registro durable de accesos a datos personales con finalidad
 
