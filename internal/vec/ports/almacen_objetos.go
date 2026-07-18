@@ -2,23 +2,18 @@ package ports
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
-	"net/url"
 	"reflect"
-	"strconv"
-	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
+
+	almacencanonico "vec-diputacion-granada/internal/vec/canonico/almacen"
 )
 
 var (
-	ErrSolicitudAlmacenInvalida              = errors.New("vec: solicitud de almacen invalida")
+	ErrSolicitudAlmacenInvalida              = almacencanonico.ErrSolicitudAlmacenInvalida
 	ErrObjetoAlmacenNoEncontrado             = errors.New("vec: objeto de almacen no encontrado")
 	ErrIntegridadObjetoAlmacen               = errors.New("vec: integridad del objeto de almacen no valida")
 	ErrLimiteObjetoAlmacenExcedido           = errors.New("vec: limite del objeto de almacen excedido")
@@ -30,109 +25,55 @@ var (
 	ErrObjetoAlmacenEliminado                = errors.New("vec: objeto de almacen eliminado")
 	ErrSesionCargaDirectaNoValida            = errors.New("vec: sesion de carga directa no valida")
 	ErrConfirmacionCargaDirectaNoDisponible  = errors.New("vec: confirmacion de carga directa no disponible")
-	ErrInstruccionesCargaDirectaNoValidas    = errors.New("vec: instrucciones de carga directa no validas")
+	ErrInstruccionesCargaDirectaNoValidas    = almacencanonico.ErrInstruccionesCargaDirectaNoValidas
 	ErrSerializacionCargaDirectaProhibida    = errors.New("vec: serializacion accidental de carga directa prohibida")
 	ErrSelladoIdempotenciaCargaNoDisponible  = errors.New("vec: sellado de idempotencia de carga no disponible")
-	ErrReciboCargaDirectaNoValido            = errors.New("vec: recibo de carga directa no valido")
+	ErrReciboCargaDirectaNoValido            = almacencanonico.ErrReciboCargaDirectaNoValido
 	ErrReciboCargaDirectaNoDisponible        = errors.New("vec: verificacion del recibo de carga directa no disponible")
 	ErrAtestacionReciboCargaDirectaNoValida  = errors.New("vec: atestacion de consumo de carga directa no valida")
 	ErrRegistroReciboCargaDirectaConflicto   = errors.New("vec: indice de recibo de carga directa ya registrado")
 	ErrConsumoReciboCargaDirectaDenegado     = errors.New("vec: consumo de recibo de carga directa denegado")
-	ErrSerializacionReciboCargaProhibida     = errors.New("vec: serializacion accidental del recibo de carga directa prohibida")
-	ErrSerializacionSeudonimizacionProhibida = errors.New("vec: serializacion accidental de seudonimizacion de almacen prohibida")
-	ErrSeudonimizacionAlmacenNoDisponible    = errors.New("vec: seudonimizacion de sujeto para almacen no disponible")
-)
-
-const (
-	duracionMaximaInstruccionesCargaDirecta = 10 * time.Minute
-	longitudMaximaDestinoCargaDirecta       = 8192
-	maximoCabecerasCargaDirecta             = 32
+	ErrSerializacionReciboCargaProhibida     = almacencanonico.ErrSerializacionReciboCargaProhibida
+	ErrSerializacionSeudonimizacionProhibida = almacencanonico.ErrSerializacionSeudonimizacionProhibida
+	ErrSeudonimizacionAlmacenNoDisponible    = almacencanonico.ErrSeudonimizacionAlmacenNoDisponible
 )
 
 // Las acciones del puerto forman una lista positiva cerrada. Son operaciones
 // tecnicas, no permisos de negocio, y nunca se infieren de la ruta, el rol o
 // la finalidad. Una autorizacion para una accion no habilita ninguna otra.
 const (
-	AccionAlmacenEscribir               = "escribir"
-	AccionAlmacenLeer                   = "leer"
-	AccionAlmacenPrepararCargaDirecta   = "preparar_carga_directa"
-	AccionAlmacenConfirmarCargaDirecta  = "confirmar_carga_directa"
-	AccionAlmacenAbandonarCargaDirecta  = "abandonar_carga_directa"
-	AccionAlmacenPromover               = "promover"
-	AccionAlmacenAplicarRetencion       = "aplicar_retencion"
-	AccionAlmacenInmovilizar            = "inmovilizar"
-	AccionAlmacenLevantarInmovilizacion = "levantar_inmovilizacion"
-	AccionAlmacenEliminar               = "eliminar"
-	AccionAlmacenAnalizarContenido      = "analizar_contenido"
+	AccionAlmacenEscribir               = almacencanonico.AccionEscribir
+	AccionAlmacenLeer                   = almacencanonico.AccionLeer
+	AccionAlmacenPrepararCargaDirecta   = almacencanonico.AccionPrepararCargaDirecta
+	AccionAlmacenConfirmarCargaDirecta  = almacencanonico.AccionConfirmarCargaDirecta
+	AccionAlmacenAbandonarCargaDirecta  = almacencanonico.AccionAbandonarCargaDirecta
+	AccionAlmacenPromover               = almacencanonico.AccionPromover
+	AccionAlmacenAplicarRetencion       = almacencanonico.AccionAplicarRetencion
+	AccionAlmacenInmovilizar            = almacencanonico.AccionInmovilizar
+	AccionAlmacenLevantarInmovilizacion = almacencanonico.AccionLevantarInmovilizacion
+	AccionAlmacenEliminar               = almacencanonico.AccionEliminar
+	AccionAlmacenAnalizarContenido      = almacencanonico.AccionAnalizarContenido
 )
 
 // ZonaAlmacen separa tecnicamente objetos que aun no son confiables de los
 // que ya pueden incorporarse a un expediente. No representa un estado de
 // negocio configurable.
-type ZonaAlmacen string
+type ZonaAlmacen = almacencanonico.Zona
 
 const (
-	ZonaAlmacenCuarentena ZonaAlmacen = "cuarentena"
-	ZonaAlmacenAdmitida   ZonaAlmacen = "admitida"
+	ZonaAlmacenCuarentena = almacencanonico.ZonaCuarentena
+	ZonaAlmacenAdmitida   = almacencanonico.ZonaAdmitida
 )
-
-func (z ZonaAlmacen) Valida() bool {
-	return z == ZonaAlmacenCuarentena || z == ZonaAlmacenAdmitida
-}
 
 // SolicitudSeudonimizarSujetoAlmacen mantiene el identificador interno fuera
 // del contexto, evidencias y conectores de objetos. Solo el sellador local
 // confiable lo revela durante la operacion HMAC con clave exclusiva.
-type SolicitudSeudonimizarSujetoAlmacen struct {
-	sujetoRef string
-	ambitoRef string
-}
+type SolicitudSeudonimizarSujetoAlmacen = almacencanonico.SolicitudSeudonimizarSujetoAlmacen
 
 func NuevaSolicitudSeudonimizarSujetoAlmacen(
 	sujetoRef, ambitoRef string,
 ) (SolicitudSeudonimizarSujetoAlmacen, error) {
-	solicitud := SolicitudSeudonimizarSujetoAlmacen{
-		sujetoRef: sujetoRef, ambitoRef: ambitoRef,
-	}
-	if !referenciaOpacaAlmacenValida(solicitud.sujetoRef, 512) ||
-		!referenciaOpacaAlmacenValida(solicitud.ambitoRef, 256) {
-		return SolicitudSeudonimizarSujetoAlmacen{}, ErrSeudonimizacionAlmacenNoDisponible
-	}
-	return solicitud, nil
-}
-
-func (s SolicitudSeudonimizarSujetoAlmacen) RevelarParaSellado() (
-	sujetoRef, ambitoRef string,
-	err error,
-) {
-	if !referenciaOpacaAlmacenValida(s.sujetoRef, 512) ||
-		!referenciaOpacaAlmacenValida(s.ambitoRef, 256) {
-		return "", "", ErrSeudonimizacionAlmacenNoDisponible
-	}
-	return s.sujetoRef, s.ambitoRef, nil
-}
-
-func (SolicitudSeudonimizarSujetoAlmacen) String() string {
-	return "[SOLICITUD-SEUDONIMIZACION-ALMACEN-CONFIDENCIAL]"
-}
-func (SolicitudSeudonimizarSujetoAlmacen) GoString() string {
-	return "[SOLICITUD-SEUDONIMIZACION-ALMACEN-CONFIDENCIAL]"
-}
-
-func (s SolicitudSeudonimizarSujetoAlmacen) Format(estado fmt.State, _ rune) {
-	_, _ = io.WriteString(estado, s.String())
-}
-
-func (SolicitudSeudonimizarSujetoAlmacen) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionSeudonimizacionProhibida
-}
-
-func (SolicitudSeudonimizarSujetoAlmacen) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionSeudonimizacionProhibida
-}
-
-func (s SolicitudSeudonimizarSujetoAlmacen) LogValue() slog.Value {
-	return slog.StringValue(s.String())
+	return almacencanonico.NuevaSolicitudSeudonimizarSujetoAlmacen(sujetoRef, ambitoRef)
 }
 
 // SeudonimizadorSujetoAlmacen debe usar una clave y version propias; no se
@@ -147,63 +88,12 @@ type SeudonimizadorSujetoAlmacen interface {
 // CapacidadesAlmacenObjetos permite validar el perfil de despliegue al
 // arrancar. Declarar una capacidad no basta: cada conector productivo debe
 // superar sus pruebas de contrato y de recuperacion.
-type CapacidadesAlmacenObjetos struct {
-	ConectorID                  string
-	EscrituraEnFlujo            bool
-	LecturaEnFlujo              bool
-	ReferenciasOpacas           bool
-	IntegridadSHA256            bool
-	Versionado                  bool
-	Retencion                   bool
-	BloqueoLegal                bool
-	PromocionAtomica            bool
-	RetencionAtomicaEnPromocion bool
-	CargaDirectaTemporal        bool
-	CifradoEnTransito           bool
-	CifradoEnReposo             bool
-	CifradoPorObjeto            bool
-	TamanoMaximoObjeto          int64
-	PreservaObjetoOriginal      bool
-	OrigenesCargaDirecta        []string
-}
+type CapacidadesAlmacenObjetos = almacencanonico.Capacidades
 
-type RequisitosAlmacenObjetos struct {
-	EscrituraEnFlujo            bool
-	LecturaEnFlujo              bool
-	ReferenciasOpacas           bool
-	IntegridadSHA256            bool
-	Versionado                  bool
-	Retencion                   bool
-	BloqueoLegal                bool
-	PromocionAtomica            bool
-	RetencionAtomicaEnPromocion bool
-	CargaDirectaTemporal        bool
-	CifradoEnTransito           bool
-	CifradoEnReposo             bool
-	CifradoPorObjeto            bool
-	TamanoMinimoObjeto          int64
-	PreservaObjetoOriginal      bool
-}
+type RequisitosAlmacenObjetos = almacencanonico.Requisitos
 
 func VerificarCapacidadesAlmacen(capacidades CapacidadesAlmacenObjetos, requisitos RequisitosAlmacenObjetos) error {
-	if !referenciaOpacaAlmacenValida(capacidades.ConectorID, 128) || capacidades.TamanoMaximoObjeto < 1 ||
-		(requisitos.EscrituraEnFlujo && !capacidades.EscrituraEnFlujo) ||
-		(requisitos.LecturaEnFlujo && !capacidades.LecturaEnFlujo) ||
-		(requisitos.ReferenciasOpacas && !capacidades.ReferenciasOpacas) ||
-		(requisitos.IntegridadSHA256 && !capacidades.IntegridadSHA256) ||
-		(requisitos.Versionado && !capacidades.Versionado) ||
-		(requisitos.Retencion && !capacidades.Retencion) ||
-		(requisitos.BloqueoLegal && !capacidades.BloqueoLegal) ||
-		(requisitos.PromocionAtomica && !capacidades.PromocionAtomica) ||
-		(requisitos.RetencionAtomicaEnPromocion && !capacidades.RetencionAtomicaEnPromocion) ||
-		(requisitos.CargaDirectaTemporal && !capacidades.CargaDirectaTemporal) ||
-		(requisitos.CifradoEnTransito && !capacidades.CifradoEnTransito) ||
-		(requisitos.CifradoEnReposo && !capacidades.CifradoEnReposo) ||
-		(requisitos.CifradoPorObjeto && !capacidades.CifradoPorObjeto) ||
-		(requisitos.PreservaObjetoOriginal && !capacidades.PreservaObjetoOriginal) ||
-		requisitos.TamanoMinimoObjeto < 0 ||
-		capacidades.TamanoMaximoObjeto < requisitos.TamanoMinimoObjeto ||
-		(requisitos.CargaDirectaTemporal && !origenesCargaDirectaValidos(capacidades.OrigenesCargaDirecta)) {
+	if !almacencanonico.CapacidadesSatisfacen(capacidades, requisitos) {
 		return ErrCapacidadAlmacenNoDisponible
 	}
 	return nil
@@ -236,45 +126,9 @@ func (s SolicitudEscribirObjeto) Validar() error {
 	return nil
 }
 
-type ReferenciaObjetoAlmacen struct {
-	Referencia string
-	Version    string
-}
+type ReferenciaObjetoAlmacen = almacencanonico.ReferenciaObjetoAlmacen
 
-func (r ReferenciaObjetoAlmacen) Validar() error {
-	if !referenciaOpacaAlmacenValida(r.Referencia, 512) || !referenciaOpacaAlmacenValida(r.Version, 256) {
-		return ErrSolicitudAlmacenInvalida
-	}
-	return nil
-}
-
-type ObjetoAlmacenado struct {
-	Objeto               ReferenciaObjetoAlmacen
-	ConectorID           string
-	Zona                 ZonaAlmacen
-	MIME                 string
-	Tamano               int64
-	HuellaSHA256         string
-	EvidenciaCreacionRef string
-	AlmacenadoEn         time.Time
-	RetenidoHasta        time.Time
-	Inmovilizado         bool
-	Eliminado            bool
-}
-
-func (o ObjetoAlmacenado) Validar() error {
-	if err := o.Objeto.Validar(); err != nil {
-		return err
-	}
-	if !referenciaOpacaAlmacenValida(o.ConectorID, 128) || !o.Zona.Valida() || !textoSeguroAlmacen(o.MIME, 255) ||
-		o.Tamano < 1 || !esSHA256Hexadecimal(o.HuellaSHA256) ||
-		!referenciaOpacaAlmacenValida(o.EvidenciaCreacionRef, 512) || o.AlmacenadoEn.IsZero() ||
-		(!o.RetenidoHasta.IsZero() && !o.RetenidoHasta.After(o.AlmacenadoEn)) ||
-		(o.Eliminado && o.Inmovilizado) {
-		return ErrSolicitudAlmacenInvalida
-	}
-	return nil
-}
+type ObjetoAlmacenado = almacencanonico.ObjetoAlmacenado
 
 // EvidenciaOperacionAlmacen es el recibo tecnico que el caso de uso incorpora
 // a la auditoria probatoria. No contiene rutas, URL, nombres ni datos de la
@@ -310,34 +164,7 @@ type EvidenciaOperacionAlmacen struct {
 }
 
 func (e EvidenciaOperacionAlmacen) Validar() error {
-	if !referenciaOpacaAlmacenValida(e.Referencia, 512) ||
-		!referenciaOpacaAlmacenValida(e.ConectorID, 128) ||
-		e.EsquemaContexto != EsquemaContextoOperacionAlmacenV1 ||
-		!referenciaOpacaAlmacenValida(e.AccionNegocio, 256) ||
-		!referenciaOpacaAlmacenValida(e.Accion, 128) ||
-		!referenciaOpacaAlmacenValida(e.EfectoRef, 512) ||
-		!esSHA256Hexadecimal(e.HuellaPlanEfectoSHA256) || e.PasoRef == "" ||
-		!esSHA256Hexadecimal(e.HuellaDecisionSHA256) ||
-		!referenciaOpacaAlmacenValida(e.OperacionRef, 512) ||
-		!referenciaOpacaAlmacenValida(e.CorrelacionRef, 512) ||
-		!referenciaOpacaAlmacenValida(e.AutorizacionRef, 512) ||
-		!referenciaOpacaAlmacenValida(e.Finalidad, 1024) ||
-		!referenciaOpacaAlmacenValida(e.Clasificacion, 256) || e.RealizadaEn.IsZero() ||
-		!accionOperacionAlmacenValida(e.Accion) ||
-		!referenciaOpacaAlmacenValida(e.CargaRef, 512) || !hmacSHA256PuertoValido(e.SujetoSeudonimoHMAC) ||
-		!referenciaOpacaAlmacenValida(e.RecursoRef, 512) ||
-		!referenciaOpacaAlmacenValida(e.ModuloID, 128) || !hmacSHA256PuertoValido(e.HuellaSolicitudHMAC) ||
-		(e.FundamentoRef != "" && !referenciaOpacaAlmacenValida(e.FundamentoRef, 512)) ||
-		(e.ReintentoIdempotente && !accionAlmacenIdempotente(e.Accion)) ||
-		contieneComodinContextoAlmacen(e.AccionNegocio, e.Accion, e.EfectoRef, string(e.PasoRef)) {
-		return ErrSolicitudAlmacenInvalida
-	}
-	tieneHuellaDocumental := e.HuellaManifiestoSHA256 != "" || e.HuellaPasoSHA256 != ""
-	if tieneHuellaDocumental &&
-		(!esSHA256Hexadecimal(e.HuellaManifiestoSHA256) || !esSHA256Hexadecimal(e.HuellaPasoSHA256)) {
-		return ErrSolicitudAlmacenInvalida
-	}
-	return e.Objeto.Validar()
+	return almacencanonico.ValidarEvidenciaOperacion(datosCanonicosEvidenciaAlmacen(e))
 }
 
 type ResultadoOperacionObjeto struct {
@@ -346,27 +173,7 @@ type ResultadoOperacionObjeto struct {
 }
 
 func (r ResultadoOperacionObjeto) Validar() error {
-	if err := r.Objeto.Validar(); err != nil {
-		return err
-	}
-	if err := r.Evidencia.Validar(); err != nil {
-		return err
-	}
-	if r.Objeto.Eliminado || !accionResultadoOperacionAlmacenValida(r.Evidencia.Accion) ||
-		r.Objeto.ConectorID != r.Evidencia.ConectorID ||
-		r.Objeto.Objeto != r.Evidencia.Objeto || r.Evidencia.RealizadaEn.Before(r.Objeto.AlmacenadoEn) {
-		return ErrSolicitudAlmacenInvalida
-	}
-	creacion := accionAlmacenCreaObjeto(r.Evidencia.Accion) && !r.Evidencia.ReintentoIdempotente
-	if creacion {
-		if r.Objeto.EvidenciaCreacionRef != r.Evidencia.Referencia ||
-			!r.Objeto.AlmacenadoEn.Equal(r.Evidencia.RealizadaEn) {
-			return ErrSolicitudAlmacenInvalida
-		}
-	} else if r.Objeto.EvidenciaCreacionRef == r.Evidencia.Referencia {
-		return ErrSolicitudAlmacenInvalida
-	}
-	return nil
+	return almacencanonico.ValidarResultadoOperacion(datosCanonicosResultadoAlmacen(r))
 }
 
 // ValidarEscritura coteja una escritura en flujo, incluida una repeticion
@@ -641,18 +448,10 @@ func validarResultadoMutacionAlmacen(
 	contexto ContextoOperacionAlmacen,
 	accion, fundamentoRef string,
 ) error {
-	if anterior.Validar() != nil || anterior.Eliminado || resultado.Validar() != nil ||
-		resultado.Evidencia.Accion != accion || resultado.Evidencia.ReintentoIdempotente ||
-		resultado.Evidencia.FundamentoRef != fundamentoRef ||
-		!evidenciaAlmacenLigada(resultado.Evidencia, contexto) ||
-		resultado.Objeto.Objeto != anterior.Objeto || resultado.Objeto.ConectorID != anterior.ConectorID ||
-		resultado.Objeto.Zona != anterior.Zona || resultado.Objeto.MIME != anterior.MIME ||
-		resultado.Objeto.Tamano != anterior.Tamano || resultado.Objeto.HuellaSHA256 != anterior.HuellaSHA256 ||
-		resultado.Objeto.EvidenciaCreacionRef != anterior.EvidenciaCreacionRef ||
-		!resultado.Objeto.AlmacenadoEn.Equal(anterior.AlmacenadoEn) {
-		return ErrSolicitudAlmacenInvalida
-	}
-	return nil
+	return almacencanonico.ValidarResultadoMutacion(
+		datosCanonicosResultadoAlmacen(resultado), anterior, accion, fundamentoRef,
+		evidenciaAlmacenLigada(resultado.Evidencia, contexto),
+	)
 }
 
 // AlmacenObjetos es el puerto estable del nucleo. Filesystem, S3, una cabina,
@@ -693,35 +492,20 @@ func (s SolicitudPrepararCargaDirecta) Validar() error {
 // InstruccionesCargaDirecta contiene un secreto de corta duracion. No debe
 // persistirse, auditarse ni incluirse en trazas, metricas o mensajes.
 type InstruccionesCargaDirecta struct {
-	conectorID             string
-	sesionRef              string
-	metodo                 MetodoCargaDirecta
-	destino                string
-	cabeceras              []CabeceraCargaDirecta
-	emitidaEn              time.Time
-	expiraEn               time.Time
-	tamanoMaximo           int64
-	vinculoSolicitudSHA256 string
+	canonicas almacencanonico.InstruccionesCargaDirecta
 }
 
-type MetodoCargaDirecta string
+type MetodoCargaDirecta = almacencanonico.MetodoCargaDirecta
 
 const (
-	MetodoCargaDirectaPUT  MetodoCargaDirecta = "PUT"
-	MetodoCargaDirectaPOST MetodoCargaDirecta = "POST"
+	MetodoCargaDirectaPUT  = almacencanonico.MetodoCargaDirectaPUT
+	MetodoCargaDirectaPOST = almacencanonico.MetodoCargaDirectaPOST
 )
-
-func (m MetodoCargaDirecta) Valido() bool {
-	return m == MetodoCargaDirectaPUT || m == MetodoCargaDirectaPOST
-}
 
 // CabeceraCargaDirecta es una condicion puntual de la carga, no una
 // credencial general. Se mantiene dentro de InstruccionesCargaDirecta hasta
 // la revelacion deliberada para impedir que aparezca en registros.
-type CabeceraCargaDirecta struct {
-	Nombre string
-	Valor  string
-}
+type CabeceraCargaDirecta = almacencanonico.CabeceraCargaDirecta
 
 // NuevasInstruccionesCargaDirecta solo acepta una concesion corta, limitada a
 // un destino HTTPS y a un tamano. El conector no puede devolver mapas mutables
@@ -734,16 +518,16 @@ func NuevasInstruccionesCargaDirecta(
 	emitidaEn, expiraEn time.Time,
 	tamanoMaximo int64,
 ) (InstruccionesCargaDirecta, error) {
-	instrucciones := InstruccionesCargaDirecta{
-		conectorID: conectorID, sesionRef: sesionRef,
-		metodo: metodo, destino: destino,
-		cabeceras: append([]CabeceraCargaDirecta(nil), cabeceras...),
-		emitidaEn: emitidaEn, expiraEn: expiraEn, tamanoMaximo: tamanoMaximo,
-	}
-	if err := instrucciones.Validar(); err != nil {
+	canonicas, err := almacencanonico.NuevasInstruccionesCargaDirecta(
+		almacencanonico.DatosInstruccionesCargaDirecta{
+			ConectorID: conectorID, SesionRef: sesionRef, Metodo: metodo, Destino: destino,
+			Cabeceras: cabeceras, EmitidaEn: emitidaEn, ExpiraEn: expiraEn, TamanoMaximo: tamanoMaximo,
+		},
+	)
+	if err != nil {
 		return InstruccionesCargaDirecta{}, err
 	}
-	return instrucciones, nil
+	return InstruccionesCargaDirecta{canonicas: canonicas}, nil
 }
 
 // NuevasInstruccionesCargaDirectaParaSolicitud es el constructor que deben
@@ -775,64 +559,35 @@ func NuevasInstruccionesCargaDirectaParaSolicitud(
 	if err != nil {
 		return InstruccionesCargaDirecta{}, err
 	}
-	instrucciones.vinculoSolicitudSHA256 = huellaSolicitudCargaDirecta(solicitud)
+	canonicas, err := instrucciones.canonicas.VincularSolicitud(huellaSolicitudCargaDirecta(solicitud))
+	if err != nil {
+		return InstruccionesCargaDirecta{}, err
+	}
+	instrucciones.canonicas = canonicas
 	return instrucciones, nil
 }
 
 func (i InstruccionesCargaDirecta) Validar() error {
-	if !referenciaOpacaAlmacenValida(i.conectorID, 128) ||
-		!referenciaOpacaAlmacenValida(i.sesionRef, 512) || !i.metodo.Valido() ||
-		!destinoCargaDirectaValido(i.destino) || i.emitidaEn.IsZero() || i.expiraEn.IsZero() ||
-		i.emitidaEn.Location() != time.UTC || i.expiraEn.Location() != time.UTC ||
-		!i.expiraEn.After(i.emitidaEn) || i.expiraEn.Sub(i.emitidaEn) > duracionMaximaInstruccionesCargaDirecta ||
-		i.tamanoMaximo < 1 || len(i.cabeceras) > maximoCabecerasCargaDirecta {
-		return ErrInstruccionesCargaDirectaNoValidas
-	}
-	vistas := make(map[string]struct{}, len(i.cabeceras))
-	for _, cabecera := range i.cabeceras {
-		if cabecera.Nombre != strings.TrimSpace(cabecera.Nombre) ||
-			cabecera.Nombre != strings.ToLower(cabecera.Nombre) ||
-			!nombreCabeceraCargaDirectaValido(cabecera.Nombre) ||
-			!valorCabeceraCargaDirectaValido(cabecera.Valor) {
-			return ErrInstruccionesCargaDirectaNoValidas
-		}
-		if _, repetida := vistas[cabecera.Nombre]; repetida {
-			return ErrInstruccionesCargaDirectaNoValidas
-		}
-		vistas[cabecera.Nombre] = struct{}{}
-	}
-	return nil
+	return i.canonicas.Validar()
 }
 
 func (i InstruccionesCargaDirecta) VigenteEn(instante time.Time) bool {
-	instante = instante.UTC()
-	return i.Validar() == nil && !instante.Before(i.emitidaEn) && instante.Before(i.expiraEn)
+	return i.canonicas.VigenteEn(instante)
 }
 
 // ValidarContra impide aceptar un destino que no figure exactamente en el
 // perfil de despliegue publicado para el mismo conector.
 func (i InstruccionesCargaDirecta) ValidarContra(capacidades CapacidadesAlmacenObjetos) error {
-	if err := i.Validar(); err != nil || !capacidades.CargaDirectaTemporal ||
-		capacidades.ConectorID != i.conectorID || capacidades.TamanoMaximoObjeto < i.tamanoMaximo ||
-		!origenesCargaDirectaValidos(capacidades.OrigenesCargaDirecta) {
-		return ErrInstruccionesCargaDirectaNoValidas
-	}
-	origen := origenDestinoCargaDirecta(i.destino)
-	for _, permitido := range capacidades.OrigenesCargaDirecta {
-		if origen == permitido && origenesCargaDirectaValidos([]string{permitido}) {
-			return nil
-		}
-	}
-	return ErrInstruccionesCargaDirectaNoValidas
+	return i.canonicas.ValidarContra(capacidades)
 }
 
 func (i InstruccionesCargaDirecta) ValidarPara(
 	solicitud SolicitudPrepararCargaDirecta,
 	capacidades CapacidadesAlmacenObjetos,
 ) error {
-	if err := solicitud.Validar(); err != nil || i.ValidarContra(capacidades) != nil ||
-		i.tamanoMaximo != solicitud.Tamano || !i.expiraEn.Equal(solicitud.ExpiraEn) ||
-		i.vinculoSolicitudSHA256 != huellaSolicitudCargaDirecta(solicitud) {
+	if err := solicitud.Validar(); err != nil || i.canonicas.ValidarPara(
+		solicitud.Tamano, solicitud.ExpiraEn, huellaSolicitudCargaDirecta(solicitud), capacidades,
+	) != nil {
 		return ErrInstruccionesCargaDirectaNoValidas
 	}
 	return nil
@@ -912,9 +667,13 @@ func (i InstruccionesCargaDirecta) EmitirReciboConfirmacion(
 	if dependenciaPuertoAlmacenNula(emisor) || i.ValidarPara(solicitud, capacidades) != nil {
 		return ReciboCargaDirecta{}, ErrReciboCargaDirectaNoDisponible
 	}
+	datos, vinculoSolicitudSHA256, err := i.canonicas.DatosVerificados()
+	if err != nil {
+		return ReciboCargaDirecta{}, ErrReciboCargaDirectaNoDisponible
+	}
 	peticion := SolicitudEmitirReciboCargaDirecta{
-		contexto: solicitud.Contexto, sesionRef: i.sesionRef, expiraEn: i.expiraEn,
-		vinculoSolicitudSHA256: i.vinculoSolicitudSHA256,
+		contexto: solicitud.Contexto, sesionRef: datos.SesionRef, expiraEn: datos.ExpiraEn,
+		vinculoSolicitudSHA256: vinculoSolicitudSHA256,
 	}
 	if peticion.Validar() != nil {
 		return ReciboCargaDirecta{}, ErrReciboCargaDirectaNoDisponible
@@ -939,11 +698,12 @@ func (i InstruccionesCargaDirecta) RevelarParaEntrega() (
 	tamanoMaximo int64,
 	err error,
 ) {
-	if err = i.Validar(); err != nil {
+	datos, _, err := i.canonicas.DatosVerificados()
+	if err != nil {
 		return "", "", "", nil, time.Time{}, 0, err
 	}
-	return i.sesionRef, i.metodo, i.destino, append([]CabeceraCargaDirecta(nil), i.cabeceras...),
-		i.expiraEn, i.tamanoMaximo, nil
+	return datos.SesionRef, datos.Metodo, datos.Destino, datos.Cabeceras,
+		datos.ExpiraEn, datos.TamanoMaximo, nil
 }
 
 // SellarVinculoSesion permite persistir solo un HMAC de la referencia de
@@ -956,7 +716,11 @@ func (i InstruccionesCargaDirecta) SellarVinculoSesion(
 	if err := i.Validar(); err != nil || dependenciaPuertoAlmacenNula(sellador) {
 		return "", ErrSelladoIdempotenciaCargaNoDisponible
 	}
-	vinculo, err := sellador.SellarVinculoSesionCarga(ctx, i.sesionRef)
+	datos, _, err := i.canonicas.DatosVerificados()
+	if err != nil {
+		return "", ErrSelladoIdempotenciaCargaNoDisponible
+	}
+	vinculo, err := sellador.SellarVinculoSesionCarga(ctx, datos.SesionRef)
 	if err != nil || !hmacSHA256PuertoValido(vinculo) {
 		return "", ErrSelladoIdempotenciaCargaNoDisponible
 	}
@@ -975,7 +739,11 @@ func (i InstruccionesCargaDirecta) Abandonar(
 		contexto.validarParaPaso(AccionAlmacenAbandonarCargaDirecta) != nil {
 		return ErrSesionCargaDirectaNoValida
 	}
-	return gestor.AbandonarCargaDirecta(ctx, contexto, i.sesionRef)
+	datos, _, err := i.canonicas.DatosVerificados()
+	if err != nil {
+		return ErrSesionCargaDirectaNoValida
+	}
+	return gestor.AbandonarCargaDirecta(ctx, contexto, datos.SesionRef)
 }
 
 func (InstruccionesCargaDirecta) String() string {
@@ -1000,45 +768,10 @@ func (InstruccionesCargaDirecta) MarshalText() ([]byte, error) {
 // ReciboCargaDirecta es el valor opaco y de un uso entregado junto a la
 // concesion temporal. Es un secreto efimero: solo se revela al transporte y
 // nunca se persiste en claro, serializa por reflexion ni registra.
-type ReciboCargaDirecta struct {
-	valor string
-}
+type ReciboCargaDirecta = almacencanonico.ReciboCargaDirecta
 
 func NuevoReciboCargaDirecta(valor string) (ReciboCargaDirecta, error) {
-	if !referenciaOpacaAlmacenValida(valor, 1024) {
-		return ReciboCargaDirecta{}, ErrReciboCargaDirectaNoValido
-	}
-	return ReciboCargaDirecta{valor: valor}, nil
-}
-
-func (r ReciboCargaDirecta) Valido() bool {
-	return referenciaOpacaAlmacenValida(r.valor, 1024)
-}
-
-func (r ReciboCargaDirecta) RevelarParaEntregaOConsumo() (string, error) {
-	if !r.Valido() {
-		return "", ErrReciboCargaDirectaNoValido
-	}
-	return r.valor, nil
-}
-
-func (ReciboCargaDirecta) String() string   { return "[RECIBO-CARGA-DIRECTA-CONFIDENCIAL]" }
-func (ReciboCargaDirecta) GoString() string { return "[RECIBO-CARGA-DIRECTA-CONFIDENCIAL]" }
-
-func (r ReciboCargaDirecta) Format(estado fmt.State, _ rune) {
-	_, _ = io.WriteString(estado, r.String())
-}
-
-func (r ReciboCargaDirecta) LogValue() slog.Value {
-	return slog.StringValue(r.String())
-}
-
-func (ReciboCargaDirecta) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionReciboCargaProhibida
-}
-
-func (ReciboCargaDirecta) MarshalText() ([]byte, error) {
-	return nil, ErrSerializacionReciboCargaProhibida
+	return almacencanonico.NuevoReciboCargaDirecta(valor)
 }
 
 // SolicitudConsumirReciboCargaDirecta se ejecuta antes de confirmar en el
@@ -1113,37 +846,33 @@ func NuevoComprobanteConsumoReciboCargaDirecta(
 	resultado ResultadoConsumoReciboCargaDirecta,
 	atestacionHMAC string,
 ) (ComprobanteConsumoReciboCargaDirecta, error) {
-	if solicitud.Validar() != nil || resultado.Validar() != nil || !hmacSHA256PuertoValido(atestacionHMAC) {
-		return ComprobanteConsumoReciboCargaDirecta{}, ErrReciboCargaDirectaNoValido
-	}
-	return ComprobanteConsumoReciboCargaDirecta{
+	comprobante := ComprobanteConsumoReciboCargaDirecta{
 		indiceReciboHMAC: resultado.IndiceHMAC, grupoReciboHMAC: resultado.GrupoHMAC,
 		vinculoReciboHMAC: resultado.VinculoHMAC, evidenciaConsumoRef: resultado.EvidenciaConsumoRef,
 		intencionRef: resultado.IntencionConfirmacionRef, huellaIntencionHMAC: resultado.HuellaIntencionHMAC,
 		registradoEn: resultado.RegistradoEn, consumidoEn: resultado.ConsumidoEn, expiraEn: resultado.ExpiraEn,
 		validaHasta: solicitud.ValidaHasta, atestacionHMAC: atestacionHMAC,
-	}, nil
+	}
+	if solicitud.Validar() != nil || resultado.Validar() != nil || !almacencanonico.HMACSHA256Valido(atestacionHMAC) {
+		return ComprobanteConsumoReciboCargaDirecta{}, ErrReciboCargaDirectaNoValido
+	}
+	return comprobante, nil
+}
+
+func (c ComprobanteConsumoReciboCargaDirecta) datosCanonicos() almacencanonico.DatosComprobanteConsumoReciboCargaDirecta {
+	return almacencanonico.DatosComprobanteConsumoReciboCargaDirecta{
+		IndiceReciboHMAC: c.indiceReciboHMAC, GrupoReciboHMAC: c.grupoReciboHMAC,
+		VinculoReciboHMAC: c.vinculoReciboHMAC, EvidenciaConsumoRef: c.evidenciaConsumoRef,
+		IntencionRef: c.intencionRef, HuellaIntencionHMAC: c.huellaIntencionHMAC,
+		RegistradoEn: c.registradoEn, ConsumidoEn: c.consumidoEn, ExpiraEn: c.expiraEn,
+		ValidaHasta: c.validaHasta, AtestacionHMAC: c.atestacionHMAC,
+	}
 }
 
 func (c ComprobanteConsumoReciboCargaDirecta) validarEstructura() error {
-	if !hmacSHA256PuertoValido(c.indiceReciboHMAC) || !hmacSHA256PuertoValido(c.grupoReciboHMAC) ||
-		!hmacSHA256PuertoValido(c.vinculoReciboHMAC) ||
-		!referenciaOpacaAlmacenValida(c.evidenciaConsumoRef, 512) ||
-		!referenciaOpacaAlmacenValida(c.intencionRef, 512) || !hmacSHA256PuertoValido(c.huellaIntencionHMAC) ||
-		c.registradoEn.IsZero() || c.consumidoEn.IsZero() || c.expiraEn.IsZero() || c.validaHasta.IsZero() ||
-		c.registradoEn.Location() != time.UTC || c.consumidoEn.Location() != time.UTC ||
-		c.expiraEn.Location() != time.UTC || c.validaHasta.Location() != time.UTC ||
-		c.consumidoEn.Before(c.registradoEn) || !c.consumidoEn.Before(c.expiraEn) ||
-		!c.consumidoEn.Before(c.validaHasta) || c.expiraEn.Sub(c.registradoEn) > duracionMaximaInstruccionesCargaDirecta ||
-		!hmacSHA256PuertoValido(c.atestacionHMAC) {
-		return ErrReciboCargaDirectaNoValido
-	}
-	return nil
+	return almacencanonico.ValidarDatosComprobanteConsumoReciboCargaDirecta(c.datosCanonicos())
 }
 
-// RevelarParaVerificacion es la unica salida deliberada para el adaptador de
-// atestacion. No revela el recibo ni la sesion; estos ultimos se reciben de la
-// solicitud exacta que el nucleo pretende confirmar.
 func (c ComprobanteConsumoReciboCargaDirecta) RevelarParaVerificacion() (
 	indiceHMAC, grupoHMAC, vinculoHMAC, evidenciaConsumoRef, intencionRef, huellaIntencionHMAC string,
 	registradoEn, consumidoEn, expiraEn, validaHasta time.Time,
@@ -1211,144 +940,30 @@ type VerificadorAtestacionConsumoReciboCargaDirecta interface {
 // IndiceHMAC deriva del material secreto estable anterior a esa fecha;
 // VinculoHMAC autentica sus invariantes y la sesion. Ninguno puede sustituirse
 // por el recibo o por la referencia de sesion.
-type RegistroReciboCargaDirecta struct {
-	IndiceHMAC             string
-	GrupoHMAC              string
-	VinculoHMAC            string
-	EvidenciaAltaRef       string
-	AutorizacionEmisionRef string
-	ExpiraEn               time.Time
-}
+type RegistroReciboCargaDirecta = almacencanonico.RegistroReciboCargaDirecta
 
 // PredecesorReciboCargaDirecta conserva el enlace tipado que el repositorio
 // crea al sustituir el recibo activo de un grupo. No es por si mismo un evento
 // de auditoria: el adaptador durable debera incorporarlo a su registro
 // transaccional y al outbox cuando estos existan.
-type PredecesorReciboCargaDirecta struct {
-	IndiceHMAC             string
-	GrupoHMAC              string
-	AutorizacionEmisionRef string
-	SustituidoEn           time.Time
-}
-
-func (p PredecesorReciboCargaDirecta) Validar() error {
-	if !hmacSHA256PuertoValido(p.IndiceHMAC) || !hmacSHA256PuertoValido(p.GrupoHMAC) ||
-		!referenciaOpacaAlmacenValida(p.AutorizacionEmisionRef, 512) ||
-		p.SustituidoEn.IsZero() || p.SustituidoEn.Location() != time.UTC {
-		return ErrReciboCargaDirectaNoValido
-	}
-	return nil
-}
+type PredecesorReciboCargaDirecta = almacencanonico.PredecesorReciboCargaDirecta
 
 // ResultadoRegistroReciboCargaDirecta acredita la fecha del alta durable y,
 // cuando procede, la relacion con el predecesor del mismo grupo sustituido en
 // la misma transaccion.
-type ResultadoRegistroReciboCargaDirecta struct {
-	IndiceHMAC             string
-	GrupoHMAC              string
-	AutorizacionEmisionRef string
-	RegistradoEn           time.Time
-	Predecesor             *PredecesorReciboCargaDirecta
-}
-
-func (r ResultadoRegistroReciboCargaDirecta) ValidarContra(registro RegistroReciboCargaDirecta) error {
-	if registro.Validar() != nil || r.IndiceHMAC != registro.IndiceHMAC ||
-		r.GrupoHMAC != registro.GrupoHMAC || r.AutorizacionEmisionRef != registro.AutorizacionEmisionRef ||
-		r.RegistradoEn.IsZero() || r.RegistradoEn.Location() != time.UTC ||
-		!r.RegistradoEn.Before(registro.ExpiraEn) ||
-		registro.ExpiraEn.Sub(r.RegistradoEn) > duracionMaximaInstruccionesCargaDirecta {
-		return ErrReciboCargaDirectaNoValido
-	}
-	if r.Predecesor == nil {
-		return nil
-	}
-	if r.Predecesor.Validar() != nil || r.Predecesor.IndiceHMAC == registro.IndiceHMAC ||
-		r.Predecesor.GrupoHMAC != registro.GrupoHMAC ||
-		!r.Predecesor.SustituidoEn.Equal(r.RegistradoEn) {
-		return ErrReciboCargaDirectaNoValido
-	}
-	return nil
-}
-
-func (r RegistroReciboCargaDirecta) Validar() error {
-	if !hmacSHA256PuertoValido(r.IndiceHMAC) || !hmacSHA256PuertoValido(r.GrupoHMAC) ||
-		!hmacSHA256PuertoValido(r.VinculoHMAC) ||
-		!referenciaOpacaAlmacenValida(r.EvidenciaAltaRef, 512) ||
-		r.ExpiraEn.IsZero() || r.ExpiraEn.Location() != time.UTC ||
-		!referenciaOpacaAlmacenValida(r.AutorizacionEmisionRef, 512) {
-		return ErrReciboCargaDirectaNoValido
-	}
-	return nil
-}
+type ResultadoRegistroReciboCargaDirecta = almacencanonico.ResultadoRegistroReciboCargaDirecta
 
 // OrdenConsumoReciboCargaDirecta no contiene secreto ni una hora de consumo
 // propuesta por el proceso. RegistradoEn procede del recibo atestado tras el
 // alta y debe coincidir con el registro; el repositorio decide ConsumidoEn con
 // su reloj transaccional autoritativo y lo devuelve despues de persistirlo.
-type OrdenConsumoReciboCargaDirecta struct {
-	IndiceHMAC               string
-	GrupoHMAC                string
-	VinculoHMAC              string
-	EvidenciaConsumoRef      string
-	IntencionConfirmacionRef string
-	HuellaIntencionHMAC      string
-	RegistradoEn             time.Time
-	ValidaHasta              time.Time
-}
-
-func (o OrdenConsumoReciboCargaDirecta) Validar() error {
-	if !hmacSHA256PuertoValido(o.IndiceHMAC) || !hmacSHA256PuertoValido(o.GrupoHMAC) ||
-		!hmacSHA256PuertoValido(o.VinculoHMAC) ||
-		!referenciaOpacaAlmacenValida(o.EvidenciaConsumoRef, 512) ||
-		!referenciaOpacaAlmacenValida(o.IntencionConfirmacionRef, 512) ||
-		!hmacSHA256PuertoValido(o.HuellaIntencionHMAC) || o.RegistradoEn.IsZero() ||
-		o.RegistradoEn.Location() != time.UTC || o.ValidaHasta.IsZero() || o.ValidaHasta.Location() != time.UTC {
-		return ErrReciboCargaDirectaNoValido
-	}
-	return nil
-}
+type OrdenConsumoReciboCargaDirecta = almacencanonico.OrdenConsumoReciboCargaDirecta
 
 // ResultadoConsumoReciboCargaDirecta acredita la escritura condicional del
 // repositorio. RegistradoEn, ConsumidoEn y ExpiraEn proceden del registro durable,
 // no de datos propuestos por el proceso. Todos los identificadores deben
 // coincidir exactamente con la orden.
-type ResultadoConsumoReciboCargaDirecta struct {
-	IndiceHMAC               string
-	GrupoHMAC                string
-	VinculoHMAC              string
-	EvidenciaConsumoRef      string
-	IntencionConfirmacionRef string
-	HuellaIntencionHMAC      string
-	RegistradoEn             time.Time
-	ConsumidoEn              time.Time
-	ExpiraEn                 time.Time
-}
-
-func (r ResultadoConsumoReciboCargaDirecta) Validar() error {
-	if !hmacSHA256PuertoValido(r.IndiceHMAC) || !hmacSHA256PuertoValido(r.GrupoHMAC) ||
-		!hmacSHA256PuertoValido(r.VinculoHMAC) ||
-		!referenciaOpacaAlmacenValida(r.EvidenciaConsumoRef, 512) ||
-		!referenciaOpacaAlmacenValida(r.IntencionConfirmacionRef, 512) ||
-		!hmacSHA256PuertoValido(r.HuellaIntencionHMAC) || r.RegistradoEn.IsZero() ||
-		r.ConsumidoEn.IsZero() || r.ExpiraEn.IsZero() || r.RegistradoEn.Location() != time.UTC ||
-		r.ConsumidoEn.Location() != time.UTC || r.ExpiraEn.Location() != time.UTC ||
-		r.ConsumidoEn.Before(r.RegistradoEn) || !r.ConsumidoEn.Before(r.ExpiraEn) ||
-		r.ExpiraEn.Sub(r.RegistradoEn) > duracionMaximaInstruccionesCargaDirecta {
-		return ErrReciboCargaDirectaNoValido
-	}
-	return nil
-}
-
-func (r ResultadoConsumoReciboCargaDirecta) ValidarContra(o OrdenConsumoReciboCargaDirecta) error {
-	if o.Validar() != nil || r.Validar() != nil || r.IndiceHMAC != o.IndiceHMAC ||
-		r.GrupoHMAC != o.GrupoHMAC || r.VinculoHMAC != o.VinculoHMAC ||
-		r.EvidenciaConsumoRef != o.EvidenciaConsumoRef ||
-		r.IntencionConfirmacionRef != o.IntencionConfirmacionRef || !r.RegistradoEn.Equal(o.RegistradoEn) ||
-		r.HuellaIntencionHMAC != o.HuellaIntencionHMAC || !r.ConsumidoEn.Before(o.ValidaHasta) {
-		return ErrReciboCargaDirectaNoValido
-	}
-	return nil
-}
+type ResultadoConsumoReciboCargaDirecta = almacencanonico.ResultadoConsumoReciboCargaDirecta
 
 // RepositorioRecibosCargaDirecta es un puerto saliente durable. Registrar
 // conserva la unicidad permanente de IndiceHMAC, fija RegistradoEn con su reloj
@@ -1481,26 +1096,7 @@ type GestorCargaDirecta interface {
 	AbandonarCargaDirecta(context.Context, ContextoOperacionAlmacen, string) error
 }
 
-type SolicitudSellarIdempotenciaCarga struct {
-	OperacionRef     string
-	PrincipalRef     string
-	RecursoRef       string
-	MIME             string
-	Tamano           int64
-	HuellaSHA256     string
-	ClaveSolicitante string
-}
-
-func (s SolicitudSellarIdempotenciaCarga) Validar() error {
-	if !referenciaOpacaAlmacenValida(s.OperacionRef, 512) ||
-		!referenciaOpacaAlmacenValida(s.PrincipalRef, 512) ||
-		!referenciaOpacaAlmacenValida(s.RecursoRef, 512) || !textoSeguroAlmacen(s.MIME, 255) ||
-		s.Tamano < 1 || !esSHA256Hexadecimal(s.HuellaSHA256) ||
-		!referenciaOpacaAlmacenValida(s.ClaveSolicitante, 512) {
-		return ErrSolicitudAlmacenInvalida
-	}
-	return nil
-}
+type SolicitudSellarIdempotenciaCarga = almacencanonico.SolicitudSellarIdempotenciaCarga
 
 // SelladorIdempotenciaCarga liga una clave de reintento a la operacion y a
 // todos sus datos exactos mediante una clave exclusiva del servidor. El
@@ -1509,140 +1105,80 @@ type SelladorIdempotenciaCarga interface {
 	SellarIdempotenciaCarga(context.Context, SolicitudSellarIdempotenciaCarga) (string, error)
 }
 
-func destinoCargaDirectaValido(destino string) bool {
-	if destino == "" || destino != strings.TrimSpace(destino) || len(destino) > longitudMaximaDestinoCargaDirecta {
-		return false
-	}
-	analizado, err := url.Parse(destino)
-	return err == nil && analizado.Scheme == "https" && analizado.Host != "" && analizado.User == nil &&
-		analizado.Fragment == "" && analizado.Opaque == "" && !analizado.ForceQuery &&
-		analizado.Host == strings.ToLower(analizado.Host) && analizado.String() == destino
-}
-
-func origenDestinoCargaDirecta(destino string) string {
-	analizado, err := url.Parse(destino)
-	if err != nil {
-		return ""
-	}
-	return strings.ToLower(analizado.Scheme + "://" + analizado.Host)
-}
-
 func origenesCargaDirectaValidos(origenes []string) bool {
-	if len(origenes) == 0 || len(origenes) > 32 {
-		return false
-	}
-	vistos := make(map[string]struct{}, len(origenes))
-	for _, origen := range origenes {
-		if origen == "" || origen != strings.TrimSpace(origen) || strings.HasSuffix(origen, "/") ||
-			origenDestinoCargaDirecta(origen) != origen {
-			return false
-		}
-		if _, repetido := vistos[origen]; repetido {
-			return false
-		}
-		vistos[origen] = struct{}{}
-	}
-	return true
-}
-
-func nombreCabeceraCargaDirectaValido(nombre string) bool {
-	switch nombre {
-	case "content-type", "content-md5", "digest", "if-none-match", "x-checksum-sha256",
-		"x-amz-checksum-sha256", "x-amz-content-sha256",
-		"x-amz-sdk-checksum-algorithm", "x-amz-server-side-encryption",
-		"x-amz-server-side-encryption-aws-kms-key-id", "x-amz-server-side-encryption-bucket-key-enabled",
-		"x-amz-meta-vec-esquema", "x-amz-meta-vec-conector", "x-amz-meta-vec-zona",
-		"x-amz-meta-vec-tamano", "x-amz-meta-vec-sha256", "x-amz-meta-vec-evidencia",
-		"x-amz-meta-vec-almacenado-en", "x-amz-meta-vec-idempotencia-sha256",
-		"x-amz-meta-vec-vinculo-sesion-sha256", "x-amz-meta-vec-final-referencia",
-		"x-amz-meta-vec-mime", "x-amz-meta-vec-expira-en", "x-amz-meta-vec-preparacion-sha256",
-		"x-goog-content-sha256", "x-ms-blob-type", "x-ms-content-crc64":
-		return true
-	default:
-		// Host, Content-Length, Transfer-Encoding, Connection, Forwarded,
-		// X-Forwarded-*, Proxy-*, autenticacion, cookies y cualquier futura
-		// cabecera quedan denegadas al no figurar en la lista positiva.
-		return false
-	}
-}
-
-func valorCabeceraCargaDirectaValido(valor string) bool {
-	if valor == "" || len(valor) > 2048 || valor != strings.TrimSpace(valor) || !utf8.ValidString(valor) {
-		return false
-	}
-	for _, caracter := range valor {
-		if unicode.IsControl(caracter) {
-			return false
-		}
-	}
-	return true
+	return almacencanonico.OrigenesCargaDirectaValidos(origenes)
 }
 
 func textoSeguroAlmacen(valor string, maximo int) bool {
-	if maximo < 1 || valor == "" || valor != strings.TrimSpace(valor) || len(valor) > maximo || !utf8.ValidString(valor) {
-		return false
-	}
-	for _, caracter := range valor {
-		if unicode.IsControl(caracter) {
-			return false
-		}
-	}
-	return true
+	return almacencanonico.TextoSeguro(valor, maximo)
 }
 
 func referenciaOpacaAlmacenValida(valor string, maximo int) bool {
-	if !textoSeguroAlmacen(valor, maximo) {
-		return false
-	}
-	for _, caracter := range valor {
-		if unicode.IsSpace(caracter) {
-			return false
-		}
-	}
-	return true
+	return almacencanonico.ReferenciaOpacaValida(valor, maximo)
 }
 
 func esSHA256Hexadecimal(valor string) bool {
-	if valor != strings.TrimSpace(valor) || valor != strings.ToLower(valor) || len(valor) != 64 {
-		return false
+	return almacencanonico.SHA256HexadecimalValido(valor)
+}
+
+func datosCanonicosEvidenciaAlmacen(e EvidenciaOperacionAlmacen) almacencanonico.DatosEvidenciaOperacionAlmacen {
+	return almacencanonico.DatosEvidenciaOperacionAlmacen{
+		Referencia: e.Referencia, ConectorID: e.ConectorID, EsquemaContexto: e.EsquemaContexto,
+		EsquemaEsperado: EsquemaContextoOperacionAlmacenV1, AccionNegocio: e.AccionNegocio,
+		Accion: e.Accion, EfectoRef: e.EfectoRef, HuellaPlanEfectoSHA256: e.HuellaPlanEfectoSHA256,
+		HuellaManifiestoSHA256: e.HuellaManifiestoSHA256, HuellaPasoSHA256: e.HuellaPasoSHA256,
+		PasoRef: string(e.PasoRef), HuellaDecisionSHA256: e.HuellaDecisionSHA256, Objeto: e.Objeto,
+		OperacionRef: e.OperacionRef, CorrelacionRef: e.CorrelacionRef, AutorizacionRef: e.AutorizacionRef,
+		Finalidad: e.Finalidad, Clasificacion: e.Clasificacion, RealizadaEn: e.RealizadaEn,
+		CargaRef: e.CargaRef, SujetoSeudonimoHMAC: e.SujetoSeudonimoHMAC, RecursoRef: e.RecursoRef,
+		ModuloID: e.ModuloID, HuellaSolicitudHMAC: e.HuellaSolicitudHMAC, FundamentoRef: e.FundamentoRef,
+		ReintentoIdempotente: e.ReintentoIdempotente,
 	}
-	decodificado, err := hex.DecodeString(valor)
-	return err == nil && len(decodificado) == 32
+}
+
+func datosCanonicosResultadoAlmacen(r ResultadoOperacionObjeto) almacencanonico.DatosResultadoOperacionObjeto {
+	return almacencanonico.DatosResultadoOperacionObjeto{
+		Objeto: r.Objeto, Evidencia: datosCanonicosEvidenciaAlmacen(r.Evidencia),
+	}
 }
 
 func evidenciaAlmacenLigada(evidencia EvidenciaOperacionAlmacen, contexto ContextoOperacionAlmacen) bool {
 	proyeccion, err := contexto.Proyeccion()
-	return err == nil &&
-		evidencia.EsquemaContexto == proyeccion.Esquema &&
-		evidencia.OperacionRef == proyeccion.OperacionRef &&
-		evidencia.CorrelacionRef == proyeccion.CorrelacionRef &&
-		evidencia.AutorizacionRef == proyeccion.AutorizacionRef &&
-		evidencia.Finalidad == proyeccion.Finalidad &&
-		evidencia.Clasificacion == proyeccion.Clasificacion &&
-		evidencia.AccionNegocio == proyeccion.AccionNegocio &&
-		evidencia.Accion == proyeccion.AccionTecnica &&
-		evidencia.EfectoRef == proyeccion.EfectoRef &&
-		evidencia.HuellaPlanEfectoSHA256 == proyeccion.HuellaPlanEfectoSHA256 &&
-		evidencia.HuellaManifiestoSHA256 == proyeccion.HuellaManifiestoSHA256 &&
-		evidencia.HuellaPasoSHA256 == proyeccion.HuellaPasoSHA256 &&
-		evidencia.PasoRef == proyeccion.PasoRef &&
-		evidencia.HuellaDecisionSHA256 == proyeccion.HuellaDecisionSHA256 &&
-		evidencia.CargaRef == proyeccion.CargaRef &&
-		evidencia.SujetoSeudonimoHMAC == proyeccion.SujetoSeudonimoHMAC &&
-		evidencia.RecursoRef == proyeccion.RecursoRef &&
-		evidencia.ModuloID == proyeccion.ModuloID &&
-		evidencia.HuellaSolicitudHMAC == proyeccion.HuellaSolicitudHMAC
+	return err == nil && almacencanonico.LigaduraExacta(
+		[]string{
+			evidencia.EsquemaContexto, evidencia.OperacionRef, evidencia.CorrelacionRef,
+			evidencia.AutorizacionRef, evidencia.Finalidad, evidencia.Clasificacion,
+			evidencia.AccionNegocio, evidencia.Accion, evidencia.EfectoRef,
+			evidencia.HuellaPlanEfectoSHA256, evidencia.HuellaManifiestoSHA256,
+			evidencia.HuellaPasoSHA256, string(evidencia.PasoRef), evidencia.HuellaDecisionSHA256,
+			evidencia.CargaRef, evidencia.SujetoSeudonimoHMAC, evidencia.RecursoRef,
+			evidencia.ModuloID, evidencia.HuellaSolicitudHMAC,
+		},
+		[]string{
+			proyeccion.Esquema, proyeccion.OperacionRef, proyeccion.CorrelacionRef,
+			proyeccion.AutorizacionRef, proyeccion.Finalidad, proyeccion.Clasificacion,
+			proyeccion.AccionNegocio, proyeccion.AccionTecnica, proyeccion.EfectoRef,
+			proyeccion.HuellaPlanEfectoSHA256, proyeccion.HuellaManifiestoSHA256,
+			proyeccion.HuellaPasoSHA256, string(proyeccion.PasoRef), proyeccion.HuellaDecisionSHA256,
+			proyeccion.CargaRef, proyeccion.SujetoSeudonimoHMAC, proyeccion.RecursoRef,
+			proyeccion.ModuloID, proyeccion.HuellaSolicitudHMAC,
+		},
+	)
 }
 
 func contextosMismaOperacion(primero, segundo ContextoOperacionAlmacen) bool {
 	p, errPrimero := primero.Proyeccion()
 	s, errSegundo := segundo.Proyeccion()
-	return errPrimero == nil && errSegundo == nil &&
-		p.OperacionRef == s.OperacionRef && p.CorrelacionRef == s.CorrelacionRef &&
-		p.Finalidad == s.Finalidad && p.Clasificacion == s.Clasificacion &&
-		p.CargaRef == s.CargaRef && p.SujetoSeudonimoHMAC == s.SujetoSeudonimoHMAC &&
-		p.RecursoRef == s.RecursoRef && p.ModuloID == s.ModuloID &&
-		p.HuellaSolicitudHMAC == s.HuellaSolicitudHMAC
+	return errPrimero == nil && errSegundo == nil && almacencanonico.LigaduraExacta(
+		[]string{
+			p.OperacionRef, p.CorrelacionRef, p.Finalidad, p.Clasificacion, p.CargaRef,
+			p.SujetoSeudonimoHMAC, p.RecursoRef, p.ModuloID, p.HuellaSolicitudHMAC,
+		},
+		[]string{
+			s.OperacionRef, s.CorrelacionRef, s.Finalidad, s.Clasificacion, s.CargaRef,
+			s.SujetoSeudonimoHMAC, s.RecursoRef, s.ModuloID, s.HuellaSolicitudHMAC,
+		},
+	)
 }
 
 func huellaSolicitudCargaDirecta(solicitud SolicitudPrepararCargaDirecta) string {
@@ -1650,67 +1186,21 @@ func huellaSolicitudCargaDirecta(solicitud SolicitudPrepararCargaDirecta) string
 	if err != nil {
 		return ""
 	}
-	var canonico strings.Builder
-	for _, valor := range []string{
-		contexto.Esquema,
-		contexto.OperacionRef,
-		contexto.CorrelacionRef,
-		contexto.AutorizacionRef,
-		contexto.Finalidad,
-		contexto.Clasificacion,
-		contexto.AccionNegocio,
-		contexto.AccionTecnica,
-		contexto.CargaRef,
-		contexto.SujetoSeudonimoHMAC,
-		contexto.RecursoRef,
-		contexto.ModuloID,
-		contexto.HuellaSolicitudHMAC,
-		contexto.EfectoRef,
-		contexto.HuellaPlanEfectoSHA256,
-		string(contexto.PasoRef),
-		contexto.HuellaDecisionSHA256,
-		solicitud.ClaveIdempotencia,
-		solicitud.MIME,
-		strconv.FormatInt(solicitud.Tamano, 10),
-		solicitud.HuellaSHA256,
-		solicitud.ExpiraEn.UTC().Format(time.RFC3339Nano),
-	} {
-		canonico.WriteString(strconv.Itoa(len(valor)))
-		canonico.WriteByte(':')
-		canonico.WriteString(valor)
-		canonico.WriteByte('\n')
-	}
-	suma := sha256.Sum256([]byte(canonico.String()))
-	return hex.EncodeToString(suma[:])
+	return almacencanonico.HuellaPreparacionCargaDirecta(almacencanonico.DatosHuellaPreparacionCargaDirecta{
+		Esquema: contexto.Esquema, OperacionRef: contexto.OperacionRef,
+		CorrelacionRef: contexto.CorrelacionRef, AutorizacionRef: contexto.AutorizacionRef,
+		Finalidad: contexto.Finalidad, Clasificacion: contexto.Clasificacion,
+		AccionNegocio: contexto.AccionNegocio, AccionTecnica: contexto.AccionTecnica,
+		CargaRef: contexto.CargaRef, SujetoSeudonimoHMAC: contexto.SujetoSeudonimoHMAC,
+		RecursoRef: contexto.RecursoRef, ModuloID: contexto.ModuloID,
+		HuellaSolicitudHMAC: contexto.HuellaSolicitudHMAC, EfectoRef: contexto.EfectoRef,
+		HuellaPlanEfectoSHA256: contexto.HuellaPlanEfectoSHA256, PasoRef: string(contexto.PasoRef),
+		HuellaDecisionSHA256: contexto.HuellaDecisionSHA256,
+		ClaveIdempotencia:    solicitud.ClaveIdempotencia, MIME: solicitud.MIME,
+		Tamano: solicitud.Tamano, HuellaSHA256: solicitud.HuellaSHA256, ExpiraEn: solicitud.ExpiraEn,
+	})
 }
 
 func accionOperacionAlmacenValida(accion string) bool {
-	switch accion {
-	case AccionAlmacenEscribir, AccionAlmacenLeer, AccionAlmacenPrepararCargaDirecta,
-		AccionAlmacenConfirmarCargaDirecta, AccionAlmacenAbandonarCargaDirecta,
-		AccionAlmacenPromover, AccionAlmacenAplicarRetencion, AccionAlmacenInmovilizar,
-		AccionAlmacenLevantarInmovilizacion, AccionAlmacenEliminar, AccionAlmacenAnalizarContenido:
-		return true
-	default:
-		return false
-	}
-}
-
-func accionAlmacenCreaObjeto(accion string) bool {
-	return accion == AccionAlmacenEscribir || accion == AccionAlmacenConfirmarCargaDirecta ||
-		accion == AccionAlmacenPromover
-}
-
-func accionAlmacenIdempotente(accion string) bool {
-	return accionAlmacenCreaObjeto(accion)
-}
-
-func accionResultadoOperacionAlmacenValida(accion string) bool {
-	switch accion {
-	case AccionAlmacenEscribir, AccionAlmacenConfirmarCargaDirecta, AccionAlmacenPromover,
-		AccionAlmacenAplicarRetencion, AccionAlmacenInmovilizar, AccionAlmacenLevantarInmovilizacion:
-		return true
-	default:
-		return false
-	}
+	return almacencanonico.AccionOperacionValida(accion)
 }
