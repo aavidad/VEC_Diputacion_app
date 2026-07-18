@@ -3290,3 +3290,32 @@ distinto invalidaria evidencia.
 condicion previa del piloto con datos reales. Si tambien se pospusieran, la
 aplicacion quedaria funcionalmente terminada pero solo demostrable con datos
 sinteticos. Por eso encabezan el orden de ataque vigente.
+
+## DEC-093 — Autobaremación aparcada y cobertura extremo a extremo obligatoria
+
+- Fecha: 2026-07-18.
+- Estado: adoptada por el responsable del proyecto.
+- Decisión de alcance: la autobaremación declarada por la persona aspirante
+  queda aparcada. No se anuncia en menús, capacidades, eventos ni contratos
+  activos y no condiciona la primera entrega de Bolsa. El dominio y los
+  estudios anteriores se conservan como trabajo reutilizable, sin montarlos en
+  producción ni presentarlos como funcionalidad disponible.
+- Distinción: no se retira el baremo oficial gobernado por las bases. RRHH
+  seguirá necesitando reglas versionadas y el cálculo oficial que permita
+  ordenar la bolsa. Se aparca la captura y confirmación de una puntuación
+  propuesta por la persona interesada, no la aplicación administrativa de las
+  bases.
+- Criterio de cierre: ninguna capacidad funcional activa de Bolsa se considera
+  terminada si no existe una cadena comprobada
+  `web -> API -> caso de uso -> puerto -> adaptador productivo -> persistencia`
+  y una respuesta con autorización, auditoría y prueba de extremo a extremo.
+  Un botón informativo, un doble de memoria o una ruta sin montar no satisfacen
+  este criterio.
+- Puertos técnicos: PostgreSQL, KMS, custodia, firma, antivirus y conectores de
+  comunicaciones nunca se publican directamente al navegador. Se conectan a
+  través del caso de uso autorizado que materializa la capacidad funcional y
+  sus evidencias.
+- Control: se mantendrá una matriz por capacidad con pantalla, ruta, caso de
+  uso, puertos, adaptadores, permisos, auditoría y pruebas. Las capacidades
+  aparcadas o heredadas se etiquetan de forma expresa y no pueden aparecer en
+  el manifiesto activo.
