@@ -263,7 +263,11 @@ como prueba E2E legal.
 
 1. **Identidad y autoridad interna**: falta componer autenticación de alta
    garantía, revalidación, perfil activo, ámbito, motivo, correlación, PDP y
-   verificación COSE. La política continúa siendo denegar por defecto.
+   verificación COSE. La política continúa siendo denegar por defecto. La base
+   actual conserva cuentas `cta_` y una proyección de contexto, pero no los
+   maestros versionados de persona, perfil y vínculos `cta_` → `per_` → `prf_`;
+   no se abrirá el portal RRHH usando las asignaciones RBAC como sustituto de
+   esa autoridad de identidad.
 2. **Escritura durable de convocatorias**: el dominio y los puertos existen,
    pero no el servicio de aplicación ni el adaptador PostgreSQL que confirmen
    altas, cambios y publicación. Además, el contrato actual obliga a sellar de
@@ -319,19 +323,33 @@ pueden obtenerse sin crear antes una capacidad durable. Mover ese sellado al
 cliente, usar una huella provisional o autorizar solo la versión trasladaría o
 debilitaría el problema; no es una solución aceptable.
 
-Antes del servicio de aplicación se debe introducir un precompromiso
-determinista, no consumible y sin estado durable. El PDP autorizará ese
-precompromiso; solo después se materializará la atestación durable, que deberá
-quedar ligada al precompromiso y consumirse atómicamente con idempotencia,
-auditoría, outbox y mutación. Si la atestación final modifica el recurso
-autorizable, será obligatoria una segunda autorización exacta inmediatamente
-antes del `COMMIT`. Una denegación o fallo del PDP debe producir cero sellados
-durables y cero escrituras.
+La revisión también ha detectado que los constructores actuales incorporan la
+huella de la versión y el HMAC del motivo, pero no prueban que ese HMAC
+corresponda al motivo de creación, modificación, publicación o retirada
+registrado en esa misma versión, ni que el principal del sellado sea el actor
+atribuido a la transición. El nuevo contrato debe ligar explícitamente acción,
+versión, motivo aplicable, actor, correlación y precompromiso; no basta con que
+cada pieza sea válida por separado.
+
+Antes del servicio de aplicación se debe introducir un compromiso HMAC
+determinista, no consumible y sin token ni estado durable. Ese compromiso forma
+parte del material exacto que autoriza el PDP. Solo después de una concesión se
+materializa la atestación durable, ligada al mismo compromiso, intención,
+decisión, principal y correlación; esa fase no puede alterar el recurso ya
+autorizado. La decisión y los tokens se releen y consumen atómicamente con
+idempotencia, auditoría, outbox y mutación. Una denegación o fallo del PDP debe
+producir cero sellados durables y cero escrituras.
+
+Si el HSM/KMS elegido no puede calcular el compromiso sin crear previamente un
+registro o token consumible, se aplicará como alternativa una autorización
+preliminar específica y una segunda autorización exacta. Esa opción exige más
+recibos, consumos y reconciliación de huérfanos, por lo que no es la opción de
+serie.
 
 ### Trabajo propuesto
 
-1. Separar en los contratos de motivo el precompromiso puro de la atestación
-   durable consumible y probar que una denegación PDP no produce efectos.
+1. Separar en los contratos de motivo el compromiso HMAC no consumible de la
+   atestación durable y probar que una denegación PDP no produce efectos.
 2. Crear el servicio de aplicación para alta, actualización y versionado de
    borradores reutilizando `internal/modules/bolsa/domain/convocatoria_gobernada*`
    y `internal/modules/bolsa/ports/convocatorias_gobierno_*`.
