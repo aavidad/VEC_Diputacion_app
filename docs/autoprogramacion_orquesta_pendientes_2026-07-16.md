@@ -485,7 +485,8 @@ y errores observables.
   dentro de [brecha funcional](portal_vec/brecha_funcional_bolsa_2026-07-17.md)
   pero **nunca se convirtio en tarea numerada**, por lo que la cola jamas
   apunto a el y el agente no tenia como saber que era prioritario.
-- `estado`: nuevo. **Cabecera de cola junto a T12 y T13.**
+- `estado`: en curso. **Cabecera de cola; T21 ya esta cerrada y T20 conserva
+  la prioridad exclusiva hasta completar el recorrido E2E.**
 - `area_hexagonal`: adaptador de persistencia.
 - `accion`: implementar el adaptador Go PostgreSQL del diario y del agregado
   cifrado de borradores de convocatorias: restaurar la identidad primaria y
@@ -514,14 +515,24 @@ y errores observables.
 - `evidencia`: migraciones `000003` de borradores durables y pruebas SQL ya
   presentes en `deploy/postgresql/bolsa_convocatorias/`; revisiones cruzadas
   en NO-GO del cliente web, del servicio Go y de la migracion SQL.
+- `corte tecnico 18/07/2026`: el alcance real estaba subestimado al describirlo
+  solo como un adaptador. Se divide, sin cambiar el criterio de terminado, en:
+  **T20A**, migracion PostgreSQL del contrato KMS/procedencia actual;
+  **T20B**, adaptadores Go de diario, lectura y confirmacion;
+  **T20C**, adaptadores gobernados de preparacion, autoridad PDP, motivos y
+  politica/perfil de cifrado; **T20D**, composicion HTTP/web bajo mTLS; y
+  **T20E**, E2E con PostgreSQL, reinicio, idempotencia multigeneracion,
+  concurrencia y fallos en fronteras. El nucleo probatorio quedo fijado en
+  `6483109`; no acredita por si solo ninguna vertical operativa.
 
 ### T21 — Perfil `desarrollo` con credenciales propias para desbloquear todo
 
 - `origen`: direccion, 18/07/2026, por decision expresa del responsable: no se
   detiene ningun frente esperando a Sistemas. Se generan credenciales propias
   de pega y se sustituyen por las autoritativas cuando esten disponibles.
-- `estado`: nuevo. **Habilitador transversal: desbloquea T20 y levanta las
-  barreras de composicion. Se hace junto con T20, no despues.**
+- `estado`: cerrado tecnicamente en `721c64e`, con revision independiente y
+  puertas globales verdes. **Habilitador transversal de desarrollo; no
+  habilita produccion ni sustituye el cierre E2E de T20.**
 - `area_hexagonal`: composicion, adaptadores de seguridad y configuracion.
 - `accion`: crear un perfil de ejecucion `desarrollo` que componga la vertical
   completa con proveedores propios tras las interfaces ya existentes:
@@ -566,6 +577,15 @@ y errores observables.
   sintetica; interfaz KMS de `gobiernoconvocatorias/cifrado_borradores.go`,
   que hoy rechaza texto cifrado sintetico y debera admitir el proveedor de
   desarrollo solo bajo el perfil correspondiente.
+- `cierre 18/07/2026`: CA y mTLS 1.3, identidad local de garantia alta, TSA
+  no autoritativa, AES-256-GCM+A256KW y firmas Ed25519 A/B separadas. Ambos
+  binarios rechazan el TLS local en produccion; el binario publico rechaza
+  cualquier selector T21; y emisor, revalidador y verificador KMS fijan la
+  procedencia exacta `desarrollo/no_autoritativo/no_migrable`. Material fuera
+  de Git, permisos 0700/0600, arranque ruidoso, pruebas normales/de carrera,
+  `go vet`, `go mod verify`, generador, tamanos y escaneos verdes. Los
+  proveedores autoritativos y el permiso de produccion siguen pendientes de
+  Sistemas, DPD/EIPD y despliegue.
 
 ### T13 — Registro durable de accesos a datos personales con finalidad
 
