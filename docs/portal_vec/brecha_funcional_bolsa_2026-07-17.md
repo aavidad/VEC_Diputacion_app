@@ -35,6 +35,10 @@ La situación observada es:
   convocatorias, detalle y categorías;
 - **1 vertical real de lectura interna contratada y probada**, el panel agregado
   de Bolsa, pero no registrada en la composición ni abierta para producción;
+- **1 vertical real de elaboración contratada y probada hasta el núcleo**:
+  bandeja/editor web, API interna, fachada, servicio durable, alias HMAC
+  multigeneración y cifrado de sobre KMS; todavía sin adaptador Go PostgreSQL,
+  identidad ni composición productivos;
 - **10 apartados visibles** en el portal RRHH de presentación;
 - **2 de esos 10 apartados** pueden representar el contrato interno real en modo
   de solo lectura: resumen y convocatorias agregadas;
@@ -163,9 +167,9 @@ distribución del futuro puesto de trabajo, pero no demuestra actos de negocio.
 | --- | --- | --- | --- | --- | --- |
 | Consulta pública | Sí: interfaz y fuente DEMO conectadas | Sí: servicio, filtros, minimización y handlers | No | No | Sustituir la fuente DEMO por una proyección durable de versiones aprobadas. |
 | Panel interno agregado | Sí: cuadro ampliado sintético | Sí: dominio, aplicación, HTTP y PostgreSQL de lectura | No | No | Identidad interna, autoridad COSE, publicador de proyección y raíz de composición. |
-| Gobierno de convocatorias | Sí: expedientes y botones sintéticos | Sí: borrador, actualización, publicación, sustitución y retirada en dominio y puertos | No | No | Servicio de aplicación de escritura, adaptador PostgreSQL, API autorizada y composición. |
+| Gobierno de convocatorias | Sí: expedientes y botones sintéticos; bandeja/editor real de borradores | Sí: API interna, fachada y servicio durable para alta/actualización; publicación, sustitución y retirada en dominio y puertos | No | No | Adaptador Go PostgreSQL completo, identidad/PDP/KMS productivos, publicación/retirada y composición. |
 | Bases y reglas de baremo | Sí: pantalla y valores de ejemplo | Sí: versiones, topes, jornada, redondeo, cálculo exacto y planes de gobierno | No | No | Adaptador Go productivo, broker de capacidades, fuente autoritativa, editor y simulador RRHH. |
-| Autobaremación de aspirante | No como recorrido real | Sí: modelos y casos de uso aislados | No | No | Candidatura, fuente de méritos, cálculo oficial, repositorio y API personal. |
+| Autobaremación de aspirante | Sí, en el runtime heredado `fake` | Sí: recorrido heredado E2E y motor oficial moderno aislado | No | No | Preservar la capacidad y migrarla a identidad, fuentes, persistencia y API modernas; no eliminarla ni confundirla con la baremación oficial RRHH. |
 | Revisión técnica de baremación | Sí: concepto visual | Sí: aceptación, desestimación, subsanación, rectificación, revocación, rehabilitación y firma | No | No | Bandeja RRHH, autorización, evidencia documental, firma/custodia y persistencia compuestas. |
 | Llamamientos | Sí: asistente sintético de cuatro pasos | Sí: selección del primer elegible, seguridad e idempotencia en dominio/aplicación | No | No | Persistencia completa, fuentes autoritativas, confirmación y ciclo de comunicación/respuesta. |
 | Contratos, ceses y reincorporaciones | Sí: tabla sintética | Parcial: conceptos relacionados con llamamientos | No | No | Modelo y casos de uso propios, integración con RRHH/nómina y trazabilidad del ciclo completo. |
@@ -244,8 +248,10 @@ node --test web/static/bolsa/*.test.mjs \
   web/static/portal-empleado/*.test.mjs
 ```
 
-Resultado: todos los paquetes Go anteriores finalizaron correctamente y las
-pruebas web finalizaron **18 de 18** sin fallos.
+Resultado: todos los paquetes Go anteriores finalizaron correctamente. La
+repetición ampliada de 18 de julio terminó con **51 de 51** pruebas Node sin
+fallos: 5 del portal público y 46 del Portal del Empleado, incluidas las del
+editor real de borradores.
 
 Esta evidencia acredita pruebas unitarias y de contrato, incluidas pruebas de
 adaptadores con dobles. En esta revisión no se ejecutaron:
@@ -268,12 +274,15 @@ como prueba E2E legal.
    maestros versionados de persona, perfil y vínculos `cta_` → `per_` → `prf_`;
    no se abrirá el portal RRHH usando las asignaciones RBAC como sustituto de
    esa autoridad de identidad.
-2. **Escritura durable de convocatorias**: el dominio y los puertos existen,
-   pero no el servicio de aplicación ni el adaptador PostgreSQL que confirmen
-   altas, cambios y publicación. El contrato V2 ya separa el compromiso HMAC
-   no consumible del sellado durable posterior al PDP, pero faltan el diario de
-   recuperación, el confirmador transaccional y las fuentes autoritativas de
-   aprobación y dependencias. Por ello la composición sigue en `NO-GO`.
+2. **Composición durable de convocatorias**: ya existen fachada, servicio de
+   alta/actualización, diario y recuperación con cercado, identidad HMAC
+   multigeneración, perfil criptográfico gobernado, sobre AEAD, DEK envuelta y
+   contrato de revalidación KMS. Faltan el adaptador Go PostgreSQL que restaure
+   y persista esos tipos sin degradarlos, las fuentes autoritativas de
+   aprobación/dependencias y la raíz autenticada. La confirmación SQL debe
+   conservarse sin privilegio de ejecución mientras no almacene AAD, perfil,
+   envoltura y atestación KMS completas. Por ello la composición sigue en
+   `NO-GO`.
 3. **Gobierno ejecutable del baremo**: faltan el adaptador Go y las fuentes
    autoritativas que permitan usar las reglas versionadas y el cálculo oficial
    sin riesgos de incoherencia o TOCTOU.
@@ -318,7 +327,10 @@ versión canónica y motivo local
   → reserva durable por CAS
   → atestación HSM consumible
   → confirmación transaccional
-  [diario, adaptadores y composición pendientes]
+  [contrato de núcleo, diario y recuperación implantados]
+  → persistencia de AAD, perfil, DEK envuelta y sobre AEAD
+  → revalidación KMS autoritativa dentro del COMMIT
+  [adaptador Go, SQL equivalente, identidad y composición pendientes]
 ```
 
 Acción, versión, motivo aplicable, actor y correlación forman una única preimagen
@@ -332,10 +344,11 @@ versión nominal V1. El motivo administrativo sí permanece en el expediente
 gobernado y sujeto a sus permisos; no se replica en el material HMAC.
 
 El contrato ha superado pruebas normales, de carrera, manipulación, formatos
-de serialización reales y vectores de referencia. Esto es un GO técnico del
-vínculo de motivo, no un GO productivo: aún no existe el diario durable ni una
-transacción que una reserva, decisión, sellado, CAS de negocio, auditoría,
-bandeja transaccional y recibo en un solo commit.
+de serialización reales y vectores de referencia. El núcleo ya dispone del
+diario, recuperación, cercado y orden de confirmación atómica. Esto es un GO
+técnico del contrato, no un GO productivo: aún no existe un adaptador Go y una
+transacción PostgreSQL equivalentes que unan reserva, decisión, sellado, KMS,
+CAS de negocio, auditoría, bandeja transaccional y recibo en un solo commit.
 
 La secuencia decidida consulta el localizador y la huella HMAC de
 idempotencia antes del PDP, pero solo reserva después de la concesión. Una
@@ -350,11 +363,11 @@ atestaciones reconstruibles actuales no levantan esa barrera.
 
 ### Trabajo propuesto
 
-1. Implantar el diario durable posterior al PDP, el cercado, la recuperación de recibo
-   y el confirmador que incluya efecto y diario en un único `COMMIT`.
-2. Crear el servicio de aplicación para alta, actualización y versionado de
-   borradores reutilizando `internal/modules/bolsa/domain/convocatoria_gobernada*`
-   y `internal/modules/bolsa/ports/convocatorias_gobierno_*`.
+1. Implementar el adaptador Go PostgreSQL del diario y del agregado cifrado,
+   restaurando la identidad primaria y todos sus alias, y revalidando la
+   atestación KMS dentro de la transacción de confirmación.
+2. Componer el servicio de borradores y su API ya existentes con identidad de
+   alta garantía, perfil activo, motivo catalogado, PDP y conectores KMS reales.
 3. Migrar aprobación y dependencias a hechos autoritativos preexistentes e
    implementar el adaptador PostgreSQL de gobierno con transacción
    `SERIALIZABLE`, CAS, idempotencia, auditoría y bandeja transaccional. La
@@ -374,13 +387,14 @@ atestaciones reconstruibles actuales no levantan esa barrera.
 8. Montar las rutas mutantes únicamente después de disponer del preparador de
    identidad y de la autorización productiva.
 
-Archivos propuestos —todavía no existentes— para concentrar el corte sin
-mezclar responsabilidades:
+Archivos principales del corte y adaptadores todavía pendientes, sin mezclar
+responsabilidades:
 
 ```text
-internal/modules/bolsa/application/gobiernoconvocatorias/diario.go
-internal/modules/bolsa/application/gobiernoconvocatorias/servicio.go
-internal/modules/bolsa/application/gobiernoconvocatorias/reconciliacion.go
+internal/modules/bolsa/application/gobiernoconvocatorias/servicio_borradores.go
+internal/modules/bolsa/application/gobiernoconvocatorias/recuperacion_borradores.go
+internal/modules/bolsa/application/gobiernoconvocatorias/cifrado_borradores.go
+internal/modules/bolsa/adapters/httpinterno/borradores.go
 internal/modules/bolsa/adapters/postgres/convocatorias_gobierno.go
 internal/modules/bolsa/adapters/postgres/convocatorias_gobierno_test.go
 internal/modules/bolsa/adapters/postgres/convocatorias_publicas.go
@@ -419,10 +433,11 @@ adaptador de lectura una vez exista la proyección oficial.
 - la UI muestra estado, versión, plazo, evidencia, recibo y siguiente acción sin
   inventar datos ausentes.
 
-Este corte aún no completa candidaturas, autobaremación ni llamamientos. Sí crea
-la autoridad de convocatoria y reglas que todos ellos necesitan y elimina la
-primera fuente sintética del recorrido público sin introducir una vía insegura
-de administración.
+Este corte aún no migra a producción candidaturas, la autobaremación preservada
+ni llamamientos. Sí crea la autoridad de convocatoria y reglas que todos ellos
+necesitan. La fuente sintética del recorrido público tampoco se elimina hasta
+que exista una proyección oficial de la misma versión aprobada; no se sustituirá
+por una vía de administración insegura.
 
 ## Regla de comunicación del avance
 

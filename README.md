@@ -48,18 +48,24 @@ Probado:
   compartido por Personal y Bolsa. El arranque coteja que las categorias de
   cada convocatoria existan en la version exacta del catalogo; la UI ya no
   mantiene una lista de dos categorias escrita en el codigo.
-- Dominio y puertos de convocatorias gobernadas: borrador, publicacion,
-  rectificacion mediante version sucesora y cierre conservan flujo, bases,
-  catalogos, autorizacion, motivo e idempotencia exactos. Todavia no existe la
-  pantalla administrativa ni el repositorio productivo que completen el flujo.
-- Contrato V2 de motivo para esas convocatorias: un compromiso HMAC no
-  consumible fija accion, version, actor, motivo y correlacion antes del PDP;
-  la atestacion durable solo puede nacer tras una concesion exacta. El material,
-  la atestacion y la reconciliacion no conservan el motivo ni su SHA semantico
-  crudo, y los valores efimeros fallan cerrados ante los formatos de
-  serializacion probados. Es un
-  GO tecnico del contrato, no un flujo RRHH operativo: diario durable,
-  PostgreSQL, recuperacion y fuentes autoritativas siguen pendientes.
+- Dominio, servicio y frontera web de borradores de convocatorias gobernadas:
+  alta y actualizacion conservan flujo, bases, catalogos, autorizacion, motivo,
+  CAS e idempotencia exactos. El Portal del Empleado ya contiene una bandeja y
+  un editor que consumen la API interna real, sin caer a datos sinteticos si
+  falta identidad. La ruta y el adaptador HTTP estan probados, pero todavia no
+  se montan en la composicion productiva ni disponen de un adaptador Go
+  PostgreSQL autorizado; por ello la pantalla falla cerrada fuera de pruebas.
+- Contrato durable de esos borradores: un compromiso HMAC no consumible fija
+  accion, version, actor, motivo y correlacion antes del PDP; la reserva solo
+  nace tras la concesion. El diario distingue alias HMAC de distintas
+  generaciones y conserva una unica identidad primaria, por lo que un reintento
+  solapado no duplica el efecto. Antes de confirmar, el agregado se liga a un
+  perfil criptografico gobernado, una AAD canonica, un sobre AEAD, una clave de
+  datos envuelta y una atestacion KMS que la persistencia debera revalidar dentro
+  de la transaccion. El material durable no conserva el motivo ni su SHA
+  semantico crudo. Es un GO del contrato de nucleo, no un flujo RRHH operativo:
+  la confirmacion PostgreSQL permanece deliberadamente cerrada hasta almacenar
+  y comprobar todo el contrato KMS, y faltan composicion e identidad reales.
 - Contrato reservado para un futuro espacio de trabajo interno. Su endpoint
   permanece cerrado (`503`) hasta resolver en servidor persona, relacion,
   ambito, finalidad y campos exactos; el antiguo agregado sintetico fue
@@ -118,6 +124,12 @@ Probado:
   aleatoriedad criptografica y espacios de nombres separados, pero aun no esta
   cableado al flujo productivo. Fuente autoritativa, firma, persistencia
   completa y API siguen cerradas.
+- La autobaremacion existente se conserva como capacidad funcional. Su recorrido
+  completo sigue perteneciendo al runtime heredado habilitado solo con
+  autenticacion `fake`; no se confunde con el motor oficial moderno ni se
+  elimina. La migracion pendiente debe mantener paridad funcional y sustituir
+  identidad, fuentes y persistencia de demostracion por adaptadores
+  autoritativos antes de abrirla en el portal real.
 - Concesiones ejecutables y denegaciones probatorias usan puertos separados:
   una denegacion nunca entra en el almacen de capacidades ni pierde su causa
   funcional si falla su traza. El registro durable de denegaciones sigue
