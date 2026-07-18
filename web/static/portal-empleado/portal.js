@@ -700,7 +700,7 @@ function aplicarBarrasDinamicas(contenedor) {
 
 function resolverProveedorBearerBorradores() {
   const proveedor = globalThis[PROVEEDOR_BEARER_BORRADORES];
-  return typeof proveedor === "function" ? proveedor : null;
+  return proveedor === undefined ? null : proveedor;
 }
 
 const superficieBorradores = crearSuperficieBorradoresPortal({

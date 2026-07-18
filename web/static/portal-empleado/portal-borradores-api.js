@@ -415,10 +415,12 @@ function comprobarLocationCreacion(respuesta, resultado) {
 /**
  * Crea el cliente del puerto HTTP interno.
  *
- * `obtenerBearer(signal)` es una frontera inyectada y se consulta para cada
- * petición bajo el mismo AbortSignal que Fetch y el lector incremental; su
- * resultado solo vive en la pila de esa llamada. Este módulo no conserva
- * credenciales ni datos de negocio en almacenamiento persistente del navegador.
+ * La identidad principal procede del canal interno autenticado. El adaptador
+ * opcional `obtenerBearer(signal)` se consulta para cada petición cuando está
+ * configurado, bajo el mismo AbortSignal que Fetch y el lector incremental; su
+ * resultado solo vive en la pila de esa llamada. Sin adaptador no se genera la
+ * cabecera Authorization. Este módulo no conserva credenciales ni datos de
+ * negocio en almacenamiento persistente del navegador.
  */
 export function crearClienteBorradores({
   fetchImpl = globalThis.fetch,

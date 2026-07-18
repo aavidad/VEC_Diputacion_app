@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { ErrorAPIBorradores } from "./portal-borradores-api.js";
+import {
+  ErrorAPIBorradores,
+  RUTAS_API_BORRADORES,
+  crearClienteBorradores,
+} from "./portal-borradores-api.js";
 import {
   ESQUEMAS_BORRADORES,
   validarSolicitudActualizarBorrador,
@@ -16,6 +20,7 @@ import {
   lista,
   opciones,
   recibo,
+  respuestaJSON,
 } from "./portal-borradores-fixtures.test-helper.mjs";
 
 const directorio = new URL("./", import.meta.url);
@@ -104,23 +109,85 @@ test("la capacidad de consulta sin actualización deja el detalle realmente en s
   assert.doesNotMatch(superficie.renderizar(), /Cambio no autorizado/);
 });
 
-test("sin proveedor bearer la superficie falla cerrada y no fabrica datos alternativos", async () => {
+test("sin proveedor Bearer la superficie delega la identidad al canal interno", async () => {
   let clientesCreados = 0;
+  let configuracionCliente;
   const cerrada = crearSuperficieBorradoresPortal({
     escaparHTML,
     anunciar: () => {},
     alCambiar: () => {},
     resolverProveedorBearer: () => null,
     confirmar: () => true,
+    crearClienteImpl: (configuracion) => {
+      clientesCreados += 1;
+      configuracionCliente = configuracion;
+      return crearDobleCliente();
+    },
+    generarClaveImpl: () => CLAVE_IDEMPOTENCIA_A,
+  });
+  assert.equal(await cerrada.activar(), true);
+  assert.equal(clientesCreados, 1);
+  assert.equal(configuracionCliente.obtenerBearer, null);
+  const html = cerrada.renderizar();
+  assert.match(html, /Bandeja de borradores/);
+  assert.doesNotMatch(html, /proveedor.*no está configurado/i);
+});
+
+test("un proveedor Bearer de tipo inválido bloquea la superficie sin crear cliente", async () => {
+  let clientesCreados = 0;
+  const superficie = crearSuperficieBorradoresPortal({
+    escaparHTML,
+    anunciar: () => {},
+    alCambiar: () => {},
+    resolverProveedorBearer: () => ({ token: "configuracion-invalida" }),
+    confirmar: () => true,
     crearClienteImpl: () => { clientesCreados += 1; return crearDobleCliente(); },
     generarClaveImpl: () => CLAVE_IDEMPOTENCIA_A,
   });
-  assert.equal(await cerrada.activar(), false);
+  assert.equal(await superficie.activar(), false);
   assert.equal(clientesCreados, 0);
-  const html = cerrada.renderizar();
-  assert.match(html, /proveedor de credencial para borradores no está configurado/i);
+  const html = superficie.renderizar();
+  assert.match(html, /proveedor opcional de credencial.*no es válido/i);
   assert.match(html, /no puede operar sin el backend autenticado/i);
-  assert.match(html, /No se muestran borradores ficticios/i);
+});
+
+test("el modo Bearer re-resuelve el proveedor y una retirada bloquea antes de Fetch", async () => {
+  let proveedor = () => "token-inicial";
+  const autorizaciones = [];
+  let peticiones = 0;
+  const fetchImpl = async (ruta, configuracion) => {
+    peticiones += 1;
+    autorizaciones.push(configuracion.headers.get("authorization"));
+    if (ruta === RUTAS_API_BORRADORES.opciones) return respuestaJSON(opciones());
+    if (ruta.startsWith(`${RUTAS_API_BORRADORES.lista}?`)) return respuestaJSON(lista());
+    return respuestaJSON(detalle(), { etag: detalle().etag });
+  };
+  const superficie = crearSuperficieBorradoresPortal({
+    escaparHTML,
+    anunciar: () => {},
+    alCambiar: () => {},
+    resolverProveedorBearer: () => proveedor,
+    confirmar: () => true,
+    crearClienteImpl: (configuracion) => crearClienteBorradores({ ...configuracion, fetchImpl }),
+    generarClaveImpl: () => CLAVE_IDEMPOTENCIA_A,
+  });
+  assert.equal(await superficie.activar(), true);
+  assert.deepEqual(autorizaciones, Array(3).fill("Bearer token-inicial"));
+
+  proveedor = () => "token-sustituido";
+  assert.equal(await superficie.aplicarFiltro({}), true);
+  assert.equal(autorizaciones.at(-1), "Bearer token-sustituido");
+  const peticionesAntesRetirada = peticiones;
+
+  proveedor = null;
+  assert.equal(await superficie.aplicarFiltro({ texto: "no-debe-consultarse" }), false);
+  assert.equal(peticiones, peticionesAntesRetirada, "la retirada debe bloquear antes de Fetch");
+  assert.match(superficie.renderizar(), /proveedor opcional de credencial.*dejó de estar disponible/i);
+
+  proveedor = { token: "configuracion-invalida" };
+  assert.equal(await superficie.aplicarFiltro({ texto: "tampoco-debe-consultarse" }), false);
+  assert.equal(peticiones, peticionesAntesRetirada, "un reemplazo inválido debe bloquear antes de Fetch");
+  assert.match(superficie.renderizar(), /proveedor opcional de credencial.*no es válido/i);
 });
 
 test("una respuesta de filtro obsoleta no reemplaza la bandeja más reciente", async () => {

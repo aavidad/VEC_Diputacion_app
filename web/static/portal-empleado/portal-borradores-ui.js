@@ -137,26 +137,31 @@ export function crearSuperficieBorradoresPortal({
     alCambiar();
   }
 
-  function clienteAutorizado() {
+  function resolverProveedorBearerValido() {
     const proveedor = resolverProveedorBearer();
-    if (typeof proveedor !== "function") {
+    if (proveedor !== null && proveedor !== undefined && typeof proveedor !== "function") {
       throw new ErrorAPIBorradores(
-        "El proveedor de credencial para borradores no está configurado.",
+        "El proveedor opcional de credencial para borradores no es válido.",
         0,
         undefined,
-        { codigo: "proveedor_bearer_no_configurado" },
+        { codigo: "proveedor_bearer_no_valido" },
       );
     }
+    return proveedor ?? null;
+  }
+
+  function clienteAutorizado() {
     if (cliente === null) {
+      const proveedor = resolverProveedorBearerValido();
       cliente = crearClienteImpl({
-        obtenerBearer: (signal) => {
-          const proveedorActual = resolverProveedorBearer();
-          if (typeof proveedorActual !== "function") {
+        obtenerBearer: proveedor === null ? null : (signal) => {
+          const proveedorActual = resolverProveedorBearerValido();
+          if (proveedorActual === null) {
             throw new ErrorAPIBorradores(
-              "El proveedor de credencial para borradores dejó de estar disponible.",
+              "El proveedor opcional de credencial para borradores dejó de estar disponible.",
               0,
               undefined,
-              { codigo: "proveedor_bearer_no_configurado" },
+              { codigo: "proveedor_bearer_no_disponible" },
             );
           }
           return proveedorActual(signal);

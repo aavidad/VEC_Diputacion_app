@@ -56,6 +56,31 @@ test("cliente GET omite cookies, no usa caché y valida envelope y ETag", async 
   assert.match(llamadas[2].ruta, /convocatoria%3Aexterna%3A2026\/versiones\/1$/);
 });
 
+test("el canal interno autenticado funciona sin proveedor Bearer ni Authorization", async () => {
+  let opcionesFetch;
+  const cliente = crearClienteBorradores({
+    fetchImpl: async (_ruta, configuracionFetch) => {
+      opcionesFetch = configuracionFetch;
+      return respuestaJSON(opciones());
+    },
+  });
+  assert.equal((await cliente.obtenerOpciones()).esquema, ESQUEMAS_BORRADORES.opciones);
+  assert.equal(opcionesFetch.headers.has("authorization"), false);
+  assert.equal(opcionesFetch.credentials, "omit");
+});
+
+test("un proveedor Bearer de tipo inválido falla cerrado antes de cualquier petición", () => {
+  let peticiones = 0;
+  assert.throws(
+    () => crearClienteBorradores({
+      obtenerBearer: { token: "no-es-un-proveedor" },
+      fetchImpl: async () => { peticiones += 1; },
+    }),
+    /obtenerBearer debe ser una función o null/,
+  );
+  assert.equal(peticiones, 0);
+});
+
 test("POST envía alta cerrada con Idempotency-Key y devuelve recibo probado", async () => {
   const clave = CLAVE_IDEMPOTENCIA_A;
   let llamada;
