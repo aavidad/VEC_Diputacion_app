@@ -22,10 +22,57 @@ from .modelo import (
     Escenario,
     Flujo,
     TamanoVista,
+    cabecera_presentacion_valida,
     construir_url,
     hallazgo as _hallazgo,
     slug_castellano,
 )
+
+
+def verificar_servidor_presentacion(browser: Any, url_base: str, timeout_ms: int) -> None:
+    """Falla antes del recorrido si el proceso local no acredita ser la DEMO."""
+    context = browser.new_context(service_workers="block")
+    try:
+        respuesta = context.request.get(
+            construir_url(url_base, "/presentacion/"),
+            timeout=timeout_ms,
+            fail_on_status_code=False,
+        )
+        if respuesta.status != 200:
+            raise RuntimeError(
+                f"el servidor local de presentación respondió HTTP {respuesta.status} en la comprobación previa"
+            )
+        if not cabecera_presentacion_valida(respuesta.headers):
+            raise RuntimeError(
+                "el servidor local no emitió la cabecera técnica exacta del modo presentación; "
+                "se bloquea el recorrido para impedir operaciones sobre otro servicio"
+            )
+    finally:
+        context.close()
+
+
+def esperar_red_estable(page: Any, pendientes: dict[int, dict[str, str]], timeout_ms: int) -> list[dict[str, Any]]:
+    """Espera una ventana sin peticiones y denuncia las que continúan activas."""
+    silencio_segundos = 0.25
+    fin = time.monotonic() + min(timeout_ms, 3_000) / 1_000
+    estable_desde: float | None = None
+    while time.monotonic() < fin:
+        ahora = time.monotonic()
+        if pendientes:
+            estable_desde = None
+        else:
+            estable_desde = estable_desde or ahora
+            if ahora - estable_desde >= silencio_segundos:
+                return []
+        page.wait_for_timeout(min(50, max(1, int((fin - ahora) * 1_000))))
+    if not pendientes:
+        return []
+    detalle = list(pendientes.values())[:30]
+    return [_hallazgo(
+        "red_no_estable",
+        f"Persisten {len(pendientes)} peticiones de red al cerrar la observación acotada.",
+        detalle,
+    )]
 
 
 def capturar_escenario(
@@ -49,9 +96,11 @@ def capturar_escenario(
     respuestas_http: list[dict[str, Any]] = []
     respuestas_correctas: list[dict[str, Any]] = []
     recursos_fallidos: list[dict[str, Any]] = []
+    peticiones_pendientes: dict[int, dict[str, str]] = {}
     auditoria: dict[str, Any] = {}
     context = None
     captura_guardada = False
+    cabecera_tecnica_confirmada = False
 
     try:
         context = browser.new_context(
@@ -77,7 +126,17 @@ def capturar_escenario(
             }
             (respuestas_http if respuesta.status >= 400 else respuestas_correctas).append(registro)
 
+        def a_peticion(peticion: Any) -> None:
+            peticiones_pendientes[id(peticion)] = {
+                "url": peticion.url,
+                "tipo": peticion.resource_type,
+            }
+
+        def a_peticion_finalizada(peticion: Any) -> None:
+            peticiones_pendientes.pop(id(peticion), None)
+
         def a_recurso_fallido(peticion: Any) -> None:
+            a_peticion_finalizada(peticion)
             fallo = peticion.failure
             recursos_fallidos.append({
                 "url": peticion.url, "tipo": peticion.resource_type,
@@ -86,6 +145,8 @@ def capturar_escenario(
 
         page.on("console", al_mensaje_consola)
         page.on("pageerror", al_error_pagina)
+        page.on("request", a_peticion)
+        page.on("requestfinished", a_peticion_finalizada)
         page.on("response", a_respuesta)
         page.on("requestfailed", a_recurso_fallido)
 
@@ -95,6 +156,13 @@ def capturar_escenario(
                 hallazgos.append(_hallazgo("respuesta_principal_ausente", "La navegación no devolvió una respuesta HTTP principal."))
             elif respuesta.status >= 400:
                 hallazgos.append(_hallazgo("http_principal_roto", f"La vista respondió HTTP {respuesta.status}.", {"url": respuesta.url}))
+            else:
+                cabecera_tecnica_confirmada = cabecera_presentacion_valida(respuesta.headers)
+                if not cabecera_tecnica_confirmada:
+                    hallazgos.append(_hallazgo(
+                        "servidor_presentacion_no_confirmado",
+                        "La respuesta principal no acredita el modo de presentación aislada.",
+                    ))
         except Exception as error:
             hallazgos.append(_hallazgo("navegacion_fallida", "La navegación no alcanzó DOMContentLoaded dentro del límite.", str(error)))
 
@@ -113,9 +181,12 @@ def capturar_escenario(
         demo_confirmada, hallazgos_banner = revisar_banner_demo(page, superficie)
         hallazgos.extend(hallazgos_banner)
         if isinstance(escenario, Flujo):
-            hallazgos.extend(ejecutar_flujo(page, escenario, timeout_ms, demo_confirmada))
+            hallazgos.extend(ejecutar_flujo(
+                page, escenario, timeout_ms,
+                demo_confirmada and cabecera_tecnica_confirmada,
+            ))
 
-        page.wait_for_timeout(120)
+        hallazgos.extend(esperar_red_estable(page, peticiones_pendientes, timeout_ms))
         try:
             page.screenshot(
                 path=str(destino_captura), full_page=escenario.tipo == "vista", animations="disabled",
@@ -123,7 +194,7 @@ def capturar_escenario(
             captura_guardada = True
         except Exception as error:
             hallazgos.append(_hallazgo("captura_fallida", "No se pudo guardar la captura.", str(error)))
-        page.wait_for_timeout(80)
+        page.wait_for_timeout(50)
 
         auditoria, hallazgos_dom = auditar_dom_y_estado(page, context)
         hallazgos.extend(hallazgos_dom)

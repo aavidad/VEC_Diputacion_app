@@ -2,14 +2,15 @@
 
 `scripts/capturar_presentacion_web.py` recorre por defecto el lanzador, el
 portal público, las 14 vistas del área aspirante, las 16 vistas internas de
-RRHH y siete estados de interacción DEMO, incluido el perfil técnico con
+RRHH y veintiún estados de interacción DEMO, incluido el perfil técnico con
 permisos restringidos. Repite el recorrido en 1440×1000,
 1024×900 y 390×844.
 
 ## Preparación y uso
 
 Arranque primero el servicio de presentación local. El script presupone
-`http://127.0.0.1:8081`, pero la URL es configurable:
+`http://127.0.0.1:8081`. La URL es configurable, pero por seguridad el host
+debe ser una dirección IP literal de loopback (`127.0.0.0/8` o `::1`):
 
 ```bash
 python3 -m pip install playwright
@@ -33,11 +34,18 @@ Opciones útiles:
 - `--ejecutable-navegador RUTA`: usa un Chromium ya instalado cuando el puesto
   no puede descargar el navegador administrado por Playwright.
 
+Antes de abrir ninguna vista, el capturador exige la cabecera técnica
+`X-VEC-Modo-Presentacion: aislada-sintetica-v1`. Solo el handler validado de
+`vec-presentacion` la emite; el servidor integrado, el público, el interno y
+una composición de presentación sin sus dos guardas no la incluyen. La
+ausencia o alteración de esta marca bloquea todo el recorrido.
+
 La salida contiene:
 
 - `var/revision-web/capturas/<tamaño>/vista/...`: capturas de página completa;
 - `var/revision-web/capturas/<tamaño>/flujo/...`: capturas del viewport para
-  distinguir los estados de interacción;
+  distinguir los estados de interacción, incluidos el menú general y el
+  submenú completo de Bolsa abiertos en móvil;
 - `var/revision-web/resultados.json`: resultado estructurado y métricas;
 - `var/revision-web/informe.md`: índice legible con enlaces a las capturas.
 
@@ -45,9 +53,12 @@ La salida contiene:
 
 Cada escenario nace en un contexto de navegador nuevo. El revisor no inyecta
 cookies ni un `storage_state` y marca como fallo cualquier cookie,
-`localStorage` o `sessionStorage` creado por la página. También comprueba:
+`localStorage`, `sessionStorage`, base IndexedDB o Cache Storage creado por la
+página. También comprueba:
 
 - respuestas HTTP de error y recursos de red fallidos;
+- una ventana de red estable y cualquier petición que siga pendiente al vencer
+  la observación acotada;
 - errores de consola y excepciones JavaScript no controladas;
 - estado de carga y título de cada vista;
 - presencia, apertura móvil, opciones y estado actual de los menús;
@@ -57,8 +68,13 @@ cookies ni un `storage_state` y marca como fallo cualquier cookie,
 - desbordamiento horizontal del documento.
 
 Los flujos privados solo se ejecutan si el banner DEMO está visible y la URL
-contiene `presentacion=rrhh`. Las confirmaciones y recibos se producen en los
-adaptadores efímeros de presentación; el capturador no invoca conectores reales.
+contiene `presentacion=rrhh`, la respuesta conserva la cabecera técnica exacta
+y el perfil requerido está declarado. Las confirmaciones y recibos se producen
+en los adaptadores efímeros de presentación; el capturador no invoca conectores
+reales. Además de los recorridos público y aspirante, se exige un recibo
+`DEMO-REC-*` en operaciones representativas de bases, admisión, méritos,
+baremo, importación, llamamientos, contratos, documentos, comunicaciones,
+exportación, roles y alegaciones.
 
 ## Pruebas sin navegador
 

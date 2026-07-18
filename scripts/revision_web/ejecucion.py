@@ -17,7 +17,7 @@ from .modelo import (
     normalizar_url_base,
     validar_manifiesto,
 )
-from .navegador import capturar_escenario
+from .navegador import capturar_escenario, verificar_servidor_presentacion
 
 
 def crear_argumentos() -> argparse.ArgumentParser:
@@ -87,6 +87,7 @@ def ejecutar_revision(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                 opciones_lanzamiento["executable_path"] = str(ejecutable)
             browser = playwright.chromium.launch(**opciones_lanzamiento)
             try:
+                verificar_servidor_presentacion(browser, url_base, args.timeout_ms)
                 completados = 0
                 for tamano in TAMANOS_VISTA:
                     for escenario in escenarios:

@@ -60,9 +60,9 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             self.assertEqual(consulta.get("presentacion"), ["rrhh"], escenario.clave)
 
     def test_flujos_se_distinguen_y_cubren_interacciones_demo(self) -> None:
-        self.assertEqual(len(capturador.MANIFIESTO_FLUJOS), 7)
+        self.assertEqual(len(capturador.MANIFIESTO_FLUJOS), 21)
         claves = {flujo.clave for flujo in capturador.MANIFIESTO_FLUJOS}
-        self.assertEqual(claves, {
+        self.assertTrue({
             "publico-ficha-convocatoria",
             "aspirante-convocatoria-abierta",
             "aspirante-confirmacion-demo",
@@ -70,7 +70,10 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             "rrhh-borrador-abierto",
             "rrhh-recibo-demo",
             "rrhh-perfil-tecnico-restringido",
-        })
+            "aspirante-menu-movil-abierto",
+            "rrhh-menu-movil-abierto",
+            "rrhh-menu-bolsa-movil-abierto",
+        }.issubset(claves))
         for flujo in capturador.MANIFIESTO_FLUJOS:
             self.assertEqual(flujo.tipo, "flujo")
             self.assertTrue(flujo.pasos)
@@ -83,10 +86,43 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             if flujo.clave == "rrhh-perfil-tecnico-restringido"
         )
         self.assertIn("perfil=tecnico", tecnico.ruta)
+        self.assertIn("DEMO-PERFIL-TECNICO-RRHH-01", tecnico.pasos[0].selector)
         self.assertEqual(
             [paso.accion for paso in tecnico.pasos],
             ["esperar", "esperar-habilitado", "esperar-deshabilitado"],
         )
+
+    def test_operaciones_rrhh_representativas_exigen_perfil_y_recibo_demo(self) -> None:
+        self.assertEqual(len(capturador.FLUJOS_RRHH_CON_RECIBO), 11)
+        vistas = {flujo.ruta.rsplit("/", 1)[-1] for flujo in capturador.FLUJOS_RRHH_CON_RECIBO}
+        self.assertEqual(vistas, {
+            "convocatorias", "solicitudes", "meritos", "baremacion", "importacion",
+            "llamamientos", "contratos", "comunicaciones", "estadisticas",
+            "configuracion", "alegaciones",
+        })
+        for flujo in capturador.FLUJOS_RRHH_CON_RECIBO:
+            with self.subTest(flujo=flujo.clave):
+                self.assertTrue(flujo.requiere_demo)
+                self.assertIn("perfil=administrador", flujo.ruta)
+                self.assertEqual(
+                    [paso.accion for paso in flujo.pasos],
+                    ["clic-confirmando", "esperar", "esperar"],
+                )
+                self.assertIn('[data-accion="operacion-presentacion"]', flujo.pasos[0].selector)
+                self.assertEqual(flujo.pasos[1].texto_esperado, "DEMO-REC")
+                self.assertRegex(flujo.pasos[2].texto_esperado, r"^DEMO-")
+
+    def test_flujos_de_menu_dejan_capturable_el_estado_abierto(self) -> None:
+        por_clave = {flujo.clave: flujo for flujo in capturador.MANIFIESTO_FLUJOS}
+        aspirante = por_clave["aspirante-menu-movil-abierto"]
+        rrhh = por_clave["rrhh-menu-movil-abierto"]
+        bolsa = por_clave["rrhh-menu-bolsa-movil-abierto"]
+        self.assertEqual(aspirante.pasos[0].accion, "abrir-menu")
+        self.assertEqual(rrhh.pasos[0].accion, "abrir-menu")
+        self.assertEqual(bolsa.pasos[0].accion, "abrir-menu")
+        self.assertIn("perfil=administrador", rrhh.ruta)
+        self.assertIn("perfil=administrador", bolsa.ruta)
+        self.assertIn("#bolsa/resumen", bolsa.ruta)
 
     def test_detecta_duplicados_del_manifiesto_sin_navegador(self) -> None:
         original = capturador.MANIFIESTO_VISTAS[0]
@@ -106,9 +142,23 @@ class HelpersRevisionWebTests(unittest.TestCase):
             capturador.construir_url("http://127.0.0.1:8081/", "/bolsa/?vista=demo#ficha"),
             "http://127.0.0.1:8081/bolsa/?vista=demo#ficha",
         )
-        for invalida in ("", "127.0.0.1:8081", "ftp://localhost", "http://u:p@localhost", "http://localhost/?x=1"):
+        self.assertEqual(capturador.normalizar_url_base("http://[::1]:8081/"), "http://[::1]:8081")
+        for invalida in (
+            "", "127.0.0.1:8081", "ftp://127.0.0.1", "http://u:p@127.0.0.1",
+            "http://127.0.0.1/?x=1", "http://localhost:8081", "http://0.0.0.0:8081",
+            "http://192.168.1.10:8081", "http://8.8.8.8", "http://127.0.0.1:invalido",
+        ):
             with self.subTest(invalida=invalida), self.assertRaises(ValueError):
                 capturador.normalizar_url_base(invalida)
+
+    def test_cabecera_presentacion_debe_coincidir_exactamente(self) -> None:
+        self.assertTrue(capturador.cabecera_presentacion_valida({
+            "x-vec-modo-presentacion": capturador.VALOR_MODO_PRESENTACION,
+        }))
+        for cabeceras in ({},
+                          {capturador.CABECERA_MODO_PRESENTACION: "demo"},
+                          {"X-VEC-Otra": capturador.VALOR_MODO_PRESENTACION}):
+            self.assertFalse(capturador.cabecera_presentacion_valida(cabeceras))
 
     def test_slug_castellano_es_estable(self) -> None:
         self.assertEqual(capturador.slug_castellano("Méritos y Baremación"), "meritos-y-baremacion")

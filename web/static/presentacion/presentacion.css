@@ -140,6 +140,16 @@ html {
   background: var(--presentacion-marca-oscura);
 }
 
+.presentacion-enlace-secundario {
+  margin-top: .55rem;
+  color: var(--presentacion-marca-oscura);
+  background: #fff;
+}
+
+.presentacion-enlace-secundario:hover {
+  color: #fff;
+}
+
 .presentacion-enlace:focus-visible {
   outline: 3px solid #f5c400;
   outline-offset: 3px;

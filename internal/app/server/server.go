@@ -198,6 +198,7 @@ func NewHandlerPresentacionWithConfig(cfg config.Config, apiPublica http.Handler
 	handler := rechazarRutasNoCanonicas(mux)
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
 	handler = prohibirAutorizacionSuperficieAnonima(handler)
+	handler = marcarModoPresentacionAislada(handler)
 	return protegerSuperficie(cfg, handler)
 }
 

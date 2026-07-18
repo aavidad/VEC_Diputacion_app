@@ -11,7 +11,7 @@ from .modelo import Escenario, Flujo, Superficie, hallazgo as _hallazgo
 
 
 AUDITORIA_DOM_JS = r"""
-() => {
+async () => {
   const visible = (elemento) => {
     if (!(elemento instanceof Element)) return false;
     const estilo = getComputedStyle(elemento);
@@ -95,9 +95,29 @@ AUDITORIA_DOM_JS = r"""
       }))
     : [];
 
-  const leerAlmacen = (almacen) => {
-    try { return Array.from({ length: almacen.length }, (_, indice) => almacen.key(indice)).filter(Boolean); }
+  const leerAlmacen = (obtenerAlmacen) => {
+    try {
+      const almacen = obtenerAlmacen();
+      return Array.from({ length: almacen.length }, (_, indice) => almacen.key(indice)).filter(Boolean);
+    }
     catch (error) { return [`<no se pudo inspeccionar: ${error}>`]; }
+  };
+  const leerIndexedDB = async () => {
+    try {
+      if (!window.indexedDB || typeof window.indexedDB.databases !== "function") {
+        return ["<API de enumeración IndexedDB no disponible>"];
+      }
+      return (await window.indexedDB.databases())
+        .map((base) => textoUtil(base.name) || "<base sin nombre>");
+    } catch (error) { return [`<no se pudo inspeccionar IndexedDB: ${error}>`]; }
+  };
+  const leerCaches = async () => {
+    try {
+      if (!window.caches || typeof window.caches.keys !== "function") {
+        return ["<Cache Storage no disponible>"];
+      }
+      return await window.caches.keys();
+    } catch (error) { return [`<no se pudo inspeccionar Cache Storage: ${error}>`]; }
   };
   let cookie = "";
   try { cookie = document.cookie || ""; } catch (error) { cookie = `<no se pudo inspeccionar: ${error}>`; }
@@ -109,7 +129,8 @@ AUDITORIA_DOM_JS = r"""
       ancho_documento: anchoDocumento, elementos: elementosDesbordados,
     },
     almacenamiento: {
-      local: leerAlmacen(window.localStorage), sesion: leerAlmacen(window.sessionStorage),
+      local: leerAlmacen(() => window.localStorage), sesion: leerAlmacen(() => window.sessionStorage),
+      indexeddb: await leerIndexedDB(), cache: await leerCaches(),
       cookie_documento: cookie,
     },
   };
@@ -275,6 +296,10 @@ def ejecutar_flujo(page: Any, flujo: Flujo, timeout_ms: int, demo_confirmada: bo
                     raise RuntimeError(f"el control no está {estado}")
             elif paso.accion == "enfocar":
                 locator.scroll_into_view_if_needed(timeout=restante)
+            elif paso.accion == "abrir-menu":
+                locator.wait_for(state="attached", timeout=restante)
+                if locator.is_visible() and locator.get_attribute("aria-expanded") != "true":
+                    locator.click(timeout=restante)
             elif paso.accion == "clic-confirmando":
                 if not flujo.requiere_demo or "operacion-presentacion" not in paso.selector:
                     raise RuntimeError("se rechazó un intento de confirmar una operación fuera del adaptador DEMO")
@@ -314,8 +339,13 @@ def auditar_dom_y_estado(page: Any, context: Any) -> tuple[dict[str, Any], list[
         {"nombre": cookie.get("name", ""), "dominio": cookie.get("domain", ""), "ruta": cookie.get("path", "")}
         for cookie in cookies
     ]
-    if almacen["local"] or almacen["sesion"] or almacen["cookie_documento"] or cookies:
-        hallazgos.append(_hallazgo("estado_navegador_detectado", "La superficie creó o expuso cookies/localStorage/sessionStorage en un contexto limpio.", auditoria["almacenamiento"]))
+    if (almacen["local"] or almacen["sesion"] or almacen["indexeddb"] or
+            almacen["cache"] or almacen["cookie_documento"] or cookies):
+        hallazgos.append(_hallazgo(
+            "estado_navegador_detectado",
+            "La superficie creó o expuso estado persistente del navegador en un contexto limpio.",
+            auditoria["almacenamiento"],
+        ))
     return auditoria, hallazgos
 
 

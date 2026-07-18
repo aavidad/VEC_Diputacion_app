@@ -5,13 +5,16 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
+from ipaddress import ip_address
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 from urllib.parse import parse_qs, urljoin, urlparse
 
 
 RAIZ_REPOSITORIO = Path(__file__).resolve().parents[2]
 SALIDA_PREDETERMINADA = RAIZ_REPOSITORIO / "var" / "revision-web"
+CABECERA_MODO_PRESENTACION = "X-VEC-Modo-Presentacion"
+VALOR_MODO_PRESENTACION = "aislada-sintetica-v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,7 +195,7 @@ def _vistas_rrhh() -> tuple[Vista, ...]:
         menu_reducido = ('[data-vista="portal"]', '[data-vista="resumen"]') if ruta == "portal" else ()
         vistas.append(Vista(
             clave=f"rrhh-{ruta}", nombre=nombre, superficie="gestion-rrhh",
-            ruta=f"/portal-empleado/?presentacion=rrhh{hash_vista}",
+            ruta=f"/portal-empleado/?presentacion=rrhh&perfil=administrador{hash_vista}",
             selector_titulo="#titulo-vista", titulo_esperado=titulo,
             selectores_listos=(".aviso-presentacion:not([hidden])", "#espacio-trabajo > :first-child"),
             selector_menu_actual=f'[data-vista="{ruta}"]', selectores_menu=menu_reducido,
@@ -261,7 +264,7 @@ MANIFIESTO_FLUJOS: tuple[Flujo, ...] = (
     ),
     Flujo(
         clave="rrhh-borrador-abierto", nombre="Borrador RRHH abierto", superficie="gestion-rrhh",
-        ruta="/portal-empleado/?presentacion=rrhh#bolsa/elaboracion",
+        ruta="/portal-empleado/?presentacion=rrhh&perfil=administrador#bolsa/elaboracion",
         selector_titulo="#titulo-vista", titulo_esperado="Borradores de convocatorias",
         selectores_listos=(".aviso-presentacion:not([hidden])", "#espacio-trabajo > :first-child"),
         pasos=(PasoInteraccion("esperar", '[data-borrador-accion="borradores-abrir"]'),
@@ -272,7 +275,7 @@ MANIFIESTO_FLUJOS: tuple[Flujo, ...] = (
     ),
     Flujo(
         clave="rrhh-recibo-demo", nombre="Operación RRHH con recibo DEMO", superficie="gestion-rrhh",
-        ruta="/portal-empleado/?presentacion=rrhh#bolsa/documentos",
+        ruta="/portal-empleado/?presentacion=rrhh&perfil=administrador#bolsa/documentos",
         selector_titulo="#titulo-vista", titulo_esperado="Generación y firma de documentos",
         selectores_listos=(".aviso-presentacion:not([hidden])", "#espacio-trabajo > :first-child"),
         pasos=(PasoInteraccion("clic-confirmando", '[data-accion="operacion-presentacion"][data-operacion="generar-documento"]'),
@@ -285,20 +288,140 @@ MANIFIESTO_FLUJOS: tuple[Flujo, ...] = (
         ruta="/portal-empleado/?presentacion=rrhh&perfil=tecnico#portal",
         selector_titulo="#titulo-vista", titulo_esperado="Portal del Empleado",
         selectores_listos=(".aviso-presentacion:not([hidden])", "#espacio-trabajo > :first-child"),
-        pasos=(PasoInteraccion("esperar", "#sesion-visible", "Técnico DEMO"),
+        pasos=(PasoInteraccion("esperar", '#sesion-visible[data-actor-ref="DEMO-PERFIL-TECNICO-RRHH-01"]'),
                PasoInteraccion("esperar-habilitado", '[data-vista="resumen"]'),
                PasoInteraccion("esperar-deshabilitado", '[data-vista="configuracion"]')),
         selector_menu_actual='[data-vista="portal"]',
         selectores_menu=('[data-vista="portal"]', '[data-vista="resumen"]'),
         requiere_demo=True,
     ),
+    Flujo(
+        clave="aspirante-menu-movil-abierto", nombre="Menú aspirante abierto",
+        superficie="area-aspirante",
+        ruta="/area-personal/?presentacion=rrhh&vista=inicio",
+        selector_titulo="#titulo-vista", titulo_esperado="Inicio y plazos",
+        selectores_listos=("#aviso-presentacion:not([hidden])", "#espacio-trabajo > :first-child"),
+        pasos=(PasoInteraccion("abrir-menu", '[data-accion="alternar-menu"]'),
+               PasoInteraccion("esperar", "#navegacion-lateral", "Convocatorias")),
+        selector_menu_actual='[data-ruta="inicio"]', requiere_demo=True,
+    ),
+    Flujo(
+        clave="rrhh-menu-movil-abierto", nombre="Menú RRHH abierto",
+        superficie="gestion-rrhh",
+        ruta="/portal-empleado/?presentacion=rrhh&perfil=administrador#portal",
+        selector_titulo="#titulo-vista", titulo_esperado="Portal del Empleado",
+        selectores_listos=(".aviso-presentacion:not([hidden])", "#espacio-trabajo > :first-child"),
+        pasos=(PasoInteraccion("abrir-menu", "#boton-menu"),
+               PasoInteraccion("esperar", "#navegacion-lateral", "Bolsas de trabajo")),
+        selector_menu_actual='[data-vista="portal"]',
+        selectores_menu=('[data-vista="portal"]', '[data-vista="resumen"]'),
+        requiere_demo=True,
+    ),
+    Flujo(
+        clave="rrhh-menu-bolsa-movil-abierto", nombre="Submenú de Bolsa RRHH abierto",
+        superficie="gestion-rrhh",
+        ruta="/portal-empleado/?presentacion=rrhh&perfil=administrador#bolsa/resumen",
+        selector_titulo="#titulo-vista", titulo_esperado="Cuadro de mando",
+        selectores_listos=(".aviso-presentacion:not([hidden])", "#espacio-trabajo > :first-child"),
+        pasos=(PasoInteraccion("abrir-menu", "#boton-menu"),
+               PasoInteraccion("esperar", "#navegacion-lateral", "Configuración y roles")),
+        selector_menu_actual='[data-vista="resumen"]', requiere_demo=True,
+    ),
 )
 
+
+def _flujo_rrhh_con_recibo(
+    clave: str,
+    nombre: str,
+    vista: str,
+    titulo: str,
+    operacion: str,
+    objetivo: str,
+    selector: str | None = None,
+) -> Flujo:
+    """Declara una operación RRHH representativa y exige su recibo sintético."""
+    selector_operacion = selector or (
+        f'[data-accion="operacion-presentacion"][data-operacion="{operacion}"]'
+        f'[data-objetivo="{objetivo}"]'
+    )
+    return Flujo(
+        clave=clave,
+        nombre=nombre,
+        superficie="gestion-rrhh",
+        ruta=f"/portal-empleado/?presentacion=rrhh&perfil=administrador#bolsa/{vista}",
+        selector_titulo="#titulo-vista",
+        titulo_esperado=titulo,
+        selectores_listos=(".aviso-presentacion:not([hidden])", "#espacio-trabajo > :first-child"),
+        pasos=(
+            PasoInteraccion("clic-confirmando", selector_operacion),
+            PasoInteraccion("esperar", "#dialogo-detalle[open] .recibo-presentacion", "DEMO-REC"),
+            PasoInteraccion("esperar", "#dialogo-detalle[open] .recibo-presentacion", objetivo),
+        ),
+        selector_menu_actual=f'[data-vista="{vista}"]',
+        requiere_demo=True,
+    )
+
+
+FLUJOS_RRHH_CON_RECIBO: tuple[Flujo, ...] = (
+    _flujo_rrhh_con_recibo(
+        "rrhh-bases-recibo-demo", "Bases guardadas con recibo DEMO", "convocatorias",
+        "Convocatorias, bases y calendario", "guardar-bases", "DEMO-BOL-014",
+        'form[data-comando="guardar-bases"] [data-accion="operacion-presentacion"][data-operacion="guardar-bases"]',
+    ),
+    _flujo_rrhh_con_recibo(
+        "rrhh-admision-recibo-demo", "Admisión con recibo DEMO", "solicitudes",
+        "Solicitudes y admisión", "admitir-solicitud", "DEMO-SOL-001",
+    ),
+    _flujo_rrhh_con_recibo(
+        "rrhh-merito-recibo-demo", "Mérito aceptado con recibo DEMO", "meritos",
+        "Revisión de méritos", "aceptar-merito", "DEMO-MER-001",
+        'form[aria-label*="DEMO-MER-001"] [data-accion="operacion-presentacion"][data-operacion="aceptar-merito"]',
+    ),
+    _flujo_rrhh_con_recibo(
+        "rrhh-baremo-recibo-demo", "Reglas de baremo con recibo DEMO", "baremacion",
+        "Baremación y ranking", "guardar-reglas-baremo", "DEMO-CRI-001",
+        'form[data-comando="guardar-reglas-baremo"] [data-accion="operacion-presentacion"][data-operacion="guardar-reglas-baremo"]',
+    ),
+    _flujo_rrhh_con_recibo(
+        "rrhh-importacion-recibo-demo", "Importación validada con recibo DEMO", "importacion",
+        "Importación Convoca", "validar-importacion", "DEMO-IMP-NUEVA",
+    ),
+    _flujo_rrhh_con_recibo(
+        "rrhh-llamamiento-recibo-demo", "Llamamiento preparado con recibo DEMO", "llamamientos",
+        "Nuevo llamamiento", "emitir-llamamiento", "DEMO-LLA-NUEVO",
+        'form[data-comando="emitir-llamamiento"] [data-accion="operacion-presentacion"][data-operacion="emitir-llamamiento"]',
+    ),
+    _flujo_rrhh_con_recibo(
+        "rrhh-contrato-recibo-demo", "Contrato registrado con recibo DEMO", "contratos",
+        "Contratos, ceses y reincorporaciones", "registrar-contrato", "DEMO-CON-NUEVO",
+    ),
+    _flujo_rrhh_con_recibo(
+        "rrhh-comunicacion-recibo-demo", "Comunicación preparada con recibo DEMO", "comunicaciones",
+        "Correo y mensajería", "preparar-comunicacion", "DEMO-COM-NUEVA",
+        'form[data-comando="preparar-comunicacion"] [data-accion="operacion-presentacion"][data-operacion="preparar-comunicacion"]',
+    ),
+    _flujo_rrhh_con_recibo(
+        "rrhh-exportacion-recibo-demo", "Exportación preparada con recibo DEMO", "estadisticas",
+        "Estadísticas y explotación de datos", "exportar-informe", "DEMO-INF-ESTADISTICAS",
+        'form[data-comando="exportar-informe"] [data-accion="operacion-presentacion"][data-operacion="exportar-informe"]',
+    ),
+    _flujo_rrhh_con_recibo(
+        "rrhh-rol-recibo-demo", "Rol propuesto con recibo DEMO", "configuracion",
+        "Configuración y roles", "crear-rol", "DEMO-ROL-NUEVO",
+        'form[data-comando="crear-rol"] [data-accion="operacion-presentacion"][data-operacion="crear-rol"]',
+    ),
+    _flujo_rrhh_con_recibo(
+        "rrhh-alegacion-recibo-demo", "Alegación estimada con recibo DEMO", "alegaciones",
+        "Alegaciones", "resolver-alegacion", "DEMO-ALE-001",
+    ),
+)
+
+MANIFIESTO_FLUJOS = (*MANIFIESTO_FLUJOS, *FLUJOS_RRHH_CON_RECIBO)
 MANIFIESTO: tuple[Escenario, ...] = (*MANIFIESTO_VISTAS, *MANIFIESTO_FLUJOS)
 
 
 def normalizar_url_base(valor: str) -> str:
-    """Valida y normaliza una URL base HTTP(S), sin credenciales ni consulta."""
+    """Valida una URL HTTP(S) cuyo host sea una IP de loopback literal."""
     valor = valor.strip()
     if not valor:
         raise ValueError("la URL base no puede estar vacía")
@@ -309,7 +432,25 @@ def normalizar_url_base(valor: str) -> str:
         raise ValueError("la URL base no puede incluir credenciales")
     if analizada.query or analizada.fragment:
         raise ValueError("la URL base no puede incluir consulta ni fragmento")
+    host = analizada.hostname or ""
+    if "%" in host:
+        raise ValueError("la URL base exige una IP de loopback literal sin zona")
+    try:
+        ip = ip_address(host)
+        _ = analizada.port
+    except ValueError as error:
+        raise ValueError("la URL base exige una IP de loopback literal y un puerto válido") from error
+    if not ip.is_loopback:
+        raise ValueError("la URL base solo puede usar una IP de loopback literal")
     return valor.rstrip("/")
+
+
+def cabecera_presentacion_valida(cabeceras: Mapping[str, str]) -> bool:
+    """Comprueba la marca exacta emitida únicamente por el servidor DEMO."""
+    return any(
+        nombre.casefold() == CABECERA_MODO_PRESENTACION.casefold() and valor == VALOR_MODO_PRESENTACION
+        for nombre, valor in cabeceras.items()
+    )
 
 
 def construir_url(url_base: str, ruta: str) -> str:
@@ -359,7 +500,7 @@ def validar_manifiesto(
         if isinstance(escenario, Flujo):
             acciones_validas = {
                 "clic", "clic-confirmando", "esperar", "enfocar",
-                "esperar-habilitado", "esperar-deshabilitado",
+                "esperar-habilitado", "esperar-deshabilitado", "abrir-menu",
             }
             if not escenario.pasos:
                 errores.append(f"flujo sin pasos: {escenario.clave}")

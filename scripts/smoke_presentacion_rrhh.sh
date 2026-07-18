@@ -47,9 +47,10 @@ until curl --fail --silent --max-time 1 "$base/healthz" >/dev/null 2>&1; do
 done
 
 curl --fail --silent --max-time 5 "$base/presentacion/" | grep -Fq 'href="/area-personal/?presentacion=rrhh"'
+curl --fail --silent --head --max-time 5 "$base/presentacion/" | grep -Fiq 'X-Vec-Modo-Presentacion: aislada-sintetica-v1'
 curl --fail --silent --max-time 5 "$base/area-personal/?presentacion=rrhh" | grep -Fq 'MODO DEMOSTRACIÓN'
 curl --fail --silent --max-time 5 "$base/area-personal/adaptador-presentacion.js" | grep -Fq 'Adaptador efímero y exclusivo de presentación'
-curl --fail --silent --max-time 5 "$base/portal-empleado/?presentacion=rrhh" | grep -Fq 'Presentación para RRHH'
+curl --fail --silent --max-time 5 "$base/portal-empleado/?presentacion=rrhh&perfil=administrador" | grep -Fq 'Presentación para RRHH'
 curl --fail --silent --max-time 5 "$base/portal-empleado/portal-presentacion-adaptador.js" | grep -Fq 'Adaptador volátil y sustituible'
 curl --fail --silent --max-time 5 "$base/api/publico/bolsa/convocatorias" | grep -Fq 'vec.bolsa.publico.convocatorias.v1'
 

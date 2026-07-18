@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright
 DIRECTORIO_MANUAL = pathlib.Path(__file__).resolve().parent
 BASE = os.environ.get(
     "VEC_PORTAL_BASE_URL",
-    "http://127.0.0.1:18084/portal-empleado/?presentacion=rrhh",
+    "http://127.0.0.1:18084/portal-empleado/?presentacion=rrhh&perfil=administrador",
 )
 DESTINO = pathlib.Path(
     os.environ.get("VEC_CAPTURAS_DESTINO", DIRECTORIO_MANUAL / "capturas")

@@ -9,6 +9,8 @@ from .informes import (
     resumir_resultados,
 )
 from .modelo import (
+    CABECERA_MODO_PRESENTACION,
+    FLUJOS_RRHH_CON_RECIBO,
     MANIFIESTO,
     MANIFIESTO_FLUJOS,
     MANIFIESTO_VISTAS,
@@ -18,12 +20,14 @@ from .modelo import (
     SALIDA_PREDETERMINADA,
     SUPERFICIES,
     TAMANOS_VISTA,
+    VALOR_MODO_PRESENTACION,
     Escenario,
     Flujo,
     PasoInteraccion,
     Superficie,
     TamanoVista,
     Vista,
+    cabecera_presentacion_valida,
     construir_url,
     normalizar_url_base,
     slug_castellano,
@@ -31,11 +35,12 @@ from .modelo import (
 )
 
 __all__ = (
+    "CABECERA_MODO_PRESENTACION", "VALOR_MODO_PRESENTACION", "FLUJOS_RRHH_CON_RECIBO",
     "MANIFIESTO", "MANIFIESTO_FLUJOS", "MANIFIESTO_VISTAS",
     "RAIZ_REPOSITORIO", "RUTAS_MENU_ASPIRANTE", "RUTAS_MENU_RRHH",
     "SALIDA_PREDETERMINADA", "SUPERFICIES", "TAMANOS_VISTA",
     "Escenario", "Flujo", "PasoInteraccion", "Superficie", "TamanoVista", "Vista",
-    "codigo_salida", "construir_url", "crear_informe_markdown", "ejecutar_revision",
+    "cabecera_presentacion_valida", "codigo_salida", "construir_url", "crear_informe_markdown", "ejecutar_revision",
     "filtrar_abortos_media_exitosos", "guardar_informes", "main",
     "normalizar_url_base", "resumir_resultados", "slug_castellano", "validar_manifiesto",
 )

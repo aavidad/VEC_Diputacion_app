@@ -116,7 +116,8 @@ func TestLauncherPresentacionEnlazaLosTresPuntosDeVistaSinEscaparAllowlist(t *te
 	for _, enlace := range []string{
 		`href="/bolsa/"`,
 		`href="/area-personal/?presentacion=rrhh"`,
-		`href="/portal-empleado/?presentacion=rrhh#portal"`,
+		`href="/portal-empleado/?presentacion=rrhh&amp;perfil=tecnico#portal"`,
+		`href="/portal-empleado/?presentacion=rrhh&amp;perfil=administrador#portal"`,
 	} {
 		if !strings.Contains(rec.Body.String(), enlace) {
 			t.Errorf("launcher sin %s", enlace)
@@ -195,5 +196,44 @@ func TestHandlerPresentacionDirectoFallaCerradoSinGuardas(t *testing.T) {
 				t.Errorf("GET %s = %d; se esperaba 503", ruta, rec.Code)
 			}
 		}
+	}
+}
+
+func TestCabeceraTecnicaSoloLaEmiteElHandlerPresentacionValidado(t *testing.T) {
+	valida := configuracionPresentacionValida()
+	presentacion := NewHandlerPresentacionWithConfig(valida, http.NotFoundHandler())
+	recPresentacion := httptest.NewRecorder()
+	presentacion.ServeHTTP(recPresentacion, peticionServidorPrueba(http.MethodGet, "/presentacion/", nil))
+	if got := recPresentacion.Header().Get(cabeceraModoPresentacion); got != valorModoPresentacion {
+		t.Fatalf("cabecera de presentacion = %q; se esperaba %q", got, valorModoPresentacion)
+	}
+
+	invalidada := valida
+	invalidada.RRHHPresentationGuardTwo = ""
+	recInvalidada := httptest.NewRecorder()
+	NewHandlerPresentacionWithConfig(invalidada, http.NotFoundHandler()).ServeHTTP(
+		recInvalidada, peticionServidorPrueba(http.MethodGet, "/presentacion/", nil),
+	)
+	if got := recInvalidada.Header().Get(cabeceraModoPresentacion); got != "" {
+		t.Fatalf("handler de presentacion invalidado emitio la marca %q", got)
+	}
+
+	otros := []struct {
+		nombre  string
+		handler http.Handler
+		ruta    string
+	}{
+		{"integrado", NewHandlerWithConfig(valida, http.NotFoundHandler()), "/healthz"},
+		{"publico", NewHandlerPublicoWithConfig(valida, http.NotFoundHandler()), "/healthz"},
+		{"interno", NewHandlerInternoWithConfig(valida, http.NotFoundHandler()), "/healthz"},
+	}
+	for _, otro := range otros {
+		t.Run(otro.nombre, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			otro.handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, otro.ruta, nil))
+			if got := rec.Header().Get(cabeceraModoPresentacion); got != "" {
+				t.Errorf("handler %s emitio la marca de presentacion %q", otro.nombre, got)
+			}
+		})
 	}
 }
