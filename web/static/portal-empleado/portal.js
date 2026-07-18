@@ -6,6 +6,7 @@ import {
   validarPropuestaLlamamiento,
 } from "./portal-contrato.js?v=20260717-panel-interno-v1";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
+import { PROVEEDOR_BEARER_BORRADORES, crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260718-borradores-v1";
 
 /**
  * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.
@@ -13,7 +14,8 @@ import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
  * La ruta normal obtiene datos exclusivamente de la API interna protegida. El
  * juego sintético está aislado en `datos-presentacion.js` y solo se importa si
  * la URL declara `?presentacion=rrhh`. Ninguna mutación de negocio se ejecuta
- * en el navegador. Mapa de sustitución y límites:
+ * en el navegador salvo el guardado durable de borradores, aislado tras su
+ * cliente autenticado, CAS e idempotencia. Mapa de sustitución y límites:
  * docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md.
  */
 const API_PANEL_BOLSA = "/api/vec/bolsa/panel";
@@ -47,7 +49,7 @@ let obtenerPropuestaPresentacion = null;
 const TITULOS = Object.freeze({
   portal: ["Portal del Empleado", "Portal del Empleado"],
   resumen: ["Portal del Empleado → Bolsas de trabajo", "Cuadro de mando"],
-  elaboracion: ["Portal del Empleado → Bolsas de trabajo", "Elaboración y gestión de bolsas"],
+  elaboracion: ["Portal del Empleado → Bolsas de trabajo", "Borradores de convocatorias"],
   llamamientos: ["Portal del Empleado → Bolsas de trabajo → Llamamientos", "Nuevo llamamiento"],
   contratos: ["Portal del Empleado → Bolsas de trabajo", "Contratos, ceses y reincorporaciones"],
   reglas: ["Portal del Empleado → Bolsas de trabajo", "Motor de reglas configurable"],
@@ -305,6 +307,12 @@ function renderizar() {
     else boton.removeAttribute("aria-current");
   });
 
+  if (estado.vista === "elaboracion") {
+    contenedor.innerHTML = superficieBorradores.renderizar();
+    void superficieBorradores.activar();
+    return;
+  }
+
   if (estado.vista !== "portal" && !estado.fuenteLista) {
     contenedor.innerHTML = renderizarFuenteNoDisponible();
     return;
@@ -318,7 +326,6 @@ function renderizar() {
   const renderizadores = {
     portal: renderizarPortal,
     resumen: renderizarResumen,
-    elaboracion: renderizarElaboracion,
     llamamientos: renderizarLlamamiento,
     contratos: renderizarContratos,
     reglas: renderizarReglas,
@@ -486,70 +493,6 @@ function claseEstado(estadoTexto) {
   if (/error|revocad|excluid|no disponible/.test(texto)) return "peligro";
   if (/configur|recib|enviad/.test(texto)) return "info";
   return "neutro";
-}
-
-function renderizarElaboracion() {
-  const seleccion = DATOS_PANEL.elaboraciones.find((item) => item.id === estado.elaboracionSeleccionada) || DATOS_PANEL.elaboraciones[0];
-  if (!seleccion) {
-    return `${encabezadoVista("Bases, reglas y publicación", "Elaboración de bolsas", "No existen expedientes accesibles en el ámbito de esta sesión.")}<section class="panel"><div class="vacio-controlado">No hay expedientes de elaboración.</div></section>`;
-  }
-  const contarEstado = (patron) => DATOS_PANEL.elaboraciones.filter((item) => patron.test(String(item.estado))).length;
-  return `
-    ${encabezadoVista("Bases, reglas y publicación", "Elaboración de bolsas", "Creación gobernada desde las bases: criterios versionados, calendario, documentación, firmas y publicación trazable.", '<button type="button" class="boton-secundario" data-accion="comparar-versiones">Comparar versiones</button><button type="button" class="boton-primario" data-accion="nueva-bolsa">Nueva bolsa</button>')}
-    <section class="nota-pendiente">${escaparHTML(notaOperacionNoCompuesta())} El modelo de convocatorias y revisión firmada ya existe en el núcleo; el guardado administrativo se habilitará únicamente mediante su caso de uso y repositorio.</section>
-    <div class="rejilla-kpi">
-      ${tarjetaKPI("BOR", numero(contarEstado(/Borrador/i)), "Borradores", "elaboracion")}
-      ${tarjetaKPI("REV", numero(contarEstado(/revisión|validación/i)), "Pendiente de validación", "elaboracion")}
-      ${tarjetaKPI("PUB", numero(contarEstado(/Publicada/i)), "Publicadas en la proyección", "elaboracion")}
-      ${tarjetaKPI("PLA", numero(DATOS_PANEL.indicadores.plazos_proximos), "Plazo próximo", "elaboracion")}
-      ${tarjetaKPI("FIR", numero(DATOS_PANEL.indicadores.firmas_pendientes), "Firmas pendientes", "documentos")}
-    </div>
-    <div class="rejilla-elaboracion">
-      <section class="panel">
-        <div class="cabecera-panel"><div><h3>Expedientes de elaboración</h3><p>Ámbito de Selección externa</p></div><span class="estado-chip info">${numero(DATOS_PANEL.elaboraciones.length)} expedientes</span></div>
-        <div class="barra-filtros">
-          <label class="campo"><span>Buscar bolsa o expediente</span><input type="search" value="" placeholder="Nombre, categoría o referencia"></label>
-          <label class="campo"><span>Fase</span><select><option>Todas</option><option>Borrador</option><option>Validación</option><option>Publicación</option></select></label>
-          <label class="campo"><span>Responsable</span><select><option>Todos</option><option>Selección externa</option><option>Jefatura RRHH</option></select></label>
-          <button type="button" class="boton-secundario" data-accion="aplicar-filtros">Aplicar</button>
-        </div>
-        <div class="tabla-contenedor">
-          <table class="tabla-datos">
-            <caption>Expedientes de elaboración de bolsas</caption>
-            <thead><tr><th scope="col">Bolsa / expediente</th><th scope="col">Fase</th><th scope="col">Reglas</th><th scope="col">Plazo</th><th scope="col">Estado</th><th scope="col">Acción</th></tr></thead>
-            <tbody>
-              ${DATOS_PANEL.elaboraciones.map((item) => `<tr aria-selected="${item.id === seleccion.id}"><td><strong>${escaparHTML(item.nombre)}</strong><br><small>${escaparHTML(item.expediente)}</small></td><td>${escaparHTML(item.fase)}</td><td>${escaparHTML(item.reglas)}</td><td>${escaparHTML(item.plazo)}</td><td><span class="estado-chip ${claseEstado(item.estado)}">${escaparHTML(item.estado)}</span></td><td><button type="button" class="boton-terciario" data-accion="seleccionar-elaboracion" data-id="${escaparHTML(item.id)}">Abrir</button></td></tr>`).join("")}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <aside class="resumen-lateral" aria-label="Detalle del expediente seleccionado">
-        <section class="panel">
-          <div class="cabecera-panel"><div><h3>${escaparHTML(seleccion.nombre)}</h3><p>${escaparHTML(seleccion.expediente)}</p></div><span class="estado-chip ${claseEstado(seleccion.estado)}">${escaparHTML(seleccion.estado)}</span></div>
-          <div class="cuerpo-panel">
-            <dl class="resumen-expediente">
-              <div class="fila-resumen"><dt>Unidad responsable</dt><dd>${escaparHTML(seleccion.responsable)}</dd></div>
-              <div class="fila-resumen"><dt>Versión de bases</dt><dd>${escaparHTML(seleccion.version_bases)}</dd></div>
-              <div class="fila-resumen"><dt>Baremo</dt><dd>${escaparHTML(seleccion.reglas)}</dd></div>
-              <div class="fila-resumen"><dt>Calendario</dt><dd>${escaparHTML(seleccion.calendario)}</dd></div>
-              <div class="fila-resumen"><dt>Firmantes</dt><dd>${escaparHTML(seleccion.firmantes)}</dd></div>
-            </dl>
-            <button type="button" class="boton-primario" data-accion="configurar-bases">Configurar bases y baremo</button>
-          </div>
-        </section>
-        <section class="panel">
-          <div class="cabecera-panel"><h3>Comprobaciones para publicar</h3></div>
-          <ul class="lista-comprobacion">
-            <li>Identificación, categoría y requisitos</li>
-            <li>Bases y documentos versionados</li>
-            <li>Baremo reproducible y topes validados</li>
-            <li>Calendario de solicitud y alegaciones</li>
-            <li class="pendiente">Informe jurídico pendiente</li>
-            <li class="pendiente">Circuito de firmas pendiente</li>
-          </ul>
-        </section>
-      </aside>
-    </div>`;
 }
 
 function pasosLlamamiento() {
@@ -768,6 +711,60 @@ function aplicarBarrasDinamicas(contenedor) {
   });
 }
 
+function resolverProveedorBearerBorradores() {
+  const proveedor = globalThis[PROVEEDOR_BEARER_BORRADORES];
+  return typeof proveedor === "function" ? proveedor : null;
+}
+
+const superficieBorradores = crearSuperficieBorradoresPortal({
+  escaparHTML,
+  anunciar,
+  alCambiar: () => { if (estado.vista === "elaboracion") renderizar(); },
+  resolverProveedorBearer: resolverProveedorBearerBorradores,
+  confirmar: (mensaje) => window.confirm(mensaje),
+});
+
+function instalarEventosBorradores() {
+  document.addEventListener("click", (evento) => {
+    const boton = evento.target.closest("[data-borrador-accion]");
+    if (!boton || boton.disabled) return;
+    evento.preventDefault();
+    void superficieBorradores.manejarAccion({ accion: boton.dataset.borradorAccion,
+      id: boton.dataset.id, coleccion: boton.dataset.coleccion, indice: boton.dataset.indice });
+  });
+  document.addEventListener("input", (evento) => {
+    const control = evento.target.closest("[data-borrador-ruta]");
+    if (!control) return;
+    const requiereRender = ["confirmar_reaplicacion", "plantilla_indice", "motivo_indice"]
+      .includes(control.dataset.borradorRuta);
+    const actualizado = superficieBorradores.actualizarCampo({ ruta: control.dataset.borradorRuta,
+      valor: control.value, checked: control.checked, tipo: control.type });
+    if (!actualizado) return;
+    if (requiereRender) { renderizar(); return; }
+    const formulario = control.closest('[data-borrador-form="editor"]');
+    const indicador = formulario?.closest(".editor-borrador")?.querySelector("[data-estado-editor]");
+    if (indicador) {
+      indicador.textContent = "Cambios locales sin guardar";
+      indicador.className = "estado-chip";
+    }
+    const guardar = formulario?.querySelector("[data-borrador-guardar]");
+    if (guardar?.dataset.capacidad === "true") guardar.disabled = false;
+  });
+  document.addEventListener("submit", (evento) => {
+    const formulario = evento.target.closest("[data-borrador-form]");
+    if (!formulario) return;
+    evento.preventDefault();
+    if (formulario.dataset.borradorForm === "filtros") {
+      const datos = new FormData(formulario);
+      void superficieBorradores.aplicarFiltro({ texto: datos.get("texto") || "",
+        categoria: datos.get("categoria") || "" });
+      return;
+    }
+    if (typeof formulario.reportValidity === "function" && !formulario.reportValidity()) return;
+    void superficieBorradores.guardar();
+  });
+}
+
 const presentadorPanelInterno = crearPresentadorPanelInterno({
   claseEstado,
   encabezadoVista,
@@ -789,6 +786,7 @@ async function inicializar() {
   estado.vista = vistaDesdeHash();
   renderizar();
   controlador.instalar();
+  instalarEventosBorradores();
   await cargarFuenteDatos();
   renderizar();
 }
