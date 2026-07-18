@@ -2,6 +2,7 @@ package gobiernoconvocatorias
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"sync"
 	"testing"
@@ -21,9 +22,11 @@ func (d *diarioPrueba) Reconciliar(
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	clave := claveL(s.Identidad)
+	primariaReconciliada := s.IdentidadPrimaria
+	d.ultimaReconciliada = &primariaReconciliada
+	clave := claveL(s.IdentidadPrimaria)
 	fila, existe := d.filas[clave]
-	if !existe || !mismaF(fila.identidad, s.Identidad) {
+	if !existe || !mismaF(fila.identidadPrimaria, s.IdentidadPrimaria) {
 		return ResultadoReconciliacionBorrador{}, errors.New("fila no encontrada")
 	}
 	pruebaRef, huellaPrueba := "", ""
@@ -73,10 +76,10 @@ func (d *diarioPrueba) ReclamarDecision(
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	clave := claveL(s.IdentidadAnterior)
+	clave := claveL(s.ResolucionAnterior.IdentidadPrimaria)
 	fila, existe := d.filas[clave]
 	anterior := s.Reconciliacion.Resultado
-	if !existe || !mismaF(fila.identidad, s.IdentidadAnterior) ||
+	if !existe || !mismaF(fila.identidadPrimaria, s.ResolucionAnterior.IdentidadPrimaria) ||
 		fila.resultado.Estado != ResultadoDiarioNoAplicado ||
 		fila.resultado.Revision != anterior.Revision || fila.resultado.Cercado != anterior.Cercado {
 		return ResultadoOperacionDiario{}, ErrCercadoDiarioObsoleto
@@ -86,7 +89,7 @@ func (d *diarioPrueba) ReclamarDecision(
 		ArrendamientoIniciaEn: s.Nueva.Proyeccion.ArrendamientoIniciaEn,
 		ArrendamientoVenceEn:  s.Nueva.Proyeccion.ArrendamientoVenceEn,
 	}
-	fila.identidad = s.IdentidadAnterior
+	fila.identidadPrimaria = s.ResolucionAnterior.IdentidadPrimaria
 	d.filas[clave] = fila
 	d.reclamos++
 	return copiarResultado(fila.resultado), nil
@@ -127,6 +130,92 @@ const (
 	confirmarRollback              modoConfirmacion = "rollback"
 )
 
+// cifradorPrueba es deliberadamente un doble: sus bytes no representan
+// criptografia productiva y nunca se compilan fuera de _test.go.
+type resolvedorPerfilCifradoPrueba struct {
+	mu       sync.Mutex
+	llamadas int
+}
+
+func (r *resolvedorPerfilCifradoPrueba) ResolverPerfilCifradoBorrador(
+	_ context.Context,
+	s SolicitudResolucionPerfilCifradoBorrador,
+) (PerfilCifradoBorrador, error) {
+	if s.Validar() != nil {
+		return PerfilCifradoBorrador{}, ErrCifradoBorradorInvalido
+	}
+	perfil, err := NuevoPerfilCifradoBorrador(
+		"perfil:cifrado:borradores:v1", 1, huellaHexPrueba('a'),
+		"A256GCM", "A256KW",
+	)
+	if err != nil {
+		return PerfilCifradoBorrador{}, err
+	}
+	r.mu.Lock()
+	r.llamadas++
+	r.mu.Unlock()
+	return perfil, nil
+}
+
+type cifradorPrueba struct {
+	mu       sync.Mutex
+	llamadas int
+	ultima   *SolicitudCifradoBorrador
+}
+
+func (c *cifradorPrueba) CifrarBorrador(
+	_ context.Context,
+	s SolicitudCifradoBorrador,
+) (ResultadoCifradoBorrador, error) {
+	if s.Validar() != nil {
+		return ResultadoCifradoBorrador{}, ErrCifradoBorradorInvalido
+	}
+	versionCanonica, err := s.VersionCanonicaParaCifrado()
+	if err != nil {
+		return ResultadoCifradoBorrador{}, err
+	}
+	aad, err := s.AADCanonica()
+	if err != nil {
+		clear(versionCanonica)
+		return ResultadoCifradoBorrador{}, err
+	}
+	material := append(append([]byte(nil), versionCanonica...), aad...)
+	suma := sha256.Sum256(material)
+	clear(material)
+	clear(versionCanonica)
+	huellaAAD, _ := s.aad.HuellaSHA256()
+	perfil := s.PerfilEsperado
+	envoltura, err := NuevaEnvolturaClaveKMSBorrador(
+		perfil, "clave:kms:borradores:v1", 1, suma[:], huellaAAD,
+	)
+	if err != nil {
+		return ResultadoCifradoBorrador{}, err
+	}
+	nonce := make([]byte, 12)
+	copy(nonce, suma[:12])
+	sobre, err := NuevoSobreCifradoAEADBorrador(perfil, nonce, suma[:], huellaAAD)
+	if err != nil {
+		return ResultadoCifradoBorrador{}, err
+	}
+	atestacion, err := NuevaAtestacionKMSBorrador(
+		"atestacion:kms:borrador:001", 1, perfil, "clave:kms:borradores:v1", 1,
+		huellaAAD, envoltura.huellaSHA256, sobre.huellaSHA256, "verificador:kms:v1",
+		s.SolicitadaEn, s.SolicitadaEn.Add(4*time.Minute),
+	)
+	if err != nil {
+		return ResultadoCifradoBorrador{}, err
+	}
+	c.mu.Lock()
+	c.llamadas++
+	copia := s
+	c.ultima = &copia
+	c.mu.Unlock()
+	return ResultadoCifradoBorrador{
+		AAD: s.aad, EnvolturaClave: envoltura, SobreCifrado: sobre,
+		AtestacionKMS: atestacion, SolicitadaEn: s.SolicitadaEn, CifradoEn: s.SolicitadaEn,
+	}, nil
+}
+
 type confirmadorPrueba struct {
 	diario            *diarioPrueba
 	mu                sync.Mutex
@@ -156,9 +245,9 @@ func (c *confirmadorPrueba) ConfirmarBorrador(
 	c.mu.Unlock()
 	c.diario.mu.Lock()
 	defer c.diario.mu.Unlock()
-	clave := claveL(s.Reserva.Identidad)
+	clave := claveL(s.Reserva.IdentidadPrimaria)
 	fila, existe := c.diario.filas[clave]
-	if !existe || !mismaF(fila.identidad, s.Reserva.Identidad) ||
+	if !existe || !mismaF(fila.identidadPrimaria, s.Reserva.IdentidadPrimaria) ||
 		fila.resultado.Estado != ResultadoDiarioReservado ||
 		fila.resultado.Revision != s.Control.Revision || fila.resultado.Cercado != s.Control.Cercado {
 		return ResultadoConfirmacionAtomica{Estado: ResultadoDiarioIndeterminado}, errors.New("CAS o cercado rechazado")
@@ -201,8 +290,9 @@ func construirReciboPrueba(
 	return ProyeccionReciboBorrador{
 		Esquema: esquemaReciboBorradorV2, ReciboRef: "recibo:convocatoria:001",
 		TransaccionRef: "transaccion:convocatoria:001", Accion: s.Material.Accion,
-		EstadoPrincipal: s.Material.EstadoPrincipalNuevo, Identidad: s.Reserva.Identidad,
-		Decision: s.Reserva.Decision, SelladoMotivo: s.SelladoMotivo,
+		EstadoPrincipal:   s.Material.EstadoPrincipalNuevo,
+		IdentidadPrimaria: s.Reserva.IdentidadPrimaria,
+		Decision:          s.Reserva.Decision, SelladoMotivo: s.SelladoMotivo,
 		RevisionConfirmada: revision, CercadoConfirmado: cercado,
 		ArrendamientoIniciaEn: s.Reserva.ArrendamientoIniciaEn,
 		ArrendamientoVenceEn:  s.Reserva.ArrendamientoVenceEn,
@@ -219,6 +309,8 @@ type escenarioPrueba struct {
 	diario      *diarioPrueba
 	autorizador *autorizadorPrueba
 	confirmador *confirmadorPrueba
+	cifrador    *cifradorPrueba
+	perfiles    *resolvedorPerfilCifradoPrueba
 	derivador   derivadorPrueba
 	orden       OrdenCrearBorrador
 	inicial     dominiobolsa.VersionConvocatoriaGobernada
@@ -277,15 +369,22 @@ func nuevoEscenario(t *testing.T, modo modoConfirmacion, generaciones ...uint32)
 	diario := nuevoDiarioPrueba()
 	autorizador := &autorizadorPrueba{modo: pdpConceder}
 	confirmador := &confirmadorPrueba{diario: diario, modo: modo}
+	cifrador := &cifradorPrueba{}
+	perfiles := &resolvedorPerfilCifradoPrueba{}
 	derivador := derivadorPrueba{generaciones: generaciones}
 	servicio, err := NuevoServicioBorradores(
 		reloj, catalogo, catalogo, lectorPrueba{inicial}, comprometedorPrueba{}, derivador,
-		autorizador, diario, selladorPrueba{}, confirmador,
+		autorizador, diario, selladorPrueba{}, perfiles, cifrador, confirmador,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return escenarioPrueba{servicio, reloj, catalogo, diario, autorizador, confirmador, derivador, orden, inicial}
+	return escenarioPrueba{
+		servicio: servicio, reloj: reloj, catalogo: catalogo, diario: diario,
+		autorizador: autorizador, confirmador: confirmador, cifrador: cifrador,
+		perfiles:  perfiles,
+		derivador: derivador, orden: orden, inicial: inicial,
+	}
 }
 
 func (e escenarioPrueba) reiniciar(t *testing.T, generaciones ...uint32) *ServicioBorradores {
@@ -293,7 +392,7 @@ func (e escenarioPrueba) reiniciar(t *testing.T, generaciones ...uint32) *Servic
 	derivador := derivadorPrueba{generaciones: generaciones}
 	servicio, err := NuevoServicioBorradores(
 		e.reloj, e.catalogo, e.catalogo, lectorPrueba{e.inicial}, comprometedorPrueba{}, derivador,
-		e.autorizador, e.diario, selladorPrueba{}, e.confirmador,
+		e.autorizador, e.diario, selladorPrueba{}, e.perfiles, e.cifrador, e.confirmador,
 	)
 	if err != nil {
 		t.Fatal(err)

@@ -26,7 +26,7 @@ func TestCrashTrasReservaLeaseVivoYReclamacionExpirada(t *testing.T) {
 	}
 	e.reloj.avanzar(3 * time.Minute)
 	recibo, err := e.servicio.Crear(context.Background(), e.orden)
-	if err != nil || !reciboProyectadoValido(recibo, recibo.Identidad) {
+	if err != nil || !reciboProyectadoValido(recibo, recibo.IdentidadPrimaria) {
 		t.Fatalf("lease expirado no se recupero: %v", err)
 	}
 	if e.diario.reclamos != 1 || e.confirmador.efectos != 1 ||
@@ -44,7 +44,7 @@ func TestIndeterminadoSeReconciliaACommitSinRepetir(t *testing.T) {
 		t.Fatalf("commit sin respuesta no quedo indeterminado: %v", err)
 	}
 	recibo, err := e.servicio.Crear(context.Background(), e.orden)
-	if err != nil || !reciboProyectadoValido(recibo, recibo.Identidad) ||
+	if err != nil || !reciboProyectadoValido(recibo, recibo.IdentidadPrimaria) ||
 		e.confirmador.llamadas != 1 || e.confirmador.efectos != 1 || e.diario.reclamos != 0 {
 		t.Fatalf("reconciliacion repitio el commit: %v", err)
 	}
@@ -101,11 +101,63 @@ func TestReciboInmediatoYReplayAplicanMismoVeredictoTemporal(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(inmediato, replay) {
 		t.Fatalf("replay temporal divergio del inmediato: %v", err)
 	}
-	if !reciboProyectadoValido(replay, replay.Identidad) ||
+	if !reciboProyectadoValido(replay, replay.IdentidadPrimaria) ||
 		!replay.ConfirmadaEn.Before(replay.ArrendamientoVenceEn) ||
 		!replay.ConfirmadaEn.Before(replay.Decision.ValidaHasta) ||
 		!replay.ConfirmadaEn.Before(replay.SelladoMotivo.AtestacionValidaHasta) {
 		t.Fatal("recibo no conserva los limites temporales del commit")
+	}
+}
+
+func TestSolapeGeneracionesResuelveAliasContraPrimariaEnReplayTerminal(t *testing.T) {
+	e := nuevoEscenario(t, confirmarBien, 3, 2)
+	inmediato, err := e.servicio.Crear(context.Background(), e.orden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inmediato.IdentidadPrimaria.Localizador.GeneracionClave != 3 {
+		t.Fatal("la operacion inicial no quedo ligada a la primaria g3")
+	}
+	solapado, err := e.servicio.Crear(context.Background(), e.orden)
+	if err != nil || !reflect.DeepEqual(inmediato, solapado) {
+		t.Fatalf("g3 y g2 de una misma operacion se trataron como ambiguas: %v", err)
+	}
+	replay, err := e.reiniciar(t, 2, 1).Crear(context.Background(), e.orden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(inmediato, replay) ||
+		replay.IdentidadPrimaria.Localizador.GeneracionClave != 3 ||
+		e.confirmador.llamadas != 1 || e.perfiles.llamadas != 1 ||
+		e.cifrador.llamadas != 1 || e.diario.reservas != 1 {
+		t.Fatalf(
+			"el alias g2 no resolvio el terminal primario g3: primaria=%d confirmar=%d cifrar=%d reservas=%d",
+			replay.IdentidadPrimaria.Localizador.GeneracionClave, e.confirmador.llamadas,
+			e.cifrador.llamadas, e.diario.reservas,
+		)
+	}
+}
+
+func TestSolapeGeneracionesReconciliaIndeterminadoSobrePrimaria(t *testing.T) {
+	e := nuevoEscenario(t, confirmarIndeterminadoCommit, 3, 2)
+	_, err := e.servicio.Crear(context.Background(), e.orden)
+	if !errors.Is(err, ErrOperacionBorradorIndeterminada) {
+		t.Fatalf("no se produjo el indeterminado de prueba: %v", err)
+	}
+	recibo, err := e.reiniciar(t, 2, 1).Crear(context.Background(), e.orden)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.diario.ultimaReconciliada == nil ||
+		e.diario.ultimaReconciliada.Localizador.GeneracionClave != 3 ||
+		recibo.IdentidadPrimaria.Localizador.GeneracionClave != 3 ||
+		e.confirmador.llamadas != 1 || e.confirmador.efectos != 1 ||
+		e.perfiles.llamadas != 1 || e.cifrador.llamadas != 1 {
+		t.Fatalf(
+			"la recuperacion por alias no opero sobre g3: reconciliada=%v recibo=%d confirmar=%d efectos=%d cifrar=%d",
+			e.diario.ultimaReconciliada, recibo.IdentidadPrimaria.Localizador.GeneracionClave,
+			e.confirmador.llamadas, e.confirmador.efectos, e.cifrador.llamadas,
+		)
 	}
 }
 
@@ -123,7 +175,7 @@ func TestReconciliacionRechazaControlNoCreciente(t *testing.T) {
 	}
 	control := resultado.Coincidencias[0]
 	solicitud := SolicitudReconciliacionBorrador{
-		Identidad: control.Identidad, Control: control.Resultado,
+		IdentidadPrimaria: control.Resolucion.IdentidadPrimaria, Control: control.Resultado,
 		SolicitadaEn: control.Resultado.ArrendamientoIniciaEn.Add(time.Second),
 	}
 	mal := ResultadoReconciliacionBorrador{

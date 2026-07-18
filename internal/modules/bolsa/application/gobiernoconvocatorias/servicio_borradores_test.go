@@ -223,21 +223,30 @@ func (a *autorizadorPrueba) EvaluarDecisionBorrador(
 }
 
 type filaDiarioPrueba struct {
-	identidad          ProyeccionIdentidadOperacion
+	identidadPrimaria  ProyeccionIdentidadOperacion
 	resultado          ResultadoOperacionDiario
 	confirmacionOculta *SolicitudConfirmacionBorrador
+}
+
+type aliasDiarioPrueba struct {
+	identidad     ProyeccionIdentidadOperacion
+	clavePrimaria string
 }
 
 type diarioPrueba struct {
 	mu                 sync.Mutex
 	filas              map[string]filaDiarioPrueba
+	aliases            map[string]aliasDiarioPrueba
 	reservas, reclamos int
 	fallarTrasReserva  bool
 	ultima             *SolicitudReservaDecisionBorrador
+	ultimaReconciliada *ProyeccionIdentidadOperacion
 }
 
 func nuevoDiarioPrueba() *diarioPrueba {
-	return &diarioPrueba{filas: make(map[string]filaDiarioPrueba)}
+	return &diarioPrueba{
+		filas: make(map[string]filaDiarioPrueba), aliases: make(map[string]aliasDiarioPrueba),
+	}
 }
 
 func claveL(i ProyeccionIdentidadOperacion) string {
@@ -269,17 +278,37 @@ func (d *diarioPrueba) ConsultarIdentidades(
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	resultado := ResultadoConsultaIdentidadesBorrador{}
+	porPrimaria := make(map[string]int)
 	for _, identidad := range s.Identidades {
-		fila, existe := d.filas[claveL(identidad)]
+		alias, existe := d.aliases[claveL(identidad)]
 		if !existe {
 			continue
 		}
+		fila, existe := d.filas[alias.clavePrimaria]
+		if !existe {
+			return ResultadoConsultaIdentidadesBorrador{}, errors.New("alias huerfano")
+		}
 		estado := copiarResultado(fila.resultado)
-		if !mismaF(fila.identidad, identidad) {
+		if !mismaF(alias.identidad, identidad) {
 			estado = ResultadoOperacionDiario{Estado: ResultadoDiarioConflicto}
 		}
+		indice, agrupada := porPrimaria[alias.clavePrimaria]
+		if agrupada {
+			resultado.Coincidencias[indice].Resolucion.IdentidadesConsultadas = append(
+				resultado.Coincidencias[indice].Resolucion.IdentidadesConsultadas, identidad,
+			)
+			if estado.Estado == ResultadoDiarioConflicto {
+				resultado.Coincidencias[indice].Resultado = estado
+			}
+			continue
+		}
+		porPrimaria[alias.clavePrimaria] = len(resultado.Coincidencias)
 		resultado.Coincidencias = append(resultado.Coincidencias, CoincidenciaIdentidadBorrador{
-			Identidad: identidad, Resultado: estado,
+			Resolucion: ResolucionIdentidadBorrador{
+				IdentidadesConsultadas: []ProyeccionIdentidadOperacion{identidad},
+				IdentidadPrimaria:      fila.identidadPrimaria,
+			},
+			Resultado: estado,
 		})
 	}
 	return resultado, nil
@@ -295,14 +324,24 @@ func (d *diarioPrueba) ReservarDecision(
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	for _, identidad := range s.IdentidadesConsulta {
-		if fila, existe := d.filas[claveL(identidad)]; existe {
+		if alias, existe := d.aliases[claveL(identidad)]; existe {
+			fila, existe := d.filas[alias.clavePrimaria]
+			if !existe {
+				return ResultadoReservaDecisionBorrador{}, errors.New("alias huerfano")
+			}
 			resultado := copiarResultado(fila.resultado)
-			if !mismaF(fila.identidad, identidad) {
+			if !mismaF(alias.identidad, identidad) {
 				resultado = ResultadoOperacionDiario{Estado: ResultadoDiarioConflicto}
 			} else if resultado.Estado == ResultadoDiarioReservado {
 				resultado.Estado = ResultadoDiarioEnCurso
 			}
-			return ResultadoReservaDecisionBorrador{Identidad: identidad, Resultado: resultado}, nil
+			return ResultadoReservaDecisionBorrador{
+				Resolucion: ResolucionIdentidadBorrador{
+					IdentidadesConsultadas: []ProyeccionIdentidadOperacion{identidad},
+					IdentidadPrimaria:      fila.identidadPrimaria,
+				},
+				Resultado: resultado,
+			}, nil
 		}
 	}
 	p := s.Proyeccion
@@ -310,11 +349,25 @@ func (d *diarioPrueba) ReservarDecision(
 		Estado: ResultadoDiarioReservado, Revision: 1, Cercado: 1,
 		ArrendamientoIniciaEn: p.ArrendamientoIniciaEn, ArrendamientoVenceEn: p.ArrendamientoVenceEn,
 	}
-	d.filas[claveL(p.Identidad)] = filaDiarioPrueba{identidad: p.Identidad, resultado: resultado}
+	clavePrimaria := claveL(p.IdentidadPrimaria)
+	d.filas[clavePrimaria] = filaDiarioPrueba{
+		identidadPrimaria: p.IdentidadPrimaria, resultado: resultado,
+	}
+	for _, identidad := range s.IdentidadesConsulta {
+		d.aliases[claveL(identidad)] = aliasDiarioPrueba{
+			identidad: identidad, clavePrimaria: clavePrimaria,
+		}
+	}
 	d.reservas++
 	copia := s
 	d.ultima = &copia
-	respuesta := ResultadoReservaDecisionBorrador{Identidad: p.Identidad, Resultado: resultado}
+	respuesta := ResultadoReservaDecisionBorrador{
+		Resolucion: ResolucionIdentidadBorrador{
+			IdentidadesConsultadas: []ProyeccionIdentidadOperacion{p.IdentidadPrimaria},
+			IdentidadPrimaria:      p.IdentidadPrimaria,
+		},
+		Resultado: resultado,
+	}
 	if d.fallarTrasReserva {
 		d.fallarTrasReserva = false
 		return ResultadoReservaDecisionBorrador{}, errors.New("caida tras commit de reserva")

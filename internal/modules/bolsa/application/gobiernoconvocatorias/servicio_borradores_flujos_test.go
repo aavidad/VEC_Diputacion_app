@@ -135,8 +135,20 @@ func TestRotacionRechazaGeneracionDominioDuplicadosYAmbiguedad(t *testing.T) {
 		t.Fatal(err)
 	}
 	ambiguo := ResultadoConsultaIdentidadesBorrador{Coincidencias: []CoincidenciaIdentidadBorrador{
-		{Identidad: consulta.Identidades[0], Resultado: ResultadoOperacionDiario{Estado: ResultadoDiarioConflicto}},
-		{Identidad: consulta.Identidades[1], Resultado: ResultadoOperacionDiario{Estado: ResultadoDiarioConflicto}},
+		{
+			Resolucion: ResolucionIdentidadBorrador{
+				IdentidadesConsultadas: []ProyeccionIdentidadOperacion{consulta.Identidades[0]},
+				IdentidadPrimaria:      consulta.Identidades[0],
+			},
+			Resultado: ResultadoOperacionDiario{Estado: ResultadoDiarioConflicto},
+		},
+		{
+			Resolucion: ResolucionIdentidadBorrador{
+				IdentidadesConsultadas: []ProyeccionIdentidadOperacion{consulta.Identidades[1]},
+				IdentidadPrimaria:      consulta.Identidades[1],
+			},
+			Resultado: ResultadoOperacionDiario{Estado: ResultadoDiarioConflicto},
+		},
 	}}
 	if !errors.Is(ambiguo.ValidarPara(consulta), ErrConsultaIdempotenciaAmbigua) {
 		t.Fatal("dos generaciones coincidentes no fallaron de forma cerrada")

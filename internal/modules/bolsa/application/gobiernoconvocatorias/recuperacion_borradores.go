@@ -50,10 +50,40 @@ func identidadesConsultaValidas(identidades []ProyeccionIdentidadOperacion) bool
 	return true
 }
 
+// ResolucionIdentidadBorrador distingue las identidades efectivamente
+// consultadas de la identidad primaria canonica que posee la operacion. El
+// adaptador autoritativo debe demostrar que todos los alias pertenecen a esa
+// primaria; no puede limitarse a devolver la primera fila encontrada.
+type ResolucionIdentidadBorrador struct {
+	bloqueoSerializacionDiario
+	IdentidadesConsultadas []ProyeccionIdentidadOperacion
+	IdentidadPrimaria      ProyeccionIdentidadOperacion
+}
+
+func (r ResolucionIdentidadBorrador) validarPara(
+	candidatas []ProyeccionIdentidadOperacion,
+) bool {
+	if !r.IdentidadPrimaria.valida() || len(r.IdentidadesConsultadas) == 0 ||
+		len(r.IdentidadesConsultadas) > len(candidatas) {
+		return false
+	}
+	for indice, consultada := range r.IdentidadesConsultadas {
+		if !identidadIncluidaExactamente(consultada, candidatas) {
+			return false
+		}
+		for anterior := 0; anterior < indice; anterior++ {
+			if identidadesProyectadasCoinciden(consultada, r.IdentidadesConsultadas[anterior]) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 type CoincidenciaIdentidadBorrador struct {
 	bloqueoSerializacionDiario
-	Identidad ProyeccionIdentidadOperacion
-	Resultado ResultadoOperacionDiario
+	Resolucion ResolucionIdentidadBorrador
+	Resultado  ResultadoOperacionDiario
 }
 
 type ResultadoConsultaIdentidadesBorrador struct {
@@ -63,19 +93,19 @@ type ResultadoConsultaIdentidadesBorrador struct {
 
 type ResultadoReservaDecisionBorrador struct {
 	bloqueoSerializacionDiario
-	Identidad ProyeccionIdentidadOperacion
-	Resultado ResultadoOperacionDiario
+	Resolucion ResolucionIdentidadBorrador
+	Resultado  ResultadoOperacionDiario
 }
 
 func (r ResultadoReservaDecisionBorrador) ValidarPara(
 	s SolicitudReservaDecisionBorrador,
 ) error {
-	if s.Validar() != nil || !identidadIncluidaExactamente(r.Identidad, s.IdentidadesConsulta) ||
+	if s.Validar() != nil || !r.Resolucion.validarPara(s.IdentidadesConsulta) ||
 		!resultadoDiarioValido(r.Resultado) || r.Resultado.Estado == ResultadoDiarioAusente {
 		return ErrReservaBorradorInvalida
 	}
 	if r.Resultado.Estado == ResultadoDiarioReservado &&
-		(!identidadesProyectadasCoinciden(r.Identidad, s.Proyeccion.Identidad) ||
+		(!identidadesProyectadasCoinciden(r.Resolucion.IdentidadPrimaria, s.Proyeccion.IdentidadPrimaria) ||
 			r.Resultado.Revision == 0 || r.Resultado.Cercado == 0 ||
 			!r.Resultado.ArrendamientoIniciaEn.Equal(s.Proyeccion.ArrendamientoIniciaEn) ||
 			!r.Resultado.ArrendamientoVenceEn.Equal(s.Proyeccion.ArrendamientoVenceEn)) {
@@ -91,15 +121,16 @@ func (r ResultadoConsultaIdentidadesBorrador) ValidarPara(
 		return ErrReservaBorradorInvalida
 	}
 	for indice, coincidencia := range r.Coincidencias {
-		if !identidadIncluidaExactamente(coincidencia.Identidad, s.Identidades) ||
+		if !coincidencia.Resolucion.validarPara(s.Identidades) ||
 			!resultadoDiarioValido(coincidencia.Resultado) ||
 			coincidencia.Resultado.Estado == ResultadoDiarioAusente {
 			return ErrReservaBorradorInvalida
 		}
 		for anterior := 0; anterior < indice; anterior++ {
 			if identidadesProyectadasCoinciden(
-				coincidencia.Identidad, r.Coincidencias[anterior].Identidad,
-			) {
+				coincidencia.Resolucion.IdentidadPrimaria,
+				r.Coincidencias[anterior].Resolucion.IdentidadPrimaria,
+			) || resolucionesCompartenAlias(coincidencia.Resolucion, r.Coincidencias[anterior].Resolucion) {
 				return ErrConsultaIdempotenciaAmbigua
 			}
 		}
@@ -110,11 +141,22 @@ func (r ResultadoConsultaIdentidadesBorrador) ValidarPara(
 	return nil
 }
 
+func resolucionesCompartenAlias(a, b ResolucionIdentidadBorrador) bool {
+	for _, izquierda := range a.IdentidadesConsultadas {
+		for _, derecha := range b.IdentidadesConsultadas {
+			if identidadesProyectadasCoinciden(izquierda, derecha) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 type SolicitudReconciliacionBorrador struct {
 	bloqueoSerializacionDiario
-	Identidad    ProyeccionIdentidadOperacion
-	Control      ResultadoOperacionDiario
-	SolicitadaEn time.Time
+	IdentidadPrimaria ProyeccionIdentidadOperacion
+	Control           ResultadoOperacionDiario
+	SolicitadaEn      time.Time
 }
 
 func (s SolicitudReconciliacionBorrador) Validar() error {
@@ -122,7 +164,7 @@ func (s SolicitudReconciliacionBorrador) Validar() error {
 		s.Control.Estado == ResultadoDiarioEnCurso ||
 		s.Control.Estado == ResultadoDiarioIndeterminado ||
 		s.Control.Estado == ResultadoDiarioNoAplicado
-	if !s.Identidad.valida() || !resultadoDiarioValido(s.Control) || !estadoReconciliable ||
+	if !s.IdentidadPrimaria.valida() || !resultadoDiarioValido(s.Control) || !estadoReconciliable ||
 		!instanteOperacionCanonico(s.SolicitadaEn) ||
 		s.SolicitadaEn.Before(s.Control.ArrendamientoIniciaEn) {
 		return ErrReconciliacionBorradorInvalida
@@ -192,22 +234,24 @@ func (r ResultadoReconciliacionBorrador) ValidarPara(
 
 type SolicitudReclamacionDecisionBorrador struct {
 	bloqueoSerializacionDiario
-	IdentidadAnterior ProyeccionIdentidadOperacion
-	Reconciliacion    ResultadoReconciliacionBorrador
-	Nueva             SolicitudReservaDecisionBorrador
-	SolicitadaEn      time.Time
+	ResolucionAnterior ResolucionIdentidadBorrador
+	Reconciliacion     ResultadoReconciliacionBorrador
+	Nueva              SolicitudReservaDecisionBorrador
+	SolicitadaEn       time.Time
 }
 
 func (s SolicitudReclamacionDecisionBorrador) Validar() error {
 	anterior := s.Reconciliacion.Resultado
-	if !s.IdentidadAnterior.valida() || anterior.Estado != ResultadoDiarioNoAplicado ||
+	if !s.ResolucionAnterior.validarPara(s.Nueva.IdentidadesConsulta) || anterior.Estado != ResultadoDiarioNoAplicado ||
 		!resultadoDiarioValido(anterior) || !referenciaProyeccionValida(s.Reconciliacion.PruebaDesenlaceRef) ||
 		!huellaHexValida(s.Reconciliacion.HuellaPruebaSHA256) ||
 		!instanteOperacionCanonico(s.Reconciliacion.ComprobadaEn) ||
 		s.Reconciliacion.ComprobadaEn.Before(anterior.ArrendamientoVenceEn) ||
 		!instanteOperacionCanonico(s.SolicitadaEn) || s.SolicitadaEn.Before(s.Reconciliacion.ComprobadaEn) ||
 		s.Nueva.validar(false) != nil || !s.Nueva.SolicitadaEn.Equal(s.SolicitadaEn) ||
-		!identidadesProyectadasCoinciden(s.IdentidadAnterior, s.Nueva.Proyeccion.Identidad) {
+		!identidadesProyectadasCoinciden(
+			s.ResolucionAnterior.IdentidadPrimaria, s.Nueva.Proyeccion.IdentidadPrimaria,
+		) {
 		return ErrReclamacionBorradorInvalida
 	}
 	return nil

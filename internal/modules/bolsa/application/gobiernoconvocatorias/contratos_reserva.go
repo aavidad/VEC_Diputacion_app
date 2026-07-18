@@ -96,7 +96,9 @@ func nuevaProyeccionIdentidadOperacion(
 }
 
 func (p ProyeccionIdentidadOperacion) valida() bool {
-	return p.Localizador.valida("localizador") && p.HuellaSolicitud.valida("huella_solicitud")
+	return p.Localizador.valida("localizador") && p.HuellaSolicitud.valida("huella_solicitud") &&
+		p.Localizador.VersionEsquema == p.HuellaSolicitud.VersionEsquema &&
+		p.Localizador.GeneracionClave == p.HuellaSolicitud.GeneracionClave
 }
 
 func (p ProyeccionIdentidadOperacion) Validar() error {
@@ -243,7 +245,7 @@ func mismosCamposDecision(a, b []string) bool {
 // Clave cliente, actor/principal y motivo en claro son imposibles de expresar.
 type ProyeccionReservaDecision struct {
 	bloqueoSerializacionDiario
-	Identidad             ProyeccionIdentidadOperacion
+	IdentidadPrimaria     ProyeccionIdentidadOperacion
 	Accion                string
 	Decision              ProyeccionDecisionDiario
 	ArrendamientoIniciaEn time.Time
@@ -291,10 +293,9 @@ func (s SolicitudReservaDecisionBorrador) validar(requierePrimaria bool) error {
 		!s.Proyeccion.valida() || s.Proyeccion.Accion != s.Material.Accion ||
 		s.Proyeccion.Decision != decisionEsperada ||
 		!identidadesConsultaValidas(s.IdentidadesConsulta) ||
-		!identidadIncluidaExactamente(s.Proyeccion.Identidad, s.IdentidadesConsulta) ||
-		requierePrimaria && !identidadesProyectadasCoinciden(
-			s.Proyeccion.Identidad, s.IdentidadesConsulta[0],
-		) {
+		(requierePrimaria && !identidadesProyectadasCoinciden(
+			s.Proyeccion.IdentidadPrimaria, s.IdentidadesConsulta[0],
+		)) {
 		return ErrReservaBorradorInvalida
 	}
 	return nil
@@ -347,7 +348,7 @@ func nuevaProyeccionReservaDecision(
 	arrendamiento ArrendamientoDiario,
 ) (ProyeccionReservaDecision, error) {
 	resultado := ProyeccionReservaDecision{
-		Identidad: identidad, Accion: accion,
+		IdentidadPrimaria: identidad, Accion: accion,
 		Decision: decision, ArrendamientoIniciaEn: arrendamiento.iniciaEn,
 		ArrendamientoVenceEn: arrendamiento.venceEn,
 	}
@@ -358,7 +359,7 @@ func nuevaProyeccionReservaDecision(
 }
 
 func (p ProyeccionReservaDecision) valida() bool {
-	return p.Identidad.valida() &&
+	return p.IdentidadPrimaria.valida() &&
 		(p.Accion == puertosbolsa.AccionCrearBorradorConvocatoria ||
 			p.Accion == puertosbolsa.AccionActualizarBorradorConvocatoria) &&
 		p.Decision.valida() && p.Decision.Accion == p.Accion &&
@@ -401,7 +402,7 @@ type ProyeccionReciboBorrador struct {
 	TransaccionRef           string
 	Accion                   string
 	EstadoPrincipal          puertosbolsa.ReferenciaEstadoVersionConvocatoria
-	Identidad                ProyeccionIdentidadOperacion
+	IdentidadPrimaria        ProyeccionIdentidadOperacion
 	Decision                 ProyeccionDecisionDiario
 	SelladoMotivo            ProyeccionSelladoMotivoBorrador
 	RevisionConfirmada       uint64
@@ -426,10 +427,12 @@ type ResultadoOperacionDiario struct {
 }
 
 // DiarioOperacionesBorrador es el limite PostgreSQL del diario. Cada metodo
-// usa reloj de base de datos. Reserva comprueba todas las generaciones y solo
-// inserta la primaria; reconciliacion demuestra COMMIT/ROLLBACK y reclamacion
-// aplica CAS. Cerrar como no_aplicado y reclamar elevan revision+cercado; un
-// COMMIT eleva revision pero conserva el cercado del epoch propietario.
+// usa reloj de base de datos. Reserva comprueba todas las generaciones, crea
+// una unica fila primaria y registra atomicamente la pertenencia de todos sus
+// alias; reconciliacion demuestra COMMIT/ROLLBACK y reclamacion aplica CAS
+// siempre sobre la primaria. Cerrar como no_aplicado y reclamar elevan
+// revision+cercado; un COMMIT eleva revision pero conserva el cercado del
+// epoch propietario.
 type DiarioOperacionesBorrador interface {
 	ConsultarIdentidades(context.Context, SolicitudConsultaIdentidadesBorrador) (ResultadoConsultaIdentidadesBorrador, error)
 	ReservarDecision(context.Context, SolicitudReservaDecisionBorrador) (ResultadoReservaDecisionBorrador, error)
@@ -617,6 +620,8 @@ type SolicitudConfirmacionBorrador struct {
 	CorrelacionRef string
 	Concesion      ConcesionBorradorDurable
 	SelladoMotivo  ProyeccionSelladoMotivoBorrador
+	PerfilCifrado  PerfilCifradoBorrador
+	Cifrado        ResultadoCifradoBorrador
 	SolicitadaEn   time.Time
 }
 
@@ -627,8 +632,13 @@ func (s SolicitudConfirmacionBorrador) valida() bool {
 		s.Concesion.Evidencia, s.Material, s.Version, s.Actor, s.CorrelacionRef,
 		s.SolicitadaEn, s.Concesion.Atestacion,
 	)
+	solicitudCifrado, errCifrado := nuevaSolicitudCifradoBorrador(
+		s.Version, s.Reserva, s.Control, s.Material, s.SelladoMotivo,
+		s.PerfilCifrado, s.CorrelacionRef, s.Cifrado.SolicitadaEn,
+	)
 	return err == nil && errDecision == nil && s.Version.Validar() == nil &&
-		errProyeccion == nil && s.Reserva.Decision == decisionEsperada &&
+		errProyeccion == nil && errCifrado == nil && s.Cifrado.validaPara(solicitudCifrado) &&
+		s.Reserva.Decision == decisionEsperada &&
 		s.Material.Validar() == nil && estado == s.Material.EstadoPrincipalNuevo &&
 		s.Reserva.valida() && s.Reserva.Accion == s.Material.Accion &&
 		s.Control.Estado == ResultadoDiarioReservado && s.Control.Revision > 0 &&
@@ -637,6 +647,8 @@ func (s SolicitudConfirmacionBorrador) valida() bool {
 		s.Reserva.Decision.DecisionRef == datosDecision.Decision.DecisionRef &&
 		s.Reserva.Decision.HuellaDecisionSHA256 == datosDecision.HuellaDecisionSHA256 &&
 		s.SelladoMotivo.validaPara(s.Material, s.SolicitadaEn) &&
+		!s.SolicitadaEn.Before(s.Cifrado.CifradoEn) &&
+		s.SolicitadaEn.Before(s.Cifrado.AtestacionKMS.ValidaHasta) &&
 		instanteOperacionCanonico(s.SolicitadaEn) &&
 		!s.SolicitadaEn.Before(s.Reserva.ArrendamientoIniciaEn) &&
 		s.SolicitadaEn.Before(s.Reserva.ArrendamientoVenceEn)
@@ -651,8 +663,10 @@ func (s SolicitudConfirmacionBorrador) Validar() error {
 
 type ConfirmadorAtomicoBorrador interface {
 	// ConfirmarBorrador bloquea y relee diario, decision/atestacion y agregado;
-	// aplica CAS sobre revision+cercado y confirma agregado, consumo de sellado,
-	// auditoria, outbox, recibo y estado terminal en un unico COMMIT. Un cercado
+	// revalida de forma autoritativa la atestacion KMS dentro de esa misma
+	// seccion critica; aplica CAS sobre revision+cercado y persiste solo el sobre
+	// cifrado y su envoltura de clave junto a consumo de sellado, auditoria,
+	// outbox, recibo y estado terminal en un unico COMMIT. Un cercado
 	// obsoleto nunca produce efecto; los recibos terminales se recuperan por la
 	// consulta idempotente, no reutilizando una orden de confirmacion obsoleta.
 	ConfirmarBorrador(
