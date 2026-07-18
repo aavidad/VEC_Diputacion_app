@@ -4,18 +4,22 @@ import test from "node:test";
 import {
   extraerDatosEnvelopeCanonico,
   validarPanelBolsa,
-  validarPropuestaLlamamiento,
 } from "./portal-contrato.js";
-import { obtenerDatosPresentacion } from "./datos-presentacion.js";
+import { validarPropuestaLlamamientoPresentacion } from "./portal-llamamientos-contrato.js";
+import { obtenerDatosPresentacion, obtenerPropuestaPresentacion } from "./datos-presentacion.js";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 
 const directorio = new URL("./", import.meta.url);
-const [html, javascript, eventos, contrato, panelInterno, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos] = await Promise.all([
+const [html, javascript, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, vistaLlamamientos, panelInterno, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos] = await Promise.all([
   readFile(new URL("index.html", directorio), "utf8"),
   readFile(new URL("portal.js", directorio), "utf8"),
   readFile(new URL("portal-eventos.js", directorio), "utf8"),
   readFile(new URL("portal-contrato.js", directorio), "utf8"),
+  readFile(new URL("portal-llamamientos-contrato.js", directorio), "utf8"),
+  readFile(new URL("portal-llamamientos-api.js", directorio), "utf8"),
+  readFile(new URL("portal-llamamientos-flujo.js", directorio), "utf8"),
+  readFile(new URL("portal-llamamientos-vista.js", directorio), "utf8"),
   readFile(new URL("portal-panel-interno.js", directorio), "utf8"),
   readFile(new URL("datos-presentacion.js", directorio), "utf8"),
   readFile(new URL("ayuda-contenido.js", directorio), "utf8"),
@@ -23,7 +27,7 @@ const [html, javascript, eventos, contrato, panelInterno, datos, ayuda, estilosB
   readFile(new URL("portal-componentes.css", directorio), "utf8"),
   readFile(new URL("portal-flujos.css", directorio), "utf8"),
 ]);
-const codigo = `${javascript}\n${eventos}\n${contrato}\n${panelInterno}`;
+const codigo = `${javascript}\n${eventos}\n${contrato}\n${contratoLlamamientos}\n${apiLlamamientos}\n${flujoLlamamientos}\n${vistaLlamamientos}\n${panelInterno}`;
 const estilos = `${estilosBase}\n${estilosComponentes}\n${estilosFlujos}`;
 
 function panelInternoReal() {
@@ -80,8 +84,8 @@ function panelInternoReal() {
 
 test("la ruta normal usa API protegida sin cookies y no cae a datos sintéticos", () => {
   assert.match(javascript, /const API_PANEL_BOLSA = "\/api\/vec\/bolsa\/panel"/);
-  assert.equal(javascript.match(/credentials: "omit"/g)?.length, 2, "todas las llamadas internas deben omitir cookies");
-  assert.doesNotMatch(javascript, /credentials: "(?:same-origin|include)"/);
+  assert.equal(`${javascript}\n${apiLlamamientos}`.match(/credentials: "omit"/g)?.length, 2, "todas las llamadas internas deben omitir cookies");
+  assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /credentials: "(?:same-origin|include)"/);
   assert.doesNotMatch(javascript, /document\.cookie|localStorage.*(?:token|sesion|auth)/i);
   assert.match(javascript, /extraerDatosEnvelopeCanonico\(envelope\)/);
   assert.match(contrato, /la API interna no puede responder con datos de demostración/);
@@ -107,16 +111,12 @@ test("el panel global prohíbe candidatos y la propuesta es un contrato separado
   assert.doesNotMatch(datos, /\bcandidatos\s*:/);
   assert.doesNotMatch(datos, /\bdni\s*:/i);
   assert.doesNotMatch(codigo, /data-candidato|Nombre o DNI parcial|filtros-candidatos/);
-  const propuesta = validarPropuestaLlamamiento({
-    esquema: "vec.bolsa.propuesta-llamamiento.presentacion.v1", demostracion: true,
-    id: "propuesta-sintetica", necesidad_id: "necesidad-sintetica", personas_incluidas: 1,
-    evaluaciones: [{ secuencia: 1, resultado: "Elegible", puntuacion: 1, regla: "R1", fundamento: "Caso sintético" }],
-  }, true);
-  assert.deepEqual(Object.keys(propuesta.evaluaciones[0]), ["secuencia", "resultado", "puntuacion", "regla", "fundamento"]);
-  assert.throws(() => validarPropuestaLlamamiento({
-    esquema: "vec.bolsa.propuesta-llamamiento.presentacion.v1", demostracion: true,
-    evaluaciones: [{ secuencia: 1, nombre: "dato no permitido" }],
-  }, true), /no admite identidad ni contacto/);
+  const propuesta = validarPropuestaLlamamientoPresentacion(obtenerPropuestaPresentacion("NEC-2026-0045"));
+  assert.deepEqual(Object.keys(propuesta.evaluaciones[0]), ["orden", "resultado", "motivos"]);
+  assert.throws(() => validarPropuestaLlamamientoPresentacion({
+    ...obtenerPropuestaPresentacion("NEC-2026-0045"),
+    nombre: "dato no permitido",
+  }), /contrato cerrado/);
 });
 
 test("el contrato real falla cerrado y no completa datos ausentes con ceros o listas", () => {
@@ -178,19 +178,23 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260718-borradores-v1/);
+  assert.match(html, /portal\.js\?v=20260718-llamamientos-v1/);
   assert.match(panelInterno, /export function crearPresentadorPanelInterno/);
 });
 
-test("solicitar una propuesta está preparado con idempotencia y cerrado por capacidad", () => {
-  assert.match(javascript, /const API_PROPUESTAS_LLAMAMIENTO = "\/api\/vec\/bolsa\/propuestas-llamamiento"/);
-  assert.match(javascript, /if \(!puedeSolicitarPropuesta\(\)\)[\s\S]{0,180}return/);
-  assert.match(javascript, /"Idempotency-Key": estado\.claveIdempotenciaPropuesta/);
-  assert.match(javascript, /esquema: "vec\.bolsa\.propuesta-llamamiento\.solicitud\.v1"/);
+test("la propuesta real usa el cliente cerrado y no habilita un detalle inexistente", () => {
+  assert.match(apiLlamamientos, /const RUTA_PROPUESTAS_LLAMAMIENTO = "\/api\/vec\/bolsa\/propuestas-llamamiento"/);
+  assert.match(apiLlamamientos, /if \(capacidad !== true\)/);
+  assert.match(apiLlamamientos, /esquema: "vec\.bolsa\.propuesta-llamamiento\.solicitud\.v1"/);
+  assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /Idempotency-Key|randomUUID|claveIdempotenciaPropuesta/);
   assert.match(datos, /solicitar_propuesta_llamamiento: false/);
   assert.match(codigo, /el navegador no elige personas/i);
-  assert.match(javascript, /La propuesta sintética se carga localmente: no ejecuta el POST/);
+  assert.match(javascript, /adaptador local de presentación y no realiza tráfico de red/);
   assert.match(javascript, /Propuesta sintética de elegibilidad/);
+  assert.match(`${flujoLlamamientos}\n${vistaLlamamientos}`, /Detalle no disponible/);
+  assert.match(eventos, /if \(resultado\.avanzar === true\) estado\.pasoLlamamiento = 2/);
+  assert.doesNotMatch(datos, /puntuacion|Puntuación/);
+  assert.doesNotMatch(contratoLlamamientos, /evaluaciones.*confirmacion|camposEvaluacion/i);
 });
 
 test("los datos de presentación están aislados y se activan de forma explícita", () => {

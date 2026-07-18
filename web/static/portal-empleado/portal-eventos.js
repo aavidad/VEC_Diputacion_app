@@ -53,8 +53,8 @@ export function crearControladorPortal(dependencias) {
       case "nuevo-llamamiento":
         estado.pasoLlamamiento = 1;
         estado.propuestaLlamamiento = null;
+        estado.confirmacionPropuestaLlamamiento = null;
         estado.errorPropuesta = "";
-        estado.claveIdempotenciaPropuesta = "";
         navegar("llamamientos");
         break;
       case "nueva-bolsa":
@@ -71,8 +71,8 @@ export function crearControladorPortal(dependencias) {
       case "seleccionar-necesidad": {
         estado.necesidadSeleccionada = id;
         estado.propuestaLlamamiento = null;
+        estado.confirmacionPropuestaLlamamiento = null;
         estado.errorPropuesta = "";
-        estado.claveIdempotenciaPropuesta = "";
         estado.pasoLlamamiento = 1;
         renderizar();
         anunciar("Necesidad de cobertura seleccionada");
@@ -90,13 +90,22 @@ export function crearControladorPortal(dependencias) {
           renderizar();
           break;
         }
-        estado.pasoLlamamiento = 2;
+        if (resultado.avanzar === true) estado.pasoLlamamiento = 2;
+        else estado.pasoLlamamiento = 1;
         renderizar();
         porId("contenido-principal")?.focus({ preventScroll: true });
-        anunciar(resultado.sintetica ? "Propuesta sintética cargada sin consultar el servidor" : "Propuesta recibida del servidor");
+        anunciar(resultado.mensaje || (resultado.sintetica
+          ? "Propuesta sintética cargada sin consultar el servidor"
+          : "Confirmación de propuesta recibida; detalle no disponible"));
         break;
       }
       case "siguiente-paso":
+        if (!estado.modoPresentacion || estado.propuestaLlamamiento?.demostracion !== true) {
+          estado.pasoLlamamiento = 1;
+          renderizar();
+          anunciar("Detalle no disponible. La configuración del llamamiento permanece bloqueada.");
+          break;
+        }
         estado.pasoLlamamiento = Math.min(4, estado.pasoLlamamiento + 1);
         renderizar();
         porId("contenido-principal")?.focus({ preventScroll: true });
@@ -109,6 +118,12 @@ export function crearControladorPortal(dependencias) {
         break;
       case "ir-paso": {
         const paso = Number(boton.dataset.paso);
+        if (!estado.modoPresentacion && paso > 1) {
+          estado.pasoLlamamiento = 1;
+          renderizar();
+          anunciar("Detalle no disponible. Los pasos posteriores no están conectados.");
+          break;
+        }
         if (paso >= 1 && paso <= 4 && paso <= estado.pasoLlamamiento) {
           estado.pasoLlamamiento = paso;
           renderizar();
@@ -118,7 +133,7 @@ export function crearControladorPortal(dependencias) {
         break;
       }
       case "validar-recorrido":
-        abrirDialogo("Recorrido validado", `<p class="nota-seguridad">La preparación se ha revisado sin enviar comunicaciones ni modificar datos.</p><p>${escaparHTML(notaOperacionNoCompuesta())}</p>`);
+        abrirDialogo("Presentación comprobada", '<p class="nota-seguridad">Se ha revisado únicamente el recorrido sintético. No se ha creado expediente, enviado comunicación ni modificado dato alguno.</p>');
         break;
       case "imprimir":
         window.print();

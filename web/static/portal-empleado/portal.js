@@ -3,8 +3,12 @@ import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=202607
 import {
   extraerDatosEnvelopeCanonico,
   validarPanelBolsa,
-  validarPropuestaLlamamiento,
 } from "./portal-contrato.js?v=20260717-panel-interno-v1";
+import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
+import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
+import {
+  renderizarConfirmacionCompacta, renderizarDetalleLlamamientoBloqueado, renderizarPasosLlamamiento,
+} from "./portal-llamamientos-vista.js?v=20260718-llamamientos-v1";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
 import { PROVEEDOR_BEARER_BORRADORES, crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260718-borradores-v1";
 
@@ -19,7 +23,6 @@ import { PROVEEDOR_BEARER_BORRADORES, crearSuperficieBorradoresPortal } from "./
  * docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md.
  */
 const API_PANEL_BOLSA = "/api/vec/bolsa/panel";
-const API_PROPUESTAS_LLAMAMIENTO = "/api/vec/bolsa/propuestas-llamamiento";
 const DATOS_VACIOS = Object.freeze({
   esquema: "vec.bolsa.panel.no-cargado.v1",
   demostracion: false,
@@ -45,6 +48,7 @@ const DATOS_VACIOS = Object.freeze({
 
 let DATOS_PANEL = DATOS_VACIOS;
 let obtenerPropuestaPresentacion = null;
+const clientePropuestasLlamamiento = crearClientePropuestasLlamamiento();
 
 const TITULOS = Object.freeze({
   portal: ["Portal del Empleado", "Portal del Empleado"],
@@ -69,9 +73,9 @@ const estado = {
   necesidadSeleccionada: "",
   elaboracionSeleccionada: "",
   propuestaLlamamiento: null,
+  confirmacionPropuestaLlamamiento: null,
   solicitandoPropuesta: false,
   errorPropuesta: "",
-  claveIdempotenciaPropuesta: "",
 };
 
 const porId = (id) => document.getElementById(id);
@@ -215,44 +219,26 @@ async function solicitarPropuestaLlamamiento() {
   const necesidad = necesidadLlamamientoSeleccionada();
   if (!necesidad) return { ok: false, mensaje: "Seleccione una necesidad de cobertura." };
   if (estado.modoPresentacion) {
-    const propuesta = obtenerPropuestaPresentacion?.(necesidad.id);
-    estado.propuestaLlamamiento = validarPropuestaLlamamiento(propuesta, true);
-    return { ok: true, sintetica: true };
-  }
-  if (!puedeSolicitarPropuesta()) {
-    return { ok: false, mensaje: "El servidor no ha concedido la capacidad para solicitar propuestas." };
+    const resultado = await resolverSolicitudPropuestaLlamamiento({
+      modoPresentacion: true, necesidadId: necesidad.id, capacidad: false,
+      obtenerPresentacion: obtenerPropuestaPresentacion, cliente: clientePropuestasLlamamiento,
+    });
+    if (resultado.ok) estado.propuestaLlamamiento = resultado.propuesta;
+    return resultado;
   }
   if (estado.solicitandoPropuesta) return { ok: false, mensaje: "La solicitud ya está en curso." };
-  if (typeof globalThis.crypto?.randomUUID !== "function") {
-    return { ok: false, mensaje: "No se puede generar una clave de idempotencia segura." };
-  }
 
   estado.solicitandoPropuesta = true;
   estado.errorPropuesta = "";
-  estado.claveIdempotenciaPropuesta ||= globalThis.crypto.randomUUID();
   renderizar();
   try {
-    const respuesta = await fetch(API_PROPUESTAS_LLAMAMIENTO, {
-      method: "POST",
-      credentials: "omit",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "Idempotency-Key": estado.claveIdempotenciaPropuesta,
-      },
-      body: JSON.stringify({
-        data: {
-          esquema: "vec.bolsa.propuesta-llamamiento.solicitud.v1",
-          necesidad_id: necesidad.id,
-        },
-      }),
+    const resultado = await resolverSolicitudPropuestaLlamamiento({
+      modoPresentacion: false, necesidadId: necesidad.id, capacidad: puedeSolicitarPropuesta(),
+      obtenerPresentacion: null, cliente: clientePropuestasLlamamiento,
     });
-    if (!respuesta.ok) throw new Error(`No se pudo obtener la propuesta (HTTP ${respuesta.status}).`);
-    const datos = extraerDatosEnvelopeCanonico(await respuesta.json());
-    const propuesta = validarPropuestaLlamamiento(datos, false);
-    if (propuesta.necesidad_id !== necesidad.id) throw new Error("La propuesta no corresponde a la necesidad solicitada.");
-    estado.propuestaLlamamiento = propuesta;
-    return { ok: true, sintetica: false };
+    if (!resultado.ok) throw new Error(resultado.mensaje);
+    estado.confirmacionPropuestaLlamamiento = resultado.confirmacion;
+    return resultado;
   } catch (error) {
     estado.errorPropuesta = error instanceof Error ? error.message : "No se pudo obtener la propuesta.";
     return { ok: false, mensaje: estado.errorPropuesta };
@@ -495,19 +481,16 @@ function claseEstado(estadoTexto) {
   return "neutro";
 }
 
-function pasosLlamamiento() {
-  const nombres = ["Elegir necesidad", "Revisar propuesta", "Configurar llamamiento", "Revisar y preparar"];
-  return `<nav class="pasos" aria-label="Pasos del nuevo llamamiento">${nombres.map((nombre, indice) => {
-    const paso = indice + 1;
-    const clase = paso < estado.pasoLlamamiento ? "completado" : "";
-    const actual = paso === estado.pasoLlamamiento ? ' aria-current="step"' : "";
-    return `<button type="button" class="paso ${clase}" data-accion="ir-paso" data-paso="${paso}"${actual}><span class="paso-numero">${paso < estado.pasoLlamamiento ? "✓" : paso}</span><span>${escaparHTML(nombre)}</span></button>`;
-  }).join("")}</nav>`;
-}
-
 function propuestaLlamamientoActual() {
   const necesidad = necesidadLlamamientoSeleccionada();
   return estado.propuestaLlamamiento?.necesidad_id === necesidad?.id ? estado.propuestaLlamamiento : null;
+}
+
+function confirmacionPropuestaActual() {
+  const necesidad = necesidadLlamamientoSeleccionada();
+  return estado.confirmacionPropuestaLlamamiento?.necesidad?.referencia === necesidad?.id
+    ? estado.confirmacionPropuestaLlamamiento
+    : null;
 }
 
 function renderizarLlamamiento() {
@@ -515,35 +498,37 @@ function renderizarLlamamiento() {
   if (!necesidad) {
     return `${encabezadoVista("Llamamientos según bases y Reglamento", "Nuevo llamamiento", "No existe ninguna necesidad de cobertura accesible.")}<section class="panel"><div class="vacio-controlado">No hay necesidades pendientes en el ámbito autorizado.</div></section>`;
   }
+  const pasoVisible = estado.modoPresentacion ? estado.pasoLlamamiento : 1;
   const bolsa = bolsaDeNecesidad(necesidad);
   return `
-    ${encabezadoVista("Llamamientos según bases y Reglamento", estado.pasoLlamamiento === 1 ? "Nuevo llamamiento" : `Nuevo llamamiento · Paso ${estado.pasoLlamamiento}`, "El servidor aplica prelación, elegibilidad y reglas a una necesidad concreta; el navegador no elige personas.", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button>')}
+    ${encabezadoVista("Llamamientos según bases y Reglamento", pasoVisible === 1 ? "Nuevo llamamiento" : `Nuevo llamamiento · Paso ${pasoVisible}`, "El servidor aplica prelación, elegibilidad y reglas a una necesidad concreta; el navegador no elige personas.", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button>')}
     <section class="nota-seguridad">Privacidad por diseño: la consulta global no descarga el censo de la bolsa. Solo el comando de propuesta puede evaluar la necesidad y su respuesta visible excluye identidad y contacto.</section>
-    ${pasosLlamamiento()}
-    ${estado.pasoLlamamiento === 1 ? renderizarPasoNecesidad(necesidad, bolsa) : ""}
-    ${estado.pasoLlamamiento === 2 ? renderizarPasoPropuesta(necesidad, bolsa) : ""}
-    ${estado.pasoLlamamiento === 3 ? renderizarPasoConfiguracion(necesidad, bolsa) : ""}
-    ${estado.pasoLlamamiento === 4 ? renderizarPasoRevision(necesidad, bolsa) : ""}`;
+    ${renderizarPasosLlamamiento({ modoPresentacion: estado.modoPresentacion, pasoActual: pasoVisible })}
+    ${pasoVisible === 1 ? renderizarPasoNecesidad(necesidad, bolsa) : ""}
+    ${pasoVisible === 2 ? renderizarPasoPropuesta(necesidad, bolsa) : ""}
+    ${pasoVisible === 3 ? renderizarPasoConfiguracion(necesidad, bolsa) : ""}
+    ${pasoVisible === 4 ? renderizarPasoRevision(necesidad, bolsa) : ""}`;
 }
 
 function renderizarPasoNecesidad(necesidad, bolsa) {
-  const puedeMostrar = estado.modoPresentacion || puedeSolicitarPropuesta();
+  const confirmacion = confirmacionPropuestaActual();
+  const puedeMostrar = (estado.modoPresentacion || puedeSolicitarPropuesta()) && !confirmacion;
   const etiquetaAccion = estado.modoPresentacion ? "Mostrar propuesta sintética" : "Solicitar propuesta al servidor";
   const notaCapacidad = estado.modoPresentacion
-    ? "La propuesta sintética se carga localmente: no ejecuta el POST ni genera una clave de idempotencia."
+    ? "La propuesta sintética se carga desde el adaptador local de presentación y no realiza tráfico de red."
     : puedeMostrar
-      ? "La petición quedará ligada a esta necesidad y a una clave de idempotencia."
+      ? "La API devolverá únicamente una confirmación compacta ligada a esta necesidad."
     : "Acción deshabilitada: la sesión no ha recibido la capacidad positiva del servidor.";
   return `
     <div class="distribucion-llamamiento">
       <div class="columna-cuadro">
         <section class="panel">
-          <div class="cabecera-panel"><div><h3>1. Elegir necesidad de cobertura</h3><p>La necesidad identifica puesto, destino, condiciones y bolsa aplicable antes de evaluar la prelación.</p></div></div>
+          <div class="cabecera-panel"><div><h3>1. ${estado.modoPresentacion ? "Elegir necesidad de demostración" : "Elegir necesidad de cobertura"}</h3><p>La necesidad identifica puesto, destino, condiciones y bolsa aplicable antes de evaluar la prelación.</p></div>${estado.modoPresentacion ? '<span class="estado-chip info">Demostración</span>' : ""}</div>
           <div class="tabla-contenedor">
             <table class="tabla-datos tabla-necesidades">
-              <caption>Necesidades pendientes de propuesta en el ámbito autorizado</caption>
+              <caption>${estado.modoPresentacion ? "Necesidades sintéticas de presentación" : "Necesidades pendientes de propuesta en el ámbito autorizado"}</caption>
               <thead><tr><th scope="col">Referencia</th><th scope="col">Puesto o categoría</th><th scope="col">Destino</th><th scope="col">Cobertura</th><th scope="col">Jornada</th><th scope="col">Fecha límite</th><th scope="col">Estado</th><th scope="col">Acción</th></tr></thead>
-              <tbody>${DATOS_PANEL.necesidades_llamamiento.map((item) => `<tr aria-selected="${item.id === necesidad.id}"><td><strong>${escaparHTML(item.referencia)}</strong></td><td>${escaparHTML(item.puesto)}</td><td>${escaparHTML(item.destino)}</td><td>${escaparHTML(item.cobertura)}</td><td>${escaparHTML(item.jornada)}</td><td>${escaparHTML(item.fecha_limite)}</td><td><span class="estado-chip ${claseEstado(item.estado)}">${escaparHTML(item.estado)}</span></td><td><button type="button" class="boton-secundario" data-accion="seleccionar-necesidad" data-id="${escaparHTML(item.id)}">${item.id === necesidad.id ? "Seleccionada" : "Seleccionar"}</button></td></tr>`).join("")}</tbody>
+              <tbody>${DATOS_PANEL.necesidades_llamamiento.map((item) => `<tr aria-selected="${item.id === necesidad.id}"><td><strong>${escaparHTML(item.referencia)}</strong></td><td>${escaparHTML(item.puesto)}</td><td>${escaparHTML(item.destino)}</td><td>${escaparHTML(item.cobertura)}</td><td>${escaparHTML(item.jornada)}</td><td>${escaparHTML(item.fecha_limite)}</td><td><span class="estado-chip ${claseEstado(item.estado)}">${escaparHTML(item.estado)}</span></td><td><button type="button" class="boton-secundario" data-accion="seleccionar-necesidad" data-id="${escaparHTML(item.id)}" ${item.id === necesidad.id ? "disabled" : ""}>${item.id === necesidad.id ? "Seleccionada" : "Seleccionar"}</button></td></tr>`).join("")}</tbody>
             </table>
           </div>
         </section>
@@ -554,12 +539,12 @@ function renderizarPasoNecesidad(necesidad, bolsa) {
       </div>
       <aside class="resumen-lateral" aria-label="Configuración del llamamiento">
         <section class="panel">
-          <div class="cabecera-panel"><h3>Necesidad seleccionada</h3></div>
+          <div class="cabecera-panel"><h3>${estado.modoPresentacion ? "Necesidad sintética seleccionada" : "Necesidad seleccionada"}</h3>${estado.modoPresentacion ? '<span class="estado-chip info">Demostración</span>' : ""}</div>
           <div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Referencia</dt><dd>${escaparHTML(necesidad.referencia)}</dd></div><div class="fila-resumen"><dt>Bolsa aplicable</dt><dd>${escaparHTML(bolsa?.nombre || necesidad.bolsa)}</dd></div><div class="fila-resumen"><dt>Destino</dt><dd>${escaparHTML(necesidad.destino)}</dd></div><div class="fila-resumen"><dt>Condiciones</dt><dd>${escaparHTML(necesidad.jornada)} · ${escaparHTML(necesidad.duracion)}</dd></div><div class="fila-resumen"><dt>Regla</dt><dd>${escaparHTML(bolsa?.regla || necesidad.regla)}</dd></div></dl></div>
         </section>
         <section class="panel">
-          <div class="cabecera-panel"><h3>Solicitar propuesta</h3></div>
-          <div class="cuerpo-panel"><p>${escaparHTML(notaCapacidad)}</p>${estado.errorPropuesta ? `<p class="nota-pendiente" role="alert">${escaparHTML(estado.errorPropuesta)}</p>` : ""}<button type="button" class="boton-primario" data-accion="solicitar-propuesta" ${puedeMostrar && !estado.solicitandoPropuesta ? "" : "disabled"}>${estado.solicitandoPropuesta ? "Solicitando…" : escaparHTML(etiquetaAccion)}</button></div>
+          <div class="cabecera-panel"><h3>${confirmacion ? "Confirmación de propuesta" : "Solicitar propuesta"}</h3></div>
+          ${confirmacion ? renderizarConfirmacionCompacta(confirmacion) : `<div class="cuerpo-panel"><p>${escaparHTML(notaCapacidad)}</p>${estado.errorPropuesta ? `<p class="nota-pendiente" role="alert">${escaparHTML(estado.errorPropuesta)}</p>` : ""}<button type="button" class="boton-primario" data-accion="solicitar-propuesta" ${puedeMostrar && !estado.solicitandoPropuesta ? "" : "disabled"}>${estado.solicitandoPropuesta ? "Solicitando…" : escaparHTML(etiquetaAccion)}</button></div>`}
         </section>
       </aside>
     </div>`;
@@ -567,30 +552,31 @@ function renderizarPasoNecesidad(necesidad, bolsa) {
 
 function renderizarPasoPropuesta(necesidad, bolsa) {
   const propuesta = propuestaLlamamientoActual();
-  if (!propuesta) return '<section class="panel"><div class="vacio-controlado">No hay una propuesta válida para esta necesidad. Vuelva al paso anterior y solicítela al servidor.</div><div class="cuerpo-panel"><button type="button" class="boton-secundario" data-accion="anterior-paso">← Volver</button></div></section>';
+  if (!estado.modoPresentacion || propuesta?.demostracion !== true) return renderizarDetalleLlamamientoBloqueado();
   return `
     <div class="rejilla-dos-columnas">
       <section class="panel">
-        <div class="cabecera-panel"><div><h3>2. ${propuesta.demostracion ? "Propuesta sintética de elegibilidad" : "Propuesta calculada por el servidor"}</h3><p>${escaparHTML(necesidad.referencia)} · ${escaparHTML(bolsa?.nombre || necesidad.bolsa)}</p></div><span class="estado-chip info">${propuesta.demostracion ? "Propuesta sintética" : escaparHTML(propuesta.estado)}</span></div>
-        <div class="tabla-contenedor"><table class="tabla-datos"><caption>Evaluaciones minimizadas de la propuesta; sin identidad ni contacto</caption><thead><tr><th scope="col">Secuencia</th><th scope="col">Resultado</th><th scope="col">Puntuación</th><th scope="col">Regla aplicada</th><th scope="col">Fundamento</th></tr></thead><tbody>${propuesta.evaluaciones.map((item) => `<tr><td>${numero(item.secuencia)}</td><td><span class="estado-chip ${claseEstado(item.resultado)}">${escaparHTML(item.resultado)}</span></td><td>${numero(item.puntuacion, 3)}</td><td>${escaparHTML(item.regla)}</td><td>${escaparHTML(item.fundamento)}</td></tr>`).join("") || '<tr><td colspan="5" class="vacio-controlado">La propuesta no contiene evaluaciones visibles.</td></tr>'}</tbody></table></div>
+        <div class="cabecera-panel"><div><h3>2. Propuesta sintética de elegibilidad</h3><p>${escaparHTML(necesidad.referencia)} · ${escaparHTML(bolsa?.nombre || necesidad.bolsa)}</p></div><span class="estado-chip info">Demostración</span></div>
+        <div class="tabla-contenedor"><table class="tabla-datos"><caption>Resultados sintéticos sin identidad ni contacto</caption><thead><tr><th scope="col">Orden</th><th scope="col">Resultado</th><th scope="col">Motivos</th></tr></thead><tbody>${propuesta.evaluaciones.map((item) => `<tr><td>${escaparHTML(item.orden)}</td><td><span class="estado-chip ${claseEstado(item.resultado)}">${item.resultado === "elegible" ? "Elegible" : "No elegible"}</span></td><td>${item.motivos.map((motivo) => `<strong>${escaparHTML(motivo.regla)}</strong>: ${escaparHTML(motivo.fundamento)}`).join(" · ")}</td></tr>`).join("")}</tbody></table></div>
       </section>
       <aside class="resumen-lateral">
-        <section class="panel"><div class="cabecera-panel"><h3>Recibo de cálculo</h3></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Propuesta</dt><dd>${escaparHTML(propuesta.id)}</dd></div><div class="fila-resumen"><dt>Versión de bolsa</dt><dd>${escaparHTML(propuesta.version_bolsa)}</dd></div><div class="fila-resumen"><dt>Versión de reglas</dt><dd>${escaparHTML(propuesta.version_regla)}</dd></div><div class="fila-resumen"><dt>Fecha de corte</dt><dd>${escaparHTML(propuesta.fecha_corte)}</dd></div><div class="fila-resumen"><dt>Personas incluidas</dt><dd>${numero(propuesta.personas_incluidas)}</dd></div></dl></div></section>
-        <section class="nota-seguridad">La interfaz no recibe nombre, documento, teléfono, correo ni un identificador individual reutilizable. El servidor conserva la relación probatoria bajo autorización.</section>
-        <section class="panel"><div class="cuerpo-panel"><div class="acciones-paso"><button type="button" class="boton-secundario" data-accion="anterior-paso">← Volver</button><button type="button" class="boton-primario" data-accion="siguiente-paso">Configurar llamamiento →</button></div></div></section>
+        <section class="panel"><div class="cabecera-panel"><h3>Resumen de demostración</h3></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Propuesta</dt><dd>${escaparHTML(propuesta.id)}</dd></div><div class="fila-resumen"><dt>Versión de bolsa</dt><dd>${escaparHTML(propuesta.version_bolsa)}</dd></div><div class="fila-resumen"><dt>Versión de reglas</dt><dd>${escaparHTML(propuesta.version_regla)}</dd></div><div class="fila-resumen"><dt>Fecha de corte</dt><dd>${escaparHTML(propuesta.fecha_corte)}</dd></div><div class="fila-resumen"><dt>Personas incluidas</dt><dd>${numero(propuesta.personas_incluidas)}</dd></div></dl></div></section>
+        <section class="nota-seguridad">La demostración no crea ni conserva un expediente. En producto, la relación probatoria permanecerá en servidor bajo autorización y no se expondrá en esta vista.</section>
+        <section class="panel"><div class="cuerpo-panel"><div class="acciones-paso"><button type="button" class="boton-secundario" data-accion="anterior-paso">← Volver</button><button type="button" class="boton-primario" data-accion="siguiente-paso">Configurar demostración →</button></div></div></section>
       </aside>
     </div>`;
 }
 
 function renderizarPasoConfiguracion(necesidad, bolsa) {
   const propuesta = propuestaLlamamientoActual();
+  if (!estado.modoPresentacion || propuesta?.demostracion !== true) return renderizarDetalleLlamamientoBloqueado();
   const configuracion = DATOS_PANEL.configuracion_llamamiento;
   const catalogos = DATOS_PANEL.catalogos_llamamiento;
   const canales = Array.isArray(configuracion.canales) ? configuracion.canales.join(" + ") : "";
   return `
     <div class="rejilla-dos-columnas">
       <section class="panel">
-        <div class="cabecera-panel"><div><h3>3. Configurar llamamiento</h3><p>${escaparHTML(necesidad.referencia)} · propuesta ${escaparHTML(propuesta?.id)}</p></div></div>
+        <div class="cabecera-panel"><div><h3>3. Configurar demostración</h3><p>${escaparHTML(necesidad.referencia)} · propuesta sintética ${escaparHTML(propuesta?.id)}</p></div><span class="estado-chip info">Demostración</span></div>
         <form class="cuerpo-panel formulario-llamamiento" id="configuracion-llamamiento">
           <label class="campo"><span>Fecha y hora de apertura</span><input name="apertura" type="datetime-local" value="${escaparHTML(configuracion.apertura)}"></label>
           <label class="campo"><span>Plazo para responder</span><select name="plazo">${opcionesSelect(catalogos.plazos_respuesta, configuracion.plazo_respuesta)}</select></label>
@@ -601,27 +587,28 @@ function renderizarPasoConfiguracion(necesidad, bolsa) {
           <label class="campo campo-ancho"><span>Canales</span><input name="canales" value="${escaparHTML(canales)}" readonly></label>
           <label class="campo campo-ancho"><span>Observaciones visibles para la persona llamada</span><textarea name="observaciones">${escaparHTML(configuracion.observaciones)}</textarea></label>
         </form>
-        <div class="cuerpo-panel acciones-paso"><button type="button" class="boton-secundario" data-accion="anterior-paso">← Volver</button><button type="button" class="boton-primario" data-accion="siguiente-paso">Revisar llamamiento →</button></div>
+        <div class="cuerpo-panel acciones-paso"><button type="button" class="boton-secundario" data-accion="anterior-paso">← Volver</button><button type="button" class="boton-primario" data-accion="siguiente-paso">Revisar demostración →</button></div>
       </section>
-      <aside class="resumen-lateral"><section class="panel"><div class="cabecera-panel"><h3>Política de contacto</h3></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Orden</dt><dd>Prelación estricta</dd></div><div class="fila-resumen"><dt>Intentos</dt><dd>Configurables por las bases</dd></div><div class="fila-resumen"><dt>Acuse</dt><dd>Obligatorio para efecto administrativo</dd></div><div class="fila-resumen"><dt>Silencio</dt><dd>No inferido: depende de la regla publicada</dd></div></dl></div></section><section class="nota-seguridad">Los canales serán conectores intercambiables. El núcleo solo aceptará el resultado cuando exista un recibo verificable del proveedor configurado.</section></aside>
+      <aside class="resumen-lateral"><section class="panel"><div class="cabecera-panel"><h3>Política sintética de contacto</h3><span class="estado-chip info">Demostración</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Orden</dt><dd>Prelación estricta</dd></div><div class="fila-resumen"><dt>Intentos</dt><dd>Configurables por las bases</dd></div><div class="fila-resumen"><dt>Acuse</dt><dd>Obligatorio para efecto administrativo</dd></div><div class="fila-resumen"><dt>Silencio</dt><dd>No inferido: depende de la regla publicada</dd></div></dl></div></section><section class="nota-seguridad">Esta configuración solo ilustra la interfaz y no contacta a ninguna persona. En producto, el núcleo exigirá un recibo verificable del conector.</section></aside>
     </div>`;
 }
 
 function renderizarPasoRevision(necesidad, bolsa) {
   const propuesta = propuestaLlamamientoActual();
+  if (!estado.modoPresentacion || propuesta?.demostracion !== true) return renderizarDetalleLlamamientoBloqueado();
   const configuracion = DATOS_PANEL.configuracion_llamamiento;
   const canales = Array.isArray(configuracion.canales) ? configuracion.canales.join(", ") : "";
   return `
     <div class="rejilla-dos-columnas">
       <section class="panel">
-        <div class="cabecera-panel"><div><h3>4. Revisar y preparar</h3><p>La preparación no envía mensajes ni modifica la bolsa.</p></div><span class="estado-chip">Pendiente de validación</span></div>
+        <div class="cabecera-panel"><div><h3>4. Comprobar presentación</h3><p>La demostración no envía mensajes, no modifica la bolsa y no crea un expediente.</p></div><span class="estado-chip info">Demostración</span></div>
         <div class="cuerpo-panel">
           <dl class="resumen-expediente"><div class="fila-resumen"><dt>Necesidad</dt><dd>${escaparHTML(necesidad.referencia)}</dd></div><div class="fila-resumen"><dt>Bolsa</dt><dd>${escaparHTML(bolsa?.nombre || necesidad.bolsa)}</dd></div><div class="fila-resumen"><dt>Propuesta</dt><dd>${escaparHTML(propuesta?.id)} · ${numero(propuesta?.personas_incluidas)} inclusiones</dd></div><div class="fila-resumen"><dt>Apertura</dt><dd>${escaparHTML(configuracion.apertura_visible)}</dd></div><div class="fila-resumen"><dt>Respuesta</dt><dd>${escaparHTML(configuracion.plazo_respuesta)} desde recepción fehaciente</dd></div><div class="fila-resumen"><dt>Canales</dt><dd>${escaparHTML(canales)}</dd></div><div class="fila-resumen"><dt>Datos de destino</dt><dd>${escaparHTML(necesidad.destino)} · ${escaparHTML(necesidad.jornada)} · ${escaparHTML(necesidad.duracion)}</dd></div><div class="fila-resumen"><dt>Evidencia prevista</dt><dd>Necesidad, versiones, propuesta, plantilla, recibos y actor</dd></div></dl>
           <div class="nota-pendiente">La confirmación futura revalidará autorización, necesidad, elegibilidad y versiones en una única operación. El navegador nunca indicará a quién llamar.</div>
-          <div class="acciones-paso"><button type="button" class="boton-secundario" data-accion="anterior-paso">← Volver</button><button type="button" class="boton-primario" data-accion="validar-recorrido">Validar recorrido</button></div>
+          <div class="acciones-paso"><button type="button" class="boton-secundario" data-accion="anterior-paso">← Volver</button><button type="button" class="boton-primario" data-accion="validar-recorrido">Comprobar presentación</button></div>
         </div>
       </section>
-      <aside class="resumen-lateral"><section class="panel"><div class="cabecera-panel"><h3>Control previo</h3></div><ul class="lista-comprobacion"><li>Necesidad y bolsa identificadas</li><li>Propuesta emitida por servidor</li><li>Datos personales ausentes de la vista</li><li>Condiciones y plazo visibles</li><li class="pendiente">Confirmación transaccional pendiente</li><li class="pendiente">Conector de notificación pendiente</li></ul></section></aside>
+      <aside class="resumen-lateral"><section class="panel"><div class="cabecera-panel"><h3>Control de demostración</h3><span class="estado-chip info">Sin efectos</span></div><ul class="lista-comprobacion"><li>Necesidad y bolsa sintéticas identificadas</li><li>Propuesta cargada localmente</li><li>Datos personales ausentes de la vista</li><li>Condiciones y plazo visibles</li><li class="pendiente">Confirmación transaccional no ejecutada</li><li class="pendiente">Conector de notificación no ejecutado</li></ul></section></aside>
     </div>`;
 }
 

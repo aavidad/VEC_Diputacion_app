@@ -120,20 +120,16 @@ export function obtenerDatosPresentacion() {
 
 const EVALUACIONES_PRESENTACION = Object.freeze({
   "NEC-2026-0045": [
-    { secuencia: 1, resultado: "Elegible", puntuacion: 92.45, regla: "R1 · Orden de bolsa vigente", fundamento: "Primer puesto disponible del orden constituido" },
-    { secuencia: 2, resultado: "Elegible", puntuacion: 88.3, regla: "R1 · Orden de bolsa vigente", fundamento: "Disponible sin causa de exclusión" },
-    { secuencia: 3, resultado: "Elegible", puntuacion: 85.12, regla: "R1 · Orden de bolsa vigente", fundamento: "Disponible sin causa de exclusión" },
-    { secuencia: 4, resultado: "No disponible", puntuacion: 84.61, regla: "R4 · Causas de indisponibilidad", fundamento: "Contrato temporal vigente comunicado" },
-    { secuencia: 5, resultado: "Elegible", puntuacion: 82.9, regla: "R1 · Orden de bolsa vigente", fundamento: "Disponible sin causa de exclusión" },
+    { orden: "1", resultado: "no_elegible", motivos: [{ regla: "R4 · Indisponibilidad", fundamento: "Contrato temporal sintético vigente" }] },
+    { orden: "2", resultado: "no_elegible", motivos: [{ regla: "R6 · Renuncia", fundamento: "Supuesto sintético de renuncia dentro del periodo configurado" }] },
+    { orden: "3", resultado: "elegible", motivos: [{ regla: "R1 · Orden vigente", fundamento: "Primera posición sintética sin causa de exclusión" }] },
   ],
   "NEC-2026-0038": [
-    { secuencia: 1, resultado: "Elegible", puntuacion: 90.1, regla: "R1 · Orden de bolsa vigente", fundamento: "Primer puesto disponible del orden constituido" },
-    { secuencia: 2, resultado: "Excluida por regla", puntuacion: 87.4, regla: "R6 · Penalización por renuncia", fundamento: "Renuncia no justificada dentro del plazo reglamentario" },
-    { secuencia: 3, resultado: "Elegible", puntuacion: 83.75, regla: "R1 · Orden de bolsa vigente", fundamento: "Disponible sin causa de exclusión" },
+    { orden: "1", resultado: "no_elegible", motivos: [{ regla: "R4 · Indisponibilidad", fundamento: "Situación sintética incompatible con la necesidad" }] },
+    { orden: "2", resultado: "elegible", motivos: [{ regla: "R1 · Orden vigente", fundamento: "Primera posición sintética elegible" }] },
   ],
   "NEC-2026-0012": [
-    { secuencia: 1, resultado: "Elegible", puntuacion: 89.6, regla: "R1 · Orden de bolsa vigente", fundamento: "Primer puesto disponible del orden constituido" },
-    { secuencia: 2, resultado: "Elegible", puntuacion: 86.05, regla: "R1 · Orden de bolsa vigente", fundamento: "Disponible sin causa de exclusión" },
+    { orden: "1", resultado: "elegible", motivos: [{ regla: "R1 · Orden vigente", fundamento: "Primera posición sintética elegible" }] },
   ],
 });
 
@@ -142,13 +138,13 @@ export function obtenerPropuestaPresentacion(necesidadId) {
   return {
     esquema: "vec.bolsa.propuesta-llamamiento.presentacion.v1",
     demostracion: true,
-    id: `PRO-${String(necesidadId || "NEC-2026-0045").slice(-4)}`,
+    id: `PRO-DEMO-${String(necesidadId || "NEC-2026-0045").slice(-4)}`,
     necesidad_id: String(necesidadId || "NEC-2026-0045"),
-    estado: "Propuesta sintética aislada",
-    version_bolsa: "v3 · huella registrada",
-    version_regla: "v3 · 8 criterios",
-    fecha_corte: "17/07/2026 08:00",
-    personas_incluidas: evaluaciones.filter((item) => item.resultado === "Elegible").length,
-    evaluaciones: evaluaciones.map((item) => ({ ...item })),
+    estado: "demostracion",
+    version_bolsa: "v3 · versión sintética",
+    version_regla: "v3 · regla sintética",
+    fecha_corte: "2026-07-17T08:00:00Z",
+    personas_incluidas: String(evaluaciones.filter((item) => item.resultado === "elegible").length),
+    evaluaciones: structuredClone(evaluaciones),
   };
 }
