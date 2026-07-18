@@ -94,7 +94,6 @@ func TestServerSirvePortalBolsaPermanenteSinEstilosInline(t *testing.T) {
 		{ruta: "/bolsa/bolsa.css?v=1", tipo: "text/css", contenido: ".grupos-directorio"},
 		{ruta: "/bolsa/bolsa.js?v=1", tipo: "text/javascript", contenido: "/api/publico/bolsa/categorias"},
 		{ruta: "/bolsa/favicon.svg", tipo: "image/svg+xml", contenido: "<svg"},
-		{ruta: "/bolsa/documentos/bases-auxiliar-demo.html", tipo: "text/html", contenido: "bolsa.css?v=20260716-categorias-v1"},
 	} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, prueba.ruta, nil))
@@ -146,7 +145,7 @@ func TestServerNormalizaEntradaBolsaSinBarraFinal(t *testing.T) {
 }
 
 func TestServerSirvePortalEmpleadoRRHHConPresentacionAislada(t *testing.T) {
-	handler := NewHandlerWithConfig(config.Config{RRHHPresentationEnabled: true}, http.NotFoundHandler())
+	handler := NewHandlerPresentacionWithConfig(configuracionPresentacionValida(), http.NotFoundHandler())
 	for _, prueba := range []struct{ ruta, tipo, contenido string }{
 		{ruta: "/portal-empleado/", tipo: "text/html", contenido: "Portal del Empleado"},
 		{ruta: "/portal-empleado/portal.css?v=1", tipo: "text/css", contenido: ".portal-empleado-shell"},
@@ -168,12 +167,25 @@ func TestServerSirvePortalEmpleadoRRHHConPresentacionAislada(t *testing.T) {
 }
 
 func TestAdaptadorPresentacionRRHHNoSeSirvePorDefecto(t *testing.T) {
-	handler := NewHandler(http.NotFoundHandler())
-	for _, metodo := range []string{http.MethodGet, http.MethodHead} {
-		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, peticionServidorPrueba(metodo, "/portal-empleado/datos-presentacion.js?v=1", nil))
-		if rec.Code != http.StatusNotFound {
-			t.Fatalf("%s adaptador presentacion = %d; se esperaba 404", metodo, rec.Code)
+	for _, handler := range []http.Handler{
+		NewHandler(http.NotFoundHandler()),
+		NewHandlerWithConfig(config.Config{RRHHPresentationEnabled: true}, http.NotFoundHandler()),
+		NewHandlerWithConfig(configuracionPresentacionValida(), http.NotFoundHandler()),
+	} {
+		for _, ruta := range []string{
+			"/presentacion/",
+			"/area-personal/adaptador-presentacion.js",
+			"/portal-empleado/datos-presentacion.js?v=1",
+			"/portal-empleado/portal-presentacion-adaptador.js",
+			"/bolsa/documentos/bases-auxiliar-demo.html",
+		} {
+			for _, metodo := range []string{http.MethodGet, http.MethodHead} {
+				rec := httptest.NewRecorder()
+				handler.ServeHTTP(rec, peticionServidorPrueba(metodo, ruta, nil))
+				if rec.Code != http.StatusNotFound {
+					t.Fatalf("%s %s = %d; se esperaba 404", metodo, ruta, rec.Code)
+				}
+			}
 		}
 	}
 }

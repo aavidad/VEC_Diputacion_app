@@ -37,6 +37,24 @@ func NewHTTPServerInterno(cfg config.Config, api http.Handler) (*http.Server, er
 	return newHTTPServer(cfg, api, NewHandlerInternoWithConfig)
 }
 
+// NewHTTPServerPresentacion construye el unico listener que puede servir los
+// adaptadores sinteticos. La raiz de composicion valida las guardas y este
+// limite vuelve a exigirlas, una direccion IP local literal y redes locales.
+func NewHTTPServerPresentacion(cfg config.Config, apiPublica http.Handler) (*http.Server, error) {
+	cfg = cfg.Normalize()
+	if !cfg.RRHHPresentationEnabledByDoubleGuard() {
+		return nil, errors.New("server: activacion de presentacion RRHH incompleta")
+	}
+	if !direccionEscuchaLocalPresentacion(cfg.Address) {
+		return nil, errors.New("server: la presentacion RRHH exige una direccion IP local literal")
+	}
+	redes, err := prepararRedesPermitidas(cfg.HTTPAllowedCIDRs)
+	if err != nil || !redesExclusivamenteLocalesPresentacion(redes) {
+		return nil, errors.New("server: la presentacion RRHH exige redes locales enumeradas")
+	}
+	return newHTTPServer(cfg, apiPublica, NewHandlerPresentacionWithConfig)
+}
+
 type constructorHandlerConConfig func(config.Config, http.Handler) http.Handler
 
 func newHTTPServer(cfg config.Config, api http.Handler, constructor constructorHandlerConConfig) (*http.Server, error) {
@@ -77,7 +95,7 @@ func NewHandlerWithConfig(cfg config.Config, api http.Handler) http.Handler {
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
 	mux := http.NewServeMux()
 	mux.Handle("/locales/", localeHandler())
-	mux.Handle("/", staticHandler(cfg.RRHHPresentationEnabled))
+	mux.Handle("/", staticHandler(false))
 	mux.HandleFunc("/healthz", handleHealthz)
 	mux.Handle(cfg.APIBasePath, api)
 	mux.Handle(cfg.APIBasePath+"/", api)
@@ -101,7 +119,7 @@ func NewHandlerPublicoWithConfig(cfg config.Config, api http.Handler) http.Handl
 		api = http.NotFoundHandler()
 	}
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
-	estaticos := staticHandler(cfg.RRHHPresentationEnabled)
+	estaticos := staticHandler(false)
 
 	mux := http.NewServeMux()
 	mux.Handle("/healthz", soloLecturaHTTP(http.HandlerFunc(handleHealthz)))
@@ -128,7 +146,7 @@ func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handl
 		api = http.NotFoundHandler()
 	}
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
-	estaticos := staticHandler(cfg.RRHHPresentationEnabled)
+	estaticos := staticHandler(false)
 
 	mux := http.NewServeMux()
 	mux.Handle("/healthz", soloLecturaHTTP(http.HandlerFunc(handleHealthz)))
@@ -140,6 +158,53 @@ func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handl
 	handler := rechazarRutasNoCanonicas(mux)
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
 	return protegerSuperficie(cfg, handler)
+}
+
+// NewHandlerPresentacionWithConfig usa una lista positiva. No publica la SPA
+// historica, ficheros de datos, documentacion ni una API interna. La consulta
+// publica de Bolsa es la unica API admitida y permanece en solo lectura.
+func NewHandlerPresentacionWithConfig(cfg config.Config, apiPublica http.Handler) http.Handler {
+	cfg = cfg.Normalize()
+	redes, err := prepararRedesPermitidas(cfg.HTTPAllowedCIDRs)
+	if !cfg.RRHHPresentationEnabledByDoubleGuard() ||
+		!direccionEscuchaLocalPresentacion(cfg.Address) || err != nil ||
+		!redesExclusivamenteLocalesPresentacion(redes) {
+		return suprimirCuerpoHEAD(securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		})))
+	}
+	if apiPublica == nil {
+		apiPublica = http.NotFoundHandler()
+	}
+	estaticos := staticHandler(true)
+	mux := http.NewServeMux()
+	mux.Handle("/", soloLecturaHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		http.Redirect(w, r, "presentacion/", http.StatusMovedPermanently)
+	})))
+	mux.Handle("/healthz", soloLecturaHTTP(http.HandlerFunc(handleHealthz)))
+	registrarDirectorioPresentacion(mux, estaticos, "presentacion")
+	registrarDirectorioPresentacion(mux, estaticos, "area-personal")
+	registrarDirectorioPresentacion(mux, estaticos, "portal-empleado")
+	registrarDirectorioPresentacion(mux, estaticos, "bolsa")
+	mux.Handle("/styles.css", soloLecturaHTTP(estaticos))
+	mux.Handle("/favicon.svg", soloLecturaHTTP(estaticos))
+	mux.Handle("/api/publico", soloLecturaHTTP(apiPublica))
+	mux.Handle("/api/publico/", soloLecturaHTTP(apiPublica))
+
+	handler := rechazarRutasNoCanonicas(mux)
+	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
+	handler = prohibirAutorizacionSuperficieAnonima(handler)
+	return protegerSuperficie(cfg, handler)
+}
+
+func registrarDirectorioPresentacion(mux *http.ServeMux, estaticos http.Handler, directorio string) {
+	ruta := "/" + directorio
+	mux.Handle(ruta, soloLecturaHTTP(redireccionDirectorio(directorio+"/")))
+	mux.Handle(ruta+"/", soloLecturaHTTP(estaticos))
 }
 
 func protegerSuperficie(cfg config.Config, handler http.Handler) http.Handler {
@@ -493,15 +558,22 @@ func staticHandler(presentacionRRHHHabilitada bool) http.Handler {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if !presentacionRRHHHabilitada && strings.HasSuffix(
-			strings.TrimSuffix(r.URL.Path, "/"), "/datos-presentacion.js",
-		) {
+		if !presentacionRRHHHabilitada && rutaMaterialExclusivoPresentacion(r.URL.Path) {
 			http.NotFound(w, r)
 			return
 		}
 		setNoStoreForStatic(w, r)
 		staticFileServer().ServeHTTP(w, r)
 	})
+}
+
+func rutaMaterialExclusivoPresentacion(ruta string) bool {
+	for _, segmento := range strings.Split(strings.ToLower(ruta), "/") {
+		if strings.Contains(segmento, "presentacion") || strings.Contains(segmento, "demo") {
+			return true
+		}
+	}
+	return false
 }
 
 func setNoStoreForStatic(w http.ResponseWriter, r *http.Request) {
@@ -664,4 +736,58 @@ func direccionEscuchaLoopback(direccion string) bool {
 	}
 	ip := net.ParseIP(strings.Trim(strings.TrimSpace(host), "[]"))
 	return ip != nil && ip.IsLoopback()
+}
+
+func direccionEscuchaLocalPresentacion(direccion string) bool {
+	host, _, err := net.SplitHostPort(strings.TrimSpace(direccion))
+	if err != nil || strings.TrimSpace(host) == "" {
+		return false
+	}
+	ip := net.ParseIP(strings.Trim(strings.TrimSpace(host), "[]"))
+	return ip != nil && !ip.IsUnspecified() &&
+		(ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast())
+}
+
+func redesExclusivamenteLocalesPresentacion(redes []*net.IPNet) bool {
+	if len(redes) == 0 {
+		return false
+	}
+	permitidas := []*net.IPNet{
+		debeParsearCIDR("127.0.0.0/8"),
+		debeParsearCIDR("10.0.0.0/8"),
+		debeParsearCIDR("172.16.0.0/12"),
+		debeParsearCIDR("192.168.0.0/16"),
+		debeParsearCIDR("169.254.0.0/16"),
+		debeParsearCIDR("::1/128"),
+		debeParsearCIDR("fc00::/7"),
+		debeParsearCIDR("fe80::/10"),
+	}
+	for _, red := range redes {
+		if red == nil || !redContenidaEnAlguna(red, permitidas) {
+			return false
+		}
+	}
+	return true
+}
+
+func redContenidaEnAlguna(red *net.IPNet, permitidas []*net.IPNet) bool {
+	unos, bits := red.Mask.Size()
+	if unos < 0 {
+		return false
+	}
+	for _, permitida := range permitidas {
+		unosPermitidos, bitsPermitidos := permitida.Mask.Size()
+		if bits == bitsPermitidos && unos >= unosPermitidos && permitida.Contains(red.IP) {
+			return true
+		}
+	}
+	return false
+}
+
+func debeParsearCIDR(valor string) *net.IPNet {
+	_, red, err := net.ParseCIDR(valor)
+	if err != nil {
+		panic(err)
+	}
+	return red
 }

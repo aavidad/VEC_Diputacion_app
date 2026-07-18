@@ -145,6 +145,68 @@ func TestPresentacionRRHHParteDeshabilitadaYExigeActivacionExpresa(t *testing.T)
 	}
 }
 
+func TestPresentacionRRHHExigePerfilSelectorYDosGuardasLiterales(t *testing.T) {
+	valida := Config{
+		ExecutionProfile:         ExecutionProfileRRHHPresentation,
+		RRHHPresentationEnabled:  true,
+		RRHHPresentationGuardOne: RRHHPresentationGuardOneAcknowledgement,
+		RRHHPresentationGuardTwo: RRHHPresentationGuardTwoAcknowledgement,
+	}
+	if !valida.RRHHPresentationEnabledByDoubleGuard() {
+		t.Fatal("la configuracion completa no activo el perfil de presentacion")
+	}
+	mutaciones := []struct {
+		nombre string
+		muta   func(*Config)
+	}{
+		{"sin perfil", func(c *Config) { c.ExecutionProfile = ExecutionProfileProduction }},
+		{"sin selector", func(c *Config) { c.RRHHPresentationEnabled = false }},
+		{"primera guarda distinta", func(c *Config) { c.RRHHPresentationGuardOne = "ACEPTO" }},
+		{"segunda guarda distinta", func(c *Config) { c.RRHHPresentationGuardTwo = "CONFIRMO" }},
+	}
+	for _, mutacion := range mutaciones {
+		t.Run(mutacion.nombre, func(t *testing.T) {
+			configuracion := valida
+			mutacion.muta(&configuracion)
+			if configuracion.RRHHPresentationEnabledByDoubleGuard() {
+				t.Fatal("una configuracion parcial habilito la presentacion")
+			}
+			if !configuracion.HasRRHHPresentationSelectors() {
+				t.Fatal("el selector parcial no sera detectable por produccion")
+			}
+		})
+	}
+}
+
+func TestCargaGuardasPresentacionSinNormalizarLiterales(t *testing.T) {
+	t.Setenv(EnvExecutionProfile, ExecutionProfileRRHHPresentation)
+	t.Setenv(EnvRRHHPresentationEnabled, "true")
+	t.Setenv(EnvRRHHPresentationGuardOne, RRHHPresentationGuardOneAcknowledgement)
+	t.Setenv(EnvRRHHPresentationGuardTwo, RRHHPresentationGuardTwoAcknowledgement)
+	if !Load().RRHHPresentationEnabledByDoubleGuard() {
+		t.Fatal("Load no conservo la activacion literal completa")
+	}
+	t.Setenv(EnvRRHHPresentationGuardTwo, "confirmo_datos_sinteticos_sin_validez_administrativa")
+	if Load().RRHHPresentationEnabledByDoubleGuard() {
+		t.Fatal("una guarda con distinta capitalizacion fue aceptada")
+	}
+}
+
+func TestCatalogoPersonalEnMemoriaConservaDecisionAlNormalizarVariasVeces(t *testing.T) {
+	configuracion := (Config{PersonalCatalogPath: "memory"}).Normalize()
+	if !configuracion.PersonalCatalogInMemory || configuracion.PersonalCatalogPath != "" {
+		t.Fatalf("primera normalizacion = %+v", configuracion)
+	}
+	configuracion = configuracion.Normalize()
+	if !configuracion.PersonalCatalogInMemory || configuracion.PersonalCatalogPath != "" {
+		t.Fatalf("segunda normalizacion perdio el modo en memoria: %+v", configuracion)
+	}
+	porDefecto := (Config{}).Normalize()
+	if porDefecto.PersonalCatalogInMemory || porDefecto.PersonalCatalogPath != DefaultPersonalCatalogPath {
+		t.Fatalf("el valor ausente dejo de seleccionar el catalogo durable: %+v", porDefecto)
+	}
+}
+
 func TestFuentePublicaBolsaEsDemoLocalSustituible(t *testing.T) {
 	configuracion := (Config{}).Normalize()
 	if configuracion.BolsaPublicSourcePath != DefaultBolsaPublicSourcePath {

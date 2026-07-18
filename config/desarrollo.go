@@ -62,6 +62,8 @@ func normalizeExecutionProfile(profile string) string {
 	switch strings.ToLower(strings.TrimSpace(profile)) {
 	case ExecutionProfileDevelopment:
 		return ExecutionProfileDevelopment
+	case ExecutionProfileRRHHPresentation:
+		return ExecutionProfileRRHHPresentation
 	case ExecutionProfileProduction:
 		return ExecutionProfileProduction
 	default:

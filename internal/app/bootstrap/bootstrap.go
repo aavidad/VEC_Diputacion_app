@@ -53,6 +53,9 @@ func NewHTTPServer() (*http.Server, error) {
 
 func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 	cfg = cfg.Normalize()
+	if err := rechazarSelectoresPresentacionEnComposicionNormal(cfg); err != nil {
+		return nil, err
+	}
 	if err := rechazarTLSDesarrolloEnProduccion(cfg); err != nil {
 		return nil, err
 	}
@@ -76,6 +79,9 @@ func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 // heredada de candidatos.
 func NewHTTPServerPublicoWithConfig(cfg config.Config) (*http.Server, error) {
 	cfg = cfg.Normalize()
+	if err := rechazarSelectoresPresentacionEnComposicionNormal(cfg); err != nil {
+		return nil, err
+	}
 	if err := rechazarTLSDesarrolloEnProduccion(cfg); err != nil {
 		return nil, err
 	}

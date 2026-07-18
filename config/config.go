@@ -42,6 +42,8 @@ const (
 	EnvOSRMScopeBounds           = "VEC_OSRM_SCOPE_BOUNDS"
 	EnvOSRMAllowedCIDRs          = "VEC_OSRM_ALLOWED_CIDRS"
 	EnvRRHHPresentationEnabled   = "VEC_RRHH_PRESENTATION_ENABLED"
+	EnvRRHHPresentationGuardOne  = "VEC_RRHH_PRESENTATION_GUARD_ONE"
+	EnvRRHHPresentationGuardTwo  = "VEC_RRHH_PRESENTATION_GUARD_TWO"
 
 	StorageModeMemory       = "memory"
 	StorageModeFile         = "file"
@@ -99,6 +101,7 @@ type Config struct {
 	TLSCertFile               string
 	TLSKeyFile                string
 	PersonalCatalogPath       string
+	PersonalCatalogInMemory   bool
 	BolsaPublicSourcePath     string
 	BolsaCategoriesSourcePath string
 	BolsaCategoriesCatalogID  string
@@ -109,6 +112,8 @@ type Config struct {
 	OSRMScopeBounds           string
 	OSRMAllowedCIDRs          []string
 	RRHHPresentationEnabled   bool
+	RRHHPresentationGuardOne  string
+	RRHHPresentationGuardTwo  string
 }
 
 func Load() Config {
@@ -147,6 +152,8 @@ func Load() Config {
 		OSRMScopeBounds:           envFirst(EnvOSRMScopeBounds),
 		OSRMAllowedCIDRs:          splitCSV(envFirst(EnvOSRMAllowedCIDRs)),
 		RRHHPresentationEnabled:   envBool(EnvRRHHPresentationEnabled),
+		RRHHPresentationGuardOne:  envFirst(EnvRRHHPresentationGuardOne),
+		RRHHPresentationGuardTwo:  envFirst(EnvRRHHPresentationGuardTwo),
 	}.Normalize()
 }
 
@@ -202,7 +209,15 @@ func (c Config) Normalize() Config {
 	c.HTTPAllowedCIDRs = normalizeCIDRs(c.HTTPAllowedCIDRs)
 	c.TLSCertFile = strings.TrimSpace(c.TLSCertFile)
 	c.TLSKeyFile = strings.TrimSpace(c.TLSKeyFile)
-	c.PersonalCatalogPath = normalizeOptionalPath(c.PersonalCatalogPath, DefaultPersonalCatalogPath)
+	if c.PersonalCatalogInMemory || isMemoryPath(c.PersonalCatalogPath) {
+		// El booleano conserva la decisión a través de normalizaciones sucesivas.
+		// Un string vacío por sí solo significa «aplicar el valor por defecto» y
+		// no puede representar de forma idempotente el modo en memoria.
+		c.PersonalCatalogInMemory = true
+		c.PersonalCatalogPath = ""
+	} else {
+		c.PersonalCatalogPath = normalizeOptionalPath(c.PersonalCatalogPath, DefaultPersonalCatalogPath)
+	}
 	c.BolsaPublicSourcePath = defaultString(c.BolsaPublicSourcePath, DefaultBolsaPublicSourcePath)
 	c.BolsaCategoriesSourcePath = defaultString(c.BolsaCategoriesSourcePath, DefaultBolsaCategoriesSourcePath)
 	c.BolsaCategoriesCatalogID = defaultString(c.BolsaCategoriesCatalogID, DefaultBolsaCategoriesCatalogID)
@@ -217,6 +232,8 @@ func (c Config) Normalize() Config {
 	// enumerar tambien sus redes de destino deja la integracion incompleta y el
 	// adaptador HTTP rechazara el arranque.
 	c.OSRMAllowedCIDRs = normalizeOptionalCIDRs(c.OSRMAllowedCIDRs)
+	c.RRHHPresentationGuardOne = strings.TrimSpace(c.RRHHPresentationGuardOne)
+	c.RRHHPresentationGuardTwo = strings.TrimSpace(c.RRHHPresentationGuardTwo)
 	return c
 }
 
@@ -303,6 +320,15 @@ func normalizeOptionalPath(path, fallback string) string {
 		return fallback
 	default:
 		return trimmed
+	}
+}
+
+func isMemoryPath(path string) bool {
+	switch strings.ToLower(strings.TrimSpace(path)) {
+	case "memory", "mem", "none", "off", "-", ":memory:":
+		return true
+	default:
+		return false
 	}
 }
 
