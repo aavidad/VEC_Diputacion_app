@@ -59,6 +59,11 @@ func TestManifiestoBolsaConservaRutasEIntegracionesLegales(t *testing.T) {
 	if len(manifiesto.HTTPRoutes) == 0 || manifiesto.EventsPublished == nil {
 		t.Fatalf("manifiesto incompleto: %+v", manifiesto)
 	}
+	for _, evento := range manifiesto.EventsPublished {
+		if strings.Contains(evento, "autobaremo") {
+			t.Fatalf("la autobaremacion aparcada no puede anunciar eventos activos: %q", evento)
+		}
+	}
 }
 
 func TestManifiestoBolsaNoIncrustaRolesComoAutoridad(t *testing.T) {

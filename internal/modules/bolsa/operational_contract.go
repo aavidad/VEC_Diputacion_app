@@ -159,7 +159,7 @@ func ModuleManifestForCandidatePortal() ModuleManifestContract {
 			AdminCapabilityList()[0],
 			AdminCapabilityList()[1],
 		},
-		EventsPublished: []string{"bolsa.documento_registrado", "bolsa.alegacion_presentada", "bolsa.notificacion_creada", "bolsa.autobaremo_calculado"},
+		EventsPublished: []string{"bolsa.documento_registrado", "bolsa.alegacion_presentada", "bolsa.notificacion_creada"},
 		HealthRoute:     "/api/modules/bolsa/healthz",
 		HTTPRoutes: []ModuleHTTPRoute{
 			{Method: "GET", Route: "/api/modules/bolsa", Mode: "real"},
