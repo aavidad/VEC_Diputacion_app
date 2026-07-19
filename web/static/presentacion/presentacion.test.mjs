@@ -7,7 +7,7 @@ import test from "node:test";
 const directorio = dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(join(directorio, "index.html"), "utf8");
 const estilos = readFileSync(join(directorio, "presentacion.css"), "utf8");
-const portalInterno = readFileSync(join(directorio, "../portal-empleado/portal.js"), "utf8");
+const catalogoPortalInterno = readFileSync(join(directorio, "../portal-empleado/portal-catalogo-presentacion.js"), "utf8");
 const catalogo = html.match(/<section class="presentacion-catalogo"[\s\S]*?<\/section>/)?.[0] || "";
 
 const modulos = [
@@ -29,17 +29,19 @@ test("el lanzador conserva la visión completa del Portal de Recursos Humanos", 
   assert.match(catalogo, /id="modulos-portal">Módulos del portal/);
   for (const modulo of modulos) {
     assert.match(catalogo, new RegExp(`<h3[^>]*>${modulo}<\\/h3>`));
-    assert.match(portalInterno, new RegExp(`titulo: "${modulo}"`));
+    assert.match(catalogoPortalInterno, new RegExp(`titulo: "${modulo}"`));
   }
 });
 
-test("solo Bolsa ofrece un acceso y el resto queda inequívocamente pendiente", () => {
-  assert.equal((catalogo.match(/presentacion-modulo-activo/g) || []).length, 1);
-  assert.equal((catalogo.match(/presentacion-modulo-pendiente/g) || []).length, modulos.length - 1);
-  assert.equal((catalogo.match(/Pendiente · No disponible/g) || []).length, modulos.length - 1);
-  assert.equal((catalogo.match(/<a\b/g) || []).length, 1);
+test("Bolsa Cronos y Dietas ofrecen acceso y el resto queda inequívocamente pendiente", () => {
+  assert.equal((catalogo.match(/presentacion-modulo-activo/g) || []).length, 3);
+  assert.equal((catalogo.match(/presentacion-modulo-pendiente/g) || []).length, modulos.length - 3);
+  assert.equal((catalogo.match(/Pendiente · No disponible/g) || []).length, modulos.length - 3);
+  assert.equal((catalogo.match(/<a\b/g) || []).length, 3);
   assert.match(catalogo, /<a href="#elegir-recorrido">Elegir acceso<\/a>/);
-  assert.doesNotMatch(catalogo, /href="\/(?:cronos|dietas|nominas|personal)/);
+  assert.match(catalogo, /perfil=administrador#cronos">Abrir módulo<\/a>/);
+  assert.match(catalogo, /perfil=administrador#dietas">Abrir módulo<\/a>/);
+  assert.doesNotMatch(catalogo, /href="\/(?:nominas|personal)/);
 });
 
 test("el catálogo de módulos se adapta a escritorio, tableta y móvil", () => {

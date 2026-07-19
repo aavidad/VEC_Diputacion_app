@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="light">
     <title>Recorrido de presentación · Portal RRHH</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/presentacion/presentacion.css?v=20260719-modulos-portal-v1">
+    <link rel="stylesheet" href="/presentacion/presentacion.css?v=20260719-modulos-portal-v2">
   </head>
   <body class="presentacion-cuerpo">
     <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
@@ -15,8 +15,8 @@
         <img src="/portal-empleado/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
       </a>
       <div>
-        <p class="presentacion-sobrelinea">Revisión funcional · Bolsa de trabajo</p>
-        <h1>Recorrido de presentación del portal</h1>
+        <p class="presentacion-sobrelinea">Portal del Empleado · Recursos Humanos</p>
+        <h1>Demostración funcional del portal</h1>
       </div>
     </header>
     <main id="contenido-principal" class="presentacion-contenido">
@@ -24,16 +24,46 @@
         <h2 id="alcance-presentacion">Demostración sin validez administrativa</h2>
         <p>Los títulos, categorías, fechas de publicación y referencias BOP de las convocatorias son datos públicos reales. Las personas, expedientes y actuaciones privadas son sintéticos. Las acciones solo cambian memoria volátil: no persisten, firman, registran, pagan ni envían comunicaciones reales.</p>
       </section>
+      <section class="presentacion-accesos" aria-labelledby="elegir-recorrido">
+        <div class="presentacion-titulo-seccion">
+          <div>
+            <p class="presentacion-sobrelinea presentacion-sobrelinea-oscura">Acceso por superficie y finalidad</p>
+            <h2 id="elegir-recorrido">Elegir punto de vista</h2>
+          </div>
+          <p>Las áreas pública, personal e interna están separadas. Cada una muestra únicamente los datos y operaciones correspondientes a su perfil.</p>
+        </div>
+        <div class="presentacion-opciones">
+          <article class="presentacion-acceso presentacion-acceso-publico">
+            <span class="presentacion-etiqueta">Acceso público</span>
+            <h3>Consulta pública de bolsas</h3>
+            <p>Convocatorias, plazos, requisitos, documentación, categorías y ayuda sin datos personales.</p>
+            <a class="presentacion-enlace" href="/bolsa/">Abrir consulta pública</a>
+          </article>
+          <article class="presentacion-acceso presentacion-acceso-personal">
+            <span class="presentacion-etiqueta">Persona candidata</span>
+            <h3>Área personal</h3>
+            <p>Perfil, candidaturas, documentación, autobaremación, avisos, alegaciones e historial.</p>
+            <a class="presentacion-enlace" href="/area-personal/?presentacion=rrhh">Abrir área personal</a>
+          </article>
+          <article class="presentacion-acceso presentacion-acceso-interno">
+            <span class="presentacion-etiqueta">Personal de RRHH</span>
+            <h3>Gestión interna del portal</h3>
+            <p>Bolsas, llamamientos, fichajes, permisos, dietas, documentos y auditoría, siempre según el perfil y con mínimo privilegio.</p>
+            <a class="presentacion-enlace" href="/portal-empleado/?presentacion=rrhh&amp;perfil=tecnico#portal">Abrir como técnico revisor</a>
+            <a class="presentacion-enlace presentacion-enlace-secundario" href="/portal-empleado/?presentacion=rrhh&amp;perfil=administrador#portal">Abrir como administrador</a>
+          </article>
+        </div>
+      </section>
       <section class="presentacion-catalogo" aria-labelledby="modulos-portal">
         <div class="presentacion-catalogo-cabecera">
           <div>
             <p class="presentacion-sobrelinea presentacion-sobrelinea-oscura">Portal genérico de Recursos Humanos</p>
             <h2 id="modulos-portal">Módulos del portal</h2>
           </div>
-          <p>Todos compartirán identidad, datos, documentos y trazabilidad. En esta fase solo está disponible Bolsa; el resto se muestra para conservar la visión completa sin simular accesos que todavía no existen.</p>
+          <p>Todos comparten identidad, datos, documentos y trazabilidad. Bolsa, Cronos y Dietas disponen ya de recorridos funcionales de presentación; el resto se mantiene visible y cerrado para conservar la visión completa sin inventar accesos.</p>
         </div>
         <div class="presentacion-rejilla-modulos" aria-label="Módulos previstos del Portal de Recursos Humanos">
-          <article class="presentacion-modulo presentacion-modulo-activo" aria-labelledby="modulo-bolsa">
+          <article class="presentacion-modulo presentacion-modulo-activo presentacion-modulo-bolsa" aria-labelledby="modulo-bolsa">
             <span class="presentacion-icono-modulo" aria-hidden="true">BOL</span>
             <h3 id="modulo-bolsa">Bolsas de trabajo</h3>
             <p>Convocatorias, solicitudes, méritos, elaboración de bolsas, llamamientos y trazabilidad.</p>
@@ -54,17 +84,23 @@
             <p>Recibos, certificados fiscales e incidencias retributivas.</p>
             <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
           </article>
-          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-cronos">
+          <article class="presentacion-modulo presentacion-modulo-activo presentacion-modulo-cronos" aria-labelledby="modulo-cronos">
             <span class="presentacion-icono-modulo" aria-hidden="true">CRO</span>
             <h3 id="modulo-cronos">Cronos</h3>
             <p>Fichajes, permisos, vacaciones, turnos y calendario laboral.</p>
-            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+            <div class="presentacion-pie-modulo">
+              <span class="presentacion-estado-activo">Disponible en esta fase</span>
+              <a href="/portal-empleado/?presentacion=rrhh&amp;perfil=administrador#cronos">Abrir módulo</a>
+            </div>
           </article>
-          <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-dietas">
+          <article class="presentacion-modulo presentacion-modulo-activo presentacion-modulo-dietas" aria-labelledby="modulo-dietas">
             <span class="presentacion-icono-modulo" aria-hidden="true">DIE</span>
             <h3 id="modulo-dietas">Dietas</h3>
             <p>Comisiones de servicio, kilometraje, gastos y liquidaciones.</p>
-            <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
+            <div class="presentacion-pie-modulo">
+              <span class="presentacion-estado-activo">Disponible en esta fase</span>
+              <a href="/portal-empleado/?presentacion=rrhh&amp;perfil=administrador#dietas">Abrir módulo</a>
+            </div>
           </article>
           <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-solicitudes">
             <span class="presentacion-icono-modulo" aria-hidden="true">SOL</span>
@@ -107,30 +143,6 @@
             <h3 id="modulo-administracion">Administración y configuración</h3>
             <p>Roles, permisos, catálogos, calendarios, reglas y conectores.</p>
             <span class="presentacion-estado-pendiente">Pendiente · No disponible</span>
-          </article>
-        </div>
-      </section>
-      <section aria-labelledby="elegir-recorrido">
-        <h2 id="elegir-recorrido">Elegir acceso a Bolsa</h2>
-        <div class="presentacion-opciones">
-          <article>
-            <span class="presentacion-etiqueta">Acceso público</span>
-            <h3>Consulta pública de bolsas</h3>
-            <p>Convocatorias, plazos, requisitos, documentación, categorías y ayuda sin datos personales.</p>
-            <a class="presentacion-enlace" href="/bolsa/">Abrir consulta pública</a>
-          </article>
-          <article>
-            <span class="presentacion-etiqueta">Persona candidata</span>
-            <h3>Área personal</h3>
-            <p>Perfil, candidaturas, documentación, autobaremación, avisos, alegaciones e historial.</p>
-            <a class="presentacion-enlace" href="/area-personal/?presentacion=rrhh">Abrir área personal</a>
-          </article>
-          <article>
-            <span class="presentacion-etiqueta">Personal de RRHH</span>
-            <h3>Gestión interna de bolsas</h3>
-            <p>Convocatorias, elaboración de bolsas, llamamientos, revisión, documentos, comunicaciones y auditoría con mínimo privilegio visible.</p>
-            <a class="presentacion-enlace" href="/portal-empleado/?presentacion=rrhh&amp;perfil=tecnico#portal">Abrir como técnico revisor</a>
-            <a class="presentacion-enlace presentacion-enlace-secundario" href="/portal-empleado/?presentacion=rrhh&amp;perfil=administrador#portal">Abrir como administrador</a>
           </article>
         </div>
       </section>

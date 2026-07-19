@@ -23,12 +23,14 @@ test("adapta el descriptor final de Dietas y descarga un PDF institucional", asy
       { etiqueta: "Importe", valor: "61,88 EUR" },
     ],
     comprobacion: { qr_contenido: "http://127.0.0.2:8081/verificar/?ref=DEMO-REC-DIE-0073-06&presentacion=rrhh" },
+    texto_certificacion: "La persona titular del órgano competente CERTIFICA que el expediente aparece aprobado en este escenario DEMO.",
   });
   assert.equal(resultado.formato, "application/pdf");
   assert.equal(nombre, "recibo-demo-rec-die-0073-06.pdf");
   assert.equal(blob.type, "application/pdf");
   const pdf = Buffer.from(await blob.arrayBuffer()).toString("latin1");
   assert.match(pdf, /Diputacion de Granada/);
+  assert.match(pdf, /CERTIFICA/);
   assert.match(pdf, /DEMO-REC-DIE-0073-06/);
   assert.ok(blob.size > 10_000);
 });

@@ -67,7 +67,8 @@ test("la bolsa pública conserva una navegación lateral limitada a contenido p�
 
 test("la presentación identifica el origen real y devuelve al selector desde el logotipo", () => {
   assert.match(html, /<h1 id="titulo-portal">Bolsas y procesos selectivos<\/h1>/);
-  assert.match(html, /referencias BOP, títulos, categorías y fechas son públicas y reales/);
+  assert.match(html, /Datos públicos reales de referencia; plazos y actuaciones rotulados DEMO son sintéticos/);
+  assert.match(html, /id="alcance-datos-demo"/);
   assert.match(javascript, /inicioInstitucional\.href = esDemostracion \? "\/presentacion\/" : "\/bolsa\/"/);
   assert.match(javascript, /Volver al selector de recorridos de la presentación/);
 });

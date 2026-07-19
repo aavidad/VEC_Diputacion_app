@@ -67,7 +67,10 @@
       ? "Volver al selector de recorridos de la presentación"
       : "Inicio de Bolsa y procesos selectivos");
     const avisos = [...new Set(Object.values(estado.avisosDemostracion))];
-    if (avisos.length > 0) elementos.aviso.textContent = avisos.join(" ");
+    if (esDemostracion) {
+      elementos.aviso.textContent = "Datos públicos reales de referencia; plazos y actuaciones rotulados DEMO son sintéticos y carecen de validez administrativa.";
+      elementos.aviso.title = avisos.join(" ");
+    }
   }
 
   function etiqueta(valor) {

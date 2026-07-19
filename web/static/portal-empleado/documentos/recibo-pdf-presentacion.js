@@ -18,7 +18,7 @@ export function generarReciboPDFPresentacion(descriptor) {
   ];
   dibujarLogoDiputacion(contenido, 58, 782, 0.7);
   contenido.push("0.09 0.23 0.31 rg");
-  lineaPDF(contenido, 370, 787, abreviar(datos.titulo.toUpperCase(), 28), { tamano: 10.5, negrita: true });
+  lineaPDF(contenido, 370, 787, "RECIBO DE ACTUACIÓN", { tamano: 10.5, negrita: true });
   lineaPDF(contenido, 370, 770, "Portal del Empleado - DEMO", { tamano: 8 });
 
   contenido.push("0.08 0.13 0.20 rg");
@@ -37,10 +37,16 @@ export function generarReciboPDFPresentacion(descriptor) {
     y -= 28;
   });
 
+  contenido.push("0.97 0.99 1 rg 58 270 474 100 re f", "0.72 0.80 0.88 RG 58 270 474 100 re S", "0.08 0.13 0.20 rg");
+  lineaPDF(contenido, 66, 346, "CERTIFICA", { tamano: 10, negrita: true });
+  partirTexto(datos.textoCertificacion, 94).slice(0, 5).forEach((linea, indice) => {
+    lineaPDF(contenido, 66, 326 - indice * 13, linea, { tamano: 8.2 });
+  });
+
   contenido.push("0.96 0.98 1 rg 58 174 310 70 re f", "0.72 0.80 0.88 RG 58 174 310 70 re S", "0.08 0.13 0.20 rg");
-  lineaPDF(contenido, 66, 221, "Firma y verificacion", { tamano: 10, negrita: true });
+  lineaPDF(contenido, 66, 221, "Firma y verificación", { tamano: 10, negrita: true });
   lineaPDF(contenido, 66, 203, `Referencia: ${datos.referencia}`, { tamano: 8.5, negrita: true });
-  lineaPDF(contenido, 66, 187, "Estado: documento de demostracion sin validez administrativa", { tamano: 8.1 });
+  lineaPDF(contenido, 66, 187, "Estado: documento de demostración sin validez administrativa", { tamano: 8.1 });
   lineaPDF(contenido, 66, 158, abreviar(datos.nota, 78), { tamano: 8 });
   dibujarQR(contenido, datos.urlVerificacion, 480, 54, 1.3);
   lineaPDF(contenido, 382, 98, "Comprobar documento", { tamano: 8, negrita: true });
@@ -73,7 +79,7 @@ function validarDescriptor(descriptor) {
   const titulo = textoAcotado(descriptor.titulo, 3, 120);
   const subtitulo = textoAcotado(descriptor.subtitulo || "Recibo emitido por el Portal del Empleado", 3, 160);
   const nota = textoAcotado(descriptor.nota || "El documento definitivo se generara y firmara en el servidor autorizado.", 3, 220);
-  if (!Array.isArray(descriptor.filas) || descriptor.filas.length < 1 || descriptor.filas.length > 12) throw new TypeError("filas documentales no válidas");
+  if (!Array.isArray(descriptor.filas) || descriptor.filas.length < 1 || descriptor.filas.length > 8) throw new TypeError("filas documentales no válidas");
   const filas = descriptor.filas.map((fila) => {
     if (!Array.isArray(fila) || fila.length !== 2) throw new TypeError("fila documental no válida");
     return Object.freeze([textoAcotado(fila[0], 1, 80), textoAcotado(fila[1], 1, 180)]);
@@ -82,8 +88,10 @@ function validarDescriptor(descriptor) {
   if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.hash) throw new TypeError("URL de comprobación no válida");
   const nombreArchivo = String(descriptor.nombreArchivo || `recibo-${referencia.toLowerCase()}.pdf`);
   if (!/^[a-z0-9][a-z0-9._-]{1,119}\.pdf$/i.test(nombreArchivo)) throw new TypeError("nombre de PDF no válido");
+  const textoCertificacion = textoAcotado(descriptor.textoCertificacion
+    || "Se deja constancia de la actuación indicada y de su referencia de comprobación. El documento definitivo se emitirá desde el expediente administrativo autorizado.", 3, 430);
   return Object.freeze({ referencia, titulo, subtitulo, nota, filas: Object.freeze(filas),
-    urlVerificacion: url.href, nombreArchivo });
+    urlVerificacion: url.href, nombreArchivo, textoCertificacion });
 }
 
 function textoAcotado(valor, minimo, maximo, patron = null) {
@@ -99,14 +107,44 @@ function abreviar(valor, maximo) {
   return texto.length > maximo ? `${texto.slice(0, maximo - 3)}...` : texto;
 }
 
-function escaparPDF(valor) {
+function partirTexto(valor, maximo) {
+  const palabras = String(valor || "").trim().split(/\s+/u);
+  const lineas = [];
+  let linea = "";
+  palabras.forEach((palabra) => {
+    const candidata = linea ? `${linea} ${palabra}` : palabra;
+    if (candidata.length <= maximo) {
+      linea = candidata;
+      return;
+    }
+    if (linea) lineas.push(linea);
+    linea = palabra;
+  });
+  if (linea) lineas.push(linea);
+  return lineas;
+}
+
+function textoComentarioPDF(valor) {
   return String(valor ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\x20-\x7E]/g, " ").replace(/[\\()]/g, "\\$&");
+    .replace(/[^\x20-\x7E]/g, " ").replaceAll("%", " ");
+}
+
+function textoWinAnsiHex(valor) {
+  const especiales = new Map([
+    [0x20ac, 0x80], [0x201a, 0x82], [0x201e, 0x84], [0x2026, 0x85],
+    [0x2018, 0x91], [0x2019, 0x92], [0x201c, 0x93], [0x201d, 0x94],
+    [0x2013, 0x96], [0x2014, 0x97],
+  ]);
+  return Array.from(String(valor ?? "")).map((caracter) => {
+    const codigo = caracter.codePointAt(0);
+    const byte = especiales.get(codigo) ?? (codigo >= 0x20 && codigo <= 0xff ? codigo : 0x3f);
+    return byte.toString(16).padStart(2, "0").toUpperCase();
+  }).join("");
 }
 
 function lineaPDF(partes, x, y, texto, opciones = {}) {
   const tamano = opciones.tamano || 10;
-  partes.push(`BT /${opciones.negrita ? "F2" : "F1"} ${tamano} Tf ${x} ${y} Td (${escaparPDF(texto)}) Tj ET`);
+  partes.push(`% ${textoComentarioPDF(texto)}\nBT /${opciones.negrita ? "F2" : "F1"} ${tamano} Tf ${x} ${y} Td <${textoWinAnsiHex(texto)}> Tj ET`);
 }
 
 function dibujarLogoDiputacion(partes, x, y, escala = 1) {
@@ -118,8 +156,8 @@ function dibujarLogoDiputacion(partes, x, y, escala = 1) {
   partes.push(`q ${n(escalaMarca)} 0 0 ${n(-escalaMarca)} ${n(e)} ${n(f)} cm`);
   partes.push("0.67 0.80 0.29 rg 264.19 212.04 m 191.23 285.00 l 219.60 313.37 l 235.82 297.16 l 223.80 285.14 l 264.33 244.61 l 288.65 268.93 l 207.59 349.99 l 138.55 280.95 l 149.84 269.66 l 153.32 266.18 157.95 264.26 162.87 264.26 c 167.79 264.26 172.42 266.18 175.90 269.66 c 179.08 272.84 l 195.29 256.63 l 192.11 253.45 l 184.30 245.64 173.91 241.34 162.87 241.34 c 151.83 241.34 141.44 245.64 133.63 253.45 c 106.13 280.95 l 207.60 382.41 l 321.09 268.93 l 264.21 212.05 l h f Q");
   partes.push("0.09 0.23 0.31 rg");
-  lineaPDF(partes, x + 62 * s, y + 11 * s, "Diputacion de Granada", { tamano: 15 * s, negrita: true });
-  lineaPDF(partes, x + 63 * s, y - 6 * s, "Area de Recursos Humanos y Regimen Interior", { tamano: 7.5 * s });
+  lineaPDF(partes, x + 62 * s, y + 11 * s, "Diputación de Granada", { tamano: 15 * s, negrita: true });
+  lineaPDF(partes, x + 63 * s, y - 6 * s, "Área de Recursos Humanos y Régimen Interior", { tamano: 7.5 * s });
   partes.push(`0.67 0.80 0.29 rg ${n(x + 63 * s)} ${n(y - 12 * s)} ${n(156 * s)} ${n(2 * s)} re f`);
 }
 
@@ -250,8 +288,8 @@ function construirPDF(contenido) {
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
     `<< /Length ${contenido.length} >>\nstream\n${contenido}\nendstream`,
   ];
   let pdf = "%PDF-1.4\n";

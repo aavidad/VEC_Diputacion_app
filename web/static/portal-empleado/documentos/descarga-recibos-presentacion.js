@@ -18,6 +18,7 @@ export function crearDescargadorRecibosPresentacion(entorno = globalThis) {
       urlVerificacion,
       nombreArchivo,
       nota: descriptor.marca || "Documento DEMO. En producción se emitirá desde el expediente firmado y custodiado.",
+      textoCertificacion: descriptor.texto_certificacion,
     }, entorno);
   };
 }

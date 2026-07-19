@@ -31,7 +31,7 @@ func TestFuenteDemoCargaAgregadoCanonicoSinPIIYDevuelveCopias(t *testing.T) {
 	}
 }
 
-func TestFuenteDemoHistoricaNoInventaPlazosAbiertos(t *testing.T) {
+func TestFuenteDemoOfreceDosRecorridosAbiertosClaramenteRotulados(t *testing.T) {
 	consulta, err := NuevaConsultaConvocatorias(rutaDemoPrueba)
 	if err != nil {
 		t.Fatal(err)
@@ -39,8 +39,14 @@ func TestFuenteDemoHistoricaNoInventaPlazosAbiertos(t *testing.T) {
 	resultado, err := consulta.BuscarPublicadas(context.Background(), puertosbolsa.FiltroConvocatoriasPublicas{
 		Instante: time.Date(2026, 7, 19, 8, 0, 0, 0, time.UTC), Limite: 24, SoloPlazoAbierto: true,
 	})
-	if err != nil || resultado.Total != 0 {
+	if err != nil || resultado.Total != 2 {
 		t.Fatalf("total = %d, error = %v", resultado.Total, err)
+	}
+	for _, convocatoria := range resultado.Convocatorias {
+		if convocatoria.Estado != "inscripcion" || len(convocatoria.DatosPublicos.Plazos) != 1 ||
+			!strings.Contains(convocatoria.DatosPublicos.Descripcion, "escenario sintético rotulado como DEMO") {
+			t.Fatalf("recorrido abierto no queda inequívocamente rotulado: %#v", convocatoria)
+		}
 	}
 }
 

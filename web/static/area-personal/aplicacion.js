@@ -316,13 +316,16 @@ async function descargarRecibo(estado) {
     return;
   }
   const recibo = estado.ultimoRecibo;
+  const certificado = recibo.accion === "solicitar_certificado"
+    ? estado.datos.certificados.find((item) => item.id === recibo.objetivo)
+    : null;
   const urlVerificacion = new URL("/verificar/", window.location.origin);
   urlVerificacion.searchParams.set("ref", recibo.referencia);
   if (recibo.presentacion) urlVerificacion.searchParams.set("presentacion", "rrhh");
   try {
     await estado.descargarReciboPDF({
       referencia: recibo.referencia,
-      titulo: "Recibo de actuación del Portal de Recursos Humanos",
+      titulo: certificado?.tipo || "Recibo de actuación del Portal de Recursos Humanos",
       subtitulo: "Diputación de Granada · Área de Recursos Humanos y Régimen Interior",
       marca: recibo.presentacion
         ? "DOCUMENTO DEMO · SIN EFECTOS ADMINISTRATIVOS"
@@ -336,6 +339,9 @@ async function descargarRecibo(estado) {
       ],
       comprobacion: { qr_contenido: urlVerificacion.href },
       nombre_archivo: `recibo-${recibo.referencia.toLowerCase()}.pdf`,
+      texto_certificacion: certificado
+        ? `La persona titular del órgano competente CERTIFICA que la Persona Aspirante de Demostración figura, en este escenario exclusivamente sintético, con la situación descrita en «${certificado.tipo}». La versión administrativa incorporará los datos acreditados, la firma o sello y el código seguro de verificación del expediente.`
+        : "Se deja constancia de la actuación indicada, su resultado y referencia de comprobación. En producción, este recibo se emitirá desde el expediente firmado y custodiado por el sistema autorizado.",
     });
     notificar("Recibo PDF preparado para descarga.");
   } catch {

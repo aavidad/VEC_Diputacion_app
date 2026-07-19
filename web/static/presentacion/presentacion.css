@@ -112,6 +112,22 @@ html {
   margin: 1.75rem 0;
 }
 
+.presentacion-accesos {
+  margin: 1.75rem 0;
+}
+
+.presentacion-titulo-seccion {
+  display: grid;
+  grid-template-columns: minmax(16rem, .72fr) minmax(22rem, 1.28fr);
+  align-items: end;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.presentacion-titulo-seccion p {
+  margin-top: 0;
+}
+
 .presentacion-catalogo-cabecera {
   display: grid;
   grid-template-columns: minmax(16rem, .72fr) minmax(22rem, 1.28fr);
@@ -158,6 +174,40 @@ html {
   border-radius: .55rem .55rem 0 0;
   background: var(--presentacion-exito);
   content: "";
+}
+
+.presentacion-modulo-bolsa {
+  border-color: #8bb9ef;
+}
+
+.presentacion-modulo-bolsa::before {
+  background: #075eb8;
+}
+
+.presentacion-modulo-cronos {
+  border-color: #82beca;
+}
+
+.presentacion-modulo-cronos::before {
+  background: #07758d;
+}
+
+.presentacion-modulo-cronos .presentacion-icono-modulo {
+  color: #07758d;
+  background: #e4f6f8;
+}
+
+.presentacion-modulo-dietas {
+  border-color: #83bd96;
+}
+
+.presentacion-modulo-dietas::before {
+  background: #17663a;
+}
+
+.presentacion-modulo-dietas .presentacion-icono-modulo {
+  color: #17663a;
+  background: #e7f5ed;
 }
 
 .presentacion-modulo-pendiente {
@@ -243,6 +293,7 @@ html {
 }
 
 .presentacion-opciones article {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -250,6 +301,27 @@ html {
   border: 1px solid var(--presentacion-borde);
   border-radius: .55rem;
   background: var(--presentacion-superficie);
+}
+
+.presentacion-acceso {
+  overflow: hidden;
+  box-shadow: 0 3px 12px rgba(0, 61, 102, .08);
+}
+
+.presentacion-acceso::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: .3rem;
+  background: var(--presentacion-marca);
+  content: "";
+}
+
+.presentacion-acceso-personal::before {
+  background: #16855a;
+}
+
+.presentacion-acceso-interno::before {
+  background: #6a45c2;
 }
 
 .presentacion-opciones p {
@@ -306,6 +378,11 @@ html {
 
 @media (max-width: 52rem) {
   .presentacion-catalogo-cabecera {
+    grid-template-columns: 1fr;
+    gap: .25rem;
+  }
+
+  .presentacion-titulo-seccion {
     grid-template-columns: 1fr;
     gap: .25rem;
   }

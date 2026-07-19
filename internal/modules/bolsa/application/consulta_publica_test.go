@@ -173,16 +173,17 @@ func TestConsultaPublicaAcotaFiltrosYPaginacion(t *testing.T) {
 	}
 }
 
-func TestDetalleHistoricoExponePublicacionRealSinInventarPlazo(t *testing.T) {
+func TestDetalleDemoSeparaPublicacionRealYPlazoSinteticoAbierto(t *testing.T) {
 	servicio := servicioPublicoPrueba(t, time.Date(2026, 7, 19, 8, 0, 0, 0, time.UTC))
 	detalle, err := servicio.Obtener(context.Background(), "bolsa-operario-diputacion-2026")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(detalle.Plazos) != 0 || detalle.Convocatoria.Estado.Clave != "cerrada" ||
+	if len(detalle.Plazos) != 1 || detalle.Convocatoria.Estado.Clave != "inscripcion" ||
 		!detalle.Convocatoria.PublicadaEn.Equal(time.Date(2026, 3, 5, 0, 0, 0, 0, time.UTC)) ||
-		len(detalle.Requisitos) != 6 || len(detalle.Documentos) != 2 {
-		t.Fatalf("detalle histórico inesperado: %#v", detalle)
+		len(detalle.Requisitos) != 6 || len(detalle.Documentos) != 2 ||
+		!strings.Contains(detalle.Descripcion, "escenario sintético rotulado como DEMO") {
+		t.Fatalf("detalle DEMO inesperado: %#v", detalle)
 	}
 }
 

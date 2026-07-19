@@ -1,7 +1,7 @@
 {
   "version_esquema": 1,
   "fuente": {
-    "revision": "demo-publico-real-2026-07-v4",
+    "revision": "demo-publico-real-2026-07-v5",
     "actualizada_en": "2026-07-19T00:00:00Z",
     "demostracion": true,
     "aviso": "DEMOSTRACIÓN: títulos, categorías, fechas y referencias BOP son datos públicos reales; los documentos adaptados no tienen validez administrativa y no se incluyen datos personales."
@@ -19,7 +19,7 @@
       "referencia": "estados_convocatoria",
       "version": 1,
       "entradas": [
-        {"clave": "inscripcion", "version": 1, "etiqueta": "Inscripción abierta", "descripcion": "Admite solicitudes dentro del plazo publicado.", "semantica": "exito", "orden": 1, "publicable": true},
+        {"clave": "inscripcion", "version": 1, "etiqueta": "Inscripción abierta · DEMO", "descripcion": "Escenario de presentación que admite simular solicitudes dentro del plazo rotulado como DEMO.", "semantica": "exito", "orden": 1, "publicable": true},
         {"clave": "proxima", "version": 1, "etiqueta": "Próxima apertura", "descripcion": "Publicada antes de abrir el plazo.", "semantica": "informacion", "orden": 2, "publicable": true},
         {"clave": "cerrada", "version": 1, "etiqueta": "Histórico cerrado", "descripcion": "Referencia pública de un proceso cuyo plazo no está abierto.", "semantica": "neutro", "orden": 3, "publicable": true},
         {"clave": "borrador", "version": 1, "etiqueta": "Borrador interno", "descripcion": "Estado no publicable.", "semantica": "neutro", "orden": 4, "publicable": false}
@@ -52,16 +52,18 @@
   ],
   "convocatorias": [
     {
-      "id": "proceso:publico:bolsa-operario-2026", "version": "v1", "estado": "cerrada",
+      "id": "proceso:publico:bolsa-operario-2026", "version": "v2", "estado": "inscripcion",
       "datos_publicos": {
         "identificador_publico": "bolsa-operario-diputacion-2026", "tipo": "bolsa_temporal",
         "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
         "categorias": ["operario"],
         "titulo": "Bolsa de empleo de Operario de la Diputación de Granada",
         "resumen": "Expediente 2026/BTN_01/000062 · BOP-GRA-2026-043004 · publicación 05/03/2026.",
-        "descripcion": "Bases públicas reales para elaborar una bolsa de empleo de Operario de la Escala de Administración Especial. La ficha de demostración no reconstruye ni inventa plazos no incorporados como dato estructurado.",
+        "descripcion": "Bases públicas reales para elaborar una bolsa de empleo de Operario de la Escala de Administración Especial. Para poder recorrer la presentación, el plazo visible del 19/07/2026 al 20/08/2026 es un escenario sintético rotulado como DEMO y no un plazo administrativo real.",
         "publicada_en": "2026-03-05T00:00:00Z", "actualizada_en": "2026-03-05T00:00:00Z",
-        "plazos": [],
+        "plazos": [
+          {"referencia": "plazo:demo:inscripcion-operario-2026", "tipo": "inscripcion", "titulo": "Presentación de solicitudes · escenario DEMO", "descripcion": "Intervalo sintético exclusivo de la demostración; no habilita una solicitud administrativa real.", "abre_en": "2026-07-18T22:00:00Z", "cierra_en": "2026-08-20T21:59:59Z"}
+        ],
         "requisitos": [
           {"referencia": "requisito:nacionalidad", "orden": 1, "titulo": "Nacionalidad", "descripcion": "Nacionalidad española o alguno de los supuestos de acceso al empleo público previstos para ciudadanía de la Unión Europea, familiares y personas amparadas por tratados de libre circulación.", "obligatorio": true},
           {"referencia": "requisito:edad", "orden": 2, "titulo": "Edad", "descripcion": "Tener cumplidos dieciséis años y no superar la edad máxima de jubilación forzosa.", "obligatorio": true},
@@ -78,16 +80,18 @@
       }
     },
     {
-      "id": "proceso:publico:auxiliar-servicios-generales-2025", "version": "v1", "estado": "cerrada",
+      "id": "proceso:publico:auxiliar-servicios-generales-2025", "version": "v2", "estado": "inscripcion",
       "datos_publicos": {
         "identificador_publico": "auxiliar-servicios-generales-2025", "tipo": "proceso_selectivo",
         "catalogo_categorias": {"catalogo_id": "categorias-profesionales", "catalogo_version": 1, "catalogo_huella_sha256": "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"},
         "categorias": ["auxiliar-servicios-generales"],
         "titulo": "Ingreso en la categoría de Auxiliar de Servicios Generales",
         "resumen": "Bases y convocatoria · BOP-GRA-2025-125002 · publicación 04/07/2025.",
-        "descripcion": "Proceso selectivo público de la Diputación de Granada para el ingreso en la categoría de Auxiliar de Servicios Generales de la Escala de Administración Especial.",
+        "descripcion": "Proceso selectivo público de la Diputación de Granada para el ingreso en la categoría de Auxiliar de Servicios Generales de la Escala de Administración Especial. Para poder recorrer la presentación, el plazo visible del 19/07/2026 al 15/08/2026 es un escenario sintético rotulado como DEMO y no un plazo administrativo real.",
         "publicada_en": "2025-07-04T00:00:00Z", "actualizada_en": "2025-07-04T00:00:00Z",
-        "plazos": [],
+        "plazos": [
+          {"referencia": "plazo:demo:inscripcion-auxiliar-servicios-2025", "tipo": "inscripcion", "titulo": "Presentación de solicitudes · escenario DEMO", "descripcion": "Intervalo sintético exclusivo de la demostración; no habilita una solicitud administrativa real.", "abre_en": "2026-07-18T22:00:00Z", "cierra_en": "2026-08-15T21:59:59Z"}
+        ],
         "requisitos": [
           {"referencia": "requisito:nacionalidad", "orden": 1, "titulo": "Nacionalidad", "descripcion": "Cumplir alguno de los supuestos de nacionalidad admitidos por las bases y la normativa de acceso al empleo público.", "obligatorio": true},
           {"referencia": "requisito:edad", "orden": 2, "titulo": "Edad", "descripcion": "Tener cumplidos dieciséis años y no superar la edad máxima de jubilación forzosa.", "obligatorio": true},

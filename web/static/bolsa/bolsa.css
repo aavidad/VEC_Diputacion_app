@@ -200,12 +200,19 @@
 
 .aviso-demostracion {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
   padding: 10px 20px;
   border-bottom: 1px solid #9a6700;
   background: var(--notice-soft);
   color: #6b4200;
+}
+
+.aviso-demostracion a {
+  color: inherit;
+  font-weight: 750;
 }
 
 .contenido-publico {
@@ -738,4 +745,3 @@ button:hover {
   outline: 2px solid #fff;
   background: #003f88;
 }
-

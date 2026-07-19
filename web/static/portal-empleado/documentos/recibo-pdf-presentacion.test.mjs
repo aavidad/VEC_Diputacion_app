@@ -14,6 +14,7 @@ const descriptor = {
   ],
   urlVerificacion: "http://127.0.0.2:8081/verificar/?ref=DEMO-DIE-REC-0007&presentacion=rrhh",
   nombreArchivo: "recibo-demo-die-0007.pdf",
+  textoCertificacion: "La persona titular del órgano competente CERTIFICA que esta actuación figura en el escenario de demostración y carece de efectos administrativos.",
 };
 
 test("genera un PDF institucional de presentación con referencia verificable", async () => {
@@ -23,6 +24,8 @@ test("genera un PDF institucional de presentación con referencia verificable", 
   assert.match(contenido, /^%PDF-1\.4/);
   assert.match(contenido, /Diputacion de Granada/);
   assert.match(contenido, /Recibo de liquidacion de dieta/);
+  assert.match(contenido, /CERTIFICA/);
+  assert.match(contenido, /\/Encoding \/WinAnsiEncoding/);
   assert.match(contenido, /DEMO-DIE-REC-0007/);
   assert.match(contenido, /sin validez administrativa/);
   assert.match(contenido, /%%EOF$/);
@@ -33,5 +36,6 @@ test("rechaza referencias, destinos y campos que no respetan el contrato cerrado
   assert.throws(() => generarReciboPDFPresentacion({ ...descriptor, referencia: "../../dato" }), /texto documental/);
   assert.throws(() => generarReciboPDFPresentacion({ ...descriptor, urlVerificacion: "javascript:alert(1)" }), /URL/);
   assert.throws(() => generarReciboPDFPresentacion({ ...descriptor, filas: [] }), /filas/);
+  assert.throws(() => generarReciboPDFPresentacion({ ...descriptor, filas: Array.from({ length: 9 }, (_, indice) => ["Dato", String(indice)]) }), /filas/);
   assert.throws(() => generarReciboPDFPresentacion({ ...descriptor, nombreArchivo: "recibo.html" }), /nombre/);
 });
