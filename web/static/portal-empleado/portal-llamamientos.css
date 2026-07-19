@@ -1,0 +1,96 @@
+/** Estilos específicos del asistente de llamamientos; heredan el tema del portal. */
+
+.estado-asistente {
+  position: sticky;
+  z-index: 9;
+  top: 76px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -4px 0 12px;
+  padding: 8px 12px;
+  border: 1px solid #cbd8e8;
+  border-radius: 6px;
+  background: #f7faff;
+  color: #344b66;
+  font-size: 0.7rem;
+  box-shadow: 0 3px 9px rgba(19, 48, 82, 0.09);
+}
+
+.resumen-necesidad { position: sticky; top: 76px; }
+.dato-secundario { display: block; margin-top: 3px; color: var(--portal-muted); font-size: 0.68rem; }
+.boton-ancho { width: 100%; margin-top: 12px; }
+
+.tabla-seleccion-necesidad strong,
+.tabla-propuesta-minimizada strong { color: var(--portal-tinta); }
+
+.tabla-propuesta-minimizada td:nth-child(3),
+.tabla-propuesta-minimizada td:nth-child(4) {
+  min-width: 190px;
+  max-width: 330px;
+  white-space: normal;
+}
+
+.formulario-llamamiento .resumen-errores { grid-column: 1 / -1; }
+
+.resumen-errores {
+  padding: 10px 12px;
+  border: 2px solid var(--portal-peligro);
+  border-radius: 6px;
+  background: #fff4f4;
+  color: #762626;
+  font-size: 0.74rem;
+}
+
+.resumen-errores ul { margin: 6px 0 0; padding-left: 20px; }
+.campo [aria-invalid="true"] { border-color: var(--portal-peligro); box-shadow: 0 0 0 1px var(--portal-peligro); }
+
+.recibo-llamamiento {
+  margin: 0 14px 14px;
+  padding: 14px;
+  border: 2px solid #68a977;
+  border-radius: 8px;
+  background: #f2fbf4;
+}
+
+.recibo-llamamiento h3,
+.recibo-llamamiento p { margin: 0; }
+
+.recibo-llamamiento dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.recibo-llamamiento dl > div {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #b8d9c0;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.recibo-llamamiento dt { color: var(--portal-muted); font-size: 0.65rem; }
+.recibo-llamamiento dd { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 0.75rem; }
+
+@media (max-width: 1040px) {
+  .resumen-necesidad { position: static; }
+}
+
+@media (max-width: 780px) {
+  .estado-asistente { top: 68px; align-items: flex-start; flex-direction: column; }
+  .recibo-llamamiento dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 520px) {
+  .recibo-llamamiento dl { grid-template-columns: 1fr; }
+  .bandeja-llamamientos .cabecera-panel { align-items: flex-start; flex-direction: column; }
+  .bandeja-llamamientos .cabecera-panel > div { width: 100%; }
+}
+
+@media (forced-colors: active) {
+  .estado-asistente,
+  .recibo-llamamiento,
+  .resumen-errores { border: 2px solid CanvasText; }
+}

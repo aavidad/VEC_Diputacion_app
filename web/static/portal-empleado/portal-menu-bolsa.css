@@ -1,0 +1,125 @@
+/** Navegación funcional 1–10 de Bolsa sobre el tema común del portal. */
+.navegacion-bolsa {
+  padding-bottom: 10px;
+}
+
+.grupo-menu-bolsa {
+  margin: 0;
+  padding: 0;
+}
+
+.categoria-menu-bolsa {
+  min-height: 46px;
+  padding-block: 6px;
+  font-size: 0.79rem;
+  line-height: 1.3;
+}
+
+.categoria-menu-bolsa .numero-menu {
+  border-radius: 50%;
+}
+
+.categoria-menu-bolsa[data-categoria-activa="true"] {
+  border-left-color: #58a8ff;
+  background: rgba(4, 104, 223, 0.5);
+  color: #fff;
+}
+
+.marca-expansion {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  color: #dcecff;
+  font-size: 1rem;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform 150ms ease;
+}
+
+.categoria-menu-bolsa[aria-expanded="true"] .marca-expansion {
+  transform: rotate(180deg);
+}
+
+.submenu-bolsa {
+  padding: 2px 0 5px;
+  background: rgba(0, 20, 43, 0.2);
+}
+
+.submenu-bolsa[hidden] {
+  display: none;
+}
+
+.enlace-submenu {
+  min-height: 36px;
+  grid-template-columns: 8px minmax(0, 1fr);
+  gap: 8px;
+  padding: 5px 14px 5px 51px;
+  color: #d9e9f8;
+  font-size: 0.73rem;
+  line-height: 1.3;
+}
+
+.enlace-submenu::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.8;
+}
+
+.enlace-submenu:hover:not(:disabled),
+.enlace-submenu[aria-current="page"] {
+  background: rgba(4, 104, 223, 0.58);
+}
+
+.enlace-submenu[aria-current="page"]::before {
+  background: #fff;
+  opacity: 1;
+}
+
+body[data-contraste="true"] .categoria-menu-bolsa[data-categoria-activa="true"] {
+  outline: 2px solid currentColor;
+  outline-offset: -3px;
+}
+
+@media (max-width: 1040px) {
+  .categoria-menu-bolsa {
+    min-height: 44px;
+    font-size: 0.74rem;
+  }
+
+  .enlace-submenu {
+    padding-left: 43px;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 780px) {
+  .categoria-menu-bolsa {
+    min-height: 48px;
+    font-size: 0.8rem;
+  }
+
+  .enlace-submenu {
+    min-height: 40px;
+    font-size: 0.76rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marca-expansion {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .categoria-menu-bolsa[data-categoria-activa="true"],
+  .enlace-submenu[aria-current="page"] {
+    border-left: 4px solid Highlight;
+    background: Canvas;
+    color: CanvasText;
+    forced-color-adjust: auto;
+  }
+}

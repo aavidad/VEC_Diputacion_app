@@ -68,6 +68,7 @@ export function crearUtilidadesVista({ escaparHTML, numero, claseEstado, encabez
     fuentePresentacion,
     kpi,
     numero,
+    operacionPermitida,
     tabla,
   });
 }

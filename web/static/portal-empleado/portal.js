@@ -1,9 +1,9 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260718-formularios-v2";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260719-asistente-llamamientos-v2";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260717-panel-interno-v1";
 import { extraerDatosEnvelopeCanonico, validarPanelBolsa } from "./portal-contrato.js?v=20260717-panel-interno-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
-import { renderizarConfirmacionCompacta, renderizarDetalleLlamamientoBloqueado, renderizarPasosLlamamiento } from "./portal-llamamientos-vista.js?v=20260718-llamamientos-v1";
+import { crearAsistenteLlamamientos } from "./portal-llamamientos-vista.js?v=20260719-asistente-llamamientos-v2";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
 import { PROVEEDOR_BEARER_BORRADORES, crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260718-borradores-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260718-formularios-v2";
@@ -13,7 +13,7 @@ import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=2026071
 import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-formularios-v2";
 import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260719-modulos-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260719-catalogo-v1";
-
+import { instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260719-menu-bolsa-v1";
 /**
  * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.
  *
@@ -98,6 +98,9 @@ const estado = {
   elaboracionSeleccionada: "",
   propuestaLlamamiento: null,
   confirmacionPropuestaLlamamiento: null,
+  configuracionLlamamiento: null,
+  erroresConfiguracionLlamamiento: [],
+  reciboLlamamiento: null,
   solicitandoPropuesta: false,
   errorPropuesta: "",
   filtros: {
@@ -108,7 +111,6 @@ const estado = {
 };
 
 const porId = (id) => document.getElementById(id);
-
 function cerrarMenuMovil({ restaurarFoco = false } = {}) {
   delete document.body.dataset.menuAbierto;
   const boton = porId("boton-menu");
@@ -152,11 +154,6 @@ function porcentajeSeguro(valor) {
   const numeroValor = Number(valor);
   if (!Number.isFinite(numeroValor)) return 0;
   return Math.max(0, Math.min(100, Math.round(numeroValor * 10) / 10));
-}
-
-function opcionesSelect(valores, seleccionada = "") {
-  if (!Array.isArray(valores)) return "";
-  return valores.map((valor) => `<option ${String(valor) === String(seleccionada) ? "selected" : ""}>${escaparHTML(valor)}</option>`).join("");
 }
 
 function modoPresentacionSolicitado() {
@@ -356,8 +353,6 @@ function necesidadLlamamientoSeleccionada() {
     || DATOS_PANEL.necesidades_llamamiento[0];
 }
 
-function bolsaDeNecesidad(necesidad) { return DATOS_PANEL.bolsas.find((item) => item.id === necesidad?.bolsa_id); }
-
 function puedeSolicitarPropuesta() { return DATOS_PANEL.capacidades.solicitar_propuesta_llamamiento === true; }
 
 async function solicitarPropuestaLlamamiento() {
@@ -469,7 +464,7 @@ function renderizar() {
     if (actual) boton.setAttribute("aria-current", "page");
     else boton.removeAttribute("aria-current");
   });
-
+  sincronizarMenuBolsa(porId("navegacion-bolsa"), estado.vista);
   if (VISTAS_MODULOS_PERSONALES.has(estado.vista)) {
     if (!coordinadorModulos.vistaDisponible(estado.vista)) {
       coordinadorModulos.desmontarVistaActual();
@@ -521,10 +516,10 @@ function renderizar() {
     baremacion: () => vistasBaremacion.renderizarBaremacion(datosVista),
     alegaciones: () => vistasBaremacion.renderizarAlegaciones(datosVista),
     importacion: () => vistasOperaciones.renderizarImportacion(datosVista),
-    llamamientos: () => vistasOperaciones.renderizarLlamamientos(datosVista),
+    llamamientos: () => asistenteLlamamientos.renderizar(datosVista, estado),
     contratos: () => vistasOperaciones.renderizarContratos(datosVista),
     reglas: () => vistasBaremacion.renderizarBaremacion(datosVista),
-    consulta: renderizarConsulta,
+    consulta: () => renderizarConsulta(),
     estadisticas: () => vistasGobierno.renderizarEstadisticas(datosVista),
     documentos: () => vistasOperaciones.renderizarDocumentos(datosVista),
     comunicaciones: () => vistasOperaciones.renderizarComunicaciones(datosVista),
@@ -574,6 +569,7 @@ const vistasConvocatorias = crearVistasConvocatorias(utilidadesVista);
 const vistasBaremacion = crearVistasBaremacion(utilidadesVista);
 const vistasOperaciones = crearVistasOperaciones(utilidadesVista);
 const vistasGobierno = crearVistasGobierno(utilidadesVista);
+const asistenteLlamamientos = crearAsistenteLlamamientos({ ...utilidadesVista, operacionPermitida });
 
 function tarjetaKPI(sigla, valor, etiqueta, destino) {
   return `
@@ -777,7 +773,7 @@ const presentadorPanelInterno = crearPresentadorPanelInterno({
 });
 
 const controlador = crearControladorPortal({
-  anunciar, cargarFuenteDatos, confirmarOperacionPresentacion: (mensaje) => window.confirm(mensaje),
+  anunciar, asistenteLlamamientos, cargarFuenteDatos, confirmarOperacionPresentacion: (mensaje) => window.confirm(mensaje),
   cerrarMenuMovil, describirOperacionPresentacion, escaparHTML, estado,
   etiquetaFuentePanel, ejecutarOperacionPresentacion, navegar, notaOperacionNoCompuesta, numero,
   obtenerDatosPanel: () => DATOS_PANEL, operacionPermitida, porcentajeSeguro, porId, renderizar,
@@ -791,6 +787,7 @@ async function inicializar() {
   estado.vista = vistaDesdeHash();
   renderizar();
   controlador.instalar();
+  instalarMenuBolsa(porId("navegacion-bolsa"));
   instalarEventosBorradores();
   await cargarFuenteDatos();
   renderizar();

@@ -84,6 +84,7 @@ export function contenerTabulacionMenu(evento, lateral, elementoActivo) {
 export function crearControladorPortal(dependencias) {
   const {
     anunciar,
+    asistenteLlamamientos,
     cargarFuenteDatos,
     cerrarMenuMovil,
     confirmarOperacionPresentacion,
@@ -132,9 +133,7 @@ export function crearControladorPortal(dependencias) {
         });
         break;
       case "nuevo-llamamiento":
-        estado.pasoLlamamiento = 1;
-        estado.propuestaLlamamiento = null;
-        estado.confirmacionPropuestaLlamamiento = null;
+        asistenteLlamamientos.reiniciar(estado, datosPanel.necesidades_llamamiento[0]?.id || "");
         estado.errorPropuesta = "";
         navegar("llamamientos");
         break;
@@ -150,11 +149,12 @@ export function crearControladorPortal(dependencias) {
         abrirDialogo("Configurar bases y baremo", '<dl class="resumen-expediente"><div class="fila-resumen"><dt>Experiencia</dt><dd>Unidad, ámbito, jornada, topes y redondeo</dd></div><div class="fila-resumen"><dt>Formación</dt><dd>Titulaciones, cursos, horas, relación y límites</dd></div><div class="fila-resumen"><dt>Otros méritos</dt><dd>Tipos definidos por las bases</dd></div><div class="fila-resumen"><dt>Garantía</dt><dd>Versión inmutable, simulación y validación antes de publicar</dd></div></dl><p class="nota-pendiente">Los valores visibles serían ejemplos; no se activará una regla sin bases e informe aplicables.</p>');
         break;
       case "seleccionar-necesidad": {
-        estado.necesidadSeleccionada = id;
-        estado.propuestaLlamamiento = null;
-        estado.confirmacionPropuestaLlamamiento = null;
+        if (!datosPanel.necesidades_llamamiento.some((item) => item.id === id)) {
+          anunciar("La necesidad seleccionada no pertenece al ámbito visible");
+          break;
+        }
+        asistenteLlamamientos.reiniciar(estado, id);
         estado.errorPropuesta = "";
-        estado.pasoLlamamiento = 1;
         renderizar();
         anunciar("Necesidad de cobertura seleccionada");
         break;
@@ -172,6 +172,7 @@ export function crearControladorPortal(dependencias) {
           break;
         }
         if (resultado.avanzar === true) estado.pasoLlamamiento = 2;
+        else if (resultado.confirmacion) estado.pasoLlamamiento = 2;
         else estado.pasoLlamamiento = 1;
         renderizar();
         porId("contenido-principal")?.focus({ preventScroll: true });
@@ -181,16 +182,23 @@ export function crearControladorPortal(dependencias) {
         break;
       }
       case "siguiente-paso":
-        if (!estado.modoPresentacion || estado.propuestaLlamamiento?.demostracion !== true) {
+        if (!estado.modoPresentacion) {
           estado.pasoLlamamiento = 1;
           renderizar();
           anunciar("Detalle no disponible. La configuración del llamamiento permanece bloqueada.");
           break;
         }
-        estado.pasoLlamamiento = Math.min(4, estado.pasoLlamamiento + 1);
-        renderizar();
-        porId("contenido-principal")?.focus({ preventScroll: true });
-        anunciar(`Paso ${estado.pasoLlamamiento} del llamamiento`);
+        {
+          const resultado = asistenteLlamamientos.avanzar(datosPanel, estado);
+          renderizar();
+          if (!resultado.ok) {
+            document.querySelector("#errores-configuracion-llamamiento")?.focus({ preventScroll: true });
+            anunciar(resultado.mensaje);
+            break;
+          }
+          porId("contenido-principal")?.focus({ preventScroll: true });
+          anunciar(resultado.mensaje);
+        }
         break;
       case "anterior-paso":
         estado.pasoLlamamiento = Math.max(1, estado.pasoLlamamiento - 1);
@@ -199,7 +207,8 @@ export function crearControladorPortal(dependencias) {
         break;
       case "ir-paso": {
         const paso = Number(boton.dataset.paso);
-        if (!estado.modoPresentacion && paso > 1) {
+        if (!estado.modoPresentacion && (paso > 2
+          || (paso === 2 && !estado.confirmacionPropuestaLlamamiento))) {
           estado.pasoLlamamiento = 1;
           renderizar();
           anunciar("Detalle no disponible. Los pasos posteriores no están conectados.");
@@ -216,6 +225,48 @@ export function crearControladorPortal(dependencias) {
       case "validar-recorrido":
         abrirDialogo("Presentación comprobada", '<p class="nota-seguridad">Se ha revisado únicamente el recorrido sintético. No se ha creado expediente, enviado comunicación ni modificado dato alguno.</p>');
         break;
+      case "preparar-llamamiento-demo": {
+        if (!estado.modoPresentacion || estado.pasoLlamamiento !== 4
+          || !operacionPermitida("emitir-llamamiento")) {
+          abrirDialogo("Operación no autorizada", '<p class="nota-pendiente"><strong>No se ha preparado ningún llamamiento.</strong> El modo o perfil activo no concede esta simulación.</p>');
+          anunciar("Preparación rechazada por falta de autorización explícita");
+          break;
+        }
+        const preparacion = asistenteLlamamientos.prepararOperacion(datosPanel, estado);
+        if (!preparacion.ok) {
+          estado.erroresConfiguracionLlamamiento = preparacion.errores;
+          estado.pasoLlamamiento = 3;
+          renderizar();
+          document.querySelector("#errores-configuracion-llamamiento")?.focus({ preventScroll: true });
+          anunciar(preparacion.errores[0]?.mensaje || "Revise la configuración del llamamiento");
+          break;
+        }
+        const descripcion = describirOperacionPresentacion("emitir-llamamiento", preparacion.objetivo);
+        if (!descripcion) {
+          detalleLimitacion("Preparación no disponible");
+          break;
+        }
+        const pregunta = `Preparar un llamamiento exclusivamente DEMO.\n\nObjetivo: ${descripcion.objetivo}\nActor resuelto: ${descripcion.actor}\n\nNo se enviará ninguna comunicación ni se producirá un efecto administrativo. ¿Continuar?`;
+        if (!confirmarOperacionPresentacion(pregunta)) {
+          anunciar("Preparación DEMO cancelada; no se ha emitido recibo");
+          break;
+        }
+        try {
+          const recibo = ejecutarOperacionPresentacion(
+            "emitir-llamamiento", preparacion.objetivo,
+            "Preparación del asistente de llamamientos, sin envío real", preparacion.campos,
+          );
+          estado.reciboLlamamiento = recibo;
+          renderizar();
+          document.querySelector("[data-recibo-llamamiento]")?.focus({ preventScroll: true });
+          anunciar(`Preparación DEMO confirmada con recibo ${recibo.referencia}; no se ha enviado nada`);
+        } catch {
+          estado.reciboLlamamiento = null;
+          abrirDialogo("Preparación no realizada", '<p class="nota-pendiente"><strong>No se ha emitido un recibo de éxito.</strong> El permiso, la configuración o el estado del llamamiento no cumplen el contrato DEMO.</p>');
+          anunciar("Preparación rechazada de forma segura; no se ha enviado nada");
+        }
+        break;
+      }
       case "operacion-presentacion": {
         if (!estado.modoPresentacion) {
           detalleLimitacion(boton.textContent.trim() || "Acción administrativa");
@@ -336,6 +387,15 @@ export function crearControladorPortal(dependencias) {
       } catch {
         abrirDialogo("Filtros no aplicados", '<p class="nota-pendiente">El formulario de filtros no cumple el contrato cerrado. No se ha modificado la vista.</p>');
         anunciar("Filtros rechazados de forma segura");
+      }
+    });
+    document.addEventListener("input", (evento) => {
+      const control = evento.target.closest?.("[data-llamamiento-campo]");
+      if (!control || estado.vista !== "llamamientos" || estado.pasoLlamamiento !== 3) return;
+      try {
+        asistenteLlamamientos.actualizarCampo(estado, control.dataset.llamamientoCampo, control.value);
+      } catch {
+        anunciar("El campo del llamamiento no admite ese valor");
       }
     });
     porId("boton-menu").addEventListener("click", () => {
