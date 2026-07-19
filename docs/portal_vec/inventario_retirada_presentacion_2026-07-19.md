@@ -32,6 +32,35 @@ el [entregable funcional](entregable_rrhh_bolsa_2026-07-17.md), la
 [revisión visual automatizada](revision_web_presentacion.md) y la
 [integración del Portal, Cronos y Dietas](integracion_portal_cronos_dietas_2026-07-19.md).
 
+## Cierre preventivo incorporado al corte
+
+La presentación y el futuro producto comparten vistas, pero ya no comparten un
+artefacto desplegable ambiguo:
+
+- `web/produccion.manifest` enumera exactamente el árbol web admitido en la
+  imagen normal; el mismo inventario limita las respuestas HTTP al ejecutar
+  desde el repositorio;
+- la SPA histórica de raíz, pruebas, documentación, fixtures, adaptadores y
+  datos de presentación quedan fuera de la imagen normal;
+- los handlers normal, público e interno rechazan cualquier query
+  `presentacion`, por lo que una URL de la muestra no activa sus importaciones
+  condicionales en otra superficie;
+- las cinco raíces exportadas fallan cerradas en perfil `produccion` con
+  `ErrComposicionProductivaNoDisponible`. Esta barrera solo se retirará al
+  inyectar identidad y repositorios autoritativos; renombrar un JSON DEMO o
+  seleccionar globalmente `local_durable` no acredita esas dependencias;
+- ninguna de las dos imágenes contiene `/app/config`, fuentes Go, pruebas ni
+  rutas `/home/usuario`; se evita así empaquetar accidentalmente el volcado RPT
+  de trabajo o referencias locales;
+- la imagen de presentación elimina además la SPA histórica, el módulo web
+  heredado, pruebas y guías de integración. Sigue siendo un artefacto local,
+  no autoritativo, limitado a loopback y con doble guarda.
+
+La imagen de producción es por ahora una **barrera verificable**, no un
+despliegue funcional: identidad corporativa, persistencia y fuentes públicas
+autoritativas continúan pendientes. Esta situación es intencionada y evita que
+una composición transitoria pueda presentarse como producción.
+
 ## Significado de las decisiones
 
 - **Eliminar al sustituir**: borrar el componente operativo y su prueba
@@ -87,8 +116,8 @@ el [entregable funcional](entregable_rrhh_bolsa_2026-07-17.md), la
 | `config/presentacion.go` y campos `RRHHPresentation*`/variables `VEC_RRHH_PRESENTATION_*` en `config/config.go` | Definen perfil y doble guarda para que la muestra no se active por error. | **Eliminar al cierre**, después del binario y rutas. | Ninguno: producción mantiene sus propios perfiles y configuración cerrada. | Ninguna raíz normal referencia esos campos y las configuraciones desconocidas fallan cerradas. | `rg -n 'RRHHPresentation|VEC_RRHH_PRESENTATION|presentacion_rrhh' --glob '*.go' --glob '*.yml' --glob '*.sh'` solo devuelve, en su caso, migraciones/documentación histórica. |
 | `internal/app/bootstrap/presentacion.go` y sus pruebas | Composición mínima que prohíbe conectores, exige memoria y fuentes `.demo.json`; las composiciones normales rechazan sus selectores. | **Eliminar la composición al cierre**. Conservar o reubicar pruebas negativas generales que impidan mezclar perfiles. | Bootstraps públicos e internos reales. | Cada raíz declara sus proveedores, no admite selectores DEMO y cuenta con pruebas de mezcla imposible. | Sin `NewHTTPServerPresentacionWithConfig`; pruebas normales siguen fallando ante configuración desconocida o material sintético. |
 | `internal/app/server/presentacion_marca.go`, ramas `NewHTTPServerPresentacion`/`NewHandlerPresentacionWithConfig`/`registrarDirectorioPresentacion` y sus pruebas | Allowlist, cabecera técnica, restricción local, solo lectura y rutas de la muestra. | **Eliminar al cierre**. Conservar en los handlers reales las cabeceras de seguridad, límites y listas positivas generales. | Handlers público e interno definitivos. | Cada superficie tiene lista positiva y frontera propias; ninguna sirve rutas DEMO. | `rg -n 'New.*Presentacion|Modo-Presentacion|registrarDirectorioPresentacion' internal/app/server` sin coincidencias, y las pruebas reales de rutas siguen pasando. |
-| `staticHandler(false)` y `rutaMaterialExclusivoPresentacion` en `internal/app/server/server.go` | Impiden que servidores normales sirvan segmentos cuyo nombre contiene `presentacion` o `demo`. | **Conservar como prueba negativa durante la migración**; tras borrar todo DEMO puede sustituirse por un manifiesto estático positivo, que es más preciso. | Allowlist/manifiesto de recursos del artefacto web real. | El empaquetado enumera solo recursos aprobados y una prueba intenta pedir antiguas rutas DEMO obteniendo `404`. | Requests a la lista histórica devuelven `404`; inventario físico también limpio. No retirar la defensa antes que los archivos. |
-| `Dockerfile`: construcción de `vec-presentacion`, copias `web-presentacion`/`web-produccion`, podas por nombre y destino `runtime-presentacion` | Produce dos artefactos físicamente separados. | **Eliminar al cierre** la construcción/destino DEMO. **Conservar y endurecer** la construcción cerrada del runtime real. | Una única construcción por superficie productiva con manifiesto positivo de archivos. | La imagen real no depende de poda por patrón para ser segura, no compila el binario DEMO y contiene solo recursos necesarios. | Inventario de imagen limpio y SBOM/manifiesto esperado; el script se adapta al único runtime real. |
+| `staticHandler(false)`, `estaticos_produccion.go` y `web/produccion.manifest` | Convierten el manifiesto exacto del artefacto en una lista positiva HTTP; si falta o es inválido, no se sirve ningún estático normal. `rutaMaterialExclusivoPresentacion` conserva una segunda defensa histórica. | **Conservar** el patrón de manifiesto y sus pruebas; retirar únicamente las entradas o ramas DEMO compartidas cuando se sustituyan. | Ya es la allowlist del árbol web normal. Debe evolucionar junto con cada vertical real. | Toda alta de recurso es revisión explícita; rutas no enumeradas, listados, pruebas, documentación y SPA histórica devuelven `404`. | `scripts/verificar_web_produccion.sh` compara árbol y manifiesto byte a byte; las pruebas HTTP solicitan recursos reales no enumerados y esperan `404`. |
+| `Dockerfile`: construcción de `vec-presentacion`, árboles `web-presentacion`/`web-produccion` y destino `runtime-presentacion` | Produce dos artefactos físicamente separados. Producción se construye por manifiesto positivo; presentación se poda y se inspecciona completa. | **Eliminar al cierre** la construcción/destino DEMO. **Conservar** la construcción cerrada del runtime real. Como mejora, convertir también los 22 recursos adicionales de presentación ya inventariados en un manifiesto positivo antes de distribuirla fuera del circuito local. | Una construcción por superficie productiva con manifiesto positivo de archivos. | La imagen real no compila ni contiene el binario DEMO, `/app/config`, fuentes, pruebas, rutas locales o recursos fuera del inventario. | Inventario físico de ambas imágenes limpio; `scripts/verificar_contenido_artefactos_presentacion.sh` exporta e inspecciona sus sistemas de ficheros completos. |
 | `docker-compose.yml`: servicios/perfil `presentacion`, red y variables DEMO | Ejecuta la muestra aislada tras proxy local. El perfil `local` también monta hoy los dos `.demo.json`. | **Eliminar al cierre** el perfil DEMO. En `local`, reemplazar esos montajes por fixtures de desarrollo bajo `testdata` o fuentes de ensayo nombradas sin ambigüedad; nunca tratarlas como producción. | Despliegues de desarrollo/ensayo y producción documentados por Sistemas. | Ningún servicio productivo monta `data/demo`, deshabilita autenticación ni usa memoria para actos. | `docker compose config` del perfil productivo sin guardas, rutas `.demo.json`, `AuthMode=disabled` ni `StorageMode=memory`. |
 | `scripts/verificar_contenido_artefactos_presentacion.sh` | Demuestra separación física entre ambos artefactos. | **Conservar y transformar** en verificador de contenido productivo; retirar las aserciones positivas del artefacto DEMO al eliminarlo. | Puerta de CI sobre imagen, manifiesto/SBOM y lista negativa histórica. | Falla ante cualquier ruta antigua, `DEMO-*`, binario, guardas o datos sintéticos; se ejecuta en cada publicación. | El propio script devuelve cero y el `grep` negativo sobre el inventario no produce salida. |
 | `internal/candidate/adapters/handler/demo.go` y `NewDemoAPI*` asociados | Demo heredada del procedimiento de candidato; no es el adaptador web de la presentación RRHH, pero contiene fixtures y ruta ejecutable sintética. | **Auditar y retirar por separado**; no debe olvidarse por estar fuera de `web/static`. Conservar dominio/casos de uso, no el runner ni sus fixtures. | Endpoints reales de procedimiento con repositorios y autorización; pruebas con fixtures en `*_test.go`/`testdata`. | Ninguna ruta de runtime ejecuta `handleDemo`; los casos de uso conservan cobertura sin generar 138 solicitudes sintéticas en servicio. | `rg -n 'NewProcedureDemoRunner|handleDemo|NewDemoAPI' cmd internal --glob '!**/*_test.go'` sin coincidencias y el inventario no incluye un binario que exponga esa ruta. |
@@ -212,19 +241,24 @@ scripts/verificar_contenido_artefactos_presentacion.sh
 ```
 
 El script actual construye `runtime` y `runtime-presentacion`, exporta ambos y
-falla si producción contiene:
+falla si producción no coincide exactamente con `web/produccion.manifest` o si
+cualquiera de las imágenes contiene configuración de trabajo, fuentes, pruebas
+o rutas locales. También conserva una lista negativa histórica que incluye:
 
 ```text
 app/web/.*presentacion
 data/demo/
 .demo.json
 usr/local/bin/vec-presentacion
+app/config/
+*.test.mjs
+/home/usuario
 ```
 
-La puerta debe ampliarse con una lista negativa histórica antes de la retirada,
-porque un nombre nuevo podría ser sintético sin contener esas palabras. Como
-mínimo debe cubrir los adaptadores, PDFs, rutas, guardas, referencias `DEMO-*`
-y el runner heredado inventariados en este documento.
+El manifiesto positivo evita depender solo del nombre de un fichero: añadir un
+JavaScript de nombre neutro también hace fallar la puerta. Al sustituir cada
+vertical se actualizarán conjuntamente el manifiesto, sus dependencias y las
+pruebas de ausencia de los adaptadores retirados.
 
 ### Auditoría del árbol fuente
 

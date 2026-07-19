@@ -9,7 +9,7 @@ func TestAutenticacionParteDeshabilitadaYNoInfiereModo(t *testing.T) {
 		quiere string
 	}{
 		{nombre: "ausente", quiere: AuthModeDisabled},
-		{nombre: "desconocido", modo: "automatico", quiere: AuthModeDisabled},
+		{nombre: "desconocido no se degrada", modo: " Automatico ", quiere: "automatico"},
 		{nombre: "deshabilitado expreso", modo: AuthModeDisabled, quiere: AuthModeDisabled},
 		{nombre: "demostracion expresa", modo: AuthModeFake, quiere: AuthModeFake},
 		{nombre: "cabeceras heredadas expresas", modo: AuthModeTrustedHeaders, quiere: AuthModeTrustedHeaders},
@@ -21,6 +21,27 @@ func TestAutenticacionParteDeshabilitadaYNoInfiereModo(t *testing.T) {
 				t.Fatalf("AuthMode = %q; se esperaba %q", obtenido, prueba.quiere)
 			}
 		})
+	}
+}
+
+func TestPerfilDesconocidoNoSeConvierteEnProduccion(t *testing.T) {
+	configuracion := (Config{ExecutionProfile: " Produccion-Azul "}).Normalize()
+	if configuracion.ExecutionProfile != "produccion-azul" {
+		t.Fatalf("perfil desconocido = %q; no debe convertirse en produccion", configuracion.ExecutionProfile)
+	}
+
+	t.Setenv(EnvExecutionProfile, " Produccion-Azul ")
+	t.Setenv(EnvAuthMode, " Automatico ")
+	cargada := Load()
+	if cargada.ExecutionProfile != "produccion-azul" || cargada.AuthMode != "automatico" {
+		t.Fatalf("Load degrado valores desconocidos: perfil=%q auth=%q", cargada.ExecutionProfile, cargada.AuthMode)
+	}
+}
+
+func TestAlmacenamientoDesconocidoNoSeConvierteEnMemoria(t *testing.T) {
+	configuracion := (Config{StorageMode: " Redis-Temporal "}).Normalize()
+	if configuracion.StorageMode != "redis-temporal" {
+		t.Fatalf("almacenamiento desconocido = %q; no debe convertirse en memoria", configuracion.StorageMode)
 	}
 }
 

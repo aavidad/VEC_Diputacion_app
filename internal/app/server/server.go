@@ -83,32 +83,6 @@ func newHTTPServer(cfg config.Config, api http.Handler, constructor constructorH
 	}, nil
 }
 
-func NewHandler(api http.Handler) http.Handler {
-	return NewHandlerWithConfig(config.Config{}, api)
-}
-
-// NewHandlerWithConfig conserva la composicion integrada de desarrollo. Aunque
-// no constituye una frontera productiva, aplica la misma prohibicion de cookies
-// y credenciales ambientales para que una presentacion no degrade el contrato.
-func NewHandlerWithConfig(cfg config.Config, api http.Handler) http.Handler {
-	cfg = cfg.Normalize()
-	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
-	mux := http.NewServeMux()
-	mux.Handle("/locales/", localeHandler())
-	mux.Handle("/", staticHandler(false))
-	mux.HandleFunc("/healthz", handleHealthz)
-	mux.Handle(cfg.APIBasePath, api)
-	mux.Handle(cfg.APIBasePath+"/", api)
-	mux.Handle("/candidates", api)
-	mux.Handle("/candidates/", api)
-	handler := prohibirCookiesYAutorizacionProxyConLimite(mux, cfg.MaxRequestBodyBytes)
-	handler = restrictRemoteAddrs(handler, cfg.HTTPAllowedCIDRs)
-	if cfg.AuthMode == config.AuthModeFake {
-		handler = rechazarCabecerasProxyFake(handler)
-	}
-	return securityHeaders(handler)
-}
-
 // NewHandlerPublicoWithConfig expone unicamente la consulta anonima de Bolsa,
 // sus recursos imprescindibles y la API publica. La lista positiva evita que
 // una nueva carpeta estatica o ruta interna se publique por accidente. Al ser
@@ -133,6 +107,7 @@ func NewHandlerPublicoWithConfig(cfg config.Config, api http.Handler) http.Handl
 	mux.Handle("/api/publico/", api)
 
 	handler := rechazarRutasNoCanonicas(mux)
+	handler = rechazarSelectorPresentacionFueraDePresentacion(handler)
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
 	handler = prohibirAutorizacionSuperficieAnonima(handler)
 	return protegerSuperficie(cfg, handler)
@@ -159,6 +134,7 @@ func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handl
 	mux.Handle("/api/vec/", api)
 
 	handler := rechazarRutasNoCanonicas(mux)
+	handler = rechazarSelectorPresentacionFueraDePresentacion(handler)
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
 	return protegerSuperficie(cfg, handler)
 }
@@ -218,6 +194,21 @@ func protegerSuperficie(cfg config.Config, handler http.Handler) http.Handler {
 		handler = rechazarCabecerasProxyFake(handler)
 	}
 	return suprimirCuerpoHEAD(securityHeaders(handler))
+}
+
+// rechazarSelectorPresentacionFueraDePresentacion impide activar ramas de UI
+// no autoritativas mediante una URL copiada del recorrido de demostracion. El
+// valor es irrelevante: la mera presencia de la clave se rechaza.
+func rechazarSelectorPresentacionFueraDePresentacion(siguiente http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for clave := range r.URL.Query() {
+			if strings.EqualFold(strings.TrimSpace(clave), "presentacion") {
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+		}
+		siguiente.ServeHTTP(w, r)
+	})
 }
 
 func soloLecturaHTTP(next http.Handler) http.Handler {
@@ -557,6 +548,10 @@ func handleHealthz(w http.ResponseWriter, _ *http.Request) {
 }
 
 func staticHandler(presentacionRRHHHabilitada bool) http.Handler {
+	rutasProduccion := map[string]struct{}(nil)
+	if !presentacionRRHHHabilitada {
+		rutasProduccion = cargarRutasWebProduccion()
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
@@ -566,6 +561,12 @@ func staticHandler(presentacionRRHHHabilitada bool) http.Handler {
 		if !presentacionRRHHHabilitada && rutaMaterialExclusivoPresentacion(r.URL.Path) {
 			http.NotFound(w, r)
 			return
+		}
+		if !presentacionRRHHHabilitada {
+			if _, permitida := rutasProduccion[r.URL.Path]; !permitida {
+				http.NotFound(w, r)
+				return
+			}
 		}
 		setNoStoreForStatic(w, r)
 		staticFileServer().ServeHTTP(w, r)

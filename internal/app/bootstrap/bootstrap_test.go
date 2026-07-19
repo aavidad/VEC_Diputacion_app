@@ -17,11 +17,43 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
+	appserver "vec-diputacion-granada/internal/app/server"
 	"vec-diputacion-granada/internal/candidate/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 const tokenFakePruebas = "M6wW0bkGMl7xN-kU9sQ2zvCe5tHY8aJ4RfP1dXo3LnA7qB2iK9uV6cE8"
+
+func configurarFuentesProduccionPrueba(t *testing.T, cfg config.Config) config.Config {
+	t.Helper()
+	destino := t.TempDir()
+	copiar := func(origen, nombre string) string {
+		t.Helper()
+		contenido, err := os.ReadFile(filepath.Join("..", "..", "..", origen))
+		if err != nil {
+			t.Fatalf("leer fuente de prueba %s: %v", origen, err)
+		}
+		ruta := filepath.Join(destino, nombre)
+		if err := os.WriteFile(ruta, contenido, 0o600); err != nil {
+			t.Fatalf("copiar fuente de prueba %s: %v", origen, err)
+		}
+		return ruta
+	}
+	if strings.TrimSpace(cfg.BolsaPublicSourcePath) == "" || cfg.BolsaPublicSourcePath == config.DefaultBolsaPublicSourcePath {
+		cfg.BolsaPublicSourcePath = copiar(config.DefaultBolsaPublicSourcePath, "convocatorias_publicas.json")
+	}
+	if strings.TrimSpace(cfg.BolsaCategoriesSourcePath) == "" || cfg.BolsaCategoriesSourcePath == config.DefaultBolsaCategoriesSourcePath {
+		cfg.BolsaCategoriesSourcePath = copiar(config.DefaultBolsaCategoriesSourcePath, "categorias_profesionales.json")
+	}
+	return cfg
+}
+
+func configuracionAPIPrueba(cfg config.Config) config.Config {
+	// Las raices exportadas fallan cerradas en produccion. Las pruebas de los
+	// adaptadores transitorios declaran expresamente un perfil no productivo.
+	cfg.ExecutionProfile = config.ExecutionProfileRRHHPresentation
+	return cfg
+}
 
 func configurarFakePrueba(t *testing.T, cfg config.Config) config.Config {
 	t.Helper()
@@ -47,7 +79,26 @@ func configurarFakePrueba(t *testing.T, cfg config.Config) config.Config {
 	}
 	cfg.AuthMode = config.AuthModeFake
 	cfg.FakeCredentialsPath = ruta
-	return cfg
+	if strings.TrimSpace(cfg.StorageMode) == "" || cfg.StorageMode == config.StorageModeMemory {
+		cfg.StorageMode = config.StorageModeLocalDurable
+		cfg.DataDir = t.TempDir()
+		cfg.DataPath = ""
+	}
+	return configurarFuentesProduccionPrueba(t, cfg)
+}
+
+func nuevoServidorFakeAisladoPrueba(t *testing.T, cfg config.Config) *http.Server {
+	t.Helper()
+	cfg = configuracionAPIPrueba(configurarFakePrueba(t, cfg))
+	api, err := NewDemoAPIWithConfig(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	servidor, err := appserver.NewHTTPServer(cfg, api)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return servidor
 }
 
 func registroFakePrueba(token string) registroCredencialFake {
@@ -110,15 +161,12 @@ func TestComposicionCatalogoPersonalEnMemoriaEsExplicita(t *testing.T) {
 }
 
 func TestNewHTTPServerWithConfigComponeAPISinDarFuncionBolsaAlAdministradorTecnico(t *testing.T) {
-	srv, err := NewHTTPServerWithConfig(configurarFakePrueba(t, config.Config{
+	srv := nuevoServidorFakeAisladoPrueba(t, config.Config{
 		Address:             "127.0.0.1:0",
 		APIBasePath:         "/api",
 		ReadHeaderTimeout:   time.Second,
 		PersonalCatalogPath: "memory",
-	}))
-	if err != nil {
-		t.Fatalf("NewHTTPServerWithConfig() error = %v", err)
-	}
+	})
 	if srv.Addr != "127.0.0.1:0" || srv.ReadHeaderTimeout != time.Second {
 		t.Fatalf("server config = %s/%s", srv.Addr, srv.ReadHeaderTimeout)
 	}
@@ -137,34 +185,20 @@ func TestNewHTTPServerWithConfigComponeAPISinDarFuncionBolsaAlAdministradorTecni
 	}
 }
 
-func TestModoDisabledNoPublicaBolsaHeredadaYMantieneVECCerrada(t *testing.T) {
-	srv, err := NewHTTPServerWithConfig(config.Config{
+func TestProduccionIntegradaRechazaAutenticacionDeshabilitada(t *testing.T) {
+	srv, err := NewHTTPServerWithConfig(configurarFuentesProduccionPrueba(t, config.Config{
 		Address:             "127.0.0.1:0",
 		PersonalCatalogPath: "memory",
-	})
-	if err != nil {
-		t.Fatalf("NewHTTPServerWithConfig() error = %v", err)
-	}
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/api/demo", nil)
-	req.RemoteAddr = "127.0.0.1:12345"
-	srv.Handler.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("la ruta heredada existe en modo disabled: estado=%d cuerpo=%s", rec.Code, rec.Body.String())
-	}
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/api/vec/session", nil)
-	req.RemoteAddr = "127.0.0.1:12345"
-	srv.Handler.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("la API VEC no mantuvo su cierre: estado=%d cuerpo=%s", rec.Code, rec.Body.String())
+		StorageMode:         config.StorageModeLocalDurable,
+		DataDir:             t.TempDir(),
+	}))
+	if srv != nil || !errors.Is(err, ErrComposicionProductivaNoDisponible) {
+		t.Fatalf("produccion integrada disabled = (%v, %v)", srv, err)
 	}
 }
 
 func TestModoDisabledPublicaSoloConsultaAnonimaBolsa(t *testing.T) {
-	api, err := NewDemoAPIWithConfig(config.Config{PersonalCatalogPath: "memory"})
+	api, err := NewDemoAPIWithConfig(configuracionAPIPrueba(config.Config{PersonalCatalogPath: "memory"}))
 	if err != nil {
 		t.Fatalf("NewDemoAPIWithConfig() error = %v", err)
 	}
@@ -189,10 +223,9 @@ func TestModoDisabledPublicaSoloConsultaAnonimaBolsa(t *testing.T) {
 }
 
 func TestSmokeLoopbackPortalYAPIPublicaSinCabecerasConfiables(t *testing.T) {
-	servidor, err := NewHTTPServerWithConfig(config.Config{Address: "127.0.0.1:0", PersonalCatalogPath: "memory"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	servidor := nuevoServidorFakeAisladoPrueba(t, config.Config{
+		Address: "127.0.0.1:0", PersonalCatalogPath: "memory",
+	})
 	escucha, err := net.Listen("tcp", servidor.Addr)
 	if err != nil {
 		t.Fatal(err)
@@ -223,12 +256,12 @@ func TestSmokeLoopbackPortalYAPIPublicaSinCabecerasConfiables(t *testing.T) {
 }
 
 func TestArranqueRechazaVersionCatalogoCategoriasInvalida(t *testing.T) {
-	_, err := NewDemoAPIWithConfig(config.Config{
+	_, err := NewDemoAPIWithConfig(configuracionAPIPrueba(config.Config{
 		PersonalCatalogPath:       "memory",
 		BolsaCategoriesVersion:    -1,
 		BolsaCategoriesSourcePath: config.DefaultBolsaCategoriesSourcePath,
 		BolsaCategoriesCatalogID:  config.DefaultBolsaCategoriesCatalogID,
-	})
+	}))
 	if err == nil || !strings.Contains(err.Error(), "version de catalogo") {
 		t.Fatalf("version invalida no rechazo el arranque: %v", err)
 	}
@@ -244,12 +277,12 @@ func TestArranqueRechazaCatalogoCategoriasInexistente(t *testing.T) {
 		{nombre: "version", id: config.DefaultBolsaCategoriesCatalogID, version: 2},
 	} {
 		t.Run(prueba.nombre, func(t *testing.T) {
-			_, err := NewDemoAPIWithConfig(config.Config{
+			_, err := NewDemoAPIWithConfig(configuracionAPIPrueba(config.Config{
 				PersonalCatalogPath:       "memory",
 				BolsaCategoriesSourcePath: config.DefaultBolsaCategoriesSourcePath,
 				BolsaCategoriesCatalogID:  prueba.id,
 				BolsaCategoriesVersion:    prueba.version,
-			})
+			}))
 			if err == nil || !strings.Contains(err.Error(), "catalogo profesional gobernado incompatible") {
 				t.Fatalf("seleccion inexistente no rechazo el arranque: %v", err)
 			}
@@ -258,13 +291,13 @@ func TestArranqueRechazaCatalogoCategoriasInexistente(t *testing.T) {
 }
 
 func TestArranqueRechazaHuellaCatalogoCategoriasDistinta(t *testing.T) {
-	_, err := NewDemoAPIWithConfig(config.Config{
+	_, err := NewDemoAPIWithConfig(configuracionAPIPrueba(config.Config{
 		PersonalCatalogPath:       "memory",
 		BolsaCategoriesSourcePath: config.DefaultBolsaCategoriesSourcePath,
 		BolsaCategoriesCatalogID:  config.DefaultBolsaCategoriesCatalogID,
 		BolsaCategoriesVersion:    config.DefaultBolsaCategoriesVersion,
 		BolsaCategoriesSHA256:     "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-	})
+	}))
 	if err == nil || !strings.Contains(err.Error(), "catalogo profesional gobernado incompatible") {
 		t.Fatalf("huella distinta no rechazo el arranque: %v", err)
 	}
@@ -283,13 +316,13 @@ func TestArranqueRechazaCategoriaDeConvocatoriaDesconocida(t *testing.T) {
 	if err := os.WriteFile(ruta, []byte(alterado), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err = NewDemoAPIWithConfig(config.Config{
+	_, err = NewDemoAPIWithConfig(configuracionAPIPrueba(config.Config{
 		PersonalCatalogPath:       "memory",
 		BolsaPublicSourcePath:     ruta,
 		BolsaCategoriesSourcePath: config.DefaultBolsaCategoriesSourcePath,
 		BolsaCategoriesCatalogID:  config.DefaultBolsaCategoriesCatalogID,
 		BolsaCategoriesVersion:    1,
-	})
+	}))
 	if err == nil || !strings.Contains(err.Error(), "fuentes publicas de Bolsa incompatibles") {
 		t.Fatalf("categoria desconocida no rechazo el arranque: %v", err)
 	}
@@ -302,6 +335,7 @@ func TestComposicionIntegradaRechazaCabecerasConfiablesHeredadas(t *testing.T) {
 		AuthMode:            config.AuthModeTrustedHeaders,
 		TrustedProxyCIDRs:   []string{"127.0.0.1/32"},
 	}
+	cfg = configurarFuentesProduccionPrueba(t, cfg)
 
 	if servidor, err := NewHTTPServerWithConfig(cfg); !errors.Is(err, ErrModoCabecerasConfiablesRetirado) || servidor != nil {
 		t.Fatalf("NewHTTPServerWithConfig() = (%v, %v); debe rechazar trusted_headers", servidor, err)
@@ -314,8 +348,8 @@ func TestComposicionIntegradaRechazaCabecerasConfiablesHeredadas(t *testing.T) {
 	}
 
 	servidorPublico, err := NewHTTPServerPublicoWithConfig(cfg)
-	if err != nil || servidorPublico == nil {
-		t.Fatalf("NewHTTPServerPublicoWithConfig() = (%v, %v); la superficie anonima no debe cargar autenticacion", servidorPublico, err)
+	if !errors.Is(err, ErrComposicionProductivaNoDisponible) || servidorPublico != nil {
+		t.Fatalf("NewHTTPServerPublicoWithConfig() = (%v, %v); produccion aun no esta disponible", servidorPublico, err)
 	}
 }
 
@@ -324,13 +358,13 @@ func TestModosNoFakeNoConstruyenNiMontanBolsaHeredada(t *testing.T) {
 		t.Run(modo, func(t *testing.T) {
 			// Un directorio no es un fichero durable valido. Si la composicion
 			// intentase construir el almacenamiento de Bolsa, el arranque fallaria.
-			api, err := NewDemoAPIWithConfig(config.Config{
+			api, err := NewDemoAPIWithConfig(configuracionAPIPrueba(config.Config{
 				AuthMode:            modo,
 				StorageMode:         config.StorageModeFile,
 				DataPath:            t.TempDir(),
 				PersonalCatalogPath: "memory",
 				TrustedProxyCIDRs:   []string{"127.0.0.1/32"},
-			})
+			}))
 			if err != nil {
 				t.Fatalf("el modo %s intento construir Bolsa heredada: %v", modo, err)
 			}
@@ -362,15 +396,12 @@ func TestModosNoFakeNoConstruyenNiMontanBolsaHeredada(t *testing.T) {
 }
 
 func TestNewHTTPServerExposesUnifiedVECShellModules(t *testing.T) {
-	srv, err := NewHTTPServerWithConfig(configurarFakePrueba(t, config.Config{
+	srv := nuevoServidorFakeAisladoPrueba(t, config.Config{
 		Address:             "127.0.0.1:0",
 		APIBasePath:         "/api",
 		ReadHeaderTimeout:   time.Second,
 		PersonalCatalogPath: "memory",
-	}))
-	if err != nil {
-		t.Fatalf("NewHTTPServerWithConfig() error = %v", err)
-	}
+	})
 
 	for _, tc := range []struct {
 		method    string
@@ -417,25 +448,22 @@ func TestNewHTTPServerExposesUnifiedVECShellModules(t *testing.T) {
 }
 
 func TestFakeFallaCerradoSinFicheroDeCredenciales(t *testing.T) {
-	if api, err := NewDemoAPI(); err == nil || api != nil {
-		t.Fatalf("NewDemoAPI() = (%v, %v); debe exigir configuracion segura", api, err)
+	if api, err := NewDemoAPI(); !errors.Is(err, ErrComposicionProductivaNoDisponible) || api != nil {
+		t.Fatalf("NewDemoAPI() = (%v, %v); debe cerrar produccion", api, err)
 	}
-	if api, err := NewDemoAPIWithConfig(config.Config{
+	if api, err := NewDemoAPIWithConfig(configuracionAPIPrueba(config.Config{
 		AuthMode: config.AuthModeFake,
 		Address:  "127.0.0.1:8080",
-	}); err == nil || api != nil {
+	})); err == nil || api != nil {
 		t.Fatalf("fake sin fichero = (%v, %v); debe fallar cerrado", api, err)
 	}
 }
 
 func TestFakeSoloAceptaBearerConfiguradoYNoCabecerasDeIdentidad(t *testing.T) {
-	srv, err := NewHTTPServerWithConfig(configurarFakePrueba(t, config.Config{
+	srv := nuevoServidorFakeAisladoPrueba(t, config.Config{
 		Address:             "127.0.0.1:0",
 		PersonalCatalogPath: "memory",
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
+	})
 	probar := func(nombre string, preparar func(*http.Request), esperado int) *httptest.ResponseRecorder {
 		t.Helper()
 		rec := httptest.NewRecorder()
@@ -566,10 +594,10 @@ func TestFakeSoloAdmiteTablaPositivaUnivocaDeRoles(t *testing.T) {
 }
 
 func TestHandlerFakeDirectoMantieneFronteraLoopback(t *testing.T) {
-	api, err := NewDemoAPIWithConfig(configurarFakePrueba(t, config.Config{
+	api, err := NewDemoAPIWithConfig(configuracionAPIPrueba(configurarFakePrueba(t, config.Config{
 		Address:             "127.0.0.1:0",
 		PersonalCatalogPath: "memory",
-	}))
+	})))
 	if err != nil {
 		t.Fatal(err)
 	}

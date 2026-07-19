@@ -41,11 +41,18 @@ import (
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
-// ErrModoCabecerasConfiablesRetirado indica que una raiz de composicion
-// integrada ha recibido el prototipo heredado trusted_headers. Las cabeceras
-// ambientales no son una credencial y no se admiten como puente temporal hacia
-// la identidad productiva.
-var ErrModoCabecerasConfiablesRetirado = errors.New("bootstrap: trusted_headers retirado de la composicion integrada")
+var (
+	// ErrModoCabecerasConfiablesRetirado indica que una raiz de composicion
+	// integrada ha recibido el prototipo heredado trusted_headers.
+	ErrModoCabecerasConfiablesRetirado = errors.New("bootstrap: trusted_headers retirado de la composicion integrada")
+	ErrPerfilEjecucionDesconocido      = errors.New("bootstrap: perfil de ejecucion desconocido")
+	ErrModoAutenticacionDesconocido    = errors.New("bootstrap: modo de autenticacion desconocido")
+	ErrModoAlmacenamientoDesconocido   = errors.New("bootstrap: modo de almacenamiento desconocido")
+	// ErrComposicionProductivaNoDisponible impide presentar como productiva la
+	// composicion transitoria. Aun faltan identidad y repositorios autoritativos;
+	// los adaptadores actuales de fichero y memoria son solo locales.
+	ErrComposicionProductivaNoDisponible = errors.New("bootstrap: composicion productiva no disponible")
+)
 
 func NewHTTPServer() (*http.Server, error) {
 	return NewHTTPServerWithConfig(config.Load())
@@ -53,6 +60,9 @@ func NewHTTPServer() (*http.Server, error) {
 
 func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 	cfg = cfg.Normalize()
+	if err := validarValoresConfiguracionConocidos(cfg); err != nil {
+		return nil, err
+	}
 	if err := rechazarSelectoresPresentacionEnComposicionNormal(cfg); err != nil {
 		return nil, err
 	}
@@ -67,6 +77,9 @@ func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
 		return nil, err
 	}
+	if err := rechazarComposicionProductivaNoDisponible(cfg); err != nil {
+		return nil, err
+	}
 	api, err := NewDemoAPIWithConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -79,6 +92,9 @@ func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 // heredada de candidatos.
 func NewHTTPServerPublicoWithConfig(cfg config.Config) (*http.Server, error) {
 	cfg = cfg.Normalize()
+	if err := validarValoresConfiguracionConocidos(cfg); err != nil {
+		return nil, err
+	}
 	if err := rechazarSelectoresPresentacionEnComposicionNormal(cfg); err != nil {
 		return nil, err
 	}
@@ -93,6 +109,9 @@ func NewHTTPServerPublicoWithConfig(cfg config.Config) (*http.Server, error) {
 		cfg.AuthMode == config.AuthModeDevelopment || cfg.DevelopmentGuard != "" ||
 		cfg.DevelopmentMaterialDir != "" {
 		return nil, ErrActivacionDesarrolloInvalida
+	}
+	if err := rechazarComposicionProductivaNoDisponible(cfg); err != nil {
+		return nil, err
 	}
 	api, err := NewAPIPublicaBolsaWithConfig(cfg)
 	if err != nil {
@@ -110,6 +129,12 @@ func NewHTTPServerPublicoWithConfig(cfg config.Config) (*http.Server, error) {
 // publico. Su tabla de rutas solo contiene consultas anonimas de Bolsa.
 func NewAPIPublicaBolsaWithConfig(cfg config.Config) (http.Handler, error) {
 	cfg = cfg.Normalize()
+	if err := validarValoresConfiguracionConocidos(cfg); err != nil {
+		return nil, err
+	}
+	if err := rechazarComposicionProductivaNoDisponible(cfg); err != nil {
+		return nil, err
+	}
 	consultaCategorias, err := nuevaConsultaCatalogosPublicosBolsa(cfg)
 	if err != nil {
 		return nil, err
@@ -130,6 +155,9 @@ func NewDemoAPI() (http.Handler, error) {
 func NewDemoAPIWithConfig(cfg config.Config) (http.Handler, error) {
 	cfg = cfg.Normalize()
 	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
+		return nil, err
+	}
+	if err := rechazarComposicionProductivaNoDisponible(cfg); err != nil {
 		return nil, err
 	}
 	credencialesFake, err := cargarAlmacenFakeConfigurado(cfg)
@@ -165,6 +193,9 @@ func NewVECShellAPI() (http.Handler, error) {
 func NewVECShellAPIWithConfig(cfg config.Config) (http.Handler, error) {
 	cfg = cfg.Normalize()
 	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
+		return nil, err
+	}
+	if err := rechazarComposicionProductivaNoDisponible(cfg); err != nil {
 		return nil, err
 	}
 	credencialesFake, err := cargarAlmacenFakeConfigurado(cfg)
@@ -229,11 +260,44 @@ func newVECShellAPICompuestaConIdentidad(
 }
 
 func validarModoAutenticacionIntegrado(cfg config.Config) error {
+	if err := validarValoresConfiguracionConocidos(cfg); err != nil {
+		return err
+	}
 	if cfg.AuthMode == config.AuthModeTrustedHeaders {
 		return ErrModoCabecerasConfiablesRetirado
 	}
 	_, _, err := validarComposicionPerfil(cfg.Normalize(), nil)
 	return err
+}
+
+func validarValoresConfiguracionConocidos(cfg config.Config) error {
+	switch cfg.ExecutionProfile {
+	case config.ExecutionProfileProduction, config.ExecutionProfileDevelopment, config.ExecutionProfileRRHHPresentation:
+	default:
+		return ErrPerfilEjecucionDesconocido
+	}
+	switch cfg.AuthMode {
+	case config.AuthModeDisabled, config.AuthModeFake, config.AuthModeTrustedHeaders, config.AuthModeDevelopment:
+	default:
+		return ErrModoAutenticacionDesconocido
+	}
+	switch cfg.StorageMode {
+	case config.StorageModeMemory, config.StorageModeFile:
+	default:
+		return ErrModoAlmacenamientoDesconocido
+	}
+	return nil
+}
+
+func rechazarComposicionProductivaNoDisponible(cfg config.Config) error {
+	if cfg.ExecutionProfile != config.ExecutionProfileProduction {
+		return nil
+	}
+	// No se intenta inferir durabilidad por un selector global: el shell VEC y
+	// otros modulos aun componen almacenes en memoria. Tampoco se convierte una
+	// fuente DEMO en autoritativa renombrando su JSON. Se desbloqueara esta raiz
+	// cuando identidad y repositorios reales se inyecten de forma explicita.
+	return ErrComposicionProductivaNoDisponible
 }
 
 // nuevoServicioCatalogoPersonal pertenece a la raiz de composicion: el

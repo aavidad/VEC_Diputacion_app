@@ -122,10 +122,13 @@ docker compose --profile presentacion down
 El `Dockerfile` contiene dos destinos:
 
 - `runtime-presentacion`, que incluye el launcher, los adaptadores de
-  presentación, los ficheros `.demo.json` y solo `vec-presentacion`;
-- `runtime`, que elimina del árbol web cualquier ruta cuyo nombre contenga
-  `presentacion` o `demo`, no copia `data/demo`, no incorpora
-  `vec-presentacion` y solo contiene `vec-server`.
+  presentación, los ficheros `.demo.json` y solo `vec-presentacion`; antes de
+  empaquetar elimina pruebas, guías de integración, la SPA y módulos
+  históricos, y no copia el directorio de configuración de trabajo;
+- `runtime`, que instala exclusivamente las rutas enumeradas en
+  `web/produccion.manifest`: no copia la SPA histórica de raíz (`index.html` y
+  `app.js`), documentación, pruebas, fixtures, rutas de presentación o demo,
+  `data/demo` ni `vec-presentacion`; solo incorpora `vec-server`.
 
 La inspección física reproducible es:
 
@@ -133,9 +136,31 @@ La inspección física reproducible es:
 scripts/verificar_contenido_artefactos_presentacion.sh
 ```
 
-La prueba construye ambos destinos, exporta sus sistemas de ficheros y falla si
-producción contiene un adaptador, launcher, dato o binario de presentación, o
-si el artefacto de muestra carece de sus piezas declaradas.
+La prueba construye ambos destinos, exporta sus sistemas de ficheros y compara
+el árbol web productivo con el manifiesto exacto. También falla ante una ruta
+añadida aunque su nombre sea neutro, almacenamiento del navegador, firmas de
+contenido de la SPA histórica, documentación, datos plausibles o cualquier
+adaptador, launcher, dato o binario de presentación. El verificador unitario
+del manifiesto se ejecuta con
+`scripts/tests/test_verificar_web_produccion.sh`.
+
+Las raíces exportadas —servidores y handlers embebibles— rechazan perfiles,
+modos de autenticación o almacenamiento desconocidos sin reflejar su valor
+ambiental. En perfil `produccion` fallan cerradas con
+`ErrComposicionProductivaNoDisponible`: todavía no existen en esta composición
+identidad ni repositorios autoritativos para el shell VEC, y las consultas
+públicas aún dependen de adaptadores de fichero que validan fuentes DEMO.
+Renombrar un JSON o seleccionar globalmente `local_durable` no elimina esas
+limitaciones. El cierre alcanza también al listener público anónimo hasta que
+reciba su repositorio público autoritativo; los perfiles cerrados de desarrollo
+y presentación conservan sus guardas específicas.
+
+Los handlers normal, público e interno rechazan cualquier parámetro de consulta
+llamado `presentacion`, con independencia de su valor. Algunas ramas
+condicionales de presentación aún permanecen en JavaScript compartido y se
+retirarán vertical por vertical según el inventario; la imagen productiva no
+incluye sus adaptadores, datos ni artefactos exclusivos y esas ramas no pueden
+activarse por URL.
 
 ## Modelo de amenaza acotado
 

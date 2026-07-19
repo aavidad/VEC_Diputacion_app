@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -11,7 +12,7 @@ import (
 )
 
 func TestAPIPublicaBolsaSoloExponeConsultasAnonimas(t *testing.T) {
-	api, err := NewAPIPublicaBolsaWithConfig(config.Config{})
+	api, err := NewAPIPublicaBolsaWithConfig(configuracionAPIPrueba(config.Config{}))
 	if err != nil {
 		t.Fatalf("NewAPIPublicaBolsaWithConfig() error = %v", err)
 	}
@@ -57,11 +58,13 @@ func TestComposicionPublicaIgnoraCredencialesPersonalYAlmacenHeredado(t *testing
 		DataPath:            rutaInvalida,
 		PersonalCatalogPath: rutaInvalida,
 	}
-	if _, err := NewDemoAPIWithConfig(cfg); err == nil {
+	cfg = configurarFuentesProduccionPrueba(t, cfg)
+	cfgAPI := configuracionAPIPrueba(cfg)
+	if _, err := NewDemoAPIWithConfig(cfgAPI); err == nil {
 		t.Fatal("la configuracion de prueba no invalida realmente la composicion interna")
 	}
 
-	api, err := NewAPIPublicaBolsaWithConfig(cfg)
+	api, err := NewAPIPublicaBolsaWithConfig(cfgAPI)
 	if err != nil {
 		t.Fatalf("la API publica cargo una dependencia privada: %v", err)
 	}
@@ -72,31 +75,15 @@ func TestComposicionPublicaIgnoraCredencialesPersonalYAlmacenHeredado(t *testing
 	}
 
 	servidor, err := NewHTTPServerPublicoWithConfig(cfg)
-	if err != nil {
-		t.Fatalf("el servidor publico cargo una dependencia privada: %v", err)
-	}
-	for _, prueba := range []struct {
-		ruta   string
-		estado int
-	}{
-		{ruta: "/api/publico/bolsa/categorias", estado: http.StatusOK},
-		{ruta: "/api/vec", estado: http.StatusNotFound},
-		{ruta: "/api/demo", estado: http.StatusNotFound},
-	} {
-		rec = httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, prueba.ruta, nil)
-		req.RemoteAddr = "203.0.113.8:12345"
-		servidor.Handler.ServeHTTP(rec, req)
-		if rec.Code != prueba.estado {
-			t.Fatalf("GET %s = %d, esperado %d: %s", prueba.ruta, rec.Code, prueba.estado, rec.Body.String())
-		}
+	if servidor != nil || !errors.Is(err, ErrComposicionProductivaNoDisponible) {
+		t.Fatalf("servidor publico productivo = (%v, %v)", servidor, err)
 	}
 }
 
 func TestAPIPublicaBolsaRechazaHuellaCatalogoNoFijada(t *testing.T) {
-	_, err := NewAPIPublicaBolsaWithConfig(config.Config{
+	_, err := NewAPIPublicaBolsaWithConfig(configuracionAPIPrueba(config.Config{
 		BolsaCategoriesSHA256: strings.Repeat("a", 64),
-	})
+	}))
 	if err == nil || !strings.Contains(err.Error(), "catalogo gobernado de categorias de Bolsa incompatible") {
 		t.Fatalf("huella distinta no rechazo la composicion publica: %v", err)
 	}

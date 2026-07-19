@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -28,17 +29,17 @@ func TestServerHealthzIsJSON(t *testing.T) {
 	}
 }
 
-func TestServerServesStaticUI(t *testing.T) {
+func TestServidorIntegradoSirveSoloSuperficiesEnumeradas(t *testing.T) {
 	handler := NewHandler(http.NotFoundHandler())
 	for _, tc := range []struct {
 		path        string
 		contentType string
 		want        string
 	}{
-		{path: "/", contentType: "text/html", want: "VEC Diputacion"},
-		{path: "/app.js", contentType: "text/javascript", want: `fetch("/api/demo"`},
-		{path: "/modulos/cronos/resumen.js", contentType: "text/javascript", want: "renderizarResumenCronos"},
-		{path: "/modulos/cronos/resumen.css", contentType: "text/css", want: ".cronos-table-wrap"},
+		{path: "/bolsa/", contentType: "text/html", want: "Bolsa y procesos selectivos"},
+		{path: "/area-personal/", contentType: "text/html", want: "Mi área personal"},
+		{path: "/portal-empleado/", contentType: "text/html", want: "Portal del Empleado"},
+		{path: "/verificar/", contentType: "text/html", want: "Comprobación de documentos"},
 		{path: "/styles.css", contentType: "text/css", want: ".listings"},
 		{path: "/locales/es.json", contentType: "application/json", want: "api.candidate.created"},
 	} {
@@ -56,33 +57,72 @@ func TestServerServesStaticUI(t *testing.T) {
 	}
 }
 
-func TestInterfazParteCerradaHastaResolverUnaSesionAutorizada(t *testing.T) {
+func TestServidorIntegradoNoExponeSPAHistoricaNiSusDatosPlausibles(t *testing.T) {
 	handler := NewHandler(http.NotFoundHandler())
-	for _, recurso := range []struct {
-		ruta    string
-		cierres []string
-	}{
-		{ruta: "/", cierres: []string{
-			`class="module-group" aria-label="Navegacion principal" hidden`,
-			`class="search-form" role="search" hidden`,
-			`class="filter-bar" aria-label="Filtros de expedientes" hidden`,
-			`class="queue-panel" aria-labelledby="queue-title" hidden`,
-			`class="right-column" aria-label="Detalle del expediente seleccionado" hidden`,
-		}},
-		{ruta: "/app.js", cierres: []string{
-			`activeModule: "sin_acceso"`,
-			`renderizarAccesoCerrado();`,
-		}},
+	for _, ruta := range []string{
+		"/", "/index.html", "/app.js", "/app.js?v=antigua",
+		"/catalogo-categorias.js", "/catalogo-categorias.css",
+		"/modulos/cronos/resumen.js", "/bolsa/../app.js",
+		"/bolsa/navegacion_publica.test.mjs",
+		"/portal-empleado/identidad/README.md",
+		"/portal-empleado/portal-borradores-fixtures.test-helper.mjs",
+		"/portal-empleado/assets/",
 	} {
 		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, recurso.ruta, nil))
-		if rec.Code != http.StatusOK {
-			t.Fatalf("%s status = %d, want 200", recurso.ruta, rec.Code)
+		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("%s status = %d, want 404", ruta, rec.Code)
 		}
-		for _, cierre := range recurso.cierres {
-			if !strings.Contains(rec.Body.String(), cierre) {
-				t.Errorf("%s no conserva el cierre inicial %q", recurso.ruta, cierre)
+		for _, firma := range []string{"localStorage", "NIF-DEMO-0001", "persona.demo@example.test", "CAND-0007"} {
+			if strings.Contains(rec.Body.String(), firma) {
+				t.Fatalf("%s filtro contenido historico %q", ruta, firma)
 			}
+		}
+	}
+}
+
+func TestSuperficiesNormalesRechazanCualquierSelectorPresentacion(t *testing.T) {
+	for _, prueba := range []struct {
+		nombre  string
+		handler http.Handler
+		ruta    string
+	}{
+		{nombre: "integrada area personal", handler: NewHandler(http.NotFoundHandler()), ruta: "/area-personal/?presentacion=rrhh"},
+		{nombre: "publica verificar", handler: NewHandlerPublicoWithConfig(config.Config{}, http.NotFoundHandler()), ruta: "/verificar/?presentacion=otro"},
+		{nombre: "interna portal", handler: NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler()), ruta: "/portal-empleado/?presentacion="},
+		{nombre: "clave con mayusculas", handler: NewHandler(http.NotFoundHandler()), ruta: "/bolsa/?Presentacion=no"},
+	} {
+		t.Run(prueba.nombre, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			prueba.handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, prueba.ruta, nil))
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("%s = %d; se esperaba 400", prueba.ruta, rec.Code)
+			}
+		})
+	}
+}
+
+func TestManifiestoWebProductivoSoloEnumeraRutasServidas(t *testing.T) {
+	contenido, err := os.ReadFile("../../../web/produccion.manifest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := NewHandler(http.NotFoundHandler())
+	for _, rutaFuente := range strings.Fields(string(contenido)) {
+		if rutaFuente == "produccion.manifest" {
+			continue
+		}
+		if !strings.HasPrefix(rutaFuente, "static/") {
+			t.Fatalf("ruta de manifiesto no canonica: %q", rutaFuente)
+		}
+		rutaHTTP := "/" + strings.TrimPrefix(rutaFuente, "static/")
+		if strings.HasSuffix(rutaHTTP, "/index.html") {
+			rutaHTTP = strings.TrimSuffix(rutaHTTP, "index.html")
+		}
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, rutaHTTP, nil))
+		if rec.Code != http.StatusOK {
+			t.Errorf("recurso enumerado %s = %d", rutaHTTP, rec.Code)
 		}
 	}
 }
@@ -139,8 +179,8 @@ func TestServerNormalizaEntradaBolsaSinBarraFinal(t *testing.T) {
 	if rec.Code != http.StatusMovedPermanently {
 		t.Fatalf("/bolsa status = %d, want 301", rec.Code)
 	}
-	if destino := rec.Header().Get("Location"); destino != "bolsa/" {
-		t.Fatalf("/bolsa location = %q, want %q", destino, "bolsa/")
+	if destino := rec.Header().Get("Location"); destino != "/bolsa/" {
+		t.Fatalf("/bolsa location = %q, want %q", destino, "/bolsa/")
 	}
 }
 
@@ -201,45 +241,17 @@ func TestAdaptadorPresentacionRRHHNoSeSirvePorDefecto(t *testing.T) {
 	}
 }
 
-func TestInterfazNoDeduceTitularidadNiPermisosPorContenido(t *testing.T) {
-	handler := NewHandler(http.NotFoundHandler())
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, "/app.js", nil))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("/app.js status = %d, want 200", rec.Code)
-	}
-
-	contenido := rec.Body.String()
-	for _, patronProhibido := range []string{
-		"__persona_privada__|__dni_privado__",
-		`["administrador", "tecnico_rrhh", "rrhh", "personal_rrhh"]`,
-	} {
-		if strings.Contains(strings.ToLower(contenido), strings.ToLower(patronProhibido)) {
-			t.Fatalf("la interfaz conserva una inferencia permisiva prohibida: %q", patronProhibido)
-		}
-	}
-	for _, cierreEsperado := range []string{
-		`["empleado", "ciudadano"].includes(sessionAccessProfile().id)`,
-		`return sessionAccessProfile().id === "tecnico_rrhh"`,
-	} {
-		if !strings.Contains(contenido, cierreEsperado) {
-			t.Fatalf("la interfaz no conserva el cierre explicito %q", cierreEsperado)
-		}
-	}
-}
-
 func TestServerCachesVersionedStaticAssets(t *testing.T) {
 	handler := NewHandler(http.NotFoundHandler())
 	for _, tc := range []struct {
 		path      string
 		wantCache string
 	}{
-		{path: "/", wantCache: "no-store"},
-		{path: "/app.js", wantCache: "no-cache"},
-		{path: "/app.js?v=20260621-fixes", wantCache: "public, max-age=31536000, immutable"},
+		{path: "/bolsa/", wantCache: "no-store"},
+		{path: "/bolsa/bolsa.js", wantCache: "no-cache"},
+		{path: "/bolsa/bolsa.js?v=20260621-fixes", wantCache: "public, max-age=31536000, immutable"},
 		{path: "/styles.css?v=20260621-fixes", wantCache: "public, max-age=31536000, immutable"},
-		{path: "/modulos/cronos/resumen.js?v=20260716", wantCache: "public, max-age=31536000, immutable"},
-		{path: "/modulos/cronos/resumen.css?v=20260716", wantCache: "public, max-age=31536000, immutable"},
+		{path: "/area-personal/arranque.js?v=20260718", wantCache: "public, max-age=31536000, immutable"},
 	} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, tc.path, nil))

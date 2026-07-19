@@ -30,10 +30,29 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   -o /src/bin/vec-presentacion \
   ./cmd/vec-presentacion \
   && cp -a /src/web /src/web-presentacion \
-  && cp -a /src/web /src/web-produccion \
-  && find /src/web-produccion -depth -iname '*presentacion*' -exec rm -rf '{}' + \
-  && find /src/web-produccion -type f -iname '*demo*' -delete \
-  && test ! -e /src/web-produccion/static/presentacion
+  && find /src/web-presentacion -type f \( -iname '*.test.js' -o -iname '*.test.mjs' -o -iname '*test-helper*' \) -delete \
+  && find /src/web-presentacion -type f \( -iname 'README*' -o -iname '*INTEGRACION*' \) -delete \
+  && rm -f \
+       /src/web-presentacion/static/index.html \
+       /src/web-presentacion/static/app.js \
+       /src/web-presentacion/static/catalogo-categorias.js \
+       /src/web-presentacion/static/catalogo-categorias.css \
+       /src/web-presentacion/produccion.manifest \
+  && rm -rf /src/web-presentacion/static/modulos \
+  && install -d /src/web-produccion \
+  && while IFS= read -r ruta; do \
+       test -n "$ruta"; \
+       test "${ruta#/}" = "$ruta"; \
+       test "${ruta#*..}" = "$ruta"; \
+       test -f "/src/web/$ruta"; \
+       install -D -m 0644 "/src/web/$ruta" "/src/web-produccion/$ruta"; \
+     done < /src/web/produccion.manifest \
+  && test ! -e /src/web-produccion/static/presentacion \
+  && test ! -e /src/web-produccion/static/index.html \
+  && test ! -e /src/web-produccion/static/app.js \
+  && test ! -e /src/web-produccion/static/modulos \
+  && test ! -e /src/web-produccion/static/catalogo-categorias.js \
+  && test ! -e /src/web-produccion/static/catalogo-categorias.css
 
 # Artefacto deliberadamente distinto. Incluye exclusivamente datos sinteticos,
 # no declara volumen durable y su composicion no crea conectores externos.
@@ -43,7 +62,6 @@ RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nolog
   && install -d --owner=app --group=app /app
 
 COPY --from=build /src/bin/vec-presentacion /usr/local/bin/vec-presentacion
-COPY --from=build /src/config /app/config
 COPY --from=build /src/locales /app/locales
 COPY --from=build /src/web-presentacion /app/web
 COPY --chown=app:app data/demo/convocatorias_publicas.demo.json /app/data/demo/convocatorias_publicas.demo.json
@@ -73,7 +91,6 @@ RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nolog
   && install -d --owner=app --group=app /app /data/bolsa
 
 COPY --from=build /src/bin/vec-server /usr/local/bin/vec-server
-COPY --from=build /src/config /app/config
 COPY --from=build /src/locales /app/locales
 COPY --from=build /src/web-produccion /app/web
 

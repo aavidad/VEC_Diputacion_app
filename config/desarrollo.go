@@ -59,7 +59,10 @@ type DevelopmentMaterialPaths struct {
 }
 
 func normalizeExecutionProfile(profile string) string {
-	switch strings.ToLower(strings.TrimSpace(profile)) {
+	normalizado := strings.ToLower(strings.TrimSpace(profile))
+	switch normalizado {
+	case "":
+		return DefaultExecutionProfile
 	case ExecutionProfileDevelopment:
 		return ExecutionProfileDevelopment
 	case ExecutionProfileRRHHPresentation:
@@ -67,7 +70,9 @@ func normalizeExecutionProfile(profile string) string {
 	case ExecutionProfileProduction:
 		return ExecutionProfileProduction
 	default:
-		return DefaultExecutionProfile
+		// No degradar valores desconocidos a produccion. El bootstrap conserva
+		// el valor canonico y falla con un error de configuracion explicito.
+		return normalizado
 	}
 }
 

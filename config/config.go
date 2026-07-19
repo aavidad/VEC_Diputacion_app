@@ -288,16 +288,24 @@ func normalizePath(path string) string {
 }
 
 func normalizeStorageMode(mode string) string {
-	switch strings.ToLower(strings.TrimSpace(mode)) {
+	normalizado := strings.ToLower(strings.TrimSpace(mode))
+	switch normalizado {
+	case "", StorageModeMemory:
+		return DefaultStorageMode
 	case StorageModeFile, StorageModeLocalDurable:
 		return StorageModeFile
 	default:
-		return DefaultStorageMode
+		// Igual que perfil y autenticacion: conservar lo desconocido para que
+		// la raiz de composicion falle, en vez de degradarlo a memoria.
+		return normalizado
 	}
 }
 
 func normalizeAuthMode(mode string) string {
-	switch strings.ToLower(strings.TrimSpace(mode)) {
+	normalizado := strings.ToLower(strings.TrimSpace(mode))
+	switch normalizado {
+	case "":
+		return DefaultAuthMode
 	case AuthModeFake:
 		return AuthModeFake
 	case AuthModeTrustedHeaders:
@@ -307,7 +315,10 @@ func normalizeAuthMode(mode string) string {
 	case AuthModeDisabled:
 		return AuthModeDisabled
 	default:
-		return DefaultAuthMode
+		// Conservar el valor permite que la raiz de composicion lo rechace de
+		// forma explicita. Convertir un error tipografico en "disabled" oculta
+		// una configuracion invalida y puede cambiar la frontera desplegada.
+		return normalizado
 	}
 }
 
