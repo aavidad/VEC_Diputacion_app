@@ -223,6 +223,26 @@ notificación fehaciente ni cumplimiento productivo. Tampoco debe recibir una
 copia de datos personales o expedientes reales “para que la demo parezca más
 completa”; los datos públicos verificables se incorporan con su procedencia.
 
+## Requisito pendiente: selector de perfiles de presentación
+
+Queda registrado, pero **no implementado en este corte**, que el bloque de
+identidad de la cabecera —actualmente «Administrador DEMO»— debe ser un botón
+accesible para cambiar el punto de vista de la demostración entre:
+
+- usuario externo: superficie de persona aspirante y procesos selectivos;
+- funcionario: Portal del Empleado y solo los módulos internos autorizados;
+- técnico de RRHH: gestión de Bolsa y funciones técnicas concedidas;
+- administrador: configuración y capacidades administrativas completas.
+
+El cambio debe conservar mínimo privilegio: cada perfil verá únicamente sus
+menús, datos y acciones. Será navegable con teclado y lector de pantalla,
+adaptable a móvil y mostrará de forma inequívoca el perfil activo. En la muestra
+podrá resolverse mediante estado efímero de presentación, sin cookies ni
+almacenamiento del navegador. En producción no será un cambio real de rol: la
+identidad y las autorizaciones procederán del servidor y el selector solo podrá
+representar capacidades ya concedidas. Deben existir pruebas de navegación,
+aislamiento de superficies y ausencia de escalada entre los cuatro perfiles.
+
 ## Sustitución incremental de adaptadores
 
 Cuando se autorice continuar, no se cambia la web completa. Para cada
