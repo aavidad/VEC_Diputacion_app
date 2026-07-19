@@ -68,9 +68,10 @@ Las superficies usan listas positivas y solo los métodos enumerados:
 No se sirven `/api/vec/`, `/api/demo`, `/candidates`, el árbol de datos, la
 documentación del repositorio ni rutas estáticas generales. Las rutas no
 canónicas y los escapes de directorio se rechazan. Todas las superficies
-prohíben cookies, `Authorization`, credenciales de proxy y cabeceras de
-identidad ambiental. Conservan CSP, `nosniff`, `DENY`, política de referente y
-el resto de cabeceras del servidor común.
+descartan en el borde cookies, `Authorization`, credenciales de proxy y
+cabeceras de identidad ambiental; nunca las entregan a los servicios ni emiten
+`Set-Cookie`. Conservan CSP, `nosniff`, `DENY`, política de referente y el resto
+de cabeceras del servidor común.
 
 ## Arranque para la revisión
 
