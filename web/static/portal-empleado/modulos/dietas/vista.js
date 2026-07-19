@@ -101,9 +101,16 @@ function proyectarPuntosCroquis(geometria) {
   return { proyectar, trazado: puntos.map(proyectar) };
 }
 
+function identificadorHTML(valor) {
+  return String(valor ?? "mapa").replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 90) || "mapa";
+}
+
 function renderizarMapaRuta(item, t) {
   if (!item.mapa_ruta) return "";
+  const referenciaMapa = item.mapa_ruta.vista_ref || "mapa-dietas";
+  const sufijo = identificadorHTML(referenciaMapa);
   const { geometria } = item.mapa_ruta;
+  const geometriaOSRM = geometria.origen === "osrm_interno";
   const { proyectar, trazado } = proyectarPuntosCroquis(geometria);
   const rejilla = [1, 2, 3, 4, 5].map((indice) => {
     const x = 42 + indice * (556 / 6);
@@ -118,18 +125,18 @@ function renderizarMapaRuta(item, t) {
     etiquetasVistas.add(clave);
     return `<g><circle cx="${punto.x.toFixed(1)}" cy="${punto.y.toFixed(1)}" r="7"></circle><text class="dietas-mapa-numero" x="${punto.x.toFixed(1)}" y="${(punto.y + 3.5).toFixed(1)}">${indice + 1}</text>${mostrarEtiqueta ? `<text class="dietas-mapa-etiqueta" x="${Math.min(560, punto.x + 11).toFixed(1)}" y="${Math.max(18, punto.y - 10).toFixed(1)}">${escaparHTML(parada.etiqueta)}</text>` : ""}</g>`;
   }).join("");
-  return `<figure class="dietas-mapa" aria-labelledby="dietas-mapa-titulo" aria-describedby="dietas-mapa-nota">
-    <figcaption><div><p class="sobrelinea">${escaparHTML(t("mapa_proveedor"))}</p><h4 id="dietas-mapa-titulo">${escaparHTML(t("mapa_titulo"))}</h4></div><span class="estado-chip aviso">${escaparHTML(t("mapa_marca_demo"))}</span></figcaption>
+  return `<figure class="dietas-mapa" data-dietas-mapa-ref="${escaparHTML(referenciaMapa)}" aria-labelledby="dietas-mapa-titulo-${sufijo}" aria-describedby="dietas-mapa-nota-${sufijo}">
+    <figcaption><div><p class="sobrelinea">${escaparHTML(t("mapa_proveedor"))}</p><h4 id="dietas-mapa-titulo-${sufijo}">${escaparHTML(t("mapa_titulo"))}</h4></div><span class="estado-chip ${geometriaOSRM ? "info" : "aviso"}">${escaparHTML(t(geometriaOSRM ? "mapa_marca_osrm" : "mapa_marca_demo"))}</span></figcaption>
     <div class="dietas-mapa-canvas" data-dietas-mapa-canvas>
-      <svg viewBox="0 0 640 240" role="img" aria-labelledby="dietas-croquis-titulo dietas-croquis-descripcion">
-        <title id="dietas-croquis-titulo">${escaparHTML(t("mapa_croquis_titulo"))}</title>
-        <desc id="dietas-croquis-descripcion">${escaparHTML(t("mapa_croquis_descripcion", { ruta: item.ruta.join(" → ") }))}</desc>
+      <svg viewBox="0 0 640 240" role="img" aria-labelledby="dietas-croquis-titulo-${sufijo} dietas-croquis-descripcion-${sufijo}">
+        <title id="dietas-croquis-titulo-${sufijo}">${escaparHTML(t("mapa_croquis_titulo"))}</title>
+        <desc id="dietas-croquis-descripcion-${sufijo}">${escaparHTML(t("mapa_croquis_descripcion", { ruta: item.ruta.join(" → ") }))}</desc>
         <g class="dietas-mapa-rejilla">${rejilla}</g>
         <polyline points="${trazado.map((punto) => `${punto.x.toFixed(1)},${punto.y.toFixed(1)}`).join(" ")}"></polyline>
         <g class="dietas-mapa-paradas">${paradas}</g>
       </svg>
     </div>
-    <p id="dietas-mapa-nota" class="dietas-mapa-nota" data-dietas-mapa-estado>${escaparHTML(t("mapa_nota_fallback"))}</p>
+    <p id="dietas-mapa-nota-${sufijo}" class="dietas-mapa-nota" data-dietas-mapa-estado>${escaparHTML(t(geometriaOSRM ? "mapa_nota_osrm_local" : "mapa_nota_fallback"))}</p>
     <small data-dietas-mapa-atribucion hidden>${escaparHTML(item.mapa_ruta.atribucion)}</small>
   </figure>`;
 }
@@ -206,22 +213,75 @@ function renderizarHistorialMensual(modelo, descargaDisponible, t) {
   </section>`;
 }
 
+function opcionesCatalogoRuta(puntos, seleccionado, t) {
+  return `<option value="">${escaparHTML(t("ruta_seleccionar_localidad"))}</option>${puntos.map((punto) => {
+    const etiqueta = punto.tipo === "nucleo" && punto.municipio_nombre !== punto.nombre
+      ? `${punto.nombre} (${punto.municipio_nombre})` : punto.nombre;
+    return `<option value="${escaparHTML(punto.codigo)}" ${punto.codigo === seleccionado ? "selected" : ""}>${escaparHTML(etiqueta)}</option>`;
+  }).join("")}`;
+}
+
+function renderizarHerramientaRutas(rutas, t) {
+  if (!rutas) return `<section class="dietas-ruta-no-disponible" role="status"><strong>${escaparHTML(t("ruta_puerto_no_disponible"))}</strong></section>`;
+  const puntos = rutas.catalogo.puntos;
+  const puntosPorCodigo = new Map(puntos.map((punto) => [punto.codigo, punto]));
+  const paradas = rutas.paradas.map((codigo, indice) => {
+    const clave = indice === 0 ? "ruta_salida" : (indice === rutas.paradas.length - 1 ? "ruta_destino_final" : "ruta_parada_intermedia");
+    const etiqueta = t(clave, { numero: indice });
+    const nombreParada = puntosPorCodigo.get(codigo)?.nombre || etiqueta;
+    return `<div class="dietas-ruta-parada">
+      <label><span>${escaparHTML(etiqueta)}</span><select data-dietas-ruta-parada="${indice}" required>${opcionesCatalogoRuta(puntos, codigo, t)}</select></label>
+      <button type="button" class="boton-terciario" data-dietas-ruta-quitar="${indice}" aria-label="${escaparHTML(t("ruta_quitar_parada_accesible", { parada: nombreParada, numero: indice + 1 }))}" ${rutas.paradas.length <= 2 ? "disabled" : ""}>${escaparHTML(t("ruta_quitar_parada"))}</button>
+    </div>`;
+  }).join("");
+  const alternativas = rutas.alternativas.map((alternativa) => `<article class="dietas-ruta-alternativa ${alternativa.seleccionada ? "seleccionada" : ""}">
+    <div><strong>${escaparHTML(alternativa.etiqueta)}</strong><span>${numero(alternativa.kilometros, 1)} km · ${numero(alternativa.duracion_minutos)} min</span></div>
+    ${alternativa.recomendada
+    ? `<button type="button" class="boton-secundario" data-dietas-ruta-alternativa="${escaparHTML(alternativa.referencia)}" aria-pressed="${alternativa.seleccionada}">${escaparHTML(t("ruta_usar_recomendada"))}</button>`
+    : `<label>${escaparHTML(t("ruta_motivo_alternativa"))}<input data-dietas-ruta-motivo-alternativa="${escaparHTML(alternativa.referencia)}" maxlength="500" placeholder="${escaparHTML(t("ruta_motivo_alternativa_ejemplo"))}" value="${alternativa.seleccionada ? escaparHTML(rutas.motivo_alternativa) : ""}"></label><button type="button" class="boton-secundario" data-dietas-ruta-alternativa="${escaparHTML(alternativa.referencia)}" aria-pressed="${alternativa.seleccionada}">${escaparHTML(t("ruta_usar_alternativa"))}</button>`}
+  </article>`).join("");
+  const tramos = rutas.tramos.map((tramo) => `<tr data-dietas-tramo="${tramo.indice}">
+    <th scope="row"><span class="dietas-tramo-color" aria-hidden="true"></span>${escaparHTML(tramo.origen_nombre)} → ${escaparHTML(tramo.destino_nombre)}</th>
+    <td class="numero">${numero(tramo.kilometros, 1)} km</td><td class="numero">${numero(tramo.duracion_minutos)} min</td>
+    <td><label class="solo-etiqueta">${escaparHTML(t("ruta_ajuste_km"))}<input data-dietas-ruta-ajuste-km="${tramo.indice}" type="number" min="0" max="1000" step="0.1" value="${escaparHTML(tramo.ajuste_kilometros)}"></label></td>
+    <td><label class="solo-etiqueta">${escaparHTML(t("ruta_motivo_ajuste"))}<input data-dietas-ruta-ajuste-motivo="${tramo.indice}" maxlength="500" value="${escaparHTML(tramo.motivo_ajuste)}" placeholder="${escaparHTML(t("ruta_motivo_ajuste_ejemplo"))}"></label></td>
+    <td><button type="button" class="boton-terciario" data-dietas-ruta-aplicar-ajuste="${tramo.indice}">${escaparHTML(t("ruta_aplicar_ajuste"))}</button></td>
+  </tr>`).join("");
+  const resultado = rutas.calculado ? `<section class="dietas-ruta-resultado" aria-labelledby="dietas-ruta-resultado-titulo">
+    <div class="cabecera-panel"><div><h4 id="dietas-ruta-resultado-titulo">${escaparHTML(t("ruta_resultado"))}</h4><span>${escaparHTML(t("ruta_motor_version", { motor: rutas.motor, version: rutas.version_grafo }))}</span></div><span class="estado-chip aviso">${escaparHTML(t("ruta_no_liquidable"))}</span></div>
+    <dl class="dietas-ruta-totales"><div><dt>${escaparHTML(t("ruta_km_base"))}</dt><dd>${numero(rutas.kilometros_base, 1)} km</dd></div><div><dt>${escaparHTML(t("ruta_km_ajuste"))}</dt><dd>${numero(rutas.kilometros_ajuste, 1)} km</dd></div><div><dt>${escaparHTML(t("ruta_km_total"))}</dt><dd>${numero(rutas.kilometros_total, 1)} km</dd></div><div><dt>${escaparHTML(t("ruta_duracion"))}</dt><dd>${numero(rutas.duracion_minutos)} min</dd></div></dl>
+    <div class="dietas-ruta-alternativas" aria-label="${escaparHTML(t("ruta_alternativas"))}">${alternativas}</div>
+    <div class="tabla-contenedor"><table class="tabla-datos dietas-ruta-tramos"><caption>${escaparHTML(t("ruta_caption_tramos"))}</caption><thead><tr><th scope="col">${escaparHTML(t("ruta_tramo"))}</th><th scope="col">${escaparHTML(t("ruta_distancia"))}</th><th scope="col">${escaparHTML(t("ruta_tiempo"))}</th><th scope="col">${escaparHTML(t("ruta_ajuste_km"))}</th><th scope="col">${escaparHTML(t("ruta_motivo_ajuste"))}</th><th scope="col">${escaparHTML(t("ruta_accion"))}</th></tr></thead><tbody>${tramos}</tbody></table></div>
+    ${rutas.mapa_ruta ? renderizarMapaRuta({ ruta: rutas.ruta, mapa_ruta: rutas.mapa_ruta }, t) : ""}
+  </section>` : `<p class="dietas-ruta-pendiente" role="status">${escaparHTML(t("ruta_pendiente_calculo"))}</p>`;
+  return `<fieldset class="dietas-ruta-herramienta campo-ancho"><legend>${escaparHTML(t("ruta_del_dia"))}</legend>
+    <header class="dietas-ruta-catalogo"><div><strong>${escaparHTML(t("ruta_catalogo_provincial"))}</strong><span>${escaparHTML(t("ruta_catalogo_resumen", { total: puntos.length, version: rutas.catalogo.version }))}</span></div><span class="estado-chip ${rutas.catalogo.completo ? "exito" : "aviso"}">${escaparHTML(t(rutas.catalogo.completo ? "ruta_catalogo_completo" : "ruta_catalogo_parcial"))}</span></header>
+    <div class="dietas-ruta-paradas">${paradas}</div>
+    <div class="acciones-vista dietas-ruta-acciones"><button type="button" class="boton-secundario" data-dietas-ruta-anadir>${escaparHTML(t("ruta_anadir_parada"))}</button><button type="button" class="boton-primario" data-dietas-ruta-calcular>${escaparHTML(t("ruta_calcular_osrm"))}</button></div>
+    <p class="dietas-ruta-ayuda">${escaparHTML(t("ruta_ayuda"))}</p>${resultado}
+  </fieldset>`;
+}
+
 function renderizarFormulario(modelo, t) {
   const inicial = modelo.borradorInicial;
-  return `<details class="panel dietas-nueva">
+  return `<details class="panel dietas-nueva" open>
     <summary>${escaparHTML(t("nueva_comision", { demo: modelo.demostracion ? " DEMO" : "" }))}</summary>
     <form data-dietas-formulario>
       <p class="dietas-aviso-formulario">${escaparHTML(t(modelo.demostracion ? "aviso_formulario_demo" : "aviso_formulario_real"))}</p>
-      <label>${escaparHTML(t("fecha"))}<input name="fecha" type="date" value="${escaparHTML(inicial.fecha)}" required></label>
+      <label>${escaparHTML(t("fecha_inicio"))}<input name="fecha" type="date" value="${escaparHTML(inicial.fecha)}" required></label>
+      <label>${escaparHTML(t("hora_inicio"))}<input name="hora_inicio" type="time" value="08:00" required></label>
+      <label>${escaparHTML(t("fecha_fin"))}<input name="fecha_fin" type="date" value="${escaparHTML(inicial.fecha)}" required></label>
+      <label>${escaparHTML(t("hora_fin"))}<input name="hora_fin" type="time" value="15:00" required></label>
       <label class="campo-ancho">${escaparHTML(t("motivo"))}<input name="motivo" maxlength="180" value="${escaparHTML(inicial.motivo)}" required></label>
-      <label>${escaparHTML(t("origen"))}<input name="origen" maxlength="80" value="${escaparHTML(inicial.origen)}" required></label>
-      <label>${escaparHTML(t("destino"))}<input name="destino" maxlength="80" value="${escaparHTML(inicial.destino)}" required></label>
-      <label>${escaparHTML(t("kilometros_ruta"))}<input name="kilometros" type="number" min="0" step="0.1" value="${escaparHTML(inicial.kilometros)}" required></label>
+      ${renderizarHerramientaRutas(modelo.herramientaRutas, t)}
+      <label class="dietas-vehiculo-propio"><span>${escaparHTML(t("vehiculo"))}</span><span><input name="vehiculo_propio" type="checkbox" checked> ${escaparHTML(t("vehiculo_propio"))}</span></label>
+      <label>${escaparHTML(t("tarifa_kilometro"))}<input name="tarifa_kilometro_euros" type="number" value="${escaparHTML(modelo.politica.tarifa_kilometro_euros)}" step="0.01" readonly></label>
       <label>${escaparHTML(t("manutencion"))}<input name="manutencion_euros" type="number" min="0" step="0.01" value="${escaparHTML(inicial.manutencion_euros)}"></label>
       <label>${escaparHTML(t("alojamiento"))}<input name="alojamiento_euros" type="number" min="0" step="0.01" value="${escaparHTML(inicial.alojamiento_euros)}"></label>
       <label>${escaparHTML(t("otros_gastos"))}<input name="otros_gastos_euros" type="number" min="0" step="0.01" value="${escaparHTML(inicial.otros_gastos_euros)}"></label>
       <p class="campo-ancho dietas-politica"><strong>${escaparHTML(t(modelo.demostracion ? "tarifa_escenario" : "tarifa_aplicable"))}:</strong> ${euros(modelo.politica.tarifa_kilometro_euros)}/${escaparHTML(t("unidad_km"))} · ${escaparHTML(modelo.politica.version)}</p>
-      <div class="campo-ancho acciones-vista"><button type="submit" class="boton-primario">${escaparHTML(t("guardar_borrador", { demo: modelo.demostracion ? " DEMO" : "" }))}</button></div>
+      <dl class="campo-ancho dietas-borrador-resumen" aria-live="polite"><div><dt>${escaparHTML(t("ruta_km_total"))}</dt><dd data-dietas-resumen-borrador="kilometros">0,0 km</dd></div><div><dt>${escaparHTML(t("kilometraje"))}</dt><dd data-dietas-resumen-borrador="kilometraje">0,00 €</dd></div><div><dt>${escaparHTML(t("dietas_gastos"))}</dt><dd data-dietas-resumen-borrador="gastos">0,00 €</dd></div><div><dt>${escaparHTML(t("total"))}</dt><dd data-dietas-resumen-borrador="total">0,00 €</dd></div></dl>
+      <div class="campo-ancho acciones-vista"><button type="submit" class="boton-primario" ${modelo.herramientaRutas?.lista_para_borrador ? "" : "disabled"}>${escaparHTML(t(modelo.herramientaRutas?.lista_para_borrador ? "guardar_borrador" : "ruta_calcular_antes_guardar", { demo: modelo.demostracion ? " DEMO" : "" }))}</button></div>
     </form>
   </details>`;
 }
@@ -268,6 +328,7 @@ export async function montarModuloDietas({
   contextoActor,
   capacidades = [],
   adaptador,
+  calculadorRuta,
   descargarRecibo,
   visorRuta,
   confirmarOperacion,
@@ -279,6 +340,10 @@ export async function montarModuloDietas({
   if (!adaptador || typeof adaptador.obtenerDatos !== "function" || typeof adaptador.ejecutar !== "function") {
     throw new Error("adaptador de Dietas no valido");
   }
+  if (calculadorRuta !== undefined && (!calculadorRuta
+    || typeof calculadorRuta.obtenerCatalogo !== "function" || typeof calculadorRuta.calcular !== "function")) {
+    throw new Error("puerto de calculo de rutas de Dietas no valido");
+  }
   if (descargarRecibo !== undefined && typeof descargarRecibo !== "function") {
     throw new Error("puerto descargarRecibo no valido");
   }
@@ -289,20 +354,102 @@ export async function montarModuloDietas({
     throw new Error("puerto de mapa de Dietas no válido");
   }
   const t = crearTraductorDietas(mensajes);
+  let catalogoRutas = null;
+  if (calculadorRuta) {
+    try {
+      catalogoRutas = await calculadorRuta.obtenerCatalogo();
+    } catch {
+      anunciar(t("ruta_puerto_no_disponible"), "error");
+    }
+  }
   const presentador = crearPresentadorDietas({
-    datos: await adaptador.obtenerDatos(), contextoActor, capacidades, origenComprobacion,
+    datos: await adaptador.obtenerDatos(), contextoActor, capacidades, origenComprobacion, catalogoRutas,
   });
   let activa = true;
   let ocupado = false;
-  let visorMontado = null;
+  let visoresMontados = [];
+  let borradorEdicion = null;
+  let focoPendiente = null;
+
+  const atributosFoco = Object.freeze([
+    "data-dietas-ruta-anadir",
+    "data-dietas-ruta-quitar",
+    "data-dietas-ruta-calcular",
+    "data-dietas-ruta-parada",
+    "data-dietas-ruta-alternativa",
+    "data-dietas-ruta-motivo-alternativa",
+    "data-dietas-ruta-aplicar-ajuste",
+    "data-dietas-ruta-ajuste-km",
+    "data-dietas-ruta-ajuste-motivo",
+  ]);
+
+  function capturarFoco() {
+    const control = raiz.ownerDocument?.activeElement;
+    if (!control || (typeof raiz.contains === "function" && !raiz.contains(control))) return null;
+    for (const atributo of atributosFoco) {
+      if (control.hasAttribute?.(atributo)) {
+        return Object.freeze({ atributo, valor: control.getAttribute(atributo) || "" });
+      }
+    }
+    return null;
+  }
+
+  function restaurarFoco(descriptor) {
+    if (!descriptor) return;
+    const candidatos = [...raiz.querySelectorAll(`[${descriptor.atributo}]`)];
+    let control = candidatos.find((item) => !item.disabled
+      && (item.getAttribute(descriptor.atributo) || "") === descriptor.valor);
+    if (!control && descriptor.atributo === "data-dietas-ruta-quitar") {
+      const indiceEliminado = Number(descriptor.valor);
+      control = [...candidatos].reverse().find((item) => !item.disabled
+        && Number(item.getAttribute(descriptor.atributo)) < indiceEliminado)
+        || raiz.querySelector("[data-dietas-ruta-anadir]");
+    }
+    if (!control?.focus) return;
+    const enfocar = () => {
+      if (typeof raiz.contains !== "function" || raiz.contains(control)) {
+        control.focus({ preventScroll: true });
+      }
+    };
+    enfocar();
+    // En un clic síncrono el navegador puede aplicar su foco por defecto
+    // después de los escuchadores, cuando el botón original ya no existe.
+    // Repetir en microtarea deja el foco en el control equivalente nuevo.
+    const ventana = raiz.ownerDocument?.defaultView;
+    const programar = typeof ventana?.queueMicrotask === "function"
+      ? ventana.queueMicrotask.bind(ventana) : globalThis.queueMicrotask;
+    programar?.(enfocar);
+  }
+
+  function capturarBorradorEdicion() {
+    const formulario = raiz.querySelector("[data-dietas-formulario]");
+    if (!formulario) return;
+    borradorEdicion = Object.fromEntries([...formulario.querySelectorAll("[name]")].map((control) => [
+      control.name,
+      control.type === "checkbox" ? control.checked : control.value,
+    ]));
+  }
+
+  function restaurarBorradorEdicion() {
+    if (!borradorEdicion) return;
+    const formulario = raiz.querySelector("[data-dietas-formulario]");
+    if (!formulario) return;
+    Object.entries(borradorEdicion).forEach(([nombre, valor]) => {
+      const control = formulario.querySelector(`[name='${nombre}']`);
+      if (!control) return;
+      if (control.type === "checkbox") control.checked = valor === true;
+      else control.value = String(valor);
+    });
+  }
 
   function desmontarVisor() {
-    visorMontado?.desmontar?.();
-    visorMontado = null;
+    visoresMontados.forEach((visor) => visor?.desmontar?.());
+    visoresMontados = [];
   }
 
   function pintar() {
     if (!activa) return;
+    const foco = capturarFoco() || focoPendiente;
     desmontarVisor();
     const modelo = presentador.obtenerModelo();
     raiz.innerHTML = renderizarDietas(modelo, {
@@ -310,9 +457,38 @@ export async function montarModuloDietas({
       confirmacionDisponible: typeof confirmarOperacion === "function",
       mensajes,
     });
-    if (visorRuta && modelo.seleccionada?.mapa_ruta) {
-      visorMontado = visorRuta.montar({ raiz, descriptor: modelo.seleccionada.mapa_ruta });
+    restaurarBorradorEdicion();
+    if (visorRuta) {
+      const descriptores = [modelo.seleccionada?.mapa_ruta, modelo.herramientaRutas?.mapa_ruta].filter(Boolean);
+      const figuras = [...raiz.querySelectorAll("[data-dietas-mapa-ref]")];
+      descriptores.forEach((descriptor) => {
+        const figura = figuras.find((item) => item.dataset.dietasMapaRef === descriptor.vista_ref);
+        if (figura) visoresMontados.push(visorRuta.montar({ raiz: figura, descriptor }));
+      });
     }
+    actualizarResumenBorrador();
+    restaurarFoco(foco);
+    if (foco === focoPendiente) focoPendiente = null;
+  }
+
+  function actualizarResumenBorrador() {
+    const formulario = raiz.querySelector("[data-dietas-formulario]");
+    if (!formulario) return;
+    const modelo = presentador.obtenerModelo();
+    const kilometrosRuta = Number(modelo.herramientaRutas?.kilometros_total || 0);
+    const vehiculoPropio = formulario.querySelector("[name='vehiculo_propio']")?.checked === true;
+    const kilometros = vehiculoPropio ? kilometrosRuta : 0;
+    const valor = (nombre) => Number(formulario.querySelector(`[name='${nombre}']`)?.value || 0);
+    const kilometraje = kilometros * Number(modelo.politica.tarifa_kilometro_euros || 0);
+    const gastos = valor("manutencion_euros") + valor("alojamiento_euros") + valor("otros_gastos_euros");
+    const valores = {
+      kilometros: `${numero(kilometros, 1)} km`, kilometraje: euros(kilometraje),
+      gastos: euros(gastos), total: euros(kilometraje + gastos),
+    };
+    Object.entries(valores).forEach(([clave, contenido]) => {
+      const salida = formulario.querySelector(`[data-dietas-resumen-borrador='${clave}']`);
+      if (salida) salida.textContent = contenido;
+    });
   }
 
   function datosFormulario(formulario) {
@@ -327,6 +503,7 @@ export async function montarModuloDietas({
     raiz.querySelectorAll([
       "[data-dietas-enviar]", "[data-dietas-descargar-recibo]",
       "[data-dietas-descargar-anual]",
+      "[data-dietas-ruta-calcular]", "[data-dietas-ruta-alternativa]", "[data-dietas-ruta-aplicar-ajuste]",
       "[data-dietas-formulario] button[type='submit']",
     ].join(",")).forEach((control) => {
       if (valor && !control.disabled) {
@@ -341,18 +518,27 @@ export async function montarModuloDietas({
 
   async function conBloqueo(tarea) {
     if (ocupado) throw new Error(t("operacion_en_curso"));
+    focoPendiente = capturarFoco();
     marcarOcupado(true);
     try {
       return await tarea();
     } finally {
       marcarOcupado(false);
+      if (focoPendiente) {
+        restaurarFoco(focoPendiente);
+        focoPendiente = null;
+      }
     }
   }
 
-  async function ejecutarComando(comando, mensaje) {
+  async function ejecutarComando(comando, mensaje, { reiniciarBorrador = false } = {}) {
     await conBloqueo(async () => {
       const siguientesDatos = await adaptador.ejecutar(comando);
       presentador.actualizarDatos(siguientesDatos);
+      if (reiniciarBorrador) {
+        borradorEdicion = null;
+        presentador.rutas?.reiniciar();
+      }
       pintar();
       raiz.querySelector("[data-dietas-recibo]")?.focus?.({ preventScroll: true });
       anunciar(mensaje);
@@ -370,6 +556,69 @@ export async function montarModuloDietas({
       presentador.seleccionar(seleccionar.dataset.dietasSeleccionar);
       pintar();
       raiz.querySelector("#dietas-titulo-detalle")?.focus?.({ preventScroll: true });
+      return;
+    }
+    const anadirParada = evento.target.closest?.("[data-dietas-ruta-anadir]");
+    if (anadirParada && presentador.rutas) {
+      try {
+        capturarBorradorEdicion();
+        presentador.rutas.agregarParada();
+        pintar();
+        anunciar(t("ruta_parada_anadida"));
+      } catch (error) { anunciar(error.message, "error"); }
+      return;
+    }
+    const quitarParada = evento.target.closest?.("[data-dietas-ruta-quitar]");
+    if (quitarParada && presentador.rutas) {
+      try {
+        capturarBorradorEdicion();
+        presentador.rutas.eliminarParada(Number(quitarParada.dataset.dietasRutaQuitar));
+        pintar();
+        anunciar(t("ruta_parada_eliminada"));
+      } catch (error) { anunciar(error.message, "error"); }
+      return;
+    }
+    const calcularRuta = evento.target.closest?.("[data-dietas-ruta-calcular]");
+    if (calcularRuta && presentador.rutas) {
+      try {
+        if (!calculadorRuta) throw new Error(t("ruta_puerto_no_disponible"));
+        capturarBorradorEdicion();
+        await conBloqueo(async () => {
+          const solicitud = presentador.rutas.prepararSolicitudCalculo();
+          const calculo = await calculadorRuta.calcular(solicitud);
+          presentador.rutas.registrarCalculo(calculo);
+          pintar();
+          anunciar(t("ruta_calculo_completado"));
+        });
+      } catch (error) { anunciar(error.message, "error"); }
+      return;
+    }
+    const alternativa = evento.target.closest?.("[data-dietas-ruta-alternativa]");
+    if (alternativa && presentador.rutas) {
+      try {
+        capturarBorradorEdicion();
+        const tarjeta = alternativa.closest(".dietas-ruta-alternativa");
+        const motivo = tarjeta?.querySelector("[data-dietas-ruta-motivo-alternativa]")?.value || "";
+        presentador.rutas.seleccionarAlternativa(alternativa.dataset.dietasRutaAlternativa, motivo);
+        pintar();
+        anunciar(t("ruta_alternativa_aplicada"));
+      } catch (error) { anunciar(error.message, "error"); }
+      return;
+    }
+    const aplicarAjuste = evento.target.closest?.("[data-dietas-ruta-aplicar-ajuste]");
+    if (aplicarAjuste && presentador.rutas) {
+      try {
+        capturarBorradorEdicion();
+        const indice = Number(aplicarAjuste.dataset.dietasRutaAplicarAjuste);
+        const fila = aplicarAjuste.closest("[data-dietas-tramo]");
+        presentador.rutas.ajustarTramo(
+          indice,
+          fila?.querySelector(`[data-dietas-ruta-ajuste-km="${indice}"]`)?.value || 0,
+          fila?.querySelector(`[data-dietas-ruta-ajuste-motivo="${indice}"]`)?.value || "",
+        );
+        pintar();
+        anunciar(t("ruta_ajuste_aplicado"));
+      } catch (error) { anunciar(error.message, "error"); }
       return;
     }
     const enviar = evento.target.closest?.("[data-dietas-enviar]");
@@ -447,9 +696,17 @@ export async function montarModuloDietas({
     if (formulario) {
       evento.preventDefault();
       try {
+        const rutaBorrador = presentador.rutas.prepararRutaBorrador();
+        const vehiculoPropio = formulario.querySelector("[name='vehiculo_propio']")?.checked === true;
         await ejecutarComando(
-              { tipo: "crear_borrador", campos: datosFormulario(formulario) },
+              { tipo: "crear_borrador", campos: {
+                ...datosFormulario(formulario),
+                ...rutaBorrador,
+                kilometros: vehiculoPropio ? rutaBorrador.kilometros : 0,
+                vehiculo_propio: vehiculoPropio,
+              } },
               t("borrador_demo_creado"),
+              { reiniciarBorrador: true },
         );
       } catch (error) {
         anunciar(error.message, "error");
@@ -457,8 +714,31 @@ export async function montarModuloDietas({
     }
   }
 
+  function alCambiar(evento) {
+    const parada = evento.target.closest?.("[data-dietas-ruta-parada]");
+    if (!parada || !presentador.rutas) {
+      capturarBorradorEdicion();
+      actualizarResumenBorrador();
+      return;
+    }
+    try {
+      capturarBorradorEdicion();
+      presentador.rutas.establecerParada(Number(parada.dataset.dietasRutaParada), parada.value);
+      pintar();
+    } catch (error) { anunciar(error.message, "error"); }
+  }
+
+  function alEntrada(evento) {
+    if (evento.target.closest?.("[data-dietas-formulario]")) {
+      capturarBorradorEdicion();
+      actualizarResumenBorrador();
+    }
+  }
+
   raiz.addEventListener("click", alClic);
   raiz.addEventListener("submit", alEnviar);
+  raiz.addEventListener("change", alCambiar);
+  raiz.addEventListener("input", alEntrada);
   pintar();
 
   return Object.freeze({
@@ -469,6 +749,8 @@ export async function montarModuloDietas({
       desmontarVisor();
       raiz.removeEventListener("click", alClic);
       raiz.removeEventListener("submit", alEnviar);
+      raiz.removeEventListener("change", alCambiar);
+      raiz.removeEventListener("input", alEntrada);
       raiz.replaceChildren();
     },
   });

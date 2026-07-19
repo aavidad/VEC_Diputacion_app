@@ -19,8 +19,22 @@ a7837102824184820dfa198d1ebcd109ff6d0ff9a2672a074b9a1b4d147d04c6  leaflet.css
 53e8dc25862014e4324741ca18fbe3611e11d42ef69f59f86ea8c5389647d4cb  LICENSE
 HUELLAS
 
-if rg -n 'https?://|//unpkg|//cdn' leaflet.js leaflet.css; then
-  echo "ERROR: la distribucion contiene una dependencia remota inesperada." >&2
+# La distribución oficial contiene enlaces explicativos dentro de comentarios
+# (incidencias de navegadores y página del proyecto). Se eliminan únicamente
+# los comentarios para comprobar las instrucciones que sí se ejecutan; las
+# huellas anteriores siguen garantizando que los artefactos están intactos.
+sin_comentarios="$(mktemp)"
+urls_no_permitidas="$(mktemp)"
+trap 'rm -f "$sin_comentarios" "$urls_no_permitidas"' EXIT
+perl -0777 -pe 's{/\*.*?\*/}{}gs' leaflet.js leaflet.css >"$sin_comentarios"
+perl -ne 'while (m{https?://[^"'"'"'\s,)]+}g) { print "$&\n" }' "$sin_comentarios" \
+  | sort -u \
+  | grep -Ev '^(http://www\.w3\.org/2000/svg|https://leafletjs\.com)$' \
+  >"$urls_no_permitidas" || true
+if [[ -s "$urls_no_permitidas" ]] \
+  || rg -n '//unpkg|//cdn|//cdnjs|//jsdelivr|tile\.openstreetmap\.org' "$sin_comentarios"; then
+  cat "$urls_no_permitidas" >&2
+  echo "ERROR: la distribucion contiene una dependencia remota ejecutable inesperada." >&2
   exit 1
 fi
 

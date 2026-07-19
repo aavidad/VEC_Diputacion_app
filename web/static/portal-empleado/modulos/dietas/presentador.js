@@ -15,6 +15,7 @@ import {
   validarGeometriaRutaDietas,
   validarPanelDietas,
 } from "./contrato.js";
+import { crearPresentadorRutasDietas } from "./presentador-rutas.js";
 
 const ESTADOS_PERMITIDOS = new Set([
   "todos", "borrador", "pendiente_jefatura", "aprobada", "enviada_rrhh", "enviada_nomina", "pagada",
@@ -95,7 +96,8 @@ function textoFiltro(valor) {
 }
 
 export function crearPresentadorDietas({
-  datos: datosIniciales, contextoActor: contextoInyectado, capacidades: capacidadesInyectadas = [], origenComprobacion = "",
+  datos: datosIniciales, contextoActor: contextoInyectado, capacidades: capacidadesInyectadas = [],
+  origenComprobacion = "", catalogoRutas = null,
 } = {}) {
   const contextoActor = exigirContextoActorDietas(contextoInyectado);
   const capacidades = validarCapacidadesDietas(capacidadesInyectadas);
@@ -111,6 +113,11 @@ export function crearPresentadorDietas({
   if (datos.origen.demostracion !== contextoActor.demostracion) {
     throw new Error("el origen de Dietas no coincide con el contexto de actor");
   }
+  const rutas = crearPresentadorRutasDietas({
+    catalogo: catalogoRutas,
+    permisos,
+    demostracion: datos.origen.demostracion === true,
+  });
   const estado = {
     seleccionada: datos.comisiones[0]?.referencia || "",
     filtroEstado: "todos",
@@ -119,7 +126,10 @@ export function crearPresentadorDietas({
 
   function actualizarDatos(siguientesDatos) {
     datos = validarPanelDietas(siguientesDatos, contextoActor.actor.actor_ref, capacidades);
-    if (!datos.comisiones.some((item) => item.referencia === estado.seleccionada)) {
+    const objetivoRecibo = datos.ultimo_recibo?.objetivo;
+    if (objetivoRecibo && datos.comisiones.some((item) => item.referencia === objetivoRecibo)) {
+      estado.seleccionada = objetivoRecibo;
+    } else if (!datos.comisiones.some((item) => item.referencia === estado.seleccionada)) {
       estado.seleccionada = datos.comisiones[0]?.referencia || "";
     }
     return obtenerModelo();
@@ -142,6 +152,7 @@ export function crearPresentadorDietas({
         delete salida.mapa_ruta;
       } else if (salida.geometria_ruta) {
         salida.mapa_ruta = Object.freeze({
+          vista_ref: `expediente-${salida.referencia}`,
           proveedor: "openstreetmap",
           despliegue: "red_interna",
           plantilla_teselas: PLANTILLA_TESELAS_OSM_INTERNA,
@@ -180,6 +191,7 @@ export function crearPresentadorDietas({
       filtros: Object.freeze({ estado: estado.filtroEstado, texto: estado.filtroTexto }),
       resumen: Object.freeze(resumen),
       resumenAnual: resumenAnual ? Object.freeze(resumenAnual) : null,
+      herramientaRutas: rutas?.obtenerModelo() || null,
       historialMensual: permisos.consultarGastos ? mesesDe(datos.comisiones).map((item) => ({
         ...item, kilometros: permisos.consultarRutas ? item.kilometros : null,
       })) : [],
@@ -322,5 +334,6 @@ export function crearPresentadorDietas({
     seleccionar,
     prepararDescriptorRecibo,
     prepararDescriptorResumenAnual,
+    rutas,
   });
 }

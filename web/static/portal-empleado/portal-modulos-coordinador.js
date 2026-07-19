@@ -75,7 +75,10 @@ export function crearCoordinadorModulosPortal({
   let composicion = null;
   let desmontarVista = null;
   let secuenciaMontaje = 0;
-  const visorRutaDietas = crearVisorRutaDietas({ entorno });
+  // El binario de presentación no compone conectores de red. Producción debe
+  // crear este puerto con `permitirTeselas: true` únicamente tras publicar el
+  // proxy same-origin `/tiles/osm/` dentro de la red corporativa.
+  const visorRutaDietas = crearVisorRutaDietas({ entorno, permitirTeselas: false });
 
   function desmontarVistaActual() {
     secuenciaMontaje += 1;
@@ -85,11 +88,12 @@ export function crearCoordinadorModulosPortal({
 
   async function cargarPresentacion(sesionBolsa) {
     desmontarVistaActual();
-    const [identidad, datosCronos, adaptadorCronos, adaptadorDietas, documentos, catalogoDemo] = await Promise.all([
+    const [identidad, datosCronos, adaptadorCronos, adaptadorDietas, calculadorRutasDietas, documentos, catalogoDemo] = await Promise.all([
       import("./identidad/presentacion.js"),
       import("./modulos/cronos/datos-presentacion.js"),
       import("./modulos/cronos/adaptador-presentacion.js"),
       import("./modulos/dietas/adaptador-presentacion.js"),
+      import("./modulos/dietas/calculador-rutas-presentacion.js"),
       import("./documentos/descarga-recibos-presentacion.js"),
       import("./portal-catalogo-presentacion.js"),
     ]);
@@ -111,6 +115,10 @@ export function crearCoordinadorModulosPortal({
       contextoActor: contextos.dietas,
       capacidades: CAPACIDADES_AUTOSERVICIO_DIETAS,
       adaptador: adaptadorDietas.crearAdaptadorDietasPresentacion({
+        contextoActor: contextos.dietas,
+        capacidades: CAPACIDADES_AUTOSERVICIO_DIETAS,
+      }),
+      calculadorRuta: calculadorRutasDietas.crearCalculadorRutasDietasPresentacion({
         contextoActor: contextos.dietas,
         capacidades: CAPACIDADES_AUTOSERVICIO_DIETAS,
       }),
@@ -190,6 +198,7 @@ export function crearCoordinadorModulosPortal({
       contextoActor: composicion.dietas.contextoActor,
       capacidades: composicion.dietas.capacidades,
       adaptador: composicion.dietas.adaptador,
+      calculadorRuta: composicion.dietas.calculadorRuta,
       descargarRecibo: composicion.dietas.descargarRecibo,
       visorRuta: composicion.dietas.visorRuta,
       confirmarOperacion,

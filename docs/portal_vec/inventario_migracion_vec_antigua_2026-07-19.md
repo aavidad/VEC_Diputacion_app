@@ -9,22 +9,29 @@ aceptación funcional de RRHH.
 ## Conclusión ejecutiva
 
 El portal nuevo **no es todavía funcionalmente equivalente** a la VEC antigua
-en Dietas. La nueva implementación sí proporciona un recorrido modular,
-navegable y accionable para consultar comisiones, crear un borrador sencillo,
-enviarlo a validación y descargar un recibo PDF con QR. Sin embargo, aún no ha
-migrado el recorrido enriquecido de rutas, mapa, cálculo por horarios,
-justificantes, calendario ni explotación anual.
+en Dietas, pero ya recupera su recorrido principal de desplazamiento: catálogo
+provincial, ruta multiparada de ida y vuelta, cálculo con alternativas,
+justificación de desvíos, ajustes por tramo, mapa/croquis, fechas y horas,
+vehículo, tarifa y desglose económico. También permite consultar comisiones,
+guardar el recorrido completo en un borrador demostrativo, enviarlo a
+validación y descargar recibos PDF con QR y un resumen anual. Siguen pendientes
+los justificantes, calendario, espacio gestor y persistencia/auditoría/firma
+productivas.
 
-Esta diferencia no impide presentar Bolsa, que es el alcance urgente. Sí
-impide afirmar que Dietas está migrado al 100 % o que conserva ya todas las
-capacidades de la aplicación antigua. Para la presentación, Dietas debe
-describirse como **recorrido funcional inicial de presentación**.
+La demostración de rutas es deliberadamente sintética, reproducible, volátil y
+no liquidable. El adaptador productivo mismo-origen hacia el catálogo gobernado
+y OSRM interno está implementado, pero no se activará hasta que Sistemas
+publique la proyección de datos autorizada y el despliegue interno de teselas y
+motor de rutas. Por ello Dietas debe describirse como **recorrido funcional de
+presentación con arquitectura productiva preparada**, no como módulo en
+producción ni migrado al 100 %.
 
 ## Significado de los estados
 
 | Estado | Criterio |
 | --- | --- |
 | **Migrado** | Existe en la nueva superficie modular, es visible y tiene contrato o prueba enfocada. Puede seguir usando un adaptador sintético si está inequívocamente rotulado como demostración. |
+| **Verificado en este corte** | La evidencia automatizada y visual indicada se ejecutó de nuevo sobre el árbol actual y terminó sin hallazgos. No equivale a aceptación de usuario ni a puesta en producción. |
 | **En curso hoy** | Hay trabajo observable en el corte de trabajo del 19 de julio, pero todavía no existe evidencia integral verde. |
 | **Pendiente real** | La capacidad sigue siendo necesaria, pero no está conectada y visible en el módulo nuevo. |
 | **Retirado intencionadamente** | No se reutiliza la implementación antigua por seguridad, arquitectura o calidad. La necesidad de negocio puede seguir pendiente de una sustitución correcta. |
@@ -40,7 +47,7 @@ describirse como **recorrido funcional inicial de presentación**.
 | Aplicación monolítica `web/static/app.js` como interfaz activa | **Retirado intencionadamente** | El artefacto de presentación elimina expresamente la aplicación antigua en `Dockerfile:35-41`; tampoco figura en `web/produccion.manifest`. Se conserva sólo como referencia de migración. |
 | Estado de negocio guardado en `localStorage` | **Retirado intencionadamente** | La antigua VEC guardaba hojas DEMO con `DIETAS_SHEETS_STORAGE_KEY` en `web/static/app.js:746-798`. La presentación nueva usa memoria volátil y producción deberá usar puertos autorizados. |
 | Datos o efectos ficticios como sustitución silenciosa de una API real | **Retirado intencionadamente** | Los adaptadores de presentación sólo se cargan con el selector explícito de demostración; las operaciones se rotulan sin efectos administrativos. |
-| Revisión visual automatizada de las 36 vistas actuales | **En curso hoy** | El manifiesto histórico sólo cubría 32 vistas. En este corte se está adaptando la revisión al título actual, a los diez grupos plegables y al nuevo asistente de llamamientos. No se considerará cerrada hasta obtener una ejecución integral verde en 1440, 1024 y 390 píxeles. |
+| Revisión visual automatizada de las vistas actuales | **Verificado en este corte** | 102/102 escenarios correctos en escritorio, portátil y móvil, incluido el recorrido de Dietas; 54 vistas y 48 flujos, sin hallazgos. |
 
 ## Inventario detallado de Dietas
 
@@ -49,17 +56,17 @@ describirse como **recorrido funcional inicial de presentación**.
 | Listado, filtros y selección de expedientes | Disponible | Disponible en `modulos/dietas/vista.js:127-152,175-199` | **Migrado** | Cubierta. |
 | Detalle de comisión, importes, etapas e historial | Disponible | Disponible en `modulos/dietas/vista.js:87-124` | **Migrado** | Cubierta. |
 | Indicadores de expedientes, pendientes, kilómetros, devengado y pagado | Disponible | Disponible en `modulos/dietas/vista.js:185-193` | **Migrado** | Cubierta, siempre como dato DEMO. |
-| Crear borrador de comisión | Formulario completo | Formulario básico con fecha, motivo, origen, destino, kilómetros e importes manuales en `modulos/dietas/vista.js:155-172` | **Migrado parcialmente** | Suficiente para enseñar el cascarón, no para afirmar cálculo oficial. |
+| Crear borrador de comisión | Formulario completo | Formulario con fechas y horas, motivo, vehículo propio, tarifa, conceptos económicos y la ruta calculada completa | **Migrado en presentación** | Recorrido útil para la demostración; el servidor debe recalcular antes de liquidar. |
 | Enviar borrador a validación | Disponible | Acción conectada al adaptador de presentación en `modulos/dietas/vista.js:292-380` | **Migrado en presentación** | Cubierta con recibo y sin efectos reales. |
-| Ruta con varias paradas | Disponible: alta de paradas y cálculo en `web/static/app.js:2752-3055` | Sólo origen, destino y kilómetros manuales | **Pendiente real** | Alta si se enseña Dietas como producto heredado. No bloquea la demo de Bolsa. |
-| Cálculo por carretera mediante motor interno | Cliente antiguo hacia `/api/vec/dietas/road-route` en `web/static/app.js:6063-6076`; adaptador HTTP endurecido en `internal/vec/adapters/httpapi/dietas_road_route.go:66-147` | No importado ni invocado por el módulo nuevo | **Pendiente real** | Alta para una Dietas creíble; se puede excluir del guion urgente. |
-| Mapa del recorrido | Panel y visor local en `web/static/app.js:5768-5784,6257-6408` | No hay panel ni mapa | **Pendiente real** | Alta visual si los asistentes conocen la VEC antigua. |
-| Cálculo de dieta por fechas, horas, media/completa y noches | Disponible en `web/static/app.js:2566-2640` | Los conceptos se introducen manualmente; el adaptador sólo calcula kilómetros por tarifa y suma conceptos | **Pendiente real** | Alta funcional, no necesaria para mostrar Bolsa. |
+| Ruta con varias paradas | Disponible: alta de paradas y cálculo | Hasta doce paradas, ida/vuelta, alternativas y selección justificada en `modulos/dietas/presentador-rutas.js` y `vista.js` | **Migrado en presentación** | Cubierta con cálculo sintético explícito y no liquidable. |
+| Cálculo por carretera mediante motor interno | Cliente antiguo hacia `/api/vec/dietas/road-route`; backend endurecido existente | Adaptador productivo mismo-origen en `calculador-rutas-http.js` y adaptador aislado en `calculador-rutas-presentacion.js` | **Preparado; activación productiva pendiente** | La demo es ejecutable; producción requiere la proyección PDP y OSRM internos. |
+| Mapa del recorrido | Panel y visor local | Croquis SVG siempre disponible y Leaflet 1.9.4 local preparado para teselas OSM internas | **Migrado en presentación** | Cubierta sin enviar coordenadas a terceros; las teselas se activan sólo tras desplegar el proxy interno. |
+| Cálculo de dieta por fechas, horas, media/completa y noches | Disponible | Fechas y horas, kilómetros por tarifa, manutención, alojamiento y otros gastos; todavía no determina automáticamente media/completa/noches conforme a normativa | **Migrado parcialmente** | El recorrido visual y total están cubiertos; el motor normativo oficial sigue pendiente. |
 | Calendario mensual y selección de días | Disponible en `web/static/app.js:863-1009,1152` | No disponible | **Pendiente real** | Media. |
 | Adjuntar y previsualizar justificantes | Disponible mediante imagen/PDF en `web/static/app.js:2660-2750,2831-2846` | Sólo se muestra el contador de justificantes; no existe alta ni descarga | **Pendiente real** | Alta si se recorre la tramitación completa. |
 | Historial mensual | Disponible | Tabla mensual disponible en `modulos/dietas/vista.js:145-152` | **Migrado** | Cubierta. |
-| Estadística, gráfico y tabla anual | Disponible en `web/static/app.js:674-743,1294-1374` | No disponible | **Pendiente real** | Media o baja para la presentación urgente. |
-| Informe anual PDF | Disponible en `web/static/app.js:1190-1229` | El PDF nuevo es un recibo de actuación, no el informe anual | **Pendiente real** | Media; no confundir ambos documentos. |
+| Estadística, gráfico y tabla anual | Disponible | Resumen anual agregado y actividad mensual disponibles; no se ha recuperado el gráfico histórico completo | **Migrado parcialmente** | Suficiente para la demo; gráfico avanzado pendiente. |
+| Informe anual PDF | Disponible | Resumen anual PDF demostrativo y recibo de actuación diferenciados | **Migrado en presentación** | No confundir los dos contratos documentales ni presentarlos como firmados oficialmente. |
 | Exportación anual Excel | Disponible como HTML con extensión `.xls` en `web/static/app.js:1174-1187` | No disponible | **Implementación antigua retirada; salida real pendiente** | Baja para el martes. Debe sustituirse por el conector documental/exportador común, no copiarse literalmente. |
 | Recibo PDF institucional con logotipo y QR de comprobación | No era el mismo contrato documental | Disponible en `modulos/dietas/presentador.js:158-215` y probado en `modulos/dietas/dietas.test.mjs:219-239` | **Migrado y mejorado** | Cubierta. |
 | Aprobación de jefatura y tramitación RRHH | La antigua VEC contenía acciones y estados de aprobación en `web/static/app.js:7203-7254` | La vista actual del empleado sólo envía a validación; no hay espacio de trabajo del gestor de Dietas | **Pendiente real** | Alta sólo si el guion promete el punto de vista gestor de Dietas. |
@@ -74,11 +81,13 @@ La decisión recomendada mantiene la separación ya prevista en el dominio:
    enviar orígenes, destinos, horarios ni identidad a OpenStreetMap, Google,
    Mapbox u otro servicio público. El cálculo se realiza mediante un conector
    hacia un OSRM desplegado dentro de la infraestructura autorizada.
-2. **Teselas locales o visor vectorial local.** Si se usa Leaflet, las teselas
-   se sirven desde una ruta interna como `/tiles/osm/{z}/{x}/{y}.png`. Deben
-   documentarse versión, fuente, licencia y atribución. No se considera
-   conectado mientras los recursos Leaflet y el servicio de teselas no formen
-   parte verificable del despliegue.
+2. **Teselas locales o visor vectorial local.** Leaflet 1.9.4 ya se distribuye
+   desde el propio portal, con licencia, procedencia y huellas verificables. Las
+   teselas se sirven desde una ruta interna como
+   `/tiles/osm/{z}/{x}/{y}.png`. Deben documentarse versión, fuente, licencia y
+   atribución. No se consideran conectadas hasta que el servicio interno forme parte
+   verificable del despliegue. Mientras tanto se usa el croquis SVG y no se
+   producen peticiones de red fallidas ni salidas a Internet.
 3. **Fallo cerrado.** Si OSRM o la matriz oficial no responden, se puede mostrar
    una representación informativa, pero no convertir una línea recta ni un
    valor sugerido en kilómetros liquidables.
@@ -129,10 +138,11 @@ La decisión recomendada mantiene la separación ya prevista en el dominio:
 
 - Cronos y Dietas pueden mostrarse como recorridos iniciales para explicar el
   portal modular común.
-- Dietas puede demostrar listado, detalle, borrador manual, envío a validación
-  y recibo PDF/QR.
-- La ausencia de mapa, OSRM, calendario, justificantes y explotación anual debe
-  quedar fuera del discurso de capacidades terminadas.
+- Dietas puede demostrar listado, detalle, ruta multiparada, alternativas,
+  ajustes, mapa/croquis, borrador, envío a validación y recibos PDF/QR.
+- El cálculo de rutas y las cifras de la demostración deben describirse como
+  sintéticos y no liquidables. Calendario, justificantes y espacio gestor siguen
+  fuera del discurso de capacidades terminadas.
 
 ### No aceptable
 
@@ -144,17 +154,19 @@ La decisión recomendada mantiene la separación ya prevista en el dominio:
 
 ## Evidencia del corte
 
-- Las pruebas JavaScript enfocadas de las superficies revisadas terminaron con
-  **200 casos correctos y cero fallos** el 19 de julio de 2026.
-- Las 36 rutas actuales pudieron abrirse en una inspección de navegador sin
-  errores JavaScript observados, pero esta inspección no sustituye el recorrido
-  completo de cada control.
-- La primera ejecución fresca del manifiesto histórico produjo hallazgos por
-  desajuste del propio revisor: título antiguo del lanzador, menús que ahora
-  están agrupados en acordeones y selector anterior del llamamiento. Ese
-  resultado no demuestra 540 defectos del portal; demuestra que la evidencia
-  automática había quedado obsoleta. La actualización de ese contrato de
-  revisión figura **en curso hoy** y deberá ejecutarse de nuevo hasta verde.
+- La batería JavaScript completa de `web/static` terminó con **239 casos
+  correctos y cero fallos** el 19 de julio de 2026.
+- Las pruebas del capturador terminaron con **15 casos correctos y cero fallos**.
+- La revisión visual estricta terminó con **102/102 escenarios correctos**:
+  54 vistas, 48 flujos y 102 capturas en 1440×1000, 1024×900 y 390×844,
+  sin desbordamiento horizontal, controles sin nombre, identificadores
+  duplicados, cookies, almacenamiento web ni errores de navegador.
+- El recorrido manual de Dietas calculó Granada–Motril–Granada, guardó el
+  borrador, seleccionó el expediente resultante y terminó sin errores de consola
+  ni peticiones fallidas.
+- Las pruebas enfocadas del servidor Go, el manifiesto productivo y la
+  construcción/verificación de los artefactos Docker de producción y
+  presentación terminaron correctamente.
 
 Este inventario debe actualizarse cuando una capacidad cambie de estado. Ningún
 elemento pasa a **Migrado** sólo porque exista código heredado, un adaptador

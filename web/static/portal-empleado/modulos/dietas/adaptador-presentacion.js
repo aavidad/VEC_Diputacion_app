@@ -14,6 +14,7 @@ import {
   tieneCapacidadDietas,
   validarCapacidadesDietas,
   validarComandoDietas,
+  validarGeometriaRutaDietas,
   validarPanelDietas,
 } from "./contrato.js";
 import {
@@ -41,6 +42,27 @@ function fechaValida(valor) {
     throw new Error("fecha no valida");
   }
   return fecha;
+}
+
+function horaValida(valor, nombre) {
+  const hora = textoAcotado(valor, nombre, 5);
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(hora)) throw new Error(`${nombre} no valida`);
+  return hora;
+}
+
+function rutaCalculada(campos) {
+  if (!Array.isArray(campos.ruta)) return null;
+  if (campos.ruta.length < 2 || campos.ruta.length > 12) throw new Error("ruta calculada no valida");
+  const ruta = campos.ruta.map((parada) => textoAcotado(parada, "parada", 100));
+  const geometria = validarGeometriaRutaDietas(campos.geometria_ruta, ruta);
+  const traza = campos.trazabilidad_ruta;
+  if (!traza || typeof traza !== "object" || Array.isArray(traza)
+    || traza.motor !== "simulacion_osrm_demo" || traza.liquidable !== false
+    || typeof traza.calculo_ref !== "string" || !/^DEMO-RUTA-[A-Z0-9-]{6,80}$/.test(traza.calculo_ref)
+    || !Array.isArray(traza.ajustes)) {
+    throw new Error("trazabilidad de ruta DEMO no valida");
+  }
+  return { ruta, geometria, traza: copiarDietas(traza) };
 }
 
 export function crearAdaptadorDietasPresentacion({
@@ -83,9 +105,14 @@ export function crearAdaptadorDietasPresentacion({
     const referencia = textoAcotado(nuevaReferencia(), "referencia", 100);
     if (datos.comisiones.some((item) => item.referencia === referencia)) throw new Error("referencia de comision repetida");
     const fecha = fechaValida(campos.fecha);
+    const fechaFin = fechaValida(campos.fecha_fin || campos.fecha);
+    const horaInicio = horaValida(campos.hora_inicio || "08:00", "hora de inicio");
+    const horaFin = horaValida(campos.hora_fin || "15:00", "hora de fin");
+    if (`${fechaFin}T${horaFin}` < `${fecha}T${horaInicio}`) throw new Error("el fin de la comision no puede ser anterior al inicio");
     const motivo = textoAcotado(campos.motivo, "motivo");
-    const origen = textoAcotado(campos.origen, "origen", 80);
-    const destino = textoAcotado(campos.destino, "destino", 80);
+    const calculada = rutaCalculada(campos);
+    const origen = calculada?.ruta[0] || textoAcotado(campos.origen, "origen", 80);
+    const destino = calculada ? textoAcotado(campos.destino, "destino", 100) : textoAcotado(campos.destino, "destino", 80);
     const kilometros = numeroNoNegativo(campos.kilometros, "kilometros");
     const manutencion = numeroNoNegativo(campos.manutencion_euros, "manutencion");
     const alojamiento = numeroNoNegativo(campos.alojamiento_euros, "alojamiento");
@@ -97,11 +124,16 @@ export function crearAdaptadorDietasPresentacion({
       referencia,
       titular_ref: contextoActor.actor.actor_ref,
       fecha,
+      fecha_fin: fechaFin,
+      hora_inicio: horaInicio,
+      hora_fin: horaFin,
+      vehiculo_propio: campos.vehiculo_propio === true,
       motivo,
-      ruta: origen === destino ? [origen, origen] : [origen, destino, origen],
-      geometria_ruta: crearGeometriaRutaDietasPresentacion(
+      ruta: calculada?.ruta || (origen === destino ? [origen, origen] : [origen, destino, origen]),
+      geometria_ruta: calculada?.geometria || crearGeometriaRutaDietasPresentacion(
         origen === destino ? [origen, destino] : [origen, destino, origen],
       ),
+      ...(calculada ? { trazabilidad_ruta: calculada.traza } : {}),
       kilometros,
       kilometraje_euros: kilometraje,
       manutencion_euros: manutencion,

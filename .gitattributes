@@ -1,0 +1,2 @@
+# Dependencia oficial conservada byte a byte para verificar sus huellas upstream.
+web/static/portal-empleado/vendor/leaflet-1.9.4/** -text -whitespace

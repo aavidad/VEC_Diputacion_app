@@ -29,10 +29,12 @@ static/portal-empleado/modulos/cronos/documentos.js
 static/portal-empleado/modulos/cronos/i18n.js
 static/portal-empleado/modulos/cronos/presentador.js
 static/portal-empleado/modulos/cronos/vista.js
+static/portal-empleado/modulos/dietas/calculador-rutas-http.js
 static/portal-empleado/modulos/dietas/contrato.js
 static/portal-empleado/modulos/dietas/dietas.css
 static/portal-empleado/modulos/dietas/i18n.js
 static/portal-empleado/modulos/dietas/mapa-ruta.js
+static/portal-empleado/modulos/dietas/presentador-rutas.js
 static/portal-empleado/modulos/dietas/presentador.js
 static/portal-empleado/modulos/dietas/vista.js
 static/portal-empleado/portal-borradores-api.js
@@ -63,6 +65,14 @@ static/portal-empleado/portal-vistas-operaciones.js
 static/portal-empleado/portal-vistas-utilidades.js
 static/portal-empleado/portal.css
 static/portal-empleado/portal.js
+static/portal-empleado/vendor/leaflet-1.9.4/LICENSE
+static/portal-empleado/vendor/leaflet-1.9.4/images/layers-2x.png
+static/portal-empleado/vendor/leaflet-1.9.4/images/layers.png
+static/portal-empleado/vendor/leaflet-1.9.4/images/marker-icon-2x.png
+static/portal-empleado/vendor/leaflet-1.9.4/images/marker-icon.png
+static/portal-empleado/vendor/leaflet-1.9.4/images/marker-shadow.png
+static/portal-empleado/vendor/leaflet-1.9.4/leaflet.css
+static/portal-empleado/vendor/leaflet-1.9.4/leaflet.js
 static/styles.css
 static/verificar/index.html
 static/verificar/verificar.css

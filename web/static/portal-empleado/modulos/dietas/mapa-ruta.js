@@ -11,6 +11,7 @@ import {
   PLANTILLA_TESELAS_OSM_INTERNA,
   validarGeometriaRutaDietas,
 } from "./contrato.js";
+import { MENSAJES_DIETAS_ES, crearTraductorDietas } from "./i18n.js";
 
 function validarDescriptorMapa(descriptor) {
   if (!descriptor || typeof descriptor !== "object" || Array.isArray(descriptor)
@@ -36,7 +37,13 @@ function resultadoRespaldo() {
   return Object.freeze({ modo: "croquis_svg", desmontar() {} });
 }
 
-export function crearVisorRutaDietas({ entorno = globalThis } = {}) {
+export function crearVisorRutaDietas({
+  entorno = globalThis,
+  permitirTeselas = false,
+  mensajes = MENSAJES_DIETAS_ES,
+} = {}) {
+  if (typeof permitirTeselas !== "boolean") throw new TypeError("configuración de teselas de Dietas no válida");
+  const t = crearTraductorDietas(mensajes);
   return Object.freeze({
     montar({ raiz, descriptor } = {}) {
       const datos = validarDescriptorMapa(descriptor);
@@ -44,7 +51,11 @@ export function crearVisorRutaDietas({ entorno = globalThis } = {}) {
       const lienzo = raiz.querySelector("[data-dietas-mapa-canvas]");
       const estado = raiz.querySelector("[data-dietas-mapa-estado]");
       const atribucion = raiz.querySelector("[data-dietas-mapa-atribucion]");
-      if (!leafletLocalDisponible(entorno)) {
+      // La presentación aislada no compone clientes de red. Mantiene el SVG
+      // hasta que el despliegue interno declare expresamente que el proxy de
+      // teselas same-origin está operativo; así no genera 404 ni aparenta un
+      // mapa cartográfico que el entorno todavía no sirve.
+      if (!permitirTeselas || !leafletLocalDisponible(entorno)) {
         if (atribucion) atribucion.hidden = true;
         return resultadoRespaldo();
       }
@@ -58,8 +69,10 @@ export function crearVisorRutaDietas({ entorno = globalThis } = {}) {
           scrollWheelZoom: false,
           attributionControl: true,
         });
+        mapa.attributionControl?.setPrefix?.(false);
         entorno.L.tileLayer(PLANTILLA_TESELAS_OSM_INTERNA, {
-          maxZoom: 19,
+          maxNativeZoom: 14,
+          maxZoom: 14,
           attribution: ATRIBUCION_OSM_INTERNA,
         }).addTo(mapa);
         const linea = entorno.L.polyline(datos.geometria.trazado, {
@@ -80,13 +93,26 @@ export function crearVisorRutaDietas({ entorno = globalThis } = {}) {
             fillColor: "#ffffff",
             fillOpacity: 1,
           }).addTo(mapa);
-          marcador.bindTooltip?.(`${indice + 1}. ${parada.etiqueta}`);
+          // Leaflet interpreta las cadenas de tooltip como HTML. Se entrega un
+          // nodo cuyo contenido se fija con textContent para que una etiqueta
+          // gobernada nunca pueda convertirse en marcado ejecutable.
+          const documento = lienzo.ownerDocument;
+          if (documento && typeof documento.createElement === "function") {
+            const textoTooltip = documento.createElement("span");
+            textoTooltip.textContent = `${indice + 1}. ${parada.etiqueta}`;
+            marcador.bindTooltip?.(textoTooltip);
+          }
         });
         const limites = linea.getBounds?.();
         if (limites?.isValid?.()) mapa.fitBounds(limites, { padding: [24, 24] });
         lienzo.dataset.modoMapa = "openstreetmap_interno";
-        if (atribucion) atribucion.hidden = false;
-        if (estado) estado.textContent = "OpenStreetMap cargado desde teselas servidas en la red interna.";
+        if (atribucion) {
+          // La atribución interactiva enlazada la aporta Leaflet. Este texto
+          // adicional sigue siendo legible si el control se oculta al imprimir.
+          atribucion.textContent = "© OpenStreetMap contributors · © OpenMapTiles · servido en red interna";
+          atribucion.hidden = false;
+        }
+        if (estado) estado.textContent = t("mapa_nota_osm_interno");
         return Object.freeze({
           modo: "openstreetmap_interno",
           desmontar() {
@@ -100,7 +126,8 @@ export function crearVisorRutaDietas({ entorno = globalThis } = {}) {
         lienzo.innerHTML = respaldo;
         delete lienzo.dataset.modoMapa;
         if (atribucion) atribucion.hidden = true;
-        if (estado) estado.textContent = "Croquis SVG sintético DEMO. El visor OpenStreetMap se activa al desplegar Leaflet y las teselas en la red interna.";
+        if (estado) estado.textContent = t(datos.geometria.origen === "osrm_interno"
+          ? "mapa_nota_osrm_local" : "mapa_nota_fallback");
         return resultadoRespaldo();
       }
     },
