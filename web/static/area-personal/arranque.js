@@ -5,7 +5,12 @@ async function resolverCliente() {
   const presentacion = esModoPresentacion(new URLSearchParams(window.location.search));
   if (presentacion) {
     const { crearAdaptadorPresentacion } = await import("./adaptador-presentacion.js?v=20260718-1");
-    return { cliente: crearAdaptadorPresentacion(), presentacionSolicitada: true };
+    const { crearDescargadorRecibosPresentacion } = await import("../portal-empleado/documentos/descarga-recibos-presentacion.js?v=20260719-1");
+    return {
+      cliente: crearAdaptadorPresentacion(),
+      descargarReciboPDF: crearDescargadorRecibosPresentacion(window),
+      presentacionSolicitada: true,
+    };
   }
   const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20260718-1");
   return { cliente: crearClienteHTTPAreaPersonal(), presentacionSolicitada: false };

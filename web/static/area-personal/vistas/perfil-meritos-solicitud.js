@@ -125,7 +125,9 @@ function contenidoPaso(datos, estado, convocatoria) {
 }
 
 export function renderizarSolicitud(datos, estado) {
-  const convocatoria = datos.convocatorias.find((item) => item.id === estado.convocatoriaSolicitud) || datos.convocatorias.find((item) => item.estado === "Plazo abierto") || datos.convocatorias[0];
+  const convocatoria = datos.convocatorias.find((item) => item.id === estado.convocatoriaSolicitud)
+    || datos.convocatorias.find((item) => item.estado === "Plazo abierto" || (datos.meta.presentacion && item.recorrido_demo === true))
+    || datos.convocatorias[0];
   const solicitud = localizarSolicitudEdicion(datos, {
     solicitudId: estado.solicitudEdicionId,
     convocatoriaId: convocatoria.id,

@@ -60,6 +60,7 @@ test("la demo está aislada y el arranque normal solo compone HTTP", async () =>
   const arranque = await readFile(join(RAIZ, "arranque.js"), "utf8");
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
   assert.match(arranque, /if \(presentacion\)[\s\S]*import\("\.\/adaptador-presentacion\.js/u);
+  assert.match(arranque, /if \(presentacion\)[\s\S]*import\("\.\.\/portal-empleado\/documentos\/descarga-recibos-presentacion\.js/u);
   assert.match(arranque, /crearClienteHTTPAreaPersonal/u);
   assert.doesNotMatch(aplicacion, /adaptador-presentacion|cliente-http/u);
   assert.doesNotMatch(arranque, /innerHTML\s*=\s*`[^`]*error\.message/su);
@@ -86,10 +87,12 @@ test("las convocatorias del candidato reproducen el inventario público y aísla
       day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC",
     }).format(new Date(publica.publicada_en)));
     assert.deepEqual(mostrada.documentos.map((item) => item.url), publica.documentos.map((item) => item.url));
-    assert.equal(mostrada.estado, "Histórico cerrado");
+    if (idDemo === "DEMO-CONV-003") assert.equal(mostrada.estado, "Histórico cerrado");
+    else assert.equal(mostrada.estado, "Plazo abierto · DEMO");
   }
 
-  assert.equal(datos.resumen.convocatorias_abiertas, 0);
+  assert.equal(datos.resumen.convocatorias_abiertas, 2);
+  assert.equal(datos.convocatorias.filter((item) => item.recorrido_demo === true).length, 2);
   const gestion = datos.convocatorias.find((item) => item.id === "DEMO-CONV-003");
   assert.equal(gestion.titulo, "Ingreso en la Subescala de Gestión de Administración General");
   assert.equal(gestion.categoria, "Técnico de Gestión");

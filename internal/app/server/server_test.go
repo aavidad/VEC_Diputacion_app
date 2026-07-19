@@ -154,6 +154,8 @@ func TestServerSirvePortalEmpleadoRRHHConPresentacionAislada(t *testing.T) {
 		{ruta: "/portal-empleado/portal.js?v=1", tipo: "text/javascript", contenido: `const API_PANEL_BOLSA = "/api/vec/bolsa/panel"`},
 		{ruta: "/portal-empleado/portal-eventos.js?v=1", tipo: "text/javascript", contenido: "crearControladorPortal"},
 		{ruta: "/portal-empleado/datos-presentacion.js?v=1", tipo: "text/javascript", contenido: "ADAPTADOR EXCLUSIVO DE PRESENTACIÓN RRHH"},
+		{ruta: "/verificar/", tipo: "text/html", contenido: "Comprobación de documentos"},
+		{ruta: "/verificar/adaptador-presentacion.js?v=1", tipo: "text/javascript", contenido: "Adaptador local y no autoritativo"},
 	} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, prueba.ruta, nil))
@@ -179,6 +181,7 @@ func TestAdaptadorPresentacionRRHHNoSeSirvePorDefecto(t *testing.T) {
 			"/area-personal/adaptador-presentacion.js",
 			"/portal-empleado/datos-presentacion.js?v=1",
 			"/portal-empleado/portal-presentacion-adaptador.js",
+			"/verificar/adaptador-presentacion.js",
 			"/bolsa/documentos/bases-demo.css",
 			"/bolsa/documentos/bases-auxiliar-demo.html",
 			"/bolsa/documentos/bases-auxiliar-demo.pdf",
@@ -502,6 +505,9 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 		{metodo: http.MethodGet, ruta: "/bolsa", estado: http.StatusMovedPermanently},
 		{metodo: http.MethodGet, ruta: "/bolsa/", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/bolsa/bolsa.js?v=1", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/verificar", estado: http.StatusMovedPermanently},
+		{metodo: http.MethodGet, ruta: "/verificar/", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/verificar/verificar.js?v=1", estado: http.StatusOK},
 		{metodo: http.MethodHead, ruta: "/styles.css", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/portal-empleado/assets/logo-diputacion-granada.svg", estado: http.StatusOK},
 		{metodo: http.MethodPost, ruta: "/api/publico/consulta", estado: http.StatusAccepted},
@@ -550,6 +556,7 @@ func TestSuperficieInternaExponeSoloSuListaPositiva(t *testing.T) {
 		{metodo: http.MethodGet, ruta: "/portal-empleado", estado: http.StatusMovedPermanently},
 		{metodo: http.MethodGet, ruta: "/portal-empleado/", estado: http.StatusOK},
 		{metodo: http.MethodHead, ruta: "/portal-empleado/portal.css?v=1", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/locales/es.json", estado: http.StatusOK},
 		{metodo: http.MethodPost, ruta: "/api/vec/bolsa/panel", estado: http.StatusAccepted},
 	} {
 		rec := httptest.NewRecorder()
@@ -560,7 +567,7 @@ func TestSuperficieInternaExponeSoloSuListaPositiva(t *testing.T) {
 	}
 
 	for _, ruta := range []string{
-		"/", "/app.js", "/styles.css", "/favicon.svg", "/locales/es.json",
+		"/", "/app.js", "/styles.css", "/favicon.svg",
 		"/bolsa", "/bolsa/", "/bolsa/bolsa.js", "/api", "/api/publico", "/api/publico/bolsa",
 		"/api/vecino",
 	} {
@@ -584,7 +591,7 @@ func TestSuperficiesRechazanMetodosDeEscrituraEnRecursosEstaticos(t *testing.T) 
 		{
 			nombre:  "publica",
 			handler: NewHandlerPublicoWithConfig(config.Config{}, http.NotFoundHandler()),
-			rutas:   []string{"/healthz", "/bolsa", "/bolsa/bolsa.js", "/styles.css", "/portal-empleado/assets/logo-diputacion-granada.svg"},
+			rutas:   []string{"/healthz", "/bolsa", "/bolsa/bolsa.js", "/verificar", "/verificar/verificar.js", "/styles.css", "/portal-empleado/assets/logo-diputacion-granada.svg"},
 		},
 		{
 			nombre:  "interna",

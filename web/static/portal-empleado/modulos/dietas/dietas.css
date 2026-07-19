@@ -1,0 +1,320 @@
+/* Dietas solo define composicion. Colores y tipografia proceden del tema del portal. */
+.modulo-dietas {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.modulo-dietas :focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 3px;
+}
+
+.modulo-dietas .dietas-identidad {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.9fr) minmax(18rem, 1.1fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+.modulo-dietas .dietas-identidad div,
+.modulo-dietas .dietas-identidad span,
+.modulo-dietas .dietas-identidad small {
+  display: block;
+}
+
+.modulo-dietas .dietas-identidad small {
+  margin-top: 0.25rem;
+  color: var(--portal-muted);
+}
+
+.modulo-dietas .dietas-identidad p {
+  margin: 0;
+}
+
+.modulo-dietas .dietas-kpi {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.modulo-dietas .dietas-recibo {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--portal-exito);
+  border-inline-start-width: 0.35rem;
+  border-radius: var(--portal-radio);
+  background: var(--portal-exito-suave);
+}
+
+.modulo-dietas .dietas-recibo span {
+  color: var(--portal-muted);
+}
+
+.modulo-dietas .dietas-anuncio:empty {
+  display: none;
+}
+
+[aria-busy="true"] > .modulo-dietas {
+  cursor: wait;
+}
+
+.modulo-dietas .dietas-filtros {
+  display: grid;
+  grid-template-columns: minmax(15rem, 2fr) minmax(12rem, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  padding: 0.85rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+}
+
+.modulo-dietas .dietas-filtros label,
+.modulo-dietas .dietas-nueva label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--portal-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.modulo-dietas input,
+.modulo-dietas select {
+  min-height: 2.5rem;
+  max-width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  font: inherit;
+}
+
+.modulo-dietas .dietas-espacio-trabajo {
+  display: grid;
+  grid-template-columns: minmax(36rem, 1.45fr) minmax(22rem, 0.85fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.modulo-dietas .dietas-listado,
+.modulo-dietas .dietas-detalle {
+  min-width: 0;
+}
+
+.modulo-dietas .tabla-contenedor {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.modulo-dietas .tabla-datos td.numero,
+.modulo-dietas .tabla-datos th.numero {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.modulo-dietas .tabla-datos tr[aria-selected="true"] {
+  background: var(--portal-azul-100);
+  box-shadow: inset 0.25rem 0 var(--portal-azul-700);
+}
+
+.modulo-dietas .dietas-detalle-cuerpo {
+  display: grid;
+  gap: 1rem;
+}
+
+.modulo-dietas .dietas-datos-clave,
+.modulo-dietas .dietas-desglose {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  overflow: hidden;
+}
+
+.modulo-dietas .dietas-datos-clave div,
+.modulo-dietas .dietas-desglose div {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--portal-borde);
+}
+
+.modulo-dietas dt {
+  color: var(--portal-muted);
+  font-size: 0.73rem;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.modulo-dietas dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+  font-weight: 680;
+}
+
+.modulo-dietas .dietas-desglose .total {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  background: var(--portal-azul-100);
+}
+
+.modulo-dietas .dietas-desglose .total dd {
+  color: var(--portal-azul-800);
+  font-size: 1.1rem;
+}
+
+.modulo-dietas .dietas-etapas {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.modulo-dietas .dietas-etapas li {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.5rem;
+  border-top: 0.3rem solid var(--portal-borde);
+  background: var(--portal-fondo);
+  font-size: 0.72rem;
+}
+
+.modulo-dietas .dietas-etapas li.completada {
+  border-color: var(--portal-exito);
+}
+
+.modulo-dietas .dietas-etapas li.actual {
+  border-color: var(--portal-aviso);
+  background: var(--portal-aviso-suave);
+}
+
+.modulo-dietas .dietas-etapas small {
+  color: var(--portal-muted);
+}
+
+.modulo-dietas .dietas-historial {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.modulo-dietas .dietas-historial li {
+  display: grid;
+  grid-template-columns: 0.65rem minmax(0, 1fr);
+  gap: 0.65rem;
+}
+
+.modulo-dietas .dietas-historial div,
+.modulo-dietas .dietas-historial span,
+.modulo-dietas .dietas-historial small {
+  display: block;
+}
+
+.modulo-dietas .dietas-historial span,
+.modulo-dietas .dietas-historial small {
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.modulo-dietas .dietas-marca-historial {
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-top: 0.3rem;
+  border: 2px solid var(--portal-azul-700);
+  border-radius: 50%;
+  background: var(--portal-superficie);
+}
+
+.modulo-dietas .dietas-pago,
+.modulo-dietas .dietas-politica,
+.modulo-dietas .dietas-aviso-formulario {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-inline-start: 0.3rem solid var(--portal-cian);
+  background: var(--portal-azul-100);
+}
+
+.modulo-dietas .dietas-nueva > summary {
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  color: var(--portal-azul-800);
+  font-weight: 750;
+}
+
+.modulo-dietas .dietas-nueva form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0 1rem 1rem;
+}
+
+.modulo-dietas .dietas-nueva .campo-ancho,
+.modulo-dietas .dietas-aviso-formulario {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1180px) {
+  .modulo-dietas .dietas-kpi {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .modulo-dietas .dietas-espacio-trabajo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .modulo-dietas .dietas-identidad,
+  .modulo-dietas .dietas-filtros,
+  .modulo-dietas .dietas-nueva form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .modulo-dietas .dietas-kpi,
+  .modulo-dietas .dietas-datos-clave,
+  .modulo-dietas .dietas-desglose {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .modulo-dietas .dietas-etapas {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .modulo-dietas .dietas-nueva .campo-ancho,
+  .modulo-dietas .dietas-aviso-formulario {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .modulo-dietas .dietas-kpi,
+  .modulo-dietas .dietas-datos-clave,
+  .modulo-dietas .dietas-desglose,
+  .modulo-dietas .dietas-etapas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .modulo-dietas .dietas-desglose .total {
+    grid-column: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modulo-dietas *,
+  .modulo-dietas *::before,
+  .modulo-dietas *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -305,19 +305,43 @@ function mostrarRecibo(estado, recibo) {
   anunciar(`Operación completada. Recibo ${recibo.referencia}.`);
 }
 
-function descargarRecibo(estado) {
+async function descargarRecibo(estado) {
   if (!estado.ultimoRecibo) {
     notificar("No existe un recibo disponible para descargar.");
     return;
   }
-  const contenido = JSON.stringify({ data: estado.ultimoRecibo }, null, 2);
-  const url = URL.createObjectURL(new Blob([contenido], { type: "application/json;charset=utf-8" }));
-  const enlace = document.createElement("a");
-  enlace.href = url;
-  enlace.download = `${estado.ultimoRecibo.referencia}.json`;
-  enlace.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-  notificar("Recibo preparado para descarga.");
+  if (typeof estado.descargarReciboPDF !== "function") {
+    notificar("El generador documental autorizado no está disponible.");
+    anunciar("No se ha generado ningún documento.");
+    return;
+  }
+  const recibo = estado.ultimoRecibo;
+  const urlVerificacion = new URL("/verificar/", window.location.origin);
+  urlVerificacion.searchParams.set("ref", recibo.referencia);
+  if (recibo.presentacion) urlVerificacion.searchParams.set("presentacion", "rrhh");
+  try {
+    await estado.descargarReciboPDF({
+      referencia: recibo.referencia,
+      titulo: "Recibo de actuación del Portal de Recursos Humanos",
+      subtitulo: "Diputación de Granada · Área de Recursos Humanos y Régimen Interior",
+      marca: recibo.presentacion
+        ? "DOCUMENTO DEMO · SIN EFECTOS ADMINISTRATIVOS"
+        : "Documento emitido por el sistema de gestión de Recursos Humanos",
+      filas: [
+        { etiqueta: "Actuación", valor: recibo.accion },
+        { etiqueta: "Resultado", valor: recibo.resultado },
+        { etiqueta: "Referencia del trámite", valor: recibo.objetivo },
+        { etiqueta: "Fecha de emisión (UTC)", valor: recibo.fecha },
+        { etiqueta: "Identidad actuante", valor: recibo.actor },
+      ],
+      comprobacion: { qr_contenido: urlVerificacion.href },
+      nombre_archivo: `recibo-${recibo.referencia.toLowerCase()}.pdf`,
+    });
+    notificar("Recibo PDF preparado para descarga.");
+  } catch {
+    notificar("No se pudo generar el recibo PDF.");
+    anunciar("No se ha descargado ningún documento.");
+  }
 }
 
 function remitirALecturaLocal(estado, mensaje) {
@@ -369,7 +393,7 @@ function atenderAccion(estado, boton) {
   if (accion === "alternar-texto" || accion === "alternar-contraste") return alternarPreferencia(accion, boton);
   if (accion === "leer-pantalla") return leerPantalla(estado);
   if (accion === "ver-sesion") return verSesion(estado);
-  if (accion === "descargar-recibo") return descargarRecibo(estado);
+  if (accion === "descargar-recibo") return void descargarRecibo(estado);
   if (accion === "reintentar") return cargar(estado);
   if (accion === "abrir-convocatoria") return navegar(estado, "convocatoria", { id: boton.dataset.id });
   if (accion === "volver-convocatorias") return navegar(estado, "convocatorias");
@@ -542,7 +566,8 @@ async function cargar(estado) {
     if (datos.meta.presentacion !== estado.presentacionSolicitada) throw new Error("El origen recibido no coincide con el modo solicitado.");
     estado.datos = datos;
     if (!estado.convocatoriaSolicitud) {
-      estado.convocatoriaSolicitud = datos.convocatorias.find((item) => item.estado === "Plazo abierto")?.id || "";
+      estado.convocatoriaSolicitud = datos.convocatorias.find((item) => item.estado === "Plazo abierto"
+        || (datos.meta.presentacion && item.recorrido_demo === true))?.id || "";
       estado.progresoSolicitud = crearProgresoSolicitud(estado.convocatoriaSolicitud);
     }
     estado.error = null;
@@ -552,13 +577,14 @@ async function cargar(estado) {
   }
 }
 
-export async function iniciarAreaPersonal({ cliente, presentacionSolicitada = false } = {}) {
+export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, presentacionSolicitada = false } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || typeof cliente.ejecutar !== "function") {
     throw new TypeError("El cliente inyectado no respeta el contrato del área personal.");
   }
   const parametros = new URLSearchParams(window.location.search);
   const estado = {
     cliente,
+    descargarReciboPDF,
     presentacionSolicitada,
     datos: null,
     vista: rutaDesdeURL(),

@@ -1,0 +1,449 @@
+/*
+ * Layout aislado de Cronos. Colores, tipografía, botones, paneles y foco se
+ * heredan del tema central del Portal del Empleado.
+ */
+.cronos-area {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.cronos-encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.cronos-encabezado h2 {
+  margin: 1px 0 4px;
+  font-size: 1.55rem;
+}
+
+.cronos-encabezado p:not(.sobrelinea) {
+  max-width: 760px;
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: 0.82rem;
+}
+
+.cronos-encabezado-estado {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  color: var(--portal-muted);
+  font-size: 0.68rem;
+}
+
+.cronos-distintivo-demo {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid var(--portal-aviso);
+  border-radius: 999px;
+  background: var(--portal-aviso-suave);
+  color: var(--portal-aviso);
+  font-weight: 850;
+}
+
+.cronos-frontera {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1.2fr) minmax(260px, 1.2fr);
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--portal-borde);
+  border-left: 4px solid var(--portal-cian);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  font-size: 0.74rem;
+}
+
+.cronos-frontera div,
+.cronos-frontera p {
+  margin: 0;
+}
+
+.cronos-frontera div span {
+  display: block;
+  margin-top: 2px;
+  color: var(--portal-muted);
+}
+
+.cronos-navegacion {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+}
+
+.cronos-navegacion button {
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--portal-azul-700);
+  cursor: pointer;
+  font-size: 0.73rem;
+  font-weight: 780;
+  text-decoration: none;
+}
+
+.cronos-navegacion button:hover {
+  background: var(--portal-azul-100);
+}
+
+.cronos-boton-tabla {
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--portal-borde);
+  border-radius: 5px;
+  background: var(--portal-superficie);
+  color: var(--portal-azul-700);
+  cursor: pointer;
+  font-size: 0.65rem;
+  font-weight: 760;
+}
+
+.cronos-boton-tabla:disabled {
+  color: var(--portal-muted);
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.cronos-indicadores {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cronos-indicador {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--portal-borde);
+  border-top: 3px solid var(--portal-azul-600);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+}
+
+.cronos-indicador > span,
+.cronos-indicador > strong,
+.cronos-indicador > small {
+  display: block;
+}
+
+.cronos-indicador > span {
+  min-height: 2.1em;
+  color: var(--portal-muted);
+  font-size: 0.67rem;
+  font-weight: 760;
+}
+
+.cronos-indicador > strong {
+  margin: 3px 0;
+  font-size: 1.18rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cronos-indicador > small {
+  color: var(--portal-muted);
+  font-size: 0.63rem;
+}
+
+.cronos-indicador-exito { border-top-color: var(--portal-exito); }
+.cronos-indicador-aviso { border-top-color: var(--portal-aviso); }
+
+.cronos-rejilla-principal {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 0.72fr);
+  gap: 14px;
+}
+
+.cronos-rejilla-secundaria {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(360px, 0.85fr) minmax(0, 1.4fr);
+  gap: 14px;
+}
+
+.cronos-panel {
+  min-width: 0;
+}
+
+.cronos-cabecera-panel {
+  flex-wrap: wrap;
+}
+
+.cronos-acciones,
+.cronos-formulario-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.cronos-acciones button,
+.cronos-formulario-acciones button {
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 0.7rem;
+}
+
+.cronos-tabla-contenedor {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.cronos-tabla {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+
+.cronos-tabla caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.cronos-tabla th,
+.cronos-tabla td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--portal-borde);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.cronos-tabla thead th {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  background: var(--portal-fondo);
+  color: var(--portal-tinta);
+  font-size: 0.65rem;
+  font-weight: 850;
+}
+
+.cronos-tabla tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.cronos-tabla tbody tr:hover {
+  background: var(--portal-azul-100);
+}
+
+.cronos-tabla code {
+  color: var(--portal-muted);
+  font-size: 0.67rem;
+}
+
+.cronos-estado {
+  display: inline-flex;
+  min-height: 23px;
+  align-items: center;
+  padding: 2px 7px;
+  border: 1px solid var(--portal-borde);
+  border-radius: 999px;
+  background: var(--portal-fondo);
+  color: var(--portal-muted);
+  font-size: 0.63rem;
+  font-weight: 790;
+}
+
+.cronos-estado-exito {
+  border-color: var(--portal-exito);
+  background: var(--portal-exito-suave);
+  color: var(--portal-exito);
+}
+
+.cronos-estado-aviso {
+  border-color: var(--portal-aviso);
+  background: var(--portal-aviso-suave);
+  color: var(--portal-aviso);
+}
+
+.cronos-estado-peligro {
+  border-color: var(--portal-peligro);
+  background: var(--portal-peligro-suave);
+  color: var(--portal-peligro);
+}
+
+.cronos-resumen-datos {
+  margin: 0;
+  padding: 4px 14px 10px;
+}
+
+.cronos-resumen-datos div {
+  display: grid;
+  grid-template-columns: minmax(115px, 0.75fr) minmax(0, 1.25fr);
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--portal-borde);
+}
+
+.cronos-resumen-datos div:last-child {
+  border-bottom: 0;
+}
+
+.cronos-resumen-datos dt {
+  color: var(--portal-muted);
+  font-size: 0.68rem;
+  font-weight: 780;
+}
+
+.cronos-resumen-datos dd {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.cronos-formulario {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+  padding: 14px;
+}
+
+.cronos-formulario label {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  color: var(--portal-tinta);
+  font-size: 0.69rem;
+  font-weight: 780;
+}
+
+.cronos-formulario input,
+.cronos-formulario select,
+.cronos-formulario textarea {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid var(--portal-borde);
+  border-radius: 5px;
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  font-size: 0.74rem;
+}
+
+.cronos-formulario textarea {
+  min-height: 58px;
+  resize: vertical;
+}
+
+.cronos-formulario small {
+  color: var(--portal-muted);
+  font-size: 0.62rem;
+  font-weight: 500;
+}
+
+.cronos-campo-ancho,
+.cronos-formulario-acciones {
+  grid-column: 1 / -1;
+}
+
+.cronos-recibos {
+  border-top: 1px solid var(--portal-borde);
+}
+
+.cronos-recibos h4 {
+  margin: 0;
+  padding: 11px 14px 7px;
+  font-size: 0.75rem;
+}
+
+.cronos-mensaje,
+.cronos-acceso-denegado,
+.cronos-vacio {
+  margin: 0;
+  padding: 13px 14px;
+  color: var(--portal-muted);
+  font-size: 0.72rem;
+}
+
+.cronos-mensaje:empty {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .cronos-indicadores {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .cronos-frontera {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cronos-frontera > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .cronos-rejilla-principal,
+  .cronos-rejilla-secundaria {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .cronos-encabezado {
+    display: grid;
+  }
+
+  .cronos-encabezado-estado {
+    justify-items: start;
+  }
+
+  .cronos-frontera,
+  .cronos-indicadores,
+  .cronos-formulario {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cronos-frontera > :last-child,
+  .cronos-campo-ancho,
+  .cronos-formulario-acciones {
+    grid-column: auto;
+  }
+
+  .cronos-indicador > span {
+    min-height: 0;
+  }
+
+  .cronos-cabecera-panel,
+  .cronos-acciones {
+    align-items: stretch;
+  }
+
+  .cronos-acciones {
+    width: 100%;
+  }
+
+  .cronos-acciones button {
+    flex: 1 1 140px;
+  }
+}
+
+@media (max-width: 420px) {
+  .cronos-navegacion {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cronos-tabla {
+    min-width: 600px;
+  }
+}

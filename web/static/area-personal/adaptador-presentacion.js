@@ -23,7 +23,7 @@ const BASE_PRESENTACION = {
   },
   resumen: {
     acciones_pendientes: 3,
-    convocatorias_abiertas: 0,
+    convocatorias_abiertas: 2,
     solicitudes_activas: 2,
     mensajes_no_leidos: 2,
     puntuacion_provisional: 14.75,
@@ -74,8 +74,8 @@ const BASE_PRESENTACION = {
   convocatorias: [
     {
       id: "DEMO-CONV-001", referencia: "BOP-GRA-2026-043004", titulo: "Bolsa de empleo de Operario de la Diputación de Granada", categoria: "Operario/a",
-      estado: "Histórico cerrado", plazo: "Sin plazo abierto en el portal · publicación 05/03/2026", descripcion: "Bases públicas para elaborar una bolsa de empleo de Operario de la Escala de Administración Especial. Expediente 2026/BTN_01/000062.",
-      plazas: "Bolsa de empleo temporal", tasa: "No incorporada como dato estructurado", presentacion_hasta: "Proceso histórico · sin plazo abierto",
+      estado: "Plazo abierto · DEMO", plazo: "Escenario DEMO abierto del 19/07/2026 al 20/08/2026", descripcion: "Bases públicas para elaborar una bolsa de empleo de Operario de la Escala de Administración Especial. Expediente 2026/BTN_01/000062. El plazo mostrado es exclusivamente demostrativo.",
+      plazas: "Bolsa de empleo temporal", tasa: "No incorporada como dato estructurado", presentacion_hasta: "20/08/2026 23:59 · plazo exclusivamente DEMO",
       publicada_en: "05/03/2026", cve_bop: "BOP-GRA-2026-043004", recorrido_demo: true,
       requisitos: ["Nacionalidad en alguno de los supuestos admitidos por las bases", "Tener cumplidos dieciséis años y no superar la edad máxima de jubilación forzosa", "Capacidad funcional para las tareas", "No haber sido separado ni hallarse inhabilitado", "Sin titulación académica específica para esta agrupación profesional", "Ser personal ajeno a la Función Pública de la Diputación, según las bases"],
       documentos: [
@@ -85,9 +85,9 @@ const BASE_PRESENTACION = {
     },
     {
       id: "DEMO-CONV-002", referencia: "BOP-GRA-2025-125002", titulo: "Ingreso en la categoría de Auxiliar de Servicios Generales", categoria: "Auxiliar de Servicios Generales",
-      estado: "Histórico cerrado", plazo: "Sin plazo abierto en el portal · publicación 04/07/2025", descripcion: "Proceso selectivo público de la Diputación de Granada para el ingreso en la categoría de Auxiliar de Servicios Generales de la Escala de Administración Especial.",
-      plazas: "Proceso selectivo · véanse las bases", tasa: "No incorporada como dato estructurado", presentacion_hasta: "Proceso histórico · sin plazo abierto",
-      publicada_en: "04/07/2025", cve_bop: "BOP-GRA-2025-125002", recorrido_demo: false,
+      estado: "Plazo abierto · DEMO", plazo: "Escenario DEMO abierto del 19/07/2026 al 15/08/2026", descripcion: "Proceso selectivo público de la Diputación de Granada para el ingreso en la categoría de Auxiliar de Servicios Generales de la Escala de Administración Especial. El plazo mostrado es exclusivamente demostrativo.",
+      plazas: "Proceso selectivo · véanse las bases", tasa: "No incorporada como dato estructurado", presentacion_hasta: "15/08/2026 23:59 · plazo exclusivamente DEMO",
+      publicada_en: "04/07/2025", cve_bop: "BOP-GRA-2025-125002", recorrido_demo: true,
       requisitos: ["Nacionalidad en alguno de los supuestos admitidos por las bases", "Tener cumplidos dieciséis años y no superar la edad máxima de jubilación forzosa", "Capacidad funcional para las plazas", "No haber sido separado ni hallarse inhabilitado", "Título de Graduado en Educación Secundaria Obligatoria o equivalente indicado por las bases"],
       documentos: [
         { titulo: "Bases adaptadas de Auxiliar de Servicios Generales (PDF)", formato: "PDF", url: "/bolsa/documentos/bases-auxiliar-demo.pdf", aviso: "Reproducción accesible DEMO basada en BOP-GRA-2025-125002; sin validez administrativa" },

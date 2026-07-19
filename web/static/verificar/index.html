@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Comprobación de documentos · Diputación de Granada</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/verificar/verificar.css?v=20260719-cotejo-v1">
+    <script type="module" src="/verificar/verificar.js?v=20260719-cotejo-v1"></script>
+  </head>
+  <body>
+    <a class="salto" href="#contenido">Saltar al contenido principal</a>
+    <header class="cabecera">
+      <a href="/" aria-label="Ir al inicio">
+        <img src="/portal-empleado/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
+      </a>
+      <div><span>Servicio de cotejo</span><strong>Comprobación de documentos</strong></div>
+    </header>
+    <main id="contenido" tabindex="-1">
+      <section class="panel" aria-labelledby="titulo-cotejo">
+        <p class="sobrelinea">Código seguro de verificación</p>
+        <h1 id="titulo-cotejo">Compruebe un documento emitido</h1>
+        <p>Introduzca la referencia que aparece en el documento o abra directamente el código QR. La referencia no contiene datos personales.</p>
+        <form id="formulario-cotejo">
+          <label for="referencia">Referencia de comprobación</label>
+          <div class="campo-accion">
+            <input id="referencia" name="referencia" type="text" minlength="8" maxlength="80" pattern="[A-Za-z0-9][A-Za-z0-9._:-]+" autocomplete="off" spellcheck="false" required>
+            <button type="submit">Comprobar</button>
+          </div>
+        </form>
+        <div id="resultado-cotejo" class="resultado" role="status" aria-live="polite" hidden></div>
+      </section>
+      <aside class="informacion">
+        <h2>Garantías y privacidad</h2>
+        <p>El QR facilita el acceso al servicio, pero no acredita por sí mismo la autenticidad. El resultado válido procede del registro documental y de sus firmas.</p>
+        <p>Los documentos internos o protegidos requieren autenticación adicional y no se entregan por conocer una referencia.</p>
+      </aside>
+    </main>
+    <footer>Diputación de Granada · Servicio de cotejo documental</footer>
+  </body>
+</html>
