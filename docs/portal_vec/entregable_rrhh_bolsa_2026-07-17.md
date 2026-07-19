@@ -35,25 +35,32 @@ efectos sintéticos necesarios para enseñar los recorridos antes de disponer de
 todas las APIs se aíslan en adaptadores de presentación intercambiables y no se
 mezclan con los clientes normales.
 
-El corte presentado consta de **32 vistas navegables**:
+El corte actual consta de **36 vistas navegables**:
 
 | Superficie | Número | Contenido |
 | --- | ---: | --- |
 | Lanzador | 1 | Entrada controlada a cada recorrido. |
 | Bolsa pública | 1 | Consulta anónima. |
 | Área personal | 14 | Inicio; convocatorias; detalle; perfil; méritos; solicitud; autobaremación; seguimiento; llamamientos; subsanaciones; alegaciones; mensajes; certificados; ayuda. |
-| Gestión interna | 16 | Portal del Empleado más 15 secciones de gestión de Bolsa. |
+| Portal interno | 1 | Portada común y catálogo modular del Portal del Empleado. |
+| Gestión interna de Bolsa | 17 | Capacidades agrupadas en las diez áreas visuales 1–10 solicitadas por RRHH. |
+| Cronos | 1 | Jornada, fichajes y permisos con identidad común de presentación. |
+| Dietas | 1 | Comisiones, gastos y liquidaciones con identidad común de presentación. |
 
 El inventario anterior describe pantallas evaluables, no capacidades
 productivas. Una vista marcada `DEMO` no acredita integración, una prueba E2E
 productiva ni un acto administrativo válido.
 
-La puerta automática de presentación recorre, además, **21 estados de
-interacción** representativos en tres resoluciones. El último cierre produjo
-**159 capturas, 159 escenarios correctos y cero hallazgos**. Incluye los menús
-móviles abiertos, el perfil técnico restringido, el recorrido de solicitud del
-aspirante y operaciones internas con recibo `DEMO-REC-*`. Es evidencia de la
-muestra aislada, no aceptación de RRHH ni prueba E2E productiva.
+La puerta automática de presentación registró una línea base de **32 vistas y
+21 estados de interacción** representativos en tres resoluciones. Ese cierre,
+anterior a la incorporación de Cronos, Dietas y las dos rutas adicionales de
+Bolsa, produjo **159 capturas, 159 escenarios correctos y cero hallazgos**.
+Incluía los menús móviles abiertos, el perfil técnico restringido, el recorrido
+de solicitud del aspirante y operaciones internas con recibo `DEMO-REC-*`. No
+se atribuye esa cifra histórica a las cuatro vistas posteriores: estas deben
+entrar en el siguiente manifiesto integral. En todos los casos se trata de
+evidencia de la muestra aislada, no de aceptación de RRHH ni de una prueba E2E
+productiva.
 
 Las superficies se dividen sin herramienta de compilación en piezas
 cohesionadas:
@@ -190,6 +197,11 @@ separada, todavía sin proceso productivo, que solo admite Portal del Empleado y
 
 ## Inventario exhaustivo de elementos temporales
 
+Esta sección conserva el resumen funcional del entregable. El inventario
+operativo por ruta, con decisión de retirada, sustituto, condición de
+aceptación, prueba de ausencia y marcha atrás, se mantiene en
+[Inventario y retirada incremental de la presentación RRHH](inventario_retirada_presentacion_2026-07-19.md).
+
 | Elemento | Ubicación | Qué hace ahora | Sustitución obligatoria |
 | --- | --- | --- | --- |
 | Datos sintéticos internos | `portal-empleado/datos-presentacion.js` | Aporta bolsas, expedientes, reglas, lotes y agregados con referencias `DEMO-` | Se excluye físicamente de producción; los renderizadores reciben proyecciones autorizadas de la API interna |
@@ -216,7 +228,8 @@ externo o identidades con apariencia real.
 
 Se conservan:
 
-- navegación funcional del portal y las 15 secciones internas de Bolsa;
+- navegación funcional del portal y las 17 secciones internas de Bolsa,
+  agrupadas en las diez áreas visuales 1–10;
 - cinco indicadores principales;
 - bolsas destacadas con cobertura;
 - próximos llamamientos;
@@ -267,10 +280,11 @@ permanece deshabilitada si el cliente real no recibe una capacidad positiva.
 
 | Área | Estado comprobado | No se debe afirmar todavía |
 | --- | --- | --- |
-| Artefacto de presentación | Binario y perfil separados, lanzador en el puerto 8081, 32 vistas, 21 flujos y puerta reproducible 159/159 en tres resoluciones; adaptadores volátiles y cero cookies/almacenamiento de navegador | Integración productiva, E2E productivo, aceptación formal o validez administrativa |
+| Artefacto de presentación | Binario y perfil separados, lanzador en el puerto 8081 y 36 vistas actuales; la línea base anterior de 32 vistas y 21 flujos obtuvo 159/159 en tres resoluciones; adaptadores volátiles y cero cookies/almacenamiento de navegador | Integración productiva, nueva matriz integral de 36 vistas, E2E productivo, aceptación formal o validez administrativa |
 | Consulta pública de convocatorias y categorías | Recorrido local con 36 procesos basados en 37 publicaciones BOP reales, documentos adaptados y aviso DEMO en `/bolsa/` | Publicación oficial desde un expediente interno |
 | Área personal del aspirante | 14 vistas reutilizables pendientes de aceptación, con cliente HTTP real cerrado y adaptador de presentación seleccionado en composición | Identidad real, autorización sobre datos propios, persistencia, pago, firma, registro, carga o descarga efectiva |
-| Gestión interna de Bolsa | Portal más 15 secciones reutilizables pendientes de aceptación; operaciones volátiles con confirmación y recibo `DEMO-` | Identidad interna reforzada, permisos reales, transacciones durables, firma, publicación, comunicación o integración corporativa |
+| Gestión interna de Bolsa | Portal más 17 secciones reutilizables agrupadas en el menú visual 1–10; operaciones volátiles con confirmación y recibo `DEMO-` | Identidad interna reforzada, permisos reales, transacciones durables, firma, publicación, comunicación o integración corporativa |
+| Cronos y Dietas en el portal | Dos verticales iniciales reutilizables, con identidad compartida y adaptadores de presentación independientes | Integración productiva, equivalencia funcional completa, confinamiento de Cronos a la red corporativa y aceptación de RRHH/Sistemas |
 | Portal VEC heredado | Carcasa, perfiles, menús y numerosas vistas reutilizables fuera del corte de Bolsa | Portal privado estable: `/api/vec/workspace` falla cerrado sin ámbito resuelto |
 | Elaboración de bolsa histórica | Formulario visual heredado; dominio de convocatoria gobernada y contrato HMAC V2 probado, sin sellado durable previo al PDP ni huella semántica cruda durable | Resolvedor autoritativo de ámbito, diario de recuperación, persistencia, API, firma, dependencias y publicación oficiales |
 | Panel interno de Bolsa | Dominio, servicio de aplicación, contrato agregado sin datos personales, consulta PostgreSQL y pruebas de integración | Endpoint compuesto, identidad interna real, autoridad COSE de ejecución y productor de la proyección |

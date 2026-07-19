@@ -90,11 +90,14 @@ python3 scripts/capturar_presentacion_web.py \
   --ejecutable-navegador /snap/bin/chromium
 ```
 
-Recorre 32 vistas y 21 estados de interacción en escritorio, tableta y móvil:
-159 escenarios en total. Exige la cabecera técnica exclusiva de presentación,
-comprueba menús y recibos DEMO, y falla ante almacenamiento del navegador,
-errores, recursos fallidos, controles sin nombre o desbordamientos. El detalle
-y los informes generados se describen en
+La línea base archivada recorre 32 vistas y 21 estados de interacción en
+escritorio, tableta y móvil: 159 escenarios en total. Es anterior a la
+incorporación de Cronos, Dietas y dos rutas adicionales de Bolsa; el corte
+actual tiene 36 vistas y no reutiliza aquella cifra para aparentar una revisión
+que todavía no pertenecía a su manifiesto. La herramienta exige la cabecera
+técnica exclusiva de presentación, comprueba menús y recibos DEMO, y falla ante
+almacenamiento del navegador, errores, recursos fallidos, controles sin nombre
+o desbordamientos. El detalle y los informes generados se describen en
 [captura y revisión de la presentación](revision_web_presentacion.md).
 
 El contenedor aislado se arranca con:
@@ -175,6 +178,10 @@ producción ni se migrarán sus estados: los actos simulados son descartables y
 no autoritativos.
 
 ## Retirada completa
+
+La decisión exacta por fichero y por vertical, con sustituto productivo,
+condición de aceptación, prueba de ausencia y marcha atrás, se encuentra en el
+[inventario de retirada incremental](inventario_retirada_presentacion_2026-07-19.md).
 
 Si no se aprueba el proyecto, basta con retirar el perfil Compose
 `presentacion`, el destino `runtime-presentacion`, `cmd/vec-presentacion`,

@@ -261,11 +261,14 @@ Pendiente productivo:
   flujos completos por modulo/menu, datos visibles, acciones, estados,
   integraciones, validaciones y criterio de terminado.
 - [Entregable de presentación de Bolsa para RRHH](docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md):
-  inventario de las 32 vistas, elementos temporales y sustitución por
+  inventario del corte navegable, elementos temporales y sustitución por
   conectores autorizados.
 - [Modo de presentación RRHH](docs/portal_vec/modo_presentacion_rrhh.md):
   arranque del artefacto aislado, guardas, red y exclusión física de
   presentación en producción.
+- [Inventario y retirada incremental de la presentación](docs/portal_vec/inventario_retirada_presentacion_2026-07-19.md):
+  decisión por fichero sobre qué conservar, sustituir o eliminar, condición
+  de aceptación, prueba de ausencia, migración progresiva y marcha atrás.
 - [Matriz de aceptación de la web de Bolsa](docs/portal_vec/matriz_aceptacion_web_bolsa_2026-07-18.md):
   correspondencia entre pantallas reutilizables, contratos y adaptadores de
   presentación o producción.
@@ -474,11 +477,20 @@ scripts/arrancar_presentacion_rrhh.sh
 ```
 
 Su lanzador queda en `http://127.0.0.1:8081/presentacion/` y permite recorrer
-32 vistas: un lanzador, una consulta pública, 14 vistas del área personal del
-aspirante y, en gestión interna, el portal más 15 secciones de Bolsa. Las
-acciones de firma, registro, pago, carga documental, comunicación y demás
-operaciones se representan mediante adaptadores volátiles: exigen
+36 vistas: un lanzador, una consulta pública, 14 vistas del área personal del
+aspirante y, en gestión interna, el portal, 17 secciones de Bolsa, Cronos y
+Dietas. El lateral de Bolsa conserva las diez áreas visuales 1–10 validadas en
+las referencias de RRHH y agrupa bajo ellas las capacidades nuevas sin perder
+rutas. Las acciones de firma, registro, pago, carga documental, comunicación y
+demás operaciones se representan mediante adaptadores volátiles: exigen
 confirmación, devuelven recibos `DEMO-` y se pierden al recargar.
+
+La consulta pública incluye dos recorridos con plazo abierto, derivados de
+convocatorias y bases públicas reales pero con intervalos sintéticos señalados
+de forma inequívoca como `DEMO`. Los recibos descargables son PDF A4 reales de
+presentación, con identidad institucional, texto de constancia o certificación,
+referencia opaca y QR hacia la pantalla local de cotejo. No constituyen firma,
+registro ni certificado administrativo.
 
 La muestra no utiliza cookies, `localStorage`, `sessionStorage`, volúmenes
 duraderos ni conectores externos. No contiene datos personales reales: las
@@ -492,7 +504,7 @@ diseñado como candidatos reutilizables en producción. RRHH deberá validarlos 
 la composición productiva aún no existe. La raíz de composición selecciona un
 adaptador volátil para la muestra y permitirá incorporar conectores
 autorizados; la ruta normal nunca cae automáticamente al adaptador de
-presentación. Por tanto, disponer de las 32 vistas navegables acredita el
+presentación. Por tanto, disponer de las 36 vistas navegables acredita el
 recorrido visual y funcional de la demo, pero **no** acredita integración con
 PostgreSQL, identidad, firma, registro u otros servicios, ni una prueba E2E
 productiva ni validez administrativa.
@@ -506,9 +518,11 @@ python3 scripts/capturar_presentacion_web.py \
   --ejecutable-navegador /snap/bin/chromium
 ```
 
-El último cierre obtuvo **159/159 escenarios correctos y cero hallazgos**:
-32 vistas más 21 estados de interacción, repetidos en escritorio, tableta y
-móvil. La herramienta exige la marca técnica del servidor de presentación,
+El cierre integral de Bolsa obtuvo **159/159 escenarios correctos y cero
+hallazgos** antes de incorporar Cronos y Dietas. La integración posterior añade
+pruebas unitarias del portal y recorridos reales en escritorio, tableta y móvil;
+la cifra 159 no se reutiliza para aparentar que esas vistas ya pertenecían a la
+matriz anterior. La herramienta exige la marca técnica del servidor de presentación,
 rechaza cualquier host que no sea una IP literal de loopback y revisa menús,
 recibos DEMO, accesibilidad básica, almacenamiento del navegador, errores y
 desbordamientos. Esta puerta no sustituye la aceptación humana de RRHH.
