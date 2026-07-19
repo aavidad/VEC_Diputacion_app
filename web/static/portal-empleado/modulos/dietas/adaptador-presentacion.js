@@ -16,7 +16,10 @@ import {
   validarComandoDietas,
   validarPanelDietas,
 } from "./contrato.js";
-import { crearDatosDietasPresentacion } from "./datos-presentacion.js";
+import {
+  crearDatosDietasPresentacion,
+  crearGeometriaRutaDietasPresentacion,
+} from "./datos-presentacion.js";
 
 function numeroNoNegativo(valor, nombre) {
   const numero = Number(valor ?? 0);
@@ -95,7 +98,10 @@ export function crearAdaptadorDietasPresentacion({
       titular_ref: contextoActor.actor.actor_ref,
       fecha,
       motivo,
-      ruta: origen === destino ? [origen] : [origen, destino, origen],
+      ruta: origen === destino ? [origen, origen] : [origen, destino, origen],
+      geometria_ruta: crearGeometriaRutaDietasPresentacion(
+        origen === destino ? [origen, destino] : [origen, destino, origen],
+      ),
       kilometros,
       kilometraje_euros: kilometraje,
       manutencion_euros: manutencion,
@@ -131,6 +137,7 @@ export function crearAdaptadorDietasPresentacion({
     if (!tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_RUTA)) {
       salida.comisiones.forEach((comision) => {
         comision.ruta = [];
+        comision.geometria_ruta = null;
         comision.kilometros = null;
         comision.kilometraje_euros = null;
       });

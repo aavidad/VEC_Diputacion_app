@@ -84,6 +84,56 @@ function renderizarEtapas(modelo, comision, t) {
   </ol>`;
 }
 
+function proyectarPuntosCroquis(geometria) {
+  const puntos = geometria.trazado.map(([latitud, longitud]) => ({ latitud, longitud }));
+  const latitudes = puntos.map((punto) => punto.latitud);
+  const longitudes = puntos.map((punto) => punto.longitud);
+  let minLatitud = Math.min(...latitudes);
+  let maxLatitud = Math.max(...latitudes);
+  let minLongitud = Math.min(...longitudes);
+  let maxLongitud = Math.max(...longitudes);
+  if (minLatitud === maxLatitud) { minLatitud -= 0.01; maxLatitud += 0.01; }
+  if (minLongitud === maxLongitud) { minLongitud -= 0.01; maxLongitud += 0.01; }
+  const proyectar = ({ latitud, longitud }) => ({
+    x: 42 + ((longitud - minLongitud) / (maxLongitud - minLongitud)) * 556,
+    y: 32 + ((maxLatitud - latitud) / (maxLatitud - minLatitud)) * 176,
+  });
+  return { proyectar, trazado: puntos.map(proyectar) };
+}
+
+function renderizarMapaRuta(item, t) {
+  if (!item.mapa_ruta) return "";
+  const { geometria } = item.mapa_ruta;
+  const { proyectar, trazado } = proyectarPuntosCroquis(geometria);
+  const rejilla = [1, 2, 3, 4, 5].map((indice) => {
+    const x = 42 + indice * (556 / 6);
+    const y = 32 + indice * (176 / 6);
+    return `<line x1="${x.toFixed(1)}" y1="32" x2="${x.toFixed(1)}" y2="208"></line><line x1="42" y1="${y.toFixed(1)}" x2="598" y2="${y.toFixed(1)}"></line>`;
+  }).join("");
+  const etiquetasVistas = new Set();
+  const paradas = geometria.paradas.map((parada, indice) => {
+    const punto = proyectar(parada);
+    const clave = `${parada.latitud}:${parada.longitud}:${parada.etiqueta}`;
+    const mostrarEtiqueta = !etiquetasVistas.has(clave);
+    etiquetasVistas.add(clave);
+    return `<g><circle cx="${punto.x.toFixed(1)}" cy="${punto.y.toFixed(1)}" r="7"></circle><text class="dietas-mapa-numero" x="${punto.x.toFixed(1)}" y="${(punto.y + 3.5).toFixed(1)}">${indice + 1}</text>${mostrarEtiqueta ? `<text class="dietas-mapa-etiqueta" x="${Math.min(560, punto.x + 11).toFixed(1)}" y="${Math.max(18, punto.y - 10).toFixed(1)}">${escaparHTML(parada.etiqueta)}</text>` : ""}</g>`;
+  }).join("");
+  return `<figure class="dietas-mapa" aria-labelledby="dietas-mapa-titulo" aria-describedby="dietas-mapa-nota">
+    <figcaption><div><p class="sobrelinea">${escaparHTML(t("mapa_proveedor"))}</p><h4 id="dietas-mapa-titulo">${escaparHTML(t("mapa_titulo"))}</h4></div><span class="estado-chip aviso">${escaparHTML(t("mapa_marca_demo"))}</span></figcaption>
+    <div class="dietas-mapa-canvas" data-dietas-mapa-canvas>
+      <svg viewBox="0 0 640 240" role="img" aria-labelledby="dietas-croquis-titulo dietas-croquis-descripcion">
+        <title id="dietas-croquis-titulo">${escaparHTML(t("mapa_croquis_titulo"))}</title>
+        <desc id="dietas-croquis-descripcion">${escaparHTML(t("mapa_croquis_descripcion", { ruta: item.ruta.join(" → ") }))}</desc>
+        <g class="dietas-mapa-rejilla">${rejilla}</g>
+        <polyline points="${trazado.map((punto) => `${punto.x.toFixed(1)},${punto.y.toFixed(1)}`).join(" ")}"></polyline>
+        <g class="dietas-mapa-paradas">${paradas}</g>
+      </svg>
+    </div>
+    <p id="dietas-mapa-nota" class="dietas-mapa-nota" data-dietas-mapa-estado>${escaparHTML(t("mapa_nota_fallback"))}</p>
+    <small data-dietas-mapa-atribucion hidden>${escaparHTML(item.mapa_ruta.atribucion)}</small>
+  </figure>`;
+}
+
 function renderizarDetalle(modelo, descargaDisponible, confirmacionDisponible, t) {
   const item = modelo.seleccionada;
   if (!item) return `<section class="panel dietas-detalle"><div class="cuerpo-panel vacio-controlado"><p><strong>${escaparHTML(t("sin_expediente"))}</strong></p><p>${escaparHTML(t("sin_expediente_ayuda"))}</p></div></section>`;
@@ -102,6 +152,7 @@ function renderizarDetalle(modelo, descargaDisponible, confirmacionDisponible, t
         <div><dt>${escaparHTML(t("justificantes"))}</dt><dd>${numero(item.justificantes)}</dd></div>
         <div><dt>${escaparHTML(t("siguiente_actuacion"))}</dt><dd>${escaparHTML(traducirCodigo(t, CLAVES_SIGUIENTE, item.siguiente_actuacion))}</dd></div>
       </dl>
+      ${modelo.capacidades.consultarRutas ? renderizarMapaRuta(item, t) : ""}
       ${renderizarEtapas(modelo, item, t)}
       <section aria-labelledby="dietas-titulo-desglose"><h4 id="dietas-titulo-desglose">${escaparHTML(t("desglose_gastos"))}</h4>
         <dl class="dietas-desglose">
@@ -142,9 +193,12 @@ function renderizarTabla(modelo, t) {
   </section>`;
 }
 
-function renderizarHistorialMensual(modelo, t) {
+function renderizarHistorialMensual(modelo, descargaDisponible, t) {
+  const anual = modelo.resumenAnual;
   return `<section class="panel dietas-resumen-anual" aria-labelledby="dietas-titulo-resumen-anual">
-    <div class="cabecera-panel"><h3 id="dietas-titulo-resumen-anual">${escaparHTML(t("resumen_mes"))}</h3><span>${escaparHTML(t(modelo.demostracion ? "escenario_demo" : "datos_sesion"))}</span></div>
+    <div class="cabecera-panel"><div><h3 id="dietas-titulo-resumen-anual">${escaparHTML(t("resumen_mes"))}</h3><span>${escaparHTML(t(modelo.demostracion ? "escenario_demo" : "datos_sesion"))}</span></div>
+      ${anual ? `<button type="button" class="boton-secundario dietas-exportar-anual" data-dietas-descargar-anual="${anual.anio}" ${descargaDisponible && modelo.demostracion ? "" : "disabled"}>${escaparHTML(t(descargaDisponible && modelo.demostracion ? "descargar_resumen_anual" : "resumen_anual_no_conectado", { anio: anual.anio }))}</button>` : ""}
+    </div>
     <div class="tabla-contenedor"><table class="tabla-datos"><caption>${escaparHTML(t("caption_historico"))}</caption>
       <thead><tr><th scope="col">${escaparHTML(t("cab_mes"))}</th><th scope="col">${escaparHTML(t("cab_expedientes"))}</th><th scope="col">${escaparHTML(t("cab_kilometros"))}</th><th scope="col">${escaparHTML(t("cab_devengado"))}</th><th scope="col">${escaparHTML(t("cab_pagado"))}</th></tr></thead>
       <tbody>${modelo.historialMensual.map((item) => `<tr><th scope="row">${escaparHTML(item.mes)}</th><td class="numero">${numero(item.expedientes)}</td><td class="numero">${modelo.capacidades.consultarRutas ? `${numero(item.kilometros, 1)} ${escaparHTML(t("unidad_km"))}` : escaparHTML(t("sin_capacidad"))}</td><td class="numero">${euros(item.total_euros)}</td><td class="numero">${euros(item.pagado_euros)}</td></tr>`).join("")}</tbody>
@@ -195,7 +249,7 @@ export function renderizarDietas(modelo, {
     <form class="dietas-filtros" data-dietas-filtros aria-label="${escaparHTML(t("filtros_etiqueta"))}"><label>${escaparHTML(t("buscar"))}<input name="texto" type="search" value="${escaparHTML(modelo.filtros.texto)}" placeholder="${escaparHTML(t("buscar_placeholder"))}"></label><label>${escaparHTML(t("cab_estado"))}<select name="estado">${opcionesEstado(modelo.filtros.estado, t)}</select></label><button type="submit" class="boton-secundario">${escaparHTML(t("aplicar_filtros"))}</button></form>
     <div class="dietas-espacio-trabajo">${renderizarTabla(modelo, t)}${renderizarDetalle(modelo, descargaDisponible, confirmacionDisponible, t)}</div>
     ${modelo.capacidades.gestionarGastos && modelo.capacidades.gestionarRutas ? renderizarFormulario(modelo, t) : ""}
-    ${renderizarHistorialMensual(modelo, t)}
+    ${renderizarHistorialMensual(modelo, descargaDisponible, t)}
   </div>`;
 }
 
@@ -215,6 +269,7 @@ export async function montarModuloDietas({
   capacidades = [],
   adaptador,
   descargarRecibo,
+  visorRuta,
   confirmarOperacion,
   origenComprobacion = globalThis.location?.origin || "",
   mensajes = MENSAJES_DIETAS_ES,
@@ -230,20 +285,34 @@ export async function montarModuloDietas({
   if (confirmarOperacion !== undefined && typeof confirmarOperacion !== "function") {
     throw new Error("puerto confirmarOperacion no válido");
   }
+  if (visorRuta !== undefined && (!visorRuta || typeof visorRuta.montar !== "function")) {
+    throw new Error("puerto de mapa de Dietas no válido");
+  }
   const t = crearTraductorDietas(mensajes);
   const presentador = crearPresentadorDietas({
     datos: await adaptador.obtenerDatos(), contextoActor, capacidades, origenComprobacion,
   });
   let activa = true;
   let ocupado = false;
+  let visorMontado = null;
+
+  function desmontarVisor() {
+    visorMontado?.desmontar?.();
+    visorMontado = null;
+  }
 
   function pintar() {
     if (!activa) return;
-    raiz.innerHTML = renderizarDietas(presentador.obtenerModelo(), {
+    desmontarVisor();
+    const modelo = presentador.obtenerModelo();
+    raiz.innerHTML = renderizarDietas(modelo, {
       descargaDisponible: typeof descargarRecibo === "function",
       confirmacionDisponible: typeof confirmarOperacion === "function",
       mensajes,
     });
+    if (visorRuta && modelo.seleccionada?.mapa_ruta) {
+      visorMontado = visorRuta.montar({ raiz, descriptor: modelo.seleccionada.mapa_ruta });
+    }
   }
 
   function datosFormulario(formulario) {
@@ -257,6 +326,7 @@ export async function montarModuloDietas({
     else raiz.removeAttribute("aria-busy");
     raiz.querySelectorAll([
       "[data-dietas-enviar]", "[data-dietas-descargar-recibo]",
+      "[data-dietas-descargar-anual]",
       "[data-dietas-formulario] button[type='submit']",
     ].join(",")).forEach((control) => {
       if (valor && !control.disabled) {
@@ -341,6 +411,21 @@ export async function montarModuloDietas({
       } catch (error) {
         anunciar(error.message, "error");
       }
+      return;
+    }
+    const descargarAnual = evento.target.closest?.("[data-dietas-descargar-anual]");
+    if (descargarAnual && typeof descargarRecibo === "function") {
+      try {
+        await conBloqueo(async () => {
+          const descriptor = presentador.prepararDescriptorResumenAnual(
+            Number(descargarAnual.dataset.dietasDescargarAnual), t,
+          );
+          await descargarRecibo(descriptor);
+          anunciar(t("resumen_anual_generado", { anio: descriptor.periodo }));
+        });
+      } catch (error) {
+        anunciar(error.message, "error");
+      }
     }
   }
 
@@ -381,6 +466,7 @@ export async function montarModuloDietas({
     desmontar() {
       if (!activa) return;
       activa = false;
+      desmontarVisor();
       raiz.removeEventListener("click", alClic);
       raiz.removeEventListener("submit", alEnviar);
       raiz.replaceChildren();

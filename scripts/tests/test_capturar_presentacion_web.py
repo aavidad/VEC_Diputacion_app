@@ -19,7 +19,7 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
                 "lanzador": 1,
                 "portal-publico": 1,
                 "area-aspirante": 14,
-                "gestion-rrhh": 16,
+                "gestion-rrhh": 18,
             },
         )
         self.assertEqual(
@@ -27,6 +27,11 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             {(1440, 1000), (1024, 900), (390, 844)},
         )
         self.assertEqual(capturador.validar_manifiesto(), [])
+        lanzador = next(
+            vista for vista in capturador.MANIFIESTO_VISTAS
+            if vista.clave == "lanzador-recorrido"
+        )
+        self.assertEqual(lanzador.titulo_esperado, "Demostración funcional del portal")
 
     def test_vistas_aspirante_son_exhaustivas_y_el_detalle_es_determinista(self) -> None:
         vistas = {
@@ -46,10 +51,27 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             vista.clave.removeprefix("rrhh-")
             for vista in capturador.MANIFIESTO_VISTAS
             if vista.superficie == "gestion-rrhh"
+            and vista.clave not in {"rrhh-cronos", "rrhh-dietas"}
         }
         self.assertEqual(rutas, set(capturador.RUTAS_MENU_RRHH))
         self.assertNotIn("reglas", rutas)
         self.assertNotIn("consulta", rutas)
+
+    def test_cronos_y_dietas_se_auditan_como_modulos_internos_en_tres_tamanos(self) -> None:
+        modulos = {
+            vista.clave: vista
+            for vista in capturador.MANIFIESTO_VISTAS
+            if vista.clave in {"rrhh-cronos", "rrhh-dietas"}
+        }
+        self.assertEqual(set(modulos), {"rrhh-cronos", "rrhh-dietas"})
+        self.assertEqual(modulos["rrhh-cronos"].ruta.rsplit("#", 1)[-1], "cronos")
+        self.assertEqual(modulos["rrhh-dietas"].ruta.rsplit("#", 1)[-1], "dietas")
+        self.assertEqual(len(capturador.TAMANOS_VISTA), 3)
+        for clave, vista in modulos.items():
+            with self.subTest(modulo=clave):
+                self.assertEqual(vista.superficie, "gestion-rrhh")
+                self.assertIn("perfil=administrador", vista.ruta)
+                self.assertEqual(len(vista.selectores_menu), 2)
 
     def test_toda_ruta_privada_usa_presentacion_rrhh(self) -> None:
         for escenario in capturador.MANIFIESTO:
@@ -104,13 +126,23 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             with self.subTest(flujo=flujo.clave):
                 self.assertTrue(flujo.requiere_demo)
                 self.assertIn("perfil=administrador", flujo.ruta)
-                self.assertEqual(
-                    [paso.accion for paso in flujo.pasos],
-                    ["clic-confirmando", "esperar", "esperar"],
-                )
-                self.assertIn('[data-accion="operacion-presentacion"]', flujo.pasos[0].selector)
-                self.assertEqual(flujo.pasos[1].texto_esperado, "DEMO-REC")
-                self.assertRegex(flujo.pasos[2].texto_esperado, r"^DEMO-")
+                if flujo.clave == "rrhh-llamamiento-recibo-demo":
+                    self.assertEqual(
+                        [paso.accion for paso in flujo.pasos],
+                        ["clic", "esperar", "clic", "esperar", "clic", "clic-confirmando", "esperar", "esperar"],
+                    )
+                    self.assertEqual(flujo.pasos[0].selector, '[data-accion="solicitar-propuesta"]')
+                    self.assertEqual(flujo.pasos[5].selector, '[data-accion="preparar-llamamiento-demo"]')
+                    self.assertEqual(flujo.pasos[6].texto_esperado, "DEMO-REC")
+                    self.assertEqual(flujo.pasos[7].texto_esperado, "DEMO-LLA-045")
+                else:
+                    self.assertEqual(
+                        [paso.accion for paso in flujo.pasos],
+                        ["clic-confirmando", "esperar", "esperar"],
+                    )
+                    self.assertIn('[data-accion="operacion-presentacion"]', flujo.pasos[0].selector)
+                    self.assertEqual(flujo.pasos[1].texto_esperado, "DEMO-REC")
+                    self.assertRegex(flujo.pasos[2].texto_esperado, r"^DEMO-")
 
     def test_flujos_de_menu_dejan_capturable_el_estado_abierto(self) -> None:
         por_clave = {flujo.clave: flujo for flujo in capturador.MANIFIESTO_FLUJOS}
@@ -120,6 +152,9 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
         self.assertEqual(aspirante.pasos[0].accion, "abrir-menu")
         self.assertEqual(rrhh.pasos[0].accion, "abrir-menu")
         self.assertEqual(bolsa.pasos[0].accion, "abrir-menu")
+        self.assertEqual(bolsa.pasos[1].accion, "abrir-menu")
+        self.assertEqual(bolsa.pasos[1].selector, '[data-grupo-bolsa="auditoria"]')
+        self.assertEqual(bolsa.pasos[2].selector, "#submenu-auditoria")
         self.assertIn("perfil=administrador", rrhh.ruta)
         self.assertIn("perfil=administrador", bolsa.ruta)
         self.assertIn("#bolsa/resumen", bolsa.ruta)

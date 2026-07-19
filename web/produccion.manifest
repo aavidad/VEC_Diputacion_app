@@ -32,6 +32,7 @@ static/portal-empleado/modulos/cronos/vista.js
 static/portal-empleado/modulos/dietas/contrato.js
 static/portal-empleado/modulos/dietas/dietas.css
 static/portal-empleado/modulos/dietas/i18n.js
+static/portal-empleado/modulos/dietas/mapa-ruta.js
 static/portal-empleado/modulos/dietas/presentador.js
 static/portal-empleado/modulos/dietas/vista.js
 static/portal-empleado/portal-borradores-api.js

@@ -29,6 +29,7 @@ import {
   CAPACIDAD_GESTIONAR_RUTA,
 } from "./modulos/dietas/contrato.js";
 import { montarModuloDietas } from "./modulos/dietas/vista.js";
+import { crearVisorRutaDietas } from "./modulos/dietas/mapa-ruta.js";
 
 const MODULOS_COMPARTIDOS = Object.freeze(["bolsa", "cronos", "dietas"]);
 const CAPACIDADES_AUTOSERVICIO_CRONOS = Object.freeze([
@@ -74,6 +75,7 @@ export function crearCoordinadorModulosPortal({
   let composicion = null;
   let desmontarVista = null;
   let secuenciaMontaje = 0;
+  const visorRutaDietas = crearVisorRutaDietas({ entorno });
 
   function desmontarVistaActual() {
     secuenciaMontaje += 1;
@@ -113,6 +115,7 @@ export function crearCoordinadorModulosPortal({
         capacidades: CAPACIDADES_AUTOSERVICIO_DIETAS,
       }),
       descargarRecibo,
+      visorRuta: visorRutaDietas,
       origenComprobacion,
     });
     catalogo = catalogoDemo.obtenerCatalogoModulosPresentacion();
@@ -188,6 +191,7 @@ export function crearCoordinadorModulosPortal({
       capacidades: composicion.dietas.capacidades,
       adaptador: composicion.dietas.adaptador,
       descargarRecibo: composicion.dietas.descargarRecibo,
+      visorRuta: composicion.dietas.visorRuta,
       confirmarOperacion,
       origenComprobacion: composicion.dietas.origenComprobacion,
       anunciar,

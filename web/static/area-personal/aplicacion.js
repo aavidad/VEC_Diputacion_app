@@ -82,12 +82,20 @@ function crearURL(estado, vista, opciones = {}) {
 }
 
 function actualizarEnlacesNavegacion(estado) {
-  document.querySelectorAll("a[data-ruta]").forEach((enlace) => {
-    if (enlace.id === "enlace-inicio-institucional" && estado.presentacionSolicitada) {
-      enlace.setAttribute("href", "/presentacion/");
-      enlace.setAttribute("aria-label", "Volver al selector de recorridos de la presentación");
-      return;
+  const inicioInstitucional = porId("enlace-inicio-institucional");
+  if (inicioInstitucional) {
+    if (estado.presentacionSolicitada) {
+      inicioInstitucional.setAttribute("href", "/presentacion/");
+      inicioInstitucional.removeAttribute("data-ruta");
+      inicioInstitucional.setAttribute("aria-label", "Volver al selector de recorridos de la presentación");
+    } else {
+      inicioInstitucional.dataset.ruta = "inicio";
+      inicioInstitucional.setAttribute("href", crearURL(estado, "inicio"));
+      inicioInstitucional.setAttribute("aria-label", "Ir al inicio del área personal");
     }
+  }
+  document.querySelectorAll("a[data-ruta]").forEach((enlace) => {
+    if (enlace === inicioInstitucional) return;
     enlace.setAttribute("href", crearURL(estado, enlace.dataset.ruta || "inicio", {
       id: enlace.dataset.id || "",
     }));

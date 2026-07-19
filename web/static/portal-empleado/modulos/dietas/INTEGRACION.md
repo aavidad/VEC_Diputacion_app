@@ -19,6 +19,7 @@ const modulo = await montarModuloDietas({
   capacidades,
   adaptador,
   descargarRecibo,
+  visorRuta,
   confirmarOperacion,
   anunciar,
 });
@@ -38,8 +39,15 @@ interfaz.
 - `confirmarOperacion(descriptor)`: muestra la confirmación institucional y
   resuelve exclusivamente con `true` cuando la persona confirma.
 - `descargarRecibo(descriptor)`: entrega al conector documental el descriptor
-  `vec.documentos.recibo.dietas.v1`. El QR contiene solo una referencia opaca de
-  cotejo, nunca datos personales.
+  `vec.documentos.recibo.dietas.v1` o el resumen anual
+  `vec.documentos.resumen-anual.dietas.v1`. El QR contiene solo una referencia
+  opaca de cotejo, nunca datos personales.
+- `visorRuta.montar({ raiz, descriptor })`: recibe geometría ya autorizada y
+  solo admite OpenStreetMap servido en la red interna mediante
+  `/tiles/osm/{z}/{x}/{y}.png`. El navegador no llama a OSRM, geocodificadores,
+  teselas públicas ni otros terceros. Sin la biblioteca Leaflet local conserva
+  el croquis SVG sintético, sin atribuirlo a OpenStreetMap ni usarlo para
+  liquidar kilómetros.
 - `anunciar(mensaje, nivel)`: comunica resultados o errores mediante el sistema
   común de avisos del portal.
 
@@ -63,9 +71,30 @@ debe garantizar, como mínimo:
 5. recibo probatorio y auditoría antes de confirmar el éxito;
 6. ausencia de localizaciones en respuestas sin `dietas.ruta.read`.
 
-La descarga productiva debe usar el servicio documental común y el cotejo debe
-resolverse mediante petición `POST`; la ruta estática con
-`presentacion=rrhh` existe solo en DEMO.
+La geometría productiva debe calcularse en el adaptador de servidor mediante el
+OSRM interno y llegar ya proyectada según `dietas.ruta.read`. Para activar el
+mapa real faltan dos dependencias de Sistemas: servir una distribución fijada y
+auditada de Leaflet desde el propio portal, y publicar las teselas OSM internas
+en la ruta anterior. Hasta entonces la vista muestra únicamente el croquis SVG
+DEMO. La atribución de OpenStreetMap solo se hace visible cuando el mapa real se
+monta.
+
+La descarga productiva debe usar el servicio documental común de servidor:
+generación, firma/sello cuando proceda, custodia, auditoría y cotejo por `POST`.
+La ruta estática con `presentacion=rrhh` y el generador PDF del navegador existen
+solo en DEMO.
+
+## Sustitución de adaptadores
+
+| Función | Presentación | Producción |
+|---|---|---|
+| Expedientes y comandos | `adaptador-presentacion.js`, memoria volátil | API interna autorizada, persistencia y recibo probatorio |
+| Ruta | geometría sintética no liquidable | OSRM interno; nunca cálculo en el navegador |
+| Mapa | croquis SVG; Leaflet local si está desplegado | Leaflet local + `/tiles/osm/`; sin CDN ni salida a Internet |
+| PDF anual y recibos | generador común del navegador, marca DEMO | servicio documental de servidor, firma/custodia/cotejo |
+
+La vista, el presentador, el contrato, i18n y los estilos no cambian al efectuar
+estas sustituciones.
 
 ## Verificación
 

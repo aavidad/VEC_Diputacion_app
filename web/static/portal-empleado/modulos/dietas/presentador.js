@@ -4,11 +4,15 @@ import {
   CAPACIDAD_CONSULTAR_RUTA,
   CAPACIDAD_GESTIONAR_GASTO,
   CAPACIDAD_GESTIONAR_RUTA,
+  ATRIBUCION_OSM_INTERNA,
+  ESQUEMA_RESUMEN_ANUAL_DIETAS,
   ESQUEMA_RECIBO_DIETAS,
+  PLANTILLA_TESELAS_OSM_INTERNA,
   copiarDietas,
   exigirContextoActorDietas,
   tieneCapacidadDietas,
   validarCapacidadesDietas,
+  validarGeometriaRutaDietas,
   validarPanelDietas,
 } from "./contrato.js";
 
@@ -37,6 +41,33 @@ function resumenDe(comisiones) {
     kilometros: Math.round(suma(comisiones, "kilometros") * 10) / 10,
     total_euros: Math.round(suma(comisiones, "total_euros") * 100) / 100,
     pagado_euros: Math.round(suma(pagadas, "total_euros") * 100) / 100,
+  });
+}
+
+function redondear(valor, decimales = 2) {
+  const factor = 10 ** decimales;
+  return Math.round(Number(valor || 0) * factor) / factor;
+}
+
+function resumenAnualDe(comisiones, anioSolicitado = null) {
+  const anios = [...new Set(comisiones.map((item) => Number(String(item.fecha).slice(0, 4))))]
+    .filter((anio) => Number.isInteger(anio) && anio >= 2000 && anio <= 2200)
+    .sort((a, b) => b - a);
+  const anio = anioSolicitado === null ? anios[0] : Number(anioSolicitado);
+  if (!Number.isInteger(anio) || !anios.includes(anio)) throw new Error("año de resumen de Dietas no disponible");
+  const registros = comisiones.filter((item) => Number(String(item.fecha).slice(0, 4)) === anio);
+  const kilometraje = suma(registros, "kilometraje_euros");
+  const devengado = suma(registros, "total_euros");
+  return Object.freeze({
+    anio,
+    meses_con_actividad: new Set(registros.map((item) => String(item.fecha).slice(0, 7))).size,
+    expedientes: registros.length,
+    pendientes: registros.filter((item) => item.estado !== "pagada").length,
+    kilometros: redondear(suma(registros, "kilometros"), 1),
+    kilometraje_euros: redondear(kilometraje),
+    dietas_gastos_euros: redondear(devengado - kilometraje),
+    devengado_euros: redondear(devengado),
+    pagado_euros: redondear(suma(registros.filter((item) => item.estado === "pagada"), "total_euros")),
   });
 }
 
@@ -108,7 +139,18 @@ export function crearPresentadorDietas({
         salida.ruta = [];
         salida.kilometros = null;
         salida.kilometraje_euros = null;
+        delete salida.mapa_ruta;
+      } else if (salida.geometria_ruta) {
+        salida.mapa_ruta = Object.freeze({
+          proveedor: "openstreetmap",
+          despliegue: "red_interna",
+          plantilla_teselas: PLANTILLA_TESELAS_OSM_INTERNA,
+          atribucion: ATRIBUCION_OSM_INTERNA,
+          demostracion: datos.origen.demostracion === true,
+          geometria: validarGeometriaRutaDietas(salida.geometria_ruta, salida.ruta),
+        });
       }
+      delete salida.geometria_ruta;
       return salida;
     };
     const seleccionadaSinProyectar = permisos.consultarGastos
@@ -116,6 +158,13 @@ export function crearPresentadorDietas({
       : null;
     const resumen = { ...(permisos.consultarGastos ? resumenDe(datos.comisiones) : resumenDe([])) };
     if (!permisos.consultarRutas) resumen.kilometros = null;
+    const resumenAnual = permisos.consultarGastos ? { ...resumenAnualDe(datos.comisiones) } : null;
+    if (resumenAnual && !permisos.consultarRutas) {
+      delete resumenAnual.kilometros;
+      delete resumenAnual.kilometraje_euros;
+      // Esta cifra permitiría reconstruir el importe kilométrico por diferencia.
+      delete resumenAnual.dietas_gastos_euros;
+    }
     return Object.freeze({
       esquema: datos.esquema,
       demostracion: datos.origen.demostracion === true,
@@ -130,6 +179,7 @@ export function crearPresentadorDietas({
       etapas: [...datos.etapas],
       filtros: Object.freeze({ estado: estado.filtroEstado, texto: estado.filtroTexto }),
       resumen: Object.freeze(resumen),
+      resumenAnual: resumenAnual ? Object.freeze(resumenAnual) : null,
       historialMensual: permisos.consultarGastos ? mesesDe(datos.comisiones).map((item) => ({
         ...item, kilometros: permisos.consultarRutas ? item.kilometros : null,
       })) : [],
@@ -214,5 +264,63 @@ export function crearPresentadorDietas({
     });
   }
 
-  return Object.freeze({ actualizarDatos, obtenerModelo, filtrar, seleccionar, prepararDescriptorRecibo });
+  function prepararDescriptorResumenAnual(anioEntrada, traducir) {
+    if (!permisos.consultarGastos) throw new Error("la sesión no tiene capacidad para exportar Dietas");
+    if (datos.origen.demostracion !== true) {
+      throw new Error("el resumen anual productivo debe generarse en el servicio documental autorizado");
+    }
+    if (typeof traducir !== "function") throw new Error("traductor documental de Dietas no válido");
+    const anual = resumenAnualDe(datos.comisiones, anioEntrada);
+    const referencia = `DEMO-DIE-REC-ANUAL-${anual.anio}-01`;
+    const rutaComprobacion = `/verificar/?ref=${encodeURIComponent(referencia)}&presentacion=rrhh`;
+    let contenidoQR = rutaComprobacion;
+    if (origenComprobacion) {
+      try {
+        contenidoQR = new URL(rutaComprobacion, origenComprobacion).href;
+      } catch {
+        throw new Error("origen de comprobacion no valido");
+      }
+    }
+    const filas = [
+      { etiqueta: traducir("documento_anual_anio"), valor: String(anual.anio) },
+      { etiqueta: traducir("documento_anual_meses"), valor: String(anual.meses_con_actividad) },
+      { etiqueta: traducir("documento_anual_expedientes"), valor: String(anual.expedientes) },
+      { etiqueta: traducir("documento_anual_pendientes"), valor: String(anual.pendientes) },
+      ...(permisos.consultarRutas ? [
+        { etiqueta: traducir("documento_anual_kilometros"), valor: `${anual.kilometros.toFixed(1)} km` },
+        { etiqueta: traducir("documento_anual_kilometraje"), valor: `${anual.kilometraje_euros.toFixed(2)} EUR` },
+      ] : []),
+      { etiqueta: traducir("documento_anual_devengado"), valor: `${anual.devengado_euros.toFixed(2)} EUR` },
+      { etiqueta: traducir("documento_anual_pagado"), valor: `${anual.pagado_euros.toFixed(2)} EUR` },
+    ];
+    return Object.freeze({
+      esquema: ESQUEMA_RESUMEN_ANUAL_DIETAS,
+      modulo: "dietas",
+      formato: "pdf",
+      referencia,
+      periodo: String(anual.anio),
+      titulo: traducir("documento_anual_titulo", { anio: anual.anio }),
+      subtitulo: traducir("documento_subtitulo"),
+      demostracion: true,
+      marca: traducir("documento_marca_demo"),
+      nombre_archivo: `resumen-anual-dietas-demo-${anual.anio}.pdf`,
+      filas: Object.freeze(filas.map((fila) => Object.freeze(fila))),
+      texto_certificacion: traducir("documento_anual_certificacion"),
+      comprobacion: Object.freeze({
+        ruta: rutaComprobacion,
+        qr_contenido: contenidoQR,
+        contiene_datos_personales: false,
+        metodo: "consulta_estatica_demo",
+      }),
+    });
+  }
+
+  return Object.freeze({
+    actualizarDatos,
+    obtenerModelo,
+    filtrar,
+    seleccionar,
+    prepararDescriptorRecibo,
+    prepararDescriptorResumenAnual,
+  });
 }

@@ -7,10 +7,58 @@
  * este fichero por el adaptador HTTP no cambia la vista.
  */
 
-import { ESQUEMA_PANEL_DIETAS, exigirContextoActorDietas } from "./contrato.js";
+import {
+  ESQUEMA_GEOMETRIA_RUTA_DIETAS,
+  ESQUEMA_PANEL_DIETAS,
+  exigirContextoActorDietas,
+  validarGeometriaRutaDietas,
+} from "./contrato.js";
 
 function copiar(valor) {
   return structuredClone(valor);
+}
+
+const COORDENADAS_PUBLICAS_APROXIMADAS = Object.freeze({
+  granada: Object.freeze([37.177, -3.599]),
+  albolote: Object.freeze([37.231, -3.657]),
+  motril: Object.freeze([36.744, -3.518]),
+  guadix: Object.freeze([37.299, -3.136]),
+  loja: Object.freeze([37.168, -4.151]),
+  baza: Object.freeze([37.491, -2.773]),
+});
+
+function claveLugar(valor) {
+  return String(valor ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es").trim();
+}
+
+export function crearGeometriaRutaDietasPresentacion(ruta) {
+  if (!Array.isArray(ruta) || ruta.length < 2 || ruta.length > 12) throw new Error("ruta DEMO no valida");
+  const paradas = ruta.map((etiqueta, indice) => {
+    const texto = String(etiqueta ?? "").trim();
+    if (!texto || texto.length > 80) throw new Error("parada DEMO no valida");
+    const conocida = COORDENADAS_PUBLICAS_APROXIMADAS[claveLugar(texto)];
+    const coordenada = conocida || [37.177 + indice * 0.035, -3.599 + (indice % 2 ? 0.08 : -0.05)];
+    return { etiqueta: texto, latitud: coordenada[0], longitud: coordenada[1] };
+  });
+  const trazado = [];
+  paradas.forEach((parada, indice) => {
+    if (indice === 0) trazado.push([parada.latitud, parada.longitud]);
+    const siguiente = paradas[indice + 1];
+    if (!siguiente) return;
+    const signo = indice % 2 === 0 ? 1 : -1;
+    trazado.push([
+      (parada.latitud + siguiente.latitud) / 2 + signo * 0.008,
+      (parada.longitud + siguiente.longitud) / 2 + signo * 0.011,
+    ]);
+    trazado.push([siguiente.latitud, siguiente.longitud]);
+  });
+  return validarGeometriaRutaDietas({
+    esquema: ESQUEMA_GEOMETRIA_RUTA_DIETAS,
+    origen: "sintetica_demo",
+    liquidable: false,
+    paradas,
+    trazado,
+  }, ruta);
 }
 
 const COMISIONES_BASE = Object.freeze([
@@ -138,6 +186,7 @@ export function crearDatosDietasPresentacion(contextoInyectado) {
   const comisiones = copiar(COMISIONES_BASE).map((comision) => ({
     ...comision,
     titular_ref: actorRef,
+    geometria_ruta: crearGeometriaRutaDietasPresentacion(comision.ruta),
     historial: comision.historial.map((evento) => ({
       ...evento,
       actor_ref: evento.actor_ref === "@usuario_actual" ? actorRef : evento.actor_ref,

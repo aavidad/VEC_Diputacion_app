@@ -8,16 +8,22 @@ import {
 } from "../../identidad/contexto-actor.js";
 import { crearAdaptadorDietasPresentacion } from "./adaptador-presentacion.js";
 import {
+  ATRIBUCION_OSM_INTERNA,
   CAPACIDAD_CONSULTAR_AUDITORIA,
   CAPACIDAD_CONSULTAR_GASTO,
   CAPACIDAD_CONSULTAR_RUTA,
   CAPACIDAD_GESTIONAR_GASTO,
   CAPACIDAD_GESTIONAR_RUTA,
+  ESQUEMA_RESUMEN_ANUAL_DIETAS,
+  PLANTILLA_TESELAS_OSM_INTERNA,
 } from "./contrato.js";
 import { crearDatosDietasPresentacion } from "./datos-presentacion.js";
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
+import { crearVisorRutaDietas } from "./mapa-ruta.js";
 import { crearPresentadorDietas } from "./presentador.js";
 import { renderizarDietas } from "./vista.js";
+import { crearDescargadorRecibosPresentacion } from "../../documentos/descarga-recibos-presentacion.js";
+import { cotejarDocumentoPresentacion } from "../../../verificar/adaptador-presentacion.js";
 
 const CONTEXTO_COMPARTIDO = validarYCongelarContextoActor({
   esquema: ESQUEMA_CONTEXTO_ACTOR_FRONTEND,
@@ -154,10 +160,77 @@ test("separa capacidad de gastos y rutas sin filtrar localizaciones", () => {
   assert.deepEqual(modelo.comisiones[0].ruta, []);
   assert.equal(modelo.comisiones[0].kilometros, null);
   assert.equal(modelo.resumen.kilometros, null);
+  assert.equal(modelo.resumenAnual.kilometros, undefined);
+  assert.equal(modelo.resumenAnual.kilometraje_euros, undefined);
+  assert.equal(modelo.resumenAnual.dietas_gastos_euros, undefined);
+  const serializado = JSON.stringify(modelo);
+  assert.doesNotMatch(serializado, /latitud|longitud|geometria|mapa_ruta/);
   const html = renderizarDietas(modelo);
   assert.match(html, /Sin capacidad/);
   assert.doesNotMatch(html, /Albolote|Motril|Guadix|Loja|Baza/);
+  assert.doesNotMatch(html, /data-dietas-mapa|OpenStreetMap|croquis SVG/i);
   assert.doesNotMatch(html, /data-dietas-formulario/);
+});
+
+test("expone el mapa solo con capacidad y congela toda su geometría", () => {
+  const modelo = presentador().obtenerModelo();
+  const mapa = modelo.seleccionada.mapa_ruta;
+  assert.equal(mapa.plantilla_teselas, PLANTILLA_TESELAS_OSM_INTERNA);
+  assert.equal(mapa.atribucion, ATRIBUCION_OSM_INTERNA);
+  assert.equal(mapa.geometria.liquidable, false);
+  assert.equal(Object.isFrozen(mapa.geometria), true);
+  assert.equal(Object.isFrozen(mapa.geometria.paradas), true);
+  assert.equal(Object.isFrozen(mapa.geometria.paradas[0]), true);
+  assert.equal(Object.isFrozen(mapa.geometria.trazado), true);
+  assert.equal(Object.isFrozen(mapa.geometria.trazado[0]), true);
+  assert.throws(() => { mapa.geometria.paradas[0].latitud = 0; }, TypeError);
+  assert.throws(() => { mapa.geometria.trazado[0][0] = 0; }, TypeError);
+  const html = renderizarDietas(modelo, { descargaDisponible: true });
+  assert.match(html, /Visor cartográfico interno/);
+  assert.match(html, /Croquis SVG sintético DEMO/);
+  assert.match(html, /data-dietas-mapa-canvas/);
+  assert.match(html, /data-dietas-mapa-atribucion hidden/);
+});
+
+test("el visor activa únicamente OpenStreetMap interno y conserva el croquis sin Leaflet", () => {
+  const descriptor = presentador().obtenerModelo().seleccionada.mapa_ruta;
+  const lienzo = {
+    innerHTML: "<svg>respaldo</svg>", dataset: {},
+    replaceChildren() { this.innerHTML = ""; },
+  };
+  const estado = { textContent: "Croquis local" };
+  const atribucion = { hidden: true };
+  const raiz = { querySelector(selector) {
+    if (selector === "[data-dietas-mapa-canvas]") return lienzo;
+    if (selector === "[data-dietas-mapa-estado]") return estado;
+    if (selector === "[data-dietas-mapa-atribucion]") return atribucion;
+    return null;
+  } };
+  assert.equal(crearVisorRutaDietas({ entorno: {} }).montar({ raiz, descriptor }).modo, "croquis_svg");
+  assert.equal(atribucion.hidden, true);
+
+  let plantilla;
+  let opcionesTeselas;
+  let retirado = false;
+  const mapa = { fitBounds() {}, remove() { retirado = true; } };
+  const capa = () => ({ addTo(destino) { assert.strictEqual(destino, mapa); return this; } });
+  const entorno = { L: {
+    map(destino) { assert.strictEqual(destino, lienzo); return mapa; },
+    tileLayer(url, opciones) { plantilla = url; opcionesTeselas = opciones; return capa(); },
+    polyline(puntos) {
+      assert.deepEqual(puntos, descriptor.geometria.trazado);
+      return { ...capa(), getBounds() { return { isValid: () => true }; } };
+    },
+    circleMarker() { return { ...capa(), bindTooltip() {} }; },
+  } };
+  const montaje = crearVisorRutaDietas({ entorno }).montar({ raiz, descriptor });
+  assert.equal(montaje.modo, "openstreetmap_interno");
+  assert.equal(plantilla, "/tiles/osm/{z}/{x}/{y}.png");
+  assert.equal(opcionesTeselas.attribution, ATRIBUCION_OSM_INTERNA);
+  assert.doesNotMatch(plantilla, /^https?:|tile\.openstreetmap\.org/i);
+  assert.equal(atribucion.hidden, false);
+  montaje.desmontar();
+  assert.equal(retirado, true);
 });
 
 test("resume comisiones, kilometraje, importes y pagos con capacidades explícitas", () => {
@@ -227,6 +300,54 @@ test("prepara PDF DEMO con logo y QR resoluble sin datos personales", () => {
   assert.match(descriptor.marca, /SIN EFECTOS ADMINISTRATIVOS/);
 });
 
+test("genera el resumen anual PDF real por el puerto documental común", async () => {
+  const modulo = presentador();
+  const descriptor = modulo.prepararDescriptorResumenAnual(2026, t);
+  assert.equal(descriptor.esquema, ESQUEMA_RESUMEN_ANUAL_DIETAS);
+  assert.equal(descriptor.referencia, "DEMO-DIE-REC-ANUAL-2026-01");
+  assert.equal(descriptor.filas.length, 8);
+  assert.equal(descriptor.comprobacion.contiene_datos_personales, false);
+  assert.deepEqual(cotejarDocumentoPresentacion(descriptor.referencia), {
+    valido: true,
+    titulo: "Documento de demostración reconocido",
+    mensaje: "La referencia corresponde a un recibo generado localmente para revisar el recorrido. No acredita una actuación administrativa real.",
+    referencia: descriptor.referencia,
+    estado: "DEMO · sin validez administrativa",
+    alcance: "Comprobación local, sin consulta a registros, firma o sello reales",
+  });
+  assert.doesNotMatch(JSON.stringify(descriptor), /persona_ref|actor_ref|dni|latitud|longitud/i);
+
+  let blob;
+  let nombre;
+  const entorno = {
+    URL: { createObjectURL(valor) { blob = valor; return "blob:resumen-anual"; }, revokeObjectURL() {} },
+    location: { origin: "https://vec.demo.dipgra.es" },
+    document: {
+      body: { append() {} },
+      createElement() {
+        return { click() {}, remove() {}, set href(_valor) {}, set download(valor) { nombre = valor; } };
+      },
+    },
+    setTimeout(funcion) { funcion(); },
+  };
+  const resultado = await crearDescargadorRecibosPresentacion(entorno)(descriptor);
+  assert.equal(resultado.formato, "application/pdf");
+  assert.equal(nombre, "resumen-anual-dietas-demo-2026.pdf");
+  const pdf = Buffer.from(await blob.arrayBuffer()).toString("latin1");
+  assert.match(pdf, /^%PDF-1\.4/);
+  assert.match(pdf, /Resumen anual de Dietas 2026/);
+  assert.match(pdf, /DEMO-DIE-REC-ANUAL-2026-01/);
+  assert.ok(blob.size > 10_000);
+
+  const sinRuta = presentador([CAPACIDAD_CONSULTAR_GASTO]).prepararDescriptorResumenAnual(2026, t);
+  assert.equal(sinRuta.filas.length, 6);
+  assert.doesNotMatch(JSON.stringify(sinRuta), /kilómetros|kilometraje|km/i);
+  assert.throws(() => crearPresentadorDietas({
+    datos: datosProductivos(), contextoActor: CONTEXTO_PRODUCTIVO,
+    capacidades: CAPACIDADES_EMPLEADO,
+  }).prepararDescriptorResumenAnual(2026, t), /servicio documental autorizado/);
+});
+
 test("acepta referencias opacas productivas, rechaza DEMO y prepara cotejo POST", () => {
   const modulo = crearPresentadorDietas({
     datos: datosProductivos(), contextoActor: CONTEXTO_PRODUCTIVO,
@@ -275,11 +396,12 @@ test("permite sustituir todo el catálogo de interfaz sin cambiar estados", () =
 
 test("la vista final no importa fixtures y gobierna concurrencia e interfaces por puertos", async () => {
   const fuentes = await Promise.all([
-    "contrato.js", "datos-presentacion.js", "adaptador-presentacion.js", "presentador.js", "vista.js", "i18n.js",
+    "contrato.js", "datos-presentacion.js", "adaptador-presentacion.js", "presentador.js", "vista.js", "i18n.js", "mapa-ruta.js",
   ].map((archivo) => readFile(new URL(archivo, import.meta.url), "utf8")));
   const codigo = fuentes.join("\n");
   assert.doesNotMatch(codigo, /\bfetch\s*\(|XMLHttpRequest|WebSocket|\.cookie\b|localStorage|sessionStorage|indexedDB/);
-  assert.doesNotMatch(codigo, /leaflet|openstreetmap|google\s*maps|mapbox/i);
+  assert.doesNotMatch(codigo, /tile\.openstreetmap\.org|google\s*maps|mapbox|https?:\/\/[^\s"'`]+(?:tile|map)/i);
+  assert.match(codigo, /\/tiles\/osm\/\{z\}\/\{x\}\/\{y\}\.png/);
   const vista = fuentes[4];
   assert.doesNotMatch(vista, /datos-presentacion|adaptador-presentacion/);
   assert.doesNotMatch(vista, /Visita técnica|2026-07-20|value="Granada"|value="Motril"|value="140\.8"/);

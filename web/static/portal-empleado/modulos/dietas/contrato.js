@@ -4,6 +4,10 @@ import { exigirContextoParaModulo } from "../../identidad/contexto-actor.js";
 
 export const ESQUEMA_PANEL_DIETAS = "vec.dietas.portal.v1";
 export const ESQUEMA_RECIBO_DIETAS = "vec.documentos.recibo.dietas.v1";
+export const ESQUEMA_RESUMEN_ANUAL_DIETAS = "vec.documentos.resumen-anual.dietas.v1";
+export const ESQUEMA_GEOMETRIA_RUTA_DIETAS = "vec.dietas.geometria-ruta.v1";
+export const PLANTILLA_TESELAS_OSM_INTERNA = "/tiles/osm/{z}/{x}/{y}.png";
+export const ATRIBUCION_OSM_INTERNA = "© OpenStreetMap contributors · servido en red interna";
 export const CAPACIDAD_CONSULTAR_GASTO = "dietas.gasto.read";
 export const CAPACIDAD_GESTIONAR_GASTO = "dietas.gasto.manage";
 export const CAPACIDAD_CONSULTAR_RUTA = "dietas.ruta.read";
@@ -37,6 +41,58 @@ function texto(valor, nombre, maximo = 200) {
     throw new Error(`${nombre} no valido`);
   }
   return resultado;
+}
+
+function clavesExactas(valor, esperadas, nombre) {
+  const recibidas = Object.keys(valor || {}).sort();
+  const previstas = [...esperadas].sort();
+  if (recibidas.length !== previstas.length || recibidas.some((clave, indice) => clave !== previstas[indice])) {
+    throw new Error(`${nombre} no valido`);
+  }
+}
+
+function numeroAcotado(valor, minimo, maximo, nombre) {
+  const numero = Number(valor);
+  if (!Number.isFinite(numero) || numero < minimo || numero > maximo) throw new Error(`${nombre} no valido`);
+  return numero;
+}
+
+function congelarProfundo(valor) {
+  if (!valor || typeof valor !== "object" || Object.isFrozen(valor)) return valor;
+  Object.values(valor).forEach(congelarProfundo);
+  return Object.freeze(valor);
+}
+
+export function validarGeometriaRutaDietas(geometria, rutaEsperada = []) {
+  if (!geometria || typeof geometria !== "object" || Array.isArray(geometria)) {
+    throw new Error("geometria de ruta de Dietas no valida");
+  }
+  clavesExactas(geometria, ["esquema", "origen", "liquidable", "paradas", "trazado"], "geometria de ruta de Dietas");
+  if (geometria.esquema !== ESQUEMA_GEOMETRIA_RUTA_DIETAS
+    || !["sintetica_demo", "osrm_interno"].includes(geometria.origen)
+    || geometria.liquidable !== false || !Array.isArray(geometria.paradas)
+    || !Array.isArray(geometria.trazado) || geometria.paradas.length < 2
+    || geometria.paradas.length > 12 || geometria.trazado.length < 2
+    || geometria.trazado.length > 2_000) {
+    throw new Error("geometria de ruta de Dietas no valida");
+  }
+  if (rutaEsperada.length && (rutaEsperada.length !== geometria.paradas.length
+    || rutaEsperada.some((parada, indice) => parada !== geometria.paradas[indice]?.etiqueta))) {
+    throw new Error("la geometria no corresponde a la ruta de Dietas");
+  }
+  geometria.paradas.forEach((parada) => {
+    if (!parada || typeof parada !== "object" || Array.isArray(parada)) throw new Error("parada de ruta no valida");
+    clavesExactas(parada, ["etiqueta", "latitud", "longitud"], "parada de ruta");
+    texto(parada.etiqueta, "etiqueta de parada", 80);
+    numeroAcotado(parada.latitud, -90, 90, "latitud de parada");
+    numeroAcotado(parada.longitud, -180, 180, "longitud de parada");
+  });
+  geometria.trazado.forEach((punto) => {
+    if (!Array.isArray(punto) || punto.length !== 2) throw new Error("punto de trazado no valido");
+    numeroAcotado(punto[0], -90, 90, "latitud de trazado");
+    numeroAcotado(punto[1], -180, 180, "longitud de trazado");
+  });
+  return congelarProfundo(copiarDietas(geometria));
 }
 
 export function exigirContextoActorDietas(contextoActor) {
@@ -97,6 +153,12 @@ export function validarPanelDietas(datos, titularEsperado = "", capacidadesEsper
     }
     if (!puedeConsultarRutas && (item.ruta.length || item.kilometros !== null || item.kilometraje_euros !== null)) {
       throw new Error("el panel contiene rutas sin capacidad de consulta");
+    }
+    if (puedeConsultarRutas && item.geometria_ruta !== null && item.geometria_ruta !== undefined) {
+      validarGeometriaRutaDietas(item.geometria_ruta, item.ruta);
+    }
+    if (!puedeConsultarRutas && item.geometria_ruta !== null) {
+      throw new Error("el panel contiene coordenadas sin capacidad de consulta");
     }
     if (item.historial.some((evento) => !ESTADOS_DIETAS.has(evento?.estado))) {
       throw new Error("historial de Dietas no valido");

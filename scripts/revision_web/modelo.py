@@ -207,7 +207,7 @@ MANIFIESTO_VISTAS: tuple[Vista, ...] = (
     Vista(
         clave="lanzador-recorrido", nombre="Recorrido de presentación", superficie="lanzador",
         ruta="/presentacion/", selector_titulo="h1",
-        titulo_esperado="Recorrido de presentación del portal", selectores_listos=("#contenido-principal",),
+        titulo_esperado="Demostración funcional del portal", selectores_listos=("#contenido-principal",),
     ),
     Vista(
         clave="publico-convocatorias", nombre="Consulta pública", superficie="portal-publico",
@@ -218,6 +218,22 @@ MANIFIESTO_VISTAS: tuple[Vista, ...] = (
     ),
     *_vistas_aspirante(),
     *_vistas_rrhh(),
+    Vista(
+        clave="rrhh-cronos", nombre="Cronos", superficie="gestion-rrhh",
+        ruta="/portal-empleado/?presentacion=rrhh&perfil=administrador#cronos",
+        selector_titulo="#titulo-vista", titulo_esperado="Cronos · jornada, fichajes y permisos",
+        selectores_listos=(".aviso-presentacion:not([hidden])", "#espacio-trabajo > .cronos-area"),
+        selector_menu_actual='[data-vista="cronos"]',
+        selectores_menu=('[data-vista="portal"]', '[data-vista="cronos"]'),
+    ),
+    Vista(
+        clave="rrhh-dietas", nombre="Dietas", superficie="gestion-rrhh",
+        ruta="/portal-empleado/?presentacion=rrhh&perfil=administrador#dietas",
+        selector_titulo="#titulo-vista", titulo_esperado="Dietas y comisiones de servicio",
+        selectores_listos=(".aviso-presentacion:not([hidden])", '#espacio-trabajo > [data-modulo="dietas"]'),
+        selector_menu_actual='[data-vista="dietas"]',
+        selectores_menu=('[data-vista="portal"]', '[data-vista="dietas"]'),
+    ),
 )
 
 
@@ -324,7 +340,8 @@ MANIFIESTO_FLUJOS: tuple[Flujo, ...] = (
         selector_titulo="#titulo-vista", titulo_esperado="Cuadro de mando",
         selectores_listos=(".aviso-presentacion:not([hidden])", "#espacio-trabajo > :first-child"),
         pasos=(PasoInteraccion("abrir-menu", "#boton-menu"),
-               PasoInteraccion("esperar", "#navegacion-lateral", "Configuración y roles")),
+               PasoInteraccion("abrir-menu", '[data-grupo-bolsa="auditoria"]'),
+               PasoInteraccion("esperar", "#submenu-auditoria", "Configuración, roles y permisos")),
         selector_menu_actual='[data-vista="resumen"]', requiere_demo=True,
     ),
 )
@@ -338,6 +355,7 @@ def _flujo_rrhh_con_recibo(
     operacion: str,
     objetivo: str,
     selector: str | None = None,
+    pasos: tuple[PasoInteraccion, ...] | None = None,
 ) -> Flujo:
     """Declara una operación RRHH representativa y exige su recibo sintético."""
     selector_operacion = selector or (
@@ -352,7 +370,7 @@ def _flujo_rrhh_con_recibo(
         selector_titulo="#titulo-vista",
         titulo_esperado=titulo,
         selectores_listos=(".aviso-presentacion:not([hidden])", "#espacio-trabajo > :first-child"),
-        pasos=(
+        pasos=pasos or (
             PasoInteraccion("clic-confirmando", selector_operacion),
             PasoInteraccion("esperar", "#dialogo-detalle[open] .recibo-presentacion", "DEMO-REC"),
             PasoInteraccion("esperar", "#dialogo-detalle[open] .recibo-presentacion", objetivo),
@@ -388,8 +406,17 @@ FLUJOS_RRHH_CON_RECIBO: tuple[Flujo, ...] = (
     ),
     _flujo_rrhh_con_recibo(
         "rrhh-llamamiento-recibo-demo", "Llamamiento preparado con recibo DEMO", "llamamientos",
-        "Nuevo llamamiento", "emitir-llamamiento", "DEMO-LLA-NUEVO",
-        'form[data-comando="emitir-llamamiento"] [data-accion="operacion-presentacion"][data-operacion="emitir-llamamiento"]',
+        "Nuevo llamamiento", "emitir-llamamiento", "DEMO-LLA-045",
+        pasos=(
+            PasoInteraccion("clic", '[data-accion="solicitar-propuesta"]'),
+            PasoInteraccion("esperar", '[data-accion="siguiente-paso"]', "Aceptar propuesta DEMO"),
+            PasoInteraccion("clic", '[data-accion="siguiente-paso"]'),
+            PasoInteraccion("esperar", "#configuracion-llamamiento", "Plazo para responder"),
+            PasoInteraccion("clic", '[data-accion="siguiente-paso"]'),
+            PasoInteraccion("clic-confirmando", '[data-accion="preparar-llamamiento-demo"]'),
+            PasoInteraccion("esperar", "[data-recibo-llamamiento]", "DEMO-REC"),
+            PasoInteraccion("esperar", "[data-recibo-llamamiento]", "DEMO-LLA-045"),
+        ),
     ),
     _flujo_rrhh_con_recibo(
         "rrhh-contrato-recibo-demo", "Contrato registrado con recibo DEMO", "contratos",

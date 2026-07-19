@@ -196,9 +196,87 @@ def primer_locator_visible(page: Any, selector: str) -> Any | None:
     return None
 
 
+def revelar_opcion_menu(
+    page: Any,
+    selector: str,
+    timeout_ms: int,
+    controles_expandidos: list[Any],
+) -> tuple[Any | None, dict[str, Any] | None]:
+    """Devuelve una opción visible, abriendo sus acordeones accesibles si procede."""
+    opcion = primer_locator_visible(page, selector)
+    if opcion is not None:
+        return opcion, None
+
+    opciones = page.locator(selector)
+    if opciones.count() == 0:
+        return None, _hallazgo("opcion_menu_ausente", f"No existe la opción de menú {selector}.")
+
+    for indice in range(opciones.count()):
+        candidata = opciones.nth(indice)
+        contenedores = candidata.evaluate(r"""(elemento) => {
+          const identificadores = [];
+          for (let padre = elemento.parentElement; padre; padre = padre.parentElement) {
+            if (padre.hidden && padre.id) identificadores.push(padre.id);
+          }
+          return identificadores.reverse();
+        }""")
+        for identificador in contenedores:
+            valor = str(identificador).replace("\\", "\\\\").replace('"', '\\"')
+            controles = page.locator(f'[aria-controls="{valor}"]')
+            control = next(
+                (
+                    controles.nth(numero)
+                    for numero in range(controles.count())
+                    if controles.nth(numero).is_visible()
+                ),
+                None,
+            )
+            if control is None:
+                return None, _hallazgo(
+                    "opcion_menu_inaccesible",
+                    f"La opción {selector} está oculta y #{identificador} no tiene un control visible.",
+                )
+            if not control.is_enabled() or control.get_attribute("aria-disabled") == "true":
+                return None, _hallazgo(
+                    "opcion_menu_inaccesible",
+                    f"El control que revela {selector} está deshabilitado.",
+                )
+            if not nombre_elemento(control):
+                return None, _hallazgo(
+                    "opcion_menu_inaccesible",
+                    f"El control que revela {selector} no tiene nombre accesible.",
+                )
+            if control.get_attribute("aria-expanded") != "true":
+                control.focus(timeout=min(timeout_ms, 2_000))
+                if not control.evaluate("(elemento) => document.activeElement === elemento"):
+                    return None, _hallazgo(
+                        "opcion_menu_inaccesible",
+                        f"El control que revela {selector} no puede recibir el foco.",
+                    )
+                page.keyboard.press("Enter")
+                control.wait_for(state="visible", timeout=min(timeout_ms, 2_000))
+                if control.get_attribute("aria-expanded") != "true":
+                    return None, _hallazgo(
+                        "opcion_menu_inaccesible",
+                        f"El control de {selector} no refleja aria-expanded=true tras activarlo.",
+                    )
+                controles_expandidos.append(control)
+        try:
+            candidata.wait_for(state="visible", timeout=min(timeout_ms, 2_000))
+            return candidata, None
+        except Exception:
+            continue
+
+    return None, _hallazgo(
+        "opcion_menu_inaccesible",
+        f"La opción de menú {selector} existe, pero no puede revelarse mediante sus controles.",
+    )
+
+
 def revisar_menu(page: Any, escenario: Escenario, superficie: Superficie, timeout_ms: int) -> list[dict[str, Any]]:
     hallazgos: list[dict[str, Any]] = []
     menu_abierto = False
+    controles_expandidos: list[Any] = []
     try:
         if superficie.selector_contenedor_menu:
             contenedor = page.locator(superficie.selector_contenedor_menu).first
@@ -217,9 +295,12 @@ def revisar_menu(page: Any, escenario: Escenario, superficie: Superficie, timeou
                 hallazgos.append(_hallazgo("menu_sin_nombre", "El contenedor del menú no tiene nombre accesible."))
 
         for selector in escenario.selectores_menu or superficie.selectores_menu:
-            opcion = primer_locator_visible(page, selector)
+            opcion, hallazgo_opcion = revelar_opcion_menu(
+                page, selector, timeout_ms, controles_expandidos,
+            )
             if opcion is None:
-                hallazgos.append(_hallazgo("opcion_menu_ausente", f"No hay una opción de menú visible para {selector}."))
+                if hallazgo_opcion:
+                    hallazgos.append(hallazgo_opcion)
                 continue
             if not opcion.is_enabled() or opcion.get_attribute("aria-disabled") == "true":
                 hallazgos.append(_hallazgo("opcion_menu_inaccesible", f"La opción de menú {selector} está deshabilitada."))
@@ -240,6 +321,19 @@ def revisar_menu(page: Any, escenario: Escenario, superficie: Superficie, timeou
     except Exception as error:
         hallazgos.append(_hallazgo("revision_menu_fallida", "No se pudo completar la revisión del menú.", str(error)))
     finally:
+        for control in reversed(controles_expandidos):
+            try:
+                if control.is_visible() and control.get_attribute("aria-expanded") == "true":
+                    control.focus(timeout=min(timeout_ms, 2_000))
+                    page.keyboard.press("Enter")
+                    if control.get_attribute("aria-expanded") != "false":
+                        raise RuntimeError("el control no refleja aria-expanded=false")
+            except Exception as error:
+                hallazgos.append(_hallazgo(
+                    "submenu_no_cierra",
+                    "Un submenú no pudo restaurarse tras comprobar sus opciones.",
+                    str(error),
+                ))
         if menu_abierto:
             try:
                 cierre = primer_locator_visible(page, superficie.selector_cerrar_menu) if superficie.selector_cerrar_menu else None
@@ -301,7 +395,9 @@ def ejecutar_flujo(page: Any, flujo: Flujo, timeout_ms: int, demo_confirmada: bo
                 if locator.is_visible() and locator.get_attribute("aria-expanded") != "true":
                     locator.click(timeout=restante)
             elif paso.accion == "clic-confirmando":
-                if not flujo.requiere_demo or "operacion-presentacion" not in paso.selector:
+                selectores_confirmacion_demo = ("operacion-presentacion", "preparar-llamamiento-demo")
+                if (not flujo.requiere_demo
+                        or not any(marcador in paso.selector for marcador in selectores_confirmacion_demo)):
                     raise RuntimeError("se rechazó un intento de confirmar una operación fuera del adaptador DEMO")
                 page.once("dialog", lambda dialogo: dialogo.accept())
                 locator.click(timeout=restante)

@@ -215,6 +215,8 @@ test("el registro final exige declaración y una referencia exacta de solicitud"
 test("la composición conserva el modo en enlaces y bloquea capacidades antes del diálogo", async () => {
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
   assert.match(aplicacion, /function actualizarEnlacesNavegacion\(estado\)[\s\S]*setAttribute\("href", crearURL\(estado/u);
+  assert.match(aplicacion, /if \(estado\.presentacionSolicitada\)[\s\S]*setAttribute\("href", "\/presentacion\/"\)[\s\S]*removeAttribute\("data-ruta"\)/u);
+  assert.match(aplicacion, /else \{[\s\S]*inicioInstitucional\.dataset\.ruta = "inicio"[\s\S]*crearURL\(estado, "inicio"\)/u);
   assert.match(aplicacion, /function aplicarCapacidadesVisibles\(estado\)[\s\S]*estado\.datos\.capacidades\[operacion\] === true/u);
   assert.match(aplicacion, /function prepararOperacion[\s\S]*estado\.datos\.capacidades\[operacion\] !== true[\s\S]*Operación no disponible/u);
   assert.match(aplicacion, /\["Objetivo", escaparHTML\(recibo\.objetivo\)\]/u);

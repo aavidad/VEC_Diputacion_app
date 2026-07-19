@@ -245,6 +245,100 @@
   background: var(--portal-azul-100);
 }
 
+.modulo-dietas .dietas-mapa {
+  margin: 0;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  overflow: hidden;
+  background: var(--portal-superficie);
+}
+
+.modulo-dietas .dietas-mapa figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid var(--portal-borde);
+  background: var(--portal-fondo);
+}
+
+.modulo-dietas .dietas-mapa figcaption p,
+.modulo-dietas .dietas-mapa figcaption h4,
+.modulo-dietas .dietas-mapa-nota {
+  margin: 0;
+}
+
+.modulo-dietas .dietas-mapa-canvas {
+  width: 100%;
+  min-height: 16rem;
+  background: var(--portal-azul-100);
+}
+
+.modulo-dietas .dietas-mapa-canvas svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 16rem;
+}
+
+.modulo-dietas .dietas-mapa-rejilla line {
+  stroke: var(--portal-borde);
+  stroke-width: 1;
+}
+
+.modulo-dietas .dietas-mapa-canvas polyline {
+  fill: none;
+  stroke: var(--portal-cian);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.modulo-dietas .dietas-mapa-paradas circle {
+  fill: var(--portal-superficie);
+  stroke: var(--portal-tinta);
+  stroke-width: 2;
+}
+
+.modulo-dietas .dietas-mapa-numero,
+.modulo-dietas .dietas-mapa-etiqueta {
+  fill: var(--portal-tinta);
+  font-weight: 750;
+}
+
+.modulo-dietas .dietas-mapa-numero {
+  font-size: 9px;
+  text-anchor: middle;
+}
+
+.modulo-dietas .dietas-mapa-etiqueta {
+  font-size: 12px;
+}
+
+.modulo-dietas .dietas-mapa-nota,
+.modulo-dietas .dietas-mapa > small {
+  display: block;
+  padding: 0.55rem 0.85rem;
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+}
+
+.modulo-dietas .dietas-mapa-nota {
+  border-top: 1px solid var(--portal-borde);
+  border-inline-start: 0.3rem solid var(--portal-aviso);
+  background: var(--portal-aviso-suave);
+}
+
+.modulo-dietas .dietas-resumen-anual .cabecera-panel {
+  flex-wrap: wrap;
+}
+
+.modulo-dietas .dietas-exportar-anual {
+  flex: 0 0 auto;
+}
+
 .modulo-dietas .dietas-nueva > summary {
   padding: 0.85rem 1rem;
   cursor: pointer;
@@ -289,6 +383,15 @@
 
   .modulo-dietas .dietas-etapas {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .modulo-dietas .dietas-mapa-canvas,
+  .modulo-dietas .dietas-mapa-canvas svg {
+    min-height: 12rem;
+  }
+
+  .modulo-dietas .dietas-exportar-anual {
+    width: 100%;
   }
 
   .modulo-dietas .dietas-nueva .campo-ancho,
