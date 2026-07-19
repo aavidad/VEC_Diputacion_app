@@ -1,0 +1,61 @@
+/** Identidad semántica de módulos dentro del tema común del portal. */
+.tarjeta-modulo-habilitada[data-modulo-catalogo="bolsa"] {
+  --modulo-acento: #075fca;
+  --modulo-secundario: #5546b8;
+  --modulo-suave: #e9f2ff;
+  --modulo-borde: #8fbcf2;
+}
+
+.tarjeta-modulo-habilitada[data-modulo-catalogo="cronos"] {
+  --modulo-acento: #07758d;
+  --modulo-secundario: #6746b5;
+  --modulo-suave: #e4f6f8;
+  --modulo-borde: #78c6d3;
+}
+
+.tarjeta-modulo-habilitada[data-modulo-catalogo="dietas"] {
+  --modulo-acento: #18763a;
+  --modulo-secundario: #c35b08;
+  --modulo-suave: #e8f7ed;
+  --modulo-borde: #82c996;
+}
+
+.tarjeta-modulo-habilitada[data-modulo-catalogo] {
+  border-color: var(--modulo-borde);
+  background: linear-gradient(155deg, var(--modulo-suave) 0, #fff 42%);
+}
+
+.tarjeta-modulo-habilitada[data-modulo-catalogo]::before {
+  background: linear-gradient(90deg, var(--modulo-acento), var(--modulo-secundario));
+}
+
+.tarjeta-modulo-habilitada[data-modulo-catalogo] .icono-modulo {
+  border: 1px solid color-mix(in srgb, var(--modulo-acento) 24%, #fff);
+  background: var(--modulo-suave);
+  color: var(--modulo-acento);
+}
+
+.tarjeta-modulo-habilitada[data-modulo-catalogo] .estado-disponible {
+  color: var(--modulo-acento);
+}
+
+.tarjeta-modulo-habilitada[data-modulo-catalogo] .boton-primario {
+  border-color: var(--modulo-acento);
+  background: var(--modulo-acento);
+}
+
+.enlace-lateral[data-modulo-portal="bolsa"] .indicador-menu { background: #236db8; }
+.enlace-lateral[data-modulo-portal="cronos"] .indicador-menu { background: #07758d; }
+.enlace-lateral[data-modulo-portal="dietas"] .indicador-menu { background: #238248; }
+
+body[data-contraste="true"] .tarjeta-modulo-habilitada[data-modulo-catalogo] {
+  border-width: 2px;
+  background: #fff;
+}
+
+@media (forced-colors: active) {
+  .tarjeta-modulo-habilitada[data-modulo-catalogo] {
+    border-width: 2px;
+    forced-color-adjust: auto;
+  }
+}

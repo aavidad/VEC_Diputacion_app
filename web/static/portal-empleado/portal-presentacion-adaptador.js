@@ -6,6 +6,8 @@
  * toda actuación. Las operaciones permitidas están enumeradas y fallan cerradas.
  */
 
+import { exigirContextoParaModulo } from "./identidad/contexto-actor.js";
+
 const CAMPOS_BASES = ["denominacion", "categoria", "expediente", "tipo_proceso", "apertura", "cierre",
   "subsanacion_desde", "subsanacion_hasta", "version_bases", "medio_publicacion", "plantilla", "circuito_firma"];
 const CAMPOS_DECISION = ["criterio", "motivo_tipificado", "observacion"];
@@ -144,14 +146,21 @@ function aplicarOperacion(datos, operacion, objetivo, definicion, campos, actor)
   }
 }
 
-export function crearAdaptadorPresentacion({ datosIniciales, reloj = () => new Date() } = {}) {
+export function crearAdaptadorPresentacion({
+  datosIniciales, contextoActor: contextoActorInyectado = null, reloj = () => new Date(),
+} = {}) {
   if (!datosIniciales || datosIniciales.demostracion !== true || typeof reloj !== "function") {
     throw new TypeError("configuración del adaptador de presentación no válida");
   }
   const datos = copia(datosIniciales);
-  const actor = String(datos.sesion?.actor_ref || "");
+  const contextoActor = contextoActorInyectado === null
+    ? null : exigirContextoParaModulo(contextoActorInyectado, "bolsa");
+  const actor = String(contextoActor?.actor.actor_ref || datos.sesion?.actor_ref || "");
   if (!/^DEMO-PERFIL-[A-Z0-9-]{2,100}$/.test(actor)) {
     throw new TypeError("identidad del actor de presentación no válida");
+  }
+  if (contextoActor && (contextoActor.demostracion !== true || datos.sesion?.actor_ref !== actor)) {
+    throw new TypeError("la identidad compartida no coincide con la sesión de Bolsa");
   }
   const operacionesPermitidas = Array.isArray(datos.sesion?.operaciones_permitidas)
     ? new Set(datos.sesion.operaciones_permitidas) : new Set();
@@ -212,6 +221,7 @@ export function crearAdaptadorPresentacion({ datosIniciales, reloj = () => new D
 
   return Object.freeze({
     actor,
+    identidad: contextoActor,
     describir,
     ejecutar,
     obtenerDatos: () => copia(datos),

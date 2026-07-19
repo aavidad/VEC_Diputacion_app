@@ -179,7 +179,7 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260718-perfiles-v1/);
+  assert.match(html, /portal\.js\?v=20260719-modulos-v1/);
   assert.match(panelInterno, /export function crearPresentadorPanelInterno/);
 });
 
@@ -272,15 +272,13 @@ test("texto ampliado y contraste siguen disponibles en resoluciones compactas", 
   assert.match(estilosCapacidades, /body\.portal-empleado-app\s*\{[^}]*font-size:\s*1rem/);
 });
 
-test("el portal expone solo Bolsa y hace alcanzables todas sus capacidades", () => {
-  assert.match(html, /Bolsas de trabajo[\s\S]*etiqueta-menu">Activo/);
-  for (const modulo of [
-    "Personal", "Nóminas", "Cronos", "Dietas", "Solicitudes y certificados",
-    "Méritos y formación", "Comunicaciones", "Documentos y firma",
-    "Aprobaciones y portafirmas", "Auditoría", "Administración y configuración",
-  ]) {
-    assert.match(html, new RegExp(`${modulo}[\\s\\S]{0,180}No habilitado`));
-  }
+test("el portal conserva el shell rico y delega el catálogo sin fijar módulos en la plantilla", () => {
+  assert.match(html, /id="navegacion-modulos-dinamica"/);
+  assert.match(javascript, /crearCoordinadorModulosPortal/);
+  assert.match(javascript, /VISTAS_MODULOS_PERSONALES/);
+  assert.match(html, /modulos\/cronos\/cronos\.css/);
+  assert.match(html, /modulos\/dietas\/dietas\.css/);
+  assert.doesNotMatch(html, /Bolsas de trabajo[\s\S]{0,180}etiqueta-menu/);
   const vistas = ["resumen", "elaboracion", "convocatorias", "solicitudes", "meritos",
     "baremacion", "alegaciones", "importacion", "llamamientos", "contratos",
     "documentos", "comunicaciones", "estadisticas", "auditoria", "configuracion"];

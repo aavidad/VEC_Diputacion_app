@@ -1,14 +1,9 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20260718-formularios-v2";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260717-panel-interno-v1";
-import {
-  extraerDatosEnvelopeCanonico,
-  validarPanelBolsa,
-} from "./portal-contrato.js?v=20260717-panel-interno-v1";
+import { extraerDatosEnvelopeCanonico, validarPanelBolsa } from "./portal-contrato.js?v=20260717-panel-interno-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
-import {
-  renderizarConfirmacionCompacta, renderizarDetalleLlamamientoBloqueado, renderizarPasosLlamamiento,
-} from "./portal-llamamientos-vista.js?v=20260718-llamamientos-v1";
+import { renderizarConfirmacionCompacta, renderizarDetalleLlamamientoBloqueado, renderizarPasosLlamamiento } from "./portal-llamamientos-vista.js?v=20260718-llamamientos-v1";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
 import { PROVEEDOR_BEARER_BORRADORES, crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260718-borradores-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260718-formularios-v2";
@@ -16,6 +11,8 @@ import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=202
 import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260718-formularios-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260718-formularios-v2";
 import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-formularios-v2";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260719-modulos-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260719-catalogo-v1";
 
 /**
  * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.
@@ -87,6 +84,8 @@ const TITULOS = Object.freeze({
   comunicaciones: ["Portal del Empleado → Bolsas de trabajo", "Correo y mensajería"],
   auditoria: ["Portal del Empleado → Bolsas de trabajo", "Auditoría y trazabilidad"],
   configuracion: ["Portal del Empleado → Bolsas de trabajo", "Configuración y roles"],
+  cronos: ["Portal del Empleado → Cronos", "Cronos · jornada, fichajes y permisos"],
+  dietas: ["Portal del Empleado → Dietas", "Dietas y comisiones de servicio"],
 });
 
 const estado = {
@@ -126,6 +125,16 @@ function escaparHTML(valor) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar,
+  confirmarOperacion: (descriptor) => window.confirm(`${descriptor.titulo}\n\n${descriptor.advertencia}\n\nReferencia: ${descriptor.referencia}`) });
+
+const renderizarPortal = crearVistaInicioPortal({
+  encabezadoVista,
+  escaparHTML,
+  obtenerCatalogo: coordinadorModulos.obtenerCatalogo,
+  resolverAcceso: (clave) => coordinadorModulos.resolverAcceso(clave, estado.fuenteLista),
+});
 
 function renderizarContenidoAyuda() {
   const ayuda = AYUDA_PORTAL_BOLSA;
@@ -176,6 +185,9 @@ function configurarInicioInstitucional() {
 }
 
 function vistaPermitida(vista) {
+  if (VISTAS_MODULOS_PERSONALES.has(vista)) {
+    return !estado.fuenteLista || coordinadorModulos.vistaDisponible(vista);
+  }
   if (!estado.modoPresentacion || !estado.fuenteLista) return true;
   const vistas = DATOS_PANEL.sesion?.vistas_permitidas;
   return Array.isArray(vistas) && (vistas.includes("*") || vistas.includes(vista));
@@ -281,7 +293,11 @@ async function cargarFuenteDatos() {
       const perfil = perfilPresentacionSolicitado();
       if (perfil === null) throw new Error("perfil de presentación no permitido");
       const datosIniciales = validarPanelBolsa(adaptador.obtenerDatosPresentacion(perfil), true);
-      adaptadorPresentacion = moduloEfectos.crearAdaptadorPresentacion({ datosIniciales });
+      const contextoActorBolsa = await coordinadorModulos.cargarPresentacion(datosIniciales.sesion);
+      adaptadorPresentacion = moduloEfectos.crearAdaptadorPresentacion({
+        datosIniciales,
+        contextoActor: contextoActorBolsa,
+      });
       superficieBorradoresPresentacion = crearSuperficieBorradoresPortal({
         escaparHTML,
         anunciar,
@@ -302,12 +318,14 @@ async function cargarFuenteDatos() {
       estado.fuenteLista = false;
     }
     actualizarSesionVisible();
+    actualizarNavegacionModulos();
     return;
   }
 
   adaptadorPresentacion = null;
   superficieBorradoresPresentacion = null;
   aviso.hidden = true;
+  const cargaCatalogo = coordinadorModulos.cargarInterno().catch(() => null);
   try {
     const respuesta = await fetch(API_PANEL_BOLSA, {
       method: "GET",
@@ -329,6 +347,8 @@ async function cargarFuenteDatos() {
     estado.fuenteLista = false;
     actualizarSesionVisible();
   }
+  await cargaCatalogo;
+  actualizarNavegacionModulos();
 }
 
 function necesidadLlamamientoSeleccionada() {
@@ -336,13 +356,9 @@ function necesidadLlamamientoSeleccionada() {
     || DATOS_PANEL.necesidades_llamamiento[0];
 }
 
-function bolsaDeNecesidad(necesidad) {
-  return DATOS_PANEL.bolsas.find((item) => item.id === necesidad?.bolsa_id);
-}
+function bolsaDeNecesidad(necesidad) { return DATOS_PANEL.bolsas.find((item) => item.id === necesidad?.bolsa_id); }
 
-function puedeSolicitarPropuesta() {
-  return DATOS_PANEL.capacidades.solicitar_propuesta_llamamiento === true;
-}
+function puedeSolicitarPropuesta() { return DATOS_PANEL.capacidades.solicitar_propuesta_llamamiento === true; }
 
 async function solicitarPropuestaLlamamiento() {
   const necesidad = necesidadLlamamientoSeleccionada();
@@ -385,8 +401,21 @@ function vistaDesdeHash() {
   return Object.hasOwn(TITULOS, candidata) ? candidata : "portal";
 }
 
-function rutaDeVista(vista) {
-  return vista === "portal" ? "#portal" : `#bolsa/${vista}`;
+function rutaDeVista(vista) { return rutaDeVistaPortal(vista); }
+
+function actualizarNavegacionModulos() {
+  const contenedor = porId("navegacion-modulos-dinamica");
+  if (!contenedor) return;
+  const moduloActivo = moduloDeVistaPortal(estado.vista);
+  contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(estado.fuenteLista, moduloActivo);
+  const fase = porId("texto-estado-modulos-portal");
+  if (fase) {
+    const disponibles = ["bolsa", "cronos", "dietas"]
+      .filter((clave) => coordinadorModulos.resolverAcceso(clave, estado.fuenteLista).disponible).length;
+    fase.textContent = disponibles > 0
+      ? `${disponibles} módulos habilitados en fase inicial`
+      : "Módulos pendientes de sesión autorizada";
+  }
 }
 
 function anunciar(mensaje) {
@@ -427,16 +456,33 @@ function renderizar() {
   }
   queueMicrotask(aplicarRestriccionesVistas);
   const [migas, titulo] = TITULOS[estado.vista] || TITULOS.portal;
+  const moduloActivo = moduloDeVistaPortal(estado.vista);
   porId("migas-pan").textContent = migas;
   porId("titulo-vista").textContent = titulo;
-  porId("navegacion-bolsa").hidden = estado.vista === "portal";
+  porId("navegacion-bolsa").hidden = moduloActivo !== "bolsa";
+  actualizarNavegacionModulos();
 
   document.querySelectorAll("[data-vista]").forEach((boton) => {
-    const actual = boton.dataset.vista === estado.vista ||
-      (boton.classList.contains("modulo-habilitado") && estado.vista !== "portal");
+    const actual = boton.dataset.moduloPortal
+      ? boton.dataset.moduloPortal === moduloActivo
+      : boton.dataset.vista === estado.vista;
     if (actual) boton.setAttribute("aria-current", "page");
     else boton.removeAttribute("aria-current");
   });
+
+  if (VISTAS_MODULOS_PERSONALES.has(estado.vista)) {
+    if (!coordinadorModulos.vistaDisponible(estado.vista)) {
+      coordinadorModulos.desmontarVistaActual();
+      contenedor.innerHTML = renderizarFuenteNoDisponible();
+      return;
+    }
+    void coordinadorModulos.montarVista(estado.vista, contenedor).catch((error) => {
+      contenedor.innerHTML = `${encabezadoVista("Módulo no disponible", titulo, "No se pudo montar la superficie solicitada.")}<section class="panel"><div class="cuerpo-panel vacio-controlado"><p>${escaparHTML(error instanceof Error ? error.message : "Error de composición")}</p></div></section>`;
+    });
+    return;
+  }
+
+  coordinadorModulos.desmontarVistaActual();
 
   if (estado.vista === "elaboracion" && estado.modoPresentacion && !estado.fuenteLista) {
     contenedor.innerHTML = renderizarFuenteNoDisponible();
@@ -528,40 +574,6 @@ const vistasConvocatorias = crearVistasConvocatorias(utilidadesVista);
 const vistasBaremacion = crearVistasBaremacion(utilidadesVista);
 const vistasOperaciones = crearVistasOperaciones(utilidadesVista);
 const vistasGobierno = crearVistasGobierno(utilidadesVista);
-
-function renderizarPortal() {
-  const modulos = [
-    { clave: "bolsa", sigla: "BOL", titulo: "Bolsas de trabajo", texto: "Elaboración, integrantes, llamamientos, contratos, documentos y trazabilidad.", habilitado: true },
-    { clave: "personal", sigla: "PER", titulo: "Personal", texto: "Datos personales, puesto, situación administrativa y servicios prestados." },
-    { clave: "nominas", sigla: "NOM", titulo: "Nóminas", texto: "Recibos, certificados fiscales e incidencias retributivas." },
-    { clave: "cronos", sigla: "CRO", titulo: "Cronos", texto: "Fichajes, permisos, vacaciones, turnos y calendario laboral." },
-    { clave: "dietas", sigla: "DIE", titulo: "Dietas", texto: "Comisiones de servicio, kilometraje, gastos y liquidaciones." },
-    { clave: "solicitudes", sigla: "SOL", titulo: "Solicitudes y certificados", texto: "Ventanilla única, aportación documental y seguimiento." },
-    { clave: "meritos", sigla: "RUM", titulo: "Méritos y formación", texto: "Títulos, cursos, experiencia y evidencias reutilizables." },
-    { clave: "comunicaciones", sigla: "AVI", titulo: "Comunicaciones", texto: "Avisos personales, notificaciones y preferencias de canal." },
-    { clave: "documentos", sigla: "DOC", titulo: "Documentos y firma", texto: "Repositorio documental, generación, firma, verificación y descarga autorizada." },
-    { clave: "aprobaciones", sigla: "APR", titulo: "Aprobaciones y portafirmas", texto: "Circuitos de revisión, visto bueno, firma múltiple y seguimiento." },
-    { clave: "auditoria", sigla: "AUD", titulo: "Auditoría", texto: "Registro de accesos, operaciones, decisiones, evidencias y exportaciones." },
-    { clave: "administracion", sigla: "ADM", titulo: "Administración y configuración", texto: "Roles, permisos, catálogos, calendarios, reglas y conectores." },
-  ];
-  return `
-    ${encabezadoVista("Acceso unificado", "Portal del Empleado", "Los módulos comparten identidad, datos y documentos. En esta primera fase únicamente está habilitada la Gestión de Bolsas.")}
-    <section class="nota-seguridad" aria-label="Separación de acceso">
-      Este portal representa el acceso interno de RRHH. La zona externa de aspirantes tendrá otra sesión, permisos y proyección de datos; nunca mostrará expedientes de terceras personas.
-    </section>
-    <div class="rejilla-modulos" aria-label="Módulos del Portal del Empleado">
-      ${modulos.map((modulo) => `
-        <article class="tarjeta-modulo ${modulo.habilitado ? "tarjeta-modulo-habilitada" : "tarjeta-modulo-bloqueada"}">
-          <span class="icono-modulo" aria-hidden="true">${escaparHTML(modulo.sigla)}</span>
-          <h3>${escaparHTML(modulo.titulo)}</h3>
-          <p>${escaparHTML(modulo.texto)}</p>
-          <div class="pie-tarjeta">
-            <span class="${modulo.habilitado ? "estado-disponible" : "estado-proximamente"}">${modulo.habilitado ? "Habilitado en fase inicial" : "No habilitado"}</span>
-            ${modulo.habilitado ? '<button type="button" class="boton-primario" data-vista="resumen">Entrar</button>' : '<button type="button" class="boton-secundario" disabled>No disponible</button>'}
-          </div>
-        </article>`).join("")}
-    </div>`;
-}
 
 function tarjetaKPI(sigla, valor, etiqueta, destino) {
   return `

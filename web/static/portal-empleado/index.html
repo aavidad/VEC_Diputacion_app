@@ -11,7 +11,10 @@
     <link rel="stylesheet" href="/portal-empleado/portal-componentes.css?v=20260717-portal-rrhh">
     <link rel="stylesheet" href="/portal-empleado/portal-flujos.css?v=20260718-borradores-v1">
     <link rel="stylesheet" href="/portal-empleado/portal-capacidades.css?v=20260718-demo-total-v1">
-    <script type="module" src="/portal-empleado/portal.js?v=20260718-perfiles-v1"></script>
+    <link rel="stylesheet" href="/portal-empleado/portal-modulos.css?v=20260719-modulos-v1">
+    <link rel="stylesheet" href="/portal-empleado/modulos/cronos/cronos.css?v=20260719-cronos-v1">
+    <link rel="stylesheet" href="/portal-empleado/modulos/dietas/dietas.css?v=20260719-dietas-v1">
+    <script type="module" src="/portal-empleado/portal.js?v=20260719-modulos-v1"></script>
   </head>
   <body class="portal-empleado-app">
     <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
@@ -31,9 +34,9 @@
           </div>
         </a>
 
-        <div class="fase-portal">
+        <div class="fase-portal" id="estado-modulos-portal">
           <span class="punto-estado" aria-hidden="true"></span>
-          Fase inicial: Bolsa habilitada
+          <span id="texto-estado-modulos-portal">Fase inicial: comprobando módulos</span>
         </div>
 
         <nav class="navegacion-modulos" aria-label="Módulos del portal">
@@ -43,67 +46,8 @@
             <span>Inicio del portal</span>
           </button>
 
-          <p class="titulo-navegacion">Módulos</p>
-          <button type="button" class="enlace-lateral modulo-habilitado" data-vista="resumen">
-            <span class="indicador-menu" aria-hidden="true">B</span>
-            <span>Bolsas de trabajo</span>
-            <span class="etiqueta-menu">Activo</span>
-          </button>
-          <button type="button" class="enlace-lateral" disabled>
-            <span class="indicador-menu" aria-hidden="true">P</span>
-            <span>Personal</span>
-            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
-          </button>
-          <button type="button" class="enlace-lateral" disabled>
-            <span class="indicador-menu" aria-hidden="true">N</span>
-            <span>Nóminas</span>
-            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
-          </button>
-          <button type="button" class="enlace-lateral" disabled>
-            <span class="indicador-menu" aria-hidden="true">C</span>
-            <span>Cronos</span>
-            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
-          </button>
-          <button type="button" class="enlace-lateral" disabled>
-            <span class="indicador-menu" aria-hidden="true">D</span>
-            <span>Dietas</span>
-            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
-          </button>
-          <button type="button" class="enlace-lateral" disabled>
-            <span class="indicador-menu" aria-hidden="true">S</span>
-            <span>Solicitudes y certificados</span>
-            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
-          </button>
-          <button type="button" class="enlace-lateral" disabled>
-            <span class="indicador-menu" aria-hidden="true">M</span>
-            <span>Méritos y formación</span>
-            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
-          </button>
-          <button type="button" class="enlace-lateral" disabled>
-            <span class="indicador-menu" aria-hidden="true">C</span>
-            <span>Comunicaciones</span>
-            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
-          </button>
-          <button type="button" class="enlace-lateral" disabled>
-            <span class="indicador-menu" aria-hidden="true">D</span>
-            <span>Documentos y firma</span>
-            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
-          </button>
-          <button type="button" class="enlace-lateral" disabled>
-            <span class="indicador-menu" aria-hidden="true">A</span>
-            <span>Aprobaciones y portafirmas</span>
-            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
-          </button>
-          <button type="button" class="enlace-lateral" disabled>
-            <span class="indicador-menu" aria-hidden="true">A</span>
-            <span>Auditoría</span>
-            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
-          </button>
-          <button type="button" class="enlace-lateral" disabled>
-            <span class="indicador-menu" aria-hidden="true">A</span>
-            <span>Administración y configuración</span>
-            <span class="etiqueta-menu etiqueta-bloqueada">No habilitado</span>
-          </button>
+          <p class="titulo-navegacion" id="titulo-modulos-portal">Módulos</p>
+          <div id="navegacion-modulos-dinamica" aria-labelledby="titulo-modulos-portal"></div>
         </nav>
 
         <nav class="navegacion-bolsa" id="navegacion-bolsa" aria-label="Gestión de Bolsas" hidden>
@@ -166,7 +110,7 @@
             <span class="indicador-menu" aria-hidden="true">?</span>
             <span>Ayuda</span>
           </button>
-          <span>Gestión de Bolsas · Fase inicial</span>
+          <span>Portal RRHH · Fase inicial</span>
         </div>
       </aside>
 
