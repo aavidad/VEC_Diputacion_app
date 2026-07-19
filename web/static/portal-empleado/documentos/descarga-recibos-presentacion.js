@@ -10,12 +10,15 @@ export function crearDescargadorRecibosPresentacion(entorno = globalThis) {
     const urlVerificacion = descriptor.comprobacion?.qr_contenido || descriptor.urlVerificacion;
     const referencia = String(descriptor.referencia || "").trim();
     const nombreArchivo = descriptor.nombre_archivo || `recibo-${referencia.toLowerCase()}.pdf`;
+    const origenInstitucional = typeof entorno?.location?.origin === "string"
+      ? entorno.location.origin : "";
     return descargarReciboPDFPresentacion({
       referencia,
       titulo: descriptor.titulo || "Recibo del Portal del Empleado",
       subtitulo: descriptor.subtitulo || "Diputación de Granada · documento de demostración",
       filas,
       urlVerificacion,
+      origenInstitucional,
       nombreArchivo,
       nota: descriptor.marca || "Documento DEMO. En producción se emitirá desde el expediente firmado y custodiado.",
       textoCertificacion: descriptor.texto_certificacion,

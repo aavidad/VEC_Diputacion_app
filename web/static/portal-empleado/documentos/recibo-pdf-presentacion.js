@@ -75,7 +75,7 @@ export function descargarReciboPDFPresentacion(descriptor, entorno = globalThis)
 
 function validarDescriptor(descriptor) {
   if (!descriptor || typeof descriptor !== "object" || Array.isArray(descriptor)) throw new TypeError("descriptor documental no válido");
-  const referencia = textoAcotado(descriptor.referencia, 8, 80, /^[A-Z0-9][A-Z0-9._:-]+$/);
+  const referencia = referenciaDemoCerrada(descriptor.referencia);
   const titulo = textoAcotado(descriptor.titulo, 3, 120);
   const subtitulo = textoAcotado(descriptor.subtitulo || "Recibo emitido por el Portal del Empleado", 3, 160);
   const nota = textoAcotado(descriptor.nota || "El documento definitivo se generara y firmara en el servidor autorizado.", 3, 220);
@@ -84,14 +84,86 @@ function validarDescriptor(descriptor) {
     if (!Array.isArray(fila) || fila.length !== 2) throw new TypeError("fila documental no válida");
     return Object.freeze([textoAcotado(fila[0], 1, 80), textoAcotado(fila[1], 1, 180)]);
   });
-  const url = new URL(String(descriptor.urlVerificacion || ""), globalThis.location?.origin || "http://127.0.0.1");
-  if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.hash) throw new TypeError("URL de comprobación no válida");
+  const origenInstitucional = normalizarOrigenInstitucional(descriptor.origenInstitucional);
+  const url = validarURLComprobacion(descriptor.urlVerificacion, referencia, origenInstitucional);
   const nombreArchivo = String(descriptor.nombreArchivo || `recibo-${referencia.toLowerCase()}.pdf`);
   if (!/^[a-z0-9][a-z0-9._-]{1,119}\.pdf$/i.test(nombreArchivo)) throw new TypeError("nombre de PDF no válido");
   const textoCertificacion = textoAcotado(descriptor.textoCertificacion
     || "Se deja constancia de la actuación indicada y de su referencia de comprobación. El documento definitivo se emitirá desde el expediente administrativo autorizado.", 3, 430);
   return Object.freeze({ referencia, titulo, subtitulo, nota, filas: Object.freeze(filas),
-    urlVerificacion: url.href, nombreArchivo, textoCertificacion });
+    urlVerificacion: url.href, origenInstitucional, nombreArchivo, textoCertificacion });
+}
+
+function referenciaDemoCerrada(valor) {
+  const referencia = textoAcotado(valor, 10, 80);
+  if (!/^DEMO-[A-Z0-9]+(?:-[A-Z0-9]+)+$/.test(referencia)) {
+    throw new TypeError("referencia DEMO no válida");
+  }
+  return referencia;
+}
+
+function normalizarOrigenInstitucional(valor) {
+  if (valor === undefined || valor === null || valor === "") return "";
+  if (typeof valor !== "string" || valor !== valor.trim()) {
+    throw new TypeError("origen institucional no válido");
+  }
+  let origen;
+  try {
+    origen = new URL(valor);
+  } catch {
+    throw new TypeError("origen institucional no válido");
+  }
+  if (!/^https?:$/.test(origen.protocol) || origen.username || origen.password || origen.hash
+    || origen.search || origen.pathname !== "/") {
+    throw new TypeError("origen institucional no válido");
+  }
+  return origen.origin;
+}
+
+function esHostLocalComprobacion(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  if (host === "localhost" || host === "[::1]") return true;
+  const partes = host.split(".");
+  return partes.length === 4 && partes[0] === "127"
+    && partes.every((parte) => /^\d{1,3}$/.test(parte) && Number(parte) <= 255);
+}
+
+function validarURLComprobacion(valor, referencia, origenInstitucional) {
+  if (typeof valor !== "string" || valor === "" || valor !== valor.trim() || valor.length > 2_048) {
+    throw new TypeError("URL de comprobación no válida");
+  }
+  let url;
+  try {
+    // Sin URL base: una ruta relativa nunca puede convertirse accidentalmente
+    // en un destino aceptado por el entorno de ejecución.
+    url = new URL(valor);
+  } catch {
+    throw new TypeError("URL de comprobación no válida");
+  }
+  if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.hash
+    || url.pathname !== "/verificar/") {
+    throw new TypeError("URL de comprobación no válida");
+  }
+  if (origenInstitucional ? url.origin !== origenInstitucional : !esHostLocalComprobacion(url.hostname)) {
+    throw new TypeError("origen de comprobación no permitido");
+  }
+
+  const parametros = [...url.searchParams.entries()];
+  const referencias = url.searchParams.getAll("ref");
+  const presentaciones = url.searchParams.getAll("presentacion");
+  if (parametros.some(([clave]) => clave !== "ref" && clave !== "presentacion")
+    || referencias.length !== 1 || referencias[0] !== referencia
+    || presentaciones.length > 1
+    || (presentaciones.length === 1 && presentaciones[0] !== "rrhh")) {
+    throw new TypeError("parámetros de comprobación no válidos");
+  }
+  const canonicos = new URLSearchParams();
+  canonicos.set("ref", referencia);
+  if (presentaciones.length === 1) canonicos.set("presentacion", "rrhh");
+  if (url.search !== `?${canonicos.toString()}`) {
+    throw new TypeError("parámetros de comprobación no canónicos");
+  }
+  return url;
 }
 
 function textoAcotado(valor, minimo, maximo, patron = null) {
