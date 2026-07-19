@@ -3,16 +3,15 @@ set -eu
 
 cd "$(dirname "$0")/.."
 
-export VEC_HTTP_ADDR="${VEC_PRESENTACION_ADDR:-127.0.0.1:8081}"
-export VEC_HTTP_ALLOWED_CIDRS="127.0.0.1/32,::1/128"
-export VEC_EXECUTION_PROFILE="presentacion_rrhh"
-export VEC_RRHH_PRESENTATION_ENABLED="true"
-export VEC_RRHH_PRESENTATION_GUARD_ONE="ACEPTO_MODO_PRESENTACION_RRHH_NO_AUTORITATIVO"
-export VEC_RRHH_PRESENTATION_GUARD_TWO="CONFIRMO_DATOS_SINTETICOS_SIN_VALIDEZ_ADMINISTRATIVA"
-export VEC_AUTH_MODE="disabled"
-export VEC_BOLSA_STORAGE_MODE="memory"
-export VEC_PERSONAL_CATALOG_PATH="memory"
-export VEC_BOLSA_PUBLIC_SOURCE_PATH="data/demo/convocatorias_publicas.demo.json"
-export VEC_BOLSA_CATEGORIES_SOURCE_PATH="data/catalogos/categorias-profesionales/v1.demo.json"
+# La presentación completa se ejecuta exclusivamente con su composición
+# Docker: portal, proxy, mediador Go, OSRM y teselas OSM. No arranca binarios,
+# proxies ni servicios cartográficos directamente en el anfitrión.
+docker compose --profile presentacion up \
+  --detach \
+  --build \
+  --wait \
+  --wait-timeout "${VEC_PRESENTACION_WAIT_TIMEOUT:-180}"
 
-exec go run ./cmd/vec-presentacion
+scripts/smoke_cartografia_presentacion.sh
+
+echo "Presentación RRHH disponible en http://127.0.0.1:${VEC_PRESENTACION_PUBLISHED_PORT:-8081}/presentacion/"

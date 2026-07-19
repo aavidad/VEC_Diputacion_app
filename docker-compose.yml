@@ -6,8 +6,8 @@ services:
       target: runtime-presentacion
     image: vec-diputacion-granada:presentacion-rrhh
     environment:
-      VEC_HTTP_ADDR: "${VEC_PRESENTACION_INTERNAL_ADDRESS:-192.168.255.245}:8080"
-      VEC_HTTP_ALLOWED_CIDRS: "${VEC_PRESENTACION_PROXY_ADDRESS:-192.168.255.244}/32"
+      VEC_HTTP_ADDR: "192.168.255.203:8080"
+      VEC_HTTP_ALLOWED_CIDRS: "192.168.255.202/32"
       VEC_EXECUTION_PROFILE: "presentacion_rrhh"
       VEC_RRHH_PRESENTATION_ENABLED: "true"
       VEC_RRHH_PRESENTATION_GUARD_ONE: "ACEPTO_MODO_PRESENTACION_RRHH_NO_AUTORITATIVO"
@@ -18,8 +18,8 @@ services:
     expose:
       - "8080"
     networks:
-      vec-interna:
-        ipv4_address: "${VEC_PRESENTACION_INTERNAL_ADDRESS:-192.168.255.245}"
+      presentacion-portal:
+        ipv4_address: "192.168.255.203"
         aliases:
           - vec-api
     read_only: true
@@ -37,16 +37,26 @@ services:
 
   proxy-presentacion:
     image: nginxinc/nginx-unprivileged:1.30.3-alpine@sha256:b3f2436575bd5be7386518084d842dac414ab4962712afa31e99e0942a56e3b2
+    pull_policy: never
+    init: true
     depends_on:
-      - vec-presentacion
+      vec-presentacion:
+        condition: service_started
+      vec-cartografia-presentacion:
+        condition: service_started
+      tiles-osm-presentacion:
+        condition: service_healthy
     ports:
       - "127.0.0.1:${VEC_PRESENTACION_PUBLISHED_PORT:-8081}:8080"
     volumes:
-      - ./deploy/proxy-local/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/proxy-local/nginx-presentacion.conf:/etc/nginx/nginx.conf:ro
     networks:
-      vec-borde:
-      vec-interna:
-        ipv4_address: "${VEC_PRESENTACION_PROXY_ADDRESS:-192.168.255.244}"
+      presentacion-borde:
+        ipv4_address: "192.168.255.194"
+      presentacion-portal:
+        ipv4_address: "192.168.255.202"
+      presentacion-cartografia:
+        ipv4_address: "192.168.255.210"
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777
@@ -59,13 +69,226 @@ services:
     mem_limit: 128m
     cpus: 0.5
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
+      test:
+        - CMD-SHELL
+        - >-
+          wget -q --spider http://vec-api:8080/healthz &&
+          wget -q --spider http://vec-cartografia-presentacion:8080/healthz &&
+          wget -q --spider http://tiles-osm-presentacion:8080/styles/osm-granada/256/8/125/99.png
       interval: 5s
       timeout: 2s
       retries: 5
       start_period: 5s
     profiles:
       - presentacion
+
+  # El navegador nunca accede a OSRM. Esta superficie mínima valida la
+  # petición de presentación, consulta el motor en su red exclusiva y devuelve
+  # únicamente la proyección cartográfica no autoritativa.
+  vec-cartografia-presentacion:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime-cartografia-presentacion
+    image: vec-diputacion-granada:cartografia-presentacion-rrhh
+    init: true
+    depends_on:
+      osrm-presentacion:
+        condition: service_healthy
+    environment:
+      VEC_HTTP_ADDR: "192.168.255.211:8080"
+      VEC_HTTP_ALLOWED_CIDRS: "192.168.255.210/32"
+      VEC_EXECUTION_PROFILE: "presentacion_rrhh"
+      VEC_RRHH_PRESENTATION_ENABLED: "true"
+      VEC_RRHH_PRESENTATION_GUARD_ONE: "ACEPTO_MODO_PRESENTACION_RRHH_NO_AUTORITATIVO"
+      VEC_RRHH_PRESENTATION_GUARD_TWO: "CONFIRMO_DATOS_SINTETICOS_SIN_VALIDEZ_ADMINISTRATIVA"
+      VEC_AUTH_MODE: "disabled"
+      VEC_BOLSA_STORAGE_MODE: "memory"
+      VEC_PERSONAL_CATALOG_PATH: "memory"
+      VEC_OSRM_BASE_URL: "http://osrm-presentacion:5000"
+      VEC_OSRM_SCOPE_NAME: "Granada provincia + 15 km"
+      VEC_OSRM_SCOPE_BOUNDS: "36.45,-4.6,38.25,-2.15"
+      VEC_OSRM_ALLOWED_CIDRS: "192.168.255.219/32"
+      VEC_OSRM_GRAPH_VERSION: "granada-buffer-osrm-v1-53aba0ad43c4"
+    expose:
+      - "8080"
+    networks:
+      presentacion-cartografia:
+        ipv4_address: "192.168.255.211"
+      presentacion-osrm:
+        ipv4_address: "192.168.255.218"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 64
+    mem_limit: 192m
+    cpus: 0.5
+    profiles:
+      - presentacion
+
+  osrm-presentacion:
+    image: osrm/osrm-backend:v5.26.0@sha256:af5d4a83fb90086a43b1ae2ca22872e6768766ad5fcbb07a29ff90ec644ee409
+    pull_policy: never
+    init: true
+    entrypoint: ["/bin/sh", "/opt/vec/iniciar_osrm.sh"]
+    command: ["servir"]
+    environment:
+      OSRM_DATA_BASENAME: "granada-buffer"
+    expose:
+      - "5000"
+    volumes:
+      - ./deploy/osrm-granada/data:/data:ro
+      - ./deploy/osrm-granada/iniciar_osrm.sh:/opt/vec/iniciar_osrm.sh:ro
+    networks:
+      presentacion-osrm:
+        ipv4_address: "192.168.255.219"
+    user: "65534:65534"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "/bin/bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/5000"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+    restart: unless-stopped
+    profiles:
+      - presentacion
+
+  tiles-osm-presentacion:
+    image: maptiler/tileserver-gl:v5.6.0@sha256:3a9ccdb24820b6814c8119bcc8a4376c39867cb0ffe69d62919ef898b90c2427
+    pull_policy: never
+    init: true
+    command:
+      - --config
+      - /data/config.json
+      - --bind
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --no-cors
+      # No registra z/x/y, que permitirían aproximar el itinerario mostrado.
+      - --silent
+    environment:
+      TILESERVER_GL_ALLOWED_HOSTS: "tiles-osm.local,tiles-osm-presentacion,localhost,127.0.0.1"
+    expose:
+      - "8080"
+    networks:
+      presentacion-cartografia:
+        ipv4_address: "192.168.255.212"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+      - /home/node/.cache:rw,noexec,nosuid,nodev,size=32m,mode=0700,uid=999,gid=999
+    volumes:
+      - ./deploy/osm-tiles-granada/config/tileserver.json:/data/config.json:ro
+      - ./deploy/osm-tiles-granada/config/estilos:/data/estilos:ro
+      - ./deploy/osm-tiles-granada/estado:/data/teselas:ro
+      - ./deploy/osm-tiles-granada/comprobar_salud.mjs:/opt/vec/comprobar_salud.mjs:ro
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 1.0
+    shm_size: 128m
+    healthcheck:
+      test: ["CMD", "node", "/opt/vec/comprobar_salud.mjs"]
+      interval: 15s
+      timeout: 12s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    profiles:
+      - presentacion
+
+  # Herramienta efímera: prueba la pila completa desde la misma red de borde
+  # sin exigir Python, curl, jq ni navegadores instalados en el anfitrión.
+  smoke-cartografia-presentacion:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: herramientas-revision-web
+    image: vec-diputacion-granada:herramientas-revision-web
+    init: true
+    user: "${UID_GID:-1000:1000}"
+    working_dir: /workspace
+    environment:
+      HOME: /tmp
+      VEC_PRESENTACION_BASE_URL: "http://192.168.255.194:8080"
+    command: ["python3", "scripts/smoke_cartografia_presentacion.py"]
+    volumes:
+      - ./scripts:/workspace/scripts:ro
+    networks:
+      presentacion-borde:
+        ipv4_address: "192.168.255.195"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: 0.5
+    profiles:
+      - herramientas-presentacion
+
+  # Revisor visual reproducible. Chromium y Playwright viven en la imagen
+  # fijada; sólo `var/` es escribible para conservar capturas e informes.
+  revision-web-presentacion:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: herramientas-revision-web
+    image: vec-diputacion-granada:herramientas-revision-web
+    init: true
+    user: "${UID_GID:-1000:1000}"
+    working_dir: /workspace
+    environment:
+      HOME: /tmp
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    command:
+      - python3
+      - scripts/capturar_presentacion_web.py
+      - --url-base
+      # Comparte únicamente el namespace de red del proxy para que Chromium
+      # audite un origen loopback fiable sin publicar otro puerto ni instalar
+      # un reenviador en el anfitrión.
+      - http://127.0.0.1:8080
+      - --salida
+      - var/revision-web
+    volumes:
+      - ./scripts:/workspace/scripts:ro
+      - ./var:/workspace/var:rw
+    network_mode: "service:proxy-presentacion"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=256m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 512
+    mem_limit: 2g
+    cpus: 2.0
+    shm_size: 1g
+    profiles:
+      - herramientas-presentacion
 
   vec-api:
     build:
@@ -141,6 +364,34 @@ services:
       - local
 
 networks:
+  # El borde es la única red no interna que necesita Docker para materializar
+  # el bind loopback. Sin NAT, no concede salida a Internet al proxy.
+  presentacion-borde:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "false"
+    ipam:
+      config:
+        - subnet: "192.168.255.192/29"
+          gateway: "192.168.255.193"
+  presentacion-portal:
+    internal: true
+    ipam:
+      config:
+        - subnet: "192.168.255.200/29"
+          gateway: "192.168.255.201"
+  presentacion-cartografia:
+    internal: true
+    ipam:
+      config:
+        - subnet: "192.168.255.208/29"
+          gateway: "192.168.255.209"
+  presentacion-osrm:
+    internal: true
+    ipam:
+      config:
+        - subnet: "192.168.255.216/29"
+          gateway: "192.168.255.217"
   vec-borde:
     ipam:
       config:

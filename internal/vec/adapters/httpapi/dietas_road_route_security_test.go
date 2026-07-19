@@ -3,7 +3,6 @@ package httpapi
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -33,7 +32,7 @@ func TestDietasRoadRouteRejectsNonContractInputBeforeConnector(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			before := hits.Load()
-			req := httptest.NewRequest(http.MethodPost, "/api/vec/dietas/road-route", strings.NewReader(test.body))
+			req := nuevaPeticionRutaDietas(test.body)
 			rec := httptest.NewRecorder()
 			handler.handleDietasRoadRoute(rec, req, principal)
 			if rec.Code != http.StatusBadRequest {
@@ -60,11 +59,12 @@ func TestDietasRoadRouteRejectsUntrustedConnectorPayload(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			osrm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write([]byte(test.body))
 			}))
 			defer osrm.Close()
 			handler := newTestHandlerWithOptions(t, testOSRMOptions(osrm.URL))
-			req := httptest.NewRequest(http.MethodPost, "/api/vec/dietas/road-route", strings.NewReader(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`))
+			req := nuevaPeticionRutaDietas(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`)
 			rec := httptest.NewRecorder()
 			handler.handleDietasRoadRoute(rec, req, principal)
 			if rec.Code != http.StatusBadGateway {

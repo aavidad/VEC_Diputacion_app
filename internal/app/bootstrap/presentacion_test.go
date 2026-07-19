@@ -98,6 +98,7 @@ func TestComposicionPresentacionRechazaDatosNoMarcadosYConectores(t *testing.T) 
 		func(c *config.Config) { c.BolsaCategoriesSourcePath = "/datos/categorias.json" },
 		func(c *config.Config) { c.PersonalCatalogPath = "/datos/personal.json" },
 		func(c *config.Config) { c.OSRMBaseURL = "http://127.0.0.1:5000" },
+		func(c *config.Config) { c.OSRMGraphVersion = "grafo-osm-granada-v1" },
 		func(c *config.Config) { c.AuthMode = config.AuthModeFake },
 		func(c *config.Config) { c.StorageMode = config.StorageModeFile },
 	}

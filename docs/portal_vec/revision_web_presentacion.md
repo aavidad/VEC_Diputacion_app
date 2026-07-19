@@ -1,23 +1,37 @@
 # Captura y revisión de la presentación web
 
 `scripts/capturar_presentacion_web.py` recorre por defecto el lanzador, el
-portal público, las 14 vistas del área aspirante, las 16 vistas internas de
-RRHH y veintiún estados de interacción DEMO, incluido el perfil técnico con
-permisos restringidos. Repite el recorrido en 1440×1000,
-1024×900 y 390×844.
+portal público, las 14 vistas del área aspirante, las 20 vistas internas de
+RRHH y 22 estados de interacción, incluido el perfil técnico con permisos
+restringidos y una ruta real de Dietas sobre el mapa OSM interno. Repite el
+recorrido en 1440×1000, 1024×900 y 390×844. La ejecución cerrada el 19 de julio
+de 2026 obtuvo **174/174 escenarios correctos, 174 capturas y cero hallazgos**.
+Esta evidencia automática no sustituye la aceptación humana de RRHH.
 
 ## Preparación y uso
 
-Arranque primero el servicio de presentación local. El script presupone
-`http://127.0.0.1:8081`. La URL es configurable, pero por seguridad el host
-debe ser una dirección IP literal de loopback (`127.0.0.0/8` o `::1`):
+No se instala Playwright ni Chromium en el anfitrión. El navegador, las
+dependencias Python y el capturador se ejecutan en la imagen fijada del servicio
+`revision-web-presentacion`; solo `var/` se monta con escritura para conservar
+los resultados. Primero se levanta la composición completa:
 
 ```bash
-python3 -m pip install playwright
-python3 -m playwright install chromium
-python3 scripts/capturar_presentacion_web.py
-python3 scripts/capturar_presentacion_web.py --url-base http://127.0.0.1:8081
+scripts/arrancar_presentacion_rrhh.sh
 ```
+
+Después se ejecuta la revisión estricta:
+
+```bash
+docker compose --profile presentacion --profile herramientas-presentacion run \
+  --rm --no-deps revision-web-presentacion
+```
+
+Compose hace que el revisor efímero comparta el espacio de red de
+`proxy-presentacion` (`network_mode: service:proxy-presentacion`) y consulta
+`http://127.0.0.1:8080`. Así Chromium prueba un origen loopback fiable, dispone
+de WebCrypto y recorre exactamente el mismo proxy sin publicar otro puerto ni
+instalar un reenviador en el anfitrión. La CLI mantiene como valor
+predeterminado `http://127.0.0.1:8081`.
 
 Opciones útiles:
 
@@ -30,9 +44,22 @@ Opciones útiles:
 - `--tolerante`: conserva capturas y hallazgos, pero devuelve código cero.
   El modo predeterminado es estricto y devuelve un código distinto de cero si
   cualquier escenario presenta un fallo.
-- `--con-interfaz`: muestra Chromium mientras se ejecuta la revisión.
-- `--ejecutable-navegador RUTA`: usa un Chromium ya instalado cuando el puesto
-  no puede descargar el navegador administrado por Playwright.
+- `--red-docker-interna`: queda como ayuda de diagnóstico para una red Docker
+  privada. Un origen HTTP privado no es un contexto seguro de navegador y no
+  acredita el flujo real de Dietas; la puerta oficial usa loopback y producción
+  debe usar HTTPS.
+
+Para pasar opciones distintas sin instalar herramientas locales, se puede
+sustituir el comando del servicio. Por ejemplo, un diagnóstico acotado del área
+aspirante es:
+
+```bash
+docker compose --profile presentacion --profile herramientas-presentacion run \
+  --rm --no-deps revision-web-presentacion \
+  python3 scripts/capturar_presentacion_web.py \
+  --url-base http://127.0.0.1:8080 \
+  --salida var/revision-web --superficie area-aspirante
+```
 
 Antes de abrir ninguna vista, el capturador exige la cabecera técnica
 `X-VEC-Modo-Presentacion: aislada-sintetica-v1`. Solo el handler validado de
@@ -43,6 +70,8 @@ ausencia o alteración de esta marca bloquea todo el recorrido.
 La salida contiene:
 
 - `var/revision-web/capturas/<tamaño>/vista/...`: capturas de página completa;
+  si la altura excede el límite fiable de Chromium, el revisor recorre la
+  página y conserva todas las partes como `*.parte-NN.png`;
 - `var/revision-web/capturas/<tamaño>/flujo/...`: capturas del viewport para
   distinguir los estados de interacción, incluidos el menú general y el
   submenú completo de Bolsa abiertos en móvil;
@@ -67,19 +96,36 @@ página. También comprueba:
 - controles visibles sin nombre accesible;
 - desbordamiento horizontal del documento.
 
+El flujo `rrhh-dietas-ruta-real` añade estas condiciones a la puerta actual:
+
+- el cálculo debe proceder del mediador cartográfico interno y declarar la
+  versión gobernada del grafo OSRM;
+- el visor debe montar una única capa Leaflet con teselas del mismo origen;
+- la revisión espera la carga real de OpenStreetMap, no una geometría SVG ni
+  una distancia sintética;
+- cualquier error de ruta o tesela permanece visible y hace fallar el escenario.
+
 Los flujos privados solo se ejecutan si el banner DEMO está visible y la URL
 contiene `presentacion=rrhh`, la respuesta conserva la cabecera técnica exacta
 y el perfil requerido está declarado. Las confirmaciones y recibos se producen
 en los adaptadores efímeros de presentación; el capturador no invoca conectores
-reales. Además de los recorridos público y aspirante, se exige un recibo
+administrativos reales. La excepción deliberada es la cartografía local de
+Dietas, que no trata identidad ni produce actos. Además de los recorridos público y aspirante, se exige un recibo
 `DEMO-REC-*` en operaciones representativas de bases, admisión, méritos,
 baremo, importación, llamamientos, contratos, documentos, comunicaciones,
 exportación, roles y alegaciones.
 
-## Pruebas sin navegador
+## Pruebas del manifiesto sin abrir Chromium
 
-El manifiesto y los helpers se verifican sin instalar Playwright:
+Los helpers también se comprueban dentro de la misma imagen fijada, sin instalar
+Python ni Playwright en el anfitrión:
 
 ```bash
-python3 -m unittest scripts.tests.test_capturar_presentacion_web
+docker compose --profile herramientas-presentacion run --rm --no-deps \
+  revision-web-presentacion \
+  python3 -m unittest scripts.tests.test_capturar_presentacion_web
 ```
+
+Las capturas quedan en `var/revision-web`, fuera del control de versiones. La
+imagen de Playwright, igual que OSRM y TileServer GL, se ejecuta solo en Docker;
+no se crean servicios, paquetes ni procesos persistentes en el anfitrión.

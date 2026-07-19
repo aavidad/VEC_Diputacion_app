@@ -25,32 +25,40 @@ entrega.
 
 ### Corte de presentación de Bolsa
 
-El artefacto local `vec-presentacion`, cerrado entre los commits `0f113ee` y
-`8b0d14f`, permite enseñar **32 vistas** desde
-`http://127.0.0.1:8081/presentacion/`:
+La composición Docker de presentación permite enseñar **36 vistas** desde el
+único acceso publicado por el proxy, `http://127.0.0.1:8081/presentacion/`.
+Separa el portal `vec-presentacion`, el mediador
+`vec-cartografia-presentacion` y el destino normal sin material DEMO, todavía
+no autorizado ni compuesto para producción:
 
 | Punto de vista | Vistas navegables | Alcance |
 | --- | ---: | --- |
 | Lanzador | 1 | Selección inequívoca de los tres recorridos. |
 | Consulta pública | 1 | Convocatorias, categorías, plazos y ayuda sin identidad. |
 | Área personal del aspirante | 14 | Inicio, convocatorias y detalle, perfil, méritos, solicitud, autobaremación, expediente, llamamientos, subsanaciones, alegaciones, mensajes, certificados y ayuda. |
-| Gestión interna | 16 | Portal del Empleado más 15 secciones de gestión de Bolsa. |
+| Gestión interna | 20 | Portal del Empleado, 17 secciones de gestión de Bolsa, Cronos y Dietas. |
 
-Las pantallas, contratos y renderizadores son reutilizables en producción; el
+Las pantallas, contratos y renderizadores se han diseñado como candidatos a
+reutilización, sujetos a aceptación de RRHH y Sistemas; el
 perfil de presentación inyecta adaptadores en memoria volátil. No emplea
-cookies, `localStorage`, `sessionStorage`, volumen durable ni conectores
-externos. Esta entrega acredita una **presentación navegable**, no integración
+cookies, `localStorage`, `sessionStorage` ni volumen durable. Dietas conecta un
+mediador aislado a un grafo OSRM y teselas OSM internos, reales y versionados;
+no hay salida a servicios cartográficos públicos. Esta entrega acredita una
+**presentación navegable**, no integración
 productiva, E2E productivo, identidad real, persistencia, firma, registro,
 pagos o comunicaciones reales.
 
-La revisión reproducible recorre las 32 vistas y 21 estados de interacción en
-1440×1000, 1024×900 y 390×844: **159 de 159 escenarios correctos, 159
-capturas y cero hallazgos** en el último cierre. Este resultado acredita la
-puerta automática de presentación; no sustituye la revisión humana ni la
-aceptación formal de RRHH. Véanse la
+La última línea base cerrada recorrió 36 vistas y 22 estados de interacción en
+1440×1000, 1024×900 y 390×844: **174 de 174 escenarios correctos, 174
+capturas y cero hallazgos**. Incluye la ruta OSM/OSRM real de Dietas y la carga
+efectiva de teselas servidas en la red interna. Ninguna
+de estas puertas sustituye la revisión humana ni la aceptación formal de RRHH.
+Véanse la
 [revisión automatizada](docs/portal_vec/revision_web_presentacion.md), el
 [modo de presentación](docs/portal_vec/modo_presentacion_rrhh.md) y la
 [matriz de aceptación](docs/portal_vec/matriz_aceptacion_web_bolsa_2026-07-18.md).
+La operación cartográfica se documenta en
+[Cartografía interna de Dietas](docs/portal_vec/cartografia_interna_dietas_2026-07-19.md).
 
 **Primera funcionalidad real: paso 3 de 6.**
 
@@ -159,7 +167,9 @@ Cada cierre debe actualizar, en este orden:
 
 | Fecha | Cambio |
 | --- | --- |
-| 19/07/2026 | Puerta automática de presentación cerrada: 159/159 escenarios correctos, 159 capturas y cero hallazgos sobre 32 vistas, 21 flujos y tres resoluciones. Queda pendiente la aceptación humana de RRHH y no cambia las columnas de integración, E2E productivo o producción. |
+| 19/07/2026 | Puerta cartográfica y visual cerrada: 174/174 escenarios correctos, 174 capturas y cero hallazgos sobre 36 vistas, 22 flujos y tres resoluciones; incluye ruta OSRM real y carga efectiva de teselas OSM internas. |
+| 19/07/2026 | Composición Docker de presentación ampliada a portal, mediador cartográfico, OSRM y teselas OSM internas: un único acceso por `127.0.0.1:8081` y datos cartográficos versionados. |
+| 19/07/2026 | Línea base anterior de la puerta automática: 159/159 escenarios correctos, 159 capturas y cero hallazgos sobre 32 vistas, 21 flujos y tres resoluciones. Queda pendiente la aceptación humana de RRHH y no cambia las columnas de integración, E2E productivo o producción. |
 | 19/07/2026 | Presentación aislada de Bolsa cerrada: 32 vistas (1 lanzador + 1 pública + 14 del aspirante + 16 internas), adaptadores volátiles y cero cookies o almacenamiento de navegador. |
 | 18/07/2026 | Piloto de Orquesta para Convoca cerrado en `NO-GO`: un proceso, cero revisiones y código no compilable. La auditoría bloquea datos reales hasta endurecer parser XLS, huella e invariantes. |
 | 18/07/2026 | PostgreSQL/KMS y HMAC rotatorio obtienen `GO` independiente; comienza el recorrido durable Go→PostgreSQL y el ensayo aislado de Orquesta. |

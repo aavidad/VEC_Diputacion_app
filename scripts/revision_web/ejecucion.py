@@ -52,11 +52,17 @@ def crear_argumentos() -> argparse.ArgumentParser:
         "--ejecutable-navegador", type=Path,
         help="Ruta opcional a Chromium; si se omite se usa el navegador administrado por Playwright.",
     )
+    parser.add_argument(
+        "--red-docker-interna", action="store_true",
+        help="Autoriza una IP privada literal como destino al ejecutar el revisor dentro de Docker.",
+    )
     return parser
 
 
 def ejecutar_revision(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
-    url_base = normalizar_url_base(args.url_base)
+    url_base = normalizar_url_base(
+        args.url_base, permitir_red_privada=bool(args.red_docker_interna),
+    )
     if args.timeout_ms < 500 or args.timeout_ms > 120_000:
         raise ValueError("--timeout-ms debe estar entre 500 y 120000")
     errores_manifiesto = validar_manifiesto()
@@ -87,13 +93,17 @@ def ejecutar_revision(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                 opciones_lanzamiento["executable_path"] = str(ejecutable)
             browser = playwright.chromium.launch(**opciones_lanzamiento)
             try:
-                verificar_servidor_presentacion(browser, url_base, args.timeout_ms)
+                verificar_servidor_presentacion(
+                    browser, url_base, args.timeout_ms,
+                    permitir_red_privada=bool(args.red_docker_interna),
+                )
                 completados = 0
                 for tamano in TAMANOS_VISTA:
                     for escenario in escenarios:
                         resultado = capturar_escenario(
                             browser=browser, escenario=escenario, tamano=tamano,
                             url_base=url_base, directorio_salida=args.salida, timeout_ms=args.timeout_ms,
+                            permitir_red_privada=bool(args.red_docker_interna),
                         )
                         resultados.append(resultado)
                         completados += 1

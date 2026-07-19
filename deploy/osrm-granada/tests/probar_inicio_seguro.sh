@@ -30,13 +30,23 @@ if grep -En -- 'sh[[:space:]]+-c' "$compose"; then
     exit 1
 fi
 
+if ! grep -Fq -- '--verbosity WARNING' "$inicio"; then
+    echo "OSRM debe ocultar las coordenadas de las rutas en sus registros" >&2
+    exit 1
+fi
+
+if ! grep -Fq 'user: "65534:65534"' "$compose"; then
+    echo "el servicio OSRM debe ejecutarse sin privilegios" >&2
+    exit 1
+fi
+
 docker compose -f "$compose" config --quiet
 
 configuracion=$(OSRM_DATA_BASENAME=jaen_2026 \
     docker compose -f "$compose" --profile build config)
 apariciones=$(printf '%s\n' "$configuracion" | \
     grep -Fc 'OSRM_DATA_BASENAME: jaen_2026')
-if [ "$apariciones" -ne 4 ]; then
+if [ "$apariciones" -ne 5 ]; then
     echo "el nombre del conjunto no llega a todos los servicios OSRM" >&2
     exit 1
 fi

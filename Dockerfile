@@ -29,6 +29,11 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   -ldflags="-s -w" \
   -o /src/bin/vec-presentacion \
   ./cmd/vec-presentacion \
+  && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+  -trimpath \
+  -ldflags="-s -w" \
+  -o /src/bin/vec-cartografia-presentacion \
+  ./cmd/vec-cartografia-presentacion \
   && cp -a /src/web /src/web-presentacion \
   && find /src/web-presentacion -type f \( -iname '*.test.js' -o -iname '*.test.mjs' -o -iname '*test-helper*' \) -delete \
   && find /src/web-presentacion -type f \( -iname 'README*' -o -iname '*INTEGRACION*' \) -delete \
@@ -85,6 +90,32 @@ EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/vec-presentacion"]
 
+# Mediador cartografico de la presentacion. Es un proceso distinto para que el
+# servidor que entrega la web siga sin clientes de red ni identidad implicita.
+FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime-cartografia-presentacion
+
+RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+  && install -d --owner=app --group=app /app
+
+COPY --from=build /src/bin/vec-cartografia-presentacion /usr/local/bin/vec-cartografia-presentacion
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+USER app
+WORKDIR /app
+ENV VEC_HTTP_ADDR=127.0.0.1:8080
+ENV VEC_HTTP_ALLOWED_CIDRS=127.0.0.1/32,::1/128
+ENV VEC_EXECUTION_PROFILE=presentacion_rrhh
+ENV VEC_RRHH_PRESENTATION_ENABLED=true
+ENV VEC_RRHH_PRESENTATION_GUARD_ONE=ACEPTO_MODO_PRESENTACION_RRHH_NO_AUTORITATIVO
+ENV VEC_RRHH_PRESENTATION_GUARD_TWO=CONFIRMO_DATOS_SINTETICOS_SIN_VALIDEZ_ADMINISTRATIVA
+# El modo de autenticacion parte cerrado en Config. Si el despliegue intenta
+# inyectar cualquier otro modo, la raiz de composicion rechaza el arranque.
+ENV VEC_BOLSA_STORAGE_MODE=memory
+ENV VEC_PERSONAL_CATALOG_PATH=memory
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/vec-cartografia-presentacion"]
+
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime
 
 RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
@@ -111,3 +142,22 @@ ENV VEC_TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/vec-server"]
+
+# Herramienta reproducible de revisión visual. Chromium y sus dependencias
+# proceden de la imagen oficial fijada; el cliente Python y todas sus
+# dependencias se instalan con versiones y huellas cerradas. Esta etapa nunca
+# forma parte de los artefactos de ejecución de VEC.
+FROM mcr.microsoft.com/playwright/python:v1.60.0-noble@sha256:8ff591d613b01c884cc488339ed4318b4513eaf0c57a164a878ba49e70e3f384 AS herramientas-revision-web
+
+COPY scripts/revision_web/requirements.lock /tmp/requirements-revision-web.lock
+RUN python3 -m pip install \
+      --disable-pip-version-check \
+      --no-cache-dir \
+      --only-binary=:all: \
+      --require-hashes \
+      --requirement /tmp/requirements-revision-web.lock \
+  && rm -f /tmp/requirements-revision-web.lock \
+  && python3 -c 'import importlib.metadata as m; assert m.version("playwright") == "1.60.0"'
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+WORKDIR /workspace

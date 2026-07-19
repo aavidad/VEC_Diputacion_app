@@ -24,7 +24,8 @@ func NewHTTPServerPresentacionWithConfig(cfg config.Config) (*http.Server, error
 	if !cfg.RRHHPresentationEnabledByDoubleGuard() ||
 		cfg.AuthMode != config.AuthModeDisabled || cfg.StorageMode != config.StorageModeMemory ||
 		cfg.FakeCredentialsPath != "" || cfg.PersonalCatalogPath != "" || !cfg.PersonalCatalogInMemory ||
-		cfg.OSRMBaseURL != "" || len(cfg.OSRMAllowedCIDRs) != 0 ||
+		cfg.OSRMBaseURL != "" || cfg.OSRMScopeName != "" || cfg.OSRMScopeBounds != "" ||
+		len(cfg.OSRMAllowedCIDRs) != 0 || cfg.OSRMGraphVersion != "" ||
 		!rutaSinteticaPresentacion(cfg.BolsaPublicSourcePath) ||
 		!rutaSinteticaPresentacion(cfg.BolsaCategoriesSourcePath) {
 		return nil, ErrComposicionPresentacionRRHHInvalida

@@ -63,20 +63,30 @@ intercambiar() {
 intercambiar "releases/$version"
 
 arrancar() {
-  UID_GID="$(id -u):$(id -g)" docker compose --project-directory "$raiz" up -d --force-recreate --no-deps tiles-osm
+  UID_GID="$(id -u):$(id -g)" docker compose --project-directory "$raiz" \
+    up -d --force-recreate tiles-osm proxy-osm
 }
 
 saludable() {
   for _ in $(seq 1 60); do
-    id="$(docker compose --project-directory "$raiz" ps -q tiles-osm 2>/dev/null || true)"
-    if [[ -n "$id" ]]; then
-      salud="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}sin-salud{{end}}' "$id" 2>/dev/null || true)"
-      if [[ "$salud" == "healthy" ]]; then
-        return 0
+    todos_saludables=true
+    for servicio in tiles-osm proxy-osm; do
+      id="$(docker compose --project-directory "$raiz" ps -q "$servicio" 2>/dev/null || true)"
+      if [[ -z "$id" ]]; then
+        todos_saludables=false
+        continue
       fi
-      if [[ "$(docker inspect --format '{{.State.Status}}' "$id" 2>/dev/null || true)" == "exited" ]]; then
+      estado_contenedor="$(docker inspect --format '{{.State.Status}}' "$id" 2>/dev/null || true)"
+      if [[ "$estado_contenedor" == "exited" || "$estado_contenedor" == "dead" ]]; then
         return 1
       fi
+      salud="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}sin-salud{{end}}' "$id" 2>/dev/null || true)"
+      if [[ "$salud" != "healthy" ]]; then
+        todos_saludables=false
+      fi
+    done
+    if [[ "$todos_saludables" == true ]]; then
+      return 0
     fi
     sleep 2
   done
@@ -95,7 +105,7 @@ if [[ -n "$anterior" ]]; then
   arrancar || true
 else
   rm -f -- "$activo"
-  docker compose --project-directory "$raiz" stop tiles-osm >/dev/null 2>&1 || true
+  docker compose --project-directory "$raiz" stop proxy-osm tiles-osm >/dev/null 2>&1 || true
 fi
 printf '%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$version" "revertida" >>"$estado/activaciones.log"
 exit 1

@@ -18,6 +18,9 @@ import (
 	bolsamodule "vec-diputacion-granada/internal/modules/bolsa"
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
 	dietasmodule "vec-diputacion-granada/internal/modules/dietas"
+	httpcartografia "vec-diputacion-granada/internal/modules/dietas/adapters/httpcartografia"
+	dietasosrm "vec-diputacion-granada/internal/modules/dietas/adapters/osrm"
+	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
 	personalmemory "vec-diputacion-granada/internal/modules/personal/adapters/memory"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
@@ -31,13 +34,36 @@ func newTestHandler(t *testing.T) *Handler {
 	return newTestHandlerWithOptions(t, HandlerOptions{})
 }
 
+const versionGrafoOSRMPrueba = "grafo-osm-granada-prueba-v1"
+
 func testOSRMOptions(baseURL string) HandlerOptions {
-	return HandlerOptions{
-		OSRMBaseURL:      baseURL,
-		OSRMScopeName:    "Granada provincia + 15 km",
-		OSRMScopeBounds:  "36.45,-4.6,38.25,-2.15",
-		OSRMAllowedCIDRs: []string{"127.0.0.1/32"},
+	return testOSRMOptionsConConfiguracion(dietasosrm.Configuracion{
+		URLBase: baseURL, NombreAmbito: "Granada provincia + 15 km",
+		LimitesAmbito: "36.45,-4.6,38.25,-2.15", CIDRPermitidas: []string{"127.0.0.1/32"},
+		VersionGrafo: versionGrafoOSRMPrueba,
+	})
+}
+
+func testOSRMOptionsConConfiguracion(configuracion dietasosrm.Configuracion) HandlerOptions {
+	motor, err := dietasosrm.Nuevo(configuracion)
+	if err != nil || motor == nil {
+		panic("configuracion OSRM de prueba invalida")
 	}
+	servicio, err := dietasapp.NuevoServicioCalculoRutas(motor)
+	if err != nil {
+		panic("caso de uso OSRM de prueba invalido")
+	}
+	manejador, err := httpcartografia.NuevoManejador(servicio, httpcartografia.OpcionesManejador{EnvolverEnDatos: true})
+	if err != nil {
+		panic("manejador OSRM de prueba invalido")
+	}
+	return HandlerOptions{ManejadorRutaDietas: manejador}
+}
+
+func nuevaPeticionRutaDietas(cuerpo string) *http.Request {
+	peticion := httptest.NewRequest(http.MethodPost, "/api/vec/dietas/road-route", strings.NewReader(cuerpo))
+	peticion.Header.Set("Content-Type", "application/json; charset=utf-8")
+	return peticion
 }
 
 func newTestHandlerWithOptions(t *testing.T, options HandlerOptions) *Handler {
@@ -172,7 +198,7 @@ func servirRutaDietasConPermisoExpreso(handler *Handler, rec *httptest.ResponseR
 
 func TestDietasRoadRouteRequiresInternalOSRM(t *testing.T) {
 	handler := newTestHandler(t)
-	req := httptest.NewRequest(http.MethodPost, "/api/vec/dietas/road-route", strings.NewReader(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`))
+	req := nuevaPeticionRutaDietas(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`)
 	rec := httptest.NewRecorder()
 	servirRutaDietasConPermisoExpreso(handler, rec, req)
 	if rec.Code != http.StatusServiceUnavailable {
@@ -183,71 +209,16 @@ func TestDietasRoadRouteRequiresInternalOSRM(t *testing.T) {
 	}
 }
 
-func TestDietasRoadRouteRejectsIncompleteOrNonCanonicalConfiguration(t *testing.T) {
-	store := memory.NewStore()
-	service, err := application.NewService(store, store, store)
-	if err != nil {
-		t.Fatalf("NewService() error = %v", err)
-	}
-	valid := testOSRMOptions("http://127.0.0.1:5000")
-	tests := []struct {
-		name    string
-		options HandlerOptions
-	}{
-		{name: "URL sin ambito ni red", options: HandlerOptions{OSRMBaseURL: valid.OSRMBaseURL}},
-		{name: "sin nombre", options: HandlerOptions{
-			OSRMBaseURL: valid.OSRMBaseURL, OSRMScopeBounds: valid.OSRMScopeBounds, OSRMAllowedCIDRs: valid.OSRMAllowedCIDRs,
-		}},
-		{name: "sin limites", options: HandlerOptions{
-			OSRMBaseURL: valid.OSRMBaseURL, OSRMScopeName: valid.OSRMScopeName, OSRMAllowedCIDRs: valid.OSRMAllowedCIDRs,
-		}},
-		{name: "sin redes", options: HandlerOptions{
-			OSRMBaseURL: valid.OSRMBaseURL, OSRMScopeName: valid.OSRMScopeName, OSRMScopeBounds: valid.OSRMScopeBounds,
-		}},
-		{name: "limites mal formados", options: HandlerOptions{
-			OSRMBaseURL: valid.OSRMBaseURL, OSRMScopeName: valid.OSRMScopeName,
-			OSRMScopeBounds: "36.45,-4.6,38.25", OSRMAllowedCIDRs: valid.OSRMAllowedCIDRs,
-		}},
-		{name: "limites no canonicos", options: HandlerOptions{
-			OSRMBaseURL: valid.OSRMBaseURL, OSRMScopeName: valid.OSRMScopeName,
-			OSRMScopeBounds: "36.45,-4.60,38.25,-2.15", OSRMAllowedCIDRs: valid.OSRMAllowedCIDRs,
-		}},
-		{name: "esquema no permitido", options: HandlerOptions{
-			OSRMBaseURL: "ftp://127.0.0.1:5000", OSRMScopeName: valid.OSRMScopeName,
-			OSRMScopeBounds: valid.OSRMScopeBounds, OSRMAllowedCIDRs: valid.OSRMAllowedCIDRs,
-		}},
-		{name: "URL con consulta", options: HandlerOptions{
-			OSRMBaseURL: "http://127.0.0.1:5000?destino=otro", OSRMScopeName: valid.OSRMScopeName,
-			OSRMScopeBounds: valid.OSRMScopeBounds, OSRMAllowedCIDRs: valid.OSRMAllowedCIDRs,
-		}},
-		{name: "red universal", options: HandlerOptions{
-			OSRMBaseURL: valid.OSRMBaseURL, OSRMScopeName: valid.OSRMScopeName,
-			OSRMScopeBounds: valid.OSRMScopeBounds, OSRMAllowedCIDRs: []string{"0.0.0.0/0"},
-		}},
-		{name: "red no canonica", options: HandlerOptions{
-			OSRMBaseURL: valid.OSRMBaseURL, OSRMScopeName: valid.OSRMScopeName,
-			OSRMScopeBounds: valid.OSRMScopeBounds, OSRMAllowedCIDRs: []string{"127.0.0.1/8"},
-		}},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if _, err := NewHandlerWithOptions(service, test.options); err == nil {
-				t.Fatal("la configuracion OSRM incompleta o no canonica fue aceptada")
-			}
-		})
-	}
-}
-
 func TestDietasRoadRouteUsesConfiguredInternalOSRM(t *testing.T) {
 	var requestedPath string
 	osrm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestedPath = r.URL.RequestURI()
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"code":"Ok","routes":[{"distance":13400,"duration":1080,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6200,37.2050],[-3.6554,37.2306]]}}],"waypoints":[],"data_version":"2026-06-20T00:00:00Z"}`))
+		_, _ = w.Write([]byte(`{"code":"Ok","routes":[{"distance":13400,"duration":1080,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6200,37.2050],[-3.6554,37.2306]]},"legs":[{"distance":13400,"duration":1080}]}],"waypoints":[],"data_version":"grafo-osm-granada-prueba-v1"}`))
 	}))
 	defer osrm.Close()
 	handler := newTestHandlerWithOptions(t, testOSRMOptions(osrm.URL))
-	req := httptest.NewRequest(http.MethodPost, "/api/vec/dietas/road-route", strings.NewReader(`{"coordinates":[{"lat":37.1773,"lon":-3.5986,"name":"Granada"},{"lat":37.2306,"lon":-3.6554,"name":"Albolote"}]}`))
+	req := nuevaPeticionRutaDietas(`{"coordinates":[{"lat":37.1773,"lon":-3.5986,"name":"Granada"},{"lat":37.2306,"lon":-3.6554,"name":"Albolote"}]}`)
 	rec := httptest.NewRecorder()
 	servirRutaDietasConPermisoExpreso(handler, rec, req)
 	if rec.Code != http.StatusOK {
@@ -263,7 +234,7 @@ func TestDietasRoadRouteUsesConfiguredInternalOSRM(t *testing.T) {
 		t.Fatalf("OSRM path should avoid heavy step payloads: %s", requestedPath)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{`"engine":"osrm_on_premise"`, `"distance":13400`, `"data_version":"2026-06-20T00:00:00Z"`} {
+	for _, want := range []string{`"engine":"osrm_on_premise"`, `"distance":13400`, `"data_version":"grafo-osm-granada-prueba-v1"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("road route response missing %s: %s", want, body)
 		}
@@ -277,10 +248,13 @@ func TestDietasRoadRouteDoesNotConnectOutsideExplicitNetworks(t *testing.T) {
 		_, _ = w.Write([]byte(`{"code":"Ok","routes":[]}`))
 	}))
 	defer osrm.Close()
-	options := testOSRMOptions(osrm.URL)
-	options.OSRMAllowedCIDRs = []string{"10.0.0.0/8"}
+	options := testOSRMOptionsConConfiguracion(dietasosrm.Configuracion{
+		URLBase: osrm.URL, NombreAmbito: "Granada provincia + 15 km",
+		LimitesAmbito: "36.45,-4.6,38.25,-2.15", CIDRPermitidas: []string{"10.0.0.0/8"},
+		VersionGrafo: versionGrafoOSRMPrueba,
+	})
 	handler := newTestHandlerWithOptions(t, options)
-	req := httptest.NewRequest(http.MethodPost, "/api/vec/dietas/road-route", strings.NewReader(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`))
+	req := nuevaPeticionRutaDietas(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`)
 	rec := httptest.NewRecorder()
 	servirRutaDietasConPermisoExpreso(handler, rec, req)
 	if rec.Code != http.StatusBadGateway {
@@ -303,7 +277,7 @@ func TestDietasRoadRouteDoesNotFollowRedirects(t *testing.T) {
 	}))
 	defer origin.Close()
 	handler := newTestHandlerWithOptions(t, testOSRMOptions(origin.URL))
-	req := httptest.NewRequest(http.MethodPost, "/api/vec/dietas/road-route", strings.NewReader(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`))
+	req := nuevaPeticionRutaDietas(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`)
 	rec := httptest.NewRecorder()
 	servirRutaDietasConPermisoExpreso(handler, rec, req)
 	if rec.Code != http.StatusBadGateway {
@@ -319,11 +293,11 @@ func TestDietasRoadRouteCanRequestAlternatives(t *testing.T) {
 	osrm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestedPath = r.URL.RequestURI()
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"code":"Ok","routes":[]}`))
+		_, _ = w.Write([]byte(`{"code":"Ok","data_version":null,"routes":[{"distance":13400,"duration":1080,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6554,37.2306]]},"legs":[{"distance":13400,"duration":1080}]}]}`))
 	}))
 	defer osrm.Close()
 	handler := newTestHandlerWithOptions(t, testOSRMOptions(osrm.URL))
-	req := httptest.NewRequest(http.MethodPost, "/api/vec/dietas/road-route", strings.NewReader(`{"alternatives":3,"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`))
+	req := nuevaPeticionRutaDietas(`{"alternatives":3,"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`)
 	rec := httptest.NewRecorder()
 	servirRutaDietasConPermisoExpreso(handler, rec, req)
 	if rec.Code != http.StatusOK {
@@ -336,7 +310,7 @@ func TestDietasRoadRouteCanRequestAlternatives(t *testing.T) {
 
 func TestDietasRoadRouteRejectsCoordinatesOutsideGranadaScope(t *testing.T) {
 	handler := newTestHandlerWithOptions(t, testOSRMOptions("http://127.0.0.1:5000"))
-	req := httptest.NewRequest(http.MethodPost, "/api/vec/dietas/road-route", strings.NewReader(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":40.4168,"lon":-3.7038}]}`))
+	req := nuevaPeticionRutaDietas(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":40.4168,"lon":-3.7038}]}`)
 	rec := httptest.NewRecorder()
 	servirRutaDietasConPermisoExpreso(handler, rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -349,16 +323,15 @@ func TestDietasRoadRouteRejectsCoordinatesOutsideGranadaScope(t *testing.T) {
 
 func TestDietasRoadRouteScopeCanBeChangedByConfiguration(t *testing.T) {
 	osrm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"code":"Ok","routes":[]}`))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":"Ok","data_version":null,"routes":[{"distance":430000,"duration":18000,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.7038,40.4168]]},"legs":[{"distance":430000,"duration":18000}]}]}`))
 	}))
 	defer osrm.Close()
-	handler := newTestHandlerWithOptions(t, HandlerOptions{
-		OSRMBaseURL:      osrm.URL,
-		OSRMScopeName:    "Ambito prueba",
-		OSRMScopeBounds:  "35,-5,42,-1",
-		OSRMAllowedCIDRs: []string{"127.0.0.1/32"},
-	})
-	req := httptest.NewRequest(http.MethodPost, "/api/vec/dietas/road-route", strings.NewReader(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":40.4168,"lon":-3.7038}]}`))
+	handler := newTestHandlerWithOptions(t, testOSRMOptionsConConfiguracion(dietasosrm.Configuracion{
+		URLBase: osrm.URL, NombreAmbito: "Ambito prueba", LimitesAmbito: "35,-5,42,-1",
+		CIDRPermitidas: []string{"127.0.0.1/32"}, VersionGrafo: versionGrafoOSRMPrueba,
+	}))
+	req := nuevaPeticionRutaDietas(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":40.4168,"lon":-3.7038}]}`)
 	rec := httptest.NewRecorder()
 	servirRutaDietasConPermisoExpreso(handler, rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"route_scope":"Ambito prueba"`) {

@@ -1,6 +1,6 @@
 services:
   osrm-extract:
-    image: ${OSRM_IMAGE:-osrm/osrm-backend:latest}
+    image: ${OSRM_IMAGE:-osrm/osrm-backend:v5.26.0@sha256:af5d4a83fb90086a43b1ae2ca22872e6768766ad5fcbb07a29ff90ec644ee409}
     profiles: ["build"]
     working_dir: /data
     entrypoint: ["/bin/sh", "/opt/vec/iniciar_osrm.sh"]
@@ -12,7 +12,7 @@ services:
     command: ["extraer"]
 
   osrm-partition:
-    image: ${OSRM_IMAGE:-osrm/osrm-backend:latest}
+    image: ${OSRM_IMAGE:-osrm/osrm-backend:v5.26.0@sha256:af5d4a83fb90086a43b1ae2ca22872e6768766ad5fcbb07a29ff90ec644ee409}
     profiles: ["build"]
     working_dir: /data
     entrypoint: ["/bin/sh", "/opt/vec/iniciar_osrm.sh"]
@@ -27,7 +27,7 @@ services:
         condition: service_completed_successfully
 
   osrm-customize:
-    image: ${OSRM_IMAGE:-osrm/osrm-backend:latest}
+    image: ${OSRM_IMAGE:-osrm/osrm-backend:v5.26.0@sha256:af5d4a83fb90086a43b1ae2ca22872e6768766ad5fcbb07a29ff90ec644ee409}
     profiles: ["build"]
     working_dir: /data
     entrypoint: ["/bin/sh", "/opt/vec/iniciar_osrm.sh"]
@@ -41,8 +41,27 @@ services:
       osrm-partition:
         condition: service_completed_successfully
 
+  # Última fase de construcción. El contenedor efímero conserva root sólo
+  # para dejar el grafo inmutable y legible por el UID sin privilegios que lo
+  # sirve; ninguna normalización se realiza durante el arranque.
+  osrm-normalize:
+    image: ${OSRM_IMAGE:-osrm/osrm-backend:v5.26.0@sha256:af5d4a83fb90086a43b1ae2ca22872e6768766ad5fcbb07a29ff90ec644ee409}
+    profiles: ["build"]
+    working_dir: /data
+    user: "0:0"
+    entrypoint: ["/bin/sh", "/opt/vec/iniciar_osrm.sh"]
+    environment:
+      OSRM_DATA_BASENAME: ${OSRM_DATA_BASENAME:-granada-buffer}
+    volumes:
+      - ./data:/data
+      - ./iniciar_osrm.sh:/opt/vec/iniciar_osrm.sh:ro
+    command: ["normalizar"]
+    depends_on:
+      osrm-customize:
+        condition: service_completed_successfully
+
   osrm:
-    image: ${OSRM_IMAGE:-osrm/osrm-backend:latest}
+    image: ${OSRM_IMAGE:-osrm/osrm-backend:v5.26.0@sha256:af5d4a83fb90086a43b1ae2ca22872e6768766ad5fcbb07a29ff90ec644ee409}
     restart: unless-stopped
     entrypoint: ["/bin/sh", "/opt/vec/iniciar_osrm.sh"]
     environment:
@@ -53,3 +72,11 @@ services:
       - ./data:/data:ro
       - ./iniciar_osrm.sh:/opt/vec/iniciar_osrm.sh:ro
     command: ["servir"]
+    user: "65534:65534"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

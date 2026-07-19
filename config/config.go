@@ -41,6 +41,7 @@ const (
 	EnvOSRMScopeName             = "VEC_OSRM_SCOPE_NAME"
 	EnvOSRMScopeBounds           = "VEC_OSRM_SCOPE_BOUNDS"
 	EnvOSRMAllowedCIDRs          = "VEC_OSRM_ALLOWED_CIDRS"
+	EnvOSRMGraphVersion          = "VEC_OSRM_GRAPH_VERSION"
 	EnvRRHHPresentationEnabled   = "VEC_RRHH_PRESENTATION_ENABLED"
 	EnvRRHHPresentationGuardOne  = "VEC_RRHH_PRESENTATION_GUARD_ONE"
 	EnvRRHHPresentationGuardTwo  = "VEC_RRHH_PRESENTATION_GUARD_TWO"
@@ -111,6 +112,7 @@ type Config struct {
 	OSRMScopeName             string
 	OSRMScopeBounds           string
 	OSRMAllowedCIDRs          []string
+	OSRMGraphVersion          string
 	RRHHPresentationEnabled   bool
 	RRHHPresentationGuardOne  string
 	RRHHPresentationGuardTwo  string
@@ -151,6 +153,7 @@ func Load() Config {
 		OSRMScopeName:             envFirst(EnvOSRMScopeName),
 		OSRMScopeBounds:           envFirst(EnvOSRMScopeBounds),
 		OSRMAllowedCIDRs:          splitCSV(envFirst(EnvOSRMAllowedCIDRs)),
+		OSRMGraphVersion:          envFirst(EnvOSRMGraphVersion),
 		RRHHPresentationEnabled:   envBool(EnvRRHHPresentationEnabled),
 		RRHHPresentationGuardOne:  envFirst(EnvRRHHPresentationGuardOne),
 		RRHHPresentationGuardTwo:  envFirst(EnvRRHHPresentationGuardTwo),
@@ -228,6 +231,7 @@ func (c Config) Normalize() Config {
 	c.OSRMBaseURL = strings.TrimRight(strings.TrimSpace(c.OSRMBaseURL), "/")
 	c.OSRMScopeName = strings.TrimSpace(c.OSRMScopeName)
 	c.OSRMScopeBounds = strings.TrimSpace(c.OSRMScopeBounds)
+	c.OSRMGraphVersion = strings.TrimSpace(c.OSRMGraphVersion)
 	// No se infiere ninguna red para el motor de rutas. Configurar la URL sin
 	// enumerar tambien sus redes de destino deja la integracion incompleta y el
 	// adaptador HTTP rechazara el arranque.

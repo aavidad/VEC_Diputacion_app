@@ -11,7 +11,7 @@ import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=202
 import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260718-formularios-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260718-formularios-v2";
 import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-formularios-v2";
-import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260719-modulos-v1";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260719-cartografia-osrm-v2";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260719-catalogo-v1";
 import { instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260719-menu-bolsa-v1";
 /**

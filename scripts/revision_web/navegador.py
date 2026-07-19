@@ -29,12 +29,14 @@ from .modelo import (
 )
 
 
-def verificar_servidor_presentacion(browser: Any, url_base: str, timeout_ms: int) -> None:
-    """Falla antes del recorrido si el proceso local no acredita ser la DEMO."""
+def verificar_servidor_presentacion(
+    browser: Any, url_base: str, timeout_ms: int, permitir_red_privada: bool = False,
+) -> None:
+    """Falla antes del recorrido si el proceso aislado no acredita ser la DEMO."""
     context = browser.new_context(service_workers="block")
     try:
         respuesta = context.request.get(
-            construir_url(url_base, "/presentacion/"),
+            construir_url(url_base, "/presentacion/", permitir_red_privada),
             timeout=timeout_ms,
             fail_on_status_code=False,
         )
@@ -75,6 +77,64 @@ def esperar_red_estable(page: Any, pendientes: dict[int, dict[str, str]], timeou
     )]
 
 
+MAXIMO_ALTO_CAPTURA_COMPLETA = 16_000
+
+
+def _capturar_con_reintento(page: Any, **opciones: Any) -> None:
+    """Tolera un único fallo transitorio del protocolo de Chromium."""
+    ultimo_error: Exception | None = None
+    for intento in range(2):
+        try:
+            page.screenshot(animations="disabled", **opciones)
+            return
+        except Exception as error:  # Playwright expone errores de protocolo dinámicos.
+            ultimo_error = error
+            if intento == 0:
+                page.wait_for_timeout(150)
+    if ultimo_error is not None:
+        raise ultimo_error
+
+
+def guardar_captura(page: Any, destino: Path, *, pagina_completa: bool) -> tuple[Path, ...]:
+    """Guarda una página completa; las muy altas se recorren por viewports."""
+    for anterior in destino.parent.glob(f"{destino.stem}.parte-*.png"):
+        anterior.unlink(missing_ok=True)
+    if not pagina_completa:
+        _capturar_con_reintento(page, path=str(destino), full_page=False)
+        return (destino,)
+
+    dimensiones = page.evaluate("""() => ({
+      ancho: document.documentElement.scrollWidth,
+      alto: document.documentElement.scrollHeight,
+      desplazamiento: window.scrollY
+    })""")
+    alto = int(dimensiones.get("alto", 0))
+    if 0 < alto <= MAXIMO_ALTO_CAPTURA_COMPLETA:
+        _capturar_con_reintento(page, path=str(destino), full_page=True)
+        return (destino,)
+
+    viewport = page.viewport_size or {}
+    alto_viewport = int(viewport.get("height", 0))
+    if alto <= 0 or alto_viewport <= 0:
+        raise RuntimeError("no se pudo determinar el alto para la captura segmentada")
+    maximo_desplazamiento = max(0, alto - alto_viewport)
+    posiciones = list(range(0, maximo_desplazamiento + 1, alto_viewport))
+    if posiciones[-1] != maximo_desplazamiento:
+        posiciones.append(maximo_desplazamiento)
+
+    capturas: list[Path] = []
+    for indice, posicion in enumerate(posiciones):
+        parte = destino if indice == 0 else destino.with_name(
+            f"{destino.stem}.parte-{indice + 1:02d}{destino.suffix}",
+        )
+        page.evaluate("y => window.scrollTo(0, y)", posicion)
+        page.wait_for_timeout(50)
+        _capturar_con_reintento(page, path=str(parte), full_page=False)
+        capturas.append(parte)
+    page.evaluate("y => window.scrollTo(0, y)", int(dimensiones.get("desplazamiento", 0)))
+    return tuple(capturas)
+
+
 def capturar_escenario(
     browser: Any,
     escenario: Escenario,
@@ -82,10 +142,11 @@ def capturar_escenario(
     url_base: str,
     directorio_salida: Path,
     timeout_ms: int,
+    permitir_red_privada: bool = False,
 ) -> dict[str, Any]:
     inicio = time.monotonic()
     superficie = SUPERFICIES[escenario.superficie]
-    url = construir_url(url_base, escenario.ruta)
+    url = construir_url(url_base, escenario.ruta, permitir_red_privada)
     ruta_captura = Path("capturas") / tamano.clave / escenario.tipo / superficie.clave / f"{slug_castellano(escenario.clave)}.png"
     destino_captura = directorio_salida / ruta_captura
     destino_captura.parent.mkdir(parents=True, exist_ok=True)
@@ -99,7 +160,7 @@ def capturar_escenario(
     peticiones_pendientes: dict[int, dict[str, str]] = {}
     auditoria: dict[str, Any] = {}
     context = None
-    captura_guardada = False
+    capturas_guardadas: tuple[Path, ...] = ()
     cabecera_tecnica_confirmada = False
 
     try:
@@ -188,10 +249,9 @@ def capturar_escenario(
 
         hallazgos.extend(esperar_red_estable(page, peticiones_pendientes, timeout_ms))
         try:
-            page.screenshot(
-                path=str(destino_captura), full_page=escenario.tipo == "vista", animations="disabled",
+            capturas_guardadas = guardar_captura(
+                page, destino_captura, pagina_completa=escenario.tipo == "vista",
             )
-            captura_guardada = True
         except Exception as error:
             hallazgos.append(_hallazgo("captura_fallida", "No se pudo guardar la captura.", str(error)))
         page.wait_for_timeout(50)
@@ -230,8 +290,14 @@ def capturar_escenario(
         "tipo": escenario.tipo, "clave": escenario.clave, "nombre": escenario.nombre,
         "superficie": superficie.clave, "nombre_superficie": superficie.nombre,
         "ruta": escenario.ruta, "url": url, "tamano": asdict(tamano),
-        "captura": ruta_captura.as_posix() if captura_guardada else None,
-        "alcance_captura": "pagina-completa" if escenario.tipo == "vista" else "viewport-flujo",
+        "captura": ruta_captura.as_posix() if capturas_guardadas else None,
+        "capturas_adicionales": [
+            ruta.relative_to(directorio_salida).as_posix() for ruta in capturas_guardadas[1:]
+        ],
+        "alcance_captura": (
+            "pagina-completa-segmentada" if len(capturas_guardadas) > 1
+            else "pagina-completa" if escenario.tipo == "vista" else "viewport-flujo"
+        ),
         "correcto": not hallazgos,
         "duracion_ms": round((time.monotonic() - inicio) * 1000),
         "hallazgos": hallazgos, "metricas": auditoria,

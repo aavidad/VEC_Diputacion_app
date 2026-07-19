@@ -9,9 +9,10 @@ deploy/osrm-granada/data/granada-buffer.osm.pbf (sólo lectura)
         │
         ├─ importación aislada: tilemaker → versión MBTiles inmutable
         │
-        └─ estado/activo ─→ TileServer GL ─→ 127.0.0.1:8091
-                                             │
-                              proxy HTTPS ───┘
+        └─ estado/activo ─→ TileServer GL ─→ Nginx de borde Docker
+                              (red interna)       │
+                                  127.0.0.1:8091 ─┤
+                              proxy HTTPS ────────┘
                                              │
                               /tiles/osm/{z}/{x}/{y}.png
 ```
@@ -31,6 +32,9 @@ Se usa una cadena open source pequeña y reemplazable:
 - [TileServer GL 5.6.0](https://github.com/maptiler/tileserver-gl/releases/tag/v5.6.0)
   renderiza las teselas vectoriales como PNG mediante MapLibre GL Native. Su
   interfaz queda detrás de Nginx; no se publica su visor ni su API de datos.
+- Nginx 1.27.5 actúa como borde mínimo dentro de Docker. Es el único contenedor
+  que publica un puerto, siempre en `127.0.0.1`; sólo acepta la ruta canónica de
+  teselas y elimina identidad, autorización y cookies antes de reenviar.
 - [Leaflet 1.9.4](https://leafletjs.com/download.html), última versión estable a
   2026-07-19, se debe servir vendorizada desde el propio artefacto web. La rama
   2.0 sigue siendo prerelease y no se adopta en esta fase.
@@ -58,13 +62,14 @@ multi-arquitectura:
 |---|---|---|
 | tilemaker | `ghcr.io/systemed/tilemaker:master@sha256:d32505d7827907089c2dd07517524276946d8930b4b82e93cf5c25ec989bbe41` | etiqueta interna `Version=3.1.0`, revisión `e16203e4e2fb38a11580621fc0503ef463ab849f` |
 | TileServer GL | `maptiler/tileserver-gl:v5.6.0@sha256:3a9ccdb24820b6814c8119bcc8a4376c39867cb0ffe69d62919ef898b90c2427` | release upstream 5.6.0, base Ubuntu 24.04, usuario `node` |
+| Nginx | `nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10` | imagen oficial resuelta como Nginx 1.27.5 sobre Alpine, ejecutada como UID/GID 101 |
 
 Esta comprobación confirma la resolución del manifiesto, no sustituye el
 análisis de vulnerabilidades ni una prueba sobre la plataforma de Sistemas. El
 Compose usa `pull_policy: never`: si las imágenes exactas no están previamente
 en el host, no descarga otra ni arranca con `latest`. Sistemas debe:
 
-1. replicar por digest ambas imágenes en el registro interno;
+1. replicar por digest las tres imágenes en el registro interno;
 2. ejecutar análisis de vulnerabilidades, SBOM y política de firma/procedencia;
 3. aprobar la arquitectura (`linux/amd64` o `linux/arm64`);
 4. precargar la referencia exacta en el nodo;
@@ -82,8 +87,9 @@ fijación en una variable de entorno.
   `deploy/osrm-granada/data/granada-buffer.osm.pbf`. Se monta en sólo lectura y
   no se duplica.
 - SSD con espacio para dos generaciones MBTiles durante una actualización.
-- Límites iniciales: 1 CPU/1 GiB para servir y 2 CPU/3 GiB para importar. Son
-  cotas, no garantías: Sistemas debe medir tiempo, memoria, latencia y tamaño.
+- Límites iniciales: 1 CPU/1 GiB para renderizar, 0,25 CPU/128 MiB para el proxy
+  y 2 CPU/3 GiB para importar. Son cotas, no garantías: Sistemas debe medir
+  tiempo, memoria, latencia y tamaño.
 
 Copiar `.env.example` a `.env` sólo si se necesitan valores distintos. El
 fragmento Nginx incluido asume el puerto inicial `8091`; si Sistemas lo cambia,
@@ -118,14 +124,17 @@ El script:
 1. calcula la huella del PBF compartido;
 2. crea una versión `AAAAMMDDThhmmssZ-12hex` que nunca sobrescribe otra;
 3. ejecuta tilemaker sin red, sin capacidades y con almacenamiento temporal en
-   `estado/trabajo/`;
+   `estado/trabajo/`; como el PBF compartido actual carece de `bbox` en su
+   cabecera, aplica el rectángulo provincial versionado en `OSM_IMPORT_BBOX`;
 4. valida SQLite, metadatos, zoom 0-14 y una tesela semilla de Granada;
 5. publica `granada.mbtiles` en sólo lectura junto a `manifiesto.json`.
 
-No se ha ejecutado esa importación durante la preparación del repositorio porque
-es una carga pesada y debe realizarse en la máquina dimensionada por Sistemas.
-Un fallo elimina únicamente la versión parcial y conserva todas las versiones
-ya publicadas.
+La prueba operativa del 2026-07-19 generó 14.489 teselas de zoom 0-14 en un
+MBTiles de 84,7 MiB a partir del PBF de 105 MiB. La conversión tardó unos 30
+segundos, alcanzó aproximadamente 1,9 GiB dentro del límite de 3 GiB y no usó
+red. Son medidas de esta estación de desarrollo, no un dimensionamiento de
+producción. Un fallo elimina únicamente la versión parcial y conserva todas las
+versiones ya publicadas.
 
 ## Activación, salud y reversión
 
@@ -136,10 +145,10 @@ La importación imprime el identificador resultante. Se activa expresamente:
 ```
 
 La activación vuelve a verificar huella y MBTiles, intercambia el enlace
-`estado/activo` de forma atómica, recrea sólo `tiles-osm` y espera una tesela PNG
-real de Granada. Si el contenedor no queda saludable en dos minutos, restaura el
-enlace anterior y vuelve a arrancarlo. No hay conmutación a Internet ni mapa
-vacío silencioso.
+`estado/activo` de forma atómica, recrea el renderer y su proxy Docker y espera
+una tesela PNG real de Granada a través de ambos. Si cualquiera no queda
+saludable en dos minutos, restaura el enlace anterior y vuelve a arrancarlos. No
+hay conmutación a Internet ni mapa vacío silencioso.
 
 Para volver conscientemente a una versión conservada se usa el mismo comando:
 
@@ -155,8 +164,8 @@ Comprobaciones operativas:
 
 ```bash
 docker compose ps
-docker compose logs --since=10m tiles-osm
-curl --fail --head http://127.0.0.1:8091/styles/osm-granada/256/8/125/99.png
+docker compose logs --since=10m tiles-osm proxy-osm
+curl --fail --head http://127.0.0.1:8091/tiles/osm/8/125/99.png
 ```
 
 El endpoint loopback es diagnóstico local. La prueba funcional debe hacerse por
@@ -176,9 +185,14 @@ portal interno.
 ## Sin egreso y tratamiento de datos
 
 - El importador usa `network_mode: none`.
-- El renderer vive en una red Docker `internal: true` y sólo publica loopback.
+- El renderer vive exclusivamente en una red Docker `internal: true` y no
+  publica ningún puerto. El proxy se une a esa red y a una red de borde sin NAT;
+  sólo él publica `127.0.0.1:8091`.
 - El renderer tiene raíz de sólo lectura, todas las capacidades eliminadas,
   `no-new-privileges`, límites de procesos, CPU y memoria y CORS desactivado.
+- El proxy también tiene raíz de sólo lectura, usuario sin privilegios, todas
+  las capacidades eliminadas y límites propios. No se instala ningún servicio
+  auxiliar en el anfitrión.
 - El mapa base contiene datos cartográficos OSM, no DNI, nombres de personal,
   expedientes, posiciones GPS ni recorridos de empleados.
 - La geometría del viaje se obtiene del OSRM interno y se superpone en el
@@ -232,6 +246,11 @@ terceros. La capa se crea con atribución visible y accesible:
 <https://www.openstreetmap.org/copyright> y `OpenMapTiles` a
 <https://openmaptiles.org/>. La atribución no se oculta con CSS y se conserva en
 capturas, impresiones y documentos que incorporen un mapa.
+
+TileServer GL se ejecuta con `--silent`: sus registros técnicos no conservan
+las coordenadas `z/x/y` de cada tesela solicitada, que permitirían aproximar el
+itinerario mostrado. El proxy tampoco registra las teselas. Estos registros no
+son una fuente de auditoría de desplazamientos.
 
 ## Licencias y fuentes primarias
 

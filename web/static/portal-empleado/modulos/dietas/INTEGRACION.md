@@ -13,9 +13,10 @@ const adaptador = crearAdaptadorDietasPresentacion({
   capacidades,
 });
 
-const calculadorRuta = crearCalculadorRutasDietasPresentacion({
+const calculadorRuta = crearCalculadorRutasDietasPresentacionOSRM({
   contextoActor,
   capacidades,
+  fetchImpl,
 });
 
 const modulo = await montarModuloDietas({
@@ -57,9 +58,13 @@ interfaz.
 - `visorRuta.montar({ raiz, descriptor })`: recibe geometría ya autorizada y
   solo admite OpenStreetMap servido en la red interna mediante
   `/tiles/osm/{z}/{x}/{y}.png`. El navegador no llama a OSRM, geocodificadores,
-  teselas públicas ni otros terceros. Sin la biblioteca Leaflet local conserva
-  el croquis SVG sintético, sin atribuirlo a OpenStreetMap ni usarlo para
-  liquidar kilómetros.
+  teselas públicas ni otros terceros. La composición activa Leaflet únicamente
+  cuando el proxy de teselas del mismo origen está desplegado y la geometría
+  declara origen `osrm_interno`; una geometría sintética falla cerrada sin
+  solicitar teselas. El visor no
+  declara éxito hasta recibir `load` de la capa; los errores reiterados o el
+  timeout muestran un aviso accesible y retiran el mapa. Un fallo nunca produce
+  una representación simulada ni convierte geometría en kilometraje liquidable.
 - `anunciar(mensaje, nivel)`: comunica resultados o errores mediante el sistema
   común de avisos del portal.
 
@@ -67,13 +72,22 @@ interfaz.
 
 ## Límite de la demostración
 
-`datos-presentacion.js`, `adaptador-presentacion.js` y
-`calculador-rutas-presentacion.js` son los únicos elementos demostrativos. Usan
-exclusivamente datos sintéticos, memoria volátil y recibos marcados sin efectos
-administrativos. El cálculo DEMO simula el contrato del OSRM interno, queda
-marcado como no liquidable y no usa red, cookies ni almacenamiento local. La
-vista, los presentadores, el contrato, el catálogo i18n y los estilos son
-reutilizables en producción.
+`datos-presentacion.js` y `adaptador-presentacion.js` aportan expedientes
+sintéticos, memoria volátil y recibos marcados sin efectos administrativos. El
+catálogo provincial vive en el módulo neutral `catalogo-rutas-provincial.js` y
+lo reutilizan ambos calculadores sin dependencia entre ellos. La composición
+final no usa el cálculo simulado: delega en
+`calculador-rutas-presentacion-osrm.js` y en el mediador Go mediante un POST de
+ruta fija y del mismo origen. El grafo y las teselas son reales; el resultado
+continúa marcado como DEMO y no liquidable. No se usan cookies, almacenamiento
+local ni destinos de red configurables por el navegador. La vista, los
+presentadores, el contrato, el catálogo i18n y los estilos son reutilizables en
+producción.
+
+La versión del grafo no se fija ni se configura en el frontend. El mediador
+inserta `data_version`; el adaptador exige su forma canónica, rechaza ausencia o
+contradicción con `graph_version` y la incorpora a la huella SHA-256 y al modelo.
+Cambiar el grafo sólo requiere activar otra versión gobernada del despliegue.
 
 Para producción se sustituye el adaptador de presentación por uno autenticado
 contra la API interna. No se modifican la vista ni sus rutas. El nuevo adaptador
@@ -103,13 +117,11 @@ servidor vuelve a autorizar cada operación. Si la proyección territorial no
 está disponible, falla sólo la herramienta de rutas: el listado y detalle de
 Dietas permanecen operativos.
 
-Leaflet 1.9.4 ya se sirve
-desde el propio portal como dependencia fijada, con licencia, procedencia y
-huellas verificables. Para activar el mapa real falta que Sistemas importe y
-publique las teselas OSM internas en la ruta anterior y habilite expresamente
-su uso en la composición productiva. Hasta entonces la vista muestra el
-croquis SVG DEMO y no intenta descargar teselas. La atribución de OpenStreetMap
-y OpenMapTiles solo se hace visible cuando el mapa real se monta.
+Leaflet 1.9.4 se sirve desde el propio portal como dependencia fijada, con
+licencia, procedencia y huellas verificables. El perfil Docker de presentación
+publica las teselas importadas en la ruta anterior y activa expresamente el
+visor. La atribución enlazada de OpenStreetMap y OpenMapTiles aparece una sola
+vez dentro del mapa real.
 
 La descarga productiva debe usar el servicio documental común de servidor:
 generación, firma/sello cuando proceda, custodia, auditoría y cotejo por `POST`.
@@ -121,8 +133,8 @@ solo en DEMO.
 | Función | Presentación | Producción |
 |---|---|---|
 | Expedientes y comandos | `adaptador-presentacion.js`, memoria volátil | API interna autorizada, persistencia y recibo probatorio |
-| Catálogo y ruta | catálogo provincial y geometría sintética no liquidable | catálogo autoritativo + API/OSRM internos; nunca cálculo en la vista |
-| Mapa | croquis SVG; Leaflet local si está desplegado | Leaflet local + `/tiles/osm/`; sin CDN ni salida a Internet |
+| Catálogo y ruta | catálogo provincial + OSRM interno real, no liquidable | catálogo autoritativo + API/OSRM internos; nunca cálculo en la vista |
+| Mapa | Leaflet local + teselas OSM internas reales | Leaflet local + `/tiles/osm/`; sin CDN ni salida a Internet |
 | PDF anual y recibos | generador común del navegador, marca DEMO | servicio documental de servidor, firma/custodia/cotejo |
 
 La vista, el presentador, el contrato, i18n y los estilos no cambian al efectuar
@@ -131,9 +143,12 @@ estas sustituciones.
 ## Verificación
 
 ```sh
-node --test web/static/portal-empleado/modulos/dietas/dietas.test.mjs
+node --test web/static/portal-empleado/modulos/dietas/*.test.mjs
+deploy/osm-tiles-granada/tests/probar_contrato.sh
+docker compose --profile presentacion config --quiet
 ```
 
 Las pruebas cubren identidad compartida, mínimo privilegio, aislamiento de
-rutas, estados canónicos, acciones volátiles, recibos verificables sin datos
-personales, i18n, accesibilidad, diseño adaptable y separación de fixtures.
+rutas, límites y versión del grafo, estados canónicos, acciones volátiles,
+recibos verificables sin datos personales, i18n, accesibilidad, diseño
+adaptable y separación de datos de prueba.

@@ -46,7 +46,7 @@ function calculoValido({ demostracion, motor, origenGeometria }) {
   };
 }
 
-test("el contrato impide mezclar motores y geometrías DEMO con producto", () => {
+test("el contrato permite OSRM real sin efectos en DEMO e impide toda mezcla insegura", () => {
   const demo = calculoValido({
     demostracion: true,
     motor: "simulacion_osrm_demo",
@@ -62,10 +62,8 @@ test("el contrato impide mezclar motores y geometrías DEMO con producto", () =>
 
   const demoConMotorProducto = structuredClone(demo);
   demoConMotorProducto.motor = "osrm_interno";
-  assert.throws(
-    () => validarCalculoRutaDietas(demoConMotorProducto),
-    /motor de ruta no corresponde al entorno/u,
-  );
+  demoConMotorProducto.alternativas[0].geometria.origen = "osrm_interno";
+  assert.equal(validarCalculoRutaDietas(demoConMotorProducto).demostracion, true);
 
   const productoConMotorDemo = structuredClone(producto);
   productoConMotorDemo.motor = "simulacion_osrm_demo";
@@ -97,8 +95,8 @@ test("el visor entrega los tooltips como nodos de texto y solo solicita teselas 
     atribucion: ATRIBUCION_OSM_INTERNA,
     geometria: calculoValido({
       demostracion: true,
-      motor: "simulacion_osrm_demo",
-      origenGeometria: "sintetica_demo",
+      motor: "osrm_interno",
+      origenGeometria: "osrm_interno",
     }).alternativas[0].geometria,
   };
   descriptor.geometria.paradas[0].etiqueta = "<img src=x onerror=alert(1)>";
@@ -113,7 +111,7 @@ test("el visor entrega los tooltips como nodos de texto y solo solicita teselas 
   };
   const lienzo = {
     ownerDocument: documento,
-    innerHTML: "<svg>respaldo</svg>",
+    innerHTML: "<p>contenido anterior</p>",
     dataset: {},
     replaceChildren() { this.innerHTML = ""; },
   };
@@ -130,12 +128,21 @@ test("el visor entrega los tooltips como nodos de texto y solo solicita teselas 
   let opcionesTeselas;
   let peticionesExternas = 0;
   const tooltips = [];
+  const eventosTeselas = new Map();
   const mapa = {
     attributionControl: { setPrefix() {} },
     fitBounds() {},
     remove() {},
   };
   const capa = () => ({ addTo() { return this; } });
+  const capaTeselas = {
+    ...capa(),
+    on(tipo, manejador) { eventosTeselas.set(tipo, manejador); return this; },
+    off(tipo, manejador) {
+      if (eventosTeselas.get(tipo) === manejador) eventosTeselas.delete(tipo);
+      return this;
+    },
+  };
   const entorno = {
     fetch() { peticionesExternas += 1; },
     L: {
@@ -143,7 +150,7 @@ test("el visor entrega los tooltips como nodos de texto y solo solicita teselas 
       tileLayer(plantilla, opciones) {
         plantillaTeselas = plantilla;
         opcionesTeselas = opciones;
-        return capa();
+        return capaTeselas;
       },
       polyline() {
         return { ...capa(), getBounds() { return { isValid: () => true }; } };
@@ -159,6 +166,8 @@ test("el visor entrega los tooltips como nodos de texto y solo solicita teselas 
 
   const montaje = crearVisorRutaDietas({ entorno, permitirTeselas: true })
     .montar({ raiz, descriptor });
+  assert.equal(montaje.modo, "mapa_cargando");
+  eventosTeselas.get("load")();
   assert.equal(montaje.modo, "openstreetmap_interno");
   assert.equal(plantillaTeselas, "/tiles/osm/{z}/{x}/{y}.png");
   assert.doesNotMatch(plantillaTeselas, /^https?:/iu);
@@ -173,4 +182,5 @@ test("el visor entrega los tooltips como nodos de texto y solo solicita teselas 
   assert.match(opcionesTeselas.attribution, /href="https:\/\/openmaptiles\.org\/"/u);
   assert.match(opcionesTeselas.attribution, /rel="noopener noreferrer"/u);
   assert.equal(atribucion.textContent, "© OpenStreetMap contributors · © OpenMapTiles · servido en red interna");
+  assert.equal(atribucion.hidden, true);
 });

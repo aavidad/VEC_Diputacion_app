@@ -22,7 +22,7 @@ type Handler struct {
 	internal                *application.InternalOperations
 	personalCatalog         CatalogoPersonal
 	categoriasProfesionales ConsultaCategoriasProfesionales
-	roadRoute               *roadRouteConnector
+	roadRoute               http.Handler
 	identityPolicy          identityPolicy
 }
 
@@ -30,10 +30,7 @@ type HandlerOptions struct {
 	InternalOperations      *application.InternalOperations
 	PersonalCatalog         CatalogoPersonal
 	CategoriasProfesionales ConsultaCategoriasProfesionales
-	OSRMBaseURL             string
-	OSRMScopeName           string
-	OSRMScopeBounds         string
-	OSRMAllowedCIDRs        []string
+	ManejadorRutaDietas     http.Handler
 	AllowDemoIdentity       bool
 	DemoIdentityResolver    DemoIdentityResolver
 	TrustIdentityHeaders    bool
@@ -66,21 +63,12 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 	if err != nil {
 		return nil, err
 	}
-	roadRoute, err := newRoadRouteConnector(
-		options.OSRMBaseURL,
-		options.OSRMScopeName,
-		options.OSRMScopeBounds,
-		options.OSRMAllowedCIDRs,
-	)
-	if err != nil {
-		return nil, err
-	}
 	return &Handler{
 		service:                 service,
 		internal:                options.InternalOperations,
 		personalCatalog:         options.PersonalCatalog,
 		categoriasProfesionales: options.CategoriasProfesionales,
-		roadRoute:               roadRoute,
+		roadRoute:               options.ManejadorRutaDietas,
 		identityPolicy:          identityPolicy,
 	}, nil
 }

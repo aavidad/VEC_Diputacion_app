@@ -230,6 +230,10 @@ func newVECShellAPICompuestaConIdentidad(
 	if err != nil {
 		return nil, err
 	}
+	manejadorRutaDietas, err := nuevoManejadorProductivoCalculoRutas(cfg)
+	if err != nil {
+		return nil, err
+	}
 	store := vecmemory.NewStore()
 	service, internalOperations, err := vecapp.NewServiceWithInternalOperations(store, store, store)
 	if err != nil {
@@ -250,10 +254,7 @@ func newVECShellAPICompuestaConIdentidad(
 		InternalOperations:      internalOperations,
 		PersonalCatalog:         personalCatalog,
 		CategoriasProfesionales: categoriasPersonal,
-		OSRMBaseURL:             cfg.OSRMBaseURL,
-		OSRMScopeName:           cfg.OSRMScopeName,
-		OSRMScopeBounds:         cfg.OSRMScopeBounds,
-		OSRMAllowedCIDRs:        append([]string(nil), cfg.OSRMAllowedCIDRs...),
+		ManejadorRutaDietas:     manejadorRutaDietas,
 		AllowDemoIdentity:       resolvedorIdentidad != nil,
 		DemoIdentityResolver:    resolvedorIdentidad,
 	})

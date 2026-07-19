@@ -33,9 +33,17 @@ if [[ ! "$version" =~ ^[0-9]{8}T[0-9]{6}Z-[a-f0-9]{12}$ ]]; then
 fi
 
 directorio_version="$estado/releases/$version"
-parcial="$directorio_version/granada.mbtiles.parcial"
+# tilemaker decide el formato por la extension. Debe terminar en `.mbtiles`:
+# `granada.mbtiles.parcial` se interpreta como un directorio de teselas.
+parcial="$directorio_version/granada.parcial.mbtiles"
 final="$directorio_version/granada.mbtiles"
 trabajo="$estado/trabajo/$version"
+bbox="${OSM_IMPORT_BBOX:--4.75,36.55,-1.75,38.25}"
+
+if [[ ! "$bbox" =~ ^-?[0-9]+([.][0-9]+)?,-?[0-9]+([.][0-9]+)?,-?[0-9]+([.][0-9]+)?,-?[0-9]+([.][0-9]+)?$ ]]; then
+  echo "ERROR: OSM_IMPORT_BBOX debe ser minlon,minlat,maxlon,maxlat." >&2
+  exit 1
+fi
 
 if [[ -e "$directorio_version" ]]; then
   echo "ERROR: la version ya existe y nunca se sobrescribe: $version" >&2
@@ -56,8 +64,9 @@ echo "Importando $version desde el PBF compartido (sin copiarlo)..."
 UID_GID="$(id -u):$(id -g)" docker compose --project-directory "$raiz" \
   --profile importacion run --rm importar-osm \
   /fuente/granada-buffer.osm.pbf \
-  --output "/salida/releases/$version/granada.mbtiles.parcial" \
+  --output "/salida/releases/$version/granada.parcial.mbtiles" \
   --store "/salida/trabajo/$version" \
+  --bbox "$bbox" \
   --config /usr/src/app/resources/config-openmaptiles.json \
   --process /usr/src/app/resources/process-openmaptiles.lua
 
@@ -73,7 +82,8 @@ jq -n \
   --arg fuente "deploy/osrm-granada/data/granada-buffer.osm.pbf" \
   --arg sha256_fuente "$huella_fuente" \
   --arg sha256_mbtiles "$huella_mbtiles" \
-  '{version:$version, creado_utc:$instante, fuente:$fuente, sha256_fuente:$sha256_fuente, sha256_mbtiles:$sha256_mbtiles, esquema:"OpenMapTiles 3.x", maxzoom:14}' \
+  --arg bbox "$bbox" \
+  '{version:$version, creado_utc:$instante, fuente:$fuente, sha256_fuente:$sha256_fuente, sha256_mbtiles:$sha256_mbtiles, esquema:"OpenMapTiles 3.x", maxzoom:14, bbox_importacion:($bbox | split(",") | map(tonumber))}' \
   >"$directorio_version/manifiesto.json"
 chmod 0444 "$directorio_version/manifiesto.json"
 rm -rf -- "$trabajo"

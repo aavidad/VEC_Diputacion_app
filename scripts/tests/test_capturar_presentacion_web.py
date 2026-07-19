@@ -19,7 +19,7 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
                 "lanzador": 1,
                 "portal-publico": 1,
                 "area-aspirante": 14,
-                "gestion-rrhh": 18,
+                "gestion-rrhh": 20,
             },
         )
         self.assertEqual(
@@ -54,8 +54,8 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             and vista.clave not in {"rrhh-cronos", "rrhh-dietas"}
         }
         self.assertEqual(rutas, set(capturador.RUTAS_MENU_RRHH))
-        self.assertNotIn("reglas", rutas)
-        self.assertNotIn("consulta", rutas)
+        self.assertIn("reglas", rutas)
+        self.assertIn("consulta", rutas)
 
     def test_cronos_y_dietas_se_auditan_como_modulos_internos_en_tres_tamanos(self) -> None:
         modulos = {
@@ -82,7 +82,7 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             self.assertEqual(consulta.get("presentacion"), ["rrhh"], escenario.clave)
 
     def test_flujos_se_distinguen_y_cubren_interacciones_demo(self) -> None:
-        self.assertEqual(len(capturador.MANIFIESTO_FLUJOS), 21)
+        self.assertEqual(len(capturador.MANIFIESTO_FLUJOS), 22)
         claves = {flujo.clave for flujo in capturador.MANIFIESTO_FLUJOS}
         self.assertTrue({
             "publico-ficha-convocatoria",
@@ -91,6 +91,7 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             "aspirante-recibo-demo",
             "rrhh-borrador-abierto",
             "rrhh-recibo-demo",
+            "rrhh-dietas-ruta-real",
             "rrhh-perfil-tecnico-restringido",
             "aspirante-menu-movil-abierto",
             "rrhh-menu-movil-abierto",
@@ -178,6 +179,14 @@ class HelpersRevisionWebTests(unittest.TestCase):
             "http://127.0.0.1:8081/bolsa/?vista=demo#ficha",
         )
         self.assertEqual(capturador.normalizar_url_base("http://[::1]:8081/"), "http://[::1]:8081")
+        self.assertEqual(
+            capturador.normalizar_url_base(
+                "http://192.168.255.194:8080", permitir_red_privada=True,
+            ),
+            "http://192.168.255.194:8080",
+        )
+        with self.assertRaises(ValueError):
+            capturador.normalizar_url_base("http://192.168.255.194:8080")
         for invalida in (
             "", "127.0.0.1:8081", "ftp://127.0.0.1", "http://u:p@127.0.0.1",
             "http://127.0.0.1/?x=1", "http://localhost:8081", "http://0.0.0.0:8081",

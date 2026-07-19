@@ -15,6 +15,7 @@ import {
   CAPACIDAD_CONSULTAR_RUTA,
   CAPACIDAD_GESTIONAR_GASTO,
   CAPACIDAD_GESTIONAR_RUTA,
+  CODIGO_ERROR_SERVICIO_RUTAS_DIETAS,
   ESQUEMA_RESUMEN_ANUAL_DIETAS,
   PLANTILLA_TESELAS_OSM_INTERNA,
 } from "./contrato.js";
@@ -261,7 +262,7 @@ test("separa capacidad de gastos y rutas sin filtrar localizaciones", () => {
   assert.doesNotMatch(html, /data-dietas-formulario/);
 });
 
-test("expone el mapa solo con capacidad y congela toda su geometría", () => {
+test("conserva la geometría histórica sin duplicar el mapa del planificador", () => {
   const modelo = presentador().obtenerModelo();
   const mapa = modelo.seleccionada.mapa_ruta;
   assert.equal(mapa.plantilla_teselas, PLANTILLA_TESELAS_OSM_INTERNA);
@@ -275,19 +276,26 @@ test("expone el mapa solo con capacidad y congela toda su geometría", () => {
   assert.throws(() => { mapa.geometria.paradas[0].latitud = 0; }, TypeError);
   assert.throws(() => { mapa.geometria.trazado[0][0] = 0; }, TypeError);
   const html = renderizarDietas(modelo, { descargaDisponible: true });
-  assert.match(html, /Visor cartográfico interno/);
-  assert.match(html, /Croquis SVG sintético DEMO/);
-  assert.match(html, /data-dietas-mapa-canvas/);
-  assert.match(html, /data-dietas-mapa-atribucion hidden/);
+  assert.doesNotMatch(html, /data-dietas-mapa-canvas/);
+  assert.doesNotMatch(html, /data-dietas-mapa-ref="comision-/);
 });
 
-test("el visor activa únicamente OpenStreetMap interno y conserva el croquis sin Leaflet", () => {
-  const descriptor = presentador().obtenerModelo().seleccionada.mapa_ruta;
+test("el visor activa únicamente OpenStreetMap interno y nunca simula un mapa sin Leaflet", () => {
+  const descriptorSintetico = presentador().obtenerModelo().seleccionada.mapa_ruta;
+  const descriptor = structuredClone(descriptorSintetico);
+  descriptor.geometria.origen = "osrm_interno";
+  const atributosAcercar = {};
+  const atributosAlejar = {};
   const lienzo = {
-    innerHTML: "<svg>respaldo</svg>", dataset: {},
+    innerHTML: '<p class="dietas-mapa-espera">Cargando el mapa interno</p>', dataset: {},
     replaceChildren() { this.innerHTML = ""; },
+    querySelector(selector) {
+      const atributos = selector === ".leaflet-control-zoom-in" ? atributosAcercar
+        : selector === ".leaflet-control-zoom-out" ? atributosAlejar : null;
+      return atributos ? { setAttribute(nombre, valor) { atributos[nombre] = valor; } } : null;
+    },
   };
-  const estado = { textContent: "Croquis local" };
+  const estado = { textContent: "Cargando mapa interno" };
   const atribucion = { hidden: true };
   const raiz = { querySelector(selector) {
     if (selector === "[data-dietas-mapa-canvas]") return lienzo;
@@ -295,7 +303,9 @@ test("el visor activa únicamente OpenStreetMap interno y conserva el croquis si
     if (selector === "[data-dietas-mapa-atribucion]") return atribucion;
     return null;
   } };
-  assert.equal(crearVisorRutaDietas({ entorno: {} }).montar({ raiz, descriptor }).modo, "croquis_svg");
+  assert.equal(crearVisorRutaDietas({ entorno: {} }).montar({ raiz, descriptor }).modo, "mapa_no_disponible");
+  assert.doesNotMatch(lienzo.innerHTML, /<svg|polyline|croquis/iu);
+  assert.match(estado.textContent, /no está disponible/u);
   assert.equal(atribucion.hidden, true);
 
   let plantilla;
@@ -303,35 +313,115 @@ test("el visor activa únicamente OpenStreetMap interno y conserva el croquis si
   let capasSolicitadas = 0;
   let retirado = false;
   let prefijoAtribucion;
+  const eventosTeselas = new Map();
   const mapa = {
     attributionControl: { setPrefix(valor) { prefijoAtribucion = valor; } },
     fitBounds() {}, remove() { retirado = true; },
   };
   const capa = () => ({ addTo(destino) { assert.strictEqual(destino, mapa); return this; } });
+  const capaTeselas = {
+    ...capa(),
+    on(tipo, manejador) { eventosTeselas.set(tipo, manejador); return this; },
+    off(tipo, manejador) {
+      if (eventosTeselas.get(tipo) === manejador) eventosTeselas.delete(tipo);
+      return this;
+    },
+  };
   const entorno = { L: {
     map(destino) { assert.strictEqual(destino, lienzo); return mapa; },
-    tileLayer(url, opciones) { capasSolicitadas += 1; plantilla = url; opcionesTeselas = opciones; return capa(); },
+    tileLayer(url, opciones) { capasSolicitadas += 1; plantilla = url; opcionesTeselas = opciones; return capaTeselas; },
     polyline(puntos) {
       assert.deepEqual(puntos, descriptor.geometria.trazado);
       return { ...capa(), getBounds() { return { isValid: () => true }; } };
     },
     circleMarker() { return { ...capa(), bindTooltip() {} }; },
   } };
+  const sintetico = crearVisorRutaDietas({ entorno, permitirTeselas: true })
+    .montar({ raiz, descriptor: descriptorSintetico });
+  assert.equal(sintetico.modo, "mapa_no_disponible");
+  assert.equal(capasSolicitadas, 0);
   const sinTeselas = crearVisorRutaDietas({ entorno, permitirTeselas: false }).montar({ raiz, descriptor });
-  assert.equal(sinTeselas.modo, "croquis_svg");
+  assert.equal(sinTeselas.modo, "mapa_no_disponible");
   assert.equal(capasSolicitadas, 0);
   const montaje = crearVisorRutaDietas({ entorno, permitirTeselas: true }).montar({ raiz, descriptor });
-  assert.equal(montaje.modo, "openstreetmap_interno");
+  assert.equal(montaje.modo, "mapa_cargando");
+  assert.match(estado.textContent, /Cargando/u);
   assert.equal(plantilla, "/tiles/osm/{z}/{x}/{y}.png");
   assert.equal(opcionesTeselas.attribution, ATRIBUCION_OSM_INTERNA);
   assert.equal(opcionesTeselas.maxNativeZoom, 14);
   assert.equal(opcionesTeselas.maxZoom, 14);
   assert.equal(prefijoAtribucion, false);
+  assert.deepEqual(atributosAcercar, { title: "Acercar el mapa", "aria-label": "Acercar el mapa" });
+  assert.deepEqual(atributosAlejar, { title: "Alejar el mapa", "aria-label": "Alejar el mapa" });
   assert.doesNotMatch(plantilla, /^https?:|tile\.openstreetmap\.org/i);
-  assert.equal(atribucion.hidden, false);
+  assert.equal(atribucion.hidden, true);
   assert.equal(capasSolicitadas, 1);
+  eventosTeselas.get("load")();
+  assert.equal(montaje.modo, "openstreetmap_interno");
+  assert.match(estado.textContent, /OpenStreetMap cargado/u);
   montaje.desmontar();
   assert.equal(retirado, true);
+});
+
+test("el visor no declara éxito y se retira ante errores de tesela o timeout", () => {
+  const descriptor = structuredClone(presentador().obtenerModelo().seleccionada.mapa_ruta);
+  descriptor.geometria.origen = "osrm_interno";
+  const crearEscenario = () => {
+    const eventos = new Map();
+    let ejecutarTimeout;
+    let retiradas = 0;
+    const lienzo = {
+      dataset: {}, textContent: "", ownerDocument: null,
+      replaceChildren() { this.textContent = ""; },
+    };
+    const estado = { textContent: "" };
+    const atribucion = { hidden: true, textContent: "" };
+    const capaBase = { addTo() { return this; } };
+    const capaTeselas = {
+      ...capaBase,
+      on(tipo, manejador) { eventos.set(tipo, manejador); return this; },
+      off(tipo, manejador) {
+        if (eventos.get(tipo) === manejador) eventos.delete(tipo);
+        return this;
+      },
+    };
+    const entorno = {
+      setTimeout(tarea, espera) { assert.equal(espera, 25); ejecutarTimeout = tarea; return 1; },
+      clearTimeout() {},
+      L: {
+        map() { return { attributionControl: { setPrefix() {} }, fitBounds() {}, remove() { retiradas += 1; } }; },
+        tileLayer() { return capaTeselas; },
+        polyline() { return { ...capaBase, getBounds() { return { isValid: () => true }; } }; },
+        circleMarker() { return { ...capaBase, bindTooltip() {} }; },
+      },
+    };
+    const raiz = { querySelector(selector) {
+      if (selector === "[data-dietas-mapa-canvas]") return lienzo;
+      if (selector === "[data-dietas-mapa-estado]") return estado;
+      if (selector === "[data-dietas-mapa-atribucion]") return atribucion;
+      return null;
+    } };
+    const montaje = crearVisorRutaDietas({
+      entorno, permitirTeselas: true, tiempoEsperaMs: 25,
+    }).montar({ raiz, descriptor });
+    return { montaje, eventos, ejecutarTimeout: () => ejecutarTimeout(), estado, retiradas: () => retiradas };
+  };
+
+  const conErrores = crearEscenario();
+  assert.equal(conErrores.montaje.modo, "mapa_cargando");
+  conErrores.eventos.get("tileerror")();
+  conErrores.eventos.get("tileerror")();
+  assert.equal(conErrores.montaje.modo, "mapa_cargando");
+  conErrores.eventos.get("tileerror")();
+  assert.equal(conErrores.montaje.modo, "mapa_no_disponible");
+  assert.match(conErrores.estado.textContent, /no está disponible/u);
+  assert.equal(conErrores.retiradas(), 1);
+
+  const conTimeout = crearEscenario();
+  conTimeout.ejecutarTimeout();
+  assert.equal(conTimeout.montaje.modo, "mapa_no_disponible");
+  assert.match(conTimeout.estado.textContent, /no está disponible/u);
+  assert.equal(conTimeout.retiradas(), 1);
 });
 
 test("compone catálogo provincial y cálculo multiparada sin exponer coordenadas antes de calcular", async () => {
@@ -452,6 +542,39 @@ test("aísla el fallo del catálogo de rutas y mantiene operativos listado y det
   assert.deepEqual(anuncios, [{
     mensaje: "La herramienta de rutas no está conectada para esta sesión.", tipo: "error",
   }]);
+  modulo.desmontar();
+});
+
+test("un fallo OSRM queda visible dentro de la herramienta con texto i18n gobernado", async () => {
+  const raiz = crearRaizDietasInteractiva();
+  const anuncios = [];
+  const calculadorCatalogo = calculadorRutas();
+  const modulo = await montarModuloDietas({
+    raiz,
+    contextoActor: CONTEXTO_COMPARTIDO,
+    capacidades: CAPACIDADES_EMPLEADO,
+    adaptador: adaptador(),
+    calculadorRuta: {
+      obtenerCatalogo: calculadorCatalogo.obtenerCatalogo,
+      async calcular() {
+        throw {
+          codigo: CODIGO_ERROR_SERVICIO_RUTAS_DIETAS,
+          message: "HTTP 500: detalle remoto que nunca debe mostrarse",
+        };
+      },
+    },
+    anunciar: (mensaje, tipo) => anuncios.push({ mensaje, tipo }),
+  });
+  const calcular = raiz.buscar("data-dietas-ruta-calcular");
+  await raiz.escuchas.get("click")({ target: calcular, preventDefault() {} });
+
+  assert.match(raiz.innerHTML, /data-dietas-ruta-error/);
+  assert.match(raiz.innerHTML, /servicio cartográfico interno no está disponible/);
+  assert.doesNotMatch(raiz.innerHTML, /HTTP 500|detalle remoto/u);
+  assert.deepEqual(anuncios.at(-1), {
+    mensaje: "No se ha podido calcular la ruta porque el servicio cartográfico interno no está disponible. Inténtelo de nuevo más tarde.",
+    tipo: "error",
+  });
   modulo.desmontar();
 });
 
@@ -680,6 +803,31 @@ test("permite sustituir todo el catálogo de interfaz sin cambiar estados", () =
   assert.match(html, /value="pagada"/);
   assert.doesNotMatch(html, />Mis dietas y comisiones de servicio</);
   assert.throws(() => crearTraductorDietas({ titulo: "incompleto" }), /incompleto/);
+});
+
+test("las etiquetas ordinales OSRM proceden íntegramente del catálogo i18n", async () => {
+  const { calculador, modulo } = presentadorConRutas();
+  const solicitudRuta = modulo.rutas.prepararSolicitudCalculo();
+  const calculo = structuredClone(await calculador.calcular(solicitudRuta));
+  calculo.motor = "osrm_interno";
+  calculo.version_grafo = "grafo-osrm-prueba-i18n";
+  calculo.alternativas.forEach((alternativa, indice) => {
+    alternativa.etiqueta = `ruta_alternativa_osrm_${indice + 1}`;
+    alternativa.geometria.origen = "osrm_interno";
+  });
+  modulo.rutas.registrarCalculo(calculo);
+  const mensajes = {
+    ...MENSAJES_DIETAS_ES,
+    ruta_etiqueta_osrm_1: "Itinerario corporativo preferente",
+    ruta_etiqueta_osrm_2: "Itinerario corporativo alternativo B",
+    ruta_etiqueta_osrm_3: "Itinerario corporativo alternativo C",
+  };
+  const html = renderizarDietas(modulo.obtenerModelo(), { mensajes });
+  assert.match(html, /Itinerario corporativo preferente/);
+  assert.match(html, /Itinerario corporativo alternativo B/);
+  assert.match(html, /Itinerario corporativo alternativo C/);
+  assert.doesNotMatch(html, /ruta_alternativa_osrm_|Ruta OSRM interna · primera/u);
+  assert.match(html, /data-dietas-mapa-estado role="status" aria-live="polite" aria-atomic="true"/u);
 });
 
 test("la vista final no importa fixtures y gobierna concurrencia e interfaces por puertos", async () => {

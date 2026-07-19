@@ -1,5 +1,6 @@
 import { crearPresentadorDietas } from "./presentador.js";
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
+import { CODIGO_ERROR_SERVICIO_RUTAS_DIETAS } from "./contrato.js";
 
 const ESTADOS_FILTRO = Object.freeze([
   ["todos", "estado_todos"],
@@ -26,6 +27,11 @@ const CLAVES_SIGUIENTE = Object.freeze({
 const CLAVES_RESULTADO = Object.freeze({
   borrador_creado_demo: "resultado_borrador_creado_demo",
   envio_jefatura_demo: "resultado_envio_jefatura_demo",
+});
+const CLAVES_ETIQUETA_ALTERNATIVA = Object.freeze({
+  ruta_alternativa_osrm_1: "ruta_etiqueta_osrm_1",
+  ruta_alternativa_osrm_2: "ruta_etiqueta_osrm_2",
+  ruta_alternativa_osrm_3: "ruta_etiqueta_osrm_3",
 });
 
 function escaparHTML(valor) {
@@ -84,23 +90,6 @@ function renderizarEtapas(modelo, comision, t) {
   </ol>`;
 }
 
-function proyectarPuntosCroquis(geometria) {
-  const puntos = geometria.trazado.map(([latitud, longitud]) => ({ latitud, longitud }));
-  const latitudes = puntos.map((punto) => punto.latitud);
-  const longitudes = puntos.map((punto) => punto.longitud);
-  let minLatitud = Math.min(...latitudes);
-  let maxLatitud = Math.max(...latitudes);
-  let minLongitud = Math.min(...longitudes);
-  let maxLongitud = Math.max(...longitudes);
-  if (minLatitud === maxLatitud) { minLatitud -= 0.01; maxLatitud += 0.01; }
-  if (minLongitud === maxLongitud) { minLongitud -= 0.01; maxLongitud += 0.01; }
-  const proyectar = ({ latitud, longitud }) => ({
-    x: 42 + ((longitud - minLongitud) / (maxLongitud - minLongitud)) * 556,
-    y: 32 + ((maxLatitud - latitud) / (maxLatitud - minLatitud)) * 176,
-  });
-  return { proyectar, trazado: puntos.map(proyectar) };
-}
-
 function identificadorHTML(valor) {
   return String(valor ?? "mapa").replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 90) || "mapa";
 }
@@ -111,32 +100,10 @@ function renderizarMapaRuta(item, t) {
   const sufijo = identificadorHTML(referenciaMapa);
   const { geometria } = item.mapa_ruta;
   const geometriaOSRM = geometria.origen === "osrm_interno";
-  const { proyectar, trazado } = proyectarPuntosCroquis(geometria);
-  const rejilla = [1, 2, 3, 4, 5].map((indice) => {
-    const x = 42 + indice * (556 / 6);
-    const y = 32 + indice * (176 / 6);
-    return `<line x1="${x.toFixed(1)}" y1="32" x2="${x.toFixed(1)}" y2="208"></line><line x1="42" y1="${y.toFixed(1)}" x2="598" y2="${y.toFixed(1)}"></line>`;
-  }).join("");
-  const etiquetasVistas = new Set();
-  const paradas = geometria.paradas.map((parada, indice) => {
-    const punto = proyectar(parada);
-    const clave = `${parada.latitud}:${parada.longitud}:${parada.etiqueta}`;
-    const mostrarEtiqueta = !etiquetasVistas.has(clave);
-    etiquetasVistas.add(clave);
-    return `<g><circle cx="${punto.x.toFixed(1)}" cy="${punto.y.toFixed(1)}" r="7"></circle><text class="dietas-mapa-numero" x="${punto.x.toFixed(1)}" y="${(punto.y + 3.5).toFixed(1)}">${indice + 1}</text>${mostrarEtiqueta ? `<text class="dietas-mapa-etiqueta" x="${Math.min(560, punto.x + 11).toFixed(1)}" y="${Math.max(18, punto.y - 10).toFixed(1)}">${escaparHTML(parada.etiqueta)}</text>` : ""}</g>`;
-  }).join("");
   return `<figure class="dietas-mapa" data-dietas-mapa-ref="${escaparHTML(referenciaMapa)}" aria-labelledby="dietas-mapa-titulo-${sufijo}" aria-describedby="dietas-mapa-nota-${sufijo}">
     <figcaption><div><p class="sobrelinea">${escaparHTML(t("mapa_proveedor"))}</p><h4 id="dietas-mapa-titulo-${sufijo}">${escaparHTML(t("mapa_titulo"))}</h4></div><span class="estado-chip ${geometriaOSRM ? "info" : "aviso"}">${escaparHTML(t(geometriaOSRM ? "mapa_marca_osrm" : "mapa_marca_demo"))}</span></figcaption>
-    <div class="dietas-mapa-canvas" data-dietas-mapa-canvas>
-      <svg viewBox="0 0 640 240" role="img" aria-labelledby="dietas-croquis-titulo-${sufijo} dietas-croquis-descripcion-${sufijo}">
-        <title id="dietas-croquis-titulo-${sufijo}">${escaparHTML(t("mapa_croquis_titulo"))}</title>
-        <desc id="dietas-croquis-descripcion-${sufijo}">${escaparHTML(t("mapa_croquis_descripcion", { ruta: item.ruta.join(" → ") }))}</desc>
-        <g class="dietas-mapa-rejilla">${rejilla}</g>
-        <polyline points="${trazado.map((punto) => `${punto.x.toFixed(1)},${punto.y.toFixed(1)}`).join(" ")}"></polyline>
-        <g class="dietas-mapa-paradas">${paradas}</g>
-      </svg>
-    </div>
-    <p id="dietas-mapa-nota-${sufijo}" class="dietas-mapa-nota" data-dietas-mapa-estado>${escaparHTML(t(geometriaOSRM ? "mapa_nota_osrm_local" : "mapa_nota_fallback"))}</p>
+    <div class="dietas-mapa-canvas" data-dietas-mapa-canvas role="region" aria-label="${escaparHTML(t("mapa_region_accesible"))}"><p class="dietas-mapa-espera" role="status">${escaparHTML(t("mapa_cargando_interno"))}</p></div>
+    <p id="dietas-mapa-nota-${sufijo}" class="dietas-mapa-nota" data-dietas-mapa-estado role="status" aria-live="polite" aria-atomic="true">${escaparHTML(t(geometriaOSRM ? "mapa_nota_osrm_local" : "mapa_nota_fallback"))}</p>
     <small data-dietas-mapa-atribucion hidden>${escaparHTML(item.mapa_ruta.atribucion)}</small>
   </figure>`;
 }
@@ -159,7 +126,6 @@ function renderizarDetalle(modelo, descargaDisponible, confirmacionDisponible, t
         <div><dt>${escaparHTML(t("justificantes"))}</dt><dd>${numero(item.justificantes)}</dd></div>
         <div><dt>${escaparHTML(t("siguiente_actuacion"))}</dt><dd>${escaparHTML(traducirCodigo(t, CLAVES_SIGUIENTE, item.siguiente_actuacion))}</dd></div>
       </dl>
-      ${modelo.capacidades.consultarRutas ? renderizarMapaRuta(item, t) : ""}
       ${renderizarEtapas(modelo, item, t)}
       <section aria-labelledby="dietas-titulo-desglose"><h4 id="dietas-titulo-desglose">${escaparHTML(t("desglose_gastos"))}</h4>
         <dl class="dietas-desglose">
@@ -221,7 +187,7 @@ function opcionesCatalogoRuta(puntos, seleccionado, t) {
   }).join("")}`;
 }
 
-function renderizarHerramientaRutas(rutas, t) {
+function renderizarHerramientaRutas(rutas, t, errorRuta = "") {
   if (!rutas) return `<section class="dietas-ruta-no-disponible" role="status"><strong>${escaparHTML(t("ruta_puerto_no_disponible"))}</strong></section>`;
   const puntos = rutas.catalogo.puntos;
   const puntosPorCodigo = new Map(puntos.map((punto) => [punto.codigo, punto]));
@@ -235,7 +201,8 @@ function renderizarHerramientaRutas(rutas, t) {
     </div>`;
   }).join("");
   const alternativas = rutas.alternativas.map((alternativa) => `<article class="dietas-ruta-alternativa ${alternativa.seleccionada ? "seleccionada" : ""}">
-    <div><strong>${escaparHTML(alternativa.etiqueta)}</strong><span>${numero(alternativa.kilometros, 1)} km · ${numero(alternativa.duracion_minutos)} min</span></div>
+    <div><strong>${escaparHTML(CLAVES_ETIQUETA_ALTERNATIVA[alternativa.etiqueta]
+    ? t(CLAVES_ETIQUETA_ALTERNATIVA[alternativa.etiqueta]) : alternativa.etiqueta)}</strong><span>${numero(alternativa.kilometros, 1)} km · ${numero(alternativa.duracion_minutos)} min</span></div>
     ${alternativa.recomendada
     ? `<button type="button" class="boton-secundario" data-dietas-ruta-alternativa="${escaparHTML(alternativa.referencia)}" aria-pressed="${alternativa.seleccionada}">${escaparHTML(t("ruta_usar_recomendada"))}</button>`
     : `<label>${escaparHTML(t("ruta_motivo_alternativa"))}<input data-dietas-ruta-motivo-alternativa="${escaparHTML(alternativa.referencia)}" maxlength="500" placeholder="${escaparHTML(t("ruta_motivo_alternativa_ejemplo"))}" value="${alternativa.seleccionada ? escaparHTML(rutas.motivo_alternativa) : ""}"></label><button type="button" class="boton-secundario" data-dietas-ruta-alternativa="${escaparHTML(alternativa.referencia)}" aria-pressed="${alternativa.seleccionada}">${escaparHTML(t("ruta_usar_alternativa"))}</button>`}
@@ -258,11 +225,12 @@ function renderizarHerramientaRutas(rutas, t) {
     <header class="dietas-ruta-catalogo"><div><strong>${escaparHTML(t("ruta_catalogo_provincial"))}</strong><span>${escaparHTML(t("ruta_catalogo_resumen", { total: puntos.length, version: rutas.catalogo.version }))}</span></div><span class="estado-chip ${rutas.catalogo.completo ? "exito" : "aviso"}">${escaparHTML(t(rutas.catalogo.completo ? "ruta_catalogo_completo" : "ruta_catalogo_parcial"))}</span></header>
     <div class="dietas-ruta-paradas">${paradas}</div>
     <div class="acciones-vista dietas-ruta-acciones"><button type="button" class="boton-secundario" data-dietas-ruta-anadir>${escaparHTML(t("ruta_anadir_parada"))}</button><button type="button" class="boton-primario" data-dietas-ruta-calcular>${escaparHTML(t("ruta_calcular_osrm"))}</button></div>
-    <p class="dietas-ruta-ayuda">${escaparHTML(t("ruta_ayuda"))}</p>${resultado}
+    <p class="dietas-ruta-ayuda">${escaparHTML(t("ruta_ayuda"))}</p>
+    ${errorRuta ? `<p class="dietas-ruta-error" data-dietas-ruta-error role="alert">${escaparHTML(errorRuta)}</p>` : ""}${resultado}
   </fieldset>`;
 }
 
-function renderizarFormulario(modelo, t) {
+function renderizarFormulario(modelo, t, errorRuta = "") {
   const inicial = modelo.borradorInicial;
   return `<details class="panel dietas-nueva" open>
     <summary>${escaparHTML(t("nueva_comision", { demo: modelo.demostracion ? " DEMO" : "" }))}</summary>
@@ -273,7 +241,7 @@ function renderizarFormulario(modelo, t) {
       <label>${escaparHTML(t("fecha_fin"))}<input name="fecha_fin" type="date" value="${escaparHTML(inicial.fecha)}" required></label>
       <label>${escaparHTML(t("hora_fin"))}<input name="hora_fin" type="time" value="15:00" required></label>
       <label class="campo-ancho">${escaparHTML(t("motivo"))}<input name="motivo" maxlength="180" value="${escaparHTML(inicial.motivo)}" required></label>
-      ${renderizarHerramientaRutas(modelo.herramientaRutas, t)}
+      ${renderizarHerramientaRutas(modelo.herramientaRutas, t, errorRuta)}
       <label class="dietas-vehiculo-propio"><span>${escaparHTML(t("vehiculo"))}</span><span><input name="vehiculo_propio" type="checkbox" checked> ${escaparHTML(t("vehiculo_propio"))}</span></label>
       <label>${escaparHTML(t("tarifa_kilometro"))}<input name="tarifa_kilometro_euros" type="number" value="${escaparHTML(modelo.politica.tarifa_kilometro_euros)}" step="0.01" readonly></label>
       <label>${escaparHTML(t("manutencion"))}<input name="manutencion_euros" type="number" min="0" step="0.01" value="${escaparHTML(inicial.manutencion_euros)}"></label>
@@ -288,6 +256,7 @@ function renderizarFormulario(modelo, t) {
 
 export function renderizarDietas(modelo, {
   descargaDisponible = false, confirmacionDisponible = false, mensajes = MENSAJES_DIETAS_ES,
+  errorRuta = "",
 } = {}) {
   const t = crearTraductorDietas(mensajes);
   const recibo = modelo.ultimoRecibo;
@@ -306,9 +275,9 @@ export function renderizarDietas(modelo, {
       <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">PAG</span><div><strong class="valor-kpi">${euros(modelo.resumen.pagado_euros)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_pagado", { demo: modelo.demostracion ? " DEMO" : "" }))}</span></div></article>
     </div>
     ${recibo ? `<section class="dietas-recibo" role="status" tabindex="-1" data-dietas-recibo><strong>${escaparHTML(traducirCodigo(t, CLAVES_RESULTADO, recibo.resultado))}</strong><span>${escaparHTML(t("recibo_estado", { referencia: recibo.referencia, actor: recibo.actor_ref, efectos: recibo.efectos_reales === false ? t("sin_efectos") : "" }))}</span></section>` : '<div class="dietas-anuncio" role="status" aria-live="polite" data-dietas-anuncio></div>'}
+    ${modelo.capacidades.gestionarGastos && modelo.capacidades.gestionarRutas ? renderizarFormulario(modelo, t, errorRuta) : ""}
     <form class="dietas-filtros" data-dietas-filtros aria-label="${escaparHTML(t("filtros_etiqueta"))}"><label>${escaparHTML(t("buscar"))}<input name="texto" type="search" value="${escaparHTML(modelo.filtros.texto)}" placeholder="${escaparHTML(t("buscar_placeholder"))}"></label><label>${escaparHTML(t("cab_estado"))}<select name="estado">${opcionesEstado(modelo.filtros.estado, t)}</select></label><button type="submit" class="boton-secundario">${escaparHTML(t("aplicar_filtros"))}</button></form>
     <div class="dietas-espacio-trabajo">${renderizarTabla(modelo, t)}${renderizarDetalle(modelo, descargaDisponible, confirmacionDisponible, t)}</div>
-    ${modelo.capacidades.gestionarGastos && modelo.capacidades.gestionarRutas ? renderizarFormulario(modelo, t) : ""}
     ${renderizarHistorialMensual(modelo, descargaDisponible, t)}
   </div>`;
 }
@@ -370,6 +339,7 @@ export async function montarModuloDietas({
   let visoresMontados = [];
   let borradorEdicion = null;
   let focoPendiente = null;
+  let errorRuta = "";
 
   const atributosFoco = Object.freeze([
     "data-dietas-ruta-anadir",
@@ -456,10 +426,15 @@ export async function montarModuloDietas({
       descargaDisponible: typeof descargarRecibo === "function",
       confirmacionDisponible: typeof confirmarOperacion === "function",
       mensajes,
+      errorRuta,
     });
     restaurarBorradorEdicion();
     if (visorRuta) {
-      const descriptores = [modelo.seleccionada?.mapa_ruta, modelo.herramientaRutas?.mapa_ruta].filter(Boolean);
+      // La geometría histórica del expediente permanece en el modelo para
+      // consulta y descarga, pero el espacio de trabajo muestra un único mapa:
+      // el planificador activo de «Ruta del día». Evita dos visores Leaflet
+      // simultáneos y recupera la jerarquía de la pantalla original de Dietas.
+      const descriptores = [modelo.herramientaRutas?.mapa_ruta].filter(Boolean);
       const figuras = [...raiz.querySelectorAll("[data-dietas-mapa-ref]")];
       descriptores.forEach((descriptor) => {
         const figura = figuras.find((item) => item.dataset.dietasMapaRef === descriptor.vista_ref);
@@ -561,6 +536,7 @@ export async function montarModuloDietas({
     const anadirParada = evento.target.closest?.("[data-dietas-ruta-anadir]");
     if (anadirParada && presentador.rutas) {
       try {
+        errorRuta = "";
         capturarBorradorEdicion();
         presentador.rutas.agregarParada();
         pintar();
@@ -571,6 +547,7 @@ export async function montarModuloDietas({
     const quitarParada = evento.target.closest?.("[data-dietas-ruta-quitar]");
     if (quitarParada && presentador.rutas) {
       try {
+        errorRuta = "";
         capturarBorradorEdicion();
         presentador.rutas.eliminarParada(Number(quitarParada.dataset.dietasRutaQuitar));
         pintar();
@@ -582,6 +559,7 @@ export async function montarModuloDietas({
     if (calcularRuta && presentador.rutas) {
       try {
         if (!calculadorRuta) throw new Error(t("ruta_puerto_no_disponible"));
+        errorRuta = "";
         capturarBorradorEdicion();
         await conBloqueo(async () => {
           const solicitud = presentador.rutas.prepararSolicitudCalculo();
@@ -590,7 +568,12 @@ export async function montarModuloDietas({
           pintar();
           anunciar(t("ruta_calculo_completado"));
         });
-      } catch (error) { anunciar(error.message, "error"); }
+      } catch (error) {
+        errorRuta = t(error?.codigo === CODIGO_ERROR_SERVICIO_RUTAS_DIETAS
+          ? "ruta_error_servicio" : "ruta_error_operacion");
+        pintar();
+        anunciar(errorRuta, "error");
+      }
       return;
     }
     const alternativa = evento.target.closest?.("[data-dietas-ruta-alternativa]");
@@ -722,6 +705,7 @@ export async function montarModuloDietas({
       return;
     }
     try {
+      errorRuta = "";
       capturarBorradorEdicion();
       presentador.rutas.establecerParada(Number(parada.dataset.dietasRutaParada), parada.value);
       pintar();

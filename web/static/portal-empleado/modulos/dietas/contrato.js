@@ -19,6 +19,16 @@ export const CAPACIDAD_CONSULTAR_RUTA = "dietas.ruta.read";
 export const CAPACIDAD_GESTIONAR_RUTA = "dietas.ruta.manage";
 export const CAPACIDAD_GESTIONAR_APROBACION = "dietas.aprobacion.manage";
 export const CAPACIDAD_CONSULTAR_AUDITORIA = "dietas.audit.read";
+export const CODIGO_ERROR_SERVICIO_RUTAS_DIETAS = "servicio_rutas_no_disponible";
+
+export class ErrorServicioRutasDietas extends Error {
+  constructor() {
+    super("No se pudo calcular la ruta con el servicio interno.");
+    this.name = "ErrorServicioRutasDietas";
+    this.codigo = CODIGO_ERROR_SERVICIO_RUTAS_DIETAS;
+    Object.freeze(this);
+  }
+}
 
 const CAPACIDADES_DIETAS = new Set([
   CAPACIDAD_CONSULTAR_GASTO,
@@ -166,11 +176,16 @@ export function validarCalculoRutaDietas(calculo, solicitudEsperada = null) {
     || !Array.isArray(calculo.alternativas) || calculo.alternativas.length < 1 || calculo.alternativas.length > 3) {
     throw new Error("calculo de ruta no valido");
   }
-  const motorEsperado = calculo.demostracion ? "simulacion_osrm_demo" : "osrm_interno";
-  const origenGeometriaEsperado = calculo.demostracion ? "sintetica_demo" : "osrm_interno";
-  if (calculo.motor !== motorEsperado) {
+  // `demostracion` expresa que el resultado carece de efectos administrativos,
+  // no que la cartografia deba ser ficticia. Una presentacion puede consultar
+  // el OSRM interno real manteniendo `liquidable: false`; producto, en cambio,
+  // nunca puede degradarse a una simulacion.
+  if (calculo.demostracion === false && calculo.motor !== "osrm_interno") {
     throw new Error("el motor de ruta no corresponde al entorno del calculo");
   }
+  const origenGeometriaEsperado = calculo.motor === "osrm_interno"
+    ? "osrm_interno"
+    : "sintetica_demo";
   codigoRuta(calculo.referencia, "referencia del calculo");
   texto(calculo.version_grafo, "version del grafo", 100);
   const solicitud = solicitudEsperada ? validarSolicitudRutaDietas(solicitudEsperada) : null;

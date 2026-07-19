@@ -26,6 +26,7 @@ exigir() {
 
 exigir 'ghcr\.io/systemed/tilemaker:master@sha256:[a-f0-9]{64}' "$raiz/compose.yaml"
 exigir 'maptiler/tileserver-gl:v5\.6\.0@sha256:[a-f0-9]{64}' "$raiz/compose.yaml"
+exigir 'nginx:1\.27-alpine@sha256:[a-f0-9]{64}' "$raiz/compose.yaml"
 exigir 'mbtiles://\{granada\}' "$raiz/config/estilos/osm-granada.json"
 exigir '© OpenStreetMap contributors' "$raiz/README.md"
 exigir 'Leaflet 1\.9\.4' "$raiz/README.md"
@@ -43,9 +44,20 @@ jq -e '
   (.services["tiles-osm"].cap_drop | index("ALL")) != null and
   (.services["tiles-osm"].security_opt | index("no-new-privileges:true")) != null and
   (.services["tiles-osm"].command | index("--no-cors")) != null and
-  ([.services["tiles-osm"].ports[] |
+  (.services["tiles-osm"].command | index("--silent")) != null and
+  (.services["tiles-osm"].tmpfs | index("/home/node/.cache:rw,noexec,nosuid,nodev,size=32m,mode=0700,uid=999,gid=999")) != null and
+  ((.services["tiles-osm"].ports // []) | length) == 0 and
+  .services["proxy-osm"].read_only == true and
+  .services["proxy-osm"].pull_policy == "never" and
+  (.services["proxy-osm"].cap_drop | index("ALL")) != null and
+  (.services["proxy-osm"].security_opt | index("no-new-privileges:true")) != null and
+  ([.services["proxy-osm"].ports[] |
     select(.host_ip == "127.0.0.1" and .target == 8080)] | length) == 1 and
-  .networks.cartografia_sin_egreso.internal == true
+  (.services["proxy-osm"].networks | has("cartografia_sin_egreso")) and
+  (.services["proxy-osm"].networks | has("borde_cartografia")) and
+  .networks.cartografia_sin_egreso.internal == true and
+  ((.networks.borde_cartografia.internal // false) == false) and
+  .networks.borde_cartografia.driver_opts["com.docker.network.bridge.enable_ip_masquerade"] == "false"
 ' "$temporal" >/dev/null
 
 if find "$raiz" -path "$raiz/estado" -prune -o \( -name '*.pbf' -o -name '*.mbtiles' \) -print | grep -q .; then

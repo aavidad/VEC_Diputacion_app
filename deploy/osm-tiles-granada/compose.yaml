@@ -47,13 +47,12 @@ services:
       - --port
       - "8080"
       - --no-cors
-    ports:
-      - "127.0.0.1:${OSM_TILES_PORT:-8091}:8080"
+      - --silent
     networks:
       - cartografia_sin_egreso
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
-      - /home/node/.cache:rw,noexec,nosuid,nodev,size=32m,mode=0700,uid=1000,gid=1000
+      - /home/node/.cache:rw,noexec,nosuid,nodev,size=32m,mode=0700,uid=999,gid=999
     volumes:
       - ./config/tileserver.json:/data/config.json:ro
       - ./config/estilos:/data/estilos:ro
@@ -66,7 +65,47 @@ services:
       retries: 4
       start_period: 60s
 
+  proxy-osm:
+    image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+    pull_policy: never
+    restart: unless-stopped
+    init: true
+    user: "101:101"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: "${OSM_PROXY_MEMORY:-128m}"
+    cpus: "${OSM_PROXY_CPUS:-0.25}"
+    stop_grace_period: 15s
+    depends_on:
+      tiles-osm:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${OSM_TILES_PORT:-8091}:8080"
+    networks:
+      - cartografia_sin_egreso
+      - borde_cartografia
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,mode=1777
+    volumes:
+      - ./config/nginx-proxy.conf:/etc/nginx/nginx.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/tiles/osm/8/125/99.png"]
+      interval: 30s
+      timeout: 8s
+      retries: 4
+      start_period: 10s
+
 networks:
   cartografia_sin_egreso:
     internal: true
     driver: bridge
+  borde_cartografia:
+    driver: bridge
+    driver_opts:
+      # Docker necesita una red no `internal` para materializar un puerto
+      # publicado. Se desactiva el enmascaramiento: esta red sirve sólo de
+      # borde loopback y no proporciona salida NAT al proxy.
+      com.docker.network.bridge.enable_ip_masquerade: "false"

@@ -11,7 +11,7 @@ Dietas y Bolsa son modulos independientes con `ModuleID`, permisos y menus
 propios; VEC solo los agrega y permite relacionarlos por empleado, expediente,
 justificante o auditoria.
 
-Fecha de corte de este estado: **18 de julio de 2026**. El repositorio es una
+Fecha de corte de este estado: **19 de julio de 2026**. El repositorio es una
 base de desarrollo y demostracion verificable; no acredita por si solo
 conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
 
@@ -273,7 +273,7 @@ Pendiente productivo:
   correspondencia entre pantallas reutilizables, contratos y adaptadores de
   presentación o producción.
 - [Captura y revisión de la presentación](docs/portal_vec/revision_web_presentacion.md):
-  puerta reproducible de 32 vistas y 21 flujos en tres resoluciones.
+  puerta Docker reproducible de 36 vistas y 22 flujos en tres resoluciones.
 - [UX portal empleado tipo VEC](docs/portal_vec/ux_portal_empleado.md)
 - [Matriz inicial de perfiles, roles y ambitos](docs/portal_vec/matriz_roles_y_ambitos.md)
 - [Catalogos configurables y gobernados](docs/portal_vec/catalogos_configurables.md)
@@ -326,6 +326,8 @@ Pendiente productivo:
   fija el siguiente corte vertical definitivo.
 - [Referencias para modulos Cronos y Dietas](docs/portal_vec/referencias_cronos_dietas.md)
 - [Dietas: matriz provincial de distancias](docs/portal_vec/dietas_matriz_distancias.md)
+- [Cartografía interna de Dietas](docs/portal_vec/cartografia_interna_dietas_2026-07-19.md):
+  rutas OSRM y teselas OSM locales, versionadas y confinadas en Docker.
 - [Pagos, tasas y conciliacion](docs/portal_vec/pagos_tasas_y_conciliacion.md)
 
 ### Portal VEC: planes de desarrollo
@@ -469,19 +471,27 @@ ni datos personales.
 
 ### Entregable del Portal del Empleado y Bolsa
 
-La presentación completa de Bolsa se distribuye como un artefacto separado del
-servidor productivo. Se arranca deliberadamente con:
+La presentación completa se ejecuta en Docker y mantiene separados el portal,
+el mediador cartográfico y el destino normal sin material DEMO. Se arranca deliberadamente
+con:
 
 ```bash
 scripts/arrancar_presentacion_rrhh.sh
 ```
 
-Su lanzador queda en `http://127.0.0.1:8081/presentacion/` y permite recorrer
-36 vistas: un lanzador, una consulta pública, 14 vistas del área personal del
-aspirante y, en gestión interna, el portal, 17 secciones de Bolsa, Cronos y
-Dietas. El lateral de Bolsa conserva las diez áreas visuales 1–10 validadas en
-las referencias de RRHH y agrupa bajo ellas las capacidades nuevas sin perder
-rutas. Las acciones de firma, registro, pago, carga documental, comunicación y
+El `Dockerfile` produce tres destinos VEC: `runtime-presentacion` contiene solo
+el portal sintético, `runtime-cartografia-presentacion` contiene solo el
+mediador de rutas y `runtime` contiene el servidor normal sin material de
+presentación. `scripts/verificar_contenido_artefactos_presentacion.sh` construye
+e inspecciona los tres árboles.
+
+El proxy es el único componente que publica un acceso, en
+`http://127.0.0.1:8081`; el lanzador queda en `/presentacion/`. El manifiesto
+actual contiene 36 vistas: un lanzador, una consulta pública, 14 vistas del área
+personal del aspirante y 20 vistas internas —portal, 17 secciones de Bolsa,
+Cronos y Dietas—. El lateral de Bolsa conserva las diez áreas visuales 1–10
+validadas en las referencias de RRHH y agrupa bajo ellas las capacidades nuevas
+sin perder rutas. Las acciones de firma, registro, pago, carga documental, comunicación y
 demás operaciones se representan mediante adaptadores volátiles: exigen
 confirmación, devuelven recibos `DEMO-` y se pierden al recargar.
 
@@ -492,12 +502,21 @@ presentación, con identidad institucional, texto de constancia o certificación
 referencia opaca y QR hacia la pantalla local de cotejo. No constituyen firma,
 registro ni certificado administrativo.
 
-La muestra no utiliza cookies, `localStorage`, `sessionStorage`, volúmenes
-duraderos ni conectores externos. No contiene datos personales reales: las
+La muestra no utiliza cookies, `localStorage`, `sessionStorage` ni volúmenes
+duraderos. Su único conector funcional real es el cartográfico, confinado a
+OSRM en una red Docker exclusiva; no consulta Internet. No contiene datos
+personales reales: las
 referencias BOP son públicas y reales, mientras personas, expedientes, actos y
-resultados privados son sintéticos y se identifican de forma visible. El artefacto
-productivo excluye físicamente el lanzador, los datos y los adaptadores de
-presentación.
+resultados privados son sintéticos y se identifican de forma visible. El destino
+normal excluye físicamente el lanzador, los datos y los adaptadores de
+presentación, aunque todavía no está autorizado ni compuesto para producción.
+
+Dietas calcula rutas reales con el grafo OSRM interno y muestra teselas OSM
+renderizadas localmente. El PBF, el grafo y el MBTiles se versionan y se montan
+en solo lectura. El navegador usa exclusivamente las rutas del mismo origen
+`POST /api/presentacion/cartografia/rutas` y
+`/tiles/osm/{z}/{x}/{y}.png`; no conoce las direcciones internas. Portal,
+mediador, OSRM y renderizador no publican puertos propios.
 
 Las pantallas, los componentes, los contratos y los renderizadores se han
 diseñado como candidatos reutilizables en producción. RRHH deberá validarlos y
@@ -509,23 +528,26 @@ recorrido visual y funcional de la demo, pero **no** acredita integración con
 PostgreSQL, identidad, firma, registro u otros servicios, ni una prueba E2E
 productiva ni validez administrativa.
 
-La revisión automática completa se ejecuta, con el servidor anterior activo,
-mediante:
+La revisión automática completa se ejecuta, con la composición anterior activa,
+en un contenedor efímero que ya contiene Playwright y Chromium:
 
 ```bash
-python3 scripts/capturar_presentacion_web.py \
-  --url-base http://127.0.0.1:8081 \
-  --ejecutable-navegador /snap/bin/chromium
+docker compose --profile presentacion --profile herramientas-presentacion run \
+  --rm --no-deps revision-web-presentacion
 ```
 
-El cierre integral de Bolsa obtuvo **159/159 escenarios correctos y cero
-hallazgos** antes de incorporar Cronos y Dietas. La integración posterior añade
-pruebas unitarias del portal y recorridos reales en escritorio, tableta y móvil;
-la cifra 159 no se reutiliza para aparentar que esas vistas ya pertenecían a la
-matriz anterior. La herramienta exige la marca técnica del servidor de presentación,
-rechaza cualquier host que no sea una IP literal de loopback y revisa menús,
+La revisión integral actual obtuvo **174/174 escenarios correctos, 174
+capturas y cero hallazgos**: 36 vistas y 22 flujos en tres resoluciones,
+incluida la ruta real de Dietas. La herramienta exige la marca técnica del servidor de presentación,
+rechaza cualquier destino no autorizado y revisa menús,
 recibos DEMO, accesibilidad básica, almacenamiento del navegador, errores y
 desbordamientos. Esta puerta no sustituye la aceptación humana de RRHH.
+
+El equipo anfitrión solo requiere Docker Engine y Docker Compose v2 para este
+recorrido. No se instala ni se ejecuta directamente Playwright, Chromium, OSRM,
+TileServer GL, Go o Nginx. La topología, la gobernanza de los datos
+cartográficos y la operación se detallan en
+[Cartografía interna de Dietas](docs/portal_vec/cartografia_interna_dietas_2026-07-19.md).
 
 La aplicación normal mantiene las fronteras separadas: `/bolsa/` para consulta
 anónima, `/area-personal/` para la persona aspirante y `/portal-empleado/` para
@@ -543,8 +565,10 @@ La puerta completa y reproducible para desarrollo y CI se ejecuta con:
 scripts/verificar_calidad.sh
 ```
 
-`cmd/vec-presentacion` es la composición exclusiva, local y no autoritativa de
-la muestra; no es un servidor productivo. `cmd/vec-publico` conserva la
+`cmd/vec-presentacion` sirve el portal no autoritativo y
+`cmd/vec-cartografia-presentacion` media de forma aislada el único cálculo de
+rutas admitido por la muestra; ninguno es un servidor productivo.
+`cmd/vec-publico` conserva la
 superficie pública aislada. `cmd/vec-server` se mantiene como composición
 integrada heredada para desarrollo; no representa la separación de superficies
 de producción y rechaza `VEC_AUTH_MODE=trusted_headers` antes de construir sus

@@ -13,14 +13,15 @@ proyecto continúa.
 
 | Elemento | Presentación | Producción |
 | --- | --- | --- |
-| Binario | `vec-presentacion` | Proceso interno por definir; `vec-server` sigue siendo composición heredada de desarrollo |
+| Artefactos VEC | `runtime-presentacion`/`vec-presentacion` para el portal y `runtime-cartografia-presentacion`/`vec-cartografia-presentacion` para mediar las rutas | `runtime`/`vec-server`; la composición productiva completa sigue pendiente |
 | Perfil | `presentacion_rrhh` | `produccion` |
 | Datos privados | Prohibidos | Solo mediante conectores autorizados |
 | Datos de la muestra | Metadatos BOP públicos reales; personas, expedientes, actos y resultados privados sintéticos y marcados | El adaptador DEMO se excluye físicamente de la imagen |
 | Escrituras durables o de servidor | Ninguna; solo cambia memoria volátil de la pestaña | Casos de uso, autorización y recibos reales |
-| API | Consulta pública local de Bolsa | API pública/interna según frontera |
+| API | Consulta pública local de Bolsa y una operación cartográfica exacta, sin identidad ni efectos administrativos | API pública/interna según frontera |
 | Firma, registro, pagos y mensajes | Simulación visual | Adaptadores productivos aún por integrar |
-| Red saliente de la aplicación | Local: no compone clientes externos; Docker: red `internal` sin salida | Según allowlist y decisión de Sistemas |
+| Cartografía | PBF, grafo OSRM y MBTiles reales, locales y versionados; expedientes e importes siguen siendo sintéticos | Conector cartográfico aprobado, versionado y sujeto a auditoría de Sistemas |
+| Red saliente | Redes Docker segmentadas y sin salida a Internet; solo el mediador puede alcanzar OSRM en su red exclusiva | Según allowlist y decisión de Sistemas |
 
 ## Activación cerrada
 
@@ -39,6 +40,11 @@ La presentación parte deshabilitada. El servidor exige simultáneamente:
 8. listener con IP literal loopback, privada o link-local y allowlist compuesta
    únicamente por redes locales enumeradas.
 
+El mediador cartográfico se construye y ejecuta como proceso distinto. Repite
+las guardas de presentación y, además, exige la URL exacta de OSRM, su ámbito,
+la lista positiva de redes de destino y una versión gobernada del grafo. El
+portal no conoce ni puede alcanzar la dirección de OSRM.
+
 La comprobación se hace en configuración, bootstrap y servidor. No depende de
 un `build tag`. Los binarios normales rechazan incluso un selector parcial de
 presentación para evitar que una variable copiada por error exponga datos
@@ -46,13 +52,17 @@ sintéticos.
 
 ## Superficie servida
 
-El handler usa lista positiva y métodos `GET` y `HEAD`:
+Las superficies usan listas positivas y solo los métodos enumerados:
 
 - `/presentacion/`: selector de recorridos;
 - `/bolsa/`: consulta pública;
 - `/area-personal/`: punto de vista de la persona candidata;
 - `/portal-empleado/`: punto de vista técnico de RRHH;
 - `/api/publico/`: consulta pública local de convocatorias y categorías;
+- `POST /api/presentacion/cartografia/rutas`: cálculo no autoritativo de una
+  ruta de Dietas mediante el mediador aislado;
+- `GET|HEAD /tiles/osm/{z}/{x}/{y}.png`: teselas OSM locales del mismo origen,
+  limitadas a los niveles admitidos;
 - `/healthz`, `/styles.css` y `/favicon.svg`.
 
 No se sirven `/api/vec/`, `/api/demo`, `/candidates`, el árbol de datos, la
@@ -64,37 +74,51 @@ el resto de cabeceras del servidor común.
 
 ## Arranque para la revisión
 
-La forma local más simple es:
+La presentación se ejecuta exclusivamente en Docker. El equipo anfitrión solo
+necesita Docker Engine y Docker Compose v2; no se instala ni se ejecuta en él
+Go, OSRM, TileServer GL, Playwright, Chromium ni un proxy auxiliar. El arranque
+soportado es:
 
 ```bash
 scripts/arrancar_presentacion_rrhh.sh
 ```
 
-Después se abre `http://127.0.0.1:8081/presentacion/`. El script fija las dos
-guardas, loopback, memoria y las fuentes `.demo.json`; estas incorporan
-únicamente metadatos públicos reales del BOP y estado privado sintético. No
-carga credenciales.
+Después se abre `http://127.0.0.1:8081/presentacion/`. El script construye la
+composición, espera la salud de portal, proxy, mediador, OSRM y teselas, y
+ejecuta la prueba rápida cartográfica dentro de un contenedor efímero. Fija las dos
+guardas, memoria y las fuentes `.demo.json`; estas incorporan únicamente
+metadatos públicos reales del BOP y estado privado sintético. No carga
+credenciales.
 
-El arranque del binario y las fronteras HTTP se comprueban de extremo a extremo
-con un entorno limpio mediante:
+El arranque y las fronteras HTTP pueden comprobarse en un proyecto Docker
+efímero y autocontenido mediante el comando siguiente. Está pensado para CI o
+un entorno limpio y no debe ejecutarse a la vez que la composición principal,
+porque ambas reservan las mismas subredes privadas:
 
 ```bash
 scripts/smoke_presentacion_rrhh.sh
 ```
 
-La revisión funcional y visual automatizada se ejecuta con:
+Con la composición principal activa, la prueba rápida repetible es:
 
 ```bash
-python3 scripts/capturar_presentacion_web.py \
-  --url-base http://127.0.0.1:8081 \
-  --ejecutable-navegador /snap/bin/chromium
+scripts/smoke_cartografia_presentacion.sh
 ```
 
-La línea base archivada recorre 32 vistas y 21 estados de interacción en
-escritorio, tableta y móvil: 159 escenarios en total. Es anterior a la
-incorporación de Cronos, Dietas y dos rutas adicionales de Bolsa; el corte
-actual tiene 36 vistas y no reutiliza aquella cifra para aparentar una revisión
-que todavía no pertenecía a su manifiesto. La herramienta exige la cabecera
+Con la composición ya levantada, la revisión funcional y visual se ejecuta
+también dentro de Docker:
+
+```bash
+docker compose --profile presentacion --profile herramientas-presentacion run \
+  --rm --no-deps revision-web-presentacion
+```
+
+El manifiesto actual contiene 36 vistas y 22 estados de interacción en
+escritorio, portátil y móvil. La ejecución cerrada el 19 de julio de 2026
+obtuvo **174/174 escenarios correctos, 174 capturas y cero hallazgos**, incluido
+el cálculo de una ruta real de Dietas y la carga de su mapa interno. La línea
+base archivada de 159 escenarios es anterior a Cronos, Dietas, dos vistas
+adicionales de Bolsa y la integración cartográfica. La herramienta exige la cabecera
 técnica exclusiva de presentación, comprueba menús y recibos DEMO, y falla ante
 almacenamiento del navegador, errores, recursos fallidos, controles sin nombre
 o desbordamientos. El detalle y los informes generados se describen en
@@ -103,13 +127,24 @@ o desbordamientos. El detalle y los informes generados se describen en
 El contenedor aislado se arranca con:
 
 ```bash
-docker compose --profile presentacion up --build -d
+docker compose --profile presentacion up --detach --build --wait
 ```
 
-El proxy publica únicamente `127.0.0.1:8081`. La aplicación queda en la red
-Docker `internal`, sin ruta de salida, no publica puertos directamente, usa
-usuario sin privilegios, sistema de ficheros de solo lectura, límites de
-procesos/memoria/CPU y todas las capacidades Linux retiradas.
+El proxy es el único servicio que publica un acceso, siempre en
+`127.0.0.1:8081`. Portal, mediador, OSRM y renderizador de teselas no publican
+puertos. Las redes `presentacion-portal`, `presentacion-cartografia` y
+`presentacion-osrm` separan cada salto; la red de borde tiene el enmascaramiento
+deshabilitado. Los contenedores usan sistema de ficheros de solo lectura,
+límites de procesos/memoria/CPU, prohibición de nuevos privilegios y
+capacidades Linux retiradas.
+
+La composición exige un grafo OSRM y una versión de teselas ya preparados. El
+PBF fuente, su huella, la versión lógica del grafo y la versión activa del
+MBTiles se gobiernan fuera del código; actualizar el dato no requiere recompilar
+la web. La generación y activación se realizan con los scripts Docker de
+`deploy/osrm-granada` y `deploy/osm-tiles-granada`. El procedimiento completo,
+incluida la reversión, se describe en
+[Cartografía interna de Dietas](cartografia_interna_dietas_2026-07-19.md).
 
 Parada y retirada de contenedores:
 
@@ -119,12 +154,15 @@ docker compose --profile presentacion down
 
 ## Separación física de artefactos
 
-El `Dockerfile` contiene dos destinos:
+El `Dockerfile` contiene tres destinos VEC separados:
 
 - `runtime-presentacion`, que incluye el launcher, los adaptadores de
   presentación, los ficheros `.demo.json` y solo `vec-presentacion`; antes de
   empaquetar elimina pruebas, guías de integración, la SPA y módulos
   históricos, y no copia el directorio de configuración de trabajo;
+- `runtime-cartografia-presentacion`, que contiene solo
+  `vec-cartografia-presentacion`; no incorpora el portal, datos, documentación,
+  fixtures, `vec-presentacion` ni `vec-server`;
 - `runtime`, que instala exclusivamente las rutas enumeradas en
   `web/produccion.manifest`: no copia la SPA histórica de raíz (`index.html` y
   `app.js`), documentación, pruebas, fixtures, rutas de presentación o demo,
@@ -136,7 +174,7 @@ La inspección física reproducible es:
 scripts/verificar_contenido_artefactos_presentacion.sh
 ```
 
-La prueba construye ambos destinos, exporta sus sistemas de ficheros y compara
+La prueba construye los tres destinos, exporta sus sistemas de ficheros y compara
 el árbol web productivo con el manifiesto exacto. También falla ante una ruta
 añadida aunque su nombre sea neutro, almacenamiento del navegador, firmas de
 contenido de la SPA histórica, documentación, datos plausibles o cualquier
@@ -172,9 +210,11 @@ Este modo reduce, pero no convierte la muestra en producción:
 - evita que cookies o cabeceras del navegador se interpreten como identidad;
 - impide publicar por accidente otros directorios del repositorio;
 - impide seleccionar la muestra desde el binario normal;
-- el arranque local no compone clientes para PostgreSQL, S3, OSRM, Autofirma,
-  registro, pasarela de pago o comunicaciones; el perfil Docker añade una red
-  `internal` sin salida que impide alcanzarlos por red;
+- el portal no compone clientes para PostgreSQL, S3, Autofirma, registro,
+  pasarela de pago o comunicaciones; el único cliente de red de la muestra es
+  el mediador cartográfico, limitado por red y lista positiva al OSRM interno;
+- el navegador obtiene rutas y teselas por el mismo proxy y nunca consulta
+  servicios cartográficos públicos;
 - muestra siempre avisos de “demostración” y “sin validez administrativa”.
 
 No acredita autenticación, autorización nominal, persistencia, firma, registro,
@@ -209,10 +249,12 @@ condición de aceptación, prueba de ausencia y marcha atrás, se encuentra en e
 [inventario de retirada incremental](inventario_retirada_presentacion_2026-07-19.md).
 
 Si no se aprueba el proyecto, basta con retirar el perfil Compose
-`presentacion`, el destino `runtime-presentacion`, `cmd/vec-presentacion`,
-`web/static/presentacion`, los `datos-presentacion.js`, los ficheros
-`.demo.json` exclusivos y los dos scripts de presentación. El runtime
-productivo no depende de ellos.
+`presentacion`, los destinos `runtime-presentacion` y
+`runtime-cartografia-presentacion`, `cmd/vec-presentacion`,
+`cmd/vec-cartografia-presentacion`, `web/static/presentacion`, los
+`datos-presentacion.js`, los ficheros `.demo.json` exclusivos y los scripts y
+configuraciones de la muestra cartográfica. El destino normal sin material DEMO
+no depende de ellos, aunque todavía no está autorizado para producción.
 
 Si se aprueba, el artefacto puede mantenerse solo para formación y pruebas
 visuales, siempre en red local, con metadatos públicos verificables y datos

@@ -49,7 +49,12 @@ def crear_informe_markdown(informe: dict[str, Any]) -> str:
         "|---|---|---|---:|---|---|",
     ]
     for resultado in informe["resultados"]:
-        captura = f"[ver]({resultado['captura']})" if resultado.get("captura") else "—"
+        if resultado.get("captura"):
+            partes = 1 + len(resultado.get("capturas_adicionales", []))
+            sufijo = f" ({partes} partes)" if partes > 1 else ""
+            captura = f"[ver]({resultado['captura']}){sufijo}"
+        else:
+            captura = "—"
         lineas.append(
             f"| {_celda_markdown(resultado['tipo'])} | {_celda_markdown(resultado['nombre_superficie'])} "
             f"| {_celda_markdown(resultado['nombre'])} | {resultado['tamano']['ancho']}×{resultado['tamano']['alto']} "

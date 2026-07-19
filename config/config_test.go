@@ -274,17 +274,18 @@ func TestVersionCatalogoCategoriasInvalidaNoRetrocedeSilenciosamente(t *testing.
 
 func TestOSRMNoInfiereRedesYCargaSoloLasExplicitas(t *testing.T) {
 	configuracion := (Config{}).Normalize()
-	if len(configuracion.OSRMAllowedCIDRs) != 0 {
-		t.Fatalf("redes OSRM inferidas: %#v", configuracion.OSRMAllowedCIDRs)
+	if len(configuracion.OSRMAllowedCIDRs) != 0 || configuracion.OSRMGraphVersion != "" {
+		t.Fatalf("concesion OSRM inferida: redes=%#v version=%q", configuracion.OSRMAllowedCIDRs, configuracion.OSRMGraphVersion)
 	}
 
 	t.Setenv(EnvOSRMBaseURL, "http://127.0.0.1:5000")
 	t.Setenv(EnvOSRMScopeName, "Granada provincia + 15 km")
 	t.Setenv(EnvOSRMScopeBounds, "36.45,-4.6,38.25,-2.15")
 	t.Setenv(EnvOSRMAllowedCIDRs, "127.0.0.1/32, ::1/128")
+	t.Setenv(EnvOSRMGraphVersion, " grafo-osm-granada-v1 ")
 	configuracion = Load()
 	if len(configuracion.OSRMAllowedCIDRs) != 2 || configuracion.OSRMAllowedCIDRs[0] != "127.0.0.1/32" ||
-		configuracion.OSRMAllowedCIDRs[1] != "::1/128" {
-		t.Fatalf("redes OSRM explicitas alteradas: %#v", configuracion.OSRMAllowedCIDRs)
+		configuracion.OSRMAllowedCIDRs[1] != "::1/128" || configuracion.OSRMGraphVersion != "grafo-osm-granada-v1" {
+		t.Fatalf("concesion OSRM explicita alterada: redes=%#v version=%q", configuracion.OSRMAllowedCIDRs, configuracion.OSRMGraphVersion)
 	}
 }

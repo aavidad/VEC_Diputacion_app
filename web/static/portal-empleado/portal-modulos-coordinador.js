@@ -75,10 +75,10 @@ export function crearCoordinadorModulosPortal({
   let composicion = null;
   let desmontarVista = null;
   let secuenciaMontaje = 0;
-  // El binario de presentación no compone conectores de red. Producción debe
-  // crear este puerto con `permitirTeselas: true` únicamente tras publicar el
-  // proxy same-origin `/tiles/osm/` dentro de la red corporativa.
-  const visorRutaDietas = crearVisorRutaDietas({ entorno, permitirTeselas: false });
+  // La pila Docker de presentacion publica teselas bajo el mismo origen. Si
+  // Leaflet no estuviera disponible, el visor muestra un aviso textual y
+  // nunca intenta una fuente cartografica externa ni una ruta simulada.
+  const visorRutaDietas = crearVisorRutaDietas({ entorno, permitirTeselas: true });
 
   function desmontarVistaActual() {
     secuenciaMontaje += 1;
@@ -93,7 +93,7 @@ export function crearCoordinadorModulosPortal({
       import("./modulos/cronos/datos-presentacion.js"),
       import("./modulos/cronos/adaptador-presentacion.js"),
       import("./modulos/dietas/adaptador-presentacion.js"),
-      import("./modulos/dietas/calculador-rutas-presentacion.js"),
+      import("./modulos/dietas/calculador-rutas-presentacion-osrm.js"),
       import("./documentos/descarga-recibos-presentacion.js"),
       import("./portal-catalogo-presentacion.js"),
     ]);
@@ -118,9 +118,10 @@ export function crearCoordinadorModulosPortal({
         contextoActor: contextos.dietas,
         capacidades: CAPACIDADES_AUTOSERVICIO_DIETAS,
       }),
-      calculadorRuta: calculadorRutasDietas.crearCalculadorRutasDietasPresentacion({
+      calculadorRuta: calculadorRutasDietas.crearCalculadorRutasDietasPresentacionOSRM({
         contextoActor: contextos.dietas,
         capacidades: CAPACIDADES_AUTOSERVICIO_DIETAS,
+        fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
       }),
       descargarRecibo,
       visorRuta: visorRutaDietas,

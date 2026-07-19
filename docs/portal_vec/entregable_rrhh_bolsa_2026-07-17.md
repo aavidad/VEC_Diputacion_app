@@ -51,14 +51,12 @@ El inventario anterior describe pantallas evaluables, no capacidades
 productivas. Una vista marcada `DEMO` no acredita integración, una prueba E2E
 productiva ni un acto administrativo válido.
 
-La puerta automática de presentación registró una línea base de **32 vistas y
-21 estados de interacción** representativos en tres resoluciones. Ese cierre,
-anterior a la incorporación de Cronos, Dietas y las dos rutas adicionales de
-Bolsa, produjo **159 capturas, 159 escenarios correctos y cero hallazgos**.
-Incluía los menús móviles abiertos, el perfil técnico restringido, el recorrido
-de solicitud del aspirante y operaciones internas con recibo `DEMO-REC-*`. No
-se atribuye esa cifra histórica a las cuatro vistas posteriores: estas deben
-entrar en el siguiente manifiesto integral. En todos los casos se trata de
+La puerta automática de presentación ha recorrido **36 vistas y 22 estados de
+interacción** representativos en tres resoluciones. El cierre del 19 de julio
+de 2026 produjo **174 capturas, 174 escenarios correctos y cero hallazgos**.
+Incluye los menús móviles abiertos, el perfil técnico restringido, el recorrido
+de solicitud del aspirante, operaciones internas con recibo `DEMO-REC-*` y la
+ruta OSM/OSRM real de Dietas. En todos los casos se trata de
 evidencia de la muestra aislada, no de aceptación de RRHH ni de una prueba E2E
 productiva.
 
@@ -129,14 +127,20 @@ cerrada hasta que se complete la vertical real.
 
 ### Presentación explícita para RRHH
 
-La forma soportada de arrancar la muestra es:
+La forma soportada de arrancar la muestra es exclusivamente Docker:
 
 ```bash
 scripts/arrancar_presentacion_rrhh.sh
 ```
 
-El punto de entrada es
-`http://127.0.0.1:8081/presentacion/`. Desde él se abren:
+Este lanzador construye y ejecuta portal, proxy, mediador, OSRM y teselas en
+contenedores, espera su salud y lanza la prueba rápida interna. No instala ni ejecuta
+Go, Playwright, Chromium, OSRM, TileServer GL o Nginx directamente en el
+anfitrión.
+
+El proxy es el único servicio que publica un acceso, en
+`http://127.0.0.1:8081`; el punto de entrada es `/presentacion/`. Desde él se
+abren:
 
 - consulta pública: `/bolsa/`;
 - área personal: `/area-personal/?presentacion=rrhh`;
@@ -150,8 +154,10 @@ Accesos directos útiles:
 - elaboración: `#bolsa/elaboracion`;
 - llamamientos: `#bolsa/llamamientos`.
 
-El binario exclusivo `vec-presentacion` exige el perfil, el selector y las dos
-guardas literales documentadas. Solo el parámetro exacto
+El portal `vec-presentacion` exige el perfil, el selector y las dos guardas
+literales documentadas. El mediador independiente
+`vec-cartografia-presentacion` repite ese cierre y solo permite calcular rutas
+contra el OSRM interno autorizado. Solo el parámetro exacto
 `presentacion=rrhh` selecciona en las superficies privadas sus adaptadores
 volátiles. Las pantallas distinguen de forma visible las referencias públicas
 reales de los datos privados sintéticos y advierten de la ausencia de validez
@@ -159,13 +165,25 @@ administrativa. Las acciones pueden modificar el escenario
 durante la visita y emitir un recibo `DEMO-`, pero el estado se pierde al
 recargar y nunca firma, registra, paga, envía ni persiste fuera de la memoria.
 
-La muestra no usa cookies, `localStorage`, `sessionStorage`, volumen durable ni
-conectores externos. El destino Docker productivo elimina físicamente el
+La muestra no usa cookies, `localStorage`, `sessionStorage` ni volumen durable.
+La única comunicación entre componentes es la cartografía interna de Dietas:
+el navegador usa el mismo origen, el mediador consulta OSRM en una red Docker
+exclusiva y las teselas OSM se sirven localmente. No existe salida a Internet.
+El destino Docker productivo elimina físicamente el
 lanzador, los ficheros `.demo.json`, el binario y cualquier ruta cuyo nombre
 contenga `presentacion` o `demo`. La explicación reproducible está en el
 [modo de presentación RRHH](modo_presentacion_rrhh.md) y la correspondencia
 pantalla/contrato/adaptador en la
 [matriz de aceptación](matriz_aceptacion_web_bolsa_2026-07-18.md).
+
+La revisión visual también se ejecuta en Docker, mediante el servicio
+`revision-web-presentacion` del perfil `herramientas-presentacion`. Las capturas
+y los informes quedan bajo `var/` y no forman parte del repositorio.
+
+```bash
+docker compose --profile presentacion --profile herramientas-presentacion run \
+  --rm --no-deps revision-web-presentacion
+```
 
 ### Bolsa pública
 
@@ -209,6 +227,7 @@ aceptación, prueba de ausencia y marcha atrás, se mantiene en
 | Perfiles internos sintéticos | `datos-presentacion.js.sesion` | Se elige explícitamente técnico revisor o administrador; cada uno tiene actor opaco, vistas y operaciones propias | Proyección mínima del principal autenticado, resuelta y revalidada en servidor |
 | Datos y perfil del aspirante | `area-personal/adaptador-presentacion.js` | Muestra exclusivamente `Persona Aspirante de Demostración`, referencias `DEMO-` y correo reservado `.test` | API privada que solo proyecte información propia tras identidad y autorización reales |
 | Indicadores y gráficos | adaptadores de presentación | Facilitan validar composición y jerarquía visual | Agregados calculados en servidor con fecha de corte, ámbito y origen; nunca sumar expedientes ajenos en el navegador |
+| Ruta y mapa de Dietas | `vec-cartografia-presentacion`, OSRM y TileServer GL | Calcula una ruta real sobre un grafo gobernado y presenta teselas OSM locales, sin identidad ni efectos administrativos | Conector productivo autorizado, persistencia de la versión del grafo y auditoría de la liquidación; la vista y los puertos se conservan |
 | Botones de alta, revisión, firma, registro, pago, envío y exportación | controladores inyectados de ambas superficies | Exigen confirmación, cambian solo memoria y muestran actor, objetivo y recibo sin efectos reales | Comandos API autenticados, autorizados, idempotentes, con control de versión y recibo durable |
 | Propuesta de llamamiento | `obtenerPropuestaPresentacion` | Permite revisar evaluaciones sintéticas sin realizar una petición | `POST /api/vec/bolsa/propuestas-llamamiento`, autorizado e idempotente; el servidor decide elegibilidad y prelación |
 | Ficheros seleccionados | formularios del aspirante | Conservan como máximo el nombre durante la interacción; no leen ni envían el contenido | Carga directa al almacén autorizado, cuarentena, antivirus, huella, cifrado, autorización y recibo |
@@ -280,11 +299,11 @@ permanece deshabilitada si el cliente real no recibe una capacidad positiva.
 
 | Área | Estado comprobado | No se debe afirmar todavía |
 | --- | --- | --- |
-| Artefacto de presentación | Binario y perfil separados, lanzador en el puerto 8081 y 36 vistas actuales; la línea base anterior de 32 vistas y 21 flujos obtuvo 159/159 en tres resoluciones; adaptadores volátiles y cero cookies/almacenamiento de navegador | Integración productiva, nueva matriz integral de 36 vistas, E2E productivo, aceptación formal o validez administrativa |
+| Artefacto de presentación | Portal y mediador cartográfico separados, único acceso por el proxy en `127.0.0.1:8081`; 36 vistas y 22 flujos obtuvieron 174/174 en tres resoluciones, con 174 capturas y cero hallazgos | Integración productiva, E2E productivo, aceptación formal o validez administrativa |
 | Consulta pública de convocatorias y categorías | Recorrido local con 36 procesos basados en 37 publicaciones BOP reales, documentos adaptados y aviso DEMO en `/bolsa/` | Publicación oficial desde un expediente interno |
 | Área personal del aspirante | 14 vistas reutilizables pendientes de aceptación, con cliente HTTP real cerrado y adaptador de presentación seleccionado en composición | Identidad real, autorización sobre datos propios, persistencia, pago, firma, registro, carga o descarga efectiva |
 | Gestión interna de Bolsa | Portal más 17 secciones reutilizables agrupadas en el menú visual 1–10; operaciones volátiles con confirmación y recibo `DEMO-` | Identidad interna reforzada, permisos reales, transacciones durables, firma, publicación, comunicación o integración corporativa |
-| Cronos y Dietas en el portal | Dos verticales iniciales reutilizables, con identidad compartida y adaptadores de presentación independientes | Integración productiva, equivalencia funcional completa, confinamiento de Cronos a la red corporativa y aceptación de RRHH/Sistemas |
+| Cronos y Dietas en el portal | Dos verticales iniciales reutilizables, con identidad compartida y adaptadores de presentación independientes; la ruta OSRM y las teselas OSM internas versionadas de Dietas superaron la matriz visual integral | Integración productiva, equivalencia funcional completa, confinamiento de Cronos a la red corporativa y aceptación de RRHH/Sistemas |
 | Portal VEC heredado | Carcasa, perfiles, menús y numerosas vistas reutilizables fuera del corte de Bolsa | Portal privado estable: `/api/vec/workspace` falla cerrado sin ámbito resuelto |
 | Elaboración de bolsa histórica | Formulario visual heredado; dominio de convocatoria gobernada y contrato HMAC V2 probado, sin sellado durable previo al PDP ni huella semántica cruda durable | Resolvedor autoritativo de ámbito, diario de recuperación, persistencia, API, firma, dependencias y publicación oficiales |
 | Panel interno de Bolsa | Dominio, servicio de aplicación, contrato agregado sin datos personales, consulta PostgreSQL y pruebas de integración | Endpoint compuesto, identidad interna real, autoridad COSE de ejecución y productor de la proyección |
@@ -369,6 +388,7 @@ mantienen los fixtures dentro de los adaptadores aislados.
 | Documentos | Puertos de formato, S3, firma y cotejo | Composición específica de Bolsa, plantilla gobernada y circuito de firmas |
 | Comunicaciones | Puertos de notificación | Adaptadores reales y recibos fehacientes |
 | Auditoría | Auditoría VEC y outbox probatoria de baremación | Proyección unificada con integridad y retención aprobadas |
+| Ruta y mapa de Dietas | Vista y puertos reutilizables, Leaflet local, mediador aislado, OSRM y teselas OSM versionadas | Composición interna autenticada, autorización de Dietas, persistencia de la versión de cálculo y auditoría del expediente |
 
 ## Comandos que debe implementar la API
 
@@ -483,11 +503,14 @@ consultar datos administrativos.
 
 ## Criterio para sustituir los adaptadores de presentación
 
-Los adaptadores, el lanzador, los datos `.demo.json` y el binario de
-presentación **ya están excluidos físicamente** del destino Docker productivo.
+Los adaptadores, el lanzador, los datos `.demo.json`, `vec-presentacion` y
+`vec-cartografia-presentacion` **ya están excluidos físicamente** del destino
+Docker productivo.
 No se espera a terminar las APIs para obtener esa separación. La prueba
-`scripts/verificar_contenido_artefactos_presentacion.sh` inspecciona ambos
-artefactos y falla si producción contiene una pieza de muestra.
+`scripts/verificar_contenido_artefactos_presentacion.sh` construye e inspecciona
+los tres destinos VEC —producción, portal de presentación y mediador
+cartográfico— y falla si producción contiene una pieza de muestra o si el
+mediador incorpora el portal, datos o un binario ajeno.
 
 Cada adaptador volátil dejará de ser necesario para una capacidad cuando:
 

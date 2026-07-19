@@ -89,9 +89,9 @@ RUTAS_MENU_ASPIRANTE = (
 )
 RUTAS_MENU_RRHH = (
     "portal", "resumen", "elaboracion", "convocatorias", "solicitudes",
-    "meritos", "baremacion", "alegaciones", "importacion", "llamamientos",
+    "meritos", "baremacion", "reglas", "alegaciones", "importacion", "llamamientos",
     "contratos", "documentos", "comunicaciones", "estadisticas",
-    "auditoria", "configuracion",
+    "auditoria", "configuracion", "consulta",
 )
 
 SUPERFICIES: dict[str, Superficie] = {
@@ -179,6 +179,7 @@ def _vistas_rrhh() -> tuple[Vista, ...]:
         ("solicitudes", "Solicitudes y admisión", "Solicitudes y admisión"),
         ("meritos", "Revisión de méritos", "Revisión de méritos"),
         ("baremacion", "Baremación y ranking", "Baremación y ranking"),
+        ("reglas", "Motor de reglas configurable", "Motor de reglas configurable"),
         ("alegaciones", "Alegaciones", "Alegaciones"),
         ("importacion", "Importación Convoca", "Importación Convoca"),
         ("llamamientos", "Llamamientos", "Nuevo llamamiento"),
@@ -188,6 +189,7 @@ def _vistas_rrhh() -> tuple[Vista, ...]:
         ("estadisticas", "Estadísticas y exportación", "Estadísticas y explotación de datos"),
         ("auditoria", "Auditoría y trazabilidad", "Auditoría y trazabilidad"),
         ("configuracion", "Configuración y roles", "Configuración y roles"),
+        ("consulta", "Portal de consulta para candidatos", "Consulta segura para candidatos"),
     )
     vistas: list[Vista] = []
     for ruta, nombre, titulo in definiciones:
@@ -297,6 +299,25 @@ MANIFIESTO_FLUJOS: tuple[Flujo, ...] = (
         pasos=(PasoInteraccion("clic-confirmando", '[data-accion="operacion-presentacion"][data-operacion="generar-documento"]'),
                PasoInteraccion("esperar", "#dialogo-detalle[open] .recibo-presentacion", "DEMO-REC")),
         selector_menu_actual='[data-vista="documentos"]', requiere_demo=True,
+    ),
+    Flujo(
+        clave="rrhh-dietas-ruta-real", nombre="Ruta real de Dietas con mapa interno",
+        superficie="gestion-rrhh",
+        ruta="/portal-empleado/?presentacion=rrhh&perfil=administrador#dietas",
+        selector_titulo="#titulo-vista", titulo_esperado="Dietas y comisiones de servicio",
+        selectores_listos=(".aviso-presentacion:not([hidden])", '#espacio-trabajo > [data-modulo="dietas"]'),
+        pasos=(
+            PasoInteraccion("clic", "[data-dietas-ruta-calcular]"),
+            PasoInteraccion(
+                "esperar",
+                '[data-dietas-mapa-canvas][data-modo-mapa="openstreetmap_interno"]',
+            ),
+            PasoInteraccion("esperar", "[data-dietas-mapa-estado]", "OpenStreetMap cargado"),
+            PasoInteraccion("enfocar", "[data-dietas-mapa-ref]"),
+        ),
+        selector_menu_actual='[data-vista="dietas"]',
+        selectores_menu=('[data-vista="portal"]', '[data-vista="dietas"]'),
+        requiere_demo=True,
     ),
     Flujo(
         clave="rrhh-perfil-tecnico-restringido", nombre="Perfil técnico con permisos restringidos",
@@ -447,8 +468,8 @@ MANIFIESTO_FLUJOS = (*MANIFIESTO_FLUJOS, *FLUJOS_RRHH_CON_RECIBO)
 MANIFIESTO: tuple[Escenario, ...] = (*MANIFIESTO_VISTAS, *MANIFIESTO_FLUJOS)
 
 
-def normalizar_url_base(valor: str) -> str:
-    """Valida una URL HTTP(S) cuyo host sea una IP de loopback literal."""
+def normalizar_url_base(valor: str, permitir_red_privada: bool = False) -> str:
+    """Valida loopback o, con concesión explícita, una IP Docker privada."""
     valor = valor.strip()
     if not valor:
         raise ValueError("la URL base no puede estar vacía")
@@ -467,8 +488,8 @@ def normalizar_url_base(valor: str) -> str:
         _ = analizada.port
     except ValueError as error:
         raise ValueError("la URL base exige una IP de loopback literal y un puerto válido") from error
-    if not ip.is_loopback:
-        raise ValueError("la URL base solo puede usar una IP de loopback literal")
+    if not ip.is_loopback and not (permitir_red_privada and ip.is_private):
+        raise ValueError("la URL base solo puede usar loopback o la red Docker privada autorizada")
     return valor.rstrip("/")
 
 
@@ -480,9 +501,12 @@ def cabecera_presentacion_valida(cabeceras: Mapping[str, str]) -> bool:
     )
 
 
-def construir_url(url_base: str, ruta: str) -> str:
+def construir_url(url_base: str, ruta: str, permitir_red_privada: bool = False) -> str:
     """Une la URL base y una ruta del manifiesto de forma determinista."""
-    return urljoin(f"{normalizar_url_base(url_base)}/", ruta.lstrip("/"))
+    return urljoin(
+        f"{normalizar_url_base(url_base, permitir_red_privada=permitir_red_privada)}/",
+        ruta.lstrip("/"),
+    )
 
 
 def slug_castellano(valor: str) -> str:
