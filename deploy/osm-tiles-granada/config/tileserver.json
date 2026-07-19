@@ -1,0 +1,25 @@
+{
+  "options": {
+    "paths": {
+      "root": "/data",
+      "styles": "estilos",
+      "mbtiles": "teselas"
+    }
+  },
+  "styles": {
+    "osm-granada": {
+      "style": "osm-granada.json",
+      "serve_rendered": true,
+      "serve_data": false,
+      "tilejson": {
+        "format": "png",
+        "bounds": [-4.6, 36.45, -2.15, 38.25]
+      }
+    }
+  },
+  "data": {
+    "granada": {
+      "mbtiles": "activo/granada.mbtiles"
+    }
+  }
+}

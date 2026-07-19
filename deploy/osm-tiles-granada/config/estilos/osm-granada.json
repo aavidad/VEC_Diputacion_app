@@ -1,0 +1,143 @@
+{
+  "version": 8,
+  "name": "OSM Granada - VEC",
+  "metadata": {
+    "openmaptiles:version": "3.x",
+    "vec:uso": "cartografia base on-premise"
+  },
+  "sources": {
+    "openmaptiles": {
+      "type": "vector",
+      "url": "mbtiles://{granada}"
+    }
+  },
+  "layers": [
+    {
+      "id": "fondo",
+      "type": "background",
+      "paint": {"background-color": "#f7f4ed"}
+    },
+    {
+      "id": "cubierta-terreno",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landcover",
+      "paint": {"fill-color": "#dce9d3", "fill-opacity": 0.72}
+    },
+    {
+      "id": "usos-suelo",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "landuse",
+      "paint": {"fill-color": "#e8e3d7", "fill-opacity": 0.62}
+    },
+    {
+      "id": "parques",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "park",
+      "paint": {"fill-color": "#c8dfbd", "fill-opacity": 0.8}
+    },
+    {
+      "id": "agua",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "paint": {"fill-color": "#a8d2df"}
+    },
+    {
+      "id": "cauces",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "waterway",
+      "paint": {
+        "line-color": "#83bdcf",
+        "line-width": {"base": 1.25, "stops": [[8, 0.4], [14, 2.0]]}
+      }
+    },
+    {
+      "id": "edificios",
+      "type": "fill",
+      "source": "openmaptiles",
+      "source-layer": "building",
+      "minzoom": 13,
+      "paint": {
+        "fill-color": "#d5d0c8",
+        "fill-outline-color": "#beb8ae",
+        "fill-opacity": 0.82
+      }
+    },
+    {
+      "id": "limites-administrativos",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "boundary",
+      "paint": {
+        "line-color": "#788392",
+        "line-opacity": 0.58,
+        "line-dasharray": [3, 2],
+        "line-width": {"base": 1.15, "stops": [[6, 0.5], [14, 1.5]]}
+      }
+    },
+    {
+      "id": "caminos",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "path", "track", "service"],
+      "paint": {
+        "line-color": "#c5bcae",
+        "line-dasharray": [2, 2],
+        "line-width": {"base": 1.2, "stops": [[12, 0.4], [14, 1.4]]}
+      }
+    },
+    {
+      "id": "ferrocarril",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["==", "class", "rail"],
+      "paint": {
+        "line-color": "#7d8085",
+        "line-dasharray": [4, 2],
+        "line-width": {"base": 1.2, "stops": [[8, 0.5], [14, 2.2]]}
+      }
+    },
+    {
+      "id": "carreteras-borde",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "motorway", "trunk", "primary", "secondary", "tertiary", "minor"],
+      "layout": {"line-cap": "round", "line-join": "round"},
+      "paint": {
+        "line-color": "#b6afa4",
+        "line-width": {"base": 1.35, "stops": [[5, 1.0], [14, 8.5]]}
+      }
+    },
+    {
+      "id": "carreteras",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "motorway", "trunk", "primary", "secondary", "tertiary", "minor"],
+      "layout": {"line-cap": "round", "line-join": "round"},
+      "paint": {
+        "line-color": "#fffdf8",
+        "line-width": {"base": 1.35, "stops": [[5, 0.55], [14, 6.5]]}
+      }
+    },
+    {
+      "id": "vias-principales",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "filter": ["in", "class", "motorway", "trunk", "primary"],
+      "layout": {"line-cap": "round", "line-join": "round"},
+      "paint": {
+        "line-color": "#f3c886",
+        "line-width": {"base": 1.35, "stops": [[5, 0.7], [14, 6.0]]}
+      }
+    }
+  ]
+}

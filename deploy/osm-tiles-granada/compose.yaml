@@ -1,0 +1,72 @@
+name: vec-osm-tiles-granada
+
+services:
+  importar-osm:
+    profiles: ["importacion"]
+    # El registro upstream no publica una etiqueta de version. Se fija el
+    # indice OCI multi-arquitectura y se documenta su revision en README.md.
+    image: ghcr.io/systemed/tilemaker:master@sha256:d32505d7827907089c2dd07517524276946d8930b4b82e93cf5c25ec989bbe41
+    pull_policy: never
+    user: "${UID_GID:-1000:1000}"
+    network_mode: none
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: "${OSM_IMPORT_MEMORY:-3g}"
+    cpus: "${OSM_IMPORT_CPUS:-2.0}"
+    volumes:
+      - ../osrm-granada/data/granada-buffer.osm.pbf:/fuente/granada-buffer.osm.pbf:ro
+      - ./estado:/salida:rw
+    command: ["--help"]
+
+  tiles-osm:
+    image: maptiler/tileserver-gl:v5.6.0@sha256:3a9ccdb24820b6814c8119bcc8a4376c39867cb0ffe69d62919ef898b90c2427
+    pull_policy: never
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: "${OSM_TILES_MEMORY:-1g}"
+    cpus: "${OSM_TILES_CPUS:-1.0}"
+    shm_size: 128m
+    stop_grace_period: 30s
+    environment:
+      # Evita construir URL absolutas a partir de Host/X-Forwarded-Host no
+      # confiables. El proxy usa siempre tiles-osm.local.
+      TILESERVER_GL_ALLOWED_HOSTS: "tiles-osm.local,localhost,127.0.0.1"
+    command:
+      - --config
+      - /data/config.json
+      - --bind
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --no-cors
+    ports:
+      - "127.0.0.1:${OSM_TILES_PORT:-8091}:8080"
+    networks:
+      - cartografia_sin_egreso
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+      - /home/node/.cache:rw,noexec,nosuid,nodev,size=32m,mode=0700,uid=1000,gid=1000
+    volumes:
+      - ./config/tileserver.json:/data/config.json:ro
+      - ./config/estilos:/data/estilos:ro
+      - ./estado:/data/teselas:ro
+      - ./comprobar_salud.mjs:/opt/vec/comprobar_salud.mjs:ro
+    healthcheck:
+      test: ["CMD", "node", "/opt/vec/comprobar_salud.mjs"]
+      interval: 30s
+      timeout: 12s
+      retries: 4
+      start_period: 60s
+
+networks:
+  cartografia_sin_egreso:
+    internal: true
+    driver: bridge
