@@ -2,6 +2,7 @@
 set -eu
 
 cd "$(dirname "$0")/.."
+ruta_checkout="$(pwd -P)"
 
 imagen_produccion="${VEC_IMAGEN_PRODUCCION_PRUEBA:-vec-diputacion-granada:prueba-contenido-produccion}"
 imagen_presentacion="${VEC_IMAGEN_PRESENTACION_PRUEBA:-vec-diputacion-granada:prueba-contenido-presentacion}"
@@ -58,7 +59,7 @@ do
   fi
   # -r no sigue los enlaces simbolicos del sistema base; se inspecciona cada
   # fichero regular una sola vez y se evitan ciclos /bin -> /usr/bin.
-  if coincidencias="$(grep -rIlF '/home/usuario' "$raiz" 2>/dev/null)" && [ -n "$coincidencias" ]; then
+  if coincidencias="$(grep -rIlF "$ruta_checkout" "$raiz" 2>/dev/null)" && [ -n "$coincidencias" ]; then
     printf '%s\n' "$coincidencias" >&2
     echo "ERROR: el artefacto contiene una ruta local del entorno de trabajo" >&2
     exit 1

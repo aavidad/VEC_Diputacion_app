@@ -50,8 +50,8 @@ artefacto desplegable ambiguo:
   inyectar identidad y repositorios autoritativos; renombrar un JSON DEMO o
   seleccionar globalmente `local_durable` no acredita esas dependencias;
 - ninguna de las dos imágenes contiene `/app/config`, fuentes Go, pruebas ni
-  rutas `/home/usuario`; se evita así empaquetar accidentalmente el volcado RPT
-  de trabajo o referencias locales;
+  la ruta absoluta del checkout; se evita así empaquetar accidentalmente el
+  volcado RPT de trabajo o referencias locales;
 - la imagen de presentación elimina además la SPA histórica, el módulo web
   heredado, pruebas y guías de integración. Sigue siendo un artefacto local,
   no autoritativo, limitado a loopback y con doble guarda.
@@ -252,7 +252,7 @@ data/demo/
 usr/local/bin/vec-presentacion
 app/config/
 *.test.mjs
-/home/usuario
+<ruta-absoluta-del-checkout>
 ```
 
 El manifiesto positivo evita depender solo del nombre de un fichero: añadir un
