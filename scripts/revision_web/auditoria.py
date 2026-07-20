@@ -95,6 +95,94 @@ async () => {
       }))
     : [];
 
+  // La puerta de esta entrega es escritorio/portátil. En móvil las tablas se
+  // conservan desplazables, pero su rediseño visual está expresamente fuera de
+  // alcance; no se rebaja la comprobación de 1024 px ni de anchuras superiores.
+  const auditarColumnasOperativas = anchoCliente >= 1024;
+  const columnasOperativas = (auditarColumnasOperativas
+    ? Array.from(document.querySelectorAll("[data-tabla-prioritaria]")) : [])
+    .filter(visible).map((contenedor) => {
+      const prioridad = contenedor.getAttribute("data-tabla-prioritaria") || "";
+      const requeridas = prioridad === "estado-acciones" ? ["estado", "acciones"] : ["estado"];
+      const cajaContenedor = contenedor.getBoundingClientRect();
+      const limiteIzquierdo = Math.max(0, cajaContenedor.left) - 2;
+      const limiteDerecho = Math.min(anchoCliente, cajaContenedor.right) + 2;
+      const celdas = Array.from(contenedor.querySelectorAll(
+        '[data-columna="estado"], [data-columna="acciones"]',
+      )).filter(visible);
+      const recortadas = celdas.filter((celda) => {
+        const caja = celda.getBoundingClientRect();
+        return caja.left < limiteIzquierdo || caja.right > limiteDerecho;
+      }).map((celda) => ({
+        columna: celda.getAttribute("data-columna"),
+        izquierda: Math.round(celda.getBoundingClientRect().left),
+        derecha: Math.round(celda.getBoundingClientRect().right),
+      }));
+      const sinFijar = celdas.filter((celda) => getComputedStyle(celda).position !== "sticky")
+        .map((celda) => celda.getAttribute("data-columna"));
+      const controlesRecortados = Array.from(contenedor.querySelectorAll(
+        '[data-columna="acciones"] button, [data-columna="acciones"] a[href]',
+      )).filter(visible).filter((control) => {
+        const caja = control.getBoundingClientRect();
+        return caja.left < limiteIzquierdo || caja.right > limiteDerecho;
+      }).map((control) => ({
+        nombre: nombreAccesible(control),
+        izquierda: Math.round(control.getBoundingClientRect().left),
+        derecha: Math.round(control.getBoundingClientRect().right),
+      }));
+      const contenidosEstadoRecortados = Array.from(contenedor.querySelectorAll(
+        '[data-columna="estado"] .estado-chip, [data-columna="estado"] .insignia',
+      )).filter(visible).filter((contenido) => {
+        const celda = contenido.closest('[data-columna="estado"]');
+        if (!celda) return true;
+        const caja = contenido.getBoundingClientRect();
+        const cajaCelda = celda.getBoundingClientRect();
+        const izquierda = Math.max(limiteIzquierdo, cajaCelda.left) - 2;
+        const derecha = Math.min(limiteDerecho, cajaCelda.right) + 2;
+        return caja.left < izquierda || caja.right > derecha ||
+          contenido.scrollWidth > contenido.clientWidth + 2 ||
+          contenido.scrollHeight > contenido.clientHeight + 2;
+      }).map((contenido) => ({
+        nombre: nombreAccesible(contenido) || (contenido.textContent || "").trim(),
+        izquierda: Math.round(contenido.getBoundingClientRect().left),
+        derecha: Math.round(contenido.getBoundingClientRect().right),
+      }));
+      const solapadas = Array.from(contenedor.querySelectorAll("tr")).filter(visible).flatMap((fila) => {
+        const estado = fila.querySelector('[data-columna="estado"]');
+        const acciones = fila.querySelector('[data-columna="acciones"]');
+        if (!visible(estado) || !visible(acciones)) return [];
+        const cajaEstado = estado.getBoundingClientRect();
+        const cajaAcciones = acciones.getBoundingClientRect();
+        return cajaEstado.right > cajaAcciones.left + 2
+          ? [{ estado_derecha: Math.round(cajaEstado.right), acciones_izquierda: Math.round(cajaAcciones.left) }]
+          : [];
+      });
+      const cabecera = contenedor.querySelector("thead tr");
+      const faltantes = requeridas.filter((columna) =>
+        !visible(cabecera?.querySelector(`[data-columna="${columna}"]`)),
+      );
+      const filasSinColumnas = Array.from(contenedor.querySelectorAll("tbody tr"))
+        .filter(visible).flatMap((fila, indice) => {
+          if (fila.querySelector("td[colspan]")) return [];
+          const columnasFaltantes = requeridas.filter((columna) =>
+            !visible(fila.querySelector(`[data-columna="${columna}"]`)),
+          );
+          return columnasFaltantes.length > 0
+            ? [{ fila: indice + 1, columnas_faltantes: columnasFaltantes }]
+            : [];
+        });
+      return {
+        selector: selectorBreve(contenedor), prioridad, faltantes, recortadas,
+        sin_fijar: Array.from(new Set(sinFijar)), controles_recortados: controlesRecortados,
+        contenidos_estado_recortados: contenidosEstadoRecortados,
+        filas_sin_columnas: filasSinColumnas, solapadas,
+        correcta: faltantes.length === 0 && recortadas.length === 0 &&
+          sinFijar.length === 0 && controlesRecortados.length === 0 &&
+          contenidosEstadoRecortados.length === 0 && filasSinColumnas.length === 0 &&
+          solapadas.length === 0,
+      };
+    });
+
   const leerAlmacen = (obtenerAlmacen) => {
     try {
       const almacen = obtenerAlmacen();
@@ -128,6 +216,7 @@ async () => {
       existe: hayDesbordamiento, ancho_cliente: anchoCliente,
       ancho_documento: anchoDocumento, elementos: elementosDesbordados,
     },
+    columnas_operativas: columnasOperativas,
     almacenamiento: {
       local: leerAlmacen(() => window.localStorage), sesion: leerAlmacen(() => window.sessionStorage),
       indexeddb: await leerIndexedDB(), cache: await leerCaches(),
@@ -277,9 +366,12 @@ def revisar_menu(page: Any, escenario: Escenario, superficie: Superficie, timeou
     hallazgos: list[dict[str, Any]] = []
     menu_abierto = False
     controles_expandidos: list[Any] = []
+    contenedor_menu = None
+    desplazamiento_inicial = None
     try:
         if superficie.selector_contenedor_menu:
             contenedor = page.locator(superficie.selector_contenedor_menu).first
+            contenedor_menu = contenedor
             if contenedor.count() == 0:
                 return [_hallazgo("menu_ausente", f"No existe el menú esperado {superficie.selector_contenedor_menu}.")]
             if not contenedor.is_visible() and superficie.selector_abrir_menu:
@@ -293,6 +385,7 @@ def revisar_menu(page: Any, escenario: Escenario, superficie: Superficie, timeou
                 return [_hallazgo("menu_inaccesible", "El contenedor del menú no es visible.")]
             if not nombre_elemento(contenedor):
                 hallazgos.append(_hallazgo("menu_sin_nombre", "El contenedor del menú no tiene nombre accesible."))
+            desplazamiento_inicial = contenedor.evaluate("elemento => elemento.scrollTop")
 
         for selector in escenario.selectores_menu or superficie.selectores_menu:
             opcion, hallazgo_opcion = revelar_opcion_menu(
@@ -343,6 +436,18 @@ def revisar_menu(page: Any, escenario: Escenario, superficie: Superficie, timeou
                     page.locator(superficie.selector_abrir_menu).first.evaluate("(elemento) => elemento.click()")
             except Exception as error:
                 hallazgos.append(_hallazgo("menu_no_cierra", "El menú móvil no se pudo cerrar tras revisarlo.", str(error)))
+        if contenedor_menu is not None and desplazamiento_inicial is not None:
+            try:
+                contenedor_menu.evaluate(
+                    "(elemento, posicion) => { elemento.scrollTop = posicion; }",
+                    desplazamiento_inicial,
+                )
+            except Exception as error:
+                hallazgos.append(_hallazgo(
+                    "menu_no_restaura_posicion",
+                    "El menú no pudo recuperar su posición tras la auditoría.",
+                    str(error),
+                ))
     return hallazgos
 
 
@@ -425,6 +530,16 @@ def auditar_dom_y_estado(page: Any, context: Any) -> tuple[dict[str, Any], list[
         hallazgos.append(_hallazgo("controles_sin_nombre_accesible", f"Hay {len(auditoria['controles_sin_nombre'])} controles visibles sin nombre accesible.", auditoria["controles_sin_nombre"]))
     if auditoria["desbordamiento_horizontal"]["existe"]:
         hallazgos.append(_hallazgo("desbordamiento_horizontal", "La página desborda horizontalmente el ancho disponible.", auditoria["desbordamiento_horizontal"]))
+    columnas_defectuosas = [
+        tabla for tabla in auditoria.get("columnas_operativas", [])
+        if not tabla.get("correcta", False)
+    ]
+    if columnas_defectuosas:
+        hallazgos.append(_hallazgo(
+            "columnas_operativas_recortadas",
+            "Estado o Acciones no permanecen completamente visibles y operables en una tabla prioritaria.",
+            columnas_defectuosas,
+        ))
 
     almacen = auditoria["almacenamiento"]
     try:

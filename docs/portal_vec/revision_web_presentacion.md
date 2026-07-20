@@ -7,7 +7,9 @@ RRHH y 25 estados de interacción. Incluye los selectores abiertos desde el
 permisos distintos, y una ruta real de Dietas sobre el mapa OSM interno. Repite
 el recorrido en 1440×1000, 1024×900 y 390×844. La ejecución cerrada el 20 de
 julio de 2026 obtuvo **183/183 escenarios correctos, 183 capturas y cero
-hallazgos**.
+hallazgos** sobre la imagen Docker reconstruida después del pulido de
+escritorio. Además de la puerta automática, se inspeccionaron manualmente las
+capturas afectadas en 1440×1000 y 1024×900.
 Esta evidencia automática no sustituye la aceptación humana de RRHH.
 
 ## Preparación y uso
@@ -97,6 +99,9 @@ página. También comprueba:
 - identificadores HTML duplicados;
 - controles visibles sin nombre accesible;
 - desbordamiento horizontal del documento.
+- presencia por fila, posición fija, geometría y contenido completo de las
+  columnas Estado y Acciones en las tablas administrativas prioritarias de
+  1024 px o más; el rediseño móvil de esas tablas queda fuera de esta entrega.
 
 El flujo `rrhh-dietas-ruta-real` añade estas condiciones a la puerta actual:
 
@@ -116,6 +121,12 @@ Dietas, que no trata identidad ni produce actos. Además de los recorridos públ
 `DEMO-REC-*` en operaciones representativas de bases, admisión, méritos,
 baremo, importación, llamamientos, contratos, documentos, comunicaciones,
 exportación, roles y alegaciones.
+
+La descarga documental se prueba además a nivel de contrato: el certificado
+es un PDF 1.4 binario, con MIME y nombre correctos, cierre válido, identidad
+institucional, texto del certificado, referencia opaca y QR vectorial. El QR
+fue renderizado desde el PDF final y decodificado con un lector independiente,
+que recuperó exactamente la URL canónica de comprobación sin datos personales.
 
 ## Pruebas del manifiesto sin abrir Chromium
 

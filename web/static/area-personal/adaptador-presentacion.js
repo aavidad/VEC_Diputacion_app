@@ -388,7 +388,10 @@ export function crearAdaptadorPresentacion() {
       nombres.forEach((nombre) => { estado.preferencias_notificacion[nombre] = marcado(payload[nombre]); });
     } else if (accion === "solicitar_certificado") {
       const item = exigirElemento(estado.certificados, payload.id, "certificado");
-      item.estado = `Generado en demostración · ${String(payload.formato || "PDF").toUpperCase()}`;
+      if (String(payload.formato || "PDF").toUpperCase() !== "PDF") {
+        throw new Error("La demostración solo permite generar certificados PDF reales.");
+      }
+      item.estado = "Generado en demostración · PDF";
     } else if (accion === "solicitar_descarga") {
       const recursos = [...estado.documentos, ...estado.solicitudes, ...estado.convocatorias];
       exigirElemento(recursos, payload.id, "recurso descargable");

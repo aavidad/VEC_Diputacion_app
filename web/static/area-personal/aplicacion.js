@@ -309,8 +309,54 @@ async function ejecutarPendiente(estado) {
 
 function mostrarRecibo(estado, recibo) {
   porId("contenido-recibo").innerHTML = `<div class="${recibo.presentacion ? "recibo-demo" : ""}"><p><strong>${escaparHTML(recibo.resultado)}</strong></p>${listaDatos([["Referencia", escaparHTML(recibo.referencia)], ["Acción", escaparHTML(recibo.accion)], ["Objetivo", escaparHTML(recibo.objetivo)], ["Fecha UTC", escaparHTML(recibo.fecha)], ["Actor", escaparHTML(recibo.actor)]])}<p>${escaparHTML(recibo.advertencia)}</p></div>`;
+  const botonDescarga = document.querySelector('[data-accion="descargar-recibo"]');
+  if (botonDescarga) {
+    botonDescarga.textContent = recibo.accion === "solicitar_certificado"
+      ? "Descargar certificado PDF" : "Descargar recibo PDF";
+  }
   porId("dialogo-recibo").showModal();
   anunciar(`Operación completada. Recibo ${recibo.referencia}.`);
+}
+
+export function crearDescriptorPDFRecibo({ recibo, certificados = [], origen }) {
+  if (!recibo || typeof recibo !== "object" || Array.isArray(recibo)) {
+    throw new TypeError("El recibo documental no es válido.");
+  }
+  const esCertificado = recibo.accion === "solicitar_certificado";
+  if (recibo.presentacion === true && !/^DEMO-REC-\d{4,}$/u.test(String(recibo.referencia || ""))) {
+    throw new TypeError("La referencia de comprobación de la demostración no es opaca.");
+  }
+  const certificado = esCertificado
+    ? certificados.find((item) => item.id === recibo.objetivo)
+    : null;
+  if (esCertificado && !certificado) {
+    throw new TypeError("El certificado solicitado no pertenece al expediente visible.");
+  }
+  const urlVerificacion = new URL("/verificar/", origen);
+  urlVerificacion.searchParams.set("ref", recibo.referencia);
+  if (recibo.presentacion) urlVerificacion.searchParams.set("presentacion", "rrhh");
+  const prefijoArchivo = esCertificado ? "certificado" : "recibo";
+  return Object.freeze({
+    referencia: recibo.referencia,
+    tipo_documento: esCertificado ? "CERTIFICADO" : "RECIBO DE ACTUACIÓN",
+    titulo: certificado?.tipo || "Recibo de actuación del Portal de Recursos Humanos",
+    subtitulo: "Diputación de Granada · Área de Recursos Humanos y Régimen Interior",
+    marca: recibo.presentacion
+      ? "DOCUMENTO DEMO · SIN EFECTOS ADMINISTRATIVOS"
+      : "Documento emitido por el sistema de gestión de Recursos Humanos",
+    filas: Object.freeze([
+      Object.freeze({ etiqueta: "Actuación", valor: recibo.accion }),
+      Object.freeze({ etiqueta: "Resultado", valor: recibo.resultado }),
+      Object.freeze({ etiqueta: "Referencia del trámite", valor: recibo.objetivo }),
+      Object.freeze({ etiqueta: "Fecha de emisión (UTC)", valor: recibo.fecha }),
+      Object.freeze({ etiqueta: "Identidad actuante", valor: recibo.actor }),
+    ]),
+    comprobacion: Object.freeze({ qr_contenido: urlVerificacion.href }),
+    nombre_archivo: `${prefijoArchivo}-${recibo.referencia.toLowerCase()}.pdf`,
+    texto_certificacion: certificado
+      ? `La persona titular del órgano competente CERTIFICA que la Persona Aspirante de Demostración figura, en este escenario exclusivamente sintético, con la situación descrita en «${certificado.tipo}». La versión administrativa incorporará los datos acreditados, la firma o sello y el código seguro de verificación del expediente.`
+      : "Se deja constancia de la actuación indicada, su resultado y referencia de comprobación. En producción, este recibo se emitirá desde el expediente firmado y custodiado por el sistema autorizado.",
+  });
 }
 
 async function descargarRecibo(estado) {
@@ -324,36 +370,19 @@ async function descargarRecibo(estado) {
     return;
   }
   const recibo = estado.ultimoRecibo;
-  const certificado = recibo.accion === "solicitar_certificado"
-    ? estado.datos.certificados.find((item) => item.id === recibo.objetivo)
-    : null;
-  const urlVerificacion = new URL("/verificar/", window.location.origin);
-  urlVerificacion.searchParams.set("ref", recibo.referencia);
-  if (recibo.presentacion) urlVerificacion.searchParams.set("presentacion", "rrhh");
   try {
-    await estado.descargarReciboPDF({
-      referencia: recibo.referencia,
-      titulo: certificado?.tipo || "Recibo de actuación del Portal de Recursos Humanos",
-      subtitulo: "Diputación de Granada · Área de Recursos Humanos y Régimen Interior",
-      marca: recibo.presentacion
-        ? "DOCUMENTO DEMO · SIN EFECTOS ADMINISTRATIVOS"
-        : "Documento emitido por el sistema de gestión de Recursos Humanos",
-      filas: [
-        { etiqueta: "Actuación", valor: recibo.accion },
-        { etiqueta: "Resultado", valor: recibo.resultado },
-        { etiqueta: "Referencia del trámite", valor: recibo.objetivo },
-        { etiqueta: "Fecha de emisión (UTC)", valor: recibo.fecha },
-        { etiqueta: "Identidad actuante", valor: recibo.actor },
-      ],
-      comprobacion: { qr_contenido: urlVerificacion.href },
-      nombre_archivo: `recibo-${recibo.referencia.toLowerCase()}.pdf`,
-      texto_certificacion: certificado
-        ? `La persona titular del órgano competente CERTIFICA que la Persona Aspirante de Demostración figura, en este escenario exclusivamente sintético, con la situación descrita en «${certificado.tipo}». La versión administrativa incorporará los datos acreditados, la firma o sello y el código seguro de verificación del expediente.`
-        : "Se deja constancia de la actuación indicada, su resultado y referencia de comprobación. En producción, este recibo se emitirá desde el expediente firmado y custodiado por el sistema autorizado.",
-    });
-    notificar("Recibo PDF preparado para descarga.");
+    await estado.descargarReciboPDF(crearDescriptorPDFRecibo({
+      recibo,
+      certificados: estado.datos.certificados,
+      origen: window.location.origin,
+    }));
+    notificar(recibo.accion === "solicitar_certificado"
+      ? "Certificado PDF preparado para descarga."
+      : "Recibo PDF preparado para descarga.");
   } catch {
-    notificar("No se pudo generar el recibo PDF.");
+    notificar(recibo.accion === "solicitar_certificado"
+      ? "No se pudo generar el certificado PDF."
+      : "No se pudo generar el recibo PDF.");
     anunciar("No se ha descargado ningún documento.");
   }
 }

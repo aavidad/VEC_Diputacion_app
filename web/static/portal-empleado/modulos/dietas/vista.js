@@ -149,18 +149,18 @@ function renderizarDetalle(modelo, descargaDisponible, confirmacionDisponible, t
 }
 
 function renderizarTabla(modelo, t) {
-  const filas = modelo.comisiones.map((item) => `<tr>
-    <th scope="row"><button type="button" class="enlace-tabla" data-dietas-seleccionar="${escaparHTML(item.referencia)}" ${item.referencia === modelo.seleccionada?.referencia ? 'aria-current="true"' : ""}>${escaparHTML(item.referencia)}</button></th>
-    <td>${escaparHTML(fechaCorta(item.fecha))}</td>
-    <td>${modelo.capacidades.consultarRutas ? escaparHTML(item.ruta.join(" → ")) : escaparHTML(t("sin_capacidad"))}</td>
-    <td class="numero">${modelo.capacidades.consultarRutas ? `${numero(item.kilometros, 1)} ${escaparHTML(t("unidad_km"))}` : escaparHTML(t("sin_capacidad"))}</td>
-    <td class="numero">${euros(item.total_euros)}</td>
-    <td><span class="estado-chip ${claseEstado(item.estado)}">${escaparHTML(traducirCodigo(t, CLAVES_ESTADO, item.estado))}</span></td>
+  const filas = modelo.comisiones.map((item) => `<tr data-seleccionada="${item.referencia === modelo.seleccionada?.referencia}">
+    <th scope="row" data-columna="referencia"><button type="button" class="enlace-tabla" data-dietas-seleccionar="${escaparHTML(item.referencia)}" ${item.referencia === modelo.seleccionada?.referencia ? 'aria-current="true"' : ""}>${escaparHTML(item.referencia)}</button></th>
+    <td data-columna="fecha">${escaparHTML(fechaCorta(item.fecha))}</td>
+    <td data-columna="ruta">${modelo.capacidades.consultarRutas ? escaparHTML(item.ruta.join(" → ")) : escaparHTML(t("sin_capacidad"))}</td>
+    <td class="numero" data-columna="kilometros">${modelo.capacidades.consultarRutas ? `${numero(item.kilometros, 1)} ${escaparHTML(t("unidad_km"))}` : escaparHTML(t("sin_capacidad"))}</td>
+    <td class="numero" data-columna="total">${euros(item.total_euros)}</td>
+    <td data-columna="estado"><span class="estado-chip ${claseEstado(item.estado)}">${escaparHTML(traducirCodigo(t, CLAVES_ESTADO, item.estado))}</span></td>
   </tr>`).join("");
   return `<section class="panel dietas-listado" aria-labelledby="dietas-titulo-listado">
     <div class="cabecera-panel"><h3 id="dietas-titulo-listado">${escaparHTML(t("mis_comisiones"))}</h3><span class="estado-chip info">${escaparHTML(t("contador_resultados", { visibles: numero(modelo.comisiones.length), total: numero(modelo.totalSinFiltrar) }))}</span></div>
-    <div class="tabla-contenedor"><table class="tabla-datos"><caption>${escaparHTML(t("caption_comisiones"))}</caption>
-      <thead><tr><th scope="col">${escaparHTML(t("cab_expediente"))}</th><th scope="col">${escaparHTML(t("cab_fecha"))}</th><th scope="col">${escaparHTML(t("cab_ruta"))}</th><th scope="col">${escaparHTML(t("cab_kilometros"))}</th><th scope="col">${escaparHTML(t("cab_total"))}</th><th scope="col">${escaparHTML(t("cab_estado"))}</th></tr></thead>
+    <div class="tabla-contenedor tabla-contenedor--prioritaria tabla-contenedor--estado" tabindex="0" role="region" aria-label="${escaparHTML(t("caption_comisiones"))}" data-tabla-prioritaria="estado"><table class="tabla-datos tabla-datos--prioritaria tabla-datos--estado tabla-datos--dietas"><caption>${escaparHTML(t("caption_comisiones"))}</caption>
+      <thead><tr><th scope="col" data-columna="referencia">${escaparHTML(t("cab_expediente"))}</th><th scope="col" data-columna="fecha">${escaparHTML(t("cab_fecha"))}</th><th scope="col" data-columna="ruta">${escaparHTML(t("cab_ruta"))}</th><th scope="col" data-columna="kilometros">${escaparHTML(t("cab_kilometros"))}</th><th scope="col" data-columna="total">${escaparHTML(t("cab_total"))}</th><th scope="col" data-columna="estado">${escaparHTML(t("cab_estado"))}</th></tr></thead>
       <tbody>${filas || `<tr><td colspan="6" class="vacio-controlado">${escaparHTML(t("sin_resultados"))}</td></tr>`}</tbody>
     </table></div>
   </section>`;

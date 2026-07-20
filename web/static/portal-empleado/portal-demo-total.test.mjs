@@ -7,6 +7,7 @@ import { crearClienteBorradoresPresentacion } from "./portal-borradores-demo-cli
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js";
 import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js";
 import { crearVistasBaremacion } from "./portal-vistas-baremacion.js";
+import { crearVistaReglas } from "./portal-vistas-reglas.js";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js";
 import { crearVistasGobierno } from "./portal-vistas-gobierno.js";
 import {
@@ -19,7 +20,8 @@ const directorio = new URL("./", import.meta.url);
 const nombresModulos = [
   "portal-presentacion-adaptador.js", "portal-borradores-demo-cliente.js",
   "portal-vistas-utilidades.js", "portal-vistas-convocatorias.js",
-  "portal-vistas-baremacion.js", "portal-vistas-operaciones.js", "portal-vistas-gobierno.js",
+  "portal-vistas-baremacion.js", "portal-vistas-reglas.js", "portal-vistas-operaciones.js",
+  "portal-vistas-gobierno.js",
 ];
 const fuentes = Object.fromEntries(await Promise.all(nombresModulos.map(async (nombre) => [
   nombre, await readFile(new URL(nombre, directorio), "utf8"),
@@ -320,6 +322,7 @@ test("los formularios gobernados envían nombres estables y comandos explícitos
   const salidas = [
     crearVistasConvocatorias(u).renderizarConvocatorias(datos, estado),
     crearVistasBaremacion(u).renderizarMeritos(datos, estado),
+    crearVistaReglas(u).renderizarReglas(datos),
     crearVistasBaremacion(u).renderizarBaremacion(datos),
     crearVistasOperaciones(u).renderizarLlamamientos(datos),
     crearVistasOperaciones(u).renderizarDocumentos(datos),
@@ -342,8 +345,31 @@ test("los formularios gobernados envían nombres estables y comandos explícitos
     assert.match(meritos, new RegExp(`data-comando="${operacion}"`));
   }
   assert.match(salidas[2], /data-operacion="guardar-reglas-baremo" data-objetivo="DEMO-CRI-001"/);
+  assert.doesNotMatch(fuentes["portal-vistas-reglas.js"], /DEMO-(?:CRI|BOL)-/u);
+  assert.doesNotMatch(salidas[3], /data-operacion="guardar-reglas-baremo"/);
   assert.doesNotMatch(salidas[1], /REV-DEMO-MERITOS/);
   assert.match(salidas[1], /DEMO-REV-MERITOS/);
+});
+
+test("reglas y baremación son espacios de trabajo distintos", () => {
+  const modo = { valor: true };
+  const u = utilidades(modo);
+  const datos = obtenerDatosPresentacion();
+  const reglas = crearVistaReglas(u).renderizarReglas(datos);
+  const baremacion = crearVistasBaremacion(u).renderizarBaremacion(datos);
+  assert.notEqual(reglas, baremacion);
+  assert.match(reglas, /Reglas, versiones y configuración/);
+  assert.match(reglas, /Registro de versiones/);
+  assert.match(reglas, /rejilla-dos-columnas rejilla-dos-columnas--tabla-densa/);
+  assert.match(reglas, /Preparar la siguiente versión/);
+  assert.match(reglas, /data-comando="guardar-reglas-baremo"/);
+  assert.doesNotMatch(reglas, /Ranking provisional/);
+  assert.match(baremacion, /Baremación, ranking y listas/);
+  assert.match(baremacion, /Contexto de ejecución/);
+  assert.match(baremacion, /Ranking provisional/);
+  assert.doesNotMatch(baremacion, /Configurar criterio|Preparar la siguiente versión|guardar-reglas-baremo/);
+  assert.match(portal, /reglas: \(\) => vistaReglas\.renderizarReglas\(datosVista\)/);
+  assert.doesNotMatch(portal, /reglas: \(\) => vistasBaremacion\.renderizarBaremacion/);
 });
 
 test("todas las capacidades producen una pantalla completa con datos sintéticos", () => {
@@ -357,19 +383,59 @@ test("todas las capacidades producen una pantalla completa con datos sintéticos
   const gobierno = crearVistasGobierno(u);
   const salidas = [
     convocatorias.renderizarConvocatorias(datos, estado), convocatorias.renderizarSolicitudes(datos),
-    baremacion.renderizarMeritos(datos), baremacion.renderizarBaremacion(datos),
+    baremacion.renderizarMeritos(datos), crearVistaReglas(u).renderizarReglas(datos),
+    baremacion.renderizarBaremacion(datos),
     baremacion.renderizarAlegaciones(datos), operaciones.renderizarImportacion(datos),
     operaciones.renderizarLlamamientos(datos), operaciones.renderizarContratos(datos),
     operaciones.renderizarDocumentos(datos), operaciones.renderizarComunicaciones(datos),
     gobierno.renderizarEstadisticas(datos), gobierno.renderizarAuditoria(datos),
     gobierno.renderizarConfiguracion(datos),
   ];
-  assert.equal(salidas.length, 13);
+  assert.equal(salidas.length, 14);
   for (const salida of salidas) {
     assert.match(salida, /<h2>/);
     assert.match(salida, /<section/);
     assert.match(salida, /DEMO|sintétic|presentación/i);
   }
+});
+
+test("las bandejas densas identifican y fijan sus columnas operativas", async () => {
+  const modo = { valor: true };
+  const u = utilidades(modo);
+  const datos = obtenerDatosPresentacion();
+  const convocatorias = crearVistasConvocatorias(u);
+  const baremacion = crearVistasBaremacion(u);
+  const operaciones = crearVistasOperaciones(u);
+  const salidas = [
+    [convocatorias.renderizarConvocatorias(datos, { elaboracionSeleccionada: "DEMO-BOL-014" }), "estado"],
+    [convocatorias.renderizarSolicitudes(datos), "estado-acciones"],
+    [baremacion.renderizarAlegaciones(datos), "estado-acciones"],
+    [operaciones.renderizarImportacion(datos), "estado-acciones"],
+  ];
+  for (const [salida, prioridad] of salidas) {
+    assert.match(salida, new RegExp(`data-tabla-prioritaria="${prioridad}"`));
+    assert.match(salida, /data-columna="estado"/);
+    if (prioridad === "estado-acciones") assert.match(salida, /data-columna="acciones"/);
+  }
+  assert.throws(
+    () => u.tabla({ titulo: "Inválida", cabeceras: ["Una", "Dos"], clavesColumnas: ["una"], filas: [] }),
+    /claves de columna/,
+  );
+  assert.throws(
+    () => u.tabla({ titulo: "Inválida", cabeceras: ["Una", "Dos"], filas: [["solo una"]] }),
+    /una celda por cada cabecera/,
+  );
+
+  const [componentes, capacidades] = await Promise.all([
+    readFile(new URL("portal-componentes.css", directorio), "utf8"),
+    readFile(new URL("portal-capacidades.css", directorio), "utf8"),
+  ]);
+  assert.match(componentes, /\.tabla-datos--estado-acciones \[data-columna="estado"\]/);
+  assert.match(componentes, /position: sticky/);
+  assert.match(componentes, /\.tabla-datos--prioritaria th,[\s\S]{0,100}white-space: normal/);
+  assert.match(componentes, /\[data-columna="estado"\] \.estado-chip,[\s\S]{0,220}white-space: normal/);
+  assert.match(capacidades, /\.tabla-datos--prioritaria \.acciones-fila[\s\S]{0,80}min-width: 0/);
+  assert.match(capacidades, /@media \(max-width: 1040px\)[\s\S]{0,100}\.rejilla-dos-columnas--tabla-densa[\s\S]{0,80}grid-template-columns: minmax\(0, 1fr\)/);
 });
 
 test("el cliente DEMO de borradores cumple el mismo contrato sin red", async () => {

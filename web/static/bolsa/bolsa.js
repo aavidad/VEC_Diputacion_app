@@ -497,7 +497,8 @@
     item.appendChild(contenido);
 
     if (Number(categoria.numero_convocatorias) > 0) {
-      const enlace = texto("a", `Ver procesos de ${categoria.etiqueta}`, "enlace-detalle");
+      const enlace = texto("a", "Ver procesos", "enlace-detalle");
+      enlace.setAttribute("aria-label", `Ver procesos de ${categoria.etiqueta}`);
       enlace.href = `/bolsa/?categoria=${encodeURIComponent(categoria.clave)}`;
       enlace.addEventListener("click", (evento) => {
         if (!activacionSimpleEnlace(evento)) return;

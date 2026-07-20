@@ -65,7 +65,13 @@ export function crearVistasConvocatorias(u) {
             <button type="submit" class="boton-secundario">Aplicar filtros</button>
           </form>
           <p class="resultado-filtro" role="status" data-total-filtro="convocatorias" data-total="${elaboraciones.length}">${numero(elaboraciones.length)} convocatorias encontradas.</p>
-          ${tabla({ titulo: "Convocatorias de Bolsa", cabeceras: ["Referencia DEMO", "Convocatoria pública / expediente DEMO", "BOP / publicación", "Fase DEMO", "Baremo DEMO", "Estado DEMO"], filas })}
+          ${tabla({
+            titulo: "Convocatorias de Bolsa",
+            cabeceras: ["Referencia DEMO", "Convocatoria pública / expediente DEMO", "BOP / publicación", "Fase DEMO", "Baremo DEMO", "Estado DEMO"],
+            clavesColumnas: ["referencia", "convocatoria", "publicacion", "fase", "baremo", "estado"],
+            prioridadColumnas: "estado",
+            filas,
+          })}
         </section>
         <aside class="resumen-lateral">
           <section class="panel"><div class="cabecera-panel"><div><h3>${e(seleccionada?.id || "Sin selección")}</h3><p>${e(seleccionada?.nombre || "No hay expedientes")}</p></div>${seleccionada ? chip(seleccionada.estado) : ""}</div>
@@ -123,7 +129,13 @@ export function crearVistasConvocatorias(u) {
       <section class="panel"><div class="cabecera-panel"><div><h3>Bandeja de solicitudes</h3><p>No se muestran nombres, documentos de identidad ni datos de contacto en el listado.</p></div>${fuentePresentacion()}</div>
         <form class="barra-filtros" aria-label="Filtros de solicitudes" data-filtro="solicitudes">${campo("Buscar referencia", `<input type="search" name="referencia" value="${e(referencia)}" placeholder="DEMO-SOL-…">`)}${campo("Convocatoria", `<select name="convocatoria">${["Todas", "DEMO-BOL-014", "DEMO-BOL-021"].map((valor) => opcion(valor, convocatoria)).join("")}</select>`)}${campo("Estado", `<select name="estado">${["Todos", "Pendiente de revisión", "Pendiente de subsanación", "Admitida provisional"].map((valor) => opcion(valor, estadoSeleccionado)).join("")}</select>`)}<button type="submit" class="boton-secundario">Aplicar filtros</button></form>
         <p class="resultado-filtro" role="status" data-total-filtro="solicitudes" data-total="${solicitudes.length}">${numero(solicitudes.length)} solicitudes encontradas.</p>
-        ${tabla({ titulo: "Solicitudes presentadas", cabeceras: ["Solicitud", "Persona", "Convocatoria", "Registro", "Requisitos", "Subsanación", "Estado", "Acciones"], filas })}
+        ${tabla({
+          titulo: "Solicitudes presentadas",
+          cabeceras: ["Solicitud", "Persona", "Convocatoria", "Registro", "Requisitos", "Subsanación", "Estado", "Acciones"],
+          clavesColumnas: ["referencia", "persona", "convocatoria", "registro", "requisitos", "subsanacion", "estado", "acciones"],
+          prioridadColumnas: "estado-acciones",
+          filas,
+        })}
       </section>
       <section class="nota-pendiente">Las exclusiones requieren causa tipificada y texto motivado. La demo muestra el cambio de estado, pero no genera resolución, asiento registral ni notificación fehaciente.</section>`;
   }

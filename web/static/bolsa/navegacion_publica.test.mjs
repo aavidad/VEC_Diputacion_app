@@ -113,3 +113,23 @@ test("el espacio de convocatorias cabe a 1024 px sin desbordamiento horizontal",
   const anchoUtilA1024 = 1024 - 272 - 40;
   assert.equal(anchoUtilA1024, 712, "el área principal disponible a 1024 px debe quedar explicitada en la regresión");
 });
+
+test("el directorio reserva anchura legible a los títulos y no repite la categoría en la acción", () => {
+  assert.match(
+    css,
+    /\.categoria-directorio\s*\{[^}]*grid-template-columns:\s*minmax\(12rem, 1fr\) max-content;/s,
+  );
+  assert.match(
+    css,
+    /\.categoria-directorio\s*>\s*\.enlace-detalle\s*\{[^}]*white-space:\s*nowrap;/s,
+  );
+  assert.match(javascript, /texto\("a", "Ver procesos", "enlace-detalle"\)/);
+  assert.match(
+    javascript,
+    /setAttribute\("aria-label", `Ver procesos de \$\{categoria\.etiqueta\}`\)/,
+  );
+  assert.doesNotMatch(
+    javascript,
+    /texto\("a", `Ver procesos de \$\{categoria\.etiqueta\}`, "enlace-detalle"\)/,
+  );
+});

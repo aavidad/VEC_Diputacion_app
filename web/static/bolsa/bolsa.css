@@ -619,12 +619,16 @@ button:hover {
 
 .categoria-directorio {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(12rem, 1fr) max-content;
   align-items: center;
   gap: 10px 16px;
   padding: 12px;
   border-left: 3px solid var(--brand);
   background: var(--surface-muted);
+}
+
+.categoria-directorio__contenido {
+  min-width: 0;
 }
 
 .categoria-directorio h4,
@@ -633,8 +637,14 @@ button:hover {
 }
 
 .categoria-directorio h4 {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  hyphens: auto;
   font-size: .96rem;
+}
+
+.categoria-directorio > .enlace-detalle {
+  justify-self: end;
+  white-space: nowrap;
 }
 
 .categoria-directorio__contenido > p:not(.categoria-directorio__conteo) {

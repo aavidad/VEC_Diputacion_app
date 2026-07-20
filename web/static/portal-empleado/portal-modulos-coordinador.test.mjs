@@ -216,12 +216,13 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 });
 
 test("el cache busting cartográfico avanza en cascada hasta el HTML", async () => {
-  const version = "20260719-cartografia-osrm-v2";
+  const versionCartografia = "20260719-cartografia-osrm-v2";
+  const versionPulido = "20260720-pulido-escritorio-v2";
   const [portal, html] = await Promise.all([
     readFile(new URL("portal.js", import.meta.url), "utf8"),
     readFile(new URL("index.html", import.meta.url), "utf8"),
   ]);
-  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${version}`));
-  assert.match(html, new RegExp(`portal\\.js\\?v=${version}`));
-  assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${version}`));
+  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCartografia}`));
+  assert.match(html, new RegExp(`portal\\.js\\?v=${versionPulido}`));
+  assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionPulido}`));
 });

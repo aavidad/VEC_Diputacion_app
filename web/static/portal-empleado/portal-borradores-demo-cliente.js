@@ -1,8 +1,10 @@
 /** Cliente en memoria con el mismo contrato que el adaptador HTTP de borradores. */
 import { ESQUEMAS_BORRADORES, derivarETagBorrador } from "./portal-borradores-contrato.js";
 
-const HUELLA_A = "a".repeat(64);
-const HUELLA_B = "b".repeat(64);
+// SHA-256 deterministas de semillas expresamente sintéticas. Dan a la
+// presentación una forma realista sin fingir que acreditan contenido real.
+const HUELLA_A = "518fb03d5b73d0c98ce8e0f6d5bb8a01d4427155a0b3826614dcf159b2a359c3";
+const HUELLA_B = "0aa14687ad6a551e3747f301d9092778adc944ba42f7ff9cf0418e5855af885d";
 
 function copia(valor) { return structuredClone(valor); }
 

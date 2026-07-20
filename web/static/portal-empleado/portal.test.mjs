@@ -179,7 +179,7 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260719-cartografia-osrm-v2/);
+  assert.match(html, /portal\.js\?v=20260720-pulido-escritorio-v2/);
   assert.match(panelInterno, /export function crearPresentadorPanelInterno/);
 });
 

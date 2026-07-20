@@ -232,6 +232,24 @@ notificación fehaciente ni cumplimiento productivo. Tampoco debe recibir una
 copia de datos personales o expedientes reales “para que la demo parezca más
 completa”; los datos públicos verificables se incorporan con su procedencia.
 
+## Certificados PDF de demostración
+
+El área aspirante genera ficheros PDF binarios reales para mostrar el recorrido
+de descarga sin aparentar un acto administrativo. Cada certificado contiene la
+identidad visual institucional, texto correspondiente al tipo solicitado,
+datos sintéticos, una marca visible de ausencia de efectos, una referencia
+opaca y un QR vectorial del mismo origen. En la muestra solo se ofrece PDF,
+porque es el único formato implementado realmente; ODT, CSV, JSON u otros
+formatos quedarán detrás del futuro conector documental.
+
+El QR usa exclusivamente la referencia `DEMO-REC-NNNN`. El puente documental
+rechaza una referencia semántica que pueda codificar identidad, un certificado
+fuera del catálogo visible, otro origen, credenciales, fragmentos o parámetros
+adicionales. El PDF y su QR se probaron también fuera del navegador: tras
+renderizar el fichero, un lector independiente recuperó la URL exacta de
+comprobación. Esto acredita la funcionalidad de la muestra, no firma, sello,
+CSV administrativo, custodia ni validez legal.
+
 ## Selector descartable de perfiles de presentación
 
 El modo de presentación incorpora un selector accesible desde el bloque de

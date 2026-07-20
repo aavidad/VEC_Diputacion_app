@@ -136,6 +136,15 @@ test("los mismos renderizadores eliminan etiquetas de simulación en modo produc
   }
 });
 
+test("la presentación solo ofrece el formato documental que genera realmente", async () => {
+  const datos = await crearAdaptadorPresentacion().cargar();
+  const superficie = renderizarCertificados(datos);
+  assert.match(superficie, /Formato disponible en la demo/u);
+  assert.match(superficie, /<option>PDF<\/option>/u);
+  assert.doesNotMatch(superficie, /<option>(?:ODT|JSON|CSV)<\/option>/u);
+  assert.match(superficie, /genera un PDF real/u);
+});
+
 test("no existen estilos en línea ni botones sin tipo explícito", async () => {
   const produccion = (await archivosEn(RAIZ)).filter((ruta) => !ruta.endsWith(".test.mjs") && [".js", ".html"].includes(extname(ruta)));
   for (const ruta of produccion) {

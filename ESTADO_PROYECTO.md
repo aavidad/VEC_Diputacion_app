@@ -33,7 +33,7 @@ no autorizado ni compuesto para producción:
 
 | Punto de vista | Vistas navegables | Alcance |
 | --- | ---: | --- |
-| Lanzador | 1 | Selección inequívoca de los tres recorridos. |
+| Lanzador | 1 | Selección inequívoca de los cuatro puntos de vista DEMO. |
 | Consulta pública | 1 | Convocatorias, categorías, plazos y ayuda sin identidad. |
 | Área personal del aspirante | 14 | Inicio, convocatorias y detalle, perfil, méritos, solicitud, autobaremación, expediente, llamamientos, subsanaciones, alegaciones, mensajes, certificados y ayuda. |
 | Gestión interna | 20 | Portal del Empleado, 17 secciones de gestión de Bolsa, Cronos y Dietas. |
@@ -55,10 +55,14 @@ por defecto y configuración operativa custodiada fuera de Git. No supone una
 publicación productiva; requiere lista blanca coincidente en la red y en el
 cortafuegos Docker del servidor.
 
-La última línea base cerrada recorrió 36 vistas y 22 estados de interacción en
-1440×1000, 1024×900 y 390×844: **174 de 174 escenarios correctos, 174
-capturas y cero hallazgos**. Incluye la ruta OSM/OSRM real de Dietas y la carga
-efectiva de teselas servidas en la red interna. Ninguna
+La última línea base cerrada recorrió 36 vistas y 25 flujos en 1440×1000,
+1024×900 y 390×844: **183 de 183 escenarios correctos, 183 capturas y cero
+hallazgos**. Incluye los cuatro puntos de vista por mínimo privilegio, la ruta
+OSM/OSRM real de Dietas, la carga efectiva de teselas servidas en la red
+interna y recibos de las operaciones representativas. Los certificados de la
+persona aspirante generan un PDF binario real de demostración, con identidad
+institucional, referencia opaca y QR comprobado mediante un lector
+independiente. Ninguna
 de estas puertas sustituye la revisión humana ni la aceptación formal de RRHH.
 Véanse la
 [revisión automatizada](docs/portal_vec/revision_web_presentacion.md), el
@@ -174,6 +178,7 @@ Cada cierre debe actualizar, en este orden:
 
 | Fecha | Cambio |
 | --- | --- |
+| 20/07/2026 | Presentación RRHH pulida y revisada: 183/183 escenarios, 183 capturas y cero hallazgos. Corregidos directorio público, foco del recibo de llamamiento, tablas operativas, huellas sintéticas, separación Reglas/Baremación y composición de Reglas a 1024 px. Certificados PDF DEMO reales con QR opaco verificable y selector de cuatro perfiles probado. |
 | 19/07/2026 | Puerta cartográfica y visual cerrada: 174/174 escenarios correctos, 174 capturas y cero hallazgos sobre 36 vistas, 22 flujos y tres resoluciones; incluye ruta OSRM real y carga efectiva de teselas OSM internas. |
 | 19/07/2026 | Composición Docker de presentación ampliada a portal, mediador cartográfico, OSRM y teselas OSM internas: un único acceso por `127.0.0.1:8081` y datos cartográficos versionados. |
 | 19/07/2026 | Línea base anterior de la puerta automática: 159/159 escenarios correctos, 159 capturas y cero hallazgos sobre 32 vistas, 21 flujos y tres resoluciones. Queda pendiente la aceptación humana de RRHH y no cambia las columnas de integración, E2E productivo o producción. |

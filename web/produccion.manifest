@@ -62,6 +62,7 @@ static/portal-empleado/portal-vistas-baremacion.js
 static/portal-empleado/portal-vistas-convocatorias.js
 static/portal-empleado/portal-vistas-gobierno.js
 static/portal-empleado/portal-vistas-operaciones.js
+static/portal-empleado/portal-vistas-reglas.js
 static/portal-empleado/portal-vistas-utilidades.js
 static/portal-empleado/portal.css
 static/portal-empleado/portal.js

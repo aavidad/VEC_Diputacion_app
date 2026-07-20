@@ -11,7 +11,7 @@ Dietas y Bolsa son modulos independientes con `ModuleID`, permisos y menus
 propios; VEC solo los agrega y permite relacionarlos por empleado, expediente,
 justificante o auditoria.
 
-Fecha de corte de este estado: **19 de julio de 2026**. El repositorio es una
+Fecha de corte de este estado: **20 de julio de 2026**. El repositorio es una
 base de desarrollo y demostracion verificable; no acredita por si solo
 conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
 
@@ -548,7 +548,11 @@ incluidos los cuatro puntos de vista DEMO, su separación por mínimo privilegio
 y la ruta real de Dietas. La herramienta exige la marca técnica del servidor de presentación,
 rechaza cualquier destino no autorizado y revisa menús,
 recibos DEMO, accesibilidad básica, almacenamiento del navegador, errores y
-desbordamientos. Esta puerta no sustituye la aceptación humana de RRHH.
+desbordamientos. En 1024 y 1440 px también comprueba por fila que Estado,
+Acciones, sus controles y sus etiquetas no queden recortados ni solapados. Una
+revisión humana adicional confirmó las pantallas corregidas y el QR del PDF se
+decodificó con un lector independiente. Esta puerta no sustituye la aceptación
+humana de RRHH.
 
 El equipo anfitrión solo requiere Docker Engine y Docker Compose v2 para este
 recorrido. No se instala ni se ejecuta directamente Playwright, Chromium, OSRM,

@@ -20,6 +20,7 @@ export function crearDescargadorRecibosPresentacion(entorno = globalThis) {
       urlVerificacion,
       origenInstitucional,
       nombreArchivo,
+      rotuloDocumento: descriptor.tipo_documento,
       nota: descriptor.marca || "Documento DEMO. En producción se emitirá desde el expediente firmado y custodiado.",
       textoCertificacion: descriptor.texto_certificacion,
     }, entorno);

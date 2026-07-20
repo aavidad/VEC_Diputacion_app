@@ -1,4 +1,4 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260719-asistente-llamamientos-v2";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260720-pulido-escritorio-v2";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260717-panel-interno-v1";
 import { extraerDatosEnvelopeCanonico, validarPanelBolsa } from "./portal-contrato.js?v=20260717-panel-interno-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
@@ -6,10 +6,11 @@ import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flu
 import { crearAsistenteLlamamientos } from "./portal-llamamientos-vista.js?v=20260719-asistente-llamamientos-v2";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
 import { PROVEEDOR_BEARER_BORRADORES, crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260718-borradores-v1";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260718-formularios-v2";
-import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=20260718-formularios-v2";
-import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260718-formularios-v2";
-import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260718-formularios-v2";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260720-pulido-escritorio-v2";
+import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=20260720-pulido-escritorio-v2";
+import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260720-pulido-escritorio-v2";
+import { crearVistaReglas } from "./portal-vistas-reglas.js?v=20260720-pulido-escritorio-v2";
+import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-formularios-v2";
 import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260719-cartografia-osrm-v2";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260719-catalogo-v1";
@@ -286,7 +287,7 @@ async function cargarFuenteDatos() {
       const [adaptador, moduloEfectos, moduloBorradores, moduloSelector] = await Promise.all([
         import("./datos-presentacion.js?v=20260718-demo-total-v1"),
         import("./portal-presentacion-adaptador.js?v=20260718-demo-total-v1"),
-        import("./portal-borradores-demo-cliente.js?v=20260718-demo-total-v1"),
+        import("./portal-borradores-demo-cliente.js?v=20260720-pulido-escritorio-v2"),
         import("../presentacion/selector-perfiles.js?v=20260720-selector-perfiles-v1"),
       ]);
       const perfil = perfilPresentacionSolicitado();
@@ -521,7 +522,7 @@ function renderizar() {
     importacion: () => vistasOperaciones.renderizarImportacion(datosVista),
     llamamientos: () => asistenteLlamamientos.renderizar(datosVista, estado),
     contratos: () => vistasOperaciones.renderizarContratos(datosVista),
-    reglas: () => vistasBaremacion.renderizarBaremacion(datosVista),
+    reglas: () => vistaReglas.renderizarReglas(datosVista),
     consulta: () => renderizarConsulta(),
     estadisticas: () => vistasGobierno.renderizarEstadisticas(datosVista),
     documentos: () => vistasOperaciones.renderizarDocumentos(datosVista),
@@ -570,6 +571,7 @@ const utilidadesVista = crearUtilidadesVista({
 });
 const vistasConvocatorias = crearVistasConvocatorias(utilidadesVista);
 const vistasBaremacion = crearVistasBaremacion(utilidadesVista);
+const vistaReglas = crearVistaReglas(utilidadesVista);
 const vistasOperaciones = crearVistasOperaciones(utilidadesVista);
 const vistasGobierno = crearVistasGobierno(utilidadesVista);
 const asistenteLlamamientos = crearAsistenteLlamamientos({ ...utilidadesVista, operacionPermitida });
@@ -667,17 +669,6 @@ function claseEstado(estadoTexto) {
   if (/error|revocad|excluid|no disponible/.test(texto)) return "peligro";
   if (/configur|recib|enviad/.test(texto)) return "info";
   return "neutro";
-}
-
-function renderizarReglas() {
-  const filas = DATOS_PANEL.reglas.map((item) => `<tr><td>${escaparHTML(item.nombre)}</td><td>${escaparHTML(item.ambito)}</td><td>${escaparHTML(item.version)}</td><td>${escaparHTML(item.vigencia)}</td><td><span class="estado-chip ${claseEstado(item.estado)}">${escaparHTML(item.estado)}</span></td><td><button class="boton-terciario" data-accion="detalle-regla">Abrir</button></td></tr>`).join("");
-  return `
-    ${encabezadoVista("Configuración sin recompilar", "Motor de reglas configurable", "Versionado de criterios derivados de las bases y del Reglamento, con pruebas antes de publicar.", '<button type="button" class="boton-primario" data-accion="nueva-regla">Nueva versión de reglas</button>')}
-    <section class="nota-seguridad">Una regla publicada nunca se modifica: se crea otra versión con vigencia y motivo. Los cálculos conservan la versión exacta que los produjo.</section>
-    <div class="rejilla-dos-columnas">
-      <section class="panel"><div class="cabecera-panel"><h3>Conjuntos de reglas</h3><span class="estado-chip info">Fuente del panel</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Versiones de reglas de llamamiento</caption><thead><tr><th scope="col">Regla</th><th scope="col">Ámbito</th><th scope="col">Versión</th><th scope="col">Vigencia</th><th scope="col">Estado</th><th scope="col">Acción</th></tr></thead><tbody>${filas || '<tr><td colspan="6" class="vacio-controlado">No hay reglas accesibles.</td></tr>'}</tbody></table></div></section>
-      <aside class="resumen-lateral"><section class="panel"><div class="cabecera-panel"><h3>Campos gobernados</h3></div><ul class="lista-comprobacion"><li>Fuente jurídica y artículo</li><li>Ámbito y categoría</li><li>Versión, vigencia y sustitución</li><li>Condiciones, excepciones y desempates</li><li>Pruebas con casos límite</li><li>Firmas y publicación</li></ul></section><section class="nota-pendiente">No se copiarán coeficientes del ejemplo a producción: RRHH debe configurarlos desde las bases aprobadas.</section></aside>
-    </div>`;
 }
 
 function renderizarConsulta() {

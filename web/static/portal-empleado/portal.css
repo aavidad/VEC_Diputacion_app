@@ -18,6 +18,10 @@
   --portal-peligro-suave: #fff0f1;
   --portal-violeta: #7451cf;
   --portal-cian: #078aa5;
+  --portal-cian-fuerte: #08717d;
+  --portal-cian-suave: #e7f8fa;
+  --portal-naranja: #b34705;
+  --portal-naranja-suave: #fff0e7;
   --portal-sombra: 0 8px 28px rgba(27, 51, 82, 0.08);
   --portal-radio: 8px;
   --portal-lateral: 286px;
@@ -146,10 +150,15 @@ a:focus-visible,
 }
 
 .marca-portal {
+  position: sticky;
+  z-index: 2;
+  top: 0;
   display: block;
+  flex: 0 0 auto;
   min-height: 126px;
   padding: 16px 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--portal-azul-950);
   color: #fff;
   text-decoration: none;
 }

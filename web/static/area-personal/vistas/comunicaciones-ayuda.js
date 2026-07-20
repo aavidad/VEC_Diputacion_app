@@ -13,14 +13,17 @@ export function renderizarMensajes(datos) {
 
 export function renderizarCertificados(datos) {
   const demo = datos.meta.presentacion;
-  const certificados = datos.certificados.map((item) => `<article class="panel"><header><div><h3>${escaparHTML(item.tipo)}</h3><p>${escaparHTML(item.id)}</p></div>${chip(item.estado)}</header><div class="panel-contenido"><p>${escaparHTML(item.descripcion)}</p><form class="fila-acciones" data-operacion="solicitar_certificado" data-id="${escaparAtributo(item.id)}"><div class="campo"><label for="formato-${escaparAtributo(item.id)}">Formato</label><select id="formato-${escaparAtributo(item.id)}" name="formato">${item.formatos.split(/, | o /).map((formato) => `<option>${escaparHTML(formato)}</option>`).join("")}</select></div><button type="submit" class="boton-primario">Generar certificado${demo ? " DEMO" : ""}</button></form></div></article>`).join("");
+  const certificados = datos.certificados.map((item) => {
+    const formatos = demo ? ["PDF"] : item.formatos.split(/, | o /);
+    return `<article class="panel"><header><div><h3>${escaparHTML(item.tipo)}</h3><p>${escaparHTML(item.id)}</p></div>${chip(item.estado)}</header><div class="panel-contenido"><p>${escaparHTML(item.descripcion)}</p><form class="fila-acciones" data-operacion="solicitar_certificado" data-id="${escaparAtributo(item.id)}"><div class="campo"><label for="formato-${escaparAtributo(item.id)}">${demo ? "Formato disponible en la demo" : "Formato"}</label><select id="formato-${escaparAtributo(item.id)}" name="formato">${formatos.map((formato) => `<option>${escaparHTML(formato)}</option>`).join("")}</select></div><button type="submit" class="boton-primario">Generar certificado${demo ? " DEMO" : ""}</button></form></div></article>`;
+  }).join("");
   const filas = datos.documentos.map((item) => [
     `<strong>${escaparHTML(item.nombre)}</strong><small>${escaparHTML(item.id)}</small>`, escaparHTML(item.tipo),
     escaparHTML(item.fecha), chip(item.estado),
     `<div class="acciones-tabla">${botonOperacion("solicitar_descarga", "Descargar", { id: item.id, clase: "boton-secundario", descripcion: `Preparar descarga de ${item.nombre}` })}</div>`,
   ]);
   return `${encabezadoVista("Certificados y descargas", "Obtenga documentos en formatos configurados y consulte su procedencia.")}
-    <p class="nota aviso">${demo ? "En producción, los certificados indicarán firma, sello, CSV/QR de verificación, versión y, cuando corresponda, vigencia o revocación. Esta demo solo genera un recibo sintético." : "Los certificados deben indicar firma, sello, CSV/QR de verificación, versión y, cuando corresponda, vigencia o revocación."}</p>
+    <p class="nota aviso">${demo ? "Esta demostración genera un PDF real, identificado sin ambigüedad como DEMO y sin validez administrativa, con referencia y QR de comprobación sintéticos. La emisión definitiva incorporará firma o sello, CSV/QR verificable, versión y, cuando corresponda, vigencia o revocación." : "Los certificados deben indicar firma, sello, CSV/QR de verificación, versión y, cuando corresponda, vigencia o revocación."}</p>
     <div class="rejilla-dos">${certificados}</div>
     ${panel("Mis documentos", "Descargas autorizadas asociadas a la identidad", tabla({ descripcion: "Documentación disponible para la persona interesada", columnas: ["Documento", "Tipo", "Fecha", "Estado", "Acción"], filas }))}`;
 }

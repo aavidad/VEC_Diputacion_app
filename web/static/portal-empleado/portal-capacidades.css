@@ -87,6 +87,11 @@ body.portal-empleado-app {
   min-width: 230px;
 }
 
+.tabla-datos--prioritaria .acciones-fila {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .acciones-fila .boton-terciario {
   min-height: 36px;
   padding-inline: 7px;
@@ -149,6 +154,17 @@ button:disabled {
 @media (max-width: 1280px) {
   .rejilla-formulario {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/*
+ * En portátil, una tabla operativa con Estado y Acciones fijados necesita el
+ * ancho principal completo. El resumen secundario se apila sin alterar la
+ * composición general de dos columnas ni el escritorio de 1440 px.
+ */
+@media (max-width: 1040px) {
+  .rejilla-dos-columnas--tabla-densa {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

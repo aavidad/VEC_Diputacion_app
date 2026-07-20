@@ -468,8 +468,8 @@ FLUJOS_RRHH_CON_RECIBO: tuple[Flujo, ...] = (
         'form[aria-label*="DEMO-MER-001"] [data-accion="operacion-presentacion"][data-operacion="aceptar-merito"]',
     ),
     _flujo_rrhh_con_recibo(
-        "rrhh-baremo-recibo-demo", "Reglas de baremo con recibo DEMO", "baremacion",
-        "Baremación y ranking", "guardar-reglas-baremo", "DEMO-CRI-001",
+        "rrhh-baremo-recibo-demo", "Reglas de baremo con recibo DEMO", "reglas",
+        "Motor de reglas configurable", "guardar-reglas-baremo", "DEMO-CRI-001",
         'form[data-comando="guardar-reglas-baremo"] [data-accion="operacion-presentacion"][data-operacion="guardar-reglas-baremo"]',
     ),
     _flujo_rrhh_con_recibo(

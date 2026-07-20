@@ -18,7 +18,7 @@ export function generarReciboPDFPresentacion(descriptor) {
   ];
   dibujarLogoDiputacion(contenido, 58, 782, 0.7);
   contenido.push("0.09 0.23 0.31 rg");
-  lineaPDF(contenido, 370, 787, "RECIBO DE ACTUACIÓN", { tamano: 10.5, negrita: true });
+  lineaPDF(contenido, 370, 787, datos.rotuloDocumento, { tamano: 10.5, negrita: true });
   lineaPDF(contenido, 370, 770, "Portal del Empleado - DEMO", { tamano: 8 });
 
   contenido.push("0.08 0.13 0.20 rg");
@@ -90,8 +90,13 @@ function validarDescriptor(descriptor) {
   if (!/^[a-z0-9][a-z0-9._-]{1,119}\.pdf$/i.test(nombreArchivo)) throw new TypeError("nombre de PDF no válido");
   const textoCertificacion = textoAcotado(descriptor.textoCertificacion
     || "Se deja constancia de la actuación indicada y de su referencia de comprobación. El documento definitivo se emitirá desde el expediente administrativo autorizado.", 3, 430);
+  const rotuloDocumento = descriptor.rotuloDocumento === undefined
+    ? "RECIBO DE ACTUACIÓN" : textoAcotado(descriptor.rotuloDocumento, 3, 40);
+  if (!["RECIBO DE ACTUACIÓN", "CERTIFICADO"].includes(rotuloDocumento)) {
+    throw new TypeError("rótulo documental no permitido");
+  }
   return Object.freeze({ referencia, titulo, subtitulo, nota, filas: Object.freeze(filas),
-    urlVerificacion: url.href, origenInstitucional, nombreArchivo, textoCertificacion });
+    urlVerificacion: url.href, origenInstitucional, nombreArchivo, textoCertificacion, rotuloDocumento });
 }
 
 function referenciaDemoCerrada(valor) {

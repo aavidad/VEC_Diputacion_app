@@ -26,7 +26,7 @@ const CASOS = [
   ["presentar_alegacion", { id: "DEMO-ALE-0003" }],
   ["marcar_mensaje", { id: "DEMO-MSG-001" }],
   ["actualizar_notificaciones", { correo: "on" }],
-  ["solicitar_certificado", { id: "DEMO-CER-001", formato: "JSON" }],
+  ["solicitar_certificado", { id: "DEMO-CER-001", formato: "PDF" }],
   ["solicitar_descarga", { id: "DEMO-DOC-001" }],
 ];
 
@@ -55,6 +55,15 @@ test("las operaciones sobre recursos inexistentes no generan falsos recibos", as
       capacidad: true,
     }), /no existe/iu, accion);
   }
+});
+
+test("la demo documental rechaza formatos que todavía no genera realmente", async () => {
+  await assert.rejects(() => crearAdaptadorPresentacion().ejecutar({
+    accion: "solicitar_certificado",
+    payload: { id: "DEMO-CER-001", formato: "JSON" },
+    confirmacion: true,
+    capacidad: true,
+  }), /solo permite generar certificados PDF reales/iu);
 });
 
 test("una entrada privada rechazada no envenena el estado de presentación", async () => {

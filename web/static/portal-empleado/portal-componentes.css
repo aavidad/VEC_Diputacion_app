@@ -144,9 +144,9 @@
 }
 
 .tarjeta-kpi:nth-child(2) .icono-kpi { background: var(--portal-exito-suave); color: var(--portal-exito); }
-.tarjeta-kpi:nth-child(3) .icono-kpi { background: #fff0e7; color: #c55008; }
+.tarjeta-kpi:nth-child(3) .icono-kpi { background: var(--portal-naranja-suave); color: var(--portal-naranja); }
 .tarjeta-kpi:nth-child(4) .icono-kpi { background: #f2ecff; color: var(--portal-violeta); }
-.tarjeta-kpi:nth-child(5) .icono-kpi { background: #e7f8fa; color: #087d89; }
+.tarjeta-kpi:nth-child(5) .icono-kpi { background: var(--portal-cian-suave); color: var(--portal-cian-fuerte); }
 
 .valor-kpi {
   display: block;
@@ -186,7 +186,19 @@
 }
 
 .tabla-contenedor {
+  max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.tabla-contenedor--prioritaria {
+  --tabla-ancho-acciones: 13.5rem;
+  --tabla-ancho-estado: 10.75rem;
+  position: relative;
+}
+
+.tabla-contenedor--prioritaria:focus-visible {
+  outline-offset: -3px;
 }
 
 .tabla-datos {
@@ -225,6 +237,100 @@
 
 .tabla-datos tbody tr:hover,
 .tabla-datos tbody tr[aria-selected="true"] {
+  background: #f1f7ff;
+}
+
+/*
+ * Las bandejas operativas conservan Estado y Acciones a la vista mientras el
+ * resto de columnas se desplaza. No se oculta ningún dato: el contenedor es
+ * enfocable y mantiene el desplazamiento horizontal nativo.
+ */
+.tabla-datos--prioritaria th,
+.tabla-datos--prioritaria td {
+  white-space: normal;
+}
+
+.tabla-datos--estado-acciones {
+  min-width: 66rem;
+}
+
+.tabla-datos--estado {
+  min-width: 44rem;
+  table-layout: fixed;
+}
+
+.tabla-datos--prioritaria [data-columna="referencia"],
+.tabla-datos--prioritaria [data-columna="persona"],
+.tabla-datos--prioritaria [data-columna="registro"],
+.tabla-datos--prioritaria [data-columna="fecha"],
+.tabla-datos--prioritaria [data-columna="requisitos"],
+.tabla-datos--prioritaria [data-columna="validas"],
+.tabla-datos--prioritaria [data-columna="incidencias"],
+.tabla-datos--prioritaria [data-columna="kilometros"],
+.tabla-datos--prioritaria [data-columna="total"] {
+  white-space: nowrap;
+}
+
+.tabla-datos--estado [data-columna="referencia"] { width: 7.5rem; }
+.tabla-datos--estado [data-columna="publicacion"] { width: 10.5rem; }
+.tabla-datos--estado [data-columna="fase"] { width: 5.75rem; }
+.tabla-datos--estado [data-columna="baremo"] { width: 5.5rem; }
+.tabla-datos--estado [data-columna="fecha"] { width: 6.25rem; }
+.tabla-datos--estado [data-columna="kilometros"] { width: 6rem; }
+.tabla-datos--estado [data-columna="total"] { width: 5.5rem; }
+
+.tabla-datos--prioritaria [data-columna="estado"],
+.tabla-datos--prioritaria [data-columna="acciones"] {
+  position: sticky;
+  z-index: 2;
+  background: var(--portal-superficie);
+}
+
+.tabla-datos--prioritaria thead [data-columna="estado"],
+.tabla-datos--prioritaria thead [data-columna="acciones"] {
+  z-index: 3;
+  background: #f7f9fc;
+}
+
+.tabla-datos--prioritaria [data-columna="acciones"] {
+  right: 0;
+  width: var(--tabla-ancho-acciones);
+  min-width: var(--tabla-ancho-acciones);
+  max-width: var(--tabla-ancho-acciones);
+}
+
+.tabla-datos--estado-acciones [data-columna="estado"] {
+  right: var(--tabla-ancho-acciones);
+  width: var(--tabla-ancho-estado);
+  min-width: var(--tabla-ancho-estado);
+  max-width: var(--tabla-ancho-estado);
+  box-shadow: -1px 0 0 var(--portal-borde);
+}
+
+.tabla-datos--estado [data-columna="estado"] {
+  right: 0;
+  width: 8.5rem;
+  box-shadow: -1px 0 0 var(--portal-borde);
+}
+
+/*
+ * Los estados proceden de catálogos gobernados y su longitud puede variar.
+ * El chip debe adaptarse a la anchura reservada, nunca invadir la columna de
+ * Acciones ni quedar recortado por el borde del contenedor.
+ */
+.tabla-datos--prioritaria [data-columna="estado"] .estado-chip,
+.tabla-datos--prioritaria [data-columna="estado"] .insignia {
+  max-width: 100%;
+  justify-content: center;
+  overflow-wrap: anywhere;
+  text-align: center;
+  white-space: normal;
+}
+
+.tabla-datos--prioritaria tbody tr:hover > [data-columna="estado"],
+.tabla-datos--prioritaria tbody tr:hover > [data-columna="acciones"],
+.tabla-datos--prioritaria tbody tr[aria-selected="true"] > [data-columna="estado"],
+.tabla-datos--prioritaria tbody tr[aria-selected="true"] > [data-columna="acciones"] {
   background: #f1f7ff;
 }
 

@@ -859,3 +859,15 @@ test("la hoja de estilos conserva densidad, foco visible y adaptación móvil", 
   assert.match(css, /prefers-reduced-motion/);
   assert.doesNotMatch(css, /font-family\s*:/);
 });
+
+test("la tabla de comisiones mantiene visible el estado sin ocultar la ruta", () => {
+  const html = renderizarDietas(presentador().obtenerModelo());
+  assert.match(html, /data-tabla-prioritaria="estado"/);
+  for (const columna of ["referencia", "fecha", "ruta", "kilometros", "total", "estado"]) {
+    assert.match(html, new RegExp(`data-columna="${columna}"`));
+  }
+  assert.match(html, /tabla-datos--dietas/);
+  assert.match(html, /tabindex="0" role="region"/);
+  assert.equal((html.match(/<tr data-seleccionada="true">/gu) || []).length, 1);
+  assert.match(html, /<tr data-seleccionada="true">[\s\S]*?aria-current="true"/u);
+});

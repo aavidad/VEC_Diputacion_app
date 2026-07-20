@@ -81,6 +81,28 @@ export function contenerTabulacionMenu(evento, lateral, elementoActivo) {
   return false;
 }
 
+function usuarioPrefiereMovimientoReducido() {
+  return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+}
+
+/**
+ * Conserva el foco accesible en un resultado dinámico y lo lleva al área
+ * visible. La animación se desactiva cuando el usuario solicita reducir el
+ * movimiento.
+ */
+export function enfocarYMostrarResultado(elemento, {
+  movimientoReducido = usuarioPrefiereMovimientoReducido(),
+} = {}) {
+  if (!elemento || typeof elemento.focus !== "function") return false;
+  elemento.focus({ preventScroll: true });
+  elemento.scrollIntoView?.({
+    behavior: movimientoReducido ? "auto" : "smooth",
+    block: "center",
+    inline: "nearest",
+  });
+  return true;
+}
+
 export function crearControladorPortal(dependencias) {
   const {
     anunciar,
@@ -258,7 +280,7 @@ export function crearControladorPortal(dependencias) {
           );
           estado.reciboLlamamiento = recibo;
           renderizar();
-          document.querySelector("[data-recibo-llamamiento]")?.focus({ preventScroll: true });
+          enfocarYMostrarResultado(document.querySelector("[data-recibo-llamamiento]"));
           anunciar(`Preparación DEMO confirmada con recibo ${recibo.referencia}; no se ha enviado nada`);
         } catch {
           estado.reciboLlamamiento = null;

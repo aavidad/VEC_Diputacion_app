@@ -4,8 +4,8 @@ import { iniciarAreaPersonal } from "./aplicacion.js";
 async function resolverCliente() {
   const presentacion = esModoPresentacion(new URLSearchParams(window.location.search));
   if (presentacion) {
-    const { crearAdaptadorPresentacion } = await import("./adaptador-presentacion.js?v=20260718-1");
-    const { crearDescargadorRecibosPresentacion } = await import("../portal-empleado/documentos/descarga-recibos-presentacion.js?v=20260719-1");
+    const { crearAdaptadorPresentacion } = await import("./adaptador-presentacion.js?v=20260720-pulido-escritorio-v2");
+    const { crearDescargadorRecibosPresentacion } = await import("../portal-empleado/documentos/descarga-recibos-presentacion.js?v=20260720-pulido-escritorio-v2");
     return {
       cliente: crearAdaptadorPresentacion(),
       descargarReciboPDF: crearDescargadorRecibosPresentacion(window),

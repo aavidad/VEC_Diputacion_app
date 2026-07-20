@@ -27,11 +27,36 @@ export function crearUtilidadesVista({ escaparHTML, numero, claseEstado, encabez
     return `<button type="button" class="boton-secundario" data-accion="bloqueo-presentacion" data-motivo="${escaparHTML(motivo)}">${escaparHTML(etiqueta)}</button>`;
   }
 
-  function tabla({ titulo, cabeceras, filas, vacio = "No hay registros para los filtros aplicados." }) {
+  function tabla({
+    titulo,
+    cabeceras,
+    filas,
+    vacio = "No hay registros para los filtros aplicados.",
+    clavesColumnas = [],
+    prioridadColumnas = "",
+  }) {
+    if (clavesColumnas.length > 0 && clavesColumnas.length !== cabeceras.length) {
+      throw new TypeError("las claves de columna deben corresponder con todas las cabeceras");
+    }
+    if (prioridadColumnas && !["estado", "estado-acciones"].includes(prioridadColumnas)) {
+      throw new TypeError("prioridad de columnas no válida");
+    }
+    const filaInvalida = filas.findIndex((fila) => !Array.isArray(fila) || fila.length !== cabeceras.length);
+    if (filaInvalida >= 0) {
+      throw new TypeError(`la fila ${filaInvalida + 1} debe contener una celda por cada cabecera`);
+    }
+    const atributoColumna = (indice) => clavesColumnas[indice]
+      ? ` data-columna="${escaparHTML(clavesColumnas[indice])}"`
+      : "";
     const cuerpo = filas.length > 0
-      ? filas.map((fila) => `<tr>${fila.map((celda) => `<td>${celda}</td>`).join("")}</tr>`).join("")
+      ? filas.map((fila) => `<tr>${fila.map((celda, indice) => `<td${atributoColumna(indice)}>${celda}</td>`).join("")}</tr>`).join("")
       : `<tr><td colspan="${cabeceras.length}" class="vacio-controlado">${escaparHTML(vacio)}</td></tr>`;
-    return `<div class="tabla-contenedor"><table class="tabla-datos"><caption>${escaparHTML(titulo)}</caption><thead><tr>${cabeceras.map((cabecera) => `<th scope="col">${escaparHTML(cabecera)}</th>`).join("")}</tr></thead><tbody>${cuerpo}</tbody></table></div>`;
+    const clasePrioridad = prioridadColumnas ? ` tabla-contenedor--prioritaria tabla-contenedor--${prioridadColumnas}` : "";
+    const atributosRegion = prioridadColumnas
+      ? ` tabindex="0" role="region" aria-label="Tabla operativa: ${escaparHTML(titulo)}" data-tabla-prioritaria="${prioridadColumnas}"`
+      : "";
+    const claseTabla = prioridadColumnas ? ` tabla-datos--prioritaria tabla-datos--${prioridadColumnas}` : "";
+    return `<div class="tabla-contenedor${clasePrioridad}"${atributosRegion}><table class="tabla-datos${claseTabla}"><caption>${escaparHTML(titulo)}</caption><thead><tr>${cabeceras.map((cabecera, indice) => `<th scope="col"${atributoColumna(indice)}>${escaparHTML(cabecera)}</th>`).join("")}</tr></thead><tbody>${cuerpo}</tbody></table></div>`;
   }
 
   function kpi(sigla, valor, etiqueta) {

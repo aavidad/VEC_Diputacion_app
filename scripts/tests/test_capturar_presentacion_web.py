@@ -8,6 +8,92 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from scripts import capturar_presentacion_web as capturador
+from scripts.revision_web import auditoria as auditoria_revision
+
+
+class _PaginaAuditoria:
+    def __init__(self, resultado: dict) -> None:
+        self.resultado = resultado
+
+    def evaluate(self, _codigo: str) -> dict:
+        return self.resultado
+
+
+class _ContextoAuditoria:
+    @staticmethod
+    def cookies() -> list[dict]:
+        return []
+
+
+class AuditoriaColumnasOperativasTests(unittest.TestCase):
+    @staticmethod
+    def resultado(correcta: bool) -> dict:
+        tabla = {
+            "selector": "div.tabla-contenedor--prioritaria",
+            "prioridad": "estado-acciones",
+            "faltantes": [],
+            "recortadas": [] if correcta else [{"columna": "acciones", "derecha": 1448}],
+            "sin_fijar": [],
+            "controles_recortados": [],
+            "contenidos_estado_recortados": [],
+            "filas_sin_columnas": [],
+            "solapadas": [],
+            "correcta": correcta,
+        }
+        return {
+            "ids_duplicados": [],
+            "controles_sin_nombre": [],
+            "desbordamiento_horizontal": {
+                "existe": False, "ancho_cliente": 1440, "ancho_documento": 1440, "elementos": [],
+            },
+            "columnas_operativas": [tabla],
+            "almacenamiento": {
+                "local": [], "sesion": [], "indexeddb": [], "cache": [], "cookie_documento": "",
+            },
+        }
+
+    def test_falla_si_estado_o_acciones_quedan_recortados(self) -> None:
+        _auditoria, hallazgos = auditoria_revision.auditar_dom_y_estado(
+            _PaginaAuditoria(self.resultado(False)), _ContextoAuditoria(),
+        )
+        self.assertIn("columnas_operativas_recortadas", {item["codigo"] for item in hallazgos})
+
+    def test_acepta_columnas_fijas_completamente_operables(self) -> None:
+        _auditoria, hallazgos = auditoria_revision.auditar_dom_y_estado(
+            _PaginaAuditoria(self.resultado(True)), _ContextoAuditoria(),
+        )
+        self.assertNotIn("columnas_operativas_recortadas", {item["codigo"] for item in hallazgos})
+
+    def test_falla_si_un_chip_de_estado_invade_otra_columna(self) -> None:
+        resultado = self.resultado(True)
+        resultado["columnas_operativas"][0]["contenidos_estado_recortados"] = [
+            {"nombre": "Pendiente de subsanación", "izquierda": 1018, "derecha": 1218},
+        ]
+        resultado["columnas_operativas"][0]["correcta"] = False
+        _auditoria, hallazgos = auditoria_revision.auditar_dom_y_estado(
+            _PaginaAuditoria(resultado), _ContextoAuditoria(),
+        )
+        self.assertIn("columnas_operativas_recortadas", {item["codigo"] for item in hallazgos})
+
+    def test_falla_si_una_fila_no_tiene_estado_o_acciones(self) -> None:
+        resultado = self.resultado(True)
+        resultado["columnas_operativas"][0]["filas_sin_columnas"] = [
+            {"fila": 2, "columnas_faltantes": ["acciones"]},
+        ]
+        resultado["columnas_operativas"][0]["correcta"] = False
+        _auditoria, hallazgos = auditoria_revision.auditar_dom_y_estado(
+            _PaginaAuditoria(resultado), _ContextoAuditoria(),
+        )
+        self.assertIn("columnas_operativas_recortadas", {item["codigo"] for item in hallazgos})
+
+    def test_la_medicion_dom_comprueba_geometria_controles_y_posicion_fija(self) -> None:
+        codigo = auditoria_revision.AUDITORIA_DOM_JS
+        for marcador in (
+            "data-tabla-prioritaria", "getBoundingClientRect", "controlesRecortados",
+            'position !== "sticky"', "contenidosEstadoRecortados", "filasSinColumnas",
+            "scrollWidth", "solapadas", "anchoCliente >= 1024",
+        ):
+            self.assertIn(marcador, codigo)
 
 
 class ManifiestoRevisionWebTests(unittest.TestCase):
@@ -191,7 +277,7 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
         self.assertEqual(len(capturador.FLUJOS_RRHH_CON_RECIBO), 11)
         vistas = {flujo.ruta.rsplit("/", 1)[-1] for flujo in capturador.FLUJOS_RRHH_CON_RECIBO}
         self.assertEqual(vistas, {
-            "convocatorias", "solicitudes", "meritos", "baremacion", "importacion",
+            "convocatorias", "solicitudes", "meritos", "reglas", "importacion",
             "llamamientos", "contratos", "comunicaciones", "estadisticas",
             "configuracion", "alegaciones",
         })

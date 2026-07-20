@@ -10,7 +10,13 @@ export function crearVistasOperaciones(u) {
       ${encabezadoVista("Carga gobernada", "Importación desde Convoca", "Recorrido visual de staging, validación y conciliación. La fuente nunca se considera autoritativa por sí sola.", botonOperacion("Simular nueva lectura", "validar-importacion", "DEMO-IMP-NUEVA", "boton-primario"))}
       ${avisoPresentacion("No se selecciona ni procesa ningún archivo del equipo. Los lotes son fixtures sintéticos ya incluidos en la demostración.")}
       <div class="rejilla-kpi">${kpi("LOT", numero(datos.importaciones.length), "Lotes")}${kpi("VAL", numero(datos.importaciones.reduce((s, x) => s + x.validas, 0)), "Filas válidas")}${kpi("INC", numero(datos.importaciones.reduce((s, x) => s + x.incidencias, 0)), "Incidencias")}${kpi("AUT", "0", "Altas automáticas")}</div>
-      <section class="panel"><div class="cabecera-panel"><div><h3>Lotes en staging</h3><p>El original se identifica por huella y cada fila conserva procedencia.</p></div>${fuentePresentacion()}</div>${tabla({ titulo: "Importaciones Convoca", cabeceras: ["Lote", "Origen", "Contenido", "Huella", "Válidas", "Incidencias", "Autoridad", "Estado", "Acción"], filas })}</section>
+      <section class="panel"><div class="cabecera-panel"><div><h3>Lotes en staging</h3><p>El original se identifica por huella y cada fila conserva procedencia.</p></div>${fuentePresentacion()}</div>${tabla({
+        titulo: "Importaciones Convoca",
+        cabeceras: ["Lote", "Origen", "Contenido", "Huella", "Válidas", "Incidencias", "Autoridad", "Estado", "Acción"],
+        clavesColumnas: ["referencia", "origen", "contenido", "huella", "validas", "incidencias", "autoridad", "estado", "acciones"],
+        prioridadColumnas: "estado-acciones",
+        filas,
+      })}</section>
       <div class="rejilla-dos-columnas panel-separado"><section class="panel"><div class="cabecera-panel"><h3>Controles antes de conciliar</h3><span class="estado-chip violeta">Contrato cerrado</span></div><ul class="lista-comprobacion"><li>Formato y cabeceras exactos</li><li>Límites de tamaño, filas, columnas y celdas</li><li>Fórmulas y contenido activo rechazados</li><li>Normalización sin ocultar valores originales</li><li>Duplicados e incoherencias señalados</li><li>Acta con huella, actor y resultado</li><li class="pendiente">Conciliación corporativa pendiente de conector</li></ul></section><aside class="nota-pendiente"><strong>Bloqueo explícito.</strong> La importación no crea personas, contratos ni posiciones de Bolsa. ${botonBloqueado("Conciliar con datos corporativos", "Falta el conector corporativo autorizado, cifrado de identificadores y política de retención aprobada.")}</aside></div>`;
   }
 
