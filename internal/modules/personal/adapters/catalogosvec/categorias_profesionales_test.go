@@ -17,7 +17,7 @@ import (
 
 const (
 	rutaCatalogoProfesionalDemo = "../../../../../data/catalogos/categorias-profesionales/v1.demo.json"
-	huellaCatalogoProfesionalV1 = "2a9aa4a903b765c2f46ceb7f429f342a13b229e54ca45813472cb9d0aa1a4f3e"
+	huellaCatalogoProfesionalV1 = "b800a7e9c306fa8027709cfb4304cc8ccf8065f888673da71bd73a138c519233"
 )
 
 func referenciaCatalogoProfesionalV1() puertospersonal.ReferenciaCatalogoCategoriasProfesionales {
@@ -41,7 +41,7 @@ func fuenteCatalogoProfesionalDemo(t *testing.T) *ficherovec.ConsultaCatalogos {
 	return fuente
 }
 
-func TestConsultaPersonalProyectaLas58CategoriasConHuellaExactaYMinimizada(t *testing.T) {
+func TestConsultaPersonalProyectaLas68CategoriasConHuellaExactaYMinimizada(t *testing.T) {
 	consulta, err := catalogospersonal.NuevaConsultaCategoriasProfesionales(
 		fuenteCatalogoProfesionalDemo(t), referenciaCatalogoProfesionalV1(),
 	)
@@ -54,8 +54,8 @@ func TestConsultaPersonalProyectaLas58CategoriasConHuellaExactaYMinimizada(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resultado.Referencia != referenciaCatalogoProfesionalV1() || len(resultado.Categorias) != 58 ||
-		!resultado.Fuente.Demostracion || resultado.Fuente.Revision != "opes-inventario-historico-demo-v1" ||
+	if resultado.Referencia != referenciaCatalogoProfesionalV1() || len(resultado.Categorias) != 68 ||
+		!resultado.Fuente.Demostracion || resultado.Fuente.Revision != "opes-bop-inventario-publico-demo-v3" ||
 		!strings.Contains(resultado.Fuente.Aviso, "pendiente de validación") {
 		t.Fatalf("referencia=%#v fuente=%#v categorias=%d", resultado.Referencia, resultado.Fuente, len(resultado.Categorias))
 	}
@@ -66,7 +66,8 @@ func TestConsultaPersonalProyectaLas58CategoriasConHuellaExactaYMinimizada(t *te
 		}
 		areas[categoria.Area]++
 	}
-	if areas["administracion_general"] != 5 || areas["administracion_especial"] != 53 || len(areas) != 2 {
+	if areas["administracion_general"] != 5 || areas["administracion_especial"] != 60 ||
+		areas["organismos_dependientes"] != 3 || len(areas) != 3 {
 		t.Fatalf("areas=%#v", areas)
 	}
 	if resultado.Categorias[3].Etiqueta != "Técnico de Administración General" ||

@@ -149,7 +149,7 @@ func TestArranqueCatalogoPersonalConRutaDurableVaciaNoCreaFichero(t *testing.T) 
 	}
 }
 
-func TestConsultaGobernadaDevuelve58SinCrearSnapshotPersonalVacio(t *testing.T) {
+func TestConsultaGobernadaDevuelve68SinCrearSnapshotPersonalVacio(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "catalogo", "personal.json")
 	store := vecmemory.NewStore()
 	servicioVEC, operaciones, err := vecapp.NewServiceWithInternalOperations(store, store, store)
@@ -171,7 +171,7 @@ func TestConsultaGobernadaDevuelve58SinCrearSnapshotPersonalVacio(t *testing.T) 
 		httptest.NewRequest(http.MethodGet, "/api/vec/personal/categories?limit=500", nil),
 		principalConPermisosExpresosPrueba(personalmodule.PermissionPositionRead),
 	)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"total":58`) {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"total":68`) {
 		t.Fatalf("GET categorias = %d: %s", rec.Code, rec.Body.String())
 	}
 	for _, ruta := range []string{path, path + ".bak"} {

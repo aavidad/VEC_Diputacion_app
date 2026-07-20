@@ -427,7 +427,7 @@ y no vacio, y `dot`/`destination_level`/`annual_amount_cents` >= 0.
 ### `RPTPositionPage` / pagina compatible de categorias
 
 ```json
-{ "items": [ /* ... */ ], "total": 58, "limit": 100, "offset": 0 }
+{ "items": [ /* ... */ ], "total": 68, "limit": 100, "offset": 0 }
 ```
 
 La lista de categorias se mantiene envuelta como `{"categories": pagina}`.

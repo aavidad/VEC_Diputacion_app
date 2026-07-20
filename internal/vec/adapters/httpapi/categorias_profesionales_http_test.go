@@ -23,7 +23,7 @@ func TestPersonalCategoriesUsaCatalogoGobernadoCompletoYNoExponeProcedenciaInter
 		t.Fatalf("GET categorias status = %d: %s", rec.Code, rec.Body.String())
 	}
 	cuerpo := rec.Body.String()
-	for _, esperado := range []string{`"total":58`, `"catalogo_id":"categorias-profesionales"`, `"demostracion":true`, `"slug":"administrativo"`, `"name":"Técnico de Administración General"`} {
+	for _, esperado := range []string{`"total":68`, `"catalogo_id":"categorias-profesionales"`, `"demostracion":true`, `"slug":"administrativo"`, `"name":"Técnico de Administración General"`} {
 		if !strings.Contains(cuerpo, esperado) {
 			t.Fatalf("catalogo gobernado no contiene %s: %s", esperado, cuerpo)
 		}
@@ -40,7 +40,7 @@ func TestPersonalCategoriesUsaCatalogoGobernadoCompletoYNoExponeProcedenciaInter
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"total":2`) || !strings.Contains(rec.Body.String(), `"offset":1`) {
 		t.Fatalf("filtro/paginacion categorias status = %d: %s", rec.Code, rec.Body.String())
 	}
-	for area, total := range map[string]int{"administracion_general": 5, "administracion_especial": 53} {
+	for area, total := range map[string]int{"administracion_general": 5, "administracion_especial": 60, "organismos_dependientes": 3} {
 		rec = httptest.NewRecorder()
 		req = httptest.NewRequest(http.MethodGet, "/api/vec/personal/categories?area="+area+"&limit=500", nil)
 		servirCatalogoPersonalConPermisosExpresos(handler, rec, req, personalmodule.PermissionPositionRead)
@@ -52,9 +52,10 @@ func TestPersonalCategoriesUsaCatalogoGobernadoCompletoYNoExponeProcedenciaInter
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/api/vec/personal/rpt/stats", nil)
 	servirCatalogoPersonalConPermisosExpresos(handler, rec, req, personalmodule.PermissionPositionRead)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"categories":58`) ||
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"categories":68`) ||
 		!strings.Contains(rec.Body.String(), `"administracion_general":5`) ||
-		!strings.Contains(rec.Body.String(), `"administracion_especial":53`) {
+		!strings.Contains(rec.Body.String(), `"administracion_especial":60`) ||
+		!strings.Contains(rec.Body.String(), `"organismos_dependientes":3`) {
 		t.Fatalf("estadisticas no proceden del catalogo gobernado: %d: %s", rec.Code, rec.Body.String())
 	}
 
