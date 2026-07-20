@@ -140,6 +140,14 @@ deshabilitado. Los contenedores usan sistema de ficheros de solo lectura,
 límites de procesos/memoria/CPU, prohibición de nuevos privilegios y
 capacidades Linux retiradas.
 
+Cuando la revisión se sirve mediante un proxy corporativo situado en otro
+equipo, no se amplía ese bind ni se usa `0.0.0.0`. El perfil opcional
+`presentacion-remota` añade una entrada de borde independiente, ligada a una IP
+interna concreta y con ACL de origen montada fuera del repositorio. El puerto
+convencional es `18081`; el procedimiento, la configuración del frontal, las
+pruebas y la retirada están en
+[Acceso desde un proxy corporativo](acceso_proxy_presentacion.md).
+
 La composición exige un grafo OSRM y una versión de teselas ya preparados. El
 PBF fuente, su huella, la versión lógica del grafo y la versión activa del
 MBTiles se gobiernan fuera del código; actualizar el dato no requiere recompilar

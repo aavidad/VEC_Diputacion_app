@@ -82,6 +82,48 @@ services:
     profiles:
       - presentacion
 
+  # Entrada opcional para un proxy inverso corporativo situado en otro equipo.
+  # Conserva el borde habitual en loopback y añade un salto independiente con
+  # lista blanca propia; no se activa con el perfil normal de presentación.
+  entrada-remota-presentacion:
+    image: "${VEC_PRESENTACION_REMOTE_IMAGE:-nginxinc/nginx-unprivileged:1.30.3-alpine@sha256:b3f2436575bd5be7386518084d842dac414ab4962712afa31e99e0942a56e3b2}"
+    pull_policy: never
+    init: true
+    restart: unless-stopped
+    depends_on:
+      proxy-presentacion:
+        condition: service_healthy
+    ports:
+      - "${VEC_PRESENTACION_REMOTE_BIND_ADDRESS:-127.0.0.1}:${VEC_PRESENTACION_REMOTE_PUBLISHED_PORT:-18081}:8080"
+    volumes:
+      - ./deploy/proxy-local/nginx-entrada-remota-presentacion.conf:/etc/nginx/nginx.conf:ro
+      # La base falla cerrada. El despliegue remoto debe sustituir este montaje
+      # por una ACL operativa custodiada fuera del repositorio.
+      - "${VEC_PRESENTACION_REMOTE_ACL_PATH:-./deploy/proxy-local/acceso-remoto-denegar.conf}:/etc/nginx/acceso-remoto.conf:ro"
+    networks:
+      presentacion-borde:
+        # .195 está reservada al smoke cartográfico concurrente.
+        ipv4_address: "192.168.255.196"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=16m,mode=0750,uid=101,gid=101
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 32
+    mem_limit: 64m
+    cpus: 0.25
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 5s
+    profiles:
+      - presentacion-remota
+
   # El navegador nunca accede a OSRM. Esta superficie mínima valida la
   # petición de presentación, consulta el motor en su red exclusiva y devuelve
   # únicamente la proyección cartográfica no autoritativa.

@@ -495,6 +495,12 @@ sin perder rutas. Las acciones de firma, registro, pago, carga documental, comun
 demás operaciones se representan mediante adaptadores volátiles: exigen
 confirmación, devuelven recibos `DEMO-` y se pierden al recargar.
 
+Para una presentación a través de un frontal corporativo se conserva el acceso
+privado anterior y se activa una entrada Docker adicional con lista blanca de
+origen, bind a una única IP interna y perfil `presentacion-remota`. No se abre
+`0.0.0.0` ni se aceptan cabeceras de identidad. Véase
+[acceso desde un proxy corporativo](docs/portal_vec/acceso_proxy_presentacion.md).
+
 La consulta pública incluye dos recorridos con plazo abierto, derivados de
 convocatorias y bases públicas reales pero con intervalos sintéticos señalados
 de forma inequívoca como `DEMO`. Los recibos descargables son PDF A4 reales de

@@ -3438,3 +3438,31 @@ resolverá siempre en servidor y ninguna query podrá cambiar capacidades.
 **Evidencia.** La revisión estricta del 20 de julio recorrió 36 vistas y 25
 flujos en 1440×1000, 1024×900 y 390×844: 183/183 escenarios correctos, cero
 hallazgos y ausencia de cookies o almacenamiento del navegador.
+
+## DEC-096 — Entrada descartable para el proxy corporativo de la presentación
+
+Fecha: 20 de julio de 2026. Estado: adoptada solo para la presentación interna.
+
+**Decisión.** El borde ordinario continúa publicado exclusivamente en
+`127.0.0.1:8081`. Para que un frontal de otro equipo alcance la muestra se
+incorpora `entrada-remota-presentacion`, un Nginx mínimo y separado, activable
+únicamente con el perfil `presentacion-remota`. Se enlaza a una sola dirección
+interna y al puerto convencional `18081`; nunca a `0.0.0.0`.
+
+**Cierre por defecto.** El repositorio sólo contiene una ACL que permite la
+salud interna y deniega toda la red. El despliegue monta desde configuración
+externa la IP exacta del único proxy autorizado. La decisión utiliza la
+dirección TCP observada y no confía en `Forwarded` o `X-Forwarded-For`; el salto
+también elimina cookies, autorización y cabeceras de identidad, y normaliza el
+`Host` antes de alcanzar el borde privado.
+
+**Defensa en profundidad.** Sistemas debe aplicar además la misma lista blanca
+en la ACL de red y en `DOCKER-USER`/FORWARD, porque una publicación Docker no
+queda protegida necesariamente por UFW/INPUT. El frontal termina HTTPS. El
+tramo HTTP interno sólo se acepta para datos sintéticos durante esta muestra;
+un entorno real exigirá TLS o mTLS, identidad corporativa y la composición
+productiva aprobada.
+
+**Retirada.** Detener y eliminar el único servicio del perfil
+`presentacion-remota` y su regla de red devuelve exactamente la topología de
+cinco contenedores y loopback, sin cambiar portal, módulos ni adaptadores.

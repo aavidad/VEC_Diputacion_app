@@ -1,6 +1,6 @@
 # Estado y plan de ataque del proyecto
 
-**Última actualización:** 19 de julio de 2026
+**Última actualización:** 20 de julio de 2026
 
 **Frente principal:** primera funcionalidad real de Bolsa
 
@@ -47,6 +47,13 @@ no hay salida a servicios cartográficos públicos. Esta entrega acredita una
 **presentación navegable**, no integración
 productiva, E2E productivo, identidad real, persistencia, firma, registro,
 pagos o comunicaciones reales.
+
+Existe además un perfil descartable `presentacion-remota` para enlazar la demo
+con un frontal corporativo de otro equipo. Mantiene el acceso anterior en
+loopback y añade una entrada aislada sobre una única IP interna, con ACL cerrada
+por defecto y configuración operativa custodiada fuera de Git. No supone una
+publicación productiva; requiere lista blanca coincidente en la red y en el
+cortafuegos Docker del servidor.
 
 La última línea base cerrada recorrió 36 vistas y 22 estados de interacción en
 1440×1000, 1024×900 y 390×844: **174 de 174 escenarios correctos, 174
