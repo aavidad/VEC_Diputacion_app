@@ -31,7 +31,6 @@ import {
 import { montarModuloDietas } from "./modulos/dietas/vista.js";
 import { crearVisorRutaDietas } from "./modulos/dietas/mapa-ruta.js";
 
-const MODULOS_COMPARTIDOS = Object.freeze(["bolsa", "cronos", "dietas"]);
 const CAPACIDADES_AUTOSERVICIO_CRONOS = Object.freeze([
   CAPACIDAD_CONSULTAR_FICHAJES,
   CAPACIDAD_REGISTRAR_FICHAJE,
@@ -73,6 +72,7 @@ export function crearCoordinadorModulosPortal({
 
   let catalogo = Object.freeze([]);
   let composicion = null;
+  let presentacionActiva = false;
   let desmontarVista = null;
   let secuenciaMontaje = 0;
   // La pila Docker de presentacion publica teselas bajo el mismo origen. Si
@@ -88,6 +88,7 @@ export function crearCoordinadorModulosPortal({
 
   async function cargarPresentacion(sesionBolsa) {
     desmontarVistaActual();
+    presentacionActiva = true;
     const [identidad, datosCronos, adaptadorCronos, adaptadorDietas, calculadorRutasDietas, documentos, catalogoDemo] = await Promise.all([
       import("./identidad/presentacion.js"),
       import("./modulos/cronos/datos-presentacion.js"),
@@ -99,19 +100,19 @@ export function crearCoordinadorModulosPortal({
     ]);
     const contexto = identidad.crearContextoActorPresentacionDesdeSesion(sesionBolsa);
     const contextos = compartirContextoActor(
-      crearProveedorContextoActorFijo(contexto), MODULOS_COMPARTIDOS,
+      crearProveedorContextoActorFijo(contexto), contexto.ambito.modulos,
     );
     const descargarRecibo = documentos.crearDescargadorRecibosPresentacion(entorno);
     const origenComprobacion = entorno.location?.origin || "";
-    const cronos = crearPresentadorCronos({
+    const cronos = contextos.cronos ? crearPresentadorCronos({
       contextoActor: contextos.cronos,
       capacidades: CAPACIDADES_AUTOSERVICIO_CRONOS,
       datos: datosCronos.crearDatosCronosPresentacion(contextos.cronos),
       ejecutor: adaptadorCronos.crearEjecutorCronosPresentacion(),
       descargarRecibo,
       origenComprobacion,
-    });
-    const dietas = Object.freeze({
+    }) : undefined;
+    const dietas = contextos.dietas ? Object.freeze({
       contextoActor: contextos.dietas,
       capacidades: CAPACIDADES_AUTOSERVICIO_DIETAS,
       adaptador: adaptadorDietas.crearAdaptadorDietasPresentacion({
@@ -126,14 +127,15 @@ export function crearCoordinadorModulosPortal({
       descargarRecibo,
       visorRuta: visorRutaDietas,
       origenComprobacion,
-    });
+    }) : undefined;
     catalogo = catalogoDemo.obtenerCatalogoModulosPresentacion();
     composicion = Object.freeze({ contextos, cronos, dietas });
-    return contextos.bolsa;
+    return contextos.bolsa || null;
   }
 
   async function cargarInterno() {
     desmontarVistaActual();
+    presentacionActiva = false;
     composicion = null;
     catalogo = await cargarCatalogoModulosInterno();
   }
@@ -153,7 +155,10 @@ export function crearCoordinadorModulosPortal({
   }
 
   function resolverAcceso(clave, bolsaDisponible = true) {
-    if (clave === "bolsa") return Object.freeze({ disponible: bolsaDisponible, vista: "resumen" });
+    if (clave === "bolsa") {
+      const autorizada = !presentacionActiva || composicion?.contextos.bolsa !== undefined;
+      return Object.freeze({ disponible: bolsaDisponible && autorizada, vista: "resumen" });
+    }
     if (clave === "cronos" && vistaDisponible("cronos")) {
       return Object.freeze({ disponible: true, vista: "cronos" });
     }
@@ -163,13 +168,18 @@ export function crearCoordinadorModulosPortal({
     return Object.freeze({ disponible: false, vista: "" });
   }
 
-  function renderizarNavegacion(bolsaDisponible = true, moduloActivo = "portal") {
+  function renderizarNavegacion(bolsaDisponible = true, moduloActivo = "portal", vistaPermitida = () => true) {
+    if (typeof vistaPermitida !== "function") throw new TypeError("filtro de vistas no válido");
     const catalogoVisible = moduloActivo === "portal"
       ? catalogo
       : catalogo.filter((modulo) => modulo.clave === moduloActivo);
     return renderizarNavegacionModulos({
       catalogo: catalogoVisible,
-      resolverAcceso: (clave) => resolverAcceso(clave, bolsaDisponible),
+      resolverAcceso: (clave) => {
+        const acceso = resolverAcceso(clave, bolsaDisponible);
+        return acceso.disponible && vistaPermitida(acceso.vista)
+          ? acceso : Object.freeze({ disponible: false, vista: "" });
+      },
       escaparHTML,
     });
   }

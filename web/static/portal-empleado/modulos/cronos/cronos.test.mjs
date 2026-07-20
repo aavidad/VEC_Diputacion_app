@@ -40,10 +40,10 @@ const TODAS_LAS_CAPACIDADES = [
 
 function contextoPresentacion() {
   return crearContextoActorPresentacionDesdeSesion({
-    actor_ref: "DEMO-PERFIL-ADMIN-FUNCIONAL-BOLSA-01",
-    iniciales: "AD",
-    nombre: "Administrador DEMO 01",
-    perfil: "Administrador funcional de Bolsa · ámbito DEMO completo",
+    actor_ref: "DEMO-PERFIL-FUNCIONARIO-01",
+    iniciales: "FU",
+    nombre: "Funcionario DEMO 01",
+    perfil: "Funcionario · autoservicio interno DEMO",
   });
 }
 

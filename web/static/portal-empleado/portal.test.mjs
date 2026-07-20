@@ -247,7 +247,8 @@ test("el selector de perfil es cerrado y la navegación aplica mínimo privilegi
   assert.match(javascript, /getAll\("perfil"\)/);
   assert.match(javascript, /valores\.length !== 1[\s\S]{0,100}return null/);
   assert.doesNotMatch(javascript, /valores\.length === 0\) return "administrador"/);
-  assert.match(javascript, /\["administrador", "tecnico"\]\.includes/);
+  assert.match(javascript, /\["administrador", "tecnico", "funcionario"\]\.includes/);
+  assert.match(javascript, /perfilPresentacionSolicitado\(\) === null\) return vista === "portal"/);
   assert.match(javascript, /adaptador\.obtenerDatosPresentacion\(perfil\)/);
   assert.match(javascript, /function vistaPermitida\(vista\)/);
   assert.match(javascript, /history\.replaceState\(null, "", hashSeguro\)/);

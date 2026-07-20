@@ -62,7 +62,7 @@ test("la sesion existente de Bolsa produce una unica identidad interna inmutable
   assert.match(contexto.persona_ref, /^per_demo_/);
   assert.match(contexto.cuenta_ref, /^cta_demo_/);
   assert.match(contexto.perfil_ref, /^prf_demo_/);
-  assert.deepEqual(contexto.ambito.modulos, ["bolsa", "cronos", "dietas"]);
+  assert.deepEqual(contexto.ambito.modulos, ["bolsa"]);
   assert.equal(contexto.demostracion, true);
   assert.equal(contexto.autenticacion.metodo, "demo");
   assert.equal(contexto.autenticacion.garantia, "bajo");
@@ -72,17 +72,17 @@ test("la sesion existente de Bolsa produce una unica identidad interna inmutable
   assert.ok(Object.isFrozen(contexto.ambito.modulos));
 });
 
-test("Bolsa, Cronos y Dietas reciben exactamente el mismo objeto ContextoActor", () => {
+test("Cronos y Dietas reciben exactamente el mismo ContextoActor del funcionario", () => {
   const contexto = crearContextoActorPresentacionDesdeSesion(
-    obtenerDatosPresentacion("administrador").sesion,
+    obtenerDatosPresentacion("funcionario").sesion,
   );
   const proveedor = crearProveedorContextoActorFijo(contexto);
-  const identidades = compartirContextoActor(proveedor, ["bolsa", "cronos", "dietas"]);
+  const identidades = compartirContextoActor(proveedor, ["cronos", "dietas"]);
 
   assert.strictEqual(proveedor.obtenerContexto(), contexto);
-  assert.strictEqual(identidades.bolsa, identidades.cronos);
   assert.strictEqual(identidades.cronos, identidades.dietas);
-  assert.strictEqual(proveedor.obtenerContexto(), identidades.bolsa);
+  assert.strictEqual(proveedor.obtenerContexto(), identidades.cronos);
+  assert.throws(() => exigirContextoParaModulo(contexto, "bolsa"), /fuera del ambito/);
   assert.ok(Object.isFrozen(identidades));
 });
 
@@ -91,7 +91,8 @@ test("un modulo fuera del ambito falla cerrado y no deriva otra identidad", () =
     obtenerDatosPresentacion("tecnico").sesion,
   );
 
-  assert.strictEqual(exigirContextoParaModulo(contexto, "cronos"), contexto);
+  assert.strictEqual(exigirContextoParaModulo(contexto, "bolsa"), contexto);
+  assert.throws(() => exigirContextoParaModulo(contexto, "cronos"), /fuera del ambito/);
   assert.throws(() => exigirContextoParaModulo(contexto, "nominas"), /fuera del ambito/);
   assert.throws(
     () => exigirContextoParaModulo(Object.freeze({ ambito: Object.freeze({ modulos: Object.freeze(["cronos"]) }) }), "cronos"),
@@ -99,21 +100,25 @@ test("un modulo fuera del ambito falla cerrado y no deriva otra identidad", () =
   );
 });
 
-test("los dos perfiles existentes conservan actores distintos sin multiplicarlos por modulo", () => {
+test("los perfiles internos conservan actores distintos y el funcionario queda en autoservicio", () => {
   const administrador = crearContextoActorPresentacionDesdeSesion(
     obtenerDatosPresentacion("administrador").sesion,
   );
   const tecnico = crearContextoActorPresentacionDesdeSesion(
     obtenerDatosPresentacion("tecnico").sesion,
   );
+  const funcionario = crearContextoActorPresentacionDesdeSesion(
+    obtenerDatosPresentacion("funcionario").sesion,
+  );
 
   assert.notEqual(administrador.persona_ref, tecnico.persona_ref);
+  assert.notEqual(funcionario.persona_ref, tecnico.persona_ref);
   assert.equal(administrador.rol.clave, "administrador_funcional_bolsa");
   assert.equal(tecnico.rol.clave, "tecnico_revisor_rrhh");
-  const compartidoTecnico = compartirContextoActor(
-    crearProveedorContextoActorFijo(tecnico), ["bolsa", "cronos", "dietas"],
-  );
-  assert.equal(new Set(Object.values(compartidoTecnico)).size, 1);
+  assert.equal(funcionario.rol.clave, "funcionario_autoservicio");
+  assert.deepEqual(funcionario.ambito.modulos, ["cronos", "dietas"]);
+  assert.throws(() => exigirContextoParaModulo(funcionario, "bolsa"), /fuera del ambito/);
+  assert.deepEqual(tecnico.ambito.modulos, ["bolsa"]);
 });
 
 test("la identidad no incorpora permisos globales ni datos identificativos civiles", () => {

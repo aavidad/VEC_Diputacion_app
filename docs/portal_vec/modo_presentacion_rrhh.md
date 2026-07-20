@@ -114,10 +114,11 @@ docker compose --profile presentacion --profile herramientas-presentacion run \
   --rm --no-deps revision-web-presentacion
 ```
 
-El manifiesto actual contiene 36 vistas y 22 estados de interacción en
-escritorio, portátil y móvil. La ejecución cerrada el 19 de julio de 2026
-obtuvo **174/174 escenarios correctos, 174 capturas y cero hallazgos**, incluido
-el cálculo de una ruta real de Dietas y la carga de su mapa interno. La línea
+El manifiesto actual contiene 36 vistas y 25 estados de interacción en
+escritorio, portátil y móvil. La ejecución cerrada el 20 de julio de 2026
+obtuvo **183/183 escenarios correctos, 183 capturas y cero hallazgos**, incluidos
+los cuatro puntos de vista DEMO, su selector, el cálculo de una ruta real de
+Dietas y la carga de su mapa interno. La línea
 base archivada de 159 escenarios es anterior a Cronos, Dietas, dos vistas
 adicionales de Bolsa y la integración cartográfica. La herramienta exige la cabecera
 técnica exclusiva de presentación, comprueba menús y recibos DEMO, y falla ante
@@ -223,25 +224,40 @@ notificación fehaciente ni cumplimiento productivo. Tampoco debe recibir una
 copia de datos personales o expedientes reales “para que la demo parezca más
 completa”; los datos públicos verificables se incorporan con su procedencia.
 
-## Requisito pendiente: selector de perfiles de presentación
+## Selector descartable de perfiles de presentación
 
-Queda registrado, pero **no implementado en este corte**, que el bloque de
-identidad de la cabecera —actualmente «Administrador DEMO»— debe ser un botón
-accesible para cambiar el punto de vista de la demostración entre:
+El modo de presentación incorpora un selector accesible desde el bloque de
+identidad de la cabecera. Es una ayuda **exclusiva de la demostración** para que
+RRHH pueda recorrer cuatro puntos de vista sintéticos; no autentica, no concede
+roles y no forma parte del futuro sistema productivo de identidad.
 
-- usuario externo: superficie de persona aspirante y procesos selectivos;
-- funcionario: Portal del Empleado y solo los módulos internos autorizados;
-- técnico de RRHH: gestión de Bolsa y funciones técnicas concedidas;
-- administrador: configuración y capacidades administrativas completas.
+| Punto de vista DEMO | Superficie | Alcance visible |
+| --- | --- | --- |
+| Usuario externo | Área personal del aspirante | Procesos selectivos, candidaturas, documentos y datos propios |
+| Funcionario | Portal del Empleado | Cronos y Dietas de autoservicio, sin gestión técnica de Bolsa |
+| Técnico de RRHH | Portal interno | Revisión técnica de Bolsa expresamente enumerada |
+| Administrador | Portal interno | Gobierno, configuración y operaciones de Bolsa expresamente enumeradas |
 
-El cambio debe conservar mínimo privilegio: cada perfil verá únicamente sus
-menús, datos y acciones. Será navegable con teclado y lector de pantalla,
-adaptable a móvil y mostrará de forma inequívoca el perfil activo. En la muestra
-podrá resolverse mediante estado efímero de presentación, sin cookies ni
-almacenamiento del navegador. En producción no será un cambio real de rol: la
-identidad y las autorizaciones procederán del servidor y el selector solo podrá
-representar capacidades ya concedidas. Deben existir pruebas de navegación,
-aislamiento de superficies y ausencia de escalada entre los cuatro perfiles.
+Las opciones no se acumulan: técnico y administrador no heredan Cronos o
+Dietas, y funcionario no hereda la gestión de Bolsa. Cada cambio navega a una
+URL canónica y recarga por completo la superficie, por lo que descarta el estado
+volátil anterior. El selector no usa cookies, `localStorage`, `sessionStorage`,
+IndexedDB ni Cache Storage. Un perfil ausente, repetido o desconocido falla
+cerrado y nunca selecciona al administrador por defecto.
+
+La implementación descartable vive en
+`web/static/presentacion/selector-perfiles.js` y
+`web/static/presentacion/selector-perfiles.css`. Los dos únicos puntos de carga
+están protegidos por el modo de presentación en
+`web/static/area-personal/arranque.js` y
+`web/static/portal-empleado/portal.js`. El manifiesto productivo no incorpora
+los dos archivos del selector y el verificador anti-fuga lo comprueba.
+
+Si se retira la demostración, se eliminan esos dos archivos, sus dos importaciones
+condicionales y los accesos sintéticos de `web/static/presentacion/index.html`.
+Las pantallas, contratos, adaptadores productivos y controles reales de
+autorización no se sustituyen ni se borran. En producción, identidad, perfiles y
+capacidades los resolverá siempre el servidor; una URL nunca cambiará permisos.
 
 ## Sustitución incremental de adaptadores
 

@@ -3410,3 +3410,31 @@ exige fuente, zona horaria y regla de cómputo verificables.
 adaptador `.demo.json` se reemplazará por la publicación gobernada cuando
 exista; los expedientes sintéticos no se migran. El inventario y sus huellas se
 documentan en `docs/demo/fuentes_publicas_bolsa.md`.
+
+## DEC-095 — Selector descartable de puntos de vista para la demostración
+
+Fecha: 20 de julio de 2026. Estado: adoptada solo para la presentación a RRHH.
+
+**Decisión.** El bloque de identidad de la muestra permite recorrer cuatro
+puntos de vista sintéticos: usuario externo, funcionario, técnico de RRHH y
+administrador. No es un selector productivo de roles: cada opción navega a una
+superficie DEMO canónica y provoca un arranque nuevo. No autentica, no concede
+autoridad, no persiste la elección y nunca selecciona un perfil por defecto.
+
+**Mínimo privilegio.** Externo solo ve su área de aspirante; funcionario solo
+compone Cronos y Dietas de autoservicio; técnico compone las vistas técnicas de
+Bolsa enumeradas; administrador compone gobierno y configuración de Bolsa con
+vistas y operaciones enumeradas. Los perfiles no se suman y no existen
+comodines de autorización en la matriz sintética.
+
+**Aislamiento y retirada.** La lógica y los estilos viven bajo
+`web/static/presentacion/selector-perfiles.*`, se importan únicamente si se ha
+activado el modo de presentación y se excluyen físicamente mediante el
+manifiesto productivo. Para retirarlos se eliminan esos dos archivos, sus dos
+importaciones condicionales y los enlaces sintéticos del lanzador; las vistas y
+los puertos candidatos a producto permanecen. La identidad productiva se
+resolverá siempre en servidor y ninguna query podrá cambiar capacidades.
+
+**Evidencia.** La revisión estricta del 20 de julio recorrió 36 vistas y 25
+flujos en 1440×1000, 1024×900 y 390×844: 183/183 escenarios correctos, cero
+hallazgos y ausencia de cookies o almacenamiento del navegador.

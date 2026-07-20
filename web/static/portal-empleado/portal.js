@@ -118,7 +118,6 @@ function cerrarMenuMovil({ restaurarFoco = false } = {}) {
   if (porId("velo-menu")) porId("velo-menu").hidden = true;
   if (restaurarFoco) boton?.focus({ preventScroll: true });
 }
-
 function escaparHTML(valor) {
   return String(valor ?? "")
     .replaceAll("&", "&amp;")
@@ -127,22 +126,18 @@ function escaparHTML(valor) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-
 const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar,
   confirmarOperacion: (descriptor) => window.confirm(`${descriptor.titulo}\n\n${descriptor.advertencia}\n\nReferencia: ${descriptor.referencia}`) });
-
 const renderizarPortal = crearVistaInicioPortal({
   encabezadoVista,
   escaparHTML,
   obtenerCatalogo: coordinadorModulos.obtenerCatalogo,
-  resolverAcceso: (clave) => coordinadorModulos.resolverAcceso(clave, estado.fuenteLista),
+  resolverAcceso: resolverAccesoPerfil,
 });
-
 function renderizarContenidoAyuda() {
   const ayuda = AYUDA_PORTAL_BOLSA;
   return `<section class="ayuda-contextual"><p>${escaparHTML(ayuda.introduccion)}</p><h3>Pasos</h3><ol class="lista-ayuda">${ayuda.pasos.map((paso) => `<li>${escaparHTML(paso)}</li>`).join("")}</ol><section class="ayuda-audio" aria-labelledby="titulo-audio-ayuda"><h3 id="titulo-audio-ayuda">Escuchar esta guía</h3><audio controls preload="metadata" aria-describedby="transcripcion-ayuda"><source src="${escaparHTML(ayuda.audio.src)}" type="${escaparHTML(ayuda.audio.tipo)}">Su navegador no puede reproducir este audio.</audio></section><section class="faq-ayuda"><h3>Preguntas frecuentes</h3>${ayuda.preguntas.map((item) => `<details><summary>${escaparHTML(item.pregunta)}</summary><p>${escaparHTML(item.respuesta)}</p></details>`).join("")}</section><details id="transcripcion-ayuda" class="transcripcion-ayuda"><summary>Transcripción del audio</summary><p>${escaparHTML(ayuda.transcripcion)}</p></details></section>`;
 }
-
 function numero(valor, decimales = 0) {
   return new Intl.NumberFormat("es-ES", {
     minimumFractionDigits: decimales,
@@ -163,8 +158,13 @@ function modoPresentacionSolicitado() {
 
 function perfilPresentacionSolicitado() {
   const valores = new URLSearchParams(window.location.search).getAll("perfil");
-  if (valores.length !== 1 || !["administrador", "tecnico"].includes(valores[0])) return null;
+  if (valores.length !== 1 || !["administrador", "tecnico", "funcionario"].includes(valores[0])) return null;
   return valores[0];
+}
+
+function resolverAccesoPerfil(clave) {
+  const acceso = coordinadorModulos.resolverAcceso(clave, estado.fuenteLista);
+  return acceso.disponible && vistaPermitida(acceso.vista) ? acceso : { disponible: false, vista: "" };
 }
 
 function configurarInicioInstitucional() {
@@ -182,6 +182,7 @@ function configurarInicioInstitucional() {
 }
 
 function vistaPermitida(vista) {
+  if (estado.modoPresentacion && perfilPresentacionSolicitado() === null) return vista === "portal";
   if (VISTAS_MODULOS_PERSONALES.has(vista)) {
     return !estado.fuenteLista || coordinadorModulos.vistaDisponible(vista);
   }
@@ -282,10 +283,11 @@ async function cargarFuenteDatos() {
   const aviso = document.querySelector(".aviso-presentacion");
   if (estado.modoPresentacion) {
     try {
-      const [adaptador, moduloEfectos, moduloBorradores] = await Promise.all([
+      const [adaptador, moduloEfectos, moduloBorradores, moduloSelector] = await Promise.all([
         import("./datos-presentacion.js?v=20260718-demo-total-v1"),
         import("./portal-presentacion-adaptador.js?v=20260718-demo-total-v1"),
         import("./portal-borradores-demo-cliente.js?v=20260718-demo-total-v1"),
+        import("../presentacion/selector-perfiles.js?v=20260720-selector-perfiles-v1"),
       ]);
       const perfil = perfilPresentacionSolicitado();
       if (perfil === null) throw new Error("perfil de presentación no permitido");
@@ -309,6 +311,7 @@ async function cargarFuenteDatos() {
       estado.fuenteLista = true;
       estado.necesidadSeleccionada = DATOS_PANEL.necesidades_llamamiento[0]?.id || "";
       estado.elaboracionSeleccionada = DATOS_PANEL.elaboraciones[0]?.id || "";
+      moduloSelector.instalarSelectorPerfilesPresentacion({ disparador: porId("sesion-visible"), perfilActivo: perfil });
     } catch {
       aviso.hidden = true;
       estado.errorFuente = "No se pudo cargar el adaptador aislado de presentación.";
@@ -402,11 +405,11 @@ function actualizarNavegacionModulos() {
   const contenedor = porId("navegacion-modulos-dinamica");
   if (!contenedor) return;
   const moduloActivo = moduloDeVistaPortal(estado.vista);
-  contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(estado.fuenteLista, moduloActivo);
+  contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(estado.fuenteLista, moduloActivo, vistaPermitida);
   const fase = porId("texto-estado-modulos-portal");
   if (fase) {
     const disponibles = ["bolsa", "cronos", "dietas"]
-      .filter((clave) => coordinadorModulos.resolverAcceso(clave, estado.fuenteLista).disponible).length;
+      .filter((clave) => resolverAccesoPerfil(clave).disponible).length;
     fase.textContent = disponibles > 0
       ? `${disponibles} módulos habilitados en fase inicial`
       : "Módulos pendientes de sesión autorizada";

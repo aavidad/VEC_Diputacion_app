@@ -64,13 +64,14 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             if vista.clave in {"rrhh-cronos", "rrhh-dietas"}
         }
         self.assertEqual(set(modulos), {"rrhh-cronos", "rrhh-dietas"})
+        self.assertTrue(all("perfil=funcionario" in vista.ruta for vista in modulos.values()))
         self.assertEqual(modulos["rrhh-cronos"].ruta.rsplit("#", 1)[-1], "cronos")
         self.assertEqual(modulos["rrhh-dietas"].ruta.rsplit("#", 1)[-1], "dietas")
         self.assertEqual(len(capturador.TAMANOS_VISTA), 3)
         for clave, vista in modulos.items():
             with self.subTest(modulo=clave):
                 self.assertEqual(vista.superficie, "gestion-rrhh")
-                self.assertIn("perfil=administrador", vista.ruta)
+                self.assertIn("perfil=funcionario", vista.ruta)
                 self.assertEqual(len(vista.selectores_menu), 2)
 
     def test_toda_ruta_privada_usa_presentacion_rrhh(self) -> None:
@@ -82,7 +83,7 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             self.assertEqual(consulta.get("presentacion"), ["rrhh"], escenario.clave)
 
     def test_flujos_se_distinguen_y_cubren_interacciones_demo(self) -> None:
-        self.assertEqual(len(capturador.MANIFIESTO_FLUJOS), 22)
+        self.assertEqual(len(capturador.MANIFIESTO_FLUJOS), 25)
         claves = {flujo.clave for flujo in capturador.MANIFIESTO_FLUJOS}
         self.assertTrue({
             "publico-ficha-convocatoria",
@@ -93,6 +94,9 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             "rrhh-recibo-demo",
             "rrhh-dietas-ruta-real",
             "rrhh-perfil-tecnico-restringido",
+            "funcionario-autoservicio-restringido",
+            "administrador-selector-perfiles-abierto",
+            "aspirante-selector-perfiles-abierto",
             "aspirante-menu-movil-abierto",
             "rrhh-menu-movil-abierto",
             "rrhh-menu-bolsa-movil-abierto",
@@ -112,8 +116,76 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
         self.assertIn("DEMO-PERFIL-TECNICO-RRHH-01", tecnico.pasos[0].selector)
         self.assertEqual(
             [paso.accion for paso in tecnico.pasos],
-            ["esperar", "esperar-habilitado", "esperar-deshabilitado"],
+            [
+                "esperar", "esperar-habilitado", "esperar-deshabilitado",
+                "esperar-deshabilitado", "esperar-deshabilitado",
+            ],
         )
+
+    def test_selector_cubre_cuatro_rutas_desde_admin_y_aspirante_en_tres_tamanos(self) -> None:
+        por_clave = {flujo.clave: flujo for flujo in capturador.MANIFIESTO_FLUJOS}
+        selectores = {
+            clave: por_clave[clave]
+            for clave in (
+                "administrador-selector-perfiles-abierto",
+                "aspirante-selector-perfiles-abierto",
+            )
+        }
+        perfiles_esperados = {"usuario_externo", "funcionario", "tecnico", "administrador"}
+        rutas_esperadas = {
+            "/area-personal/?presentacion=rrhh&vista=inicio",
+            "/portal-empleado/?presentacion=rrhh&perfil=funcionario#portal",
+            "/portal-empleado/?presentacion=rrhh&perfil=tecnico#portal",
+            "/portal-empleado/?presentacion=rrhh&perfil=administrador#portal",
+        }
+        for clave, flujo in selectores.items():
+            with self.subTest(flujo=clave):
+                self.assertTrue(flujo.requiere_demo)
+                self.assertEqual(len(flujo.pasos), 6)
+                self.assertEqual(flujo.pasos[0].accion, "clic")
+                self.assertIn("data-selector-perfil", flujo.pasos[0].selector)
+                self.assertEqual(flujo.pasos[1].accion, "esperar")
+                self.assertIn(":not([hidden])", flujo.pasos[1].selector)
+                controles = flujo.pasos[2:]
+                perfiles = {
+                    selector.split('data-perfil-presentacion="', 1)[1].split('"', 1)[0]
+                    for selector in (paso.selector for paso in controles)
+                }
+                rutas = {
+                    selector.split('href="', 1)[1].rsplit('"]', 1)[0]
+                    for selector in (paso.selector for paso in controles)
+                }
+                self.assertEqual(perfiles, perfiles_esperados)
+                self.assertEqual(rutas, rutas_esperadas)
+        self.assertEqual(
+            len(selectores) * len(capturador.TAMANOS_VISTA),
+            6,
+            "los dos selectores se capturan en escritorio, portátil y móvil",
+        )
+
+    def test_funcionario_y_tecnico_aplican_minimo_privilegio_en_vista_directa(self) -> None:
+        por_clave = {flujo.clave: flujo for flujo in capturador.MANIFIESTO_FLUJOS}
+        funcionario = por_clave["funcionario-autoservicio-restringido"]
+        tecnico = por_clave["rrhh-perfil-tecnico-restringido"]
+        self.assertIn("perfil=funcionario", funcionario.ruta)
+        self.assertIn("DEMO-PERFIL-FUNCIONARIO-01", funcionario.pasos[0].selector)
+        self.assertEqual(
+            [(paso.accion, paso.selector) for paso in funcionario.pasos[1:]],
+            [
+                ("esperar-deshabilitado", '[data-modulo-portal="bolsa"]'),
+                ("esperar-habilitado", '[data-modulo-portal="cronos"][data-vista="cronos"]'),
+                ("esperar-habilitado", '[data-modulo-portal="dietas"][data-vista="dietas"]'),
+            ],
+        )
+        self.assertIn("perfil=tecnico", tecnico.ruta)
+        self.assertIn(
+            ("esperar-habilitado", '[data-modulo-portal="bolsa"][data-vista="resumen"]'),
+            [(paso.accion, paso.selector) for paso in tecnico.pasos],
+        )
+        self.assertTrue(all(
+            paso.accion == "esperar-deshabilitado"
+            for paso in tecnico.pasos[2:]
+        ))
 
     def test_operaciones_rrhh_representativas_exigen_perfil_y_recibo_demo(self) -> None:
         self.assertEqual(len(capturador.FLUJOS_RRHH_CON_RECIBO), 11)

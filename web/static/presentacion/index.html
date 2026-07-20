@@ -30,27 +30,33 @@
             <p class="presentacion-sobrelinea presentacion-sobrelinea-oscura">Acceso por superficie y finalidad</p>
             <h2 id="elegir-recorrido">Elegir punto de vista</h2>
           </div>
-          <p>Las áreas pública, personal e interna están separadas. Cada una muestra únicamente los datos y operaciones correspondientes a su perfil.</p>
+          <p>Los cuatro recorridos usan identidades sintéticas separadas. Al cambiar de perfil se recarga la superficie y se descarta todo cambio anterior.</p>
         </div>
         <div class="presentacion-opciones">
-          <article class="presentacion-acceso presentacion-acceso-publico">
-            <span class="presentacion-etiqueta">Acceso público</span>
-            <h3>Consulta pública de bolsas</h3>
-            <p>Convocatorias, plazos, requisitos, documentación, categorías y ayuda sin datos personales.</p>
-            <a class="presentacion-enlace" href="/bolsa/">Abrir consulta pública</a>
-          </article>
           <article class="presentacion-acceso presentacion-acceso-personal">
-            <span class="presentacion-etiqueta">Persona candidata</span>
-            <h3>Área personal</h3>
+            <span class="presentacion-etiqueta">Usuario externo</span>
+            <h3>Área personal del aspirante</h3>
             <p>Perfil, candidaturas, documentación, autobaremación, avisos, alegaciones e historial.</p>
             <a class="presentacion-enlace" href="/area-personal/?presentacion=rrhh">Abrir área personal</a>
+            <a class="presentacion-enlace presentacion-enlace-secundario" href="/bolsa/">Consulta pública sin identificarme</a>
           </article>
-          <article class="presentacion-acceso presentacion-acceso-interno">
-            <span class="presentacion-etiqueta">Personal de RRHH</span>
-            <h3>Gestión interna del portal</h3>
-            <p>Bolsas, llamamientos, fichajes, permisos, dietas, documentos y auditoría, siempre según el perfil y con mínimo privilegio.</p>
+          <article class="presentacion-acceso presentacion-acceso-funcionario">
+            <span class="presentacion-etiqueta">Funcionario</span>
+            <h3>Portal del Empleado</h3>
+            <p>Autoservicio interno con Cronos y Dietas. No permite revisar candidaturas ni administrar la plataforma.</p>
+            <a class="presentacion-enlace" href="/portal-empleado/?presentacion=rrhh&amp;perfil=funcionario#portal">Abrir como funcionario</a>
+          </article>
+          <article class="presentacion-acceso presentacion-acceso-tecnico">
+            <span class="presentacion-etiqueta">Técnico de RRHH</span>
+            <h3>Revisión técnica de Bolsa</h3>
+            <p>Solicitudes, méritos, baremación, alegaciones, documentos y auditoría dentro del ámbito asignado.</p>
             <a class="presentacion-enlace" href="/portal-empleado/?presentacion=rrhh&amp;perfil=tecnico#portal">Abrir como técnico revisor</a>
-            <a class="presentacion-enlace presentacion-enlace-secundario" href="/portal-empleado/?presentacion=rrhh&amp;perfil=administrador#portal">Abrir como administrador</a>
+          </article>
+          <article class="presentacion-acceso presentacion-acceso-administrador">
+            <span class="presentacion-etiqueta">Administrador</span>
+            <h3>Administración funcional</h3>
+            <p>Supervisión completa de Bolsa, configuración, roles y operaciones demostrativas expresamente enumeradas.</p>
+            <a class="presentacion-enlace" href="/portal-empleado/?presentacion=rrhh&amp;perfil=administrador#portal">Abrir como administrador</a>
           </article>
         </div>
       </section>
@@ -90,7 +96,7 @@
             <p>Fichajes, permisos, vacaciones, turnos y calendario laboral.</p>
             <div class="presentacion-pie-modulo">
               <span class="presentacion-estado-activo">Disponible en esta fase</span>
-              <a href="/portal-empleado/?presentacion=rrhh&amp;perfil=administrador#cronos">Abrir módulo</a>
+              <a href="/portal-empleado/?presentacion=rrhh&amp;perfil=funcionario#cronos">Abrir módulo</a>
             </div>
           </article>
           <article class="presentacion-modulo presentacion-modulo-activo presentacion-modulo-dietas" aria-labelledby="modulo-dietas">
@@ -99,7 +105,7 @@
             <p>Comisiones de servicio, kilometraje, gastos y liquidaciones.</p>
             <div class="presentacion-pie-modulo">
               <span class="presentacion-estado-activo">Disponible en esta fase</span>
-              <a href="/portal-empleado/?presentacion=rrhh&amp;perfil=administrador#dietas">Abrir módulo</a>
+              <a href="/portal-empleado/?presentacion=rrhh&amp;perfil=funcionario#dietas">Abrir módulo</a>
             </div>
           </article>
           <article class="presentacion-modulo presentacion-modulo-pendiente" aria-labelledby="modulo-solicitudes">

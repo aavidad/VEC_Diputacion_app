@@ -73,7 +73,7 @@ function crearCoordinador({ fetchImpl = async () => respuestaJSON(respuestaOSRM(
   });
 }
 
-test("Bolsa, Cronos y Dietas comparten exactamente el ContextoActor del arranque", async () => {
+test("el administrador solo compone Bolsa con su ContextoActor", async () => {
   const datosBolsa = obtenerDatosPresentacion("administrador");
   const coordinador = crearCoordinador();
   const contextoBolsa = await coordinador.cargarPresentacion(datosBolsa.sesion);
@@ -82,8 +82,8 @@ test("Bolsa, Cronos y Dietas comparten exactamente el ContextoActor del arranque
   assert.equal(adaptadorBolsa.actor, contextoBolsa.actor.actor_ref);
   assert.equal(coordinador.obtenerContextoBolsa(), contextoBolsa);
   assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, true);
-  assert.equal(coordinador.resolverAcceso("cronos", true).disponible, true);
-  assert.equal(coordinador.resolverAcceso("dietas", true).disponible, true);
+  assert.equal(coordinador.resolverAcceso("cronos", true).disponible, false);
+  assert.equal(coordinador.resolverAcceso("dietas", true).disponible, false);
 });
 
 test("el portal muestra el catálogo completo y dentro de cada módulo solo el acceso activo", async () => {
@@ -91,7 +91,7 @@ test("el portal muestra el catálogo completo y dentro de cada módulo solo el a
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("tecnico").sesion);
   const portal = coordinador.renderizarNavegacion(true, "portal");
   assert.equal((portal.match(/data-modulo-portal=/g) || []).length, 12);
-  assert.equal((portal.match(/modulo-habilitado/g) || []).length, 3);
+  assert.equal((portal.match(/modulo-habilitado/g) || []).length, 1);
 
   const bolsa = coordinador.renderizarNavegacion(true, "bolsa");
   assert.equal((bolsa.match(/data-modulo-portal=/g) || []).length, 1);
@@ -102,6 +102,21 @@ test("el portal muestra el catálogo completo y dentro de cada módulo solo el a
   assert.equal((cronos.match(/data-modulo-portal=/g) || []).length, 1);
   assert.match(cronos, /data-modulo-portal="cronos"/);
   assert.doesNotMatch(cronos, /data-modulo-portal="bolsa"/);
+});
+
+test("el funcionario comparte una sola identidad y solo compone Cronos y Dietas", async () => {
+  const coordinador = crearCoordinador();
+  const contextoBolsa = await coordinador.cargarPresentacion(
+    obtenerDatosPresentacion("funcionario").sesion,
+  );
+  assert.equal(contextoBolsa, null);
+  assert.equal(coordinador.obtenerContextoBolsa(), null);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
+  assert.equal(coordinador.resolverAcceso("cronos", true).disponible, true);
+  assert.equal(coordinador.resolverAcceso("dietas", true).disponible, true);
+  const navegacion = coordinador.renderizarNavegacion(true, "portal", (vista) => ["cronos", "dietas"].includes(vista));
+  assert.equal((navegacion.match(/modulo-habilitado/g) || []).length, 2);
+  assert.match(navegacion, /data-modulo-portal="bolsa"[^>]*disabled/u);
 });
 
 test("las rutas estables no mezclan el submenú de Bolsa con los módulos personales", () => {
@@ -115,7 +130,7 @@ test("las rutas estables no mezclan el submenú de Bolsa con los módulos person
 
 test("Cronos y Dietas montan contenido administrativo y nunca dejan el área en blanco", async () => {
   const coordinador = crearCoordinador();
-  await coordinador.cargarPresentacion(obtenerDatosPresentacion("administrador").sesion);
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
   const raiz = raizFalsa();
   assert.equal(await coordinador.montarVista("cronos", raiz), true);
   assert.match(raiz.innerHTML, /class="cronos-area"/);
@@ -136,7 +151,7 @@ test("Dietas calcula con el mediador OSRM real de presentación y nunca con simu
     },
     anunciar: (mensaje, tipo) => anuncios.push({ mensaje, tipo }),
   });
-  await coordinador.cargarPresentacion(obtenerDatosPresentacion("administrador").sesion);
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
   const raiz = raizFalsa();
   assert.equal(await coordinador.montarVista("dietas", raiz), true);
 
@@ -173,7 +188,7 @@ test("la presentación falla cerrada si no recibe un cliente HTTP same-origin", 
     entorno: { location: { origin: "http://127.0.0.2:8081" } },
   });
   await assert.rejects(
-    coordinador.cargarPresentacion(obtenerDatosPresentacion("administrador").sesion),
+    coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion),
     /cliente HTTP same-origin/u,
   );
 });

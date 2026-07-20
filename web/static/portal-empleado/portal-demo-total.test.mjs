@@ -37,6 +37,14 @@ test("la navegación comparte el cierre de menú y no referencia una función fu
   assert.doesNotMatch(eventos, /function cerrarMenuMovil\(\)/);
 });
 
+test("el selector de perfiles solo entra en presentación y un perfil inválido falla cerrado", () => {
+  assert.match(portal, /import\("\.\.\/presentacion\/selector-perfiles\.js\?v=/u);
+  assert.match(portal, /\["administrador", "tecnico", "funcionario"\]\.includes/u);
+  assert.match(portal, /perfilPresentacionSolicitado\(\) === null\) return vista === "portal"/u);
+  assert.match(html, /<div class="sesion-presentacion" id="sesion-visible"/u);
+  assert.doesNotMatch(html, /selector-perfiles\.css/u);
+});
+
 test("Escape y el velo devuelven el foco al control que abre el menú móvil", () => {
   assert.match(portal, /function cerrarMenuMovil\(\{ restaurarFoco = false \} = \{\}\)/);
   assert.match(eventos, /velo-menu[^\n]+cerrarMenuMovil\(\{ restaurarFoco: true \}\)/);
@@ -193,10 +201,16 @@ test("toda referencia sintética del modelo empieza literalmente por DEMO-", () 
 test("los perfiles sintéticos separan actor, vistas y operaciones por mínimo privilegio", () => {
   const administrador = obtenerDatosPresentacion("administrador");
   const tecnico = obtenerDatosPresentacion("tecnico");
-  assert.deepEqual(administrador.sesion.vistas_permitidas, ["*"]);
+  const funcionario = obtenerDatosPresentacion("funcionario");
+  assert.ok(!administrador.sesion.vistas_permitidas.includes("*"));
+  assert.ok(!administrador.sesion.operaciones_permitidas.includes("*"));
+  assert.ok(administrador.sesion.vistas_permitidas.includes("configuracion"));
+  assert.deepEqual(new Set(administrador.sesion.operaciones_permitidas), new Set(OPERACIONES_PRESENTACION));
   assert.ok(!tecnico.sesion.vistas_permitidas.includes("configuracion"));
   assert.ok(tecnico.sesion.operaciones_permitidas.includes("aceptar-merito"));
   assert.ok(!tecnico.sesion.operaciones_permitidas.includes("crear-rol"));
+  assert.deepEqual(funcionario.sesion.vistas_permitidas, ["portal", "cronos", "dietas"]);
+  assert.deepEqual(funcionario.sesion.operaciones_permitidas, []);
   const adaptador = crearAdaptadorPresentacion({ datosIniciales: tecnico, reloj: () => new Date("2026-07-18T12:00:00Z") });
   const recibo = adaptador.ejecutar({ operacion: "aceptar-merito", objetivo: "DEMO-MER-001" });
   assert.equal(recibo.actor, "DEMO-PERFIL-TECNICO-RRHH-01");

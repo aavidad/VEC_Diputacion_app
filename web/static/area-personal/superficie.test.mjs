@@ -66,6 +66,9 @@ test("la demo está aislada y el arranque normal solo compone HTTP", async () =>
   assert.doesNotMatch(arranque, /innerHTML\s*=\s*`[^`]*error\.message/su);
   assert.match(arranque, /detalle\.textContent\s*=\s*error instanceof Error/u);
   assert.match(await readFile(join(RAIZ, "index.html"), "utf8"), /id="aviso-presentacion" role="status" hidden/u);
+  assert.match(arranque, /if \(dependencias\.presentacionSolicitada\)[\s\S]*import\("\.\.\/presentacion\/selector-perfiles\.js/u);
+  assert.match(arranque, /perfilActivo: "usuario_externo"/u);
+  assert.doesNotMatch(await readFile(join(RAIZ, "index.html"), "utf8"), /selector-perfiles\.css/u);
 });
 
 test("las convocatorias del candidato reproducen el inventario público y aíslan la tramitación sintética", async () => {

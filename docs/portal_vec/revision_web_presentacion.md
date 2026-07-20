@@ -2,10 +2,12 @@
 
 `scripts/capturar_presentacion_web.py` recorre por defecto el lanzador, el
 portal público, las 14 vistas del área aspirante, las 20 vistas internas de
-RRHH y 22 estados de interacción, incluido el perfil técnico con permisos
-restringidos y una ruta real de Dietas sobre el mapa OSM interno. Repite el
-recorrido en 1440×1000, 1024×900 y 390×844. La ejecución cerrada el 19 de julio
-de 2026 obtuvo **174/174 escenarios correctos, 174 capturas y cero hallazgos**.
+RRHH y 25 estados de interacción. Incluye los selectores abiertos desde el
+área aspirante y la administración, los perfiles funcionario y técnico con
+permisos distintos, y una ruta real de Dietas sobre el mapa OSM interno. Repite
+el recorrido en 1440×1000, 1024×900 y 390×844. La ejecución cerrada el 20 de
+julio de 2026 obtuvo **183/183 escenarios correctos, 183 capturas y cero
+hallazgos**.
 Esta evidencia automática no sustituye la aceptación humana de RRHH.
 
 ## Preparación y uso

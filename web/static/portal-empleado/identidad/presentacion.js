@@ -1,7 +1,7 @@
 /**
  * Adaptador exclusivo de presentacion para la identidad interna ya usada por
- * Bolsa. Cronos y Dietas consumen el mismo ContextoActor; este fichero no crea
- * una identidad distinta para cada modulo.
+ * Bolsa. Cada perfil recibe un único ContextoActor y solo los módulos de su
+ * punto de vista; este fichero no crea una identidad distinta por módulo.
  */
 
 import {
@@ -9,7 +9,8 @@ import {
   validarYCongelarContextoActor,
 } from "./contexto-actor.js";
 
-const MODULOS_COMPARTIDOS = Object.freeze(["bolsa", "cronos", "dietas"]);
+const MODULOS_GESTION = Object.freeze(["bolsa"]);
+const MODULOS_AUTOSERVICIO = Object.freeze(["cronos", "dietas"]);
 
 const PERFILES_PRESENTACION = Object.freeze({
   "DEMO-PERFIL-ADMIN-FUNCIONAL-BOLSA-01": Object.freeze({
@@ -21,6 +22,7 @@ const PERFILES_PRESENTACION = Object.freeze({
     perfil_ref: "prf_demo_perfil_admin_bolsa_000001",
     sesion_ref: "ses_demo_sesion_interna_admin_000001",
     rol: "administrador_funcional_bolsa",
+    modulos: MODULOS_GESTION,
   }),
   "DEMO-PERFIL-TECNICO-RRHH-01": Object.freeze({
     nombre: "Técnico DEMO 01",
@@ -31,6 +33,18 @@ const PERFILES_PRESENTACION = Object.freeze({
     perfil_ref: "prf_demo_perfil_tecnico_rrhh_000001",
     sesion_ref: "ses_demo_sesion_interna_tecnica_000001",
     rol: "tecnico_revisor_rrhh",
+    modulos: MODULOS_GESTION,
+  }),
+  "DEMO-PERFIL-FUNCIONARIO-01": Object.freeze({
+    nombre: "Funcionario DEMO 01",
+    iniciales: "FU",
+    etiqueta_perfil: "Funcionario · autoservicio interno DEMO",
+    persona_ref: "per_demo_persona_interna_funcionaria_000001",
+    cuenta_ref: "cta_demo_cuenta_interna_funcionaria_000001",
+    perfil_ref: "prf_demo_perfil_funcionario_000001",
+    sesion_ref: "ses_demo_sesion_interna_funcionaria_000001",
+    rol: "funcionario_autoservicio",
+    modulos: MODULOS_AUTOSERVICIO,
   }),
 });
 
@@ -83,7 +97,7 @@ export function crearContextoActorPresentacionDesdeSesion(sesion) {
       clase: "personal_interno",
       organizacion_ref: "org_demo_diputacion_granada_000001",
       unidad_ref: "uni_demo_recursos_humanos_000001",
-      modulos: MODULOS_COMPARTIDOS,
+      modulos: definicion.modulos,
     },
     autenticacion: {
       sesion_ref: definicion.sesion_ref,

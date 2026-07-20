@@ -51,12 +51,13 @@ El inventario anterior describe pantallas evaluables, no capacidades
 productivas. Una vista marcada `DEMO` no acredita integración, una prueba E2E
 productiva ni un acto administrativo válido.
 
-La puerta automática de presentación ha recorrido **36 vistas y 22 estados de
-interacción** representativos en tres resoluciones. El cierre del 19 de julio
-de 2026 produjo **174 capturas, 174 escenarios correctos y cero hallazgos**.
-Incluye los menús móviles abiertos, el perfil técnico restringido, el recorrido
-de solicitud del aspirante, operaciones internas con recibo `DEMO-REC-*` y la
-ruta OSM/OSRM real de Dietas. En todos los casos se trata de
+La puerta automática de presentación ha recorrido **36 vistas y 25 estados de
+interacción** representativos en tres resoluciones. El cierre del 20 de julio
+de 2026 produjo **183 capturas, 183 escenarios correctos y cero hallazgos**.
+Incluye los menús móviles abiertos, los cuatro puntos de vista DEMO, los
+selectores de perfil, el recorrido de solicitud del aspirante, operaciones
+internas con recibo `DEMO-REC-*` y la ruta OSM/OSRM real de Dietas. En todos los
+casos se trata de
 evidencia de la muestra aislada, no de aceptación de RRHH ni de una prueba E2E
 productiva.
 
@@ -295,11 +296,11 @@ mensajes, certificados y ayuda accesible. Cada acción de presentación exige
 confirmación y devuelve un recibo sintético; la misma acción en modo normal
 permanece deshabilitada si el cliente real no recibe una capacidad positiva.
 
-## Cobertura funcional real a 19 de julio de 2026
+## Cobertura funcional real a 20 de julio de 2026
 
 | Área | Estado comprobado | No se debe afirmar todavía |
 | --- | --- | --- |
-| Artefacto de presentación | Portal y mediador cartográfico separados, único acceso por el proxy en `127.0.0.1:8081`; 36 vistas y 22 flujos obtuvieron 174/174 en tres resoluciones, con 174 capturas y cero hallazgos | Integración productiva, E2E productivo, aceptación formal o validez administrativa |
+| Artefacto de presentación | Portal y mediador cartográfico separados, único acceso por el proxy en `127.0.0.1:8081`; 36 vistas y 25 flujos obtuvieron 183/183 en tres resoluciones, con 183 capturas y cero hallazgos | Integración productiva, E2E productivo, aceptación formal o validez administrativa |
 | Consulta pública de convocatorias y categorías | Recorrido local con 36 procesos basados en 37 publicaciones BOP reales, documentos adaptados y aviso DEMO en `/bolsa/` | Publicación oficial desde un expediente interno |
 | Área personal del aspirante | 14 vistas reutilizables pendientes de aceptación, con cliente HTTP real cerrado y adaptador de presentación seleccionado en composición | Identidad real, autorización sobre datos propios, persistencia, pago, firma, registro, carga o descarga efectiva |
 | Gestión interna de Bolsa | Portal más 17 secciones reutilizables agrupadas en el menú visual 1–10; operaciones volátiles con confirmación y recibo `DEMO-` | Identidad interna reforzada, permisos reales, transacciones durables, firma, publicación, comunicación o integración corporativa |

@@ -273,7 +273,7 @@ Pendiente productivo:
   correspondencia entre pantallas reutilizables, contratos y adaptadores de
   presentación o producción.
 - [Captura y revisión de la presentación](docs/portal_vec/revision_web_presentacion.md):
-  puerta Docker reproducible de 36 vistas y 22 flujos en tres resoluciones.
+  puerta Docker reproducible de 36 vistas y 25 flujos en tres resoluciones.
 - [UX portal empleado tipo VEC](docs/portal_vec/ux_portal_empleado.md)
 - [Matriz inicial de perfiles, roles y ambitos](docs/portal_vec/matriz_roles_y_ambitos.md)
 - [Catalogos configurables y gobernados](docs/portal_vec/catalogos_configurables.md)
@@ -536,9 +536,10 @@ docker compose --profile presentacion --profile herramientas-presentacion run \
   --rm --no-deps revision-web-presentacion
 ```
 
-La revisión integral actual obtuvo **174/174 escenarios correctos, 174
-capturas y cero hallazgos**: 36 vistas y 22 flujos en tres resoluciones,
-incluida la ruta real de Dietas. La herramienta exige la marca técnica del servidor de presentación,
+La revisión integral actual obtuvo **183/183 escenarios correctos, 183
+capturas y cero hallazgos**: 36 vistas y 25 flujos en tres resoluciones,
+incluidos los cuatro puntos de vista DEMO, su separación por mínimo privilegio
+y la ruta real de Dietas. La herramienta exige la marca técnica del servidor de presentación,
 rechaza cualquier destino no autorizado y revisa menús,
 recibos DEMO, accesibilidad básica, almacenamiento del navegador, errores y
 desbordamientos. Esta puerta no sustituye la aceptación humana de RRHH.

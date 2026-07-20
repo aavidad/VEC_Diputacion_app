@@ -39,8 +39,8 @@ test("Bolsa Cronos y Dietas ofrecen acceso y el resto queda inequívocamente pen
   assert.equal((catalogo.match(/Pendiente · No disponible/g) || []).length, modulos.length - 3);
   assert.equal((catalogo.match(/<a\b/g) || []).length, 3);
   assert.match(catalogo, /<a href="#elegir-recorrido">Elegir acceso<\/a>/);
-  assert.match(catalogo, /perfil=administrador#cronos">Abrir módulo<\/a>/);
-  assert.match(catalogo, /perfil=administrador#dietas">Abrir módulo<\/a>/);
+  assert.match(catalogo, /perfil=funcionario#cronos">Abrir módulo<\/a>/);
+  assert.match(catalogo, /perfil=funcionario#dietas">Abrir módulo<\/a>/);
   assert.doesNotMatch(catalogo, /href="\/(?:nominas|personal)/);
 });
 
@@ -51,8 +51,18 @@ test("el catálogo de módulos se adapta a escritorio, tableta y móvil", () => 
 });
 
 test("las rutas de presentación de Bolsa permanecen disponibles", () => {
-  assert.match(html, /href="\/bolsa\/">Abrir consulta pública/);
+  assert.match(html, /href="\/bolsa\/">Consulta pública sin identificarme/);
   assert.match(html, /href="\/area-personal\/\?presentacion=rrhh">Abrir área personal/);
+  assert.match(html, /perfil=funcionario#portal">Abrir como funcionario/);
   assert.match(html, /perfil=tecnico#portal">Abrir como técnico revisor/);
   assert.match(html, /perfil=administrador#portal">Abrir como administrador/);
+});
+
+test("el lanzador ofrece cuatro puntos de vista separados por mínimo privilegio", () => {
+  const accesos = html.match(/<div class="presentacion-opciones">([\s\S]*?)<\/div>/)?.[1] || "";
+  assert.equal((accesos.match(/<article\b/g) || []).length, 4);
+  for (const perfil of ["Usuario externo", "Funcionario", "Técnico de RRHH", "Administrador"]) {
+    assert.match(accesos, new RegExp(perfil, "u"));
+  }
+  assert.match(estilos, /\.presentacion-opciones\s*\{[^}]*grid-template-columns:\s*repeat\(4,/s);
 });

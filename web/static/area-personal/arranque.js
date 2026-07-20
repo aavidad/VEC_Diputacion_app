@@ -19,6 +19,13 @@ async function resolverCliente() {
 try {
   const dependencias = await resolverCliente();
   await iniciarAreaPersonal(dependencias);
+  if (dependencias.presentacionSolicitada) {
+    const selector = await import("../presentacion/selector-perfiles.js?v=20260720-selector-perfiles-v1");
+    selector.instalarSelectorPerfilesPresentacion({
+      disparador: document.querySelector(".sesion-usuario"),
+      perfilActivo: "usuario_externo",
+    });
+  }
 } catch (error) {
   const carga = document.getElementById("estado-carga");
   if (carga) {

@@ -17,8 +17,23 @@ const DATOS = {
     iniciales: "AD",
     nombre: "Administrador DEMO 01",
     perfil: "Administrador funcional de Bolsa · ámbito DEMO completo",
-    vistas_permitidas: ["*"],
-    operaciones_permitidas: ["*"],
+    vistas_permitidas: [
+      "portal", "resumen", "elaboracion", "convocatorias", "solicitudes", "meritos",
+      "baremacion", "alegaciones", "importacion", "llamamientos", "contratos", "reglas",
+      "consulta", "estadisticas", "documentos", "comunicaciones", "auditoria", "configuracion",
+    ],
+    operaciones_permitidas: [
+      "crear-convocatoria", "guardar-bases", "guardar-reglas-baremo",
+      "enviar-firma-convocatoria", "publicar-convocatoria", "admitir-solicitud",
+      "excluir-solicitud", "registrar-subsanacion", "aceptar-merito", "rechazar-merito",
+      "revocar-merito", "rehabilitar-merito", "calcular-baremo", "publicar-lista-provisional",
+      "resolver-alegacion", "desestimar-alegacion", "validar-importacion",
+      "descartar-importacion", "emitir-llamamiento", "registrar-respuesta",
+      "registrar-contrato", "registrar-cese", "reincorporar-bolsa", "generar-documento",
+      "enviar-firma-documento", "firmar-documento", "preparar-comunicacion",
+      "enviar-comunicacion", "exportar-informe", "crear-rol", "revisar-permisos",
+      "guardar-configuracion",
+    ],
   },
   indicadores: {
     avisos_pendientes: 3,
@@ -251,12 +266,22 @@ const PERFIL_TECNICO = Object.freeze({
   ],
 });
 
+const PERFIL_FUNCIONARIO = Object.freeze({
+  actor_ref: "DEMO-PERFIL-FUNCIONARIO-01",
+  iniciales: "FU",
+  nombre: "Funcionario DEMO 01",
+  perfil: "Funcionario · autoservicio interno DEMO",
+  vistas_permitidas: ["portal", "cronos", "dietas"],
+  operaciones_permitidas: [],
+});
+
 export function obtenerDatosPresentacion(perfil = "administrador") {
-  if (perfil !== "administrador" && perfil !== "tecnico") {
+  if (!["administrador", "tecnico", "funcionario"].includes(perfil)) {
     throw new Error("perfil de presentación no permitido");
   }
   const datos = structuredClone(DATOS);
   if (perfil === "tecnico") datos.sesion = structuredClone(PERFIL_TECNICO);
+  if (perfil === "funcionario") datos.sesion = structuredClone(PERFIL_FUNCIONARIO);
   return datos;
 }
 
