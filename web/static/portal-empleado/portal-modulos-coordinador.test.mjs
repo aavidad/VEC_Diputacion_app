@@ -104,6 +104,37 @@ test("el portal muestra el catálogo completo y dentro de cada módulo solo el a
   assert.doesNotMatch(cronos, /data-modulo-portal="bolsa"/);
 });
 
+test("Bolsa conserva su estado de API y puede abrir Elaboración sin depender del panel", async () => {
+  const coordinador = crearCoordinador();
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("tecnico").sesion);
+  const acceso = coordinador.resolverAcceso("bolsa", {
+    disponible: true,
+    vista: "elaboracion",
+    estado: "disponible",
+    etiqueta: "Borradores disponibles",
+  });
+  assert.equal(acceso.disponible, true);
+  assert.equal(acceso.vista, "elaboracion");
+
+  const cargando = coordinador.renderizarNavegacion({
+    disponible: false,
+    vista: "",
+    estado: "cargando",
+    etiqueta: "Comprobando acceso a borradores",
+  }, "bolsa");
+  assert.match(cargando, /data-modulo-portal="bolsa" disabled aria-busy="true"/);
+  assert.match(cargando, />Comprobando<\/span>/);
+
+  const denegado = coordinador.renderizarNavegacion({
+    disponible: false,
+    vista: "",
+    estado: "denegado",
+    etiqueta: "Sin permiso para gestionar borradores",
+  }, "bolsa");
+  assert.match(denegado, />Sin permiso<\/span>/);
+  assert.doesNotMatch(denegado, /data-vista=/);
+});
+
 test("el funcionario comparte una sola identidad y solo compone Cronos y Dietas", async () => {
   const coordinador = crearCoordinador();
   const contextoBolsa = await coordinador.cargarPresentacion(
@@ -216,13 +247,14 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 });
 
 test("el cache busting cartográfico avanza en cascada hasta el HTML", async () => {
-  const versionCartografia = "20260719-cartografia-osrm-v2";
+  const versionCoordinador = "20260721-acceso-real-v2";
+  const versionPortal = "20260721-acceso-real-v2";
   const versionPulido = "20260720-pulido-escritorio-v2";
   const [portal, html] = await Promise.all([
     readFile(new URL("portal.js", import.meta.url), "utf8"),
     readFile(new URL("index.html", import.meta.url), "utf8"),
   ]);
-  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCartografia}`));
-  assert.match(html, new RegExp(`portal\\.js\\?v=${versionPulido}`));
+  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCoordinador}`));
+  assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
   assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionPulido}`));
 });

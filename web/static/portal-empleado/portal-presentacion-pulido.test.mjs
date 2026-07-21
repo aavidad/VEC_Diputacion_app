@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { crearClienteBorradoresPresentacion } from "./portal-borradores-demo-cliente.js";
-import { enfocarYMostrarResultado } from "./portal-eventos.js";
+import {
+  enfocarYMostrarResultado,
+  restaurarFocoTrasReintentoBorradores,
+} from "./portal-eventos.js";
 
 test("el recibo dinámico conserva el foco y queda visible respetando movimiento reducido", () => {
   const llamadas = [];
@@ -21,6 +24,22 @@ test("el recibo dinámico conserva el foco y queda visible respetando movimiento
   assert.equal(enfocarYMostrarResultado(elemento, { movimientoReducido: true }), true);
   assert.equal(llamadas[1][1].behavior, "auto");
   assert.equal(enfocarYMostrarResultado(null), false);
+});
+
+test("el reintento devuelve el foco al control renovado o a la tarjeta de Bolsa", () => {
+  const focos = [];
+  const control = { focus: (opciones) => focos.push(["control", opciones]) };
+  const tarjeta = {
+    focus: (opciones) => focos.push(["tarjeta", opciones]),
+    querySelector: () => control,
+  };
+  assert.equal(restaurarFocoTrasReintentoBorradores({ querySelector: () => tarjeta }), true);
+  assert.deepEqual(focos, [["control", { preventScroll: true }]]);
+
+  tarjeta.querySelector = () => null;
+  assert.equal(restaurarFocoTrasReintentoBorradores({ querySelector: () => tarjeta }), true);
+  assert.deepEqual(focos.at(-1), ["tarjeta", { preventScroll: true }]);
+  assert.equal(restaurarFocoTrasReintentoBorradores({ querySelector: () => null }), false);
 });
 
 test("las huellas de presentación son SHA-256 sintéticas creíbles y diferenciadas", async () => {

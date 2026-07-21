@@ -93,6 +93,47 @@ test("la vista real carga bandeja, editor gobernado y evidencias desde el client
   assert.ok(anuncios.includes("Borrador abierto para edición"));
 });
 
+test("la navegación comprueba capacidad sin leer la bandeja y reutiliza las opciones al entrar", async () => {
+  const llamadas = [];
+  const cliente = crearDobleCliente({
+    obtenerOpciones: async () => { llamadas.push("opciones"); return structuredClone(opciones()); },
+    listar: async () => { llamadas.push("lista"); return structuredClone(lista()); },
+    obtenerDetalle: async () => { llamadas.push("detalle"); return structuredClone(detalle()); },
+  });
+  const { superficie } = crearSuperficie({ cliente });
+  assert.equal(await superficie.comprobarDisponibilidad(), true);
+  assert.deepEqual(llamadas, ["opciones"], "el acceso no debe anticipar una lectura de expedientes");
+  assert.deepEqual(superficie.obtenerAcceso(), {
+    disponible: true,
+    vista: "elaboracion",
+    estado: "disponible",
+    etiqueta: "Borradores disponibles",
+  });
+  assert.equal(await superficie.activar(), true);
+  assert.deepEqual(llamadas, ["opciones", "lista", "detalle"]);
+});
+
+test("una denegación sobrevenida retira de inmediato lista, detalle y edición", async () => {
+  let denegada = false;
+  const cliente = crearDobleCliente({
+    obtenerOpciones: async () => {
+      if (denegada) throw new ErrorAPIBorradores("Acceso retirado.", 403, undefined, {
+        codigo: "autorizacion_denegada",
+      });
+      return structuredClone(opciones());
+    },
+  });
+  const { superficie } = crearSuperficie({ cliente });
+  await superficie.activar();
+  assert.match(superficie.renderizar(), /Auxiliar administrativo/);
+  denegada = true;
+  assert.equal(await superficie.comprobarDisponibilidad({ forzar: true }), false);
+  const html = superficie.renderizar();
+  assert.doesNotMatch(html, /Auxiliar administrativo/);
+  assert.doesNotMatch(html, /data-borrador-form="editor"/);
+  assert.equal(superficie.obtenerAcceso().estado, "denegado");
+});
+
 test("la capacidad de consulta sin actualización deja el detalle realmente en solo lectura", async () => {
   const lectura = structuredClone(detalle());
   lectura.capacidades.actualizar = false;
@@ -238,7 +279,9 @@ test("la actualización envía CAS e idempotencia exactos y muestra el recibo", 
   assert.equal(Object.hasOwn(solicitud, "identificador_publico"), false);
   assert.deepEqual(validarSolicitudActualizarBorrador(solicitud, limitesAPI), solicitud);
   assert.deepEqual(limitesAPI, opciones().limites);
-  assert.deepEqual(control, { etag: detalle().etag, claveIdempotencia: CLAVE_IDEMPOTENCIA_A });
+  const { signal, ...controlSinSignal } = control;
+  assert.equal(signal instanceof AbortSignal, true);
+  assert.deepEqual(controlSinSignal, { etag: detalle().etag, claveIdempotencia: CLAVE_IDEMPOTENCIA_A });
   assert.match(superficie.renderizar(), /Recibo administrativo del borrador/);
 });
 
@@ -345,12 +388,205 @@ test("un alta confirmada conserva recibo aunque falle la lectura posterior", asy
   assert.equal(alta[0].plantilla_ref, opciones().plantillas[0].plantilla_ref);
   assert.equal(alta[0].identificador_publico, "bolsa-nueva-2026");
   assert.deepEqual(validarSolicitudCrearBorrador(alta[0], alta[1]), alta[0]);
-  assert.deepEqual(alta[2], { claveIdempotencia: CLAVE_IDEMPOTENCIA_A });
+  const { signal, ...controlSinSignal } = alta[2];
+  assert.equal(signal instanceof AbortSignal, true);
+  assert.deepEqual(controlSinSignal, { claveIdempotencia: CLAVE_IDEMPOTENCIA_A });
   const html = superficie.renderizar();
   assert.match(html, /Guardado confirmado/);
   assert.match(html, /detalle actualizado no se pudo recargar/i);
   assert.match(html, /transaccion:borrador:2026:17/);
   assert.doesNotMatch(html, /data-borrador-form="editor"/);
+});
+
+function errorAcceso(estadoHTTP, camino) {
+  return new ErrorAPIBorradores(`Acceso retirado en ${camino}.`, estadoHTTP, undefined, {
+    codigo: `acceso_retirado_${camino}`,
+  });
+}
+
+function afirmarRevocada(superficie) {
+  assert.equal(superficie.obtenerAcceso().estado, "denegado");
+  const html = superficie.renderizar();
+  assert.doesNotMatch(html, /Auxiliar administrativo/);
+  assert.doesNotMatch(html, /data-borrador-form="editor"/);
+  assert.doesNotMatch(html, /Recibo administrativo/);
+  assert.doesNotMatch(html, /Título local privado/);
+}
+
+for (const estadoHTTP of [401, 403]) {
+  test(`un ${estadoHTTP} de listado revoca la superficie completa`, async () => {
+    let lecturas = 0;
+    let signal;
+    const cliente = crearDobleCliente({
+      listar: async (selector) => {
+        lecturas += 1;
+        if (lecturas === 1) return structuredClone(lista());
+        signal = selector.signal;
+        throw errorAcceso(estadoHTTP, "lista");
+      },
+    });
+    const { superficie } = crearSuperficie({ cliente });
+    await superficie.activar();
+    assert.equal(await superficie.aplicarFiltro({ texto: "privado" }), false);
+    assert.equal(signal.aborted, true);
+    afirmarRevocada(superficie);
+  });
+
+  test(`un ${estadoHTTP} de detalle revoca la superficie completa`, async () => {
+    let lecturas = 0;
+    let signal;
+    const cliente = crearDobleCliente({
+      obtenerDetalle: async (_referencia, _limites, control) => {
+        lecturas += 1;
+        if (lecturas === 1) return structuredClone(detalle());
+        signal = control.signal;
+        throw errorAcceso(estadoHTTP, "detalle");
+      },
+    });
+    const { superficie } = crearSuperficie({ cliente });
+    await superficie.activar();
+    assert.equal(await superficie.manejarAccion({
+      accion: "borradores-abrir", id: detalle().referencia_estado.referencia,
+    }), false);
+    assert.equal(signal.aborted, true);
+    afirmarRevocada(superficie);
+  });
+
+  test(`un ${estadoHTTP} de guardado revoca y elimina los cambios locales`, async () => {
+    let signal;
+    const cliente = crearDobleCliente({
+      actualizar: async (_referencia, _solicitud, _limites, control) => {
+        signal = control.signal;
+        throw errorAcceso(estadoHTTP, "guardado");
+      },
+    });
+    const { superficie } = crearSuperficie({ cliente });
+    await superficie.activar();
+    cambiar(superficie, "contenido_editable.titulo", "Título local privado");
+    assert.equal(await superficie.guardar(), false);
+    assert.equal(signal.aborted, true);
+    afirmarRevocada(superficie);
+  });
+
+  test(`un ${estadoHTTP} del listado posguardado revoca incluso con recibo previo`, async () => {
+    let lecturas = 0;
+    let signal;
+    const cliente = crearDobleCliente({
+      listar: async (selector) => {
+        lecturas += 1;
+        if (lecturas === 1) return structuredClone(lista());
+        signal = selector.signal;
+        throw errorAcceso(estadoHTTP, "lista_posguardado");
+      },
+    });
+    const { superficie } = crearSuperficie({ cliente });
+    await superficie.activar();
+    cambiar(superficie, "contenido_editable.titulo", "Título local privado");
+    assert.equal(await superficie.guardar(), false);
+    assert.equal(signal.aborted, true);
+    afirmarRevocada(superficie);
+  });
+
+  test(`un ${estadoHTTP} del detalle posguardado revoca incluso con recibo previo`, async () => {
+    let lecturas = 0;
+    let signal;
+    const cliente = crearDobleCliente({
+      obtenerDetalle: async (_referencia, _limites, control) => {
+        lecturas += 1;
+        if (lecturas === 1) return structuredClone(detalle());
+        signal = control.signal;
+        throw errorAcceso(estadoHTTP, "detalle_posguardado");
+      },
+    });
+    const { superficie } = crearSuperficie({ cliente });
+    await superficie.activar();
+    cambiar(superficie, "contenido_editable.titulo", "Título local privado");
+    assert.equal(await superficie.guardar(), false);
+    assert.equal(signal.aborted, true);
+    afirmarRevocada(superficie);
+  });
+
+  test(`un ${estadoHTTP} de lectura CAS revoca la superficie completa`, async () => {
+    let lecturas = 0;
+    let signal;
+    const cliente = crearDobleCliente({
+      actualizar: async () => {
+        throw new ErrorAPIBorradores("Conflicto CAS.", 412, undefined, { codigo: "conflicto_cas" });
+      },
+      obtenerDetalle: async (_referencia, _limites, control) => {
+        lecturas += 1;
+        if (lecturas === 1) return structuredClone(detalle());
+        signal = control.signal;
+        throw errorAcceso(estadoHTTP, "cas");
+      },
+    });
+    const { superficie } = crearSuperficie({ cliente });
+    await superficie.activar();
+    cambiar(superficie, "contenido_editable.titulo", "Título local privado");
+    assert.equal(await superficie.guardar(), false);
+    assert.equal(await superficie.manejarAccion({ accion: "borradores-cargar-vigente" }), false);
+    assert.equal(signal.aborted, true);
+    afirmarRevocada(superficie);
+  });
+}
+
+test("una respuesta de guardado tardía no repuebla tras revocar el acceso", async () => {
+  const tardia = diferida();
+  let denegar = false;
+  let signalGuardado;
+  const cliente = crearDobleCliente({
+    obtenerOpciones: async () => {
+      if (denegar) throw errorAcceso(403, "comprobacion");
+      return structuredClone(opciones());
+    },
+    actualizar: async (_referencia, _solicitud, _limites, control) => {
+      signalGuardado = control.signal;
+      return tardia.promesa;
+    },
+  });
+  const { superficie } = crearSuperficie({ cliente });
+  await superficie.activar();
+  cambiar(superficie, "contenido_editable.titulo", "Título local privado");
+  const guardado = superficie.guardar();
+  await Promise.resolve();
+  denegar = true;
+  assert.equal(await superficie.comprobarDisponibilidad({ forzar: true }), false);
+  assert.equal(signalGuardado.aborted, true);
+  tardia.resolver(structuredClone(recibo("actualizar")));
+  assert.equal(await guardado, false);
+  afirmarRevocada(superficie);
+});
+
+test("un detalle posguardado tardío no repuebla tras revocar el acceso", async () => {
+  const lecturaIniciada = diferida();
+  const tardia = diferida();
+  let denegar = false;
+  let lecturas = 0;
+  let signalLectura;
+  const cliente = crearDobleCliente({
+    obtenerOpciones: async () => {
+      if (denegar) throw errorAcceso(401, "comprobacion");
+      return structuredClone(opciones());
+    },
+    obtenerDetalle: async (_referencia, _limites, control) => {
+      lecturas += 1;
+      if (lecturas === 1) return structuredClone(detalle());
+      signalLectura = control.signal;
+      lecturaIniciada.resolver();
+      return tardia.promesa;
+    },
+  });
+  const { superficie } = crearSuperficie({ cliente });
+  await superficie.activar();
+  cambiar(superficie, "contenido_editable.titulo", "Título local privado");
+  const guardado = superficie.guardar();
+  await lecturaIniciada.promesa;
+  denegar = true;
+  assert.equal(await superficie.comprobarDisponibilidad({ forzar: true }), false);
+  assert.equal(signalLectura.aborted, true);
+  tardia.resolver(detalleRemoto());
+  assert.equal(await guardado, false);
+  afirmarRevocada(superficie);
 });
 
 test("el contrato DOM es accesible, adaptable y no conecta storage ni presentación", async () => {

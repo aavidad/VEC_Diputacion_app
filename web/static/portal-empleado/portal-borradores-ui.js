@@ -3,8 +3,15 @@ import {
   crearClienteBorradores,
   generarClaveIdempotencia,
 } from "./portal-borradores-api.js";
+import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20260721-acceso-real-v2";
 import { ESQUEMAS_BORRADORES } from "./portal-borradores-contrato.js";
+import {
+  crearEstadoBorradores,
+  limpiarEstadoBorradoresRevocado,
+} from "./portal-borradores-estado.js?v=20260721-acceso-real-v2";
+import { crearCoordinadorOperacionesBorradores } from "./portal-borradores-operaciones.js?v=20260721-acceso-real-v2";
 import { crearRenderizadorBorradores } from "./portal-borradores-vista.js";
+import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
 
 export const PROVEEDOR_BEARER_BORRADORES = "__VEC_PORTAL_EMPLEADO_OBTENER_BEARER_BORRADORES__";
 
@@ -101,37 +108,19 @@ export function crearSuperficieBorradoresPortal({
   confirmar = (mensaje) => globalThis.confirm(mensaje),
   crearClienteImpl = crearClienteBorradores,
   generarClaveImpl = generarClaveIdempotencia,
+  traducir = traducirPortal,
 } = {}) {
   if ([escaparHTML, anunciar, alCambiar, resolverProveedorBearer, confirmar,
-    crearClienteImpl, generarClaveImpl].some((dependencia) => typeof dependencia !== "function")) {
+    crearClienteImpl, generarClaveImpl, traducir]
+    .some((dependencia) => typeof dependencia !== "function")) {
     throw new TypeError("dependencias de la superficie de borradores no válidas");
   }
 
-  const estado = {
-    faseLista: FASE_INICIAL,
-    opciones: null,
-    lista: null,
-    errorLista: null,
-    filtro: { texto: "", categoria: "" },
-    cursores: [undefined],
-    pagina: 0,
-    modoEditor: "ninguno",
-    faseEditor: "vacio",
-    referenciaSeleccionada: "",
-    detalle: null,
-    editor: null,
-    sucio: false,
-    guardando: false,
-    errorEditor: null,
-    recibo: null,
-    claveIdempotencia: "",
-    conflictoRemoto: null,
-    confirmarReaplicacion: false,
-  };
+  const estado = crearEstadoBorradores();
 
   let cliente = null;
-  let controladorCarga = null;
-  let controladorDetalle = null;
+  let controlAcceso = null;
+  const operaciones = crearCoordinadorOperacionesBorradores();
 
   function notificar() {
     alCambiar();
@@ -171,6 +160,32 @@ export function crearSuperficieBorradoresPortal({
     return cliente;
   }
 
+  function limpiarEstadoSensible() {
+    operaciones.invalidar();
+    cliente = null;
+    limpiarEstadoBorradoresRevocado(estado, errorSeguro(
+      controlAcceso?.obtenerError(), traducir("error_sesion_borradores_denegada"),
+    ));
+  }
+
+  function alCambiarAcceso(acceso) {
+    if (acceso.estado === "denegado") {
+      limpiarEstadoSensible();
+      anunciar(traducir("anuncio_acceso_borradores_denegado"));
+    }
+    notificar();
+  }
+
+  controlAcceso = crearControlAccesoBorradores({
+    consultarOpciones: (opciones) => clienteAutorizado().obtenerOpciones(opciones),
+    alCambiar: alCambiarAcceso,
+    traducir,
+  });
+
+  function invalidarAccesoSiDenegado(error) {
+    return controlAcceso.invalidar(error);
+  }
+
   function opcionesLista() {
     const opciones = { limite: 40 };
     const cursor = estado.cursores[estado.pagina];
@@ -186,9 +201,7 @@ export function crearSuperficieBorradoresPortal({
       && !confirmar("Hay cambios locales sin guardar. ¿Desea descartarlos y abrir otro borrador?")) {
       return false;
     }
-    controladorDetalle?.abort();
-    const controlador = new AbortController();
-    controladorDetalle = controlador;
+    const operacion = operaciones.iniciar("detalle");
     estado.faseEditor = "cargando";
     estado.errorEditor = null;
     estado.recibo = null;
@@ -197,9 +210,9 @@ export function crearSuperficieBorradoresPortal({
       const detalle = await clienteAutorizado().obtenerDetalle(
         referencia,
         estado.opciones.limites,
-        { signal: controlador.signal },
+        { signal: operacion.signal },
       );
-      if (controlador !== controladorDetalle) return false;
+      if (!operacion.vigente()) return false;
       estado.modoEditor = "actualizar";
       estado.faseEditor = "listo";
       estado.referenciaSeleccionada = referencia;
@@ -213,25 +226,28 @@ export function crearSuperficieBorradoresPortal({
       anunciar("Borrador abierto para edición");
       return true;
     } catch (error) {
-      if (controlador.signal.aborted || controlador !== controladorDetalle) return false;
+      if (!operacion.vigente()) return false;
+      if (invalidarAccesoSiDenegado(error)) return false;
       estado.faseEditor = "error";
       estado.errorEditor = errorSeguro(error, "No se pudo cargar el borrador seleccionado.");
       notificar();
       anunciar("No se pudo cargar el borrador seleccionado");
       return false;
+    } finally {
+      operacion.finalizar();
     }
   }
 
   async function cargarLista({ conservarEditor = true, mantenerVisible = false } = {}) {
-    const controlador = controladorCarga;
+    const operacion = operaciones.iniciar("carga");
     if (!mantenerVisible) estado.faseLista = FASE_CARGANDO;
     estado.errorLista = null;
     notificar();
     try {
       const lista = await clienteAutorizado().listar({
-        ...opcionesLista(), signal: controlador?.signal,
+        ...opcionesLista(), signal: operacion.signal,
       });
-      if (controlador !== controladorCarga) return false;
+      if (!operacion.vigente()) return false;
       estado.lista = lista;
       estado.faseLista = FASE_LISTA;
       notificar();
@@ -240,29 +256,44 @@ export function crearSuperficieBorradoresPortal({
       }
       return true;
     } catch (error) {
-      if (controlador?.signal.aborted || controlador !== controladorCarga) return false;
+      if (!operacion.vigente()) return false;
+      if (invalidarAccesoSiDenegado(error)) return false;
       estado.errorLista = errorSeguro(error, "El servicio de borradores no está disponible.");
       estado.faseLista = mantenerVisible && estado.lista ? FASE_LISTA : FASE_ERROR;
       notificar();
       return false;
+    } finally {
+      operacion.finalizar();
     }
   }
 
-  async function cargarSuperficie() {
-    controladorCarga?.abort();
-    const controlador = new AbortController();
-    controladorCarga = controlador;
+  async function cargarSuperficie({ forzarAcceso = false } = {}) {
+    const operacion = operaciones.iniciar("carga");
     estado.faseLista = FASE_CARGANDO;
     estado.errorLista = null;
     notificar();
     try {
-      const api = clienteAutorizado();
-      const [opciones, lista] = await Promise.all([
-        api.obtenerOpciones({ signal: controlador.signal }),
-        api.listar({ limite: 40, signal: controlador.signal }),
-      ]);
-      if (controlador !== controladorCarga) return false;
-      estado.opciones = opciones;
+      const disponible = await controlAcceso.comprobar({ forzar: forzarAcceso });
+      if (!operacion.vigente()) return false;
+      if (!disponible) {
+        const acceso = controlAcceso.obtenerAcceso();
+        estado.opciones = null;
+        estado.faseLista = FASE_ERROR;
+        estado.errorLista = errorSeguro(
+          controlAcceso.obtenerError(),
+          acceso.estado === "denegado"
+            ? traducir("error_sesion_borradores_denegada")
+            : traducir("error_servicio_borradores"),
+        );
+        notificar();
+        anunciar(acceso.estado === "denegado"
+          ? traducir("anuncio_acceso_borradores_denegado")
+          : traducir("anuncio_servicio_borradores_error"));
+        return false;
+      }
+      estado.opciones = controlAcceso.obtenerOpciones();
+      const lista = await clienteAutorizado().listar({ limite: 40, signal: operacion.signal });
+      if (!operacion.vigente()) return false;
       estado.lista = lista;
       estado.faseLista = FASE_LISTA;
       estado.cursores = [undefined];
@@ -273,17 +304,20 @@ export function crearSuperficieBorradoresPortal({
       }
       return true;
     } catch (error) {
-      if (controlador.signal.aborted || controlador !== controladorCarga) return false;
+      if (!operacion.vigente()) return false;
+      if (invalidarAccesoSiDenegado(error)) return false;
       estado.faseLista = FASE_ERROR;
       estado.errorLista = errorSeguro(error, "El servicio de borradores no está disponible.");
       notificar();
-      anunciar("Servicio de borradores no disponible");
+      anunciar(traducir("anuncio_servicio_borradores_error"));
       return false;
+    } finally {
+      operacion.finalizar();
     }
   }
 
   function activar() {
-    if (estado.faseLista === FASE_INICIAL) return cargarSuperficie();
+    if (estado.faseLista === FASE_INICIAL || estado.faseLista === FASE_ERROR) return cargarSuperficie();
     return Promise.resolve(true);
   }
 
@@ -372,6 +406,8 @@ export function crearSuperficieBorradoresPortal({
 
   async function refrescarTrasGuardado(recibo) {
     const teniaDetalle = Boolean(estado.detalle);
+    operaciones.cancelar("carga");
+    const operacion = operaciones.iniciar("postguardado");
     estado.referenciaSeleccionada = recibo.referencia_estado.referencia;
     estado.detalle = estado.detalle ? {
       ...estado.detalle,
@@ -379,43 +415,56 @@ export function crearSuperficieBorradoresPortal({
       etag: recibo.etag,
       contenido_editable: copiar(estado.editor.contenido_editable),
     } : null;
-    controladorCarga?.abort();
-    controladorCarga = new AbortController();
-    await cargarLista({ conservarEditor: true, mantenerVisible: true });
     try {
-      const detalle = await clienteAutorizado().obtenerDetalle(
-        recibo.referencia_estado.referencia,
-        estado.opciones.limites,
-      );
-      estado.detalle = detalle;
-      estado.editor = editorDesdeDetalle(detalle);
-      estado.modoEditor = "actualizar";
-      estado.faseEditor = "listo";
-    } catch {
-      // El recibo acredita el guardado. Una lectura posterior fallida no lo degrada.
-      estado.errorEditor = {
-        mensaje: "El guardado está confirmado, pero el detalle actualizado no se pudo recargar.",
-        codigo: "detalle_posterior_no_disponible",
-        correlacion: null,
-        estadoHTTP: 0,
-        tipoConflicto: null,
-        conservarCambiosLocales: false,
-      };
-      if (teniaDetalle) {
+      try {
+        const lista = await clienteAutorizado().listar({
+          ...opcionesLista(), signal: operacion.signal,
+        });
+        if (!operacion.vigente()) return false;
+        estado.lista = lista;
+        estado.faseLista = FASE_LISTA;
+        estado.errorLista = null;
+      } catch (error) {
+        if (!operacion.vigente()) return false;
+        if (invalidarAccesoSiDenegado(error)) return false;
+        estado.errorLista = errorSeguro(error, traducir("error_servicio_borradores"));
+      }
+      try {
+        const detalle = await clienteAutorizado().obtenerDetalle(
+          recibo.referencia_estado.referencia, estado.opciones.limites,
+          { signal: operacion.signal },
+        );
+        if (!operacion.vigente()) return false;
+        estado.detalle = detalle;
+        estado.editor = editorDesdeDetalle(detalle);
         estado.modoEditor = "actualizar";
         estado.faseEditor = "listo";
-      } else {
-        estado.modoEditor = "ninguno";
-        estado.faseEditor = "confirmado";
-        estado.detalle = null;
-        estado.editor = null;
+      } catch (error) {
+        if (!operacion.vigente()) return false;
+        if (invalidarAccesoSiDenegado(error)) return false;
+        estado.errorEditor = {
+          mensaje: "El guardado está confirmado, pero el detalle actualizado no se pudo recargar.",
+          codigo: "detalle_posterior_no_disponible", correlacion: null, estadoHTTP: 0,
+          tipoConflicto: null, conservarCambiosLocales: false,
+        };
+        estado.modoEditor = teniaDetalle ? "actualizar" : "ninguno";
+        estado.faseEditor = teniaDetalle ? "listo" : "confirmado";
+        if (!teniaDetalle) {
+          estado.detalle = null;
+          estado.editor = null;
+        }
       }
+      if (!operacion.vigente()) return false;
+      notificar();
+      return true;
+    } finally {
+      operacion.finalizar();
     }
-    notificar();
   }
 
   async function guardar() {
     if (!estado.editor || estado.guardando || !estado.opciones || !puedeEditar()) return false;
+    const operacion = operaciones.iniciar("guardado");
     estado.guardando = true;
     estado.errorEditor = null;
     estado.recibo = null;
@@ -426,7 +475,7 @@ export function crearSuperficieBorradoresPortal({
       const api = clienteAutorizado();
       const recibo = estado.modoEditor === "crear"
         ? await api.crear(solicitud, estado.opciones.limites, {
-          claveIdempotencia: estado.claveIdempotencia,
+          claveIdempotencia: estado.claveIdempotencia, signal: operacion.signal,
         })
         : await api.actualizar(
           estado.referenciaSeleccionada,
@@ -435,17 +484,20 @@ export function crearSuperficieBorradoresPortal({
           {
             etag: estado.detalle.etag,
             claveIdempotencia: estado.claveIdempotencia,
+            signal: operacion.signal,
           },
         );
+      if (!operacion.vigente()) return false;
       estado.recibo = recibo;
       estado.sucio = false;
       estado.claveIdempotencia = "";
       estado.conflictoRemoto = null;
       estado.confirmarReaplicacion = false;
       anunciar(recibo.accion === "crear" ? "Borrador creado y acreditado" : "Borrador actualizado y acreditado");
-      await refrescarTrasGuardado(recibo);
-      return true;
+      return await refrescarTrasGuardado(recibo) && operacion.vigente();
     } catch (error) {
+      if (!operacion.vigente()) return false;
+      if (invalidarAccesoSiDenegado(error)) return false;
       estado.errorEditor = {
         ...errorSeguro(error, "No se pudo guardar el borrador."),
         conservarCambiosLocales: true,
@@ -457,13 +509,18 @@ export function crearSuperficieBorradoresPortal({
         : "No se pudo guardar; se conservan los cambios locales");
       return false;
     } finally {
-      estado.guardando = false;
-      notificar();
+      const vigente = operacion.vigente();
+      operacion.finalizar();
+      if (vigente) {
+        estado.guardando = false;
+        notificar();
+      }
     }
   }
 
   async function cargarEstadoVigente() {
     if (!estado.referenciaSeleccionada || estado.modoEditor !== "actualizar") return false;
+    const operacion = operaciones.iniciar("cas");
     const conflictoAnterior = estado.errorEditor;
     estado.faseEditor = "comparando";
     notificar();
@@ -471,7 +528,9 @@ export function crearSuperficieBorradoresPortal({
       const remoto = await clienteAutorizado().obtenerDetalle(
         estado.referenciaSeleccionada,
         estado.opciones.limites,
+        { signal: operacion.signal },
       );
+      if (!operacion.vigente()) return false;
       estado.conflictoRemoto = remoto;
       estado.faseEditor = "listo";
       estado.confirmarReaplicacion = false;
@@ -479,6 +538,8 @@ export function crearSuperficieBorradoresPortal({
       anunciar("Estado vigente cargado sin sustituir los cambios locales");
       return true;
     } catch (error) {
+      if (!operacion.vigente()) return false;
+      if (invalidarAccesoSiDenegado(error)) return false;
       estado.faseEditor = "listo";
       const fallo = errorSeguro(error, "No se pudo cargar el estado vigente para comparar.");
       estado.errorEditor = {
@@ -489,6 +550,8 @@ export function crearSuperficieBorradoresPortal({
       };
       notificar();
       return false;
+    } finally {
+      operacion.finalizar();
     }
   }
 
@@ -639,8 +702,6 @@ export function crearSuperficieBorradoresPortal({
     };
     estado.cursores = [undefined];
     estado.pagina = 0;
-    controladorCarga?.abort();
-    controladorCarga = new AbortController();
     return cargarLista({ conservarEditor: true });
   }
 
@@ -650,16 +711,12 @@ export function crearSuperficieBorradoresPortal({
     estado.cursores = estado.cursores.slice(0, estado.pagina + 1);
     estado.cursores.push(cursor);
     estado.pagina += 1;
-    controladorCarga?.abort();
-    controladorCarga = new AbortController();
     return cargarLista({ conservarEditor: true });
   }
 
   async function paginaAnterior() {
     if (estado.pagina === 0) return false;
     estado.pagina -= 1;
-    controladorCarga?.abort();
-    controladorCarga = new AbortController();
     return cargarLista({ conservarEditor: true });
   }
 
@@ -667,7 +724,7 @@ export function crearSuperficieBorradoresPortal({
     if (estado.guardando) return false;
     switch (accion) {
       case "borradores-recargar":
-        return cargarSuperficie();
+        return cargarSuperficie({ forzarAcceso: true });
       case "borradores-nuevo":
         return iniciarNuevo();
       case "borradores-abrir":
@@ -709,8 +766,10 @@ export function crearSuperficieBorradoresPortal({
     activar,
     aplicarFiltro,
     actualizarCampo,
+    comprobarDisponibilidad: controlAcceso.comprobar,
     guardar,
     manejarAccion,
+    obtenerAcceso: controlAcceso.obtenerAcceso,
     renderizar,
   });
 }
