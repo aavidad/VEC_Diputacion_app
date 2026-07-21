@@ -3634,3 +3634,51 @@ el proveedor global, no se usan cookies ni almacenamiento de credenciales y la
 vía normal delega la identidad al canal interno. La revisión independiente no
 encontró hallazgos críticos, altos ni medios; queda como mejora de cobertura un
 transporte HTTP/2 real con trailers.
+
+## DEC-101 — ContextoActor durable V2 y autoridad única para el futuro PDP V3
+
+Fecha: 21 de julio de 2026. Estado: ContextoActor V2 implantado y probado como
+subtramo aislado; vínculo V2, PDP V3, composición T20E y producción continúan
+en NO-GO.
+
+**Hallazgo corregido.** El primer diseño incluía la versión de la cuenta en el
+manifiesto de procedencia, pero no en los bytes del ContextoActor. Una
+confirmación podía por ello presentar otra versión positiva de cuenta sin una
+contraparte en la capacidad. El canon histórico V1 queda congelado byte por
+byte y rechaza cualquier `CuentaVersion` positiva. El nuevo canon
+`vec.contexto-actor.vinculado.v2` exige `cuenta_version > 0`, la incluye en su
+preimagen y la liga al mismo valor del manifiesto.
+
+**Frontera productiva.** Los contratos nuevos son nominalmente V2. La entrada
+productiva `ResolverRegistrado` conserva el recibo durable completo: `rca_`,
+actor, bytes V2, huella, manifiesto, huella de procedencia, autoridad e instante
+autoritativo. La entrada heredada solo devuelve ContextoActor V1 y falla
+cerrada si se intenta usar con la composición V2. El
+`VinculoAutenticacionActorV1` tampoco acepta el canon nuevo; no existe una
+degradación que omita la versión de cuenta.
+
+**Transacción y privilegios.** Resolución y registro usan `SERIALIZABLE`; una
+reconciliación tras resultado de `COMMIT` incierto usa `READ COMMITTED`, espera
+el mismo advisory lock de la operación y solo consulta después de que la
+escritura anterior haya terminado. La prueba observa la espera real en
+`pg_locks`, sin pausas temporales como oráculo. El LOGIN runtime se acredita
+contra sus privilegios efectivos en toda la base —incluidos `PUBLIC` y
+membresías— y no solo contra concesiones directas del esquema. El propietario
+recibe `CREATE` sobre la base únicamente dentro de la migración y lo pierde
+antes del commit; el bootstrap exige que la base llegue preendurecida y no
+altera ACL globales que un `down` no podría reconstruir.
+
+**Autoridad única.** No se publicará ni copiará el contexto hacia las tablas
+históricas de `vec_autorizacion`: su cardinalidad no puede representar varias
+resoluciones legítimas de un mismo `vca_/versión`. El siguiente corte creará un
+vínculo autenticación-actor V2, una solicitud/decisión PDP V3 y una acreditación
+transaccional del `rca_` contra `vec_contexto_actor_v1`. Ambos esquemas deben
+residir en la misma base PostgreSQL con propietarios separados. Una réplica,
+doble escritura o buzón eventual nunca será fuente de autorización.
+
+**Evidencia.** Se han probado PostgreSQL 18, canon V1/V2, cuenta y versiones
+`uint64`, autoridad maestra y rechazo no autoritativo, adulteraciones,
+cardinalidades, ventanas half-open, revocaciones, ACL, privilegios externos,
+idempotencia, reconciliación concurrente, `down`, carrera Go y la suite completa
+`go test ./...`. El diseño y las puertas del siguiente corte se detallan en
+`docs/portal_vec/vinculo_contexto_actor_v2_pdp_v3.md`.

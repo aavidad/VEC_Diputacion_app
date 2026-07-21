@@ -117,9 +117,13 @@ func (v VinculoReferenciaContextoActor) VigenteEn(instante time.Time) bool {
 // perfil en el servidor. La fuente devuelve todas las coincidencias y la capa de
 // aplicacion exige exactamente una; esta estructura no concede por si sola.
 type InstantaneaContextoActor struct {
-	VinculoRef      string                           `json:"vinculo_ref"`
-	VinculoVersion  uint64                           `json:"vinculo_version"`
-	CuentaRef       string                           `json:"cuenta_ref"`
+	VinculoRef     string `json:"vinculo_ref"`
+	VinculoVersion uint64 `json:"vinculo_version"`
+	CuentaRef      string `json:"cuenta_ref"`
+	// CuentaVersion vale cero exclusivamente en snapshots heredados cuyo canon
+	// V1 no comprometia esa revision. Toda capacidad durable V2 exige un valor
+	// positivo y lo liga tanto al canon como al manifiesto de procedencia.
+	CuentaVersion   uint64                           `json:"cuenta_version,omitempty"`
 	PersonaRef      string                           `json:"persona_ref"`
 	PersonaVersion  uint64                           `json:"persona_version"`
 	PerfilActivoRef string                           `json:"perfil_activo_ref"`

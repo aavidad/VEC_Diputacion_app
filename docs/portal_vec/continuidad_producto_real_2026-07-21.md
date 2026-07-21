@@ -35,8 +35,9 @@ producción ni a una autorización para cargar datos personales reales.
 
 ## Orden inmediato
 
-1. Cerrar la vertical de borradores de convocatorias: identidad, contexto de
-   actor, autorización, PostgreSQL, KMS, recibo y web interna.
+1. Cerrar la vertical de borradores de convocatorias: identidad, ContextoActor
+   V2 registrado, vínculo autenticación-actor V2, autorización PDP V3,
+   PostgreSQL, KMS, recibo y web interna.
 2. Ejecutar una prueba E2E técnica con PostgreSQL 18 y datos exclusivamente
    sintéticos, incluyendo denegaciones y fallos de dependencias.
 3. Completar T12 y T13 antes de cualquier piloto con información personal.
