@@ -90,6 +90,8 @@ test("la ruta normal usa API protegida sin cookies y no cae a datos sintéticos"
   assert.equal(`${javascript}\n${apiLlamamientos}`.match(/credentials: "omit"/g)?.length, 2, "todas las llamadas internas deben omitir cookies");
   assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /credentials: "(?:same-origin|include)"/);
   assert.doesNotMatch(javascript, /document\.cookie|localStorage.*(?:token|sesion|auth)/i);
+  assert.doesNotMatch(javascript, /PROVEEDOR_BEARER_BORRADORES|globalThis\[[^\]]*BEARER/i);
+  assert.match(javascript, /const superficieBorradores = crearSuperficieBorradoresPortal\([\s\S]*?resolverProveedorBearer: \(\) => null,/);
   assert.match(javascript, /extraerDatosEnvelopeCanonico\(envelope\)/);
   assert.match(contrato, /la API interna no puede responder con datos de demostración/);
   assert.match(javascript, /if \(respuesta\.status === 401\)/);

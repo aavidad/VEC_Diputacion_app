@@ -5,7 +5,7 @@ import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
 import { crearAsistenteLlamamientos } from "./portal-llamamientos-vista.js?v=20260719-asistente-llamamientos-v2";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
-import { PROVEEDOR_BEARER_BORRADORES, crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260721-acceso-real-v2";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260721-acceso-real-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260720-pulido-escritorio-v2";
@@ -625,11 +625,6 @@ function aplicarBarrasDinamicas(contenedor) {
   });
 }
 
-function resolverProveedorBearerBorradores() {
-  const proveedor = globalThis[PROVEEDOR_BEARER_BORRADORES];
-  return proveedor === undefined ? null : proveedor;
-}
-
 function superficieBorradoresActiva() {
   return estado.modoPresentacion ? superficieBorradoresPresentacion : superficieBorradores;
 }
@@ -641,7 +636,7 @@ const superficieBorradores = crearSuperficieBorradoresPortal({
     if (estado.vista === "portal" || estado.vista === "elaboracion") renderizar();
     else actualizarNavegacionModulos();
   },
-  resolverProveedorBearer: resolverProveedorBearerBorradores,
+  resolverProveedorBearer: () => null,
   confirmar: (mensaje) => window.confirm(mensaje),
 });
 

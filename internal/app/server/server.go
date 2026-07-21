@@ -109,14 +109,14 @@ func NewHandlerPublicoWithConfig(cfg config.Config, api http.Handler) http.Handl
 	handler := rechazarRutasNoCanonicas(mux)
 	handler = rechazarSelectorPresentacionFueraDePresentacion(handler)
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
-	handler = prohibirAutorizacionSuperficieAnonima(handler)
+	handler = prohibirAutorizacion(handler)
 	return protegerSuperficie(cfg, handler)
 }
 
 // NewHandlerInternoWithConfig expone unicamente el Portal del Empleado y la
-// API VEC. No acepta estado de sesion del navegador ni credenciales de proxy;
-// la identidad interna debe llegar por el canal autenticado que componga el
-// listener, nunca mediante cookies.
+// API VEC. No acepta estado de sesion del navegador, Authorization ni
+// credenciales de proxy; la identidad interna debe llegar por el canal
+// autenticado que componga el listener, nunca mediante cabeceras ambientales.
 func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handler {
 	cfg = cfg.Normalize()
 	if api == nil {
@@ -136,6 +136,7 @@ func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handl
 	handler := rechazarRutasNoCanonicas(mux)
 	handler = rechazarSelectorPresentacionFueraDePresentacion(handler)
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
+	handler = prohibirAutorizacion(handler)
 	return protegerSuperficie(cfg, handler)
 }
 
@@ -177,7 +178,7 @@ func NewHandlerPresentacionWithConfig(cfg config.Config, apiPublica http.Handler
 
 	handler := rechazarRutasNoCanonicas(mux)
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
-	handler = prohibirAutorizacionSuperficieAnonima(handler)
+	handler = prohibirAutorizacion(handler)
 	handler = marcarModoPresentacionAislada(handler)
 	return protegerSuperficie(cfg, handler)
 }
@@ -387,7 +388,7 @@ func materializarCuerpoYTrailers(r *http.Request, limite int64) error {
 	return nil
 }
 
-func prohibirAutorizacionSuperficieAnonima(next http.Handler) http.Handler {
+func prohibirAutorizacion(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if contieneCabecera(r.Header, "Authorization") ||
 			contieneCabecera(r.Trailer, "Authorization") {

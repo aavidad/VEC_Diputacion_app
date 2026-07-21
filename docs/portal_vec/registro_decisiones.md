@@ -3607,3 +3607,30 @@ a UAT formal de RRHH, autorización de producción ni permiso para cargar datos
 personales reales. Sistemas, DPD, T12, T13 y los proveedores corporativos
 continúan siendo puertas verificables. El detalle operativo queda en
 `docs/portal_vec/continuidad_producto_real_2026-07-21.md`.
+
+## DEC-100 — El portal web interno rechaza Authorization por defecto
+
+Fecha: 21 de julio de 2026. Estado: adoptada y probada para la frontera web
+interna; no habilita todavía el listener productivo.
+
+**Decisión.** El Portal del Empleado obtiene la identidad exclusivamente de la
+frontera mTLS/Kerberos acreditada por el servidor. Rechaza por presencia toda
+cabecera `Authorization`, incluida una cabecera vacía, repetida, con otra
+capitalización o materializada como trailer. No usa cookies de sesión y el
+cliente Fetch mantiene `credentials: "omit"`. La composición normal fija el
+proveedor Bearer a `null` y no consulta una variable global de JavaScript.
+
+Esta decisión sustituye para la superficie web la reserva de `Authorization`
+descrita en DEC-084. El cliente HTTP genérico conserva un puerto opcional para
+un posible cliente nativo, pero permanece desconectado. Habilitarlo exigirá un
+listener distinto, configuración explícita e inmutable, validación y consumo
+de la aserción en la frontera, y ausencia física de las rutas del portal web;
+no se tolerará una cabecera sin un modo acreditado.
+
+**Evidencia.** Las pruebas demuestran denegación antes de invocar la API para
+valores vacíos, Bearer, otros esquemas, nombres no canónicos, valores múltiples
+y trailers declarados o tardíos. Las pruebas del portal verifican que no existe
+el proveedor global, no se usan cookies ni almacenamiento de credenciales y la
+vía normal delega la identidad al canal interno. La revisión independiente no
+encontró hallazgos críticos, altos ni medios; queda como mejora de cobertura un
+transporte HTTP/2 real con trailers.
