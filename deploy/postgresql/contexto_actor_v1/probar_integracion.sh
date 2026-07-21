@@ -61,6 +61,7 @@ REVOKE ALL ON SCHEMA public FROM PUBLIC;
 SQL
 psql_archivo deploy/postgresql/contexto_actor_v1/roles_up.sql
 psql_archivo deploy/postgresql/contexto_actor_v1/migraciones/000001_contexto_actor_v1.up.sql
+psql_archivo deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.up.sql
 propietario_crea=$(docker exec "$contenedor" psql -X --no-align --tuples-only \
   --set ON_ERROR_STOP=1 --username postgres --dbname "$base" --command \
   "SELECT pg_catalog.has_database_privilege(
@@ -157,12 +158,170 @@ SQL
 
 puerto=$(docker port "$contenedor" 5432/tcp | head -n1); puerto=${puerto##*:}
 dsn="postgres://vec_contexto_actor_runtime_prueba:${clave_runtime}@127.0.0.1:${puerto}/${base}?sslmode=disable"
-go test ./internal/vec/application \
-  -run '^TestServicioContextoActorProductivoRechazaAutoridadNoAutoritativa$' -count=1
-VEC_CONTEXTO_ACTOR_V2_POSTGRES_DSN="$dsn" \
-  go test ./internal/vec/adapters/contextoactor/postgres \
-  -run '^(TestIntegracionPostgreSQLContextoActorV2|TestReconciliacionPostgreSQLContextoActorV2EsperaFinalizacionConcurrente|TestResolutorContextoActorPostgreSQLRechazaManifiestoAdulteradoONoAutoritativo|TestResolutorContextoActorPostgreSQLNoHaceSegundoReintento)$' \
-  -count=1
+if [[ ${VEC_CONTEXTO_ACTOR_OMITIR_GO:-0} != 1 ]]; then
+  go test ./internal/vec/application \
+    -run '^TestServicioContextoActorProductivoRechazaAutoridadNoAutoritativa$' -count=1
+  VEC_CONTEXTO_ACTOR_V2_POSTGRES_DSN="$dsn" \
+    go test ./internal/vec/adapters/contextoactor/postgres \
+    -run '^(TestIntegracionPostgreSQLContextoActorV2|TestReconciliacionPostgreSQLContextoActorV2EsperaFinalizacionConcurrente|TestResolutorContextoActorPostgreSQLRechazaManifiestoAdulteradoONoAutoritativo|TestResolutorContextoActorPostgreSQLNoHaceSegundoReintento)$' \
+    -count=1
+fi
+
+# Recibo nominal para probar la acreditacion cerrada sin depender de datos ni
+# tipos del adaptador Go/PDP.
+consulta_runtime "$(resolver_sql \
+  oca_acredita_000000000000000000000000 \
+  rca_acredita_000000000000000000000000)" >/dev/null
+psql_archivo deploy/postgresql/contexto_actor_v1/pruebas_sql/acreditacion_uso_v2.sql
+
+# La migracion no se adopta ni repara a si misma.
+if psql_archivo \
+  deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.up.sql \
+  >/dev/null 2>&1; then
+  echo '000002 de acreditacion permitio una segunda aplicacion' >&2
+  exit 1
+fi
+
+acreditar_propietario() {
+  local intervalo=$1
+  docker exec "$contenedor" psql -X --quiet --no-align --tuples-only \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" --command "
+      BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+      SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+      SELECT vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(
+        r.registro_contexto_ref,'vec.contexto-actor.vinculado.v2',
+        r.huella_sha256,r.manifiesto_procedencia_huella_sha256,
+        r.autoridad_efectiva,
+        'cta_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa',2,
+        'per_sintetica_bbbbbbbbbbbbbbbbbbbbbbbb',2,
+        'prf_sintetico_cccccccccccccccccccccccc',2,
+        'vca_sintetico_dddddddddddddddddddddddd',2,
+        'certificado','alto',clock_timestamp(),
+        clock_timestamp()+interval '$intervalo') IS NULL
+      FROM vec_contexto_actor_v1.registros_contexto AS r
+      WHERE r.registro_contexto_ref='rca_acredita_000000000000000000000000';
+      COMMIT;"
+}
+
+esperar_guarda_global_exclusiva() {
+  local bloqueada=false intento
+  for _ in $(seq 1 100); do
+    intento=$(docker exec "$contenedor" psql -X --quiet --no-align --tuples-only \
+      --set ON_ERROR_STOP=1 --username postgres --dbname "$base" --command \
+      "SELECT pg_catalog.pg_try_advisory_lock(pg_catalog.hashtextextended(
+        'vec_contexto_actor_v1:mutacion_punteros_actuales:v2',0))")
+    if [[ $intento == f ]]; then
+      bloqueada=true
+      break
+    fi
+    sleep 0.03
+  done
+  [[ $bloqueada == true ]]
+}
+
+# El reloj se toma despues de esperar la primera guarda advisory. Una decision
+# que expira durante la espera termina en denegacion.
+docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+  --username postgres --dbname "$base" <<'SQL' >/dev/null &
+BEGIN;
+SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+  'vec_contexto_actor_v1:mutacion_punteros_actuales:v2',0));
+SELECT pg_catalog.pg_sleep(2);
+COMMIT;
+SQL
+retenedor_acreditacion=$!
+esperar_guarda_global_exclusiva || { echo 'no se observo guarda de expiracion' >&2; exit 1; }
+expirada=$(acreditar_propietario '1 second' | sed '/^$/d' | head -n1)
+wait "$retenedor_acreditacion"
+[[ $expirada == t ]] || { echo 'acreditacion no denego expiracion durante advisory lock' >&2; exit 1; }
+
+# Fantasma real: el INSERT del segundo puntero ocurre despues de que la
+# acreditacion haya fijado su snapshot y mantiene el advisory exclusivo hasta
+# COMMIT. El puntero nuevo es invisible en ese snapshot; la fila de generacion
+# actualizada por el AFTER STATEMENT debe forzar 40001 o denegacion, nunca un
+# resultado acreditado sobre el conjunto antiguo.
+docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+  --username postgres --dbname "$base" <<'SQL' >/dev/null &
+BEGIN;
+SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+INSERT INTO vec_contexto_actor_v1.vinculo_contexto_versiones VALUES
+ ('vca_fantasma_00000000000000000000000',1,
+  'cta_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa','prf_sintetico_cccccccccccccccccccccccc',
+  'per_sintetica_bbbbbbbbbbbbbbbbbbbbbbbb',
+  'prc_maestra_sintetica_pruebas_000001',1,repeat('a',64),'autoridad_maestra_acreditada',
+  'activo',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 hour');
+INSERT INTO vec_contexto_actor_v1.vinculo_contexto_actual VALUES
+ ('vca_fantasma_00000000000000000000000',1);
+SELECT pg_catalog.pg_sleep(1);
+COMMIT;
+SQL
+insertador_fantasma=$!
+esperar_guarda_global_exclusiva || { echo 'no se observo guarda del INSERT fantasma' >&2; exit 1; }
+set +e
+salida_fantasma=$(acreditar_propietario '10 minutes' 2>&1)
+estado_fantasma=$?
+set -e
+wait "$insertador_fantasma"
+if [[ $estado_fantasma -eq 0 ]]; then
+  fantasma_denegado=$(sed '/^$/d' <<<"$salida_fantasma" | head -n1)
+  [[ $fantasma_denegado == t ]] || { echo 'acreditacion acepto snapshot anterior al INSERT fantasma' >&2; exit 1; }
+elif [[ $salida_fantasma != *'could not serialize access due to concurrent update'* ]]; then
+  echo "acreditacion fallo de forma inesperada ante INSERT fantasma: $salida_fantasma" >&2
+  exit 1
+fi
+psql_admin <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+DELETE FROM vec_contexto_actor_v1.vinculo_contexto_actual
+ WHERE vinculo_ref='vca_fantasma_00000000000000000000000';
+COMMIT;
+SQL
+
+# Una revocacion que posee primero la guarda exclusiva compromete y la
+# acreditacion, al despertar, relee el puntero revocado.
+docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+  --username postgres --dbname "$base" <<'SQL' >/dev/null &
+BEGIN;
+SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+  'vec_contexto_actor_v1:mutacion_punteros_actuales:v2',0));
+INSERT INTO vec_contexto_actor_v1.proyeccion_cuenta_versiones VALUES
+ ('cta_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa',3,
+  'prc_maestra_sintetica_pruebas_000001',1,repeat('a',64),'autoridad_maestra_acreditada',
+  'revocado',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 hour');
+UPDATE vec_contexto_actor_v1.proyeccion_cuenta_actual SET version=3
+ WHERE cuenta_ref='cta_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa';
+SELECT pg_catalog.pg_sleep(1);
+COMMIT;
+SQL
+revocador_acreditacion=$!
+esperar_guarda_global_exclusiva || { echo 'no se observo guarda de revocacion' >&2; exit 1; }
+set +e
+salida_revocada=$(acreditar_propietario '10 minutes' 2>&1)
+estado_revocada=$?
+set -e
+wait "$revocador_acreditacion"
+revocada=$(sed '/^$/d' <<<"$salida_revocada" | head -n1)
+if [[ $estado_revocada -eq 0 ]]; then
+  [[ $revocada == t ]] || { echo 'acreditacion acepto avance revocado concurrente' >&2; exit 1; }
+elif [[ $salida_revocada != *'could not serialize access due to concurrent update'* ]]; then
+  echo "acreditacion fallo de forma inesperada ante revocacion: $salida_revocada" >&2
+  exit 1
+fi
+
+psql_admin <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+  'vec_contexto_actor_v1:mutacion_punteros_actuales:v2',0));
+INSERT INTO vec_contexto_actor_v1.proyeccion_cuenta_versiones VALUES
+ ('cta_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa',4,
+  'prc_maestra_sintetica_pruebas_000001',1,repeat('a',64),'autoridad_maestra_acreditada',
+  'activo',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1 hour');
+UPDATE vec_contexto_actor_v1.proyeccion_cuenta_actual SET version=4
+ WHERE cuenta_ref='cta_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa';
+COMMIT;
+SQL
 manifiestos_invalidos=$(docker exec "$contenedor" psql -X --no-align --tuples-only \
   --set ON_ERROR_STOP=1 --username postgres --dbname "$base" --command \
   "SELECT count(*) FROM vec_contexto_actor_v1.registros_contexto
@@ -431,6 +590,92 @@ SQL
 # Tras limpiar las contaminaciones, el mismo LOGIN debe volver a acreditarse.
 acreditada=$(consulta_runtime 'SELECT acreditada FROM vec_contexto_actor_v1.acreditar_runtime_contexto_actor_v1()')
 [[ $acreditada == t ]] || { echo 'pool runtime no recupero la acreditacion tras limpiar ACL hostiles' >&2; exit 1; }
+
+# La retirada aditiva exige opt-in y falla si una composicion futura conserva
+# una concesion nominal sobre la funcion.
+set +e
+psql_archivo \
+  deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql \
+  >/dev/null 2>&1
+set -e
+funcion_acreditacion=$(docker exec "$contenedor" psql -X --no-align --tuples-only \
+  --set ON_ERROR_STOP=1 --username postgres --dbname "$base" --command \
+  "SELECT pg_catalog.to_regprocedure(
+    'vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(text,text,text,text,text,text,numeric,text,numeric,text,numeric,text,numeric,text,text,timestamptz,timestamptz)') IS NOT NULL")
+[[ $funcion_acreditacion == t ]] || { echo 'down 000002 sin opt-in retiro la funcion' >&2; exit 1; }
+
+# PUBLIC tambien es una concesion externa (grantee=0), no una ausencia de rol.
+psql_admin <<'SQL'
+GRANT EXECUTE ON FUNCTION
+  vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(
+    text,text,text,text,text,text,numeric,text,numeric,text,numeric,text,numeric,
+    text,text,timestamptz,timestamptz
+  ) TO PUBLIC;
+SQL
+if docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+  --set confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2 \
+  --username postgres --dbname "$base" \
+  < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql" \
+  >/dev/null 2>&1; then
+  echo 'down 000002 ignoro EXECUTE concedido a PUBLIC' >&2
+  exit 1
+fi
+psql_admin <<'SQL'
+REVOKE EXECUTE ON FUNCTION
+  vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(
+    text,text,text,text,text,text,numeric,text,numeric,text,numeric,text,numeric,
+    text,text,timestamptz,timestamptz
+  ) FROM PUBLIC;
+SQL
+
+psql_admin <<'SQL'
+CREATE ROLE vec_consumidor_acreditacion_prueba NOLOGIN;
+GRANT USAGE ON SCHEMA vec_contexto_actor_v1
+  TO vec_consumidor_acreditacion_prueba;
+GRANT USAGE ON TYPE
+  vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
+  TO vec_consumidor_acreditacion_prueba;
+SQL
+if docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+  --set confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2 \
+  --username postgres --dbname "$base" \
+  < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql" \
+  >/dev/null 2>&1; then
+  echo 'down 000002 retiro tipo compuesto con concesion externa' >&2
+  exit 1
+fi
+psql_admin <<'SQL'
+REVOKE USAGE ON TYPE
+  vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
+  FROM vec_consumidor_acreditacion_prueba;
+GRANT EXECUTE ON FUNCTION
+  vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(
+    text,text,text,text,text,text,numeric,text,numeric,text,numeric,text,numeric,
+    text,text,timestamptz,timestamptz
+  ) TO vec_consumidor_acreditacion_prueba;
+SQL
+if docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+  --set confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2 \
+  --username postgres --dbname "$base" \
+  < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql" \
+  >/dev/null 2>&1; then
+  echo 'down 000002 retiro funcion con concesion externa' >&2
+  exit 1
+fi
+psql_admin <<'SQL'
+REVOKE EXECUTE ON FUNCTION
+  vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(
+    text,text,text,text,text,text,numeric,text,numeric,text,numeric,text,numeric,
+    text,text,timestamptz,timestamptz
+  ) FROM vec_consumidor_acreditacion_prueba;
+REVOKE USAGE ON SCHEMA vec_contexto_actor_v1
+  FROM vec_consumidor_acreditacion_prueba;
+DROP ROLE vec_consumidor_acreditacion_prueba;
+SQL
+docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+  --set confirmar_retirada_acreditacion_contexto_actor_v2=RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2 \
+  --username postgres --dbname "$base" \
+  < "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql"
 
 set +e
 psql_archivo deploy/postgresql/contexto_actor_v1/migraciones/000001_contexto_actor_v1.down.sql \
