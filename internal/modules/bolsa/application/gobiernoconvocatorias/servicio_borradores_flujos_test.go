@@ -193,6 +193,16 @@ func TestAltaRechazaHuellaPlantillaIncorrectaAntesDePDP(t *testing.T) {
 	}
 }
 
+func TestAltaRechazaConfiguracionLigadaAOtraPlantillaAntesDePDP(t *testing.T) {
+	e := nuevoEscenario(t, confirmarBien, 2, 1)
+	e.catalogo.plantilla.Configuracion.Plantilla.HuellaContenidoSHA256 = huellaHexPrueba('0')
+	_, err := e.servicio.Crear(context.Background(), e.orden)
+	if err == nil || e.autorizador.llamadas != 0 || e.diario.reservas != 0 ||
+		e.catalogo.preparaciones != 0 {
+		t.Fatalf("configuracion de otra plantilla alcanzo PDP/reserva: %v", err)
+	}
+}
+
 func TestBorradoresCASConcurrenteProduceUnSoloEfecto(t *testing.T) {
 	e := nuevoEscenario(t, confirmarBien, 2, 1)
 	const competidores = 64

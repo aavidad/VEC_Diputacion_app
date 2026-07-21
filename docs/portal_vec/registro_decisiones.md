@@ -3052,8 +3052,8 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   versión confirmada y exige que esta sea el nuevo estado exacto de la
   intención. El material libre de la petición no aporta el alcance.
 - Integridad: el ámbito forma parte de las preimágenes canónicas
-  `bolsa.version-convocatoria.contenido.v3` y
-  `bolsa.version-convocatoria.estado.v2`; alterarlo cambia ambas huellas.
+  `bolsa.version-convocatoria.contenido.v4` y
+  `bolsa.version-convocatoria.estado.v3`; alterarlo cambia ambas huellas.
 - Compatibilidad: un estado histórico V1 no se interpreta como V2 ni recibe un
   ámbito inventado. Antes de persistir datos reales deberá existir un lector
   histórico separado o una migración explícita aprobada, y una fuente
@@ -3466,3 +3466,144 @@ productiva aprobada.
 **Retirada.** Detener y eliminar el único servicio del perfil
 `presentacion-remota` y su regla de red devuelve exactamente la topología de
 cinco contenedores y loopback, sin cambiar portal, módulos ni adaptadores.
+
+## DEC-097 — Lectura durable de borradores con autorización V2 y KMS fuera de transacción
+
+Fecha: 21 de julio de 2026. Estado: subtramo T20B implantado y probado; no
+declara cerrada la vertical T20 ni habilita producción.
+
+**Decisión.** La bandeja y el detalle de borradores aceptan exclusivamente una
+decisión `vec.autorizacion.decision.reforzada.v2.solicitud-ligada` registrada,
+ligada a la solicitud efectiva, al motivo opaco de catálogo publicado, al
+actor, recurso, finalidad, correlación y campos exactos. No existe conversión,
+compatibilidad automática ni alternativa V1. La migración histórica
+`migraciones_autorizacion/000002_revalidacion_borradores_v2` conserva su
+contrato V1 pese al nombre; la frontera V2 real es la migración aditiva
+`000003_revalidacion_lectura_borradores_solicitud_ligada_v2`.
+
+**Transacción y auditoría.** La lectura PostgreSQL usa aislamiento
+`SERIALIZABLE`, modo lectura-escritura y funciones `SECURITY DEFINER` cerradas,
+porque consultar datos sensibles también registra el acceso. PostgreSQL
+revalida identidad, sesión, contexto de actor, RBAC, catálogo de políticas,
+motivo y atestación antes de devolver el paquete cifrado. La transacción se
+confirma y libera antes de llamar al KMS; por ello un KMS lento o caído no
+retiene el snapshot ni elimina la prueba durable del acceso. La llamada externa
+tiene plazo local y respeta una cancelación superior. El orden de bloqueo es
+único y común con el registro V2: motivo, decisión, asignación, rol, catálogo de
+políticas, sesión y ContextoActor. La primera pasada adquiere todos los locks y
+solo después se obtiene `clock_timestamp()`; una segunda pasada sin espera
+aplica el mismo instante a las ventanas half-open de decisión, prueba, motivo,
+sesión y contexto. El wrapper no aporta ni puede anticipar ese reloj.
+
+**Integridad del resultado.** El adaptador restaura AAD, perfil, envoltura de
+clave, sobre AEAD, atestación KMS y procedencia desde la fila cerrada; borra los
+buffers al abandonar cada recorrido. Tras descifrar coteja referencia,
+revisión, huella de estado, ETag, código público, identificador, organización,
+unidad y expediente contra el agregado canónico. Cualquier diferencia produce
+un error saneado y ningún dato parcial.
+
+**Procedencia de plantilla.** `ConfiguracionFijadaConvocatoria` compromete
+desde V4 la plantilla exacta resuelta. Alta y actualización rechazan una
+plantilla distinta antes de autorización, y el detalle rehidrata esa referencia
+sin inferir «la última» versión disponible. Como el campo también modifica el
+estado completo, su esquema avanza de V2 a V3; V2 queda rechazado y solo podrá
+entrar mediante un lector histórico y una migración gobernada explícitos.
+
+**Selectores.** El selector de bandeja se valida de nuevo en fachada, servicio
+y adaptador antes del PDP o del pool. Límite, texto NFC sin controles, categoría
+canónica y cursor opaco `cursor-borrador-<sha256>` tienen cotas exactas; texto,
+categoría o cursor libres, gigantes o no canónicos no alcanzan PostgreSQL. El
+wrapper SQL repite el contrato completo: tipo exacto de cada campo, NFC, 180
+runas y 720 bytes, `TrimSpace`, categorías Unicode `Cc`/`Cf`, U+FFFD, categoría
+ASCII canónica y cursor opaco. La prueba lo invoca con la cuenta LOGIN mínima,
+no con el propietario. El contrato no delega su resultado a la versión Unicode
+accidental del proceso: `x/text` v0.40 usa Unicode 15 con Go 1.26 y Unicode 17
+desde Go 1.27, mientras PostgreSQL 18 informa Unicode 16. Se fija por ello un
+perfil NFC común V1 y ambas fronteras rechazan exactamente las 82 runas cuyas
+propiedades NFC difieren entre esas tablas. La fuente reproducible son
+`UnicodeData.txt`/`DerivedNormalizationProps.txt` 16.0 y
+`unicode/norm/data15.0.0_test.go`/`data17.0.0_test.go` de `x/text` v0.40.
+
+El delta NFC posterior a Unicode 16 no se reduce al contraejemplo inicial: son 34
+runas con CCC nuevo —U+1ACF..U+1ADD, U+1AE0..U+1AEB,
+U+10EFA..U+10EFB, U+1E6E3, U+1E6E6, U+1E6EE..U+1E6EF y
+U+1E6F5. U+A7F1 cambia solo bajo NFKC y, como no pertenece al contrato NFC,
+permanece permitido. Para que el binario actual Unicode 15 tampoco diverja de
+PostgreSQL, el mismo perfil
+excluye además U+0897, U+105C9/U+105D2/U+105DA/U+105E4,
+U+10D69..U+10D6D, los puntos con propiedades NFC nuevas de
+U+11382..U+113D0, U+1611E..U+1612F y U+16D63..U+16D6A que enumera el
+validador, y U+1E5EE..U+1E5EF: 48 runas, que junto a las 34 anteriores forman
+las 82 exclusiones. U+1CCD6..U+1CCF9 también cambia solo bajo NFKC y se prueba
+positivamente. No se prohíben bloques aproximados: los vecinos estables de
+cada frontera permanecen admitidos.
+
+Los guards son deliberadamente más estrictos que el repertorio anticipado:
+Go exige `norm.Version == 15.0.0` y SQL exige `unicode_version() == 16.0` tanto
+al instalar como al validar. La lista de 82 ya evita el conocido desfase con
+Unicode 17, pero una actualización debe fallar y someterse a revisión explícita
+antes de versionar el perfil; no se acepta silenciosamente por casualidad.
+
+**Evidencia.** El runner PostgreSQL prueba la decisión V2 registrada con motivo
+publicado y rechaza V1, huella o contexto alterados. La huella V2 del fixture se
+calcula sobre una solicitud efectiva canónica completa y se coteja con el
+registro; no es una constante. Un positivo persiste un paquete acreditado en
+las tablas de 000004 y 000005 recupera exactamente AAD, perfil, DEK envuelta,
+nonce, ciphertext, huellas, atestación y procedencia. Una carrera coordinada
+por el estado de bloqueo real —sin espera fija— mantiene el lock de sesión
+hasta que la decisión alcanza su límite superior y demuestra la denegación.
+La frescura de la prueba usa también una ventana half-open
+`[verificada_en, verificada_en + 30 s)` y un vector determinista acredita que
+29,999999 s se acepta y exactamente 30 s se rechaza. Los vectores Unicode
+recorren cada runa excluida y las combinaciones CCC/canónicas adversarias a
+través del wrapper con el LOGIN mínimo de PostgreSQL 18/Unicode 16. El mismo
+LOGIN prueba todos los vecinos y los 37 positivos que solo cambian bajo NFKC
+mediante un puente de prueba efímero, propietario del módulo y eliminado antes
+del `down`; no se añade ninguna función de producción para exponer el predicado.
+También se prueba de forma nominal el rechazo de `estado.v2`. Las pruebas Go
+cubren cancelación antes del pool, `COMMIT` antes del KMS, plazo local,
+transacción no retenida, DTO JSON cerrado, tiempos UTC con microsegundos,
+metadatos cruzados y borrado de buffers. Siguen pendientes la composición
+productiva y el E2E T20E.
+
+## DEC-098 — Confirmación durable de borradores y vector criptográfico común
+
+Fecha: 21 de julio de 2026. Estado: subtramo T20D implantado, probado y
+revisado; no declara cerrada la vertical T20 ni habilita producción.
+
+**Decisión.** Preparación PostgreSQL, revalidación KMS, aplicación del cambio y
+persistencia del recibo forman una operación gobernada. Un vínculo nominal
+opaco compromete las identidades exactas de base de datos, cifrado y
+verificadores; dos composiciones parcialmente cruzadas se rechazan antes de
+confirmar. La transacción es `SERIALIZABLE`, el instante de preparación se
+obtiene después de los bloqueos y la comprobación criptográfica externa se
+acota sin presentar como confirmado un `COMMIT` incierto.
+
+**Evidencia compartida.** Go y PostgreSQL dejan de mantener dos juegos de
+vectores autoconsistentes. Ambos consumen el mismo fixture sintético versionado,
+compuesto por manifiesto, AAD canónica, preimagen de atestación, preimagen de
+revalidación y acreditación PostgreSQL. El manifiesto compromete 16 valores:
+huellas de versión, material, política, evidencia, AAD, envoltura, sobre,
+preimágenes, firmas, cuerpo del recibo y acreditación. El runner copia esos
+archivos únicamente al contenedor efímero; ninguna migración ni código
+productivo los lee.
+
+**Alcance.** Este cierre demuestra confirmación y recibo como adaptadores
+aislados. Siguen pendientes la resolución productiva del actor, la composición
+con identidad/PDP y el E2E web completo.
+
+## DEC-099 — Continuidad del producto real tras la aceptación de la propuesta
+
+Fecha: 21 de julio de 2026. Estado: adoptada por dirección.
+
+**Decisión.** Dirección comunica que la propuesta ha sido aceptada y ordena
+continuar el desarrollo de la aplicación real. La presentación se conserva
+solo como referencia visual y entorno sintético físicamente excluible. Los
+puertos, casos de uso y componentes válidos permanecen; sus adaptadores de
+demostración se sustituyen por conectores durables sin reescribir la web.
+
+**Límites.** Esta decisión autoriza la continuidad del desarrollo, no equivale
+a UAT formal de RRHH, autorización de producción ni permiso para cargar datos
+personales reales. Sistemas, DPD, T12, T13 y los proveedores corporativos
+continúan siendo puertas verificables. El detalle operativo queda en
+`docs/portal_vec/continuidad_producto_real_2026-07-21.md`.

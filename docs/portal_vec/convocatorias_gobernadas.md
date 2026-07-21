@@ -158,10 +158,21 @@ no puede sustituirse por una instancia gemela sin cambiar la evidencia.
 
 Los bytes no se obtienen serializando directamente el agregado mutable. Dos DTO
 cerrados declaran los esquemas
-`bolsa.version-convocatoria.contenido.v3` y
-`bolsa.version-convocatoria.estado.v2`; sus vectores SHA-256 quedan fijados por
+`bolsa.version-convocatoria.contenido.v4` y
+`bolsa.version-convocatoria.estado.v3`; sus vectores SHA-256 quedan fijados por
 pruebas golden. Una futura modificación del contrato deberá publicar otro
 esquema y conservar el lector histórico del anterior.
+
+V4 incorpora también la referencia, versión y huella de la plantilla exacta
+resuelta para el borrador. El caso de uso rechaza antes del PDP una intención
+cuya plantilla no coincida con la configuración comprometida. De este modo la
+plantilla no puede cambiar entre autorización, cifrado, persistencia y lectura
+sin producir otra huella de contenido.
+
+La misma incorporación cambia deliberadamente el estado completo de V2 a V3.
+Los estados V2 de desarrollo no se reinterpretan ni se rellenan con una
+plantilla implícita. Si hubiera que importar historia externa V2, necesitará un
+lector histórico y una migración gobernada explícitos antes de cargarla.
 
 Las huellas del estado completo son datos pseudonimizados, no anónimos. No se
 publicarán ni se enviarán a registros o métricas; su persistencia y exportación

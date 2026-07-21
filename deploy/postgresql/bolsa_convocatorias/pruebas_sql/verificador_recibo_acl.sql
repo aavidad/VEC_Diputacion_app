@@ -32,7 +32,7 @@ BEGIN
     END;
     BEGIN
         PERFORM *
-          FROM vec_bolsa_convocatorias.preparar_confirmacion_borrador_v1(
+          FROM vec_bolsa_convocatorias.preparar_confirmacion_borrador_v2(
               NULL::jsonb, NULL::jsonb, NULL::jsonb,
               NULL::bytea, NULL::bytea, NULL::bytea, NULL::bytea,
               NULL::bytea, NULL::bytea, NULL::bytea, NULL::bytea

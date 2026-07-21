@@ -93,7 +93,7 @@ BEGIN
                 'vec_bolsa_convocatorias.reconciliar_operacion_borrador_v1(jsonb,text,bigint,bigint,timestamp with time zone)',
                 'vec_bolsa_convocatorias.reservar_decision_borrador_v1(jsonb,jsonb,bytea,bytea,bytea,bytea)',
                 'vec_bolsa_convocatorias.reclamar_reserva_borrador_v1(bigint,bigint,jsonb,jsonb,bytea,bytea,bytea,bytea)',
-                'vec_bolsa_convocatorias.preparar_confirmacion_borrador_v1(jsonb,jsonb,jsonb,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea)',
+                'vec_bolsa_convocatorias.preparar_confirmacion_borrador_v2(jsonb,jsonb,jsonb,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea)',
                 'vec_bolsa_convocatorias.confirmar_borrador_v1(text,jsonb,bytea)'
             ]
             WHEN 'vec_convocatorias_proyector_prueba' THEN ARRAY[
@@ -101,7 +101,7 @@ BEGIN
                 'vec_bolsa_convocatorias.reconciliar_operacion_borrador_v1(jsonb,text,bigint,bigint,timestamp with time zone)',
                 'vec_bolsa_convocatorias.reservar_decision_borrador_v1(jsonb,jsonb,bytea,bytea,bytea,bytea)',
                 'vec_bolsa_convocatorias.reclamar_reserva_borrador_v1(bigint,bigint,jsonb,jsonb,bytea,bytea,bytea,bytea)',
-                'vec_bolsa_convocatorias.preparar_confirmacion_borrador_v1(jsonb,jsonb,jsonb,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea)',
+                'vec_bolsa_convocatorias.preparar_confirmacion_borrador_v2(jsonb,jsonb,jsonb,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea)',
                 'vec_bolsa_convocatorias.confirmar_borrador_v1(text,jsonb,bytea)'
             ]
             WHEN 'vec_bolsa_convocatorias_verificador_recibo' THEN ARRAY[
@@ -251,6 +251,7 @@ BEGIN
         'vec_bolsa_convocatorias.reconciliar_operacion_borrador_v1(jsonb,text,bigint,bigint,timestamp with time zone)'::regprocedure,
         'vec_bolsa_convocatorias.reservar_decision_borrador_v1(jsonb,jsonb,bytea,bytea,bytea,bytea)'::regprocedure,
         'vec_bolsa_convocatorias.preparar_confirmacion_borrador_v1(jsonb,jsonb,jsonb,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea)'::regprocedure,
+        'vec_bolsa_convocatorias.preparar_confirmacion_borrador_v2(jsonb,jsonb,jsonb,bytea,bytea,bytea,bytea,bytea,bytea,bytea,bytea)'::regprocedure,
         'vec_bolsa_convocatorias.confirmar_borrador_v1(text,jsonb,bytea)'::regprocedure,
         'vec_bolsa_convocatorias.verificar_recibo_borrador_v1(text,text,text)'::regprocedure,
         'vec_bolsa_convocatorias.reclamar_reserva_borrador_v1(bigint,bigint,jsonb,jsonb,bytea,bytea,bytea,bytea)'::regprocedure,

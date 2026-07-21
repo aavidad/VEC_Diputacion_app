@@ -127,14 +127,14 @@ func TestMaterialIntencionMantieneRepresentacionCanonicaSerializable(t *testing.
 	const esperado = `{"esquema":"bolsa.convocatoria.intencion.v2",` +
 		`"accion":"bolsa.convocatoria.borrador.crear",` +
 		`"estado_principal_nuevo":{"referencia":"proceso:bolsa:auxiliar-2026#1",` +
-		`"revision":1,"huella_estado_sha256":"1d8e5ba98b4d0517d0ab981db867f5602b3f60eda5705b6aa23fadb44887b52e"},` +
+		`"revision":1,"huella_estado_sha256":"0622db0daf0af07fb9381417c983ec64a3ec248880cd58b583dd1ff92e759cac"},` +
 		`"dominio_criptografico_motivo":"bolsa.convocatoria.motivo.v1",` +
 		`"generacion_clave_motivo":3,` +
 		`"huella_motivo_hmac_sha256":"hmac-sha256:motivo-gobierno-v3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`
 	if string(contenido) != esperado {
 		t.Fatalf("golden V2 distinto:\n%s", contenido)
 	}
-	const huellaEsperada = "2f6f29fe7bbe8f6c61d4f8ee1d78cfec7ee08f6e159f4721484c7734f78e1d42"
+	const huellaEsperada = "1998d703597dcebc199daed2634cba504b9a01f665176001c0332a8c5638a702"
 	if huella := fmt.Sprintf("%x", sha256.Sum256(contenido)); huella != huellaEsperada {
 		t.Fatalf("huella golden V2 distinta: %s", huella)
 	}

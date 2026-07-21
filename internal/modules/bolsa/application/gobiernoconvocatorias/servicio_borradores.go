@@ -62,10 +62,7 @@ func NuevoServicioBorradores(
 	if !procedencia.valida() || !autoridadesPoliticaBorradorSeparadas(
 		politicasCifrado.IdentidadAutoridadBorrador(),
 		perfilesCifrado.IdentidadAutoridadBorrador(),
-	) || !autoridadesOperativasBorradorSeparadas(
-		confirmador.IdentidadAutoridadBorrador(),
-		verificador.IdentidadAutoridadBorrador(),
-	) {
+	) || !vinculacionVerificadorServicioBorradoresValida(confirmador, verificador) {
 		return nil, ErrServicioBorradoresInvalido
 	}
 	return &ServicioBorradores{
@@ -121,6 +118,7 @@ func (s *ServicioBorradores) Crear(
 	if plantilla.Referencia.Validar() != nil || plantilla.Referencia.ID != orden.Plantilla.ID ||
 		plantilla.Referencia.Version != orden.Plantilla.Version ||
 		plantilla.Referencia.HuellaContenidoSHA256 != orden.Plantilla.HuellaContenidoSHA256 ||
+		plantilla.Configuracion.Plantilla != plantilla.Referencia ||
 		plantilla.Configuracion.ValidarPara(orden.Contenido) != nil {
 		return ProyeccionReciboBorrador{}, ErrOrdenBorradorInvalida
 	}
@@ -570,7 +568,7 @@ func (s *ServicioBorradores) confirmar(
 	solicitud := SolicitudConfirmacionBorrador{
 		Reserva: proyeccion, Control: reserva, Version: ejecutar.version, Material: ejecutar.material,
 		Actor: actor, CorrelacionRef: base.correlacionRef, Concesion: concesion,
-		SelladoMotivo: sellado, PerfilCifrado: perfilCifrado,
+		SelladoMotivo: sellado, PoliticaCifrado: politicaCifrado, PerfilCifrado: perfilCifrado,
 		ResolucionPerfilCifrado: resolucionPerfil,
 		Cifrado:                 cifrado, Procedencia: s.procedencia, SolicitadaEn: instanteConfirmacion,
 	}

@@ -68,7 +68,7 @@ func TestDescifradoDurableRehidrataSoloVersionCanonicaExacta(t *testing.T) {
 	if _, err := NuevoResultadoDescifradoBorradorDurable(solicitud, noCanonico); !errors.Is(err, ErrDescifradoBorradorInvalido) {
 		t.Fatalf("se aceptó claro JSON no canónico: %v", err)
 	}
-	duplicado := append([]byte(`{"esquema":"bolsa.version-convocatoria.estado.v2",`), claro[1:]...)
+	duplicado := append([]byte(`{"esquema":"bolsa.version-convocatoria.estado.v3",`), claro[1:]...)
 	if _, err := NuevoResultadoDescifradoBorradorDurable(solicitud, duplicado); !errors.Is(err, ErrDescifradoBorradorInvalido) {
 		t.Fatalf("se aceptó claro con clave JSON duplicada: %v", err)
 	}

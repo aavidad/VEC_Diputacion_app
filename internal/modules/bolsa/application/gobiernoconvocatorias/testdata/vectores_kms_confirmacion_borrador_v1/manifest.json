@@ -1,0 +1,18 @@
+{
+  "esquema": "vec.pruebas.bolsa.vectores-kms-confirmacion-borrador.v1",
+  "huella_version_sha256": "e01dd122f3253ef5d8a3b703a761ef20b2d2adb58e710b44f22f6faef76b9959",
+  "huella_material_sha256": "26e5644ee191ea7d0d4f248a37f257bb374b58c5b37b3682de8a8b68d7ab0a39",
+  "huella_decision_politica_sha256": "088e07100bbdd18f6d0a2cae71d630bbe386f8083f8c5ce09a7956214b2e569c",
+  "huella_evidencia_perfil_sha256": "12a2dfb98bc4a93490d886e29ea955206ecea48f6abc3cc07d7878eee696bcab",
+  "huella_aad_sha256": "3f26bf41d88fc1f0ec6403b60bef5f3917176ac0df5981e8e139c08911fb7120",
+  "huella_envoltura_sha256": "c100b667e5a97126473f4d6906bf4cf73ffd24943c853458b2d06b2bc2b5ad3d",
+  "huella_sobre_sha256": "8c7267e1b07afd29c864503ae209c4a748dc9eb6a6d5e6bff9e5216110cb61e5",
+  "huella_preimagen_atestacion_sha256": "cc6da27e4b1819cc0e414166da45c0080ed8e3253ba590c707c485c5ffe58542",
+  "firma_atestacion_base64url_sin_relleno": "eGW0Zkr_QAxWrmpYg7LvNR2tpgF9FbUbdXAieasog0q27X07jZQDk1NXJmU3TnzXc56VAi4f_mUxOhIEK18MCQ",
+  "huella_firma_atestacion_sha256": "e396ff5bd1afcdff7ac9ecbd75df5a5133a05d37d08109382389907cb129b78c",
+  "huella_cuerpo_recibo_sha256": "0a75f6c473a4ba383a8589f602f84035d60621b02806241c238a6e99287bc856",
+  "huella_preimagen_revalidacion_sha256": "bf7af39717372ec06795b9466b286e1a786020f1798b1d6d7b2f25c22b8cd7f9",
+  "firma_revalidacion_base64url_sin_relleno": "ytYOC1e0nvX7YplrYQoqa6hnqF2TT-Kj86YxOMsES_c-wtYubdzVm2LvSjptU40DLLP5UUFG9XIc5S1Yi7MOAA",
+  "huella_firma_revalidacion_sha256": "b05295715d8843d26f58b24de4323a3761ee658777d2f198dcd1931fddb59e2b",
+  "huella_acreditacion_sha256": "2974f120df0ca7b7daafad2fbd2a376da0f6c040c8620ac090f4b8ea09571de3"
+}

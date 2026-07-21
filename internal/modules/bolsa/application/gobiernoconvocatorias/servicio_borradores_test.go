@@ -499,6 +499,7 @@ func datosPublicablesPrueba(t *testing.T) (
 		Catalogos: ref("catalogos:bolsa", '1'), Calendario: ref("calendario:bolsa", '2'),
 		ReglasBaremacion: ref("baremo:bolsa", '3'), FlujoProceso: ref("convocatoria-bolsa", '4'),
 		FlujoSolicitud: ref("solicitud-bolsa", '5'),
+		Plantilla:      ref("plantilla:bolsa:general", '8'),
 		Documentos: []dominiobolsa.ReferenciaDocumentoOficialConvocatoria{{
 			Rol: "bases", PublicacionRef: "documento:bases", DocumentoRef: "documento:logico:bases:001",
 			VersionDocumento: 1, RepresentacionRef: "representacion:pdf:bases:001",

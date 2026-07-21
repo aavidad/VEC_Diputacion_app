@@ -248,11 +248,27 @@ func (cifradorCapturaReservaPostgreSQL) CifrarBorrador(
 
 type confirmadorCapturaReservaPostgreSQL struct{}
 
+func vinculoCapturaReservaPostgreSQL() gobiernoconvocatorias.VinculoVerificadorReciboBorrador {
+	identidadPersistencia := verificadorCapturaReservaPostgreSQL{}.IdentidadAutoridadBorrador()
+	identidadCriptografica, _ := gobiernoconvocatorias.NuevaIdentidadAutoridadBorrador(
+		"cripto-captura", "instancia-cripto-captura",
+		"credencial-cripto-captura", "rol-cripto-captura",
+	)
+	vinculo, _ := gobiernoconvocatorias.NuevoVinculoVerificadorReciboBorrador(
+		identidadPersistencia, identidadCriptografica,
+	)
+	return vinculo
+}
+
 func (confirmadorCapturaReservaPostgreSQL) IdentidadAutoridadBorrador() gobiernoconvocatorias.IdentidadAutoridadBorrador {
 	identidad, _ := gobiernoconvocatorias.NuevaIdentidadAutoridadBorrador(
 		"confirmador-captura", "instancia-confirmador-captura", "credencial-confirmador-captura", "rol-confirmador-captura",
 	)
 	return identidad
+}
+
+func (confirmadorCapturaReservaPostgreSQL) VinculoVerificadorReciboBorrador() gobiernoconvocatorias.VinculoVerificadorReciboBorrador {
+	return vinculoCapturaReservaPostgreSQL()
 }
 
 func (confirmadorCapturaReservaPostgreSQL) ConfirmarBorrador(
@@ -268,6 +284,10 @@ func (verificadorCapturaReservaPostgreSQL) IdentidadAutoridadBorrador() gobierno
 		"verificador-captura", "instancia-verificador-captura", "credencial-verificador-captura", "rol-verificador-captura",
 	)
 	return identidad
+}
+
+func (verificadorCapturaReservaPostgreSQL) VinculoVerificadorReciboBorrador() gobiernoconvocatorias.VinculoVerificadorReciboBorrador {
+	return vinculoCapturaReservaPostgreSQL()
 }
 
 func (verificadorCapturaReservaPostgreSQL) VerificarReciboBorrador(
@@ -288,11 +308,13 @@ func solicitudReservaCompletaDiarioPostgreSQLPrueba(
 		t.Fatal(err)
 	}
 	contenido, configuracion, ambito := datosCapturaReservaDiarioPostgreSQLPrueba(t)
+	referenciaPlantilla := dominiobolsa.ReferenciaConfiguracionConvocatoria{
+		ID: "plantilla:bolsa:captura", Version: 2,
+		HuellaContenidoSHA256: strings.Repeat("8", 64),
+	}
+	configuracion.Plantilla = referenciaPlantilla
 	plantilla := gobiernoconvocatorias.PlantillaBorradorResuelta{
-		Referencia: dominiobolsa.ReferenciaConfiguracionConvocatoria{
-			ID: "plantilla:bolsa:captura", Version: 2,
-			HuellaContenidoSHA256: strings.Repeat("8", 64),
-		},
+		Referencia:    referenciaPlantilla,
 		Configuracion: configuracion,
 	}
 	catalogo := catalogoCapturaReservaDiarioPostgreSQL{plantilla: plantilla, ambito: ambito}
@@ -388,6 +410,7 @@ func datosCapturaReservaDiarioPostgreSQLPrueba(t *testing.T) (
 		ReglasBaremacion: referencia("baremo:bolsa", '3'),
 		FlujoProceso:     referencia("convocatoria-bolsa", '4'),
 		FlujoSolicitud:   referencia("solicitud-bolsa", '5'),
+		Plantilla:        referencia("plantilla:bolsa:captura", '8'),
 		Documentos: []dominiobolsa.ReferenciaDocumentoOficialConvocatoria{{
 			Rol: "bases", PublicacionRef: "documento:bases", DocumentoRef: "documento:logico:bases:captura",
 			VersionDocumento: 1, RepresentacionRef: "representacion:pdf:bases:captura",

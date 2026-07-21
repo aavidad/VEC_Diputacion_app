@@ -6,9 +6,10 @@ Esta matriz separa estados que no deben volver a contabilizarse como si fueran
 equivalentes. Una pantalla visible, un contrato probado, una prueba de
 PostgreSQL y una capacidad aceptada por RRHH son hitos distintos.
 
-El corte toma como base el código comprometido hasta `b41e06d`. Los cambios de
-T20A y del derivador HMAC que estén aún sin revisión o sin commit se indican
-como trabajo en curso y no se contabilizan como cerrados.
+El corte se revisa el 21 de julio de 2026 e incorpora los subtramos de identidad
+durable, lectura T20B y confirmación T20D que hayan superado revisión
+independiente. Un subtramo aislado no se contabiliza como E2E ni como capacidad
+productiva.
 
 ## Vocabulario de estado
 
@@ -30,7 +31,7 @@ validez administrativa; `🟡` parcial o probado de forma aislada; `🚧` en cur
 | --- | --- | --- | --- | --- | --- | --- |
 | Consulta pública | ✅ Servicio, minimización, filtros, API y catálogo | 🧪 Web → API → fuente de fichero DEMO | ✅ En `/bolsa/`, expresamente DEMO | ❌ | ❌ | Proyección durable de convocatorias aprobadas y publicador autorizado. |
 | Panel interno agregado | ✅ Dominio, aplicación, HTTP y lectura PostgreSQL | 🟡 PostgreSQL y HTTP probados por separado | 🧪 Solo presentación sintética | ❌ | ❌ | Componer identidad, PDP, productor de proyección y ruta interna. |
-| Bandeja y editor de borradores | 🚧 Web, HTTP, fachada, servicio, diario PostgreSQL y KMS por piezas | ❌ T20 aún no completa web → PostgreSQL → recibo | 🧪 Interfaz con datos de presentación | ❌ | ❌ | Cerrar T20A–E: confirmación, lectura, PDP V2, composición y E2E. |
+| Bandeja y editor de borradores | 🚧 Web, HTTP, fachada, servicio, diario PostgreSQL, lectura V2 y confirmación KMS/recibo reales por piezas | ❌ T20 aún no completa identidad → web → PDP → PostgreSQL/KMS → recibo | 🧪 Interfaz con datos de presentación | ❌ | ❌ | Cerrar `ContextoActor`, opciones/PDP, composición y T20E; lectura y confirmación ya están cerradas de forma aislada. |
 | Publicación, sustitución y retirada | 🟡 Dominio y contratos; fuera del cierre de T20 | ❌ | 🧪 Controles informativos | ❌ | ❌ | DEC-091: aprobación firmada, dependencias autoritativas y acto durable. |
 | Bases y reglas de baremo | ✅ Modelo versionado, topes, jornada, redondeo y cálculo; persistencia parcial | 🟡 Pruebas de núcleo/SQL, sin editor compuesto | 🧪 Pantalla y valores sintéticos | ❌ | ❌ | Fuente normativa autoritativa, editor RRHH, publicación y simulador conectados. |
 | Autobaremación del aspirante | 🟡 Flujo heredado `fake` y motor moderno aislado | 🟡 Recorrido heredado DEMO; no vertical moderna | 🧪 Sí, en modo heredado de demostración | ❌ | ❌ | Migrar a identidad, reglas publicadas, expediente, documentos y persistencia modernas. |
