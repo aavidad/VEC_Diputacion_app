@@ -116,6 +116,7 @@ type Config struct {
 	RRHHPresentationEnabled   bool
 	RRHHPresentationGuardOne  string
 	RRHHPresentationGuardTwo  string
+	BolsaBorradoresPostgreSQL ConfiguracionPostgreSQLBorradores
 }
 
 func Load() Config {
@@ -157,6 +158,11 @@ func Load() Config {
 		RRHHPresentationEnabled:   envBool(EnvRRHHPresentationEnabled),
 		RRHHPresentationGuardOne:  envFirst(EnvRRHHPresentationGuardOne),
 		RRHHPresentationGuardTwo:  envFirst(EnvRRHHPresentationGuardTwo),
+		BolsaBorradoresPostgreSQL: ConfiguracionPostgreSQLBorradores{
+			dsnEjecutorConsulta:  envFirst(EnvBolsaBorradoresEjecutorConsultaDatabaseURL),
+			dsnProyectorGobierno: envFirst(EnvBolsaBorradoresProyectorGobiernoDatabaseURL),
+			dsnVerificadorRecibo: envFirst(EnvBolsaBorradoresVerificadorReciboDatabaseURL),
+		},
 	}.Normalize()
 }
 
@@ -238,6 +244,7 @@ func (c Config) Normalize() Config {
 	c.OSRMAllowedCIDRs = normalizeOptionalCIDRs(c.OSRMAllowedCIDRs)
 	c.RRHHPresentationGuardOne = strings.TrimSpace(c.RRHHPresentationGuardOne)
 	c.RRHHPresentationGuardTwo = strings.TrimSpace(c.RRHHPresentationGuardTwo)
+	c.BolsaBorradoresPostgreSQL = c.BolsaBorradoresPostgreSQL.normalizar()
 	return c
 }
 
