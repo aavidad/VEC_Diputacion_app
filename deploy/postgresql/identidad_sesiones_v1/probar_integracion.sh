@@ -22,12 +22,16 @@ clave_registrador=
 clave_revalidador=
 clave_revocador=
 clave_mixto=
+clave_revalidador_ajeno=
+clave_revalidador_acceso=
 generar_clave clave_admin
 generar_clave clave_provisionador
 generar_clave clave_registrador
 generar_clave clave_revalidador
 generar_clave clave_revocador
 generar_clave clave_mixto
+generar_clave clave_revalidador_ajeno
+generar_clave clave_revalidador_acceso
 
 limpiar() {
     docker rm -f "$contenedor" >/dev/null 2>&1 || true
@@ -105,12 +109,14 @@ instalar_identidad() {
     psql_archivo deploy/postgresql/identidad_sesiones_v1/migraciones_autorizacion/000001_capacidad_tablas_v1.up.sql
     psql_archivo deploy/postgresql/identidad_sesiones_v1/migraciones/000001_registro_base_v1.up.sql
     psql_archivo deploy/postgresql/identidad_sesiones_v1/migraciones/000002_operaciones_v1.up.sql
+    psql_archivo deploy/postgresql/identidad_sesiones_v1/migraciones/000003_revalidacion_autenticacion_actor_v1.up.sql
 }
 
 instalar_identidad
 psql_archivo deploy/postgresql/identidad_sesiones_v1/pruebas_sql/acl_y_modelo.sql
 
 # Ciclo limpio de down antes de crear historia inmutable.
+psql_archivo deploy/postgresql/identidad_sesiones_v1/migraciones/000003_revalidacion_autenticacion_actor_v1.down.sql
 psql_archivo deploy/postgresql/identidad_sesiones_v1/migraciones/000002_operaciones_v1.down.sql
 psql_archivo deploy/postgresql/identidad_sesiones_v1/migraciones/000001_registro_base_v1.down.sql
 psql_archivo deploy/postgresql/identidad_sesiones_v1/migraciones_autorizacion/000001_capacidad_tablas_v1.down.sql
@@ -125,6 +131,8 @@ docker exec --interactive \
     --env CLAVE_REVALIDADOR="$clave_revalidador" \
     --env CLAVE_REVOCADOR="$clave_revocador" \
     --env CLAVE_MIXTO="$clave_mixto" \
+    --env CLAVE_REVALIDADOR_AJENO="$clave_revalidador_ajeno" \
+    --env CLAVE_REVALIDADOR_ACCESO="$clave_revalidador_acceso" \
     "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base" <<'SQL'
 \getenv clave_provisionador CLAVE_PROVISIONADOR
@@ -132,6 +140,8 @@ docker exec --interactive \
 \getenv clave_revalidador CLAVE_REVALIDADOR
 \getenv clave_revocador CLAVE_REVOCADOR
 \getenv clave_mixto CLAVE_MIXTO
+\getenv clave_revalidador_ajeno CLAVE_REVALIDADOR_AJENO
+\getenv clave_revalidador_acceso CLAVE_REVALIDADOR_ACCESO
 CREATE ROLE vec_identidad_provisionador_prueba LOGIN NOSUPERUSER NOCREATEDB
     NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'clave_provisionador';
 CREATE ROLE vec_identidad_registrador_prueba LOGIN NOSUPERUSER NOCREATEDB
@@ -142,6 +152,12 @@ CREATE ROLE vec_identidad_revocador_prueba LOGIN NOSUPERUSER NOCREATEDB
     NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'clave_revocador';
 CREATE ROLE vec_identidad_mixto_prueba LOGIN NOSUPERUSER NOCREATEDB
     NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'clave_mixto';
+CREATE ROLE vec_identidad_rol_ajeno_prueba NOLOGIN NOSUPERUSER NOCREATEDB
+    NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+CREATE ROLE vec_identidad_revalidador_ajeno_prueba LOGIN NOSUPERUSER NOCREATEDB
+    NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'clave_revalidador_ajeno';
+CREATE ROLE vec_identidad_revalidador_acceso_prueba LOGIN NOSUPERUSER NOCREATEDB
+    NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'clave_revalidador_acceso';
 GRANT vec_identidad_sesiones_v1_provisionador
     TO vec_identidad_provisionador_prueba
     WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
@@ -159,6 +175,18 @@ GRANT vec_identidad_sesiones_v1_registrador
     WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
 GRANT vec_identidad_sesiones_v1_revalidador
     TO vec_identidad_mixto_prueba
+    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT vec_identidad_sesiones_v1_revalidador
+    TO vec_identidad_revalidador_ajeno_prueba
+    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT vec_identidad_rol_ajeno_prueba
+    TO vec_identidad_revalidador_ajeno_prueba
+    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT vec_identidad_sesiones_v1_revalidador
+    TO vec_identidad_revalidador_acceso_prueba
+    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT vec_identidad_sesiones_v1_propietario
+    TO vec_identidad_revalidador_acceso_prueba
     WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
 SQL
 
@@ -193,6 +221,15 @@ rechazar_runtime vec_identidad_mixto_prueba "$clave_mixto" \
 rechazar_runtime vec_identidad_registrador_prueba "$clave_registrador" \
     "SELECT vec_identidad_sesiones_v1.revalidar_sesion_y_cuentas_v1(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)" \
     'el registrador puede revalidar'
+rechazar_runtime vec_identidad_registrador_prueba "$clave_registrador" \
+    "SELECT * FROM vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(NULL,NULL)" \
+    'el registrador puede proyectar autenticacion de actor'
+rechazar_runtime vec_identidad_provisionador_prueba "$clave_provisionador" \
+    "SELECT * FROM vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(NULL,NULL)" \
+    'el provisionador puede proyectar autenticacion de actor'
+rechazar_runtime vec_identidad_revocador_prueba "$clave_revocador" \
+    "SELECT * FROM vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(NULL,NULL)" \
+    'el revocador puede proyectar autenticacion de actor'
 rechazar_runtime vec_identidad_revalidador_prueba "$clave_revalidador" \
     "SELECT * FROM vec_identidad_sesiones_v1.registrar_sesion_v1(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)" \
     'el revalidador puede registrar'
@@ -212,16 +249,24 @@ fi
 export VEC_POSTGRES_TEST_IDENTIDAD_REGISTRO_DSN="postgres://vec_identidad_registrador_prueba:${clave_registrador}@${host}:${puerto}/${base}?sslmode=disable"
 export VEC_POSTGRES_TEST_IDENTIDAD_REVALIDACION_DSN="postgres://vec_identidad_revalidador_prueba:${clave_revalidador}@${host}:${puerto}/${base}?sslmode=disable"
 export VEC_POSTGRES_TEST_IDENTIDAD_PROVISIONADOR_DSN="postgres://vec_identidad_provisionador_prueba:${clave_provisionador}@${host}:${puerto}/${base}?sslmode=disable"
+export VEC_POSTGRES_TEST_IDENTIDAD_REVOCADOR_DSN="postgres://vec_identidad_revocador_prueba:${clave_revocador}@${host}:${puerto}/${base}?sslmode=disable"
 export VEC_POSTGRES_TEST_IDENTIDAD_MIXTO_DSN="postgres://vec_identidad_mixto_prueba:${clave_mixto}@${host}:${puerto}/${base}?sslmode=disable"
+export VEC_POSTGRES_TEST_IDENTIDAD_REVALIDACION_AJENA_DSN="postgres://vec_identidad_revalidador_ajeno_prueba:${clave_revalidador_ajeno}@${host}:${puerto}/${base}?sslmode=disable"
+export VEC_POSTGRES_TEST_IDENTIDAD_REVALIDACION_ACCESO_DSN="postgres://vec_identidad_revalidador_acceso_prueba:${clave_revalidador_acceso}@${host}:${puerto}/${base}?sslmode=disable"
+export VEC_POSTGRES_TEST_IDENTIDAD_ADMIN_DSN="postgres://postgres:${clave_admin}@${host}:${puerto}/${base}?sslmode=disable"
 (
     cd "$raiz"
-    go test -count=1 -run '^TestIntegracionRegistroSesionesPostgreSQL18$' \
+    go test -count=1 -run '^TestIntegracion.*PostgreSQL18$' \
         ./internal/vec/adapters/httpseguridad/postgres
 )
 unset VEC_POSTGRES_TEST_IDENTIDAD_REGISTRO_DSN
 unset VEC_POSTGRES_TEST_IDENTIDAD_REVALIDACION_DSN
 unset VEC_POSTGRES_TEST_IDENTIDAD_PROVISIONADOR_DSN
+unset VEC_POSTGRES_TEST_IDENTIDAD_REVOCADOR_DSN
 unset VEC_POSTGRES_TEST_IDENTIDAD_MIXTO_DSN
+unset VEC_POSTGRES_TEST_IDENTIDAD_REVALIDACION_AJENA_DSN
+unset VEC_POSTGRES_TEST_IDENTIDAD_REVALIDACION_ACCESO_DSN
+unset VEC_POSTGRES_TEST_IDENTIDAD_ADMIN_DSN
 
 psql_archivo deploy/postgresql/identidad_sesiones_v1/pruebas_sql/preparar_frontera_frescura.sql
 docker exec --interactive "$contenedor" psql -X --quiet \
@@ -252,6 +297,12 @@ psql_archivo deploy/postgresql/identidad_sesiones_v1/pruebas_sql/integracion_mec
 # Tras crear historia, ningun down puede retirar las APIs que la revalidan o
 # revocan ni borrar cuentas, aserciones y sesiones auditables.
 if psql_archivo \
+    deploy/postgresql/identidad_sesiones_v1/migraciones/000003_revalidacion_autenticacion_actor_v1.down.sql \
+    >/dev/null 2>&1; then
+    echo 'el down retiro la revalidacion rica con historia de identidad' >&2
+    exit 1
+fi
+if psql_archivo \
     deploy/postgresql/identidad_sesiones_v1/migraciones/000002_operaciones_v1.down.sql \
     >/dev/null 2>&1; then
     echo 'el down retiro operaciones con historia de identidad' >&2
@@ -265,7 +316,7 @@ if psql_archivo \
 fi
 if ! docker exec "$contenedor" psql -X --quiet --tuples-only \
     --username postgres --dbname "$base" --command "
-        SELECT count(*) = 3
+        SELECT count(*) = 4
           FROM pg_catalog.pg_proc AS funcion
           JOIN pg_catalog.pg_namespace AS espacio
             ON espacio.oid = funcion.pronamespace
@@ -273,6 +324,7 @@ if ! docker exec "$contenedor" psql -X --quiet --tuples-only \
            AND funcion.proname IN (
                'registrar_sesion_v1',
                'revalidar_sesion_y_cuentas_v1',
+               'revalidar_autenticacion_actor_v1',
                'revocar_sesion_v1'
            )" | tr -d '[:space:]' | grep -qx t; then
     echo 'un down fallido dejo las operaciones de identidad incompletas' >&2

@@ -1,8 +1,8 @@
 # Registro durable de identidad y sesiones V1
 
-Este corte implementa el puerto `httpseguridad.RegistroSesiones` sin crear una
-segunda fuente de verdad. Las sesiones y sus controles se escriben directamente
-en:
+Este corte implementa el puerto `httpseguridad.RegistroSesiones` y la proyeccion
+rica `ports.RevalidadorAutenticacionActorV1` sin crear una segunda fuente de
+verdad. Las sesiones y sus controles se escriben directamente en:
 
 - `vec_autorizacion.sesion_autenticacion_v1`;
 - `vec_autorizacion.control_sesion_v1`;
@@ -141,6 +141,7 @@ Después se aplica exactamente este orden:
    de autorización;
 3. `migraciones/000001_registro_base_v1.up.sql`;
 4. `migraciones/000002_operaciones_v1.up.sql`.
+5. `migraciones/000003_revalidacion_autenticacion_actor_v1.up.sql`.
 
 El paso 2 crea la `UNIQUE` compuesta que necesitan las FKs del paso 3. El runner
 demuestra que invertirlos falla y que la transacción no deja objetos parciales.
@@ -171,12 +172,16 @@ El runner levanta PostgreSQL 18 efímero y verifica, entre otros puntos:
   funciones/tablas;
 - LOGIN separados, membresía única y prohibición efectiva de `SET ROLE`;
 - alta y revalidación reales mediante pools pgx distintos;
+- proyección rica desde solo `aut_ref` y `ses_ref`, sin aceptar atributos
+  declarados de cuenta, superficie, método o garantía;
 - normalización UTC real de `timestamptz`;
 - carrera de dos consumos de la misma aserción y carrera de dos aserciones para
   la misma sesión IdP, sin temporizadores: exactamente uno confirma;
 - replay incluso tras rotar HMAC, reconciliación exacta, TTL, revocación y
   transición de cuentas;
 - frescura por superficie y rechazo cuando caduca mientras espera un bloqueo;
+- referencias cruzadas, aserción desligada bajo corrupción transaccional,
+  revocación mientras la revalidación espera y cardinalidad exacta;
 - rotación HMAC que conserva la `cta_`;
 - cuenta inactiva/reactivada que no recupera una sesión anterior.
 
