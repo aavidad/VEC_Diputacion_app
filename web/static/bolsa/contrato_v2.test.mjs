@@ -139,6 +139,50 @@ test("V2 falla cerrado cuando la referencia, huella o versión no son coherentes
   }
 });
 
+test("V2 aplica patrón y fronteras exactas al snapshot de catálogo", () => {
+  const referenciaMaxima = `a${"0._-".repeat(31)}xyz`;
+  assert.equal(referenciaMaxima.length, 128);
+  assert.doesNotThrow(() => contrato.validarCatalogoCategorias({
+    referencia: "a", version: 1, huella_sha256: HUELLA_A,
+  }));
+  assert.doesNotThrow(() => contrato.validarCatalogoCategorias({
+    referencia: referenciaMaxima, version: 2147483647, huella_sha256: HUELLA_B,
+  }));
+
+  for (const referencia of ["", "1catalogo", "Catalogo", "cat/privado", "categoría", `${referenciaMaxima}x`]) {
+    assert.throws(() => contrato.validarCatalogoCategorias({
+      referencia, version: 1, huella_sha256: HUELLA_A,
+    }), /snapshot/);
+  }
+  for (const version of [0, 2147483648, 1.5, "1"]) {
+    assert.throws(() => contrato.validarCatalogoCategorias({
+      referencia: "categorias-profesionales", version, huella_sha256: HUELLA_A,
+    }), /snapshot/);
+  }
+});
+
+test("V2 liga cada entrada a su versión y mantiene un snapshot único por versión", () => {
+  assert.throws(() => contrato.crearDiccionario([
+    categoria("auxiliar-administrativo", 1, snapshot(2, HUELLA_A)),
+  ]), /ambiguo/);
+
+  const conflictos = [
+    { referencia: "otro-catalogo", version: 1, huella_sha256: HUELLA_A },
+    snapshot(1, HUELLA_B),
+  ];
+  for (const catalogoConflicto of conflictos) {
+    assert.throws(() => contrato.crearDiccionario([
+      categoria("auxiliar-administrativo", 1, snapshot(1, HUELLA_A)),
+      categoria("administrativo", 1, catalogoConflicto),
+    ]), /ambiguo/);
+  }
+
+  assert.equal(contrato.crearDiccionario([
+    categoria("auxiliar-administrativo", 1, snapshot(1, HUELLA_A)),
+    categoria("administrativo", 1, snapshot(1, HUELLA_A)),
+  ]).size, 2);
+});
+
 test("V2 aplica la sintaxis canónica exacta de categoría", () => {
   for (const clave of ["Auxiliar", "auxiliar.admin", "auxiliar-", "auxiliar\u0000admin", "áuxiliar", `${"a".repeat(80)}b`]) {
     assert.throws(() => contrato.crearDiccionario([categoria(clave, 1)]), /inválida/);
