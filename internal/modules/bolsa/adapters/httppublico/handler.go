@@ -3,35 +3,54 @@
 package httppublico
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
 const (
-	RutaConvocatorias = "/api/publico/bolsa/convocatorias"
-	RutaCategorias    = "/api/publico/bolsa/categorias"
+	RutaConvocatorias              = "/api/publico/bolsa/convocatorias"
+	RutaCategorias                 = "/api/publico/bolsa/categorias"
+	duracionMaximaOperacionPublica = 8 * time.Second
+	maximoOperacionesConcurrentes  = 6
 )
 
 type Handler struct {
-	servicio *aplicacionbolsa.ServicioConsultaPublica
+	servicio servicioConsultaPublica
+	cupos    chan struct{}
+	duracion time.Duration
+}
+
+type servicioConsultaPublica interface {
+	Listar(context.Context, aplicacionbolsa.SolicitudListadoPublico) (aplicacionbolsa.ListadoConvocatoriasPublicas, error)
+	Obtener(context.Context, string) (aplicacionbolsa.DetalleConvocatoriaPublica, error)
+	ListarCategorias(context.Context) (aplicacionbolsa.DirectorioCategoriasPublicas, error)
 }
 
 func NuevoHandler(servicio *aplicacionbolsa.ServicioConsultaPublica) (http.Handler, error) {
 	if servicio == nil {
 		return nil, aplicacionbolsa.ErrServicioConsultaPublicaInvalido
 	}
-	return &Handler{servicio: servicio}, nil
+	return nuevoHandler(servicio, maximoOperacionesConcurrentes, duracionMaximaOperacionPublica), nil
+}
+
+func nuevoHandler(servicio servicioConsultaPublica, concurrencia int, duracion time.Duration) *Handler {
+	if servicio == nil || concurrencia < 1 || duracion <= 0 {
+		return &Handler{}
+	}
+	return &Handler{servicio: servicio, cupos: make(chan struct{}, concurrencia), duracion: duracion}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r == nil || h == nil || h.servicio == nil {
+	if r == nil || h == nil || h.servicio == nil || h.cupos == nil || h.duracion <= 0 {
 		responderError(w, http.StatusServiceUnavailable, "servicio_no_disponible", "Servicio no disponible.")
 		return
 	}
@@ -42,25 +61,37 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderError(w, http.StatusBadRequest, "ruta_invalida", "La ruta no es válida.")
 		return
 	}
+	var servir func(http.ResponseWriter, *http.Request)
 	if r.URL.Path == RutaConvocatorias {
-		h.listar(w, r)
-		return
-	}
-	if r.URL.Path == RutaCategorias {
-		h.listarCategorias(w, r)
-		return
-	}
-	prefijo := RutaConvocatorias + "/"
-	if strings.HasPrefix(r.URL.Path, prefijo) {
-		identificador := strings.TrimPrefix(r.URL.Path, prefijo)
-		if identificador == "" || strings.Contains(identificador, "/") {
-			responderError(w, http.StatusNotFound, "recurso_no_encontrado", "Recurso no encontrado.")
-			return
+		servir = h.listar
+	} else if r.URL.Path == RutaCategorias {
+		servir = h.listarCategorias
+	} else {
+		prefijo := RutaConvocatorias + "/"
+		if strings.HasPrefix(r.URL.Path, prefijo) {
+			identificador := strings.TrimPrefix(r.URL.Path, prefijo)
+			if identificador == "" || strings.Contains(identificador, "/") {
+				responderError(w, http.StatusNotFound, "recurso_no_encontrado", "Recurso no encontrado.")
+				return
+			}
+			servir = func(w http.ResponseWriter, r *http.Request) { h.detalle(w, r, identificador) }
 		}
-		h.detalle(w, r, identificador)
+	}
+	if servir == nil {
+		responderError(w, http.StatusNotFound, "recurso_no_encontrado", "Recurso no encontrado.")
 		return
 	}
-	responderError(w, http.StatusNotFound, "recurso_no_encontrado", "Recurso no encontrado.")
+	select {
+	case h.cupos <- struct{}{}:
+		defer func() { <-h.cupos }()
+	default:
+		w.Header().Set("Retry-After", "1")
+		responderError(w, http.StatusTooManyRequests, "capacidad_temporal_agotada", "Inténtelo de nuevo en unos instantes.")
+		return
+	}
+	ctx, cancelar := context.WithTimeout(r.Context(), h.duracion)
+	defer cancelar()
+	servir(w, r.WithContext(ctx))
 }
 
 func (h *Handler) listarCategorias(w http.ResponseWriter, r *http.Request) {
@@ -166,6 +197,8 @@ func metodoLectura(w http.ResponseWriter, r *http.Request) bool {
 
 func responderErrorAplicacion(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		responderError(w, http.StatusGatewayTimeout, "tiempo_operacion_agotado", "La consulta ha superado el tiempo disponible.")
 	case errors.Is(err, puertosbolsa.ErrConvocatoriaNoEncontrada):
 		responderError(w, http.StatusNotFound, "convocatoria_no_encontrada", "Convocatoria no encontrada.")
 	case errors.Is(err, aplicacionbolsa.ErrFiltroPublicoInvalido), errors.Is(err, puertosbolsa.ErrConsultaConvocatoriasInvalida):
