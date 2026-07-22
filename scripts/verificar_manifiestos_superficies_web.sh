@@ -6,6 +6,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 manifiesto_publico="web/publico.manifest"
 manifiesto_interno="web/interno.manifest"
+manifiesto_locales_internos="web/interno.locales.manifest"
 temporales=()
 
 limpiar() {
@@ -92,5 +93,23 @@ if ! cmp -s "${compartidos}" "${esperados}"; then
 	exit 1
 fi
 
-printf 'Manifiestos web aislados: %s recursos publicos, %s internos y %s compartidos autorizados.\n' \
-	"$(wc -l <"${publico}")" "$(wc -l <"${interno}")" "$(wc -l <"${compartidos}")"
+locales_internos="$(mktemp)"
+temporales+=("${locales_internos}")
+test -s "${manifiesto_locales_internos}" ||
+	fallar "El manifiesto de traducciones internas falta o esta vacio."
+while IFS= read -r ruta || [[ -n "${ruta}" ]]; do
+	[[ "${ruta}" =~ ^[A-Za-z0-9._/-]+\.json$ ]] ||
+		fallar "Ruta de traduccion interna no canonica: ${ruta}"
+	[[ "${ruta}" != *".."* && "${ruta}" != *"//"* ]] ||
+		fallar "Ruta de traduccion interna no canonica: ${ruta}"
+	[[ -f "locales/${ruta}" ]] || fallar "Falta la traduccion interna: ${ruta}"
+	printf '%s\n' "${ruta}" >>"${locales_internos}"
+done <"${manifiesto_locales_internos}"
+if [[ "$(LC_ALL=C sort -u "${locales_internos}" | wc -l)" -ne "$(wc -l <"${locales_internos}")" ]]; then
+	fallar "El manifiesto de traducciones internas contiene rutas duplicadas."
+fi
+grep -Fxq es.json "${locales_internos}" || fallar "Falta la traduccion castellana obligatoria."
+
+printf 'Manifiestos aislados: %s recursos publicos, %s internos, %s compartidos y %s traducciones internas.\n' \
+	"$(wc -l <"${publico}")" "$(wc -l <"${interno}")" "$(wc -l <"${compartidos}")" \
+	"$(wc -l <"${locales_internos}")"

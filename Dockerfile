@@ -93,7 +93,15 @@ RUN for superficie in publico interno; do \
   && test ! -e /src/web-interno/static/area-personal \
   && ! find /src/web-publico /src/web-interno -type f \
        \( -iname '*.test.js' -o -iname '*.test.mjs' -o -iname '*demo*' -o -iname '*presentacion*' \) \
-       -print -quit | grep -q .
+       -print -quit | grep -q . \
+  && install -d /src/locales-interno \
+  && while IFS= read -r ruta; do \
+       test -n "${ruta}"; \
+       test "${ruta#/}" = "${ruta}"; \
+       test "${ruta#*..}" = "${ruta}"; \
+       test -f "/src/locales/${ruta}"; \
+       install -D -m 0644 "/src/locales/${ruta}" "/src/locales-interno/${ruta}"; \
+     done </src/web/interno.locales.manifest
 
 # Artefacto deliberadamente distinto. Incluye exclusivamente datos sinteticos,
 # no declara volumen durable y su composicion no crea conectores externos.
@@ -183,6 +191,7 @@ RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nolog
 
 COPY --from=build /src/bin/vec-interno /usr/local/bin/vec-interno
 COPY --from=build /src/web-interno /app/web
+COPY --from=build /src/locales-interno /app/locales
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 USER app

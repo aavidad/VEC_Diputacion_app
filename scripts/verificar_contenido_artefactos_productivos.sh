@@ -13,6 +13,7 @@ imagen_publica="$1"
 imagen_interna="${2:-}"
 temporal="$(mktemp -d)"
 contenedores=()
+declare -A contenedor_por_superficie=()
 
 limpiar() {
 	for contenedor in "${contenedores[@]}"; do
@@ -35,8 +36,26 @@ extraer_superficie() {
 	mkdir -p "${destino}/web" "${destino}/bin"
 	contenedor="$(docker create "${imagen}")"
 	contenedores+=("${contenedor}")
+	contenedor_por_superficie["${superficie}"]="${contenedor}"
 	docker cp "${contenedor}:/app/web/." "${destino}/web"
 	docker cp "${contenedor}:/usr/local/bin/." "${destino}/bin"
+}
+
+verificar_locales_internos() {
+	local contenedor="${contenedor_por_superficie[interno]}"
+	local destino="${temporal}/interno/locales"
+	local esperado="${temporal}/interno/locales-esperados"
+	local real="${temporal}/interno/locales-reales"
+	mkdir -p "${destino}"
+	docker cp "${contenedor}:/app/locales/." "${destino}"
+	LC_ALL=C sort -u web/interno.locales.manifest >"${esperado}"
+	find "${destino}" -type f -printf '%P\n' | LC_ALL=C sort >"${real}"
+	cmp -s "${esperado}" "${real}" ||
+		fallar "interno: el inventario de traducciones no coincide con su manifiesto."
+	if find "${destino}" -type l -print -quit | grep -q . ||
+		find "${destino}" -type f -perm /022 -print -quit | grep -q .; then
+		fallar "interno: una traduccion es enlazable o modificable en ejecucion."
+	fi
 }
 
 verificar_configuracion() {
@@ -101,6 +120,11 @@ extraer_superficie publico "${imagen_publica}"
 verificar_configuracion publico "${imagen_publica}" vec-publico
 verificar_inventario publico web/publico.manifest vec-publico
 
+if docker cp "${contenedor_por_superficie[publico]}:/app/locales/." \
+	"${temporal}/publico/locales-no-autorizados" >/dev/null 2>&1; then
+	fallar "publico: el artefacto incorpora traducciones de la superficie interna."
+fi
+
 if rg -n '/api/vec|/portal-empleado|/area-personal|credentials[[:space:]]*:[[:space:]]*.include|document\.cookie|localStorage|sessionStorage' \
 	"${temporal}/publico/web" >/dev/null; then
 	fallar "publico: el cliente contiene una ruta interna o estado de sesion prohibido."
@@ -114,6 +138,7 @@ fi
 extraer_superficie interno "${imagen_interna}"
 verificar_configuracion interno "${imagen_interna}" vec-interno
 verificar_inventario interno web/interno.manifest vec-interno
+verificar_locales_internos
 
 # Una superficie puede enlazar a otra a traves del proxy de borde (por
 # ejemplo, abrir la consulta publica o verificar un recibo). Lo que no puede
