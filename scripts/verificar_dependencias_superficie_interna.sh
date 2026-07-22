@@ -13,9 +13,10 @@ fi
 dependencias="$(mktemp)"
 trap 'unlink "${dependencias}" 2>/dev/null || true' EXIT
 
-# C4 admite exactamente la configuracion, el contrato de superficie y el
-# dominio de identidad que valida dicho contrato. C5/C6 ampliaran esta lista
-# de forma deliberada al aportar proveedores productivos reales.
+# C4 admite exactamente la configuracion, el contrato de superficie, los
+# presupuestos HTTP compartidos y el dominio de identidad que valida dicho
+# contrato. C5/C6 ampliaran esta lista de forma deliberada al aportar
+# proveedores productivos reales.
 LC_ALL=C go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' "${objetivo}" |
 	LC_ALL=C sed '/^$/d' | LC_ALL=C sort -u >"${dependencias}"
 
@@ -26,6 +27,7 @@ while IFS= read -r paquete; do
 			"${modulo}/config" | \
 			"${modulo}/internal/app/composicion/interna" | \
 			"${modulo}/internal/app/server" | \
+			"${modulo}/internal/shared/limiteshttp" | \
 			"${modulo}/internal/vec/adapters/httpseguridad" | \
 			"${modulo}/internal/vec/domain" | \
 			golang.org/x/text/transform | \
