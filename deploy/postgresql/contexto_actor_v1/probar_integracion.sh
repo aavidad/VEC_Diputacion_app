@@ -2,11 +2,13 @@
 set -euo pipefail
 
 raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+cd "$raiz"
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
 contenedor="vec-contexto-actor-v1-pg-${USER:-usuario}-$$"
 base=vec_contexto_actor_v1_prueba
 clave_admin=$(od -An -N24 -tx1 /dev/urandom | tr -d '[:space:]')
 clave_runtime=$(od -An -N24 -tx1 /dev/urandom | tr -d '[:space:]')
+clave_acreditador=$(od -An -N24 -tx1 /dev/urandom | tr -d '[:space:]')
 
 limpiar() { docker rm -f "$contenedor" >/dev/null 2>&1 || true; }
 trap limpiar EXIT INT TERM
@@ -18,6 +20,13 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 docker exec "$contenedor" pg_isready --username postgres --dbname "$base" >/dev/null
+version_mayor=$(docker exec "$contenedor" psql -X --no-align --tuples-only \
+  --set ON_ERROR_STOP=1 --username postgres --dbname "$base" --command \
+  "SELECT current_setting('server_version_num')::integer / 10000")
+[[ $version_mayor == 18 ]] || {
+  echo "se requiere PostgreSQL 18; la imagen inicio PostgreSQL $version_mayor" >&2
+  exit 1
+}
 
 psql_archivo() {
   docker exec --interactive "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
@@ -156,16 +165,46 @@ UPDATE vec_contexto_actor_v1.vinculo_referencia_actual SET version=2
 COMMIT;
 SQL
 
+docker exec --interactive --env CLAVE_ACREDITADOR="$clave_acreditador" "$contenedor" \
+  psql -X --quiet --set ON_ERROR_STOP=1 --username postgres --dbname "$base" <<'SQL'
+\getenv clave_acreditador CLAVE_ACREDITADOR
+CREATE ROLE vec_contexto_actor_acreditador_prueba LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+  INHERIT NOREPLICATION NOBYPASSRLS PASSWORD :'clave_acreditador';
+GRANT CONNECT ON DATABASE vec_contexto_actor_v1_prueba
+  TO vec_contexto_actor_acreditador_prueba;
+GRANT USAGE ON SCHEMA vec_contexto_actor_v1
+  TO vec_contexto_actor_acreditador_prueba;
+GRANT EXECUTE ON FUNCTION
+  vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(
+    text,text,text,text,text,text,numeric,text,numeric,text,numeric,text,numeric,
+    text,text,timestamptz,timestamptz
+  ) TO vec_contexto_actor_acreditador_prueba;
+SQL
+
 puerto=$(docker port "$contenedor" 5432/tcp | head -n1); puerto=${puerto##*:}
 dsn="postgres://vec_contexto_actor_runtime_prueba:${clave_runtime}@127.0.0.1:${puerto}/${base}?sslmode=disable"
+dsn_acreditador="postgres://vec_contexto_actor_acreditador_prueba:${clave_acreditador}@127.0.0.1:${puerto}/${base}?sslmode=disable"
 if [[ ${VEC_CONTEXTO_ACTOR_OMITIR_GO:-0} != 1 ]]; then
   go test ./internal/vec/application \
     -run '^TestServicioContextoActorProductivoRechazaAutoridadNoAutoritativa$' -count=1
   VEC_CONTEXTO_ACTOR_V2_POSTGRES_DSN="$dsn" \
+    VEC_CONTEXTO_ACTOR_ACREDITADOR_V2_POSTGRES_DSN="$dsn_acreditador" \
     go test ./internal/vec/adapters/contextoactor/postgres \
-    -run '^(TestIntegracionPostgreSQLContextoActorV2|TestReconciliacionPostgreSQLContextoActorV2EsperaFinalizacionConcurrente|TestResolutorContextoActorPostgreSQLRechazaManifiestoAdulteradoONoAutoritativo|TestResolutorContextoActorPostgreSQLNoHaceSegundoReintento)$' \
+    -run '^(TestIntegracionPostgreSQLContextoActorV2|TestReconciliacionPostgreSQLContextoActorV2EsperaFinalizacionConcurrente|TestResolutorContextoActorPostgreSQLRechazaManifiestoAdulteradoONoAutoritativo|TestResolutorContextoActorPostgreSQLNoHaceSegundoReintento|TestAcreditadorUsoRegistroContextoActorPostgreSQLV2IntegracionPostgreSQL18)$' \
     -count=1
 fi
+psql_admin <<'SQL'
+REVOKE EXECUTE ON FUNCTION
+  vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(
+    text,text,text,text,text,text,numeric,text,numeric,text,numeric,text,numeric,
+    text,text,timestamptz,timestamptz
+  ) FROM vec_contexto_actor_acreditador_prueba;
+REVOKE USAGE ON SCHEMA vec_contexto_actor_v1
+  FROM vec_contexto_actor_acreditador_prueba;
+REVOKE CONNECT ON DATABASE vec_contexto_actor_v1_prueba
+  FROM vec_contexto_actor_acreditador_prueba;
+DROP ROLE vec_contexto_actor_acreditador_prueba;
+SQL
 
 # Recibo nominal para probar la acreditacion cerrada sin depender de datos ni
 # tipos del adaptador Go/PDP.
