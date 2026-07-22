@@ -2,9 +2,9 @@ package main
 
 import (
 	"errors"
-	"io"
 	"log"
 	"net/http"
+	"os"
 
 	"vec-diputacion-granada/internal/app/composicion/interna"
 )
@@ -32,7 +32,7 @@ func ejecutar() error {
 
 	// net/http incluye direcciones remotas y errores TLS crudos en ErrorLog.
 	// La raiz cerrada no publica esos datos mediante el cmd.
-	servidor.ErrorLog = log.New(io.Discard, "", 0)
+	servidor.ErrorLog = log.New(nuevoEscritorEventosHTTPSaneados(os.Stderr), "", 0)
 	log.Print("servidor interno VEC iniciando escucha TLS mutua")
 	err = servidor.ListenAndServeTLS("", "")
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
