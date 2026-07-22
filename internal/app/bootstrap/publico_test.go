@@ -81,8 +81,17 @@ func TestComposicionPublicaNoCargaCredencialesPersonalNiAlmacenHeredado(t *testi
 
 	cfg.AuthMode = config.AuthModeDisabled
 	servidor, err := NewHTTPServerPublicoWithConfig(cfg)
-	if servidor != nil || !errors.Is(err, ErrComposicionProductivaNoDisponible) {
+	if servidor != nil || !errors.Is(err, ErrActivacionDesarrolloInvalida) {
 		t.Fatalf("servidor publico productivo = (%v, %v)", servidor, err)
+	}
+
+	// Sin selectores heredados, la raiz alcanza la validacion de su unica
+	// dependencia autoritativa y falla cerrada por ausencia de PostgreSQL.
+	cfg.BolsaPublicSourcePath = ""
+	cfg.BolsaCategoriesSourcePath = ""
+	servidor, err = NewHTTPServerPublicoWithConfig(cfg)
+	if servidor != nil || !errors.Is(err, config.ErrConfiguracionPostgreSQLPublicaIncompleta) {
+		t.Fatalf("servidor publico sin PostgreSQL = (%v, %v)", servidor, err)
 	}
 }
 

@@ -24,6 +24,9 @@ func TestCargarConfiguracionNoLeeSecretosInternos(t *testing.T) {
 		config.EnvBolsaCategoriesCatalogID,
 		config.EnvBolsaCategoriesVersion,
 		config.EnvBolsaCategoriesSHA256,
+		config.EnvBolsaCategoriesPublicProjectionSHA256,
+		config.EnvBolsaPublicaDatabaseURL,
+		config.EnvBolsaPublicaManifiestoSHA256,
 		config.EnvRRHHPresentationEnabled,
 		config.EnvRRHHPresentationGuardOne,
 		config.EnvRRHHPresentationGuardTwo,
@@ -32,6 +35,11 @@ func TestCargarConfiguracionNoLeeSecretosInternos(t *testing.T) {
 	}
 
 	antes := CargarConfiguracion()
+	if antes.CatalogoCategorias != "" || antes.VersionCategorias != 0 || antes.HuellaCategorias != "" ||
+		antes.HuellaProyeccionCategorias != "" ||
+		antes.FuenteConvocatorias != "" || antes.FuenteCategorias != "" {
+		t.Fatalf("la raiz publica heredo selectores DEMO: %+v", antes)
+	}
 	for _, clave := range []string{
 		config.EnvStorageMode,
 		config.LegacyEnvStorageMode,
@@ -73,10 +81,13 @@ func TestCargarConfiguracionProyectaSoloOpcionesPublicas(t *testing.T) {
 	t.Setenv(config.EnvExecutionProfile, config.ExecutionProfileProduction)
 	t.Setenv(config.EnvAuthMode, config.AuthModeDisabled)
 	t.Setenv(config.EnvBolsaCategoriesVersion, "7")
+	t.Setenv(config.EnvBolsaPublicaDatabaseURL, "postgres://lector:secreto@db-publica/vec")
+	t.Setenv(config.EnvBolsaPublicaManifiestoSHA256, "2a85abd0a1e78d828fe27baf619349caf8e4e8a3e0bf20815279dd98a966889a")
 
 	cfg := CargarConfiguracion()
 	if cfg.Direccion != "127.0.0.1:9090" || cfg.PerfilEjecucion != config.ExecutionProfileProduction ||
 		cfg.AutenticacionSolicitada != config.AuthModeDisabled || cfg.VersionCategorias != 7 ||
+		cfg.PostgreSQL.Validar() != nil || cfg.HuellaManifiesto == "" ||
 		!reflect.DeepEqual(cfg.RedesPermitidas, []string{"127.0.0.1/32", "::1/128"}) {
 		t.Fatalf("proyeccion publica inesperada: %+v", cfg)
 	}

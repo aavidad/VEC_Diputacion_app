@@ -2,6 +2,7 @@ package publica
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"vec-diputacion-granada/config"
@@ -25,13 +26,53 @@ func TestNuevoServidorExigeAutenticacionDeshabilitada(t *testing.T) {
 	}
 }
 
-func TestNuevoServidorPermaneceCerradoSinFuenteAutoritativa(t *testing.T) {
+func TestNuevoServidorPermaneceCerradoSinConexionAutoritativa(t *testing.T) {
 	servidor, err := NuevoServidor(Configuracion{
 		PerfilEjecucion:         config.ExecutionProfileProduction,
 		AutenticacionSolicitada: config.AuthModeDisabled,
 	})
-	if servidor != nil || !errors.Is(err, ErrComposicionProductivaNoDisponible) {
+	if servidor != nil || !errors.Is(err, ErrConfiguracionAutoritativaInvalida) ||
+		!errors.Is(err, config.ErrConfiguracionPostgreSQLPublicaIncompleta) {
 		t.Fatalf("raiz productiva = (%v, %v)", servidor, err)
+	}
+}
+
+func TestNuevoServidorNoSustituyeCatalogoAusentePorElDemo(t *testing.T) {
+	postgresql, err := config.NuevaConfiguracionPostgreSQLPublica(
+		"postgres://lector@localhost/vec?sslmode=verify-full&sslrootcert=/ca.pem",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	servidor, err := NuevoServidor(Configuracion{
+		PerfilEjecucion:         config.ExecutionProfileProduction,
+		AutenticacionSolicitada: config.AuthModeDisabled,
+		PostgreSQL:              postgresql,
+	})
+	if servidor != nil || !errors.Is(err, ErrConfiguracionAutoritativaInvalida) {
+		t.Fatalf("raiz sin catalogo explicito = (%v, %v)", servidor, err)
+	}
+}
+
+func TestNuevoServidorRechazaTestigoDeManifiestoReservado(t *testing.T) {
+	postgresql, err := config.NuevaConfiguracionPostgreSQLPublica(
+		"postgres://lector@localhost/vec?sslmode=verify-full&sslrootcert=/ca.pem",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	servidor, err := NuevoServidor(Configuracion{
+		PerfilEjecucion:            config.ExecutionProfileProduction,
+		AutenticacionSolicitada:    config.AuthModeDisabled,
+		CatalogoCategorias:         "categorias-profesionales",
+		VersionCategorias:          1,
+		HuellaCategorias:           strings.Repeat("a", 64),
+		HuellaProyeccionCategorias: strings.Repeat("b", 64),
+		HuellaManifiesto:           strings.Repeat("0", 64),
+		PostgreSQL:                 postgresql,
+	})
+	if servidor != nil || !errors.Is(err, ErrConfiguracionAutoritativaInvalida) {
+		t.Fatalf("raiz con testigo reservado = (%v, %v)", servidor, err)
 	}
 }
 

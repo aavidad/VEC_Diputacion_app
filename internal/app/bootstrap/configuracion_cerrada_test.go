@@ -108,7 +108,14 @@ func TestTodasLasRaicesExportadasFallanCerradasEnProduccion(t *testing.T) {
 		},
 	} {
 		t.Run(nombre, func(t *testing.T) {
-			if err := construir(base); !errors.Is(err, ErrComposicionProductivaNoDisponible) {
+			esperado := error(ErrComposicionProductivaNoDisponible)
+			if nombre == "servidor publico anonimo" {
+				// La raiz publica no puede aceptar ni siquiera una copia
+				// renombrada de las fuentes JSON de demostracion. Ese cierre se
+				// evalua antes de intentar abrir PostgreSQL.
+				esperado = ErrActivacionDesarrolloInvalida
+			}
+			if err := construir(base); !errors.Is(err, esperado) {
 				t.Fatalf("raiz productiva aceptada o error incorrecto: %v", err)
 			}
 		})
