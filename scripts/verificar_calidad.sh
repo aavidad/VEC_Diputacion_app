@@ -22,6 +22,7 @@ scripts/verificar_dependencias_superficie_publica.sh
 scripts/probar_verificador_dependencias_superficie_publica.sh
 scripts/verificar_dependencias_superficie_interna.sh
 scripts/probar_verificador_dependencias_superficie_interna.sh
+scripts/probar_carga_tls_interna_root.sh
 python3 -m unittest scripts.tests.test_generar_bases_demo_pdf
 go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 scripts/comprobar_tamano_ficheros.sh
