@@ -583,6 +583,7 @@ Respuesta (`200`), esquema `vec.bolsa.publico.convocatorias.v2`:
   "esquema": "vec.bolsa.publico.convocatorias.v2",
   "fuente": { "revision": "2026-07", "actualizada_en": "2026-07-16T00:00:00Z", "demostracion": true, "aviso": "..." },
   "facetas": { "tipos": [ /* ValorCatalogoPublico[] */ ], "categorias": [ ], "estados": [ ] },
+  "diccionario_categorias": [ /* ValorCategoriaHistoricaPublica[] */ ],
   "paginacion": { "pagina": 1, "tamano": 12, "total": 0, "paginas": 0 },
   "convocatorias": [ /* ResumenConvocatoriaPublica[] */ ]
 }
@@ -600,12 +601,15 @@ exclusivamente el propio filtro de categoria.
 (`PlazoPublico`), `numero_requisitos`, `numero_documentos`, `numero_ayudas`,
 `publicada_en`, `actualizada_en`.
 
-El agregado de convocatoria que origina esa proyeccion fija además
-`catalogo_categorias` con `catalogo_id`, `catalogo_version` y
-`catalogo_huella_sha256`. La referencia forma parte de
-`huella_sha256`; no se resuelve una convocatoria historica contra «la ultima»
-version del catalogo. El arranque coteja de forma anticipada todas las
-convocatorias con la version configurada antes de publicar las rutas.
+Cada `ResumenConvocatoriaPublica` fija además `catalogo_categorias`:
+`{ "referencia", "version", "huella_sha256" }`. Cada entrada de
+`diccionario_categorias` es un `ValorCatalogoPublico` con ese mismo
+`catalogo_categorias`; se identifica de forma única por `version:clave` y puede
+repetir la misma `clave` en snapshots distintos. La aplicación resuelve las
+categorías de las tarjetas exclusivamente contra este diccionario histórico y
+comprueba que referencia, versión y huella coinciden con el snapshot declarado
+por su resumen. `facetas.categorias` es solamente el conjunto actual para el
+filtro y nunca se usa para reinterpretar una convocatoria histórica.
 
 `PlazoPublico`: `referencia`, `tipo`, `titulo`, `descripcion?`, `abre_en`,
 `cierra_en`, `situacion` (`proximo`|`abierto`|`cerrado`), `etiqueta_situacion`,
@@ -662,13 +666,13 @@ la trae). Respuesta (`200`), esquema `vec.bolsa.publico.convocatoria.v2`:
 }
 ```
 
-En el listado cada referencia debe resolver de forma única contra
-`facetas.categorias`. El detalle es autocontenido: su
-`diccionario_categorias` contiene exactamente una entrada por referencia, sin
-sobrantes, duplicados ni versiones alternativas. Backend y cliente fallan
-cerrados si esa correspondencia no es biyectiva. El límite técnico es 128
+El detalle es autocontenido: su `diccionario_categorias` contiene exactamente
+una entrada por referencia y snapshot, sin sobrantes ni duplicados de la clave
+exacta `version:clave`. Backend y cliente fallan cerrados si la correspondencia
+no es biyectiva o no coincide con `convocatoria.catalogo_categorias`. El límite técnico es 128
 categorías por convocatoria (frente a unas 68 actuales) y 1.024 en el catálogo
-profesional; ampliar cualquiera exige versionar de nuevo el contrato.
+profesional. El diccionario histórico de una página admite hasta 4.096 entradas
+agregadas de snapshots; ampliar cualquiera exige versionar de nuevo el contrato.
 
 El contrato V2 no fija el almacenamiento. La raiz productiva C3 debe componer
 de forma explicita su adaptador PostgreSQL y su ancla externa; no negocia ni
