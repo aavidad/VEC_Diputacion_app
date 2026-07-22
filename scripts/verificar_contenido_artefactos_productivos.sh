@@ -62,13 +62,16 @@ verificar_configuracion() {
 	local superficie="$1"
 	local imagen="$2"
 	local binario="$3"
-	local usuario entrada entorno historial
+	local usuario identidad entrada entorno historial
 	usuario="$(docker image inspect "${imagen}" --format '{{.Config.User}}')"
+	identidad="$(docker run --rm --entrypoint /usr/bin/id "${imagen}" app)"
 	entrada="$(docker image inspect "${imagen}" --format '{{join .Config.Entrypoint " "}}')"
 	entorno="$(docker image inspect "${imagen}" --format '{{range .Config.Env}}{{println .}}{{end}}')"
 	historial="$(docker history --no-trunc --format '{{.CreatedBy}}' "${imagen}")"
 
 	[[ "${usuario}" == app ]] || fallar "${superficie}: la imagen no usa el usuario no privilegiado app."
+	[[ "${identidad}" == 'uid=10001(app) gid=10001(app) groups=10001(app)' ]] ||
+		fallar "${superficie}: UID/GID de ejecución inesperados: ${identidad}"
 	[[ "${entrada}" == "/usr/local/bin/${binario}" ]] ||
 		fallar "${superficie}: punto de entrada inesperado: ${entrada}"
 	if grep -Eqi '(^|_)(PASSWORD|CONTRASENA|SECRET|TOKEN|PRIVATE_KEY|DSN|KMS|TSA|POSTGRESQL)=' <<<"${entorno}"; then

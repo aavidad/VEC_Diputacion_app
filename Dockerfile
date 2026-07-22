@@ -4,7 +4,8 @@ FROM golang:1.26.5-bookworm@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93
 
 WORKDIR /src
 
-RUN useradd --create-home --uid 10001 app \
+RUN groupadd --gid 10001 app \
+  && useradd --create-home --uid 10001 --gid 10001 app \
   && chown -R app:app /src /go
 
 USER app
@@ -107,7 +108,8 @@ RUN for superficie in publico interno; do \
 # no declara volumen durable y su composicion no crea conectores externos.
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime-presentacion
 
-RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+RUN groupadd --system --gid 10001 app \
+  && useradd --system --uid 10001 --gid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
   && install -d --owner=app --group=app /app
 
 COPY --from=build /src/bin/vec-presentacion /usr/local/bin/vec-presentacion
@@ -138,7 +140,8 @@ ENTRYPOINT ["/usr/local/bin/vec-presentacion"]
 # servidor que entrega la web siga sin clientes de red ni identidad implicita.
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime-cartografia-presentacion
 
-RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+RUN groupadd --system --gid 10001 app \
+  && useradd --system --uid 10001 --gid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
   && install -d --owner=app --group=app /app
 
 COPY --from=build /src/bin/vec-cartografia-presentacion /usr/local/bin/vec-cartografia-presentacion
@@ -165,7 +168,8 @@ ENTRYPOINT ["/usr/local/bin/vec-cartografia-presentacion"]
 # clientes internos, KMS ni configuración administrativa.
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime-publico
 
-RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+RUN groupadd --system --gid 10001 app \
+  && useradd --system --uid 10001 --gid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
   && install -d --owner=app --group=app /app
 
 COPY --from=build /src/bin/vec-publico /usr/local/bin/vec-publico
@@ -186,7 +190,8 @@ ENTRYPOINT ["/usr/local/bin/vec-publico"]
 # tiempo de ejecucion. Mientras falte uno, vec-interno falla antes de escuchar.
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime-interno
 
-RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+RUN groupadd --system --gid 10001 app \
+  && useradd --system --uid 10001 --gid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
   && install -d --owner=app --group=app /app
 
 COPY --from=build /src/bin/vec-interno /usr/local/bin/vec-interno
@@ -202,7 +207,8 @@ ENTRYPOINT ["/usr/local/bin/vec-interno"]
 
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime
 
-RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+RUN groupadd --system --gid 10001 app \
+  && useradd --system --uid 10001 --gid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
   && install -d --owner=app --group=app /app /data/bolsa
 
 COPY --from=build /src/bin/vec-server /usr/local/bin/vec-server
