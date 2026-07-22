@@ -700,7 +700,8 @@ punto de entrada de enrutado.
 ## Transporte y arranque comunes
 
 - `internal/app/server/server.go` monta: `/` (estatico `web/static`),
-  `/locales/` (JSON de idioma), `/healthz` (`{"status":"ok"}`, sin auth),
+  `/locales/` (JSON de idioma), `/livez` (vida del proceso), `/readyz` y su
+  alias `/healthz` (disponibilidad; fallan cerrados sin comprobador real),
   `cfg.APIBasePath` (`/api`, por defecto) y `/candidates` apuntando al mismo
   handler compuesto por `bootstrap`.
 - Limite de cuerpo de peticion: `cfg.MaxRequestBodyBytes` (2 MiB por

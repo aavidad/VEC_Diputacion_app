@@ -41,10 +41,10 @@ json_assert() {
   jq -e "$expr" "$file" >/dev/null
 }
 
-wait_health() {
+wait_liveness() {
   local base="$1"
   for _ in $(seq 1 50); do
-    if curl -fsS "$base/healthz" >/dev/null 2>&1; then
+    if curl -fsS "$base/livez" >/dev/null 2>&1; then
       return 0
     fi
     sleep 0.2
@@ -119,7 +119,7 @@ start_managed_server() {
     VEC_FAKE_CREDENTIALS_FILE="$FAKE_CREDENTIALS_FILE" \
     "$bin" >"$ARTIFACT_DIR/server.log" 2>&1 &
   SERVER_PID="$!"
-  wait_health "$BASE_URL"
+  wait_liveness "$BASE_URL"
 }
 
 restart_managed_server() {
@@ -149,7 +149,7 @@ if [[ "$MANAGED" == "1" ]]; then
   write_fake_credentials
   start_managed_server
 else
-  wait_health "$BASE_URL"
+  wait_liveness "$BASE_URL"
 fi
 
 solicitud_id="sol-$RUN_REF"
@@ -167,7 +167,7 @@ admin_headers=(
   -H "Authorization: Bearer $ADMIN_TOKEN"
 )
 
-curl -fsS "$BASE_URL/healthz" >"$ARTIFACT_DIR/health.json"
+curl -fsS "$BASE_URL/livez" >"$ARTIFACT_DIR/health.json"
 curl -fsS "$BASE_URL/api/vec/modules" "${staff_headers[@]}" >"$ARTIFACT_DIR/vec_modules.json"
 json_assert "$ARTIFACT_DIR/vec_modules.json" '(.data.modules|map(.id)|index("vec.module.bolsa")) != null'
 workspace_status="$(curl -sS -o "$ARTIFACT_DIR/vec_workspace.json" -w '%{http_code}' \
