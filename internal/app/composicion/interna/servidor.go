@@ -1,11 +1,16 @@
 package interna
 
 import (
+	"bytes"
+	"crypto"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/binary"
 	"errors"
 	"net/http"
 	"reflect"
+	"slices"
 	"time"
 
 	"vec-diputacion-granada/config"
@@ -29,6 +34,14 @@ type manejadorInternoVerificado struct {
 	tiempoEscritura      time.Duration
 	tiempoInactividad    time.Duration
 	maximoBytesCabeceras int
+	materialTLS          materialTLSAprobado
+}
+
+type materialTLSAprobado struct {
+	autoridadesClientes        *x509.CertPool
+	certificadoServidor        tls.Certificate
+	huellaCadenaServidor       [sha256.Size]byte
+	huellaClavePublicaServidor [sha256.Size]byte
 }
 
 func (m *manejadorInternoVerificado) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +83,11 @@ func construirServidorInterno(
 	if err != nil || servidorHTTP == nil || servidorHTTP.Handler == nil {
 		return nil, ErrServidorInternoInvalido
 	}
+	configuracionTLS := clonarConfiguracionTLSMutuo(tlsMutuo)
+	materialTLS, err := aprobarMaterialTLS(configuracionTLS)
+	if err != nil {
+		return nil, ErrTLSMutuoNoVerificado
+	}
 	servidorHTTP.Handler = &manejadorInternoVerificado{
 		siguiente:            servidorHTTP.Handler,
 		direccionEscucha:     servidorHTTP.Addr,
@@ -78,8 +96,9 @@ func construirServidorInterno(
 		tiempoEscritura:      servidorHTTP.WriteTimeout,
 		tiempoInactividad:    servidorHTTP.IdleTimeout,
 		maximoBytesCabeceras: servidorHTTP.MaxHeaderBytes,
+		materialTLS:          materialTLS,
 	}
-	servidorHTTP.TLSConfig = clonarConfiguracionTLSMutuo(tlsMutuo)
+	servidorHTTP.TLSConfig = configuracionTLS
 	if err := ValidarServidorParaEscucha(servidorHTTP); err != nil {
 		return nil, err
 	}
@@ -106,6 +125,9 @@ func ValidarServidorParaEscucha(servidorHTTP *http.Server) error {
 		servidorHTTP.MaxHeaderBytes != manejador.maximoBytesCabeceras {
 		return ErrServidorInternoInvalido
 	}
+	if !manejador.materialTLS.coincide(servidorHTTP.TLSConfig) {
+		return ErrTLSMutuoNoVerificado
+	}
 	return nil
 }
 
@@ -123,6 +145,9 @@ func validarTLSMutuo(configuracion *tls.Config) error {
 	}
 	certificado := configuracion.Certificates[0]
 	if len(certificado.Certificate) == 0 || certificado.PrivateKey == nil {
+		return ErrTLSMutuoNoVerificado
+	}
+	if _, _, err := resumirCertificadoServidor(certificado); err != nil {
 		return ErrTLSMutuoNoVerificado
 	}
 	return nil
@@ -174,6 +199,11 @@ func clonarCertificadoTLS(origen tls.Certificate) tls.Certificate {
 	clon.SignedCertificateTimestamps = clonarBytesBidimensionales(
 		origen.SignedCertificateTimestamps,
 	)
+	if len(clon.Certificate) != 0 {
+		// validarTLSMutuo ya ha comprobado la cadena; esta nueva instancia evita
+		// compartir el puntero mutable Leaf con el proveedor.
+		clon.Leaf, _ = x509.ParseCertificate(clon.Certificate[0])
+	}
 	return clon
 }
 
@@ -186,4 +216,99 @@ func clonarBytesBidimensionales(origen [][]byte) [][]byte {
 		clon[indice] = append([]byte(nil), origen[indice]...)
 	}
 	return clon
+}
+
+func aprobarMaterialTLS(configuracion *tls.Config) (materialTLSAprobado, error) {
+	huellaCadena, huellaClave, err := resumirCertificadoServidor(configuracion.Certificates[0])
+	if err != nil {
+		return materialTLSAprobado{}, err
+	}
+	certificado := clonarCertificadoTLS(configuracion.Certificates[0])
+	// La aprobacion conserva material publico y metadatos, no duplica la clave.
+	certificado.PrivateKey = nil
+	return materialTLSAprobado{
+		autoridadesClientes:        configuracion.ClientCAs.Clone(),
+		certificadoServidor:        certificado,
+		huellaCadenaServidor:       huellaCadena,
+		huellaClavePublicaServidor: huellaClave,
+	}, nil
+}
+
+func (aprobado materialTLSAprobado) coincide(configuracion *tls.Config) bool {
+	if configuracion == nil || configuracion.ClientCAs == nil ||
+		aprobado.autoridadesClientes == nil ||
+		!configuracion.ClientCAs.Equal(aprobado.autoridadesClientes) ||
+		len(configuracion.Certificates) != 1 {
+		return false
+	}
+	actual := configuracion.Certificates[0]
+	huellaCadena, huellaClave, err := resumirCertificadoServidor(actual)
+	if err != nil || huellaCadena != aprobado.huellaCadenaServidor ||
+		huellaClave != aprobado.huellaClavePublicaServidor {
+		return false
+	}
+	return certificadoTLSEquivalente(actual, aprobado.certificadoServidor)
+}
+
+func resumirCertificadoServidor(
+	certificado tls.Certificate,
+) ([sha256.Size]byte, [sha256.Size]byte, error) {
+	var vacia [sha256.Size]byte
+	if len(certificado.Certificate) == 0 {
+		return vacia, vacia, ErrTLSMutuoNoVerificado
+	}
+	certificadosParseados := make([]*x509.Certificate, len(certificado.Certificate))
+	for indice, der := range certificado.Certificate {
+		parseado, err := x509.ParseCertificate(der)
+		if err != nil {
+			return vacia, vacia, ErrTLSMutuoNoVerificado
+		}
+		certificadosParseados[indice] = parseado
+	}
+	if certificado.Leaf != nil && !certificado.Leaf.Equal(certificadosParseados[0]) {
+		return vacia, vacia, ErrTLSMutuoNoVerificado
+	}
+	firmante, valido := certificado.PrivateKey.(crypto.Signer)
+	if !valido || firmante == nil {
+		return vacia, vacia, ErrTLSMutuoNoVerificado
+	}
+	clavePublica, err := x509.MarshalPKIXPublicKey(firmante.Public())
+	if err != nil || !bytes.Equal(clavePublica, certificadosParseados[0].RawSubjectPublicKeyInfo) {
+		return vacia, vacia, ErrTLSMutuoNoVerificado
+	}
+
+	hashCadena := sha256.New()
+	var longitud [8]byte
+	for _, der := range certificado.Certificate {
+		binary.BigEndian.PutUint64(longitud[:], uint64(len(der)))
+		_, _ = hashCadena.Write(longitud[:])
+		_, _ = hashCadena.Write(der)
+	}
+	var huellaCadena [sha256.Size]byte
+	copy(huellaCadena[:], hashCadena.Sum(nil))
+	return huellaCadena, sha256.Sum256(clavePublica), nil
+}
+
+func certificadoTLSEquivalente(actual, aprobado tls.Certificate) bool {
+	if !bytesBidimensionalesIguales(actual.Certificate, aprobado.Certificate) ||
+		!slices.Equal(actual.SupportedSignatureAlgorithms, aprobado.SupportedSignatureAlgorithms) ||
+		!bytes.Equal(actual.OCSPStaple, aprobado.OCSPStaple) ||
+		!bytesBidimensionalesIguales(
+			actual.SignedCertificateTimestamps, aprobado.SignedCertificateTimestamps,
+		) || (actual.Leaf == nil) != (aprobado.Leaf == nil) {
+		return false
+	}
+	return actual.Leaf == nil || actual.Leaf.Equal(aprobado.Leaf)
+}
+
+func bytesBidimensionalesIguales(izquierda, derecha [][]byte) bool {
+	if len(izquierda) != len(derecha) {
+		return false
+	}
+	for indice := range izquierda {
+		if !bytes.Equal(izquierda[indice], derecha[indice]) {
+			return false
+		}
+	}
+	return true
 }
