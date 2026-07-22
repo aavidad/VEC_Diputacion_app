@@ -7,7 +7,7 @@ SELECT pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('vec_bolsa_publica:migracion:000001', 0)
 );
 SELECT pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended('vec_bolsa_publica:publicacion:v1', 0)
+    pg_catalog.hashtextextended('vec_bolsa_publica:publicacion:v2', 0)
 );
 
 DO $prevalidacion$
@@ -129,14 +129,17 @@ CREATE TABLE vec_bolsa_publica_datos.catalogo_categorias (
     huella_proyeccion_publica_sha256 text NOT NULL CHECK (
         huella_proyeccion_publica_sha256 ~ '^[a-f0-9]{64}$'
     ),
-    activo boolean NOT NULL DEFAULT false,
+    actual boolean NOT NULL DEFAULT false,
     PRIMARY KEY (catalogo_id, version),
-    UNIQUE (catalogo_id, version, huella_gobernada_sha256),
+    UNIQUE (
+        catalogo_id, version, huella_gobernada_sha256,
+        huella_proyeccion_publica_sha256
+    ),
     CHECK (catalogo_id ~ '^[a-z][a-z0-9._-]{0,127}$')
 );
-CREATE UNIQUE INDEX catalogo_categorias_un_activo
-    ON vec_bolsa_publica_datos.catalogo_categorias(catalogo_id)
-    WHERE activo;
+CREATE UNIQUE INDEX catalogo_categorias_un_actual
+    ON vec_bolsa_publica_datos.catalogo_categorias((actual))
+    WHERE actual;
 
 CREATE TABLE vec_bolsa_publica_datos.categoria_publica (
     catalogo_id text NOT NULL,
@@ -175,6 +178,9 @@ CREATE TABLE vec_bolsa_publica_datos.convocatoria_publica (
     catalogo_categorias_huella_sha256 text NOT NULL CHECK (
         catalogo_categorias_huella_sha256 ~ '^[a-f0-9]{64}$'
     ),
+	catalogo_categorias_huella_proyeccion_sha256 text NOT NULL CHECK (
+		catalogo_categorias_huella_proyeccion_sha256 ~ '^[a-f0-9]{64}$'
+	),
 	huella_publica_sha256 text NOT NULL CHECK (
 		huella_publica_sha256 ~ '^[a-f0-9]{64}$'
 	),
@@ -196,9 +202,11 @@ CREATE TABLE vec_bolsa_publica_datos.convocatoria_publica (
     UNIQUE (identificador_publico, catalogo_categorias_id, catalogo_categorias_version),
     FOREIGN KEY (
         catalogo_categorias_id, catalogo_categorias_version,
-        catalogo_categorias_huella_sha256
+        catalogo_categorias_huella_sha256,
+        catalogo_categorias_huella_proyeccion_sha256
     ) REFERENCES vec_bolsa_publica_datos.catalogo_categorias(
-        catalogo_id, version, huella_gobernada_sha256
+        catalogo_id, version, huella_gobernada_sha256,
+        huella_proyeccion_publica_sha256
     ),
     CHECK (publicada_en <= actualizada_en),
     CHECK ((publicable AND revocada_en IS NULL) OR (NOT publicable)),
@@ -358,7 +366,7 @@ SET LOCAL ROLE vec_bolsa_publica_publicacion_propietario;
 -- Predicado privado para no aceptar campos silenciosamente ignorados. En esta
 -- frontera una clave desconocida puede ser un dato personal clasificado de
 -- forma errónea, por lo que se aplica allowlist exacta a cada objeto anidado.
-CREATE FUNCTION vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(
+CREATE FUNCTION vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
     valor jsonb,
     claves text[]
 ) RETURNS boolean
@@ -371,14 +379,14 @@ RETURN pg_catalog.jsonb_typeof(valor) = 'object'
    AND valor ?& claves
    AND valor - claves = '{}'::jsonb;
 REVOKE ALL ON FUNCTION
-    vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(jsonb, text[])
+    vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(jsonb, text[])
     FROM PUBLIC;
 
 -- Única frontera de escritura en operación. El rol publicador no recibe DML;
 -- entrega una proyección pública completa, ya clasificada y aprobada. La
--- función inmoviliza lectores con el mismo candado que usa el adaptador y
--- cambia datos + testigo en una sola transacción.
-CREATE FUNCTION vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
+-- función serializa publicadores y migraciones, y cambia datos + testigo en
+-- una sola transacción. Los lectores obtienen atomicidad mediante MVCC.
+CREATE FUNCTION vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
     proyeccion jsonb,
     ancla_manifiesto_sha256 text
 ) RETURNS void
@@ -398,10 +406,12 @@ DECLARE
     catalogo jsonb;
     entrada jsonb;
     categorias jsonb;
+    snapshot jsonb;
     categoria jsonb;
     convocatoria jsonb;
     filas_insertadas bigint;
     total_entradas_catalogos bigint := 0;
+    total_categorias bigint := 0;
 BEGIN
     IF current_user <> 'vec_bolsa_publica_publicacion_propietario'
        OR NOT pg_catalog.pg_has_role(
@@ -426,7 +436,7 @@ BEGIN
             MESSAGE = 'publicacion rechazada: contrato de proyeccion invalido';
     END IF;
 
-    IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(
+    IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
            proyeccion->'fuente', ARRAY['revision','actualizada_en']
        ) IS DISTINCT FROM true
        OR pg_catalog.jsonb_typeof(proyeccion#>'{fuente,revision}') <> 'string'
@@ -440,7 +450,7 @@ BEGIN
     FOR catalogo IN
         SELECT value FROM pg_catalog.jsonb_array_elements(proyeccion->'catalogos')
     LOOP
-        IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(
+        IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
                catalogo, ARRAY['referencia','version','entradas']
            ) IS DISTINCT FROM true
            OR pg_catalog.jsonb_typeof(catalogo->'referencia') <> 'string'
@@ -457,7 +467,7 @@ BEGIN
         FOR entrada IN
             SELECT value FROM pg_catalog.jsonb_array_elements(catalogo->'entradas')
         LOOP
-            IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(
+            IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
                    entrada,
                    ARRAY['clave','etiqueta','descripcion','semantica','orden']
                ) IS DISTINCT FROM true
@@ -479,61 +489,115 @@ BEGIN
     END IF;
 
     categorias := proyeccion->'categorias';
-    IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(
-           categorias,
-           ARRAY[
-               'catalogo_id','version','huella_gobernada_sha256',
-               'huella_proyeccion_publica_sha256','categorias'
-           ]
+    IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
+           categorias, ARRAY['actual','snapshots']
        ) IS DISTINCT FROM true
-       OR pg_catalog.jsonb_typeof(categorias->'catalogo_id') <> 'string'
-       OR pg_catalog.jsonb_typeof(categorias->'version') <> 'number'
-       OR (categorias->>'version') !~ '^[1-9][0-9]{0,9}$'
-       OR (categorias->>'version')::numeric > 2147483647
-       OR pg_catalog.jsonb_typeof(categorias->'huella_gobernada_sha256') <> 'string'
-       OR pg_catalog.jsonb_typeof(categorias->'huella_proyeccion_publica_sha256') <> 'string'
-       OR pg_catalog.jsonb_typeof(categorias->'categorias') <> 'array'
-       OR pg_catalog.jsonb_array_length(categorias->'categorias') NOT BETWEEN 1 AND 1024 THEN
+       OR vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
+              categorias->'actual',
+              ARRAY[
+                  'catalogo_id','catalogo_version','catalogo_huella_sha256',
+                  'catalogo_huella_proyeccion_sha256'
+              ]
+          ) IS DISTINCT FROM true
+       OR pg_catalog.jsonb_typeof(categorias#>'{actual,catalogo_id}') <> 'string'
+       OR pg_catalog.jsonb_typeof(categorias#>'{actual,catalogo_version}') <> 'number'
+       OR (categorias#>>'{actual,catalogo_version}') !~ '^[1-9][0-9]{0,9}$'
+       OR (categorias#>>'{actual,catalogo_version}')::numeric > 2147483647
+       OR pg_catalog.jsonb_typeof(categorias#>'{actual,catalogo_huella_sha256}') <> 'string'
+       OR (categorias#>>'{actual,catalogo_huella_sha256}') !~ '^[a-f0-9]{64}$'
+       OR pg_catalog.jsonb_typeof(categorias#>'{actual,catalogo_huella_proyeccion_sha256}') <> 'string'
+       OR (categorias#>>'{actual,catalogo_huella_proyeccion_sha256}') !~ '^[a-f0-9]{64}$'
+       OR pg_catalog.jsonb_typeof(categorias->'snapshots') <> 'array'
+       OR pg_catalog.jsonb_array_length(categorias->'snapshots') NOT BETWEEN 1 AND 64 THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'publicacion rechazada: catalogo profesional invalido';
     END IF;
-    FOR categoria IN
-        SELECT value FROM pg_catalog.jsonb_array_elements(categorias->'categorias')
+
+    FOR snapshot IN
+        SELECT value FROM pg_catalog.jsonb_array_elements(categorias->'snapshots')
     LOOP
-        IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(
-               categoria,
+        IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
+               snapshot,
                ARRAY[
-                   'clave','etiqueta','descripcion','semantica','orden','area',
-                   'area_etiqueta','suscribible','vigente_desde','vigente_hasta'
+                   'catalogo_id','version','huella_gobernada_sha256',
+                   'huella_proyeccion_publica_sha256','categorias'
                ]
            ) IS DISTINCT FROM true
-           OR pg_catalog.jsonb_typeof(categoria->'clave') <> 'string'
-           OR pg_catalog.jsonb_typeof(categoria->'etiqueta') <> 'string'
-           OR pg_catalog.jsonb_typeof(categoria->'descripcion') <> 'string'
-           OR pg_catalog.jsonb_typeof(categoria->'semantica') <> 'string'
-           OR pg_catalog.jsonb_typeof(categoria->'orden') <> 'number'
-           OR (categoria->>'orden') !~ '^[1-9][0-9]{0,9}$'
-           OR (categoria->>'orden')::numeric > 2147483647
-           OR pg_catalog.jsonb_typeof(categoria->'area') <> 'string'
-           OR pg_catalog.jsonb_typeof(categoria->'area_etiqueta') <> 'string'
-           OR pg_catalog.jsonb_typeof(categoria->'suscribible') <> 'boolean'
-           OR pg_catalog.jsonb_typeof(categoria->'vigente_desde') <> 'string'
-           OR pg_catalog.jsonb_typeof(categoria->'vigente_hasta') NOT IN ('string','null') THEN
+           OR pg_catalog.jsonb_typeof(snapshot->'catalogo_id') <> 'string'
+           OR snapshot->>'catalogo_id' <> categorias#>>'{actual,catalogo_id}'
+           OR pg_catalog.jsonb_typeof(snapshot->'version') <> 'number'
+           OR (snapshot->>'version') !~ '^[1-9][0-9]{0,9}$'
+           OR (snapshot->>'version')::numeric > 2147483647
+           OR pg_catalog.jsonb_typeof(snapshot->'huella_gobernada_sha256') <> 'string'
+           OR (snapshot->>'huella_gobernada_sha256') !~ '^[a-f0-9]{64}$'
+           OR pg_catalog.jsonb_typeof(snapshot->'huella_proyeccion_publica_sha256') <> 'string'
+           OR (snapshot->>'huella_proyeccion_publica_sha256') !~ '^[a-f0-9]{64}$'
+           OR pg_catalog.jsonb_typeof(snapshot->'categorias') <> 'array'
+           OR pg_catalog.jsonb_array_length(snapshot->'categorias') NOT BETWEEN 1 AND 1024 THEN
             RAISE EXCEPTION USING ERRCODE = '22023',
-                MESSAGE = 'publicacion rechazada: categoria profesional invalida';
+                MESSAGE = 'publicacion rechazada: snapshot profesional invalido';
         END IF;
+
+        total_categorias := total_categorias
+            + pg_catalog.jsonb_array_length(snapshot->'categorias');
+        FOR categoria IN
+            SELECT value FROM pg_catalog.jsonb_array_elements(snapshot->'categorias')
+        LOOP
+            IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
+                   categoria,
+                   ARRAY[
+                       'clave','etiqueta','descripcion','semantica','orden','area',
+                       'area_etiqueta','suscribible','vigente_desde','vigente_hasta'
+                   ]
+               ) IS DISTINCT FROM true
+               OR pg_catalog.jsonb_typeof(categoria->'clave') <> 'string'
+               OR pg_catalog.jsonb_typeof(categoria->'etiqueta') <> 'string'
+               OR pg_catalog.jsonb_typeof(categoria->'descripcion') <> 'string'
+               OR pg_catalog.jsonb_typeof(categoria->'semantica') <> 'string'
+               OR pg_catalog.jsonb_typeof(categoria->'orden') <> 'number'
+               OR (categoria->>'orden') !~ '^[1-9][0-9]{0,9}$'
+               OR (categoria->>'orden')::numeric > 2147483647
+               OR pg_catalog.jsonb_typeof(categoria->'area') <> 'string'
+               OR pg_catalog.jsonb_typeof(categoria->'area_etiqueta') <> 'string'
+               OR pg_catalog.jsonb_typeof(categoria->'suscribible') <> 'boolean'
+               OR pg_catalog.jsonb_typeof(categoria->'vigente_desde') <> 'string'
+               OR pg_catalog.jsonb_typeof(categoria->'vigente_hasta') NOT IN ('string','null') THEN
+                RAISE EXCEPTION USING ERRCODE = '22023',
+                    MESSAGE = 'publicacion rechazada: categoria profesional invalida';
+            END IF;
+        END LOOP;
     END LOOP;
+    IF total_categorias > 4096
+       OR EXISTS (
+           SELECT 1
+             FROM pg_catalog.jsonb_array_elements(categorias->'snapshots') AS elemento
+         GROUP BY elemento.value->>'catalogo_id', elemento.value->>'version'
+           HAVING count(*) > 1
+       )
+       OR 1 <> (
+           SELECT count(*)
+             FROM pg_catalog.jsonb_array_elements(categorias->'snapshots') AS elemento
+            WHERE elemento.value->>'catalogo_id' = categorias#>>'{actual,catalogo_id}'
+              AND elemento.value->>'version' = categorias#>>'{actual,catalogo_version}'
+              AND elemento.value->>'huella_gobernada_sha256' =
+                  categorias#>>'{actual,catalogo_huella_sha256}'
+              AND elemento.value->>'huella_proyeccion_publica_sha256' =
+                  categorias#>>'{actual,catalogo_huella_proyeccion_sha256}'
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'publicacion rechazada: snapshots profesionales invalidos';
+    END IF;
 
     FOR convocatoria IN
         SELECT value FROM pg_catalog.jsonb_array_elements(proyeccion->'convocatorias')
     LOOP
-        IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(
+        IF vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
                convocatoria,
                ARRAY[
                    'identificador_publico','version_publica','estado','tipo',
                    'huella_publica_sha256','huella_resumen_publico_sha256',
                    'titulo','resumen','descripcion','publicada_en','actualizada_en',
-                   'categorias','plazos','requisitos','documentos','ayuda'
+                   'catalogo_categorias','categorias','plazos','requisitos','documentos','ayuda'
                ]
            ) IS DISTINCT FROM true
            OR pg_catalog.jsonb_typeof(convocatoria->'identificador_publico') <> 'string'
@@ -547,6 +611,29 @@ BEGIN
            OR pg_catalog.jsonb_typeof(convocatoria->'descripcion') <> 'string'
            OR pg_catalog.jsonb_typeof(convocatoria->'publicada_en') <> 'string'
            OR pg_catalog.jsonb_typeof(convocatoria->'actualizada_en') <> 'string'
+           OR vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
+                  convocatoria->'catalogo_categorias',
+                  ARRAY[
+                      'catalogo_id','catalogo_version','catalogo_huella_sha256',
+                      'catalogo_huella_proyeccion_sha256'
+                  ]
+              ) IS DISTINCT FROM true
+           OR pg_catalog.jsonb_typeof(
+                  convocatoria#>'{catalogo_categorias,catalogo_id}'
+              ) <> 'string'
+           OR pg_catalog.jsonb_typeof(
+                  convocatoria#>'{catalogo_categorias,catalogo_version}'
+              ) <> 'number'
+           OR (convocatoria#>>'{catalogo_categorias,catalogo_version}') !~ '^[1-9][0-9]{0,9}$'
+           OR (convocatoria#>>'{catalogo_categorias,catalogo_version}')::numeric > 2147483647
+           OR pg_catalog.jsonb_typeof(
+                  convocatoria#>'{catalogo_categorias,catalogo_huella_sha256}'
+              ) <> 'string'
+           OR (convocatoria#>>'{catalogo_categorias,catalogo_huella_sha256}') !~ '^[a-f0-9]{64}$'
+           OR pg_catalog.jsonb_typeof(
+                  convocatoria#>'{catalogo_categorias,catalogo_huella_proyeccion_sha256}'
+              ) <> 'string'
+           OR (convocatoria#>>'{catalogo_categorias,catalogo_huella_proyeccion_sha256}') !~ '^[a-f0-9]{64}$'
            OR pg_catalog.jsonb_typeof(convocatoria->'categorias') <> 'array'
            OR pg_catalog.jsonb_typeof(convocatoria->'plazos') <> 'array'
            OR pg_catalog.jsonb_typeof(convocatoria->'requisitos') <> 'array'
@@ -570,7 +657,7 @@ BEGIN
         END IF;
         IF EXISTS (
             SELECT 1 FROM pg_catalog.jsonb_array_elements(convocatoria->'plazos') AS elemento
-             WHERE vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(
+             WHERE vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
                        elemento.value,
                        ARRAY['referencia','tipo','titulo','descripcion','abre_en','cierra_en']
                    ) IS DISTINCT FROM true
@@ -586,7 +673,7 @@ BEGIN
         END IF;
         IF EXISTS (
             SELECT 1 FROM pg_catalog.jsonb_array_elements(convocatoria->'requisitos') AS elemento
-             WHERE vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(
+             WHERE vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
                        elemento.value,
                        ARRAY['referencia','orden','titulo','descripcion','obligatorio']
                    ) IS DISTINCT FROM true
@@ -603,7 +690,7 @@ BEGIN
         END IF;
         IF EXISTS (
             SELECT 1 FROM pg_catalog.jsonb_array_elements(convocatoria->'documentos') AS elemento
-             WHERE vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(
+             WHERE vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
                        elemento.value,
                        ARRAY[
                            'referencia','tipo','orden','titulo','descripcion',
@@ -626,7 +713,7 @@ BEGIN
         END IF;
         IF EXISTS (
             SELECT 1 FROM pg_catalog.jsonb_array_elements(convocatoria->'ayuda') AS elemento
-             WHERE vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(
+             WHERE vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(
                        elemento.value,
                        ARRAY['referencia','categoria','orden','pregunta','respuesta']
                    ) IS DISTINCT FROM true
@@ -644,7 +731,7 @@ BEGIN
     END LOOP;
 
     PERFORM pg_catalog.pg_advisory_xact_lock(
-        pg_catalog.hashtextextended('vec_bolsa_publica:publicacion:v1', 0)
+        pg_catalog.hashtextextended('vec_bolsa_publica:publicacion:v2', 0)
     );
 
     INSERT INTO vec_bolsa_publica_datos.manifiesto_consumido(manifiesto_sha256)
@@ -684,30 +771,40 @@ BEGIN
         END LOOP;
     END LOOP;
 
-    INSERT INTO vec_bolsa_publica_datos.catalogo_categorias(
-        catalogo_id, version, huella_gobernada_sha256,
-        huella_proyeccion_publica_sha256, activo
-    ) VALUES (
-        categorias->>'catalogo_id', (categorias->>'version')::integer,
-        categorias->>'huella_gobernada_sha256',
-        categorias->>'huella_proyeccion_publica_sha256', true
-    );
-    FOR categoria IN
-        SELECT value FROM pg_catalog.jsonb_array_elements(categorias->'categorias')
+    FOR snapshot IN
+        SELECT value FROM pg_catalog.jsonb_array_elements(categorias->'snapshots')
     LOOP
-        INSERT INTO vec_bolsa_publica_datos.categoria_publica(
-            catalogo_id, version, clave, etiqueta, descripcion, semantica,
-            orden, area, area_etiqueta, suscribible, vigente_desde,
-            vigente_hasta, publicable
+        INSERT INTO vec_bolsa_publica_datos.catalogo_categorias(
+            catalogo_id, version, huella_gobernada_sha256,
+            huella_proyeccion_publica_sha256, actual
         ) VALUES (
-            categorias->>'catalogo_id', (categorias->>'version')::integer,
-            categoria->>'clave', categoria->>'etiqueta',
-            categoria->>'descripcion', categoria->>'semantica',
-            (categoria->>'orden')::integer, categoria->>'area',
-            categoria->>'area_etiqueta', (categoria->>'suscribible')::boolean,
-            (categoria->>'vigente_desde')::timestamptz,
-            NULLIF(categoria->>'vigente_hasta', '')::timestamptz, true
+            snapshot->>'catalogo_id', (snapshot->>'version')::integer,
+            snapshot->>'huella_gobernada_sha256',
+            snapshot->>'huella_proyeccion_publica_sha256',
+            snapshot->>'catalogo_id' = categorias#>>'{actual,catalogo_id}'
+                AND snapshot->>'version' = categorias#>>'{actual,catalogo_version}'
+                AND snapshot->>'huella_gobernada_sha256' =
+                    categorias#>>'{actual,catalogo_huella_sha256}'
+                AND snapshot->>'huella_proyeccion_publica_sha256' =
+                    categorias#>>'{actual,catalogo_huella_proyeccion_sha256}'
         );
+        FOR categoria IN
+            SELECT value FROM pg_catalog.jsonb_array_elements(snapshot->'categorias')
+        LOOP
+            INSERT INTO vec_bolsa_publica_datos.categoria_publica(
+                catalogo_id, version, clave, etiqueta, descripcion, semantica,
+                orden, area, area_etiqueta, suscribible, vigente_desde,
+                vigente_hasta, publicable
+            ) VALUES (
+                snapshot->>'catalogo_id', (snapshot->>'version')::integer,
+                categoria->>'clave', categoria->>'etiqueta',
+                categoria->>'descripcion', categoria->>'semantica',
+                (categoria->>'orden')::integer, categoria->>'area',
+                categoria->>'area_etiqueta', (categoria->>'suscribible')::boolean,
+                (categoria->>'vigente_desde')::timestamptz,
+                NULLIF(categoria->>'vigente_hasta', '')::timestamptz, true
+            );
+        END LOOP;
     END LOOP;
 
     FOR convocatoria IN
@@ -716,13 +813,18 @@ BEGIN
         INSERT INTO vec_bolsa_publica_datos.convocatoria_publica(
             identificador_publico, version_publica, estado, tipo,
             catalogo_categorias_id, catalogo_categorias_version,
-            catalogo_categorias_huella_sha256, huella_publica_sha256,
+            catalogo_categorias_huella_sha256,
+            catalogo_categorias_huella_proyeccion_sha256,
+            huella_publica_sha256,
             huella_resumen_publico_sha256, titulo, resumen, descripcion,
             publicada_en, actualizada_en, publicable
         ) VALUES (
             convocatoria->>'identificador_publico', convocatoria->>'version_publica',
-            convocatoria->>'estado', convocatoria->>'tipo', categorias->>'catalogo_id',
-            (categorias->>'version')::integer, categorias->>'huella_gobernada_sha256',
+            convocatoria->>'estado', convocatoria->>'tipo',
+            convocatoria#>>'{catalogo_categorias,catalogo_id}',
+            (convocatoria#>>'{catalogo_categorias,catalogo_version}')::integer,
+            convocatoria#>>'{catalogo_categorias,catalogo_huella_sha256}',
+            convocatoria#>>'{catalogo_categorias,catalogo_huella_proyeccion_sha256}',
             convocatoria->>'huella_publica_sha256',
             convocatoria->>'huella_resumen_publico_sha256', convocatoria->>'titulo',
             convocatoria->>'resumen', convocatoria->>'descripcion',
@@ -732,8 +834,10 @@ BEGIN
         INSERT INTO vec_bolsa_publica_datos.convocatoria_categoria(
             identificador_publico, catalogo_id, catalogo_version, categoria_clave
         )
-        SELECT convocatoria->>'identificador_publico', categorias->>'catalogo_id',
-               (categorias->>'version')::integer, value
+        SELECT convocatoria->>'identificador_publico',
+               convocatoria#>>'{catalogo_categorias,catalogo_id}',
+               (convocatoria#>>'{catalogo_categorias,catalogo_version}')::integer,
+               value
           FROM pg_catalog.jsonb_array_elements_text(convocatoria->'categorias');
 
         INSERT INTO vec_bolsa_publica_datos.plazo_convocatoria(
@@ -784,24 +888,29 @@ BEGIN
         (proyeccion#>>'{fuente,actualizada_en}')::timestamptz,
         ancla_manifiesto_sha256
     );
-END
+EXCEPTION
+    WHEN data_exception OR integrity_constraint_violation THEN
+        RAISE EXCEPTION USING
+            ERRCODE = '22023',
+            MESSAGE = 'publicacion rechazada: contenido invalido';
+END;
 $publicar$;
 
-REVOKE ALL ON FUNCTION vec_bolsa_publica_publicacion.publicar_proyeccion_v1(jsonb, text)
+REVOKE ALL ON FUNCTION vec_bolsa_publica_publicacion.publicar_proyeccion_v2(jsonb, text)
     FROM PUBLIC;
 GRANT USAGE ON SCHEMA vec_bolsa_publica_publicacion
     TO vec_bolsa_publica_publicador;
-GRANT EXECUTE ON FUNCTION vec_bolsa_publica_publicacion.publicar_proyeccion_v1(jsonb, text)
+GRANT EXECUTE ON FUNCTION vec_bolsa_publica_publicacion.publicar_proyeccion_v2(jsonb, text)
     TO vec_bolsa_publica_publicador;
 
 SET LOCAL ROLE vec_bolsa_publica_propietario;
 
-CREATE VIEW vec_bolsa_publica_lectura.fuente_publica_v1
+CREATE VIEW vec_bolsa_publica_lectura.fuente_publica_v2
 WITH (security_barrier = true, security_invoker = false) AS
 SELECT control_id, revision, actualizada_en, manifiesto_sha256
   FROM vec_bolsa_publica_datos.fuente;
 
-CREATE VIEW vec_bolsa_publica_lectura.entradas_catalogos_publicos_v1
+CREATE VIEW vec_bolsa_publica_lectura.entradas_catalogos_publicos_v2
 WITH (security_barrier = true, security_invoker = false) AS
 SELECT catalogo.referencia, catalogo.version, entrada.clave,
        entrada.etiqueta, entrada.descripcion, entrada.semantica,
@@ -812,17 +921,17 @@ SELECT catalogo.referencia, catalogo.version, entrada.clave,
    AND entrada.version = catalogo.version
  WHERE catalogo.activo AND entrada.publicable;
 
-CREATE VIEW vec_bolsa_publica_lectura.catalogos_categorias_publicos_v1
+CREATE VIEW vec_bolsa_publica_lectura.catalogos_categorias_publicos_v2
 WITH (security_barrier = true, security_invoker = false) AS
 SELECT catalogo.catalogo_id, catalogo.version,
        catalogo.huella_gobernada_sha256,
        catalogo.huella_proyeccion_publica_sha256,
+	   catalogo.actual,
        fuente.revision, fuente.actualizada_en
   FROM vec_bolsa_publica_datos.catalogo_categorias AS catalogo
- CROSS JOIN vec_bolsa_publica_datos.fuente AS fuente
- WHERE catalogo.activo;
+ CROSS JOIN vec_bolsa_publica_datos.fuente AS fuente;
 
-CREATE VIEW vec_bolsa_publica_lectura.categorias_publicas_v1
+CREATE VIEW vec_bolsa_publica_lectura.categorias_publicas_v2
 WITH (security_barrier = true, security_invoker = false) AS
 SELECT categoria.catalogo_id, categoria.version, categoria.clave,
        categoria.etiqueta, categoria.descripcion, categoria.semantica,
@@ -832,27 +941,30 @@ SELECT categoria.catalogo_id, categoria.version, categoria.clave,
   JOIN vec_bolsa_publica_datos.catalogo_categorias AS catalogo
     ON catalogo.catalogo_id = categoria.catalogo_id
    AND catalogo.version = categoria.version
- WHERE catalogo.activo AND categoria.publicable;
+ WHERE categoria.publicable;
 
-CREATE VIEW vec_bolsa_publica_lectura.convocatorias_publicadas_v1
+CREATE VIEW vec_bolsa_publica_lectura.convocatorias_publicadas_v2
 WITH (security_barrier = true, security_invoker = false) AS
 SELECT identificador_publico, version_publica,
        estado, tipo, catalogo_categorias_id, catalogo_categorias_version,
-       catalogo_categorias_huella_sha256, huella_publica_sha256,
+       catalogo_categorias_huella_sha256,
+       catalogo_categorias_huella_proyeccion_sha256,
+       huella_publica_sha256,
        huella_resumen_publico_sha256,
        titulo, resumen, descripcion, publicada_en, actualizada_en, busqueda
   FROM vec_bolsa_publica_datos.convocatoria_publica
  WHERE publicable AND revocada_en IS NULL;
 
-CREATE VIEW vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v1
+CREATE VIEW vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v2
 WITH (security_barrier = true, security_invoker = false) AS
-SELECT categoria.identificador_publico, categoria.categoria_clave
+SELECT categoria.identificador_publico, categoria.catalogo_id,
+       categoria.catalogo_version, categoria.categoria_clave
   FROM vec_bolsa_publica_datos.convocatoria_categoria AS categoria
   JOIN vec_bolsa_publica_datos.convocatoria_publica AS convocatoria
     ON convocatoria.identificador_publico = categoria.identificador_publico
  WHERE convocatoria.publicable AND convocatoria.revocada_en IS NULL;
 
-CREATE VIEW vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v1
+CREATE VIEW vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v2
 WITH (security_barrier = true, security_invoker = false) AS
 SELECT plazo.identificador_publico, plazo.referencia, plazo.tipo,
        plazo.titulo, plazo.descripcion, plazo.abre_en, plazo.cierra_en
@@ -861,7 +973,7 @@ SELECT plazo.identificador_publico, plazo.referencia, plazo.tipo,
     ON convocatoria.identificador_publico = plazo.identificador_publico
  WHERE convocatoria.publicable AND convocatoria.revocada_en IS NULL;
 
-CREATE VIEW vec_bolsa_publica_lectura.requisitos_convocatorias_publicas_v1
+CREATE VIEW vec_bolsa_publica_lectura.requisitos_convocatorias_publicas_v2
 WITH (security_barrier = true, security_invoker = false) AS
 SELECT requisito.identificador_publico, requisito.referencia,
        requisito.orden, requisito.titulo, requisito.descripcion,
@@ -871,7 +983,7 @@ SELECT requisito.identificador_publico, requisito.referencia,
     ON convocatoria.identificador_publico = requisito.identificador_publico
  WHERE convocatoria.publicable AND convocatoria.revocada_en IS NULL;
 
-CREATE VIEW vec_bolsa_publica_lectura.documentos_convocatorias_publicas_v1
+CREATE VIEW vec_bolsa_publica_lectura.documentos_convocatorias_publicas_v2
 WITH (security_barrier = true, security_invoker = false) AS
 SELECT documento.identificador_publico, documento.referencia,
        documento.tipo, documento.orden, documento.titulo,
@@ -882,7 +994,7 @@ SELECT documento.identificador_publico, documento.referencia,
     ON convocatoria.identificador_publico = documento.identificador_publico
  WHERE convocatoria.publicable AND convocatoria.revocada_en IS NULL;
 
-CREATE VIEW vec_bolsa_publica_lectura.ayuda_convocatorias_publicas_v1
+CREATE VIEW vec_bolsa_publica_lectura.ayuda_convocatorias_publicas_v2
 WITH (security_barrier = true, security_invoker = false) AS
 SELECT ayuda.identificador_publico, ayuda.referencia, ayuda.categoria,
        ayuda.orden, ayuda.pregunta, ayuda.respuesta
@@ -901,16 +1013,16 @@ REVOKE ALL ON SCHEMA vec_bolsa_publica_datos, vec_bolsa_publica_lectura
     FROM vec_bolsa_publica_publicador;
 GRANT USAGE ON SCHEMA vec_bolsa_publica_lectura TO vec_bolsa_publica_consulta;
 GRANT SELECT ON
-    vec_bolsa_publica_lectura.fuente_publica_v1,
-    vec_bolsa_publica_lectura.entradas_catalogos_publicos_v1,
-    vec_bolsa_publica_lectura.catalogos_categorias_publicos_v1,
-    vec_bolsa_publica_lectura.categorias_publicas_v1,
-    vec_bolsa_publica_lectura.convocatorias_publicadas_v1,
-    vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v1,
-    vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v1,
-    vec_bolsa_publica_lectura.requisitos_convocatorias_publicas_v1,
-    vec_bolsa_publica_lectura.documentos_convocatorias_publicas_v1,
-    vec_bolsa_publica_lectura.ayuda_convocatorias_publicas_v1
+    vec_bolsa_publica_lectura.fuente_publica_v2,
+    vec_bolsa_publica_lectura.entradas_catalogos_publicos_v2,
+    vec_bolsa_publica_lectura.catalogos_categorias_publicos_v2,
+    vec_bolsa_publica_lectura.categorias_publicas_v2,
+    vec_bolsa_publica_lectura.convocatorias_publicadas_v2,
+    vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v2,
+    vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v2,
+    vec_bolsa_publica_lectura.requisitos_convocatorias_publicas_v2,
+    vec_bolsa_publica_lectura.documentos_convocatorias_publicas_v2,
+    vec_bolsa_publica_lectura.ayuda_convocatorias_publicas_v2
 TO vec_bolsa_publica_consulta;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE vec_bolsa_publica_propietario

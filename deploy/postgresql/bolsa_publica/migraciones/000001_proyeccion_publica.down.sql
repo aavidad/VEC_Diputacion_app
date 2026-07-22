@@ -7,7 +7,7 @@ SELECT pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('vec_bolsa_publica:migracion:000001', 0)
 );
 SELECT pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended('vec_bolsa_publica:publicacion:v1', 0)
+    pg_catalog.hashtextextended('vec_bolsa_publica:publicacion:v2', 0)
 );
 
 DO $prevalidacion$

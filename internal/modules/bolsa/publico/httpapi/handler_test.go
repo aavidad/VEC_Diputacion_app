@@ -454,9 +454,13 @@ func detalleMaximoPrueba(
 	documentos := make([]aplicacionbolsa.DocumentoPublico, 256)
 	ayudas := make([]aplicacionbolsa.AyudaPublica, 128)
 	plazos := make([]aplicacionbolsa.PlazoPublico, 64)
-	diccionarioCategorias := make([]aplicacionbolsa.ValorCatalogoPublico, len(resumen.Categorias))
+	diccionarioCategorias := make([]aplicacionbolsa.CategoriaDiccionarioPublico, len(resumen.Categorias))
 	for indice := range diccionarioCategorias {
-		diccionarioCategorias[indice] = valor
+		diccionarioCategorias[indice] = aplicacionbolsa.CategoriaDiccionarioPublico{
+			CatalogoCategorias: resumen.CatalogoCategorias,
+			Clave:              valor.Clave, Version: valor.Version, Etiqueta: valor.Etiqueta,
+			Descripcion: valor.Descripcion, Semantica: valor.Semantica,
+		}
 	}
 	for indice := range requisitos {
 		requisitos[indice] = aplicacionbolsa.RequisitoPublico{
@@ -501,7 +505,8 @@ func directorioCategoriasMaximoPrueba(valor aplicacionbolsa.ValorCatalogoPublico
 		Esquema: "vec.bolsa.publico.categorias.v1",
 		Catalogo: aplicacionbolsa.ReferenciaCatalogoCategoriasPublico{
 			Referencia: strings.Repeat("a", 128), Version: 1,
-			HuellaSHA256: strings.Repeat("a", 64), Total: 1_024,
+			HuellaSHA256:           strings.Repeat("a", 64),
+			HuellaProyeccionSHA256: strings.Repeat("b", 64), Total: 1_024,
 		},
 		Categorias: categorias,
 	}

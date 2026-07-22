@@ -234,16 +234,16 @@ type consultadorFila interface {
 
 const consultaIdentidadPostgreSQLPublica = `
 WITH vistas_esperadas(nombre) AS (VALUES
-    ('fuente_publica_v1'),
-    ('entradas_catalogos_publicos_v1'),
-    ('catalogos_categorias_publicos_v1'),
-    ('categorias_publicas_v1'),
-    ('convocatorias_publicadas_v1'),
-    ('categorias_convocatorias_publicas_v1'),
-    ('plazos_convocatorias_publicas_v1'),
-    ('requisitos_convocatorias_publicas_v1'),
-    ('documentos_convocatorias_publicas_v1'),
-    ('ayuda_convocatorias_publicas_v1')
+    ('fuente_publica_v2'),
+    ('entradas_catalogos_publicos_v2'),
+    ('catalogos_categorias_publicos_v2'),
+    ('categorias_publicas_v2'),
+    ('convocatorias_publicadas_v2'),
+    ('categorias_convocatorias_publicas_v2'),
+    ('plazos_convocatorias_publicas_v2'),
+    ('requisitos_convocatorias_publicas_v2'),
+    ('documentos_convocatorias_publicas_v2'),
+    ('ayuda_convocatorias_publicas_v2')
 ), privilegios_relaciones AS (
     SELECT COALESCE(bool_and(
         CASE

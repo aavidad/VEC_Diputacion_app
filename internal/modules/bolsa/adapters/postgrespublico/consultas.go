@@ -91,6 +91,13 @@ func (f *Fuente) BuscarPublicadasConCategorias(
 	if err != nil {
 		return puertosbolsa.LecturaListadoPublicoConsistente{}, err
 	}
+	snapshots, err := clonarSnapshotsCategorias(f.cacheManifiesto.Load())
+	if err != nil {
+		return puertosbolsa.LecturaListadoPublicoConsistente{}, err
+	}
+	for indice := range snapshots {
+		snapshots[indice].Fuente = categorias.Fuente
+	}
 	pagina, err := f.buscarPublicadasTx(ctx, tx, filtro)
 	if err != nil {
 		return puertosbolsa.LecturaListadoPublicoConsistente{}, err
@@ -98,7 +105,9 @@ func (f *Fuente) BuscarPublicadasConCategorias(
 	if err := tx.Commit(ctx); err != nil {
 		return puertosbolsa.LecturaListadoPublicoConsistente{}, errorPostgreSQLPublico(ctx, err)
 	}
-	return puertosbolsa.LecturaListadoPublicoConsistente{Pagina: pagina, Categorias: categorias}, nil
+	return puertosbolsa.LecturaListadoPublicoConsistente{
+		Pagina: pagina, Categorias: categorias, SnapshotsCategorias: snapshots,
+	}, nil
 }
 
 func (f *Fuente) ObtenerPublicadaConCategorias(
@@ -121,6 +130,13 @@ func (f *Fuente) ObtenerPublicadaConCategorias(
 	if err != nil {
 		return puertosbolsa.LecturaDetallePublicoConsistente{}, err
 	}
+	snapshots, err := clonarSnapshotsCategorias(f.cacheManifiesto.Load())
+	if err != nil {
+		return puertosbolsa.LecturaDetallePublicoConsistente{}, err
+	}
+	for indice := range snapshots {
+		snapshots[indice].Fuente = categorias.Fuente
+	}
 	detalle, err := f.obtenerPublicadaTx(ctx, tx, identificador)
 	if err != nil {
 		return puertosbolsa.LecturaDetallePublicoConsistente{}, err
@@ -128,7 +144,9 @@ func (f *Fuente) ObtenerPublicadaConCategorias(
 	if err := tx.Commit(ctx); err != nil {
 		return puertosbolsa.LecturaDetallePublicoConsistente{}, errorPostgreSQLPublico(ctx, err)
 	}
-	return puertosbolsa.LecturaDetallePublicoConsistente{Detalle: detalle, Categorias: categorias}, nil
+	return puertosbolsa.LecturaDetallePublicoConsistente{
+		Detalle: detalle, Categorias: categorias, SnapshotsCategorias: snapshots,
+	}, nil
 }
 
 func (f *Fuente) ConsultarCategoriasConConteos(
@@ -185,7 +203,7 @@ func (f *Fuente) ValidarConfiguracionPublica(ctx context.Context, instante time.
 	err = tx.QueryRow(ctx, `
 		SELECT
 		    (SELECT count(*) <= 12000
-		       FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v1)
+		       FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v2)
 		AND NOT EXISTS (
 		    SELECT requerido.referencia
 		      FROM (VALUES
@@ -194,57 +212,62 @@ func (f *Fuente) ValidarConfiguracionPublica(ctx context.Context, instante time.
 		      ) AS requerido(referencia)
 		     WHERE NOT EXISTS (
 		         SELECT 1
-		           FROM vec_bolsa_publica_lectura.entradas_catalogos_publicos_v1 AS entrada
+		           FROM vec_bolsa_publica_lectura.entradas_catalogos_publicos_v2 AS entrada
 		          WHERE entrada.referencia = requerido.referencia
 		     )
 		)
 		AND NOT EXISTS (
 		    SELECT 1
-		      FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v1 AS convocatoria
-		     WHERE convocatoria.catalogo_categorias_id <> $1
-		        OR convocatoria.catalogo_categorias_version <> $2
-		        OR convocatoria.catalogo_categorias_huella_sha256 <> $3
+		      FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v2 AS convocatoria
+		      LEFT JOIN vec_bolsa_publica_lectura.catalogos_categorias_publicos_v2 AS catalogo
+		        ON catalogo.catalogo_id = convocatoria.catalogo_categorias_id
+		       AND catalogo.version = convocatoria.catalogo_categorias_version
+		       AND catalogo.huella_gobernada_sha256 = convocatoria.catalogo_categorias_huella_sha256
+		       AND catalogo.huella_proyeccion_publica_sha256 =
+		           convocatoria.catalogo_categorias_huella_proyeccion_sha256
+		     WHERE catalogo.catalogo_id IS NULL
 		)
 		AND NOT EXISTS (
 		    SELECT 1
-		      FROM vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v1 AS vinculo
-		      LEFT JOIN vec_bolsa_publica_lectura.categorias_publicas_v1 AS categoria
-		        ON categoria.catalogo_id = $1 AND categoria.version = $2
+		      FROM vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v2 AS vinculo
+		      JOIN vec_bolsa_publica_lectura.convocatorias_publicadas_v2 AS convocatoria
+		        ON convocatoria.identificador_publico = vinculo.identificador_publico
+		      LEFT JOIN vec_bolsa_publica_lectura.categorias_publicas_v2 AS categoria
+		        ON categoria.catalogo_id = convocatoria.catalogo_categorias_id
+		       AND categoria.version = convocatoria.catalogo_categorias_version
 		       AND categoria.clave = vinculo.categoria_clave
-		       AND categoria.vigente_desde <= $4
-		       AND (categoria.vigente_hasta IS NULL OR $4 < categoria.vigente_hasta)
 		     WHERE categoria.clave IS NULL
 		)
 		AND NOT EXISTS (
 		    SELECT 1
-		      FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v1 AS convocatoria
-		      LEFT JOIN vec_bolsa_publica_lectura.entradas_catalogos_publicos_v1 AS tipo
+		      FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v2 AS convocatoria
+		      LEFT JOIN vec_bolsa_publica_lectura.entradas_catalogos_publicos_v2 AS tipo
 		        ON tipo.referencia = 'tipos_convocatoria' AND tipo.clave = convocatoria.tipo
-		      LEFT JOIN vec_bolsa_publica_lectura.entradas_catalogos_publicos_v1 AS estado
+		      LEFT JOIN vec_bolsa_publica_lectura.entradas_catalogos_publicos_v2 AS estado
 		        ON estado.referencia = 'estados_convocatoria' AND estado.clave = convocatoria.estado
 		     WHERE tipo.clave IS NULL OR estado.clave IS NULL
 		)
 		AND NOT EXISTS (
 		    SELECT 1
-		      FROM vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v1 AS plazo
-		      LEFT JOIN vec_bolsa_publica_lectura.entradas_catalogos_publicos_v1 AS tipo
+		      FROM vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v2 AS plazo
+		      LEFT JOIN vec_bolsa_publica_lectura.entradas_catalogos_publicos_v2 AS tipo
 		        ON tipo.referencia = 'tipos_plazo' AND tipo.clave = plazo.tipo
 		     WHERE tipo.clave IS NULL
 		)
 		AND NOT EXISTS (
 		    SELECT 1
-		      FROM vec_bolsa_publica_lectura.documentos_convocatorias_publicas_v1 AS documento
-		      LEFT JOIN vec_bolsa_publica_lectura.entradas_catalogos_publicos_v1 AS tipo
+		      FROM vec_bolsa_publica_lectura.documentos_convocatorias_publicas_v2 AS documento
+		      LEFT JOIN vec_bolsa_publica_lectura.entradas_catalogos_publicos_v2 AS tipo
 		        ON tipo.referencia = 'tipos_documento' AND tipo.clave = documento.tipo
 		     WHERE tipo.clave IS NULL
 		)
 		AND NOT EXISTS (
 		    SELECT 1
-		      FROM vec_bolsa_publica_lectura.ayuda_convocatorias_publicas_v1 AS ayuda
-		      LEFT JOIN vec_bolsa_publica_lectura.entradas_catalogos_publicos_v1 AS categoria
+		      FROM vec_bolsa_publica_lectura.ayuda_convocatorias_publicas_v2 AS ayuda
+		      LEFT JOIN vec_bolsa_publica_lectura.entradas_catalogos_publicos_v2 AS categoria
 		        ON categoria.referencia = 'categorias_ayuda' AND categoria.clave = ayuda.categoria
 		     WHERE categoria.clave IS NULL
-		)`, f.catalogoCategorias, f.versionCategorias, f.huellaCategoriasGobernadaHex, instante,
+		)`,
 	).Scan(&valida)
 	if err != nil {
 		return errorPostgreSQLPublico(ctx, err)
@@ -349,6 +372,18 @@ func (f *Fuente) ObtenerPublicadas(
 	return resultado, nil
 }
 
+func (f *Fuente) ObtenerSnapshotsPublicados(
+	ctx context.Context,
+) ([]puertosbolsa.CatalogoCategoriasPublicas, error) {
+	if ctx == nil || !f.valida() {
+		return nil, puertosbolsa.ErrConsultaCategoriasInvalida
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return clonarSnapshotsCategorias(f.cacheManifiesto.Load())
+}
+
 func (f *Fuente) configuracionValida() bool {
 	return f != nil && f.pool != nil &&
 		patronIDCatalogoPublicoPostgreSQL.MatchString(f.catalogoCategorias) &&
@@ -396,7 +431,7 @@ func leerMetadatosFuente(
 	var actualizada time.Time
 	err := tx.QueryRow(ctx, `
 		SELECT revision, actualizada_en
-		  FROM vec_bolsa_publica_lectura.fuente_publica_v1
+		  FROM vec_bolsa_publica_lectura.fuente_publica_v2
 		 WHERE control_id IS TRUE`,
 	).Scan(&revision, &actualizada)
 	if err != nil {
@@ -410,7 +445,7 @@ func leerMetadatosFuente(
 func leerCatalogos(ctx context.Context, tx pgx.Tx) ([]puertosbolsa.CatalogoPublico, error) {
 	filas, err := tx.Query(ctx, `
 		SELECT referencia, version, clave, etiqueta, descripcion, semantica, orden, publicable
-		  FROM vec_bolsa_publica_lectura.entradas_catalogos_publicos_v1
+		  FROM vec_bolsa_publica_lectura.entradas_catalogos_publicos_v2
 	 ORDER BY referencia, version, orden, clave
 	 LIMIT 1025`)
 	if err != nil {
@@ -466,8 +501,9 @@ func (f *Fuente) leerCategorias(
 	err := tx.QueryRow(ctx, `
 		SELECT catalogo_id, version, huella_gobernada_sha256,
 		       huella_proyeccion_publica_sha256, revision, actualizada_en
-		  FROM vec_bolsa_publica_lectura.catalogos_categorias_publicos_v1
-		 WHERE catalogo_id = $1 AND version = $2`, f.catalogoCategorias, f.versionCategorias,
+		  FROM vec_bolsa_publica_lectura.catalogos_categorias_publicos_v2
+		 WHERE catalogo_id = $1 AND version = $2 AND actual IS TRUE`,
+		f.catalogoCategorias, f.versionCategorias,
 	).Scan(&id, &version, &huellaGobernada, &huellaProyeccion, &revision, &actualizada)
 	if err != nil || id != f.catalogoCategorias || version != f.versionCategorias ||
 		!huellasIguales(huellaGobernada, f.huellaCategoriasGobernadaHex) ||
@@ -480,7 +516,7 @@ func (f *Fuente) leerCategorias(
 	filas, err := tx.Query(ctx, `
 		SELECT clave, etiqueta, descripcion, semantica, orden, area, area_etiqueta,
 		       suscribible, vigente_desde, vigente_hasta
-		  FROM vec_bolsa_publica_lectura.categorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.categorias_publicas_v2
 		 WHERE catalogo_id = $1 AND version = $2
 	 ORDER BY orden, clave
 	 LIMIT 1025`, f.catalogoCategorias, f.versionCategorias,
@@ -490,7 +526,8 @@ func (f *Fuente) leerCategorias(
 	}
 	defer filas.Close()
 	resultado := puertosbolsa.CatalogoCategoriasPublicas{
-		ID: id, Version: version, HuellaSHA256: huellaGobernada,
+		ID: id, Version: version, HuellaGobernadaSHA256: huellaGobernada,
+		HuellaProyeccionSHA256: huellaProyeccion,
 		Fuente: puertosbolsa.MetadatosFuenteCategorias{
 			Revision: revision, ActualizadaEn: instanteUTC(actualizada), Demostracion: false,
 		},
@@ -527,8 +564,7 @@ func (f *Fuente) leerCategorias(
 	if err := filas.Err(); err != nil {
 		return puertosbolsa.CatalogoCategoriasPublicas{}, errorPostgreSQLPublico(ctx, err)
 	}
-	if len(materialCategorias) == 0 || len(materialCategorias) > maximoCategoriasPublicas ||
-		len(resultado.Categorias) == 0 {
+	if len(materialCategorias) == 0 || len(materialCategorias) > maximoCategoriasPublicas {
 		return puertosbolsa.CatalogoCategoriasPublicas{}, puertosbolsa.ErrCatalogoCategoriasNoDisponible
 	}
 	catalogoCanonico, err := canonicopublico.NuevoCatalogoCategoriasV1(id, version, materialCategorias)

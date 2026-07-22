@@ -114,14 +114,17 @@ type DatosPublicosConvocatoria struct {
 // esta referencia, por lo que otra version nunca puede reinterpretarla de
 // forma silenciosa.
 type ReferenciaCatalogoCategorias struct {
-	CatalogoID           string `json:"catalogo_id"`
-	CatalogoVersion      int    `json:"catalogo_version"`
-	CatalogoHuellaSHA256 string `json:"catalogo_huella_sha256"`
+	CatalogoID                     string `json:"catalogo_id"`
+	CatalogoVersion                int    `json:"catalogo_version"`
+	CatalogoHuellaSHA256           string `json:"catalogo_huella_sha256"`
+	CatalogoHuellaProyeccionSHA256 string `json:"catalogo_huella_proyeccion_sha256"`
 }
 
 func (r ReferenciaCatalogoCategorias) Valida() bool {
 	return patronClaveCatalogoConvocatoria.MatchString(r.CatalogoID) &&
-		r.CatalogoVersion >= 1 && patronHuellaCatalogoSHA256.MatchString(r.CatalogoHuellaSHA256)
+		r.CatalogoVersion >= 1 &&
+		patronHuellaCatalogoSHA256.MatchString(r.CatalogoHuellaSHA256) &&
+		patronHuellaCatalogoSHA256.MatchString(r.CatalogoHuellaProyeccionSHA256)
 }
 
 type PlazoConvocatoria struct {

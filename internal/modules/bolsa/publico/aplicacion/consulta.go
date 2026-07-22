@@ -5,11 +5,9 @@ import (
 	"context"
 	"errors"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 
-	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/publico/dominio"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/puertos"
 )
 
@@ -24,10 +22,12 @@ const (
 	TamanoPaginaPublicaMaximo         = 24
 	PaginaPublicaMaxima               = 500
 	LongitudTextoPublicoMaxima        = 100
+	MaximoReferenciasCategoriasPagina = TamanoPaginaPublicaMaximo * 128
 )
 
 var (
 	patronFiltroCatalogo       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$`)
+	patronIDCatalogoCategorias = regexp.MustCompile(`^[a-z][a-z0-9._-]{0,127}$`)
 	patronIdentificadorPublico = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{2,79}$`)
 	patronHuellaSHA256         = regexp.MustCompile(`^[a-f0-9]{64}$`)
 )
@@ -46,6 +46,7 @@ type ServicioConsultaPublica struct {
 	fuente      puertosbolsa.ConsultaConvocatoriasPublicas
 	categorias  puertosbolsa.ConsultaCategoriasPublicas
 	consistente puertosbolsa.ConsultaPublicaConsistente
+	historicas  puertosbolsa.ConsultaSnapshotsCategoriasPublicas
 	reloj       RelojConsultaPublica
 }
 
@@ -57,7 +58,13 @@ func NuevoServicioConsultaPublica(
 	if fuente == nil || categorias == nil || reloj == nil {
 		return nil, ErrServicioConsultaPublicaInvalido
 	}
-	return &ServicioConsultaPublica{fuente: fuente, categorias: categorias, reloj: reloj}, nil
+	historicas, disponible := categorias.(puertosbolsa.ConsultaSnapshotsCategoriasPublicas)
+	if !disponible || historicas == nil {
+		return nil, ErrServicioConsultaPublicaInvalido
+	}
+	return &ServicioConsultaPublica{
+		fuente: fuente, categorias: categorias, historicas: historicas, reloj: reloj,
+	}, nil
 }
 
 func NuevoServicioConsultaPublicaConsistente(
@@ -94,6 +101,10 @@ func (s *ServicioConsultaPublica) ValidarConfiguracion(ctx context.Context) erro
 	if err != nil {
 		return err
 	}
+	snapshotsCategorias, err := s.historicas.ObtenerSnapshotsPublicados(ctx)
+	if err != nil {
+		return err
+	}
 
 	totalEsperado := -1
 	desplazamiento := 0
@@ -105,7 +116,10 @@ func (s *ServicioConsultaPublica) ValidarConfiguracion(ctx context.Context) erro
 		if err != nil {
 			return err
 		}
-		indice, err := nuevoIndiceCatalogos(pagina.Catalogos, catalogoCategorias)
+		indice, err := nuevoIndiceCatalogos(
+			pagina.Catalogos, catalogoCategorias,
+			snapshotsCategorias,
+		)
 		if err != nil || validarFuente(pagina.Fuente) != nil ||
 			!fuentesCoinciden(catalogoCategorias.Fuente, pagina.Fuente) ||
 			validarConteosCategorias(pagina.ConteosCategorias, indice) != nil || pagina.Total < 0 ||
@@ -198,16 +212,16 @@ type PlazoPublico struct {
 }
 
 type ResumenConvocatoriaPublica struct {
-	IdentificadorPublico string               `json:"identificador_publico"`
-	Version              string               `json:"version"`
-	HuellaSHA256         string               `json:"huella_sha256"`
-	Titulo               string               `json:"titulo"`
-	Resumen              string               `json:"resumen"`
-	Tipo                 ValorCatalogoPublico `json:"tipo"`
-	Estado               ValorCatalogoPublico `json:"estado"`
-	// Categorias contiene referencias nominales. Etiqueta, descripción y
-	// semántica se publican una sola vez en Facetas.Categorias y se resuelven
-	// por la pareja exacta clave+versión.
+	IdentificadorPublico string                                          `json:"identificador_publico"`
+	Version              string                                          `json:"version"`
+	HuellaSHA256         string                                          `json:"huella_sha256"`
+	Titulo               string                                          `json:"titulo"`
+	Resumen              string                                          `json:"resumen"`
+	Tipo                 ValorCatalogoPublico                            `json:"tipo"`
+	Estado               ValorCatalogoPublico                            `json:"estado"`
+	CatalogoCategorias   ReferenciaCatalogoCategoriasConvocatoriaPublica `json:"catalogo_categorias"`
+	// Categorias se resuelve en diccionario_categorias por clave+version bajo
+	// la referencia inmutable del snapshot anterior.
 	Categorias       []ReferenciaCategoriaPublica `json:"categorias"`
 	PlazoDestacado   *PlazoPublico                `json:"plazo_destacado,omitempty"`
 	NumeroRequisitos int                          `json:"numero_requisitos"`
@@ -222,19 +236,37 @@ type ReferenciaCategoriaPublica struct {
 	Version int    `json:"version"`
 }
 
+type ReferenciaCatalogoCategoriasConvocatoriaPublica struct {
+	Referencia             string `json:"referencia"`
+	Version                int    `json:"version"`
+	HuellaSHA256           string `json:"huella_sha256"`
+	HuellaProyeccionSHA256 string `json:"huella_proyeccion_sha256"`
+}
+
+type CategoriaDiccionarioPublico struct {
+	CatalogoCategorias ReferenciaCatalogoCategoriasConvocatoriaPublica `json:"catalogo_categorias"`
+	Clave              string                                          `json:"clave"`
+	Version            int                                             `json:"version"`
+	Etiqueta           string                                          `json:"etiqueta"`
+	Descripcion        string                                          `json:"descripcion,omitempty"`
+	Semantica          string                                          `json:"semantica"`
+}
+
 type ListadoConvocatoriasPublicas struct {
-	Esquema       string                       `json:"esquema"`
-	Fuente        FuentePublica                `json:"fuente"`
-	Facetas       FacetasConvocatorias         `json:"facetas"`
-	Paginacion    PaginacionPublica            `json:"paginacion"`
-	Convocatorias []ResumenConvocatoriaPublica `json:"convocatorias"`
+	Esquema               string                        `json:"esquema"`
+	Fuente                FuentePublica                 `json:"fuente"`
+	Facetas               FacetasConvocatorias          `json:"facetas"`
+	DiccionarioCategorias []CategoriaDiccionarioPublico `json:"diccionario_categorias"`
+	Paginacion            PaginacionPublica             `json:"paginacion"`
+	Convocatorias         []ResumenConvocatoriaPublica  `json:"convocatorias"`
 }
 
 type ReferenciaCatalogoCategoriasPublico struct {
-	Referencia   string `json:"referencia"`
-	Version      int    `json:"version"`
-	HuellaSHA256 string `json:"huella_sha256"`
-	Total        int    `json:"total"`
+	Referencia             string `json:"referencia"`
+	Version                int    `json:"version"`
+	HuellaSHA256           string `json:"huella_sha256"`
+	HuellaProyeccionSHA256 string `json:"huella_proyeccion_sha256"`
+	Total                  int    `json:"total"`
 }
 
 type CategoriaDirectorioPublico struct {
@@ -286,15 +318,15 @@ type AyudaPublica struct {
 }
 
 type DetalleConvocatoriaPublica struct {
-	Esquema               string                     `json:"esquema"`
-	Fuente                FuentePublica              `json:"fuente"`
-	Convocatoria          ResumenConvocatoriaPublica `json:"convocatoria"`
-	DiccionarioCategorias []ValorCatalogoPublico     `json:"diccionario_categorias"`
-	Descripcion           string                     `json:"descripcion"`
-	Plazos                []PlazoPublico             `json:"plazos"`
-	Requisitos            []RequisitoPublico         `json:"requisitos"`
-	Documentos            []DocumentoPublico         `json:"documentos"`
-	Ayuda                 []AyudaPublica             `json:"ayuda"`
+	Esquema               string                        `json:"esquema"`
+	Fuente                FuentePublica                 `json:"fuente"`
+	Convocatoria          ResumenConvocatoriaPublica    `json:"convocatoria"`
+	DiccionarioCategorias []CategoriaDiccionarioPublico `json:"diccionario_categorias"`
+	Descripcion           string                        `json:"descripcion"`
+	Plazos                []PlazoPublico                `json:"plazos"`
+	Requisitos            []RequisitoPublico            `json:"requisitos"`
+	Documentos            []DocumentoPublico            `json:"documentos"`
+	Ayuda                 []AyudaPublica                `json:"ayuda"`
 }
 
 func (s *ServicioConsultaPublica) Listar(ctx context.Context, solicitud SolicitudListadoPublico) (ListadoConvocatoriasPublicas, error) {
@@ -309,15 +341,21 @@ func (s *ServicioConsultaPublica) Listar(ctx context.Context, solicitud Solicitu
 		return ListadoConvocatoriasPublicas{}, err
 	}
 	var catalogoCategorias puertosbolsa.CatalogoCategoriasPublicas
+	var snapshotsCategorias []puertosbolsa.CatalogoCategoriasPublicas
 	var resultado puertosbolsa.PaginaConvocatorias
 	if s.consistente != nil {
 		lectura, err := s.consistente.BuscarPublicadasConCategorias(ctx, filtro)
 		if err != nil {
 			return ListadoConvocatoriasPublicas{}, err
 		}
-		catalogoCategorias, resultado = lectura.Categorias, lectura.Pagina
+		catalogoCategorias, snapshotsCategorias, resultado =
+			lectura.Categorias, lectura.SnapshotsCategorias, lectura.Pagina
 	} else {
 		catalogoCategorias, err = s.categorias.ObtenerPublicadas(ctx, filtro.Instante)
+		if err != nil {
+			return ListadoConvocatoriasPublicas{}, err
+		}
+		snapshotsCategorias, err = s.historicas.ObtenerSnapshotsPublicados(ctx)
 		if err != nil {
 			return ListadoConvocatoriasPublicas{}, err
 		}
@@ -329,7 +367,7 @@ func (s *ServicioConsultaPublica) Listar(ctx context.Context, solicitud Solicitu
 	if filtro.Categoria != "" && !contieneCategoriaPublica(catalogoCategorias, filtro.Categoria) {
 		return ListadoConvocatoriasPublicas{}, ErrFiltroPublicoInvalido
 	}
-	indice, err := nuevoIndiceCatalogos(resultado.Catalogos, catalogoCategorias)
+	indice, err := nuevoIndiceCatalogos(resultado.Catalogos, catalogoCategorias, snapshotsCategorias)
 	if err != nil || validarFuente(resultado.Fuente) != nil ||
 		!fuentesCoinciden(catalogoCategorias.Fuente, resultado.Fuente) ||
 		resultado.Total < 0 || len(resultado.Convocatorias) > tamano ||
@@ -344,8 +382,16 @@ func (s *ServicioConsultaPublica) Listar(ctx context.Context, solicitud Solicitu
 		}
 		resumenes = append(resumenes, resumen)
 	}
+	referenciasCategorias := make([]ReferenciaCategoriaPublica, 0)
+	for _, resumen := range resumenes {
+		referenciasCategorias = append(referenciasCategorias, resumen.Categorias...)
+	}
+	diccionarioCategorias, err := indice.diccionarioCategorias(referenciasCategorias)
+	if err != nil {
+		return ListadoConvocatoriasPublicas{}, err
+	}
 	facetas := indice.facetas(resultado.ConteosCategorias)
-	if err := validarCoberturaCategoriasResumenes(resumenes, facetas.Categorias); err != nil {
+	if err := validarCoberturaCategoriasResumenes(resumenes, diccionarioCategorias); err != nil {
 		return ListadoConvocatoriasPublicas{}, err
 	}
 	paginas := 0
@@ -353,11 +399,12 @@ func (s *ServicioConsultaPublica) Listar(ctx context.Context, solicitud Solicitu
 		paginas = (resultado.Total + tamano - 1) / tamano
 	}
 	return ListadoConvocatoriasPublicas{
-		Esquema:       "vec.bolsa.publico.convocatorias.v2",
-		Fuente:        proyectarFuente(resultado.Fuente),
-		Facetas:       facetas,
-		Paginacion:    PaginacionPublica{Pagina: pagina, Tamano: tamano, Total: resultado.Total, Paginas: paginas},
-		Convocatorias: resumenes,
+		Esquema:               "vec.bolsa.publico.convocatorias.v2",
+		Fuente:                proyectarFuente(resultado.Fuente),
+		Facetas:               facetas,
+		DiccionarioCategorias: diccionarioCategorias,
+		Paginacion:            PaginacionPublica{Pagina: pagina, Tamano: tamano, Total: resultado.Total, Paginas: paginas},
+		Convocatorias:         resumenes,
 	}, nil
 }
 
@@ -377,13 +424,15 @@ func (s *ServicioConsultaPublica) Obtener(ctx context.Context, identificador str
 		return DetalleConvocatoriaPublica{}, err
 	}
 	var catalogoCategorias puertosbolsa.CatalogoCategoriasPublicas
+	var snapshotsCategorias []puertosbolsa.CatalogoCategoriasPublicas
 	var resultado puertosbolsa.DetalleConvocatoria
 	if s.consistente != nil {
 		lectura, err := s.consistente.ObtenerPublicadaConCategorias(ctx, identificador, ahora)
 		if err != nil {
 			return DetalleConvocatoriaPublica{}, err
 		}
-		catalogoCategorias, resultado = lectura.Categorias, lectura.Detalle
+		catalogoCategorias, snapshotsCategorias, resultado =
+			lectura.Categorias, lectura.SnapshotsCategorias, lectura.Detalle
 	} else {
 		catalogoCategorias, err = s.categorias.ObtenerPublicadas(ctx, ahora)
 		if err != nil {
@@ -393,8 +442,12 @@ func (s *ServicioConsultaPublica) Obtener(ctx context.Context, identificador str
 		if err != nil {
 			return DetalleConvocatoriaPublica{}, err
 		}
+		snapshotsCategorias, err = s.historicas.ObtenerSnapshotsPublicados(ctx)
+		if err != nil {
+			return DetalleConvocatoriaPublica{}, err
+		}
 	}
-	indice, err := nuevoIndiceCatalogos(resultado.Catalogos, catalogoCategorias)
+	indice, err := nuevoIndiceCatalogos(resultado.Catalogos, catalogoCategorias, snapshotsCategorias)
 	if err != nil || validarFuente(resultado.Fuente) != nil ||
 		!fuentesCoinciden(catalogoCategorias.Fuente, resultado.Fuente) {
 		return DetalleConvocatoriaPublica{}, ErrDatosPublicosNoConfiables
@@ -481,7 +534,9 @@ func (s *ServicioConsultaPublica) ListarCategorias(ctx context.Context) (Directo
 			return DirectorioCategoriasPublicas{}, err
 		}
 	}
-	indice, err := nuevoIndiceCatalogos(resultado.Catalogos, catalogo)
+	indice, err := nuevoIndiceCatalogos(
+		resultado.Catalogos, catalogo, []puertosbolsa.CatalogoCategoriasPublicas{catalogo},
+	)
 	if err != nil || validarFuente(resultado.Fuente) != nil || validarFuenteCategorias(catalogo.Fuente) != nil ||
 		!fuentesCoinciden(catalogo.Fuente, resultado.Fuente) ||
 		validarConteosCategorias(resultado.ConteosCategorias, indice) != nil {
@@ -508,10 +563,11 @@ func (s *ServicioConsultaPublica) ListarCategorias(ctx context.Context) (Directo
 		Esquema: "vec.bolsa.publico.categorias.v1",
 		Fuente:  proyectarFuenteCategorias(catalogo.Fuente),
 		Catalogo: ReferenciaCatalogoCategoriasPublico{
-			Referencia:   catalogo.ID,
-			Version:      catalogo.Version,
-			HuellaSHA256: catalogo.HuellaSHA256,
-			Total:        len(categorias),
+			Referencia:             catalogo.ID,
+			Version:                catalogo.Version,
+			HuellaSHA256:           catalogo.HuellaGobernadaSHA256,
+			HuellaProyeccionSHA256: catalogo.HuellaProyeccionSHA256,
+			Total:                  len(categorias),
 		},
 		Categorias: categorias,
 	}, nil
@@ -546,176 +602,4 @@ func (s *ServicioConsultaPublica) prepararFiltro(solicitud SolicitudListadoPubli
 		Texto: texto, Tipo: solicitud.Tipo, Categoria: solicitud.Categoria, Estado: solicitud.Estado,
 		SoloPlazoAbierto: solicitud.SoloPlazoAbierto, Instante: ahora, Limite: tamano, Desplazamiento: (pagina - 1) * tamano,
 	}, pagina, tamano, nil
-}
-
-type indiceCatalogos struct {
-	porCatalogo          map[string]map[string]puertosbolsa.EntradaCatalogoPublico
-	ordenados            map[string][]puertosbolsa.EntradaCatalogoPublico
-	referenciaCategorias dominiobolsa.ReferenciaCatalogoCategorias
-}
-
-func nuevoIndiceCatalogos(
-	catalogos []puertosbolsa.CatalogoPublico,
-	categorias puertosbolsa.CatalogoCategoriasPublicas,
-) (indiceCatalogos, error) {
-	if !patronFiltroCatalogo.MatchString(categorias.ID) || categorias.Version < 1 ||
-		!patronHuellaSHA256.MatchString(categorias.HuellaSHA256) || len(categorias.Categorias) == 0 ||
-		validarFuenteCategorias(categorias.Fuente) != nil {
-		return indiceCatalogos{}, ErrDatosPublicosNoConfiables
-	}
-	catalogosCompletos := make([]puertosbolsa.CatalogoPublico, 0, len(catalogos)+1)
-	catalogosCompletos = append(catalogosCompletos, catalogos...)
-	catalogoProfesional := puertosbolsa.CatalogoPublico{
-		Referencia: puertosbolsa.CatalogoCategoriasConvocatoria,
-		Version:    categorias.Version,
-		Entradas:   make([]puertosbolsa.EntradaCatalogoPublico, 0, len(categorias.Categorias)),
-	}
-	for _, categoria := range categorias.Categorias {
-		if categoria.Version != categorias.Version || !patronFiltroCatalogo.MatchString(categoria.Area) ||
-			!textoPublicoCanonico(categoria.AreaEtiqueta, 120, false) {
-			return indiceCatalogos{}, ErrDatosPublicosNoConfiables
-		}
-		catalogoProfesional.Entradas = append(catalogoProfesional.Entradas, puertosbolsa.EntradaCatalogoPublico{
-			Clave:       categoria.Clave,
-			Version:     categoria.Version,
-			Etiqueta:    categoria.Etiqueta,
-			Descripcion: categoria.Descripcion,
-			Semantica:   categoria.Semantica,
-			Orden:       categoria.Orden,
-			Publicable:  true,
-		})
-	}
-	catalogosCompletos = append(catalogosCompletos, catalogoProfesional)
-	indice := indiceCatalogos{
-		porCatalogo: map[string]map[string]puertosbolsa.EntradaCatalogoPublico{},
-		ordenados:   map[string][]puertosbolsa.EntradaCatalogoPublico{},
-		referenciaCategorias: dominiobolsa.ReferenciaCatalogoCategorias{
-			CatalogoID: categorias.ID, CatalogoVersion: categorias.Version, CatalogoHuellaSHA256: categorias.HuellaSHA256,
-		},
-	}
-	for _, catalogo := range catalogosCompletos {
-		if !patronFiltroCatalogo.MatchString(catalogo.Referencia) || catalogo.Version < 1 || len(catalogo.Entradas) == 0 || indice.porCatalogo[catalogo.Referencia] != nil {
-			return indiceCatalogos{}, ErrDatosPublicosNoConfiables
-		}
-		indice.porCatalogo[catalogo.Referencia] = map[string]puertosbolsa.EntradaCatalogoPublico{}
-		for _, entrada := range catalogo.Entradas {
-			if !patronFiltroCatalogo.MatchString(entrada.Clave) || entrada.Version != catalogo.Version ||
-				!textoPublicoCanonico(entrada.Etiqueta, 120, false) ||
-				(entrada.Descripcion != "" && !textoPublicoCanonico(entrada.Descripcion, 600, true)) ||
-				!patronFiltroCatalogo.MatchString(entrada.Semantica) || entrada.Orden < 1 || indice.porCatalogo[catalogo.Referencia][entrada.Clave].Clave != "" {
-				return indiceCatalogos{}, ErrDatosPublicosNoConfiables
-			}
-			indice.porCatalogo[catalogo.Referencia][entrada.Clave] = entrada
-			indice.ordenados[catalogo.Referencia] = append(indice.ordenados[catalogo.Referencia], entrada)
-		}
-		sort.Slice(indice.ordenados[catalogo.Referencia], func(i, j int) bool {
-			a, b := indice.ordenados[catalogo.Referencia][i], indice.ordenados[catalogo.Referencia][j]
-			if a.Orden == b.Orden {
-				return a.Clave < b.Clave
-			}
-			return a.Orden < b.Orden
-		})
-	}
-	for _, requerido := range []string{puertosbolsa.CatalogoTiposConvocatoria, puertosbolsa.CatalogoEstadosConvocatoria, puertosbolsa.CatalogoCategoriasConvocatoria, puertosbolsa.CatalogoTiposPlazo, puertosbolsa.CatalogoTiposDocumento, puertosbolsa.CatalogoCategoriasAyuda} {
-		if indice.porCatalogo[requerido] == nil {
-			return indiceCatalogos{}, ErrDatosPublicosNoConfiables
-		}
-	}
-	return indice, nil
-}
-
-func (i indiceCatalogos) resolver(catalogo, clave string) (ValorCatalogoPublico, error) {
-	entrada, existe := i.porCatalogo[catalogo][clave]
-	if !existe || !entrada.Publicable {
-		return ValorCatalogoPublico{}, ErrDatosPublicosNoConfiables
-	}
-	return ValorCatalogoPublico{Clave: entrada.Clave, Version: entrada.Version, Etiqueta: entrada.Etiqueta, Descripcion: entrada.Descripcion, Semantica: entrada.Semantica}, nil
-}
-
-func (i indiceCatalogos) facetas(conteos map[string]puertosbolsa.ConteoCategoriaConvocatorias) FacetasConvocatorias {
-	categorias := make([]FacetaCategoriaPublica, 0, len(conteos))
-	for _, entrada := range i.ordenados[puertosbolsa.CatalogoCategoriasConvocatoria] {
-		conteo := conteos[entrada.Clave]
-		if !entrada.Publicable || conteo.NumeroConvocatorias < 1 {
-			continue
-		}
-		categorias = append(categorias, FacetaCategoriaPublica{
-			Clave:            entrada.Clave,
-			Version:          entrada.Version,
-			Etiqueta:         entrada.Etiqueta,
-			Descripcion:      entrada.Descripcion,
-			Semantica:        entrada.Semantica,
-			NumeroResultados: conteo.NumeroConvocatorias,
-		})
-	}
-	return FacetasConvocatorias{
-		Tipos:      i.valoresPublicables(puertosbolsa.CatalogoTiposConvocatoria),
-		Categorias: categorias,
-		Estados:    i.valoresPublicables(puertosbolsa.CatalogoEstadosConvocatoria),
-	}
-}
-
-func (i indiceCatalogos) valoresPublicables(catalogo string) []ValorCatalogoPublico {
-	valores := make([]ValorCatalogoPublico, 0, len(i.ordenados[catalogo]))
-	for _, entrada := range i.ordenados[catalogo] {
-		if entrada.Publicable {
-			valores = append(valores, ValorCatalogoPublico{Clave: entrada.Clave, Version: entrada.Version, Etiqueta: entrada.Etiqueta, Descripcion: entrada.Descripcion, Semantica: entrada.Semantica})
-		}
-	}
-	return valores
-}
-
-func (i indiceCatalogos) diccionarioCategorias(
-	referencias []ReferenciaCategoriaPublica,
-) ([]ValorCatalogoPublico, error) {
-	resultado := make([]ValorCatalogoPublico, 0, len(referencias))
-	vistas := make(map[ReferenciaCategoriaPublica]struct{}, len(referencias))
-	for _, referencia := range referencias {
-		if referencia.Clave == "" || referencia.Version < 1 {
-			return nil, ErrDatosPublicosNoConfiables
-		}
-		if _, duplicada := vistas[referencia]; duplicada {
-			return nil, ErrDatosPublicosNoConfiables
-		}
-		valor, err := i.resolver(puertosbolsa.CatalogoCategoriasConvocatoria, referencia.Clave)
-		if err != nil || valor.Version != referencia.Version {
-			return nil, ErrDatosPublicosNoConfiables
-		}
-		vistas[referencia] = struct{}{}
-		resultado = append(resultado, valor)
-	}
-	if len(resultado) != len(referencias) {
-		return nil, ErrDatosPublicosNoConfiables
-	}
-	return resultado, nil
-}
-
-func validarCoberturaCategoriasResumenes(
-	resumenes []ResumenConvocatoriaPublica,
-	facetas []FacetaCategoriaPublica,
-) error {
-	diccionario := make(map[ReferenciaCategoriaPublica]struct{}, len(facetas))
-	for _, faceta := range facetas {
-		referencia := ReferenciaCategoriaPublica{Clave: faceta.Clave, Version: faceta.Version}
-		if referencia.Clave == "" || referencia.Version < 1 {
-			return ErrDatosPublicosNoConfiables
-		}
-		if _, duplicada := diccionario[referencia]; duplicada {
-			return ErrDatosPublicosNoConfiables
-		}
-		diccionario[referencia] = struct{}{}
-	}
-	for _, resumen := range resumenes {
-		vistas := make(map[ReferenciaCategoriaPublica]struct{}, len(resumen.Categorias))
-		for _, referencia := range resumen.Categorias {
-			if _, duplicada := vistas[referencia]; duplicada {
-				return ErrDatosPublicosNoConfiables
-			}
-			if _, existe := diccionario[referencia]; !existe {
-				return ErrDatosPublicosNoConfiables
-			}
-			vistas[referencia] = struct{}{}
-		}
-	}
-	return nil
 }

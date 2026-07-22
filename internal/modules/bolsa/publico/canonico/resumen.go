@@ -11,20 +11,20 @@ import (
 	dominiopublico "vec-diputacion-granada/internal/modules/bolsa/publico/dominio"
 )
 
-const EsquemaResumenConvocatoriaV1 = "vec.bolsa.resumen-convocatoria-publica.canonico.v1"
+const EsquemaResumenConvocatoriaV2 = "vec.bolsa.resumen-convocatoria-publica.canonico.v2"
 
 var ErrResumenConvocatoriaPublicaInvalido = errors.New("bolsa publica: resumen canonico invalido")
 
-// ResumenConvocatoriaV1 fija exactamente el material que puede aparecer en
+// ResumenConvocatoriaV2 fija exactamente el material que puede aparecer en
 // listados. No depende del instante de consulta: conserva todos los plazos y
 // deja que la aplicacion elija el destacado.
-type ResumenConvocatoriaV1 struct {
+type ResumenConvocatoriaV2 struct {
 	Esquema              string                         `json:"esquema"`
 	IdentificadorPublico string                         `json:"identificador_publico"`
 	Version              string                         `json:"version"`
 	Estado               string                         `json:"estado"`
 	Tipo                 string                         `json:"tipo"`
-	CatalogoCategorias   ReferenciaCatalogoCategoriasV1 `json:"catalogo_categorias"`
+	CatalogoCategorias   ReferenciaCatalogoCategoriasV2 `json:"catalogo_categorias"`
 	Categorias           []string                       `json:"categorias"`
 	Titulo               string                         `json:"titulo"`
 	Resumen              string                         `json:"resumen"`
@@ -37,7 +37,7 @@ type ResumenConvocatoriaV1 struct {
 	HuellaCompletaSHA256 string                         `json:"huella_completa_sha256"`
 }
 
-func (r ResumenConvocatoriaV1) HuellaSHA256() (string, error) {
+func (r ResumenConvocatoriaV2) HuellaSHA256() (string, error) {
 	if err := r.Validar(); err != nil {
 		return "", err
 	}
@@ -56,8 +56,8 @@ func (r ResumenConvocatoriaV1) HuellaSHA256() (string, error) {
 	return hex.EncodeToString(suma[:]), nil
 }
 
-func (r ResumenConvocatoriaV1) Validar() error {
-	if r.Esquema != EsquemaResumenConvocatoriaV1 {
+func (r ResumenConvocatoriaV2) Validar() error {
+	if r.Esquema != EsquemaResumenConvocatoriaV2 {
 		return ErrResumenConvocatoriaPublicaInvalido
 	}
 	resumen := dominiopublico.ResumenConvocatoria{
@@ -68,9 +68,10 @@ func (r ResumenConvocatoriaV1) Validar() error {
 		DatosPublicos: &dominiopublico.DatosPublicosResumenConvocatoria{
 			IdentificadorPublico: r.IdentificadorPublico, Tipo: r.Tipo,
 			CatalogoCategorias: dominiopublico.ReferenciaCatalogoCategorias{
-				CatalogoID:           r.CatalogoCategorias.CatalogoID,
-				CatalogoVersion:      r.CatalogoCategorias.CatalogoVersion,
-				CatalogoHuellaSHA256: r.CatalogoCategorias.CatalogoHuellaSHA256,
+				CatalogoID:                     r.CatalogoCategorias.CatalogoID,
+				CatalogoVersion:                r.CatalogoCategorias.CatalogoVersion,
+				CatalogoHuellaSHA256:           r.CatalogoCategorias.CatalogoHuellaSHA256,
+				CatalogoHuellaProyeccionSHA256: r.CatalogoCategorias.CatalogoHuellaProyeccionSHA256,
 			},
 			Categorias: append([]string(nil), r.Categorias...), Titulo: r.Titulo,
 			Resumen: r.Resumen, PublicadaEn: r.PublicadaEn, ActualizadaEn: r.ActualizadaEn,
@@ -86,9 +87,9 @@ func (r ResumenConvocatoriaV1) Validar() error {
 	return nil
 }
 
-// ResumenDesdeConvocatoriaV1 evita que publicador y lector discrepen al
+// ResumenDesdeConvocatoriaV2 evita que publicador y lector discrepen al
 // derivar cantidades o material de listado desde el detalle completo.
-func ResumenDesdeConvocatoriaV1(c dominiopublico.Convocatoria) (dominiopublico.ResumenConvocatoria, error) {
+func ResumenDesdeConvocatoriaV2(c dominiopublico.Convocatoria) (dominiopublico.ResumenConvocatoria, error) {
 	if err := c.ValidarPublicacion(); err != nil || c.DatosPublicos == nil {
 		return dominiopublico.ResumenConvocatoria{}, ErrResumenConvocatoriaPublicaInvalido
 	}
@@ -108,18 +109,19 @@ func ResumenDesdeConvocatoriaV1(c dominiopublico.Convocatoria) (dominiopublico.R
 	}, nil
 }
 
-func HuellaResumenConvocatoriaV1(r dominiopublico.ResumenConvocatoria) (string, error) {
+func HuellaResumenConvocatoriaV2(r dominiopublico.ResumenConvocatoria) (string, error) {
 	if err := r.ValidarPublicacion(); err != nil || r.DatosPublicos == nil {
 		return "", ErrResumenConvocatoriaPublicaInvalido
 	}
 	datos := r.DatosPublicos
-	material := ResumenConvocatoriaV1{
-		Esquema: EsquemaResumenConvocatoriaV1, IdentificadorPublico: datos.IdentificadorPublico,
+	material := ResumenConvocatoriaV2{
+		Esquema: EsquemaResumenConvocatoriaV2, IdentificadorPublico: datos.IdentificadorPublico,
 		Version: r.Version, Estado: string(r.Estado), Tipo: datos.Tipo,
-		CatalogoCategorias: ReferenciaCatalogoCategoriasV1{
-			CatalogoID:           datos.CatalogoCategorias.CatalogoID,
-			CatalogoVersion:      datos.CatalogoCategorias.CatalogoVersion,
-			CatalogoHuellaSHA256: datos.CatalogoCategorias.CatalogoHuellaSHA256,
+		CatalogoCategorias: ReferenciaCatalogoCategoriasV2{
+			CatalogoID:                     datos.CatalogoCategorias.CatalogoID,
+			CatalogoVersion:                datos.CatalogoCategorias.CatalogoVersion,
+			CatalogoHuellaSHA256:           datos.CatalogoCategorias.CatalogoHuellaSHA256,
+			CatalogoHuellaProyeccionSHA256: datos.CatalogoCategorias.CatalogoHuellaProyeccionSHA256,
 		},
 		Categorias: append([]string(nil), datos.Categorias...), Titulo: datos.Titulo,
 		Resumen: datos.Resumen, PublicadaEn: datos.PublicadaEn,
