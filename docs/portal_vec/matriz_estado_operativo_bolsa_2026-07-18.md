@@ -25,6 +25,26 @@ Leyenda: `✅` completo en el alcance indicado; `🧪` demostración conectada s
 validez administrativa; `🟡` parcial o probado de forma aislada; `🚧` en curso;
 `❌` no alcanzado.
 
+## Tablero incremental de cierre
+
+Este tablero traduce los identificadores técnicos a resultados comprobables.
+Se actualiza al cerrar cada tramo; un `✅` solo acredita el alcance descrito en
+su fila y no convierte por sí solo Bolsa en productiva.
+
+| Frente comprensible | Resultado verificable | Estado | Evidencia | Siguiente bloqueo |
+| --- | --- | --- | --- | --- |
+| Registro de identidad y decisión V3 en PostgreSQL | Esquema, concurrencia, revocación, repetición, ACL/RLS y retirada probados con PostgreSQL 18 | ✅ Componente cerrado | `9f6825e`, `906382c`, `05d4abc`, `a6ee330` | Consumo atómico por la operación de Bolsa |
+| Canal PostgreSQL productivo | Los tres pools exigen TLS verificado, TLS 1.2 o superior y nombres de servidor coincidentes; el modo local sin TLS exige doble llave | ✅ Componente cerrado | `cae4c29` | Componer los pools en una petición real |
+| Frontera del portal público (C1) | `vec-publico` usa una raíz exclusiva, no arrastra dominios internos ni adaptadores DEMO y tiene puerta negativa en CI | ✅ Cerrado y revisado | `1fe43d0`; solo 3 paquetes no estándar del proyecto y grafo total reducido de 276 a 193 paquetes | Artefactos físicos C2 y proyección PostgreSQL C3 |
+| Artefactos público e interno (C2) | Imágenes, manifiestos, recursos y configuración físicamente separados | ❌ Pendiente | Plan C1-C10 de separación | Implementación y prueba del contenido real de las imágenes |
+| Consulta pública autoritativa (C3) | API pública alimentada por vistas PostgreSQL de solo lectura y sin datos personales | 🚧 En ejecución | Rama aislada `real/c3-bolsa-publica-postgresql` | Adaptador, migraciones, rol mínimo, integración y revisión independiente |
+| Consumo V3 por una operación de Bolsa | La autorización no puede confirmarse antes del CAS/efecto real y deja una prueba acíclica y durable | 🚧 Diseño en revisión | DEC-103, todavía sin commit | Cerrar orden temporal, DAG probatorio, ACL y auditoría de rechazos |
+| Primera vertical administrativa real | Navegador → identidad → PDP V3 → PostgreSQL/KMS → recibo, con reinicio, concurrencia y reconciliación | ❌ Pendiente | T20E no iniciado | Cerrar consumo V3 y composición interna C4-C6 |
+
+Lectura ejecutiva del corte: la demostración aprobada sigue disponible, los
+componentes reales avanzan, pero ninguna capacidad administrativa debe
+declararse productiva hasta superar la última fila extremo a extremo.
+
 ## Capacidades funcionales de Bolsa
 
 | Capacidad | Contrato/adaptador real | E2E técnico | Probable manualmente ahora | UAT/RRHH | Producción | Brecha principal |
