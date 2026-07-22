@@ -2,7 +2,9 @@
 
 ((global) => {
   const PATRON_CLAVE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+  const PATRON_REFERENCIA_CATALOGO = /^[a-z][a-z0-9._-]{0,127}$/;
   const PATRON_HUELLA = /^[a-f0-9]{64}$/;
+  const MAXIMA_VERSION_CATALOGO = 2147483647;
   // La respuesta no expone siempre el tamaño de página: admite hasta 4.096
   // entradas históricas (límite agregado de snapshots del contrato C3).
   const MAXIMO_DICCIONARIO_CATEGORIAS = 4096;
@@ -11,7 +13,8 @@
     if (!referencia || typeof referencia !== "object" ||
         typeof referencia.clave !== "string" || referencia.clave.length > 80 ||
         !PATRON_CLAVE.test(referencia.clave) ||
-        !Number.isSafeInteger(referencia.version) || referencia.version < 1) {
+        !Number.isSafeInteger(referencia.version) || referencia.version < 1 ||
+        referencia.version > MAXIMA_VERSION_CATALOGO) {
       throw new Error("referencia de categoría inválida");
     }
     return `${referencia.version}:${referencia.clave}`;
@@ -19,9 +22,9 @@
 
   function validarCatalogoCategorias(catalogo) {
     if (!catalogo || typeof catalogo !== "object" ||
-        typeof catalogo.referencia !== "string" || catalogo.referencia.length === 0 ||
-        catalogo.referencia.length > 160 ||
+        typeof catalogo.referencia !== "string" || !PATRON_REFERENCIA_CATALOGO.test(catalogo.referencia) ||
         !Number.isSafeInteger(catalogo.version) || catalogo.version < 1 ||
+        catalogo.version > MAXIMA_VERSION_CATALOGO ||
         typeof catalogo.huella_sha256 !== "string" || !PATRON_HUELLA.test(catalogo.huella_sha256)) {
       throw new Error("snapshot de categorías inválido");
     }
@@ -33,14 +36,19 @@
       throw new Error("diccionario de categorías ausente o excesivo");
     }
     const porReferencia = new Map();
+    const snapshotPorVersion = new Map();
     entradas.forEach((entrada) => {
       const referencia = claveReferencia(entrada);
       const snapshot = validarCatalogoCategorias(entrada.catalogo_categorias);
-      if (typeof entrada.etiqueta !== "string" || entrada.etiqueta.length === 0 ||
+      const snapshotRegistrado = snapshotPorVersion.get(entrada.version);
+      if (entrada.version !== entrada.catalogo_categorias.version ||
+          (snapshotRegistrado !== undefined && snapshotRegistrado !== snapshot) ||
+          typeof entrada.etiqueta !== "string" || entrada.etiqueta.length === 0 ||
           typeof entrada.semantica !== "string" || entrada.semantica.length === 0 ||
           porReferencia.has(referencia)) {
         throw new Error("diccionario de categorías ambiguo");
       }
+      snapshotPorVersion.set(entrada.version, snapshot);
       porReferencia.set(referencia, { entrada, snapshot });
     });
     return porReferencia;
