@@ -328,6 +328,7 @@ func instalarCacheUnaVez(f *Fuente, cache *cacheManifiestoPublico) error {
 		return ErrDatosPostgreSQLPublicosNoConfiables
 	}
 	if f.cacheManifiesto.CompareAndSwap(nil, cache) {
+		f.iniciarVigilanciaIntegridad()
 		return nil
 	}
 	return errors.New("bolsa publica: el manifiesto ya fue inicializado; reinicie para cambiarlo")

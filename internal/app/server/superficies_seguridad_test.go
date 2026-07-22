@@ -399,7 +399,7 @@ func TestSuperficiesSuprimenTodoCuerpoEnHEAD(t *testing.T) {
 		salud  int
 	}{
 		{nombre: "publica", nuevo: NewHandlerPublicoWithConfig, ruta: "/api/publico/consulta", salud: http.StatusServiceUnavailable},
-		{nombre: "interna", nuevo: NewHandlerInternoWithConfig, ruta: "/api/vec/consulta", salud: http.StatusOK},
+		{nombre: "interna", nuevo: NewHandlerInternoWithConfig, ruta: "/api/vec/consulta", salud: http.StatusServiceUnavailable},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {

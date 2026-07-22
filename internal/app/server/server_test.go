@@ -13,19 +13,22 @@ import (
 	"vec-diputacion-granada/config"
 )
 
-func TestServerHealthzIsJSON(t *testing.T) {
+func TestServidorIntegradoSeparaVidaYReadinessFailClosed(t *testing.T) {
 	handler := NewHandler(http.NotFoundHandler())
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, "/healthz", nil))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("/healthz status = %d, want 200", rec.Code)
-	}
-	var body map[string]any
-	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
-		t.Fatalf("/healthz json: %v", err)
-	}
-	if body["status"] != "ok" {
-		t.Fatalf("/healthz body = %#v, want status ok", body)
+	for _, prueba := range []struct {
+		ruta   string
+		estado int
+		status string
+	}{{"/livez", http.StatusOK, "ok"}, {"/readyz", http.StatusServiceUnavailable, "unavailable"}, {"/healthz", http.StatusServiceUnavailable, "unavailable"}} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, prueba.ruta, nil))
+		if rec.Code != prueba.estado {
+			t.Fatalf("%s status = %d, want %d", prueba.ruta, rec.Code, prueba.estado)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(rec.Body).Decode(&body); err != nil || body["status"] != prueba.status {
+			t.Fatalf("%s body = %#v, error=%v", prueba.ruta, body, err)
+		}
 	}
 }
 
@@ -568,7 +571,9 @@ func TestSuperficieInternaExponeSoloSuListaPositiva(t *testing.T) {
 		ruta   string
 		estado int
 	}{
-		{metodo: http.MethodGet, ruta: "/healthz", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/livez", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/readyz", estado: http.StatusServiceUnavailable},
+		{metodo: http.MethodGet, ruta: "/healthz", estado: http.StatusServiceUnavailable},
 		{metodo: http.MethodGet, ruta: "/portal-empleado", estado: http.StatusMovedPermanently},
 		{metodo: http.MethodGet, ruta: "/portal-empleado/", estado: http.StatusOK},
 		{metodo: http.MethodHead, ruta: "/portal-empleado/portal.css?v=1", estado: http.StatusOK},

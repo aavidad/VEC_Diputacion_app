@@ -3,6 +3,8 @@ package postgrespublico
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"sort"
 	"strings"
@@ -14,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/app/server"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/puertos"
 )
 
@@ -47,6 +51,10 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 	if err := fuente.ValidarConfiguracionPublica(ctx, instante); err != nil {
 		t.Fatalf("validar manifiesto de arranque: %v", err)
 	}
+	handlerReadiness := server.NewHandlerPublicoWithConfigConComprobadorDisponibilidad(
+		config.Config{}, http.NotFoundHandler(), fuente,
+	)
+	assertEstadoReadiness(t, handlerReadiness, http.StatusOK)
 	categorias, err := fuente.ObtenerPublicadas(ctx, instante)
 	if err != nil || categorias.Fuente.Demostracion || len(categorias.Categorias) != 1 ||
 		categorias.Categorias[0].Clave != "auxiliar-administrativo" {
@@ -94,6 +102,11 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 
 	assertBloqueoPublicacionAcotado(t, ctx, fuente, admin, instante)
 	assertDerivaACLRechazada(t, ctx, fuente, admin, instante)
+	var anclaAntes string
+	if err := admin.QueryRow(ctx, `SELECT manifiesto_sha256
+		FROM vec_bolsa_publica_lectura.fuente_publica_v2 WHERE control_id IS TRUE`).Scan(&anclaAntes); err != nil {
+		t.Fatalf("leer ancla antes de deriva: %v", err)
+	}
 
 	// Cualquier DML ajeno a la publicación atómica invalida el testigo. Todas
 	// las rutas fallan cerradas antes de devolver siquiera una faceta parcial.
@@ -104,6 +117,25 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 			   AND clave = 'auxiliar-administrativo'`); err != nil {
 		t.Fatal(err)
 	}
+	var anclaDespues string
+	if err := admin.QueryRow(ctx, `SELECT manifiesto_sha256
+		FROM vec_bolsa_publica_lectura.fuente_publica_v2 WHERE control_id IS TRUE`).Scan(&anclaDespues); err != nil {
+		t.Fatalf("leer ancla tras deriva: %v", err)
+	}
+	if !huellasIguales(anclaAntes, anclaDespues) {
+		t.Fatalf("la prueba negativa altero el ancla: antes=%q despues=%q", anclaAntes, anclaDespues)
+	}
+	ctxIntegridad, cancelarIntegridad := context.WithTimeout(ctx, duracionIntegridadDisponibilidad)
+	errIntegridad := fuente.comprobarIntegridadProyeccion(ctxIntegridad)
+	cancelarIntegridad()
+	if !errors.Is(errIntegridad, ErrDatosPostgreSQLPublicosNoConfiables) {
+		t.Fatalf("integridad no detecto DML con ancla intacta: %v", errIntegridad)
+	}
+	fuente.actualizarIntegridad(errIntegridad)
+	fuente.disponibilidadMu.Lock()
+	fuente.disponibilidadHasta = time.Time{}
+	fuente.disponibilidadMu.Unlock()
+	assertEstadoReadiness(t, handlerReadiness, http.StatusServiceUnavailable)
 	operaciones := map[string]func() error{
 		"configuracion": func() error { return fuente.ValidarConfiguracionPublica(ctx, instante) },
 		"categorias":    func() error { _, err := fuente.ObtenerPublicadas(ctx, instante); return err },
@@ -117,6 +149,18 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 		if err := operar(); !errors.Is(err, ErrDatosPostgreSQLPublicosNoConfiables) {
 			t.Fatalf("%s no fallo cerrada tras DML ajeno: %v", nombre, err)
 		}
+	}
+}
+
+func assertEstadoReadiness(t *testing.T, handler http.Handler, esperado int) {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	req.RemoteAddr = "127.0.0.1:1234"
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != esperado || rec.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("GET /readyz = %d cache=%q cuerpo=%q; esperado=%d",
+			rec.Code, rec.Header().Get("Cache-Control"), rec.Body.String(), esperado)
 	}
 }
 

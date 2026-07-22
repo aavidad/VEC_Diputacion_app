@@ -138,7 +138,14 @@ func TestPresentacionSoloExponeSuperficiesEnumeradas(t *testing.T) {
 		{"/portal-empleado/portal-presentacion-adaptador.js", "Adaptador volátil y sustituible"},
 		{"/bolsa/", "Bolsa"},
 		{"/api/publico/bolsa/convocatorias", "presentacion.publica.v1"},
-		{"/healthz", `"status":"ok"`},
+		{"/livez", `"status":"ok"`},
+	}
+	for _, ruta := range []string{"/readyz", "/healthz"} {
+		rec := httptest.NewRecorder()
+		servidor.Handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
+		if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), `"status":"unavailable"`) {
+			t.Errorf("GET %s = %d %q", ruta, rec.Code, rec.Body.String())
+		}
 	}
 	for _, prueba := range permitidas {
 		rec := httptest.NewRecorder()
@@ -214,11 +221,14 @@ func TestPresentacionHEADNoEntregaCuerpo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, ruta := range []string{"/presentacion/", "/area-personal/", "/portal-empleado/", "/bolsa/", "/healthz"} {
+	for _, prueba := range []struct {
+		ruta   string
+		estado int
+	}{{"/presentacion/", http.StatusOK}, {"/area-personal/", http.StatusOK}, {"/portal-empleado/", http.StatusOK}, {"/bolsa/", http.StatusOK}, {"/livez", http.StatusOK}, {"/readyz", http.StatusServiceUnavailable}, {"/healthz", http.StatusServiceUnavailable}} {
 		rec := httptest.NewRecorder()
-		servidor.Handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodHead, ruta, nil))
-		if rec.Code != http.StatusOK || rec.Body.Len() != 0 {
-			t.Errorf("HEAD %s = %d cuerpo=%q", ruta, rec.Code, rec.Body.String())
+		servidor.Handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodHead, prueba.ruta, nil))
+		if rec.Code != prueba.estado || rec.Body.Len() != 0 {
+			t.Errorf("HEAD %s = %d cuerpo=%q", prueba.ruta, rec.Code, rec.Body.String())
 		}
 	}
 }
