@@ -30,6 +30,9 @@ type materialTLSCargado struct {
 // openat(2). O_NOFOLLOW en todos los componentes evita enlaces simbolicos y la
 // cadena de descriptores reduce la ventana TOCTOU ante renombres concurrentes.
 func cargarMaterialTLS(cfg Configuracion) (materialTLSCargado, error) {
+	if os.Geteuid() == 0 {
+		return materialTLSCargado{}, ErrTLSMutuoNoVerificado
+	}
 	certPEM, err := leerFicheroTLSSeguro(cfg.CertificadoServidorTLS, false)
 	if err != nil {
 		return materialTLSCargado{}, ErrTLSMutuoNoVerificado
@@ -105,6 +108,9 @@ func materializarTLS(cfg Configuracion, certPEM, clavePEM, caPEM []byte) (materi
 }
 
 func leerFicheroTLSSeguro(ruta string, privado bool) ([]byte, error) {
+	if os.Geteuid() == 0 {
+		return nil, ErrTLSMutuoNoVerificado
+	}
 	componentes := strings.Split(strings.TrimPrefix(filepath.Clean(ruta), string(filepath.Separator)), string(filepath.Separator))
 	directorio, err := syscall.Open(string(filepath.Separator), syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_CLOEXEC, 0)
 	if err != nil {
@@ -131,8 +137,20 @@ func leerFicheroTLSSeguro(ruta string, privado bool) ([]byte, error) {
 		}
 		directorio = siguiente
 	}
-	fd, err := syscall.Openat(directorio, componentes[len(componentes)-1], syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
+	contenido, err := abrirFicheroTLSFinal(
+		directorio, componentes[len(componentes)-1], privado,
+	)
 	_ = syscall.Close(directorio)
+	return contenido, err
+}
+
+func abrirFicheroTLSFinal(directorio int, nombre string, privado bool) ([]byte, error) {
+	fd, err := syscall.Openat(
+		directorio,
+		nombre,
+		syscall.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOCTTY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC,
+		0,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +165,7 @@ func leerFicheroTLSSeguro(ruta string, privado bool) ([]byte, error) {
 		return nil, ErrTLSMutuoNoVerificado
 	}
 	estadistica, valida := informacion.Sys().(*syscall.Stat_t)
-	if !valida || (int(estadistica.Uid) != os.Geteuid() && estadistica.Uid != 0) {
+	if !valida || estadistica.Uid != 0 {
 		return nil, ErrTLSMutuoNoVerificado
 	}
 	permisos := informacion.Mode().Perm()
