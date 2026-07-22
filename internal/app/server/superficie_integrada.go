@@ -22,7 +22,7 @@ func NewHandlerConComprobadorDisponibilidad(api http.Handler, comprobador Compro
 // incluye en el binario normal y por eso debe permanecer cerrada incluso si un
 // empaquetado defectuoso vuelve a copiar index.html o app.js.
 func NewHandlerWithConfig(cfg config.Config, api http.Handler) http.Handler {
-	return NewHandlerWithConfigConComprobadorDisponibilidad(cfg, api, nil)
+	return NewHandlerWithConfigConComprobadorDisponibilidad(cfg, api, comprobadorDisponibilidadLocal{})
 }
 
 // NewHandlerWithConfigConComprobadorDisponibilidad conserva la superficie

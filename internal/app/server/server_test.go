@@ -513,8 +513,10 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 		ruta   string
 		estado int
 	}{
-		{metodo: http.MethodGet, ruta: "/healthz", estado: http.StatusOK},
-		{metodo: http.MethodHead, ruta: "/healthz", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/livez", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/readyz", estado: http.StatusServiceUnavailable},
+		{metodo: http.MethodGet, ruta: "/healthz", estado: http.StatusServiceUnavailable},
+		{metodo: http.MethodHead, ruta: "/healthz", estado: http.StatusServiceUnavailable},
 		{metodo: http.MethodGet, ruta: "/bolsa", estado: http.StatusMovedPermanently},
 		{metodo: http.MethodGet, ruta: "/bolsa/", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/bolsa/contrato-v2.js?v=1", estado: http.StatusOK},

@@ -396,9 +396,10 @@ func TestSuperficiesSuprimenTodoCuerpoEnHEAD(t *testing.T) {
 		nombre string
 		nuevo  func(config.Config, http.Handler) http.Handler
 		ruta   string
+		salud  int
 	}{
-		{nombre: "publica", nuevo: NewHandlerPublicoWithConfig, ruta: "/api/publico/consulta"},
-		{nombre: "interna", nuevo: NewHandlerInternoWithConfig, ruta: "/api/vec/consulta"},
+		{nombre: "publica", nuevo: NewHandlerPublicoWithConfig, ruta: "/api/publico/consulta", salud: http.StatusServiceUnavailable},
+		{nombre: "interna", nuevo: NewHandlerInternoWithConfig, ruta: "/api/vec/consulta", salud: http.StatusOK},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -407,11 +408,14 @@ func TestSuperficiesSuprimenTodoCuerpoEnHEAD(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte(`{"dato":"no debe salir"}`))
 			}))
-			for _, ruta := range []string{"/healthz", caso.ruta} {
+			for _, prueba := range []struct {
+				ruta   string
+				estado int
+			}{{"/healthz", caso.salud}, {caso.ruta, http.StatusOK}} {
 				rec := httptest.NewRecorder()
-				handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodHead, ruta, nil))
-				if rec.Code != http.StatusOK || rec.Body.Len() != 0 {
-					t.Errorf("HEAD %s = %d, cuerpo=%q", ruta, rec.Code, rec.Body.String())
+				handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodHead, prueba.ruta, nil))
+				if rec.Code != prueba.estado || rec.Body.Len() != 0 {
+					t.Errorf("HEAD %s = %d, cuerpo=%q", prueba.ruta, rec.Code, rec.Body.String())
 				}
 			}
 		})

@@ -29,32 +29,51 @@ func TestComprobarDisponibilidadRequiereCache(t *testing.T) {
 	}
 }
 
-func TestComprobarDisponibilidadCoalesceYCacheaExito(t *testing.T) {
+func TestComprobarDisponibilidadSeguidoresNoEsperanNiDuplicanSonda(t *testing.T) {
 	f := nuevaFuenteDisponibilidadPrueba()
 	var llamadas atomic.Int32
 	inicio := make(chan struct{})
 	liberar := make(chan struct{})
+	defer close(liberar)
 	f.sondaDisponibilidadPrueba = func(context.Context) error {
 		llamadas.Add(1)
 		close(inicio)
 		<-liberar
 		return nil
 	}
+	liderTerminado := make(chan error, 1)
+	go func() { liderTerminado <- f.ComprobarDisponibilidad(context.Background()) }()
+	<-inicio
+
 	var grupo sync.WaitGroup
-	for range 12 {
+	const seguidores = 500
+	errores := make(chan error, seguidores)
+	for range seguidores {
 		grupo.Add(1)
 		go func() {
 			defer grupo.Done()
-			if err := f.ComprobarDisponibilidad(context.Background()); err != nil {
-				t.Errorf("sonda: %v", err)
-			}
+			errores <- f.ComprobarDisponibilidad(context.Background())
 		}()
 	}
-	<-inicio
-	close(liberar)
-	grupo.Wait()
+	seguidoresTerminados := make(chan struct{})
+	go func() { grupo.Wait(); close(seguidoresTerminados) }()
+	select {
+	case <-seguidoresTerminados:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("los seguidores quedaron esperando a la sonda")
+	}
+	close(errores)
+	for err := range errores {
+		if err == nil {
+			t.Fatal("seguidor acepto disponibilidad sin sonda terminada")
+		}
+	}
 	if llamadas.Load() != 1 {
-		t.Fatalf("sondas=%d", llamadas.Load())
+		t.Fatalf("sondas durante bloqueo=%d", llamadas.Load())
+	}
+	liberar <- struct{}{}
+	if err := <-liderTerminado; err != nil {
+		t.Fatalf("sonda lider: %v", err)
 	}
 	if err := f.ComprobarDisponibilidad(context.Background()); err != nil || llamadas.Load() != 1 {
 		t.Fatalf("cache exito err=%v llamadas=%d", err, llamadas.Load())
