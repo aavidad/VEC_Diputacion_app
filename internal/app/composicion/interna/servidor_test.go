@@ -79,6 +79,47 @@ func TestConstruirServidorInternoNoAceptaConfiguracionTLSAutosellada(t *testing.
 	}
 }
 
+func TestConstruirServidorInternoCargaRealDesdeArbolRootSoloLectura(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("requiere UID 0 para crear evidencia root-owned")
+	}
+	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
+	directorio, err := os.MkdirTemp("/root", "vec-tls-interno-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(directorio, 0o700)
+		_ = os.RemoveAll(directorio)
+	})
+	copiar := func(origen, nombre string, modo os.FileMode) string {
+		t.Helper()
+		contenido, err := os.ReadFile(origen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		destino := filepath.Join(directorio, nombre)
+		if err := os.WriteFile(destino, contenido, modo); err != nil {
+			t.Fatal(err)
+		}
+		return destino
+	}
+	material.cfg.CertificadoServidorTLS = copiar(material.cfg.CertificadoServidorTLS, "servidor.crt", 0o440)
+	material.cfg.ClaveServidorTLS = copiar(material.cfg.ClaveServidorTLS, "servidor.key", 0o400)
+	material.cfg.AutoridadClientesTLS = copiar(material.cfg.AutoridadClientesTLS, "clientes-ca.crt", 0o440)
+	if err := os.Chmod(directorio, 0o500); err != nil {
+		t.Fatal(err)
+	}
+
+	servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
+	if err != nil || servidor == nil {
+		t.Fatalf("carga real root-only = (%v, %v)", servidor, err)
+	}
+	if err := ValidarServidorParaEscucha(servidor); err != nil {
+		t.Fatalf("servidor real sellado: %v", err)
+	}
+}
+
 func TestCargaTLSRechazaRutasYFicherosInseguros(t *testing.T) {
 	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
 	pruebas := []struct {
