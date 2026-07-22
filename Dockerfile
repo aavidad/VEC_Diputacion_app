@@ -32,6 +32,11 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   -trimpath \
   -ldflags="-s -w" \
+  -o /src/bin/vec-interno \
+  ./cmd/vec-interno \
+  && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+  -trimpath \
+  -ldflags="-s -w" \
   -o /src/bin/vec-presentacion \
   ./cmd/vec-presentacion \
   && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
@@ -166,6 +171,25 @@ ENV VEC_EXECUTION_PROFILE=produccion
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/vec-publico"]
+
+# Superficie corporativa productiva: binario y recursos distintos de los del
+# portal anonimo. No incorpora certificados, claves, DSN ni selectores de
+# desarrollo; Sistemas debe inyectar todos los proveedores y secretos en
+# tiempo de ejecucion. Mientras falte uno, vec-interno falla antes de escuchar.
+FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime-interno
+
+RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+  && install -d --owner=app --group=app /app
+
+COPY --from=build /src/bin/vec-interno /usr/local/bin/vec-interno
+COPY --from=build /src/web-interno /app/web
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+USER app
+WORKDIR /app
+EXPOSE 8443
+
+ENTRYPOINT ["/usr/local/bin/vec-interno"]
 
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime
 

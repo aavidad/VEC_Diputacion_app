@@ -115,8 +115,12 @@ extraer_superficie interno "${imagen_interna}"
 verificar_configuracion interno "${imagen_interna}" vec-interno
 verificar_inventario interno web/interno.manifest vec-interno
 
-if rg -n '/api/publico|/bolsa/|/verificar/' "${temporal}/interno/web" >/dev/null; then
-	fallar "interno: el cliente contiene una ruta propia de la superficie publica."
+# Una superficie puede enlazar a otra a traves del proxy de borde (por
+# ejemplo, abrir la consulta publica o verificar un recibo). Lo que no puede
+# hacer el cliente interno es consumir directamente la API anonima ni incluir
+# sus recursos: esto ultimo ya queda cerrado por el manifiesto exacto.
+if rg -n '/api/publico(?:/|[?"'"'"'])' "${temporal}/interno/web" >/dev/null; then
+	fallar "interno: el cliente intenta consumir directamente la API publica."
 fi
 
 printf 'Artefactos productivos publico e interno aislados y conformes con sus manifiestos.\n'
