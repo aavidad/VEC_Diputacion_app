@@ -14,8 +14,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("componer servidor interno: %v", err)
 	}
-	if servidor == nil || servidor.TLSConfig == nil {
-		log.Fatal("componer servidor interno: TLS mutuo no disponible")
+	if err := validarServidorParaEscucha(servidor); err != nil {
+		log.Fatalf("componer servidor interno: %v", err)
 	}
 
 	log.Printf("servidor interno VEC escuchando con TLS mutuo en %s", servidor.Addr)
@@ -23,4 +23,8 @@ func main() {
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("servir superficie interna: %v", err)
 	}
+}
+
+func validarServidorParaEscucha(servidor *http.Server) error {
+	return interna.ValidarServidorParaEscucha(servidor)
 }

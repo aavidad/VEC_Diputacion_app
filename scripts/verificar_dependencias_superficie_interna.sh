@@ -25,6 +25,7 @@ while IFS= read -r paquete; do
 		"${modulo}/cmd/vec-interno" | \
 			"${modulo}/config" | \
 			"${modulo}/internal/app/composicion/interna" | \
+			"${modulo}/internal/app/server" | \
 			"${modulo}/internal/vec/adapters/httpseguridad" | \
 			"${modulo}/internal/vec/domain" | \
 			golang.org/x/text/transform | \
@@ -46,6 +47,7 @@ for obligatoria in \
 	"${modulo}/cmd/vec-interno" \
 	"${modulo}/config" \
 	"${modulo}/internal/app/composicion/interna" \
+	"${modulo}/internal/app/server" \
 	"${modulo}/internal/vec/adapters/httpseguridad" \
 	"${modulo}/internal/vec/domain"; do
 	if ! grep -Fxq "${obligatoria}" "${dependencias}"; then

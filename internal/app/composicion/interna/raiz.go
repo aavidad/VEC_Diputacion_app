@@ -87,7 +87,8 @@ func (e *ErrorDependenciasFaltantes) Falta(dependencia Dependencia) bool {
 // NuevoServidor valida primero el limite de red y las referencias TLS. C4 no
 // admite indicadores booleanos que simulen proveedores: hasta que C5/C6
 // inyecten implementaciones productivas, devuelve siempre nil y nunca llama a
-// net.Listen ni construye un healthcheck vacio.
+// net.Listen ni construye un healthcheck vacio. Al completar las dependencias,
+// esta misma raiz debera usar exclusivamente construirServidorInterno.
 func NuevoServidor(cfg Configuracion) (*http.Server, error) {
 	if err := cfg.Validar(); err != nil {
 		return nil, err
