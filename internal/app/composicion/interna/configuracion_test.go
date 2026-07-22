@@ -1,8 +1,15 @@
 package interna
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
+	"log/slog"
+	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	"vec-diputacion-granada/config"
@@ -99,5 +106,150 @@ func TestCargarConfiguracionInternaUsaListaPositiva(t *testing.T) {
 	}
 	if err := despues.Validar(); err != nil {
 		t.Fatalf("configuracion ambiental interna: %v", err)
+	}
+}
+
+func TestConfiguracionInternaNoReflejaValoresInvalidos(t *testing.T) {
+	pruebas := []struct {
+		nombre        string
+		marcador      string
+		errorEsperado error
+		alterar       func(*Configuracion, string)
+	}{
+		{
+			nombre:        "direccion",
+			marcador:      "MARCADOR_DIRECCION_NO_REFLEJAR",
+			errorEsperado: ErrConfiguracionInternaInvalida,
+			alterar: func(cfg *Configuracion, marcador string) {
+				cfg.DireccionEscucha = "10.7.15.40:8443\n" + marcador
+			},
+		},
+		{
+			nombre:        "CIDR",
+			marcador:      "MARCADOR_CIDR_NO_REFLEJAR",
+			errorEsperado: ErrConfiguracionInternaInvalida,
+			alterar: func(cfg *Configuracion, marcador string) {
+				cfg.RedesPermitidas = []string{"10.0.0.0/8\n" + marcador}
+			},
+		},
+		{
+			nombre:        "ruta certificado TLS",
+			marcador:      "MARCADOR_CERTIFICADO_NO_REFLEJAR",
+			errorEsperado: ErrConfiguracionTLSIncompleta,
+			alterar: func(cfg *Configuracion, marcador string) {
+				cfg.CertificadoServidorTLS = "certificados/" + marcador
+			},
+		},
+		{
+			nombre:        "ruta clave TLS",
+			marcador:      "MARCADOR_CLAVE_NO_REFLEJAR",
+			errorEsperado: ErrConfiguracionTLSIncompleta,
+			alterar: func(cfg *Configuracion, marcador string) {
+				cfg.ClaveServidorTLS = "claves/" + marcador
+			},
+		},
+		{
+			nombre:        "ruta CA TLS",
+			marcador:      "MARCADOR_CA_NO_REFLEJAR",
+			errorEsperado: ErrConfiguracionTLSIncompleta,
+			alterar: func(cfg *Configuracion, marcador string) {
+				cfg.AutoridadClientesTLS = "autoridades/" + marcador
+			},
+		},
+		{
+			nombre:        "audiencia identidad",
+			marcador:      "MARCADOR_AUDIENCIA_NO_REFLEJAR",
+			errorEsperado: ErrConfiguracionInternaInvalida,
+			alterar: func(cfg *Configuracion, marcador string) {
+				cfg.Audiencia = "vec-interna\n" + marcador
+			},
+		},
+		{
+			nombre:        "emisor identidad",
+			marcador:      "MARCADOR_EMISOR_NO_REFLEJAR",
+			errorEsperado: ErrConfiguracionInternaInvalida,
+			alterar: func(cfg *Configuracion, marcador string) {
+				cfg.EmisorIdentidad = "https://identidad.test/\n" + marcador
+			},
+		},
+	}
+	for _, prueba := range pruebas {
+		t.Run(prueba.nombre, func(t *testing.T) {
+			cfg := configuracionInternaValidaPrueba()
+			prueba.alterar(&cfg, prueba.marcador)
+
+			comprobarErrorConfiguracionSaneado(
+				t, cfg.Validar(), prueba.errorEsperado, prueba.marcador,
+			)
+			servidor, err := NuevoServidor(cfg)
+			if servidor != nil {
+				t.Fatalf("NuevoServidor devolvio servidor para configuracion hostil")
+			}
+			comprobarErrorConfiguracionSaneado(t, err, prueba.errorEsperado, prueba.marcador)
+			servidor, err = construirServidorInterno(
+				cfg, http.NotFoundHandler(), configuracionTLSMutuoValidaPrueba(t),
+			)
+			if servidor != nil {
+				t.Fatalf("constructor interno devolvio servidor para configuracion hostil")
+			}
+			comprobarErrorConfiguracionSaneado(t, err, prueba.errorEsperado, prueba.marcador)
+		})
+	}
+}
+
+func TestConfiguracionInternaSeRedactaAlSerializarYRegistrar(t *testing.T) {
+	const marcador = "MARCADOR_CONFIGURACION_PRIVADA"
+	cfg := configuracionInternaValidaPrueba()
+	cfg.DireccionEscucha = "10.7.15.40:8443-" + marcador
+	cfg.RedesPermitidas = []string{"10.0.0.0/8-" + marcador}
+	cfg.CertificadoServidorTLS = "/run/secrets/" + marcador + ".crt"
+	cfg.Audiencia = "audiencia-" + marcador
+
+	jsonCfg, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	textoCfg, err := cfg.MarshalText()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var registroEstructurado bytes.Buffer
+	slog.New(slog.NewTextHandler(&registroEstructurado, nil)).Info(
+		"configuracion", "valor", cfg,
+	)
+	var registroClasico bytes.Buffer
+	log.New(&registroClasico, "", 0).Printf("configuracion=%+v", cfg)
+
+	for nombre, salida := range map[string]string{
+		"fmt valor":        fmt.Sprintf("%v", cfg),
+		"fmt detallado":    fmt.Sprintf("%+v", cfg),
+		"fmt Go":           fmt.Sprintf("%#v", cfg),
+		"JSON":             string(jsonCfg),
+		"texto":            string(textoCfg),
+		"slog":             registroEstructurado.String(),
+		"registro clasico": registroClasico.String(),
+	} {
+		if strings.Contains(salida, marcador) || strings.Contains(salida, "/run/secrets/") ||
+			strings.Contains(salida, "10.7.15.40") || strings.Contains(salida, "10.0.0.0") {
+			t.Errorf("%s revelo configuracion: %q", nombre, salida)
+		}
+		if !strings.Contains(salida, configuracionInternaRedactada) {
+			t.Errorf("%s no aplico la marca de redaccion: %q", nombre, salida)
+		}
+	}
+}
+
+func comprobarErrorConfiguracionSaneado(t *testing.T, err, errorEsperado error, marcador string) {
+	t.Helper()
+	if !errors.Is(err, errorEsperado) {
+		t.Fatalf("error = %v; se esperaba %v", err, errorEsperado)
+	}
+	var registro bytes.Buffer
+	log.New(&registro, "", 0).Printf("validar configuracion: %v", err)
+	for _, salida := range []string{err.Error(), registro.String()} {
+		salida = strings.TrimSuffix(strings.TrimSuffix(salida, "\n"), "\r")
+		if strings.Contains(salida, marcador) || strings.ContainsAny(salida, "\r\n") {
+			t.Fatalf("error o log reflejo entrada hostil: %q", salida)
+		}
 	}
 }
