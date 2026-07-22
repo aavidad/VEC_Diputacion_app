@@ -100,6 +100,11 @@ services:
       # La base falla cerrada. El despliegue remoto debe sustituir este montaje
       # por una ACL operativa custodiada fuera del repositorio.
       - "${VEC_PRESENTACION_REMOTE_ACL_PATH:-./deploy/proxy-local/acceso-remoto-denegar.conf}:/etc/nginx/acceso-remoto.conf:ro"
+      # Certificado autofirmado fuera de Git; genéralo primero con
+      # scripts/generar_certificado_presentacion_remota.sh. El despliegue
+      # remoto sustituye estas dos rutas por su propio material custodiado.
+      - "${VEC_PRESENTACION_REMOTE_TLS_CERT_PATH:-./var/tls-presentacion-remota/servidor.crt}:/etc/nginx/certs/servidor.crt:ro"
+      - "${VEC_PRESENTACION_REMOTE_TLS_KEY_PATH:-./var/tls-presentacion-remota/servidor.key}:/etc/nginx/certs/servidor.key:ro"
     networks:
       presentacion-borde:
         # .195 está reservada al smoke cartográfico concurrente.
@@ -116,7 +121,7 @@ services:
     mem_limit: 64m
     cpus: 0.25
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
+      test: ["CMD", "wget", "-q", "--no-check-certificate", "--spider", "https://127.0.0.1:8080/healthz"]
       interval: 5s
       timeout: 2s
       retries: 5
