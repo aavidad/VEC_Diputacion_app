@@ -41,6 +41,10 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 	if err := fuente.pool.QueryRow(ctx, "SHOW transaction_read_only").Scan(&soloLectura); err != nil || soloLectura != "on" {
 		t.Fatalf("sesion no quedo en solo lectura: %q, %v", soloLectura, err)
 	}
+	var aislamiento string
+	if err := fuente.pool.QueryRow(ctx, "SHOW default_transaction_isolation").Scan(&aislamiento); err != nil || aislamiento != "repeatable read" {
+		t.Fatalf("sesion no quedo en repeatable read: %q, %v", aislamiento, err)
+	}
 	assertColumnasVistas(t, ctx, fuente.pool)
 	assertACLNegativas(t, ctx, fuente.pool)
 

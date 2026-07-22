@@ -45,9 +45,10 @@ var (
 )
 
 var (
-	_ puertosbolsa.ConsultaConvocatoriasPublicas = (*Fuente)(nil)
-	_ puertosbolsa.ConsultaCategoriasPublicas    = (*Fuente)(nil)
-	_ puertosbolsa.ConsultaPublicaConsistente    = (*Fuente)(nil)
+	_ puertosbolsa.ConsultaConvocatoriasPublicas       = (*Fuente)(nil)
+	_ puertosbolsa.ConsultaCategoriasPublicas          = (*Fuente)(nil)
+	_ puertosbolsa.ConsultaSnapshotsCategoriasPublicas = (*Fuente)(nil)
+	_ puertosbolsa.ConsultaPublicaConsistente          = (*Fuente)(nil)
 )
 
 // Fuente comparte una unica instantanea PostgreSQL de lectura entre los dos
