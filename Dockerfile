@@ -27,6 +27,11 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   -trimpath \
   -ldflags="-s -w" \
+  -o /src/bin/vec-publico \
+  ./cmd/vec-publico \
+  && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+  -trimpath \
+  -ldflags="-s -w" \
   -o /src/bin/vec-presentacion \
   ./cmd/vec-presentacion \
   && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
@@ -58,6 +63,32 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   && test ! -e /src/web-produccion/static/modulos \
   && test ! -e /src/web-produccion/static/catalogo-categorias.js \
   && test ! -e /src/web-produccion/static/catalogo-categorias.css
+
+# Cada superficie recibe únicamente los recursos enumerados por su manifiesto.
+# El manifiesto se renombra dentro del artefacto porque el servidor lo usa como
+# lista positiva HTTP, pero el inventario fuente permanece separado y revisable.
+RUN for superficie in publico interno; do \
+      destino="/src/web-${superficie}"; \
+      manifiesto="/src/web/${superficie}.manifest"; \
+      install -d "${destino}"; \
+      install -m 0644 "${manifiesto}" "${destino}/produccion.manifest"; \
+      while IFS= read -r ruta; do \
+        test -n "${ruta}"; \
+        test "${ruta#/}" = "${ruta}"; \
+        test "${ruta#*..}" = "${ruta}"; \
+        test -f "/src/web/${ruta}"; \
+        install -D -m 0644 "/src/web/${ruta}" "${destino}/${ruta}"; \
+      done <"${manifiesto}"; \
+    done \
+  && test ! -e /src/web-publico/static/portal-empleado \
+  && test ! -e /src/web-publico/static/area-personal \
+  && test ! -e /src/web-publico/static/presentacion \
+  && test ! -e /src/web-interno/static/bolsa \
+  && test ! -e /src/web-interno/static/verificar \
+  && test ! -e /src/web-interno/static/area-personal \
+  && ! find /src/web-publico /src/web-interno -type f \
+       \( -iname '*.test.js' -o -iname '*.test.mjs' -o -iname '*demo*' -o -iname '*presentacion*' \) \
+       -print -quit | grep -q .
 
 # Artefacto deliberadamente distinto. Incluye exclusivamente datos sinteticos,
 # no declara volumen durable y su composicion no crea conectores externos.
@@ -115,6 +146,26 @@ ENV VEC_PERSONAL_CATALOG_PATH=memory
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/vec-cartografia-presentacion"]
+
+# Superficie pública productiva: un único binario, recursos anónimos y
+# certificados raíz. No contiene Portal del Empleado, fuentes DEMO, secretos,
+# clientes internos, KMS ni configuración administrativa.
+FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime-publico
+
+RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+  && install -d --owner=app --group=app /app
+
+COPY --from=build /src/bin/vec-publico /usr/local/bin/vec-publico
+COPY --from=build /src/web-publico /app/web
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+USER app
+WORKDIR /app
+ENV VEC_HTTP_ADDR=:8080
+ENV VEC_EXECUTION_PROFILE=produccion
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/vec-publico"]
 
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime
 
