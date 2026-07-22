@@ -1,5 +1,7 @@
 # Matriz de estado operativo de Bolsa — 18 de julio de 2026
 
+Último corte técnico: **22 de julio de 2026**, integración `8b2e991`.
+
 ## Objeto
 
 Esta matriz separa estados que no deben volver a contabilizarse como si fueran
@@ -35,9 +37,10 @@ su fila y no convierte por sí solo Bolsa en productiva.
 | --- | --- | --- | --- | --- |
 | Registro de identidad y decisión V3 en PostgreSQL | Esquema, concurrencia, revocación, repetición, ACL/RLS y retirada probados con PostgreSQL 18 | ✅ Componente cerrado | `9f6825e`, `906382c`, `05d4abc`, `a6ee330` | Consumo atómico por la operación de Bolsa |
 | Canal PostgreSQL productivo | Los tres pools exigen TLS verificado, TLS 1.2 o superior y nombres de servidor coincidentes; el modo local sin TLS exige doble llave | ✅ Componente cerrado | `cae4c29` | Componer los pools en una petición real |
-| Frontera del portal público (C1) | `vec-publico` usa una raíz exclusiva, no arrastra dominios internos ni adaptadores DEMO y tiene puerta negativa en CI | ✅ Cerrado y revisado | `1fe43d0`; solo 3 paquetes no estándar del proyecto y grafo total reducido de 276 a 193 paquetes | Artefactos físicos C2 y proyección PostgreSQL C3 |
-| Artefactos público e interno (C2) | Imágenes, manifiestos, recursos y configuración físicamente separados | ❌ Pendiente | Plan C1-C10 de separación | Implementación y prueba del contenido real de las imágenes |
-| Consulta pública autoritativa (C3) | API pública alimentada por vistas PostgreSQL de solo lectura y sin datos personales | 🚧 En ejecución | Rama aislada `real/c3-bolsa-publica-postgresql` | Adaptador, migraciones, rol mínimo, integración y revisión independiente |
+| Frontera del portal público (C1) | `vec-publico` usa una raíz exclusiva, no arrastra dominios internos ni adaptadores DEMO y tiene puerta negativa en CI | ✅ Cerrado y revisado | `1fe43d0`; grafo positivo y autoprueba negativa | Mantener la frontera al ampliar C3/C8 |
+| Artefactos público e interno (C2) | Imágenes, manifiestos, recursos y configuración físicamente separados | ✅ Cerrado en su alcance | `8b5ad33`, `8b2e991`; imágenes con UID/GID `10001:10001`, inventario exacto, fallo cerrado y autopruebas negativas | Repetir la certificación de imágenes después de cada integración |
+| Consulta pública autoritativa (C3) | API pública alimentada por vistas PostgreSQL de solo lectura y sin datos personales | ❌ NO-GO de revisión | `00c1361`: PostgreSQL 18.4/TLS y gates verdes, pero auditoría independiente con 0 críticos, 0 altos y 4 medios | Cerrar bloqueo lector, disponibilidad real, categorías históricas y redacción de errores; repetir auditoría |
+| Cápsula del portal interno (C4) | Listener TLS 1.3/mTLS opaco, secretos de ejecución no privilegiada, SNI, vínculo de canal y apagado seguro | ✅ Cerrado, auditado e integrado | `8051c9f` y `8b2e991`; auditoría 0 hallazgos, carrera global, tres fases Docker y grafo negativo verdes | Incorporar identidad C5 y Bolsa C6 sin reabrir la cápsula |
 | Consumo V3 por una operación de Bolsa | La autorización no puede confirmarse antes del CAS/efecto real y deja una prueba acíclica y durable | 🚧 Diseño en revisión | DEC-103, todavía sin commit | Cerrar orden temporal, DAG probatorio, ACL y auditoría de rechazos |
 | Primera vertical administrativa real | Navegador → identidad → PDP V3 → PostgreSQL/KMS → recibo, con reinicio, concurrencia y reconciliación | ❌ Pendiente | T20E no iniciado | Cerrar consumo V3 y composición interna C4-C6 |
 
@@ -49,7 +52,7 @@ declararse productiva hasta superar la última fila extremo a extremo.
 
 | Capacidad | Contrato/adaptador real | E2E técnico | Probable manualmente ahora | UAT/RRHH | Producción | Brecha principal |
 | --- | --- | --- | --- | --- | --- | --- |
-| Consulta pública | ✅ Servicio, minimización, filtros, API y catálogo | 🧪 Web → API → fuente de fichero DEMO | ✅ En `/bolsa/`, expresamente DEMO | ❌ | ❌ | Proyección durable de convocatorias aprobadas y publicador autorizado. |
+| Consulta pública | ✅ Servicio, minimización, filtros, API, catálogo y adaptador PostgreSQL | 🟡 Runner real PostgreSQL 18.4/TLS supera listado, facetas y detalle, pero C3 conserva cuatro hallazgos medios | ✅ En `/bolsa/`, expresamente DEMO; el recorrido productivo no está autorizado | ❌ | ❌ | Corregir y reauditar C3; después componer publicación interna autorizada y operación. |
 | Panel interno agregado | ✅ Dominio, aplicación, HTTP y lectura PostgreSQL | 🟡 PostgreSQL y HTTP probados por separado | 🧪 Solo presentación sintética | ❌ | ❌ | Componer identidad, PDP, productor de proyección y ruta interna. |
 | Bandeja y editor de borradores | 🚧 Web, HTTP, fachada, servicio, ContextoActor V2 durable, vínculo actor V2, solicitud/evaluación PDP V3, acreditación SQL/Go del contexto, diario PostgreSQL, lectura V2 y confirmación KMS/recibo reales por piezas | ❌ T20 aún no completa el registro confirmado PDP V3 ni identidad → PDP → PostgreSQL/KMS → recibo en una petición | 🧪 Interfaz con datos de presentación | ❌ | ❌ | Cerrar servicio y registro transaccional V3, composición y T20E; la evaluación en memoria es deliberadamente no ejecutable. |
 | Publicación, sustitución y retirada | 🟡 Dominio y contratos; fuera del cierre de T20 | ❌ | 🧪 Controles informativos | ❌ | ❌ | DEC-091: aprobación firmada, dependencias autoritativas y acto durable. |
@@ -66,7 +69,7 @@ declararse productiva hasta superar la última fila extremo a extremo.
 
 | Capacidad transversal | Contrato/adaptador real | E2E técnico | Probable manualmente ahora | UAT/RRHH | Producción | Brecha principal |
 | --- | --- | --- | --- | --- | --- | --- |
-| Identidad y separación público/interno | ✅ Superficies separadas; T21 aporta mTLS 1.3 e identidad local de alta garantía; ContextoActor V2 registra cuenta, perfil, versiones y procedencia maestra; vínculo actor V2 y acreditación transaccional están probados | 🟡 mTLS, registro y acreditación PostgreSQL 18 están probados por separado; aún no forman una petición completa de Bolsa | 🟡 Se puede arrancar el perfil de seguridad con material local; la ruta administrativa real sigue cerrada | ❌ | ❌ | Composición PDP V3, certificado/Kerberos corporativos, ciclo de sesión y aprobación de Sistemas. |
+| Identidad y separación público/interno | ✅ C1/C2 separan procesos y artefactos; C4 aporta una cápsula TLS 1.3/mTLS auditada; ContextoActor V2 registra cuenta, perfil, versiones y procedencia maestra | 🟡 Cápsula, registro y acreditación PostgreSQL 18 están probados; C4 falla antes de escuchar mientras falten C5/C6 | ❌ como ruta administrativa real, por diseño cerrado | ❌ | ❌ | C5: certificado cliente + aserción Kerberos ligada al canal, sesión y revalidación; C6: PDP y caso de uso de Bolsa. |
 | Roles, RBAC/ABAC y PDP | 🚧 Núcleo V2 congelado; solicitud, evidencia y decisión V3 nominales probadas y no ejecutables sin confirmación durable | 🟡 Autorización aislada; registro V3 y enlace a las rutas de Bolsa en curso | ❌ como administración real | ❌ | ❌ | Cerrar confirmación durable V3, publicar roles/asignaciones y componer sin degradación V1/V2. |
 | Auditoría, recibos y registro de accesos | ✅ CAS, huellas, outbox, recibos y auditoría en varias verticales | 🟡 Hay E2E parciales de DB, no un acto web unificado | 🧪 Cronología visual | ❌ | ❌ | T12 durabilidad probatoria y T13 accesos con finalidad; consulta y recuperación globales. |
 | Documentos, carga, almacén y antivirus | ✅ Puertos de cuarentena, S3 compatible, análisis y promoción; conectores/pruebas aislados | 🟡 Flujo documental técnico por piezas, no asociado E2E a Bolsa | ❌; la carga moderna falla cerrada | ❌ | ❌ | Composición PostgreSQL/S3, antivirus real, descarga autorizada, retención y recuperación. |
@@ -87,11 +90,15 @@ declararse productiva hasta superar la última fila extremo a extremo.
 2. **Sí hay dos recorridos que pueden probarse manualmente hoy:** consulta
    pública conectada a datos DEMO y ayuda estática. El portal RRHH también se
    puede enseñar, pero sus acciones no producen actos administrativos.
-3. **T21 sí tiene E2E técnico de seguridad en desarrollo**, pero es un
-   habilitador transversal, no una capacidad funcional de Bolsa.
-4. **T20 será la primera vertical administrativa moderna E2E**: alta y
+3. **C1, C2 y C4 están cerrados en su alcance.** C4 es un habilitador
+   transversal y permanece deliberadamente sin escuchar hasta disponer de
+   identidad C5 y cableado C6; no es por sí solo una capacidad de Bolsa.
+4. **C3 tiene código real e integración PostgreSQL/TLS verde, pero continúa en
+   NO-GO por cuatro hallazgos medios.** No se contabiliza como productivo ni se
+   ocultan esos defectos detrás del éxito de las pruebas.
+5. **T20 será la primera vertical administrativa moderna E2E**: alta y
    actualización de borradores desde la web hasta PostgreSQL con identidad,
    PDP, KMS, recibo y recuperación.
-5. **No consta una UAT formal de Alberto o RRHH para ninguna versión.** Ver una
+6. **No consta una UAT formal de Alberto o RRHH para ninguna versión.** Ver una
    demo, comentar una captura o aprobar una dirección de diseño no debe
    registrarse como aceptación funcional.
