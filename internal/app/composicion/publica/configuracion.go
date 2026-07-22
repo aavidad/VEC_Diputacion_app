@@ -30,11 +30,14 @@ type Configuracion struct {
 	GuardaDesarrollo        string
 	MaterialDesarrollo      string
 
-	FuenteConvocatorias string
-	FuenteCategorias    string
-	CatalogoCategorias  string
-	VersionCategorias   int
-	HuellaCategorias    string
+	FuenteConvocatorias        string
+	FuenteCategorias           string
+	CatalogoCategorias         string
+	VersionCategorias          int
+	HuellaCategorias           string
+	HuellaProyeccionCategorias string
+	HuellaManifiesto           string
+	PostgreSQL                 config.ConfiguracionPostgreSQLPublica
 
 	PresentacionHabilitada bool
 	GuardaPresentacionUno  string
@@ -46,88 +49,128 @@ type Configuracion struct {
 // consulta DSN, KMS, credenciales, almacenamiento interno ni cabeceras de
 // identidad.
 func CargarConfiguracion() Configuracion {
+	postgresql, _ := config.NuevaConfiguracionPostgreSQLPublica(
+		primerValorEntorno(config.EnvBolsaPublicaDatabaseURL),
+	)
 	return Configuracion{
-		Direccion:               primerValorEntorno(config.EnvAddress, config.LegacyEnvAddress),
-		TiempoCabeceras:         config.DefaultReadHeaderLimit,
-		TiempoLectura:           config.DefaultReadTimeout,
-		TiempoEscritura:         config.DefaultWriteTimeout,
-		TiempoInactividad:       config.DefaultIdleTimeout,
-		MaximoBytesCabeceras:    config.DefaultMaxHeaderBytes,
-		MaximoBytesPeticion:     config.DefaultMaxRequestBodyBytes,
-		RedesPermitidas:         separarLista(primerValorEntorno(config.EnvHTTPAllowedCIDRs)),
-		CertificadoTLS:          primerValorEntorno(config.EnvTLSCertFile),
-		ClaveTLS:                primerValorEntorno(config.EnvTLSKeyFile),
-		PerfilEjecucion:         primerValorEntorno(config.EnvExecutionProfile),
-		AutenticacionSolicitada: primerValorEntorno(config.EnvAuthMode, config.LegacyEnvAuthMode),
-		GuardaDesarrollo:        primerValorEntorno(config.EnvDevelopmentGuard),
-		MaterialDesarrollo:      primerValorEntorno(config.EnvDevelopmentMaterialDir),
-		FuenteConvocatorias:     primerValorEntorno(config.EnvBolsaPublicSourcePath),
-		FuenteCategorias:        primerValorEntorno(config.EnvBolsaCategoriesSourcePath),
-		CatalogoCategorias:      primerValorEntorno(config.EnvBolsaCategoriesCatalogID),
-		VersionCategorias:       enteroPositivoEntorno(config.EnvBolsaCategoriesVersion),
-		HuellaCategorias:        primerValorEntorno(config.EnvBolsaCategoriesSHA256),
-		PresentacionHabilitada:  booleanoEntorno(config.EnvRRHHPresentationEnabled),
-		GuardaPresentacionUno:   primerValorEntorno(config.EnvRRHHPresentationGuardOne),
-		GuardaPresentacionDos:   primerValorEntorno(config.EnvRRHHPresentationGuardTwo),
+		Direccion:                  primerValorEntorno(config.EnvAddress, config.LegacyEnvAddress),
+		TiempoCabeceras:            config.DefaultReadHeaderLimit,
+		TiempoLectura:              config.DefaultReadTimeout,
+		TiempoEscritura:            config.DefaultWriteTimeout,
+		TiempoInactividad:          config.DefaultIdleTimeout,
+		MaximoBytesCabeceras:       config.DefaultMaxHeaderBytes,
+		MaximoBytesPeticion:        config.DefaultMaxRequestBodyBytes,
+		RedesPermitidas:            separarLista(primerValorEntorno(config.EnvHTTPAllowedCIDRs)),
+		CertificadoTLS:             primerValorEntorno(config.EnvTLSCertFile),
+		ClaveTLS:                   primerValorEntorno(config.EnvTLSKeyFile),
+		PerfilEjecucion:            primerValorEntorno(config.EnvExecutionProfile),
+		AutenticacionSolicitada:    primerValorEntorno(config.EnvAuthMode, config.LegacyEnvAuthMode),
+		GuardaDesarrollo:           primerValorEntorno(config.EnvDevelopmentGuard),
+		MaterialDesarrollo:         primerValorEntorno(config.EnvDevelopmentMaterialDir),
+		FuenteConvocatorias:        primerValorEntorno(config.EnvBolsaPublicSourcePath),
+		FuenteCategorias:           primerValorEntorno(config.EnvBolsaCategoriesSourcePath),
+		CatalogoCategorias:         primerValorEntorno(config.EnvBolsaCategoriesCatalogID),
+		VersionCategorias:          enteroPositivoEntorno(config.EnvBolsaCategoriesVersion),
+		HuellaCategorias:           primerValorEntorno(config.EnvBolsaCategoriesSHA256),
+		HuellaProyeccionCategorias: primerValorEntorno(config.EnvBolsaCategoriesPublicProjectionSHA256),
+		HuellaManifiesto:           primerValorEntorno(config.EnvBolsaPublicaManifiestoSHA256),
+		PostgreSQL:                 postgresql,
+		PresentacionHabilitada:     booleanoEntorno(config.EnvRRHHPresentationEnabled),
+		GuardaPresentacionUno:      primerValorEntorno(config.EnvRRHHPresentationGuardOne),
+		GuardaPresentacionDos:      primerValorEntorno(config.EnvRRHHPresentationGuardTwo),
 	}.normalizar()
 }
 
 // DesdeConfiguracionGeneral adapta llamadas heredadas sin introducir el
 // bootstrap monolitico en el grafo del binario publico.
 func DesdeConfiguracionGeneral(cfg config.Config) Configuracion {
-	cfg = cfg.Normalize()
+	fuenteConvocatorias := strings.TrimSpace(cfg.BolsaPublicSourcePath)
+	fuenteCategorias := strings.TrimSpace(cfg.BolsaCategoriesSourcePath)
+	catalogoCategorias := strings.TrimSpace(cfg.BolsaCategoriesCatalogID)
+	versionCategorias := cfg.BolsaCategoriesVersion
+	huellaCategorias := strings.TrimSpace(cfg.BolsaCategoriesSHA256)
+	huellaProyeccionCategorias := strings.TrimSpace(cfg.BolsaCategoriesPublicProjectionSHA256)
+	huellaManifiesto := strings.TrimSpace(cfg.BolsaPublicaManifiestoSHA256)
+	cfg = cfg.NormalizePublicTransport()
 	return Configuracion{
-		Direccion:               cfg.Address,
-		TiempoCabeceras:         cfg.ReadHeaderTimeout,
-		TiempoLectura:           cfg.ReadTimeout,
-		TiempoEscritura:         cfg.WriteTimeout,
-		TiempoInactividad:       cfg.IdleTimeout,
-		MaximoBytesCabeceras:    cfg.MaxHeaderBytes,
-		MaximoBytesPeticion:     cfg.MaxRequestBodyBytes,
-		RedesPermitidas:         append([]string(nil), cfg.HTTPAllowedCIDRs...),
-		CertificadoTLS:          cfg.TLSCertFile,
-		ClaveTLS:                cfg.TLSKeyFile,
-		PerfilEjecucion:         cfg.ExecutionProfile,
-		AutenticacionSolicitada: cfg.AuthMode,
-		GuardaDesarrollo:        cfg.DevelopmentGuard,
-		MaterialDesarrollo:      cfg.DevelopmentMaterialDir,
-		FuenteConvocatorias:     cfg.BolsaPublicSourcePath,
-		FuenteCategorias:        cfg.BolsaCategoriesSourcePath,
-		CatalogoCategorias:      cfg.BolsaCategoriesCatalogID,
-		VersionCategorias:       cfg.BolsaCategoriesVersion,
-		HuellaCategorias:        cfg.BolsaCategoriesSHA256,
-		PresentacionHabilitada:  cfg.RRHHPresentationEnabled,
-		GuardaPresentacionUno:   cfg.RRHHPresentationGuardOne,
-		GuardaPresentacionDos:   cfg.RRHHPresentationGuardTwo,
+		Direccion:                  cfg.Address,
+		TiempoCabeceras:            cfg.ReadHeaderTimeout,
+		TiempoLectura:              cfg.ReadTimeout,
+		TiempoEscritura:            cfg.WriteTimeout,
+		TiempoInactividad:          cfg.IdleTimeout,
+		MaximoBytesCabeceras:       cfg.MaxHeaderBytes,
+		MaximoBytesPeticion:        cfg.MaxRequestBodyBytes,
+		RedesPermitidas:            append([]string(nil), cfg.HTTPAllowedCIDRs...),
+		CertificadoTLS:             cfg.TLSCertFile,
+		ClaveTLS:                   cfg.TLSKeyFile,
+		PerfilEjecucion:            cfg.ExecutionProfile,
+		AutenticacionSolicitada:    cfg.AuthMode,
+		GuardaDesarrollo:           cfg.DevelopmentGuard,
+		MaterialDesarrollo:         cfg.DevelopmentMaterialDir,
+		FuenteConvocatorias:        fuenteConvocatorias,
+		FuenteCategorias:           fuenteCategorias,
+		CatalogoCategorias:         catalogoCategorias,
+		VersionCategorias:          versionCategorias,
+		HuellaCategorias:           huellaCategorias,
+		HuellaProyeccionCategorias: huellaProyeccionCategorias,
+		HuellaManifiesto:           huellaManifiesto,
+		PostgreSQL:                 cfg.BolsaPublicaPostgreSQL,
+		PresentacionHabilitada:     cfg.RRHHPresentationEnabled,
+		GuardaPresentacionUno:      cfg.RRHHPresentationGuardOne,
+		GuardaPresentacionDos:      cfg.RRHHPresentationGuardTwo,
 	}
 }
 
 func (cfg Configuracion) normalizar() Configuracion {
+	fuenteConvocatorias := strings.TrimSpace(cfg.FuenteConvocatorias)
+	fuenteCategorias := strings.TrimSpace(cfg.FuenteCategorias)
+	catalogoCategorias := strings.TrimSpace(cfg.CatalogoCategorias)
+	versionCategorias := cfg.VersionCategorias
+	huellaCategorias := strings.TrimSpace(cfg.HuellaCategorias)
+	huellaProyeccionCategorias := strings.TrimSpace(cfg.HuellaProyeccionCategorias)
+	huellaManifiesto := strings.TrimSpace(cfg.HuellaManifiesto)
 	general := config.Config{
-		Address:                   cfg.Direccion,
-		ReadHeaderTimeout:         cfg.TiempoCabeceras,
-		ReadTimeout:               cfg.TiempoLectura,
-		WriteTimeout:              cfg.TiempoEscritura,
-		IdleTimeout:               cfg.TiempoInactividad,
-		MaxHeaderBytes:            cfg.MaximoBytesCabeceras,
-		MaxRequestBodyBytes:       cfg.MaximoBytesPeticion,
-		HTTPAllowedCIDRs:          append([]string(nil), cfg.RedesPermitidas...),
-		TLSCertFile:               cfg.CertificadoTLS,
-		TLSKeyFile:                cfg.ClaveTLS,
-		ExecutionProfile:          cfg.PerfilEjecucion,
-		AuthMode:                  cfg.AutenticacionSolicitada,
-		DevelopmentGuard:          cfg.GuardaDesarrollo,
-		DevelopmentMaterialDir:    cfg.MaterialDesarrollo,
-		BolsaPublicSourcePath:     cfg.FuenteConvocatorias,
-		BolsaCategoriesSourcePath: cfg.FuenteCategorias,
-		BolsaCategoriesCatalogID:  cfg.CatalogoCategorias,
-		BolsaCategoriesVersion:    cfg.VersionCategorias,
-		BolsaCategoriesSHA256:     cfg.HuellaCategorias,
-		RRHHPresentationEnabled:   cfg.PresentacionHabilitada,
-		RRHHPresentationGuardOne:  cfg.GuardaPresentacionUno,
-		RRHHPresentationGuardTwo:  cfg.GuardaPresentacionDos,
-	}.Normalize()
-	return DesdeConfiguracionGeneral(general)
+		Address:                  cfg.Direccion,
+		ReadHeaderTimeout:        cfg.TiempoCabeceras,
+		ReadTimeout:              cfg.TiempoLectura,
+		WriteTimeout:             cfg.TiempoEscritura,
+		IdleTimeout:              cfg.TiempoInactividad,
+		MaxHeaderBytes:           cfg.MaximoBytesCabeceras,
+		MaxRequestBodyBytes:      cfg.MaximoBytesPeticion,
+		HTTPAllowedCIDRs:         append([]string(nil), cfg.RedesPermitidas...),
+		TLSCertFile:              cfg.CertificadoTLS,
+		TLSKeyFile:               cfg.ClaveTLS,
+		ExecutionProfile:         cfg.PerfilEjecucion,
+		AuthMode:                 cfg.AutenticacionSolicitada,
+		DevelopmentGuard:         cfg.GuardaDesarrollo,
+		DevelopmentMaterialDir:   cfg.MaterialDesarrollo,
+		BolsaPublicaPostgreSQL:   cfg.PostgreSQL,
+		RRHHPresentationEnabled:  cfg.PresentacionHabilitada,
+		RRHHPresentationGuardOne: cfg.GuardaPresentacionUno,
+		RRHHPresentationGuardTwo: cfg.GuardaPresentacionDos,
+	}.NormalizePublicTransport()
+	resultado := Configuracion{
+		Direccion: general.Address, TiempoCabeceras: general.ReadHeaderTimeout,
+		TiempoLectura: general.ReadTimeout, TiempoEscritura: general.WriteTimeout,
+		TiempoInactividad: general.IdleTimeout, MaximoBytesCabeceras: general.MaxHeaderBytes,
+		MaximoBytesPeticion: general.MaxRequestBodyBytes,
+		RedesPermitidas:     append([]string(nil), general.HTTPAllowedCIDRs...),
+		CertificadoTLS:      general.TLSCertFile, ClaveTLS: general.TLSKeyFile,
+		PerfilEjecucion: general.ExecutionProfile, AutenticacionSolicitada: general.AuthMode,
+		GuardaDesarrollo:   strings.TrimSpace(cfg.GuardaDesarrollo),
+		MaterialDesarrollo: strings.TrimSpace(cfg.MaterialDesarrollo),
+		PostgreSQL:         cfg.PostgreSQL, PresentacionHabilitada: cfg.PresentacionHabilitada,
+		GuardaPresentacionUno: strings.TrimSpace(cfg.GuardaPresentacionUno),
+		GuardaPresentacionDos: strings.TrimSpace(cfg.GuardaPresentacionDos),
+	}
+	resultado.FuenteConvocatorias = fuenteConvocatorias
+	resultado.FuenteCategorias = fuenteCategorias
+	resultado.CatalogoCategorias = catalogoCategorias
+	resultado.VersionCategorias = versionCategorias
+	resultado.HuellaCategorias = huellaCategorias
+	resultado.HuellaProyeccionCategorias = huellaProyeccionCategorias
+	resultado.HuellaManifiesto = huellaManifiesto
+	return resultado
 }
 
 func primerValorEntorno(claves ...string) string {

@@ -89,7 +89,19 @@ func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 // componer la superficie interna, la autenticacion de demostracion ni la API
 // heredada de candidatos.
 func NewHTTPServerPublicoWithConfig(cfg config.Config) (*http.Server, error) {
+	fuenteConvocatorias := strings.TrimSpace(cfg.BolsaPublicSourcePath)
+	fuenteCategorias := strings.TrimSpace(cfg.BolsaCategoriesSourcePath)
+	catalogoCategorias := strings.TrimSpace(cfg.BolsaCategoriesCatalogID)
+	versionCategorias := cfg.BolsaCategoriesVersion
+	huellaCategorias := strings.TrimSpace(cfg.BolsaCategoriesSHA256)
+	huellaProyeccionCategorias := strings.TrimSpace(cfg.BolsaCategoriesPublicProjectionSHA256)
 	cfg = cfg.Normalize()
+	cfg.BolsaPublicSourcePath = fuenteConvocatorias
+	cfg.BolsaCategoriesSourcePath = fuenteCategorias
+	cfg.BolsaCategoriesCatalogID = catalogoCategorias
+	cfg.BolsaCategoriesVersion = versionCategorias
+	cfg.BolsaCategoriesSHA256 = huellaCategorias
+	cfg.BolsaCategoriesPublicProjectionSHA256 = huellaProyeccionCategorias
 	if err := validarValoresConfiguracionConocidos(cfg); err != nil {
 		return nil, err
 	}
@@ -108,7 +120,11 @@ func NewHTTPServerPublicoWithConfig(cfg config.Config) (*http.Server, error) {
 		cfg.DevelopmentMaterialDir != "" {
 		return nil, ErrActivacionDesarrolloInvalida
 	}
-	return composicionpublica.NuevoServidor(composicionpublica.DesdeConfiguracionGeneral(cfg))
+	servidor, err := composicionpublica.NuevoServidor(composicionpublica.DesdeConfiguracionGeneral(cfg))
+	if errors.Is(err, composicionpublica.ErrActivacionDesarrolloInvalida) {
+		return nil, errors.Join(ErrActivacionDesarrolloInvalida, err)
+	}
+	return servidor, err
 }
 
 // NewAPIPublicaBolsaWithConfig es la raiz de composicion minima del portal
