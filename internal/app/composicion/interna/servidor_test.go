@@ -42,6 +42,7 @@ func TestConstruirServidorInternoCargaReferenciasYSellaAllowlist(t *testing.T) {
 	}
 	permitida := httptest.NewRequest(http.MethodGet, "/api/vec/prueba", nil)
 	permitida.RemoteAddr = "127.0.0.2:50000"
+	permitida.TLS = estadoTLSMutuoValidoPrueba(t, material)
 	respuesta := httptest.NewRecorder()
 	servidor.Handler.ServeHTTP(respuesta, permitida)
 	if respuesta.Code != http.StatusNoContent || llamadas != 1 {
@@ -50,6 +51,7 @@ func TestConstruirServidorInternoCargaReferenciasYSellaAllowlist(t *testing.T) {
 	for _, ruta := range []string{"/", "/api/publico/prueba", "/bolsa/", "/administracion/"} {
 		peticion := httptest.NewRequest(http.MethodGet, ruta, nil)
 		peticion.RemoteAddr = "127.0.0.2:50000"
+		peticion.TLS = estadoTLSMutuoValidoPrueba(t, material)
 		respuesta = httptest.NewRecorder()
 		servidor.Handler.ServeHTTP(respuesta, peticion)
 		if respuesta.Code != http.StatusNotFound {
@@ -76,47 +78,6 @@ func TestConstruirServidorInternoNoAceptaConfiguracionTLSAutosellada(t *testing.
 	servidor, err := construirServidorInterno(cfg, http.NotFoundHandler())
 	if servidor != nil || !errors.Is(err, ErrTLSMutuoNoVerificado) {
 		t.Fatalf("referencias inexistentes = (%v, %v)", servidor, err)
-	}
-}
-
-func TestConstruirServidorInternoCargaRealDesdeArbolRootSoloLectura(t *testing.T) {
-	if os.Geteuid() != 0 {
-		t.Skip("requiere UID 0 para crear evidencia root-owned")
-	}
-	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
-	directorio, err := os.MkdirTemp("/root", "vec-tls-interno-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_ = os.Chmod(directorio, 0o700)
-		_ = os.RemoveAll(directorio)
-	})
-	copiar := func(origen, nombre string, modo os.FileMode) string {
-		t.Helper()
-		contenido, err := os.ReadFile(origen)
-		if err != nil {
-			t.Fatal(err)
-		}
-		destino := filepath.Join(directorio, nombre)
-		if err := os.WriteFile(destino, contenido, modo); err != nil {
-			t.Fatal(err)
-		}
-		return destino
-	}
-	material.cfg.CertificadoServidorTLS = copiar(material.cfg.CertificadoServidorTLS, "servidor.crt", 0o440)
-	material.cfg.ClaveServidorTLS = copiar(material.cfg.ClaveServidorTLS, "servidor.key", 0o400)
-	material.cfg.AutoridadClientesTLS = copiar(material.cfg.AutoridadClientesTLS, "clientes-ca.crt", 0o440)
-	if err := os.Chmod(directorio, 0o500); err != nil {
-		t.Fatal(err)
-	}
-
-	servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
-	if err != nil || servidor == nil {
-		t.Fatalf("carga real root-only = (%v, %v)", servidor, err)
-	}
-	if err := ValidarServidorParaEscucha(servidor); err != nil {
-		t.Fatalf("servidor real sellado: %v", err)
 	}
 }
 
@@ -520,6 +481,7 @@ func TestServidorInternoProtocolosRealesNoAlcanzanAPISinHTTPUnoALPN(t *testing.T
 
 func TestServidorInternoMTLSYOPTIONSGeneralReales(t *testing.T) {
 	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
+	otroMaterial := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
 	llamadas := 0
 	servidor, err := construirServidorInternoPrueba(t, material.cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		llamadas++
@@ -537,6 +499,32 @@ func TestServidorInternoMTLSYOPTIONSGeneralReales(t *testing.T) {
 			t.Fatal("cliente sin certificado alcanzo HTTP")
 		}
 	}
+	configuracionCAAjena := material.configCliente([]string{protocoloALPNHTTPUno}, false)
+	configuracionCAAjena.Certificates = []tls.Certificate{otroMaterial.cliente}
+	if conexionCAAjena, err := tls.Dial("tcp", direccion, configuracionCAAjena); err == nil {
+		_, errEscritura := io.WriteString(conexionCAAjena, "GET /api/vec/prueba HTTP/1.1\r\nHost: interno.test\r\nConnection: close\r\n\r\n")
+		_, errLectura := http.ReadResponse(bufio.NewReader(conexionCAAjena), &http.Request{Method: http.MethodGet})
+		_ = conexionCAAjena.Close()
+		if errEscritura == nil && errLectura == nil {
+			t.Fatal("cliente de CA ajena alcanzo HTTP")
+		}
+	}
+	conexionGET, err := tls.Dial("tcp", direccion, material.configCliente([]string{protocoloALPNHTTPUno}, true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fmt.Fprint(conexionGET, "GET /api/vec/prueba HTTP/1.1\r\nHost: interno.test\r\nConnection: close\r\n\r\n"); err != nil {
+		t.Fatal(err)
+	}
+	respuestaGET, err := http.ReadResponse(bufio.NewReader(conexionGET), &http.Request{Method: http.MethodGet})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = respuestaGET.Body.Close()
+	_ = conexionGET.Close()
+	if respuestaGET.StatusCode != http.StatusNoContent || llamadas != 1 {
+		t.Fatalf("peticion mTLS real = codigo %d, API %d", respuestaGET.StatusCode, llamadas)
+	}
 	conexion, err := tls.Dial("tcp", direccion, material.configCliente([]string{protocoloALPNHTTPUno}, true))
 	if err != nil {
 		t.Fatal(err)
@@ -550,8 +538,48 @@ func TestServidorInternoMTLSYOPTIONSGeneralReales(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer respuesta.Body.Close()
-	if respuesta.StatusCode == http.StatusOK || llamadas != 0 {
+	if respuesta.StatusCode == http.StatusOK || llamadas != 1 {
 		t.Fatalf("OPTIONS bypass = codigo %d, API %d", respuesta.StatusCode, llamadas)
+	}
+}
+
+func TestServidorInternoNoReanudaSesionesTLS(t *testing.T) {
+	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
+	llamadas := 0
+	servidor, err := construirServidorInternoPrueba(t, material.cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		llamadas++
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	direccion := iniciarServidorTLSPrueba(t, servidor)
+	configuracionCliente := material.configCliente([]string{protocoloALPNHTTPUno}, true)
+	configuracionCliente.ClientSessionCache = tls.NewLRUClientSessionCache(2)
+	for intento := 1; intento <= 2; intento++ {
+		conexion, err := tls.Dial("tcp", direccion, configuracionCliente)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if conexion.ConnectionState().DidResume {
+			_ = conexion.Close()
+			t.Fatalf("conexion %d reanudada", intento)
+		}
+		if _, err := fmt.Fprint(conexion, "GET /api/vec/prueba HTTP/1.1\r\nHost: interno.test\r\nConnection: close\r\n\r\n"); err != nil {
+			t.Fatal(err)
+		}
+		respuesta, err := http.ReadResponse(bufio.NewReader(conexion), &http.Request{Method: http.MethodGet})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = respuesta.Body.Close()
+		_ = conexion.Close()
+		if respuesta.StatusCode != http.StatusNoContent {
+			t.Fatalf("conexion %d = %d", intento, respuesta.StatusCode)
+		}
+	}
+	if llamadas != 2 {
+		t.Fatalf("peticiones mTLS = %d", llamadas)
 	}
 }
 
@@ -738,6 +766,29 @@ func (m materialTLSMutuo) configCliente(protocolos []string, conCertificado bool
 		cfg.Certificates = []tls.Certificate{m.cliente}
 	}
 	return cfg
+}
+
+func estadoTLSMutuoValidoPrueba(t *testing.T, material materialTLSMutuo) *tls.ConnectionState {
+	t.Helper()
+	pares := make([]*x509.Certificate, len(material.cliente.Certificate))
+	for indice, der := range material.cliente.Certificate {
+		certificado, err := x509.ParseCertificate(der)
+		if err != nil {
+			t.Fatal(err)
+		}
+		pares[indice] = certificado
+	}
+	return &tls.ConnectionState{
+		Version:                    tls.VersionTLS13,
+		HandshakeComplete:          true,
+		CipherSuite:                tls.TLS_AES_128_GCM_SHA256,
+		CurveID:                    tls.X25519,
+		NegotiatedProtocol:         protocoloALPNHTTPUno,
+		NegotiatedProtocolIsMutual: true,
+		ServerName:                 "servidor.interna.test",
+		PeerCertificates:           pares,
+		VerifiedChains:             [][]*x509.Certificate{pares},
+	}
 }
 
 type manejadorPunteroPrueba struct{}

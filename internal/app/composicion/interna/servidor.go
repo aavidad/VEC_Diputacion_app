@@ -62,12 +62,57 @@ type protocolosHTTPAprobados struct {
 }
 
 func (m *manejadorInternoVerificado) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.TLS != nil && r.TLS.NegotiatedProtocol != protocoloALPNHTTPUno {
+	if !m.peticionTLSMutuaVerificada(r) {
 		w.Header().Set("Connection", "close")
 		http.Error(w, "solicitud no disponible", http.StatusBadRequest)
 		return
 	}
 	m.siguiente.ServeHTTP(w, r)
+}
+
+func (m *manejadorInternoVerificado) peticionTLSMutuaVerificada(r *http.Request) bool {
+	if r == nil || r.TLS == nil || r.ProtoMajor != 1 || r.ProtoMinor != 1 {
+		return false
+	}
+	estado := r.TLS
+	if !estado.HandshakeComplete || estado.Version != tls.VersionTLS13 || estado.DidResume ||
+		estado.NegotiatedProtocol != protocoloALPNHTTPUno ||
+		!estado.NegotiatedProtocolIsMutual || estado.ServerName != m.materialTLS.nombreServidor ||
+		!cifradoTLS13Aprobado(estado.CipherSuite) || estado.CurveID == 0 ||
+		len(estado.TLSUnique) != 0 || len(estado.PeerCertificates) == 0 ||
+		len(estado.VerifiedChains) == 0 || len(estado.VerifiedChains[0]) == 0 ||
+		estado.VerifiedChains[0][0] == nil || estado.PeerCertificates[0] == nil ||
+		!estado.VerifiedChains[0][0].Equal(estado.PeerCertificates[0]) {
+		return false
+	}
+	hoja := estado.PeerCertificates[0]
+	if hoja.IsCA || !contieneUsoExtendido(hoja.ExtKeyUsage, x509.ExtKeyUsageClientAuth) {
+		return false
+	}
+	intermedias := x509.NewCertPool()
+	for _, certificado := range estado.PeerCertificates[1:] {
+		if certificado == nil {
+			return false
+		}
+		intermedias.AddCert(certificado)
+	}
+	cadenas, err := hoja.Verify(x509.VerifyOptions{
+		Roots:         m.materialTLS.autoridadesClientes,
+		Intermediates: intermedias,
+		CurrentTime:   time.Now(),
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	})
+	return err == nil && len(cadenas) != 0
+}
+
+func cifradoTLS13Aprobado(cifrado uint16) bool {
+	switch cifrado {
+	case tls.TLS_AES_128_GCM_SHA256, tls.TLS_AES_256_GCM_SHA384,
+		tls.TLS_CHACHA20_POLY1305_SHA256:
+		return true
+	default:
+		return false
+	}
 }
 
 // construirServidorInterno es el unico puente futuro entre C5/C6 y net/http.
