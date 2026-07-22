@@ -1,13 +1,23 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"log"
-	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"vec-diputacion-granada/internal/app/composicion/interna"
 )
+
+const tiempoMaximoApagado = 10 * time.Second
+
+type servidorInternoEjecutable interface {
+	EscucharYServir() error
+	Apagar(context.Context) error
+}
 
 var (
 	errArranqueComposicion = errors.New("servidor interno: composicion no disponible")
@@ -26,21 +36,37 @@ func ejecutar() error {
 	if err != nil {
 		return errArranqueComposicion
 	}
-	if err := validarServidorParaEscucha(servidor); err != nil {
-		return errArranqueComposicion
-	}
-
-	// net/http incluye direcciones remotas y errores TLS crudos en ErrorLog.
-	// La raiz cerrada no publica esos datos mediante el cmd.
-	servidor.ErrorLog = log.New(nuevoEscritorEventosHTTPSaneados(os.Stderr), "", 0)
 	log.Print("servidor interno VEC iniciando escucha TLS mutua")
-	err = servidor.ListenAndServeTLS("", "")
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return errArranqueEscucha
-	}
-	return nil
+	ctx, detenerSenales := signal.NotifyContext(
+		context.Background(), os.Interrupt, syscall.SIGTERM,
+	)
+	defer detenerSenales()
+	return servirHastaApagado(ctx, servidor)
 }
 
-func validarServidorParaEscucha(servidor *http.Server) error {
-	return interna.ValidarServidorParaEscucha(servidor)
+func servirHastaApagado(ctx context.Context, servidor servidorInternoEjecutable) error {
+	if ctx == nil || servidor == nil {
+		return errArranqueComposicion
+	}
+	terminado := make(chan error, 1)
+	go func() { terminado <- servidor.EscucharYServir() }()
+	select {
+	case err := <-terminado:
+		if err != nil {
+			return errArranqueEscucha
+		}
+		return nil
+	case <-ctx.Done():
+		ctxApagado, cancelar := context.WithTimeout(context.Background(), tiempoMaximoApagado)
+		defer cancelar()
+		if err := servidor.Apagar(ctxApagado); err != nil {
+			return errArranqueEscucha
+		}
+		select {
+		case <-terminado:
+			return nil
+		case <-ctxApagado.Done():
+			return errArranqueEscucha
+		}
+	}
 }

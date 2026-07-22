@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -37,15 +38,26 @@ func cargarMaterialTLS(cfg Configuracion) (materialTLSCargado, error) {
 	if err != nil {
 		return materialTLSCargado{}, ErrTLSMutuoNoVerificado
 	}
+	defer limpiarBytesPropios(certPEM)
 	clavePEM, err := leerFicheroTLSSeguro(cfg.ClaveServidorTLS, true)
 	if err != nil {
 		return materialTLSCargado{}, ErrTLSMutuoNoVerificado
 	}
+	defer limpiarBytesPropios(clavePEM)
 	caPEM, err := leerFicheroTLSSeguro(cfg.AutoridadClientesTLS, false)
 	if err != nil {
 		return materialTLSCargado{}, ErrTLSMutuoNoVerificado
 	}
+	defer limpiarBytesPropios(caPEM)
 	return materializarTLS(cfg, certPEM, clavePEM, caPEM)
+}
+
+// limpiarBytesPropios reduce best-effort la permanencia de serializaciones en
+// memoria administrada por Go. No promete borrar copias internas ni la clave
+// parseada que crypto/tls necesita mantener viva durante la escucha.
+func limpiarBytesPropios(contenido []byte) {
+	clear(contenido)
+	runtime.KeepAlive(contenido)
 }
 
 func materializarTLS(cfg Configuracion, certPEM, clavePEM, caPEM []byte) (materialTLSCargado, error) {
@@ -244,7 +256,12 @@ func validarClavePEMEstricta(contenido []byte) error {
 		return ErrTLSMutuoNoVerificado
 	}
 	bloque, resto := pem.Decode(contenido)
-	if bloque == nil || len(bloque.Headers) != 0 || !strings.HasSuffix(bloque.Type, "PRIVATE KEY") || len(bytes.TrimSpace(resto)) != 0 {
+	if bloque == nil {
+		return ErrTLSMutuoNoVerificado
+	}
+	defer limpiarBytesPropios(bloque.Bytes)
+	if len(bloque.Headers) != 0 || !strings.HasSuffix(bloque.Type, "PRIVATE KEY") ||
+		len(bytes.TrimSpace(resto)) != 0 {
 		return ErrTLSMutuoNoVerificado
 	}
 	return nil
@@ -311,5 +328,6 @@ func clonarClavePrivada(clave crypto.PrivateKey) (crypto.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer limpiarBytesPropios(der)
 	return x509.ParsePKCS8PrivateKey(der)
 }

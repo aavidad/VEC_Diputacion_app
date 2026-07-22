@@ -18,10 +18,29 @@ Despliegue directo admitido:
   incluido actua como ancla explicita de esa cadena;
 - tickets de sesion, callbacks TLS, HTTP/2 y h2c permanecen desactivados.
 
+La raiz entrega una capsula `*ServidorInterno`, no un `*http.Server`. La
+capsula no publica handler, listener, configuracion TLS, certificados, pools ni
+metodos `Serve*`. `EscucharYServir()` abre internamente el socket una sola vez,
+crea un servidor HTTP/1.1 local con registro saneado y enlaza cada peticion al
+`*tls.Conn` concreto mediante un token privado y material exportado por esa
+conexion. `Apagar(ctx)` es la unica operacion adicional y realiza el cierre
+ordenado sin exponer el transporte. `vec-interno` la invoca ante SIGINT o
+SIGTERM con un limite de diez segundos.
+
+Los DNS de SNI se comparan sin distinguir mayusculas ASCII. No se aplica
+plegado Unicode. Cuando el SAN configurado es una IP literal, el cliente debe
+omitir SNI, como exige TLS.
+
 Una clave `0400 root:root` requiere un cargador provisionador separado que
 entregue los bytes antes de bajar privilegios; el cargador directo actual,
 ejecutado como usuario no privilegiado, usa `0440 root:<grupo-runtime>`.
+Tras materializar la configuracion, el cargador sobrescribe best-effort sus
+buffers PEM/PKCS#8 temporales. Esto reduce su permanencia, pero Go y
+`crypto/tls` pueden conservar copias internas y necesariamente mantienen viva
+la clave parseada mientras el servidor presta servicio.
 
 La puerta `scripts/probar_carga_tls_interna_root.sh` reproduce el contrato:
 prepara el volumen como `0:10001`, comprueba que UID 0 sea rechazado y carga el
-servidor como `10001:10001` desde el volumen montado de solo lectura.
+servidor como `10001:10001` desde el volumen montado de solo lectura. Solo la
+fase provisionadora recibe `/tmp`; las fases runtime root y no privilegiada no
+montan tmpfs innecesarios.
