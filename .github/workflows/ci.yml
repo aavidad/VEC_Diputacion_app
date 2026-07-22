@@ -27,6 +27,25 @@ jobs:
       - name: Puerta de calidad
         run: scripts/verificar_calidad.sh
 
+  puerta-artefactos-productivos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Construir las superficies productivas separadas
+        run: |
+          docker build --target runtime-publico -t vec-ci-publico:revision .
+          docker build --target runtime-interno -t vec-ci-interno:revision .
+      - name: Verificar inventarios y fallo cerrado
+        run: |
+          scripts/verificar_contenido_artefactos_productivos.sh \
+            vec-ci-publico:revision vec-ci-interno:revision
+          scripts/probar_fallo_cerrado_artefactos_productivos.sh \
+            vec-ci-publico:revision vec-ci-interno:revision
+
   puerta-postgresql-contexto-actor-v3:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
