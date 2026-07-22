@@ -23,6 +23,8 @@ var (
 	ErrServidorInternoInvalido = errors.New("composicion interna: servidor no construido por la raiz interna")
 )
 
+const protocoloALPNHTTPUno = "http/1.1"
+
 // manejadorInternoVerificado sella la procedencia del handler. Sus campos son
 // privados: el cmd no puede sustituirlo por DefaultServeMux ni por un handler
 // que evite la lista positiva de server.NewHTTPServerInterno.
@@ -35,6 +37,9 @@ type manejadorInternoVerificado struct {
 	tiempoInactividad    time.Duration
 	maximoBytesCabeceras int
 	materialTLS          materialTLSAprobado
+	protocolosTLS        []string
+	protocolosHTTP       protocolosHTTPAprobados
+	desactivarOPTIONS    bool
 }
 
 type materialTLSAprobado struct {
@@ -42,6 +47,12 @@ type materialTLSAprobado struct {
 	certificadoServidor        tls.Certificate
 	huellaCadenaServidor       [sha256.Size]byte
 	huellaClavePublicaServidor [sha256.Size]byte
+}
+
+type protocolosHTTPAprobados struct {
+	httpUno          bool
+	httpDos          bool
+	httpDosSinCifrar bool
 }
 
 func (m *manejadorInternoVerificado) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +94,11 @@ func construirServidorInterno(
 	if err != nil || servidorHTTP == nil || servidorHTTP.Handler == nil {
 		return nil, ErrServidorInternoInvalido
 	}
+	servidorHTTP.DisableGeneralOptionsHandler = true
+	servidorHTTP.TLSNextProto = nil
+	servidorHTTP.HTTP2 = nil
+	servidorHTTP.Protocols = &http.Protocols{}
+	servidorHTTP.Protocols.SetHTTP1(true)
 	configuracionTLS := clonarConfiguracionTLSMutuo(tlsMutuo)
 	materialTLS, err := aprobarMaterialTLS(configuracionTLS)
 	if err != nil {
@@ -97,6 +113,9 @@ func construirServidorInterno(
 		tiempoInactividad:    servidorHTTP.IdleTimeout,
 		maximoBytesCabeceras: servidorHTTP.MaxHeaderBytes,
 		materialTLS:          materialTLS,
+		protocolosTLS:        append([]string(nil), configuracionTLS.NextProtos...),
+		protocolosHTTP:       obtenerProtocolosHTTP(servidorHTTP.Protocols),
+		desactivarOPTIONS:    servidorHTTP.DisableGeneralOptionsHandler,
 	}
 	servidorHTTP.TLSConfig = configuracionTLS
 	if err := ValidarServidorParaEscucha(servidorHTTP); err != nil {
@@ -122,7 +141,13 @@ func ValidarServidorParaEscucha(servidorHTTP *http.Server) error {
 		servidorHTTP.ReadTimeout != manejador.tiempoLectura ||
 		servidorHTTP.WriteTimeout != manejador.tiempoEscritura ||
 		servidorHTTP.IdleTimeout != manejador.tiempoInactividad ||
-		servidorHTTP.MaxHeaderBytes != manejador.maximoBytesCabeceras {
+		servidorHTTP.MaxHeaderBytes != manejador.maximoBytesCabeceras ||
+		servidorHTTP.DisableGeneralOptionsHandler != manejador.desactivarOPTIONS ||
+		!servidorHTTP.DisableGeneralOptionsHandler || servidorHTTP.TLSNextProto != nil ||
+		servidorHTTP.HTTP2 != nil || servidorHTTP.Protocols == nil ||
+		obtenerProtocolosHTTP(servidorHTTP.Protocols) != manejador.protocolosHTTP ||
+		manejador.protocolosHTTP != (protocolosHTTPAprobados{httpUno: true}) ||
+		!slices.Equal(servidorHTTP.TLSConfig.NextProtos, manejador.protocolosTLS) {
 		return ErrServidorInternoInvalido
 	}
 	if !manejador.materialTLS.coincide(servidorHTTP.TLSConfig) {
@@ -140,7 +165,8 @@ func validarTLSMutuo(configuracion *tls.Config) error {
 		configuracion.GetConfigForClient != nil || configuracion.GetCertificate != nil ||
 		configuracion.NameToCertificate != nil || configuracion.InsecureSkipVerify ||
 		configuracion.Renegotiation != tls.RenegotiateNever ||
-		configuracion.GetClientCertificate != nil {
+		configuracion.GetClientCertificate != nil ||
+		!slices.Equal(configuracion.NextProtos, []string{protocoloALPNHTTPUno}) {
 		return ErrTLSMutuoNoVerificado
 	}
 	certificado := configuracion.Certificates[0]
@@ -182,6 +208,7 @@ func esMuxPredeterminado(manejador http.Handler) bool {
 func clonarConfiguracionTLSMutuo(origen *tls.Config) *tls.Config {
 	clon := origen.Clone()
 	clon.ClientCAs = origen.ClientCAs.Clone()
+	clon.NextProtos = append([]string(nil), origen.NextProtos...)
 	clon.Certificates = make([]tls.Certificate, len(origen.Certificates))
 	for indice := range origen.Certificates {
 		clon.Certificates[indice] = clonarCertificadoTLS(origen.Certificates[indice])
@@ -311,4 +338,15 @@ func bytesBidimensionalesIguales(izquierda, derecha [][]byte) bool {
 		}
 	}
 	return true
+}
+
+func obtenerProtocolosHTTP(protocolos *http.Protocols) protocolosHTTPAprobados {
+	if protocolos == nil {
+		return protocolosHTTPAprobados{}
+	}
+	return protocolosHTTPAprobados{
+		httpUno:          protocolos.HTTP1(),
+		httpDos:          protocolos.HTTP2(),
+		httpDosSinCifrar: protocolos.UnencryptedHTTP2(),
+	}
 }

@@ -1,12 +1,14 @@
 package interna
 
 import (
+	"bufio"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"math/big"
@@ -171,6 +173,21 @@ func TestValidarServidorParaEscuchaFallaCerrado(t *testing.T) {
 			cfg.MaxVersion = tls.VersionTLS12
 			return &http.Server{Handler: manejadorSellado, TLSConfig: cfg}
 		}, ErrTLSMutuoNoVerificado},
+		{"ALPN ausente", func() *http.Server {
+			cfg := configuracionTLSValida.Clone()
+			cfg.NextProtos = nil
+			return &http.Server{Handler: manejadorSellado, TLSConfig: cfg}
+		}, ErrTLSMutuoNoVerificado},
+		{"ALPN HTTP2", func() *http.Server {
+			cfg := configuracionTLSValida.Clone()
+			cfg.NextProtos = []string{"h2"}
+			return &http.Server{Handler: manejadorSellado, TLSConfig: cfg}
+		}, ErrTLSMutuoNoVerificado},
+		{"ALPN personalizado", func() *http.Server {
+			cfg := configuracionTLSValida.Clone()
+			cfg.NextProtos = []string{"vec-personalizado"}
+			return &http.Server{Handler: manejadorSellado, TLSConfig: cfg}
+		}, ErrTLSMutuoNoVerificado},
 		{"manejador arbitrario", func() *http.Server {
 			return &http.Server{Handler: http.NotFoundHandler(), TLSConfig: configuracionTLSValida.Clone()}
 		}, ErrServidorInternoInvalido},
@@ -234,6 +251,102 @@ func TestValidarServidorParaEscuchaDetectaMutacionPosterior(t *testing.T) {
 	}
 }
 
+func TestValidarServidorParaEscuchaRechazaDesviosDelServidorHTTP(t *testing.T) {
+	pruebas := []struct {
+		nombre string
+		mutar  func(*http.Server)
+	}{
+		{
+			nombre: "OPTIONS general reactiva bypass",
+			mutar: func(servidor *http.Server) {
+				servidor.DisableGeneralOptionsHandler = false
+			},
+		},
+		{
+			nombre: "TLSNextProto vacio",
+			mutar: func(servidor *http.Server) {
+				servidor.TLSNextProto = map[string]func(*http.Server, *tls.Conn, http.Handler){}
+			},
+		},
+		{
+			nombre: "TLSNextProto HTTP2",
+			mutar: func(servidor *http.Server) {
+				servidor.TLSNextProto = map[string]func(*http.Server, *tls.Conn, http.Handler){
+					"h2": func(*http.Server, *tls.Conn, http.Handler) {},
+				}
+			},
+		},
+		{
+			nombre: "TLSNextProto personalizado",
+			mutar: func(servidor *http.Server) {
+				servidor.TLSNextProto = map[string]func(*http.Server, *tls.Conn, http.Handler){
+					"vec-personalizado": func(*http.Server, *tls.Conn, http.Handler) {},
+				}
+			},
+		},
+		{
+			nombre: "configuracion HTTP2",
+			mutar: func(servidor *http.Server) {
+				servidor.HTTP2 = &http.HTTP2Config{}
+			},
+		},
+		{
+			nombre: "protocolos implicitos",
+			mutar: func(servidor *http.Server) {
+				servidor.Protocols = nil
+			},
+		},
+		{
+			nombre: "HTTP2 habilitado",
+			mutar: func(servidor *http.Server) {
+				servidor.Protocols = protocolosHTTPPrueba(true, true, false)
+			},
+		},
+		{
+			nombre: "HTTP2 sin cifrar habilitado",
+			mutar: func(servidor *http.Server) {
+				servidor.Protocols = protocolosHTTPPrueba(true, false, true)
+			},
+		},
+	}
+
+	for _, prueba := range pruebas {
+		t.Run(prueba.nombre, func(t *testing.T) {
+			servidor, err := construirServidorInterno(
+				configuracionInternaValidaPrueba(), http.NotFoundHandler(),
+				configuracionTLSMutuoValidaPrueba(t),
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			prueba.mutar(servidor)
+			if err := ValidarServidorParaEscucha(servidor); !errors.Is(err, ErrServidorInternoInvalido) {
+				t.Fatalf("desvio del servidor aceptado: %v", err)
+			}
+		})
+	}
+}
+
+func TestConstruirServidorInternoRechazaALPNAlternativo(t *testing.T) {
+	for _, protocolos := range [][]string{
+		nil,
+		{"h2"},
+		{"vec-personalizado"},
+		{protocoloALPNHTTPUno, "h2"},
+	} {
+		t.Run(fmt.Sprint(protocolos), func(t *testing.T) {
+			configuracionTLS := configuracionTLSMutuoValidaPrueba(t)
+			configuracionTLS.NextProtos = protocolos
+			servidor, err := construirServidorInterno(
+				configuracionInternaValidaPrueba(), http.NotFoundHandler(), configuracionTLS,
+			)
+			if servidor != nil || !errors.Is(err, ErrTLSMutuoNoVerificado) {
+				t.Fatalf("ALPN alternativo = (%v, %v)", servidor, err)
+			}
+		})
+	}
+}
+
 func TestConstruirServidorInternoClonaMaterialTLSMutable(t *testing.T) {
 	origen := configuracionTLSMutuoValidaPrueba(t)
 	servidor, err := construirServidorInterno(
@@ -255,6 +368,7 @@ func TestConstruirServidorInternoClonaMaterialTLSMutable(t *testing.T) {
 	byteServidor := servidor.TLSConfig.Certificates[0].Certificate[0][0]
 	origen.Certificates[0].Certificate[0][0] ^= 0xff
 	origen.Certificates[0].Certificate = nil
+	origen.NextProtos[0] = "h2"
 	if servidor.TLSConfig.Certificates[0].Certificate[0][0] != byteServidor {
 		t.Fatal("el llamador pudo mutar la cadena TLS del servidor")
 	}
@@ -399,6 +513,124 @@ func TestServidorInternoExigeCertificadoClienteEnHandshakeReal(t *testing.T) {
 	}
 }
 
+func TestServidorInternoNoNegociaALPNAlternativoEnHandshakeReal(t *testing.T) {
+	material := materialTLSMutuoPrueba(t)
+	cfg := configuracionInternaValidaPrueba()
+	cfg.DireccionEscucha = "127.0.0.1:8443"
+	cfg.RedesPermitidas = []string{"127.0.0.0/8"}
+	llamadasAPI := 0
+	servidor, err := construirServidorInterno(cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		llamadasAPI++
+		w.WriteHeader(http.StatusNoContent)
+	}), material.servidor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	llamadasCallback := map[string]int{"h2": 0, "vec-personalizado": 0}
+	for protocolo := range llamadasCallback {
+		protocolo := protocolo
+		servidor.TLSNextProto = map[string]func(*http.Server, *tls.Conn, http.Handler){
+			protocolo: func(*http.Server, *tls.Conn, http.Handler) {
+				llamadasCallback[protocolo]++
+			},
+		}
+		if err := ValidarServidorParaEscucha(servidor); !errors.Is(err, ErrServidorInternoInvalido) {
+			t.Fatalf("callback %q aceptado: %v", protocolo, err)
+		}
+	}
+	servidor.TLSNextProto = nil
+	if err := ValidarServidorParaEscucha(servidor); err != nil {
+		t.Fatalf("restaurar servidor sin callbacks: %v", err)
+	}
+	direccion := iniciarServidorTLSPrueba(t, servidor)
+
+	for _, protocolo := range []string{"h2", "vec-personalizado"} {
+		t.Run(protocolo, func(t *testing.T) {
+			conexion, err := tls.Dial("tcp", direccion, &tls.Config{
+				MinVersion:   tls.VersionTLS13,
+				MaxVersion:   tls.VersionTLS13,
+				RootCAs:      material.raices,
+				ServerName:   "servidor.interna.test",
+				Certificates: []tls.Certificate{material.cliente},
+				NextProtos:   []string{protocolo},
+			})
+			if err == nil {
+				_ = conexion.Close()
+				t.Fatalf("el handshake negocio ALPN %q", protocolo)
+			}
+		})
+	}
+	if llamadasAPI != 0 {
+		t.Fatalf("un protocolo alternativo alcanzo la API: %d llamadas", llamadasAPI)
+	}
+	for protocolo, llamadas := range llamadasCallback {
+		if llamadas != 0 {
+			t.Fatalf("callback %q recibio %d conexiones", protocolo, llamadas)
+		}
+	}
+}
+
+func TestServidorInternoPasaOPTIONSGeneralAlManejadorSellado(t *testing.T) {
+	material := materialTLSMutuoPrueba(t)
+	cfg := configuracionInternaValidaPrueba()
+	cfg.DireccionEscucha = "127.0.0.1:8443"
+	cfg.RedesPermitidas = []string{"127.0.0.0/8"}
+	servidor, err := construirServidorInterno(cfg, http.NotFoundHandler(), material.servidor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	direccion := iniciarServidorTLSPrueba(t, servidor)
+	conexion, err := tls.Dial("tcp", direccion, &tls.Config{
+		MinVersion:   tls.VersionTLS13,
+		MaxVersion:   tls.VersionTLS13,
+		RootCAs:      material.raices,
+		ServerName:   "servidor.interna.test",
+		Certificates: []tls.Certificate{material.cliente},
+		NextProtos:   []string{protocoloALPNHTTPUno},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conexion.Close()
+	if _, err := fmt.Fprint(conexion, "OPTIONS * HTTP/1.1\r\nHost: interno.test\r\nConnection: close\r\n\r\n"); err != nil {
+		t.Fatal(err)
+	}
+	respuesta, err := http.ReadResponse(bufio.NewReader(conexion), &http.Request{Method: http.MethodOptions})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer respuesta.Body.Close()
+	if respuesta.StatusCode == http.StatusOK {
+		t.Fatal("OPTIONS * eludio el manejador sellado con la respuesta general 200")
+	}
+}
+
+func iniciarServidorTLSPrueba(t *testing.T, servidor *http.Server) string {
+	t.Helper()
+	servidor.ErrorLog = log.New(io.Discard, "", 0)
+	escucha, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	terminado := make(chan error, 1)
+	go func() {
+		terminado <- servidor.Serve(tls.NewListener(escucha, servidor.TLSConfig))
+	}()
+	t.Cleanup(func() {
+		_ = servidor.Close()
+		<-terminado
+	})
+	return escucha.Addr().String()
+}
+
+func protocolosHTTPPrueba(httpUno, httpDos, httpDosSinCifrar bool) *http.Protocols {
+	protocolos := &http.Protocols{}
+	protocolos.SetHTTP1(httpUno)
+	protocolos.SetHTTP2(httpDos)
+	protocolos.SetUnencryptedHTTP2(httpDosSinCifrar)
+	return protocolos
+}
+
 func peticionInternaPrueba(metodo, ruta string) *http.Request {
 	peticion := httptest.NewRequest(metodo, ruta, nil)
 	peticion.RemoteAddr = "10.7.1.1:50000"
@@ -476,6 +708,7 @@ func materialTLSMutuoPrueba(t *testing.T) materialTLSMutuo {
 		servidor: &tls.Config{
 			MinVersion:   tls.VersionTLS13,
 			MaxVersion:   tls.VersionTLS13,
+			NextProtos:   []string{protocoloALPNHTTPUno},
 			ClientAuth:   tls.RequireAndVerifyClientCert,
 			ClientCAs:    pool,
 			Certificates: []tls.Certificate{servidor},
