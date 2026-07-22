@@ -20,6 +20,8 @@ go vet ./...
 go build ./cmd/...
 scripts/verificar_dependencias_superficie_publica.sh
 scripts/probar_verificador_dependencias_superficie_publica.sh
+scripts/verificar_dependencias_superficie_interna.sh
+scripts/probar_verificador_dependencias_superficie_interna.sh
 scripts/verificar_manifiestos_superficies_web.sh
 scripts/probar_verificador_manifiestos_superficies_web.sh
 python3 -m unittest scripts.tests.test_generar_bases_demo_pdf
