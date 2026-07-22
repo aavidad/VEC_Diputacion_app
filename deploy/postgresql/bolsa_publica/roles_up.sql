@@ -1,6 +1,6 @@
 -- Bootstrap DBA para la base fisicamente separada de proyeccion publica.
--- Las cuentas LOGIN se aprovisionan fuera del repositorio y reciben como
--- unica membresia tecnica vec_bolsa_publica_consulta.
+-- Las cuentas LOGIN se aprovisionan fuera del repositorio y reciben una unica
+-- membresia tecnica: consulta o publicador, nunca ambas.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
 
