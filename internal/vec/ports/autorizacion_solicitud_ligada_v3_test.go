@@ -139,7 +139,7 @@ func nuevoEscenarioOrdenAutorizacionV3Prueba(t *testing.T) escenarioOrdenAutoriz
 		t.Fatal(err)
 	}
 	resultado := domain.ResultadoContextoActorRegistradoV2{
-		RegistroContextoRef: "rca_0123456789abcdefghijkl", Contexto: actor,
+		RegistroContextoRef: "rca_0123456789abcdefghijklmn", Contexto: actor,
 		RepresentacionCanonica: representacion, HuellaSHA256: huella,
 		ManifiestoProcedenciaCanonico:     canonManifiesto,
 		ManifiestoProcedenciaHuellaSHA256: huellaManifiesto,
