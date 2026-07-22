@@ -5,10 +5,12 @@ package interna
 
 import (
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
@@ -21,6 +23,7 @@ const (
 	EnvCertificadoTLSInterno   = "VEC_INTERNO_TLS_CERT_FILE"
 	EnvClaveTLSInterna         = "VEC_INTERNO_TLS_KEY_FILE"
 	EnvAutoridadClientesTLS    = "VEC_INTERNO_TLS_CLIENT_CA_FILE"
+	EnvNombreServidorTLS       = "VEC_INTERNO_TLS_SERVER_NAME"
 	EnvAudienciaInterna        = "VEC_INTERNO_IDENTITY_AUDIENCE"
 	EnvEmisorIdentidadInterna  = "VEC_INTERNO_IDENTITY_ISSUER"
 	EnvHuellasProxyTLSInternas = "VEC_INTERNO_PROXY_TLS_SHA256"
@@ -55,6 +58,7 @@ type Configuracion struct {
 	CertificadoServidorTLS string
 	ClaveServidorTLS       string
 	AutoridadClientesTLS   string
+	NombreServidorTLS      string
 	Audiencia              string
 	EmisorIdentidad        string
 	HuellasProxyTLS        []string
@@ -84,6 +88,7 @@ func CargarConfiguracion() Configuracion {
 		CertificadoServidorTLS: valorEntorno(EnvCertificadoTLSInterno),
 		ClaveServidorTLS:       valorEntorno(EnvClaveTLSInterna),
 		AutoridadClientesTLS:   valorEntorno(EnvAutoridadClientesTLS),
+		NombreServidorTLS:      valorEntorno(EnvNombreServidorTLS),
 		Audiencia:              valorEntorno(EnvAudienciaInterna),
 		EmisorIdentidad:        valorEntorno(EnvEmisorIdentidadInterna),
 		HuellasProxyTLS:        listaEntorno(EnvHuellasProxyTLSInternas),
@@ -123,6 +128,9 @@ func (cfg Configuracion) Validar() error {
 	if err := validarReferenciasTLS(cfg); err != nil {
 		return err
 	}
+	if !nombreTLSValido(cfg.NombreServidorTLS) {
+		return ErrConfiguracionTLSIncompleta
+	}
 	if err := cfg.configuracionSuperficie().Validar(); err != nil {
 		// El contrato compartido incluye en algunas causas el literal recibido.
 		// Esta raiz no lo propaga: direccion, CIDR e identificadores proceden del
@@ -156,6 +164,7 @@ func (cfg Configuracion) normalizar() Configuracion {
 	cfg.CertificadoServidorTLS = strings.TrimSpace(cfg.CertificadoServidorTLS)
 	cfg.ClaveServidorTLS = strings.TrimSpace(cfg.ClaveServidorTLS)
 	cfg.AutoridadClientesTLS = strings.TrimSpace(cfg.AutoridadClientesTLS)
+	cfg.NombreServidorTLS = strings.ToLower(strings.TrimSpace(cfg.NombreServidorTLS))
 	cfg.Audiencia = strings.TrimSpace(cfg.Audiencia)
 	cfg.EmisorIdentidad = strings.TrimSpace(cfg.EmisorIdentidad)
 	cfg.HuellasProxyTLS = normalizarLista(cfg.HuellasProxyTLS)
@@ -193,7 +202,8 @@ func validarReferenciasTLS(cfg Configuracion) error {
 	rutas := []string{cfg.CertificadoServidorTLS, cfg.ClaveServidorTLS, cfg.AutoridadClientesTLS}
 	vistas := make(map[string]struct{}, len(rutas))
 	for _, ruta := range rutas {
-		if ruta == "" || !filepath.IsAbs(ruta) || filepath.Clean(ruta) != ruta {
+		if ruta == "" || ruta == string(filepath.Separator) || !filepath.IsAbs(ruta) || filepath.Clean(ruta) != ruta ||
+			strings.IndexFunc(ruta, unicode.IsControl) >= 0 {
 			return ErrConfiguracionTLSIncompleta
 		}
 		if _, repetida := vistas[ruta]; repetida {
@@ -202,6 +212,26 @@ func validarReferenciasTLS(cfg Configuracion) error {
 		vistas[ruta] = struct{}{}
 	}
 	return nil
+}
+
+func nombreTLSValido(nombre string) bool {
+	if nombre == "" || len(nombre) > 253 || strings.IndexFunc(nombre, unicode.IsControl) >= 0 {
+		return false
+	}
+	if net.ParseIP(nombre) != nil {
+		return true
+	}
+	for _, etiqueta := range strings.Split(nombre, ".") {
+		if len(etiqueta) == 0 || len(etiqueta) > 63 || etiqueta[0] == '-' || etiqueta[len(etiqueta)-1] == '-' {
+			return false
+		}
+		for _, caracter := range etiqueta {
+			if (caracter < 'a' || caracter > 'z') && (caracter < '0' || caracter > '9') && caracter != '-' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func valorEntorno(clave string) string {

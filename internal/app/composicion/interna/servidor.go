@@ -44,9 +44,15 @@ type manejadorInternoVerificado struct {
 
 type materialTLSAprobado struct {
 	autoridadesClientes        *x509.CertPool
+	certificadosAutoridades    []*x509.Certificate
+	nombreServidor             string
 	certificadoServidor        tls.Certificate
 	huellaCadenaServidor       [sha256.Size]byte
 	huellaClavePublicaServidor [sha256.Size]byte
+	huellaClavePrivadaServidor [sha256.Size]byte
+	huellaCertPEM              [sha256.Size]byte
+	huellaClavePEM             [sha256.Size]byte
+	huellaCAPEM                [sha256.Size]byte
 }
 
 type protocolosHTTPAprobados struct {
@@ -56,17 +62,21 @@ type protocolosHTTPAprobados struct {
 }
 
 func (m *manejadorInternoVerificado) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.TLS != nil && r.TLS.NegotiatedProtocol != protocoloALPNHTTPUno {
+		w.Header().Set("Connection", "close")
+		http.Error(w, "solicitud no disponible", http.StatusBadRequest)
+		return
+	}
 	m.siguiente.ServeHTTP(w, r)
 }
 
 // construirServidorInterno es el unico puente futuro entre C5/C6 y net/http.
 // Permanece no exportado y C4 no lo invoca: solo acepta una API no nula y una
-// configuracion mTLS ya materializada, y siempre delega la allowlist a
-// server.NewHTTPServerInterno.
+// configuracion que contiene las tres referencias TLS autoritativas. Carga ese
+// material directamente y siempre delega la allowlist a server.NewHTTPServerInterno.
 func construirServidorInterno(
 	cfg Configuracion,
 	api http.Handler,
-	tlsMutuo *tls.Config,
 ) (*http.Server, error) {
 	if err := cfg.Validar(); err != nil {
 		return nil, err
@@ -74,8 +84,9 @@ func construirServidorInterno(
 	if manejadorNulo(api) || esMuxPredeterminado(api) {
 		return nil, ErrAPIInternaNoDisponible
 	}
-	if err := validarTLSMutuo(tlsMutuo); err != nil {
-		return nil, err
+	materialCargado, err := cargarMaterialTLS(cfg)
+	if err != nil {
+		return nil, ErrTLSMutuoNoVerificado
 	}
 
 	servidorHTTP, err := server.NewHTTPServerInterno(config.Config{
@@ -99,8 +110,8 @@ func construirServidorInterno(
 	servidorHTTP.HTTP2 = nil
 	servidorHTTP.Protocols = &http.Protocols{}
 	servidorHTTP.Protocols.SetHTTP1(true)
-	configuracionTLS := clonarConfiguracionTLSMutuo(tlsMutuo)
-	materialTLS, err := aprobarMaterialTLS(configuracionTLS)
+	configuracionTLS := clonarConfiguracionTLSMutuo(materialCargado.configuracion)
+	materialTLS, err := aprobarMaterialTLS(configuracionTLS, materialCargado)
 	if err != nil {
 		return nil, ErrTLSMutuoNoVerificado
 	}
@@ -157,15 +168,26 @@ func ValidarServidorParaEscucha(servidorHTTP *http.Server) error {
 }
 
 func validarTLSMutuo(configuracion *tls.Config) error {
-	if configuracion == nil || configuracion.MinVersion != tls.VersionTLS13 ||
+	if configuracion == nil || configuracion.Rand != nil || configuracion.Time != nil ||
+		configuracion.MinVersion != tls.VersionTLS13 ||
 		configuracion.MaxVersion != tls.VersionTLS13 ||
 		configuracion.ClientAuth != tls.RequireAndVerifyClientCert ||
 		!poolCertificadosConAutoridades(configuracion.ClientCAs) ||
 		len(configuracion.Certificates) != 1 ||
 		configuracion.GetConfigForClient != nil || configuracion.GetCertificate != nil ||
-		configuracion.NameToCertificate != nil || configuracion.InsecureSkipVerify ||
+		configuracion.GetClientCertificate != nil || configuracion.NameToCertificate != nil ||
+		configuracion.VerifyPeerCertificate != nil || configuracion.VerifyConnection != nil ||
+		configuracion.RootCAs != nil || configuracion.ServerName != "" ||
+		configuracion.InsecureSkipVerify || len(configuracion.CipherSuites) != 0 ||
+		configuracion.PreferServerCipherSuites || !configuracion.SessionTicketsDisabled ||
+		configuracion.SessionTicketKey != ([32]byte{}) || configuracion.ClientSessionCache != nil ||
+		configuracion.UnwrapSession != nil || configuracion.WrapSession != nil ||
+		len(configuracion.CurvePreferences) != 0 || configuracion.DynamicRecordSizingDisabled ||
 		configuracion.Renegotiation != tls.RenegotiateNever ||
-		configuracion.GetClientCertificate != nil ||
+		configuracion.KeyLogWriter != nil || len(configuracion.EncryptedClientHelloConfigList) != 0 ||
+		configuracion.EncryptedClientHelloRejectionVerify != nil ||
+		configuracion.GetEncryptedClientHelloKeys != nil ||
+		len(configuracion.EncryptedClientHelloKeys) != 0 ||
 		!slices.Equal(configuracion.NextProtos, []string{protocoloALPNHTTPUno}) {
 		return ErrTLSMutuoNoVerificado
 	}
@@ -173,7 +195,7 @@ func validarTLSMutuo(configuracion *tls.Config) error {
 	if len(certificado.Certificate) == 0 || certificado.PrivateKey == nil {
 		return ErrTLSMutuoNoVerificado
 	}
-	if _, _, err := resumirCertificadoServidor(certificado); err != nil {
+	if _, _, _, err := resumirCertificadoServidor(certificado); err != nil {
 		return ErrTLSMutuoNoVerificado
 	}
 	return nil
@@ -201,10 +223,8 @@ func esMuxPredeterminado(manejador http.Handler) bool {
 	return valido && mux == http.DefaultServeMux
 }
 
-// clonarConfiguracionTLSMutuo evita que el llamador degrade indirectamente la
-// politica ya validada mutando slices o el pool de autoridades compartidos.
-// La clave privada se conserva como crypto.PrivateKey opaca, igual que hace
-// crypto/tls; su proveedor debe tratarla como inmutable.
+// clonarConfiguracionTLSMutuo separa todas las referencias mutables entre la
+// carga, el servidor y el sello. La clave se recodifica como PKCS#8.
 func clonarConfiguracionTLSMutuo(origen *tls.Config) *tls.Config {
 	clon := origen.Clone()
 	clon.ClientCAs = origen.ClientCAs.Clone()
@@ -212,6 +232,10 @@ func clonarConfiguracionTLSMutuo(origen *tls.Config) *tls.Config {
 	clon.Certificates = make([]tls.Certificate, len(origen.Certificates))
 	for indice := range origen.Certificates {
 		clon.Certificates[indice] = clonarCertificadoTLS(origen.Certificates[indice])
+		clave, err := clonarClavePrivada(origen.Certificates[indice].PrivateKey)
+		if err == nil {
+			clon.Certificates[indice].PrivateKey = clave
+		}
 	}
 	return clon
 }
@@ -245,8 +269,11 @@ func clonarBytesBidimensionales(origen [][]byte) [][]byte {
 	return clon
 }
 
-func aprobarMaterialTLS(configuracion *tls.Config) (materialTLSAprobado, error) {
-	huellaCadena, huellaClave, err := resumirCertificadoServidor(configuracion.Certificates[0])
+func aprobarMaterialTLS(
+	configuracion *tls.Config,
+	cargado materialTLSCargado,
+) (materialTLSAprobado, error) {
+	huellaCadena, huellaClave, huellaPrivada, err := resumirCertificadoServidor(configuracion.Certificates[0])
 	if err != nil {
 		return materialTLSAprobado{}, err
 	}
@@ -255,9 +282,15 @@ func aprobarMaterialTLS(configuracion *tls.Config) (materialTLSAprobado, error) 
 	certificado.PrivateKey = nil
 	return materialTLSAprobado{
 		autoridadesClientes:        configuracion.ClientCAs.Clone(),
+		certificadosAutoridades:    clonarCertificadosX509(cargado.autoridadesClientes),
+		nombreServidor:             cargado.nombreServidor,
 		certificadoServidor:        certificado,
 		huellaCadenaServidor:       huellaCadena,
 		huellaClavePublicaServidor: huellaClave,
+		huellaClavePrivadaServidor: huellaPrivada,
+		huellaCertPEM:              cargado.huellaCertPEM,
+		huellaClavePEM:             cargado.huellaClavePEM,
+		huellaCAPEM:                cargado.huellaCAPEM,
 	}, nil
 }
 
@@ -269,39 +302,83 @@ func (aprobado materialTLSAprobado) coincide(configuracion *tls.Config) bool {
 		return false
 	}
 	actual := configuracion.Certificates[0]
-	huellaCadena, huellaClave, err := resumirCertificadoServidor(actual)
+	ahora := time.Now()
+	for _, autoridad := range aprobado.certificadosAutoridades {
+		if validarAutoridad(autoridad, ahora) != nil {
+			return false
+		}
+	}
+	cadena := make([]*x509.Certificate, len(actual.Certificate))
+	for indice, der := range actual.Certificate {
+		parseado, err := x509.ParseCertificate(der)
+		if err != nil {
+			return false
+		}
+		cadena[indice] = parseado
+	}
+	if validarCadenaServidor(
+		Configuracion{NombreServidorTLS: aprobado.nombreServidor}, cadena, actual,
+	) != nil {
+		return false
+	}
+	huellaCadena, huellaClave, huellaPrivada, err := resumirCertificadoServidor(actual)
 	if err != nil || huellaCadena != aprobado.huellaCadenaServidor ||
-		huellaClave != aprobado.huellaClavePublicaServidor {
+		huellaClave != aprobado.huellaClavePublicaServidor ||
+		huellaPrivada != aprobado.huellaClavePrivadaServidor ||
+		aprobado.huellaCertPEM == ([sha256.Size]byte{}) ||
+		aprobado.huellaClavePEM == ([sha256.Size]byte{}) ||
+		aprobado.huellaCAPEM == ([sha256.Size]byte{}) {
 		return false
 	}
 	return certificadoTLSEquivalente(actual, aprobado.certificadoServidor)
 }
 
+func clonarCertificadosX509(origen []*x509.Certificate) []*x509.Certificate {
+	clon := make([]*x509.Certificate, 0, len(origen))
+	for _, certificado := range origen {
+		if certificado == nil {
+			clon = append(clon, nil)
+			continue
+		}
+		parseado, err := x509.ParseCertificate(append([]byte(nil), certificado.Raw...))
+		if err != nil {
+			clon = append(clon, nil)
+			continue
+		}
+		clon = append(clon, parseado)
+	}
+	return clon
+}
+
 func resumirCertificadoServidor(
 	certificado tls.Certificate,
-) ([sha256.Size]byte, [sha256.Size]byte, error) {
+) ([sha256.Size]byte, [sha256.Size]byte, [sha256.Size]byte, error) {
 	var vacia [sha256.Size]byte
 	if len(certificado.Certificate) == 0 {
-		return vacia, vacia, ErrTLSMutuoNoVerificado
+		return vacia, vacia, vacia, ErrTLSMutuoNoVerificado
 	}
 	certificadosParseados := make([]*x509.Certificate, len(certificado.Certificate))
 	for indice, der := range certificado.Certificate {
 		parseado, err := x509.ParseCertificate(der)
 		if err != nil {
-			return vacia, vacia, ErrTLSMutuoNoVerificado
+			return vacia, vacia, vacia, ErrTLSMutuoNoVerificado
 		}
 		certificadosParseados[indice] = parseado
 	}
 	if certificado.Leaf != nil && !certificado.Leaf.Equal(certificadosParseados[0]) {
-		return vacia, vacia, ErrTLSMutuoNoVerificado
+		return vacia, vacia, vacia, ErrTLSMutuoNoVerificado
 	}
 	firmante, valido := certificado.PrivateKey.(crypto.Signer)
 	if !valido || firmante == nil {
-		return vacia, vacia, ErrTLSMutuoNoVerificado
+		return vacia, vacia, vacia, ErrTLSMutuoNoVerificado
 	}
 	clavePublica, err := x509.MarshalPKIXPublicKey(firmante.Public())
 	if err != nil || !bytes.Equal(clavePublica, certificadosParseados[0].RawSubjectPublicKeyInfo) {
-		return vacia, vacia, ErrTLSMutuoNoVerificado
+		return vacia, vacia, vacia, ErrTLSMutuoNoVerificado
+	}
+	clavePrivada, err := x509.MarshalPKCS8PrivateKey(certificado.PrivateKey)
+	if err != nil {
+		return vacia, vacia, vacia, ErrTLSMutuoNoVerificado
 	}
 
 	hashCadena := sha256.New()
@@ -313,7 +390,7 @@ func resumirCertificadoServidor(
 	}
 	var huellaCadena [sha256.Size]byte
 	copy(huellaCadena[:], hashCadena.Sum(nil))
-	return huellaCadena, sha256.Sum256(clavePublica), nil
+	return huellaCadena, sha256.Sum256(clavePublica), sha256.Sum256(clavePrivada), nil
 }
 
 func certificadoTLSEquivalente(actual, aprobado tls.Certificate) bool {
