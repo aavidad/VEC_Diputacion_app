@@ -68,6 +68,12 @@ verificar_inventario() {
 	local esperado real
 	esperado="${destino}/esperado"
 	real="${destino}/real"
+	if find "${destino}/web" "${destino}/bin" -type l -print -quit | grep -q .; then
+		fallar "${superficie}: el artefacto contiene enlaces simbolicos en su aplicacion."
+	fi
+	if find "${destino}/web" -type f -perm /022 -print -quit | grep -q .; then
+		fallar "${superficie}: un recurso web puede ser modificado por el usuario de ejecucion."
+	fi
 
 	cmp -s "${manifiesto}" "${destino}/web/produccion.manifest" ||
 		fallar "${superficie}: el manifiesto incluido no coincide con el revisado."
@@ -86,6 +92,9 @@ verificar_inventario() {
 	((${#binarios[@]} == 1)) && [[ "${binarios[0]}" == "${binario}" ]] ||
 		fallar "${superficie}: el artefacto no contiene exclusivamente ${binario}."
 	[[ -x "${destino}/bin/${binario}" ]] || fallar "${superficie}: el binario no es ejecutable."
+	if find "${destino}/bin/${binario}" -perm /022 -print -quit | grep -q .; then
+		fallar "${superficie}: el binario extraido conserva permiso de escritura."
+	fi
 }
 
 extraer_superficie publico "${imagen_publica}"
