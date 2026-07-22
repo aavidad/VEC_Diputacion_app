@@ -16,12 +16,16 @@ fi
 docker volume create "${volumen}" >/dev/null
 
 contenedor() {
+	local -a opciones_tmp=()
+	if [[ "${4}" == "con-tmp" ]]; then
+		opciones_tmp=(--tmpfs /tmp:rw,mode=1777)
+	fi
 	docker run --rm \
 	--read-only \
 	--network none \
 	--cap-drop ALL \
 	--security-opt no-new-privileges \
-	--tmpfs /tmp:rw,mode=1777 \
+	"${opciones_tmp[@]}" \
 	--env VEC_PRUEBA_TLS_ROOT_DIR=/material \
 	--mount "type=bind,src=${binario},dst=/prueba,readonly" \
 	--mount "type=volume,src=${volumen},dst=/material${1}" \
@@ -30,6 +34,6 @@ contenedor() {
 	/prueba -test.run "${3}" -test.v
 }
 
-contenedor "" "0:10001" '^TestPrepararMaterialTLSRootParaRuntimeNoPrivilegiado$'
-contenedor ",readonly" "0:10001" '^TestConstruirServidorInternoCargaRealComoRuntimeNoPrivilegiado$'
-contenedor ",readonly" "10001:10001" '^TestConstruirServidorInternoCargaRealComoRuntimeNoPrivilegiado$'
+contenedor "" "0:10001" '^TestPrepararMaterialTLSRootParaRuntimeNoPrivilegiado$' con-tmp
+contenedor ",readonly" "0:10001" '^TestConstruirServidorInternoCargaRealComoRuntimeNoPrivilegiado$' sin-tmp
+contenedor ",readonly" "10001:10001" '^TestConstruirServidorInternoCargaRealComoRuntimeNoPrivilegiado$' sin-tmp

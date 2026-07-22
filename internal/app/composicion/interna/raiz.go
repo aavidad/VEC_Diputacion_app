@@ -2,7 +2,6 @@ package interna
 
 import (
 	"errors"
-	"net/http"
 )
 
 var ErrDependenciasProductivasNoDisponibles = errors.New(
@@ -89,7 +88,7 @@ func (e *ErrorDependenciasFaltantes) Falta(dependencia Dependencia) bool {
 // inyecten implementaciones productivas, devuelve siempre nil y nunca llama a
 // net.Listen ni construye un healthcheck vacio. Al completar las dependencias,
 // esta misma raiz debera usar exclusivamente construirServidorInterno.
-func NuevoServidor(cfg Configuracion) (*http.Server, error) {
+func NuevoServidor(cfg Configuracion) (*ServidorInterno, error) {
 	if err := cfg.Validar(); err != nil {
 		return nil, err
 	}

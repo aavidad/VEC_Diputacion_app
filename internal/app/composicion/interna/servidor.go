@@ -2,16 +2,20 @@ package interna
 
 import (
 	"bytes"
-	"crypto"
+	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/binary"
 	"errors"
+	"log"
 	"net"
 	"net/http"
+	"os"
 	"reflect"
 	"slices"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"vec-diputacion-granada/config"
@@ -19,18 +23,70 @@ import (
 )
 
 var (
-	ErrAPIInternaNoDisponible  = errors.New("composicion interna: API interna no disponible")
-	ErrTLSMutuoNoVerificado    = errors.New("composicion interna: TLS mutuo no verificado")
-	ErrServidorInternoInvalido = errors.New("composicion interna: servidor no construido por la raiz interna")
+	ErrAPIInternaNoDisponible     = errors.New("composicion interna: API interna no disponible")
+	ErrTLSMutuoNoVerificado       = errors.New("composicion interna: TLS mutuo no verificado")
+	ErrServidorInternoInvalido    = errors.New("composicion interna: servidor no construido por la raiz interna")
+	ErrEscuchaInternaNoDisponible = errors.New(
+		"composicion interna: escucha TLS no disponible",
+	)
 )
 
 const protocoloALPNHTTPUno = "http/1.1"
+
+const (
+	estadoServidorInternoNuevo uint32 = iota
+	estadoServidorInternoEscuchando
+	estadoServidorInternoTerminado
+)
+
+const etiquetaExportadorConexion = "EXPORTER-VEC-INTERNAL-CONNECTION-BINDING-v1"
+
+type claveContextoConexionTLS struct{}
+
+type tokenServidorInterno struct {
+	// El tipo no puede ser de tamano cero: dos punteros a valores de tamano
+	// cero no tienen por que ser distintos segun el lenguaje.
+	marca byte
+}
+
+type posesionConexionTLS struct {
+	token    *tokenServidorInterno
+	conexion *tls.Conn
+}
+
+// ServidorInterno es una capsula opaca y de un solo uso. No incrusta ni
+// publica http.Server, Handler, Listener, tls.Config, certificados o pools.
+// El unico camino de escucha construye localmente el transporte sellado.
+type ServidorInterno struct {
+	direccionEscucha     string
+	tiempoCabeceras      time.Duration
+	tiempoLectura        time.Duration
+	tiempoEscritura      time.Duration
+	tiempoInactividad    time.Duration
+	maximoBytesCabeceras int
+	manejador            *manejadorInternoVerificado
+	configuracionTLS     *tls.Config
+	token                *tokenServidorInterno
+	propietario          *ServidorInterno
+	ejecucion            *ejecucionServidorInterno
+}
+
+type ejecucionServidorInterno struct {
+	estado         atomic.Uint32
+	mu             sync.Mutex
+	servidorActivo *http.Server
+	listo          chan struct{}
+	marcarListo    sync.Once
+	terminado      chan struct{}
+	marcarTermino  sync.Once
+}
 
 // manejadorInternoVerificado sella la procedencia del handler. Sus campos son
 // privados: el cmd no puede sustituirlo por DefaultServeMux ni por un handler
 // que evite la lista positiva de server.NewHTTPServerInterno.
 type manejadorInternoVerificado struct {
 	siguiente            http.Handler
+	token                *tokenServidorInterno
 	direccionEscucha     string
 	tiempoCabeceras      time.Duration
 	tiempoLectura        time.Duration
@@ -72,7 +128,13 @@ func (m *manejadorInternoVerificado) ServeHTTP(w http.ResponseWriter, r *http.Re
 }
 
 func (m *manejadorInternoVerificado) peticionTLSMutuaVerificada(r *http.Request) bool {
-	if r == nil || r.TLS == nil || r.ProtoMajor != 1 || r.ProtoMinor != 1 {
+	if m == nil || m.token == nil || r == nil || r.TLS == nil ||
+		r.ProtoMajor != 1 || r.ProtoMinor != 1 {
+		return false
+	}
+	posesion, valida := r.Context().Value(claveContextoConexionTLS{}).(*posesionConexionTLS)
+	if !valida || posesion == nil || posesion.token != m.token || posesion.conexion == nil ||
+		!estadoTLSCoherenteConConexion(r.TLS, posesion.conexion) {
 		return false
 	}
 	estado := r.TLS
@@ -107,11 +169,91 @@ func (m *manejadorInternoVerificado) peticionTLSMutuaVerificada(r *http.Request)
 	return err == nil && len(cadenas) != 0
 }
 
+func estadoTLSCoherenteConConexion(estado *tls.ConnectionState, conexion *tls.Conn) bool {
+	if estado == nil || conexion == nil {
+		return false
+	}
+	actual := conexion.ConnectionState()
+	if estado.Version != actual.Version ||
+		estado.HandshakeComplete != actual.HandshakeComplete ||
+		estado.DidResume != actual.DidResume ||
+		estado.CipherSuite != actual.CipherSuite ||
+		estado.CurveID != actual.CurveID ||
+		estado.NegotiatedProtocol != actual.NegotiatedProtocol ||
+		estado.NegotiatedProtocolIsMutual != actual.NegotiatedProtocolIsMutual ||
+		estado.ServerName != actual.ServerName ||
+		estado.ECHAccepted != actual.ECHAccepted ||
+		!certificadosMismaConexion(estado.PeerCertificates, actual.PeerCertificates) ||
+		!cadenasMismaConexion(estado.VerifiedChains, actual.VerifiedChains) ||
+		!bytesBidimensionalesIguales(
+			estado.SignedCertificateTimestamps,
+			actual.SignedCertificateTimestamps,
+		) || !bytes.Equal(estado.OCSPResponse, actual.OCSPResponse) ||
+		!bytes.Equal(estado.TLSUnique, actual.TLSUnique) {
+		return false
+	}
+	vinculoPeticion, errPeticion := estado.ExportKeyingMaterial(
+		etiquetaExportadorConexion, nil, sha256.Size,
+	)
+	vinculoConexion, errConexion := actual.ExportKeyingMaterial(
+		etiquetaExportadorConexion, nil, sha256.Size,
+	)
+	return errPeticion == nil && errConexion == nil &&
+		len(vinculoPeticion) == sha256.Size && len(vinculoConexion) == sha256.Size &&
+		subtle.ConstantTimeCompare(vinculoPeticion, vinculoConexion) == 1
+}
+
+func certificadosMismaConexion(izquierda, derecha []*x509.Certificate) bool {
+	if len(izquierda) != len(derecha) {
+		return false
+	}
+	for indice := range izquierda {
+		if izquierda[indice] != derecha[indice] {
+			return false
+		}
+	}
+	return true
+}
+
+func cadenasMismaConexion(izquierda, derecha [][]*x509.Certificate) bool {
+	if len(izquierda) != len(derecha) {
+		return false
+	}
+	for indice := range izquierda {
+		if !certificadosMismaConexion(izquierda[indice], derecha[indice]) {
+			return false
+		}
+	}
+	return true
+}
+
 func sniTLSCoherente(nombreConfigurado, sni string) bool {
 	if net.ParseIP(nombreConfigurado) != nil {
 		return sni == ""
 	}
-	return nombreConfigurado != "" && sni == nombreConfigurado
+	return igualesASCIIIgnorandoMayusculas(nombreConfigurado, sni)
+}
+
+func igualesASCIIIgnorandoMayusculas(izquierda, derecha string) bool {
+	if izquierda == "" || len(izquierda) != len(derecha) {
+		return false
+	}
+	for indice := range len(izquierda) {
+		a, b := izquierda[indice], derecha[indice]
+		if a > 0x7f || b > 0x7f {
+			return false
+		}
+		if a >= 'A' && a <= 'Z' {
+			a += 'a' - 'A'
+		}
+		if b >= 'A' && b <= 'Z' {
+			b += 'a' - 'A'
+		}
+		if a != b {
+			return false
+		}
+	}
+	return true
 }
 
 func cifradoTLS13Aprobado(cifrado uint16) bool {
@@ -131,7 +273,7 @@ func cifradoTLS13Aprobado(cifrado uint16) bool {
 func construirServidorInterno(
 	cfg Configuracion,
 	api http.Handler,
-) (*http.Server, error) {
+) (*ServidorInterno, error) {
 	if err := cfg.Validar(); err != nil {
 		return nil, err
 	}
@@ -149,7 +291,7 @@ func construirServidorInternoConMaterial(
 	cfg Configuracion,
 	api http.Handler,
 	materialCargado materialTLSCargado,
-) (*http.Server, error) {
+) (*ServidorInterno, error) {
 	if err := cfg.Validar(); err != nil {
 		return nil, err
 	}
@@ -176,18 +318,15 @@ func construirServidorInternoConMaterial(
 	if err != nil || servidorHTTP == nil || servidorHTTP.Handler == nil {
 		return nil, ErrServidorInternoInvalido
 	}
-	servidorHTTP.DisableGeneralOptionsHandler = true
-	servidorHTTP.TLSNextProto = nil
-	servidorHTTP.HTTP2 = nil
-	servidorHTTP.Protocols = &http.Protocols{}
-	servidorHTTP.Protocols.SetHTTP1(true)
 	configuracionTLS := clonarConfiguracionTLSMutuo(materialCargado.configuracion)
 	materialTLS, err := aprobarMaterialTLS(configuracionTLS, materialCargado)
 	if err != nil {
 		return nil, ErrTLSMutuoNoVerificado
 	}
-	servidorHTTP.Handler = &manejadorInternoVerificado{
+	token := &tokenServidorInterno{marca: 1}
+	manejador := &manejadorInternoVerificado{
 		siguiente:            servidorHTTP.Handler,
+		token:                token,
 		direccionEscucha:     servidorHTTP.Addr,
 		tiempoCabeceras:      servidorHTTP.ReadHeaderTimeout,
 		tiempoLectura:        servidorHTTP.ReadTimeout,
@@ -196,46 +335,209 @@ func construirServidorInternoConMaterial(
 		maximoBytesCabeceras: servidorHTTP.MaxHeaderBytes,
 		materialTLS:          materialTLS,
 		protocolosTLS:        append([]string(nil), configuracionTLS.NextProtos...),
-		protocolosHTTP:       obtenerProtocolosHTTP(servidorHTTP.Protocols),
-		desactivarOPTIONS:    servidorHTTP.DisableGeneralOptionsHandler,
+		protocolosHTTP:       protocolosHTTPAprobados{httpUno: true},
+		desactivarOPTIONS:    true,
 	}
-	servidorHTTP.TLSConfig = configuracionTLS
-	if err := ValidarServidorParaEscucha(servidorHTTP); err != nil {
+	servidor := &ServidorInterno{
+		direccionEscucha:     servidorHTTP.Addr,
+		tiempoCabeceras:      servidorHTTP.ReadHeaderTimeout,
+		tiempoLectura:        servidorHTTP.ReadTimeout,
+		tiempoEscritura:      servidorHTTP.WriteTimeout,
+		tiempoInactividad:    servidorHTTP.IdleTimeout,
+		maximoBytesCabeceras: servidorHTTP.MaxHeaderBytes,
+		manejador:            manejador,
+		configuracionTLS:     configuracionTLS,
+		token:                token,
+		ejecucion: &ejecucionServidorInterno{
+			listo:     make(chan struct{}),
+			terminado: make(chan struct{}),
+		},
+	}
+	servidor.propietario = servidor
+	if err := validarServidorInterno(servidor); err != nil {
 		return nil, err
 	}
-	return servidorHTTP, nil
+	return servidor, nil
 }
 
-// ValidarServidorParaEscucha es la ultima barrera usada por cmd/vec-interno.
-// Revalida el material mutable y la procedencia del handler inmediatamente
-// antes de ListenAndServeTLS.
-func ValidarServidorParaEscucha(servidorHTTP *http.Server) error {
-	if servidorHTTP == nil || servidorHTTP.Handler == nil {
+func validarServidorInterno(servidor *ServidorInterno) error {
+	if servidor == nil || servidor.propietario != servidor || servidor.ejecucion == nil ||
+		servidor.manejador == nil || servidor.token == nil || servidor.configuracionTLS == nil ||
+		servidor.ejecucion.listo == nil || servidor.ejecucion.terminado == nil {
 		return ErrServidorInternoInvalido
 	}
-	if err := validarTLSMutuo(servidorHTTP.TLSConfig); err != nil {
+	if err := validarTLSMutuo(servidor.configuracionTLS); err != nil {
 		return err
 	}
-	manejador, valido := servidorHTTP.Handler.(*manejadorInternoVerificado)
-	if !valido || manejador == nil || manejadorNulo(manejador.siguiente) ||
-		manejador.direccionEscucha == "" || servidorHTTP.Addr != manejador.direccionEscucha ||
-		servidorHTTP.ReadHeaderTimeout != manejador.tiempoCabeceras ||
-		servidorHTTP.ReadTimeout != manejador.tiempoLectura ||
-		servidorHTTP.WriteTimeout != manejador.tiempoEscritura ||
-		servidorHTTP.IdleTimeout != manejador.tiempoInactividad ||
-		servidorHTTP.MaxHeaderBytes != manejador.maximoBytesCabeceras ||
-		servidorHTTP.DisableGeneralOptionsHandler != manejador.desactivarOPTIONS ||
-		!servidorHTTP.DisableGeneralOptionsHandler || servidorHTTP.TLSNextProto != nil ||
-		servidorHTTP.HTTP2 != nil || servidorHTTP.Protocols == nil ||
-		obtenerProtocolosHTTP(servidorHTTP.Protocols) != manejador.protocolosHTTP ||
+	manejador := servidor.manejador
+	if manejadorNulo(manejador.siguiente) || manejador.token != servidor.token ||
+		manejador.direccionEscucha == "" || servidor.direccionEscucha != manejador.direccionEscucha ||
+		servidor.tiempoCabeceras != manejador.tiempoCabeceras ||
+		servidor.tiempoLectura != manejador.tiempoLectura ||
+		servidor.tiempoEscritura != manejador.tiempoEscritura ||
+		servidor.tiempoInactividad != manejador.tiempoInactividad ||
+		servidor.maximoBytesCabeceras != manejador.maximoBytesCabeceras ||
+		!manejador.desactivarOPTIONS ||
 		manejador.protocolosHTTP != (protocolosHTTPAprobados{httpUno: true}) ||
-		!slices.Equal(servidorHTTP.TLSConfig.NextProtos, manejador.protocolosTLS) {
+		!slices.Equal(servidor.configuracionTLS.NextProtos, manejador.protocolosTLS) {
 		return ErrServidorInternoInvalido
 	}
-	if !manejador.materialTLS.coincide(servidorHTTP.TLSConfig) {
+	if !manejador.materialTLS.coincide(servidor.configuracionTLS) {
 		return ErrTLSMutuoNoVerificado
 	}
 	return nil
+}
+
+// EscucharYServir es el unico punto publico que abre red. Es atomico y de un
+// solo uso: no admite listeners, handlers ni material TLS proporcionados por
+// el llamador.
+func (servidor *ServidorInterno) EscucharYServir() error {
+	if servidor == nil || servidor.propietario != servidor || servidor.ejecucion == nil ||
+		!servidor.ejecucion.estado.CompareAndSwap(
+			estadoServidorInternoNuevo,
+			estadoServidorInternoEscuchando,
+		) {
+		return ErrServidorInternoInvalido
+	}
+	defer func() {
+		servidor.ejecucion.estado.Store(estadoServidorInternoTerminado)
+		servidor.notificarListo()
+		servidor.notificarTerminado()
+	}()
+	if err := validarServidorInterno(servidor); err != nil {
+		return err
+	}
+
+	escucha, err := net.Listen("tcp", servidor.direccionEscucha)
+	if err != nil {
+		return ErrEscuchaInternaNoDisponible
+	}
+	servidorHTTP := servidor.nuevoServidorHTTP()
+	servidor.ejecucion.mu.Lock()
+	servidor.ejecucion.servidorActivo = servidorHTTP
+	servidor.ejecucion.mu.Unlock()
+	servidor.notificarListo()
+	err = servidorHTTP.ServeTLS(escucha, "", "")
+	servidor.ejecucion.mu.Lock()
+	if servidor.ejecucion.servidorActivo == servidorHTTP {
+		servidor.ejecucion.servidorActivo = nil
+	}
+	servidor.ejecucion.mu.Unlock()
+	if err == nil || errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return ErrEscuchaInternaNoDisponible
+}
+
+// Apagar detiene ordenadamente la capsula sin revelar el servidor HTTP ni el
+// listener. Si se llama antes de que arranque, cancela de forma atomica su
+// unico intento de escucha.
+func (servidor *ServidorInterno) Apagar(ctx context.Context) error {
+	if servidor == nil || servidor.propietario != servidor || servidor.ejecucion == nil || ctx == nil {
+		return ErrServidorInternoInvalido
+	}
+	for {
+		switch servidor.ejecucion.estado.Load() {
+		case estadoServidorInternoNuevo:
+			if servidor.ejecucion.estado.CompareAndSwap(
+				estadoServidorInternoNuevo,
+				estadoServidorInternoTerminado,
+			) {
+				servidor.notificarListo()
+				servidor.notificarTerminado()
+				return nil
+			}
+		case estadoServidorInternoEscuchando:
+			select {
+			case <-servidor.ejecucion.listo:
+			case <-ctx.Done():
+				return ErrEscuchaInternaNoDisponible
+			}
+			servidor.ejecucion.mu.Lock()
+			activo := servidor.ejecucion.servidorActivo
+			servidor.ejecucion.mu.Unlock()
+			if activo == nil {
+				select {
+				case <-servidor.ejecucion.terminado:
+					return nil
+				case <-ctx.Done():
+					return ErrEscuchaInternaNoDisponible
+				}
+			}
+			if err := activo.Shutdown(ctx); err != nil {
+				return ErrEscuchaInternaNoDisponible
+			}
+			select {
+			case <-servidor.ejecucion.terminado:
+				return nil
+			case <-ctx.Done():
+				return ErrEscuchaInternaNoDisponible
+			}
+		case estadoServidorInternoTerminado:
+			return nil
+		default:
+			return ErrServidorInternoInvalido
+		}
+	}
+}
+
+func (servidor *ServidorInterno) notificarListo() {
+	if servidor != nil && servidor.ejecucion != nil && servidor.ejecucion.listo != nil {
+		servidor.ejecucion.marcarListo.Do(func() { close(servidor.ejecucion.listo) })
+	}
+}
+
+func (servidor *ServidorInterno) notificarTerminado() {
+	if servidor != nil && servidor.ejecucion != nil && servidor.ejecucion.terminado != nil {
+		servidor.ejecucion.marcarTermino.Do(func() { close(servidor.ejecucion.terminado) })
+	}
+}
+
+func (servidor *ServidorInterno) nuevoServidorHTTP() *http.Server {
+	protocolos := &http.Protocols{}
+	protocolos.SetHTTP1(true)
+	return &http.Server{
+		Addr:                         servidor.direccionEscucha,
+		Handler:                      servidor.manejador,
+		DisableGeneralOptionsHandler: true,
+		TLSConfig:                    clonarConfiguracionTLSMutuo(servidor.configuracionTLS),
+		ReadHeaderTimeout:            servidor.tiempoCabeceras,
+		ReadTimeout:                  servidor.tiempoLectura,
+		WriteTimeout:                 servidor.tiempoEscritura,
+		IdleTimeout:                  servidor.tiempoInactividad,
+		MaxHeaderBytes:               servidor.maximoBytesCabeceras,
+		TLSNextProto:                 nil,
+		ConnState:                    controlarEstadoConexionTLS,
+		ErrorLog:                     log.New(nuevoEscritorEventosHTTPSaneados(os.Stderr), "", 0),
+		BaseContext:                  contextoBaseServidorInterno,
+		ConnContext:                  servidor.contextoConexionTLS,
+		HTTP2:                        nil,
+		Protocols:                    protocolos,
+	}
+}
+
+func contextoBaseServidorInterno(net.Listener) context.Context {
+	return context.Background()
+}
+
+func (servidor *ServidorInterno) contextoConexionTLS(
+	ctx context.Context,
+	conexion net.Conn,
+) context.Context {
+	conexionTLS, valida := conexion.(*tls.Conn)
+	if !valida || conexionTLS == nil || servidor == nil || servidor.token == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, claveContextoConexionTLS{}, &posesionConexionTLS{
+		token:    servidor.token,
+		conexion: conexionTLS,
+	})
+}
+
+func controlarEstadoConexionTLS(conexion net.Conn, _ http.ConnState) {
+	if _, valida := conexion.(*tls.Conn); !valida && conexion != nil {
+		_ = conexion.Close()
+	}
 }
 
 func validarTLSMutuo(configuracion *tls.Config) error {
@@ -292,209 +594,4 @@ func manejadorNulo(manejador http.Handler) bool {
 func esMuxPredeterminado(manejador http.Handler) bool {
 	mux, valido := manejador.(*http.ServeMux)
 	return valido && mux == http.DefaultServeMux
-}
-
-// clonarConfiguracionTLSMutuo separa todas las referencias mutables entre la
-// carga, el servidor y el sello. La clave se recodifica como PKCS#8.
-func clonarConfiguracionTLSMutuo(origen *tls.Config) *tls.Config {
-	clon := origen.Clone()
-	clon.ClientCAs = origen.ClientCAs.Clone()
-	clon.NextProtos = append([]string(nil), origen.NextProtos...)
-	clon.Certificates = make([]tls.Certificate, len(origen.Certificates))
-	for indice := range origen.Certificates {
-		clon.Certificates[indice] = clonarCertificadoTLS(origen.Certificates[indice])
-		clave, err := clonarClavePrivada(origen.Certificates[indice].PrivateKey)
-		if err == nil {
-			clon.Certificates[indice].PrivateKey = clave
-		}
-	}
-	return clon
-}
-
-func clonarCertificadoTLS(origen tls.Certificate) tls.Certificate {
-	clon := origen
-	clon.Certificate = clonarBytesBidimensionales(origen.Certificate)
-	clon.SupportedSignatureAlgorithms = append(
-		[]tls.SignatureScheme(nil), origen.SupportedSignatureAlgorithms...,
-	)
-	clon.OCSPStaple = append([]byte(nil), origen.OCSPStaple...)
-	clon.SignedCertificateTimestamps = clonarBytesBidimensionales(
-		origen.SignedCertificateTimestamps,
-	)
-	if len(clon.Certificate) != 0 {
-		// validarTLSMutuo ya ha comprobado la cadena; esta nueva instancia evita
-		// compartir el puntero mutable Leaf con el proveedor.
-		clon.Leaf, _ = x509.ParseCertificate(clon.Certificate[0])
-	}
-	return clon
-}
-
-func clonarBytesBidimensionales(origen [][]byte) [][]byte {
-	if origen == nil {
-		return nil
-	}
-	clon := make([][]byte, len(origen))
-	for indice := range origen {
-		clon[indice] = append([]byte(nil), origen[indice]...)
-	}
-	return clon
-}
-
-func aprobarMaterialTLS(
-	configuracion *tls.Config,
-	cargado materialTLSCargado,
-) (materialTLSAprobado, error) {
-	huellaCadena, huellaClave, huellaPrivada, err := resumirCertificadoServidor(configuracion.Certificates[0])
-	if err != nil {
-		return materialTLSAprobado{}, err
-	}
-	certificado := clonarCertificadoTLS(configuracion.Certificates[0])
-	// La aprobacion conserva material publico y metadatos, no duplica la clave.
-	certificado.PrivateKey = nil
-	return materialTLSAprobado{
-		autoridadesClientes:        configuracion.ClientCAs.Clone(),
-		certificadosAutoridades:    clonarCertificadosX509(cargado.autoridadesClientes),
-		nombreServidor:             cargado.nombreServidor,
-		certificadoServidor:        certificado,
-		huellaCadenaServidor:       huellaCadena,
-		huellaClavePublicaServidor: huellaClave,
-		huellaClavePrivadaServidor: huellaPrivada,
-		huellaCertPEM:              cargado.huellaCertPEM,
-		huellaClavePEM:             cargado.huellaClavePEM,
-		huellaCAPEM:                cargado.huellaCAPEM,
-	}, nil
-}
-
-func (aprobado materialTLSAprobado) coincide(configuracion *tls.Config) bool {
-	if configuracion == nil || configuracion.ClientCAs == nil ||
-		aprobado.autoridadesClientes == nil ||
-		!configuracion.ClientCAs.Equal(aprobado.autoridadesClientes) ||
-		len(configuracion.Certificates) != 1 {
-		return false
-	}
-	actual := configuracion.Certificates[0]
-	ahora := time.Now()
-	for _, autoridad := range aprobado.certificadosAutoridades {
-		if validarAutoridad(autoridad, ahora) != nil {
-			return false
-		}
-	}
-	cadena := make([]*x509.Certificate, len(actual.Certificate))
-	for indice, der := range actual.Certificate {
-		parseado, err := x509.ParseCertificate(der)
-		if err != nil {
-			return false
-		}
-		cadena[indice] = parseado
-	}
-	if validarCadenaServidor(
-		Configuracion{NombreServidorTLS: aprobado.nombreServidor}, cadena, actual,
-	) != nil {
-		return false
-	}
-	huellaCadena, huellaClave, huellaPrivada, err := resumirCertificadoServidor(actual)
-	if err != nil || huellaCadena != aprobado.huellaCadenaServidor ||
-		huellaClave != aprobado.huellaClavePublicaServidor ||
-		huellaPrivada != aprobado.huellaClavePrivadaServidor ||
-		aprobado.huellaCertPEM == ([sha256.Size]byte{}) ||
-		aprobado.huellaClavePEM == ([sha256.Size]byte{}) ||
-		aprobado.huellaCAPEM == ([sha256.Size]byte{}) {
-		return false
-	}
-	return certificadoTLSEquivalente(actual, aprobado.certificadoServidor)
-}
-
-func clonarCertificadosX509(origen []*x509.Certificate) []*x509.Certificate {
-	clon := make([]*x509.Certificate, 0, len(origen))
-	for _, certificado := range origen {
-		if certificado == nil {
-			clon = append(clon, nil)
-			continue
-		}
-		parseado, err := x509.ParseCertificate(append([]byte(nil), certificado.Raw...))
-		if err != nil {
-			clon = append(clon, nil)
-			continue
-		}
-		clon = append(clon, parseado)
-	}
-	return clon
-}
-
-func resumirCertificadoServidor(
-	certificado tls.Certificate,
-) ([sha256.Size]byte, [sha256.Size]byte, [sha256.Size]byte, error) {
-	var vacia [sha256.Size]byte
-	if len(certificado.Certificate) == 0 {
-		return vacia, vacia, vacia, ErrTLSMutuoNoVerificado
-	}
-	certificadosParseados := make([]*x509.Certificate, len(certificado.Certificate))
-	for indice, der := range certificado.Certificate {
-		parseado, err := x509.ParseCertificate(der)
-		if err != nil {
-			return vacia, vacia, vacia, ErrTLSMutuoNoVerificado
-		}
-		certificadosParseados[indice] = parseado
-	}
-	if certificado.Leaf != nil && !certificado.Leaf.Equal(certificadosParseados[0]) {
-		return vacia, vacia, vacia, ErrTLSMutuoNoVerificado
-	}
-	firmante, valido := certificado.PrivateKey.(crypto.Signer)
-	if !valido || firmante == nil {
-		return vacia, vacia, vacia, ErrTLSMutuoNoVerificado
-	}
-	clavePublica, err := x509.MarshalPKIXPublicKey(firmante.Public())
-	if err != nil || !bytes.Equal(clavePublica, certificadosParseados[0].RawSubjectPublicKeyInfo) {
-		return vacia, vacia, vacia, ErrTLSMutuoNoVerificado
-	}
-	clavePrivada, err := x509.MarshalPKCS8PrivateKey(certificado.PrivateKey)
-	if err != nil {
-		return vacia, vacia, vacia, ErrTLSMutuoNoVerificado
-	}
-
-	hashCadena := sha256.New()
-	var longitud [8]byte
-	for _, der := range certificado.Certificate {
-		binary.BigEndian.PutUint64(longitud[:], uint64(len(der)))
-		_, _ = hashCadena.Write(longitud[:])
-		_, _ = hashCadena.Write(der)
-	}
-	var huellaCadena [sha256.Size]byte
-	copy(huellaCadena[:], hashCadena.Sum(nil))
-	return huellaCadena, sha256.Sum256(clavePublica), sha256.Sum256(clavePrivada), nil
-}
-
-func certificadoTLSEquivalente(actual, aprobado tls.Certificate) bool {
-	if !bytesBidimensionalesIguales(actual.Certificate, aprobado.Certificate) ||
-		!slices.Equal(actual.SupportedSignatureAlgorithms, aprobado.SupportedSignatureAlgorithms) ||
-		!bytes.Equal(actual.OCSPStaple, aprobado.OCSPStaple) ||
-		!bytesBidimensionalesIguales(
-			actual.SignedCertificateTimestamps, aprobado.SignedCertificateTimestamps,
-		) || (actual.Leaf == nil) != (aprobado.Leaf == nil) {
-		return false
-	}
-	return actual.Leaf == nil || actual.Leaf.Equal(aprobado.Leaf)
-}
-
-func bytesBidimensionalesIguales(izquierda, derecha [][]byte) bool {
-	if len(izquierda) != len(derecha) {
-		return false
-	}
-	for indice := range izquierda {
-		if !bytes.Equal(izquierda[indice], derecha[indice]) {
-			return false
-		}
-	}
-	return true
-}
-
-func obtenerProtocolosHTTP(protocolos *http.Protocols) protocolosHTTPAprobados {
-	if protocolos == nil {
-		return protocolosHTTPAprobados{}
-	}
-	return protocolosHTTPAprobados{
-		httpUno:          protocolos.HTTP1(),
-		httpDos:          protocolos.HTTP2(),
-		httpDosSinCifrar: protocolos.UnencryptedHTTP2(),
-	}
 }

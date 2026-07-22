@@ -1,4 +1,4 @@
-package main
+package interna
 
 import (
 	"io"
@@ -11,9 +11,8 @@ const (
 	intervaloEventoHTTPSaneado = 30 * time.Second
 )
 
-// escritorEventosHTTPSaneados descarta por completo el texto generado por
-// net/http (incluye direcciones y errores TLS) y conserva solo evidencia fija
-// con limite temporal para evitar fuga y amplificacion de logs.
+// escritorEventosHTTPSaneados descarta el texto de net/http, que puede incluir
+// direcciones y errores TLS, y conserva una evidencia fija con limite temporal.
 type escritorEventosHTTPSaneados struct {
 	mu      sync.Mutex
 	destino io.Writer

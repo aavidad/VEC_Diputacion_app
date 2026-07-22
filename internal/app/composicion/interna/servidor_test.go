@@ -3,28 +3,26 @@ package interna
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/ed25519"
-	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
-	"log"
-	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"syscall"
 	"testing"
 	"time"
 )
 
-func TestConstruirServidorInternoCargaReferenciasYSellaAllowlist(t *testing.T) {
+func TestConstruirServidorInternoCreaCapsulaYRechazaTLSFabricado(t *testing.T) {
 	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
 	llamadas := 0
 	servidor, err := construirServidorInternoPrueba(t, material.cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -34,32 +32,19 @@ func TestConstruirServidorInternoCargaReferenciasYSellaAllowlist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidarServidorParaEscucha(servidor); err != nil {
+	if err := validarServidorInterno(servidor); err != nil {
 		t.Fatalf("servidor preparado: %v", err)
 	}
-	if _, sellado := servidor.Handler.(*manejadorInternoVerificado); !sellado {
-		t.Fatalf("manejador sin sello: %T", servidor.Handler)
+	if servidor.manejador == nil || servidor.manejador.token != servidor.token {
+		t.Fatal("manejador sin token de capsula")
 	}
 	permitida := httptest.NewRequest(http.MethodGet, "/api/vec/prueba", nil)
 	permitida.RemoteAddr = "127.0.0.2:50000"
 	permitida.TLS = estadoTLSMutuoValidoPrueba(t, material)
 	respuesta := httptest.NewRecorder()
-	servidor.Handler.ServeHTTP(respuesta, permitida)
-	if respuesta.Code != http.StatusNoContent || llamadas != 1 {
-		t.Fatalf("API permitida = (%d, %d)", respuesta.Code, llamadas)
-	}
-	for _, ruta := range []string{"/", "/api/publico/prueba", "/bolsa/", "/administracion/"} {
-		peticion := httptest.NewRequest(http.MethodGet, ruta, nil)
-		peticion.RemoteAddr = "127.0.0.2:50000"
-		peticion.TLS = estadoTLSMutuoValidoPrueba(t, material)
-		respuesta = httptest.NewRecorder()
-		servidor.Handler.ServeHTTP(respuesta, peticion)
-		if respuesta.Code != http.StatusNotFound {
-			t.Errorf("ruta %q = %d", ruta, respuesta.Code)
-		}
-	}
-	if llamadas != 1 {
-		t.Fatalf("ruta ajena alcanzo API: %d", llamadas)
+	servidor.manejador.ServeHTTP(respuesta, permitida)
+	if respuesta.Code != http.StatusBadRequest || llamadas != 0 {
+		t.Fatalf("TLS fabricado = (%d, %d)", respuesta.Code, llamadas)
 	}
 }
 
@@ -322,8 +307,8 @@ func TestConfiguracionTLSDenyByDefaultRechazaTodoCampoActivo(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			prueba.mutar(servidor.TLSConfig)
-			if err := ValidarServidorParaEscucha(servidor); !errors.Is(err, ErrTLSMutuoNoVerificado) {
+			prueba.mutar(servidor.configuracionTLS)
+			if err := validarServidorInterno(servidor); !errors.Is(err, ErrTLSMutuoNoVerificado) {
 				t.Fatalf("campo activo aceptado: %v", err)
 			}
 		})
@@ -336,47 +321,47 @@ func TestSelloTLSDetectaSustitucionYConservaCopiasDefensivas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	original := servidor.TLSConfig.Certificates[0].Certificate[0][0]
+	original := servidor.configuracionTLS.Certificates[0].Certificate[0][0]
 	if err := os.WriteFile(material.cfg.CertificadoServidorTLS, []byte("sustituido"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if servidor.TLSConfig.Certificates[0].Certificate[0][0] != original {
+	if servidor.configuracionTLS.Certificates[0].Certificate[0][0] != original {
 		t.Fatal("fichero compartio bytes con servidor")
 	}
-	if err := ValidarServidorParaEscucha(servidor); err != nil {
+	if err := validarServidorInterno(servidor); err != nil {
 		t.Fatalf("copia defensiva: %v", err)
 	}
 
 	mutaciones := []struct {
 		nombre string
-		mutar  func(*testing.T, *http.Server)
+		mutar  func(*testing.T, *ServidorInterno)
 	}{
-		{"CA ajena", func(t *testing.T, s *http.Server) {
-			s.TLSConfig.ClientCAs = materialTLSMutuoPrueba(t, opcionesCertificadoServidor{}).raicesClientes
+		{"CA ajena", func(t *testing.T, s *ServidorInterno) {
+			s.configuracionTLS.ClientCAs = materialTLSMutuoPrueba(t, opcionesCertificadoServidor{}).raicesClientes
 		}},
-		{"CA anadida", func(t *testing.T, s *http.Server) {
+		{"CA anadida", func(t *testing.T, s *ServidorInterno) {
 			otro := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
-			s.TLSConfig.ClientCAs.AddCert(otro.caClientes)
+			s.configuracionTLS.ClientCAs.AddCert(otro.caClientes)
 		}},
-		{"certificado ajeno", func(t *testing.T, s *http.Server) {
+		{"certificado ajeno", func(t *testing.T, s *ServidorInterno) {
 			otro := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
-			s.TLSConfig.Certificates = otro.configServidor.Certificates
+			s.configuracionTLS.Certificates = otro.configServidor.Certificates
 		}},
-		{"cadena mutada", func(_ *testing.T, s *http.Server) { s.TLSConfig.Certificates[0].Certificate[0][0] ^= 0xff }},
-		{"clave ajena", func(t *testing.T, s *http.Server) {
-			s.TLSConfig.Certificates[0].PrivateKey = materialTLSMutuoPrueba(t, opcionesCertificadoServidor{}).configServidor.Certificates[0].PrivateKey
+		{"cadena mutada", func(_ *testing.T, s *ServidorInterno) { s.configuracionTLS.Certificates[0].Certificate[0][0] ^= 0xff }},
+		{"clave ajena", func(t *testing.T, s *ServidorInterno) {
+			s.configuracionTLS.Certificates[0].PrivateKey = materialTLSMutuoPrueba(t, opcionesCertificadoServidor{}).configServidor.Certificates[0].PrivateKey
 		}},
-		{"clave mutada", func(t *testing.T, s *http.Server) {
-			clave := s.TLSConfig.Certificates[0].PrivateKey.(ed25519.PrivateKey)
+		{"clave mutada", func(t *testing.T, s *ServidorInterno) {
+			clave := s.configuracionTLS.Certificates[0].PrivateKey.(ed25519.PrivateKey)
 			clave[0] ^= 0xff
 		}},
-		{"Leaf eliminado", func(_ *testing.T, s *http.Server) { s.TLSConfig.Certificates[0].Leaf = nil }},
-		{"algoritmos firma", func(_ *testing.T, s *http.Server) {
-			s.TLSConfig.Certificates[0].SupportedSignatureAlgorithms = []tls.SignatureScheme{tls.Ed25519}
+		{"Leaf eliminado", func(_ *testing.T, s *ServidorInterno) { s.configuracionTLS.Certificates[0].Leaf = nil }},
+		{"algoritmos firma", func(_ *testing.T, s *ServidorInterno) {
+			s.configuracionTLS.Certificates[0].SupportedSignatureAlgorithms = []tls.SignatureScheme{tls.Ed25519}
 		}},
-		{"OCSP", func(_ *testing.T, s *http.Server) { s.TLSConfig.Certificates[0].OCSPStaple = []byte{1} }},
-		{"SCT", func(_ *testing.T, s *http.Server) {
-			s.TLSConfig.Certificates[0].SignedCertificateTimestamps = [][]byte{{1}}
+		{"OCSP", func(_ *testing.T, s *ServidorInterno) { s.configuracionTLS.Certificates[0].OCSPStaple = []byte{1} }},
+		{"SCT", func(_ *testing.T, s *ServidorInterno) {
+			s.configuracionTLS.Certificates[0].SignedCertificateTimestamps = [][]byte{{1}}
 		}},
 	}
 	for _, mutacion := range mutaciones {
@@ -387,7 +372,7 @@ func TestSelloTLSDetectaSustitucionYConservaCopiasDefensivas(t *testing.T) {
 				t.Fatal(err)
 			}
 			mutacion.mutar(t, servidor)
-			if err := ValidarServidorParaEscucha(servidor); !errors.Is(err, ErrTLSMutuoNoVerificado) {
+			if err := validarServidorInterno(servidor); !errors.Is(err, ErrTLSMutuoNoVerificado) {
 				t.Fatalf("mutacion aceptada: %v", err)
 			}
 		})
@@ -397,17 +382,12 @@ func TestSelloTLSDetectaSustitucionYConservaCopiasDefensivas(t *testing.T) {
 func TestServidorInternoRechazaMutacionesHTTP(t *testing.T) {
 	pruebas := []struct {
 		nombre string
-		mutar  func(*http.Server)
+		mutar  func(*ServidorInterno)
 	}{
-		{"Addr", func(s *http.Server) { s.Addr = "0.0.0.0:8443" }},
-		{"Handler", func(s *http.Server) { s.Handler = http.NotFoundHandler() }},
-		{"ReadHeaderTimeout", func(s *http.Server) { s.ReadHeaderTimeout = 0 }},
-		{"OPTIONS", func(s *http.Server) { s.DisableGeneralOptionsHandler = false }},
-		{"TLSNextProto", func(s *http.Server) { s.TLSNextProto = map[string]func(*http.Server, *tls.Conn, http.Handler){} }},
-		{"HTTP2 config", func(s *http.Server) { s.HTTP2 = &http.HTTP2Config{} }},
-		{"protocolos nil", func(s *http.Server) { s.Protocols = nil }},
-		{"HTTP2", func(s *http.Server) { s.Protocols.SetHTTP2(true) }},
-		{"h2c", func(s *http.Server) { s.Protocols.SetUnencryptedHTTP2(true) }},
+		{"direccion", func(s *ServidorInterno) { s.direccionEscucha = "0.0.0.0:8443" }},
+		{"manejador", func(s *ServidorInterno) { s.manejador = nil }},
+		{"timeout", func(s *ServidorInterno) { s.tiempoCabeceras = 0 }},
+		{"token", func(s *ServidorInterno) { s.token = &tokenServidorInterno{marca: 2} }},
 	}
 	for _, prueba := range pruebas {
 		t.Run(prueba.nombre, func(t *testing.T) {
@@ -417,10 +397,56 @@ func TestServidorInternoRechazaMutacionesHTTP(t *testing.T) {
 				t.Fatal(err)
 			}
 			prueba.mutar(servidor)
-			if err := ValidarServidorParaEscucha(servidor); !errors.Is(err, ErrServidorInternoInvalido) {
+			if err := validarServidorInterno(servidor); !errors.Is(err, ErrServidorInternoInvalido) {
 				t.Fatalf("mutacion aceptada: %v", err)
 			}
 		})
+	}
+}
+
+func TestServidorInternoNoExponeTransporteNiCampos(t *testing.T) {
+	tipoValor := reflect.TypeOf(ServidorInterno{})
+	for indice := range tipoValor.NumField() {
+		campo := tipoValor.Field(indice)
+		if campo.IsExported() || campo.Anonymous {
+			t.Fatalf("campo expuesto: %s", campo.Name)
+		}
+	}
+	tipoPuntero := reflect.TypeOf((*ServidorInterno)(nil))
+	for _, nombre := range []string{
+		"Serve", "ServeTLS", "ListenAndServe", "ListenAndServeTLS",
+		"Handler", "Listener", "TLSConfig", "GetCertificate", "GetClientCAs",
+	} {
+		if _, existe := tipoPuntero.MethodByName(nombre); existe {
+			t.Fatalf("metodo de transporte expuesto: %s", nombre)
+		}
+	}
+	if tipoPuntero.NumMethod() != 2 {
+		t.Fatalf("metodos publicos = %d; se esperaban EscucharYServir y Apagar", tipoPuntero.NumMethod())
+	}
+	if metodo, existe := tipoPuntero.MethodByName("EscucharYServir"); !existe || metodo.Type.NumIn() != 1 {
+		t.Fatal("EscucharYServir ausente o acepta parametros")
+	}
+	if _, existe := tipoPuntero.MethodByName("Apagar"); !existe {
+		t.Fatal("Apagar opaco ausente")
+	}
+}
+
+func TestServidorInternoConstruyeHTTPLocalCerrado(t *testing.T) {
+	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
+	servidor, err := construirServidorInternoPrueba(t, material.cfg, http.NotFoundHandler())
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := servidor.nuevoServidorHTTP()
+	if local == nil || local.Handler != servidor.manejador ||
+		!local.DisableGeneralOptionsHandler || local.TLSConfig == nil ||
+		local.TLSConfig == servidor.configuracionTLS || local.TLSNextProto != nil ||
+		local.HTTP2 != nil || local.Protocols == nil || !local.Protocols.HTTP1() ||
+		local.Protocols.HTTP2() || local.Protocols.UnencryptedHTTP2() ||
+		local.BaseContext == nil || local.ConnContext == nil || local.ConnState == nil ||
+		local.ErrorLog == nil {
+		t.Fatal("http.Server local no conserva el perfil cerrado")
 	}
 }
 
@@ -583,214 +609,52 @@ func TestServidorInternoNoReanudaSesionesTLS(t *testing.T) {
 	}
 }
 
-func iniciarServidorTLSPrueba(t *testing.T, servidor *http.Server) string {
+func iniciarServidorTLSPrueba(t *testing.T, servidor *ServidorInterno) string {
 	t.Helper()
-	servidor.ErrorLog = log.New(io.Discard, "", 0)
 	escucha, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
+	direccion := escucha.Addr().String()
+	if err := escucha.Close(); err != nil {
+		t.Fatal(err)
+	}
+	servidor.direccionEscucha = direccion
+	servidor.manejador.direccionEscucha = direccion
 	terminado := make(chan error, 1)
-	go func() { terminado <- servidor.ServeTLS(escucha, "", "") }()
-	t.Cleanup(func() { _ = servidor.Close(); <-terminado })
-	return escucha.Addr().String()
+	go func() { terminado <- servidor.EscucharYServir() }()
+	limite := time.Now().Add(2 * time.Second)
+	for {
+		servidor.ejecucion.mu.Lock()
+		activo := servidor.ejecucion.servidorActivo != nil
+		servidor.ejecucion.mu.Unlock()
+		if activo {
+			break
+		}
+		select {
+		case err := <-terminado:
+			t.Fatalf("escucha termino antes de arrancar: %v", err)
+		default:
+		}
+		if time.Now().After(limite) {
+			t.Fatal("escucha no arranco")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Cleanup(func() {
+		ctx, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancelar()
+		if err := servidor.Apagar(ctx); err != nil {
+			t.Errorf("cerrar servidor de prueba: %v", err)
+		}
+		select {
+		case err := <-terminado:
+			if err != nil {
+				t.Errorf("terminar servidor de prueba: %v", err)
+			}
+		case <-time.After(2 * time.Second):
+			t.Error("servidor de prueba no termino")
+		}
+	})
+	return direccion
 }
-
-func construirServidorInternoPrueba(
-	t *testing.T,
-	cfg Configuracion,
-	api http.Handler,
-) (*http.Server, error) {
-	t.Helper()
-	certPEM, err := os.ReadFile(cfg.CertificadoServidorTLS)
-	if err != nil {
-		return nil, ErrTLSMutuoNoVerificado
-	}
-	clavePEM, err := os.ReadFile(cfg.ClaveServidorTLS)
-	if err != nil {
-		return nil, ErrTLSMutuoNoVerificado
-	}
-	caPEM, err := os.ReadFile(cfg.AutoridadClientesTLS)
-	if err != nil {
-		return nil, ErrTLSMutuoNoVerificado
-	}
-	material, err := materializarTLS(cfg, certPEM, clavePEM, caPEM)
-	if err != nil {
-		return nil, err
-	}
-	return construirServidorInternoConMaterial(cfg, api, material)
-}
-
-type opcionesCertificadoServidor struct {
-	expirado, futuro, sinServerAuth, sinSAN, sanDNSAjeno, caComoHoja, sinRaiz, anclaIntermedia bool
-}
-
-type materialTLSMutuo struct {
-	cfg            Configuracion
-	cliente        tls.Certificate
-	raicesServidor *x509.CertPool
-	raicesClientes *x509.CertPool
-	caClientes     *x509.Certificate
-	configServidor *tls.Config
-}
-
-func materialTLSMutuoPrueba(t *testing.T, opciones opcionesCertificadoServidor) materialTLSMutuo {
-	t.Helper()
-	ahora := time.Now()
-	crearCA := func(serial int64, nombre string) (*x509.Certificate, ed25519.PrivateKey, []byte) {
-		publica, privada, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			t.Fatal(err)
-		}
-		plantilla := &x509.Certificate{SerialNumber: big.NewInt(serial), Subject: pkix.Name{CommonName: nombre}, NotBefore: ahora.Add(-time.Hour), NotAfter: ahora.Add(24 * time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageCRLSign}
-		der, err := x509.CreateCertificate(rand.Reader, plantilla, plantilla, publica, privada)
-		if err != nil {
-			t.Fatal(err)
-		}
-		certificado, err := x509.ParseCertificate(der)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return certificado, privada, der
-	}
-	caServidor, claveCAServidor, derCAServidor := crearCA(1, "CA servidor interna")
-	caClientes, claveCAClientes, derCAClientes := crearCA(2, "CA clientes interna")
-	emisorServidor, claveEmisorServidor, derEmisorServidor := caServidor, claveCAServidor, derCAServidor
-	if opciones.anclaIntermedia {
-		publica, privada, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			t.Fatal(err)
-		}
-		plantilla := &x509.Certificate{SerialNumber: big.NewInt(20), Subject: pkix.Name{CommonName: "CA intermedia servidor"}, NotBefore: ahora.Add(-time.Hour), NotAfter: ahora.Add(12 * time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageCRLSign}
-		der, err := x509.CreateCertificate(rand.Reader, plantilla, caServidor, publica, claveCAServidor)
-		if err != nil {
-			t.Fatal(err)
-		}
-		emisorServidor, err = x509.ParseCertificate(der)
-		if err != nil {
-			t.Fatal(err)
-		}
-		claveEmisorServidor, derEmisorServidor = privada, der
-	}
-
-	publicaServidor, claveServidor, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	noAntes, noDespues := ahora.Add(-time.Hour), ahora.Add(time.Hour)
-	if opciones.expirado {
-		noAntes, noDespues = ahora.Add(-2*time.Hour), ahora.Add(-time.Hour)
-	}
-	if opciones.futuro {
-		noAntes, noDespues = ahora.Add(time.Hour), ahora.Add(2*time.Hour)
-	}
-	plantillaServidor := &x509.Certificate{SerialNumber: big.NewInt(3), Subject: pkix.Name{CommonName: "servidor interno"}, NotBefore: noAntes, NotAfter: noDespues, KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, DNSNames: []string{"servidor.interna.test"}}
-	if opciones.sinServerAuth {
-		plantillaServidor.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
-	}
-	if opciones.sinSAN {
-		plantillaServidor.DNSNames = nil
-	}
-	if opciones.sanDNSAjeno {
-		plantillaServidor.DNSNames = []string{"ajeno.test"}
-	}
-	padre, clavePadre := emisorServidor, claveEmisorServidor
-	if opciones.caComoHoja {
-		plantillaServidor.IsCA = true
-		plantillaServidor.BasicConstraintsValid = true
-		plantillaServidor.KeyUsage |= x509.KeyUsageCertSign
-	}
-	derServidor, err := x509.CreateCertificate(rand.Reader, plantillaServidor, padre, publicaServidor, clavePadre)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	crearFinal := func(serial int64, nombre string, ca *x509.Certificate, claveCA ed25519.PrivateKey, derCA []byte) tls.Certificate {
-		publica, privada, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			t.Fatal(err)
-		}
-		plantilla := &x509.Certificate{SerialNumber: big.NewInt(serial), Subject: pkix.Name{CommonName: nombre}, NotBefore: ahora.Add(-time.Hour), NotAfter: ahora.Add(time.Hour), KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}
-		der, err := x509.CreateCertificate(rand.Reader, plantilla, ca, publica, claveCA)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return tls.Certificate{Certificate: [][]byte{der, derCA}, PrivateKey: privada}
-	}
-	cliente := crearFinal(4, "cliente interno", caClientes, claveCAClientes, derCAClientes)
-
-	directorio := t.TempDir()
-	cfg := configuracionInternaValidaPrueba()
-	cfg.DireccionEscucha = "127.0.0.1:8443"
-	cfg.RedesPermitidas = []string{"127.0.0.0/8"}
-	cfg.NombreServidorTLS = "servidor.interna.test"
-	cfg.CertificadoServidorTLS = filepath.Join(directorio, "servidor.crt")
-	cfg.ClaveServidorTLS = filepath.Join(directorio, "servidor.key")
-	cfg.AutoridadClientesTLS = filepath.Join(directorio, "clientes-ca.crt")
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derServidor})
-	if !opciones.sinRaiz {
-		certPEM = append(certPEM, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derEmisorServidor})...)
-	}
-	claveDER, err := x509.MarshalPKCS8PrivateKey(claveServidor)
-	if err != nil {
-		t.Fatal(err)
-	}
-	clavePEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: claveDER})
-	caPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derCAClientes})
-	if err := os.WriteFile(cfg.CertificadoServidorTLS, certPEM, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(cfg.ClaveServidorTLS, clavePEM, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(cfg.AutoridadClientesTLS, caPEM, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	raicesServidor := x509.NewCertPool()
-	raicesServidor.AddCert(caServidor)
-	raicesClientes := x509.NewCertPool()
-	raicesClientes.AddCert(caClientes)
-	parServidor, err := tls.X509KeyPair(certPEM, clavePEM)
-	if err != nil && !opciones.sinRaiz {
-		t.Fatal(err)
-	}
-	return materialTLSMutuo{
-		cfg: cfg, cliente: cliente, raicesServidor: raicesServidor, raicesClientes: raicesClientes, caClientes: caClientes,
-		configServidor: &tls.Config{Certificates: []tls.Certificate{parServidor}},
-	}
-}
-
-func (m materialTLSMutuo) configCliente(protocolos []string, conCertificado bool) *tls.Config {
-	cfg := &tls.Config{MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13, RootCAs: m.raicesServidor, ServerName: "servidor.interna.test", NextProtos: protocolos}
-	if conCertificado {
-		cfg.Certificates = []tls.Certificate{m.cliente}
-	}
-	return cfg
-}
-
-func estadoTLSMutuoValidoPrueba(t *testing.T, material materialTLSMutuo) *tls.ConnectionState {
-	t.Helper()
-	pares := make([]*x509.Certificate, len(material.cliente.Certificate))
-	for indice, der := range material.cliente.Certificate {
-		certificado, err := x509.ParseCertificate(der)
-		if err != nil {
-			t.Fatal(err)
-		}
-		pares[indice] = certificado
-	}
-	return &tls.ConnectionState{
-		Version:                    tls.VersionTLS13,
-		HandshakeComplete:          true,
-		CipherSuite:                tls.TLS_AES_128_GCM_SHA256,
-		CurveID:                    tls.X25519,
-		NegotiatedProtocol:         protocoloALPNHTTPUno,
-		NegotiatedProtocolIsMutual: true,
-		ServerName:                 "servidor.interna.test",
-		PeerCertificates:           pares,
-		VerifiedChains:             [][]*x509.Certificate{pares},
-	}
-}
-
-type manejadorPunteroPrueba struct{}
-
-func (*manejadorPunteroPrueba) ServeHTTP(http.ResponseWriter, *http.Request) {}

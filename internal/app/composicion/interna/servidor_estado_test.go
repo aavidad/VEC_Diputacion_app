@@ -41,7 +41,7 @@ func TestManejadorInternoRechazaEstadoTLSAusenteOIncoherente(t *testing.T) {
 			peticion.TLS = estadoTLSMutuoValidoPrueba(t, material)
 			prueba.mutar(peticion)
 			respuesta := httptest.NewRecorder()
-			servidor.Handler.ServeHTTP(respuesta, peticion)
+			servidor.manejador.ServeHTTP(respuesta, peticion)
 			if respuesta.Code != http.StatusBadRequest {
 				t.Fatalf("estado incoherente = %d", respuesta.Code)
 			}
@@ -59,7 +59,11 @@ func TestSNITLSCoherenteDistingueDNSDeIP(t *testing.T) {
 		valido            bool
 	}{
 		{"servidor.interna.test", "servidor.interna.test", true},
+		{"servidor.interna.test", "SeRvIdOr.InTeRnA.TeSt", true},
+		{"SERVIDOR.INTERNA.TEST", "servidor.interna.test", true},
 		{"servidor.interna.test", "", false},
+		{"servidor.interna.test", "servidor.interná.test", false},
+		{"servidor.interná.test", "servidor.interná.test", false},
 		{"127.0.0.1", "", true},
 		{"127.0.0.1", "127.0.0.1", false},
 		{"127.0.0.1", "ajeno.test", false},

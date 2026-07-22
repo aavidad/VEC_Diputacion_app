@@ -56,7 +56,7 @@ func TestConstruirServidorInternoCargaRealComoRuntimeNoPrivilegiado(t *testing.T
 	if err != nil || servidor == nil {
 		t.Fatalf("carga root:grupo-runtime 0440 = (%v, %v)", servidor, err)
 	}
-	if err := ValidarServidorParaEscucha(servidor); err != nil {
+	if err := validarServidorInterno(servidor); err != nil {
 		t.Fatalf("servidor cargado no conserva sello: %v", err)
 	}
 }

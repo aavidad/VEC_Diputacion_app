@@ -2,78 +2,109 @@ package main
 
 import (
 	"bytes"
-	"crypto/tls"
+	"context"
 	"errors"
 	"log"
-	"net/http"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-
-	"vec-diputacion-granada/internal/app/composicion/interna"
 )
 
-func TestValidarServidorParaEscuchaRechazaServidorIncompleto(t *testing.T) {
-	for _, prueba := range []struct {
-		nombre   string
-		servidor *http.Server
-		error    error
-	}{
-		{nombre: "nulo", servidor: nil, error: interna.ErrServidorInternoInvalido},
-		{nombre: "sin manejador", servidor: &http.Server{}, error: interna.ErrServidorInternoInvalido},
-		{
-			nombre: "TLS sin verificacion de cliente",
-			servidor: &http.Server{
-				Handler:   http.NotFoundHandler(),
-				TLSConfig: &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.NoClientCert},
-			},
-			error: interna.ErrTLSMutuoNoVerificado,
-		},
-	} {
-		t.Run(prueba.nombre, func(t *testing.T) {
-			if err := validarServidorParaEscucha(prueba.servidor); !errors.Is(err, prueba.error) {
-				t.Fatalf("error = %v; se esperaba %v", err, prueba.error)
+type servidorInternoFalso struct {
+	iniciado      chan struct{}
+	detener       chan struct{}
+	terminado     chan struct{}
+	errorEscucha  error
+	errorApagado  error
+	iniciarUnaVez sync.Once
+	detenerUnaVez sync.Once
+}
+
+func nuevoServidorInternoFalso() *servidorInternoFalso {
+	return &servidorInternoFalso{
+		iniciado:  make(chan struct{}),
+		detener:   make(chan struct{}),
+		terminado: make(chan struct{}),
+	}
+}
+
+func (s *servidorInternoFalso) EscucharYServir() error {
+	s.iniciarUnaVez.Do(func() { close(s.iniciado) })
+	defer close(s.terminado)
+	if s.errorEscucha != nil {
+		return s.errorEscucha
+	}
+	<-s.detener
+	return nil
+}
+
+func (s *servidorInternoFalso) Apagar(context.Context) error {
+	if s.errorApagado != nil {
+		return s.errorApagado
+	}
+	s.detenerUnaVez.Do(func() { close(s.detener) })
+	return nil
+}
+
+func TestServirHastaApagadoCancelaYEsperaEscucha(t *testing.T) {
+	for _, cancelarAntes := range []bool{true, false} {
+		t.Run(map[bool]string{true: "antes", false: "durante"}[cancelarAntes], func(t *testing.T) {
+			servidor := nuevoServidorInternoFalso()
+			ctx, cancelar := context.WithCancel(context.Background())
+			defer cancelar()
+			if cancelarAntes {
+				cancelar()
+			}
+			resultado := make(chan error, 1)
+			go func() { resultado <- servirHastaApagado(ctx, servidor) }()
+			if !cancelarAntes {
+				select {
+				case <-servidor.iniciado:
+				case <-time.After(time.Second):
+					t.Fatal("escucha falsa no arranco")
+				}
+				cancelar()
+			}
+			select {
+			case err := <-resultado:
+				if err != nil {
+					t.Fatalf("apagado = %v", err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("servirHastaApagado no termino")
+			}
+			select {
+			case <-servidor.terminado:
+			default:
+				t.Fatal("retorno antes de esperar goroutine de escucha")
 			}
 		})
 	}
 }
 
-func TestErrorLogHTTPEmiteSoloEvidenciaFijaConRateLimit(t *testing.T) {
-	const marcador = "MARCADOR_CRUDO_10.7.15.40:8443_handshake"
-	var salida bytes.Buffer
-	instante := time.Unix(100, 0)
-	escritor := nuevoEscritorEventosHTTPSaneados(&salida)
-	escritor.ahora = func() time.Time { return instante }
-	registro := log.New(escritor, "", 0)
-	registro.Printf("error desde %s: %s", marcador, errors.New(marcador))
-	registro.Printf("repetido %s", marcador)
-	if texto := salida.String(); texto != mensajeEventoHTTPSaneado || strings.Contains(texto, marcador) {
-		t.Fatalf("evidencia inicial = %q", texto)
-	}
-	instante = instante.Add(intervaloEventoHTTPSaneado)
-	registro.Printf("nuevo intervalo %s", marcador)
-	if texto := salida.String(); texto != mensajeEventoHTTPSaneado+mensajeEventoHTTPSaneado || strings.Contains(texto, marcador) {
-		t.Fatalf("evidencia tras intervalo = %q", texto)
-	}
-}
-
-func TestErrorLogHTTPSaneadoEsSeguroEnConcurrencia(t *testing.T) {
-	var salida bytes.Buffer
-	escritor := nuevoEscritorEventosHTTPSaneados(&salida)
-	escritor.ahora = func() time.Time { return time.Unix(100, 0) }
-	var grupo sync.WaitGroup
-	for indice := 0; indice < 32; indice++ {
-		grupo.Add(1)
-		go func() {
-			defer grupo.Done()
-			_, _ = escritor.Write([]byte("MARCADOR_CRUDO"))
-		}()
-	}
-	grupo.Wait()
-	if salida.String() != mensajeEventoHTTPSaneado {
-		t.Fatalf("evidencia concurrente = %q", salida.String())
-	}
+func TestServirHastaApagadoSaneaErrores(t *testing.T) {
+	const marcador = "MARCADOR_PRIVADO_10.7.15.40_/run/secrets"
+	t.Run("escucha", func(t *testing.T) {
+		servidor := nuevoServidorInternoFalso()
+		servidor.errorEscucha = errors.New(marcador)
+		err := servirHastaApagado(context.Background(), servidor)
+		if !errors.Is(err, errArranqueEscucha) || strings.Contains(err.Error(), marcador) {
+			t.Fatalf("error = %v", err)
+		}
+	})
+	t.Run("apagado", func(t *testing.T) {
+		servidor := nuevoServidorInternoFalso()
+		servidor.errorApagado = errors.New(marcador)
+		ctx, cancelar := context.WithCancel(context.Background())
+		cancelar()
+		err := servirHastaApagado(ctx, servidor)
+		if !errors.Is(err, errArranqueEscucha) || strings.Contains(err.Error(), marcador) {
+			t.Fatalf("error = %v", err)
+		}
+		servidor.detenerUnaVez.Do(func() { close(servidor.detener) })
+		<-servidor.terminado
+	})
 }
 
 func TestMensajesArranqueNoRegistranDireccionNiErrorCrudo(t *testing.T) {
