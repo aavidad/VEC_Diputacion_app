@@ -325,15 +325,6 @@ async function leerJSONCerrado(
   }
 }
 
-function normalizarBearer(token) {
-  if (token === undefined || token === null || token === "") return "";
-  if (typeof token !== "string" || token.length > 8192
-    || !/^[A-Za-z0-9._~+\/-]+=*$/.test(token)) {
-    throw new ErrorAPIBorradores("Credencial en memoria no válida.");
-  }
-  return `Bearer ${token}`;
-}
-
 function comprobarETagRespuesta(respuesta, resultado) {
   let etagCabecera;
   try {
@@ -415,23 +406,21 @@ function comprobarLocationCreacion(respuesta, resultado) {
 /**
  * Crea el cliente del puerto HTTP interno.
  *
- * La identidad principal procede del canal interno autenticado. El adaptador
- * opcional `obtenerBearer(signal)` se consulta para cada petición cuando está
- * configurado, bajo el mismo AbortSignal que Fetch y el lector incremental; su
- * resultado solo vive en la pila de esa llamada. Sin adaptador no se genera la
- * cabecera Authorization. Este módulo no conserva credenciales ni datos de
- * negocio en almacenamiento persistente del navegador.
+ * La identidad procede exclusivamente del canal interno autenticado. El
+ * contrato de configuración es cerrado y no admite proveedores de tokens,
+ * cookies ni cabeceras de identidad construidas por el navegador.
  */
-export function crearClienteBorradores({
-  fetchImpl = globalThis.fetch,
-  obtenerBearer = null,
-  HeadersImpl = globalThis.Headers,
-} = {}) {
+export function crearClienteBorradores(configuracion = {}) {
+  if (configuracion === null || typeof configuracion !== "object" || Array.isArray(configuracion)
+    || Object.keys(configuracion).some((campo) => !["fetchImpl", "HeadersImpl"].includes(campo))) {
+    throw new TypeError("configuración del cliente de borradores no válida");
+  }
+  const {
+    fetchImpl = globalThis.fetch,
+    HeadersImpl = globalThis.Headers,
+  } = configuracion;
   if (typeof fetchImpl !== "function") throw new TypeError("fetchImpl es obligatorio");
   if (typeof HeadersImpl !== "function") throw new TypeError("HeadersImpl es obligatorio");
-  if (obtenerBearer !== null && typeof obtenerBearer !== "function") {
-    throw new TypeError("obtenerBearer debe ser una función o null");
-  }
 
   async function ejecutar(
     ruta, opciones, estadosEsperados, validar, exigeETag = false, exigeLocationCreacion = false,
@@ -441,11 +430,6 @@ export function crearClienteBorradores({
     try {
       headers = new HeadersImpl(opciones.headers || {});
       headers.set("Accept", "application/json");
-      if (obtenerBearer !== null) {
-        const token = await ejecutarAbortable(() => obtenerBearer(signal), signal);
-        const autorizacion = normalizarBearer(token);
-        if (autorizacion) headers.set("Authorization", autorizacion);
-      }
     } catch (error) {
       if (error instanceof ErrorAPIBorradores) throw error;
       if (signal?.aborted) throw errorAborto(signal);

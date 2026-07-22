@@ -13,8 +13,6 @@ import { crearCoordinadorOperacionesBorradores } from "./portal-borradores-opera
 import { crearRenderizadorBorradores } from "./portal-borradores-vista.js";
 import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
 
-export const PROVEEDOR_BEARER_BORRADORES = "__VEC_PORTAL_EMPLEADO_OBTENER_BEARER_BORRADORES__";
-
 const FASE_INICIAL = "inicial";
 const FASE_CARGANDO = "cargando";
 const FASE_LISTA = "lista";
@@ -104,13 +102,12 @@ export function crearSuperficieBorradoresPortal({
   escaparHTML,
   anunciar,
   alCambiar,
-  resolverProveedorBearer,
   confirmar = (mensaje) => globalThis.confirm(mensaje),
   crearClienteImpl = crearClienteBorradores,
   generarClaveImpl = generarClaveIdempotencia,
   traducir = traducirPortal,
 } = {}) {
-  if ([escaparHTML, anunciar, alCambiar, resolverProveedorBearer, confirmar,
+  if ([escaparHTML, anunciar, alCambiar, confirmar,
     crearClienteImpl, generarClaveImpl, traducir]
     .some((dependencia) => typeof dependencia !== "function")) {
     throw new TypeError("dependencias de la superficie de borradores no válidas");
@@ -126,36 +123,9 @@ export function crearSuperficieBorradoresPortal({
     alCambiar();
   }
 
-  function resolverProveedorBearerValido() {
-    const proveedor = resolverProveedorBearer();
-    if (proveedor !== null && proveedor !== undefined && typeof proveedor !== "function") {
-      throw new ErrorAPIBorradores(
-        "El proveedor opcional de credencial para borradores no es válido.",
-        0,
-        undefined,
-        { codigo: "proveedor_bearer_no_valido" },
-      );
-    }
-    return proveedor ?? null;
-  }
-
   function clienteAutorizado() {
     if (cliente === null) {
-      const proveedor = resolverProveedorBearerValido();
-      cliente = crearClienteImpl({
-        obtenerBearer: proveedor === null ? null : (signal) => {
-          const proveedorActual = resolverProveedorBearerValido();
-          if (proveedorActual === null) {
-            throw new ErrorAPIBorradores(
-              "El proveedor opcional de credencial para borradores dejó de estar disponible.",
-              0,
-              undefined,
-              { codigo: "proveedor_bearer_no_disponible" },
-            );
-          }
-          return proveedorActual(signal);
-        },
-      });
+      cliente = crearClienteImpl();
     }
     return cliente;
   }

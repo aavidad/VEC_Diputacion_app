@@ -48,7 +48,7 @@ export function crearRenderizadorBorradores({
     if (estado.faseLista === FASE_CARGANDO || estado.faseLista === FASE_INICIAL) {
       return `
         <section class="panel borradores-cargando" role="status" aria-live="polite">
-          <div class="cuerpo-panel"><strong>Comprobando acceso y cargando borradores…</strong><p>La identidad procede del canal interno autenticado; la credencial Bearer en memoria es opcional. No se usan cookies ni almacenamiento local.</p></div>
+          <div class="cuerpo-panel"><strong>Comprobando acceso y cargando borradores…</strong><p>La identidad procede exclusivamente del canal interno autenticado. No se usan cookies, tokens ni almacenamiento local.</p></div>
         </section>`;
     }
     if (estado.faseLista === FASE_ERROR) {
@@ -390,7 +390,7 @@ export function crearRenderizadorBorradores({
         <div><p class="sobrelinea">Gestión interna de Bolsa</p><h2>Borradores de convocatorias</h2><p>Edición durable con catálogos versionados, control CAS, idempotencia y recibo de auditoría.</p></div>
         <div class="acciones-vista"><button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button></div>
       </header>
-      <section class="nota-seguridad" aria-label="Tratamiento del borrador">La identidad procede del canal interno autenticado. Si existe un proveedor Bearer, la credencial sólo vive en memoria. No se usan cookies, almacenamiento local ni datos de presentación para esta bandeja.</section>`;
+      <section class="nota-seguridad" aria-label="Tratamiento del borrador">La identidad procede exclusivamente del canal interno autenticado. No se usan cookies, tokens, almacenamiento local ni datos de presentación para esta bandeja.</section>`;
     const fuente = renderEstadoFuente();
     if (fuente) return `${cabecera}${fuente}`;
     return `${cabecera}<div class="espacio-borradores">${renderLista()}${renderEditor()}</div>`;

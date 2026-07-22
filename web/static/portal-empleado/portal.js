@@ -308,7 +308,6 @@ async function cargarFuenteDatos() {
         escaparHTML,
         anunciar,
         alCambiar: () => { if (estado.vista === "elaboracion") renderizar(); },
-        resolverProveedorBearer: () => null,
         confirmar: (mensaje) => window.confirm(mensaje),
         crearClienteImpl: () => moduloBorradores.crearClienteBorradoresPresentacion(),
       });
@@ -636,7 +635,6 @@ const superficieBorradores = crearSuperficieBorradoresPortal({
     if (estado.vista === "portal" || estado.vista === "elaboracion") renderizar();
     else actualizarNavegacionModulos();
   },
-  resolverProveedorBearer: () => null,
   confirmar: (mensaje) => window.confirm(mensaje),
 });
 

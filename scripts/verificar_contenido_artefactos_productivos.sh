@@ -144,8 +144,9 @@ verificar_locales_internos
 # ejemplo, abrir la consulta publica o verificar un recibo). Lo que no puede
 # hacer el cliente interno es consumir directamente la API anonima ni incluir
 # sus recursos: esto ultimo ya queda cerrado por el manifiesto exacto.
-if rg -n '/api/publico(?:/|[?"'"'"'])' "${temporal}/interno/web" >/dev/null; then
-	fallar "interno: el cliente intenta consumir directamente la API publica."
+if rg -ni '/api/publico(?:/|[?"'"'"'])|\bBearer\b|Authorization|document\.cookie|localStorage|sessionStorage|credentials[[:space:]]*:[[:space:]]*["'"'"'](?:include|same-origin)' \
+	"${temporal}/interno/web" >/dev/null; then
+	fallar "interno: el cliente incorpora credenciales de navegador, estado local o la API publica."
 fi
 
 printf 'Artefactos productivos publico e interno aislados y conformes con sus manifiestos.\n'
