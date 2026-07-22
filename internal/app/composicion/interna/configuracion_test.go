@@ -22,6 +22,7 @@ func configuracionInternaValidaPrueba() Configuracion {
 		CertificadoServidorTLS: "/run/secrets/vec-interno-servidor.crt",
 		ClaveServidorTLS:       "/run/secrets/vec-interno-servidor.key",
 		AutoridadClientesTLS:   "/run/secrets/vec-interno-clientes-ca.crt",
+		NombreServidorTLS:      "servidor.interna.test",
 		Audiencia:              "vec-interna",
 		EmisorIdentidad:        "https://identidad.mulhacen.test",
 		IdentidadesSANProxy:    []string{"dns:proxy-interno.mulhacen.test"},
@@ -45,7 +46,11 @@ func TestConfiguracionInternaRechazaLimitesInseguros(t *testing.T) {
 		{"sin identidad proxy", func(c *Configuracion) { c.IdentidadesSANProxy = nil }, ErrConfiguracionInternaInvalida},
 		{"sin certificado servidor", func(c *Configuracion) { c.CertificadoServidorTLS = "" }, ErrConfiguracionTLSIncompleta},
 		{"certificado relativo", func(c *Configuracion) { c.CertificadoServidorTLS = "certificados/servidor.crt" }, ErrConfiguracionTLSIncompleta},
+		{"certificado con control", func(c *Configuracion) { c.CertificadoServidorTLS = "/run/secrets/servidor\n.crt" }, ErrConfiguracionTLSIncompleta},
 		{"reutiliza clave como CA", func(c *Configuracion) { c.AutoridadClientesTLS = c.ClaveServidorTLS }, ErrConfiguracionTLSIncompleta},
+		{"sin nombre TLS servidor", func(c *Configuracion) { c.NombreServidorTLS = "" }, ErrConfiguracionTLSIncompleta},
+		{"nombre TLS hostil", func(c *Configuracion) { c.NombreServidorTLS = "servidor\n.test" }, ErrConfiguracionTLSIncompleta},
+		{"nombre TLS comodin", func(c *Configuracion) { c.NombreServidorTLS = "*.interna.test" }, ErrConfiguracionTLSIncompleta},
 		{"selector fake", func(c *Configuracion) { c.SelectorAutenticacionHeredado = config.AuthModeFake }, ErrSelectorHeredadoProhibido},
 		{"selector memoria", func(c *Configuracion) { c.SelectorAlmacenHeredado = config.StorageModeMemory }, ErrSelectorHeredadoProhibido},
 		{"selector desarrollo", func(c *Configuracion) { c.SelectorPerfilHeredado = config.ExecutionProfileDevelopment }, ErrSelectorHeredadoProhibido},
@@ -69,6 +74,7 @@ func TestCargarConfiguracionInternaUsaListaPositiva(t *testing.T) {
 		EnvCertificadoTLSInterno,
 		EnvClaveTLSInterna,
 		EnvAutoridadClientesTLS,
+		EnvNombreServidorTLS,
 		EnvAudienciaInterna,
 		EnvEmisorIdentidadInterna,
 		EnvHuellasProxyTLSInternas,
@@ -91,6 +97,7 @@ func TestCargarConfiguracionInternaUsaListaPositiva(t *testing.T) {
 	t.Setenv(EnvCertificadoTLSInterno, "/run/secrets/servidor.crt")
 	t.Setenv(EnvClaveTLSInterna, "/run/secrets/servidor.key")
 	t.Setenv(EnvAutoridadClientesTLS, "/run/secrets/clientes-ca.crt")
+	t.Setenv(EnvNombreServidorTLS, "servidor.interna.test")
 	t.Setenv(EnvAudienciaInterna, "vec-interna")
 	t.Setenv(EnvEmisorIdentidadInterna, "https://identidad.mulhacen.test")
 	t.Setenv(EnvIdentidadesSANProxy, "dns:proxy-interno.mulhacen.test")
@@ -186,9 +193,7 @@ func TestConfiguracionInternaNoReflejaValoresInvalidos(t *testing.T) {
 				t.Fatalf("NuevoServidor devolvio servidor para configuracion hostil")
 			}
 			comprobarErrorConfiguracionSaneado(t, err, prueba.errorEsperado, prueba.marcador)
-			servidor, err = construirServidorInterno(
-				cfg, http.NotFoundHandler(), configuracionTLSMutuoValidaPrueba(t),
-			)
+			servidor, err = construirServidorInterno(cfg, http.NotFoundHandler())
 			if servidor != nil {
 				t.Fatalf("constructor interno devolvio servidor para configuracion hostil")
 			}
