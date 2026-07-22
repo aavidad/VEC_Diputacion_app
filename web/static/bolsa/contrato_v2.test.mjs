@@ -14,8 +14,8 @@ const contrato = contexto.VECBolsaContratoV2;
 const HUELLA_A = "a".repeat(64);
 const HUELLA_B = "b".repeat(64);
 
-function snapshot(version = 1, huella_sha256 = HUELLA_A) {
-  return { referencia: "categorias-profesionales", version, huella_sha256 };
+function snapshot(version = 1, huella_sha256 = HUELLA_A, huella_proyeccion_sha256 = HUELLA_A) {
+  return { catalogo_id: "categorias-profesionales", version, huella_sha256, huella_proyeccion_sha256 };
 }
 
 function categoria(clave = "auxiliar-administrativo", version = 1, catalogo_categorias = snapshot(version)) {
@@ -121,17 +121,18 @@ test("V2 rechaza categorías vacías y límites técnicos excedidos", () => {
   }), /fuera de límites/);
 });
 
-test("V2 falla cerrado cuando la referencia, huella o versión no son coherentes con el snapshot", () => {
+test("V2 falla cerrado cuando catalogo_id, versión o cualquiera de las huellas no coinciden con el snapshot", () => {
   const base = {
     esquema: "vec.bolsa.publico.convocatorias.v2", facetas: { categorias: [categoria()] },
     diccionario_categorias: [categoria()],
     convocatorias: [{ identificador_publico: "historica-a", catalogo_categorias: snapshot(), categorias: [{ clave: "auxiliar-administrativo", version: 1 }] }],
   };
   for (const manipulacion of [
-    { referencia: "otro-catalogo", version: 1, huella_sha256: HUELLA_A },
+    { catalogo_id: "otro-catalogo", version: 1, huella_sha256: HUELLA_A, huella_proyeccion_sha256: HUELLA_A },
     snapshot(2, HUELLA_A),
     snapshot(1, HUELLA_B),
-    { referencia: "categorias-profesionales", version: 1, huella_sha256: "invalida" },
+    snapshot(1, HUELLA_A, HUELLA_B),
+    { catalogo_id: "categorias-profesionales", version: 1, huella_sha256: "invalida", huella_proyeccion_sha256: HUELLA_A },
   ]) {
     const datos = structuredClone(base);
     datos.convocatorias[0].catalogo_categorias = manipulacion;
@@ -139,37 +140,45 @@ test("V2 falla cerrado cuando la referencia, huella o versión no son coherentes
   }
 });
 
+test("V2 rechaza ausencia, mayúsculas o manipulación de las dos huellas del snapshot", () => {
+  for (const catalogo of [
+    { catalogo_id: "categorias-profesionales", version: 1, huella_proyeccion_sha256: HUELLA_B },
+    { catalogo_id: "categorias-profesionales", version: 1, huella_sha256: HUELLA_A },
+    snapshot(1, HUELLA_A.toUpperCase(), HUELLA_B),
+    snapshot(1, HUELLA_A, HUELLA_B.toUpperCase()),
+  ]) {
+    assert.throws(() => contrato.validarCatalogoCategorias(catalogo), /snapshot/);
+  }
+});
+
 test("V2 aplica patrón y fronteras exactas al snapshot de catálogo", () => {
   const referenciaMaxima = `a${"0._-".repeat(31)}xyz`;
   assert.equal(referenciaMaxima.length, 128);
   assert.doesNotThrow(() => contrato.validarCatalogoCategorias({
-    referencia: "a", version: 1, huella_sha256: HUELLA_A,
+    catalogo_id: "a", version: 1, huella_sha256: HUELLA_A, huella_proyeccion_sha256: HUELLA_B,
   }));
   assert.doesNotThrow(() => contrato.validarCatalogoCategorias({
-    referencia: referenciaMaxima, version: 2147483647, huella_sha256: HUELLA_B,
+    catalogo_id: referenciaMaxima, version: 2147483647, huella_sha256: HUELLA_B, huella_proyeccion_sha256: HUELLA_A,
   }));
 
-  for (const referencia of ["", "1catalogo", "Catalogo", "cat/privado", "categoría", `${referenciaMaxima}x`]) {
+  for (const catalogo_id of ["", "1catalogo", "Catalogo", "cat/privado", "categoría", `${referenciaMaxima}x`]) {
     assert.throws(() => contrato.validarCatalogoCategorias({
-      referencia, version: 1, huella_sha256: HUELLA_A,
+      catalogo_id, version: 1, huella_sha256: HUELLA_A, huella_proyeccion_sha256: HUELLA_B,
     }), /snapshot/);
   }
   for (const version of [0, 2147483648, 1.5, "1"]) {
     assert.throws(() => contrato.validarCatalogoCategorias({
-      referencia: "categorias-profesionales", version, huella_sha256: HUELLA_A,
+      catalogo_id: "categorias-profesionales", version, huella_sha256: HUELLA_A, huella_proyeccion_sha256: HUELLA_B,
     }), /snapshot/);
   }
 });
 
-test("V2 liga cada entrada a su versión y mantiene un snapshot único por versión", () => {
+test("V2 liga cada entrada al snapshot doblemente sellado y rechaza dos proyecciones para la misma huella gobernada", () => {
   assert.throws(() => contrato.crearDiccionario([
     categoria("auxiliar-administrativo", 1, snapshot(2, HUELLA_A)),
   ]), /ambiguo/);
 
-  const conflictos = [
-    { referencia: "otro-catalogo", version: 1, huella_sha256: HUELLA_A },
-    snapshot(1, HUELLA_B),
-  ];
+  const conflictos = [snapshot(1, HUELLA_A, HUELLA_B)];
   for (const catalogoConflicto of conflictos) {
     assert.throws(() => contrato.crearDiccionario([
       categoria("auxiliar-administrativo", 1, snapshot(1, HUELLA_A)),

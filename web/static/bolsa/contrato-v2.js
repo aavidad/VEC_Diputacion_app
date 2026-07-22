@@ -22,13 +22,18 @@
 
   function validarCatalogoCategorias(catalogo) {
     if (!catalogo || typeof catalogo !== "object" ||
-        typeof catalogo.referencia !== "string" || !PATRON_REFERENCIA_CATALOGO.test(catalogo.referencia) ||
+        typeof catalogo.catalogo_id !== "string" || !PATRON_REFERENCIA_CATALOGO.test(catalogo.catalogo_id) ||
         !Number.isSafeInteger(catalogo.version) || catalogo.version < 1 ||
         catalogo.version > MAXIMA_VERSION_CATALOGO ||
-        typeof catalogo.huella_sha256 !== "string" || !PATRON_HUELLA.test(catalogo.huella_sha256)) {
+        typeof catalogo.huella_sha256 !== "string" || !PATRON_HUELLA.test(catalogo.huella_sha256) ||
+        typeof catalogo.huella_proyeccion_sha256 !== "string" || !PATRON_HUELLA.test(catalogo.huella_proyeccion_sha256)) {
       throw new Error("snapshot de categorías inválido");
     }
-    return `${catalogo.referencia}:${catalogo.version}:${catalogo.huella_sha256}`;
+    return `${catalogo.catalogo_id}:${catalogo.version}:${catalogo.huella_sha256}:${catalogo.huella_proyeccion_sha256}`;
+  }
+
+  function claveHuellaGobernada(catalogo) {
+    return `${catalogo.catalogo_id}:${catalogo.version}:${catalogo.huella_sha256}`;
   }
 
   function crearDiccionario(entradas) {
@@ -36,20 +41,22 @@
       throw new Error("diccionario de categorías ausente o excesivo");
     }
     const porReferencia = new Map();
-    const snapshotPorVersion = new Map();
+    const proyeccionPorHuellaGobernada = new Map();
     entradas.forEach((entrada) => {
       const referencia = claveReferencia(entrada);
       const snapshot = validarCatalogoCategorias(entrada.catalogo_categorias);
-      const snapshotRegistrado = snapshotPorVersion.get(entrada.version);
+      const huellaGobernada = claveHuellaGobernada(entrada.catalogo_categorias);
+      const proyeccionRegistrada = proyeccionPorHuellaGobernada.get(huellaGobernada);
+      const clave = `${snapshot}:${referencia}`;
       if (entrada.version !== entrada.catalogo_categorias.version ||
-          (snapshotRegistrado !== undefined && snapshotRegistrado !== snapshot) ||
+          (proyeccionRegistrada !== undefined && proyeccionRegistrada !== snapshot) ||
           typeof entrada.etiqueta !== "string" || entrada.etiqueta.length === 0 ||
           typeof entrada.semantica !== "string" || entrada.semantica.length === 0 ||
-          porReferencia.has(referencia)) {
+          porReferencia.has(clave)) {
         throw new Error("diccionario de categorías ambiguo");
       }
-      snapshotPorVersion.set(entrada.version, snapshot);
-      porReferencia.set(referencia, { entrada, snapshot });
+      proyeccionPorHuellaGobernada.set(huellaGobernada, snapshot);
+      porReferencia.set(clave, { entrada, snapshot });
     });
     return porReferencia;
   }
@@ -61,9 +68,9 @@
     }
     const vistas = new Set();
     const resultado = referencias.map((referencia) => {
-      const clave = claveReferencia(referencia);
+      const clave = `${catalogoEsperado || ""}:${claveReferencia(referencia)}`;
       if (vistas.has(clave) || !diccionario.has(clave)) {
-        throw new Error("categoría desconocida o duplicada");
+        throw new Error("categoría desconocida, duplicada o incoherente con su snapshot");
       }
       vistas.add(clave);
       const registrada = diccionario.get(clave);

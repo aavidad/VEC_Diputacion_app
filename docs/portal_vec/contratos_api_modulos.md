@@ -602,14 +602,19 @@ exclusivamente el propio filtro de categoria.
 `publicada_en`, `actualizada_en`.
 
 Cada `ResumenConvocatoriaPublica` fija además `catalogo_categorias`:
-`{ "referencia", "version", "huella_sha256" }`. Cada entrada de
+`{ "catalogo_id", "version", "huella_sha256", "huella_proyeccion_sha256" }`.
+`catalogo_id` es la referencia exacta del catálogo; `huella_sha256` es la
+huella gobernada y `huella_proyeccion_sha256` la de la proyección pública.
+Ambas son SHA-256 en hexadecimal minúsculo. Cada entrada de
 `diccionario_categorias` es un `ValorCatalogoPublico` con ese mismo
-`catalogo_categorias`; se identifica de forma única por `version:clave` y puede
+`catalogo_categorias`; su identidad de resolución y de caché es
+`catalogo_id:version:huella_sha256:huella_proyeccion_sha256:clave` y puede
 repetir la misma `clave` en snapshots distintos. La aplicación resuelve las
 categorías de las tarjetas exclusivamente contra este diccionario histórico y
-comprueba que referencia, versión y huella coinciden con el snapshot declarado
-por su resumen. `facetas.categorias` es solamente el conjunto actual para el
-filtro y nunca se usa para reinterpretar una convocatoria histórica.
+falla cerrada si falta o cambia cualquiera de esos cuatro componentes, incluso
+si aparecen dos proyecciones para la misma referencia gobernada.
+`facetas.categorias` es solamente el conjunto actual para el filtro y nunca se
+usa para reinterpretar una convocatoria histórica.
 
 `PlazoPublico`: `referencia`, `tipo`, `titulo`, `descripcion?`, `abre_en`,
 `cierra_en`, `situacion` (`proximo`|`abierto`|`cerrado`), `etiqueta_situacion`,
