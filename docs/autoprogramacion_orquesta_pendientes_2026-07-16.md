@@ -559,6 +559,17 @@ y errores observables.
   un manifiesto común liga los 16 valores durables y evita que dos corpus
   autoconsistentes vuelvan a divergir silenciosamente. Esto no sustituye la
   composición E2E ni habilita producción.
+- `avance verificable 22/07/2026 — identidad/PDP V3`: ContextoActor V2,
+  resultado registrado, vínculo autenticación-actor V2 y solicitud ligada V3
+  quedan implantados sin modificar ni reinterpretar V1/V2. La función
+  PostgreSQL de acreditación relee el `rca_`, todas sus versiones, autoridad,
+  punteros y ventanas; su adaptador Go opera exclusivamente sobre la
+  transacción recibida y preserva `uint64` como `numeric`. La evaluación y la
+  decisión V3 sellan la instantánea RBAC/ABAC completa, pero `VigenteEn` falla
+  siempre cerrado: el documento evaluado no es una capacidad ejecutable. Los
+  commits `c7008cf`, `04784fa`, `d31c812`, `7d2351e`, `22379ca` y `61f3a6e`
+  acreditan estas piezas. Siguen en curso el servicio/registro confirmado V3,
+  la composición HTTP y T20E; por ello T20 permanece abierto.
 
 ### T21 — Perfil `desarrollo` con credenciales propias para desbloquear todo
 

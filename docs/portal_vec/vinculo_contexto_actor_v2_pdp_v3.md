@@ -1,8 +1,11 @@
 # Vínculo de ContextoActor V2 y autorización PDP V3
 
 **Fecha de decisión:** 21 de julio de 2026
-**Estado:** diseño aprobado para implementación; todavía no compuesto ni apto
-para datos personales reales.
+**Última revisión:** 22 de julio de 2026
+**Estado:** ContextoActor V2, resultado registrado, vínculo V2, solicitud V3,
+acreditación SQL/Go y documento de evaluación/decisión V3 implantados y
+probados por separado; todavía no compuestos ni aptos para datos personales
+reales.
 
 ## Problema que resuelve
 
@@ -38,9 +41,14 @@ La vía nueva será nominal y aditiva:
    `vec.autorizacion.solicitud.v3.efectiva-minimizada.actor-v2`;
 6. decisión
    `vec.autorizacion.decision.reforzada.v3.solicitud-ligada`;
-7. wrappers PostgreSQL de Bolsa que solo aceptan decisión V3.
+7. confirmación nominal de concesión creada únicamente por el registro durable;
+8. wrappers PostgreSQL de Bolsa que solo aceptan esa confirmación V3.
 
 No habrá conversión automática V1→V2 ni V2→V3.
+
+Los puntos 1 a 6 ya disponen de implementación. El punto 6 es deliberadamente
+un documento evaluado no ejecutable: su método de vigencia siempre falla
+cerrado. Los puntos 7 y 8, junto con la composición, continúan abiertos.
 
 ## Contenido mínimo del vínculo V2
 
@@ -113,6 +121,20 @@ mTLS/Kerberos
   -> relectura y verificación poscommit
   -> respuesta web y recibo
 ```
+
+## Semántica versionada del evaluador V3
+
+V3 no conserva el orden físico accidental de las políticas de V2. Ordena el
+catálogo por referencia, evalúa el conjunto completo y da precedencia a una
+política de denegación sobre una restricción incumplida. El resultado de acceso
+sigue siendo restrictivo en ambos casos, pero V3 produce código y evidencia
+deterministas. Esta diferencia es intencionada, queda ligada al nuevo esquema
+y no se aplica retroactivamente a decisiones históricas V1/V2.
+
+La evaluación por sí sola no prueba que el ContextoActor continúe vigente. El
+registro transaccional debe acreditar el resultado registrado completo antes y
+después de bloquear su propia instantánea y sólo entonces emitir la
+confirmación nominal ejecutable.
 
 ## Pruebas bloqueantes
 

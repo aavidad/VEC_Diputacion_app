@@ -3682,3 +3682,30 @@ cardinalidades, ventanas half-open, revocaciones, ACL, privilegios externos,
 idempotencia, reconciliación concurrente, `down`, carrera Go y la suite completa
 `go test ./...`. El diseño y las puertas del siguiente corte se detallan en
 `docs/portal_vec/vinculo_contexto_actor_v2_pdp_v3.md`.
+
+## DEC-102 — La evaluación PDP V3 no es una concesión ejecutable
+
+Fecha: 22 de julio de 2026. Estado: dominio implantado y revisado; registro y
+composición productivos todavía en curso.
+
+**Decisión.** `EvidenciaEvaluacionAutorizacionV3` y
+`DecisionAutorizacionLigadaV3` son documentos nominales opacos que comprometen
+la solicitud V3, el vínculo de actor V2 y la instantánea RBAC/ABAC completa.
+Una decisión evaluada en memoria no acredita el CAS ni el `COMMIT`: su consulta
+de vigencia falla siempre cerrado y ningún caso de uso puede consumirla como
+permiso. La única capacidad ejecutable futura será una confirmación nominal
+distinta, fabricada exclusivamente tras registrar la concesión y acreditar dos
+veces el `ResultadoContextoActorRegistradoV2` en la misma transacción.
+
+**Semántica V3.** Las políticas se ordenan por referencia y se evalúa el
+catálogo completo; cualquier política de denegación prevalece sobre una
+restricción incumplida. Se elimina así la dependencia del orden físico que
+conserva el evaluador histórico. No se reescriben decisiones V1/V2 ni se ofrece
+conversión entre esquemas.
+
+**Evidencia.** El vínculo, la solicitud, la decisión, su canon y la función y
+adaptador de acreditación están cubiertos por pruebas normales, de carrera,
+adulteración campo a campo, opacidad y PostgreSQL 18. Los commits relevantes
+son `04784fa`, `d31c812`, `7d2351e`, `22379ca` y `61f3a6e`. Este corte no declara
+T20E, UAT ni producción: faltan el servicio de registro V3, su confirmación
+durable, composición con Bolsa y las pruebas de reinicio/concurrencia globales.

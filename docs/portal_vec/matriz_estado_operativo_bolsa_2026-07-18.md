@@ -6,10 +6,10 @@ Esta matriz separa estados que no deben volver a contabilizarse como si fueran
 equivalentes. Una pantalla visible, un contrato probado, una prueba de
 PostgreSQL y una capacidad aceptada por RRHH son hitos distintos.
 
-El corte se revisa el 21 de julio de 2026 e incorpora los subtramos de identidad
-durable, lectura T20B y confirmación T20D que hayan superado revisión
-independiente. Un subtramo aislado no se contabiliza como E2E ni como capacidad
-productiva.
+El corte se revisa el 22 de julio de 2026 e incorpora los subtramos de identidad
+durable, vínculo de actor V2, evaluación PDP V3, lectura T20B y confirmación
+T20D que hayan superado revisión independiente. Un subtramo aislado no se
+contabiliza como E2E ni como capacidad productiva.
 
 ## Vocabulario de estado
 
@@ -31,7 +31,7 @@ validez administrativa; `🟡` parcial o probado de forma aislada; `🚧` en cur
 | --- | --- | --- | --- | --- | --- | --- |
 | Consulta pública | ✅ Servicio, minimización, filtros, API y catálogo | 🧪 Web → API → fuente de fichero DEMO | ✅ En `/bolsa/`, expresamente DEMO | ❌ | ❌ | Proyección durable de convocatorias aprobadas y publicador autorizado. |
 | Panel interno agregado | ✅ Dominio, aplicación, HTTP y lectura PostgreSQL | 🟡 PostgreSQL y HTTP probados por separado | 🧪 Solo presentación sintética | ❌ | ❌ | Componer identidad, PDP, productor de proyección y ruta interna. |
-| Bandeja y editor de borradores | 🚧 Web, HTTP, fachada, servicio, ContextoActor V2 durable, diario PostgreSQL, lectura V2 y confirmación KMS/recibo reales por piezas | ❌ T20 aún no completa identidad → vínculo actor V2 → PDP V3 → PostgreSQL/KMS → recibo | 🧪 Interfaz con datos de presentación | ❌ | ❌ | Implantar vínculo autenticación-actor V2, decisión PDP V3, opciones, composición y T20E; contexto, lectura y confirmación ya están cerrados de forma aislada. |
+| Bandeja y editor de borradores | 🚧 Web, HTTP, fachada, servicio, ContextoActor V2 durable, vínculo actor V2, solicitud/evaluación PDP V3, acreditación SQL/Go del contexto, diario PostgreSQL, lectura V2 y confirmación KMS/recibo reales por piezas | ❌ T20 aún no completa el registro confirmado PDP V3 ni identidad → PDP → PostgreSQL/KMS → recibo en una petición | 🧪 Interfaz con datos de presentación | ❌ | ❌ | Cerrar servicio y registro transaccional V3, composición y T20E; la evaluación en memoria es deliberadamente no ejecutable. |
 | Publicación, sustitución y retirada | 🟡 Dominio y contratos; fuera del cierre de T20 | ❌ | 🧪 Controles informativos | ❌ | ❌ | DEC-091: aprobación firmada, dependencias autoritativas y acto durable. |
 | Bases y reglas de baremo | ✅ Modelo versionado, topes, jornada, redondeo y cálculo; persistencia parcial | 🟡 Pruebas de núcleo/SQL, sin editor compuesto | 🧪 Pantalla y valores sintéticos | ❌ | ❌ | Fuente normativa autoritativa, editor RRHH, publicación y simulador conectados. |
 | Autobaremación del aspirante | 🟡 Flujo heredado `fake` y motor moderno aislado | 🟡 Recorrido heredado DEMO; no vertical moderna | 🧪 Sí, en modo heredado de demostración | ❌ | ❌ | Migrar a identidad, reglas publicadas, expediente, documentos y persistencia modernas. |
@@ -46,8 +46,8 @@ validez administrativa; `🟡` parcial o probado de forma aislada; `🚧` en cur
 
 | Capacidad transversal | Contrato/adaptador real | E2E técnico | Probable manualmente ahora | UAT/RRHH | Producción | Brecha principal |
 | --- | --- | --- | --- | --- | --- | --- |
-| Identidad y separación público/interno | ✅ Superficies separadas; T21 aporta mTLS 1.3 e identidad local de alta garantía; ContextoActor V2 registra cuenta, perfil, versiones y procedencia maestra | 🟡 mTLS y registro durable PostgreSQL 18 están probados por separado; aún no forman una petición completa de Bolsa | 🟡 Se puede arrancar el perfil de seguridad con material local; la ruta administrativa real sigue cerrada | ❌ | ❌ | Vínculo actor V2/PDP V3, certificado/Kerberos corporativos, ciclo de sesión y aprobación de Sistemas. |
-| Roles, RBAC/ABAC y PDP | ✅ Núcleo V2 y piezas PostgreSQL con pruebas | 🟡 Autorización aislada; no enlazada a todas las rutas de Bolsa | ❌ como administración real | ❌ | ❌ | Migrar evidencias V1 a V2, registrar denegaciones, publicar roles/asignaciones y componer. |
+| Identidad y separación público/interno | ✅ Superficies separadas; T21 aporta mTLS 1.3 e identidad local de alta garantía; ContextoActor V2 registra cuenta, perfil, versiones y procedencia maestra; vínculo actor V2 y acreditación transaccional están probados | 🟡 mTLS, registro y acreditación PostgreSQL 18 están probados por separado; aún no forman una petición completa de Bolsa | 🟡 Se puede arrancar el perfil de seguridad con material local; la ruta administrativa real sigue cerrada | ❌ | ❌ | Composición PDP V3, certificado/Kerberos corporativos, ciclo de sesión y aprobación de Sistemas. |
+| Roles, RBAC/ABAC y PDP | 🚧 Núcleo V2 congelado; solicitud, evidencia y decisión V3 nominales probadas y no ejecutables sin confirmación durable | 🟡 Autorización aislada; registro V3 y enlace a las rutas de Bolsa en curso | ❌ como administración real | ❌ | ❌ | Cerrar confirmación durable V3, publicar roles/asignaciones y componer sin degradación V1/V2. |
 | Auditoría, recibos y registro de accesos | ✅ CAS, huellas, outbox, recibos y auditoría en varias verticales | 🟡 Hay E2E parciales de DB, no un acto web unificado | 🧪 Cronología visual | ❌ | ❌ | T12 durabilidad probatoria y T13 accesos con finalidad; consulta y recuperación globales. |
 | Documentos, carga, almacén y antivirus | ✅ Puertos de cuarentena, S3 compatible, análisis y promoción; conectores/pruebas aislados | 🟡 Flujo documental técnico por piezas, no asociado E2E a Bolsa | ❌; la carga moderna falla cerrada | ❌ | ❌ | Composición PostgreSQL/S3, antivirus real, descarga autorizada, retención y recuperación. |
 | Firma, sello de tiempo, CSV/QR y cotejo | ✅ Contratos PAdES, TSA, custodia y cotejo; flujo de baremación avanzado | 🟡 Pruebas aisladas, no expediente web completo | ❌ desde la aplicación real | ❌ | ❌ | Conector Autofirma/portafirmas, política de firmas, registro, custodia y verificación pública. |
