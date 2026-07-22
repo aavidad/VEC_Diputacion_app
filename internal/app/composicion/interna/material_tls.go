@@ -42,7 +42,10 @@ func cargarMaterialTLS(cfg Configuracion) (materialTLSCargado, error) {
 	if err != nil {
 		return materialTLSCargado{}, ErrTLSMutuoNoVerificado
 	}
+	return materializarTLS(cfg, certPEM, clavePEM, caPEM)
+}
 
+func materializarTLS(cfg Configuracion, certPEM, clavePEM, caPEM []byte) (materialTLSCargado, error) {
 	// El fichero de servidor debe ser fullchain: hoja seguida por uno o mas
 	// emisores. El ultimo emisor aportado actua como ancla explicita y no tiene
 	// que ser una raiz autofirmada; asi se admite el fullchain operativo usual.
@@ -107,9 +110,18 @@ func leerFicheroTLSSeguro(ruta string, privado bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := validarDirectorioTLS(directorio); err != nil {
+		_ = syscall.Close(directorio)
+		return nil, err
+	}
 	for _, componente := range componentes[:len(componentes)-1] {
 		siguiente, err := syscall.Openat(directorio, componente, syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
 		if err != nil {
+			_ = syscall.Close(directorio)
+			return nil, err
+		}
+		if err := validarDirectorioTLS(siguiente); err != nil {
+			_ = syscall.Close(siguiente)
 			_ = syscall.Close(directorio)
 			return nil, err
 		}
@@ -149,6 +161,16 @@ func leerFicheroTLSSeguro(ruta string, privado bool) ([]byte, error) {
 		return nil, ErrTLSMutuoNoVerificado
 	}
 	return contenido, nil
+}
+
+func validarDirectorioTLS(fd int) error {
+	var informacion syscall.Stat_t
+	if err := syscall.Fstat(fd, &informacion); err != nil ||
+		informacion.Mode&syscall.S_IFMT != syscall.S_IFDIR || informacion.Uid != 0 ||
+		informacion.Mode&0o022 != 0 {
+		return ErrTLSMutuoNoVerificado
+	}
+	return nil
 }
 
 func grupoProceso(gid uint32) bool {

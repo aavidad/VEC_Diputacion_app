@@ -88,6 +88,23 @@ func construirServidorInterno(
 	if err != nil {
 		return nil, ErrTLSMutuoNoVerificado
 	}
+	return construirServidorInternoConMaterial(cfg, api, materialCargado)
+}
+
+func construirServidorInternoConMaterial(
+	cfg Configuracion,
+	api http.Handler,
+	materialCargado materialTLSCargado,
+) (*http.Server, error) {
+	if err := cfg.Validar(); err != nil {
+		return nil, err
+	}
+	if manejadorNulo(api) || esMuxPredeterminado(api) {
+		return nil, ErrAPIInternaNoDisponible
+	}
+	if err := validarTLSMutuo(materialCargado.configuracion); err != nil {
+		return nil, ErrTLSMutuoNoVerificado
+	}
 
 	servidorHTTP, err := server.NewHTTPServerInterno(config.Config{
 		Address:             cfg.DireccionEscucha,
