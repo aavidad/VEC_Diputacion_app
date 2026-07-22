@@ -20,15 +20,16 @@ import (
 func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 	dsn := os.Getenv("VEC_PRUEBA_BOLSA_PUBLICA_DSN")
 	dsnAdmin := os.Getenv("VEC_PRUEBA_BOLSA_PUBLICA_ADMIN_DSN")
+	dsnPublicador := os.Getenv("VEC_PRUEBA_BOLSA_PUBLICA_PUBLICADOR_DSN")
 	ancla := os.Getenv("VEC_PRUEBA_BOLSA_PUBLICA_MANIFIESTO_SHA256")
-	if dsn == "" || dsnAdmin == "" || ancla == "" {
+	if dsn == "" || dsnAdmin == "" || dsnPublicador == "" || ancla == "" {
 		t.Skip("integracion PostgreSQL no solicitada")
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancelar()
 	fuente, err := Abrir(
-		ctx, dsn, "categorias-profesionales", 1, strings.Repeat("a", 64),
-		"4125f5b5f12f3da31fff30aa699239592d02b01b1676e98d8fa1ab7beb30ad7d",
+		ctx, dsn, "categorias-profesionales", 2, strings.Repeat("b", 64),
+		"b661b37ca7323fa168734899038f8fa99cb77ff07d114e4a7d787d62b5d36593",
 		ancla,
 	)
 	if err != nil {
@@ -64,6 +65,18 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 	if pagina.ConteosCategorias["auxiliar-administrativo"].NumeroPlazosAbiertos != 1 {
 		t.Fatalf("faceta de plazos inesperada: %+v", pagina.ConteosCategorias)
 	}
+	archivo, err := fuente.BuscarPublicadas(ctx, puertosbolsa.FiltroConvocatoriasPublicas{
+		Instante: instante, Limite: 24,
+	})
+	if err != nil || archivo.Total != 2 || len(archivo.Convocatorias) != 2 {
+		t.Fatalf("archivo multiversión inesperado: total=%d filas=%d error=%v",
+			archivo.Total, len(archivo.Convocatorias), err)
+	}
+	historica, err := fuente.ObtenerPublicada(ctx, "auxiliares-2024")
+	if err != nil || historica.Convocatoria.DatosPublicos == nil ||
+		historica.Convocatoria.DatosPublicos.CatalogoCategorias.CatalogoVersion != 1 {
+		t.Fatalf("convocatoria histórica no resoluble: %+v, %v", historica, err)
+	}
 	detalle, err := fuente.ObtenerPublicada(ctx, "auxiliares-2026")
 	if err != nil || detalle.Convocatoria.ValidarPublicacion() != nil ||
 		len(detalle.Convocatoria.DatosPublicos.Documentos) != 1 {
@@ -92,8 +105,12 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 	}
 	defer admin.Close()
 
-	assertBloqueoPublicacionAcotado(t, ctx, fuente, admin, instante)
 	assertDerivaACLRechazada(t, ctx, fuente, admin, instante)
+	assertErroresPublicacionRedactados(t, ctx, admin, dsnPublicador)
+	fuenteB := assertPublicacionMVCCAtomica(
+		t, ctx, fuente, admin, dsnPublicador, dsn, instante,
+	)
+	defer fuenteB.Cerrar()
 
 	// Cualquier DML ajeno a la publicación atómica invalida el testigo. Todas
 	// las rutas fallan cerradas antes de devolver siquiera una faceta parcial.
@@ -105,13 +122,13 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 		t.Fatal(err)
 	}
 	operaciones := map[string]func() error{
-		"configuracion": func() error { return fuente.ValidarConfiguracionPublica(ctx, instante) },
-		"categorias":    func() error { _, err := fuente.ObtenerPublicadas(ctx, instante); return err },
+		"configuracion": func() error { return fuenteB.ValidarConfiguracionPublica(ctx, instante) },
+		"categorias":    func() error { _, err := fuenteB.ObtenerPublicadas(ctx, instante); return err },
 		"listado": func() error {
-			_, err := fuente.BuscarPublicadas(ctx, puertosbolsa.FiltroConvocatoriasPublicas{Instante: instante, Limite: 24})
+			_, err := fuenteB.BuscarPublicadas(ctx, puertosbolsa.FiltroConvocatoriasPublicas{Instante: instante, Limite: 24})
 			return err
 		},
-		"detalle": func() error { _, err := fuente.ObtenerPublicada(ctx, "auxiliares-2026"); return err },
+		"detalle": func() error { _, err := fuenteB.ObtenerPublicada(ctx, "auxiliares-2026"); return err },
 	}
 	for nombre, operar := range operaciones {
 		if err := operar(); !errors.Is(err, ErrDatosPostgreSQLPublicosNoConfiables) {
@@ -120,23 +137,54 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 	}
 }
 
-func assertBloqueoPublicacionAcotado(
+const marcadorPrivacidadPostgreSQL = "DNI-PRIVADO-C3-00000000T"
+
+func assertPublicacionMVCCAtomica(
 	t *testing.T,
 	ctx context.Context,
 	fuente *Fuente,
 	admin *pgxpool.Pool,
+	dsnPublicador string,
+	dsnLector string,
 	instante time.Time,
-) {
+) *Fuente {
 	t.Helper()
-	transaccion, err := admin.Begin(ctx)
+	txLectura, err := fuente.iniciarLectura(ctx, true)
 	if err != nil {
 		t.Fatal(err)
 	}
+	manifiestoB, _, err := fuente.leerManifiestoPublico(ctx, txLectura)
+	if err != nil {
+		_ = txLectura.Rollback(context.Background())
+		t.Fatalf("leer manifiesto A para calcular B: %v", err)
+	}
+	if err := txLectura.Commit(ctx); err != nil {
+		t.Fatalf("cerrar cálculo de manifiesto B: %v", err)
+	}
+	manifiestoB.Fuente.Revision = "revision-atomica-b"
+	anclaB, err := manifiestoB.HuellaSHA256()
+	if err != nil {
+		t.Fatalf("calcular ancla B: %v", err)
+	}
+	var payload string
+	if err := admin.QueryRow(ctx, `SELECT payload::text FROM public.proyeccion_publica_prueba`).Scan(&payload); err != nil {
+		t.Fatalf("leer fixture de publicación: %v", err)
+	}
+	publicador, err := pgx.Connect(ctx, dsnPublicador)
+	if err != nil {
+		t.Fatalf("abrir LOGIN publicador: %v", err)
+	}
+	defer publicador.Close(context.Background())
+	transaccion, err := publicador.Begin(ctx)
+	if err != nil {
+		t.Fatalf("iniciar publicación B: %v", err)
+	}
 	defer func() { _ = transaccion.Rollback(context.Background()) }()
-	if _, err := transaccion.Exec(ctx, `SELECT pg_catalog.pg_advisory_xact_lock(
-		pg_catalog.hashtextextended('vec_bolsa_publica:publicacion:v1', 0)
-	)`); err != nil {
-		t.Fatalf("tomar candado exclusivo de prueba: %v", err)
+	if _, err := transaccion.Exec(ctx, `
+		SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
+			jsonb_set($1::jsonb, '{fuente,revision}', to_jsonb($2::text)), $3
+		)`, payload, manifiestoB.Fuente.Revision, anclaB); err != nil {
+		t.Fatalf("ejecutar función publicadora B: %v", err)
 	}
 
 	const lectores = 8
@@ -147,36 +195,104 @@ func assertBloqueoPublicacionAcotado(
 		grupo.Add(1)
 		go func() {
 			defer grupo.Done()
-			ctxLectura, cancelar := context.WithTimeout(context.Background(), 7*time.Second)
+			ctxLectura, cancelar := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancelar()
-			_, err := fuente.BuscarPublicadas(ctxLectura, puertosbolsa.FiltroConvocatoriasPublicas{
+			pagina, err := fuente.BuscarPublicadas(ctxLectura, puertosbolsa.FiltroConvocatoriasPublicas{
 				Instante: instante, Limite: 24,
 			})
+			if err == nil && (pagina.Total != 2 || pagina.Fuente.Revision != "revision-001") {
+				err = errors.New("lector no observó A coherente durante publicación B")
+			}
 			errores <- err
 		}()
 	}
 	grupo.Wait()
 	close(errores)
 	for err := range errores {
-		if !errors.Is(err, ErrPostgreSQLPublicoNoDisponible) {
-			t.Fatalf("lector bloqueado no fallo por timeout acotado: %v", err)
+		if err != nil {
+			t.Fatalf("lector no sirvió A mientras B estaba sin confirmar: %v", err)
 		}
 	}
-	if transcurrido := time.Since(inicio); transcurrido > 6*time.Second {
-		t.Fatalf("los lectores acumularon espera excesiva: %s", transcurrido)
+	if transcurrido := time.Since(inicio); transcurrido > 2*time.Second {
+		t.Fatalf("los lectores esperaron al publicador: %s", transcurrido)
 	}
 	estadisticas := fuente.pool.Stat()
 	if estadisticas.AcquiredConns() != 0 || estadisticas.TotalConns() > 6 {
-		t.Fatalf("pool acumulado tras contention: adquiridas=%d totales=%d",
+		t.Fatalf("pool acumulado durante publicación: adquiridas=%d totales=%d",
 			estadisticas.AcquiredConns(), estadisticas.TotalConns())
 	}
-	if err := transaccion.Rollback(ctx); err != nil {
-		t.Fatalf("liberar candado de prueba: %v", err)
+	if err := transaccion.Commit(ctx); err != nil {
+		t.Fatalf("confirmar publicación B: %v", err)
 	}
-	if _, err := fuente.BuscarPublicadas(ctx, puertosbolsa.FiltroConvocatoriasPublicas{
-		Instante: instante, Limite: 24,
-	}); err != nil {
-		t.Fatalf("la lectura no se recupero tras liberar el candado: %v", err)
+	operacionesA := []func() error{
+		func() error { return fuente.ValidarConfiguracionPublica(ctx, instante) },
+		func() error { _, err := fuente.ObtenerPublicadas(ctx, instante); return err },
+		func() error {
+			_, err := fuente.BuscarPublicadas(ctx, puertosbolsa.FiltroConvocatoriasPublicas{
+				Instante: instante, Limite: 24,
+			})
+			return err
+		},
+		func() error { _, err := fuente.ObtenerPublicada(ctx, "auxiliares-2024"); return err },
+	}
+	for _, operar := range operacionesA {
+		if err := operar(); !errors.Is(err, ErrDatosPostgreSQLPublicosNoConfiables) {
+			t.Fatalf("fuente A no falló cerrada tras COMMIT B: %v", err)
+		}
+	}
+	fuenteB, err := Abrir(
+		ctx, dsnLector, "categorias-profesionales", 2, strings.Repeat("b", 64),
+		"b661b37ca7323fa168734899038f8fa99cb77ff07d114e4a7d787d62b5d36593",
+		anclaB,
+	)
+	if err != nil {
+		t.Fatalf("abrir fuente B: %v", err)
+	}
+	if err := fuenteB.ValidarConfiguracionPublica(ctx, instante); err != nil {
+		fuenteB.Cerrar()
+		t.Fatalf("validar fuente B: %v", err)
+	}
+	return fuenteB
+}
+
+func assertErroresPublicacionRedactados(
+	t *testing.T,
+	ctx context.Context,
+	admin *pgxpool.Pool,
+	dsnPublicador string,
+) {
+	t.Helper()
+	var payload string
+	if err := admin.QueryRow(ctx, `SELECT payload::text FROM public.proyeccion_publica_prueba`).Scan(&payload); err != nil {
+		t.Fatal(err)
+	}
+	publicador, err := pgx.Connect(ctx, dsnPublicador)
+	if err != nil {
+		t.Fatalf("abrir publicador para probar redacción: %v", err)
+	}
+	defer publicador.Close(context.Background())
+	var limiteParametros string
+	if err := publicador.QueryRow(ctx, `SHOW log_parameter_max_length_on_error`).Scan(&limiteParametros); err != nil || limiteParametros != "0" {
+		t.Fatalf("LOGIN publicador sin redacción de parámetros: %q, %v", limiteParametros, err)
+	}
+	casos := []string{
+		`SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
+			jsonb_set($1::jsonb, '{categorias,snapshots,0,categorias,0,vigente_desde}', to_jsonb($2::text)),
+			repeat('e', 64))`,
+		`SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
+			jsonb_set($1::jsonb, '{catalogos,0,referencia}', to_jsonb(($2::text || '@'))),
+			repeat('f', 64))`,
+	}
+	for _, consulta := range casos {
+		_, err := publicador.Exec(ctx, consulta, payload, marcadorPrivacidadPostgreSQL)
+		var postgres *pgconn.PgError
+		if !errors.As(err, &postgres) || postgres.Code != "22023" ||
+			postgres.Message != "publicacion rechazada: contenido invalido" ||
+			postgres.Detail != "" || postgres.Hint != "" ||
+			strings.Contains(err.Error(), marcadorPrivacidadPostgreSQL) ||
+			strings.Contains(postgres.Where, marcadorPrivacidadPostgreSQL) {
+			t.Fatalf("error de publicación no redactado: %#v, %v", postgres, err)
+		}
 	}
 }
 
@@ -207,8 +323,8 @@ func assertDerivaACLRechazada(
 	}
 	probar(
 		"grant directo en vista esperada",
-		"GRANT SELECT ON vec_bolsa_publica_lectura.fuente_publica_v1 TO "+pgx.Identifier{login}.Sanitize(),
-		"REVOKE SELECT ON vec_bolsa_publica_lectura.fuente_publica_v1 FROM "+pgx.Identifier{login}.Sanitize(),
+		"GRANT SELECT ON vec_bolsa_publica_lectura.fuente_publica_v2 TO "+pgx.Identifier{login}.Sanitize(),
+		"REVOKE SELECT ON vec_bolsa_publica_lectura.fuente_publica_v2 FROM "+pgx.Identifier{login}.Sanitize(),
 	)
 	probar(
 		"lectura directa de tabla base",
@@ -260,7 +376,7 @@ func assertACLNegativas(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	t.Helper()
 	for nombre, consulta := range map[string]string{
 		"tabla base":      "SELECT count(*) FROM vec_bolsa_publica_datos.convocatoria_publica",
-		"escritura vista": "DELETE FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v1",
+		"escritura vista": "DELETE FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v2",
 		"creacion":        "CREATE TABLE public.intrusion_vec_bolsa_publica(id integer)",
 		"tabla temporal":  "CREATE TEMP TABLE intrusion_vec_bolsa_publica(id integer)",
 	} {
@@ -275,37 +391,40 @@ func assertACLNegativas(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 func assertColumnasVistas(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	t.Helper()
 	esperadas := map[string][]string{
-		"fuente_publica_v1": {"actualizada_en", "control_id", "manifiesto_sha256", "revision"},
-		"entradas_catalogos_publicos_v1": {
+		"fuente_publica_v2": {"actualizada_en", "control_id", "manifiesto_sha256", "revision"},
+		"entradas_catalogos_publicos_v2": {
 			"clave", "descripcion", "etiqueta", "orden", "publicable", "referencia", "semantica", "version",
 		},
-		"catalogos_categorias_publicos_v1": {
-			"actualizada_en", "catalogo_id", "huella_gobernada_sha256",
+		"catalogos_categorias_publicos_v2": {
+			"actual", "actualizada_en", "catalogo_id", "huella_gobernada_sha256",
 			"huella_proyeccion_publica_sha256", "revision", "version",
 		},
-		"categorias_publicas_v1": {
+		"categorias_publicas_v2": {
 			"area", "area_etiqueta", "catalogo_id", "clave", "descripcion", "etiqueta", "orden",
 			"semantica", "suscribible", "version", "vigente_desde", "vigente_hasta",
 		},
-		"convocatorias_publicadas_v1": {
-			"actualizada_en", "catalogo_categorias_huella_sha256", "catalogo_categorias_id",
+		"convocatorias_publicadas_v2": {
+			"actualizada_en", "catalogo_categorias_huella_proyeccion_sha256",
+			"catalogo_categorias_huella_sha256", "catalogo_categorias_id",
 			"catalogo_categorias_version", "descripcion", "estado", "huella_publica_sha256",
 			"huella_resumen_publico_sha256",
 			"identificador_publico", "publicada_en", "resumen", "tipo", "titulo", "version_publica",
 			"busqueda",
 		},
-		"categorias_convocatorias_publicas_v1": {"categoria_clave", "identificador_publico"},
-		"plazos_convocatorias_publicas_v1": {
+		"categorias_convocatorias_publicas_v2": {
+			"catalogo_id", "catalogo_version", "categoria_clave", "identificador_publico",
+		},
+		"plazos_convocatorias_publicas_v2": {
 			"abre_en", "cierra_en", "descripcion", "identificador_publico", "referencia", "tipo", "titulo",
 		},
-		"requisitos_convocatorias_publicas_v1": {
+		"requisitos_convocatorias_publicas_v2": {
 			"descripcion", "identificador_publico", "obligatorio", "orden", "referencia", "titulo",
 		},
-		"documentos_convocatorias_publicas_v1": {
+		"documentos_convocatorias_publicas_v2": {
 			"descripcion", "formato", "identificador_publico", "orden", "publicado_en", "referencia",
 			"tipo", "titulo", "url",
 		},
-		"ayuda_convocatorias_publicas_v1": {
+		"ayuda_convocatorias_publicas_v2": {
 			"categoria", "identificador_publico", "orden", "pregunta", "referencia", "respuesta",
 		},
 	}

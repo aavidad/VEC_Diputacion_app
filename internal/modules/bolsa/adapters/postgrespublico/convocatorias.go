@@ -16,7 +16,7 @@ const predicadoFiltroConvocatorias = `
    AND ($3::text = '' OR convocatoria.estado = $3)
    AND (NOT $4::boolean OR EXISTS (
        SELECT 1
-         FROM vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v1 AS plazo
+         FROM vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v2 AS plazo
         WHERE plazo.identificador_publico = convocatoria.identificador_publico
           AND plazo.abre_en <= $5
           AND $5 <= plazo.cierra_en
@@ -53,19 +53,20 @@ func leerResumenesConvocatorias(
 		       convocatoria.catalogo_categorias_id,
 		       convocatoria.catalogo_categorias_version,
 		       convocatoria.catalogo_categorias_huella_sha256,
+		       convocatoria.catalogo_categorias_huella_proyeccion_sha256,
 		       convocatoria.huella_publica_sha256,
 		       convocatoria.titulo, convocatoria.resumen,
 		       convocatoria.publicada_en, convocatoria.actualizada_en,
 		       (SELECT count(*)::integer
-		          FROM vec_bolsa_publica_lectura.requisitos_convocatorias_publicas_v1 AS requisito
+		          FROM vec_bolsa_publica_lectura.requisitos_convocatorias_publicas_v2 AS requisito
 		         WHERE requisito.identificador_publico = convocatoria.identificador_publico),
 		       (SELECT count(*)::integer
-		          FROM vec_bolsa_publica_lectura.documentos_convocatorias_publicas_v1 AS documento
+		          FROM vec_bolsa_publica_lectura.documentos_convocatorias_publicas_v2 AS documento
 		         WHERE documento.identificador_publico = convocatoria.identificador_publico),
 		       (SELECT count(*)::integer
-		          FROM vec_bolsa_publica_lectura.ayuda_convocatorias_publicas_v1 AS ayuda
+		          FROM vec_bolsa_publica_lectura.ayuda_convocatorias_publicas_v2 AS ayuda
 		         WHERE ayuda.identificador_publico = convocatoria.identificador_publico)
-		  FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v1 AS convocatoria
+		  FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v2 AS convocatoria
 		 WHERE convocatoria.identificador_publico = ANY($1::text[])
 	 ORDER BY convocatoria.identificador_publico`, identificadores)
 	if err != nil {
@@ -78,7 +79,9 @@ func leerResumenesConvocatorias(
 		if err := filas.Scan(
 			&convocatoria.Version, &estado, &datos.IdentificadorPublico, &datos.Tipo,
 			&datos.CatalogoCategorias.CatalogoID, &datos.CatalogoCategorias.CatalogoVersion,
-			&datos.CatalogoCategorias.CatalogoHuellaSHA256, &convocatoria.HuellaSHA256,
+			&datos.CatalogoCategorias.CatalogoHuellaSHA256,
+			&datos.CatalogoCategorias.CatalogoHuellaProyeccionSHA256,
+			&convocatoria.HuellaSHA256,
 			&datos.Titulo, &datos.Resumen, &datos.PublicadaEn, &datos.ActualizadaEn,
 			&convocatoria.NumeroRequisitos, &convocatoria.NumeroDocumentos,
 			&convocatoria.NumeroAyudas,
@@ -126,7 +129,7 @@ func leerCategoriasResumenesLote(
 ) error {
 	filas, err := tx.Query(ctx, `
 		SELECT identificador_publico, categoria_clave
-		  FROM vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v2
 		 WHERE identificador_publico = ANY($1::text[])
 	 ORDER BY identificador_publico, categoria_clave
 		 LIMIT $2`, ids, len(ids)*(maximoCategoriasPorConvocatoria+1))
@@ -158,7 +161,7 @@ func leerPlazosResumenesLote(
 ) error {
 	filas, err := tx.Query(ctx, `
 		SELECT identificador_publico, referencia, tipo, titulo, descripcion, abre_en, cierra_en
-		  FROM vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v2
 		 WHERE identificador_publico = ANY($1::text[])
 	 ORDER BY identificador_publico, referencia
 		 LIMIT $2`, ids, len(ids)*(maximoPlazosPorConvocatoria+1))
@@ -197,13 +200,25 @@ func buscarReferencias(
 	var total int
 	err := tx.QueryRow(ctx, `
 		SELECT count(*)::integer
-		  FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v1 AS convocatoria
+		  FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v2 AS convocatoria
 		 WHERE `+predicadoFiltroConvocatorias+`
 		   AND ($6::text = '' OR EXISTS (
 		       SELECT 1
-		         FROM vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v1 AS categoria
-		        WHERE categoria.identificador_publico = convocatoria.identificador_publico
-		          AND categoria.categoria_clave = $6
+		         FROM vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v2 AS vinculo
+		         JOIN vec_bolsa_publica_lectura.catalogos_categorias_publicos_v2 AS catalogo
+		           ON catalogo.actual
+		          AND catalogo.catalogo_id = vinculo.catalogo_id
+		          AND catalogo.version = vinculo.catalogo_version
+		         JOIN vec_bolsa_publica_lectura.categorias_publicas_v2 AS categoria
+		           ON categoria.catalogo_id = vinculo.catalogo_id
+		          AND categoria.version = vinculo.catalogo_version
+		          AND categoria.clave = vinculo.categoria_clave
+		        WHERE vinculo.identificador_publico = convocatoria.identificador_publico
+		          AND vinculo.catalogo_id = convocatoria.catalogo_categorias_id
+		          AND vinculo.catalogo_version = convocatoria.catalogo_categorias_version
+		          AND categoria.clave = $6
+		          AND categoria.vigente_desde <= $5
+		          AND (categoria.vigente_hasta IS NULL OR $5 < categoria.vigente_hasta)
 		   ))`, append(argumentos, filtro.Categoria)...,
 	).Scan(&total)
 	if err != nil {
@@ -211,13 +226,25 @@ func buscarReferencias(
 	}
 	filas, err := tx.Query(ctx, `
 		SELECT convocatoria.identificador_publico
-		  FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v1 AS convocatoria
+		  FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v2 AS convocatoria
 		 WHERE `+predicadoFiltroConvocatorias+`
 		   AND ($6::text = '' OR EXISTS (
 		       SELECT 1
-		         FROM vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v1 AS categoria
-		        WHERE categoria.identificador_publico = convocatoria.identificador_publico
-		          AND categoria.categoria_clave = $6
+		         FROM vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v2 AS vinculo
+		         JOIN vec_bolsa_publica_lectura.catalogos_categorias_publicos_v2 AS catalogo
+		           ON catalogo.actual
+		          AND catalogo.catalogo_id = vinculo.catalogo_id
+		          AND catalogo.version = vinculo.catalogo_version
+		         JOIN vec_bolsa_publica_lectura.categorias_publicas_v2 AS categoria
+		           ON categoria.catalogo_id = vinculo.catalogo_id
+		          AND categoria.version = vinculo.catalogo_version
+		          AND categoria.clave = vinculo.categoria_clave
+		        WHERE vinculo.identificador_publico = convocatoria.identificador_publico
+		          AND vinculo.catalogo_id = convocatoria.catalogo_categorias_id
+		          AND vinculo.catalogo_version = convocatoria.catalogo_categorias_version
+		          AND categoria.clave = $6
+		          AND categoria.vigente_desde <= $5
+		          AND (categoria.vigente_hasta IS NULL OR $5 < categoria.vigente_hasta)
 		   ))
 	 ORDER BY convocatoria.actualizada_en DESC, convocatoria.identificador_publico
 	 LIMIT $7 OFFSET $8`, append(argumentos, filtro.Categoria, filtro.Limite, filtro.Desplazamiento)...,
@@ -246,21 +273,33 @@ func leerConteosCategorias(
 	filtro puertosbolsa.FiltroConvocatoriasPublicas,
 ) (map[string]puertosbolsa.ConteoCategoriaConvocatorias, error) {
 	filas, err := tx.Query(ctx, `
-		SELECT categoria.categoria_clave,
+		SELECT categoria.clave,
 		       count(*)::integer,
 		       COALESCE(sum((
 		           SELECT count(*)
-		             FROM vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v1 AS plazo_abierto
+		             FROM vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v2 AS plazo_abierto
 		            WHERE plazo_abierto.identificador_publico = convocatoria.identificador_publico
 		              AND plazo_abierto.abre_en <= $5
 		              AND $5 <= plazo_abierto.cierra_en
 		       )), 0)::integer
-		  FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v1 AS convocatoria
-		  JOIN vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v1 AS categoria
-		    ON categoria.identificador_publico = convocatoria.identificador_publico
+		  FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v2 AS convocatoria
+		  JOIN vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v2 AS vinculo
+		    ON vinculo.identificador_publico = convocatoria.identificador_publico
+		   AND vinculo.catalogo_id = convocatoria.catalogo_categorias_id
+		   AND vinculo.catalogo_version = convocatoria.catalogo_categorias_version
+		  JOIN vec_bolsa_publica_lectura.catalogos_categorias_publicos_v2 AS catalogo
+		    ON catalogo.actual
+		   AND catalogo.catalogo_id = vinculo.catalogo_id
+		   AND catalogo.version = vinculo.catalogo_version
+		  JOIN vec_bolsa_publica_lectura.categorias_publicas_v2 AS categoria
+		    ON categoria.catalogo_id = vinculo.catalogo_id
+		   AND categoria.version = vinculo.catalogo_version
+		   AND categoria.clave = vinculo.categoria_clave
 		 WHERE `+predicadoFiltroConvocatorias+`
-	 GROUP BY categoria.categoria_clave
-	 ORDER BY categoria.categoria_clave
+		   AND categoria.vigente_desde <= $5
+		   AND (categoria.vigente_hasta IS NULL OR $5 < categoria.vigente_hasta)
+	 GROUP BY categoria.clave
+	 ORDER BY categoria.clave
 	 LIMIT 1025`,
 		filtro.Texto, filtro.Tipo, filtro.Estado, filtro.SoloPlazoAbierto, filtro.Instante,
 	)
@@ -280,7 +319,7 @@ func leerConteosCategorias(
 	if err := filas.Err(); err != nil {
 		return nil, errorPostgreSQLPublico(ctx, err)
 	}
-	if len(resultado) > maximoCategoriasPorConvocatoria {
+	if len(resultado) > maximoCategoriasPublicas {
 		return nil, ErrDatosPostgreSQLPublicosNoConfiables
 	}
 	return resultado, nil
@@ -321,10 +360,12 @@ func leerConvocatorias(
 	filas, err := tx.Query(ctx, `
 		SELECT version_publica, estado, identificador_publico, tipo,
 		       catalogo_categorias_id, catalogo_categorias_version,
-		       catalogo_categorias_huella_sha256, huella_publica_sha256,
+		       catalogo_categorias_huella_sha256,
+		       catalogo_categorias_huella_proyeccion_sha256,
+		       huella_publica_sha256,
 		       titulo, resumen, descripcion,
 		       publicada_en, actualizada_en
-		  FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v1
+		  FROM vec_bolsa_publica_lectura.convocatorias_publicadas_v2
 		 WHERE identificador_publico = ANY($1::text[])
 	 ORDER BY identificador_publico`, identificadores)
 	if err != nil {
@@ -338,7 +379,9 @@ func leerConvocatorias(
 			&convocatoria.Version, &estado, &datos.IdentificadorPublico,
 			&datos.Tipo, &datos.CatalogoCategorias.CatalogoID,
 			&datos.CatalogoCategorias.CatalogoVersion,
-			&datos.CatalogoCategorias.CatalogoHuellaSHA256, &convocatoria.HuellaSHA256,
+			&datos.CatalogoCategorias.CatalogoHuellaSHA256,
+			&datos.CatalogoCategorias.CatalogoHuellaProyeccionSHA256,
+			&convocatoria.HuellaSHA256,
 			&datos.Titulo, &datos.Resumen,
 			&datos.Descripcion, &datos.PublicadaEn, &datos.ActualizadaEn,
 		); err != nil {
@@ -382,7 +425,7 @@ func leerConvocatorias(
 		return nil, err
 	}
 	for _, convocatoria := range resultado {
-		huella, err := canonicopublico.HuellaConvocatoriaV1(convocatoria)
+		huella, err := canonicopublico.HuellaConvocatoriaV2(convocatoria)
 		if err != nil || !huellasIguales(huella, convocatoria.HuellaSHA256) {
 			return nil, ErrDatosPostgreSQLPublicosNoConfiables
 		}
@@ -396,7 +439,7 @@ func leerCategoriasConvocatoriasLote(
 ) error {
 	filas, err := tx.Query(ctx, `
 		SELECT identificador_publico, categoria_clave
-		  FROM vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v2
 		 WHERE identificador_publico = ANY($1::text[])
 	 ORDER BY identificador_publico, categoria_clave
 	 LIMIT $2`, ids, len(ids)*(maximoCategoriasPorConvocatoria+1))
@@ -428,7 +471,7 @@ func leerPlazosConvocatoriasLote(
 ) error {
 	filas, err := tx.Query(ctx, `
 		SELECT identificador_publico, referencia, tipo, titulo, descripcion, abre_en, cierra_en
-		  FROM vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v2
 		 WHERE identificador_publico = ANY($1::text[])
 	 ORDER BY identificador_publico, referencia
 	 LIMIT $2`, ids, len(ids)*(maximoPlazosPorConvocatoria+1))
@@ -462,7 +505,7 @@ func leerRequisitosConvocatoriasLote(
 ) error {
 	filas, err := tx.Query(ctx, `
 		SELECT identificador_publico, referencia, orden, titulo, descripcion, obligatorio
-		  FROM vec_bolsa_publica_lectura.requisitos_convocatorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.requisitos_convocatorias_publicas_v2
 		 WHERE identificador_publico = ANY($1::text[])
 	 ORDER BY identificador_publico, orden, referencia
 	 LIMIT $2`, ids, len(ids)*(maximoRequisitosPorConvocatoria+1))
@@ -496,7 +539,7 @@ func leerDocumentosConvocatoriasLote(
 	filas, err := tx.Query(ctx, `
 		SELECT identificador_publico, referencia, tipo, orden, titulo, descripcion,
 		       formato, url, publicado_en
-		  FROM vec_bolsa_publica_lectura.documentos_convocatorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.documentos_convocatorias_publicas_v2
 		 WHERE identificador_publico = ANY($1::text[])
 	 ORDER BY identificador_publico, orden, referencia
 	 LIMIT $2`, ids, len(ids)*(maximoDocumentosPorConvocatoria+1))
@@ -534,7 +577,7 @@ func leerAyudaConvocatoriasLote(
 ) error {
 	filas, err := tx.Query(ctx, `
 		SELECT identificador_publico, referencia, categoria, orden, pregunta, respuesta
-		  FROM vec_bolsa_publica_lectura.ayuda_convocatorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.ayuda_convocatorias_publicas_v2
 		 WHERE identificador_publico = ANY($1::text[])
 	 ORDER BY identificador_publico, orden, referencia
 	 LIMIT $2`, ids, len(ids)*(maximoAyudasPorConvocatoria+1))
@@ -571,7 +614,7 @@ func errorFilasPublicas(ctx context.Context, filas pgx.Rows) error {
 func leerCategoriasConvocatoria(ctx context.Context, tx pgx.Tx, identificador string) ([]string, error) {
 	filas, err := tx.Query(ctx, `
 		SELECT categoria_clave
-		  FROM vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.categorias_convocatorias_publicas_v2
 		 WHERE identificador_publico = $1
 	 ORDER BY categoria_clave
 	 LIMIT 1025`, identificador)
@@ -599,7 +642,7 @@ func leerCategoriasConvocatoria(ctx context.Context, tx pgx.Tx, identificador st
 func leerPlazosConvocatoria(ctx context.Context, tx pgx.Tx, identificador string) ([]dominiobolsa.PlazoConvocatoria, error) {
 	filas, err := tx.Query(ctx, `
 		SELECT referencia, tipo, titulo, descripcion, abre_en, cierra_en
-		  FROM vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.plazos_convocatorias_publicas_v2
 		 WHERE identificador_publico = $1
 	 ORDER BY referencia
 	 LIMIT 65`, identificador)
@@ -628,7 +671,7 @@ func leerPlazosConvocatoria(ctx context.Context, tx pgx.Tx, identificador string
 func leerRequisitosConvocatoria(ctx context.Context, tx pgx.Tx, identificador string) ([]dominiobolsa.RequisitoConvocatoria, error) {
 	filas, err := tx.Query(ctx, `
 		SELECT referencia, orden, titulo, descripcion, obligatorio
-		  FROM vec_bolsa_publica_lectura.requisitos_convocatorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.requisitos_convocatorias_publicas_v2
 		 WHERE identificador_publico = $1
 	 ORDER BY orden, referencia
 	 LIMIT 257`, identificador)
@@ -656,7 +699,7 @@ func leerRequisitosConvocatoria(ctx context.Context, tx pgx.Tx, identificador st
 func leerDocumentosConvocatoria(ctx context.Context, tx pgx.Tx, identificador string) ([]dominiobolsa.DocumentoConvocatoria, error) {
 	filas, err := tx.Query(ctx, `
 		SELECT referencia, tipo, orden, titulo, descripcion, formato, url, publicado_en
-		  FROM vec_bolsa_publica_lectura.documentos_convocatorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.documentos_convocatorias_publicas_v2
 		 WHERE identificador_publico = $1
 	 ORDER BY orden, referencia
 	 LIMIT 257`, identificador)
@@ -688,7 +731,7 @@ func leerDocumentosConvocatoria(ctx context.Context, tx pgx.Tx, identificador st
 func leerAyudaConvocatoria(ctx context.Context, tx pgx.Tx, identificador string) ([]dominiobolsa.AyudaConvocatoria, error) {
 	filas, err := tx.Query(ctx, `
 		SELECT referencia, categoria, orden, pregunta, respuesta
-		  FROM vec_bolsa_publica_lectura.ayuda_convocatorias_publicas_v1
+		  FROM vec_bolsa_publica_lectura.ayuda_convocatorias_publicas_v2
 		 WHERE identificador_publico = $1
 	 ORDER BY orden, referencia
 	 LIMIT 129`, identificador)

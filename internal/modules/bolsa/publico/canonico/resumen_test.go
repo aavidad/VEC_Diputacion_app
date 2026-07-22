@@ -8,12 +8,13 @@ import (
 
 func TestHuellaResumenVinculaListadoSinConfiarEnHuellaCompleta(t *testing.T) {
 	instante := time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)
-	resumen := ResumenConvocatoriaV1{
-		Esquema: EsquemaResumenConvocatoriaV1, IdentificadorPublico: "auxiliares-2026",
+	resumen := ResumenConvocatoriaV2{
+		Esquema: EsquemaResumenConvocatoriaV2, IdentificadorPublico: "auxiliares-2026",
 		Version: "v1", Estado: "inscripcion", Tipo: "bolsa_temporal",
-		CatalogoCategorias: ReferenciaCatalogoCategoriasV1{
+		CatalogoCategorias: ReferenciaCatalogoCategoriasV2{
 			CatalogoID: "categorias-profesionales", CatalogoVersion: 1,
-			CatalogoHuellaSHA256: strings.Repeat("a", 64),
+			CatalogoHuellaSHA256:           strings.Repeat("a", 64),
+			CatalogoHuellaProyeccionSHA256: strings.Repeat("c", 64),
 		},
 		Categorias: []string{"auxiliar-administrativo"}, Titulo: "Auxiliares",
 		Resumen: "Convocatoria pública.", PublicadaEn: instante, ActualizadaEn: instante,
@@ -29,7 +30,7 @@ func TestHuellaResumenVinculaListadoSinConfiarEnHuellaCompleta(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const esperada = "1462cb3abc361358330572b1216067284d796609575cc4e5e1ff3de949f9d915"
+	const esperada = "bdf1c9a1238d3b5ca517ed9003154a9617a5a4a28e45023893f592bcb85efc88"
 	if huella != esperada {
 		t.Fatalf("actualice golden de resumen: %s", huella)
 	}
@@ -43,12 +44,13 @@ func TestHuellaResumenVinculaListadoSinConfiarEnHuellaCompleta(t *testing.T) {
 
 func TestHuellaResumenFixturePostgreSQL(t *testing.T) {
 	publicada := time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)
-	resumen := ResumenConvocatoriaV1{
-		Esquema: EsquemaResumenConvocatoriaV1, IdentificadorPublico: "auxiliares-2026",
+	resumen := ResumenConvocatoriaV2{
+		Esquema: EsquemaResumenConvocatoriaV2, IdentificadorPublico: "auxiliares-2026",
 		Version: "v1", Estado: "inscripcion", Tipo: "bolsa_temporal",
-		CatalogoCategorias: ReferenciaCatalogoCategoriasV1{
+		CatalogoCategorias: ReferenciaCatalogoCategoriasV2{
 			CatalogoID: "categorias-profesionales", CatalogoVersion: 1,
-			CatalogoHuellaSHA256: strings.Repeat("a", 64),
+			CatalogoHuellaSHA256:           strings.Repeat("a", 64),
+			CatalogoHuellaProyeccionSHA256: strings.Repeat("c", 64),
 		},
 		Categorias:  []string{"auxiliar-administrativo"},
 		Titulo:      "Bolsa temporal de auxiliares administrativos",
@@ -61,13 +63,13 @@ func TestHuellaResumenFixturePostgreSQL(t *testing.T) {
 			CierraEn:    time.Date(2026, 7, 31, 23, 59, 59, 0, time.UTC),
 		}},
 		NumeroRequisitos: 1, NumeroDocumentos: 1, NumeroAyudas: 1,
-		HuellaCompletaSHA256: "8bd7e733796952ed2ab1b9b9da30303e9e08660631afd634e8786641453b4724",
+		HuellaCompletaSHA256: "15f9d2d4bf6fb37c6bf915ff60ccfe189df78b6119330e834ffdcdbfba14e5e1",
 	}
 	huella, err := resumen.HuellaSHA256()
 	if err != nil {
 		t.Fatal(err)
 	}
-	const esperada = "be322bbeae04721907f6cd10d5e2abc1c660c7ac832d6d8887c1a76a0b4d3e15"
+	const esperada = "b71b88adc718cb3853153cf807c88c59ccf9dd5c0fe6ed7e78146f7d521941ef"
 	if huella != esperada {
 		t.Fatalf("actualice golden resumen PostgreSQL: %s", huella)
 	}

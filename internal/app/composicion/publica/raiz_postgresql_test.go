@@ -27,9 +27,9 @@ func TestIntegracionRaizPublicaSoloArrancaConPostgreSQLAutoritativo(t *testing.T
 		PerfilEjecucion:            config.ExecutionProfileProduction,
 		AutenticacionSolicitada:    config.AuthModeDisabled,
 		CatalogoCategorias:         "categorias-profesionales",
-		VersionCategorias:          1,
-		HuellaCategorias:           strings.Repeat("a", 64),
-		HuellaProyeccionCategorias: "4125f5b5f12f3da31fff30aa699239592d02b01b1676e98d8fa1ab7beb30ad7d",
+		VersionCategorias:          2,
+		HuellaCategorias:           strings.Repeat("b", 64),
+		HuellaProyeccionCategorias: "b661b37ca7323fa168734899038f8fa99cb77ff07d114e4a7d787d62b5d36593",
 		HuellaManifiesto:           ancla,
 		PostgreSQL:                 postgresql,
 	})

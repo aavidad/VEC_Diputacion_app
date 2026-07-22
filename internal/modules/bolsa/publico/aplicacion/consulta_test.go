@@ -23,6 +23,16 @@ type fuentePublicaPrueba struct {
 	errorValidacion error
 }
 
+type categoriasSoloActualPrueba struct {
+	catalogo puertosbolsa.CatalogoCategoriasPublicas
+}
+
+func (c categoriasSoloActualPrueba) ObtenerPublicadas(
+	context.Context, time.Time,
+) (puertosbolsa.CatalogoCategoriasPublicas, error) {
+	return c.catalogo, nil
+}
+
 func nuevaFuentePublicaPrueba(t *testing.T) (*fuentePublicaPrueba, time.Time) {
 	t.Helper()
 	publicada := time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)
@@ -34,7 +44,8 @@ func nuevaFuentePublicaPrueba(t *testing.T) (*fuentePublicaPrueba, time.Time) {
 			IdentificadorPublico: "auxiliares-2026", Tipo: "bolsa_temporal",
 			CatalogoCategorias: dominiobolsa.ReferenciaCatalogoCategorias{
 				CatalogoID: "categorias-profesionales", CatalogoVersion: 1,
-				CatalogoHuellaSHA256: strings.Repeat("a", 64),
+				CatalogoHuellaSHA256:           strings.Repeat("a", 64),
+				CatalogoHuellaProyeccionSHA256: strings.Repeat("b", 64),
 			},
 			Categorias: []string{"auxiliar-administrativo"},
 			Titulo:     "Bolsa temporal de auxiliares", Resumen: "Resumen público.",
@@ -59,7 +70,7 @@ func nuevaFuentePublicaPrueba(t *testing.T) (*fuentePublicaPrueba, time.Time) {
 			}},
 		},
 	}
-	huella, err := canonicopublico.HuellaConvocatoriaV1(detalle)
+	huella, err := canonicopublico.HuellaConvocatoriaV2(detalle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,8 +93,10 @@ func nuevaFuentePublicaPrueba(t *testing.T) (*fuentePublicaPrueba, time.Time) {
 		catalogoPrueba(puertosbolsa.CatalogoCategoriasAyuda, "general", "General", "informacion"),
 	}
 	categorias := puertosbolsa.CatalogoCategoriasPublicas{
-		ID: "categorias-profesionales", Version: 1, HuellaSHA256: strings.Repeat("a", 64),
-		Fuente: metadatosCategorias,
+		ID: "categorias-profesionales", Version: 1,
+		HuellaGobernadaSHA256:  strings.Repeat("a", 64),
+		HuellaProyeccionSHA256: strings.Repeat("b", 64),
+		Fuente:                 metadatosCategorias,
 		Categorias: []puertosbolsa.CategoriaPublica{{
 			Clave: "auxiliar-administrativo", Version: 1, Etiqueta: "Auxiliar administrativo",
 			Descripcion: "Categoría profesional.", Semantica: "informacion", Orden: 1,
@@ -129,12 +142,21 @@ func (f *fuentePublicaPrueba) ObtenerPublicada(_ context.Context, id string) (pu
 func (f *fuentePublicaPrueba) ObtenerPublicadas(context.Context, time.Time) (puertosbolsa.CatalogoCategoriasPublicas, error) {
 	return f.categorias, nil
 }
+func (f *fuentePublicaPrueba) ObtenerSnapshotsPublicados(context.Context) ([]puertosbolsa.CatalogoCategoriasPublicas, error) {
+	return []puertosbolsa.CatalogoCategoriasPublicas{f.categorias}, nil
+}
 func (f *fuentePublicaPrueba) BuscarPublicadasConCategorias(context.Context, puertosbolsa.FiltroConvocatoriasPublicas) (puertosbolsa.LecturaListadoPublicoConsistente, error) {
-	return puertosbolsa.LecturaListadoPublicoConsistente{Pagina: f.pagina, Categorias: f.categorias}, nil
+	return puertosbolsa.LecturaListadoPublicoConsistente{
+		Pagina: f.pagina, Categorias: f.categorias,
+		SnapshotsCategorias: []puertosbolsa.CatalogoCategoriasPublicas{f.categorias},
+	}, nil
 }
 func (f *fuentePublicaPrueba) ObtenerPublicadaConCategorias(ctx context.Context, id string, _ time.Time) (puertosbolsa.LecturaDetallePublicoConsistente, error) {
 	detalle, err := f.ObtenerPublicada(ctx, id)
-	return puertosbolsa.LecturaDetallePublicoConsistente{Detalle: detalle, Categorias: f.categorias}, err
+	return puertosbolsa.LecturaDetallePublicoConsistente{
+		Detalle: detalle, Categorias: f.categorias,
+		SnapshotsCategorias: []puertosbolsa.CatalogoCategoriasPublicas{f.categorias},
+	}, err
 }
 func (f *fuentePublicaPrueba) ConsultarCategoriasConConteos(context.Context, time.Time) (puertosbolsa.LecturaCategoriasPublicasConsistente, error) {
 	return puertosbolsa.LecturaCategoriasPublicasConsistente{Pagina: f.pagina, Categorias: f.categorias}, nil
@@ -176,22 +198,81 @@ func TestServicioPublicoListaYDetalleConLaMismaHuella(t *testing.T) {
 	}
 }
 
-func TestServicioPublicoRechazaCategoriaDeResumenSinFacetaExacta(t *testing.T) {
+func TestConstructorLegacyExigePuertoDeSnapshotsHistoricos(t *testing.T) {
+	fuente, ahora := nuevaFuentePublicaPrueba(t)
+	_, err := NuevoServicioConsultaPublica(
+		fuente, categoriasSoloActualPrueba{catalogo: fuente.categorias}, relojFijoPrueba{ahora},
+	)
+	if !errors.Is(err, ErrServicioConsultaPublicaInvalido) {
+		t.Fatalf("constructor current-only no fallo cerrado: %v", err)
+	}
+}
+
+func TestIndiceMultiversionAdmiteActualVacioYRechazaFacetaReinterpretada(t *testing.T) {
+	fuente, _ := nuevaFuentePublicaPrueba(t)
+	historico := fuente.categorias
+	historico.Categorias = append([]puertosbolsa.CategoriaPublica(nil), fuente.categorias.Categorias...)
+	actual := fuente.categorias
+	actual.Version = 2
+	actual.HuellaGobernadaSHA256 = strings.Repeat("c", 64)
+	actual.HuellaProyeccionSHA256 = strings.Repeat("d", 64)
+	actual.Categorias = nil
+	snapshotActual := fuente.categorias
+	snapshotActual.Categorias = append([]puertosbolsa.CategoriaPublica(nil), fuente.categorias.Categorias...)
+	snapshotActual.Version = 2
+	snapshotActual.HuellaGobernadaSHA256 = actual.HuellaGobernadaSHA256
+	snapshotActual.HuellaProyeccionSHA256 = actual.HuellaProyeccionSHA256
+	snapshotActual.Categorias[0].Version = 2
+
+	indice, err := nuevoIndiceCatalogos(
+		fuente.pagina.Catalogos, actual,
+		[]puertosbolsa.CatalogoCategoriasPublicas{historico, snapshotActual},
+	)
+	if err != nil || len(indice.ordenados[puertosbolsa.CatalogoCategoriasConvocatoria]) != 0 {
+		t.Fatalf("actual vacío con histórico resoluble = %+v, %v", indice, err)
+	}
+	referenciaHistorica := dominiobolsa.ReferenciaCatalogoCategorias{
+		CatalogoID: historico.ID, CatalogoVersion: historico.Version,
+		CatalogoHuellaSHA256:           historico.HuellaGobernadaSHA256,
+		CatalogoHuellaProyeccionSHA256: historico.HuellaProyeccionSHA256,
+	}
+	if categoria, err := indice.resolverCategoria(referenciaHistorica, "auxiliar-administrativo"); err != nil || categoria.Etiqueta != "Auxiliar administrativo" {
+		t.Fatalf("snapshot histórico no resoluble: %+v, %v", categoria, err)
+	}
+
+	actualAlterado := snapshotActual
+	actualAlterado.Categorias = append([]puertosbolsa.CategoriaPublica(nil), snapshotActual.Categorias...)
+	actualAlterado.Categorias[0].Etiqueta = "Etiqueta reinterpretada"
+	if _, err := nuevoIndiceCatalogos(
+		fuente.pagina.Catalogos, actualAlterado,
+		[]puertosbolsa.CatalogoCategoriasPublicas{historico, snapshotActual},
+	); !errors.Is(err, ErrDatosPublicosNoConfiables) {
+		t.Fatalf("faceta ajena al snapshot no fallo cerrada: %v", err)
+	}
+}
+
+func TestServicioPublicoResuelveCategoriaAunqueNoSeaFacetaActual(t *testing.T) {
 	fuente, ahora := nuevaFuentePublicaPrueba(t)
 	delete(fuente.pagina.ConteosCategorias, "auxiliar-administrativo")
 	servicio, _ := NuevoServicioConsultaPublicaConsistente(fuente, relojFijoPrueba{ahora})
-	if _, err := servicio.Listar(context.Background(), SolicitudListadoPublico{}); !errors.Is(err, ErrDatosPublicosNoConfiables) {
-		t.Fatalf("referencia sin faceta aceptada: %v", err)
+	listado, err := servicio.Listar(context.Background(), SolicitudListadoPublico{})
+	if err != nil || len(listado.Facetas.Categorias) != 0 || len(listado.DiccionarioCategorias) != 1 {
+		t.Fatalf("resolución histórica sin faceta actual = %+v, %v", listado, err)
 	}
 }
 
 func TestCoberturaCategoriasRechazaDiccionarioDuplicadoOVersionDesconocida(t *testing.T) {
 	resumenes := []ResumenConvocatoriaPublica{{
+		CatalogoCategorias: ReferenciaCatalogoCategoriasConvocatoriaPublica{
+			Referencia: "categorias-profesionales", Version: 1,
+			HuellaSHA256:           strings.Repeat("a", 64),
+			HuellaProyeccionSHA256: strings.Repeat("b", 64),
+		},
 		Categorias: []ReferenciaCategoriaPublica{{Clave: "auxiliar-administrativo", Version: 2}},
 	}}
-	duplicadas := []FacetaCategoriaPublica{
-		{Clave: "auxiliar-administrativo", Version: 1},
-		{Clave: "auxiliar-administrativo", Version: 1},
+	duplicadas := []CategoriaDiccionarioPublico{
+		{CatalogoCategorias: resumenes[0].CatalogoCategorias, Clave: "auxiliar-administrativo", Version: 1},
+		{CatalogoCategorias: resumenes[0].CatalogoCategorias, Clave: "auxiliar-administrativo", Version: 1},
 	}
 	if err := validarCoberturaCategoriasResumenes(resumenes, duplicadas); !errors.Is(err, ErrDatosPublicosNoConfiables) {
 		t.Fatalf("diccionario duplicado aceptado: %v", err)

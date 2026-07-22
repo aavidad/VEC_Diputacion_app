@@ -5,7 +5,7 @@ raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
 contenedor="vec-bolsa-publica-pg-prueba-${USER:-usuario}-$$"
 base=vec_bolsa_publica_prueba
-ancla_inicial=2a85abd0a1e78d828fe27baf619349caf8e4e8a3e0bf20815279dd98a966889a
+ancla_inicial=33929a8b6abbab2c1b57aac36a3070f475610f59fdd064a0b0a3e7f760cf8807
 clave_admin="VecAdminPrueba${BASHPID}${RANDOM}"
 clave_lector="VecLectorPrueba${BASHPID}${RANDOM}"
 clave_publicador="VecPublicadorPrueba${BASHPID}${RANDOM}"
@@ -190,6 +190,9 @@ CREATE ROLE vec_bolsa_publica_publicador_integracion_login LOGIN NOSUPERUSER NOC
 	    NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS PASSWORD :'clave_publicador';
 GRANT vec_bolsa_publica_publicador TO vec_bolsa_publica_publicador_integracion_login
 	    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+ALTER DATABASE vec_bolsa_publica_prueba SET log_parameter_max_length_on_error = 4096;
+ALTER ROLE vec_bolsa_publica_publicador_integracion_login
+    SET log_parameter_max_length_on_error = 0;
 
 CREATE TABLE public.proyeccion_publica_prueba(payload jsonb NOT NULL);
 REVOKE ALL ON public.proyeccion_publica_prueba FROM PUBLIC;
@@ -205,15 +208,31 @@ $proyeccion$
     {"referencia":"categorias_ayuda","version":1,"entradas":[{"clave":"general","etiqueta":"General","descripcion":"Información general.","semantica":"informacion","orden":1}]}
   ],
   "categorias":{
-    "catalogo_id":"categorias-profesionales","version":1,
-    "huella_gobernada_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "huella_proyeccion_publica_sha256":"4125f5b5f12f3da31fff30aa699239592d02b01b1676e98d8fa1ab7beb30ad7d",
-    "categorias":[{"clave":"auxiliar-administrativo","etiqueta":"Auxiliar administrativo","descripcion":"Categoría profesional de auxiliar administrativo.","semantica":"informacion","orden":1,"area":"administracion","area_etiqueta":"Administración","suscribible":true,"vigente_desde":"2020-01-01T00:00:00Z","vigente_hasta":null}]
+    "actual":{"catalogo_id":"categorias-profesionales","catalogo_version":2,"catalogo_huella_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","catalogo_huella_proyeccion_sha256":"b661b37ca7323fa168734899038f8fa99cb77ff07d114e4a7d787d62b5d36593"},
+    "snapshots":[
+      {"catalogo_id":"categorias-profesionales","version":1,
+       "huella_gobernada_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "huella_proyeccion_publica_sha256":"d3118b2252d7dac326cf575a66937c6947e1439e0cfe74b23ff599ba80f2d594",
+       "categorias":[{"clave":"auxiliar-administrativo","etiqueta":"Auxiliar administrativo (histórica)","descripcion":"Categoría profesional histórica de auxiliar administrativo.","semantica":"informacion","orden":1,"area":"administracion","area_etiqueta":"Administración","suscribible":false,"vigente_desde":"2020-01-01T00:00:00Z","vigente_hasta":"2025-01-01T00:00:00Z"}]},
+      {"catalogo_id":"categorias-profesionales","version":2,
+       "huella_gobernada_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+       "huella_proyeccion_publica_sha256":"b661b37ca7323fa168734899038f8fa99cb77ff07d114e4a7d787d62b5d36593",
+       "categorias":[{"clave":"auxiliar-administrativo","etiqueta":"Auxiliar administrativo","descripcion":"Categoría profesional de auxiliar administrativo.","semantica":"informacion","orden":1,"area":"administracion","area_etiqueta":"Administración","suscribible":true,"vigente_desde":"2025-01-01T00:00:00Z","vigente_hasta":null}]}
+    ]
   },
   "convocatorias":[{
+    "identificador_publico":"auxiliares-2024","version_publica":"v1","estado":"cerrada","tipo":"bolsa_temporal",
+    "catalogo_categorias":{"catalogo_id":"categorias-profesionales","catalogo_version":1,"catalogo_huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","catalogo_huella_proyeccion_sha256":"d3118b2252d7dac326cf575a66937c6947e1439e0cfe74b23ff599ba80f2d594"},
+    "huella_publica_sha256":"47eabd5ff97ffb18f416016a6c0482baa93abcac5ecf87ac9e547e3eb5ac7376",
+    "huella_resumen_publico_sha256":"3ebdf22211e8ed768f5eb294836dd61a5abc4075d4bb0952d524ead7abe861f7",
+    "titulo":"Bolsa histórica de auxiliares administrativos","resumen":"Convocatoria histórica de auxiliares administrativos.",
+    "descripcion":"Proceso histórico cerrado con su categoría versionada.","publicada_en":"2024-01-10T09:00:00Z","actualizada_en":"2024-12-31T09:00:00Z",
+    "categorias":["auxiliar-administrativo"],"plazos":[],"requisitos":[],"documentos":[],"ayuda":[]
+  },{
     "identificador_publico":"auxiliares-2026","version_publica":"v1","estado":"inscripcion","tipo":"bolsa_temporal",
-    "huella_publica_sha256":"8bd7e733796952ed2ab1b9b9da30303e9e08660631afd634e8786641453b4724",
-    "huella_resumen_publico_sha256":"be322bbeae04721907f6cd10d5e2abc1c660c7ac832d6d8887c1a76a0b4d3e15",
+    "catalogo_categorias":{"catalogo_id":"categorias-profesionales","catalogo_version":2,"catalogo_huella_sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","catalogo_huella_proyeccion_sha256":"b661b37ca7323fa168734899038f8fa99cb77ff07d114e4a7d787d62b5d36593"},
+    "huella_publica_sha256":"87d3955bdf4ad4b6488b33727c679aebab1980c0060c088ba23ec21d6de981dd",
+    "huella_resumen_publico_sha256":"0fbd6e6d48a178c1b41c125feeb9bdb2bd847a7acf295b06fc8827ebbdda97fd",
     "titulo":"Bolsa temporal de auxiliares administrativos","resumen":"Convocatoria pública para auxiliares administrativos.",
     "descripcion":"Proceso selectivo sujeto a bases firmadas y publicadas.","publicada_en":"2026-07-01T09:00:00Z","actualizada_en":"2026-07-01T09:00:00Z",
     "categorias":["auxiliar-administrativo"],
@@ -234,9 +253,9 @@ SELECT pg_catalog.set_config(
 \o
 
 SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
-SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
+SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
     current_setting('vec.prueba_proyeccion_publica')::jsonb,
-'2a85abd0a1e78d828fe27baf619349caf8e4e8a3e0bf20815279dd98a966889a'
+'33929a8b6abbab2c1b57aac36a3070f475610f59fdd064a0b0a3e7f760cf8807'
 );
 RESET SESSION AUTHORIZATION;
 
@@ -244,7 +263,7 @@ RESET SESSION AUTHORIZATION;
 -- Cada escenario se revierte para que los tests Go sigan arrancando sobre A.
 BEGIN;
 SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
-SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
+SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
     jsonb_set(
         current_setting('vec.prueba_proyeccion_publica')::jsonb,
         '{fuente,revision}', '"revision-002"'::jsonb
@@ -253,9 +272,9 @@ SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
 );
 DO $rechazar_reutilizacion$
 BEGIN
-    PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
+    PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
         current_setting('vec.prueba_proyeccion_publica')::jsonb,
-        '2a85abd0a1e78d828fe27baf619349caf8e4e8a3e0bf20815279dd98a966889a'
+        '33929a8b6abbab2c1b57aac36a3070f475610f59fdd064a0b0a3e7f760cf8807'
     );
     RAISE EXCEPTION USING ERRCODE = 'P0001',
         MESSAGE = 'el historial permitio reutilizar A despues de B';
@@ -282,9 +301,9 @@ RESET ROLE;
 SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
 DO $rechazar_despues_de_cero$
 BEGIN
-    PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
+    PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
         current_setting('vec.prueba_proyeccion_publica')::jsonb,
-        '2a85abd0a1e78d828fe27baf619349caf8e4e8a3e0bf20815279dd98a966889a'
+        '33929a8b6abbab2c1b57aac36a3070f475610f59fdd064a0b0a3e7f760cf8807'
     );
     RAISE EXCEPTION USING ERRCODE = 'P0001',
         MESSAGE = 'el historial permitio reutilizar A despues de invalidarla';
@@ -339,20 +358,27 @@ BEGIN
         jsonb_set(base, '{catalogos,0}', base#>'{catalogos,0}' || '{"dni":"00000000T"}'::jsonb),
         jsonb_set(base, '{catalogos,0,entradas,0}', base#>'{catalogos,0,entradas,0}' || '{"dni":"00000000T"}'::jsonb),
         jsonb_set(base, '{categorias}', base#>'{categorias}' || '{"dni":"00000000T"}'::jsonb),
-        jsonb_set(base, '{categorias,categorias,0}', base#>'{categorias,categorias,0}' || '{"dni":"00000000T"}'::jsonb),
+        jsonb_set(base, '{categorias,actual}', base#>'{categorias,actual}' || '{"dni":"00000000T"}'::jsonb),
+        jsonb_set(base, '{categorias,snapshots,0}', base#>'{categorias,snapshots,0}' || '{"dni":"00000000T"}'::jsonb),
+        jsonb_set(base, '{categorias,snapshots,0,categorias,0}', base#>'{categorias,snapshots,0,categorias,0}' || '{"dni":"00000000T"}'::jsonb),
         jsonb_set(base, '{convocatorias,0}', base#>'{convocatorias,0}' || '{"dni":"00000000T"}'::jsonb),
+        jsonb_set(base, '{convocatorias,0,catalogo_categorias}', base#>'{convocatorias,0,catalogo_categorias}' || '{"dni":"00000000T"}'::jsonb),
         jsonb_set(base, '{convocatorias,0,categorias,0}', '{"dni":"00000000T"}'::jsonb),
-        jsonb_set(base, '{convocatorias,0,plazos,0}', base#>'{convocatorias,0,plazos,0}' || '{"dni":"00000000T"}'::jsonb),
-        jsonb_set(base, '{convocatorias,0,requisitos,0}', base#>'{convocatorias,0,requisitos,0}' || '{"dni":"00000000T"}'::jsonb),
-        jsonb_set(base, '{convocatorias,0,documentos,0}', base#>'{convocatorias,0,documentos,0}' || '{"dni":"00000000T"}'::jsonb),
-        jsonb_set(base, '{convocatorias,0,ayuda,0}', base#>'{convocatorias,0,ayuda,0}' || '{"dni":"00000000T"}'::jsonb),
+        jsonb_set(base, '{convocatorias,1,plazos,0}', base#>'{convocatorias,1,plazos,0}' || '{"dni":"00000000T"}'::jsonb),
+        jsonb_set(base, '{convocatorias,1,requisitos,0}', base#>'{convocatorias,1,requisitos,0}' || '{"dni":"00000000T"}'::jsonb),
+        jsonb_set(base, '{convocatorias,1,documentos,0}', base#>'{convocatorias,1,documentos,0}' || '{"dni":"00000000T"}'::jsonb),
+        jsonb_set(base, '{convocatorias,1,ayuda,0}', base#>'{convocatorias,1,ayuda,0}' || '{"dni":"00000000T"}'::jsonb),
         jsonb_set(base, '{catalogos,0,version}', '1.5'::jsonb),
-        jsonb_set(base, '{categorias,categorias,0,orden}', '2147483648'::jsonb),
-        jsonb_set(base, '{convocatorias,0,requisitos,0,orden}', '1.5'::jsonb),
+        jsonb_set(base, '{categorias,snapshots,0,categorias,0,orden}', '2147483648'::jsonb),
+        jsonb_set(base, '{convocatorias,1,requisitos,0,orden}', '1.5'::jsonb),
+        jsonb_set(
+            base, '{categorias,snapshots,0,huella_proyeccion_publica_sha256}',
+            to_jsonb(repeat('e', 64))
+        ),
         exceso_entradas
     ] LOOP
         BEGIN
-            PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
+            PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
                 mutacion, repeat('c', 64)
             );
             RAISE EXCEPTION USING ERRCODE = 'P0001',
@@ -362,7 +388,7 @@ BEGIN
         END;
     END LOOP;
     BEGIN
-        PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
+        PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
             base, repeat('0', 64)
         );
         RAISE EXCEPTION USING ERRCODE = 'P0001',
@@ -465,12 +491,12 @@ SELECT
  || ':' ||
     has_function_privilege(
         'vec_bolsa_publica_publicador',
-        'vec_bolsa_publica_publicacion.publicar_proyeccion_v1(jsonb,text)', 'EXECUTE'
+        'vec_bolsa_publica_publicacion.publicar_proyeccion_v2(jsonb,text)', 'EXECUTE'
     )::text
  || ':' ||
     has_function_privilege(
         'vec_bolsa_publica_publicador',
-        'vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(jsonb,text[])', 'EXECUTE'
+        'vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(jsonb,text[])', 'EXECUTE'
     )::text
  || ':' ||
     has_table_privilege(
@@ -497,7 +523,7 @@ if docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
 fi
 if docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
     --username vec_bolsa_publica_publicador_integracion_login --dbname "$base" \
-    --command "SELECT vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1('{}', ARRAY[]::text[])" \
+    --command "SELECT vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2('{}', ARRAY[]::text[])" \
     >/dev/null 2>&1; then
     echo "el LOGIN publicador pudo ejecutar la funcion auxiliar" >&2
     exit 1
@@ -523,6 +549,7 @@ if [[ ! "$puerto" =~ ^[0-9]+$ ]]; then
 fi
 dsn_lector="postgres://vec_bolsa_publica_integracion_login:${clave_lector}@localhost:${puerto}/${base}?sslmode=verify-full&sslrootcert=${directorio_tls}/ca.crt"
 dsn_admin="postgres://postgres:${clave_admin}@localhost:${puerto}/${base}?sslmode=verify-full&sslrootcert=${directorio_tls}/ca.crt"
+dsn_publicador="postgres://vec_bolsa_publica_publicador_integracion_login:${clave_publicador}@localhost:${puerto}/${base}?sslmode=verify-full&sslrootcert=${directorio_tls}/ca.crt"
 
 GOCACHE="$cache_go" \
 VEC_PRUEBA_BOLSA_PUBLICA_DSN="$dsn_lector" \
@@ -533,13 +560,20 @@ VEC_PRUEBA_BOLSA_PUBLICA_MANIFIESTO_SHA256="$ancla_inicial" \
 GOCACHE="$cache_go" \
 VEC_PRUEBA_BOLSA_PUBLICA_DSN="$dsn_lector" \
 VEC_PRUEBA_BOLSA_PUBLICA_ADMIN_DSN="$dsn_admin" \
+VEC_PRUEBA_BOLSA_PUBLICA_PUBLICADOR_DSN="$dsn_publicador" \
 VEC_PRUEBA_BOLSA_PUBLICA_MANIFIESTO_SHA256="$ancla_inicial" \
     go test -count=1 -run '^TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion$' \
 	    ./internal/modules/bolsa/adapters/postgrespublico
+# El marcador privado de los rechazos no puede alcanzar el log del servidor,
+# aunque la base fuerce logging de parametros para el resto de sesiones.
+if docker logs "$contenedor" 2>&1 | grep -F 'DNI-PRIVADO-C3-00000000T' >/dev/null; then
+    echo "un valor privado de publicacion alcanzo el log PostgreSQL" >&2
+    exit 1
+fi
 
-# Un publicador lento conserva el advisory xact lock hasta ROLLBACK/COMMIT. Los
-# lectores fallan por lock_timeout y la migración espera el mismo candado sin
-# observar una ventana intermedia ni formar un ciclo de bloqueos.
+# Un publicador lento conserva el advisory xact lock hasta ROLLBACK/COMMIT.
+# MVCC deja que lectores RR terminen sobre A; la migracion sigue esperando el
+# candado exclusivo sin observar una ventana intermedia.
 docker exec --interactive "$contenedor" psql -X --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base" \
     >"$directorio_tls/publicador_concurrente.log" 2>&1 <<'SQL' &
@@ -553,7 +587,7 @@ SELECT pg_catalog.set_config(
 );
 \o
 SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
-SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
+SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
     jsonb_set(
         current_setting('vec.prueba_proyeccion_publica')::jsonb,
         '{fuente,revision}', '"revision-bloqueo"'::jsonb
@@ -584,15 +618,18 @@ if [[ "$bloqueo_publicador" != "1" ]]; then
     sed -n '1,120p' "$directorio_tls/publicador_concurrente.log" >&2
     exit 1
 fi
-if docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
+lectura_a=$(docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
+    --tuples-only --no-align \
     --username vec_bolsa_publica_integracion_login --dbname "$base" --command \
     "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
-     SET LOCAL lock_timeout = '2s';
-     SELECT pg_catalog.pg_advisory_xact_lock_shared(
-         pg_catalog.hashtextextended('vec_bolsa_publica:publicacion:v1', 0)
-     );
-     ROLLBACK" >/dev/null 2>&1; then
-    echo "un lector no respeto su lock_timeout ante el publicador lento" >&2
+     SET LOCAL statement_timeout = '2s';
+     SELECT fuente.revision || ':' || count(convocatoria.identificador_publico)::text
+       FROM vec_bolsa_publica_lectura.fuente_publica_v2 AS fuente
+       CROSS JOIN vec_bolsa_publica_lectura.convocatorias_publicadas_v2 AS convocatoria
+      GROUP BY fuente.revision;
+     COMMIT" | sed -n '3p')
+if [[ "$lectura_a" != "revision-atomica-b:2" ]]; then
+    echo "un lector MVCC no termino sobre la ultima instantanea confirmada: $lectura_a" >&2
     wait "$pid_publicador" || true
     exit 1
 fi

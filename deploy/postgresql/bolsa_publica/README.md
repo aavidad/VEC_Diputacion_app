@@ -30,7 +30,7 @@ Debe invocar la función con parámetros enlazados y no registrar el JSON.
 - `vec_bolsa_publica_consulta`: `USAGE` del esquema de lectura y `SELECT` sobre
   las diez vistas allowlist;
 - `vec_bolsa_publica_publicador`: `USAGE` del esquema de publicación y
-  `EXECUTE` solo sobre `publicar_proyeccion_v1(jsonb,text)`.
+  `EXECUTE` solo sobre `publicar_proyeccion_v2(jsonb,text)`.
 
 Los dos propietarios son distintos, no pueden iniciar sesión y no se conceden
 al publicador. La función propietaria puede insertar todas las tablas y borrar
@@ -74,7 +74,7 @@ el candado compartido, compara el testigo de base con el externo y contrasta el
 material devuelto. Los listados calculan la huella de resumen; no reconstruyen
 todos los detalles para validar una página.
 
-`publicar_proyeccion_v1` es la única frontera de escritura operativa. Valida el
+`publicar_proyeccion_v2` es la única frontera de escritura operativa. Valida el
 JSON completo, toma el candado exclusivo y reemplaza datos y testigo en una
 sola transacción. Todo DML fuera de esa función pone el testigo a 64 ceros; ese
 valor está reservado y se rechaza como configuración o ancla. Los lectores

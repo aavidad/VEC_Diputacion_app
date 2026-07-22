@@ -18,9 +18,6 @@ func proyectarResumen(c dominiobolsa.ResumenConvocatoria, indice indiceCatalogos
 		return ResumenConvocatoriaPublica{}, ErrDatosPublicosNoConfiables
 	}
 	d := c.DatosPublicos
-	if d.CatalogoCategorias != indice.referenciaCategorias {
-		return ResumenConvocatoriaPublica{}, ErrDatosPublicosNoConfiables
-	}
 	tipo, err := indice.resolver(puertosbolsa.CatalogoTiposConvocatoria, d.Tipo)
 	if err != nil {
 		return ResumenConvocatoriaPublica{}, err
@@ -31,7 +28,7 @@ func proyectarResumen(c dominiobolsa.ResumenConvocatoria, indice indiceCatalogos
 	}
 	categorias := make([]ReferenciaCategoriaPublica, 0, len(d.Categorias))
 	for _, clave := range d.Categorias {
-		valor, err := indice.resolver(puertosbolsa.CatalogoCategoriasConvocatoria, clave)
+		valor, err := indice.resolverCategoria(d.CatalogoCategorias, clave)
 		if err != nil {
 			return ResumenConvocatoriaPublica{}, err
 		}
@@ -44,6 +41,12 @@ func proyectarResumen(c dominiobolsa.ResumenConvocatoria, indice indiceCatalogos
 	return ResumenConvocatoriaPublica{
 		IdentificadorPublico: d.IdentificadorPublico, Version: c.Version, HuellaSHA256: c.HuellaSHA256,
 		Titulo: d.Titulo, Resumen: d.Resumen, Tipo: tipo, Estado: estado, Categorias: categorias,
+		CatalogoCategorias: ReferenciaCatalogoCategoriasConvocatoriaPublica{
+			Referencia:             d.CatalogoCategorias.CatalogoID,
+			Version:                d.CatalogoCategorias.CatalogoVersion,
+			HuellaSHA256:           d.CatalogoCategorias.CatalogoHuellaSHA256,
+			HuellaProyeccionSHA256: d.CatalogoCategorias.CatalogoHuellaProyeccionSHA256,
+		},
 		PlazoDestacado: plazoDestacado(plazos), NumeroRequisitos: c.NumeroRequisitos,
 		NumeroDocumentos: c.NumeroDocumentos, NumeroAyudas: c.NumeroAyudas,
 		PublicadaEn: d.PublicadaEn, ActualizadaEn: d.ActualizadaEn,
@@ -81,7 +84,7 @@ func huellasPublicasIguales(a, b string) bool {
 }
 
 func huellaConvocatoriaPublica(c dominiobolsa.Convocatoria) (string, error) {
-	return canonicopublico.HuellaConvocatoriaV1(c)
+	return canonicopublico.HuellaConvocatoriaV2(c)
 }
 
 func proyectarPlazos(origen []dominiobolsa.PlazoConvocatoria, indice indiceCatalogos, ahora time.Time) ([]PlazoPublico, error) {
@@ -213,6 +216,11 @@ func fuentesCoinciden(
 		categorias.ActualizadaEn.Equal(convocatorias.ActualizadaEn) &&
 		categorias.Demostracion == convocatorias.Demostracion &&
 		categorias.Aviso == convocatorias.Aviso
+}
+
+func fuentesCategoriasCoinciden(a, b puertosbolsa.MetadatosFuenteCategorias) bool {
+	return a.Revision == b.Revision && a.ActualizadaEn.Equal(b.ActualizadaEn) &&
+		a.Demostracion == b.Demostracion && a.Aviso == b.Aviso
 }
 
 func textoPublicoCanonico(valor string, maximo int, multilinea bool) bool {

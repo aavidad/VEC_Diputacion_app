@@ -9,12 +9,13 @@ import (
 
 func TestHuellaConvocatoriaPublicaNoTieneIdentidadInterna(t *testing.T) {
 	instante := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
-	convocatoria := ConvocatoriaV1{
-		Esquema: EsquemaConvocatoriaV1, IdentificadorPublico: "auxiliares-2026",
+	convocatoria := ConvocatoriaV2{
+		Esquema: EsquemaConvocatoriaV2, IdentificadorPublico: "auxiliares-2026",
 		Version: "v1", Estado: "cerrada", Tipo: "bolsa_temporal",
-		CatalogoCategorias: ReferenciaCatalogoCategoriasV1{
+		CatalogoCategorias: ReferenciaCatalogoCategoriasV2{
 			CatalogoID: "categorias-profesionales", CatalogoVersion: 1,
-			CatalogoHuellaSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			CatalogoHuellaSHA256:           "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			CatalogoHuellaProyeccionSHA256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		},
 		Categorias: []string{"auxiliar-administrativo"}, Titulo: "Auxiliares",
 		Resumen: "Resumen público.", Descripcion: "Descripción pública.",
@@ -23,6 +24,13 @@ func TestHuellaConvocatoriaPublicaNoTieneIdentidadInterna(t *testing.T) {
 	huella, err := convocatoria.HuellaSHA256()
 	if err != nil || len(huella) != 64 {
 		t.Fatalf("huella pública = %q, %v", huella, err)
+	}
+	otraProyeccion := convocatoria
+	otraProyeccion.CatalogoCategorias.CatalogoHuellaProyeccionSHA256 =
+		"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	huellaOtraProyeccion, err := otraProyeccion.HuellaSHA256()
+	if err != nil || huellaOtraProyeccion == huella {
+		t.Fatalf("la referencia no inmoviliza la proyección: %q, %v", huellaOtraProyeccion, err)
 	}
 	contenido, err := json.Marshal(convocatoria)
 	if err != nil {
@@ -35,12 +43,13 @@ func TestHuellaConvocatoriaPublicaNoTieneIdentidadInterna(t *testing.T) {
 
 func TestHuellaConvocatoriaPublicaFixturePostgreSQL(t *testing.T) {
 	publicada := time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)
-	convocatoria := ConvocatoriaV1{
-		Esquema: EsquemaConvocatoriaV1, IdentificadorPublico: "auxiliares-2026",
+	convocatoria := ConvocatoriaV2{
+		Esquema: EsquemaConvocatoriaV2, IdentificadorPublico: "auxiliares-2026",
 		Version: "v1", Estado: "inscripcion", Tipo: "bolsa_temporal",
-		CatalogoCategorias: ReferenciaCatalogoCategoriasV1{
+		CatalogoCategorias: ReferenciaCatalogoCategoriasV2{
 			CatalogoID: "categorias-profesionales", CatalogoVersion: 1,
-			CatalogoHuellaSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			CatalogoHuellaSHA256:           "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			CatalogoHuellaProyeccionSHA256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		},
 		Categorias:  []string{"auxiliar-administrativo"},
 		Titulo:      "Bolsa temporal de auxiliares administrativos",
@@ -71,7 +80,7 @@ func TestHuellaConvocatoriaPublicaFixturePostgreSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const esperada = "8bd7e733796952ed2ab1b9b9da30303e9e08660631afd634e8786641453b4724"
+	const esperada = "15f9d2d4bf6fb37c6bf915ff60ccfe189df78b6119330e834ffdcdbfba14e5e1"
 	if huella != esperada {
 		t.Fatalf("actualice el golden del fixture PostgreSQL: %s", huella)
 	}

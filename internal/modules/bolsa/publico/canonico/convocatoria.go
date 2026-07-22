@@ -12,14 +12,15 @@ import (
 	dominiopublico "vec-diputacion-granada/internal/modules/bolsa/publico/dominio"
 )
 
-const EsquemaConvocatoriaV1 = "vec.bolsa.convocatoria-publica.canonica.v1"
+const EsquemaConvocatoriaV2 = "vec.bolsa.convocatoria-publica.canonica.v2"
 
 var ErrConvocatoriaPublicaInvalida = errors.New("bolsa publica: convocatoria canonica invalida")
 
-type ReferenciaCatalogoCategoriasV1 struct {
-	CatalogoID           string `json:"catalogo_id"`
-	CatalogoVersion      int    `json:"catalogo_version"`
-	CatalogoHuellaSHA256 string `json:"catalogo_huella_sha256"`
+type ReferenciaCatalogoCategoriasV2 struct {
+	CatalogoID                     string `json:"catalogo_id"`
+	CatalogoVersion                int    `json:"catalogo_version"`
+	CatalogoHuellaSHA256           string `json:"catalogo_huella_sha256"`
+	CatalogoHuellaProyeccionSHA256 string `json:"catalogo_huella_proyeccion_sha256"`
 }
 
 type PlazoConvocatoriaV1 struct {
@@ -58,15 +59,15 @@ type AyudaConvocatoriaV1 struct {
 	Respuesta  string `json:"respuesta"`
 }
 
-// ConvocatoriaV1 excluye por diseño la referencia del agregado interno. La
+// ConvocatoriaV2 excluye por diseño la referencia del agregado interno. La
 // huella de esta estructura sí puede publicarse en una respuesta anónima.
-type ConvocatoriaV1 struct {
+type ConvocatoriaV2 struct {
 	Esquema              string                         `json:"esquema"`
 	IdentificadorPublico string                         `json:"identificador_publico"`
 	Version              string                         `json:"version"`
 	Estado               string                         `json:"estado"`
 	Tipo                 string                         `json:"tipo"`
-	CatalogoCategorias   ReferenciaCatalogoCategoriasV1 `json:"catalogo_categorias"`
+	CatalogoCategorias   ReferenciaCatalogoCategoriasV2 `json:"catalogo_categorias"`
 	Categorias           []string                       `json:"categorias"`
 	Titulo               string                         `json:"titulo"`
 	Resumen              string                         `json:"resumen"`
@@ -79,7 +80,7 @@ type ConvocatoriaV1 struct {
 	Ayuda                []AyudaConvocatoriaV1          `json:"ayuda"`
 }
 
-func (c ConvocatoriaV1) HuellaSHA256() (string, error) {
+func (c ConvocatoriaV2) HuellaSHA256() (string, error) {
 	if err := c.Validar(); err != nil {
 		return "", ErrConvocatoriaPublicaInvalida
 	}
@@ -121,8 +122,8 @@ func (c ConvocatoriaV1) HuellaSHA256() (string, error) {
 
 // Validar aplica al material canónico exactamente las invariantes del modelo
 // público nominal antes de que el publicador o el lector calculen una huella.
-func (c ConvocatoriaV1) Validar() error {
-	if c.Esquema != EsquemaConvocatoriaV1 {
+func (c ConvocatoriaV2) Validar() error {
+	if c.Esquema != EsquemaConvocatoriaV2 {
 		return ErrConvocatoriaPublicaInvalida
 	}
 	convocatoria := dominiopublico.Convocatoria{
@@ -136,7 +137,8 @@ func (c ConvocatoriaV1) Validar() error {
 			Tipo:                 c.Tipo,
 			CatalogoCategorias: dominiopublico.ReferenciaCatalogoCategorias{
 				CatalogoID: c.CatalogoCategorias.CatalogoID, CatalogoVersion: c.CatalogoCategorias.CatalogoVersion,
-				CatalogoHuellaSHA256: c.CatalogoCategorias.CatalogoHuellaSHA256,
+				CatalogoHuellaSHA256:           c.CatalogoCategorias.CatalogoHuellaSHA256,
+				CatalogoHuellaProyeccionSHA256: c.CatalogoCategorias.CatalogoHuellaProyeccionSHA256,
 			},
 			Categorias: append([]string(nil), c.Categorias...), Titulo: c.Titulo,
 			Resumen: c.Resumen, Descripcion: c.Descripcion,
@@ -165,21 +167,22 @@ func (c ConvocatoriaV1) Validar() error {
 	return nil
 }
 
-// HuellaConvocatoriaV1 proyecta el modelo público nominal a la preimagen V1.
+// HuellaConvocatoriaV2 proyecta el modelo público nominal a la preimagen V2.
 // Es la única conversión autorizada para el publicador, el adaptador de
 // lectura y la aplicación anónima.
-func HuellaConvocatoriaV1(c dominiopublico.Convocatoria) (string, error) {
+func HuellaConvocatoriaV2(c dominiopublico.Convocatoria) (string, error) {
 	if err := c.ValidarPublicacion(); err != nil || c.DatosPublicos == nil {
 		return "", ErrConvocatoriaPublicaInvalida
 	}
 	datos := c.DatosPublicos
-	material := ConvocatoriaV1{
-		Esquema: EsquemaConvocatoriaV1, IdentificadorPublico: datos.IdentificadorPublico,
+	material := ConvocatoriaV2{
+		Esquema: EsquemaConvocatoriaV2, IdentificadorPublico: datos.IdentificadorPublico,
 		Version: c.Version, Estado: string(c.Estado), Tipo: datos.Tipo,
-		CatalogoCategorias: ReferenciaCatalogoCategoriasV1{
-			CatalogoID:           datos.CatalogoCategorias.CatalogoID,
-			CatalogoVersion:      datos.CatalogoCategorias.CatalogoVersion,
-			CatalogoHuellaSHA256: datos.CatalogoCategorias.CatalogoHuellaSHA256,
+		CatalogoCategorias: ReferenciaCatalogoCategoriasV2{
+			CatalogoID:                     datos.CatalogoCategorias.CatalogoID,
+			CatalogoVersion:                datos.CatalogoCategorias.CatalogoVersion,
+			CatalogoHuellaSHA256:           datos.CatalogoCategorias.CatalogoHuellaSHA256,
+			CatalogoHuellaProyeccionSHA256: datos.CatalogoCategorias.CatalogoHuellaProyeccionSHA256,
 		},
 		Categorias: append([]string(nil), datos.Categorias...),
 		Titulo:     datos.Titulo, Resumen: datos.Resumen, Descripcion: datos.Descripcion,

@@ -84,11 +84,12 @@ type MetadatosFuenteCategorias struct {
 // resolvio el adaptador. Ningun consumidor selecciona implicitamente la ultima
 // version disponible.
 type CatalogoCategoriasPublicas struct {
-	ID           string
-	Version      int
-	HuellaSHA256 string
-	Fuente       MetadatosFuenteCategorias
-	Categorias   []CategoriaPublica
+	ID                     string
+	Version                int
+	HuellaGobernadaSHA256  string
+	HuellaProyeccionSHA256 string
+	Fuente                 MetadatosFuenteCategorias
+	Categorias             []CategoriaPublica
 }
 
 // ConsultaCategoriasPublicas separa el catalogo profesional de la fuente de
@@ -96,6 +97,14 @@ type CatalogoCategoriasPublicas struct {
 // solo entradas publicadas, vigentes y publicables para el instante indicado.
 type ConsultaCategoriasPublicas interface {
 	ObtenerPublicadas(context.Context, time.Time) (CatalogoCategoriasPublicas, error)
+}
+
+// ConsultaSnapshotsCategoriasPublicas entrega el material completo de todas
+// las versiones exactas que pueden estar referenciadas por convocatorias. No
+// filtra entradas caducadas: su finalidad es resolver historico sin
+// reinterpretarlo con el catalogo actual.
+type ConsultaSnapshotsCategoriasPublicas interface {
+	ObtenerSnapshotsPublicados(context.Context) ([]CatalogoCategoriasPublicas, error)
 }
 
 type ConteoCategoriaConvocatorias struct {
@@ -136,13 +145,15 @@ type ConsultaConvocatoriasPublicas interface {
 }
 
 type LecturaListadoPublicoConsistente struct {
-	Pagina     PaginaConvocatorias
-	Categorias CatalogoCategoriasPublicas
+	Pagina              PaginaConvocatorias
+	Categorias          CatalogoCategoriasPublicas
+	SnapshotsCategorias []CatalogoCategoriasPublicas
 }
 
 type LecturaDetallePublicoConsistente struct {
-	Detalle    DetalleConvocatoria
-	Categorias CatalogoCategoriasPublicas
+	Detalle             DetalleConvocatoria
+	Categorias          CatalogoCategoriasPublicas
+	SnapshotsCategorias []CatalogoCategoriasPublicas
 }
 
 type LecturaCategoriasPublicasConsistente struct {

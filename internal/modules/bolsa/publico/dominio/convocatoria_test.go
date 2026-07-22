@@ -16,7 +16,8 @@ func convocatoriaPublicaValidaPrueba() Convocatoria {
 			IdentificadorPublico: "auxiliares-2026", Tipo: "bolsa_temporal",
 			CatalogoCategorias: ReferenciaCatalogoCategorias{
 				CatalogoID: "categorias-profesionales", CatalogoVersion: 1,
-				CatalogoHuellaSHA256: strings.Repeat("b", 64),
+				CatalogoHuellaSHA256:           strings.Repeat("b", 64),
+				CatalogoHuellaProyeccionSHA256: strings.Repeat("c", 64),
 			},
 			Categorias: []string{"auxiliar-administrativo"},
 			Titulo:     "Bolsa temporal de auxiliares", Resumen: "Resumen público.",
