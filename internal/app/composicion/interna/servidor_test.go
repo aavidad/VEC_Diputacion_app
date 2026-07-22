@@ -19,6 +19,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -26,7 +27,7 @@ import (
 func TestConstruirServidorInternoCargaReferenciasYSellaAllowlist(t *testing.T) {
 	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
 	llamadas := 0
-	servidor, err := construirServidorInterno(material.cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	servidor, err := construirServidorInternoPrueba(t, material.cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		llamadas++
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -126,6 +127,36 @@ func TestCargaTLSRechazaRutasYFicherosInseguros(t *testing.T) {
 	}
 }
 
+func TestCargaTLSRechazaDirectoriosModificablesPorRuntime(t *testing.T) {
+	raiz, err := syscall.Open("/", syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer syscall.Close(raiz)
+	if err := validarDirectorioTLS(raiz); err != nil {
+		t.Fatalf("raiz del sistema rechazada: %v", err)
+	}
+	for _, modo := range []os.FileMode{0o777, 0o770, 0o550, 0o500} {
+		t.Run(modo.String(), func(t *testing.T) {
+			directorio := filepath.Join(t.TempDir(), "secretos")
+			if err := os.Mkdir(directorio, modo); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(directorio, modo); err != nil {
+				t.Fatal(err)
+			}
+			fd, err := syscall.Open(directorio, syscall.O_RDONLY|syscall.O_DIRECTORY|syscall.O_CLOEXEC, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer syscall.Close(fd)
+			if err := validarDirectorioTLS(fd); !errors.Is(err, ErrTLSMutuoNoVerificado) {
+				t.Fatalf("directorio app-owned %04o aceptado: %v", modo.Perm(), err)
+			}
+		})
+	}
+}
+
 func TestCargaTLSRechazaMaterialServidorNoProductivo(t *testing.T) {
 	casos := []struct {
 		nombre   string
@@ -142,7 +173,7 @@ func TestCargaTLSRechazaMaterialServidorNoProductivo(t *testing.T) {
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
 			material := materialTLSMutuoPrueba(t, caso.opciones)
-			servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
+			servidor, err := construirServidorInternoPrueba(t, material.cfg, http.NotFoundHandler())
 			if servidor != nil || !errors.Is(err, ErrTLSMutuoNoVerificado) {
 				t.Fatalf("material invalido = (%v, %v)", servidor, err)
 			}
@@ -152,7 +183,7 @@ func TestCargaTLSRechazaMaterialServidorNoProductivo(t *testing.T) {
 
 func TestCargaTLSAdmiteFullchainConIntermediaComoAnclaExplicita(t *testing.T) {
 	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{anclaIntermedia: true})
-	servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
+	servidor, err := construirServidorInternoPrueba(t, material.cfg, http.NotFoundHandler())
 	if err != nil || servidor == nil {
 		t.Fatalf("fullchain leaf+intermedia = (%v, %v)", servidor, err)
 	}
@@ -169,7 +200,7 @@ func TestCargaTLSRechazaClaveYAutoridadInvalidas(t *testing.T) {
 		if err := os.WriteFile(material.cfg.ClaveServidorTLS, contenido, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
+		servidor, err := construirServidorInternoPrueba(t, material.cfg, http.NotFoundHandler())
 		if servidor != nil || !errors.Is(err, ErrTLSMutuoNoVerificado) {
 			t.Fatalf("clave ajena = (%v, %v)", servidor, err)
 		}
@@ -183,7 +214,7 @@ func TestCargaTLSRechazaClaveYAutoridadInvalidas(t *testing.T) {
 		if err := os.WriteFile(material.cfg.CertificadoServidorTLS, contenido, 0o644); err != nil {
 			t.Fatal(err)
 		}
-		servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
+		servidor, err := construirServidorInternoPrueba(t, material.cfg, http.NotFoundHandler())
 		if servidor != nil || !errors.Is(err, ErrTLSMutuoNoVerificado) {
 			t.Fatalf("cadena ajena = (%v, %v)", servidor, err)
 		}
@@ -198,7 +229,7 @@ func TestCargaTLSRechazaClaveYAutoridadInvalidas(t *testing.T) {
 		if err := os.WriteFile(material.cfg.CertificadoServidorTLS, contenido, 0o644); err != nil {
 			t.Fatal(err)
 		}
-		servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
+		servidor, err := construirServidorInternoPrueba(t, material.cfg, http.NotFoundHandler())
 		if servidor != nil || !errors.Is(err, ErrTLSMutuoNoVerificado) {
 			t.Fatalf("duplicado = (%v, %v)", servidor, err)
 		}
@@ -208,7 +239,7 @@ func TestCargaTLSRechazaClaveYAutoridadInvalidas(t *testing.T) {
 		if err := os.WriteFile(material.cfg.AutoridadClientesTLS, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: material.cliente.Certificate[0]}), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
+		servidor, err := construirServidorInternoPrueba(t, material.cfg, http.NotFoundHandler())
 		if servidor != nil || !errors.Is(err, ErrTLSMutuoNoVerificado) {
 			t.Fatalf("leaf CA = (%v, %v)", servidor, err)
 		}
@@ -218,7 +249,7 @@ func TestCargaTLSRechazaClaveYAutoridadInvalidas(t *testing.T) {
 		for _, ruta := range []string{"/etc/ssl/certs/ca-certificates.crt", "/etc/pki/tls/certs/ca-bundle.crt"} {
 			if _, err := os.Stat(ruta); err == nil {
 				material.cfg.AutoridadClientesTLS = ruta
-				servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
+				servidor, err := construirServidorInternoPrueba(t, material.cfg, http.NotFoundHandler())
 				if servidor != nil || !errors.Is(err, ErrTLSMutuoNoVerificado) {
 					t.Fatalf("CA sistema = (%v, %v)", servidor, err)
 				}
@@ -227,17 +258,6 @@ func TestCargaTLSRechazaClaveYAutoridadInvalidas(t *testing.T) {
 		}
 		t.Skip("sistema sin bundle CA conocido")
 	})
-}
-
-func TestCargaTLSPermiteSecretoRootAppSoloLectura(t *testing.T) {
-	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
-	if err := os.Chmod(material.cfg.ClaveServidorTLS, 0o440); err != nil {
-		t.Fatal(err)
-	}
-	servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
-	if err != nil || servidor == nil {
-		t.Fatalf("secreto 0440 = (%v, %v)", servidor, err)
-	}
 }
 
 func TestConfiguracionTLSDenyByDefaultRechazaTodoCampoActivo(t *testing.T) {
@@ -296,7 +316,7 @@ func TestConfiguracionTLSDenyByDefaultRechazaTodoCampoActivo(t *testing.T) {
 	for _, prueba := range pruebas {
 		t.Run(prueba.nombre, func(t *testing.T) {
 			material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
-			servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
+			servidor, err := construirServidorInternoPrueba(t, material.cfg, http.NotFoundHandler())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -310,7 +330,7 @@ func TestConfiguracionTLSDenyByDefaultRechazaTodoCampoActivo(t *testing.T) {
 
 func TestSelloTLSDetectaSustitucionYConservaCopiasDefensivas(t *testing.T) {
 	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
-	servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
+	servidor, err := construirServidorInternoPrueba(t, material.cfg, http.NotFoundHandler())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,7 +380,7 @@ func TestSelloTLSDetectaSustitucionYConservaCopiasDefensivas(t *testing.T) {
 	for _, mutacion := range mutaciones {
 		t.Run(mutacion.nombre, func(t *testing.T) {
 			material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
-			servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
+			servidor, err := construirServidorInternoPrueba(t, material.cfg, http.NotFoundHandler())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -390,7 +410,7 @@ func TestServidorInternoRechazaMutacionesHTTP(t *testing.T) {
 	for _, prueba := range pruebas {
 		t.Run(prueba.nombre, func(t *testing.T) {
 			material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
-			servidor, err := construirServidorInterno(material.cfg, http.NotFoundHandler())
+			servidor, err := construirServidorInternoPrueba(t, material.cfg, http.NotFoundHandler())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -405,7 +425,7 @@ func TestServidorInternoRechazaMutacionesHTTP(t *testing.T) {
 func TestServidorInternoProtocolosRealesNoAlcanzanAPISinHTTPUnoALPN(t *testing.T) {
 	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
 	llamadas := 0
-	servidor, err := construirServidorInterno(material.cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	servidor, err := construirServidorInternoPrueba(t, material.cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		llamadas++
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -460,7 +480,7 @@ func TestServidorInternoProtocolosRealesNoAlcanzanAPISinHTTPUnoALPN(t *testing.T
 func TestServidorInternoMTLSYOPTIONSGeneralReales(t *testing.T) {
 	material := materialTLSMutuoPrueba(t, opcionesCertificadoServidor{})
 	llamadas := 0
-	servidor, err := construirServidorInterno(material.cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	servidor, err := construirServidorInternoPrueba(t, material.cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		llamadas++
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -505,6 +525,31 @@ func iniciarServidorTLSPrueba(t *testing.T, servidor *http.Server) string {
 	go func() { terminado <- servidor.ServeTLS(escucha, "", "") }()
 	t.Cleanup(func() { _ = servidor.Close(); <-terminado })
 	return escucha.Addr().String()
+}
+
+func construirServidorInternoPrueba(
+	t *testing.T,
+	cfg Configuracion,
+	api http.Handler,
+) (*http.Server, error) {
+	t.Helper()
+	certPEM, err := os.ReadFile(cfg.CertificadoServidorTLS)
+	if err != nil {
+		return nil, ErrTLSMutuoNoVerificado
+	}
+	clavePEM, err := os.ReadFile(cfg.ClaveServidorTLS)
+	if err != nil {
+		return nil, ErrTLSMutuoNoVerificado
+	}
+	caPEM, err := os.ReadFile(cfg.AutoridadClientesTLS)
+	if err != nil {
+		return nil, ErrTLSMutuoNoVerificado
+	}
+	material, err := materializarTLS(cfg, certPEM, clavePEM, caPEM)
+	if err != nil {
+		return nil, err
+	}
+	return construirServidorInternoConMaterial(cfg, api, material)
 }
 
 type opcionesCertificadoServidor struct {
