@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"vec-diputacion-granada/config"
+	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
 	"vec-diputacion-granada/internal/app/server"
 	gobiernoconvocatorias "vec-diputacion-granada/internal/modules/bolsa/application/gobiernoconvocatorias"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -212,7 +213,9 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
-	publicaBolsaAPI, err := newBolsaPublicAPIConCatalogos(cfg, consultaCategorias)
+	cfgPublica := cfg
+	cfgPublica.AuthMode = config.AuthModeDisabled
+	publicaBolsaAPI, err := publicatransitoria.NuevaAPIConCatalogos(cfgPublica, consultaCategorias)
 	if err != nil {
 		return nil, nil, err
 	}

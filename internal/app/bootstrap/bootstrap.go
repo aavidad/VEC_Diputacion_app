@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
 	"net/http"
 	"os"
@@ -11,6 +10,8 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
+	composicionpublica "vec-diputacion-granada/internal/app/composicion/publica"
+	publicatransitoria "vec-diputacion-granada/internal/app/composicion/publicatransitoria"
 	"vec-diputacion-granada/internal/app/server"
 	authadapter "vec-diputacion-granada/internal/candidate/adapters/auth"
 	"vec-diputacion-granada/internal/candidate/adapters/handler"
@@ -21,10 +22,6 @@ import (
 	"vec-diputacion-granada/internal/candidate/usecases"
 	adminmodule "vec-diputacion-granada/internal/modules/administracion"
 	bolsamodule "vec-diputacion-granada/internal/modules/bolsa"
-	bolsacatalogosvec "vec-diputacion-granada/internal/modules/bolsa/adapters/catalogosvec"
-	bolsafichero "vec-diputacion-granada/internal/modules/bolsa/adapters/fichero"
-	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httppublico"
-	bolsaapp "vec-diputacion-granada/internal/modules/bolsa/application"
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
 	dietasmodule "vec-diputacion-granada/internal/modules/dietas"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
@@ -51,7 +48,8 @@ var (
 	// ErrComposicionProductivaNoDisponible impide presentar como productiva la
 	// composicion transitoria. Aun faltan identidad y repositorios autoritativos;
 	// los adaptadores actuales de fichero y memoria son solo locales.
-	ErrComposicionProductivaNoDisponible = errors.New("bootstrap: composicion productiva no disponible")
+	ErrComposicionProductivaNoDisponible = composicionpublica.ErrComposicionProductivaNoDisponible
+	ErrAutenticacionPublicaNoAdmitida    = composicionpublica.ErrAutenticacionNoAdmitida
 )
 
 func NewHTTPServer() (*http.Server, error) {
@@ -110,19 +108,7 @@ func NewHTTPServerPublicoWithConfig(cfg config.Config) (*http.Server, error) {
 		cfg.DevelopmentMaterialDir != "" {
 		return nil, ErrActivacionDesarrolloInvalida
 	}
-	if err := rechazarComposicionProductivaNoDisponible(cfg); err != nil {
-		return nil, err
-	}
-	api, err := NewAPIPublicaBolsaWithConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	// La superficie es anonima y no compone ningun autenticador. No debe
-	// heredar restricciones ni cabeceras propias del modo fake/trusted del
-	// listener interno por compartir accidentalmente el mismo fichero de
-	// configuracion durante una migracion.
-	cfg.AuthMode = config.AuthModeDisabled
-	return server.NewHTTPServerPublico(cfg, api)
+	return composicionpublica.NuevoServidor(composicionpublica.DesdeConfiguracionGeneral(cfg))
 }
 
 // NewAPIPublicaBolsaWithConfig es la raiz de composicion minima del portal
@@ -132,20 +118,7 @@ func NewAPIPublicaBolsaWithConfig(cfg config.Config) (http.Handler, error) {
 	if err := validarValoresConfiguracionConocidos(cfg); err != nil {
 		return nil, err
 	}
-	if err := rechazarComposicionProductivaNoDisponible(cfg); err != nil {
-		return nil, err
-	}
-	consultaCategorias, err := nuevaConsultaCatalogosPublicosBolsa(cfg)
-	if err != nil {
-		return nil, err
-	}
-	publicaBolsaAPI, err := newBolsaPublicAPIConCatalogos(cfg, consultaCategorias)
-	if err != nil {
-		return nil, err
-	}
-	mux := http.NewServeMux()
-	registrarBolsaPublica(mux, publicaBolsaAPI)
-	return mux, nil
+	return publicatransitoria.NuevaAPI(cfg)
 }
 
 func NewDemoAPI() (http.Handler, error) {
@@ -172,7 +145,9 @@ func NewDemoAPIWithConfig(cfg config.Config) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	publicaBolsaAPI, err := newBolsaPublicAPIConCatalogos(cfg, consultaCategorias)
+	cfgPublica := cfg
+	cfgPublica.AuthMode = config.AuthModeDisabled
+	publicaBolsaAPI, err := publicatransitoria.NuevaAPIConCatalogos(cfgPublica, consultaCategorias)
 	if err != nil {
 		return nil, err
 	}
@@ -343,87 +318,7 @@ func composeVECShellAPI(vecAPI http.Handler, publicaBolsaAPI http.Handler) http.
 }
 
 func registrarBolsaPublica(mux *http.ServeMux, publica http.Handler) {
-	mux.Handle(bolsahttp.RutaConvocatorias, publica)
-	mux.Handle(bolsahttp.RutaConvocatorias+"/", publica)
-	mux.Handle(bolsahttp.RutaCategorias, publica)
-}
-
-func newBolsaPublicAPIConCatalogos(cfg config.Config, consultaCatalogos *vecfichero.ConsultaCatalogos) (http.Handler, error) {
-	if err := validarCatalogoCategoriasPublicoConfigurado(cfg, consultaCatalogos); err != nil {
-		return nil, err
-	}
-	ruta, err := resolverRutaFuentePublica(cfg.BolsaPublicSourcePath)
-	if err != nil {
-		return nil, err
-	}
-	adaptador, err := bolsafichero.NuevaConsultaConvocatorias(ruta)
-	if err != nil {
-		return nil, err
-	}
-	categorias, err := bolsacatalogosvec.NuevaConsultaCategorias(
-		consultaCatalogos,
-		cfg.BolsaCategoriesCatalogID,
-		cfg.BolsaCategoriesVersion,
-	)
-	if err != nil {
-		return nil, err
-	}
-	servicio, err := bolsaapp.NuevoServicioConsultaPublica(adaptador, categorias, bolsaapp.RelojSistemaConsultaPublica{})
-	if err != nil {
-		return nil, err
-	}
-	ctxValidacion, cancelarValidacion := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancelarValidacion()
-	if err := servicio.ValidarConfiguracion(ctxValidacion); err != nil {
-		return nil, errors.Join(errors.New("bootstrap: fuentes publicas de Bolsa incompatibles"), err)
-	}
-	return bolsahttp.NuevoHandler(servicio)
-}
-
-func nuevaConsultaCatalogosPublicosBolsa(cfg config.Config) (*vecfichero.ConsultaCatalogos, error) {
-	if cfg.BolsaCategoriesVersion < 1 {
-		return nil, errors.New("bootstrap: version de catalogo de categorias no valida")
-	}
-	rutaCategorias, err := resolverRutaFuentePublica(cfg.BolsaCategoriesSourcePath)
-	if err != nil {
-		return nil, err
-	}
-	consultaCatalogos, err := vecfichero.NuevaConsultaCatalogos(rutaCategorias)
-	if err != nil {
-		return nil, err
-	}
-	return consultaCatalogos, nil
-}
-
-// validarCatalogoCategoriasPublicoConfigurado mantiene el pinning de la
-// instantanea gobernada aunque el listener publico no componga Personal.
-func validarCatalogoCategoriasPublicoConfigurado(
-	cfg config.Config,
-	consultaCatalogos *vecfichero.ConsultaCatalogos,
-) error {
-	if cfg.BolsaCategoriesVersion < 1 {
-		return errors.New("bootstrap: version de catalogo de categorias no valida")
-	}
-	ctxValidacion, cancelarValidacion := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancelarValidacion()
-	catalogo, err := consultaCatalogos.ObtenerCatalogo(
-		ctxValidacion,
-		cfg.BolsaCategoriesCatalogID,
-		cfg.BolsaCategoriesVersion,
-	)
-	if err != nil {
-		return errors.Join(errors.New("bootstrap: catalogo gobernado de categorias de Bolsa incompatible"), err)
-	}
-	huella, err := catalogo.HuellaSHA256()
-	if err != nil || !huellasCatalogoPublicoIguales(huella, cfg.BolsaCategoriesSHA256) {
-		return errors.New("bootstrap: catalogo gobernado de categorias de Bolsa incompatible")
-	}
-	return nil
-}
-
-func huellasCatalogoPublicoIguales(obtenida, esperada string) bool {
-	return len(obtenida) == 64 && len(esperada) == 64 &&
-		subtle.ConstantTimeCompare([]byte(obtenida), []byte(esperada)) == 1
+	publicatransitoria.RegistrarRutas(mux, publica)
 }
 
 // nuevasDependenciasCategoriasProfesionales construye una sola instantanea

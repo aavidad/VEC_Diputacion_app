@@ -46,7 +46,7 @@ func TestAPIPublicaBolsaSoloExponeConsultasAnonimas(t *testing.T) {
 	}
 }
 
-func TestComposicionPublicaIgnoraCredencialesPersonalYAlmacenHeredado(t *testing.T) {
+func TestComposicionPublicaNoCargaCredencialesPersonalNiAlmacenHeredado(t *testing.T) {
 	rutaInvalida := t.TempDir()
 	cfg := config.Config{
 		Address:             "0.0.0.0:0",
@@ -64,6 +64,11 @@ func TestComposicionPublicaIgnoraCredencialesPersonalYAlmacenHeredado(t *testing
 		t.Fatal("la configuracion de prueba no invalida realmente la composicion interna")
 	}
 
+	if api, err := NewAPIPublicaBolsaWithConfig(cfgAPI); api != nil ||
+		!errors.Is(err, ErrAutenticacionPublicaNoAdmitida) {
+		t.Fatalf("la API publica acepto autenticacion fake: api=%v error=%v", api, err)
+	}
+	cfgAPI.AuthMode = config.AuthModeDisabled
 	api, err := NewAPIPublicaBolsaWithConfig(cfgAPI)
 	if err != nil {
 		t.Fatalf("la API publica cargo una dependencia privada: %v", err)
@@ -74,6 +79,7 @@ func TestComposicionPublicaIgnoraCredencialesPersonalYAlmacenHeredado(t *testing
 		t.Fatalf("consulta publica anonima = %d %s", rec.Code, rec.Body.String())
 	}
 
+	cfg.AuthMode = config.AuthModeDisabled
 	servidor, err := NewHTTPServerPublicoWithConfig(cfg)
 	if servidor != nil || !errors.Is(err, ErrComposicionProductivaNoDisponible) {
 		t.Fatalf("servidor publico productivo = (%v, %v)", servidor, err)
