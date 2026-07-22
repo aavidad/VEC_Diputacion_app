@@ -15,6 +15,7 @@ static/area-personal/vistas/seguimiento-tramites.js
 static/bolsa/bolsa.css
 static/bolsa/bolsa.js
 static/bolsa/bolsa_adaptable.css
+static/bolsa/contrato-v2.js
 static/bolsa/favicon.svg
 static/bolsa/index.html
 static/favicon.svg

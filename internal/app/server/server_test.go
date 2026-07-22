@@ -132,6 +132,7 @@ func TestServerSirvePortalBolsaPermanenteSinEstilosInline(t *testing.T) {
 	for _, prueba := range []struct{ ruta, tipo, contenido string }{
 		{ruta: "/bolsa/", tipo: "text/html", contenido: "menu-lateral-publico"},
 		{ruta: "/bolsa/bolsa.css?v=1", tipo: "text/css", contenido: ".grupos-directorio"},
+		{ruta: "/bolsa/contrato-v2.js?v=1", tipo: "text/javascript", contenido: "VECBolsaContratoV2"},
 		{ruta: "/bolsa/bolsa.js?v=1", tipo: "text/javascript", contenido: "/api/publico/bolsa/categorias"},
 		{ruta: "/bolsa/favicon.svg", tipo: "image/svg+xml", contenido: "<svg"},
 	} {
@@ -516,6 +517,7 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 		{metodo: http.MethodHead, ruta: "/healthz", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/bolsa", estado: http.StatusMovedPermanently},
 		{metodo: http.MethodGet, ruta: "/bolsa/", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/bolsa/contrato-v2.js?v=1", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/bolsa/bolsa.js?v=1", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/verificar", estado: http.StatusMovedPermanently},
 		{metodo: http.MethodGet, ruta: "/verificar/", estado: http.StatusOK},
