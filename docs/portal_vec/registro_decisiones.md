@@ -2144,8 +2144,9 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 ## DEC-061 — Autoridad central y proyecciones de categorias profesionales para Bolsa y Personal
 
 - Estado: implantada el 16 de julio de 2026 para las consultas de Bolsa y
-  Personal y su demostracion local. No declara oficial el contenido, no
-  sustituye la aprobacion de RRHH ni concede GO productivo al catalogo.
+  Personal y ampliada el 22 de julio de 2026 con proyeccion publica
+  multiversion. No declara oficial el contenido, no sustituye la aprobacion de
+  RRHH ni concede por si sola GO productivo al catalogo.
 - Hallazgo: coexistian 58 categorias hardcodeadas en un workspace heredado, un
   snapshot mutable de Personal y solo dos entradas distintas dentro del JSON
   publico. Las dos ultimas usaban guiones bajos, mientras el maestro historico
@@ -2156,8 +2157,9 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   inmutable y la comparte con Bolsa y Personal mediante puertos y adaptadores;
   ninguno puede resolver implicitamente «la ultima version» ni volver a
   embeber el catalogo. Las convocatorias conservan las claves y una referencia
-  inmutable al ID, version y huella, incluida en su propia huella publica. Ruta,
-  ID, version y huella esperada son configurables; el bootstrap coteja las
+  inmutable al ID, version, huella gobernada y huella de la proyeccion publica,
+  incluida en sus huellas canonicas de detalle y resumen. Ruta, ID, version y
+  ambas huellas esperadas son configurables; el bootstrap coteja las
   referencias antes de montar las rutas y una seleccion incompatible impide el
   arranque.
 - Proyecciones: la faceta de convocatorias contiene solo categorias con
@@ -2168,6 +2170,14 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   pero se proyectan desde la misma referencia ID/version/huella. Ninguna de
   estas respuestas expone `source_path`, rutas locales, alias internos,
   actores, motivos ni aprobaciones.
+- Historico publico: el manifiesto V2 separa la referencia `actual` de una
+  coleccion acotada de snapshots completos. Directorio y facetas usan solo las
+  entradas vigentes del snapshot actual; listado y detalle resuelven cada
+  convocatoria contra su referencia exacta, incluso si la categoria ya ha
+  caducado. El conjunto vigente actual puede estar vacio sin borrar el material
+  historico. Un conector que no ofrezca el puerto de snapshots falla cerrado;
+  la composicion productiva PostgreSQL entrega convocatoria, actual y snapshots
+  bajo una misma lectura `REPEATABLE READ`.
 - Datos iniciales: el paquete demo recupera 58 categorias del corpus historico
   OPES, 5 de Administracion general y 53 de Administracion especial. Su fuente
   candidata queda identificada por SHA-256 y el paquete se marca, en datos y

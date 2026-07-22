@@ -47,6 +47,9 @@ GRANT vec_bolsa_publica_consulta TO vec_publico_login
 
 GRANT vec_bolsa_publica_publicador TO vec_publicador_login
     WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+
+ALTER ROLE vec_publicador_login
+    SET log_parameter_max_length_on_error = 0;
 ```
 
 Los valores `ALTER ROLE ... SET` de un grupo no deben tomarse como sustituto de
@@ -54,7 +57,10 @@ la configuración del `LOGIN`. El adaptador Go fija y comprueba en cada conexió
 de lectura: solo lectura, `REPEATABLE READ`, `search_path` cerrado, zona UTC,
 `statement_timeout=10s`, `lock_timeout=2s` e inactividad transaccional de 10 s.
 La función publicadora fija por sí misma ruta, zona, formato de fecha, memoria,
-timeouts, JIT y ocultación de parámetros en errores.
+timeouts, JIT y ocultación de parámetros durante su ejecución. El `ALTER ROLE`
+anterior también es obligatorio sobre el `LOGIN` real: los parámetros de un
+grupo `NOLOGIN` no se heredan y el servidor puede registrar el error después de
+que la función haya propagado la excepción.
 
 ## Integridad y publicación
 
@@ -62,17 +68,29 @@ El manifiesto canónico vincula toda la proyección visible:
 
 - revisión e instante de la fuente;
 - catálogos genéricos y todas sus entradas;
-- catálogo profesional, categorías y sus huellas gobernada y pública;
+- referencia exacta del catálogo profesional actual y todos los snapshots
+  históricos necesarios, cada uno con sus huellas gobernada y de proyección;
 - conjunto ordenado de identificadores de convocatorias;
 - huella completa y huella propia de resumen de cada convocatoria.
 
 La huella SHA-256 del manifiesto se entrega al proceso por una fuente externa,
 nunca se aprende de PostgreSQL. En el arranque, el adaptador recorre la
 proyección de forma acotada, recalcula el manifiesto y crea una caché inmutable
-de huellas. Cada lectura abre una transacción `REPEATABLE READ, READ ONLY`, toma
-el candado compartido, compara el testigo de base con el externo y contrasta el
-material devuelto. Los listados calculan la huella de resumen; no reconstruyen
-todos los detalles para validar una página.
+de huellas. Cada lectura abre una transacción `REPEATABLE READ, READ ONLY`,
+compara el testigo de base con el externo y contrasta el material devuelto. No
+toma un advisory lock: MVCC deja que una lectura iniciada antes del `COMMIT`
+termine coherentemente sobre A y que la siguiente vea B. Los listados calculan
+la huella de resumen; no reconstruyen todos los detalles para validar una
+página.
+
+El contrato profesional V2 separa `categorias.actual` de
+`categorias.snapshots`. La referencia actual contiene ID, versión, huella
+gobernada y huella de proyección. Cada convocatoria conserva esas mismas cuatro
+piezas y su huella canónica las vincula. El directorio y las facetas usan solo
+entradas vigentes del snapshot actual; listado y detalle pueden resolver una
+convocatoria antigua contra su snapshot exacto aunque la categoría haya
+caducado. Se admiten de 1 a 64 snapshots, de 1 a 1.024 entradas por snapshot y
+4.096 entradas en total. El conjunto vigente actual puede estar vacío.
 
 `publicar_proyeccion_v2` es la única frontera de escritura operativa. Valida el
 JSON completo, toma el candado exclusivo y reemplaza datos y testigo en una
@@ -86,10 +104,11 @@ cero. Operativamente, también se descarta el manifiesto de cualquier intento
 fallido o dudoso y se genera uno nuevo, aunque la transacción rechazada no haya
 dejado filas.
 
-El advisory lock es transaccional: permanece hasta `COMMIT` o `ROLLBACK`.
-Lectores y publicador usan la misma clave; las migraciones toman primero su
-candado de versión y después el de publicación. Los timeouts limitan un cliente
-lento y el pool público está acotado a seis conexiones.
+El advisory lock exclusivo de escritura es transaccional: permanece hasta
+`COMMIT` o `ROLLBACK`. Publicadores y migraciones usan la misma clave; las
+migraciones toman primero su candado de versión y después el de publicación.
+Los lectores no compiten por ese lock. Los timeouts limitan un cliente lento y
+el pool público está acotado a seis conexiones.
 
 ## Actualizaciones y disponibilidad
 
@@ -131,7 +150,7 @@ VEC_AUTH_MODE=disabled
 VEC_BOLSA_PUBLICA_DATABASE_URL=postgres://...?...sslmode=verify-full
 VEC_BOLSA_PUBLICA_MANIFIESTO_SHA256=<64 hex distintos de cero>
 VEC_BOLSA_CATEGORIES_CATALOG_ID=categorias-profesionales
-VEC_BOLSA_CATEGORIES_CATALOG_VERSION=1
+VEC_BOLSA_CATEGORIES_CATALOG_VERSION=<version actual explicita>
 VEC_BOLSA_CATEGORIES_CATALOG_SHA256=<64 hex gobernados>
 VEC_BOLSA_CATEGORIES_PUBLIC_PROJECTION_SHA256=<64 hex de la proyeccion>
 ```
@@ -152,9 +171,10 @@ deploy/postgresql/bolsa_publica/probar_integracion.sh
 El runner fija PostgreSQL 18.4 por digest y prueba TLS real, roles y propietarios
 exactos, ausencia de DML y `SET ROLE`, contrato JSON recursivo, rechazo de PII en
 claves desconocidas, límites, sentinel cero, historial A→B→A, arranque HTTP,
-listado/facetas/detalle, invalidación global, contención del pool, cliente
-publicador lento, serialización con migración y reversión atómica. Certificados,
-credenciales y fixtures son efímeros.
+listado/facetas/detalle multiversión, categorías caducadas, doble huella exacta,
+invalidación global, lectores A/B sin bloqueo, contención del pool, redacción
+de errores y logs, cliente publicador lento, serialización con migración y
+reversión atómica. Certificados, credenciales y fixtures son efímeros.
 
 ## Reversión
 
