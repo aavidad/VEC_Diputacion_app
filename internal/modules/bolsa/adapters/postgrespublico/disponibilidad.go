@@ -13,42 +13,38 @@ const (
 )
 
 // ComprobarDisponibilidad verifica que la cache de manifiesto ya fue cargada
-// y que la ancla publicada sigue siendo la esperada. Coalesce las solicitudes
-// simultaneas para que un aluvion de probes no agote el pool de lectura.
+// y que la ancla publicada sigue siendo la esperada. Solo la primera solicitud
+// inicia una sonda: las seguidoras fallan inmediatamente mientras siga en
+// curso, para no agotar ni el pool ni las goroutines del servidor.
 func (f *Fuente) ComprobarDisponibilidad(_ context.Context) error {
 	if f == nil || !f.configuracionValida() || f.cacheManifiesto.Load() == nil {
 		return ErrPostgreSQLPublicoNoDisponible
 	}
-	for {
-		f.disponibilidadMu.Lock()
-		if time.Now().Before(f.disponibilidadHasta) {
-			err := f.disponibilidadErr
-			f.disponibilidadMu.Unlock()
-			return err
-		}
-		if espera := f.disponibilidadEnCurso; espera != nil {
-			f.disponibilidadMu.Unlock()
-			<-espera
-			continue
-		}
-		espera := make(chan struct{})
-		f.disponibilidadEnCurso = espera
-		f.disponibilidadMu.Unlock()
-
-		err := f.sondearDisponibilidad()
-		vida := duracionCacheDisponibilidadSana
-		if err != nil {
-			vida = duracionCacheDisponibilidadFallida
-			err = ErrPostgreSQLPublicoNoDisponible
-		}
-		f.disponibilidadMu.Lock()
-		f.disponibilidadErr = err
-		f.disponibilidadHasta = time.Now().Add(vida)
-		close(espera)
-		f.disponibilidadEnCurso = nil
+	f.disponibilidadMu.Lock()
+	if time.Now().Before(f.disponibilidadHasta) {
+		err := f.disponibilidadErr
 		f.disponibilidadMu.Unlock()
 		return err
 	}
+	if f.disponibilidadEnCurso {
+		f.disponibilidadMu.Unlock()
+		return ErrPostgreSQLPublicoNoDisponible
+	}
+	f.disponibilidadEnCurso = true
+	f.disponibilidadMu.Unlock()
+
+	err := f.sondearDisponibilidad()
+	vida := duracionCacheDisponibilidadSana
+	if err != nil {
+		vida = duracionCacheDisponibilidadFallida
+		err = ErrPostgreSQLPublicoNoDisponible
+	}
+	f.disponibilidadMu.Lock()
+	f.disponibilidadErr = err
+	f.disponibilidadHasta = time.Now().Add(vida)
+	f.disponibilidadEnCurso = false
+	f.disponibilidadMu.Unlock()
+	return err
 }
 
 func (f *Fuente) sondearDisponibilidad() error {

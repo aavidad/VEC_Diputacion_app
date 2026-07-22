@@ -64,7 +64,7 @@ type Fuente struct {
 	disponibilidadMu              sync.Mutex
 	disponibilidadHasta           time.Time
 	disponibilidadErr             error
-	disponibilidadEnCurso         chan struct{}
+	disponibilidadEnCurso         bool
 	sondaDisponibilidadPrueba     func(context.Context) error
 }
 
