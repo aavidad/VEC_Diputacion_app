@@ -17,11 +17,13 @@ const (
 	DependenciaTLSMutuo              Dependencia = "tls_mutuo"
 	DependenciaIdentidadCorporativa  Dependencia = "identidad_corporativa"
 	DependenciaSesionesDurables      Dependencia = "sesiones_durables"
+	DependenciaRevalidacionActor     Dependencia = "revalidacion_autenticacion_actor"
 	DependenciaContextoActor         Dependencia = "contexto_actor"
 	DependenciaPDPV3                 Dependencia = "pdp_v3"
 	DependenciaKMSCifrado            Dependencia = "kms_cifrado"
 	DependenciaKMSRevalidacion       Dependencia = "kms_revalidacion"
-	DependenciaTSA                   Dependencia = "tsa"
+	DependenciaKMSVerificacionFirmas Dependencia = "kms_verificacion_firmas"
+	DependenciaTSACualificada        Dependencia = "tsa_cualificada"
 	DependenciaPostgreSQLEjecutor    Dependencia = "postgres_ejecutor_consulta"
 	DependenciaPostgreSQLProyector   Dependencia = "postgres_proyector_gobierno"
 	DependenciaPostgreSQLVerificador Dependencia = "postgres_verificador_recibo"
@@ -32,11 +34,13 @@ var dependenciasC4 = [...]Dependencia{
 	DependenciaTLSMutuo,
 	DependenciaIdentidadCorporativa,
 	DependenciaSesionesDurables,
+	DependenciaRevalidacionActor,
 	DependenciaContextoActor,
 	DependenciaPDPV3,
 	DependenciaKMSCifrado,
 	DependenciaKMSRevalidacion,
-	DependenciaTSA,
+	DependenciaKMSVerificacionFirmas,
+	DependenciaTSACualificada,
 	DependenciaPostgreSQLEjecutor,
 	DependenciaPostgreSQLProyector,
 	DependenciaPostgreSQLVerificador,
