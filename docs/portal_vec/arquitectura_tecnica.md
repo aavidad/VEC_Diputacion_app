@@ -176,7 +176,9 @@ anterior y la composicion productiva aporte identidad y PDP autoritativos.
 
 | Metodo | Ruta | Uso |
 | --- | --- | --- |
-| `GET` | `/healthz` | Salud del proceso |
+| `GET` | `/livez` | Vida del proceso |
+| `GET` | `/readyz` | Disponibilidad real de dependencias |
+| `GET` | `/healthz` | Alias compatible de readiness; no usar como liveness |
 | `GET` | `/` | Frontend estatico |
 | `GET` | `/api` | Descubrimiento minimo de rutas |
 | `POST` | `/api/demo` | Demo administrativa con convocatoria y listados |

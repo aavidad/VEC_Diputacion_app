@@ -117,7 +117,7 @@ no modifica el cortafuegos del anfitrión.
 La aceptación exige:
 
 1. `ss` muestra el puerto sólo en la IP interna elegida, nunca en `0.0.0.0`.
-2. El proxy autorizado obtiene `200` en `/healthz` y abre `/presentacion/`.
+2. El proxy autorizado obtiene `200` en `/livez` y abre `/presentacion/`.
 3. Un origen distinto es rechazado por la ACL de red y por Nginx.
 4. Los registros de la entrada muestran como remoto la IP autorizada real.
 5. No aparecen `Set-Cookie` y siguen bloqueadas las API privadas.
