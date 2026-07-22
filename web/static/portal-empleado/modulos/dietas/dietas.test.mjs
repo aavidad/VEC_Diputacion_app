@@ -703,7 +703,7 @@ test("el envío cambia códigos canónicos y conserva la trazabilidad", () => {
 test("prepara PDF DEMO con logo y QR resoluble sin datos personales", () => {
   const descriptor = presentador().prepararDescriptorRecibo("DEMO-REC-DIE-0084-03", t);
   assert.equal(descriptor.formato, "pdf");
-  assert.equal(descriptor.identidad_visual.logo_src, "/portal-empleado/assets/logo-diputacion-granada.svg");
+  assert.equal(descriptor.identidad_visual.logo_src, "/assets/logo-diputacion-granada.svg");
   assert.equal(descriptor.comprobacion.qr_contenido, "https://vec.demo.dipgra.es/verificar/?ref=DEMO-REC-DIE-0084-03&presentacion=rrhh");
   assert.equal(descriptor.comprobacion.metodo, "consulta_estatica_demo");
   assert.equal(descriptor.comprobacion.contiene_datos_personales, false);

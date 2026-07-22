@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const directorio = dirname(fileURLToPath(import.meta.url));
-const rutaLogo = "/portal-empleado/assets/logo-diputacion-granada.svg";
+const rutaLogo = "/assets/logo-diputacion-granada.svg";
 
 for (const pagina of ["index.html", "bolsa/index.html", "portal-empleado/index.html"]) {
   test(`${pagina} muestra la identidad institucional oficial`, () => {
@@ -17,7 +17,7 @@ for (const pagina of ["index.html", "bolsa/index.html", "portal-empleado/index.h
 
 test("el logotipo institucional se distribuye como activo local", () => {
   assert.equal(
-    existsSync(join(directorio, "portal-empleado/assets/logo-diputacion-granada.svg")),
+    existsSync(join(directorio, "assets/logo-diputacion-granada.svg")),
     true,
   );
 });

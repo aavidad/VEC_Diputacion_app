@@ -521,7 +521,8 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 		{metodo: http.MethodGet, ruta: "/verificar/", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/verificar/verificar.js?v=1", estado: http.StatusOK},
 		{metodo: http.MethodHead, ruta: "/styles.css", estado: http.StatusOK},
-		{metodo: http.MethodGet, ruta: "/portal-empleado/assets/logo-diputacion-granada.svg", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/favicon.svg", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/assets/logo-diputacion-granada.svg", estado: http.StatusOK},
 		{metodo: http.MethodPost, ruta: "/api/publico/consulta", estado: http.StatusAccepted},
 	} {
 		rec := httptest.NewRecorder()
@@ -532,9 +533,9 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 	}
 
 	for _, ruta := range []string{
-		"/", "/app.js", "/favicon.svg", "/locales/es.json",
+		"/", "/app.js", "/locales/es.json",
 		"/portal-empleado", "/portal-empleado/", "/portal-empleado/portal.js",
-		"/portal-empleado/assets/", "/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3",
+		"/assets/", "/portal-empleado/assets/", "/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3",
 		"/api", "/api/vec", "/api/vec/session", "/api/publicox", "/bolsax",
 	} {
 		rec := httptest.NewRecorder()
@@ -568,6 +569,9 @@ func TestSuperficieInternaExponeSoloSuListaPositiva(t *testing.T) {
 		{metodo: http.MethodGet, ruta: "/portal-empleado", estado: http.StatusMovedPermanently},
 		{metodo: http.MethodGet, ruta: "/portal-empleado/", estado: http.StatusOK},
 		{metodo: http.MethodHead, ruta: "/portal-empleado/portal.css?v=1", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/assets/logo-diputacion-granada.svg", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/styles.css", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/favicon.svg", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/locales/es.json", estado: http.StatusOK},
 		{metodo: http.MethodPost, ruta: "/api/vec/bolsa/panel", estado: http.StatusAccepted},
 	} {
@@ -579,7 +583,7 @@ func TestSuperficieInternaExponeSoloSuListaPositiva(t *testing.T) {
 	}
 
 	for _, ruta := range []string{
-		"/", "/app.js", "/styles.css", "/favicon.svg",
+		"/", "/app.js",
 		"/bolsa", "/bolsa/", "/bolsa/bolsa.js", "/api", "/api/publico", "/api/publico/bolsa",
 		"/api/vecino",
 	} {
@@ -603,12 +607,12 @@ func TestSuperficiesRechazanMetodosDeEscrituraEnRecursosEstaticos(t *testing.T) 
 		{
 			nombre:  "publica",
 			handler: NewHandlerPublicoWithConfig(config.Config{}, http.NotFoundHandler()),
-			rutas:   []string{"/healthz", "/bolsa", "/bolsa/bolsa.js", "/verificar", "/verificar/verificar.js", "/styles.css", "/portal-empleado/assets/logo-diputacion-granada.svg"},
+			rutas:   []string{"/healthz", "/bolsa", "/bolsa/bolsa.js", "/verificar", "/verificar/verificar.js", "/styles.css", "/favicon.svg", "/assets/logo-diputacion-granada.svg"},
 		},
 		{
 			nombre:  "interna",
 			handler: NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler()),
-			rutas:   []string{"/healthz", "/portal-empleado", "/portal-empleado/portal.js"},
+			rutas:   []string{"/healthz", "/portal-empleado", "/portal-empleado/portal.js", "/styles.css", "/favicon.svg", "/assets/logo-diputacion-granada.svg"},
 		},
 	}
 	for _, prueba := range pruebas {

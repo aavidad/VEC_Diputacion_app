@@ -101,8 +101,7 @@ func NewHandlerPublicoWithConfig(cfg config.Config, api http.Handler) http.Handl
 	mux.Handle("/bolsa/", soloLecturaHTTP(estaticos))
 	mux.Handle("/verificar", soloLecturaHTTP(redireccionDirectorio("verificar/")))
 	mux.Handle("/verificar/", soloLecturaHTTP(estaticos))
-	mux.Handle("/styles.css", soloLecturaHTTP(estaticos))
-	mux.Handle("/portal-empleado/assets/logo-diputacion-granada.svg", soloLecturaHTTP(estaticos))
+	registrarActivosCompartidos(mux, estaticos)
 	mux.Handle("/api/publico", api)
 	mux.Handle("/api/publico/", api)
 
@@ -129,6 +128,7 @@ func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handl
 	mux.Handle("/healthz", soloLecturaHTTP(http.HandlerFunc(handleHealthz)))
 	mux.Handle("/portal-empleado", soloLecturaHTTP(redireccionDirectorio("portal-empleado/")))
 	mux.Handle("/portal-empleado/", soloLecturaHTTP(estaticos))
+	registrarActivosCompartidos(mux, estaticos)
 	mux.Handle("/locales/", soloLecturaHTTP(localeHandler()))
 	mux.Handle("/api/vec", api)
 	mux.Handle("/api/vec/", api)
@@ -171,8 +171,7 @@ func NewHandlerPresentacionWithConfig(cfg config.Config, apiPublica http.Handler
 	registrarDirectorioPresentacion(mux, estaticos, "portal-empleado")
 	registrarDirectorioPresentacion(mux, estaticos, "bolsa")
 	registrarDirectorioPresentacion(mux, estaticos, "verificar")
-	mux.Handle("/styles.css", soloLecturaHTTP(estaticos))
-	mux.Handle("/favicon.svg", soloLecturaHTTP(estaticos))
+	registrarActivosCompartidos(mux, estaticos)
 	mux.Handle("/api/publico", soloLecturaHTTP(apiPublica))
 	mux.Handle("/api/publico/", soloLecturaHTTP(apiPublica))
 
