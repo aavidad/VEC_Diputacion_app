@@ -2,27 +2,43 @@ package main
 
 import (
 	"errors"
+	"io"
 	"log"
 	"net/http"
 
 	"vec-diputacion-granada/internal/app/composicion/interna"
 )
 
+var (
+	errArranqueComposicion = errors.New("servidor interno: composicion no disponible")
+	errArranqueEscucha     = errors.New("servidor interno: escucha TLS no disponible")
+)
+
 func main() {
+	if err := ejecutar(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func ejecutar() error {
 	cfg := interna.CargarConfiguracion()
 	servidor, err := interna.NuevoServidor(cfg)
 	if err != nil {
-		log.Fatalf("componer servidor interno: %v", err)
+		return errArranqueComposicion
 	}
 	if err := validarServidorParaEscucha(servidor); err != nil {
-		log.Fatalf("componer servidor interno: %v", err)
+		return errArranqueComposicion
 	}
 
-	log.Printf("servidor interno VEC escuchando con TLS mutuo en %s", servidor.Addr)
+	// net/http incluye direcciones remotas y errores TLS crudos en ErrorLog.
+	// La raiz cerrada no publica esos datos mediante el cmd.
+	servidor.ErrorLog = log.New(io.Discard, "", 0)
+	log.Print("servidor interno VEC iniciando escucha TLS mutua")
 	err = servidor.ListenAndServeTLS("", "")
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatalf("servir superficie interna: %v", err)
+		return errArranqueEscucha
 	}
+	return nil
 }
 
 func validarServidorParaEscucha(servidor *http.Server) error {
