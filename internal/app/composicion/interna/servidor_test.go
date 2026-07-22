@@ -478,7 +478,7 @@ func TestServidorInternoExigeCertificadoClienteEnHandshakeReal(t *testing.T) {
 	}
 	terminado := make(chan error, 1)
 	go func() {
-		terminado <- servidor.Serve(tls.NewListener(escucha, servidor.TLSConfig))
+		terminado <- servidor.ServeTLS(escucha, "", "")
 	}()
 	t.Cleanup(func() {
 		_ = servidor.Close()
@@ -614,7 +614,7 @@ func iniciarServidorTLSPrueba(t *testing.T, servidor *http.Server) string {
 	}
 	terminado := make(chan error, 1)
 	go func() {
-		terminado <- servidor.Serve(tls.NewListener(escucha, servidor.TLSConfig))
+		terminado <- servidor.ServeTLS(escucha, "", "")
 	}()
 	t.Cleanup(func() {
 		_ = servidor.Close()
