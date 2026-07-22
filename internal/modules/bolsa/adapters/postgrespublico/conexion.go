@@ -11,6 +11,7 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -61,6 +62,11 @@ type Fuente struct {
 	huellaCategoriasGobernadaHex  string
 	huellaProyeccionCategoriasHex string
 	cacheManifiesto               atomic.Pointer[cacheManifiestoPublico]
+	disponibilidadMu              sync.Mutex
+	disponibilidadHasta           time.Time
+	disponibilidadErr             error
+	disponibilidadEnCurso         chan struct{}
+	sondaDisponibilidadPrueba     func(context.Context) error
 }
 
 // Abrir analiza el DSN efectivo, exige verify-full en todos los fallbacks,

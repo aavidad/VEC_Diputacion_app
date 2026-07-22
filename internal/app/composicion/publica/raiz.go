@@ -88,7 +88,7 @@ func NuevoServidor(cfg Configuracion) (*http.Server, error) {
 	api.Handle(bolsahttp.RutaConvocatorias, manejador)
 	api.Handle(bolsahttp.RutaConvocatorias+"/", manejador)
 	api.Handle(bolsahttp.RutaCategorias, manejador)
-	servidor, err := server.NewHTTPServerPublico(configuracionHTTP(cfg), api)
+	servidor, err := server.NewHTTPServerPublicoConComprobadorDisponibilidad(configuracionHTTP(cfg), api, fuente)
 	if err != nil {
 		fuente.Cerrar()
 		return nil, err
