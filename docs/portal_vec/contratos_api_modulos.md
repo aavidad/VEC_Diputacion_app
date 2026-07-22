@@ -102,8 +102,14 @@ unico versionado explicito hoy es:
 - `ModuleManifest.Version` (`"v0.1.0"` en los cinco modulos registrados:
   personal, cronos, dietas, bolsa, administracion), visible en la respuesta de
   `GET /api/vec/modules`.
-- El campo `esquema` de las respuestas de Bolsa publica (p. ej.
-  `"vec.bolsa.publico.convocatorias.v1"`).
+- El campo `esquema` de las respuestas de Bolsa publica. La raíz productiva
+  C3 sirve `vec.bolsa.publico.convocatorias.v2` y
+  `vec.bolsa.publico.convocatoria.v2`, sin negociación ni fallback implícito.
+
+V1 queda congelado para compatibilidad del prototipo y excluido por una puerta
+exacta de dependencias de los binarios productivos. V2 elimina la repetición de
+etiquetas y descripciones de categoría: cada resumen porta solo la referencia
+nominal `{clave,version}` y el diccionario autoritativo viaja una vez.
 
 No hay todavia una politica de versionado de contrato a nivel de ruta o de
 cabecera `Accept`; un cliente de escritorio debe asumir que romper el envelope
@@ -556,7 +562,8 @@ normaliza, se rechaza.
 { "esquema": "vec.error.publico.v1", "error": { "codigo": "consulta_invalida", "mensaje": "La consulta no es válida." } }
 ```
 
-Codigos usados: `consulta_invalida` (400), `recurso_no_encontrado` (404),
+Codigos usados: `consulta_invalida` (400), `peticion_cancelada` (408),
+`capacidad_temporal_agotada` (429), `tiempo_operacion_agotado` (504), `recurso_no_encontrado` (404),
 `convocatoria_no_encontrada` (404), `metodo_no_permitido` (405),
 `error_interno` (500), `servicio_no_disponible` (503, solo si el servicio no
 se pudo construir en el arranque).
@@ -569,11 +576,11 @@ repetido es `400`): `texto` (<=100 runas), `tipo`, `categoria`, `estado`
 (unico valor admitido: `abierto`), `pagina` (1..500), `tamano` (1..24,
 defecto 12). Query string completa limitada a 2048 bytes.
 
-Respuesta (`200`), esquema `vec.bolsa.publico.convocatorias.v1`:
+Respuesta (`200`), esquema `vec.bolsa.publico.convocatorias.v2`:
 
 ```json
 {
-  "esquema": "vec.bolsa.publico.convocatorias.v1",
+  "esquema": "vec.bolsa.publico.convocatorias.v2",
   "fuente": { "revision": "2026-07", "actualizada_en": "2026-07-16T00:00:00Z", "demostracion": true, "aviso": "..." },
   "facetas": { "tipos": [ /* ValorCatalogoPublico[] */ ], "categorias": [ ], "estados": [ ] },
   "paginacion": { "pagina": 1, "tamano": 12, "total": 0, "paginas": 0 },
@@ -588,7 +595,8 @@ exclusivamente el propio filtro de categoria.
 
 `ResumenConvocatoriaPublica`: `identificador_publico`, `version`,
 `huella_sha256`, `titulo`, `resumen`, `tipo` (`ValorCatalogoPublico`),
-`estado` (`ValorCatalogoPublico`), `categorias[]`, `plazo_destacado?`
+`estado` (`ValorCatalogoPublico`), `categorias[]` (solo referencias exactas
+`{ "clave", "version" }`), `plazo_destacado?`
 (`PlazoPublico`), `numero_requisitos`, `numero_documentos`, `numero_ayudas`,
 `publicada_en`, `actualizada_en`.
 
@@ -638,13 +646,14 @@ responde `405` y `Allow: GET, HEAD`.
 ### `GET /api/publico/bolsa/convocatorias/{id}`
 
 `{id}` debe casar `^[a-z0-9][a-z0-9-]{2,79}$` y no admite query string (400 si
-la trae). Respuesta (`200`), esquema `vec.bolsa.publico.convocatoria.v1`:
+la trae). Respuesta (`200`), esquema `vec.bolsa.publico.convocatoria.v2`:
 
 ```json
 {
-  "esquema": "vec.bolsa.publico.convocatoria.v1",
+  "esquema": "vec.bolsa.publico.convocatoria.v2",
   "fuente": { "...": "..." },
   "convocatoria": { /* ResumenConvocatoriaPublica */ },
+  "diccionario_categorias": [ /* ValorCatalogoPublico[], cobertura exacta de las referencias */ ],
   "descripcion": "texto largo",
   "plazos": [ /* PlazoPublico[] */ ],
   "requisitos": [ { "referencia", "orden", "titulo", "descripcion", "obligatorio" } ],
@@ -653,15 +662,19 @@ la trae). Respuesta (`200`), esquema `vec.bolsa.publico.convocatoria.v1`:
 }
 ```
 
-Fuente de convocatorias: fichero JSON configurado en
-`VEC_BOLSA_PUBLIC_SOURCE_PATH` (por defecto
-`data/demo/convocatorias_publicas.demo.json`). El paquete de categorias se
-selecciona mediante `VEC_BOLSA_CATEGORIES_SOURCE_PATH`,
-`VEC_BOLSA_CATEGORIES_CATALOG_ID` y
-`VEC_BOLSA_CATEGORIES_CATALOG_VERSION`; la huella esperada se fija con
-`VEC_BOLSA_CATEGORIES_CATALOG_SHA256`. Los cuatro valores seleccionan una
-instantanea exacta y una discrepancia impide el arranque. Los ficheros son
-adaptadores de demostracion de solo lectura, no la persistencia productiva.
+En el listado cada referencia debe resolver de forma única contra
+`facetas.categorias`. El detalle es autocontenido: su
+`diccionario_categorias` contiene exactamente una entrada por referencia, sin
+sobrantes, duplicados ni versiones alternativas. Backend y cliente fallan
+cerrados si esa correspondencia no es biyectiva. El límite técnico es 128
+categorías por convocatoria (frente a unas 68 actuales) y 1.024 en el catálogo
+profesional; ampliar cualquiera exige versionar de nuevo el contrato.
+
+El contrato V2 no fija el almacenamiento. La raiz productiva C3 debe componer
+de forma explicita su adaptador PostgreSQL y su ancla externa; no negocia ni
+recurre a un fichero si falta la configuracion. Los JSON seleccionados mediante
+`VEC_BOLSA_PUBLIC_SOURCE_PATH` y `VEC_BOLSA_CATEGORIES_*` pertenecen solo al
+prototipo V1 congelado y no forman parte del grafo de dependencias productivo.
 Este es el modulo con el cliente frontend mas fiel al contrato real:
 `web/static/bolsa/bolsa.js` llama exactamente a listado, detalle y directorio,
 sin listas de categorias sinteticas locales de por medio.

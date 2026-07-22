@@ -1,6 +1,8 @@
 "use strict";
 
 (() => {
+  const contratoPublicoV2 = globalThis.VECBolsaContratoV2;
+  if (!contratoPublicoV2) throw new Error("validador del contrato público V2 no disponible");
   const API = "/api/publico/bolsa/convocatorias";
   const API_CATEGORIAS = "/api/publico/bolsa/categorias";
   const TAMANO = 12;
@@ -221,7 +223,7 @@
     return `/bolsa/?${parametros.toString()}`;
   }
 
-  function tarjetaConvocatoria(convocatoria) {
+  function tarjetaConvocatoria(convocatoria, categoriasResueltas) {
     const item = document.createElement("li");
     const articulo = document.createElement("article");
     articulo.className = "tarjeta-convocatoria";
@@ -230,7 +232,7 @@
     const etiquetas = document.createElement("div");
     etiquetas.className = "grupo-etiquetas";
     etiquetas.append(etiqueta(convocatoria.tipo), etiqueta(convocatoria.estado));
-    convocatoria.categorias.forEach((categoria) => etiquetas.appendChild(etiqueta(categoria)));
+    categoriasResueltas.forEach((categoria) => etiquetas.appendChild(etiqueta(categoria)));
     articulo.appendChild(etiquetas);
     articulo.appendChild(texto("h3", convocatoria.titulo));
     articulo.appendChild(texto("p", convocatoria.resumen));
@@ -265,7 +267,7 @@
   }
 
   function renderizarListado(datos) {
-    if (datos.esquema !== "vec.bolsa.publico.convocatorias.v1" || !Array.isArray(datos.convocatorias)) throw new Error("esquema público inesperado");
+    const categoriasPorConvocatoria = contratoPublicoV2.validarListado(datos);
     renderizarFacetas(datos.facetas);
     actualizarAvisoDemostracion("convocatorias", datos.fuente);
     elementos.revision.textContent = `Fuente ${datos.fuente.revision} · actualizada ${formatoFecha.format(new Date(datos.fuente.actualizada_en))}`;
@@ -273,7 +275,9 @@
     estado.pagina = datos.paginacion.pagina;
     elementos.estadoConsulta.textContent = cantidad(datos.paginacion.total, "convocatoria encontrada", "convocatorias encontradas");
     vaciar(elementos.listado);
-    datos.convocatorias.forEach((convocatoria) => elementos.listado.appendChild(tarjetaConvocatoria(convocatoria)));
+    datos.convocatorias.forEach((convocatoria) => elementos.listado.appendChild(
+      tarjetaConvocatoria(convocatoria, categoriasPorConvocatoria.get(convocatoria.identificador_publico)),
+    ));
     if (datos.convocatorias.length === 0) {
       estadoListado("vacio");
       return;
@@ -385,12 +389,12 @@
   }
 
   function renderizarDetalle(datos) {
-    if (datos.esquema !== "vec.bolsa.publico.convocatoria.v1") throw new Error("esquema de detalle inesperado");
+    const categoriasResueltas = contratoPublicoV2.validarDetalle(datos);
     const convocatoria = datos.convocatoria;
     elementos.tituloDetalle.textContent = convocatoria.titulo;
     vaciar(elementos.detalleEtiquetas);
     elementos.detalleEtiquetas.append(etiqueta(convocatoria.tipo), etiqueta(convocatoria.estado));
-    convocatoria.categorias.forEach((categoria) => elementos.detalleEtiquetas.appendChild(etiqueta(categoria)));
+    categoriasResueltas.forEach((categoria) => elementos.detalleEtiquetas.appendChild(etiqueta(categoria)));
     elementos.detalleResumen.textContent = convocatoria.resumen;
     const publicacionTiempo = document.createElement("time");
     publicacionTiempo.dateTime = convocatoria.publicada_en;

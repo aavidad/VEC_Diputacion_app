@@ -1,37 +1,83 @@
-// Package httppublico expone únicamente proyecciones públicas minimizadas.
+// Package httpapi expone únicamente proyecciones públicas minimizadas.
 // No contiene rutas personales, internas ni de administración.
-package httppublico
+package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
-	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
-	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/aplicacion"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/publico/puertos"
+	"vec-diputacion-granada/internal/shared/limiteshttp"
 )
 
 const (
-	RutaConvocatorias = "/api/publico/bolsa/convocatorias"
-	RutaCategorias    = "/api/publico/bolsa/categorias"
+	RutaConvocatorias              = "/api/publico/bolsa/convocatorias"
+	RutaCategorias                 = "/api/publico/bolsa/categorias"
+	duracionMaximaPeticionPublica  = limiteshttp.DuracionMaximaPeticionPublica
+	presupuestoEscrituraPublica    = limiteshttp.PresupuestoEscrituraPublica
+	reservaLimpiezaPublica         = limiteshttp.ReservaLimpiezaPublica
+	duracionMaximaRetencionCupo    = limiteshttp.DuracionMaximaRetencionCupo
+	duracionMaximaOperacionPublica = limiteshttp.DuracionMaximaOperacionPublica
+	// Peor detalle contractual: 128 categorías, 64 plazos, 256 requisitos,
+	// 256 documentos y 128 ayudas con escape JSON conservador de seis bytes por
+	// carácter. El fixture codifica menos de 14 MiB; 32 MiB incluyen objeto Go,
+	// buffers y margen. Seis respuestas fijan 192 MiB simultáneos.
+	maximoBytesRespuestaPublica   = 32 << 20
+	presupuestoRespuestasPublicas = 192 << 20
+	maximoOperacionesConcurrentes = 6
+	maximoRespuestasConcurrentes  = presupuestoRespuestasPublicas / maximoBytesRespuestaPublica
 )
 
 type Handler struct {
-	servicio *aplicacionbolsa.ServicioConsultaPublica
+	servicio          servicioConsultaPublica
+	cuposServicio     chan struct{}
+	cuposRespuesta    chan struct{}
+	duracionOperacion time.Duration
+}
+
+type servicioConsultaPublica interface {
+	Listar(context.Context, aplicacionbolsa.SolicitudListadoPublico) (aplicacionbolsa.ListadoConvocatoriasPublicas, error)
+	Obtener(context.Context, string) (aplicacionbolsa.DetalleConvocatoriaPublica, error)
+	ListarCategorias(context.Context) (aplicacionbolsa.DirectorioCategoriasPublicas, error)
 }
 
 func NuevoHandler(servicio *aplicacionbolsa.ServicioConsultaPublica) (http.Handler, error) {
 	if servicio == nil {
 		return nil, aplicacionbolsa.ErrServicioConsultaPublicaInvalido
 	}
-	return &Handler{servicio: servicio}, nil
+	return nuevoHandler(
+		servicio, maximoOperacionesConcurrentes, maximoRespuestasConcurrentes,
+		duracionMaximaOperacionPublica,
+	), nil
+}
+
+func nuevoHandler(
+	servicio servicioConsultaPublica,
+	concurrenciaServicio int,
+	concurrenciaRespuesta int,
+	duracionOperacion time.Duration,
+) *Handler {
+	if !servicioConsultaPublicaDisponible(servicio) || concurrenciaServicio < 1 ||
+		concurrenciaRespuesta < concurrenciaServicio || duracionOperacion <= 0 {
+		return &Handler{}
+	}
+	return &Handler{
+		servicio: servicio, cuposServicio: make(chan struct{}, concurrenciaServicio),
+		cuposRespuesta: make(chan struct{}, concurrenciaRespuesta), duracionOperacion: duracionOperacion,
+	}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r == nil || h == nil || h.servicio == nil {
+	if r == nil || h == nil || !servicioConsultaPublicaDisponible(h.servicio) ||
+		h.cuposServicio == nil || h.cuposRespuesta == nil || h.duracionOperacion <= 0 {
 		responderError(w, http.StatusServiceUnavailable, "servicio_no_disponible", "Servicio no disponible.")
 		return
 	}
@@ -42,25 +88,50 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderError(w, http.StatusBadRequest, "ruta_invalida", "La ruta no es válida.")
 		return
 	}
+	var servir func(http.ResponseWriter, *http.Request)
 	if r.URL.Path == RutaConvocatorias {
-		h.listar(w, r)
-		return
-	}
-	if r.URL.Path == RutaCategorias {
-		h.listarCategorias(w, r)
-		return
-	}
-	prefijo := RutaConvocatorias + "/"
-	if strings.HasPrefix(r.URL.Path, prefijo) {
-		identificador := strings.TrimPrefix(r.URL.Path, prefijo)
-		if identificador == "" || strings.Contains(identificador, "/") {
-			responderError(w, http.StatusNotFound, "recurso_no_encontrado", "Recurso no encontrado.")
-			return
+		servir = h.listar
+	} else if r.URL.Path == RutaCategorias {
+		servir = h.listarCategorias
+	} else {
+		prefijo := RutaConvocatorias + "/"
+		if strings.HasPrefix(r.URL.Path, prefijo) {
+			identificador := strings.TrimPrefix(r.URL.Path, prefijo)
+			if identificador == "" || strings.Contains(identificador, "/") {
+				responderError(w, http.StatusNotFound, "recurso_no_encontrado", "Recurso no encontrado.")
+				return
+			}
+			servir = func(w http.ResponseWriter, r *http.Request) { h.detalle(w, r, identificador) }
 		}
-		h.detalle(w, r, identificador)
+	}
+	if servir == nil {
+		responderError(w, http.StatusNotFound, "recurso_no_encontrado", "Recurso no encontrado.")
 		return
 	}
-	responderError(w, http.StatusNotFound, "recurso_no_encontrado", "Recurso no encontrado.")
+	select {
+	case h.cuposRespuesta <- struct{}{}:
+		defer func() { <-h.cuposRespuesta }()
+	default:
+		w.Header().Set("Retry-After", "1")
+		responderError(w, http.StatusTooManyRequests, "capacidad_temporal_agotada", "Inténtelo de nuevo en unos instantes.")
+		return
+	}
+	ctx, cancelar := context.WithTimeout(r.Context(), h.duracionOperacion)
+	defer cancelar()
+	servir(w, r.WithContext(ctx))
+}
+
+func servicioConsultaPublicaDisponible(servicio servicioConsultaPublica) bool {
+	if servicio == nil {
+		return false
+	}
+	valor := reflect.ValueOf(servicio)
+	switch valor.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return !valor.IsNil()
+	default:
+		return true
+	}
 }
 
 func (h *Handler) listarCategorias(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +142,12 @@ func (h *Handler) listarCategorias(w http.ResponseWriter, r *http.Request) {
 		responderError(w, http.StatusBadRequest, "consulta_invalida", "El directorio de categorías no admite parámetros.")
 		return
 	}
-	resultado, err := h.servicio.ListarCategorias(r.Context())
+	resultado, err, ejecutada := ejecutarServicioConCupo(h, w, func() (aplicacionbolsa.DirectorioCategoriasPublicas, error) {
+		return h.servicio.ListarCategorias(r.Context())
+	})
+	if !ejecutada {
+		return
+	}
 	if err != nil {
 		responderErrorAplicacion(w, err)
 		return
@@ -92,7 +168,12 @@ func (h *Handler) listar(w http.ResponseWriter, r *http.Request) {
 		responderError(w, http.StatusBadRequest, "consulta_invalida", "Los filtros de consulta no son válidos.")
 		return
 	}
-	resultado, err := h.servicio.Listar(r.Context(), consulta)
+	resultado, err, ejecutada := ejecutarServicioConCupo(h, w, func() (aplicacionbolsa.ListadoConvocatoriasPublicas, error) {
+		return h.servicio.Listar(r.Context(), consulta)
+	})
+	if !ejecutada {
+		return
+	}
 	if err != nil {
 		responderErrorAplicacion(w, err)
 		return
@@ -108,12 +189,35 @@ func (h *Handler) detalle(w http.ResponseWriter, r *http.Request, identificador 
 		responderError(w, http.StatusBadRequest, "consulta_invalida", "El detalle no admite parámetros.")
 		return
 	}
-	resultado, err := h.servicio.Obtener(r.Context(), identificador)
+	resultado, err, ejecutada := ejecutarServicioConCupo(h, w, func() (aplicacionbolsa.DetalleConvocatoriaPublica, error) {
+		return h.servicio.Obtener(r.Context(), identificador)
+	})
+	if !ejecutada {
+		return
+	}
 	if err != nil {
 		responderErrorAplicacion(w, err)
 		return
 	}
 	responderJSON(w, r, http.StatusOK, resultado)
+}
+
+func ejecutarServicioConCupo[T any](
+	h *Handler,
+	w http.ResponseWriter,
+	ejecutar func() (T, error),
+) (T, error, bool) {
+	var cero T
+	select {
+	case h.cuposServicio <- struct{}{}:
+		defer func() { <-h.cuposServicio }()
+	default:
+		w.Header().Set("Retry-After", "1")
+		responderError(w, http.StatusTooManyRequests, "capacidad_temporal_agotada", "Inténtelo de nuevo en unos instantes.")
+		return cero, nil, false
+	}
+	resultado, err := ejecutar()
+	return resultado, err, true
 }
 
 func decodificarConsulta(r *http.Request) (aplicacionbolsa.SolicitudListadoPublico, error) {
@@ -166,6 +270,10 @@ func metodoLectura(w http.ResponseWriter, r *http.Request) bool {
 
 func responderErrorAplicacion(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		responderError(w, http.StatusGatewayTimeout, "tiempo_operacion_agotado", "La consulta ha superado el tiempo disponible.")
+	case errors.Is(err, context.Canceled):
+		responderError(w, http.StatusRequestTimeout, "peticion_cancelada", "La petición fue cancelada.")
 	case errors.Is(err, puertosbolsa.ErrConvocatoriaNoEncontrada):
 		responderError(w, http.StatusNotFound, "convocatoria_no_encontrada", "Convocatoria no encontrada.")
 	case errors.Is(err, aplicacionbolsa.ErrFiltroPublicoInvalido), errors.Is(err, puertosbolsa.ErrConsultaConvocatoriasInvalida):
