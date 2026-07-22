@@ -245,6 +245,13 @@ func TestConstruirServidorInternoClonaMaterialTLSMutable(t *testing.T) {
 	if servidor.TLSConfig.ClientCAs == origen.ClientCAs {
 		t.Fatal("el servidor compartio el pool de autoridades con el llamador")
 	}
+	sello := servidor.Handler.(*manejadorInternoVerificado).materialTLS
+	if sello.autoridadesClientes == servidor.TLSConfig.ClientCAs {
+		t.Fatal("el sello compartio el pool de autoridades con el servidor mutable")
+	}
+	if sello.certificadoServidor.PrivateKey != nil {
+		t.Fatal("el sello duplico una referencia a la clave privada")
+	}
 	byteServidor := servidor.TLSConfig.Certificates[0].Certificate[0][0]
 	origen.Certificates[0].Certificate[0][0] ^= 0xff
 	origen.Certificates[0].Certificate = nil
@@ -253,6 +260,89 @@ func TestConstruirServidorInternoClonaMaterialTLSMutable(t *testing.T) {
 	}
 	if err := ValidarServidorParaEscucha(servidor); err != nil {
 		t.Fatalf("la copia defensiva quedo invalida: %v", err)
+	}
+}
+
+func TestValidarServidorParaEscuchaRechazaSustitucionDeMaterialTLS(t *testing.T) {
+	pruebas := []struct {
+		nombre string
+		mutar  func(*testing.T, *http.Server, *tls.Config)
+	}{
+		{
+			nombre: "otra CA no vacia",
+			mutar: func(t *testing.T, servidor *http.Server, _ *tls.Config) {
+				servidor.TLSConfig.ClientCAs = materialTLSMutuoPrueba(t).raices.Clone()
+			},
+		},
+		{
+			nombre: "CA anadida al pool aprobado",
+			mutar: func(t *testing.T, servidor *http.Server, _ *tls.Config) {
+				otro := materialTLSMutuoPrueba(t)
+				ca, err := x509.ParseCertificate(otro.servidor.Certificates[0].Certificate[1])
+				if err != nil {
+					t.Fatal(err)
+				}
+				servidor.TLSConfig.ClientCAs.AddCert(ca)
+			},
+		},
+		{
+			nombre: "otro par servidor valido",
+			mutar: func(t *testing.T, servidor *http.Server, _ *tls.Config) {
+				servidor.TLSConfig.Certificates = materialTLSMutuoPrueba(t).servidor.Certificates
+			},
+		},
+		{
+			nombre: "cadena modificada directamente",
+			mutar: func(_ *testing.T, servidor *http.Server, _ *tls.Config) {
+				servidor.TLSConfig.Certificates[0].Certificate[0][0] ^= 0xff
+			},
+		},
+		{
+			nombre: "clave incoherente",
+			mutar: func(t *testing.T, servidor *http.Server, _ *tls.Config) {
+				servidor.TLSConfig.Certificates[0].PrivateKey =
+					materialTLSMutuoPrueba(t).servidor.Certificates[0].PrivateKey
+			},
+		},
+		{
+			nombre: "Leaf eliminado",
+			mutar: func(_ *testing.T, servidor *http.Server, _ *tls.Config) {
+				servidor.TLSConfig.Certificates[0].Leaf = nil
+			},
+		},
+		{
+			nombre: "algoritmos de firma alterados",
+			mutar: func(_ *testing.T, servidor *http.Server, _ *tls.Config) {
+				servidor.TLSConfig.Certificates[0].SupportedSignatureAlgorithms =
+					[]tls.SignatureScheme{tls.PSSWithSHA256}
+			},
+		},
+		{
+			nombre: "clave del proveedor mutada despues de construir",
+			mutar: func(t *testing.T, _ *http.Server, origen *tls.Config) {
+				clave, valida := origen.Certificates[0].PrivateKey.(ed25519.PrivateKey)
+				if !valida || len(clave) == 0 {
+					t.Fatal("la clave de prueba no es Ed25519")
+				}
+				clave[len(clave)-1] ^= 0xff
+			},
+		},
+	}
+
+	for _, prueba := range pruebas {
+		t.Run(prueba.nombre, func(t *testing.T) {
+			origen := configuracionTLSMutuoValidaPrueba(t)
+			servidor, err := construirServidorInterno(
+				configuracionInternaValidaPrueba(), http.NotFoundHandler(), origen,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			prueba.mutar(t, servidor, origen)
+			if err := ValidarServidorParaEscucha(servidor); !errors.Is(err, ErrTLSMutuoNoVerificado) {
+				t.Fatalf("material TLS sustituido aceptado: %v", err)
+			}
+		})
 	}
 }
 
