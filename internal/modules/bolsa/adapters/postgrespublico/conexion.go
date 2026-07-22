@@ -65,8 +65,19 @@ type Fuente struct {
 	disponibilidadMu              sync.Mutex
 	disponibilidadHasta           time.Time
 	disponibilidadErr             error
+	disponibilidadCancelada       bool
 	disponibilidadEnCurso         bool
+	disponibilidadEstadoConocido  bool
+	disponibilidadDisponible      bool
+	observadorDisponibilidad      func(bool)
 	sondaDisponibilidadPrueba     func(context.Context) error
+	integridadMu                  sync.RWMutex
+	integridadHasta               time.Time
+	integridadErr                 error
+	integridadCancelar            context.CancelFunc
+	integridadTerminada           chan struct{}
+	sondaIntegridadPrueba         func(context.Context) error
+	cerrarUnaVez                  sync.Once
 }
 
 // Abrir analiza el DSN efectivo, exige verify-full en todos los fallbacks,
@@ -145,9 +156,23 @@ func NuevaFuente(
 }
 
 func (f *Fuente) Cerrar() {
-	if f != nil && f.pool != nil {
-		f.pool.Close()
+	if f == nil {
+		return
 	}
+	f.cerrarUnaVez.Do(func() {
+		f.integridadMu.Lock()
+		cancelar, terminada := f.integridadCancelar, f.integridadTerminada
+		f.integridadMu.Unlock()
+		if cancelar != nil {
+			cancelar()
+		}
+		if terminada != nil {
+			<-terminada
+		}
+		if f.pool != nil {
+			f.pool.Close()
+		}
+	})
 }
 
 func prepararConfiguracionPool(dsn string) (*pgxpool.Config, error) {

@@ -23,16 +23,12 @@ type ComprobadorDisponibilidad interface {
 	ComprobarDisponibilidad(context.Context) error
 }
 
-type comprobadorDisponibilidadLocal struct{}
-
-func (comprobadorDisponibilidadLocal) ComprobarDisponibilidad(context.Context) error { return nil }
-
 type healthResponse struct {
 	Status string `json:"status"`
 }
 
 func NewHTTPServer(cfg config.Config, api http.Handler) (*http.Server, error) {
-	return NewHTTPServerConComprobadorDisponibilidad(cfg, api, comprobadorDisponibilidadLocal{})
+	return NewHTTPServerConComprobadorDisponibilidad(cfg, api, nil)
 }
 
 func NewHTTPServerConComprobadorDisponibilidad(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad) (*http.Server, error) {
@@ -62,7 +58,7 @@ func NewHTTPServerPublicoConComprobadorDisponibilidad(cfg config.Config, api htt
 // Empleado y la API VEC. Este listener no expone contenido publico ni la SPA
 // historica que mezclaba ambas superficies.
 func NewHTTPServerInterno(cfg config.Config, api http.Handler) (*http.Server, error) {
-	return NewHTTPServerInternoConComprobadorDisponibilidad(cfg, api, comprobadorDisponibilidadLocal{})
+	return NewHTTPServerInternoConComprobadorDisponibilidad(cfg, api, nil)
 }
 
 func NewHTTPServerInternoConComprobadorDisponibilidad(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad) (*http.Server, error) {
@@ -75,7 +71,7 @@ func NewHTTPServerInternoConComprobadorDisponibilidad(cfg config.Config, api htt
 // adaptadores sinteticos. La raiz de composicion valida las guardas y este
 // limite vuelve a exigirlas, una direccion IP local literal y redes locales.
 func NewHTTPServerPresentacion(cfg config.Config, apiPublica http.Handler) (*http.Server, error) {
-	return NewHTTPServerPresentacionConComprobadorDisponibilidad(cfg, apiPublica, comprobadorDisponibilidadLocal{})
+	return NewHTTPServerPresentacionConComprobadorDisponibilidad(cfg, apiPublica, nil)
 }
 
 func NewHTTPServerPresentacionConComprobadorDisponibilidad(cfg config.Config, apiPublica http.Handler, comprobador ComprobadorDisponibilidad) (*http.Server, error) {
@@ -164,7 +160,7 @@ func NewHandlerPublicoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 // credenciales de proxy; la identidad interna debe llegar por el canal
 // autenticado que componga el listener, nunca mediante cabeceras ambientales.
 func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handler {
-	return NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg, api, comprobadorDisponibilidadLocal{})
+	return NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg, api, nil)
 }
 
 func NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
@@ -195,7 +191,7 @@ func NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 // historica, ficheros de datos, documentacion ni una API interna. La consulta
 // publica de Bolsa es la unica API admitida y permanece en solo lectura.
 func NewHandlerPresentacionWithConfig(cfg config.Config, apiPublica http.Handler) http.Handler {
-	return NewHandlerPresentacionWithConfigConComprobadorDisponibilidad(cfg, apiPublica, comprobadorDisponibilidadLocal{})
+	return NewHandlerPresentacionWithConfigConComprobadorDisponibilidad(cfg, apiPublica, nil)
 }
 
 func NewHandlerPresentacionWithConfigConComprobadorDisponibilidad(cfg config.Config, apiPublica http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
