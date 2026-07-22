@@ -388,6 +388,7 @@ SET search_path = pg_catalog, pg_temp
 SET statement_timeout = '60s'
 SET lock_timeout = '5s'
 SET idle_in_transaction_session_timeout = '60s'
+SET log_parameter_max_length_on_error = 0
 SET work_mem = '8MB'
 SET jit = 'off'
 SET timezone = 'UTC'

@@ -191,10 +191,9 @@ CREATE ROLE vec_bolsa_publica_publicador_integracion_login LOGIN NOSUPERUSER NOC
 GRANT vec_bolsa_publica_publicador TO vec_bolsa_publica_publicador_integracion_login
 	    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
 
-CREATE TEMP TABLE proyeccion_publica_prueba(payload jsonb NOT NULL);
-GRANT SELECT ON proyeccion_publica_prueba
-    TO vec_bolsa_publica_publicador_integracion_login;
-INSERT INTO proyeccion_publica_prueba(payload) VALUES (
+CREATE TABLE public.proyeccion_publica_prueba(payload jsonb NOT NULL);
+REVOKE ALL ON public.proyeccion_publica_prueba FROM PUBLIC;
+INSERT INTO public.proyeccion_publica_prueba(payload) VALUES (
 $proyeccion$
 {
   "fuente":{"revision":"revision-001","actualizada_en":"2026-07-22T10:00:00Z"},
@@ -226,10 +225,17 @@ $proyeccion$
 }
 $proyeccion$::jsonb
 );
+\o /dev/null
+SELECT pg_catalog.set_config(
+    'vec.prueba_proyeccion_publica',
+    (SELECT payload::text FROM public.proyeccion_publica_prueba),
+    false
+);
+\o
 
 SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
 SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
-    (SELECT payload FROM proyeccion_publica_prueba),
+    current_setting('vec.prueba_proyeccion_publica')::jsonb,
 '2a85abd0a1e78d828fe27baf619349caf8e4e8a3e0bf20815279dd98a966889a'
 );
 RESET SESSION AUTHORIZATION;
@@ -240,7 +246,7 @@ BEGIN;
 SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
 SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
     jsonb_set(
-        (SELECT payload FROM proyeccion_publica_prueba),
+        current_setting('vec.prueba_proyeccion_publica')::jsonb,
         '{fuente,revision}', '"revision-002"'::jsonb
     ),
     repeat('b', 64)
@@ -248,7 +254,7 @@ SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
 DO $rechazar_reutilizacion$
 BEGIN
     PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
-        (SELECT payload FROM proyeccion_publica_prueba),
+        current_setting('vec.prueba_proyeccion_publica')::jsonb,
         '2a85abd0a1e78d828fe27baf619349caf8e4e8a3e0bf20815279dd98a966889a'
     );
     RAISE EXCEPTION USING ERRCODE = 'P0001',
@@ -277,7 +283,7 @@ SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
 DO $rechazar_despues_de_cero$
 BEGIN
     PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
-        (SELECT payload FROM proyeccion_publica_prueba),
+        current_setting('vec.prueba_proyeccion_publica')::jsonb,
         '2a85abd0a1e78d828fe27baf619349caf8e4e8a3e0bf20815279dd98a966889a'
     );
     RAISE EXCEPTION USING ERRCODE = 'P0001',
@@ -306,7 +312,7 @@ DECLARE
     exceso_entradas jsonb;
     mutacion jsonb;
 BEGIN
-    SELECT payload INTO base FROM proyeccion_publica_prueba;
+    base := current_setting('vec.prueba_proyeccion_publica')::jsonb;
     SELECT jsonb_set(
                base,
                '{catalogos}',
@@ -465,8 +471,13 @@ SELECT
     has_function_privilege(
         'vec_bolsa_publica_publicador',
         'vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v1(jsonb,text[])', 'EXECUTE'
+    )::text
+ || ':' ||
+    has_table_privilege(
+        'vec_bolsa_publica_publicador_integracion_login',
+        'public.proyeccion_publica_prueba', 'SELECT'
     )::text")
-if [[ "$acl_funcion" != "12:4:0:0:true:false:true:false" ]]; then
+if [[ "$acl_funcion" != "12:4:0:0:true:false:true:false:false" ]]; then
     echo "ACL de publicacion inesperada: $acl_funcion" >&2
     exit 1
 fi
@@ -526,7 +537,69 @@ VEC_PRUEBA_BOLSA_PUBLICA_MANIFIESTO_SHA256="$ancla_inicial" \
     go test -count=1 -run '^TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion$' \
 	    ./internal/modules/bolsa/adapters/postgrespublico
 
-# La reversión sin confirmación falla con cualquier contenido y es atómica.
+# Un publicador lento conserva el advisory xact lock hasta ROLLBACK/COMMIT. Los
+# lectores fallan por lock_timeout y la migración espera el mismo candado sin
+# observar una ventana intermedia ni formar un ciclo de bloqueos.
+docker exec --interactive "$contenedor" psql -X --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" \
+    >"$directorio_tls/publicador_concurrente.log" 2>&1 <<'SQL' &
+SET application_name = 'vec-publicador-concurrente';
+BEGIN;
+\o /dev/null
+SELECT pg_catalog.set_config(
+    'vec.prueba_proyeccion_publica',
+    (SELECT payload::text FROM public.proyeccion_publica_prueba),
+    false
+);
+\o
+SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
+SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v1(
+    jsonb_set(
+        current_setting('vec.prueba_proyeccion_publica')::jsonb,
+        '{fuente,revision}', '"revision-bloqueo"'::jsonb
+    ),
+    repeat('d', 64)
+);
+SELECT pg_sleep(5);
+ROLLBACK;
+SQL
+pid_publicador=$!
+
+bloqueo_publicador=0
+for _ in $(seq 1 50); do
+    bloqueo_publicador=$(docker exec "$contenedor" psql -X --tuples-only --no-align \
+        --username postgres --dbname "$base" --command "
+SELECT count(*)
+  FROM pg_catalog.pg_locks AS bloqueo
+  JOIN pg_catalog.pg_stat_activity AS sesion ON sesion.pid = bloqueo.pid
+ WHERE bloqueo.locktype = 'advisory' AND bloqueo.mode = 'ExclusiveLock'
+   AND bloqueo.granted
+   AND sesion.application_name = 'vec-publicador-concurrente'")
+    [[ "$bloqueo_publicador" == "1" ]] && break
+    sleep 0.1
+done
+if [[ "$bloqueo_publicador" != "1" ]]; then
+    echo "el publicador concurrente no tomo el candado exclusivo" >&2
+    wait "$pid_publicador" || true
+    sed -n '1,120p' "$directorio_tls/publicador_concurrente.log" >&2
+    exit 1
+fi
+if docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
+    --username vec_bolsa_publica_integracion_login --dbname "$base" --command \
+    "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+     SET LOCAL lock_timeout = '2s';
+     SELECT pg_catalog.pg_advisory_xact_lock_shared(
+         pg_catalog.hashtextextended('vec_bolsa_publica:publicacion:v1', 0)
+     );
+     ROLLBACK" >/dev/null 2>&1; then
+    echo "un lector no respeto su lock_timeout ante el publicador lento" >&2
+    wait "$pid_publicador" || true
+    exit 1
+fi
+
+# La reversión sin confirmación espera al publicador, luego falla con
+# cualquier contenido y conserva los tres esquemas de forma atómica.
+inicio_down=$(date +%s)
 {
 	printf '%s\n' 'SET ROLE vec_bolsa_publica_migrador;'
 	cat "$raiz/deploy/postgresql/bolsa_publica/migraciones/000001_proyeccion_publica.down.sql"
@@ -534,6 +607,17 @@ VEC_PRUEBA_BOLSA_PUBLICA_MANIFIESTO_SHA256="$ancla_inicial" \
 	--username postgres --dbname "$base" >/dev/null 2>&1; then
 	echo "down acepto una proyeccion poblada sin confirmacion" >&2
 	exit 1
+fi
+espera_down=$(( $(date +%s) - inicio_down ))
+if ((espera_down < 1)); then
+    echo "la migracion no se serializo con la publicacion en curso" >&2
+    wait "$pid_publicador" || true
+    exit 1
+fi
+if ! wait "$pid_publicador"; then
+    echo "el publicador concurrente fallo" >&2
+    sed -n '1,120p' "$directorio_tls/publicador_concurrente.log" >&2
+    exit 1
 fi
 esquemas_presentes=$(docker exec "$contenedor" psql -X --tuples-only --no-align \
 	--username postgres --dbname "$base" --command \
@@ -543,6 +627,9 @@ if [[ "$esquemas_presentes" != "2" ]]; then
 	echo "down parcial tras rechazar una proyeccion poblada" >&2
 	exit 1
 fi
+docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" --command \
+    'DROP TABLE public.proyeccion_publica_prueba'
 
 # Se eliminan las convocatorias y catálogos dejando fuente e historial de
 # anclas: también ese control reconstruible exige el token operativo.

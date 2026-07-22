@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -91,6 +92,7 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 	}
 	defer admin.Close()
 
+	assertBloqueoPublicacionAcotado(t, ctx, fuente, admin, instante)
 	assertDerivaACLRechazada(t, ctx, fuente, admin, instante)
 
 	// Cualquier DML ajeno a la publicación atómica invalida el testigo. Todas
@@ -115,6 +117,66 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 		if err := operar(); !errors.Is(err, ErrDatosPostgreSQLPublicosNoConfiables) {
 			t.Fatalf("%s no fallo cerrada tras DML ajeno: %v", nombre, err)
 		}
+	}
+}
+
+func assertBloqueoPublicacionAcotado(
+	t *testing.T,
+	ctx context.Context,
+	fuente *Fuente,
+	admin *pgxpool.Pool,
+	instante time.Time,
+) {
+	t.Helper()
+	transaccion, err := admin.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = transaccion.Rollback(context.Background()) }()
+	if _, err := transaccion.Exec(ctx, `SELECT pg_catalog.pg_advisory_xact_lock(
+		pg_catalog.hashtextextended('vec_bolsa_publica:publicacion:v1', 0)
+	)`); err != nil {
+		t.Fatalf("tomar candado exclusivo de prueba: %v", err)
+	}
+
+	const lectores = 8
+	errores := make(chan error, lectores)
+	var grupo sync.WaitGroup
+	inicio := time.Now()
+	for range lectores {
+		grupo.Add(1)
+		go func() {
+			defer grupo.Done()
+			ctxLectura, cancelar := context.WithTimeout(context.Background(), 7*time.Second)
+			defer cancelar()
+			_, err := fuente.BuscarPublicadas(ctxLectura, puertosbolsa.FiltroConvocatoriasPublicas{
+				Instante: instante, Limite: 24,
+			})
+			errores <- err
+		}()
+	}
+	grupo.Wait()
+	close(errores)
+	for err := range errores {
+		if !errors.Is(err, ErrPostgreSQLPublicoNoDisponible) {
+			t.Fatalf("lector bloqueado no fallo por timeout acotado: %v", err)
+		}
+	}
+	if transcurrido := time.Since(inicio); transcurrido > 6*time.Second {
+		t.Fatalf("los lectores acumularon espera excesiva: %s", transcurrido)
+	}
+	estadisticas := fuente.pool.Stat()
+	if estadisticas.AcquiredConns() != 0 || estadisticas.TotalConns() > 6 {
+		t.Fatalf("pool acumulado tras contention: adquiridas=%d totales=%d",
+			estadisticas.AcquiredConns(), estadisticas.TotalConns())
+	}
+	if err := transaccion.Rollback(ctx); err != nil {
+		t.Fatalf("liberar candado de prueba: %v", err)
+	}
+	if _, err := fuente.BuscarPublicadas(ctx, puertosbolsa.FiltroConvocatoriasPublicas{
+		Instante: instante, Limite: 24,
+	}); err != nil {
+		t.Fatalf("la lectura no se recupero tras liberar el candado: %v", err)
 	}
 }
 
