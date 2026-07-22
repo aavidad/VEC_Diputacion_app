@@ -124,7 +124,10 @@ func (cfg Configuracion) Validar() error {
 		return err
 	}
 	if err := cfg.configuracionSuperficie().Validar(); err != nil {
-		return errors.Join(ErrConfiguracionInternaInvalida, err)
+		// El contrato compartido incluye en algunas causas el literal recibido.
+		// Esta raiz no lo propaga: direccion, CIDR e identificadores proceden del
+		// entorno y no deben acabar en logs, respuestas ni trazas de arranque.
+		return ErrConfiguracionInternaInvalida
 	}
 	return nil
 }
