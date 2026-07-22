@@ -51,3 +51,22 @@ func TestManejadorInternoRechazaEstadoTLSAusenteOIncoherente(t *testing.T) {
 		t.Fatalf("estado TLS invalido alcanzo API: %d", llamadas)
 	}
 }
+
+func TestSNITLSCoherenteDistingueDNSDeIP(t *testing.T) {
+	pruebas := []struct {
+		nombreConfigurado string
+		sni               string
+		valido            bool
+	}{
+		{"servidor.interna.test", "servidor.interna.test", true},
+		{"servidor.interna.test", "", false},
+		{"127.0.0.1", "", true},
+		{"127.0.0.1", "127.0.0.1", false},
+		{"127.0.0.1", "ajeno.test", false},
+	}
+	for _, prueba := range pruebas {
+		if actual := sniTLSCoherente(prueba.nombreConfigurado, prueba.sni); actual != prueba.valido {
+			t.Errorf("SNI (%q, %q) = %t", prueba.nombreConfigurado, prueba.sni, actual)
+		}
+	}
+}

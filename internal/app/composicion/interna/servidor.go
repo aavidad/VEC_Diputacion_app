@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"errors"
+	"net"
 	"net/http"
 	"reflect"
 	"slices"
@@ -77,7 +78,8 @@ func (m *manejadorInternoVerificado) peticionTLSMutuaVerificada(r *http.Request)
 	estado := r.TLS
 	if !estado.HandshakeComplete || estado.Version != tls.VersionTLS13 || estado.DidResume ||
 		estado.NegotiatedProtocol != protocoloALPNHTTPUno ||
-		!estado.NegotiatedProtocolIsMutual || estado.ServerName != m.materialTLS.nombreServidor ||
+		!estado.NegotiatedProtocolIsMutual ||
+		!sniTLSCoherente(m.materialTLS.nombreServidor, estado.ServerName) ||
 		!cifradoTLS13Aprobado(estado.CipherSuite) || estado.CurveID == 0 ||
 		len(estado.TLSUnique) != 0 || len(estado.PeerCertificates) == 0 ||
 		len(estado.VerifiedChains) == 0 || len(estado.VerifiedChains[0]) == 0 ||
@@ -103,6 +105,13 @@ func (m *manejadorInternoVerificado) peticionTLSMutuaVerificada(r *http.Request)
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	})
 	return err == nil && len(cadenas) != 0
+}
+
+func sniTLSCoherente(nombreConfigurado, sni string) bool {
+	if net.ParseIP(nombreConfigurado) != nil {
+		return sni == ""
+	}
+	return nombreConfigurado != "" && sni == nombreConfigurado
 }
 
 func cifradoTLS13Aprobado(cifrado uint16) bool {
