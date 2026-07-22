@@ -53,7 +53,12 @@ func nuevosPoolsPostgreSQLBorradores(
 	if err := ctx.Err(); err != nil {
 		return nil, errors.Join(ErrConexionPostgreSQLBorradoresNoDisponible, err)
 	}
-	ejecutor, proyector, verificador, err := cfg.Normalize().BolsaBorradoresPostgreSQL.DSNSeparados()
+	cfg = cfg.Normalize()
+	politicaTLS, err := politicaTLSPostgreSQLBorradoresDesdeConfiguracion(cfg)
+	if err != nil {
+		return nil, err
+	}
+	ejecutor, proyector, verificador, err := cfg.BolsaBorradoresPostgreSQL.DSNSeparados()
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +66,7 @@ func nuevosPoolsPostgreSQLBorradores(
 	pools := &PoolsPostgreSQLBorradores{}
 	usuarios := make(map[string]struct{}, len(dsn))
 	for indice, perfil := range perfilesPoolPostgreSQLBorradores {
-		configuracion, err := prepararConfiguracionPoolPostgreSQLBorradores(dsn[indice], perfil)
+		configuracion, err := prepararConfiguracionPoolPostgreSQLBorradores(dsn[indice], perfil, politicaTLS)
 		if err != nil {
 			pools.Close()
 			return nil, err
@@ -94,6 +99,30 @@ func nuevosPoolsPostgreSQLBorradores(
 		usuarios[usuario] = struct{}{}
 	}
 	return pools, nil
+}
+
+// politicaTLSPostgreSQLBorradoresDesdeConfiguracion es la frontera nominal de
+// la unica excepcion sin TLS. Los tres selectores de desarrollo no bastan: el
+// arbol T21 debe existir y superar la misma validacion criptografica usada por
+// la composicion local. La politica privada resultante no puede seleccionarse
+// desde un DSN ni degradar el perfil productivo.
+func politicaTLSPostgreSQLBorradoresDesdeConfiguracion(
+	cfg config.Config,
+) (politicaTLSPostgreSQLBorradores, error) {
+	cfg = cfg.Normalize()
+	if !cfg.DevelopmentEnabledByDoubleKey() {
+		return politicaTLSPostgreSQLBorradoresProduccion, nil
+	}
+	material, err := cargarMaterialSeguridadDesarrollo(cfg)
+	if err != nil {
+		return politicaTLSPostgreSQLBorradoresProduccion, err
+	}
+	defer borrarBytes(material.firmaAtestacionKMS)
+	defer borrarBytes(material.firmaRevalidacionKMS)
+	defer borrarBytes(material.claveKMS[:])
+	defer borrarBytes(material.claveTSA[:])
+	defer material.idempotencia.borrar()
+	return politicaTLSPostgreSQLBorradoresDesarrolloValidado, nil
 }
 
 func dependenciaPoolPostgreSQLBorradoresNula(pool any) bool {

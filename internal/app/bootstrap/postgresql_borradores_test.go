@@ -156,6 +156,49 @@ func TestNuevosPoolsPostgreSQLBorradoresRechazaConfiguracionIncompletaAntesDeAbr
 	}
 }
 
+func TestNuevosPoolsPostgreSQLBorradoresExigeTLSSeguroEnCadaCredencialProductiva(t *testing.T) {
+	for insegura := range 3 {
+		t.Run(perfilesPoolPostgreSQLBorradores[insegura].aplicacion, func(t *testing.T) {
+			dsn := [3]string{
+				"postgres://ejecutor:secreto-ejecutor@db-ejecutor.example/vec?sslmode=verify-full",
+				"postgres://proyector:secreto-proyector@db-proyector.example/vec?sslmode=verify-full",
+				"postgres://verificador:secreto-verificador@db-verificador.example/vec?sslmode=verify-full",
+			}
+			dsn[insegura] = strings.Replace(dsn[insegura], "verify-full", "disable", 1)
+			postgresql, err := config.NuevaConfiguracionPostgreSQLBorradores(dsn[0], dsn[1], dsn[2])
+			if err != nil {
+				t.Fatal(err)
+			}
+			creaciones := 0
+			crear := func(context.Context, *pgxpool.Config) (poolOperativoPostgreSQLBorradores, error) {
+				usuario := []string{"login-ejecutor", "login-proyector", "login-verificador"}[creaciones]
+				creaciones++
+				return nuevoPoolPostgreSQLBorradoresPrueba(usuario), nil
+			}
+			resultado, err := nuevosPoolsPostgreSQLBorradores(
+				context.Background(),
+				config.Config{
+					ExecutionProfile:          config.ExecutionProfileProduction,
+					BolsaBorradoresPostgreSQL: postgresql,
+				},
+				crear,
+			)
+			if resultado != nil || !errors.Is(err, ErrTLSPostgreSQLBorradoresInseguro) ||
+				creaciones != insegura {
+				t.Fatalf("resultado=%v error=%v creaciones=%d", resultado, err, creaciones)
+			}
+			for _, sensible := range []string{
+				"secreto-ejecutor", "secreto-proyector", "secreto-verificador",
+				"db-ejecutor.example", "db-proyector.example", "db-verificador.example",
+			} {
+				if strings.Contains(err.Error(), sensible) {
+					t.Fatalf("error TLS filtro %q: %v", sensible, err)
+				}
+			}
+		})
+	}
+}
+
 func TestNuevosPoolsPostgreSQLBorradoresRechazaPoolTipadoNuloSinInvocarlo(t *testing.T) {
 	var poolNulo *poolPostgreSQLBorradoresPrueba
 	crear := func(context.Context, *pgxpool.Config) (poolOperativoPostgreSQLBorradores, error) {
@@ -189,14 +232,17 @@ func TestNuevosPoolsPostgreSQLBorradoresNoAbreConContextoCancelado(t *testing.T)
 func configuracionPostgreSQLBorradoresPrueba(t *testing.T) config.Config {
 	t.Helper()
 	configuracion, err := config.NuevaConfiguracionPostgreSQLBorradores(
-		"postgres://ejecutor:secreto-ejecutor@127.0.0.1:5432/vec?sslmode=disable",
-		"postgres://proyector:secreto-proyector@127.0.0.1:5432/vec?sslmode=disable",
-		"postgres://verificador:secreto-verificador@127.0.0.1:5432/vec?sslmode=disable",
+		"postgres://ejecutor:secreto-ejecutor@db-ejecutor.example/vec?sslmode=verify-full",
+		"postgres://proyector:secreto-proyector@db-proyector.example/vec?sslmode=verify-full",
+		"postgres://verificador:secreto-verificador@db-verificador.example/vec?sslmode=verify-full",
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return config.Config{BolsaBorradoresPostgreSQL: configuracion}
+	return config.Config{
+		ExecutionProfile:          config.ExecutionProfileProduction,
+		BolsaBorradoresPostgreSQL: configuracion,
+	}
 }
 
 func nuevoPoolPostgreSQLBorradoresPrueba(usuario string) *poolPostgreSQLBorradoresPrueba {

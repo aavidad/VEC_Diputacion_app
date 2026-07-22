@@ -2,10 +2,15 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"net"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -35,6 +40,9 @@ var (
 	ErrIdentidadPostgreSQLBorradoresInvalida = errors.New(
 		"bootstrap: identidad PostgreSQL de borradores invalida",
 	)
+	ErrTLSPostgreSQLBorradoresInseguro = errors.New(
+		"bootstrap: TLS PostgreSQL de borradores no verifica la identidad del servidor",
+	)
 )
 
 type perfilPoolPostgreSQLBorradores struct {
@@ -43,6 +51,13 @@ type perfilPoolPostgreSQLBorradores struct {
 	maxConexiones int32
 	soloLectura   bool
 }
+
+type politicaTLSPostgreSQLBorradores uint8
+
+const (
+	politicaTLSPostgreSQLBorradoresProduccion politicaTLSPostgreSQLBorradores = iota
+	politicaTLSPostgreSQLBorradoresDesarrolloValidado
+)
 
 var perfilesPoolPostgreSQLBorradores = [3]perfilPoolPostgreSQLBorradores{
 	{
@@ -115,13 +130,22 @@ type consultadorFilaPostgreSQLBorradores interface {
 func prepararConfiguracionPoolPostgreSQLBorradores(
 	dsn string,
 	perfil perfilPoolPostgreSQLBorradores,
+	politicaTLS politicaTLSPostgreSQLBorradores,
 ) (*pgxpool.Config, error) {
-	if !perfilPoolPostgreSQLBorradoresValido(perfil) {
+	if !perfilPoolPostgreSQLBorradoresValido(perfil) ||
+		(politicaTLS != politicaTLSPostgreSQLBorradoresProduccion &&
+			politicaTLS != politicaTLSPostgreSQLBorradoresDesarrolloValidado) {
 		return nil, ErrConfiguracionPoolPostgreSQLBorradoresInvalida
 	}
 	configuracion, err := pgxpool.ParseConfig(dsn)
 	if err != nil || configuracion == nil || configuracion.ConnConfig == nil {
 		return nil, ErrConfiguracionPoolPostgreSQLBorradoresInvalida
+	}
+	if err := validarTLSPostgreSQLBorradores(
+		&configuracion.ConnConfig.Config,
+		politicaTLS == politicaTLSPostgreSQLBorradoresDesarrolloValidado,
+	); err != nil {
+		return nil, err
 	}
 	configuracion.MaxConns = perfil.maxConexiones
 	configuracion.MinConns = 0
@@ -155,6 +179,85 @@ func prepararConfiguracionPoolPostgreSQLBorradores(
 		return err
 	}
 	return configuracion, nil
+}
+
+// validarTLSPostgreSQLBorradores inspecciona la configuracion efectiva de pgx,
+// incluida cada ruta de fallback. En produccion solo admite el equivalente a
+// verify-full: TLS, verificacion normal de certificados y nombre de servidor.
+// RootCAs nil significa que crypto/tls usara el almacen de confianza del
+// sistema. Un almacen explicito vacio no puede constituir una CA confiable. La
+// excepcion de desarrollo solo cubre loopback o sockets Unix, nunca una red.
+func validarTLSPostgreSQLBorradores(
+	configuracion *pgconn.Config,
+	permitirSinTLSDesarrollo bool,
+) error {
+	if configuracion == nil {
+		return ErrTLSPostgreSQLBorradoresInseguro
+	}
+	if permitirSinTLSDesarrollo && configuracionPostgreSQLBorradoresSinTLS(configuracion) {
+		return nil
+	}
+	if !tlsPostgreSQLBorradoresVerificaIdentidad(configuracion.TLSConfig, configuracion.Host) {
+		return ErrTLSPostgreSQLBorradoresInseguro
+	}
+	for _, alternativa := range configuracion.Fallbacks {
+		if alternativa == nil ||
+			!tlsPostgreSQLBorradoresVerificaIdentidad(alternativa.TLSConfig, alternativa.Host) {
+			return ErrTLSPostgreSQLBorradoresInseguro
+		}
+	}
+	return nil
+}
+
+func configuracionPostgreSQLBorradoresSinTLS(configuracion *pgconn.Config) bool {
+	if configuracion == nil || configuracion.TLSConfig != nil ||
+		!destinoPostgreSQLBorradoresLocal(configuracion.Host, configuracion.Port) {
+		return false
+	}
+	for _, alternativa := range configuracion.Fallbacks {
+		if alternativa == nil || alternativa.TLSConfig != nil ||
+			!destinoPostgreSQLBorradoresLocal(alternativa.Host, alternativa.Port) {
+			return false
+		}
+	}
+	return true
+}
+
+func destinoPostgreSQLBorradoresLocal(host string, puerto uint16) bool {
+	red, _ := pgconn.NetworkAddress(strings.TrimSpace(host), puerto)
+	if red == "unix" {
+		return true
+	}
+	ip := net.ParseIP(strings.TrimSpace(host))
+	return ip != nil && ip.IsLoopback()
+}
+
+func tlsPostgreSQLBorradoresVerificaIdentidad(configuracion *tls.Config, host string) bool {
+	if configuracion == nil || configuracion.InsecureSkipVerify ||
+		strings.TrimSpace(configuracion.ServerName) == "" ||
+		!strings.EqualFold(strings.TrimSpace(configuracion.ServerName), strings.TrimSpace(host)) ||
+		versionesTLSPostgreSQLBorradoresInseguras(configuracion) {
+		return false
+	}
+	return configuracion.RootCAs == nil || poolCertificadosPostgreSQLBorradoresNoVacio(configuracion.RootCAs)
+}
+
+// El valor cero conserva el minimo seguro de crypto/tls (TLS 1.2). Los
+// limites explicitos no pueden reabrir protocolos obsoletos ni formar un
+// intervalo imposible. pgx no expone hoy estos limites en el DSN, pero esta
+// comprobacion tambien cierra configuraciones construidas o mutadas en Go.
+func versionesTLSPostgreSQLBorradoresInseguras(configuracion *tls.Config) bool {
+	if configuracion == nil ||
+		(configuracion.MinVersion != 0 && configuracion.MinVersion < tls.VersionTLS12) ||
+		(configuracion.MaxVersion != 0 && configuracion.MaxVersion < tls.VersionTLS12) {
+		return true
+	}
+	return configuracion.MinVersion != 0 && configuracion.MaxVersion != 0 &&
+		configuracion.MinVersion > configuracion.MaxVersion
+}
+
+func poolCertificadosPostgreSQLBorradoresNoVacio(pool *x509.CertPool) bool {
+	return pool != nil && len(pool.Subjects()) > 0
 }
 
 func perfilPoolPostgreSQLBorradoresValido(perfil perfilPoolPostgreSQLBorradores) bool {
