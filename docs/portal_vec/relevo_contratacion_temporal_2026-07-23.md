@@ -88,7 +88,7 @@ ajenas.
 | Contrato autenticado con Bolsa | Cerrado y revisado: referencias opacas, seudónimos, eventos, pruebas durables e inbox idempotente |
 | Confirmación atómica PostgreSQL | Candidato en corrección tras doble NO-GO; no integrado |
 | Diseño de adaptador y reconciliación | Candidato con GO condicionado al SHA final de O2-05 |
-| API interna | O2-08A aislada programada; en corrección/revisión, sin ruta registrada |
+| API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09A aislada programada; sin conexión real ni E2E |
 | E2E administrativo | Pendiente |
 
@@ -124,13 +124,16 @@ ajenas.
   todos los canales envían el mismo sobre cerrado con una UUIDv4 de intención
   no autoritativa; la autoridad de servidor aporta solo autenticación, sesión,
   perfil y organización. La aplicación liga UUID, contexto efectivo y
-  contenido mediante HMAC. No usa cookies ni almacenamiento web y sus puertas
-  focales, de carrera y globales están verdes; falta revisión independiente.
+  contenido mediante HMAC. No usa cookies ni almacenamiento web. La revisión
+  independiente terminó con GO y cero hallazgos; focal ×50, carrera ×5,
+  pruebas globales, `go vet`, OpenAPI, secretos y el ensayo conjunto con
+  O2-09A quedaron verdes. Se integró como `42dc3ac`–`94e09e8`.
   La integración virtual con O2-09A `1323b4b` produjo el árbol
   `750bd6d479ddcf9e5564cc25d8603b0b5aa62e06` sin conflictos; en ese árbol
   pasaron veinte repeticiones del contrato HTTP, carrera, las veinte pruebas
   de la vista y todos los paquetes de contratación temporal. El worktree
-  desechable se eliminó después de la prueba.
+  desechable se eliminó después de la prueba. La ruta sigue sin registrar:
+  O2-08 permanece funcionalmente abierta hasta la composición O2-07.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
   cronología de solo adición y bloqueo de retroacciones implícitas. Un primer
   corte de aplicación posterior recibió NO-GO: aceptaba autoridad RC/coste

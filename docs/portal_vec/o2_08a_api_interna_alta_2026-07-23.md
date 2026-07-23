@@ -156,7 +156,7 @@ declare siete aspectos. Para este corte aislado son:
    contrato técnico; RRHH, Sistemas, Seguridad, DPD, Jurídico y Archivo deben
    validar sus ámbitos antes de datos reales, efectos administrativos o
    producción. La validación semántica externa de OpenAPI también permanece
-   como puerta previa a integración.
+   como puerta previa a habilitar la ruta.
 
 ## Confirmación, replay y resultado pendiente
 
@@ -180,7 +180,7 @@ La prueba automatizada parsea el YAML con `gopkg.in/yaml.v3` —dependencia ya
 presente— y comprueba estructura, objetos cerrados, DTO, límites técnicos y
 catálogo estado–código. El repositorio no incorpora un validador semántico de
 OpenAPI 3.1 y este encargo no añade dependencias. Queda pendiente, antes de
-integrar, validar externamente
+habilitar la ruta, validar externamente
 `docs/api/contratacion_temporal_alta_interna_v1.yaml` con una herramienta
 OpenAPI 3.1 aprobada por el proyecto.
 
@@ -194,5 +194,5 @@ OpenAPI 3.1 aprobada por el proyecto.
 - La recuperación de un resultado indeterminado pertenece a O2-06.
 - La composición real pertenece a O2-07.
 
-**Candidato O2-08B; no registrado, no compuesto, no integrado y no productivo
-hasta O2-07/O2-06.**
+**O2-08B revisado con GO e integrado como adaptador; no registrado, no
+compuesto y no productivo hasta O2-07/O2-06.**
