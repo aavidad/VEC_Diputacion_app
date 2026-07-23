@@ -106,7 +106,7 @@ Estados:
 
 | Tarea | Entregable aislado | Verificación de cierre | Estado |
 | --- | --- | --- | --- |
-| O8-01 | Estados de seguimiento, prórroga, incidencia y cese. | Transiciones versionadas, motivos y calendario hábil. | 🚧 Candidato `d2d2b75` en corrección tras NO-GO independiente: reapertura conserva un cese incompatible, el detector admite ciclos silenciosos con documentos opcionales y el canon no limita periodos desacoplados. No integrado. |
+| O8-01 | Estados de seguimiento, prórroga, incidencia y cese. | Transiciones versionadas, motivos y calendario hábil. | 🚧 Candidato `3fccc15` con NO-GO: reserva/copia/ordenación antes de límites en rehidratación y definiciones anidadas, y coste multiplicativo al revalidar la definición por actuación. `06065c4` posterior no revisado y aparentemente parcial. No integrado. |
 | O8-02 | Caso de uso de cierre administrativo. | Tareas pendientes impiden cierre; reapertura excepcional auditada. | — |
 | O8-03 | Política de conservación y bloqueo. | Tabla aprobada por tipo documental/procedimiento y base jurídica. | — |
 | O8-04 | Expurgo gobernado y prueba de eliminación. | Doble autorización, retención legal, recibo y ausencia de borrado silencioso. | — |

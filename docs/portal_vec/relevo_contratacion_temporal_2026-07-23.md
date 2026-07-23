@@ -196,14 +196,14 @@ ajenas.
   `go vet`, tamaños y secretos. Permanece sin integrar y en NO-GO hasta la
   revisión definida en
   `encargo_revision_o4_02_quinta_correccion_2026-07-23.md`.
-- O8-01 tiene un candidato aislado de dominio en `2b2215a`, documentado en
-  `d2d2b75`, con estados publicados, transiciones versionadas, control CAS,
-  rectificación append-only y evidencia de calendario. La revisión
-  independiente reprodujo tres bloqueos: una reapertura deja el cese efectivo
-  incompatible con nuevas prórrogas; el detector admite ciclos silenciosos si
-  todos los documentos son opcionales; y el canon acepta más de diez mil
-  periodos desacoplados sin actuaciones. El productor está corrigiendo un
-  nuevo SHA; todavía no se contabiliza ni se integra.
+- O8-01 corrigió en `3fccc15` los tres bloqueos funcionales iniciales, pero su
+  tercera revisión independiente emitió NO-GO: la rehidratación reserva el
+  índice de periodos antes de limitar su cardinalidad; la definición copia y
+  ordena listas anidadas antes de comprobar sus máximos; y cada actuación
+  histórica vuelve a normalizar la definición completa. El commit posterior
+  `06065c4` no fue revisado y parece atender solo el primer hallazgo. El
+  candidato no se contabiliza ni se integra hasta una corrección completa y
+  revisión ajena.
 - `2b67c7a`–`20935bd` integran O6-01 tras dos revisiones independientes.
   Contratación temporal y Bolsa solo intercambian contratos versionados,
   referencias opacas, seudónimos HMAC, evidencias autenticadas y eventos
