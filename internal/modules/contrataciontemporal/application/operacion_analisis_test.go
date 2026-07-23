@@ -177,6 +177,23 @@ func TestOperacionAnalisisMismaClaveConSemanticaDistintaEsConflicto(
 	}
 }
 
+func TestOperacionAnalisisPropagaConflictoCASDurable(t *testing.T) {
+	escenario := nuevoEscenarioOperacionAnalisisSaneado(
+		t,
+		ports.OperacionRegistrarAnalisis,
+		"-cas-sintetico",
+	)
+	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
+	d.transaccion.err = domain.ErrVersionEnConflicto
+
+	_, err := servicio.Registrar(context.Background(), escenario.registrar)
+	if !errors.Is(err, ErrOperacionAnalisisEnConflicto) ||
+		!errors.Is(err, domain.ErrVersionEnConflicto) ||
+		d.transaccion.llamadas != 1 {
+		t.Fatalf("conflicto CAS mal clasificado: %v", err)
+	}
+}
+
 func TestOperacionAnalisisDistingueDenegacionYDependencia(t *testing.T) {
 	t.Run("denegacion", func(t *testing.T) {
 		escenario := nuevoEscenarioOperacionAnalisisSaneado(
