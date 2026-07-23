@@ -137,12 +137,17 @@ function instanteCivilUTC(fecha) {
 }
 
 function instanteUTCValido(valor) {
-  if (typeof valor !== "string"
-    || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/.test(valor)) {
+  if (typeof valor !== "string") {
     return false;
   }
-  const instante = new Date(valor);
-  return fechaCivilValida(valor.slice(0, 10)) && Number.isFinite(instante.valueOf());
+  const partes =
+    /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?Z$/.exec(valor);
+  if (!partes) return false;
+  const [, fecha, hora, minuto, segundo] = partes;
+  return fechaCivilValida(fecha)
+    && Number(hora) <= 23
+    && Number(minuto) <= 59
+    && Number(segundo) <= 59;
 }
 
 function referenciaValida(valor) {

@@ -241,6 +241,24 @@ test("el comando y el recibo público minimizan identidad y material privado", (
   assert.throws(
     () => validarReciboAlta({ ...reciboValido(), confirmada_en: "2026-02-30T09:15:00Z" }),
   );
+  for (const confirmadaEn of [
+    "2026-07-23T24:00:00Z",
+    "2026-07-23T23:60:00Z",
+    "2026-07-23T23:59:60Z",
+    "2026-07-23T09:15:00.1234567Z",
+    "2026-07-23T09:15:00+00:00",
+  ]) {
+    assert.throws(
+      () => validarReciboAlta({ ...reciboValido(), confirmada_en: confirmadaEn }),
+      `se aceptó el instante no canónico ${confirmadaEn}`,
+    );
+  }
+  assert.doesNotThrow(
+    () => validarReciboAlta({
+      ...reciboValido(),
+      confirmada_en: "2026-07-23T09:15:00.123456Z",
+    }),
+  );
 });
 
 test("el presentador envía una vez, no expone la clave y acepta solo un recibo válido", async () => {
