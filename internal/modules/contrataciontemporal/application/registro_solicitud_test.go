@@ -400,6 +400,9 @@ func TestRegistroSolicitudReplayConfirmadoRevalidaPDP(t *testing.T) {
 
 func TestRegistroSolicitudDenegadaNoReservaNada(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
+	recibo := escenario.recibo
+	escenario.preparacion.Estado = ports.PreparacionConfirmada
+	escenario.preparacion.ReciboConfirmado = &recibo
 	servicio, d := construirServicioRegistro(t, escenario)
 	d.autorizador.err = errors.New("PDP deniega")
 
@@ -409,6 +412,19 @@ func TestRegistroSolicitudDenegadaNoReservaNada(t *testing.T) {
 		d.transaccion.llamadas != 0 {
 		t.Fatalf("denegación produjo efecto: err=%v auth=%d prep=%d tx=%d",
 			err, d.autorizador.llamadas, d.preparaciones.llamadas, d.transaccion.llamadas)
+	}
+}
+
+func TestRegistroSolicitudRechazaContextoV3QueNoCorrespondeALaPeticion(t *testing.T) {
+	escenario := nuevoEscenarioRegistro(t)
+	servicio, d := construirServicioRegistro(t, escenario)
+	escenario.solicitud.PerfilRef = "prf_xxxxxxxxxxxxxxxxxxxxxx"
+
+	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
+	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
+		d.contextos.llamadas != 1 || d.autorizador.llamadas != 0 ||
+		d.preparaciones.llamadas != 0 {
+		t.Fatalf("contexto cruzado alcanzó PDP o persistencia: %v", err)
 	}
 }
 
