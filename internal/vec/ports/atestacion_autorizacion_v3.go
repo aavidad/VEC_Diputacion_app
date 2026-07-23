@@ -115,6 +115,29 @@ func (s SolicitudFirmaAtestacionAutorizacionV3) Validar() error {
 		!huellaAtestacionValida(s.huellaCompromisos) {
 		return ErrSolicitudFirmaAtestacionInvalida
 	}
+	proyeccion, err := domain.ParsearMensajeAtestacionAutorizacionV3NoAutoritativo(
+		s.mensaje,
+	)
+	if err != nil {
+		return ErrSolicitudFirmaAtestacionInvalida
+	}
+	cabecera, errCabecera := proyeccion.Cabecera()
+	referenciaDecision, errReferenciaDecision := proyeccion.DecisionRef()
+	huellaDecision, errHuellaDecision := proyeccion.HuellaDecisionSHA256()
+	huellaMotivo, errHuellaMotivo := proyeccion.HuellaMotivoSHA256()
+	referenciaContexto, errReferenciaContexto := proyeccion.ReferenciaContextoActor()
+	huellaContexto, errHuellaContexto := proyeccion.HuellaContextoActorSHA256()
+	if errCabecera != nil || errReferenciaDecision != nil ||
+		errHuellaDecision != nil || errHuellaMotivo != nil ||
+		errReferenciaContexto != nil || errHuellaContexto != nil ||
+		cabecera != s.cabecera ||
+		referenciaDecision != s.referenciaDecision ||
+		!huellasAtestacionIguales(huellaDecision, s.huellaDecision) ||
+		!huellasAtestacionIguales(huellaMotivo, s.huellaMotivoCatalogo) ||
+		referenciaContexto != s.referenciaContexto ||
+		!huellasAtestacionIguales(huellaContexto, s.huellaContexto) {
+		return ErrSolicitudFirmaAtestacionInvalida
+	}
 	suma := sha256.Sum256(s.mensaje)
 	esperada, err := hex.DecodeString(s.huellaMensaje)
 	if err != nil || subtle.ConstantTimeCompare(suma[:], esperada) != 1 {

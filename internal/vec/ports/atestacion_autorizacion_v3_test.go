@@ -2,6 +2,9 @@ package ports
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -103,6 +106,53 @@ func TestAtestacionAutorizacionV3RechazaCrucesYAdulteraciones(t *testing.T) {
 			}
 		})
 	}
+	t.Run("mensaje A con compromisos B recomputados", func(t *testing.T) {
+		cruzada := solicitud
+		cruzada.mensaje = append([]byte(nil), solicitud.mensaje...)
+		cruzada.referenciaDecision = "dec_otra234567890abcdef0123456789ab"
+		cruzada.huellaDecision = strings.Repeat("a", 64)
+		cruzada.referenciaContexto = "rca_otra234567890abcdefghijklmn"
+		cruzada.huellaContexto = strings.Repeat("b", 64)
+		cruzada.huellaCompromisos = cruzada.calcularHuellaCompromisos()
+		if cruzada.Validar() == nil {
+			t.Fatal("mensaje A aceptado con compromisos B recomputados")
+		}
+	})
+	t.Run("acción vacía con todos los compromisos recompuestos", func(t *testing.T) {
+		cruzada := solicitud
+		cruzada.mensaje = append([]byte(nil), solicitud.mensaje...)
+		inicio, fin := limitesDecisionAtestacionAutorizacionV3PuertosPrueba(
+			t,
+			cruzada.mensaje,
+		)
+		const accionOriginal = "bolsa.expediente.leer"
+		original := []byte(`"accion":"` + accionOriginal + `"`)
+		reemplazo := append(
+			append([]byte(`"accion":"`), bytes.Repeat([]byte(" "), len(accionOriginal))...),
+			'"',
+		)
+		if len(original) != len(reemplazo) {
+			t.Fatal("fixture de sustitución no conserva longitud")
+		}
+		decisionMutada := bytes.Replace(
+			cruzada.mensaje[inicio:fin],
+			original,
+			reemplazo,
+			1,
+		)
+		if bytes.Equal(decisionMutada, cruzada.mensaje[inicio:fin]) {
+			t.Fatal("no se encontró la acción del fixture")
+		}
+		copy(cruzada.mensaje[inicio:fin], decisionMutada)
+		huellaDecision := sha256.Sum256(decisionMutada)
+		huellaMensaje := sha256.Sum256(cruzada.mensaje)
+		cruzada.huellaDecision = hex.EncodeToString(huellaDecision[:])
+		cruzada.huellaMensaje = hex.EncodeToString(huellaMensaje[:])
+		cruzada.huellaCompromisos = cruzada.calcularHuellaCompromisos()
+		if cruzada.Validar() == nil {
+			t.Fatal("acción vacía aceptada tras recomponer todos los compromisos")
+		}
+	})
 
 	otraCabecera := cabecera
 	otraCabecera.Audiencia = "vec-diputacion/pruebas/otra"
@@ -168,6 +218,31 @@ func TestAtestacionAutorizacionV3BloqueaCodecsYFiltraFormato(t *testing.T) {
 		strings.Contains(registro.String(), "dec_0123456789") {
 		t.Fatalf("slog filtro contenido: %s", registro.String())
 	}
+}
+
+func limitesDecisionAtestacionAutorizacionV3PuertosPrueba(
+	t *testing.T,
+	mensaje []byte,
+) (int, int) {
+	t.Helper()
+	posicion := len(domain.EsquemaMensajeAtestacionAutorizacionV3) + 1 + 2
+	for indice := 0; indice < 3; indice++ {
+		if posicion+4 > len(mensaje) {
+			t.Fatal("cabecera VEC-AD-3 truncada")
+		}
+		longitud := int(binary.BigEndian.Uint32(mensaje[posicion : posicion+4]))
+		posicion += 4 + longitud
+	}
+	if posicion+4 > len(mensaje) {
+		t.Fatal("bloque de decisión VEC-AD-3 ausente")
+	}
+	longitud := int(binary.BigEndian.Uint32(mensaje[posicion : posicion+4]))
+	inicio := posicion + 4
+	fin := inicio + longitud
+	if longitud <= 0 || fin > len(mensaje)-8 {
+		t.Fatal("bloque de decisión VEC-AD-3 inválido")
+	}
+	return inicio, fin
 }
 
 func cabeceraAtestacionAutorizacionV3PuertosPrueba() domain.CabeceraAtestacionAutorizacionV3 {
