@@ -629,7 +629,7 @@ del catalogo profesional publicado y vigente:
 {
   "esquema": "vec.bolsa.publico.categorias.v1",
   "fuente": { "revision": "opes-inventario-historico-demo-v1", "actualizada_en": "2026-07-16T00:00:00Z", "demostracion": true, "aviso": "..." },
-  "catalogo": { "referencia": "categorias-profesionales", "version": 1, "huella_sha256": "...", "total": 68 },
+  "catalogo": { "catalogo_id": "categorias-profesionales", "version": 1, "huella_sha256": "...", "total": 68 },
   "categorias": [
     {
       "clave": "auxiliar-administrativo",

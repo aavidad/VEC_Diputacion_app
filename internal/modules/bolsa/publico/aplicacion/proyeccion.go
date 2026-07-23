@@ -42,7 +42,7 @@ func proyectarResumen(c dominiobolsa.ResumenConvocatoria, indice indiceCatalogos
 		IdentificadorPublico: d.IdentificadorPublico, Version: c.Version, HuellaSHA256: c.HuellaSHA256,
 		Titulo: d.Titulo, Resumen: d.Resumen, Tipo: tipo, Estado: estado, Categorias: categorias,
 		CatalogoCategorias: ReferenciaCatalogoCategoriasConvocatoriaPublica{
-			Referencia:             d.CatalogoCategorias.CatalogoID,
+			CatalogoID:             d.CatalogoCategorias.CatalogoID,
 			Version:                d.CatalogoCategorias.CatalogoVersion,
 			HuellaSHA256:           d.CatalogoCategorias.CatalogoHuellaSHA256,
 			HuellaProyeccionSHA256: d.CatalogoCategorias.CatalogoHuellaProyeccionSHA256,

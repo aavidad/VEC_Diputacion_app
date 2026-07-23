@@ -237,7 +237,7 @@ type ReferenciaCategoriaPublica struct {
 }
 
 type ReferenciaCatalogoCategoriasConvocatoriaPublica struct {
-	Referencia             string `json:"referencia"`
+	CatalogoID             string `json:"catalogo_id"`
 	Version                int    `json:"version"`
 	HuellaSHA256           string `json:"huella_sha256"`
 	HuellaProyeccionSHA256 string `json:"huella_proyeccion_sha256"`
@@ -262,7 +262,7 @@ type ListadoConvocatoriasPublicas struct {
 }
 
 type ReferenciaCatalogoCategoriasPublico struct {
-	Referencia             string `json:"referencia"`
+	CatalogoID             string `json:"catalogo_id"`
 	Version                int    `json:"version"`
 	HuellaSHA256           string `json:"huella_sha256"`
 	HuellaProyeccionSHA256 string `json:"huella_proyeccion_sha256"`
@@ -563,7 +563,7 @@ func (s *ServicioConsultaPublica) ListarCategorias(ctx context.Context) (Directo
 		Esquema: "vec.bolsa.publico.categorias.v1",
 		Fuente:  proyectarFuenteCategorias(catalogo.Fuente),
 		Catalogo: ReferenciaCatalogoCategoriasPublico{
-			Referencia:             catalogo.ID,
+			CatalogoID:             catalogo.ID,
 			Version:                catalogo.Version,
 			HuellaSHA256:           catalogo.HuellaGobernadaSHA256,
 			HuellaProyeccionSHA256: catalogo.HuellaProyeccionSHA256,

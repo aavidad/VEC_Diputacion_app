@@ -249,7 +249,7 @@ func (i indiceCatalogos) diccionarioCategorias(
 		vistas[referencia] = struct{}{}
 		resultado = append(resultado, CategoriaDiccionarioPublico{
 			CatalogoCategorias: ReferenciaCatalogoCategoriasConvocatoriaPublica{
-				Referencia: catalogo.CatalogoID, Version: catalogo.CatalogoVersion,
+				CatalogoID: catalogo.CatalogoID, Version: catalogo.CatalogoVersion,
 				HuellaSHA256:           catalogo.CatalogoHuellaSHA256,
 				HuellaProyeccionSHA256: catalogo.CatalogoHuellaProyeccionSHA256,
 			},
@@ -281,7 +281,7 @@ func validarCoberturaCategoriasResumenes(
 			categoria: ReferenciaCategoriaPublica{Clave: categoria.Clave, Version: categoria.Version},
 		}
 		if referencia.categoria.Clave == "" || referencia.categoria.Version < 1 ||
-			referencia.catalogo.Referencia == "" || referencia.catalogo.Version < 1 ||
+			referencia.catalogo.CatalogoID == "" || referencia.catalogo.Version < 1 ||
 			!patronHuellaSHA256.MatchString(referencia.catalogo.HuellaSHA256) ||
 			!patronHuellaSHA256.MatchString(referencia.catalogo.HuellaProyeccionSHA256) {
 			return ErrDatosPublicosNoConfiables
