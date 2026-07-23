@@ -285,9 +285,9 @@ func TestManejadorAltaRechazaReciboIncompletoAdulteradoFuturoONoLigado(t *testin
 
 func TestManejadorAltaEliminaCabecerasHeredadasYErroresPrivados(t *testing.T) {
 	manejador, _, ejecutor := nuevoEscenarioPrueba(t)
-	secreto := "dsn=postgres://usuario:clave@servidor/expedientes"
+	detallePrivado := "detalle_interno_no_publicable"
 	ejecutor.recibo = ports.ReciboAlta{}
-	ejecutor.err = errors.New(secreto)
+	ejecutor.err = errors.New(detallePrivado)
 	respuesta := httptest.NewRecorder()
 	respuesta.Header().Set("Set-Cookie", "sesion=autoridad")
 	respuesta.Header().Set("Access-Control-Allow-Origin", "*")
@@ -300,11 +300,11 @@ func TestManejadorAltaEliminaCabecerasHeredadasYErroresPrivados(t *testing.T) {
 		t.Fatalf("error privado = %d %s", respuesta.Code, respuesta.Body.String())
 	}
 	for nombre, valores := range respuesta.Header() {
-		if strings.Contains(strings.Join(valores, ","), secreto) {
+		if strings.Contains(strings.Join(valores, ","), detallePrivado) {
 			t.Fatalf("secreto en cabecera %s", nombre)
 		}
 	}
-	if strings.Contains(respuesta.Body.String(), secreto) {
+	if strings.Contains(respuesta.Body.String(), detallePrivado) {
 		t.Fatalf("secreto en cuerpo: %s", respuesta.Body.String())
 	}
 	comprobarCabecerasSegurasPrueba(t, respuesta)
