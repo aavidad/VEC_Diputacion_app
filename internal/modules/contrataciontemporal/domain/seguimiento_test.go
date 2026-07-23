@@ -1,6 +1,9 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -17,7 +20,7 @@ func TestSeguimientoRecorreIncorporacionProrrogaIncidenciaYCese(t *testing.T) {
 	incorporacion.Periodo = punteroIntervalo(seguimiento.Estado().PeriodoPrevisto)
 	incorporacion.EfectivoEn = incorporacion.Periodo.Desde
 	incorporacion.Documentos = []DocumentoSeguimiento{
-		{TipoClave: "resolucion_incorporacion", Referencia: "documento_incorporacion_01"},
+		{TipoClave: "resolucion_incorporacion", Referencia: referenciaSeguimientoPrueba("documento_incorporacion_01")},
 	}
 	incorporacion.MotivoClave = "necesidad_servicio"
 	var err error
@@ -34,7 +37,7 @@ func TestSeguimientoRecorreIncorporacionProrrogaIncidenciaYCese(t *testing.T) {
 	}
 	prorroga.EfectivoEn = prorroga.Periodo.Desde
 	prorroga.Documentos = []DocumentoSeguimiento{
-		{TipoClave: "resolucion_prorroga", Referencia: "documento_prorroga_01"},
+		{TipoClave: "resolucion_prorroga", Referencia: referenciaSeguimientoPrueba("documento_prorroga_01")},
 	}
 	prorroga.Calendario = calendarioSeguimiento(prorroga.RegistradaEn)
 	seguimiento, err = seguimiento.Aplicar(definicion, 1, prorroga)
@@ -45,7 +48,7 @@ func TestSeguimientoRecorreIncorporacionProrrogaIncidenciaYCese(t *testing.T) {
 	incidencia := datosSeguimiento("acto_incidencia_01", "registrar_incidencia", 3)
 	incidencia.MotivoClave = "incidencia_catalogada"
 	incidencia.Documentos = []DocumentoSeguimiento{
-		{TipoClave: "parte_incidencia", Referencia: "documento_incidencia_01"},
+		{TipoClave: "parte_incidencia", Referencia: referenciaSeguimientoPrueba("documento_incidencia_01")},
 	}
 	seguimiento, err = seguimiento.Aplicar(definicion, 2, incidencia)
 	if err != nil {
@@ -55,7 +58,7 @@ func TestSeguimientoRecorreIncorporacionProrrogaIncidenciaYCese(t *testing.T) {
 	cese := datosSeguimiento("acto_cese_01", "registrar_cese", 4)
 	cese.MotivoClave = "fin_previsto"
 	cese.Documentos = []DocumentoSeguimiento{
-		{TipoClave: "resolucion_cese", Referencia: "documento_cese_01"},
+		{TipoClave: "resolucion_cese", Referencia: referenciaSeguimientoPrueba("documento_cese_01")},
 	}
 	cese.EfectivoEn = seguimiento.PeriodosResultantes()[0].Intervalo.Desde.Add(
 		24 * time.Hour,
@@ -77,7 +80,7 @@ func TestSeguimientoRecorreIncorporacionProrrogaIncidenciaYCese(t *testing.T) {
 		t.Fatalf("la prórroga no conservó dos tramos contiguos: %#v", periodos)
 	}
 	if ceseEfectivo := seguimiento.CeseEfectivo(); ceseEfectivo == nil ||
-		ceseEfectivo.ActuacionRef != "acto_cese_01" {
+		ceseEfectivo.ActuacionRef != referenciaSeguimientoPrueba("acto_cese_01") {
 		t.Fatalf("cese efectivo no proyectado: %#v", ceseEfectivo)
 	}
 	if err := seguimiento.Validar(definicion); err != nil {
@@ -89,20 +92,20 @@ func TestSeguimientoAdmiteTransicionNuevaSinCambiarElNucleo(t *testing.T) {
 	definicion := definicionSeguimientoValida(t, true)
 	seguimiento := seguimientoIncorporado(t, definicion)
 	nueva := datosSeguimiento(
-		"acto_revision_extraordinaria_01",
-		"anotar_revision_extraordinaria",
+		"acto_espera_administrativa_01",
+		"iniciar_espera_administrativa",
 		2,
 	)
 	nueva.Documentos = []DocumentoSeguimiento{
-		{TipoClave: "informe_revision", Referencia: "documento_revision_01"},
+		{TipoClave: "acuerdo_espera", Referencia: referenciaSeguimientoPrueba("documento_espera_01")},
 	}
 
 	resultado, err := seguimiento.Aplicar(definicion, 1, nueva)
 	if err != nil {
 		t.Fatalf("transición gobernada nueva: %v", err)
 	}
-	if resultado.Version() != 2 || resultado.EstadoActual() != "vigente" ||
-		resultado.Actuaciones()[1].TransicionClave != "anotar_revision_extraordinaria" {
+	if resultado.Version() != 2 || resultado.EstadoActual() != "espera_administrativa" ||
+		resultado.Actuaciones()[1].TransicionClave != "iniciar_espera_administrativa" {
 		t.Fatalf("transición nueva no materializada: %#v", resultado.Estado())
 	}
 }
@@ -127,6 +130,20 @@ func TestSeguimientoSoloExponeReferenciasOpacasYClaves(t *testing.T) {
 				}
 			}
 		}
+	}
+	for _, personal := range []string{"12345678Z", "Ana.Garcia", "958123456"} {
+		if referenciaOpacaSeguimientoValida(personal) {
+			t.Fatalf("se aceptó como opaca la referencia personal %q", personal)
+		}
+	}
+	definicion := definicionSeguimientoValida(t, false)
+	valido := seguimientoNuevoValido(t, definicion).Estado()
+	if _, err := NuevoSeguimiento(definicion, AltaSeguimiento{
+		Referencia: valido.Referencia, OrganizacionRef: "12345678Z",
+		ExpedienteRef: valido.ExpedienteRef, RelacionRef: valido.RelacionRef,
+		PeriodoPrevisto: valido.PeriodoPrevisto, CreadoEn: valido.CreadoEn,
+	}); !errors.Is(err, ErrSeguimientoInvalido) {
+		t.Fatalf("el agregado aceptó una referencia no opaca: %v", err)
 	}
 }
 
@@ -181,6 +198,17 @@ func definicionSeguimientoValida(
 			EfectoPeriodo: EfectoPeriodoCerrar,
 		},
 		{
+			Clave: "rectificar_periodo", Origen: "vigente", Destino: "vigente",
+			Clase:             TransicionRectificacion,
+			MotivosPermitidos: []ClaveCatalogo{"rectificacion_material"},
+			MotivoObligatorio: true,
+			Documentos: []RequisitoDocumentoSeguimiento{
+				{TipoClave: "resolucion_rectificacion", Obligatorio: true},
+			},
+			RequierePeriodo: true, EfectoPeriodo: EfectoPeriodoRectificarTramo,
+			ExigeActorDistinto: true,
+		},
+		{
 			Clave: "rectificar_cese", Origen: "cesada", Destino: "cesada",
 			Clase:             TransicionRectificacion,
 			MotivosPermitidos: []ClaveCatalogo{"rectificacion_material"},
@@ -188,7 +216,7 @@ func definicionSeguimientoValida(
 			Documentos: []RequisitoDocumentoSeguimiento{
 				{TipoClave: "resolucion_rectificacion", Obligatorio: true},
 			},
-			EfectoPeriodo: EfectoPeriodoNinguno, ExigeActorDistinto: true,
+			EfectoPeriodo: EfectoPeriodoRectificarCese, ExigeActorDistinto: true,
 		},
 		{
 			Clave: "reabrir_seguimiento", Origen: "cesada", Destino: "vigente",
@@ -198,21 +226,21 @@ func definicionSeguimientoValida(
 			Documentos: []RequisitoDocumentoSeguimiento{
 				{TipoClave: "resolucion_reapertura", Obligatorio: true},
 			},
-			EfectoPeriodo: EfectoPeriodoNinguno,
+			EfectoPeriodo: EfectoPeriodoReabrir,
 		},
 	}
 	if incluirNueva {
 		transiciones = append(transiciones, TransicionDefinidaSeguimiento{
-			Clave: "anotar_revision_extraordinaria", Origen: "vigente",
-			Destino: "vigente", Clase: TransicionOrdinaria,
+			Clave: "iniciar_espera_administrativa", Origen: "vigente",
+			Destino: "espera_administrativa", Clase: TransicionOrdinaria,
 			Documentos: []RequisitoDocumentoSeguimiento{
-				{TipoClave: "informe_revision", Obligatorio: true},
+				{TipoClave: "acuerdo_espera", Obligatorio: true},
 			},
 			EfectoPeriodo: EfectoPeriodoNinguno,
 		})
 	}
 	definicion, err := PublicarDefinicionSeguimiento(BorradorDefinicionSeguimiento{
-		Referencia: "definicion_seguimiento_prueba_01", Version: 7,
+		Referencia: referenciaSeguimientoPrueba("definicion_seguimiento_prueba_01"), Version: 7,
 		PublicadoEn: instanteSeguimientoBase.Add(-48 * time.Hour),
 		Vigencia: VigenciaSeguimiento{
 			Desde: instanteSeguimientoBase.Add(-24 * time.Hour),
@@ -244,10 +272,10 @@ func seguimientoNuevoValido(
 ) Seguimiento {
 	t.Helper()
 	seguimiento, err := NuevoSeguimiento(definicion, AltaSeguimiento{
-		Referencia:      "seguimiento_laboral_01",
-		OrganizacionRef: "organizacion_publica_01",
-		ExpedienteRef:   "expediente_temporal_01",
-		RelacionRef:     "relacion_laboral_opaca_01",
+		Referencia:      referenciaSeguimientoPrueba("seguimiento_laboral_01"),
+		OrganizacionRef: referenciaSeguimientoPrueba("organizacion_publica_01"),
+		ExpedienteRef:   referenciaSeguimientoPrueba("expediente_temporal_01"),
+		RelacionRef:     referenciaSeguimientoPrueba("relacion_laboral_opaca_01"),
 		PeriodoPrevisto: IntervaloSeguimiento{
 			Desde: instanteSeguimientoBase.AddDate(0, 0, 8),
 			Hasta: instanteSeguimientoBase.AddDate(0, 1, 8),
@@ -271,7 +299,7 @@ func seguimientoIncorporado(
 	datos.Periodo = punteroIntervalo(seguimiento.Estado().PeriodoPrevisto)
 	datos.EfectivoEn = datos.Periodo.Desde
 	datos.Documentos = []DocumentoSeguimiento{
-		{TipoClave: "resolucion_incorporacion", Referencia: "documento_incorporacion_01"},
+		{TipoClave: "resolucion_incorporacion", Referencia: referenciaSeguimientoPrueba("documento_incorporacion_01")},
 	}
 	resultado, err := seguimiento.Aplicar(definicion, 0, datos)
 	if err != nil {
@@ -289,7 +317,7 @@ func seguimientoCesado(
 	cese := datosSeguimiento("acto_cese_01", "registrar_cese", 2)
 	cese.MotivoClave = "fin_previsto"
 	cese.Documentos = []DocumentoSeguimiento{
-		{TipoClave: "resolucion_cese", Referencia: "documento_cese_01"},
+		{TipoClave: "resolucion_cese", Referencia: referenciaSeguimientoPrueba("documento_cese_01")},
 	}
 	cese.EfectivoEn = seguimiento.PeriodosResultantes()[0].Intervalo.Desde
 	resultado, err := seguimiento.Aplicar(definicion, 1, cese)
@@ -306,12 +334,13 @@ func datosSeguimiento(
 ) DatosTransicionSeguimiento {
 	registrada := instanteSeguimientoBase.Add(time.Duration(orden) * time.Hour)
 	return DatosTransicionSeguimiento{
-		ActuacionRef: actuacion, TransicionClave: transicion,
-		ActorRef: "actor_publico_opaco_01", UnidadRef: "unidad_gestora_opaca_01",
+		ActuacionRef: referenciaSeguimientoPrueba(actuacion), TransicionClave: transicion,
+		ActorRef:   referenciaSeguimientoPrueba("actor_publico_opaco_01"),
+		UnidadRef:  referenciaSeguimientoPrueba("unidad_gestora_opaca_01"),
 		EfectivoEn: registrada, RegistradaEn: registrada,
 		Documentos:     []DocumentoSeguimiento{},
-		ReciboRef:      "recibo_" + actuacion,
-		CorrelacionRef: "correlacion_" + actuacion,
+		ReciboRef:      referenciaSeguimientoPrueba("recibo_" + actuacion),
+		CorrelacionRef: referenciaSeguimientoPrueba("correlacion_" + actuacion),
 	}
 }
 
@@ -319,7 +348,7 @@ func calendarioSeguimiento(
 	calculadoEn time.Time,
 ) *EvidenciaCalendarioSeguimiento {
 	return &EvidenciaCalendarioSeguimiento{
-		Referencia: "calendario_publicado_01", Version: 3,
+		Referencia: referenciaSeguimientoPrueba("calendario_publicado_01"), Version: 3,
 		HuellaSHA256:           strings.Repeat("a", 64),
 		AmbitoTerritorialClave: "provincia_granada",
 		ResultadoClave:         "fecha_habil", CalculadoEn: calculadoEn,
@@ -330,4 +359,8 @@ func punteroIntervalo(
 	intervalo IntervaloSeguimiento,
 ) *IntervaloSeguimiento {
 	return &intervalo
+}
+
+func referenciaSeguimientoPrueba(etiqueta string) string {
+	return fmt.Sprintf("ref:%x", sha256.Sum256([]byte(etiqueta)))
 }

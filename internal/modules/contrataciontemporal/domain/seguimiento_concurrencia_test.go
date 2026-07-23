@@ -14,7 +14,7 @@ func TestSeguimientoCASIdempotenciaYColisionSemantica(t *testing.T) {
 	datos.Periodo = punteroIntervalo(base.Estado().PeriodoPrevisto)
 	datos.EfectivoEn = datos.Periodo.Desde
 	datos.Documentos = []DocumentoSeguimiento{
-		{TipoClave: "resolucion_incorporacion", Referencia: "documento_incorporacion_cas_01"},
+		{TipoClave: "resolucion_incorporacion", Referencia: referenciaSeguimientoPrueba("documento_incorporacion_cas_01")},
 	}
 
 	if _, err := base.Aplicar(definicion, 99, datos); !errors.Is(
@@ -42,7 +42,7 @@ func TestSeguimientoCASIdempotenciaYColisionSemantica(t *testing.T) {
 	}
 
 	colision := datos
-	colision.ReciboRef = "recibo_con_otro_contenido_01"
+	colision.ReciboRef = referenciaSeguimientoPrueba("recibo_con_otro_contenido_01")
 	if _, err := aplicado.Aplicar(definicion, 1, colision); !errors.Is(
 		err,
 		ErrActuacionSeguimientoEnConflicto,
@@ -124,8 +124,10 @@ func TestSeguimientoPuedeConsultarseYDerivarseConcurrentemente(t *testing.T) {
 			datos.MotivoClave = "incidencia_catalogada"
 			datos.Documentos = []DocumentoSeguimiento{{
 				TipoClave: "parte_incidencia",
-				Referencia: "documento_incidencia_concurrente_" +
-					cadenaDecimalSeguimiento(indice),
+				Referencia: referenciaSeguimientoPrueba(
+					"documento_incidencia_concurrente_" +
+						cadenaDecimalSeguimiento(indice),
+				),
 			}}
 			resultado, err := base.Aplicar(definicion, 1, datos)
 			if err != nil {

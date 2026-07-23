@@ -250,9 +250,9 @@ func TestSeguimientoRechazaColeccionesYReferenciasExcesivas(t *testing.T) {
 
 	alta := AltaSeguimiento{
 		Referencia:      strings.Repeat("a", 161),
-		OrganizacionRef: "organizacion_publica_01",
-		ExpedienteRef:   "expediente_temporal_01",
-		RelacionRef:     "relacion_laboral_opaca_01",
+		OrganizacionRef: referenciaSeguimientoPrueba("organizacion_publica_01"),
+		ExpedienteRef:   referenciaSeguimientoPrueba("expediente_temporal_01"),
+		RelacionRef:     referenciaSeguimientoPrueba("relacion_laboral_opaca_01"),
 		PeriodoPrevisto: base.Estado().PeriodoPrevisto,
 		CreadoEn:        instanteSeguimientoBase,
 	}
@@ -261,6 +261,35 @@ func TestSeguimientoRechazaColeccionesYReferenciasExcesivas(t *testing.T) {
 		ErrSeguimientoInvalido,
 	) {
 		t.Fatalf("se aceptó una referencia excesiva: %v", err)
+	}
+}
+
+func TestSerializadorCanonicoRechazaEstadoInvalidoAntesDeRecorrerColecciones(
+	t *testing.T,
+) {
+	invalido := EstadoPersistidoSeguimiento{
+		Version: 0, EstadoActual: "vigente",
+		ActualizadoEn:    instanteSeguimientoBase,
+		HuellaRaizSHA256: strings.Repeat("a", 64),
+	}
+	if _, err := SerializarEstadoSeguimientoCanonico(invalido); !errors.Is(
+		err,
+		ErrSeguimientoInvalido,
+	) {
+		t.Fatalf("se serializó un estado estructuralmente vacío: %v", err)
+	}
+
+	definicion := definicionSeguimientoValida(t, false)
+	estado := seguimientoIncorporado(t, definicion).Estado()
+	estado.PeriodosResultantes = make(
+		[]PeriodoResultanteSeguimiento,
+		maximoActuacionesSeguimiento+1,
+	)
+	if _, err := SerializarEstadoSeguimientoCanonico(estado); !errors.Is(
+		err,
+		ErrSeguimientoInvalido,
+	) {
+		t.Fatalf("se recorrió una colección excesiva de periodos: %v", err)
 	}
 }
 
@@ -279,16 +308,16 @@ func seguimientoCompletoParaRehidratar(
 	incidencia := datosSeguimiento("acto_incidencia_rehidratacion_01", "registrar_incidencia", 3)
 	incidencia.MotivoClave = "incidencia_catalogada"
 	incidencia.Documentos = []DocumentoSeguimiento{
-		{TipoClave: "parte_incidencia", Referencia: "documento_incidencia_rehidratacion_01"},
+		{TipoClave: "parte_incidencia", Referencia: referenciaSeguimientoPrueba("documento_incidencia_rehidratacion_01")},
 	}
 	seguimiento, err = seguimiento.Aplicar(definicion, 2, incidencia)
 	if err != nil {
 		t.Fatalf("registrar incidencia para rehidratación: %v", err)
 	}
 	cese := ceseSeguimientoValido(seguimiento, 4)
-	cese.ActuacionRef = "acto_cese_rehidratacion_01"
-	cese.ReciboRef = "recibo_acto_cese_rehidratacion_01"
-	cese.CorrelacionRef = "correlacion_acto_cese_rehidratacion_01"
+	cese.ActuacionRef = referenciaSeguimientoPrueba("acto_cese_rehidratacion_01")
+	cese.ReciboRef = referenciaSeguimientoPrueba("recibo_acto_cese_rehidratacion_01")
+	cese.CorrelacionRef = referenciaSeguimientoPrueba("correlacion_acto_cese_rehidratacion_01")
 	seguimiento, err = seguimiento.Aplicar(definicion, 3, cese)
 	if err != nil {
 		t.Fatalf("cesar para rehidratación: %v", err)

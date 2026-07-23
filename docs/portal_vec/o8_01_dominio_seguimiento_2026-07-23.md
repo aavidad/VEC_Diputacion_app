@@ -17,6 +17,13 @@ No contiene nombre, DNI, correo, teléfono, ubicación, fichajes, causas médica
 ni texto libre. Actor, unidad, documentos, recibo y correlación también se
 representan mediante referencias opacas.
 
+El contrato técnico de referencia opaca es `ref:` seguido de 64 dígitos
+hexadecimales en minúsculas y distintos de cero. Por tanto, valores legibles
+como un DNI, nombre o teléfono no atraviesan el agregado. El futuro adaptador
+de referencias debe obtener el material mediante generación aleatoria o HMAC
+con secreto externo; no debe convertir un dato personal de baja entropía en
+referencia mediante un hash simple.
+
 Este corte cubre:
 
 - incorporación;
@@ -61,18 +68,24 @@ El dominio admite cuatro operaciones cerradas de consistencia:
 
 - `ninguno`: registra la actuación sin alterar la proyección temporal;
 - `abrir`: materializa el periodo inicial previsto;
-- `ampliar`: añade un tramo contiguo posterior;
+- `ampliar`: añade un tramo posterior no solapado;
 - `cerrar`: registra un cese efectivo separado.
+- `rectificar_tramo`: sustituye la proyección de un tramo mediante un acto
+  compensatorio;
+- `rectificar_cese`: sustituye la proyección del cese mediante un acto
+  compensatorio;
+- `reabrir`: retira el cese de la proyección vigente sin retirarlo de la
+  historia.
 
 Estas operaciones no son causas ni reglas laborales. La definición gobernada
 decide qué transición las utiliza.
 
-El periodo previsto inicial no se sobrescribe. La incorporación materializa su
-primer tramo y cada prórroga añade otro. Una ampliación:
+El periodo previsto inicial no se sobrescribe ni obliga a fingir que lo
+previsto fue lo efectivamente materializado. La incorporación aporta el primer
+tramo resultante y cada prórroga añade otro. Una ampliación:
 
 - no puede solaparse;
-- debe comenzar exactamente al terminar el último tramo;
-- debe terminar después;
+- debe comenzar al terminar el último tramo o después;
 - no borra ni reduce los tramos anteriores.
 
 El cese efectivo queda enlazado a su actuación. No puede preceder a la
@@ -97,9 +110,12 @@ Cada actuación conserva:
 - huella de petición, huella anterior y huella propia.
 
 La historia es de solo adición. Una rectificación añade una actuación
-compensatoria y conserva intacta la actuación anterior. Cuando la definición
-exige segregación, el actor de rectificación debe ser distinto del actor del
-acto rectificado.
+compensatoria, conserva intacta la actuación anterior y recalcula únicamente
+la proyección vigente del tramo o cese corregido. Cuando la definición exige
+segregación, el actor de rectificación debe ser distinto del actor del acto
+rectificado. La reapertura compensa la proyección del cese y permite que una
+transición posterior publique un nuevo cese; el cese anterior permanece en la
+cadena.
 
 Un estado final rechaza transiciones ordinarias. La definición puede publicar:
 
@@ -139,6 +155,10 @@ La rehidratación:
 5. compara la serialización canónica de la proyección reconstruida con la
    recibida.
 
+La reproducción mantiene un índice local de referencias duplicadas y no clona
+el historial completo en cada evento. Las colecciones se limitan antes de
+recorrerlas.
+
 La huella SHA-256 detecta alteraciones y colisiones semánticas dentro del
 modelo, pero no acredita por sí sola origen, competencia, autorización ni
 custodia. El futuro adaptador durable deberá añadir autenticidad, ACL,
@@ -159,8 +179,9 @@ El canon usa un formato binario explícito:
 - ausencia de mapas, reflexión, etiquetas JSON u `omitempty`.
 
 Hay dominios separados para definición, raíz, petición, actuación y estado.
-Esquemas o dominios desconocidos se rechazan. Los límites se verifican antes
-de recorrer o serializar colecciones.
+Esquemas o dominios desconocidos se rechazan. Antes de recorrer o serializar
+se validan referencias, definición, estado, periodos, cese, instantes,
+secuencia, cadena de huellas y cardinalidades.
 
 ## Calendario
 
@@ -202,10 +223,11 @@ La familia `seguimiento*_test.go` cubre:
 - solapamiento, UTC, precisión, orden y extremos transportables;
 - cese temporalmente incoherente y operación ordinaria tras final;
 - rectificación append-only y segregación de actor;
+- corrección de tramo y cese, reapertura y nuevo cese;
 - rehidratación exacta y adulteración de todos los eventos;
 - copias defensivas y derivación concurrente sin carrera;
 - canon determinista, esquema cerrado y límites;
-- ausencia estructural de datos personales.
+- rechazo de valores personales como referencias opacas.
 
 ## Límites y siguiente frontera
 

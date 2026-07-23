@@ -20,8 +20,6 @@ const (
 	algoritmoCanonSeguimientoV1    = "sha-256"
 )
 
-// CanonSeguimiento identifica de forma cerrada el dominio, esquema y algoritmo
-// usados para una huella o serialización.
 type CanonSeguimiento struct {
 	Dominio        string `json:"dominio"`
 	VersionEsquema uint16 `json:"version_esquema"`
@@ -49,9 +47,7 @@ func ValidarReintentoPublicacionDefinicionSeguimiento(
 	return nil
 }
 
-func (c CanonSeguimiento) EsDefinicionV1() bool {
-	return c == CanonDefinicionSeguimientoV1()
-}
+func (c CanonSeguimiento) EsDefinicionV1() bool { return c == CanonDefinicionSeguimientoV1() }
 
 func nuevoCanonSeguimiento(dominio string) CanonSeguimiento {
 	return CanonSeguimiento{
@@ -83,10 +79,10 @@ func calcularHuellaRaizSeguimiento(
 	e.clave(estado.EstadoActual)
 	e.intervalo(estado.PeriodoPrevisto)
 	e.instante(estado.CreadoEn)
-	if e.err != nil || !referenciaValida(estado.Referencia) ||
-		!referenciaValida(estado.OrganizacionRef) ||
-		!referenciaValida(estado.ExpedienteRef) ||
-		!referenciaValida(estado.RelacionRef) ||
+	if e.err != nil || !referenciaOpacaSeguimientoValida(estado.Referencia) ||
+		!referenciaOpacaSeguimientoValida(estado.OrganizacionRef) ||
+		!referenciaOpacaSeguimientoValida(estado.ExpedienteRef) ||
+		!referenciaOpacaSeguimientoValida(estado.RelacionRef) ||
 		estado.Definicion.Validar() != nil ||
 		!estado.EstadoActual.Valida() ||
 		estado.PeriodoPrevisto.Validar() != nil ||
@@ -127,7 +123,8 @@ func SerializarEstadoSeguimientoCanonico(
 func materialCanonicoDefinicionSeguimiento(
 	p PublicacionDefinicionSeguimiento,
 ) ([]byte, error) {
-	if !p.Canon.EsDefinicionV1() || !referenciaValida(p.Referencia) ||
+	if !p.Canon.EsDefinicionV1() ||
+		!referenciaOpacaSeguimientoValida(p.Referencia) ||
 		p.Version == 0 || !instanteSeguimientoValido(p.PublicadoEn) ||
 		p.Vigencia.Validar() != nil || !p.EstadoInicial.Valida() ||
 		len(p.Estados) > maximoEstadosSeguimiento ||
@@ -207,10 +204,7 @@ func materialCanonicoActuacionSeguimiento(
 func materialCanonicoEstadoSeguimiento(
 	estado EstadoPersistidoSeguimiento,
 ) ([]byte, error) {
-	if estado.Version != uint64(len(estado.Actuaciones)) ||
-		len(estado.Actuaciones) > maximoActuacionesSeguimiento ||
-		!huellaSeguimientoValida(estado.HuellaRaizSHA256) ||
-		!instanteSeguimientoValido(estado.ActualizadoEn) {
+	if validarEstadoCanonicoSeguimiento(estado) != nil {
 		return nil, ErrSeguimientoInvalido
 	}
 	var material bytes.Buffer
@@ -249,6 +243,95 @@ func materialCanonicoEstadoSeguimiento(
 		return nil, ErrSeguimientoInvalido
 	}
 	return material.Bytes(), nil
+}
+
+func validarEstadoCanonicoSeguimiento(
+	estado EstadoPersistidoSeguimiento,
+) error {
+	if estado.Version != uint64(len(estado.Actuaciones)) ||
+		len(estado.Actuaciones) > maximoActuacionesSeguimiento ||
+		len(estado.PeriodosResultantes) > maximoActuacionesSeguimiento ||
+		len(estado.PeriodosResultantes) > len(estado.Actuaciones) ||
+		!referenciaOpacaSeguimientoValida(estado.Referencia) ||
+		!referenciaOpacaSeguimientoValida(estado.OrganizacionRef) ||
+		!referenciaOpacaSeguimientoValida(estado.ExpedienteRef) ||
+		!referenciaOpacaSeguimientoValida(estado.RelacionRef) ||
+		estado.Definicion.Validar() != nil || !estado.EstadoActual.Valida() ||
+		estado.PeriodoPrevisto.Validar() != nil ||
+		!instanteSeguimientoValido(estado.CreadoEn) ||
+		!instanteSeguimientoValido(estado.ActualizadoEn) ||
+		estado.ActualizadoEn.Before(estado.CreadoEn) ||
+		!huellaSeguimientoValida(estado.HuellaRaizSHA256) {
+		return ErrSeguimientoInvalido
+	}
+	if len(estado.Actuaciones) == 0 {
+		if !estado.ActualizadoEn.Equal(estado.CreadoEn) ||
+			len(estado.PeriodosResultantes) != 0 ||
+			estado.CeseEfectivo != nil {
+			return ErrSeguimientoInvalido
+		}
+		return nil
+	}
+	ultima := estado.Actuaciones[len(estado.Actuaciones)-1]
+	if estado.EstadoActual != ultima.EstadoDestino ||
+		!estado.ActualizadoEn.Equal(ultima.RegistradaEn) {
+		return ErrSeguimientoInvalido
+	}
+	referencias := make(map[string]struct{}, len(estado.Actuaciones))
+	anterior := estado.HuellaRaizSHA256
+	for indice, actuacion := range estado.Actuaciones {
+		if actuacion.Secuencia != uint64(indice+1) ||
+			actuacion.VersionSeguimiento != uint64(indice+1) ||
+			!actuacion.Definicion.Coincide(estado.Definicion) ||
+			actuacion.HuellaAnteriorSHA256 != anterior ||
+			!huellaSeguimientoValida(actuacion.HuellaActuacionSHA256) {
+			return ErrSeguimientoInvalido
+		}
+		if _, repetida := referencias[actuacion.ActuacionRef]; repetida {
+			return ErrSeguimientoInvalido
+		}
+		referencias[actuacion.ActuacionRef] = struct{}{}
+		normalizados, err := normalizarDatosTransicionSeguimiento(actuacion.datos())
+		if err != nil {
+			return ErrSeguimientoInvalido
+		}
+		huellaPeticion, errPeticion := calcularHuellaPeticionSeguimiento(normalizados)
+		huellaActuacion, errActuacion := calcularHuellaActuacionSeguimiento(actuacion)
+		if errPeticion != nil || errActuacion != nil ||
+			huellaPeticion != actuacion.HuellaPeticionSHA256 ||
+			huellaActuacion != actuacion.HuellaActuacionSHA256 {
+			return ErrSeguimientoInvalido
+		}
+		anterior = actuacion.HuellaActuacionSHA256
+	}
+	for indice, periodo := range estado.PeriodosResultantes {
+		if periodo.Intervalo.Validar() != nil ||
+			!referenciaOpacaSeguimientoValida(periodo.ActuacionRef) {
+			return ErrSeguimientoInvalido
+		}
+		if _, existe := referencias[periodo.ActuacionRef]; !existe {
+			return ErrSeguimientoInvalido
+		}
+		if indice > 0 && periodo.Intervalo.Desde.Before(
+			estado.PeriodosResultantes[indice-1].Intervalo.Hasta,
+		) {
+			return ErrSeguimientoInvalido
+		}
+	}
+	if estado.CeseEfectivo != nil {
+		if len(estado.PeriodosResultantes) == 0 ||
+			!instanteSeguimientoValido(estado.CeseEfectivo.EfectivoEn) ||
+			estado.CeseEfectivo.EfectivoEn.Before(
+				estado.PeriodosResultantes[0].Intervalo.Desde,
+			) ||
+			!referenciaOpacaSeguimientoValida(estado.CeseEfectivo.ActuacionRef) {
+			return ErrSeguimientoInvalido
+		}
+		if _, existe := referencias[estado.CeseEfectivo.ActuacionRef]; !existe {
+			return ErrSeguimientoInvalido
+		}
+	}
+	return nil
 }
 
 type escritorCanonSeguimiento struct {
@@ -441,6 +524,12 @@ func huellaSeguimientoValida(valor string) bool {
 		valor != strings.Repeat("0", sha256.Size*2)
 }
 
+func referenciaOpacaSeguimientoValida(valor string) bool {
+	return len(valor) == len("ref:")+sha256.Size*2 &&
+		strings.HasPrefix(valor, "ref:") &&
+		huellaSeguimientoValida(valor[len("ref:"):])
+}
+
 func huellaAnteriorSeguimiento(estado EstadoPersistidoSeguimiento) string {
 	if len(estado.Actuaciones) == 0 {
 		return estado.HuellaRaizSHA256
@@ -448,11 +537,10 @@ func huellaAnteriorSeguimiento(estado EstadoPersistidoSeguimiento) string {
 	return estado.Actuaciones[len(estado.Actuaciones)-1].HuellaActuacionSHA256
 }
 
-// La normalización forma parte del contrato canónico de la definición.
 func normalizarDefinicionSeguimiento(
 	b BorradorDefinicionSeguimiento,
 ) (BorradorDefinicionSeguimiento, error) {
-	if !referenciaValida(b.Referencia) || b.Version == 0 ||
+	if !referenciaOpacaSeguimientoValida(b.Referencia) || b.Version == 0 ||
 		!instanteSeguimientoValido(b.PublicadoEn) || b.Vigencia.Validar() != nil ||
 		b.PublicadoEn.After(b.Vigencia.Desde) || !b.EstadoInicial.Valida() ||
 		len(b.Estados) < 2 || len(b.Estados) > maximoEstadosSeguimiento ||
@@ -518,16 +606,14 @@ func normalizarTransicionSeguimiento(
 		len(t.MotivosPermitidos) > maximoMotivosSeguimiento {
 		return ErrDefinicionSeguimientoInvalida
 	}
-	if origenFinal &&
-		(t.Clase == TransicionOrdinaria ||
-			t.Clase == TransicionRectificacion && !destinoFinal ||
-			t.Clase == TransicionReapertura && destinoFinal) ||
-		!origenFinal && t.Clase == TransicionReapertura ||
+	if origenFinal && t.Clase == TransicionOrdinaria ||
+		origenFinal && t.Clase == TransicionRectificacion && !destinoFinal ||
+		!efectoCompatibleConClaseSeguimiento(*t, origenFinal, destinoFinal) ||
 		t.Clase != TransicionRectificacion && t.ExigeActorDistinto ||
-		t.Clase != TransicionOrdinaria && t.EfectoPeriodo != EfectoPeriodoNinguno ||
 		(t.EfectoPeriodo == EfectoPeriodoAbrir ||
-			t.EfectoPeriodo == EfectoPeriodoAmpliar) != t.RequierePeriodo ||
-		t.EfectoPeriodo == EfectoPeriodoCerrar && !destinoFinal {
+			t.EfectoPeriodo == EfectoPeriodoAmpliar ||
+			t.EfectoPeriodo == EfectoPeriodoRectificarTramo) !=
+			t.RequierePeriodo {
 		return ErrDefinicionSeguimientoInvalida
 	}
 	sort.Slice(t.MotivosPermitidos, func(i, j int) bool {
@@ -557,6 +643,33 @@ func normalizarTransicionSeguimiento(
 	return nil
 }
 
+func efectoCompatibleConClaseSeguimiento(
+	t TransicionDefinidaSeguimiento,
+	origenFinal bool,
+	destinoFinal bool,
+) bool {
+	switch t.Clase {
+	case TransicionOrdinaria:
+		if t.EfectoPeriodo == EfectoPeriodoCerrar {
+			return destinoFinal
+		}
+		return t.EfectoPeriodo == EfectoPeriodoNinguno ||
+			t.EfectoPeriodo == EfectoPeriodoAbrir ||
+			t.EfectoPeriodo == EfectoPeriodoAmpliar
+	case TransicionRectificacion:
+		if t.EfectoPeriodo == EfectoPeriodoRectificarCese {
+			return origenFinal && destinoFinal
+		}
+		return t.EfectoPeriodo == EfectoPeriodoNinguno ||
+			t.EfectoPeriodo == EfectoPeriodoRectificarTramo
+	case TransicionReapertura:
+		return origenFinal && !destinoFinal &&
+			t.EfectoPeriodo == EfectoPeriodoReabrir
+	default:
+		return false
+	}
+}
+
 func normalizarRequisitoCalendario(c *RequisitoCalendarioSeguimiento) error {
 	sort.Slice(c.AmbitosPermitidos, func(i, j int) bool {
 		return c.AmbitosPermitidos[i] < c.AmbitosPermitidos[j]
@@ -582,7 +695,8 @@ func tieneCicloSilencioso(transiciones []TransicionDefinidaSeguimiento) bool {
 	adyacencia := make(map[ClaveCatalogo][]ClaveCatalogo)
 	for _, t := range transiciones {
 		if t.Clase == TransicionOrdinaria && !t.MotivoObligatorio &&
-			len(t.Documentos) == 0 && t.Calendario == nil &&
+			!tieneDocumentoObligatorioSeguimiento(t.Documentos) &&
+			t.Calendario == nil &&
 			!t.RequierePeriodo && t.EfectoPeriodo == EfectoPeriodoNinguno {
 			adyacencia[t.Origen] = append(adyacencia[t.Origen], t.Destino)
 		}
@@ -607,6 +721,17 @@ func tieneCicloSilencioso(transiciones []TransicionDefinidaSeguimiento) bool {
 	}
 	for origen := range adyacencia {
 		if recorrer(origen) {
+			return true
+		}
+	}
+	return false
+}
+
+func tieneDocumentoObligatorioSeguimiento(
+	documentos []RequisitoDocumentoSeguimiento,
+) bool {
+	for _, documento := range documentos {
+		if documento.Obligatorio {
 			return true
 		}
 	}
@@ -653,9 +778,7 @@ func clavesSeguimientoUnicasValidas(
 	return true
 }
 
-func conjuntoClavesSeguimiento(
-	claves []ClaveCatalogo,
-) map[ClaveCatalogo]struct{} {
+func conjuntoClavesSeguimiento(claves []ClaveCatalogo) map[ClaveCatalogo]struct{} {
 	conjunto := make(map[ClaveCatalogo]struct{}, len(claves))
 	for _, clave := range claves {
 		conjunto[clave] = struct{}{}
@@ -663,10 +786,7 @@ func conjuntoClavesSeguimiento(
 	return conjunto
 }
 
-func contieneClaveSeguimiento(
-	claves []ClaveCatalogo,
-	buscada ClaveCatalogo,
-) bool {
+func contieneClaveSeguimiento(claves []ClaveCatalogo, buscada ClaveCatalogo) bool {
 	indice := sort.Search(len(claves), func(i int) bool {
 		return claves[i] >= buscada
 	})
@@ -674,6 +794,5 @@ func contieneClaveSeguimiento(
 }
 
 func instanteSeguimientoValido(instante time.Time) bool {
-	return instanteCanonico(instante) &&
-		instante.Year() >= 1 && instante.Year() <= 9999
+	return instanteCanonico(instante) && instante.Year() >= 1 && instante.Year() <= 9999
 }
