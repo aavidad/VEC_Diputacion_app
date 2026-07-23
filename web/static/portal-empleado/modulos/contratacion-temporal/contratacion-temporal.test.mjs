@@ -681,6 +681,7 @@ test("el módulo no usa red, cookies, almacenamiento web ni registra claves", ()
   assert.match(vistaFuente, /function escaparHTML/);
   assert.match(vistaFuente, /raiz\.innerHTML = renderizarAltaContratacionTemporal/);
   assert.match(vistaFuente, /if \(!montada\) return/);
+  assert.doesNotMatch(vistaFuente, /preventScroll/);
 });
 
 test("el candidato aislado conserva Bolsa, Cronos y Dietas sin ruta DEMO falsa", async () => {

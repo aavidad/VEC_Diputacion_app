@@ -532,7 +532,7 @@ export function montarAltaContratacionTemporal({
       locale,
       zonaHoraria,
     });
-    if (selectorFoco) raiz.querySelector(selectorFoco)?.focus?.({ preventScroll: true });
+    if (selectorFoco) raiz.querySelector(selectorFoco)?.focus?.();
     anunciar(t(estado.mensaje_clave), estado.tipo_mensaje);
   }
 
@@ -551,7 +551,7 @@ export function montarAltaContratacionTemporal({
       evento.preventDefault();
       const campo = enfocar.dataset.ctEnfocar;
       if (Object.hasOwn(presentador.obtenerEstado().borrador, campo)) {
-        raiz.querySelector(`#ct-${campo}`)?.focus?.({ preventScroll: true });
+        raiz.querySelector(`#ct-${campo}`)?.focus?.();
       }
       return;
     }
