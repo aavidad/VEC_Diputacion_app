@@ -14,7 +14,10 @@ import {
 } from "./contrato.js";
 import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "./i18n.js";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js";
-import { renderizarAltaContratacionTemporal } from "./vista.js";
+import {
+  montarAltaContratacionTemporal,
+  renderizarAltaContratacionTemporal,
+} from "./vista.js";
 import {
   VISTAS_MODULOS_PERSONALES,
   moduloDeVistaPortal,
@@ -116,6 +119,44 @@ function crearPresentador({
   });
 }
 
+function crearRaizDOMFalsa() {
+  const escuchas = new Map();
+  const focos = [];
+  const raiz = {
+    innerHTML: "",
+    addEventListener(tipo, escucha) {
+      escuchas.set(tipo, escucha);
+    },
+    removeEventListener(tipo, escucha) {
+      if (escuchas.get(tipo) === escucha) escuchas.delete(tipo);
+    },
+    querySelector(selector) {
+      return {
+        focus() {
+          focos.push(selector);
+        },
+      };
+    },
+    contains() {
+      return true;
+    },
+  };
+  return { escuchas, focos, raiz };
+}
+
+function eventoAccion(accion) {
+  const control = { dataset: { ctAccion: accion } };
+  return {
+    preventDefault() {},
+    target: {
+      closest(selector) {
+        if (selector === "[data-ct-enfocar]") return null;
+        return selector === "[data-ct-accion]" ? control : null;
+      },
+    },
+  };
+}
+
 test("el contrato es cerrado, clona catálogos y conserva relaciones inyectadas", () => {
   const entrada = catalogosPrueba();
   const catalogos = validarCatalogosAlta(entrada);
@@ -161,13 +202,20 @@ test("el DTO rechaza campos extra, tipos, tamaños, fechas e importes inválidos
     { fin: "2026-07-31" },
     { rc_importe: "0,00" },
     { rc_importe: "12,3" },
-    { rc_importe: "90071992547410,00" },
+    { rc_importe: "90071992547409,92" },
     { observaciones: " texto con espacios " },
     { detalle: "texto\u0000control" },
     { detalle: "texto\uD800incompleto" },
   ]) {
     assert.throws(() => crearComandoAlta(borradorValido(cambios), catalogos, CLAVE_PRUEBA));
   }
+  assert.doesNotThrow(
+    () => crearComandoAlta(
+      borradorValido({ rc_importe: "90071992547409,91" }),
+      catalogos,
+      CLAVE_PRUEBA,
+    ),
+  );
   assert.throws(
     () => crearComandoAlta(
       borradorValido({
@@ -224,7 +272,7 @@ test("el comando y el recibo público minimizan identidad y material privado", (
   const comando = crearComandoAlta(borradorValido(), catalogosPrueba(), CLAVE_PRUEBA);
   const recibo = validarReciboAlta(reciboValido());
   const prohibido =
-    /\b(?:dni|nif|nombre|correo|telefono|rol|permiso|actor|perfil|sesion|autenticacion|organizacion|capacidad|hmac|decision|atestacion|token|auditoria|evento)\b/i;
+    /(?:^|[^a-z0-9])(?:dni|nif|nombre|correo|telefono|rol|permiso|actor|perfil|sesion|autenticacion|organizacion|capacidad|hmac|decision|atestacion|token|auditoria|evento)(?:[^a-z0-9]|$)/i;
   assert.doesNotMatch(JSON.stringify(comando), prohibido);
   assert.doesNotMatch(JSON.stringify(recibo), prohibido);
   assert.deepEqual(Object.keys(recibo), [
@@ -354,6 +402,43 @@ test("los errores se redactan, permiten reintento y nunca filtran el mensaje pri
   assert.equal(comandos[0].clave_idempotencia, comandos[1].clave_idempotencia);
 });
 
+test("el presentador limpia relaciones dependientes fuera de la vista", () => {
+  const catalogos = catalogosPrueba();
+  catalogos.centros.push({
+    referencia: "cen_sintetico_002",
+    etiqueta: "Segundo centro",
+    contactos: [{
+      referencia: "con_sintetico_002",
+      etiqueta: "Segundo responsable",
+    }],
+  });
+  catalogos.categorias.push({
+    referencia: "cat_sintetica_002",
+    etiqueta: "Segunda categoría",
+    grupos_subgrupos: [{ clave: "C1", etiqueta: "Grupo C1" }],
+  });
+  const presentador = crearPresentador({ catalogos });
+  presentador.actualizarBorrador({
+    ...crearBorradorAlta(),
+    centro_ref: "cen_sintetico_001",
+    categoria_ref: "cat_sintetica_001",
+  });
+  presentador.actualizarBorrador({
+    ...presentador.obtenerEstado().borrador,
+    contacto_ref: "con_sintetico_001",
+    grupo_subgrupo: "A2",
+  });
+  presentador.actualizarBorrador({
+    ...presentador.obtenerEstado().borrador,
+    centro_ref: "cen_sintetico_002",
+    categoria_ref: "cat_sintetica_002",
+  });
+  assert.equal(presentador.obtenerEstado().borrador.contacto_ref, "");
+  assert.equal(presentador.obtenerEstado().borrador.grupo_subgrupo, "");
+  assert.doesNotMatch(vistaFuente, /campo === "centro_ref".*contacto_ref/s);
+  assert.doesNotMatch(vistaFuente, /campo === "categoria_ref".*grupo_subgrupo/s);
+});
+
 test("un recibo adulterado o incompleto no produce un falso éxito", async () => {
   for (const respuesta of [
     { ...reciboValido(), decision: "concedida" },
@@ -428,7 +513,8 @@ test("la estructura permite teclado, etiquetas, errores asociados y anuncios ari
   assert.ok((html.match(/<fieldset/g) || []).length >= 5);
   assert.ok((html.match(/<legend/g) || []).length >= 5);
   assert.match(html, /aria-live="polite"/);
-  assert.match(html, /maxlength="4000"/);
+  assert.match(html, /id="ct-detalle-contador"/);
+  assert.doesNotMatch(html, /(?:detalle|observaciones)"[^>]+maxlength="4000"/);
   assert.doesNotMatch(html, /tabindex="[1-9]/);
   assert.doesNotMatch(html, /type="file"|onclick=|javascript:/i);
 
@@ -444,6 +530,85 @@ test("la estructura permite teclado, etiquetas, errores asociados y anuncios ari
   assert.match(htmlErrores, /role="alert"[^>]+aria-live="assertive"/);
   assert.match(htmlErrores, /aria-invalid="true"/);
   assert.match(htmlErrores, /aria-describedby="ct-centro_ref-ayuda ct-centro_ref-error"/);
+  const htmlErroresGrupos = renderizarAltaContratacionTemporal({
+    ...conErrores.obtenerEstado(),
+    errores: {
+      ...conErrores.obtenerEstado().errores,
+      rc_existe: "booleano",
+      documentos_adjuntos: "adjuntos",
+    },
+  });
+  assert.match(
+    htmlErroresGrupos,
+    /id="ct-rc_existe"[^>]+aria-describedby="ct-rc_existe-ayuda ct-rc_existe-error"[^>]+aria-invalid="true"/,
+  );
+  assert.match(
+    htmlErroresGrupos,
+    /id="ct-documentos_adjuntos"[^>]+aria-describedby="ct-documentos_adjuntos-ayuda ct-documentos_adjuntos-error"[^>]+aria-invalid="true"/,
+  );
+});
+
+test("el montaje conserva foco, usa controles nativos y no repinta tras desmontar", async () => {
+  let resolver;
+  const respuestaPendiente = new Promise((resuelve) => { resolver = resuelve; });
+  const presentador = crearPresentador({
+    ejecutor: async () => respuestaPendiente,
+  });
+  presentador.prepararRevision(borradorValido());
+  const { escuchas, focos, raiz } = crearRaizDOMFalsa();
+  const anuncios = [];
+  const desmontar = montarAltaContratacionTemporal({
+    raiz,
+    presentador,
+    anunciar: (...argumentos) => anuncios.push(argumentos),
+  });
+  assert.deepEqual([...escuchas.keys()].sort(), ["change", "click", "input", "submit"]);
+  assert.doesNotMatch(raiz.innerHTML, /tabindex="[1-9]|onkeydown=|onkeypress=/);
+
+  const pulsacion = escuchas.get("click")(eventoAccion("confirmar"));
+  assert.equal(focos.at(-1), "[data-ct-accion='cancelar']");
+  const htmlDuranteEnvio = raiz.innerHTML;
+  const anunciosAntesDesmontar = anuncios.length;
+  desmontar();
+  assert.equal(escuchas.size, 0);
+  resolver(reciboValido());
+  await pulsacion;
+  assert.equal(raiz.innerHTML, htmlDuranteEnvio);
+  assert.equal(anuncios.length, anunciosAntesDesmontar);
+});
+
+test("la cancelación montada mantiene un destino de foco estable", async () => {
+  const presentador = crearPresentador({
+    ejecutor: async (_comando, contexto) => new Promise((_resolver, rechazar) => {
+      contexto.signal.addEventListener("abort", () => rechazar(new Error("privado")), {
+        once: true,
+      });
+    }),
+  });
+  presentador.prepararRevision(borradorValido());
+  const { escuchas, focos, raiz } = crearRaizDOMFalsa();
+  const desmontar = montarAltaContratacionTemporal({ raiz, presentador });
+  const envio = escuchas.get("click")(eventoAccion("confirmar"));
+  await escuchas.get("click")(eventoAccion("cancelar"));
+  assert.ok(focos.includes("[data-ct-estado]"));
+  await envio;
+  assert.equal(focos.at(-1), "[data-ct-accion='confirmar']");
+  desmontar();
+});
+
+test("la revisión localiza fechas civiles e importe sin alterar el DTO", () => {
+  const presentador = crearPresentador();
+  presentador.prepararRevision(borradorValido());
+  const html = renderizarAltaContratacionTemporal(presentador.obtenerEstado(), {
+    locale: "en-US",
+  });
+  assert.match(html, /August 1, 2026/);
+  assert.match(html, /July 23, 2026/);
+  assert.match(html, /€32,450\.00/);
+  assert.doesNotMatch(html, /32450,00 EUR/);
+  const comando = crearComandoAlta(borradorValido(), catalogosPrueba(), CLAVE_PRUEBA);
+  assert.equal(comando.solicitud.periodo.inicio, "2026-08-01T00:00:00Z");
+  assert.equal(comando.solicitud.rc.importe.centimos, 3_245_000);
 });
 
 test("i18n cubre los textos estáticos y CSS hereda tema, zoom y contraste", () => {
@@ -463,6 +628,7 @@ test("i18n cubre los textos estáticos y CSS hereda tema, zoom y contraste", () 
   assert.match(estilos, /prefers-reduced-motion: reduce/);
   assert.match(estilos, /forced-colors: active/);
   assert.match(estilos, /overflow-wrap: anywhere/);
+  assert.match(estilos, /\.ct-estado-exito\s*\{[^}]+color: var\(--portal-tinta\)/s);
   assert.doesNotMatch(estilos, /font-family:|#[0-9a-f]{3,8}\b/i);
   assert.doesNotMatch(vistaFuente, /style="/);
 });
