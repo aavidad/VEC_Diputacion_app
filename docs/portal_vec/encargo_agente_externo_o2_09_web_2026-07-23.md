@@ -13,6 +13,21 @@ accesibilidad, trazabilidad y prevención de errores.
 
 No uses Orquesta. No edites el árbol principal. No integres ni empujes tu rama.
 
+## Subagentes obligatorios
+
+El agente principal es el **único editor** del worktree. Debe crear dos
+subagentes de revisión, con acceso de solo lectura y sin commits:
+
+1. revisor de experiencia administrativa, WCAG 2.2 AA, EN 301 549, teclado,
+   foco, zoom y lector de pantalla;
+2. revisor de seguridad y contrato: campos cerrados, escape, doble envío,
+   errores redactados, ausencia de cookies/almacenamiento y material privado.
+
+Los revisores trabajan después de un primer corte coherente o sobre diffs
+estables. Entregan GO/NO-GO y evidencias al agente principal. No pueden editar
+archivos, coordinar otros agentes ni declarar integrada la tarea. El principal
+reproduce los hallazgos, corrige y vuelve a pedir comprobación de los bloqueos.
+
 ## Preparación obligatoria
 
 Desde `/home/alberto/Trabajo/VEC_Diputacion_app`:
