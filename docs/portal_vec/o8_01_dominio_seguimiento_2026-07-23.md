@@ -155,10 +155,18 @@ La rehidratación:
 5. compara la serialización canónica de la proyección reconstruida con la
    recibida.
 
-La reproducción mantiene índices locales de actuaciones y tramos proyectados:
-resuelve duplicados, objetivos de rectificación y sustituciones de tramo sin
-volver a recorrer el prefijo histórico. No clona el historial completo en cada
-evento y limita las colecciones antes de recorrerlas.
+La definición normalizada conserva un índice inmutable de transiciones. La
+rehidratación la valida una sola vez y la reproducción reutiliza tanto ese
+índice como los índices locales de actuaciones y tramos proyectados. Así
+resuelve transiciones, duplicados, objetivos de rectificación y sustituciones
+de tramo sin renormalizar la definición ni volver a recorrer el prefijo
+histórico por evento. El coste del replay es `O(D+A)`, siendo `D` el tamaño de
+la definición y `A` el número de actuaciones.
+
+Las cardinalidades del estado se comprueban antes de validar la definición o
+reservar índices. En publicación, restauración y material canónico se
+comprueban también todas las cardinalidades anidadas —motivos, documentos,
+ámbitos y resultados— antes de clonar u ordenar sus colecciones.
 
 La huella SHA-256 detecta alteraciones y colisiones semánticas dentro del
 modelo, pero no acredita por sí sola origen, competencia, autorización ni
@@ -228,6 +236,10 @@ La familia `seguimiento*_test.go` cubre:
 - rectificación append-only y segregación de actor;
 - corrección de tramo y cese, reapertura y nuevo cese;
 - rehidratación exacta y adulteración de todos los eventos;
+- rechazo previo de cardinalidades anidadas adversariales en publicación y
+  restauración;
+- límite de periodos antes de validación o reserva proporcional;
+- replay largo con contador determinista de una sola validación de definición;
 - copias defensivas y derivación concurrente sin carrera;
 - canon determinista, esquema cerrado y límites;
 - rechazo de valores personales como referencias opacas.

@@ -127,7 +127,8 @@ func materialCanonicoDefinicionSeguimiento(
 		p.Vigencia.Validar() != nil || !p.EstadoInicial.Valida() ||
 		len(p.Estados) > maximoEstadosSeguimiento ||
 		len(p.Motivos) > maximoMotivosSeguimiento ||
-		len(p.Transiciones) > maximoTransicionesSeguimiento {
+		len(p.Transiciones) > maximoTransicionesSeguimiento ||
+		!cardinalidadesAnidadasSeguimientoValidas(p.Transiciones) {
 		return nil, ErrDefinicionSeguimientoInvalida
 	}
 	var material bytes.Buffer
@@ -501,6 +502,20 @@ func referenciaOpacaSeguimientoValida(valor string) bool {
 		strings.HasPrefix(valor, "ref:") &&
 		huellaSeguimientoValida(valor[len("ref:"):])
 }
+func (c ClaseTransicionSeguimiento) valida() bool {
+	return c == TransicionOrdinaria || c == TransicionRectificacion || c == TransicionReapertura
+}
+func (t TransicionDefinidaSeguimiento) clonar() TransicionDefinidaSeguimiento {
+	t.MotivosPermitidos = append([]ClaveCatalogo(nil), t.MotivosPermitidos...)
+	t.Documentos = append([]RequisitoDocumentoSeguimiento(nil), t.Documentos...)
+	if t.Calendario != nil {
+		calendario := *t.Calendario
+		calendario.AmbitosPermitidos = append([]ClaveCatalogo(nil), t.Calendario.AmbitosPermitidos...)
+		calendario.ResultadosPermitidos = append([]ClaveCatalogo(nil), t.Calendario.ResultadosPermitidos...)
+		t.Calendario = &calendario
+	}
+	return t
+}
 func huellaAnteriorSeguimiento(estado EstadoPersistidoSeguimiento) string {
 	if len(estado.Actuaciones) == 0 {
 		return estado.HuellaRaizSHA256
@@ -516,7 +531,8 @@ func normalizarDefinicionSeguimiento(
 		len(b.Estados) < 2 || len(b.Estados) > maximoEstadosSeguimiento ||
 		len(b.Motivos) > maximoMotivosSeguimiento ||
 		len(b.Transiciones) == 0 ||
-		len(b.Transiciones) > maximoTransicionesSeguimiento {
+		len(b.Transiciones) > maximoTransicionesSeguimiento ||
+		!cardinalidadesAnidadasSeguimientoValidas(b.Transiciones) {
 		return BorradorDefinicionSeguimiento{}, ErrDefinicionSeguimientoInvalida
 	}
 	n := b
@@ -638,17 +654,21 @@ func efectoCompatibleConClaseSeguimiento(
 	}
 }
 func normalizarRequisitoCalendario(c *RequisitoCalendarioSeguimiento) error {
+	if len(c.AmbitosPermitidos) == 0 || len(c.ResultadosPermitidos) == 0 ||
+		len(c.AmbitosPermitidos) > maximoResultadosCalendarioPorTransicion ||
+		len(c.ResultadosPermitidos) > maximoResultadosCalendarioPorTransicion {
+		return ErrDefinicionSeguimientoInvalida
+	}
 	sort.Slice(c.AmbitosPermitidos, func(i, j int) bool {
 		return c.AmbitosPermitidos[i] < c.AmbitosPermitidos[j]
 	})
 	sort.Slice(c.ResultadosPermitidos, func(i, j int) bool {
 		return c.ResultadosPermitidos[i] < c.ResultadosPermitidos[j]
 	})
-	if len(c.AmbitosPermitidos) == 0 || len(c.ResultadosPermitidos) == 0 ||
-		!clavesSeguimientoUnicasValidas(
-			c.AmbitosPermitidos,
-			maximoResultadosCalendarioPorTransicion,
-		) ||
+	if !clavesSeguimientoUnicasValidas(
+		c.AmbitosPermitidos,
+		maximoResultadosCalendarioPorTransicion,
+	) ||
 		!clavesSeguimientoUnicasValidas(
 			c.ResultadosPermitidos,
 			maximoResultadosCalendarioPorTransicion,
@@ -656,6 +676,21 @@ func normalizarRequisitoCalendario(c *RequisitoCalendarioSeguimiento) error {
 		return ErrDefinicionSeguimientoInvalida
 	}
 	return nil
+}
+func cardinalidadesAnidadasSeguimientoValidas(
+	transiciones []TransicionDefinidaSeguimiento,
+) bool {
+	for indice := range transiciones {
+		t := &transiciones[indice]
+		if len(t.MotivosPermitidos) > maximoMotivosSeguimiento ||
+			len(t.Documentos) > maximoDocumentosPorTransicion ||
+			t.Calendario != nil &&
+				(len(t.Calendario.AmbitosPermitidos) > maximoResultadosCalendarioPorTransicion ||
+					len(t.Calendario.ResultadosPermitidos) > maximoResultadosCalendarioPorTransicion) {
+			return false
+		}
+	}
+	return true
 }
 func tieneCicloSilencioso(transiciones []TransicionDefinidaSeguimiento) bool {
 	adyacencia := make(map[ClaveCatalogo][]ClaveCatalogo)

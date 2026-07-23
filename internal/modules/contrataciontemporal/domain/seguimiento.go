@@ -76,10 +76,6 @@ const (
 	TransicionReapertura    ClaseTransicionSeguimiento = "reapertura"
 )
 
-func (c ClaseTransicionSeguimiento) valida() bool {
-	return c == TransicionOrdinaria || c == TransicionRectificacion || c == TransicionReapertura
-}
-
 type EfectoPeriodoSeguimiento string
 
 const (
@@ -110,18 +106,6 @@ type TransicionDefinidaSeguimiento struct {
 	ExigeActorDistinto bool                            `json:"exige_actor_distinto"`
 }
 
-func (t TransicionDefinidaSeguimiento) clonar() TransicionDefinidaSeguimiento {
-	t.MotivosPermitidos = append([]ClaveCatalogo(nil), t.MotivosPermitidos...)
-	t.Documentos = append([]RequisitoDocumentoSeguimiento(nil), t.Documentos...)
-	if t.Calendario != nil {
-		calendario := *t.Calendario
-		calendario.AmbitosPermitidos = append([]ClaveCatalogo(nil), t.Calendario.AmbitosPermitidos...)
-		calendario.ResultadosPermitidos = append([]ClaveCatalogo(nil), t.Calendario.ResultadosPermitidos...)
-		t.Calendario = &calendario
-	}
-	return t
-}
-
 type BorradorDefinicionSeguimiento struct {
 	Referencia               string                          `json:"referencia"`
 	Version                  uint64                          `json:"version"`
@@ -147,7 +131,8 @@ type PublicacionDefinicionSeguimiento struct {
 	Transiciones             []TransicionDefinidaSeguimiento `json:"transiciones"`
 }
 type DefinicionSeguimiento struct {
-	publicacion PublicacionDefinicionSeguimiento
+	publicacion  PublicacionDefinicionSeguimiento
+	transiciones map[ClaveCatalogo]TransicionDefinidaSeguimiento
 }
 
 func PublicarDefinicionSeguimiento(
@@ -169,7 +154,11 @@ func PublicarDefinicionSeguimiento(
 	if err != nil {
 		return DefinicionSeguimiento{}, ErrDefinicionSeguimientoInvalida
 	}
-	return DefinicionSeguimiento{publicacion: publicacion}, nil
+	indice := make(map[ClaveCatalogo]TransicionDefinidaSeguimiento, len(publicacion.Transiciones))
+	for _, transicion := range publicacion.Transiciones {
+		indice[transicion.Clave] = transicion
+	}
+	return DefinicionSeguimiento{publicacion: publicacion, transiciones: indice}, nil
 }
 func RestaurarDefinicionSeguimiento(
 	publicacion PublicacionDefinicionSeguimiento,
@@ -214,14 +203,8 @@ func (d DefinicionSeguimiento) Publicacion() PublicacionDefinicionSeguimiento {
 func (d DefinicionSeguimiento) transicion(
 	clave ClaveCatalogo,
 ) (TransicionDefinidaSeguimiento, bool) {
-	indice := sort.Search(len(d.publicacion.Transiciones), func(i int) bool {
-		return d.publicacion.Transiciones[i].Clave >= clave
-	})
-	if indice == len(d.publicacion.Transiciones) ||
-		d.publicacion.Transiciones[indice].Clave != clave {
-		return TransicionDefinidaSeguimiento{}, false
-	}
-	return d.publicacion.Transiciones[indice].clonar(), true
+	transicion, existe := d.transiciones[clave]
+	return transicion, existe
 }
 
 type IntervaloSeguimiento struct {
@@ -384,7 +367,15 @@ func NuevoSeguimiento(
 	definicion DefinicionSeguimiento,
 	alta AltaSeguimiento,
 ) (Seguimiento, error) {
-	if definicion.Validar() != nil || !definicion.VigenteEn(alta.CreadoEn) ||
+	return nuevoSeguimiento(definicion, alta, true)
+}
+func nuevoSeguimiento(
+	definicion DefinicionSeguimiento,
+	alta AltaSeguimiento,
+	validarDefinicion bool,
+) (Seguimiento, error) {
+	if validarDefinicion && definicion.Validar() != nil ||
+		!definicion.publicacion.Vigencia.contiene(alta.CreadoEn) ||
 		!referenciaOpacaSeguimientoValida(alta.Referencia) ||
 		!referenciaOpacaSeguimientoValida(alta.OrganizacionRef) ||
 		!referenciaOpacaSeguimientoValida(alta.ExpedienteRef) ||
@@ -474,7 +465,7 @@ func (s Seguimiento) aplicarSinRehidratar(
 	}
 	if len(s.estado.Actuaciones) >= maximoActuacionesSeguimiento ||
 		!definicion.Referencia().Coincide(s.estado.Definicion) ||
-		!definicion.VigenteEn(normalizados.RegistradaEn) ||
+		!definicion.publicacion.Vigencia.contiene(normalizados.RegistradaEn) ||
 		normalizados.RegistradaEn.Before(s.estado.ActualizadoEn) {
 		return Seguimiento{}, ErrTransicionInvalida
 	}
@@ -737,18 +728,25 @@ func rectificarTramoSeguimiento(
 	return nil
 }
 func RehidratarSeguimiento(definicion DefinicionSeguimiento, estado EstadoPersistidoSeguimiento) (Seguimiento, error) {
-	if definicion.Validar() != nil ||
-		!definicion.Referencia().Coincide(estado.Definicion) ||
-		len(estado.Actuaciones) > maximoActuacionesSeguimiento ||
+	return rehidratarSeguimiento(definicion, estado, definicion.Validar)
+}
+func rehidratarSeguimiento(
+	definicion DefinicionSeguimiento,
+	estado EstadoPersistidoSeguimiento,
+	validarDefinicion func() error,
+) (Seguimiento, error) {
+	if len(estado.Actuaciones) > maximoActuacionesSeguimiento ||
 		len(estado.PeriodosResultantes) > maximoActuacionesSeguimiento ||
-		len(estado.PeriodosResultantes) > len(estado.Actuaciones) {
+		len(estado.PeriodosResultantes) > len(estado.Actuaciones) ||
+		validarDefinicion() != nil ||
+		!definicion.Referencia().Coincide(estado.Definicion) {
 		return Seguimiento{}, ErrSeguimientoInvalido
 	}
-	actual, err := NuevoSeguimiento(definicion, AltaSeguimiento{
+	actual, err := nuevoSeguimiento(definicion, AltaSeguimiento{
 		Referencia: estado.Referencia, OrganizacionRef: estado.OrganizacionRef,
 		ExpedienteRef: estado.ExpedienteRef, RelacionRef: estado.RelacionRef,
 		PeriodoPrevisto: estado.PeriodoPrevisto, CreadoEn: estado.CreadoEn,
-	})
+	}, false)
 	if err != nil || actual.estado.HuellaRaizSHA256 != estado.HuellaRaizSHA256 {
 		return Seguimiento{}, ErrSeguimientoInvalido
 	}

@@ -246,6 +246,21 @@ func TestSeguimientoRechazaColeccionesYReferenciasExcesivas(t *testing.T) {
 	) {
 		t.Fatalf("se aceptaron actuaciones excesivas: %v", err)
 	}
+	estado = base.Estado()
+	estado.PeriodosResultantes = make(
+		[]PeriodoResultanteSeguimiento,
+		65_536,
+	)
+	validaciones := 0
+	if _, err := rehidratarSeguimiento(definicion, estado, func() error {
+		validaciones++
+		return definicion.Validar()
+	}); !errors.Is(err, ErrSeguimientoInvalido) {
+		t.Fatalf("se aceptaron periodos excesivos: %v", err)
+	}
+	if validaciones != 0 {
+		t.Fatalf("se validó la definición antes de limitar periodos: %d", validaciones)
+	}
 
 	alta := AltaSeguimiento{
 		Referencia:      strings.Repeat("a", 161),
@@ -260,6 +275,59 @@ func TestSeguimientoRechazaColeccionesYReferenciasExcesivas(t *testing.T) {
 		ErrSeguimientoInvalido,
 	) {
 		t.Fatalf("se aceptó una referencia excesiva: %v", err)
+	}
+}
+
+func TestDefinicionRechazaColeccionesAnidadasAdversariales(t *testing.T) {
+	definicion := definicionSeguimientoValida(t, false)
+	const cardinalidadAdversarial = 65_536
+	casos := []struct {
+		nombre    string
+		adulterar func(*TransicionDefinidaSeguimiento)
+	}{
+		{"motivos", func(transicion *TransicionDefinidaSeguimiento) {
+			transicion.MotivosPermitidos = make([]ClaveCatalogo, cardinalidadAdversarial)
+		}},
+		{"documentos", func(transicion *TransicionDefinidaSeguimiento) {
+			transicion.Documentos = make(
+				[]RequisitoDocumentoSeguimiento,
+				cardinalidadAdversarial,
+			)
+		}},
+		{"ámbitos de calendario", func(transicion *TransicionDefinidaSeguimiento) {
+			transicion.Calendario = &RequisitoCalendarioSeguimiento{
+				AmbitosPermitidos:    make([]ClaveCatalogo, cardinalidadAdversarial),
+				ResultadosPermitidos: []ClaveCatalogo{"fecha_habil"},
+			}
+		}},
+		{"resultados de calendario", func(transicion *TransicionDefinidaSeguimiento) {
+			transicion.Calendario = &RequisitoCalendarioSeguimiento{
+				AmbitosPermitidos:    []ClaveCatalogo{"provincia_granada"},
+				ResultadosPermitidos: make([]ClaveCatalogo, cardinalidadAdversarial),
+			}
+		}},
+	}
+	for _, caso := range casos {
+		t.Run("publicación/"+caso.nombre, func(t *testing.T) {
+			borrador := borradorDesdeDefinicion(definicion)
+			caso.adulterar(&borrador.Transiciones[0])
+			if _, err := PublicarDefinicionSeguimiento(borrador); !errors.Is(
+				err,
+				ErrDefinicionSeguimientoInvalida,
+			) {
+				t.Fatalf("se publicó cardinalidad anidada adversarial: %v", err)
+			}
+		})
+		t.Run("restauración/"+caso.nombre, func(t *testing.T) {
+			publicacion := definicion.Publicacion()
+			caso.adulterar(&publicacion.Transiciones[0])
+			if _, err := RestaurarDefinicionSeguimiento(publicacion); !errors.Is(
+				err,
+				ErrDefinicionSeguimientoInvalida,
+			) {
+				t.Fatalf("se restauró cardinalidad anidada adversarial: %v", err)
+			}
+		})
 	}
 }
 
@@ -323,7 +391,7 @@ func TestSerializadorCanonicoRechazaRaizYProyeccionesAdulteradas(t *testing.T) {
 	}
 }
 
-func TestRehidratacionIndexaCadenaLargaDeRectificaciones(t *testing.T) {
+func TestRehidratacionIndexaCadenaLargaYValidaDefinicionUnaVez(t *testing.T) {
 	definicion := definicionSeguimientoValida(t, false)
 	actual := seguimientoIncorporado(t, definicion)
 	estado := actual.Estado()
@@ -369,8 +437,23 @@ func TestRehidratacionIndexaCadenaLargaDeRectificaciones(t *testing.T) {
 		generada := actual.estado.Actuaciones[len(actual.estado.Actuaciones)-1]
 		indice.actuaciones[generada.ActuacionRef] = generada
 	}
-	if _, err := RehidratarSeguimiento(definicion, actual.Estado()); err != nil {
+	validaciones := 0
+	if _, err := rehidratarSeguimiento(
+		definicion,
+		actual.Estado(),
+		func() error {
+			validaciones++
+			return definicion.Validar()
+		},
+	); err != nil {
 		t.Fatalf("rehidratar cadena indexada: %v", err)
+	}
+	if validaciones != 1 {
+		t.Fatalf(
+			"la definición se validó %d veces al reproducir %d actuaciones",
+			validaciones,
+			len(actual.estado.Actuaciones),
+		)
 	}
 }
 
