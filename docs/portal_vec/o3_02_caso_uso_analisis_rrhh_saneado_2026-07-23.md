@@ -2,9 +2,9 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: candidato técnico pendiente de revisión independiente e integración.
-No cierra O3-02, no habilita datos reales y no acredita producción, ENS, ENI
-ni conformidad jurídica.
+Estado: candidato técnico con puente real O3-02/O3-03, pendiente de revisión
+independiente e integración. No cierra O3-02, no habilita datos reales y no
+acredita producción, ENS, ENI ni conformidad jurídica.
 
 ## Alcance
 
@@ -17,7 +17,8 @@ Incluye:
 
 - comandos neutrales para web, escritorio, CLI y MCP;
 - contexto de identidad de garantía alta resuelto por la frontera VEC;
-- artefacto interno opaco preparado por el puerto O3-03;
+- artefacto interno opaco acuñado únicamente desde pruebas O3-03 verificadas y
+  consumidas;
 - idempotencia semántica con HMAC rotatorio;
 - política gobernada, versionada y ligada al estado previo;
 - autorización VEC V3 exacta;
@@ -28,8 +29,9 @@ Incluye:
 
 No incluye:
 
-- implementación ni aprobación de O3-03;
 - adaptador PostgreSQL de preparación o confirmación;
+- adaptadores reales de RC, coste, verificación TCB, catálogo, credenciales ni
+  consumo durable;
 - auditoría, outbox e historia durable reales;
 - composición, API, interfaz o pruebas E2E;
 - decisión de cumplimiento ni autorización para tratar datos personales.
@@ -48,36 +50,62 @@ artefacto y los campos funcionales mínimos:
 - referencia y huella de la entrada de retención de crédito.
 
 El cliente no puede construir `AnalisisRRHH`, `ValidacionRC`, coste, fuentes,
-recibos, actor, unidad ni actuación. El puerto `PreparadorArtefactoAnalisisO3`
-entrega un valor opaco no serializable. La aplicación deriva desde él la
-proyección autoritativa y el dominio vuelve a validar sus invariantes.
+confirmaciones, credenciales, raíces, recibos, actor, unidad ni actuación.
+Tampoco existe ya un constructor público que acepte
+`DatosArtefactoAnalisis`: una proyección nominal, aunque sea internamente
+coherente, no puede acuñar autoridad.
 
-El artefacto queda ligado a organización, expediente, versión, entrada
-funcional, resultado de RC, fuentes, recibos, instantes, coste y huella. Los
-motivos negativos de RC y de rectificación usan entradas de catálogo
-versionadas y claves i18n coincidentes; no se aceptan textos libres como
-autoridad.
+`CapacidadPrepararArtefactoAnalisisO3` obtiene las peticiones selladas desde
+infraestructura interna, invoca los puertos O3-03, contrasta credenciales y
+pruebas de posesión contra la confianza fijada por la composición, verifica
+respuesta, TCB y catálogo, presenta un desafío nuevo a cada autoridad,
+consume las respuestas de forma durable y solo entonces acuña el artefacto
+opaco no serializable.
+
+El artefacto conserva y liga:
+
+- organización, expediente, versión y campos funcionales exactos;
+- petición y HMAC de petición de RC y, cuando existe, coste;
+- respuesta, huella, atestación, generación y ventana de vigencia;
+- confirmaciones TCB y, en RC negativa, publicación gobernada;
+- fuente, verificador y publicador con raíz, autoridad, backend, rol, serie,
+  generación, huella de clave y vigencia de credencial;
+- orden y recibo de consumo único, con sus instantes;
+- instante de preparación y huella SHA-256 determinista del contenido.
+
+Esta huella es una dirección de contenido, no una segunda autoridad
+criptográfica. La autoridad procede de O3-03. Los motivos negativos de RC
+conservan por separado la entrada del catálogo y la clave i18n; no se exige
+que sean el mismo identificador ni se aceptan textos libres como autoridad.
 
 ## Secuencia de la operación
 
 1. Validar el comando y reservar margen para el incremento CAS.
 2. Resolver y revalidar el contexto de actor desde la frontera confiable.
-3. Obtener el artefacto opaco O3-03 para las coordenadas exactas.
-4. Construir preimágenes separadas de ámbito idempotente y semántica.
-5. Sellarlas mediante un puerto HMAC con generaciones alineadas.
-6. Reservar o recuperar la operación idempotente.
-7. Resolver la política gobernada para fase y estado previos exactos.
-8. Comprobar segregación de funciones.
-9. Obtener y revalidar una concesión VEC V3 ligada al recurso exacto.
-10. Reproducir `RegistrarAnalisis` o `RectificarAnalisis` sobre una copia del
+3. Resolver internamente las peticiones selladas de RC y coste.
+4. Verificar credenciales, prueba de posesión, respuesta, TCB y publicación.
+5. Revalidar todas las autoridades con desafíos nuevos y comprobar vigencia.
+6. Consumir de forma durable la respuesta de RC y la de coste, si existe.
+7. Revalidar la ventana y acuñar el artefacto desde las pruebas opacas.
+8. Construir preimágenes separadas de ámbito idempotente y semántica.
+9. Sellarlas mediante un puerto HMAC con generaciones alineadas.
+10. Reservar o recuperar la operación idempotente.
+11. Resolver la política gobernada para fase y estado previos exactos.
+12. Comprobar segregación de funciones.
+13. Obtener y revalidar una concesión VEC V3 ligada al recurso exacto.
+14. Reproducir `RegistrarAnalisis` o `RectificarAnalisis` sobre una copia del
     agregado anterior.
-11. Construir una orden que vuelve a ejecutar la transición y exige igualdad
+15. Construir una orden que vuelve a ejecutar la transición y exige igualdad
     completa del expediente resultante.
-12. Delegar el único efecto en una transacción durable y validar su recibo.
+16. Delegar el efecto del expediente en una transacción durable y validar su
+    recibo.
 
 La futura transacción debe ejecutar conjuntamente el CAS del agregado y de la
-política, el consumo único del artefacto y de la concesión VEC, la
-idempotencia, el historial de solo adición, auditoría, recibo y outbox.
+política, el consumo único del artefacto O3-02 y de la concesión VEC, la
+idempotencia, el historial de solo adición, auditoría, recibo y outbox. Las
+respuestas O3-03 ya llegan consumidas al artefacto; O3-04 deberá comprobar y
+consumir atómicamente el artefacto exacto mediante las pruebas y recibos que
+transporta, sin volver a confiar en su proyección.
 
 ## Controles incorporados
 
@@ -93,6 +121,12 @@ idempotencia, el historial de solo adición, auditoría, recibo y outbox.
 
 - La referencia y huella del artefacto participan en la semántica HMAC, en la
   preparación, en la política, en el recurso VEC y en el recibo.
+- La huella del artefacto cubre cada coordenada funcional y probatoria; la
+  preimagen semántica cubre además esa huella y el contenido completo.
+- Una credencial válida que cambia serie, generación, backend, clave o ventana
+  entre verificación y consumo se rechaza antes de producir efectos.
+- El replay exacto recupera el mismo recibo; el mismo recibo con otra respuesta
+  produce conflicto explícito.
 - La fábrica de la orden reproduce la operación de dominio sobre el estado
   previo y compara el agregado completo, no una selección de campos.
 - Se rechaza rectificar cuando ya existe cobertura o asignación materializada.
@@ -110,16 +144,23 @@ idempotencia, el historial de solo adición, auditoría, recibo y outbox.
 
 ### Encapsulación
 
-Artefacto, preparación, orden y evidencia rechazan codificación y
-decodificación JSON, XML, texto, binario, gob, CBOR y YAML. Esta barrera evita
-que un adaptador reconstruya autoridad interna a partir de una carga externa.
+Artefacto, pruebas O3-03, preparación, orden y evidencia rechazan codificación
+y decodificación JSON, XML, texto, binario, gob, CBOR y YAML. Esta barrera
+evita que un adaptador reconstruya autoridad interna a partir de una carga
+externa.
 
 ## Evidencia automatizada
 
 Las pruebas del corte cubren:
 
 - registro y rectificación correctos;
-- derivación interna de RC y coste;
+- integración real del caso de uso con peticiones, fuentes, credenciales,
+  atestaciones, TCB, consumo y derivación de RC y coste;
+- ausencia del constructor nominal público y rechazo de una proyección
+  nominal autoconsistente;
+- revalidación de credenciales con desafío nuevo;
+- adulteración de atestación, confirmación, credencial, catálogo y recibo;
+- replay exacto, conflicto por respuesta distinta y caducidad tras consumo;
 - segregación y motivo gobernado;
 - ligaduras del artefacto y del recurso VEC V3;
 - repetición idempotente y conflicto semántico;
@@ -153,8 +194,7 @@ Intervención o RRHH.
 
 ## Siguiente trabajo
 
-1. Revisión independiente del corte saneado.
-2. Cierre independiente de O3-03.
-3. O3-04: preparación y confirmación PostgreSQL atómicas, con roles y ACL,
+1. Revisión independiente del puente O3-02/O3-03.
+2. O3-04: preparación y confirmación PostgreSQL atómicas, con roles y ACL,
    concurrencia, reintento, reinicio y resultado indeterminado.
-4. Composición real y, después, API, interfaz y E2E de O3-05.
+3. Composición real y, después, API, interfaz y E2E de O3-05.
