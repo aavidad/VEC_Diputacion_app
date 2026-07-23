@@ -188,6 +188,10 @@ evidencia de la utilidad del runner:
    nuevo/replay, marcador común y reconciliación exhaustiva;
 8. `go test` ocultaba `stdout`; el runner ahora captura ambos canales y vuelca
    hasta 240 líneas cuando falla, sin mostrar salida en el éxito.
+9. el generador Go de capacidad falló de forma intermitente al interpretar su
+   entrada V3; dos repeticiones mostraron el diagnóstico completo y la tercera
+   superó el ciclo. No se atribuye al contrato SQL ni se silencia como éxito:
+   queda como inestabilidad separada que la revisión debe reproducir.
 
 Después de cada corrección se ejecutó de nuevo el runner desde una base
 PostgreSQL 18 vacía. Ninguno de estos fallos se oculta ni se interpreta como
