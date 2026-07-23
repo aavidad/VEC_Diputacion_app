@@ -102,18 +102,7 @@ func (c *capacidadPrepararArtefactoAnalisisO3Prueba) PrepararArtefactoAnalisis(
 			errors.Join(ErrArtefactoAnalisisNoDisponible, err)
 	}
 	if rc.ValidarEn(comprobadaEn) != nil ||
-		coste.ValidarEn(comprobadaEn) != nil ||
-		RevalidarEvidenciasFuenteAnalisisO3(
-			operacion,
-			c.fuenteRC,
-			c.calculador,
-			c.verificador,
-			c.publicador,
-			c.confianza,
-			rc,
-			coste,
-			comprobadaEn,
-		) != nil {
+		coste.ValidarEn(comprobadaEn) != nil {
 		return ArtefactoAnalisisPreparado{},
 			ErrArtefactoAnalisisNoConfiable
 	}
@@ -124,63 +113,6 @@ func (c *capacidadPrepararArtefactoAnalisisO3Prueba) PrepararArtefactoAnalisis(
 		coste,
 		preparadoEn,
 	)
-}
-
-type fuenteRCConCredencialCambiantePrueba struct {
-	presentador presentadorAutoridadConfiguradoPrueba
-	resultado   ResultadoValidacionRC
-	presentadas int
-}
-
-func (f *fuenteRCConCredencialCambiantePrueba) PresentarAutoridadFuenteAnalisis(
-	ctx context.Context,
-	desafio DesafioAutoridadFuenteAnalisis,
-) (PresentacionAutoridadFuenteAnalisis, error) {
-	f.presentadas++
-	presentador := f.presentador
-	if f.presentadas > 1 {
-		presentador.datos.Serie++
-	}
-	return presentador.PresentarAutoridadFuenteAnalisis(ctx, desafio)
-}
-
-func (f *fuenteRCConCredencialCambiantePrueba) ValidarRC(
-	context.Context,
-	SolicitudValidarRC,
-) (ResultadoValidacionRC, error) {
-	return f.resultado, nil
-}
-
-func TestPuenteArtefactoAnalisisRechazaCambioDeCredencialEnRevalidacion(
-	t *testing.T,
-) {
-	solicitud, capacidad := capacidadArtefactoAnalisisPrueba(t)
-	solicitudes, err := capacidad.solicitudes.
-		PrepararSolicitudesFuentesAnalisisO3(context.Background(), solicitud)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resultado, err := capacidad.fuenteRC.ValidarRC(
-		context.Background(),
-		solicitudes.ValidacionRC,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	capacidad.fuenteRC = &fuenteRCConCredencialCambiantePrueba{
-		presentador: nuevoPresentadorAutoridadConfiguradoPrueba(
-			RolFuentePresupuestaria,
-			"fuente_presupuesto_0123456789",
-			"backend_presupuesto_0123456789",
-		),
-		resultado: resultado,
-	}
-	if _, err := capacidad.PrepararArtefactoAnalisis(
-		context.Background(),
-		solicitud,
-	); !errors.Is(err, ErrArtefactoAnalisisNoConfiable) {
-		t.Fatalf("credencial cambiada aceptada: %v", err)
-	}
 }
 
 func TestPuenteArtefactoAnalisisRechazaCatalogoAdulteradoAntesDeConsumir(

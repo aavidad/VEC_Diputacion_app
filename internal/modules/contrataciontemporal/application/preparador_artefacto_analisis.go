@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -108,20 +109,17 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) PrepararArtefactoAnalisis(
 			errorArtefactoAnalisisNoDisponible(err)
 	}
 	if evidenciaRC.ValidarEn(comprobadaEn) != nil ||
-		evidenciaCoste.ValidarEn(comprobadaEn) != nil ||
-		ports.RevalidarEvidenciasFuenteAnalisisO3(
-			operacion,
-			c.fuenteRC,
-			c.calculador,
-			c.verificador,
-			c.publicador,
-			c.confianza,
-			evidenciaRC,
-			evidenciaCoste,
-			comprobadaEn,
-		) != nil {
+		evidenciaCoste.ValidarEn(comprobadaEn) != nil {
 		return ports.ArtefactoAnalisisPreparado{},
 			ports.ErrArtefactoAnalisisNoConfiable
+	}
+	if err := c.revalidarAutoridadesEvidencias(
+		operacion,
+		evidenciaRC,
+		evidenciaCoste,
+		comprobadaEn,
+	); err != nil {
+		return ports.ArtefactoAnalisisPreparado{}, err
 	}
 	preparadoEn := c.reloj.Ahora()
 	if err := operacion.Err(); err != nil {
@@ -139,6 +137,144 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) PrepararArtefactoAnalisis(
 		evidenciaCoste,
 		preparadoEn,
 	)
+}
+
+func (c *CapacidadPrepararArtefactoAnalisisO3) revalidarAutoridadesEvidencias(
+	ctx context.Context,
+	rc ports.EvidenciaValidacionRCVerificadaO3,
+	coste ports.EvidenciaCalculoCosteVerificadaO3,
+	comprobadaEn time.Time,
+) error {
+	preparacion, err :=
+		ports.NuevaPreparacionRevalidacionEvidenciasFuenteAnalisisO3(
+			rc,
+			coste,
+			comprobadaEn,
+		)
+	if err != nil {
+		return ports.ErrArtefactoAnalisisNoConfiable
+	}
+	materialRC, err := preparacion.MaterialRC()
+	if err != nil {
+		return ports.ErrArtefactoAnalisisNoConfiable
+	}
+	fuenteRC, err := presentarAutoridadFuenteAnalisisO3(
+		ctx,
+		c.fuenteRC,
+		c.confianza,
+		materialRC,
+		ports.RolFuentePresupuestaria,
+		comprobadaEn,
+	)
+	if err != nil {
+		return err
+	}
+	verificadorRC, err := presentarAutoridadFuenteAnalisisO3(
+		ctx,
+		c.verificador,
+		c.confianza,
+		materialRC,
+		ports.RolVerificadorRespuesta,
+		comprobadaEn,
+	)
+	if err != nil {
+		return err
+	}
+	publicadorRC, err := presentarAutoridadFuenteAnalisisO3(
+		ctx,
+		c.publicador,
+		c.confianza,
+		materialRC,
+		ports.RolPublicadorCatalogo,
+		comprobadaEn,
+	)
+	if err != nil {
+		return err
+	}
+	resultado := ports.ResultadoRevalidacionEvidenciasFuenteAnalisisO3{
+		FuenteRC:      fuenteRC,
+		VerificadorRC: verificadorRC,
+		PublicadorRC:  publicadorRC,
+	}
+	materialCoste, existeCoste, err := preparacion.MaterialCoste()
+	if err != nil {
+		return ports.ErrArtefactoAnalisisNoConfiable
+	}
+	if existeCoste {
+		resultado.FuenteCoste, err = presentarAutoridadFuenteAnalisisO3(
+			ctx,
+			c.calculador,
+			c.confianza,
+			materialCoste,
+			ports.RolCalculadorCoste,
+			comprobadaEn,
+		)
+		if err != nil {
+			return err
+		}
+		resultado.VerificadorCoste, err =
+			presentarAutoridadFuenteAnalisisO3(
+				ctx,
+				c.verificador,
+				c.confianza,
+				materialCoste,
+				ports.RolVerificadorRespuesta,
+				comprobadaEn,
+			)
+		if err != nil {
+			return err
+		}
+	}
+	if preparacion.ValidarResultado(resultado) != nil {
+		return ports.ErrArtefactoAnalisisNoConfiable
+	}
+	return nil
+}
+
+func presentarAutoridadFuenteAnalisisO3(
+	ctx context.Context,
+	presentador ports.PresentadorAutoridadFuenteAnalisis,
+	confianza ports.ConfianzaAutoridadesFuenteAnalisis,
+	material []byte,
+	rol ports.RolAutoridadFuenteAnalisis,
+	comprobadaEn time.Time,
+) (ports.ConfirmacionComprobacionAutoridadFuenteAnalisis, error) {
+	if ctx == nil || dependenciaNula(presentador) {
+		return ports.ConfirmacionComprobacionAutoridadFuenteAnalisis{},
+			ports.ErrSolicitudArtefactoAnalisisInvalida
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ConfirmacionComprobacionAutoridadFuenteAnalisis{},
+			errorArtefactoAnalisisNoDisponible(err)
+	}
+	comprobacion, err := ports.NuevaComprobacionAutoridadFuenteAnalisis(
+		confianza,
+		material,
+		rol,
+		comprobadaEn,
+	)
+	if err != nil {
+		return ports.ConfirmacionComprobacionAutoridadFuenteAnalisis{},
+			ports.ErrArtefactoAnalisisNoConfiable
+	}
+	desafio, err := comprobacion.Desafio()
+	if err != nil {
+		return ports.ConfirmacionComprobacionAutoridadFuenteAnalisis{},
+			ports.ErrArtefactoAnalisisNoConfiable
+	}
+	presentacion, errPresentacion :=
+		presentador.PresentarAutoridadFuenteAnalisis(ctx, desafio)
+	if errContexto := ctx.Err(); errContexto != nil {
+		return ports.ConfirmacionComprobacionAutoridadFuenteAnalisis{},
+			errorArtefactoAnalisisNoDisponible(errContexto)
+	}
+	vinculo, errVerificacion :=
+		comprobacion.ValidarPresentacion(presentacion)
+	if errPresentacion != nil || errVerificacion != nil {
+		return ports.ConfirmacionComprobacionAutoridadFuenteAnalisis{},
+			ports.ErrArtefactoAnalisisNoConfiable
+	}
+	return vinculo, nil
 }
 
 func errorArtefactoAnalisisNoDisponible(causa error) error {

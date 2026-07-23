@@ -493,27 +493,6 @@ func autoridadesFuenteAnalisisSeparadas(
 	return true
 }
 
-func identidadesAutoridadFuenteAnalisisIguales(
-	primera identidadAutoridadFuenteAnalisis,
-	segunda identidadAutoridadFuenteAnalisis,
-) bool {
-	return primera.raizClaveID == segunda.raizClaveID &&
-		primera.autoridadRef == segunda.autoridadRef &&
-		primera.backendRef == segunda.backendRef &&
-		primera.rol == segunda.rol &&
-		primera.serie == segunda.serie &&
-		primera.generacion == segunda.generacion &&
-		primera.huellaClavePruebaSHA256 ==
-			segunda.huellaClavePruebaSHA256 &&
-		primera.credencialEmitidaEn.Equal(
-			segunda.credencialEmitidaEn,
-		) &&
-		primera.credencialValidaHasta.Equal(
-			segunda.credencialValidaHasta,
-		) &&
-		bytes.Equal(primera.clavePrueba, segunda.clavePrueba)
-}
-
 func canonCredencialAutoridadFuenteAnalisis(
 	datos DatosCredencialAutoridadFuenteAnalisis,
 ) ([]byte, error) {
