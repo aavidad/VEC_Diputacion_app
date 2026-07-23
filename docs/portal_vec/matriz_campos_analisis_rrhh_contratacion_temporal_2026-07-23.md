@@ -24,6 +24,7 @@ Fuentes funcionales:
 | `Periodo` | Sí | Análisis de RRHH y fuentes del expediente | Fechas civiles UTC, inicio no posterior a fin y horizonte técnico máximo de cien años | Delimitar la necesidad; las duraciones legales siguen gobernadas fuera del binario |
 | `PorcentajeJornada` | Sí | Análisis de RRHH y fuente de jornada autorizada | Entero entre 1 y 10.000 diezmilésimas | Representar exactamente jornada completa, parcial o reducida sin coma flotante |
 | `EntradaRCEsperada` | Sí | Comando interno construido desde la declaración del expediente | Referencia y huella válidas; deben coincidir exactamente con las devueltas en `ValidacionRC` | Evitar aplicar al análisis un resultado preparado para otra entrada |
+| `ActuacionRegistro` | Lo crea el agregado; ausente en el comando | `Expediente.RegistrarAnalisis` | Secuencia, versión, acción, fase y recibo deben coincidir con una actuación material existente | Impedir rehidratar un análisis sin la transición que lo incorporó |
 | `ValidacionRC` | Sí para registrar el análisis | Fuente presupuestaria autorizada | Contrato descrito en la sección siguiente | Conservar el resultado presupuestario y su evidencia |
 | `CostePrevisto` | No, mientras la fuente no lo proporcione | Conector de cálculo autorizado | Céntimos positivos en EUR, con límite técnico calculable | Conservar una estimación reproducible, no un valor de nómina |
 | `FuenteCosteRef` | Sí cuando existe coste | Versión de tabla o cálculo autorizado | Referencia opaca; no puede quedar sin coste ni faltar cuando hay coste | Acreditar procedencia y versión de la estimación |
@@ -47,7 +48,9 @@ hay una `ValidacionRC` registrable.
 
 `Expediente.RegistrarViaCobertura` exige
 `AnalisisRRHH.HabilitaAvance()`. Que un rechazo sea estructuralmente válido
-solo permite conservarlo con trazabilidad; el dominio impide continuar.
+solo permite conservarlo con trazabilidad; el dominio impide continuar. Un
+análisis correcto pero todavía no materializado en una actuación tampoco
+habilita el avance.
 
 ## Evidencia de validación de la RC
 
@@ -95,6 +98,18 @@ sido confirmados por la fuente autoritativa.
    coste, fecha o importe de RC.
 7. Modalidades, causas y jornadas legalmente permitidas se resuelven con la
    versión de catálogo aplicable; las invariantes técnicas no las inventan.
+8. Un análisis dentro de un expediente debe enlazar una actuación de secuencia
+   y versión al menos 2. La acción, fase y recibo del vínculo deben coincidir
+   con esa actuación, y la validación RC no puede ser posterior a ella.
+9. Un expediente rehidratado con vía de cobertura vuelve a exigir que su
+   análisis sea válido y habilite el avance; no confía en que la transición
+   hubiese sido comprobada antes de persistir.
+
+`ActuacionRegistro` no es una prueba criptográfica ni sustituye auditoría. Es
+una invariante determinista de rehidratación que evita aceptar un puntero
+`Analisis` añadido a la versión inicial, sin incremento, sin actuación o ligado
+solo por su posición accidental. O3-04 debe persistir actuación, agregado,
+auditoría y outbox de forma atómica.
 
 ## Correspondencia de cumplimiento
 
@@ -175,6 +190,10 @@ jurídicos.
 - coste igual a la RC, superior por un céntimo y máximo técnico exacto;
 - transición a cobertura permitida con RC validada/no requerida y prohibida
   con RC rechazada;
+- rehidratación válida sin análisis, con los tres resultados y con vía
+  habilitada;
+- adulteración por análisis sin actuación, validación posterior, versión,
+  secuencia, acción, fase o recibo diferentes;
 - texto normalizado y copia defensiva.
 
 O3-01 no incluye atestación de fuente/recibo, autorización, persistencia,

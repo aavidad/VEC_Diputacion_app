@@ -14,7 +14,8 @@ func (e Expediente) Validar() error {
 	if e.Analisis != nil && e.Analisis.Validar() != nil {
 		return ErrExpedienteInvalido
 	}
-	if e.ViaCobertura != nil && (e.Analisis == nil || e.ViaCobertura.Validar() != nil) {
+	if e.ViaCobertura != nil && (e.Analisis == nil || !e.Analisis.HabilitaAvance() ||
+		e.ViaCobertura.Validar() != nil) {
 		return ErrExpedienteInvalido
 	}
 	if e.Asignacion != nil && (e.ViaCobertura == nil || e.Asignacion.Validar() != nil) {
@@ -38,12 +39,26 @@ func (e Expediente) Validar() error {
 			return ErrExpedienteInvalido
 		}
 	}
+	if e.Analisis != nil && !analisisLigadoAActuacion(e.Analisis, e.Actuaciones) {
+		return ErrExpedienteInvalido
+	}
 	ultima := e.Actuaciones[len(e.Actuaciones)-1]
 	if ultima.FaseDestino != e.FaseActual || ultima.EstadoDestino != e.EstadoActual ||
 		!ultima.RealizadaEn.Equal(e.ActualizadoEn) {
 		return ErrExpedienteInvalido
 	}
 	return nil
+}
+
+func analisisLigadoAActuacion(analisis *AnalisisRRHH, actuaciones []Actuacion) bool {
+	if analisis == nil || analisis.ActuacionRegistro == nil ||
+		analisis.ActuacionRegistro.validar() != nil ||
+		analisis.ActuacionRegistro.Secuencia > uint64(len(actuaciones)) {
+		return false
+	}
+	actuacion := actuaciones[analisis.ActuacionRegistro.Secuencia-1]
+	return analisis.ActuacionRegistro.correspondeA(actuacion) &&
+		!analisis.ValidacionRC.ValidadaEn.After(actuacion.RealizadaEn)
 }
 
 func actuacionValida(a Actuacion, secuencia uint64) bool {

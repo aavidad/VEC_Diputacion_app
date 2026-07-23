@@ -100,6 +100,7 @@ func (e Expediente) RegistrarAnalisis(
 	actuacion DatosActuacion,
 ) (Expediente, error) {
 	if e.Validar() != nil || analisis.Validar() != nil || actuacion.validar() != nil ||
+		analisis.ActuacionRegistro != nil ||
 		analisis.ValidacionRC.ValidadaEn.After(actuacion.RealizadaEn) ||
 		e.Analisis != nil || e.ViaCobertura != nil || e.Asignacion != nil {
 		return Expediente{}, ErrTransicionInvalida
@@ -109,6 +110,12 @@ func (e Expediente) RegistrarAnalisis(
 		return Expediente{}, err
 	}
 	clon := analisis.clonar()
+	vinculo := nuevoVinculoActuacionAnalisis(
+		e.Version+1,
+		uint64(len(e.Actuaciones)+1),
+		actuacion,
+	)
+	clon.ActuacionRegistro = &vinculo
 	siguiente.Analisis = &clon
 	return siguiente.confirmarTransicion(actuacion)
 }
