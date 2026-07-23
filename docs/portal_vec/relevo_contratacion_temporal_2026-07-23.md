@@ -86,7 +86,7 @@ ajenas.
 | Autorización VEC durable de la preparación | Cerrada y revisada: V3, par HMAC activo exacto, revalidación y clientes neutrales |
 | Confianza y capacidad breve VEC-AD-3 | Integradas y revisadas: Ed25519/COSE estricto, audiencia, capacidad HMAC ≤5 s, rotación y revocación |
 | Contrato autenticado con Bolsa | Cerrado y revisado: referencias opacas, seudónimos, eventos, pruebas durables e inbox idempotente |
-| Confirmación atómica PostgreSQL | Corrección `cbe7299` terminada; pendiente doble revisión independiente |
+| Confirmación atómica PostgreSQL | Corrección `cbe7299` con GO 1/2; pendiente segundo dictamen independiente |
 | Diseño de adaptador y reconciliación | Candidato con GO condicionado al SHA final de O2-05 |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09A visualmente apta, pero con NO-GO por dos límites divergentes; O2-09B pendiente |
@@ -110,8 +110,10 @@ ajenas.
   La corrección `cbe7299` conserva RFC3339Nano V3, elimina el privilegio,
   automatiza los ocho fallos y cubre cancelación pre-`COMMIT`, respuesta
   perdida, reconciliación y reinicio real. El productor superó PG18 ×4, foco
-  ×100, carrera y puertas globales. Sigue sin integrar hasta obtener dos GO
-  independientes y no aumenta el porcentaje.
+  ×100, carrera y puertas globales. Dirección repitió PostgreSQL 18, foco,
+  carrera, `go vet`, tamaños y secretos, y emitió GO 1/2 sin hallazgos. Sigue
+  sin integrar hasta obtener el segundo GO independiente y no aumenta el
+  porcentaje.
 - `2c800fa`–`4cc4422` describen O2-06A, incluido resultado indeterminado,
   reconciliación, reintentos y ACL. Sus revisiones son GO condicionado: la
   firma Go↔SQL se actualizará y congelará únicamente después del GO de O2-05.
