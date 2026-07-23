@@ -5,6 +5,21 @@ Fecha: 23 de julio de 2026.
 Estado: diseño previo a implementación. No habilita producción ni cierra
 O2-05.
 
+## Corte local en revisión
+
+Se ha implementado, todavía sin aprobación independiente:
+
+- el dominio binario separado `VEC-AD-3`, con vector determinista congelado;
+- la ligadura de decisión V3, motivo, contexto de actor V2 registrado y
+  manifiesto de procedencia;
+- el contrato nominal y no serializable de solicitud, firma y atestación;
+- el servicio neutral al cliente que entrega la preimagen exacta al firmante.
+
+Los commits de este corte son `825e251`, `ec87e27` y `ff6011f`. No incluyen
+todavía el verificador de confianza, la capacidad breve, el consumidor SQL ni
+el efecto de contratación. Por tanto no elevan el avance ni permiten usar
+VEC-AD-3 en producción.
+
 ## Resultado perseguido
 
 Una única transacción `SERIALIZABLE` debe:
@@ -51,7 +66,8 @@ ligada V2 y llama a
 decisión V3 ligada a contexto de actor V2. Cambiar silenciosamente el
 significado de VEC-AD-2 rompería verificaciones históricas.
 
-Se añadirá una versión de mensaje y capacidad, con:
+Se añadirá el mensaje `VEC-AD-3` y una capacidad de consumo con versión y
+audiencia propias, con:
 
 - esquema distinto y audiencia exacta;
 - representación canónica de `DecisionAutorizacionLigadaV3`;
