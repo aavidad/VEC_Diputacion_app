@@ -6,9 +6,10 @@ Revisor: especialista independiente PostgreSQL/pgx, en solo lectura.
 
 ## Dictamen
 
-**GO condicionado** para el documento de diseño. **NO-GO** para declarar la
-firma ejecutable o iniciar implementación hasta que Dirección comunique un SHA
-estable del consumidor SQL O2-05 y se supere la puerta de acoplamiento.
+**GO condicionado** para el documento de diseño tras la segunda revisión.
+**NO-GO** para declarar la firma ejecutable o iniciar implementación hasta que
+Dirección comunique un SHA estable del consumidor SQL O2-05 y se supere la
+puerta de acoplamiento.
 
 No se leyó ningún worktree ni cambio sin commit del productor O2-05. No se
 modificó ningún archivo durante la revisión.
@@ -56,10 +57,12 @@ modificó ningún archivo durante la revisión.
 4. Pool/LOGIN exclusivos, acreditación por conexión, `SET LOCAL`, sin DML,
    `TEMP` ni `SET ROLE`.
 5. Reconciliación con todos los pares HMAC, identidad opaca,
-   decisión/correlación y efecto, en `READ COMMITTED READ ONLY` y tras la misma
-   barrera. Espera y consulta son dos sentencias para renovar la instantánea.
-6. `ReciboAlta` con huellas de recibo, auditoría y evento; una sola fila,
-   canon común y validación antes/después del `COMMIT`.
+   decisión/correlación, efecto y capacidad exacta del intento, en
+   `READ COMMITTED READ ONLY` y tras la misma barrera. Espera y consulta son
+   dos sentencias para renovar la instantánea.
+6. `ReciboAlta` con once campos, procedencia y huellas de recibo, auditoría y
+   evento; doce columnas con `resultado`, una sola fila, canon común y
+   validación antes/después del `COMMIT`.
 7. Reinicio sin memoria, txid, WAL/LSN ni reloj cliente.
 8. Errores redactados; solo los dos SQLSTATE reintentables aparecen en
    telemetría interna.
@@ -67,21 +70,29 @@ modificó ningún archivo durante la revisión.
    transportadas sin pérdida.
 10. Cuatro resultados SQL cerrados y nulabilidad total; un `23505` genérico no
     se convierte en conflicto de dominio. Una denegación o conflicto valida
-    diez nulos y hace `ROLLBACK` antes de devolver el error, nunca `Commit`.
+    once nulos y hace `ROLLBACK` antes de devolver el error, nunca `Commit`.
 11. Reconciliación con plazo propio, cierre por `ROLLBACK` acotado y prueba
     completa no invalidada por un fallo posterior de limpieza.
 12. Replay con concesión nueva consumida una vez, alias activo opcional y cero
     segundo efecto, reserva, expediente, actuación, outbox o recibo.
+13. Resultado nominal `confirmada|replay`: confirmada coteja candidatos;
+    replay ignora referencias CSPRNG e instante nuevos y devuelve el recibo
+    histórico por alias/semántica, sin `ValidarPara(expedienteCandidato)`.
+14. Wire/evidencia con framing binario exacto y vector común; `ErrTxCommitRollback`
+    directo o envuelto se clasifica sin otro rollback, retry ni reconciliación.
+15. Cadenas locales con génesis hex, cabeza inicializada a secuencia cero,
+    orden de bloqueo, CAS de una fila, unicidades y rollback cruzado.
 
-El diseño principal incorpora estos doce cierres.
+El diseño principal incorpora estos quince cierres.
 
 ## Matriz revisada
 
-Se exigieron unitarias de firma, mapeo, canonicidad, límites, copias, filas
-0/1/>1, recibo adulterado, cancelación y clasificación de `COMMIT`; y
-PostgreSQL real para éxito, replay, concurrencia, rotación, revocación,
-expiración, snapshots obsoletos, fallos por escritura, respuesta perdida,
-reinicio, ACL, timeouts, reversión y reinstalación.
+Se exigieron unitarias de firma, wire, mapeo, canonicidad, límites, copias,
+filas 0/1/>1, recibo adulterado, cancelación y clasificación de `COMMIT`; y
+PostgreSQL real para éxito, replay con candidatos nuevos, consumo exacto,
+concurrencia, cadenas, rotación, revocación, expiración, snapshots obsoletos,
+fallos por escritura, respuesta perdida, reinicio, ACL, timeouts, reversión y
+reinstalación.
 
 No se ejecutó el consumidor O2-05 porque no existe un SHA estable ni una firma
 integrada que pueda probarse. Esta omisión es el bloqueo del dictamen, no una
