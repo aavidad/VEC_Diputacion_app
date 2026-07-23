@@ -120,6 +120,7 @@ DO $fixture_gobierno$
 DECLARE
     v_ahora timestamptz(6) := clock_timestamp();
     v_secreto_hmac bytea := public.gen_random_bytes(32);
+    v_secreto_no_activado bytea := public.gen_random_bytes(32);
     v_spki bytea := decode(
         '302a300506032b6570032100' || repeat('11', 32),
         'hex'
@@ -146,6 +147,21 @@ BEGIN
         1, 'clave-capacidad-o205-1', 1,
         v_ahora - interval '1 minute',
         'acto:puntero-clave:o205:1'
+    );
+    INSERT INTO vec_autorizacion_atestada_v3.clave_capacidad_version (
+        clave_id, version, revision_gobierno,
+        huella_gobierno_sha256, secreto_hmac,
+        huella_secreto_sha256, emisor_id, audiencia_consumo,
+        valida_desde, valida_hasta, acto_ref
+    ) VALUES (
+        'clave-capacidad-o205-no-activada', 99, 99, repeat('9', 64),
+        v_secreto_no_activado,
+        encode(sha256(v_secreto_no_activado), 'hex'),
+        'broker-o205-sintetico',
+        'vec_contratacion_temporal.confirmar_alta_atestada.v1',
+        v_ahora - interval '1 hour',
+        v_ahora + interval '2 hours',
+        'acto:clave-capacidad:o205:no-activada'
     );
     INSERT INTO
         vec_autorizacion_atestada_v3.configuracion_confianza_version (

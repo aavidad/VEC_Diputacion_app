@@ -56,6 +56,7 @@ DECLARE
     v_huella_v1 text;
     v_contexto_recurso bytea;
     v_huella_contexto text;
+    v_huella_alta text;
     v_nonce text;
 BEGIN
     IF p_caso !~ '^[a-z0-9_-]{3,32}$'
@@ -83,6 +84,7 @@ BEGIN
       FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
       JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version c
         ON c.revision = p.configuracion_revision
+     WHERE p.establecida_en <= clock_timestamp()
      ORDER BY p.orden DESC LIMIT 1;
     SELECT r.* INTO STRICT v_raiz
       FROM vec_autorizacion_atestada_v3.configuracion_raiz cr
@@ -104,14 +106,6 @@ BEGIN
     v_huella_v1 :=
       'hmac-sha256:vec.contratacion-temporal.huella-peticion/v1:' ||
       encode(sha256(convert_to('huella-v1:' || p_caso, 'UTF8')), 'hex');
-    v_contexto_recurso := convert_to(
-        '{"ambitos":{"categoria_ref":"categoria:auxiliar","centro_ref":"centro:seleccion","organizacion_ref":"organizacion:dipgra"},"atributos":{"flujo_huella_sha256":"' ||
-        repeat('7', 64) ||
-        '","flujo_ref":"flujo:contratacion-temporal","flujo_version":"1","huella_peticion_hmac_activa":"' ||
-        v_huella_v2 || '"}}',
-        'UTF8'
-    );
-    v_huella_contexto := encode(sha256(v_contexto_recurso), 'hex');
     v_hasta := v_ahora + interval '2 minutes';
     IF p_variante = 'expirada' THEN
         v_ahora := v_ahora - interval '10 seconds';
@@ -128,6 +122,77 @@ BEGIN
         v_hasta AT TIME ZONE 'UTC',
         'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
     );
+    v_alta := jsonb_build_object(
+        'esquema', 'vec.contratacion-temporal.efecto-alta.v2',
+        'reserva_ref', 'reserva:ct:o205:' || p_caso,
+        'expediente_ref', 'expediente:ct:o205:' || p_caso,
+        'numero_visible', '2026/' || p_caso,
+        'recibo_ref', 'recibo:ct:o205:' || p_caso,
+        'organizacion_ref', 'organizacion:dipgra',
+        'actor_ref', 'per_sintetica_bbbbbbbbbbbbbbbbbbbbbbbb',
+        'perfil_ref', 'prf_sintetico_cccccccccccccccccccccccc',
+        'version', 1,
+        'flujo', jsonb_build_object(
+            'definicion_ref', 'flujo:contratacion-temporal',
+            'version', 1,
+            'huella_sha256', repeat('7', 64)
+        ),
+        'fase_actual', 'solicitud_registrada',
+        'estado_actual', 'en_curso',
+        'solicitud', jsonb_build_object(
+            'centro_ref', 'centro:seleccion',
+            'contacto_ref', 'contacto:seleccion',
+            'categoria_ref', 'categoria:auxiliar',
+            'grupo_subgrupo', 'C2',
+            'motivo_clave', 'acumulacion_tareas',
+            'detalle', 'Necesidad temporal de prueba O2-05',
+            'periodo', jsonb_build_object(
+                'inicio', '2026-08-01',
+                'fin', '2026-08-31'
+            ),
+            'rc', jsonb_build_object(
+                'existe', false,
+                'numero', '',
+                'fecha', '',
+                'importe', jsonb_build_object(
+                    'centimos', 0,
+                    'moneda', 'EUR'
+                ),
+                'documento_ref', ''
+            ),
+            'documentos_adjuntos', jsonb_build_array(),
+            'observaciones', ''
+        ),
+        'creado_en', v_emitida_z,
+        'actualizado_en', v_emitida_z,
+        'actuacion', jsonb_build_object(
+            'secuencia', 1,
+            'version_expediente', 1,
+            'accion_clave', 'registrar_solicitud',
+            'actor_ref', 'per_sintetica_bbbbbbbbbbbbbbbbbbbbbbbb',
+            'unidad_ref', 'unidad:seleccion',
+            'recibo_ref', 'recibo:ct:o205:' || p_caso,
+            'realizada_en', v_emitida_z,
+            'fase_origen', '',
+            'fase_destino', 'solicitud_registrada',
+            'estado_origen', 'pendiente',
+            'estado_destino', 'en_curso',
+            'observaciones', '',
+            'documentos_ref', jsonb_build_array()
+        )
+    );
+    v_huella_alta := encode(sha256(
+        vec_contratacion_temporal.reconstruir_efecto_alta_v2(v_alta)
+    ), 'hex');
+    v_contexto_recurso := convert_to(
+        '{"ambitos":{"categoria_ref":"categoria:auxiliar","centro_ref":"centro:seleccion","organizacion_ref":"organizacion:dipgra"},"atributos":{"efecto_huella_sha256":"' ||
+        v_huella_alta || '","flujo_huella_sha256":"' ||
+        repeat('7', 64) ||
+        '","flujo_ref":"flujo:contratacion-temporal","flujo_version":"1","huella_peticion_hmac_activa":"' ||
+        v_huella_v2 || '"}}',
+        'UTF8'
+    );
+    v_huella_contexto := encode(sha256(v_contexto_recurso), 'hex');
     v_decision := v_base.documento;
     v_decision := jsonb_set(
         v_decision, '{decision_ref}',
@@ -296,30 +361,6 @@ BEGIN
     v_capacidad_bytes :=
         vec_autorizacion_atestada_v3.capacidad_canonica(v_capacidad);
 
-    v_alta := jsonb_build_object(
-        'esquema', 'vec.contratacion-temporal.alta-persistencia.v1',
-        'reserva_ref', 'reserva:ct:o205:' || p_caso,
-        'expediente_ref', 'expediente:ct:o205:' || p_caso,
-        'numero_visible', '2026/' || p_caso,
-        'recibo_ref', 'recibo:ct:o205:' || p_caso,
-        'organizacion_ref', 'organizacion:dipgra',
-        'centro_ref', 'centro:seleccion',
-        'categoria_ref', 'categoria:auxiliar',
-        'actor_ref', 'per_sintetica_bbbbbbbbbbbbbbbbbbbbbbbb',
-        'perfil_ref', 'prf_sintetico_cccccccccccccccccccccccc',
-        'version', 1,
-        'flujo_ref', 'flujo:contratacion-temporal',
-        'flujo_version', 1,
-        'flujo_huella_sha256', repeat('7', 64),
-        'fase_clave', 'solicitud_registrada',
-        'estado', 'en_curso',
-        'solicitud_huella_sha256', encode(sha256(convert_to(
-            'solicitud-centro:' || p_caso, 'UTF8'
-        )), 'hex'),
-        'accion_clave', 'registrar_solicitud',
-        'unidad_ref', 'unidad:seleccion',
-        'realizada_en', v_emitida_z
-    );
     v_sellos := jsonb_build_object(
         'esquema', 'vec.contratacion-temporal.sellos-hmac.v1',
         'activo', jsonb_build_object(
@@ -344,7 +385,7 @@ BEGIN
         p_caso, v_capacidad_bytes, v_decision_bytes, v_motivo,
         v_contexto.representacion_canonica, 2, 2, v_payload,
         v_cose, v_evidencia, v_raiz.clave_publica_spki,
-        vec_contratacion_temporal.reconstruir_alta_v1(v_alta),
+        vec_contratacion_temporal.reconstruir_efecto_alta_v2(v_alta),
         vec_contratacion_temporal.reconstruir_sellos_hmac_v1(v_sellos)
     );
 END
@@ -382,7 +423,95 @@ BEGIN
 END
 $funcion$;
 
+CREATE FUNCTION public.mutar_efecto_o2_05(
+    p_caso text,
+    p_ruta text,
+    p_valor jsonb
+)
+RETURNS void
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $funcion$
+DECLARE
+    v_alta jsonb;
+BEGIN
+    SELECT pg_catalog.convert_from(alta, 'UTF8')::jsonb
+      INTO STRICT v_alta
+      FROM public.vectores_o2_05
+     WHERE caso = p_caso;
+    v_alta := pg_catalog.jsonb_set(
+        v_alta, pg_catalog.string_to_array(p_ruta, '.'), p_valor, false
+    );
+    UPDATE public.vectores_o2_05
+       SET alta =
+           vec_contratacion_temporal.reconstruir_efecto_alta_v2(v_alta)
+     WHERE caso = p_caso;
+END
+$funcion$;
+
+CREATE FUNCTION public.mutar_tipo_capacidad_o2_05(
+    p_caso text,
+    p_campo text
+)
+RETURNS void
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $funcion$
+DECLARE
+    v_capacidad jsonb;
+BEGIN
+    SELECT pg_catalog.convert_from(capacidad, 'UTF8')::jsonb
+      INTO STRICT v_capacidad
+      FROM public.vectores_o2_05
+     WHERE caso = p_caso;
+    v_capacidad := pg_catalog.jsonb_set(
+        v_capacidad, ARRAY[p_campo],
+        pg_catalog.to_jsonb(v_capacidad ->> p_campo), false
+    );
+    UPDATE public.vectores_o2_05
+       SET capacidad =
+           vec_autorizacion_atestada_v3.capacidad_canonica(v_capacidad)
+     WHERE caso = p_caso;
+END
+$funcion$;
+
+CREATE FUNCTION public.durabilizar_decision_o2_05(p_caso text)
+RETURNS void
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $funcion$
+DECLARE
+    v public.vectores_o2_05%ROWTYPE;
+    r record;
+BEGIN
+    SELECT * INTO STRICT v
+      FROM public.vectores_o2_05
+     WHERE caso = p_caso;
+    SELECT * INTO r
+      FROM vec_autorizacion.registrar_decision_contexto_actor_v3(
+          v.decision, v.motivo, v.persona_version, v.perfil_version
+      );
+    IF NOT FOUND OR r.concedida IS NOT TRUE THEN
+        RAISE EXCEPTION 'no se pudo durabilizar decisión O2-05';
+    END IF;
+END
+$funcion$;
+
 REVOKE ALL ON FUNCTION public.preparar_vector_o2_05(
     text, text, numeric
 ) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.invocar_vector_o2_05(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.mutar_efecto_o2_05(
+    text, text, jsonb
+) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.mutar_tipo_capacidad_o2_05(
+    text, text
+) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.durabilizar_decision_o2_05(text)
+    FROM PUBLIC;

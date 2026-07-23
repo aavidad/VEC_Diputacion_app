@@ -5,8 +5,16 @@ raiz="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 imagen="${VEC_POSTGRES_TEST_IMAGE:-postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}"
 contenedor="vec-o205-pg-${PPID}-${RANDOM}"
 
+if [[ ! "${imagen}" =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]]; then
+    printf 'VEC_POSTGRES_TEST_IMAGE debe fijarse por digest sha256\n' >&2
+    exit 64
+fi
+directorio_temporal="$(mktemp -d -t vec-o205.XXXXXXXX)"
+chmod 700 "${directorio_temporal}"
+
 limpiar() {
     rm -f "/tmp/o205-${contenedor}-"*.log
+    rm -rf "${directorio_temporal}"
     if [[ "${VEC_CONSERVAR_CONTENEDOR_PRUEBA:-}" == '1' ]]; then
         printf 'contenedor conservado para diagnóstico: %s\n' \
             "${contenedor}" >&2
@@ -66,7 +74,8 @@ preparar() {
 invocar() {
     local caso="$1"
     docker exec --interactive "${contenedor}" \
-        psql -X --set ON_ERROR_STOP=1 --username vec_ct_o205_runtime \
+        psql -X --set ON_ERROR_STOP=1 --set VERBOSITY=verbose \
+        --username vec_ct_o205_runtime \
         --dbname postgres <<SQL
 BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 SET LOCAL TimeZone='UTC';
@@ -75,6 +84,48 @@ SET LOCAL idle_in_transaction_session_timeout='20s';
 SELECT * FROM public.invocar_vector_o2_05('${caso}');
 COMMIT;
 SQL
+}
+
+recibo_con_estilo_fecha() {
+    local caso="$1"
+    local estilo="$2"
+    docker exec --interactive "${contenedor}" \
+        psql -XAtq --set ON_ERROR_STOP=1 --set VERBOSITY=verbose \
+        --username vec_ct_o205_runtime --dbname postgres <<SQL
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL TimeZone='UTC';
+SET LOCAL DateStyle='${estilo}';
+SET LOCAL statement_timeout='15s';
+SET LOCAL idle_in_transaction_session_timeout='20s';
+SELECT recibo_huella_sha256
+  FROM public.invocar_vector_o2_05('${caso}');
+COMMIT;
+SQL
+}
+
+firmar_capacidad_con_go() {
+    local caso="$1"
+    local entrada="${directorio_temporal}/capacidad-entrada.b64"
+    local clave="${directorio_temporal}/clave-entrada.b64"
+    local salida="${directorio_temporal}/capacidad-salida.json"
+    valor "SELECT encode(capacidad,'base64') FROM public.vectores_o2_05 WHERE caso='${caso}'" \
+        >"${entrada}"
+    valor "SELECT encode(k.secreto_hmac,'base64') FROM public.vectores_o2_05 v JOIN vec_autorizacion_atestada_v3.clave_capacidad_version k ON k.clave_id=convert_from(v.capacidad,'UTF8')::jsonb->>'clave_id' AND k.version=(convert_from(v.capacidad,'UTF8')::jsonb->>'clave_version')::numeric WHERE v.caso='${caso}'" \
+        >"${clave}"
+    chmod 600 "${entrada}" "${clave}"
+    VEC_O205_VECTOR_ENTRADA="${entrada}" \
+    VEC_O205_CLAVE_ENTRADA="${clave}" \
+    VEC_O205_VECTOR_SALIDA="${salida}" \
+        go test \
+          ./internal/vec/adapters/seguridad/confianzaatestacion \
+          -run '^TestGenerarVectorO205ParaSQL$' -count=1 >/dev/null
+    docker cp "${salida}" "${contenedor}:/tmp/capacidad-go-o205.json"
+    docker exec "${contenedor}" \
+        chmod 644 /tmp/capacidad-go-o205.json
+    sql postgres \
+        "UPDATE public.vectores_o2_05 SET capacidad=pg_catalog.pg_read_binary_file('/tmp/capacidad-go-o205.json') WHERE caso='${caso}'" \
+        >/dev/null
+    rm -f "${entrada}" "${clave}" "${salida}"
 }
 
 paso "arranque efímero sin red: ${imagen}"
@@ -152,6 +203,9 @@ for ruta in \
 do
     archivo postgres "${ruta}" >/dev/null
 done
+archivo postgres \
+    deploy/postgresql/autorizacion/migraciones/000007_revalidacion_viva_decision_contexto_actor_v3.up.sql \
+    >/dev/null
 
 paso 'instalación con identidades de migración separadas'
 archivo postgres deploy/postgresql/contratacion_temporal/roles_up.sql >/dev/null
@@ -237,6 +291,18 @@ sql postgres \
     'CREATE ROLE vec_ct_o205_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS; GRANT vec_contratacion_temporal_ejecutor TO vec_ct_o205_runtime WITH ADMIN FALSE, INHERIT TRUE, SET FALSE; GRANT USAGE ON SCHEMA public TO vec_ct_o205_runtime; GRANT EXECUTE ON FUNCTION public.invocar_vector_o2_05(text) TO vec_ct_o205_runtime' \
     >/dev/null
 
+paso 'capacidad y MAC emitidos por Go, consumidos y adulteración rechazada por SQL'
+preparar mac_go_real
+firmar_capacidad_con_go mac_go_real
+invocar mac_go_real >/dev/null
+preparar mac_go_alterado
+firmar_capacidad_con_go mac_go_alterado
+sql postgres \
+    "UPDATE public.vectores_o2_05 SET capacidad=pg_catalog.set_byte(capacidad,pg_catalog.octet_length(capacidad)-3,CASE pg_catalog.get_byte(capacidad,pg_catalog.octet_length(capacidad)-3) WHEN 48 THEN 49 ELSE 48 END) WHERE caso='mac_go_alterado'" \
+    >/dev/null
+esperar_fallo 'MAC Go adulterado' invocar mac_go_alterado
+[[ "$(valor "SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:mac_go_alterado'")" == '0' ]]
+
 paso 'alta completa, efecto único y replay exacto'
 preparar alta_valida
 primera="$(invocar alta_valida)"
@@ -244,6 +310,82 @@ segunda="$(invocar alta_valida)"
 [[ "${primera}" == *'expediente:ct:o205:alta_valida'* ]]
 [[ "${segunda}" == *'expediente:ct:o205:alta_valida'* ]]
 [[ "$(valor "SELECT (SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:alta_valida')::text || ':' || (SELECT count(*) FROM vec_contratacion_temporal.expediente_alta WHERE expediente_ref='expediente:ct:o205:alta_valida') || ':' || (SELECT count(*) FROM vec_contratacion_temporal.auditoria_alta WHERE expediente_ref='expediente:ct:o205:alta_valida') || ':' || (SELECT count(*) FROM vec_contratacion_temporal.outbox_alta WHERE expediente_ref='expediente:ct:o205:alta_valida')")" == '1:1:1:1' ]]
+recibo_iso="$(recibo_con_estilo_fecha alta_valida 'ISO, YMD')"
+recibo_aleman="$(recibo_con_estilo_fecha alta_valida 'German, DMY')"
+[[ "${recibo_iso}" == "${recibo_aleman}" ]]
+
+paso 'canon cerrado: cada campo mutable queda ligado al efecto autorizado'
+mutaciones=(
+    'esquema|"vec.contratacion-temporal.efecto-alta.v3"'
+    'reserva_ref|"reserva:ct:o205:alterada"'
+    'expediente_ref|"expediente:ct:o205:alterado"'
+    'numero_visible|"2026/alterado"'
+    'recibo_ref|"recibo:ct:o205:alterado"'
+    'organizacion_ref|"organizacion:otra"'
+    'actor_ref|"per_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa"'
+    'perfil_ref|"prf_sintetico_aaaaaaaaaaaaaaaaaaaaaaaaaa"'
+    'version|2'
+    'flujo.definicion_ref|"flujo:alternativo"'
+    'flujo.version|2'
+    'flujo.huella_sha256|"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
+    'fase_actual|"validacion_inicial"'
+    'estado_actual|"completado"'
+    'solicitud.centro_ref|"centro:otro"'
+    'solicitud.contacto_ref|"contacto:otro"'
+    'solicitud.categoria_ref|"categoria:otra"'
+    'solicitud.grupo_subgrupo|"C1"'
+    'solicitud.motivo_clave|"sustitucion"'
+    'solicitud.detalle|"Detalle alterado"'
+    'solicitud.periodo.inicio|"2026-08-02"'
+    'solicitud.periodo.fin|"2026-09-01"'
+    'solicitud.rc.existe|true'
+    'solicitud.rc.numero|"RC-2026-1"'
+    'solicitud.rc.fecha|"2026-07-01"'
+    'solicitud.rc.importe.centimos|1'
+    'solicitud.rc.importe.moneda|"USD"'
+    'solicitud.rc.documento_ref|"documento:rc:1"'
+    'solicitud.documentos_adjuntos|["documento:adjunto:1"]'
+    'solicitud.observaciones|"Observación alterada"'
+    'creado_en|"2026-07-01T00:00:00.000000Z"'
+    'actualizado_en|"2026-07-01T00:00:00.000000Z"'
+    'actuacion.secuencia|2'
+    'actuacion.version_expediente|2'
+    'actuacion.accion_clave|"otra_accion"'
+    'actuacion.actor_ref|"per_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa"'
+    'actuacion.unidad_ref|"unidad:otra"'
+    'actuacion.recibo_ref|"recibo:ct:o205:otro"'
+    'actuacion.realizada_en|"2026-07-01T00:00:00.000000Z"'
+    'actuacion.fase_origen|"inicio"'
+    'actuacion.fase_destino|"validacion_inicial"'
+    'actuacion.estado_origen|"en_curso"'
+    'actuacion.estado_destino|"completado"'
+    'actuacion.observaciones|"Observación alterada"'
+    'actuacion.documentos_ref|["documento:actuacion:1"]'
+)
+indice=0
+for mutacion in "${mutaciones[@]}"; do
+    indice=$((indice + 1))
+    caso="$(printf 'ef_%02d' "${indice}")"
+    IFS='|' read -r ruta valor_json <<<"${mutacion}"
+    preparar "${caso}"
+    sql postgres \
+        "SELECT public.mutar_efecto_o2_05('${caso}','${ruta}','${valor_json}'::jsonb)" \
+        >/dev/null
+    esperar_fallo "campo de efecto ${ruta}" invocar "${caso}"
+    [[ "$(valor "SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:${caso}'")" == '0' ]]
+done
+
+paso 'tipos JSON numéricos estrictos, incluso con sobre canónico'
+for campo in version clave_version revision_gobierno \
+    configuracion_secuencia raiz_version; do
+    caso="tipo_${campo:0:8}"
+    preparar "${caso}"
+    sql postgres \
+        "SELECT public.mutar_tipo_capacidad_o2_05('${caso}','${campo}')" \
+        >/dev/null
+    esperar_fallo "número serializado como texto: ${campo}" \
+        invocar "${caso}"
+done
 
 paso 'rechazos cruzados, caducidad y alias incoherentes sin efecto parcial'
 for variante in efecto_cruzado decision_cruzada expirada alias_cruzado; do
@@ -252,6 +394,50 @@ for variante in efecto_cruzado decision_cruzada expirada alias_cruzado; do
     esperar_fallo "${variante}" invocar "${caso}"
     [[ "$(valor "SELECT (SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:${caso}') + (SELECT count(*) FROM vec_contratacion_temporal.expediente_alta WHERE expediente_ref='expediente:ct:o205:${caso}')")" == '0' ]]
 done
+preparar clave_no_activada valido 99
+esperar_fallo 'clave provisionada que nunca fue activada' \
+    invocar clave_no_activada
+[[ "$(valor "SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:clave_no_activada'")" == '0' ]]
+
+paso 'gobierno futuro no avanza checkpoint ni bloquea el vigente'
+checkpoint_antes="$(valor "SELECT revision::text||':'||configuracion_secuencia_minima::text||':'||raiz_version_minima::text FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id")"
+docker exec --interactive "${contenedor}" \
+    psql -X --set ON_ERROR_STOP=1 --username postgres \
+    --dbname postgres >/dev/null <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+INSERT INTO vec_autorizacion_atestada_v3.configuracion_confianza_version
+VALUES (
+  'configuracion-o205-futura',10,repeat('a',64),
+  clock_timestamp()+interval '1 day',
+  clock_timestamp()+interval '2 days',
+  'acto:configuracion:o205:futura',clock_timestamp()
+);
+WITH raiz AS (
+  SELECT decode(
+    '302a300506032b6570032100' || repeat('44',32),'hex'
+  ) spki
+)
+INSERT INTO vec_autorizacion_atestada_v3.raiz_confianza_version
+SELECT 'raiz-o205-futura',10,spki,encode(sha256(spki),'hex'),
+       clock_timestamp()+interval '1 day',
+       clock_timestamp()+interval '2 days',
+       'VEC-AD-3-COSE-EDDSA-1',
+       'vec-diputacion/pruebas/o205/consumidor',
+       'acto:raiz:o205:futura',clock_timestamp()
+  FROM raiz;
+INSERT INTO vec_autorizacion_atestada_v3.configuracion_raiz
+VALUES ('configuracion-o205-futura','raiz-o205-futura',10);
+INSERT INTO vec_autorizacion_atestada_v3.puntero_configuracion_actual
+VALUES (
+  10,'configuracion-o205-futura',clock_timestamp()+interval '1 day',
+  'acto:puntero-configuracion:o205:futura',clock_timestamp()
+);
+COMMIT;
+SQL
+[[ "$(valor "SELECT revision::text||':'||configuracion_secuencia_minima::text||':'||raiz_version_minima::text FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id")" == "${checkpoint_antes}" ]]
+preparar gobierno_vigente
+invocar gobierno_vigente >/dev/null
 
 paso 'fallo inyectado posterior al consumo: rollback integral'
 preparar fallo_atomico
@@ -276,6 +462,7 @@ sql postgres \
 
 paso 'concurrencia real sobre la misma capacidad'
 preparar carrera
+cadena_antes="$(valor "SELECT secuencia_auditoria::text||':'||secuencia_outbox::text FROM vec_contratacion_temporal.control_cadenas_alta WHERE control_id")"
 for indice in 1 2 3 4; do
     invocar carrera >"/tmp/o205-${contenedor}-${indice}.log" 2>&1 &
     eval "pid_${indice}=$!"
@@ -283,12 +470,25 @@ done
 for indice in 1 2 3 4; do
     pid="pid_${indice}"
     if ! wait "${!pid}"; then
-        # SERIALIZABLE permite 40001; el cliente abre una transacción nueva.
-        invocar carrera >/dev/null
+        if ! grep -Eq 'ERROR:  (40001|40P01):' \
+            "/tmp/o205-${contenedor}-${indice}.log"; then
+            printf 'fallo concurrente no reintentable:\n' >&2
+            sed -n '1,120p' \
+                "/tmp/o205-${contenedor}-${indice}.log" >&2
+            exit 1
+        fi
+        invocar carrera \
+            >"/tmp/o205-${contenedor}-${indice}-reintento.log" 2>&1
     fi
-    rm -f "/tmp/o205-${contenedor}-${indice}.log"
 done
 [[ "$(valor "SELECT (SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:carrera')::text || ':' || (SELECT count(*) FROM vec_contratacion_temporal.expediente_alta WHERE expediente_ref='expediente:ct:o205:carrera')")" == '1:1' ]]
+cadena_despues="$(valor "SELECT secuencia_auditoria::text||':'||secuencia_outbox::text FROM vec_contratacion_temporal.control_cadenas_alta WHERE control_id")"
+IFS=':' read -r audit_antes outbox_antes <<<"${cadena_antes}"
+IFS=':' read -r audit_despues outbox_despues <<<"${cadena_despues}"
+[[ "${audit_despues}" -eq $((audit_antes + 1)) ]]
+[[ "${outbox_despues}" -eq $((outbox_antes + 1)) ]]
+[[ "$(valor "SELECT ((SELECT cabeza_auditoria_sha256 FROM vec_contratacion_temporal.control_cadenas_alta WHERE control_id)=(SELECT huella_sha256 FROM vec_contratacion_temporal.auditoria_alta ORDER BY secuencia DESC LIMIT 1) AND (SELECT cabeza_outbox_sha256 FROM vec_contratacion_temporal.control_cadenas_alta WHERE control_id)=(SELECT huella_sha256 FROM vec_contratacion_temporal.outbox_alta ORDER BY secuencia DESC LIMIT 1))::text")" == 'true' ]]
+rm -f "/tmp/o205-${contenedor}-"*.log
 
 paso 'rotación HMAC: retenida válida y revocación efectiva'
 docker exec --interactive "${contenedor}" \
@@ -360,11 +560,25 @@ COMMIT;
 SQL
 preparar confianza_activa valido 2
 invocar confianza_activa >/dev/null
-preparar rollback_config rollback_configuracion 2
+sql postgres \
+    "BEGIN; SET LOCAL session_replication_role='replica'; UPDATE vec_autorizacion_atestada_v3.configuracion_confianza_version SET secuencia=100 WHERE revision='configuracion-o205-1'; UPDATE vec_autorizacion_atestada_v3.configuracion_confianza_version SET secuencia=1 WHERE revision='configuracion-o205-2'; COMMIT" \
+    >/dev/null
+preparar rollback_config valido 2
+[[ "$(valor "SELECT (convert_from(capacidad,'UTF8')::jsonb->>'configuracion_secuencia')::numeric < (SELECT configuracion_secuencia_minima FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id) FROM public.vectores_o2_05 WHERE caso='rollback_config'")" == 't' ]]
 esperar_fallo 'rollback de secuencia de configuración' \
     invocar rollback_config
-preparar rollback_raiz rollback_raiz 2
+sql postgres \
+    "BEGIN; SET LOCAL session_replication_role='replica'; UPDATE vec_autorizacion_atestada_v3.configuracion_confianza_version SET secuencia=2 WHERE revision='configuracion-o205-2'; UPDATE vec_autorizacion_atestada_v3.configuracion_confianza_version SET secuencia=1 WHERE revision='configuracion-o205-1'; COMMIT" \
+    >/dev/null
+sql postgres \
+    "BEGIN; SET LOCAL session_replication_role='replica'; UPDATE vec_autorizacion_atestada_v3.raiz_confianza_version SET version=1 WHERE clave_id IN ('raiz-o205-2') AND version=2; UPDATE vec_autorizacion_atestada_v3.configuracion_raiz SET raiz_version=1 WHERE configuracion_revision='configuracion-o205-2' AND raiz_clave_id IN ('raiz-o205-2'); COMMIT" \
+    >/dev/null
+preparar rollback_raiz valido 2
+[[ "$(valor "SELECT (convert_from(capacidad,'UTF8')::jsonb->>'raiz_version')::numeric < (SELECT raiz_version_minima FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id) FROM public.vectores_o2_05 WHERE caso='rollback_raiz'")" == 't' ]]
 esperar_fallo 'rollback de versión de raíz' invocar rollback_raiz
+sql postgres \
+    "BEGIN; SET LOCAL session_replication_role='replica'; UPDATE vec_autorizacion_atestada_v3.raiz_confianza_version SET version=2 WHERE clave_id IN ('raiz-o205-2') AND version=1; UPDATE vec_autorizacion_atestada_v3.configuracion_raiz SET raiz_version=2 WHERE configuracion_revision='configuracion-o205-2' AND raiz_clave_id IN ('raiz-o205-2'); COMMIT" \
+    >/dev/null
 sql postgres \
     "BEGIN; SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario; INSERT INTO vec_autorizacion_atestada_v3.revocacion_raiz VALUES ('raiz-o205-2',2,clock_timestamp(),'compromiso_prueba','acto:revocacion-raiz:o205:2',clock_timestamp()); COMMIT" \
     >/dev/null
@@ -377,7 +591,7 @@ BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 INSERT INTO vec_autorizacion_atestada_v3.configuracion_confianza_version
 VALUES (
-  'configuracion-o205-3',3,repeat('5',64),
+  'configuracion-o205-3',4,repeat('5',64),
   clock_timestamp()-interval '1 minute',
   clock_timestamp()+interval '2 hours',
   'acto:configuracion:o205:3',clock_timestamp()
@@ -399,7 +613,7 @@ INSERT INTO vec_autorizacion_atestada_v3.configuracion_raiz
 VALUES ('configuracion-o205-3','raiz-o205-3',3);
 INSERT INTO vec_autorizacion_atestada_v3.puntero_configuracion_actual
 VALUES (
-  3,'configuracion-o205-3',clock_timestamp(),
+  23,'configuracion-o205-3',clock_timestamp(),
   'acto:puntero-configuracion:o205:3',clock_timestamp()
 );
 COMMIT;
@@ -412,6 +626,52 @@ sql postgres \
 preparar configuracion_revocada valido 2
 esperar_fallo 'configuración de confianza revocada' \
     invocar configuracion_revocada
+
+paso 'decisión ya durable no elude revocación viva de sesión'
+docker exec --interactive "${contenedor}" \
+    psql -X --set ON_ERROR_STOP=1 --username postgres \
+    --dbname postgres >/dev/null <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+INSERT INTO vec_autorizacion_atestada_v3.configuracion_confianza_version
+VALUES (
+  'configuracion-o205-4',5,repeat('6',64),
+  clock_timestamp()-interval '1 minute',
+  clock_timestamp()+interval '2 hours',
+  'acto:configuracion:o205:4',clock_timestamp()
+);
+WITH raiz AS (
+  SELECT decode(
+    '302a300506032b6570032100' || repeat('55',32),'hex'
+  ) spki
+)
+INSERT INTO vec_autorizacion_atestada_v3.raiz_confianza_version
+SELECT 'raiz-o205-4',4,spki,encode(sha256(spki),'hex'),
+       clock_timestamp()-interval '1 minute',
+       clock_timestamp()+interval '2 hours',
+       'VEC-AD-3-COSE-EDDSA-1',
+       'vec-diputacion/pruebas/o205/consumidor',
+       'acto:raiz:o205:4',clock_timestamp()
+  FROM raiz;
+INSERT INTO vec_autorizacion_atestada_v3.configuracion_raiz
+VALUES ('configuracion-o205-4','raiz-o205-4',4);
+INSERT INTO vec_autorizacion_atestada_v3.puntero_configuracion_actual
+VALUES (
+  24,'configuracion-o205-4',clock_timestamp(),
+  'acto:puntero-configuracion:o205:4',clock_timestamp()
+);
+COMMIT;
+SQL
+preparar sesion_revocada valido 2
+sql postgres \
+    "BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE; SELECT public.durabilizar_decision_o2_05('sesion_revocada'); COMMIT" \
+    >/dev/null
+sql postgres \
+    "BEGIN; SET LOCAL ROLE vec_autorizacion_propietario; INSERT INTO vec_autorizacion.control_sesion_v1(control_sesion_ref,revision,sesion_ref,estado,huella_sha256,sesion_revalidada_en,sesion_valida_hasta) VALUES ('cse_registro_v3_0000000000000000000000',2,'ses_registro_v3_0000000000000000000000','revocada',repeat('a',64),clock_timestamp(),clock_timestamp()+interval '2 hours'); UPDATE vec_autorizacion.control_sesion_actual_v1 SET revision=2,actualizada_en=clock_timestamp(),acto_ref='acto:sesion:registro-v3:revocada' WHERE sesion_ref='ses_registro_v3_0000000000000000000000'; COMMIT" \
+    >/dev/null
+esperar_fallo 'sesión revocada después de decisión durable' \
+    invocar sesion_revocada
+[[ "$(valor "SELECT (SELECT count(*) FROM vec_autorizacion.decision_concedida_contexto_actor_v3 WHERE decision_ref='decision:ct:o205:sesion_revocada')::text||':'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:sesion_revocada')||':'||(SELECT count(*) FROM vec_contratacion_temporal.expediente_alta WHERE expediente_ref='expediente:ct:o205:sesion_revocada')")" == '1:0:0' ]]
 
 paso 'ACL: único mando runtime y denegación por defecto'
 esperar_fallo 'lectura directa CT' sql vec_ct_o205_runtime \
@@ -428,12 +688,19 @@ esperar_fallo 'consumidor genérico abierto' sql vec_ct_o205_runtime \
 paso 'rollback ordinario protegido'
 esperar_fallo 'down CT con historia' archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000004_funcion_confirmar_alta_atestada.down.sql
+esperar_fallo 'down esquema CT con historia' archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.down.sql
 esperar_fallo 'down consumidor con historia' archivo vec_ad3_o205_migrador \
     deploy/postgresql/autorizacion_atestada_v3/migraciones/000002_consumidor_capacidad_v3.down.sql
+esperar_fallo 'down gobierno provisionado' archivo vec_ad3_o205_migrador \
+    deploy/postgresql/autorizacion_atestada_v3/migraciones/000001_gobierno_y_registro_v3.down.sql
+esperar_fallo 'down revalidación viva con consumidor instalado' \
+    archivo postgres \
+    deploy/postgresql/autorizacion/migraciones/000007_revalidacion_viva_decision_contexto_actor_v3.down.sql
 
 paso 'retirada de la superficie de prueba y destrucción explícita ensayada'
 sql postgres \
-    'REVOKE USAGE ON SCHEMA public FROM vec_ct_o205_runtime; DROP FUNCTION public.invocar_vector_o2_05(text); DROP FUNCTION public.preparar_vector_o2_05(text,text,numeric); DROP TABLE public.vectores_o2_05' \
+    'REVOKE USAGE ON SCHEMA public FROM vec_ct_o205_runtime; DROP FUNCTION public.durabilizar_decision_o2_05(text); DROP FUNCTION public.mutar_tipo_capacidad_o2_05(text,text); DROP FUNCTION public.mutar_efecto_o2_05(text,text,jsonb); DROP FUNCTION public.invocar_vector_o2_05(text); DROP FUNCTION public.preparar_vector_o2_05(text,text,numeric); DROP TABLE public.vectores_o2_05' \
     >/dev/null
 docker exec \
     --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
@@ -459,12 +726,60 @@ docker exec \
     --username vec_ad3_o205_migrador --dbname postgres \
     --file /repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000001_gobierno_y_registro_v3.down.sql \
     >/dev/null
+
+paso 'reinstalación limpia y segunda retirada completa'
+sql postgres \
+    'REVOKE vec_autorizacion_atestada_v3_migrador FROM vec_ad3_o205_migrador; REVOKE CONNECT ON DATABASE postgres FROM vec_ad3_o205_migrador' \
+    >/dev/null
+archivo postgres deploy/postgresql/autorizacion_atestada_v3/roles_down.sql \
+    >/dev/null
+archivo postgres deploy/postgresql/autorizacion_atestada_v3/roles_up.sql \
+    >/dev/null
+sql postgres \
+    'GRANT CONNECT ON DATABASE postgres TO vec_ad3_o205_migrador; GRANT vec_autorizacion_atestada_v3_migrador TO vec_ad3_o205_migrador WITH ADMIN FALSE, INHERIT FALSE, SET TRUE' \
+    >/dev/null
+archivo vec_ad3_o205_migrador \
+    deploy/postgresql/autorizacion_atestada_v3/migraciones/000001_gobierno_y_registro_v3.up.sql \
+    >/dev/null
+archivo vec_ad3_o205_migrador \
+    deploy/postgresql/autorizacion_atestada_v3/migraciones/000002_consumidor_capacidad_v3.up.sql \
+    >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.up.sql \
+    >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000004_funcion_confirmar_alta_atestada.up.sql \
+    >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000004_funcion_confirmar_alta_atestada.down.sql \
+    >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.down.sql \
+    >/dev/null
+docker exec \
+    --env PGOPTIONS='-c vec.confirmar_destruccion_autorizacion_atestada_v3=DESTRUIR_AUTORIZACION_ATESTADA_V3_IRREVERSIBLE' \
+    "${contenedor}" psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ad3_o205_migrador --dbname postgres \
+    --file /repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000002_consumidor_capacidad_v3.down.sql \
+    >/dev/null
+docker exec \
+    --env PGOPTIONS='-c vec.confirmar_destruccion_autorizacion_atestada_v3=DESTRUIR_AUTORIZACION_ATESTADA_V3_IRREVERSIBLE' \
+    "${contenedor}" psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ad3_o205_migrador --dbname postgres \
+    --file /repo/deploy/postgresql/autorizacion_atestada_v3/migraciones/000001_gobierno_y_registro_v3.down.sql \
+    >/dev/null
 sql postgres \
     'REVOKE CONNECT ON DATABASE postgres FROM vec_ct_o205_migrador, vec_ad3_o205_migrador; DROP ROLE vec_ct_o205_runtime; DROP ROLE vec_ct_o205_migrador; DROP ROLE vec_ad3_o205_migrador' \
     >/dev/null
 archivo postgres deploy/postgresql/autorizacion_atestada_v3/roles_down.sql \
     >/dev/null
+archivo postgres \
+    deploy/postgresql/autorizacion/migraciones/000007_revalidacion_viva_decision_contexto_actor_v3.down.sql \
+    >/dev/null
 [[ "$(valor "SELECT count(*) FROM pg_roles WHERE rolname LIKE 'vec_autorizacion_atestada_v3_%'")" == '0' ]]
 [[ "$(valor "SELECT (to_regnamespace('vec_autorizacion_atestada_v3') IS NULL)::text")" == 'true' ]]
+[[ "$(valor "SELECT (to_regprocedure('vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(bytea,bytea,numeric,numeric)') IS NULL)::text")" == 'true' ]]
+[[ "$(valor "SELECT count(*) FROM pg_default_acl d JOIN pg_roles r ON r.oid=d.defaclrole WHERE r.rolname LIKE 'vec_autorizacion_atestada_v3_%'")" == '0' ]]
+[[ "$(valor "SELECT count(*) FROM pg_auth_members m JOIN pg_roles g ON g.oid=m.roleid JOIN pg_roles u ON u.oid=m.member WHERE g.rolname LIKE 'vec_autorizacion_atestada_v3_%' OR u.rolname LIKE 'vec_autorizacion_atestada_v3_%'")" == '0' ]]
 
 paso 'OK: autorización atestada, efecto único, atomicidad, ACL y rollback'

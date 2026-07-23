@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -303,6 +305,50 @@ func TestCapacidadAtestacionV3RechazaMatrizDeCrucesYAlteraciones(
 				contenido,
 			); !errors.Is(err, ErrCapacidadAtestacionV3Invalida) {
 				t.Fatalf("ventana inconsistente con MAC valida aceptada: %v", err)
+			}
+		})
+	}
+}
+
+func TestCapacidadAtestacionV3LimitaEnterosAlRangoExactoJSON(t *testing.T) {
+	contenido, err := os.ReadFile(
+		filepath.Join("testdata", "capacidad_v3_canonica_o2_05.json"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := interpretarExportacionCapacidadV3(bytes.TrimSpace(contenido))
+	if err != nil {
+		t.Fatal(err)
+	}
+	campos := map[string]func(*capacidadAtestacionAutorizacionV3JSON, uint64){
+		"clave_version": func(c *capacidadAtestacionAutorizacionV3JSON, v uint64) {
+			c.ClaveVersion = v
+		},
+		"revision_gobierno": func(c *capacidadAtestacionAutorizacionV3JSON, v uint64) {
+			c.RevisionGobierno = v
+		},
+		"configuracion_secuencia": func(c *capacidadAtestacionAutorizacionV3JSON, v uint64) {
+			c.ConfiguracionSecuencia = v
+		},
+		"raiz_version": func(c *capacidadAtestacionAutorizacionV3JSON, v uint64) {
+			c.RaizVersion = v
+		},
+	}
+	for nombre, asignar := range campos {
+		t.Run(nombre, func(t *testing.T) {
+			enLimite := base
+			asignar(&enLimite, maximoEnteroExactoJSONCapacidadV3)
+			if enLimite.validarEstructura() != nil {
+				t.Fatal("se rechazó el límite exacto 2^53-1")
+			}
+			fuera := base
+			asignar(&fuera, maximoEnteroExactoJSONCapacidadV3+1)
+			if !errors.Is(
+				fuera.validarEstructura(),
+				ErrCapacidadAtestacionV3Invalida,
+			) {
+				t.Fatal("se aceptó 2^53")
 			}
 		})
 	}

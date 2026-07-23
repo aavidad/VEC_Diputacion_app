@@ -12,6 +12,7 @@ const (
 	esquemaCapacidadAtestacionAutorizacionV3        = "vec.autorizacion.capacidad-registro-consumo-atestado.v3"
 	versionCapacidadAtestacionAutorizacionV3 uint16 = 3
 	maximoBytesExportacionCapacidadV3               = 32 * 1024
+	maximoEnteroExactoJSONCapacidadV3        uint64 = 1<<53 - 1
 )
 
 type capacidadAtestacionAutorizacionV3JSON struct {
@@ -111,6 +112,8 @@ func (c capacidadAtestacionAutorizacionV3JSON) validarEstructura() error {
 		c.Version != versionCapacidadAtestacionAutorizacionV3 ||
 		!referenciaPruebaConfianzaValida(c.ClaveID) ||
 		c.ClaveVersion == 0 || c.RevisionGobierno == 0 ||
+		c.ClaveVersion > maximoEnteroExactoJSONCapacidadV3 ||
+		c.RevisionGobierno > maximoEnteroExactoJSONCapacidadV3 ||
 		!huellaSHA256ConfianzaValida(c.HuellaGobiernoSHA256) ||
 		!referenciaPruebaConfianzaValida(c.EmisorID) ||
 		!referenciaPruebaConfianzaValida(c.AudienciaConsumo) ||
@@ -136,11 +139,13 @@ func (c capacidadAtestacionAutorizacionV3JSON) validarEstructura() error {
 		verificadaEn.After(emitidaEn) ||
 		!referenciaConfiguracionConfianzaValida(c.RevisionConfianza) ||
 		c.ConfiguracionSecuencia == 0 ||
+		c.ConfiguracionSecuencia > maximoEnteroExactoJSONCapacidadV3 ||
 		!huellaSHA256ConfianzaValida(c.HuellaConfiguracionSHA256) ||
 		verificadaEn.Before(publicadaEn) ||
 		!verificadaEn.Before(configuracionExpira) ||
 		!referenciaPruebaConfianzaValida(c.RaizClaveID) ||
 		c.RaizVersion == 0 ||
+		c.RaizVersion > maximoEnteroExactoJSONCapacidadV3 ||
 		!huellaSHA256ConfianzaValida(c.HuellaRaizSPKISHA256) ||
 		verificadaEn.Before(raizDesde) ||
 		!verificadaEn.Before(raizHasta) ||
