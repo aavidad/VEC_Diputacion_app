@@ -131,9 +131,11 @@ ajenas.
   `docs/seguridad/barrera_secretos_git_2026-07-23.md`.
 - La reconstrucción O3-02 alcanza `a1c0739`: un recibo durable y concordante
   prevalece frente a cancelación o fallo de transporte posterior al `COMMIT`,
-  mientras un recibo vacío o adulterado falla cerrado; la coordinación de
-  fuentes y desafíos reside en aplicación y no en `ports`. Las puertas del
-  productor están verdes, pero falta doble GO independiente.
+  mientras un recibo vacío o adulterado falla cerrado. La revisión
+  independiente dio NO-GO porque aún quedan workflows multipuerto en `ports`
+  y porque el replay temprano no coteja la identidad semántica completa
+  —actor, perfil, clave de idempotencia, datos funcionales y motivo— antes de
+  devolver el recibo. Sigue en corrección; no está integrado.
 - `1faa8e7` implementa O3-03 con puertos neutrales para validación
   presupuestaria y cálculo de coste, ligadura de petición, copias defensivas,
   cancelación y fallo cerrado. La indisponibilidad nunca se convierte en «RC

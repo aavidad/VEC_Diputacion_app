@@ -56,7 +56,7 @@ Estados:
 | Tarea | Entregable aislado | Verificación de cierre | Estado |
 | --- | --- | --- | --- |
 | O3-01 | Completar invariantes de análisis, jornada, coste y validación de RC. | Matriz de campos del documento RRHH y pruebas de importes/periodos. | ✅ `f33e100`–`9b5fabb`, `994a526` |
-| O3-02 | Caso de uso de registrar/rectificar análisis con CAS. | Versiones concurrentes, rectificación motivada y segregación de funciones. | 🚧 Reconstrucción corregida en `a1c0739`: recibo tras `COMMIT` y coordinación fuera de `ports`; pendiente doble revisión independiente, no integrada. |
+| O3-02 | Caso de uso de registrar/rectificar análisis con CAS. | Versiones concurrentes, rectificación motivada y segregación de funciones. | 🚧 Candidato `a1c0739` en corrección tras NO-GO independiente: persiste orquestación multipuerto en `ports` y el replay temprano no coteja actor, perfil, idempotencia, datos ni motivo. No integrado. |
 | O3-03 | Puertos de fuente presupuestaria y cálculo de coste. | Dobles contractuales; indisponibilidad nunca equivale a validación. | ✅ `1faa8e7`, rework `fca5d41`–`af124fb`, corrección TCB `4e6d14a`–`6d1be36`, integrada en `4c33336`; GO independiente sin hallazgos y puertas globales superadas. |
 | O3-04 | Persistencia, auditoría y outbox del análisis. | PostgreSQL real, historia inmutable y recibo verificable. | — |
 | O3-05 | API y formulario de análisis RRHH. | Permisos por operación, accesibilidad, adjuntos por referencia y E2E. | — |
