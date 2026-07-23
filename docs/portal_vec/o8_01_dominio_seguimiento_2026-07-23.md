@@ -64,7 +64,7 @@ transición publicada.
 
 ## Operaciones técnicas sobre periodos
 
-El dominio admite cuatro operaciones cerradas de consistencia:
+El dominio admite siete operaciones cerradas de consistencia:
 
 - `ninguno`: registra la actuación sin alterar la proyección temporal;
 - `abrir`: materializa el periodo inicial previsto;
