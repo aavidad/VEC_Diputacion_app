@@ -48,10 +48,14 @@ es un HSM/KMS ni habilita producción.
 La operación no se recibe como texto libre: se extrae de
 `SolicitudAutorizacionLigadaV3.Datos().Accion`.
 
-El perfil de alta O2-04 admite exactamente tres ámbitos y cuatro atributos:
-`flujo_ref`, `flujo_version`, `flujo_huella_sha256` y
-`huella_peticion_hmac_activa`. La capacidad no modifica ese contrato ni añade
-atributos especiales.
+La confirmación SQL O2-05 eleva el perfil de alta a exactamente tres ámbitos
+y cinco atributos: `efecto_huella_sha256`, `flujo_ref`, `flujo_version`,
+`flujo_huella_sha256` y `huella_peticion_hmac_activa`. La nueva huella
+compromete los bytes del efecto completo `efecto-alta.v2`; por transitividad,
+la capacidad compromete también referencias, solicitud, RC, documentos,
+fechas y actuación. O2-06 deberá construir ese mismo canon antes de pedir la
+decisión, sin alterar el núcleo ni usar mapas abiertos fuera del DTO
+canónico.
 
 `efecto_ref` se deriva de `Recurso.Referencia`, que en O2-04 es el ámbito de
 idempotencia HMAC resuelto por el servidor. `huella_efecto_sha256` se deriva
@@ -61,8 +65,8 @@ recurso y huella de contexto ya están, además, dentro de la solicitud ligada,
 la decisión y el mensaje VEC-AD-3 firmado.
 
 No se acepta operación, referencia de efecto ni huella por un canal lateral.
-El futuro consumidor SQL deberá cotejar estos dos valores con la reserva
-O2-04 que va a materializar y consumir la decisión en esa misma transacción.
+El consumidor SQL coteja esos valores con la reserva O2-04 y el efecto V2 que
+materializa, y consume la decisión en esa misma transacción.
 Una reserva que no corresponda al mismo ámbito HMAC y contexto firmado debe
 fallar cerrada.
 
@@ -144,7 +148,7 @@ Las pruebas focales cubren:
 - cancelación antes y después de dependencias;
 - emisión y verificación con componentes separados;
 - salto entre procesos mediante la exportación;
-- compatibilidad con el perfil cerrado de alta O2-04, sin atributos añadidos;
+- evolución cerrada del perfil O2-04 al efecto completo O2-05;
 - operación y recurso/efecto derivados solo de contenido firmado;
 - expiración a cinco segundos;
 - rotación a clave retenida, otra clave y clave revocada;
@@ -156,16 +160,14 @@ Las pruebas focales cubren:
 
 ## Pendiente y puertas externas
 
-Este corte no implementa:
+Este corte todavía no implementa:
 
-- consumidor SQL V3 ni consumo único de la concesión;
-- transacción atómica de expediente, actuación, auditoría y outbox;
+- el adaptador Go/pgx O2-06 que proyectará `efecto-alta.v2`;
+- la composición productiva que lo conectará con la aplicación;
 - broker Unix/mTLS y separación física de identidades;
 - HSM/KMS, custodia, ceremonia, rotación y destrucción reales;
-- ancla monotónica contra restauraciones atrasadas;
 - recarga autoritativa de revocaciones durante bloqueo;
-- pruebas PostgreSQL reales y reconciliación posterior a `COMMIT`
-  indeterminado.
+- ancla WORM/monotónica externa ante restauración completa de toda la base.
 
 Hasta completar esas piezas y obtener revisión de Sistemas, Seguridad, DPD y
 responsable funcional, la capacidad es un contrato probado, no una
