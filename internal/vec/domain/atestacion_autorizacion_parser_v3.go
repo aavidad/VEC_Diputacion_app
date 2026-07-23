@@ -139,6 +139,15 @@ func ParsearMensajeAtestacionAutorizacionV3NoAutoritativo(
 		manifiesto.AutoridadEfectiva != autoridad ||
 		manifiesto.ValidarParaContexto(contexto) != nil ||
 		!resueltoEn.Equal(contexto.ResueltoEn) ||
+		validarCruceNominalAtestacionAutorizacionV3(
+			decision,
+			contexto,
+			referenciaContexto,
+			huellaContexto,
+			huellaManifiesto,
+			autoridad,
+			resueltoEn,
+		) != nil ||
 		decision.PrincipalID != contexto.Principal.ID ||
 		decision.PerfilActivoRef != contexto.PerfilActivoRef ||
 		decision.VinculoAutenticacionActor.PrincipalID != contexto.Principal.ID ||
@@ -238,6 +247,48 @@ func (p ProyeccionAtestacionAutorizacionV3NoAutoritativa) validar() error {
 		p.datos.autoridadEfectiva !=
 			AutoridadProcedenciaContextoActorMaestraAcreditadaV1 ||
 		!instanteAutorizacionCanonico(p.datos.resueltoEn) {
+		return errorParseoAtestacionAutorizacionV3()
+	}
+	return nil
+}
+
+func validarCruceNominalAtestacionAutorizacionV3(
+	decision decisionAutorizacionCanonicaV3,
+	contexto ContextoActor,
+	referenciaContexto string,
+	huellaContexto string,
+	huellaManifiesto string,
+	autoridad AutoridadProcedenciaContextoActorV1,
+	resueltoEn time.Time,
+) error {
+	vinculo, err := datosVinculoCanonicoAtestacionAutorizacionV3(
+		decision.VinculoAutenticacionActor,
+	)
+	emitidaEn, errEmision := parsearInstanteCanonicoAtestacionAutorizacionV3(
+		decision.EmitidaEn,
+	)
+	if err != nil || errEmision != nil || contexto.Validar() != nil ||
+		!resueltoEn.Equal(contexto.ResueltoEn) ||
+		vinculo.RegistroContextoRef != referenciaContexto ||
+		vinculo.CuentaRef != contexto.Instantanea.CuentaRef ||
+		vinculo.PrincipalID != contexto.Principal.ID ||
+		vinculo.PrincipalID != contexto.PersonaRef ||
+		vinculo.PerfilActivoRef != contexto.PerfilActivoRef ||
+		vinculo.MetodoObservado != contexto.Principal.AuthMethod ||
+		vinculo.GarantiaObservada != contexto.Principal.AuthAssurance ||
+		vinculo.ContextoActorRef != contexto.Instantanea.VinculoRef ||
+		vinculo.ContextoActorVersion != contexto.Instantanea.VinculoVersion ||
+		vinculo.ContextoActorCuentaVersion !=
+			contexto.Instantanea.CuentaVersion ||
+		vinculo.ContextoActorHuellaSHA256 != huellaContexto ||
+		vinculo.ManifiestoProcedenciaHuellaSHA256 != huellaManifiesto ||
+		vinculo.AutoridadEfectiva != autoridad ||
+		resueltoEn.Before(vinculo.SesionRevalidadaEn) ||
+		!resueltoEn.Before(vinculo.SesionValidaHasta) ||
+		emitidaEn.Before(vinculo.SesionRevalidadaEn) ||
+		!emitidaEn.Before(vinculo.SesionValidaHasta) ||
+		emitidaEn.Before(resueltoEn) ||
+		!contextoActorV2VigenteEn(contexto, emitidaEn) {
 		return errorParseoAtestacionAutorizacionV3()
 	}
 	return nil

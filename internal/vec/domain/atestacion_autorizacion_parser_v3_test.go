@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParsearMensajeAtestacionAutorizacionV3ProyectaCompromisosExactos(
@@ -167,6 +168,34 @@ func TestParsearMensajeAtestacionAutorizacionV3RechazaMutacionesSemanticasRecomp
 		{"vinculo contexto ajeno", func(d *decisionAutorizacionCanonicaV3) {
 			d.VinculoAutenticacionActor.PrincipalID =
 				"per_otra234567890abcdefghijklmn"
+		}},
+		{"vinculo cuenta cruzada", func(d *decisionAutorizacionCanonicaV3) {
+			d.VinculoAutenticacionActor.CuentaRef =
+				"cta_otra234567890abcdefghijklmn"
+			d.VinculoAutenticacionActor.CuentaOrdinariaRef =
+				"cta_otra234567890abcdefghijklmn"
+		}},
+		{"vinculo metodo cruzado", func(d *decisionAutorizacionCanonicaV3) {
+			d.VinculoAutenticacionActor.MetodoObservado = AuthMethodDNIe
+		}},
+		{"vinculo contexto ref cruzada", func(d *decisionAutorizacionCanonicaV3) {
+			d.VinculoAutenticacionActor.ContextoActorRef =
+				"vca_otra234567890abcdefghijklmn"
+		}},
+		{"vinculo contexto version cruzada", func(d *decisionAutorizacionCanonicaV3) {
+			d.VinculoAutenticacionActor.ContextoActorVersion++
+		}},
+		{"vinculo cuenta version cruzada", func(d *decisionAutorizacionCanonicaV3) {
+			d.VinculoAutenticacionActor.ContextoActorCuentaVersion++
+		}},
+		{"vinculo contexto huella cruzada", func(d *decisionAutorizacionCanonicaV3) {
+			d.VinculoAutenticacionActor.ContextoActorHuellaSHA256 =
+				strings.Repeat("a", 64)
+		}},
+		{"decision anterior a contexto", func(d *decisionAutorizacionCanonicaV3) {
+			d.EmitidaEn = contexto.ResueltoEnAutoritativo.Add(
+				-time.Microsecond,
+			).UTC().Format(formatoInstanteDecisionAutorizacionV3)
 		}},
 		{"vinculo sin procedencia", func(d *decisionAutorizacionCanonicaV3) {
 			d.VinculoAutenticacionActor.AutoridadEfectiva = ""
