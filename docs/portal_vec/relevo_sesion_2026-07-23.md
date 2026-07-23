@@ -92,3 +92,26 @@ aislados.
   documental T20.
 - No se desplegó código real de C3/T17A/T20 en el servidor de presentación.
 - La presentación remota permaneció operativa durante el cierre.
+
+## Addenda de reanudación y parada
+
+Antes de la nueva orden de parada se comprobó que C4 no necesita volver a
+integrarse: sus correcciones finales ya forman parte de
+`real/c3-convergencia` con SHAs distintos pero parches equivalentes. La
+comparación de los 26 ficheros de C4 solo deja dos diferencias deliberadas a
+favor de la convergencia: conserva las puertas de manifiestos web de C3 y
+admite el presupuesto HTTP compartido.
+
+Sobre el corte `eeac3a2` quedaron verdes:
+
+- pruebas focales de `internal/app/composicion/interna` y `cmd/vec-interno`;
+- las mismas pruebas con detector de carreras;
+- `go vet` focal;
+- verificador positivo y autoprueba negativa del grafo del proceso interno;
+- carga real de material TLS desde un árbol propiedad de `root` hacia un
+  runtime no privilegiado.
+
+No se aplicó ningún merge redundante, no se desplegó este código y las
+revisiones paralelas fueron detenidas al recibir la orden de parada. El
+siguiente trabajo real continúa siendo C5 (identidad interna ligada a mTLS y
+Kerberos) y C6 (cableado T20), directamente sobre el C3/C4 ya convergido.
