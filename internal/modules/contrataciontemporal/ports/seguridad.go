@@ -64,8 +64,10 @@ type SolicitudResolverContextoAutorizacionAltaV3 struct {
 }
 
 func (s SolicitudResolverContextoAutorizacionAltaV3) Validar() error {
-	if !referenciaVECConPrefijoValida(s.AutenticacionRef, "aut_") ||
-		!referenciaVECConPrefijoValida(s.SesionRef, "ses_") ||
+	if (dominiovec.SolicitudRevalidacionAutenticacionActorV1{
+		AutenticacionRef: s.AutenticacionRef,
+		SesionRef:        s.SesionRef,
+	}).Validar() != nil ||
 		!referenciaVECConPrefijoValida(s.PerfilRef, "prf_") {
 		return ErrContextoAutorizacionV3Invalido
 	}
@@ -136,7 +138,13 @@ type ResolutorMotivoAutorizacionAltaV3 interface {
 }
 
 func referenciaVECConPrefijoValida(valor, prefijo string) bool {
-	if !strings.HasPrefix(valor, prefijo) || len(valor) < 24 || len(valor) > 128 {
+	const (
+		longitudMinimaTokenVEC = 22
+		longitudMaximaTokenVEC = 128
+	)
+	if !strings.HasPrefix(valor, prefijo) ||
+		len(valor) < len(prefijo)+longitudMinimaTokenVEC ||
+		len(valor) > len(prefijo)+longitudMaximaTokenVEC {
 		return false
 	}
 	for _, caracter := range valor[len(prefijo):] {
