@@ -103,6 +103,18 @@ func TestAtestacionAutorizacionV3RechazaCrucesYAdulteraciones(t *testing.T) {
 			}
 		})
 	}
+	t.Run("mensaje A con compromisos B recomputados", func(t *testing.T) {
+		cruzada := solicitud
+		cruzada.mensaje = append([]byte(nil), solicitud.mensaje...)
+		cruzada.referenciaDecision = "dec_otra234567890abcdef0123456789ab"
+		cruzada.huellaDecision = strings.Repeat("a", 64)
+		cruzada.referenciaContexto = "rca_otra234567890abcdefghijklmn"
+		cruzada.huellaContexto = strings.Repeat("b", 64)
+		cruzada.huellaCompromisos = cruzada.calcularHuellaCompromisos()
+		if cruzada.Validar() == nil {
+			t.Fatal("mensaje A aceptado con compromisos B recomputados")
+		}
+	})
 
 	otraCabecera := cabecera
 	otraCabecera.Audiencia = "vec-diputacion/pruebas/otra"
