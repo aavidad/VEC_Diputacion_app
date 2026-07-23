@@ -132,6 +132,37 @@ ejecutar_como \
     vec_ct_migrador_prueba \
     pruebas_sql/verificar_concurrencia.sql >/dev/null
 
+paso 'migración aditiva v2 y retención obligatoria de v1'
+ejecutar_como \
+    vec_ct_migrador_prueba \
+    migraciones/000002_rotacion_hmac.up.sql >/dev/null
+ejecutar_como \
+    vec_ct_migrador_prueba \
+    pruebas_sql/verificar_privilegios_rotacion.sql >/dev/null
+esperar_fallo \
+    'runtime conserva acceso a la función v1 revocada' \
+    docker exec "${CONTENEDOR}" \
+    psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ct_runtime_prueba --dbname postgres \
+    --command \
+    "SELECT * FROM vec_contratacion_temporal.preparar_alta_v1('{}'::jsonb)"
+
+paso 'rotación v1 a v2, alta nativa, conflicto y fallo cerrado'
+ejecutar_como \
+    vec_ct_runtime_prueba \
+    pruebas_sql/integracion_rotacion_hmac.sql >/dev/null
+
+paso 'concurrencia real: ocho sesiones con generaciones v2 y v1'
+docker exec "${CONTENEDOR}" \
+    pgbench --no-vacuum \
+    --client=8 --jobs=4 --transactions=2 \
+    --username vec_ct_runtime_prueba \
+    --file /pruebas/pruebas_sql/concurrencia_rotacion_hmac.sql \
+    postgres >/dev/null
+ejecutar_como \
+    vec_ct_migrador_prueba \
+    pruebas_sql/verificar_concurrencia_rotacion.sql >/dev/null
+
 paso 'inmutabilidad de identidad e historia'
 esperar_fallo \
     'mutación de la identidad por el propietario' \
@@ -140,15 +171,30 @@ esperar_fallo \
     --username vec_ct_migrador_prueba --dbname postgres \
     --command \
     "BEGIN; SET LOCAL ROLE vec_contratacion_temporal_propietario; UPDATE vec_contratacion_temporal.identidad_reserva_alta SET actor_ref = 'actor:alterado'; COMMIT"
+esperar_fallo \
+    'mutación de un alias HMAC por el propietario' \
+    docker exec "${CONTENEDOR}" \
+    psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ct_migrador_prueba --dbname postgres \
+    --command \
+    "BEGIN; SET LOCAL ROLE vec_contratacion_temporal_propietario; UPDATE vec_contratacion_temporal.alias_ambito_alta SET registrada_en = clock_timestamp(); COMMIT"
 
 paso 'rollback destructivo cerrado por defecto'
 esperar_fallo \
-    'rollback con historia sin autorización explícita' \
+    'rollback v2 con historia sin autorización explícita' \
     ejecutar_como \
     vec_ct_migrador_prueba \
-    migraciones/000001_preparacion_altas.down.sql
+    migraciones/000002_rotacion_hmac.down.sql
 
 paso 'rollback destructivo autorizado y limpieza total'
+docker exec \
+    --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
+    "${CONTENEDOR}" \
+    psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ct_migrador_prueba \
+    --dbname postgres \
+    --file /pruebas/migraciones/000002_rotacion_hmac.down.sql \
+    >/dev/null
 docker exec \
     --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
     "${CONTENEDOR}" \
@@ -183,4 +229,4 @@ END
 $prueba$;
 SQL
 
-paso 'OK: instalación, mínimo privilegio, idempotencia, concurrencia y limpieza'
+paso 'OK: rotación HMAC, mínimo privilegio, idempotencia y limpieza'
