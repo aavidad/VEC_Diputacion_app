@@ -163,8 +163,16 @@ ajenas.
   cancelación y la ocultación total de errores privados. O4-02 no está cerrado.
 - El candidato O4-02 posterior `a0c7ecf` incorpora consumo/replay durable,
   identidad semántica de petición, suelo temporal monótono y mueve el
-  autenticador concreto a infraestructura. Está en revisión independiente y
-  no se integra hasta obtener GO.
+  autenticador concreto a infraestructura. Una nueva revisión independiente
+  reprodujo tres bloqueos: la vigencia se comprueba antes de una presentación
+  que puede consumir tiempo y no al terminar; el replay histórico vuelve a
+  verificar con la clave actual y falla tras rotación; y `ports` conserva una
+  orquestación residual de desafío, presentación y verificación. Sigue en
+  corrección y no se integra.
+- O8-01 tiene un candidato aislado de dominio en `2b2215a`, documentado en
+  `d2d2b75`, con estados publicados, transiciones versionadas, control CAS,
+  rectificación append-only y evidencia de calendario. Está en revisión
+  independiente; todavía no se contabiliza ni se integra.
 - `2b67c7a`–`20935bd` integran O6-01 tras dos revisiones independientes.
   Contratación temporal y Bolsa solo intercambian contratos versionados,
   referencias opacas, seudónimos HMAC, evidencias autenticadas y eventos
