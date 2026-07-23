@@ -1,4 +1,5 @@
 .orquesta-runtime/
+.worktrees/
 .ssl-key.log
 *.log
 bin/
