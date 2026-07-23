@@ -86,8 +86,8 @@ ajenas.
 | Autorización VEC durable de la preparación | Cerrada y revisada: V3, par HMAC activo exacto, revalidación y clientes neutrales |
 | Confianza y capacidad breve VEC-AD-3 | Integradas y revisadas: Ed25519/COSE estricto, audiencia, capacidad HMAC ≤5 s, rotación y revocación |
 | Contrato autenticado con Bolsa | Cerrado y revisado: referencias opacas, seudónimos, eventos, pruebas durables e inbox idempotente |
-| Confirmación atómica PostgreSQL | Corrección `cbe7299` con GO 2/2; autorizada para integración y puertas conjuntas |
-| Diseño de adaptador y reconciliación | Candidato con GO condicionado al SHA final de O2-05 |
+| Confirmación atómica PostgreSQL | Corrección `cbe7299` con GO 2/2 incorporada; puertas conjuntas en ejecución |
+| Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09A visualmente apta, pero con NO-GO por dos límites divergentes; O2-09B pendiente |
 | E2E administrativo | Pendiente |
@@ -112,11 +112,14 @@ ajenas.
   perdida, reconciliación y reinicio real. El productor superó PG18 ×4, foco
   ×100, carrera y puertas globales. Dirección y un segundo revisor repitieron
   PostgreSQL 18, foco, carrera, `go vet`, tamaños y secretos, y emitieron GO
-  2/2 sin hallazgos. Está autorizada para integración, pero no aumenta el
-  porcentaje hasta superar las puertas sobre el árbol conjunto.
+  2/2 sin hallazgos. La serie funcional se incorporó al árbol conjunto y no
+  aumenta el porcentaje hasta superar sus puertas posteriores a la
+  integración.
 - `2c800fa`–`4cc4422` describen O2-06A, incluido resultado indeterminado,
-  reconciliación, reintentos y ACL. Sus revisiones son GO condicionado: la
-  firma Go↔SQL se actualizará y congelará únicamente después del GO de O2-05.
+  reconciliación, reintentos y ACL. Sus revisiones son GO condicionado. El
+  diseño suponía catorce entradas y doce columnas; O2-05 ha congelado doce
+  entradas y ocho columnas. O2-06 debe ejecutar ahora la puerta de
+  acoplamiento y adaptar el mapeo documental antes de escribir código.
 - O2-08A y O2-09A se crearon como candidatos aislados en sus respectivas
   capas. La API no registra ruta y la vista no usa un adaptador falso.
   Dirección detectó entonces que discrepaban sobre el origen y transporte de

@@ -1,8 +1,10 @@
 package confianzaatestacion
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/binary"
 	"encoding/hex"
 	"strconv"
 	"time"
@@ -157,6 +159,29 @@ func (p PruebaConfianzaAtestacionAutorizacionV3) Datos() (
 	return p.datos.publicos(), nil
 }
 
+// ExportacionCanonicaParaConsumidor entrega la evidencia cerrada cuyos bytes
+// compromete HuellaPruebaSHA256. Es la única serialización autorizada para
+// cruzar hacia el consumidor durable; Datos sigue bloqueado para codecs.
+func (p PruebaConfianzaAtestacionAutorizacionV3) ExportacionCanonicaParaConsumidor() (
+	[]byte,
+	error,
+) {
+	if p.Validar() != nil {
+		return nil, ErrPruebaConfianzaAtestacionV3Invalida
+	}
+	contenido := representacionCanonicaPruebaConfianzaAtestacionV3(
+		p.datos.publicos(),
+	)
+	suma := sha256.Sum256(contenido)
+	if !huellasConfianzaIguales(
+		hex.EncodeToString(suma[:]),
+		p.datos.huellaPruebaSHA256,
+	) {
+		return nil, ErrPruebaConfianzaAtestacionV3Invalida
+	}
+	return contenido, nil
+}
+
 func (p PruebaConfianzaAtestacionAutorizacionV3) ValidarPara(
 	solicitud domain.SolicitudAutorizacionLigadaV3,
 	decision domain.DecisionAutorizacionLigadaV3,
@@ -255,7 +280,14 @@ func (d datosPruebaConfianzaAtestacionAutorizacionV3) publicos() (
 func calcularHuellaPruebaConfianzaAtestacionV3(
 	d DatosPruebaConfianzaAtestacionAutorizacionV3,
 ) string {
-	calculador := sha256.New()
+	suma := sha256.Sum256(representacionCanonicaPruebaConfianzaAtestacionV3(d))
+	return hex.EncodeToString(suma[:])
+}
+
+func representacionCanonicaPruebaConfianzaAtestacionV3(
+	d DatosPruebaConfianzaAtestacionAutorizacionV3,
+) []byte {
+	var salida bytes.Buffer
 	for _, campo := range []string{
 		"vec.prueba-confianza-atestacion-autorizacion.v3",
 		d.ReferenciaDecision, d.HuellaDecisionSHA256, d.HuellaMotivoSHA256,
@@ -272,9 +304,12 @@ func calcularHuellaPruebaConfianzaAtestacionV3(
 		d.ConfiguracionPublicadaEn.Format(time.RFC3339Nano),
 		d.ConfiguracionExpiraEn.Format(time.RFC3339Nano),
 	} {
-		escribirCampoHuellaConfianza(calculador, campo)
+		var longitud [8]byte
+		binary.BigEndian.PutUint64(longitud[:], uint64(len([]byte(campo))))
+		_, _ = salida.Write(longitud[:])
+		_, _ = salida.WriteString(campo)
 	}
-	return hex.EncodeToString(calculador.Sum(nil))
+	return salida.Bytes()
 }
 
 func huellasConfianzaIguales(primera, segunda string) bool {

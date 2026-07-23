@@ -1,7 +1,7 @@
 # PostgreSQL de contratación temporal
 
-Estado: preparación idempotente implementada; confirmación de efectos cerrada
-hasta integrar la autorización VEC durable.
+Estado: confirmación atómica O2-05 candidata y probada por el productor;
+pendiente de revisión independiente y de las puertas externas de producción.
 
 ## Alcance del corte
 
@@ -68,10 +68,29 @@ claves idempotentes, agotamiento probado de esa vida, copia y restauración
 ensayadas, y aprobación de Seguridad. Nunca se cambia la tabla de política a
 mano ni se elimina la clave histórica durante la ventana.
 
-La reserva no concede permisos ni confirma un alta. La próxima migración
-añadirá agregado, primera actuación, consumo de autorización VEC, auditoría y
-outbox en un único `COMMIT`. No se abrirá esa función a la cuenta runtime
-antes de disponer del contrato durable de autorización.
+La reserva no concede permisos ni confirma un alta. Las migraciones aditivas
+`000003_expediente_confirmacion_atestada` y
+`000004_integridad_agregado_alta` y
+`000005_funcion_confirmar_alta_atestada` añaden el agregado durable, versión y
+actuación iniciales, consumo VEC-AD-3, auditoría y outbox en un único
+`COMMIT`. La identidad `confirmacion_agregado_alta`, su huella portable y las
+FK diferibles ligan reserva confirmada, expediente, versión, actuación,
+auditoría y outbox. No dependen de `txid`, WAL ni estado de la conexión.
+
+El consumidor informa internamente si acaba de consumir la capacidad o si la
+recuperó. Un replay nunca inserta ni completa piezas: solo devuelve el recibo
+si el reconciliador acredita todas las filas, refs, canones, huellas,
+instantes, eslabones y marcador. Si el efecto es posterior a otros efectos,
+valida predecesor, sucesor inmediato y cabeza vigente; el marcador conserva
+además la prueba durable del eslabón creado originalmente. Al instalar
+`000005`, el runtime pierde `preparar_alta_v2` y recibe solo
+`confirmar_alta_atestada_v1`. La autorización genérica tampoco queda expuesta
+al LOGIN de la aplicación.
+
+La entrada final usa bytes canónicos de esquemas explícitos y versionados; no
+serializa por reflexión el agregado. El resultado contiene solo referencias,
+número visible, versión, instante y huellas. Ninguna clave idempotente,
+secreto HMAC ni dato personal se devuelve.
 
 ## Instalación
 
@@ -80,7 +99,12 @@ antes de disponer del contrato durable de autorización.
    `vec_contratacion_temporal_migrador`.
 3. Ejecutar, por orden, `000001_preparacion_altas.up.sql` y
    `000002_rotacion_hmac.up.sql` con dicha cuenta.
-4. Aprovisionar la cuenta de la aplicación como miembro únicamente de
+4. Instalar el consumidor
+   `deploy/postgresql/autorizacion_atestada_v3` y su gobierno.
+5. Ejecutar `000003_expediente_confirmacion_atestada.up.sql`,
+   `000004_integridad_agregado_alta.up.sql` y
+   `000005_funcion_confirmar_alta_atestada.up.sql`, por ese orden.
+6. Aprovisionar la cuenta de la aplicación como miembro únicamente de
    `vec_contratacion_temporal_ejecutor`.
 
 Ejemplo sin credenciales incrustadas:
@@ -90,6 +114,12 @@ psql -X --set ON_ERROR_STOP=1 \
   --file deploy/postgresql/contratacion_temporal/migraciones/000001_preparacion_altas.up.sql
 psql -X --set ON_ERROR_STOP=1 \
   --file deploy/postgresql/contratacion_temporal/migraciones/000002_rotacion_hmac.up.sql
+psql -X --set ON_ERROR_STOP=1 \
+  --file deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.up.sql
+psql -X --set ON_ERROR_STOP=1 \
+  --file deploy/postgresql/contratacion_temporal/migraciones/000004_integridad_agregado_alta.up.sql
+psql -X --set ON_ERROR_STOP=1 \
+  --file deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.up.sql
 ```
 
 El repositorio no contiene DSN, usuarios LOGIN, contraseñas ni secretos HMAC.
@@ -104,6 +134,7 @@ efímero, sin puertos publicados, sin red y con el directorio de datos en
 
 ```bash
 ./deploy/postgresql/contratacion_temporal/probar_integracion_docker.sh
+./deploy/postgresql/autorizacion_atestada_v3/probar_integracion_o2_05.sh
 ```
 
 El ensayo valida instalación con cuenta de migración, separación de roles,
@@ -118,6 +149,15 @@ inmutabilidad, rechazo del rollback ordinario con historia y limpieza
 destructiva autorizada. Las
 identidades LOGIN y la clave usadas existen únicamente dentro del contenedor
 efímero y no son credenciales de ningún entorno.
+
+El segundo runner integra ContextoActor, autorización nominal V3, gobierno de
+confianza, VEC-AD-3 y contratación. Comprueba el `COMMIT` único, repetición,
+concurrencia, rotaciones y revocaciones, fallo inyectado, ACL, retirada
+protegida y reconciliación negativa de cada pieza. Retira o altera de forma
+aislada reserva, expediente, versión, actuación, auditoría, outbox, marcador,
+refs, huellas y cadenas; cada replay debe fallar sin escribir y el runner
+restaura exactamente los casos antes de continuar. La guía detallada está en
+`deploy/postgresql/autorizacion_atestada_v3/README.md`.
 
 ## Reversión protegida
 

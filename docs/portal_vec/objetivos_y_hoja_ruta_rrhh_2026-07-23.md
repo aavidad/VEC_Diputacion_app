@@ -81,7 +81,7 @@ pantalla interna
 | Dominio y validaciones | ✅ | Pruebas unitarias y de carrera. |
 | Caso de uso y puertos | ✅ | Reintento, denegación, adulteración y cancelación. |
 | Reserva idempotente PostgreSQL | ✅ | Rotación HMAC v1→v2, replay, concurrencia, ACL, reintentos y límites reales; PostgreSQL efímero 3/3. |
-| Autorización VEC durable + confirmación | 🚧 | O2-04 está cerrado con GO independiente; O2-05 mantiene pendiente el parser VEC-AD-3 corregido, la confianza, la capacidad breve y el consumo atómico. |
+| Autorización VEC durable + confirmación | 🚧 | O2-04 está cerrado; O2-05 tiene GO 2/2 y queda incorporado en el árbol conjunto. Pendientes las puertas posteriores a la integración. |
 | API interna | 🚧 | Adaptador O2-08B revisado con GO e integrado; sin autoridad reconstruida desde HTTP ni cookies. Falta registrar la ruta mediante O2-07. |
 | Pantalla definitiva | ⬜ | Misma web final; adaptador real registrado por composición. |
 | E2E y aceptación | ⬜ | Reintento, concurrencia, reinicio, fallo y prueba de RRHH. |
