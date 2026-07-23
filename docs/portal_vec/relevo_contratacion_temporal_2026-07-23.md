@@ -115,12 +115,17 @@ ajenas.
 - `2c800fa`–`4cc4422` describen O2-06A, incluido resultado indeterminado,
   reconciliación, reintentos y ACL. Sus revisiones son GO condicionado: la
   firma Go↔SQL se actualizará y congelará únicamente después del GO de O2-05.
-- O2-08A y O2-09A existen como candidatos aislados y definitivos en sus
-  respectivas capas. La API no registra ruta y la vista no usa un adaptador
-  falso. Dirección detectó que todavía discrepan sobre el origen y transporte
-  de la clave idempotente; la propuesta neutral está en
-  `decision_idempotencia_canales_alta_o2_08b_2026-07-23.md`. No se conectarán
-  hasta revisión y O2-07.
+- O2-08A y O2-09A se crearon como candidatos aislados en sus respectivas
+  capas. La API no registra ruta y la vista no usa un adaptador falso.
+  Dirección detectó entonces que discrepaban sobre el origen y transporte de
+  la clave idempotente; la decisión neutral quedó documentada en
+  `decision_idempotencia_canales_alta_o2_08b_2026-07-23.md`.
+- O2-08B `3e2885c` resuelve la incompatibilidad de idempotencia con O2-09A:
+  todos los canales envían el mismo sobre cerrado con una UUIDv4 de intención
+  no autoritativa; la autoridad de servidor aporta solo autenticación, sesión,
+  perfil y organización. La aplicación liga UUID, contexto efectivo y
+  contenido mediante HMAC. No usa cookies ni almacenamiento web y sus puertas
+  focales, de carrera y globales están verdes; falta revisión independiente.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
   cronología de solo adición y bloqueo de retroacciones implícitas. Un primer
   corte de aplicación posterior recibió NO-GO: aceptaba autoridad RC/coste
