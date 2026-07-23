@@ -504,7 +504,7 @@ func directorioCategoriasMaximoPrueba(valor aplicacionbolsa.ValorCatalogoPublico
 	return aplicacionbolsa.DirectorioCategoriasPublicas{
 		Esquema: "vec.bolsa.publico.categorias.v1",
 		Catalogo: aplicacionbolsa.ReferenciaCatalogoCategoriasPublico{
-			Referencia: strings.Repeat("a", 128), Version: 1,
+			CatalogoID: strings.Repeat("a", 128), Version: 1,
 			HuellaSHA256:           strings.Repeat("a", 64),
 			HuellaProyeccionSHA256: strings.Repeat("b", 64), Total: 1_024,
 		},

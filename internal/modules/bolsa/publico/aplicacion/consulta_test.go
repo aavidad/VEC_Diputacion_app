@@ -2,6 +2,7 @@ package aplicacion
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -198,6 +199,78 @@ func TestServicioPublicoListaYDetalleConLaMismaHuella(t *testing.T) {
 	}
 }
 
+func TestRespuestasPublicasSerializanCatalogoIDSinAliasReferencia(t *testing.T) {
+	fuente, ahora := nuevaFuentePublicaPrueba(t)
+	servicio, err := NuevoServicioConsultaPublicaConsistente(fuente, relojFijoPrueba{ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	listado, err := servicio.Listar(context.Background(), SolicitudListadoPublico{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	detalle, err := servicio.Obtener(context.Background(), "auxiliares-2026")
+	if err != nil {
+		t.Fatal(err)
+	}
+	directorio, err := servicio.ListarCategorias(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for nombre, prueba := range map[string]struct {
+		respuesta   any
+		referencias int
+	}{
+		"listado":    {respuesta: listado, referencias: 2},
+		"detalle":    {respuesta: detalle, referencias: 2},
+		"directorio": {respuesta: directorio, referencias: 1},
+	} {
+		var documento map[string]any
+		contenido, err := json.Marshal(prueba.respuesta)
+		if err != nil {
+			t.Fatalf("serializar %s: %v", nombre, err)
+		}
+		if err := json.Unmarshal(contenido, &documento); err != nil {
+			t.Fatalf("decodificar %s: %v", nombre, err)
+		}
+		referencias := referenciasCatalogoRespuesta(documento)
+		if len(referencias) != prueba.referencias {
+			t.Fatalf("%s serializó %d referencias de catálogo; se esperaban %d", nombre, len(referencias), prueba.referencias)
+		}
+		for _, referencia := range referencias {
+			if referencia["catalogo_id"] != "categorias-profesionales" {
+				t.Fatalf("%s no emitió catalogo_id: %#v", nombre, referencia)
+			}
+			if _, existe := referencia["referencia"]; existe {
+				t.Fatalf("%s emitió el alias ambiguo referencia: %#v", nombre, referencia)
+			}
+		}
+	}
+}
+
+func referenciasCatalogoRespuesta(documento map[string]any) []map[string]any {
+	resultado := make([]map[string]any, 0, 2)
+	var recorrer func(any)
+	recorrer = func(valor any) {
+		switch actual := valor.(type) {
+		case map[string]any:
+			if _, existe := actual["catalogo_id"]; existe {
+				resultado = append(resultado, actual)
+			}
+			for _, hijo := range actual {
+				recorrer(hijo)
+			}
+		case []any:
+			for _, hijo := range actual {
+				recorrer(hijo)
+			}
+		}
+	}
+	recorrer(documento)
+	return resultado
+}
+
 func TestConstructorLegacyExigePuertoDeSnapshotsHistoricos(t *testing.T) {
 	fuente, ahora := nuevaFuentePublicaPrueba(t)
 	_, err := NuevoServicioConsultaPublica(
@@ -264,7 +337,7 @@ func TestServicioPublicoResuelveCategoriaAunqueNoSeaFacetaActual(t *testing.T) {
 func TestCoberturaCategoriasRechazaDiccionarioDuplicadoOVersionDesconocida(t *testing.T) {
 	resumenes := []ResumenConvocatoriaPublica{{
 		CatalogoCategorias: ReferenciaCatalogoCategoriasConvocatoriaPublica{
-			Referencia: "categorias-profesionales", Version: 1,
+			CatalogoID: "categorias-profesionales", Version: 1,
 			HuellaSHA256:           strings.Repeat("a", 64),
 			HuellaProyeccionSHA256: strings.Repeat("b", 64),
 		},
