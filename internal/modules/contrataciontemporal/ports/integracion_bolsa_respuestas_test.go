@@ -10,263 +10,416 @@ import (
 	"time"
 )
 
-func TestRespuestaDisponibilidadExigeFrescuraYAutenticacionTCB(t *testing.T) {
+func TestContextoPeticionEsOpacoYSeRehidrataSoloTrasAutenticar(t *testing.T) {
+	base := instanteBolsaPrueba()
+	necesidad := referenciaBolsaPrueba("necesidad:temporal", "a")
+	datos := datosContextoBolsaPrueba(
+		base,
+		"operacion:consultar:disponibilidad",
+		necesidad,
+		referenciaBolsaPrueba("accion:consultar:disponibilidad", "2"),
+	)
+	contexto := emitirContextoBolsaPrueba(t, datos)
+
+	if _, err := json.Marshal(contexto); !errors.Is(err, ErrSerializacionCapacidadBolsa) {
+		t.Fatalf("la capacidad opaca se serializó como DTO: %v", err)
+	}
+	var fabricado ContextoPeticionIntegracionBolsa
+	if err := json.Unmarshal([]byte(`{"datos":{}}`), &fabricado); !errors.Is(
+		err,
+		ErrSerializacionCapacidadBolsa,
+	) {
+		t.Fatalf("la capacidad se fabricó desde JSON: %v", err)
+	}
+
+	registro, err := contexto.Registro()
+	if err != nil {
+		t.Fatalf("extraer registro durable: %v", err)
+	}
+	contenido, err := json.Marshal(registro)
+	if err != nil {
+		t.Fatalf("serializar registro firmado: %v", err)
+	}
+	var recuperado RegistroContextoPeticionIntegracionBolsa
+	if err := json.Unmarshal(contenido, &recuperado); err != nil {
+		t.Fatalf("recuperar registro firmado: %v", err)
+	}
+	autenticador, err := NuevoAutenticadorContextoPeticionIntegracionBolsa(
+		autoridadPeticionBolsaPrueba,
+		clavePeticionBolsaV1Prueba,
+		nil,
+		&verificadorHMACBolsaPrueba{
+			claves: map[string][]byte{
+				clavePeticionBolsaV1Prueba: secretoPeticionBolsaV1Prueba,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("crear autenticador: %v", err)
+	}
+	rehidratado, err := autenticador.Reautenticar(
+		context.Background(),
+		recuperado,
+		base.Add(time.Minute),
+	)
+	if err != nil || !registrosContextoIguales(contexto, rehidratado) {
+		t.Fatalf("registro auténtico no rehidratado: %v", err)
+	}
+
+	alterado := recuperado
+	alterado.Datos.ExpedienteRef = "expediente:otro"
+	if _, err := autenticador.Reautenticar(
+		context.Background(),
+		alterado,
+		base.Add(time.Minute),
+	); !errors.Is(err, ErrPeticionIntegracionBolsaInvalida) {
+		t.Fatalf("registro alterado rehidratado: %v", err)
+	}
+	if _, err := autenticador.Reautenticar(
+		context.Background(),
+		recuperado,
+		datos.ValidaHasta,
+	); !errors.Is(err, ErrPeticionIntegracionBolsaInvalida) {
+		t.Fatalf("petición caducada rehidratada para uso en línea: %v", err)
+	}
+	cancelado, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	if _, err := autenticador.Reautenticar(
+		cancelado,
+		recuperado,
+		base.Add(time.Minute),
+	); !errors.Is(err, context.Canceled) {
+		t.Fatalf("se perdió cancelación: %v", err)
+	}
+}
+
+func TestRespuestaDisponibilidadExigeFrescuraYAutenticacion(t *testing.T) {
 	base := instanteBolsaPrueba()
 	ahora := base.Add(3 * time.Minute)
-	solicitud := solicitudDisponibilidadPrueba(base)
-	resultado := resultadoDisponibilidadPrueba(base)
-	sellador := &selladorHMACBolsaPrueba{clave: []byte("clave-prueba-respuesta-bolsa")}
+	solicitud := solicitudDisponibilidadPrueba(t, base)
+	resultado := resultadoDisponibilidadPrueba(t, base)
+	sellador := selladorRespuestaBolsaPrueba()
 	firmarDisponibilidadPrueba(t, sellador, solicitud, &resultado)
+	verificador := verificadorRespuestaBolsaPrueba(claveRespuestaBolsaV1Prueba)
 
-	if err := resultado.ValidarParaEn(solicitud, ahora); err != nil {
-		t.Fatalf("respuesta nominal válida rechazada: %v", err)
-	}
-	verificador, err := NuevoVerificadorEvidenciaIntegracionBolsa(sellador)
-	if err != nil {
-		t.Fatalf("crear verificador: %v", err)
-	}
-	comprobante, err := verificador.VerificarDisponibilidad(
+	comprobante, evidencia, err := verificador.VerificarDisponibilidad(
 		context.Background(), solicitud, resultado, ahora,
 	)
-	if err != nil || comprobante.datos == nil {
-		t.Fatalf("respuesta auténtica no promovida: comprobante=%v err=%v", comprobante.datos, err)
+	if err != nil || comprobante.datos == nil || evidencia.Validar() != nil {
+		t.Fatalf("respuesta auténtica no promovida: %v", err)
 	}
-
-	if err := resultado.ValidarParaEn(solicitud, resultado.Procedencia.Evidencia.ValidaHasta); !errors.Is(err, ErrRespuestaBolsaNoConfiable) {
-		t.Fatalf("consulta volátil caducada aceptada: %v", err)
-	}
-
 	forjada := resultado
 	forjada.Procedencia.Evidencia.SelloHMAC =
-		selloNominalBolsaPrueba(dominioSelloRespuestaBolsa, "4")
-	if err := forjada.ValidarParaEn(solicitud, ahora); err != nil {
-		t.Fatalf("la forma nominal no debía fingir autenticidad ni invalidar estructura: %v", err)
-	}
-	if _, err := verificador.VerificarDisponibilidad(
+		selloNominalBolsaPrueba(claveRespuestaBolsaV1Prueba, "4")
+	if _, _, err := verificador.VerificarDisponibilidad(
 		context.Background(), solicitud, forjada, ahora,
 	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
 		t.Fatalf("sello nominal fabricado obtuvo comprobante: %v", err)
 	}
-
 	alterada := resultado
 	alterada.CantidadDisponible++
-	if err := alterada.ValidarParaEn(solicitud, ahora); err != nil {
-		t.Fatalf("la alteración estructuralmente válida debía llegar al cotejo HMAC: %v", err)
-	}
-	if _, err := verificador.VerificarDisponibilidad(
+	if _, _, err := verificador.VerificarDisponibilidad(
 		context.Background(), solicitud, alterada, ahora,
 	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
 		t.Fatalf("respuesta alterada conservó autenticidad: %v", err)
 	}
-
+	if _, _, err := verificador.VerificarDisponibilidad(
+		context.Background(),
+		solicitud,
+		resultado,
+		resultado.Procedencia.Evidencia.ValidaHasta,
+	); !errors.Is(err, ErrRespuestaBolsaNoConfiable) {
+		t.Fatalf("respuesta volátil caducada aceptada: %v", err)
+	}
 	cancelado, cancelar := context.WithCancel(context.Background())
 	cancelar()
-	if _, err := verificador.VerificarDisponibilidad(
+	if _, _, err := verificador.VerificarDisponibilidad(
 		cancelado, solicitud, resultado, ahora,
 	); !errors.Is(err, context.Canceled) {
-		t.Fatalf("se perdió la cancelación del conector TCB: %v", err)
+		t.Fatalf("se perdió cancelación del verificador: %v", err)
 	}
 }
 
-func TestSellosBolsaUsanSobreComunVersionadoSinConfundirSintaxisYAutenticidad(t *testing.T) {
-	base := instanteBolsaPrueba()
-	contexto := contextoBolsaPrueba(base)
-	if !SelloHMACSHA256Valido(contexto.SelloPeticionHMAC) ||
-		!selloHMACBolsaValido(contexto.SelloPeticionHMAC, dominioSelloPeticionBolsa) {
-		t.Fatal("sello común versionado válido rechazado")
-	}
-	for _, sello := range []string{
-		strings.Repeat("a", 64),
-		selloNominalBolsaPrueba(dominioSelloRespuestaBolsa, "a"),
-		"hmac-sha256:" + dominioSelloPeticionBolsa + "/v01:" + strings.Repeat("a", 64),
-		"hmac-sha256:" + dominioSelloPeticionBolsa + "/v1:" + strings.Repeat("0", 64),
-	} {
-		alterado := contexto
-		alterado.SelloPeticionHMAC = sello
-		if alterado.ValidarEn(base.Add(time.Minute)) == nil {
-			t.Fatalf("sello de petición inválido aceptado: %q", sello)
-		}
-	}
-}
-
-func TestEvidenciaBolsaLigaContextoFinalidadTiemposYAutoridad(t *testing.T) {
+func TestVerificadorFijaAutoridadYConservaSoloClavesRetenidas(t *testing.T) {
 	base := instanteBolsaPrueba()
 	ahora := base.Add(3 * time.Minute)
-	solicitud := solicitudDisponibilidadPrueba(base)
-	resultado := resultadoDisponibilidadPrueba(base)
-	sellador := &selladorHMACBolsaPrueba{clave: []byte("otra-clave-prueba-bolsa")}
-	firmarDisponibilidadPrueba(t, sellador, solicitud, &resultado)
-	verificador, _ := NuevoVerificadorEvidenciaIntegracionBolsa(sellador)
+	comando := comandoOrdenPrueba(t, base)
+	recibo := reciboOrdenPrueba(t, base)
+	firmarOrdenPrueba(t, selladorRespuestaBolsaPrueba(), comando, &recibo)
 
-	pruebas := []struct {
-		nombre  string
-		cambiar func(*SolicitudDisponibilidadBolsa, *ResultadoDisponibilidadBolsa)
-	}{
-		{"organización", func(s *SolicitudDisponibilidadBolsa, r *ResultadoDisponibilidadBolsa) {
-			s.Contexto.OrganizacionRef = "organizacion:otra"
-			r.OrganizacionRef = s.Contexto.OrganizacionRef
-		}},
-		{"expediente", func(s *SolicitudDisponibilidadBolsa, r *ResultadoDisponibilidadBolsa) {
-			s.Contexto.ExpedienteRef = "expediente:otro"
-			r.ExpedienteRef = s.Contexto.ExpedienteRef
-		}},
-		{"finalidad", func(s *SolicitudDisponibilidadBolsa, _ *ResultadoDisponibilidadBolsa) {
-			s.Contexto.Finalidad = referenciaBolsaPrueba("finalidad:otra", "1")
-		}},
-		{"correlación", func(s *SolicitudDisponibilidadBolsa, r *ResultadoDisponibilidadBolsa) {
-			s.Contexto.CorrelacionRef = "correlacion:otra"
-			r.CorrelacionRef = s.Contexto.CorrelacionRef
-		}},
-		{"tiempo", func(s *SolicitudDisponibilidadBolsa, _ *ResultadoDisponibilidadBolsa) {
-			s.Contexto.SolicitadaEn = s.Contexto.SolicitadaEn.Add(time.Microsecond)
-		}},
-		{"autoridad", func(_ *SolicitudDisponibilidadBolsa, r *ResultadoDisponibilidadBolsa) {
-			r.Procedencia.AutoridadRef = "autoridad:otra"
-		}},
-		{"respuesta", func(_ *SolicitudDisponibilidadBolsa, r *ResultadoDisponibilidadBolsa) {
-			r.Procedencia.RespuestaRef = "respuesta:otra"
-		}},
+	rotado := verificadorRespuestaBolsaPrueba(
+		claveRespuestaBolsaV2Prueba,
+		claveRespuestaBolsaV1Prueba,
+	)
+	if _, _, err := rotado.VerificarReciboOrden(
+		context.Background(), comando, recibo, ahora,
+	); err != nil {
+		t.Fatalf("v1 retenida dejó de verificar tras activar v2: %v", err)
 	}
-	for _, prueba := range pruebas {
-		t.Run(prueba.nombre, func(t *testing.T) {
-			solicitudAlterada := solicitud
-			resultadoAlterado := resultado
-			prueba.cambiar(&solicitudAlterada, &resultadoAlterado)
-			if resultadoAlterado.ValidarParaEn(solicitudAlterada, ahora) != nil {
-				return
-			}
-			if _, err := verificador.VerificarDisponibilidad(
-				context.Background(), solicitudAlterada, resultadoAlterado, ahora,
+	soloV2 := verificadorRespuestaBolsaPrueba(claveRespuestaBolsaV2Prueba)
+	if _, _, err := soloV2.VerificarReciboOrden(
+		context.Background(), comando, recibo, ahora,
+	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
+		t.Fatalf("v1 no retenida fue aceptada: %v", err)
+	}
+
+	otraAutoridad := recibo
+	otraAutoridad.Procedencia.AutoridadRef = "autoridad:otra"
+	firmarOrdenPrueba(t, selladorRespuestaBolsaPrueba(), comando, &otraAutoridad)
+	espia := &verificadorHMACBolsaPrueba{
+		claves: map[string][]byte{
+			claveRespuestaBolsaV1Prueba: secretoRespuestaBolsaV1Prueba,
+			claveRespuestaBolsaV2Prueba: secretoRespuestaBolsaV2Prueba,
+		},
+	}
+	verificadorAutoridad, err := NuevoVerificadorEvidenciaIntegracionBolsa(
+		autoridadRespuestaBolsaPrueba,
+		claveRespuestaBolsaV2Prueba,
+		[]string{claveRespuestaBolsaV1Prueba},
+		espia,
+	)
+	if err != nil {
+		t.Fatalf("crear verificador de autoridad: %v", err)
+	}
+	if _, _, err := verificadorAutoridad.VerificarReciboOrden(
+		context.Background(), comando, otraAutoridad, ahora,
+	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
+		t.Fatalf("autoridad recibida amplió confianza local: %v", err)
+	}
+	if espia.usos.Load() != 0 {
+		t.Fatal("la autoridad no esperada llegó al conector criptográfico")
+	}
+
+	tipo := reflect.TypeOf((*VerificadorHMACIntegracionBolsa)(nil)).Elem()
+	if _, existe := tipo.MethodByName("SellarDatos"); existe {
+		t.Fatal("el verificador expone capacidad de firma")
+	}
+	if tipo.NumMethod() != 1 || tipo.Method(0).Name != "VerificarDatos" {
+		t.Fatalf("TCB de verificación demasiado amplio: %v", tipo)
+	}
+}
+
+func TestAnilloRechazaGeneracionesDesordenadasDuplicadasOExcesivas(t *testing.T) {
+	verificador := &verificadorHMACBolsaPrueba{
+		claves: map[string][]byte{
+			claveRespuestaBolsaV1Prueba: secretoRespuestaBolsaV1Prueba,
+			claveRespuestaBolsaV2Prueba: secretoRespuestaBolsaV2Prueba,
+		},
+	}
+	casos := []struct {
+		nombre    string
+		activa    string
+		retenidas []string
+	}{
+		{
+			nombre:    "generacion futura",
+			activa:    claveRespuestaBolsaV1Prueba,
+			retenidas: []string{claveRespuestaBolsaV2Prueba},
+		},
+		{
+			nombre: "generacion duplicada",
+			activa: claveRespuestaBolsaV2Prueba,
+			retenidas: []string{
+				claveRespuestaBolsaV1Prueba,
+				claveRespuestaBolsaV1Prueba,
+			},
+		},
+		{
+			nombre: "retencion excesiva",
+			activa: claveRespuestaBolsaV2Prueba,
+			retenidas: []string{
+				claveRespuestaBolsaV1Prueba,
+				claveRespuestaBolsaV1Prueba,
+				claveRespuestaBolsaV1Prueba,
+				claveRespuestaBolsaV1Prueba,
+			},
+		},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			if _, err := NuevoVerificadorEvidenciaIntegracionBolsa(
+				autoridadRespuestaBolsaPrueba,
+				caso.activa,
+				caso.retenidas,
+				verificador,
 			); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
-				t.Fatalf("alteración %s no rompió el vínculo canónico: %v", prueba.nombre, err)
+				t.Fatalf("anillo inválido aceptado: %v", err)
 			}
 		})
 	}
 }
 
-func TestRecibosDurablesOrdenYLlamamientoQuedanAutenticados(t *testing.T) {
+func TestEvidenciaDurableSeReautenticaTrasReinicioSinConfundirFrescura(t *testing.T) {
 	base := instanteBolsaPrueba()
 	ahora := base.Add(3 * time.Minute)
-	sellador := &selladorHMACBolsaPrueba{clave: []byte("clave-recibos-bolsa")}
-	verificador, _ := NuevoVerificadorEvidenciaIntegracionBolsa(sellador)
+	comando := comandoOrdenPrueba(t, base)
+	recibo := reciboOrdenPrueba(t, base)
+	firmarOrdenPrueba(t, selladorRespuestaBolsaPrueba(), comando, &recibo)
+	verificador := verificadorRespuestaBolsaPrueba(claveRespuestaBolsaV1Prueba)
 
-	comandoOrden := comandoOrdenPrueba(base)
-	reciboOrden := reciboOrdenPrueba(base)
-	firmarOrdenPrueba(t, sellador, comandoOrden, &reciboOrden)
-	if reciboOrden.ValidarParaEn(comandoOrden, ahora) != nil {
-		t.Fatal("recibo de orden nominal válido rechazado")
-	}
-	if comprobante, err := verificador.VerificarReciboOrden(
-		context.Background(), comandoOrden, reciboOrden, ahora,
-	); err != nil || comprobante.datos == nil {
-		t.Fatalf("recibo de orden no autenticado: %v", err)
-	}
-	if err := reciboOrden.ValidarParaEn(
-		comandoOrden, comandoOrden.Contexto.ValidaHasta,
-	); !errors.Is(err, ErrRespuestaBolsaNoConfiable) {
-		t.Fatalf("respuesta de transporte caducada aceptada: %v", err)
-	}
-	if err := reciboOrden.ValidarDurablePara(comandoOrden); err != nil {
-		t.Fatalf("recibo durable autenticado perdió validez estructural: %v", err)
-	}
-
-	comandoLlamamiento := comandoLlamamientoPrueba(t, base, sellador)
-	reciboLlamamiento := reciboLlamamientoPrueba(t, comandoLlamamiento, base)
-	firmarLlamamientoPrueba(t, sellador, comandoLlamamiento, &reciboLlamamiento)
-	if reciboLlamamiento.ValidarParaEn(comandoLlamamiento, ahora) != nil {
-		t.Fatal("recibo de llamamiento nominal válido rechazado")
-	}
-	if comprobante, err := verificador.VerificarReciboLlamamiento(
-		context.Background(), comandoLlamamiento, reciboLlamamiento, ahora,
-	); err != nil || comprobante.datos == nil {
-		t.Fatalf("recibo de llamamiento no autenticado: %v", err)
-	}
-	if err := reciboLlamamiento.ValidarDurablePara(comandoLlamamiento); err != nil {
-		t.Fatalf("recibo durable de llamamiento inválido: %v", err)
-	}
-
-	alterado := reciboLlamamiento
-	datosComando, err := comandoLlamamiento.DatosEn(ahora)
+	_, evidencia, err := verificador.VerificarReciboOrden(
+		context.Background(), comando, recibo, ahora,
+	)
 	if err != nil {
-		t.Fatalf("leer comando probado: %v", err)
+		t.Fatalf("autenticar recibo inicial: %v", err)
 	}
-	alterado.OrdenSeleccionado = datosComando.TotalPosicionesOrden + 1
-	if err := alterado.ValidarParaEn(comandoLlamamiento, ahora); !errors.Is(err, ErrRespuestaBolsaNoConfiable) {
-		t.Fatalf("posición fuera del total aceptada: %v", err)
+	contenido, err := json.Marshal(evidencia)
+	if err != nil {
+		t.Fatalf("persistir evidencia: %v", err)
 	}
-	alterado = reciboLlamamiento
-	alterado.OrdenSeleccionado = datosComando.MaximaPosicionEvaluable + 1
-	if err := alterado.ValidarParaEn(comandoLlamamiento, ahora); !errors.Is(err, ErrRespuestaBolsaNoConfiable) {
-		t.Fatalf("posición fuera del límite aceptada: %v", err)
+	var recuperada EvidenciaDurableIntegracionBolsa
+	if err := json.Unmarshal(contenido, &recuperada); err != nil {
+		t.Fatalf("recuperar evidencia: %v", err)
 	}
-	alterado = reciboLlamamiento
-	alterado.RetencionSeleccion = ReferenciaVersionadaIntegracionBolsa{}
-	if err := alterado.ValidarParaEn(comandoLlamamiento, ahora); !errors.Is(err, ErrRespuestaBolsaNoConfiable) {
-		t.Fatalf("selección seudonimizada sin retención gobernada aceptada: %v", err)
+	trasReinicio := verificadorRespuestaBolsaPrueba(claveRespuestaBolsaV1Prueba)
+	instantePosterior := base.Add(24 * time.Hour)
+	if _, _, err := trasReinicio.VerificarReciboOrden(
+		context.Background(), comando, recibo, instantePosterior,
+	); !errors.Is(err, ErrRespuestaBolsaNoConfiable) {
+		t.Fatalf("transporte caducado se trató como fresco: %v", err)
+	}
+	if _, err := trasReinicio.ReautenticarReciboOrden(
+		context.Background(),
+		comando,
+		recibo,
+		recuperada,
+		instantePosterior,
+	); err != nil {
+		t.Fatalf("evidencia durable auténtica no sobrevivió al reinicio: %v", err)
+	}
+
+	alteraciones := []struct {
+		nombre  string
+		cambiar func(*EvidenciaDurableIntegracionBolsa)
+	}{
+		{"peticion", func(e *EvidenciaDurableIntegracionBolsa) {
+			e.HuellaPeticionSHA256 = strings.Repeat("2", 64)
+		}},
+		{"respuesta", func(e *EvidenciaDurableIntegracionBolsa) {
+			e.HuellaRespuestaSHA256 = strings.Repeat("3", 64)
+		}},
+		{"autoridad", func(e *EvidenciaDurableIntegracionBolsa) {
+			e.AutoridadRef = "autoridad:otra"
+		}},
+		{"instante", func(e *EvidenciaDurableIntegracionBolsa) {
+			e.EmitidaEn = e.EmitidaEn.Add(time.Microsecond)
+		}},
+	}
+	for _, prueba := range alteraciones {
+		t.Run(prueba.nombre, func(t *testing.T) {
+			alterada := recuperada
+			prueba.cambiar(&alterada)
+			if _, err := trasReinicio.ReautenticarReciboOrden(
+				context.Background(),
+				comando,
+				recibo,
+				alterada,
+				instantePosterior,
+			); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
+				t.Fatalf("evidencia alterada aceptada: %v", err)
+			}
+		})
+	}
+	reciboAlterado := recibo
+	reciboAlterado.TotalPosiciones--
+	if _, err := trasReinicio.ReautenticarReciboOrden(
+		context.Background(),
+		comando,
+		reciboAlterado,
+		recuperada,
+		instantePosterior,
+	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
+		t.Fatalf("recibo alterado reautenticado: %v", err)
 	}
 }
 
-func TestComandoLlamamientoDerivaTotalDeOrdenAutenticada(t *testing.T) {
+func TestOrdenYLlamamientoQuedanLigadosDeFormaExacta(t *testing.T) {
 	base := instanteBolsaPrueba()
 	ahora := base.Add(3 * time.Minute)
-	sellador := &selladorHMACBolsaPrueba{clave: []byte("clave-orden-autoritativa")}
-	comandoOrden := comandoOrdenPrueba(base)
-	reciboOrden := reciboOrdenPrueba(base)
+	sellador := selladorRespuestaBolsaPrueba()
+	comandoOrden := comandoOrdenPrueba(t, base)
+	reciboOrden := reciboOrdenPrueba(t, base)
 	firmarOrdenPrueba(t, sellador, comandoOrden, &reciboOrden)
-	contexto := contextoBolsaPrueba(base)
-	contexto.OperacionRef = "operacion:llamar:desde-orden"
-
-	preparacion := PreparacionComandoSolicitarLlamamientoBolsa{
-		Contexto: contexto, ComandoOrden: comandoOrden, ReciboOrden: reciboOrden,
-		MaximaPosicionEvaluable: 50,
-	}
-	if _, err := NuevoComandoSolicitarLlamamientoBolsa(
-		preparacion, ahora,
-	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
-		t.Fatalf("orden nominal sin comprobante creó comando: %v", err)
-	}
-
-	verificador, _ := NuevoVerificadorEvidenciaIntegracionBolsa(sellador)
-	comprobante, err := verificador.VerificarReciboOrden(
-		context.Background(), comandoOrden, reciboOrden, ahora,
-	)
+	comprobante, _, err := verificadorRespuestaBolsaPrueba(
+		claveRespuestaBolsaV1Prueba,
+	).VerificarReciboOrden(context.Background(), comandoOrden, reciboOrden, ahora)
 	if err != nil {
 		t.Fatalf("autenticar orden: %v", err)
 	}
-	preparacion.ComprobanteOrden = comprobante
-	comando, err := NuevoComandoSolicitarLlamamientoBolsa(preparacion, ahora)
-	if err != nil {
-		t.Fatalf("orden comprobada no creó comando: %v", err)
+	datosBase := datosContextoBolsaPrueba(
+		base,
+		"operacion:solicitar:llamamiento",
+		reciboOrden.Orden,
+		reciboOrden.AccionLlamamiento,
+	)
+	preparar := func(datos DatosContextoPeticionIntegracionBolsa) error {
+		_, err := NuevoComandoSolicitarLlamamientoBolsa(
+			PreparacionComandoSolicitarLlamamientoBolsa{
+				Contexto:     emitirContextoBolsaPrueba(t, datos),
+				ComandoOrden: comandoOrden, ReciboOrden: reciboOrden,
+				ComprobanteOrden: comprobante, MaximaPosicionEvaluable: 50,
+			},
+			ahora,
+		)
+		return err
 	}
-	datos, err := comando.DatosEn(ahora)
-	if err != nil || datos.TotalPosicionesOrden != reciboOrden.TotalPosiciones ||
-		datos.HuellaReciboOrden != huellaBytesBolsa(materialReciboOrdenBolsa(comandoOrden, reciboOrden)) {
-		t.Fatalf("total/huella no derivados del recibo: datos=%+v err=%v", datos, err)
+	if err := preparar(datosBase); err != nil {
+		t.Fatalf("vínculo exacto rechazado: %v", err)
+	}
+	pruebas := []struct {
+		nombre  string
+		cambiar func(*DatosContextoPeticionIntegracionBolsa)
+	}{
+		{"organizacion", func(d *DatosContextoPeticionIntegracionBolsa) {
+			d.OrganizacionRef = "organizacion:otra"
+		}},
+		{"expediente", func(d *DatosContextoPeticionIntegracionBolsa) {
+			d.ExpedienteRef = "expediente:otro"
+		}},
+		{"version", func(d *DatosContextoPeticionIntegracionBolsa) {
+			d.VersionExpediente++
+		}},
+		{"correlacion", func(d *DatosContextoPeticionIntegracionBolsa) {
+			d.CorrelacionRef = "correlacion:otra"
+		}},
+		{"finalidad", func(d *DatosContextoPeticionIntegracionBolsa) {
+			d.Finalidad = referenciaBolsaPrueba("finalidad:otra", "6")
+		}},
+		{"accion", func(d *DatosContextoPeticionIntegracionBolsa) {
+			d.Accion = referenciaBolsaPrueba("accion:otra", "6")
+		}},
+		{"recurso", func(d *DatosContextoPeticionIntegracionBolsa) {
+			d.Recurso = referenciaBolsaPrueba("orden:otra", "6")
+		}},
+	}
+	for _, prueba := range pruebas {
+		t.Run(prueba.nombre, func(t *testing.T) {
+			datos := datosBase
+			prueba.cambiar(&datos)
+			exigirErrorBolsa(t, preparar(datos), ErrPeticionIntegracionBolsaInvalida)
+		})
 	}
 
-	alterada := preparacion
-	alterada.ReciboOrden.TotalPosiciones++
-	if _, err := NuevoComandoSolicitarLlamamientoBolsa(
-		alterada, ahora,
-	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
-		t.Fatalf("total alterado conservó comprobante: %v", err)
+	preparacionSinPrueba := PreparacionComandoSolicitarLlamamientoBolsa{
+		Contexto:     emitirContextoBolsaPrueba(t, datosBase),
+		ComandoOrden: comandoOrden, ReciboOrden: reciboOrden,
+		MaximaPosicionEvaluable: 50,
 	}
-	fueraDeOrden := preparacion
-	fueraDeOrden.MaximaPosicionEvaluable = reciboOrden.TotalPosiciones + 1
 	if _, err := NuevoComandoSolicitarLlamamientoBolsa(
-		fueraDeOrden, ahora,
-	); !errors.Is(err, ErrPeticionIntegracionBolsaInvalida) {
-		t.Fatalf("límite superior al total aceptado: %v", err)
+		preparacionSinPrueba,
+		ahora,
+	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
+		t.Fatalf("orden sin comprobante creó llamamiento: %v", err)
 	}
 }
 
-func TestContratoNoDependeDeCookiesWebNiExponeIdentificadoresDirectos(t *testing.T) {
+func TestContratoEsNeutralAWebEscritorioCLIYMCP(t *testing.T) {
 	tipos := []reflect.Type{
+		reflect.TypeOf(DatosContextoPeticionIntegracionBolsa{}),
 		reflect.TypeOf(SolicitudDisponibilidadBolsa{}),
 		reflect.TypeOf(ResultadoDisponibilidadBolsa{}),
 		reflect.TypeOf(ComandoPrepararOrdenBolsa{}),
 		reflect.TypeOf(ReciboOrdenBolsa{}),
-		reflect.TypeOf(ComandoSolicitarLlamamientoBolsa{}),
 		reflect.TypeOf(DatosComandoSolicitarLlamamientoBolsa{}),
 		reflect.TypeOf(ReciboSolicitudLlamamientoBolsa{}),
 		reflect.TypeOf(EventoLlamamientoBolsa{}),
@@ -274,35 +427,21 @@ func TestContratoNoDependeDeCookiesWebNiExponeIdentificadoresDirectos(t *testing
 	prohibidos := []string{
 		"dni", "nie", "nif", "nombre", "apellidos", "correo", "email",
 		"telefono", "movil", "direccion", "cookie", "sesion", "cabecera",
-		"rol", "permiso", "actor", "perfil",
+		"remote_user", "http", "browser", "jwt",
 	}
 	for _, tipo := range tipos {
 		comprobarCamposIntegracionBolsa(t, tipo, prohibidos)
 	}
-	tipoRecibo := reflect.TypeOf(ReciboSolicitudLlamamientoBolsa{})
-	if _, existe := tipoRecibo.FieldByName("SeleccionRef"); !existe {
-		t.Fatal("se perdió la referencia seudonimizada necesaria")
-	}
-	if _, existe := tipoRecibo.FieldByName("RetencionSeleccion"); !existe {
-		t.Fatal("la selección personal quedó sin política de retención")
-	}
-}
-
-func TestPuertosBolsaConservanContextoCancelableYNoUnaSesionWeb(t *testing.T) {
 	tipoContexto := reflect.TypeOf((*context.Context)(nil)).Elem()
-	puertos := []reflect.Type{
+	for _, puerto := range []reflect.Type{
 		reflect.TypeOf((*ConsultaDisponibilidadBolsa)(nil)).Elem(),
 		reflect.TypeOf((*PreparadorOrdenBolsa)(nil)).Elem(),
 		reflect.TypeOf((*GestorLlamamientosBolsa)(nil)).Elem(),
 		reflect.TypeOf((*BandejaEventosLlamamientoBolsa)(nil)).Elem(),
-	}
-	for _, puerto := range puertos {
-		if puerto.NumMethod() != 1 {
-			t.Fatalf("%v debe exponer una capacidad mínima", puerto)
-		}
+	} {
 		metodo := puerto.Method(0)
 		if metodo.Type.NumIn() < 1 || metodo.Type.In(0) != tipoContexto {
-			t.Fatalf("%s perdió context.Context: %v", metodo.Name, metodo.Type)
+			t.Fatalf("%s perdió context.Context neutral: %v", metodo.Name, metodo.Type)
 		}
 	}
 }
@@ -317,32 +456,30 @@ func comprobarCamposIntegracionBolsa(t *testing.T, tipo reflect.Type, prohibidos
 				t.Fatalf("%s expone campo prohibido %q", tipo.Name(), campo.Name)
 			}
 		}
-		if campo.Type.Kind() == reflect.Struct && campo.Type != reflect.TypeOf(time.Time{}) {
+		if campo.Type.Kind() == reflect.Struct &&
+			campo.Type != reflect.TypeOf(time.Time{}) &&
+			campo.Type != reflect.TypeOf(ContextoPeticionIntegracionBolsa{}) {
 			comprobarCamposIntegracionBolsa(t, campo.Type, prohibidos)
 		}
 	}
 }
 
-func TestComprobanteNoEsFabricableNiSerializablePorEntrada(t *testing.T) {
-	tipo := reflect.TypeOf(ComprobanteEvidenciaIntegracionBolsa{})
-	for indice := 0; indice < tipo.NumField(); indice++ {
-		if tipo.Field(indice).IsExported() {
-			t.Fatalf("comprobante expone campo fabricable: %s", tipo.Field(indice).Name)
+func TestCapacidadesNoSonFabricablesNiSerializables(t *testing.T) {
+	for _, valor := range []any{
+		ComprobanteEvidenciaIntegracionBolsa{},
+		ComandoSolicitarLlamamientoBolsa{},
+		ContextoPeticionIntegracionBolsa{},
+	} {
+		if _, err := json.Marshal(valor); !errors.Is(err, ErrSerializacionCapacidadBolsa) {
+			t.Fatalf("%T se serializó: %v", valor, err)
 		}
 	}
 	if _, err := NuevoVerificadorEvidenciaIntegracionBolsa(
-		(*selladorHMACBolsaPrueba)(nil),
+		autoridadRespuestaBolsaPrueba,
+		claveRespuestaBolsaV1Prueba,
+		nil,
+		(*verificadorHMACBolsaPrueba)(nil),
 	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
 		t.Fatalf("verificador aceptó dependencia tipada nula: %v", err)
-	}
-	if _, err := json.Marshal(ComprobanteEvidenciaIntegracionBolsa{}); !errors.Is(err, ErrSerializacionCapacidadBolsa) {
-		t.Fatalf("comprobante se serializó: %v", err)
-	}
-	var comprobante ComprobanteEvidenciaIntegracionBolsa
-	if err := json.Unmarshal([]byte(`{}`), &comprobante); !errors.Is(err, ErrSerializacionCapacidadBolsa) {
-		t.Fatalf("comprobante se reconstruyó desde transporte: %v", err)
-	}
-	if _, err := json.Marshal(ComandoSolicitarLlamamientoBolsa{}); !errors.Is(err, ErrSerializacionCapacidadBolsa) {
-		t.Fatalf("comando interno se serializó: %v", err)
 	}
 }

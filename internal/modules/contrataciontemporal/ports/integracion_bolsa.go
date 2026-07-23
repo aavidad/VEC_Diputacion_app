@@ -1,7 +1,6 @@
 package ports
 
 import (
-	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -19,6 +18,7 @@ const (
 	MaximoEnteroSeguroIntegracionBolsa            = uint64(9_007_199_254_740_991)
 	MaximoElementosIntegracionBolsa        uint32 = 250_000
 	VigenciaMaximaPeticionIntegracionBolsa        = 15 * time.Minute
+	MaximoClavesRetenidasIntegracionBolsa         = 3
 
 	dominioSelloPeticionBolsa  = "vec.contratacion-temporal.integracion-bolsa-peticion"
 	dominioSelloRespuestaBolsa = "vec.contratacion-temporal.integracion-bolsa-respuesta"
@@ -38,8 +38,8 @@ var (
 )
 
 // ReferenciaVersionadaIntegracionBolsa enlaza un recurso opaco con su versión
-// y huella exactas. Las versiones se limitan al entero seguro de JSON para que
-// todos los conectores interpreten el mismo valor.
+// y huella exactas. El límite conserva el mismo valor en JSON, CLI, MCP y
+// clientes de escritorio.
 type ReferenciaVersionadaIntegracionBolsa struct {
 	Referencia   string `json:"referencia"`
 	Version      uint64 `json:"version"`
@@ -54,61 +54,27 @@ func (r ReferenciaVersionadaIntegracionBolsa) Validar() error {
 	return nil
 }
 
-// ContextoPeticionIntegracionBolsa es agnóstico de web, escritorio y demás
-// transportes. SelloPeticionHMAC tiene forma nominal: su sintaxis no demuestra
-// autenticidad y la aplicación solo lo acepta desde su sellador confiable.
-type ContextoPeticionIntegracionBolsa struct {
-	OperacionRef      string                               `json:"operacion_ref"`
-	OrganizacionRef   string                               `json:"organizacion_ref"`
-	ExpedienteRef     string                               `json:"expediente_ref"`
-	VersionExpediente uint64                               `json:"version_expediente"`
-	CorrelacionRef    string                               `json:"correlacion_ref"`
-	ContratoVersion   uint64                               `json:"contrato_version"`
-	Finalidad         ReferenciaVersionadaIntegracionBolsa `json:"finalidad"`
-	SelloPeticionHMAC string                               `json:"sello_peticion_hmac"`
-	SolicitadaEn      time.Time                            `json:"solicitada_en"`
-	ValidaHasta       time.Time                            `json:"valida_hasta"`
-}
-
-func (c ContextoPeticionIntegracionBolsa) ValidarEn(instante time.Time) error {
-	if !domain.ReferenciaOpacaValida(c.OperacionRef) ||
-		!domain.ReferenciaOpacaValida(c.OrganizacionRef) ||
-		!domain.ReferenciaOpacaValida(c.ExpedienteRef) ||
-		!enteroSeguroBolsa(c.VersionExpediente) ||
-		!domain.ReferenciaOpacaValida(c.CorrelacionRef) ||
-		c.ContratoVersion != VersionContratoIntegracionBolsa ||
-		c.Finalidad.Validar() != nil ||
-		!selloHMACBolsaValido(c.SelloPeticionHMAC, dominioSelloPeticionBolsa) ||
-		!instanteBolsaCanonico(c.SolicitadaEn) || !instanteBolsaCanonico(c.ValidaHasta) ||
-		!c.ValidaHasta.After(c.SolicitadaEn) ||
-		c.ValidaHasta.Sub(c.SolicitadaEn) > VigenciaMaximaPeticionIntegracionBolsa ||
-		!instanteBolsaCanonico(instante) ||
-		instante.Before(c.SolicitadaEn) || !instante.Before(c.ValidaHasta) {
-		return ErrPeticionIntegracionBolsaInvalida
-	}
-	return nil
-}
-
-// EvidenciaNominalIntegracionBolsa es la declaración no confiable recibida del
-// conector. Solo VerificadorEvidenciaIntegracionBolsa puede promoverla a un
-// comprobante opaco tras recomputar el HMAC con la dependencia TCB.
+// EvidenciaNominalIntegracionBolsa es transporte no confiable hasta que el
+// verificador TCB comprueba autoridad, generación y MAC.
 type EvidenciaNominalIntegracionBolsa struct {
-	EvidenciaRef string    `json:"evidencia_ref"`
-	SelloHMAC    string    `json:"sello_hmac"`
-	EmitidaEn    time.Time `json:"emitida_en"`
-	ValidaHasta  time.Time `json:"valida_hasta"`
+	EvidenciaRef         string    `json:"evidencia_ref"`
+	ClaveVerificacionRef string    `json:"clave_verificacion_ref"`
+	SelloHMAC            string    `json:"sello_hmac"`
+	EmitidaEn            time.Time `json:"emitida_en"`
+	ValidaHasta          time.Time `json:"valida_hasta"`
 }
 
-func (e EvidenciaNominalIntegracionBolsa) validarSintaxis() bool {
+func (e EvidenciaNominalIntegracionBolsa) validarSintaxis(dominio string) bool {
+	referencia, _, valida := descomponerSelloHMACBolsa(e.SelloHMAC, dominio)
 	return domain.ReferenciaOpacaValida(e.EvidenciaRef) &&
-		selloHMACBolsaValido(e.SelloHMAC, dominioSelloRespuestaBolsa) &&
+		referencia == e.ClaveVerificacionRef && valida &&
 		instanteBolsaCanonico(e.EmitidaEn) && instanteBolsaCanonico(e.ValidaHasta) &&
 		e.ValidaHasta.After(e.EmitidaEn) &&
 		e.ValidaHasta.Sub(e.EmitidaEn) <= VigenciaMaximaPeticionIntegracionBolsa
 }
 
-// ProcedenciaIntegracionBolsa identifica autoridad, fuente y evidencia. No se
-// confía en ella hasta autenticar el material canónico completo.
+// ProcedenciaIntegracionBolsa no acredita por sí sola a Bolsa. La autoridad
+// esperada pertenece a la configuración local del verificador.
 type ProcedenciaIntegracionBolsa struct {
 	AutoridadRef    string                               `json:"autoridad_ref"`
 	RespuestaRef    string                               `json:"respuesta_ref"`
@@ -126,125 +92,8 @@ func (p ProcedenciaIntegracionBolsa) validarNominal() bool {
 	return domain.ReferenciaOpacaValida(p.AutoridadRef) &&
 		domain.ReferenciaOpacaValida(p.RespuestaRef) &&
 		p.ContratoVersion == VersionContratoIntegracionBolsa &&
-		p.Fuente.Validar() == nil && p.Evidencia.validarSintaxis()
-}
-
-// SelladorHMACVerificacionBolsa debe ser una dependencia criptográfica de la
-// composición TCB (HSM/KMS o equivalente), nunca un dato del transporte.
-type SelladorHMACVerificacionBolsa interface {
-	SellarDatos(context.Context, []byte) (string, error)
-}
-
-// solicitudVerificacionEvidenciaBolsa es opaca para impedir que un adaptador
-// de entrada sustituya el material ya canonizado y validado.
-type solicitudVerificacionEvidenciaBolsa struct {
-	material        []byte
-	evidencia       EvidenciaNominalIntegracionBolsa
-	autoridadRef    string
-	organizacionRef string
-	expedienteRef   string
-	correlacionRef  string
-	respuestaRef    string
-	huellaMaterial  string
-}
-
-// ComprobanteEvidenciaIntegracionBolsa es una capacidad opaca, efímera y no
-// serializable. Su valor cero o una copia ligada a otro material son inválidos.
-type ComprobanteEvidenciaIntegracionBolsa struct {
-	datos *datosComprobanteEvidenciaBolsa
-}
-
-func (ComprobanteEvidenciaIntegracionBolsa) MarshalJSON() ([]byte, error) {
-	return nil, ErrSerializacionCapacidadBolsa
-}
-
-func (*ComprobanteEvidenciaIntegracionBolsa) UnmarshalJSON([]byte) error {
-	return ErrSerializacionCapacidadBolsa
-}
-
-type datosComprobanteEvidenciaBolsa struct {
-	autoridadRef, organizacionRef, expedienteRef string
-	correlacionRef, respuestaRef, evidenciaRef   string
-	huellaMaterial, selloHMAC                    string
-	verificadaEn                                 time.Time
-}
-
-// VerificadorEvidenciaIntegracionBolsa es la única fábrica pública del
-// comprobante. La composición debe custodiarlo como TCB y suministrarle el
-// sellador confiable; una coincidencia sintáctica nunca basta.
-type VerificadorEvidenciaIntegracionBolsa struct {
-	sellador SelladorHMACVerificacionBolsa
-}
-
-func NuevoVerificadorEvidenciaIntegracionBolsa(
-	sellador SelladorHMACVerificacionBolsa,
-) (*VerificadorEvidenciaIntegracionBolsa, error) {
-	if dependenciaIntegracionBolsaNula(sellador) {
-		return nil, ErrEvidenciaBolsaNoAutenticada
-	}
-	return &VerificadorEvidenciaIntegracionBolsa{sellador: sellador}, nil
-}
-
-func (v *VerificadorEvidenciaIntegracionBolsa) verificar(
-	ctx context.Context,
-	solicitud solicitudVerificacionEvidenciaBolsa,
-	instante time.Time,
-) (ComprobanteEvidenciaIntegracionBolsa, error) {
-	if ctx == nil || v == nil || dependenciaIntegracionBolsaNula(v.sellador) ||
-		!solicitud.validaEn(instante) {
-		return ComprobanteEvidenciaIntegracionBolsa{}, ErrEvidenciaBolsaNoAutenticada
-	}
-	if err := ctx.Err(); err != nil {
-		return ComprobanteEvidenciaIntegracionBolsa{}, err
-	}
-	calculado, err := v.sellador.SellarDatos(ctx, append([]byte(nil), solicitud.material...))
-	if err != nil {
-		if ctx.Err() != nil {
-			return ComprobanteEvidenciaIntegracionBolsa{}, ctx.Err()
-		}
-		return ComprobanteEvidenciaIntegracionBolsa{}, ErrEvidenciaBolsaNoAutenticada
-	}
-	if !selloHMACBolsaValido(calculado, dominioSelloRespuestaBolsa) ||
-		!hmac.Equal([]byte(calculado), []byte(solicitud.evidencia.SelloHMAC)) {
-		return ComprobanteEvidenciaIntegracionBolsa{}, ErrEvidenciaBolsaNoAutenticada
-	}
-	return ComprobanteEvidenciaIntegracionBolsa{datos: &datosComprobanteEvidenciaBolsa{
-		autoridadRef: solicitud.autoridadRef, organizacionRef: solicitud.organizacionRef,
-		expedienteRef: solicitud.expedienteRef, correlacionRef: solicitud.correlacionRef,
-		respuestaRef: solicitud.respuestaRef, evidenciaRef: solicitud.evidencia.EvidenciaRef,
-		huellaMaterial: solicitud.huellaMaterial, selloHMAC: calculado, verificadaEn: instante,
-	}}, nil
-}
-
-func (s solicitudVerificacionEvidenciaBolsa) validaEn(instante time.Time) bool {
-	if len(s.material) == 0 || !s.evidencia.validarSintaxis() ||
-		!instanteBolsaCanonico(instante) || instante.Before(s.evidencia.EmitidaEn) ||
-		!instante.Before(s.evidencia.ValidaHasta) ||
-		!domain.ReferenciaOpacaValida(s.autoridadRef) ||
-		!domain.ReferenciaOpacaValida(s.organizacionRef) ||
-		!domain.ReferenciaOpacaValida(s.expedienteRef) ||
-		!domain.ReferenciaOpacaValida(s.correlacionRef) ||
-		!domain.ReferenciaOpacaValida(s.respuestaRef) ||
-		!huellaSHA256Valida(s.huellaMaterial) {
-		return false
-	}
-	return huellaBytesBolsa(s.material) == s.huellaMaterial
-}
-
-func (c ComprobanteEvidenciaIntegracionBolsa) coincide(
-	solicitud solicitudVerificacionEvidenciaBolsa,
-) bool {
-	if c.datos == nil || !solicitud.validaEn(c.datos.verificadaEn) {
-		return false
-	}
-	return c.datos.autoridadRef == solicitud.autoridadRef &&
-		c.datos.organizacionRef == solicitud.organizacionRef &&
-		c.datos.expedienteRef == solicitud.expedienteRef &&
-		c.datos.correlacionRef == solicitud.correlacionRef &&
-		c.datos.respuestaRef == solicitud.respuestaRef &&
-		c.datos.evidenciaRef == solicitud.evidencia.EvidenciaRef &&
-		c.datos.huellaMaterial == solicitud.huellaMaterial &&
-		hmac.Equal([]byte(c.datos.selloHMAC), []byte(solicitud.evidencia.SelloHMAC))
+		p.Fuente.Validar() == nil &&
+		p.Evidencia.validarSintaxis(dominioSelloRespuestaBolsa)
 }
 
 func enteroSeguroBolsa(valor uint64) bool {
@@ -256,22 +105,35 @@ func instanteBolsaCanonico(instante time.Time) bool {
 }
 
 func selloHMACBolsaValido(valor, dominio string) bool {
+	_, _, valida := descomponerSelloHMACBolsa(valor, dominio)
+	return valida
+}
+
+func descomponerSelloHMACBolsa(valor, dominio string) (string, uint32, bool) {
 	if !SelloHMACSHA256Valido(valor) {
-		return false
+		return "", 0, false
 	}
 	partes := strings.Split(valor, ":")
 	prefijo := dominio + "/v"
 	if len(partes) != 3 || !strings.HasPrefix(partes[1], prefijo) {
-		return false
+		return "", 0, false
 	}
 	version := strings.TrimPrefix(partes[1], prefijo)
 	numero, err := strconv.ParseUint(version, 10, 32)
-	return err == nil && numero > 0 && version[0] != '0'
+	if err != nil || numero == 0 || version[0] == '0' {
+		return "", 0, false
+	}
+	return partes[1], uint32(numero), true
 }
 
 func huellaBytesBolsa(material []byte) string {
 	suma := sha256.Sum256(material)
 	return hex.EncodeToString(suma[:])
+}
+
+func huellasBolsaIguales(primera, segunda string) bool {
+	return huellaSHA256Valida(primera) && huellaSHA256Valida(segunda) &&
+		hmac.Equal([]byte(primera), []byte(segunda))
 }
 
 func dependenciaIntegracionBolsaNula(valor any) bool {

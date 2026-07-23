@@ -51,17 +51,33 @@ func (c *constructorCanonicoBolsa) referencia(
 	c.campo(prefijo+"_huella_sha256", valor.HuellaSHA256)
 }
 
-func (c *constructorCanonicoBolsa) contexto(valor ContextoPeticionIntegracionBolsa) {
+func (c *constructorCanonicoBolsa) contexto(
+	valor DatosContextoPeticionIntegracionBolsa,
+) {
 	c.campo("operacion_ref", valor.OperacionRef)
 	c.campo("organizacion_ref", valor.OrganizacionRef)
 	c.campo("expediente_ref", valor.ExpedienteRef)
 	c.entero("version_expediente", valor.VersionExpediente)
 	c.campo("correlacion_ref", valor.CorrelacionRef)
 	c.entero("contrato_version", valor.ContratoVersion)
+	c.campo("autoridad_solicitante", valor.AutoridadSolicitante)
+	c.referencia("autorizacion", valor.Autorizacion)
+	c.referencia("accion", valor.Accion)
+	c.referencia("recurso", valor.Recurso)
 	c.referencia("finalidad", valor.Finalidad)
-	c.campo("sello_peticion_hmac", valor.SelloPeticionHMAC)
 	c.instante("solicitada_en", valor.SolicitadaEn)
 	c.instante("peticion_valida_hasta", valor.ValidaHasta)
+}
+
+func (c *constructorCanonicoBolsa) contextoCapacidad(
+	valor ContextoPeticionIntegracionBolsa,
+) {
+	datos, err := valor.datosDurables()
+	if err != nil {
+		c.campo("contexto_invalido", "1")
+		return
+	}
+	c.contexto(datos)
 }
 
 func (c *constructorCanonicoBolsa) procedencia(valor ProcedenciaIntegracionBolsa) {
@@ -70,23 +86,11 @@ func (c *constructorCanonicoBolsa) procedencia(valor ProcedenciaIntegracionBolsa
 	c.entero("procedencia_contrato_version", valor.ContratoVersion)
 	c.referencia("fuente", valor.Fuente)
 	c.campo("evidencia_ref", valor.Evidencia.EvidenciaRef)
+	c.campo("clave_verificacion_ref", valor.Evidencia.ClaveVerificacionRef)
 	c.instante("evidencia_emitida_en", valor.Evidencia.EmitidaEn)
 	c.instante("evidencia_valida_hasta", valor.Evidencia.ValidaHasta)
 }
 
 func (c *constructorCanonicoBolsa) bytes() []byte {
 	return append([]byte(nil), c.contenido.Bytes()...)
-}
-
-func nuevaSolicitudVerificacionBolsa(
-	material []byte,
-	procedencia ProcedenciaIntegracionBolsa,
-	contexto ContextoPeticionIntegracionBolsa,
-) solicitudVerificacionEvidenciaBolsa {
-	return solicitudVerificacionEvidenciaBolsa{
-		material: material, evidencia: procedencia.Evidencia,
-		autoridadRef: procedencia.AutoridadRef, organizacionRef: contexto.OrganizacionRef,
-		expedienteRef: contexto.ExpedienteRef, correlacionRef: contexto.CorrelacionRef,
-		respuestaRef: procedencia.RespuestaRef, huellaMaterial: huellaBytesBolsa(material),
-	}
 }

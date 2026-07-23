@@ -5,14 +5,31 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
+const (
+	autoridadPeticionBolsaPrueba  = "autoridad:contratacion-temporal"
+	autoridadRespuestaBolsaPrueba = "autoridad:bolsa"
+	clavePeticionBolsaV1Prueba    = dominioSelloPeticionBolsa + "/v1"
+	claveRespuestaBolsaV1Prueba   = dominioSelloRespuestaBolsa + "/v1"
+	claveRespuestaBolsaV2Prueba   = dominioSelloRespuestaBolsa + "/v2"
+)
+
+var (
+	secretoPeticionBolsaV1Prueba  = []byte("clave-peticion-bolsa-v1-prueba")
+	secretoRespuestaBolsaV1Prueba = []byte("clave-respuesta-bolsa-v1-prueba")
+	secretoRespuestaBolsaV2Prueba = []byte("clave-respuesta-bolsa-v2-prueba")
+)
+
 type selladorHMACBolsaPrueba struct {
-	clave []byte
-	falla bool
+	claveRef string
+	clave    []byte
+	falla    bool
 }
 
 func (s *selladorHMACBolsaPrueba) SellarDatos(
@@ -27,8 +44,41 @@ func (s *selladorHMACBolsaPrueba) SellarDatos(
 	}
 	mac := hmac.New(sha256.New, s.clave)
 	_, _ = mac.Write(material)
-	return "hmac-sha256:" + dominioSelloRespuestaBolsa + "/v1:" +
+	return "hmac-sha256:" + s.claveRef + ":" +
 		hex.EncodeToString(mac.Sum(nil)), nil
+}
+
+type verificadorHMACBolsaPrueba struct {
+	claves map[string][]byte
+	falla  bool
+	usos   atomic.Uint32
+}
+
+func (v *verificadorHMACBolsaPrueba) VerificarDatos(
+	ctx context.Context,
+	claveRef string,
+	material []byte,
+	sello string,
+) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	v.usos.Add(1)
+	if v.falla {
+		return ErrIntegracionBolsaNoDisponible
+	}
+	clave, existe := v.claves[claveRef]
+	if !existe {
+		return ErrEvidenciaBolsaNoAutenticada
+	}
+	mac := hmac.New(sha256.New, clave)
+	_, _ = mac.Write(material)
+	esperado := "hmac-sha256:" + claveRef + ":" +
+		hex.EncodeToString(mac.Sum(nil))
+	if !hmac.Equal([]byte(esperado), []byte(sello)) {
+		return ErrEvidenciaBolsaNoAutenticada
+	}
+	return nil
 }
 
 func instanteBolsaPrueba() time.Time {
@@ -41,49 +91,149 @@ func referenciaBolsaPrueba(referencia, caracter string) ReferenciaVersionadaInte
 	}
 }
 
-func selloNominalBolsaPrueba(dominio, caracter string) string {
-	return "hmac-sha256:" + dominio + "/v1:" + strings.Repeat(caracter, 64)
+func selloNominalBolsaPrueba(claveRef, caracter string) string {
+	return "hmac-sha256:" + claveRef + ":" + strings.Repeat(caracter, 64)
 }
 
-func contextoBolsaPrueba(instante time.Time) ContextoPeticionIntegracionBolsa {
-	return ContextoPeticionIntegracionBolsa{
-		OperacionRef: "operacion:bolsa:temporal", OrganizacionRef: "organizacion:diputacion",
-		ExpedienteRef: "expediente:temporal", VersionExpediente: 5,
-		CorrelacionRef: "correlacion:temporal", ContratoVersion: VersionContratoIntegracionBolsa,
-		Finalidad:         referenciaBolsaPrueba("finalidad:cobertura", "f"),
-		SelloPeticionHMAC: selloNominalBolsaPrueba(dominioSelloPeticionBolsa, "9"),
-		SolicitadaEn:      instante, ValidaHasta: instante.Add(10 * time.Minute),
+func selladorPeticionBolsaPrueba() *selladorHMACBolsaPrueba {
+	return &selladorHMACBolsaPrueba{
+		claveRef: clavePeticionBolsaV1Prueba,
+		clave:    secretoPeticionBolsaV1Prueba,
 	}
+}
+
+func selladorRespuestaBolsaPrueba() *selladorHMACBolsaPrueba {
+	return &selladorHMACBolsaPrueba{
+		claveRef: claveRespuestaBolsaV1Prueba,
+		clave:    secretoRespuestaBolsaV1Prueba,
+	}
+}
+
+func verificadorRespuestaBolsaPrueba(
+	activa string,
+	retenidas ...string,
+) *VerificadorEvidenciaIntegracionBolsa {
+	claves := map[string][]byte{
+		claveRespuestaBolsaV1Prueba: secretoRespuestaBolsaV1Prueba,
+		claveRespuestaBolsaV2Prueba: secretoRespuestaBolsaV2Prueba,
+	}
+	verificador, err := NuevoVerificadorEvidenciaIntegracionBolsa(
+		autoridadRespuestaBolsaPrueba,
+		activa,
+		retenidas,
+		&verificadorHMACBolsaPrueba{claves: claves},
+	)
+	if err != nil {
+		panic(err)
+	}
+	return verificador
+}
+
+func datosContextoBolsaPrueba(
+	instante time.Time,
+	operacion string,
+	recurso ReferenciaVersionadaIntegracionBolsa,
+	accion ReferenciaVersionadaIntegracionBolsa,
+) DatosContextoPeticionIntegracionBolsa {
+	return DatosContextoPeticionIntegracionBolsa{
+		OperacionRef:         operacion,
+		OrganizacionRef:      "organizacion:diputacion",
+		ExpedienteRef:        "expediente:temporal",
+		VersionExpediente:    5,
+		CorrelacionRef:       "correlacion:temporal",
+		ContratoVersion:      VersionContratoIntegracionBolsa,
+		AutoridadSolicitante: autoridadPeticionBolsaPrueba,
+		Autorizacion:         referenciaBolsaPrueba("autorizacion:contratacion", "1"),
+		Accion:               accion,
+		Recurso:              recurso,
+		Finalidad:            referenciaBolsaPrueba("finalidad:cobertura", "f"),
+		SolicitadaEn:         instante,
+		ValidaHasta:          instante.Add(10 * time.Minute),
+	}
+}
+
+func emitirContextoBolsaPrueba(
+	t *testing.T,
+	datos DatosContextoPeticionIntegracionBolsa,
+) ContextoPeticionIntegracionBolsa {
+	t.Helper()
+	emisor, err := NuevoEmisorContextoPeticionIntegracionBolsa(
+		autoridadPeticionBolsaPrueba,
+		clavePeticionBolsaV1Prueba,
+		selladorPeticionBolsaPrueba(),
+	)
+	if err != nil {
+		t.Fatalf("crear emisor de contexto: %v", err)
+	}
+	contexto, err := emisor.Emitir(context.Background(), datos, datos.SolicitadaEn)
+	if err != nil {
+		t.Fatalf("emitir contexto autenticado: %v", err)
+	}
+	return contexto
+}
+
+func contextoBolsaPrueba(
+	t *testing.T,
+	instante time.Time,
+	operacion string,
+	recurso ReferenciaVersionadaIntegracionBolsa,
+	accion ReferenciaVersionadaIntegracionBolsa,
+) ContextoPeticionIntegracionBolsa {
+	t.Helper()
+	return emitirContextoBolsaPrueba(
+		t,
+		datosContextoBolsaPrueba(instante, operacion, recurso, accion),
+	)
 }
 
 func procedenciaBolsaPrueba(instante time.Time) ProcedenciaIntegracionBolsa {
 	return ProcedenciaIntegracionBolsa{
-		AutoridadRef: "autoridad:bolsa", RespuestaRef: "respuesta:bolsa",
+		AutoridadRef:    autoridadRespuestaBolsaPrueba,
+		RespuestaRef:    "respuesta:bolsa",
 		ContratoVersion: VersionContratoIntegracionBolsa,
 		Fuente:          referenciaBolsaPrueba("fuente:bolsa", "8"),
 		Evidencia: EvidenciaNominalIntegracionBolsa{
-			EvidenciaRef: "evidencia:bolsa",
-			SelloHMAC:    selloNominalBolsaPrueba(dominioSelloRespuestaBolsa, "7"),
-			EmitidaEn:    instante.Add(2 * time.Minute),
-			ValidaHasta:  instante.Add(8 * time.Minute),
+			EvidenciaRef:         "evidencia:bolsa",
+			ClaveVerificacionRef: claveRespuestaBolsaV1Prueba,
+			SelloHMAC: selloNominalBolsaPrueba(
+				claveRespuestaBolsaV1Prueba,
+				"7",
+			),
+			EmitidaEn:   instante.Add(2 * time.Minute),
+			ValidaHasta: instante.Add(8 * time.Minute),
 		},
 	}
 }
 
-func solicitudDisponibilidadPrueba(instante time.Time) SolicitudDisponibilidadBolsa {
+func solicitudDisponibilidadPrueba(
+	t *testing.T,
+	instante time.Time,
+) SolicitudDisponibilidadBolsa {
+	t.Helper()
+	necesidad := referenciaBolsaPrueba("necesidad:temporal", "a")
 	return SolicitudDisponibilidadBolsa{
-		Contexto:     contextoBolsaPrueba(instante),
-		Necesidad:    referenciaBolsaPrueba("necesidad:temporal", "a"),
-		CategoriaRef: "categoria:auxiliar", MaximoResultados: 100,
+		Contexto: contextoBolsaPrueba(
+			t,
+			instante,
+			"operacion:consultar:disponibilidad",
+			necesidad,
+			referenciaBolsaPrueba("accion:consultar:disponibilidad", "2"),
+		),
+		Necesidad: necesidad, CategoriaRef: "categoria:auxiliar", MaximoResultados: 100,
 	}
 }
 
-func resultadoDisponibilidadPrueba(instante time.Time) ResultadoDisponibilidadBolsa {
-	solicitud := solicitudDisponibilidadPrueba(instante)
+func resultadoDisponibilidadPrueba(
+	t *testing.T,
+	instante time.Time,
+) ResultadoDisponibilidadBolsa {
+	t.Helper()
+	solicitud := solicitudDisponibilidadPrueba(t, instante)
+	contexto, _ := solicitud.Contexto.datosDurables()
 	return ResultadoDisponibilidadBolsa{
-		OperacionRef: solicitud.Contexto.OperacionRef, OrganizacionRef: solicitud.Contexto.OrganizacionRef,
-		ExpedienteRef: solicitud.Contexto.ExpedienteRef, VersionExpediente: solicitud.Contexto.VersionExpediente,
-		CorrelacionRef: solicitud.Contexto.CorrelacionRef, Necesidad: solicitud.Necesidad,
+		OperacionRef: contexto.OperacionRef, OrganizacionRef: contexto.OrganizacionRef,
+		ExpedienteRef: contexto.ExpedienteRef, VersionExpediente: contexto.VersionExpediente,
+		CorrelacionRef: contexto.CorrelacionRef, Necesidad: solicitud.Necesidad,
 		CategoriaRef:    solicitud.CategoriaRef,
 		Resultado:       referenciaBolsaPrueba("resultado:disponibilidad", "d"),
 		BolsaEncontrada: true, Bolsa: referenciaBolsaPrueba("bolsa:vigente", "b"),
@@ -92,27 +242,38 @@ func resultadoDisponibilidadPrueba(instante time.Time) ResultadoDisponibilidadBo
 	}
 }
 
-func comandoOrdenPrueba(instante time.Time) ComandoPrepararOrdenBolsa {
+func comandoOrdenPrueba(t *testing.T, instante time.Time) ComandoPrepararOrdenBolsa {
+	t.Helper()
+	bolsa := referenciaBolsaPrueba("bolsa:vigente", "b")
 	return ComandoPrepararOrdenBolsa{
-		Contexto:         contextoBolsaPrueba(instante),
+		Contexto: contextoBolsaPrueba(
+			t,
+			instante,
+			"operacion:preparar:orden",
+			bolsa,
+			referenciaBolsaPrueba("accion:preparar:orden", "3"),
+		),
 		Necesidad:        referenciaBolsaPrueba("necesidad:temporal", "a"),
-		Bolsa:            referenciaBolsaPrueba("bolsa:vigente", "b"),
+		Bolsa:            bolsa,
 		Politica:         referenciaBolsaPrueba("politica:llamamiento", "c"),
 		MaximoPosiciones: 200,
 	}
 }
 
-func reciboOrdenPrueba(instante time.Time) ReciboOrdenBolsa {
-	comando := comandoOrdenPrueba(instante)
+func reciboOrdenPrueba(t *testing.T, instante time.Time) ReciboOrdenBolsa {
+	t.Helper()
+	comando := comandoOrdenPrueba(t, instante)
+	contexto, _ := comando.Contexto.datosDurables()
 	return ReciboOrdenBolsa{
-		OperacionRef: comando.Contexto.OperacionRef, OrganizacionRef: comando.Contexto.OrganizacionRef,
-		ExpedienteRef: comando.Contexto.ExpedienteRef, VersionExpediente: comando.Contexto.VersionExpediente,
-		CorrelacionRef: comando.Contexto.CorrelacionRef, Necesidad: comando.Necesidad,
+		OperacionRef: contexto.OperacionRef, OrganizacionRef: contexto.OrganizacionRef,
+		ExpedienteRef: contexto.ExpedienteRef, VersionExpediente: contexto.VersionExpediente,
+		CorrelacionRef: contexto.CorrelacionRef, Necesidad: comando.Necesidad,
 		Bolsa: comando.Bolsa, Politica: comando.Politica,
 		Resultado:     referenciaBolsaPrueba("resultado:orden", "d"),
 		OrdenGenerada: true, OrdenCompleta: true,
-		Orden:           referenciaBolsaPrueba("orden:instantanea", "e"),
-		TotalPosiciones: 82, ReciboRef: "recibo:orden",
+		Orden:             referenciaBolsaPrueba("orden:instantanea", "e"),
+		AccionLlamamiento: referenciaBolsaPrueba("accion:solicitar:llamamiento", "4"),
+		TotalPosiciones:   82, ReciboRef: "recibo:orden",
 		AuditoriaRef: "auditoria:orden", EventoRef: "evento:orden",
 		ConfirmadaEn: instante.Add(time.Minute), Procedencia: procedenciaBolsaPrueba(instante),
 	}
@@ -124,22 +285,24 @@ func comandoLlamamientoPrueba(
 	sellador *selladorHMACBolsaPrueba,
 ) ComandoSolicitarLlamamientoBolsa {
 	t.Helper()
-	comandoOrden := comandoOrdenPrueba(instante)
-	reciboOrden := reciboOrdenPrueba(instante)
+	comandoOrden := comandoOrdenPrueba(t, instante)
+	reciboOrden := reciboOrdenPrueba(t, instante)
 	firmarOrdenPrueba(t, sellador, comandoOrden, &reciboOrden)
-	verificador, err := NuevoVerificadorEvidenciaIntegracionBolsa(sellador)
-	if err != nil {
-		t.Fatalf("crear verificador para comando: %v", err)
-	}
+	verificador := verificadorRespuestaBolsaPrueba(claveRespuestaBolsaV1Prueba)
 	ahora := instante.Add(3 * time.Minute)
-	comprobante, err := verificador.VerificarReciboOrden(
+	comprobante, _, err := verificador.VerificarReciboOrden(
 		context.Background(), comandoOrden, reciboOrden, ahora,
 	)
 	if err != nil {
 		t.Fatalf("autenticar orden para comando: %v", err)
 	}
-	contexto := contextoBolsaPrueba(instante)
-	contexto.OperacionRef = "operacion:solicitar:llamamiento"
+	datos := datosContextoBolsaPrueba(
+		instante,
+		"operacion:solicitar:llamamiento",
+		reciboOrden.Orden,
+		reciboOrden.AccionLlamamiento,
+	)
+	contexto := emitirContextoBolsaPrueba(t, datos)
 	comando, err := NuevoComandoSolicitarLlamamientoBolsa(
 		PreparacionComandoSolicitarLlamamientoBolsa{
 			Contexto: contexto, ComandoOrden: comandoOrden, ReciboOrden: reciboOrden,
@@ -163,19 +326,48 @@ func reciboLlamamientoPrueba(
 	if err != nil {
 		t.Fatalf("extraer comando de llamamiento: %v", err)
 	}
+	contexto, _ := datos.Contexto.datosDurables()
 	return ReciboSolicitudLlamamientoBolsa{
-		OperacionRef: datos.Contexto.OperacionRef, OrganizacionRef: datos.Contexto.OrganizacionRef,
-		ExpedienteRef: datos.Contexto.ExpedienteRef, VersionExpediente: datos.Contexto.VersionExpediente,
-		CorrelacionRef: datos.Contexto.CorrelacionRef, Necesidad: datos.Necesidad,
+		OperacionRef: contexto.OperacionRef, OrganizacionRef: contexto.OrganizacionRef,
+		ExpedienteRef: contexto.ExpedienteRef, VersionExpediente: contexto.VersionExpediente,
+		CorrelacionRef: contexto.CorrelacionRef, Necesidad: datos.Necesidad,
 		Bolsa: datos.Bolsa, Orden: datos.Orden, Politica: datos.Politica,
 		Resultado:         referenciaBolsaPrueba("resultado:propuesta", "d"),
 		PropuestaGenerada: true, Propuesta: referenciaBolsaPrueba("propuesta:primera", "e"),
+		AccionEvento:   referenciaBolsaPrueba("accion:registrar:evento", "5"),
 		LlamamientoRef: "llamamiento:primero", SeleccionRef: "seleccion:seudonimizada",
 		RetencionSeleccion: referenciaBolsaPrueba("retencion:seleccion", "6"),
 		OrdenSeleccionado:  4, ReciboRef: "recibo:llamamiento",
 		AuditoriaRef: "auditoria:llamamiento", EventoRef: "evento:llamamiento",
 		ConfirmadaEn: instante.Add(time.Minute), Procedencia: procedenciaBolsaPrueba(instante),
 	}
+}
+
+func firmarRespuestaBolsaPrueba(
+	t *testing.T,
+	sellador *selladorHMACBolsaPrueba,
+	tipoMaterial string,
+	peticionRef string,
+	materialPeticion []byte,
+	materialRespuesta []byte,
+	procedencia *ProcedenciaIntegracionBolsa,
+) {
+	t.Helper()
+	procedencia.Evidencia.ClaveVerificacionRef = sellador.claveRef
+	procedencia.Evidencia.SelloHMAC = selloNominalBolsaPrueba(sellador.claveRef, "1")
+	evidencia := nuevaEvidenciaDurableBolsa(
+		tipoMaterial,
+		peticionRef,
+		materialPeticion,
+		materialRespuesta,
+		*procedencia,
+	)
+	materialFirmado := materialAutenticacionRespuestaBolsa(evidencia, materialRespuesta)
+	sello, err := sellador.SellarDatos(context.Background(), materialFirmado)
+	if err != nil {
+		t.Fatalf("sellar respuesta: %v", err)
+	}
+	procedencia.Evidencia.SelloHMAC = sello
 }
 
 func firmarDisponibilidadPrueba(
@@ -185,11 +377,16 @@ func firmarDisponibilidadPrueba(
 	resultado *ResultadoDisponibilidadBolsa,
 ) {
 	t.Helper()
-	sello, err := sellador.SellarDatos(context.Background(), materialDisponibilidadBolsa(solicitud, *resultado))
-	if err != nil {
-		t.Fatalf("sellar disponibilidad: %v", err)
-	}
-	resultado.Procedencia.Evidencia.SelloHMAC = sello
+	contexto, _ := solicitud.Contexto.datosDurables()
+	firmarRespuestaBolsaPrueba(
+		t,
+		sellador,
+		"disponibilidad_volatil",
+		contexto.OperacionRef,
+		materialSolicitudDisponibilidadBolsa(solicitud),
+		materialDisponibilidadBolsa(solicitud, *resultado),
+		&resultado.Procedencia,
+	)
 }
 
 func firmarOrdenPrueba(
@@ -199,11 +396,16 @@ func firmarOrdenPrueba(
 	recibo *ReciboOrdenBolsa,
 ) {
 	t.Helper()
-	sello, err := sellador.SellarDatos(context.Background(), materialReciboOrdenBolsa(comando, *recibo))
-	if err != nil {
-		t.Fatalf("sellar orden: %v", err)
-	}
-	recibo.Procedencia.Evidencia.SelloHMAC = sello
+	contexto, _ := comando.Contexto.datosDurables()
+	firmarRespuestaBolsaPrueba(
+		t,
+		sellador,
+		"recibo_orden",
+		contexto.OperacionRef,
+		materialComandoOrdenBolsa(comando),
+		materialReciboOrdenBolsa(comando, *recibo),
+		&recibo.Procedencia,
+	)
 }
 
 func firmarLlamamientoPrueba(
@@ -213,9 +415,41 @@ func firmarLlamamientoPrueba(
 	recibo *ReciboSolicitudLlamamientoBolsa,
 ) {
 	t.Helper()
-	sello, err := sellador.SellarDatos(context.Background(), materialReciboLlamamientoBolsa(comando, *recibo))
+	datos, err := comando.datosCanonicos()
 	if err != nil {
-		t.Fatalf("sellar llamamiento: %v", err)
+		t.Fatalf("leer comando para firma: %v", err)
 	}
-	recibo.Procedencia.Evidencia.SelloHMAC = sello
+	contexto, _ := datos.Contexto.datosDurables()
+	firmarRespuestaBolsaPrueba(
+		t,
+		sellador,
+		"recibo_llamamiento",
+		contexto.OperacionRef,
+		materialComandoLlamamientoBolsa(comando),
+		materialReciboLlamamientoBolsa(comando, *recibo),
+		&recibo.Procedencia,
+	)
+}
+
+func autenticarReciboLlamamientoPrueba(
+	t *testing.T,
+	comando ComandoSolicitarLlamamientoBolsa,
+	recibo ReciboSolicitudLlamamientoBolsa,
+	instante time.Time,
+) ComprobanteEvidenciaIntegracionBolsa {
+	t.Helper()
+	comprobante, _, err := verificadorRespuestaBolsaPrueba(
+		claveRespuestaBolsaV1Prueba,
+	).VerificarReciboLlamamiento(context.Background(), comando, recibo, instante)
+	if err != nil {
+		t.Fatalf("autenticar recibo de llamamiento: %v", err)
+	}
+	return comprobante
+}
+
+func exigirErrorBolsa(t *testing.T, err error, esperado error) {
+	t.Helper()
+	if !errors.Is(err, esperado) {
+		t.Fatalf("error=%v; esperado=%v", err, esperado)
+	}
 }
