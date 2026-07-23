@@ -179,8 +179,15 @@ ajenas.
   reprodujo tres bloqueos: la vigencia se comprueba antes de una presentación
   que puede consumir tiempo y no al terminar; el replay histórico vuelve a
   verificar con la clave actual y falla tras rotación; y `ports` conserva una
-  orquestación residual de desafío, presentación y verificación. Sigue en
-  corrección y no se integra.
+  orquestación residual de desafío, presentación y verificación.
+- La quinta corrección O4-02 `0a3604c`–`5bb4aaf` relee tiempo autoritativo
+  después de cada presentación, separa la evidencia histórica pública K1 de
+  la autoridad actual K2, impide que un recibo histórico enmascare confianza
+  actual inválida y elimina los tiempos de prueba dependientes del
+  planificador. El productor superó focal ×50, carrera, pruebas globales,
+  `go vet`, tamaños y secretos. Permanece sin integrar y en NO-GO hasta la
+  revisión definida en
+  `encargo_revision_o4_02_quinta_correccion_2026-07-23.md`.
 - O8-01 tiene un candidato aislado de dominio en `2b2215a`, documentado en
   `d2d2b75`, con estados publicados, transiciones versionadas, control CAS,
   rectificación append-only y evidencia de calendario. La revisión
