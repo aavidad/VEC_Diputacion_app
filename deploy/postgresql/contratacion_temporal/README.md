@@ -23,6 +23,7 @@ La migración aditiva `000002_rotacion_hmac` conserva la historia v1 y añade:
 - restricciones genéricas `/vN`;
 - revocación runtime de v1 y concesión exclusiva de v2;
 - rechazo de colisiones o convergencia entre dos reservas.
+- límites propios de bloqueo, sentencia e inactividad en la función v2.
 
 La clave idempotente original no cruza hacia PostgreSQL. El adaptador solicita
 a `SelladorAmbitoIdempotencia` una HMAC ligada a organización, actor y perfil,
@@ -44,6 +45,13 @@ dominios —ámbito idempotente y huella de petición— deben presentar la mism
 matriz. Si el conector no puede usar una generación retenida, la operación
 falla antes de PostgreSQL. Si un cliente omite una generación exigida, la
 función v2 falla cerrada.
+
+El adaptador reutiliza los mismos sellos y referencias candidatas, pero abre
+una transacción nueva hasta un máximo de tres intentos exclusivamente ante
+`40001` —fallo de serialización— o `40P01` —interbloqueo—. Cualquier otro
+SQLSTATE falla sin reintento. La cancelación o el vencimiento del contexto
+detienen la secuencia, mientras que un `COMMIT` confirmado se devuelve como
+éxito durable sin una comprobación tardía que lo convierta en fallo.
 
 Retirar v1 requiere una migración posterior, inventario de vida máxima de las
 claves idempotentes, agotamiento probado de esa vida, copia y restauración
@@ -90,8 +98,11 @@ efímero, sin puertos publicados, sin red y con el directorio de datos en
 
 El ensayo valida instalación con cuenta de migración, separación de roles,
 privilegio mínimo del ejecutor, alta v1, rotación v2→v1 con el mismo
-expediente y recibo, alta nativa v2, conflicto semántico, ausencia de una
-generación histórica, ocho sesiones concurrentes con ambas generaciones,
+expediente, recibo, versión, auditoría, evento e instante de confirmación, alta
+nativa v2, conflicto semántico, ausencia de una generación histórica, bloqueo
+directo limitado por la propia función, y ocho sesiones concurrentes con ambas
+generaciones. El ensayo conserva y valida el resumen de `pgbench`: exige
+`16/16` transacciones procesadas y cero fallidas. También comprueba
 inmutabilidad, rechazo del rollback ordinario con historia y limpieza
 destructiva autorizada. Las
 identidades LOGIN y la clave usadas existen únicamente dentro del contenedor

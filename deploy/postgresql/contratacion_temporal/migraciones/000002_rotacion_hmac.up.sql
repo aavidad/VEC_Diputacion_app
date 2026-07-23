@@ -203,6 +203,9 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog
+SET lock_timeout = '2s'
+SET statement_timeout = '15s'
+SET idle_in_transaction_session_timeout = '20s'
 AS $funcion$
 DECLARE
     v_insertada boolean := false;

@@ -51,11 +51,17 @@ BEGIN
     SELECT *
       INTO STRICT v_fila
       FROM vec_contratacion_temporal.preparar_alta_v2(v_rotada);
-    IF v_fila.resultado <> 'reutilizada'
+    IF v_fila.resultado <> 'confirmada'
+       OR v_fila.estado <> 'confirmada'
        OR v_fila.reserva_ref <> 'reserva:alta-001'
        OR v_fila.expediente_ref <> 'expediente:ct-2026-0001'
        OR v_fila.numero_visible <> '2026/CT-0001'
        OR v_fila.recibo_ref <> 'recibo:alta-001'
+       OR v_fila.version_expediente <> 7
+       OR v_fila.auditoria_ref <> 'auditoria:alta-v1-confirmada'
+       OR v_fila.evento_ref <> 'evento:alta-v1-confirmada'
+       OR v_fila.confirmada_en <>
+            '2026-07-23 12:34:56.123456+00'::timestamptz
        OR v_fila.ambito_hmac <>
            'hmac-sha256:vec.contratacion-temporal.'
            || 'ambito-idempotencia/v1:' || repeat('d', 64) THEN
