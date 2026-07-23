@@ -22,8 +22,10 @@ crearPresentadorAltaContratacionTemporal({
 
 La capacidad es una indicación de presentación resuelta por composición. No
 autoriza el efecto ni sustituye la decisión de servidor. Sin capacidad exacta,
-catálogos operables y función `ejecutor`, el formulario queda no disponible y
-no llama a ninguna frontera.
+un catálogo válido pero no operable o una función `ejecutor`, el formulario
+queda no disponible y no llama a ninguna frontera. Un catálogo ausente,
+malformado o de esquema incompatible es un error de composición: el constructor
+lo rechaza antes de crear una vista.
 
 El ejecutor tiene esta forma neutral:
 
@@ -35,9 +37,22 @@ async function ejecutor(comando, { signal }) {
 }
 ```
 
+En éxito resuelve únicamente el recibo público cerrado. En rechazo no existe
+en O2-09A un esquema de errores remotos por campo: el presentador descarta la
+causa privada y publica un error general redactado. Los errores por campo
+actuales proceden exclusivamente de la validación local. O2-08 no debe confiar
+en que la vista interprete cuerpos, estados o mensajes privados.
+
 `signal` permite cancelar la espera. Una cancelación no demuestra que el
 servidor haya descartado el efecto. El presentador conserva el mismo comando y
 la misma clave de idempotencia para un reintento con contenido idéntico.
+
+La frontera de O2-08 deberá usar una credencial breve ligada al cliente y
+obtenida mediante composición confiable, fuera de este comando. No podrá usar
+`Cookie`, `Set-Cookie`, almacenamiento web, credenciales en URL ni cabeceras
+libres aportadas por el navegador para declarar identidad, perfil, organización
+o autoridad. El transporte deberá fijar una lista positiva de entradas y
+revalidar en servidor la credencial, el contexto y la capacidad.
 
 ## Comando cerrado
 
@@ -72,8 +87,9 @@ adicionales en ningún nivel.
 
 La clave se genera con CSPRNG al pasar a revisión, se conserva solo en memoria
 durante el envío/reintento y nunca forma parte del estado renderizable, un
-mensaje, un recibo o un registro. O2-08 debe conservar su semántica al traducir
-la petición y rechazar su reutilización con contenido diferente.
+mensaje visible, un recibo, un log o una traza. Sí forma parte del comando
+neutral que recibe el ejecutor. O2-08 debe conservar su semántica al traducir la
+petición y rechazar su reutilización con contenido diferente.
 
 O2-08 incorpora desde una frontera confiable, nunca desde este comando:
 
@@ -127,6 +143,14 @@ caracteres por etiqueta son límites técnicos provisionales de protección del
 navegador. O2-08 debe alinearlos, paginar antes de superarlos o publicar una
 versión nueva del esquema; no son reglas funcionales.
 
+Este esquema v1 es una proyección para selección y no transporta referencia,
+versión, vigencia, huella ni procedencia de la publicación. O2-08 deberá ligar
+la proyección a un catálogo gobernado en composición confiable, conservar allí
+su identidad y revalidar publicación, vigencia y pertenencias al ejecutar. No
+debe convertir etiquetas o metadatos del navegador en autoridad. La forma
+canónica de esa ligadura sigue siendo una brecha de integración; no se inventa
+como campo del comando de dominio.
+
 ## Recibo público minimizado
 
 O2-08 devuelve a la vista exactamente:
@@ -166,16 +190,19 @@ confirmación durable.
    efecto.
 4. **Proyección y autenticidad del recibo.** O2-08 debe validar el recibo
    interno completo y publicar solo los cinco campos minimizados.
-5. **Importes interoperables.** JavaScript exige céntimos enteros seguros. Go
-   admite `int64`; O2-08 debe fijar un máximo interoperable o codificación
-   canónica antes de aceptar importes superiores a `Number.MAX_SAFE_INTEGER`.
+5. **Enteros interoperables.** JavaScript exige céntimos y versión como enteros
+   seguros. Go admite `int64` para el importe y `uint64` para la versión; O2-08
+   debe fijar máximos interoperables o una codificación canónica antes de
+   publicar valores superiores a `Number.MAX_SAFE_INTEGER`.
 6. **Sistema documental.** Falta la fuente real de referencias incorporadas y
    la comprobación autoritativa de que cada referencia pertenece al ámbito
    permitido. Esta tarea no implementa carga documental.
 7. **Publicación del módulo.** El bootstrap productivo todavía no registra
-   `contrataciontemporal.Manifest()` y `locales/es.json` no contiene las claves
-   del manifiesto. La allowlist de activos web tampoco publica estos siete
-   archivos.
+   `contrataciontemporal.Manifest()`; `locales/es.json` y
+   `web/interno.locales.manifest` no contienen las claves del manifiesto;
+   `web/interno.manifest` y `web/produccion.manifest` no publican estos siete
+   activos. También faltan el enlace CSS en `index.html`, el registro y montaje
+   explícitos en `portal-modulos-coordinador.js` y sus pruebas de coordinación.
 8. **Router del shell.** `portal.js` mantiene títulos, hash y contador en una
    lista cerrada y queda fuera del write-set de O2-09A. Cambiar solo el
    coordinador dejaría una navegación falsa. También queda pendiente avanzar
