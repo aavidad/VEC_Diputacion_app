@@ -238,6 +238,7 @@ func validarDatosConfirmacionRespuesta(
 	if err != nil || errHuella != nil ||
 		!domain.ReferenciaOpacaValida(datos.VerificadorRef) ||
 		datos.AutoridadRef != atestacion.Metadatos.AutoridadRef ||
+		datos.VerificadorRef == datos.AutoridadRef ||
 		datos.Generacion != atestacion.Metadatos.Generacion ||
 		datos.ReciboRef != atestacion.Metadatos.ReciboRef ||
 		!hmac.Equal([]byte(datos.SelloRespuestaHMAC), []byte(atestacion.SelloHMAC)) ||

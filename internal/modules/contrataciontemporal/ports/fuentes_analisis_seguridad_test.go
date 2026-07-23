@@ -110,6 +110,24 @@ func TestFuenteYVerificadorTCBDebenSerInstanciasSeparadas(t *testing.T) {
 	}
 }
 
+func TestConfirmacionTCBNoPuedeDeclararLaMismaAutoridadFuente(t *testing.T) {
+	inicio := instanteFuenteAnalisisPrueba()
+	solicitud := solicitudCalcularCostePrueba(t, inicio)
+	metadatos := metadatosRespuestaPrueba(
+		"tabla_retributiva_2026_v3",
+		"recibo_coste_0123456789",
+		inicio,
+	)
+	resultado := resultadoCosteFirmadoPrueba(t, solicitud, metadatos)
+	if _, err := NuevaConfirmacionRespuestaFuenteAnalisis(
+		resultado.solicitudVerificacion(),
+		metadatos.AutoridadRef,
+		metadatos.EmitidaEn.Add(time.Second),
+	); err == nil {
+		t.Fatal("el verificador se identificó como la fuente")
+	}
+}
+
 func TestReplayExactoSoloSeAceptaDentroDeLaVentana(t *testing.T) {
 	inicio := instanteFuenteAnalisisPrueba()
 	solicitud := solicitudCalcularCostePrueba(t, inicio)
