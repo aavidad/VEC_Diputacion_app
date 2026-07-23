@@ -2,7 +2,7 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: tres rondas de revisión emitieron `NO-GO` con pruebas de concepto
+Estado: cuatro rondas de revisión emitieron `NO-GO` con pruebas de concepto
 reproducibles. Las correcciones están implementadas en rama aislada; una nueva
 revisión independiente y la integración siguen pendientes. Este documento no
 concede un `GO` de integración, piloto o producción.
@@ -96,6 +96,28 @@ recibo verificable se falla cerrado; el reintento con la misma `PeticionRef`
 recupera el recibo original sin crear otro efecto. Un reloj regresivo o un
 recibo fechado en el futuro continúan rechazándose. La tercera corrección
 permanece en `NO-GO` hasta revisión ajena.
+
+La cuarta revisión encontró dos defectos adicionales:
+
+1. el reloj se comparaba únicamente antes y después del consumidor; tras
+   observar `t+5` al validar el catálogo, un retroceso a `t+2` podía reabrir
+   una respuesta cuyo fin exclusivo era `t+5`;
+2. `ConfianzaAutoridadesFuenteAnalisis` implementaba dentro de `ports` la
+   coordinación concreta de desafío, presentación y verificación.
+
+La corrección mantiene un suelo temporal por operación. Todas las lecturas del
+reloj del caso de uso —autenticación, catálogo, fuente, verificador,
+preconsumo y salida— deben ser UTC canónico y mayores o iguales que cualquier
+lectura anterior. Un retroceso falla cerrado antes de `ConsumirCobertura`; no
+se ajusta el instante silenciosamente ni se reabre una evidencia caducada.
+
+`ports` conserva la identidad inmutable y el contrato
+`AutenticadorAutoridadesFuenteAnalisis`. La coordinación concreta se ha
+trasladado a `adapters/seguridad`, donde el adaptador intercambiable crea el
+desafío, solicita la presentación y verifica la confianza fijada por
+composición. El caso de uso continúa siendo neutral respecto de web,
+escritorio, CLI y MCP. Esta cuarta corrección permanece en `NO-GO` hasta una
+nueva revisión independiente.
 
 ## Alcance
 
@@ -358,6 +380,8 @@ Las pruebas incluyen:
 - timeout total, cancelación prioritaria y nulos tipados;
 - consumidor que ignora contexto, reloj vencido y cancelación competitiva;
 - retroceso del reloj y recibo fechado en el futuro;
+- retroceso de `t+5` a `t+2` entre catálogo y fuente, con consumo cero;
+- autenticador criptográfico concreto fuera de `ports`;
 - credencial SAE intentando contestar la definición de Bolsa;
 - confirmación sin clave privada TCB y firma Ed25519 alterada;
 - límites 100 años, 2^53−1 y cinco segundos;
@@ -366,12 +390,15 @@ Las pruebas incluyen:
 Puertas previstas:
 
 ```text
-go test ./internal/modules/contrataciontemporal/ports -count=1
-go test ./internal/modules/contrataciontemporal/application -count=1
+go test ./internal/modules/contrataciontemporal/ports \
+  ./internal/modules/contrataciontemporal/application \
+  ./internal/modules/contrataciontemporal/adapters/seguridad -count=1
 go test -race ./internal/modules/contrataciontemporal/ports \
-  ./internal/modules/contrataciontemporal/application -count=1
+  ./internal/modules/contrataciontemporal/application \
+  ./internal/modules/contrataciontemporal/adapters/seguridad -count=1
 go vet ./internal/modules/contrataciontemporal/ports \
-  ./internal/modules/contrataciontemporal/application
+  ./internal/modules/contrataciontemporal/application \
+  ./internal/modules/contrataciontemporal/adapters/seguridad
 go test ./internal/modules/contrataciontemporal/application \
   -run '^TestServicioConsultaCoberturaReintentoExactoConRelojAvanzado$' \
   -count=20

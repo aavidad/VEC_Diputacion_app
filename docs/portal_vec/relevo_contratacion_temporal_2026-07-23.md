@@ -272,3 +272,19 @@ Cada corte debe actualizar:
 
 Nunca sustituir «pendiente» por «terminado» porque exista una pantalla, un
 puerto o una prueba aislada.
+
+## Estado O4-02 tras cuarta revisión
+
+O4-02 continúa en `NO-GO` pendiente de nueva revisión independiente. La rama
+aislada incorpora dos correcciones:
+
+- suelo de reloj monotónico por consulta; cualquier retroceso entre
+  autenticación, catálogo, fuente, verificación, preconsumo y salida falla
+  cerrado, y el caso `t+5 → t+2` prueba consumo cero;
+- el autenticador concreto de autoridades se ubica en
+  `adapters/seguridad`; `ports/fuentes_analisis_autenticador.go` queda limitado
+  a identidad inmutable, copias defensivas, segregación local y contrato.
+
+No existe todavía consumidor durable productivo ni composición con fuentes
+reales. Tampoco hay autoridad procedente de cookies, navegador o DTO cliente:
+la confianza, organización y audiencia se fijan exclusivamente en composición.
