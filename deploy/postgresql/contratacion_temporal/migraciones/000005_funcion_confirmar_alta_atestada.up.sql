@@ -6,12 +6,16 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 SELECT pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(
-        'vec_contratacion_temporal:000004_confirmar_alta_atestada', 0)
+        'vec_contratacion_temporal:000005_confirmar_alta_atestada', 0)
 );
 DO $prevalidacion$
 BEGIN
     IF pg_catalog.to_regclass(
            'vec_contratacion_temporal.expediente_alta') IS NULL
+       OR pg_catalog.to_regclass(
+           'vec_contratacion_temporal.confirmacion_agregado_alta') IS NULL
+       OR pg_catalog.to_regprocedure(
+           'vec_contratacion_temporal.reconciliar_agregado_alta_v1(bytea,text,text,text,text,text,text)') IS NULL
        OR pg_catalog.to_regprocedure(
            'vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL THEN
         RAISE EXCEPTION USING
@@ -56,7 +60,6 @@ DECLARE
     d jsonb;
     v_consumo record;
     v_identidad record;
-    v_existente record;
     v_par jsonb;
     v_pares jsonb;
     v_generaciones integer[];
@@ -81,6 +84,9 @@ DECLARE
     v_huella_outbox text;
     v_payload_outbox bytea;
     v_huella_payload text;
+    v_confirmacion_ref text;
+    v_huella_actuacion text;
+    v_huella_agregado text;
     v_recibo_huella text;
     v_statement numeric;
     v_idle numeric;
@@ -423,10 +429,35 @@ BEGIN
                p_evidencia_verificacion, p_raiz_publica_spki);
     IF v_consumo.efecto_ref <> v_activo_ambito
        OR v_consumo.huella_efecto_sha256 <>
-          v_huella_contexto_recurso THEN
+          v_huella_contexto_recurso
+       OR v_consumo.consumo_nuevo IS NULL THEN
         RAISE EXCEPTION USING
             ERRCODE = '42501',
             MESSAGE = 'consumo de alta incoherente';
+    END IF;
+    v_confirmacion_ref := 'cnf_ct_' || pg_catalog.substr(
+        pg_catalog.encode(pg_catalog.sha256(
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                v_consumo.decision_ref
+            ) ||
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                a ->> 'expediente_ref'
+            ) ||
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                v_consumo.consumo_huella_sha256
+            )
+        ), 'hex'), 1, 32
+    );
+    IF v_consumo.consumo_nuevo IS FALSE THEN
+        RETURN QUERY
+        SELECT *
+          FROM vec_contratacion_temporal.reconciliar_agregado_alta_v1(
+              p_alta_canonica, v_activo_ambito, v_activo_huella,
+              v_consumo.decision_ref, v_consumo.efecto_ref,
+              v_consumo.huella_efecto_sha256,
+              v_consumo.consumo_huella_sha256
+          );
+        RETURN;
     END IF;
     -- Orden total de locks de alias para que todas las sesiones converjan.
     PERFORM pg_catalog.pg_advisory_xact_lock(
@@ -505,57 +536,17 @@ BEGIN
             v_raiz, (v_par ->> 'generacion')::integer,
             v_par ->> 'huella_hmac', clock_timestamp()) ON CONFLICT DO NOTHING;
     END LOOP;
-    SELECT e.expediente_ref, e.numero_visible, v.version,
-           i.recibo_ref, au.auditoria_ref, o.evento_ref,
-           rv.confirmada_en, v.huella_alta_sha256,
-           e.decision_ref, e.efecto_ref, e.huella_efecto_sha256
-      INTO v_existente
-      FROM vec_contratacion_temporal.expediente_alta e
-      JOIN vec_contratacion_temporal.expediente_alta_version v
-        ON v.expediente_ref = e.expediente_ref AND v.version = 1
-      JOIN vec_contratacion_temporal.identidad_reserva_alta i
-        ON i.reserva_ref = e.reserva_ref
-      JOIN vec_contratacion_temporal.reserva_alta_actual ra
-        ON ra.ambito_hmac = i.ambito_hmac
-      JOIN vec_contratacion_temporal.reserva_alta_version rv
-        ON rv.ambito_hmac = ra.ambito_hmac AND rv.revision = ra.revision
-      JOIN vec_contratacion_temporal.auditoria_alta au
-        ON au.expediente_ref = e.expediente_ref
-      JOIN vec_contratacion_temporal.outbox_alta o
-        ON o.expediente_ref = e.expediente_ref
-     WHERE e.expediente_ref = a ->> 'expediente_ref';
-    IF FOUND THEN
-        IF v_existente.huella_alta_sha256 <> v_huella_alta
-           OR v_existente.decision_ref <> v_consumo.decision_ref
-           OR v_existente.efecto_ref <> v_consumo.efecto_ref
-           OR v_existente.huella_efecto_sha256 <>
-              v_consumo.huella_efecto_sha256 THEN
-            RAISE EXCEPTION USING
-                ERRCODE = '23505',
-                MESSAGE = 'expediente de alta en conflicto';
-        END IF;
-        v_recibo_huella := pg_catalog.encode(pg_catalog.sha256(
-            vec_contratacion_temporal.encuadrar_texto_v1(
-                v_existente.expediente_ref) ||
-            vec_contratacion_temporal.encuadrar_texto_v1(
-                v_existente.numero_visible) ||
-            vec_contratacion_temporal.encuadrar_texto_v1(
-                v_existente.version::text) ||
-            vec_contratacion_temporal.encuadrar_texto_v1(
-                v_existente.recibo_ref) ||
-            vec_contratacion_temporal.encuadrar_texto_v1(
-                v_existente.auditoria_ref) ||
-            vec_contratacion_temporal.encuadrar_texto_v1(
-                v_existente.evento_ref) ||
-            vec_contratacion_temporal.encuadrar_texto_v1(
-                vec_contratacion_temporal.instante_utc_v1(
-                    v_existente.confirmada_en))), 'hex');
-        RETURN QUERY SELECT
-            v_existente.expediente_ref, v_existente.numero_visible,
-            v_existente.version, v_existente.recibo_ref,
-            v_existente.auditoria_ref, v_existente.evento_ref,
-            v_existente.confirmada_en, v_recibo_huella;
-        RETURN;
+    IF EXISTS (
+        SELECT 1 FROM vec_contratacion_temporal.expediente_alta e
+         WHERE e.expediente_ref = a ->> 'expediente_ref'
+    ) OR EXISTS (
+        SELECT 1
+          FROM vec_contratacion_temporal.confirmacion_agregado_alta m
+         WHERE m.confirmacion_ref = v_confirmacion_ref
+    ) THEN
+        RAISE EXCEPTION USING
+            ERRCODE = '55000',
+            MESSAGE = 'estado previo de alta incoherente';
     END IF;
     v_ahora := pg_catalog.date_trunc(
         'microseconds', clock_timestamp());
@@ -579,17 +570,18 @@ BEGIN
     INSERT INTO vec_contratacion_temporal.expediente_alta (
         expediente_ref, reserva_ref, numero_visible, organizacion_ref,
         actor_ref, perfil_ref, decision_ref, efecto_ref,
-        huella_efecto_sha256, creada_en) VALUES (
+        huella_efecto_sha256, creada_en, confirmacion_ref) VALUES (
         a ->> 'expediente_ref', a ->> 'reserva_ref',
         a ->> 'numero_visible', a ->> 'organizacion_ref',
         a ->> 'actor_ref', a ->> 'perfil_ref',
         v_consumo.decision_ref, v_consumo.efecto_ref,
         v_consumo.huella_efecto_sha256,
-        (a ->> 'creado_en')::timestamptz);
+        (a ->> 'creado_en')::timestamptz, v_confirmacion_ref);
     INSERT INTO vec_contratacion_temporal.expediente_alta_version (
         expediente_ref, version, alta_canonica, huella_alta_sha256,
         flujo_ref, flujo_version, flujo_huella_sha256, fase_clave,
-        estado, solicitud_huella_sha256, registrada_en) VALUES (
+        estado, solicitud_huella_sha256, registrada_en,
+        confirmacion_ref) VALUES (
         a ->> 'expediente_ref', 1, p_alta_canonica, v_huella_alta,
         a #>> '{flujo,definicion_ref}',
         (a #>> '{flujo,version}')::numeric,
@@ -598,11 +590,20 @@ BEGIN
         pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
             vec_contratacion_temporal.reconstruir_solicitud_efecto_v2(
                 a -> 'solicitud'), 'UTF8')), 'hex'),
-        v_ahora);
+        v_ahora, v_confirmacion_ref);
+    v_huella_actuacion := pg_catalog.encode(pg_catalog.sha256(
+        vec_contratacion_temporal.encuadrar_texto_v1(
+            a ->> 'expediente_ref'
+        ) ||
+        vec_contratacion_temporal.encuadrar_texto_v1(
+            (a #> '{actuacion}')::text
+        )
+    ), 'hex');
     INSERT INTO vec_contratacion_temporal.actuacion_alta (
         expediente_ref, secuencia, version_expediente, accion_clave,
         actor_ref, unidad_ref, recibo_ref, fase_destino,
-        estado_destino, realizada_en, huella_sha256) VALUES (
+        estado_destino, realizada_en, huella_sha256,
+        confirmacion_ref) VALUES (
         a ->> 'expediente_ref', 1, 1,
         a #>> '{actuacion,accion_clave}',
         a #>> '{actuacion,actor_ref}',
@@ -611,11 +612,7 @@ BEGIN
         a #>> '{actuacion,fase_destino}',
         a #>> '{actuacion,estado_destino}',
         (a #>> '{actuacion,realizada_en}')::timestamptz,
-        pg_catalog.encode(pg_catalog.sha256(
-            vec_contratacion_temporal.encuadrar_texto_v1(
-                a ->> 'expediente_ref') ||
-            vec_contratacion_temporal.encuadrar_texto_v1(
-                (a #> '{actuacion}')::text)), 'hex'));
+        v_huella_actuacion, v_confirmacion_ref);
     SELECT secuencia_auditoria, cabeza_auditoria_sha256,
            secuencia_outbox, cabeza_outbox_sha256
       INTO STRICT v_secuencia_auditoria, v_anterior_auditoria,
@@ -646,10 +643,12 @@ BEGIN
         vec_contratacion_temporal.encuadrar_texto_v1(v_huella_alta)), 'hex');
     INSERT INTO vec_contratacion_temporal.auditoria_alta (
         auditoria_ref, secuencia, expediente_ref, decision_ref,
-        anterior_sha256, huella_sha256, registrada_en) VALUES (
+        consumo_huella_sha256, anterior_sha256, huella_sha256,
+        registrada_en, confirmacion_ref) VALUES (
         v_auditoria_ref, v_secuencia_auditoria,
         a ->> 'expediente_ref', v_consumo.decision_ref,
-        v_anterior_auditoria, v_huella_auditoria, v_ahora);
+        v_consumo.consumo_huella_sha256, v_anterior_auditoria,
+        v_huella_auditoria, v_ahora, v_confirmacion_ref);
     v_payload_outbox := pg_catalog.convert_to(
         '{"esquema":"vec.contratacion-temporal.evento-expediente-registrado.v1"' ||
         ',"evento_ref":' ||
@@ -673,11 +672,11 @@ BEGIN
     INSERT INTO vec_contratacion_temporal.outbox_alta (
         evento_ref, secuencia, expediente_ref, tipo_evento,
         payload_canonico, payload_huella_sha256, anterior_sha256,
-        huella_sha256, registrada_en) VALUES (
+        huella_sha256, registrada_en, confirmacion_ref) VALUES (
         v_evento_ref, v_secuencia_outbox, a ->> 'expediente_ref',
         'contratacion_temporal.expediente.registrado.v1',
         v_payload_outbox, v_huella_payload, v_anterior_outbox,
-        v_huella_outbox, v_ahora);
+        v_huella_outbox, v_ahora, v_confirmacion_ref);
     UPDATE vec_contratacion_temporal.control_cadenas_alta
        SET secuencia_auditoria = v_secuencia_auditoria,
            cabeza_auditoria_sha256 = v_huella_auditoria,
@@ -692,9 +691,11 @@ BEGIN
     v_revision := v_revision + 1;
     INSERT INTO vec_contratacion_temporal.reserva_alta_version (
         ambito_hmac, revision, estado, version_expediente,
-        auditoria_ref, evento_ref, confirmada_en, registrada_en) VALUES (
+        auditoria_ref, evento_ref, confirmada_en, registrada_en,
+        confirmacion_ref) VALUES (
         v_raiz, v_revision, 'confirmada', 1,
-        v_auditoria_ref, v_evento_ref, v_ahora, v_ahora);
+        v_auditoria_ref, v_evento_ref, v_ahora, v_ahora,
+        v_confirmacion_ref);
     UPDATE vec_contratacion_temporal.reserva_alta_actual
        SET revision = v_revision
      WHERE ambito_hmac = v_raiz;
@@ -709,10 +710,55 @@ BEGIN
         vec_contratacion_temporal.encuadrar_texto_v1(v_evento_ref) ||
         vec_contratacion_temporal.encuadrar_texto_v1(
             vec_contratacion_temporal.instante_utc_v1(v_ahora))), 'hex');
-    RETURN QUERY SELECT
-        a ->> 'expediente_ref', a ->> 'numero_visible', 1::numeric,
-        a ->> 'recibo_ref', v_auditoria_ref, v_evento_ref,
-        v_ahora, v_recibo_huella;
+    v_huella_agregado :=
+      vec_contratacion_temporal.huella_prueba_agregado_alta_v1(
+        VARIADIC ARRAY[
+          'vec.contratacion-temporal.confirmacion-agregado-alta.v1',
+          v_confirmacion_ref, v_raiz, v_revision::text,
+          a ->> 'reserva_ref', a ->> 'expediente_ref',
+          a ->> 'numero_visible', a ->> 'recibo_ref',
+          v_consumo.decision_ref, v_consumo.efecto_ref,
+          v_consumo.huella_efecto_sha256,
+          v_consumo.consumo_huella_sha256, '1', v_huella_alta, '1',
+          v_huella_actuacion, v_auditoria_ref,
+          v_secuencia_auditoria::text, v_anterior_auditoria,
+          v_huella_auditoria, v_evento_ref, v_secuencia_outbox::text,
+          v_huella_payload, v_anterior_outbox, v_huella_outbox,
+          vec_contratacion_temporal.instante_utc_v1(v_ahora),
+          v_recibo_huella
+        ]
+      );
+    INSERT INTO vec_contratacion_temporal.confirmacion_agregado_alta (
+        confirmacion_ref, agregado_huella_sha256, ambito_hmac,
+        reserva_revision, reserva_ref, expediente_ref, numero_visible,
+        recibo_ref, decision_ref, efecto_ref, huella_efecto_sha256,
+        consumo_huella_sha256, version_expediente, huella_alta_sha256,
+        actuacion_secuencia, actuacion_huella_sha256, auditoria_ref,
+        auditoria_secuencia, auditoria_anterior_sha256,
+        auditoria_huella_sha256, evento_ref, outbox_secuencia,
+        payload_huella_sha256, outbox_anterior_sha256,
+        outbox_huella_sha256, confirmada_en, recibo_huella_sha256,
+        creada_en
+    ) VALUES (
+        v_confirmacion_ref, v_huella_agregado, v_raiz, v_revision,
+        a ->> 'reserva_ref', a ->> 'expediente_ref',
+        a ->> 'numero_visible', a ->> 'recibo_ref',
+        v_consumo.decision_ref, v_consumo.efecto_ref,
+        v_consumo.huella_efecto_sha256,
+        v_consumo.consumo_huella_sha256, 1, v_huella_alta, 1,
+        v_huella_actuacion, v_auditoria_ref, v_secuencia_auditoria,
+        v_anterior_auditoria, v_huella_auditoria, v_evento_ref,
+        v_secuencia_outbox, v_huella_payload, v_anterior_outbox,
+        v_huella_outbox, v_ahora, v_recibo_huella, v_ahora
+    );
+    RETURN QUERY
+    SELECT *
+      FROM vec_contratacion_temporal.reconciliar_agregado_alta_v1(
+          p_alta_canonica, v_activo_ambito, v_activo_huella,
+          v_consumo.decision_ref, v_consumo.efecto_ref,
+          v_consumo.huella_efecto_sha256,
+          v_consumo.consumo_huella_sha256
+      );
 EXCEPTION
     WHEN invalid_text_representation OR datetime_field_overflow
       OR numeric_value_out_of_range THEN

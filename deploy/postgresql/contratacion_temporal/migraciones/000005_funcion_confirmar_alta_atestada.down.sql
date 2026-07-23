@@ -5,7 +5,7 @@ SET LOCAL lock_timeout = '5s';
 
 SELECT pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(
-        'vec_contratacion_temporal:000004_confirmar_alta_atestada', 0
+        'vec_contratacion_temporal:000005_confirmar_alta_atestada', 0
     )
 );
 

@@ -231,10 +231,6 @@ CREATE TABLE vec_contratacion_temporal.expediente_alta (
         REFERENCES vec_contratacion_temporal.identidad_reserva_alta(
             reserva_ref
         ),
-    FOREIGN KEY (decision_ref, efecto_ref, huella_efecto_sha256)
-        REFERENCES vec_autorizacion_atestada_v3.consumo_decision_v3(
-            decision_ref, efecto_ref, huella_efecto_sha256
-        ),
     CHECK (expediente_ref ~
         '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'),
     CHECK (numero_visible ~ '^[0-9]{4}/[A-Za-z0-9._-]{1,40}$')

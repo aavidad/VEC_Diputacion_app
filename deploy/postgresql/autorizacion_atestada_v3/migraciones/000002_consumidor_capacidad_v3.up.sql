@@ -310,7 +310,8 @@ RETURNS TABLE (
     huella_efecto_sha256 text,
     consumo_huella_sha256 text,
     auditoria_ref text,
-    consumida_en timestamptz
+    consumida_en timestamptz,
+    consumo_nuevo boolean
 )
 LANGUAGE plpgsql
 VOLATILE
@@ -524,7 +525,7 @@ BEGIN
             v_replay.decision_ref, v_replay.efecto_ref,
             v_replay.huella_efecto_sha256,
             v_replay.consumo_huella_sha256, v_replay.auditoria_ref,
-            v_replay.consumida_en;
+            v_replay.consumida_en, false;
         RETURN;
     END IF;
     v_ahora := clock_timestamp();
@@ -741,7 +742,7 @@ BEGIN
     RETURN QUERY SELECT
         c ->> 'decision_ref', c ->> 'efecto_ref',
         c ->> 'huella_efecto_sha256', v_huella_consumo,
-        v_auditoria_ref, v_ahora;
+        v_auditoria_ref, v_ahora, true;
 EXCEPTION
     WHEN invalid_text_representation OR datetime_field_overflow
       OR numeric_value_out_of_range THEN
