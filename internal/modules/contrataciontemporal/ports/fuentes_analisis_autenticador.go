@@ -89,36 +89,6 @@ type AutenticadorAutoridadesFuenteAnalisis interface {
 	) (IdentidadAutoridadFuenteAnalisis, error)
 }
 
-func (c ConfianzaAutoridadesFuenteAnalisis) OrganizacionAutoridadFuenteAnalisis() string {
-	return c.organizacionRef
-}
-
-func (c ConfianzaAutoridadesFuenteAnalisis) AutenticarAutoridadFuenteAnalisis(
-	ctx context.Context,
-	presentador PresentadorAutoridadFuenteAnalisis,
-	materialPeticion []byte,
-	rol RolAutoridadFuenteAnalisis,
-	comprobadaEn time.Time,
-) (IdentidadAutoridadFuenteAnalisis, error) {
-	identidad, err := presentarYVerificarAutoridadFuenteAnalisis(
-		ctx,
-		presentador,
-		c,
-		append([]byte(nil), materialPeticion...),
-		rol,
-		comprobadaEn,
-	)
-	if err != nil {
-		return IdentidadAutoridadFuenteAnalisis{}, err
-	}
-	return NuevaIdentidadAutoridadFuenteAnalisis(
-		identidad.autoridadRef,
-		identidad.backendRef,
-		identidad.clavePrueba,
-		identidad.rol,
-	)
-}
-
 func AutoridadesFuenteAnalisisSeparadas(
 	identidades ...IdentidadAutoridadFuenteAnalisis,
 ) bool {

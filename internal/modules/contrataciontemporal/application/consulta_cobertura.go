@@ -89,6 +89,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 	}
 	operacion, cancelar := context.WithTimeout(ctx, s.tiempoMaximo)
 	defer cancelar()
+	relojOperacion := nuevoRelojMonotonoCobertura(s.reloj)
 	if err := operacion.Err(); err != nil {
 		return domain.ComprobacionCobertura{},
 			errorDisponibilidadCobertura(
@@ -103,6 +104,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 		materialPeticion,
 		ports.RolFuenteCobertura,
 		ErrFuenteCoberturaNoDisponible,
+		&relojOperacion,
 	)
 	if err != nil {
 		return domain.ComprobacionCobertura{}, err
@@ -113,6 +115,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 		materialPeticion,
 		ports.RolVerificadorCobertura,
 		ErrVerificadorCoberturaNoDisponible,
+		&relojOperacion,
 	)
 	if err != nil {
 		return domain.ComprobacionCobertura{}, err
@@ -123,6 +126,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 		materialPeticion,
 		ports.RolPublicadorCatalogoCobertura,
 		ErrPublicadorCatalogoCoberturaNoDisponible,
+		&relojOperacion,
 	)
 	if err != nil {
 		return domain.ComprobacionCobertura{}, err
@@ -145,7 +149,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 			err,
 		)
 	}
-	comprobadaEn := s.reloj.Ahora()
+	comprobadaEn, errReloj := relojOperacion.ahora()
 	datosCatalogo, errDatosCatalogo := confirmacionCatalogo.Datos()
 	if errPublicador != nil {
 		return domain.ComprobacionCobertura{}, errorDisponibilidadCobertura(
@@ -153,7 +157,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 			errPublicador,
 		)
 	}
-	if errDatosCatalogo != nil ||
+	if errReloj != nil || errDatosCatalogo != nil ||
 		datosCatalogo.PublicadorRef != identidadPublicador.AutoridadRef() ||
 		confirmacionCatalogo.ValidarPara(solicitud, comprobadaEn) != nil {
 		return domain.ComprobacionCobertura{},
@@ -168,7 +172,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 				err,
 			)
 	}
-	recibidaEn := s.reloj.Ahora()
+	recibidaEn, errReloj := relojOperacion.ahora()
 	if errFuente != nil {
 		return domain.ComprobacionCobertura{},
 			errorDisponibilidadCobertura(
@@ -178,8 +182,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 	}
 	datosResultado, errDatosResultado := resultado.Datos()
 	atestacion, errAtestacion := resultado.Atestacion()
-	if !domain.InstanteUTCCanonico(recibidaEn) ||
-		errDatosResultado != nil || errAtestacion != nil ||
+	if errReloj != nil || errDatosResultado != nil || errAtestacion != nil ||
 		resultado.ValidarPara(solicitud) != nil ||
 		atestacion.Metadatos.AutoridadRef != identidadFuente.AutoridadRef() ||
 		atestacion.Metadatos.EmitidaEn.Before(solicitud.SolicitadaEn) ||
@@ -202,6 +205,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 		operacion,
 		identidadVerificador,
 		solicitudVerificacion,
+		&relojOperacion,
 	)
 	if err != nil {
 		return domain.ComprobacionCobertura{}, err
@@ -219,14 +223,14 @@ func (s *ServicioConsultaCobertura) Consultar(
 			ports.ErrResultadoFuenteCoberturaNoConfiable
 	}
 
-	antesConsumo := s.reloj.Ahora()
+	antesConsumo, errReloj := relojOperacion.ahora()
 	if err := operacion.Err(); err != nil {
 		return domain.ComprobacionCobertura{}, errorDisponibilidadCobertura(
 			ErrConsumoCoberturaNoDisponible,
 			err,
 		)
 	}
-	if confirmacion.ValidarPara(
+	if errReloj != nil || confirmacion.ValidarPara(
 		solicitudVerificacion,
 		antesConsumo,
 		claveVerificador,
@@ -238,9 +242,8 @@ func (s *ServicioConsultaCobertura) Consultar(
 
 	recibo, errConsumo := s.consumidor.ConsumirCobertura(operacion, orden)
 	errContextoFinal := operacion.Err()
-	finalizadaEn := s.reloj.Ahora()
-	if !domain.InstanteUTCCanonico(finalizadaEn) ||
-		finalizadaEn.Before(antesConsumo) {
+	finalizadaEn, errReloj := relojOperacion.ahora()
+	if errReloj != nil {
 		return domain.ComprobacionCobertura{},
 			ports.ErrResultadoFuenteCoberturaNoConfiable
 	}
@@ -293,13 +296,19 @@ func (s *ServicioConsultaCobertura) autenticar(
 	materialPeticion []byte,
 	rol ports.RolAutoridadFuenteAnalisis,
 	errDisponibilidad error,
+	reloj *relojMonotonoCobertura,
 ) (ports.IdentidadAutoridadFuenteAnalisis, error) {
+	comprobadaEn, errReloj := reloj.ahora()
+	if errReloj != nil {
+		return ports.IdentidadAutoridadFuenteAnalisis{},
+			ports.ErrResultadoFuenteCoberturaNoConfiable
+	}
 	identidad, err := s.autenticador.AutenticarAutoridadFuenteAnalisis(
 		ctx,
 		presentador,
 		materialPeticion,
 		rol,
-		s.reloj.Ahora(),
+		comprobadaEn,
 	)
 	if errContexto := ctx.Err(); errContexto != nil {
 		return ports.IdentidadAutoridadFuenteAnalisis{},
@@ -319,6 +328,7 @@ func (s *ServicioConsultaCobertura) verificarRespuesta(
 	ctx context.Context,
 	identidad ports.IdentidadAutoridadFuenteAnalisis,
 	solicitud ports.SolicitudVerificarRespuestaCobertura,
+	reloj *relojMonotonoCobertura,
 ) (ports.ConfirmacionRespuestaCobertura, error) {
 	confirmacion, errVerificador :=
 		s.verificador.VerificarRespuestaCobertura(ctx, solicitud)
@@ -329,7 +339,7 @@ func (s *ServicioConsultaCobertura) verificarRespuesta(
 				err,
 			)
 	}
-	verificadaEn := s.reloj.Ahora()
+	verificadaEn, errReloj := reloj.ahora()
 	datos, errDatos := confirmacion.Datos()
 	if errVerificador != nil {
 		if errors.Is(
@@ -345,7 +355,7 @@ func (s *ServicioConsultaCobertura) verificarRespuesta(
 				errVerificador,
 			)
 	}
-	if errDatos != nil ||
+	if errReloj != nil || errDatos != nil ||
 		datos.VerificadorRef != identidad.AutoridadRef() ||
 		confirmacion.ValidarPara(
 			solicitud,
@@ -356,6 +366,31 @@ func (s *ServicioConsultaCobertura) verificarRespuesta(
 			ports.ErrResultadoFuenteCoberturaNoConfiable
 	}
 	return confirmacion, nil
+}
+
+// relojMonotonoCobertura impone un suelo por operación sobre el reloj
+// autoritativo inyectado. Un retroceso temporal invalida la operación: nunca
+// se corrige silenciosamente porque podría reabrir una evidencia ya caducada.
+type relojMonotonoCobertura struct {
+	reloj ports.Reloj
+	suelo time.Time
+}
+
+func nuevoRelojMonotonoCobertura(reloj ports.Reloj) relojMonotonoCobertura {
+	return relojMonotonoCobertura{reloj: reloj}
+}
+
+func (r *relojMonotonoCobertura) ahora() (time.Time, error) {
+	if r == nil || dependenciaNula(r.reloj) {
+		return time.Time{}, ports.ErrResultadoFuenteCoberturaNoConfiable
+	}
+	actual := r.reloj.Ahora()
+	if !domain.InstanteUTCCanonico(actual) ||
+		(!r.suelo.IsZero() && actual.Before(r.suelo)) {
+		return time.Time{}, ports.ErrResultadoFuenteCoberturaNoConfiable
+	}
+	r.suelo = actual
+	return actual, nil
 }
 
 func errorDisponibilidadCobertura(publico, causa error) error {

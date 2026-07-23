@@ -310,7 +310,7 @@ func TestPruebaDePosesionNoSePuedeCopiarEntreDesafios(t *testing.T) {
 		"tabla_retributiva_2026_v3",
 		"backend_calculo_coste_0123456789",
 	)
-	desafioPrimero, err := nuevoDesafioAutoridadFuenteAnalisis(
+	desafioPrimero, err := NuevoDesafioAutoridadFuenteAnalisis(
 		[]byte("peticion-canonica"),
 		organizacionAutoridadPrueba,
 		audienciaAutoridadPrueba,
@@ -326,7 +326,7 @@ func TestPruebaDePosesionNoSePuedeCopiarEntreDesafios(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	desafioSegundo, err := nuevoDesafioAutoridadFuenteAnalisis(
+	desafioSegundo, err := NuevoDesafioAutoridadFuenteAnalisis(
 		[]byte("peticion-canonica"),
 		organizacionAutoridadPrueba,
 		audienciaAutoridadPrueba,

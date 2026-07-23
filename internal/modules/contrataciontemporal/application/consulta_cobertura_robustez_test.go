@@ -316,3 +316,41 @@ func TestServicioConsultaCoberturaPriorizaCancelacionSobreErrorPrivado(
 		t.Fatalf("cancelacion o redaccion incorrectas: %v", err)
 	}
 }
+
+func TestServicioConsultaCoberturaRechazaRetrocesoAntesDelConsumo(
+	t *testing.T,
+) {
+	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
+	publicar := entorno.publicador.publicar
+	entorno.publicador.publicar = func(
+		ctx context.Context,
+		solicitud ports.SolicitudConsultarCobertura,
+	) (ports.ConfirmacionPublicacionCobertura, error) {
+		entorno.reloj.fijar(entorno.inicio.Add(5 * time.Second))
+		return publicar(ctx, solicitud)
+	}
+	entorno.fuente.consultar = func(
+		_ context.Context,
+		solicitud ports.SolicitudConsultarCobertura,
+	) (ports.ResultadoConsultaCobertura, error) {
+		// La respuesta vence de forma exclusiva en t+5. Volver a t+2 no
+		// puede reabrirla tras haber observado ya t+5 en el catálogo.
+		entorno.reloj.fijar(entorno.inicio.Add(2 * time.Second))
+		return resultadoCoberturaAplicacionPrueba(t, solicitud, nil), nil
+	}
+
+	_, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	)
+
+	if !errors.Is(err, ports.ErrResultadoFuenteCoberturaNoConfiable) {
+		t.Fatalf("se esperaba rechazo del retroceso, recibido: %v", err)
+	}
+	entorno.consumidor.mu.Lock()
+	defer entorno.consumidor.mu.Unlock()
+	if len(entorno.consumidor.ordenes) != 0 ||
+		len(entorno.consumidor.registros) != 0 {
+		t.Fatal("un reloj regresivo no debe alcanzar el consumo")
+	}
+}
