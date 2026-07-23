@@ -2,8 +2,37 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: decisión de arquitectura; implementación O2-04/O2-05 pendiente de
-revisión independiente.
+Estado: decisión de arquitectura; frontera de aplicación O2-04 implementada en
+la rama de trabajo y pendiente de revisión independiente. El efecto atómico
+O2-05 sigue pendiente.
+
+## Corte implementado en O2-04
+
+La aplicación de contratación temporal ya no acepta ni construye la identidad
+o la autorización provisionales del módulo. Usa directamente:
+
+- `ResolutorContextoAutorizacionAltaV3`, que entrega el
+  `VinculoAutenticacionActorV2` y el
+  `ResultadoContextoActorRegistradoV2` comunes;
+- `ResolutorMotivoAutorizacionAltaV3`, que resuelve la referencia exacta del
+  catálogo publicado;
+- `AutorizadorSolicitudLigadaV3`, que devuelve decisión y confirmación durable
+  V3;
+- `SelladorAmbitoIdempotencia`, cuyo alias activo es la referencia del recurso
+  que se autoriza antes de preparar una reserva.
+
+La secuencia de aplicación revalida vínculo, decisión y confirmación antes de
+preparar y de nuevo antes de devolver un recibo o solicitar el efecto. Un
+reintento ya confirmado no evita el PDP. Los contratos no reciben HTTP,
+cookies ni estado de navegador y son los mismos para web, escritorio, CLI y
+MCP.
+
+Este corte no afirma atomicidad: hasta cerrar O2-05 puede existir una reserva
+interna autorizada que no llegue a efecto si la concesión vence o falla una
+dependencia posterior. La reserva no se expone como endpoint y no equivale a
+un expediente, una auditoría ni un evento. O2-05 debe trasladar preparación,
+consumo de concesión y confirmación del efecto al único `COMMIT` descrito en
+esta decisión.
 
 ## Problema
 
