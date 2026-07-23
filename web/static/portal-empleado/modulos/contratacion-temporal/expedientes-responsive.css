@@ -1,0 +1,99 @@
+@media (max-width: 1180px) {
+  .ct-exp-cabecera-modulo {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.35fr);
+  }
+
+  .ct-exp-indicadores {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ct-exp-filtros {
+    grid-template-columns: minmax(240px, 1fr) repeat(2, minmax(140px, 0.4fr));
+  }
+
+  .ct-exp-filtros-acciones {
+    grid-column: 1 / -1;
+  }
+
+  .ct-exp-cabecera-expediente dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ct-exp-tramitacion {
+    grid-template-columns: minmax(210px, 0.28fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .ct-exp-cabecera-modulo,
+  .ct-exp-cabecera-expediente,
+  .ct-exp-tramitacion {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-exp-tareas {
+    position: static;
+    max-height: none;
+  }
+
+  .ct-exp-tareas ol {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ct-exp-paneles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-exp-cabecera-expediente dl,
+  .ct-exp-recibo dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .ct-exp-indicadores,
+  .ct-exp-filtros,
+  .ct-exp-cabecera-expediente dl,
+  .ct-exp-metadata,
+  .ct-exp-datos,
+  .ct-exp-campos,
+  .ct-exp-recibo dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-exp-tareas ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-exp-filtros-acciones,
+  .ct-exp-acciones {
+    justify-content: stretch;
+  }
+
+  .ct-exp-filtros-acciones button,
+  .ct-exp-acciones button {
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-expedientes *,
+  .ct-expedientes *::before,
+  .ct-expedientes *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .ct-expedientes *,
+  .ct-expedientes *::before {
+    forced-color-adjust: auto;
+  }
+
+  .ct-exp-chip,
+  .ct-exp-numero-fase,
+  .ct-exp-numero-tarea {
+    border: 2px solid ButtonText;
+  }
+}

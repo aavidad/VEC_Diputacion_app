@@ -20,6 +20,7 @@ import {
   renderizarAltaContratacionTemporal,
 } from "./vista.js";
 import {
+  VISTAS_MODULOS_CONECTADOS,
   VISTAS_MODULOS_PERSONALES,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
@@ -759,9 +760,11 @@ test("el módulo no usa red, cookies, almacenamiento web ni registra claves", ()
   assert.doesNotMatch(vistaFuente, /preventScroll/);
 });
 
-test("el candidato aislado conserva Bolsa, Cronos y Dietas sin ruta DEMO falsa", async () => {
+test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos y Dietas", async () => {
   assert.deepEqual([...VISTAS_MODULOS_PERSONALES], ["cronos", "dietas"]);
+  assert.ok(VISTAS_MODULOS_CONECTADOS.has("contratacion-temporal"));
   assert.equal(moduloDeVistaPortal("resumen"), "bolsa");
+  assert.equal(moduloDeVistaPortal("contratacion-temporal"), "contratacion_temporal");
   assert.equal(moduloDeVistaPortal("cronos"), "cronos");
   assert.equal(moduloDeVistaPortal("dietas"), "dietas");
   assert.equal(rutaDeVistaPortal("resumen"), "#bolsa/resumen");
@@ -772,17 +775,15 @@ test("el candidato aislado conserva Bolsa, Cronos y Dietas sin ruta DEMO falsa",
   assert.match(coordinadorPruebas, /Cronos y Dietas montan contenido administrativo/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);
-  assert.doesNotMatch(catalogoPresentacion, /contratacion[_-]temporal/i);
-  assert.doesNotMatch(coordinadorFuente, /adaptador.*contratacion.*presentacion/i);
+  assert.match(catalogoPresentacion, /clave: "contratacion_temporal"/);
+  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-presentacion\.js"\)/);
 
   const archivos = (await readdir(directorio)).sort();
-  assert.deepEqual(archivos, [
-    "INTEGRACION.md",
-    "contratacion-temporal.css",
-    "contratacion-temporal.test.mjs",
-    "contrato.js",
-    "i18n.js",
-    "presentador.js",
-    "vista.js",
-  ].filter((nombre) => archivos.includes(nombre)));
+  for (const nombre of [
+    "INTEGRACION.md", "adaptador-presentacion.js", "componentes-expedientes.js",
+    "contratacion-temporal.css", "contratacion-temporal.test.mjs", "contrato-expedientes.js",
+    "contrato.js", "datos-presentacion.js", "expedientes-responsive.css", "expedientes.css",
+    "i18n-expedientes.js", "i18n.js", "presentador-expedientes.js", "presentador.js",
+    "vista-expedientes.js", "vista.js",
+  ]) assert.ok(archivos.includes(nombre), `falta ${nombre}`);
 });

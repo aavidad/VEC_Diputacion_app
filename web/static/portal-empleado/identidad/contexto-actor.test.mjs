@@ -62,7 +62,7 @@ test("la sesion existente de Bolsa produce una unica identidad interna inmutable
   assert.match(contexto.persona_ref, /^per_demo_/);
   assert.match(contexto.cuenta_ref, /^cta_demo_/);
   assert.match(contexto.perfil_ref, /^prf_demo_/);
-  assert.deepEqual(contexto.ambito.modulos, ["bolsa"]);
+  assert.deepEqual(contexto.ambito.modulos, ["bolsa", "contratacion_temporal"]);
   assert.equal(contexto.demostracion, true);
   assert.equal(contexto.autenticacion.metodo, "demo");
   assert.equal(contexto.autenticacion.garantia, "bajo");
@@ -118,7 +118,7 @@ test("los perfiles internos conservan actores distintos y el funcionario queda e
   assert.equal(funcionario.rol.clave, "funcionario_autoservicio");
   assert.deepEqual(funcionario.ambito.modulos, ["cronos", "dietas"]);
   assert.throws(() => exigirContextoParaModulo(funcionario, "bolsa"), /fuera del ambito/);
-  assert.deepEqual(tecnico.ambito.modulos, ["bolsa"]);
+  assert.deepEqual(tecnico.ambito.modulos, ["bolsa", "contratacion_temporal"]);
 });
 
 test("la identidad no incorpora permisos globales ni datos identificativos civiles", () => {
