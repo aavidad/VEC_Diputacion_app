@@ -6,6 +6,7 @@
  */
 
 import { CAPACIDADES_CONTRATACION_TEMPORAL as CAP } from "./contrato-expedientes.js";
+import { enriquecerTareasPresentacion } from "./datos-presentacion-ampliacion.js";
 
 const VACIAS = Object.freeze([]);
 
@@ -128,7 +129,7 @@ const CABECERA = [
   campo("estado", "Estado actual", "Generación documental", { tono: "informacion" }),
 ];
 
-const TAREAS = [
+const TAREAS = enriquecerTareasPresentacion([
   tarea({
     referencia: "tarea-solicitud", orden: 1, fase: "fase-solicitud",
     etiqueta: "Solicitud del centro",
@@ -594,7 +595,7 @@ const TAREAS = [
       }),
     ],
   }),
-];
+]);
 
 const DOCUMENTOS = [
   ["doc-demo-peticion", "Petición del centro", "PDF", 1, "Incorporado", "Firma de centro DEMO", "10/07/2026", true],

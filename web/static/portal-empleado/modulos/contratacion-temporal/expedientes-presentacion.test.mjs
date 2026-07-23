@@ -393,6 +393,51 @@ test("HTML escapa contenido, bloquea históricos y expone semántica accesible",
   assert.match(htmlComponente, /<nav class="ct-exp-tareas" aria-label=/);
 });
 
+test("las diecisiete tareas cubren uno a uno los hitos funcionales de RRHH", () => {
+  const expediente = validarExpedienteContratacionTemporal(
+    crearExpedienteContratacionTemporalPresentacion(),
+  );
+  const matriz = [
+    ["tarea-solicitud", "Datos de la petición"],
+    ["tarea-analisis", "Comprobación y validación"],
+    ["tarea-cobertura", "Procedimiento a seguir"],
+    ["tarea-asignacion", "Bandeja de la unidad"],
+    ["tarea-informe-juridico", "Borrador y edición gobernada"],
+    ["tarea-envio-intervencion", "Vista previa y circuito de firma"],
+    ["tarea-fiscalizacion", "Modalidad y remisión"],
+    ["tarea-subsanacion", "Observaciones, correcciones y evidencias"],
+    ["tarea-iniciar-llamamiento", "Historial de llamamientos"],
+    ["tarea-seleccion-candidato", "Candidatura seleccionada"],
+    ["tarea-resultado-llamamiento", "Resumen e historial de la candidatura"],
+    ["tarea-traslado-intervencion", "Tarjeta minimizada de candidatura"],
+    ["tarea-informe-definitivo", "Candidatura, observaciones e historial"],
+    ["tarea-formalizacion", "Subpasos de formalización"],
+    ["tarea-incorporacion", "Proyección autorizada para incorporación"],
+    ["tarea-ginpix", "Historial GINPIX"],
+    ["tarea-seguimiento", "Histórico de relación, prórroga y cese"],
+  ];
+  assert.equal(expediente.tareas.length, matriz.length);
+  for (const [referencia, evidencia] of matriz) {
+    const tarea = expediente.tareas.find(({ tarea_ref }) => tarea_ref === referencia);
+    assert.ok(tarea, `falta ${referencia}`);
+    assert.match(JSON.stringify(tarea), new RegExp(evidencia, "u"), referencia);
+  }
+  const cuadro = validarCuadroContratacionTemporal(
+    crearCuadroContratacionTemporalPresentacion(),
+  );
+  const html = renderizarModuloContratacionTemporal({
+    ...estadoVista(expediente),
+    vista: "cuadro",
+    cuadro,
+    expediente: null,
+    expediente_ref: "",
+    tarea_ref: "",
+  });
+  assert.match(html, /Mis tareas prioritarias/);
+  assert.match(html, /Distribución por fase/);
+  assert.match(html, /Registrar nueva petición/);
+});
+
 test("montaje y desmontaje son simétricos y no dejan efectos tras retirar la vista", async () => {
   const eventos = new Map();
   const raiz = {

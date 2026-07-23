@@ -76,7 +76,7 @@
   border-right: 0;
   background: var(--portal-superficie);
   color: var(--portal-muted);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 760;
 }
 
@@ -126,7 +126,7 @@
   border-left-width: 4px;
   border-radius: 6px;
   background: var(--portal-superficie);
-  font-size: 0.74rem;
+  font-size: 0.8rem;
 }
 
 .ct-estado-informacion {
@@ -163,7 +163,7 @@
 .ct-obligatorios {
   margin: 0;
   color: var(--portal-muted);
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   font-weight: 650;
 }
 
@@ -190,7 +190,7 @@
 .ct-bloque > p {
   margin: 0 0 12px;
   color: var(--portal-muted);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 }
 
 .ct-campos {
@@ -206,7 +206,7 @@
   align-content: start;
   gap: 5px;
   color: var(--portal-tinta);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 760;
 }
 
@@ -250,7 +250,7 @@
 .ct-campo small,
 .ct-contador {
   color: var(--portal-muted);
-  font-size: 0.64rem;
+  font-size: 0.8rem;
   font-weight: 520;
 }
 
@@ -260,7 +260,7 @@
 
 .ct-error-campo {
   color: var(--portal-peligro);
-  font-size: 0.66rem;
+  font-size: 0.8rem;
   font-weight: 750;
 }
 
@@ -308,7 +308,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 740;
 }
 
@@ -323,7 +323,7 @@
   border-left: 4px solid var(--portal-aviso);
   background: var(--portal-aviso-suave);
   color: var(--portal-aviso);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-weight: 650;
 }
 
@@ -343,7 +343,7 @@
   border-radius: 5px;
   color: var(--portal-tinta);
   cursor: pointer;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-weight: 700;
 }
 
@@ -358,7 +358,7 @@
 .ct-resumen-documentos code {
   overflow-wrap: anywhere;
   color: var(--portal-muted);
-  font-size: 0.62rem;
+  font-size: 0.8rem;
 }
 
 .ct-vacio {
@@ -410,7 +410,7 @@
 .ct-resumen dt,
 .ct-recibo dt {
   color: var(--portal-muted);
-  font-size: 0.65rem;
+  font-size: 0.8rem;
   font-weight: 760;
 }
 
@@ -419,7 +419,7 @@
   margin: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 700;
 }
 

@@ -240,3 +240,17 @@ subida documental, autoridad de navegador, HTTP, cookies, almacenamiento web,
 telemetría ni llamadas externas.
 
 **Candidato O2-09B, no conectado y no integrado.**
+
+## Actualización de composición web de 23/07/2026
+
+La declaración anterior conserva el corte histórico de O2-09B. Desde el
+checkpoint web de 23/07/2026, el alta se compone con la superficie neutral de
+expedientes, el shell registra el módulo, las traducciones y manifiestos están
+actualizados y existe un adaptador volátil exclusivo de presentación.
+
+La matriz de diecisiete tareas, las pruebas y el mapa de sustitución se recogen
+en `docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md`.
+`datos-presentacion.js`, `datos-presentacion-ampliacion.js` y
+`adaptador-presentacion.js` siguen excluidos de los manifiestos interno y
+productivo. Continúan pendientes los adaptadores productivos, identidad
+corporativa real y E2E durable con PostgreSQL.
