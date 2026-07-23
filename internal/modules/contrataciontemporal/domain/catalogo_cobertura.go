@@ -18,26 +18,30 @@ var ErrPublicacionCatalogoEnConflicto = errors.New(
 	"contratacion temporal: publicacion de catalogo en conflicto",
 )
 
-// VigenciaCatalogoCobertura representa un intervalo [Desde, Hasta). Un valor
-// Hasta vacío mantiene la publicación vigente sin fecha final conocida.
+// VigenciaCatalogoCobertura representa un intervalo [Desde, Hasta). Los
+// instantes admitidos usan UTC, precisión máxima de microsegundo y años
+// 0001..9999 para que el estado sea transportable mediante JSON/RFC 3339.
+// Exclusivamente Hasta == time.Time{} significa ausencia de fecha final.
 type VigenciaCatalogoCobertura struct {
 	Desde time.Time `json:"desde"`
 	Hasta time.Time `json:"hasta"`
 }
 
 func (v VigenciaCatalogoCobertura) Validar() error {
-	if !instanteCanonico(v.Desde) {
+	if !instanteCatalogoCoberturaValido(v.Desde) {
 		return ErrDatoInvalido
 	}
 	if !v.Hasta.IsZero() &&
-		(!instanteCanonico(v.Hasta) || !v.Hasta.After(v.Desde)) {
+		(!instanteCatalogoCoberturaValido(v.Hasta) ||
+			!v.Hasta.After(v.Desde)) {
 		return ErrDatoInvalido
 	}
 	return nil
 }
 
 func (v VigenciaCatalogoCobertura) contiene(instante time.Time) bool {
-	return instanteCanonico(instante) && !instante.Before(v.Desde) &&
+	return instanteCatalogoCoberturaValido(instante) &&
+		!instante.Before(v.Desde) &&
 		(v.Hasta.IsZero() || instante.Before(v.Hasta))
 }
 
@@ -315,7 +319,7 @@ func normalizarBorradorCatalogo(
 	borrador BorradorCatalogoViasCobertura,
 ) (BorradorCatalogoViasCobertura, error) {
 	if !referenciaValida(borrador.Referencia) || borrador.Version == 0 ||
-		!instanteCanonico(borrador.PublicadoEn) ||
+		!instanteCatalogoCoberturaValido(borrador.PublicadoEn) ||
 		borrador.Vigencia.Validar() != nil ||
 		!referenciaValida(borrador.ProcedenciaRef) ||
 		len(borrador.Vias) == 0 || len(borrador.Vias) > maximoViasCobertura {
@@ -369,4 +373,10 @@ func clonarViasCobertura(
 		clon[indice] = via.clonar()
 	}
 	return clon
+}
+
+func instanteCatalogoCoberturaValido(valor time.Time) bool {
+	return valor.Location() == time.UTC &&
+		valor.Equal(valor.Truncate(time.Microsecond)) &&
+		valor.Year() >= 1 && valor.Year() <= 9999
 }
