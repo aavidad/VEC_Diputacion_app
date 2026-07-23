@@ -88,13 +88,18 @@ func TestAnalisisRRHHAcotaPeriodoSinCodificarDuracionesLaborales(t *testing.T) {
 }
 
 func TestValidacionRCAceptaDecisionesConEvidenciaCoherente(t *testing.T) {
-	if err := validacionRCParaPrueba().Validar(); err != nil {
+	validada := validacionRCParaPrueba()
+	if err := validada.Validar(); err != nil {
 		t.Fatalf("RC validada: %v", err)
 	}
+	if !validada.HabilitaAvance() {
+		t.Fatal("una RC validada no habilitó el avance")
+	}
 
-	for _, resultado := range []ResultadoValidacionRC{RCNoValidada, RCNoRequerida} {
+	for _, resultado := range []ResultadoValidacionRC{RCRechazada, RCNoRequerida} {
 		validacion := validacionRCParaPrueba()
 		validacion.Resultado = resultado
+		validacion.FechaRC = time.Time{}
 		validacion.Numero = ""
 		validacion.Importe = Importe{}
 		validacion.DocumentoRef = ""
@@ -102,6 +107,14 @@ func TestValidacionRCAceptaDecisionesConEvidenciaCoherente(t *testing.T) {
 		if err := validacion.Validar(); err != nil {
 			t.Fatalf("%s con evidencia coherente: %v", resultado, err)
 		}
+		esperaAvance := resultado == RCNoRequerida
+		if validacion.HabilitaAvance() != esperaAvance {
+			t.Fatalf("avance inesperado para %s: %t", resultado, validacion.HabilitaAvance())
+		}
+	}
+
+	if (ValidacionRC{}).HabilitaAvance() {
+		t.Fatal("la ausencia de validación, que representa pendiente, habilitó el avance")
 	}
 }
 
@@ -111,11 +124,25 @@ func TestValidacionRCRechazaEvidenciaIncompletaOResidual(t *testing.T) {
 		modificar func(*ValidacionRC)
 	}{
 		{"resultado desconocido", func(v *ValidacionRC) { v.Resultado = "desconocida" }},
+		{"vocabulario antiguo", func(v *ValidacionRC) { v.Resultado = "no_validada" }},
+		{"pendiente codificado", func(v *ValidacionRC) { v.Resultado = "pendiente" }},
+		{"entrada ausente", func(v *ValidacionRC) { v.EntradaRef = "" }},
+		{"huella ausente", func(v *ValidacionRC) { v.HuellaEntradaSHA256 = "" }},
+		{"huella centinela", func(v *ValidacionRC) {
+			v.HuellaEntradaSHA256 = strings.Repeat("0", 64)
+		}},
 		{"fuente ausente", func(v *ValidacionRC) { v.FuenteRef = "" }},
 		{"recibo ausente", func(v *ValidacionRC) { v.ReciboRef = "" }},
 		{"instante ausente", func(v *ValidacionRC) { v.ValidadaEn = time.Time{} }},
 		{"instante no canónico", func(v *ValidacionRC) {
 			v.ValidadaEn = v.ValidadaEn.Add(time.Nanosecond)
+		}},
+		{"validada sin fecha autoritativa", func(v *ValidacionRC) { v.FechaRC = time.Time{} }},
+		{"fecha autoritativa con hora", func(v *ValidacionRC) {
+			v.FechaRC = v.FechaRC.Add(time.Hour)
+		}},
+		{"fecha autoritativa fuera de UTC", func(v *ValidacionRC) {
+			v.FechaRC = time.Date(2026, 7, 20, 0, 0, 0, 0, time.FixedZone("local", 3600))
 		}},
 		{"validada sin número", func(v *ValidacionRC) { v.Numero = "" }},
 		{"validada sin importe", func(v *ValidacionRC) { v.Importe = Importe{} }},
@@ -123,9 +150,13 @@ func TestValidacionRCRechazaEvidenciaIncompletaOResidual(t *testing.T) {
 		{"importe no calculable", func(v *ValidacionRC) {
 			v.Importe.Centimos = maximoCentimosCalculablesAnalisis + 1
 		}},
-		{"no validada sin motivo", func(v *ValidacionRC) {
-			prepararRCNegativa(v, RCNoValidada)
+		{"rechazada sin motivo", func(v *ValidacionRC) {
+			prepararRCNegativa(v, RCRechazada)
 			v.Motivo = ""
+		}},
+		{"rechazada con fecha residual", func(v *ValidacionRC) {
+			prepararRCNegativa(v, RCRechazada)
+			v.FechaRC = fechaAnalisis(2026, 7, 20)
 		}},
 		{"no requerida con número residual", func(v *ValidacionRC) {
 			prepararRCNegativa(v, RCNoRequerida)
@@ -191,6 +222,18 @@ func TestAnalisisRRHHExigeCosteTrazableYCreditoSuficiente(t *testing.T) {
 	}
 
 	analisis := analisisCompletoParaPrueba()
+	analisis.CostePrevisto = importeParaPrueba(analisis.ValidacionRC.Importe.Centimos)
+	if err := analisis.Validar(); err != nil {
+		t.Fatalf("coste exactamente igual a la RC: %v", err)
+	}
+
+	analisis.ValidacionRC.Importe.Centimos = maximoCentimosCalculablesAnalisis
+	analisis.CostePrevisto = importeParaPrueba(maximoCentimosCalculablesAnalisis)
+	if err := analisis.Validar(); err != nil {
+		t.Fatalf("importe técnico máximo exacto: %v", err)
+	}
+
+	analisis = analisisCompletoParaPrueba()
 	analisis.CostePrevisto = nil
 	analisis.FuenteCosteRef = ""
 	if err := analisis.Validar(); err != nil {
@@ -217,6 +260,27 @@ func TestAnalisisRRHHClonaDefensivamenteElCoste(t *testing.T) {
 	}
 }
 
+func TestAnalisisRRHHRechazadoEsRegistrablePeroNoHabilitaAvance(t *testing.T) {
+	analisis := analisisCompletoParaPrueba()
+	prepararRCNegativa(&analisis.ValidacionRC, RCRechazada)
+	if err := analisis.Validar(); err != nil {
+		t.Fatalf("el rechazo motivado debe ser registrable: %v", err)
+	}
+	if analisis.HabilitaAvance() {
+		t.Fatal("un análisis con RC rechazada habilitó el avance")
+	}
+
+	analisis.ValidacionRC.Resultado = RCNoRequerida
+	if !analisis.HabilitaAvance() {
+		t.Fatal("una RC no requerida y motivada no habilitó el avance")
+	}
+
+	analisis.ValidacionRC.Resultado = RCValidada
+	if analisis.HabilitaAvance() {
+		t.Fatal("datos residuales de rechazo convertidos en validada habilitaron el avance")
+	}
+}
+
 func analisisCompletoParaPrueba() AnalisisRRHH {
 	return AnalisisRRHH{
 		ModalidadClave:    "sustitucion",
@@ -234,18 +298,22 @@ func analisisCompletoParaPrueba() AnalisisRRHH {
 
 func validacionRCParaPrueba() ValidacionRC {
 	return ValidacionRC{
-		Resultado:    RCValidada,
-		FuenteRef:    "fuente_presupuestaria_01",
-		ReciboRef:    "recibo_validacion_rc_01",
-		ValidadaEn:   time.Date(2026, 7, 23, 8, 30, 0, 0, time.UTC),
-		Numero:       "rc_2026_0001",
-		Importe:      Importe{Centimos: 3_245_000, Moneda: "EUR"},
-		DocumentoRef: "documento_rc_01",
+		Resultado:           RCValidada,
+		EntradaRef:          "declaracion_rc_solicitud_01",
+		HuellaEntradaSHA256: strings.Repeat("a", 64),
+		FuenteRef:           "fuente_presupuestaria_01",
+		ReciboRef:           "recibo_validacion_rc_01",
+		ValidadaEn:          time.Date(2026, 7, 23, 8, 30, 0, 0, time.UTC),
+		FechaRC:             fechaAnalisis(2026, 7, 20),
+		Numero:              "rc_2026_0001",
+		Importe:             Importe{Centimos: 3_245_000, Moneda: "EUR"},
+		DocumentoRef:        "documento_rc_01",
 	}
 }
 
 func prepararRCNegativa(validacion *ValidacionRC, resultado ResultadoValidacionRC) {
 	validacion.Resultado = resultado
+	validacion.FechaRC = time.Time{}
 	validacion.Numero = ""
 	validacion.Importe = Importe{}
 	validacion.DocumentoRef = ""

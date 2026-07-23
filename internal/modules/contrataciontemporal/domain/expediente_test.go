@@ -118,8 +118,9 @@ func analisisValido() AnalisisRRHH {
 		Periodo:           PeriodoPrevisto{Inicio: fechaInicio, Fin: fechaFin},
 		PorcentajeJornada: 10000,
 		ValidacionRC: ValidacionRC{
-			Resultado: RCValidada, FuenteRef: "fuente_presupuestaria_01",
-			ReciboRef: "recibo_validacion_rc_01", ValidadaEn: instanteBase,
+			Resultado: RCValidada, EntradaRef: "declaracion_rc_solicitud_01",
+			HuellaEntradaSHA256: cadena64("b"), FuenteRef: "fuente_presupuestaria_01",
+			ReciboRef: "recibo_validacion_rc_01", ValidadaEn: instanteBase, FechaRC: fechaInicio,
 			Numero: "rc_2026_0001", Importe: Importe{Centimos: 3_245_000, Moneda: "EUR"},
 			DocumentoRef: "documento_rc_01",
 		},
