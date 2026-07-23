@@ -89,15 +89,15 @@ ajenas.
 | Web conectada | Pendiente |
 | E2E administrativo | Pendiente |
 
-## Cortes locales pendientes de revisión independiente
+## Cortes locales y revisiones pendientes
 
 - `825e251`, `ec87e27` y `ff6011f` crean el corte VEC-AD-3 para decisiones V3
-  ligadas a contexto de actor V2. La primera revisión fue NO-GO porque faltaba
-  ligar los compromisos privados a la preimagen. `99d3396` y `6249dba`
-  incorporan parser estricto, ligadura y validación semántica; la nueva
-  revisión exige todavía cotejar nominalmente la cuenta, método, garantía y
-  vigencias contra el contexto firmado. Tampoco existen aún verificador de
-  confianza, capacidad breve ni consumidor SQL; no habilita producción.
+  ligadas a contexto de actor V2. Tras dos NO-GO, `99d3396`–`b25e134`
+  incorporan parser estricto, canonicidad única, ligadura de compromisos,
+  validación semántica y cruce nominal completo con el contexto firmado.
+  El conjunto obtuvo GO independiente y quedó integrado en `fe00ed9`.
+  Todavía no existen verificador de confianza, capacidad breve ni consumidor
+  SQL; no cierra O2-05 ni habilita producción.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
   cronología de solo adición y bloqueo de retroacciones implícitas. Falta el
   caso de uso autorizado y su transacción durable; no se considera cerrado.
@@ -139,10 +139,9 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Corregir y revisar independientemente el cruce nominal completo del parser
-   VEC-AD-3 contra el contexto firmado.
-2. Completar el verificador de confianza,
-   capacidad breve y frontera consumidora.
+1. Completar y revisar el verificador de confianza VEC-AD-3 y su capacidad
+   breve nominal.
+2. Implementar la frontera consumidora SQL atómica.
 3. Asegurar en una sola transacción la reserva, autorización consumida,
    expediente, primera actuación, auditoría y outbox.
 4. Probar repetición, conflicto semántico, concurrencia y resultado

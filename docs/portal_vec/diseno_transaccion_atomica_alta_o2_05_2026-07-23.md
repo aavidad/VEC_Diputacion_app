@@ -5,20 +5,23 @@ Fecha: 23 de julio de 2026.
 Estado: diseño previo a implementación. No habilita producción ni cierra
 O2-05.
 
-## Corte local en revisión
+## Corte nominal revisado
 
-Se ha implementado, todavía sin aprobación independiente:
+Se ha implementado y ha superado revisión independiente:
 
 - el dominio binario separado `VEC-AD-3`, con vector determinista congelado;
 - la ligadura de decisión V3, motivo, contexto de actor V2 registrado y
   manifiesto de procedencia;
 - el contrato nominal y no serializable de solicitud, firma y atestación;
+- el parser estricto no autoritativo, con canonicidad única, semántica cerrada
+  y cruce exacto contra el contexto firmado;
 - el servicio neutral al cliente que entrega la preimagen exacta al firmante.
 
-Los commits de este corte son `825e251`, `ec87e27` y `ff6011f`. No incluyen
-todavía el verificador de confianza, la capacidad breve, el consumidor SQL ni
-el efecto de contratación. Por tanto no elevan el avance ni permiten usar
-VEC-AD-3 en producción.
+El corte parte de `825e251`, `ec87e27` y `ff6011f`; las correcciones revisadas
+terminan en `b25e134` y se integran mediante `fe00ed9`. No incluye todavía el
+verificador de confianza, la capacidad breve, el consumidor SQL ni el efecto
+de contratación. Por tanto no cierra O2-05 ni permite usar VEC-AD-3 en
+producción.
 
 ## Resultado perseguido
 

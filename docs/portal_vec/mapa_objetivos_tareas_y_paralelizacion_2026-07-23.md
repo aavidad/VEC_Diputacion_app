@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
 | Primera vertical | 4 de 10 tareas cerradas (40 %); O2-05 es el siguiente cierre |
 | Procedimiento completo | 10 de 46 tareas cerradas (22 %); O6-01 continúa en rework |
-| Último commit verificado | `edbd0db` — O2-04 autorizado e integrado |
-| Trabajo local en revisión | Parser y confianza VEC-AD-3 de O2-05, dominio O3-02, fuentes O3-03, consultas O4-02 y rework O6-01 |
+| Último commit verificado | `fe00ed9` — parser y contrato nominal VEC-AD-3 con GO independiente |
+| Trabajo local en revisión | Confianza y consumo VEC-AD-3 de O2-05, dominio O3-02, fuentes O3-03, consultas O4-02 y rework O6-01 |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
