@@ -52,13 +52,15 @@ agente informa de la contradicción y no inventa un puente temporal.
 ## Forma segura de trabajar en paralelo
 
 Los agentes manuales no deben usar el árbol principal, que puede contener
-cambios sin commit. Cada uno usa una rama y un worktree exclusivos, fuera de
-`/tmp` para evitar volver a llenar el disco:
+cambios sin commit. Cada uno usa una rama y un worktree exclusivos dentro de
+la carpeta ignorada `.worktrees/` de este proyecto. Está prohibido crear
+worktrees de VEC en `/tmp`, en `~/Trabajo/.worktrees` o dentro de otro
+proyecto:
 
 ```bash
 cd /home/usuario/Trabajo/VEC_Diputacion_app
 git fetch --all --prune
-git worktree add /home/usuario/Trabajo/.worktrees/VEC/<IDENTIFICADOR> \
+git worktree add .worktrees/<IDENTIFICADOR> \
   -b agente/<IDENTIFICADOR> vec-orquesta-20260619
 ```
 
@@ -70,7 +72,7 @@ Entrega uno o varios commits pequeños; dirección revisa e integra.
 Después de integrar y solo tras comprobar que no queda trabajo útil:
 
 ```bash
-git worktree remove /home/usuario/Trabajo/.worktrees/VEC/<IDENTIFICADOR>
+git worktree remove .worktrees/<IDENTIFICADOR>
 git branch -d agente/<IDENTIFICADOR>
 ```
 
