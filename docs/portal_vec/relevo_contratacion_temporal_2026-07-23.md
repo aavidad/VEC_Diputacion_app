@@ -119,6 +119,12 @@ ajenas.
   proveedor para impedir que una consulta minimizada transporte identidad o
   detalles personales; el diagnóstico completo permanece tras el recibo opaco
   en el sistema fuente.
+  Una revisión independiente posterior dio NO-GO: estas ligaduras siguen
+  siendo nominales y copiables, no existe atestación de la respuesta ni
+  consumo anti-replay, tampoco se acredita que catálogo, vía y comprobación
+  estén publicados y vigentes. Deben corregirse además el timeout a cinco
+  segundos, el periodo máximo, la versión interoperable, la prioridad de
+  cancelación y la ocultación total de errores privados. O4-02 no está cerrado.
 - `2b67c7a`–`20935bd` integran O6-01 tras dos revisiones independientes.
   Contratación temporal y Bolsa solo intercambian contratos versionados,
   referencias opacas, seudónimos HMAC, evidencias autenticadas y eventos
