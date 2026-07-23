@@ -18,14 +18,24 @@ o la autorización provisionales del módulo. Usa directamente:
   catálogo publicado;
 - `AutorizadorSolicitudLigadaV3`, que devuelve decisión y confirmación durable
   V3;
-- `SelladorAmbitoIdempotencia`, cuyo alias activo es la referencia del recurso
-  que se autoriza antes de preparar una reserva.
+- `DerivadorIdentidadesHMACAlta`, que obtiene de una única lectura del llavero
+  pares inseparables de ámbito y huella para la generación activa y las
+  retenidas. Solo el ámbito activo es el recurso V3; la preparación recibe la
+  colección validada y puede devolver el par activo o un par retenido cuando
+  recupera una operación anterior.
 
 La secuencia de aplicación revalida vínculo, decisión y confirmación antes de
 preparar y de nuevo antes de devolver un recibo o solicitar el efecto. Un
 reintento ya confirmado no evita el PDP. Los contratos no reciben HTTP,
 cookies ni estado de navegador y son los mismos para web, escritorio, CLI y
 MCP.
+
+Cada invocación acuña en servidor una única correlación V3. Ni la solicitud de
+aplicación ni la entrada nominal de la orden admiten una correlación aportada
+por el cliente. La persistencia recibe como evidencia la correlación extraída
+de la solicitud V3, que decisión y confirmación deben conservar exactamente.
+Además, el actor de la primera actuación del expediente debe ser el
+`PrincipalID` del vínculo autorizado.
 
 Este corte no afirma atomicidad: hasta cerrar O2-05 puede existir una reserva
 interna autorizada que no llegue a efecto si la concesión vence o falla una
@@ -93,6 +103,17 @@ mínimo, todo el plazo de retención idempotente. La matriz de generaciones
 publicada indicará activación, fin de emisión, fin de verificación y retirada.
 Rotar de v1 a v2 deberá conservar el mismo expediente y recibo. La sintaxis
 versionada sin esta convivencia no se considera rotación resuelta.
+
+O2-04 deja esa rotación acotada pero no la declara cerrada: el puerto ya
+devuelve la colección activa más retenidas, valida que cada ámbito y huella
+pertenecen a la misma generación y limita el número de generaciones. El
+recurso V3 usa exclusivamente el ámbito activo. La preparación puede devolver
+un par activo o retenido, pero debe pertenecer íntegramente a la colección:
+no se admite ámbito de una generación y huella de otra. El adaptador
+PostgreSQL V1 transitorio solo conoce la generación activa; tras el `GO` de
+O2-03 debe sustituirse por el contrato V2 que entrega la colección a SQL y
+reconcilia por todos sus pares. Esa convergencia durable es una condición
+pendiente, no una compatibilidad simulada.
 
 ## Secuencia objetivo
 
@@ -177,8 +198,12 @@ permiso se implementa en JavaScript, DOM, sesión HTTP o cliente de escritorio.
 
 O2-04/O2-05 no se cierran hasta demostrar:
 
-- imposibilidad de fabricar o serializar solicitud, vínculo, decisión y
-  confirmación nominales;
+- imposibilidad de fabricar o reconstruir las capacidades nominales comunes;
+- `VinculoAutenticacionActorV2` permite deliberadamente solo su
+  `MarshalJSON` canónico y minimizado para evidencia durable; ese JSON no es
+  una capacidad ejecutable, su `Unmarshal` está prohibido y también lo están
+  serializaciones alternativas de texto, binario, gob, CBOR, YAML o XML;
+- solicitud, decisión y confirmación V3 no se serializan desde el exterior;
 - denegación por actor, perfil, organización, finalidad, acción, recurso,
   motivo, flujo, contexto, versión o correlación distintos;
 - consumo único e idempotencia bajo sesiones concurrentes;
