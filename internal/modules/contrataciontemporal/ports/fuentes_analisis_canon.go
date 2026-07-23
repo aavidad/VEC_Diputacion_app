@@ -269,6 +269,19 @@ func selloPeticionFuenteAnalisisValido(valor string) bool {
 		SelloHMACSHA256Valido(valor)
 }
 
+func huellaSHA256FuenteAnalisisValida(valor string) bool {
+	if len(valor) != 64 || valor == strings.Repeat("0", 64) {
+		return false
+	}
+	for _, caracter := range valor {
+		if (caracter < '0' || caracter > '9') &&
+			(caracter < 'a' || caracter > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
 func instanteFuenteAnalisisCanonico(valor time.Time) bool {
 	return domain.InstanteUTCCanonico(valor) &&
 		valor.Year() >= 1 && valor.Year() <= 9999

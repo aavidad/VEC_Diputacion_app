@@ -1,38 +1,33 @@
 package ports
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
-	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
 
-var (
-	errMotivoFuenteAnalisisInvalido = errors.New(
-		"contratacion temporal: motivo catalogado de fuente invalido",
-	)
-	patronHuellaCatalogoMotivoFuente = regexp.MustCompile(`^[a-f0-9]{64}$`)
+var errMotivoFuenteAnalisisInvalido = errors.New(
+	"contratacion temporal: motivo catalogado de fuente invalido",
 )
 
-type ClaveParametroMotivoFuenteAnalisis string
-
-const (
-	ParametroMotivoResultado ClaveParametroMotivoFuenteAnalisis = "resultado"
-	ParametroMotivoCausa     ClaveParametroMotivoFuenteAnalisis = "causa"
-	ParametroMotivoRegla     ClaveParametroMotivoFuenteAnalisis = "regla"
-)
+const maximoParametrosMotivoFuenteAnalisis = 8
 
 type ParametroMotivoFuenteAnalisis struct {
-	Clave ClaveParametroMotivoFuenteAnalisis
+	Clave domain.ClaveCatalogo
 	Valor domain.ClaveCatalogo
 }
 
-type datosMotivoFuenteAnalisis struct {
+type VinculoMotivoFuenteAnalisis struct {
 	CatalogoRef      string
 	CatalogoVersion  uint64
 	CatalogoHuella   string
@@ -42,7 +37,7 @@ type datosMotivoFuenteAnalisis struct {
 }
 
 type MotivoFuenteAnalisis struct {
-	datos *datosMotivoFuenteAnalisis
+	datos *VinculoMotivoFuenteAnalisis
 }
 
 func NuevoMotivoFuenteAnalisis(
@@ -53,7 +48,7 @@ func NuevoMotivoFuenteAnalisis(
 	claveMensajeI18N domain.ClaveCatalogo,
 	parametros []ParametroMotivoFuenteAnalisis,
 ) (MotivoFuenteAnalisis, error) {
-	motivo := MotivoFuenteAnalisis{datos: &datosMotivoFuenteAnalisis{
+	motivo := MotivoFuenteAnalisis{datos: &VinculoMotivoFuenteAnalisis{
 		CatalogoRef: catalogoRef, CatalogoVersion: catalogoVersion,
 		CatalogoHuella: catalogoHuella, EntradaClave: entradaClave,
 		ClaveMensajeI18N: claveMensajeI18N,
@@ -68,10 +63,14 @@ func NuevoMotivoFuenteAnalisis(
 func (m MotivoFuenteAnalisis) Validar() error {
 	if m.datos == nil || !domain.ReferenciaOpacaValida(m.datos.CatalogoRef) ||
 		m.datos.CatalogoVersion == 0 ||
-		!patronHuellaCatalogoMotivoFuente.MatchString(m.datos.CatalogoHuella) ||
-		m.datos.CatalogoHuella == strings.Repeat("0", 64) ||
-		!m.datos.EntradaClave.Valida() || !m.datos.ClaveMensajeI18N.Valida() ||
-		len(m.datos.Parametros) > 3 ||
+		!huellaSHA256FuenteAnalisisValida(m.datos.CatalogoHuella) ||
+		!m.datos.EntradaClave.Valida() ||
+		!m.datos.ClaveMensajeI18N.Valida() ||
+		!strings.HasPrefix(
+			string(m.datos.ClaveMensajeI18N),
+			"contratacion_temporal.rc.",
+		) ||
+		len(m.datos.Parametros) > maximoParametrosMotivoFuenteAnalisis ||
 		!parametrosMotivoFuenteAnalisisValidos(m.datos.Parametros) {
 		return errMotivoFuenteAnalisisInvalido
 	}
@@ -88,60 +87,33 @@ func parametrosMotivoFuenteAnalisisValidos(
 	for indice, parametro := range parametros {
 		if parametro != ordenados[indice] ||
 			(indice > 0 && parametro.Clave == parametros[indice-1].Clave) ||
-			!parametroMotivoFuenteAnalisisPermitido(parametro) {
+			!parametro.Clave.Valida() || !parametro.Valor.Valida() {
 			return false
 		}
 	}
 	return true
 }
 
-func parametroMotivoFuenteAnalisisPermitido(
-	parametro ParametroMotivoFuenteAnalisis,
-) bool {
-	permitidos := map[ClaveParametroMotivoFuenteAnalisis]map[domain.ClaveCatalogo]struct{}{
-		ParametroMotivoResultado: {
-			"no_requerida": {}, "rechazada": {},
-		},
-		ParametroMotivoCausa: {
-			"no_consta_rc": {}, "rc_insuficiente": {},
-			"rc_incoherente": {}, "regla_presupuestaria": {},
-		},
-		ParametroMotivoRegla: {
-			"rc_exigida": {}, "rc_no_requerida": {}, "importe_suficiente": {},
-		},
-	}
-	valores, existe := permitidos[parametro.Clave]
-	if !existe {
-		return false
-	}
-	_, existe = valores[parametro.Valor]
-	return existe
-}
-
 func (m MotivoFuenteAnalisis) Datos() (
-	string,
-	uint64,
-	string,
-	domain.ClaveCatalogo,
-	domain.ClaveCatalogo,
-	[]ParametroMotivoFuenteAnalisis,
+	VinculoMotivoFuenteAnalisis,
 	error,
 ) {
 	if m.Validar() != nil {
-		return "", 0, "", "", "", nil, errMotivoFuenteAnalisisInvalido
+		return VinculoMotivoFuenteAnalisis{}, errMotivoFuenteAnalisisInvalido
 	}
-	return m.datos.CatalogoRef, m.datos.CatalogoVersion,
-		m.datos.CatalogoHuella, m.datos.EntradaClave,
-		m.datos.ClaveMensajeI18N,
-		append([]ParametroMotivoFuenteAnalisis(nil), m.datos.Parametros...), nil
+	datos := *m.datos
+	datos.Parametros = append(
+		[]ParametroMotivoFuenteAnalisis(nil),
+		m.datos.Parametros...,
+	)
+	return datos, nil
 }
 
 func (m MotivoFuenteAnalisis) clonar() MotivoFuenteAnalisis {
-	if m.datos == nil {
+	datos, err := m.Datos()
+	if err != nil {
 		return MotivoFuenteAnalisis{}
 	}
-	datos := *m.datos
-	datos.Parametros = append([]ParametroMotivoFuenteAnalisis(nil), m.datos.Parametros...)
 	return MotivoFuenteAnalisis{datos: &datos}
 }
 
@@ -149,16 +121,212 @@ func (MotivoFuenteAnalisis) String() string {
 	return "[MOTIVO-FUENTE-ANALISIS-CATALOGADO-REDACTADO]"
 }
 
-func (m MotivoFuenteAnalisis) GoString() string {
-	return m.String()
-}
-
+func (m MotivoFuenteAnalisis) GoString() string { return m.String() }
 func (m MotivoFuenteAnalisis) Format(estado fmt.State, _ rune) {
 	_, _ = io.WriteString(estado, m.String())
 }
-
 func (m MotivoFuenteAnalisis) LogValue() slog.Value {
 	return slog.StringValue(m.String())
+}
+
+type SolicitudVerificarPublicacionMotivoFuenteAnalisis struct {
+	Motivo                MotivoFuenteAnalisis
+	HuellaRespuestaSHA256 string
+	AutoridadRespuestaRef string
+	GeneracionRespuesta   uint32
+}
+
+func (s SolicitudVerificarPublicacionMotivoFuenteAnalisis) Validar() error {
+	if s.Motivo.Validar() != nil ||
+		!huellaSHA256FuenteAnalisisValida(s.HuellaRespuestaSHA256) ||
+		!domain.ReferenciaOpacaValida(s.AutoridadRespuestaRef) ||
+		s.GeneracionRespuesta == 0 {
+		return errMotivoFuenteAnalisisInvalido
+	}
+	return nil
+}
+
+func (s SolicitudVerificarPublicacionMotivoFuenteAnalisis) huella() (
+	string,
+	error,
+) {
+	if s.Validar() != nil {
+		return "", errMotivoFuenteAnalisisInvalido
+	}
+	datos, _ := s.Motivo.Datos()
+	canon := nuevoEscritorCanonFuenteAnalisis()
+	canon.texto("VEC-CT-PUBLICACION-MOTIVO-RC-V1")
+	canon.texto(datos.CatalogoRef)
+	canon.entero64(datos.CatalogoVersion)
+	canon.texto(datos.CatalogoHuella)
+	canon.texto(string(datos.EntradaClave))
+	canon.texto(string(datos.ClaveMensajeI18N))
+	canon.entero16(uint16(len(datos.Parametros)))
+	for _, parametro := range datos.Parametros {
+		canon.texto(string(parametro.Clave))
+		canon.texto(string(parametro.Valor))
+	}
+	canon.texto(s.HuellaRespuestaSHA256)
+	canon.texto(s.AutoridadRespuestaRef)
+	canon.entero64(uint64(s.GeneracionRespuesta))
+	contenido, err := canon.resultado()
+	if err != nil {
+		return "", errMotivoFuenteAnalisisInvalido
+	}
+	huella := sha256.Sum256(contenido)
+	return hex.EncodeToString(huella[:]), nil
+}
+
+type ConfirmacionPublicacionMotivoFuenteAnalisis struct {
+	datos *DatosConfirmacionPublicacionMotivoFuenteAnalisis
+}
+
+func (ConfirmacionPublicacionMotivoFuenteAnalisis) String() string {
+	return "[CONFIRMACION-PUBLICACION-MOTIVO-FUENTE-ANALISIS-REDACTADA]"
+}
+
+func (c ConfirmacionPublicacionMotivoFuenteAnalisis) GoString() string {
+	return c.String()
+}
+func (c ConfirmacionPublicacionMotivoFuenteAnalisis) Format(
+	estado fmt.State,
+	_ rune,
+) {
+	_, _ = io.WriteString(estado, c.String())
+}
+func (c ConfirmacionPublicacionMotivoFuenteAnalisis) LogValue() slog.Value {
+	return slog.StringValue(c.String())
+}
+
+type DatosConfirmacionPublicacionMotivoFuenteAnalisis struct {
+	PublicacionRef        string
+	ReciboVerificacionRef string
+	HuellaSolicitudSHA256 string
+	VerificadaEn          time.Time
+}
+
+func NuevaConfirmacionPublicacionMotivoFuenteAnalisis(
+	solicitud SolicitudVerificarPublicacionMotivoFuenteAnalisis,
+	publicacionRef string,
+	reciboVerificacionRef string,
+	verificadaEn time.Time,
+) (ConfirmacionPublicacionMotivoFuenteAnalisis, error) {
+	huella, err := solicitud.huella()
+	datos := DatosConfirmacionPublicacionMotivoFuenteAnalisis{
+		PublicacionRef:        publicacionRef,
+		ReciboVerificacionRef: reciboVerificacionRef,
+		HuellaSolicitudSHA256: huella,
+		VerificadaEn:          verificadaEn,
+	}
+	if err != nil || validarConfirmacionPublicacionMotivo(
+		datos,
+		solicitud,
+		verificadaEn,
+	) != nil {
+		return ConfirmacionPublicacionMotivoFuenteAnalisis{},
+			errMotivoFuenteAnalisisInvalido
+	}
+	return ConfirmacionPublicacionMotivoFuenteAnalisis{datos: &datos}, nil
+}
+
+func validarConfirmacionPublicacionMotivo(
+	datos DatosConfirmacionPublicacionMotivoFuenteAnalisis,
+	solicitud SolicitudVerificarPublicacionMotivoFuenteAnalisis,
+	comprobadaEn time.Time,
+) error {
+	huella, err := solicitud.huella()
+	if err != nil ||
+		!domain.ReferenciaOpacaValida(datos.PublicacionRef) ||
+		!domain.ReferenciaOpacaValida(datos.ReciboVerificacionRef) ||
+		!bytes.Equal(
+			[]byte(datos.HuellaSolicitudSHA256),
+			[]byte(huella),
+		) ||
+		!instanteFuenteAnalisisCanonico(datos.VerificadaEn) ||
+		!instanteFuenteAnalisisCanonico(comprobadaEn) ||
+		comprobadaEn.Before(datos.VerificadaEn) {
+		return errMotivoFuenteAnalisisInvalido
+	}
+	return nil
+}
+
+func (c ConfirmacionPublicacionMotivoFuenteAnalisis) ValidarPara(
+	solicitud SolicitudVerificarPublicacionMotivoFuenteAnalisis,
+	comprobadaEn time.Time,
+) error {
+	if c.datos == nil {
+		return errMotivoFuenteAnalisisInvalido
+	}
+	return validarConfirmacionPublicacionMotivo(*c.datos, solicitud, comprobadaEn)
+}
+
+func (c ConfirmacionPublicacionMotivoFuenteAnalisis) Datos() (
+	DatosConfirmacionPublicacionMotivoFuenteAnalisis,
+	error,
+) {
+	if c.datos == nil {
+		return DatosConfirmacionPublicacionMotivoFuenteAnalisis{},
+			errMotivoFuenteAnalisisInvalido
+	}
+	return *c.datos, nil
+}
+
+type VerificadorPublicacionMotivoFuenteAnalisis interface {
+	VerificarPublicacionMotivoFuenteAnalisis(
+		context.Context,
+		SolicitudVerificarPublicacionMotivoFuenteAnalisis,
+	) (ConfirmacionPublicacionMotivoFuenteAnalisis, error)
+}
+
+func verificarMotivoResultadoRC(
+	ctx context.Context,
+	verificador VerificadorPublicacionMotivoFuenteAnalisis,
+	resultado ResultadoValidacionRC,
+	reloj RelojFuenteAnalisis,
+) (*ConfirmacionPublicacionMotivoFuenteAnalisis, error) {
+	datos, err := resultado.Datos()
+	if err != nil {
+		return nil, ErrResultadoFuenteAnalisisNoConfiable
+	}
+	if datos.Validacion.Resultado == domain.RCValidada {
+		if datos.Motivo.datos != nil {
+			return nil, ErrResultadoFuenteAnalisisNoConfiable
+		}
+		return nil, nil
+	}
+	solicitud := SolicitudVerificarPublicacionMotivoFuenteAnalisis{
+		Motivo:                datos.Motivo,
+		HuellaRespuestaSHA256: datos.HuellaRespuestaSHA256,
+		AutoridadRespuestaRef: datos.Atestacion.Metadatos.AutoridadRef,
+		GeneracionRespuesta:   datos.Atestacion.Metadatos.Generacion,
+	}
+	confirmacion, errVerificacion := verificador.
+		VerificarPublicacionMotivoFuenteAnalisis(ctx, solicitud)
+	if errContexto := ctx.Err(); errContexto != nil {
+		return nil, errorDisponibilidadFuente(
+			ErrVerificacionFuenteAnalisisNoDisponible,
+			errContexto,
+		)
+	}
+	datosConfirmacion, errDatos := confirmacion.Datos()
+	if errVerificacion != nil || errDatos != nil ||
+		confirmacion.ValidarPara(solicitud, datosConfirmacion.VerificadaEn) != nil {
+		return nil, errorDisponibilidadFuente(
+			ErrVerificacionFuenteAnalisisNoDisponible,
+			errVerificacion,
+		)
+	}
+	comprobadaEn := reloj.Ahora()
+	if errContexto := ctx.Err(); errContexto != nil {
+		return nil, errorDisponibilidadFuente(
+			ErrVerificacionFuenteAnalisisNoDisponible,
+			errContexto,
+		)
+	}
+	if confirmacion.ValidarPara(solicitud, comprobadaEn) != nil {
+		return nil, ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return &confirmacion, nil
 }
 
 func materializarMotivoValidacionRC(
@@ -175,10 +343,10 @@ func materializarMotivoValidacionRC(
 		}
 		return validacion, nil
 	}
-	if motivo.Validar() != nil {
+	datos, err := motivo.Datos()
+	if err != nil {
 		return domain.ValidacionRC{}, errMotivoFuenteAnalisisInvalido
 	}
-	_, _, _, _, claveI18N, _, _ := motivo.Datos()
-	validacion.Motivo = string(claveI18N)
+	validacion.Motivo = string(datos.ClaveMensajeI18N)
 	return validacion, nil
 }
