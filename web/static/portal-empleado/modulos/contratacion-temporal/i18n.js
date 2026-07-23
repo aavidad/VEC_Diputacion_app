@@ -61,6 +61,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   moneda_eur: "EUR",
   rc_documento_ref: "Documento de RC incorporado",
   documentos_leyenda: "Documentación incorporada",
+  documentos_adjuntos: "Documentos adjuntos",
   documentos_ayuda:
     "Seleccione solo referencias ya incorporadas al expediente documental. Esta pantalla no sube archivos.",
   documentos_vacios: "No hay documentos incorporados disponibles.",

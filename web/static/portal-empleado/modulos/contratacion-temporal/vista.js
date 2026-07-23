@@ -490,8 +490,10 @@ export function montarAltaContratacionTemporal({
     throw new TypeError("dependencias DOM del alta no válidas");
   }
   const t = crearTraductorContratacionTemporal(mensajes);
+  let montada = true;
 
   function repintar(selectorFoco = "") {
+    if (!montada) return;
     const estado = presentador.obtenerEstado();
     raiz.innerHTML = renderizarAltaContratacionTemporal(estado, {
       mensajes,
@@ -582,6 +584,7 @@ export function montarAltaContratacionTemporal({
   repintar();
 
   return () => {
+    montada = false;
     raiz.removeEventListener("click", alPulsar);
     raiz.removeEventListener("submit", alEnviar);
     raiz.removeEventListener("change", alCambiar);

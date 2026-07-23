@@ -164,6 +164,7 @@ test("el DTO rechaza campos extra, tipos, tamaños, fechas e importes inválidos
     { rc_importe: "90071992547410,00" },
     { observaciones: " texto con espacios " },
     { detalle: "texto\u0000control" },
+    { detalle: "texto\uD800incompleto" },
   ]) {
     assert.throws(() => crearComandoAlta(borradorValido(cambios), catalogos, CLAVE_PRUEBA));
   }
@@ -237,6 +238,9 @@ test("el comando y el recibo público minimizan identidad y material privado", (
   assert.throws(() => validarReciboAlta({ ...reciboValido(), evento_ref: "evt_privado_001" }));
   assert.throws(() => validarReciboAlta({ ...reciboValido(), version: 0 }));
   assert.throws(() => validarReciboAlta({ ...reciboValido(), confirmada_en: "2026-07-23" }));
+  assert.throws(
+    () => validarReciboAlta({ ...reciboValido(), confirmada_en: "2026-02-30T09:15:00Z" }),
+  );
 });
 
 test("el presentador envía una vez, no expone la clave y acepta solo un recibo válido", async () => {
@@ -455,6 +459,7 @@ test("el módulo no usa red, cookies, almacenamiento web ni registra claves", ()
   assert.doesNotMatch(vistaFuente, /idempotencia|hmac|decisi[oó]n|atestaci[oó]n|token/i);
   assert.match(vistaFuente, /function escaparHTML/);
   assert.match(vistaFuente, /raiz\.innerHTML = renderizarAltaContratacionTemporal/);
+  assert.match(vistaFuente, /if \(!montada\) return/);
 });
 
 test("el candidato aislado conserva Bolsa, Cronos y Dietas sin ruta DEMO falsa", async () => {

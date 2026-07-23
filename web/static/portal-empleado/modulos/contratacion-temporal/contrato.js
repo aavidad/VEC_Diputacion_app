@@ -114,7 +114,8 @@ function textoValido(valor, maximo, permiteVacio) {
   for (const caracter of valor) {
     const codigo = caracter.codePointAt(0);
     if ((codigo < 32 || (codigo >= 127 && codigo <= 159))
-      && caracter !== "\n" && caracter !== "\t") {
+      && caracter !== "\n" && caracter !== "\t"
+      || (codigo >= 0xD800 && codigo <= 0xDFFF)) {
       return false;
     }
   }
@@ -141,7 +142,7 @@ function instanteUTCValido(valor) {
     return false;
   }
   const instante = new Date(valor);
-  return Number.isFinite(instante.valueOf());
+  return fechaCivilValida(valor.slice(0, 10)) && Number.isFinite(instante.valueOf());
 }
 
 function referenciaValida(valor) {
