@@ -2,12 +2,42 @@ package ports
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"strings"
 	"testing"
 	"time"
-
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
+
+type generadorPeticionAnalisisDoble func(
+	context.Context,
+	TipoPeticionFuenteAnalisis,
+) (string, error)
+
+func (g generadorPeticionAnalisisDoble) NuevaReferenciaPeticionFuenteAnalisis(
+	ctx context.Context,
+	tipo TipoPeticionFuenteAnalisis,
+) (string, error) {
+	return g(ctx, tipo)
+}
+
+type selladorPeticionAnalisisDoble func(
+	context.Context,
+	PreimagenPeticionFuenteAnalisis,
+) (string, error)
+
+func (s selladorPeticionAnalisisDoble) SellarPeticionFuenteAnalisis(
+	ctx context.Context,
+	preimagen PreimagenPeticionFuenteAnalisis,
+) (string, error) {
+	return s(ctx, preimagen)
+}
+
+type relojFuenteAnalisisDoble func() time.Time
+
+func (r relojFuenteAnalisisDoble) Ahora() time.Time { return r() }
 
 type fuentePresupuestariaDoble func(
 	context.Context,
@@ -19,6 +49,18 @@ func (f fuentePresupuestariaDoble) ValidarRC(
 	solicitud SolicitudValidarRC,
 ) (ResultadoValidacionRC, error) {
 	return f(ctx, solicitud)
+}
+
+func (f fuentePresupuestariaDoble) PresentarAutoridadFuenteAnalisis(
+	_ context.Context,
+	desafio DesafioAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	return presentacionAutoridadPrueba(
+		RolFuentePresupuestaria,
+		"fuente_presupuesto_0123456789",
+		"backend_presupuesto_0123456789",
+		desafio,
+	)
 }
 
 type calculadorCosteDoble func(
@@ -33,236 +75,287 @@ func (c calculadorCosteDoble) CalcularCoste(
 	return c(ctx, solicitud)
 }
 
-func TestValidarRCConFuenteDevuelveCopiaLigada(t *testing.T) {
-	solicitud := solicitudValidarRCPrueba()
-	validacion := validacionRCPrueba(solicitud)
-	fuente := fuentePresupuestariaDoble(func(
-		_ context.Context,
-		recibida SolicitudValidarRC,
-	) (ResultadoValidacionRC, error) {
-		if recibida != solicitud {
-			t.Fatalf("solicitud alterada: %#v", recibida)
-		}
-		return ResultadoValidacionRC{
-			PeticionRef: recibida.PeticionRef,
-			Validacion:  validacion,
-		}, nil
-	})
-
-	resultado, err := ValidarRCConFuente(context.Background(), fuente, solicitud)
-	if err != nil {
-		t.Fatalf("validar RC: %v", err)
-	}
-	if resultado.Validar() != nil || resultado.Importe == validacion.Importe ||
-		resultado.FechaRC == validacion.FechaRC {
-		t.Fatal("el resultado no es válido o comparte punteros con el conector")
-	}
-	*resultado.Importe = domain.Importe{Centimos: 1, Moneda: "EUR"}
-	if validacion.Importe.Centimos == resultado.Importe.Centimos {
-		t.Fatal("la mutación del consumidor alcanzó al resultado del conector")
-	}
+func (c calculadorCosteDoble) PresentarAutoridadFuenteAnalisis(
+	_ context.Context,
+	desafio DesafioAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	return presentacionAutoridadPrueba(
+		RolCalculadorCoste,
+		"tabla_retributiva_2026_v3",
+		"backend_calculo_coste_0123456789",
+		desafio,
+	)
 }
 
-func TestValidarRCConFuenteFallaCerradoAnteErrorEIndisponibilidad(t *testing.T) {
-	solicitud := solicitudValidarRCPrueba()
-	resultadoAparentementePositivo := ResultadoValidacionRC{
-		PeticionRef: solicitud.PeticionRef,
-		Validacion: domain.ValidacionRC{
-			Resultado:           RCNoRequeridaPrueba(),
-			EntradaRef:          solicitud.Entrada.Referencia,
-			HuellaEntradaSHA256: solicitud.Entrada.HuellaSHA256,
-			FuenteRef:           "fuente:presupuesto-prueba",
-			ReciboRef:           "recibo:presupuesto-prueba",
-			ValidadaEn:          solicitud.SolicitadaEn,
-			Motivo:              "La fuente informa de que no procede retención de crédito.",
-		},
-	}
-	fallo := errors.New("fuente temporalmente inaccesible")
+type verificadorRespuestaDoble func(
+	context.Context,
+	SolicitudVerificarRespuestaFuenteAnalisis,
+) (ConfirmacionRespuestaFuenteAnalisis, error)
+
+func (v verificadorRespuestaDoble) VerificarRespuestaFuenteAnalisis(
+	ctx context.Context,
+	solicitud SolicitudVerificarRespuestaFuenteAnalisis,
+) (ConfirmacionRespuestaFuenteAnalisis, error) {
+	return v(ctx, solicitud)
+}
+
+func (v verificadorRespuestaDoble) PresentarAutoridadFuenteAnalisis(
+	_ context.Context,
+	desafio DesafioAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	return presentacionAutoridadPrueba(
+		RolVerificadorRespuesta,
+		"verificador_tcb_presupuestario_012345",
+		"backend_verificador_tcb_0123456789",
+		desafio,
+	)
+}
+
+type verificadorPublicacionMotivoDoble func(
+	context.Context,
+	SolicitudVerificarPublicacionMotivoFuenteAnalisis,
+) (ConfirmacionPublicacionMotivoFuenteAnalisis, error)
+
+func (v verificadorPublicacionMotivoDoble) VerificarPublicacionMotivoFuenteAnalisis(
+	ctx context.Context,
+	solicitud SolicitudVerificarPublicacionMotivoFuenteAnalisis,
+) (ConfirmacionPublicacionMotivoFuenteAnalisis, error) {
+	return v(ctx, solicitud)
+}
+
+func (v verificadorPublicacionMotivoDoble) PresentarAutoridadFuenteAnalisis(
+	_ context.Context,
+	desafio DesafioAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	return presentacionAutoridadPrueba(
+		RolPublicadorCatalogo,
+		"publicador_catalogo_motivos_012345",
+		"backend_publicador_catalogo_012345",
+		desafio,
+	)
+}
+
+type consumidorRespuestaDoble func(
+	context.Context,
+	OrdenConsumoRespuestaFuenteAnalisis,
+) (ReciboConsumoRespuestaFuenteAnalisis, error)
+
+func (c consumidorRespuestaDoble) ConsumirRespuestaFuenteAnalisis(
+	ctx context.Context,
+	orden OrdenConsumoRespuestaFuenteAnalisis,
+) (ReciboConsumoRespuestaFuenteAnalisis, error) {
+	return c(ctx, orden)
+}
+
+func TestValidarRCConFuenteExigeAtestacionVerificadaYConsumo(t *testing.T) {
+	inicio := instanteFuenteAnalisisPrueba()
+	solicitud := solicitudValidarRCPrueba(t, inicio)
+	validacion := validacionRCPrueba(t, solicitud, inicio.Add(time.Second))
+	metadatos := metadatosRespuestaPrueba(
+		validacion.FuenteRef,
+		validacion.ReciboRef,
+		inicio,
+	)
+	resultado := resultadoRCFirmadoPrueba(
+		t,
+		solicitud,
+		validacion,
+		MotivoFuenteAnalisis{},
+		metadatos,
+	)
 	fuente := fuentePresupuestariaDoble(func(
 		context.Context,
 		SolicitudValidarRC,
 	) (ResultadoValidacionRC, error) {
-		return resultadoAparentementePositivo, fallo
+		return resultado, nil
 	})
-
-	resultado, err := ValidarRCConFuente(context.Background(), fuente, solicitud)
-	if !errors.Is(err, ErrFuentePresupuestariaNoDisponible) ||
-		!errors.Is(err, fallo) || resultado.HabilitaAvance() {
-		t.Fatalf("la indisponibilidad se interpretó como validación: %#v, %v", resultado, err)
-	}
-}
-
-func TestValidarRCConFuenteRechazaResultadoCruzadoYNuloTipado(t *testing.T) {
-	solicitud := solicitudValidarRCPrueba()
-	cruzado := ResultadoValidacionRC{
-		PeticionRef: "peticion:rc-distinta",
-		Validacion:  validacionRCPrueba(solicitud),
-	}
-	fuente := fuentePresupuestariaDoble(func(
-		context.Context,
-		SolicitudValidarRC,
-	) (ResultadoValidacionRC, error) {
-		return cruzado, nil
-	})
-	if _, err := ValidarRCConFuente(
+	obtenida, err := ValidarRCConFuente(
 		context.Background(),
 		fuente,
+		verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
+		verificadorPublicacionNoInvocablePrueba(t),
+		consumidorRespuestaPrueba(metadatos.EmitidaEn.Add(time.Second)),
+		confianzaAutoridadesPrueba(t),
+		relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(1500*time.Millisecond)),
 		solicitud,
-	); !errors.Is(err, ErrResultadoFuenteAnalisisNoConfiable) {
-		t.Fatalf("aceptó un resultado de otra petición: %v", err)
+	)
+	if err != nil || obtenida.Validar() != nil ||
+		obtenida.Importe == validacion.Importe ||
+		obtenida.FechaRC == validacion.FechaRC {
+		t.Fatalf("validación RC no confiable: %#v, %v", obtenida, err)
 	}
+}
 
-	var nula *fuentePresupuestariaNula
-	if _, err := ValidarRCConFuente(
+func TestValidarRCConFuenteConservaMotivoPublicadoCompletoEnConsumo(t *testing.T) {
+	inicio := instanteFuenteAnalisisPrueba()
+	solicitud := solicitudValidarRCPrueba(t, inicio)
+	validacion := validacionRCNegativaPrueba(t, solicitud, inicio.Add(time.Second))
+	motivo := motivoFuenteAnalisisPrueba(t)
+	metadatos := metadatosRespuestaPrueba(
+		validacion.FuenteRef,
+		validacion.ReciboRef,
+		inicio,
+	)
+	resultado := resultadoRCFirmadoPrueba(t, solicitud, validacion, motivo, metadatos)
+	vinculoEsperado, _ := motivo.Datos()
+	consumidor := consumidorRespuestaDoble(func(
+		_ context.Context,
+		orden OrdenConsumoRespuestaFuenteAnalisis,
+	) (ReciboConsumoRespuestaFuenteAnalisis, error) {
+		datos, err := orden.Datos()
+		vinculo, errMotivo := datos.Motivo.Datos()
+		if err != nil || errMotivo != nil ||
+			datos.ConfirmacionPublicacion == nil ||
+			vinculo.CatalogoRef != vinculoEsperado.CatalogoRef ||
+			vinculo.CatalogoVersion != vinculoEsperado.CatalogoVersion ||
+			vinculo.CatalogoHuella != vinculoEsperado.CatalogoHuella ||
+			vinculo.EntradaClave != vinculoEsperado.EntradaClave ||
+			vinculo.ClaveMensajeI18N != vinculoEsperado.ClaveMensajeI18N {
+			t.Fatal("el consumo perdió el vínculo publicado del motivo")
+		}
+		return NuevoReciboConsumoRespuestaFuenteAnalisis(
+			orden,
+			"consumo_respuesta_rc_0123456789",
+			metadatos.EmitidaEn.Add(time.Second),
+		)
+	})
+	obtenida, err := ValidarRCConFuente(
 		context.Background(),
-		nula,
+		fuentePresupuestariaDoble(func(
+			context.Context,
+			SolicitudValidarRC,
+		) (ResultadoValidacionRC, error) {
+			return resultado, nil
+		}),
+		verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
+		verificadorPublicacionPrueba(metadatos.EmitidaEn.Add(250*time.Millisecond)),
+		consumidor,
+		confianzaAutoridadesPrueba(t),
+		relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(1500*time.Millisecond)),
 		solicitud,
-	); !errors.Is(err, ErrPeticionFuenteAnalisisInvalida) {
-		t.Fatalf("aceptó una fuente con puntero nulo: %v", err)
+	)
+	if err != nil ||
+		obtenida.Motivo != "contratacion_temporal.rc.no_requerida" ||
+		!obtenida.HabilitaAvance() {
+		t.Fatalf("motivo gobernado no materializado: %#v, %v", obtenida, err)
 	}
 }
 
-type fuentePresupuestariaNula struct{}
-
-func (*fuentePresupuestariaNula) ValidarRC(
-	context.Context,
-	SolicitudValidarRC,
-) (ResultadoValidacionRC, error) {
-	panic("no debe invocarse")
-}
-
-func TestCalcularCosteConFuenteLigaPeticionYRespetaCancelacion(t *testing.T) {
-	solicitud := solicitudCalcularCostePrueba()
-	calculador := calculadorCosteDoble(func(
-		_ context.Context,
-		recibida SolicitudCalcularCoste,
-	) (ResultadoCalculoCoste, error) {
-		return ResultadoCalculoCoste{
-			PeticionRef: recibida.PeticionRef, ExpedienteRef: recibida.ExpedienteRef,
-			FuenteRef: "tabla:retributiva-2026-v3", ReciboRef: "recibo:coste-001",
-			Importe:     domain.Importe{Centimos: 3_148_025, Moneda: "EUR"},
-			CalculadoEn: recibida.SolicitadaEn.Add(time.Second),
-		}, nil
-	})
-	resultado, err := CalcularCosteConFuente(context.Background(), calculador, solicitud)
-	if err != nil || resultado.ValidarPara(solicitud) != nil {
-		t.Fatalf("calcular coste: %#v, %v", resultado, err)
-	}
-
-	ctx, cancelar := context.WithCancel(context.Background())
-	cancelar()
-	if _, err := CalcularCosteConFuente(
-		ctx,
-		calculador,
-		solicitud,
-	); !errors.Is(err, ErrCalculadorCosteNoDisponible) ||
-		!errors.Is(err, context.Canceled) {
-		t.Fatalf("no propagó la cancelación de forma cerrada: %v", err)
-	}
-}
-
-func TestCalcularCosteConFuenteRechazaResultadoDeOtroExpediente(t *testing.T) {
-	solicitud := solicitudCalcularCostePrueba()
-	calculador := calculadorCosteDoble(func(
-		_ context.Context,
-		recibida SolicitudCalcularCoste,
-	) (ResultadoCalculoCoste, error) {
-		return ResultadoCalculoCoste{
-			PeticionRef: recibida.PeticionRef, ExpedienteRef: "expediente:ajeno",
-			FuenteRef: "tabla:retributiva-2026-v3", ReciboRef: "recibo:coste-001",
-			Importe:     domain.Importe{Centimos: 3_148_025, Moneda: "EUR"},
-			CalculadoEn: recibida.SolicitadaEn,
-		}, nil
-	})
-	if _, err := CalcularCosteConFuente(
+func TestCalcularCosteConFuenteVerificaYConsumeRespuesta(t *testing.T) {
+	inicio := instanteFuenteAnalisisPrueba()
+	solicitud := solicitudCalcularCostePrueba(t, inicio)
+	fuenteRef := "tabla_retributiva_2026_v3"
+	metadatos := metadatosRespuestaPrueba(
+		fuenteRef,
+		"recibo_coste_0123456789",
+		inicio,
+	)
+	resultado := resultadoCosteFirmadoPrueba(t, solicitud, metadatos)
+	obtenido, err := CalcularCosteConFuente(
 		context.Background(),
-		calculador,
+		calculadorCosteDoble(func(
+			context.Context,
+			SolicitudCalcularCoste,
+		) (ResultadoCalculoCoste, error) {
+			return resultado, nil
+		}),
+		verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
+		consumidorRespuestaPrueba(metadatos.EmitidaEn.Add(time.Second)),
+		confianzaAutoridadesPrueba(t),
+		relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(1500*time.Millisecond)),
 		solicitud,
-	); !errors.Is(err, ErrResultadoFuenteAnalisisNoConfiable) {
-		t.Fatalf("aceptó el coste de otro expediente: %v", err)
+	)
+	datos, errDatos := obtenido.Datos()
+	if err != nil || errDatos != nil || datos.Importe.Centimos != 3_148_025 {
+		t.Fatalf("coste no verificado: %#v, %v, %v", datos, err, errDatos)
 	}
 }
 
-func TestCalcularCosteConFuenteDescartaValorSiElConectorFalla(t *testing.T) {
-	solicitud := solicitudCalcularCostePrueba()
-	fallo := errors.New("detalle privado del proveedor")
-	calculador := calculadorCosteDoble(func(
+func TestErroresDeProveedorNoExponenLaCausa(t *testing.T) {
+	inicio := instanteFuenteAnalisisPrueba()
+	solicitud := solicitudValidarRCPrueba(t, inicio)
+	privado := errors.New("DNI 12345678Z en backend presupuestario")
+	_, err := ValidarRCConFuente(
+		context.Background(),
+		fuentePresupuestariaDoble(func(
+			context.Context,
+			SolicitudValidarRC,
+		) (ResultadoValidacionRC, error) {
+			return ResultadoValidacionRC{}, privado
+		}),
+		verificadorRespuestaHMACPrueba(inicio),
+		verificadorPublicacionNoInvocablePrueba(t),
+		consumidorRespuestaPrueba(inicio),
+		confianzaAutoridadesPrueba(t),
+		relojFijoFuenteAnalisis(inicio),
+		solicitud,
+	)
+	if !errors.Is(err, ErrFuentePresupuestariaNoDisponible) ||
+		errors.Is(err, privado) ||
+		err.Error() != ErrFuentePresupuestariaNoDisponible.Error() ||
+		strings.Contains(err.Error(), "12345678") {
+		t.Fatalf("causa privada expuesta: %v", err)
+	}
+}
+
+func solicitudValidarRCPrueba(t *testing.T, instante time.Time) SolicitudValidarRC {
+	t.Helper()
+	solicitud, err := NuevaSolicitudValidarRC(
+		context.Background(),
+		generadorFijoFuenteAnalisis("pet_0123456789abcdefghijklmn"),
+		selladorHMACFuenteAnalisisPrueba(),
+		relojFijoFuenteAnalisis(instante),
+		preparacionValidarRCPrueba(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return solicitud
+}
+
+func solicitudCalcularCostePrueba(
+	t *testing.T,
+	instante time.Time,
+) SolicitudCalcularCoste {
+	t.Helper()
+	solicitud, err := NuevaSolicitudCalcularCoste(
+		context.Background(),
+		generadorFijoFuenteAnalisis("pet_abcdefghij0123456789klmn"),
+		selladorHMACFuenteAnalisisPrueba(),
+		relojFijoFuenteAnalisis(instante),
+		preparacionCalcularCostePrueba(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return solicitud
+}
+
+func generadorFijoFuenteAnalisis(referencia string) generadorPeticionAnalisisDoble {
+	return func(context.Context, TipoPeticionFuenteAnalisis) (string, error) {
+		return referencia, nil
+	}
+}
+
+func selladorHMACFuenteAnalisisPrueba() selladorPeticionAnalisisDoble {
+	return func(
 		_ context.Context,
-		recibida SolicitudCalcularCoste,
-	) (ResultadoCalculoCoste, error) {
-		return ResultadoCalculoCoste{
-			PeticionRef: recibida.PeticionRef, ExpedienteRef: recibida.ExpedienteRef,
-			FuenteRef: "tabla:retributiva-2026-v3", ReciboRef: "recibo:coste-001",
-			Importe:     domain.Importe{Centimos: 3_148_025, Moneda: "EUR"},
-			CalculadoEn: recibida.SolicitadaEn,
-		}, fallo
-	})
-	resultado, err := CalcularCosteConFuente(context.Background(), calculador, solicitud)
-	if !errors.Is(err, ErrCalculadorCosteNoDisponible) || !errors.Is(err, fallo) ||
-		err.Error() != ErrCalculadorCosteNoDisponible.Error() ||
-		resultado != (ResultadoCalculoCoste{}) {
-		t.Fatalf("el fallo filtró o aceptó un resultado: %#v, %v", resultado, err)
+		preimagen PreimagenPeticionFuenteAnalisis,
+	) (string, error) {
+		contenido, err := preimagen.Bytes()
+		if err != nil {
+			return "", err
+		}
+		mac := hmac.New(sha256.New, []byte("clave-prueba-fuente-analisis"))
+		_, _ = mac.Write(contenido)
+		return dominioSelloPeticionAnalisis + hex.EncodeToString(mac.Sum(nil)), nil
 	}
 }
 
-func solicitudValidarRCPrueba() SolicitudValidarRC {
-	fechaRC := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
-	return SolicitudValidarRC{
-		PeticionRef:     "peticion:validacion-rc-001",
-		OrganizacionRef: "organizacion:diputacion-granada",
-		ExpedienteRef:   "expediente:temporal-001",
-		Entrada: domain.VinculoEntradaRC{
-			Referencia:   "entrada:rc-001",
-			HuellaSHA256: cadena64Puertos("a"),
-		},
-		Declaracion: domain.DeclaracionRC{
-			Existe: true, Numero: "rc:2026-001", Fecha: fechaRC,
-			Importe:      domain.Importe{Centimos: 3_245_000, Moneda: "EUR"},
-			DocumentoRef: "documento:rc-001",
-		},
-		SolicitadaEn: time.Date(2026, 7, 23, 9, 0, 0, 0, time.UTC),
-	}
+func relojFijoFuenteAnalisis(instante time.Time) relojFuenteAnalisisDoble {
+	return func() time.Time { return instante }
 }
 
-func validacionRCPrueba(solicitud SolicitudValidarRC) domain.ValidacionRC {
-	fechaRC := solicitud.Declaracion.Fecha
-	importe := solicitud.Declaracion.Importe
-	return domain.ValidacionRC{
-		Resultado:           domain.RCValidada,
-		EntradaRef:          solicitud.Entrada.Referencia,
-		HuellaEntradaSHA256: solicitud.Entrada.HuellaSHA256,
-		FuenteRef:           "fuente:presupuesto-prueba",
-		ReciboRef:           "recibo:presupuesto-prueba",
-		ValidadaEn:          solicitud.SolicitadaEn.Add(time.Second),
-		FechaRC:             &fechaRC, Numero: solicitud.Declaracion.Numero,
-		Importe: &importe, DocumentoRef: solicitud.Declaracion.DocumentoRef,
-	}
-}
-
-func solicitudCalcularCostePrueba() SolicitudCalcularCoste {
-	return SolicitudCalcularCoste{
-		PeticionRef:     "peticion:calculo-coste-001",
-		OrganizacionRef: "organizacion:diputacion-granada",
-		ExpedienteRef:   "expediente:temporal-001",
-		CategoriaRef:    "categoria:trabajo-social", GrupoSubgrupo: "A2",
-		ModalidadClave: "sustitucion", CausaClave: "incapacidad_temporal",
-		Periodo: domain.PeriodoPrevisto{
-			Inicio: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
-			Fin:    time.Date(2027, 3, 31, 0, 0, 0, 0, time.UTC),
-		},
-		Jornada:      domain.JornadaCompletaDiezmilesimas,
-		SolicitadaEn: time.Date(2026, 7, 23, 9, 0, 0, 0, time.UTC),
-	}
-}
-
-func cadena64Puertos(caracter string) string {
-	var resultado string
-	for range 64 {
-		resultado += caracter
-	}
-	return resultado
-}
-
-func RCNoRequeridaPrueba() domain.ResultadoValidacionRC {
-	return domain.RCNoRequerida
+func instanteFuenteAnalisisPrueba() time.Time {
+	return time.Date(2026, 7, 23, 9, 0, 0, 123_456_000, time.UTC)
 }
