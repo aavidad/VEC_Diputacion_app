@@ -11,7 +11,7 @@ Dietas y Bolsa son modulos independientes con `ModuleID`, permisos y menus
 propios; VEC solo los agrega y permite relacionarlos por empleado, expediente,
 justificante o auditoria.
 
-Fecha de corte de este estado: **20 de julio de 2026**. El repositorio es una
+Fecha de corte de este estado: **23 de julio de 2026**. El repositorio es una
 base de desarrollo y demostracion verificable; no acredita por si solo
 conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
 
@@ -24,6 +24,21 @@ los códigos internos `Txx` quedan relegados a la documentación técnica.
 
 Los agentes paralelos, incluidos los que se arranquen manualmente, deben leer
 [ORQUESTACION_AGENTES.md](ORQUESTACION_AGENTES.md) antes de tomar una tarea.
+
+### Frente activo: contratación temporal solicitada por RRHH
+
+RRHH ha definido un procedimiento integral que parte de la petición de un
+centro y termina con la incorporación, el envío a GINPIX y el seguimiento. No
+reemplaza el módulo Bolsa: se implementa como el módulo coordinador
+`contrataciontemporal`, que usa Bolsa para la vía de cobertura y los
+llamamientos.
+
+- [Especificación del expediente de contratación temporal](docs/portal_vec/expediente_contratacion_temporal_rrhh.md)
+- [Relevo técnico del frente activo](docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md)
+
+Estado del primer corte: especificación y manifiesto del módulo iniciados sobre
+la convergencia C3/C4 `eeac3a2`. Ninguna pantalla o contrato aislado se
+contabiliza como flujo administrativo terminado.
 
 ## Estado honesto
 
