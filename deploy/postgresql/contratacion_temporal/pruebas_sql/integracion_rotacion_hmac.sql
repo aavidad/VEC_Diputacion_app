@@ -1,6 +1,8 @@
 \set ON_ERROR_STOP on
 BEGIN;
 SET LOCAL search_path = pg_catalog;
+SET LOCAL statement_timeout = '15s';
+SET LOCAL idle_in_transaction_session_timeout = '20s';
 SET LOCAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
 DO $prueba$

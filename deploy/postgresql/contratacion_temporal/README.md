@@ -23,7 +23,8 @@ La migración aditiva `000002_rotacion_hmac` conserva la historia v1 y añade:
 - restricciones genéricas `/vN`;
 - revocación runtime de v1 y concesión exclusiva de v2;
 - rechazo de colisiones o convergencia entre dos reservas.
-- límites propios de bloqueo, sentencia e inactividad en la función v2.
+- límite propio de bloqueo en la función v2;
+- precondiciones ambientales de sentencia e inactividad transaccional.
 
 La clave idempotente original no cruza hacia PostgreSQL. El adaptador solicita
 a `SelladorAmbitoIdempotencia` una HMAC ligada a organización, actor y perfil,
@@ -45,6 +46,15 @@ dominios —ámbito idempotente y huella de petición— deben presentar la mism
 matriz. Si el conector no puede usar una generación retenida, la operación
 falla antes de PostgreSQL. Si un cliente omite una generación exigida, la
 función v2 falla cerrada.
+
+Antes de cada invocación, la misma transacción debe configurar
+`statement_timeout` entre 1 ms y 15 s e
+`idle_in_transaction_session_timeout` entre 1 ms y 20 s. La función valida
+ambos límites al comenzar y deniega valores ausentes, nulos, mal formados o
+superiores. No los instala mediante `proconfig`: el límite de sentencia debe
+estar armado antes de iniciar el `SELECT`, y el límite de inactividad debe
+seguir vigente después de que la función retorne. `lock_timeout=2s` sí es un
+límite propio de `preparar_alta_v2`.
 
 El adaptador reutiliza los mismos sellos y referencias candidatas, pero abre
 una transacción nueva hasta un máximo de tres intentos exclusivamente ante
@@ -97,10 +107,11 @@ efímero, sin puertos publicados, sin red y con el directorio de datos en
 ```
 
 El ensayo valida instalación con cuenta de migración, separación de roles,
-privilegio mínimo del ejecutor, alta v1, rotación v2→v1 con el mismo
+privilegio mínimo del ejecutor, alta v1, rotación v1→v2 con el mismo
 expediente, recibo, versión, auditoría, evento e instante de confirmación, alta
 nativa v2, conflicto semántico, ausencia de una generación histórica, bloqueo
-directo limitado por la propia función, y ocho sesiones concurrentes con ambas
+directo limitado por la propia función y límites conductuales de sentencia e
+inactividad transaccional, además de ocho sesiones concurrentes con ambas
 generaciones. El ensayo conserva y valida el resumen de `pgbench`: exige
 `16/16` transacciones procesadas y cero fallidas. También comprueba
 inmutabilidad, rechazo del rollback ordinario con historia y limpieza

@@ -204,8 +204,6 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog
 SET lock_timeout = '2s'
-SET statement_timeout = '15s'
-SET idle_in_transaction_session_timeout = '20s'
 AS $funcion$
 DECLARE
     v_insertada boolean := false;
@@ -224,6 +222,8 @@ DECLARE
     v_coincide_huella boolean;
     v_elementos_invalidos boolean;
     v_indice integer;
+    v_statement_timeout_ms numeric;
+    v_idle_timeout_ms numeric;
 BEGIN
     IF session_user = current_user
        OR NOT pg_catalog.pg_has_role(
@@ -244,6 +244,41 @@ BEGIN
         RAISE EXCEPTION USING
             ERRCODE = '42501',
             MESSAGE = 'identidad de ejecución no autorizada';
+    END IF;
+
+    SELECT CASE
+               WHEN unidad = 'ms'
+                AND valor ~ '^[0-9]{1,18}$'
+               THEN valor::numeric
+               ELSE NULL
+           END
+      INTO v_statement_timeout_ms
+      FROM (
+          SELECT setting AS valor, unit AS unidad
+          FROM pg_catalog.pg_settings
+          WHERE name = 'statement_timeout'
+      ) AS configuracion;
+    SELECT CASE
+               WHEN unidad = 'ms'
+                AND valor ~ '^[0-9]{1,18}$'
+               THEN valor::numeric
+               ELSE NULL
+           END
+      INTO v_idle_timeout_ms
+      FROM (
+          SELECT setting AS valor, unit AS unidad
+          FROM pg_catalog.pg_settings
+          WHERE name = 'idle_in_transaction_session_timeout'
+      ) AS configuracion;
+    IF v_statement_timeout_ms IS NULL
+       OR v_statement_timeout_ms <= 0
+       OR v_statement_timeout_ms > 15000
+       OR v_idle_timeout_ms IS NULL
+       OR v_idle_timeout_ms <= 0
+       OR v_idle_timeout_ms > 20000 THEN
+        RAISE EXCEPTION USING
+            ERRCODE = '22023',
+            MESSAGE = 'límites ambientales de ejecución ausentes o inválidos';
     END IF;
 
     IF p_operacion IS NULL OR jsonb_typeof(p_operacion) <> 'object' THEN
