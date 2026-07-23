@@ -49,7 +49,7 @@ type ReferenciaVersionadaIntegracionBolsa struct {
 
 func (r ReferenciaVersionadaIntegracionBolsa) Validar() error {
 	if !domain.ReferenciaOpacaValida(r.Referencia) ||
-		!enteroSeguroBolsa(r.Version) || !huellaSHA256Valida(r.HuellaSHA256) {
+		!enteroSeguroBolsa(r.Version) || !huellaSHA256BolsaValida(r.HuellaSHA256) {
 		return ErrPeticionIntegracionBolsaInvalida
 	}
 	return nil
@@ -136,8 +136,17 @@ func huellaBytesBolsa(material []byte) string {
 	return hex.EncodeToString(suma[:])
 }
 
+func huellaSHA256BolsaValida(valor string) bool {
+	if len(valor) != sha256.Size*2 || valor != strings.ToLower(valor) ||
+		valor == strings.Repeat("0", sha256.Size*2) {
+		return false
+	}
+	_, err := hex.DecodeString(valor)
+	return err == nil
+}
+
 func huellasBolsaIguales(primera, segunda string) bool {
-	return huellaSHA256Valida(primera) && huellaSHA256Valida(segunda) &&
+	return huellaSHA256BolsaValida(primera) && huellaSHA256BolsaValida(segunda) &&
 		hmac.Equal([]byte(primera), []byte(segunda))
 }
 

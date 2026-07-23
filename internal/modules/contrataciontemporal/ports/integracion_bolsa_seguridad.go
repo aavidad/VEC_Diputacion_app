@@ -103,9 +103,9 @@ func (e EvidenciaDurableIntegracionBolsa) Validar() error {
 		!valida || referencia != e.ClaveVerificacionRef ||
 		!domain.ReferenciaOpacaValida(e.EvidenciaRef) ||
 		!domain.ReferenciaOpacaValida(e.PeticionRef) ||
-		!huellaSHA256Valida(e.HuellaPeticionSHA256) ||
+		!huellaSHA256BolsaValida(e.HuellaPeticionSHA256) ||
 		!domain.ReferenciaOpacaValida(e.RespuestaRef) ||
-		!huellaSHA256Valida(e.HuellaRespuestaSHA256) ||
+		!huellaSHA256BolsaValida(e.HuellaRespuestaSHA256) ||
 		!instanteBolsaCanonico(e.EmitidaEn) ||
 		!instanteBolsaCanonico(e.ValidaHasta) ||
 		!instanteBolsaCanonico(e.RetenerHasta) ||

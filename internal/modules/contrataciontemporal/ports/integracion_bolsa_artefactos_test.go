@@ -85,7 +85,7 @@ func TestReinicioRealRehidrataArtefactosYLlegaARegistrarEvento(t *testing.T) {
 	}
 	if artefactoLlamamiento.Esquema == "" ||
 		artefactoLlamamiento.Version == 0 ||
-		!huellaSHA256Valida(artefactoLlamamiento.HuellaArtefactoSHA256) ||
+		!huellaSHA256BolsaValida(artefactoLlamamiento.HuellaArtefactoSHA256) ||
 		!selloHMACBolsaValido(
 			artefactoLlamamiento.SelloHMAC,
 			dominioSelloRespuestaBolsa,

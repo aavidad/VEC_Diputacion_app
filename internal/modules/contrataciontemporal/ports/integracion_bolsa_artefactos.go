@@ -313,7 +313,7 @@ func (a ArtefactoProbatorioLlamamientoBolsa) Validar() error {
 		a.Comando.TotalPosicionesOrden > MaximoElementosIntegracionBolsa ||
 		a.Comando.MaximaPosicionEvaluable == 0 ||
 		a.Comando.MaximaPosicionEvaluable > a.Comando.TotalPosicionesOrden ||
-		!huellaSHA256Valida(a.Comando.HuellaReciboOrden) {
+		!huellaSHA256BolsaValida(a.Comando.HuellaReciboOrden) {
 		return ErrEvidenciaBolsaNoAutenticada
 	}
 	return nil

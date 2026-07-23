@@ -116,9 +116,9 @@ func (e EnlaceEventoLlamamientoBolsa) valido() bool {
 		d.seleccionRef.Validar() == nil &&
 		d.retencionSeleccion.Validar() == nil &&
 		domain.ReferenciaOpacaValida(d.peticionRef) &&
-		huellaSHA256Valida(d.huellaPeticion) &&
+		huellaSHA256BolsaValida(d.huellaPeticion) &&
 		domain.ReferenciaOpacaValida(d.reciboRef) &&
-		huellaSHA256Valida(d.huellaRecibo) &&
+		huellaSHA256BolsaValida(d.huellaRecibo) &&
 		instanteBolsaCanonico(d.peticionSolicitadaEn) &&
 		instanteBolsaCanonico(d.peticionValidaHasta) &&
 		instanteBolsaCanonico(d.reciboConfirmadaEn) &&
@@ -251,9 +251,9 @@ func (e EventoLlamamientoBolsa) validarEstructuraDurable() error {
 		e.Finalidad.Validar() != nil || e.Accion.Validar() != nil ||
 		e.Recurso.Validar() != nil ||
 		!domain.ReferenciaOpacaValida(e.PeticionRef) ||
-		!huellaSHA256Valida(e.HuellaPeticionSHA256) ||
+		!huellaSHA256BolsaValida(e.HuellaPeticionSHA256) ||
 		!domain.ReferenciaOpacaValida(e.ReciboRef) ||
-		!huellaSHA256Valida(e.HuellaReciboSHA256) ||
+		!huellaSHA256BolsaValida(e.HuellaReciboSHA256) ||
 		!instanteBolsaCanonico(e.PeticionSolicitadaEn) ||
 		!instanteBolsaCanonico(e.PeticionValidaHasta) ||
 		!instanteBolsaCanonico(e.ReciboConfirmadaEn) ||
@@ -277,7 +277,7 @@ func (e EventoLlamamientoBolsa) validarEstructuraDurable() error {
 		!enteroSeguroBolsa(e.Secuencia) ||
 		e.SecuenciaAnterior > MaximoEnteroSeguroIntegracionBolsa ||
 		e.SecuenciaAnterior+1 != e.Secuencia ||
-		!huellaSHA256Valida(e.HuellaCargaSHA256) ||
+		!huellaSHA256BolsaValida(e.HuellaCargaSHA256) ||
 		!instanteBolsaCanonico(e.OcurridoEn) ||
 		!instanteBolsaCanonico(e.PublicadoEn) ||
 		e.OcurridoEn.Before(e.ReciboConfirmadaEn) ||

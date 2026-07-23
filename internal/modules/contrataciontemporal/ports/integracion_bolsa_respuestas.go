@@ -296,7 +296,7 @@ func (c ComandoSolicitarLlamamientoBolsa) DatosEn(
 		datos.TotalPosicionesOrden > MaximoElementosIntegracionBolsa ||
 		datos.MaximaPosicionEvaluable == 0 ||
 		datos.MaximaPosicionEvaluable > datos.TotalPosicionesOrden ||
-		!huellaSHA256Valida(datos.HuellaReciboOrden) ||
+		!huellaSHA256BolsaValida(datos.HuellaReciboOrden) ||
 		contexto.Recurso != datos.Orden {
 		return DatosComandoSolicitarLlamamientoBolsa{}, ErrPeticionIntegracionBolsaInvalida
 	}
