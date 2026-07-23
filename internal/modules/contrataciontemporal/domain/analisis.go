@@ -55,6 +55,47 @@ func (v VinculoEntradaRC) Validar() error {
 	return nil
 }
 
+// VinculoActuacionAnalisis enlaza el análisis persistido con la actuación que
+// lo materializó. Lo construye el agregado; no forma parte del comando de alta.
+type VinculoActuacionAnalisis struct {
+	Secuencia         uint64        `json:"secuencia"`
+	VersionExpediente uint64        `json:"version_expediente"`
+	AccionClave       ClaveCatalogo `json:"accion_clave"`
+	FaseDestino       ClaveFase     `json:"fase_destino"`
+	ReciboRef         string        `json:"recibo_ref"`
+}
+
+func (v VinculoActuacionAnalisis) validar() error {
+	if v.Secuencia < 2 || v.VersionExpediente < 2 ||
+		v.Secuencia != v.VersionExpediente ||
+		!v.AccionClave.Valida() || !v.FaseDestino.Valida() ||
+		!referenciaValida(v.ReciboRef) {
+		return ErrDatoInvalido
+	}
+	return nil
+}
+
+func (v VinculoActuacionAnalisis) correspondeA(actuacion Actuacion) bool {
+	return v.validar() == nil &&
+		v.Secuencia == actuacion.Secuencia &&
+		v.VersionExpediente == actuacion.VersionExpediente &&
+		v.AccionClave == actuacion.AccionClave &&
+		v.FaseDestino == actuacion.FaseDestino &&
+		v.ReciboRef == actuacion.ReciboRef
+}
+
+func nuevoVinculoActuacionAnalisis(
+	versionExpediente uint64,
+	secuencia uint64,
+	actuacion DatosActuacion,
+) VinculoActuacionAnalisis {
+	return VinculoActuacionAnalisis{
+		Secuencia: secuencia, VersionExpediente: versionExpediente,
+		AccionClave: actuacion.AccionClave, FaseDestino: actuacion.FaseDestino,
+		ReciboRef: actuacion.ReciboRef,
+	}
+}
+
 func (v VinculoEntradaRC) coincideCon(validacion ValidacionRC) bool {
 	return v.Referencia == validacion.EntradaRef &&
 		subtle.ConstantTimeCompare(
@@ -108,17 +149,18 @@ func (v ValidacionRC) HabilitaAvance() bool {
 }
 
 type AnalisisRRHH struct {
-	ModalidadClave    ClaveCatalogo        `json:"modalidad_clave"`
-	CategoriaRef      string               `json:"categoria_ref"`
-	GrupoSubgrupo     string               `json:"grupo_subgrupo"`
-	CausaClave        ClaveCatalogo        `json:"causa_clave"`
-	Periodo           PeriodoPrevisto      `json:"periodo"`
-	PorcentajeJornada JornadaDiezmilesimas `json:"porcentaje_jornada"`
-	EntradaRCEsperada VinculoEntradaRC     `json:"entrada_rc_esperada"`
-	ValidacionRC      ValidacionRC         `json:"validacion_rc"`
-	CostePrevisto     *Importe             `json:"coste_previsto,omitempty"`
-	FuenteCosteRef    string               `json:"fuente_coste_ref,omitempty"`
-	Observaciones     string               `json:"observaciones,omitempty"`
+	ModalidadClave    ClaveCatalogo             `json:"modalidad_clave"`
+	CategoriaRef      string                    `json:"categoria_ref"`
+	GrupoSubgrupo     string                    `json:"grupo_subgrupo"`
+	CausaClave        ClaveCatalogo             `json:"causa_clave"`
+	Periodo           PeriodoPrevisto           `json:"periodo"`
+	PorcentajeJornada JornadaDiezmilesimas      `json:"porcentaje_jornada"`
+	EntradaRCEsperada VinculoEntradaRC          `json:"entrada_rc_esperada"`
+	ActuacionRegistro *VinculoActuacionAnalisis `json:"actuacion_registro,omitempty"`
+	ValidacionRC      ValidacionRC              `json:"validacion_rc"`
+	CostePrevisto     *Importe                  `json:"coste_previsto,omitempty"`
+	FuenteCosteRef    string                    `json:"fuente_coste_ref,omitempty"`
+	Observaciones     string                    `json:"observaciones,omitempty"`
 }
 
 func (a AnalisisRRHH) Validar() error {
@@ -126,6 +168,7 @@ func (a AnalisisRRHH) Validar() error {
 		!grupoValido(a.GrupoSubgrupo) || !a.CausaClave.Valida() ||
 		!periodoAnalisisValido(a.Periodo) || a.PorcentajeJornada.Validar() != nil ||
 		a.EntradaRCEsperada.Validar() != nil ||
+		(a.ActuacionRegistro != nil && a.ActuacionRegistro.validar() != nil) ||
 		a.ValidacionRC.Validar() != nil ||
 		!a.EntradaRCEsperada.coincideCon(a.ValidacionRC) ||
 		!textoValido(a.Observaciones, 4000, true) {
@@ -151,7 +194,9 @@ func (a AnalisisRRHH) Validar() error {
 // permite pasar a cobertura. Una RC rechazada conserva su evidencia, pero
 // devuelve false.
 func (a AnalisisRRHH) HabilitaAvance() bool {
-	return a.Validar() == nil && a.ValidacionRC.HabilitaAvance()
+	return a.ActuacionRegistro != nil &&
+		a.Validar() == nil &&
+		a.ValidacionRC.HabilitaAvance()
 }
 
 func periodoAnalisisValido(periodo PeriodoPrevisto) bool {
@@ -172,6 +217,10 @@ func huellaEntradaValida(huella string) bool {
 
 func (a AnalisisRRHH) clonar() AnalisisRRHH {
 	a.ValidacionRC = a.ValidacionRC.clonar()
+	if a.ActuacionRegistro != nil {
+		vinculo := *a.ActuacionRegistro
+		a.ActuacionRegistro = &vinculo
+	}
 	if a.CostePrevisto != nil {
 		importe := *a.CostePrevisto
 		a.CostePrevisto = &importe

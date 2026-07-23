@@ -370,8 +370,11 @@ func TestAnalisisRRHHRechazadoEsRegistrablePeroNoHabilitaAvance(t *testing.T) {
 	}
 
 	analisis.ValidacionRC.Resultado = RCNoRequerida
-	if !analisis.HabilitaAvance() {
-		t.Fatal("una RC no requerida y motivada no habilitó el avance")
+	if !analisis.ValidacionRC.HabilitaAvance() {
+		t.Fatal("una RC no requerida y motivada no produjo resultado habilitante")
+	}
+	if analisis.HabilitaAvance() {
+		t.Fatal("un análisis todavía no materializado habilitó el avance")
 	}
 
 	analisis.ValidacionRC.Resultado = RCValidada
