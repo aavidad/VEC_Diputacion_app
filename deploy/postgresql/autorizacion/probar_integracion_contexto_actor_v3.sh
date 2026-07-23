@@ -77,16 +77,19 @@ for f in \
   deploy/postgresql/autorizacion/migraciones/000003_proyeccion_motivos_autorizacion_v2.up.sql \
   deploy/postgresql/autorizacion/migraciones/000004_registro_decisiones_solicitud_ligada_v2.up.sql \
   deploy/postgresql/autorizacion/migraciones/000005_registro_decisiones_contexto_actor_v3.up.sql \
-  deploy/postgresql/autorizacion/migraciones/000006_funcion_registro_decisiones_contexto_actor_v3.up.sql
+  deploy/postgresql/autorizacion/migraciones/000006_funcion_registro_decisiones_contexto_actor_v3.up.sql \
+  deploy/postgresql/autorizacion/migraciones/000007_revalidacion_viva_decision_contexto_actor_v3.up.sql
 do
   psql_archivo "$f"
 done
 
 # Down inverso verde sin evidencia; despues, reapply idempotente y contrato.
+psql_archivo deploy/postgresql/autorizacion/migraciones/000007_revalidacion_viva_decision_contexto_actor_v3.down.sql
 psql_archivo deploy/postgresql/autorizacion/migraciones/000006_funcion_registro_decisiones_contexto_actor_v3.down.sql
 psql_archivo deploy/postgresql/autorizacion/migraciones/000005_registro_decisiones_contexto_actor_v3.down.sql
 psql_archivo deploy/postgresql/autorizacion/migraciones/000005_registro_decisiones_contexto_actor_v3.up.sql
 psql_archivo deploy/postgresql/autorizacion/migraciones/000006_funcion_registro_decisiones_contexto_actor_v3.up.sql
+psql_archivo deploy/postgresql/autorizacion/migraciones/000007_revalidacion_viva_decision_contexto_actor_v3.up.sql
 psql_archivo deploy/postgresql/autorizacion/migraciones/000005_registro_decisiones_contexto_actor_v3.up.sql
 psql_archivo deploy/postgresql/autorizacion/migraciones/000006_funcion_registro_decisiones_contexto_actor_v3.up.sql
 
@@ -152,6 +155,11 @@ psql_valor() {
   docker exec "$contenedor" psql -XAt --set ON_ERROR_STOP=1 \
     -U postgres -d "$base" -c "$1"
 }
+
+[[ $(psql_valor "SELECT (to_regprocedure('vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(bytea,bytea,numeric,numeric)') IS NOT NULL)::text") == true ]]
+[[ $(psql_valor "SELECT has_function_privilege('vec_autorizacion_propietario','vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(bytea,bytea,numeric,numeric)','EXECUTE')::text") == true ]]
+[[ $(psql_valor "SELECT has_function_privilege('vec_autorizacion_registro','vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(bytea,bytea,numeric,numeric)','EXECUTE')::text") == false ]]
+[[ $(psql_valor "SELECT has_function_privilege('public','vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(bytea,bytea,numeric,numeric)','EXECUTE')::text") == false ]]
 
 esperar_actividad() {
   local aplicacion=$1 esperadas=$2 modo=${3:-activa} numero
@@ -448,6 +456,12 @@ membresia=$(psql_valor "SELECT count(*) FROM pg_auth_members WHERE member='vec_a
   echo "membresia efectiva inesperada: $membresia" >&2
   exit 1
 }
+
+# La migración aditiva no conserva evidencia propia. Se retira antes de la
+# frontera histórica y no deja función ni privilegio residual.
+psql_archivo deploy/postgresql/autorizacion/migraciones/000007_revalidacion_viva_decision_contexto_actor_v3.down.sql
+[[ $(psql_valor "SELECT (to_regprocedure('vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(bytea,bytea,numeric,numeric)') IS NULL)::text") == true ]]
+[[ $(psql_valor "SELECT (to_regprocedure('vec_autorizacion.registrar_y_revalidar_decision_contexto_actor_v3(bytea,bytea,numeric,numeric)') IS NULL)::text") == true ]]
 
 # Con evidencia, ambos downs deben fallar sin borrar ni alterar filas.
 filas_antes=$(docker exec "$contenedor" psql -XAt -U postgres -d "$base" -c \
