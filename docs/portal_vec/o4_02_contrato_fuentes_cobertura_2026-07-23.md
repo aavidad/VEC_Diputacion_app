@@ -2,9 +2,33 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: corrección funcional implementada en rama aislada; revisión
-independiente e integración pendientes. Este documento no concede un `GO` de
-integración, piloto o producción.
+Estado: una revisión independiente emitió `NO-GO` con tres pruebas de
+concepto reproducibles. Las correcciones están implementadas en rama aislada;
+la nueva revisión independiente y la integración siguen pendientes. Este
+documento no concede un `GO` de integración, piloto o producción.
+
+## NO-GO independiente y corrección
+
+La primera revisión de esta reimplementación demostró:
+
+1. un consumidor podía ignorar el contexto, esperar a que venciera la ventana
+   y devolver un recibo fechado antes; el núcleo no revalidaba al regresar;
+2. una credencial válida de una fuente podía contestar por otra definición
+   publicada, porque la autoridad no estaba ligada al conector gobernado;
+3. el constructor nominal de confirmación permitía afirmar que el TCB había
+   verificado un HMAC sin aportar una firma de su clave autenticada.
+
+La corrección añade, respectivamente:
+
+1. comprobación incondicional del contexto y reloj final después del
+   consumidor, más revalidación de ventana y catálogo;
+2. igualdad exacta entre el `BackendRef` firmado de la fuente y
+   `DefinicionFuenteRef` de la comprobación publicada;
+3. prueba canónica Ed25519 firmada con la misma clave cuya posesión acreditó el
+   verificador ante el TCB.
+
+Las pruebas de regresión reproducen los tres ataques. El estado continúa en
+`NO-GO` hasta que un agente distinto revise las correcciones.
 
 ## Alcance
 
@@ -35,15 +59,17 @@ Una consulta válida sigue este orden:
 1. validar petición, dependencias, organización y timeout total;
 2. canonizar la petición;
 3. autenticar fuente, verificador y publicador mediante tres desafíos nuevos;
-4. probar que las tres autoridades tienen identidad, backend y clave distintos;
+4. probar que las tres autoridades tienen identidad, backend y clave distintos
+   y que el backend de fuente coincide con la definición publicada;
 5. recuperar del publicador la publicación completa del catálogo;
 6. restaurar su canon y huella y comprobar vigencia y pertenencia exacta;
 7. consultar la fuente definida por el catálogo;
 8. comprobar coordenadas, cronología y atestación de la respuesta;
-9. verificar el HMAC mediante una autoridad institucional distinta;
+9. verificar el HMAC y la firma canónica del verificador institucional;
 10. volver a comprobar ventana y catálogo;
 11. consumir de forma durable la respuesta;
-12. devolver el resultado funcional solo después de validar el recibo.
+12. al regresar del consumidor, revalidar contexto, reloj, ventana, catálogo y
+    recibo antes de devolver el resultado funcional.
 
 Cualquier ausencia o incoherencia falla cerrado. Una fuente no puede
 autoverificar su respuesta ni autopublicar el catálogo que la autoriza.
@@ -104,6 +130,21 @@ verifica y emite una confirmación ligada a la huella de todo el material,
 fuente, generación, recibo, sello y ventana. Alterar cualquier coordenada
 invalida la respuesta.
 
+La confirmación no es una declaración nominal. Su preimagen canónica con
+dominio `VEC-CT-CONFIRMACION-COBERTURA-V1` contiene:
+
+- identidad del verificador;
+- huella de la petición canónica;
+- huella de la preimagen completa de respuesta;
+- autoridad, generación, recibo y sello HMAC;
+- ventana de respuesta e instante de verificación.
+
+El verificador firma esta preimagen con la misma clave Ed25519 que usó para
+probar posesión en su credencial institucional. El núcleo verifica la firma
+con la clave pública obtenida de la confianza del servidor. Pasar 64 bytes al
+constructor, firmar con otra clave o alterar una coordenada no concede
+confianza.
+
 ## Autoridades y raíces institucionales
 
 O4-02 reutiliza el motor común Ed25519 de O3-03. No crea otra biblioteca de
@@ -128,6 +169,12 @@ La segregación exige diferencias simultáneas en:
 Dos wrappers o aliases del mismo backend no son dos autoridades. La
 verificación conserva las reglas comunes de vigencia, rotación de raíces,
 última emisión permitida y revocación por autoridad y serie.
+
+Además, el `BackendRef` de la fuente debe coincidir exactamente con
+`DefinicionFuenteRef` de la comprobación que pertenece al catálogo restaurado.
+No hay listas compiladas: una nueva procedencia se habilita publicando su
+definición y emitiendo una credencial institucional para ese mismo ámbito. Una
+credencial de SAE no puede contestar una comprobación definida para Bolsa.
 
 ## Catálogo dinámico gobernado
 
@@ -168,6 +215,15 @@ se declara que exista todavía un adaptador productivo. La implementación
 durable, su transacción con expediente/auditoría y las pruebas de reinicio
 corresponden a la tarea de persistencia y composición.
 
+Al regresar de `ConsumirCobertura`, incluso si devuelve un recibo nominalmente
+válido, el núcleo consulta siempre el contexto y el reloj final. Después
+revalida firma, ventana y catálogo. Un consumidor que ignore la cancelación,
+un recibo antiguo devuelto tras expirar o una cancelación competitiva producen
+fallo cerrado y nunca un resultado funcional. También se rechazan un reloj
+final anterior al instante preconsumo y un recibo que declare un consumo
+posterior al reloj final; un replay exacto con recibo anterior sigue siendo
+válido dentro de la ventana.
+
 ## Límites e interoperabilidad
 
 | Regla | Límite |
@@ -187,8 +243,8 @@ aproximadas.
 
 Tras cada dependencia se comprueba primero el contexto. Solo se exponen
 `context.Canceled` o `context.DeadlineExceeded`; una causa privada nunca es
-alcanzable con `errors.Is`, `errors.As` o `Unwrap`. Si ya existe recibo durable
-válido, no se convierte un efecto confirmado en un fallo ambiguo.
+alcanzable con `errors.Is`, `errors.As` o `Unwrap`. Después del consumidor la
+comprobación se repite aunque este haya devuelto un recibo.
 
 ## Evidencia ejecutable
 
@@ -202,6 +258,10 @@ Las pruebas incluyen:
 - vía futura añadida exclusivamente por catálogo;
 - replay exacto concurrente, conflicto y expiración exclusiva;
 - timeout total, cancelación prioritaria y nulos tipados;
+- consumidor que ignora contexto, reloj vencido y cancelación competitiva;
+- retroceso del reloj y recibo fechado en el futuro;
+- credencial SAE intentando contestar la definición de Bolsa;
+- confirmación sin clave privada TCB y firma Ed25519 alterada;
 - límites 100 años, 2^53−1 y cinco segundos;
 - minimización y formatos redactados sin PII.
 
@@ -215,7 +275,7 @@ go test ./...
 go vet ./...
 scripts/comprobar_tamano_ficheros.sh
 git diff --check
-gitleaks detect --no-banner --redact
+scripts/verificar_secretos_git.sh 'BASE..HEAD'
 ```
 
 ## Decisiones pendientes de Sistemas
