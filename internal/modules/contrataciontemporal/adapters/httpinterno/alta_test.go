@@ -159,14 +159,14 @@ func ejecutarPeticionPrueba(
 
 func codigoErrorPrueba(t *testing.T, respuesta *httptest.ResponseRecorder) string {
 	t.Helper()
-	var envelope envelopeErrorAlta
-	if err := json.Unmarshal(respuesta.Body.Bytes(), &envelope); err != nil {
+	var envoltorio envoltorioErrorAlta
+	if err := json.Unmarshal(respuesta.Body.Bytes(), &envoltorio); err != nil {
 		t.Fatalf("error no es JSON: %v; cuerpo=%q", err, respuesta.Body.String())
 	}
-	if envelope.Error.ClaveI18n == "" || envelope.Error.CorrelacionRef == "" {
-		t.Fatalf("error público incompleto: %+v", envelope.Error)
+	if envoltorio.Error.ClaveI18n == "" || envoltorio.Error.CorrelacionRef == "" {
+		t.Fatalf("error público incompleto: %+v", envoltorio.Error)
 	}
-	return envelope.Error.Codigo
+	return envoltorio.Error.Codigo
 }
 
 func TestNuevoManejadorAltaExigeDependencias(t *testing.T) {
@@ -203,11 +203,11 @@ func TestManejadorAltaConfirmaYMinimizaRecibo(t *testing.T) {
 	if respuesta.Code != http.StatusCreated {
 		t.Fatalf("estado = %d; cuerpo=%s", respuesta.Code, respuesta.Body.String())
 	}
-	var envelope map[string]map[string]any
-	if err := json.Unmarshal(respuesta.Body.Bytes(), &envelope); err != nil {
+	var envoltorio map[string]map[string]any
+	if err := json.Unmarshal(respuesta.Body.Bytes(), &envoltorio); err != nil {
 		t.Fatal(err)
 	}
-	datos := envelope["data"]
+	datos := envoltorio["data"]
 	claves := make([]string, 0, len(datos))
 	for clave := range datos {
 		claves = append(claves, clave)

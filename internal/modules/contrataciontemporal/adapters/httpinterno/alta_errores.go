@@ -136,7 +136,7 @@ func clasificarErrorAlta(err error) errorPublicoAlta {
 	}
 }
 
-type envelopeErrorAlta struct {
+type envoltorioErrorAlta struct {
 	Error detalleErrorAlta `json:"error"`
 }
 
@@ -148,7 +148,7 @@ type detalleErrorAlta struct {
 
 func responderErrorAlta(w http.ResponseWriter, problema errorPublicoAlta) {
 	correlacion := nuevaCorrelacionErrorAlta()
-	responderJSONAlta(w, problema.estado, envelopeErrorAlta{Error: detalleErrorAlta{
+	responderJSONAlta(w, problema.estado, envoltorioErrorAlta{Error: detalleErrorAlta{
 		Codigo:         problema.codigo,
 		ClaveI18n:      problema.claveI18n,
 		CorrelacionRef: correlacion,
@@ -159,7 +159,7 @@ func responderJSONAlta(w http.ResponseWriter, estado int, valor any) {
 	contenido, err := json.Marshal(valor)
 	if err != nil || len(contenido) > 16*1024 {
 		estado = http.StatusInternalServerError
-		contenido, _ = json.Marshal(envelopeErrorAlta{Error: detalleErrorAlta{
+		contenido, _ = json.Marshal(envoltorioErrorAlta{Error: detalleErrorAlta{
 			Codigo:         errorInterno.codigo,
 			ClaveI18n:      errorInterno.claveI18n,
 			CorrelacionRef: nuevaCorrelacionErrorAlta(),
