@@ -78,6 +78,15 @@ function limpiarDatosRC(borrador) {
   };
 }
 
+function borradoresIguales(primero, segundo) {
+  if (!primero || !segundo) return false;
+  return camposBorrador().every((campo) => {
+    if (campo !== "documentos_adjuntos") return primero[campo] === segundo[campo];
+    return primero[campo].length === segundo[campo].length
+      && primero[campo].every((referencia, indice) => referencia === segundo[campo][indice]);
+  });
+}
+
 function crearEstadoInicial(catalogos, disponible) {
   return clonarYCongelarAlta({
     fase: FASE_EDICION,
@@ -111,6 +120,7 @@ export function crearPresentadorAltaContratacionTemporal({
     && catalogosAltaOperables(catalogos);
   let estado = crearEstadoInicial(catalogos, disponible);
   let comandoActual = null;
+  let borradorComandoActual = null;
   let envioActual = null;
   let controladorEnvio = null;
   let cancelacionSolicitada = false;
@@ -144,7 +154,6 @@ export function crearPresentadorAltaContratacionTemporal({
       borrador = clonarYCongelarAlta({ ...borrador, grupo_subgrupo: "" });
     }
     if (borrador.rc_existe === false) borrador = clonarYCongelarAlta(limpiarDatosRC(borrador));
-    comandoActual = null;
     sustituirEstado({
       borrador,
       errores: {},
@@ -179,7 +188,10 @@ export function crearPresentadorAltaContratacionTemporal({
       return false;
     }
     try {
-      comandoActual = crearComandoAlta(borrador, catalogos, generarClaveIdempotencia());
+      if (comandoActual === null || !borradoresIguales(borrador, borradorComandoActual)) {
+        comandoActual = crearComandoAlta(borrador, catalogos, generarClaveIdempotencia());
+        borradorComandoActual = clonarYCongelarAlta(borrador);
+      }
     } catch (error) {
       const errores = error instanceof ErrorValidacionAlta
         ? error.errores
@@ -201,7 +213,6 @@ export function crearPresentadorAltaContratacionTemporal({
     if (estado.ocupado || estado.fase !== FASE_REVISION) {
       throw errorPublico("edicion_no_disponible");
     }
-    comandoActual = null;
     sustituirEstado({
       fase: FASE_EDICION,
       errores: {},
@@ -242,6 +253,7 @@ export function crearPresentadorAltaContratacionTemporal({
           tipo_mensaje: "exito",
         });
         comandoActual = null;
+        borradorComandoActual = null;
         return recibo;
       } catch (_errorPrivado) {
         const canceladaSinRespuesta = cancelacionSolicitada && !respuestaRecibida;

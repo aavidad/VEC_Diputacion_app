@@ -402,6 +402,42 @@ test("los errores se redactan, permiten reintento y nunca filtran el mensaje pri
   assert.equal(comandos[0].clave_idempotencia, comandos[1].clave_idempotencia);
 });
 
+test("editar conserva la clave solo si el contenido vuelve a ser idéntico", async () => {
+  const CLAVE_NUEVA = "22345678-1234-4abc-8def-1234567890ab";
+  const clavesSinCambio = [];
+  let intentoSinCambio = 0;
+  const sinCambio = crearPresentador({
+    claves: [CLAVE_PRUEBA, CLAVE_NUEVA],
+    ejecutor: async (comando) => {
+      clavesSinCambio.push(comando.clave_idempotencia);
+      intentoSinCambio += 1;
+      if (intentoSinCambio === 1) throw new Error("privado");
+      return reciboValido();
+    },
+  });
+  sinCambio.prepararRevision(borradorValido());
+  await sinCambio.enviar();
+  sinCambio.volverAEdicion();
+  sinCambio.prepararRevision(borradorValido());
+  await sinCambio.enviar();
+  assert.deepEqual(clavesSinCambio, [CLAVE_PRUEBA, CLAVE_PRUEBA]);
+
+  const clavesConCambio = [];
+  const conCambio = crearPresentador({
+    claves: [CLAVE_PRUEBA, CLAVE_NUEVA],
+    ejecutor: async (comando) => {
+      clavesConCambio.push(comando.clave_idempotencia);
+      throw new Error("privado");
+    },
+  });
+  conCambio.prepararRevision(borradorValido());
+  await conCambio.enviar();
+  conCambio.volverAEdicion();
+  conCambio.prepararRevision(borradorValido({ detalle: "Contenido realmente distinto." }));
+  await conCambio.enviar();
+  assert.deepEqual(clavesConCambio, [CLAVE_PRUEBA, CLAVE_NUEVA]);
+});
+
 test("el presentador limpia relaciones dependientes fuera de la vista", () => {
   const catalogos = catalogosPrueba();
   catalogos.centros.push({
@@ -628,6 +664,7 @@ test("i18n cubre los textos estáticos y CSS hereda tema, zoom y contraste", () 
   assert.match(estilos, /prefers-reduced-motion: reduce/);
   assert.match(estilos, /forced-colors: active/);
   assert.match(estilos, /overflow-wrap: anywhere/);
+  assert.match(estilos, /scroll-margin-block: 84px/);
   assert.match(estilos, /\.ct-estado-exito\s*\{[^}]+color: var\(--portal-tinta\)/s);
   assert.doesNotMatch(estilos, /font-family:|#[0-9a-f]{3,8}\b/i);
   assert.doesNotMatch(vistaFuente, /style="/);

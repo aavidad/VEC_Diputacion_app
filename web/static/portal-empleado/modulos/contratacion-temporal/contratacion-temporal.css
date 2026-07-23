@@ -10,6 +10,14 @@
   outline-offset: 3px;
 }
 
+.ct-alta button,
+.ct-alta input,
+.ct-alta select,
+.ct-alta textarea,
+.ct-alta [tabindex="-1"] {
+  scroll-margin-block: 84px;
+}
+
 .ct-cabecera {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(250px, 0.38fr);
