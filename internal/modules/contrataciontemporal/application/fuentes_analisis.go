@@ -71,7 +71,7 @@ func verificarValidacionRCConFuenteO3(
 		confianza,
 		material,
 		ports.RolFuentePresupuestaria,
-		reloj.Ahora(),
+		reloj,
 	)
 	if err != nil {
 		return ports.EvidenciaValidacionRCVerificadaO3{}, err
@@ -82,7 +82,7 @@ func verificarValidacionRCConFuenteO3(
 		confianza,
 		material,
 		ports.RolVerificadorRespuesta,
-		reloj.Ahora(),
+		reloj,
 	)
 	if err != nil {
 		return ports.EvidenciaValidacionRCVerificadaO3{}, err
@@ -93,7 +93,7 @@ func verificarValidacionRCConFuenteO3(
 		confianza,
 		material,
 		ports.RolPublicadorCatalogo,
-		reloj.Ahora(),
+		reloj,
 	)
 	if err != nil {
 		return ports.EvidenciaValidacionRCVerificadaO3{}, err
@@ -265,7 +265,7 @@ func verificarCalculoCosteConFuenteO3(
 		confianza,
 		material,
 		ports.RolCalculadorCoste,
-		reloj.Ahora(),
+		reloj,
 	)
 	if err != nil {
 		return ports.EvidenciaCalculoCosteVerificadaO3{}, err
@@ -276,7 +276,7 @@ func verificarCalculoCosteConFuenteO3(
 		confianza,
 		material,
 		ports.RolVerificadorRespuesta,
-		reloj.Ahora(),
+		reloj,
 	)
 	if err != nil {
 		return ports.EvidenciaCalculoCosteVerificadaO3{}, err

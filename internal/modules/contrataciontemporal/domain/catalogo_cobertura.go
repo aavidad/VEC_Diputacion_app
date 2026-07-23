@@ -10,6 +10,7 @@ const (
 	maximoViasCobertura                 = 64
 	maximoComprobacionesPorViaCobertura = 32
 	maximoComprobacionesCatalogo        = 512
+	maximoEnteroSeguroCatalogoCobertura = uint64(1<<53 - 1)
 )
 
 // ErrPublicacionCatalogoEnConflicto indica que una clave referencia+versión ya
@@ -129,6 +130,7 @@ type IdentidadCatalogoViasCobertura struct {
 
 func (i IdentidadCatalogoViasCobertura) Validar() error {
 	if !referenciaValida(i.Referencia) || i.Version == 0 ||
+		i.Version > maximoEnteroSeguroCatalogoCobertura ||
 		!huellaCatalogoValida(i.HuellaSHA256) {
 		return ErrDatoInvalido
 	}
@@ -321,6 +323,7 @@ func normalizarBorradorCatalogo(
 	borrador BorradorCatalogoViasCobertura,
 ) (BorradorCatalogoViasCobertura, error) {
 	if !referenciaValida(borrador.Referencia) || borrador.Version == 0 ||
+		borrador.Version > maximoEnteroSeguroCatalogoCobertura ||
 		!instanteCatalogoCoberturaValido(borrador.PublicadoEn) ||
 		borrador.Vigencia.Validar() != nil ||
 		!referenciaValida(borrador.ProcedenciaRef) ||

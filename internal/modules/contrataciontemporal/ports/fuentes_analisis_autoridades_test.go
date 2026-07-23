@@ -1,12 +1,86 @@
 package ports
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"errors"
 	"strings"
 	"testing"
 )
+
+func TestEvidenciaPublicaAutoridadFuenteAnalisisRestauraSinSecretos(
+	t *testing.T,
+) {
+	inicio := instanteFuenteAnalisisPrueba()
+	presentador := nuevoPresentadorAutoridadConfiguradoPrueba(
+		RolVerificadorCobertura,
+		"verificador_cobertura_evidencia_01",
+		"backend_verificador_evidencia_01",
+	)
+	desafio, err := NuevoDesafioAutoridadFuenteAnalisis(
+		[]byte("material-canonico-evidencia-publica"),
+		presentador.datos.OrganizacionRef,
+		presentador.datos.Audiencia,
+		RolVerificadorCobertura,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentacion, err := presentador.PresentarAutoridadFuenteAnalisis(
+		context.Background(),
+		desafio,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidencia, err := NuevaEvidenciaPublicaAutoridadFuenteAnalisis(
+		desafio,
+		presentacion,
+		RolVerificadorCobertura,
+		inicio,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos, err := evidencia.DatosPublicos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	restaurada, err :=
+		RestaurarEvidenciaPublicaAutoridadFuenteAnalisis(datos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datosRestaurados, err := restaurada.DatosPublicos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if datos.Rol != datosRestaurados.Rol ||
+		!datos.ComprobadaEn.Equal(datosRestaurados.ComprobadaEn) ||
+		!bytes.Equal(datos.Desafio, datosRestaurados.Desafio) ||
+		!bytes.Equal(
+			datos.FirmaInstitucional,
+			datosRestaurados.FirmaInstitucional,
+		) ||
+		!bytes.Equal(datos.PruebaPosesion, datosRestaurados.PruebaPosesion) {
+		t.Fatal("la evidencia pública no sobrevivió al ciclo durable")
+	}
+	datos.PruebaPosesion[0] ^= 0xff
+	datosOtraVez, err := evidencia.DatosPublicos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Equal(datos.PruebaPosesion, datosOtraVez.PruebaPosesion) {
+		t.Fatal("la evidencia conservó una vista mutable")
+	}
+	datosOtraVez.PruebaPosesion = datosOtraVez.PruebaPosesion[:1]
+	if _, err := RestaurarEvidenciaPublicaAutoridadFuenteAnalisis(
+		datosOtraVez,
+	); !errors.Is(err, ErrResultadoFuenteAnalisisNoConfiable) {
+		t.Fatalf("prueba histórica truncada aceptada: %v", err)
+	}
+}
 
 type presentadorAutoridadConfiguradoPrueba struct {
 	datos        DatosCredencialAutoridadFuenteAnalisis
@@ -310,7 +384,7 @@ func TestPruebaDePosesionNoSePuedeCopiarEntreDesafios(t *testing.T) {
 		"tabla_retributiva_2026_v3",
 		"backend_calculo_coste_0123456789",
 	)
-	desafioPrimero, err := nuevoDesafioAutoridadFuenteAnalisis(
+	desafioPrimero, err := NuevoDesafioAutoridadFuenteAnalisis(
 		[]byte("peticion-canonica"),
 		organizacionAutoridadPrueba,
 		audienciaAutoridadPrueba,
@@ -326,7 +400,7 @@ func TestPruebaDePosesionNoSePuedeCopiarEntreDesafios(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	desafioSegundo, err := nuevoDesafioAutoridadFuenteAnalisis(
+	desafioSegundo, err := NuevoDesafioAutoridadFuenteAnalisis(
 		[]byte("peticion-canonica"),
 		organizacionAutoridadPrueba,
 		audienciaAutoridadPrueba,

@@ -44,7 +44,7 @@ func (r RolAutoridadFuenteAnalisis) valida() bool {
 		RolVerificadorRespuesta, RolPublicadorCatalogo:
 		return true
 	default:
-		return false
+		return rolAutoridadCoberturaValido(r)
 	}
 }
 
@@ -109,6 +109,19 @@ func NuevaCredencialAutoridadFuenteAnalisis(
 	}, nil
 }
 
+// MaterialFirmaCredencialAutoridadFuenteAnalisis entrega la representación
+// canónica que firma la autoridad institucional. Conserva neutral el contrato
+// respecto del HSM, servicio remoto o almacén de claves que efectúe la firma.
+func MaterialFirmaCredencialAutoridadFuenteAnalisis(
+	datos DatosCredencialAutoridadFuenteAnalisis,
+) ([]byte, error) {
+	material, err := canonCredencialAutoridadFuenteAnalisis(datos)
+	if err != nil {
+		return nil, ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return append([]byte(nil), material...), nil
+}
+
 func (c CredencialAutoridadFuenteAnalisis) validarEstructura() error {
 	if c.datos == nil || c.datos.validar() != nil ||
 		len(c.firma) != ed25519.SignatureSize {
@@ -159,6 +172,41 @@ func (d DesafioAutoridadFuenteAnalisis) LogValue() slog.Value {
 type PresentacionAutoridadFuenteAnalisis struct {
 	credencial CredencialAutoridadFuenteAnalisis
 	prueba     []byte
+}
+
+func copiarDesafioAutoridadFuenteAnalisis(
+	desafio DesafioAutoridadFuenteAnalisis,
+) (DesafioAutoridadFuenteAnalisis, error) {
+	contenido, err := desafio.Bytes()
+	if err != nil {
+		return DesafioAutoridadFuenteAnalisis{},
+			errAutoridadFuenteAnalisisNoConfiable
+	}
+	return DesafioAutoridadFuenteAnalisis{
+		contenido: contenido,
+	}, nil
+}
+
+func copiarPresentacionAutoridadFuenteAnalisis(
+	presentacion PresentacionAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	if presentacion.credencial.validarEstructura() != nil ||
+		len(presentacion.prueba) != ed25519.SignatureSize {
+		return PresentacionAutoridadFuenteAnalisis{},
+			errAutoridadFuenteAnalisisNoConfiable
+	}
+	credencial, err := NuevaCredencialAutoridadFuenteAnalisis(
+		*presentacion.credencial.datos,
+		presentacion.credencial.firma,
+	)
+	if err != nil {
+		return PresentacionAutoridadFuenteAnalisis{},
+			errAutoridadFuenteAnalisisNoConfiable
+	}
+	return NuevaPresentacionAutoridadFuenteAnalisis(
+		credencial,
+		presentacion.prueba,
+	)
 }
 
 func NuevaPresentacionAutoridadFuenteAnalisis(
@@ -404,7 +452,9 @@ func (c ConfianzaAutoridadesFuenteAnalisis) verificarPresentacion(
 	}, nil
 }
 
-func nuevoDesafioAutoridadFuenteAnalisis(
+// NuevoDesafioAutoridadFuenteAnalisis construye el DTO opaco que un adaptador
+// de autenticación entrega a la autoridad. No contacta ninguna dependencia.
+func NuevoDesafioAutoridadFuenteAnalisis(
 	materialPeticion []byte,
 	organizacionRef string,
 	audiencia string,
@@ -432,6 +482,76 @@ func nuevoDesafioAutoridadFuenteAnalisis(
 	return DesafioAutoridadFuenteAnalisis{
 		contenido: append([]byte(nil), escritor.Bytes()...),
 	}, nil
+}
+
+func nuevoDesafioAutoridadFuenteAnalisis(
+	materialPeticion []byte,
+	organizacionRef string,
+	audiencia string,
+	rol RolAutoridadFuenteAnalisis,
+) (DesafioAutoridadFuenteAnalisis, error) {
+	return NuevoDesafioAutoridadFuenteAnalisis(
+		materialPeticion,
+		organizacionRef,
+		audiencia,
+		rol,
+	)
+}
+
+// OrganizacionRef devuelve una copia inmutable de la coordenada fijada en la
+// composición. No autentica ni coordina conectores.
+func (c ConfianzaAutoridadesFuenteAnalisis) OrganizacionRef() string {
+	return c.organizacionRef
+}
+
+// Audiencia devuelve la coordenada de protocolo fijada en la composición.
+func (c ConfianzaAutoridadesFuenteAnalisis) Audiencia() string {
+	return c.audiencia
+}
+
+// VerificarPresentacion valida localmente la prueba contra la confianza
+// inyectada. La obtención de la presentación corresponde a un adaptador.
+func (c ConfianzaAutoridadesFuenteAnalisis) VerificarPresentacion(
+	presentacion PresentacionAutoridadFuenteAnalisis,
+	desafio DesafioAutoridadFuenteAnalisis,
+	rolEsperado RolAutoridadFuenteAnalisis,
+	comprobadaEn time.Time,
+) (IdentidadAutoridadFuenteAnalisis, error) {
+	identidad, err := c.verificarPresentacion(
+		presentacion,
+		desafio,
+		rolEsperado,
+		comprobadaEn,
+	)
+	if err != nil {
+		return IdentidadAutoridadFuenteAnalisis{},
+			ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return NuevaIdentidadAutoridadFuenteAnalisis(
+		identidad.autoridadRef,
+		identidad.backendRef,
+		identidad.clavePrueba,
+		identidad.rol,
+	)
+}
+
+func autoridadesFuenteAnalisisSeparadas(
+	identidades ...identidadAutoridadFuenteAnalisis,
+) bool {
+	for indice, primera := range identidades {
+		if primera.autoridadRef == "" || primera.backendRef == "" ||
+			len(primera.clavePrueba) != ed25519.PublicKeySize {
+			return false
+		}
+		for _, segunda := range identidades[indice+1:] {
+			if primera.autoridadRef == segunda.autoridadRef ||
+				primera.backendRef == segunda.backendRef ||
+				bytes.Equal(primera.clavePrueba, segunda.clavePrueba) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func canonCredencialAutoridadFuenteAnalisis(

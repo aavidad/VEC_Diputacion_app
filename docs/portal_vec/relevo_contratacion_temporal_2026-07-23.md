@@ -359,3 +359,64 @@ Cada corte debe actualizar:
 
 Nunca sustituir «pendiente» por «terminado» porque exista una pantalla, un
 puerto o una prueba aislada.
+
+## Estado O4-02 tras cuarta revisión
+
+O4-02 continúa en `NO-GO` pendiente de nueva revisión independiente. La rama
+aislada incorpora dos correcciones:
+
+- suelo de reloj monotónico por consulta; cualquier retroceso entre
+  autenticación, catálogo, fuente, verificación, preconsumo y salida falla
+  cerrado, y el caso `t+5 → t+2` prueba consumo cero;
+- el autenticador concreto de autoridades se ubica en
+  `adapters/seguridad`; `ports/fuentes_analisis_autenticador.go` queda limitado
+  a identidad inmutable, copias defensivas, segregación local y contrato.
+
+No existe todavía consumidor durable productivo ni composición con fuentes
+reales. Tampoco hay autoridad procedente de cookies, navegador o DTO cliente:
+la confianza, organización y audiencia se fijan exclusivamente en composición.
+
+## Estado O4-02 tras quinta corrección
+
+O4-02 sigue en `NO-GO` a la espera de otra revisión independiente. La rama
+aislada corrige:
+
+- TOCTOU de presentación: cada autoridad se verifica con una lectura
+  autoritativa posterior y el fin temporal es exclusivo;
+- replay K1→K2: el recibo conserva credencial, firma institucional, desafío,
+  prueba de posesión, identidad y clave pública originales, sin secretos;
+- separación hexagonal: `application` coordina el desafío y la presentación;
+  el adaptador de seguridad solo verifica la evidencia pública ya obtenida;
+- pruebas de timeout deterministas mediante contexto controlado, sin esperas
+  de 5 ms ni dependencia del planificador.
+
+La evidencia histórica solo verifica el efecto anterior. Fuente, verificador y
+publicador actuales vuelven a autenticarse antes de cualquier consumo; una
+confianza actual inválida no queda autorizada por un recibo K1. Continúan
+pendientes el consumidor durable productivo, la composición con conectores
+reales, las pruebas E2E y las conformidades organizativas.
+
+## Estado O4-02 tras sexta corrección candidata
+
+La sexta corrección parte exactamente de
+`ba80e8f766e1054f35db15b47c2f4f13ea6b2221`, no de la rama divergente de la
+quinta corrección. Así preserva la arquitectura O3-02 ya integrada: la
+orquestación de validación RC y cálculo de coste permanece en `application` y
+la versión histórica de `ports` solo compila en `_test.go`.
+
+O4-02 se ha trasladado sobre esa base sin recuperar la ruta productiva antigua.
+Además, el coordinador común de autoridades O3:
+
+- lee el reloj antes de crear el desafío;
+- obtiene la presentación;
+- vuelve a leer el reloj autoritativo;
+- rechaza retrocesos y verifica credencial, raíz, revocación y horizonte con
+  el instante posterior.
+
+La API local ya no permite validar una presentación sin aportar ese instante
+posterior. Una regresión determinista cubre ambas rutas: `t0`, presentación en
+`t0+2 s`, credencial hasta `t0+6 s` y horizonte de cinco segundos. RC y coste
+se rechazan antes de invocar la operación funcional o el consumidor.
+
+El candidato continúa en `NO-GO` hasta que un agente distinto revise la sexta
+corrección y repita las puertas O3+O4 sobre el SHA exacto.
