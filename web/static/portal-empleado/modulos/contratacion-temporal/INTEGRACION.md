@@ -1,6 +1,6 @@
 # Integración pendiente del alta de contratación temporal
 
-Estado: candidato O2-09A, no conectado y no integrado.
+Estado: candidato O2-09B, no conectado y no integrado.
 
 Este directorio contiene únicamente la interfaz y su contrato neutral. No
 incluye cliente HTTP, ruta, adaptador de presentación, datos sintéticos de
@@ -38,7 +38,7 @@ async function ejecutor(comando, { signal }) {
 ```
 
 En éxito resuelve únicamente el recibo público cerrado. En rechazo no existe
-en O2-09A un esquema de errores remotos por campo: el presentador descarta la
+en O2-09B un esquema de errores remotos por campo: el presentador descarta la
 causa privada y publica un error general redactado. Los errores por campo
 actuales proceden exclusivamente de la validación local. O2-08 no debe confiar
 en que la vista interprete cuerpos, estados o mensajes privados.
@@ -85,6 +85,12 @@ El ejecutor recibe exactamente:
 Cuando existe RC, `rc` contiene además `numero`, `fecha`,
 `importe: {centimos, moneda: "EUR"}` y `documento_ref`. No se aceptan campos
 adicionales en ningún nivel.
+
+La vista aplica los mismos límites públicos que la frontera O2-08B: el final
+no puede superar la fecha civil de inicio desplazada cien años y el importe de
+la RC no puede superar `922337203685477` céntimos. El importe se analiza como
+dígitos decimales antes de convertirlo a un entero seguro de JavaScript; no se
+multiplica una cantidad monetaria de coma flotante.
 
 La clave se genera con CSPRNG al pasar a revisión, se conserva solo en memoria
 durante el envío/reintento y nunca forma parte del estado renderizable, un
@@ -205,7 +211,7 @@ confirmación durable.
    y montaje explícitos en `portal-modulos-coordinador.js` y sus pruebas de
    coordinación.
 8. **Router del shell.** `portal.js` mantiene títulos, hash y contador en una
-   lista cerrada y queda fuera del write-set de O2-09A. Cambiar solo el
+   lista cerrada y queda fuera del write-set de O2-09B. Cambiar solo el
    coordinador dejaría una navegación falsa. También queda pendiente avanzar
    la cascada de cacheado cuando el integrador autorice ese archivo.
 9. **Borrador administrativo.** El documento normalizado distingue guardar
@@ -233,4 +239,4 @@ Este candidato no contiene adaptador DEMO, datos sintéticos de ejecución,
 subida documental, autoridad de navegador, HTTP, cookies, almacenamiento web,
 telemetría ni llamadas externas.
 
-**Candidato O2-09A, no conectado y no integrado.**
+**Candidato O2-09B, no conectado y no integrado.**

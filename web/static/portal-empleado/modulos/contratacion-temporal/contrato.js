@@ -9,6 +9,8 @@ export const LIMITES_ALTA_CONTRATACION = Object.freeze({
   etiquetaCatalogo: 200,
   opcionesCatalogo: 1000,
   opcionesCatalogoTotales: 5000,
+  maximoAniosPeriodo: 100,
+  maximoCentimosRC: 922_337_203_685_477,
 });
 
 const ESQUEMA_CATALOGOS = "vec.contratacion_temporal.catalogos_alta.v1";
@@ -134,6 +136,14 @@ function fechaCivilValida(valor) {
 
 function instanteCivilUTC(fecha) {
   return `${fecha}T00:00:00Z`;
+}
+
+function periodoNoSuperaMaximo(inicio, fin) {
+  const fechaMaxima = new Date(`${inicio}T00:00:00Z`);
+  const anioMaximo = fechaMaxima.getUTCFullYear()
+    + LIMITES_ALTA_CONTRATACION.maximoAniosPeriodo;
+  fechaMaxima.setUTCFullYear(anioMaximo);
+  return new Date(`${fin}T00:00:00Z`).valueOf() <= fechaMaxima.valueOf();
 }
 
 function instanteUTCValido(valor) {
@@ -289,13 +299,21 @@ export function catalogosAltaOperables(catalogos) {
   return catalogosOperables(validarCatalogosAlta(catalogos));
 }
 
-function centimosDesdeEntrada(valor) {
+function analizarEntradaMonetaria(valor) {
   if (typeof valor !== "string" || !/^(?:0|[1-9]\d{0,13})(?:[.,]\d{2})?$/.test(valor)) {
     return null;
   }
   const [entera, decimal = "00"] = valor.replace(",", ".").split(".");
-  const centimos = Number(entera) * 100 + Number(decimal);
-  return Number.isSafeInteger(centimos) ? centimos : null;
+  const digitos = `${entera}${decimal}`.replace(/^0+(?=\d)/, "");
+  const maximo = String(LIMITES_ALTA_CONTRATACION.maximoCentimosRC);
+  const excedeMaximo = digitos.length > maximo.length
+    || (digitos.length === maximo.length && digitos > maximo);
+  return { centimos: excedeMaximo ? null : Number(digitos), excedeMaximo };
+}
+
+function centimosDesdeEntrada(valor) {
+  const entrada = analizarEntradaMonetaria(valor);
+  return entrada === null || entrada.excedeMaximo ? null : entrada.centimos;
 }
 
 function referenciasAdjuntasValidas(valor) {
@@ -338,14 +356,21 @@ export function validarBorradorAlta(borrador, catalogosSinValidar) {
   if (fechaCivilValida(borrador.inicio) && fechaCivilValida(borrador.fin)
     && borrador.fin < borrador.inicio) {
     agregarError(errores, "fin", "periodo");
+  } else if (fechaCivilValida(borrador.inicio) && fechaCivilValida(borrador.fin)
+    && !periodoNoSuperaMaximo(borrador.inicio, borrador.fin)) {
+    agregarError(errores, "fin", "periodo_maximo");
   }
   if (typeof borrador.rc_existe !== "boolean") {
     agregarError(errores, "rc_existe", "booleano");
   } else if (borrador.rc_existe) {
     if (!referenciaValida(borrador.rc_numero)) agregarError(errores, "rc_numero", "referencia");
     if (!fechaCivilValida(borrador.rc_fecha)) agregarError(errores, "rc_fecha", "fecha");
-    const centimos = centimosDesdeEntrada(borrador.rc_importe);
-    if (centimos === null || centimos <= 0) agregarError(errores, "rc_importe", "importe");
+    const importe = analizarEntradaMonetaria(borrador.rc_importe);
+    if (importe === null || (!importe.excedeMaximo && importe.centimos <= 0)) {
+      agregarError(errores, "rc_importe", "importe");
+    } else if (importe.excedeMaximo) {
+      agregarError(errores, "rc_importe", "importe_maximo");
+    }
     if (!catalogos.documentos.some(
       (opcion) => opcion.referencia === borrador.rc_documento_ref,
     )) {
@@ -380,6 +405,7 @@ function validarRC(rc) {
     && tieneCamposExactos(rc.importe, ["centimos", "moneda"])
     && Number.isSafeInteger(rc.importe.centimos)
     && rc.importe.centimos > 0
+    && rc.importe.centimos <= LIMITES_ALTA_CONTRATACION.maximoCentimosRC
     && rc.importe.moneda === "EUR"
     && referenciaValida(rc.documento_ref);
 }
@@ -412,6 +438,10 @@ export function validarComandoAlta(comando) {
     || !instanteCivilValido(solicitud.periodo.inicio)
     || !instanteCivilValido(solicitud.periodo.fin)
     || solicitud.periodo.fin < solicitud.periodo.inicio
+    || !periodoNoSuperaMaximo(
+      solicitud.periodo.inicio.slice(0, 10),
+      solicitud.periodo.fin.slice(0, 10),
+    )
     || !validarRC(solicitud.rc)
     || !referenciasAdjuntasValidas(solicitud.documentos_adjuntos)) {
     throw new TypeError("solicitud de centro no válida");

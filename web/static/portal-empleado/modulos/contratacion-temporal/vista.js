@@ -237,7 +237,7 @@ function camposDetalle(estado, t, deshabilitado) {
         <input id="ct-fin" name="fin" type="date" required
           value="${escaparHTML(estado.borrador.fin)}"
           ${atributosAccesibles(estado, "fin")}${deshabilitado ? " disabled" : ""}>
-        ${ayudaCampo("fin", t("fin"))}
+        ${ayudaCampo("fin", t("periodo_ayuda"))}
         ${errorCampo(estado, "fin", t)}
       </div>
       <div class="ct-campo ct-campo-ancho">

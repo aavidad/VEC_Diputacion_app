@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   CAPACIDAD_CREAR_SOLICITUD,
   ErrorValidacionAlta,
+  LIMITES_ALTA_CONTRATACION,
   crearBorradorAlta,
   crearComandoAlta,
   validarBorradorAlta,
@@ -215,13 +216,6 @@ test("el DTO rechaza campos extra, tipos, tamaños, fechas e importes inválidos
   ]) {
     assert.throws(() => crearComandoAlta(borradorValido(cambios), catalogos, CLAVE_PRUEBA));
   }
-  assert.doesNotThrow(
-    () => crearComandoAlta(
-      borradorValido({ rc_importe: "90071992547409,91" }),
-      catalogos,
-      CLAVE_PRUEBA,
-    ),
-  );
   assert.throws(
     () => crearComandoAlta(
       borradorValido({
@@ -236,6 +230,72 @@ test("el DTO rechaza campos extra, tipos, tamaños, fechas e importes inválidos
     ),
     ErrorValidacionAlta,
   );
+});
+
+test("el periodo y la RC respetan los límites exactos de la frontera interna", async () => {
+  assert.equal(LIMITES_ALTA_CONTRATACION.maximoAniosPeriodo, 100);
+  assert.equal(LIMITES_ALTA_CONTRATACION.maximoCentimosRC, 922_337_203_685_477);
+
+  const comandoLimite = crearComandoAlta(
+    borradorValido({
+      inicio: "2026-08-01",
+      fin: "2126-08-01",
+      rc_importe: "9223372036854,77",
+    }),
+    catalogosPrueba(),
+    CLAVE_PRUEBA,
+  );
+  assert.equal(comandoLimite.solicitud.periodo.fin, "2126-08-01T00:00:00Z");
+  assert.equal(comandoLimite.solicitud.rc.importe.centimos, 922_337_203_685_477);
+  assert.throws(() => validarComandoAlta({
+    ...comandoLimite,
+    solicitud: {
+      ...comandoLimite.solicitud,
+      periodo: {
+        ...comandoLimite.solicitud.periodo,
+        fin: "2126-08-02T00:00:00Z",
+      },
+    },
+  }));
+  assert.throws(() => validarComandoAlta({
+    ...comandoLimite,
+    solicitud: {
+      ...comandoLimite.solicitud,
+      rc: {
+        ...comandoLimite.solicitud.rc,
+        importe: { centimos: 922_337_203_685_478, moneda: "EUR" },
+      },
+    },
+  }));
+
+  for (const rcImporte of [
+    "9223372036854,78",
+    "90071992547409,91",
+  ]) {
+    const validacion = validarBorradorAlta(
+      borradorValido({ rc_importe: rcImporte }),
+      catalogosPrueba(),
+    );
+    assert.equal(validacion.valido, false);
+    assert.equal(validacion.errores.rc_importe, "importe_maximo");
+  }
+
+  let invocaciones = 0;
+  const presentador = crearPresentador({
+    ejecutor: async () => {
+      invocaciones += 1;
+      return reciboValido();
+    },
+  });
+  assert.equal(presentador.prepararRevision(borradorValido({
+    inicio: "2026-08-01",
+    fin: "2126-08-02",
+  })), false);
+  assert.equal(presentador.obtenerEstado().errores.fin, "periodo_maximo");
+  assert.match(MENSAJES_CONTRATACION_TEMPORAL_ES.error_periodo_maximo, /cien años civiles/);
+  assert.match(MENSAJES_CONTRATACION_TEMPORAL_ES.error_importe_maximo, /9\.223\.372/);
+  await assert.rejects(presentador.enviar());
+  assert.equal(invocaciones, 0);
 });
 
 test("el comando replica el dominio, usa céntimos y aplica copia defensiva", () => {
