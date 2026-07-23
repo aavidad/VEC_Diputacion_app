@@ -174,7 +174,7 @@ func (g *generadorReferenciasPrueba) NuevaReferenciaReservaAlta(
 
 func solicitudPreparacionPrueba() ports.SolicitudPrepararAlta {
 	return ports.SolicitudPrepararAlta{
-		ClaveIdempotencia:  "01J2F8X4K4R9T2Y7W3M6Q8P1AB",
+		ClaveIdempotencia:  "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
 		HuellaPeticionHMAC: selloHMACPrueba(clavePeticionAltaPrueba, "b"),
 		OrganizacionRef:    "organizacion:diputacion-granada",
 		ActorRef:           "actor:tecnica-rrhh-001",
@@ -208,6 +208,28 @@ func filaReservadaPreparacionPrueba(resultado string) pgx.Row {
 		pgtype.Text{},
 		pgtype.Text{},
 		pgtype.Timestamptz{},
+	}}
+}
+
+func filaConfirmadaPreparacionPrueba() filaPreparacionPrueba {
+	referencias := referenciasPreparacionPrueba()
+	instante := time.Date(2026, 7, 23, 10, 0, 0, 123_456_000, time.UTC)
+	return filaPreparacionPrueba{valores: []any{
+		"confirmada",
+		"reserva:alta-candidata-001",
+		referencias.ExpedienteRef,
+		referencias.NumeroVisible,
+		referencias.ReciboRef,
+		selloHMACPrueba(claveAmbitoAltaPrueba, "d"),
+		selloHMACPrueba(clavePeticionAltaPrueba, "b"),
+		"organizacion:diputacion-granada",
+		"actor:tecnica-rrhh-001",
+		"perfil:tecnica-rrhh",
+		string(ports.PreparacionConfirmada),
+		pgtype.Int8{Int64: 1, Valid: true},
+		pgtype.Text{String: "auditoria:alta-001", Valid: true},
+		pgtype.Text{String: "evento:alta-001", Valid: true},
+		pgtype.Timestamptz{Time: instante, Valid: true},
 	}}
 }
 
@@ -277,25 +299,8 @@ func TestPreparadorPostgreSQLReservaSinPersistirClaveCruda(t *testing.T) {
 }
 
 func TestPreparadorPostgreSQLRestauraConfirmacionExacta(t *testing.T) {
-	referencias := referenciasPreparacionPrueba()
 	instante := time.Date(2026, 7, 23, 10, 0, 0, 123_456_000, time.UTC)
-	fila := filaPreparacionPrueba{valores: []any{
-		"confirmada",
-		"reserva:alta-candidata-001",
-		referencias.ExpedienteRef,
-		referencias.NumeroVisible,
-		referencias.ReciboRef,
-		selloHMACPrueba(claveAmbitoAltaPrueba, "d"),
-		selloHMACPrueba(clavePeticionAltaPrueba, "b"),
-		"organizacion:diputacion-granada",
-		"actor:tecnica-rrhh-001",
-		"perfil:tecnica-rrhh",
-		string(ports.PreparacionConfirmada),
-		pgtype.Int8{Int64: 1, Valid: true},
-		pgtype.Text{String: "auditoria:alta-001", Valid: true},
-		pgtype.Text{String: "evento:alta-001", Valid: true},
-		pgtype.Timestamptz{Time: instante, Valid: true},
-	}}
+	fila := filaConfirmadaPreparacionPrueba()
 	preparador, tx := nuevoPreparadorPrueba(t, fila)
 
 	preparacion, err := preparador.PrepararAlta(
@@ -310,6 +315,32 @@ func TestPreparadorPostgreSQLRestauraConfirmacionExacta(t *testing.T) {
 		preparacion.ReciboConfirmado.ConfirmadaEn != instante ||
 		tx.confirmaciones != 1 {
 		t.Fatalf("confirmación inesperada: %#v", preparacion)
+	}
+}
+
+func TestPreparadorPostgreSQLCotejaAmbitoEnTodoReintento(t *testing.T) {
+	casos := map[string]filaPreparacionPrueba{
+		"reserva reutilizada": filaReservadaPreparacionPrueba(
+			"reutilizada",
+		).(filaPreparacionPrueba),
+		"confirmacion": filaConfirmadaPreparacionPrueba(),
+	}
+	for nombre, fila := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			fila.valores[5] = selloHMACPrueba(claveAmbitoAltaPrueba, "e")
+			preparador, tx := nuevoPreparadorPrueba(t, fila)
+
+			_, err := preparador.PrepararAlta(
+				context.Background(),
+				solicitudPreparacionPrueba(),
+			)
+			if !errors.Is(err, ports.ErrPersistenciaNoDisponible) {
+				t.Fatalf("ámbito sustituido no rechazado: %v", err)
+			}
+			if tx.confirmaciones != 0 {
+				t.Fatal("se confirmó una respuesta ligada a otro ámbito")
+			}
+		})
 	}
 }
 

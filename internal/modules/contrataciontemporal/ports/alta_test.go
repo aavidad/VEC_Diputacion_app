@@ -34,7 +34,7 @@ func TestSelloHMACSHA256ValidoExigeDominioVersionadoYValorNoNulo(t *testing.T) {
 
 func TestPreparacionAltaQuedaLigadaATenantActorPerfilYPeticion(t *testing.T) {
 	solicitud := SolicitudPrepararAlta{
-		ClaveIdempotencia:  "01J2F8X4K4R9T2Y7W3M6Q8P1AB",
+		ClaveIdempotencia:  "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
 		HuellaPeticionHMAC: selloPrueba(dominioHuellaPrueba, "a"),
 		OrganizacionRef:    "organizacion:diputacion-granada",
 		ActorRef:           "actor:tecnica-rrhh-001",
@@ -80,6 +80,31 @@ func TestPreparacionAltaQuedaLigadaATenantActorPerfilYPeticion(t *testing.T) {
 				t.Fatal("se aceptó una preparación adulterada")
 			}
 		})
+	}
+}
+
+func TestSolicitudPrepararAltaExigeClaveIdempotenciaUUIDv4Canonica(t *testing.T) {
+	base := SolicitudPrepararAlta{
+		ClaveIdempotencia:  "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
+		HuellaPeticionHMAC: selloPrueba(dominioHuellaPrueba, "a"),
+		OrganizacionRef:    "organizacion:diputacion-granada",
+		ActorRef:           "actor:tecnica-rrhh-001",
+		PerfilRef:          "perfil:tecnica-rrhh",
+	}
+	if err := base.Validar(); err != nil {
+		t.Fatalf("UUIDv4 canónico rechazado: %v", err)
+	}
+	for _, clave := range []string{
+		"aaaaaaaaaaaaaaaaaaaaaa",
+		"018f3b2a-7c4d-1e5f-8a9b-0c1d2e3f4a5b",
+		"018F3B2A-7C4D-4E5F-8A9B-0C1D2E3F4A5B",
+		"00000000-0000-4000-8000-000000000000",
+	} {
+		solicitud := base
+		solicitud.ClaveIdempotencia = clave
+		if err := solicitud.Validar(); err == nil {
+			t.Fatalf("clave trivial/no canónica aceptada: %q", clave)
+		}
 	}
 }
 

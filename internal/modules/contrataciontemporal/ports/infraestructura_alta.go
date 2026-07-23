@@ -14,7 +14,7 @@ type SolicitudSellarAmbitoIdempotencia struct {
 }
 
 func (s SolicitudSellarAmbitoIdempotencia) Validar() error {
-	if !patronClaveIdempotencia.MatchString(s.ClaveIdempotencia) ||
+	if !claveIdempotenciaValida(s.ClaveIdempotencia) ||
 		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(s.ActorRef) ||
 		!domain.ReferenciaOpacaValida(s.PerfilRef) {

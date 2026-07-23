@@ -17,6 +17,12 @@ import (
 const (
 	claveHuellaPrueba = "vec.contratacion-temporal.huella-peticion/v1"
 	claveAmbitoPrueba = "vec.contratacion-temporal.ambito-idempotencia/v1"
+
+	materialHuellaAltaV1Dorado = `{"esquema":"vec.contratacion-temporal.huella-alta.v1","organizacion_ref":"organizacion:diputacion-granada","actor_ref":"actor:tecnica-rrhh-001","perfil_ref":"perfil:tecnica-rrhh","flujo":{"definicion_ref":"flujo:contratacion-temporal-general","version":1,"huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"solicitud":{"centro_ref":"centro:residencia-001","contacto_ref":"persona:responsable-centro-001","categoria_ref":"categoria:auxiliar-enfermeria","grupo_subgrupo":"C2","motivo_clave":"sustitucion.incapacidad_temporal","detalle":"Necesidad temporal para mantener el servicio.","periodo":{"inicio":"2026-08-01T00:00:00Z","fin":"2026-08-31T00:00:00Z"},"rc":{"existe":false,"fecha":"0001-01-01T00:00:00Z","importe":{"centimos":0,"moneda":""}},"documentos_adjuntos":["documento:informe-001"]}}`
+	selloHuellaAltaV1Dorado    = "hmac-sha256:vec.contratacion-temporal.huella-peticion/v1:63ff3ba5d29c6008455989ee543d430fe3dfd9363a4981023bbe596fff63e95a"
+
+	materialAmbitoAltaV1Dorado = `{"esquema":"vec.contratacion-temporal.ambito-idempotencia.v1","clave_idempotencia":"018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b","organizacion_ref":"organizacion:diputacion-granada","actor_ref":"actor:tecnica-rrhh-001","perfil_ref":"perfil:tecnica-rrhh"}`
+	selloAmbitoAltaV1Dorado    = "hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v1:e5d33266c2e25b77c838790830645c3a6de7694cd50340709a3f37b7c81fedfc"
 )
 
 type selladorPrueba struct {
@@ -90,6 +96,14 @@ func TestDerivadorHuellaAltaHMACLigaMaterialCanonico(t *testing.T) {
 		!strings.Contains(string(sellador.material), esquemaHuellaAltaV1) {
 		t.Fatalf("sello no canónico: %q", primero)
 	}
+	if string(sellador.material) != materialHuellaAltaV1Dorado ||
+		primero != selloHuellaAltaV1Dorado {
+		t.Fatalf(
+			"vector V1 alterado sin elevar esquema: material=%q sello=%q",
+			sellador.material,
+			primero,
+		)
+	}
 
 	alterado := material
 	alterado.Solicitud.Detalle += " rectificada"
@@ -115,7 +129,7 @@ func TestSelladorAmbitoNoExponeClaveEnResultado(t *testing.T) {
 		t.Fatal(err)
 	}
 	solicitud := ports.SolicitudSellarAmbitoIdempotencia{
-		ClaveIdempotencia: "01J2F8X4K4R9T2Y7W3M6Q8P1AB",
+		ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
 		OrganizacionRef:   "organizacion:diputacion-granada",
 		ActorRef:          "actor:tecnica-rrhh-001",
 		PerfilRef:         "perfil:tecnica-rrhh",
@@ -131,6 +145,14 @@ func TestSelladorAmbitoNoExponeClaveEnResultado(t *testing.T) {
 		!strings.Contains(string(sellador.material), solicitud.ClaveIdempotencia) ||
 		!strings.Contains(string(sellador.material), esquemaAmbitoAltaV1) {
 		t.Fatalf("separación idempotente inválida: %q", sello)
+	}
+	if string(sellador.material) != materialAmbitoAltaV1Dorado ||
+		sello != selloAmbitoAltaV1Dorado {
+		t.Fatalf(
+			"vector V1 alterado sin elevar esquema: material=%q sello=%q",
+			sellador.material,
+			sello,
+		)
 	}
 }
 
