@@ -385,12 +385,12 @@ func TestServicioConsultaCoberturaImponePlazoAlConsumidor(
 	t *testing.T,
 ) {
 	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
-	entorno.reconstruirServicio(t, 5*time.Millisecond)
+	plazo := entorno.usarPlazoControlado(t)
 	entorno.consumidor.consumir = func(
-		ctx context.Context,
+		_ context.Context,
 		_ ports.OrdenConsumoCobertura,
 	) (ports.ReciboConsumoCobertura, error) {
-		<-ctx.Done()
+		plazo.finalizar(context.DeadlineExceeded)
 		return ports.ReciboConsumoCobertura{}, nil
 	}
 
@@ -433,9 +433,9 @@ func TestServicioConsultaCoberturaTimeoutPosteriorAlCommitEsRecuperable(
 	t *testing.T,
 ) {
 	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
-	entorno.reconstruirServicio(t, 5*time.Millisecond)
-	entorno.consumidor.despues = func(ctx context.Context) {
-		<-ctx.Done()
+	plazo := entorno.usarPlazoControlado(t)
+	entorno.consumidor.despues = func(context.Context) {
+		plazo.finalizar(context.DeadlineExceeded)
 	}
 
 	if _, err := entorno.servicio.Consultar(
@@ -466,9 +466,9 @@ func TestServicioConsultaCoberturaSinReciboTrasCommitRecuperaPorPeticion(
 	t *testing.T,
 ) {
 	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
-	entorno.reconstruirServicio(t, 5*time.Millisecond)
-	entorno.consumidor.despues = func(ctx context.Context) {
-		<-ctx.Done()
+	plazo := entorno.usarPlazoControlado(t)
+	entorno.consumidor.despues = func(context.Context) {
+		plazo.finalizar(context.DeadlineExceeded)
 	}
 	entorno.consumidor.responder = func(
 		ports.ReciboConsumoCobertura,

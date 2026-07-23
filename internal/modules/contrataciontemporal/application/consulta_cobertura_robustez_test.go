@@ -271,12 +271,12 @@ func TestServicioConsultaCoberturaTiempoMaximoIncluyeLaFuente(
 	t *testing.T,
 ) {
 	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
-	entorno.reconstruirServicio(t, 5*time.Millisecond)
+	plazo := entorno.usarPlazoControlado(t)
 	entorno.fuente.consultar = func(
 		_ context.Context,
 		solicitud ports.SolicitudConsultarCobertura,
 	) (ports.ResultadoConsultaCobertura, error) {
-		time.Sleep(15 * time.Millisecond)
+		plazo.finalizar(context.DeadlineExceeded)
 		return resultadoCoberturaAplicacionPrueba(t, solicitud, nil), nil
 	}
 

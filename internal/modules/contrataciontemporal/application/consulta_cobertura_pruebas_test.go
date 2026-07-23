@@ -23,45 +23,38 @@ func claveEd25519CoberturaPrueba(etiqueta string) ed25519.PrivateKey {
 	return ed25519.NewKeyFromSeed(semilla[:])
 }
 
-type presentadorIdentificadoCoberturaPrueba interface {
-	identidadCoberturaPrueba() ports.IdentidadAutoridadFuenteAnalisis
-}
-
 type autenticadorCoberturaPrueba struct {
 	organizacion string
-	antes        func(ports.RolAutoridadFuenteAnalisis) error
+	audiencia    string
+	identidades  map[ports.RolAutoridadFuenteAnalisis]ports.IdentidadAutoridadFuenteAnalisis
+	antes        func(ports.RolAutoridadFuenteAnalisis, time.Time) error
 }
 
 func (a *autenticadorCoberturaPrueba) OrganizacionAutoridadFuenteAnalisis() string {
 	return a.organizacion
 }
 
-func (a *autenticadorCoberturaPrueba) AutenticarAutoridadFuenteAnalisis(
-	ctx context.Context,
-	presentador ports.PresentadorAutoridadFuenteAnalisis,
-	material []byte,
+func (a *autenticadorCoberturaPrueba) AudienciaAutoridadFuenteAnalisis() string {
+	return a.audiencia
+}
+
+func (a *autenticadorCoberturaPrueba) VerificarPresentacionAutoridadFuenteAnalisis(
+	_ ports.PresentacionAutoridadFuenteAnalisis,
+	_ ports.DesafioAutoridadFuenteAnalisis,
 	rol ports.RolAutoridadFuenteAnalisis,
-	_ time.Time,
+	comprobadaEn time.Time,
 ) (ports.IdentidadAutoridadFuenteAnalisis, error) {
-	if err := ctx.Err(); err != nil {
-		return ports.IdentidadAutoridadFuenteAnalisis{}, err
-	}
-	if len(material) == 0 {
+	if a == nil {
 		return ports.IdentidadAutoridadFuenteAnalisis{},
 			ports.ErrResultadoFuenteAnalisisNoConfiable
 	}
 	if a.antes != nil {
-		if err := a.antes(rol); err != nil {
+		if err := a.antes(rol, comprobadaEn); err != nil {
 			return ports.IdentidadAutoridadFuenteAnalisis{}, err
 		}
 	}
-	identificado, ok := presentador.(presentadorIdentificadoCoberturaPrueba)
-	if !ok {
-		return ports.IdentidadAutoridadFuenteAnalisis{},
-			ports.ErrResultadoFuenteAnalisisNoConfiable
-	}
-	identidad := identificado.identidadCoberturaPrueba()
-	if identidad.Rol() != rol {
+	identidad, ok := a.identidades[rol]
+	if !ok || identidad.Rol() != rol {
 		return ports.IdentidadAutoridadFuenteAnalisis{},
 			ports.ErrResultadoFuenteAnalisisNoConfiable
 	}
@@ -70,6 +63,10 @@ func (a *autenticadorCoberturaPrueba) AutenticarAutoridadFuenteAnalisis(
 
 type fuenteCoberturaAplicacionPrueba struct {
 	identidad ports.IdentidadAutoridadFuenteAnalisis
+	presentar func(
+		context.Context,
+		ports.DesafioAutoridadFuenteAnalisis,
+	) (ports.PresentacionAutoridadFuenteAnalisis, error)
 	consultar func(
 		context.Context,
 		ports.SolicitudConsultarCobertura,
@@ -79,10 +76,13 @@ type fuenteCoberturaAplicacionPrueba struct {
 func (f *fuenteCoberturaAplicacionPrueba) identidadCoberturaPrueba() ports.IdentidadAutoridadFuenteAnalisis {
 	return f.identidad
 }
-func (*fuenteCoberturaAplicacionPrueba) PresentarAutoridadFuenteAnalisis(
-	context.Context,
-	ports.DesafioAutoridadFuenteAnalisis,
+func (f *fuenteCoberturaAplicacionPrueba) PresentarAutoridadFuenteAnalisis(
+	ctx context.Context,
+	desafio ports.DesafioAutoridadFuenteAnalisis,
 ) (ports.PresentacionAutoridadFuenteAnalisis, error) {
+	if f.presentar != nil {
+		return f.presentar(ctx, desafio)
+	}
 	return ports.PresentacionAutoridadFuenteAnalisis{}, nil
 }
 func (f *fuenteCoberturaAplicacionPrueba) ConsultarCobertura(
@@ -94,6 +94,10 @@ func (f *fuenteCoberturaAplicacionPrueba) ConsultarCobertura(
 
 type verificadorCoberturaAplicacionPrueba struct {
 	identidad ports.IdentidadAutoridadFuenteAnalisis
+	presentar func(
+		context.Context,
+		ports.DesafioAutoridadFuenteAnalisis,
+	) (ports.PresentacionAutoridadFuenteAnalisis, error)
 	verificar func(
 		context.Context,
 		ports.SolicitudVerificarRespuestaCobertura,
@@ -103,10 +107,13 @@ type verificadorCoberturaAplicacionPrueba struct {
 func (v *verificadorCoberturaAplicacionPrueba) identidadCoberturaPrueba() ports.IdentidadAutoridadFuenteAnalisis {
 	return v.identidad
 }
-func (*verificadorCoberturaAplicacionPrueba) PresentarAutoridadFuenteAnalisis(
-	context.Context,
-	ports.DesafioAutoridadFuenteAnalisis,
+func (v *verificadorCoberturaAplicacionPrueba) PresentarAutoridadFuenteAnalisis(
+	ctx context.Context,
+	desafio ports.DesafioAutoridadFuenteAnalisis,
 ) (ports.PresentacionAutoridadFuenteAnalisis, error) {
+	if v.presentar != nil {
+		return v.presentar(ctx, desafio)
+	}
 	return ports.PresentacionAutoridadFuenteAnalisis{}, nil
 }
 func (v *verificadorCoberturaAplicacionPrueba) VerificarRespuestaCobertura(
@@ -118,7 +125,11 @@ func (v *verificadorCoberturaAplicacionPrueba) VerificarRespuestaCobertura(
 
 type publicadorCoberturaAplicacionPrueba struct {
 	identidad ports.IdentidadAutoridadFuenteAnalisis
-	publicar  func(
+	presentar func(
+		context.Context,
+		ports.DesafioAutoridadFuenteAnalisis,
+	) (ports.PresentacionAutoridadFuenteAnalisis, error)
+	publicar func(
 		context.Context,
 		ports.SolicitudConsultarCobertura,
 	) (ports.ConfirmacionPublicacionCobertura, error)
@@ -127,10 +138,13 @@ type publicadorCoberturaAplicacionPrueba struct {
 func (p *publicadorCoberturaAplicacionPrueba) identidadCoberturaPrueba() ports.IdentidadAutoridadFuenteAnalisis {
 	return p.identidad
 }
-func (*publicadorCoberturaAplicacionPrueba) PresentarAutoridadFuenteAnalisis(
-	context.Context,
-	ports.DesafioAutoridadFuenteAnalisis,
+func (p *publicadorCoberturaAplicacionPrueba) PresentarAutoridadFuenteAnalisis(
+	ctx context.Context,
+	desafio ports.DesafioAutoridadFuenteAnalisis,
 ) (ports.PresentacionAutoridadFuenteAnalisis, error) {
+	if p.presentar != nil {
+		return p.presentar(ctx, desafio)
+	}
 	return ports.PresentacionAutoridadFuenteAnalisis{}, nil
 }
 func (p *publicadorCoberturaAplicacionPrueba) ConsultarPublicacionCobertura(
@@ -143,6 +157,53 @@ func (p *publicadorCoberturaAplicacionPrueba) ConsultarPublicacionCobertura(
 type relojCoberturaAplicacionPrueba struct {
 	mu    sync.RWMutex
 	ahora time.Time
+}
+
+// contextoPlazoCoberturaPrueba permite activar de forma determinista las dos
+// causas públicas de cancelación sin depender del planificador ni del reloj de
+// pared del equipo de pruebas.
+type contextoPlazoCoberturaPrueba struct {
+	padre context.Context
+	done  chan struct{}
+	mu    sync.RWMutex
+	err   error
+	una   sync.Once
+}
+
+func nuevoContextoPlazoCoberturaPrueba(
+	padre context.Context,
+) *contextoPlazoCoberturaPrueba {
+	return &contextoPlazoCoberturaPrueba{
+		padre: padre,
+		done:  make(chan struct{}),
+	}
+}
+
+func (c *contextoPlazoCoberturaPrueba) Deadline() (time.Time, bool) {
+	return time.Time{}, false
+}
+
+func (c *contextoPlazoCoberturaPrueba) Done() <-chan struct{} {
+	return c.done
+}
+
+func (c *contextoPlazoCoberturaPrueba) Err() error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.err
+}
+
+func (c *contextoPlazoCoberturaPrueba) Value(clave any) any {
+	return c.padre.Value(clave)
+}
+
+func (c *contextoPlazoCoberturaPrueba) finalizar(err error) {
+	c.una.Do(func() {
+		c.mu.Lock()
+		c.err = err
+		c.mu.Unlock()
+		close(c.done)
+	})
 }
 
 func (r *relojCoberturaAplicacionPrueba) Ahora() time.Time {
@@ -332,6 +393,12 @@ func nuevoEntornoCoberturaAplicacionPrueba(
 		fuente: fuente, verificador: verificador, publicador: publicador,
 		autenticador: &autenticadorCoberturaPrueba{
 			organizacion: organizacionCoberturaPrueba,
+			audiencia:    "servicio_contratacion_temporal",
+			identidades: map[ports.RolAutoridadFuenteAnalisis]ports.IdentidadAutoridadFuenteAnalisis{
+				ports.RolFuenteCobertura:             fuente.identidad,
+				ports.RolVerificadorCobertura:        verificador.identidad,
+				ports.RolPublicadorCatalogoCobertura: publicador.identidad,
+			},
 		},
 		reloj: reloj, claveVerifica: claveVerifica,
 	}
@@ -385,4 +452,19 @@ func (e *entornoCoberturaAplicacionPrueba) reconstruirServicio(
 		t.Fatal(err)
 	}
 	e.servicio = servicio
+}
+
+func (e *entornoCoberturaAplicacionPrueba) usarPlazoControlado(
+	t *testing.T,
+) *contextoPlazoCoberturaPrueba {
+	t.Helper()
+	controlado := nuevoContextoPlazoCoberturaPrueba(context.Background())
+	e.servicio.crearPlazo = func(
+		padre context.Context,
+		_ time.Duration,
+	) (context.Context, context.CancelFunc) {
+		controlado.padre = padre
+		return controlado, func() {}
+	}
+	return controlado
 }

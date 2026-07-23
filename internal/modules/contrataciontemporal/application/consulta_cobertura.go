@@ -36,9 +36,13 @@ type ServicioConsultaCobertura struct {
 	verificador  ports.VerificadorRespuestaCobertura
 	publicador   ports.PublicadorCatalogoCobertura
 	consumidor   ports.ConsumidorCobertura
-	autenticador ports.AutenticadorAutoridadesFuenteAnalisis
+	autenticador ports.VerificadorPresentacionesAutoridadFuenteAnalisis
 	reloj        ports.Reloj
 	tiempoMaximo time.Duration
+	crearPlazo   func(
+		context.Context,
+		time.Duration,
+	) (context.Context, context.CancelFunc)
 }
 
 func NuevoServicioConsultaCobertura(
@@ -46,7 +50,7 @@ func NuevoServicioConsultaCobertura(
 	verificador ports.VerificadorRespuestaCobertura,
 	publicador ports.PublicadorCatalogoCobertura,
 	consumidor ports.ConsumidorCobertura,
-	autenticador ports.AutenticadorAutoridadesFuenteAnalisis,
+	autenticador ports.VerificadorPresentacionesAutoridadFuenteAnalisis,
 	reloj ports.Reloj,
 	tiempoMaximo time.Duration,
 ) (*ServicioConsultaCobertura, error) {
@@ -64,6 +68,7 @@ func NuevoServicioConsultaCobertura(
 		autenticador: autenticador,
 		reloj:        reloj,
 		tiempoMaximo: tiempoMaximo,
+		crearPlazo:   context.WithTimeout,
 	}, nil
 }
 
@@ -76,6 +81,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 		dependenciaNula(s.consumidor) || dependenciaNula(s.autenticador) ||
 		dependenciaNula(s.reloj) || s.tiempoMaximo <= 0 ||
 		s.tiempoMaximo > TiempoMaximoFuenteCobertura ||
+		s.crearPlazo == nil ||
 		solicitud.Validar() != nil ||
 		solicitud.OrganizacionRef !=
 			s.autenticador.OrganizacionAutoridadFuenteAnalisis() {
@@ -87,7 +93,11 @@ func (s *ServicioConsultaCobertura) Consultar(
 		return domain.ComprobacionCobertura{},
 			ports.ErrPeticionFuenteCoberturaInvalida
 	}
-	operacion, cancelar := context.WithTimeout(ctx, s.tiempoMaximo)
+	operacion, cancelar := s.crearPlazo(ctx, s.tiempoMaximo)
+	if operacion == nil || cancelar == nil {
+		return domain.ComprobacionCobertura{},
+			ports.ErrPeticionFuenteCoberturaInvalida
+	}
 	defer cancelar()
 	relojOperacion := nuevoRelojMonotonoCobertura(s.reloj)
 	if err := operacion.Err(); err != nil {
@@ -298,18 +308,18 @@ func (s *ServicioConsultaCobertura) autenticar(
 	errDisponibilidad error,
 	reloj *relojMonotonoCobertura,
 ) (ports.IdentidadAutoridadFuenteAnalisis, error) {
-	comprobadaEn, errReloj := reloj.ahora()
-	if errReloj != nil {
+	desafio, err := ports.NuevoDesafioAutoridadFuenteAnalisis(
+		append([]byte(nil), materialPeticion...),
+		s.autenticador.OrganizacionAutoridadFuenteAnalisis(),
+		s.autenticador.AudienciaAutoridadFuenteAnalisis(),
+		rol,
+	)
+	if err != nil {
 		return ports.IdentidadAutoridadFuenteAnalisis{},
 			ports.ErrResultadoFuenteCoberturaNoConfiable
 	}
-	identidad, err := s.autenticador.AutenticarAutoridadFuenteAnalisis(
-		ctx,
-		presentador,
-		materialPeticion,
-		rol,
-		comprobadaEn,
-	)
+	presentacion, errPresentacion :=
+		presentador.PresentarAutoridadFuenteAnalisis(ctx, desafio)
 	if errContexto := ctx.Err(); errContexto != nil {
 		return ports.IdentidadAutoridadFuenteAnalisis{},
 			errorDisponibilidadCobertura(
@@ -317,6 +327,25 @@ func (s *ServicioConsultaCobertura) autenticar(
 				errContexto,
 			)
 	}
+	if errPresentacion != nil {
+		return ports.IdentidadAutoridadFuenteAnalisis{},
+			errorDisponibilidadCobertura(
+				errDisponibilidad,
+				errPresentacion,
+			)
+	}
+	comprobadaEn, errReloj := reloj.ahora()
+	if errReloj != nil {
+		return ports.IdentidadAutoridadFuenteAnalisis{},
+			ports.ErrResultadoFuenteCoberturaNoConfiable
+	}
+	identidad, err := s.autenticador.
+		VerificarPresentacionAutoridadFuenteAnalisis(
+			presentacion,
+			desafio,
+			rol,
+			comprobadaEn,
+		)
 	if err != nil {
 		return ports.IdentidadAutoridadFuenteAnalisis{},
 			ports.ErrResultadoFuenteCoberturaNoConfiable

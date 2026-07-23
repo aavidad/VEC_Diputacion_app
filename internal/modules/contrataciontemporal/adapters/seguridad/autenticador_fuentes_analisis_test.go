@@ -90,13 +90,29 @@ func TestAutenticadorFuentesAnalisisConConfianzaAutentica(t *testing.T) {
 		},
 	}
 
-	identidad, err := autenticador.AutenticarAutoridadFuenteAnalisis(
-		context.Background(),
-		presentador,
+	desafio, err := ports.NuevoDesafioAutoridadFuenteAnalisis(
 		[]byte("peticion-canonica-cobertura"),
+		confianza.OrganizacionRef(),
+		confianza.Audiencia(),
 		ports.RolFuenteCobertura,
-		ahora,
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentacion, err := presentador.PresentarAutoridadFuenteAnalisis(
+		context.Background(),
+		desafio,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identidad, err := autenticador.
+		VerificarPresentacionAutoridadFuenteAnalisis(
+			presentacion,
+			desafio,
+			ports.RolFuenteCobertura,
+			ahora,
+		)
 
 	if err != nil {
 		t.Fatal(err)
@@ -117,14 +133,94 @@ func TestAutenticadorFuentesAnalisisConConfianzaFallaCerrado(
 		t.Fatalf("confianza vacía aceptada: %v", err)
 	}
 	var autenticador *AutenticadorFuentesAnalisisConConfianza
-	if _, err := autenticador.AutenticarAutoridadFuenteAnalisis(
-		context.Background(),
-		nil,
-		[]byte("peticion"),
+	if _, err := autenticador.VerificarPresentacionAutoridadFuenteAnalisis(
+		ports.PresentacionAutoridadFuenteAnalisis{},
+		ports.DesafioAutoridadFuenteAnalisis{},
 		ports.RolFuenteCobertura,
 		time.Now().UTC(),
 	); !errors.Is(err, ports.ErrResultadoFuenteAnalisisNoConfiable) {
 		t.Fatalf("adaptador nulo aceptado: %v", err)
+	}
+}
+
+func TestAutenticadorFuentesAnalisisRevalidaTrasPresentacionLenta(
+	t *testing.T,
+) {
+	inicio := time.Date(2026, 7, 23, 10, 0, 0, 0, time.UTC)
+	claveRaiz := claveDeterministaAutenticadorPrueba("raiz-toctou")
+	clavePrueba := claveDeterministaAutenticadorPrueba("prueba-toctou")
+	confianza, err := ports.NuevaConfianzaAutoridadesFuenteAnalisis(
+		"organizacion_diputacion_granada",
+		"audiencia_fuentes_internas_012345",
+		[]ports.RaizConfianzaAutoridadFuenteAnalisis{{
+			ClaveID:             "raiz_institucional_toctou_012345",
+			ClavePublicaEd25519: claveRaiz.Public().(ed25519.PublicKey),
+			Estado:              ports.RaizAutoridadActiva,
+			ValidaDesde:         inicio.Add(-time.Hour),
+			ValidaHasta:         inicio.Add(time.Hour),
+			UltimaEmisionPermitida: inicio.Add(
+				30 * time.Minute,
+			),
+		}},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	autenticador, err := NuevoAutenticadorFuentesAnalisisConConfianza(
+		confianza,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentador := presentadorFuenteAnalisisPrueba{
+		claveRaiz:   claveRaiz,
+		clavePrueba: clavePrueba,
+		datos: ports.DatosCredencialAutoridadFuenteAnalisis{
+			RaizClaveID:        "raiz_institucional_toctou_012345",
+			AutoridadRef:       "fuente_cobertura_toctou_012345",
+			BackendRef:         "backend_cobertura_toctou_012345",
+			OrganizacionRef:    "organizacion_diputacion_granada",
+			Audiencia:          "audiencia_fuentes_internas_012345",
+			Rol:                ports.RolFuenteCobertura,
+			Serie:              2,
+			Generacion:         1,
+			ClavePruebaEd25519: clavePrueba.Public().(ed25519.PublicKey),
+			EmitidaEn:          inicio.Add(-time.Minute),
+			ValidaHasta:        inicio.Add(6 * time.Second),
+		},
+	}
+	desafio, err := ports.NuevoDesafioAutoridadFuenteAnalisis(
+		[]byte("peticion-canonica-toctou"),
+		confianza.OrganizacionRef(),
+		confianza.Audiencia(),
+		ports.RolFuenteCobertura,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentacion, err := presentador.PresentarAutoridadFuenteAnalisis(
+		context.Background(),
+		desafio,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := autenticador.VerificarPresentacionAutoridadFuenteAnalisis(
+		presentacion,
+		desafio,
+		ports.RolFuenteCobertura,
+		inicio,
+	); err != nil {
+		t.Fatalf("la credencial no era válida en t1: %v", err)
+	}
+	if _, err := autenticador.VerificarPresentacionAutoridadFuenteAnalisis(
+		presentacion,
+		desafio,
+		ports.RolFuenteCobertura,
+		inicio.Add(2*time.Second),
+	); !errors.Is(err, ports.ErrResultadoFuenteAnalisisNoConfiable) {
+		t.Fatalf("caducidad durante presentación no rechazada: %v", err)
 	}
 }
 

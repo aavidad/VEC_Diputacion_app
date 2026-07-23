@@ -1,7 +1,6 @@
 package ports
 
 import (
-	"context"
 	"crypto/ed25519"
 	"fmt"
 	"io"
@@ -75,15 +74,16 @@ func (i IdentidadAutoridadFuenteAnalisis) LogValue() slog.Value {
 	return slog.StringValue(i.String())
 }
 
-// AutenticadorAutoridadesFuenteAnalisis es la frontera de confianza que
-// aplicación coordina. Su implementación se fija en composición, nunca llega
-// desde una petición de usuario.
-type AutenticadorAutoridadesFuenteAnalisis interface {
+// VerificadorPresentacionesAutoridadFuenteAnalisis es la frontera local de
+// confianza que valida una presentación ya obtenida por application. No crea
+// desafíos ni invoca presentadores; su implementación se fija en composición
+// y nunca llega desde una petición de usuario.
+type VerificadorPresentacionesAutoridadFuenteAnalisis interface {
 	OrganizacionAutoridadFuenteAnalisis() string
-	AutenticarAutoridadFuenteAnalisis(
-		context.Context,
-		PresentadorAutoridadFuenteAnalisis,
-		[]byte,
+	AudienciaAutoridadFuenteAnalisis() string
+	VerificarPresentacionAutoridadFuenteAnalisis(
+		PresentacionAutoridadFuenteAnalisis,
+		DesafioAutoridadFuenteAnalisis,
 		RolAutoridadFuenteAnalisis,
 		time.Time,
 	) (IdentidadAutoridadFuenteAnalisis, error)

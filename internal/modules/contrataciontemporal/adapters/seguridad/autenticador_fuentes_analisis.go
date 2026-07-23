@@ -1,16 +1,15 @@
 package seguridad
 
 import (
-	"context"
-	"reflect"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-// AutenticadorFuentesAnalisisConConfianza implementa la frontera criptográfica
-// en infraestructura. La aplicación solo conoce el contrato de ports.
+// AutenticadorFuentesAnalisisConConfianza implementa la verificación
+// criptográfica local en infraestructura. La aplicación crea el desafío,
+// obtiene la presentación y aporta el instante autoritativo posterior.
 type AutenticadorFuentesAnalisisConConfianza struct {
 	confianza ports.ConfianzaAutoridadesFuenteAnalisis
 }
@@ -34,36 +33,20 @@ func (a *AutenticadorFuentesAnalisisConConfianza) OrganizacionAutoridadFuenteAna
 	return a.confianza.OrganizacionRef()
 }
 
-func (a *AutenticadorFuentesAnalisisConConfianza) AutenticarAutoridadFuenteAnalisis(
-	ctx context.Context,
-	presentador ports.PresentadorAutoridadFuenteAnalisis,
-	materialPeticion []byte,
+func (a *AutenticadorFuentesAnalisisConConfianza) AudienciaAutoridadFuenteAnalisis() string {
+	if a == nil {
+		return ""
+	}
+	return a.confianza.Audiencia()
+}
+
+func (a *AutenticadorFuentesAnalisisConConfianza) VerificarPresentacionAutoridadFuenteAnalisis(
+	presentacion ports.PresentacionAutoridadFuenteAnalisis,
+	desafio ports.DesafioAutoridadFuenteAnalisis,
 	rol ports.RolAutoridadFuenteAnalisis,
 	comprobadaEn time.Time,
 ) (ports.IdentidadAutoridadFuenteAnalisis, error) {
-	if a == nil || ctx == nil || dependenciaAdaptadorNula(presentador) {
-		return ports.IdentidadAutoridadFuenteAnalisis{},
-			ports.ErrResultadoFuenteAnalisisNoConfiable
-	}
-	if err := ctx.Err(); err != nil {
-		return ports.IdentidadAutoridadFuenteAnalisis{}, err
-	}
-	desafio, err := ports.NuevoDesafioAutoridadFuenteAnalisis(
-		append([]byte(nil), materialPeticion...),
-		a.confianza.OrganizacionRef(),
-		a.confianza.Audiencia(),
-		rol,
-	)
-	if err != nil {
-		return ports.IdentidadAutoridadFuenteAnalisis{},
-			ports.ErrResultadoFuenteAnalisisNoConfiable
-	}
-	presentacion, errPresentacion :=
-		presentador.PresentarAutoridadFuenteAnalisis(ctx, desafio)
-	if errContexto := ctx.Err(); errContexto != nil {
-		return ports.IdentidadAutoridadFuenteAnalisis{}, errContexto
-	}
-	if errPresentacion != nil {
+	if a == nil {
 		return ports.IdentidadAutoridadFuenteAnalisis{},
 			ports.ErrResultadoFuenteAnalisisNoConfiable
 	}
@@ -75,18 +58,4 @@ func (a *AutenticadorFuentesAnalisisConConfianza) AutenticarAutoridadFuenteAnali
 	)
 }
 
-func dependenciaAdaptadorNula(dependencia any) bool {
-	if dependencia == nil {
-		return true
-	}
-	valor := reflect.ValueOf(dependencia)
-	switch valor.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map,
-		reflect.Pointer, reflect.Slice:
-		return valor.IsNil()
-	default:
-		return false
-	}
-}
-
-var _ ports.AutenticadorAutoridadesFuenteAnalisis = (*AutenticadorFuentesAnalisisConConfianza)(nil)
+var _ ports.VerificadorPresentacionesAutoridadFuenteAnalisis = (*AutenticadorFuentesAnalisisConConfianza)(nil)

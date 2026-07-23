@@ -22,6 +22,8 @@ func TestServicioConsultaCoberturaLigaFuenteAlBackendGobernado(
 		claveEd25519CoberturaPrueba("fuente"),
 		ports.RolFuenteCobertura,
 	)
+	entorno.autenticador.identidades[ports.RolFuenteCobertura] =
+		entorno.fuente.identidad
 	var invocaciones atomic.Int32
 	entorno.fuente.consultar = func(
 		context.Context,
@@ -41,6 +43,105 @@ func TestServicioConsultaCoberturaLigaFuenteAlBackendGobernado(
 	}
 	if invocaciones.Load() != 0 {
 		t.Fatal("no debe consultarse una fuente ajena a la definicion")
+	}
+}
+
+func TestServicioConsultaCoberturaUsaRelojPosteriorACadaPresentacion(
+	t *testing.T,
+) {
+	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
+	incremento := 100 * time.Millisecond
+	esperados := map[ports.RolAutoridadFuenteAnalisis]time.Time{
+		ports.RolFuenteCobertura: entorno.inicio.Add(
+			2*time.Second + incremento,
+		),
+		ports.RolVerificadorCobertura: entorno.inicio.Add(
+			2*time.Second + 2*incremento,
+		),
+		ports.RolPublicadorCatalogoCobertura: entorno.inicio.Add(
+			2*time.Second + 3*incremento,
+		),
+	}
+	avanzar := func(
+		_ context.Context,
+		_ ports.DesafioAutoridadFuenteAnalisis,
+	) (ports.PresentacionAutoridadFuenteAnalisis, error) {
+		entorno.reloj.mu.Lock()
+		entorno.reloj.ahora = entorno.reloj.ahora.Add(incremento)
+		entorno.reloj.mu.Unlock()
+		return ports.PresentacionAutoridadFuenteAnalisis{}, nil
+	}
+	entorno.fuente.presentar = avanzar
+	entorno.verificador.presentar = avanzar
+	entorno.publicador.presentar = avanzar
+	var verificaciones atomic.Int32
+	entorno.autenticador.antes = func(
+		rol ports.RolAutoridadFuenteAnalisis,
+		comprobadaEn time.Time,
+	) error {
+		if !comprobadaEn.Equal(esperados[rol]) {
+			t.Fatalf(
+				"%s se verificó con instante previo: %s",
+				rol,
+				comprobadaEn,
+			)
+		}
+		verificaciones.Add(1)
+		return nil
+	}
+
+	if _, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if verificaciones.Load() != 3 {
+		t.Fatalf("presentaciones verificadas: %d", verificaciones.Load())
+	}
+}
+
+func TestServicioConsultaCoberturaRechazaAutoridadCaducadaDurantePresentacion(
+	t *testing.T,
+) {
+	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
+	validaHasta := entorno.inicio.Add(4 * time.Second)
+	entorno.fuente.presentar = func(
+		_ context.Context,
+		_ ports.DesafioAutoridadFuenteAnalisis,
+	) (ports.PresentacionAutoridadFuenteAnalisis, error) {
+		entorno.reloj.fijar(validaHasta)
+		return ports.PresentacionAutoridadFuenteAnalisis{}, nil
+	}
+	entorno.autenticador.antes = func(
+		rol ports.RolAutoridadFuenteAnalisis,
+		comprobadaEn time.Time,
+	) error {
+		if rol == ports.RolFuenteCobertura &&
+			!comprobadaEn.Before(validaHasta) {
+			return ports.ErrResultadoFuenteAnalisisNoConfiable
+		}
+		return nil
+	}
+	var consultas atomic.Int32
+	entorno.fuente.consultar = func(
+		context.Context,
+		ports.SolicitudConsultarCobertura,
+	) (ports.ResultadoConsultaCobertura, error) {
+		consultas.Add(1)
+		return ports.ResultadoConsultaCobertura{}, nil
+	}
+
+	_, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	)
+
+	if !errors.Is(err, ports.ErrResultadoFuenteCoberturaNoConfiable) {
+		t.Fatalf("autoridad caducada durante presentación aceptada: %v", err)
+	}
+	if consultas.Load() != 0 {
+		t.Fatal("la autoridad caducada alcanzó la fuente funcional")
 	}
 }
 
@@ -70,6 +171,12 @@ func TestServicioConsultaCoberturaExigeAutoridadesSeparadas(
 		claveComun,
 		ports.RolPublicadorCatalogoCobertura,
 	)
+	entorno.autenticador.identidades[ports.RolFuenteCobertura] =
+		entorno.fuente.identidad
+	entorno.autenticador.identidades[ports.RolVerificadorCobertura] =
+		entorno.verificador.identidad
+	entorno.autenticador.identidades[ports.RolPublicadorCatalogoCobertura] =
+		entorno.publicador.identidad
 
 	_, err := entorno.servicio.Consultar(
 		context.Background(),
