@@ -180,6 +180,7 @@ func aplicarCabecerasAlta(w http.ResponseWriter) {
 		"Access-Control-Allow-Methods",
 		"Access-Control-Expose-Headers",
 		"Content-Encoding",
+		"Location",
 		"Retry-After",
 	} {
 		w.Header().Del(nombre)

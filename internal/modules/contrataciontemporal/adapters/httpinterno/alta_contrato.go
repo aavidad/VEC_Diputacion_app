@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +33,7 @@ var (
 	errEntradaAltaInvalida       = errors.New("contratacion temporal http: entrada invalida")
 	errContenidoAltaNoValido     = errors.New("contratacion temporal http: contenido no valido")
 	errCuerpoAltaDemasiadoGrande = errors.New("contratacion temporal http: cuerpo demasiado grande")
+	patronEnteroJSONAlta         = regexp.MustCompile(`^-?(0|[1-9][0-9]*)$`)
 )
 
 type solicitudCentroJSON struct {
@@ -271,6 +273,7 @@ func solicitudCentroDesdePeticion(
 
 func validarJSONAltaSinDuplicados(contenido []byte) error {
 	decodificador := json.NewDecoder(bytes.NewReader(contenido))
+	decodificador.UseNumber()
 	tokens := 0
 	var recorrer func(int) error
 	recorrer = func(profundidad int) error {
@@ -284,6 +287,13 @@ func validarJSONAltaSinDuplicados(contenido []byte) error {
 		}
 		delimitador, compuesto := token.(json.Delim)
 		if !compuesto {
+			if token == nil {
+				return errEntradaAltaInvalida
+			}
+			if numero, esNumero := token.(json.Number); esNumero &&
+				!patronEnteroJSONAlta.MatchString(numero.String()) {
+				return errEntradaAltaInvalida
+			}
 			return nil
 		}
 		switch delimitador {
