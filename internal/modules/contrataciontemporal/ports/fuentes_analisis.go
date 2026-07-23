@@ -2,12 +2,15 @@ package ports
 
 import (
 	"context"
+	"crypto/hmac"
 	"errors"
 	"reflect"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
+
+const TiempoMaximoFuenteAnalisis = 15 * time.Second
 
 var (
 	ErrPeticionFuenteAnalisisInvalida = errors.New(
@@ -19,49 +22,91 @@ var (
 	ErrCalculadorCosteNoDisponible = errors.New(
 		"contratacion temporal: calculador de coste no disponible",
 	)
+	ErrInfraestructuraFuenteAnalisisNoDisponible = errors.New(
+		"contratacion temporal: infraestructura de fuente de analisis no disponible",
+	)
 	ErrResultadoFuenteAnalisisNoConfiable = errors.New(
 		"contratacion temporal: resultado de fuente de analisis no confiable",
 	)
 )
 
-// SolicitudValidarRC contiene únicamente referencias y datos presupuestarios
-// necesarios para el cotejo. La fuente no recibe identidad personal ni datos
-// de sesión del cliente.
-type SolicitudValidarRC struct {
-	PeticionRef     string
-	OrganizacionRef string
-	ExpedienteRef   string
-	Entrada         domain.VinculoEntradaRC
-	Declaracion     domain.DeclaracionRC
-	SolicitadaEn    time.Time
-}
-
-func (s SolicitudValidarRC) Validar() error {
-	if !domain.ReferenciaOpacaValida(s.PeticionRef) ||
-		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
-		!domain.ReferenciaOpacaValida(s.ExpedienteRef) ||
-		s.Entrada.Validar() != nil || s.Declaracion.Validar() != nil ||
-		!domain.InstanteUTCCanonico(s.SolicitadaEn) {
-		return ErrPeticionFuenteAnalisisInvalida
-	}
-	return nil
-}
-
-// ResultadoValidacionRC conserva la ligadura con la petición exacta. Una
-// respuesta estructuralmente válida no acredita disponibilidad: cualquier
-// error del conector invalida conjuntamente valor y resultado.
 type ResultadoValidacionRC struct {
-	PeticionRef string
-	Validacion  domain.ValidacionRC
+	datos *DatosResultadoValidacionRC
 }
 
-func (r ResultadoValidacionRC) ValidarPara(solicitud SolicitudValidarRC) error {
-	if solicitud.Validar() != nil ||
-		r.PeticionRef != solicitud.PeticionRef ||
-		r.Validacion.Validar() != nil ||
-		r.Validacion.EntradaRef != solicitud.Entrada.Referencia ||
-		r.Validacion.HuellaEntradaSHA256 != solicitud.Entrada.HuellaSHA256 ||
-		r.Validacion.ValidadaEn.Before(solicitud.SolicitadaEn) {
+type DatosResultadoValidacionRC struct {
+	PeticionRef        string
+	HuellaPeticionHMAC string
+	OrganizacionRef    string
+	ExpedienteRef      string
+	VersionExpediente  uint64
+	Validacion         domain.ValidacionRC
+	Motivo             MotivoFuenteAnalisis
+}
+
+func NuevoResultadoValidacionRC(
+	solicitud SolicitudValidarRC,
+	validacion domain.ValidacionRC,
+	motivo MotivoFuenteAnalisis,
+) (ResultadoValidacionRC, error) {
+	datosSolicitud, err := solicitud.Datos()
+	if err != nil {
+		return ResultadoValidacionRC{}, ErrResultadoFuenteAnalisisNoConfiable
+	}
+	resultado := ResultadoValidacionRC{datos: &DatosResultadoValidacionRC{
+		PeticionRef:        datosSolicitud.PeticionRef,
+		HuellaPeticionHMAC: datosSolicitud.HuellaPeticionHMAC,
+		OrganizacionRef:    datosSolicitud.OrganizacionRef,
+		ExpedienteRef:      datosSolicitud.ExpedienteRef,
+		VersionExpediente:  datosSolicitud.VersionExpediente,
+		Validacion:         clonarValidacionRC(validacion),
+		Motivo:             motivo.clonar(),
+	}}
+	if resultado.ValidarPara(solicitud, validacion.ValidadaEn) != nil {
+		return ResultadoValidacionRC{}, ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return resultado, nil
+}
+
+func (r ResultadoValidacionRC) Datos() (DatosResultadoValidacionRC, error) {
+	if r.datos == nil {
+		return DatosResultadoValidacionRC{}, ErrResultadoFuenteAnalisisNoConfiable
+	}
+	copia := *r.datos
+	copia.Validacion = clonarValidacionRC(copia.Validacion)
+	copia.Motivo = copia.Motivo.clonar()
+	return copia, nil
+}
+
+func (r ResultadoValidacionRC) ValidarPara(
+	solicitud SolicitudValidarRC,
+	finalizadaEn time.Time,
+) error {
+	s, errSolicitud := solicitud.Datos()
+	datos, errResultado := r.Datos()
+	if errSolicitud != nil || errResultado != nil ||
+		!instanteFuenteAnalisisCanonico(finalizadaEn) ||
+		datos.PeticionRef != s.PeticionRef ||
+		!sellosPeticionFuenteAnalisisIguales(
+			datos.HuellaPeticionHMAC,
+			s.HuellaPeticionHMAC,
+		) ||
+		datos.OrganizacionRef != s.OrganizacionRef ||
+		datos.ExpedienteRef != s.ExpedienteRef ||
+		datos.VersionExpediente != s.VersionExpediente ||
+		datos.Validacion.EntradaRef != s.Entrada.Referencia ||
+		datos.Validacion.HuellaEntradaSHA256 != s.Entrada.HuellaSHA256 ||
+		datos.Validacion.ValidadaEn.Before(s.SolicitadaEn) ||
+		datos.Validacion.ValidadaEn.After(finalizadaEn) ||
+		datos.Validacion.Motivo != "" {
+		return ErrResultadoFuenteAnalisisNoConfiable
+	}
+	materializada, err := materializarMotivoValidacionRC(
+		datos.Validacion,
+		datos.Motivo,
+	)
+	if err != nil || materializada.Validar() != nil ||
+		!importeFuenteAnalisisValidoOpcional(materializada.Importe) {
 		return ErrResultadoFuenteAnalisisNoConfiable
 	}
 	return nil
@@ -71,53 +116,84 @@ type FuentePresupuestaria interface {
 	ValidarRC(context.Context, SolicitudValidarRC) (ResultadoValidacionRC, error)
 }
 
-// SolicitudCalcularCoste liga el cálculo a una petición opaca e irrepetible.
-// Los catálogos publicados deciden qué modalidades y categorías existen; este
-// contrato solo aplica invariantes técnicas.
-type SolicitudCalcularCoste struct {
-	PeticionRef     string
-	OrganizacionRef string
-	ExpedienteRef   string
-	CategoriaRef    string
-	GrupoSubgrupo   string
-	ModalidadClave  domain.ClaveCatalogo
-	CausaClave      domain.ClaveCatalogo
-	Periodo         domain.PeriodoPrevisto
-	Jornada         domain.JornadaDiezmilesimas
-	SolicitadaEn    time.Time
+type ResultadoCalculoCoste struct {
+	datos *DatosResultadoCalculoCoste
 }
 
-func (s SolicitudCalcularCoste) Validar() error {
-	if !domain.ReferenciaOpacaValida(s.PeticionRef) ||
-		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
-		!domain.ReferenciaOpacaValida(s.ExpedienteRef) ||
-		!domain.ReferenciaOpacaValida(s.CategoriaRef) ||
-		!domain.GrupoSubgrupoValido(s.GrupoSubgrupo) ||
-		!s.ModalidadClave.Valida() || !s.CausaClave.Valida() ||
-		s.Periodo.Validar() != nil || s.Jornada.Validar() != nil ||
-		!domain.InstanteUTCCanonico(s.SolicitadaEn) {
-		return ErrPeticionFuenteAnalisisInvalida
+type DatosResultadoCalculoCoste struct {
+	PeticionRef        string
+	HuellaPeticionHMAC string
+	OrganizacionRef    string
+	ExpedienteRef      string
+	VersionExpediente  uint64
+	FuenteRef          string
+	ReciboRef          string
+	Importe            domain.Importe
+	CalculadoEn        time.Time
+}
+
+func NuevoResultadoCalculoCoste(
+	solicitud SolicitudCalcularCoste,
+	fuenteRef string,
+	reciboRef string,
+	importe domain.Importe,
+	calculadoEn time.Time,
+) (ResultadoCalculoCoste, error) {
+	s, err := solicitud.Datos()
+	if err != nil {
+		return ResultadoCalculoCoste{}, ErrResultadoFuenteAnalisisNoConfiable
+	}
+	resultado := ResultadoCalculoCoste{datos: &DatosResultadoCalculoCoste{
+		PeticionRef: s.PeticionRef, HuellaPeticionHMAC: s.HuellaPeticionHMAC,
+		OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
+		VersionExpediente: s.VersionExpediente, FuenteRef: fuenteRef,
+		ReciboRef: reciboRef, Importe: importe, CalculadoEn: calculadoEn,
+	}}
+	if resultado.validarEstructuraPara(solicitud) != nil {
+		return ResultadoCalculoCoste{}, ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return resultado, nil
+}
+
+func (r ResultadoCalculoCoste) Datos() (DatosResultadoCalculoCoste, error) {
+	if r.datos == nil {
+		return DatosResultadoCalculoCoste{}, ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return *r.datos, nil
+}
+
+func (r ResultadoCalculoCoste) validarEstructuraPara(
+	solicitud SolicitudCalcularCoste,
+) error {
+	s, errSolicitud := solicitud.Datos()
+	datos, errResultado := r.Datos()
+	if errSolicitud != nil || errResultado != nil ||
+		datos.PeticionRef != s.PeticionRef ||
+		!sellosPeticionFuenteAnalisisIguales(
+			datos.HuellaPeticionHMAC,
+			s.HuellaPeticionHMAC,
+		) ||
+		datos.OrganizacionRef != s.OrganizacionRef ||
+		datos.ExpedienteRef != s.ExpedienteRef ||
+		datos.VersionExpediente != s.VersionExpediente ||
+		!domain.ReferenciaOpacaValida(datos.FuenteRef) ||
+		!domain.ReferenciaOpacaValida(datos.ReciboRef) ||
+		!importeFuenteAnalisisValido(datos.Importe) ||
+		!instanteFuenteAnalisisCanonico(datos.CalculadoEn) ||
+		datos.CalculadoEn.Before(s.SolicitadaEn) {
+		return ErrResultadoFuenteAnalisisNoConfiable
 	}
 	return nil
 }
 
-type ResultadoCalculoCoste struct {
-	PeticionRef   string
-	ExpedienteRef string
-	FuenteRef     string
-	ReciboRef     string
-	Importe       domain.Importe
-	CalculadoEn   time.Time
-}
-
-func (r ResultadoCalculoCoste) ValidarPara(solicitud SolicitudCalcularCoste) error {
-	if solicitud.Validar() != nil || r.PeticionRef != solicitud.PeticionRef ||
-		r.ExpedienteRef != solicitud.ExpedienteRef ||
-		!domain.ReferenciaOpacaValida(r.FuenteRef) ||
-		!domain.ReferenciaOpacaValida(r.ReciboRef) ||
-		r.Importe.Validar(false) != nil ||
-		!domain.InstanteUTCCanonico(r.CalculadoEn) ||
-		r.CalculadoEn.Before(solicitud.SolicitadaEn) {
+func (r ResultadoCalculoCoste) ValidarPara(
+	solicitud SolicitudCalcularCoste,
+	finalizadaEn time.Time,
+) error {
+	datos, err := r.Datos()
+	if r.validarEstructuraPara(solicitud) != nil || err != nil ||
+		!instanteFuenteAnalisisCanonico(finalizadaEn) ||
+		datos.CalculadoEn.After(finalizadaEn) {
 		return ErrResultadoFuenteAnalisisNoConfiable
 	}
 	return nil
@@ -130,74 +206,105 @@ type CalculadorCostePersonal interface {
 	) (ResultadoCalculoCoste, error)
 }
 
-// ValidarRCConFuente aplica el fallo cerrado común a todos los adaptadores.
-// En particular, una fuente caída no puede transformarse en «RC no requerida».
 func ValidarRCConFuente(
 	ctx context.Context,
 	fuente FuentePresupuestaria,
+	reloj RelojFuenteAnalisis,
 	solicitud SolicitudValidarRC,
 ) (domain.ValidacionRC, error) {
 	if ctx == nil || dependenciaNulaFuenteAnalisis(fuente) ||
-		solicitud.Validar() != nil {
+		dependenciaNulaFuenteAnalisis(reloj) || solicitud.Validar() != nil {
 		return domain.ValidacionRC{}, ErrPeticionFuenteAnalisisInvalida
 	}
-	if err := ctx.Err(); err != nil {
-		return domain.ValidacionRC{}, nuevoErrorFuenteAnalisis(
+	operacion, cancelar := context.WithTimeout(ctx, TiempoMaximoFuenteAnalisis)
+	defer cancelar()
+	if err := operacion.Err(); err != nil {
+		return domain.ValidacionRC{}, errorDisponibilidadFuente(
 			ErrFuentePresupuestariaNoDisponible,
 			err,
 		)
 	}
-	resultado, err := fuente.ValidarRC(ctx, solicitud)
-	if err != nil {
-		return domain.ValidacionRC{}, nuevoErrorFuenteAnalisis(
+	resultado, errFuente := fuente.ValidarRC(operacion, solicitud)
+	if err := operacion.Err(); err != nil {
+		return domain.ValidacionRC{}, errorDisponibilidadFuente(
 			ErrFuentePresupuestariaNoDisponible,
 			err,
 		)
 	}
-	if err := ctx.Err(); err != nil {
-		return domain.ValidacionRC{}, nuevoErrorFuenteAnalisis(
+	if errFuente != nil {
+		return domain.ValidacionRC{}, errorDisponibilidadFuente(
+			ErrFuentePresupuestariaNoDisponible,
+			errFuente,
+		)
+	}
+	finalizadaEn := reloj.Ahora()
+	if err := operacion.Err(); err != nil {
+		return domain.ValidacionRC{}, errorDisponibilidadFuente(
 			ErrFuentePresupuestariaNoDisponible,
 			err,
 		)
 	}
-	if resultado.ValidarPara(solicitud) != nil {
+	if resultado.ValidarPara(solicitud, finalizadaEn) != nil {
 		return domain.ValidacionRC{}, ErrResultadoFuenteAnalisisNoConfiable
 	}
-	return clonarValidacionRC(resultado.Validacion), nil
+	datos, _ := resultado.Datos()
+	validacion, err := materializarMotivoValidacionRC(datos.Validacion, datos.Motivo)
+	if err != nil {
+		return domain.ValidacionRC{}, ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return clonarValidacionRC(validacion), nil
 }
 
 func CalcularCosteConFuente(
 	ctx context.Context,
 	calculador CalculadorCostePersonal,
+	reloj RelojFuenteAnalisis,
 	solicitud SolicitudCalcularCoste,
 ) (ResultadoCalculoCoste, error) {
 	if ctx == nil || dependenciaNulaFuenteAnalisis(calculador) ||
-		solicitud.Validar() != nil {
+		dependenciaNulaFuenteAnalisis(reloj) || solicitud.Validar() != nil {
 		return ResultadoCalculoCoste{}, ErrPeticionFuenteAnalisisInvalida
 	}
-	if err := ctx.Err(); err != nil {
-		return ResultadoCalculoCoste{}, nuevoErrorFuenteAnalisis(
+	operacion, cancelar := context.WithTimeout(ctx, TiempoMaximoFuenteAnalisis)
+	defer cancelar()
+	if err := operacion.Err(); err != nil {
+		return ResultadoCalculoCoste{}, errorDisponibilidadFuente(
 			ErrCalculadorCosteNoDisponible,
 			err,
 		)
 	}
-	resultado, err := calculador.CalcularCoste(ctx, solicitud)
-	if err != nil {
-		return ResultadoCalculoCoste{}, nuevoErrorFuenteAnalisis(
+	resultado, errFuente := calculador.CalcularCoste(operacion, solicitud)
+	if err := operacion.Err(); err != nil {
+		return ResultadoCalculoCoste{}, errorDisponibilidadFuente(
 			ErrCalculadorCosteNoDisponible,
 			err,
 		)
 	}
-	if err := ctx.Err(); err != nil {
-		return ResultadoCalculoCoste{}, nuevoErrorFuenteAnalisis(
+	if errFuente != nil {
+		return ResultadoCalculoCoste{}, errorDisponibilidadFuente(
+			ErrCalculadorCosteNoDisponible,
+			errFuente,
+		)
+	}
+	finalizadaEn := reloj.Ahora()
+	if err := operacion.Err(); err != nil {
+		return ResultadoCalculoCoste{}, errorDisponibilidadFuente(
 			ErrCalculadorCosteNoDisponible,
 			err,
 		)
 	}
-	if resultado.ValidarPara(solicitud) != nil {
+	if resultado.ValidarPara(solicitud, finalizadaEn) != nil {
 		return ResultadoCalculoCoste{}, ErrResultadoFuenteAnalisisNoConfiable
 	}
-	return resultado, nil
+	return resultado.clonar(), nil
+}
+
+func (r ResultadoCalculoCoste) clonar() ResultadoCalculoCoste {
+	if r.datos == nil {
+		return ResultadoCalculoCoste{}
+	}
+	datos := *r.datos
+	return ResultadoCalculoCoste{datos: &datos}
 }
 
 func clonarValidacionRC(validacion domain.ValidacionRC) domain.ValidacionRC {
@@ -218,15 +325,24 @@ func dependenciaNulaFuenteAnalisis(dependencia any) bool {
 	}
 	valor := reflect.ValueOf(dependencia)
 	switch valor.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map,
+		reflect.Pointer, reflect.Slice:
 		return valor.IsNil()
 	default:
 		return false
 	}
 }
 
-// errorFuenteAnalisis conserva la causa para errors.Is sin exponer el texto
-// del proveedor en API, logs o clientes.
+func sellosPeticionFuenteAnalisisIguales(primero, segundo string) bool {
+	return selloPeticionFuenteAnalisisValido(primero) &&
+		selloPeticionFuenteAnalisisValido(segundo) &&
+		hmac.Equal([]byte(primero), []byte(segundo))
+}
+
+func errorDisponibilidadFuente(publico, causa error) error {
+	return errorFuenteAnalisis{publico: publico, causa: causa}
+}
+
 type errorFuenteAnalisis struct {
 	publico error
 	causa   error
@@ -238,8 +354,4 @@ func (e errorFuenteAnalisis) Error() string {
 
 func (e errorFuenteAnalisis) Unwrap() []error {
 	return []error{e.publico, e.causa}
-}
-
-func nuevoErrorFuenteAnalisis(publico, causa error) error {
-	return errorFuenteAnalisis{publico: publico, causa: causa}
 }
