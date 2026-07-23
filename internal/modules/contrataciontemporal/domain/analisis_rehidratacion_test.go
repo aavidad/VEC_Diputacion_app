@@ -70,6 +70,33 @@ func TestExpedienteRehidratadoRechazaAnalisisSinActuacionMaterial(t *testing.T) 
 	}
 }
 
+func TestRegistrarAnalisisRechazaVinculoDeActuacionAportadoPorElComando(t *testing.T) {
+	analisis := analisisValido()
+	vinculo := nuevoVinculoActuacionAnalisis(
+		2,
+		2,
+		actuacion(
+			"analisis.validado",
+			"gestion_bolsa",
+			instanteBase.Add(time.Minute),
+		),
+	)
+	analisis.ActuacionRegistro = &vinculo
+
+	_, err := expedienteValido(t).RegistrarAnalisis(
+		1,
+		analisis,
+		actuacion(
+			"analisis.validado",
+			"gestion_bolsa",
+			instanteBase.Add(time.Minute),
+		),
+	)
+	if !errors.Is(err, ErrTransicionInvalida) {
+		t.Fatalf("se aceptó autoridad material aportada por el comando: %v", err)
+	}
+}
+
 func TestExpedienteRehidratadoRechazaValidacionPosteriorAActuacion(t *testing.T) {
 	expediente := expedienteConAnalisisRehidratado(t, RCValidada)
 	vinculo := expediente.Analisis.ActuacionRegistro
