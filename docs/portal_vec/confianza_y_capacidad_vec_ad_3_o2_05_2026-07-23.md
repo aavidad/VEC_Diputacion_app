@@ -148,6 +148,10 @@ Las pruebas focales cubren:
 - cancelación antes y después de dependencias;
 - emisión y verificación con componentes separados;
 - salto entre procesos mediante la exportación;
+- igualdad byte a byte entre la exportación de evidencia y la preimagen
+  histórica V3, sin cambiar RFC3339Nano ni los golden publicados;
+- interoperabilidad real SQL→Go→SQL mediante el emisor público completo, no
+  mediante recalcular una MAC con ayudantes privados;
 - evolución cerrada del perfil O2-04 al efecto completo O2-05;
 - operación y recurso/efecto derivados solo de contenido firmado;
 - expiración a cinco segundos;

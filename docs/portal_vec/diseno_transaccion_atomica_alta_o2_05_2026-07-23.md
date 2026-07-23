@@ -156,7 +156,13 @@ Antes de intentar `COMMIT`, una cancelación aborta y no deja efectos. Después
 de intentar `COMMIT`, un error de transporte es indeterminado y nunca se
 traduce automáticamente a cancelación.
 
-El adaptador O2-06 reconciliará usando:
+O2-05 ya prueba en PostgreSQL los dos resultados observables: cancelación
+pre-`COMMIT` con cero piezas y `COMMIT` confirmado en servidor cuya respuesta
+se pierde, seguido de replay exacto desde otro proceso y conexión. También
+inyecta un fallo en cada una de las ocho escrituras y exige rollback total.
+
+El futuro adaptador O2-06 deberá decidir cuándo invocar esa reconciliación
+durable usando:
 
 - todos los alias HMAC admitidos;
 - huellas de petición de la misma generación;
@@ -164,9 +170,11 @@ El adaptador O2-06 reconciliará usando:
 - referencia/huella de decisión y correlación V3;
 - referencia y huella esperadas del efecto.
 
-Solo se reintentará toda la transacción ante `40001` o `40P01`, con una
-transacción nueva y un máximo acotado. No se reintentará un `COMMIT`
-indeterminado sin reconciliar.
+La función SQL O2-05 no implementa política de reintentos del cliente. El
+futuro adaptador solo reintentará toda la transacción ante `40001` o `40P01`,
+con una transacción nueva y un máximo acotado; no reintentará un `COMMIT`
+indeterminado sin reconciliar. El runner O2-05 acredita los hooks y resultados
+durables, no afirma que ese adaptador O2-06 ya exista.
 
 ## Privilegios y topología
 
@@ -201,7 +209,8 @@ de la propia función.
 - expiración y revocación antes y durante una espera de bloqueo;
 - restauración o checkpoint de gobierno obsoleto;
 - cancelación antes de `COMMIT`;
-- respuesta perdida después de `COMMIT` y reconciliación tras reinicio;
+- respuesta perdida después de `COMMIT`, reconciliación y nueva conexión sin
+  memoria del proceso anterior;
 - fallos inyectados en cada escritura sin estado parcial;
 - ACL negativas para runtime, migrador, emisor y consumidor;
 - `down` protegido, inventario exacto y reinstalación limpia.

@@ -128,10 +128,15 @@ que demuestre estas mismas invariantes, sin cambiar dominio ni aplicación.
 
 ## Evidencia automatizada
 
-El runner no confunde una remarshalización con interoperabilidad: entrega a
-Go una capacidad efímera, el emisor MAC de producción genera la MAC real y
-los bytes canónicos, y PostgreSQL los consume con la clave durable de la base.
-Una adulteración posterior se rechaza sin consumo.
+El runner no confunde una remarshalización con interoperabilidad. PostgreSQL
+entrega un DTO de emisión cerrado con contexto, manifiesto, motivo, efecto,
+gobierno y material efímero de prueba. Go rehidrata las capacidades nominales,
+crea y verifica una atestación VEC-AD-3, invoca la superficie pública
+`EmisorCapacidadesAtestacionAutorizacionV3.Emitir` y devuelve el bundle
+completo: capacidad, decisión, payload, COSE, evidencia, SPKI y documentos
+RBAC. PostgreSQL provisiona esas evidencias efímeras y consume exactamente el
+bundle, sin recomponer la capacidad ni recalcular su MAC. Una adulteración
+posterior se rechaza sin consumo.
 
 Además ensaya:
 
@@ -151,7 +156,14 @@ Además ensaya:
 - decisión ya durable seguida de revocación viva de sesión;
 - concurrencia con reintento exclusivo de `40001`/`40P01` y cabezas de
   auditoría/outbox;
-- fallos parciales, ACL, retirada protegida, destrucción explícita,
+- fallo inyectado por separado en las ocho escrituras, siempre con estado
+  `0:0:0:0:0:0:0:0`;
+- cancelación concluyente antes de `COMMIT`, respuesta perdida después de
+  `COMMIT`, reconciliación y replay desde un proceso y conexión nuevos;
+- ausencia de `REFERENCES` de tabla, columna y ACL predeterminada, más intento
+  real de FK rechazado tras instalación y reinstalación;
+- puerta negativa de prefijos ejecutada por el propio runner con salida 65;
+- ACL, retirada protegida, destrucción explícita,
   reinstalación y segunda retirada sin inventario residual.
 
 La migración transversal de revalidación viva tiene ciclo propio en el runner
@@ -188,10 +200,15 @@ evidencia de la utilidad del runner:
    nuevo/replay, marcador común y reconciliación exhaustiva;
 8. `go test` ocultaba `stdout`; el runner ahora captura ambos canales y vuelca
    hasta 240 líneas cuando falla, sin mostrar salida en el éxito.
-9. el generador Go de capacidad falló de forma intermitente al interpretar su
-   entrada V3; dos repeticiones mostraron el diagnóstico completo y la tercera
-   superó el ciclo. No se atribuye al contrato SQL ni se silencia como éxito:
-   queda como inestabilidad separada que la revisión debe reproducir.
+9. el generador Go interpretaba como capacidad V3 una plantilla temporal de
+   SQL con seis cifras decimales. Se eliminó esa falsa frontera: el DTO privado
+   SQL acepta exclusivamente el canon de microsegundos de PostgreSQL y
+   `Emitir` conserva el RFC3339Nano histórico del protocolo V3. Los casos de
+   segundo entero, fracción con cero final y seis microsegundos tienen una
+   regresión determinista; todas las repeticiones deben ser verdes y deterministas.
+10. la evidencia exportable reutiliza byte a byte la preimagen histórica de
+    la prueba V3. Una regresión independiente recompone el framing anterior y
+    exige igualdad exacta, por lo que no cambia el protocolo publicado.
 
 Después de cada corrección se ejecutó de nuevo el runner desde una base
 PostgreSQL 18 vacía. Ninguno de estos fallos se oculta ni se interpreta como

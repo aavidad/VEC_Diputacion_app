@@ -86,7 +86,7 @@ ajenas.
 | Autorización VEC durable de la preparación | Cerrada y revisada: V3, par HMAC activo exacto, revalidación y clientes neutrales |
 | Confianza y capacidad breve VEC-AD-3 | Integradas y revisadas: Ed25519/COSE estricto, audiencia, capacidad HMAC ≤5 s, rotación y revocación |
 | Contrato autenticado con Bolsa | Cerrado y revisado: referencias opacas, seudónimos, eventos, pruebas durables e inbox idempotente |
-| Confirmación atómica PostgreSQL | Pendiente |
+| Confirmación atómica PostgreSQL | Candidata implementada y con runner verde; pendientes dos revisiones independientes |
 | API interna | Pendiente |
 | Web conectada | Pendiente |
 | E2E administrativo | Pendiente |
@@ -112,9 +112,12 @@ ajenas.
   referenciar por FK sus tablas; dominio y aplicación siguen neutrales a
   PostgreSQL, web, escritorio, CLI y MCP. No añade textos funcionales de UI,
   cookies, autoridad del cliente, secretos ni datos personales; mantiene
-  denegación predeterminada, referencias opacas y trazabilidad encadenada. El
-  productor tiene pruebas verdes, pero faltan dos revisiones independientes:
-  O2-05 continúa abierto y no habilita producción.
+  denegación predeterminada, referencias opacas y trazabilidad encadenada.
+  El runner genera un bundle completo mediante el emisor público Go, inyecta
+  fallos en las ocho escrituras, prueba cancelación pre-`COMMIT`, respuesta
+  perdida, proceso/conexión nuevos y ausencia real de privilegio `REFERENCES`.
+  El productor tiene pruebas deterministas verdes, pero faltan dos revisiones
+  independientes: O2-05 continúa abierto y no habilita producción.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
   cronología de solo adición y bloqueo de retroacciones implícitas. Falta el
   caso de uso autorizado y su transacción durable; no se considera cerrado.
