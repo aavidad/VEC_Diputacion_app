@@ -16,8 +16,10 @@ import (
 )
 
 const (
-	claveAmbitoAltaPrueba   = "vec.contratacion-temporal.ambito-idempotencia/v1"
-	clavePeticionAltaPrueba = "vec.contratacion-temporal.huella-peticion/v1"
+	claveAmbitoAltaPrueba     = "vec.contratacion-temporal.ambito-idempotencia/v1"
+	clavePeticionAltaPrueba   = "vec.contratacion-temporal.huella-peticion/v1"
+	claveAmbitoAltaPruebaV2   = "vec.contratacion-temporal.ambito-idempotencia/v2"
+	clavePeticionAltaPruebaV2 = "vec.contratacion-temporal.huella-peticion/v2"
 )
 
 type iniciadorPreparacionPrueba struct {
@@ -129,6 +131,7 @@ func (f filaPreparacionPrueba) Scan(destinos ...any) error {
 
 type selladorAmbitoPrueba struct {
 	huella    string
+	retenidas []string
 	err       error
 	alLlamar  func()
 	solicitud ports.SolicitudSellarAmbitoIdempotencia
@@ -137,12 +140,15 @@ type selladorAmbitoPrueba struct {
 func (s *selladorAmbitoPrueba) SellarAmbitoIdempotencia(
 	_ context.Context,
 	solicitud ports.SolicitudSellarAmbitoIdempotencia,
-) (string, error) {
+) (ports.ColeccionSellosHMAC, error) {
 	if s.alLlamar != nil {
 		s.alLlamar()
 	}
 	s.solicitud = solicitud
-	return s.huella, s.err
+	if s.err != nil {
+		return ports.ColeccionSellosHMAC{}, s.err
+	}
+	return ports.NuevaColeccionSellosHMAC(s.huella, s.retenidas)
 }
 
 type generadorReferenciasPrueba struct {
@@ -174,11 +180,13 @@ func (g *generadorReferenciasPrueba) NuevaReferenciaReservaAlta(
 
 func solicitudPreparacionPrueba() ports.SolicitudPrepararAlta {
 	return ports.SolicitudPrepararAlta{
-		ClaveIdempotencia:  "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
-		HuellaPeticionHMAC: selloHMACPrueba(clavePeticionAltaPrueba, "b"),
-		OrganizacionRef:    "organizacion:diputacion-granada",
-		ActorRef:           "actor:tecnica-rrhh-001",
-		PerfilRef:          "perfil:tecnica-rrhh",
+		ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
+		HuellasPeticionHMAC: coleccionPostgreSQLPrueba(
+			selloHMACPrueba(clavePeticionAltaPrueba, "b"),
+		),
+		OrganizacionRef: "organizacion:diputacion-granada",
+		ActorRef:        "actor:tecnica-rrhh-001",
+		PerfilRef:       "perfil:tecnica-rrhh",
 	}
 }
 
@@ -266,18 +274,19 @@ func TestPreparadorPostgreSQLReservaSinPersistirClaveCruda(t *testing.T) {
 	if preparacion.Estado != ports.PreparacionReservada ||
 		preparacion.ReservaRef != "reserva:alta-candidata-001" ||
 		tx.confirmaciones != 1 || !tx.configurada ||
-		!strings.Contains(tx.consulta, funcionPrepararAltaV1) {
+		!strings.Contains(tx.consulta, funcionPrepararAltaV2) {
 		t.Fatalf("resultado inesperado: preparacion=%#v tx=%#v", preparacion, tx)
 	}
 	if strings.Contains(string(tx.operacion), solicitud.ClaveIdempotencia) {
 		t.Fatal("la operación PostgreSQL contiene la clave idempotente en claro")
 	}
-	var operacion operacionPrepararAltaV1
+	var operacion operacionPrepararAltaV2
 	if err := json.Unmarshal(tx.operacion, &operacion); err != nil {
 		t.Fatal(err)
 	}
-	if operacion.AmbitoHMAC != selloHMACPrueba(claveAmbitoAltaPrueba, "d") ||
-		operacion.Esquema != esquemaPrepararAltaV1 {
+	if operacion.SellosHMAC.Activo.AmbitoHMAC !=
+		selloHMACPrueba(claveAmbitoAltaPrueba, "d") ||
+		operacion.Esquema != esquemaPrepararAltaV2 {
 		t.Fatalf("operación no ligada: %#v", operacion)
 	}
 	var campos map[string]json.RawMessage
@@ -285,16 +294,108 @@ func TestPreparadorPostgreSQLReservaSinPersistirClaveCruda(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, nombre := range []string{
-		"esquema", "ambito_hmac", "huella_peticion_hmac",
-		"organizacion_ref", "actor_ref", "perfil_ref",
+		"esquema", "sellos_hmac", "organizacion_ref", "actor_ref", "perfil_ref",
 		"reserva_ref_candidata", "referencias_candidatas",
 	} {
 		if _, existe := campos[nombre]; !existe {
 			t.Fatalf("falta el campo contractual %q", nombre)
 		}
 	}
-	if len(campos) != 8 {
+	if len(campos) != 7 {
 		t.Fatalf("campos no versionados en la operación: %v", campos)
+	}
+}
+
+func TestPreparadorPostgreSQLSerializaMatrizV2Cerrada(t *testing.T) {
+	fila := filaReservadaPreparacionPrueba("reservada").(filaPreparacionPrueba)
+	fila.valores[5] = selloHMACPrueba(claveAmbitoAltaPruebaV2, "e")
+	fila.valores[6] = selloHMACPrueba(clavePeticionAltaPruebaV2, "c")
+	tx := &transaccionPreparacionPrueba{fila: fila}
+	preparador, err := nuevoPreparadorAltaPostgreSQL(
+		&iniciadorPreparacionPrueba{tx: tx},
+		&selladorAmbitoPrueba{
+			huella: selloHMACPrueba(claveAmbitoAltaPruebaV2, "e"),
+			retenidas: []string{
+				selloHMACPrueba(claveAmbitoAltaPrueba, "d"),
+			},
+		},
+		&generadorReferenciasPrueba{
+			referencias: referenciasPreparacionPrueba(),
+			reservaRef:  "reserva:alta-candidata-001",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud := solicitudPreparacionPrueba()
+	solicitud.HuellasPeticionHMAC = coleccionPostgreSQLPrueba(
+		selloHMACPrueba(clavePeticionAltaPruebaV2, "c"),
+		selloHMACPrueba(clavePeticionAltaPrueba, "b"),
+	)
+	if _, err := preparador.PrepararAlta(
+		context.Background(),
+		solicitud,
+	); err != nil {
+		t.Fatal(err)
+	}
+	var operacion operacionPrepararAltaV2
+	if err := json.Unmarshal(tx.operacion, &operacion); err != nil {
+		t.Fatal(err)
+	}
+	if operacion.SellosHMAC.Activo.Generacion != 2 ||
+		len(operacion.SellosHMAC.Retenidos) != 1 ||
+		operacion.SellosHMAC.Retenidos[0].Generacion != 1 {
+		t.Fatalf("matriz v2 incorrecta: %#v", operacion.SellosHMAC)
+	}
+	contenido := map[string]json.RawMessage{}
+	if err := json.Unmarshal(tx.operacion, &contenido); err != nil {
+		t.Fatal(err)
+	}
+	sellos := map[string]json.RawMessage{}
+	if err := json.Unmarshal(contenido["sellos_hmac"], &sellos); err != nil {
+		t.Fatal(err)
+	}
+	if len(sellos) != 2 || sellos["activo"] == nil || sellos["retenidos"] == nil {
+		t.Fatalf("contrato anidado abierto o incompleto: %v", sellos)
+	}
+}
+
+func TestPreparadorPostgreSQLAceptaCanonicoV1MedianteAliasRetenido(t *testing.T) {
+	fila := filaReservadaPreparacionPrueba("reutilizada").(filaPreparacionPrueba)
+	tx := &transaccionPreparacionPrueba{fila: fila}
+	preparador, err := nuevoPreparadorAltaPostgreSQL(
+		&iniciadorPreparacionPrueba{tx: tx},
+		&selladorAmbitoPrueba{
+			huella: selloHMACPrueba(claveAmbitoAltaPruebaV2, "e"),
+			retenidas: []string{
+				selloHMACPrueba(claveAmbitoAltaPrueba, "d"),
+			},
+		},
+		&generadorReferenciasPrueba{
+			referencias: referenciasPreparacionPrueba(),
+			reservaRef:  "reserva:alta-candidata-001",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud := solicitudPreparacionPrueba()
+	solicitud.HuellasPeticionHMAC = coleccionPostgreSQLPrueba(
+		selloHMACPrueba(clavePeticionAltaPruebaV2, "c"),
+		selloHMACPrueba(clavePeticionAltaPrueba, "b"),
+	)
+	preparacion, err := preparador.PrepararAlta(
+		context.Background(),
+		solicitud,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preparacion.AmbitoIdempotenciaHMAC !=
+		selloHMACPrueba(claveAmbitoAltaPrueba, "d") ||
+		preparacion.HuellaPeticionHMAC !=
+			selloHMACPrueba(clavePeticionAltaPrueba, "b") {
+		t.Fatalf("el canónico histórico no se conservó: %#v", preparacion)
 	}
 }
 
@@ -571,8 +672,7 @@ func TestPreparadorPostgreSQLRechazaHuellasNulas(t *testing.T) {
 			filaReservadaPreparacionPrueba("reservada"),
 		)
 		solicitud := solicitudPreparacionPrueba()
-		solicitud.HuellaPeticionHMAC =
-			"hmac-sha256:" + clavePeticionAltaPrueba + ":" + strings.Repeat("0", 64)
+		solicitud.HuellasPeticionHMAC = ports.ColeccionSellosHMAC{}
 
 		_, err := preparador.PrepararAlta(context.Background(), solicitud)
 		if !errors.Is(err, ports.ErrPreparacionAltaInvalida) {
@@ -617,4 +717,15 @@ func TestPreparadorPostgreSQLRechazaHuellasNulas(t *testing.T) {
 
 func selloHMACPrueba(dominio, caracter string) string {
 	return "hmac-sha256:" + dominio + ":" + strings.Repeat(caracter, 64)
+}
+
+func coleccionPostgreSQLPrueba(
+	activo string,
+	retenidos ...string,
+) ports.ColeccionSellosHMAC {
+	coleccion, err := ports.NuevaColeccionSellosHMAC(activo, retenidos)
+	if err != nil {
+		panic(err)
+	}
+	return coleccion
 }

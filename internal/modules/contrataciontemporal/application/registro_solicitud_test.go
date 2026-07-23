@@ -39,13 +39,16 @@ func (d *resolutorFlujoDoble) ResolverFlujoAlta(
 }
 
 type derivadorHuellaDoble struct {
-	derivar func(context.Context, ports.MaterialHuellaAlta) (string, error)
+	derivar func(
+		context.Context,
+		ports.MaterialHuellaAlta,
+	) (ports.ColeccionSellosHMAC, error)
 }
 
 func (d *derivadorHuellaDoble) DerivarHuellaAlta(
 	ctx context.Context,
 	material ports.MaterialHuellaAlta,
-) (string, error) {
+) (ports.ColeccionSellosHMAC, error) {
 	return d.derivar(ctx, material)
 }
 
@@ -223,8 +226,11 @@ func construirServicioRegistro(
 		derivar: func(
 			_ context.Context,
 			_ ports.MaterialHuellaAlta,
-		) (string, error) {
-			return selloHMACRegistroPrueba(clavePeticionRegistroPrueba, "b"), nil
+		) (ports.ColeccionSellosHMAC, error) {
+			return coleccionHMACRegistroPrueba(
+				t,
+				selloHMACRegistroPrueba(clavePeticionRegistroPrueba, "b"),
+			), nil
 		},
 	}
 	preparaciones := &preparadorAltaDoble{
@@ -402,9 +408,12 @@ func TestRegistroSolicitudAislaMutacionDelDerivador(t *testing.T) {
 		huellas.derivar = func(
 			_ context.Context,
 			material ports.MaterialHuellaAlta,
-		) (string, error) {
+		) (ports.ColeccionSellosHMAC, error) {
 			material.Solicitud.DocumentosAdjuntos[0] = "documento:adulterado-001"
-			return selloHMACRegistroPrueba(clavePeticionRegistroPrueba, "b"), nil
+			return coleccionHMACRegistroPrueba(
+				t,
+				selloHMACRegistroPrueba(clavePeticionRegistroPrueba, "b"),
+			), nil
 		}
 	})
 
@@ -473,4 +482,16 @@ func TestRegistroSolicitudNoConvierteCommitConfirmadoEnCancelacionTardia(t *test
 	if recibo != escenario.recibo {
 		t.Fatalf("recibo distinto: %#v", recibo)
 	}
+}
+
+func coleccionHMACRegistroPrueba(
+	t *testing.T,
+	activo string,
+) ports.ColeccionSellosHMAC {
+	t.Helper()
+	coleccion, err := ports.NuevaColeccionSellosHMAC(activo, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return coleccion
 }

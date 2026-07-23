@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	funcionPrepararAltaV1 = "vec_contratacion_temporal.preparar_alta_v1"
-	esquemaPrepararAltaV1 = "vec.contratacion-temporal.preparar-alta.v1"
+	funcionPrepararAltaV2 = "vec_contratacion_temporal.preparar_alta_v2"
+	esquemaPrepararAltaV2 = "vec.contratacion-temporal.preparar-alta.v2"
 )
 
 var _ ports.PreparadorAltaIdempotente = (*PreparadorAltaPostgreSQL)(nil)
@@ -56,15 +56,25 @@ func nuevoPreparadorAltaPostgreSQL(
 	}, nil
 }
 
-type operacionPrepararAltaV1 struct {
+type operacionPrepararAltaV2 struct {
 	Esquema               string                    `json:"esquema"`
-	AmbitoHMAC            string                    `json:"ambito_hmac"`
-	HuellaPeticionHMAC    string                    `json:"huella_peticion_hmac"`
+	SellosHMAC            sellosPrepararAltaV2      `json:"sellos_hmac"`
 	OrganizacionRef       string                    `json:"organizacion_ref"`
 	ActorRef              string                    `json:"actor_ref"`
 	PerfilRef             string                    `json:"perfil_ref"`
 	ReservaRefCandidata   string                    `json:"reserva_ref_candidata"`
 	ReferenciasCandidatas referenciasPrepararAltaV1 `json:"referencias_candidatas"`
+}
+
+type sellosPrepararAltaV2 struct {
+	Activo    parSellosPrepararAltaV2   `json:"activo"`
+	Retenidos []parSellosPrepararAltaV2 `json:"retenidos"`
+}
+
+type parSellosPrepararAltaV2 struct {
+	Generacion         uint32 `json:"generacion"`
+	AmbitoHMAC         string `json:"ambito_hmac"`
+	HuellaPeticionHMAC string `json:"huella_peticion_hmac"`
 }
 
 type referenciasPrepararAltaV1 struct {
@@ -91,6 +101,66 @@ func (r referenciasPrepararAltaV1) puertos() ports.ReferenciasAlta {
 	}
 }
 
+func nuevosSellosPrepararAltaV2(
+	ambitos ports.ColeccionSellosHMAC,
+	huellas ports.ColeccionSellosHMAC,
+) (sellosPrepararAltaV2, error) {
+	datosAmbitos, err := ambitos.Datos()
+	if err != nil {
+		return sellosPrepararAltaV2{}, ports.ErrPreparacionAltaInvalida
+	}
+	datosHuellas, err := huellas.Datos()
+	if err != nil ||
+		datosAmbitos.Activo.Generacion != datosHuellas.Activo.Generacion ||
+		len(datosAmbitos.Retenidos) != len(datosHuellas.Retenidos) {
+		return sellosPrepararAltaV2{}, ports.ErrPreparacionAltaInvalida
+	}
+	sellos := sellosPrepararAltaV2{
+		Activo: parSellosPrepararAltaV2{
+			Generacion:         datosAmbitos.Activo.Generacion,
+			AmbitoHMAC:         datosAmbitos.Activo.Valor,
+			HuellaPeticionHMAC: datosHuellas.Activo.Valor,
+		},
+		Retenidos: make([]parSellosPrepararAltaV2, len(datosAmbitos.Retenidos)),
+	}
+	for indice := range datosAmbitos.Retenidos {
+		if datosAmbitos.Retenidos[indice].Generacion !=
+			datosHuellas.Retenidos[indice].Generacion {
+			return sellosPrepararAltaV2{}, ports.ErrPreparacionAltaInvalida
+		}
+		sellos.Retenidos[indice] = parSellosPrepararAltaV2{
+			Generacion:         datosAmbitos.Retenidos[indice].Generacion,
+			AmbitoHMAC:         datosAmbitos.Retenidos[indice].Valor,
+			HuellaPeticionHMAC: datosHuellas.Retenidos[indice].Valor,
+		}
+	}
+	return sellos, nil
+}
+
+func (s sellosPrepararAltaV2) contieneAmbito(valor string) bool {
+	if hmac.Equal([]byte(s.Activo.AmbitoHMAC), []byte(valor)) {
+		return true
+	}
+	for _, retenido := range s.Retenidos {
+		if hmac.Equal([]byte(retenido.AmbitoHMAC), []byte(valor)) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s sellosPrepararAltaV2) contieneHuella(valor string) bool {
+	if hmac.Equal([]byte(s.Activo.HuellaPeticionHMAC), []byte(valor)) {
+		return true
+	}
+	for _, retenido := range s.Retenidos {
+		if hmac.Equal([]byte(retenido.HuellaPeticionHMAC), []byte(valor)) {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 	ctx context.Context,
 	solicitud ports.SolicitudPrepararAlta,
@@ -112,15 +182,24 @@ func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 	if sellar.Validar() != nil {
 		return ports.PreparacionAlta{}, ports.ErrPreparacionAltaInvalida
 	}
-	ambitoHMAC, err := p.sellador.SellarAmbitoIdempotencia(ctx, sellar)
+	ambitosHMAC, err := p.sellador.SellarAmbitoIdempotencia(ctx, sellar)
 	if err != nil {
 		return ports.PreparacionAlta{}, errorDependencia(ctx)
 	}
 	if err := ctx.Err(); err != nil {
 		return ports.PreparacionAlta{}, err
 	}
-	if !ports.SelloHMACSHA256Valido(ambitoHMAC) {
+	if ambitosHMAC.ValidarDominio(
+		"vec.contratacion-temporal.ambito-idempotencia",
+	) != nil {
 		return ports.PreparacionAlta{}, ports.ErrPersistenciaNoDisponible
+	}
+	sellos, err := nuevosSellosPrepararAltaV2(
+		ambitosHMAC,
+		solicitud.HuellasPeticionHMAC,
+	)
+	if err != nil {
+		return ports.PreparacionAlta{}, err
 	}
 	referencias, err := p.generador.GenerarReferenciasAlta(ctx)
 	if err != nil {
@@ -142,10 +221,9 @@ func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 	if err := ctx.Err(); err != nil {
 		return ports.PreparacionAlta{}, err
 	}
-	operacion, err := json.Marshal(operacionPrepararAltaV1{
-		Esquema:               esquemaPrepararAltaV1,
-		AmbitoHMAC:            ambitoHMAC,
-		HuellaPeticionHMAC:    solicitud.HuellaPeticionHMAC,
+	operacion, err := json.Marshal(operacionPrepararAltaV2{
+		Esquema:               esquemaPrepararAltaV2,
+		SellosHMAC:            sellos,
 		OrganizacionRef:       solicitud.OrganizacionRef,
 		ActorRef:              solicitud.ActorRef,
 		PerfilRef:             solicitud.PerfilRef,
@@ -169,7 +247,7 @@ func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 		       organizacion_ref, actor_ref, perfil_ref,
 		       estado, version_expediente, auditoria_ref, evento_ref,
 		       confirmada_en
-		  FROM `+funcionPrepararAltaV1+`($1::jsonb)`,
+		  FROM `+funcionPrepararAltaV2+`($1::jsonb)`,
 		operacion,
 	).Scan(
 		&fila.resultado, &fila.reservaRef, &fila.expedienteRef,
@@ -219,9 +297,10 @@ func (f filaPreparacionAlta) restaurar(
 	solicitud ports.SolicitudPrepararAlta,
 	operacionJSON []byte,
 ) (ports.PreparacionAlta, error) {
-	var operacion operacionPrepararAltaV1
+	var operacion operacionPrepararAltaV2
 	if json.Unmarshal(operacionJSON, &operacion) != nil ||
-		!hmac.Equal([]byte(f.ambitoHMAC), []byte(operacion.AmbitoHMAC)) {
+		!operacion.SellosHMAC.contieneAmbito(f.ambitoHMAC) ||
+		!operacion.SellosHMAC.contieneHuella(f.huellaPeticionHMAC) {
 		return ports.PreparacionAlta{}, ports.ErrPersistenciaNoDisponible
 	}
 	preparacion := ports.PreparacionAlta{
@@ -279,13 +358,17 @@ func (f filaPreparacionAlta) restaurar(
 
 func respuestaReservadaCoincideConCandidatos(
 	preparacion ports.PreparacionAlta,
-	operacion operacionPrepararAltaV1,
+	operacion operacionPrepararAltaV2,
 ) bool {
 	return preparacion.ReservaRef == operacion.ReservaRefCandidata &&
 		preparacion.Referencias == operacion.ReferenciasCandidatas.puertos() &&
 		hmac.Equal(
 			[]byte(preparacion.AmbitoIdempotenciaHMAC),
-			[]byte(operacion.AmbitoHMAC),
+			[]byte(operacion.SellosHMAC.Activo.AmbitoHMAC),
+		) &&
+		hmac.Equal(
+			[]byte(preparacion.HuellaPeticionHMAC),
+			[]byte(operacion.SellosHMAC.Activo.HuellaPeticionHMAC),
 		)
 }
 
