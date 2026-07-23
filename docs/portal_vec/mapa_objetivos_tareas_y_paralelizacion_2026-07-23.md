@@ -12,10 +12,10 @@ temporal. El detalle verificable de cada tarea está en el
 | --- | --- |
 | Objetivo activo | O2 — primera vertical real de alta |
 | Camino crítico | O2-04 autorización VEC → O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
-| Primera vertical | 2 de 10 tareas cerradas (20 %); O2-03 tiene un corte v1 aprobado y rotación pendiente |
-| Procedimiento completo | 8 de 46 tareas cerradas (17 %); O6-01 continúa en rework |
-| Último commit verificado | `baebb55` — catálogo O4-01 sin ambigüedad temporal |
-| Trabajo local en revisión | Rotación O2-03, autorización O2-04, diseño O2-05, dominio O3-02, fuentes O3-03, consultas O4-02 y rework O6-01 |
+| Primera vertical | 3 de 10 tareas cerradas (30 %); O2-04 corrige la convergencia de autorización |
+| Procedimiento completo | 9 de 46 tareas cerradas (20 %); O6-01 continúa en rework |
+| Último commit verificado | `6e007c8` — O2-03 con rotación y límites PostgreSQL reales |
+| Trabajo local en revisión | Autorización O2-04, VEC-AD-3 de O2-05, dominio O3-02, fuentes O3-03, consultas O4-02 y rework O6-01 |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -57,9 +57,9 @@ sus efectos.
 flowchart TD
     O201["✅ O2-01<br/>Caso de uso"]
     O202["✅ O2-02<br/>Adaptador Go de preparación"]
-    O203["🚧 O2-03<br/>Migración v1; rotación pendiente"]
-    O204["⬜ O2-04<br/>Autorización VEC durable"]
-    O205["— O2-05<br/>Confirmación SQL atómica"]
+    O203["✅ O2-03<br/>PostgreSQL y rotación"]
+    O204["🚧 O2-04<br/>Autorización VEC durable"]
+    O205["🚧 O2-05<br/>Confirmación SQL atómica"]
     O206["— O2-06<br/>Adaptador y reconciliación"]
     O207["— O2-07<br/>Composición real"]
     O208["— O2-08<br/>API interna"]
@@ -78,9 +78,9 @@ flowchart TD
     O209 --> O210
 ```
 
-O2-02 ya superó su revisión independiente. O2-03 superó las garantías del corte
-v1, pero no se cerrará hasta demostrar convivencia de generaciones HMAC sin
-segunda reserva ni falso conflicto.
+O2-02 y O2-03 ya superaron revisión independiente. O2-03 demostró en tres
+ejecuciones PostgreSQL reales la convivencia HMAC v1→v2, el replay exacto, la
+concurrencia, las ACL y los límites de sentencia e inactividad.
 
 ## Olas de trabajo paralelo
 
@@ -187,12 +187,12 @@ Se publican dos métricas:
 2. **Tareas verificadas:** indicador operativo. Sirve para saber carga y
    paralelización, pero no se presenta como porcentaje de producto.
 
-Ejemplo actual:
+Estado actual:
 
 ```text
-O2: 2/7 puertas publicadas = 29 %
-Tareas cerradas publicadas: O1-01, O1-02, O1-03, O2-01
-Tareas locales en revisión: O1-04, O2-02, O2-03
+O2: 3/7 puertas funcionales publicadas = 43 %
+Tareas verificadas del procedimiento: 9/46 = 20 %
+Tareas locales en revisión: O2-04, O2-05, O3-02, O3-03, O4-02 y O6-01
 ```
 
 Una tarea local no cuenta como cerrada hasta que el commit esté publicado y el

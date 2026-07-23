@@ -80,14 +80,13 @@ pantalla interna
 | --- | --- | --- |
 | Dominio y validaciones | ✅ | Pruebas unitarias y de carrera. |
 | Caso de uso y puertos | ✅ | Reintento, denegación, adulteración y cancelación. |
-| Reserva idempotente PostgreSQL | 🚧 | Adaptador Go y migración superan la revisión local; faltan sus commits publicados. |
-| Autorización VEC durable + confirmación | ⬜ | Debe consumir la concesión, escribir expediente, actuación, auditoría y outbox en un único `COMMIT`. |
+| Reserva idempotente PostgreSQL | ✅ | Rotación HMAC v1→v2, replay, concurrencia, ACL, reintentos y límites reales; PostgreSQL efímero 3/3. |
+| Autorización VEC durable + confirmación | 🚧 | O2-04 corrige su convergencia; VEC-AD-3 está implementado localmente y falta verificación, capacidad breve y consumo atómico. |
 | API interna | ⬜ | Sin autoridad reconstruida desde HTTP y sin cookies. |
 | Pantalla definitiva | ⬜ | Misma web final; adaptador real registrado por composición. |
 | E2E y aceptación | ⬜ | Reintento, concurrencia, reinicio, fallo y prueba de RRHH. |
 
-Progreso publicado del hito: **2 de 7 puertas (29 %)**, con una tercera puerta
-validada localmente y pendiente de publicación. No representa un porcentaje de
+Progreso del hito: **3 de 7 puertas (43 %)**. No representa un porcentaje de
 toda la aplicación.
 
 ### O3. Análisis RRHH y RC

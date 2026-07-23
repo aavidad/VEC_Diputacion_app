@@ -82,13 +82,19 @@ ajenas.
 | Puertos de alta | Implementados y probados por el caso de uso |
 | Caso de uso: registrar solicitud | Implementado y probado |
 | Resto de casos de uso | Pendiente |
-| PostgreSQL | Pendiente |
+| Preparación idempotente PostgreSQL | Cerrada y revisada: rotación v1→v2, replay, concurrencia, ACL y límites reales |
+| Confirmación atómica PostgreSQL | Pendiente |
 | API interna | Pendiente |
 | Web conectada | Pendiente |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales pendientes de revisión independiente
 
+- `825e251`, `ec87e27` y `ff6011f` crean el corte VEC-AD-3 para decisiones V3
+  ligadas a contexto de actor V2: preimagen binaria con vector congelado,
+  contratos nominales no serializables y servicio neutral al cliente. Falta
+  revisión independiente y todavía no existen verificador de confianza,
+  capacidad breve ni consumidor SQL; no habilita producción.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
   cronología de solo adición y bloqueo de retroacciones implícitas. Falta el
   caso de uso autorizado y su transacción durable; no se considera cerrado.
@@ -130,13 +136,15 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Implementar el adaptador PostgreSQL de preparación idempotente y
-   confirmación de alta.
-2. Asegurar en una sola transacción la reserva, autorización consumida,
+1. Converger O2-04 sobre la colección HMAC opaca y el adaptador V2 ya cerrados,
+   ligando también la huella exacta de petición en la decisión V3.
+2. Revisar independientemente VEC-AD-3 y completar verificador de confianza,
+   capacidad breve y frontera consumidora.
+3. Asegurar en una sola transacción la reserva, autorización consumida,
    expediente, primera actuación, auditoría y outbox.
-3. Probar repetición, conflicto semántico, concurrencia y resultado
+4. Probar repetición, conflicto semántico, concurrencia y resultado
    indeterminado de `COMMIT`.
-4. Exponer después la API interna; no crear antes una segunda autoridad de
+5. Exponer después la API interna; no crear antes una segunda autoridad de
    identidad en el manejador.
 
 ## Dominio implementado
@@ -182,10 +190,10 @@ El caso `ServicioRegistroSolicitud.Registrar` realiza, por este orden:
 9. construye el agregado y una orden opaca de confirmación;
 10. exige un recibo durable coherente con la versión creada.
 
-La interfaz `TransaccionAltas` obliga al adaptador a cotejar y consumir la
+La interfaz `TransaccionAltas` obliga al futuro adaptador a cotejar y consumir la
 autorización y a confirmar reserva, expediente, auditoría y outbox en un único
-`COMMIT`. El contrato todavía no equivale a persistencia: el siguiente corte
-debe aportar y probar el adaptador PostgreSQL.
+`COMMIT`. La preparación idempotente ya tiene persistencia PostgreSQL revisada;
+la confirmación atómica y su reconciliación siguen pendientes.
 
 Pruebas superadas en el corte:
 
