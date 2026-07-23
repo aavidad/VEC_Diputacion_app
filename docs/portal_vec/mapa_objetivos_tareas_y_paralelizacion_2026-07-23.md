@@ -13,9 +13,9 @@ temporal. El detalle verificable de cada tarea está en el
 | Objetivo activo | O2 — primera vertical real de alta |
 | Camino crítico | O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
-| Procedimiento completo | 15 de 46 tareas cerradas (33 %); O8-01 ya está integrado |
-| Último commit verificado | `ec8e758` — dominio O8-01 integrado tras GO independiente y puertas conjuntas |
-| Trabajo local en revisión | O4-02 en revisión independiente; O2-06 en implementación; primer corte O5-01 pendiente de completar |
+| Procedimiento completo | 16 de 46 tareas cerradas (35 %); O4-02 ya está integrado |
+| Último commit verificado | `0be7467` — consultas O4-02 integradas tras GO independiente y puertas conjuntas |
+| Trabajo local en revisión | O2-06 en implementación; web de presentación RRHH en desarrollo; primer corte O5-01 pendiente de completar |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

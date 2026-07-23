@@ -418,5 +418,18 @@ posterior. Una regresión determinista cubre ambas rutas: `t0`, presentación en
 `t0+2 s`, credencial hasta `t0+6 s` y horizonte de cinco segundos. RC y coste
 se rechazan antes de invocar la operación funcional o el consumidor.
 
-El candidato continúa en `NO-GO` hasta que un agente distinto revise la sexta
-corrección y repita las puertas O3+O4 sobre el SHA exacto.
+## Cierre O4-02
+
+Un agente distinto del productor revisó el candidato exacto
+`913cb7a24223ff426f89d62229073b22510fbaae` sobre la base
+`ba80e8f766e1054f35db15b47c2f4f13ea6b2221` y emitió `GO` sin hallazgos.
+La integración conjunta es `0be7467`.
+
+Tras la integración se repitieron 50 veces las pruebas focales de aplicación,
+puertos y seguridad, cinco veces con detector de carreras, y se superaron las
+pruebas globales, `go vet`, verificación de módulos, formato, límites, revisión
+del diff y Gitleaks. La evidencia completa está en
+[la revisión independiente final](revisiones/o4_02_revision_independiente_final_2026-07-23.md).
+
+O4-02 queda cerrado. Persistencia productiva, composición real, API, web y E2E
+siguen expresamente fuera de este corte y corresponden a O4-03, O4-04 y O4-05.
