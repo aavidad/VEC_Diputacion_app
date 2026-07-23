@@ -290,7 +290,7 @@ export function catalogosAltaOperables(catalogos) {
 }
 
 function centimosDesdeEntrada(valor) {
-  if (typeof valor !== "string" || !/^(?:0|[1-9]\d{0,12})(?:[.,]\d{2})?$/.test(valor)) {
+  if (typeof valor !== "string" || !/^(?:0|[1-9]\d{0,13})(?:[.,]\d{2})?$/.test(valor)) {
     return null;
   }
   const [entera, decimal = "00"] = valor.replace(",", ".").split(".");

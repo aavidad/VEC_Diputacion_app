@@ -137,6 +137,12 @@ export function crearPresentadorAltaContratacionTemporal({
       sustituirEstado({ errores, mensaje_clave: "errores_descripcion", tipo_mensaje: "error" });
       return obtenerEstado();
     }
+    if (borrador.centro_ref !== estado.borrador.centro_ref) {
+      borrador = clonarYCongelarAlta({ ...borrador, contacto_ref: "" });
+    }
+    if (borrador.categoria_ref !== estado.borrador.categoria_ref) {
+      borrador = clonarYCongelarAlta({ ...borrador, grupo_subgrupo: "" });
+    }
     if (borrador.rc_existe === false) borrador = clonarYCongelarAlta(limpiarDatosRC(borrador));
     comandoActual = null;
     sustituirEstado({

@@ -26,11 +26,14 @@ function mensajeError(t, codigo) {
   }
 }
 
-function atributosAccesibles(estado, campo, ayuda) {
+function atributosAccesibles(estado, campo, descripcionesAdicionales = []) {
   const error = estado.errores[campo];
-  const descritos = [`ct-${campo}-ayuda`, ...(error ? [`ct-${campo}-error`] : [])];
-  return `aria-describedby="${descritos.join(" ")}"${error ? ' aria-invalid="true"' : ""}`
-    + (ayuda ? "" : "");
+  const descritos = [
+    `ct-${campo}-ayuda`,
+    ...descripcionesAdicionales,
+    ...(error ? [`ct-${campo}-error`] : []),
+  ];
+  return `aria-describedby="${descritos.join(" ")}"${error ? ' aria-invalid="true"' : ""}`;
 }
 
 function errorCampo(estado, campo, t) {
@@ -85,8 +88,11 @@ function resumenErrores(estado, t) {
     const etiqueta = campo === "general"
       ? t("errores_titulo")
       : (Object.hasOwn(estado.borrador, campo) ? t(campo) : t("errores_titulo"));
-    return `<li><button type="button" data-ct-enfocar="${escaparHTML(campo)}">`
-      + `${escaparHTML(etiqueta)}: ${escaparHTML(mensajeError(t, codigo))}</button></li>`;
+    const contenido = `${escaparHTML(etiqueta)}: ${escaparHTML(mensajeError(t, codigo))}`;
+    return campo === "general"
+      ? `<li>${contenido}</li>`
+      : `<li><button type="button" data-ct-enfocar="${escaparHTML(campo)}">`
+        + `${contenido}</button></li>`;
   }).join("")}</ul>
   </section>`;
 }
@@ -117,7 +123,7 @@ function cabecera(estado, t) {
   </header>
   ${pasos(estado, t)}
   <div class="ct-estado ct-estado-${escaparHTML(estado.tipo_mensaje)}"
-    data-ct-estado role="status" aria-live="polite" aria-atomic="true">
+    data-ct-estado role="status" aria-live="polite" aria-atomic="true" tabindex="-1">
     <strong>${escaparHTML(t(estado.mensaje_clave))}</strong>
     ${estado.disponible ? "" : `<span>${escaparHTML(t("estado_no_disponible_detalle"))}</span>`}
   </div>`;
@@ -126,15 +132,15 @@ function cabecera(estado, t) {
 function campoSeleccion({
   estado, t, campo, etiqueta, ayuda, opciones, deshabilitado,
 }) {
-  return `<label class="ct-campo" for="ct-${campo}">
-    <span>${escaparHTML(etiqueta)} <b aria-hidden="true">*</b></span>
+  return `<div class="ct-campo">
+    <label for="ct-${campo}">${escaparHTML(etiqueta)} <b aria-hidden="true">*</b></label>
     <select id="ct-${campo}" name="${campo}" required
-      ${atributosAccesibles(estado, campo, ayuda)}${deshabilitado ? " disabled" : ""}>
+      ${atributosAccesibles(estado, campo)}${deshabilitado ? " disabled" : ""}>
       ${opciones}
     </select>
     ${ayudaCampo(campo, ayuda)}
     ${errorCampo(estado, campo, t)}
-  </label>`;
+  </div>`;
 }
 
 function camposCentro(estado, t, deshabilitado) {
@@ -205,48 +211,53 @@ function camposDetalle(estado, t, deshabilitado) {
   return `<fieldset class="ct-bloque">
     <legend>${escaparHTML(t("detalle_periodo_leyenda"))}</legend>
     <div class="ct-campos">
-      <label class="ct-campo ct-campo-ancho" for="ct-detalle">
-        <span>${escaparHTML(t("detalle"))} <b aria-hidden="true">*</b></span>
-        <textarea id="ct-detalle" name="detalle" required maxlength="${maximo}" rows="5"
-          ${atributosAccesibles(estado, "detalle", t("detalle_ayuda"))}`
+      <div class="ct-campo ct-campo-ancho">
+        <label for="ct-detalle">${escaparHTML(t("detalle"))} <b aria-hidden="true">*</b></label>
+        <textarea id="ct-detalle" name="detalle" required rows="5"
+          ${atributosAccesibles(estado, "detalle", ["ct-detalle-contador"])}`
     + `${deshabilitado ? " disabled" : ""}>${escaparHTML(estado.borrador.detalle)}</textarea>
         ${ayudaCampo("detalle", t("detalle_ayuda"))}
-        <small class="ct-contador" data-ct-contador="detalle">`
+        <small class="ct-contador" id="ct-detalle-contador" data-ct-contador="detalle">`
     + `${escaparHTML(t("contador_caracteres", {
       actual: [...estado.borrador.detalle].length,
       maximo,
-    }))}</small>
+        }))}</small>
         ${errorCampo(estado, "detalle", t)}
-      </label>
-      <label class="ct-campo" for="ct-inicio">
-        <span>${escaparHTML(t("inicio"))} <b aria-hidden="true">*</b></span>
+      </div>
+      <div class="ct-campo">
+        <label for="ct-inicio">${escaparHTML(t("inicio"))} <b aria-hidden="true">*</b></label>
         <input id="ct-inicio" name="inicio" type="date" required
           value="${escaparHTML(estado.borrador.inicio)}"
-          ${atributosAccesibles(estado, "inicio", t("inicio"))}${deshabilitado ? " disabled" : ""}>
+          ${atributosAccesibles(estado, "inicio")}${deshabilitado ? " disabled" : ""}>
         ${ayudaCampo("inicio", t("inicio"))}
         ${errorCampo(estado, "inicio", t)}
-      </label>
-      <label class="ct-campo" for="ct-fin">
-        <span>${escaparHTML(t("fin"))} <b aria-hidden="true">*</b></span>
+      </div>
+      <div class="ct-campo">
+        <label for="ct-fin">${escaparHTML(t("fin"))} <b aria-hidden="true">*</b></label>
         <input id="ct-fin" name="fin" type="date" required
           value="${escaparHTML(estado.borrador.fin)}"
-          ${atributosAccesibles(estado, "fin", t("fin"))}${deshabilitado ? " disabled" : ""}>
+          ${atributosAccesibles(estado, "fin")}${deshabilitado ? " disabled" : ""}>
         ${ayudaCampo("fin", t("fin"))}
         ${errorCampo(estado, "fin", t)}
-      </label>
-      <label class="ct-campo ct-campo-ancho" for="ct-observaciones">
-        <span>${escaparHTML(t("observaciones"))}</span>
-        <textarea id="ct-observaciones" name="observaciones" maxlength="${maximo}" rows="3"
-          ${atributosAccesibles(estado, "observaciones", t("observaciones_ayuda"))}`
+      </div>
+      <div class="ct-campo ct-campo-ancho">
+        <label for="ct-observaciones">${escaparHTML(t("observaciones"))}</label>
+        <textarea id="ct-observaciones" name="observaciones" rows="3"
+          ${atributosAccesibles(
+    estado,
+    "observaciones",
+    ["ct-observaciones-contador"],
+  )}`
     + `${deshabilitado ? " disabled" : ""}>${escaparHTML(estado.borrador.observaciones)}</textarea>
         ${ayudaCampo("observaciones", t("observaciones_ayuda"))}
-        <small class="ct-contador" data-ct-contador="observaciones">`
+        <small class="ct-contador" id="ct-observaciones-contador"
+          data-ct-contador="observaciones">`
     + `${escaparHTML(t("contador_caracteres", {
       actual: [...estado.borrador.observaciones].length,
       maximo,
-    }))}</small>
+        }))}</small>
         ${errorCampo(estado, "observaciones", t)}
-      </label>
+      </div>
     </div>
   </fieldset>`;
 }
@@ -256,44 +267,45 @@ function camposRC(estado, t, deshabilitado) {
   const controlesDeshabilitados = deshabilitado || !activa;
   return `<fieldset class="ct-bloque">
     <legend>${escaparHTML(t("rc_leyenda"))}</legend>
-    <p class="ct-aviso">${escaparHTML(t("rc_aviso"))}</p>
-    <fieldset class="ct-radios">
+    <p class="ct-aviso" id="ct-rc_existe-ayuda">${escaparHTML(t("rc_aviso"))}</p>
+    <fieldset class="ct-radios" id="ct-rc_existe" tabindex="-1"
+      aria-required="true" ${atributosAccesibles(estado, "rc_existe")}>
       <legend>${escaparHTML(t("rc_existe"))} <b aria-hidden="true">*</b></legend>
-      <label><input type="radio" name="rc_existe" value="si"`
+      <label><input type="radio" name="rc_existe" value="si" required`
     + `${atributoMarcado(activa)}${deshabilitado ? " disabled" : ""}> ${escaparHTML(t("si"))}</label>
-      <label><input type="radio" name="rc_existe" value="no"`
+      <label><input type="radio" name="rc_existe" value="no" required`
     + `${atributoMarcado(!activa)}${deshabilitado ? " disabled" : ""}> ${escaparHTML(t("no"))}</label>
       ${errorCampo(estado, "rc_existe", t)}
     </fieldset>
     <div class="ct-campos" data-ct-datos-rc${activa ? "" : " hidden"}>
-      <label class="ct-campo" for="ct-rc_numero">
-        <span>${escaparHTML(t("rc_numero"))} <b aria-hidden="true">*</b></span>
+      <div class="ct-campo">
+        <label for="ct-rc_numero">${escaparHTML(t("rc_numero"))} <b aria-hidden="true">*</b></label>
         <input id="ct-rc_numero" name="rc_numero" type="text" maxlength="160"
           value="${escaparHTML(estado.borrador.rc_numero)}" required
-          ${atributosAccesibles(estado, "rc_numero", t("rc_numero"))}`
+          ${atributosAccesibles(estado, "rc_numero")}`
     + `${controlesDeshabilitados ? " disabled" : ""}>
         ${ayudaCampo("rc_numero", t("rc_numero"))}
         ${errorCampo(estado, "rc_numero", t)}
-      </label>
-      <label class="ct-campo" for="ct-rc_fecha">
-        <span>${escaparHTML(t("rc_fecha"))} <b aria-hidden="true">*</b></span>
+      </div>
+      <div class="ct-campo">
+        <label for="ct-rc_fecha">${escaparHTML(t("rc_fecha"))} <b aria-hidden="true">*</b></label>
         <input id="ct-rc_fecha" name="rc_fecha" type="date"
           value="${escaparHTML(estado.borrador.rc_fecha)}" required
-          ${atributosAccesibles(estado, "rc_fecha", t("rc_fecha"))}`
+          ${atributosAccesibles(estado, "rc_fecha")}`
     + `${controlesDeshabilitados ? " disabled" : ""}>
         ${ayudaCampo("rc_fecha", t("rc_fecha"))}
         ${errorCampo(estado, "rc_fecha", t)}
-      </label>
-      <label class="ct-campo" for="ct-rc_importe">
-        <span>${escaparHTML(t("rc_importe"))} <b aria-hidden="true">*</b></span>
+      </div>
+      <div class="ct-campo">
+        <label for="ct-rc_importe">${escaparHTML(t("rc_importe"))} <b aria-hidden="true">*</b></label>
         <input id="ct-rc_importe" name="rc_importe" type="text" inputmode="decimal"
           value="${escaparHTML(estado.borrador.rc_importe)}"
           placeholder="${escaparHTML(t("rc_importe_placeholder"))}" required
-          ${atributosAccesibles(estado, "rc_importe", t("rc_importe_ayuda"))}`
+          ${atributosAccesibles(estado, "rc_importe")}`
     + `${controlesDeshabilitados ? " disabled" : ""}>
         ${ayudaCampo("rc_importe", t("rc_importe_ayuda"))}
         ${errorCampo(estado, "rc_importe", t)}
-      </label>
+      </div>
       ${campoSeleccion({
     estado,
     t,
@@ -323,9 +335,10 @@ function camposDocumentos(estado, t, deshabilitado) {
         <span>${escaparHTML(documento.etiqueta)}</span>
         <code>${escaparHTML(documento.referencia)}</code>
       </label>`).join("")}</div>`;
-  return `<fieldset class="ct-bloque">
+  return `<fieldset class="ct-bloque" id="ct-documentos_adjuntos" tabindex="-1"
+    ${atributosAccesibles(estado, "documentos_adjuntos")}>
     <legend>${escaparHTML(t("documentos_leyenda"))}</legend>
-    <p>${escaparHTML(t("documentos_ayuda"))}</p>
+    <p id="ct-documentos_adjuntos-ayuda">${escaparHTML(t("documentos_ayuda"))}</p>
     ${opciones}
     ${errorCampo(estado, "documentos_adjuntos", t)}
   </fieldset>`;
@@ -359,7 +372,21 @@ function filaResumen(etiqueta, valor) {
   return `<div><dt>${escaparHTML(etiqueta)}</dt><dd>${escaparHTML(valor)}</dd></div>`;
 }
 
-function revision(estado, t) {
+function formatearFechaCivil(valor, locale) {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "long",
+    timeZone: "UTC",
+  }).format(new Date(`${valor}T00:00:00Z`));
+}
+
+function formatearImporteEUR(valor, locale) {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "EUR",
+  }).format(valor.replace(",", "."));
+}
+
+function revision(estado, t, locale) {
   const borrador = estado.borrador;
   const centro = obtenerCentro(estado);
   const categoria = obtenerCategoria(estado);
@@ -367,8 +394,9 @@ function revision(estado, t) {
   const grupo = etiquetaClave(categoria?.grupos_subgrupos ?? [], borrador.grupo_subgrupo);
   const motivo = etiquetaClave(estado.catalogos.motivos, borrador.motivo_clave);
   const rc = borrador.rc_existe
-    ? `${t("resumen_rc_si")} · ${borrador.rc_numero} · ${borrador.rc_fecha}`
-      + ` · ${borrador.rc_importe.replace(".", ",")} ${t("moneda_eur")}`
+    ? `${t("resumen_rc_si")} · ${borrador.rc_numero}`
+      + ` · ${formatearFechaCivil(borrador.rc_fecha, locale)}`
+      + ` · ${formatearImporteEUR(borrador.rc_importe, locale)}`
       + ` · ${borrador.rc_documento_ref}`
     : t("resumen_rc_no");
   const documentos = borrador.documentos_adjuntos.length === 0
@@ -390,7 +418,11 @@ function revision(estado, t) {
       ${filaResumen(t("resumen_grupo"), grupo)}
       ${filaResumen(t("resumen_motivo"), motivo)}
       ${filaResumen(t("resumen_detalle"), borrador.detalle)}
-      ${filaResumen(t("resumen_periodo"), `${borrador.inicio} — ${borrador.fin}`)}
+      ${filaResumen(
+    t("resumen_periodo"),
+    `${formatearFechaCivil(borrador.inicio, locale)} — `
+      + `${formatearFechaCivil(borrador.fin, locale)}`,
+  )}
       ${filaResumen(t("resumen_rc"), rc)}
       ${filaResumen(
     t("resumen_observaciones"),
@@ -446,7 +478,7 @@ export function renderizarAltaContratacionTemporal(estado, {
     ? formulario(estado, t)
     : (estado.fase === "recibo"
       ? recibo(estado, t, locale, zonaHoraria)
-      : revision(estado, t));
+      : revision(estado, t, locale));
   return `<section class="ct-alta" data-modulo="contratacion-temporal"
     aria-labelledby="ct-alta-titulo">
     ${cabecera(estado, t)}
@@ -559,10 +591,11 @@ export function montarAltaContratacionTemporal({
     const formularioDOM = evento.target.closest?.("[data-ct-form]");
     if (!formularioDOM || !raiz.contains(formularioDOM)) return;
     const borrador = extraerBorrador(formularioDOM);
-    if (campo === "centro_ref") borrador.contacto_ref = "";
-    if (campo === "categoria_ref") borrador.grupo_subgrupo = "";
     presentador.actualizarBorrador(borrador);
-    repintar(`#ct-${campo}`);
+    const selectorFoco = campo === "rc_existe"
+      ? `[name="rc_existe"][value="${borrador.rc_existe ? "si" : "no"}"]`
+      : `#ct-${campo}`;
+    repintar(selectorFoco);
   }
 
   function alIntroducir(evento) {

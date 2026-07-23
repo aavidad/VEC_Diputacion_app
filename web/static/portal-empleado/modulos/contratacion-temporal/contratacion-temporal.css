@@ -141,7 +141,7 @@
 .ct-estado-exito {
   border-left-color: var(--portal-exito);
   background: var(--portal-exito-suave);
-  color: var(--portal-exito);
+  color: var(--portal-tinta);
 }
 
 .ct-formulario,
@@ -225,7 +225,9 @@
   opacity: 1;
 }
 
-.ct-campo [aria-invalid="true"] {
+.ct-campo [aria-invalid="true"],
+.ct-radios[aria-invalid="true"],
+#ct-documentos_adjuntos[aria-invalid="true"] {
   border-color: var(--portal-peligro);
   border-width: 2px;
 }
