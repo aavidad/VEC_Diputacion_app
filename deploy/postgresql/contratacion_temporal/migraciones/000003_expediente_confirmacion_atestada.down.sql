@@ -45,7 +45,12 @@ DROP TABLE vec_contratacion_temporal.actuacion_alta;
 DROP TABLE vec_contratacion_temporal.expediente_alta_version;
 DROP TABLE vec_contratacion_temporal.expediente_alta;
 DROP FUNCTION vec_contratacion_temporal.reconstruir_sellos_hmac_v1(jsonb);
-DROP FUNCTION vec_contratacion_temporal.reconstruir_alta_v1(jsonb);
+DROP FUNCTION vec_contratacion_temporal.instante_utc_v1(timestamptz);
+DROP FUNCTION vec_contratacion_temporal.encuadrar_texto_v1(text);
+DROP FUNCTION vec_contratacion_temporal.reconstruir_efecto_alta_v2(jsonb);
+DROP FUNCTION
+    vec_contratacion_temporal.reconstruir_solicitud_efecto_v2(jsonb);
+DROP FUNCTION vec_contratacion_temporal.lista_textos_json_v1(jsonb);
 DROP FUNCTION vec_contratacion_temporal.texto_json_go_v1(text);
 
 COMMIT;

@@ -31,7 +31,10 @@ END
 $prevalidacion$;
 
 REVOKE EXECUTE ON FUNCTION
-    vec_autorizacion.registrar_decision_contexto_actor_v3(
+    vec_autorizacion.registrar_y_revalidar_decision_contexto_actor_v3(
+        bytea, bytea, numeric, numeric
+    ),
+    vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(
         bytea, bytea, numeric, numeric
     ) FROM vec_autorizacion_atestada_v3_propietario;
 REVOKE REFERENCES (decision_ref) ON

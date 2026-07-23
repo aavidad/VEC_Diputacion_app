@@ -35,7 +35,10 @@ BEGIN
             MESSAGE = 'pgcrypto no está endurecido';
     END IF;
     IF pg_catalog.to_regprocedure(
-           'vec_autorizacion.registrar_decision_contexto_actor_v3(bytea,bytea,numeric,numeric)'
+           'vec_autorizacion.registrar_y_revalidar_decision_contexto_actor_v3(bytea,bytea,numeric,numeric)'
+       ) IS NULL
+       OR pg_catalog.to_regprocedure(
+           'vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(bytea,bytea,numeric,numeric)'
        ) IS NULL
        OR pg_catalog.to_regnamespace(
            'vec_contratacion_temporal'
@@ -97,7 +100,10 @@ $base$;
 GRANT USAGE ON SCHEMA vec_autorizacion
     TO vec_autorizacion_atestada_v3_propietario;
 GRANT EXECUTE ON FUNCTION
-    vec_autorizacion.registrar_decision_contexto_actor_v3(
+    vec_autorizacion.registrar_y_revalidar_decision_contexto_actor_v3(
+        bytea, bytea, numeric, numeric
+    ),
+    vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(
         bytea, bytea, numeric, numeric
     ) TO vec_autorizacion_atestada_v3_propietario;
 GRANT REFERENCES (decision_ref) ON

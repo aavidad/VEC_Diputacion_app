@@ -4,28 +4,22 @@ SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
-
 SELECT pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(
-        'vec_contratacion_temporal:000004_confirmar_alta_atestada', 0
-    )
+        'vec_contratacion_temporal:000004_confirmar_alta_atestada', 0)
 );
-
 DO $prevalidacion$
 BEGIN
     IF pg_catalog.to_regclass(
-           'vec_contratacion_temporal.expediente_alta'
-       ) IS NULL
+           'vec_contratacion_temporal.expediente_alta') IS NULL
        OR pg_catalog.to_regprocedure(
-           'vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)'
-       ) IS NOT NULL THEN
+           'vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
             MESSAGE = 'estado incompatible para confirmación atestada';
     END IF;
 END
 $prevalidacion$;
-
 CREATE FUNCTION vec_contratacion_temporal.confirmar_alta_atestada_v1(
     p_capacidad_canonica bytea,
     p_decision_canonica bytea,
@@ -96,14 +90,11 @@ BEGIN
        OR pg_catalog.current_setting('TimeZone') <> 'UTC'
        OR session_user = current_user
        OR NOT pg_catalog.pg_has_role(
-           session_user, 'vec_contratacion_temporal_ejecutor', 'MEMBER'
-       )
+           session_user, 'vec_contratacion_temporal_ejecutor', 'MEMBER')
        OR pg_catalog.pg_has_role(
-           session_user, 'vec_contratacion_temporal_migrador', 'MEMBER'
-       )
+           session_user, 'vec_contratacion_temporal_migrador', 'MEMBER')
        OR pg_catalog.pg_has_role(
-           session_user, 'vec_contratacion_temporal_propietario', 'MEMBER'
-       ) THEN
+           session_user, 'vec_contratacion_temporal_propietario', 'MEMBER') THEN
         RAISE EXCEPTION USING
             ERRCODE = '42501',
             MESSAGE = 'confirmación de alta rechazada';
@@ -136,49 +127,172 @@ BEGIN
     END;
     IF pg_catalog.jsonb_typeof(a) <> 'object'
        OR (SELECT pg_catalog.count(*)
-             FROM pg_catalog.jsonb_object_keys(a)) <> 20
+             FROM pg_catalog.jsonb_object_keys(a)) <> 16
        OR NOT (a ?& ARRAY[
            'esquema', 'reserva_ref', 'expediente_ref', 'numero_visible',
-           'recibo_ref', 'organizacion_ref', 'centro_ref',
-           'categoria_ref', 'actor_ref', 'perfil_ref', 'version',
-           'flujo_ref', 'flujo_version', 'flujo_huella_sha256',
-           'fase_clave', 'estado', 'solicitud_huella_sha256',
-           'accion_clave', 'unidad_ref', 'realizada_en'
+           'recibo_ref', 'organizacion_ref', 'actor_ref', 'perfil_ref',
+           'version', 'flujo', 'fase_actual', 'estado_actual',
+           'solicitud', 'creado_en', 'actualizado_en', 'actuacion'
        ])
-       OR vec_contratacion_temporal.reconstruir_alta_v1(a)
+       OR EXISTS (
+           SELECT 1
+             FROM pg_catalog.jsonb_object_keys(a) AS k(clave)
+            WHERE CASE WHEN k.clave IN (
+                'version', 'flujo', 'solicitud', 'actuacion') THEN false
+            ELSE pg_catalog.jsonb_typeof(a -> k.clave) <> 'string'
+            END)
+       OR pg_catalog.jsonb_typeof(a -> 'version') <> 'number'
+       OR pg_catalog.jsonb_typeof(a -> 'flujo') <> 'object'
+       OR (SELECT pg_catalog.count(*)
+             FROM pg_catalog.jsonb_object_keys(a -> 'flujo')) <> 3
+       OR NOT ((a -> 'flujo') ?& ARRAY[
+           'definicion_ref', 'version', 'huella_sha256'
+       ])
+       OR pg_catalog.jsonb_typeof(a #> '{flujo,definicion_ref}')
+          <> 'string'
+       OR pg_catalog.jsonb_typeof(a #> '{flujo,version}') <> 'number'
+       OR pg_catalog.jsonb_typeof(a #> '{flujo,huella_sha256}')
+          <> 'string'
+       OR pg_catalog.jsonb_typeof(a -> 'solicitud') <> 'object'
+       OR (SELECT pg_catalog.count(*)
+             FROM pg_catalog.jsonb_object_keys(a -> 'solicitud')) <> 10
+       OR NOT ((a -> 'solicitud') ?& ARRAY[
+           'centro_ref', 'contacto_ref', 'categoria_ref',
+           'grupo_subgrupo', 'motivo_clave', 'detalle', 'periodo', 'rc',
+           'documentos_adjuntos', 'observaciones'
+       ])
+       OR EXISTS (
+           SELECT 1
+             FROM pg_catalog.jsonb_object_keys(a -> 'solicitud') AS k(clave)
+            WHERE CASE WHEN k.clave IN (
+                'periodo', 'rc', 'documentos_adjuntos') THEN false
+            ELSE pg_catalog.jsonb_typeof(
+                (a -> 'solicitud') -> k.clave) <> 'string'
+            END)
+       OR pg_catalog.jsonb_typeof(a #> '{solicitud,periodo}') <> 'object'
+       OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(
+               a #> '{solicitud,periodo}')) <> 2
+       OR NOT ((a #> '{solicitud,periodo}') ?& ARRAY['inicio', 'fin'])
+       OR pg_catalog.jsonb_typeof(a #> '{solicitud,periodo,inicio}')
+          <> 'string'
+       OR pg_catalog.jsonb_typeof(a #> '{solicitud,periodo,fin}')
+          <> 'string'
+       OR pg_catalog.jsonb_typeof(a #> '{solicitud,rc}') <> 'object'
+       OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(
+               a #> '{solicitud,rc}')) <> 5
+       OR NOT ((a #> '{solicitud,rc}') ?& ARRAY[
+           'existe', 'numero', 'fecha', 'importe', 'documento_ref'
+       ])
+       OR pg_catalog.jsonb_typeof(a #> '{solicitud,rc,existe}')
+          <> 'boolean'
+       OR pg_catalog.jsonb_typeof(a #> '{solicitud,rc,numero}')
+          <> 'string'
+       OR pg_catalog.jsonb_typeof(a #> '{solicitud,rc,fecha}')
+          <> 'string'
+       OR pg_catalog.jsonb_typeof(a #> '{solicitud,rc,documento_ref}')
+          <> 'string'
+       OR pg_catalog.jsonb_typeof(a #> '{solicitud,rc,importe}')
+          <> 'object'
+       OR (SELECT pg_catalog.count(*) FROM pg_catalog.jsonb_object_keys(
+               a #> '{solicitud,rc,importe}')) <> 2
+       OR NOT ((a #> '{solicitud,rc,importe}') ?&
+               ARRAY['centimos', 'moneda'])
+       OR pg_catalog.jsonb_typeof(
+           a #> '{solicitud,rc,importe,centimos}') <> 'number'
+       OR pg_catalog.jsonb_typeof(a #> '{solicitud,rc,importe,moneda}')
+          <> 'string'
+       OR pg_catalog.jsonb_typeof(
+           a #> '{solicitud,documentos_adjuntos}') <> 'array'
+       OR pg_catalog.jsonb_array_length(
+           a #> '{solicitud,documentos_adjuntos}') > 100
+       OR EXISTS (
+           SELECT 1 FROM pg_catalog.jsonb_array_elements(
+               a #> '{solicitud,documentos_adjuntos}') AS e(valor)
+           WHERE pg_catalog.jsonb_typeof(e.valor) <> 'string'
+              OR e.valor #>> '{}' !~
+                 '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$')
+       OR pg_catalog.jsonb_typeof(a -> 'actuacion') <> 'object'
+       OR (SELECT pg_catalog.count(*)
+             FROM pg_catalog.jsonb_object_keys(a -> 'actuacion')) <> 13
+       OR NOT ((a -> 'actuacion') ?& ARRAY[
+           'secuencia', 'version_expediente', 'accion_clave', 'actor_ref',
+           'unidad_ref', 'recibo_ref', 'realizada_en', 'fase_origen',
+           'fase_destino', 'estado_origen', 'estado_destino',
+           'observaciones', 'documentos_ref'
+       ])
+       OR pg_catalog.jsonb_typeof(a #> '{actuacion,secuencia}')
+          <> 'number'
+       OR pg_catalog.jsonb_typeof(a #> '{actuacion,version_expediente}')
+          <> 'number'
+       OR EXISTS (
+           SELECT 1
+             FROM pg_catalog.jsonb_object_keys(a -> 'actuacion') AS k(clave)
+            WHERE CASE WHEN k.clave IN (
+                'secuencia', 'version_expediente', 'documentos_ref') THEN false
+            ELSE pg_catalog.jsonb_typeof(
+                (a -> 'actuacion') -> k.clave) <> 'string'
+            END)
+       OR pg_catalog.jsonb_typeof(a #> '{actuacion,documentos_ref}')
+          <> 'array'
+       OR pg_catalog.jsonb_array_length(
+           a #> '{actuacion,documentos_ref}') > 100
+       OR EXISTS (
+           SELECT 1 FROM pg_catalog.jsonb_array_elements(
+               a #> '{actuacion,documentos_ref}') AS e(valor)
+           WHERE pg_catalog.jsonb_typeof(e.valor) <> 'string'
+              OR e.valor #>> '{}' !~
+                 '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$')
+       OR vec_contratacion_temporal.reconstruir_efecto_alta_v2(a)
           IS DISTINCT FROM p_alta_canonica
        OR a ->> 'esquema' <>
-          'vec.contratacion-temporal.alta-persistencia.v1'
-       OR a ->> 'version' <> '1'
-       OR a ->> 'flujo_version' !~ '^[1-9][0-9]{0,15}$'
-       OR (a ->> 'flujo_version')::numeric >
+          'vec.contratacion-temporal.efecto-alta.v2'
+       OR (a ->> 'version') !~ '^[1-9][0-9]{0,15}$'
+       OR (a ->> 'version')::numeric <> 1
+       OR (a #>> '{flujo,version}') !~ '^[1-9][0-9]{0,15}$'
+       OR (a #>> '{flujo,version}')::numeric >
           9007199254740991::numeric
-       OR a ->> 'estado' <> 'en_curso'
+       OR (a #>> '{actuacion,secuencia}') !~ '^[1-9][0-9]{0,15}$'
+       OR (a #>> '{actuacion,secuencia}')::numeric <> 1
+       OR (a #>> '{actuacion,version_expediente}')
+          !~ '^[1-9][0-9]{0,15}$'
+       OR (a #>> '{actuacion,version_expediente}')::numeric <> 1
+       OR (a #>> '{solicitud,rc,importe,centimos}')
+          !~ '^(0|[1-9][0-9]{0,15})$'
+       OR (a #>> '{solicitud,rc,importe,centimos}')::numeric >
+          9007199254740991::numeric
+       OR a ->> 'estado_actual' <> 'en_curso'
        OR a ->> 'numero_visible' !~
           '^[0-9]{4}/[A-Za-z0-9._-]{1,40}$'
        OR EXISTS (
            SELECT 1 FROM pg_catalog.unnest(ARRAY[
                a ->> 'reserva_ref', a ->> 'expediente_ref',
                a ->> 'recibo_ref', a ->> 'organizacion_ref',
-               a ->> 'centro_ref', a ->> 'categoria_ref',
+               a #>> '{solicitud,centro_ref}',
+               a #>> '{solicitud,categoria_ref}',
                a ->> 'actor_ref', a ->> 'perfil_ref',
-               a ->> 'flujo_ref', a ->> 'fase_clave',
-               a ->> 'accion_clave', a ->> 'unidad_ref'
+               a #>> '{flujo,definicion_ref}', a ->> 'fase_actual',
+               a #>> '{actuacion,accion_clave}',
+               a #>> '{actuacion,unidad_ref}'
            ]) AS r(valor)
            WHERE r.valor !~
-             '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
-       )
-       OR a ->> 'flujo_huella_sha256' !~ '^[0-9a-f]{64}$'
-       OR a ->> 'solicitud_huella_sha256' !~ '^[0-9a-f]{64}$'
-       OR a ->> 'realizada_en' !~
-          '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z$'
+             '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$')
+       OR a #>> '{flujo,huella_sha256}' !~ '^[0-9a-f]{64}$'
+       OR a ->> 'creado_en' !~
+          '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{6}Z$'
+       OR a ->> 'actualizado_en' <> a ->> 'creado_en'
+       OR a #>> '{actuacion,realizada_en}' <> a ->> 'creado_en'
+       OR a #>> '{actuacion,actor_ref}' <> a ->> 'actor_ref'
+       OR a #>> '{actuacion,recibo_ref}' <> a ->> 'recibo_ref'
+       OR a #>> '{actuacion,fase_origen}' <> ''
+       OR a #>> '{actuacion,fase_destino}' <> a ->> 'fase_actual'
+       OR a #>> '{actuacion,estado_origen}' <> 'pendiente'
+       OR a #>> '{actuacion,estado_destino}' <> a ->> 'estado_actual'
        OR a ->> 'actor_ref' <> d ->> 'principal_id'
        OR a ->> 'perfil_ref' <> d ->> 'perfil_activo_ref' THEN
         RAISE EXCEPTION USING
             ERRCODE = '22023',
             MESSAGE = 'proyección de alta inválida';
     END IF;
-
     IF pg_catalog.jsonb_typeof(s) <> 'object'
        OR (SELECT pg_catalog.count(*)
              FROM pg_catalog.jsonb_object_keys(s)) <> 3
@@ -205,92 +319,89 @@ BEGIN
             OR NOT (e.valor ?& ARRAY[
                 'generacion', 'ambito_hmac', 'huella_hmac'
             ])
+            OR pg_catalog.jsonb_typeof(e.valor -> 'generacion')
+               <> 'number'
+            OR pg_catalog.jsonb_typeof(e.valor -> 'ambito_hmac')
+               <> 'string'
+            OR pg_catalog.jsonb_typeof(e.valor -> 'huella_hmac')
+               <> 'string'
             OR e.valor ->> 'generacion' !~ '^[1-9][0-9]{0,8}$'
+            OR (e.valor ->> 'generacion')::numeric >
+               9007199254740991::numeric
             OR e.valor ->> 'ambito_hmac' !~
                (
                  '^hmac-sha256:vec[.]contratacion-temporal[.]'
-                 || 'ambito-idempotencia/v[1-9][0-9]{0,8}:[a-f0-9]{64}$'
-               )
+                 || 'ambito-idempotencia/v[1-9][0-9]{0,8}:[a-f0-9]{64}$')
             OR e.valor ->> 'huella_hmac' !~
                (
                  '^hmac-sha256:vec[.]contratacion-temporal[.]'
-                 || 'huella-peticion/v[1-9][0-9]{0,8}:[a-f0-9]{64}$'
-               )
+                 || 'huella-peticion/v[1-9][0-9]{0,8}:[a-f0-9]{64}$')
             OR pg_catalog.right(e.valor ->> 'ambito_hmac', 64) =
                pg_catalog.repeat('0', 64)
             OR pg_catalog.right(e.valor ->> 'huella_hmac', 64) =
                pg_catalog.repeat('0', 64)
             OR substring(
                  e.valor ->> 'ambito_hmac'
-                 FROM '/v([1-9][0-9]{0,8}):'
-               )::integer <> (e.valor ->> 'generacion')::integer
+                 FROM '/v([1-9][0-9]{0,8}):')::integer <> (e.valor ->> 'generacion')::integer
             OR substring(
                  e.valor ->> 'huella_hmac'
-                 FROM '/v([1-9][0-9]{0,8}):'
-               )::integer <> (e.valor ->> 'generacion')::integer
-    ) THEN
+                 FROM '/v([1-9][0-9]{0,8}):')::integer <> (e.valor ->> 'generacion')::integer) THEN
         RAISE EXCEPTION USING
             ERRCODE = '22023',
             MESSAGE = 'sellos HMAC inválidos';
     END IF;
     SELECT pg_catalog.array_agg(
-               (e.valor ->> 'generacion')::integer ORDER BY e.orden
-           ),
+               (e.valor ->> 'generacion')::integer ORDER BY e.orden),
            pg_catalog.array_agg(
-               e.valor ->> 'ambito_hmac' ORDER BY e.orden
-           )
+               e.valor ->> 'ambito_hmac' ORDER BY e.orden)
       INTO v_generaciones, v_aliases
       FROM pg_catalog.jsonb_array_elements(v_pares)
            WITH ORDINALITY AS e(valor, orden);
     SELECT pg_catalog.array_agg(
-               generacion ORDER BY posicion
-           )
+               generacion ORDER BY posicion)
       INTO v_generaciones_politica
       FROM vec_contratacion_temporal.politica_generaciones_hmac_alta;
     IF v_generaciones IS DISTINCT FROM v_generaciones_politica
        OR pg_catalog.cardinality(v_generaciones) <>
           pg_catalog.cardinality(
               ARRAY(SELECT DISTINCT x FROM pg_catalog.unnest(
-                  v_generaciones
-              ) AS u(x))
-          ) THEN
+                  v_generaciones) AS u(x))) THEN
         RAISE EXCEPTION USING
             ERRCODE = '22023',
             MESSAGE = 'política HMAC no satisfecha';
     END IF;
     v_activo_ambito := s #>> '{activo,ambito_hmac}';
     v_activo_huella := s #>> '{activo,huella_hmac}';
-
+    v_huella_alta := pg_catalog.encode(
+        pg_catalog.sha256(p_alta_canonica), 'hex');
     -- Cierra la ligadura completa del recurso que originó la decisión V3.
     v_contexto_recurso := pg_catalog.convert_to(
         '{"ambitos":{"categoria_ref":' ||
           vec_contratacion_temporal.texto_json_go_v1(
-              a ->> 'categoria_ref'
-          ) ||
+              a #>> '{solicitud,categoria_ref}') ||
         ',"centro_ref":' ||
-          vec_contratacion_temporal.texto_json_go_v1(a ->> 'centro_ref') ||
+          vec_contratacion_temporal.texto_json_go_v1(
+              a #>> '{solicitud,centro_ref}') ||
         ',"organizacion_ref":' ||
           vec_contratacion_temporal.texto_json_go_v1(
-              a ->> 'organizacion_ref'
-          ) ||
-        '},"atributos":{"flujo_huella_sha256":' ||
+              a ->> 'organizacion_ref') ||
+        '},"atributos":{"efecto_huella_sha256":' ||
+          vec_contratacion_temporal.texto_json_go_v1(v_huella_alta) ||
+        ',"flujo_huella_sha256":' ||
           vec_contratacion_temporal.texto_json_go_v1(
-              a ->> 'flujo_huella_sha256'
-          ) ||
+              a #>> '{flujo,huella_sha256}') ||
         ',"flujo_ref":' ||
-          vec_contratacion_temporal.texto_json_go_v1(a ->> 'flujo_ref') ||
+          vec_contratacion_temporal.texto_json_go_v1(
+              a #>> '{flujo,definicion_ref}') ||
         ',"flujo_version":' ||
           vec_contratacion_temporal.texto_json_go_v1(
-              a ->> 'flujo_version'
-          ) ||
+              a #>> '{flujo,version}') ||
         ',"huella_peticion_hmac_activa":' ||
           vec_contratacion_temporal.texto_json_go_v1(v_activo_huella) ||
         '}}',
-        'UTF8'
-    );
+        'UTF8');
     v_huella_contexto_recurso := pg_catalog.encode(
-        pg_catalog.sha256(v_contexto_recurso), 'hex'
-    );
+        pg_catalog.sha256(v_contexto_recurso), 'hex');
     IF d ->> 'recurso_ref' <> v_activo_ambito
        OR d ->> 'modulo_id' <> 'contratacion_temporal'
        OR d ->> 'tipo_recurso' <> 'expediente_contratacion_temporal'
@@ -302,7 +413,6 @@ BEGIN
             ERRCODE = '42501',
             MESSAGE = 'efecto de alta no autorizado';
     END IF;
-
     SELECT * INTO STRICT v_consumo
       FROM vec_autorizacion_atestada_v3.
            registrar_y_consumir_decision_v3_atestada(
@@ -310,8 +420,7 @@ BEGIN
                p_motivo_canonico, p_contexto_actor_canonico,
                p_persona_version, p_perfil_version,
                p_payload_vec_ad_3, p_sobre_cose_sign1,
-               p_evidencia_verificacion, p_raiz_publica_spki
-           );
+               p_evidencia_verificacion, p_raiz_publica_spki);
     IF v_consumo.efecto_ref <> v_activo_ambito
        OR v_consumo.huella_efecto_sha256 <>
           v_huella_contexto_recurso THEN
@@ -319,16 +428,13 @@ BEGIN
             ERRCODE = '42501',
             MESSAGE = 'consumo de alta incoherente';
     END IF;
-
     -- Orden total de locks de alias para que todas las sesiones converjan.
     PERFORM pg_catalog.pg_advisory_xact_lock(
-        pg_catalog.hashtextextended('vec_ct:alias:' || alias, 0)
-    )
+        pg_catalog.hashtextextended('vec_ct:alias:' || alias, 0))
       FROM pg_catalog.unnest(v_aliases) AS u(alias)
      ORDER BY alias COLLATE "C";
     SELECT pg_catalog.array_agg(
-               DISTINCT ambito_raiz_hmac ORDER BY ambito_raiz_hmac
-           )
+               DISTINCT ambito_raiz_hmac ORDER BY ambito_raiz_hmac)
       INTO v_raices
       FROM vec_contratacion_temporal.alias_ambito_alta
      WHERE alias_hmac = ANY (v_aliases);
@@ -344,21 +450,17 @@ BEGIN
         INSERT INTO vec_contratacion_temporal.identidad_reserva_alta (
             ambito_hmac, reserva_ref, expediente_ref, numero_visible,
             recibo_ref, huella_peticion_hmac, organizacion_ref,
-            actor_ref, perfil_ref, creada_en
-        ) VALUES (
+            actor_ref, perfil_ref, creada_en) VALUES (
             v_raiz, a ->> 'reserva_ref', a ->> 'expediente_ref',
             a ->> 'numero_visible', a ->> 'recibo_ref',
             v_activo_huella, a ->> 'organizacion_ref',
             a ->> 'actor_ref', a ->> 'perfil_ref',
-            (a ->> 'realizada_en')::timestamptz
-        );
+            (a #>> '{actuacion,realizada_en}')::timestamptz);
         INSERT INTO vec_contratacion_temporal.reserva_alta_version (
-            ambito_hmac, revision, estado, registrada_en
-        ) VALUES (v_raiz, 1, 'reservada', clock_timestamp());
+            ambito_hmac, revision, estado, registrada_en) VALUES (v_raiz, 1, 'reservada', clock_timestamp());
         INSERT INTO vec_contratacion_temporal.reserva_alta_actual
             VALUES (v_raiz, 1);
     END IF;
-
     SELECT * INTO STRICT v_identidad
       FROM vec_contratacion_temporal.identidad_reserva_alta
      WHERE ambito_hmac = v_raiz;
@@ -373,7 +475,6 @@ BEGIN
             ERRCODE = '23505',
             MESSAGE = 'reserva de alta en conflicto';
     END IF;
-
     FOR v_par IN
         SELECT e.valor
           FROM pg_catalog.jsonb_array_elements(v_pares)
@@ -384,36 +485,26 @@ BEGIN
             SELECT 1
               FROM vec_contratacion_temporal.alias_ambito_alta x
              WHERE x.alias_hmac = v_par ->> 'ambito_hmac'
-               AND x.ambito_raiz_hmac <> v_raiz
-        ) OR EXISTS (
+               AND x.ambito_raiz_hmac <> v_raiz) OR EXISTS (
             SELECT 1
               FROM vec_contratacion_temporal.alias_huella_alta x
              WHERE x.ambito_raiz_hmac = v_raiz
                AND x.generacion =
                    (v_par ->> 'generacion')::integer
-               AND x.alias_hmac <> v_par ->> 'huella_hmac'
-        ) THEN
+               AND x.alias_hmac <> v_par ->> 'huella_hmac') THEN
             RAISE EXCEPTION USING
                 ERRCODE = '23505',
                 MESSAGE = 'par HMAC en conflicto';
         END IF;
         INSERT INTO vec_contratacion_temporal.alias_ambito_alta (
-            alias_hmac, ambito_raiz_hmac, generacion, registrada_en
-        ) VALUES (
+            alias_hmac, ambito_raiz_hmac, generacion, registrada_en) VALUES (
             v_par ->> 'ambito_hmac', v_raiz,
-            (v_par ->> 'generacion')::integer, clock_timestamp()
-        ) ON CONFLICT DO NOTHING;
+            (v_par ->> 'generacion')::integer, clock_timestamp()) ON CONFLICT DO NOTHING;
         INSERT INTO vec_contratacion_temporal.alias_huella_alta (
-            ambito_raiz_hmac, generacion, alias_hmac, registrada_en
-        ) VALUES (
+            ambito_raiz_hmac, generacion, alias_hmac, registrada_en) VALUES (
             v_raiz, (v_par ->> 'generacion')::integer,
-            v_par ->> 'huella_hmac', clock_timestamp()
-        ) ON CONFLICT DO NOTHING;
+            v_par ->> 'huella_hmac', clock_timestamp()) ON CONFLICT DO NOTHING;
     END LOOP;
-
-    v_huella_alta := pg_catalog.encode(
-        pg_catalog.sha256(p_alta_canonica), 'hex'
-    );
     SELECT e.expediente_ref, e.numero_visible, v.version,
            i.recibo_ref, au.auditoria_ref, o.evento_ref,
            rv.confirmada_en, v.huella_alta_sha256,
@@ -444,17 +535,21 @@ BEGIN
                 MESSAGE = 'expediente de alta en conflicto';
         END IF;
         v_recibo_huella := pg_catalog.encode(pg_catalog.sha256(
-            pg_catalog.convert_to(
-                v_existente.expediente_ref || ':' ||
-                v_existente.numero_visible || ':' ||
-                v_existente.version::text || ':' ||
-                v_existente.recibo_ref || ':' ||
-                v_existente.auditoria_ref || ':' ||
-                v_existente.evento_ref || ':' ||
-                v_existente.confirmada_en::text,
-                'UTF8'
-            )
-        ), 'hex');
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                v_existente.expediente_ref) ||
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                v_existente.numero_visible) ||
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                v_existente.version::text) ||
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                v_existente.recibo_ref) ||
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                v_existente.auditoria_ref) ||
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                v_existente.evento_ref) ||
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                vec_contratacion_temporal.instante_utc_v1(
+                    v_existente.confirmada_en))), 'hex');
         RETURN QUERY SELECT
             v_existente.expediente_ref, v_existente.numero_visible,
             v_existente.version, v_existente.recibo_ref,
@@ -462,137 +557,127 @@ BEGIN
             v_existente.confirmada_en, v_recibo_huella;
         RETURN;
     END IF;
-
     v_ahora := pg_catalog.date_trunc(
-        'microseconds', clock_timestamp()
-    );
-    IF v_ahora < (a ->> 'realizada_en')::timestamptz THEN
+        'microseconds', clock_timestamp());
+    IF v_ahora < (a #>> '{actuacion,realizada_en}')::timestamptz THEN
         RAISE EXCEPTION USING
             ERRCODE = '22023',
             MESSAGE = 'instante de alta inválido';
     END IF;
     v_auditoria_ref := 'aud_ct_' || pg_catalog.substr(
         pg_catalog.encode(pg_catalog.sha256(
-            pg_catalog.convert_to(
-                v_consumo.decision_ref || ':' ||
-                (a ->> 'expediente_ref'), 'UTF8'
-            )
-        ), 'hex'), 1, 32
-    );
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                v_consumo.decision_ref) ||
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                a ->> 'expediente_ref')), 'hex'), 1, 32);
     v_evento_ref := 'evt_ct_' || pg_catalog.substr(
         pg_catalog.encode(pg_catalog.sha256(
-            pg_catalog.convert_to(
-                (a ->> 'expediente_ref') || ':' ||
-                v_consumo.consumo_huella_sha256, 'UTF8'
-            )
-        ), 'hex'), 1, 32
-    );
-
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                a ->> 'expediente_ref') ||
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                v_consumo.consumo_huella_sha256)), 'hex'), 1, 32);
     INSERT INTO vec_contratacion_temporal.expediente_alta (
         expediente_ref, reserva_ref, numero_visible, organizacion_ref,
         actor_ref, perfil_ref, decision_ref, efecto_ref,
-        huella_efecto_sha256, creada_en
-    ) VALUES (
+        huella_efecto_sha256, creada_en) VALUES (
         a ->> 'expediente_ref', a ->> 'reserva_ref',
         a ->> 'numero_visible', a ->> 'organizacion_ref',
         a ->> 'actor_ref', a ->> 'perfil_ref',
         v_consumo.decision_ref, v_consumo.efecto_ref,
         v_consumo.huella_efecto_sha256,
-        (a ->> 'realizada_en')::timestamptz
-    );
+        (a ->> 'creado_en')::timestamptz);
     INSERT INTO vec_contratacion_temporal.expediente_alta_version (
         expediente_ref, version, alta_canonica, huella_alta_sha256,
         flujo_ref, flujo_version, flujo_huella_sha256, fase_clave,
-        estado, solicitud_huella_sha256, registrada_en
-    ) VALUES (
+        estado, solicitud_huella_sha256, registrada_en) VALUES (
         a ->> 'expediente_ref', 1, p_alta_canonica, v_huella_alta,
-        a ->> 'flujo_ref', (a ->> 'flujo_version')::numeric,
-        a ->> 'flujo_huella_sha256', a ->> 'fase_clave',
-        a ->> 'estado', a ->> 'solicitud_huella_sha256', v_ahora
-    );
+        a #>> '{flujo,definicion_ref}',
+        (a #>> '{flujo,version}')::numeric,
+        a #>> '{flujo,huella_sha256}', a ->> 'fase_actual',
+        a ->> 'estado_actual',
+        pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+            vec_contratacion_temporal.reconstruir_solicitud_efecto_v2(
+                a -> 'solicitud'), 'UTF8')), 'hex'),
+        v_ahora);
     INSERT INTO vec_contratacion_temporal.actuacion_alta (
         expediente_ref, secuencia, version_expediente, accion_clave,
         actor_ref, unidad_ref, recibo_ref, fase_destino,
-        estado_destino, realizada_en, huella_sha256
-    ) VALUES (
-        a ->> 'expediente_ref', 1, 1, a ->> 'accion_clave',
-        a ->> 'actor_ref', a ->> 'unidad_ref', a ->> 'recibo_ref',
-        a ->> 'fase_clave', a ->> 'estado',
-        (a ->> 'realizada_en')::timestamptz,
-        pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
-            (a ->> 'expediente_ref') || ':1:' ||
-            (a ->> 'accion_clave') || ':' || (a ->> 'actor_ref') || ':' ||
-            (a ->> 'unidad_ref') || ':' || (a ->> 'recibo_ref') || ':' ||
-            (a ->> 'fase_clave') || ':' || (a ->> 'estado') || ':' ||
-            (a ->> 'realizada_en'), 'UTF8'
-        )), 'hex')
-    );
-
+        estado_destino, realizada_en, huella_sha256) VALUES (
+        a ->> 'expediente_ref', 1, 1,
+        a #>> '{actuacion,accion_clave}',
+        a #>> '{actuacion,actor_ref}',
+        a #>> '{actuacion,unidad_ref}',
+        a #>> '{actuacion,recibo_ref}',
+        a #>> '{actuacion,fase_destino}',
+        a #>> '{actuacion,estado_destino}',
+        (a #>> '{actuacion,realizada_en}')::timestamptz,
+        pg_catalog.encode(pg_catalog.sha256(
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                a ->> 'expediente_ref') ||
+            vec_contratacion_temporal.encuadrar_texto_v1(
+                (a #> '{actuacion}')::text)), 'hex'));
     SELECT secuencia_auditoria, cabeza_auditoria_sha256,
            secuencia_outbox, cabeza_outbox_sha256
       INTO STRICT v_secuencia_auditoria, v_anterior_auditoria,
                   v_secuencia_outbox, v_anterior_outbox
-      FROM vec_contratacion_temporal.control_cadenas_alta
+     FROM vec_contratacion_temporal.control_cadenas_alta
      WHERE control_id
      FOR UPDATE;
+    IF v_secuencia_auditoria >= 9007199254740991::numeric
+       OR v_secuencia_outbox >= 9007199254740991::numeric THEN
+        RAISE EXCEPTION USING
+            ERRCODE = '22003',
+            MESSAGE = 'límite de secuencia alcanzado';
+    END IF;
     v_secuencia_auditoria := v_secuencia_auditoria + 1;
     v_secuencia_outbox := v_secuencia_outbox + 1;
     v_huella_auditoria := pg_catalog.encode(pg_catalog.sha256(
-        pg_catalog.convert_to(
-            v_secuencia_auditoria::text || ':' ||
-            v_anterior_auditoria || ':' || v_auditoria_ref || ':' ||
-            (a ->> 'expediente_ref') || ':' ||
-            v_consumo.decision_ref || ':' ||
-            v_consumo.consumo_huella_sha256 || ':' || v_huella_alta,
-            'UTF8'
-        )
-    ), 'hex');
+        vec_contratacion_temporal.encuadrar_texto_v1(
+            v_secuencia_auditoria::text) ||
+        vec_contratacion_temporal.encuadrar_texto_v1(
+            v_anterior_auditoria) ||
+        vec_contratacion_temporal.encuadrar_texto_v1(v_auditoria_ref) ||
+        vec_contratacion_temporal.encuadrar_texto_v1(
+            a ->> 'expediente_ref') ||
+        vec_contratacion_temporal.encuadrar_texto_v1(
+            v_consumo.decision_ref) ||
+        vec_contratacion_temporal.encuadrar_texto_v1(
+            v_consumo.consumo_huella_sha256) ||
+        vec_contratacion_temporal.encuadrar_texto_v1(v_huella_alta)), 'hex');
     INSERT INTO vec_contratacion_temporal.auditoria_alta (
         auditoria_ref, secuencia, expediente_ref, decision_ref,
-        anterior_sha256, huella_sha256, registrada_en
-    ) VALUES (
+        anterior_sha256, huella_sha256, registrada_en) VALUES (
         v_auditoria_ref, v_secuencia_auditoria,
         a ->> 'expediente_ref', v_consumo.decision_ref,
-        v_anterior_auditoria, v_huella_auditoria, v_ahora
-    );
-
+        v_anterior_auditoria, v_huella_auditoria, v_ahora);
     v_payload_outbox := pg_catalog.convert_to(
         '{"esquema":"vec.contratacion-temporal.evento-expediente-registrado.v1"' ||
         ',"evento_ref":' ||
           vec_contratacion_temporal.texto_json_go_v1(v_evento_ref) ||
         ',"expediente_ref":' ||
           vec_contratacion_temporal.texto_json_go_v1(
-              a ->> 'expediente_ref'
-          ) ||
+              a ->> 'expediente_ref') ||
         ',"version":1,"ocurrido_en":' ||
           vec_contratacion_temporal.texto_json_go_v1(
-              pg_catalog.to_char(
-                  v_ahora AT TIME ZONE 'UTC',
-                  'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
-              )
-          ) || '}',
-        'UTF8'
-    );
+              vec_contratacion_temporal.instante_utc_v1(v_ahora)) || '}',
+        'UTF8');
     v_huella_payload := pg_catalog.encode(
-        pg_catalog.sha256(v_payload_outbox), 'hex'
-    );
+        pg_catalog.sha256(v_payload_outbox), 'hex');
     v_huella_outbox := pg_catalog.encode(pg_catalog.sha256(
-        pg_catalog.convert_to(
-            v_secuencia_outbox::text || ':' || v_anterior_outbox || ':' ||
-            v_evento_ref || ':' || v_huella_payload,
-            'UTF8'
-        )
-    ), 'hex');
+        vec_contratacion_temporal.encuadrar_texto_v1(
+            v_secuencia_outbox::text) ||
+        vec_contratacion_temporal.encuadrar_texto_v1(
+            v_anterior_outbox) ||
+        vec_contratacion_temporal.encuadrar_texto_v1(v_evento_ref) ||
+        vec_contratacion_temporal.encuadrar_texto_v1(v_huella_payload)), 'hex');
     INSERT INTO vec_contratacion_temporal.outbox_alta (
         evento_ref, secuencia, expediente_ref, tipo_evento,
         payload_canonico, payload_huella_sha256, anterior_sha256,
-        huella_sha256, registrada_en
-    ) VALUES (
+        huella_sha256, registrada_en) VALUES (
         v_evento_ref, v_secuencia_outbox, a ->> 'expediente_ref',
         'contratacion_temporal.expediente.registrado.v1',
         v_payload_outbox, v_huella_payload, v_anterior_outbox,
-        v_huella_outbox, v_ahora
-    );
+        v_huella_outbox, v_ahora);
     UPDATE vec_contratacion_temporal.control_cadenas_alta
        SET secuencia_auditoria = v_secuencia_auditoria,
            cabeza_auditoria_sha256 = v_huella_auditoria,
@@ -600,7 +685,6 @@ BEGIN
            cabeza_outbox_sha256 = v_huella_outbox,
            actualizada_en = v_ahora
      WHERE control_id;
-
     SELECT revision INTO STRICT v_revision
       FROM vec_contratacion_temporal.reserva_alta_actual
      WHERE ambito_hmac = v_raiz
@@ -608,24 +692,23 @@ BEGIN
     v_revision := v_revision + 1;
     INSERT INTO vec_contratacion_temporal.reserva_alta_version (
         ambito_hmac, revision, estado, version_expediente,
-        auditoria_ref, evento_ref, confirmada_en, registrada_en
-    ) VALUES (
+        auditoria_ref, evento_ref, confirmada_en, registrada_en) VALUES (
         v_raiz, v_revision, 'confirmada', 1,
-        v_auditoria_ref, v_evento_ref, v_ahora, v_ahora
-    );
+        v_auditoria_ref, v_evento_ref, v_ahora, v_ahora);
     UPDATE vec_contratacion_temporal.reserva_alta_actual
        SET revision = v_revision
      WHERE ambito_hmac = v_raiz;
-
     v_recibo_huella := pg_catalog.encode(pg_catalog.sha256(
-        pg_catalog.convert_to(
-            (a ->> 'expediente_ref') || ':' ||
-            (a ->> 'numero_visible') || ':1:' ||
-            (a ->> 'recibo_ref') || ':' || v_auditoria_ref || ':' ||
-            v_evento_ref || ':' || v_ahora::text,
-            'UTF8'
-        )
-    ), 'hex');
+        vec_contratacion_temporal.encuadrar_texto_v1(
+            a ->> 'expediente_ref') ||
+        vec_contratacion_temporal.encuadrar_texto_v1(
+            a ->> 'numero_visible') ||
+        vec_contratacion_temporal.encuadrar_texto_v1('1') ||
+        vec_contratacion_temporal.encuadrar_texto_v1(a ->> 'recibo_ref') ||
+        vec_contratacion_temporal.encuadrar_texto_v1(v_auditoria_ref) ||
+        vec_contratacion_temporal.encuadrar_texto_v1(v_evento_ref) ||
+        vec_contratacion_temporal.encuadrar_texto_v1(
+            vec_contratacion_temporal.instante_utc_v1(v_ahora))), 'hex');
     RETURN QUERY SELECT
         a ->> 'expediente_ref', a ->> 'numero_visible', 1::numeric,
         a ->> 'recibo_ref', v_auditoria_ref, v_evento_ref,
@@ -638,19 +721,15 @@ EXCEPTION
             MESSAGE = 'entrada de alta inválida';
 END
 $funcion$;
-
 REVOKE EXECUTE ON FUNCTION
     vec_contratacion_temporal.preparar_alta_v2(jsonb)
     FROM vec_contratacion_temporal_ejecutor;
 REVOKE ALL ON FUNCTION
     vec_contratacion_temporal.confirmar_alta_atestada_v1(
         bytea, bytea, bytea, bytea, numeric, numeric,
-        bytea, bytea, bytea, bytea, bytea, bytea
-    ) FROM PUBLIC, vec_contratacion_temporal_ejecutor;
+        bytea, bytea, bytea, bytea, bytea, bytea) FROM PUBLIC, vec_contratacion_temporal_ejecutor;
 GRANT EXECUTE ON FUNCTION
     vec_contratacion_temporal.confirmar_alta_atestada_v1(
         bytea, bytea, bytea, bytea, numeric, numeric,
-        bytea, bytea, bytea, bytea, bytea, bytea
-    ) TO vec_contratacion_temporal_ejecutor;
-
+        bytea, bytea, bytea, bytea, bytea, bytea) TO vec_contratacion_temporal_ejecutor;
 COMMIT;

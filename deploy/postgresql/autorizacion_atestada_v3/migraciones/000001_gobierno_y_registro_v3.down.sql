@@ -15,6 +15,26 @@ DECLARE
 BEGIN
     SELECT
         (SELECT count(*) FROM
+            vec_autorizacion_atestada_v3.clave_capacidad_version)
+      + (SELECT count(*) FROM
+            vec_autorizacion_atestada_v3.puntero_clave_emision)
+      + (SELECT count(*) FROM
+            vec_autorizacion_atestada_v3.revocacion_clave_capacidad)
+      + (SELECT count(*) FROM
+            vec_autorizacion_atestada_v3.configuracion_confianza_version)
+      + (SELECT count(*) FROM
+            vec_autorizacion_atestada_v3.raiz_confianza_version)
+      + (SELECT count(*) FROM
+            vec_autorizacion_atestada_v3.configuracion_raiz)
+      + (SELECT count(*) FROM
+            vec_autorizacion_atestada_v3.puntero_configuracion_actual)
+      + (SELECT count(*) FROM
+            vec_autorizacion_atestada_v3.revocacion_configuracion)
+      + (SELECT count(*) FROM
+            vec_autorizacion_atestada_v3.revocacion_raiz)
+      + (SELECT count(*) FROM
+            vec_autorizacion_atestada_v3.checkpoint_gobierno)
+      + (SELECT count(*) FROM
             vec_autorizacion_atestada_v3.atestacion_decision_v3)
       + (SELECT count(*) FROM
             vec_autorizacion_atestada_v3.consumo_decision_v3)
@@ -50,6 +70,7 @@ DROP TABLE vec_autorizacion_atestada_v3.puntero_clave_emision;
 DROP TABLE vec_autorizacion_atestada_v3.clave_capacidad_version;
 DROP FUNCTION vec_autorizacion_atestada_v3.rechazar_truncado();
 DROP FUNCTION vec_autorizacion_atestada_v3.rechazar_mutacion();
+DROP FUNCTION vec_autorizacion_atestada_v3.capacidad_tipos_validos(jsonb);
 DROP FUNCTION vec_autorizacion_atestada_v3.huella_sha256_valida(text);
 DROP FUNCTION vec_autorizacion_atestada_v3.texto_tecnico_valido(
     text, integer

@@ -2,28 +2,22 @@ BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
-
 SELECT pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(
-        'vec_autorizacion_atestada_v3:migracion:000002', 0
-    )
+        'vec_autorizacion_atestada_v3:migracion:000002', 0)
 );
-
 DO $prevalidacion$
 BEGIN
     IF pg_catalog.to_regprocedure(
-           'vec_autorizacion_atestada_v3.registrar_y_consumir_decision_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'
-       ) IS NOT NULL
+           'vec_autorizacion_atestada_v3.registrar_y_consumir_decision_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
        OR pg_catalog.to_regclass(
-           'vec_autorizacion_atestada_v3.clave_capacidad_version'
-       ) IS NULL THEN
+           'vec_autorizacion_atestada_v3.clave_capacidad_version') IS NULL THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
             MESSAGE = 'estado incompatible para consumidor VEC-AD-3';
     END IF;
 END
 $prevalidacion$;
-
 CREATE FUNCTION vec_autorizacion_atestada_v3.texto_json_go(
     p_valor text
 )
@@ -40,11 +34,6 @@ AS $funcion$
                '<', '\u003c'),
              '>', '\u003e')
 $funcion$;
-
--- Preparser del objeto plano antes de cualquier conversión a jsonb. Exige una
--- aparición de cada clave y exactamente 37 separadores de miembro. Por tanto,
--- duplicadas, desconocidas, ausentes y anidación se rechazan antes de que
--- jsonb pueda normalizarlas o quedarse con el último valor.
 CREATE FUNCTION vec_autorizacion_atestada_v3.capacidad_cruda_prevalida(
     p_capacidad bytea
 )
@@ -83,16 +72,14 @@ BEGIN
        OR pg_catalog.right(v_texto, 1) <> '}'
        OR (
            pg_catalog.length(v_texto) -
-           pg_catalog.length(pg_catalog.replace(v_texto, '":', ''))
-       ) / 2 <> 37 THEN
+           pg_catalog.length(pg_catalog.replace(v_texto, '":', ''))) / 2 <> 37 THEN
         RETURN false;
     END IF;
     FOREACH v_clave IN ARRAY v_claves LOOP
         v_patron := '"' || v_clave || '":';
         IF (
             pg_catalog.length(v_texto) -
-            pg_catalog.length(pg_catalog.replace(v_texto, v_patron, ''))
-        ) / pg_catalog.length(v_patron) <> 1 THEN
+            pg_catalog.length(pg_catalog.replace(v_texto, v_patron, ''))) / pg_catalog.length(v_patron) <> 1 THEN
             RETURN false;
         END IF;
     END LOOP;
@@ -100,9 +87,7 @@ BEGIN
 EXCEPTION
     WHEN character_not_in_repertoire OR untranslatable_character THEN
         RETURN false;
-END
-$funcion$;
-
+END $funcion$;
 CREATE FUNCTION vec_autorizacion_atestada_v3.capacidad_canonica(
     c jsonb
 )
@@ -150,10 +135,8 @@ AS $funcion$
       ',"raiz_valida_hasta":' || vec_autorizacion_atestada_v3.texto_json_go(c ->> 'raiz_valida_hasta') ||
       ',"suite":' || vec_autorizacion_atestada_v3.texto_json_go(c ->> 'suite') ||
       ',"mac_sha256":' || vec_autorizacion_atestada_v3.texto_json_go(c ->> 'mac_sha256') || '}',
-      'UTF8'
-    )
+      'UTF8')
 $funcion$;
-
 CREATE FUNCTION vec_autorizacion_atestada_v3.encuadrar_mac(
     p_valor text
 )
@@ -165,12 +148,9 @@ SET search_path = pg_catalog
 AS $funcion$
     SELECT pg_catalog.convert_to(
         pg_catalog.octet_length(
-            pg_catalog.convert_to(p_valor, 'UTF8')
-        )::text || ':' || p_valor || E'\n',
-        'UTF8'
-    )
+            pg_catalog.convert_to(p_valor, 'UTF8'))::text || ':' || p_valor || E'\n',
+        'UTF8')
 $funcion$;
-
 CREATE FUNCTION vec_autorizacion_atestada_v3.preimagen_mac(
     c jsonb
 )
@@ -182,8 +162,7 @@ SET search_path = pg_catalog
 AS $funcion$
     SELECT pg_catalog.string_agg(
         vec_autorizacion_atestada_v3.encuadrar_mac(v.valor),
-        ''::bytea ORDER BY v.orden
-    )
+        ''::bytea ORDER BY v.orden)
       FROM (VALUES
         (1,c ->> 'esquema'), (2,c ->> 'version'),
         (3,c ->> 'clave_id'), (4,c ->> 'clave_version'),
@@ -207,10 +186,8 @@ AS $funcion$
         (30,c ->> 'configuracion_expira_en'), (31,c ->> 'raiz_clave_id'),
         (32,c ->> 'raiz_version'), (33,c ->> 'huella_raiz_spki_sha256'),
         (34,c ->> 'raiz_valida_desde'), (35,c ->> 'raiz_valida_hasta'),
-        (36,c ->> 'suite')
-      ) AS v(orden, valor)
+        (36,c ->> 'suite')) AS v(orden, valor)
 $funcion$;
-
 CREATE FUNCTION vec_autorizacion_atestada_v3.bytea_igual_constante(
     p_primero bytea,
     p_segundo bytea
@@ -233,24 +210,19 @@ BEGIN
     END IF;
     v_maximo := greatest(
         pg_catalog.octet_length(p_primero),
-        pg_catalog.octet_length(p_segundo)
-    );
+        pg_catalog.octet_length(p_segundo));
     v_diferencia := pg_catalog.octet_length(p_primero) #
                     pg_catalog.octet_length(p_segundo);
     FOR v_i IN 0..v_maximo - 1 LOOP
         v_diferencia := v_diferencia |
             (pg_catalog.get_byte(
                 p_primero,
-                v_i % pg_catalog.octet_length(p_primero)
-            ) # pg_catalog.get_byte(
+                v_i % pg_catalog.octet_length(p_primero)) # pg_catalog.get_byte(
                 p_segundo,
-                v_i % pg_catalog.octet_length(p_segundo)
-            ));
+                v_i % pg_catalog.octet_length(p_segundo)));
     END LOOP;
     RETURN v_diferencia = 0;
-END
-$funcion$;
-
+END $funcion$;
 CREATE FUNCTION vec_autorizacion_atestada_v3.avanzar_checkpoint()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -265,31 +237,35 @@ BEGIN
       INTO v_secuencia
       FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual AS p
       JOIN vec_autorizacion_atestada_v3.configuracion_confianza_version AS c
-        ON c.revision = p.configuracion_revision;
+        ON c.revision = p.configuracion_revision
+     WHERE p.establecida_en <= pg_catalog.clock_timestamp();
     SELECT coalesce(pg_catalog.max(r.raiz_version), 0)
       INTO v_raiz
       FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual AS p
       JOIN vec_autorizacion_atestada_v3.configuracion_raiz AS r
-        ON r.configuracion_revision = p.configuracion_revision;
+        ON r.configuracion_revision = p.configuracion_revision
+     WHERE p.establecida_en <= pg_catalog.clock_timestamp();
     UPDATE vec_autorizacion_atestada_v3.checkpoint_gobierno
        SET revision = revision + 1,
            configuracion_secuencia_minima = greatest(
-               configuracion_secuencia_minima, v_secuencia
-           ),
+               configuracion_secuencia_minima, v_secuencia),
            raiz_version_minima = greatest(
-               raiz_version_minima, v_raiz
-           ),
+               raiz_version_minima, v_raiz),
            actualizada_en = clock_timestamp()
-     WHERE control_id;
-    IF NOT FOUND THEN
+     WHERE control_id
+       AND (
+           configuracion_secuencia_minima < v_secuencia
+           OR raiz_version_minima < v_raiz);
+    IF NOT FOUND AND NOT EXISTS (
+        SELECT 1
+          FROM vec_autorizacion_atestada_v3.checkpoint_gobierno
+         WHERE control_id) THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
             MESSAGE = 'checkpoint VEC-AD-3 ausente';
     END IF;
     RETURN NULL;
-END
-$funcion$;
-
+END $funcion$;
 DO $triggers_gobierno$
 DECLARE
     v_tabla text;
@@ -303,12 +279,10 @@ BEGIN
     ] LOOP
         EXECUTE pg_catalog.format(
             'CREATE TRIGGER checkpoint_despues AFTER INSERT ON vec_autorizacion_atestada_v3.%I FOR EACH ROW EXECUTE FUNCTION vec_autorizacion_atestada_v3.avanzar_checkpoint()',
-            v_tabla
-        );
+            v_tabla);
     END LOOP;
 END
 $triggers_gobierno$;
-
 ALTER TABLE vec_autorizacion_atestada_v3.checkpoint_gobierno
     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_autorizacion_atestada_v3.checkpoint_gobierno
@@ -318,9 +292,7 @@ CREATE POLICY propietario_exacto
     FOR ALL TO vec_autorizacion_atestada_v3_propietario
     USING (current_user = 'vec_autorizacion_atestada_v3_propietario')
     WITH CHECK (current_user = 'vec_autorizacion_atestada_v3_propietario');
-
-CREATE FUNCTION
-vec_autorizacion_atestada_v3.registrar_y_consumir_decision_v3_atestada(
+CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_decision_v3_atestada(
     p_capacidad_canonica bytea,
     p_decision_canonica bytea,
     p_motivo_canonico bytea,
@@ -351,6 +323,7 @@ DECLARE
     d jsonb;
     x jsonb;
     v_clave record;
+    v_puntero_clave record;
     v_config record;
     v_raiz record;
     v_registro record;
@@ -364,20 +337,18 @@ DECLARE
     v_auditoria_ref text;
     v_statement numeric;
     v_idle numeric;
+    v_revalidada_en timestamptz(6);
 BEGIN
     IF pg_catalog.current_setting('transaction_isolation') <> 'serializable'
        OR pg_catalog.current_setting('transaction_read_only') <> 'off'
        OR pg_catalog.current_setting('TimeZone') <> 'UTC'
        OR session_user = current_user
        OR NOT pg_catalog.pg_has_role(
-           session_user, 'vec_contratacion_temporal_ejecutor', 'MEMBER'
-       )
+           session_user, 'vec_contratacion_temporal_ejecutor', 'MEMBER')
        OR pg_catalog.pg_has_role(
-           session_user, 'vec_contratacion_temporal_migrador', 'MEMBER'
-       )
+           session_user, 'vec_contratacion_temporal_migrador', 'MEMBER')
        OR pg_catalog.pg_has_role(
-           session_user, 'vec_contratacion_temporal_propietario', 'MEMBER'
-       ) THEN
+           session_user, 'vec_contratacion_temporal_propietario', 'MEMBER') THEN
         RAISE EXCEPTION USING
             ERRCODE = '42501',
             MESSAGE = 'consumo VEC-AD-3 rechazado';
@@ -395,8 +366,7 @@ BEGIN
             MESSAGE = 'límites VEC-AD-3 ausentes';
     END IF;
     IF vec_autorizacion_atestada_v3.capacidad_cruda_prevalida(
-           p_capacidad_canonica
-       ) IS NOT TRUE
+           p_capacidad_canonica) IS NOT TRUE
        OR pg_catalog.octet_length(p_decision_canonica) NOT BETWEEN 1 AND 524288
        OR pg_catalog.octet_length(p_motivo_canonico) NOT BETWEEN 1 AND 65536
        OR pg_catalog.octet_length(p_contexto_actor_canonico)
@@ -408,8 +378,8 @@ BEGIN
        OR pg_catalog.octet_length(p_evidencia_verificacion)
           NOT BETWEEN 1 AND 262144
        OR pg_catalog.octet_length(p_raiz_publica_spki) <> 44
-       OR p_persona_version NOT BETWEEN 1 AND 18446744073709551615::numeric
-       OR p_perfil_version NOT BETWEEN 1 AND 18446744073709551615::numeric
+       OR p_persona_version NOT BETWEEN 1 AND 9007199254740991::numeric
+       OR p_perfil_version NOT BETWEEN 1 AND 9007199254740991::numeric
        OR pg_catalog.scale(p_persona_version) <> 0
        OR pg_catalog.scale(p_perfil_version) <> 0 THEN
         RAISE EXCEPTION USING
@@ -427,7 +397,8 @@ BEGIN
                 ERRCODE = '22023',
                 MESSAGE = 'entrada VEC-AD-3 inválida';
     END;
-    IF vec_autorizacion_atestada_v3.capacidad_canonica(c)
+    IF vec_autorizacion_atestada_v3.capacidad_tipos_validos(c) IS NOT TRUE
+       OR vec_autorizacion_atestada_v3.capacidad_canonica(c)
           IS DISTINCT FROM p_capacidad_canonica
        OR c ->> 'esquema' <>
           'vec.autorizacion.capacidad-registro-consumo-atestado.v3'
@@ -443,13 +414,13 @@ BEGIN
        OR c ->> 'configuracion_secuencia' !~ '^[1-9][0-9]{0,19}$'
        OR c ->> 'raiz_version' !~ '^[1-9][0-9]{0,19}$'
        OR (c ->> 'clave_version')::numeric >
-          18446744073709551615::numeric
+          9007199254740991::numeric
        OR (c ->> 'revision_gobierno')::numeric >
-          18446744073709551615::numeric
+          9007199254740991::numeric
        OR (c ->> 'configuracion_secuencia')::numeric >
-          18446744073709551615::numeric
+          9007199254740991::numeric
        OR (c ->> 'raiz_version')::numeric >
-          18446744073709551615::numeric
+          9007199254740991::numeric
        OR EXISTS (
            SELECT 1
              FROM pg_catalog.unnest(ARRAY[
@@ -466,33 +437,24 @@ BEGIN
                  c ->> 'mac_sha256'
              ]) AS h(valor)
             WHERE vec_autorizacion_atestada_v3.huella_sha256_valida(
-                      h.valor
-                  ) IS NOT TRUE
-       )
+                      h.valor) IS NOT TRUE)
        OR x ->> 'esquema' <> 'vec.contexto-actor.vinculado.v2'
        OR x ->> 'persona_version' <> p_persona_version::text
        OR x ->> 'perfil_version' <> p_perfil_version::text
        OR pg_catalog.encode(
-           pg_catalog.sha256(p_contexto_actor_canonico), 'hex'
-       ) <> c ->> 'huella_contexto_sha256'
+           pg_catalog.sha256(p_contexto_actor_canonico), 'hex') <> c ->> 'huella_contexto_sha256'
        OR pg_catalog.encode(
-           pg_catalog.sha256(p_decision_canonica), 'hex'
-       ) <> c ->> 'huella_decision_sha256'
+           pg_catalog.sha256(p_decision_canonica), 'hex') <> c ->> 'huella_decision_sha256'
        OR pg_catalog.encode(
-           pg_catalog.sha256(p_motivo_canonico), 'hex'
-       ) <> c ->> 'huella_motivo_sha256'
+           pg_catalog.sha256(p_motivo_canonico), 'hex') <> c ->> 'huella_motivo_sha256'
        OR pg_catalog.encode(
-           pg_catalog.sha256(p_payload_vec_ad_3), 'hex'
-       ) <> c ->> 'huella_payload_vec_ad_3_sha256'
+           pg_catalog.sha256(p_payload_vec_ad_3), 'hex') <> c ->> 'huella_payload_vec_ad_3_sha256'
        OR pg_catalog.encode(
-           pg_catalog.sha256(p_sobre_cose_sign1), 'hex'
-       ) <> c ->> 'huella_sobre_cose_sign1_sha256'
+           pg_catalog.sha256(p_sobre_cose_sign1), 'hex') <> c ->> 'huella_sobre_cose_sign1_sha256'
        OR pg_catalog.encode(
-           pg_catalog.sha256(p_evidencia_verificacion), 'hex'
-       ) <> c ->> 'huella_prueba_confianza_sha256'
+           pg_catalog.sha256(p_evidencia_verificacion), 'hex') <> c ->> 'huella_prueba_confianza_sha256'
        OR pg_catalog.encode(
-           pg_catalog.sha256(p_raiz_publica_spki), 'hex'
-       ) <> c ->> 'huella_raiz_spki_sha256'
+           pg_catalog.sha256(p_raiz_publica_spki), 'hex') <> c ->> 'huella_raiz_spki_sha256'
        OR d ->> 'decision_ref' <> c ->> 'decision_ref'
        OR d ->> 'motivo_huella_sha256' <> c ->> 'huella_motivo_sha256'
        OR d ->> 'accion' <> c ->> 'operacion'
@@ -510,10 +472,8 @@ BEGIN
             ERRCODE = '22023',
             MESSAGE = 'ligadura VEC-AD-3 inválida';
     END IF;
-
     v_huella_capacidad := pg_catalog.encode(
-        pg_catalog.sha256(p_capacidad_canonica), 'hex'
-    );
+        pg_catalog.sha256(p_capacidad_canonica), 'hex');
     PERFORM 1
       FROM vec_autorizacion_atestada_v3.checkpoint_gobierno
      WHERE control_id
@@ -526,10 +486,7 @@ BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(
         pg_catalog.hashtextextended(
             'vec_autorizacion_atestada_v3:decision:' ||
-            (c ->> 'decision_ref'), 0
-        )
-    );
-
+            (c ->> 'decision_ref'), 0));
     SELECT a.decision_ref, a.efecto_ref, a.huella_efecto_sha256,
            a.consumo_huella_sha256, u.auditoria_ref, a.consumida_en,
            t.capacidad_canonica, t.decision_canonica, t.motivo_canonico,
@@ -570,14 +527,20 @@ BEGIN
             v_replay.consumida_en;
         RETURN;
     END IF;
-
     v_ahora := clock_timestamp();
     SELECT k.* INTO v_clave
       FROM vec_autorizacion_atestada_v3.clave_capacidad_version k
      WHERE k.clave_id = c ->> 'clave_id'
        AND k.version = (c ->> 'clave_version')::numeric
      FOR SHARE;
+    SELECT p.* INTO v_puntero_clave
+      FROM vec_autorizacion_atestada_v3.puntero_clave_emision p
+     WHERE p.clave_id = c ->> 'clave_id'
+       AND p.version = (c ->> 'clave_version')::numeric
+       AND p.establecida_en <= v_ahora
+     ORDER BY p.orden DESC LIMIT 1 FOR SHARE;
     IF NOT FOUND
+       OR v_puntero_clave.clave_id IS NULL
        OR v_clave.revision_gobierno <>
           (c ->> 'revision_gobierno')::numeric
        OR v_clave.huella_gobierno_sha256 <>
@@ -598,21 +561,17 @@ BEGIN
              FROM vec_autorizacion_atestada_v3.revocacion_clave_capacidad r
             WHERE r.clave_id = v_clave.clave_id
               AND r.version = v_clave.version
-              AND r.revocada_en <= v_ahora
-       )
+              AND r.revocada_en <= v_ahora)
        OR vec_autorizacion_atestada_v3.bytea_igual_constante(
            public.hmac(
                vec_autorizacion_atestada_v3.preimagen_mac(c),
                v_clave.secreto_hmac,
-               'sha256'
-           ),
-           pg_catalog.decode(c ->> 'mac_sha256', 'hex')
-       ) IS NOT TRUE THEN
+               'sha256'),
+           pg_catalog.decode(c ->> 'mac_sha256', 'hex')) IS NOT TRUE THEN
         RAISE EXCEPTION USING
             ERRCODE = '42501',
             MESSAGE = 'capacidad VEC-AD-3 rechazada';
     END IF;
-
     SELECT cfg.*, cp.configuracion_secuencia_minima,
            cp.raiz_version_minima
       INTO v_config
@@ -661,25 +620,22 @@ BEGIN
            SELECT 1
              FROM vec_autorizacion_atestada_v3.revocacion_configuracion r
             WHERE r.configuracion_revision = v_config.revision
-              AND r.revocada_en <= v_ahora
-       )
+              AND r.revocada_en <= v_ahora)
        OR EXISTS (
            SELECT 1
              FROM vec_autorizacion_atestada_v3.revocacion_raiz r
             WHERE r.raiz_clave_id = v_raiz.clave_id
               AND r.raiz_version = v_raiz.version
-              AND r.revocada_en <= v_ahora
-       ) THEN
+              AND r.revocada_en <= v_ahora) THEN
         RAISE EXCEPTION USING
             ERRCODE = '42501',
             MESSAGE = 'confianza VEC-AD-3 rechazada';
     END IF;
-
     SELECT * INTO v_registro
-      FROM vec_autorizacion.registrar_decision_contexto_actor_v3(
+      FROM vec_autorizacion.
+           registrar_y_revalidar_decision_contexto_actor_v3(
           p_decision_canonica, p_motivo_canonico,
-          p_persona_version, p_perfil_version
-      );
+          p_persona_version, p_perfil_version);
     IF NOT FOUND OR v_registro.concedida IS NOT TRUE
        OR v_registro.decision_huella_sha256 <>
           c ->> 'huella_decision_sha256' THEN
@@ -687,83 +643,101 @@ BEGIN
             ERRCODE = '42501',
             MESSAGE = 'decisión VEC-AD-3 rechazada';
     END IF;
-
-    -- El checkpoint se mantiene bloqueado desde antes del reloj. Cualquier
-    -- rotación o revocación concurrente espera a este COMMIT; un snapshot
-    -- obsoleto en SERIALIZABLE termina con 40001.
     v_ahora := clock_timestamp();
     IF v_ahora >= (c ->> 'expira_en')::timestamptz
        OR v_ahora >= (c ->> 'decision_valida_hasta')::timestamptz
-       OR v_ahora >= v_config.expira_en
-       OR v_ahora >= v_raiz.valida_hasta THEN
+       OR v_ahora >= v_config.expira_en OR v_ahora >= v_raiz.valida_hasta
+       OR EXISTS (
+           SELECT 1 FROM
+             vec_autorizacion_atestada_v3.revocacion_clave_capacidad r
+            WHERE r.clave_id = v_clave.clave_id
+              AND r.version = v_clave.version AND r.revocada_en <= v_ahora)
+       OR EXISTS (
+           SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_configuracion r
+            WHERE r.configuracion_revision = v_config.revision
+              AND r.revocada_en <= v_ahora)
+       OR EXISTS (
+           SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_raiz r
+            WHERE r.raiz_clave_id = v_raiz.clave_id
+              AND r.raiz_version = v_raiz.version
+              AND r.revocada_en <= v_ahora) THEN
         RAISE EXCEPTION USING
             ERRCODE = '42501',
             MESSAGE = 'vigencia VEC-AD-3 agotada';
     END IF;
+    v_revalidada_en :=
+      vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(
+          p_decision_canonica, p_motivo_canonico,
+          p_persona_version, p_perfil_version);
+    IF v_revalidada_en IS NULL
+       OR v_revalidada_en < v_registro.revalidada_en THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'revalidación viva VEC-AD-3 rechazada';
+    END IF;
     v_huella_consumo := pg_catalog.encode(pg_catalog.sha256(
-        p_capacidad_canonica || p_decision_canonica ||
-        p_contexto_actor_canonico ||
-        pg_catalog.convert_to(c ->> 'efecto_ref', 'UTF8') ||
-        pg_catalog.convert_to(c ->> 'huella_efecto_sha256', 'UTF8')
-    ), 'hex');
-
+        vec_autorizacion_atestada_v3.encuadrar_mac(
+            pg_catalog.encode(p_capacidad_canonica, 'base64')) ||
+        vec_autorizacion_atestada_v3.encuadrar_mac(
+            pg_catalog.encode(p_decision_canonica, 'base64')) ||
+        vec_autorizacion_atestada_v3.encuadrar_mac(
+            pg_catalog.encode(p_contexto_actor_canonico, 'base64')) ||
+        vec_autorizacion_atestada_v3.encuadrar_mac(c ->> 'efecto_ref') ||
+        vec_autorizacion_atestada_v3.encuadrar_mac(
+            c ->> 'huella_efecto_sha256')), 'hex');
     INSERT INTO vec_autorizacion_atestada_v3.atestacion_decision_v3 (
         decision_ref, huella_decision_sha256, decision_canonica,
         motivo_canonico, contexto_actor_canonico, payload_vec_ad_3,
         sobre_cose_sign1, evidencia_verificacion, raiz_publica_spki,
         capacidad_canonica, huella_capacidad_sha256, efecto_ref,
-        huella_efecto_sha256, registrada_en
-    ) VALUES (
+        huella_efecto_sha256, registrada_en) VALUES (
         c ->> 'decision_ref', c ->> 'huella_decision_sha256',
         p_decision_canonica, p_motivo_canonico,
         p_contexto_actor_canonico, p_payload_vec_ad_3,
         p_sobre_cose_sign1, p_evidencia_verificacion,
         p_raiz_publica_spki, p_capacidad_canonica,
         v_huella_capacidad, c ->> 'efecto_ref',
-        c ->> 'huella_efecto_sha256', v_ahora
-    );
+        c ->> 'huella_efecto_sha256', v_ahora);
     INSERT INTO vec_autorizacion_atestada_v3.consumo_decision_v3 (
         decision_ref, huella_decision_sha256, nonce, efecto_ref,
-        huella_efecto_sha256, consumo_huella_sha256, consumida_en
-    ) VALUES (
+        huella_efecto_sha256, consumo_huella_sha256, consumida_en) VALUES (
         c ->> 'decision_ref', c ->> 'huella_decision_sha256',
         c ->> 'nonce', c ->> 'efecto_ref',
-        c ->> 'huella_efecto_sha256', v_huella_consumo, v_ahora
-    );
-
+        c ->> 'huella_efecto_sha256', v_huella_consumo, v_ahora);
     SELECT secuencia, cabeza_sha256
       INTO STRICT v_secuencia, v_anterior
-      FROM vec_autorizacion_atestada_v3.control_cadena_auditoria
+     FROM vec_autorizacion_atestada_v3.control_cadena_auditoria
      WHERE control_id
      FOR UPDATE;
+    IF v_secuencia >= 9007199254740991::numeric THEN
+        RAISE EXCEPTION USING ERRCODE = '22003',
+            MESSAGE = 'límite de secuencia VEC-AD-3 alcanzado';
+    END IF;
     v_secuencia := v_secuencia + 1;
     v_auditoria_ref := 'aud_v3_' ||
         pg_catalog.substr(v_huella_consumo, 1, 32);
-    v_preimagen_auditoria := pg_catalog.convert_to(
-        v_secuencia::text || ':' || v_anterior || ':' ||
-        (c ->> 'decision_ref') || ':' || (c ->> 'efecto_ref') || ':' ||
-        (c ->> 'huella_efecto_sha256') || ':' || v_huella_consumo,
-        'UTF8'
-    );
+    v_preimagen_auditoria :=
+        vec_autorizacion_atestada_v3.encuadrar_mac(v_secuencia::text) ||
+        vec_autorizacion_atestada_v3.encuadrar_mac(v_anterior) ||
+        vec_autorizacion_atestada_v3.encuadrar_mac(
+            c ->> 'decision_ref') ||
+        vec_autorizacion_atestada_v3.encuadrar_mac(c ->> 'efecto_ref') ||
+        vec_autorizacion_atestada_v3.encuadrar_mac(
+            c ->> 'huella_efecto_sha256') ||
+        vec_autorizacion_atestada_v3.encuadrar_mac(v_huella_consumo);
     INSERT INTO vec_autorizacion_atestada_v3.auditoria_consumo_v3 (
         auditoria_ref, secuencia, decision_ref, efecto_ref,
         huella_efecto_sha256, anterior_sha256, huella_sha256,
-        registrada_en
-    ) VALUES (
+        registrada_en) VALUES (
         v_auditoria_ref, v_secuencia, c ->> 'decision_ref',
         c ->> 'efecto_ref', c ->> 'huella_efecto_sha256',
         v_anterior, pg_catalog.encode(
-            pg_catalog.sha256(v_preimagen_auditoria), 'hex'
-        ), v_ahora
-    );
+            pg_catalog.sha256(v_preimagen_auditoria), 'hex'), v_ahora);
     UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria
        SET secuencia = v_secuencia,
            cabeza_sha256 = pg_catalog.encode(
-               pg_catalog.sha256(v_preimagen_auditoria), 'hex'
-           ),
+               pg_catalog.sha256(v_preimagen_auditoria), 'hex'),
            actualizada_en = v_ahora
      WHERE control_id;
-
     RETURN QUERY SELECT
         c ->> 'decision_ref', c ->> 'efecto_ref',
         c ->> 'huella_efecto_sha256', v_huella_consumo,
@@ -776,7 +750,6 @@ EXCEPTION
             MESSAGE = 'entrada VEC-AD-3 inválida';
 END
 $funcion$;
-
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA vec_autorizacion_atestada_v3
     FROM PUBLIC, vec_autorizacion_atestada_v3_consumidor,
          vec_autorizacion_atestada_v3_emisor;
@@ -785,11 +758,9 @@ GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3
 GRANT EXECUTE ON FUNCTION
     vec_autorizacion_atestada_v3.registrar_y_consumir_decision_v3_atestada(
         bytea, bytea, bytea, bytea, numeric, numeric,
-        bytea, bytea, bytea, bytea
-    ) TO vec_contratacion_temporal_propietario;
+        bytea, bytea, bytea, bytea) TO vec_contratacion_temporal_propietario;
 GRANT REFERENCES (
     decision_ref, efecto_ref, huella_efecto_sha256
 ) ON vec_autorizacion_atestada_v3.consumo_decision_v3
   TO vec_contratacion_temporal_propietario;
-
 COMMIT;

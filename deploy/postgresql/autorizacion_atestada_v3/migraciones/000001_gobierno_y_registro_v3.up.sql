@@ -66,6 +66,35 @@ AS $funcion$
        AND p_valor <> pg_catalog.repeat('0', 64)
 $funcion$;
 
+CREATE FUNCTION vec_autorizacion_atestada_v3.capacidad_tipos_validos(
+    c jsonb
+)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog
+AS $funcion$
+    SELECT pg_catalog.jsonb_typeof(c) = 'object'
+       AND NOT EXISTS (
+           SELECT 1
+             FROM pg_catalog.unnest(ARRAY[
+                 'version', 'clave_version', 'revision_gobierno',
+                 'configuracion_secuencia', 'raiz_version'
+             ]) AS n(clave)
+            WHERE pg_catalog.jsonb_typeof(c -> n.clave) <> 'number'
+       )
+       AND NOT EXISTS (
+           SELECT 1
+             FROM pg_catalog.jsonb_object_keys(c) AS k(clave)
+            WHERE k.clave <> ALL (ARRAY[
+                'version', 'clave_version', 'revision_gobierno',
+                'configuracion_secuencia', 'raiz_version'
+            ])
+              AND pg_catalog.jsonb_typeof(c -> k.clave) <> 'string'
+       )
+$funcion$;
+
 CREATE FUNCTION vec_autorizacion_atestada_v3.rechazar_mutacion()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -109,8 +138,8 @@ CREATE TABLE vec_autorizacion_atestada_v3.clave_capacidad_version (
     PRIMARY KEY (clave_id, version),
     UNIQUE (revision_gobierno),
     UNIQUE (huella_secreto_sha256),
-    CHECK (version BETWEEN 1 AND 18446744073709551615::numeric),
-    CHECK (revision_gobierno BETWEEN 1 AND 18446744073709551615::numeric),
+    CHECK (version BETWEEN 1 AND 9007199254740991::numeric),
+    CHECK (revision_gobierno BETWEEN 1 AND 9007199254740991::numeric),
     CHECK (vec_autorizacion_atestada_v3.texto_tecnico_valido(
         clave_id, 512
     )),
@@ -118,6 +147,10 @@ CREATE TABLE vec_autorizacion_atestada_v3.clave_capacidad_version (
         huella_gobierno_sha256
     )),
     CHECK (pg_catalog.octet_length(secreto_hmac) BETWEEN 32 AND 4096),
+    CHECK (secreto_hmac <> pg_catalog.decode(
+        pg_catalog.repeat('00', pg_catalog.octet_length(secreto_hmac)),
+        'hex'
+    )),
     CHECK (pg_catalog.encode(
         pg_catalog.sha256(secreto_hmac), 'hex'
     ) = huella_secreto_sha256),
@@ -141,7 +174,7 @@ CREATE TABLE vec_autorizacion_atestada_v3.puntero_clave_emision (
     registrada_en timestamptz(6) NOT NULL DEFAULT clock_timestamp(),
     FOREIGN KEY (clave_id, version)
         REFERENCES vec_autorizacion_atestada_v3.clave_capacidad_version,
-    CHECK (orden BETWEEN 1 AND 18446744073709551615::numeric)
+    CHECK (orden BETWEEN 1 AND 9007199254740991::numeric)
 );
 
 CREATE TABLE vec_autorizacion_atestada_v3.revocacion_clave_capacidad (
@@ -168,7 +201,7 @@ CREATE TABLE vec_autorizacion_atestada_v3.configuracion_confianza_version (
     acto_ref text NOT NULL UNIQUE,
     registrada_en timestamptz(6) NOT NULL DEFAULT clock_timestamp(),
     PRIMARY KEY (revision),
-    CHECK (secuencia BETWEEN 1 AND 18446744073709551615::numeric),
+    CHECK (secuencia BETWEEN 1 AND 9007199254740991::numeric),
     CHECK (vec_autorizacion_atestada_v3.texto_tecnico_valido(
         revision, 512
     )),
@@ -190,7 +223,7 @@ CREATE TABLE vec_autorizacion_atestada_v3.raiz_confianza_version (
     acto_ref text NOT NULL UNIQUE,
     registrada_en timestamptz(6) NOT NULL DEFAULT clock_timestamp(),
     PRIMARY KEY (clave_id, version),
-    CHECK (version BETWEEN 1 AND 18446744073709551615::numeric),
+    CHECK (version BETWEEN 1 AND 9007199254740991::numeric),
     CHECK (pg_catalog.octet_length(clave_publica_spki) = 44),
     CHECK (pg_catalog.encode(
         pg_catalog.sha256(clave_publica_spki), 'hex'
@@ -223,7 +256,7 @@ CREATE TABLE vec_autorizacion_atestada_v3.puntero_configuracion_actual (
     registrada_en timestamptz(6) NOT NULL DEFAULT clock_timestamp(),
     FOREIGN KEY (configuracion_revision)
         REFERENCES vec_autorizacion_atestada_v3.configuracion_confianza_version,
-    CHECK (orden BETWEEN 1 AND 18446744073709551615::numeric)
+    CHECK (orden BETWEEN 1 AND 9007199254740991::numeric)
 );
 
 CREATE TABLE vec_autorizacion_atestada_v3.revocacion_configuracion (
@@ -254,11 +287,11 @@ CREATE TABLE vec_autorizacion_atestada_v3.checkpoint_gobierno (
     configuracion_secuencia_minima numeric(20, 0) NOT NULL,
     raiz_version_minima numeric(20, 0) NOT NULL,
     actualizada_en timestamptz(6) NOT NULL,
-    CHECK (revision BETWEEN 0 AND 18446744073709551615::numeric),
+    CHECK (revision BETWEEN 0 AND 9007199254740991::numeric),
     CHECK (configuracion_secuencia_minima BETWEEN
-        0 AND 18446744073709551615::numeric),
+        0 AND 9007199254740991::numeric),
     CHECK (raiz_version_minima BETWEEN
-        0 AND 18446744073709551615::numeric)
+        0 AND 9007199254740991::numeric)
 );
 INSERT INTO vec_autorizacion_atestada_v3.checkpoint_gobierno VALUES (
     true, 0, 0, 0, clock_timestamp()
@@ -283,7 +316,18 @@ CREATE TABLE vec_autorizacion_atestada_v3.atestacion_decision_v3 (
     FOREIGN KEY (decision_ref)
         REFERENCES vec_autorizacion.decision_concedida_contexto_actor_v3(
             decision_ref
-        )
+        ),
+    CHECK (pg_catalog.octet_length(decision_canonica)
+        BETWEEN 256 AND 65536),
+    CHECK (pg_catalog.octet_length(motivo_canonico)
+        BETWEEN 32 AND 32768),
+    CHECK (pg_catalog.octet_length(contexto_actor_canonico)
+        BETWEEN 64 AND 65536),
+    CHECK (pg_catalog.octet_length(capacidad_canonica)
+        BETWEEN 512 AND 32768),
+    CHECK (huella_decision_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (huella_capacidad_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (huella_efecto_sha256 ~ '^[0-9a-f]{64}$')
 );
 
 CREATE TABLE vec_autorizacion_atestada_v3.consumo_decision_v3 (
@@ -298,14 +342,19 @@ CREATE TABLE vec_autorizacion_atestada_v3.consumo_decision_v3 (
     FOREIGN KEY (decision_ref, efecto_ref, huella_efecto_sha256)
         REFERENCES vec_autorizacion_atestada_v3.atestacion_decision_v3(
             decision_ref, efecto_ref, huella_efecto_sha256
-        )
+        ),
+    CHECK (huella_decision_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (huella_efecto_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (consumo_huella_sha256 ~ '^[0-9a-f]{64}$')
 );
 
 CREATE TABLE vec_autorizacion_atestada_v3.control_cadena_auditoria (
     control_id boolean PRIMARY KEY DEFAULT true CHECK (control_id),
     secuencia numeric(20, 0) NOT NULL,
     cabeza_sha256 text NOT NULL,
-    actualizada_en timestamptz(6) NOT NULL
+    actualizada_en timestamptz(6) NOT NULL,
+    CHECK (secuencia BETWEEN 0 AND 9007199254740991::numeric),
+    CHECK (cabeza_sha256 ~ '^[0-9a-f]{64}$')
 );
 INSERT INTO vec_autorizacion_atestada_v3.control_cadena_auditoria VALUES (
     true, 0, pg_catalog.repeat('0', 64), clock_timestamp()
@@ -323,7 +372,11 @@ CREATE TABLE vec_autorizacion_atestada_v3.auditoria_consumo_v3 (
     FOREIGN KEY (decision_ref, efecto_ref, huella_efecto_sha256)
         REFERENCES vec_autorizacion_atestada_v3.consumo_decision_v3(
             decision_ref, efecto_ref, huella_efecto_sha256
-        )
+        ),
+    CHECK (secuencia BETWEEN 1 AND 9007199254740991::numeric),
+    CHECK (huella_efecto_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (anterior_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (huella_sha256 ~ '^[0-9a-f]{64}$')
 );
 
 DO $proteccion$

@@ -46,10 +46,55 @@ AS $funcion$
              '>', '\u003e')
 $funcion$;
 
--- Contrato byte-a-byte de la proyección mínima del alta. No es json.Marshal
--- del agregado: es un esquema explícito y versionado compartido con el futuro
--- adaptador O2-06.
-CREATE FUNCTION vec_contratacion_temporal.reconstruir_alta_v1(
+CREATE FUNCTION vec_contratacion_temporal.lista_textos_json_v1(
+    valores jsonb
+)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog
+AS $funcion$
+    SELECT '[' || coalesce(pg_catalog.string_agg(
+        vec_contratacion_temporal.texto_json_go_v1(e.valor #>> '{}'),
+        ',' ORDER BY e.orden
+    ), '') || ']'
+      FROM pg_catalog.jsonb_array_elements(valores)
+           WITH ORDINALITY AS e(valor, orden)
+$funcion$;
+
+CREATE FUNCTION vec_contratacion_temporal.reconstruir_solicitud_efecto_v2(
+    s jsonb
+)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog
+AS $funcion$
+    SELECT
+      '{"centro_ref":' || vec_contratacion_temporal.texto_json_go_v1(s ->> 'centro_ref') ||
+      ',"contacto_ref":' || vec_contratacion_temporal.texto_json_go_v1(s ->> 'contacto_ref') ||
+      ',"categoria_ref":' || vec_contratacion_temporal.texto_json_go_v1(s ->> 'categoria_ref') ||
+      ',"grupo_subgrupo":' || vec_contratacion_temporal.texto_json_go_v1(s ->> 'grupo_subgrupo') ||
+      ',"motivo_clave":' || vec_contratacion_temporal.texto_json_go_v1(s ->> 'motivo_clave') ||
+      ',"detalle":' || vec_contratacion_temporal.texto_json_go_v1(s ->> 'detalle') ||
+      ',"periodo":{"inicio":' || vec_contratacion_temporal.texto_json_go_v1(s #>> '{periodo,inicio}') ||
+      ',"fin":' || vec_contratacion_temporal.texto_json_go_v1(s #>> '{periodo,fin}') || '}' ||
+      ',"rc":{"existe":' || (s #> '{rc,existe}')::text ||
+      ',"numero":' || vec_contratacion_temporal.texto_json_go_v1(s #>> '{rc,numero}') ||
+      ',"fecha":' || vec_contratacion_temporal.texto_json_go_v1(s #>> '{rc,fecha}') ||
+      ',"importe":{"centimos":' || (s #> '{rc,importe,centimos}')::text ||
+      ',"moneda":' || vec_contratacion_temporal.texto_json_go_v1(s #>> '{rc,importe,moneda}') || '}' ||
+      ',"documento_ref":' || vec_contratacion_temporal.texto_json_go_v1(s #>> '{rc,documento_ref}') || '}' ||
+      ',"documentos_adjuntos":' ||
+        vec_contratacion_temporal.lista_textos_json_v1(
+            s -> 'documentos_adjuntos'
+        ) ||
+      ',"observaciones":' || vec_contratacion_temporal.texto_json_go_v1(s ->> 'observaciones') || '}'
+$funcion$;
+
+CREATE FUNCTION vec_contratacion_temporal.reconstruir_efecto_alta_v2(
     a jsonb
 )
 RETURNS bytea
@@ -65,21 +110,68 @@ AS $funcion$
       ',"numero_visible":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'numero_visible') ||
       ',"recibo_ref":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'recibo_ref') ||
       ',"organizacion_ref":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'organizacion_ref') ||
-      ',"centro_ref":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'centro_ref') ||
-      ',"categoria_ref":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'categoria_ref') ||
       ',"actor_ref":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'actor_ref') ||
       ',"perfil_ref":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'perfil_ref') ||
       ',"version":' || (a -> 'version')::text ||
-      ',"flujo_ref":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'flujo_ref') ||
-      ',"flujo_version":' || (a -> 'flujo_version')::text ||
-      ',"flujo_huella_sha256":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'flujo_huella_sha256') ||
-      ',"fase_clave":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'fase_clave') ||
-      ',"estado":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'estado') ||
-      ',"solicitud_huella_sha256":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'solicitud_huella_sha256') ||
-      ',"accion_clave":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'accion_clave') ||
-      ',"unidad_ref":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'unidad_ref') ||
-      ',"realizada_en":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'realizada_en') || '}',
+      ',"flujo":{"definicion_ref":' ||
+        vec_contratacion_temporal.texto_json_go_v1(a #>> '{flujo,definicion_ref}') ||
+      ',"version":' || (a #> '{flujo,version}')::text ||
+      ',"huella_sha256":' ||
+        vec_contratacion_temporal.texto_json_go_v1(a #>> '{flujo,huella_sha256}') || '}' ||
+      ',"fase_actual":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'fase_actual') ||
+      ',"estado_actual":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'estado_actual') ||
+      ',"solicitud":' ||
+        vec_contratacion_temporal.reconstruir_solicitud_efecto_v2(
+            a -> 'solicitud'
+        ) ||
+      ',"creado_en":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'creado_en') ||
+      ',"actualizado_en":' || vec_contratacion_temporal.texto_json_go_v1(a ->> 'actualizado_en') ||
+      ',"actuacion":{"secuencia":' || (a #> '{actuacion,secuencia}')::text ||
+      ',"version_expediente":' || (a #> '{actuacion,version_expediente}')::text ||
+      ',"accion_clave":' || vec_contratacion_temporal.texto_json_go_v1(a #>> '{actuacion,accion_clave}') ||
+      ',"actor_ref":' || vec_contratacion_temporal.texto_json_go_v1(a #>> '{actuacion,actor_ref}') ||
+      ',"unidad_ref":' || vec_contratacion_temporal.texto_json_go_v1(a #>> '{actuacion,unidad_ref}') ||
+      ',"recibo_ref":' || vec_contratacion_temporal.texto_json_go_v1(a #>> '{actuacion,recibo_ref}') ||
+      ',"realizada_en":' || vec_contratacion_temporal.texto_json_go_v1(a #>> '{actuacion,realizada_en}') ||
+      ',"fase_origen":' || vec_contratacion_temporal.texto_json_go_v1(a #>> '{actuacion,fase_origen}') ||
+      ',"fase_destino":' || vec_contratacion_temporal.texto_json_go_v1(a #>> '{actuacion,fase_destino}') ||
+      ',"estado_origen":' || vec_contratacion_temporal.texto_json_go_v1(a #>> '{actuacion,estado_origen}') ||
+      ',"estado_destino":' || vec_contratacion_temporal.texto_json_go_v1(a #>> '{actuacion,estado_destino}') ||
+      ',"observaciones":' || vec_contratacion_temporal.texto_json_go_v1(a #>> '{actuacion,observaciones}') ||
+      ',"documentos_ref":' ||
+        vec_contratacion_temporal.lista_textos_json_v1(
+            a #> '{actuacion,documentos_ref}'
+        ) || '}}',
       'UTF8'
+    )
+$funcion$;
+
+CREATE FUNCTION vec_contratacion_temporal.encuadrar_texto_v1(valor text)
+RETURNS bytea
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog
+AS $funcion$
+    SELECT pg_catalog.convert_to(
+        pg_catalog.octet_length(
+            pg_catalog.convert_to(valor, 'UTF8')
+        )::text || ':' || valor || E'\n', 'UTF8'
+    )
+$funcion$;
+
+CREATE FUNCTION vec_contratacion_temporal.instante_utc_v1(
+    instante timestamptz
+)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog
+AS $funcion$
+    SELECT pg_catalog.to_char(
+        instante AT TIME ZONE 'UTC',
+        'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
     )
 $funcion$;
 
@@ -167,6 +259,7 @@ CREATE TABLE vec_contratacion_temporal.expediente_alta_version (
     CHECK (pg_catalog.encode(
         pg_catalog.sha256(alta_canonica), 'hex'
     ) = huella_alta_sha256),
+    CHECK (pg_catalog.octet_length(alta_canonica) BETWEEN 256 AND 32768),
     CHECK (flujo_version BETWEEN 1 AND 9007199254740991::numeric),
     CHECK (flujo_huella_sha256 ~ '^[0-9a-f]{64}$'),
     CHECK (solicitud_huella_sha256 ~ '^[0-9a-f]{64}$'),
@@ -189,6 +282,7 @@ CREATE TABLE vec_contratacion_temporal.actuacion_alta (
     FOREIGN KEY (expediente_ref, version_expediente)
         REFERENCES vec_contratacion_temporal.expediente_alta_version,
     CHECK (secuencia = 1 AND version_expediente = 1)
+    ,CHECK (huella_sha256 ~ '^[0-9a-f]{64}$')
 );
 
 CREATE TABLE vec_contratacion_temporal.control_cadenas_alta (
@@ -197,7 +291,13 @@ CREATE TABLE vec_contratacion_temporal.control_cadenas_alta (
     cabeza_auditoria_sha256 text NOT NULL,
     secuencia_outbox numeric(20, 0) NOT NULL,
     cabeza_outbox_sha256 text NOT NULL,
-    actualizada_en timestamptz(6) NOT NULL
+    actualizada_en timestamptz(6) NOT NULL,
+    CHECK (secuencia_auditoria BETWEEN
+        0 AND 9007199254740991::numeric),
+    CHECK (secuencia_outbox BETWEEN
+        0 AND 9007199254740991::numeric),
+    CHECK (cabeza_auditoria_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (cabeza_outbox_sha256 ~ '^[0-9a-f]{64}$')
 );
 INSERT INTO vec_contratacion_temporal.control_cadenas_alta VALUES (
     true, 0, pg_catalog.repeat('0', 64),
@@ -213,7 +313,10 @@ CREATE TABLE vec_contratacion_temporal.auditoria_alta (
     huella_sha256 text NOT NULL UNIQUE,
     registrada_en timestamptz(6) NOT NULL,
     FOREIGN KEY (expediente_ref)
-        REFERENCES vec_contratacion_temporal.expediente_alta
+        REFERENCES vec_contratacion_temporal.expediente_alta,
+    CHECK (secuencia BETWEEN 1 AND 9007199254740991::numeric),
+    CHECK (anterior_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (huella_sha256 ~ '^[0-9a-f]{64}$')
 );
 
 CREATE TABLE vec_contratacion_temporal.outbox_alta (
@@ -233,7 +336,12 @@ CREATE TABLE vec_contratacion_temporal.outbox_alta (
         'contratacion_temporal.expediente.registrado.v1'),
     CHECK (pg_catalog.encode(
         pg_catalog.sha256(payload_canonico), 'hex'
-    ) = payload_huella_sha256)
+    ) = payload_huella_sha256),
+    CHECK (pg_catalog.octet_length(payload_canonico)
+        BETWEEN 64 AND 32768),
+    CHECK (secuencia BETWEEN 1 AND 9007199254740991::numeric),
+    CHECK (anterior_sha256 ~ '^[0-9a-f]{64}$'),
+    CHECK (huella_sha256 ~ '^[0-9a-f]{64}$')
 );
 
 CREATE TRIGGER expediente_alta_inmutable
@@ -263,7 +371,11 @@ REVOKE ALL ON TABLE
     FROM PUBLIC, vec_contratacion_temporal_ejecutor;
 REVOKE ALL ON FUNCTION
     vec_contratacion_temporal.texto_json_go_v1(text),
-    vec_contratacion_temporal.reconstruir_alta_v1(jsonb),
+    vec_contratacion_temporal.lista_textos_json_v1(jsonb),
+    vec_contratacion_temporal.reconstruir_solicitud_efecto_v2(jsonb),
+    vec_contratacion_temporal.reconstruir_efecto_alta_v2(jsonb),
+    vec_contratacion_temporal.encuadrar_texto_v1(text),
+    vec_contratacion_temporal.instante_utc_v1(timestamptz),
     vec_contratacion_temporal.reconstruir_sellos_hmac_v1(jsonb)
     FROM PUBLIC, vec_contratacion_temporal_ejecutor;
 
