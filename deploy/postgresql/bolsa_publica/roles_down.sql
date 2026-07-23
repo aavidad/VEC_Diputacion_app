@@ -1,5 +1,6 @@
--- Reversion DBA conservadora. La cuenta LOGIN de aplicacion debe retirarse o
--- perder su membresia antes de desmontar los grupos tecnicos.
+-- Reversion DBA conservadora. Los LOGIN externos deben retirarse o perder su
+-- membresia antes de desmontar los grupos. Este script elimina el publicador
+-- dedicado que roles_up creo sin contraseña.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
 
@@ -23,7 +24,11 @@ BEGIN
       FROM pg_catalog.pg_auth_members AS membresia
       JOIN pg_catalog.pg_roles AS grupo ON grupo.oid = membresia.roleid
       JOIN pg_catalog.pg_roles AS miembro ON miembro.oid = membresia.member
-     WHERE grupo.rolname IN ('vec_bolsa_publica_consulta', 'vec_bolsa_publica_publicador');
+     WHERE grupo.rolname = 'vec_bolsa_publica_consulta'
+        OR (
+            grupo.rolname = 'vec_bolsa_publica_publicador'
+            AND miembro.rolname <> 'vec_bolsa_publica_publicador_login'
+        );
     IF cardinality(miembros) > 0 THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'reversion rechazada: quedan identidades de consulta',
@@ -50,6 +55,9 @@ $privilegios_base$;
 REVOKE vec_bolsa_publica_propietario,
        vec_bolsa_publica_publicacion_propietario
   FROM vec_bolsa_publica_migrador;
+REVOKE vec_bolsa_publica_publicador
+  FROM vec_bolsa_publica_publicador_login;
+DROP ROLE vec_bolsa_publica_publicador_login;
 DROP ROLE vec_bolsa_publica_consulta;
 DROP ROLE vec_bolsa_publica_publicador;
 DROP ROLE vec_bolsa_publica_migrador;

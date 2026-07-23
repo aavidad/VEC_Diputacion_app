@@ -393,9 +393,6 @@ CREATE FUNCTION vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, pg_temp
-SET statement_timeout = '60s'
-SET lock_timeout = '5s'
-SET idle_in_transaction_session_timeout = '60s'
 SET log_parameter_max_length_on_error = 0
 SET work_mem = '8MB'
 SET jit = 'off'
@@ -413,12 +410,45 @@ DECLARE
     total_entradas_catalogos bigint := 0;
     total_categorias bigint := 0;
 BEGIN
-    IF current_user <> 'vec_bolsa_publica_publicacion_propietario'
+    IF session_user <> 'vec_bolsa_publica_publicador_login'
+       OR current_user <> 'vec_bolsa_publica_publicacion_propietario'
        OR NOT pg_catalog.pg_has_role(
         session_user, 'vec_bolsa_publica_publicador', 'MEMBER'
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'publicacion rechazada: identidad sin rol publicador';
+    END IF;
+    -- Los SET de una funcion se aplican cuando la sentencia ya ha empezado y
+    -- se restauran al retornar. Por eso esta frontera exige que el LOGIN haya
+    -- iniciado ya la sentencia/transaccion con la politica gobernada.
+    IF pg_catalog.current_setting('application_name') <> 'vec-bolsa-publicador'
+       OR pg_catalog.replace(
+           pg_catalog.current_setting('search_path'), ' ', ''
+       ) <> 'pg_catalog,pg_temp'
+       OR pg_catalog.current_setting('statement_timeout')::interval
+          <> interval '60 seconds'
+       OR pg_catalog.current_setting('lock_timeout')::interval
+          <> interval '5 seconds'
+       OR pg_catalog.current_setting('idle_in_transaction_session_timeout')::interval
+          <> interval '5 seconds'
+       OR pg_catalog.current_setting('transaction_timeout')::interval
+          <> interval '2 minutes'
+       OR pg_catalog.current_setting('log_parameter_max_length_on_error') <> '0'
+       OR NOT (
+           SELECT COALESCE(identidad.rolconfig, ARRAY[]::text[]) @> ARRAY[
+               'application_name=vec-bolsa-publicador',
+               'search_path="pg_catalog,pg_temp"',
+               'statement_timeout=60s',
+               'lock_timeout=5s',
+               'idle_in_transaction_session_timeout=5s',
+               'transaction_timeout=2min',
+               'log_parameter_max_length_on_error=0'
+           ]
+             FROM pg_catalog.pg_roles AS identidad
+            WHERE identidad.rolname = session_user
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'publicacion rechazada: LOGIN publicador sin limites gobernados';
     END IF;
     IF ancla_manifiesto_sha256 !~ '^[a-f0-9]{64}$'
        OR ancla_manifiesto_sha256 = pg_catalog.repeat('0', 64)
@@ -901,7 +931,7 @@ REVOKE ALL ON FUNCTION vec_bolsa_publica_publicacion.publicar_proyeccion_v2(json
 GRANT USAGE ON SCHEMA vec_bolsa_publica_publicacion
     TO vec_bolsa_publica_publicador;
 GRANT EXECUTE ON FUNCTION vec_bolsa_publica_publicacion.publicar_proyeccion_v2(jsonb, text)
-    TO vec_bolsa_publica_publicador;
+    TO vec_bolsa_publica_publicador_login;
 
 SET LOCAL ROLE vec_bolsa_publica_propietario;
 
