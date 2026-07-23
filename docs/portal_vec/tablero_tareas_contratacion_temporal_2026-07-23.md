@@ -34,7 +34,7 @@ Estados:
 | O1-01 | Normalizar el documento de RRHH y decidir módulo complementario. | Revisión de campos, fases, responsabilidades y regla de no duplicación. | ✅ | `e88ac16` |
 | O1-02 | Publicar manifiesto, permisos y navegación sin asignar roles. | Pruebas de manifiesto, claves únicas y ausencia de concesiones. | ✅ | `e88ac16` |
 | O1-03 | Modelar solicitud, análisis, cobertura, asignación y cronología. | `go test`, carrera, `go vet`, concurrencia optimista y copias defensivas. | ✅ | `c7a64da` |
-| O1-04 | Documentar objetivos, tareas y relevo reproducible. | Enlaces desde README/estado y siguiente tarea inequívoca. | 🚧 | Pendiente de este corte |
+| O1-04 | Documentar objetivos, tareas y relevo reproducible. | Enlaces desde README/estado y siguiente tarea inequívoca. | ✅ | `e2e9612` |
 
 ## O2 — Primera vertical real: alta de solicitud
 
@@ -47,7 +47,7 @@ Estados:
 | O2-05 | Función SQL de confirmación atómica. | Consumo único de autorización + reserva + expediente + actuación + auditoría + outbox en un `COMMIT`. | — | — |
 | O2-06 | Adaptador Go de confirmación y reconciliación de resultado indeterminado. | Éxito, replay, concurrencia, timeout antes/después de `COMMIT`, reinicio y recibo adulterado. | — | — |
 | O2-07 | Composición interna real de dependencias. | Arranque falla cerrado sin identidad, PDP, HMAC, generador o PostgreSQL. | — | — |
-| O2-08 | API interna del alta. | Lista positiva, límites, sin cookies/cabeceras de autoridad, CSRF no aplicable por superficie y contrato OpenAPI. | — | — |
+| O2-08 | API interna y neutral al cliente del alta. | Lista positiva, límites, sin `Cookie`/`Set-Cookie`, almacenamiento web ni cabeceras libres de autoridad; credencial breve ligada al cliente; mismo contrato para web, escritorio, CLI y MCP; contrato OpenAPI. | — | — |
 | O2-09 | Formulario definitivo conectado. | Accesibilidad de teclado/lector, errores, doble envío, recibo y misma interfaz sin adaptador DEMO. | — | — |
 | O2-10 | E2E y aceptación de la vertical. | Navegador → API → autorización → PostgreSQL → recibo; reinicio y concurrencia; acta RRHH. | — | — |
 

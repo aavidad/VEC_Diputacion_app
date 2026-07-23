@@ -53,6 +53,10 @@ Un agente recibe un identificador de tarea. No toma otra por iniciativa propia.
 - Ningún módulo lee o escribe tablas de otro módulo.
 - Los intercambios usan referencias opacas, comandos, eventos e
   outbox/inbox.
+- El dominio y los casos de uso son neutrales al cliente. Web, escritorio,
+  CLI y MCP consumen las mismas capacidades de aplicación mediante
+  adaptadores distintos; ninguna regla funcional vive en HTTP, DOM o una
+  sesión de navegador.
 - Base de datos, almacenamiento, firma, antivirus, identidad, comunicaciones,
   documentos, calendarios y sistemas externos son adaptadores intercambiables.
 - Fases, opciones, plantillas, formatos y reglas funcionales se gobiernan por
@@ -65,6 +69,13 @@ Un agente recibe un identificador de tarea. No toma otra por iniciativa propia.
 - Denegación predeterminada y privilegio mínimo.
 - La identidad y el perfil proceden de una frontera confiable; nunca de JSON,
   cookies, parámetros, cabeceras libres o datos del navegador.
+- Cookies, `localStorage` y `sessionStorage` no son autoridades ni mecanismos
+  de sesión. La composición real no depende de ellos. Los clientes usan
+  credenciales breves, ligadas al emisor y verificadas por la API; escritorio
+  puede emplear certificado/mTLS y Kerberos corporativo mediante conectores.
+- La API rechaza por defecto `Cookie`, credenciales persistidas por el
+  navegador y cualquier cabecera de identidad que no esté atestada por la
+  frontera confiable. Ninguna respuesta real emite `Set-Cookie`.
 - Operaciones internas sensibles exigen garantía alta y superficie interna o
   administrativa coherente.
 - Una decisión positiva queda ligada a acción, recurso, finalidad, ámbito,
