@@ -2,10 +2,10 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: una revisión independiente emitió `NO-GO` con tres pruebas de
-concepto reproducibles. Las correcciones están implementadas en rama aislada;
-la nueva revisión independiente y la integración siguen pendientes. Este
-documento no concede un `GO` de integración, piloto o producción.
+Estado: tres rondas de revisión emitieron `NO-GO` con pruebas de concepto
+reproducibles. Las correcciones están implementadas en rama aislada; una nueva
+revisión independiente y la integración siguen pendientes. Este documento no
+concede un `GO` de integración, piloto o producción.
 
 ## NO-GO independiente y corrección
 
@@ -63,6 +63,40 @@ uso, el timeout global ni la política de errores de disponibilidad. La
 revisión independiente de esta segunda corrección sigue pendiente; por ello
 el estado permanece en `NO-GO`.
 
+La tercera revisión reprodujo una duplicación durable y una respuesta ambigua
+posterior al `COMMIT`:
+
+1. la unicidad por `(autoridad, generación, recibo)` permitía que la misma
+   `PeticionRef` generase dos efectos si la fuente emitía un recibo nuevo;
+2. una cancelación o timeout inmediatamente posteriores al `COMMIT` convertían
+   un efecto confirmado en error, induciendo un reintento potencialmente
+   duplicador.
+
+La identidad durable se redefine así:
+
+- clave primaria de efecto: `(OrganizacionRef, PeticionRef)`;
+- huella de petición: canon cerrado con organización, expediente, versión,
+  catálogo, vía, comprobación, procedencia, categoría, periodo e instante;
+- huella de resultado: dominio propio, huella de petición, clave y valor de la
+  comprobación y definición gobernada de la fuente;
+- clave probatoria adicional: `(autoridad, generación, recibo)`.
+
+Una fuente puede renovar generación, recibo, HMAC, ventana o instante de
+evaluación y el verificador puede renovar firma e instante. Si petición y
+resultado semántico coinciden, el consumidor devuelve el recibo durable
+original y registra, como máximo, otra evidencia del mismo efecto. Cambiar
+cualquier coordenada de la petición o el valor funcional del resultado es
+conflicto. Reutilizar la misma clave probatoria con otra huella de respuesta,
+o ligarla a otra petición, también es conflicto.
+
+Tras el consumidor, un recibo durable válido y coherente con el reloj confirma
+el `COMMIT` aunque el contexto se haya cancelado o agotado al regresar. No se
+transforma en error porque ello ocultaría un efecto ya producido. Si no hay
+recibo verificable se falla cerrado; el reintento con la misma `PeticionRef`
+recupera el recibo original sin crear otro efecto. Un reloj regresivo o un
+recibo fechado en el futuro continúan rechazándose. La tercera corrección
+permanece en `NO-GO` hasta revisión ajena.
+
 ## Alcance
 
 O4-02 define la frontera hexagonal para comprobar una condición de una vía de
@@ -106,8 +140,9 @@ Una consulta válida sigue este orden:
 9. verificar el HMAC y la firma canónica del verificador institucional;
 10. volver a comprobar ventana y catálogo;
 11. consumir de forma durable la respuesta;
-12. al regresar del consumidor, revalidar contexto, reloj, ventana, catálogo y
-    recibo antes de devolver el resultado funcional.
+12. al regresar del consumidor, validar reloj y recibo durable; un recibo
+    verificable confirma el efecto aun ante cancelación competitiva; sin él,
+    aplicar contexto, ventana, catálogo y error público antes de fallar.
 
 Cualquier ausencia o incoherencia falla cerrado. Una fuente no puede
 autoverificar su respuesta ni autopublicar el catálogo que la autoriza.
@@ -236,17 +271,27 @@ allowlist compilada ni recompilación del núcleo.
 `ConsumidorCobertura` recibe una orden inmutable ligada a:
 
 - petición, organización, expediente y versión;
+- huellas SHA-256 de petición semántica y resultado funcional;
 - autoridad, generación y recibo de respuesta;
 - huella SHA-256 de la respuesta completa;
 - atestación y confirmación del verificador;
 - publicación confirmada del catálogo.
 
-El adaptador durable deberá imponer una única clave lógica
-`(autoridad, generación, recibo)`:
+El adaptador durable deberá imponer, en una misma transacción:
 
-- misma huella: devuelve exactamente el mismo recibo;
-- otra huella: devuelve `ErrRespuestaCoberturaYaConsumida`;
-- respuesta caducada: el núcleo la rechaza antes del consumidor.
+1. unicidad de efecto por `(organización, petición)`;
+2. igualdad de huella de petición y huella de resultado al reintentar;
+3. unicidad probatoria por `(autoridad, generación, recibo)`.
+
+Para la misma identidad de efecto:
+
+- mismas huellas semánticas: devuelve exactamente el recibo original;
+- recibo o firma nuevos con igual semántica: son evidencia adicional, no otro
+  efecto;
+- otra petición semántica u otro resultado: devuelve
+  `ErrRespuestaCoberturaYaConsumida`;
+- misma clave probatoria con otra huella de respuesta: devuelve conflicto;
+- respuesta caducada antes de llamar al consumidor: la aplicación la rechaza.
 
 El recibo persistido conserva también la confirmación TCB original. En un
 replay no se sustituye por la confirmación recién obtenida: se verifica de
@@ -258,17 +303,15 @@ se declara que exista todavía un adaptador productivo. La implementación
 durable, su transacción con expediente/auditoría y las pruebas de reinicio
 corresponden a la tarea de persistencia y composición.
 
-Al regresar de `ConsumirCobertura`, incluso si devuelve un recibo nominalmente
-válido, el núcleo consulta siempre el contexto y el reloj final. Después
-revalida firma, ventana y catálogo. Un consumidor que ignore la cancelación,
-un recibo antiguo devuelto tras expirar o una cancelación competitiva producen
-fallo cerrado y nunca un resultado funcional. También se rechazan un reloj
-final anterior al instante preconsumo y un recibo que declare un consumo
-posterior al reloj final; un replay exacto con recibo anterior sigue siendo
-válido dentro de la ventana. La validez temporal del recibo se prueba contra
-la confirmación firmada que autorizó el primer efecto y la ventana de la
-atestación original, no contra el instante de una confirmación nueva obtenida
-al reintentar.
+Al regresar de `ConsumirCobertura`, la aplicación consulta siempre contexto y
+reloj. Primero rechaza un reloj final anterior al instante preconsumo. Después
+valida el recibo contra la evidencia original firmada y las huellas semánticas
+de la orden actual. Un recibo verificable, no futuro, confirma el efecto aunque
+el contexto haya vencido justo después del `COMMIT`. Sin recibo verificable,
+la cancelación o el timeout producen fallo cerrado y el reintento recupera por
+`PeticionRef`. La validez temporal del recibo se prueba contra la confirmación
+que autorizó el primer efecto y la ventana de su atestación, no contra una
+confirmación nueva obtenida al reintentar.
 
 ## Límites e interoperabilidad
 
@@ -287,10 +330,11 @@ El límite 2^53−1 permite transportar versiones de forma exacta también por
 clientes JSON/JavaScript. Los periodos son fechas civiles UTC y no duraciones
 aproximadas.
 
-Tras cada dependencia se comprueba primero el contexto. Solo se exponen
+Tras cada dependencia se comprueba primero el contexto, salvo al resolver el
+resultado durable del consumidor: un recibo válido prevalece sobre una
+cancelación inmediatamente posterior al `COMMIT`. Solo se exponen
 `context.Canceled` o `context.DeadlineExceeded`; una causa privada nunca es
-alcanzable con `errors.Is`, `errors.As` o `Unwrap`. Después del consumidor la
-comprobación se repite aunque este haya devuelto un recibo.
+alcanzable con `errors.Is`, `errors.As` o `Unwrap`.
 
 ## Evidencia ejecutable
 
@@ -304,6 +348,12 @@ Las pruebas incluyen:
 - vía futura añadida exclusivamente por catálogo;
 - replay exacto concurrente, conflicto y expiración exclusiva;
 - replay exacto con confirmación nueva en `t+3` y recibo original de `t+2`;
+- nuevo recibo de fuente para la misma `PeticionRef` sin segundo efecto;
+- semántica o resultado distintos para la misma `PeticionRef` en conflicto;
+- reutilización incompatible de una clave probatoria en conflicto;
+- concurrencia con recibos de fuente distintos y un único efecto;
+- timeout y cancelación competitivos posteriores al `COMMIT`;
+- respuesta perdida tras `COMMIT` y recuperación por `PeticionRef`;
 - rechazo de un primer recibo anterior a la emisión de la fuente;
 - timeout total, cancelación prioritaria y nulos tipados;
 - consumidor que ignora contexto, reloj vencido y cancelación competitiva;
