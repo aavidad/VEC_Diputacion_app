@@ -19,9 +19,12 @@ Los datos sintéticos de pruebas deben usar los prefijos explícitos
    credenciales explícitas.
 3. `.githooks/pre-push` inspecciona exactamente los commits que se pretenden
    enviar y falla cerrado si `gitleaks` no está instalado.
-4. `.gitleaksignore` solo contiene huellas exactas de falsos positivos
+4. La integración continua repite el análisis con
+   `gitleaks/gitleaks-action` fijada por SHA y sin persistir credenciales de
+   `checkout`.
+5. `.gitleaksignore` solo contiene huellas exactas de falsos positivos
    históricos revisados; no admite comodines por ruta, prueba o regla.
-5. Toda rama de agente se revisa antes de integrarse. Una rama con un secreto
+6. Toda rama de agente se revisa antes de integrarse. Una rama con un secreto
    se reconstruye desde una base limpia: un commit posterior que lo borre no
    sanea la historia.
 
