@@ -156,7 +156,7 @@ func comandoDesdeContextoCanal(
 func reciboAltaSeguro(recibo ports.ReciboAlta, ahora time.Time) bool {
 	const toleranciaFuturo = time.Minute
 	return domain.InstanteUTCCanonico(ahora) &&
-		recibo.ValidarEstructura() == nil &&
+		recibo.ValidarEstructura() == nil && recibo.Version <= MaximoVersionJSON &&
 		!recibo.ConfirmadaEn.After(ahora.Add(toleranciaFuturo))
 }
 
