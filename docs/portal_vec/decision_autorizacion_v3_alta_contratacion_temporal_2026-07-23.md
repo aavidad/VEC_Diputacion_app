@@ -2,9 +2,11 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: decisión de arquitectura; frontera de aplicación O2-04 implementada en
-la rama de trabajo y pendiente de revisión independiente. El efecto atómico
-O2-05 sigue pendiente.
+Estado: `NO-GO` tras revisión independiente. La frontera de aplicación O2-04
+está implementada en la rama de trabajo, pero no puede cerrarse mientras el
+adaptador PostgreSQL siga en SQL V1/solo generación activa y no converja con
+el contrato V2 aprobado de O2-03. El efecto atómico O2-05 también sigue
+pendiente.
 
 ## Corte implementado en O2-04
 
@@ -36,6 +38,12 @@ por el cliente. La persistencia recibe como evidencia la correlación extraída
 de la solicitud V3, que decisión y confirmación deben conservar exactamente.
 Además, el actor de la primera actuación del expediente debe ser el
 `PrincipalID` del vínculo autorizado.
+
+La solicitud V3 compromete tanto el ámbito HMAC activo como la huella HMAC
+activa exacta de la petición. Esta última usa el nombre cerrado
+`huella_peticion_hmac_activa` en los atributos del recurso. La orden coteja
+ambos valores contra la capacidad nominal del llavero y rechaza claves
+adicionales en ámbitos o atributos.
 
 Este corte no afirma atomicidad: hasta cerrar O2-05 puede existir una reserva
 interna autorizada que no llegue a efecto si la concesión vence o falla una
@@ -105,11 +113,13 @@ Rotar de v1 a v2 deberá conservar el mismo expediente y recibo. La sintaxis
 versionada sin esta convivencia no se considera rotación resuelta.
 
 O2-04 deja esa rotación acotada pero no la declara cerrada: el puerto ya
-devuelve la colección activa más retenidas, valida que cada ámbito y huella
-pertenecen a la misma generación y limita el número de generaciones. El
-recurso V3 usa exclusivamente el ámbito activo. La preparación puede devolver
-un par activo o retenido, pero debe pertenecer íntegramente a la colección:
-no se admite ámbito de una generación y huella de otra. El adaptador
+devuelve una capacidad nominal opaca con la generación activa y las retenidas.
+No expone structs de pares como capacidad. Admite como máximo cuatro
+generaciones; cada retenida debe ser anterior y el orden debe ser estrictamente
+descendente. Valida que cada ámbito y huella pertenecen a la misma generación.
+El recurso V3 usa exclusivamente el ámbito y la huella activos. La preparación
+puede devolver un par activo o retenido, pero debe pertenecer íntegramente a la
+colección: no se admite ámbito de una generación y huella de otra. El adaptador
 PostgreSQL V1 transitorio solo conoce la generación activa; tras el `GO` de
 O2-03 debe sustituirse por el contrato V2 que entrega la colección a SQL y
 reconcilia por todos sus pares. Esa convergencia durable es una condición
@@ -158,6 +168,11 @@ transacción aplica estas reglas:
 Un resultado de `COMMIT` indeterminado se reconcilia por el conjunto de alias
 HMAC admitidos y las huellas de petición de generaciones retenidas. No se
 repite a ciegas.
+
+La cancelación se comprueba después de resolver el motivo, después de acuñar
+la correlación y justo antes de `ConfirmarAlta`. Una cancelación anterior al
+efecto impide alcanzar la siguiente dependencia. Una cancelación observada
+después de un `COMMIT` confirmado no transforma el éxito durable en error.
 
 ## Base de datos y privilegios
 
