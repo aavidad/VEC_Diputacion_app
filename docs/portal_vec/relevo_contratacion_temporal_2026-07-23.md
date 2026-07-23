@@ -39,6 +39,20 @@ La lectura normalizada se conserva en:
 
 - `docs/portal_vec/expediente_contratacion_temporal_rrhh.md`.
 
+## Dirección y cumplimiento
+
+Todo agente debe leer `AGENTS.md`. El alcance se gobierna mediante:
+
+- `docs/portal_vec/objetivos_y_hoja_ruta_rrhh_2026-07-23.md`;
+- `docs/portal_vec/tablero_tareas_contratacion_temporal_2026-07-23.md`;
+- `docs/portal_vec/mapa_objetivos_tareas_y_paralelizacion_2026-07-23.md`;
+- `docs/portal_vec/matriz_normativa_contratacion_temporal_2026-07-23.md`.
+
+La matriz normativa es una puerta técnica y organizativa. El módulo no puede
+usar datos reales ni declararse conforme o productivo sin las validaciones
+formales de DPD, Seguridad, Sistemas, Jurídico, Archivo, RRHH y demás
+responsables competentes.
+
 ## Decisión principal
 
 Se crea `internal/modules/contrataciontemporal`. No se amplía Bolsa hasta

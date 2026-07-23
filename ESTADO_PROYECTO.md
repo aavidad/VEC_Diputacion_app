@@ -1,20 +1,38 @@
 # Estado y plan de ataque del proyecto
 
-**Última actualización:** 20 de julio de 2026
+**Última actualización:** 23 de julio de 2026
 
-**Frente principal:** primera funcionalidad real de Bolsa
+**Frente principal:** primera vertical real del procedimiento de contratación
+temporal solicitado por RRHH, complementaria a Bolsa.
 
-**Frente paralelo:** importador gobernado de exportaciones Convoca, usando
-exclusivamente ficheros sintéticos hasta que sea seguro tratar datos reales.
+**Frente conservado:** completar Bolsa conforme a esta misma tabla; el nuevo
+módulo no elimina ni sustituye sus capacidades.
 
-**Objetivo actual:** crear y editar desde la web un borrador de convocatoria,
-guardarlo cifrado en PostgreSQL, recuperarlo después de reiniciar y obtener un
-recibo auditable.
+**Objetivo actual:** recorrer de forma real el alta de una solicitud de
+contratación temporal desde el portal interno hasta PostgreSQL, con identidad,
+autorización, idempotencia, auditoría, outbox y recibo.
 
 Este es el tablero de seguimiento para dirección. Se actualiza antes del commit
 que cierre una capacidad o siempre que cambie el frente principal. Los códigos
 internos como `T20` se conservan en la documentación técnica, pero no dirigen
 este tablero.
+
+Los objetivos, las siete puertas del primer hito y la relación sin
+solapamientos con Bolsa se detallan en
+[Objetivos y hoja de ruta del frente RRHH](docs/portal_vec/objetivos_y_hoja_ruta_rrhh_2026-07-23.md).
+El orden, las dependencias y los carriles simultáneos están en el
+[mapa revisable de objetivos y tareas](docs/portal_vec/mapa_objetivos_tareas_y_paralelizacion_2026-07-23.md).
+
+### Cambio de frente del 23/07/2026
+
+El documento recibido de RRHH exige un expediente coordinador nuevo. Se ha
+creado `contrataciontemporal` sin borrar Bolsa. El primer hito lleva **2 de 7
+puertas publicadas (29 %)**: dominio y caso de uso. La preparación idempotente
+PostgreSQL ya está validada localmente, pero no contará como tercera puerta
+hasta publicar sus commits. Después faltan confirmación con autorización VEC
+durable, API, pantalla y E2E/aceptación. La tabla histórica de Bolsa que sigue
+a continuación se conserva como referencia honesta de sus capacidades y no se
+da por completada.
 
 Los agentes adicionales deben seguir
 [ORQUESTACION_AGENTES.md](ORQUESTACION_AGENTES.md); allí se indican tareas

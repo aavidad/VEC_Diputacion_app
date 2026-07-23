@@ -34,6 +34,10 @@ reemplaza el módulo Bolsa: se implementa como el módulo coordinador
 llamamientos.
 
 - [Especificación del expediente de contratación temporal](docs/portal_vec/expediente_contratacion_temporal_rrhh.md)
+- [Objetivos y hoja de ruta del frente RRHH](docs/portal_vec/objetivos_y_hoja_ruta_rrhh_2026-07-23.md)
+- [Tareas verificables y commits del frente RRHH](docs/portal_vec/tablero_tareas_contratacion_temporal_2026-07-23.md)
+- [Mapa visual de objetivos, dependencias y paralelización](docs/portal_vec/mapa_objetivos_tareas_y_paralelizacion_2026-07-23.md)
+- [Matriz normativa europea, española y andaluza](docs/portal_vec/matriz_normativa_contratacion_temporal_2026-07-23.md)
 - [Relevo técnico del frente activo](docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md)
 
 Estado del primer corte: especificación, manifiesto, dominio, puertos de alta y
