@@ -123,23 +123,40 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 		t, ctx, fuente, admin, dsnPublicador, dsn, instante,
 	)
 	defer fuenteB.Cerrar()
-	assertTimeoutPublicadorLiberaCandadoYPermiteRecuperar(
-		t, ctx, admin, dsnPublicador,
+	handlerReadinessB := server.NewHandlerPublicoWithConfigConComprobadorDisponibilidad(
+		config.Config{}, http.NotFoundHandler(), fuenteB,
 	)
+	assertEstadoReadiness(t, handlerReadinessB, http.StatusOK)
 	var anclaAntes string
 	if err := admin.QueryRow(ctx, `SELECT manifiesto_sha256
 		FROM vec_bolsa_publica_lectura.fuente_publica_v2 WHERE control_id IS TRUE`).Scan(&anclaAntes); err != nil {
 		t.Fatalf("leer ancla antes de deriva: %v", err)
 	}
 
-	// Cualquier DML ajeno a la publicación atómica invalida el testigo. Todas
-	// las rutas fallan cerradas antes de devolver siquiera una faceta parcial.
+	// Cualquier DML ajeno a la publicación atómica invalida de inmediato el
+	// testigo barato. Después se simula una restauración privilegiada del
+	// ancla, fuera del modelo operativo, para demostrar que la sonda integral
+	// también detecta una proyección alterada aunque el testigo parezca válido.
+	etiqueta, err := admin.Exec(ctx, `
+		UPDATE vec_bolsa_publica_datos.ayuda_convocatoria
+		   SET respuesta = 'Respuesta alterada fuera de la publicación'
+		 WHERE identificador_publico = 'auxiliares-2026'`)
+	if err != nil || etiqueta.RowsAffected() != 1 {
+		t.Fatalf("alterar ayuda para prueba integral: filas=%d error=%v", etiqueta.RowsAffected(), err)
+	}
+	var anclaInvalidada string
+	if err := admin.QueryRow(ctx, `SELECT manifiesto_sha256
+		FROM vec_bolsa_publica_lectura.fuente_publica_v2 WHERE control_id IS TRUE`).Scan(&anclaInvalidada); err != nil {
+		t.Fatalf("leer ancla invalidada: %v", err)
+	}
+	if anclaInvalidada != strings.Repeat("0", 64) {
+		t.Fatalf("el trigger no invalido el ancla: %q", anclaInvalidada)
+	}
 	if _, err := admin.Exec(ctx, `
-			UPDATE vec_bolsa_publica_datos.categoria_publica
-		   SET etiqueta = 'Auxiliar administrativo alterado'
-		 WHERE catalogo_id = 'categorias-profesionales' AND version = 1
-			   AND clave = 'auxiliar-administrativo'`); err != nil {
-		t.Fatal(err)
+		UPDATE vec_bolsa_publica_datos.fuente
+		   SET manifiesto_sha256 = $1
+		 WHERE control_id IS TRUE`, anclaAntes); err != nil {
+		t.Fatalf("restaurar ancla solo para prueba integral: %v", err)
 	}
 	var anclaDespues string
 	if err := admin.QueryRow(ctx, `SELECT manifiesto_sha256
@@ -150,16 +167,25 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 		t.Fatalf("la prueba negativa altero el ancla: antes=%q despues=%q", anclaAntes, anclaDespues)
 	}
 	ctxIntegridad, cancelarIntegridad := context.WithTimeout(ctx, duracionIntegridadDisponibilidad)
-	errIntegridad := fuente.comprobarIntegridadProyeccion(ctxIntegridad)
+	errIntegridad := fuenteB.comprobarIntegridadProyeccion(ctxIntegridad)
 	cancelarIntegridad()
 	if !errors.Is(errIntegridad, ErrDatosPostgreSQLPublicosNoConfiables) {
 		t.Fatalf("integridad no detecto DML con ancla intacta: %v", errIntegridad)
 	}
-	fuente.actualizarIntegridad(errIntegridad)
-	fuente.disponibilidadMu.Lock()
-	fuente.disponibilidadHasta = time.Time{}
-	fuente.disponibilidadMu.Unlock()
-	assertEstadoReadiness(t, handlerReadiness, http.StatusServiceUnavailable)
+	fuenteB.actualizarIntegridad(errIntegridad)
+	fuenteB.disponibilidadMu.Lock()
+	fuenteB.disponibilidadHasta = time.Time{}
+	fuenteB.disponibilidadMu.Unlock()
+	assertEstadoReadiness(t, handlerReadinessB, http.StatusServiceUnavailable)
+
+	// Restaura el estado fail-closed barato para comprobar que ninguna ruta
+	// puede servir una proyección ya declarada no confiable.
+	if _, err := admin.Exec(ctx, `
+		UPDATE vec_bolsa_publica_datos.fuente
+		   SET manifiesto_sha256 = pg_catalog.repeat('0', 64)
+		 WHERE control_id IS TRUE`); err != nil {
+		t.Fatalf("invalidar ancla tras prueba integral: %v", err)
+	}
 	operaciones := map[string]func() error{
 		"configuracion": func() error { return fuenteB.ValidarConfiguracionPublica(ctx, instante) },
 		"categorias":    func() error { _, err := fuenteB.ObtenerPublicadas(ctx, instante); return err },
@@ -174,6 +200,9 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 			t.Fatalf("%s no fallo cerrada tras DML ajeno: %v", nombre, err)
 		}
 	}
+	assertTimeoutPublicadorLiberaCandadoYPermiteRecuperar(
+		t, ctx, admin, dsnPublicador,
+	)
 }
 
 func assertTimeoutPublicadorLiberaCandadoYPermiteRecuperar(

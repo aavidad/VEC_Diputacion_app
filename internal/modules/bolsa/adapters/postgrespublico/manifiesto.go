@@ -3,6 +3,7 @@ package postgrespublico
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -73,27 +74,29 @@ func (f *Fuente) iniciarLecturaConTimeout(
 }
 
 func establecerStatementTimeout(ctx context.Context, tx pgx.Tx, timeout time.Duration) error {
-	if ctx == nil || tx == nil || timeout <= 0 {
+	milisegundos := timeout.Milliseconds()
+	if ctx == nil || tx == nil || milisegundos <= 0 ||
+		time.Duration(milisegundos)*time.Millisecond != timeout {
 		return ErrConfiguracionPostgreSQLPublicaInvalida
 	}
 	var configurado string
 	if err := tx.QueryRow(ctx,
 		`SELECT pg_catalog.set_config('statement_timeout', $1, true)`,
-		timeout.String(),
+		strconv.FormatInt(milisegundos, 10)+"ms",
 	).Scan(&configurado); err != nil {
 		return err
 	}
-	var milisegundos int64
+	var efectivo int64
 	if err := tx.QueryRow(ctx, `
 		SELECT (
 			pg_catalog.extract(
-				epoch FROM pg_catalog.current_setting('statement_timeout')::pg_catalog.interval
+				'epoch', pg_catalog.current_setting('statement_timeout')::pg_catalog.interval
 			) * 1000
 		)::bigint`,
-	).Scan(&milisegundos); err != nil {
+	).Scan(&efectivo); err != nil {
 		return err
 	}
-	if milisegundos != timeout.Milliseconds() {
+	if efectivo != milisegundos {
 		return ErrConfiguracionPostgreSQLPublicaInvalida
 	}
 	return nil

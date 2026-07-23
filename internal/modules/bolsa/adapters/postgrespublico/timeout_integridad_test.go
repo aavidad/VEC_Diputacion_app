@@ -27,12 +27,14 @@ func (tx *transaccionTimeoutEspia) QueryRow(ctx context.Context, sql string, arg
 		if !strings.Contains(sql, "set_config('statement_timeout', $1, true)") {
 			tx.t.Fatalf("sentencia de configuracion inesperada: %q", sql)
 		}
-		if len(argumentos) != 1 || argumentos[0] != "30s" {
+		if len(argumentos) != 1 || argumentos[0] != "30000ms" {
 			tx.t.Fatalf("timeout solicitado = %v", argumentos)
 		}
-		return filaTimeoutEspia{valor: "30s"}
+		return filaTimeoutEspia{valor: "30000ms"}
 	case 2:
-		if !strings.Contains(sql, "current_setting('statement_timeout')") || len(argumentos) != 0 {
+		if !strings.Contains(sql, "pg_catalog.extract(") ||
+			!strings.Contains(sql, "'epoch', pg_catalog.current_setting('statement_timeout')") ||
+			len(argumentos) != 0 {
 			tx.t.Fatalf("sentencia de verificacion inesperada: %q argumentos=%v", sql, argumentos)
 		}
 		efectivo := tx.efectivo
@@ -93,5 +95,17 @@ func TestStatementTimeoutRechazaValorEfectivoDistinto(t *testing.T) {
 		context.Background(), tx, duracionIntegridadDisponibilidad,
 	); !errors.Is(err, ErrConfiguracionPostgreSQLPublicaInvalida) {
 		t.Fatalf("valor efectivo distinto aceptado: %v", err)
+	}
+}
+
+func TestStatementTimeoutRechazaDuracionNoRepresentableEnMilisegundos(t *testing.T) {
+	tx := &transaccionTimeoutEspia{t: t}
+	if err := establecerStatementTimeout(
+		context.Background(), tx, time.Second+time.Nanosecond,
+	); !errors.Is(err, ErrConfiguracionPostgreSQLPublicaInvalida) {
+		t.Fatalf("duracion no representable aceptada: %v", err)
+	}
+	if tx.consultas != 0 {
+		t.Fatalf("se consulto PostgreSQL con una duracion invalida: %d", tx.consultas)
 	}
 }
