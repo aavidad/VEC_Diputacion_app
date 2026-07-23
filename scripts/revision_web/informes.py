@@ -17,6 +17,10 @@ def resumir_resultados(resultados: Sequence[dict[str, Any]]) -> dict[str, Any]:
         "capturas": sum(1 for resultado in resultados if resultado.get("captura")),
         "vistas": sum(1 for resultado in resultados if resultado["tipo"] == "vista"),
         "flujos": sum(1 for resultado in resultados if resultado["tipo"] == "flujo"),
+        "pantallas_rrhh": sum(
+            1 for resultado in resultados
+            if resultado["tipo"] == "pantalla-rrhh"
+        ),
     }
 
 
@@ -40,7 +44,15 @@ def crear_informe_markdown(informe: dict[str, Any]) -> str:
         f"**Estado:** {estado} · **Modo:** {modo}", "",
         f"- URL base: `{informe['url_base']}`",
         f"- Generado: `{informe['generado_en']}`",
-        f"- Escenarios: {resumen['escenarios']} ({resumen['vistas']} vistas, {resumen['flujos']} flujos)",
+        (
+            f"- Escenarios: {resumen['escenarios']} "
+            f"({resumen['vistas']} vistas, {resumen['flujos']} flujos"
+            + (
+                f", {resumen.get('pantallas_rrhh', 0)} pantallas RRHH"
+                if resumen.get("pantallas_rrhh", 0) else ""
+            )
+            + ")"
+        ),
         f"- Correctos: {resumen['correctos']}",
         f"- Con hallazgos: {resumen['con_hallazgos']}",
         f"- Capturas: {resumen['capturas']}", "",

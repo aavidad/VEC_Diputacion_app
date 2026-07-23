@@ -603,6 +603,7 @@ def validar_manifiesto(
             acciones_validas = {
                 "clic", "clic-confirmando", "esperar", "enfocar",
                 "esperar-habilitado", "esperar-deshabilitado", "abrir-menu",
+                "asentar-arriba",
             }
             if not escenario.pasos:
                 errores.append(f"flujo sin pasos: {escenario.clave}")

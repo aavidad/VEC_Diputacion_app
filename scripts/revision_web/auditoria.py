@@ -495,14 +495,36 @@ def ejecutar_flujo(page: Any, flujo: Flujo, timeout_ms: int, demo_confirmada: bo
                     raise RuntimeError(f"el control no está {estado}")
             elif paso.accion == "enfocar":
                 locator.scroll_into_view_if_needed(timeout=restante)
+            elif paso.accion == "asentar-arriba":
+                locator.wait_for(state="visible", timeout=restante)
+                page.evaluate("""() => {
+                  const activo = document.activeElement;
+                  if (activo?.matches?.(
+                    'a[href="#contenido-principal"], .saltar-contenido, .skip-link'
+                  )) activo.blur();
+                  window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+                }""")
             elif paso.accion == "abrir-menu":
                 locator.wait_for(state="attached", timeout=restante)
                 if locator.is_visible() and locator.get_attribute("aria-expanded") != "true":
                     locator.click(timeout=restante)
             elif paso.accion == "clic-confirmando":
-                selectores_confirmacion_demo = ("operacion-presentacion", "preparar-llamamiento-demo")
-                if (not flujo.requiere_demo
-                        or not any(marcador in paso.selector for marcador in selectores_confirmacion_demo)):
+                selectores_confirmacion_demo = (
+                    "operacion-presentacion",
+                    "preparar-llamamiento-demo",
+                )
+                selector_efecto_ginpix = '[data-ct-exp-efecto="enviar_ginpix"]'
+                permitido = (
+                    any(
+                        marcador in paso.selector
+                        for marcador in selectores_confirmacion_demo
+                    )
+                    or (
+                        flujo.clave == "rrhh-pantalla-16-ginpix-recibo"
+                        and paso.selector == selector_efecto_ginpix
+                    )
+                )
+                if not flujo.requiere_demo or not permitido:
                     raise RuntimeError("se rechazó un intento de confirmar una operación fuera del adaptador DEMO")
                 page.once("dialog", lambda dialogo: dialogo.accept())
                 locator.click(timeout=restante)

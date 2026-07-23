@@ -5,12 +5,22 @@ portal público, las 14 vistas del área aspirante, las 20 vistas internas de
 RRHH y 25 estados de interacción. Incluye los selectores abiertos desde el
 área aspirante y la administración, los perfiles funcionario y técnico con
 permisos distintos, y una ruta real de Dietas sobre el mapa OSM interno. Repite
-el recorrido en 1440×1000, 1024×900 y 390×844. La ejecución cerrada el 20 de
+ese recorrido en 1440×1000, 1024×900 y 390×844. Desde el 24 de julio añade una
+matriz contractual separada de las 17 pantallas de contratación temporal
+solicitadas por RRHH, capturada por viewport en 1536×1024, 1440×1000 y
+1280×900. El detalle, las
+secuencias y las dos brechas de paridad están en
+[la matriz 1..17](matriz_revision_visual_17_pantallas_rrhh_2026-07-24.md).
+
+La ejecución cerrada el 20 de
 julio de 2026 obtuvo **183/183 escenarios correctos, 183 capturas y cero
 hallazgos** sobre la imagen Docker reconstruida después del pulido de
 escritorio. Además de la puerta automática, se inspeccionaron manualmente las
 capturas afectadas en 1440×1000 y 1024×900.
-Esta evidencia automática no sustituye la aceptación humana de RRHH.
+Esa evidencia precede a la matriz 1..17: no demuestra que sus 51 recorridos
+nuevos hayan pasado. La nueva evidencia se declarará solo después de
+reconstruir la imagen, ejecutar Docker e inspeccionar 1536, 1440 y 1280.
+Ninguna evidencia automática sustituye la aceptación humana de RRHH.
 
 ## Preparación y uso
 
@@ -43,6 +53,9 @@ Opciones útiles:
   ignorado por Git.
 - `--superficie area-aspirante`: limita una ejecución de diagnóstico; puede
   repetirse. Sin esta opción siempre se cubre el manifiesto completo.
+- `--solo-pantallas-rrhh`: ejecuta únicamente las 17 pantallas numeradas en
+  viewport 1536, 1440 y 1280; es la puerta específica de comparación con el
+  documento recibido.
 - `--timeout-ms 12000`: cambia la espera acotada. Se usa
   `domcontentloaded`; no se espera la inactividad total de red.
 - `--tolerante`: conserva capturas y hallazgos, pero devuelve código cero.

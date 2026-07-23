@@ -326,6 +326,143 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
         self.assertTrue(any("ruta de vista duplicada" in error for error in errores))
 
 
+class MatrizPantallasRRHHTests(unittest.TestCase):
+    def test_matriz_numera_y_nombra_exactamente_las_diecisiete_pantallas(self) -> None:
+        pantallas = capturador.MATRIZ_PANTALLAS_RRHH
+        self.assertEqual([pantalla.numero for pantalla in pantallas], list(range(1, 18)))
+        self.assertEqual(len({pantalla.clave for pantalla in pantallas}), 17)
+        self.assertEqual(len({pantalla.nombre_captura for pantalla in pantallas}), 17)
+        self.assertEqual(capturador.validar_matriz_pantallas_rrhh(), [])
+        for pantalla in pantallas:
+            with self.subTest(pantalla=pantalla.numero):
+                self.assertTrue(
+                    pantalla.nombre_captura.startswith(f"{pantalla.numero:02d}-"),
+                )
+                self.assertTrue(pantalla.nombre_captura.endswith(".png"))
+
+    def test_cada_pantalla_declara_contexto_navegacion_asentamiento_y_criterios(self) -> None:
+        for pantalla in capturador.MATRIZ_PANTALLAS_RRHH:
+            with self.subTest(pantalla=pantalla.numero):
+                self.assertEqual(pantalla.ruta, capturador.RUTA_CONTRATACION_RRHH)
+                self.assertEqual(pantalla.perfil, "administrador")
+                self.assertTrue(pantalla.pasos)
+                self.assertTrue(pantalla.selector_asentamiento)
+                self.assertTrue(any(
+                    pantalla.selector_asentamiento in paso.selector
+                    and paso.accion in {"esperar", "enfocar"}
+                    for paso in pantalla.pasos
+                ))
+                self.assertGreaterEqual(
+                    len(pantalla.criterios_visuales),
+                    len(capturador.CRITERIOS_COMUNES) + 1,
+                )
+                if pantalla.pestana == "expediente":
+                    self.assertEqual(
+                        pantalla.expediente_ref,
+                        capturador.EXPEDIENTE_RRHH,
+                    )
+                    self.assertTrue(pantalla.tarea_ref)
+                else:
+                    self.assertEqual(pantalla.expediente_ref, "")
+                    self.assertEqual(pantalla.tarea_ref, "")
+
+    def test_mapeo_de_tareas_respeta_el_flujo_rrhh_y_declara_brechas(self) -> None:
+        tareas = {
+            pantalla.numero: pantalla.tarea_ref
+            for pantalla in capturador.MATRIZ_PANTALLAS_RRHH
+        }
+        self.assertEqual(tareas, {
+            1: "", 2: "",
+            3: "tarea-analisis",
+            4: "tarea-cobertura",
+            5: "tarea-asignacion",
+            6: "tarea-informe-juridico",
+            7: "tarea-envio-intervencion",
+            8: "tarea-fiscalizacion",
+            9: "tarea-subsanacion",
+            10: "tarea-iniciar-llamamiento",
+            11: "tarea-seleccion-candidato",
+            12: "tarea-resultado-llamamiento",
+            13: "tarea-traslado-intervencion",
+            14: "tarea-informe-definitivo",
+            15: "tarea-ginpix",
+            16: "tarea-ginpix",
+            17: "tarea-formalizacion",
+        })
+        brechas = {
+            pantalla.numero for pantalla in capturador.MATRIZ_PANTALLAS_RRHH
+            if pantalla.brecha
+        }
+        bloqueadas = {
+            pantalla.numero for pantalla in capturador.MATRIZ_PANTALLAS_RRHH
+            if pantalla.paridad == "bloqueada"
+        }
+        self.assertEqual(brechas, {5, 16})
+        self.assertEqual(bloqueadas, set())
+        self.assertEqual(
+            {pantalla.paridad for pantalla in capturador.MATRIZ_PANTALLAS_RRHH},
+            {"pendiente_revision_visual"},
+        )
+
+    def test_pantallas_se_capturan_en_1536_1440_y_1280_con_nombre_contractual(self) -> None:
+        self.assertEqual(
+            {
+                (tamano.ancho, tamano.alto)
+                for tamano in capturador.TAMANOS_PANTALLAS_RRHH
+            },
+            {(1536, 1024), (1440, 1000), (1280, 900)},
+        )
+        self.assertEqual(len(capturador.MANIFIESTO_PANTALLAS_RRHH), 17)
+        for pantalla, escenario in zip(
+            capturador.MATRIZ_PANTALLAS_RRHH,
+            capturador.MANIFIESTO_PANTALLAS_RRHH,
+            strict=True,
+        ):
+            with self.subTest(pantalla=pantalla.numero):
+                self.assertEqual(escenario.tipo, "pantalla-rrhh")
+                self.assertEqual(escenario.clave, pantalla.clave)
+                self.assertTrue(escenario.requiere_demo)
+                self.assertEqual(escenario.pasos[-1].accion, "asentar-arriba")
+                self.assertEqual(
+                    escenario.pasos[-1].selector,
+                    '[data-modulo="contratacion-temporal"]',
+                )
+                self.assertEqual(
+                    capturador.tamanos_para_pantalla(escenario.clave),
+                    capturador.TAMANOS_PANTALLAS_RRHH,
+                )
+                self.assertEqual(
+                    capturador.nombre_captura_pantalla(escenario.clave),
+                    pantalla.nombre_captura,
+                )
+
+    def test_estado_ginpix_se_prepara_por_operacion_demo_exacta(self) -> None:
+        pantalla = capturador.MATRIZ_PANTALLAS_RRHH[15]
+        confirmaciones = [
+            paso for paso in pantalla.pasos
+            if paso.accion == "clic-confirmando"
+        ]
+        self.assertEqual(len(confirmaciones), 1)
+        self.assertEqual(
+            confirmaciones[0].selector,
+            '[data-ct-exp-efecto="enviar_ginpix"]',
+        )
+        self.assertEqual(pantalla.selector_asentamiento, "[data-ct-exp-recibo]")
+        codigo = Path(auditoria_revision.__file__).read_text(encoding="utf-8")
+        self.assertIn('flujo.clave == "rrhh-pantalla-16-ginpix-recibo"', codigo)
+        self.assertIn('[data-ct-exp-efecto="enviar_ginpix"]', codigo)
+
+    def test_validador_detecta_validacion_visual_con_brecha(self) -> None:
+        original = capturador.MATRIZ_PANTALLAS_RRHH[4]
+        invalida = replace(original, paridad="validada")
+        errores = capturador.validar_matriz_pantallas_rrhh((
+            *capturador.MATRIZ_PANTALLAS_RRHH[:4],
+            invalida,
+            *capturador.MATRIZ_PANTALLAS_RRHH[5:],
+        ))
+        self.assertIn("pantalla validada con brecha/bloqueo en 5", errores)
+
+
 class HelpersRevisionWebTests(unittest.TestCase):
     def test_url_base_y_construccion_de_ruta(self) -> None:
         self.assertEqual(

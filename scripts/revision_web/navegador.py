@@ -27,6 +27,7 @@ from .modelo import (
     hallazgo as _hallazgo,
     slug_castellano,
 )
+from .pantallas_rrhh import metadatos_pantalla, nombre_captura_pantalla
 
 
 def verificar_servidor_presentacion(
@@ -147,7 +148,13 @@ def capturar_escenario(
     inicio = time.monotonic()
     superficie = SUPERFICIES[escenario.superficie]
     url = construir_url(url_base, escenario.ruta, permitir_red_privada)
-    ruta_captura = Path("capturas") / tamano.clave / escenario.tipo / superficie.clave / f"{slug_castellano(escenario.clave)}.png"
+    nombre_captura = nombre_captura_pantalla(escenario.clave) or (
+        f"{slug_castellano(escenario.clave)}.png"
+    )
+    ruta_captura = (
+        Path("capturas") / tamano.clave / escenario.tipo
+        / superficie.clave / nombre_captura
+    )
     destino_captura = directorio_salida / ruta_captura
     destino_captura.parent.mkdir(parents=True, exist_ok=True)
 
@@ -250,7 +257,9 @@ def capturar_escenario(
         hallazgos.extend(esperar_red_estable(page, peticiones_pendientes, timeout_ms))
         try:
             capturas_guardadas = guardar_captura(
-                page, destino_captura, pagina_completa=escenario.tipo == "vista",
+                page,
+                destino_captura,
+                pagina_completa=escenario.tipo == "vista",
             )
         except Exception as error:
             hallazgos.append(_hallazgo("captura_fallida", "No se pudo guardar la captura.", str(error)))
@@ -286,6 +295,7 @@ def capturar_escenario(
                 pass
 
     hallazgos = deduplicar_registros(hallazgos)
+    metadatos = metadatos_pantalla(escenario.clave)
     return {
         "tipo": escenario.tipo, "clave": escenario.clave, "nombre": escenario.nombre,
         "superficie": superficie.clave, "nombre_superficie": superficie.nombre,
@@ -296,8 +306,22 @@ def capturar_escenario(
         ],
         "alcance_captura": (
             "pagina-completa-segmentada" if len(capturas_guardadas) > 1
-            else "pagina-completa" if escenario.tipo == "vista" else "viewport-flujo"
+            else "pagina-completa" if escenario.tipo == "vista"
+            else "viewport-pantalla" if escenario.tipo == "pantalla-rrhh"
+            else "viewport-flujo"
         ),
+        "pantalla_rrhh": None if metadatos is None else {
+            "numero": metadatos.numero,
+            "perfil": metadatos.perfil,
+            "expediente_ref": metadatos.expediente_ref,
+            "tarea_ref": metadatos.tarea_ref,
+            "pestana": metadatos.pestana,
+            "selector_asentamiento": metadatos.selector_asentamiento,
+            "criterios_visuales": list(metadatos.criterios_visuales),
+            "paridad": metadatos.paridad,
+            "brecha": metadatos.brecha,
+            "bloqueo": metadatos.bloqueo,
+        },
         "correcto": not hallazgos,
         "duracion_ms": round((time.monotonic() - inicio) * 1000),
         "hallazgos": hallazgos, "metricas": auditoria,

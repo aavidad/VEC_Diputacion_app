@@ -18,6 +18,13 @@ from .modelo import (
     validar_manifiesto,
 )
 from .navegador import capturar_escenario, verificar_servidor_presentacion
+from .pantallas_rrhh import (
+    MANIFIESTO_PANTALLAS_RRHH,
+    MATRIZ_PANTALLAS_RRHH,
+    TAMANOS_PANTALLAS_RRHH,
+    tamanos_para_pantalla,
+    validar_matriz_pantallas_rrhh,
+)
 
 
 def crear_argumentos() -> argparse.ArgumentParser:
@@ -39,6 +46,10 @@ def crear_argumentos() -> argparse.ArgumentParser:
     parser.add_argument(
         "--superficie", action="append", choices=tuple(SUPERFICIES),
         help="Limita el recorrido a una superficie; puede repetirse. Sin esta opción recorre todas.",
+    )
+    parser.add_argument(
+        "--solo-pantallas-rrhh", action="store_true",
+        help="Recorre solo la matriz 1..17 en viewport 1536, 1440 y 1280.",
     )
     parser.add_argument(
         "--tolerante", "--modo-tolerante", action="store_true",
@@ -65,13 +76,36 @@ def ejecutar_revision(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     )
     if args.timeout_ms < 500 or args.timeout_ms > 120_000:
         raise ValueError("--timeout-ms debe estar entre 500 y 120000")
-    errores_manifiesto = validar_manifiesto()
+    manifiesto_completo = (*MANIFIESTO, *MANIFIESTO_PANTALLAS_RRHH)
+    errores_manifiesto = validar_manifiesto(
+        manifiesto_completo,
+        tamanos=(*TAMANOS_VISTA, *TAMANOS_PANTALLAS_RRHH),
+    )
+    errores_manifiesto.extend(validar_matriz_pantallas_rrhh())
     if errores_manifiesto:
         raise ValueError("manifiesto inválido: " + "; ".join(errores_manifiesto))
 
     superficies_elegidas = set(args.superficie or SUPERFICIES)
-    escenarios = [escenario for escenario in MANIFIESTO if escenario.superficie in superficies_elegidas]
-    total = len(escenarios) * len(TAMANOS_VISTA)
+    if args.solo_pantallas_rrhh and (
+        args.superficie and superficies_elegidas != {"gestion-rrhh"}
+    ):
+        raise ValueError(
+            "--solo-pantallas-rrhh solo admite --superficie gestion-rrhh",
+        )
+    fuente_escenarios = (
+        MANIFIESTO_PANTALLAS_RRHH if args.solo_pantallas_rrhh
+        else manifiesto_completo
+    )
+    escenarios = [
+        escenario for escenario in fuente_escenarios
+        if escenario.superficie in superficies_elegidas
+    ]
+    trabajos = [
+        (escenario, tamano)
+        for escenario in escenarios
+        for tamano in (tamanos_para_pantalla(escenario.clave) or TAMANOS_VISTA)
+    ]
+    total = len(trabajos)
     resultados: list[dict[str, Any]] = []
 
     try:
@@ -98,21 +132,20 @@ def ejecutar_revision(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                     permitir_red_privada=bool(args.red_docker_interna),
                 )
                 completados = 0
-                for tamano in TAMANOS_VISTA:
-                    for escenario in escenarios:
-                        resultado = capturar_escenario(
-                            browser=browser, escenario=escenario, tamano=tamano,
-                            url_base=url_base, directorio_salida=args.salida, timeout_ms=args.timeout_ms,
-                            permitir_red_privada=bool(args.red_docker_interna),
-                        )
-                        resultados.append(resultado)
-                        completados += 1
-                        porcentaje = completados * 100 / total if total else 100
-                        estado = "OK" if resultado["correcto"] else f"{len(resultado['hallazgos'])} hallazgo(s)"
-                        print(
-                            f"[{porcentaje:6.2f}%] {tamano.ancho}x{tamano.alto} · "
-                            f"{escenario.tipo} · {escenario.nombre}: {estado}", flush=True,
-                        )
+                for escenario, tamano in trabajos:
+                    resultado = capturar_escenario(
+                        browser=browser, escenario=escenario, tamano=tamano,
+                        url_base=url_base, directorio_salida=args.salida, timeout_ms=args.timeout_ms,
+                        permitir_red_privada=bool(args.red_docker_interna),
+                    )
+                    resultados.append(resultado)
+                    completados += 1
+                    porcentaje = completados * 100 / total if total else 100
+                    estado = "OK" if resultado["correcto"] else f"{len(resultado['hallazgos'])} hallazgo(s)"
+                    print(
+                        f"[{porcentaje:6.2f}%] {tamano.ancho}x{tamano.alto} · "
+                        f"{escenario.tipo} · {escenario.nombre}: {estado}", flush=True,
+                    )
             finally:
                 browser.close()
     except RuntimeError:
@@ -133,8 +166,32 @@ def ejecutar_revision(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
         "tolerante": bool(args.tolerante),
         "correcto": resumen["con_hallazgos"] == 0,
         "codigo_salida": salida,
-        "tamanos": [asdict(tamano) for tamano in TAMANOS_VISTA],
+        "tamanos": [
+            asdict(tamano) for tamano in dict.fromkeys(
+                tamano for _escenario, tamano in trabajos
+            )
+        ],
         "superficies": sorted(superficies_elegidas),
+        "solo_pantallas_rrhh": bool(args.solo_pantallas_rrhh),
+        "matriz_pantallas_rrhh": [
+            {
+                "numero": pantalla.numero,
+                "clave": pantalla.clave,
+                "nombre": pantalla.nombre,
+                "ruta": pantalla.ruta,
+                "perfil": pantalla.perfil,
+                "expediente_ref": pantalla.expediente_ref,
+                "tarea_ref": pantalla.tarea_ref,
+                "pestana": pantalla.pestana,
+                "selector_asentamiento": pantalla.selector_asentamiento,
+                "nombre_captura": pantalla.nombre_captura,
+                "criterios_visuales": list(pantalla.criterios_visuales),
+                "paridad": pantalla.paridad,
+                "brecha": pantalla.brecha,
+                "bloqueo": pantalla.bloqueo,
+            }
+            for pantalla in MATRIZ_PANTALLAS_RRHH
+        ],
         "resumen": resumen,
         "resultados": resultados,
     }
