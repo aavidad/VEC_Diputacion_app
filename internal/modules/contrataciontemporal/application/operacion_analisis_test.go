@@ -278,6 +278,53 @@ func TestOperacionAnalisisFalloDePersistenciaNoDejaConsumos(
 	}
 }
 
+func TestOperacionAnalisisReciboValidoPruebaCommitPeseAErrorCompetitivo(
+	t *testing.T,
+) {
+	casos := []struct {
+		nombre string
+		err    error
+	}{
+		{"cancelacion", context.Canceled},
+		{
+			"transporte",
+			ports.ErrPersistenciaOperacionAnalisisNoDisponible,
+		},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			escenario := nuevoEscenarioOperacionAnalisisSaneado(
+				t,
+				ports.OperacionRegistrarAnalisis,
+				"-recibo-valido-"+caso.nombre+"-sintetico",
+			)
+			servicio, d := construirServicioOperacionAnalisisSaneado(
+				t,
+				escenario,
+			)
+			ctx := context.Background()
+			if errors.Is(caso.err, context.Canceled) {
+				cancelable, cancelar := context.WithCancel(ctx)
+				ctx = cancelable
+				d.transaccion.despues = cancelar
+			}
+			d.transaccion.errTrasCommit = caso.err
+
+			recibo, err := servicio.Registrar(ctx, escenario.registrar)
+			if err != nil ||
+				recibo.ValidarParaOrdenDentroDeTransaccion(
+					d.transaccion.orden,
+				) != nil ||
+				d.transaccion.consumosFuentes != 1 ||
+				d.transaccion.consumosV3 != 1 ||
+				d.transaccion.commits != 1 {
+				t.Fatalf("un recibo válido no probó el commit: %#v, %v",
+					recibo, err)
+			}
+		})
+	}
+}
+
 func TestOperacionAnalisisNoExponeReciboAdulteradoYReplayRecuperaConfirmado(
 	t *testing.T,
 ) {
@@ -316,6 +363,30 @@ func TestOperacionAnalisisNoExponeReciboAdulteradoYReplayRecuperaConfirmado(
 		d.transaccion.commits != 1 {
 		t.Fatalf("el replay no recuperó el recibo durable: %#v, %v",
 			recuperado, err)
+	}
+}
+
+func TestOperacionAnalisisReciboAdulteradoNoPrevaleceSobreErrorCompetitivo(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioOperacionAnalisisSaneado(
+		t,
+		ports.OperacionRegistrarAnalisis,
+		"-recibo-adulterado-error-sintetico",
+	)
+	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
+	ctx, cancelar := context.WithCancel(context.Background())
+	d.transaccion.despues = cancelar
+	d.transaccion.adulterarSalida = true
+	d.transaccion.errTrasCommit = context.Canceled
+
+	recibo, err := servicio.Registrar(ctx, escenario.registrar)
+	if recibo != (ports.ReciboOperacionAnalisis{}) ||
+		!errors.Is(err, ErrDependenciaOperacionAnalisisNoDisponible) ||
+		!errors.Is(err, context.Canceled) ||
+		d.transaccion.confirmado == nil ||
+		d.transaccion.commits != 1 {
+		t.Fatalf("un recibo adulterado prevaleció: %#v, %v", recibo, err)
 	}
 }
 

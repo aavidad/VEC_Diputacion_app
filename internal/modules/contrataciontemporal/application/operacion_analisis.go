@@ -476,13 +476,13 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		ctxOperacion,
 		orden,
 	)
+	if recibo.ValidarParaOrdenDentroDeTransaccion(orden) == nil {
+		return recibo, nil
+	}
 	if err != nil {
 		return ports.ReciboOperacionAnalisis{},
 			clasificarFalloPersistencia(ctxOperacion, err)
 	}
-	if recibo.ValidarParaOrdenDentroDeTransaccion(orden) != nil {
-		return ports.ReciboOperacionAnalisis{},
-			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
-	}
-	return recibo, nil
+	return ports.ReciboOperacionAnalisis{},
+		nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
 }

@@ -225,6 +225,7 @@ func (d *resolutorPoliticaOperacionAnalisisDobleSaneado) ResolverPoliticaOperaci
 
 type transaccionOperacionAnalisisDobleSaneado struct {
 	err                 error
+	errTrasCommit       error
 	llamadas            int
 	orden               ports.OrdenConfirmarOperacionAnalisis
 	despues             func()
@@ -331,7 +332,7 @@ func (d *transaccionOperacionAnalisisDobleSaneado) ConfirmarOperacionAnalisis(
 	if d.adulterarSalida {
 		recibo.EventoRef = ""
 	}
-	return recibo, nil
+	return recibo, d.errTrasCommit
 }
 
 type escenarioOperacionAnalisisSaneado struct {
