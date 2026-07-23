@@ -65,20 +65,25 @@ func (m MaterialHuellaAlta) Validar() error {
 // DerivadorHuellaAlta usa una clave gestionada fuera del proceso. Nunca
 // persiste el material en claro como sustituto de la solicitud.
 type DerivadorHuellaAlta interface {
-	DerivarHuellaAlta(context.Context, MaterialHuellaAlta) (string, error)
+	DerivarHuellaAlta(
+		context.Context,
+		MaterialHuellaAlta,
+	) (ColeccionSellosHMAC, error)
 }
 
 type SolicitudPrepararAlta struct {
-	ClaveIdempotencia  string
-	HuellaPeticionHMAC string
-	OrganizacionRef    string
-	ActorRef           string
-	PerfilRef          string
+	ClaveIdempotencia   string
+	HuellasPeticionHMAC ColeccionSellosHMAC
+	OrganizacionRef     string
+	ActorRef            string
+	PerfilRef           string
 }
 
 func (s SolicitudPrepararAlta) Validar() error {
 	if !claveIdempotenciaValida(s.ClaveIdempotencia) ||
-		!SelloHMACSHA256Valido(s.HuellaPeticionHMAC) ||
+		s.HuellasPeticionHMAC.ValidarDominio(
+			"vec.contratacion-temporal.huella-peticion",
+		) != nil ||
 		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(s.ActorRef) ||
 		!domain.ReferenciaOpacaValida(s.PerfilRef) {
@@ -110,7 +115,7 @@ func (p PreparacionAlta) ValidarPara(solicitud SolicitudPrepararAlta) error {
 	if solicitud.Validar() != nil || !domain.ReferenciaOpacaValida(p.ReservaRef) ||
 		p.Referencias.Validar() != nil ||
 		!SelloHMACSHA256Valido(p.AmbitoIdempotenciaHMAC) ||
-		!sellosHMACIguales(p.HuellaPeticionHMAC, solicitud.HuellaPeticionHMAC) ||
+		!solicitud.HuellasPeticionHMAC.Contiene(p.HuellaPeticionHMAC) ||
 		p.OrganizacionRef != solicitud.OrganizacionRef ||
 		p.ActorRef != solicitud.ActorRef || p.PerfilRef != solicitud.PerfilRef ||
 		(p.Estado != PreparacionReservada && p.Estado != PreparacionConfirmada) {

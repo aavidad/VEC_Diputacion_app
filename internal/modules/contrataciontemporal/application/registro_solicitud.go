@@ -148,7 +148,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if materialHuella.Validar() != nil {
 		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
 	}
-	huella, err := s.huellas.DerivarHuellaAlta(ctx, materialHuella)
+	huellas, err := s.huellas.DerivarHuellaAlta(ctx, materialHuella)
 	if err != nil {
 		return ports.ReciboAlta{}, err
 	}
@@ -156,11 +156,11 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		return ports.ReciboAlta{}, err
 	}
 	preparar := ports.SolicitudPrepararAlta{
-		ClaveIdempotencia:  solicitud.ClaveIdempotencia,
-		HuellaPeticionHMAC: huella,
-		OrganizacionRef:    solicitud.OrganizacionRef,
-		ActorRef:           datosIdentidad.ActorRef,
-		PerfilRef:          datosIdentidad.PerfilRef,
+		ClaveIdempotencia:   solicitud.ClaveIdempotencia,
+		HuellasPeticionHMAC: huellas,
+		OrganizacionRef:     solicitud.OrganizacionRef,
+		ActorRef:            datosIdentidad.ActorRef,
+		PerfilRef:           datosIdentidad.PerfilRef,
 	}
 	if preparar.Validar() != nil {
 		return ports.ReciboAlta{}, errors.Join(

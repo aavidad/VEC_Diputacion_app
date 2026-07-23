@@ -29,6 +29,7 @@ type selladorPrueba struct {
 	clave      []byte
 	referencia string
 	material   []byte
+	err        error
 }
 
 func (s *selladorPrueba) SellarDatos(
@@ -37,6 +38,9 @@ func (s *selladorPrueba) SellarDatos(
 ) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
+	}
+	if s.err != nil {
+		return "", s.err
 	}
 	s.material = append([]byte(nil), material...)
 	mac := hmac.New(sha256.New, s.clave)
@@ -92,16 +96,25 @@ func TestDerivadorHuellaAltaHMACLigaMaterialCanonico(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if primero != segundo || !ports.SelloHMACSHA256Valido(primero) ||
+	datosPrimero, err := primero.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	datosSegundo, err := segundo.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if datosPrimero.Activo != datosSegundo.Activo ||
+		!ports.SelloHMACSHA256Valido(datosPrimero.Activo.Valor) ||
 		!strings.Contains(string(sellador.material), esquemaHuellaAltaV1) {
-		t.Fatalf("sello no canónico: %q", primero)
+		t.Fatalf("sello no canónico: %#v", datosPrimero)
 	}
 	if string(sellador.material) != materialHuellaAltaV1Dorado ||
-		primero != selloHuellaAltaV1Dorado {
+		datosPrimero.Activo.Valor != selloHuellaAltaV1Dorado {
 		t.Fatalf(
-			"vector V1 alterado sin elevar esquema: material=%q sello=%q",
+			"vector V1 alterado sin elevar esquema: material=%q sello=%#v",
 			sellador.material,
-			primero,
+			datosPrimero,
 		)
 	}
 
@@ -111,7 +124,7 @@ func TestDerivadorHuellaAltaHMACLigaMaterialCanonico(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tercero == primero {
+	if tercero.Contiene(datosPrimero.Activo.Valor) {
 		t.Fatal("el sello no quedó ligado a la solicitud")
 	}
 }
@@ -141,17 +154,21 @@ func TestSelladorAmbitoNoExponeClaveEnResultado(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(sello, solicitud.ClaveIdempotencia) ||
+	datosSello, err := sello.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(datosSello.Activo.Valor, solicitud.ClaveIdempotencia) ||
 		!strings.Contains(string(sellador.material), solicitud.ClaveIdempotencia) ||
 		!strings.Contains(string(sellador.material), esquemaAmbitoAltaV1) {
-		t.Fatalf("separación idempotente inválida: %q", sello)
+		t.Fatalf("separación idempotente inválida: %#v", datosSello)
 	}
 	if string(sellador.material) != materialAmbitoAltaV1Dorado ||
-		sello != selloAmbitoAltaV1Dorado {
+		datosSello.Activo.Valor != selloAmbitoAltaV1Dorado {
 		t.Fatalf(
 			"vector V1 alterado sin elevar esquema: material=%q sello=%q",
 			sellador.material,
-			sello,
+			datosSello,
 		)
 	}
 }
@@ -194,5 +211,96 @@ func TestDerivadorRechazaDependenciaNulaTipada(t *testing.T) {
 		sellador,
 	); !errors.Is(err, ErrSelladoAltaNoDisponible) {
 		t.Fatalf("dependencia nula aceptada: %v", err)
+	}
+}
+
+func TestLlaveroHMACRotaV2ConV1RetenidaSinExponerClaves(t *testing.T) {
+	const (
+		referenciaV2 = "vec.contratacion-temporal.huella-peticion/v2"
+		referenciaV1 = "vec.contratacion-temporal.huella-peticion/v1"
+	)
+	activo := &selladorPrueba{
+		clave:      []byte("material-sintetico-activo-prueba"),
+		referencia: referenciaV2,
+	}
+	retenido := &selladorPrueba{
+		clave:      []byte("material-sintetico-retenido-prueba"),
+		referencia: referenciaV1,
+	}
+	configuracionActiva, err := NuevaConfiguracionSelladorHMAC(
+		referenciaV2,
+		activo,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	configuracionRetenida, err := NuevaConfiguracionSelladorHMAC(
+		referenciaV1,
+		retenido,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	derivador, err := NuevoDerivadorHuellaAltaHMACRotable(
+		configuracionActiva,
+		[]ConfiguracionSelladorHMAC{configuracionRetenida},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	coleccion, err := derivador.DerivarHuellaAlta(
+		context.Background(),
+		materialHuellaPrueba(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos, err := coleccion.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if datos.Activo.Generacion != 2 || len(datos.Retenidos) != 1 ||
+		datos.Retenidos[0].Generacion != 1 ||
+		!hmac.Equal(activo.material, retenido.material) ||
+		strings.Contains(datos.Activo.Valor, string(activo.clave)) ||
+		strings.Contains(datos.Retenidos[0].Valor, string(retenido.clave)) {
+		t.Fatalf("llavero de rotación incoherente: %#v", datos)
+	}
+}
+
+func TestLlaveroHMACFallaCerradoSiFaltaGeneracionRetenida(t *testing.T) {
+	activa, err := NuevaConfiguracionSelladorHMAC(
+		"vec.contratacion-temporal.huella-peticion/v2",
+		&selladorPrueba{
+			clave:      []byte("material-sintetico-activo-prueba"),
+			referencia: "vec.contratacion-temporal.huella-peticion/v2",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retenida, err := NuevaConfiguracionSelladorHMAC(
+		"vec.contratacion-temporal.huella-peticion/v1",
+		&selladorPrueba{
+			referencia: "vec.contratacion-temporal.huella-peticion/v1",
+			err:        errors.New("generación histórica no disponible"),
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	derivador, err := NuevoDerivadorHuellaAltaHMACRotable(
+		activa,
+		[]ConfiguracionSelladorHMAC{retenida},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = derivador.DerivarHuellaAlta(
+		context.Background(),
+		materialHuellaPrueba(),
+	)
+	if !errors.Is(err, ErrSelladoAltaNoDisponible) {
+		t.Fatalf("ausencia histórica no cerrada: %v", err)
 	}
 }

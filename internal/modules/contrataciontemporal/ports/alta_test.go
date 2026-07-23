@@ -33,12 +33,13 @@ func TestSelloHMACSHA256ValidoExigeDominioVersionadoYValorNoNulo(t *testing.T) {
 }
 
 func TestPreparacionAltaQuedaLigadaATenantActorPerfilYPeticion(t *testing.T) {
+	huellas := coleccionSelloPrueba(t, selloPrueba(dominioHuellaPrueba, "a"))
 	solicitud := SolicitudPrepararAlta{
-		ClaveIdempotencia:  "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
-		HuellaPeticionHMAC: selloPrueba(dominioHuellaPrueba, "a"),
-		OrganizacionRef:    "organizacion:diputacion-granada",
-		ActorRef:           "actor:tecnica-rrhh-001",
-		PerfilRef:          "perfil:tecnica-rrhh",
+		ClaveIdempotencia:   "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
+		HuellasPeticionHMAC: huellas,
+		OrganizacionRef:     "organizacion:diputacion-granada",
+		ActorRef:            "actor:tecnica-rrhh-001",
+		PerfilRef:           "perfil:tecnica-rrhh",
 	}
 	base := PreparacionAlta{
 		ReservaRef: "reserva:ct-alta:001",
@@ -48,7 +49,7 @@ func TestPreparacionAltaQuedaLigadaATenantActorPerfilYPeticion(t *testing.T) {
 			ReciboRef:     "recibo:ct-alta:001",
 		},
 		AmbitoIdempotenciaHMAC: selloPrueba(dominioAmbitoPrueba, "b"),
-		HuellaPeticionHMAC:     solicitud.HuellaPeticionHMAC,
+		HuellaPeticionHMAC:     huellas.datos.Activo.Valor,
 		OrganizacionRef:        solicitud.OrganizacionRef,
 		ActorRef:               solicitud.ActorRef,
 		PerfilRef:              solicitud.PerfilRef,
@@ -85,11 +86,14 @@ func TestPreparacionAltaQuedaLigadaATenantActorPerfilYPeticion(t *testing.T) {
 
 func TestSolicitudPrepararAltaExigeClaveIdempotenciaUUIDv4Canonica(t *testing.T) {
 	base := SolicitudPrepararAlta{
-		ClaveIdempotencia:  "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
-		HuellaPeticionHMAC: selloPrueba(dominioHuellaPrueba, "a"),
-		OrganizacionRef:    "organizacion:diputacion-granada",
-		ActorRef:           "actor:tecnica-rrhh-001",
-		PerfilRef:          "perfil:tecnica-rrhh",
+		ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
+		HuellasPeticionHMAC: coleccionSelloPrueba(
+			t,
+			selloPrueba(dominioHuellaPrueba, "a"),
+		),
+		OrganizacionRef: "organizacion:diputacion-granada",
+		ActorRef:        "actor:tecnica-rrhh-001",
+		PerfilRef:       "perfil:tecnica-rrhh",
 	}
 	if err := base.Validar(); err != nil {
 		t.Fatalf("UUIDv4 canónico rechazado: %v", err)
@@ -131,4 +135,13 @@ func TestReferenciasAltaRechazaNumeroVisibleFueraDeContrato(t *testing.T) {
 
 func selloPrueba(dominio, caracter string) string {
 	return "hmac-sha256:" + dominio + ":" + strings.Repeat(caracter, 64)
+}
+
+func coleccionSelloPrueba(t *testing.T, activo string) ColeccionSellosHMAC {
+	t.Helper()
+	coleccion, err := NuevaColeccionSellosHMAC(activo, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return coleccion
 }
