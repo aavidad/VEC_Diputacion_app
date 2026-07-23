@@ -84,6 +84,7 @@ ajenas.
 | Resto de casos de uso | Pendiente |
 | Preparación idempotente PostgreSQL | Cerrada y revisada: rotación v1→v2, replay, concurrencia, ACL y límites reales |
 | Autorización VEC durable de la preparación | Cerrada y revisada: V3, par HMAC activo exacto, revalidación y clientes neutrales |
+| Confianza y capacidad breve VEC-AD-3 | Integradas y revisadas: Ed25519/COSE estricto, audiencia, capacidad HMAC ≤5 s, rotación y revocación |
 | Contrato autenticado con Bolsa | Cerrado y revisado: referencias opacas, seudónimos, eventos, pruebas durables e inbox idempotente |
 | Confirmación atómica PostgreSQL | Pendiente |
 | API interna | Pendiente |
@@ -97,16 +98,23 @@ ajenas.
   incorporan parser estricto, canonicidad única, ligadura de compromisos,
   validación semántica y cruce nominal completo con el contexto firmado.
   El conjunto obtuvo GO independiente y quedó integrado en `fe00ed9`.
-  Todavía no existen verificador de confianza, capacidad breve ni consumidor
-  SQL; no cierra O2-05 ni habilita producción.
+- `4022152`–`9114f76` añaden verificación de confianza VEC-AD-3 con
+  Ed25519/COSE estricto y una capacidad HMAC canónica de 37 campos y vida
+  máxima de cinco segundos, ligada a decisión, efecto, audiencia, secuencia de
+  configuración y versión de raíz. La revisión independiente terminó sin
+  hallazgos y el corte quedó integrado en `8461aee`. Falta el consumidor SQL
+  atómico; no cierra O2-05 ni habilita producción.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
   cronología de solo adición y bloqueo de retroacciones implícitas. Falta el
   caso de uso autorizado y su transacción durable; no se considera cerrado.
 - `1faa8e7` implementa O3-03 con puertos neutrales para validación
   presupuestaria y cálculo de coste, ligadura de petición, copias defensivas,
   cancelación y fallo cerrado. La indisponibilidad nunca se convierte en «RC
-  no requerida» ni en coste válido. Falta revisión independiente antes de
-  cerrar la tarea.
+  no requerida» ni en coste válido. El rework `fca5d41`–`af124fb` corrigió
+  autenticidad de respuesta, replay, vigencia, errores y catálogo, pero la
+  segunda revisión independiente mantuvo NO-GO: la separación entre fuente y
+  verificadores aún puede eludirse mediante dos envoltorios del mismo
+  proveedor y las versiones deben acotarse a `2^53-1`. O3-03 no está cerrado.
 - `a34d462` inicia O4-02 con un puerto único para consultar fuentes de
   cobertura configuradas por catálogo. Liga organización, expediente y
   versión, catálogo y huella, vía, procedencia, categoría, periodo y
@@ -152,14 +160,12 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Completar y revisar el verificador de confianza VEC-AD-3 y su capacidad
-   breve nominal.
-2. Implementar la frontera consumidora SQL atómica.
-3. Asegurar en una sola transacción la reserva, autorización consumida,
+1. Implementar la frontera consumidora SQL atómica de VEC-AD-3.
+2. Asegurar en una sola transacción la reserva, autorización consumida,
    expediente, primera actuación, auditoría y outbox.
-4. Probar repetición, conflicto semántico, concurrencia y resultado
+3. Probar repetición, conflicto semántico, concurrencia y resultado
    indeterminado de `COMMIT`.
-5. Exponer después la API interna; no crear antes una segunda autoridad de
+4. Exponer después la API interna; no crear antes una segunda autoridad de
    identidad en el manejador.
 
 ## Dominio implementado

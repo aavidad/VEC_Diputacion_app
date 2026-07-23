@@ -44,7 +44,7 @@ Estados:
 | O2-02 | Adaptador Go de preparación PostgreSQL y conectores de sellado/generación. No instala SQL. | Unitarias de respuesta, ACL contractual, clave no serializada, carrera, `go vet`. | ✅ | `5288498`, corrección revisada `effa911` |
 | O2-03 | Roles, migración y prueba SQL real de preparación idempotente; convivencia de generaciones HMAC antes del cierre. No confirma expedientes. | PostgreSQL efímero: alta, reintento, conflicto, ACL, `down` protegido y rotación v1→v2 sin segunda reserva ni falso conflicto. | ✅ | `55fdf19`–`6e007c8`; GO independiente y PostgreSQL real 3/3 |
 | O2-04 | Sustituir la autorización local provisional por la capacidad durable común de VEC. | Revisión arquitectónica; no existe constructor fabricable ni segunda autoridad; pruebas de replay y vigencia. | ✅ | `edbd0db`; GO independiente, PostgreSQL real y dos pruebas concurrentes 16/16 sin fallos |
-| O2-05 | Función SQL de confirmación atómica. | Consumo único de autorización + reserva + expediente + actuación + auditoría + outbox en un `COMMIT`. | 🚧 | Diseño `1f16164`; VEC-AD-3 nominal/parser con GO en `fe00ed9`; confianza, capacidad breve y consumo SQL pendientes |
+| O2-05 | Función SQL de confirmación atómica. | Consumo único de autorización + reserva + expediente + actuación + auditoría + outbox en un `COMMIT`. | 🚧 | Diseño `1f16164`; VEC-AD-3 nominal/parser con GO en `fe00ed9`; confianza y capacidad breve con GO en `4022152`–`9114f76`, integradas en `8461aee`; consumidor SQL pendiente |
 | O2-06 | Adaptador Go de confirmación y reconciliación de resultado indeterminado. | Éxito, replay, concurrencia, timeout antes/después de `COMMIT`, reinicio y recibo adulterado. | — | — |
 | O2-07 | Composición interna real de dependencias. | Arranque falla cerrado sin identidad, PDP, HMAC, generador o PostgreSQL. | — | — |
 | O2-08 | API interna y neutral al cliente del alta. | Lista positiva, límites, sin `Cookie`/`Set-Cookie`, almacenamiento web ni cabeceras libres de autoridad; credencial breve ligada al cliente; mismo contrato para web, escritorio, CLI y MCP; contrato OpenAPI. | — | — |
@@ -57,7 +57,7 @@ Estados:
 | --- | --- | --- | --- |
 | O3-01 | Completar invariantes de análisis, jornada, coste y validación de RC. | Matriz de campos del documento RRHH y pruebas de importes/periodos. | ✅ `f33e100`–`9b5fabb`, `994a526` |
 | O3-02 | Caso de uso de registrar/rectificar análisis con CAS. | Versiones concurrentes, rectificación motivada y segregación de funciones. | 🚧 Dominio de rectificación en `2cd3da1`; aplicación y revisión pendientes. |
-| O3-03 | Puertos de fuente presupuestaria y cálculo de coste. | Dobles contractuales; indisponibilidad nunca equivale a validación. | 🚧 Implementado en `1faa8e7`; revisión independiente pendiente. |
+| O3-03 | Puertos de fuente presupuestaria y cálculo de coste. | Dobles contractuales; indisponibilidad nunca equivale a validación. | 🚧 Implementado en `1faa8e7` y refeito en `fca5d41`–`af124fb`; revisión independiente NO-GO: falta independencia no eludible entre fuente y verificadores y limitar versiones a `2^53-1`. |
 | O3-04 | Persistencia, auditoría y outbox del análisis. | PostgreSQL real, historia inmutable y recibo verificable. | — |
 | O3-05 | API y formulario de análisis RRHH. | Permisos por operación, accesibilidad, adjuntos por referencia y E2E. | — |
 
