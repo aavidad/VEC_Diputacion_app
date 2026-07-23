@@ -66,7 +66,8 @@ BEGIN
          'vec_bolsa_publica_publicacion_propietario',
          'vec_bolsa_publica_migrador',
          'vec_bolsa_publica_consulta',
-         'vec_bolsa_publica_publicador'
+         'vec_bolsa_publica_publicador',
+         'vec_bolsa_publica_publicador_login'
      ]);
     IF cardinality(encontrados) > 0 THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
@@ -86,6 +87,11 @@ CREATE ROLE vec_bolsa_publica_consulta NOLOGIN NOSUPERUSER
     NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
 CREATE ROLE vec_bolsa_publica_publicador NOLOGIN NOSUPERUSER
     NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+-- Identidad operativa unica. Nace sin contraseña utilizable: el gestor de
+-- secretos debe asignarla fuera de este script antes de habilitar el proceso.
+-- EXECUTE se concedera directamente a este LOGIN, nunca al grupo NOLOGIN.
+CREATE ROLE vec_bolsa_publica_publicador_login LOGIN PASSWORD NULL NOSUPERUSER
+    NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
 
 CREATE SCHEMA vec_bolsa_publica_datos AUTHORIZATION vec_bolsa_publica_propietario;
 CREATE SCHEMA vec_bolsa_publica_lectura AUTHORIZATION vec_bolsa_publica_propietario;
@@ -99,6 +105,8 @@ GRANT vec_bolsa_publica_propietario TO vec_bolsa_publica_migrador
     WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
 GRANT vec_bolsa_publica_publicacion_propietario TO vec_bolsa_publica_migrador
     WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
+GRANT vec_bolsa_publica_publicador TO vec_bolsa_publica_publicador_login
+    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
 
 DO $privilegios_base$
 BEGIN
@@ -118,12 +126,17 @@ ALTER ROLE vec_bolsa_publica_consulta SET search_path = 'pg_catalog,pg_temp';
 ALTER ROLE vec_bolsa_publica_consulta SET statement_timeout = '10s';
 ALTER ROLE vec_bolsa_publica_consulta SET lock_timeout = '2s';
 ALTER ROLE vec_bolsa_publica_consulta SET idle_in_transaction_session_timeout = '10s';
-ALTER ROLE vec_bolsa_publica_publicador SET search_path = 'pg_catalog,pg_temp';
-ALTER ROLE vec_bolsa_publica_publicador SET statement_timeout = '2min';
-ALTER ROLE vec_bolsa_publica_publicador SET lock_timeout = '10s';
-ALTER ROLE vec_bolsa_publica_publicador SET idle_in_transaction_session_timeout = '2min';
--- Los clientes deben invocar el publicador con parametros enlazados. Si una
--- validacion falla, PostgreSQL no vuelca el JSON potencialmente sensible.
-ALTER ROLE vec_bolsa_publica_publicador SET log_parameter_max_length_on_error = 0;
+
+-- Estos limites deben vivir en el LOGIN: PostgreSQL no hereda proconfig desde
+-- un grupo NOLOGIN. transaction_timeout (PG >= 17) acota tambien a un cliente
+-- que siga activo dentro de la transaccion; el idle corta antes al que deja el
+-- advisory xact lock abandonado entre sentencias.
+ALTER ROLE vec_bolsa_publica_publicador_login SET application_name = 'vec-bolsa-publicador';
+ALTER ROLE vec_bolsa_publica_publicador_login SET search_path = 'pg_catalog,pg_temp';
+ALTER ROLE vec_bolsa_publica_publicador_login SET statement_timeout = '60s';
+ALTER ROLE vec_bolsa_publica_publicador_login SET lock_timeout = '5s';
+ALTER ROLE vec_bolsa_publica_publicador_login SET idle_in_transaction_session_timeout = '5s';
+ALTER ROLE vec_bolsa_publica_publicador_login SET transaction_timeout = '2min';
+ALTER ROLE vec_bolsa_publica_publicador_login SET log_parameter_max_length_on_error = 0;
 
 COMMIT;

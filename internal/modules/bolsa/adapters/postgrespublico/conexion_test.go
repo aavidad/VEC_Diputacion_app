@@ -99,6 +99,28 @@ func TestPrepararConfiguracionPoolRechazaParametrosDeSesionDelDSN(t *testing.T) 
 	}
 }
 
+func TestPrepararConfiguracionPublicadorImponeLimitesAntesDeConectar(t *testing.T) {
+	configuracion, err := prepararConfiguracionPublicador(
+		"postgres://publicador:secreto-no-visible@db-publica.example/vec?sslmode=verify-full",
+	)
+	if err != nil {
+		t.Fatalf("preparar publicador: %v", err)
+	}
+	esperados := map[string]string{
+		"application_name":                    "vec-bolsa-publicador",
+		"search_path":                         "pg_catalog,pg_temp",
+		"statement_timeout":                   "60s",
+		"lock_timeout":                        "5s",
+		"idle_in_transaction_session_timeout": "5s",
+		"transaction_timeout":                 "2min",
+	}
+	for clave, esperado := range esperados {
+		if obtenido := configuracion.RuntimeParams[clave]; obtenido != esperado {
+			t.Fatalf("%s = %q; esperado %q", clave, obtenido, esperado)
+		}
+	}
+}
+
 func TestNuevaFuenteRechazaTestigoDeInvalidacionComoManifiesto(t *testing.T) {
 	fuente, err := NuevaFuente(
 		&pgxpool.Pool{}, "categorias-profesionales", 1,
