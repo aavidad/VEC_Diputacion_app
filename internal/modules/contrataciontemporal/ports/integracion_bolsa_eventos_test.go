@@ -20,7 +20,7 @@ func TestEventoExigeEnlaceGobernadoExactoYAutenticacion(t *testing.T) {
 	if err != nil || comprobante.datos == nil || evidencia.Validar() != nil {
 		t.Fatalf("evento auténtico no promovido: %v", err)
 	}
-	comando, err := NuevoComandoRegistrarEventoBolsa(evento, enlace, comprobante)
+	comando, err := NuevoComandoRegistrarEventoBolsa(evento, enlace, comprobante, ahora)
 	if err != nil {
 		t.Fatalf("comando verificado rechazado: %v", err)
 	}
@@ -28,10 +28,23 @@ func TestEventoExigeEnlaceGobernadoExactoYAutenticacion(t *testing.T) {
 	if err != nil || recuperado != evento || prueba.datos == nil {
 		t.Fatalf("comando no conserva evento y prueba: %v", err)
 	}
+	comandoSinPrueba := comandoLlamamientoPrueba(
+		t, base, selladorRespuestaBolsaPrueba(),
+	)
+	reciboSinPrueba := reciboLlamamientoPrueba(t, comandoSinPrueba, base)
+	if _, err := NuevoEnlaceEventoLlamamientoBolsa(
+		PreparacionEnlaceEventoLlamamientoBolsa{
+			Comando: comandoSinPrueba, Recibo: reciboSinPrueba,
+			Comprobante: ComprobanteEvidenciaIntegracionBolsa{},
+		},
+	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
+		t.Fatalf("recibo sin autenticar produjo enlace: %v", err)
+	}
 	if _, err := NuevoComandoRegistrarEventoBolsa(
 		evento,
 		enlace,
 		ComprobanteEvidenciaIntegracionBolsa{},
+		ahora,
 	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
 		t.Fatalf("evento sin comprobante obtuvo comando: %v", err)
 	}
@@ -100,6 +113,47 @@ func TestEventoNoPuedeAutovalidarFinalidadAccionRecursoNiReferencias(t *testing.
 		{"recibo_digest", func(e *EventoLlamamientoBolsa) {
 			e.HuellaReciboSHA256 = referenciaBolsaPrueba("huella:otra", "3").HuellaSHA256
 		}},
+		{"necesidad", func(e *EventoLlamamientoBolsa) {
+			e.Necesidad = referenciaBolsaPrueba("necesidad:otra", "3")
+		}},
+		{"bolsa", func(e *EventoLlamamientoBolsa) {
+			e.Bolsa = referenciaBolsaPrueba("bolsa:otra", "3")
+		}},
+		{"orden", func(e *EventoLlamamientoBolsa) {
+			e.Orden = referenciaBolsaPrueba("orden:otra", "3")
+		}},
+		{"politica", func(e *EventoLlamamientoBolsa) {
+			e.Politica = referenciaBolsaPrueba("politica:otra", "3")
+		}},
+		{"llamamiento", func(e *EventoLlamamientoBolsa) {
+			e.LlamamientoRef = "llamamiento:otro"
+		}},
+		{"seleccion", func(e *EventoLlamamientoBolsa) {
+			e.SeleccionRef = "seleccion:otra"
+		}},
+		{"retencion", func(e *EventoLlamamientoBolsa) {
+			e.RetencionSeleccion = referenciaBolsaPrueba("retencion:otra", "3")
+		}},
+		{"peticion_solicitada", func(e *EventoLlamamientoBolsa) {
+			e.PeticionSolicitadaEn = e.PeticionSolicitadaEn.Add(time.Microsecond)
+		}},
+		{"peticion_valida", func(e *EventoLlamamientoBolsa) {
+			e.PeticionValidaHasta = e.PeticionValidaHasta.Add(-time.Microsecond)
+		}},
+		{"recibo_confirmado", func(e *EventoLlamamientoBolsa) {
+			e.ReciboConfirmadaEn = e.ReciboConfirmadaEn.Add(-time.Microsecond)
+		}},
+		{"recibo_evidencia_emitida", func(e *EventoLlamamientoBolsa) {
+			e.ReciboEvidenciaEmitidaEn = e.ReciboEvidenciaEmitidaEn.Add(time.Microsecond)
+		}},
+		{"recibo_evidencia_valida", func(e *EventoLlamamientoBolsa) {
+			e.ReciboEvidenciaValidaHasta =
+				e.ReciboEvidenciaValidaHasta.Add(-time.Microsecond)
+		}},
+		{"recibo_retener_hasta", func(e *EventoLlamamientoBolsa) {
+			e.ReciboRetenerHasta = e.ReciboRetenerHasta.Add(-time.Microsecond)
+			e.Procedencia.Evidencia.RetenerHasta = e.ReciboRetenerHasta
+		}},
 	}
 	for _, prueba := range pruebas {
 		t.Run(prueba.nombre, func(t *testing.T) {
@@ -140,7 +194,7 @@ func TestEvidenciaEventoDurableSeReautenticaTrasReinicio(t *testing.T) {
 	}
 	if _, err := verificadorRespuestaBolsaPrueba(
 		claveRespuestaBolsaV1Prueba,
-	).ReautenticarEvento(
+	).reautenticarEvento(
 		context.Background(),
 		evento,
 		enlace,
@@ -151,7 +205,7 @@ func TestEvidenciaEventoDurableSeReautenticaTrasReinicio(t *testing.T) {
 	}
 	alterada := recuperada
 	alterada.RespuestaRef = "respuesta:otra"
-	if _, err := verificador.ReautenticarEvento(
+	if _, err := verificador.reautenticarEvento(
 		context.Background(),
 		evento,
 		enlace,
@@ -261,41 +315,57 @@ func eventoYEnlaceBolsaPrueba(
 	if err != nil {
 		t.Fatalf("crear enlace de evento: %v", err)
 	}
+	return nuevoEventoParaEnlaceBolsaPrueba(t, instante, enlace), enlace
+}
+
+func nuevoEventoParaEnlaceBolsaPrueba(
+	t *testing.T,
+	instante time.Time,
+	enlace EnlaceEventoLlamamientoBolsa,
+) EventoLlamamientoBolsa {
+	t.Helper()
+	sellador := selladorRespuestaBolsaPrueba()
 	d := enlace.datos
 	procedencia := procedenciaBolsaPrueba(instante)
 	procedencia.RespuestaRef = "respuesta:evento:bolsa"
 	evento := EventoLlamamientoBolsa{
-		EventoRef:                 "evento:estado:llamamiento",
-		OrganizacionRef:           d.organizacionRef,
-		ExpedienteRef:             d.expedienteRef,
-		VersionExpedienteEsperada: d.versionExpediente,
-		CorrelacionRef:            d.correlacionRef,
-		Finalidad:                 d.finalidad,
-		Accion:                    d.accion,
-		Recurso:                   d.recurso,
-		PeticionRef:               d.peticionRef,
-		HuellaPeticionSHA256:      d.huellaPeticion,
-		ReciboRef:                 d.reciboRef,
-		HuellaReciboSHA256:        d.huellaRecibo,
-		Necesidad:                 referenciaBolsaPrueba("necesidad:temporal", "a"),
-		Bolsa:                     referenciaBolsaPrueba("bolsa:vigente", "b"),
-		Orden:                     referenciaBolsaPrueba("orden:instantanea", "e"),
-		Politica:                  referenciaBolsaPrueba("politica:llamamiento", "c"),
-		Propuesta:                 d.recurso,
-		LlamamientoRef:            "llamamiento:primero",
-		SeleccionRef:              "seleccion:seudonimizada",
-		RetencionSeleccion:        referenciaBolsaPrueba("retencion:seleccion", "6"),
-		Tipo:                      referenciaBolsaPrueba("evento_tipo:estado_llamamiento", "5"),
-		Estado:                    referenciaBolsaPrueba("estado:llamamiento", "7"),
-		SecuenciaAnterior:         1,
-		Secuencia:                 2,
-		OcurridoEn:                instante.Add(time.Minute),
-		PublicadoEn:               instante.Add(2 * time.Minute),
-		Procedencia:               procedencia,
+		EventoRef:                  "evento:estado:llamamiento",
+		OrganizacionRef:            d.organizacionRef,
+		ExpedienteRef:              d.expedienteRef,
+		VersionExpedienteEsperada:  d.versionExpediente,
+		CorrelacionRef:             d.correlacionRef,
+		Finalidad:                  d.finalidad,
+		Accion:                     d.accion,
+		Recurso:                    d.recurso,
+		PeticionRef:                d.peticionRef,
+		HuellaPeticionSHA256:       d.huellaPeticion,
+		ReciboRef:                  d.reciboRef,
+		HuellaReciboSHA256:         d.huellaRecibo,
+		PeticionSolicitadaEn:       d.peticionSolicitadaEn,
+		PeticionValidaHasta:        d.peticionValidaHasta,
+		ReciboConfirmadaEn:         d.reciboConfirmadaEn,
+		ReciboEvidenciaEmitidaEn:   d.reciboEvidenciaEmitidaEn,
+		ReciboEvidenciaValidaHasta: d.reciboEvidenciaValidaHasta,
+		ReciboRetenerHasta:         d.reciboRetenerHasta,
+		Necesidad:                  d.necesidad,
+		Bolsa:                      d.bolsa,
+		Orden:                      d.orden,
+		Politica:                   d.politica,
+		Propuesta:                  d.recurso,
+		LlamamientoRef:             d.llamamientoRef,
+		SeleccionRef:               d.seleccionRef,
+		RetencionSeleccion:         d.retencionSeleccion,
+		Tipo:                       referenciaBolsaPrueba("evento_tipo:estado_llamamiento", "5"),
+		Estado:                     referenciaBolsaPrueba("estado:llamamiento", "7"),
+		SecuenciaAnterior:          1,
+		Secuencia:                  2,
+		OcurridoEn:                 instante.Add(time.Minute),
+		PublicadoEn:                instante.Add(2 * time.Minute),
+		Procedencia:                procedencia,
 	}
 	evento.HuellaCargaSHA256 = huellaBytesBolsa(materialEventoBolsa(evento))
 	firmarEventoBolsaPrueba(t, sellador, enlace, &evento)
-	return evento, enlace
+	return evento
 }
 
 func firmarEventoBolsaPrueba(

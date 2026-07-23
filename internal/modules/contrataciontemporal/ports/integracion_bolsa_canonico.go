@@ -89,6 +89,7 @@ func (c *constructorCanonicoBolsa) procedencia(valor ProcedenciaIntegracionBolsa
 	c.campo("clave_verificacion_ref", valor.Evidencia.ClaveVerificacionRef)
 	c.instante("evidencia_emitida_en", valor.Evidencia.EmitidaEn)
 	c.instante("evidencia_valida_hasta", valor.Evidencia.ValidaHasta)
+	c.instante("evidencia_retener_hasta", valor.Evidencia.RetenerHasta)
 }
 
 func (c *constructorCanonicoBolsa) bytes() []byte {

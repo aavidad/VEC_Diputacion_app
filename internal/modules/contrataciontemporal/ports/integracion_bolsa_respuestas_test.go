@@ -278,7 +278,7 @@ func TestEvidenciaDurableSeReautenticaTrasReinicioSinConfundirFrescura(t *testin
 	); !errors.Is(err, ErrRespuestaBolsaNoConfiable) {
 		t.Fatalf("transporte caducado se trató como fresco: %v", err)
 	}
-	if _, err := trasReinicio.ReautenticarReciboOrden(
+	if _, err := trasReinicio.reautenticarReciboOrden(
 		context.Background(),
 		comando,
 		recibo,
@@ -309,7 +309,7 @@ func TestEvidenciaDurableSeReautenticaTrasReinicioSinConfundirFrescura(t *testin
 		t.Run(prueba.nombre, func(t *testing.T) {
 			alterada := recuperada
 			prueba.cambiar(&alterada)
-			if _, err := trasReinicio.ReautenticarReciboOrden(
+			if _, err := trasReinicio.reautenticarReciboOrden(
 				context.Background(),
 				comando,
 				recibo,
@@ -322,7 +322,7 @@ func TestEvidenciaDurableSeReautenticaTrasReinicioSinConfundirFrescura(t *testin
 	}
 	reciboAlterado := recibo
 	reciboAlterado.TotalPosiciones--
-	if _, err := trasReinicio.ReautenticarReciboOrden(
+	if _, err := trasReinicio.reautenticarReciboOrden(
 		context.Background(),
 		comando,
 		reciboAlterado,
@@ -365,6 +365,16 @@ func TestOrdenYLlamamientoQuedanLigadosDeFormaExacta(t *testing.T) {
 	}
 	if err := preparar(datosBase); err != nil {
 		t.Fatalf("vínculo exacto rechazado: %v", err)
+	}
+	if _, err := NuevoComandoSolicitarLlamamientoBolsa(
+		PreparacionComandoSolicitarLlamamientoBolsa{
+			Contexto:     emitirContextoBolsaPrueba(t, datosBase),
+			ComandoOrden: comandoOrden, ReciboOrden: reciboOrden,
+			ComprobanteOrden: comprobante, MaximaPosicionEvaluable: 50,
+		},
+		ahora.Add(time.Minute),
+	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
+		t.Fatalf("comprobante histórico se reutilizó para emitir: %v", err)
 	}
 	pruebas := []struct {
 		nombre  string
@@ -423,6 +433,9 @@ func TestContratoEsNeutralAWebEscritorioCLIYMCP(t *testing.T) {
 		reflect.TypeOf(DatosComandoSolicitarLlamamientoBolsa{}),
 		reflect.TypeOf(ReciboSolicitudLlamamientoBolsa{}),
 		reflect.TypeOf(EventoLlamamientoBolsa{}),
+		reflect.TypeOf(ArtefactoProbatorioOrdenBolsa{}),
+		reflect.TypeOf(ArtefactoProbatorioLlamamientoBolsa{}),
+		reflect.TypeOf(ArtefactoProbatorioEventoBolsa{}),
 	}
 	prohibidos := []string{
 		"dni", "nie", "nif", "nombre", "apellidos", "correo", "email",
@@ -468,7 +481,12 @@ func TestCapacidadesNoSonFabricablesNiSerializables(t *testing.T) {
 	for _, valor := range []any{
 		ComprobanteEvidenciaIntegracionBolsa{},
 		ComandoSolicitarLlamamientoBolsa{},
+		ComandoRegistrarEventoBolsa{},
 		ContextoPeticionIntegracionBolsa{},
+		EnlaceEventoLlamamientoBolsa{},
+		OrdenProbatoriaRehidratadaBolsa{},
+		LlamamientoProbatorioRehidratadoBolsa{},
+		EventoProbatorioRehidratadoBolsa{},
 	} {
 		if _, err := json.Marshal(valor); !errors.Is(err, ErrSerializacionCapacidadBolsa) {
 			t.Fatalf("%T se serializó: %v", valor, err)
