@@ -103,6 +103,11 @@ func nuevoErrorPublico(estado int, codigo, clave string) errorPublicoAlta {
 
 func clasificarErrorAlta(err error) errorPublicoAlta {
 	switch {
+	case errors.Is(err, ErrResultadoAltaIndeterminado):
+		// Tras iniciar COMMIT, cancelación o timeout pueden ser causas del
+		// resultado indeterminado. La reconciliación prevalece para impedir un
+		// reintento ciego.
+		return errorOperacionPendiente
 	case errors.Is(err, context.Canceled):
 		return errorPeticionCancelada
 	case errors.Is(err, context.DeadlineExceeded):
@@ -114,8 +119,6 @@ func clasificarErrorAlta(err error) errorPublicoAlta {
 		return errorAccesoDenegado
 	case errors.Is(err, ports.ErrClaveIdempotenciaUsada):
 		return errorClaveIdempotenciaReutilizada
-	case errors.Is(err, ErrResultadoAltaIndeterminado):
-		return errorOperacionPendiente
 	case errors.Is(err, application.ErrResultadoRegistroNoConfiable),
 		errors.Is(err, ports.ErrOrdenAltaInvalida):
 		return errorResultadoNoConfiable

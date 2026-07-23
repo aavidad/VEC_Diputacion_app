@@ -86,6 +86,10 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	solicitud, err := solicitudCentroDesdePeticion(w, r)
+	if errContexto := r.Context().Err(); errContexto != nil {
+		responderErrorAlta(w, clasificarErrorAlta(errContexto))
+		return
+	}
 	if err != nil {
 		responderErrorAlta(w, errorEntradaAlta(err))
 		return
@@ -149,15 +153,20 @@ func comandoDesdeContextoCanal(
 		!reflect.DeepEqual(contexto.Solicitud, domain.SolicitudCentro{}) {
 		return application.SolicitudRegistrarExpediente{}, false
 	}
-	contexto.Solicitud = clon
-	return contexto, true
+	return application.SolicitudRegistrarExpediente{
+		AutenticacionRef:  contexto.AutenticacionRef,
+		SesionRef:         contexto.SesionRef,
+		PerfilRef:         contexto.PerfilRef,
+		OrganizacionRef:   contexto.OrganizacionRef,
+		ClaveIdempotencia: contexto.ClaveIdempotencia,
+		Solicitud:         clon,
+	}, true
 }
 
 func reciboAltaSeguro(recibo ports.ReciboAlta, ahora time.Time) bool {
-	const toleranciaFuturo = time.Minute
 	return domain.InstanteUTCCanonico(ahora) &&
 		recibo.ValidarEstructura() == nil && recibo.Version <= MaximoVersionJSON &&
-		!recibo.ConfirmadaEn.After(ahora.Add(toleranciaFuturo))
+		!recibo.ConfirmadaEn.After(ahora)
 }
 
 func instanteRelojCanonico(instante time.Time) time.Time {

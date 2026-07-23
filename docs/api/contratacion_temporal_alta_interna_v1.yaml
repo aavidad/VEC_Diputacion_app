@@ -20,6 +20,8 @@ paths:
       security:
         - ContextoInternoPlataforma: []
       x-maximo-cuerpo-bytes: 262144
+      x-maximo-profundidad-json: 8
+      x-maximo-tokens-json: 1024
       requestBody:
         required: true
         content:
@@ -57,7 +59,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+                $ref: '#/components/schemas/EnvelopeErrorMetodoNoPermitidoV1'
         '406':
           $ref: '#/components/responses/RepresentacionNoAceptable'
         '408':
@@ -104,7 +106,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorPeticionIncorrectaV1'
     AutenticacionRequerida:
       description: Falta un contexto interno autenticado y vigente.
       headers:
@@ -113,7 +115,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorAutenticacionRequeridaV1'
     AccesoDenegado:
       description: El contexto no está autorizado para la organización o efecto.
       headers:
@@ -122,7 +124,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorAccesoDenegadoV1'
     RecursoNoEncontrado:
       description: La ruta no corresponde al recurso exacto.
       headers:
@@ -131,7 +133,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorRecursoNoEncontradoV1'
     RepresentacionNoAceptable:
       description: Accept no admite JSON.
       headers:
@@ -140,7 +142,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorRepresentacionNoAceptableV1'
     PeticionCancelada:
       description: El contexto se canceló antes de confirmar un recibo válido.
       headers:
@@ -149,7 +151,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorPeticionCanceladaV1'
     ClaveIdempotenciaReutilizada:
       description: La clave opaca del contexto ya se ligó a otros datos.
       headers:
@@ -158,7 +160,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorClaveIdempotenciaReutilizadaV1'
     PeticionDemasiadoGrande:
       description: El cuerpo supera 262144 bytes o los límites de complejidad.
       headers:
@@ -167,7 +169,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorPeticionDemasiadoGrandeV1'
     TipoContenidoNoAdmitido:
       description: Content-Type no es application/json en UTF-8.
       headers:
@@ -176,7 +178,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorTipoContenidoNoAdmitidoV1'
     ContenidoNoValido:
       description: El JSON es correcto pero incumple el contrato funcional.
       headers:
@@ -185,7 +187,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorContenidoNoValidoV1'
     ErrorInterno:
       description: Error interno minimizado.
       headers:
@@ -194,7 +196,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorInternoV1'
     ResultadoNoConfiable:
       description: El caso de uso no entregó un recibo completo y fiable.
       headers:
@@ -203,7 +205,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorResultadoNoConfiableV1'
     ServicioNoDisponible:
       description: Dependencia cerrada o resultado pendiente de reconciliación.
       headers:
@@ -212,7 +214,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorServicioNoDisponibleV1'
     PlazoAgotado:
       description: El plazo confiable finalizó antes de recibir un recibo válido.
       headers:
@@ -221,7 +223,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/EnvelopeErrorAltaV1'
+            $ref: '#/components/schemas/EnvelopeErrorPlazoAgotadoV1'
   schemas:
     ReferenciaOpacaV1:
       type: string
@@ -443,3 +445,168 @@ components:
       properties:
         error:
           $ref: '#/components/schemas/ErrorAltaV1'
+    EnvelopeErrorPeticionIncorrectaV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  enum: [peticion_no_valida, peticion_no_permitida]
+    EnvelopeErrorAutenticacionRequeridaV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: autenticacion_requerida
+    EnvelopeErrorAccesoDenegadoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: acceso_denegado
+    EnvelopeErrorRecursoNoEncontradoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: recurso_no_encontrado
+    EnvelopeErrorMetodoNoPermitidoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: metodo_no_permitido
+    EnvelopeErrorRepresentacionNoAceptableV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: representacion_no_aceptable
+    EnvelopeErrorPeticionCanceladaV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: peticion_cancelada
+    EnvelopeErrorClaveIdempotenciaReutilizadaV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: clave_idempotencia_reutilizada
+    EnvelopeErrorPeticionDemasiadoGrandeV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: peticion_demasiado_grande
+    EnvelopeErrorTipoContenidoNoAdmitidoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: tipo_contenido_no_admitido
+    EnvelopeErrorContenidoNoValidoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: contenido_no_valido
+    EnvelopeErrorInternoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: error_interno
+    EnvelopeErrorResultadoNoConfiableV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: resultado_no_confiable
+    EnvelopeErrorServicioNoDisponibleV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  enum: [servicio_no_disponible, operacion_pendiente]
+    EnvelopeErrorPlazoAgotadoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: plazo_agotado

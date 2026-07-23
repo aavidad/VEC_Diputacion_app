@@ -264,8 +264,13 @@ func TestManejadorAltaCierraRutaMetodoYNegociacion(t *testing.T) {
 		{"options", func(r *http.Request) { r.Method = http.MethodOptions }, 405, "metodo_no_permitido", true},
 		{"content type texto", func(r *http.Request) { r.Header.Set("Content-Type", "text/plain") }, 415, "tipo_contenido_no_admitido", true},
 		{"charset no permitido", func(r *http.Request) { r.Header.Set("Content-Type", "application/json; charset=iso-8859-1") }, 415, "tipo_contenido_no_admitido", true},
+		{"boundary no permitido", func(r *http.Request) { r.Header.Set("Content-Type", "application/json; boundary=valor") }, 415, "tipo_contenido_no_admitido", true},
+		{"profile no permitido", func(r *http.Request) { r.Header.Set("Content-Type", "application/json; profile=otro") }, 415, "tipo_contenido_no_admitido", true},
 		{"accept incompatible", func(r *http.Request) { r.Header.Set("Accept", "text/html") }, 406, "representacion_no_aceptable", true},
 		{"accept q cero", func(r *http.Request) { r.Header.Set("Accept", "application/json;q=0") }, 406, "representacion_no_aceptable", true},
+		{"accept exacto excluido prevalece", func(r *http.Request) { r.Header.Set("Accept", "application/json;q=0, */*;q=1") }, 406, "representacion_no_aceptable", true},
+		{"accept subtipo excluido prevalece", func(r *http.Request) { r.Header.Set("Accept", "application/*;q=0, */*;q=1") }, 406, "representacion_no_aceptable", true},
+		{"accept profile no coincide", func(r *http.Request) { r.Header.Set("Accept", "application/json;profile=otro") }, 406, "representacion_no_aceptable", true},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -327,7 +332,22 @@ func TestContratoOpenAPISeCorrespondeConDTO(t *testing.T) {
 	if _, existe := documento["servers"]; existe {
 		t.Fatal("OpenAPI no debe declarar servidores")
 	}
-	esquemas := mapaPrueba(t, mapaPrueba(t, documento, "components"), "schemas")
+	componentes := mapaPrueba(t, documento, "components")
+	esquemas := mapaPrueba(t, componentes, "schemas")
+	operacion := mapaPrueba(
+		t,
+		mapaPrueba(
+			t,
+			mapaPrueba(t, documento, "paths"),
+			RutaAltaSolicitudes,
+		),
+		"post",
+	)
+	if numeroPrueba(t, operacion, "x-maximo-cuerpo-bytes") != MaximoCuerpoAltaBytes ||
+		numeroPrueba(t, operacion, "x-maximo-profundidad-json") != profundidadMaximaJSONAlta ||
+		numeroPrueba(t, operacion, "x-maximo-tokens-json") != tokensMaximosJSONAlta {
+		t.Fatal("límites técnicos Go/OpenAPI desalineados")
+	}
 	solicitud := mapaPrueba(t, esquemas, "SolicitudCentroAltaV1")
 	if solicitud["additionalProperties"] != false {
 		t.Fatal("SolicitudCentroAltaV1 no está cerrada")
@@ -348,6 +368,111 @@ func TestContratoOpenAPISeCorrespondeConDTO(t *testing.T) {
 			t.Fatalf("%s no está cerrado", nombre)
 		}
 	}
+	compararCatalogoErroresOpenAPIPrueba(t, operacion, componentes, esquemas)
+}
+
+func compararCatalogoErroresOpenAPIPrueba(
+	t *testing.T,
+	operacion map[string]any,
+	componentes map[string]any,
+	esquemas map[string]any,
+) {
+	t.Helper()
+	esperados := map[string][]string{
+		"400": {"peticion_no_permitida", "peticion_no_valida"},
+		"401": {"autenticacion_requerida"},
+		"403": {"acceso_denegado"},
+		"404": {"recurso_no_encontrado"},
+		"405": {"metodo_no_permitido"},
+		"406": {"representacion_no_aceptable"},
+		"408": {"peticion_cancelada"},
+		"409": {"clave_idempotencia_reutilizada"},
+		"413": {"peticion_demasiado_grande"},
+		"415": {"tipo_contenido_no_admitido"},
+		"422": {"contenido_no_valido"},
+		"500": {"error_interno"},
+		"502": {"resultado_no_confiable"},
+		"503": {"operacion_pendiente", "servicio_no_disponible"},
+		"504": {"plazo_agotado"},
+	}
+	respuestas := mapaPrueba(t, operacion, "responses")
+	respuestasComponentes := mapaPrueba(t, componentes, "responses")
+	union := make([]string, 0)
+	for estado, codigosEsperados := range esperados {
+		respuesta := mapaPrueba(t, respuestas, estado)
+		if referencia, existe := respuesta["$ref"].(string); existe {
+			const prefijo = "#/components/responses/"
+			respuesta = mapaPrueba(
+				t,
+				respuestasComponentes,
+				strings.TrimPrefix(referencia, prefijo),
+			)
+		}
+		contenido := mapaPrueba(t, respuesta, "content")
+		jsonHTTP := mapaPrueba(t, contenido, "application/json")
+		esquemaRespuesta := mapaPrueba(t, jsonHTTP, "schema")
+		referencia, correcta := esquemaRespuesta["$ref"].(string)
+		if !correcta {
+			t.Fatalf("respuesta %s sin esquema referenciado", estado)
+		}
+		const prefijo = "#/components/schemas/"
+		esquema := mapaPrueba(t, esquemas, strings.TrimPrefix(referencia, prefijo))
+		codigos := codigosRestringidosPrueba(t, esquema)
+		sort.Strings(codigos)
+		sort.Strings(codigosEsperados)
+		if !reflect.DeepEqual(codigos, codigosEsperados) {
+			t.Fatalf("estado %s: códigos %v != %v", estado, codigos, codigosEsperados)
+		}
+		union = append(union, codigos...)
+	}
+	sort.Strings(union)
+	union = unicosPrueba(union)
+	catalogo := mapaPrueba(t, mapaPrueba(t, esquemas, "ErrorAltaV1"), "properties")
+	codigo := mapaPrueba(t, catalogo, "codigo")
+	var declarados []string
+	for _, valor := range codigo["enum"].([]any) {
+		declarados = append(declarados, valor.(string))
+	}
+	sort.Strings(declarados)
+	if !reflect.DeepEqual(union, declarados) {
+		t.Fatalf("catálogo estado-código incompleto: %v != %v", union, declarados)
+	}
+}
+
+func codigosRestringidosPrueba(t *testing.T, esquema map[string]any) []string {
+	t.Helper()
+	errorProp := mapaPrueba(t, mapaPrueba(t, esquema, "properties"), "error")
+	todos, correcto := errorProp["allOf"].([]any)
+	if !correcto || len(todos) != 2 {
+		t.Fatalf("restricción de error inválida: %v", errorProp)
+	}
+	restriccion := todos[1].(map[string]any)
+	codigo := mapaPrueba(t, mapaPrueba(t, restriccion, "properties"), "codigo")
+	if constante, existe := codigo["const"].(string); existe {
+		return []string{constante}
+	}
+	lista, correcto := codigo["enum"].([]any)
+	if !correcto {
+		t.Fatalf("código sin const/enum: %v", codigo)
+	}
+	resultado := make([]string, 0, len(lista))
+	for _, valor := range lista {
+		resultado = append(resultado, valor.(string))
+	}
+	return resultado
+}
+
+func unicosPrueba(valores []string) []string {
+	if len(valores) == 0 {
+		return nil
+	}
+	resultado := []string{valores[0]}
+	for _, valor := range valores[1:] {
+		if valor != resultado[len(resultado)-1] {
+			resultado = append(resultado, valor)
+		}
+	}
+	return resultado
 }
 
 func compararClavesDTOPrueba(t *testing.T, tipo reflect.Type, propiedades map[string]any) {
