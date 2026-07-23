@@ -2,9 +2,10 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: candidato técnico corregido tras el tercer `NO-GO`, pendiente de una
-nueva revisión independiente e integración. No cierra O3-02, no habilita datos
-reales y no acredita producción, ENS, ENI ni conformidad jurídica.
+Estado: candidato técnico corregido tras el tercer `NO-GO` y dos bloqueos
+posteriores confirmados, pendiente de doble revisión independiente e
+integración. No cierra O3-02, no habilita datos reales y no acredita
+producción, ENS, ENI ni conformidad jurídica.
 
 ## Alcance
 
@@ -65,9 +66,16 @@ coherente, no puede acuñar autoridad.
 peticiones selladas desde infraestructura interna, invoca los puertos O3-03,
 contrasta credenciales y pruebas de posesión contra la confianza fijada por la
 composición, verifica respuesta, TCB y catálogo, presenta un desafío nuevo a
-cada autoridad y acuña un artefacto verificado todavía sin consumo. La capa
-`ports` conserva contratos, evidencia opaca y primitivas mínimas de validación;
-ya no alberga el orquestador concreto.
+cada autoridad y acuña un artefacto verificado todavía sin consumo. En esta
+revalidación O3-02, `application` coordina todas las presentaciones y cruces.
+`ports` sólo aporta contratos, DTO opacos, copias defensivas y validación
+criptográfica local neutral; no invoca ni coordina fuente, verificador y
+publicador.
+
+La confirmación de cada nuevo desafío es nominal y opaca: sólo puede nacer
+después de verificar credencial y prueba de posesión, y liga material, rol,
+instante e identidad. Una proyección que copie únicamente el vínculo público
+no puede simular la revalidación.
 
 El constructor se llama
 `NuevaCapacidadPrepararArtefactoAnalisisO3ParaComposicionInterna`. Debe
@@ -111,8 +119,10 @@ como autoridad independiente.
    RC y coste.
 5. Verificar credenciales, prueba de posesión, respuesta, TCB y publicación,
    sin consumir todavía ninguna respuesta.
-6. Revalidar las autoridades con desafíos nuevos, comprobar vigencia y acuñar
-   el artefacto verificado sin recibos de consumo.
+6. Desde `application`, revalidar las autoridades con desafíos nuevos. Cada
+   comprobación opaca liga material, rol, instante e identidad; después se
+   exige coincidencia exacta con la evidencia original y se acuña el artefacto
+   sin recibos de consumo.
 7. Construir y sellar las preimágenes de ámbito y semántica.
 8. Reservar o recuperar la intención idempotente. Una recuperación confirmada
    en esta segunda barrera tampoco repite el consumo.
@@ -133,10 +143,11 @@ como autoridad independiente.
 17. En esa misma transacción consumir conjuntamente RC+coste y V3, persistir
     agregado, historia, auditoría, recibo y outbox, validar el recibo y sólo
     entonces ejecutar un único `COMMIT`.
-18. Al volver, validar defensivamente el recibo contra la orden y el instante
-    autoritativo que él mismo declara. No se lee un reloj local nuevo ni se
-    reinterpreta el commit; un adaptador que devuelva una proyección adulterada
-    no consigue exponerla y el replay recupera el recibo durable correcto.
+18. Al volver, validar el recibo antes de procesar cualquier error simultáneo.
+    Un recibo válido y concordante demuestra el `COMMIT` aunque coincida con
+    cancelación o error de transporte. Un recibo vacío, adulterado o ajeno
+    nunca prevalece. No se lee un reloj local nuevo ni se reinterpreta el
+    instante autoritativo declarado por el propio recibo.
 
 No existe ya un puerto de preconsumo ni una compensación entre dos commits.
 Una caída en aplicación, construcción de orden, CAS, persistencia, tiempo o
@@ -195,6 +206,9 @@ durabilidad ni preparación para producción.
   segundos; los presupuestos locales quedan subordinados al contexto padre.
 - La cancelación previa impide efectos; una cancelación posterior a un
   `COMMIT` confirmado no convierte el éxito durable en resultado ambiguo.
+- Un recibo concordante gana frente a un error competitivo posterior al
+  `COMMIT`; si el recibo no es confiable, se devuelve cero y se conserva la
+  clasificación segura del error.
 
 ### Encapsulación
 
@@ -212,7 +226,9 @@ Las pruebas del corte cubren:
   atestaciones, TCB, orden pendiente y derivación de RC y coste;
 - ausencia del constructor nominal público y rechazo de una proyección
   nominal autoconsistente;
-- revalidación de credenciales con desafío nuevo;
+- revalidación de credenciales con desafío nuevo coordinada en `application`;
+- confirmación opaca ligada a material, rol, instante e identidad, con rechazo
+  de alias mutable, otro material u otra serie;
 - adulteración de atestación, confirmación, credencial, catálogo y orden;
 - replay exacto temprano, conflicto semántico y caducidad antes del commit;
 - recuperación temprana con O3-03 caído;
@@ -235,6 +251,8 @@ Las pruebas del corte cubren:
 - adaptador que altera el recibo de salida después del commit: el servicio no
   lo expone y el replay temprano recupera el recibo correcto sin repetir
   consumos;
+- recibo válido junto con cancelación o error de transporte posterior al
+  commit: prevalece el éxito probado; un recibo adulterado nunca gana;
 - presupuesto global de cinco segundos;
 - dependencias con nulo tipado;
 - límites de versión y catálogo;

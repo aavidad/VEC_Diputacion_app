@@ -123,6 +123,13 @@ ajenas.
   valida defensivamente el recibo devuelto contra la orden, sin consultar un
   reloj nuevo. Sigue pendiente de revisión independiente y del adaptador
   PostgreSQL; no habilita producción.
+  Dos bloqueos posteriores obligaron a precisar el corte: aplicación valida
+  primero cualquier recibo retornado, de modo que uno válido prueba el commit
+  aunque coexista cancelación o error de transporte, mientras uno adulterado
+  nunca se expone. Además, toda coordinación de los desafíos frescos se movió
+  a `application`; `ports` limita su papel a materiales y confirmaciones
+  opacos, copias y validación criptográfica local neutral. Estas correcciones
+  siguen pendientes de doble revisión independiente.
 - `1faa8e7` implementa O3-03 con puertos neutrales para validación
   presupuestaria y cálculo de coste, ligadura de petición, copias defensivas,
   cancelación y fallo cerrado. La indisponibilidad nunca se convierte en «RC
