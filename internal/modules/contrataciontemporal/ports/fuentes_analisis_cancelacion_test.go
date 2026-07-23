@@ -8,63 +8,155 @@ import (
 	"time"
 )
 
-func TestContextoSeCompruebaTrasSelladorYRelojFinal(t *testing.T) {
+func TestContextoSeCompruebaTrasFuenteYVerificadores(t *testing.T) {
 	inicio := instanteFuenteAnalisisPrueba()
-	t.Run("sellador", func(t *testing.T) {
+	solicitud := solicitudValidarRCPrueba(t, inicio)
+	validacion := validacionRCPrueba(t, solicitud, inicio.Add(time.Second))
+	metadatos := metadatosRespuestaPrueba(
+		validacion.FuenteRef,
+		validacion.ReciboRef,
+		inicio,
+	)
+	resultado := resultadoRCFirmadoPrueba(
+		t, solicitud, validacion, MotivoFuenteAnalisis{}, metadatos,
+	)
+	t.Run("fuente", func(t *testing.T) {
 		ctx, cancelar := context.WithCancel(context.Background())
-		sellador := selladorPeticionAnalisisDoble(func(
-			context.Context,
-			PreimagenPeticionFuenteAnalisis,
-		) (string, error) {
-			cancelar()
-			return dominioSelloPeticionAnalisis + strings.Repeat("a", 64), nil
-		})
-		_, err := NuevaSolicitudValidarRC(
+		verificadorLlamado := false
+		_, err := ValidarRCConFuente(
 			ctx,
-			generadorFijoFuenteAnalisis("pet_0123456789abcdefghijklmn"),
-			sellador,
-			relojFijoFuenteAnalisis(inicio),
-			preparacionValidarRCPrueba(),
+			fuentePresupuestariaDoble(func(
+				context.Context,
+				SolicitudValidarRC,
+			) (ResultadoValidacionRC, error) {
+				cancelar()
+				return resultado, nil
+			}),
+			verificadorRespuestaDoble(func(
+				context.Context,
+				SolicitudVerificarRespuestaFuenteAnalisis,
+			) (ConfirmacionRespuestaFuenteAnalisis, error) {
+				verificadorLlamado = true
+				return ConfirmacionRespuestaFuenteAnalisis{}, nil
+			}),
+			verificadorPublicacionNoInvocablePrueba(t),
+			consumidorRespuestaPrueba(metadatos.EmitidaEn.Add(time.Second)),
+			relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(time.Second)),
+			solicitud,
 		)
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("no comprobó ctx tras sellador: %v", err)
+		if !errors.Is(err, context.Canceled) || verificadorLlamado {
+			t.Fatalf("no cortó tras fuente: %v", err)
 		}
 	})
 
-	t.Run("reloj final", func(t *testing.T) {
-		solicitud := solicitudValidarRCPrueba(t, inicio)
-		validacion := validacionRCPrueba(t, solicitud, inicio.Add(time.Second))
-		resultado, err := NuevoResultadoValidacionRC(
-			solicitud,
-			validacion,
-			MotivoFuenteAnalisis{},
-		)
-		if err != nil {
-			t.Fatal(err)
-		}
+	t.Run("verificador de respuesta", func(t *testing.T) {
 		ctx, cancelar := context.WithCancel(context.Background())
-		fuente := fuentePresupuestariaDoble(func(
-			context.Context,
-			SolicitudValidarRC,
-		) (ResultadoValidacionRC, error) {
-			return resultado, nil
-		})
-		_, err = ValidarRCConFuente(
+		consumidorLlamado := false
+		_, err := ValidarRCConFuente(
 			ctx,
-			fuente,
-			relojFuenteAnalisisDoble(func() time.Time {
-				cancelar()
-				return inicio.Add(2 * time.Second)
+			fuentePresupuestariaDoble(func(
+				context.Context,
+				SolicitudValidarRC,
+			) (ResultadoValidacionRC, error) {
+				return resultado, nil
 			}),
+			verificadorRespuestaDoble(func(
+				context.Context,
+				SolicitudVerificarRespuestaFuenteAnalisis,
+			) (ConfirmacionRespuestaFuenteAnalisis, error) {
+				cancelar()
+				return ConfirmacionRespuestaFuenteAnalisis{}, nil
+			}),
+			verificadorPublicacionNoInvocablePrueba(t),
+			consumidorRespuestaDoble(func(
+				context.Context,
+				OrdenConsumoRespuestaFuenteAnalisis,
+			) (ReciboConsumoRespuestaFuenteAnalisis, error) {
+				consumidorLlamado = true
+				return ReciboConsumoRespuestaFuenteAnalisis{}, nil
+			}),
+			relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(time.Second)),
 			solicitud,
 		)
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("no comprobó ctx tras reloj final: %v", err)
+		if !errors.Is(err, context.Canceled) || consumidorLlamado {
+			t.Fatalf("no cortó tras verificador: %v", err)
 		}
 	})
 }
 
-func TestSolicitudesDetectanAdulteracionInternaDePreimagenYSello(t *testing.T) {
+func TestCancelacionTrasConsumoDurableConfirmadoNoCreaExitoAmbiguo(t *testing.T) {
+	inicio := instanteFuenteAnalisisPrueba()
+	solicitud := solicitudCalcularCostePrueba(t, inicio)
+	metadatos := metadatosRespuestaPrueba(
+		"tabla_retributiva_2026_v3",
+		"recibo_coste_0123456789",
+		inicio,
+	)
+	resultado := resultadoCosteFirmadoPrueba(t, solicitud, metadatos)
+	ctx, cancelar := context.WithCancel(context.Background())
+	consumidor := consumidorRespuestaDoble(func(
+		_ context.Context,
+		orden OrdenConsumoRespuestaFuenteAnalisis,
+	) (ReciboConsumoRespuestaFuenteAnalisis, error) {
+		recibo, err := NuevoReciboConsumoRespuestaFuenteAnalisis(
+			orden,
+			"consumo_durable_respuesta_0123456789",
+			metadatos.EmitidaEn.Add(time.Second),
+		)
+		cancelar()
+		return recibo, err
+	})
+	if _, err := CalcularCosteConFuente(
+		ctx,
+		calculadorCosteDoble(func(
+			context.Context,
+			SolicitudCalcularCoste,
+		) (ResultadoCalculoCoste, error) {
+			return resultado, nil
+		}),
+		verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
+		consumidor,
+		relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(time.Second)),
+		solicitud,
+	); err != nil {
+		t.Fatalf("un consumo confirmado se volvió ambiguo: %v", err)
+	}
+}
+
+func TestFuenteRecibeTimeoutMaximoPropio(t *testing.T) {
+	inicio := instanteFuenteAnalisisPrueba()
+	solicitud := solicitudCalcularCostePrueba(t, inicio)
+	metadatos := metadatosRespuestaPrueba(
+		"tabla_retributiva_2026_v3",
+		"recibo_coste_0123456789",
+		inicio,
+	)
+	resultado := resultadoCosteFirmadoPrueba(t, solicitud, metadatos)
+	calculador := calculadorCosteDoble(func(
+		ctx context.Context,
+		_ SolicitudCalcularCoste,
+	) (ResultadoCalculoCoste, error) {
+		limite, existe := ctx.Deadline()
+		restante := time.Until(limite)
+		if !existe || restante <= 0 ||
+			restante > TiempoMaximoFuenteAnalisis+time.Second {
+			t.Fatalf("timeout propio ausente: %s", restante)
+		}
+		return resultado, nil
+	})
+	if _, err := CalcularCosteConFuente(
+		context.Background(),
+		calculador,
+		verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
+		consumidorRespuestaPrueba(metadatos.EmitidaEn.Add(time.Second)),
+		relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(time.Second)),
+		solicitud,
+	); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSolicitudesDetectanAdulteracionInterna(t *testing.T) {
 	inicio := instanteFuenteAnalisisPrueba()
 	solicitudRC := solicitudValidarRCPrueba(t, inicio)
 	copiaRC := solicitudRC
@@ -82,23 +174,6 @@ func TestSolicitudesDetectanAdulteracionInternaDePreimagenYSello(t *testing.T) {
 	if copiaRC.Validar() == nil {
 		t.Fatal("solicitud RC con sello sustituido aceptada")
 	}
-
-	solicitudCoste := solicitudCalcularCostePrueba(t, inicio)
-	copiaCoste := solicitudCoste
-	datosCoste := *solicitudCoste.datos
-	copiaCoste.datos = &datosCoste
-	copiaCoste.datos.Jornada = 5_000
-	if copiaCoste.Validar() == nil {
-		t.Fatal("solicitud de coste alterada aceptada")
-	}
-	copiaCoste = solicitudCoste
-	datosCoste = *solicitudCoste.datos
-	copiaCoste.datos = &datosCoste
-	copiaCoste.preimagen = append([]byte(nil), solicitudCoste.preimagen...)
-	copiaCoste.preimagen[0] ^= 1
-	if copiaCoste.Validar() == nil {
-		t.Fatal("preimagen de coste alterada aceptada")
-	}
 }
 
 func TestDependenciasNulasTipadasFallanCerrado(t *testing.T) {
@@ -107,24 +182,13 @@ func TestDependenciasNulasTipadasFallanCerrado(t *testing.T) {
 	if _, err := ValidarRCConFuente(
 		context.Background(),
 		fuente,
+		verificadorRespuestaHMACPrueba(inicio),
+		verificadorPublicacionNoInvocablePrueba(t),
+		consumidorRespuestaPrueba(inicio),
 		relojFijoFuenteAnalisis(inicio),
 		solicitudValidarRCPrueba(t, inicio),
 	); !errors.Is(err, ErrPeticionFuenteAnalisisInvalida) {
 		t.Fatalf("fuente nula tipada aceptada: %v", err)
-	}
-}
-
-func TestSalidasInvalidasDeInfraestructuraNoCreanCausaNula(t *testing.T) {
-	inicio := instanteFuenteAnalisisPrueba()
-	_, err := NuevaSolicitudValidarRC(
-		context.Background(),
-		generadorFijoFuenteAnalisis("referencia_no_generada_por_el_puerto"),
-		selladorHMACFuenteAnalisisPrueba(),
-		relojFijoFuenteAnalisis(inicio),
-		preparacionValidarRCPrueba(),
-	)
-	if !errors.Is(err, ErrInfraestructuraFuenteAnalisisNoDisponible) {
-		t.Fatalf("salida inválida no falló cerrada: %v", err)
 	}
 }
 
