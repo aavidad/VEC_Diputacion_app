@@ -51,6 +51,13 @@ Verifica:
 11. herencia del tema principal y ausencia de regresiones del shell;
 12. ningún dato DEMO, éxito simulado o adaptador falso.
 
+Reproduce además esta hipótesis de Dirección: el comando O2-09A contiene una
+`clave_idempotencia` generada por el presentador, mientras O2-08A no acepta
+esa clave por cuerpo ni cabecera y obtiene otra desde contexto confiable.
+Comprueba si el reintento conserva realmente la identidad autoritativa de la
+operación extremo a extremo. Si no puede demostrarlo, marca la conexión
+O2-08B como bloqueada; no conviertas la clave del navegador en autoridad.
+
 Debe seguir siendo utilizable por web, escritorio u otro cliente sobre el
 mismo caso de uso. Revisa castellano, hexagonalidad, minimización, denegación
 por defecto y cero secretos/datos personales.
@@ -73,4 +80,3 @@ Solo añade:
 Incluye `GO/NO-GO`, evidencia visual cuando proceda, contraejemplos, puertas,
 brechas de O2-08/O2-10 y riesgos. Commit documental único. No modifiques el
 candidato.
-

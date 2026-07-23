@@ -47,6 +47,13 @@ Comprueba:
 10. que no exista ruta registrada, servicio falso, éxito simulado ni
     dependencia HTTP dentro de aplicación/dominio.
 
+Reproduce además esta hipótesis de Dirección: O2-09A entrega al ejecutor una
+`clave_idempotencia` generada en memoria, pero O2-08A rechaza esa clave tanto
+en el JSON como en `Idempotency-Key` y la espera del contexto confiable.
+Determina si existe un mecanismo autoritativo, neutral y repetible que preserve
+la misma operación tras cancelación/reintento. Si no existe, declara la
+incompatibilidad bloqueante para O2-08B; no propongas confiar en el navegador.
+
 Aplica castellano coherente, arquitectura hexagonal, adaptadores
 intercambiables, denegación por defecto, cero cookies/almacenamiento web,
 canales neutrales y cero secretos/datos personales.
@@ -75,4 +82,3 @@ Solo añade:
 
 Incluye `GO/NO-GO`, contraejemplos, evidencia, puertas y riesgos. Commit
 documental único; no modifiques el candidato.
-
