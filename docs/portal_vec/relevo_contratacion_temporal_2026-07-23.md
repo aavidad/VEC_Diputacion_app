@@ -105,16 +105,22 @@ ajenas.
   hallazgos y el corte quedó integrado en `8461aee`. Falta el consumidor SQL
   atómico; no cierra O2-05 ni habilita producción.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
-  cronología de solo adición y bloqueo de retroacciones implícitas. Falta el
-  caso de uso autorizado y su transacción durable; no se considera cerrado.
+  cronología de solo adición y bloqueo de retroacciones implícitas. Un primer
+  corte de aplicación posterior recibió NO-GO: aceptaba autoridad RC/coste
+  aportable, su orden no limitaba el único efecto y un test copió una
+  credencial real. No se integró ni se publicó. La rama está en cuarentena y
+  O3-02 se reconstruye desde `209ae72` sin reutilizar sus commits. La barrera y
+  el procedimiento están en
+  `docs/seguridad/barrera_secretos_git_2026-07-23.md`.
 - `1faa8e7` implementa O3-03 con puertos neutrales para validación
   presupuestaria y cálculo de coste, ligadura de petición, copias defensivas,
   cancelación y fallo cerrado. La indisponibilidad nunca se convierte en «RC
   no requerida» ni en coste válido. El rework `fca5d41`–`af124fb` corrigió
-  autenticidad de respuesta, replay, vigencia, errores y catálogo, pero la
-  segunda revisión independiente mantuvo NO-GO: la separación entre fuente y
-  verificadores aún puede eludirse mediante dos envoltorios del mismo
-  proveedor y las versiones deben acotarse a `2^53-1`. O3-03 no está cerrado.
+  autenticidad de respuesta, replay, vigencia, errores y catálogo.
+  `4e6d14a`–`6d1be36` cerraron la separación TCB con credenciales Ed25519
+  institucionales, prueba de posesión, tres autoridades/backend/claves
+  distintas, rotación/revocación y límites interoperables. La revisión final
+  terminó sin hallazgos y el conjunto quedó integrado en `4c33336`.
 - `a34d462` inicia O4-02 con un puerto único para consultar fuentes de
   cobertura configuradas por catálogo. Liga organización, expediente y
   versión, catálogo y huella, vía, procedencia, categoría, periodo y
