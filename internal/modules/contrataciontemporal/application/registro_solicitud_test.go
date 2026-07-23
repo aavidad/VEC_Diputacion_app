@@ -1,8 +1,11 @@
 package application
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -45,28 +48,20 @@ func (d *resolutorFlujoDoble) ResolverFlujoAlta(
 	return d.configuracion, d.err
 }
 
-type derivadorHuellaDoble struct {
-	huella string
-	err    error
+type derivadorIdentidadesHMACDoble struct {
+	coleccion ports.ColeccionIdentidadesHMACAlta
+	err       error
+	antes     func(*ports.SolicitudDerivarIdentidadesHMACAlta)
 }
 
-func (d *derivadorHuellaDoble) DerivarHuellaAlta(
-	context.Context,
-	ports.MaterialHuellaAlta,
-) (string, error) {
-	return d.huella, d.err
-}
-
-type selladorAmbitoDoble struct {
-	ambito string
-	err    error
-}
-
-func (d *selladorAmbitoDoble) SellarAmbitoIdempotencia(
-	context.Context,
-	ports.SolicitudSellarAmbitoIdempotencia,
-) (string, error) {
-	return d.ambito, d.err
+func (d *derivadorIdentidadesHMACDoble) DerivarIdentidadesHMACAlta(
+	_ context.Context,
+	solicitud ports.SolicitudDerivarIdentidadesHMACAlta,
+) (ports.ColeccionIdentidadesHMACAlta, error) {
+	if d.antes != nil {
+		d.antes(&solicitud)
+	}
+	return d.coleccion, d.err
 }
 
 type resolutorMotivoDoble struct {
@@ -138,6 +133,7 @@ type transaccionAltaDoble struct {
 	err      error
 	llamadas int
 	orden    ports.OrdenConfirmarAlta
+	despues  func()
 }
 
 func (d *transaccionAltaDoble) ConfirmarAlta(
@@ -146,6 +142,9 @@ func (d *transaccionAltaDoble) ConfirmarAlta(
 ) (ports.ReciboAlta, error) {
 	d.llamadas++
 	d.orden = orden
+	if d.despues != nil {
+		d.despues()
+	}
 	return d.recibo, d.err
 }
 
@@ -167,6 +166,14 @@ type autorizadorV3Doble struct {
 	solicitud         dominiovec.SolicitudAutorizacionLigadaV3
 	antes             func()
 	confirmacionAjena bool
+	transformar       func(
+		dominiovec.SolicitudAutorizacionLigadaV3,
+		dominiovec.ResultadoContextoActorRegistradoV2,
+	) (
+		dominiovec.SolicitudAutorizacionLigadaV3,
+		dominiovec.ResultadoContextoActorRegistradoV2,
+		dominiovec.ReferenciaEntradaCatalogo,
+	)
 }
 
 func (d *autorizadorV3Doble) ExigirSolicitudLigadaV3(
@@ -187,6 +194,9 @@ func (d *autorizadorV3Doble) ExigirSolicitudLigadaV3(
 		return dominiovec.DecisionAutorizacionLigadaV3{},
 			puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
 			d.err
+	}
+	if d.transformar != nil {
+		solicitud, resultado, d.motivo = d.transformar(solicitud, resultado)
 	}
 	decision, confirmacion, err := concesionAutorizacionV3Prueba(
 		d.t,
@@ -234,7 +244,6 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 			AutenticacionRef:  vinculo.AutenticacionRef,
 			SesionRef:         vinculo.SesionRef,
 			PerfilRef:         vinculo.PerfilActivoRef,
-			CorrelacionRef:    "correlacion:operacion-alta-001",
 			OrganizacionRef:   "organizacion:diputacion-granada",
 			ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
 			Solicitud: domain.SolicitudCentro{
@@ -295,16 +304,15 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 }
 
 type dependenciasRegistro struct {
-	contextos     *resolutorContextoDoble
-	flujos        *resolutorFlujoDoble
-	huellas       *derivadorHuellaDoble
-	ambitos       *selladorAmbitoDoble
-	motivos       *resolutorMotivoDoble
-	correlaciones *generadorReferenciasDoble
-	preparaciones *preparadorAltaDoble
-	autorizador   *autorizadorV3Doble
-	reloj         *relojMutable
-	transaccion   *transaccionAltaDoble
+	contextos       *resolutorContextoDoble
+	flujos          *resolutorFlujoDoble
+	identidadesHMAC *derivadorIdentidadesHMACDoble
+	motivos         *resolutorMotivoDoble
+	correlaciones   *generadorReferenciasDoble
+	preparaciones   *preparadorAltaDoble
+	autorizador     *autorizadorV3Doble
+	reloj           *relojMutable
+	transaccion     *transaccionAltaDoble
 }
 
 func construirServicioRegistro(
@@ -315,11 +323,23 @@ func construirServicioRegistro(
 	d := &dependenciasRegistro{
 		contextos: &resolutorContextoDoble{contexto: escenario.contexto},
 		flujos:    &resolutorFlujoDoble{configuracion: escenario.configuracion},
-		huellas: &derivadorHuellaDoble{
-			huella: escenario.preparacion.HuellaPeticionHMAC,
-		},
-		ambitos: &selladorAmbitoDoble{
-			ambito: escenario.preparacion.AmbitoIdempotenciaHMAC,
+		identidadesHMAC: &derivadorIdentidadesHMACDoble{
+			coleccion: ports.ColeccionIdentidadesHMACAlta{
+				Activa: ports.IdentidadHMACAlta{
+					AmbitoIdempotenciaHMAC: selloHMACRegistroPrueba(
+						"vec.contratacion-temporal.ambito-idempotencia/v2",
+						"c",
+					),
+					HuellaPeticionHMAC: selloHMACRegistroPrueba(
+						"vec.contratacion-temporal.huella-peticion/v2",
+						"c",
+					),
+				},
+				Retenidas: []ports.IdentidadHMACAlta{{
+					AmbitoIdempotenciaHMAC: escenario.preparacion.AmbitoIdempotenciaHMAC,
+					HuellaPeticionHMAC:     escenario.preparacion.HuellaPeticionHMAC,
+				}},
+			},
 		},
 		motivos: &resolutorMotivoDoble{motivo: escenario.motivo},
 		correlaciones: &generadorReferenciasDoble{
@@ -335,8 +355,7 @@ func construirServicioRegistro(
 	servicio, err := NuevoServicioRegistroSolicitud(
 		d.contextos,
 		d.flujos,
-		d.huellas,
-		d.ambitos,
+		d.identidadesHMAC,
 		d.motivos,
 		d.correlaciones,
 		d.preparaciones,
@@ -367,7 +386,8 @@ func TestRegistroSolicitudAutorizaV3AntesDeReservarYConfirma(t *testing.T) {
 	}
 	datosSolicitud, err := d.autorizador.solicitud.Datos()
 	if err != nil ||
-		datosSolicitud.Recurso.Referencia != escenario.preparacion.AmbitoIdempotenciaHMAC ||
+		datosSolicitud.Recurso.Referencia !=
+			d.identidadesHMAC.coleccion.Activa.AmbitoIdempotenciaHMAC ||
 		datosSolicitud.Accion != ports.AccionCrearSolicitud ||
 		datosSolicitud.Finalidad != ports.FinalidadCrearSolicitud ||
 		datosSolicitud.Recurso.ModuloID != ports.ModuloContratacion ||
@@ -375,11 +395,125 @@ func TestRegistroSolicitudAutorizaV3AntesDeReservarYConfirma(t *testing.T) {
 		t.Fatalf("solicitud V3 no ligada al ámbito: %#v, %v", datosSolicitud, err)
 	}
 	datosOrden, err := d.transaccion.orden.Datos()
+	vinculo, errVinculo := datosSolicitud.VinculoAutenticacionActor.Datos()
 	_, errSolicitudV3 := datosOrden.SolicitudAutorizacionV3.Datos()
-	if err != nil || errSolicitudV3 != nil ||
+	if err != nil || errVinculo != nil || errSolicitudV3 != nil ||
+		datosOrden.CorrelacionV3Ref != d.correlaciones.correlacion ||
+		datosOrden.Expediente.Actuaciones[0].ActorRef != vinculo.PrincipalID ||
 		datosOrden.DecisionAutorizacionV3.ValidarPara(datosOrden.SolicitudAutorizacionV3) != nil ||
 		datosOrden.ConfirmacionRegistroV3.Validar() != nil {
 		t.Fatalf("orden sin capacidades V3: %v", err)
+	}
+	expedienteCruzado := datosOrden.Expediente
+	expedienteCruzado.Actuaciones[0].ActorRef = "per_2222222222222222222222"
+	if _, err := ports.NuevaOrdenConfirmarAlta(ports.DatosOrdenConfirmarAlta{
+		Expediente:              expedienteCruzado,
+		SolicitudAutorizacionV3: datosOrden.SolicitudAutorizacionV3,
+		DecisionAutorizacionV3:  datosOrden.DecisionAutorizacionV3,
+		ConfirmacionRegistroV3:  datosOrden.ConfirmacionRegistroV3,
+		IdentidadesHMAC:         datosOrden.IdentidadesHMAC,
+		Preparacion:             datosOrden.Preparacion,
+	}); !errors.Is(err, ports.ErrOrdenAltaInvalida) {
+		t.Fatalf("actuación atribuida a otro actor aceptada: %v", err)
+	}
+}
+
+func TestContratosNoAceptanCorrelacionFuncionalAportada(t *testing.T) {
+	for _, tipo := range []reflect.Type{
+		reflect.TypeOf(SolicitudRegistrarExpediente{}),
+		reflect.TypeOf(ports.DatosOrdenConfirmarAlta{}),
+	} {
+		for _, nombre := range []string{"Correlacion", "CorrelacionRef", "CorrelacionV3Ref"} {
+			if _, existe := tipo.FieldByName(nombre); existe {
+				t.Fatalf("%s acepta correlación aportada mediante %s", tipo.Name(), nombre)
+			}
+		}
+	}
+	if _, existe := reflect.TypeOf(ports.EvidenciaOrdenConfirmarAlta{}).
+		FieldByName("CorrelacionV3Ref"); !existe {
+		t.Fatal("la evidencia de persistencia no propagó la correlación V3")
+	}
+}
+
+func TestIntegracionV3PermiteCanonMinimizadoPeroNoReconstruyeCapacidades(t *testing.T) {
+	escenario := nuevoEscenarioRegistro(t)
+	servicio, d := construirServicioRegistro(t, escenario)
+	if _, err := servicio.Registrar(context.Background(), escenario.solicitud); err != nil {
+		t.Fatal(err)
+	}
+	contenido, err := json.Marshal(escenario.contexto.Vinculo)
+	if err != nil {
+		t.Fatalf("canon JSON deliberado del vínculo rechazado: %v", err)
+	}
+	for _, prohibido := range [][]byte{
+		[]byte("dni"), []byte("nombre"), []byte("email"), []byte("roles"),
+		[]byte("permissions"), []byte("attributes"), []byte("operacion_ref"),
+	} {
+		if bytes.Contains(bytes.ToLower(contenido), prohibido) {
+			t.Fatalf("canon del vínculo contiene campo no minimizado: %s", prohibido)
+		}
+	}
+	var reconstruido dominiovec.VinculoAutenticacionActorV2
+	if err := json.Unmarshal(contenido, &reconstruido); !errors.Is(err, dominiovec.ErrReconstruccionVinculoAutenticacionActorProhibida) ||
+		reconstruido.Validar() == nil {
+		t.Fatalf("JSON reconstruyó una capacidad: %v", err)
+	}
+	if _, err := escenario.contexto.Vinculo.MarshalText(); !errors.Is(
+		err,
+		dominiovec.ErrSerializacionAlternativaVinculoAutenticacionActorV2Prohibida,
+	) {
+		t.Fatalf("serialización alternativa del vínculo aceptada: %v", err)
+	}
+	datosOrden, err := d.transaccion.orden.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := json.Marshal(datosOrden.SolicitudAutorizacionV3); !errors.Is(err, dominiovec.ErrSerializacionSolicitudAutorizacionLigadaV3Prohibida) {
+		t.Fatalf("solicitud nominal serializable: %v", err)
+	}
+	if _, err := json.Marshal(datosOrden.DecisionAutorizacionV3); !errors.Is(err, dominiovec.ErrSerializacionDecisionAutorizacionLigadaV3Prohibida) {
+		t.Fatalf("decisión nominal serializable: %v", err)
+	}
+	if _, err := json.Marshal(datosOrden.ConfirmacionRegistroV3); !errors.Is(err, puertosvec.ErrSerializacionRegistroAutorizacionLigadaV3Prohibida) {
+		t.Fatalf("confirmación nominal serializable: %v", err)
+	}
+}
+
+func TestRegistroSolicitudRechazaReciboNoConfiable(t *testing.T) {
+	escenario := nuevoEscenarioRegistro(t)
+	servicio, d := construirServicioRegistro(t, escenario)
+	d.transaccion.recibo.ExpedienteRef = "expediente:otro-0001"
+
+	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
+	if !errors.Is(err, ErrResultadoRegistroNoConfiable) {
+		t.Fatalf("recibo ajeno aceptado: %v", err)
+	}
+}
+
+func TestRegistroSolicitudAislaMutacionesDePuertosYOrden(t *testing.T) {
+	escenario := nuevoEscenarioRegistro(t)
+	servicio, d := construirServicioRegistro(t, escenario)
+	d.identidadesHMAC.antes = func(s *ports.SolicitudDerivarIdentidadesHMACAlta) {
+		s.Material.Solicitud.DocumentosAdjuntos[0] = "documento:mutado"
+	}
+	if _, err := servicio.Registrar(context.Background(), escenario.solicitud); err != nil {
+		t.Fatal(err)
+	}
+	if escenario.solicitud.Solicitud.DocumentosAdjuntos[0] !=
+		"documento:informe-necesidad-001" {
+		t.Fatal("un puerto mutó la solicitud original")
+	}
+	primera, err := d.transaccion.orden.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	primera.Expediente.Solicitud.DocumentosAdjuntos[0] = "documento:orden-mutada"
+	primera.IdentidadesHMAC.Retenidas[0] = ports.IdentidadHMACAlta{}
+	segunda, err := d.transaccion.orden.Datos()
+	if err != nil || segunda.Expediente.Solicitud.DocumentosAdjuntos[0] !=
+		"documento:informe-necesidad-001" ||
+		segunda.IdentidadesHMAC.Retenidas[0].Validar() != nil {
+		t.Fatalf("la orden no hizo copia defensiva: %v", err)
 	}
 }
 
@@ -465,17 +599,43 @@ func TestRegistroSolicitudRechazaNulosYReferenciasFabricables(t *testing.T) {
 		t.Fatalf("referencia de autenticación fabricable aceptada: %v", err)
 	}
 	if _, err := NuevoServicioRegistroSolicitud(
-		nil, d.flujos, d.huellas, d.ambitos, d.motivos, d.correlaciones,
+		nil, d.flujos, d.identidadesHMAC, d.motivos, d.correlaciones,
 		d.preparaciones, d.autorizador, d.reloj, d.transaccion,
 	); !errors.Is(err, ErrServicioRegistroInvalido) {
 		t.Fatalf("dependencia nula aceptada: %v", err)
 	}
 	var nuloTipado *resolutorContextoDoble
 	if _, err := NuevoServicioRegistroSolicitud(
-		nuloTipado, d.flujos, d.huellas, d.ambitos, d.motivos, d.correlaciones,
+		nuloTipado, d.flujos, d.identidadesHMAC, d.motivos, d.correlaciones,
 		d.preparaciones, d.autorizador, d.reloj, d.transaccion,
 	); !errors.Is(err, ErrServicioRegistroInvalido) {
 		t.Fatalf("dependencia nula tipada aceptada: %v", err)
+	}
+}
+
+func TestRegistroSolicitudRespetaCancelacionPrevia(t *testing.T) {
+	escenario := nuevoEscenarioRegistro(t)
+	servicio, d := construirServicioRegistro(t, escenario)
+	ctx, cancelar := context.WithCancel(context.Background())
+	cancelar()
+
+	_, err := servicio.Registrar(ctx, escenario.solicitud)
+	if !errors.Is(err, context.Canceled) || d.contextos.llamadas != 0 ||
+		d.autorizador.llamadas != 0 || d.preparaciones.llamadas != 0 ||
+		d.transaccion.llamadas != 0 {
+		t.Fatalf("cancelación previa produjo trabajo: %v", err)
+	}
+}
+
+func TestRegistroSolicitudNoConvierteCommitConfirmadoEnCancelacionTardia(t *testing.T) {
+	escenario := nuevoEscenarioRegistro(t)
+	servicio, d := construirServicioRegistro(t, escenario)
+	ctx, cancelar := context.WithCancel(context.Background())
+	d.transaccion.despues = cancelar
+
+	recibo, err := servicio.Registrar(ctx, escenario.solicitud)
+	if err != nil || recibo != escenario.recibo || !errors.Is(ctx.Err(), context.Canceled) {
+		t.Fatalf("éxito durable convertido en fallo: recibo=%#v err=%v", recibo, err)
 	}
 }
 
@@ -503,262 +663,135 @@ func TestRegistroSolicitudRechazaConfirmacionV3CruzadaAntesDePreparar(t *testing
 	}
 }
 
-func selloHMACRegistroPrueba(referencia, digito string) string {
-	return "hmac-sha256:" + referencia + ":" + strings.Repeat(digito, 64)
-}
-
-type revalidadorVinculoPrueba struct {
-	resultado dominiovec.AutenticacionRevalidadaV1
-}
-
-func (d revalidadorVinculoPrueba) RevalidarAutenticacionActorV1(
-	context.Context,
-	dominiovec.SolicitudRevalidacionAutenticacionActorV1,
-) (dominiovec.AutenticacionRevalidadaV1, error) {
-	return d.resultado, nil
-}
-
-type resolutorResultadoVinculoPrueba struct {
-	resultado dominiovec.ResultadoContextoActorRegistradoV2
-}
-
-func (d resolutorResultadoVinculoPrueba) ResolverContextoActorRegistradoV2(
-	context.Context,
-	dominiovec.SolicitudContextoActor,
-) (dominiovec.ResultadoContextoActorRegistradoV2, error) {
-	return d.resultado, nil
-}
-
-type relojVinculoPrueba struct{ instante time.Time }
-
-func (d relojVinculoPrueba) Ahora() time.Time { return d.instante }
-
-func contextoAutorizacionAltaV3Prueba(
-	t *testing.T,
-	ahora time.Time,
-) ports.ContextoAutorizacionAltaV3 {
-	t.Helper()
-	cuenta := dominiovec.CuentaAutenticadaContextoActor{
-		CuentaRef: "cta_0123456789abcdefghijkl",
-		Metodo:    dominiovec.AuthMethodCertificate,
-		Garantia:  dominiovec.AuthAssuranceHigh,
-	}
-	instantanea := dominiovec.InstantaneaContextoActor{
-		VinculoRef:      "vca_0123456789abcdefghijkl",
-		VinculoVersion:  3,
-		CuentaRef:       cuenta.CuentaRef,
-		CuentaVersion:   4,
-		PersonaRef:      "per_0123456789abcdefghijkl",
-		PersonaVersion:  2,
-		PerfilActivoRef: "prf_0123456789abcdefghijkl",
-		PerfilVersion:   5,
-		Estado:          dominiovec.EstadoVinculoContextoActorActivo,
-		VigenteDesde:    ahora.Add(-time.Hour),
-		VigenteHasta:    ahora.Add(time.Hour),
-	}
-	actor, err := dominiovec.NuevoContextoActor(cuenta, instantanea, ahora.Add(-2*time.Minute))
-	if err != nil {
-		t.Fatal(err)
-	}
-	canon, err := actor.RepresentacionCanonicaVinculadaV2()
-	if err != nil {
-		t.Fatal(err)
-	}
-	huella, err := actor.HuellaSHA256VinculadaV2()
-	if err != nil {
-		t.Fatal(err)
-	}
-	acreditacion := dominiovec.AcreditacionProcedenciaComponenteContextoActorV1{
-		ProcedenciaRef:          "prc_0123456789abcdefghijkl",
-		ProcedenciaVersion:      1,
-		ProcedenciaHuellaSHA256: strings.Repeat("4", 64),
-		ProcedenciaAutoridad:    dominiovec.AutoridadProcedenciaContextoActorMaestraAcreditadaV1,
-	}
-	manifiesto := dominiovec.ManifiestoProcedenciaContextoActorV1{
-		Esquema:           dominiovec.EsquemaManifiestoProcedenciaContextoActorV1,
-		AutoridadEfectiva: dominiovec.AutoridadProcedenciaContextoActorMaestraAcreditadaV1,
-		Cuenta: dominiovec.ProcedenciaCuentaContextoActorV1{
-			CuentaRef: instantanea.CuentaRef,
-			Version:   instantanea.CuentaVersion,
-			AcreditacionProcedenciaComponenteContextoActorV1: acreditacion,
-		},
-		Persona: dominiovec.ProcedenciaPersonaContextoActorV1{
-			PersonaRef: instantanea.PersonaRef,
-			Version:    instantanea.PersonaVersion,
-			AcreditacionProcedenciaComponenteContextoActorV1: acreditacion,
-		},
-		Perfil: dominiovec.ProcedenciaPerfilContextoActorV1{
-			PerfilRef: instantanea.PerfilActivoRef,
-			Version:   instantanea.PerfilVersion,
-			AcreditacionProcedenciaComponenteContextoActorV1: acreditacion,
-		},
-		Contexto: dominiovec.ProcedenciaVinculoContextoActorV1{
-			VinculoRef: instantanea.VinculoRef,
-			Version:    instantanea.VinculoVersion,
-			AcreditacionProcedenciaComponenteContextoActorV1: acreditacion,
-		},
-		Vinculos: []dominiovec.ProcedenciaVinculoReferenciaContextoActorV1{},
-	}
-	manifiestoCanon, err := manifiesto.RepresentacionCanonicaV1()
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifiestoHuella, err := dominiovec.HuellaSHA256ManifiestoProcedenciaContextoActorV1(
-		manifiestoCanon,
+func TestRegistroSolicitudMatrizAdversarialDeLigadurasV3(t *testing.T) {
+	escenario := nuevoEscenarioRegistro(t)
+	actorAlternativo := contextoAutorizacionAltaV3PruebaConMarcas(
+		t,
+		escenario.instante,
+		"b",
+		"a",
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resultado := dominiovec.ResultadoContextoActorRegistradoV2{
-		RegistroContextoRef:               "rca_0123456789abcdefghijklmn",
-		Contexto:                          actor,
-		RepresentacionCanonica:            canon,
-		HuellaSHA256:                      huella,
-		ManifiestoProcedenciaCanonico:     manifiestoCanon,
-		ManifiestoProcedenciaHuellaSHA256: manifiestoHuella,
-		AutoridadEfectiva: dominiovec.
-			AutoridadProcedenciaContextoActorMaestraAcreditadaV1,
-		ResueltoEnAutoritativo: actor.ResueltoEn,
-	}
-	autenticacion := dominiovec.AutenticacionRevalidadaV1{
-		AutenticacionRef:             "aut_0123456789abcdefghijkl",
-		AutenticacionHuellaSHA256:    strings.Repeat("1", 64),
-		AsercionRef:                  "ase_0123456789abcdefghijkl",
-		SesionRef:                    "ses_0123456789abcdefghijkl",
-		ControlSesionRef:             "cse_0123456789abcdefghijkl",
-		ControlSesionRevision:        2,
-		ControlSesionHuellaSHA256:    strings.Repeat("2", 64),
-		CuentaRef:                    cuenta.CuentaRef,
-		CuentaOrdinariaRef:           cuenta.CuentaRef,
-		Superficie:                   dominiovec.SuperficieAutenticacionInternaCorporativaV1,
-		MetodoObservado:              cuenta.Metodo,
-		GarantiaObservada:            cuenta.Garantia,
-		PoliticaGarantiaRef:          "pga_0123456789abcdefghijkl",
-		PoliticaGarantiaHuellaSHA256: strings.Repeat("3", 64),
-		AutenticacionVerificadaEn:    ahora.Add(-10 * time.Minute),
-		SesionEmitidaEn:              ahora.Add(-9 * time.Minute),
-		SesionValidaHasta:            ahora.Add(20 * time.Minute),
-		SesionRevalidadaEn:           ahora.Add(-3 * time.Minute),
-	}
-	vinculo, err := dominiovec.CrearVinculoAutenticacionActorV2(
-		context.Background(),
-		revalidadorVinculoPrueba{resultado: autenticacion},
-		dominiovec.SolicitudRevalidacionAutenticacionActorV1{
-			AutenticacionRef: autenticacion.AutenticacionRef,
-			SesionRef:        autenticacion.SesionRef,
-		},
-		resolutorResultadoVinculoPrueba{resultado: resultado},
-		dominiovec.SolicitudContextoActor{
-			Cuenta:          cuenta,
-			PerfilActivoRef: instantanea.PerfilActivoRef,
-		},
-		relojVinculoPrueba{instante: ahora},
+	perfilAlternativo := contextoAutorizacionAltaV3PruebaConMarcas(
+		t,
+		escenario.instante,
+		"a",
+		"b",
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return ports.ContextoAutorizacionAltaV3{Vinculo: vinculo, Resultado: resultado}
-}
+	motivoAlternativo := escenario.motivo
+	motivoAlternativo.EntradaClave = "motivo_22222222222222222222222222222222"
 
-func concesionAutorizacionV3Prueba(
-	t *testing.T,
-	solicitud dominiovec.SolicitudAutorizacionLigadaV3,
-	resultado dominiovec.ResultadoContextoActorRegistradoV2,
-	motivo dominiovec.ReferenciaEntradaCatalogo,
-	ahora time.Time,
-	referenciaDecision string,
-) (
-	dominiovec.DecisionAutorizacionLigadaV3,
-	puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
-	error,
-) {
-	t.Helper()
-	datos, err := solicitud.Datos()
-	if err != nil {
-		t.Fatal(err)
-	}
-	vinculo, err := datos.VinculoAutenticacionActor.Datos()
-	if err != nil {
-		t.Fatal(err)
-	}
-	ambitos := make([]dominiovec.AmbitoPerfil, 0, len(datos.Recurso.Ambitos))
-	for clave, valor := range datos.Recurso.Ambitos {
-		ambitos = append(ambitos, dominiovec.AmbitoPerfil{Clave: clave, Valores: []string{valor}})
-	}
-	version := dominiovec.VersionRol{
-		RolID:   "tecnico_rrhh",
-		Version: 1,
-		Nombre:  "Técnico de RRHH",
-		Estado:  dominiovec.EstadoVersionRolPublicada,
-		Concesiones: []dominiovec.ConcesionRol{{
-			Accion: datos.Accion, ModuloID: datos.Recurso.ModuloID,
-			TipoRecurso:    datos.Recurso.Tipo,
-			Finalidades:    []string{datos.Finalidad},
-			GarantiaMinima: dominiovec.AuthAssuranceSubstantial,
-		}},
-		PublicadaPor: "responsable-seguridad",
-		PublicadaEn:  ahora.Add(-24 * time.Hour),
-	}
-	huellaCatalogo, err := dominiovec.HuellaCatalogoPoliticasAutorizacion(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	instantanea := dominiovec.InstantaneaAutorizacion{
-		AsignacionPerfil: dominiovec.AsignacionPerfil{
-			AsignacionID:    "asig-contratacion-temporal",
-			Version:         1,
-			PerfilActivoRef: vinculo.PerfilActivoRef,
-			PrincipalID:     vinculo.PrincipalID,
-			VersionRolRef:   version.Referencia(),
-			Estado:          dominiovec.EstadoAsignacionPerfilActiva,
-			Ambitos:         ambitos,
-			VigenteDesde:    ahora.Add(-time.Hour),
-			VigenteHasta:    ahora.Add(time.Hour),
-			EmitidaPor:      "administrador-identidades",
-			EmitidaEn:       ahora.Add(-2 * time.Hour),
-		},
-		VersionRol: version,
-		ControlVigenciaVersionRol: dominiovec.ControlVigenciaVersionRol{
-			VersionRolRef:  version.Referencia(),
-			Revision:       1,
-			Estado:         dominiovec.EstadoControlVigenciaVersionRolHabilitada,
-			ActualizadoPor: version.PublicadaPor,
-			ActualizadoEn:  version.PublicadaEn,
-		},
-		RevisionCatalogoPoliticas:     1,
-		CatalogoPoliticasHuellaSHA256: huellaCatalogo,
-	}
-	evidencia, err := dominiovec.NuevaEvidenciaEvaluacionAutorizacionV3(
-		solicitud,
-		instantanea,
-		referenciaDecision,
-		ahora,
-		ahora.Add(90*time.Second),
+	type mutacion func(
+		*dominiovec.DatosSolicitudAutorizacionLigadaV3,
+	) (
+		dominiovec.ResultadoContextoActorRegistradoV2,
+		dominiovec.ReferenciaEntradaCatalogo,
 	)
-	if err != nil {
-		t.Fatal(err)
+	casos := map[string]mutacion{
+		"actor": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
+			dominiovec.ResultadoContextoActorRegistradoV2,
+			dominiovec.ReferenciaEntradaCatalogo,
+		) {
+			datos.VinculoAutenticacionActor = actorAlternativo.Vinculo
+			return actorAlternativo.Resultado, escenario.motivo
+		},
+		"perfil": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
+			dominiovec.ResultadoContextoActorRegistradoV2,
+			dominiovec.ReferenciaEntradaCatalogo,
+		) {
+			datos.VinculoAutenticacionActor = perfilAlternativo.Vinculo
+			return perfilAlternativo.Resultado, escenario.motivo
+		},
+		"organizacion": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
+			dominiovec.ResultadoContextoActorRegistradoV2,
+			dominiovec.ReferenciaEntradaCatalogo,
+		) {
+			datos.Recurso.Ambitos["organizacion_ref"] = "organizacion:ajena"
+			return escenario.contexto.Resultado, escenario.motivo
+		},
+		"accion": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
+			dominiovec.ResultadoContextoActorRegistradoV2,
+			dominiovec.ReferenciaEntradaCatalogo,
+		) {
+			datos.Accion = "contratacion_temporal.solicitud.otra"
+			return escenario.contexto.Resultado, escenario.motivo
+		},
+		"finalidad": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
+			dominiovec.ResultadoContextoActorRegistradoV2,
+			dominiovec.ReferenciaEntradaCatalogo,
+		) {
+			datos.Finalidad = "finalidad_ajena"
+			return escenario.contexto.Resultado, escenario.motivo
+		},
+		"recurso": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
+			dominiovec.ResultadoContextoActorRegistradoV2,
+			dominiovec.ReferenciaEntradaCatalogo,
+		) {
+			datos.Recurso.Referencia = selloHMACRegistroPrueba(
+				claveAmbitoRegistroPrueba,
+				"e",
+			)
+			return escenario.contexto.Resultado, escenario.motivo
+		},
+		"motivo": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
+			dominiovec.ResultadoContextoActorRegistradoV2,
+			dominiovec.ReferenciaEntradaCatalogo,
+		) {
+			datos.ReferenciaMotivo = motivoAlternativo
+			return escenario.contexto.Resultado, motivoAlternativo
+		},
+		"flujo": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
+			dominiovec.ResultadoContextoActorRegistradoV2,
+			dominiovec.ReferenciaEntradaCatalogo,
+		) {
+			datos.Recurso.Atributos["flujo_ref"] = "flujo:ajeno"
+			return escenario.contexto.Resultado, escenario.motivo
+		},
+		"correlacion": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
+			dominiovec.ResultadoContextoActorRegistradoV2,
+			dominiovec.ReferenciaEntradaCatalogo,
+		) {
+			correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
+				context.Background(),
+				&generadorReferenciasDoble{
+					correlacion: "correlacion_22222222222222222222222222222222",
+				},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			datos.Correlacion = correlacion
+			return escenario.contexto.Resultado, escenario.motivo
+		},
 	}
-	decision, err := dominiovec.NuevaDecisionAutorizacionLigadaV3(solicitud, evidencia)
-	if err != nil {
-		t.Fatal(err)
+
+	for nombre, mutar := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			servicio, d := construirServicioRegistro(t, escenario)
+			d.autorizador.transformar = func(
+				original dominiovec.SolicitudAutorizacionLigadaV3,
+				_ dominiovec.ResultadoContextoActorRegistradoV2,
+			) (
+				dominiovec.SolicitudAutorizacionLigadaV3,
+				dominiovec.ResultadoContextoActorRegistradoV2,
+				dominiovec.ReferenciaEntradaCatalogo,
+			) {
+				datos, err := original.Datos()
+				if err != nil {
+					t.Fatal(err)
+				}
+				resultado, motivo := mutar(&datos)
+				alterada, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(datos)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return alterada, resultado, motivo
+			}
+
+			_, err := servicio.Registrar(context.Background(), escenario.solicitud)
+			if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
+				d.preparaciones.llamadas != 0 || d.transaccion.llamadas != 0 {
+				t.Fatalf("ligadura %s cruzada produjo efecto: %v", nombre, err)
+			}
+		})
 	}
-	orden, err := puertosvec.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(
-		solicitud,
-		decision,
-		motivo,
-		resultado,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	confirmacion, err := puertosvec.
-		RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(
-			context.Background(),
-			registroConcesionV3Doble{registradaEn: ahora},
-			orden,
-		)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return decision, confirmacion, nil
 }

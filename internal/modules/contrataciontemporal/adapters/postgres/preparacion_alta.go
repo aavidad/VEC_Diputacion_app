@@ -119,7 +119,12 @@ func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 	if err := ctx.Err(); err != nil {
 		return ports.PreparacionAlta{}, err
 	}
-	if !ports.SelloHMACSHA256Valido(ambitoHMAC) {
+	identidadActiva := solicitud.IdentidadesHMAC.Activa
+	if !ports.SelloHMACSHA256Valido(ambitoHMAC) ||
+		!hmac.Equal(
+			[]byte(ambitoHMAC),
+			[]byte(identidadActiva.AmbitoIdempotenciaHMAC),
+		) {
 		return ports.PreparacionAlta{}, ports.ErrPersistenciaNoDisponible
 	}
 	referencias, err := p.generador.GenerarReferenciasAlta(ctx)
@@ -145,7 +150,7 @@ func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 	operacion, err := json.Marshal(operacionPrepararAltaV1{
 		Esquema:               esquemaPrepararAltaV1,
 		AmbitoHMAC:            ambitoHMAC,
-		HuellaPeticionHMAC:    solicitud.HuellaPeticionHMAC,
+		HuellaPeticionHMAC:    identidadActiva.HuellaPeticionHMAC,
 		OrganizacionRef:       solicitud.OrganizacionRef,
 		ActorRef:              solicitud.ActorRef,
 		PerfilRef:             solicitud.PerfilRef,

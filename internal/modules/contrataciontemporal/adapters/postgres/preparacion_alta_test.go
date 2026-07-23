@@ -174,11 +174,16 @@ func (g *generadorReferenciasPrueba) NuevaReferenciaReservaAlta(
 
 func solicitudPreparacionPrueba() ports.SolicitudPrepararAlta {
 	return ports.SolicitudPrepararAlta{
-		ClaveIdempotencia:  "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
-		HuellaPeticionHMAC: selloHMACPrueba(clavePeticionAltaPrueba, "b"),
-		OrganizacionRef:    "organizacion:diputacion-granada",
-		ActorRef:           "actor:tecnica-rrhh-001",
-		PerfilRef:          "perfil:tecnica-rrhh",
+		ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
+		IdentidadesHMAC: ports.ColeccionIdentidadesHMACAlta{
+			Activa: ports.IdentidadHMACAlta{
+				AmbitoIdempotenciaHMAC: selloHMACPrueba(claveAmbitoAltaPrueba, "d"),
+				HuellaPeticionHMAC:     selloHMACPrueba(clavePeticionAltaPrueba, "b"),
+			},
+		},
+		OrganizacionRef: "organizacion:diputacion-granada",
+		ActorRef:        "actor:tecnica-rrhh-001",
+		PerfilRef:       "perfil:tecnica-rrhh",
 	}
 }
 
@@ -295,6 +300,19 @@ func TestPreparadorPostgreSQLReservaSinPersistirClaveCruda(t *testing.T) {
 	}
 	if len(campos) != 8 {
 		t.Fatalf("campos no versionados en la operación: %v", campos)
+	}
+}
+
+func TestPreparadorPostgreSQLRechazaAmbitoDerivadoDistintoAntesDeTransaccion(t *testing.T) {
+	preparador, tx := nuevoPreparadorPrueba(t, filaReservadaPreparacionPrueba("reservada"))
+	solicitud := solicitudPreparacionPrueba()
+	solicitud.IdentidadesHMAC.Activa.AmbitoIdempotenciaHMAC =
+		selloHMACPrueba(claveAmbitoAltaPrueba, "e")
+
+	_, err := preparador.PrepararAlta(context.Background(), solicitud)
+	if !errors.Is(err, ports.ErrPersistenciaNoDisponible) ||
+		tx.configurada || tx.confirmaciones != 0 || len(tx.operacion) != 0 {
+		t.Fatalf("ámbito cruzado alcanzó PostgreSQL: err=%v tx=%#v", err, tx)
 	}
 }
 
@@ -571,7 +589,7 @@ func TestPreparadorPostgreSQLRechazaHuellasNulas(t *testing.T) {
 			filaReservadaPreparacionPrueba("reservada"),
 		)
 		solicitud := solicitudPreparacionPrueba()
-		solicitud.HuellaPeticionHMAC =
+		solicitud.IdentidadesHMAC.Activa.HuellaPeticionHMAC =
 			"hmac-sha256:" + clavePeticionAltaPrueba + ":" + strings.Repeat("0", 64)
 
 		_, err := preparador.PrepararAlta(context.Background(), solicitud)

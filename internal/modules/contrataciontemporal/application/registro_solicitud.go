@@ -5,7 +5,6 @@ package application
 
 import (
 	"context"
-	"crypto/hmac"
 	"errors"
 	"reflect"
 	"strconv"
@@ -34,7 +33,6 @@ type SolicitudRegistrarExpediente struct {
 	AutenticacionRef  string
 	SesionRef         string
 	PerfilRef         string
-	CorrelacionRef    string
 	OrganizacionRef   string
 	ClaveIdempotencia string
 	Solicitud         domain.SolicitudCentro
@@ -43,8 +41,7 @@ type SolicitudRegistrarExpediente struct {
 type ServicioRegistroSolicitud struct {
 	contextosAutorizacion ports.ResolutorContextoAutorizacionAltaV3
 	flujos                ports.ResolutorFlujoAlta
-	huellas               ports.DerivadorHuellaAlta
-	ambitos               ports.SelladorAmbitoIdempotencia
+	identidadesHMAC       ports.DerivadorIdentidadesHMACAlta
 	motivos               ports.ResolutorMotivoAutorizacionAltaV3
 	correlaciones         puertosvec.GeneradorReferenciasAutorizacionV2
 	preparaciones         ports.PreparadorAltaIdempotente
@@ -56,8 +53,7 @@ type ServicioRegistroSolicitud struct {
 func NuevoServicioRegistroSolicitud(
 	contextosAutorizacion ports.ResolutorContextoAutorizacionAltaV3,
 	flujos ports.ResolutorFlujoAlta,
-	huellas ports.DerivadorHuellaAlta,
-	ambitos ports.SelladorAmbitoIdempotencia,
+	identidadesHMAC ports.DerivadorIdentidadesHMACAlta,
 	motivos ports.ResolutorMotivoAutorizacionAltaV3,
 	correlaciones puertosvec.GeneradorReferenciasAutorizacionV2,
 	preparaciones ports.PreparadorAltaIdempotente,
@@ -66,7 +62,7 @@ func NuevoServicioRegistroSolicitud(
 	transaccion ports.TransaccionAltas,
 ) (*ServicioRegistroSolicitud, error) {
 	if dependenciaNula(contextosAutorizacion) || dependenciaNula(flujos) ||
-		dependenciaNula(huellas) || dependenciaNula(ambitos) ||
+		dependenciaNula(identidadesHMAC) ||
 		dependenciaNula(motivos) || dependenciaNula(correlaciones) ||
 		dependenciaNula(preparaciones) || dependenciaNula(autorizador) ||
 		dependenciaNula(reloj) || dependenciaNula(transaccion) {
@@ -75,8 +71,7 @@ func NuevoServicioRegistroSolicitud(
 	return &ServicioRegistroSolicitud{
 		contextosAutorizacion: contextosAutorizacion,
 		flujos:                flujos,
-		huellas:               huellas,
-		ambitos:               ambitos,
+		identidadesHMAC:       identidadesHMAC,
 		motivos:               motivos,
 		correlaciones:         correlaciones,
 		preparaciones:         preparaciones,
@@ -91,8 +86,8 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	solicitud SolicitudRegistrarExpediente,
 ) (ports.ReciboAlta, error) {
 	if ctx == nil || s == nil || dependenciaNula(s.contextosAutorizacion) ||
-		dependenciaNula(s.flujos) || dependenciaNula(s.huellas) ||
-		dependenciaNula(s.ambitos) || dependenciaNula(s.motivos) ||
+		dependenciaNula(s.flujos) || dependenciaNula(s.identidadesHMAC) ||
+		dependenciaNula(s.motivos) ||
 		dependenciaNula(s.correlaciones) || dependenciaNula(s.preparaciones) ||
 		dependenciaNula(s.autorizador) || dependenciaNula(s.reloj) ||
 		dependenciaNula(s.transaccion) {
@@ -180,29 +175,29 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if materialHuella.Validar() != nil {
 		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
 	}
-	huella, err := s.huellas.DerivarHuellaAlta(ctx, materialHuella)
-	if err != nil {
-		return ports.ReciboAlta{}, err
-	}
-	if err := ctx.Err(); err != nil {
-		return ports.ReciboAlta{}, err
-	}
-	solicitudAmbito := ports.SolicitudSellarAmbitoIdempotencia{
+	solicitudIdentidades := ports.SolicitudDerivarIdentidadesHMACAlta{
 		ClaveIdempotencia: solicitud.ClaveIdempotencia,
-		OrganizacionRef:   solicitud.OrganizacionRef,
-		ActorRef:          vinculo.PrincipalID,
-		PerfilRef:         vinculo.PerfilActivoRef,
+		Material:          materialHuella,
 	}
-	if solicitudAmbito.Validar() != nil {
+	if solicitudIdentidades.Validar() != nil {
 		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
 	}
-	ambitoHMAC, err := s.ambitos.SellarAmbitoIdempotencia(ctx, solicitudAmbito)
-	if err != nil || !ports.SelloHMACSHA256Valido(ambitoHMAC) {
+	identidadesHMAC, err := s.identidadesHMAC.DerivarIdentidadesHMACAlta(
+		ctx,
+		solicitudIdentidades,
+	)
+	if err != nil || identidadesHMAC.Validar() != nil {
+		return ports.ReciboAlta{}, errors.Join(ports.ErrPreparacionAltaInvalida, err)
+	}
+	identidadesHMAC, err = identidadesHMAC.Clonar()
+	if err != nil {
 		return ports.ReciboAlta{}, errors.Join(ports.ErrPreparacionAltaInvalida, err)
 	}
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
 	}
+	identidadActiva := identidadesHMAC.Activa
+	ambitoHMAC := identidadActiva.AmbitoIdempotenciaHMAC
 
 	instanteAutorizacion := instanteCanonico(s.reloj.Ahora())
 	resolverMotivo := ports.SolicitudResolverMotivoAutorizacionAltaV3{
@@ -281,11 +276,11 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	// concesión V3 durable y vigente. O2-05 deberá incorporarla físicamente a la
 	// misma transacción que consume la concesión y confirma el efecto.
 	preparar := ports.SolicitudPrepararAlta{
-		ClaveIdempotencia:  solicitud.ClaveIdempotencia,
-		HuellaPeticionHMAC: huella,
-		OrganizacionRef:    solicitud.OrganizacionRef,
-		ActorRef:           vinculo.PrincipalID,
-		PerfilRef:          vinculo.PerfilActivoRef,
+		ClaveIdempotencia: solicitud.ClaveIdempotencia,
+		IdentidadesHMAC:   identidadesHMAC,
+		OrganizacionRef:   solicitud.OrganizacionRef,
+		ActorRef:          vinculo.PrincipalID,
+		PerfilRef:         vinculo.PerfilActivoRef,
 	}
 	if preparar.Validar() != nil {
 		return ports.ReciboAlta{}, errors.Join(
@@ -300,8 +295,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	if preparacion.ValidarPara(preparar) != nil ||
-		!hmac.Equal([]byte(preparacion.AmbitoIdempotenciaHMAC), []byte(ambitoHMAC)) {
+	if preparacion.ValidarPara(preparar) != nil {
 		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
 	}
 	instanteEfecto := instanteCanonico(s.reloj.Ahora())
@@ -343,8 +337,8 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		SolicitudAutorizacionV3: solicitudAutorizacionV3,
 		DecisionAutorizacionV3:  decisionV3,
 		ConfirmacionRegistroV3:  confirmacionV3,
+		IdentidadesHMAC:         identidadesHMAC,
 		Preparacion:             preparacion,
-		CorrelacionRef:          solicitud.CorrelacionRef,
 	})
 	if err != nil {
 		return ports.ReciboAlta{}, err
@@ -393,7 +387,6 @@ func validarSolicitudRegistro(
 	}
 	if !domain.InstanteUTCCanonico(instante) ||
 		resolverContexto.Validar() != nil ||
-		!domain.ReferenciaOpacaValida(solicitud.CorrelacionRef) ||
 		!domain.ReferenciaOpacaValida(solicitud.OrganizacionRef) ||
 		!ports.ClaveIdempotenciaValida(solicitud.ClaveIdempotencia) ||
 		solicitud.Solicitud.Validar() != nil {
