@@ -180,7 +180,40 @@ func (e Expediente) RegistrarAsignacion(
 ) (Expediente, error) {
 	if e.Validar() != nil || asignacion.Validar() != nil || actuacion.validar() != nil ||
 		e.Analisis == nil || e.ViaCobertura == nil || e.Asignacion != nil ||
-		!asignacion.AsignadaEn.Equal(actuacion.RealizadaEn) {
+		!asignacion.AsignadaEn.Equal(actuacion.RealizadaEn) ||
+		asignacion.Observaciones != actuacion.Observaciones {
+		return Expediente{}, ErrTransicionInvalida
+	}
+	siguiente, err := e.prepararTransicion(versionEsperada, actuacion)
+	if err != nil {
+		return Expediente{}, err
+	}
+	clon := asignacion
+	siguiente.Asignacion = &clon
+	return siguiente.confirmarTransicion(actuacion)
+}
+
+// ReasignarUnidad conserva la asignación anterior en la historia append-only
+// del expediente y sustituye únicamente su proyección vigente. La frontera
+// durable debe persistir también la instantánea anterior; este método no
+// autoriza una reescritura de actuaciones ni un cambio implícito de fase.
+func (e Expediente) ReasignarUnidad(
+	versionEsperada uint64,
+	asignacion AsignacionUnidad,
+	actuacion DatosActuacion,
+) (Expediente, error) {
+	if e.Validar() != nil || asignacion.Validar() != nil ||
+		actuacion.validar() != nil || e.Analisis == nil ||
+		e.ViaCobertura == nil || e.Asignacion == nil ||
+		!asignacion.AsignadaEn.Equal(actuacion.RealizadaEn) ||
+		!asignacion.AsignadaEn.After(e.Asignacion.AsignadaEn) ||
+		asignacion.NotificacionRef == e.Asignacion.NotificacionRef ||
+		(asignacion.UnidadRef == e.Asignacion.UnidadRef &&
+			asignacion.ResponsableRef == e.Asignacion.ResponsableRef) ||
+		!textoValido(asignacion.Observaciones, 1000, false) ||
+		asignacion.Observaciones != actuacion.Observaciones ||
+		actuacion.FaseDestino != e.FaseActual ||
+		actuacion.EstadoDestino != e.EstadoActual {
 		return Expediente{}, ErrTransicionInvalida
 	}
 	siguiente, err := e.prepararTransicion(versionEsperada, actuacion)
