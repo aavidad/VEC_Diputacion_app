@@ -98,42 +98,7 @@ func escribirArtefactoCanonico(
 	canon *canonOperacionAnalisis,
 	datos DatosArtefactoAnalisis,
 ) {
-	canon.texto(datos.ArtefactoRef)
-	canon.texto(datos.ArtefactoHuellaSHA256)
-	canon.texto(string(datos.ResultadoRC))
-	canon.texto(datos.FuenteRCRef)
-	canon.texto(datos.ReciboRCRef)
-	canon.instante(datos.ValidadaEn)
-	canon.booleano(datos.FechaRC != nil)
-	if datos.FechaRC != nil {
-		canon.instante(*datos.FechaRC)
-	}
-	canon.texto(datos.NumeroRC)
-	canon.booleano(datos.ImporteRC != nil)
-	if datos.ImporteRC != nil {
-		canon.enteroConSigno(datos.ImporteRC.Centimos)
-		canon.texto(datos.ImporteRC.Moneda)
-	}
-	canon.texto(datos.DocumentoRCRef)
-	canon.texto(datos.MotivoRC.ReferenciaCatalogo.CatalogoID)
-	canon.enteroConSigno(
-		int64(datos.MotivoRC.ReferenciaCatalogo.CatalogoVersion),
-	)
-	canon.texto(datos.MotivoRC.ReferenciaCatalogo.CatalogoHuellaSHA256)
-	canon.texto(datos.MotivoRC.ReferenciaCatalogo.EntradaClave)
-	canon.texto(string(datos.MotivoRC.ClaveMensajeI18N))
-	canon.booleano(datos.CostePrevisto != nil)
-	if datos.CostePrevisto != nil {
-		canon.enteroConSigno(datos.CostePrevisto.Centimos)
-		canon.texto(datos.CostePrevisto.Moneda)
-	}
-	canon.texto(datos.FuenteCosteRef)
-	canon.texto(datos.ReciboCosteRef)
-	canon.booleano(!datos.CalculadoEn.IsZero())
-	if !datos.CalculadoEn.IsZero() {
-		canon.instante(datos.CalculadoEn)
-	}
-	canon.instante(datos.PreparadoEn)
+	escribirContenidoArtefactoAnalisisO3(canon, datos, true)
 }
 
 type canonOperacionAnalisis struct {

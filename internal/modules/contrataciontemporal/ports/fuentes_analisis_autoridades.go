@@ -318,10 +318,16 @@ func NuevaConfianzaAutoridadesFuenteAnalisis(
 }
 
 type identidadAutoridadFuenteAnalisis struct {
-	autoridadRef string
-	backendRef   string
-	clavePrueba  ed25519.PublicKey
-	rol          RolAutoridadFuenteAnalisis
+	raizClaveID             string
+	autoridadRef            string
+	backendRef              string
+	rol                     RolAutoridadFuenteAnalisis
+	serie                   uint64
+	generacion              uint32
+	huellaClavePruebaSHA256 string
+	credencialEmitidaEn     time.Time
+	credencialValidaHasta   time.Time
+	clavePrueba             ed25519.PublicKey
 }
 
 func (c ConfianzaAutoridadesFuenteAnalisis) verificarPresentacion(
@@ -369,14 +375,21 @@ func (c ConfianzaAutoridadesFuenteAnalisis) verificarPresentacion(
 		return identidadAutoridadFuenteAnalisis{},
 			errAutoridadFuenteAnalisisNoConfiable
 	}
+	huellaClave := sha256.Sum256(datos.ClavePruebaEd25519)
 	return identidadAutoridadFuenteAnalisis{
-		autoridadRef: datos.AutoridadRef,
-		backendRef:   datos.BackendRef,
+		raizClaveID:             datos.RaizClaveID,
+		autoridadRef:            datos.AutoridadRef,
+		backendRef:              datos.BackendRef,
+		rol:                     datos.Rol,
+		serie:                   datos.Serie,
+		generacion:              datos.Generacion,
+		huellaClavePruebaSHA256: fmt.Sprintf("%x", huellaClave[:]),
+		credencialEmitidaEn:     datos.EmitidaEn,
+		credencialValidaHasta:   datos.ValidaHasta,
 		clavePrueba: append(
 			ed25519.PublicKey(nil),
 			datos.ClavePruebaEd25519...,
 		),
-		rol: datos.Rol,
 	}, nil
 }
 
@@ -467,6 +480,27 @@ func autoridadesFuenteAnalisisSeparadas(
 		}
 	}
 	return true
+}
+
+func identidadesAutoridadFuenteAnalisisIguales(
+	primera identidadAutoridadFuenteAnalisis,
+	segunda identidadAutoridadFuenteAnalisis,
+) bool {
+	return primera.raizClaveID == segunda.raizClaveID &&
+		primera.autoridadRef == segunda.autoridadRef &&
+		primera.backendRef == segunda.backendRef &&
+		primera.rol == segunda.rol &&
+		primera.serie == segunda.serie &&
+		primera.generacion == segunda.generacion &&
+		primera.huellaClavePruebaSHA256 ==
+			segunda.huellaClavePruebaSHA256 &&
+		primera.credencialEmitidaEn.Equal(
+			segunda.credencialEmitidaEn,
+		) &&
+		primera.credencialValidaHasta.Equal(
+			segunda.credencialValidaHasta,
+		) &&
+		bytes.Equal(primera.clavePrueba, segunda.clavePrueba)
 }
 
 func canonCredencialAutoridadFuenteAnalisis(

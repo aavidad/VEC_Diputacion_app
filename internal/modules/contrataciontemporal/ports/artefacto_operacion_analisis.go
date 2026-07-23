@@ -83,8 +83,6 @@ func (m MotivoRCGobernado) validarPara(
 	if m.ReferenciaCatalogo.Validar() != nil ||
 		uint64(m.ReferenciaCatalogo.CatalogoVersion) >
 			MaximoEnteroSeguroOperacionAnalisis ||
-		m.ReferenciaCatalogo.EntradaClave !=
-			string(m.ClaveMensajeI18N) ||
 		!m.ClaveMensajeI18N.Valida() ||
 		!strings.HasPrefix(
 			string(m.ClaveMensajeI18N),
@@ -99,50 +97,63 @@ func (m MotivoRCGobernado) validarPara(
 // el análisis. Está bloqueado para codecs: solo cruza llamadas tipadas.
 type DatosArtefactoAnalisis struct {
 	bloqueoSerializacionOperacionAnalisis
-	ArtefactoRef          string
-	ArtefactoHuellaSHA256 string
-	OrganizacionRef       string
-	ExpedienteRef         string
-	VersionExpediente     uint64
-	DatosFuncionales      DatosFuncionalesOperacionAnalisis
-	ResultadoRC           domain.ResultadoValidacionRC
-	FuenteRCRef           string
-	ReciboRCRef           string
-	ValidadaEn            time.Time
-	FechaRC               *time.Time
-	NumeroRC              string
-	ImporteRC             *domain.Importe
-	DocumentoRCRef        string
-	MotivoRC              MotivoRCGobernado
-	CostePrevisto         *domain.Importe
-	FuenteCosteRef        string
-	ReciboCosteRef        string
-	CalculadoEn           time.Time
-	PreparadoEn           time.Time
+	ArtefactoRef                string
+	ArtefactoHuellaSHA256       string
+	OrganizacionRef             string
+	ExpedienteRef               string
+	VersionExpediente           uint64
+	DatosFuncionales            DatosFuncionalesOperacionAnalisis
+	ResultadoRC                 domain.ResultadoValidacionRC
+	FuenteRCRef                 string
+	ReciboRCRef                 string
+	ValidadaEn                  time.Time
+	FechaRC                     *time.Time
+	NumeroRC                    string
+	ImporteRC                   *domain.Importe
+	DocumentoRCRef              string
+	MotivoRC                    MotivoRCGobernado
+	PeticionRCRef               string
+	HuellaPeticionRCHMAC        string
+	HuellaRespuestaRC           string
+	SelloRespuestaRCHMAC        string
+	GeneracionRespuestaRC       uint32
+	ConfirmadaRCEn              time.Time
+	RespuestaRCValidaHasta      time.Time
+	ConsumoRCRef                string
+	ConsumidaRCEn               time.Time
+	AutoridadFuenteRC           VinculoAutoridadFuenteAnalisisO3
+	AutoridadVerificadorRC      VinculoAutoridadFuenteAnalisisO3
+	AutoridadPublicadorRC       VinculoAutoridadFuenteAnalisisO3
+	PublicacionMotivoRef        string
+	ReciboVerificacionMotivoRef string
+	CostePrevisto               *domain.Importe
+	FuenteCosteRef              string
+	ReciboCosteRef              string
+	CalculadoEn                 time.Time
+	PeticionCosteRef            string
+	HuellaPeticionCosteHMAC     string
+	HuellaRespuestaCoste        string
+	SelloRespuestaCosteHMAC     string
+	GeneracionRespuestaCoste    uint32
+	ConfirmadaCosteEn           time.Time
+	RespuestaCosteValidaHasta   time.Time
+	ConsumoCosteRef             string
+	ConsumidaCosteEn            time.Time
+	AutoridadFuenteCoste        VinculoAutoridadFuenteAnalisisO3
+	AutoridadVerificadorCoste   VinculoAutoridadFuenteAnalisisO3
+	PreparadoEn                 time.Time
 }
 
 type ArtefactoAnalisisPreparado struct {
 	bloqueoSerializacionOperacionAnalisis
-	datos *DatosArtefactoAnalisis
-}
-
-func NuevoArtefactoAnalisisPreparado(
-	solicitud SolicitudPrepararArtefactoAnalisis,
-	datos DatosArtefactoAnalisis,
-) (ArtefactoAnalisisPreparado, error) {
-	if validarDatosArtefactoAnalisis(solicitud, datos) != nil {
-		return ArtefactoAnalisisPreparado{},
-			ErrArtefactoAnalisisNoConfiable
-	}
-	clon := clonarDatosArtefactoAnalisis(datos)
-	return ArtefactoAnalisisPreparado{datos: &clon}, nil
+	datos   *DatosArtefactoAnalisis
+	pruebas *pruebasArtefactoAnalisisO3
 }
 
 func (a ArtefactoAnalisisPreparado) DatosPara(
 	solicitud SolicitudPrepararArtefactoAnalisis,
 ) (DatosArtefactoAnalisis, error) {
-	if a.datos == nil ||
-		validarDatosArtefactoAnalisis(solicitud, *a.datos) != nil {
+	if validarArtefactoAnalisisPreparado(solicitud, a) != nil {
 		return DatosArtefactoAnalisis{}, ErrArtefactoAnalisisNoConfiable
 	}
 	return clonarDatosArtefactoAnalisis(*a.datos), nil
@@ -175,7 +186,8 @@ func validarDatosArtefactoAnalisis(
 		datos.ValidadaEn.After(datos.PreparadoEn) ||
 		!domain.ReferenciaOpacaValida(datos.FuenteRCRef) ||
 		!domain.ReferenciaOpacaValida(datos.ReciboRCRef) ||
-		datos.MotivoRC.validarPara(datos.ResultadoRC) != nil {
+		datos.MotivoRC.validarPara(datos.ResultadoRC) != nil ||
+		validarPruebaRCDatosArtefacto(datos) != nil {
 		return ErrArtefactoAnalisisNoConfiable
 	}
 	validacion, err := derivarValidacionRC(datos)
@@ -252,7 +264,20 @@ func validarCosteArtefactoAnalisis(
 ) error {
 	if datos.CostePrevisto == nil {
 		if datos.FuenteCosteRef != "" || datos.ReciboCosteRef != "" ||
-			!datos.CalculadoEn.IsZero() {
+			!datos.CalculadoEn.IsZero() ||
+			datos.PeticionCosteRef != "" ||
+			datos.HuellaPeticionCosteHMAC != "" ||
+			datos.HuellaRespuestaCoste != "" ||
+			datos.SelloRespuestaCosteHMAC != "" ||
+			datos.GeneracionRespuestaCoste != 0 ||
+			!datos.ConfirmadaCosteEn.IsZero() ||
+			!datos.RespuestaCosteValidaHasta.IsZero() ||
+			datos.ConsumoCosteRef != "" ||
+			!datos.ConsumidaCosteEn.IsZero() ||
+			datos.AutoridadFuenteCoste !=
+				(VinculoAutoridadFuenteAnalisisO3{}) ||
+			datos.AutoridadVerificadorCoste !=
+				(VinculoAutoridadFuenteAnalisisO3{}) {
 			return ErrArtefactoAnalisisNoConfiable
 		}
 		return nil
@@ -263,11 +288,120 @@ func validarCosteArtefactoAnalisis(
 		!domain.ReferenciaOpacaValida(datos.ReciboCosteRef) ||
 		!instanteSeguroOperacionAnalisis(datos.CalculadoEn) ||
 		datos.CalculadoEn.After(datos.PreparadoEn) ||
+		!referenciaPeticionFuenteAnalisisValida(
+			datos.PeticionCosteRef,
+		) ||
+		!selloPeticionFuenteAnalisisValido(
+			datos.HuellaPeticionCosteHMAC,
+		) ||
+		!huellaSHA256FuenteAnalisisValida(
+			datos.HuellaRespuestaCoste,
+		) ||
+		!selloRespuestaFuenteAnalisisValido(
+			datos.SelloRespuestaCosteHMAC,
+			datos.GeneracionRespuestaCoste,
+		) ||
+		!instanteSeguroOperacionAnalisis(datos.ConfirmadaCosteEn) ||
+		!instanteSeguroOperacionAnalisis(
+			datos.RespuestaCosteValidaHasta,
+		) ||
+		!datos.ConfirmadaCosteEn.Before(
+			datos.RespuestaCosteValidaHasta,
+		) ||
+		!domain.ReferenciaOpacaValida(datos.ConsumoCosteRef) ||
+		!instanteSeguroOperacionAnalisis(datos.ConsumidaCosteEn) ||
+		datos.ConsumidaCosteEn.Before(datos.ConfirmadaCosteEn) ||
+		!datos.ConsumidaCosteEn.Before(
+			datos.RespuestaCosteValidaHasta,
+		) ||
+		datos.ConsumidaCosteEn.After(datos.PreparadoEn) ||
+		!vinculoAutoridadAnalisisValido(
+			datos.AutoridadFuenteCoste,
+			RolCalculadorCoste,
+		) ||
+		!vinculoAutoridadAnalisisValido(
+			datos.AutoridadVerificadorCoste,
+			RolVerificadorRespuesta,
+		) ||
+		datos.AutoridadFuenteCoste.AutoridadRef !=
+			datos.FuenteCosteRef ||
 		(validacion.Resultado == domain.RCValidada &&
 			datos.CostePrevisto.Centimos > validacion.Importe.Centimos) {
 		return ErrArtefactoAnalisisNoConfiable
 	}
 	return nil
+}
+
+func validarPruebaRCDatosArtefacto(
+	datos DatosArtefactoAnalisis,
+) error {
+	if !referenciaPeticionFuenteAnalisisValida(datos.PeticionRCRef) ||
+		!selloPeticionFuenteAnalisisValido(
+			datos.HuellaPeticionRCHMAC,
+		) ||
+		!huellaSHA256FuenteAnalisisValida(datos.HuellaRespuestaRC) ||
+		!selloRespuestaFuenteAnalisisValido(
+			datos.SelloRespuestaRCHMAC,
+			datos.GeneracionRespuestaRC,
+		) ||
+		!instanteSeguroOperacionAnalisis(datos.ConfirmadaRCEn) ||
+		!instanteSeguroOperacionAnalisis(
+			datos.RespuestaRCValidaHasta,
+		) ||
+		!datos.ConfirmadaRCEn.Before(datos.RespuestaRCValidaHasta) ||
+		!domain.ReferenciaOpacaValida(datos.ConsumoRCRef) ||
+		!instanteSeguroOperacionAnalisis(datos.ConsumidaRCEn) ||
+		datos.ConsumidaRCEn.Before(datos.ConfirmadaRCEn) ||
+		!datos.ConsumidaRCEn.Before(datos.RespuestaRCValidaHasta) ||
+		datos.ConsumidaRCEn.After(datos.PreparadoEn) ||
+		!vinculoAutoridadAnalisisValido(
+			datos.AutoridadFuenteRC,
+			RolFuentePresupuestaria,
+		) ||
+		!vinculoAutoridadAnalisisValido(
+			datos.AutoridadVerificadorRC,
+			RolVerificadorRespuesta,
+		) ||
+		!vinculoAutoridadAnalisisValido(
+			datos.AutoridadPublicadorRC,
+			RolPublicadorCatalogo,
+		) ||
+		datos.AutoridadFuenteRC.AutoridadRef != datos.FuenteRCRef {
+		return ErrArtefactoAnalisisNoConfiable
+	}
+	if datos.ResultadoRC == domain.RCValidada {
+		if datos.PublicacionMotivoRef != "" ||
+			datos.ReciboVerificacionMotivoRef != "" {
+			return ErrArtefactoAnalisisNoConfiable
+		}
+		return nil
+	}
+	if !domain.ReferenciaOpacaValida(datos.PublicacionMotivoRef) ||
+		!domain.ReferenciaOpacaValida(
+			datos.ReciboVerificacionMotivoRef,
+		) {
+		return ErrArtefactoAnalisisNoConfiable
+	}
+	return nil
+}
+
+func vinculoAutoridadAnalisisValido(
+	vinculo VinculoAutoridadFuenteAnalisisO3,
+	rol RolAutoridadFuenteAnalisis,
+) bool {
+	return vinculo.Rol == rol &&
+		domain.ReferenciaOpacaValida(vinculo.RaizClaveID) &&
+		domain.ReferenciaOpacaValida(vinculo.AutoridadRef) &&
+		domain.ReferenciaOpacaValida(vinculo.BackendRef) &&
+		vinculo.Serie > 0 &&
+		vinculo.Serie <= MaximoEnteroSeguroOperacionAnalisis &&
+		vinculo.Generacion > 0 &&
+		huellaSHA256OperacionAnalisisValida(vinculo.HuellaClaveSHA256) &&
+		instanteSeguroOperacionAnalisis(vinculo.CredencialEmitidaEn) &&
+		instanteSeguroOperacionAnalisis(
+			vinculo.CredencialValidaHasta,
+		) &&
+		vinculo.CredencialValidaHasta.After(vinculo.CredencialEmitidaEn)
 }
 
 func clonarDatosArtefactoAnalisis(
