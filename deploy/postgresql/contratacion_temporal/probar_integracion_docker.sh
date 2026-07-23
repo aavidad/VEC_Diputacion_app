@@ -60,6 +60,52 @@ esperar_fallo() {
     paso "rechazo verificado: ${descripcion}"
 }
 
+esperar_fallo_con_patron() {
+    local descripcion="$1"
+    local patron="$2"
+    local salida
+    shift 2
+    if salida="$("$@" 2>&1)"; then
+        printf 'Se esperaba rechazo: %s\n' "${descripcion}" >&2
+        printf '%s\n' "${salida}" >&2
+        return 1
+    fi
+    if ! grep -Fq "${patron}" <<<"${salida}"; then
+        printf 'Rechazo distinto del esperado: %s\n' "${descripcion}" >&2
+        printf '%s\n' "${salida}" >&2
+        return 1
+    fi
+    paso "rechazo verificado: ${descripcion}"
+}
+
+ejecutar_pgbench_verificado() {
+    local descripcion="$1"
+    local fichero="$2"
+    local salida
+    if ! salida="$(
+        docker exec "${CONTENEDOR}" \
+            pgbench --no-vacuum \
+            --client=8 --jobs=4 --transactions=2 \
+            --max-tries=3 \
+            --username vec_ct_runtime_prueba \
+            --file "/pruebas/pruebas_sql/${fichero}" \
+            postgres 2>&1
+    )"; then
+        printf '%s\n' "${salida}" >&2
+        return 1
+    fi
+    printf '%s\n' "${salida}"
+    if ! grep -Fq \
+        'number of transactions actually processed: 16/16' \
+        <<<"${salida}" ||
+        ! grep -Eq \
+            '^number of failed transactions: 0([[:space:]]|$)' \
+            <<<"${salida}"; then
+        printf 'pgbench incompleto: %s\n' "${descripcion}" >&2
+        return 1
+    fi
+}
+
 paso "imagen fijada: ${IMAGEN_POSTGRES}"
 docker run --detach \
     --name "${CONTENEDOR}" \
@@ -120,14 +166,14 @@ paso 'alta, reintento estable y conflicto semántico'
 ejecutar_como \
     vec_ct_runtime_prueba \
     pruebas_sql/integracion_preparacion.sql >/dev/null
+ejecutar_como \
+    vec_ct_migrador_prueba \
+    pruebas_sql/confirmar_reserva_v1_prueba.sql >/dev/null
 
 paso 'concurrencia real: ocho sesiones y propuestas distintas'
-docker exec "${CONTENEDOR}" \
-    pgbench --no-vacuum \
-    --client=8 --jobs=4 --transactions=2 \
-    --username vec_ct_runtime_prueba \
-    --file /pruebas/pruebas_sql/concurrencia_preparacion.sql \
-    postgres >/dev/null
+ejecutar_pgbench_verificado \
+    'preparación v1' \
+    concurrencia_preparacion.sql
 ejecutar_como \
     vec_ct_migrador_prueba \
     pruebas_sql/verificar_concurrencia.sql >/dev/null
@@ -152,13 +198,38 @@ ejecutar_como \
     vec_ct_runtime_prueba \
     pruebas_sql/integracion_rotacion_hmac.sql >/dev/null
 
-paso 'concurrencia real: ocho sesiones con generaciones v2 y v1'
+paso 'límites propios de la función ante bloqueo directo'
 docker exec "${CONTENEDOR}" \
-    pgbench --no-vacuum \
-    --client=8 --jobs=4 --transactions=2 \
-    --username vec_ct_runtime_prueba \
-    --file /pruebas/pruebas_sql/concurrencia_rotacion_hmac.sql \
-    postgres >/dev/null
+    psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ct_migrador_prueba --dbname postgres \
+    --command \
+    "BEGIN; SET LOCAL ROLE vec_contratacion_temporal_propietario; SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_ct:ambito:hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v1:$(printf 'd%.0s' {1..64})', 0)); SELECT pg_sleep(5); COMMIT" \
+    >/dev/null 2>&1 &
+pid_bloqueo=$!
+for _intento in {1..40}; do
+    if [[ "$(
+        docker exec "${CONTENEDOR}" \
+            psql -X --tuples-only --no-align \
+            --username postgres --dbname postgres \
+            --command \
+            "SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_locks WHERE locktype = 'advisory' AND granted AND pid <> pg_backend_pid())"
+    )" == 't' ]]; then
+        break
+    fi
+    sleep 0.05
+done
+esperar_fallo_con_patron \
+    'bloqueo directo limitado por preparar_alta_v2' \
+    'canceling statement due to lock timeout' \
+    ejecutar_como \
+    vec_ct_runtime_prueba \
+    pruebas_sql/bloqueo_directo_rotacion.sql
+wait "${pid_bloqueo}"
+
+paso 'concurrencia real: ocho sesiones con generaciones v2 y v1'
+ejecutar_pgbench_verificado \
+    'rotación v2 con v1 retenida' \
+    concurrencia_rotacion_hmac.sql
 ejecutar_como \
     vec_ct_migrador_prueba \
     pruebas_sql/verificar_concurrencia_rotacion.sql >/dev/null
