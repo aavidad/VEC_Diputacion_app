@@ -32,12 +32,8 @@ REVOKE EXECUTE ON FUNCTION
         bytea, bytea, bytea, bytea, numeric, numeric,
         bytea, bytea, bytea, bytea
     ) FROM vec_contratacion_temporal_propietario;
-REVOKE REFERENCES (
-    decision_ref, efecto_ref, huella_efecto_sha256
-) ON vec_autorizacion_atestada_v3.consumo_decision_v3
-  FROM vec_contratacion_temporal_propietario;
 REVOKE USAGE ON SCHEMA vec_autorizacion_atestada_v3
-    FROM vec_contratacion_temporal_propietario;
+  FROM vec_contratacion_temporal_propietario;
 DROP FUNCTION
     vec_autorizacion_atestada_v3.registrar_y_consumir_decision_v3_atestada(
         bytea, bytea, bytea, bytea, numeric, numeric,

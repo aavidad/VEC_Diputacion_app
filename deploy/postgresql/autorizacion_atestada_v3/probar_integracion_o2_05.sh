@@ -33,6 +33,12 @@ verificar_versiones_migracion_unicas() {
 }
 
 verificar_versiones_migracion_unicas
+estado_prefijo=0
+verificar_nombres_versiones_migracion_unicas \
+    /prueba/000001_primera.up.sql /prueba/000001_segunda.up.sql \
+    >/dev/null 2>&1 || estado_prefijo=$?
+[[ "${estado_prefijo}" -eq 65 ]]
+unset estado_prefijo
 
 if [[ ! "${imagen}" =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]]; then
     printf 'VEC_POSTGRES_TEST_IMAGE debe fijarse por digest sha256\n' >&2
@@ -134,17 +140,13 @@ SQL
 
 firmar_capacidad_con_go() {
     local caso="$1"
-    local entrada="${directorio_temporal}/capacidad-entrada.b64"
-    local clave="${directorio_temporal}/clave-entrada.b64"
-    local salida="${directorio_temporal}/capacidad-salida.json"
-    valor "SELECT encode(capacidad,'base64') FROM public.vectores_o2_05 WHERE caso='${caso}'" \
+    local entrada="${directorio_temporal}/entrada-go-o205.json"
+    local salida="${directorio_temporal}/bundle-go-o205.json"
+    valor "SELECT public.exportar_entrada_go_o2_05('${caso}')" \
         >"${entrada}"
-    valor "SELECT encode(k.secreto_hmac,'base64') FROM public.vectores_o2_05 v JOIN vec_autorizacion_atestada_v3.clave_capacidad_version k ON k.clave_id=convert_from(v.capacidad,'UTF8')::jsonb->>'clave_id' AND k.version=(convert_from(v.capacidad,'UTF8')::jsonb->>'clave_version')::numeric WHERE v.caso='${caso}'" \
-        >"${clave}"
-    chmod 600 "${entrada}" "${clave}"
+    chmod 600 "${entrada}"
     local diagnostico="${directorio_temporal}/go-test-vector.log"
     if ! VEC_O205_VECTOR_ENTRADA="${entrada}" \
-        VEC_O205_CLAVE_ENTRADA="${clave}" \
         VEC_O205_VECTOR_SALIDA="${salida}" \
             go test \
               ./internal/vec/adapters/seguridad/confianzaatestacion \
@@ -159,12 +161,14 @@ firmar_capacidad_con_go() {
     docker exec "${contenedor}" \
         chmod 644 /tmp/capacidad-go-o205.json
     sql postgres \
-        "UPDATE public.vectores_o2_05 SET capacidad=pg_catalog.pg_read_binary_file('/tmp/capacidad-go-o205.json') WHERE caso='${caso}'" \
+        "SELECT public.aplicar_bundle_go_o2_05('${caso}',pg_catalog.pg_read_file('/tmp/capacidad-go-o205.json')::jsonb)" \
         >/dev/null
-    rm -f "${entrada}" "${clave}" "${salida}"
+    rm -f "${entrada}" "${salida}"
 }
 
 source "${raiz}/deploy/postgresql/autorizacion_atestada_v3/pruebas_replay_o2_05.sh"
+source "${raiz}/deploy/postgresql/autorizacion_atestada_v3/pruebas_acl_o2_05.sh"
+source "${raiz}/deploy/postgresql/autorizacion_atestada_v3/pruebas_atomicidad_o2_05.sh"
 
 paso "arranque efímero sin red: ${imagen}"
 docker run --detach --name "${contenedor}" --network none \
@@ -276,6 +280,7 @@ archivo vec_ct_o205_migrador \
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.up.sql \
     >/dev/null
+afirmar_sin_referencias_o2_05
 
 paso 'frontera intercambiable sin FK a tablas de otra autoridad'
 [[ "$(valor "SELECT count(*) FROM pg_catalog.pg_constraint c JOIN pg_catalog.pg_class origen ON origen.oid=c.conrelid JOIN pg_catalog.pg_namespace esquema_origen ON esquema_origen.oid=origen.relnamespace JOIN pg_catalog.pg_class destino ON destino.oid=c.confrelid JOIN pg_catalog.pg_namespace esquema_destino ON esquema_destino.oid=destino.relnamespace WHERE c.contype='f' AND esquema_origen.nspname='vec_contratacion_temporal' AND esquema_destino.nspname<>esquema_origen.nspname")" == '0' ]]
@@ -334,18 +339,6 @@ archivo postgres \
 sql postgres \
     'CREATE ROLE vec_ct_o205_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS; GRANT vec_contratacion_temporal_ejecutor TO vec_ct_o205_runtime WITH ADMIN FALSE, INHERIT TRUE, SET FALSE; GRANT USAGE ON SCHEMA public TO vec_ct_o205_runtime; GRANT EXECUTE ON FUNCTION public.invocar_vector_o2_05(text) TO vec_ct_o205_runtime' \
     >/dev/null
-
-paso 'capacidad y MAC emitidos por Go, consumidos y adulteración rechazada por SQL'
-preparar mac_go_real
-firmar_capacidad_con_go mac_go_real
-invocar mac_go_real >/dev/null
-preparar mac_go_alterado
-firmar_capacidad_con_go mac_go_alterado
-sql postgres \
-    "UPDATE public.vectores_o2_05 SET capacidad=pg_catalog.set_byte(capacidad,pg_catalog.octet_length(capacidad)-3,CASE pg_catalog.get_byte(capacidad,pg_catalog.octet_length(capacidad)-3) WHEN 48 THEN 49 ELSE 48 END) WHERE caso='mac_go_alterado'" \
-    >/dev/null
-esperar_fallo 'MAC Go adulterado' invocar mac_go_alterado
-[[ "$(valor "SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:mac_go_alterado'")" == '0' ]]
 
 paso 'alta completa, efecto único y replay exacto'
 preparar alta_valida
@@ -412,26 +405,7 @@ SQL
 preparar gobierno_vigente
 invocar gobierno_vigente >/dev/null
 
-paso 'fallo inyectado posterior al consumo: rollback integral'
-preparar fallo_atomico
-docker exec --interactive "${contenedor}" \
-    psql -X --set ON_ERROR_STOP=1 --username postgres \
-    --dbname postgres >/dev/null <<'SQL'
-CREATE FUNCTION public.fallo_o205()
-RETURNS trigger LANGUAGE plpgsql AS $f$
-BEGIN
-    RAISE EXCEPTION 'fallo inyectado O2-05';
-END
-$f$;
-CREATE TRIGGER fallo_o205
-BEFORE INSERT ON vec_contratacion_temporal.outbox_alta
-FOR EACH ROW EXECUTE FUNCTION public.fallo_o205();
-SQL
-esperar_fallo 'rollback después del consumo' invocar fallo_atomico
-sql postgres \
-    'DROP TRIGGER fallo_o205 ON vec_contratacion_temporal.outbox_alta; DROP FUNCTION public.fallo_o205()' \
-    >/dev/null
-[[ "$(estado_agregado_o2_05 fallo_atomico)" == '0:0:0:0:0:0:0:0' ]]
+probar_atomicidad_y_reconciliacion_o2_05
 
 paso 'concurrencia real sobre la misma capacidad'
 preparar carrera
@@ -602,6 +576,18 @@ preparar configuracion_revocada valido 2
 esperar_fallo 'configuración de confianza revocada' \
     invocar configuracion_revocada
 
+paso 'capacidad completa emitida por Go y consumida por SQL'
+preparar mac_go_real valido 2
+firmar_capacidad_con_go mac_go_real
+invocar mac_go_real >/dev/null
+preparar mac_go_alterado valido 2
+firmar_capacidad_con_go mac_go_alterado
+sql postgres \
+    "UPDATE public.vectores_o2_05 SET capacidad=pg_catalog.set_byte(capacidad,pg_catalog.octet_length(capacidad)-3,CASE pg_catalog.get_byte(capacidad,pg_catalog.octet_length(capacidad)-3) WHEN 48 THEN 49 ELSE 48 END) WHERE caso='mac_go_alterado'" \
+    >/dev/null
+esperar_fallo 'MAC Go adulterado' invocar mac_go_alterado
+[[ "$(valor "SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:mac_go_alterado'")" == '0' ]]
+
 paso 'decisión ya durable no elude revocación viva de sesión'
 docker exec --interactive "${contenedor}" \
     psql -X --set ON_ERROR_STOP=1 --username postgres \
@@ -610,7 +596,7 @@ BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 INSERT INTO vec_autorizacion_atestada_v3.configuracion_confianza_version
 VALUES (
-  'configuracion-o205-4',5,repeat('6',64),
+  'configuracion-o205-4',7,repeat('6',64),
   clock_timestamp()-interval '1 minute',
   clock_timestamp()+interval '2 hours',
   'acto:configuracion:o205:4',clock_timestamp()
@@ -621,7 +607,7 @@ WITH raiz AS (
   ) spki
 )
 INSERT INTO vec_autorizacion_atestada_v3.raiz_confianza_version
-SELECT 'raiz-o205-4',4,spki,encode(sha256(spki),'hex'),
+SELECT 'raiz-o205-4',6,spki,encode(sha256(spki),'hex'),
        clock_timestamp()-interval '1 minute',
        clock_timestamp()+interval '2 hours',
        'VEC-AD-3-COSE-EDDSA-1',
@@ -629,10 +615,12 @@ SELECT 'raiz-o205-4',4,spki,encode(sha256(spki),'hex'),
        'acto:raiz:o205:4',clock_timestamp()
   FROM raiz;
 INSERT INTO vec_autorizacion_atestada_v3.configuracion_raiz
-VALUES ('configuracion-o205-4','raiz-o205-4',4);
+VALUES ('configuracion-o205-4','raiz-o205-4',6);
 INSERT INTO vec_autorizacion_atestada_v3.puntero_configuracion_actual
 VALUES (
-  24,'configuracion-o205-4',clock_timestamp(),
+  (SELECT max(orden)+1
+     FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual),
+  'configuracion-o205-4',clock_timestamp(),
   'acto:puntero-configuracion:o205:4',clock_timestamp()
 );
 COMMIT;
@@ -678,7 +666,7 @@ esperar_fallo 'down revalidación viva con consumidor instalado' \
 
 paso 'retirada de la superficie de prueba y destrucción explícita ensayada'
 sql postgres \
-    'REVOKE USAGE ON SCHEMA public FROM vec_ct_o205_runtime; DROP FUNCTION public.durabilizar_decision_o2_05(text); DROP FUNCTION public.mutar_tipo_capacidad_o2_05(text,text); DROP FUNCTION public.mutar_efecto_o2_05(text,text,jsonb); DROP FUNCTION public.invocar_vector_o2_05(text); DROP FUNCTION public.preparar_vector_o2_05(text,text,numeric); DROP TABLE public.vectores_o2_05' \
+    'REVOKE USAGE ON SCHEMA public FROM vec_ct_o205_runtime; DROP FUNCTION public.aplicar_bundle_go_o2_05(text,jsonb); DROP FUNCTION public.exportar_entrada_go_o2_05(text); DROP FUNCTION public.durabilizar_decision_o2_05(text); DROP FUNCTION public.mutar_tipo_capacidad_o2_05(text,text); DROP FUNCTION public.mutar_efecto_o2_05(text,text,jsonb); DROP FUNCTION public.invocar_vector_o2_05(text); DROP FUNCTION public.preparar_vector_o2_05(text,text,numeric); DROP TABLE public.vectores_o2_05' \
     >/dev/null
 docker exec \
     --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
@@ -737,6 +725,7 @@ archivo vec_ct_o205_migrador \
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.up.sql \
     >/dev/null
+afirmar_sin_referencias_o2_05
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.down.sql \
     >/dev/null

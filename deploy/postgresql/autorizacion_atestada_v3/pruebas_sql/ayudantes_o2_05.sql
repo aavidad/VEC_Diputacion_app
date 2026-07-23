@@ -35,6 +35,7 @@ DECLARE
     v_clave record;
     v_config record;
     v_raiz record;
+    v_rbac record;
     v_decision jsonb;
     v_capacidad jsonb;
     v_alta jsonb;
@@ -93,6 +94,24 @@ BEGIN
        AND r.version = cr.raiz_version
      WHERE cr.configuracion_revision = v_config.revision
      ORDER BY r.version DESC LIMIT 1;
+    SELECT a.asignacion_ref, a.huella_sha256 AS asignacion_huella,
+           a.version_rol_ref, rol.huella_sha256 AS rol_huella,
+           control.revision AS control_revision,
+           control.huella_sha256 AS control_huella
+      INTO STRICT v_rbac
+      FROM vec_autorizacion.asignacion_perfil_actual actual
+      JOIN vec_autorizacion.asignacion_perfil a
+        ON a.perfil_activo_ref = actual.perfil_activo_ref
+       AND a.asignacion_ref = actual.asignacion_ref
+      JOIN vec_autorizacion.version_rol rol
+        ON rol.version_rol_ref = a.version_rol_ref
+      JOIN vec_autorizacion.control_vigencia_version_rol_actual ca
+        ON ca.version_rol_ref = rol.version_rol_ref
+      JOIN vec_autorizacion.control_vigencia_version_rol control
+        ON control.version_rol_ref = ca.version_rol_ref
+       AND control.revision = ca.revision
+     WHERE actual.perfil_activo_ref =
+           'prf_sintetico_cccccccccccccccccccccccc';
 
     v_ambito_v2 :=
       'hmac-sha256:vec.contratacion-temporal.ambito-idempotencia/v2:' ||
@@ -234,27 +253,31 @@ BEGIN
     );
     v_decision := jsonb_set(
         v_decision, '{asignacion_ref}',
-        '"asignacion:registro_v3:v2"'
+        to_jsonb(v_rbac.asignacion_ref)
     );
     v_decision := jsonb_set(
         v_decision, '{asignacion_huella_sha256}',
-        to_jsonb(repeat('e', 64))
+        to_jsonb(v_rbac.asignacion_huella)
     );
     v_decision := jsonb_set(
         v_decision, '{version_rol_ref}',
-        '"rol:registro_ct_o205:v1"'
+        to_jsonb(v_rbac.version_rol_ref)
     );
     v_decision := jsonb_set(
         v_decision, '{version_rol_huella_sha256}',
-        to_jsonb(repeat('c', 64))
+        to_jsonb(v_rbac.rol_huella)
     );
     v_decision := jsonb_set(
         v_decision, '{control_vigencia_version_rol_ref}',
-        '"rol:registro_ct_o205:v1"'
+        to_jsonb(v_rbac.version_rol_ref)
+    );
+    v_decision := jsonb_set(
+        v_decision, '{control_vigencia_version_rol_revision}',
+        to_jsonb(v_rbac.control_revision)
     );
     v_decision := jsonb_set(
         v_decision, '{control_vigencia_version_rol_huella_sha256}',
-        to_jsonb(repeat('d', 64))
+        to_jsonb(v_rbac.control_huella)
     );
     v_decision := jsonb_set(
         v_decision, '{emitida_en}', to_jsonb(v_emitida_z)
@@ -503,6 +526,252 @@ BEGIN
 END
 $funcion$;
 
+CREATE FUNCTION public.exportar_entrada_go_o2_05(p_caso text)
+RETURNS text
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $funcion$
+DECLARE
+    v public.vectores_o2_05%ROWTYPE;
+    c jsonb;
+    d jsonb;
+    k record;
+    r record;
+    contexto record;
+    catalogo record;
+    asignacion_actual record;
+    politicas jsonb;
+    ahora timestamptz(6) := clock_timestamp();
+    secuencia numeric;
+    version_raiz numeric;
+BEGIN
+    SELECT * INTO STRICT v
+      FROM public.vectores_o2_05
+     WHERE caso = p_caso;
+    c := convert_from(v.capacidad, 'UTF8')::jsonb;
+    d := convert_from(v.decision, 'UTF8')::jsonb;
+    SELECT * INTO STRICT k
+      FROM vec_autorizacion_atestada_v3.clave_capacidad_version
+     WHERE clave_id = c ->> 'clave_id'
+       AND version = (c ->> 'clave_version')::numeric;
+    SELECT * INTO STRICT contexto
+      FROM vec_contexto_actor_v1.registros_contexto
+     WHERE registro_contexto_ref = c ->> 'contexto_ref';
+    SELECT revision, huella_sha256 INTO STRICT catalogo
+      FROM vec_autorizacion.control_catalogo_politicas
+     WHERE control_id = true;
+    SELECT a.asignacion_id, a.version
+      INTO STRICT asignacion_actual
+      FROM vec_autorizacion.asignacion_perfil_actual actual
+      JOIN vec_autorizacion.asignacion_perfil a
+        ON a.perfil_activo_ref = actual.perfil_activo_ref
+       AND a.asignacion_ref = actual.asignacion_ref
+     WHERE actual.perfil_activo_ref =
+           'prf_sintetico_cccccccccccccccccccccccc';
+    SELECT coalesce(jsonb_agg(
+               p.documento ORDER BY p.politica_ref COLLATE "C"
+           ), '[]'::jsonb)
+      INTO politicas
+      FROM vec_autorizacion.politica_restrictiva_actual actual
+      JOIN vec_autorizacion.politica_restrictiva p
+        ON p.politica_id = actual.politica_id
+       AND p.politica_ref = actual.politica_ref;
+    SELECT configuracion_secuencia_minima + 1,
+           raiz_version_minima + 1
+      INTO STRICT secuencia, version_raiz
+      FROM vec_autorizacion_atestada_v3.checkpoint_gobierno
+     WHERE control_id;
+    SELECT * INTO STRICT r
+      FROM vec_autorizacion_atestada_v3.raiz_confianza_version
+     WHERE clave_id = c ->> 'raiz_clave_id'
+       AND version = (c ->> 'raiz_version')::numeric;
+    RETURN jsonb_build_object(
+        'caso', p_caso,
+        'ahora', to_char(
+            ahora AT TIME ZONE 'UTC',
+            'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+        ),
+        'decision_plantilla_b64', encode(v.decision, 'base64'),
+        'motivo_b64', encode(v.motivo, 'base64'),
+        'contexto_b64', encode(v.contexto, 'base64'),
+        'manifiesto_b64',
+            encode(contexto.manifiesto_procedencia_canonico, 'base64'),
+        'manifiesto_huella_sha256',
+            contexto.manifiesto_procedencia_huella_sha256,
+        'autoridad_efectiva', contexto.autoridad_efectiva,
+        'resuelto_en', to_char(
+            contexto.resuelto_en AT TIME ZONE 'UTC',
+            'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+        ),
+        'alta_b64', encode(v.alta, 'base64'),
+        'sellos_b64', encode(v.sellos, 'base64'),
+        'efecto_huella_sha256', encode(sha256(v.alta), 'hex'),
+        'clave_id', k.clave_id,
+        'clave_version', k.version,
+        'revision_gobierno', k.revision_gobierno,
+        'huella_gobierno_sha256', k.huella_gobierno_sha256,
+        'emisor_id', k.emisor_id,
+        'audiencia_consumo', k.audiencia_consumo,
+        'clave_hmac_b64', encode(k.secreto_hmac, 'base64'),
+        'clave_valida_desde', to_char(
+            k.valida_desde AT TIME ZONE 'UTC',
+            'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+        ),
+        'clave_valida_hasta', to_char(
+            k.valida_hasta AT TIME ZONE 'UTC',
+            'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+        ),
+        'revision_confianza', 'configuracion-go-o205-' || p_caso,
+        'secuencia_confianza', secuencia,
+        'raiz_clave_id', 'raiz-go-o205-' || p_caso,
+        'raiz_version', version_raiz,
+        'audiencia_despliegue', r.audiencia_despliegue,
+        'politicas', politicas,
+        'revision_catalogo', catalogo.revision,
+        'huella_catalogo_sha256', catalogo.huella_sha256,
+        'asignacion_id', asignacion_actual.asignacion_id,
+        'asignacion_version', asignacion_actual.version + 1,
+        'persona_version', v.persona_version,
+        'perfil_version', v.perfil_version
+    )::text;
+END
+$funcion$;
+
+CREATE FUNCTION public.aplicar_bundle_go_o2_05(
+    p_caso text,
+    p_bundle jsonb
+)
+RETURNS void
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $funcion$
+DECLARE
+    v_capacidad bytea := decode(p_bundle ->> 'capacidad_b64', 'base64');
+    v_decision bytea := decode(p_bundle ->> 'decision_b64', 'base64');
+    v_spki bytea := decode(p_bundle ->> 'spki_b64', 'base64');
+    c jsonb := convert_from(v_capacidad, 'UTF8')::jsonb;
+    d jsonb := convert_from(v_decision, 'UTF8')::jsonb;
+    rol jsonb := p_bundle -> 'version_rol_documento';
+    control jsonb := p_bundle -> 'control_rol_documento';
+    asignacion jsonb := p_bundle -> 'asignacion_documento';
+    orden numeric;
+BEGIN
+    IF p_caso !~ '^[a-z0-9_-]{3,32}$'
+       OR vec_autorizacion_atestada_v3.capacidad_canonica(c)
+          IS DISTINCT FROM v_capacidad
+       OR vec_autorizacion.decision_contexto_actor_v3_canonica(d)
+          IS DISTINCT FROM v_decision THEN
+        RAISE EXCEPTION 'bundle Go O2-05 no canónico';
+    END IF;
+    INSERT INTO vec_autorizacion.version_rol(
+        version_rol_ref, rol_id, version, huella_sha256,
+        publicada_en, documento
+    ) VALUES (
+        d ->> 'version_rol_ref', rol ->> 'rol_id',
+        (rol ->> 'version')::numeric,
+        d ->> 'version_rol_huella_sha256',
+        (rol ->> 'publicada_en')::timestamptz, rol
+    );
+    INSERT INTO vec_autorizacion.control_vigencia_version_rol(
+        version_rol_ref, revision, estado, huella_sha256,
+        actualizado_en, documento
+    ) VALUES (
+        control ->> 'version_rol_ref',
+        (control ->> 'revision')::numeric,
+        control ->> 'estado',
+        d ->> 'control_vigencia_version_rol_huella_sha256',
+        (control ->> 'actualizado_en')::timestamptz, control
+    );
+    INSERT INTO vec_autorizacion.control_vigencia_version_rol_actual
+    VALUES (
+        control ->> 'version_rol_ref',
+        (control ->> 'revision')::numeric,
+        clock_timestamp(), 'autoridad-o205-go',
+        'acto:control:o205:go:' || p_caso
+    );
+    INSERT INTO vec_autorizacion.asignacion_perfil(
+        asignacion_ref, asignacion_id, version, perfil_activo_ref,
+        principal_id, version_rol_ref, huella_sha256,
+        emitida_en, documento
+    ) VALUES (
+        d ->> 'asignacion_ref', asignacion ->> 'asignacion_id',
+        (asignacion ->> 'version')::numeric,
+        asignacion ->> 'perfil_activo_ref',
+        asignacion ->> 'principal_id',
+        asignacion ->> 'version_rol_ref',
+        d ->> 'asignacion_huella_sha256',
+        (asignacion ->> 'emitida_en')::timestamptz, asignacion
+    );
+    INSERT INTO vec_autorizacion.asignacion_perfil_actual
+    VALUES (
+        asignacion ->> 'perfil_activo_ref', d ->> 'asignacion_ref',
+        clock_timestamp(), 'autoridad-o205-go',
+        'acto:asignacion:o205:go:' || p_caso
+    ) ON CONFLICT (perfil_activo_ref) DO UPDATE SET
+        asignacion_ref = EXCLUDED.asignacion_ref,
+        actualizada_en = EXCLUDED.actualizada_en,
+        actualizada_por = EXCLUDED.actualizada_por,
+        acto_ref = EXCLUDED.acto_ref;
+    INSERT INTO
+        vec_autorizacion_atestada_v3.configuracion_confianza_version(
+            revision, secuencia, huella_configuracion_sha256,
+            publicada_en, expira_en, acto_ref
+        ) VALUES (
+            c ->> 'revision_confianza',
+            (c ->> 'configuracion_secuencia')::numeric,
+            c ->> 'huella_configuracion_sha256',
+            (c ->> 'configuracion_publicada_en')::timestamptz,
+            (c ->> 'configuracion_expira_en')::timestamptz,
+            'acto:configuracion:o205:go:' || p_caso
+        );
+    INSERT INTO vec_autorizacion_atestada_v3.raiz_confianza_version(
+        clave_id, version, clave_publica_spki, huella_spki_sha256,
+        valida_desde, valida_hasta, suite, audiencia_despliegue,
+        acto_ref
+    ) VALUES (
+        c ->> 'raiz_clave_id', (c ->> 'raiz_version')::numeric,
+        v_spki, encode(sha256(v_spki), 'hex'),
+        (c ->> 'raiz_valida_desde')::timestamptz,
+        (c ->> 'raiz_valida_hasta')::timestamptz,
+        c ->> 'suite', c ->> 'audiencia_despliegue',
+        'acto:raiz:o205:go:' || p_caso
+    );
+    INSERT INTO vec_autorizacion_atestada_v3.configuracion_raiz
+    VALUES (
+        c ->> 'revision_confianza',
+        c ->> 'raiz_clave_id', (c ->> 'raiz_version')::numeric
+    );
+    SELECT coalesce(max(puntero.orden), 0) + 1 INTO orden
+      FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual puntero;
+    INSERT INTO vec_autorizacion_atestada_v3.puntero_configuracion_actual
+    VALUES (
+        orden, c ->> 'revision_confianza', clock_timestamp(),
+        'acto:puntero-configuracion:o205:go:' || p_caso
+    );
+    UPDATE public.vectores_o2_05 SET
+        capacidad = v_capacidad,
+        decision = v_decision,
+        motivo = decode(p_bundle ->> 'motivo_b64', 'base64'),
+        contexto = decode(p_bundle ->> 'contexto_b64', 'base64'),
+        persona_version = (p_bundle ->> 'persona_version')::numeric,
+        perfil_version = (p_bundle ->> 'perfil_version')::numeric,
+        payload = decode(p_bundle ->> 'payload_b64', 'base64'),
+        cose = decode(p_bundle ->> 'cose_b64', 'base64'),
+        evidencia = decode(p_bundle ->> 'evidencia_b64', 'base64'),
+        spki = v_spki,
+        alta = decode(p_bundle ->> 'alta_b64', 'base64'),
+        sellos = decode(p_bundle ->> 'sellos_b64', 'base64')
+     WHERE caso = p_caso;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'vector O2-05 ausente';
+    END IF;
+END
+$funcion$;
+
 REVOKE ALL ON FUNCTION public.preparar_vector_o2_05(
     text, text, numeric
 ) FROM PUBLIC;
@@ -514,4 +783,8 @@ REVOKE ALL ON FUNCTION public.mutar_tipo_capacidad_o2_05(
     text, text
 ) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.durabilizar_decision_o2_05(text)
+    FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.exportar_entrada_go_o2_05(text)
+    FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.aplicar_bundle_go_o2_05(text, jsonb)
     FROM PUBLIC;

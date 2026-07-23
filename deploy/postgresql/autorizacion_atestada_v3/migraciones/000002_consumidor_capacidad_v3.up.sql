@@ -760,8 +760,4 @@ GRANT EXECUTE ON FUNCTION
     vec_autorizacion_atestada_v3.registrar_y_consumir_decision_v3_atestada(
         bytea, bytea, bytea, bytea, numeric, numeric,
         bytea, bytea, bytea, bytea) TO vec_contratacion_temporal_propietario;
-GRANT REFERENCES (
-    decision_ref, efecto_ref, huella_efecto_sha256
-) ON vec_autorizacion_atestada_v3.consumo_decision_v3
-  TO vec_contratacion_temporal_propietario;
 COMMIT;
