@@ -155,6 +155,34 @@ Las pruebas de timeout usan un contexto controlado y activan
 milisegundos reales ni debilitan el límite productivo de cinco segundos. La
 quinta corrección sigue en `NO-GO` hasta revisión independiente.
 
+La quinta revisión independiente encontró una ruta residual con el mismo
+defecto temporal: las operaciones de validación presupuestaria y cálculo de
+coste podían entregar al verificador el instante leído antes de obtener la
+presentación. El contraejemplo es determinista: inicio `t0`, presentación en
+`t0+2 s`, credencial válida hasta `t0+6 s` y horizonte obligatorio de cinco
+segundos. Verificar en `t0` la aceptaría; verificar en `t0+2 s` debe
+rechazarla.
+
+La sexta corrección se ha reconstruido sobre la base convergente exacta
+`ba80e8f766e1054f35db15b47c2f4f13ea6b2221`, que ya integra O3-02 y conserva
+la antigua orquestación de `ports` únicamente como contraste de prueba. El
+candidato:
+
+- traslada O4-02 sin reintroducir casos de uso multipuerto en `ports`;
+- mantiene toda presentación productiva en `application`;
+- crea el desafío con un instante inicial, pero exige otra lectura
+  autoritativa después de recibir cada presentación;
+- valida credencial, raíz, revocación y horizonte contra ese instante
+  posterior;
+- elimina la variante de `ValidarPresentacion` que no obligaba a aportar el
+  instante posterior;
+- revalida el conjunto de autoridades con un instante final que no puede ser
+  anterior al comienzo de la preparación;
+- prueba el contraejemplo tanto en validación RC como en cálculo de coste y
+  demuestra que no se consulta la fuente ni se consume ningún efecto.
+
+Esta sexta corrección no implica `GO`: requiere revisión independiente nueva.
+
 ## Alcance
 
 O4-02 define la frontera hexagonal para comprobar una condición de una vía de
@@ -417,6 +445,8 @@ Las pruebas incluyen:
 - consumidor que ignora contexto, reloj vencido y cancelación competitiva;
 - retroceso del reloj y recibo fechado en el futuro;
 - retroceso de `t+5` a `t+2` entre catálogo y fuente, con consumo cero;
+- presentación que avanza de `t0` a `t0+2 s`, credencial hasta `t0+6 s` y
+  horizonte de cinco segundos, rechazada antes de consultar RC o coste;
 - autenticador criptográfico concreto fuera de `ports`;
 - credencial SAE intentando contestar la definición de Bolsa;
 - confirmación sin clave privada TCB y firma Ed25519 alterada;

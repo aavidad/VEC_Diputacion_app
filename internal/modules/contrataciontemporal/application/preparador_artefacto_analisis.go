@@ -164,7 +164,7 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) revalidarAutoridadesEvidencias(
 		c.confianza,
 		materialRC,
 		ports.RolFuentePresupuestaria,
-		comprobadaEn,
+		c.reloj,
 	)
 	if err != nil {
 		return err
@@ -175,7 +175,7 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) revalidarAutoridadesEvidencias(
 		c.confianza,
 		materialRC,
 		ports.RolVerificadorRespuesta,
-		comprobadaEn,
+		c.reloj,
 	)
 	if err != nil {
 		return err
@@ -186,7 +186,7 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) revalidarAutoridadesEvidencias(
 		c.confianza,
 		materialRC,
 		ports.RolPublicadorCatalogo,
-		comprobadaEn,
+		c.reloj,
 	)
 	if err != nil {
 		return err
@@ -207,7 +207,7 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) revalidarAutoridadesEvidencias(
 			c.confianza,
 			materialCoste,
 			ports.RolCalculadorCoste,
-			comprobadaEn,
+			c.reloj,
 		)
 		if err != nil {
 			return err
@@ -219,13 +219,17 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) revalidarAutoridadesEvidencias(
 				c.confianza,
 				materialCoste,
 				ports.RolVerificadorRespuesta,
-				comprobadaEn,
+				c.reloj,
 			)
 		if err != nil {
 			return err
 		}
 	}
-	if preparacion.ValidarResultado(resultado) != nil {
+	comprobadaResultado := c.reloj.Ahora()
+	if preparacion.ValidarResultado(
+		resultado,
+		comprobadaResultado,
+	) != nil {
 		return ports.ErrArtefactoAnalisisNoConfiable
 	}
 	return nil
@@ -237,9 +241,10 @@ func presentarAutoridadFuenteAnalisisO3(
 	confianza ports.ConfianzaAutoridadesFuenteAnalisis,
 	material []byte,
 	rol ports.RolAutoridadFuenteAnalisis,
-	comprobadaEn time.Time,
+	reloj ports.RelojFuenteAnalisis,
 ) (ports.ConfirmacionComprobacionAutoridadFuenteAnalisis, error) {
-	if ctx == nil || dependenciaNula(presentador) {
+	if ctx == nil || dependenciaNula(presentador) ||
+		dependenciaNula(reloj) {
 		return ports.ConfirmacionComprobacionAutoridadFuenteAnalisis{},
 			ports.ErrSolicitudArtefactoAnalisisInvalida
 	}
@@ -247,11 +252,12 @@ func presentarAutoridadFuenteAnalisisO3(
 		return ports.ConfirmacionComprobacionAutoridadFuenteAnalisis{},
 			errorArtefactoAnalisisNoDisponible(err)
 	}
+	iniciadaEn := reloj.Ahora()
 	comprobacion, err := ports.NuevaComprobacionAutoridadFuenteAnalisis(
 		confianza,
 		material,
 		rol,
-		comprobadaEn,
+		iniciadaEn,
 	)
 	if err != nil {
 		return ports.ConfirmacionComprobacionAutoridadFuenteAnalisis{},
@@ -268,8 +274,9 @@ func presentarAutoridadFuenteAnalisisO3(
 		return ports.ConfirmacionComprobacionAutoridadFuenteAnalisis{},
 			errorArtefactoAnalisisNoDisponible(errContexto)
 	}
+	comprobadaEn := reloj.Ahora()
 	vinculo, errVerificacion :=
-		comprobacion.ValidarPresentacion(presentacion)
+		comprobacion.ValidarPresentacion(presentacion, comprobadaEn)
 	if errPresentacion != nil || errVerificacion != nil {
 		return ports.ConfirmacionComprobacionAutoridadFuenteAnalisis{},
 			ports.ErrArtefactoAnalisisNoConfiable

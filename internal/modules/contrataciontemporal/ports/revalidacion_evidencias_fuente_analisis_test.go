@@ -73,12 +73,18 @@ func TestPreparacionRevalidacionEsLocalExactaYConCopiasDefensivas(
 			preparacion.comprobadaEn,
 		),
 	}
-	if err := preparacion.ValidarResultado(resultado); err != nil {
+	if err := preparacion.ValidarResultado(
+		resultado,
+		preparacion.comprobadaEn,
+	); err != nil {
 		t.Fatalf("resultado exacto rechazado: %v", err)
 	}
 	otraIdentidad := resultado
 	otraIdentidad.FuenteRC.vinculo.Serie++
-	if err := preparacion.ValidarResultado(otraIdentidad); !errors.Is(
+	if err := preparacion.ValidarResultado(
+		otraIdentidad,
+		preparacion.comprobadaEn,
+	); !errors.Is(
 		err,
 		ErrResultadoFuenteAnalisisNoConfiable,
 	) {
@@ -86,7 +92,10 @@ func TestPreparacionRevalidacionEsLocalExactaYConCopiasDefensivas(
 	}
 	otroMaterial := resultado
 	otroMaterial.FuenteRC.huellaMaterial[0] ^= 0xff
-	if err := preparacion.ValidarResultado(otroMaterial); !errors.Is(
+	if err := preparacion.ValidarResultado(
+		otroMaterial,
+		preparacion.comprobadaEn,
+	); !errors.Is(
 		err,
 		ErrResultadoFuenteAnalisisNoConfiable,
 	) {

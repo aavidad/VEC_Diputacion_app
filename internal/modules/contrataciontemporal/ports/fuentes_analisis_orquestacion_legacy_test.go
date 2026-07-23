@@ -44,7 +44,7 @@ func presentarConfirmacionAutoridadFuenteAnalisisPrueba(
 			)
 	}
 	confirmacion, errVerificacion :=
-		comprobacion.ValidarPresentacion(presentacion)
+		comprobacion.ValidarPresentacion(presentacion, comprobadaEn)
 	if errPresentacion != nil || errVerificacion != nil {
 		return ConfirmacionComprobacionAutoridadFuenteAnalisis{},
 			ErrResultadoFuenteAnalisisNoConfiable

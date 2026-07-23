@@ -395,3 +395,28 @@ publicador actuales vuelven a autenticarse antes de cualquier consumo; una
 confianza actual inválida no queda autorizada por un recibo K1. Continúan
 pendientes el consumidor durable productivo, la composición con conectores
 reales, las pruebas E2E y las conformidades organizativas.
+
+## Estado O4-02 tras sexta corrección candidata
+
+La sexta corrección parte exactamente de
+`ba80e8f766e1054f35db15b47c2f4f13ea6b2221`, no de la rama divergente de la
+quinta corrección. Así preserva la arquitectura O3-02 ya integrada: la
+orquestación de validación RC y cálculo de coste permanece en `application` y
+la versión histórica de `ports` solo compila en `_test.go`.
+
+O4-02 se ha trasladado sobre esa base sin recuperar la ruta productiva antigua.
+Además, el coordinador común de autoridades O3:
+
+- lee el reloj antes de crear el desafío;
+- obtiene la presentación;
+- vuelve a leer el reloj autoritativo;
+- rechaza retrocesos y verifica credencial, raíz, revocación y horizonte con
+  el instante posterior.
+
+La API local ya no permite validar una presentación sin aportar ese instante
+posterior. Una regresión determinista cubre ambas rutas: `t0`, presentación en
+`t0+2 s`, credencial hasta `t0+6 s` y horizonte de cinco segundos. RC y coste
+se rechazan antes de invocar la operación funcional o el consumidor.
+
+El candidato continúa en `NO-GO` hasta que un agente distinto revise la sexta
+corrección y repita las puertas O3+O4 sobre el SHA exacto.

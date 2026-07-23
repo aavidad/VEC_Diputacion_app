@@ -109,25 +109,29 @@ func (p PreparacionRevalidacionEvidenciasFuenteAnalisisO3) MaterialCoste() (
 
 func (p PreparacionRevalidacionEvidenciasFuenteAnalisisO3) ValidarResultado(
 	resultado ResultadoRevalidacionEvidenciasFuenteAnalisisO3,
+	comprobadaEn time.Time,
 ) error {
 	fuenteRC, errFuenteRC := resultado.FuenteRC.validarPara(
 		p.materialRC,
 		RolFuentePresupuestaria,
-		p.comprobadaEn,
+		comprobadaEn,
 	)
 	verificadorRC, errVerificadorRC :=
 		resultado.VerificadorRC.validarPara(
 			p.materialRC,
 			RolVerificadorRespuesta,
-			p.comprobadaEn,
+			comprobadaEn,
 		)
 	publicadorRC, errPublicadorRC :=
 		resultado.PublicadorRC.validarPara(
 			p.materialRC,
 			RolPublicadorCatalogo,
-			p.comprobadaEn,
+			comprobadaEn,
 		)
-	if p.validar() != nil || errFuenteRC != nil ||
+	if p.validar() != nil ||
+		!instanteFuenteAnalisisCanonico(comprobadaEn) ||
+		comprobadaEn.Before(p.comprobadaEn) ||
+		errFuenteRC != nil ||
 		errVerificadorRC != nil || errPublicadorRC != nil ||
 		!vinculosAutoridadFuenteAnalisisO3Iguales(
 			p.fuenteRCEsperada,
@@ -160,13 +164,13 @@ func (p PreparacionRevalidacionEvidenciasFuenteAnalisisO3) ValidarResultado(
 	fuenteCoste, errFuenteCoste := resultado.FuenteCoste.validarPara(
 		p.materialCoste,
 		RolCalculadorCoste,
-		p.comprobadaEn,
+		comprobadaEn,
 	)
 	verificadorCoste, errVerificadorCoste :=
 		resultado.VerificadorCoste.validarPara(
 			p.materialCoste,
 			RolVerificadorRespuesta,
-			p.comprobadaEn,
+			comprobadaEn,
 		)
 	if errFuenteCoste != nil || errVerificadorCoste != nil ||
 		!vinculosAutoridadFuenteAnalisisO3Iguales(
@@ -383,12 +387,18 @@ func (c ComprobacionAutoridadFuenteAnalisis) Desafio() (
 
 func (c ComprobacionAutoridadFuenteAnalisis) ValidarPresentacion(
 	presentacion PresentacionAutoridadFuenteAnalisis,
+	comprobadaEn time.Time,
 ) (ConfirmacionComprobacionAutoridadFuenteAnalisis, error) {
+	if !instanteFuenteAnalisisCanonico(comprobadaEn) ||
+		comprobadaEn.Before(c.comprobadaEn) {
+		return ConfirmacionComprobacionAutoridadFuenteAnalisis{},
+			ErrResultadoFuenteAnalisisNoConfiable
+	}
 	identidad, err := c.confianza.verificarPresentacion(
 		presentacion,
 		c.desafio,
 		c.rol,
-		c.comprobadaEn,
+		comprobadaEn,
 	)
 	if err != nil {
 		return ConfirmacionComprobacionAutoridadFuenteAnalisis{},
@@ -408,6 +418,6 @@ func (c ComprobacionAutoridadFuenteAnalisis) ValidarPresentacion(
 		},
 		huellaMaterial: c.huellaMaterial,
 		rol:            c.rol,
-		comprobadaEn:   c.comprobadaEn,
+		comprobadaEn:   comprobadaEn,
 	}, nil
 }
