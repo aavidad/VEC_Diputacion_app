@@ -44,7 +44,7 @@ func (r RolAutoridadFuenteAnalisis) valida() bool {
 		RolVerificadorRespuesta, RolPublicadorCatalogo:
 		return true
 	default:
-		return false
+		return rolAutoridadCoberturaValido(r)
 	}
 }
 

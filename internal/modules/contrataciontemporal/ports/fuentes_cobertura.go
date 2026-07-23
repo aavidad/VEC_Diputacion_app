@@ -9,11 +9,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
 
-const (
-	// TiempoMaximoFuenteCobertura limita técnicamente una consulta individual.
-	// Cada despliegue puede escoger un valor menor sin modificar el núcleo.
-	TiempoMaximoFuenteCobertura = 30 * time.Second
-)
+const TiempoMaximoFuenteCobertura = 5 * time.Second
 
 var (
 	ErrPeticionFuenteCoberturaInvalida = errors.New(
@@ -22,8 +18,20 @@ var (
 	ErrFuenteCoberturaNoDisponible = errors.New(
 		"contratacion temporal: fuente de cobertura no disponible",
 	)
+	ErrVerificadorCoberturaNoDisponible = errors.New(
+		"contratacion temporal: verificador de cobertura no disponible",
+	)
+	ErrPublicadorCatalogoCoberturaNoDisponible = errors.New(
+		"contratacion temporal: publicador de catalogo de cobertura no disponible",
+	)
+	ErrConsumoCoberturaNoDisponible = errors.New(
+		"contratacion temporal: consumo de cobertura no disponible",
+	)
 	ErrResultadoFuenteCoberturaNoConfiable = errors.New(
 		"contratacion temporal: resultado de fuente de cobertura no confiable",
+	)
+	ErrRespuestaCoberturaYaConsumida = errors.New(
+		"contratacion temporal: respuesta de cobertura ya consumida con otros datos",
 	)
 )
 
@@ -48,54 +56,15 @@ func (s SolicitudConsultarCobertura) Validar() error {
 	if !domain.ReferenciaOpacaValida(s.PeticionRef) ||
 		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(s.ExpedienteRef) ||
-		s.VersionExpediente == 0 || s.Catalogo.Validar() != nil ||
-		!s.ViaClave.Valida() || s.Comprobacion.Validar() != nil ||
+		s.VersionExpediente == 0 ||
+		s.VersionExpediente > maximoEnteroSeguroFuenteAnalisis ||
+		s.Catalogo.Validar() != nil ||
+		!s.ViaClave.Valida() ||
+		s.Comprobacion.Validar() != nil ||
 		!domain.ReferenciaOpacaValida(s.CategoriaRef) ||
-		s.Periodo.Validar() != nil ||
-		!domain.InstanteUTCCanonico(s.SolicitadaEn) {
+		!periodoFuenteAnalisisValido(s.Periodo) ||
+		!instanteFuenteAnalisisCanonico(s.SolicitadaEn) {
 		return ErrPeticionFuenteCoberturaInvalida
-	}
-	return nil
-}
-
-// ResultadoConsultaCobertura liga la respuesta a todas las coordenadas que
-// pueden cambiar su significado. FuenteRef y ReciboRef identifican la
-// procedencia efectiva sin copiar datos personales del sistema consultado.
-type ResultadoConsultaCobertura struct {
-	PeticionRef         string
-	OrganizacionRef     string
-	ExpedienteRef       string
-	VersionExpediente   uint64
-	Catalogo            domain.IdentidadCatalogoViasCobertura
-	ViaClave            domain.ClaveCatalogo
-	ProcedenciaClave    domain.ClaveCatalogo
-	CategoriaRef        string
-	Periodo             domain.PeriodoPrevisto
-	Comprobacion        domain.ComprobacionCobertura
-	DefinicionFuenteRef string
-}
-
-func (r ResultadoConsultaCobertura) ValidarPara(
-	solicitud SolicitudConsultarCobertura,
-) error {
-	if solicitud.Validar() != nil ||
-		r.PeticionRef != solicitud.PeticionRef ||
-		r.OrganizacionRef != solicitud.OrganizacionRef ||
-		r.ExpedienteRef != solicitud.ExpedienteRef ||
-		r.VersionExpediente != solicitud.VersionExpediente ||
-		!r.Catalogo.CoincideExactamente(solicitud.Catalogo) ||
-		r.ViaClave != solicitud.ViaClave ||
-		r.ProcedenciaClave != solicitud.Comprobacion.Procedencia.Clave ||
-		r.CategoriaRef != solicitud.CategoriaRef ||
-		!r.Periodo.Inicio.Equal(solicitud.Periodo.Inicio) ||
-		!r.Periodo.Fin.Equal(solicitud.Periodo.Fin) ||
-		r.Comprobacion.Validar() != nil ||
-		r.Comprobacion.Detalle != "" ||
-		r.Comprobacion.Clave != solicitud.Comprobacion.Clave ||
-		r.DefinicionFuenteRef !=
-			solicitud.Comprobacion.Procedencia.DefinicionFuenteRef ||
-		r.Comprobacion.EvaluadaEn.Before(solicitud.SolicitadaEn) {
-		return ErrResultadoFuenteCoberturaNoConfiable
 	}
 	return nil
 }
@@ -104,52 +73,283 @@ func (r ResultadoConsultaCobertura) ValidarPara(
 // puede despachar por la definición gobernada a Bolsa, SAE, convocatorias u
 // otros conectores, pero nunca consultar sus tablas desde este módulo.
 type FuenteComprobacionCobertura interface {
+	PresentadorAutoridadFuenteAnalisis
 	ConsultarCobertura(
 		context.Context,
 		SolicitudConsultarCobertura,
 	) (ResultadoConsultaCobertura, error)
 }
 
-// ConsultarCoberturaConFuente aplica el fallo cerrado, el límite temporal y la
-// validación de ligaduras de forma uniforme para todos los conectores.
+// ConsultarCoberturaConFuente ejecuta una operación completa fail-closed. La
+// confianza y sus raíces pertenecen exclusivamente a la composición del
+// servidor; ningún cliente web, escritorio, CLI o MCP puede aportarlas.
 func ConsultarCoberturaConFuente(
 	ctx context.Context,
 	fuente FuenteComprobacionCobertura,
+	verificador VerificadorRespuestaCobertura,
+	publicador PublicadorCatalogoCobertura,
+	consumidor ConsumidorCobertura,
+	confianza ConfianzaAutoridadesFuenteAnalisis,
 	reloj Reloj,
 	solicitud SolicitudConsultarCobertura,
 	tiempoMaximo time.Duration,
 ) (domain.ComprobacionCobertura, error) {
 	if ctx == nil || dependenciaNulaFuenteCobertura(fuente) ||
+		dependenciaNulaFuenteCobertura(verificador) ||
+		dependenciaNulaFuenteCobertura(publicador) ||
+		dependenciaNulaFuenteCobertura(consumidor) ||
 		dependenciaNulaFuenteCobertura(reloj) ||
-		solicitud.Validar() != nil || tiempoMaximo <= 0 ||
-		tiempoMaximo > TiempoMaximoFuenteCobertura {
-		return domain.ComprobacionCobertura{}, ErrPeticionFuenteCoberturaInvalida
+		solicitud.Validar() != nil ||
+		solicitud.OrganizacionRef != confianza.organizacionRef ||
+		tiempoMaximo <= 0 || tiempoMaximo > TiempoMaximoFuenteCobertura {
+		return domain.ComprobacionCobertura{},
+			ErrPeticionFuenteCoberturaInvalida
 	}
-	if err := ctx.Err(); err != nil {
-		return domain.ComprobacionCobertura{}, nuevoErrorFuenteCobertura(err)
+	materialPeticion, err := canonPeticionCobertura(solicitud)
+	if err != nil {
+		return domain.ComprobacionCobertura{},
+			ErrPeticionFuenteCoberturaInvalida
+	}
+	operacion, cancelar := context.WithTimeout(ctx, tiempoMaximo)
+	defer cancelar()
+	if err := operacion.Err(); err != nil {
+		return domain.ComprobacionCobertura{},
+			errorDisponibilidadFuente(ErrFuenteCoberturaNoDisponible, err)
 	}
 
-	ctxConsulta, cancelar := context.WithTimeout(ctx, tiempoMaximo)
-	defer cancelar()
-	resultado, err := fuente.ConsultarCobertura(ctxConsulta, solicitud)
+	identidadFuente, err := autenticarAutoridadCobertura(
+		operacion,
+		fuente,
+		confianza,
+		materialPeticion,
+		RolFuenteCobertura,
+		reloj,
+		ErrFuenteCoberturaNoDisponible,
+	)
 	if err != nil {
-		return domain.ComprobacionCobertura{}, nuevoErrorFuenteCobertura(err)
+		return domain.ComprobacionCobertura{}, err
 	}
-	if err := ctxConsulta.Err(); err != nil {
-		return domain.ComprobacionCobertura{}, nuevoErrorFuenteCobertura(err)
+	identidadVerificador, err := autenticarAutoridadCobertura(
+		operacion,
+		verificador,
+		confianza,
+		materialPeticion,
+		RolVerificadorCobertura,
+		reloj,
+		ErrVerificadorCoberturaNoDisponible,
+	)
+	if err != nil {
+		return domain.ComprobacionCobertura{}, err
 	}
-	if resultado.ValidarPara(solicitud) != nil {
+	identidadPublicador, err := autenticarAutoridadCobertura(
+		operacion,
+		publicador,
+		confianza,
+		materialPeticion,
+		RolPublicadorCatalogoCobertura,
+		reloj,
+		ErrPublicadorCatalogoCoberturaNoDisponible,
+	)
+	if err != nil {
+		return domain.ComprobacionCobertura{}, err
+	}
+	if !autoridadesFuenteAnalisisSeparadas(
+		identidadFuente,
+		identidadVerificador,
+		identidadPublicador,
+	) {
 		return domain.ComprobacionCobertura{},
 			ErrResultadoFuenteCoberturaNoConfiable
 	}
-	finalizadaEn := reloj.Ahora().UTC().Truncate(time.Microsecond)
-	if !domain.InstanteUTCCanonico(finalizadaEn) ||
-		finalizadaEn.Before(solicitud.SolicitadaEn) ||
-		resultado.Comprobacion.EvaluadaEn.After(finalizadaEn) {
+
+	confirmacionCatalogo, errPublicador :=
+		publicador.ConsultarPublicacionCobertura(operacion, solicitud)
+	if err := operacion.Err(); err != nil {
+		return domain.ComprobacionCobertura{}, errorDisponibilidadFuente(
+			ErrPublicadorCatalogoCoberturaNoDisponible,
+			err,
+		)
+	}
+	comprobadaEn := reloj.Ahora()
+	datosCatalogo, errDatosCatalogo := confirmacionCatalogo.Datos()
+	if errPublicador != nil {
+		return domain.ComprobacionCobertura{}, errorDisponibilidadFuente(
+			ErrPublicadorCatalogoCoberturaNoDisponible,
+			errPublicador,
+		)
+	}
+	if errDatosCatalogo != nil ||
+		datosCatalogo.PublicadorRef != identidadPublicador.autoridadRef ||
+		confirmacionCatalogo.ValidarPara(solicitud, comprobadaEn) != nil {
 		return domain.ComprobacionCobertura{},
 			ErrResultadoFuenteCoberturaNoConfiable
 	}
-	return resultado.Comprobacion, nil
+
+	resultado, errFuente := fuente.ConsultarCobertura(operacion, solicitud)
+	if err := operacion.Err(); err != nil {
+		return domain.ComprobacionCobertura{},
+			errorDisponibilidadFuente(ErrFuenteCoberturaNoDisponible, err)
+	}
+	recibidaEn := reloj.Ahora()
+	if errFuente != nil {
+		return domain.ComprobacionCobertura{},
+			errorDisponibilidadFuente(
+				ErrFuenteCoberturaNoDisponible,
+				errFuente,
+			)
+	}
+	datosResultado, errDatosResultado := resultado.Datos()
+	if !instanteFuenteAnalisisCanonico(recibidaEn) ||
+		errDatosResultado != nil ||
+		resultado.ValidarPara(solicitud) != nil ||
+		resultado.atestacion.Metadatos.AutoridadRef !=
+			identidadFuente.autoridadRef ||
+		resultado.atestacion.Metadatos.EmitidaEn.Before(
+			solicitud.SolicitadaEn,
+		) ||
+		datosResultado.Comprobacion.EvaluadaEn.After(
+			resultado.atestacion.Metadatos.EmitidaEn,
+		) ||
+		datosResultado.Comprobacion.EvaluadaEn.After(recibidaEn) ||
+		recibidaEn.Before(resultado.atestacion.Metadatos.EmitidaEn) ||
+		!recibidaEn.Before(resultado.atestacion.Metadatos.ValidaHasta) {
+		return domain.ComprobacionCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+
+	solicitudVerificacion, err := nuevaSolicitudVerificarRespuestaCobertura(
+		resultado.preimagen,
+		resultado.atestacion,
+	)
+	if err != nil {
+		return domain.ComprobacionCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	confirmacion, err := verificarRespuestaCobertura(
+		operacion,
+		verificador,
+		identidadVerificador,
+		solicitudVerificacion,
+		reloj,
+	)
+	if err != nil {
+		return domain.ComprobacionCobertura{}, err
+	}
+	orden, err := nuevaOrdenConsumoCobertura(
+		solicitud,
+		resultado,
+		confirmacion,
+		confirmacionCatalogo,
+	)
+	if err != nil {
+		return domain.ComprobacionCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+
+	antesConsumo := reloj.Ahora()
+	if err := operacion.Err(); err != nil {
+		return domain.ComprobacionCobertura{}, errorDisponibilidadFuente(
+			ErrConsumoCoberturaNoDisponible,
+			err,
+		)
+	}
+	if confirmacion.ValidarPara(solicitudVerificacion, antesConsumo) != nil ||
+		confirmacionCatalogo.ValidarPara(solicitud, antesConsumo) != nil {
+		return domain.ComprobacionCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	recibo, errConsumo := consumidor.ConsumirCobertura(operacion, orden)
+	if errConsumo != nil {
+		if err := operacion.Err(); err != nil {
+			return domain.ComprobacionCobertura{},
+				errorDisponibilidadFuente(
+					ErrConsumoCoberturaNoDisponible,
+					err,
+				)
+		}
+		if errors.Is(errConsumo, ErrRespuestaCoberturaYaConsumida) {
+			return domain.ComprobacionCobertura{},
+				ErrRespuestaCoberturaYaConsumida
+		}
+		return domain.ComprobacionCobertura{}, errorDisponibilidadFuente(
+			ErrConsumoCoberturaNoDisponible,
+			errConsumo,
+		)
+	}
+	if recibo.ValidarPara(orden) != nil {
+		return domain.ComprobacionCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	return datosResultado.Comprobacion, nil
+}
+
+func autenticarAutoridadCobertura(
+	ctx context.Context,
+	presentador PresentadorAutoridadFuenteAnalisis,
+	confianza ConfianzaAutoridadesFuenteAnalisis,
+	materialPeticion []byte,
+	rol RolAutoridadFuenteAnalisis,
+	reloj Reloj,
+	errDisponibilidad error,
+) (identidadAutoridadFuenteAnalisis, error) {
+	identidad, err := presentarYVerificarAutoridadFuenteAnalisis(
+		ctx,
+		presentador,
+		confianza,
+		materialPeticion,
+		rol,
+		reloj.Ahora(),
+	)
+	if errContexto := ctx.Err(); errContexto != nil {
+		return identidadAutoridadFuenteAnalisis{},
+			errorDisponibilidadFuente(errDisponibilidad, errContexto)
+	}
+	if err != nil {
+		return identidadAutoridadFuenteAnalisis{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	return identidad, nil
+}
+
+func verificarRespuestaCobertura(
+	ctx context.Context,
+	verificador VerificadorRespuestaCobertura,
+	identidad identidadAutoridadFuenteAnalisis,
+	solicitud SolicitudVerificarRespuestaCobertura,
+	reloj Reloj,
+) (ConfirmacionRespuestaCobertura, error) {
+	confirmacion, errVerificador :=
+		verificador.VerificarRespuestaCobertura(ctx, solicitud)
+	if err := ctx.Err(); err != nil {
+		return ConfirmacionRespuestaCobertura{},
+			errorDisponibilidadFuente(
+				ErrVerificadorCoberturaNoDisponible,
+				err,
+			)
+	}
+	verificadaEn := reloj.Ahora()
+	datos, errDatos := confirmacion.Datos()
+	if errVerificador != nil {
+		if errors.Is(
+			errVerificador,
+			ErrResultadoFuenteCoberturaNoConfiable,
+		) {
+			return ConfirmacionRespuestaCobertura{},
+				ErrResultadoFuenteCoberturaNoConfiable
+		}
+		return ConfirmacionRespuestaCobertura{},
+			errorDisponibilidadFuente(
+				ErrVerificadorCoberturaNoDisponible,
+				errVerificador,
+			)
+	}
+	if errDatos != nil ||
+		datos.VerificadorRef != identidad.autoridadRef ||
+		confirmacion.ValidarPara(solicitud, verificadaEn) != nil {
+		return ConfirmacionRespuestaCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	return confirmacion, nil
 }
 
 func dependenciaNulaFuenteCobertura(dependencia any) bool {
@@ -164,20 +364,4 @@ func dependenciaNulaFuenteCobertura(dependencia any) bool {
 	default:
 		return false
 	}
-}
-
-type errorFuenteCobertura struct {
-	causa error
-}
-
-func (e errorFuenteCobertura) Error() string {
-	return ErrFuenteCoberturaNoDisponible.Error()
-}
-
-func (e errorFuenteCobertura) Unwrap() []error {
-	return []error{ErrFuenteCoberturaNoDisponible, e.causa}
-}
-
-func nuevoErrorFuenteCobertura(causa error) error {
-	return errorFuenteCobertura{causa: causa}
 }
