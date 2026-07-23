@@ -97,6 +97,13 @@ ajenas.
   cancelación y fallo cerrado. La indisponibilidad nunca se convierte en «RC
   no requerida» ni en coste válido. Falta revisión independiente antes de
   cerrar la tarea.
+- `a34d462` inicia O4-02 con un puerto único para consultar fuentes de
+  cobertura configuradas por catálogo. Liga organización, expediente y
+  versión, catálogo y huella, vía, procedencia, categoría, periodo y
+  comprobación; impone timeout, reloj inyectado, cancelación, respuesta
+  minimizada y errores públicos sin detalles del proveedor. No contiene listas
+  compiladas de Bolsa/SAE ni autoriza lecturas de sus tablas. Faltan los
+  adaptadores concretos y la revisión independiente.
 
 Estos contratos no dependen de HTTP, cookies ni almacenamiento de navegador.
 Los consumirán por igual web, escritorio, CLI y MCP a través de los casos de

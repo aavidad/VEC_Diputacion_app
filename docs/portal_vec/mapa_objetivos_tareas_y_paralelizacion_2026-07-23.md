@@ -15,7 +15,7 @@ temporal. El detalle verificable de cada tarea está en el
 | Primera vertical | 2 de 10 tareas cerradas (20 %); O2-03 tiene un corte v1 aprobado y rotación pendiente |
 | Procedimiento completo | 8 de 46 tareas cerradas (17 %); O6-01 continúa en rework |
 | Último commit verificado | `baebb55` — catálogo O4-01 sin ambigüedad temporal |
-| Trabajo local en revisión | Rotación O2-03, autorización O2-04, dominio O3-02, fuentes O3-03 y rework O6-01 |
+| Trabajo local en revisión | Rotación O2-03, autorización O2-04, dominio O3-02, fuentes O3-03, consultas O4-02 y rework O6-01 |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
