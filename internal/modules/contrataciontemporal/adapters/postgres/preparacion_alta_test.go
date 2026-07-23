@@ -23,10 +23,12 @@ const (
 )
 
 type iniciadorPreparacionPrueba struct {
-	tx       pgx.Tx
-	err      error
-	opciones pgx.TxOptions
-	inicios  int
+	tx            pgx.Tx
+	err           error
+	transacciones []pgx.Tx
+	errores       []error
+	opciones      pgx.TxOptions
+	inicios       int
 }
 
 func (i *iniciadorPreparacionPrueba) BeginTx(
@@ -35,6 +37,13 @@ func (i *iniciadorPreparacionPrueba) BeginTx(
 ) (pgx.Tx, error) {
 	i.opciones = opciones
 	i.inicios++
+	indice := i.inicios - 1
+	if indice < len(i.errores) && i.errores[indice] != nil {
+		return nil, i.errores[indice]
+	}
+	if indice < len(i.transacciones) {
+		return i.transacciones[indice], nil
+	}
 	return i.tx, i.err
 }
 
@@ -48,6 +57,7 @@ type transaccionPreparacionPrueba struct {
 	reversiones    int
 	errConfigurar  error
 	errConfirmar   error
+	alConfirmar    func()
 }
 
 func (t *transaccionPreparacionPrueba) Exec(
@@ -75,6 +85,9 @@ func (t *transaccionPreparacionPrueba) QueryRow(
 
 func (t *transaccionPreparacionPrueba) Commit(context.Context) error {
 	t.confirmaciones++
+	if t.alConfirmar != nil {
+		t.alConfirmar()
+	}
 	return t.errConfirmar
 }
 
@@ -84,11 +97,15 @@ func (t *transaccionPreparacionPrueba) Rollback(context.Context) error {
 }
 
 type filaPreparacionPrueba struct {
-	valores []any
-	err     error
+	valores    []any
+	err        error
+	alEscanear func()
 }
 
 func (f filaPreparacionPrueba) Scan(destinos ...any) error {
+	if f.alEscanear != nil {
+		f.alEscanear()
+	}
 	if f.err != nil {
 		return f.err
 	}
@@ -361,7 +378,7 @@ func TestPreparadorPostgreSQLSerializaMatrizV2Cerrada(t *testing.T) {
 }
 
 func TestPreparadorPostgreSQLAceptaCanonicoV1MedianteAliasRetenido(t *testing.T) {
-	fila := filaReservadaPreparacionPrueba("reutilizada").(filaPreparacionPrueba)
+	fila := filaConfirmadaPreparacionPrueba()
 	tx := &transaccionPreparacionPrueba{fila: fila}
 	preparador, err := nuevoPreparadorAltaPostgreSQL(
 		&iniciadorPreparacionPrueba{tx: tx},
@@ -394,7 +411,9 @@ func TestPreparadorPostgreSQLAceptaCanonicoV1MedianteAliasRetenido(t *testing.T)
 	if preparacion.AmbitoIdempotenciaHMAC !=
 		selloHMACPrueba(claveAmbitoAltaPrueba, "d") ||
 		preparacion.HuellaPeticionHMAC !=
-			selloHMACPrueba(clavePeticionAltaPrueba, "b") {
+			selloHMACPrueba(clavePeticionAltaPrueba, "b") ||
+		preparacion.Estado != ports.PreparacionConfirmada ||
+		preparacion.ReciboConfirmado == nil {
 		t.Fatalf("el canónico histórico no se conservó: %#v", preparacion)
 	}
 }
