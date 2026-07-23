@@ -41,6 +41,48 @@ function opcionFiltro(valor, etiqueta, seleccionado) {
   return `<option value="${escaparHTML(valor)}"${valor === seleccionado ? " selected" : ""}>${escaparHTML(etiqueta)}</option>`;
 }
 
+function renderizarTrabajoOperativo(cuadro, t) {
+  const tareas = cuadro.expedientes
+    .filter(({ estado_clave: estado }) => estado !== "completado")
+    .slice(0, 3);
+  const distribucion = [...new Set(cuadro.expedientes.map(({ fase_actual: fase }) => fase))]
+    .map((fase) => ({
+      fase,
+      total: cuadro.expedientes.filter(({ fase_actual: actual }) => actual === fase).length,
+    }));
+  const primera = tareas[0] ?? cuadro.expedientes[0];
+  return `<section class="ct-exp-operativo" aria-labelledby="ct-exp-operativo-titulo">
+    <header>
+      <p class="sobrelinea">${escaparHTML(t("trabajo_sobrelinea"))}</p>
+      <h3 id="ct-exp-operativo-titulo">${escaparHTML(t("trabajo_titulo"))}</h3>
+      <p>${escaparHTML(t("trabajo_descripcion"))}</p>
+    </header>
+    <article class="ct-exp-mis-tareas">
+      <h4>${escaparHTML(t("mis_tareas"))}</h4>
+      <ul>${tareas.map((expediente) => `<li>
+        <span><strong>${escaparHTML(expediente.numero_visible)}</strong>
+          <small>${escaparHTML(expediente.categoria)} · ${escaparHTML(expediente.fase_actual)}</small>
+        </span>
+        <button type="button" class="boton-terciario"
+          data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("abrir"))}</button>
+      </li>`).join("")}</ul>
+    </article>
+    <article class="ct-exp-distribucion">
+      <h4>${escaparHTML(t("distribucion_fases"))}</h4>
+      <dl>${distribucion.map(({ fase, total }) => `<div>
+        <dt>${escaparHTML(fase)}</dt><dd>${total}</dd>
+      </div>`).join("")}</dl>
+    </article>
+    <aside class="ct-exp-accesos">
+      <h4>${escaparHTML(t("accesos_rapidos"))}</h4>
+      <button type="button" class="boton-primario"
+        data-ct-exp-vista="alta">${escaparHTML(t("crear_peticion"))}</button>
+      ${primera ? `<button type="button" class="boton-secundario"
+        data-ct-exp-abrir="${escaparHTML(primera.expediente_ref)}">${escaparHTML(t("continuar_tramitacion"))}</button>` : ""}
+    </aside>
+  </section>`;
+}
+
 export function renderizarCuadro(estado, t) {
   const cuadro = estado.cuadro;
   if (!cuadro) return renderizarEstadoCarga(estado, t);
@@ -117,7 +159,8 @@ export function renderizarCuadro(estado, t) {
       </table>
     </div>
   </section>`;
-  return `${indicadores}${filtros}${estado.carga === "vacio" ? renderizarEstadoCarga(estado, t) : tabla}`;
+  return `${indicadores}${renderizarTrabajoOperativo(cuadro, t)}${filtros}${estado.carga === "vacio"
+    ? renderizarEstadoCarga(estado, t) : tabla}`;
 }
 
 function renderizarFases(expediente, t) {

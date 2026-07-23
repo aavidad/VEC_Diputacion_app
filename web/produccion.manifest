@@ -43,6 +43,7 @@ static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css
 static/portal-empleado/modulos/contratacion-temporal/contrato-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/contrato.js
 static/portal-empleado/modulos/contratacion-temporal/expedientes-responsive.css
+static/portal-empleado/modulos/contratacion-temporal/expedientes-operativo.css
 static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
