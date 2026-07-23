@@ -158,4 +158,3 @@ Intervención o RRHH.
 3. O3-04: preparación y confirmación PostgreSQL atómicas, con roles y ACL,
    concurrencia, reintento, reinicio y resultado indeterminado.
 4. Composición real y, después, API, interfaz y E2E de O3-05.
-
