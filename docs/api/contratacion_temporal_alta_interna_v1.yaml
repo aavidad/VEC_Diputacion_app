@@ -437,6 +437,58 @@ components:
         correlacion_ref:
           type: string
           pattern: '^corr_([a-f0-9]{32}|no_disponible)$'
+      oneOf:
+        - properties:
+            codigo: {const: peticion_no_valida}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.peticion_no_valida}
+        - properties:
+            codigo: {const: peticion_no_permitida}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.peticion_no_permitida}
+        - properties:
+            codigo: {const: autenticacion_requerida}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.autenticacion_requerida}
+        - properties:
+            codigo: {const: acceso_denegado}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.acceso_denegado}
+        - properties:
+            codigo: {const: recurso_no_encontrado}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.recurso_no_encontrado}
+        - properties:
+            codigo: {const: metodo_no_permitido}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.metodo_no_permitido}
+        - properties:
+            codigo: {const: representacion_no_aceptable}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.representacion_no_aceptable}
+        - properties:
+            codigo: {const: peticion_cancelada}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.peticion_cancelada}
+        - properties:
+            codigo: {const: clave_idempotencia_reutilizada}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.clave_idempotencia_reutilizada}
+        - properties:
+            codigo: {const: peticion_demasiado_grande}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.peticion_demasiado_grande}
+        - properties:
+            codigo: {const: tipo_contenido_no_admitido}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.tipo_contenido_no_admitido}
+        - properties:
+            codigo: {const: contenido_no_valido}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.contenido_no_valido}
+        - properties:
+            codigo: {const: resultado_no_confiable}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.resultado_no_confiable}
+        - properties:
+            codigo: {const: servicio_no_disponible}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.servicio_no_disponible}
+        - properties:
+            codigo: {const: operacion_pendiente}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.operacion_pendiente}
+        - properties:
+            codigo: {const: plazo_agotado}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.plazo_agotado}
+        - properties:
+            codigo: {const: error_interno}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.error_interno}
     EnvelopeErrorAltaV1:
       type: object
       additionalProperties: false

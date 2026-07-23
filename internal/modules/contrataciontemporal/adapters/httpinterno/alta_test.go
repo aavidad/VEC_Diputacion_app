@@ -163,7 +163,8 @@ func codigoErrorPrueba(t *testing.T, respuesta *httptest.ResponseRecorder) strin
 	if err := json.Unmarshal(respuesta.Body.Bytes(), &envoltorio); err != nil {
 		t.Fatalf("error no es JSON: %v; cuerpo=%q", err, respuesta.Body.String())
 	}
-	if envoltorio.Error.ClaveI18n == "" || envoltorio.Error.CorrelacionRef == "" {
+	claveEsperada := "api.contratacion_temporal.alta.error." + envoltorio.Error.Codigo
+	if envoltorio.Error.ClaveI18n != claveEsperada || envoltorio.Error.CorrelacionRef == "" {
 		t.Fatalf("error público incompleto: %+v", envoltorio.Error)
 	}
 	return envoltorio.Error.Codigo
@@ -378,27 +379,33 @@ func compararCatalogoErroresOpenAPIPrueba(
 	esquemas map[string]any,
 ) {
 	t.Helper()
-	esperados := map[string][]string{
-		"400": {"peticion_no_permitida", "peticion_no_valida"},
-		"401": {"autenticacion_requerida"},
-		"403": {"acceso_denegado"},
-		"404": {"recurso_no_encontrado"},
-		"405": {"metodo_no_permitido"},
-		"406": {"representacion_no_aceptable"},
-		"408": {"peticion_cancelada"},
-		"409": {"clave_idempotencia_reutilizada"},
-		"413": {"peticion_demasiado_grande"},
-		"415": {"tipo_contenido_no_admitido"},
-		"422": {"contenido_no_valido"},
-		"500": {"error_interno"},
-		"502": {"resultado_no_confiable"},
-		"503": {"operacion_pendiente", "servicio_no_disponible"},
-		"504": {"plazo_agotado"},
+	esperados := map[string][]errorPublicoAlta{
+		"400": {errorPeticionNoPermitida, errorPeticionNoValida},
+		"401": {errorAutenticacionRequerida},
+		"403": {errorAccesoDenegado},
+		"404": {errorRecursoNoEncontrado},
+		"405": {errorMetodoNoPermitido},
+		"406": {errorRepresentacionNoAceptable},
+		"408": {errorPeticionCancelada},
+		"409": {errorClaveIdempotenciaReutilizada},
+		"413": {errorPeticionDemasiadoGrande},
+		"415": {errorTipoContenidoNoAdmitido},
+		"422": {errorContenidoNoValido},
+		"500": {errorInterno},
+		"502": {errorResultadoNoConfiable},
+		"503": {errorOperacionPendiente, errorServicioNoDisponible},
+		"504": {errorPlazoAgotado},
 	}
 	respuestas := mapaPrueba(t, operacion, "responses")
 	respuestasComponentes := mapaPrueba(t, componentes, "responses")
 	union := make([]string, 0)
-	for estado, codigosEsperados := range esperados {
+	parejasEsperadas := make(map[string]string)
+	for estado, problemasEsperados := range esperados {
+		codigosEsperados := make([]string, 0, len(problemasEsperados))
+		for _, problema := range problemasEsperados {
+			codigosEsperados = append(codigosEsperados, problema.codigo)
+			parejasEsperadas[problema.codigo] = problema.claveI18n
+		}
 		respuesta := mapaPrueba(t, respuestas, estado)
 		if referencia, existe := respuesta["$ref"].(string); existe {
 			const prefijo = "#/components/responses/"
@@ -437,6 +444,43 @@ func compararCatalogoErroresOpenAPIPrueba(
 	if !reflect.DeepEqual(union, declarados) {
 		t.Fatalf("catálogo estado-código incompleto: %v != %v", union, declarados)
 	}
+	parejasDeclaradas := parejasI18nOpenAPIPrueba(
+		t,
+		mapaPrueba(t, esquemas, "ErrorAltaV1"),
+	)
+	if !reflect.DeepEqual(parejasDeclaradas, parejasEsperadas) {
+		t.Fatalf(
+			"catálogo código-clave i18n desalineado: %v != %v",
+			parejasDeclaradas,
+			parejasEsperadas,
+		)
+	}
+}
+
+func parejasI18nOpenAPIPrueba(t *testing.T, esquema map[string]any) map[string]string {
+	t.Helper()
+	opciones, correcto := esquema["oneOf"].([]any)
+	if !correcto {
+		t.Fatalf("ErrorAltaV1 no liga códigos y claves i18n: %v", esquema["oneOf"])
+	}
+	resultado := make(map[string]string, len(opciones))
+	for _, opcion := range opciones {
+		restriccion, correcta := opcion.(map[string]any)
+		if !correcta {
+			t.Fatalf("restricción código-clave inválida: %T", opcion)
+		}
+		propiedades := mapaPrueba(t, restriccion, "properties")
+		codigo, codigoCorrecto := mapaPrueba(t, propiedades, "codigo")["const"].(string)
+		clave, claveCorrecta := mapaPrueba(t, propiedades, "clave_i18n")["const"].(string)
+		if !codigoCorrecto || !claveCorrecta || codigo == "" || clave == "" {
+			t.Fatalf("pareja código-clave inválida: %v", propiedades)
+		}
+		if _, duplicado := resultado[codigo]; duplicado {
+			t.Fatalf("código i18n duplicado: %s", codigo)
+		}
+		resultado[codigo] = clave
+	}
+	return resultado
 }
 
 func codigosRestringidosPrueba(t *testing.T, esquema map[string]any) []string {
