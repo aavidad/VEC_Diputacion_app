@@ -2,10 +2,10 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: candidato técnico corregido tras el tercer `NO-GO` y dos bloqueos
-posteriores confirmados, pendiente de doble revisión independiente e
-integración. No cierra O3-02, no habilita datos reales y no acredita
-producción, ENS, ENI ni conformidad jurídica.
+Estado: integrado en `e9d461c` tras corregir tres `NO-GO`, obtener revisión
+independiente con GO y superar las puertas del árbol conjunto. O3-02 está
+cerrada técnicamente. No habilita datos reales ni acredita producción, ENS,
+ENI o conformidad jurídica; faltan O3-04, O3-05 y las aprobaciones formales.
 
 ## Alcance
 
@@ -278,7 +278,6 @@ Intervención o RRHH.
 
 ## Siguiente trabajo
 
-1. Nueva revisión independiente del rediseño O3-02/O3-03/O3-04.
-2. O3-04: confirmación PostgreSQL atómica, con roles y ACL,
+1. O3-04: confirmación PostgreSQL atómica, con roles y ACL,
    concurrencia, reintento, reinicio y resultado indeterminado.
-3. Composición real y, después, API, interfaz y E2E de O3-05.
+2. Composición real y, después, API, interfaz y E2E de O3-05.
