@@ -23,6 +23,7 @@ const (
 	MaximoCaracteresReferencia = 160
 	MaximoAniosPeriodoAlta     = 100
 	MaximoCentimosJSON         = int64(922_337_203_685_477)
+	MaximoVersionJSON          = uint64(9_007_199_254_740_991)
 	profundidadMaximaJSONAlta  = 8
 	tokensMaximosJSONAlta      = 1024
 )
