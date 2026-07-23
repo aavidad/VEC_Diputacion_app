@@ -27,7 +27,12 @@ BEGIN
         SELECT prosecdef
            AND provolatile = 'v'
            AND proparallel = 'u'
-           AND proconfig @> ARRAY['search_path=pg_catalog']::text[]
+           AND proconfig @> ARRAY[
+               'search_path=pg_catalog',
+               'lock_timeout=2s',
+               'statement_timeout=15s',
+               'idle_in_transaction_session_timeout=20s'
+           ]::text[]
         FROM pg_catalog.pg_proc
         WHERE oid =
             'vec_contratacion_temporal.preparar_alta_v2(jsonb)'::regprocedure
