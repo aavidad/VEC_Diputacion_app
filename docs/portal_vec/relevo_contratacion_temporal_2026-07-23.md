@@ -86,7 +86,7 @@ ajenas.
 | Autorización VEC durable de la preparación | Cerrada y revisada: V3, par HMAC activo exacto, revalidación y clientes neutrales |
 | Confianza y capacidad breve VEC-AD-3 | Integradas y revisadas: Ed25519/COSE estricto, audiencia, capacidad HMAC ≤5 s, rotación y revocación |
 | Contrato autenticado con Bolsa | Cerrado y revisado: referencias opacas, seudónimos, eventos, pruebas durables e inbox idempotente |
-| Confirmación atómica PostgreSQL | Corrección `cbe7299` con GO 2/2 incorporada; puertas conjuntas en ejecución |
+| Confirmación atómica PostgreSQL | Cerrada en `77743a7`: GO 2/2 y puertas PostgreSQL/globales conjuntas verdes |
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09A visualmente apta, pero con NO-GO por dos límites divergentes; O2-09B pendiente |
@@ -112,9 +112,9 @@ ajenas.
   perdida, reconciliación y reinicio real. El productor superó PG18 ×4, foco
   ×100, carrera y puertas globales. Dirección y un segundo revisor repitieron
   PostgreSQL 18, foco, carrera, `go vet`, tamaños y secretos, y emitieron GO
-  2/2 sin hallazgos. La serie funcional se incorporó al árbol conjunto y no
-  aumenta el porcentaje hasta superar sus puertas posteriores a la
-  integración.
+  2/2 sin hallazgos. La serie funcional se integró en `77743a7`; PostgreSQL 18,
+  pruebas globales, carrera focal, `go vet`, scripts, tamaños y secretos
+  quedaron verdes sobre el árbol conjunto. O2-05 está cerrada y contabilizada.
 - `2c800fa`–`4cc4422` describen O2-06A, incluido resultado indeterminado,
   reconciliación, reintentos y ACL. Sus revisiones son GO condicionado. El
   diseño suponía catorce entradas y doce columnas; O2-05 ha congelado doce

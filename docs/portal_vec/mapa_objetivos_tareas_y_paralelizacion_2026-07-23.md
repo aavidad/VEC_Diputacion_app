@@ -12,8 +12,8 @@ temporal. El detalle verificable de cada tarea está en el
 | --- | --- |
 | Objetivo activo | O2 — primera vertical real de alta |
 | Camino crítico | O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
-| Primera vertical | 4 de 10 tareas cerradas (40 %); O2-05 es el siguiente cierre |
-| Procedimiento completo | 12 de 46 tareas cerradas (26 %); O3-03 ya está integrado |
+| Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
+| Procedimiento completo | 13 de 46 tareas cerradas (28 %); O2-05 ya está integrado |
 | Último commit verificado | `4c33336` — fuentes de análisis O3-03 con segregación criptográfica y GO independiente |
 | Trabajo local en revisión | Consumo SQL VEC-AD-3 de O2-05, reconstrucción segura de O3-02 y correcciones pendientes de O4-02 |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
@@ -194,7 +194,7 @@ Estado actual:
 
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
-Tareas verificadas del procedimiento: 12/46 = 26 %
+Tareas verificadas del procedimiento: 13/46 = 28 %
 Tareas locales en revisión: O2-05, O3-02 y O4-02
 ```
 
