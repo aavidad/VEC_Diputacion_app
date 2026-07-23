@@ -108,10 +108,22 @@ expediente pertenece al caso de uso y a la transacción; HTTP no crea una
 segunda autoridad para reconstruirla.
 
 Si el ejecutor devuelve un recibo válido junto con una cancelación observada
-después del efecto, prevalece el recibo confirmado. Si O2-06 envuelve un
-resultado indeterminado con `ErrResultadoAltaIndeterminado`, HTTP responde
+después del efecto, prevalece el recibo confirmado. O2-06 deberá expresar el
+resultado indeterminado mediante un contrato neutral propio, sin importar este
+adaptador HTTP. La composición O2-07 traducirá ese error neutral envolviéndolo
+con `ErrResultadoAltaIndeterminado`; entonces HTTP responderá
 `503 operacion_pendiente`, sin `Retry-After`. No hay reconciliación ni
 reintento automático en O2-08A.
+
+## Validación del OpenAPI
+
+La prueba automatizada parsea el YAML con `gopkg.in/yaml.v3` —dependencia ya
+presente— y comprueba estructura, objetos cerrados, DTO, límites técnicos y
+catálogo estado–código. El repositorio no incorpora un validador semántico de
+OpenAPI 3.1 y este encargo no añade dependencias. Queda pendiente, antes de
+integrar, validar externamente
+`docs/api/contratacion_temporal_alta_interna_v1.yaml` con una herramienta
+OpenAPI 3.1 aprobada por el proyecto.
 
 ## Límites del corte
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"mime"
 	"net/http"
 	"regexp"
@@ -148,9 +149,11 @@ func tipoContenidoJSON(cabeceras http.Header) bool {
 	if err != nil || !strings.EqualFold(tipo, "application/json") || len(parametros) > 1 {
 		return false
 	}
-	if charset, presente := parametros["charset"]; presente &&
-		!strings.EqualFold(charset, "utf-8") {
-		return false
+	if len(parametros) == 1 {
+		charset, presente := parametros["charset"]
+		if !presente || !strings.EqualFold(charset, "utf-8") {
+			return false
+		}
 	}
 	return true
 }
@@ -160,7 +163,8 @@ func acceptCompatibleJSON(cabeceras http.Header) bool {
 	if len(valores) == 0 {
 		return true
 	}
-	compatible := false
+	especificidadElegida := -1
+	calidadElegida := 0.0
 	for _, linea := range valores {
 		for _, elemento := range strings.Split(linea, ",") {
 			tipo, parametros, err := mime.ParseMediaType(strings.TrimSpace(elemento))
@@ -170,16 +174,35 @@ func acceptCompatibleJSON(cabeceras http.Header) bool {
 			calidad := 1.0
 			if texto, presente := parametros["q"]; presente {
 				calidad, err = strconv.ParseFloat(texto, 64)
-				if err != nil || calidad < 0 || calidad > 1 {
+				delete(parametros, "q")
+				if err != nil || math.IsNaN(calidad) || math.IsInf(calidad, 0) ||
+					calidad < 0 || calidad > 1 {
 					return false
 				}
 			}
-			if calidad > 0 && (tipo == "application/json" || tipo == "application/*" || tipo == "*/*") {
-				compatible = true
+			// Un parámetro de representación (por ejemplo profile) solo
+			// coincidiría con una respuesta que lo emitiese. Esta API devuelve
+			// application/json sin esos parámetros.
+			if len(parametros) != 0 {
+				continue
+			}
+			especificidad := -1
+			switch strings.ToLower(tipo) {
+			case "application/json":
+				especificidad = 2
+			case "application/*":
+				especificidad = 1
+			case "*/*":
+				especificidad = 0
+			}
+			if especificidad > especificidadElegida ||
+				(especificidad == especificidadElegida && calidad > calidadElegida) {
+				especificidadElegida = especificidad
+				calidadElegida = calidad
 			}
 		}
 	}
-	return compatible
+	return especificidadElegida >= 0 && calidadElegida > 0
 }
 
 func cabeceraAltaProhibida(cabeceras http.Header) bool {
@@ -201,6 +224,7 @@ func cabeceraAltaProhibida(cabeceras http.Header) bool {
 			minusculas == "te",
 			minusculas == "expect",
 			minusculas == "x-http-method-override",
+			cabeceraAutoridadLibreAlta(minusculas),
 			strings.Contains(minusculas, "role"),
 			strings.HasPrefix(minusculas, "x-auth-"),
 			strings.HasPrefix(minusculas, "x-vec-"),
@@ -210,6 +234,21 @@ func cabeceraAltaProhibida(cabeceras http.Header) bool {
 		}
 	}
 	return false
+}
+
+func cabeceraAutoridadLibreAlta(nombre string) bool {
+	switch nombre {
+	case "actor", "user", "usuario", "identity", "identidad", "profile", "perfil",
+		"organization", "organizacion", "session", "sesion", "account", "cuenta",
+		"permissions", "permission", "permisos", "permiso",
+		"x-actor", "x-user", "x-usuario", "x-identity", "x-identidad",
+		"x-profile", "x-perfil", "x-organization", "x-organizacion",
+		"x-session", "x-sesion", "x-account", "x-cuenta",
+		"x-permissions", "x-permission", "x-permisos", "x-permiso":
+		return true
+	default:
+		return false
+	}
 }
 
 func cabeceraUnicaAlta(cabeceras http.Header, nombre string) (string, bool) {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -84,7 +85,9 @@ func TestManejadorAltaRechazaInyeccionPorCabecerasQueryYCuerpo(t *testing.T) {
 		"Cookie", "Authorization", "Proxy-Authorization", "Remote-User",
 		"X-Remote-User", "X-Forwarded-User", "X-Forwarded-For", "X-Auth-User",
 		"X-Vec-Actor", "X-Role", "Idempotency-Key", "X-HTTP-Method-Override",
-		"Content-Encoding",
+		"Content-Encoding", "X-User", "X-Actor", "X-Profile", "X-Organization",
+		"X-Session", "X-Account", "X-Permissions", "X-Usuario", "X-Perfil",
+		"X-Organizacion", "X-Sesion", "X-Cuenta", "X-Permisos",
 	}
 	for _, nombre := range cabeceras {
 		t.Run("cabecera "+nombre, func(t *testing.T) {
@@ -160,6 +163,27 @@ func TestManejadorAltaPropagaCancelacionYPlazoAntesDelEjecutor(t *testing.T) {
 			t.Fatal("llamó ejecutor tras cancelación")
 		}
 	})
+	t.Run("cancelado durante lectura", func(t *testing.T) {
+		manejador, autoridad, ejecutor := nuevoEscenarioPrueba(t)
+		ctx, cancelar := context.WithCancel(context.Background())
+		peticion := nuevaPeticionPrueba(t, cuerpoValidoPrueba()).WithContext(ctx)
+		peticion.Body = io.NopCloser(&lectorCanceladorPrueba{
+			contenido: cuerpoValidoPrueba(),
+			cancelar:  cancelar,
+		})
+		peticion.ContentLength = int64(len(cuerpoValidoPrueba()))
+		respuesta := ejecutarPeticionPrueba(t, manejador, peticion)
+		if respuesta.Code != http.StatusRequestTimeout ||
+			codigoErrorPrueba(t, respuesta) != "peticion_cancelada" {
+			t.Fatalf("cancelación durante lectura = %d %s", respuesta.Code, respuesta.Body.String())
+		}
+		if autoridad.numeroLlamadas() != 0 {
+			t.Fatal("llamó autoridad tras cancelación durante lectura")
+		}
+		if llamadas, _ := ejecutor.instantanea(); llamadas != 0 {
+			t.Fatal("llamó ejecutor tras cancelación durante lectura")
+		}
+	})
 	t.Run("plazo agotado", func(t *testing.T) {
 		manejador, autoridad, ejecutor := nuevoEscenarioPrueba(t)
 		ctx, cancelar := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
@@ -179,21 +203,41 @@ func TestManejadorAltaPropagaCancelacionYPlazoAntesDelEjecutor(t *testing.T) {
 	})
 }
 
-func TestManejadorAltaClasificaResultadoPendienteSinInducirReintento(t *testing.T) {
-	manejador, _, ejecutor := nuevoEscenarioPrueba(t)
-	ejecutor.recibo = ports.ReciboAlta{}
-	ejecutor.err = errors.Join(
-		ErrResultadoAltaIndeterminado,
-		errors.New("fallo privado posterior a COMMIT"),
-	)
-	respuesta := ejecutarPeticionPrueba(t, manejador, nuevaPeticionPrueba(t, cuerpoValidoPrueba()))
-	if respuesta.Code != http.StatusServiceUnavailable ||
-		codigoErrorPrueba(t, respuesta) != "operacion_pendiente" {
-		t.Fatalf("resultado pendiente = %d %s", respuesta.Code, respuesta.Body.String())
+type lectorCanceladorPrueba struct {
+	contenido []byte
+	cancelar  context.CancelFunc
+	leido     bool
+}
+
+func (l *lectorCanceladorPrueba) Read(destino []byte) (int, error) {
+	if l.leido {
+		return 0, io.EOF
 	}
-	if respuesta.Header().Get("Retry-After") != "" ||
-		strings.Contains(respuesta.Body.String(), "COMMIT") {
-		t.Fatalf("respuesta induce reintento o filtra detalle: %v %s", respuesta.Header(), respuesta.Body.String())
+	l.leido = true
+	l.cancelar()
+	return copy(destino, l.contenido), nil
+}
+
+func TestManejadorAltaClasificaResultadoPendienteSinInducirReintento(t *testing.T) {
+	for _, causa := range []error{
+		errors.New("fallo privado posterior a COMMIT"),
+		context.Canceled,
+		context.DeadlineExceeded,
+	} {
+		t.Run(causa.Error(), func(t *testing.T) {
+			manejador, _, ejecutor := nuevoEscenarioPrueba(t)
+			ejecutor.recibo = ports.ReciboAlta{}
+			ejecutor.err = errors.Join(ErrResultadoAltaIndeterminado, causa)
+			respuesta := ejecutarPeticionPrueba(t, manejador, nuevaPeticionPrueba(t, cuerpoValidoPrueba()))
+			if respuesta.Code != http.StatusServiceUnavailable ||
+				codigoErrorPrueba(t, respuesta) != "operacion_pendiente" {
+				t.Fatalf("resultado pendiente = %d %s", respuesta.Code, respuesta.Body.String())
+			}
+			if respuesta.Header().Get("Retry-After") != "" ||
+				strings.Contains(respuesta.Body.String(), "COMMIT") {
+				t.Fatalf("respuesta induce reintento o filtra detalle: %v %s", respuesta.Header(), respuesta.Body.String())
+			}
+		})
 	}
 }
 
@@ -218,7 +262,7 @@ func TestManejadorAltaRechazaReciboIncompletoAdulteradoFuturoONoLigado(t *testin
 		}(), nil, "resultado_no_confiable", http.StatusBadGateway},
 		{"futuro", func() ports.ReciboAlta {
 			r := reciboValidoPrueba()
-			r.ConfirmadaEn = instantePrueba.Add(2 * time.Minute)
+			r.ConfirmadaEn = instantePrueba.Add(time.Microsecond)
 			return r
 		}(), nil, "resultado_no_confiable", http.StatusBadGateway},
 		{"no ligado detectado por aplicación", ports.ReciboAlta{}, application.ErrResultadoRegistroNoConfiable, "resultado_no_confiable", http.StatusBadGateway},
