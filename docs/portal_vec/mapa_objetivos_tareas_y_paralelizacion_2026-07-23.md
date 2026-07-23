@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 13 de 46 tareas cerradas (28 %); O2-05 ya está integrado |
-| Último commit verificado | `4c33336` — fuentes de análisis O3-03 con segregación criptográfica y GO independiente |
-| Trabajo local en revisión | Consumo SQL VEC-AD-3 de O2-05, reconstrucción segura de O3-02 y correcciones pendientes de O4-02 |
+| Último commit verificado | `764fd52` — interfaz O2-09B integrada tras GO independiente y 260/260 pruebas |
+| Trabajo local en revisión | O3-02 listo para integrar; O4-02 en revisión independiente; O8-01 en corrección |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -59,8 +59,8 @@ flowchart TD
     O202["✅ O2-02<br/>Adaptador Go de preparación"]
     O203["✅ O2-03<br/>PostgreSQL y rotación"]
     O204["✅ O2-04<br/>Autorización VEC durable"]
-    O205["🚧 O2-05<br/>Confirmación SQL atómica"]
-    O206["— O2-06<br/>Adaptador y reconciliación"]
+    O205["✅ O2-05<br/>Confirmación SQL atómica"]
+    O206["🚧 O2-06<br/>Adaptador y reconciliación"]
     O207["— O2-07<br/>Composición real"]
     O208["— O2-08<br/>API interna"]
     O209["— O2-09<br/>Web definitiva"]
@@ -78,7 +78,7 @@ flowchart TD
     O209 --> O210
 ```
 
-O2-02, O2-03 y O2-04 ya superaron revisión independiente. O2-03 demostró en
+O2-02, O2-03, O2-04 y O2-05 ya superaron revisión independiente. O2-03 demostró en
 tres ejecuciones PostgreSQL reales la convivencia HMAC v1→v2, el replay
 exacto, la concurrencia, las ACL y los límites de sentencia e inactividad.
 O2-04 demostró que esa preparación solo puede ejecutarse tras una concesión
@@ -195,7 +195,7 @@ Estado actual:
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
 Tareas verificadas del procedimiento: 13/46 = 28 %
-Tareas locales en revisión: O2-05, O3-02 y O4-02
+Tareas locales en revisión: O3-02, O4-02 y O8-01
 ```
 
 Una tarea local no cuenta como cerrada hasta que el commit esté publicado y el

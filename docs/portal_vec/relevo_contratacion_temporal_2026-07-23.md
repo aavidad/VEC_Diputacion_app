@@ -89,7 +89,7 @@ ajenas.
 | Confirmación atómica PostgreSQL | Cerrada en `77743a7`: GO 2/2 y puertas PostgreSQL/globales conjuntas verdes |
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
-| Web conectada | O2-09A visualmente apta, pero con NO-GO por dos límites divergentes; O2-09B pendiente |
+| Web conectada | O2-09B integrada en `764fd52` tras GO independiente; falta registrar la ruta real y el E2E |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -139,12 +139,13 @@ ajenas.
   de la vista y todos los paquetes de contratación temporal. El worktree
   desechable se eliminó después de la prueba. La ruta sigue sin registrar:
   O2-08 permanece funcionalmente abierta hasta la composición O2-07.
-- O2-09A `1323b4b` superó 50/50 pruebas, sintaxis, tamaños y una revisión
-  visual real de edición, revisión y recibo. No usa cookies, almacenamiento ni
-  API falsa. Dirección emitió NO-GO por dos divergencias reproducibles con
-  O2-08B: acepta más de cien años y céntimos superiores a
-  `922337203685477`. O2-09B corregirá únicamente esos bordes, sus mensajes i18n
-  y regresiones antes de una nueva revisión; la vista no se integra todavía.
+- O2-09A `1323b4b` superó las puertas visuales, pero recibió NO-GO por admitir
+  periodos de más de cien años e importes superiores a `922337203685477`
+  céntimos. O2-09B `228df6f` corrigió ambos bordes con aritmética decimal
+  exacta, doble barrera e i18n. Un revisor distinto reprodujo los extremos,
+  ejecutó 260/260 pruebas del portal y emitió GO. La interfaz quedó integrada
+  en `764fd52`. O2-09 sigue abierta hasta registrar la ruta real y superar
+  O2-10; el corte no usa cookies, almacenamiento ni adaptadores DEMO.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
   cronología de solo adición y bloqueo de retroacciones implícitas. Un primer
   corte de aplicación posterior recibió NO-GO: aceptaba autoridad RC/coste
@@ -236,13 +237,10 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Corregir O2-05: emisor Go real, canon temporal determinista, cero
-   `REFERENCES` cruzado y matriz PostgreSQL completa.
-2. Obtener dos GO independientes, integrar O2-05 y repetir las puertas en el
-   árbol conjunto.
-3. Alinear e implementar O2-06, después componer O2-07.
-4. Revisar e integrar O2-08A/O2-09A con idempotencia neutral común.
-5. Cerrar O2-10 con navegador → API → autorización → PostgreSQL → recibo,
+1. Alinear e implementar O2-06 contra la firma real de O2-05.
+2. Componer O2-07 y registrar el adaptador O2-08B.
+3. Conectar la interfaz O2-09B sin cookies ni autoridad de cliente.
+4. Cerrar O2-10 con navegador → API → autorización → PostgreSQL → recibo,
    reinicio, concurrencia y aceptación RRHH.
 
 ## Dominio implementado
