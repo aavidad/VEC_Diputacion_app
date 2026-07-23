@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -99,9 +100,9 @@ func TestValidacionRCAceptaDecisionesConEvidenciaCoherente(t *testing.T) {
 	for _, resultado := range []ResultadoValidacionRC{RCRechazada, RCNoRequerida} {
 		validacion := validacionRCParaPrueba()
 		validacion.Resultado = resultado
-		validacion.FechaRC = time.Time{}
+		validacion.FechaRC = nil
 		validacion.Numero = ""
-		validacion.Importe = Importe{}
+		validacion.Importe = nil
 		validacion.DocumentoRef = ""
 		validacion.Motivo = "Decisión motivada conforme a la fuente presupuestaria."
 		if err := validacion.Validar(); err != nil {
@@ -137,15 +138,17 @@ func TestValidacionRCRechazaEvidenciaIncompletaOResidual(t *testing.T) {
 		{"instante no canónico", func(v *ValidacionRC) {
 			v.ValidadaEn = v.ValidadaEn.Add(time.Nanosecond)
 		}},
-		{"validada sin fecha autoritativa", func(v *ValidacionRC) { v.FechaRC = time.Time{} }},
+		{"validada sin fecha autoritativa", func(v *ValidacionRC) { v.FechaRC = nil }},
 		{"fecha autoritativa con hora", func(v *ValidacionRC) {
-			v.FechaRC = v.FechaRC.Add(time.Hour)
+			fecha := v.FechaRC.Add(time.Hour)
+			v.FechaRC = &fecha
 		}},
 		{"fecha autoritativa fuera de UTC", func(v *ValidacionRC) {
-			v.FechaRC = time.Date(2026, 7, 20, 0, 0, 0, 0, time.FixedZone("local", 3600))
+			fecha := time.Date(2026, 7, 20, 0, 0, 0, 0, time.FixedZone("local", 3600))
+			v.FechaRC = &fecha
 		}},
 		{"validada sin número", func(v *ValidacionRC) { v.Numero = "" }},
-		{"validada sin importe", func(v *ValidacionRC) { v.Importe = Importe{} }},
+		{"validada sin importe", func(v *ValidacionRC) { v.Importe = nil }},
 		{"validada sin documento", func(v *ValidacionRC) { v.DocumentoRef = "" }},
 		{"importe no calculable", func(v *ValidacionRC) {
 			v.Importe.Centimos = maximoCentimosCalculablesAnalisis + 1
@@ -156,7 +159,7 @@ func TestValidacionRCRechazaEvidenciaIncompletaOResidual(t *testing.T) {
 		}},
 		{"rechazada con fecha residual", func(v *ValidacionRC) {
 			prepararRCNegativa(v, RCRechazada)
-			v.FechaRC = fechaAnalisis(2026, 7, 20)
+			v.FechaRC = fechaParaPrueba(2026, 7, 20)
 		}},
 		{"no requerida con número residual", func(v *ValidacionRC) {
 			prepararRCNegativa(v, RCNoRequerida)
@@ -164,7 +167,7 @@ func TestValidacionRCRechazaEvidenciaIncompletaOResidual(t *testing.T) {
 		}},
 		{"no requerida con importe residual", func(v *ValidacionRC) {
 			prepararRCNegativa(v, RCNoRequerida)
-			v.Importe = Importe{Centimos: 1, Moneda: "EUR"}
+			v.Importe = importeParaPrueba(1)
 		}},
 		{"no requerida con documento residual", func(v *ValidacionRC) {
 			prepararRCNegativa(v, RCNoRequerida)
@@ -180,6 +183,94 @@ func TestValidacionRCRechazaEvidenciaIncompletaOResidual(t *testing.T) {
 				t.Fatal("se aceptó una validación de RC incoherente")
 			}
 		})
+	}
+}
+
+func TestAnalisisRRHHCotejaLaEntradaExactaEsperada(t *testing.T) {
+	pruebas := []struct {
+		nombre    string
+		modificar func(*AnalisisRRHH)
+	}{
+		{"referencia esperada distinta", func(a *AnalisisRRHH) {
+			a.EntradaRCEsperada.Referencia = "declaracion_rc_distinta_01"
+		}},
+		{"huella esperada distinta", func(a *AnalisisRRHH) {
+			a.EntradaRCEsperada.HuellaSHA256 = strings.Repeat("b", 64)
+		}},
+		{"referencia recibida distinta", func(a *AnalisisRRHH) {
+			a.ValidacionRC.EntradaRef = "declaracion_rc_distinta_01"
+		}},
+		{"huella recibida distinta", func(a *AnalisisRRHH) {
+			a.ValidacionRC.HuellaEntradaSHA256 = strings.Repeat("b", 64)
+		}},
+	}
+
+	for _, prueba := range pruebas {
+		t.Run(prueba.nombre, func(t *testing.T) {
+			analisis := analisisCompletoParaPrueba()
+			prueba.modificar(&analisis)
+			if analisis.Validar() == nil || analisis.HabilitaAvance() {
+				t.Fatal("una validación de otra entrada superó el cotejo semántico")
+			}
+		})
+	}
+}
+
+func TestValidacionRCOrdenaFechaEInstanteAutoritativos(t *testing.T) {
+	validacion := validacionRCParaPrueba()
+	validacion.ValidadaEn = fechaAnalisis(2026, 7, 20)
+	validacion.FechaRC = fechaParaPrueba(2026, 7, 20)
+	if err := validacion.Validar(); err != nil {
+		t.Fatalf("fecha igual al instante de validación: %v", err)
+	}
+
+	validacion.FechaRC = fechaParaPrueba(2026, 7, 21)
+	if validacion.Validar() == nil {
+		t.Fatal("se aceptó una fecha de RC posterior a su validación")
+	}
+}
+
+func TestValidacionRCOmiteResiduosEnJSONCuandoNoHayRCValidada(t *testing.T) {
+	for _, resultado := range []ResultadoValidacionRC{RCRechazada, RCNoRequerida} {
+		t.Run(string(resultado), func(t *testing.T) {
+			validacion := validacionRCParaPrueba()
+			prepararRCNegativa(&validacion, resultado)
+			contenido, err := json.Marshal(validacion)
+			if err != nil {
+				t.Fatalf("serializar: %v", err)
+			}
+			var campos map[string]json.RawMessage
+			if err := json.Unmarshal(contenido, &campos); err != nil {
+				t.Fatalf("decodificar: %v", err)
+			}
+			for _, campo := range []string{"fecha_rc", "numero", "importe", "documento_ref"} {
+				if _, existe := campos[campo]; existe {
+					t.Fatalf("el JSON de %s conserva el residuo %q: %s", resultado, campo, contenido)
+				}
+			}
+			for _, campo := range []string{
+				"resultado", "entrada_ref", "huella_entrada_sha256",
+				"fuente_ref", "recibo_ref", "validada_en", "motivo",
+			} {
+				if _, existe := campos[campo]; !existe {
+					t.Fatalf("el JSON de %s perdió la evidencia %q: %s", resultado, campo, contenido)
+				}
+			}
+		})
+	}
+
+	contenido, err := json.Marshal(validacionRCParaPrueba())
+	if err != nil {
+		t.Fatalf("serializar validada: %v", err)
+	}
+	var campos map[string]json.RawMessage
+	if err := json.Unmarshal(contenido, &campos); err != nil {
+		t.Fatalf("decodificar validada: %v", err)
+	}
+	for _, campo := range []string{"fecha_rc", "numero", "importe", "documento_ref"} {
+		if _, existe := campos[campo]; !existe {
+			t.Fatalf("el JSON validado perdió %q: %s", campo, contenido)
+		}
 	}
 }
 
@@ -252,6 +343,14 @@ func TestAnalisisRRHHClonaDefensivamenteElCoste(t *testing.T) {
 		clon.CostePrevisto.Centimos == original.CostePrevisto.Centimos {
 		t.Fatal("el clon comparte el importe mutable con el original")
 	}
+	*clon.ValidacionRC.FechaRC = clon.ValidacionRC.FechaRC.AddDate(0, 0, 1)
+	clon.ValidacionRC.Importe.Centimos++
+	if clon.ValidacionRC.FechaRC == original.ValidacionRC.FechaRC ||
+		clon.ValidacionRC.Importe == original.ValidacionRC.Importe ||
+		clon.ValidacionRC.FechaRC.Equal(*original.ValidacionRC.FechaRC) ||
+		clon.ValidacionRC.Importe.Centimos == original.ValidacionRC.Importe.Centimos {
+		t.Fatal("el clon comparte punteros de la evidencia RC con el original")
+	}
 
 	invalido := original
 	invalido.PorcentajeJornada = 0
@@ -282,6 +381,7 @@ func TestAnalisisRRHHRechazadoEsRegistrablePeroNoHabilitaAvance(t *testing.T) {
 }
 
 func analisisCompletoParaPrueba() AnalisisRRHH {
+	validacion := validacionRCParaPrueba()
 	return AnalisisRRHH{
 		ModalidadClave:    "sustitucion",
 		CategoriaRef:      "categoria_trabajador_social",
@@ -289,10 +389,13 @@ func analisisCompletoParaPrueba() AnalisisRRHH {
 		CausaClave:        "incapacidad_temporal",
 		Periodo:           PeriodoPrevisto{Inicio: fechaAnalisis(2026, 8, 1), Fin: fechaAnalisis(2027, 3, 31)},
 		PorcentajeJornada: JornadaCompletaDiezmilesimas,
-		ValidacionRC:      validacionRCParaPrueba(),
-		CostePrevisto:     importeParaPrueba(3_148_025),
-		FuenteCosteRef:    "tabla_retributiva_2026_v3",
-		Observaciones:     "Estimación sujeta a los conceptos de la fuente autorizada.",
+		EntradaRCEsperada: VinculoEntradaRC{
+			Referencia: validacion.EntradaRef, HuellaSHA256: validacion.HuellaEntradaSHA256,
+		},
+		ValidacionRC:   validacion,
+		CostePrevisto:  importeParaPrueba(3_148_025),
+		FuenteCosteRef: "tabla_retributiva_2026_v3",
+		Observaciones:  "Estimación sujeta a los conceptos de la fuente autorizada.",
 	}
 }
 
@@ -304,18 +407,18 @@ func validacionRCParaPrueba() ValidacionRC {
 		FuenteRef:           "fuente_presupuestaria_01",
 		ReciboRef:           "recibo_validacion_rc_01",
 		ValidadaEn:          time.Date(2026, 7, 23, 8, 30, 0, 0, time.UTC),
-		FechaRC:             fechaAnalisis(2026, 7, 20),
+		FechaRC:             fechaParaPrueba(2026, 7, 20),
 		Numero:              "rc_2026_0001",
-		Importe:             Importe{Centimos: 3_245_000, Moneda: "EUR"},
+		Importe:             importeParaPrueba(3_245_000),
 		DocumentoRef:        "documento_rc_01",
 	}
 }
 
 func prepararRCNegativa(validacion *ValidacionRC, resultado ResultadoValidacionRC) {
 	validacion.Resultado = resultado
-	validacion.FechaRC = time.Time{}
+	validacion.FechaRC = nil
 	validacion.Numero = ""
-	validacion.Importe = Importe{}
+	validacion.Importe = nil
 	validacion.DocumentoRef = ""
 	validacion.Motivo = "La fuente autoritativa no acredita una RC utilizable."
 }
@@ -326,4 +429,9 @@ func importeParaPrueba(centimos int64) *Importe {
 
 func fechaAnalisis(anyo int, mes time.Month, dia int) time.Time {
 	return time.Date(anyo, mes, dia, 0, 0, 0, 0, time.UTC)
+}
+
+func fechaParaPrueba(anyo int, mes time.Month, dia int) *time.Time {
+	fecha := fechaAnalisis(anyo, mes, dia)
+	return &fecha
 }

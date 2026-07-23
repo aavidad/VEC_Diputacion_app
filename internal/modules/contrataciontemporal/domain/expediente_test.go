@@ -112,16 +112,20 @@ func expedienteValido(t *testing.T) Expediente {
 
 func analisisValido() AnalisisRRHH {
 	coste := Importe{Centimos: 3_148_025, Moneda: "EUR"}
+	fechaRC := fechaInicio.AddDate(0, 0, -12)
 	return AnalisisRRHH{
 		ModalidadClave: "sustitucion", CategoriaRef: "categoria_trabajador_social",
 		GrupoSubgrupo: "A2", CausaClave: "incapacidad_temporal",
 		Periodo:           PeriodoPrevisto{Inicio: fechaInicio, Fin: fechaFin},
 		PorcentajeJornada: 10000,
+		EntradaRCEsperada: VinculoEntradaRC{
+			Referencia: "declaracion_rc_solicitud_01", HuellaSHA256: cadena64("b"),
+		},
 		ValidacionRC: ValidacionRC{
 			Resultado: RCValidada, EntradaRef: "declaracion_rc_solicitud_01",
 			HuellaEntradaSHA256: cadena64("b"), FuenteRef: "fuente_presupuestaria_01",
-			ReciboRef: "recibo_validacion_rc_01", ValidadaEn: instanteBase, FechaRC: fechaInicio,
-			Numero: "rc_2026_0001", Importe: Importe{Centimos: 3_245_000, Moneda: "EUR"},
+			ReciboRef: "recibo_validacion_rc_01", ValidadaEn: instanteBase, FechaRC: &fechaRC,
+			Numero: "rc_2026_0001", Importe: &Importe{Centimos: 3_245_000, Moneda: "EUR"},
 			DocumentoRef: "documento_rc_01",
 		},
 		CostePrevisto: &coste, FuenteCosteRef: "tabla_retributiva_2026_v3",

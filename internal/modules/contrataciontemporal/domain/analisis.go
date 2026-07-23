@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"crypto/subtle"
 	"strings"
 	"time"
 )
@@ -40,6 +41,28 @@ func (r ResultadoValidacionRC) valido() bool {
 	return r == RCValidada || r == RCNoRequerida || r == RCRechazada
 }
 
+// VinculoEntradaRC identifica el contenido exacto que el análisis ordenó
+// validar. No acredita por sí mismo la autoridad del recibo externo.
+type VinculoEntradaRC struct {
+	Referencia   string `json:"referencia"`
+	HuellaSHA256 string `json:"huella_sha256"`
+}
+
+func (v VinculoEntradaRC) Validar() error {
+	if !referenciaValida(v.Referencia) || !huellaEntradaValida(v.HuellaSHA256) {
+		return ErrDatoInvalido
+	}
+	return nil
+}
+
+func (v VinculoEntradaRC) coincideCon(validacion ValidacionRC) bool {
+	return v.Referencia == validacion.EntradaRef &&
+		subtle.ConstantTimeCompare(
+			[]byte(v.HuellaSHA256),
+			[]byte(validacion.HuellaEntradaSHA256),
+		) == 1
+}
+
 type ValidacionRC struct {
 	Resultado           ResultadoValidacionRC `json:"resultado"`
 	EntradaRef          string                `json:"entrada_ref"`
@@ -47,9 +70,9 @@ type ValidacionRC struct {
 	FuenteRef           string                `json:"fuente_ref"`
 	ReciboRef           string                `json:"recibo_ref"`
 	ValidadaEn          time.Time             `json:"validada_en"`
-	FechaRC             time.Time             `json:"fecha_rc,omitempty"`
+	FechaRC             *time.Time            `json:"fecha_rc,omitempty"`
 	Numero              string                `json:"numero,omitempty"`
-	Importe             Importe               `json:"importe,omitempty"`
+	Importe             *Importe              `json:"importe,omitempty"`
 	DocumentoRef        string                `json:"documento_ref,omitempty"`
 	Motivo              string                `json:"motivo,omitempty"`
 }
@@ -62,14 +85,15 @@ func (v ValidacionRC) Validar() error {
 		return ErrDatoInvalido
 	}
 	if v.Resultado == RCValidada {
-		if !fechaCivilCanonica(v.FechaRC) || !referenciaValida(v.Numero) ||
-			!importeCalculable(v.Importe) ||
+		if v.FechaRC == nil || !fechaCivilCanonica(*v.FechaRC) ||
+			v.FechaRC.After(v.ValidadaEn) || !referenciaValida(v.Numero) ||
+			v.Importe == nil || !importeCalculable(*v.Importe) ||
 			!referenciaValida(v.DocumentoRef) {
 			return ErrDatoInvalido
 		}
 		return nil
 	}
-	if !v.FechaRC.IsZero() || v.Numero != "" || v.Importe != (Importe{}) ||
+	if v.FechaRC != nil || v.Numero != "" || v.Importe != nil ||
 		v.DocumentoRef != "" || v.Motivo == "" {
 		return ErrDatoInvalido
 	}
@@ -90,6 +114,7 @@ type AnalisisRRHH struct {
 	CausaClave        ClaveCatalogo        `json:"causa_clave"`
 	Periodo           PeriodoPrevisto      `json:"periodo"`
 	PorcentajeJornada JornadaDiezmilesimas `json:"porcentaje_jornada"`
+	EntradaRCEsperada VinculoEntradaRC     `json:"entrada_rc_esperada"`
 	ValidacionRC      ValidacionRC         `json:"validacion_rc"`
 	CostePrevisto     *Importe             `json:"coste_previsto,omitempty"`
 	FuenteCosteRef    string               `json:"fuente_coste_ref,omitempty"`
@@ -100,7 +125,9 @@ func (a AnalisisRRHH) Validar() error {
 	if !a.ModalidadClave.Valida() || !referenciaValida(a.CategoriaRef) ||
 		!grupoValido(a.GrupoSubgrupo) || !a.CausaClave.Valida() ||
 		!periodoAnalisisValido(a.Periodo) || a.PorcentajeJornada.Validar() != nil ||
+		a.EntradaRCEsperada.Validar() != nil ||
 		a.ValidacionRC.Validar() != nil ||
+		!a.EntradaRCEsperada.coincideCon(a.ValidacionRC) ||
 		!textoValido(a.Observaciones, 4000, true) {
 		return ErrDatoInvalido
 	}
@@ -144,6 +171,7 @@ func huellaEntradaValida(huella string) bool {
 }
 
 func (a AnalisisRRHH) clonar() AnalisisRRHH {
+	a.ValidacionRC = a.ValidacionRC.clonar()
 	if a.CostePrevisto != nil {
 		importe := *a.CostePrevisto
 		a.CostePrevisto = &importe
@@ -151,8 +179,20 @@ func (a AnalisisRRHH) clonar() AnalisisRRHH {
 	return a
 }
 
-// Clonar valida y entrega una copia defensiva. El importe opcional nunca
-// comparte su puntero con el valor aportado por quien invoca el dominio.
+func (v ValidacionRC) clonar() ValidacionRC {
+	if v.FechaRC != nil {
+		fecha := *v.FechaRC
+		v.FechaRC = &fecha
+	}
+	if v.Importe != nil {
+		importe := *v.Importe
+		v.Importe = &importe
+	}
+	return v
+}
+
+// Clonar valida y entrega una copia defensiva. Los importes y la fecha
+// opcionales nunca comparten punteros con quien invoca el dominio.
 func (a AnalisisRRHH) Clonar() (AnalisisRRHH, error) {
 	if a.Validar() != nil {
 		return AnalisisRRHH{}, ErrDatoInvalido
