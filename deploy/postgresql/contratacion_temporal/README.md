@@ -70,11 +70,22 @@ mano ni se elimina la clave histórica durante la ventana.
 
 La reserva no concede permisos ni confirma un alta. Las migraciones aditivas
 `000003_expediente_confirmacion_atestada` y
-`000004_funcion_confirmar_alta_atestada` añaden el agregado durable, versión y
+`000004_integridad_agregado_alta` y
+`000005_funcion_confirmar_alta_atestada` añaden el agregado durable, versión y
 actuación iniciales, consumo VEC-AD-3, auditoría y outbox en un único
-`COMMIT`. Al instalar `000004`, el runtime pierde `preparar_alta_v2` y recibe
-solo `confirmar_alta_atestada_v1`. La autorización genérica tampoco queda
-expuesta al LOGIN de la aplicación.
+`COMMIT`. La identidad `confirmacion_agregado_alta`, su huella portable y las
+FK diferibles ligan reserva confirmada, expediente, versión, actuación,
+auditoría y outbox. No dependen de `txid`, WAL ni estado de la conexión.
+
+El consumidor informa internamente si acaba de consumir la capacidad o si la
+recuperó. Un replay nunca inserta ni completa piezas: solo devuelve el recibo
+si el reconciliador acredita todas las filas, refs, canones, huellas,
+instantes, eslabones y marcador. Si el efecto es posterior a otros efectos,
+valida predecesor, sucesor inmediato y cabeza vigente; el marcador conserva
+además la prueba durable del eslabón creado originalmente. Al instalar
+`000005`, el runtime pierde `preparar_alta_v2` y recibe solo
+`confirmar_alta_atestada_v1`. La autorización genérica tampoco queda expuesta
+al LOGIN de la aplicación.
 
 La entrada final usa bytes canónicos de esquemas explícitos y versionados; no
 serializa por reflexión el agregado. El resultado contiene solo referencias,
@@ -90,8 +101,9 @@ secreto HMAC ni dato personal se devuelve.
    `000002_rotacion_hmac.up.sql` con dicha cuenta.
 4. Instalar el consumidor
    `deploy/postgresql/autorizacion_atestada_v3` y su gobierno.
-5. Ejecutar `000003_expediente_confirmacion_atestada.up.sql` y
-   `000004_funcion_confirmar_alta_atestada.up.sql`.
+5. Ejecutar `000003_expediente_confirmacion_atestada.up.sql`,
+   `000004_integridad_agregado_alta.up.sql` y
+   `000005_funcion_confirmar_alta_atestada.up.sql`, por ese orden.
 6. Aprovisionar la cuenta de la aplicación como miembro únicamente de
    `vec_contratacion_temporal_ejecutor`.
 
@@ -105,7 +117,9 @@ psql -X --set ON_ERROR_STOP=1 \
 psql -X --set ON_ERROR_STOP=1 \
   --file deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.up.sql
 psql -X --set ON_ERROR_STOP=1 \
-  --file deploy/postgresql/contratacion_temporal/migraciones/000004_funcion_confirmar_alta_atestada.up.sql
+  --file deploy/postgresql/contratacion_temporal/migraciones/000004_integridad_agregado_alta.up.sql
+psql -X --set ON_ERROR_STOP=1 \
+  --file deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.up.sql
 ```
 
 El repositorio no contiene DSN, usuarios LOGIN, contraseñas ni secretos HMAC.
@@ -138,8 +152,11 @@ efímero y no son credenciales de ningún entorno.
 
 El segundo runner integra ContextoActor, autorización nominal V3, gobierno de
 confianza, VEC-AD-3 y contratación. Comprueba el `COMMIT` único, repetición,
-concurrencia, rotaciones y revocaciones, fallo inyectado, ACL y retirada
-protegida. La guía detallada está en
+concurrencia, rotaciones y revocaciones, fallo inyectado, ACL, retirada
+protegida y reconciliación negativa de cada pieza. Retira o altera de forma
+aislada reserva, expediente, versión, actuación, auditoría, outbox, marcador,
+refs, huellas y cadenas; cada replay debe fallar sin escribir y el runner
+restaura exactamente los casos antes de continuar. La guía detallada está en
 `deploy/postgresql/autorizacion_atestada_v3/README.md`.
 
 ## Reversión protegida

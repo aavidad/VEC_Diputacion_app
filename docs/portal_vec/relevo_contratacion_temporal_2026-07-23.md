@@ -104,6 +104,17 @@ ajenas.
   configuración y versión de raíz. La revisión independiente terminó sin
   hallazgos y el corte quedó integrado en `8461aee`. Falta el consumidor SQL
   atómico; no cierra O2-05 ni habilita producción.
+- La corrección candidata O2-05 incorpora señal explícita de consumo nuevo o
+  reintento, prueba portable de las ocho piezas y reconciliación exhaustiva
+  sin reparación. Las migraciones quedan ordenadas como `000003` expediente,
+  `000004` integridad y `000005` función, con una puerta que rechaza prefijos
+  duplicados. El conector consume la autoridad VEC-AD-3 sin leer, escribir ni
+  referenciar por FK sus tablas; dominio y aplicación siguen neutrales a
+  PostgreSQL, web, escritorio, CLI y MCP. No añade textos funcionales de UI,
+  cookies, autoridad del cliente, secretos ni datos personales; mantiene
+  denegación predeterminada, referencias opacas y trazabilidad encadenada. El
+  productor tiene pruebas verdes, pero faltan dos revisiones independientes:
+  O2-05 continúa abierto y no habilita producción.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
   cronología de solo adición y bloqueo de retroacciones implícitas. Falta el
   caso de uso autorizado y su transacción durable; no se considera cerrado.

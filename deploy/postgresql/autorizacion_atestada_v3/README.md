@@ -27,7 +27,10 @@ reloj, clave, gobierno, configuración, raíz y revocaciones se cotejan dentro
 de la transacción.
 
 La decisión nominal se registra mediante el CAS V3 existente. El consumidor
-no sustituye RBAC, ContextoActor ni el catálogo de motivos.
+no sustituye RBAC, ContextoActor ni el catálogo de motivos. Su resultado
+interno incluye `consumo_nuevo`: `true` solo tras insertar consumo y auditoría;
+`false` solo cuando recupera exactamente esos bytes. La función exterior usa
+esta señal para impedir que una capacidad ya consumida complete piezas tarde.
 
 ## Privilegios
 
@@ -57,7 +60,8 @@ roles_up.sql                              DBA
 000001_gobierno_y_registro_v3.up.sql      migrador VEC-AD-3
 000002_consumidor_capacidad_v3.up.sql     migrador VEC-AD-3
 000003_expediente_confirmacion_atestada   migrador contratación
-000004_funcion_confirmar_alta_atestada    migrador contratación
+000004_integridad_agregado_alta           migrador contratación
+000005_funcion_confirmar_alta_atestada    migrador contratación
 ```
 
 La transacción cliente debe ser `SERIALIZABLE`, de escritura y UTC, con
@@ -81,9 +85,13 @@ puertos publicados y con datos en `tmpfs`. Comprueba:
 
 - vector canónico compartido Go↔SQL y rechazo estructural temprano;
 - alta completa, repetición exacta y efecto único;
+- ocho piezas ligadas: consumo, reserva confirmada, expediente, versión,
+  actuación, auditoría, outbox y marcador portable;
 - cruces de decisión/efecto, caducidad y alias incoherentes;
 - rollback integral ante un fallo posterior al consumo;
 - cuatro sesiones concurrentes sobre la misma capacidad;
+- replay expirado válido solo con agregado íntegro y rechazo sin reparación
+  ante ausencia o deriva de cada pieza, refs, canones, huellas y cadenas;
 - rotación, retención y revocación de HMAC;
 - rotación, anti-retroceso y revocación de configuración y raíz;
 - mínimo privilegio, denegación predeterminada y funciones históricas cerradas;

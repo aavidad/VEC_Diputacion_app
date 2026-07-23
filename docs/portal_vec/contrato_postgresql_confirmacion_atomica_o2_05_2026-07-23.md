@@ -2,8 +2,14 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: implementación candidata; pruebas del productor verdes; pendiente de
-revisión independiente. No habilita producción.
+Estado: implementación candidata corregida tras NO-GO; pruebas del productor
+verdes; pendiente de dos revisiones independientes. No habilita producción.
+
+Las migraciones de contratación conservan una secuencia única y monótona:
+`000003_expediente_confirmacion_atestada`,
+`000004_integridad_agregado_alta` y
+`000005_funcion_confirmar_alta_atestada`. La puerta rechaza antes de crear el
+contenedor cualquier prefijo numérico duplicado.
 
 ## Decisión aplicada
 
@@ -48,6 +54,42 @@ La repetición byte a byte devuelve el mismo efecto. La misma decisión, nonce
 o alias con contenido diferente produce conflicto. Un fallo después del
 consumo nominal revierte también ese consumo.
 
+El consumidor VEC-AD-3 distingue internamente consumo nuevo y replay. La rama
+de replay no ejecuta preparación, alias, reserva ni inserciones de efecto. Solo
+puede devolver éxito si `reconciliar_agregado_alta_v1` acredita el agregado
+durable completo; una capacidad consumida nunca se reutiliza para completar
+tarde una actuación, auditoría, evento o marcador ausentes.
+
+## Identidad y prueba portable del agregado
+
+`confirmacion_agregado_alta` se crea dentro de la misma transacción que el
+efecto. Su referencia determinista y `agregado_huella_sha256` comprometen:
+
+- identidad y revisión exacta de reserva confirmada;
+- expediente, número, recibo, decisión, efecto y consumo;
+- versión 1, canon y huella del alta;
+- actuación inicial y huella del canon completo de actuación;
+- auditoría, decisión, consumo, secuencia, anterior y huella;
+- outbox, payload, secuencia, anterior y huella;
+- instante confirmado y huella del recibo.
+
+FK diferibles en ambos sentidos ligan el marcador con reserva, expediente,
+versión, actuación, auditoría y outbox en el único `COMMIT`. La prueba no usa
+identificadores de transacción, LSN ni WAL y es portable a otro adaptador que
+demuestre las mismas invariantes.
+
+La frontera VEC-AD-3 permanece intercambiable: contratación invoca su función
+consumidora y conserva el recibo autenticado devuelto, pero no lee, escribe ni
+referencia por FK las tablas internas de autorización. Dominio y aplicación
+no incorporan dependencias PostgreSQL ni de transporte.
+
+La reconciliación compara con `IS DISTINCT FROM` todas las piezas y falla ante
+ausencia, divergencia o `NULL`. Recompone canon, payload y huellas. Para
+cadenas con efectos posteriores valida el predecesor, el sucesor inmediato y
+la cabeza vigente recompuesta, sin suponer que el efecto reintentado sea la
+cabeza. La huella del marcador conserva la prueba durable de su eslabón
+original y evita un recorrido histórico no acotado en cada replay.
+
 ## Límites de confianza
 
 - El productor de la capacidad no se autoaprueba.
@@ -57,6 +99,21 @@ consumo nominal revierte también ese consumo.
 - El runtime no posee tablas, DML, CAS nominal, preparación histórica ni el
   consumidor genérico.
 - Los errores exteriores son deliberadamente opacos.
+
+## Criterios transversales verificados
+
+- Vocabulario propio del dominio en castellano coherente; `outbox`, HMAC,
+  COSE, SQLSTATE y replay se limitan a términos técnicos del protocolo.
+- No se añade texto funcional de interfaz: los mensajes SQL son diagnósticos
+  internos opacos para el cliente y no sustituyen claves i18n.
+- El contrato es neutral para web, escritorio, CLI y MCP; no usa cookies,
+  almacenamiento de navegador ni autoridad aportada por el cliente.
+- La única integración entre autoridades es el conector SQL mínimo
+  autenticado; no hay lectura ni escritura cruzada de tablas y otro adaptador
+  puede acreditar las mismas invariantes portables.
+- Privilegio mínimo, denegación predeterminada, referencias opacas,
+  trazabilidad encadenada y ausencia de secretos o datos personales reales se
+  verifican en migraciones, fixtures, recibos, errores y logs.
 
 El checkpoint local evita retrocesos dentro de la historia visible en la base.
 La protección frente a restaurar una copia antigua completa exige un ancla
@@ -79,6 +136,12 @@ Una adulteración posterior se rechaza sin consumo.
 Además ensaya:
 
 - éxito, replay y recibo idéntico con `DateStyle` ISO y German;
+- contadores y ligaduras de las ocho piezas en éxito, rollback y concurrencia;
+- replay después de expirar solo para agregado íntegro;
+- retirada o deriva aislada de reserva, puntero, expediente, versión,
+  actuación, auditoría, outbox y marcador;
+- refs, canones, payloads, huellas, eslabones y cabezas divergentes sin
+  reparación ni inserción posterior;
 - mutación individual del canon completo y tipos JSON estrictos;
 - límite entero interoperable `2^53-1`;
 - clave activa, retenida, revocada y provisionada nunca activada;
@@ -120,6 +183,11 @@ evidencia de la utilidad del runner:
    presentado es menor que el mínimo;
 6. dos aserciones shell comparaban el booleano de `psql -At` con `true` en vez
    de `t`; se corrigió la expectativa y se repitió el ciclo completo.
+7. la revisión independiente detectó que el replay omitía actuación, refs de
+   reserva y cadenas; se sustituyó la inferencia parcial por señal
+   nuevo/replay, marcador común y reconciliación exhaustiva;
+8. `go test` ocultaba `stdout`; el runner ahora captura ambos canales y vuelca
+   hasta 240 líneas cuando falla, sin mostrar salida en el éxito.
 
 Después de cada corrección se ejecutó de nuevo el runner desde una base
 PostgreSQL 18 vacía. Ninguno de estos fallos se oculta ni se interpreta como
