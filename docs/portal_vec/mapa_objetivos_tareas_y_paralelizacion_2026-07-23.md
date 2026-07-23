@@ -13,9 +13,9 @@ temporal. El detalle verificable de cada tarea está en el
 | Objetivo activo | O2 — primera vertical real de alta |
 | Camino crítico | O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
-| Procedimiento completo | 14 de 46 tareas cerradas (30 %); O3-02 ya está integrado |
-| Último commit verificado | `e9d461c` — caso de uso O3-02 integrado tras GO independiente y puertas conjuntas |
-| Trabajo local en revisión | O4-02 y O8-01 en corrección; O2-06 pendiente de acoplamiento a la firma SQL real |
+| Procedimiento completo | 15 de 46 tareas cerradas (33 %); O8-01 ya está integrado |
+| Último commit verificado | `ec8e758` — dominio O8-01 integrado tras GO independiente y puertas conjuntas |
+| Trabajo local en revisión | O4-02 en revisión independiente; O2-06 en implementación; primer corte O5-01 pendiente de completar |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -34,7 +34,7 @@ flowchart LR
     O5["— O5<br/>Asignación, informe y fiscalización"]
     O6["🚧 O6<br/>Llamamiento y formalización"]
     O7["— O7<br/>Incorporación, Personal y GINPIX"]
-    O8["— O8<br/>Seguimiento, cierre y conservación"]
+    O8["🚧 O8<br/>Seguimiento, cierre y conservación"]
 
     O1 --> O2
     O2 --> O3
@@ -194,8 +194,8 @@ Estado actual:
 
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
-Tareas verificadas del procedimiento: 14/46 = 30 %
-Tareas locales en revisión: O4-02 y O8-01
+Tareas verificadas del procedimiento: 15/46 = 33 %
+Tareas locales en revisión: O4-02, O2-06 y O5-01
 ```
 
 Una tarea local no cuenta como cerrada hasta que el commit esté publicado y el
