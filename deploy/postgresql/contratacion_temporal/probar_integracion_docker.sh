@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+DIRECTORIO_SCRIPT="$(
+    cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1
+    pwd -P
+)"
+readonly DIRECTORIO_SCRIPT
+readonly IMAGEN_PREDETERMINADA='postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296'
+readonly IMAGEN_POSTGRES="${IMAGEN_POSTGRES:-${IMAGEN_PREDETERMINADA}}"
+readonly CONTENEDOR="vec-ct-pg-${PPID}-${RANDOM}"
+readonly CLAVE_EFIMERA='solo-prueba-efimera-no-reutilizar'
+
+limpiar() {
+    docker rm --force --volumes "${CONTENEDOR}" >/dev/null 2>&1 || true
+}
+trap limpiar EXIT INT TERM
+
+paso() {
+    printf '[contratacion-temporal:postgres] %s\n' "$1"
+}
+
+esperar_postgresql() {
+    local _intento
+    for _intento in {1..60}; do
+        if docker exec "${CONTENEDOR}" \
+            pg_isready --quiet --username postgres --dbname postgres; then
+            return 0
+        fi
+        if [[ "$(docker inspect --format '{{.State.Running}}' \
+            "${CONTENEDOR}" 2>/dev/null || true)" != 'true' ]]; then
+            docker logs "${CONTENEDOR}" >&2 || true
+            return 1
+        fi
+        sleep 1
+    done
+    docker logs "${CONTENEDOR}" >&2 || true
+    return 1
+}
+
+ejecutar_como() {
+    local usuario="$1"
+    local fichero="$2"
+    docker exec "${CONTENEDOR}" \
+        psql -X --set ON_ERROR_STOP=1 \
+        --username "${usuario}" \
+        --dbname postgres \
+        --file "/pruebas/${fichero}"
+}
+
+esperar_fallo() {
+    local descripcion="$1"
+    local salida
+    shift
+    if salida="$("$@" 2>&1)"; then
+        printf 'Se esperaba rechazo: %s\n' "${descripcion}" >&2
+        printf '%s\n' "${salida}" >&2
+        return 1
+    fi
+    paso "rechazo verificado: ${descripcion}"
+}
+
+paso "imagen fijada: ${IMAGEN_POSTGRES}"
+docker run --detach \
+    --name "${CONTENEDOR}" \
+    --network none \
+    --env POSTGRES_PASSWORD="${CLAVE_EFIMERA}" \
+    --env POSTGRES_INITDB_ARGS='--auth-local=trust' \
+    --tmpfs /var/lib/postgresql:rw,noexec,nosuid,size=512m \
+    "${IMAGEN_POSTGRES}" >/dev/null
+esperar_postgresql
+docker cp "${DIRECTORIO_SCRIPT}/." "${CONTENEDOR}:/pruebas"
+
+paso 'bootstrap de roles técnicos'
+ejecutar_como postgres roles_up.sql >/dev/null
+docker exec --interactive "${CONTENEDOR}" psql -X --set ON_ERROR_STOP=1 \
+    --username postgres --dbname postgres <<'SQL' >/dev/null
+CREATE ROLE vec_ct_migrador_prueba
+    LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+    NOREPLICATION NOBYPASSRLS;
+CREATE ROLE vec_ct_runtime_prueba
+    LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT
+    NOREPLICATION NOBYPASSRLS;
+GRANT vec_contratacion_temporal_migrador
+    TO vec_ct_migrador_prueba
+    WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;
+GRANT vec_contratacion_temporal_ejecutor
+    TO vec_ct_runtime_prueba
+    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+SQL
+
+paso 'instalación transaccional con identidad de migración'
+ejecutar_como \
+    vec_ct_migrador_prueba \
+    migraciones/000001_preparacion_altas.up.sql >/dev/null
+
+paso 'privilegios mínimos y separación de funciones'
+ejecutar_como postgres pruebas_sql/verificar_privilegios.sql >/dev/null
+esperar_fallo \
+    'invocación de runtime desde una identidad de migración' \
+    docker exec "${CONTENEDOR}" \
+    psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ct_migrador_prueba --dbname postgres \
+    --command \
+    "SELECT * FROM vec_contratacion_temporal.preparar_alta_v1('{}'::jsonb)"
+esperar_fallo \
+    'lectura directa por runtime' \
+    docker exec "${CONTENEDOR}" \
+    psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ct_runtime_prueba --dbname postgres \
+    --command 'TABLE vec_contratacion_temporal.identidad_reserva_alta'
+esperar_fallo \
+    'escalada de runtime a propietario' \
+    docker exec "${CONTENEDOR}" \
+    psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ct_runtime_prueba --dbname postgres \
+    --command 'SET ROLE vec_contratacion_temporal_propietario'
+
+paso 'alta, reintento estable y conflicto semántico'
+ejecutar_como \
+    vec_ct_runtime_prueba \
+    pruebas_sql/integracion_preparacion.sql >/dev/null
+
+paso 'concurrencia real: ocho sesiones y propuestas distintas'
+docker exec "${CONTENEDOR}" \
+    pgbench --no-vacuum \
+    --client=8 --jobs=4 --transactions=2 \
+    --username vec_ct_runtime_prueba \
+    --file /pruebas/pruebas_sql/concurrencia_preparacion.sql \
+    postgres >/dev/null
+ejecutar_como \
+    vec_ct_migrador_prueba \
+    pruebas_sql/verificar_concurrencia.sql >/dev/null
+
+paso 'inmutabilidad de identidad e historia'
+esperar_fallo \
+    'mutación de la identidad por el propietario' \
+    docker exec "${CONTENEDOR}" \
+    psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ct_migrador_prueba --dbname postgres \
+    --command \
+    "BEGIN; SET LOCAL ROLE vec_contratacion_temporal_propietario; UPDATE vec_contratacion_temporal.identidad_reserva_alta SET actor_ref = 'actor:alterado'; COMMIT"
+
+paso 'rollback destructivo cerrado por defecto'
+esperar_fallo \
+    'rollback con historia sin autorización explícita' \
+    ejecutar_como \
+    vec_ct_migrador_prueba \
+    migraciones/000001_preparacion_altas.down.sql
+
+paso 'rollback destructivo autorizado y limpieza total'
+docker exec \
+    --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
+    "${CONTENEDOR}" \
+    psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ct_migrador_prueba \
+    --dbname postgres \
+    --file /pruebas/migraciones/000001_preparacion_altas.down.sql \
+    >/dev/null
+docker exec --interactive "${CONTENEDOR}" psql -X --set ON_ERROR_STOP=1 \
+    --username postgres --dbname postgres <<'SQL' >/dev/null
+DROP ROLE vec_ct_runtime_prueba;
+DROP ROLE vec_ct_migrador_prueba;
+SQL
+ejecutar_como postgres roles_down.sql >/dev/null
+
+docker exec --interactive "${CONTENEDOR}" psql -X --set ON_ERROR_STOP=1 \
+    --username postgres --dbname postgres <<'SQL' >/dev/null
+DO $prueba$
+BEGIN
+    IF to_regnamespace('vec_contratacion_temporal') IS NOT NULL THEN
+        RAISE EXCEPTION 'el esquema no fue retirado';
+    END IF;
+    IF EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_roles
+         WHERE rolname LIKE 'vec_contratacion_temporal_%'
+            OR rolname LIKE 'vec_ct_%_prueba'
+    ) THEN
+        RAISE EXCEPTION 'quedaron roles de contratación temporal';
+    END IF;
+END
+$prueba$;
+SQL
+
+paso 'OK: instalación, mínimo privilegio, idempotencia, concurrencia y limpieza'
