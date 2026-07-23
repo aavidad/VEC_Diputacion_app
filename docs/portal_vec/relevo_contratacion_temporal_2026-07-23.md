@@ -453,7 +453,10 @@ resolución incierta, y probar la ruta pública completa sobre PostgreSQL 18.
 La evidencia exacta está en
 [la revisión O2-06](revisiones/o2_06_revision_independiente_nogo_2026-07-24.md).
 
-La web RRHH tiene un checkpoint aislado `7dcabd5` con 271 pruebas JavaScript y
-los siete paquetes Go del módulo verdes. No está integrada: continúa pendiente
-la paridad visual 1..17, el capturador Docker y la revisión independiente de
-las capturas.
+La web RRHH tiene un checkpoint aislado `cdf9314` con 272 pruebas JavaScript y
+los siete paquetes Go del módulo verdes. No está integrada y recibió `NO-GO`
+visual: sus dieciocho imágenes son capturas de página completa del cuadro más
+diecisiete tareas, no las diecisiete pantallas numeradas del documento, y los
+elementos fijos aparecen desplazados. Debe repetirse la matriz exacta a
+`1536 × 1024`, 1440 y 1280 antes de presentarla. Véase
+[la revisión visual](revisiones/web_contratacion_rrhh_revision_visual_nogo_2026-07-24.md).

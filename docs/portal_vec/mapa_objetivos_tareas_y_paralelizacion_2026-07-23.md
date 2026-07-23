@@ -15,7 +15,7 @@ temporal. El detalle verificable de cada tarea está en el
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 16 de 46 tareas cerradas (35 %); O4-02 ya está integrado |
 | Último commit verificado | `0be7467` — consultas O4-02 integradas tras GO independiente y puertas conjuntas |
-| Trabajo local en revisión | O2-06 `157a589` en NO-GO y corrección pendiente; web RRHH `7dcabd5` publicada pero pendiente de paridad/capturas; primer corte O5-01 pendiente de completar |
+| Trabajo local en revisión | O2-06 `157a589` en NO-GO; web RRHH `cdf9314` en NO-GO visual pendiente de capturas exactas 1..17; primer corte O5-01 pendiente |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
