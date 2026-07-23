@@ -63,7 +63,9 @@ func huellaCatalogoValida(valor string) bool {
 func materialCanonicoCatalogoCoberturaV1(
 	publicacion PublicacionCatalogoViasCobertura,
 ) ([]byte, error) {
-	if !publicacion.Canon.Valido() {
+	if !publicacion.Canon.Valido() ||
+		!instanteCatalogoCoberturaValido(publicacion.PublicadoEn) ||
+		publicacion.Vigencia.Validar() != nil {
 		return nil, ErrDatoInvalido
 	}
 	var material bytes.Buffer
