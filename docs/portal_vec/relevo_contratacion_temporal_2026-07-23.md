@@ -86,10 +86,10 @@ ajenas.
 | Autorización VEC durable de la preparación | Cerrada y revisada: V3, par HMAC activo exacto, revalidación y clientes neutrales |
 | Confianza y capacidad breve VEC-AD-3 | Integradas y revisadas: Ed25519/COSE estricto, audiencia, capacidad HMAC ≤5 s, rotación y revocación |
 | Contrato autenticado con Bolsa | Cerrado y revisado: referencias opacas, seudónimos, eventos, pruebas durables e inbox idempotente |
-| Confirmación atómica PostgreSQL | Candidato en corrección tras doble NO-GO; no integrado |
+| Confirmación atómica PostgreSQL | Corrección `cbe7299` terminada; pendiente doble revisión independiente |
 | Diseño de adaptador y reconciliación | Candidato con GO condicionado al SHA final de O2-05 |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
-| Web conectada | O2-09A aislada programada; sin conexión real ni E2E |
+| Web conectada | O2-09A visualmente apta, pero con NO-GO por dos límites divergentes; O2-09B pendiente |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -105,13 +105,13 @@ ajenas.
   configuración y versión de raíz. La revisión independiente terminó sin
   hallazgos y el corte quedó integrado en `8461aee`. Falta el consumidor SQL
   atómico; no cierra O2-05 ni habilita producción.
-- `cfc935a` contiene el candidato de confirmación atómica O2-05 con replay que
-  valida el agregado completo y no repara efectos. Dos revisores independientes
-  emitieron NO-GO coincidente: el vector SQL/Go fallaba según los ceros finales
-  de los microsegundos; sobraba un privilegio `REFERENCES` entre autoridades;
-  y faltaba automatizar la matriz de cancelación, respuesta perdida, reinicio
-  y fallo en cada escritura. El productor lo corrige; no se integra ni aumenta
-  el porcentaje.
+- `cfc935a` recibió dos NO-GO coincidentes por el canon temporal SQL/Go, un
+  privilegio `REFERENCES` entre autoridades y una matriz de fallos incompleta.
+  La corrección `cbe7299` conserva RFC3339Nano V3, elimina el privilegio,
+  automatiza los ocho fallos y cubre cancelación pre-`COMMIT`, respuesta
+  perdida, reconciliación y reinicio real. El productor superó PG18 ×4, foco
+  ×100, carrera y puertas globales. Sigue sin integrar hasta obtener dos GO
+  independientes y no aumenta el porcentaje.
 - `2c800fa`–`4cc4422` describen O2-06A, incluido resultado indeterminado,
   reconciliación, reintentos y ACL. Sus revisiones son GO condicionado: la
   firma Go↔SQL se actualizará y congelará únicamente después del GO de O2-05.
@@ -134,6 +134,12 @@ ajenas.
   de la vista y todos los paquetes de contratación temporal. El worktree
   desechable se eliminó después de la prueba. La ruta sigue sin registrar:
   O2-08 permanece funcionalmente abierta hasta la composición O2-07.
+- O2-09A `1323b4b` superó 50/50 pruebas, sintaxis, tamaños y una revisión
+  visual real de edición, revisión y recibo. No usa cookies, almacenamiento ni
+  API falsa. Dirección emitió NO-GO por dos divergencias reproducibles con
+  O2-08B: acepta más de cien años y céntimos superiores a
+  `922337203685477`. O2-09B corregirá únicamente esos bordes, sus mensajes i18n
+  y regresiones antes de una nueva revisión; la vista no se integra todavía.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
   cronología de solo adición y bloqueo de retroacciones implícitas. Un primer
   corte de aplicación posterior recibió NO-GO: aceptaba autoridad RC/coste
@@ -142,13 +148,12 @@ ajenas.
   O3-02 se reconstruye desde `209ae72` sin reutilizar sus commits. La barrera y
   el procedimiento están en
   `docs/seguridad/barrera_secretos_git_2026-07-23.md`.
-- La reconstrucción O3-02 alcanza `a1c0739`: un recibo durable y concordante
-  prevalece frente a cancelación o fallo de transporte posterior al `COMMIT`,
-  mientras un recibo vacío o adulterado falla cerrado. La revisión
-  independiente dio NO-GO porque aún quedan workflows multipuerto en `ports`
-  y porque el replay temprano no coteja la identidad semántica completa
-  —actor, perfil, clave de idempotencia, datos funcionales y motivo— antes de
-  devolver el recibo. Sigue en corrección; no está integrado.
+- La reconstrucción O3-02 alcanzó `a1c0739`, pero recibió NO-GO por mantener
+  coordinación multipuerto en `ports` y no cotejar toda la identidad semántica
+  del replay temprano. La corrección `df537b4` traslada la coordinación a
+  aplicación y sella actor, perfil, UUID, operación, organización, expediente,
+  versión, artefacto, datos funcionales y motivo. Sus puertas de productor
+  están verdes; espera revisión independiente y no está integrada.
 - `1faa8e7` implementa O3-03 con puertos neutrales para validación
   presupuestaria y cálculo de coste, ligadura de petición, copias defensivas,
   cancelación y fallo cerrado. La indisponibilidad nunca se convierte en «RC
