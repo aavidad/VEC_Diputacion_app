@@ -115,10 +115,26 @@ Los artefactos durables son:
 - `ArtefactoProbatorioEventoBolsa`.
 
 Cada uno declara esquema, versión y tipo; incorpora el HMAC de la evidencia y
-una huella SHA-256 de todo su sobre. La decodificación rechaza campos
-desconocidos, contenido adicional, esquema o versión distintos, corrupción y
-material que no coincida con el HMAC. Estos artefactos son datos probatorios,
-no implementan ningún puerto de efecto.
+una huella SHA-256 de todo su sobre. La decodificación probatoria se realiza
+con `DecodificarArtefactoProbatorioOrdenBolsa`,
+`DecodificarArtefactoProbatorioLlamamientoBolsa` o
+`DecodificarArtefactoProbatorioEventoBolsa`, según el tipo. Estas fronteras
+aplican antes de materializar el DTO:
+
+- máximo de 1 MiB;
+- profundidad máxima de 24 niveles;
+- máximo de 256 miembros por objeto o elementos por colección;
+- rechazo de claves duplicadas en cualquier nivel;
+- rechazo de campos desconocidos y contenido posterior;
+- esquema, versión y tipo exactos;
+- recodificación canónica idéntica byte a byte.
+
+No se debe sustituir esta frontera por un `json.Unmarshal` genérico: la
+biblioteca estándar puede normalizar espacio exterior antes de invocar el
+codec del tipo y, por tanto, no puede aplicar el límite al encuadre original.
+La huella exterior, el HMAC y la recodificación canónica son controles
+complementarios. Estos artefactos son datos probatorios, no implementan ningún
+puerto de efecto.
 
 Tras un reinicio:
 
@@ -142,10 +158,17 @@ nueva con un contexto fresco; un llamamiento histórico solo puede derivar el
 enlace probatorio; y un evento histórico solo puede producir el comando
 idempotente de registro. No permiten repetir el efecto original.
 
-Los constructores que emiten un llamamiento o registran un evento exigen que
-el comprobante haya sido verificado en el mismo instante confiable de la
-operación. Con ello no se puede guardar un comprobante viejo y reutilizarlo
-después de caducar la política.
+Los constructores en línea que emiten un llamamiento o registran un evento
+exigen que el comprobante haya sido verificado en el mismo instante confiable
+de la operación. La capacidad histórica rehidratada no conserva como vigente
+el instante de su reautenticación: al construir el comando recibe otra vez el
+instante actual y vuelve a comprobar `RetenerHasta`.
+
+Además, el comando de registro solo entrega sus datos mediante
+`DatosParaEfectoEn`. El adaptador de inbox debe obtener ese instante de su
+reloj confiable y abrir la capacidad dentro de la misma transacción CAS que
+escribe inbox, estado, auditoría y outbox. Así, un comando preparado antes de
+la caducidad tampoco puede surtir efecto después de ella.
 
 ## Idempotencia y concurrencia
 
@@ -154,15 +177,21 @@ bytes idénticos conserva el mismo acuse. Reutilizar la misma identidad con
 otra carga es una colisión y se rechaza.
 
 Cada evento porta secuencia anterior, secuencia siguiente y versión esperada.
-El adaptador de persistencia deberá aplicar el control CAS y escribir estado,
-auditoría, inbox y outbox en una única transacción. O6-01 define el contrato;
-la transacción real corresponde a la tarea de persistencia posterior.
+El adaptador de persistencia deberá aplicar el control CAS, revalidar la
+retención con `DatosParaEfectoEn` y escribir estado, auditoría, inbox y outbox
+en una única transacción. O6-01 define el contrato; la transacción real
+corresponde a la tarea de persistencia posterior.
 
 ## Minimización
 
 El contrato no transporta DNI, nombre, correo, teléfono ni dirección. La
-selección se representa mediante una referencia seudonimizada y una política
-de retención versionada. Esa referencia no debe entrar en logs ni telemetría.
+selección usa el tipo nominal `SeudonimoSeleccionBolsa`, cuya única gramática
+admitida es un HMAC-SHA-256 con dominio
+`vec.contratacion-temporal.seleccion` y versión explícita. No admite una
+cadena opaca libre, un DNI, un NIE, un correo, un nombre ni un identificador
+directo. `String`, `GoString`, todos los verbos de `Format` y `LogValue`
+devuelven una marca redactada; los codecs JSON/texto validados se reservan al
+transporte autorizado. La política de retención continúa siendo versionada.
 
 Las versiones numéricas se limitan al entero seguro común de JSON para evitar
 interpretaciones distintas entre Go, web, escritorio, CLI y MCP. También se
@@ -174,7 +203,8 @@ La batería focal cubre:
 
 - imposibilidad de fabricar o serializar capacidades opacas;
 - alteración y caducidad del contexto firmado;
-- cancelación de fronteras;
+- cancelación anterior y producida dentro de `SellarDatos` o
+  `VerificarDatos`, sin promover una capacidad después de la criptografía;
 - autoridad Bolsa fija y verificador sin capacidad de firma;
 - rotación v2 con v1 retenida y rechazo al retirar v1;
 - persistencia JSON y reautenticación tras reinicio y caducidad;
@@ -185,6 +215,13 @@ La batería focal cubre:
   selección, retención y cronología;
 - referencias y huellas exactas de petición y recibo en eventos;
 - alteración del material, replay, colisión, secuencia y acuse CAS;
+- uso después de `RetenerHasta`, tanto desde una capacidad rehidratada antes
+  como en la apertura dentro de la frontera CAS;
+- rechazo de DNI, NIE, correo, nombre, identificadores directos y dominios
+  HMAC ajenos como seudónimo, además de redacción en `fmt` y `slog`;
+- matriz de JSON con duplicados, contenido posterior, exceso de tamaño,
+  profundidad, colección y codificación no canónica, junto a esquema, versión
+  y tipo estrictos para los tres artefactos;
 - neutralidad respecto a web, escritorio, CLI y MCP.
 
 Puertas reproducidas en el entregable:

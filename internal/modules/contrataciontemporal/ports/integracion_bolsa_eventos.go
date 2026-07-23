@@ -27,7 +27,8 @@ type datosEnlaceEventoLlamamientoBolsa struct {
 	versionExpediente                              uint64
 	finalidad, accion, recurso                     ReferenciaVersionadaIntegracionBolsa
 	necesidad, bolsa, orden, politica              ReferenciaVersionadaIntegracionBolsa
-	llamamientoRef, seleccionRef                   string
+	llamamientoRef                                 string
+	seleccionRef                                   SeudonimoSeleccionBolsa
 	retencionSeleccion                             ReferenciaVersionadaIntegracionBolsa
 	peticionRef, huellaPeticion                    string
 	reciboRef, huellaRecibo                        string
@@ -112,7 +113,7 @@ func (e EnlaceEventoLlamamientoBolsa) valido() bool {
 		d.necesidad.Validar() == nil && d.bolsa.Validar() == nil &&
 		d.orden.Validar() == nil && d.politica.Validar() == nil &&
 		domain.ReferenciaOpacaValida(d.llamamientoRef) &&
-		domain.ReferenciaOpacaValida(d.seleccionRef) &&
+		d.seleccionRef.Validar() == nil &&
 		d.retencionSeleccion.Validar() == nil &&
 		domain.ReferenciaOpacaValida(d.peticionRef) &&
 		huellaSHA256Valida(d.huellaPeticion) &&
@@ -160,7 +161,7 @@ type EventoLlamamientoBolsa struct {
 	Politica                   ReferenciaVersionadaIntegracionBolsa `json:"politica"`
 	Propuesta                  ReferenciaVersionadaIntegracionBolsa `json:"propuesta"`
 	LlamamientoRef             string                               `json:"llamamiento_ref"`
-	SeleccionRef               string                               `json:"seleccion_ref"`
+	SeleccionRef               SeudonimoSeleccionBolsa              `json:"seleccion_ref"`
 	RetencionSeleccion         ReferenciaVersionadaIntegracionBolsa `json:"retencion_seleccion"`
 	Tipo                       ReferenciaVersionadaIntegracionBolsa `json:"tipo"`
 	Estado                     ReferenciaVersionadaIntegracionBolsa `json:"estado"`
@@ -270,7 +271,7 @@ func (e EventoLlamamientoBolsa) validarEstructuraDurable() error {
 		e.Orden.Validar() != nil || e.Politica.Validar() != nil ||
 		e.Propuesta.Validar() != nil || e.Recurso != e.Propuesta ||
 		!domain.ReferenciaOpacaValida(e.LlamamientoRef) ||
-		!domain.ReferenciaOpacaValida(e.SeleccionRef) ||
+		e.SeleccionRef.Validar() != nil ||
 		e.RetencionSeleccion.Validar() != nil ||
 		e.Tipo.Validar() != nil || e.Estado.Validar() != nil ||
 		!enteroSeguroBolsa(e.Secuencia) ||
@@ -353,7 +354,7 @@ type ComandoRegistrarEventoBolsa struct {
 	evento      *EventoLlamamientoBolsa
 	enlace      EnlaceEventoLlamamientoBolsa
 	comprobante ComprobanteEvidenciaIntegracionBolsa
-	validadoEn  time.Time
+	preparadoEn time.Time
 }
 
 func (ComandoRegistrarEventoBolsa) MarshalJSON() ([]byte, error) {
@@ -386,25 +387,61 @@ func NuevoComandoRegistrarEventoBolsa(
 	clon := evento
 	return ComandoRegistrarEventoBolsa{
 		evento: &clon, enlace: enlace, comprobante: comprobante,
-		validadoEn: instante,
+		preparadoEn: instante,
 	}, nil
 }
 
-func (c ComandoRegistrarEventoBolsa) Datos() (
+func nuevoComandoRegistrarEventoHistoricoBolsa(
+	evento EventoLlamamientoBolsa,
+	enlace EnlaceEventoLlamamientoBolsa,
+	comprobante ComprobanteEvidenciaIntegracionBolsa,
+	instanteActual time.Time,
+) (ComandoRegistrarEventoBolsa, error) {
+	evidencia := nuevaEvidenciaDurableBolsa(
+		"evento_llamamiento",
+		evento.PeticionRef,
+		materialEnlaceEventoBolsa(enlace),
+		materialEventoBolsa(evento),
+		evento.Procedencia,
+	)
+	verificadaEn := comprobante.instanteVerificacion()
+	if !instanteBolsaCanonico(instanteActual) ||
+		!instanteBolsaCanonico(verificadaEn) ||
+		instanteActual.Before(verificadaEn) ||
+		evento.ValidarDurableParaEn(enlace, instanteActual) != nil ||
+		!comprobante.coincide(evidencia) {
+		return ComandoRegistrarEventoBolsa{}, ErrEvidenciaBolsaNoAutenticada
+	}
+	clon := evento
+	return ComandoRegistrarEventoBolsa{
+		evento: &clon, enlace: enlace, comprobante: comprobante,
+		preparadoEn: instanteActual,
+	}, nil
+}
+
+// DatosParaEfectoEn es la única apertura de la capacidad de registro. El
+// adaptador debe invocarla con su reloj confiable dentro de la misma
+// transacción CAS que escribe inbox, estado, auditoría y outbox.
+func (c ComandoRegistrarEventoBolsa) DatosParaEfectoEn(
+	instanteActual time.Time,
+) (
 	EventoLlamamientoBolsa,
 	ComprobanteEvidenciaIntegracionBolsa,
 	error,
 ) {
-	if c.evento == nil {
+	if c.evento == nil ||
+		!instanteBolsaCanonico(instanteActual) ||
+		!instanteBolsaCanonico(c.preparadoEn) ||
+		instanteActual.Before(c.preparadoEn) {
 		return EventoLlamamientoBolsa{}, ComprobanteEvidenciaIntegracionBolsa{},
 			ErrEventoBolsaInvalido
 	}
 	evento := *c.evento
-	reconstruido, err := NuevoComandoRegistrarEventoBolsa(
+	reconstruido, err := nuevoComandoRegistrarEventoHistoricoBolsa(
 		evento,
 		c.enlace,
 		c.comprobante,
-		c.validadoEn,
+		instanteActual,
 	)
 	if err != nil || reconstruido.evento == nil {
 		return EventoLlamamientoBolsa{}, ComprobanteEvidenciaIntegracionBolsa{},
@@ -436,7 +473,7 @@ func materialEnlaceEventoBolsa(enlace EnlaceEventoLlamamientoBolsa) []byte {
 	c.referencia("orden", d.orden)
 	c.referencia("politica", d.politica)
 	c.campo("llamamiento_ref", d.llamamientoRef)
-	c.campo("seleccion_ref_seudonimizada", d.seleccionRef)
+	c.campo("seleccion_ref_seudonimizada", d.seleccionRef.valorCanonico())
 	c.referencia("retencion_seleccion", d.retencionSeleccion)
 	c.instante("peticion_solicitada_en", d.peticionSolicitadaEn)
 	c.instante("peticion_valida_hasta", d.peticionValidaHasta)
@@ -473,7 +510,10 @@ func materialEventoBolsa(evento EventoLlamamientoBolsa) []byte {
 	c.referencia("politica", evento.Politica)
 	c.referencia("propuesta", evento.Propuesta)
 	c.campo("llamamiento_ref", evento.LlamamientoRef)
-	c.campo("seleccion_ref_seudonimizada", evento.SeleccionRef)
+	c.campo(
+		"seleccion_ref_seudonimizada",
+		evento.SeleccionRef.valorCanonico(),
+	)
 	c.referencia("retencion_seleccion", evento.RetencionSeleccion)
 	c.referencia("tipo", evento.Tipo)
 	c.referencia("estado", evento.Estado)

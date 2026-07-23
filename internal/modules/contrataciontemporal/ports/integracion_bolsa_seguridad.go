@@ -280,6 +280,9 @@ func (v *VerificadorEvidenciaIntegracionBolsa) reautenticar(
 		}
 		return ComprobanteEvidenciaIntegracionBolsa{}, ErrEvidenciaBolsaNoAutenticada
 	}
+	if err := ctx.Err(); err != nil {
+		return ComprobanteEvidenciaIntegracionBolsa{}, err
+	}
 	return ComprobanteEvidenciaIntegracionBolsa{
 		datos: &datosComprobanteEvidenciaBolsa{
 			evidencia: evidencia, verificadaEn: instante,

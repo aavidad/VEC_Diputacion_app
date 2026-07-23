@@ -5,9 +5,29 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
+
+type bandejaCASEventoBolsaPrueba struct{}
+
+func (bandejaCASEventoBolsaPrueba) RegistrarEventoLlamamiento(
+	ctx context.Context,
+	comando ComandoRegistrarEventoBolsa,
+	instanteActual time.Time,
+) (AcuseEventoLlamamientoBolsa, error) {
+	if err := ctx.Err(); err != nil {
+		return AcuseEventoLlamamientoBolsa{}, err
+	}
+	evento, _, err := comando.DatosParaEfectoEn(instanteActual)
+	if err != nil {
+		return AcuseEventoLlamamientoBolsa{}, err
+	}
+	return acuseEventoBolsaPrueba(evento, instanteActual), nil
+}
+
+var _ BandejaEventosLlamamientoBolsa = bandejaCASEventoBolsaPrueba{}
 
 func TestReinicioRealRehidrataArtefactosYLlegaARegistrarEvento(t *testing.T) {
 	base := instanteBolsaPrueba()
@@ -94,12 +114,13 @@ func TestReinicioRealRehidrataArtefactosYLlegaARegistrarEvento(t *testing.T) {
 	artefactoEvento = ArtefactoProbatorioEventoBolsa{}
 	verificadorInicial = nil
 
-	var llamamientoRecuperado ArtefactoProbatorioLlamamientoBolsa
-	if err := json.Unmarshal(bytesLlamamiento, &llamamientoRecuperado); err != nil {
+	llamamientoRecuperado, err :=
+		DecodificarArtefactoProbatorioLlamamientoBolsa(bytesLlamamiento)
+	if err != nil {
 		t.Fatalf("leer artefacto de llamamiento tras reinicio: %v", err)
 	}
-	var eventoRecuperado ArtefactoProbatorioEventoBolsa
-	if err := json.Unmarshal(bytesEvento, &eventoRecuperado); err != nil {
+	eventoRecuperado, err := DecodificarArtefactoProbatorioEventoBolsa(bytesEvento)
+	if err != nil {
 		t.Fatalf("leer artefacto de evento tras reinicio: %v", err)
 	}
 	autenticadorNuevo := autenticadorContextoBolsaPrueba(t)
@@ -160,12 +181,28 @@ func TestReinicioRealRehidrataArtefactosYLlegaARegistrarEvento(t *testing.T) {
 	}
 	comandoRegistro, err := NuevoComandoRegistrarEventoRehidratadoBolsa(
 		eventoRehidratado,
+		trasReinicio,
 	)
 	if err != nil {
 		t.Fatalf("evidencia reautenticada no llegó al registro: %v", err)
 	}
-	if _, _, err := comandoRegistro.Datos(); err != nil {
+	if _, _, err := comandoRegistro.DatosParaEfectoEn(trasReinicio); err != nil {
 		t.Fatalf("comando durable de registro no conserva prueba: %v", err)
+	}
+	limiteRetencion := eventoRecuperado.Evento.Procedencia.Evidencia.RetenerHasta
+	if _, err := NuevoComandoRegistrarEventoRehidratadoBolsa(
+		eventoRehidratado,
+		limiteRetencion,
+	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
+		t.Fatalf("capacidad rehidratada conservó un instante antiguo: %v", err)
+	}
+	if _, err := (bandejaCASEventoBolsaPrueba{}).RegistrarEventoLlamamiento(
+		context.Background(),
+		comandoRegistro,
+		limiteRetencion,
+	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) &&
+		!errors.Is(err, ErrEventoBolsaInvalido) {
+		t.Fatalf("frontera CAS promovió un comando tras la retención: %v", err)
 	}
 }
 
@@ -196,8 +233,8 @@ func TestOrdenProbatoriaSobreviveReinicioSinContextoFresco(t *testing.T) {
 	comprobante = ComprobanteEvidenciaIntegracionBolsa{}
 	artefacto = ArtefactoProbatorioOrdenBolsa{}
 
-	var recuperado ArtefactoProbatorioOrdenBolsa
-	if err := json.Unmarshal(contenido, &recuperado); err != nil {
+	recuperado, err := DecodificarArtefactoProbatorioOrdenBolsa(contenido)
+	if err != nil {
 		t.Fatalf("recuperar orden: %v", err)
 	}
 	trasReinicio := base.Add(24 * time.Hour)
@@ -257,8 +294,9 @@ func TestArtefactosCerradosRechazanCamposYAtaquesAunqueRecalculenHuella(t *testi
 		[]byte(`"version":1,"campo_ajeno":true,`),
 		1,
 	)
-	var cerrado ArtefactoProbatorioOrdenBolsa
-	if err := json.Unmarshal(conCampoAjeno, &cerrado); !errors.Is(
+	if _, err := DecodificarArtefactoProbatorioOrdenBolsa(
+		conCampoAjeno,
+	); !errors.Is(
 		err,
 		ErrEvidenciaBolsaNoAutenticada,
 	) {
@@ -292,6 +330,105 @@ func TestArtefactosCerradosRechazanCamposYAtaquesAunqueRecalculenHuella(t *testi
 		base.Add(24*time.Hour),
 	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
 		t.Fatalf("HMAC alterado y rehuellado fue aceptado: %v", err)
+	}
+}
+
+func TestArtefactosRechazanEncuadreNoCanonicoDuplicadoOAcosado(t *testing.T) {
+	artefacto := artefactoOrdenBolsaPrueba(t)
+	canonico, err := json.Marshal(artefacto)
+	if err != nil {
+		t.Fatalf("codificar artefacto: %v", err)
+	}
+	duplicado := bytes.Replace(
+		canonico,
+		[]byte(`"version":1`),
+		[]byte(`"version":1,"version":1`),
+		1,
+	)
+	duplicadoAnidado := []byte(`{"campo":{"valor":1,"valor":1}}`)
+	reordenado := bytes.Replace(
+		canonico,
+		[]byte(
+			`{"esquema":"vec.contratacion-temporal.artefacto-bolsa","version":1,`,
+		),
+		[]byte(
+			`{"version":1,"esquema":"vec.contratacion-temporal.artefacto-bolsa",`,
+		),
+		1,
+	)
+	profundo := `{"campo":` +
+		strings.Repeat("[", MaximaProfundidadArtefactoProbatorioBolsa+1) +
+		`0` +
+		strings.Repeat("]", MaximaProfundidadArtefactoProbatorioBolsa+1) +
+		`}`
+	elementos := `{"campo":[` +
+		strings.Repeat(
+			`0,`,
+			MaximosElementosArtefactoProbatorioBolsa,
+		) +
+		`0]}`
+	sobredimensionado := make(
+		[]byte,
+		MaximoBytesArtefactoProbatorioBolsa+1,
+	)
+	copy(sobredimensionado, canonico)
+	for i := len(canonico); i < len(sobredimensionado); i++ {
+		sobredimensionado[i] = ' '
+	}
+	casos := map[string][]byte{
+		"duplicado":          duplicado,
+		"duplicado_anidado":  duplicadoAnidado,
+		"contenido_sobrante": append(append([]byte{}, canonico...), []byte(`{}`)...),
+		"sobredimensionado":  sobredimensionado,
+		"profundidad":        []byte(profundo),
+		"coleccion":          []byte(elementos),
+		"campos_reordenados": reordenado,
+		"espacio_no_canonico": append(
+			[]byte(" "),
+			canonico...,
+		),
+	}
+	for nombre, contenido := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			if _, err := DecodificarArtefactoProbatorioOrdenBolsa(
+				contenido,
+			); !errors.Is(
+				err,
+				ErrEvidenciaBolsaNoAutenticada,
+			) {
+				t.Fatalf("encuadre hostil aceptado: %v", err)
+			}
+		})
+	}
+}
+
+func TestCabeceraEsquemaVersionYTipoSonEstrictosEnLosTresArtefactos(
+	t *testing.T,
+) {
+	orden, llamamiento, evento := artefactosProbatoriosBolsaPrueba(t)
+	for nombre, variantes := range map[string][][]byte{
+		"orden":       variantesCabeceraArtefactoBolsa(orden),
+		"llamamiento": variantesCabeceraArtefactoBolsa(llamamiento),
+		"evento":      variantesCabeceraArtefactoBolsa(evento),
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			for indice, contenido := range variantes {
+				var err error
+				switch nombre {
+				case "orden":
+					_, err = DecodificarArtefactoProbatorioOrdenBolsa(contenido)
+				case "llamamiento":
+					_, err = DecodificarArtefactoProbatorioLlamamientoBolsa(
+						contenido,
+					)
+				case "evento":
+					_, err = DecodificarArtefactoProbatorioEventoBolsa(contenido)
+				}
+				if !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
+					t.Fatalf("cabecera alterada %d aceptada: %v", indice, err)
+				}
+			}
+		})
 	}
 }
 
@@ -344,4 +481,149 @@ func autenticadorContextoBolsaPrueba(
 		t.Fatalf("crear autenticador de contexto: %v", err)
 	}
 	return autenticador
+}
+
+func artefactoOrdenBolsaPrueba(
+	t *testing.T,
+) ArtefactoProbatorioOrdenBolsa {
+	t.Helper()
+	base := instanteBolsaPrueba()
+	comando := comandoOrdenPrueba(t, base)
+	recibo := reciboOrdenPrueba(t, base)
+	firmarOrdenPrueba(t, selladorRespuestaBolsaPrueba(), comando, &recibo)
+	comprobante, evidencia, err := verificadorRespuestaBolsaPrueba(
+		claveRespuestaBolsaV1Prueba,
+	).VerificarReciboOrden(
+		context.Background(),
+		comando,
+		recibo,
+		base.Add(3*time.Minute),
+	)
+	if err != nil {
+		t.Fatalf("autenticar orden: %v", err)
+	}
+	artefacto, err := NuevoArtefactoProbatorioOrdenBolsa(
+		comando,
+		recibo,
+		evidencia,
+		comprobante,
+	)
+	if err != nil {
+		t.Fatalf("crear artefacto de orden: %v", err)
+	}
+	return artefacto
+}
+
+func artefactosProbatoriosBolsaPrueba(
+	t *testing.T,
+) (
+	ArtefactoProbatorioOrdenBolsa,
+	ArtefactoProbatorioLlamamientoBolsa,
+	ArtefactoProbatorioEventoBolsa,
+) {
+	t.Helper()
+	base := instanteBolsaPrueba()
+	fresco := base.Add(3 * time.Minute)
+	sellador := selladorRespuestaBolsaPrueba()
+	verificador := verificadorRespuestaBolsaPrueba(claveRespuestaBolsaV1Prueba)
+
+	orden := artefactoOrdenBolsaPrueba(t)
+	comando := comandoLlamamientoPrueba(t, base, sellador)
+	recibo := reciboLlamamientoPrueba(t, comando, base)
+	firmarLlamamientoPrueba(t, sellador, comando, &recibo)
+	comprobanteLlamamiento, evidenciaLlamamiento, err :=
+		verificador.VerificarReciboLlamamiento(
+			context.Background(),
+			comando,
+			recibo,
+			fresco,
+		)
+	if err != nil {
+		t.Fatalf("autenticar llamamiento: %v", err)
+	}
+	llamamiento, err := NuevoArtefactoProbatorioLlamamientoBolsa(
+		comando,
+		recibo,
+		evidenciaLlamamiento,
+		comprobanteLlamamiento,
+	)
+	if err != nil {
+		t.Fatalf("crear artefacto de llamamiento: %v", err)
+	}
+	enlace, err := NuevoEnlaceEventoLlamamientoBolsa(
+		PreparacionEnlaceEventoLlamamientoBolsa{
+			Comando: comando, Recibo: recibo, Comprobante: comprobanteLlamamiento,
+		},
+	)
+	if err != nil {
+		t.Fatalf("crear enlace: %v", err)
+	}
+	eventoValor := nuevoEventoParaEnlaceBolsaPrueba(t, base, enlace)
+	comprobanteEvento, evidenciaEvento, err := verificador.VerificarEvento(
+		context.Background(),
+		eventoValor,
+		enlace,
+		fresco,
+	)
+	if err != nil {
+		t.Fatalf("autenticar evento: %v", err)
+	}
+	evento, err := NuevoArtefactoProbatorioEventoBolsa(
+		eventoValor,
+		enlace,
+		evidenciaEvento,
+		comprobanteEvento,
+		fresco,
+	)
+	if err != nil {
+		t.Fatalf("crear artefacto de evento: %v", err)
+	}
+	return orden, llamamiento, evento
+}
+
+func variantesCabeceraArtefactoBolsa(artefacto any) [][]byte {
+	codificar := func(valor any) []byte {
+		contenido, err := json.Marshal(valor)
+		if err != nil {
+			panic(err)
+		}
+		return contenido
+	}
+	switch valor := artefacto.(type) {
+	case ArtefactoProbatorioOrdenBolsa:
+		esquema := valor
+		esquema.Esquema = "vec.otro"
+		esquema.HuellaArtefactoSHA256 = huellaArtefactoProbatorioBolsa(esquema)
+		version := valor
+		version.Version++
+		version.HuellaArtefactoSHA256 = huellaArtefactoProbatorioBolsa(version)
+		tipo := valor
+		tipo.Tipo = tipoArtefactoEventoBolsa
+		tipo.HuellaArtefactoSHA256 = huellaArtefactoProbatorioBolsa(tipo)
+		return [][]byte{codificar(esquema), codificar(version), codificar(tipo)}
+	case ArtefactoProbatorioLlamamientoBolsa:
+		esquema := valor
+		esquema.Esquema = "vec.otro"
+		esquema.HuellaArtefactoSHA256 = huellaArtefactoProbatorioBolsa(esquema)
+		version := valor
+		version.Version++
+		version.HuellaArtefactoSHA256 = huellaArtefactoProbatorioBolsa(version)
+		tipo := valor
+		tipo.Tipo = tipoArtefactoEventoBolsa
+		tipo.HuellaArtefactoSHA256 = huellaArtefactoProbatorioBolsa(tipo)
+		return [][]byte{codificar(esquema), codificar(version), codificar(tipo)}
+	case ArtefactoProbatorioEventoBolsa:
+		esquema := valor
+		esquema.Esquema = "vec.otro"
+		esquema.HuellaArtefactoSHA256 = huellaArtefactoProbatorioBolsa(esquema)
+		version := valor
+		version.Version++
+		version.HuellaArtefactoSHA256 = huellaArtefactoProbatorioBolsa(version)
+		tipo := valor
+		tipo.Tipo = tipoArtefactoOrdenBolsa
+		tipo.HuellaArtefactoSHA256 = huellaArtefactoProbatorioBolsa(tipo)
+		return [][]byte{codificar(esquema), codificar(version), codificar(tipo)}
+	default:
+		panic("tipo de artefacto no soportado")
+	}
 }

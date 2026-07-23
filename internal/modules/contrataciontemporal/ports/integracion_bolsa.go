@@ -35,6 +35,7 @@ var (
 	ErrColisionEventoBolsa              = errors.New("contratacion temporal: identidad de evento de bolsa reutilizada con otra carga")
 	ErrSecuenciaEventoBolsaConflicto    = errors.New("contratacion temporal: secuencia de evento de bolsa en conflicto")
 	ErrAcuseEventoBolsaNoConfiable      = errors.New("contratacion temporal: acuse de evento de bolsa no confiable")
+	ErrSeudonimoSeleccionBolsaInvalido  = errors.New("contratacion temporal: seudonimo de seleccion de bolsa invalido")
 )
 
 // ReferenciaVersionadaIntegracionBolsa enlaza un recurso opaco con su versión

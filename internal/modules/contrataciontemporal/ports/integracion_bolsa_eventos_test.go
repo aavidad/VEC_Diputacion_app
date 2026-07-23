@@ -24,7 +24,7 @@ func TestEventoExigeEnlaceGobernadoExactoYAutenticacion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("comando verificado rechazado: %v", err)
 	}
-	recuperado, prueba, err := comando.Datos()
+	recuperado, prueba, err := comando.DatosParaEfectoEn(ahora)
 	if err != nil || recuperado != evento || prueba.datos == nil {
 		t.Fatalf("comando no conserva evento y prueba: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestEventoNoPuedeAutovalidarFinalidadAccionRecursoNiReferencias(t *testing.
 			e.LlamamientoRef = "llamamiento:otro"
 		}},
 		{"seleccion", func(e *EventoLlamamientoBolsa) {
-			e.SeleccionRef = "seleccion:otra"
+			e.SeleccionRef = seudonimoSeleccionBolsaPrueba(t, "a")
 		}},
 		{"retencion", func(e *EventoLlamamientoBolsa) {
 			e.RetencionSeleccion = referenciaBolsaPrueba("retencion:otra", "3")

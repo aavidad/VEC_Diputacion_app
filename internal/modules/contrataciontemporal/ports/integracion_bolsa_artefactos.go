@@ -11,6 +11,13 @@ const (
 	tipoArtefactoOrdenBolsa         = "recibo_orden"
 	tipoArtefactoLlamamientoBolsa   = "recibo_llamamiento"
 	tipoArtefactoEventoBolsa        = "evento_llamamiento"
+
+	// MaximoBytesArtefactoProbatorioBolsa limita el encuadre antes de decodificar.
+	MaximoBytesArtefactoProbatorioBolsa = 1 << 20
+	// MaximaProfundidadArtefactoProbatorioBolsa limita objetos y colecciones.
+	MaximaProfundidadArtefactoProbatorioBolsa = 24
+	// MaximosElementosArtefactoProbatorioBolsa limita cada objeto o colección.
+	MaximosElementosArtefactoProbatorioBolsa = 256
 )
 
 // DatosDurablesComandoOrdenBolsa es la representación probatoria del comando,
@@ -141,7 +148,23 @@ func (a *ArtefactoProbatorioOrdenBolsa) UnmarshalJSON(contenido []byte) error {
 		return ErrEvidenciaBolsaNoAutenticada
 	}
 	*a = ArtefactoProbatorioOrdenBolsa(valor)
-	return a.Validar()
+	if a.Validar() != nil ||
+		validarRecodificacionCanonicaArtefactoBolsa(contenido, *a) != nil {
+		return ErrEvidenciaBolsaNoAutenticada
+	}
+	return nil
+}
+
+// DecodificarArtefactoProbatorioOrdenBolsa valida el encuadre original
+// completo antes de materializar el artefacto.
+func DecodificarArtefactoProbatorioOrdenBolsa(
+	contenido []byte,
+) (ArtefactoProbatorioOrdenBolsa, error) {
+	var artefacto ArtefactoProbatorioOrdenBolsa
+	if err := artefacto.UnmarshalJSON(contenido); err != nil {
+		return ArtefactoProbatorioOrdenBolsa{}, err
+	}
+	return artefacto, nil
 }
 
 func (a ArtefactoProbatorioOrdenBolsa) Rehidratar(
@@ -299,7 +322,23 @@ func (a *ArtefactoProbatorioLlamamientoBolsa) UnmarshalJSON(contenido []byte) er
 		return ErrEvidenciaBolsaNoAutenticada
 	}
 	*a = ArtefactoProbatorioLlamamientoBolsa(valor)
-	return a.Validar()
+	if a.Validar() != nil ||
+		validarRecodificacionCanonicaArtefactoBolsa(contenido, *a) != nil {
+		return ErrEvidenciaBolsaNoAutenticada
+	}
+	return nil
+}
+
+// DecodificarArtefactoProbatorioLlamamientoBolsa valida el encuadre original
+// completo antes de materializar el artefacto.
+func DecodificarArtefactoProbatorioLlamamientoBolsa(
+	contenido []byte,
+) (ArtefactoProbatorioLlamamientoBolsa, error) {
+	var artefacto ArtefactoProbatorioLlamamientoBolsa
+	if err := artefacto.UnmarshalJSON(contenido); err != nil {
+		return ArtefactoProbatorioLlamamientoBolsa{}, err
+	}
+	return artefacto, nil
 }
 
 func (a ArtefactoProbatorioLlamamientoBolsa) Rehidratar(
@@ -360,7 +399,6 @@ type EventoProbatorioRehidratadoBolsa struct {
 	evento      EventoLlamamientoBolsa
 	enlace      EnlaceEventoLlamamientoBolsa
 	comprobante ComprobanteEvidenciaIntegracionBolsa
-	validadoEn  time.Time
 }
 
 func (EventoProbatorioRehidratadoBolsa) MarshalJSON() ([]byte, error) {
@@ -373,12 +411,13 @@ func (*EventoProbatorioRehidratadoBolsa) UnmarshalJSON([]byte) error {
 
 func NuevoComandoRegistrarEventoRehidratadoBolsa(
 	prueba EventoProbatorioRehidratadoBolsa,
+	instanteActual time.Time,
 ) (ComandoRegistrarEventoBolsa, error) {
-	return NuevoComandoRegistrarEventoBolsa(
+	return nuevoComandoRegistrarEventoHistoricoBolsa(
 		prueba.evento,
 		prueba.enlace,
 		prueba.comprobante,
-		prueba.validadoEn,
+		instanteActual,
 	)
 }
 
@@ -432,7 +471,23 @@ func (a *ArtefactoProbatorioEventoBolsa) UnmarshalJSON(contenido []byte) error {
 		return ErrEvidenciaBolsaNoAutenticada
 	}
 	*a = ArtefactoProbatorioEventoBolsa(valor)
-	return a.Validar()
+	if a.Validar() != nil ||
+		validarRecodificacionCanonicaArtefactoBolsa(contenido, *a) != nil {
+		return ErrEvidenciaBolsaNoAutenticada
+	}
+	return nil
+}
+
+// DecodificarArtefactoProbatorioEventoBolsa valida el encuadre original
+// completo antes de materializar el artefacto.
+func DecodificarArtefactoProbatorioEventoBolsa(
+	contenido []byte,
+) (ArtefactoProbatorioEventoBolsa, error) {
+	var artefacto ArtefactoProbatorioEventoBolsa
+	if err := artefacto.UnmarshalJSON(contenido); err != nil {
+		return ArtefactoProbatorioEventoBolsa{}, err
+	}
+	return artefacto, nil
 }
 
 func (a ArtefactoProbatorioEventoBolsa) Rehidratar(
@@ -457,6 +512,6 @@ func (a ArtefactoProbatorioEventoBolsa) Rehidratar(
 	}
 	return EventoProbatorioRehidratadoBolsa{
 		evento: a.Evento, enlace: enlace,
-		comprobante: comprobante, validadoEn: instante,
+		comprobante: comprobante,
 	}, nil
 }
