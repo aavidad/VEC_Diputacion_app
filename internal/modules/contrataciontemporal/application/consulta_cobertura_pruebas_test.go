@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
-	"strconv"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -157,16 +157,27 @@ func (r *relojCoberturaAplicacionPrueba) fijar(ahora time.Time) {
 }
 
 type registroConsumoCoberturaAplicacionPrueba struct {
-	huella string
-	recibo ports.ReciboConsumoCobertura
+	huellaPeticion  string
+	huellaResultado string
+	recibo          ports.ReciboConsumoCobertura
+}
+
+type evidenciaConsumoCoberturaAplicacionPrueba struct {
+	claveEfecto     string
+	huellaRespuesta string
 }
 
 type consumidorCoberturaAplicacionPrueba struct {
-	mu        sync.Mutex
-	reloj     *relojCoberturaAplicacionPrueba
-	registros map[string]registroConsumoCoberturaAplicacionPrueba
-	ordenes   []ports.OrdenConsumoCobertura
-	consumir  func(
+	mu         sync.Mutex
+	reloj      *relojCoberturaAplicacionPrueba
+	registros  map[string]registroConsumoCoberturaAplicacionPrueba
+	evidencias map[string]evidenciaConsumoCoberturaAplicacionPrueba
+	ordenes    []ports.OrdenConsumoCobertura
+	despues    func(context.Context)
+	responder  func(
+		ports.ReciboConsumoCobertura,
+	) (ports.ReciboConsumoCobertura, error)
+	consumir func(
 		context.Context,
 		ports.OrdenConsumoCobertura,
 	) (ports.ReciboConsumoCobertura, error)
@@ -183,23 +194,53 @@ func (c *consumidorCoberturaAplicacionPrueba) ConsumirCobertura(
 	if err != nil {
 		return ports.ReciboConsumoCobertura{}, err
 	}
-	clave := datos.AutoridadRef + ":" +
-		strconv.FormatUint(uint64(datos.Generacion), 10) + ":" +
+	claveEfecto := datos.OrganizacionRef + ":" + datos.PeticionRef
+	claveEvidencia := datos.AutoridadRef + ":" +
+		fmt.Sprint(datos.Generacion) + ":" +
 		datos.ReciboRespuestaRef
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.ordenes = append(c.ordenes, orden)
 	if c.registros == nil {
 		c.registros = make(
 			map[string]registroConsumoCoberturaAplicacionPrueba,
 		)
 	}
-	if anterior, existe := c.registros[clave]; existe {
-		if anterior.huella != datos.HuellaRespuestaSHA256 {
+	if c.evidencias == nil {
+		c.evidencias = make(
+			map[string]evidenciaConsumoCoberturaAplicacionPrueba,
+		)
+	}
+	evidencia, evidenciaExiste := c.evidencias[claveEvidencia]
+	if evidenciaExiste &&
+		(evidencia.claveEfecto != claveEfecto ||
+			evidencia.huellaRespuesta != datos.HuellaRespuestaSHA256) {
+		c.mu.Unlock()
+		return ports.ReciboConsumoCobertura{},
+			ports.ErrRespuestaCoberturaYaConsumida
+	}
+	if anterior, existe := c.registros[claveEfecto]; existe {
+		if anterior.huellaPeticion != datos.HuellaPeticionSHA256 ||
+			anterior.huellaResultado != datos.HuellaResultadoSHA256 {
+			c.mu.Unlock()
 			return ports.ReciboConsumoCobertura{},
 				ports.ErrRespuestaCoberturaYaConsumida
 		}
-		return anterior.recibo, nil
+		if !evidenciaExiste {
+			c.evidencias[claveEvidencia] =
+				evidenciaConsumoCoberturaAplicacionPrueba{
+					claveEfecto:     claveEfecto,
+					huellaRespuesta: datos.HuellaRespuestaSHA256,
+				}
+		}
+		recibo := anterior.recibo
+		c.mu.Unlock()
+		if c.despues != nil {
+			c.despues(ctx)
+		}
+		if c.responder != nil {
+			return c.responder(recibo)
+		}
+		return recibo, nil
 	}
 	recibo, err := ports.NuevoReciboConsumoCobertura(
 		orden,
@@ -207,11 +248,25 @@ func (c *consumidorCoberturaAplicacionPrueba) ConsumirCobertura(
 		c.reloj.Ahora(),
 	)
 	if err != nil {
+		c.mu.Unlock()
 		return ports.ReciboConsumoCobertura{}, err
 	}
-	c.registros[clave] = registroConsumoCoberturaAplicacionPrueba{
-		huella: datos.HuellaRespuestaSHA256,
-		recibo: recibo,
+	c.registros[claveEfecto] = registroConsumoCoberturaAplicacionPrueba{
+		huellaPeticion:  datos.HuellaPeticionSHA256,
+		huellaResultado: datos.HuellaResultadoSHA256,
+		recibo:          recibo,
+	}
+	c.evidencias[claveEvidencia] =
+		evidenciaConsumoCoberturaAplicacionPrueba{
+			claveEfecto:     claveEfecto,
+			huellaRespuesta: datos.HuellaRespuestaSHA256,
+		}
+	c.mu.Unlock()
+	if c.despues != nil {
+		c.despues(ctx)
+	}
+	if c.responder != nil {
+		return c.responder(recibo)
 	}
 	return recibo, nil
 }

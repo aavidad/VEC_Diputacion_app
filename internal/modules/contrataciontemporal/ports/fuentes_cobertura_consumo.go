@@ -3,6 +3,8 @@ package ports
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log/slog"
@@ -11,6 +13,8 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
 
+const dominioResultadoDurableCobertura = "VEC-CT-EFECTO-COBERTURA-V1"
+
 // DatosOrdenConsumoCobertura liga el efecto durable a la respuesta completa,
 // a su verificación independiente y al catálogo gobernado usado para decidir.
 type DatosOrdenConsumoCobertura struct {
@@ -18,6 +22,8 @@ type DatosOrdenConsumoCobertura struct {
 	OrganizacionRef         string
 	ExpedienteRef           string
 	VersionExpediente       uint64
+	HuellaPeticionSHA256    string
+	HuellaResultadoSHA256   string
 	AutoridadRef            string
 	Generacion              uint32
 	ReciboRespuestaRef      string
@@ -29,8 +35,9 @@ type DatosOrdenConsumoCobertura struct {
 }
 
 type OrdenConsumoCobertura struct {
-	datos                 *DatosOrdenConsumoCobertura
-	solicitudVerificacion SolicitudVerificarRespuestaCobertura
+	datos     *DatosOrdenConsumoCobertura
+	solicitud SolicitudConsultarCobertura
+	resultado ResultadoConsultaCobertura
 }
 
 func NuevaOrdenConsumoCobertura(
@@ -44,17 +51,24 @@ func NuevaOrdenConsumoCobertura(
 		return OrdenConsumoCobertura{},
 			ErrResultadoFuenteCoberturaNoConfiable
 	}
-	huella, errHuella := resultado.preimagen.huellaSHA256()
+	huellaRespuesta, errHuellaRespuesta :=
+		resultado.preimagen.huellaSHA256()
+	huellaPeticion, errHuellaPeticion :=
+		huellaPeticionCobertura(solicitud)
+	huellaResultado, errHuellaResultado :=
+		huellaResultadoDurableCobertura(solicitud, resultado)
 	datosConfirmacion, errConfirmacion := confirmacion.Datos()
 	datos := DatosOrdenConsumoCobertura{
 		PeticionRef:           solicitud.PeticionRef,
 		OrganizacionRef:       solicitud.OrganizacionRef,
 		ExpedienteRef:         solicitud.ExpedienteRef,
 		VersionExpediente:     solicitud.VersionExpediente,
+		HuellaPeticionSHA256:  huellaPeticion,
+		HuellaResultadoSHA256: huellaResultado,
 		AutoridadRef:          resultado.atestacion.Metadatos.AutoridadRef,
 		Generacion:            resultado.atestacion.Metadatos.Generacion,
 		ReciboRespuestaRef:    resultado.atestacion.Metadatos.ReciboRef,
-		HuellaRespuestaSHA256: huella,
+		HuellaRespuestaSHA256: huellaRespuesta,
 		Atestacion:            resultado.atestacion,
 		ConfirmacionRespuesta: confirmacion,
 		ConfirmacionCatalogo:  confirmacionCatalogo,
@@ -63,8 +77,9 @@ func NuevaOrdenConsumoCobertura(
 			claveVerificadorEd25519...,
 		),
 	}
-	if errHuella != nil || errConfirmacion != nil ||
-		datosConfirmacion.HuellaMaterialSHA256 != huella ||
+	if errHuellaRespuesta != nil || errHuellaPeticion != nil ||
+		errHuellaResultado != nil || errConfirmacion != nil ||
+		datosConfirmacion.HuellaMaterialSHA256 != huellaRespuesta ||
 		validarOrdenConsumoCobertura(
 			datos,
 			solicitud,
@@ -74,15 +89,35 @@ func NuevaOrdenConsumoCobertura(
 		return OrdenConsumoCobertura{},
 			ErrResultadoFuenteCoberturaNoConfiable
 	}
-	solicitudVerificacion, err := resultado.SolicitudVerificacion()
-	if err != nil {
-		return OrdenConsumoCobertura{},
-			ErrResultadoFuenteCoberturaNoConfiable
-	}
 	return OrdenConsumoCobertura{
-		datos:                 &datos,
-		solicitudVerificacion: solicitudVerificacion,
+		datos:     &datos,
+		solicitud: solicitud,
+		resultado: resultado,
 	}, nil
+}
+
+func huellaResultadoDurableCobertura(
+	solicitud SolicitudConsultarCobertura,
+	resultado ResultadoConsultaCobertura,
+) (string, error) {
+	datos, err := resultado.Datos()
+	huellaPeticion, errHuella := huellaPeticionCobertura(solicitud)
+	if err != nil || errHuella != nil ||
+		resultado.ValidarPara(solicitud) != nil {
+		return "", ErrResultadoFuenteCoberturaNoConfiable
+	}
+	escritor := nuevoEscritorCanonFuenteAnalisis()
+	escritor.texto(dominioResultadoDurableCobertura)
+	escritor.texto(huellaPeticion)
+	escritor.texto(string(datos.Comprobacion.Clave))
+	escritor.texto(string(datos.Comprobacion.Resultado))
+	escritor.texto(datos.DefinicionFuenteRef)
+	contenido, err := escritor.resultado()
+	if err != nil {
+		return "", ErrResultadoFuenteCoberturaNoConfiable
+	}
+	huella := sha256.Sum256(contenido)
+	return hex.EncodeToString(huella[:]), nil
 }
 
 func validarOrdenConsumoCobertura(
@@ -91,13 +126,22 @@ func validarOrdenConsumoCobertura(
 	resultado ResultadoConsultaCobertura,
 	comprobadaEn time.Time,
 ) error {
+	huellaPeticion, errHuellaPeticion :=
+		huellaPeticionCobertura(solicitud)
+	huellaResultado, errHuellaResultado :=
+		huellaResultadoDurableCobertura(solicitud, resultado)
 	if solicitud.Validar() != nil || resultado.ValidarPara(solicitud) != nil ||
+		errHuellaPeticion != nil || errHuellaResultado != nil ||
 		!domain.ReferenciaOpacaValida(datos.PeticionRef) ||
 		datos.PeticionRef != solicitud.PeticionRef ||
 		datos.OrganizacionRef != solicitud.OrganizacionRef ||
 		datos.ExpedienteRef != solicitud.ExpedienteRef ||
 		datos.VersionExpediente != solicitud.VersionExpediente ||
 		datos.VersionExpediente > maximoEnteroSeguroFuenteAnalisis ||
+		datos.HuellaPeticionSHA256 != huellaPeticion ||
+		datos.HuellaResultadoSHA256 != huellaResultado ||
+		!huellaSHA256FuenteAnalisisValida(datos.HuellaPeticionSHA256) ||
+		!huellaSHA256FuenteAnalisisValida(datos.HuellaResultadoSHA256) ||
 		datos.AutoridadRef != resultado.atestacion.Metadatos.AutoridadRef ||
 		datos.Generacion != resultado.atestacion.Metadatos.Generacion ||
 		datos.ReciboRespuestaRef !=
@@ -159,11 +203,16 @@ func (o OrdenConsumoCobertura) LogValue() slog.Value {
 type ReciboConsumoCobertura struct {
 	ConsumoRef            string
 	PeticionRef           string
+	OrganizacionRef       string
+	HuellaPeticionSHA256  string
+	HuellaResultadoSHA256 string
 	AutoridadRef          string
 	Generacion            uint32
 	ReciboRespuestaRef    string
 	HuellaRespuestaSHA256 string
 	ConsumidaEn           time.Time
+	SolicitudOriginal     SolicitudConsultarCobertura
+	ResultadoOriginal     ResultadoConsultaCobertura
 	ConfirmacionOriginal  ConfirmacionRespuestaCobertura
 }
 
@@ -176,11 +225,16 @@ func NuevoReciboConsumoCobertura(
 	recibo := ReciboConsumoCobertura{
 		ConsumoRef:            consumoRef,
 		PeticionRef:           datos.PeticionRef,
+		OrganizacionRef:       datos.OrganizacionRef,
+		HuellaPeticionSHA256:  datos.HuellaPeticionSHA256,
+		HuellaResultadoSHA256: datos.HuellaResultadoSHA256,
 		AutoridadRef:          datos.AutoridadRef,
 		Generacion:            datos.Generacion,
 		ReciboRespuestaRef:    datos.ReciboRespuestaRef,
 		HuellaRespuestaSHA256: datos.HuellaRespuestaSHA256,
 		ConsumidaEn:           consumidaEn,
+		SolicitudOriginal:     orden.solicitud,
+		ResultadoOriginal:     orden.resultado,
 		ConfirmacionOriginal:  datos.ConfirmacionRespuesta,
 	}
 	if err != nil || recibo.ValidarPara(orden) != nil {
@@ -196,23 +250,51 @@ func (r ReciboConsumoCobertura) ValidarPara(
 	datos, err := orden.Datos()
 	confirmacionActual, errActual := datos.ConfirmacionRespuesta.Datos()
 	confirmacionOriginal, errOriginal := r.ConfirmacionOriginal.Datos()
+	datosResultadoOriginal, errResultadoOriginal :=
+		r.ResultadoOriginal.Datos()
+	atestacionOriginal, errAtestacionOriginal :=
+		r.ResultadoOriginal.Atestacion()
+	solicitudVerificacionOriginal, errSolicitudOriginal :=
+		r.ResultadoOriginal.SolicitudVerificacion()
+	huellaPeticionOriginal, errHuellaPeticionOriginal :=
+		huellaPeticionCobertura(r.SolicitudOriginal)
+	huellaResultadoOriginal, errHuellaResultadoOriginal :=
+		huellaResultadoDurableCobertura(
+			r.SolicitudOriginal,
+			r.ResultadoOriginal,
+		)
+	huellaRespuestaOriginal, errHuellaRespuestaOriginal :=
+		r.ResultadoOriginal.preimagen.huellaSHA256()
 	if err != nil ||
 		errActual != nil || errOriginal != nil ||
+		errResultadoOriginal != nil || errAtestacionOriginal != nil ||
+		errSolicitudOriginal != nil || errHuellaPeticionOriginal != nil ||
+		errHuellaResultadoOriginal != nil ||
+		errHuellaRespuestaOriginal != nil ||
 		!domain.ReferenciaOpacaValida(r.ConsumoRef) ||
 		r.PeticionRef != datos.PeticionRef ||
-		r.AutoridadRef != datos.AutoridadRef ||
-		r.Generacion != datos.Generacion ||
-		r.ReciboRespuestaRef != datos.ReciboRespuestaRef ||
-		r.HuellaRespuestaSHA256 != datos.HuellaRespuestaSHA256 ||
+		r.OrganizacionRef != datos.OrganizacionRef ||
+		r.HuellaPeticionSHA256 != datos.HuellaPeticionSHA256 ||
+		r.HuellaResultadoSHA256 != datos.HuellaResultadoSHA256 ||
+		r.HuellaPeticionSHA256 != huellaPeticionOriginal ||
+		r.HuellaResultadoSHA256 != huellaResultadoOriginal ||
+		r.AutoridadRef != atestacionOriginal.Metadatos.AutoridadRef ||
+		r.Generacion != atestacionOriginal.Metadatos.Generacion ||
+		r.ReciboRespuestaRef != atestacionOriginal.Metadatos.ReciboRef ||
+		r.HuellaRespuestaSHA256 != huellaRespuestaOriginal ||
 		!instanteFuenteAnalisisCanonico(r.ConsumidaEn) ||
-		r.ConsumidaEn.Before(datos.Atestacion.Metadatos.EmitidaEn) ||
-		!r.ConsumidaEn.Before(datos.Atestacion.Metadatos.ValidaHasta) ||
+		r.ConsumidaEn.Before(atestacionOriginal.Metadatos.EmitidaEn) ||
+		!r.ConsumidaEn.Before(atestacionOriginal.Metadatos.ValidaHasta) ||
 		confirmacionOriginal.VerificadorRef !=
 			confirmacionActual.VerificadorRef ||
 		confirmacionOriginal.HuellaMaterialSHA256 !=
-			datos.HuellaRespuestaSHA256 ||
+			r.HuellaRespuestaSHA256 ||
+		confirmacionOriginal.HuellaPeticionSHA256 !=
+			r.HuellaPeticionSHA256 ||
+		datosResultadoOriginal.HuellaPeticionSHA256 !=
+			r.HuellaPeticionSHA256 ||
 		r.ConfirmacionOriginal.ValidarPara(
-			orden.solicitudVerificacion,
+			solicitudVerificacionOriginal,
 			r.ConsumidaEn,
 			ed25519.PublicKey(datos.ClaveVerificadorEd25519),
 		) != nil {
@@ -221,9 +303,24 @@ func (r ReciboConsumoCobertura) ValidarPara(
 	return nil
 }
 
-// ConsumidorCobertura debe almacenar de forma durable el primer consumo por
-// (autoridad, generación, recibo). Un replay exacto devuelve el mismo recibo;
-// la misma clave con otra huella devuelve ErrRespuestaCoberturaYaConsumida.
+func (ReciboConsumoCobertura) String() string {
+	return "[RECIBO-CONSUMO-COBERTURA-REDACTADO]"
+}
+
+func (r ReciboConsumoCobertura) GoString() string { return r.String() }
+func (r ReciboConsumoCobertura) Format(s fmt.State, _ rune) {
+	_, _ = io.WriteString(s, r.String())
+}
+func (r ReciboConsumoCobertura) LogValue() slog.Value {
+	return slog.StringValue(r.String())
+}
+
+// ConsumidorCobertura debe imponer unicidad durable por
+// (organización, petición). La misma petición y resultado semántico devuelve
+// el recibo original aunque se renueven recibos o confirmaciones probatorias.
+// Otra semántica o resultado para esa petición devuelve
+// ErrRespuestaCoberturaYaConsumida. Además, una evidencia
+// (autoridad, generación, recibo) no puede ligarse a otra respuesta o petición.
 // El puerto no afirma que exista un adaptador productivo.
 type ConsumidorCobertura interface {
 	ConsumirCobertura(

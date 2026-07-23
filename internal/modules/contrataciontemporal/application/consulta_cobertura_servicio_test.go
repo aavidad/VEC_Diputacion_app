@@ -101,6 +101,66 @@ func TestServicioConsultaCoberturaReintentoExactoConRelojAvanzado(
 	}
 }
 
+func TestServicioConsultaCoberturaReciboProbatorioNuevoNoDuplicaEfecto(
+	t *testing.T,
+) {
+	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
+	var consultas atomic.Int32
+	entorno.fuente.consultar = func(
+		_ context.Context,
+		solicitud ports.SolicitudConsultarCobertura,
+	) (ports.ResultadoConsultaCobertura, error) {
+		numero := consultas.Add(1)
+		return resultadoCoberturaAplicacionPrueba(
+			t,
+			solicitud,
+			func(datos *ports.DatosResultadoConsultaCobertura) {
+				if numero > 1 {
+					datos.Comprobacion.ReciboRef =
+						"recibo_consulta_bolsa_nuevo_012345"
+				}
+			},
+		), nil
+	}
+	if _, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	); err != nil {
+		t.Fatalf("la renovacion probatoria debe ser replay: %v", err)
+	}
+
+	entorno.consumidor.mu.Lock()
+	defer entorno.consumidor.mu.Unlock()
+	if len(entorno.consumidor.registros) != 1 ||
+		len(entorno.consumidor.evidencias) != 2 ||
+		len(entorno.consumidor.ordenes) != 2 {
+		t.Fatalf(
+			"estado durable inesperado: efectos=%d evidencias=%d ordenes=%d",
+			len(entorno.consumidor.registros),
+			len(entorno.consumidor.evidencias),
+			len(entorno.consumidor.ordenes),
+		)
+	}
+	for _, registro := range entorno.consumidor.registros {
+		if err := registro.recibo.ValidarPara(
+			entorno.consumidor.ordenes[1],
+		); err != nil {
+			t.Fatalf("el recibo original no valida el replay: %v", err)
+		}
+		if registro.recibo.ReciboRespuestaRef !=
+			"recibo_consulta_bolsa_012345" {
+			t.Fatal("el replay sustituyo el recibo durable original")
+		}
+	}
+}
+
 func TestServicioConsultaCoberturaRechazaReciboInicialRetrodatado(
 	t *testing.T,
 ) {
@@ -145,6 +205,8 @@ func TestServicioConsultaCoberturaRechazaConflictoDeReplay(
 				if numero > 1 {
 					datos.Comprobacion.Resultado =
 						domain.ComprobacionNegativa
+					datos.Comprobacion.ReciboRef =
+						"recibo_resultado_incompatible_012345"
 				}
 			},
 		), nil
@@ -163,6 +225,80 @@ func TestServicioConsultaCoberturaRechazaConflictoDeReplay(
 
 	if !errors.Is(err, ports.ErrRespuestaCoberturaYaConsumida) {
 		t.Fatalf("se esperaba conflicto durable, recibido: %v", err)
+	}
+}
+
+func TestServicioConsultaCoberturaMismoReciboConOtraEvidenciaEsConflicto(
+	t *testing.T,
+) {
+	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
+	var consultas atomic.Int32
+	entorno.fuente.consultar = func(
+		_ context.Context,
+		solicitud ports.SolicitudConsultarCobertura,
+	) (ports.ResultadoConsultaCobertura, error) {
+		numero := consultas.Add(1)
+		return resultadoCoberturaAplicacionPrueba(
+			t,
+			solicitud,
+			func(datos *ports.DatosResultadoConsultaCobertura) {
+				if numero > 1 {
+					datos.Comprobacion.EvaluadaEn =
+						solicitud.SolicitadaEn.Add(500 * time.Millisecond)
+				}
+			},
+		), nil
+	}
+	if _, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	)
+
+	if !errors.Is(err, ports.ErrRespuestaCoberturaYaConsumida) {
+		t.Fatalf("se esperaba conflicto probatorio, recibido: %v", err)
+	}
+	entorno.consumidor.mu.Lock()
+	defer entorno.consumidor.mu.Unlock()
+	if len(entorno.consumidor.registros) != 1 {
+		t.Fatalf(
+			"la evidencia incompatible creo %d efectos",
+			len(entorno.consumidor.registros),
+		)
+	}
+}
+
+func TestServicioConsultaCoberturaMismaPeticionConOtraSemanticaEsConflicto(
+	t *testing.T,
+) {
+	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
+	if _, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	); err != nil {
+		t.Fatal(err)
+	}
+	alterada := entorno.solicitud
+	alterada.CategoriaRef = "categoria_educacion_social_012345"
+
+	_, err := entorno.servicio.Consultar(context.Background(), alterada)
+
+	if !errors.Is(err, ports.ErrRespuestaCoberturaYaConsumida) {
+		t.Fatalf("se esperaba conflicto semantico, recibido: %v", err)
+	}
+	entorno.consumidor.mu.Lock()
+	defer entorno.consumidor.mu.Unlock()
+	if len(entorno.consumidor.registros) != 1 {
+		t.Fatalf(
+			"una semantica conflictiva creo %d efectos",
+			len(entorno.consumidor.registros),
+		)
 	}
 }
 
@@ -218,7 +354,7 @@ func TestServicioConsultaCoberturaRechazaRetrocesoDeRelojTrasConsumo(
 	}
 }
 
-func TestServicioConsultaCoberturaRevalidaCaducidadTrasConsumo(
+func TestServicioConsultaCoberturaCommitConfirmadoPrevaleceTrasCaducidad(
 	t *testing.T,
 ) {
 	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
@@ -240,8 +376,8 @@ func TestServicioConsultaCoberturaRevalidaCaducidadTrasConsumo(
 		entorno.solicitud,
 	)
 
-	if !errors.Is(err, ports.ErrResultadoFuenteCoberturaNoConfiable) {
-		t.Fatalf("se esperaba rechazo por caducidad, recibido: %v", err)
+	if err != nil {
+		t.Fatalf("un commit confirmado no debe volverse ambiguo: %v", err)
 	}
 }
 
@@ -251,15 +387,11 @@ func TestServicioConsultaCoberturaImponePlazoAlConsumidor(
 	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
 	entorno.reconstruirServicio(t, 5*time.Millisecond)
 	entorno.consumidor.consumir = func(
-		_ context.Context,
-		orden ports.OrdenConsumoCobertura,
+		ctx context.Context,
+		_ ports.OrdenConsumoCobertura,
 	) (ports.ReciboConsumoCobertura, error) {
-		time.Sleep(15 * time.Millisecond)
-		return ports.NuevoReciboConsumoCobertura(
-			orden,
-			"consumo_cobertura_0123456789",
-			entorno.inicio.Add(2*time.Second),
-		)
+		<-ctx.Done()
+		return ports.ReciboConsumoCobertura{}, nil
 	}
 
 	_, err := entorno.servicio.Consultar(
@@ -273,27 +405,101 @@ func TestServicioConsultaCoberturaImponePlazoAlConsumidor(
 	}
 }
 
-func TestServicioConsultaCoberturaRespetaCancelacionDuranteConsumo(
+func TestServicioConsultaCoberturaCancelacionPosteriorAlCommitEsExito(
 	t *testing.T,
 ) {
 	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
 	ctx, cancelar := context.WithCancel(context.Background())
-	entorno.consumidor.consumir = func(
-		_ context.Context,
-		orden ports.OrdenConsumoCobertura,
-	) (ports.ReciboConsumoCobertura, error) {
+	entorno.consumidor.despues = func(context.Context) {
 		cancelar()
-		return ports.NuevoReciboConsumoCobertura(
-			orden,
-			"consumo_cobertura_0123456789",
-			entorno.inicio.Add(2*time.Second),
-		)
 	}
 
 	_, err := entorno.servicio.Consultar(ctx, entorno.solicitud)
 
+	if err != nil {
+		t.Fatalf("el commit confirmado debe resolver la cancelacion: %v", err)
+	}
+	entorno.consumidor.mu.Lock()
+	defer entorno.consumidor.mu.Unlock()
+	if len(entorno.consumidor.registros) != 1 {
+		t.Fatalf(
+			"la cancelacion posterior creo %d efectos",
+			len(entorno.consumidor.registros),
+		)
+	}
+}
+
+func TestServicioConsultaCoberturaTimeoutPosteriorAlCommitEsRecuperable(
+	t *testing.T,
+) {
+	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
+	entorno.reconstruirServicio(t, 5*time.Millisecond)
+	entorno.consumidor.despues = func(ctx context.Context) {
+		<-ctx.Done()
+	}
+
+	if _, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	); err != nil {
+		t.Fatalf("el recibo durable debe confirmar el commit: %v", err)
+	}
+	entorno.consumidor.despues = nil
+	entorno.reconstruirServicio(t, time.Second)
+	if _, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	); err != nil {
+		t.Fatalf("el reintento debe recuperar el mismo efecto: %v", err)
+	}
+	entorno.consumidor.mu.Lock()
+	defer entorno.consumidor.mu.Unlock()
+	if len(entorno.consumidor.registros) != 1 {
+		t.Fatalf(
+			"el timeout posterior creo %d efectos",
+			len(entorno.consumidor.registros),
+		)
+	}
+}
+
+func TestServicioConsultaCoberturaSinReciboTrasCommitRecuperaPorPeticion(
+	t *testing.T,
+) {
+	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
+	entorno.reconstruirServicio(t, 5*time.Millisecond)
+	entorno.consumidor.despues = func(ctx context.Context) {
+		<-ctx.Done()
+	}
+	entorno.consumidor.responder = func(
+		ports.ReciboConsumoCobertura,
+	) (ports.ReciboConsumoCobertura, error) {
+		return ports.ReciboConsumoCobertura{}, nil
+	}
+
+	_, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	)
 	if !errors.Is(err, ErrConsumoCoberturaNoDisponible) ||
-		!errors.Is(err, context.Canceled) {
-		t.Fatalf("se esperaba cancelacion de consumo, recibido: %v", err)
+		!errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("sin recibo verificable debe fallar cerrado: %v", err)
+	}
+
+	entorno.consumidor.despues = nil
+	entorno.consumidor.responder = nil
+	entorno.reconstruirServicio(t, time.Second)
+	if _, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	); err != nil {
+		t.Fatalf("el reintento no recupero el commit por peticion: %v", err)
+	}
+	entorno.consumidor.mu.Lock()
+	defer entorno.consumidor.mu.Unlock()
+	if len(entorno.consumidor.registros) != 1 {
+		t.Fatalf(
+			"la recuperacion creo %d efectos",
+			len(entorno.consumidor.registros),
+		)
 	}
 }

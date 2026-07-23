@@ -239,19 +239,30 @@ func (s *ServicioConsultaCobertura) Consultar(
 	recibo, errConsumo := s.consumidor.ConsumirCobertura(operacion, orden)
 	errContextoFinal := operacion.Err()
 	finalizadaEn := s.reloj.Ahora()
+	if !domain.InstanteUTCCanonico(finalizadaEn) ||
+		finalizadaEn.Before(antesConsumo) {
+		return domain.ComprobacionCobertura{},
+			ports.ErrResultadoFuenteCoberturaNoConfiable
+	}
+	reciboValido := recibo.ValidarPara(orden) == nil &&
+		!recibo.ConsumidaEn.After(finalizadaEn)
+	errorCompatibleConCommit := errConsumo == nil ||
+		errors.Is(errConsumo, context.Canceled) ||
+		errors.Is(errConsumo, context.DeadlineExceeded)
+	if reciboValido && errorCompatibleConCommit {
+		return datosResultado.Comprobacion, nil
+	}
 	if errContextoFinal != nil {
 		return domain.ComprobacionCobertura{}, errorDisponibilidadCobertura(
 			ErrConsumoCoberturaNoDisponible,
 			errContextoFinal,
 		)
 	}
-	if !domain.InstanteUTCCanonico(finalizadaEn) ||
-		finalizadaEn.Before(antesConsumo) ||
-		confirmacion.ValidarPara(
-			solicitudVerificacion,
-			finalizadaEn,
-			claveVerificador,
-		) != nil ||
+	if confirmacion.ValidarPara(
+		solicitudVerificacion,
+		finalizadaEn,
+		claveVerificador,
+	) != nil ||
 		confirmacionCatalogo.ValidarPara(solicitud, finalizadaEn) != nil {
 		return domain.ComprobacionCobertura{},
 			ports.ErrResultadoFuenteCoberturaNoConfiable
@@ -269,8 +280,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 			errConsumo,
 		)
 	}
-	if recibo.ValidarPara(orden) != nil ||
-		recibo.ConsumidaEn.After(finalizadaEn) {
+	if !reciboValido {
 		return domain.ComprobacionCobertura{},
 			ports.ErrResultadoFuenteCoberturaNoConfiable
 	}

@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -170,6 +171,65 @@ func TestServicioConsultaCoberturaReplayConcurrenteProduceUnSoloEfecto(
 			"efecto concurrente incorrecto: registros=%d ordenes=%d",
 			len(entorno.consumidor.registros),
 			len(entorno.consumidor.ordenes),
+		)
+	}
+}
+
+func TestServicioConsultaCoberturaRecibosDistintosConcurrentesUnSoloEfecto(
+	t *testing.T,
+) {
+	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
+	const concurrencia = 24
+	resultados := make([]ports.ResultadoConsultaCobertura, concurrencia)
+	for indice := range resultados {
+		numero := indice + 1
+		resultados[indice] = resultadoCoberturaAplicacionPrueba(
+			t,
+			entorno.solicitud,
+			func(datos *ports.DatosResultadoConsultaCobertura) {
+				datos.Comprobacion.ReciboRef = fmt.Sprintf(
+					"recibo_concurrente_cobertura_%06d",
+					numero,
+				)
+			},
+		)
+	}
+	var secuencia atomic.Int32
+	entorno.fuente.consultar = func(
+		_ context.Context,
+		_ ports.SolicitudConsultarCobertura,
+	) (ports.ResultadoConsultaCobertura, error) {
+		indice := int(secuencia.Add(1)) - 1
+		return resultados[indice], nil
+	}
+	var espera sync.WaitGroup
+	errores := make(chan error, concurrencia)
+	espera.Add(concurrencia)
+	for indice := 0; indice < concurrencia; indice++ {
+		go func() {
+			defer espera.Done()
+			_, err := entorno.servicio.Consultar(
+				context.Background(),
+				entorno.solicitud,
+			)
+			errores <- err
+		}()
+	}
+	espera.Wait()
+	close(errores)
+	for err := range errores {
+		if err != nil {
+			t.Fatalf("artefacto concurrente rechazado: %v", err)
+		}
+	}
+	entorno.consumidor.mu.Lock()
+	defer entorno.consumidor.mu.Unlock()
+	if len(entorno.consumidor.registros) != 1 ||
+		len(entorno.consumidor.evidencias) != concurrencia {
+		t.Fatalf(
+			"duplicacion durable: efectos=%d evidencias=%d",
+			len(entorno.consumidor.registros),
+			len(entorno.consumidor.evidencias),
 		)
 	}
 }
