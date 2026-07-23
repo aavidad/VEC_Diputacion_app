@@ -120,6 +120,40 @@ func (e Expediente) RegistrarAnalisis(
 	return siguiente.confirmarTransicion(actuacion)
 }
 
+// RectificarAnalisis sustituye únicamente la proyección vigente del análisis.
+// La actuación anterior permanece en la cronología y el adaptador durable debe
+// conservar ambos contenidos como versiones de solo adición. No permite
+// rectificar bajo una decisión de cobertura ya materializada: ese supuesto
+// necesita un flujo expreso de retroacción para no dejar decisiones huérfanas.
+func (e Expediente) RectificarAnalisis(
+	versionEsperada uint64,
+	analisis AnalisisRRHH,
+	actuacion DatosActuacion,
+) (Expediente, error) {
+	if e.Validar() != nil || analisis.Validar() != nil || actuacion.validar() != nil ||
+		analisis.ActuacionRegistro != nil ||
+		analisis.ValidacionRC.ValidadaEn.After(actuacion.RealizadaEn) ||
+		e.Analisis == nil || e.ViaCobertura != nil || e.Asignacion != nil ||
+		actuacion.FaseDestino != e.FaseActual ||
+		actuacion.EstadoDestino != e.EstadoActual ||
+		!textoValido(actuacion.Observaciones, 2000, false) {
+		return Expediente{}, ErrTransicionInvalida
+	}
+	siguiente, err := e.prepararTransicion(versionEsperada, actuacion)
+	if err != nil {
+		return Expediente{}, err
+	}
+	clon := analisis.clonar()
+	vinculo := nuevoVinculoActuacionAnalisis(
+		e.Version+1,
+		uint64(len(e.Actuaciones)+1),
+		actuacion,
+	)
+	clon.ActuacionRegistro = &vinculo
+	siguiente.Analisis = &clon
+	return siguiente.confirmarTransicion(actuacion)
+}
+
 func (e Expediente) RegistrarViaCobertura(
 	versionEsperada uint64,
 	decision DecisionViaCobertura,
