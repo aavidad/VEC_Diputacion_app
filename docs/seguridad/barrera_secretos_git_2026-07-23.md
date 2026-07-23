@@ -12,6 +12,11 @@ Los datos sintéticos de pruebas deben usar los prefijos explícitos
 `PRUEBA_NO_SECRETO_` o `SINTETICO_NO_SECRETO_`. Que un fichero termine en
 `_test.go` no constituye una excepción.
 
+Las sustituciones `psql` del tipo `PASSWORD :'variable'` no contienen el
+valor y quedan fuera de la regla propia. La asignación literal a
+`password`, `contraseña`, `clave` o `clave_*`, y los pares directos
+`usuario/contraseña` o `usuario:contraseña`, se rechazan.
+
 ## Barreras activas
 
 1. GitHub mantiene habilitados `secret scanning` y `push protection`.
@@ -27,6 +32,8 @@ Los datos sintéticos de pruebas deben usar los prefijos explícitos
 6. Toda rama de agente se revisa antes de integrarse. Una rama con un secreto
    se reconstruye desde una base limpia: un commit posterior que lo borre no
    sanea la historia.
+7. `scripts/tests/test_gitleaks_config.sh` congela los casos que deben
+   bloquearse y las sustituciones o sentinelas sintéticas admitidas.
 
 La activación local del gancho es:
 
