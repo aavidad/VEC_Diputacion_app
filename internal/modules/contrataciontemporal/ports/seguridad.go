@@ -4,8 +4,10 @@ package ports
 
 import (
 	"context"
+	"crypto/hmac"
 	"errors"
 	"regexp"
+	"strings"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -24,6 +26,31 @@ var (
 )
 
 var patronHuellaSHA256 = regexp.MustCompile(`^[a-f0-9]{64}$`)
+var patronSelloHMACSHA256 = regexp.MustCompile(
+	`^hmac-sha256:[a-z][a-z0-9._/-]{1,95}:[a-f0-9]{64}$`,
+)
+
+func huellaSHA256Valida(valor string) bool {
+	return patronHuellaSHA256.MatchString(valor) &&
+		valor != strings.Repeat("0", 64)
+}
+
+// SelloHMACSHA256Valido comprueba el sobre versionado común. La referencia
+// intermedia identifica el dominio y la generación de clave; nunca es la
+// propia clave.
+func SelloHMACSHA256Valido(valor string) bool {
+	if !patronSelloHMACSHA256.MatchString(valor) {
+		return false
+	}
+	partes := strings.Split(valor, ":")
+	return len(partes) == 3 && partes[2] != strings.Repeat("0", 64)
+}
+
+func sellosHMACIguales(primero, segundo string) bool {
+	return SelloHMACSHA256Valido(primero) &&
+		SelloHMACSHA256Valido(segundo) &&
+		hmac.Equal([]byte(primero), []byte(segundo))
+}
 
 type SuperficieOperacion string
 type GarantiaOperacion string
@@ -187,7 +214,7 @@ type DatosAutorizacionEfecto struct {
 
 func NuevaAutorizacionEfecto(datos DatosAutorizacionEfecto) (AutorizacionEfecto, error) {
 	if !domain.ReferenciaOpacaValida(datos.DecisionRef) ||
-		!patronHuellaSHA256.MatchString(datos.HuellaSHA256) ||
+		!huellaSHA256Valida(datos.HuellaSHA256) ||
 		datos.Accion != AccionCrearSolicitud ||
 		!domain.ReferenciaOpacaValida(datos.RecursoRef) ||
 		!domain.ReferenciaOpacaValida(datos.ActorRef) ||

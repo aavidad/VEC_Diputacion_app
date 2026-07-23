@@ -226,11 +226,12 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	}
 
 	expediente, err := domain.NuevoExpediente(domain.AltaExpediente{
-		Referencia:    preparacion.Referencias.ExpedienteRef,
-		NumeroVisible: preparacion.Referencias.NumeroVisible,
-		Flujo:         configuracion.Flujo,
-		FaseInicial:   configuracion.FaseInicial,
-		Solicitud:     solicitudCentro,
+		Referencia:      preparacion.Referencias.ExpedienteRef,
+		OrganizacionRef: solicitud.OrganizacionRef,
+		NumeroVisible:   preparacion.Referencias.NumeroVisible,
+		Flujo:           configuracion.Flujo,
+		FaseInicial:     configuracion.FaseInicial,
+		Solicitud:       solicitudCentro,
 		Actuacion: domain.DatosActuacion{
 			AccionClave:   configuracion.AccionInicial,
 			ActorRef:      datosIdentidad.ActorRef,
@@ -256,9 +257,9 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	if err := ctx.Err(); err != nil {
-		return ports.ReciboAlta{}, err
-	}
+	// La transacción es la frontera de efecto. Una cancelación observada tras
+	// un COMMIT confirmado no puede convertir el éxito durable en un fallo
+	// ambiguo y provocar que el cliente repita la operación.
 	if recibo.ValidarPara(expediente) != nil {
 		return ports.ReciboAlta{}, ErrResultadoRegistroNoConfiable
 	}

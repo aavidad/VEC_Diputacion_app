@@ -1,7 +1,9 @@
 package domain
 
 func (e Expediente) Validar() error {
-	if !referenciaValida(e.Referencia) || !patronNumero.MatchString(e.NumeroVisible) ||
+	if !referenciaValida(e.Referencia) ||
+		!referenciaValida(e.OrganizacionRef) ||
+		!patronNumero.MatchString(e.NumeroVisible) ||
 		e.Version == 0 || e.Flujo.Validar() != nil || !e.FaseActual.Valida() ||
 		!e.EstadoActual.Valido() || e.Solicitud.Validar() != nil ||
 		!instanteCanonico(e.CreadoEn) || !instanteCanonico(e.ActualizadoEn) ||

@@ -27,7 +27,7 @@ type ReferenciasAlta struct {
 func (r ReferenciasAlta) Validar() error {
 	if !domain.ReferenciaOpacaValida(r.ExpedienteRef) ||
 		!domain.ReferenciaOpacaValida(r.ReciboRef) ||
-		r.NumeroVisible == "" || len(r.NumeroVisible) > 45 {
+		!domain.NumeroExpedienteValido(r.NumeroVisible) {
 		return ErrPreparacionAltaInvalida
 	}
 	return nil
@@ -67,7 +67,7 @@ type SolicitudPrepararAlta struct {
 
 func (s SolicitudPrepararAlta) Validar() error {
 	if !patronClaveIdempotencia.MatchString(s.ClaveIdempotencia) ||
-		!patronHuellaSHA256.MatchString(s.HuellaPeticionHMAC) ||
+		!SelloHMACSHA256Valido(s.HuellaPeticionHMAC) ||
 		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(s.ActorRef) ||
 		!domain.ReferenciaOpacaValida(s.PerfilRef) {
@@ -84,19 +84,23 @@ const (
 )
 
 type PreparacionAlta struct {
-	ReservaRef         string
-	Referencias        ReferenciasAlta
-	HuellaPeticionHMAC string
-	ActorRef           string
-	PerfilRef          string
-	Estado             EstadoPreparacionAlta
-	ReciboConfirmado   *ReciboAlta
+	ReservaRef             string
+	Referencias            ReferenciasAlta
+	AmbitoIdempotenciaHMAC string
+	HuellaPeticionHMAC     string
+	OrganizacionRef        string
+	ActorRef               string
+	PerfilRef              string
+	Estado                 EstadoPreparacionAlta
+	ReciboConfirmado       *ReciboAlta
 }
 
 func (p PreparacionAlta) ValidarPara(solicitud SolicitudPrepararAlta) error {
 	if solicitud.Validar() != nil || !domain.ReferenciaOpacaValida(p.ReservaRef) ||
 		p.Referencias.Validar() != nil ||
-		p.HuellaPeticionHMAC != solicitud.HuellaPeticionHMAC ||
+		!SelloHMACSHA256Valido(p.AmbitoIdempotenciaHMAC) ||
+		!sellosHMACIguales(p.HuellaPeticionHMAC, solicitud.HuellaPeticionHMAC) ||
+		p.OrganizacionRef != solicitud.OrganizacionRef ||
 		p.ActorRef != solicitud.ActorRef || p.PerfilRef != solicitud.PerfilRef ||
 		(p.Estado != PreparacionReservada && p.Estado != PreparacionConfirmada) {
 		return ErrPreparacionAltaInvalida
@@ -155,7 +159,9 @@ func NuevaOrdenConfirmarAlta(datos DatosOrdenConfirmarAlta) (OrdenConfirmarAlta,
 		datos.Preparacion.Estado != PreparacionReservada ||
 		!domain.ReferenciaOpacaValida(datos.Preparacion.ReservaRef) ||
 		datos.Preparacion.Referencias.Validar() != nil ||
-		!patronHuellaSHA256.MatchString(datos.Preparacion.HuellaPeticionHMAC) ||
+		!SelloHMACSHA256Valido(datos.Preparacion.AmbitoIdempotenciaHMAC) ||
+		!SelloHMACSHA256Valido(datos.Preparacion.HuellaPeticionHMAC) ||
+		datos.Preparacion.OrganizacionRef != datos.Expediente.OrganizacionRef ||
 		datos.Preparacion.ActorRef != identidad.ActorRef ||
 		datos.Preparacion.PerfilRef != identidad.PerfilRef ||
 		datos.Preparacion.ReciboConfirmado != nil ||
@@ -204,7 +210,7 @@ type ReciboAlta struct {
 
 func (r ReciboAlta) ValidarEstructura() error {
 	if !domain.ReferenciaOpacaValida(r.ExpedienteRef) ||
-		r.NumeroVisible == "" || len(r.NumeroVisible) > 45 || r.Version == 0 ||
+		!domain.NumeroExpedienteValido(r.NumeroVisible) || r.Version == 0 ||
 		!domain.ReferenciaOpacaValida(r.ReciboRef) ||
 		!domain.ReferenciaOpacaValida(r.AuditoriaRef) ||
 		!domain.ReferenciaOpacaValida(r.EventoRef) ||

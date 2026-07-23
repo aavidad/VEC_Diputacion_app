@@ -11,6 +11,11 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
+const (
+	claveAmbitoRegistroPrueba   = "vec.contratacion-temporal.ambito-idempotencia/v1"
+	clavePeticionRegistroPrueba = "vec.contratacion-temporal.huella-peticion/v1"
+)
+
 type resolutorIdentidadDoble struct {
 	resolver func(context.Context, ports.SolicitudResolverIdentidad) (ports.IdentidadOperacion, error)
 }
@@ -165,10 +170,12 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 				NumeroVisible: "2026/CT-0001",
 				ReciboRef:     "recibo:alta-001",
 			},
-			HuellaPeticionHMAC: strings.Repeat("b", 64),
-			ActorRef:           "actor:tecnica-rrhh-001",
-			PerfilRef:          "perfil:tecnica-rrhh",
-			Estado:             ports.PreparacionReservada,
+			AmbitoIdempotenciaHMAC: selloHMACRegistroPrueba(claveAmbitoRegistroPrueba, "d"),
+			HuellaPeticionHMAC:     selloHMACRegistroPrueba(clavePeticionRegistroPrueba, "b"),
+			OrganizacionRef:        "organizacion:diputacion-granada",
+			ActorRef:               "actor:tecnica-rrhh-001",
+			PerfilRef:              "perfil:tecnica-rrhh",
+			Estado:                 ports.PreparacionReservada,
 		},
 		autorizacion: autorizacion,
 		recibo: ports.ReciboAlta{
@@ -217,7 +224,7 @@ func construirServicioRegistro(
 			_ context.Context,
 			_ ports.MaterialHuellaAlta,
 		) (string, error) {
-			return strings.Repeat("b", 64), nil
+			return selloHMACRegistroPrueba(clavePeticionRegistroPrueba, "b"), nil
 		},
 	}
 	preparaciones := &preparadorAltaDoble{
@@ -258,6 +265,10 @@ func construirServicioRegistro(
 		t.Fatal(err)
 	}
 	return servicio
+}
+
+func selloHMACRegistroPrueba(dominio, caracter string) string {
+	return "hmac-sha256:" + dominio + ":" + strings.Repeat(caracter, 64)
 }
 
 func TestRegistroSolicitudConfirmaExpedienteAutorizado(t *testing.T) {
@@ -393,7 +404,7 @@ func TestRegistroSolicitudAislaMutacionDelDerivador(t *testing.T) {
 			material ports.MaterialHuellaAlta,
 		) (string, error) {
 			material.Solicitud.DocumentosAdjuntos[0] = "documento:adulterado-001"
-			return strings.Repeat("b", 64), nil
+			return selloHMACRegistroPrueba(clavePeticionRegistroPrueba, "b"), nil
 		}
 	})
 
@@ -432,5 +443,34 @@ func TestRegistroSolicitudRespetaContextoCancelado(t *testing.T) {
 	_, err := servicio.Registrar(ctx, escenario.solicitud)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("error inesperado: %v", err)
+	}
+}
+
+func TestRegistroSolicitudNoConvierteCommitConfirmadoEnCancelacionTardia(t *testing.T) {
+	escenario := nuevoEscenarioRegistro(t)
+	ctx, cancelar := context.WithCancel(context.Background())
+	servicio := construirServicioRegistro(t, escenario, func(
+		_ *resolutorIdentidadDoble,
+		_ *resolutorFlujoDoble,
+		_ *derivadorHuellaDoble,
+		_ *preparadorAltaDoble,
+		_ *autorizadorAltaDoble,
+		transaccion *transaccionAltaDoble,
+	) {
+		transaccion.confirmar = func(
+			context.Context,
+			ports.OrdenConfirmarAlta,
+		) (ports.ReciboAlta, error) {
+			cancelar()
+			return escenario.recibo, nil
+		}
+	})
+
+	recibo, err := servicio.Registrar(ctx, escenario.solicitud)
+	if err != nil {
+		t.Fatalf("éxito durable convertido en error: %v", err)
+	}
+	if recibo != escenario.recibo {
+		t.Fatalf("recibo distinto: %#v", recibo)
 	}
 }
