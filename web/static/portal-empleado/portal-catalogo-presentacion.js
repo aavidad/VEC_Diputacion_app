@@ -3,6 +3,7 @@ import { validarCatalogoModulosPresentacion } from "./portal-catalogo-modulos.js
 
 const CATALOGO = [
   { clave: "bolsa", sigla: "BOL", titulo: "Bolsas de trabajo", texto: "Elaboración, integrantes, llamamientos, contratos, documentos y trazabilidad." },
+  { clave: "contratacion_temporal", sigla: "CT", titulo: "Contratación temporal", texto: "Expedientes guiados desde la petición del centro hasta GINPIX, seguimiento y cierre." },
   { clave: "personal", sigla: "PER", titulo: "Personal", texto: "Datos personales, puesto, situación administrativa y servicios prestados." },
   { clave: "nominas", sigla: "NOM", titulo: "Nóminas", texto: "Recibos, certificados fiscales e incidencias retributivas." },
   { clave: "cronos", sigla: "CRO", titulo: "Cronos", texto: "Fichajes, permisos, vacaciones, turnos y calendario laboral." },

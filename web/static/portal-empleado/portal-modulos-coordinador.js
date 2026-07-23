@@ -15,6 +15,15 @@ import {
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260721-acceso-real-v2";
 import {
+  CAPACIDAD_CREAR_SOLICITUD,
+} from "./modulos/contratacion-temporal/contrato.js";
+import {
+  crearPresentadorExpedientesContratacionTemporal,
+} from "./modulos/contratacion-temporal/presentador-expedientes.js";
+import {
+  montarModuloContratacionTemporal,
+} from "./modulos/contratacion-temporal/vista-expedientes.js";
+import {
   CAPACIDAD_CONSULTAR_FICHAJES,
   CAPACIDAD_CONSULTAR_HORARIO,
   CAPACIDAD_CONSULTAR_PERMISOS,
@@ -47,15 +56,20 @@ const CAPACIDADES_AUTOSERVICIO_DIETAS = Object.freeze([
 ]);
 
 export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "dietas"]));
+export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
+  "contratacion-temporal", ...VISTAS_MODULOS_PERSONALES,
+]));
 
 export function moduloDeVistaPortal(vista) {
   if (vista === "portal") return "portal";
+  if (vista === "contratacion-temporal") return "contratacion_temporal";
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return vista;
   return "bolsa";
 }
 
 export function rutaDeVistaPortal(vista) {
   if (vista === "portal") return "#portal";
+  if (vista === "contratacion-temporal") return "#contratacion-temporal";
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return `#${vista}`;
   return `#bolsa/${vista}`;
 }
@@ -91,7 +105,16 @@ export function crearCoordinadorModulosPortal({
   async function cargarPresentacion(sesionBolsa) {
     desmontarVistaActual();
     presentacionActiva = true;
-    const [identidad, datosCronos, adaptadorCronos, adaptadorDietas, calculadorRutasDietas, documentos, catalogoDemo] = await Promise.all([
+    const [
+      identidad,
+      datosCronos,
+      adaptadorCronos,
+      adaptadorDietas,
+      calculadorRutasDietas,
+      documentos,
+      catalogoDemo,
+      adaptadorContratacion,
+    ] = await Promise.all([
       import("./identidad/presentacion.js"),
       import("./modulos/cronos/datos-presentacion.js"),
       import("./modulos/cronos/adaptador-presentacion.js"),
@@ -99,6 +122,7 @@ export function crearCoordinadorModulosPortal({
       import("./modulos/dietas/calculador-rutas-presentacion-osrm.js"),
       import("./documentos/descarga-recibos-presentacion.js"),
       import("./portal-catalogo-presentacion.js"),
+      import("./modulos/contratacion-temporal/adaptador-presentacion.js"),
     ]);
     const contexto = identidad.crearContextoActorPresentacionDesdeSesion(sesionBolsa);
     const contextos = compartirContextoActor(
@@ -130,8 +154,28 @@ export function crearCoordinadorModulosPortal({
       visorRuta: visorRutaDietas,
       origenComprobacion,
     }) : undefined;
+    const contratacionTemporal = contextos.contratacion_temporal ? (() => {
+      const fuente = adaptadorContratacion.crearAdaptadorContratacionTemporalPresentacion({
+        contextoActor: contextos.contratacion_temporal,
+      });
+      return Object.freeze({
+        crearPresentador: () => crearPresentadorExpedientesContratacionTemporal({
+          fuente, capacidades: fuente.capacidades,
+        }),
+        alta: Object.freeze({
+          catalogos: fuente.obtenerCatalogosAlta(),
+          capacidad: CAPACIDAD_CREAR_SOLICITUD,
+          ejecutor: fuente.registrarSolicitud,
+        }),
+      });
+    })() : undefined;
     catalogo = catalogoDemo.obtenerCatalogoModulosPresentacion();
-    composicion = Object.freeze({ contextos, cronos, dietas });
+    composicion = Object.freeze({
+      contextos,
+      contratacionTemporal,
+      cronos,
+      dietas,
+    });
     return contextos.bolsa || null;
   }
 
@@ -151,6 +195,9 @@ export function crearCoordinadorModulosPortal({
   }
 
   function vistaDisponible(vista) {
+    if (vista === "contratacion-temporal") {
+      return composicion?.contratacionTemporal !== undefined;
+    }
     if (vista === "cronos") return composicion?.cronos !== undefined;
     if (vista === "dietas") return composicion?.dietas !== undefined;
     return false;
@@ -167,6 +214,9 @@ export function crearCoordinadorModulosPortal({
         disponible: acceso.disponible === true && autorizada,
         vista: acceso.disponible === true && autorizada ? acceso.vista : "",
       });
+    }
+    if (clave === "contratacion_temporal" && vistaDisponible("contratacion-temporal")) {
+      return Object.freeze({ disponible: true, vista: "contratacion-temporal" });
     }
     if (clave === "cronos" && vistaDisponible("cronos")) {
       return Object.freeze({ disponible: true, vista: "cronos" });
@@ -201,13 +251,29 @@ export function crearCoordinadorModulosPortal({
   }
 
   async function montarVista(vista, raiz) {
-    if (!VISTAS_MODULOS_PERSONALES.has(vista) || !vistaDisponible(vista)) return false;
+    if (!VISTAS_MODULOS_CONECTADOS.has(vista) || !vistaDisponible(vista)) return false;
     if (!raiz || typeof raiz.replaceChildren !== "function") {
       throw new TypeError("raíz del módulo no válida");
     }
     desmontarVistaActual();
     const montaje = ++secuenciaMontaje;
     raiz.innerHTML = '<section class="panel"><div class="cuerpo-panel" role="status">Cargando módulo…</div></section>';
+
+    if (vista === "contratacion-temporal") {
+      const moduloContratacion = await montarModuloContratacionTemporal({
+        raiz,
+        presentador: composicion.contratacionTemporal.crearPresentador(),
+        alta: composicion.contratacionTemporal.alta,
+        confirmarOperacion,
+        anunciar,
+      });
+      if (montaje !== secuenciaMontaje) {
+        moduloContratacion.desmontar();
+        return false;
+      }
+      desmontarVista = moduloContratacion.desmontar;
+      return true;
+    }
 
     if (vista === "cronos") {
       raiz.innerHTML = composicion.cronos.renderizar();

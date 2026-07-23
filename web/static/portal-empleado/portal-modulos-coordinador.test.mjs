@@ -90,8 +90,8 @@ test("el portal muestra el catálogo completo y dentro de cada módulo solo el a
   const coordinador = crearCoordinador();
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("tecnico").sesion);
   const portal = coordinador.renderizarNavegacion(true, "portal");
-  assert.equal((portal.match(/data-modulo-portal=/g) || []).length, 12);
-  assert.equal((portal.match(/modulo-habilitado/g) || []).length, 1);
+  assert.equal((portal.match(/data-modulo-portal=/g) || []).length, 13);
+  assert.equal((portal.match(/modulo-habilitado/g) || []).length, 2);
 
   const bolsa = coordinador.renderizarNavegacion(true, "bolsa");
   assert.equal((bolsa.match(/data-modulo-portal=/g) || []).length, 1);
@@ -246,9 +246,9 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
   assert.doesNotMatch(estilos, /\.tarjeta-modulo-bloqueada/);
 });
 
-test("el cache busting cartográfico avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260721-acceso-real-v2";
-  const versionPortal = "20260721-acceso-real-v2";
+test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
+  const versionCoordinador = "20260723-contratacion-rrhh-v1";
+  const versionPortal = "20260723-contratacion-rrhh-v1";
   const versionPulido = "20260720-pulido-escritorio-v2";
   const [portal, html] = await Promise.all([
     readFile(new URL("portal.js", import.meta.url), "utf8"),

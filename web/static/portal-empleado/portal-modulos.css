@@ -6,6 +6,14 @@
   --modulo-borde: #8fbcf2;
 }
 
+.tarjeta-modulo-habilitada[data-modulo-catalogo="contratacion_temporal"],
+[data-modulo="contratacion-temporal"] {
+  --modulo-acento: #0c5ea8;
+  --modulo-secundario: #157f71;
+  --modulo-suave: #e8f3fb;
+  --modulo-borde: #87b8dd;
+}
+
 .tarjeta-modulo-habilitada[data-modulo-catalogo="cronos"] {
   --modulo-acento: #07758d;
   --modulo-secundario: #6746b5;
@@ -45,6 +53,7 @@
 }
 
 .enlace-lateral[data-modulo-portal="bolsa"] .indicador-menu { background: #236db8; }
+.enlace-lateral[data-modulo-portal="contratacion_temporal"] .indicador-menu { background: #0c5ea8; }
 .enlace-lateral[data-modulo-portal="cronos"] .indicador-menu { background: #07758d; }
 .enlace-lateral[data-modulo-portal="dietas"] .indicador-menu { background: #238248; }
 

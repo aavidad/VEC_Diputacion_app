@@ -9,7 +9,7 @@ import {
   validarYCongelarContextoActor,
 } from "./contexto-actor.js";
 
-const MODULOS_GESTION = Object.freeze(["bolsa"]);
+const MODULOS_GESTION = Object.freeze(["bolsa", "contratacion_temporal"]);
 const MODULOS_AUTOSERVICIO = Object.freeze(["cronos", "dietas"]);
 
 const PERFILES_PRESENTACION = Object.freeze({
@@ -58,7 +58,7 @@ function exigirCadenaSesion(sesion, campo) {
 
 /**
  * Traduce la sesion sintetica existente de Bolsa a la proyeccion comun. Solo
- * acepta los dos actores ya declarados por datos-presentacion.js y comprueba
+ * acepta los actores ya declarados por datos-presentacion.js y comprueba
  * sus datos visibles para no atribuir una sesion mal formada a otro empleado.
  */
 export function crearContextoActorPresentacionDesdeSesion(sesion) {
