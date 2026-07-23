@@ -119,8 +119,6 @@ type DatosArtefactoAnalisis struct {
 	GeneracionRespuestaRC       uint32
 	ConfirmadaRCEn              time.Time
 	RespuestaRCValidaHasta      time.Time
-	ConsumoRCRef                string
-	ConsumidaRCEn               time.Time
 	AutoridadFuenteRC           VinculoAutoridadFuenteAnalisisO3
 	AutoridadVerificadorRC      VinculoAutoridadFuenteAnalisisO3
 	AutoridadPublicadorRC       VinculoAutoridadFuenteAnalisisO3
@@ -137,8 +135,6 @@ type DatosArtefactoAnalisis struct {
 	GeneracionRespuestaCoste    uint32
 	ConfirmadaCosteEn           time.Time
 	RespuestaCosteValidaHasta   time.Time
-	ConsumoCosteRef             string
-	ConsumidaCosteEn            time.Time
 	AutoridadFuenteCoste        VinculoAutoridadFuenteAnalisisO3
 	AutoridadVerificadorCoste   VinculoAutoridadFuenteAnalisisO3
 	PreparadoEn                 time.Time
@@ -163,11 +159,6 @@ type PreparadorArtefactoAnalisisO3 interface {
 	PrepararArtefactoAnalisis(
 		context.Context,
 		SolicitudPrepararArtefactoAnalisis,
-	) (ArtefactoAnalisisPreparado, error)
-	ConsumirArtefactoAnalisisO3(
-		context.Context,
-		SolicitudPrepararArtefactoAnalisis,
-		ArtefactoAnalisisPreparado,
 	) (ArtefactoAnalisisPreparado, error)
 }
 
@@ -277,8 +268,6 @@ func validarCosteArtefactoAnalisis(
 			datos.GeneracionRespuestaCoste != 0 ||
 			!datos.ConfirmadaCosteEn.IsZero() ||
 			!datos.RespuestaCosteValidaHasta.IsZero() ||
-			datos.ConsumoCosteRef != "" ||
-			!datos.ConsumidaCosteEn.IsZero() ||
 			datos.AutoridadFuenteCoste !=
 				(VinculoAutoridadFuenteAnalisisO3{}) ||
 			datos.AutoridadVerificadorCoste !=
@@ -311,12 +300,6 @@ func validarCosteArtefactoAnalisis(
 			datos.RespuestaCosteValidaHasta,
 		) ||
 		!datos.ConfirmadaCosteEn.Before(
-			datos.RespuestaCosteValidaHasta,
-		) ||
-		!consumoRespuestaArtefactoAnalisisValido(
-			datos.ConsumoCosteRef,
-			datos.ConsumidaCosteEn,
-			datos.ConfirmadaCosteEn,
 			datos.RespuestaCosteValidaHasta,
 		) ||
 		!vinculoAutoridadAnalisisValido(
@@ -353,12 +336,6 @@ func validarPruebaRCDatosArtefacto(
 			datos.RespuestaRCValidaHasta,
 		) ||
 		!datos.ConfirmadaRCEn.Before(datos.RespuestaRCValidaHasta) ||
-		!consumoRespuestaArtefactoAnalisisValido(
-			datos.ConsumoRCRef,
-			datos.ConsumidaRCEn,
-			datos.ConfirmadaRCEn,
-			datos.RespuestaRCValidaHasta,
-		) ||
 		!vinculoAutoridadAnalisisValido(
 			datos.AutoridadFuenteRC,
 			RolFuentePresupuestaria,
@@ -388,21 +365,6 @@ func validarPruebaRCDatosArtefacto(
 		return ErrArtefactoAnalisisNoConfiable
 	}
 	return nil
-}
-
-func consumoRespuestaArtefactoAnalisisValido(
-	consumoRef string,
-	consumidaEn time.Time,
-	confirmadaEn time.Time,
-	validaHasta time.Time,
-) bool {
-	if consumoRef == "" && consumidaEn.IsZero() {
-		return true
-	}
-	return domain.ReferenciaOpacaValida(consumoRef) &&
-		instanteSeguroOperacionAnalisis(consumidaEn) &&
-		!consumidaEn.Before(confirmadaEn) &&
-		consumidaEn.Before(validaHasta)
 }
 
 func vinculoAutoridadAnalisisValido(

@@ -328,46 +328,6 @@ func (publicadorFuentesAplicacionPrueba) VerificarPublicacionMotivoFuenteAnalisi
 		errors.New("motivo-sintetico-no-esperado")
 }
 
-type consumidorFuentesAplicacionPrueba struct{ instante time.Time }
-
-func (c consumidorFuentesAplicacionPrueba) ConsumirConjuntoFuentesAnalisisO3(
-	_ context.Context,
-	orden ports.OrdenConsumoConjuntoFuentesAnalisisO3,
-) (ports.ReciboConsumoConjuntoFuentesAnalisisO3, error) {
-	datos, err := orden.Datos()
-	if err != nil {
-		return ports.ReciboConsumoConjuntoFuentesAnalisisO3{}, err
-	}
-	reciboRC, err := ports.NuevoReciboConsumoRespuestaFuenteAnalisis(
-		datos.OrdenRC,
-		"consumo_validacion_rc_sintetico_012345",
-		c.instante,
-	)
-	if err != nil {
-		return ports.ReciboConsumoConjuntoFuentesAnalisisO3{}, err
-	}
-	var reciboCoste *ports.ReciboConsumoRespuestaFuenteAnalisis
-	if datos.OrdenCoste != nil {
-		coste, errCoste := ports.NuevoReciboConsumoRespuestaFuenteAnalisis(
-			*datos.OrdenCoste,
-			"consumo_calculo_coste_sintetico_012345",
-			c.instante,
-		)
-		if errCoste != nil {
-			return ports.ReciboConsumoConjuntoFuentesAnalisisO3{},
-				errCoste
-		}
-		reciboCoste = &coste
-	}
-	return ports.NuevoReciboConsumoConjuntoFuentesAnalisisO3(
-		orden,
-		"consumo_conjunto_sintetico_012345",
-		reciboRC,
-		reciboCoste,
-		c.instante,
-	)
-}
-
 func nuevoPreparadorArtefactoAnalisisO3AplicacionPrueba(
 	t *testing.T,
 	instante time.Time,
@@ -459,7 +419,7 @@ func nuevoPreparadorArtefactoAnalisisO3AplicacionPrueba(
 	if err != nil {
 		t.Fatal(err)
 	}
-	capacidad, err := ports.NuevaCapacidadPrepararArtefactoAnalisisO3ParaComposicionInterna(
+	capacidad, err := NuevaCapacidadPrepararArtefactoAnalisisO3ParaComposicionInterna(
 		preparadorSolicitudesFuentesAplicacionPrueba{
 			reloj: relojFuentesAplicacionPrueba{instante: instante},
 		},
@@ -467,7 +427,6 @@ func nuevoPreparadorArtefactoAnalisisO3AplicacionPrueba(
 		calculador,
 		verificador,
 		publicador,
-		consumidorFuentesAplicacionPrueba{instante: instante},
 		confianza,
 		relojFuentesAplicacionPrueba{instante: instante},
 	)

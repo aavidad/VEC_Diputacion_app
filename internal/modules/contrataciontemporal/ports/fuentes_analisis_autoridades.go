@@ -317,6 +317,17 @@ func NuevaConfianzaAutoridadesFuenteAnalisis(
 	return confianza, nil
 }
 
+func (c ConfianzaAutoridadesFuenteAnalisis) Validar() error {
+	if !domain.ReferenciaOpacaValida(c.organizacionRef) ||
+		!domain.ReferenciaOpacaValida(c.audiencia) ||
+		len(c.raices) == 0 ||
+		len(c.raices) > maximoRaicesAutoridadFuenteAnalisis ||
+		len(c.revocaciones) > maximoRevocacionesAutoridadFuenteAnalisis {
+		return errAutoridadFuenteAnalisisNoConfiable
+	}
+	return nil
+}
+
 type identidadAutoridadFuenteAnalisis struct {
 	raizClaveID             string
 	autoridadRef            string

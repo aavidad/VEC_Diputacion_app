@@ -51,6 +51,21 @@ type datosEvidenciaCalculoCosteVerificadaO3 struct {
 	identidadVerificador identidadAutoridadFuenteAnalisis
 }
 
+func (e EvidenciaValidacionRCVerificadaO3) ValidarEn(
+	comprobadaEn time.Time,
+) error {
+	return e.validarEn(comprobadaEn)
+}
+
+func (e EvidenciaCalculoCosteVerificadaO3) ValidarEn(
+	comprobadaEn time.Time,
+) error {
+	if e.datos == nil {
+		return nil
+	}
+	return e.validarEn(comprobadaEn)
+}
+
 func (e EvidenciaValidacionRCVerificadaO3) validarEn(
 	comprobadaEn time.Time,
 ) error {
@@ -192,6 +207,106 @@ func (e EvidenciaCalculoCosteVerificadaO3) validarEn(
 			e.datos.identidadVerificador.autoridadRef ||
 		orden.HuellaRespuestaSHA256 !=
 			resultado.HuellaRespuestaSHA256 {
+		return ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return nil
+}
+
+// RevalidarEvidenciasFuenteAnalisisO3 es una primitiva de validación de la
+// TCB. Presenta desafíos nuevos y exige las mismas identidades verificadas;
+// la secuencia del caso de uso reside en application.
+func RevalidarEvidenciasFuenteAnalisisO3(
+	ctx context.Context,
+	fuenteRC FuentePresupuestaria,
+	calculador CalculadorCostePersonal,
+	verificador VerificadorRespuestaFuenteAnalisis,
+	publicador VerificadorPublicacionMotivoFuenteAnalisis,
+	confianza ConfianzaAutoridadesFuenteAnalisis,
+	rc EvidenciaValidacionRCVerificadaO3,
+	coste EvidenciaCalculoCosteVerificadaO3,
+	comprobadaEn time.Time,
+) error {
+	if ctx == nil || dependenciaNulaFuenteAnalisis(fuenteRC) ||
+		dependenciaNulaFuenteAnalisis(calculador) ||
+		dependenciaNulaFuenteAnalisis(verificador) ||
+		dependenciaNulaFuenteAnalisis(publicador) ||
+		confianza.Validar() != nil || rc.datos == nil ||
+		rc.validarEn(comprobadaEn) != nil ||
+		coste.ValidarEn(comprobadaEn) != nil {
+		return ErrResultadoFuenteAnalisisNoConfiable
+	}
+	datosSolicitudRC, err := rc.datos.solicitud.Datos()
+	materialRC := materialDesafioSolicitudFuenteAnalisis(
+		rc.datos.solicitud.datosCanonicos(),
+		datosSolicitudRC.HuellaPeticionHMAC,
+	)
+	if err != nil || len(materialRC) == 0 {
+		return ErrResultadoFuenteAnalisisNoConfiable
+	}
+	fuenteVerificada, err := presentarYVerificarAutoridadFuenteAnalisis(
+		ctx, fuenteRC, confianza, materialRC,
+		RolFuentePresupuestaria, comprobadaEn,
+	)
+	if err != nil {
+		return err
+	}
+	verificadorRC, err := presentarYVerificarAutoridadFuenteAnalisis(
+		ctx, verificador, confianza, materialRC,
+		RolVerificadorRespuesta, comprobadaEn,
+	)
+	if err != nil {
+		return err
+	}
+	publicadorRC, err := presentarYVerificarAutoridadFuenteAnalisis(
+		ctx, publicador, confianza, materialRC,
+		RolPublicadorCatalogo, comprobadaEn,
+	)
+	if err != nil ||
+		!identidadesAutoridadFuenteAnalisisIguales(
+			fuenteVerificada,
+			rc.datos.identidadFuente,
+		) ||
+		!identidadesAutoridadFuenteAnalisisIguales(
+			verificadorRC,
+			rc.datos.identidadVerificador,
+		) ||
+		!identidadesAutoridadFuenteAnalisisIguales(
+			publicadorRC,
+			rc.datos.identidadPublicador,
+		) {
+		return ErrResultadoFuenteAnalisisNoConfiable
+	}
+	if coste.datos == nil {
+		return nil
+	}
+	datosSolicitudCoste, err := coste.datos.solicitud.Datos()
+	materialCoste := materialDesafioSolicitudFuenteAnalisis(
+		coste.datos.solicitud.datosCanonicos(),
+		datosSolicitudCoste.HuellaPeticionHMAC,
+	)
+	if err != nil || len(materialCoste) == 0 {
+		return ErrResultadoFuenteAnalisisNoConfiable
+	}
+	fuenteCoste, err := presentarYVerificarAutoridadFuenteAnalisis(
+		ctx, calculador, confianza, materialCoste,
+		RolCalculadorCoste, comprobadaEn,
+	)
+	if err != nil {
+		return err
+	}
+	verificadorCoste, err := presentarYVerificarAutoridadFuenteAnalisis(
+		ctx, verificador, confianza, materialCoste,
+		RolVerificadorRespuesta, comprobadaEn,
+	)
+	if err != nil ||
+		!identidadesAutoridadFuenteAnalisisIguales(
+			fuenteCoste,
+			coste.datos.identidadFuente,
+		) ||
+		!identidadesAutoridadFuenteAnalisisIguales(
+			verificadorCoste,
+			coste.datos.identidadVerificador,
+		) {
 		return ErrResultadoFuenteAnalisisNoConfiable
 	}
 	return nil

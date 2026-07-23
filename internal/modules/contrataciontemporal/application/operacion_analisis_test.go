@@ -36,7 +36,13 @@ func TestOperacionAnalisisRegistraDesdeArtefactoInterno(t *testing.T) {
 	if recibo.VersionAnterior != 1 || recibo.VersionResultante != 2 ||
 		recibo.ArtefactoRef != escenario.registrar.ArtefactoRef ||
 		d.artefactos.llamadas != 1 || d.politicas.llamadas != 1 ||
-		d.autorizador.llamadas != 1 || d.transaccion.llamadas != 1 {
+		d.autorizador.llamadas != 1 || d.transaccion.llamadas != 1 ||
+		d.transaccion.consumosFuentes != 1 ||
+		d.transaccion.consumosV3 != 1 ||
+		d.transaccion.commits != 1 ||
+		recibo.ValidarParaOrdenDentroDeTransaccion(
+			d.transaccion.orden,
+		) != nil {
 		t.Fatalf("resultado o secuencia incorrectos: %#v", recibo)
 	}
 	evidencia, err := d.transaccion.orden.Datos()
@@ -51,6 +57,20 @@ func TestOperacionAnalisisRegistraDesdeArtefactoInterno(t *testing.T) {
 			"fuente_coste_sintetica_012345" {
 		t.Fatalf("el análisis no fue derivado del artefacto: %#v",
 			evidencia.ExpedienteSiguiente.Analisis)
+	}
+	pruebas, err := evidencia.Artefacto.PruebasParaO3(
+		evidencia.SolicitudArtefacto,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordenArtefacto, err := pruebas.OrdenConsumoConjunto.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordenFinal, err := evidencia.OrdenConsumoFuentes.Datos()
+	if err != nil || !reflect.DeepEqual(ordenArtefacto, ordenFinal) {
+		t.Fatal("la orden final no transportó el consumo pendiente exacto")
 	}
 	datosV3, err := d.autorizador.solicitud.Datos()
 	if err != nil {
@@ -92,7 +112,10 @@ func TestOperacionAnalisisRectificaConSegregacionYMotivoGobernado(
 		ultima.Observaciones != string(escenario.motivoRectificacion) ||
 		!evidencia.Politica.ExigeActorDistinto ||
 		evidencia.Politica.ActorRef ==
-			evidencia.Politica.ActorAnalisisAnteriorRef {
+			evidencia.Politica.ActorAnalisisAnteriorRef ||
+		d.transaccion.consumosFuentes != 1 ||
+		d.transaccion.consumosV3 != 1 ||
+		d.transaccion.commits != 1 {
 		t.Fatalf("rectificación o segregación incorrecta: %#v", evidencia)
 	}
 }
@@ -136,7 +159,8 @@ func TestOperacionAnalisisReintentoConfirmadoNoRepiteEfectos(t *testing.T) {
 	d.preparaciones.consultaConfirmada = &primero
 	d.artefactos.err = errors.New("fuentes-sinteticas-caidas")
 	llamadasArtefacto := d.artefactos.llamadas
-	consumos := d.artefactos.consumos
+	consumosFuentes := d.transaccion.consumosFuentes
+	consumosV3 := d.transaccion.consumosV3
 	preparaciones := d.preparaciones.llamadas
 
 	segundo, err := servicio.Registrar(context.Background(), escenario.registrar)
@@ -145,7 +169,8 @@ func TestOperacionAnalisisReintentoConfirmadoNoRepiteEfectos(t *testing.T) {
 	}
 	if segundo != primero ||
 		d.artefactos.llamadas != llamadasArtefacto ||
-		d.artefactos.consumos != consumos ||
+		d.transaccion.consumosFuentes != consumosFuentes ||
+		d.transaccion.consumosV3 != consumosV3 ||
 		d.preparaciones.llamadas != preparaciones ||
 		d.preparaciones.consultas != 2 ||
 		d.politicas.llamadas != 1 || d.autorizador.llamadas != 1 ||
@@ -178,7 +203,9 @@ func TestOperacionAnalisisMismaClaveConSemanticaDistintaEsConflicto(
 	if !errors.Is(err, ErrOperacionAnalisisEnConflicto) ||
 		len(d.sellador.preimagenes) != 1 ||
 		d.artefactos.llamadas != 1 ||
-		d.artefactos.consumos != 1 {
+		d.transaccion.consumosFuentes != 1 ||
+		d.transaccion.consumosV3 != 1 ||
+		d.transaccion.commits != 1 {
 		t.Fatalf("se esperaba conflicto semántico, recibido: %v", err)
 	}
 }
@@ -192,7 +219,7 @@ func TestOperacionAnalisisClasificaConflictoDeConsumoConjunto(
 		"-conflicto-consumo-conjunto-sintetico",
 	)
 	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
-	d.artefactos.errConsumo =
+	d.transaccion.err =
 		ports.ErrConjuntoFuentesAnalisisYaConsumido
 
 	_, err := servicio.Registrar(context.Background(), escenario.registrar)
@@ -201,8 +228,10 @@ func TestOperacionAnalisisClasificaConflictoDeConsumoConjunto(
 			err,
 			ports.ErrConjuntoFuentesAnalisisYaConsumido,
 		) ||
-		d.artefactos.consumos != 1 ||
-		d.transaccion.llamadas != 0 {
+		d.transaccion.consumosFuentes != 0 ||
+		d.transaccion.consumosV3 != 0 ||
+		d.transaccion.commits != 0 ||
+		d.transaccion.llamadas != 1 {
 		t.Fatalf("conflicto conjunto mal clasificado: %v", err)
 	}
 }
@@ -219,8 +248,74 @@ func TestOperacionAnalisisPropagaConflictoCASDurable(t *testing.T) {
 	_, err := servicio.Registrar(context.Background(), escenario.registrar)
 	if !errors.Is(err, ErrOperacionAnalisisEnConflicto) ||
 		!errors.Is(err, domain.ErrVersionEnConflicto) ||
-		d.transaccion.llamadas != 1 {
+		d.transaccion.llamadas != 1 ||
+		d.transaccion.consumosFuentes != 0 ||
+		d.transaccion.consumosV3 != 0 ||
+		d.transaccion.commits != 0 {
 		t.Fatalf("conflicto CAS mal clasificado: %v", err)
+	}
+}
+
+func TestOperacionAnalisisFalloDePersistenciaNoDejaConsumos(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioOperacionAnalisisSaneado(
+		t,
+		ports.OperacionRegistrarAnalisis,
+		"-persistencia-caida-sintetica",
+	)
+	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
+	d.transaccion.err =
+		ports.ErrPersistenciaOperacionAnalisisNoDisponible
+
+	_, err := servicio.Registrar(context.Background(), escenario.registrar)
+	if !errors.Is(err, ErrDependenciaOperacionAnalisisNoDisponible) ||
+		d.transaccion.llamadas != 1 ||
+		d.transaccion.consumosFuentes != 0 ||
+		d.transaccion.consumosV3 != 0 ||
+		d.transaccion.commits != 0 {
+		t.Fatalf("el rollback de persistencia dejó efectos: %v", err)
+	}
+}
+
+func TestOperacionAnalisisNoExponeReciboAdulteradoYReplayRecuperaConfirmado(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioOperacionAnalisisSaneado(
+		t,
+		ports.OperacionRegistrarAnalisis,
+		"-recibo-adulterado-sintetico",
+	)
+	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
+	d.transaccion.adulterarSalida = true
+
+	reciboAdulterado, err := servicio.Registrar(
+		context.Background(),
+		escenario.registrar,
+	)
+	if !errors.Is(err, ErrResultadoOperacionAnalisisNoConfiable) ||
+		reciboAdulterado != (ports.ReciboOperacionAnalisis{}) ||
+		d.transaccion.confirmado == nil ||
+		d.transaccion.consumosFuentes != 1 ||
+		d.transaccion.consumosV3 != 1 ||
+		d.transaccion.commits != 1 {
+		t.Fatalf("el adaptador defectuoso expuso un resultado: %v", err)
+	}
+
+	d.preparaciones.consultaConfirmada = d.transaccion.confirmado
+	d.transaccion.adulterarSalida = false
+	recuperado, err := servicio.Registrar(
+		context.Background(),
+		escenario.registrar,
+	)
+	if err != nil ||
+		recuperado != *d.transaccion.confirmado ||
+		d.transaccion.llamadas != 1 ||
+		d.transaccion.consumosFuentes != 1 ||
+		d.transaccion.consumosV3 != 1 ||
+		d.transaccion.commits != 1 {
+		t.Fatalf("el replay no recuperó el recibo durable: %#v, %v",
+			recuperado, err)
 	}
 }
 
@@ -237,7 +332,7 @@ func TestOperacionAnalisisNoConsumeFuentesSiNoPuedeReservarIntencion(
 
 	_, err := servicio.Registrar(context.Background(), escenario.registrar)
 	if !errors.Is(err, ErrDependenciaOperacionAnalisisNoDisponible) ||
-		d.artefactos.consumos != 0 ||
+		d.transaccion.consumosFuentes != 0 ||
 		d.politicas.llamadas != 0 ||
 		d.autorizador.llamadas != 0 ||
 		d.transaccion.llamadas != 0 {
@@ -257,7 +352,8 @@ func TestOperacionAnalisisDistingueDenegacionYDependencia(t *testing.T) {
 		_, err := servicio.Registrar(context.Background(), escenario.registrar)
 		if !errors.Is(err, ErrOperacionAnalisisDenegada) ||
 			errors.Is(err, ErrDependenciaOperacionAnalisisNoDisponible) ||
-			d.artefactos.consumos != 0 {
+			d.transaccion.consumosFuentes != 0 ||
+			d.transaccion.consumosV3 != 0 {
 			t.Fatalf("clasificación incorrecta: %v", err)
 		}
 	})
@@ -338,7 +434,7 @@ func TestOperacionAnalisisRechazaResultadosNoConfiables(t *testing.T) {
 		}
 		_, err := servicio.Registrar(context.Background(), escenario.registrar)
 		if !errors.Is(err, ErrResultadoOperacionAnalisisNoConfiable) ||
-			d.artefactos.consumos != 0 ||
+			d.transaccion.consumosFuentes != 0 ||
 			d.autorizador.llamadas != 0 || d.transaccion.llamadas != 0 {
 			t.Fatalf("política no confiable aceptada: %v", err)
 		}
@@ -360,7 +456,7 @@ func TestOperacionAnalisisRechazaResultadosNoConfiables(t *testing.T) {
 			escenario.rectificar,
 		)
 		if !errors.Is(err, ErrResultadoOperacionAnalisisNoConfiable) ||
-			d.artefactos.consumos != 0 ||
+			d.transaccion.consumosFuentes != 0 ||
 			d.autorizador.llamadas != 0 ||
 			d.transaccion.llamadas != 0 {
 			t.Fatalf("rectificación sin segregación aceptada: %v", err)
@@ -379,7 +475,10 @@ func TestOperacionAnalisisRechazaReciboFueraDeContextoYConcesion(
 	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
 	d.transaccion.desfaseConfirmacion = 24 * time.Hour
 	_, err := servicio.Registrar(context.Background(), escenario.registrar)
-	if !errors.Is(err, ErrResultadoOperacionAnalisisNoConfiable) {
+	if !errors.Is(err, ErrDependenciaOperacionAnalisisNoDisponible) ||
+		d.transaccion.consumosFuentes != 0 ||
+		d.transaccion.consumosV3 != 0 ||
+		d.transaccion.commits != 0 {
 		t.Fatalf("recibo 24h posterior aceptado: %v", err)
 	}
 }
@@ -428,7 +527,10 @@ func TestOperacionAnalisisRespetaCancelacionAntesYDespuesDelCommit(
 		d.sellador.antes = cancelar
 		_, err := servicio.Registrar(ctx, escenario.registrar)
 		if !errors.Is(err, context.Canceled) ||
-			d.preparaciones.llamadas != 0 || d.transaccion.llamadas != 0 {
+			d.preparaciones.llamadas != 0 ||
+			d.transaccion.llamadas != 0 ||
+			d.transaccion.consumosFuentes != 0 ||
+			d.transaccion.consumosV3 != 0 {
 			t.Fatalf("cancelación previa ambigua: %v", err)
 		}
 	})
@@ -443,7 +545,10 @@ func TestOperacionAnalisisRespetaCancelacionAntesYDespuesDelCommit(
 		d.transaccion.despues = cancelar
 		recibo, err := servicio.Registrar(ctx, escenario.registrar)
 		if err != nil || recibo.VersionResultante != 2 ||
-			d.transaccion.llamadas != 1 {
+			d.transaccion.llamadas != 1 ||
+			d.transaccion.consumosFuentes != 1 ||
+			d.transaccion.consumosV3 != 1 ||
+			d.transaccion.commits != 1 {
 			t.Fatalf("commit confirmado quedó ambiguo: %#v, %v", recibo, err)
 		}
 	})
@@ -552,8 +657,11 @@ func TestOrdenOperacionAnalisisRechazaCambioExtraYTodosLosCodecs(
 	alterado.NumeroVisible = "2026/SINT-9999"
 	_, err = ports.NuevaOrdenConfirmarOperacionAnalisis(
 		ports.DatosOrdenConfirmarOperacionAnalisis{
+			SolicitudContexto:    evidencia.SolicitudContexto,
+			ContextoAutorizacion: evidencia.ContextoAutorizacion,
 			SolicitudArtefacto:   evidencia.SolicitudArtefacto,
 			Artefacto:            evidencia.Artefacto,
+			OrdenConsumoFuentes:  evidencia.OrdenConsumoFuentes,
 			SolicitudPreparacion: evidencia.SolicitudPreparacion,
 			Preparacion:          evidencia.Preparacion,
 			SolicitudPolitica:    evidencia.SolicitudPolitica,
@@ -567,6 +675,26 @@ func TestOrdenOperacionAnalisisRechazaCambioExtraYTodosLosCodecs(
 	)
 	if !errors.Is(err, ports.ErrOrdenOperacionAnalisisInvalida) {
 		t.Fatal("la fábrica aceptó un cambio adicional del expediente")
+	}
+	_, err = ports.NuevaOrdenConfirmarOperacionAnalisis(
+		ports.DatosOrdenConfirmarOperacionAnalisis{
+			SolicitudContexto:    evidencia.SolicitudContexto,
+			ContextoAutorizacion: evidencia.ContextoAutorizacion,
+			SolicitudArtefacto:   evidencia.SolicitudArtefacto,
+			Artefacto:            evidencia.Artefacto,
+			SolicitudPreparacion: evidencia.SolicitudPreparacion,
+			Preparacion:          evidencia.Preparacion,
+			SolicitudPolitica:    evidencia.SolicitudPolitica,
+			Politica:             evidencia.Politica,
+			SolicitudV3:          evidencia.SolicitudV3,
+			DecisionV3:           evidencia.DecisionV3,
+			ConfirmacionV3:       evidencia.ConfirmacionV3,
+			InstanteEfecto:       evidencia.InstanteEfecto,
+			ExpedienteSiguiente:  evidencia.ExpedienteSiguiente,
+		},
+	)
+	if !errors.Is(err, ports.ErrOrdenOperacionAnalisisInvalida) {
+		t.Fatal("la fábrica aceptó una orden sin consumo pendiente")
 	}
 	comprobarError := func(nombre string, err error) {
 		t.Helper()

@@ -8,15 +8,11 @@ import (
 	"time"
 )
 
-func TestPuenteArtefactoAnalisisIntegraEvidenciaO3VerificadaYConsumida(
+func TestPuenteArtefactoAnalisisIntegraEvidenciaYOrdenNoConsumida(
 	t *testing.T,
 ) {
-	solicitud, capacidad, consumidor := capacidadArtefactoAnalisisPrueba(t)
-	artefacto := prepararYConsumirArtefactoAnalisisPrueba(
-		t,
-		capacidad,
-		solicitud,
-	)
+	solicitud, capacidad := capacidadArtefactoAnalisisPrueba(t)
+	artefacto := prepararArtefactoAnalisisPrueba(t, capacidad, solicitud)
 	datos, err := artefacto.DatosPara(solicitud)
 	if err != nil {
 		t.Fatal(err)
@@ -29,45 +25,49 @@ func TestPuenteArtefactoAnalisisIntegraEvidenciaO3VerificadaYConsumida(
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(consumidor.recibos) != 1 ||
-		consumidor.llamadas != 1 ||
+	orden, err := pruebas.OrdenConsumoConjunto.Datos()
+	if err != nil ||
+		orden.ArtefactoRef != datos.ArtefactoRef ||
+		orden.HuellaSHA256 == "" ||
 		datos.ArtefactoHuellaSHA256 == "" ||
-		datos.ConsumoRCRef == "" ||
-		datos.ConsumoCosteRef == "" ||
-		pruebas.ReciboConsumoCoste == nil ||
 		analisis.ValidacionRC.FuenteRef != datos.FuenteRCRef ||
 		analisis.CostePrevisto == datos.CostePrevisto ||
 		analisis.CostePrevisto.Centimos != datos.CostePrevisto.Centimos {
-		t.Fatal("el puente perdió evidencia verificada o consumo durable")
+		t.Fatal("el puente perdió evidencia verificada u orden pendiente")
 	}
-	for _, nombre := range []string{
-		"ResultadoRC", "ConfirmacionRC", "OrdenConsumoRC",
-		"ReciboConsumoRC", "Credencial", "Raiz", "Autoridad",
+	for _, tipo := range []reflect.Type{
+		reflect.TypeOf(SolicitudPrepararArtefactoAnalisis{}),
+		reflect.TypeOf(DatosArtefactoAnalisis{}),
+		reflect.TypeOf(PruebasArtefactoAnalisisO3{}),
 	} {
-		if _, existe := reflect.TypeOf(
-			SolicitudPrepararArtefactoAnalisis{},
-		).FieldByName(nombre); existe {
-			t.Fatalf("el DTO acepta autoridad mediante %s", nombre)
+		for _, nombre := range []string{
+			"ReciboConsumoRC",
+			"ReciboConsumoCoste",
+			"ReciboConsumoConjunto",
+			"ConsumoRCRef",
+			"ConsumoCosteRef",
+		} {
+			if _, existe := tipo.FieldByName(nombre); existe {
+				t.Fatalf("%s anticipa consumo mediante %s", tipo.Name(), nombre)
+			}
 		}
 	}
 }
 
-func TestPuenteArtefactoAnalisisRepeticionExactaEsIdempotente(
+func TestPuenteArtefactoAnalisisRepeticionExactaGeneraMismaOrdenPendiente(
 	t *testing.T,
 ) {
-	solicitud, capacidad, consumidor := capacidadArtefactoAnalisisPrueba(t)
-	primero := prepararYConsumirArtefactoAnalisisPrueba(
-		t,
-		capacidad,
-		solicitud,
-	)
-	segundo := prepararYConsumirArtefactoAnalisisPrueba(
-		t,
-		capacidad,
-		solicitud,
-	)
-	datosPrimero, _ := primero.DatosPara(solicitud)
-	datosSegundo, _ := segundo.DatosPara(solicitud)
+	solicitud, capacidad := capacidadArtefactoAnalisisPrueba(t)
+	primero := prepararArtefactoAnalisisPrueba(t, capacidad, solicitud)
+	segundo := prepararArtefactoAnalisisPrueba(t, capacidad, solicitud)
+	datosPrimero, err := primero.DatosPara(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	datosSegundo, err := segundo.DatosPara(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
 	pruebasPrimero, err := primero.PruebasParaO3(solicitud)
 	if err != nil {
 		t.Fatal(err)
@@ -76,42 +76,36 @@ func TestPuenteArtefactoAnalisisRepeticionExactaEsIdempotente(
 	if err != nil {
 		t.Fatal(err)
 	}
+	ordenPrimera, err := pruebasPrimero.OrdenConsumoConjunto.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordenSegunda, err := pruebasSegundo.OrdenConsumoConjunto.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if datosPrimero.ArtefactoHuellaSHA256 !=
 		datosSegundo.ArtefactoHuellaSHA256 ||
-		datosPrimero.ConsumoRCRef != datosSegundo.ConsumoRCRef ||
-		datosPrimero.ConsumoCosteRef != datosSegundo.ConsumoCosteRef ||
-		len(consumidor.recibos) != 1 ||
-		consumidor.llamadas != 2 ||
-		pruebasPrimero.ReciboConsumoConjunto == nil ||
-		pruebasSegundo.ReciboConsumoConjunto == nil ||
-		!recibosConsumoConjuntoIgualesO3(
-			*pruebasPrimero.ReciboConsumoConjunto,
-			*pruebasSegundo.ReciboConsumoConjunto,
-		) {
-		t.Fatal("la repetición exacta no reutilizó los consumos")
+		!reflect.DeepEqual(ordenPrimera, ordenSegunda) {
+		t.Fatal("la repetición exacta no conservó la orden pendiente")
 	}
 }
 
 func TestReciboConsumoConjuntoRechazaConfirmacionParcialRCConCoste(
 	t *testing.T,
 ) {
-	solicitud, capacidad, consumidor := capacidadArtefactoAnalisisPrueba(t)
-	artefacto, err := capacidad.PrepararArtefactoAnalisis(
-		context.Background(),
-		solicitud,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	solicitud, capacidad := capacidadArtefactoAnalisisPrueba(t)
+	artefacto := prepararArtefactoAnalisisPrueba(t, capacidad, solicitud)
 	orden := artefacto.pruebas.ordenConjunto
 	datosOrden, err := orden.Datos()
 	if err != nil || datosOrden.OrdenCoste == nil {
 		t.Fatal("la orden de prueba debe incluir RC y coste")
 	}
+	consumidaEn := instanteFuenteAnalisisPrueba().Add(4 * time.Second)
 	reciboRC, err := NuevoReciboConsumoRespuestaFuenteAnalisis(
 		datosOrden.OrdenRC,
 		"consumo_rc_parcial_prohibido_012345",
-		consumidor.instante,
+		consumidaEn,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -121,19 +115,16 @@ func TestReciboConsumoConjuntoRechazaConfirmacionParcialRCConCoste(
 		"consumo_conjunto_parcial_prohibido_012345",
 		reciboRC,
 		nil,
-		consumidor.instante,
+		consumidaEn,
 	); !errors.Is(err, ErrArtefactoAnalisisNoConfiable) {
 		t.Fatalf("se aceptó un recibo RC sin su coste indivisible: %v", err)
-	}
-	if len(consumidor.recibos) != 0 || consumidor.llamadas != 0 {
-		t.Fatal("la validación del recibo parcial produjo un efecto durable")
 	}
 }
 
 func TestPruebasArtefactoAnalisisClonaConfirmacionPublicacion(
 	t *testing.T,
 ) {
-	solicitud, capacidad, _ := capacidadArtefactoAnalisisPrueba(t)
+	solicitud, capacidad := capacidadArtefactoAnalisisPrueba(t)
 	solicitudes, err := capacidad.solicitudes.
 		PrepararSolicitudesFuentesAnalisisO3(context.Background(), solicitud)
 	if err != nil {
@@ -166,11 +157,7 @@ func TestPruebasArtefactoAnalisisClonaConfirmacionPublicacion(
 	capacidad.publicador = verificadorPublicacionPrueba(
 		inicio.Add(2500 * time.Millisecond),
 	)
-	artefacto := prepararYConsumirArtefactoAnalisisPrueba(
-		t,
-		capacidad,
-		solicitud,
-	)
+	artefacto := prepararArtefactoAnalisisPrueba(t, capacidad, solicitud)
 	primera, err := artefacto.PruebasParaO3(solicitud)
 	if err != nil || primera.ConfirmacionPublicacion == nil {
 		t.Fatalf("confirmación de publicación ausente: %v", err)
@@ -191,10 +178,7 @@ func TestPruebasArtefactoAnalisisClonaConfirmacionPublicacion(
 		t.Fatal(err)
 	}
 	if datosSegunda != datosOriginales {
-		t.Fatalf(
-			"PruebasParaO3 devolvió un alias mutable: %#v",
-			datosSegunda,
-		)
+		t.Fatalf("PruebasParaO3 devolvió un alias mutable: %#v", datosSegunda)
 	}
 	if _, err := artefacto.DatosPara(solicitud); err != nil {
 		t.Fatalf("la mutación externa alteró el artefacto original: %v", err)

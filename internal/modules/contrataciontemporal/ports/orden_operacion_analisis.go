@@ -35,8 +35,11 @@ const (
 
 type DatosOrdenConfirmarOperacionAnalisis struct {
 	bloqueoSerializacionOperacionAnalisis
+	SolicitudContexto    SolicitudResolverContextoAutorizacionAltaV3
+	ContextoAutorizacion ContextoAutorizacionAltaV3
 	SolicitudArtefacto   SolicitudPrepararArtefactoAnalisis
 	Artefacto            ArtefactoAnalisisPreparado
+	OrdenConsumoFuentes  OrdenConsumoConjuntoFuentesAnalisisO3
 	SolicitudPreparacion SolicitudPrepararOperacionAnalisis
 	Preparacion          PreparacionOperacionAnalisis
 	SolicitudPolitica    SolicitudResolverPoliticaOperacionAnalisis
@@ -54,8 +57,11 @@ type OrdenConfirmarOperacionAnalisis struct {
 }
 
 type datosOrdenConfirmarOperacionAnalisis struct {
+	solicitudContexto    SolicitudResolverContextoAutorizacionAltaV3
+	contextoAutorizacion ContextoAutorizacionAltaV3
 	solicitudArtefacto   SolicitudPrepararArtefactoAnalisis
 	artefacto            ArtefactoAnalisisPreparado
+	ordenConsumoFuentes  OrdenConsumoConjuntoFuentesAnalisisO3
 	solicitudPreparacion SolicitudPrepararOperacionAnalisis
 	preparacion          PreparacionOperacionAnalisis
 	solicitudPolitica    SolicitudResolverPoliticaOperacionAnalisis
@@ -70,8 +76,11 @@ type datosOrdenConfirmarOperacionAnalisis struct {
 
 type EvidenciaOrdenConfirmarOperacionAnalisis struct {
 	bloqueoSerializacionOperacionAnalisis
+	SolicitudContexto    SolicitudResolverContextoAutorizacionAltaV3
+	ContextoAutorizacion ContextoAutorizacionAltaV3
 	SolicitudArtefacto   SolicitudPrepararArtefactoAnalisis
 	Artefacto            ArtefactoAnalisisPreparado
+	OrdenConsumoFuentes  OrdenConsumoConjuntoFuentesAnalisisO3
 	SolicitudPreparacion SolicitudPrepararOperacionAnalisis
 	Preparacion          PreparacionOperacionAnalisis
 	SolicitudPolitica    SolicitudResolverPoliticaOperacionAnalisis
@@ -93,10 +102,16 @@ func NuevaOrdenConfirmarOperacionAnalisis(
 	artefacto, errArtefacto := datos.Artefacto.DatosPara(
 		datos.SolicitudArtefacto,
 	)
-	_, errPruebas := datos.Artefacto.PruebasParaO3(
+	pruebas, errPruebas := datos.Artefacto.PruebasParaO3(
 		datos.SolicitudArtefacto,
 	)
+	ordenEsperada, errOrdenEsperada :=
+		pruebas.OrdenConsumoConjunto.Datos()
+	ordenRecibida, errOrdenRecibida :=
+		datos.OrdenConsumoFuentes.Datos()
 	if err != nil || errArtefacto != nil || errPruebas != nil ||
+		errOrdenEsperada != nil || errOrdenRecibida != nil ||
+		!reflect.DeepEqual(ordenEsperada, ordenRecibida) ||
 		preparacion.Estado != PreparacionOperacionAnalisisReservada ||
 		preparacion.ExpedienteAnterior == nil ||
 		validarCoordenadasOrdenOperacionAnalisis(
@@ -110,8 +125,11 @@ func NuevaOrdenConfirmarOperacionAnalisis(
 	anterior := preparacion.ExpedienteAnterior.Clonar()
 	return OrdenConfirmarOperacionAnalisis{
 		datos: &datosOrdenConfirmarOperacionAnalisis{
+			solicitudContexto:    datos.SolicitudContexto,
+			contextoAutorizacion: datos.ContextoAutorizacion,
 			solicitudArtefacto:   datos.SolicitudArtefacto,
 			artefacto:            datos.Artefacto,
+			ordenConsumoFuentes:  datos.OrdenConsumoFuentes,
 			solicitudPreparacion: datos.SolicitudPreparacion,
 			preparacion:          datos.Preparacion,
 			solicitudPolitica:    datos.SolicitudPolitica,
@@ -138,6 +156,14 @@ func validarCoordenadasOrdenOperacionAnalisis(
 		!instanteSeguroOperacionAnalisis(datos.InstanteEfecto) ||
 		datos.InstanteEfecto.Before(anterior.ActualizadoEn) ||
 		artefacto.PreparadoEn.After(datos.InstanteEfecto) ||
+		datos.ContextoAutorizacion.ValidarPara(
+			datos.SolicitudContexto,
+			datos.InstanteEfecto,
+		) != nil ||
+		datos.Artefacto.ValidarVigenciaEn(
+			datos.SolicitudArtefacto,
+			datos.InstanteEfecto,
+		) != nil ||
 		datos.Politica.ValidarPara(datos.SolicitudPolitica) != nil ||
 		preparacion.ArtefactoRef != artefacto.ArtefactoRef ||
 		preparacion.ArtefactoHuellaSHA256 !=
@@ -159,10 +185,11 @@ func validarCoordenadasOrdenOperacionAnalisis(
 			datos.Politica.ActorRef == actorAnterior) {
 		return ErrOrdenOperacionAnalisisInvalida
 	}
-	if validarAutorizacionOrdenOperacionAnalisis(
+	if validarAutorizacionOrdenOperacionAnalisisEn(
 		datos,
 		preparacion,
 		artefacto,
+		datos.InstanteEfecto,
 	) != nil {
 		return ErrOrdenOperacionAnalisisInvalida
 	}
@@ -219,20 +246,30 @@ func reproducirOperacionAnalisis(
 	)
 }
 
-func validarAutorizacionOrdenOperacionAnalisis(
+func validarAutorizacionOrdenOperacionAnalisisEn(
 	datos DatosOrdenConfirmarOperacionAnalisis,
 	preparacion DatosPreparacionOperacionAnalisis,
 	artefacto DatosArtefactoAnalisis,
+	comprobadaEn time.Time,
 ) error {
 	solicitudV3, err := datos.SolicitudV3.Datos()
 	vinculo, errVinculo := solicitudV3.VinculoAutenticacionActor.Datos()
+	vinculoContexto, errVinculoContexto :=
+		datos.ContextoAutorizacion.Vinculo.Datos()
 	concedida, _, errDecision := datos.DecisionV3.Resultado()
 	huellaDecision, errHuella :=
 		dominiovec.HuellaSHA256DecisionAutorizacionV3(datos.DecisionV3)
 	confirmacion, errConfirmacion := datos.ConfirmacionV3.Datos()
-	if err != nil || errVinculo != nil || errDecision != nil ||
+	if err != nil || errVinculo != nil || errVinculoContexto != nil ||
+		errDecision != nil ||
 		errHuella != nil || errConfirmacion != nil || !concedida ||
+		!instanteSeguroOperacionAnalisis(comprobadaEn) ||
+		datos.ContextoAutorizacion.ValidarPara(
+			datos.SolicitudContexto,
+			comprobadaEn,
+		) != nil ||
 		datos.DecisionV3.ValidarPara(datos.SolicitudV3) != nil ||
+		!reflect.DeepEqual(vinculo, vinculoContexto) ||
 		vinculo.PrincipalID != preparacion.ActorRef ||
 		vinculo.PerfilActivoRef != preparacion.PerfilRef ||
 		solicitudV3.ReferenciaMotivo !=
@@ -246,7 +283,7 @@ func validarAutorizacionOrdenOperacionAnalisis(
 			datos.Politica,
 		) ||
 		confirmacion.DecisionHuellaSHA256 != huellaDecision ||
-		!datos.ConfirmacionV3.DentroDeVentanaEn(datos.InstanteEfecto) {
+		!datos.ConfirmacionV3.DentroDeVentanaEn(comprobadaEn) {
 		return ErrOrdenOperacionAnalisisInvalida
 	}
 	return nil
@@ -338,8 +375,11 @@ func (o OrdenConfirmarOperacionAnalisis) Datos() (
 			ErrOrdenOperacionAnalisisInvalida
 	}
 	entrada := DatosOrdenConfirmarOperacionAnalisis{
+		SolicitudContexto:    o.datos.solicitudContexto,
+		ContextoAutorizacion: o.datos.contextoAutorizacion,
 		SolicitudArtefacto:   o.datos.solicitudArtefacto,
 		Artefacto:            o.datos.artefacto,
+		OrdenConsumoFuentes:  o.datos.ordenConsumoFuentes,
 		SolicitudPreparacion: o.datos.solicitudPreparacion,
 		Preparacion:          o.datos.preparacion,
 		SolicitudPolitica:    o.datos.solicitudPolitica,
@@ -355,8 +395,11 @@ func (o OrdenConfirmarOperacionAnalisis) Datos() (
 			ErrOrdenOperacionAnalisisInvalida
 	}
 	return EvidenciaOrdenConfirmarOperacionAnalisis{
+		SolicitudContexto:    entrada.SolicitudContexto,
+		ContextoAutorizacion: entrada.ContextoAutorizacion,
 		SolicitudArtefacto:   entrada.SolicitudArtefacto,
 		Artefacto:            entrada.Artefacto,
+		OrdenConsumoFuentes:  entrada.OrdenConsumoFuentes,
 		SolicitudPreparacion: entrada.SolicitudPreparacion,
 		Preparacion:          entrada.Preparacion,
 		SolicitudPolitica:    entrada.SolicitudPolitica,
@@ -370,10 +413,67 @@ func (o OrdenConfirmarOperacionAnalisis) Datos() (
 	}, nil
 }
 
-// El adaptador productivo debe ejecutar en una sola transacción: CAS del
-// agregado y política, consumo único del artefacto O3-03 y de la concesión V3,
-// confirmación idempotente, agregado, historial append-only, auditoría, recibo
-// y outbox. El puerto no prueba por sí mismo durabilidad.
+// ValidarConfirmacionDentroDeTransaccion debe invocarse con el reloj
+// autoritativo de la base de datos después de adquirir los bloqueos y antes de
+// escribir ningún efecto. No sustituye el COMMIT: cerca contexto, fuentes y
+// concesión V3 en el instante exacto que aparecerá en el recibo.
+func (o OrdenConfirmarOperacionAnalisis) ValidarConfirmacionDentroDeTransaccion(
+	confirmadaEn time.Time,
+) error {
+	evidencia, err := o.Datos()
+	if err != nil || !instanteSeguroOperacionAnalisis(confirmadaEn) ||
+		confirmadaEn.Before(evidencia.InstanteEfecto) ||
+		evidencia.ContextoAutorizacion.ValidarPara(
+			evidencia.SolicitudContexto,
+			confirmadaEn,
+		) != nil ||
+		evidencia.Artefacto.ValidarVigenciaEn(
+			evidencia.SolicitudArtefacto,
+			confirmadaEn,
+		) != nil {
+		return ErrOrdenOperacionAnalisisInvalida
+	}
+	preparacion, err := evidencia.Preparacion.DatosPara(
+		evidencia.SolicitudPreparacion,
+	)
+	artefacto, errArtefacto := evidencia.Artefacto.DatosPara(
+		evidencia.SolicitudArtefacto,
+	)
+	entrada := DatosOrdenConfirmarOperacionAnalisis{
+		SolicitudContexto:    evidencia.SolicitudContexto,
+		ContextoAutorizacion: evidencia.ContextoAutorizacion,
+		SolicitudArtefacto:   evidencia.SolicitudArtefacto,
+		Artefacto:            evidencia.Artefacto,
+		OrdenConsumoFuentes:  evidencia.OrdenConsumoFuentes,
+		SolicitudPreparacion: evidencia.SolicitudPreparacion,
+		Preparacion:          evidencia.Preparacion,
+		SolicitudPolitica:    evidencia.SolicitudPolitica,
+		Politica:             evidencia.Politica,
+		SolicitudV3:          evidencia.SolicitudV3,
+		DecisionV3:           evidencia.DecisionV3,
+		ConfirmacionV3:       evidencia.ConfirmacionV3,
+		InstanteEfecto:       evidencia.InstanteEfecto,
+		ExpedienteSiguiente:  evidencia.ExpedienteSiguiente,
+	}
+	if err != nil || errArtefacto != nil ||
+		validarAutorizacionOrdenOperacionAnalisisEn(
+			entrada,
+			preparacion,
+			artefacto,
+			confirmadaEn,
+		) != nil {
+		return ErrOrdenOperacionAnalisisInvalida
+	}
+	return nil
+}
+
+// El adaptador O3-04 productivo posee la única frontera de efectos. En una
+// sola transacción debe bloquear y revalidar reserva, idempotencia, CAS,
+// política y tiempo; consumir conjuntamente RC+coste y la concesión V3;
+// persistir agregado, historia append-only, auditoría, recibo y outbox; validar
+// el recibo antes del COMMIT; y hacer rollback total ante cualquier fallo. Un
+// replay exacto devuelve el mismo recibo. No existe un puerto de consumo
+// previo ni una compensación entre puertos.
 type TransaccionOperacionesAnalisis interface {
 	ConfirmarOperacionAnalisis(
 		context.Context,

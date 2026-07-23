@@ -394,23 +394,17 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
 	}
-	artefacto, err = s.artefactos.ConsumirArtefactoAnalisisO3(
-		ctxOperacion,
+	if artefacto.ValidarVigenciaEn(
 		solicitudArtefacto,
-		artefacto,
+		instanteEfecto,
+	) != nil {
+		return ports.ReciboOperacionAnalisis{},
+			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
+	}
+	pruebasArtefacto, err := artefacto.PruebasParaO3(
+		solicitudArtefacto,
 	)
 	if err != nil {
-		if errors.Is(
-			err,
-			ports.ErrConjuntoFuentesAnalisisYaConsumido,
-		) {
-			return ports.ReciboOperacionAnalisis{},
-				nuevoErrorOperacionAnalisis(tipoErrorConflicto, nil)
-		}
-		return ports.ReciboOperacionAnalisis{},
-			errorDependenciaOperacionAnalisis(ctxOperacion)
-	}
-	if _, err = artefacto.PruebasParaO3(solicitudArtefacto); err != nil {
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
 	}
@@ -434,8 +428,11 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 	}
 	orden, err := ports.NuevaOrdenConfirmarOperacionAnalisis(
 		ports.DatosOrdenConfirmarOperacionAnalisis{
+			SolicitudContexto:    resolverContexto,
+			ContextoAutorizacion: contextoAutorizacion,
 			SolicitudArtefacto:   solicitudArtefacto,
 			Artefacto:            artefacto,
+			OrdenConsumoFuentes:  pruebasArtefacto.OrdenConsumoConjunto,
 			SolicitudPreparacion: solicitudPreparacion,
 			Preparacion:          preparacion,
 			SolicitudPolitica:    solicitudPolitica,
@@ -454,6 +451,27 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 	if err := ctxOperacion.Err(); err != nil {
 		return ports.ReciboOperacionAnalisis{}, err
 	}
+	instantePrecommit := instanteCanonico(s.reloj.Ahora())
+	if contextoAutorizacion.ValidarPara(
+		resolverContexto,
+		instantePrecommit,
+	) != nil ||
+		artefacto.ValidarVigenciaEn(
+			solicitudArtefacto,
+			instantePrecommit,
+		) != nil ||
+		!autorizacionV3ValidaEn(
+			solicitudV3,
+			decisionV3,
+			confirmacionV3,
+			instantePrecommit,
+		) ||
+		orden.ValidarConfirmacionDentroDeTransaccion(
+			instantePrecommit,
+		) != nil {
+		return ports.ReciboOperacionAnalisis{},
+			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
+	}
 	recibo, err := s.transaccion.ConfirmarOperacionAnalisis(
 		ctxOperacion,
 		orden,
@@ -462,18 +480,7 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		return ports.ReciboOperacionAnalisis{},
 			clasificarFalloPersistencia(ctxOperacion, err)
 	}
-	if recibo.ValidarParaPreparacion(datosPreparacion) != nil ||
-		recibo.ConfirmadaEn.Before(instanteEfecto) ||
-		contextoAutorizacion.ValidarPara(
-			resolverContexto,
-			recibo.ConfirmadaEn,
-		) != nil ||
-		!autorizacionV3ValidaEn(
-			solicitudV3,
-			decisionV3,
-			confirmacionV3,
-			recibo.ConfirmadaEn,
-		) {
+	if recibo.ValidarParaOrdenDentroDeTransaccion(orden) != nil {
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
 	}

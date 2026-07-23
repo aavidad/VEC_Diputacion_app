@@ -15,33 +15,11 @@ import (
 )
 
 type preparadorArtefactoAnalisisDoble struct {
-	delegado   ports.PreparadorArtefactoAnalisisO3
-	err        error
-	errConsumo error
-	llamadas   int
-	consumos   int
-	solicitud  ports.SolicitudPrepararArtefactoAnalisis
-	forzado    *ports.ArtefactoAnalisisPreparado
-}
-
-func (d *preparadorArtefactoAnalisisDoble) ConsumirArtefactoAnalisisO3(
-	ctx context.Context,
-	solicitud ports.SolicitudPrepararArtefactoAnalisis,
-	artefacto ports.ArtefactoAnalisisPreparado,
-) (ports.ArtefactoAnalisisPreparado, error) {
-	d.consumos++
-	if d.errConsumo != nil {
-		return ports.ArtefactoAnalisisPreparado{}, d.errConsumo
-	}
-	if d.delegado == nil {
-		return ports.ArtefactoAnalisisPreparado{},
-			errors.New("consumidor-real-sintetico-ausente")
-	}
-	return d.delegado.ConsumirArtefactoAnalisisO3(
-		ctx,
-		solicitud,
-		artefacto,
-	)
+	delegado  ports.PreparadorArtefactoAnalisisO3
+	err       error
+	llamadas  int
+	solicitud ports.SolicitudPrepararArtefactoAnalisis
+	forzado   *ports.ArtefactoAnalisisPreparado
 }
 
 func (d *preparadorArtefactoAnalisisDoble) PrepararArtefactoAnalisis(
@@ -251,6 +229,11 @@ type transaccionOperacionAnalisisDobleSaneado struct {
 	orden               ports.OrdenConfirmarOperacionAnalisis
 	despues             func()
 	desfaseConfirmacion time.Duration
+	consumosFuentes     int
+	consumosV3          int
+	commits             int
+	adulterarSalida     bool
+	confirmado          *ports.ReciboOperacionAnalisis
 }
 
 func (d *transaccionOperacionAnalisisDobleSaneado) ConfirmarOperacionAnalisis(
@@ -259,14 +242,17 @@ func (d *transaccionOperacionAnalisisDobleSaneado) ConfirmarOperacionAnalisis(
 ) (ports.ReciboOperacionAnalisis, error) {
 	d.llamadas++
 	d.orden = orden
-	if d.despues != nil {
-		d.despues()
-	}
 	if d.err != nil {
 		return ports.ReciboOperacionAnalisis{}, d.err
 	}
 	evidencia, err := orden.Datos()
 	if err != nil {
+		return ports.ReciboOperacionAnalisis{}, err
+	}
+	confirmadaEn := evidencia.InstanteEfecto.Add(d.desfaseConfirmacion)
+	if err := orden.ValidarConfirmacionDentroDeTransaccion(
+		confirmadaEn,
+	); err != nil {
 		return ports.ReciboOperacionAnalisis{}, err
 	}
 	preparacion, err := evidencia.Preparacion.DatosPara(
@@ -275,23 +261,77 @@ func (d *transaccionOperacionAnalisisDobleSaneado) ConfirmarOperacionAnalisis(
 	if err != nil {
 		return ports.ReciboOperacionAnalisis{}, err
 	}
-	return ports.ReciboOperacionAnalisis{
-		Operacion:             preparacion.Operacion,
-		OrganizacionRef:       preparacion.OrganizacionRef,
-		ExpedienteRef:         preparacion.ExpedienteRef,
-		VersionAnterior:       preparacion.VersionExpediente,
-		VersionResultante:     evidencia.ExpedienteSiguiente.Version,
-		SecuenciaActuacion:    evidencia.ExpedienteSiguiente.Version,
-		ArtefactoRef:          preparacion.ArtefactoRef,
-		ArtefactoHuellaSHA256: preparacion.ArtefactoHuellaSHA256,
-		ReciboRef:             preparacion.ReciboRef,
-		AuditoriaRef:          "auditoria:operacion-sintetica-001",
-		EventoRef:             "evento:operacion-sintetica-001",
-		HuellaSemanticaHMAC:   preparacion.HuellaSemanticaHMAC,
-		ConfirmadaEn: evidencia.InstanteEfecto.Add(
-			d.desfaseConfirmacion,
-		),
-	}, nil
+	ordenConsumo, err := evidencia.OrdenConsumoFuentes.Datos()
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{}, err
+	}
+	reciboRC, err := ports.NuevoReciboConsumoRespuestaFuenteAnalisis(
+		ordenConsumo.OrdenRC,
+		"consumo_validacion_rc_sintetico_012345",
+		confirmadaEn,
+	)
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{}, err
+	}
+	var reciboCoste *ports.ReciboConsumoRespuestaFuenteAnalisis
+	if ordenConsumo.OrdenCoste != nil {
+		coste, errCoste := ports.NuevoReciboConsumoRespuestaFuenteAnalisis(
+			*ordenConsumo.OrdenCoste,
+			"consumo_calculo_coste_sintetico_012345",
+			confirmadaEn,
+		)
+		if errCoste != nil {
+			return ports.ReciboOperacionAnalisis{}, errCoste
+		}
+		reciboCoste = &coste
+	}
+	reciboConsumo, err := ports.NuevoReciboConsumoConjuntoFuentesAnalisisO3(
+		evidencia.OrdenConsumoFuentes,
+		"consumo_conjunto_sintetico_012345",
+		reciboRC,
+		reciboCoste,
+		confirmadaEn,
+	)
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{}, err
+	}
+	confirmacionV3, err := evidencia.ConfirmacionV3.Datos()
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{}, err
+	}
+	recibo := ports.ReciboOperacionAnalisis{
+		Operacion:              preparacion.Operacion,
+		OrganizacionRef:        preparacion.OrganizacionRef,
+		ExpedienteRef:          preparacion.ExpedienteRef,
+		VersionAnterior:        preparacion.VersionExpediente,
+		VersionResultante:      evidencia.ExpedienteSiguiente.Version,
+		SecuenciaActuacion:     evidencia.ExpedienteSiguiente.Version,
+		ArtefactoRef:           preparacion.ArtefactoRef,
+		ArtefactoHuellaSHA256:  preparacion.ArtefactoHuellaSHA256,
+		ReciboRef:              preparacion.ReciboRef,
+		AuditoriaRef:           "auditoria:operacion-sintetica-001",
+		EventoRef:              "evento:operacion-sintetica-001",
+		ConsumoFuentesRef:      reciboConsumo.ConsumoConjuntoRef,
+		HuellaConsumoFuentes:   reciboConsumo.HuellaConjunto,
+		ConcesionV3DecisionRef: confirmacionV3.DecisionRef,
+		HuellaSemanticaHMAC:    preparacion.HuellaSemanticaHMAC,
+		ConfirmadaEn:           confirmadaEn,
+	}
+	if err := recibo.ValidarParaOrdenDentroDeTransaccion(orden); err != nil {
+		return ports.ReciboOperacionAnalisis{}, err
+	}
+	d.consumosFuentes++
+	d.consumosV3++
+	d.commits++
+	confirmado := recibo
+	d.confirmado = &confirmado
+	if d.despues != nil {
+		d.despues()
+	}
+	if d.adulterarSalida {
+		recibo.EventoRef = ""
+	}
+	return recibo, nil
 }
 
 type escenarioOperacionAnalisisSaneado struct {

@@ -211,7 +211,8 @@ func clasificarFalloPersistencia(ctx context.Context, causa error) error {
 	if errors.Is(
 		causa,
 		ports.ErrClaveIdempotenciaOperacionAnalisisUsada,
-	) || errors.Is(causa, domain.ErrVersionEnConflicto) {
+	) || errors.Is(causa, ports.ErrConjuntoFuentesAnalisisYaConsumido) ||
+		errors.Is(causa, domain.ErrVersionEnConflicto) {
 		return nuevoErrorOperacionAnalisis(tipoErrorConflicto, nil)
 	}
 	return nuevoErrorOperacionAnalisis(tipoErrorDependencia, nil)

@@ -1,11 +1,9 @@
 package ports
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"reflect"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -297,26 +295,4 @@ func clonarReciboConsumoConjuntoFuentesAnalisisO3(
 		recibo.ReciboCoste = &coste
 	}
 	return recibo
-}
-
-// ConsumidorConjuntoFuentesAnalisisO3 debe confirmar RC y coste en una única
-// transacción durable. Un replay exacto devuelve el mismo recibo completo; la
-// misma referencia de conjunto con otra huella devuelve
-// ErrConjuntoFuentesAnalisisYaConsumido. O3-02 solo define el contrato:
-// el adaptador PostgreSQL y sus garantías pertenecen a O3-04.
-type ConsumidorConjuntoFuentesAnalisisO3 interface {
-	ConsumirConjuntoFuentesAnalisisO3(
-		context.Context,
-		OrdenConsumoConjuntoFuentesAnalisisO3,
-	) (ReciboConsumoConjuntoFuentesAnalisisO3, error)
-}
-
-func recibosConsumoConjuntoIgualesO3(
-	primero ReciboConsumoConjuntoFuentesAnalisisO3,
-	segundo ReciboConsumoConjuntoFuentesAnalisisO3,
-) bool {
-	return reflect.DeepEqual(
-		clonarReciboConsumoConjuntoFuentesAnalisisO3(primero),
-		clonarReciboConsumoConjuntoFuentesAnalisisO3(segundo),
-	)
 }
