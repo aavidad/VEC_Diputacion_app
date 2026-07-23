@@ -90,6 +90,7 @@ func (r ResultadoConsultaCobertura) ValidarPara(
 		!r.Periodo.Inicio.Equal(solicitud.Periodo.Inicio) ||
 		!r.Periodo.Fin.Equal(solicitud.Periodo.Fin) ||
 		r.Comprobacion.Validar() != nil ||
+		r.Comprobacion.Detalle != "" ||
 		r.Comprobacion.Clave != solicitud.Comprobacion.Clave ||
 		r.DefinicionFuenteRef !=
 			solicitud.Comprobacion.Procedencia.DefinicionFuenteRef ||

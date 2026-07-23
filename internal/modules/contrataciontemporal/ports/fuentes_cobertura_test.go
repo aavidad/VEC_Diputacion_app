@@ -3,6 +3,7 @@ package ports
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -119,6 +120,9 @@ func TestConsultarCoberturaConFuenteRechazaCrucesDeCoordenadas(t *testing.T) {
 		{"comprobación", func(r *ResultadoConsultaCobertura) {
 			r.Comprobacion.Clave = "hay_candidaturas_disponibles"
 		}},
+		{"detalle libre", func(r *ResultadoConsultaCobertura) {
+			r.Comprobacion.Detalle = "Una persona concreta está disponible."
+		}},
 		{"definición fuente", func(r *ResultadoConsultaCobertura) {
 			r.DefinicionFuenteRef = "fuente:definicion-ajena"
 		}},
@@ -146,6 +150,25 @@ func TestConsultarCoberturaConFuenteRechazaCrucesDeCoordenadas(t *testing.T) {
 				t.Fatalf("aceptó coordenada cruzada: %v", err)
 			}
 		})
+	}
+}
+
+func TestSolicitudCoberturaMantieneListaPositivaMinimizada(t *testing.T) {
+	tipo := reflect.TypeOf(SolicitudConsultarCobertura{})
+	esperados := map[string]struct{}{
+		"PeticionRef": {}, "OrganizacionRef": {}, "ExpedienteRef": {},
+		"VersionExpediente": {}, "Catalogo": {}, "ViaClave": {},
+		"Comprobacion": {}, "CategoriaRef": {}, "Periodo": {},
+		"SolicitadaEn": {},
+	}
+	if tipo.NumField() != len(esperados) {
+		t.Fatalf("la petición amplió su superficie: %d campos", tipo.NumField())
+	}
+	for indice := range tipo.NumField() {
+		campo := tipo.Field(indice)
+		if _, permitido := esperados[campo.Name]; !permitido {
+			t.Fatalf("campo no minimizado en la petición: %s", campo.Name)
+		}
 	}
 }
 
@@ -283,7 +306,6 @@ func resultadoCoberturaPrueba(
 			FuenteRef:  "fuente:bolsa-publicada-v7",
 			ReciboRef:  "recibo:consulta-bolsa-001",
 			EvaluadaEn: solicitud.SolicitadaEn.Add(time.Second),
-			Detalle:    "Existe una bolsa vigente para la categoría solicitada.",
 		},
 	}
 }
