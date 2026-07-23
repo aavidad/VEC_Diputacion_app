@@ -56,4 +56,15 @@ DROP FUNCTION vec_autorizacion_atestada_v3.texto_tecnico_valido(
 );
 DROP SCHEMA vec_autorizacion_atestada_v3;
 
+-- Restablece exactamente los valores predeterminados de PostgreSQL. La
+-- migración up retiró EXECUTE/USAGE globales para que ningún objeto futuro
+-- naciera abierto; si no se revierte este catálogo, PostgreSQL conserva una
+-- dependencia pg_default_acl e impide retirar el rol propietario.
+ALTER DEFAULT PRIVILEGES
+    FOR ROLE vec_autorizacion_atestada_v3_propietario
+    GRANT EXECUTE ON FUNCTIONS TO PUBLIC;
+ALTER DEFAULT PRIVILEGES
+    FOR ROLE vec_autorizacion_atestada_v3_propietario
+    GRANT USAGE ON TYPES TO PUBLIC;
+
 COMMIT;
