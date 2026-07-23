@@ -65,7 +65,9 @@ ajenas.
 | Especificación inicial | Implementada |
 | Manifiesto del módulo | Implementado y probado |
 | Dominio de expediente | Primer corte implementado y probado |
-| Casos de uso y puertos | Pendiente |
+| Puertos de alta | Implementados y probados por el caso de uso |
+| Caso de uso: registrar solicitud | Implementado y probado |
+| Resto de casos de uso | Pendiente |
 | PostgreSQL | Pendiente |
 | API interna | Pendiente |
 | Web conectada | Pendiente |
@@ -87,11 +89,12 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Incorporar puertos de repositorio, flujo, autorización, reloj, referencias
-   e idempotencia.
-2. Añadir el primer caso de uso: registrar una solicitud del centro.
-3. Crear el contrato de persistencia PostgreSQL con CAS, auditoría y outbox en
-   la misma transacción.
+1. Implementar el adaptador PostgreSQL de preparación idempotente y
+   confirmación de alta.
+2. Asegurar en una sola transacción la reserva, autorización consumida,
+   expediente, primera actuación, auditoría y outbox.
+3. Probar repetición, conflicto semántico, concurrencia y resultado
+   indeterminado de `COMMIT`.
 4. Exponer después la API interna; no crear antes una segunda autoridad de
    identidad en el manejador.
 
@@ -116,13 +119,38 @@ Incluye:
 - agregado con versión optimista y cronología encadenada;
 - copias defensivas y orden mínimo de los cuatro primeros hitos.
 
+## Alta de solicitud implementada
+
+Paquetes:
+
+```text
+internal/modules/contrataciontemporal/ports
+internal/modules/contrataciontemporal/application
+```
+
+El caso `ServicioRegistroSolicitud.Registrar` realiza, por este orden:
+
+1. valida la orden y clona defensivamente la solicitud;
+2. resuelve identidad y perfil desde la sesión interna;
+3. exige garantía alta y vigencia;
+4. resuelve la definición gobernada y versionada del flujo;
+5. deriva una huella HMAC sin usar el cuerpo en claro como clave;
+6. prepara referencias estables bajo idempotencia semántica;
+7. devuelve el mismo recibo si la operación ya estaba confirmada;
+8. obtiene una autorización ligada al expediente exacto;
+9. construye el agregado y una orden opaca de confirmación;
+10. exige un recibo durable coherente con la versión creada.
+
+La interfaz `TransaccionAltas` obliga al adaptador a cotejar y consumir la
+autorización y a confirmar reserva, expediente, auditoría y outbox en un único
+`COMMIT`. El contrato todavía no equivale a persistencia: el siguiente corte
+debe aportar y probar el adaptador PostgreSQL.
+
 Pruebas superadas en el corte:
 
 ```text
-go test ./internal/modules/contrataciontemporal/domain \
-  ./internal/modules/contrataciontemporal
-go test -race ./internal/modules/contrataciontemporal/domain \
-  ./internal/modules/contrataciontemporal
+go test ./internal/modules/contrataciontemporal/...
+go test -race ./internal/modules/contrataciontemporal/...
 go vet ./internal/modules/contrataciontemporal/...
 git diff --check
 ```

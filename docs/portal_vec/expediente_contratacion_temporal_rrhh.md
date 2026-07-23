@@ -133,6 +133,18 @@ como éxito.
 - ninguna cabecera, campo de formulario o dato del navegador concede autoridad;
 - cada efecto revalida autorización y versión dentro de la transacción durable.
 
+El alta inicial aplica además idempotencia semántica. Una clave de petición
+queda ligada mediante HMAC a organización, actor, perfil, flujo versionado y
+contenido normalizado. Repetir exactamente la operación devuelve el mismo
+recibo; reutilizar la clave con otros datos falla sin crear un segundo
+expediente. El secreto HMAC se obtiene del gestor de secretos y no se almacena
+con el material en claro.
+
+La reserva previa solo adjudica referencias estables. No concede permisos ni
+confirma el expediente. La persistencia debe consumir una autorización de
+efecto vigente y escribir reserva confirmada, expediente, actuación inicial,
+auditoría y outbox en la misma transacción.
+
 ## Contrato visual mínimo
 
 La interfaz definitiva conserva el tema común y reproduce como mínimo:
@@ -174,4 +186,3 @@ Una fase exige conjuntamente dominio, aplicación, puerto, adaptador durable,
 API, autorización, auditoría, interfaz conectada, pruebas unitarias,
 PostgreSQL, concurrencia, recuperación, seguridad, accesibilidad,
 documentación y validación funcional de RRHH.
-

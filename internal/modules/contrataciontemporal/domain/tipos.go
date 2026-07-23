@@ -152,3 +152,15 @@ func referenciasUnicasValidas(valores []string, maximo int) bool {
 	}
 	return true
 }
+
+// ReferenciaOpacaValida permite que los puertos validen sus contratos sin
+// duplicar la gramática técnica del dominio.
+func ReferenciaOpacaValida(valor string) bool {
+	return referenciaValida(valor)
+}
+
+// InstanteUTCCanonico expone exclusivamente la regla de representación
+// temporal compartida; no obtiene la hora ni actúa como reloj.
+func InstanteUTCCanonico(valor time.Time) bool {
+	return instanteCanonico(valor)
+}

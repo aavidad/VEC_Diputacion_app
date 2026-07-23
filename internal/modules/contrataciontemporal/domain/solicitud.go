@@ -56,3 +56,12 @@ func (s SolicitudCentro) clonar() SolicitudCentro {
 	s.DocumentosAdjuntos = append([]string(nil), s.DocumentosAdjuntos...)
 	return s
 }
+
+// Clonar entrega una copia defensiva apta para cruzar los puertos del módulo.
+// La copia nunca comparte la lista mutable de documentos con quien la aportó.
+func (s SolicitudCentro) Clonar() (SolicitudCentro, error) {
+	if s.Validar() != nil {
+		return SolicitudCentro{}, ErrDatoInvalido
+	}
+	return s.clonar(), nil
+}
