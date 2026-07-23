@@ -432,6 +432,40 @@ func TestCabeceraEsquemaVersionYTipoSonEstrictosEnLosTresArtefactos(
 	}
 }
 
+func TestUnmarshalArtefactosNoPromueveEstadoParcialAlRechazar(t *testing.T) {
+	orden, llamamiento, evento := artefactosProbatoriosBolsaPrueba(t)
+
+	ordenAntes := orden
+	if err := orden.UnmarshalJSON(
+		variantesCabeceraArtefactoBolsa(orden)[0],
+	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
+		t.Fatalf("orden inválida no rechazada: %v", err)
+	}
+	if orden != ordenAntes {
+		t.Fatal("orden receptora fue modificada antes de completar la validación")
+	}
+
+	llamamientoAntes := llamamiento
+	if err := llamamiento.UnmarshalJSON(
+		variantesCabeceraArtefactoBolsa(llamamiento)[1],
+	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
+		t.Fatalf("llamamiento inválido no rechazado: %v", err)
+	}
+	if llamamiento != llamamientoAntes {
+		t.Fatal("llamamiento receptor fue modificado antes de validar")
+	}
+
+	eventoAntes := evento
+	if err := evento.UnmarshalJSON(
+		variantesCabeceraArtefactoBolsa(evento)[2],
+	); !errors.Is(err, ErrEvidenciaBolsaNoAutenticada) {
+		t.Fatalf("evento inválido no rechazado: %v", err)
+	}
+	if evento != eventoAntes {
+		t.Fatal("evento receptor fue modificado antes de completar la validación")
+	}
+}
+
 func TestRetencionCaducadaImpideRehidratarYPruebaViejaNoRegistra(t *testing.T) {
 	base := instanteBolsaPrueba()
 	fresco := base.Add(3 * time.Minute)
