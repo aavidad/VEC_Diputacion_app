@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -157,7 +158,7 @@ func nuevoEntornoCoberturaPrueba(t *testing.T) entornoCoberturaPrueba {
 			presentador: nuevoPresentadorAutoridadConfiguradoPrueba(
 				RolFuenteCobertura,
 				"fuente_cobertura_bolsa_012345",
-				"backend_fuente_cobertura_012345",
+				"fuente_definicion_bolsa_v3",
 			),
 			consultar: func(
 				_ context.Context,
@@ -416,10 +417,31 @@ func verificadorCoberturaHMACPrueba(
 				return ConfirmacionRespuestaCobertura{},
 					ErrResultadoFuenteCoberturaNoConfiable
 			}
+			preimagenConfirmacion, err :=
+				NuevaPreimagenConfirmacionRespuestaCobertura(
+					solicitud,
+					"verificador_cobertura_tcb_012345",
+					verificadaEn,
+				)
+			if err != nil {
+				return ConfirmacionRespuestaCobertura{}, err
+			}
+			materialConfirmacion, err := preimagenConfirmacion.Bytes()
+			if err != nil {
+				return ConfirmacionRespuestaCobertura{}, err
+			}
+			firma := ed25519.Sign(
+				claveEd25519Prueba(
+					string(RolVerificadorCobertura)+
+						":verificador_cobertura_tcb_012345",
+				),
+				materialConfirmacion,
+			)
 			return NuevaConfirmacionRespuestaCobertura(
 				solicitud,
 				"verificador_cobertura_tcb_012345",
 				verificadaEn,
+				firma,
 			)
 		},
 	}

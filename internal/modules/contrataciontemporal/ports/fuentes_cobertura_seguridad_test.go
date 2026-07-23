@@ -189,7 +189,7 @@ func TestCoberturaNoAdmitePruebaDePosesionDeOtroDesafio(t *testing.T) {
 	presentacion, err := presentacionAutoridadPrueba(
 		RolFuenteCobertura,
 		"fuente_cobertura_bolsa_012345",
-		"backend_fuente_cobertura_012345",
+		"fuente_definicion_bolsa_v3",
 		primero,
 	)
 	if err != nil {
@@ -228,6 +228,8 @@ func TestCoberturaExigeTresLimitesDeConfianzaDistintos(t *testing.T) {
 			[]byte(nil),
 			entorno.fuente.presentador.datos.ClavePruebaEd25519...,
 		)
+	entorno.publicador.presentador.clavePrueba =
+		entorno.fuente.presentador.clavePrueba
 	if _, err := entorno.consultar(context.Background()); !errors.Is(err, ErrResultadoFuenteCoberturaNoConfiable) {
 		t.Fatalf("clave de posesión repetida aceptada: %v", err)
 	}
@@ -297,6 +299,8 @@ func TestCoberturaRechazaComprobacionAusenteDelCatalogo(t *testing.T) {
 			DefinicionFuenteRef: "conector_no_publicado_012345",
 		},
 	}
+	entorno.fuente.presentador.datos.BackendRef =
+		entorno.solicitud.Comprobacion.Procedencia.DefinicionFuenteRef
 	if entorno.solicitud.Validar() != nil {
 		t.Fatal("el caso adversarial no es estructuralmente válido")
 	}

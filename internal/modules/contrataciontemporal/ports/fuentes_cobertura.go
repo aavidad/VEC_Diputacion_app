@@ -157,7 +157,8 @@ func ConsultarCoberturaConFuente(
 		identidadFuente,
 		identidadVerificador,
 		identidadPublicador,
-	) {
+	) || identidadFuente.backendRef !=
+		solicitud.Comprobacion.Procedencia.DefinicionFuenteRef {
 		return domain.ComprobacionCobertura{},
 			ErrResultadoFuenteCoberturaNoConfiable
 	}
@@ -218,6 +219,7 @@ func ConsultarCoberturaConFuente(
 	}
 
 	solicitudVerificacion, err := nuevaSolicitudVerificarRespuestaCobertura(
+		datosResultado.HuellaPeticionSHA256,
 		resultado.preimagen,
 		resultado.atestacion,
 	)
@@ -240,6 +242,7 @@ func ConsultarCoberturaConFuente(
 		resultado,
 		confirmacion,
 		confirmacionCatalogo,
+		identidadVerificador.clavePrueba,
 	)
 	if err != nil {
 		return domain.ComprobacionCobertura{},
@@ -253,20 +256,36 @@ func ConsultarCoberturaConFuente(
 			err,
 		)
 	}
-	if confirmacion.ValidarPara(solicitudVerificacion, antesConsumo) != nil ||
+	if confirmacion.ValidarPara(
+		solicitudVerificacion,
+		antesConsumo,
+		identidadVerificador.clavePrueba,
+	) != nil ||
 		confirmacionCatalogo.ValidarPara(solicitud, antesConsumo) != nil {
 		return domain.ComprobacionCobertura{},
 			ErrResultadoFuenteCoberturaNoConfiable
 	}
 	recibo, errConsumo := consumidor.ConsumirCobertura(operacion, orden)
+	errContextoFinal := operacion.Err()
+	finalizadaEn := reloj.Ahora()
+	if errContextoFinal != nil {
+		return domain.ComprobacionCobertura{}, errorDisponibilidadFuente(
+			ErrConsumoCoberturaNoDisponible,
+			errContextoFinal,
+		)
+	}
+	if !instanteFuenteAnalisisCanonico(finalizadaEn) ||
+		finalizadaEn.Before(antesConsumo) ||
+		confirmacion.ValidarPara(
+			solicitudVerificacion,
+			finalizadaEn,
+			identidadVerificador.clavePrueba,
+		) != nil ||
+		confirmacionCatalogo.ValidarPara(solicitud, finalizadaEn) != nil {
+		return domain.ComprobacionCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
 	if errConsumo != nil {
-		if err := operacion.Err(); err != nil {
-			return domain.ComprobacionCobertura{},
-				errorDisponibilidadFuente(
-					ErrConsumoCoberturaNoDisponible,
-					err,
-				)
-		}
 		if errors.Is(errConsumo, ErrRespuestaCoberturaYaConsumida) {
 			return domain.ComprobacionCobertura{},
 				ErrRespuestaCoberturaYaConsumida
@@ -276,7 +295,8 @@ func ConsultarCoberturaConFuente(
 			errConsumo,
 		)
 	}
-	if recibo.ValidarPara(orden) != nil {
+	if recibo.ValidarPara(orden) != nil ||
+		recibo.ConsumidaEn.After(finalizadaEn) {
 		return domain.ComprobacionCobertura{},
 			ErrResultadoFuenteCoberturaNoConfiable
 	}
@@ -345,7 +365,11 @@ func verificarRespuestaCobertura(
 	}
 	if errDatos != nil ||
 		datos.VerificadorRef != identidad.autoridadRef ||
-		confirmacion.ValidarPara(solicitud, verificadaEn) != nil {
+		confirmacion.ValidarPara(
+			solicitud,
+			verificadaEn,
+			identidad.clavePrueba,
+		) != nil {
 		return ConfirmacionRespuestaCobertura{},
 			ErrResultadoFuenteCoberturaNoConfiable
 	}

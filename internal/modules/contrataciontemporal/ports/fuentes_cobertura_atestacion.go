@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/hmac"
 	"fmt"
 	"io"
@@ -14,8 +15,9 @@ import (
 )
 
 const (
-	dominioSelloRespuestaCobertura   = "fuente-cobertura-respuesta/v"
-	VigenciaMaximaRespuestaCobertura = 5 * time.Second
+	dominioSelloRespuestaCobertura        = "fuente-cobertura-respuesta/v"
+	dominioConfirmacionRespuestaCobertura = "VEC-CT-CONFIRMACION-COBERTURA-V1"
+	VigenciaMaximaRespuestaCobertura      = 5 * time.Second
 )
 
 type MetadatosAtestacionRespuestaCobertura struct {
@@ -92,17 +94,20 @@ func selloRespuestaCoberturaValido(sello string, generacion uint32) bool {
 }
 
 type SolicitudVerificarRespuestaCobertura struct {
-	preimagen  PreimagenRespuestaCobertura
-	atestacion AtestacionRespuestaCobertura
+	huellaPeticionSHA256 string
+	preimagen            PreimagenRespuestaCobertura
+	atestacion           AtestacionRespuestaCobertura
 }
 
 func nuevaSolicitudVerificarRespuestaCobertura(
+	huellaPeticionSHA256 string,
 	preimagen PreimagenRespuestaCobertura,
 	atestacion AtestacionRespuestaCobertura,
 ) (SolicitudVerificarRespuestaCobertura, error) {
 	solicitud := SolicitudVerificarRespuestaCobertura{
-		preimagen:  preimagen,
-		atestacion: atestacion,
+		huellaPeticionSHA256: huellaPeticionSHA256,
+		preimagen:            preimagen,
+		atestacion:           atestacion,
 	}
 	if solicitud.Validar() != nil {
 		return SolicitudVerificarRespuestaCobertura{},
@@ -112,6 +117,9 @@ func nuevaSolicitudVerificarRespuestaCobertura(
 }
 
 func (s SolicitudVerificarRespuestaCobertura) Validar() error {
+	if !huellaSHA256FuenteAnalisisValida(s.huellaPeticionSHA256) {
+		return ErrResultadoFuenteCoberturaNoConfiable
+	}
 	if _, err := s.preimagen.Bytes(); err != nil ||
 		s.atestacion.Validar() != nil {
 		return ErrResultadoFuenteCoberturaNoConfiable
@@ -134,8 +142,36 @@ func (s SolicitudVerificarRespuestaCobertura) Material() (
 	}, s.atestacion, nil
 }
 
+// PreimagenConfirmacionRespuestaCobertura es el material que debe firmar la
+// misma clave Ed25519 cuya posesión acreditó el verificador ante el TCB.
+type PreimagenConfirmacionRespuestaCobertura struct {
+	contenido []byte
+}
+
+func (p PreimagenConfirmacionRespuestaCobertura) Bytes() ([]byte, error) {
+	if len(p.contenido) == 0 || len(p.contenido) > 64*1024 {
+		return nil, ErrResultadoFuenteCoberturaNoConfiable
+	}
+	return append([]byte(nil), p.contenido...), nil
+}
+
+func (PreimagenConfirmacionRespuestaCobertura) String() string {
+	return "[PREIMAGEN-CONFIRMACION-COBERTURA-REDACTADA]"
+}
+
+func (p PreimagenConfirmacionRespuestaCobertura) GoString() string {
+	return p.String()
+}
+func (p PreimagenConfirmacionRespuestaCobertura) Format(s fmt.State, _ rune) {
+	_, _ = io.WriteString(s, p.String())
+}
+func (p PreimagenConfirmacionRespuestaCobertura) LogValue() slog.Value {
+	return slog.StringValue(p.String())
+}
+
 type DatosConfirmacionRespuestaCobertura struct {
 	VerificadorRef       string
+	HuellaPeticionSHA256 string
 	AutoridadRef         string
 	Generacion           uint32
 	ReciboRef            string
@@ -144,21 +180,64 @@ type DatosConfirmacionRespuestaCobertura struct {
 	EmitidaEn            time.Time
 	ValidaHasta          time.Time
 	VerificadaEn         time.Time
+	FirmaEd25519         []byte
 }
 
 type ConfirmacionRespuestaCobertura struct {
 	datos *DatosConfirmacionRespuestaCobertura
 }
 
+func NuevaPreimagenConfirmacionRespuestaCobertura(
+	solicitud SolicitudVerificarRespuestaCobertura,
+	verificadorRef string,
+	verificadaEn time.Time,
+) (PreimagenConfirmacionRespuestaCobertura, error) {
+	datos, err := datosConfirmacionCobertura(
+		solicitud,
+		verificadorRef,
+		verificadaEn,
+	)
+	if err != nil {
+		return PreimagenConfirmacionRespuestaCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	contenido, err := canonConfirmacionRespuestaCobertura(datos)
+	if err != nil {
+		return PreimagenConfirmacionRespuestaCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	return PreimagenConfirmacionRespuestaCobertura{contenido: contenido}, nil
+}
+
 func NuevaConfirmacionRespuestaCobertura(
 	solicitud SolicitudVerificarRespuestaCobertura,
 	verificadorRef string,
 	verificadaEn time.Time,
+	firmaEd25519 []byte,
 ) (ConfirmacionRespuestaCobertura, error) {
+	datos, err := datosConfirmacionCobertura(
+		solicitud,
+		verificadorRef,
+		verificadaEn,
+	)
+	if err != nil || len(firmaEd25519) != ed25519.SignatureSize {
+		return ConfirmacionRespuestaCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	datos.FirmaEd25519 = append([]byte(nil), firmaEd25519...)
+	return ConfirmacionRespuestaCobertura{datos: &datos}, nil
+}
+
+func datosConfirmacionCobertura(
+	solicitud SolicitudVerificarRespuestaCobertura,
+	verificadorRef string,
+	verificadaEn time.Time,
+) (DatosConfirmacionRespuestaCobertura, error) {
 	preimagen, atestacion, err := solicitud.Material()
 	huella, errHuella := preimagen.huellaSHA256()
 	datos := DatosConfirmacionRespuestaCobertura{
 		VerificadorRef:       verificadorRef,
+		HuellaPeticionSHA256: solicitud.huellaPeticionSHA256,
 		AutoridadRef:         atestacion.Metadatos.AutoridadRef,
 		Generacion:           atestacion.Metadatos.Generacion,
 		ReciboRef:            atestacion.Metadatos.ReciboRef,
@@ -169,60 +248,95 @@ func NuevaConfirmacionRespuestaCobertura(
 		VerificadaEn:         verificadaEn,
 	}
 	if err != nil || errHuella != nil ||
-		validarDatosConfirmacionCobertura(
-			datos,
-			solicitud,
-			verificadaEn,
-		) != nil {
-		return ConfirmacionRespuestaCobertura{},
+		!domain.ReferenciaOpacaValida(datos.VerificadorRef) ||
+		datos.VerificadorRef == datos.AutoridadRef ||
+		!huellaSHA256FuenteAnalisisValida(datos.HuellaPeticionSHA256) ||
+		!instanteFuenteAnalisisCanonico(datos.VerificadaEn) ||
+		datos.VerificadaEn.Before(datos.EmitidaEn) ||
+		!datos.VerificadaEn.Before(datos.ValidaHasta) {
+		return DatosConfirmacionRespuestaCobertura{},
 			ErrResultadoFuenteCoberturaNoConfiable
 	}
-	return ConfirmacionRespuestaCobertura{datos: &datos}, nil
+	return datos, nil
+}
+
+func canonConfirmacionRespuestaCobertura(
+	datos DatosConfirmacionRespuestaCobertura,
+) ([]byte, error) {
+	if datos.FirmaEd25519 != nil {
+		return nil, ErrResultadoFuenteCoberturaNoConfiable
+	}
+	escritor := nuevoEscritorCanonFuenteAnalisis()
+	escritor.texto(dominioConfirmacionRespuestaCobertura)
+	escritor.texto(datos.VerificadorRef)
+	escritor.texto(datos.HuellaPeticionSHA256)
+	escritor.texto(datos.AutoridadRef)
+	escritor.entero64(uint64(datos.Generacion))
+	escritor.texto(datos.ReciboRef)
+	escritor.texto(datos.SelloRespuestaHMAC)
+	escritor.texto(datos.HuellaMaterialSHA256)
+	escritor.instante(datos.EmitidaEn)
+	escritor.instante(datos.ValidaHasta)
+	escritor.instante(datos.VerificadaEn)
+	contenido, err := escritor.resultado()
+	if err != nil {
+		return nil, ErrResultadoFuenteCoberturaNoConfiable
+	}
+	return contenido, nil
 }
 
 func (c ConfirmacionRespuestaCobertura) ValidarPara(
 	solicitud SolicitudVerificarRespuestaCobertura,
 	comprobadaEn time.Time,
+	claveVerificadorEd25519 ed25519.PublicKey,
 ) error {
-	if c.datos == nil {
+	if c.datos == nil ||
+		len(c.datos.FirmaEd25519) != ed25519.SignatureSize ||
+		len(claveVerificadorEd25519) != ed25519.PublicKeySize ||
+		!instanteFuenteAnalisisCanonico(comprobadaEn) ||
+		comprobadaEn.Before(c.datos.VerificadaEn) ||
+		!comprobadaEn.Before(c.datos.ValidaHasta) {
 		return ErrResultadoFuenteCoberturaNoConfiable
 	}
-	return validarDatosConfirmacionCobertura(
-		*c.datos,
+	esperados, err := datosConfirmacionCobertura(
 		solicitud,
-		comprobadaEn,
+		c.datos.VerificadorRef,
+		c.datos.VerificadaEn,
 	)
-}
-
-func validarDatosConfirmacionCobertura(
-	datos DatosConfirmacionRespuestaCobertura,
-	solicitud SolicitudVerificarRespuestaCobertura,
-	comprobadaEn time.Time,
-) error {
-	preimagen, atestacion, err := solicitud.Material()
-	huella, errHuella := preimagen.huellaSHA256()
-	if err != nil || errHuella != nil ||
-		!domain.ReferenciaOpacaValida(datos.VerificadorRef) ||
-		datos.AutoridadRef != atestacion.Metadatos.AutoridadRef ||
-		datos.VerificadorRef == datos.AutoridadRef ||
-		datos.Generacion != atestacion.Metadatos.Generacion ||
-		datos.ReciboRef != atestacion.Metadatos.ReciboRef ||
-		!hmac.Equal(
-			[]byte(datos.SelloRespuestaHMAC),
-			[]byte(atestacion.SelloHMAC),
-		) ||
-		datos.HuellaMaterialSHA256 != huella ||
-		!datos.EmitidaEn.Equal(atestacion.Metadatos.EmitidaEn) ||
-		!datos.ValidaHasta.Equal(atestacion.Metadatos.ValidaHasta) ||
-		!instanteFuenteAnalisisCanonico(datos.VerificadaEn) ||
-		datos.VerificadaEn.Before(datos.EmitidaEn) ||
-		!datos.VerificadaEn.Before(datos.ValidaHasta) ||
-		!instanteFuenteAnalisisCanonico(comprobadaEn) ||
-		comprobadaEn.Before(datos.VerificadaEn) ||
-		!comprobadaEn.Before(datos.ValidaHasta) {
+	if err != nil || !datosConfirmacionCoberturaCoinciden(
+		*c.datos,
+		esperados,
+	) {
+		return ErrResultadoFuenteCoberturaNoConfiable
+	}
+	canon, err := canonConfirmacionRespuestaCobertura(esperados)
+	if err != nil || !ed25519.Verify(
+		claveVerificadorEd25519,
+		canon,
+		c.datos.FirmaEd25519,
+	) {
 		return ErrResultadoFuenteCoberturaNoConfiable
 	}
 	return nil
+}
+
+func datosConfirmacionCoberturaCoinciden(
+	recibidos DatosConfirmacionRespuestaCobertura,
+	esperados DatosConfirmacionRespuestaCobertura,
+) bool {
+	return recibidos.VerificadorRef == esperados.VerificadorRef &&
+		recibidos.HuellaPeticionSHA256 == esperados.HuellaPeticionSHA256 &&
+		recibidos.AutoridadRef == esperados.AutoridadRef &&
+		recibidos.Generacion == esperados.Generacion &&
+		recibidos.ReciboRef == esperados.ReciboRef &&
+		hmac.Equal(
+			[]byte(recibidos.SelloRespuestaHMAC),
+			[]byte(esperados.SelloRespuestaHMAC),
+		) &&
+		recibidos.HuellaMaterialSHA256 == esperados.HuellaMaterialSHA256 &&
+		recibidos.EmitidaEn.Equal(esperados.EmitidaEn) &&
+		recibidos.ValidaHasta.Equal(esperados.ValidaHasta) &&
+		recibidos.VerificadaEn.Equal(esperados.VerificadaEn)
 }
 
 func (c ConfirmacionRespuestaCobertura) Datos() (
@@ -233,7 +347,9 @@ func (c ConfirmacionRespuestaCobertura) Datos() (
 		return DatosConfirmacionRespuestaCobertura{},
 			ErrResultadoFuenteCoberturaNoConfiable
 	}
-	return *c.datos, nil
+	datos := *c.datos
+	datos.FirmaEd25519 = append([]byte(nil), c.datos.FirmaEd25519...)
+	return datos, nil
 }
 
 func (ConfirmacionRespuestaCobertura) String() string {

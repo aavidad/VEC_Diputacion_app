@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"crypto/ed25519"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,17 +14,18 @@ import (
 // DatosOrdenConsumoCobertura liga el efecto durable a la respuesta completa,
 // a su verificación independiente y al catálogo gobernado usado para decidir.
 type DatosOrdenConsumoCobertura struct {
-	PeticionRef           string
-	OrganizacionRef       string
-	ExpedienteRef         string
-	VersionExpediente     uint64
-	AutoridadRef          string
-	Generacion            uint32
-	ReciboRespuestaRef    string
-	HuellaRespuestaSHA256 string
-	Atestacion            AtestacionRespuestaCobertura
-	ConfirmacionRespuesta ConfirmacionRespuestaCobertura
-	ConfirmacionCatalogo  ConfirmacionPublicacionCobertura
+	PeticionRef             string
+	OrganizacionRef         string
+	ExpedienteRef           string
+	VersionExpediente       uint64
+	AutoridadRef            string
+	Generacion              uint32
+	ReciboRespuestaRef      string
+	HuellaRespuestaSHA256   string
+	Atestacion              AtestacionRespuestaCobertura
+	ConfirmacionRespuesta   ConfirmacionRespuestaCobertura
+	ConfirmacionCatalogo    ConfirmacionPublicacionCobertura
+	ClaveVerificadorEd25519 []byte
 }
 
 type OrdenConsumoCobertura struct {
@@ -35,6 +37,7 @@ func nuevaOrdenConsumoCobertura(
 	resultado ResultadoConsultaCobertura,
 	confirmacion ConfirmacionRespuestaCobertura,
 	confirmacionCatalogo ConfirmacionPublicacionCobertura,
+	claveVerificadorEd25519 ed25519.PublicKey,
 ) (OrdenConsumoCobertura, error) {
 	if resultado.ValidarPara(solicitud) != nil {
 		return OrdenConsumoCobertura{},
@@ -54,6 +57,10 @@ func nuevaOrdenConsumoCobertura(
 		Atestacion:            resultado.atestacion,
 		ConfirmacionRespuesta: confirmacion,
 		ConfirmacionCatalogo:  confirmacionCatalogo,
+		ClaveVerificadorEd25519: append(
+			[]byte(nil),
+			claveVerificadorEd25519...,
+		),
 	}
 	if errHuella != nil || errConfirmacion != nil ||
 		datosConfirmacion.HuellaMaterialSHA256 != huella ||
@@ -87,17 +94,21 @@ func validarOrdenConsumoCobertura(
 		datos.ReciboRespuestaRef !=
 			resultado.atestacion.Metadatos.ReciboRef ||
 		!huellaSHA256FuenteAnalisisValida(datos.HuellaRespuestaSHA256) ||
+		len(datos.ClaveVerificadorEd25519) != ed25519.PublicKeySize ||
 		datos.Atestacion.Validar() != nil {
 		return ErrResultadoFuenteCoberturaNoConfiable
 	}
+	datosResultado, errDatosResultado := resultado.Datos()
 	solicitudVerificacion, err := nuevaSolicitudVerificarRespuestaCobertura(
+		datosResultado.HuellaPeticionSHA256,
 		resultado.preimagen,
 		datos.Atestacion,
 	)
-	if err != nil ||
+	if errDatosResultado != nil || err != nil ||
 		datos.ConfirmacionRespuesta.ValidarPara(
 			solicitudVerificacion,
 			comprobadaEn,
+			ed25519.PublicKey(datos.ClaveVerificadorEd25519),
 		) != nil ||
 		datos.ConfirmacionCatalogo.ValidarPara(
 			solicitud,
@@ -116,7 +127,12 @@ func (o OrdenConsumoCobertura) Datos() (
 		return DatosOrdenConsumoCobertura{},
 			ErrResultadoFuenteCoberturaNoConfiable
 	}
-	return *o.datos, nil
+	datos := *o.datos
+	datos.ClaveVerificadorEd25519 = append(
+		[]byte(nil),
+		o.datos.ClaveVerificadorEd25519...,
+	)
+	return datos, nil
 }
 
 func (OrdenConsumoCobertura) String() string {

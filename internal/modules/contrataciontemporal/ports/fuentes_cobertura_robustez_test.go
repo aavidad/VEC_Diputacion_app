@@ -236,6 +236,8 @@ func TestCoberturaAdmiteViaNuevaSoloPorCatalogoPublicado(t *testing.T) {
 	entorno.solicitud.Catalogo = catalogo.Identidad()
 	entorno.solicitud.ViaClave = "via_nueva_sin_recompilar"
 	entorno.solicitud.Comprobacion = comprobacion
+	entorno.fuente.presentador.datos.BackendRef =
+		comprobacion.Procedencia.DefinicionFuenteRef
 	entorno.publicador.publicar = func(
 		context.Context,
 		SolicitudConsultarCobertura,
