@@ -171,6 +171,33 @@ func (r ResultadoConsultaCobertura) Datos() (
 	return *r.datos, nil
 }
 
+func (r ResultadoConsultaCobertura) Atestacion() (
+	AtestacionRespuestaCobertura,
+	error,
+) {
+	if r.datos == nil || r.atestacion.Validar() != nil {
+		return AtestacionRespuestaCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	return r.atestacion, nil
+}
+
+func (r ResultadoConsultaCobertura) SolicitudVerificacion() (
+	SolicitudVerificarRespuestaCobertura,
+	error,
+) {
+	datos, err := r.Datos()
+	if err != nil {
+		return SolicitudVerificarRespuestaCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	return nuevaSolicitudVerificarRespuestaCobertura(
+		datos.HuellaPeticionSHA256,
+		r.preimagen,
+		r.atestacion,
+	)
+}
+
 func (ResultadoConsultaCobertura) String() string {
 	return "[RESULTADO-CONSULTA-COBERTURA-REDACTADO]"
 }
@@ -196,6 +223,10 @@ func canonPeticionCobertura(
 		return nil, ErrPeticionFuenteCoberturaInvalida
 	}
 	return contenido, nil
+}
+
+func (s SolicitudConsultarCobertura) MaterialCanonico() ([]byte, error) {
+	return canonPeticionCobertura(s)
 }
 
 func huellaPeticionCobertura(

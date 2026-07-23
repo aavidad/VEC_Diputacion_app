@@ -29,10 +29,11 @@ type DatosOrdenConsumoCobertura struct {
 }
 
 type OrdenConsumoCobertura struct {
-	datos *DatosOrdenConsumoCobertura
+	datos                 *DatosOrdenConsumoCobertura
+	solicitudVerificacion SolicitudVerificarRespuestaCobertura
 }
 
-func nuevaOrdenConsumoCobertura(
+func NuevaOrdenConsumoCobertura(
 	solicitud SolicitudConsultarCobertura,
 	resultado ResultadoConsultaCobertura,
 	confirmacion ConfirmacionRespuestaCobertura,
@@ -73,7 +74,15 @@ func nuevaOrdenConsumoCobertura(
 		return OrdenConsumoCobertura{},
 			ErrResultadoFuenteCoberturaNoConfiable
 	}
-	return OrdenConsumoCobertura{datos: &datos}, nil
+	solicitudVerificacion, err := resultado.SolicitudVerificacion()
+	if err != nil {
+		return OrdenConsumoCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	return OrdenConsumoCobertura{
+		datos:                 &datos,
+		solicitudVerificacion: solicitudVerificacion,
+	}, nil
 }
 
 func validarOrdenConsumoCobertura(
@@ -155,6 +164,7 @@ type ReciboConsumoCobertura struct {
 	ReciboRespuestaRef    string
 	HuellaRespuestaSHA256 string
 	ConsumidaEn           time.Time
+	ConfirmacionOriginal  ConfirmacionRespuestaCobertura
 }
 
 func NuevoReciboConsumoCobertura(
@@ -171,6 +181,7 @@ func NuevoReciboConsumoCobertura(
 		ReciboRespuestaRef:    datos.ReciboRespuestaRef,
 		HuellaRespuestaSHA256: datos.HuellaRespuestaSHA256,
 		ConsumidaEn:           consumidaEn,
+		ConfirmacionOriginal:  datos.ConfirmacionRespuesta,
 	}
 	if err != nil || recibo.ValidarPara(orden) != nil {
 		return ReciboConsumoCobertura{},
@@ -183,8 +194,10 @@ func (r ReciboConsumoCobertura) ValidarPara(
 	orden OrdenConsumoCobertura,
 ) error {
 	datos, err := orden.Datos()
-	confirmacion, errConfirmacion := datos.ConfirmacionRespuesta.Datos()
-	if err != nil || errConfirmacion != nil ||
+	confirmacionActual, errActual := datos.ConfirmacionRespuesta.Datos()
+	confirmacionOriginal, errOriginal := r.ConfirmacionOriginal.Datos()
+	if err != nil ||
+		errActual != nil || errOriginal != nil ||
 		!domain.ReferenciaOpacaValida(r.ConsumoRef) ||
 		r.PeticionRef != datos.PeticionRef ||
 		r.AutoridadRef != datos.AutoridadRef ||
@@ -192,8 +205,17 @@ func (r ReciboConsumoCobertura) ValidarPara(
 		r.ReciboRespuestaRef != datos.ReciboRespuestaRef ||
 		r.HuellaRespuestaSHA256 != datos.HuellaRespuestaSHA256 ||
 		!instanteFuenteAnalisisCanonico(r.ConsumidaEn) ||
-		r.ConsumidaEn.Before(confirmacion.VerificadaEn) ||
-		!r.ConsumidaEn.Before(confirmacion.ValidaHasta) {
+		r.ConsumidaEn.Before(datos.Atestacion.Metadatos.EmitidaEn) ||
+		!r.ConsumidaEn.Before(datos.Atestacion.Metadatos.ValidaHasta) ||
+		confirmacionOriginal.VerificadorRef !=
+			confirmacionActual.VerificadorRef ||
+		confirmacionOriginal.HuellaMaterialSHA256 !=
+			datos.HuellaRespuestaSHA256 ||
+		r.ConfirmacionOriginal.ValidarPara(
+			orden.solicitudVerificacion,
+			r.ConsumidaEn,
+			ed25519.PublicKey(datos.ClaveVerificadorEd25519),
+		) != nil {
 		return ErrResultadoFuenteCoberturaNoConfiable
 	}
 	return nil
