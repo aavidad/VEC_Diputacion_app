@@ -20,7 +20,7 @@ var (
 	ErrClaveIdempotenciaUsada   = errors.New("contratacion temporal: clave de idempotencia usada con otros datos")
 )
 
-const maximoGeneracionesHMACAlta = 8
+const MaximoGeneracionesHMACAlta = 4
 
 // La clave debe generarla cada cliente con CSPRNG y conservarse solo durante
 // el reintento. El formato UUIDv4 canónico descarta etiquetas humanas, formas
@@ -74,15 +74,15 @@ func (m MaterialHuellaAlta) Validar() error {
 	return nil
 }
 
-// IdentidadHMACAlta liga ámbito y huella de una única generación del llavero.
-// Mezclar generaciones produciría falsos conflictos o permitiría autorizar un
-// recurso distinto del que se prepara.
-type IdentidadHMACAlta struct {
+// DatosIdentidadHMACAlta es una proyección defensiva, no una capacidad. Solo
+// ColeccionIdentidadesHMACAlta puede transportar estos pares al caso de uso.
+type DatosIdentidadHMACAlta struct {
+	Generacion             uint32
 	AmbitoIdempotenciaHMAC string
 	HuellaPeticionHMAC     string
 }
 
-func (i IdentidadHMACAlta) Validar() error {
+func validarDatosIdentidadHMACAlta(i DatosIdentidadHMACAlta) error {
 	generacionAmbito, ambitoValido := generacionSelloHMACAlta(
 		i.AmbitoIdempotenciaHMAC,
 		"vec.contratacion-temporal.ambito-idempotencia/v",
@@ -91,71 +91,107 @@ func (i IdentidadHMACAlta) Validar() error {
 		i.HuellaPeticionHMAC,
 		"vec.contratacion-temporal.huella-peticion/v",
 	)
-	if !ambitoValido || !huellaValida || generacionAmbito != generacionHuella {
+	if !ambitoValido || !huellaValida ||
+		generacionAmbito != generacionHuella ||
+		i.Generacion != generacionAmbito {
 		return ErrPreparacionAltaInvalida
 	}
 	return nil
 }
 
-func (i IdentidadHMACAlta) generacion() (uint32, bool) {
-	if i.Validar() != nil {
-		return 0, false
-	}
-	return generacionSelloHMACAlta(
-		i.AmbitoIdempotenciaHMAC,
-		"vec.contratacion-temporal.ambito-idempotencia/v",
-	)
+// DatosColeccionIdentidadesHMACAlta expone una copia para cotejo interno.
+// Los retenidos están ordenados de generación mayor a menor.
+type DatosColeccionIdentidadesHMACAlta struct {
+	Activa    DatosIdentidadHMACAlta
+	Retenidas []DatosIdentidadHMACAlta
 }
 
-// ColeccionIdentidadesHMACAlta contiene exactamente una generación activa
-// para emisión y, opcionalmente, generaciones retenidas solo para
-// reconciliación/verificación durante la rotación.
+type datosColeccionIdentidadesHMACAlta struct {
+	activa    DatosIdentidadHMACAlta
+	retenidas []DatosIdentidadHMACAlta
+}
+
+// ColeccionIdentidadesHMACAlta es el resultado nominal opaco del llavero. El
+// cliente no puede aportarlo en SolicitudRegistrarExpediente.
 type ColeccionIdentidadesHMACAlta struct {
-	Activa    IdentidadHMACAlta
-	Retenidas []IdentidadHMACAlta
+	datos *datosColeccionIdentidadesHMACAlta
+}
+
+func NuevaColeccionIdentidadesHMACAlta(
+	activa DatosIdentidadHMACAlta,
+	retenidas []DatosIdentidadHMACAlta,
+) (ColeccionIdentidadesHMACAlta, error) {
+	if validarDatosIdentidadHMACAlta(activa) != nil ||
+		len(retenidas)+1 > MaximoGeneracionesHMACAlta {
+		return ColeccionIdentidadesHMACAlta{}, ErrPreparacionAltaInvalida
+	}
+	copia := make([]DatosIdentidadHMACAlta, len(retenidas))
+	anterior := activa.Generacion
+	for _, retenida := range retenidas {
+		if validarDatosIdentidadHMACAlta(retenida) != nil ||
+			retenida.Generacion >= anterior {
+			return ColeccionIdentidadesHMACAlta{}, ErrPreparacionAltaInvalida
+		}
+		anterior = retenida.Generacion
+	}
+	copy(copia, retenidas)
+	return ColeccionIdentidadesHMACAlta{
+		datos: &datosColeccionIdentidadesHMACAlta{
+			activa: activa, retenidas: copia,
+		},
+	}, nil
+}
+
+func (c ColeccionIdentidadesHMACAlta) Datos() (
+	DatosColeccionIdentidadesHMACAlta,
+	error,
+) {
+	if c.datos == nil {
+		return DatosColeccionIdentidadesHMACAlta{}, ErrPreparacionAltaInvalida
+	}
+	datos := DatosColeccionIdentidadesHMACAlta{
+		Activa: c.datos.activa,
+		Retenidas: append(
+			[]DatosIdentidadHMACAlta(nil),
+			c.datos.retenidas...,
+		),
+	}
+	reconstruida, err := NuevaColeccionIdentidadesHMACAlta(
+		datos.Activa,
+		datos.Retenidas,
+	)
+	if err != nil || reconstruida.datos.activa != datos.Activa {
+		return DatosColeccionIdentidadesHMACAlta{}, ErrPreparacionAltaInvalida
+	}
+	return datos, nil
 }
 
 func (c ColeccionIdentidadesHMACAlta) Validar() error {
-	if c.Activa.Validar() != nil || len(c.Retenidas) > maximoGeneracionesHMACAlta-1 {
-		return ErrPreparacionAltaInvalida
-	}
-	generacionActiva, _ := c.Activa.generacion()
-	vistas := map[uint32]struct{}{generacionActiva: {}}
-	for _, retenida := range c.Retenidas {
-		generacion, valida := retenida.generacion()
-		if !valida {
-			return ErrPreparacionAltaInvalida
-		}
-		if _, repetida := vistas[generacion]; repetida {
-			return ErrPreparacionAltaInvalida
-		}
-		vistas[generacion] = struct{}{}
-	}
-	return nil
+	_, err := c.Datos()
+	return err
 }
 
 func (c ColeccionIdentidadesHMACAlta) Clonar() (ColeccionIdentidadesHMACAlta, error) {
-	if c.Validar() != nil {
-		return ColeccionIdentidadesHMACAlta{}, ErrPreparacionAltaInvalida
+	datos, err := c.Datos()
+	if err != nil {
+		return ColeccionIdentidadesHMACAlta{}, err
 	}
-	return ColeccionIdentidadesHMACAlta{
-		Activa:    c.Activa,
-		Retenidas: append([]IdentidadHMACAlta(nil), c.Retenidas...),
-	}, nil
+	return NuevaColeccionIdentidadesHMACAlta(datos.Activa, datos.Retenidas)
 }
 
 // ContienePar exige que ámbito y huella pertenezcan juntos a una generación
 // autorizada. No admite combinar dos generaciones válidas por separado.
 func (c ColeccionIdentidadesHMACAlta) ContienePar(ambito, huella string) bool {
-	if c.Validar() != nil {
+	datos, err := c.Datos()
+	if err != nil {
 		return false
 	}
-	coincide := func(identidad IdentidadHMACAlta) bool {
+	coincide := func(identidad DatosIdentidadHMACAlta) bool {
 		return sellosHMACIguales(identidad.AmbitoIdempotenciaHMAC, ambito) &&
 			sellosHMACIguales(identidad.HuellaPeticionHMAC, huella)
 	}
-	encontrado := coincide(c.Activa)
-	for _, retenida := range c.Retenidas {
+	encontrado := coincide(datos.Activa)
+	for _, retenida := range datos.Retenidas {
 		encontrado = coincide(retenida) || encontrado
 	}
 	return encontrado
@@ -333,9 +369,10 @@ func NuevaOrdenConfirmarAlta(datos DatosOrdenConfirmarAlta) (OrdenConfirmarAlta,
 		datos.DecisionAutorizacionV3,
 	)
 	identidadesHMAC, errIdentidades := datos.IdentidadesHMAC.Clonar()
+	datosIdentidadesHMAC, errDatosIdentidades := identidadesHMAC.Datos()
 	if err != nil || errCorrelacion != nil || errVinculo != nil || errDecision != nil ||
 		errVentana != nil || errConfirmacion != nil || errHuella != nil ||
-		errIdentidades != nil ||
+		errIdentidades != nil || errDatosIdentidades != nil ||
 		!concedida ||
 		datos.DecisionAutorizacionV3.ValidarPara(datos.SolicitudAutorizacionV3) != nil ||
 		datos.Preparacion.Estado != PreparacionReservada ||
@@ -356,10 +393,10 @@ func NuevaOrdenConfirmarAlta(datos DatosOrdenConfirmarAlta) (OrdenConfirmarAlta,
 		solicitudV3.Recurso.ModuloID != ModuloContratacion ||
 		solicitudV3.Recurso.Tipo != TipoRecursoExpediente ||
 		len(solicitudV3.Recurso.Ambitos) != 3 ||
-		len(solicitudV3.Recurso.Atributos) != 3 ||
+		len(solicitudV3.Recurso.Atributos) != 4 ||
 		!sellosHMACIguales(
 			solicitudV3.Recurso.Referencia,
-			identidadesHMAC.Activa.AmbitoIdempotenciaHMAC,
+			datosIdentidadesHMAC.Activa.AmbitoIdempotenciaHMAC,
 		) ||
 		!identidadesHMAC.ContienePar(
 			datos.Preparacion.AmbitoIdempotenciaHMAC,
@@ -373,6 +410,10 @@ func NuevaOrdenConfirmarAlta(datos DatosOrdenConfirmarAlta) (OrdenConfirmarAlta,
 			formatearVersionFlujo(datos.Expediente.Flujo.Version) ||
 		solicitudV3.Recurso.Atributos["flujo_huella_sha256"] !=
 			datos.Expediente.Flujo.HuellaSHA256 ||
+		!sellosHMACIguales(
+			solicitudV3.Recurso.Atributos[AtributoHuellaPeticionHMACActiva],
+			datosIdentidadesHMAC.Activa.HuellaPeticionHMAC,
+		) ||
 		confirmacionV3.DecisionRef == "" ||
 		confirmacionV3.DecisionHuellaSHA256 != huellaDecision ||
 		!confirmacionV3.EmitidaEn.Equal(emitidaEn) ||

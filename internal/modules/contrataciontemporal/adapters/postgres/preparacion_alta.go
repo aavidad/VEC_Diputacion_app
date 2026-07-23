@@ -119,7 +119,11 @@ func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 	if err := ctx.Err(); err != nil {
 		return ports.PreparacionAlta{}, err
 	}
-	identidadActiva := solicitud.IdentidadesHMAC.Activa
+	datosIdentidades, err := solicitud.IdentidadesHMAC.Datos()
+	if err != nil {
+		return ports.PreparacionAlta{}, ports.ErrPreparacionAltaInvalida
+	}
+	identidadActiva := datosIdentidades.Activa
 	if !ports.SelloHMACSHA256Valido(ambitoHMAC) ||
 		!hmac.Equal(
 			[]byte(ambitoHMAC),

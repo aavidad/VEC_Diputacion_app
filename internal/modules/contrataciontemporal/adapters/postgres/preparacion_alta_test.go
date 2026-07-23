@@ -172,18 +172,47 @@ func (g *generadorReferenciasPrueba) NuevaReferenciaReservaAlta(
 	return g.reservaRef, g.errReserva
 }
 
-func solicitudPreparacionPrueba() ports.SolicitudPrepararAlta {
+func solicitudPreparacionPrueba(t *testing.T) ports.SolicitudPrepararAlta {
+	t.Helper()
+	identidadesHMAC, err := ports.NuevaColeccionIdentidadesHMACAlta(
+		ports.DatosIdentidadHMACAlta{
+			Generacion:             1,
+			AmbitoIdempotenciaHMAC: selloHMACPrueba(claveAmbitoAltaPrueba, "d"),
+			HuellaPeticionHMAC:     selloHMACPrueba(clavePeticionAltaPrueba, "b"),
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return ports.SolicitudPrepararAlta{
 		ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
-		IdentidadesHMAC: ports.ColeccionIdentidadesHMACAlta{
-			Activa: ports.IdentidadHMACAlta{
-				AmbitoIdempotenciaHMAC: selloHMACPrueba(claveAmbitoAltaPrueba, "d"),
-				HuellaPeticionHMAC:     selloHMACPrueba(clavePeticionAltaPrueba, "b"),
-			},
-		},
-		OrganizacionRef: "organizacion:diputacion-granada",
-		ActorRef:        "actor:tecnica-rrhh-001",
-		PerfilRef:       "perfil:tecnica-rrhh",
+		IdentidadesHMAC:   identidadesHMAC,
+		OrganizacionRef:   "organizacion:diputacion-granada",
+		ActorRef:          "actor:tecnica-rrhh-001",
+		PerfilRef:         "perfil:tecnica-rrhh",
+	}
+}
+
+func mutarIdentidadActivaPreparacionPrueba(
+	t *testing.T,
+	solicitud *ports.SolicitudPrepararAlta,
+	mutar func(*ports.DatosIdentidadHMACAlta),
+) {
+	t.Helper()
+	datos, err := solicitud.IdentidadesHMAC.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutar(&datos.Activa)
+	solicitud.IdentidadesHMAC, err = ports.NuevaColeccionIdentidadesHMACAlta(
+		datos.Activa,
+		datos.Retenidas,
+	)
+	if err != nil {
+		// Algunas pruebas adulteran deliberadamente el par. En ese caso la
+		// solicitud queda con la capacidad cero y debe fallar cerrada.
+		solicitud.IdentidadesHMAC = ports.ColeccionIdentidadesHMACAlta{}
 	}
 }
 
@@ -262,7 +291,7 @@ func nuevoPreparadorPrueba(
 
 func TestPreparadorPostgreSQLReservaSinPersistirClaveCruda(t *testing.T) {
 	preparador, tx := nuevoPreparadorPrueba(t, filaReservadaPreparacionPrueba("reservada"))
-	solicitud := solicitudPreparacionPrueba()
+	solicitud := solicitudPreparacionPrueba(t)
 
 	preparacion, err := preparador.PrepararAlta(context.Background(), solicitud)
 	if err != nil {
@@ -305,9 +334,15 @@ func TestPreparadorPostgreSQLReservaSinPersistirClaveCruda(t *testing.T) {
 
 func TestPreparadorPostgreSQLRechazaAmbitoDerivadoDistintoAntesDeTransaccion(t *testing.T) {
 	preparador, tx := nuevoPreparadorPrueba(t, filaReservadaPreparacionPrueba("reservada"))
-	solicitud := solicitudPreparacionPrueba()
-	solicitud.IdentidadesHMAC.Activa.AmbitoIdempotenciaHMAC =
-		selloHMACPrueba(claveAmbitoAltaPrueba, "e")
+	solicitud := solicitudPreparacionPrueba(t)
+	mutarIdentidadActivaPreparacionPrueba(
+		t,
+		&solicitud,
+		func(activa *ports.DatosIdentidadHMACAlta) {
+			activa.AmbitoIdempotenciaHMAC =
+				selloHMACPrueba(claveAmbitoAltaPrueba, "e")
+		},
+	)
 
 	_, err := preparador.PrepararAlta(context.Background(), solicitud)
 	if !errors.Is(err, ports.ErrPersistenciaNoDisponible) ||
@@ -323,7 +358,7 @@ func TestPreparadorPostgreSQLRestauraConfirmacionExacta(t *testing.T) {
 
 	preparacion, err := preparador.PrepararAlta(
 		context.Background(),
-		solicitudPreparacionPrueba(),
+		solicitudPreparacionPrueba(t),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -350,7 +385,7 @@ func TestPreparadorPostgreSQLCotejaAmbitoEnTodoReintento(t *testing.T) {
 
 			_, err := preparador.PrepararAlta(
 				context.Background(),
-				solicitudPreparacionPrueba(),
+				solicitudPreparacionPrueba(t),
 			)
 			if !errors.Is(err, ports.ErrPersistenciaNoDisponible) {
 				t.Fatalf("ámbito sustituido no rechazado: %v", err)
@@ -370,7 +405,7 @@ func TestPreparadorPostgreSQLRechazaReutilizacionSemantica(t *testing.T) {
 
 	_, err := preparador.PrepararAlta(
 		context.Background(),
-		solicitudPreparacionPrueba(),
+		solicitudPreparacionPrueba(t),
 	)
 	if !errors.Is(err, ports.ErrClaveIdempotenciaUsada) {
 		t.Fatalf("error inesperado: %v", err)
@@ -409,7 +444,7 @@ func TestPreparadorPostgreSQLNoConfirmaRespuestaAdulterada(t *testing.T) {
 
 			_, err := preparador.PrepararAlta(
 				context.Background(),
-				solicitudPreparacionPrueba(),
+				solicitudPreparacionPrueba(t),
 			)
 			if !errors.Is(err, ports.ErrPersistenciaNoDisponible) {
 				t.Fatalf("error inesperado: %v", err)
@@ -439,7 +474,7 @@ func TestPreparadorPostgreSQLPropagaCancelacionDeDependencias(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = preparador.PrepararAlta(ctx, solicitudPreparacionPrueba())
+		_, err = preparador.PrepararAlta(ctx, solicitudPreparacionPrueba(t))
 		if !errors.Is(err, context.Canceled) || tx.configurada {
 			t.Fatalf("cancelación perdida: %v", err)
 		}
@@ -463,7 +498,7 @@ func TestPreparadorPostgreSQLPropagaCancelacionDeDependencias(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = preparador.PrepararAlta(ctx, solicitudPreparacionPrueba())
+		_, err = preparador.PrepararAlta(ctx, solicitudPreparacionPrueba(t))
 		if !errors.Is(err, context.Canceled) || tx.configurada {
 			t.Fatalf("cancelación perdida: %v", err)
 		}
@@ -488,7 +523,7 @@ func TestPreparadorPostgreSQLPropagaCancelacionDeDependencias(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = preparador.PrepararAlta(ctx, solicitudPreparacionPrueba())
+		_, err = preparador.PrepararAlta(ctx, solicitudPreparacionPrueba(t))
 		if !errors.Is(err, context.Canceled) || tx.configurada {
 			t.Fatalf("cancelación perdida: %v", err)
 		}
@@ -515,7 +550,7 @@ func TestPreparadorPostgreSQLFallaCerradoEnFronterasTransaccionales(t *testing.T
 		}
 		_, err = preparador.PrepararAlta(
 			context.Background(),
-			solicitudPreparacionPrueba(),
+			solicitudPreparacionPrueba(t),
 		)
 		if !errors.Is(err, ports.ErrPersistenciaNoDisponible) {
 			t.Fatalf("error inesperado: %v", err)
@@ -530,7 +565,7 @@ func TestPreparadorPostgreSQLFallaCerradoEnFronterasTransaccionales(t *testing.T
 		tx.errConfigurar = errors.New("fallo de configuración")
 		_, err := preparador.PrepararAlta(
 			context.Background(),
-			solicitudPreparacionPrueba(),
+			solicitudPreparacionPrueba(t),
 		)
 		if !errors.Is(err, ports.ErrPersistenciaNoDisponible) ||
 			tx.reversiones != 1 {
@@ -545,7 +580,7 @@ func TestPreparadorPostgreSQLFallaCerradoEnFronterasTransaccionales(t *testing.T
 		)
 		_, err := preparador.PrepararAlta(
 			context.Background(),
-			solicitudPreparacionPrueba(),
+			solicitudPreparacionPrueba(t),
 		)
 		if !errors.Is(err, ports.ErrPersistenciaNoDisponible) ||
 			tx.confirmaciones != 0 {
@@ -561,7 +596,7 @@ func TestPreparadorPostgreSQLFallaCerradoEnFronterasTransaccionales(t *testing.T
 		tx.errConfirmar = errors.New("resultado indeterminado")
 		_, err := preparador.PrepararAlta(
 			context.Background(),
-			solicitudPreparacionPrueba(),
+			solicitudPreparacionPrueba(t),
 		)
 		if !errors.Is(err, ports.ErrPersistenciaNoDisponible) ||
 			tx.confirmaciones != 1 {
@@ -588,9 +623,16 @@ func TestPreparadorPostgreSQLRechazaHuellasNulas(t *testing.T) {
 			t,
 			filaReservadaPreparacionPrueba("reservada"),
 		)
-		solicitud := solicitudPreparacionPrueba()
-		solicitud.IdentidadesHMAC.Activa.HuellaPeticionHMAC =
-			"hmac-sha256:" + clavePeticionAltaPrueba + ":" + strings.Repeat("0", 64)
+		solicitud := solicitudPreparacionPrueba(t)
+		mutarIdentidadActivaPreparacionPrueba(
+			t,
+			&solicitud,
+			func(activa *ports.DatosIdentidadHMACAlta) {
+				activa.HuellaPeticionHMAC =
+					"hmac-sha256:" + clavePeticionAltaPrueba + ":" +
+						strings.Repeat("0", 64)
+			},
+		)
 
 		_, err := preparador.PrepararAlta(context.Background(), solicitud)
 		if !errors.Is(err, ports.ErrPreparacionAltaInvalida) {
@@ -622,7 +664,7 @@ func TestPreparadorPostgreSQLRechazaHuellasNulas(t *testing.T) {
 
 		_, err = preparador.PrepararAlta(
 			context.Background(),
-			solicitudPreparacionPrueba(),
+			solicitudPreparacionPrueba(t),
 		)
 		if !errors.Is(err, ports.ErrPersistenciaNoDisponible) {
 			t.Fatalf("error inesperado: %v", err)

@@ -185,6 +185,7 @@ func concesionAutorizacionV3Prueba(
 	motivo dominiovec.ReferenciaEntradaCatalogo,
 	ahora time.Time,
 	referenciaDecision string,
+	conceder bool,
 ) (
 	dominiovec.DecisionAutorizacionLigadaV3,
 	puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
@@ -216,6 +217,10 @@ func concesionAutorizacionV3Prueba(
 		}},
 		PublicadaPor: "responsable-seguridad",
 		PublicadaEn:  ahora.Add(-24 * time.Hour),
+	}
+	if !conceder {
+		version.Concesiones[0].Accion =
+			"contratacion_temporal.solicitud.denegada"
 	}
 	huellaCatalogo, err := dominiovec.HuellaCatalogoPoliticasAutorizacion(nil)
 	if err != nil {
@@ -259,6 +264,11 @@ func concesionAutorizacionV3Prueba(
 	decision, err := dominiovec.NuevaDecisionAutorizacionLigadaV3(solicitud, evidencia)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !conceder {
+		return decision,
+			puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{},
+			nil
 	}
 	orden, err := puertosvec.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(
 		solicitud,

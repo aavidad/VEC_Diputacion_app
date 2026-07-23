@@ -196,7 +196,11 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	identidadActiva := identidadesHMAC.Activa
+	datosIdentidadesHMAC, err := identidadesHMAC.Datos()
+	if err != nil {
+		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
+	}
+	identidadActiva := datosIdentidadesHMAC.Activa
 	ambitoHMAC := identidadActiva.AmbitoIdempotenciaHMAC
 
 	instanteAutorizacion := instanteCanonico(s.reloj.Ahora())
@@ -210,6 +214,9 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		return ports.ReciboAlta{}, ports.ErrAutorizacionDenegada
 	}
 	motivo, err := s.motivos.ResolverMotivoAutorizacionAltaV3(ctx, resolverMotivo)
+	if errContexto := ctx.Err(); errContexto != nil {
+		return ports.ReciboAlta{}, errContexto
+	}
 	if err != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(motivo) {
 		return ports.ReciboAlta{}, errors.Join(
 			ports.ErrAutorizacionDenegada,
@@ -223,6 +230,9 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	)
 	if err != nil {
 		return ports.ReciboAlta{}, errors.Join(ports.ErrAutorizacionDenegada, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ReciboAlta{}, err
 	}
 	solicitudAutorizacionV3, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(
 		dominiovec.DatosSolicitudAutorizacionLigadaV3{
@@ -239,9 +249,14 @@ func (s *ServicioRegistroSolicitud) Registrar(
 					"categoria_ref":    solicitudCentro.CategoriaRef,
 				},
 				Atributos: map[string]string{
-					"flujo_ref":           configuracion.Flujo.DefinicionRef,
-					"flujo_version":       strconv.FormatUint(configuracion.Flujo.Version, 10),
+					"flujo_ref": configuracion.Flujo.DefinicionRef,
+					"flujo_version": strconv.FormatUint(
+						configuracion.Flujo.Version,
+						10,
+					),
 					"flujo_huella_sha256": configuracion.Flujo.HuellaSHA256,
+					ports.AtributoHuellaPeticionHMACActiva: identidadActiva.
+						HuellaPeticionHMAC,
 				},
 			},
 			Finalidad:   ports.FinalidadCrearSolicitud,
@@ -341,6 +356,9 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		Preparacion:             preparacion,
 	})
 	if err != nil {
+		return ports.ReciboAlta{}, err
+	}
+	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
 	}
 	recibo, err := s.transaccion.ConfirmarAlta(ctx, orden)
