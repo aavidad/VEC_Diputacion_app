@@ -14,7 +14,8 @@ func TestRegistroSolicitudRespetaCancelacionPrevia(t *testing.T) {
 
 	_, err := servicio.Registrar(ctx, escenario.solicitud)
 	if !errors.Is(err, context.Canceled) || d.contextos.llamadas != 0 ||
-		d.autorizador.llamadas != 0 || d.preparaciones.llamadas != 0 ||
+		d.autorizador.llamadas != 0 ||
+		d.referencias.llamadasReferencias != 0 ||
 		d.transaccion.llamadas != 0 {
 		t.Fatalf("cancelación previa produjo trabajo: %v", err)
 	}
@@ -28,7 +29,9 @@ func TestRegistroSolicitudCancelaTrasResolverMotivo(t *testing.T) {
 
 	_, err := servicio.Registrar(ctx, escenario.solicitud)
 	if !errors.Is(err, context.Canceled) || d.correlaciones.llamadas != 0 ||
-		d.autorizador.llamadas != 0 || d.preparaciones.llamadas != 0 ||
+		d.autorizador.llamadas != 0 ||
+		d.referencias.llamadasReferencias != 1 ||
+		d.proyector.llamadas != 1 ||
 		d.transaccion.llamadas != 0 {
 		t.Fatalf("cancelación tras motivo cruzó la frontera: %v", err)
 	}
@@ -42,7 +45,9 @@ func TestRegistroSolicitudCancelaTrasGenerarCorrelacion(t *testing.T) {
 
 	_, err := servicio.Registrar(ctx, escenario.solicitud)
 	if !errors.Is(err, context.Canceled) || d.correlaciones.llamadas != 1 ||
-		d.autorizador.llamadas != 0 || d.preparaciones.llamadas != 0 ||
+		d.autorizador.llamadas != 0 ||
+		d.referencias.llamadasReferencias != 1 ||
+		d.proyector.llamadas != 1 ||
 		d.transaccion.llamadas != 0 {
 		t.Fatalf("cancelación tras correlación alcanzó PDP o efecto: %v", err)
 	}
@@ -53,13 +58,15 @@ func TestRegistroSolicitudCancelaJustoAntesDeConfirmarAlta(t *testing.T) {
 	servicio, d := construirServicioRegistro(t, escenario)
 	ctx, cancelar := context.WithCancel(context.Background())
 	d.reloj.despues = func(llamada int) {
-		if llamada == 5 {
+		if llamada == 4 {
 			cancelar()
 		}
 	}
 
 	_, err := servicio.Registrar(ctx, escenario.solicitud)
-	if !errors.Is(err, context.Canceled) || d.preparaciones.llamadas != 1 ||
+	if !errors.Is(err, context.Canceled) ||
+		d.referencias.llamadasReferencias != 1 ||
+		d.proyector.llamadas != 1 ||
 		d.transaccion.llamadas != 0 {
 		t.Fatalf("cancelación previa a ConfirmarAlta produjo efecto: %v", err)
 	}

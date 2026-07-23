@@ -20,6 +20,7 @@ const (
 	ModuloContratacion               = "contratacion_temporal"
 	TipoRecursoExpediente            = "expediente_contratacion_temporal"
 	AtributoHuellaPeticionHMACActiva = "huella_peticion_hmac_activa"
+	AtributoHuellaEfectoAltaSHA256   = "efecto_huella_sha256"
 )
 
 var (

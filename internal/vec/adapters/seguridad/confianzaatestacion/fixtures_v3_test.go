@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"testing"
 	"time"
@@ -202,6 +204,7 @@ func nuevoEscenarioConfianzaAtestacionV3Prueba(
 	if err != nil {
 		t.Fatal(err)
 	}
+	efectoPrueba := sha256.Sum256(bytesEfectoAltaCompatibilidadO206())
 	solicitud, err := domain.NuevaSolicitudAutorizacionLigadaV3(
 		domain.DatosSolicitudAutorizacionLigadaV3{
 			VinculoAutenticacionActor: vinculo, ReferenciaMotivo: motivo,
@@ -219,6 +222,9 @@ func nuevoEscenarioConfianzaAtestacionV3Prueba(
 					"flujo_ref":           "flujo:contratacion-temporal:alta",
 					"flujo_version":       "1",
 					"flujo_huella_sha256": strings.Repeat("e", 64),
+					puertoscontratacion.AtributoHuellaEfectoAltaSHA256: hex.EncodeToString(
+						efectoPrueba[:],
+					),
 					puertoscontratacion.AtributoHuellaPeticionHMACActiva: "hmac-sha256:vec.contratacion-temporal.huella-peticion/v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 				},
 			},
@@ -349,6 +355,10 @@ func nuevoEscenarioConfianzaAtestacionV3Prueba(
 		solicitud: solicitud, decision: decision, motivo: motivo,
 		resultado: resultado, atestacion: atestacion,
 	}
+}
+
+func bytesEfectoAltaCompatibilidadO206() []byte {
+	return []byte(strings.Repeat("e", 256))
 }
 
 func atestacionConfianzaAtestacionV3Prueba(

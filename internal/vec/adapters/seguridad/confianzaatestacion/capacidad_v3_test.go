@@ -81,22 +81,23 @@ func TestCapacidadAtestacionV3CruzaProcesoConMACYVigenciaCincoSegundos(
 		t.Fatal(err)
 	}
 	datosSolicitud, _ := escenario.solicitud.Datos()
-	atributosO204 := []string{
+	atributosO206 := []string{
 		"flujo_ref",
 		"flujo_version",
 		"flujo_huella_sha256",
 		puertoscontratacion.AtributoHuellaPeticionHMACActiva,
+		puertoscontratacion.AtributoHuellaEfectoAltaSHA256,
 	}
 	if len(datosSolicitud.Recurso.Ambitos) != 3 ||
-		len(datosSolicitud.Recurso.Atributos) != len(atributosO204) {
+		len(datosSolicitud.Recurso.Atributos) != len(atributosO206) {
 		t.Fatalf(
-			"la solicitud no conserva el perfil cerrado O2-04: %+v",
+			"la solicitud no conserva el perfil cerrado O2-06: %+v",
 			datosSolicitud.Recurso,
 		)
 	}
-	for _, atributo := range atributosO204 {
+	for _, atributo := range atributosO206 {
 		if _, existe := datosSolicitud.Recurso.Atributos[atributo]; !existe {
-			t.Fatalf("falta atributo O2-04 %q", atributo)
+			t.Fatalf("falta atributo O2-06 %q", atributo)
 		}
 	}
 	huellaEfecto, err := datosSolicitud.Recurso.

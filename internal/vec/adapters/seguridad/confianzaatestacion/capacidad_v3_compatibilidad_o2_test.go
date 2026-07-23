@@ -22,7 +22,7 @@ func (r registroConcesionCapacidadV3Prueba) RegistrarConcesionCandidataAutorizac
 	return r.registradaEn, nil
 }
 
-func TestCapacidadAtestacionV3EsCompatibleConOrdenAltaO204Real(
+func TestCapacidadAtestacionV3EsCompatibleConOrdenAltaO206Real(
 	t *testing.T,
 ) {
 	escenario, prueba := escenarioYPruebaConfianzaV3(t)
@@ -91,7 +91,7 @@ func TestCapacidadAtestacionV3EsCompatibleConOrdenAltaO204Real(
 		},
 		DocumentosAdjuntos: []string{},
 	}
-	preparacion := puertoscontratacion.PreparacionAlta{
+	candidatura := puertoscontratacion.CandidaturaAlta{
 		ReservaRef: "reserva:ct-alta:001",
 		Referencias: puertoscontratacion.ReferenciasAlta{
 			ExpedienteRef: "expediente:ct:001",
@@ -104,13 +104,12 @@ func TestCapacidadAtestacionV3EsCompatibleConOrdenAltaO204Real(
 			Ambitos["organizacion_ref"],
 		ActorRef:  vinculo.PrincipalID,
 		PerfilRef: vinculo.PerfilActivoRef,
-		Estado:    puertoscontratacion.PreparacionReservada,
 	}
 	expediente, err := dominiocontratacion.NuevoExpediente(
 		dominiocontratacion.AltaExpediente{
-			Referencia:      preparacion.Referencias.ExpedienteRef,
-			OrganizacionRef: preparacion.OrganizacionRef,
-			NumeroVisible:   preparacion.Referencias.NumeroVisible,
+			Referencia:      candidatura.Referencias.ExpedienteRef,
+			OrganizacionRef: candidatura.OrganizacionRef,
+			NumeroVisible:   candidatura.Referencias.NumeroVisible,
 			Flujo:           flujo,
 			FaseInicial:     "solicitud_registrada",
 			Solicitud:       solicitudCentro,
@@ -118,7 +117,7 @@ func TestCapacidadAtestacionV3EsCompatibleConOrdenAltaO204Real(
 				AccionClave:   "registrar_solicitud",
 				ActorRef:      vinculo.PrincipalID,
 				UnidadRef:     "unidad:recursos-humanos",
-				ReciboRef:     preparacion.Referencias.ReciboRef,
+				ReciboRef:     candidatura.Referencias.ReciboRef,
 				RealizadaEn:   escenario.ahora,
 				FaseDestino:   "solicitud_registrada",
 				EstadoDestino: dominiocontratacion.EstadoEnCurso,
@@ -129,18 +128,27 @@ func TestCapacidadAtestacionV3EsCompatibleConOrdenAltaO204Real(
 	if err != nil {
 		t.Fatal(err)
 	}
+	proyeccion, err := puertoscontratacion.NuevaProyeccionEfectoAlta(
+		bytesEfectoAltaCompatibilidadO206(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := puertoscontratacion.NuevaOrdenConfirmarAlta(
 		puertoscontratacion.DatosOrdenConfirmarAlta{
 			Expediente:              expediente,
 			SolicitudAutorizacionV3: escenario.solicitud,
 			DecisionAutorizacionV3:  escenario.decision,
 			ConfirmacionRegistroV3:  confirmacion,
+			ResultadoContextoV2:     escenario.resultado,
 			AmbitosIdempotenciaHMAC: ambitos,
 			HuellasPeticionHMAC:     huellas,
-			Preparacion:             preparacion,
+			Candidatura:             candidatura,
+			ProyeccionEfecto:        proyeccion,
+			InstanteConfirmacion:    escenario.ahora,
 		},
 	); err != nil {
-		t.Fatalf("NuevaOrdenConfirmarAlta rechazó el perfil O2-04: %v", err)
+		t.Fatalf("NuevaOrdenConfirmarAlta rechazó el perfil O2-06: %v", err)
 	}
 
 	clave := claveCapacidadAtestacionV3Prueba(
@@ -169,7 +177,7 @@ func TestCapacidadAtestacionV3EsCompatibleConOrdenAltaO204Real(
 		prueba,
 	)
 	if err != nil {
-		t.Fatalf("el emisor rechazó la solicitud O2-04 real: %v", err)
+		t.Fatalf("el emisor rechazó la solicitud O2-06 real: %v", err)
 	}
 	exportacion, err := capacidad.ExportacionCanonicaParaConsumidor()
 	if err != nil {
@@ -186,6 +194,6 @@ func TestCapacidadAtestacionV3EsCompatibleConOrdenAltaO204Real(
 	}
 	if documento.EfectoRef != ambito ||
 		documento.HuellaEfectoSHA256 != huellaContexto {
-		t.Fatalf("efecto no derivado del recurso O2-04: %+v", documento)
+		t.Fatalf("efecto no derivado del recurso O2-06: %+v", documento)
 	}
 }

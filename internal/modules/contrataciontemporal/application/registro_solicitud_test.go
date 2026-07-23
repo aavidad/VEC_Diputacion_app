@@ -119,22 +119,50 @@ func (d *generadorReferenciasDoble) NuevaClaveMotivoAutorizacionV2(
 	return "", errors.New("no se usa para el alta")
 }
 
-type preparadorAltaDoble struct {
-	preparacion ports.PreparacionAlta
-	err         error
-	llamadas    int
-	antes       func()
+type generadorAltaDoble struct {
+	referencias         ports.ReferenciasAlta
+	reservaRef          string
+	errReferencias      error
+	errReserva          error
+	llamadasReferencias int
+	llamadasReserva     int
+	antes               func()
 }
 
-func (d *preparadorAltaDoble) PrepararAlta(
+func (d *generadorAltaDoble) GenerarReferenciasAlta(
 	context.Context,
-	ports.SolicitudPrepararAlta,
-) (ports.PreparacionAlta, error) {
-	d.llamadas++
+) (ports.ReferenciasAlta, error) {
+	d.llamadasReferencias++
 	if d.antes != nil {
 		d.antes()
 	}
-	return d.preparacion, d.err
+	return d.referencias, d.errReferencias
+}
+
+func (d *generadorAltaDoble) NuevaReferenciaReservaAlta(
+	context.Context,
+) (string, error) {
+	d.llamadasReserva++
+	return d.reservaRef, d.errReserva
+}
+
+type proyectorEfectoAltaDoble struct {
+	proyeccion ports.ProyeccionEfectoAlta
+	err        error
+	llamadas   int
+	solicitud  ports.SolicitudProyectarEfectoAlta
+	antes      func()
+}
+
+func (d *proyectorEfectoAltaDoble) ProyectarEfectoAlta(
+	solicitud ports.SolicitudProyectarEfectoAlta,
+) (ports.ProyeccionEfectoAlta, error) {
+	d.llamadas++
+	d.solicitud = solicitud
+	if d.antes != nil {
+		d.antes()
+	}
+	return d.proyeccion, d.err
 }
 
 type relojMutable struct {
@@ -266,7 +294,7 @@ type escenarioRegistro struct {
 	solicitud     SolicitudRegistrarExpediente
 	contexto      ports.ContextoAutorizacionAltaV3
 	configuracion ports.ConfiguracionAltaFlujo
-	preparacion   ports.PreparacionAlta
+	candidatura   ports.CandidaturaAlta
 	motivo        dominiovec.ReferenciaEntradaCatalogo
 	recibo        ports.ReciboAlta
 }
@@ -279,7 +307,7 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return escenarioRegistro{
+	escenario := escenarioRegistro{
 		instante: instante,
 		solicitud: SolicitudRegistrarExpediente{
 			AutenticacionRef:  vinculo.AutenticacionRef,
@@ -312,7 +340,7 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 			UnidadInicialRef: "unidad:recursos-humanos",
 			AccionInicial:    "solicitud.registrada",
 		},
-		preparacion: ports.PreparacionAlta{
+		candidatura: ports.CandidaturaAlta{
 			ReservaRef: "reserva:alta-001",
 			Referencias: ports.ReferenciasAlta{
 				ExpedienteRef: "expediente:ct-2026-0001",
@@ -324,7 +352,6 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 			OrganizacionRef:        "organizacion:diputacion-granada",
 			ActorRef:               vinculo.PrincipalID,
 			PerfilRef:              vinculo.PerfilActivoRef,
-			Estado:                 ports.PreparacionReservada,
 		},
 		motivo: dominiovec.ReferenciaEntradaCatalogo{
 			CatalogoID:           "motivos_autorizacion",
@@ -342,6 +369,12 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 			ConfirmadaEn:  instante,
 		},
 	}
+	huellaRecibo, err := ports.CalcularHuellaReciboAlta(escenario.recibo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	escenario.recibo.ReciboHuellaSHA256 = huellaRecibo
+	return escenario
 }
 
 type dependenciasRegistro struct {
@@ -351,7 +384,8 @@ type dependenciasRegistro struct {
 	ambitos       *selladorAmbitoDoble
 	motivos       *resolutorMotivoDoble
 	correlaciones *generadorReferenciasDoble
-	preparaciones *preparadorAltaDoble
+	referencias   *generadorAltaDoble
+	proyector     *proyectorEfectoAltaDoble
 	autorizador   *autorizadorV3Doble
 	reloj         *relojMutable
 	transaccion   *transaccionAltaDoble
@@ -367,7 +401,7 @@ func construirServicioRegistro(
 			"vec.contratacion-temporal.ambito-idempotencia/v2",
 			"c",
 		),
-		[]string{escenario.preparacion.AmbitoIdempotenciaHMAC},
+		[]string{escenario.candidatura.AmbitoIdempotenciaHMAC},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -377,7 +411,7 @@ func construirServicioRegistro(
 			"vec.contratacion-temporal.huella-peticion/v2",
 			"c",
 		),
-		[]string{escenario.preparacion.HuellaPeticionHMAC},
+		[]string{escenario.candidatura.HuellaPeticionHMAC},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -391,13 +425,23 @@ func construirServicioRegistro(
 		correlaciones: &generadorReferenciasDoble{
 			correlacion: "correlacion_11111111111111111111111111111111",
 		},
-		preparaciones: &preparadorAltaDoble{preparacion: escenario.preparacion},
+		referencias: &generadorAltaDoble{
+			referencias: escenario.candidatura.Referencias,
+			reservaRef:  escenario.candidatura.ReservaRef,
+		},
 		autorizador: &autorizadorV3Doble{
 			t: t, instante: escenario.instante, motivo: escenario.motivo,
 		},
 		reloj:       &relojMutable{instante: escenario.instante},
 		transaccion: &transaccionAltaDoble{recibo: escenario.recibo},
 	}
+	proyeccion, err := ports.NuevaProyeccionEfectoAlta(
+		bytes.Repeat([]byte("e"), 256),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.proyector = &proyectorEfectoAltaDoble{proyeccion: proyeccion}
 	servicio, err := NuevoServicioRegistroSolicitud(
 		d.contextos,
 		d.flujos,
@@ -405,7 +449,8 @@ func construirServicioRegistro(
 		d.ambitos,
 		d.motivos,
 		d.correlaciones,
-		d.preparaciones,
+		d.referencias,
+		d.proyector,
 		d.autorizador,
 		d.reloj,
 		d.transaccion,
@@ -416,29 +461,38 @@ func construirServicioRegistro(
 	return servicio, d
 }
 
-func TestRegistroSolicitudAutorizaV3AntesDeReservarYConfirma(t *testing.T) {
+func TestRegistroSolicitudProyectaCincoAtributosAntesDeAutorizarYConfirma(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
 	servicio, d := construirServicioRegistro(t, escenario)
-	secuencia := make([]string, 0, 2)
+	secuencia := make([]string, 0, 3)
+	d.referencias.antes = func() { secuencia = append(secuencia, "referencias") }
+	d.proyector.antes = func() { secuencia = append(secuencia, "proyectar") }
 	d.autorizador.antes = func() { secuencia = append(secuencia, "autorizar") }
-	d.preparaciones.antes = func() { secuencia = append(secuencia, "preparar") }
 
 	recibo, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if err != nil {
 		t.Fatalf("registrar: %v", err)
 	}
 	if recibo != escenario.recibo || d.transaccion.llamadas != 1 ||
-		len(secuencia) != 2 || secuencia[0] != "autorizar" || secuencia[1] != "preparar" {
+		len(secuencia) != 3 ||
+		!reflect.DeepEqual(
+			secuencia,
+			[]string{"referencias", "proyectar", "autorizar"},
+		) {
 		t.Fatalf("secuencia o recibo incorrectos: %#v, %v", recibo, secuencia)
 	}
 	datosSolicitud, err := d.autorizador.solicitud.Datos()
 	datosAmbitos, errAmbitos := d.ambitos.coleccion.Datos()
 	datosHuellas, errHuellas := d.huellas.coleccion.Datos()
+	_, huellaEfecto, errEfecto := d.proyector.proyeccion.Datos()
 	if err != nil || errAmbitos != nil || errHuellas != nil ||
+		errEfecto != nil || len(datosSolicitud.Recurso.Atributos) != 5 ||
 		datosSolicitud.Recurso.Referencia !=
 			datosAmbitos.Activo.Valor ||
 		datosSolicitud.Recurso.Atributos[ports.AtributoHuellaPeticionHMACActiva] !=
 			datosHuellas.Activo.Valor ||
+		datosSolicitud.Recurso.Atributos[ports.AtributoHuellaEfectoAltaSHA256] !=
+			huellaEfecto ||
 		datosSolicitud.Accion != ports.AccionCrearSolicitud ||
 		datosSolicitud.Finalidad != ports.FinalidadCrearSolicitud ||
 		datosSolicitud.Recurso.ModuloID != ports.ModuloContratacion ||
@@ -462,11 +516,39 @@ func TestRegistroSolicitudAutorizaV3AntesDeReservarYConfirma(t *testing.T) {
 		SolicitudAutorizacionV3: datosOrden.SolicitudAutorizacionV3,
 		DecisionAutorizacionV3:  datosOrden.DecisionAutorizacionV3,
 		ConfirmacionRegistroV3:  datosOrden.ConfirmacionRegistroV3,
+		ResultadoContextoV2:     datosOrden.ResultadoContextoV2,
 		AmbitosIdempotenciaHMAC: datosOrden.AmbitosIdempotenciaHMAC,
 		HuellasPeticionHMAC:     datosOrden.HuellasPeticionHMAC,
-		Preparacion:             datosOrden.Preparacion,
+		Candidatura:             datosOrden.Candidatura,
+		ProyeccionEfecto:        datosOrden.ProyeccionEfecto,
+		InstanteConfirmacion:    datosOrden.InstanteConfirmacion,
 	}); !errors.Is(err, ports.ErrOrdenAltaInvalida) {
 		t.Fatalf("actuación atribuida a otro actor aceptada: %v", err)
+	}
+}
+
+func TestRegistroSolicitudComprometeEfectoAntesDeEmitirDecision(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioRegistro(t)
+	servicio, d := construirServicioRegistro(t, escenario)
+	emitidaEn := escenario.instante.Add(time.Second)
+	d.autorizador.instante = emitidaEn
+	d.autorizador.antes = func() {
+		d.reloj.fijar(emitidaEn)
+	}
+
+	if _, err := servicio.Registrar(
+		context.Background(),
+		escenario.solicitud,
+	); err != nil {
+		t.Fatalf("efecto previo y decisión posterior incompatibles: %v", err)
+	}
+	evidencia, err := d.transaccion.orden.Datos()
+	if err != nil ||
+		!evidencia.Expediente.CreadoEn.Before(emitidaEn) ||
+		!evidencia.InstanteConfirmacion.Equal(emitidaEn) {
+		t.Fatalf("orden temporalmente incoherente: %#v, %v", evidencia, err)
 	}
 }
 
@@ -563,35 +645,52 @@ func TestRegistroSolicitudAislaMutacionesDePuertosYOrden(t *testing.T) {
 	}
 }
 
-func TestRegistroSolicitudReplayConfirmadoRevalidaPDP(t *testing.T) {
+func TestRegistroSolicitudReplayPasaSiemprePorConfirmacionAtestada(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
-	recibo := escenario.recibo
-	escenario.preparacion.Estado = ports.PreparacionConfirmada
-	escenario.preparacion.ReciboConfirmado = &recibo
 	servicio, d := construirServicioRegistro(t, escenario)
 
-	devuelto, err := servicio.Registrar(context.Background(), escenario.solicitud)
-	if err != nil || devuelto != recibo || d.autorizador.llamadas != 1 ||
-		d.preparaciones.llamadas != 1 || d.transaccion.llamadas != 0 {
-		t.Fatalf("replay no revalidado: recibo=%#v err=%v auth=%d prep=%d tx=%d",
-			devuelto, err, d.autorizador.llamadas, d.preparaciones.llamadas, d.transaccion.llamadas)
+	primero, errPrimero := servicio.Registrar(
+		context.Background(),
+		escenario.solicitud,
+	)
+	segundo, errSegundo := servicio.Registrar(
+		context.Background(),
+		escenario.solicitud,
+	)
+	if errPrimero != nil || errSegundo != nil ||
+		primero != escenario.recibo || segundo != primero ||
+		d.autorizador.llamadas != 2 || d.transaccion.llamadas != 2 ||
+		d.referencias.llamadasReferencias != 2 ||
+		d.referencias.llamadasReserva != 2 {
+		t.Fatalf(
+			"replay eludió la puerta atestada: primero=%#v segundo=%#v "+
+				"errores=%v/%v auth=%d tx=%d refs=%d/%d",
+			primero, segundo, errPrimero, errSegundo,
+			d.autorizador.llamadas, d.transaccion.llamadas,
+			d.referencias.llamadasReferencias,
+			d.referencias.llamadasReserva,
+		)
 	}
 }
 
-func TestRegistroSolicitudDenegadaNoReservaNada(t *testing.T) {
+func TestRegistroSolicitudDenegadaNoConfirmaCandidatura(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
-	recibo := escenario.recibo
-	escenario.preparacion.Estado = ports.PreparacionConfirmada
-	escenario.preparacion.ReciboConfirmado = &recibo
 	servicio, d := construirServicioRegistro(t, escenario)
 	d.autorizador.err = errors.New("PDP deniega")
 
 	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-		d.autorizador.llamadas != 1 || d.preparaciones.llamadas != 0 ||
+		d.autorizador.llamadas != 1 ||
+		d.referencias.llamadasReferencias != 1 ||
+		d.referencias.llamadasReserva != 1 ||
 		d.transaccion.llamadas != 0 {
-		t.Fatalf("denegación produjo efecto: err=%v auth=%d prep=%d tx=%d",
-			err, d.autorizador.llamadas, d.preparaciones.llamadas, d.transaccion.llamadas)
+		t.Fatalf(
+			"denegación produjo efecto: err=%v auth=%d refs=%d/%d tx=%d",
+			err, d.autorizador.llamadas,
+			d.referencias.llamadasReferencias,
+			d.referencias.llamadasReserva,
+			d.transaccion.llamadas,
+		)
 	}
 }
 
@@ -603,34 +702,27 @@ func TestRegistroSolicitudRechazaContextoV3QueNoCorrespondeALaPeticion(t *testin
 	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
 		d.contextos.llamadas != 1 || d.autorizador.llamadas != 0 ||
-		d.preparaciones.llamadas != 0 {
+		d.referencias.llamadasReferencias != 0 {
 		t.Fatalf("contexto cruzado alcanzó PDP o persistencia: %v", err)
 	}
 }
 
-func TestRegistroSolicitudExpiradaMientrasPreparaNoConfirmaNiDevuelveReplay(t *testing.T) {
+func TestRegistroSolicitudExpiradaTrasAutorizarNoConfirma(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
 	servicio, d := construirServicioRegistro(t, escenario)
-	d.preparaciones.antes = func() {
+	d.autorizador.antes = func() {
 		d.reloj.fijar(escenario.instante.Add(2 * time.Minute))
 	}
 
 	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-		d.preparaciones.llamadas != 1 || d.transaccion.llamadas != 0 {
-		t.Fatalf("concesión expirada llegó al efecto: err=%v prep=%d tx=%d",
-			err, d.preparaciones.llamadas, d.transaccion.llamadas)
-	}
-
-	recibo := escenario.recibo
-	escenario.preparacion.Estado = ports.PreparacionConfirmada
-	escenario.preparacion.ReciboConfirmado = &recibo
-	servicio, d = construirServicioRegistro(t, escenario)
-	d.preparaciones.antes = func() {
-		d.reloj.fijar(escenario.instante.Add(2 * time.Minute))
-	}
-	if _, err = servicio.Registrar(context.Background(), escenario.solicitud); !errors.Is(err, ports.ErrAutorizacionDenegada) || d.transaccion.llamadas != 0 {
-		t.Fatalf("replay expirado eludió PDP: %v", err)
+		d.referencias.llamadasReferencias != 1 ||
+		d.proyector.llamadas != 1 || d.transaccion.llamadas != 0 {
+		t.Fatalf(
+			"concesión expirada llegó al efecto: err=%v refs=%d proy=%d tx=%d",
+			err, d.referencias.llamadasReferencias,
+			d.proyector.llamadas, d.transaccion.llamadas,
+		)
 	}
 }
 
@@ -641,44 +733,46 @@ func TestRegistroSolicitudRechazaNulosYReferenciasFabricables(t *testing.T) {
 	invalida := escenario.solicitud
 	invalida.AutenticacionRef = "aut_corta"
 	if _, err := servicio.Registrar(context.Background(), invalida); !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-		d.contextos.llamadas != 0 || d.preparaciones.llamadas != 0 {
+		d.contextos.llamadas != 0 ||
+		d.referencias.llamadasReferencias != 0 {
 		t.Fatalf("referencia de autenticación fabricable aceptada: %v", err)
 	}
 	if _, err := NuevoServicioRegistroSolicitud(
 		nil, d.flujos, d.huellas, d.ambitos, d.motivos, d.correlaciones,
-		d.preparaciones, d.autorizador, d.reloj, d.transaccion,
+		d.referencias, d.proyector, d.autorizador, d.reloj, d.transaccion,
 	); !errors.Is(err, ErrServicioRegistroInvalido) {
 		t.Fatalf("dependencia nula aceptada: %v", err)
 	}
 	var nuloTipado *resolutorContextoDoble
 	if _, err := NuevoServicioRegistroSolicitud(
 		nuloTipado, d.flujos, d.huellas, d.ambitos, d.motivos, d.correlaciones,
-		d.preparaciones, d.autorizador, d.reloj, d.transaccion,
+		d.referencias, d.proyector, d.autorizador, d.reloj, d.transaccion,
 	); !errors.Is(err, ErrServicioRegistroInvalido) {
 		t.Fatalf("dependencia nula tipada aceptada: %v", err)
 	}
 }
 
-func TestRegistroSolicitudRechazaAmbitoDistintoDelAutorizado(t *testing.T) {
+func TestRegistroSolicitudRechazaProyeccionInvalidaAntesDelPDP(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
 	servicio, d := construirServicioRegistro(t, escenario)
-	d.preparaciones.preparacion.AmbitoIdempotenciaHMAC =
-		selloHMACRegistroPrueba(claveAmbitoRegistroPrueba, "e")
+	d.proyector.proyeccion = ports.ProyeccionEfectoAlta{}
 
 	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
-	if !errors.Is(err, ports.ErrPreparacionAltaInvalida) || d.transaccion.llamadas != 0 {
-		t.Fatalf("ámbito preparado distinto alcanzó el efecto: %v", err)
+	if !errors.Is(err, ports.ErrProyeccionEfectoAltaInvalida) ||
+		d.autorizador.llamadas != 0 || d.transaccion.llamadas != 0 {
+		t.Fatalf("proyección inválida alcanzó PDP o efecto: %v", err)
 	}
 }
 
-func TestRegistroSolicitudRechazaConfirmacionV3CruzadaAntesDePreparar(t *testing.T) {
+func TestRegistroSolicitudRechazaConfirmacionV3CruzadaAntesDeConfirmar(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
 	servicio, d := construirServicioRegistro(t, escenario)
 	d.autorizador.confirmacionAjena = true
 
 	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-		d.preparaciones.llamadas != 0 || d.transaccion.llamadas != 0 {
-		t.Fatalf("confirmación V3 cruzada produjo reserva o efecto: %v", err)
+		d.referencias.llamadasReferencias != 1 ||
+		d.proyector.llamadas != 1 || d.transaccion.llamadas != 0 {
+		t.Fatalf("confirmación V3 cruzada produjo efecto: %v", err)
 	}
 }

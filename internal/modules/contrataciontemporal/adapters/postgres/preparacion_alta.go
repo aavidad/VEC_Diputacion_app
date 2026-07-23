@@ -380,6 +380,11 @@ func (f filaPreparacionAlta) restaurar(
 			EventoRef:     f.eventoRef.String,
 			ConfirmadaEn:  f.confirmadaEn.Time.UTC(),
 		}
+		huellaRecibo, err := ports.CalcularHuellaReciboAlta(recibo)
+		if err != nil {
+			return ports.PreparacionAlta{}, ports.ErrPersistenciaNoDisponible
+		}
+		recibo.ReciboHuellaSHA256 = huellaRecibo
 		preparacion.ReciboConfirmado = &recibo
 	default:
 		return ports.PreparacionAlta{}, ports.ErrPersistenciaNoDisponible

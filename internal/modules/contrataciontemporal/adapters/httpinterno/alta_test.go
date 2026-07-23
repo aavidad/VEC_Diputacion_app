@@ -96,7 +96,7 @@ func contextoCanalValidoPrueba() application.SolicitudRegistrarExpediente {
 }
 
 func reciboValidoPrueba() ports.ReciboAlta {
-	return ports.ReciboAlta{
+	recibo := ports.ReciboAlta{
 		ExpedienteRef: "expediente:ct:0001",
 		NumeroVisible: "2026/CT-0001",
 		Version:       1,
@@ -105,6 +105,8 @@ func reciboValidoPrueba() ports.ReciboAlta {
 		EventoRef:     "evento:ct:0001",
 		ConfirmadaEn:  instantePrueba,
 	}
+	recibo.ReciboHuellaSHA256, _ = ports.CalcularHuellaReciboAlta(recibo)
+	return recibo
 }
 
 func cuerpoValidoPrueba() []byte {
