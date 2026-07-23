@@ -64,15 +64,19 @@ type Fuente struct {
 	disponibilidadMu              sync.Mutex
 	disponibilidadHasta           time.Time
 	disponibilidadErr             error
-	disponibilidadCancelada       bool
-	disponibilidadEnCurso         bool
+	disponibilidadSondaTerminada  chan struct{}
+	disponibilidadSondaCancelar   context.CancelFunc
+	disponibilidadCerrada         bool
 	disponibilidadEstadoConocido  bool
 	disponibilidadDisponible      bool
+	disponibilidadNotificando     bool
+	disponibilidadPendientes      []transicionDisponibilidad
 	observadorDisponibilidad      func(bool)
 	sondaDisponibilidadPrueba     func(context.Context) error
 	integridadMu                  sync.RWMutex
 	integridadHasta               time.Time
 	integridadErr                 error
+	integridadGeneracion          uint64
 	integridadCancelar            context.CancelFunc
 	integridadTerminada           chan struct{}
 	sondaIntegridadPrueba         func(context.Context) error
@@ -160,13 +164,24 @@ func (f *Fuente) Cerrar() {
 	}
 	f.cerrarUnaVez.Do(func() {
 		f.integridadMu.Lock()
-		cancelar, terminada := f.integridadCancelar, f.integridadTerminada
+		cancelarIntegridad, integridadTerminada := f.integridadCancelar, f.integridadTerminada
 		f.integridadMu.Unlock()
-		if cancelar != nil {
-			cancelar()
+		f.disponibilidadMu.Lock()
+		f.disponibilidadCerrada = true
+		cancelarDisponibilidad := f.disponibilidadSondaCancelar
+		disponibilidadTerminada := f.disponibilidadSondaTerminada
+		f.disponibilidadMu.Unlock()
+		if cancelarIntegridad != nil {
+			cancelarIntegridad()
 		}
-		if terminada != nil {
-			<-terminada
+		if cancelarDisponibilidad != nil {
+			cancelarDisponibilidad()
+		}
+		if integridadTerminada != nil {
+			<-integridadTerminada
+		}
+		if disponibilidadTerminada != nil {
+			<-disponibilidadTerminada
 		}
 		if f.pool != nil {
 			f.pool.Close()
