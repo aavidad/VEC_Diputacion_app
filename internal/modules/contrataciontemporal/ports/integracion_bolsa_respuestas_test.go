@@ -93,6 +93,104 @@ func TestContextoPeticionEsOpacoYSeRehidrataSoloTrasAutenticar(t *testing.T) {
 	}
 }
 
+func TestCancelacionDuranteCriptografiaNoPromueveCapacidades(t *testing.T) {
+	base := instanteBolsaPrueba()
+	necesidad := referenciaBolsaPrueba("necesidad:temporal", "a")
+	datos := datosContextoBolsaPrueba(
+		base,
+		"operacion:cancelacion:criptografia",
+		necesidad,
+		referenciaBolsaPrueba("accion:consultar:disponibilidad", "2"),
+	)
+
+	ctxSellado, cancelarSellado := context.WithCancel(context.Background())
+	selladorCancelador := selladorPeticionBolsaPrueba()
+	selladorCancelador.cancelar = cancelarSellado
+	emisor, err := NuevoEmisorContextoPeticionIntegracionBolsa(
+		autoridadPeticionBolsaPrueba,
+		clavePeticionBolsaV1Prueba,
+		selladorCancelador,
+	)
+	if err != nil {
+		t.Fatalf("crear emisor: %v", err)
+	}
+	emitido, err := emisor.Emitir(ctxSellado, datos, base)
+	if !errors.Is(err, context.Canceled) || emitido.datos != nil {
+		t.Fatalf("sellado cancelado promovió contexto: contexto=%v err=%v", emitido, err)
+	}
+
+	contextoValido := emitirContextoBolsaPrueba(t, datos)
+	registro, err := contextoValido.Registro()
+	if err != nil {
+		t.Fatalf("extraer registro: %v", err)
+	}
+	ctxVerificacion, cancelarVerificacion := context.WithCancel(context.Background())
+	verificadorCancelador := &verificadorHMACBolsaPrueba{
+		claves: map[string][]byte{
+			clavePeticionBolsaV1Prueba: secretoPeticionBolsaV1Prueba,
+		},
+		cancelar: cancelarVerificacion,
+	}
+	autenticador, err := NuevoAutenticadorContextoPeticionIntegracionBolsa(
+		autoridadPeticionBolsaPrueba,
+		clavePeticionBolsaV1Prueba,
+		nil,
+		verificadorCancelador,
+	)
+	if err != nil {
+		t.Fatalf("crear autenticador: %v", err)
+	}
+	rehidratado, err := autenticador.Reautenticar(
+		ctxVerificacion,
+		registro,
+		base.Add(time.Minute),
+	)
+	if !errors.Is(err, context.Canceled) || rehidratado.datos != nil {
+		t.Fatalf(
+			"verificación cancelada promovió contexto: contexto=%v err=%v",
+			rehidratado,
+			err,
+		)
+	}
+
+	solicitud := solicitudDisponibilidadPrueba(t, base)
+	resultado := resultadoDisponibilidadPrueba(t, base)
+	firmarDisponibilidadPrueba(
+		t,
+		selladorRespuestaBolsaPrueba(),
+		solicitud,
+		&resultado,
+	)
+	ctxEvidencia, cancelarEvidencia := context.WithCancel(context.Background())
+	verificadorRespuesta, err := NuevoVerificadorEvidenciaIntegracionBolsa(
+		autoridadRespuestaBolsaPrueba,
+		claveRespuestaBolsaV1Prueba,
+		nil,
+		&verificadorHMACBolsaPrueba{
+			claves: map[string][]byte{
+				claveRespuestaBolsaV1Prueba: secretoRespuestaBolsaV1Prueba,
+			},
+			cancelar: cancelarEvidencia,
+		},
+	)
+	if err != nil {
+		t.Fatalf("crear verificador de respuesta: %v", err)
+	}
+	comprobante, _, err := verificadorRespuesta.VerificarDisponibilidad(
+		ctxEvidencia,
+		solicitud,
+		resultado,
+		base.Add(3*time.Minute),
+	)
+	if !errors.Is(err, context.Canceled) || comprobante.datos != nil {
+		t.Fatalf(
+			"verificación de evidencia cancelada promovió prueba: prueba=%v err=%v",
+			comprobante,
+			err,
+		)
+	}
+}
+
 func TestRespuestaDisponibilidadExigeFrescuraYAutenticacion(t *testing.T) {
 	base := instanteBolsaPrueba()
 	ahora := base.Add(3 * time.Minute)

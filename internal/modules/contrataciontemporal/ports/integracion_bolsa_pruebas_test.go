@@ -30,6 +30,7 @@ type selladorHMACBolsaPrueba struct {
 	claveRef string
 	clave    []byte
 	falla    bool
+	cancelar context.CancelFunc
 }
 
 func (s *selladorHMACBolsaPrueba) SellarDatos(
@@ -44,14 +45,19 @@ func (s *selladorHMACBolsaPrueba) SellarDatos(
 	}
 	mac := hmac.New(sha256.New, s.clave)
 	_, _ = mac.Write(material)
-	return "hmac-sha256:" + s.claveRef + ":" +
-		hex.EncodeToString(mac.Sum(nil)), nil
+	sello := "hmac-sha256:" + s.claveRef + ":" +
+		hex.EncodeToString(mac.Sum(nil))
+	if s.cancelar != nil {
+		s.cancelar()
+	}
+	return sello, nil
 }
 
 type verificadorHMACBolsaPrueba struct {
-	claves map[string][]byte
-	falla  bool
-	usos   atomic.Uint32
+	claves   map[string][]byte
+	falla    bool
+	usos     atomic.Uint32
+	cancelar context.CancelFunc
 }
 
 func (v *verificadorHMACBolsaPrueba) VerificarDatos(
@@ -78,6 +84,9 @@ func (v *verificadorHMACBolsaPrueba) VerificarDatos(
 	if !hmac.Equal([]byte(esperado), []byte(sello)) {
 		return ErrEvidenciaBolsaNoAutenticada
 	}
+	if v.cancelar != nil {
+		v.cancelar()
+	}
 	return nil
 }
 
@@ -93,6 +102,20 @@ func referenciaBolsaPrueba(referencia, caracter string) ReferenciaVersionadaInte
 
 func selloNominalBolsaPrueba(claveRef, caracter string) string {
 	return "hmac-sha256:" + claveRef + ":" + strings.Repeat(caracter, 64)
+}
+
+func seudonimoSeleccionBolsaPrueba(
+	t *testing.T,
+	caracter string,
+) SeudonimoSeleccionBolsa {
+	t.Helper()
+	valor := "hmac-sha256:" + dominioSeudonimoSeleccionBolsa +
+		"/v1:" + strings.Repeat(caracter, 64)
+	seudonimo, err := NuevoSeudonimoSeleccionBolsa(valor)
+	if err != nil {
+		t.Fatalf("crear seudónimo de selección: %v", err)
+	}
+	return seudonimo
 }
 
 func selladorPeticionBolsaPrueba() *selladorHMACBolsaPrueba {
@@ -335,8 +358,9 @@ func reciboLlamamientoPrueba(
 		Bolsa: datos.Bolsa, Orden: datos.Orden, Politica: datos.Politica,
 		Resultado:         referenciaBolsaPrueba("resultado:propuesta", "d"),
 		PropuestaGenerada: true, Propuesta: referenciaBolsaPrueba("propuesta:primera", "e"),
-		AccionEvento:   referenciaBolsaPrueba("accion:registrar:evento", "5"),
-		LlamamientoRef: "llamamiento:primero", SeleccionRef: "seleccion:seudonimizada",
+		AccionEvento:       referenciaBolsaPrueba("accion:registrar:evento", "5"),
+		LlamamientoRef:     "llamamiento:primero",
+		SeleccionRef:       seudonimoSeleccionBolsaPrueba(t, "9"),
 		RetencionSeleccion: referenciaBolsaPrueba("retencion:seleccion", "6"),
 		OrdenSeleccionado:  4, ReciboRef: "recibo:llamamiento",
 		AuditoriaRef: "auditoria:llamamiento", EventoRef: "evento:llamamiento",

@@ -335,7 +335,7 @@ type ReciboSolicitudLlamamientoBolsa struct {
 	Propuesta          ReferenciaVersionadaIntegracionBolsa `json:"propuesta"`
 	AccionEvento       ReferenciaVersionadaIntegracionBolsa `json:"accion_evento"`
 	LlamamientoRef     string                               `json:"llamamiento_ref"`
-	SeleccionRef       string                               `json:"seleccion_ref"`
+	SeleccionRef       SeudonimoSeleccionBolsa              `json:"seleccion_ref"`
 	RetencionSeleccion ReferenciaVersionadaIntegracionBolsa `json:"retencion_seleccion"`
 	OrdenSeleccionado  uint32                               `json:"orden_seleccionado"`
 	ReciboRef          string                               `json:"recibo_ref"`
@@ -380,7 +380,8 @@ func (r ReciboSolicitudLlamamientoBolsa) validarDurableParaDatos(
 	if !r.PropuestaGenerada {
 		if r.Propuesta != (ReferenciaVersionadaIntegracionBolsa{}) ||
 			r.AccionEvento != (ReferenciaVersionadaIntegracionBolsa{}) ||
-			r.LlamamientoRef != "" || r.SeleccionRef != "" ||
+			r.LlamamientoRef != "" ||
+			r.SeleccionRef != (SeudonimoSeleccionBolsa{}) ||
 			r.RetencionSeleccion != (ReferenciaVersionadaIntegracionBolsa{}) ||
 			r.OrdenSeleccionado != 0 {
 			return ErrRespuestaBolsaNoConfiable
@@ -389,7 +390,7 @@ func (r ReciboSolicitudLlamamientoBolsa) validarDurableParaDatos(
 	}
 	if r.Propuesta.Validar() != nil || r.AccionEvento.Validar() != nil ||
 		!domain.ReferenciaOpacaValida(r.LlamamientoRef) ||
-		!domain.ReferenciaOpacaValida(r.SeleccionRef) ||
+		r.SeleccionRef.Validar() != nil ||
 		r.RetencionSeleccion.Validar() != nil ||
 		r.OrdenSeleccionado == 0 ||
 		r.OrdenSeleccionado > datosComando.TotalPosicionesOrden ||

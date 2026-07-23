@@ -178,6 +178,9 @@ func (e *EmisorContextoPeticionIntegracionBolsa) Emitir(
 		}
 		return ContextoPeticionIntegracionBolsa{}, ErrIntegracionBolsaNoDisponible
 	}
+	if err := ctx.Err(); err != nil {
+		return ContextoPeticionIntegracionBolsa{}, err
+	}
 	referencia, _, valida := descomponerSelloHMACBolsa(
 		sello,
 		dominioSelloPeticionBolsa,
@@ -275,6 +278,9 @@ func (a *AutenticadorContextoPeticionIntegracionBolsa) reautenticar(
 			return ContextoPeticionIntegracionBolsa{}, ctx.Err()
 		}
 		return ContextoPeticionIntegracionBolsa{}, ErrPeticionIntegracionBolsaInvalida
+	}
+	if err := ctx.Err(); err != nil {
+		return ContextoPeticionIntegracionBolsa{}, err
 	}
 	return contextoDesdeRegistroVerificado(registro), nil
 }

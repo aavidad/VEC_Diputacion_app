@@ -273,7 +273,10 @@ func materialReciboLlamamientoBolsa(
 	c.referencia("recibo_propuesta", recibo.Propuesta)
 	c.referencia("recibo_accion_evento", recibo.AccionEvento)
 	c.campo("llamamiento_ref", recibo.LlamamientoRef)
-	c.campo("seleccion_ref_seudonimizada", recibo.SeleccionRef)
+	c.campo(
+		"seleccion_ref_seudonimizada",
+		recibo.SeleccionRef.valorCanonico(),
+	)
 	c.referencia("retencion_seleccion", recibo.RetencionSeleccion)
 	c.entero("orden_seleccionado", uint64(recibo.OrdenSeleccionado))
 	c.campo("recibo_ref", recibo.ReciboRef)

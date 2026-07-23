@@ -91,8 +91,12 @@ func ValidarIdentidadEventoBolsa(
 }
 
 type BandejaEventosLlamamientoBolsa interface {
+	// RegistrarEventoLlamamiento obtiene instanteActual de un reloj confiable
+	// del adaptador y abre comando.DatosParaEfectoEn(instanteActual) dentro de
+	// la misma transacción CAS que persiste inbox, estado, auditoría y outbox.
 	RegistrarEventoLlamamiento(
 		context.Context,
 		ComandoRegistrarEventoBolsa,
+		time.Time,
 	) (AcuseEventoLlamamientoBolsa, error)
 }
