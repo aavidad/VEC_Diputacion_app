@@ -160,6 +160,13 @@
   gap: 13px;
 }
 
+.ct-obligatorios {
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
 .ct-bloque,
 .ct-revision,
 .ct-recibo {

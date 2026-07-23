@@ -549,6 +549,8 @@ test("la estructura permite teclado, etiquetas, errores asociados y anuncios ari
   assert.ok((html.match(/<fieldset/g) || []).length >= 5);
   assert.ok((html.match(/<legend/g) || []).length >= 5);
   assert.match(html, /aria-live="polite"/);
+  assert.match(html, /Los campos marcados con \* son obligatorios\./);
+  assert.doesNotMatch(html, /aria-required="true"/);
   assert.match(html, /id="ct-detalle-contador"/);
   assert.doesNotMatch(html, /(?:detalle|observaciones)"[^>]+maxlength="4000"/);
   assert.doesNotMatch(html, /tabindex="[1-9]/);

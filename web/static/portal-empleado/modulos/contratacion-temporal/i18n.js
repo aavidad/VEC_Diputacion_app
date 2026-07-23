@@ -26,6 +26,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   errores_titulo: "Revise los campos indicados",
   errores_descripcion: "La solicitud no está lista para pasar a revisión.",
   campo_obligatorio: "Campo obligatorio",
+  campos_obligatorios: "Los campos marcados con * son obligatorios.",
   seleccionar: "Seleccione una opción",
   centro_leyenda: "Centro y necesidad",
   centro_ref: "Centro solicitante",

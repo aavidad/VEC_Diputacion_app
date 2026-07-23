@@ -269,7 +269,7 @@ function camposRC(estado, t, deshabilitado) {
     <legend>${escaparHTML(t("rc_leyenda"))}</legend>
     <p class="ct-aviso" id="ct-rc_existe-ayuda">${escaparHTML(t("rc_aviso"))}</p>
     <fieldset class="ct-radios" id="ct-rc_existe" tabindex="-1"
-      aria-required="true" ${atributosAccesibles(estado, "rc_existe")}>
+      ${atributosAccesibles(estado, "rc_existe")}>
       <legend>${escaparHTML(t("rc_existe"))} <b aria-hidden="true">*</b></legend>
       <label><input type="radio" name="rc_existe" value="si" required`
     + `${atributoMarcado(activa)}${deshabilitado ? " disabled" : ""}> ${escaparHTML(t("si"))}</label>
@@ -348,6 +348,7 @@ function formulario(estado, t) {
   const deshabilitado = !estado.disponible || estado.ocupado;
   return `${resumenErrores(estado, t)}
   <form class="ct-formulario" data-ct-form novalidate>
+    <p class="ct-obligatorios">${escaparHTML(t("campos_obligatorios"))}</p>
     ${camposCentro(estado, t, deshabilitado)}
     ${camposDetalle(estado, t, deshabilitado)}
     ${camposRC(estado, t, deshabilitado)}
