@@ -30,6 +30,39 @@ La corrección añade, respectivamente:
 Las pruebas de regresión reproducen los tres ataques. El estado continúa en
 `NO-GO` hasta que un agente distinto revise las correcciones.
 
+La revisión posterior encontró dos defectos adicionales:
+
+1. un replay exacto consumido en `t+2` dejaba de ser válido si el verificador
+   emitía una confirmación nueva en `t+3`, porque el recibo durable se comparaba
+   con el instante de esa confirmación posterior;
+2. la coordinación completa del caso de uso residía en `ports`, en contra de
+   la arquitectura hexagonal acordada para el repositorio.
+
+La corrección conserva en el recibo la confirmación TCB firmada que autorizó el
+primer efecto. El instante de consumo debe ser igual o posterior a esa
+verificación original, igual o posterior a `Atestacion.EmitidaEn` y
+estrictamente anterior a `Atestacion.ValidaHasta`. No se liga a una
+confirmación obtenida durante un reintento. La firma original se valida con la
+clave institucional y contra el mismo material de respuesta. La aplicación
+sigue exigiendo que el recibo no proceda del futuro y revalida contexto, reloj,
+firma, catálogo y ventana al regresar del consumidor. De este modo:
+
+- primera consulta en `t+2`: crea un único efecto y un recibo en `t+2`;
+- replay exacto en `t+3`: obtiene confirmación nueva en `t+3`, recupera el
+  recibo original de `t+2` y no duplica el efecto;
+- primera entrega retrodatada antes de la emisión: se rechaza;
+- primera entrega posterior a la emisión pero anterior a la confirmación TCB:
+  también se rechaza;
+- misma clave durable con otra huella: se rechaza como conflicto;
+- reloj regresivo, recibo futuro o fin exclusivo de TTL: se rechazan.
+
+La coordinación se ha trasladado a `application.ServicioConsultaCobertura`.
+`ports` conserva únicamente solicitudes, resultados probatorios, órdenes,
+recibos e interfaces neutrales. Ningún puerto conoce la secuencia del caso de
+uso, el timeout global ni la política de errores de disponibilidad. La
+revisión independiente de esta segunda corrección sigue pendiente; por ello
+el estado permanece en `NO-GO`.
+
 ## Alcance
 
 O4-02 define la frontera hexagonal para comprobar una condición de una vía de
@@ -46,6 +79,11 @@ El contrato aporta:
 - consumo durable único, replay exacto e idempotente y conflicto explícito;
 - cancelación prioritaria y errores públicos sin causas privadas;
 - límites comunes para web, escritorio, API, CLI y MCP.
+
+La capa `application` autentica autoridades y coordina las llamadas. La capa
+`ports` define contratos mínimos y validaciones locales de cada artefacto. Los
+adaptadores implementarán esos contratos sin trasladar política funcional a
+HTTP, SQL, escritorio o mensajería.
 
 No existe una variante web del caso de uso. El contrato no contiene HTTP,
 cookies, sesiones, almacenamiento del navegador ni cabeceras de identidad. Los
@@ -210,6 +248,11 @@ El adaptador durable deberá imponer una única clave lógica
 - otra huella: devuelve `ErrRespuestaCoberturaYaConsumida`;
 - respuesta caducada: el núcleo la rechaza antes del consumidor.
 
+El recibo persistido conserva también la confirmación TCB original. En un
+replay no se sustituye por la confirmación recién obtenida: se verifica de
+nuevo su firma, su correspondencia con la misma respuesta y que el consumo no
+sea anterior a aquella autorización.
+
 Los dobles adversariales prueban replay concurrente, unicidad y conflicto. No
 se declara que exista todavía un adaptador productivo. La implementación
 durable, su transacción con expediente/auditoría y las pruebas de reinicio
@@ -222,7 +265,10 @@ un recibo antiguo devuelto tras expirar o una cancelación competitiva producen
 fallo cerrado y nunca un resultado funcional. También se rechazan un reloj
 final anterior al instante preconsumo y un recibo que declare un consumo
 posterior al reloj final; un replay exacto con recibo anterior sigue siendo
-válido dentro de la ventana.
+válido dentro de la ventana. La validez temporal del recibo se prueba contra
+la confirmación firmada que autorizó el primer efecto y la ventana de la
+atestación original, no contra el instante de una confirmación nueva obtenida
+al reintentar.
 
 ## Límites e interoperabilidad
 
@@ -257,6 +303,8 @@ Las pruebas incluyen:
 - publicación adulterada, suplantada o caducada;
 - vía futura añadida exclusivamente por catálogo;
 - replay exacto concurrente, conflicto y expiración exclusiva;
+- replay exacto con confirmación nueva en `t+3` y recibo original de `t+2`;
+- rechazo de un primer recibo anterior a la emisión de la fuente;
 - timeout total, cancelación prioritaria y nulos tipados;
 - consumidor que ignora contexto, reloj vencido y cancelación competitiva;
 - retroceso del reloj y recibo fechado en el futuro;
@@ -269,8 +317,14 @@ Puertas previstas:
 
 ```text
 go test ./internal/modules/contrataciontemporal/ports -count=1
-go test -race ./internal/modules/contrataciontemporal/ports -count=1
-go vet ./internal/modules/contrataciontemporal/ports
+go test ./internal/modules/contrataciontemporal/application -count=1
+go test -race ./internal/modules/contrataciontemporal/ports \
+  ./internal/modules/contrataciontemporal/application -count=1
+go vet ./internal/modules/contrataciontemporal/ports \
+  ./internal/modules/contrataciontemporal/application
+go test ./internal/modules/contrataciontemporal/application \
+  -run '^TestServicioConsultaCoberturaReintentoExactoConRelojAvanzado$' \
+  -count=20
 go test ./...
 go vet ./...
 scripts/comprobar_tamano_ficheros.sh
