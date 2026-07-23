@@ -95,6 +95,7 @@ func (e Expediente) RegistrarAnalisis(
 	actuacion DatosActuacion,
 ) (Expediente, error) {
 	if e.Validar() != nil || analisis.Validar() != nil || actuacion.validar() != nil ||
+		analisis.ValidacionRC.ValidadaEn.After(actuacion.RealizadaEn) ||
 		e.Analisis != nil || e.ViaCobertura != nil || e.Asignacion != nil {
 		return Expediente{}, ErrTransicionInvalida
 	}
@@ -113,7 +114,8 @@ func (e Expediente) RegistrarViaCobertura(
 	actuacion DatosActuacion,
 ) (Expediente, error) {
 	if e.Validar() != nil || decision.Validar() != nil || actuacion.validar() != nil ||
-		e.Analisis == nil || e.ViaCobertura != nil || e.Asignacion != nil {
+		e.Analisis == nil || !e.Analisis.HabilitaAvance() ||
+		e.ViaCobertura != nil || e.Asignacion != nil {
 		return Expediente{}, ErrTransicionInvalida
 	}
 	siguiente, err := e.prepararTransicion(versionEsperada, actuacion)
