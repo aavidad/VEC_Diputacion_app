@@ -12,14 +12,16 @@ temporal. El detalle verificable de cada tarea está en el
 | --- | --- |
 | Objetivo activo | O2 — primera vertical real de alta |
 | Camino crítico | O2-04 autorización VEC → O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
-| Primer hito funcional | 2 de 7 puertas publicadas (29 %); tercera validada localmente |
-| Último commit publicado | `40105d2` — caso de uso seguro |
-| Trabajo local en revisión | O1-04, O2-02 y O2-03 |
-| Bloqueo externo actual | Ninguno para el siguiente corte |
+| Primera vertical | 2 de 10 tareas cerradas (20 %); O2-03 tiene un corte v1 aprobado y rotación pendiente |
+| Procedimiento completo | 6 de 46 tareas cerradas (13 %); O3-01, O4-01 y O6-01 continúan bajo revisión/rework |
+| Último commit verificado | `effa911` — reintentos ligados y vectores canónicos |
+| Trabajo local en revisión | Rotación O2-03, implementación O2-04 y revisiones O3-01/O4-01/O6-01 |
+| Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
-El porcentaje solo mide las siete puertas de la primera vertical. No es el
-porcentaje de toda la aplicación ni del procedimiento completo.
+La primera cifra mide las diez tareas de O2. La segunda mide las 46 tareas del
+procedimiento temporal completo; ninguna representa por sí sola el porcentaje
+de todo VEP.
 
 ## Mapa de objetivos
 
@@ -54,8 +56,8 @@ sus efectos.
 ```mermaid
 flowchart TD
     O201["✅ O2-01<br/>Caso de uso"]
-    O202["🚧 O2-02<br/>Adaptador Go de preparación"]
-    O203["🚧 O2-03<br/>Migración de preparación"]
+    O202["✅ O2-02<br/>Adaptador Go de preparación"]
+    O203["🚧 O2-03<br/>Migración v1; rotación pendiente"]
     O204["⬜ O2-04<br/>Autorización VEC durable"]
     O205["— O2-05<br/>Confirmación SQL atómica"]
     O206["— O2-06<br/>Adaptador y reconciliación"]
@@ -76,9 +78,9 @@ flowchart TD
     O209 --> O210
 ```
 
-O2-02 y O2-03 son trabajos paralelizables porque uno prueba el contrato Go y
-el otro el contrato SQL. Solo se integran después de superar sus revisiones
-independientes.
+O2-02 ya superó su revisión independiente. O2-03 superó las garantías del corte
+v1, pero no se cerrará hasta demostrar convivencia de generaciones HMAC sin
+segunda reserva ni falso conflicto.
 
 ## Olas de trabajo paralelo
 

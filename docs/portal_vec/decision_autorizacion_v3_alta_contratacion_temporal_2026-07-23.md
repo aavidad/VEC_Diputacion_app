@@ -37,8 +37,8 @@ Se retirarán del camino real los constructores locales de identidad y
 autorización. No habrá conversión desde esos tipos provisionales ni un modo de
 aceptarlos por compatibilidad.
 
-La referencia autorizable será el ámbito lógico estable de la operación,
-derivado mediante HMAC versionado de:
+La referencia autorizable de cada invocación será el alias HMAC activo del
+ámbito lógico de la operación, derivado de:
 
 - clave de idempotencia;
 - organización;
@@ -51,13 +51,27 @@ centro, la categoría y la definición/versionado del flujo. La acción y
 finalidad son valores cerrados de la política publicada, no texto aportado por
 el cliente.
 
+La identidad durable no usará una única HMAC como clave primaria lógica. Un
+conector de llavero calculará el alias activo y los alias de las generaciones
+anteriores admitidas para verificación. PostgreSQL resolverá cualquiera de
+ellos a una única reserva, rechazará que dos alias converjan en reservas
+distintas y añadirá el alias activo al reintentar. La huella de petición
+aplicará el mismo patrón: una coincidencia con cualquier generación retenida
+acredita igualdad; el valor de la generación activa se incorpora a la historia.
+
+Las claves anteriores se conservarán solo para verificación durante, como
+mínimo, todo el plazo de retención idempotente. La matriz de generaciones
+publicada indicará activación, fin de emisión, fin de verificación y retirada.
+Rotar de v1 a v2 deberá conservar el mismo expediente y recibo. La sintaxis
+versionada sin esta convivencia no se considera rotación resuelta.
+
 ## Secuencia objetivo
 
 ```text
 credencial breve ligada al emisor
   -> revalidación de autenticación y ContextoActor V2 registrado
   -> vínculo autenticación-actor V2
-  -> resolución de flujo, motivo catalogado y ámbito HMAC
+  -> resolución de flujo, motivo catalogado y alias HMAC activos/retirados
   -> solicitud/decisión PDP V3
   -> registro durable de la concesión candidata
   -> transacción PostgreSQL de efecto
@@ -68,7 +82,7 @@ credencial breve ligada al emisor
        - confirmar expediente y actuación
        - registrar auditoría e inbox/outbox
   -> COMMIT
-  -> recibo o reconciliación por el mismo ámbito
+  -> recibo o reconciliación por cualquier alias admitido del mismo ámbito
 ```
 
 La preparación O2-02/O2-03 queda como pieza interna reutilizable de esa
@@ -91,8 +105,9 @@ transacción aplica estas reglas:
 7. una cancelación posterior a un `COMMIT` confirmado no convierte el éxito en
    fallo.
 
-Un resultado de `COMMIT` indeterminado se reconcilia por ámbito HMAC y huella
-de petición. No se repite a ciegas.
+Un resultado de `COMMIT` indeterminado se reconcilia por el conjunto de alias
+HMAC admitidos y las huellas de petición de generaciones retenidas. No se
+repite a ciegas.
 
 ## Base de datos y privilegios
 
@@ -138,6 +153,7 @@ O2-04/O2-05 no se cierran hasta demostrar:
 - denegación por actor, perfil, organización, finalidad, acción, recurso,
   motivo, flujo, contexto, versión o correlación distintos;
 - consumo único e idempotencia bajo sesiones concurrentes;
+- rotación v1→v2 con convivencia, sin segunda reserva ni conflicto falso;
 - expiración y revocación mientras se espera un bloqueo;
 - ausencia de reserva/expediente/auditoría/evento parcial ante cualquier fallo;
 - replay confirmado con revalidación vigente;

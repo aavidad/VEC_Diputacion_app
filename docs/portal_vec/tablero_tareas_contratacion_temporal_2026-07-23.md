@@ -41,8 +41,8 @@ Estados:
 | Tarea | Entregable aislado | Verificación de cierre | Estado | Commit |
 | --- | --- | --- | --- | --- |
 | O2-01 | Caso de uso con identidad alta, flujo, HMAC, idempotencia y autorización opaca. | Éxito, reintento, denegación, adulteración, cancelación y nulos tipados. | ✅ | `40105d2` |
-| O2-02 | Adaptador Go de preparación PostgreSQL y conectores de sellado/generación. No instala SQL. | Unitarias de respuesta, ACL contractual, clave no serializada, carrera, `go vet`. | 🚧 | Pendiente |
-| O2-03 | Roles, migración y prueba SQL real de preparación idempotente. No confirma expedientes. | PostgreSQL efímero: alta, reintento, conflicto, ACL y `down` protegido. | 🚧 | Pendiente |
+| O2-02 | Adaptador Go de preparación PostgreSQL y conectores de sellado/generación. No instala SQL. | Unitarias de respuesta, ACL contractual, clave no serializada, carrera, `go vet`. | ✅ | `5288498`, corrección revisada `effa911` |
+| O2-03 | Roles, migración y prueba SQL real de preparación idempotente; convivencia de generaciones HMAC antes del cierre. No confirma expedientes. | PostgreSQL efímero: alta, reintento, conflicto, ACL, `down` protegido y rotación v1→v2 sin segunda reserva ni falso conflicto. | 🚧 | `d981232` valida el corte v1; rotación pendiente |
 | O2-04 | Sustituir la autorización local provisional por la capacidad durable común de VEC. | Revisión arquitectónica; no existe constructor fabricable ni segunda autoridad; pruebas de replay y vigencia. | ⬜ | — |
 | O2-05 | Función SQL de confirmación atómica. | Consumo único de autorización + reserva + expediente + actuación + auditoría + outbox en un `COMMIT`. | — | — |
 | O2-06 | Adaptador Go de confirmación y reconciliación de resultado indeterminado. | Éxito, replay, concurrencia, timeout antes/después de `COMMIT`, reinicio y recibo adulterado. | — | — |
