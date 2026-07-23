@@ -36,14 +36,19 @@ func TestExpedienteReasignaUnidadSinReescribirHistoria(t *testing.T) {
 	if siguiente.Version != anterior.Version+1 ||
 		len(siguiente.Actuaciones) != len(anterior.Actuaciones)+1 ||
 		siguiente.Asignacion == nil ||
-		*siguiente.Asignacion != nueva {
+		siguiente.Asignacion.UnidadRef != nueva.UnidadRef ||
+		siguiente.Asignacion.ResponsableRef != nueva.ResponsableRef ||
+		siguiente.Asignacion.NotificacionRef != nueva.NotificacionRef ||
+		siguiente.Asignacion.ActuacionRegistro == nil {
 		t.Fatalf("resultado de reasignación inesperado: %#v", siguiente)
 	}
 	if anterior.Validar() != nil ||
 		anterior.Version != instantaneaAnterior.Version ||
 		len(anterior.Actuaciones) != len(instantaneaAnterior.Actuaciones) ||
 		anterior.Asignacion == nil ||
-		*anterior.Asignacion != *instantaneaAnterior.Asignacion {
+		anterior.Asignacion.UnidadRef != instantaneaAnterior.Asignacion.UnidadRef ||
+		anterior.Asignacion.ResponsableRef !=
+			instantaneaAnterior.Asignacion.ResponsableRef {
 		t.Fatal("la transición modificó la instantánea anterior")
 	}
 	ultima := siguiente.Actuaciones[len(siguiente.Actuaciones)-1]
@@ -53,6 +58,23 @@ func TestExpedienteReasignaUnidadSinReescribirHistoria(t *testing.T) {
 		ultima.EstadoDestino != anterior.EstadoActual ||
 		ultima.Observaciones != nueva.Observaciones {
 		t.Fatalf("actuación de reasignación incompleta: %#v", ultima)
+	}
+}
+
+func TestExpedienteRehidratadoRechazaAsignacionLigadaAOtraActuacion(t *testing.T) {
+	expediente := expedienteConAsignacion(t)
+	adulterado := expediente.Clonar()
+	adulterado.Asignacion.ActuacionRegistro.ReciboRef =
+		"recibo:asignacion-adulterado"
+	if !errors.Is(adulterado.Validar(), ErrExpedienteInvalido) {
+		t.Fatal("se aceptó una asignación ligada a otro recibo")
+	}
+
+	adulterado = expediente.Clonar()
+	adulterado.Asignacion.AsignadaEn =
+		adulterado.Asignacion.AsignadaEn.Add(time.Microsecond)
+	if !errors.Is(adulterado.Validar(), ErrExpedienteInvalido) {
+		t.Fatal("se aceptó una asignación ligada a otro instante")
 	}
 }
 

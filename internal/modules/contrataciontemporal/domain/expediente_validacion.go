@@ -42,12 +42,31 @@ func (e Expediente) Validar() error {
 	if e.Analisis != nil && !analisisLigadoAActuacion(e.Analisis, e.Actuaciones) {
 		return ErrExpedienteInvalido
 	}
+	if e.Asignacion != nil &&
+		!asignacionLigadaAActuacion(e.Asignacion, e.Actuaciones) {
+		return ErrExpedienteInvalido
+	}
 	ultima := e.Actuaciones[len(e.Actuaciones)-1]
 	if ultima.FaseDestino != e.FaseActual || ultima.EstadoDestino != e.EstadoActual ||
 		!ultima.RealizadaEn.Equal(e.ActualizadoEn) {
 		return ErrExpedienteInvalido
 	}
 	return nil
+}
+
+func asignacionLigadaAActuacion(
+	asignacion *AsignacionUnidad,
+	actuaciones []Actuacion,
+) bool {
+	if asignacion == nil || asignacion.ActuacionRegistro == nil ||
+		asignacion.ActuacionRegistro.validar() != nil ||
+		asignacion.ActuacionRegistro.Secuencia > uint64(len(actuaciones)) {
+		return false
+	}
+	actuacion := actuaciones[asignacion.ActuacionRegistro.Secuencia-1]
+	return asignacion.ActuacionRegistro.correspondeA(actuacion) &&
+		asignacion.AsignadaEn.Equal(actuacion.RealizadaEn) &&
+		asignacion.Observaciones == actuacion.Observaciones
 }
 
 func analisisLigadoAActuacion(analisis *AnalisisRRHH, actuaciones []Actuacion) bool {
@@ -84,6 +103,10 @@ func (e Expediente) Clonar() Expediente {
 	}
 	if e.Asignacion != nil {
 		clon := *e.Asignacion
+		if e.Asignacion.ActuacionRegistro != nil {
+			vinculo := *e.Asignacion.ActuacionRegistro
+			clon.ActuacionRegistro = &vinculo
+		}
 		e.Asignacion = &clon
 	}
 	e.Actuaciones = append([]Actuacion(nil), e.Actuaciones...)
