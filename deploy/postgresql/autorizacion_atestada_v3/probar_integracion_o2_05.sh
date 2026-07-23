@@ -5,6 +5,35 @@ raiz="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 imagen="${VEC_POSTGRES_TEST_IMAGE:-postgres@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}"
 contenedor="vec-o205-pg-${PPID}-${RANDOM}"
 
+verificar_nombres_versiones_migracion_unicas() {
+    local ruta nombre version
+    local -A archivo_por_version=()
+
+    for ruta in "$@"; do
+        nombre="${ruta##*/}"
+        if [[ ! "${nombre}" =~ ^([0-9]{6})_ ]]; then
+            continue
+        fi
+        version="${BASH_REMATCH[1]}"
+        if [[ -n "${archivo_por_version[${version}]:-}" ]]; then
+            printf 'Prefijo de migración duplicado %s: %s y %s\n' \
+                "${version}" "${archivo_por_version[${version}]}" \
+                "${nombre}" >&2
+            return 65
+        fi
+        archivo_por_version["${version}"]="${nombre}"
+    done
+}
+
+verificar_versiones_migracion_unicas() {
+    local directorio="${raiz}/deploy/postgresql/contratacion_temporal/migraciones"
+
+    verificar_nombres_versiones_migracion_unicas \
+        "${directorio}"/*.up.sql
+}
+
+verificar_versiones_migracion_unicas
+
 if [[ ! "${imagen}" =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]]; then
     printf 'VEC_POSTGRES_TEST_IMAGE debe fijarse por digest sha256\n' >&2
     exit 64
@@ -113,12 +142,19 @@ firmar_capacidad_con_go() {
     valor "SELECT encode(k.secreto_hmac,'base64') FROM public.vectores_o2_05 v JOIN vec_autorizacion_atestada_v3.clave_capacidad_version k ON k.clave_id=convert_from(v.capacidad,'UTF8')::jsonb->>'clave_id' AND k.version=(convert_from(v.capacidad,'UTF8')::jsonb->>'clave_version')::numeric WHERE v.caso='${caso}'" \
         >"${clave}"
     chmod 600 "${entrada}" "${clave}"
-    VEC_O205_VECTOR_ENTRADA="${entrada}" \
-    VEC_O205_CLAVE_ENTRADA="${clave}" \
-    VEC_O205_VECTOR_SALIDA="${salida}" \
-        go test \
-          ./internal/vec/adapters/seguridad/confianzaatestacion \
-          -run '^TestGenerarVectorO205ParaSQL$' -count=1 >/dev/null
+    local diagnostico="${directorio_temporal}/go-test-vector.log"
+    if ! VEC_O205_VECTOR_ENTRADA="${entrada}" \
+        VEC_O205_CLAVE_ENTRADA="${clave}" \
+        VEC_O205_VECTOR_SALIDA="${salida}" \
+            go test \
+              ./internal/vec/adapters/seguridad/confianzaatestacion \
+              -run '^TestGenerarVectorO205ParaSQL$' -count=1 \
+              >"${diagnostico}" 2>&1; then
+        printf 'falló generación Go de capacidad O2-05:\n' >&2
+        sed -n '1,240p' "${diagnostico}" >&2
+        return 1
+    fi
+    rm -f "${diagnostico}"
     docker cp "${salida}" "${contenedor}:/tmp/capacidad-go-o205.json"
     docker exec "${contenedor}" \
         chmod 644 /tmp/capacidad-go-o205.json
@@ -127,6 +163,8 @@ firmar_capacidad_con_go() {
         >/dev/null
     rm -f "${entrada}" "${clave}" "${salida}"
 }
+
+source "${raiz}/deploy/postgresql/autorizacion_atestada_v3/pruebas_replay_o2_05.sh"
 
 paso "arranque efímero sin red: ${imagen}"
 docker run --detach --name "${contenedor}" --network none \
@@ -233,8 +271,14 @@ archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.up.sql \
     >/dev/null
 archivo vec_ct_o205_migrador \
-    deploy/postgresql/contratacion_temporal/migraciones/000004_funcion_confirmar_alta_atestada.up.sql \
+    deploy/postgresql/contratacion_temporal/migraciones/000004_integridad_agregado_alta.up.sql \
     >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.up.sql \
+    >/dev/null
+
+paso 'frontera intercambiable sin FK a tablas de otra autoridad'
+[[ "$(valor "SELECT count(*) FROM pg_catalog.pg_constraint c JOIN pg_catalog.pg_class origen ON origen.oid=c.conrelid JOIN pg_catalog.pg_namespace esquema_origen ON esquema_origen.oid=origen.relnamespace JOIN pg_catalog.pg_class destino ON destino.oid=c.confrelid JOIN pg_catalog.pg_namespace esquema_destino ON esquema_destino.oid=destino.relnamespace WHERE c.contype='f' AND esquema_origen.nspname='vec_contratacion_temporal' AND esquema_destino.nspname<>esquema_origen.nspname")" == '0' ]]
 
 paso 'vector byte a byte común a Go y PostgreSQL'
 docker exec --interactive "${contenedor}" \
@@ -309,83 +353,12 @@ primera="$(invocar alta_valida)"
 segunda="$(invocar alta_valida)"
 [[ "${primera}" == *'expediente:ct:o205:alta_valida'* ]]
 [[ "${segunda}" == *'expediente:ct:o205:alta_valida'* ]]
-[[ "$(valor "SELECT (SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:alta_valida')::text || ':' || (SELECT count(*) FROM vec_contratacion_temporal.expediente_alta WHERE expediente_ref='expediente:ct:o205:alta_valida') || ':' || (SELECT count(*) FROM vec_contratacion_temporal.auditoria_alta WHERE expediente_ref='expediente:ct:o205:alta_valida') || ':' || (SELECT count(*) FROM vec_contratacion_temporal.outbox_alta WHERE expediente_ref='expediente:ct:o205:alta_valida')")" == '1:1:1:1' ]]
+afirmar_agregado_completo_o2_05 alta_valida
 recibo_iso="$(recibo_con_estilo_fecha alta_valida 'ISO, YMD')"
 recibo_aleman="$(recibo_con_estilo_fecha alta_valida 'German, DMY')"
 [[ "${recibo_iso}" == "${recibo_aleman}" ]]
 
-paso 'canon cerrado: cada campo mutable queda ligado al efecto autorizado'
-mutaciones=(
-    'esquema|"vec.contratacion-temporal.efecto-alta.v3"'
-    'reserva_ref|"reserva:ct:o205:alterada"'
-    'expediente_ref|"expediente:ct:o205:alterado"'
-    'numero_visible|"2026/alterado"'
-    'recibo_ref|"recibo:ct:o205:alterado"'
-    'organizacion_ref|"organizacion:otra"'
-    'actor_ref|"per_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa"'
-    'perfil_ref|"prf_sintetico_aaaaaaaaaaaaaaaaaaaaaaaaaa"'
-    'version|2'
-    'flujo.definicion_ref|"flujo:alternativo"'
-    'flujo.version|2'
-    'flujo.huella_sha256|"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
-    'fase_actual|"validacion_inicial"'
-    'estado_actual|"completado"'
-    'solicitud.centro_ref|"centro:otro"'
-    'solicitud.contacto_ref|"contacto:otro"'
-    'solicitud.categoria_ref|"categoria:otra"'
-    'solicitud.grupo_subgrupo|"C1"'
-    'solicitud.motivo_clave|"sustitucion"'
-    'solicitud.detalle|"Detalle alterado"'
-    'solicitud.periodo.inicio|"2026-08-02"'
-    'solicitud.periodo.fin|"2026-09-01"'
-    'solicitud.rc.existe|true'
-    'solicitud.rc.numero|"RC-2026-1"'
-    'solicitud.rc.fecha|"2026-07-01"'
-    'solicitud.rc.importe.centimos|1'
-    'solicitud.rc.importe.moneda|"USD"'
-    'solicitud.rc.documento_ref|"documento:rc:1"'
-    'solicitud.documentos_adjuntos|["documento:adjunto:1"]'
-    'solicitud.observaciones|"Observación alterada"'
-    'creado_en|"2026-07-01T00:00:00.000000Z"'
-    'actualizado_en|"2026-07-01T00:00:00.000000Z"'
-    'actuacion.secuencia|2'
-    'actuacion.version_expediente|2'
-    'actuacion.accion_clave|"otra_accion"'
-    'actuacion.actor_ref|"per_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa"'
-    'actuacion.unidad_ref|"unidad:otra"'
-    'actuacion.recibo_ref|"recibo:ct:o205:otro"'
-    'actuacion.realizada_en|"2026-07-01T00:00:00.000000Z"'
-    'actuacion.fase_origen|"inicio"'
-    'actuacion.fase_destino|"validacion_inicial"'
-    'actuacion.estado_origen|"en_curso"'
-    'actuacion.estado_destino|"completado"'
-    'actuacion.observaciones|"Observación alterada"'
-    'actuacion.documentos_ref|["documento:actuacion:1"]'
-)
-indice=0
-for mutacion in "${mutaciones[@]}"; do
-    indice=$((indice + 1))
-    caso="$(printf 'ef_%02d' "${indice}")"
-    IFS='|' read -r ruta valor_json <<<"${mutacion}"
-    preparar "${caso}"
-    sql postgres \
-        "SELECT public.mutar_efecto_o2_05('${caso}','${ruta}','${valor_json}'::jsonb)" \
-        >/dev/null
-    esperar_fallo "campo de efecto ${ruta}" invocar "${caso}"
-    [[ "$(valor "SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:${caso}'")" == '0' ]]
-done
-
-paso 'tipos JSON numéricos estrictos, incluso con sobre canónico'
-for campo in version clave_version revision_gobierno \
-    configuracion_secuencia raiz_version; do
-    caso="tipo_${campo:0:8}"
-    preparar "${caso}"
-    sql postgres \
-        "SELECT public.mutar_tipo_capacidad_o2_05('${caso}','${campo}')" \
-        >/dev/null
-    esperar_fallo "número serializado como texto: ${campo}" \
-        invocar "${caso}"
-done
+probar_canon_cerrado_o2_05
 
 paso 'rechazos cruzados, caducidad y alias incoherentes sin efecto parcial'
 for variante in efecto_cruzado decision_cruzada expirada alias_cruzado; do
@@ -458,7 +431,7 @@ esperar_fallo 'rollback después del consumo' invocar fallo_atomico
 sql postgres \
     'DROP TRIGGER fallo_o205 ON vec_contratacion_temporal.outbox_alta; DROP FUNCTION public.fallo_o205()' \
     >/dev/null
-[[ "$(valor "SELECT (SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:fallo_atomico') + (SELECT count(*) FROM vec_contratacion_temporal.expediente_alta WHERE expediente_ref='expediente:ct:o205:fallo_atomico')")" == '0' ]]
+[[ "$(estado_agregado_o2_05 fallo_atomico)" == '0:0:0:0:0:0:0:0' ]]
 
 paso 'concurrencia real sobre la misma capacidad'
 preparar carrera
@@ -481,7 +454,7 @@ for indice in 1 2 3 4; do
             >"/tmp/o205-${contenedor}-${indice}-reintento.log" 2>&1
     fi
 done
-[[ "$(valor "SELECT (SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:carrera')::text || ':' || (SELECT count(*) FROM vec_contratacion_temporal.expediente_alta WHERE expediente_ref='expediente:ct:o205:carrera')")" == '1:1' ]]
+afirmar_agregado_completo_o2_05 carrera
 cadena_despues="$(valor "SELECT secuencia_auditoria::text||':'||secuencia_outbox::text FROM vec_contratacion_temporal.control_cadenas_alta WHERE control_id")"
 IFS=':' read -r audit_antes outbox_antes <<<"${cadena_antes}"
 IFS=':' read -r audit_despues outbox_despues <<<"${cadena_despues}"
@@ -489,6 +462,8 @@ IFS=':' read -r audit_despues outbox_despues <<<"${cadena_despues}"
 [[ "${outbox_despues}" -eq $((outbox_antes + 1)) ]]
 [[ "$(valor "SELECT ((SELECT cabeza_auditoria_sha256 FROM vec_contratacion_temporal.control_cadenas_alta WHERE control_id)=(SELECT huella_sha256 FROM vec_contratacion_temporal.auditoria_alta ORDER BY secuencia DESC LIMIT 1) AND (SELECT cabeza_outbox_sha256 FROM vec_contratacion_temporal.control_cadenas_alta WHERE control_id)=(SELECT huella_sha256 FROM vec_contratacion_temporal.outbox_alta ORDER BY secuencia DESC LIMIT 1))::text")" == 'true' ]]
 rm -f "/tmp/o205-${contenedor}-"*.log
+
+probar_integridad_replay_o2_05
 
 paso 'rotación HMAC: retenida válida y revocación efectiva'
 docker exec --interactive "${contenedor}" \
@@ -687,7 +662,10 @@ esperar_fallo 'consumidor genérico abierto' sql vec_ct_o205_runtime \
 
 paso 'rollback ordinario protegido'
 esperar_fallo 'down CT con historia' archivo vec_ct_o205_migrador \
-    deploy/postgresql/contratacion_temporal/migraciones/000004_funcion_confirmar_alta_atestada.down.sql
+    deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.down.sql
+esperar_fallo 'down integridad CT con historia' \
+    archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000004_integridad_agregado_alta.down.sql
 esperar_fallo 'down esquema CT con historia' archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.down.sql
 esperar_fallo 'down consumidor con historia' archivo vec_ad3_o205_migrador \
@@ -706,7 +684,13 @@ docker exec \
     --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
     "${contenedor}" psql -X --set ON_ERROR_STOP=1 \
     --username vec_ct_o205_migrador --dbname postgres \
-    --file /repo/deploy/postgresql/contratacion_temporal/migraciones/000004_funcion_confirmar_alta_atestada.down.sql \
+    --file /repo/deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.down.sql \
+    >/dev/null
+docker exec \
+    --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
+    "${contenedor}" psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ct_o205_migrador --dbname postgres \
+    --file /repo/deploy/postgresql/contratacion_temporal/migraciones/000004_integridad_agregado_alta.down.sql \
     >/dev/null
 docker exec \
     --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
@@ -748,10 +732,16 @@ archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.up.sql \
     >/dev/null
 archivo vec_ct_o205_migrador \
-    deploy/postgresql/contratacion_temporal/migraciones/000004_funcion_confirmar_alta_atestada.up.sql \
+    deploy/postgresql/contratacion_temporal/migraciones/000004_integridad_agregado_alta.up.sql \
     >/dev/null
 archivo vec_ct_o205_migrador \
-    deploy/postgresql/contratacion_temporal/migraciones/000004_funcion_confirmar_alta_atestada.down.sql \
+    deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.up.sql \
+    >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.down.sql \
+    >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000004_integridad_agregado_alta.down.sql \
     >/dev/null
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.down.sql \
