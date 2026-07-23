@@ -22,10 +22,10 @@ crearPresentadorAltaContratacionTemporal({
 
 La capacidad es una indicación de presentación resuelta por composición. No
 autoriza el efecto ni sustituye la decisión de servidor. Sin capacidad exacta,
-un catálogo válido pero no operable o una función `ejecutor`, el formulario
-queda no disponible y no llama a ninguna frontera. Un catálogo ausente,
-malformado o de esquema incompatible es un error de composición: el constructor
-lo rechaza antes de crear una vista.
+con un catálogo válido pero no operable o sin una función `ejecutor`, el
+formulario queda no disponible y no llama a ninguna frontera. Un catálogo
+ausente, malformado o de esquema incompatible es un error de composición: el
+constructor lo rechaza antes de crear una vista.
 
 El ejecutor tiene esta forma neutral:
 
@@ -198,11 +198,11 @@ confirmación durable.
    la comprobación autoritativa de que cada referencia pertenece al ámbito
    permitido. Esta tarea no implementa carga documental.
 7. **Publicación del módulo.** El bootstrap productivo todavía no registra
-   `contrataciontemporal.Manifest()`; `locales/es.json` y
-   `web/interno.locales.manifest` no contienen las claves del manifiesto;
-   `web/interno.manifest` y `web/produccion.manifest` no publican estos siete
-   activos. También faltan el enlace CSS en `index.html`, el registro y montaje
-   explícitos en `portal-modulos-coordinador.js` y sus pruebas de coordinación.
+   `contrataciontemporal.Manifest()` y `locales/es.json` no contiene las claves
+   del manifiesto; `web/interno.manifest` y `web/produccion.manifest` no publican
+   estos siete activos. También faltan el enlace CSS en `index.html`, el registro
+   y montaje explícitos en `portal-modulos-coordinador.js` y sus pruebas de
+   coordinación.
 8. **Router del shell.** `portal.js` mantiene títulos, hash y contador en una
    lista cerrada y queda fuera del write-set de O2-09A. Cambiar solo el
    coordinador dejaría una navegación falsa. También queda pendiente avanzar
