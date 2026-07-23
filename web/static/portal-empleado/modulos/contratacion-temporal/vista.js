@@ -508,6 +508,11 @@ function extraerBorrador(formularioDOM) {
   };
 }
 
+function enfocarVisible(elemento) {
+  elemento?.focus?.();
+  elemento?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+}
+
 export function montarAltaContratacionTemporal({
   raiz,
   presentador,
@@ -533,7 +538,7 @@ export function montarAltaContratacionTemporal({
       locale,
       zonaHoraria,
     });
-    if (selectorFoco) raiz.querySelector(selectorFoco)?.focus?.();
+    if (selectorFoco) enfocarVisible(raiz.querySelector(selectorFoco));
     anunciar(t(estado.mensaje_clave), estado.tipo_mensaje);
   }
 
@@ -552,7 +557,7 @@ export function montarAltaContratacionTemporal({
       evento.preventDefault();
       const campo = enfocar.dataset.ctEnfocar;
       if (Object.hasOwn(presentador.obtenerEstado().borrador, campo)) {
-        raiz.querySelector(`#ct-${campo}`)?.focus?.();
+        enfocarVisible(raiz.querySelector(`#ct-${campo}`));
       }
       return;
     }

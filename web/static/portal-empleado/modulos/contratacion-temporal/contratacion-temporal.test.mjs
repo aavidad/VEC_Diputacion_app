@@ -121,6 +121,7 @@ function crearPresentador({
 
 function crearRaizDOMFalsa() {
   const escuchas = new Map();
+  const desplazamientos = [];
   const focos = [];
   const raiz = {
     innerHTML: "",
@@ -135,13 +136,18 @@ function crearRaizDOMFalsa() {
         focus() {
           focos.push(selector);
         },
+        scrollIntoView() {
+          desplazamientos.push(selector);
+        },
       };
     },
     contains() {
       return true;
     },
   };
-  return { escuchas, focos, raiz };
+  return {
+    desplazamientos, escuchas, focos, raiz,
+  };
 }
 
 function eventoAccion(accion) {
@@ -593,7 +599,9 @@ test("el montaje conserva foco, usa controles nativos y no repinta tras desmonta
     ejecutor: async () => respuestaPendiente,
   });
   presentador.prepararRevision(borradorValido());
-  const { escuchas, focos, raiz } = crearRaizDOMFalsa();
+  const {
+    desplazamientos, escuchas, focos, raiz,
+  } = crearRaizDOMFalsa();
   const anuncios = [];
   const desmontar = montarAltaContratacionTemporal({
     raiz,
@@ -605,6 +613,7 @@ test("el montaje conserva foco, usa controles nativos y no repinta tras desmonta
 
   const pulsacion = escuchas.get("click")(eventoAccion("confirmar"));
   assert.equal(focos.at(-1), "[data-ct-accion='cancelar']");
+  assert.equal(desplazamientos.at(-1), "[data-ct-accion='cancelar']");
   const htmlDuranteEnvio = raiz.innerHTML;
   const anunciosAntesDesmontar = anuncios.length;
   desmontar();
@@ -624,11 +633,14 @@ test("la cancelación montada mantiene un destino de foco estable", async () => 
     }),
   });
   presentador.prepararRevision(borradorValido());
-  const { escuchas, focos, raiz } = crearRaizDOMFalsa();
+  const {
+    desplazamientos, escuchas, focos, raiz,
+  } = crearRaizDOMFalsa();
   const desmontar = montarAltaContratacionTemporal({ raiz, presentador });
   const envio = escuchas.get("click")(eventoAccion("confirmar"));
   await escuchas.get("click")(eventoAccion("cancelar"));
   assert.ok(focos.includes("[data-ct-estado]"));
+  assert.ok(desplazamientos.includes("[data-ct-estado]"));
   await envio;
   assert.equal(focos.at(-1), "[data-ct-accion='confirmar']");
   desmontar();
@@ -681,6 +693,7 @@ test("el módulo no usa red, cookies, almacenamiento web ni registra claves", ()
   assert.doesNotMatch(fuentes, /\b(?:console|logger|registrarTraza)\s*\./i);
   assert.doesNotMatch(vistaFuente, /idempotencia|hmac|decisi[oó]n|atestaci[oó]n|token/i);
   assert.match(vistaFuente, /function escaparHTML/);
+  assert.match(vistaFuente, /scrollIntoView\?\.\(\{ block: "nearest", inline: "nearest" \}\)/);
   assert.match(vistaFuente, /raiz\.innerHTML = renderizarAltaContratacionTemporal/);
   assert.match(vistaFuente, /if \(!montada\) return/);
   assert.doesNotMatch(vistaFuente, /preventScroll/);
