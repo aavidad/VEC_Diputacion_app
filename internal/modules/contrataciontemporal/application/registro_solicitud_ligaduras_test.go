@@ -135,7 +135,7 @@ func TestRegistroSolicitudMatrizAdversarialDeLigadurasV3(t *testing.T) {
 
 			_, err := servicio.Registrar(context.Background(), escenario.solicitud)
 			if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-				d.preparaciones.llamadas != 0 || d.transaccion.llamadas != 0 {
+				d.transaccion.llamadas != 0 {
 				t.Fatalf("ligadura %s cruzada produjo efecto: %v", nombre, err)
 			}
 		})

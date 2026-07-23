@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -24,6 +25,43 @@ func TestSolicitudRegistroNoAceptaMaterialHMACAportado(t *testing.T) {
 		if _, existe := tipo.FieldByName(nombre); existe {
 			t.Fatalf("la entrada cliente acepta material HMAC mediante %s", nombre)
 		}
+	}
+}
+
+func TestSolicitudRegistroNoAceptaInstanteConfirmacionDelCliente(
+	t *testing.T,
+) {
+	if _, existe := reflect.TypeOf(SolicitudRegistrarExpediente{}).
+		FieldByName("InstanteConfirmacion"); existe {
+		t.Fatal("el DTO del cliente controla el instante de confirmación")
+	}
+}
+
+func TestRegistroSolicitudRechazaRetrocesoYBordeExclusivoDeDecision(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioRegistro(t)
+	casos := map[string]time.Time{
+		"retroceso": escenario.instante.Add(-time.Microsecond),
+		"borde exclusivo": escenario.instante.Add(
+			90 * time.Second,
+		),
+	}
+	for nombre, instante := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			servicio, d := construirServicioRegistro(t, escenario)
+			d.autorizador.antes = func() {
+				d.reloj.fijar(instante)
+			}
+			_, err := servicio.Registrar(
+				context.Background(),
+				escenario.solicitud,
+			)
+			if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
+				d.transaccion.llamadas != 0 {
+				t.Fatalf("instante fuera de ventana confirmó: %v", err)
+			}
+		})
 	}
 }
 
@@ -90,6 +128,22 @@ func TestRegistroSolicitudCompletaMatrizAdversarialRecursoV3(t *testing.T) {
 				)
 			},
 		),
+		"huella efecto": mutacionRecursoV3Prueba(
+			escenario,
+			func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) {
+				datos.Recurso.Atributos[ports.AtributoHuellaEfectoAltaSHA256] =
+					strings.Repeat("e", 64)
+			},
+		),
+		"sin huella efecto": mutacionRecursoV3Prueba(
+			escenario,
+			func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) {
+				delete(
+					datos.Recurso.Atributos,
+					ports.AtributoHuellaEfectoAltaSHA256,
+				)
+			},
+		),
 		"ambito extra": mutacionRecursoV3Prueba(escenario, func(
 			datos *dominiovec.DatosSolicitudAutorizacionLigadaV3,
 		) {
@@ -132,7 +186,6 @@ func TestRegistroSolicitudCompletaMatrizAdversarialRecursoV3(t *testing.T) {
 				escenario.solicitud,
 			)
 			if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-				d.preparaciones.llamadas != 0 ||
 				d.transaccion.llamadas != 0 {
 				t.Fatalf("ligadura %s cruzada produjo efecto: %v", nombre, err)
 			}
@@ -147,7 +200,7 @@ func TestRegistroSolicitudRechazaDecisionV3Denegada(t *testing.T) {
 
 	_, err := servicio.Registrar(context.Background(), escenario.solicitud)
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-		d.preparaciones.llamadas != 0 || d.transaccion.llamadas != 0 {
+		d.transaccion.llamadas != 0 {
 		t.Fatalf("decisión denegada produjo reserva o efecto: %v", err)
 	}
 }
@@ -189,9 +242,12 @@ func TestOrdenAltaCotejaHuellaActivaComprometidaEnV3(t *testing.T) {
 		SolicitudAutorizacionV3: evidencia.SolicitudAutorizacionV3,
 		DecisionAutorizacionV3:  evidencia.DecisionAutorizacionV3,
 		ConfirmacionRegistroV3:  evidencia.ConfirmacionRegistroV3,
+		ResultadoContextoV2:     evidencia.ResultadoContextoV2,
 		AmbitosIdempotenciaHMAC: evidencia.AmbitosIdempotenciaHMAC,
 		HuellasPeticionHMAC:     huellasCruzadas,
-		Preparacion:             evidencia.Preparacion,
+		Candidatura:             evidencia.Candidatura,
+		ProyeccionEfecto:        evidencia.ProyeccionEfecto,
+		InstanteConfirmacion:    evidencia.InstanteConfirmacion,
 	})
 	if !errors.Is(err, ports.ErrOrdenAltaInvalida) {
 		t.Fatalf("orden aceptó otra huella activa: %v", err)
@@ -209,30 +265,31 @@ func TestRegistroSolicitudRechazaReciboNoConfiable(t *testing.T) {
 	}
 }
 
-func TestRegistroSolicitudRechazaEstadosPreparacionInvalidos(t *testing.T) {
+func TestRegistroSolicitudRechazaCandidatosInvalidosAntesDelPDP(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
-	recibo := escenario.recibo
-	casos := map[string]func(*ports.PreparacionAlta){
-		"desconocido": func(p *ports.PreparacionAlta) {
-			p.Estado = "estado_ajeno"
+	casos := map[string]func(*generadorAltaDoble){
+		"referencias": func(g *generadorAltaDoble) {
+			g.referencias.ExpedienteRef = ""
 		},
-		"confirmada sin recibo": func(p *ports.PreparacionAlta) {
-			p.Estado = ports.PreparacionConfirmada
+		"reserva": func(g *generadorAltaDoble) {
+			g.reservaRef = ""
 		},
-		"reservada con recibo": func(p *ports.PreparacionAlta) {
-			p.ReciboConfirmado = &recibo
+		"fallo generador": func(g *generadorAltaDoble) {
+			g.errReferencias = errors.New("entropía no disponible")
 		},
 	}
 	for nombre, mutar := range casos {
 		t.Run(nombre, func(t *testing.T) {
-			caso := escenario
-			mutar(&caso.preparacion)
-			servicio, d := construirServicioRegistro(t, caso)
+			servicio, d := construirServicioRegistro(t, escenario)
+			mutar(d.referencias)
 
-			_, err := servicio.Registrar(context.Background(), caso.solicitud)
+			_, err := servicio.Registrar(
+				context.Background(),
+				escenario.solicitud,
+			)
 			if !errors.Is(err, ports.ErrPreparacionAltaInvalida) ||
-				d.transaccion.llamadas != 0 {
-				t.Fatalf("estado %s produjo efecto: %v", nombre, err)
+				d.autorizador.llamadas != 0 || d.transaccion.llamadas != 0 {
+				t.Fatalf("candidato %s produjo autoridad o efecto: %v", nombre, err)
 			}
 		})
 	}

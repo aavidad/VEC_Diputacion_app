@@ -1,8 +1,11 @@
 package ports
 
 import (
+	"errors"
+	"log/slog"
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -194,5 +197,102 @@ func TestColeccionesHMACAltaExigenGeneracionesAlineadasYParInseparable(t *testin
 		huellasSoloActiva,
 	); err == nil {
 		t.Fatal("colecciones con historias generacionales distintas aceptadas")
+	}
+}
+
+type exportadorCapacidadAltaPrueba struct {
+	contenido []byte
+	err       error
+}
+
+func (e *exportadorCapacidadAltaPrueba) String() string {
+	return "capacidad-opaca"
+}
+
+func (e *exportadorCapacidadAltaPrueba) LogValue() slog.Value {
+	return slog.StringValue("capacidad-opaca")
+}
+
+func (e *exportadorCapacidadAltaPrueba) ExportacionCanonicaParaConsumidor() (
+	[]byte,
+	error,
+) {
+	return append([]byte(nil), e.contenido...), e.err
+}
+
+func TestMaterialConfirmacionAltaEsOpacoYAislaMutaciones(t *testing.T) {
+	payload := []byte("payload-atestado")
+	cose := []byte("0123456789abcdef")
+	evidencia := []byte("evidencia-atestada")
+	spki := []byte("01234567890123456789012345678901234567890123")
+	material, err := NuevoMaterialConfirmacionAlta(
+		DatosMaterialConfirmacionAlta{
+			CapacidadVECAD3: &exportadorCapacidadAltaPrueba{
+				contenido: []byte(`{"capacidad":"atestada"}`),
+			},
+			PayloadVECAD3:         payload,
+			SobreCOSESign1:        cose,
+			EvidenciaVerificacion: evidencia,
+			RaizPublicaSPKI:       spki,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload[0], cose[0], evidencia[0], spki[0] = 'X', 'X', 'X', 'X'
+	primera, err := material.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	primera.PayloadVECAD3[0] = 'Y'
+	segunda, err := material.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(segunda.PayloadVECAD3) != "payload-atestado" ||
+		string(segunda.SobreCOSESign1) != "0123456789abcdef" ||
+		string(segunda.EvidenciaVerificacion) != "evidencia-atestada" ||
+		string(segunda.RaizPublicaSPKI) !=
+			"01234567890123456789012345678901234567890123" {
+		t.Fatalf("material mutable: %#v", segunda)
+	}
+
+	var nulo *exportadorCapacidadAltaPrueba
+	if _, err := NuevoMaterialConfirmacionAlta(
+		DatosMaterialConfirmacionAlta{
+			CapacidadVECAD3:       nulo,
+			PayloadVECAD3:         []byte("p"),
+			SobreCOSESign1:        []byte("0123456789abcdef"),
+			EvidenciaVerificacion: []byte("e"),
+			RaizPublicaSPKI:       make([]byte, 44),
+		},
+	); !errors.Is(err, ErrMaterialConfirmacionAltaInvalido) {
+		t.Fatalf("exportador nulo aceptado: %v", err)
+	}
+}
+
+func TestReciboAltaCotejaHuellaSQLExacta(t *testing.T) {
+	recibo := ReciboAlta{
+		ExpedienteRef: "expediente:ct-o2-06-0001",
+		NumeroVisible: "2026/CT-O2-06-0001",
+		Version:       1,
+		ReciboRef:     "recibo:alta-o2-06-001",
+		AuditoriaRef:  "auditoria:alta-o2-06-001",
+		EventoRef:     "evento:alta-o2-06-001",
+		ConfirmadaEn: time.Date(
+			2026, 7, 23, 9, 15, 0, 123456000, time.UTC,
+		),
+	}
+	huella, err := CalcularHuellaReciboAlta(recibo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recibo.ReciboHuellaSHA256 = huella
+	if recibo.ValidarEstructura() != nil {
+		t.Fatal("recibo y framing SQL válidos rechazados")
+	}
+	recibo.EventoRef = "evento:alta-o2-06-manipulado"
+	if recibo.ValidarEstructura() == nil {
+		t.Fatal("recibo manipulado conserva autoridad")
 	}
 }

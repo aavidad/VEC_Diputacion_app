@@ -45,7 +45,8 @@ type ServicioRegistroSolicitud struct {
 	ambitos               ports.SelladorAmbitoIdempotencia
 	motivos               ports.ResolutorMotivoAutorizacionAltaV3
 	correlaciones         puertosvec.GeneradorReferenciasAutorizacionV2
-	preparaciones         ports.PreparadorAltaIdempotente
+	referenciasAlta       ports.GeneradorReferenciasAlta
+	proyectorEfecto       ports.ProyectorEfectoAlta
 	autorizador           puertosvec.AutorizadorSolicitudLigadaV3
 	reloj                 ports.Reloj
 	transaccion           ports.TransaccionAltas
@@ -58,7 +59,8 @@ func NuevoServicioRegistroSolicitud(
 	ambitos ports.SelladorAmbitoIdempotencia,
 	motivos ports.ResolutorMotivoAutorizacionAltaV3,
 	correlaciones puertosvec.GeneradorReferenciasAutorizacionV2,
-	preparaciones ports.PreparadorAltaIdempotente,
+	referenciasAlta ports.GeneradorReferenciasAlta,
+	proyectorEfecto ports.ProyectorEfectoAlta,
 	autorizador puertosvec.AutorizadorSolicitudLigadaV3,
 	reloj ports.Reloj,
 	transaccion ports.TransaccionAltas,
@@ -66,8 +68,9 @@ func NuevoServicioRegistroSolicitud(
 	if dependenciaNula(contextosAutorizacion) || dependenciaNula(flujos) ||
 		dependenciaNula(huellas) || dependenciaNula(ambitos) ||
 		dependenciaNula(motivos) || dependenciaNula(correlaciones) ||
-		dependenciaNula(preparaciones) || dependenciaNula(autorizador) ||
-		dependenciaNula(reloj) || dependenciaNula(transaccion) {
+		dependenciaNula(referenciasAlta) || dependenciaNula(proyectorEfecto) ||
+		dependenciaNula(autorizador) || dependenciaNula(reloj) ||
+		dependenciaNula(transaccion) {
 		return nil, ErrServicioRegistroInvalido
 	}
 	return &ServicioRegistroSolicitud{
@@ -77,7 +80,8 @@ func NuevoServicioRegistroSolicitud(
 		ambitos:               ambitos,
 		motivos:               motivos,
 		correlaciones:         correlaciones,
-		preparaciones:         preparaciones,
+		referenciasAlta:       referenciasAlta,
+		proyectorEfecto:       proyectorEfecto,
 		autorizador:           autorizador,
 		reloj:                 reloj,
 		transaccion:           transaccion,
@@ -92,7 +96,9 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		dependenciaNula(s.flujos) || dependenciaNula(s.huellas) ||
 		dependenciaNula(s.ambitos) ||
 		dependenciaNula(s.motivos) ||
-		dependenciaNula(s.correlaciones) || dependenciaNula(s.preparaciones) ||
+		dependenciaNula(s.correlaciones) ||
+		dependenciaNula(s.referenciasAlta) ||
+		dependenciaNula(s.proyectorEfecto) ||
 		dependenciaNula(s.autorizador) || dependenciaNula(s.reloj) ||
 		dependenciaNula(s.transaccion) {
 		return ports.ReciboAlta{}, ErrServicioRegistroInvalido
@@ -220,6 +226,76 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		return ports.ReciboAlta{}, err
 	}
 
+	referencias, err := s.referenciasAlta.GenerarReferenciasAlta(ctx)
+	if err != nil || referencias.Validar() != nil {
+		return ports.ReciboAlta{}, errors.Join(
+			ports.ErrPreparacionAltaInvalida,
+			err,
+		)
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ReciboAlta{}, err
+	}
+	reservaRef, err := s.referenciasAlta.NuevaReferenciaReservaAlta(ctx)
+	if err != nil || !domain.ReferenciaOpacaValida(reservaRef) {
+		return ports.ReciboAlta{}, errors.Join(
+			ports.ErrPreparacionAltaInvalida,
+			err,
+		)
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ReciboAlta{}, err
+	}
+	candidatura := ports.CandidaturaAlta{
+		ReservaRef:             reservaRef,
+		Referencias:            referencias,
+		AmbitoIdempotenciaHMAC: ambitoHMAC,
+		HuellaPeticionHMAC:     huellaHMAC,
+		OrganizacionRef:        solicitud.OrganizacionRef,
+		ActorRef:               vinculo.PrincipalID,
+		PerfilRef:              vinculo.PerfilActivoRef,
+	}
+	if candidatura.Validar() != nil {
+		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
+	}
+	instanteEfecto := instanteCanonico(s.reloj.Ahora())
+	expediente, err := domain.NuevoExpediente(domain.AltaExpediente{
+		Referencia:      candidatura.Referencias.ExpedienteRef,
+		OrganizacionRef: solicitud.OrganizacionRef,
+		NumeroVisible:   candidatura.Referencias.NumeroVisible,
+		Flujo:           configuracion.Flujo,
+		FaseInicial:     configuracion.FaseInicial,
+		Solicitud:       solicitudCentro,
+		Actuacion: domain.DatosActuacion{
+			AccionClave:   configuracion.AccionInicial,
+			ActorRef:      vinculo.PrincipalID,
+			UnidadRef:     configuracion.UnidadInicialRef,
+			ReciboRef:     candidatura.Referencias.ReciboRef,
+			RealizadaEn:   instanteEfecto,
+			FaseDestino:   configuracion.FaseInicial,
+			EstadoDestino: domain.EstadoEnCurso,
+		},
+	})
+	if err != nil {
+		return ports.ReciboAlta{}, errors.Join(ErrSolicitudRegistroInvalida, err)
+	}
+	proyeccionEfecto, err := s.proyectorEfecto.ProyectarEfectoAlta(
+		ports.SolicitudProyectarEfectoAlta{
+			Expediente: expediente, Candidatura: candidatura,
+		},
+	)
+	_, huellaEfecto, errProyeccion := proyeccionEfecto.Datos()
+	if err != nil || errProyeccion != nil {
+		return ports.ReciboAlta{}, errors.Join(
+			ports.ErrProyeccionEfectoAltaInvalida,
+			err,
+			errProyeccion,
+		)
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ReciboAlta{}, err
+	}
+
 	instanteAutorizacion := instanteCanonico(s.reloj.Ahora())
 	resolverMotivo := ports.SolicitudResolverMotivoAutorizacionAltaV3{
 		OrganizacionRef: solicitud.OrganizacionRef,
@@ -273,6 +349,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 					),
 					"flujo_huella_sha256":                  configuracion.Flujo.HuellaSHA256,
 					ports.AtributoHuellaPeticionHMACActiva: huellaHMAC,
+					ports.AtributoHuellaEfectoAltaSHA256:   huellaEfecto,
 				},
 			},
 			Finalidad:   ports.FinalidadCrearSolicitud,
@@ -293,90 +370,38 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	instantePreparacion := instanteCanonico(s.reloj.Ahora())
+	instanteConfirmacion := instanteCanonico(s.reloj.Ahora())
 	if !autorizacionV3ValidaEn(
 		solicitudAutorizacionV3,
 		decisionV3,
 		confirmacionV3,
-		instantePreparacion,
+		instanteConfirmacion,
 	) {
 		return ports.ReciboAlta{}, ports.ErrAutorizacionDenegada
 	}
-
-	// Preparar es una operación interna y solo se invoca después de obtener una
-	// concesión V3 durable y vigente. O2-05 deberá incorporarla físicamente a la
-	// misma transacción que consume la concesión y confirma el efecto.
-	preparar := ports.SolicitudPrepararAlta{
-		ClaveIdempotencia:   solicitud.ClaveIdempotencia,
-		HuellasPeticionHMAC: huellasHMAC,
-		OrganizacionRef:     solicitud.OrganizacionRef,
-		ActorRef:            vinculo.PrincipalID,
-		PerfilRef:           vinculo.PerfilActivoRef,
-	}
-	if preparar.Validar() != nil {
-		return ports.ReciboAlta{}, errors.Join(
-			ErrSolicitudRegistroInvalida,
-			ports.ErrPreparacionAltaInvalida,
-		)
-	}
-	preparacion, err := s.preparaciones.PrepararAlta(ctx, preparar)
-	if err != nil {
-		return ports.ReciboAlta{}, err
-	}
-	if err := ctx.Err(); err != nil {
-		return ports.ReciboAlta{}, err
-	}
-	if preparacion.ValidarPara(preparar) != nil ||
-		!ports.ColeccionesHMACAltaContienenPar(
-			ambitosHMAC,
-			huellasHMAC,
-			preparacion.AmbitoIdempotenciaHMAC,
-			preparacion.HuellaPeticionHMAC,
-		) {
-		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
-	}
-	instanteEfecto := instanteCanonico(s.reloj.Ahora())
-	if contextoAutorizacion.ValidarPara(resolverContexto, instanteEfecto) != nil ||
+	if contextoAutorizacion.ValidarPara(
+		resolverContexto,
+		instanteConfirmacion,
+	) != nil ||
 		!autorizacionV3ValidaEn(
 			solicitudAutorizacionV3,
 			decisionV3,
 			confirmacionV3,
-			instanteEfecto,
+			instanteConfirmacion,
 		) {
 		return ports.ReciboAlta{}, ports.ErrAutorizacionDenegada
-	}
-	if preparacion.Estado == ports.PreparacionConfirmada {
-		return *preparacion.ReciboConfirmado, nil
-	}
-
-	expediente, err := domain.NuevoExpediente(domain.AltaExpediente{
-		Referencia:      preparacion.Referencias.ExpedienteRef,
-		OrganizacionRef: solicitud.OrganizacionRef,
-		NumeroVisible:   preparacion.Referencias.NumeroVisible,
-		Flujo:           configuracion.Flujo,
-		FaseInicial:     configuracion.FaseInicial,
-		Solicitud:       solicitudCentro,
-		Actuacion: domain.DatosActuacion{
-			AccionClave:   configuracion.AccionInicial,
-			ActorRef:      vinculo.PrincipalID,
-			UnidadRef:     configuracion.UnidadInicialRef,
-			ReciboRef:     preparacion.Referencias.ReciboRef,
-			RealizadaEn:   instanteEfecto,
-			FaseDestino:   configuracion.FaseInicial,
-			EstadoDestino: domain.EstadoEnCurso,
-		},
-	})
-	if err != nil {
-		return ports.ReciboAlta{}, errors.Join(ErrSolicitudRegistroInvalida, err)
 	}
 	orden, err := ports.NuevaOrdenConfirmarAlta(ports.DatosOrdenConfirmarAlta{
 		Expediente:              expediente,
 		SolicitudAutorizacionV3: solicitudAutorizacionV3,
 		DecisionAutorizacionV3:  decisionV3,
 		ConfirmacionRegistroV3:  confirmacionV3,
+		ResultadoContextoV2:     contextoAutorizacion.Resultado,
 		AmbitosIdempotenciaHMAC: ambitosHMAC,
 		HuellasPeticionHMAC:     huellasHMAC,
-		Preparacion:             preparacion,
+		Candidatura:             candidatura,
+		ProyeccionEfecto:        proyeccionEfecto,
+		InstanteConfirmacion:    instanteConfirmacion,
 	})
 	if err != nil {
 		return ports.ReciboAlta{}, err
