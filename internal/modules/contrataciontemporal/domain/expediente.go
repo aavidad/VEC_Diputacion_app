@@ -178,7 +178,8 @@ func (e Expediente) RegistrarAsignacion(
 	asignacion AsignacionUnidad,
 	actuacion DatosActuacion,
 ) (Expediente, error) {
-	if e.Validar() != nil || asignacion.Validar() != nil || actuacion.validar() != nil ||
+	if e.Validar() != nil || asignacion.validarEntrada() != nil ||
+		actuacion.validar() != nil ||
 		e.Analisis == nil || e.ViaCobertura == nil || e.Asignacion != nil ||
 		!asignacion.AsignadaEn.Equal(actuacion.RealizadaEn) ||
 		asignacion.Observaciones != actuacion.Observaciones {
@@ -189,6 +190,12 @@ func (e Expediente) RegistrarAsignacion(
 		return Expediente{}, err
 	}
 	clon := asignacion
+	vinculo := nuevoVinculoActuacionAsignacion(
+		e.Version+1,
+		uint64(len(e.Actuaciones)+1),
+		actuacion,
+	)
+	clon.ActuacionRegistro = &vinculo
 	siguiente.Asignacion = &clon
 	return siguiente.confirmarTransicion(actuacion)
 }
@@ -202,7 +209,7 @@ func (e Expediente) ReasignarUnidad(
 	asignacion AsignacionUnidad,
 	actuacion DatosActuacion,
 ) (Expediente, error) {
-	if e.Validar() != nil || asignacion.Validar() != nil ||
+	if e.Validar() != nil || asignacion.validarEntrada() != nil ||
 		actuacion.validar() != nil || e.Analisis == nil ||
 		e.ViaCobertura == nil || e.Asignacion == nil ||
 		!asignacion.AsignadaEn.Equal(actuacion.RealizadaEn) ||
@@ -221,6 +228,12 @@ func (e Expediente) ReasignarUnidad(
 		return Expediente{}, err
 	}
 	clon := asignacion
+	vinculo := nuevoVinculoActuacionAsignacion(
+		e.Version+1,
+		uint64(len(e.Actuaciones)+1),
+		actuacion,
+	)
+	clon.ActuacionRegistro = &vinculo
 	siguiente.Asignacion = &clon
 	return siguiente.confirmarTransicion(actuacion)
 }
