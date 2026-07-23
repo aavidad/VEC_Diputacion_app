@@ -15,6 +15,8 @@ func TestSolicitudRegistroNoAceptaMaterialHMACAportado(t *testing.T) {
 	tipo := reflect.TypeOf(SolicitudRegistrarExpediente{})
 	for _, nombre := range []string{
 		"IdentidadesHMAC",
+		"AmbitosIdempotenciaHMAC",
+		"HuellasPeticionHMAC",
 		"AmbitoIdempotenciaHMAC",
 		"HuellaPeticionHMAC",
 		"GeneracionHMAC",
@@ -163,17 +165,21 @@ func TestOrdenAltaCotejaHuellaActivaComprometidaEnV3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	datosIdentidades, err := evidencia.IdentidadesHMAC.Datos()
+	datosHuellas, err := evidencia.HuellasPeticionHMAC.Datos()
 	if err != nil {
 		t.Fatal(err)
 	}
-	datosIdentidades.Activa.HuellaPeticionHMAC = selloHMACRegistroPrueba(
+	datosHuellas.Activo.Valor = selloHMACRegistroPrueba(
 		"vec.contratacion-temporal.huella-peticion/v2",
 		"e",
 	)
-	identidadesCruzadas, err := ports.NuevaColeccionIdentidadesHMACAlta(
-		datosIdentidades.Activa,
-		datosIdentidades.Retenidas,
+	retenidas := make([]string, 0, len(datosHuellas.Retenidos))
+	for _, retenida := range datosHuellas.Retenidos {
+		retenidas = append(retenidas, retenida.Valor)
+	}
+	huellasCruzadas, err := ports.NuevaColeccionSellosHMAC(
+		datosHuellas.Activo.Valor,
+		retenidas,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -183,7 +189,8 @@ func TestOrdenAltaCotejaHuellaActivaComprometidaEnV3(t *testing.T) {
 		SolicitudAutorizacionV3: evidencia.SolicitudAutorizacionV3,
 		DecisionAutorizacionV3:  evidencia.DecisionAutorizacionV3,
 		ConfirmacionRegistroV3:  evidencia.ConfirmacionRegistroV3,
-		IdentidadesHMAC:         identidadesCruzadas,
+		AmbitosIdempotenciaHMAC: evidencia.AmbitosIdempotenciaHMAC,
+		HuellasPeticionHMAC:     huellasCruzadas,
 		Preparacion:             evidencia.Preparacion,
 	})
 	if !errors.Is(err, ports.ErrOrdenAltaInvalida) {

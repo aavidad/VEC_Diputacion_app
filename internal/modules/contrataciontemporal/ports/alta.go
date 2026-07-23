@@ -5,7 +5,6 @@ import (
 	"errors"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -19,8 +18,6 @@ var (
 	ErrPersistenciaNoDisponible = errors.New("contratacion temporal: persistencia no disponible")
 	ErrClaveIdempotenciaUsada   = errors.New("contratacion temporal: clave de idempotencia usada con otros datos")
 )
-
-const MaximoGeneracionesHMACAlta = 4
 
 // La clave debe generarla cada cliente con CSPRNG y conservarse solo durante
 // el reintento. El formato UUIDv4 canónico descarta etiquetas humanas, formas
@@ -74,168 +71,28 @@ func (m MaterialHuellaAlta) Validar() error {
 	return nil
 }
 
-// DatosIdentidadHMACAlta es una proyección defensiva, no una capacidad. Solo
-// ColeccionIdentidadesHMACAlta puede transportar estos pares al caso de uso.
-type DatosIdentidadHMACAlta struct {
-	Generacion             uint32
-	AmbitoIdempotenciaHMAC string
-	HuellaPeticionHMAC     string
-}
-
-func validarDatosIdentidadHMACAlta(i DatosIdentidadHMACAlta) error {
-	generacionAmbito, ambitoValido := generacionSelloHMACAlta(
-		i.AmbitoIdempotenciaHMAC,
-		"vec.contratacion-temporal.ambito-idempotencia/v",
-	)
-	generacionHuella, huellaValida := generacionSelloHMACAlta(
-		i.HuellaPeticionHMAC,
-		"vec.contratacion-temporal.huella-peticion/v",
-	)
-	if !ambitoValido || !huellaValida ||
-		generacionAmbito != generacionHuella ||
-		i.Generacion != generacionAmbito {
-		return ErrPreparacionAltaInvalida
-	}
-	return nil
-}
-
-// DatosColeccionIdentidadesHMACAlta expone una copia para cotejo interno.
-// Los retenidos están ordenados de generación mayor a menor.
-type DatosColeccionIdentidadesHMACAlta struct {
-	Activa    DatosIdentidadHMACAlta
-	Retenidas []DatosIdentidadHMACAlta
-}
-
-type datosColeccionIdentidadesHMACAlta struct {
-	activa    DatosIdentidadHMACAlta
-	retenidas []DatosIdentidadHMACAlta
-}
-
-// ColeccionIdentidadesHMACAlta es el resultado nominal opaco del llavero. El
-// cliente no puede aportarlo en SolicitudRegistrarExpediente.
-type ColeccionIdentidadesHMACAlta struct {
-	datos *datosColeccionIdentidadesHMACAlta
-}
-
-func NuevaColeccionIdentidadesHMACAlta(
-	activa DatosIdentidadHMACAlta,
-	retenidas []DatosIdentidadHMACAlta,
-) (ColeccionIdentidadesHMACAlta, error) {
-	if validarDatosIdentidadHMACAlta(activa) != nil ||
-		len(retenidas)+1 > MaximoGeneracionesHMACAlta {
-		return ColeccionIdentidadesHMACAlta{}, ErrPreparacionAltaInvalida
-	}
-	copia := make([]DatosIdentidadHMACAlta, len(retenidas))
-	anterior := activa.Generacion
-	for _, retenida := range retenidas {
-		if validarDatosIdentidadHMACAlta(retenida) != nil ||
-			retenida.Generacion >= anterior {
-			return ColeccionIdentidadesHMACAlta{}, ErrPreparacionAltaInvalida
-		}
-		anterior = retenida.Generacion
-	}
-	copy(copia, retenidas)
-	return ColeccionIdentidadesHMACAlta{
-		datos: &datosColeccionIdentidadesHMACAlta{
-			activa: activa, retenidas: copia,
-		},
-	}, nil
-}
-
-func (c ColeccionIdentidadesHMACAlta) Datos() (
-	DatosColeccionIdentidadesHMACAlta,
-	error,
-) {
-	if c.datos == nil {
-		return DatosColeccionIdentidadesHMACAlta{}, ErrPreparacionAltaInvalida
-	}
-	datos := DatosColeccionIdentidadesHMACAlta{
-		Activa: c.datos.activa,
-		Retenidas: append(
-			[]DatosIdentidadHMACAlta(nil),
-			c.datos.retenidas...,
-		),
-	}
-	reconstruida, err := NuevaColeccionIdentidadesHMACAlta(
-		datos.Activa,
-		datos.Retenidas,
-	)
-	if err != nil || reconstruida.datos.activa != datos.Activa {
-		return DatosColeccionIdentidadesHMACAlta{}, ErrPreparacionAltaInvalida
-	}
-	return datos, nil
-}
-
-func (c ColeccionIdentidadesHMACAlta) Validar() error {
-	_, err := c.Datos()
-	return err
-}
-
-func (c ColeccionIdentidadesHMACAlta) Clonar() (ColeccionIdentidadesHMACAlta, error) {
-	datos, err := c.Datos()
-	if err != nil {
-		return ColeccionIdentidadesHMACAlta{}, err
-	}
-	return NuevaColeccionIdentidadesHMACAlta(datos.Activa, datos.Retenidas)
-}
-
-// ContienePar exige que ámbito y huella pertenezcan juntos a una generación
-// autorizada. No admite combinar dos generaciones válidas por separado.
-func (c ColeccionIdentidadesHMACAlta) ContienePar(ambito, huella string) bool {
-	datos, err := c.Datos()
-	if err != nil {
-		return false
-	}
-	coincide := func(identidad DatosIdentidadHMACAlta) bool {
-		return sellosHMACIguales(identidad.AmbitoIdempotenciaHMAC, ambito) &&
-			sellosHMACIguales(identidad.HuellaPeticionHMAC, huella)
-	}
-	encontrado := coincide(datos.Activa)
-	for _, retenida := range datos.Retenidas {
-		encontrado = coincide(retenida) || encontrado
-	}
-	return encontrado
-}
-
-type SolicitudDerivarIdentidadesHMACAlta struct {
-	ClaveIdempotencia string
-	Material          MaterialHuellaAlta
-}
-
-func (s SolicitudDerivarIdentidadesHMACAlta) Validar() error {
-	if !claveIdempotenciaValida(s.ClaveIdempotencia) ||
-		s.Material.Validar() != nil {
-		return ErrPreparacionAltaInvalida
-	}
-	return nil
-}
-
-// DerivadorIdentidadesHMACAlta resuelve el llavero una sola vez para impedir
-// que ámbito y huella procedan de generaciones o configuraciones distintas.
-type DerivadorIdentidadesHMACAlta interface {
-	DerivarIdentidadesHMACAlta(
-		context.Context,
-		SolicitudDerivarIdentidadesHMACAlta,
-	) (ColeccionIdentidadesHMACAlta, error)
-}
-
 // DerivadorHuellaAlta usa una clave gestionada fuera del proceso. Nunca
 // persiste el material en claro como sustituto de la solicitud.
 type DerivadorHuellaAlta interface {
-	DerivarHuellaAlta(context.Context, MaterialHuellaAlta) (string, error)
+	DerivarHuellaAlta(
+		context.Context,
+		MaterialHuellaAlta,
+	) (ColeccionSellosHMAC, error)
 }
 
 type SolicitudPrepararAlta struct {
-	ClaveIdempotencia string
-	IdentidadesHMAC   ColeccionIdentidadesHMACAlta
-	OrganizacionRef   string
-	ActorRef          string
-	PerfilRef         string
+	ClaveIdempotencia   string
+	HuellasPeticionHMAC ColeccionSellosHMAC
+	OrganizacionRef     string
+	ActorRef            string
+	PerfilRef           string
 }
 
 func (s SolicitudPrepararAlta) Validar() error {
 	if !claveIdempotenciaValida(s.ClaveIdempotencia) ||
-		s.IdentidadesHMAC.Validar() != nil ||
+		s.HuellasPeticionHMAC.ValidarDominio(
+			"vec.contratacion-temporal.huella-peticion",
+		) != nil ||
 		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(s.ActorRef) ||
 		!domain.ReferenciaOpacaValida(s.PerfilRef) {
@@ -266,10 +123,8 @@ type PreparacionAlta struct {
 func (p PreparacionAlta) ValidarPara(solicitud SolicitudPrepararAlta) error {
 	if solicitud.Validar() != nil || !domain.ReferenciaOpacaValida(p.ReservaRef) ||
 		p.Referencias.Validar() != nil ||
-		!solicitud.IdentidadesHMAC.ContienePar(
-			p.AmbitoIdempotenciaHMAC,
-			p.HuellaPeticionHMAC,
-		) ||
+		!SelloHMACSHA256Valido(p.AmbitoIdempotenciaHMAC) ||
+		!solicitud.HuellasPeticionHMAC.Contiene(p.HuellaPeticionHMAC) ||
 		p.OrganizacionRef != solicitud.OrganizacionRef ||
 		p.ActorRef != solicitud.ActorRef || p.PerfilRef != solicitud.PerfilRef ||
 		(p.Estado != PreparacionReservada && p.Estado != PreparacionConfirmada) {
@@ -290,25 +145,6 @@ func (p PreparacionAlta) ValidarPara(solicitud SolicitudPrepararAlta) error {
 	return nil
 }
 
-func generacionSelloHMACAlta(
-	sello string,
-	prefijoReferencia string,
-) (uint32, bool) {
-	if !SelloHMACSHA256Valido(sello) {
-		return 0, false
-	}
-	partes := strings.Split(sello, ":")
-	if len(partes) != 3 || !strings.HasPrefix(partes[1], prefijoReferencia) {
-		return 0, false
-	}
-	texto := strings.TrimPrefix(partes[1], prefijoReferencia)
-	if texto == "" || texto[0] == '0' {
-		return 0, false
-	}
-	generacion, err := strconv.ParseUint(texto, 10, 32)
-	return uint32(generacion), err == nil && generacion > 0
-}
-
 type PreparadorAltaIdempotente interface {
 	PrepararAlta(context.Context, SolicitudPrepararAlta) (PreparacionAlta, error)
 }
@@ -326,7 +162,8 @@ type datosOrdenConfirmarAlta struct {
 	solicitudAutorizacionV3 dominiovec.SolicitudAutorizacionLigadaV3
 	decisionAutorizacionV3  dominiovec.DecisionAutorizacionLigadaV3
 	confirmacionRegistroV3  puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
-	identidadesHMAC         ColeccionIdentidadesHMACAlta
+	ambitosIdempotenciaHMAC ColeccionSellosHMAC
+	huellasPeticionHMAC     ColeccionSellosHMAC
 	preparacion             PreparacionAlta
 	correlacionV3Ref        string
 }
@@ -339,7 +176,8 @@ type DatosOrdenConfirmarAlta struct {
 	SolicitudAutorizacionV3 dominiovec.SolicitudAutorizacionLigadaV3
 	DecisionAutorizacionV3  dominiovec.DecisionAutorizacionLigadaV3
 	ConfirmacionRegistroV3  puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
-	IdentidadesHMAC         ColeccionIdentidadesHMACAlta
+	AmbitosIdempotenciaHMAC ColeccionSellosHMAC
+	HuellasPeticionHMAC     ColeccionSellosHMAC
 	Preparacion             PreparacionAlta
 }
 
@@ -350,9 +188,98 @@ type EvidenciaOrdenConfirmarAlta struct {
 	SolicitudAutorizacionV3 dominiovec.SolicitudAutorizacionLigadaV3
 	DecisionAutorizacionV3  dominiovec.DecisionAutorizacionLigadaV3
 	ConfirmacionRegistroV3  puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
-	IdentidadesHMAC         ColeccionIdentidadesHMACAlta
+	AmbitosIdempotenciaHMAC ColeccionSellosHMAC
+	HuellasPeticionHMAC     ColeccionSellosHMAC
 	Preparacion             PreparacionAlta
 	CorrelacionV3Ref        string
+}
+
+func datosColeccionesHMACAltaAlineadas(
+	ambitos ColeccionSellosHMAC,
+	huellas ColeccionSellosHMAC,
+) (
+	DatosColeccionSellosHMAC,
+	DatosColeccionSellosHMAC,
+	bool,
+) {
+	if ambitos.ValidarDominio(
+		"vec.contratacion-temporal.ambito-idempotencia",
+	) != nil ||
+		huellas.ValidarDominio(
+			"vec.contratacion-temporal.huella-peticion",
+		) != nil {
+		return DatosColeccionSellosHMAC{}, DatosColeccionSellosHMAC{}, false
+	}
+	datosAmbitos, errAmbitos := ambitos.Datos()
+	datosHuellas, errHuellas := huellas.Datos()
+	if errAmbitos != nil || errHuellas != nil ||
+		datosAmbitos.Activo.Generacion != datosHuellas.Activo.Generacion ||
+		len(datosAmbitos.Retenidos) != len(datosHuellas.Retenidos) {
+		return DatosColeccionSellosHMAC{}, DatosColeccionSellosHMAC{}, false
+	}
+	for indice := range datosAmbitos.Retenidos {
+		if datosAmbitos.Retenidos[indice].Generacion !=
+			datosHuellas.Retenidos[indice].Generacion {
+			return DatosColeccionSellosHMAC{}, DatosColeccionSellosHMAC{}, false
+		}
+	}
+	return datosAmbitos, datosHuellas, true
+}
+
+func datosColeccionesHMACAltaContienenPar(
+	ambitos DatosColeccionSellosHMAC,
+	huellas DatosColeccionSellosHMAC,
+	ambito string,
+	huella string,
+) bool {
+	coincide := func(
+		candidatoAmbito SelloGeneracionalHMAC,
+		candidataHuella SelloGeneracionalHMAC,
+	) bool {
+		return candidatoAmbito.Generacion == candidataHuella.Generacion &&
+			sellosHMACIguales(candidatoAmbito.Valor, ambito) &&
+			sellosHMACIguales(candidataHuella.Valor, huella)
+	}
+	encontrado := coincide(ambitos.Activo, huellas.Activo)
+	for indice := range ambitos.Retenidos {
+		encontrado = coincide(
+			ambitos.Retenidos[indice],
+			huellas.Retenidos[indice],
+		) || encontrado
+	}
+	return encontrado
+}
+
+// ParActivoColeccionesHMACAlta proyecta el par activo solo después de
+// comprobar que las dos capacidades nominales tienen las mismas generaciones.
+func ParActivoColeccionesHMACAlta(
+	ambitos ColeccionSellosHMAC,
+	huellas ColeccionSellosHMAC,
+) (string, string, error) {
+	datosAmbitos, datosHuellas, validas :=
+		datosColeccionesHMACAltaAlineadas(ambitos, huellas)
+	if !validas {
+		return "", "", ErrPreparacionAltaInvalida
+	}
+	return datosAmbitos.Activo.Valor, datosHuellas.Activo.Valor, nil
+}
+
+// ColeccionesHMACAltaContienenPar impide aceptar ámbito y huella válidos pero
+// pertenecientes a generaciones distintas.
+func ColeccionesHMACAltaContienenPar(
+	ambitos ColeccionSellosHMAC,
+	huellas ColeccionSellosHMAC,
+	ambito string,
+	huella string,
+) bool {
+	datosAmbitos, datosHuellas, validas :=
+		datosColeccionesHMACAltaAlineadas(ambitos, huellas)
+	return validas && datosColeccionesHMACAltaContienenPar(
+		datosAmbitos,
+		datosHuellas,
+		ambito,
+		huella,
+	)
 }
 
 func NuevaOrdenConfirmarAlta(datos DatosOrdenConfirmarAlta) (OrdenConfirmarAlta, error) {
@@ -368,11 +295,14 @@ func NuevaOrdenConfirmarAlta(datos DatosOrdenConfirmarAlta) (OrdenConfirmarAlta,
 	huellaDecision, errHuella := dominiovec.HuellaSHA256DecisionAutorizacionV3(
 		datos.DecisionAutorizacionV3,
 	)
-	identidadesHMAC, errIdentidades := datos.IdentidadesHMAC.Clonar()
-	datosIdentidadesHMAC, errDatosIdentidades := identidadesHMAC.Datos()
+	datosAmbitosHMAC, datosHuellasHMAC, coleccionesHMACValidas :=
+		datosColeccionesHMACAltaAlineadas(
+			datos.AmbitosIdempotenciaHMAC,
+			datos.HuellasPeticionHMAC,
+		)
 	if err != nil || errCorrelacion != nil || errVinculo != nil || errDecision != nil ||
 		errVentana != nil || errConfirmacion != nil || errHuella != nil ||
-		errIdentidades != nil || errDatosIdentidades != nil ||
+		!coleccionesHMACValidas ||
 		!concedida ||
 		datos.DecisionAutorizacionV3.ValidarPara(datos.SolicitudAutorizacionV3) != nil ||
 		datos.Preparacion.Estado != PreparacionReservada ||
@@ -396,9 +326,11 @@ func NuevaOrdenConfirmarAlta(datos DatosOrdenConfirmarAlta) (OrdenConfirmarAlta,
 		len(solicitudV3.Recurso.Atributos) != 4 ||
 		!sellosHMACIguales(
 			solicitudV3.Recurso.Referencia,
-			datosIdentidadesHMAC.Activa.AmbitoIdempotenciaHMAC,
+			datosAmbitosHMAC.Activo.Valor,
 		) ||
-		!identidadesHMAC.ContienePar(
+		!datosColeccionesHMACAltaContienenPar(
+			datosAmbitosHMAC,
+			datosHuellasHMAC,
 			datos.Preparacion.AmbitoIdempotenciaHMAC,
 			datos.Preparacion.HuellaPeticionHMAC,
 		) ||
@@ -412,7 +344,7 @@ func NuevaOrdenConfirmarAlta(datos DatosOrdenConfirmarAlta) (OrdenConfirmarAlta,
 			datos.Expediente.Flujo.HuellaSHA256 ||
 		!sellosHMACIguales(
 			solicitudV3.Recurso.Atributos[AtributoHuellaPeticionHMACActiva],
-			datosIdentidadesHMAC.Activa.HuellaPeticionHMAC,
+			datosHuellasHMAC.Activo.Valor,
 		) ||
 		confirmacionV3.DecisionRef == "" ||
 		confirmacionV3.DecisionHuellaSHA256 != huellaDecision ||
@@ -426,7 +358,8 @@ func NuevaOrdenConfirmarAlta(datos DatosOrdenConfirmarAlta) (OrdenConfirmarAlta,
 		solicitudAutorizacionV3: datos.SolicitudAutorizacionV3,
 		decisionAutorizacionV3:  datos.DecisionAutorizacionV3,
 		confirmacionRegistroV3:  datos.ConfirmacionRegistroV3,
-		identidadesHMAC:         identidadesHMAC,
+		ambitosIdempotenciaHMAC: datos.AmbitosIdempotenciaHMAC,
+		huellasPeticionHMAC:     datos.HuellasPeticionHMAC,
 		preparacion:             datos.Preparacion,
 		correlacionV3Ref:        correlacionV3Ref,
 	}}, nil
@@ -436,16 +369,13 @@ func (o OrdenConfirmarAlta) Datos() (EvidenciaOrdenConfirmarAlta, error) {
 	if o.datos == nil {
 		return EvidenciaOrdenConfirmarAlta{}, ErrOrdenAltaInvalida
 	}
-	identidadesHMAC, err := o.datos.identidadesHMAC.Clonar()
-	if err != nil {
-		return EvidenciaOrdenConfirmarAlta{}, ErrOrdenAltaInvalida
-	}
 	entrada := DatosOrdenConfirmarAlta{
 		Expediente:              o.datos.expediente.Clonar(),
 		SolicitudAutorizacionV3: o.datos.solicitudAutorizacionV3,
 		DecisionAutorizacionV3:  o.datos.decisionAutorizacionV3,
 		ConfirmacionRegistroV3:  o.datos.confirmacionRegistroV3,
-		IdentidadesHMAC:         identidadesHMAC,
+		AmbitosIdempotenciaHMAC: o.datos.ambitosIdempotenciaHMAC,
+		HuellasPeticionHMAC:     o.datos.huellasPeticionHMAC,
 		Preparacion:             o.datos.preparacion,
 	}
 	reconstruida, err := NuevaOrdenConfirmarAlta(entrada)
@@ -457,7 +387,8 @@ func (o OrdenConfirmarAlta) Datos() (EvidenciaOrdenConfirmarAlta, error) {
 		SolicitudAutorizacionV3: entrada.SolicitudAutorizacionV3,
 		DecisionAutorizacionV3:  entrada.DecisionAutorizacionV3,
 		ConfirmacionRegistroV3:  entrada.ConfirmacionRegistroV3,
-		IdentidadesHMAC:         identidadesHMAC,
+		AmbitosIdempotenciaHMAC: entrada.AmbitosIdempotenciaHMAC,
+		HuellasPeticionHMAC:     entrada.HuellasPeticionHMAC,
 		Preparacion:             entrada.Preparacion,
 		CorrelacionV3Ref:        o.datos.correlacionV3Ref,
 	}, nil

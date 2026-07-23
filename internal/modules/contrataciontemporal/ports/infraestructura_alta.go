@@ -30,7 +30,7 @@ type SelladorAmbitoIdempotencia interface {
 	SellarAmbitoIdempotencia(
 		context.Context,
 		SolicitudSellarAmbitoIdempotencia,
-	) (string, error)
+	) (ColeccionSellosHMAC, error)
 }
 
 // GeneradorReferenciasAlta acuña candidatos opacos. PostgreSQL decide cuáles

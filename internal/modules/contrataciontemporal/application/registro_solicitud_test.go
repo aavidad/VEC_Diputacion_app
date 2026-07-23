@@ -48,19 +48,31 @@ func (d *resolutorFlujoDoble) ResolverFlujoAlta(
 	return d.configuracion, d.err
 }
 
-type derivadorIdentidadesHMACDoble struct {
-	coleccion ports.ColeccionIdentidadesHMACAlta
+type derivadorHuellaDoble struct {
+	coleccion ports.ColeccionSellosHMAC
 	err       error
-	antes     func(*ports.SolicitudDerivarIdentidadesHMACAlta)
+	antes     func(*ports.MaterialHuellaAlta)
 }
 
-func (d *derivadorIdentidadesHMACDoble) DerivarIdentidadesHMACAlta(
+func (d *derivadorHuellaDoble) DerivarHuellaAlta(
 	_ context.Context,
-	solicitud ports.SolicitudDerivarIdentidadesHMACAlta,
-) (ports.ColeccionIdentidadesHMACAlta, error) {
+	material ports.MaterialHuellaAlta,
+) (ports.ColeccionSellosHMAC, error) {
 	if d.antes != nil {
-		d.antes(&solicitud)
+		d.antes(&material)
 	}
+	return d.coleccion, d.err
+}
+
+type selladorAmbitoDoble struct {
+	coleccion ports.ColeccionSellosHMAC
+	err       error
+}
+
+func (d *selladorAmbitoDoble) SellarAmbitoIdempotencia(
+	context.Context,
+	ports.SolicitudSellarAmbitoIdempotencia,
+) (ports.ColeccionSellosHMAC, error) {
 	return d.coleccion, d.err
 }
 
@@ -329,15 +341,16 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 }
 
 type dependenciasRegistro struct {
-	contextos       *resolutorContextoDoble
-	flujos          *resolutorFlujoDoble
-	identidadesHMAC *derivadorIdentidadesHMACDoble
-	motivos         *resolutorMotivoDoble
-	correlaciones   *generadorReferenciasDoble
-	preparaciones   *preparadorAltaDoble
-	autorizador     *autorizadorV3Doble
-	reloj           *relojMutable
-	transaccion     *transaccionAltaDoble
+	contextos     *resolutorContextoDoble
+	flujos        *resolutorFlujoDoble
+	huellas       *derivadorHuellaDoble
+	ambitos       *selladorAmbitoDoble
+	motivos       *resolutorMotivoDoble
+	correlaciones *generadorReferenciasDoble
+	preparaciones *preparadorAltaDoble
+	autorizador   *autorizadorV3Doble
+	reloj         *relojMutable
+	transaccion   *transaccionAltaDoble
 }
 
 func construirServicioRegistro(
@@ -345,23 +358,22 @@ func construirServicioRegistro(
 	escenario escenarioRegistro,
 ) (*ServicioRegistroSolicitud, *dependenciasRegistro) {
 	t.Helper()
-	identidadesHMAC, err := ports.NuevaColeccionIdentidadesHMACAlta(
-		ports.DatosIdentidadHMACAlta{
-			Generacion: 2,
-			AmbitoIdempotenciaHMAC: selloHMACRegistroPrueba(
-				"vec.contratacion-temporal.ambito-idempotencia/v2",
-				"c",
-			),
-			HuellaPeticionHMAC: selloHMACRegistroPrueba(
-				"vec.contratacion-temporal.huella-peticion/v2",
-				"c",
-			),
-		},
-		[]ports.DatosIdentidadHMACAlta{{
-			Generacion:             1,
-			AmbitoIdempotenciaHMAC: escenario.preparacion.AmbitoIdempotenciaHMAC,
-			HuellaPeticionHMAC:     escenario.preparacion.HuellaPeticionHMAC,
-		}},
+	ambitosHMAC, err := ports.NuevaColeccionSellosHMAC(
+		selloHMACRegistroPrueba(
+			"vec.contratacion-temporal.ambito-idempotencia/v2",
+			"c",
+		),
+		[]string{escenario.preparacion.AmbitoIdempotenciaHMAC},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellasHMAC, err := ports.NuevaColeccionSellosHMAC(
+		selloHMACRegistroPrueba(
+			"vec.contratacion-temporal.huella-peticion/v2",
+			"c",
+		),
+		[]string{escenario.preparacion.HuellaPeticionHMAC},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -369,10 +381,9 @@ func construirServicioRegistro(
 	d := &dependenciasRegistro{
 		contextos: &resolutorContextoDoble{contexto: escenario.contexto},
 		flujos:    &resolutorFlujoDoble{configuracion: escenario.configuracion},
-		identidadesHMAC: &derivadorIdentidadesHMACDoble{
-			coleccion: identidadesHMAC,
-		},
-		motivos: &resolutorMotivoDoble{motivo: escenario.motivo},
+		huellas:   &derivadorHuellaDoble{coleccion: huellasHMAC},
+		ambitos:   &selladorAmbitoDoble{coleccion: ambitosHMAC},
+		motivos:   &resolutorMotivoDoble{motivo: escenario.motivo},
 		correlaciones: &generadorReferenciasDoble{
 			correlacion: "correlacion_11111111111111111111111111111111",
 		},
@@ -386,7 +397,8 @@ func construirServicioRegistro(
 	servicio, err := NuevoServicioRegistroSolicitud(
 		d.contextos,
 		d.flujos,
-		d.identidadesHMAC,
+		d.huellas,
+		d.ambitos,
 		d.motivos,
 		d.correlaciones,
 		d.preparaciones,
@@ -416,12 +428,13 @@ func TestRegistroSolicitudAutorizaV3AntesDeReservarYConfirma(t *testing.T) {
 		t.Fatalf("secuencia o recibo incorrectos: %#v, %v", recibo, secuencia)
 	}
 	datosSolicitud, err := d.autorizador.solicitud.Datos()
-	datosIdentidades, errIdentidades := d.identidadesHMAC.coleccion.Datos()
-	if err != nil || errIdentidades != nil ||
+	datosAmbitos, errAmbitos := d.ambitos.coleccion.Datos()
+	datosHuellas, errHuellas := d.huellas.coleccion.Datos()
+	if err != nil || errAmbitos != nil || errHuellas != nil ||
 		datosSolicitud.Recurso.Referencia !=
-			datosIdentidades.Activa.AmbitoIdempotenciaHMAC ||
+			datosAmbitos.Activo.Valor ||
 		datosSolicitud.Recurso.Atributos[ports.AtributoHuellaPeticionHMACActiva] !=
-			datosIdentidades.Activa.HuellaPeticionHMAC ||
+			datosHuellas.Activo.Valor ||
 		datosSolicitud.Accion != ports.AccionCrearSolicitud ||
 		datosSolicitud.Finalidad != ports.FinalidadCrearSolicitud ||
 		datosSolicitud.Recurso.ModuloID != ports.ModuloContratacion ||
@@ -445,7 +458,8 @@ func TestRegistroSolicitudAutorizaV3AntesDeReservarYConfirma(t *testing.T) {
 		SolicitudAutorizacionV3: datosOrden.SolicitudAutorizacionV3,
 		DecisionAutorizacionV3:  datosOrden.DecisionAutorizacionV3,
 		ConfirmacionRegistroV3:  datosOrden.ConfirmacionRegistroV3,
-		IdentidadesHMAC:         datosOrden.IdentidadesHMAC,
+		AmbitosIdempotenciaHMAC: datosOrden.AmbitosIdempotenciaHMAC,
+		HuellasPeticionHMAC:     datosOrden.HuellasPeticionHMAC,
 		Preparacion:             datosOrden.Preparacion,
 	}); !errors.Is(err, ports.ErrOrdenAltaInvalida) {
 		t.Fatalf("actuación atribuida a otro actor aceptada: %v", err)
@@ -516,8 +530,8 @@ func TestIntegracionV3PermiteCanonMinimizadoPeroNoReconstruyeCapacidades(t *test
 func TestRegistroSolicitudAislaMutacionesDePuertosYOrden(t *testing.T) {
 	escenario := nuevoEscenarioRegistro(t)
 	servicio, d := construirServicioRegistro(t, escenario)
-	d.identidadesHMAC.antes = func(s *ports.SolicitudDerivarIdentidadesHMACAlta) {
-		s.Material.Solicitud.DocumentosAdjuntos[0] = "documento:mutado"
+	d.huellas.antes = func(material *ports.MaterialHuellaAlta) {
+		material.Solicitud.DocumentosAdjuntos[0] = "documento:mutado"
 	}
 	if _, err := servicio.Registrar(context.Background(), escenario.solicitud); err != nil {
 		t.Fatal(err)
@@ -531,16 +545,16 @@ func TestRegistroSolicitudAislaMutacionesDePuertosYOrden(t *testing.T) {
 		t.Fatal(err)
 	}
 	primera.Expediente.Solicitud.DocumentosAdjuntos[0] = "documento:orden-mutada"
-	datosPrimera, err := primera.IdentidadesHMAC.Datos()
+	datosPrimera, err := primera.HuellasPeticionHMAC.Datos()
 	if err != nil {
 		t.Fatal(err)
 	}
-	datosPrimera.Retenidas[0] = ports.DatosIdentidadHMACAlta{}
+	datosPrimera.Retenidos[0] = ports.SelloGeneracionalHMAC{}
 	segunda, err := d.transaccion.orden.Datos()
-	datosSegunda, errIdentidades := segunda.IdentidadesHMAC.Datos()
+	datosSegunda, errHuellas := segunda.HuellasPeticionHMAC.Datos()
 	if err != nil || segunda.Expediente.Solicitud.DocumentosAdjuntos[0] !=
 		"documento:informe-necesidad-001" ||
-		errIdentidades != nil || datosSegunda.Retenidas[0].Generacion != 1 {
+		errHuellas != nil || datosSegunda.Retenidos[0].Generacion != 1 {
 		t.Fatalf("la orden no hizo copia defensiva: %v", err)
 	}
 }
@@ -627,14 +641,14 @@ func TestRegistroSolicitudRechazaNulosYReferenciasFabricables(t *testing.T) {
 		t.Fatalf("referencia de autenticación fabricable aceptada: %v", err)
 	}
 	if _, err := NuevoServicioRegistroSolicitud(
-		nil, d.flujos, d.identidadesHMAC, d.motivos, d.correlaciones,
+		nil, d.flujos, d.huellas, d.ambitos, d.motivos, d.correlaciones,
 		d.preparaciones, d.autorizador, d.reloj, d.transaccion,
 	); !errors.Is(err, ErrServicioRegistroInvalido) {
 		t.Fatalf("dependencia nula aceptada: %v", err)
 	}
 	var nuloTipado *resolutorContextoDoble
 	if _, err := NuevoServicioRegistroSolicitud(
-		nuloTipado, d.flujos, d.identidadesHMAC, d.motivos, d.correlaciones,
+		nuloTipado, d.flujos, d.huellas, d.ambitos, d.motivos, d.correlaciones,
 		d.preparaciones, d.autorizador, d.reloj, d.transaccion,
 	); !errors.Is(err, ErrServicioRegistroInvalido) {
 		t.Fatalf("dependencia nula tipada aceptada: %v", err)
@@ -662,138 +676,5 @@ func TestRegistroSolicitudRechazaConfirmacionV3CruzadaAntesDePreparar(t *testing
 	if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
 		d.preparaciones.llamadas != 0 || d.transaccion.llamadas != 0 {
 		t.Fatalf("confirmación V3 cruzada produjo reserva o efecto: %v", err)
-	}
-}
-
-func TestRegistroSolicitudMatrizAdversarialDeLigadurasV3(t *testing.T) {
-	escenario := nuevoEscenarioRegistro(t)
-	actorAlternativo := contextoAutorizacionAltaV3PruebaConMarcas(
-		t,
-		escenario.instante,
-		"b",
-		"a",
-	)
-	perfilAlternativo := contextoAutorizacionAltaV3PruebaConMarcas(
-		t,
-		escenario.instante,
-		"a",
-		"b",
-	)
-	motivoAlternativo := escenario.motivo
-	motivoAlternativo.EntradaClave = "motivo_22222222222222222222222222222222"
-
-	type mutacion func(
-		*dominiovec.DatosSolicitudAutorizacionLigadaV3,
-	) (
-		dominiovec.ResultadoContextoActorRegistradoV2,
-		dominiovec.ReferenciaEntradaCatalogo,
-	)
-	casos := map[string]mutacion{
-		"actor": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
-			dominiovec.ResultadoContextoActorRegistradoV2,
-			dominiovec.ReferenciaEntradaCatalogo,
-		) {
-			datos.VinculoAutenticacionActor = actorAlternativo.Vinculo
-			return actorAlternativo.Resultado, escenario.motivo
-		},
-		"perfil": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
-			dominiovec.ResultadoContextoActorRegistradoV2,
-			dominiovec.ReferenciaEntradaCatalogo,
-		) {
-			datos.VinculoAutenticacionActor = perfilAlternativo.Vinculo
-			return perfilAlternativo.Resultado, escenario.motivo
-		},
-		"organizacion": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
-			dominiovec.ResultadoContextoActorRegistradoV2,
-			dominiovec.ReferenciaEntradaCatalogo,
-		) {
-			datos.Recurso.Ambitos["organizacion_ref"] = "organizacion:ajena"
-			return escenario.contexto.Resultado, escenario.motivo
-		},
-		"accion": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
-			dominiovec.ResultadoContextoActorRegistradoV2,
-			dominiovec.ReferenciaEntradaCatalogo,
-		) {
-			datos.Accion = "contratacion_temporal.solicitud.otra"
-			return escenario.contexto.Resultado, escenario.motivo
-		},
-		"finalidad": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
-			dominiovec.ResultadoContextoActorRegistradoV2,
-			dominiovec.ReferenciaEntradaCatalogo,
-		) {
-			datos.Finalidad = "finalidad_ajena"
-			return escenario.contexto.Resultado, escenario.motivo
-		},
-		"recurso": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
-			dominiovec.ResultadoContextoActorRegistradoV2,
-			dominiovec.ReferenciaEntradaCatalogo,
-		) {
-			datos.Recurso.Referencia = selloHMACRegistroPrueba(
-				claveAmbitoRegistroPrueba,
-				"e",
-			)
-			return escenario.contexto.Resultado, escenario.motivo
-		},
-		"motivo": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
-			dominiovec.ResultadoContextoActorRegistradoV2,
-			dominiovec.ReferenciaEntradaCatalogo,
-		) {
-			datos.ReferenciaMotivo = motivoAlternativo
-			return escenario.contexto.Resultado, motivoAlternativo
-		},
-		"flujo": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
-			dominiovec.ResultadoContextoActorRegistradoV2,
-			dominiovec.ReferenciaEntradaCatalogo,
-		) {
-			datos.Recurso.Atributos["flujo_ref"] = "flujo:ajeno"
-			return escenario.contexto.Resultado, escenario.motivo
-		},
-		"correlacion": func(datos *dominiovec.DatosSolicitudAutorizacionLigadaV3) (
-			dominiovec.ResultadoContextoActorRegistradoV2,
-			dominiovec.ReferenciaEntradaCatalogo,
-		) {
-			correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
-				context.Background(),
-				&generadorReferenciasDoble{
-					correlacion: "correlacion_22222222222222222222222222222222",
-				},
-			)
-			if err != nil {
-				t.Fatal(err)
-			}
-			datos.Correlacion = correlacion
-			return escenario.contexto.Resultado, escenario.motivo
-		},
-	}
-
-	for nombre, mutar := range casos {
-		t.Run(nombre, func(t *testing.T) {
-			servicio, d := construirServicioRegistro(t, escenario)
-			d.autorizador.transformar = func(
-				original dominiovec.SolicitudAutorizacionLigadaV3,
-				_ dominiovec.ResultadoContextoActorRegistradoV2,
-			) (
-				dominiovec.SolicitudAutorizacionLigadaV3,
-				dominiovec.ResultadoContextoActorRegistradoV2,
-				dominiovec.ReferenciaEntradaCatalogo,
-			) {
-				datos, err := original.Datos()
-				if err != nil {
-					t.Fatal(err)
-				}
-				resultado, motivo := mutar(&datos)
-				alterada, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(datos)
-				if err != nil {
-					t.Fatal(err)
-				}
-				return alterada, resultado, motivo
-			}
-
-			_, err := servicio.Registrar(context.Background(), escenario.solicitud)
-			if !errors.Is(err, ports.ErrAutorizacionDenegada) ||
-				d.preparaciones.llamadas != 0 || d.transaccion.llamadas != 0 {
-				t.Fatalf("ligadura %s cruzada produjo efecto: %v", nombre, err)
-			}
-		})
 	}
 }

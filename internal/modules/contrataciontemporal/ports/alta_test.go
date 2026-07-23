@@ -1,8 +1,6 @@
 package ports
 
 import (
-	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -11,34 +9,6 @@ const (
 	dominioHuellaPrueba = "vec.contratacion-temporal.huella-peticion/v1"
 	dominioAmbitoPrueba = "vec.contratacion-temporal.ambito-idempotencia/v1"
 )
-
-func identidadHMACPrueba(generacion uint32, digito string) DatosIdentidadHMACAlta {
-	version := strconv.FormatUint(uint64(generacion), 10)
-	return DatosIdentidadHMACAlta{
-		Generacion: generacion,
-		AmbitoIdempotenciaHMAC: selloPrueba(
-			"vec.contratacion-temporal.ambito-idempotencia/v"+version,
-			digito,
-		),
-		HuellaPeticionHMAC: selloPrueba(
-			"vec.contratacion-temporal.huella-peticion/v"+version,
-			digito,
-		),
-	}
-}
-
-func coleccionIdentidadesHMACPrueba(
-	t *testing.T,
-	activa DatosIdentidadHMACAlta,
-	retenidas ...DatosIdentidadHMACAlta,
-) ColeccionIdentidadesHMACAlta {
-	t.Helper()
-	coleccion, err := NuevaColeccionIdentidadesHMACAlta(activa, retenidas)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return coleccion
-}
 
 func TestSelloHMACSHA256ValidoExigeDominioVersionadoYValorNoNulo(t *testing.T) {
 	valido := "hmac-sha256:" + dominioHuellaPrueba + ":" + strings.Repeat("a", 64)
@@ -63,14 +33,13 @@ func TestSelloHMACSHA256ValidoExigeDominioVersionadoYValorNoNulo(t *testing.T) {
 }
 
 func TestPreparacionAltaQuedaLigadaATenantActorPerfilYPeticion(t *testing.T) {
-	activa := identidadHMACPrueba(2, "b")
-	retenida := identidadHMACPrueba(1, "a")
+	huellas := coleccionSelloPrueba(t, selloPrueba(dominioHuellaPrueba, "a"))
 	solicitud := SolicitudPrepararAlta{
-		ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
-		IdentidadesHMAC:   coleccionIdentidadesHMACPrueba(t, activa, retenida),
-		OrganizacionRef:   "organizacion:diputacion-granada",
-		ActorRef:          "actor:tecnica-rrhh-001",
-		PerfilRef:         "perfil:tecnica-rrhh",
+		ClaveIdempotencia:   "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
+		HuellasPeticionHMAC: huellas,
+		OrganizacionRef:     "organizacion:diputacion-granada",
+		ActorRef:            "actor:tecnica-rrhh-001",
+		PerfilRef:           "perfil:tecnica-rrhh",
 	}
 	base := PreparacionAlta{
 		ReservaRef: "reserva:ct-alta:001",
@@ -79,8 +48,8 @@ func TestPreparacionAltaQuedaLigadaATenantActorPerfilYPeticion(t *testing.T) {
 			NumeroVisible: "2026/CT-001",
 			ReciboRef:     "recibo:ct-alta:001",
 		},
-		AmbitoIdempotenciaHMAC: activa.AmbitoIdempotenciaHMAC,
-		HuellaPeticionHMAC:     activa.HuellaPeticionHMAC,
+		AmbitoIdempotenciaHMAC: selloPrueba(dominioAmbitoPrueba, "b"),
+		HuellaPeticionHMAC:     huellas.datos.Activo.Valor,
 		OrganizacionRef:        solicitud.OrganizacionRef,
 		ActorRef:               solicitud.ActorRef,
 		PerfilRef:              solicitud.PerfilRef,
@@ -88,17 +57,6 @@ func TestPreparacionAltaQuedaLigadaATenantActorPerfilYPeticion(t *testing.T) {
 	}
 	if err := base.ValidarPara(solicitud); err != nil {
 		t.Fatalf("preparación válida rechazada: %v", err)
-	}
-	repeticionRetenida := base
-	repeticionRetenida.AmbitoIdempotenciaHMAC = retenida.AmbitoIdempotenciaHMAC
-	repeticionRetenida.HuellaPeticionHMAC = retenida.HuellaPeticionHMAC
-	if err := repeticionRetenida.ValidarPara(solicitud); err != nil {
-		t.Fatalf("repetición de generación retenida rechazada: %v", err)
-	}
-	parMezclado := base
-	parMezclado.AmbitoIdempotenciaHMAC = retenida.AmbitoIdempotenciaHMAC
-	if err := parMezclado.ValidarPara(solicitud); err == nil {
-		t.Fatal("se aceptó ámbito retenido con huella activa")
 	}
 
 	casos := map[string]func(*PreparacionAlta){
@@ -114,9 +72,6 @@ func TestPreparacionAltaQuedaLigadaATenantActorPerfilYPeticion(t *testing.T) {
 		"peticion": func(p *PreparacionAlta) {
 			p.HuellaPeticionHMAC = selloPrueba(dominioHuellaPrueba, "c")
 		},
-		"ambito": func(p *PreparacionAlta) {
-			p.AmbitoIdempotenciaHMAC = selloPrueba(dominioAmbitoPrueba, "c")
-		},
 	}
 	for nombre, adulterar := range casos {
 		t.Run(nombre, func(t *testing.T) {
@@ -129,122 +84,12 @@ func TestPreparacionAltaQuedaLigadaATenantActorPerfilYPeticion(t *testing.T) {
 	}
 }
 
-func TestColeccionIdentidadesHMACAltaLigaGeneracionesYClonaRetenidas(t *testing.T) {
-	base := coleccionIdentidadesHMACPrueba(
-		t,
-		identidadHMACPrueba(2, "b"),
-		identidadHMACPrueba(1, "a"),
-	)
-	clon, err := base.Clonar()
-	if err != nil {
-		t.Fatal(err)
-	}
-	datosClon, err := clon.Datos()
-	if err != nil {
-		t.Fatal(err)
-	}
-	datosClon.Retenidas[0] = DatosIdentidadHMACAlta{}
-	datosBase, err := base.Datos()
-	if err != nil || validarDatosIdentidadHMACAlta(datosBase.Retenidas[0]) != nil {
-		t.Fatal("la copia modificó las generaciones retenidas")
-	}
-
-	mutacionGeneracion := identidadHMACPrueba(2, "b")
-	mutacionGeneracion.Generacion = 1
-	parMezclado := identidadHMACPrueba(2, "b")
-	parMezclado.HuellaPeticionHMAC = identidadHMACPrueba(
-		1,
-		"a",
-	).HuellaPeticionHMAC
-	dominiosInvertidos := identidadHMACPrueba(2, "b")
-	dominiosInvertidos.AmbitoIdempotenciaHMAC,
-		dominiosInvertidos.HuellaPeticionHMAC =
-		dominiosInvertidos.HuellaPeticionHMAC,
-		dominiosInvertidos.AmbitoIdempotenciaHMAC
-	casos := map[string]struct {
-		activa    DatosIdentidadHMACAlta
-		retenidas []DatosIdentidadHMACAlta
-	}{
-		"activa cero":                   {},
-		"generacion declarada distinta": {activa: mutacionGeneracion},
-		"generacion repetida": {
-			activa: identidadHMACPrueba(2, "b"),
-			retenidas: []DatosIdentidadHMACAlta{
-				identidadHMACPrueba(2, "c"),
-			},
-		},
-		"retenida superior": {
-			activa: identidadHMACPrueba(2, "b"),
-			retenidas: []DatosIdentidadHMACAlta{
-				identidadHMACPrueba(3, "c"),
-			},
-		},
-		"retenidas desordenadas": {
-			activa: identidadHMACPrueba(4, "d"),
-			retenidas: []DatosIdentidadHMACAlta{
-				identidadHMACPrueba(2, "b"),
-				identidadHMACPrueba(3, "c"),
-			},
-		},
-		"par mezclado":        {activa: parMezclado},
-		"dominios invertidos": {activa: dominiosInvertidos},
-		"demasiadas": {
-			activa: identidadHMACPrueba(5, "e"),
-			retenidas: []DatosIdentidadHMACAlta{
-				identidadHMACPrueba(4, "d"),
-				identidadHMACPrueba(3, "c"),
-				identidadHMACPrueba(2, "b"),
-				identidadHMACPrueba(1, "a"),
-			},
-		},
-	}
-	maxima := coleccionIdentidadesHMACPrueba(
-		t,
-		identidadHMACPrueba(4, "d"),
-		identidadHMACPrueba(3, "c"),
-		identidadHMACPrueba(2, "b"),
-		identidadHMACPrueba(1, "a"),
-	)
-	if maxima.Validar() != nil {
-		t.Fatal("se rechazó el máximo de cuatro generaciones")
-	}
-	for nombre, candidata := range casos {
-		t.Run(nombre, func(t *testing.T) {
-			if _, err := NuevaColeccionIdentidadesHMACAlta(
-				candidata.activa,
-				candidata.retenidas,
-			); err == nil {
-				t.Fatal("colección HMAC inválida aceptada")
-			}
-		})
-	}
-}
-
-func TestColeccionIdentidadesHMACAltaNoExponeCamposFabricables(t *testing.T) {
-	tipo := reflect.TypeOf(ColeccionIdentidadesHMACAlta{})
-	if tipo.NumField() != 1 || tipo.Field(0).IsExported() {
-		t.Fatalf("la capacidad HMAC expone representación pública: %v", tipo)
-	}
-}
-
-func TestSolicitudPrepararAltaRechazaColeccionHMACNula(t *testing.T) {
-	solicitud := SolicitudPrepararAlta{
-		ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
-		OrganizacionRef:   "organizacion:diputacion-granada",
-		ActorRef:          "actor:tecnica-rrhh-001",
-		PerfilRef:         "perfil:tecnica-rrhh",
-	}
-	if solicitud.Validar() == nil {
-		t.Fatal("preparación con ámbito y huella de generaciones distintas aceptada")
-	}
-}
-
 func TestSolicitudPrepararAltaExigeClaveIdempotenciaUUIDv4Canonica(t *testing.T) {
 	base := SolicitudPrepararAlta{
 		ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
-		IdentidadesHMAC: coleccionIdentidadesHMACPrueba(
+		HuellasPeticionHMAC: coleccionSelloPrueba(
 			t,
-			identidadHMACPrueba(1, "a"),
+			selloPrueba(dominioHuellaPrueba, "a"),
 		),
 		OrganizacionRef: "organizacion:diputacion-granada",
 		ActorRef:        "actor:tecnica-rrhh-001",
@@ -290,4 +135,64 @@ func TestReferenciasAltaRechazaNumeroVisibleFueraDeContrato(t *testing.T) {
 
 func selloPrueba(dominio, caracter string) string {
 	return "hmac-sha256:" + dominio + ":" + strings.Repeat(caracter, 64)
+}
+
+func coleccionSelloPrueba(t *testing.T, activo string) ColeccionSellosHMAC {
+	t.Helper()
+	coleccion, err := NuevaColeccionSellosHMAC(activo, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return coleccion
+}
+
+func TestColeccionesHMACAltaExigenGeneracionesAlineadasYParInseparable(t *testing.T) {
+	ambitoV2 := selloPrueba(
+		"vec.contratacion-temporal.ambito-idempotencia/v2",
+		"b",
+	)
+	ambitoV1 := selloPrueba(dominioAmbitoPrueba, "a")
+	huellaV2 := selloPrueba(
+		"vec.contratacion-temporal.huella-peticion/v2",
+		"b",
+	)
+	huellaV1 := selloPrueba(dominioHuellaPrueba, "a")
+	ambitos, err := NuevaColeccionSellosHMAC(ambitoV2, []string{ambitoV1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellas, err := NuevaColeccionSellosHMAC(huellaV2, []string{huellaV1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	activoAmbito, activaHuella, err := ParActivoColeccionesHMACAlta(
+		ambitos,
+		huellas,
+	)
+	if err != nil || activoAmbito != ambitoV2 || activaHuella != huellaV2 {
+		t.Fatalf("par activo incorrecto: %q %q %v", activoAmbito, activaHuella, err)
+	}
+	if !ColeccionesHMACAltaContienenPar(
+		ambitos,
+		huellas,
+		ambitoV1,
+		huellaV1,
+	) || ColeccionesHMACAltaContienenPar(
+		ambitos,
+		huellas,
+		ambitoV1,
+		huellaV2,
+	) {
+		t.Fatal("se separó el par HMAC generacional")
+	}
+	huellasSoloActiva, err := NuevaColeccionSellosHMAC(huellaV2, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ParActivoColeccionesHMACAlta(
+		ambitos,
+		huellasSoloActiva,
+	); err == nil {
+		t.Fatal("colecciones con historias generacionales distintas aceptadas")
+	}
 }
