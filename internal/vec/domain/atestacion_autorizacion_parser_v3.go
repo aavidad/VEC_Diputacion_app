@@ -365,6 +365,10 @@ func validarSemanticaDecisionCanonicaAtestacionAutorizacionV3(
 		) ||
 		d.RevisionCatalogoPoliticas == 0 ||
 		!huellaSHA256AutorizacionValida(d.CatalogoPoliticasHuellaSHA256) ||
+		d.PoliticasEvaluadas == nil ||
+		d.PoliticasAplicables == nil ||
+		d.CamposPermitidos == nil ||
+		d.Obligaciones == nil ||
 		!evidenciasPoliticaAutorizacionV3Validas(evaluadas) ||
 		!evidenciasPoliticaAutorizacionV3Validas(aplicables) ||
 		!subconjuntoPoliticasAutorizacionV3Valido(evaluadas, aplicables) ||

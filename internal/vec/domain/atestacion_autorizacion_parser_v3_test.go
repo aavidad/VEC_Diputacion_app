@@ -153,6 +153,18 @@ func TestParsearMensajeAtestacionAutorizacionV3RechazaMutacionesSemanticasRecomp
 		{"revision catalogo cero", func(d *decisionAutorizacionCanonicaV3) {
 			d.RevisionCatalogoPoliticas = 0
 		}},
+		{"politicas evaluadas null", func(d *decisionAutorizacionCanonicaV3) {
+			d.PoliticasEvaluadas = nil
+		}},
+		{"politicas aplicables null", func(d *decisionAutorizacionCanonicaV3) {
+			d.PoliticasAplicables = nil
+		}},
+		{"campos permitidos null", func(d *decisionAutorizacionCanonicaV3) {
+			d.CamposPermitidos = nil
+		}},
+		{"obligaciones null", func(d *decisionAutorizacionCanonicaV3) {
+			d.Obligaciones = nil
+		}},
 		{"huella catalogo cruzada", func(d *decisionAutorizacionCanonicaV3) {
 			d.CatalogoPoliticasHuellaSHA256 = strings.Repeat("a", 64)
 		}},
