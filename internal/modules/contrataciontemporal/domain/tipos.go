@@ -163,6 +163,13 @@ func ReferenciaOpacaValida(valor string) bool {
 	return referenciaValida(valor)
 }
 
+// GrupoSubgrupoValido expone la gramática técnica del grupo/subgrupo a los
+// puertos. La existencia y vigencia de cada valor siguen perteneciendo al
+// catálogo gobernado, no a esta comprobación sintáctica.
+func GrupoSubgrupoValido(valor string) bool {
+	return grupoValido(valor)
+}
+
 // NumeroExpedienteValido expone la gramática técnica del identificador
 // visible para que persistencia y recibos no acepten formas que el agregado
 // rechazaría.
