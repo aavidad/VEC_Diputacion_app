@@ -19,7 +19,8 @@ Debe invocar la función con parámetros enlazados y no registrar el JSON.
 
 ## Identidades y privilegios
 
-`roles_up.sql` crea cinco roles técnicos `NOLOGIN`:
+`roles_up.sql` crea cinco roles técnicos `NOLOGIN` y una identidad operativa
+dedicada:
 
 - `vec_bolsa_publica_propietario`: propietario de tablas, vistas y del trigger
   de invalidación;
@@ -30,7 +31,10 @@ Debe invocar la función con parámetros enlazados y no registrar el JSON.
 - `vec_bolsa_publica_consulta`: `USAGE` del esquema de lectura y `SELECT` sobre
   las diez vistas allowlist;
 - `vec_bolsa_publica_publicador`: `USAGE` del esquema de publicación y
-  `EXECUTE` solo sobre `publicar_proyeccion_v2(jsonb,text)`.
+  ninguna capacidad de escritura por sí solo;
+- `vec_bolsa_publica_publicador_login`: único `LOGIN` que recibe `EXECUTE`
+  directo sobre `publicar_proyeccion_v2(jsonb,text)`. Se crea con contraseña
+  nula y no puede usarse hasta que el gestor de secretos la aprovisione.
 
 Los dos propietarios son distintos, no pueden iniciar sesión y no se conceden
 al publicador. La función propietaria puede insertar todas las tablas y borrar
@@ -38,29 +42,31 @@ solo las cuatro raíces necesarias para el reemplazo completo. No puede hacer
 `SELECT`, `UPDATE` ni borrar el historial de anclas. El publicador no tiene DML
 directo, no ejecuta la función auxiliar y no puede `SET ROLE`.
 
-Las cuentas `LOGIN` se crean fuera del repositorio, con secretos gestionados y
-una sola membresía directa:
+La cuenta lectora se crea fuera del repositorio, con secreto gestionado y una
+sola membresía directa:
 
 ```sql
 GRANT vec_bolsa_publica_consulta TO vec_publico_login
     WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
 
-GRANT vec_bolsa_publica_publicador TO vec_publicador_login
-    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
-
-ALTER ROLE vec_publicador_login
-    SET log_parameter_max_length_on_error = 0;
+ALTER ROLE vec_bolsa_publica_publicador_login
+    PASSWORD '<secreto entregado sin registrarlo>';
 ```
 
 Los valores `ALTER ROLE ... SET` de un grupo no deben tomarse como sustituto de
 la configuración del `LOGIN`. El adaptador Go fija y comprueba en cada conexión
 de lectura: solo lectura, `REPEATABLE READ`, `search_path` cerrado, zona UTC,
 `statement_timeout=10s`, `lock_timeout=2s` e inactividad transaccional de 10 s.
-La función publicadora fija por sí misma ruta, zona, formato de fecha, memoria,
-timeouts, JIT y ocultación de parámetros durante su ejecución. El `ALTER ROLE`
-anterior también es obligatorio sobre el `LOGIN` real: los parámetros de un
-grupo `NOLOGIN` no se heredan y el servidor puede registrar el error después de
-que la función haya propagado la excepción.
+El LOGIN publicador tiene, antes de recibir una sentencia,
+`statement_timeout=60s`, `lock_timeout=5s`,
+`idle_in_transaction_session_timeout=5s`, `transaction_timeout=2min`,
+`search_path` cerrado, nombre de aplicación fijo y parámetros de error
+redactados. La función y el adaptador cotejan tanto los valores efectivos como
+`pg_roles.rolconfig`; cualquier deriva falla antes de tomar el candado.
+
+No se concederá `EXECUTE` al grupo `NOLOGIN`, a otra cuenta ni a un rol
+compartido. La función comprueba además el nombre exacto de `session_user`.
+Así una membresía accidental del grupo no abre la escritura.
 
 ## Integridad y publicación
 
@@ -107,8 +113,43 @@ dejado filas.
 El advisory lock exclusivo de escritura es transaccional: permanece hasta
 `COMMIT` o `ROLLBACK`. Publicadores y migraciones usan la misma clave; las
 migraciones toman primero su candado de versión y después el de publicación.
-Los lectores no compiten por ese lock. Los timeouts limitan un cliente lento y
-el pool público está acotado a seis conexiones.
+Los lectores no compiten por ese lock. La única ruta operativa admitida es
+`postgrespublico.PublicarProyeccion`: conexión de un solo uso, parámetros
+enlazados y una única sentencia autocommit. No se permite envolverla en una
+transacción del llamante ni publicar desde `psql`.
+
+Los `SET` declarados en una función no arrancan el temporizador de la sentencia
+que ya la está ejecutando y se restauran al retornar. Por eso los límites
+obligatorios viven en el LOGIN antes de invocar. En PostgreSQL 18,
+`transaction_timeout` acota la transacción completa y el timeout de inactividad
+termina antes una sesión abandonada, aborta sus cambios y libera el advisory
+lock.
+
+Riesgo residual: quien comprometa las credenciales del LOGIN puede enviar otra
+sentencia que cambie un GUC después de retornar la función dentro de una
+transacción explícita. PL/pgSQL no puede gobernar el estado futuro de esa
+transacción llamante. La mitigación es arquitectónica: secreto accesible solo
+al publicador autocommit, ACL directa a esa identidad, sin consola/SQL genérico,
+conexión de un solo uso y `transaction_timeout` de rol. Un acceso SQL arbitrario
+con esas credenciales es un incidente de credenciales, no una modalidad
+soportada.
+
+### Runbook de publicador bloqueado
+
+1. Detener el publicador y retirar el secreto; no copiar parámetros ni JSON a
+   tickets, terminales compartidos o logs.
+2. Desde una sesión DBA, localizar exclusivamente PID, estado, edad y nombre de
+   aplicación en `pg_stat_activity`, y el candado advisory en `pg_locks`.
+3. Si supera los límites anteriores, ejecutar `pg_terminate_backend(pid)`.
+   Confirmar que desaparecen sesión y candado y que la revisión visible no
+   cambió parcialmente.
+4. Ejecutar en una transacción de diagnóstico
+   `pg_try_advisory_xact_lock` para las claves de migración y publicación,
+   hacer `ROLLBACK` y comprobar que ambas están libres.
+5. Verificar `rolconfig`, membresía, ACL directa, TLS y versión PostgreSQL antes
+   de reponer un secreto nuevo. Descartar el ancla del intento dudoso.
+6. Reintentar mediante `PublicarProyeccion` con ancla nueva. Comprobar revisión
+   y manifiesto desde un lector gobernado; después rehabilitar el servicio.
 
 ## Actualizaciones y disponibilidad
 
@@ -138,7 +179,9 @@ Orden de instalación:
 1. `roles_up.sql` como DBA;
 2. `migraciones/000001_proyeccion_publica.up.sql` con `current_user` igual a
    `vec_bolsa_publica_migrador`;
-3. aprovisionamiento externo de los dos `LOGIN` y sus concesiones exactas;
+3. aprovisionamiento externo del LOGIN lector y asignación del secreto al
+   `vec_bolsa_publica_publicador_login` ya creado, sin cambiar sus GUC, nombre
+   ni ACL;
 4. publicación interna de una proyección completa y de un manifiesto nuevo;
 5. distribución de la huella externa al proceso público y arranque.
 
@@ -173,13 +216,16 @@ exactos, ausencia de DML y `SET ROLE`, contrato JSON recursivo, rechazo de PII e
 claves desconocidas, límites, sentinel cero, historial A→B→A, arranque HTTP,
 listado/facetas/detalle multiversión, categorías caducadas, doble huella exacta,
 invalidación global, lectores A/B sin bloqueo, contención del pool, redacción
-de errores y logs, cliente publicador lento, serialización con migración y
-reversión atómica. Certificados, credenciales y fixtures son efímeros.
+de errores y logs, terminación de un publicador que excede el timeout de
+inactividad, liberación del candado, recuperación de publicación/migración,
+serialización y reversión atómica. Certificados, credenciales y fixtures son
+efímeros.
 
 ## Reversión
 
 La migración `down` exige
 `vec.confirmar_retirada_proyeccion_bolsa_publica` mientras quede cualquier dato,
 incluidos fuente e historial. Primero se retiran los esquemas; después se
-revocan y eliminan externamente los `LOGIN`. `roles_down.sql` se niega a borrar
-los grupos mientras conserven miembros.
+revoca y elimina externamente el LOGIN lector. `roles_down.sql` se niega a
+borrar los grupos mientras conserven miembros ajenos y elimina por sí mismo el
+LOGIN publicador dedicado.
