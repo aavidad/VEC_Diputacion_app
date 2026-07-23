@@ -177,7 +177,7 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorDenegacion, nil)
 	}
-	solicitudConsulta := ports.SolicitudConsultarOperacionAnalisisConfirmada{
+	datosConsulta := ports.DatosPreimagenesConsultaOperacionAnalisis{
 		Operacion:           solicitud.operacion,
 		OrganizacionRef:     solicitud.organizacionRef,
 		ExpedienteRef:       solicitud.expedienteRef,
@@ -188,6 +188,29 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		ArtefactoRef:        solicitud.artefactoRef,
 		DatosFuncionales:    solicitud.datosFuncionales,
 		MotivoRectificacion: solicitud.motivoRectificacion,
+	}
+	preimagenesConsulta, err :=
+		ports.NuevasPreimagenesConsultaOperacionAnalisis(datosConsulta)
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{},
+			nuevoErrorOperacionAnalisis(tipoErrorSolicitud, nil)
+	}
+	sellosConsulta, err := s.sellador.SellarOperacionAnalisis(
+		ctxOperacion,
+		preimagenesConsulta,
+	)
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{},
+			errorDependenciaOperacionAnalisis(ctxOperacion)
+	}
+	solicitudConsulta, err :=
+		ports.NuevaSolicitudConsultarOperacionAnalisisConfirmada(
+			datosConsulta,
+			sellosConsulta,
+		)
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{},
+			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
 	}
 	reciboConfirmado, encontrado, err := s.preparaciones.
 		ConsultarOperacionAnalisisConfirmada(
@@ -272,6 +295,7 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		ArtefactoRef:          datosArtefacto.ArtefactoRef,
 		ArtefactoHuellaSHA256: datosArtefacto.ArtefactoHuellaSHA256,
 		Sellos:                sellos,
+		IdentidadConsulta:     solicitudConsulta,
 	}
 	preparacion, err := s.preparaciones.PrepararOperacionAnalisis(
 		ctxOperacion,

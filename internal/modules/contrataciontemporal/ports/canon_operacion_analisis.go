@@ -11,6 +11,7 @@ import (
 const (
 	esquemaAmbitoOperacionAnalisis    = "VEC-CT-ANALISIS-AMBITO-IDEMPOTENCIA-V2"
 	esquemaSemanticaOperacionAnalisis = "VEC-CT-ANALISIS-SEMANTICA-ARTEFACTO-O3-V2"
+	esquemaConsultaOperacionAnalisis  = "VEC-CT-ANALISIS-CONSULTA-CONFIRMADA-O3-V1"
 	maximoBytesCanonOperacionAnalisis = 64 * 1024
 )
 
@@ -22,6 +23,84 @@ type DatosPreimagenesOperacionAnalisis struct {
 	MotivoRectificacion domain.ClaveCatalogo
 	SolicitudArtefacto  SolicitudPrepararArtefactoAnalisis
 	Artefacto           ArtefactoAnalisisPreparado
+}
+
+type DatosPreimagenesConsultaOperacionAnalisis struct {
+	ClaveIdempotencia   string
+	Operacion           TipoOperacionAnalisis
+	OrganizacionRef     string
+	ExpedienteRef       string
+	VersionExpediente   uint64
+	ActorRef            string
+	PerfilRef           string
+	ArtefactoRef        string
+	DatosFuncionales    DatosFuncionalesOperacionAnalisis
+	MotivoRectificacion domain.ClaveCatalogo
+}
+
+// NuevasPreimagenesConsultaOperacionAnalisis sella toda la identidad de la
+// petición temprana sin entregarla al adaptador de persistencia.
+func NuevasPreimagenesConsultaOperacionAnalisis(
+	datos DatosPreimagenesConsultaOperacionAnalisis,
+) (PreimagenesOperacionAnalisis, error) {
+	if !ClaveIdempotenciaValida(datos.ClaveIdempotencia) ||
+		!datos.Operacion.Valida() ||
+		!domain.ReferenciaOpacaValida(datos.OrganizacionRef) ||
+		!domain.ReferenciaOpacaValida(datos.ExpedienteRef) ||
+		!VersionOperacionAnalisisConIncrementoValida(
+			datos.VersionExpediente,
+		) ||
+		!domain.ReferenciaOpacaValida(datos.ActorRef) ||
+		!domain.ReferenciaOpacaValida(datos.PerfilRef) ||
+		!domain.ReferenciaOpacaValida(datos.ArtefactoRef) ||
+		datos.DatosFuncionales.Validar() != nil {
+		return PreimagenesOperacionAnalisis{},
+			ErrOperacionAnalisisInvalida
+	}
+	if datos.Operacion == OperacionRegistrarAnalisis {
+		if datos.MotivoRectificacion != "" {
+			return PreimagenesOperacionAnalisis{},
+				ErrOperacionAnalisisInvalida
+		}
+	} else if !datos.MotivoRectificacion.Valida() {
+		return PreimagenesOperacionAnalisis{},
+			ErrOperacionAnalisisInvalida
+	}
+
+	ambito := nuevoCanonOperacionAnalisis()
+	escribirAmbitoOperacionAnalisis(
+		ambito,
+		datos.ClaveIdempotencia,
+		datos.OrganizacionRef,
+		datos.ExpedienteRef,
+		datos.ActorRef,
+		datos.PerfilRef,
+	)
+	bytesAmbito, err := ambito.resultado()
+	if err != nil {
+		return PreimagenesOperacionAnalisis{}, err
+	}
+
+	semantica := nuevoCanonOperacionAnalisis()
+	semantica.texto(esquemaConsultaOperacionAnalisis)
+	semantica.texto(datos.ClaveIdempotencia)
+	semantica.texto(string(datos.Operacion))
+	semantica.texto(datos.OrganizacionRef)
+	semantica.texto(datos.ExpedienteRef)
+	semantica.enteroSinSigno(datos.VersionExpediente)
+	semantica.texto(datos.ActorRef)
+	semantica.texto(datos.PerfilRef)
+	semantica.texto(datos.ArtefactoRef)
+	semantica.texto(string(datos.MotivoRectificacion))
+	escribirDatosFuncionalesCanonicos(semantica, datos.DatosFuncionales)
+	bytesSemantica, err := semantica.resultado()
+	if err != nil {
+		return PreimagenesOperacionAnalisis{}, err
+	}
+	return PreimagenesOperacionAnalisis{
+		ambito:    bytesAmbito,
+		semantica: bytesSemantica,
+	}, nil
 }
 
 func NuevasPreimagenesOperacionAnalisis(
@@ -44,12 +123,14 @@ func NuevasPreimagenesOperacionAnalisis(
 	}
 
 	ambito := nuevoCanonOperacionAnalisis()
-	ambito.texto(esquemaAmbitoOperacionAnalisis)
-	ambito.texto(datos.ClaveIdempotencia)
-	ambito.texto(artefacto.OrganizacionRef)
-	ambito.texto(artefacto.ExpedienteRef)
-	ambito.texto(datos.ActorRef)
-	ambito.texto(datos.PerfilRef)
+	escribirAmbitoOperacionAnalisis(
+		ambito,
+		datos.ClaveIdempotencia,
+		artefacto.OrganizacionRef,
+		artefacto.ExpedienteRef,
+		datos.ActorRef,
+		datos.PerfilRef,
+	)
 	bytesAmbito, err := ambito.resultado()
 	if err != nil {
 		return PreimagenesOperacionAnalisis{}, err
@@ -77,6 +158,22 @@ func NuevasPreimagenesOperacionAnalisis(
 		ambito:    bytesAmbito,
 		semantica: bytesSemantica,
 	}, nil
+}
+
+func escribirAmbitoOperacionAnalisis(
+	canon *canonOperacionAnalisis,
+	claveIdempotencia string,
+	organizacionRef string,
+	expedienteRef string,
+	actorRef string,
+	perfilRef string,
+) {
+	canon.texto(esquemaAmbitoOperacionAnalisis)
+	canon.texto(claveIdempotencia)
+	canon.texto(organizacionRef)
+	canon.texto(expedienteRef)
+	canon.texto(actorRef)
+	canon.texto(perfilRef)
 }
 
 func escribirDatosFuncionalesCanonicos(

@@ -201,7 +201,7 @@ func TestOperacionAnalisisMismaClaveConSemanticaDistintaEsConflicto(
 
 	_, err := servicio.Registrar(context.Background(), cambiada)
 	if !errors.Is(err, ErrOperacionAnalisisEnConflicto) ||
-		len(d.sellador.preimagenes) != 1 ||
+		len(d.sellador.preimagenes) != 3 ||
 		d.artefactos.llamadas != 1 ||
 		d.transaccion.consumosFuentes != 1 ||
 		d.transaccion.consumosV3 != 1 ||

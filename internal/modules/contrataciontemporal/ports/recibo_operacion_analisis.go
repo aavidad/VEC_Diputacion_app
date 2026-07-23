@@ -27,6 +27,8 @@ type ReciboOperacionAnalisis struct {
 	HuellaConsumoFuentes   string                `json:"huella_consumo_fuentes_sha256"`
 	ConcesionV3DecisionRef string                `json:"concesion_v3_decision_ref"`
 	HuellaSemanticaHMAC    string                `json:"huella_semantica_hmac"`
+	AmbitoConsultaHMAC     string                `json:"ambito_consulta_hmac"`
+	HuellaConsultaHMAC     string                `json:"huella_consulta_hmac"`
 	ConfirmadaEn           time.Time             `json:"confirmada_en"`
 }
 
@@ -56,6 +58,14 @@ func (r ReciboOperacionAnalisis) ValidarParaPreparacion(
 			r.HuellaSemanticaHMAC,
 			preparacion.HuellaSemanticaHMAC,
 		) ||
+		!sellosHMACIguales(
+			r.AmbitoConsultaHMAC,
+			preparacion.AmbitoConsultaHMAC,
+		) ||
+		!sellosHMACIguales(
+			r.HuellaConsultaHMAC,
+			preparacion.HuellaConsultaHMAC,
+		) ||
 		!instanteSeguroOperacionAnalisis(r.ConfirmadaEn) {
 		return ErrResultadoOperacionAnalisisNoConfiable
 	}
@@ -66,11 +76,11 @@ func (r ReciboOperacionAnalisis) ValidarParaConsulta(
 	solicitud SolicitudConsultarOperacionAnalisisConfirmada,
 ) error {
 	if solicitud.Validar() != nil ||
-		r.Operacion != solicitud.Operacion ||
-		r.OrganizacionRef != solicitud.OrganizacionRef ||
-		r.ExpedienteRef != solicitud.ExpedienteRef ||
-		r.VersionAnterior != solicitud.VersionExpediente ||
-		r.ArtefactoRef != solicitud.ArtefactoRef ||
+		!solicitud.coincideCoordenadas(r) ||
+		!solicitud.contienePar(
+			r.AmbitoConsultaHMAC,
+			r.HuellaConsultaHMAC,
+		) ||
 		!huellaSHA256OperacionAnalisisValida(
 			r.ArtefactoHuellaSHA256,
 		) ||

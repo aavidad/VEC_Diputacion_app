@@ -99,6 +99,7 @@ type preparadorOperacionAnalisisDobleSaneado struct {
 	confirmado         *ports.ReciboOperacionAnalisis
 	consultaConfirmada *ports.ReciboOperacionAnalisis
 	errConsulta        error
+	despuesConsulta    func()
 	consultas          int
 	solicitudConsulta  ports.SolicitudConsultarOperacionAnalisisConfirmada
 	err                error
@@ -116,9 +117,16 @@ func (d *preparadorOperacionAnalisisDobleSaneado) ConsultarOperacionAnalisisConf
 		return ports.ReciboOperacionAnalisis{}, false, d.errConsulta
 	}
 	if d.consultaConfirmada == nil {
+		if d.despuesConsulta != nil {
+			d.despuesConsulta()
+		}
 		return ports.ReciboOperacionAnalisis{}, false, nil
 	}
-	return *d.consultaConfirmada, true, nil
+	recibo := *d.consultaConfirmada
+	if d.despuesConsulta != nil {
+		d.despuesConsulta()
+	}
+	return recibo, true, nil
 }
 
 func (d *preparadorOperacionAnalisisDobleSaneado) PrepararOperacionAnalisis(
@@ -154,6 +162,10 @@ func (d *preparadorOperacionAnalisisDobleSaneado) PrepararOperacionAnalisis(
 		datos.Estado = ports.PreparacionOperacionAnalisisConfirmada
 		datos.ExpedienteAnterior = nil
 		datos.ReciboConfirmado = d.confirmado
+		datos.AmbitoConsultaHMAC =
+			d.confirmado.AmbitoConsultaHMAC
+		datos.HuellaConsultaHMAC =
+			d.confirmado.HuellaConsultaHMAC
 	}
 	return ports.NuevaPreparacionOperacionAnalisis(solicitud, datos)
 }
@@ -316,6 +328,8 @@ func (d *transaccionOperacionAnalisisDobleSaneado) ConfirmarOperacionAnalisis(
 		HuellaConsumoFuentes:   reciboConsumo.HuellaConjunto,
 		ConcesionV3DecisionRef: confirmacionV3.DecisionRef,
 		HuellaSemanticaHMAC:    preparacion.HuellaSemanticaHMAC,
+		AmbitoConsultaHMAC:     preparacion.AmbitoConsultaHMAC,
+		HuellaConsultaHMAC:     preparacion.HuellaConsultaHMAC,
 		ConfirmadaEn:           confirmadaEn,
 	}
 	if err := recibo.ValidarParaOrdenDentroDeTransaccion(orden); err != nil {
