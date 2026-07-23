@@ -66,7 +66,7 @@ Estados:
 | Tarea | Entregable aislado | Verificación de cierre | Estado |
 | --- | --- | --- | --- |
 | O4-01 | Catálogo versionado de vías y comprobaciones exigibles. | Publicación inmutable; nueva opción sin recompilar. | ✅ `dff8156`–`baebb55` |
-| O4-02 | Consultas minimizadas a Bolsa, SAE y convocatorias. | No accede a tablas ajenas; timeouts y procedencia registrada. | 🚧 Quinta corrección candidata `5bb4aaf`: revalidación posterior a cada presentación, replay histórico K1 separado de autoridad actual K2, orquestación trasladada a aplicación y tiempos deterministas. Puertas del productor verdes; pendiente revisión independiente. No integrado. |
+| O4-02 | Consultas minimizadas a Bolsa, SAE y convocatorias. | No accede a tablas ajenas; timeouts y procedencia registrada. | 🚧 Quinta corrección `5bb4aaf` con NO-GO independiente: la ruta nueva es correcta, pero `ports.ValidarRCConFuente` y `ports.CalcularCosteConFuente` conservan coordinación multipuerto y verifican con un instante anterior a la presentación. Sexta corrección en curso; no integrado. |
 | O4-03 | Caso de uso de propuesta y decisión motivada. | Resultados contradictorios, ausencia de datos, rectificación y CAS. | — |
 | O4-04 | Persistencia, autorización, auditoría y outbox. | PostgreSQL real, consumo único y recibo. | — |
 | O4-05 | API, pantalla comparativa y E2E. | La vía elegida muestra fuentes y justificación sin exponer PII indebida. | — |

@@ -194,14 +194,14 @@ ajenas.
   que puede consumir tiempo y no al terminar; el replay histórico vuelve a
   verificar con la clave actual y falla tras rotación; y `ports` conserva una
   orquestación residual de desafío, presentación y verificación.
-- La quinta corrección O4-02 `0a3604c`–`5bb4aaf` relee tiempo autoritativo
-  después de cada presentación, separa la evidencia histórica pública K1 de
-  la autoridad actual K2, impide que un recibo histórico enmascare confianza
-  actual inválida y elimina los tiempos de prueba dependientes del
-  planificador. El productor superó focal ×50, carrera, pruebas globales,
-  `go vet`, tamaños y secretos. Permanece sin integrar y en NO-GO hasta la
-  revisión definida en
-  `encargo_revision_o4_02_quinta_correccion_2026-07-23.md`.
+- La quinta corrección O4-02 `0a3604c`–`5bb4aaf` arregló la ruta nueva, pero
+  recibió NO-GO independiente: `ports.ValidarRCConFuente` y
+  `ports.CalcularCosteConFuente` siguen coordinando varios puertos y verifican
+  con un instante capturado antes de presentar. Una credencial válida hasta
+  `t0+6 s` puede aceptarse indebidamente si la presentación consume dos
+  segundos y el horizonte es cinco. La sexta corrección debe retirar esa ruta
+  residual y añadir la regresión determinista. Nada de esta serie está
+  integrado.
 - O8-01 corrigió en `3fccc15` los tres bloqueos funcionales iniciales, pero su
   tercera revisión independiente emitió NO-GO: la rehidratación reserva el
   índice de periodos antes de limitar su cardinalidad; la definición copia y
