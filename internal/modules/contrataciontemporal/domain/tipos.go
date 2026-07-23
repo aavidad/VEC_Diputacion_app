@@ -73,10 +73,14 @@ type ReferenciaFlujo struct {
 
 func (r ReferenciaFlujo) Validar() error {
 	if !referenciaValida(r.DefinicionRef) || r.Version == 0 ||
-		!patronHuella.MatchString(r.HuellaSHA256) {
+		!huellaValida(r.HuellaSHA256) {
 		return ErrDatoInvalido
 	}
 	return nil
+}
+
+func huellaValida(valor string) bool {
+	return patronHuella.MatchString(valor) && valor != strings.Repeat("0", 64)
 }
 
 type PeriodoPrevisto struct {
@@ -157,6 +161,13 @@ func referenciasUnicasValidas(valores []string, maximo int) bool {
 // duplicar la gramática técnica del dominio.
 func ReferenciaOpacaValida(valor string) bool {
 	return referenciaValida(valor)
+}
+
+// NumeroExpedienteValido expone la gramática técnica del identificador
+// visible para que persistencia y recibos no acepten formas que el agregado
+// rechazaría.
+func NumeroExpedienteValido(valor string) bool {
+	return patronNumero.MatchString(valor)
 }
 
 // InstanteUTCCanonico expone exclusivamente la regla de representación

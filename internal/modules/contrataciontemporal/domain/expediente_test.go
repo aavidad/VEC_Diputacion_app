@@ -80,7 +80,9 @@ func TestDeclaracionRCSinCreditoNoAdmiteDatosResiduales(t *testing.T) {
 func expedienteValido(t *testing.T) Expediente {
 	t.Helper()
 	alta := AltaExpediente{
-		Referencia: "exp_temporal_2026_5487", NumeroVisible: "2026/5487",
+		Referencia:      "exp_temporal_2026_5487",
+		OrganizacionRef: "organizacion:diputacion-granada",
+		NumeroVisible:   "2026/5487",
 		Flujo: ReferenciaFlujo{
 			DefinicionRef: "flujo_contratacion_temporal",
 			Version:       3, HuellaSHA256: cadena64("a"),

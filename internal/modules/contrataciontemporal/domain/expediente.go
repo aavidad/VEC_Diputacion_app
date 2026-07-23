@@ -42,32 +42,36 @@ type Actuacion struct {
 }
 
 type Expediente struct {
-	Referencia    string                `json:"referencia"`
-	NumeroVisible string                `json:"numero_visible"`
-	Version       uint64                `json:"version"`
-	Flujo         ReferenciaFlujo       `json:"flujo"`
-	FaseActual    ClaveFase             `json:"fase_actual"`
-	EstadoActual  EstadoOperativo       `json:"estado_actual"`
-	Solicitud     SolicitudCentro       `json:"solicitud"`
-	Analisis      *AnalisisRRHH         `json:"analisis,omitempty"`
-	ViaCobertura  *DecisionViaCobertura `json:"via_cobertura,omitempty"`
-	Asignacion    *AsignacionUnidad     `json:"asignacion,omitempty"`
-	CreadoEn      time.Time             `json:"creado_en"`
-	ActualizadoEn time.Time             `json:"actualizado_en"`
-	Actuaciones   []Actuacion           `json:"actuaciones"`
+	Referencia      string                `json:"referencia"`
+	OrganizacionRef string                `json:"organizacion_ref"`
+	NumeroVisible   string                `json:"numero_visible"`
+	Version         uint64                `json:"version"`
+	Flujo           ReferenciaFlujo       `json:"flujo"`
+	FaseActual      ClaveFase             `json:"fase_actual"`
+	EstadoActual    EstadoOperativo       `json:"estado_actual"`
+	Solicitud       SolicitudCentro       `json:"solicitud"`
+	Analisis        *AnalisisRRHH         `json:"analisis,omitempty"`
+	ViaCobertura    *DecisionViaCobertura `json:"via_cobertura,omitempty"`
+	Asignacion      *AsignacionUnidad     `json:"asignacion,omitempty"`
+	CreadoEn        time.Time             `json:"creado_en"`
+	ActualizadoEn   time.Time             `json:"actualizado_en"`
+	Actuaciones     []Actuacion           `json:"actuaciones"`
 }
 
 type AltaExpediente struct {
-	Referencia    string
-	NumeroVisible string
-	Flujo         ReferenciaFlujo
-	FaseInicial   ClaveFase
-	Solicitud     SolicitudCentro
-	Actuacion     DatosActuacion
+	Referencia      string
+	OrganizacionRef string
+	NumeroVisible   string
+	Flujo           ReferenciaFlujo
+	FaseInicial     ClaveFase
+	Solicitud       SolicitudCentro
+	Actuacion       DatosActuacion
 }
 
 func NuevoExpediente(alta AltaExpediente) (Expediente, error) {
-	if !referenciaValida(alta.Referencia) || !patronNumero.MatchString(alta.NumeroVisible) ||
+	if !referenciaValida(alta.Referencia) ||
+		!referenciaValida(alta.OrganizacionRef) ||
+		!patronNumero.MatchString(alta.NumeroVisible) ||
 		alta.Flujo.Validar() != nil || !alta.FaseInicial.Valida() ||
 		alta.Solicitud.Validar() != nil || alta.Actuacion.validar() != nil ||
 		alta.Actuacion.FaseDestino != alta.FaseInicial ||
@@ -75,7 +79,8 @@ func NuevoExpediente(alta AltaExpediente) (Expediente, error) {
 		return Expediente{}, ErrExpedienteInvalido
 	}
 	expediente := Expediente{
-		Referencia: alta.Referencia, NumeroVisible: alta.NumeroVisible, Version: 1,
+		Referencia: alta.Referencia, OrganizacionRef: alta.OrganizacionRef,
+		NumeroVisible: alta.NumeroVisible, Version: 1,
 		Flujo: alta.Flujo, FaseActual: alta.FaseInicial, EstadoActual: EstadoEnCurso,
 		Solicitud: alta.Solicitud.clonar(), CreadoEn: alta.Actuacion.RealizadaEn,
 		ActualizadoEn: alta.Actuacion.RealizadaEn,
