@@ -36,9 +36,12 @@ llamamientos.
 - [Especificación del expediente de contratación temporal](docs/portal_vec/expediente_contratacion_temporal_rrhh.md)
 - [Relevo técnico del frente activo](docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md)
 
-Estado del primer corte: especificación y manifiesto del módulo iniciados sobre
-la convergencia C3/C4 `eeac3a2`. Ninguna pantalla o contrato aislado se
-contabiliza como flujo administrativo terminado.
+Estado del primer corte: especificación, manifiesto y dominio inicial del
+expediente implementados sobre la convergencia C3/C4 `eeac3a2`. El núcleo ya
+modela solicitud, análisis RRHH/RC, decisión de cobertura, asignación, versión
+optimista y cronología de solo adición. Persistencia, API y web siguen
+pendientes; ninguna pantalla o contrato aislado se contabiliza como flujo
+administrativo terminado.
 
 ## Estado honesto
 

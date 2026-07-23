@@ -64,7 +64,7 @@ ajenas.
 | --- | --- |
 | Especificación inicial | Implementada |
 | Manifiesto del módulo | Implementado y probado |
-| Dominio de expediente | Pendiente |
+| Dominio de expediente | Primer corte implementado y probado |
 | Casos de uso y puertos | Pendiente |
 | PostgreSQL | Pendiente |
 | API interna | Pendiente |
@@ -87,17 +87,45 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Crear el dominio sin dependencias técnicas:
-   - referencia de flujo versionada;
-   - solicitud del centro;
-   - análisis RRHH y RC;
-   - vía de cobertura;
-   - asignación;
-   - fase, estado y actuaciones de solo adición.
-2. Probar validaciones, copias defensivas, versiones y transiciones.
-3. Incorporar puertos de repositorio, flujo, autorización, reloj, referencias
+1. Incorporar puertos de repositorio, flujo, autorización, reloj, referencias
    e idempotencia.
-4. Añadir el primer caso de uso: registrar una solicitud del centro.
+2. Añadir el primer caso de uso: registrar una solicitud del centro.
+3. Crear el contrato de persistencia PostgreSQL con CAS, auditoría y outbox en
+   la misma transacción.
+4. Exponer después la API interna; no crear antes una segunda autoridad de
+   identidad en el manejador.
+
+## Dominio implementado
+
+Paquete:
+
+```text
+internal/modules/contrataciontemporal/domain
+```
+
+Incluye:
+
+- referencias de flujo con versión y huella;
+- claves funcionales abiertas a catálogos gobernados;
+- estados operativos técnicos cerrados;
+- periodos civiles UTC e importes exactos en céntimos;
+- solicitud del centro y declaración de RC;
+- análisis RRHH, jornada en diezmilésimas, coste y validación de RC;
+- comprobaciones y decisión de vía de cobertura;
+- asignación a unidad y responsable;
+- agregado con versión optimista y cronología encadenada;
+- copias defensivas y orden mínimo de los cuatro primeros hitos.
+
+Pruebas superadas en el corte:
+
+```text
+go test ./internal/modules/contrataciontemporal/domain \
+  ./internal/modules/contrataciontemporal
+go test -race ./internal/modules/contrataciontemporal/domain \
+  ./internal/modules/contrataciontemporal
+go vet ./internal/modules/contrataciontemporal/...
+git diff --check
+```
 
 ## Invariantes
 
