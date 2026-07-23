@@ -10,9 +10,9 @@ import (
 
 type pruebasArtefactoAnalisisO3 struct {
 	evidenciaRC    EvidenciaValidacionRCVerificadaO3
-	reciboRC       ReciboConsumoRespuestaFuenteAnalisis
 	evidenciaCoste EvidenciaCalculoCosteVerificadaO3
-	reciboCoste    *ReciboConsumoRespuestaFuenteAnalisis
+	ordenConjunto  OrdenConsumoConjuntoFuentesAnalisisO3
+	reciboConjunto *ReciboConsumoConjuntoFuentesAnalisisO3
 }
 
 // PruebasArtefactoAnalisisO3 transporta a O3-04 las respuestas, las
@@ -31,21 +31,29 @@ type PruebasArtefactoAnalisisO3 struct {
 	ConfirmacionCoste       *ConfirmacionRespuestaFuenteAnalisis
 	OrdenConsumoCoste       *OrdenConsumoRespuestaFuenteAnalisis
 	ReciboConsumoCoste      *ReciboConsumoRespuestaFuenteAnalisis
+	OrdenConsumoConjunto    OrdenConsumoConjuntoFuentesAnalisisO3
+	ReciboConsumoConjunto   *ReciboConsumoConjuntoFuentesAnalisisO3
 }
 
-func nuevoArtefactoAnalisisPreparadoDesdeFuentesO3(
+func nuevoArtefactoAnalisisVerificadoDesdeFuentesO3(
 	solicitud SolicitudPrepararArtefactoAnalisis,
 	evidenciaRC EvidenciaValidacionRCVerificadaO3,
-	reciboRC ReciboConsumoRespuestaFuenteAnalisis,
 	evidenciaCoste EvidenciaCalculoCosteVerificadaO3,
-	reciboCoste *ReciboConsumoRespuestaFuenteAnalisis,
 	preparadoEn time.Time,
 ) (ArtefactoAnalisisPreparado, error) {
+	ordenConjunto, err := nuevaOrdenConsumoConjuntoFuentesAnalisisO3(
+		solicitud,
+		evidenciaRC,
+		evidenciaCoste,
+	)
+	if err != nil {
+		return ArtefactoAnalisisPreparado{},
+			ErrArtefactoAnalisisNoConfiable
+	}
 	pruebas := pruebasArtefactoAnalisisO3{
 		evidenciaRC:    evidenciaRC,
-		reciboRC:       reciboRC,
 		evidenciaCoste: evidenciaCoste,
-		reciboCoste:    reciboCoste,
+		ordenConjunto:  ordenConjunto,
 	}
 	datos, err := datosArtefactoAnalisisDesdePruebasO3(
 		solicitud,
@@ -65,6 +73,43 @@ func nuevoArtefactoAnalisisPreparadoDesdeFuentesO3(
 			ErrArtefactoAnalisisNoConfiable
 	}
 	return artefacto, nil
+}
+
+func artefactoAnalisisConsumidoDesdeReciboConjuntoO3(
+	solicitud SolicitudPrepararArtefactoAnalisis,
+	artefacto ArtefactoAnalisisPreparado,
+	recibo ReciboConsumoConjuntoFuentesAnalisisO3,
+) (ArtefactoAnalisisPreparado, error) {
+	if validarArtefactoAnalisisPreparado(solicitud, artefacto) != nil ||
+		artefacto.pruebas.reciboConjunto != nil ||
+		recibo.ValidarPara(artefacto.pruebas.ordenConjunto) != nil {
+		return ArtefactoAnalisisPreparado{},
+			ErrArtefactoAnalisisNoConfiable
+	}
+	pruebas := *artefacto.pruebas
+	reciboClonado := clonarReciboConsumoConjuntoFuentesAnalisisO3(recibo)
+	pruebas.reciboConjunto = &reciboClonado
+	datos, err := datosArtefactoAnalisisDesdePruebasO3(
+		solicitud,
+		pruebas,
+		artefacto.datos.PreparadoEn,
+	)
+	if err != nil {
+		return ArtefactoAnalisisPreparado{},
+			ErrArtefactoAnalisisNoConfiable
+	}
+	consumido := ArtefactoAnalisisPreparado{
+		datos:   &datos,
+		pruebas: &pruebas,
+	}
+	if validarArtefactoAnalisisConsumidoO3(
+		solicitud,
+		consumido,
+	) != nil {
+		return ArtefactoAnalisisPreparado{},
+			ErrArtefactoAnalisisNoConfiable
+	}
+	return consumido, nil
 }
 
 func validarArtefactoAnalisisPreparado(
@@ -92,20 +137,42 @@ func validarArtefactoAnalisisPreparado(
 	return nil
 }
 
+func validarArtefactoAnalisisConsumidoO3(
+	solicitud SolicitudPrepararArtefactoAnalisis,
+	artefacto ArtefactoAnalisisPreparado,
+) error {
+	if validarArtefactoAnalisisPreparado(solicitud, artefacto) != nil ||
+		artefacto.pruebas.reciboConjunto == nil ||
+		artefacto.pruebas.reciboConjunto.ValidarPara(
+			artefacto.pruebas.ordenConjunto,
+		) != nil {
+		return ErrArtefactoAnalisisNoConfiable
+	}
+	return nil
+}
+
 func (a ArtefactoAnalisisPreparado) PruebasParaO3(
 	solicitud SolicitudPrepararArtefactoAnalisis,
 ) (PruebasArtefactoAnalisisO3, error) {
-	if validarArtefactoAnalisisPreparado(solicitud, a) != nil {
+	if validarArtefactoAnalisisConsumidoO3(solicitud, a) != nil {
 		return PruebasArtefactoAnalisisO3{},
 			ErrArtefactoAnalisisNoConfiable
 	}
+	reciboConjunto := clonarReciboConsumoConjuntoFuentesAnalisisO3(
+		*a.pruebas.reciboConjunto,
+	)
 	pruebas := PruebasArtefactoAnalisisO3{
-		SolicitudRC:             a.pruebas.evidenciaRC.datos.solicitud,
-		ResultadoRC:             a.pruebas.evidenciaRC.datos.resultado,
-		ConfirmacionRC:          a.pruebas.evidenciaRC.datos.confirmacion,
-		ConfirmacionPublicacion: a.pruebas.evidenciaRC.datos.confirmacionMotivo,
-		OrdenConsumoRC:          a.pruebas.evidenciaRC.datos.orden,
-		ReciboConsumoRC:         a.pruebas.reciboRC,
+		SolicitudRC:           a.pruebas.evidenciaRC.datos.solicitud,
+		ResultadoRC:           a.pruebas.evidenciaRC.datos.resultado,
+		ConfirmacionRC:        a.pruebas.evidenciaRC.datos.confirmacion,
+		OrdenConsumoRC:        a.pruebas.evidenciaRC.datos.orden,
+		ReciboConsumoRC:       reciboConjunto.ReciboRC,
+		OrdenConsumoConjunto:  a.pruebas.ordenConjunto,
+		ReciboConsumoConjunto: &reciboConjunto,
+	}
+	if confirmacion := a.pruebas.evidenciaRC.datos.confirmacionMotivo; confirmacion != nil {
+		clon := confirmacion.clonar()
+		pruebas.ConfirmacionPublicacion = &clon
 	}
 	if a.pruebas.evidenciaCoste.datos != nil {
 		solicitudCoste :=
@@ -116,7 +183,7 @@ func (a ArtefactoAnalisisPreparado) PruebasParaO3(
 			a.pruebas.evidenciaCoste.datos.confirmacion
 		ordenCoste :=
 			a.pruebas.evidenciaCoste.datos.orden
-		reciboCoste := *a.pruebas.reciboCoste
+		reciboCoste := *reciboConjunto.ReciboCoste
 		pruebas.SolicitudCoste = &solicitudCoste
 		pruebas.ResultadoCoste = &resultadoCoste
 		pruebas.ConfirmacionCoste = &confirmacionCoste
@@ -134,11 +201,27 @@ func datosArtefactoAnalisisDesdePruebasO3(
 	if solicitud.Validar() != nil ||
 		!instanteSeguroOperacionAnalisis(preparadoEn) ||
 		preparadoEn.Before(solicitud.SolicitadaEn) ||
-		pruebas.evidenciaRC.validarEn(preparadoEn) != nil ||
-		pruebas.reciboRC.ValidarPara(
-			pruebas.evidenciaRC.datos.orden,
-		) != nil ||
-		pruebas.reciboRC.ConsumidaEn.After(preparadoEn) {
+		pruebas.evidenciaRC.validarEn(preparadoEn) != nil {
+		return DatosArtefactoAnalisis{},
+			ErrArtefactoAnalisisNoConfiable
+	}
+	ordenEsperada, errOrden := nuevaOrdenConsumoConjuntoFuentesAnalisisO3(
+		solicitud,
+		pruebas.evidenciaRC,
+		pruebas.evidenciaCoste,
+	)
+	datosOrdenEsperada, errDatosEsperados := ordenEsperada.Datos()
+	datosOrdenActual, errDatosActuales := pruebas.ordenConjunto.Datos()
+	if errOrden != nil || errDatosEsperados != nil ||
+		errDatosActuales != nil ||
+		!reflect.DeepEqual(datosOrdenEsperada, datosOrdenActual) {
+		return DatosArtefactoAnalisis{},
+			ErrArtefactoAnalisisNoConfiable
+	}
+	if pruebas.reciboConjunto != nil &&
+		pruebas.reciboConjunto.ValidarPara(
+			pruebas.ordenConjunto,
+		) != nil {
 		return DatosArtefactoAnalisis{},
 			ErrArtefactoAnalisisNoConfiable
 	}
@@ -180,8 +263,6 @@ func datosArtefactoAnalisisDesdePruebasO3(
 		GeneracionRespuestaRC:  datosResultadoRC.Atestacion.Metadatos.Generacion,
 		ConfirmadaRCEn:         datosConfirmacionRC.VerificadaEn,
 		RespuestaRCValidaHasta: datosConfirmacionRC.ValidaHasta,
-		ConsumoRCRef:           pruebas.reciboRC.ConsumoRef,
-		ConsumidaRCEn:          pruebas.reciboRC.ConsumidaEn,
 		AutoridadFuenteRC: vinculoAutoridadFuenteAnalisisO3(
 			pruebas.evidenciaRC.datos.identidadFuente,
 		),
@@ -204,26 +285,27 @@ func datosArtefactoAnalisisDesdePruebasO3(
 		datos.ReciboVerificacionMotivoRef =
 			confirmacion.ReciboVerificacionRef
 	}
-	if pruebas.evidenciaCoste.datos == nil {
-		if pruebas.reciboCoste != nil {
-			return DatosArtefactoAnalisis{},
-				ErrArtefactoAnalisisNoConfiable
-		}
-	} else {
-		if pruebas.reciboCoste == nil ||
-			pruebas.evidenciaCoste.validarEn(preparadoEn) != nil ||
-			pruebas.reciboCoste.ValidarPara(
-				pruebas.evidenciaCoste.datos.orden,
-			) != nil ||
-			pruebas.reciboCoste.ConsumidaEn.After(preparadoEn) {
+	if pruebas.evidenciaCoste.datos != nil {
+		if pruebas.evidenciaCoste.validarEn(preparadoEn) != nil {
 			return DatosArtefactoAnalisis{},
 				ErrArtefactoAnalisisNoConfiable
 		}
 		incorporarCosteArtefactoAnalisisO3(
 			&datos,
 			pruebas.evidenciaCoste,
-			*pruebas.reciboCoste,
 		)
+	}
+	if pruebas.reciboConjunto != nil {
+		datos.ConsumoRCRef =
+			pruebas.reciboConjunto.ReciboRC.ConsumoRef
+		datos.ConsumidaRCEn =
+			pruebas.reciboConjunto.ReciboRC.ConsumidaEn
+		if pruebas.reciboConjunto.ReciboCoste != nil {
+			datos.ConsumoCosteRef =
+				pruebas.reciboConjunto.ReciboCoste.ConsumoRef
+			datos.ConsumidaCosteEn =
+				pruebas.reciboConjunto.ReciboCoste.ConsumidaEn
+		}
 	}
 	huella, err := huellaArtefactoAnalisisO3(datos)
 	if err != nil {
@@ -241,7 +323,6 @@ func datosArtefactoAnalisisDesdePruebasO3(
 func incorporarCosteArtefactoAnalisisO3(
 	destino *DatosArtefactoAnalisis,
 	evidencia EvidenciaCalculoCosteVerificadaO3,
-	recibo ReciboConsumoRespuestaFuenteAnalisis,
 ) {
 	resultado, _ := evidencia.datos.resultado.Datos()
 	solicitud, _ := evidencia.datos.solicitud.Datos()
@@ -259,8 +340,6 @@ func incorporarCosteArtefactoAnalisisO3(
 		resultado.Atestacion.Metadatos.Generacion
 	destino.ConfirmadaCosteEn = confirmacion.VerificadaEn
 	destino.RespuestaCosteValidaHasta = confirmacion.ValidaHasta
-	destino.ConsumoCosteRef = recibo.ConsumoRef
-	destino.ConsumidaCosteEn = recibo.ConsumidaEn
 	destino.AutoridadFuenteCoste = vinculoAutoridadFuenteAnalisisO3(
 		evidencia.datos.identidadFuente,
 	)

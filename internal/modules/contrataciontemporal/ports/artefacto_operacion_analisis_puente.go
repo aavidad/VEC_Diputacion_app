@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -64,26 +65,30 @@ type PreparadorSolicitudesFuentesAnalisisO3 interface {
 }
 
 // CapacidadPrepararArtefactoAnalisisO3 es la única acuñadora del artefacto.
-// Se inyecta desde la composición interna con confianza y autoridades O3-03;
-// ningún comando de cliente puede construirla ni aportar sus credenciales.
+// Su constructor exportado existe porque la raíz de composición vive en otro
+// paquete Go, pero solo debe invocarse desde esa composición interna confiable.
+// El modificador internal impide importarlo desde otros módulos; dentro de este
+// módulo la revisión de dependencias debe impedir llamadas desde transportes.
+// Ningún DTO, cabecera, cookie ni comando de cliente puede aportar confianza,
+// raíces o credenciales.
 type CapacidadPrepararArtefactoAnalisisO3 struct {
 	solicitudes PreparadorSolicitudesFuentesAnalisisO3
 	fuenteRC    FuentePresupuestaria
 	calculador  CalculadorCostePersonal
 	verificador VerificadorRespuestaFuenteAnalisis
 	publicador  VerificadorPublicacionMotivoFuenteAnalisis
-	consumidor  ConsumidorRespuestaFuenteAnalisis
+	consumidor  ConsumidorConjuntoFuentesAnalisisO3
 	confianza   ConfianzaAutoridadesFuenteAnalisis
 	reloj       RelojFuenteAnalisis
 }
 
-func NuevaCapacidadPrepararArtefactoAnalisisO3(
+func NuevaCapacidadPrepararArtefactoAnalisisO3ParaComposicionInterna(
 	solicitudes PreparadorSolicitudesFuentesAnalisisO3,
 	fuenteRC FuentePresupuestaria,
 	calculador CalculadorCostePersonal,
 	verificador VerificadorRespuestaFuenteAnalisis,
 	publicador VerificadorPublicacionMotivoFuenteAnalisis,
-	consumidor ConsumidorRespuestaFuenteAnalisis,
+	consumidor ConsumidorConjuntoFuentesAnalisisO3,
 	confianza ConfianzaAutoridadesFuenteAnalisis,
 	reloj RelojFuenteAnalisis,
 ) (*CapacidadPrepararArtefactoAnalisisO3, error) {
@@ -132,8 +137,13 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) PrepararArtefactoAnalisis(
 				err,
 			)
 	}
+	operacion, cancelar := context.WithTimeout(
+		ctx,
+		TiempoMaximoFuenteAnalisis,
+	)
+	defer cancelar()
 	solicitudes, err := c.solicitudes.
-		PrepararSolicitudesFuentesAnalisisO3(ctx, solicitud)
+		PrepararSolicitudesFuentesAnalisisO3(operacion, solicitud)
 	if err != nil {
 		return ArtefactoAnalisisPreparado{},
 			errorDisponibilidadFuente(
@@ -146,7 +156,7 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) PrepararArtefactoAnalisis(
 			ErrArtefactoAnalisisNoConfiable
 	}
 	evidenciaRC, err := VerificarValidacionRCConFuenteO3(
-		ctx,
+		operacion,
 		c.fuenteRC,
 		c.verificador,
 		c.publicador,
@@ -160,7 +170,7 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) PrepararArtefactoAnalisis(
 	var evidenciaCoste EvidenciaCalculoCosteVerificadaO3
 	if solicitudes.CalculoCoste != nil {
 		evidenciaCoste, err = VerificarCalculoCosteConFuenteO3(
-			ctx,
+			operacion,
 			c.calculador,
 			c.verificador,
 			c.confianza,
@@ -171,22 +181,8 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) PrepararArtefactoAnalisis(
 			return ArtefactoAnalisisPreparado{}, err
 		}
 	}
-	return c.consumirYAcuñar(
-		ctx,
-		solicitud,
-		evidenciaRC,
-		evidenciaCoste,
-	)
-}
-
-func (c *CapacidadPrepararArtefactoAnalisisO3) consumirYAcuñar(
-	ctx context.Context,
-	solicitud SolicitudPrepararArtefactoAnalisis,
-	evidenciaRC EvidenciaValidacionRCVerificadaO3,
-	evidenciaCoste EvidenciaCalculoCosteVerificadaO3,
-) (ArtefactoAnalisisPreparado, error) {
 	comprobadaEn := c.reloj.Ahora()
-	if err := ctx.Err(); err != nil {
+	if err := operacion.Err(); err != nil {
 		return ArtefactoAnalisisPreparado{},
 			errorDisponibilidadFuente(
 				ErrArtefactoAnalisisNoDisponible,
@@ -197,7 +193,7 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) consumirYAcuñar(
 		(evidenciaCoste.datos != nil &&
 			evidenciaCoste.validarEn(comprobadaEn) != nil) ||
 		c.revalidarAutoridades(
-			ctx,
+			operacion,
 			evidenciaRC,
 			evidenciaCoste,
 			comprobadaEn,
@@ -205,28 +201,8 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) consumirYAcuñar(
 		return ArtefactoAnalisisPreparado{},
 			ErrArtefactoAnalisisNoConfiable
 	}
-	reciboRC, err := consumirEvidenciaFuenteAnalisisO3(
-		ctx,
-		c.consumidor,
-		evidenciaRC.datos.orden,
-	)
-	if err != nil {
-		return ArtefactoAnalisisPreparado{}, err
-	}
-	var reciboCoste *ReciboConsumoRespuestaFuenteAnalisis
-	if evidenciaCoste.datos != nil {
-		recibo, errConsumo := consumirEvidenciaFuenteAnalisisO3(
-			ctx,
-			c.consumidor,
-			evidenciaCoste.datos.orden,
-		)
-		if errConsumo != nil {
-			return ArtefactoAnalisisPreparado{}, errConsumo
-		}
-		reciboCoste = &recibo
-	}
 	preparadoEn := c.reloj.Ahora()
-	if err := ctx.Err(); err != nil {
+	if err := operacion.Err(); err != nil {
 		return ArtefactoAnalisisPreparado{},
 			errorDisponibilidadFuente(
 				ErrArtefactoAnalisisNoDisponible,
@@ -239,13 +215,89 @@ func (c *CapacidadPrepararArtefactoAnalisisO3) consumirYAcuñar(
 		return ArtefactoAnalisisPreparado{},
 			ErrArtefactoAnalisisNoConfiable
 	}
-	return nuevoArtefactoAnalisisPreparadoDesdeFuentesO3(
+	return nuevoArtefactoAnalisisVerificadoDesdeFuentesO3(
 		solicitud,
 		evidenciaRC,
-		reciboRC,
 		evidenciaCoste,
-		reciboCoste,
 		preparadoEn,
+	)
+}
+
+func (c *CapacidadPrepararArtefactoAnalisisO3) ConsumirArtefactoAnalisisO3(
+	ctx context.Context,
+	solicitud SolicitudPrepararArtefactoAnalisis,
+	artefacto ArtefactoAnalisisPreparado,
+) (ArtefactoAnalisisPreparado, error) {
+	if c == nil || ctx == nil ||
+		validarArtefactoAnalisisPreparado(solicitud, artefacto) != nil ||
+		artefacto.pruebas.reciboConjunto != nil ||
+		dependenciaNulaFuenteAnalisis(c.consumidor) ||
+		dependenciaNulaFuenteAnalisis(c.reloj) {
+		return ArtefactoAnalisisPreparado{},
+			ErrSolicitudArtefactoAnalisisInvalida
+	}
+	operacion, cancelar := context.WithTimeout(
+		ctx,
+		TiempoMaximoFuenteAnalisis,
+	)
+	defer cancelar()
+	comprobadaEn := c.reloj.Ahora()
+	if err := operacion.Err(); err != nil {
+		return ArtefactoAnalisisPreparado{},
+			errorDisponibilidadFuente(
+				ErrArtefactoAnalisisNoDisponible,
+				err,
+			)
+	}
+	rc := artefacto.pruebas.evidenciaRC
+	coste := artefacto.pruebas.evidenciaCoste
+	if rc.validarEn(comprobadaEn) != nil ||
+		(coste.datos != nil && coste.validarEn(comprobadaEn) != nil) ||
+		c.revalidarAutoridades(
+			operacion,
+			rc,
+			coste,
+			comprobadaEn,
+		) != nil {
+		return ArtefactoAnalisisPreparado{},
+			ErrArtefactoAnalisisNoConfiable
+	}
+	recibo, err := c.consumidor.ConsumirConjuntoFuentesAnalisisO3(
+		operacion,
+		artefacto.pruebas.ordenConjunto,
+	)
+	if err != nil {
+		if errContexto := operacion.Err(); errContexto != nil {
+			return ArtefactoAnalisisPreparado{},
+				errorDisponibilidadFuente(
+					ErrConsumoFuenteAnalisisNoDisponible,
+					errContexto,
+				)
+		}
+		if errors.Is(err, ErrConjuntoFuentesAnalisisYaConsumido) {
+			return ArtefactoAnalisisPreparado{},
+				ErrConjuntoFuentesAnalisisYaConsumido
+		}
+		return ArtefactoAnalisisPreparado{},
+			errorDisponibilidadFuente(
+				ErrConsumoFuenteAnalisisNoDisponible,
+				err,
+			)
+	}
+	if recibo.ValidarPara(artefacto.pruebas.ordenConjunto) != nil {
+		return ArtefactoAnalisisPreparado{},
+			ErrArtefactoAnalisisNoConfiable
+	}
+	consumidaEn := c.reloj.Ahora()
+	if rc.validarEn(consumidaEn) != nil ||
+		(coste.datos != nil && coste.validarEn(consumidaEn) != nil) {
+		return ArtefactoAnalisisPreparado{},
+			ErrArtefactoAnalisisNoConfiable
+	}
+	return artefactoAnalisisConsumidoDesdeReciboConjuntoO3(
+		solicitud,
+		artefacto,
+		recibo,
 	)
 }
 

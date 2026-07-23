@@ -164,6 +164,11 @@ type PreparadorArtefactoAnalisisO3 interface {
 		context.Context,
 		SolicitudPrepararArtefactoAnalisis,
 	) (ArtefactoAnalisisPreparado, error)
+	ConsumirArtefactoAnalisisO3(
+		context.Context,
+		SolicitudPrepararArtefactoAnalisis,
+		ArtefactoAnalisisPreparado,
+	) (ArtefactoAnalisisPreparado, error)
 }
 
 func validarDatosArtefactoAnalisis(
@@ -308,13 +313,12 @@ func validarCosteArtefactoAnalisis(
 		!datos.ConfirmadaCosteEn.Before(
 			datos.RespuestaCosteValidaHasta,
 		) ||
-		!domain.ReferenciaOpacaValida(datos.ConsumoCosteRef) ||
-		!instanteSeguroOperacionAnalisis(datos.ConsumidaCosteEn) ||
-		datos.ConsumidaCosteEn.Before(datos.ConfirmadaCosteEn) ||
-		!datos.ConsumidaCosteEn.Before(
+		!consumoRespuestaArtefactoAnalisisValido(
+			datos.ConsumoCosteRef,
+			datos.ConsumidaCosteEn,
+			datos.ConfirmadaCosteEn,
 			datos.RespuestaCosteValidaHasta,
 		) ||
-		datos.ConsumidaCosteEn.After(datos.PreparadoEn) ||
 		!vinculoAutoridadAnalisisValido(
 			datos.AutoridadFuenteCoste,
 			RolCalculadorCoste,
@@ -349,11 +353,12 @@ func validarPruebaRCDatosArtefacto(
 			datos.RespuestaRCValidaHasta,
 		) ||
 		!datos.ConfirmadaRCEn.Before(datos.RespuestaRCValidaHasta) ||
-		!domain.ReferenciaOpacaValida(datos.ConsumoRCRef) ||
-		!instanteSeguroOperacionAnalisis(datos.ConsumidaRCEn) ||
-		datos.ConsumidaRCEn.Before(datos.ConfirmadaRCEn) ||
-		!datos.ConsumidaRCEn.Before(datos.RespuestaRCValidaHasta) ||
-		datos.ConsumidaRCEn.After(datos.PreparadoEn) ||
+		!consumoRespuestaArtefactoAnalisisValido(
+			datos.ConsumoRCRef,
+			datos.ConsumidaRCEn,
+			datos.ConfirmadaRCEn,
+			datos.RespuestaRCValidaHasta,
+		) ||
 		!vinculoAutoridadAnalisisValido(
 			datos.AutoridadFuenteRC,
 			RolFuentePresupuestaria,
@@ -383,6 +388,21 @@ func validarPruebaRCDatosArtefacto(
 		return ErrArtefactoAnalisisNoConfiable
 	}
 	return nil
+}
+
+func consumoRespuestaArtefactoAnalisisValido(
+	consumoRef string,
+	consumidaEn time.Time,
+	confirmadaEn time.Time,
+	validaHasta time.Time,
+) bool {
+	if consumoRef == "" && consumidaEn.IsZero() {
+		return true
+	}
+	return domain.ReferenciaOpacaValida(consumoRef) &&
+		instanteSeguroOperacionAnalisis(consumidaEn) &&
+		!consumidaEn.Before(confirmadaEn) &&
+		consumidaEn.Before(validaHasta)
 }
 
 func vinculoAutoridadAnalisisValido(

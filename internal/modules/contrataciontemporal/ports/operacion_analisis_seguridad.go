@@ -13,7 +13,7 @@ const (
 	// MaximoEnteroSeguroOperacionAnalisis evita que una versión o un entero
 	// canónico cambien al cruzar clientes que representan números como IEEE-754.
 	MaximoEnteroSeguroOperacionAnalisis uint64 = 1<<53 - 1
-	TiempoMaximoOperacionAnalisis              = 15 * time.Second
+	TiempoMaximoOperacionAnalisis              = 5 * time.Second
 )
 
 var ErrSerializacionOperacionAnalisisProhibida = errors.New(

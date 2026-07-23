@@ -93,7 +93,10 @@ func NuevaOrdenConfirmarOperacionAnalisis(
 	artefacto, errArtefacto := datos.Artefacto.DatosPara(
 		datos.SolicitudArtefacto,
 	)
-	if err != nil || errArtefacto != nil ||
+	_, errPruebas := datos.Artefacto.PruebasParaO3(
+		datos.SolicitudArtefacto,
+	)
+	if err != nil || errArtefacto != nil || errPruebas != nil ||
 		preparacion.Estado != PreparacionOperacionAnalisisReservada ||
 		preparacion.ExpedienteAnterior == nil ||
 		validarCoordenadasOrdenOperacionAnalisis(
@@ -152,7 +155,7 @@ func validarCoordenadasOrdenOperacionAnalisis(
 	)
 	if err != nil ||
 		datos.SolicitudPolitica.ActorAnalisisAnteriorRef != actorAnterior ||
-		(datos.Politica.ExigeActorDistinto &&
+		(preparacion.Operacion == OperacionRectificarAnalisis &&
 			datos.Politica.ActorRef == actorAnterior) {
 		return ErrOrdenOperacionAnalisisInvalida
 	}

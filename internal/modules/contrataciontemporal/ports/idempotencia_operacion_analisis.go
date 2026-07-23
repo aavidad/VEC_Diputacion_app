@@ -193,10 +193,60 @@ func (p PreparacionOperacionAnalisis) DatosPara(
 }
 
 type PreparadorOperacionAnalisisIdempotente interface {
+	// ConsultarOperacionAnalisisConfirmada debe comparar de forma durable la
+	// identidad semántica completa, no solo la clave. Un confirmado exacto se
+	// devuelve antes de consultar fuentes; la misma clave con otros datos
+	// devuelve ErrClaveIdempotenciaOperacionAnalisisUsada.
+	ConsultarOperacionAnalisisConfirmada(
+		context.Context,
+		SolicitudConsultarOperacionAnalisisConfirmada,
+	) (ReciboOperacionAnalisis, bool, error)
 	PrepararOperacionAnalisis(
 		context.Context,
 		SolicitudPrepararOperacionAnalisis,
 	) (PreparacionOperacionAnalisis, error)
+}
+
+// SolicitudConsultarOperacionAnalisisConfirmada contiene únicamente la
+// semántica aportada por el cliente más actor y perfil ya resueltos por el
+// contexto confiable. No incorpora artefactos, raíces ni resultados O3-03.
+type SolicitudConsultarOperacionAnalisisConfirmada struct {
+	Operacion           TipoOperacionAnalisis
+	OrganizacionRef     string
+	ExpedienteRef       string
+	VersionExpediente   uint64
+	ActorRef            string
+	PerfilRef           string
+	ClaveIdempotencia   string
+	ArtefactoRef        string
+	DatosFuncionales    DatosFuncionalesOperacionAnalisis
+	MotivoRectificacion domain.ClaveCatalogo
+}
+
+func (s SolicitudConsultarOperacionAnalisisConfirmada) Validar() error {
+	if !s.Operacion.Valida() ||
+		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
+		!domain.ReferenciaOpacaValida(s.ExpedienteRef) ||
+		!VersionOperacionAnalisisConIncrementoValida(
+			s.VersionExpediente,
+		) ||
+		!domain.ReferenciaOpacaValida(s.ActorRef) ||
+		!domain.ReferenciaOpacaValida(s.PerfilRef) ||
+		!ClaveIdempotenciaValida(s.ClaveIdempotencia) ||
+		!domain.ReferenciaOpacaValida(s.ArtefactoRef) ||
+		s.DatosFuncionales.Validar() != nil {
+		return ErrPreparacionOperacionAnalisisInvalida
+	}
+	if s.Operacion == OperacionRegistrarAnalisis {
+		if s.MotivoRectificacion != "" {
+			return ErrPreparacionOperacionAnalisisInvalida
+		}
+		return nil
+	}
+	if !s.MotivoRectificacion.Valida() {
+		return ErrPreparacionOperacionAnalisisInvalida
+	}
+	return nil
 }
 
 func validarDatosPreparacionOperacionAnalisis(

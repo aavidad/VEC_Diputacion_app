@@ -15,11 +15,33 @@ import (
 )
 
 type preparadorArtefactoAnalisisDoble struct {
-	delegado  ports.PreparadorArtefactoAnalisisO3
-	err       error
-	llamadas  int
-	solicitud ports.SolicitudPrepararArtefactoAnalisis
-	forzado   *ports.ArtefactoAnalisisPreparado
+	delegado   ports.PreparadorArtefactoAnalisisO3
+	err        error
+	errConsumo error
+	llamadas   int
+	consumos   int
+	solicitud  ports.SolicitudPrepararArtefactoAnalisis
+	forzado    *ports.ArtefactoAnalisisPreparado
+}
+
+func (d *preparadorArtefactoAnalisisDoble) ConsumirArtefactoAnalisisO3(
+	ctx context.Context,
+	solicitud ports.SolicitudPrepararArtefactoAnalisis,
+	artefacto ports.ArtefactoAnalisisPreparado,
+) (ports.ArtefactoAnalisisPreparado, error) {
+	d.consumos++
+	if d.errConsumo != nil {
+		return ports.ArtefactoAnalisisPreparado{}, d.errConsumo
+	}
+	if d.delegado == nil {
+		return ports.ArtefactoAnalisisPreparado{},
+			errors.New("consumidor-real-sintetico-ausente")
+	}
+	return d.delegado.ConsumirArtefactoAnalisisO3(
+		ctx,
+		solicitud,
+		artefacto,
+	)
 }
 
 func (d *preparadorArtefactoAnalisisDoble) PrepararArtefactoAnalisis(
@@ -95,11 +117,30 @@ func (d *selladorOperacionAnalisisDobleSaneado) SellarOperacionAnalisis(
 }
 
 type preparadorOperacionAnalisisDobleSaneado struct {
-	expediente domain.Expediente
-	confirmado *ports.ReciboOperacionAnalisis
-	err        error
-	llamadas   int
-	solicitud  ports.SolicitudPrepararOperacionAnalisis
+	expediente         domain.Expediente
+	confirmado         *ports.ReciboOperacionAnalisis
+	consultaConfirmada *ports.ReciboOperacionAnalisis
+	errConsulta        error
+	consultas          int
+	solicitudConsulta  ports.SolicitudConsultarOperacionAnalisisConfirmada
+	err                error
+	llamadas           int
+	solicitud          ports.SolicitudPrepararOperacionAnalisis
+}
+
+func (d *preparadorOperacionAnalisisDobleSaneado) ConsultarOperacionAnalisisConfirmada(
+	_ context.Context,
+	solicitud ports.SolicitudConsultarOperacionAnalisisConfirmada,
+) (ports.ReciboOperacionAnalisis, bool, error) {
+	d.consultas++
+	d.solicitudConsulta = solicitud
+	if d.errConsulta != nil {
+		return ports.ReciboOperacionAnalisis{}, false, d.errConsulta
+	}
+	if d.consultaConfirmada == nil {
+		return ports.ReciboOperacionAnalisis{}, false, nil
+	}
+	return *d.consultaConfirmada, true, nil
 }
 
 func (d *preparadorOperacionAnalisisDobleSaneado) PrepararOperacionAnalisis(
@@ -205,10 +246,11 @@ func (d *resolutorPoliticaOperacionAnalisisDobleSaneado) ResolverPoliticaOperaci
 }
 
 type transaccionOperacionAnalisisDobleSaneado struct {
-	err      error
-	llamadas int
-	orden    ports.OrdenConfirmarOperacionAnalisis
-	despues  func()
+	err                 error
+	llamadas            int
+	orden               ports.OrdenConfirmarOperacionAnalisis
+	despues             func()
+	desfaseConfirmacion time.Duration
 }
 
 func (d *transaccionOperacionAnalisisDobleSaneado) ConfirmarOperacionAnalisis(
@@ -246,7 +288,9 @@ func (d *transaccionOperacionAnalisisDobleSaneado) ConfirmarOperacionAnalisis(
 		AuditoriaRef:          "auditoria:operacion-sintetica-001",
 		EventoRef:             "evento:operacion-sintetica-001",
 		HuellaSemanticaHMAC:   preparacion.HuellaSemanticaHMAC,
-		ConfirmadaEn:          evidencia.InstanteEfecto,
+		ConfirmadaEn: evidencia.InstanteEfecto.Add(
+			d.desfaseConfirmacion,
+		),
 	}, nil
 }
 

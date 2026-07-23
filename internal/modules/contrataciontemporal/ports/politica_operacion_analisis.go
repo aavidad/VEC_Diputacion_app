@@ -166,6 +166,7 @@ func (p PoliticaOperacionAnalisis) ValidarPara(
 		return nil
 	}
 	if p.Accion != domain.ClaveCatalogo(AccionRectificarAnalisis) ||
+		!p.ExigeActorDistinto ||
 		p.MotivoRectificacion.ValidarPara(
 			solicitud.MotivoRectificacionClave,
 		) != nil {

@@ -86,6 +86,8 @@ func (e errorOperacionAnalisis) Is(objetivo error) bool {
 		return objetivo == ErrOperacionAnalisisEnConflicto ||
 			objetivo == domain.ErrVersionEnConflicto ||
 			objetivo ==
+				ports.ErrConjuntoFuentesAnalisisYaConsumido ||
+			objetivo ==
 				ports.ErrClaveIdempotenciaOperacionAnalisisUsada
 	case tipoErrorResultado:
 		return objetivo == ErrResultadoOperacionAnalisisNoConfiable ||

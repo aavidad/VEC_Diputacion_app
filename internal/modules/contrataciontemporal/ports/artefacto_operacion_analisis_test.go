@@ -34,8 +34,9 @@ func (d *preparadorSolicitudesFuentesAnalisisO3Doble) PrepararSolicitudesFuentes
 
 type consumoMemoriaFuenteAnalisisO3 struct {
 	instante time.Time
-	recibos  map[string]ReciboConsumoRespuestaFuenteAnalisis
+	recibos  map[string]ReciboConsumoConjuntoFuentesAnalisisO3
 	huellas  map[string]string
+	llamadas int
 }
 
 type fuenteRCConCredencialCambiantePrueba struct {
@@ -70,124 +71,72 @@ func (r *relojMutableFuenteAnalisisO3Prueba) Ahora() time.Time {
 }
 
 type consumidorQueAvanzaRelojFuenteAnalisisO3Prueba struct {
-	delegado ConsumidorRespuestaFuenteAnalisis
+	delegado ConsumidorConjuntoFuentesAnalisisO3
 	reloj    *relojMutableFuenteAnalisisO3Prueba
 	destino  time.Time
 }
 
-func (c consumidorQueAvanzaRelojFuenteAnalisisO3Prueba) ConsumirRespuestaFuenteAnalisis(
+func (c consumidorQueAvanzaRelojFuenteAnalisisO3Prueba) ConsumirConjuntoFuentesAnalisisO3(
 	ctx context.Context,
-	orden OrdenConsumoRespuestaFuenteAnalisis,
-) (ReciboConsumoRespuestaFuenteAnalisis, error) {
-	recibo, err := c.delegado.ConsumirRespuestaFuenteAnalisis(ctx, orden)
+	orden OrdenConsumoConjuntoFuentesAnalisisO3,
+) (ReciboConsumoConjuntoFuentesAnalisisO3, error) {
+	recibo, err := c.delegado.ConsumirConjuntoFuentesAnalisisO3(ctx, orden)
 	if err == nil {
 		c.reloj.instante = c.destino
 	}
 	return recibo, err
 }
 
-func (c *consumoMemoriaFuenteAnalisisO3) ConsumirRespuestaFuenteAnalisis(
+func (c *consumoMemoriaFuenteAnalisisO3) ConsumirConjuntoFuentesAnalisisO3(
 	_ context.Context,
-	orden OrdenConsumoRespuestaFuenteAnalisis,
-) (ReciboConsumoRespuestaFuenteAnalisis, error) {
+	orden OrdenConsumoConjuntoFuentesAnalisisO3,
+) (ReciboConsumoConjuntoFuentesAnalisisO3, error) {
+	c.llamadas++
 	datos, err := orden.Datos()
 	if err != nil {
-		return ReciboConsumoRespuestaFuenteAnalisis{}, err
+		return ReciboConsumoConjuntoFuentesAnalisisO3{}, err
 	}
-	clave := datos.Atestacion.Metadatos.AutoridadRef + ":" +
-		datos.Atestacion.Metadatos.ReciboRef
+	clave := datos.ArtefactoRef
 	if anterior, existe := c.huellas[clave]; existe {
-		if anterior != datos.HuellaRespuestaSHA256 {
-			return ReciboConsumoRespuestaFuenteAnalisis{},
-				ErrRespuestaFuenteAnalisisYaConsumida
+		if anterior != datos.HuellaSHA256 {
+			return ReciboConsumoConjuntoFuentesAnalisisO3{},
+				ErrConjuntoFuentesAnalisisYaConsumido
 		}
 		return c.recibos[clave], nil
 	}
-	recibo, err := NuevoReciboConsumoRespuestaFuenteAnalisis(
-		orden,
-		"consumo_"+string(datos.Tipo)+"_0123456789",
+	reciboRC, err := NuevoReciboConsumoRespuestaFuenteAnalisis(
+		datos.OrdenRC,
+		"consumo_validacion_rc_0123456789",
 		c.instante,
 	)
 	if err != nil {
-		return ReciboConsumoRespuestaFuenteAnalisis{}, err
+		return ReciboConsumoConjuntoFuentesAnalisisO3{}, err
 	}
-	c.huellas[clave] = datos.HuellaRespuestaSHA256
+	var reciboCoste *ReciboConsumoRespuestaFuenteAnalisis
+	if datos.OrdenCoste != nil {
+		coste, errCoste := NuevoReciboConsumoRespuestaFuenteAnalisis(
+			*datos.OrdenCoste,
+			"consumo_calculo_coste_0123456789",
+			c.instante,
+		)
+		if errCoste != nil {
+			return ReciboConsumoConjuntoFuentesAnalisisO3{}, errCoste
+		}
+		reciboCoste = &coste
+	}
+	recibo, err := NuevoReciboConsumoConjuntoFuentesAnalisisO3(
+		orden,
+		"consumo_conjunto_fuentes_0123456789",
+		reciboRC,
+		reciboCoste,
+		c.instante,
+	)
+	if err != nil {
+		return ReciboConsumoConjuntoFuentesAnalisisO3{}, err
+	}
+	c.huellas[clave] = datos.HuellaSHA256
 	c.recibos[clave] = recibo
 	return recibo, nil
-}
-
-func TestPuenteArtefactoAnalisisIntegraEvidenciaO3VerificadaYConsumida(
-	t *testing.T,
-) {
-	solicitud, capacidad, consumidor := capacidadArtefactoAnalisisPrueba(t)
-	artefacto, err := capacidad.PrepararArtefactoAnalisis(
-		context.Background(),
-		solicitud,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	datos, err := artefacto.DatosPara(solicitud)
-	if err != nil {
-		t.Fatal(err)
-	}
-	analisis, err := DerivarAnalisisDesdeArtefacto(solicitud, artefacto)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pruebas, err := artefacto.PruebasParaO3(solicitud)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(consumidor.recibos) != 2 ||
-		datos.ArtefactoHuellaSHA256 == "" ||
-		datos.ConsumoRCRef == "" ||
-		datos.ConsumoCosteRef == "" ||
-		pruebas.ReciboConsumoCoste == nil ||
-		analisis.ValidacionRC.FuenteRef != datos.FuenteRCRef ||
-		analisis.CostePrevisto == datos.CostePrevisto ||
-		analisis.CostePrevisto.Centimos != datos.CostePrevisto.Centimos {
-		t.Fatal("el puente perdió evidencia verificada o consumo durable")
-	}
-	for _, nombre := range []string{
-		"ResultadoRC", "ConfirmacionRC", "OrdenConsumoRC",
-		"ReciboConsumoRC", "Credencial", "Raiz", "Autoridad",
-	} {
-		if _, existe := reflect.TypeOf(
-			SolicitudPrepararArtefactoAnalisis{},
-		).FieldByName(nombre); existe {
-			t.Fatalf("el DTO acepta autoridad mediante %s", nombre)
-		}
-	}
-}
-
-func TestPuenteArtefactoAnalisisRepeticionExactaEsIdempotente(
-	t *testing.T,
-) {
-	solicitud, capacidad, consumidor := capacidadArtefactoAnalisisPrueba(t)
-	primero, err := capacidad.PrepararArtefactoAnalisis(
-		context.Background(),
-		solicitud,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	segundo, err := capacidad.PrepararArtefactoAnalisis(
-		context.Background(),
-		solicitud,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	datosPrimero, _ := primero.DatosPara(solicitud)
-	datosSegundo, _ := segundo.DatosPara(solicitud)
-	if datosPrimero.ArtefactoHuellaSHA256 !=
-		datosSegundo.ArtefactoHuellaSHA256 ||
-		datosPrimero.ConsumoRCRef != datosSegundo.ConsumoRCRef ||
-		datosPrimero.ConsumoCosteRef != datosSegundo.ConsumoCosteRef ||
-		len(consumidor.recibos) != 2 {
-		t.Fatal("la repetición exacta no reutilizó los consumos")
-	}
 }
 
 func TestPuenteArtefactoAnalisisRechazaCambioDeCredencialEnRevalidacion(
@@ -295,9 +244,17 @@ func TestPuenteArtefactoAnalisisRechazaConflictoDeRespuestaYaConsumida(
 	t *testing.T,
 ) {
 	solicitud, capacidad, _ := capacidadArtefactoAnalisisPrueba(t)
-	if _, err := capacidad.PrepararArtefactoAnalisis(
+	primero, err := capacidad.PrepararArtefactoAnalisis(
 		context.Background(),
 		solicitud,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := capacidad.ConsumirArtefactoAnalisisO3(
+		context.Background(),
+		solicitud,
+		primero,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -341,10 +298,18 @@ func TestPuenteArtefactoAnalisisRechazaConflictoDeRespuestaYaConsumida(
 	) (ResultadoCalculoCoste, error) {
 		return resultado, nil
 	})
-	if _, err := capacidad.PrepararArtefactoAnalisis(
+	segundo, err := capacidad.PrepararArtefactoAnalisis(
 		context.Background(),
 		solicitud,
-	); !errors.Is(err, ErrRespuestaFuenteAnalisisYaConsumida) {
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := capacidad.ConsumirArtefactoAnalisisO3(
+		context.Background(),
+		solicitud,
+		segundo,
+	); !errors.Is(err, ErrConjuntoFuentesAnalisisYaConsumido) {
 		t.Fatalf("conflicto de replay aceptado: %v", err)
 	}
 }
@@ -363,9 +328,17 @@ func TestPuenteArtefactoAnalisisRevalidaVigenciaDespuesDelConsumo(
 		reloj:    reloj,
 		destino:  inicio.Add(5 * time.Second),
 	}
-	if _, err := capacidad.PrepararArtefactoAnalisis(
+	artefacto, err := capacidad.PrepararArtefactoAnalisis(
 		context.Background(),
 		solicitud,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := capacidad.ConsumirArtefactoAnalisisO3(
+		context.Background(),
+		solicitud,
+		artefacto,
 	); !errors.Is(err, ErrArtefactoAnalisisNoConfiable) {
 		t.Fatalf("respuesta caducada tras consumo aceptada: %v", err)
 	}
@@ -375,13 +348,11 @@ func TestArtefactoAnalisisRechazaCualquierAdulteracionDeLaPrueba(
 	t *testing.T,
 ) {
 	solicitud, capacidad, _ := capacidadArtefactoAnalisisPrueba(t)
-	artefacto, err := capacidad.PrepararArtefactoAnalisis(
-		context.Background(),
+	artefacto := prepararYConsumirArtefactoAnalisisPrueba(
+		t,
+		capacidad,
 		solicitud,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
 	casos := []struct {
 		nombre    string
 		modificar func(*ArtefactoAnalisisPreparado)
@@ -462,13 +433,12 @@ func TestArtefactoAnalisisNoTieneConstructorNominalExportado(
 
 func TestArtefactoAnalisisBloqueaTodosLosCodecs(t *testing.T) {
 	solicitud, capacidad, _ := capacidadArtefactoAnalisisPrueba(t)
-	artefacto, err := capacidad.PrepararArtefactoAnalisis(
-		context.Background(),
+	artefacto := prepararYConsumirArtefactoAnalisisPrueba(
+		t,
+		capacidad,
 		solicitud,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	var err error
 	comprobar := func(nombre string, err error) {
 		t.Helper()
 		if !errors.Is(err, ErrSerializacionOperacionAnalisisProhibida) {
@@ -514,7 +484,7 @@ func TestPuenteArtefactoAnalisisRechazaNilTipadoYContextoCancelado(
 ) {
 	solicitud, _, _ := capacidadArtefactoAnalisisPrueba(t)
 	var fuente *fuentePresupuestariaDoble
-	if _, err := NuevaCapacidadPrepararArtefactoAnalisisO3(
+	if _, err := NuevaCapacidadPrepararArtefactoAnalisisO3ParaComposicionInterna(
 		&preparadorSolicitudesFuentesAnalisisO3Doble{},
 		fuente,
 		calculadorCosteDoble(nil),
@@ -577,8 +547,8 @@ func TestPreimagenSemanticaLigaTodaLaEvidenciaDelArtefacto(t *testing.T) {
 	}
 	otra = clonarArtefactoAnalisisPrueba(artefacto)
 	otra.datos.PreparadoEn = otra.datos.PreparadoEn.Add(time.Microsecond)
-	otra.pruebas.reciboRC.ConsumidaEn =
-		otra.pruebas.reciboRC.ConsumidaEn.Add(time.Microsecond)
+	otra.pruebas.ordenConjunto.datos.huellaSHA256 =
+		otra.datos.ArtefactoHuellaSHA256
 	// Una mutación directa no puede producir una segunda preimagen válida.
 	base.Artefacto = otra
 	if _, err := NuevasPreimagenesOperacionAnalisis(base); !errors.Is(
@@ -673,10 +643,10 @@ func capacidadArtefactoAnalisisPrueba(
 	})
 	consumidor := &consumoMemoriaFuenteAnalisisO3{
 		instante: inicio.Add(3 * time.Second),
-		recibos:  map[string]ReciboConsumoRespuestaFuenteAnalisis{},
+		recibos:  map[string]ReciboConsumoConjuntoFuentesAnalisisO3{},
 		huellas:  map[string]string{},
 	}
-	capacidad, err := NuevaCapacidadPrepararArtefactoAnalisisO3(
+	capacidad, err := NuevaCapacidadPrepararArtefactoAnalisisO3ParaComposicionInterna(
 		solicitudes,
 		fuente,
 		calculador,
@@ -699,12 +669,40 @@ func clonarArtefactoAnalisisPrueba(
 ) ArtefactoAnalisisPreparado {
 	datos := clonarDatosArtefactoAnalisis(*origen.datos)
 	pruebas := *origen.pruebas
-	if origen.pruebas.reciboCoste != nil {
-		recibo := *origen.pruebas.reciboCoste
-		pruebas.reciboCoste = &recibo
+	datosOrden, _ := origen.pruebas.ordenConjunto.Datos()
+	pruebas.ordenConjunto = ordenConsumoConjuntoDesdeDatosO3(datosOrden)
+	if origen.pruebas.reciboConjunto != nil {
+		recibo := clonarReciboConsumoConjuntoFuentesAnalisisO3(
+			*origen.pruebas.reciboConjunto,
+		)
+		pruebas.reciboConjunto = &recibo
 	}
 	return ArtefactoAnalisisPreparado{
 		datos:   &datos,
 		pruebas: &pruebas,
 	}
+}
+
+func prepararYConsumirArtefactoAnalisisPrueba(
+	t *testing.T,
+	capacidad *CapacidadPrepararArtefactoAnalisisO3,
+	solicitud SolicitudPrepararArtefactoAnalisis,
+) ArtefactoAnalisisPreparado {
+	t.Helper()
+	artefacto, err := capacidad.PrepararArtefactoAnalisis(
+		context.Background(),
+		solicitud,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consumido, err := capacidad.ConsumirArtefactoAnalisisO3(
+		context.Background(),
+		solicitud,
+		artefacto,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return consumido
 }

@@ -71,8 +71,6 @@ func escribirContenidoArtefactoAnalisisO3(
 	canon.enteroSinSigno(uint64(datos.GeneracionRespuestaRC))
 	canon.instante(datos.ConfirmadaRCEn)
 	canon.instante(datos.RespuestaRCValidaHasta)
-	canon.texto(datos.ConsumoRCRef)
-	canon.instante(datos.ConsumidaRCEn)
 	escribirVinculoAutoridadFuenteAnalisisO3(
 		canon,
 		datos.AutoridadFuenteRC,
@@ -102,8 +100,6 @@ func escribirContenidoArtefactoAnalisisO3(
 		canon.enteroSinSigno(uint64(datos.GeneracionRespuestaCoste))
 		canon.instante(datos.ConfirmadaCosteEn)
 		canon.instante(datos.RespuestaCosteValidaHasta)
-		canon.texto(datos.ConsumoCosteRef)
-		canon.instante(datos.ConsumidaCosteEn)
 		escribirVinculoAutoridadFuenteAnalisisO3(
 			canon,
 			datos.AutoridadFuenteCoste,

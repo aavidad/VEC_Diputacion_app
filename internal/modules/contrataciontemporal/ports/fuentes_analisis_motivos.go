@@ -279,6 +279,14 @@ func (c ConfirmacionPublicacionMotivoFuenteAnalisis) Datos() (
 	return *c.datos, nil
 }
 
+func (c ConfirmacionPublicacionMotivoFuenteAnalisis) clonar() ConfirmacionPublicacionMotivoFuenteAnalisis {
+	if c.datos == nil {
+		return ConfirmacionPublicacionMotivoFuenteAnalisis{}
+	}
+	datos := *c.datos
+	return ConfirmacionPublicacionMotivoFuenteAnalisis{datos: &datos}
+}
+
 type VerificadorPublicacionMotivoFuenteAnalisis interface {
 	PresentadorAutoridadFuenteAnalisis
 	VerificarPublicacionMotivoFuenteAnalisis(

@@ -53,3 +53,27 @@ func (r ReciboOperacionAnalisis) ValidarParaPreparacion(
 	}
 	return nil
 }
+
+func (r ReciboOperacionAnalisis) ValidarParaConsulta(
+	solicitud SolicitudConsultarOperacionAnalisisConfirmada,
+) error {
+	if solicitud.Validar() != nil ||
+		r.Operacion != solicitud.Operacion ||
+		r.OrganizacionRef != solicitud.OrganizacionRef ||
+		r.ExpedienteRef != solicitud.ExpedienteRef ||
+		r.VersionAnterior != solicitud.VersionExpediente ||
+		r.ArtefactoRef != solicitud.ArtefactoRef ||
+		!huellaSHA256OperacionAnalisisValida(
+			r.ArtefactoHuellaSHA256,
+		) ||
+		!domain.ReferenciaOpacaValida(r.ReciboRef) ||
+		!domain.ReferenciaOpacaValida(r.AuditoriaRef) ||
+		!domain.ReferenciaOpacaValida(r.EventoRef) ||
+		!SelloHMACSHA256Valido(r.HuellaSemanticaHMAC) ||
+		!instanteSeguroOperacionAnalisis(r.ConfirmadaEn) ||
+		r.VersionResultante != r.VersionAnterior+1 ||
+		r.SecuenciaActuacion != r.VersionResultante {
+		return ErrResultadoOperacionAnalisisNoConfiable
+	}
+	return nil
+}

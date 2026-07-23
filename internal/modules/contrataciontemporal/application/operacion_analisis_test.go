@@ -107,6 +107,7 @@ func TestOperacionAnalisisDTOExternoNoAceptaCamposAutoritativos(
 	prohibidos := []string{
 		"analisis", "validacionrc", "costeprevisto", "fuentecoste",
 		"recibocoste", "actorref", "accion", "unidadref",
+		"raiz", "confianza", "credencial", "confirmacion", "recibo",
 	}
 	for _, tipo := range tipos {
 		for indice := 0; indice < tipo.NumField(); indice++ {
@@ -132,13 +133,21 @@ func TestOperacionAnalisisReintentoConfirmadoNoRepiteEfectos(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d.preparaciones.confirmado = &primero
+	d.preparaciones.consultaConfirmada = &primero
+	d.artefactos.err = errors.New("fuentes-sinteticas-caidas")
+	llamadasArtefacto := d.artefactos.llamadas
+	consumos := d.artefactos.consumos
+	preparaciones := d.preparaciones.llamadas
 
 	segundo, err := servicio.Registrar(context.Background(), escenario.registrar)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if segundo != primero || d.preparaciones.llamadas != 2 ||
+	if segundo != primero ||
+		d.artefactos.llamadas != llamadasArtefacto ||
+		d.artefactos.consumos != consumos ||
+		d.preparaciones.llamadas != preparaciones ||
+		d.preparaciones.consultas != 2 ||
 		d.politicas.llamadas != 1 || d.autorizador.llamadas != 1 ||
 		d.transaccion.llamadas != 1 {
 		t.Fatalf("el reintento produjo efectos nuevos: %#v", segundo)
@@ -160,20 +169,41 @@ func TestOperacionAnalisisMismaClaveConSemanticaDistintaEsConflicto(
 	); err != nil {
 		t.Fatal(err)
 	}
-	d.preparaciones.err =
+	d.preparaciones.errConsulta =
 		ports.ErrClaveIdempotenciaOperacionAnalisisUsada
 	cambiada := escenario.registrar
 	cambiada.DatosFuncionales.PorcentajeJornada = 5_000
 
 	_, err := servicio.Registrar(context.Background(), cambiada)
 	if !errors.Is(err, ErrOperacionAnalisisEnConflicto) ||
-		len(d.sellador.preimagenes) != 2 {
+		len(d.sellador.preimagenes) != 1 ||
+		d.artefactos.llamadas != 1 ||
+		d.artefactos.consumos != 1 {
 		t.Fatalf("se esperaba conflicto semántico, recibido: %v", err)
 	}
-	primera, _ := d.sellador.preimagenes[0].BytesSemantica()
-	segunda, _ := d.sellador.preimagenes[1].BytesSemantica()
-	if bytes.Equal(primera, segunda) {
-		t.Fatal("la preimagen semántica no liga los datos funcionales")
+}
+
+func TestOperacionAnalisisClasificaConflictoDeConsumoConjunto(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioOperacionAnalisisSaneado(
+		t,
+		ports.OperacionRegistrarAnalisis,
+		"-conflicto-consumo-conjunto-sintetico",
+	)
+	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
+	d.artefactos.errConsumo =
+		ports.ErrConjuntoFuentesAnalisisYaConsumido
+
+	_, err := servicio.Registrar(context.Background(), escenario.registrar)
+	if !errors.Is(err, ErrOperacionAnalisisEnConflicto) ||
+		!errors.Is(
+			err,
+			ports.ErrConjuntoFuentesAnalisisYaConsumido,
+		) ||
+		d.artefactos.consumos != 1 ||
+		d.transaccion.llamadas != 0 {
+		t.Fatalf("conflicto conjunto mal clasificado: %v", err)
 	}
 }
 
@@ -194,6 +224,27 @@ func TestOperacionAnalisisPropagaConflictoCASDurable(t *testing.T) {
 	}
 }
 
+func TestOperacionAnalisisNoConsumeFuentesSiNoPuedeReservarIntencion(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioOperacionAnalisisSaneado(
+		t,
+		ports.OperacionRegistrarAnalisis,
+		"-reserva-caida-sintetica",
+	)
+	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
+	d.preparaciones.err = errors.New("reserva-sintetica-no-disponible")
+
+	_, err := servicio.Registrar(context.Background(), escenario.registrar)
+	if !errors.Is(err, ErrDependenciaOperacionAnalisisNoDisponible) ||
+		d.artefactos.consumos != 0 ||
+		d.politicas.llamadas != 0 ||
+		d.autorizador.llamadas != 0 ||
+		d.transaccion.llamadas != 0 {
+		t.Fatalf("se consumieron fuentes sin intención reservada: %v", err)
+	}
+}
+
 func TestOperacionAnalisisDistingueDenegacionYDependencia(t *testing.T) {
 	t.Run("denegacion", func(t *testing.T) {
 		escenario := nuevoEscenarioOperacionAnalisisSaneado(
@@ -205,7 +256,8 @@ func TestOperacionAnalisisDistingueDenegacionYDependencia(t *testing.T) {
 		d.autorizador.decisionDenegada = true
 		_, err := servicio.Registrar(context.Background(), escenario.registrar)
 		if !errors.Is(err, ErrOperacionAnalisisDenegada) ||
-			errors.Is(err, ErrDependenciaOperacionAnalisisNoDisponible) {
+			errors.Is(err, ErrDependenciaOperacionAnalisisNoDisponible) ||
+			d.artefactos.consumos != 0 {
 			t.Fatalf("clasificación incorrecta: %v", err)
 		}
 	})
@@ -286,10 +338,80 @@ func TestOperacionAnalisisRechazaResultadosNoConfiables(t *testing.T) {
 		}
 		_, err := servicio.Registrar(context.Background(), escenario.registrar)
 		if !errors.Is(err, ErrResultadoOperacionAnalisisNoConfiable) ||
+			d.artefactos.consumos != 0 ||
 			d.autorizador.llamadas != 0 || d.transaccion.llamadas != 0 {
 			t.Fatalf("política no confiable aceptada: %v", err)
 		}
 	})
+	t.Run("rectificacion_sin_segregacion", func(t *testing.T) {
+		escenario := nuevoEscenarioOperacionAnalisisSaneado(
+			t,
+			ports.OperacionRectificarAnalisis,
+			"-segregacion-obligatoria-sintetica",
+		)
+		servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
+		d.politicas.transformar = func(
+			p *ports.PoliticaOperacionAnalisis,
+		) {
+			p.ExigeActorDistinto = false
+		}
+		_, err := servicio.Rectificar(
+			context.Background(),
+			escenario.rectificar,
+		)
+		if !errors.Is(err, ErrResultadoOperacionAnalisisNoConfiable) ||
+			d.artefactos.consumos != 0 ||
+			d.autorizador.llamadas != 0 ||
+			d.transaccion.llamadas != 0 {
+			t.Fatalf("rectificación sin segregación aceptada: %v", err)
+		}
+	})
+}
+
+func TestOperacionAnalisisRechazaReciboFueraDeContextoYConcesion(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioOperacionAnalisisSaneado(
+		t,
+		ports.OperacionRegistrarAnalisis,
+		"-recibo-tardio-sintetico",
+	)
+	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
+	d.transaccion.desfaseConfirmacion = 24 * time.Hour
+	_, err := servicio.Registrar(context.Background(), escenario.registrar)
+	if !errors.Is(err, ErrResultadoOperacionAnalisisNoConfiable) {
+		t.Fatalf("recibo 24h posterior aceptado: %v", err)
+	}
+}
+
+func TestOperacionAnalisisTienePresupuestoGlobalMaximoDeCincoSegundos(
+	t *testing.T,
+) {
+	if ports.TiempoMaximoOperacionAnalisis != 5*time.Second {
+		t.Fatalf(
+			"presupuesto global inesperado: %s",
+			ports.TiempoMaximoOperacionAnalisis,
+		)
+	}
+	escenario := nuevoEscenarioOperacionAnalisisSaneado(
+		t,
+		ports.OperacionRegistrarAnalisis,
+		"-presupuesto-global-sintetico",
+	)
+	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
+	if _, err := servicio.Registrar(
+		context.Background(),
+		escenario.registrar,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if d.contextos.margen <= 0 ||
+		d.contextos.margen > ports.TiempoMaximoOperacionAnalisis {
+		t.Fatalf(
+			"las dependencias no recibieron el presupuesto global: %s",
+			d.contextos.margen,
+		)
+	}
 }
 
 func TestOperacionAnalisisRespetaCancelacionAntesYDespuesDelCommit(

@@ -177,6 +177,34 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorDenegacion, nil)
 	}
+	solicitudConsulta := ports.SolicitudConsultarOperacionAnalisisConfirmada{
+		Operacion:           solicitud.operacion,
+		OrganizacionRef:     solicitud.organizacionRef,
+		ExpedienteRef:       solicitud.expedienteRef,
+		VersionExpediente:   solicitud.versionEsperada,
+		ActorRef:            vinculo.PrincipalID,
+		PerfilRef:           vinculo.PerfilActivoRef,
+		ClaveIdempotencia:   solicitud.claveIdempotencia,
+		ArtefactoRef:        solicitud.artefactoRef,
+		DatosFuncionales:    solicitud.datosFuncionales,
+		MotivoRectificacion: solicitud.motivoRectificacion,
+	}
+	reciboConfirmado, encontrado, err := s.preparaciones.
+		ConsultarOperacionAnalisisConfirmada(
+			ctxOperacion,
+			solicitudConsulta,
+		)
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{},
+			clasificarFalloPersistencia(ctxOperacion, err)
+	}
+	if encontrado {
+		if reciboConfirmado.ValidarParaConsulta(solicitudConsulta) != nil {
+			return ports.ReciboOperacionAnalisis{},
+				nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
+		}
+		return reciboConfirmado, nil
+	}
 
 	solicitudArtefacto := ports.SolicitudPrepararArtefactoAnalisis{
 		ArtefactoRef:      solicitud.artefactoRef,
@@ -307,7 +335,7 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
 	}
-	if politica.ExigeActorDistinto &&
+	if solicitud.operacion == ports.OperacionRectificarAnalisis &&
 		actorAnterior == vinculo.PrincipalID {
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorDenegacion, nil)
@@ -366,6 +394,26 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
 	}
+	artefacto, err = s.artefactos.ConsumirArtefactoAnalisisO3(
+		ctxOperacion,
+		solicitudArtefacto,
+		artefacto,
+	)
+	if err != nil {
+		if errors.Is(
+			err,
+			ports.ErrConjuntoFuentesAnalisisYaConsumido,
+		) {
+			return ports.ReciboOperacionAnalisis{},
+				nuevoErrorOperacionAnalisis(tipoErrorConflicto, nil)
+		}
+		return ports.ReciboOperacionAnalisis{},
+			errorDependenciaOperacionAnalisis(ctxOperacion)
+	}
+	if _, err = artefacto.PruebasParaO3(solicitudArtefacto); err != nil {
+		return ports.ReciboOperacionAnalisis{},
+			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
+	}
 
 	siguiente, err := aplicarOperacionAnalisis(
 		solicitud,
@@ -415,7 +463,17 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 			clasificarFalloPersistencia(ctxOperacion, err)
 	}
 	if recibo.ValidarParaPreparacion(datosPreparacion) != nil ||
-		recibo.ConfirmadaEn.Before(instanteEfecto) {
+		recibo.ConfirmadaEn.Before(instanteEfecto) ||
+		contextoAutorizacion.ValidarPara(
+			resolverContexto,
+			recibo.ConfirmadaEn,
+		) != nil ||
+		!autorizacionV3ValidaEn(
+			solicitudV3,
+			decisionV3,
+			confirmacionV3,
+			recibo.ConfirmadaEn,
+		) {
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
 	}
