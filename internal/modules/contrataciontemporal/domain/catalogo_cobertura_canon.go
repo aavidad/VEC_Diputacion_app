@@ -59,7 +59,8 @@ func huellaCatalogoValida(valor string) bool {
 // algoritmo, referencia, versión funcional, publicación, vigencia,
 // procedencia y vías ordenadas con sus comprobaciones ordenadas. No depende de
 // etiquetas JSON, orden de campos de structs ni reglas omitempty. Hasta se
-// codifica con un octeto de presencia y, si existe, Unix microsegundo.
+// codifica con un octeto de presencia y, si existe, Unix microsegundo. Ningún
+// otro instante admite el valor cero.
 func materialCanonicoCatalogoCoberturaV1(
 	publicacion PublicacionCatalogoViasCobertura,
 ) ([]byte, error) {

@@ -19,9 +19,11 @@ var ErrPublicacionCatalogoEnConflicto = errors.New(
 )
 
 // VigenciaCatalogoCobertura representa un intervalo [Desde, Hasta). Los
-// instantes admitidos usan UTC, precisión máxima de microsegundo y años
-// 0001..9999 para que el estado sea transportable mediante JSON/RFC 3339.
-// Exclusivamente Hasta == time.Time{} significa ausencia de fecha final.
+// instantes presentes usan UTC, precisión máxima de microsegundo y el intervalo
+// 0001-01-01T00:00:00.000001Z..9999-12-31T23:59:59.999999Z para que el estado
+// sea transportable mediante JSON/RFC 3339. Exclusivamente
+// Hasta == time.Time{} significa ausencia de fecha final; cero es inválido en
+// PublicadoEn, Desde y consultas.
 type VigenciaCatalogoCobertura struct {
 	Desde time.Time `json:"desde"`
 	Hasta time.Time `json:"hasta"`
@@ -376,7 +378,7 @@ func clonarViasCobertura(
 }
 
 func instanteCatalogoCoberturaValido(valor time.Time) bool {
-	return valor.Location() == time.UTC &&
+	return !valor.IsZero() && valor.Location() == time.UTC &&
 		valor.Equal(valor.Truncate(time.Microsecond)) &&
 		valor.Year() >= 1 && valor.Year() <= 9999
 }

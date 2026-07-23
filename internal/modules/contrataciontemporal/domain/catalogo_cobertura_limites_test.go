@@ -8,7 +8,7 @@ import (
 )
 
 func TestCatalogoCoberturaAdmiteLimitesTemporalesYRoundTripJSON(t *testing.T) {
-	minimo := time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)
+	minimo := time.Date(1, 1, 1, 0, 0, 0, 1000, time.UTC)
 	maximo := time.Date(9999, 12, 31, 23, 59, 59, 999999000, time.UTC)
 	borrador := borradorCatalogoCoberturaValido()
 	borrador.PublicadoEn = minimo
@@ -48,6 +48,10 @@ func TestCatalogoCoberturaAdmiteLimitesTemporalesYRoundTripJSON(t *testing.T) {
 	if err != nil || !catalogoMaximo.VigenteEn(maximo) {
 		t.Fatalf("el máximo exacto no es operativo: %v", err)
 	}
+	if catalogoMaximo.Vigencia().Hasta != (time.Time{}) ||
+		catalogoMaximo.VigenteEn(time.Time{}) {
+		t.Fatal("cero no se limita a representar Hasta ausente")
+	}
 }
 
 func TestCatalogoCoberturaRechazaInstantesFueraDelIntervaloTransportable(t *testing.T) {
@@ -57,6 +61,12 @@ func TestCatalogoCoberturaRechazaInstantesFueraDelIntervaloTransportable(t *test
 		nombre    string
 		modificar func(*BorradorCatalogoViasCobertura)
 	}{
+		{"publicación cero", func(b *BorradorCatalogoViasCobertura) {
+			b.PublicadoEn = time.Time{}
+		}},
+		{"inicio cero", func(b *BorradorCatalogoViasCobertura) {
+			b.Vigencia.Desde = time.Time{}
+		}},
 		{"publicación anterior", func(b *BorradorCatalogoViasCobertura) {
 			b.PublicadoEn = anterior
 		}},
@@ -82,6 +92,36 @@ func TestCatalogoCoberturaRechazaInstantesFueraDelIntervaloTransportable(t *test
 			caso.modificar(&borrador)
 			if _, err := PublicarCatalogoViasCobertura(borrador); !errors.Is(err, ErrDatoInvalido) {
 				t.Fatalf("se aceptó un instante no transportable: %v", err)
+			}
+		})
+	}
+}
+
+func TestCatalogoCoberturaRechazaJSONConInstantesObligatoriosOmitidos(t *testing.T) {
+	catalogo, err := PublicarCatalogoViasCobertura(borradorCatalogoCoberturaValido())
+	if err != nil {
+		t.Fatalf("publicar catálogo: %v", err)
+	}
+	codificado, err := json.Marshal(catalogo.Publicacion())
+	if err != nil {
+		t.Fatalf("codificar publicación: %v", err)
+	}
+	casos := []struct {
+		nombre string
+		ruta   []string
+	}{
+		{"sin publicación", []string{"publicado_en"}},
+		{"sin inicio de vigencia", []string{"vigencia", "desde"}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			incompleto := omitirCampoJSON(t, codificado, caso.ruta...)
+			var publicacion PublicacionCatalogoViasCobertura
+			if err := json.Unmarshal(incompleto, &publicacion); err != nil {
+				t.Fatalf("decodificar JSON incompleto: %v", err)
+			}
+			if _, err := RestaurarCatalogoViasCobertura(publicacion); !errors.Is(err, ErrDatoInvalido) {
+				t.Fatalf("se aceptó un instante obligatorio omitido: %v", err)
 			}
 		})
 	}
@@ -134,4 +174,31 @@ func TestCatalogoCoberturaAdmiteLimitesPositivosDeCardinalidad(t *testing.T) {
 			}
 		})
 	}
+}
+
+func omitirCampoJSON(t *testing.T, documento []byte, ruta ...string) []byte {
+	t.Helper()
+	var objeto map[string]json.RawMessage
+	if err := json.Unmarshal(documento, &objeto); err != nil {
+		t.Fatalf("decodificar objeto JSON: %v", err)
+	}
+	if len(ruta) == 1 {
+		delete(objeto, ruta[0])
+	} else {
+		var anidado map[string]json.RawMessage
+		if err := json.Unmarshal(objeto[ruta[0]], &anidado); err != nil {
+			t.Fatalf("decodificar objeto JSON anidado: %v", err)
+		}
+		delete(anidado, ruta[1])
+		codificado, err := json.Marshal(anidado)
+		if err != nil {
+			t.Fatalf("codificar objeto JSON anidado: %v", err)
+		}
+		objeto[ruta[0]] = codificado
+	}
+	resultado, err := json.Marshal(objeto)
+	if err != nil {
+		t.Fatalf("codificar objeto JSON: %v", err)
+	}
+	return resultado
 }
