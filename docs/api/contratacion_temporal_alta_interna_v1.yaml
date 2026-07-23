@@ -429,7 +429,6 @@ components:
             - operacion_pendiente
             - plazo_agotado
             - error_interno
-            - contexto_no_confiable
         clave_i18n:
           type: string
           pattern: '^api\.contratacion_temporal\.alta\.error\.[a-z0-9_]+$'

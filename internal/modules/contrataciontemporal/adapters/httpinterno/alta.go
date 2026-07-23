@@ -101,7 +101,7 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	comando, correcto := comandoDesdeContextoCanal(contextoCanal, solicitud)
 	if !correcto {
-		responderErrorAlta(w, errorContextoNoConfiable)
+		responderErrorAlta(w, errorInterno)
 		return
 	}
 	if err := r.Context().Err(); err != nil {
@@ -110,7 +110,7 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	recibo, err := h.ejecutor.Registrar(r.Context(), comando)
-	if reciboAltaSeguro(recibo, h.reloj.Ahora()) {
+	if reciboAltaSeguro(recibo, instanteRelojCanonico(h.reloj.Ahora())) {
 		// Un recibo válido confirma el COMMIT. Una cancelación observada a la
 		// vez no degrada el éxito a un resultado ambiguo ni induce reintento.
 		responderExitoAlta(w, recibo)
@@ -158,6 +158,13 @@ func reciboAltaSeguro(recibo ports.ReciboAlta, ahora time.Time) bool {
 	return domain.InstanteUTCCanonico(ahora) &&
 		recibo.ValidarEstructura() == nil && recibo.Version <= MaximoVersionJSON &&
 		!recibo.ConfirmadaEn.After(ahora.Add(toleranciaFuturo))
+}
+
+func instanteRelojCanonico(instante time.Time) time.Time {
+	if instante.IsZero() {
+		return time.Time{}
+	}
+	return instante.UTC().Truncate(time.Microsecond)
 }
 
 func dependenciaNula(dependencia any) bool {

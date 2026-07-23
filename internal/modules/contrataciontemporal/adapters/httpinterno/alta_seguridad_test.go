@@ -69,7 +69,7 @@ func TestManejadorAltaNoAceptaContextoFabricadoOConSolicitudInyectada(t *testing
 			caso.modificar(&autoridad.contexto)
 			respuesta := ejecutarPeticionPrueba(t, manejador, nuevaPeticionPrueba(t, cuerpoValidoPrueba()))
 			if respuesta.Code != http.StatusInternalServerError ||
-				codigoErrorPrueba(t, respuesta) != "contexto_no_confiable" {
+				codigoErrorPrueba(t, respuesta) != "error_interno" {
 				t.Fatalf("contexto fabricado no cerrado: %d %s", respuesta.Code, respuesta.Body.String())
 			}
 			if llamadas, _ := ejecutor.instantanea(); llamadas != 0 {
