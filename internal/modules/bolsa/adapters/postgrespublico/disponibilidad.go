@@ -226,7 +226,7 @@ func (f *Fuente) comprobarIntegridadProyeccion(ctx context.Context) error {
 	if f.sondaIntegridadPrueba != nil {
 		return f.sondaIntegridadPrueba(ctx)
 	}
-	tx, err := f.iniciarLectura(ctx, true)
+	tx, err := f.iniciarLecturaConTimeout(ctx, true, duracionIntegridadDisponibilidad)
 	if err != nil {
 		return err
 	}
