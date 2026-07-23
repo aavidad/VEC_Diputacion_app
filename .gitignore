@@ -57,3 +57,6 @@ id_ed25519*
 /config/desarrollo.local.env
 /config/desarrollo.local/
 /scripts/.credenciales-desarrollo/
+# Credenciales de autenticacion HTTP de despliegue.
+.htpasswd
+*.htpasswd

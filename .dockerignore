@@ -35,3 +35,6 @@ config/rpt_positions_import.json
 **/*.db
 **/*.sqlite
 **/*.sqlite3
+# Credenciales de autenticacion HTTP nunca entran en el contexto de imagen.
+.htpasswd
+*.htpasswd

@@ -13,7 +13,7 @@ fallar() {
   exit 1
 }
 
-for orden in openssl realpath mkdir chmod find; do
+for orden in openssl realpath mkdir chmod mktemp rm dirname mv cut; do
   command -v "$orden" >/dev/null 2>&1 || fallar "falta la herramienta obligatoria: $orden"
 done
 
@@ -45,9 +45,22 @@ mkdir -p -- "$PADRE"
 PADRE=$(realpath -- "$PADRE")
 [[ ! -L "$PADRE" ]] || fallar "el directorio padre no puede ser un enlace simbolico"
 
-if [[ -e "$DESTINO/servidor.crt" && -e "$DESTINO/servidor.key" ]]; then
+if [[ -e "$DESTINO/servidor.crt" || -e "$DESTINO/servidor.key" ]]; then
+  [[ -f "$DESTINO/servidor.crt" && -f "$DESTINO/servidor.key" ]] ||
+    fallar "el material existente debe contener dos ficheros regulares; no se sustituye automáticamente"
   openssl x509 -in "$DESTINO/servidor.crt" -noout -checkend 0 >/dev/null ||
-    fallar "el certificado existente ha caducado; borra $DESTINO y repite"
+    fallar "el certificado existente no es válido o ha caducado; archiva $DESTINO y repite"
+  openssl pkey -in "$DESTINO/servidor.key" -check -noout >/dev/null 2>&1 ||
+    fallar "la clave privada existente no es válida"
+  HUELLA_CERT=$(openssl x509 -in "$DESTINO/servidor.crt" -pubkey -noout |
+    openssl pkey -pubin -outform DER 2>/dev/null |
+    openssl dgst -sha256)
+  HUELLA_CLAVE=$(openssl pkey -in "$DESTINO/servidor.key" -pubout -outform DER 2>/dev/null |
+    openssl dgst -sha256)
+  [[ "$HUELLA_CERT" == "$HUELLA_CLAVE" ]] ||
+    fallar "el certificado y la clave existentes no forman pareja"
+  chmod 0644 "$DESTINO/servidor.crt"
+  chmod 0640 "$DESTINO/servidor.key"
   printf 'Certificado de presentación remota ya existente y vigente: %s\n' "$DESTINO"
   exit 0
 fi
@@ -76,7 +89,8 @@ openssl req -new -x509 -sha256 -days 397 -key "$TEMPORAL/servidor.key" \
   -out "$TEMPORAL/servidor.crt" 2>/dev/null
 
 openssl x509 -in "$TEMPORAL/servidor.crt" -noout -checkend 0 >/dev/null
-find "$TEMPORAL" -type f -exec chmod 600 {} +
+chmod 0644 "$TEMPORAL/servidor.crt"
+chmod 0640 "$TEMPORAL/servidor.key"
 mv -- "$TEMPORAL" "$DESTINO"
 TEMPORAL=''
 

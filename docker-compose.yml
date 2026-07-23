@@ -105,6 +105,14 @@ services:
       # remoto sustituye estas dos rutas por su propio material custodiado.
       - "${VEC_PRESENTACION_REMOTE_TLS_CERT_PATH:-./var/tls-presentacion-remota/servidor.crt}:/etc/nginx/certs/servidor.crt:ro"
       - "${VEC_PRESENTACION_REMOTE_TLS_KEY_PATH:-./var/tls-presentacion-remota/servidor.key}:/etc/nginx/certs/servidor.key:ro"
+    secrets:
+      - source: presentacion_remota_htpasswd
+        target: vec_presentacion_htpasswd
+    # Compose implementa los secretos locales mediante bind mounts y no aplica
+    # uid/gid/mode. El grupo suplementario permite leer los tres ficheros con
+    # modo 0640 sin hacerlos accesibles al resto del anfitrión.
+    group_add:
+      - "${VEC_PRESENTACION_REMOTE_SECRET_GID:-1000}"
     networks:
       presentacion-borde:
         # .195 está reservada al smoke cartográfico concurrente.
@@ -453,3 +461,10 @@ networks:
 
 volumes:
   vec-bolsa-datos:
+
+secrets:
+  # El fichero incluido no contiene credenciales válidas y mantiene el fallo
+  # cerrado en desarrollo. Sistemas debe sustituirlo por un htpasswd
+  # custodiado fuera del release mediante la variable indicada.
+  presentacion_remota_htpasswd:
+    file: "${VEC_PRESENTACION_REMOTE_HTPASSWD_PATH:-./deploy/proxy-local/htpasswd-denegar}"
