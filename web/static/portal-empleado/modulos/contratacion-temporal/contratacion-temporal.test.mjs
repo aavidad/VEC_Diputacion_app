@@ -402,7 +402,7 @@ test("los errores se redactan, permiten reintento y nunca filtran el mensaje pri
   assert.equal(comandos[0].clave_idempotencia, comandos[1].clave_idempotencia);
 });
 
-test("editar conserva la clave solo si el contenido vuelve a ser idéntico", async () => {
+test("editar conserva la clave solo si la solicitud canónica es idéntica", async () => {
   const CLAVE_NUEVA = "22345678-1234-4abc-8def-1234567890ab";
   const clavesSinCambio = [];
   let intentoSinCambio = 0;
@@ -418,7 +418,7 @@ test("editar conserva la clave solo si el contenido vuelve a ser idéntico", asy
   sinCambio.prepararRevision(borradorValido());
   await sinCambio.enviar();
   sinCambio.volverAEdicion();
-  sinCambio.prepararRevision(borradorValido());
+  sinCambio.prepararRevision(borradorValido({ rc_importe: "32450.00" }));
   await sinCambio.enviar();
   assert.deepEqual(clavesSinCambio, [CLAVE_PRUEBA, CLAVE_PRUEBA]);
 

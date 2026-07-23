@@ -78,13 +78,8 @@ function limpiarDatosRC(borrador) {
   };
 }
 
-function borradoresIguales(primero, segundo) {
-  if (!primero || !segundo) return false;
-  return camposBorrador().every((campo) => {
-    if (campo !== "documentos_adjuntos") return primero[campo] === segundo[campo];
-    return primero[campo].length === segundo[campo].length
-      && primero[campo].every((referencia, indice) => referencia === segundo[campo][indice]);
-  });
+function solicitudesCanonicasIguales(primera, segunda) {
+  return JSON.stringify(primera) === JSON.stringify(segunda);
 }
 
 function crearEstadoInicial(catalogos, disponible) {
@@ -120,7 +115,6 @@ export function crearPresentadorAltaContratacionTemporal({
     && catalogosAltaOperables(catalogos);
   let estado = crearEstadoInicial(catalogos, disponible);
   let comandoActual = null;
-  let borradorComandoActual = null;
   let envioActual = null;
   let controladorEnvio = null;
   let cancelacionSolicitada = false;
@@ -188,9 +182,20 @@ export function crearPresentadorAltaContratacionTemporal({
       return false;
     }
     try {
-      if (comandoActual === null || !borradoresIguales(borrador, borradorComandoActual)) {
+      if (comandoActual === null) {
         comandoActual = crearComandoAlta(borrador, catalogos, generarClaveIdempotencia());
-        borradorComandoActual = clonarYCongelarAlta(borrador);
+      } else {
+        const candidatoMismaClave = crearComandoAlta(
+          borrador,
+          catalogos,
+          comandoActual.clave_idempotencia,
+        );
+        comandoActual = solicitudesCanonicasIguales(
+          candidatoMismaClave.solicitud,
+          comandoActual.solicitud,
+        )
+          ? candidatoMismaClave
+          : crearComandoAlta(borrador, catalogos, generarClaveIdempotencia());
       }
     } catch (error) {
       const errores = error instanceof ErrorValidacionAlta
@@ -253,7 +258,6 @@ export function crearPresentadorAltaContratacionTemporal({
           tipo_mensaje: "exito",
         });
         comandoActual = null;
-        borradorComandoActual = null;
         return recibo;
       } catch (_errorPrivado) {
         const canceladaSinRespuesta = cancelacionSolicitada && !respuestaRecibida;

@@ -45,7 +45,8 @@ en que la vista interprete cuerpos, estados o mensajes privados.
 
 `signal` permite cancelar la espera. Una cancelación no demuestra que el
 servidor haya descartado el efecto. El presentador conserva el mismo comando y
-la misma clave de idempotencia para un reintento con contenido idéntico.
+la misma clave de idempotencia para un reintento cuya solicitud normalizada sea
+idéntica; una solicitud canónica distinta recibe una clave nueva.
 
 La frontera de O2-08 deberá usar una credencial breve ligada al cliente y
 obtenida mediante composición confiable, fuera de este comando. No podrá usar
