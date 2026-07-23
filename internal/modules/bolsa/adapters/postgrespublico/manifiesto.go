@@ -29,6 +29,18 @@ func (f *Fuente) iniciarLectura(
 	ctx context.Context,
 	exigirCache bool,
 ) (pgx.Tx, error) {
+	var timeout time.Duration
+	if !exigirCache {
+		timeout = time.Minute
+	}
+	return f.iniciarLecturaConTimeout(ctx, exigirCache, timeout)
+}
+
+func (f *Fuente) iniciarLecturaConTimeout(
+	ctx context.Context,
+	exigirCache bool,
+	timeout time.Duration,
+) (pgx.Tx, error) {
 	if ctx == nil || !f.configuracionValida() || (exigirCache && f.cacheManifiesto.Load() == nil) {
 		return nil, ErrConfiguracionPostgreSQLPublicaInvalida
 	}
@@ -37,6 +49,12 @@ func (f *Fuente) iniciarLectura(
 	})
 	if err != nil {
 		return nil, errorPostgreSQLPublico(ctx, err)
+	}
+	if timeout > 0 {
+		if err := establecerStatementTimeout(ctx, tx, timeout); err != nil {
+			rollbackPostgreSQLPublico(tx)
+			return nil, errorPostgreSQLPublico(ctx, err)
+		}
 	}
 	var ancla string
 	if err := tx.QueryRow(ctx, `
@@ -51,13 +69,34 @@ func (f *Fuente) iniciarLectura(
 		rollbackPostgreSQLPublico(tx)
 		return nil, ErrDatosPostgreSQLPublicosNoConfiables
 	}
-	if !exigirCache {
-		if _, err := tx.Exec(ctx, `SET LOCAL statement_timeout = '60s'`); err != nil {
-			rollbackPostgreSQLPublico(tx)
-			return nil, errorPostgreSQLPublico(ctx, err)
-		}
-	}
 	return tx, nil
+}
+
+func establecerStatementTimeout(ctx context.Context, tx pgx.Tx, timeout time.Duration) error {
+	if ctx == nil || tx == nil || timeout <= 0 {
+		return ErrConfiguracionPostgreSQLPublicaInvalida
+	}
+	var configurado string
+	if err := tx.QueryRow(ctx,
+		`SELECT pg_catalog.set_config('statement_timeout', $1, true)`,
+		timeout.String(),
+	).Scan(&configurado); err != nil {
+		return err
+	}
+	var milisegundos int64
+	if err := tx.QueryRow(ctx, `
+		SELECT (
+			pg_catalog.extract(
+				epoch FROM pg_catalog.current_setting('statement_timeout')::pg_catalog.interval
+			) * 1000
+		)::bigint`,
+	).Scan(&milisegundos); err != nil {
+		return err
+	}
+	if milisegundos != timeout.Milliseconds() {
+		return ErrConfiguracionPostgreSQLPublicaInvalida
+	}
+	return nil
 }
 
 func (f *Fuente) construirCacheManifiesto(
