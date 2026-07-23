@@ -83,6 +83,8 @@ func (m MotivoRCGobernado) validarPara(
 	if m.ReferenciaCatalogo.Validar() != nil ||
 		uint64(m.ReferenciaCatalogo.CatalogoVersion) >
 			MaximoEnteroSeguroOperacionAnalisis ||
+		m.ReferenciaCatalogo.EntradaClave !=
+			string(m.ClaveMensajeI18N) ||
 		!m.ClaveMensajeI18N.Valida() ||
 		!strings.HasPrefix(
 			string(m.ClaveMensajeI18N),
