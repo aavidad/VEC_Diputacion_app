@@ -90,8 +90,39 @@ la preimagen y deja inválido el HMAC de respuesta.
 
 El caso de uso siempre llama a `VerificadorRespuestaFuenteAnalisis` después de
 recibir la respuesta. La fuente no puede incluir una confirmación ni construir
-la orden de consumo. Fuente y verificador no pueden ser la misma instancia
-configurada.
+la orden de consumo. La separación ya no se infiere comparando punteros,
+interfaces o wrappers.
+
+Antes de consultar una fuente, la composición del servidor fija una confianza
+institucional que no forma parte de la petición del cliente. Cada adaptador
+presenta una credencial Ed25519 firmada por una raíz gobernada. El material
+firmado incluye:
+
+- organización y audiencia internas exactas;
+- rol técnico;
+- `AutoridadRef` y `BackendRef` canónico;
+- clave pública de prueba de posesión;
+- raíz, serie, generación y ventana de vigencia.
+
+La prueba de posesión firma un desafío nuevo para cada invocación. El desafío
+usa dominio propio, nonce CSPRNG de 256 bits, huella de la petición canónica,
+organización, audiencia y rol. Copiar una credencial o una prueba anterior no
+permite responder a otro desafío.
+
+Las raíces admiten rotación `activa` → `retenida` → `revocada`, ventanas y
+último instante autorizado de emisión. Una revocación por autoridad y serie
+prevalece sobre una firma válida. La configuración rechaza raíces duplicadas.
+Raíz, credencial y prueba se verifican antes de invocar la fuente; cualquier
+indisponibilidad o inconsistencia falla cerrado.
+
+Para RC se exigen tres autoridades autenticadas: fuente presupuestaria,
+verificador criptográfico y publicador del catálogo. Para coste se exigen
+calculador y verificador. En ambos casos deben ser distintos simultáneamente
+en `AutoridadRef`, `BackendRef` firmado y clave pública. Por tanto, dos
+wrappers, aliases o valores Go distintos sobre un mismo backend no crean
+segregación. La autoridad autenticada de la fuente se cruza con la atestación
+de respuesta; las del verificador y publicador se cruzan con sus respectivas
+confirmaciones.
 
 El verificador recibe la preimagen y la atestación opacas y devuelve una
 confirmación ligada a:
@@ -102,11 +133,14 @@ confirmación ligada a:
 - huella SHA-256 del material completo;
 - ventana firmada e instante de verificación.
 
-El núcleo comprueba de nuevo la confirmación y el reloj antes del consumo. El
-constructor público de confirmación es exclusivamente una herramienta para
-adaptadores TCB; no forma parte de los DTO de entrada ni de la respuesta de la
-fuente. Un adaptador productivo deberá verificar el HMAC con secreto externo,
-rotación y separación de dominios antes de usarlo.
+El núcleo comprueba de nuevo la confirmación, la identidad autenticada y el
+reloj antes del consumo. Los constructores públicos de credencial,
+presentación y confirmación solo cargan material probatorio: no conceden
+confianza. Ninguno forma parte de DTO de cliente, cookie o cabecera libre. Solo
+la verificación contra las raíces fijadas por la composición produce una
+identidad interna aceptable. Un adaptador productivo deberá verificar el HMAC
+con secreto externo, rotación y separación de dominios antes de emitir la
+confirmación.
 
 ## Ventana y consumo
 
@@ -116,6 +150,8 @@ rotación y separación de dominios antes de usarlo.
 | Ventana firmada de respuesta | Más de cero y máximo 5 segundos |
 | Periodo previsto | 100 años exactos como máximo |
 | Importe | 922.337.203.685.477 céntimos |
+| `VersionExpediente` | 1 a 2^53−1 |
+| `CatalogoVersion` | 1 a 2^53−1 |
 | Moneda | EUR exacto; nunca coma flotante |
 | Instantes | UTC canónico a microsegundo |
 
@@ -147,10 +183,12 @@ Una RC negativa no acepta texto libre del proveedor. El vínculo conserva:
 - hasta ocho pares clave/valor ordenados, tipados como claves de catálogo.
 
 El binario ya no compila nombres de parámetros ni valores funcionales.
-`VerificadorPublicacionMotivoFuenteAnalisis`, distinto de la fuente, comprueba
-contra la publicación gobernada la combinación exacta
+`VerificadorPublicacionMotivoFuenteAnalisis`, con autoridad y backend
+autenticados distintos de fuente y TCB, comprueba contra la publicación
+gobernada la combinación exacta
 referencia–versión–huella–entrada–i18n–parámetros. Su confirmación se liga
-también a la huella de respuesta, autoridad y generación.
+también al publicador autenticado, la huella de respuesta, autoridad y
+generación.
 
 La orden de consumo conserva el vínculo minimizado completo y el recibo de
 verificación de publicación. El dominio materializa únicamente la clave i18n;
@@ -169,7 +207,11 @@ propagan para permitir control seguro de cancelación.
 | Cruzar organización, expediente o versión | Matrices campo a campo de petición y respuesta |
 | Alterar salidas después de firmar | Verificador HMAC TCB rechaza aun recompuesta la preimagen interna |
 | Eco del HMAC de petición | Sello de respuesta con dominio y generación propios |
-| Fuente actuando como verificador | Rechazo de la misma instancia y prueba de bypass |
+| Fuente actuando como verificador | Rol, autoridad, backend y clave distintos bajo credencial institucional |
+| Wrappers/aliases del mismo backend | `BackendRef` canónico firmado y matrices por valor |
+| Credencial copiada o manipulada | Firma raíz, prueba de posesión y nonce por invocación |
+| Fuente autopublicando su catálogo | Tercera autoridad autenticada y prueba adversarial |
+| Rotación o revocación | Raíz activa/retenida/revocada, corte de emisión y revocación por serie |
 | Dos recibos probatorios | Igualdad obligatoria del único `ReciboRef` |
 | Respuesta con ventana amplia | Frontera exacta 5 s y rechazo de `+1 µs` |
 | Replay caducado | Rechazo antes de invocar consumo |
@@ -179,8 +221,8 @@ propagan para permitir control seguro de cancelación.
 | Texto o PII del proveedor | Texto libre rechazado, valores redactados y errores públicos |
 | Causa privada mediante `Unwrap` | `errors.Is` no encuentra la causa del proveedor |
 | Cancelación concurrente | Pruebas tras fuente y verificadores y en frontera durable |
-| Desbordes | Fronteras exactas de periodo e importe |
-| Alias o carrera | Copias defensivas y `go test -race` |
+| Desbordes | Periodo, importe y enteros exactos en 2^53−1 / 2^53 |
+| Alias mutable o carrera | Copias defensivas y `go test -race` |
 
 ## Evidencia ejecutable
 
@@ -205,16 +247,18 @@ al menos de:
 1. generador CSPRNG de referencias opacas;
 2. selladores de petición y respuesta con secretos separados, custodia y
    rotación;
-3. adaptador TCB independiente que verifique la autoridad y generación reales;
-4. verificador de publicaciones conectado al catálogo institucional;
-5. consumidor durable con unicidad, reinicio, concurrencia y restauración
+3. provisión institucional de raíces, credenciales, `BackendRef` canónicos,
+   rotación y revocación fuera del proceso;
+4. adaptador TCB independiente que verifique la autoridad y generación reales;
+5. verificador de publicaciones conectado al catálogo institucional;
+6. consumidor durable con unicidad, reinicio, concurrencia y restauración
    probados;
-6. recibos inmutables ligados a la transacción del expediente;
-7. autorización VEC consumible, auditoría y outbox atómicos;
-8. adaptadores de presupuesto y cálculo aceptados por Sistemas, RRHH e
+7. recibos inmutables ligados a la transacción del expediente;
+8. autorización VEC consumible, auditoría y outbox atómicos;
+9. adaptadores de presupuesto y cálculo aceptados por Sistemas, RRHH e
    Intervención;
-9. E2E de indisponibilidad, caducidad, replay y rotación;
-10. aceptación funcional y jurídica, EIPD y categorización ENS aprobadas.
+10. E2E de indisponibilidad, caducidad, replay, rotación y revocación;
+11. aceptación funcional y jurídica, EIPD y categorización ENS aprobadas.
 
 La implementación contribuye a minimización, integridad, exactitud y
 trazabilidad, pero no certifica por sí sola RGPD, LOPDGDD, ENS, ENI ni la
