@@ -5,25 +5,71 @@ import (
 	"time"
 )
 
+func materialSolicitudDisponibilidadBolsa(
+	solicitud SolicitudDisponibilidadBolsa,
+) []byte {
+	c := nuevoCanonicoBolsa("peticion-disponibilidad")
+	c.contextoCapacidad(solicitud.Contexto)
+	c.referencia("necesidad", solicitud.Necesidad)
+	c.campo("categoria_ref", solicitud.CategoriaRef)
+	c.entero("maximo_resultados", uint64(solicitud.MaximoResultados))
+	return c.bytes()
+}
+
+func materialComandoOrdenBolsa(comando ComandoPrepararOrdenBolsa) []byte {
+	c := nuevoCanonicoBolsa("peticion-orden")
+	c.contextoCapacidad(comando.Contexto)
+	c.referencia("necesidad", comando.Necesidad)
+	c.referencia("bolsa", comando.Bolsa)
+	c.referencia("politica", comando.Politica)
+	c.entero("maximo_posiciones", uint64(comando.MaximoPosiciones))
+	return c.bytes()
+}
+
+func materialComandoLlamamientoBolsa(
+	comando ComandoSolicitarLlamamientoBolsa,
+) []byte {
+	datos, err := comando.datosCanonicos()
+	if err != nil {
+		return nil
+	}
+	c := nuevoCanonicoBolsa("peticion-llamamiento")
+	c.contextoCapacidad(datos.Contexto)
+	c.referencia("necesidad", datos.Necesidad)
+	c.referencia("bolsa", datos.Bolsa)
+	c.referencia("orden", datos.Orden)
+	c.referencia("politica", datos.Politica)
+	c.entero("total_posiciones_orden", uint64(datos.TotalPosicionesOrden))
+	c.entero("maxima_posicion_evaluable", uint64(datos.MaximaPosicionEvaluable))
+	c.campo("huella_recibo_orden", datos.HuellaReciboOrden)
+	return c.bytes()
+}
+
 func (v *VerificadorEvidenciaIntegracionBolsa) VerificarDisponibilidad(
 	ctx context.Context,
 	solicitud SolicitudDisponibilidadBolsa,
 	resultado ResultadoDisponibilidadBolsa,
 	instante time.Time,
-) (ComprobanteEvidenciaIntegracionBolsa, error) {
+) (
+	ComprobanteEvidenciaIntegracionBolsa,
+	EvidenciaDurableIntegracionBolsa,
+	error,
+) {
 	if resultado.ValidarParaEn(solicitud, instante) != nil {
-		return ComprobanteEvidenciaIntegracionBolsa{}, ErrRespuestaBolsaNoConfiable
+		return ComprobanteEvidenciaIntegracionBolsa{},
+			EvidenciaDurableIntegracionBolsa{},
+			ErrRespuestaBolsaNoConfiable
 	}
-	material := materialDisponibilidadBolsa(solicitud, resultado)
-	peticion := nuevaSolicitudVerificacionBolsa(material, resultado.Procedencia, solicitud.Contexto)
-	comprobante, err := v.verificar(ctx, peticion, instante)
-	if err != nil {
-		return ComprobanteEvidenciaIntegracionBolsa{}, err
-	}
-	if !comprobante.coincide(peticion) {
-		return ComprobanteEvidenciaIntegracionBolsa{}, ErrEvidenciaBolsaNoAutenticada
-	}
-	return comprobante, nil
+	datos, _ := solicitud.Contexto.datosDurables()
+	return v.verificarFresco(
+		ctx,
+		"disponibilidad_volatil",
+		datos.OperacionRef,
+		materialSolicitudDisponibilidadBolsa(solicitud),
+		materialDisponibilidadBolsa(solicitud, resultado),
+		resultado.Procedencia,
+		instante,
+	)
 }
 
 func (v *VerificadorEvidenciaIntegracionBolsa) VerificarReciboOrden(
@@ -31,20 +77,26 @@ func (v *VerificadorEvidenciaIntegracionBolsa) VerificarReciboOrden(
 	comando ComandoPrepararOrdenBolsa,
 	recibo ReciboOrdenBolsa,
 	instante time.Time,
-) (ComprobanteEvidenciaIntegracionBolsa, error) {
+) (
+	ComprobanteEvidenciaIntegracionBolsa,
+	EvidenciaDurableIntegracionBolsa,
+	error,
+) {
 	if recibo.ValidarParaEn(comando, instante) != nil {
-		return ComprobanteEvidenciaIntegracionBolsa{}, ErrRespuestaBolsaNoConfiable
+		return ComprobanteEvidenciaIntegracionBolsa{},
+			EvidenciaDurableIntegracionBolsa{},
+			ErrRespuestaBolsaNoConfiable
 	}
-	material := materialReciboOrdenBolsa(comando, recibo)
-	peticion := nuevaSolicitudVerificacionBolsa(material, recibo.Procedencia, comando.Contexto)
-	comprobante, err := v.verificar(ctx, peticion, instante)
-	if err != nil {
-		return ComprobanteEvidenciaIntegracionBolsa{}, err
-	}
-	if !comprobante.coincide(peticion) {
-		return ComprobanteEvidenciaIntegracionBolsa{}, ErrEvidenciaBolsaNoAutenticada
-	}
-	return comprobante, nil
+	datos, _ := comando.Contexto.datosDurables()
+	return v.verificarFresco(
+		ctx,
+		"recibo_orden",
+		datos.OperacionRef,
+		materialComandoOrdenBolsa(comando),
+		materialReciboOrdenBolsa(comando, recibo),
+		recibo.Procedencia,
+		instante,
+	)
 }
 
 func (v *VerificadorEvidenciaIntegracionBolsa) VerificarReciboLlamamiento(
@@ -52,24 +104,95 @@ func (v *VerificadorEvidenciaIntegracionBolsa) VerificarReciboLlamamiento(
 	comando ComandoSolicitarLlamamientoBolsa,
 	recibo ReciboSolicitudLlamamientoBolsa,
 	instante time.Time,
-) (ComprobanteEvidenciaIntegracionBolsa, error) {
+) (
+	ComprobanteEvidenciaIntegracionBolsa,
+	EvidenciaDurableIntegracionBolsa,
+	error,
+) {
 	if recibo.ValidarParaEn(comando, instante) != nil {
-		return ComprobanteEvidenciaIntegracionBolsa{}, ErrRespuestaBolsaNoConfiable
+		return ComprobanteEvidenciaIntegracionBolsa{},
+			EvidenciaDurableIntegracionBolsa{},
+			ErrRespuestaBolsaNoConfiable
 	}
 	datosComando, err := comando.DatosEn(instante)
 	if err != nil {
+		return ComprobanteEvidenciaIntegracionBolsa{},
+			EvidenciaDurableIntegracionBolsa{},
+			ErrRespuestaBolsaNoConfiable
+	}
+	datosContexto, _ := datosComando.Contexto.datosDurables()
+	return v.verificarFresco(
+		ctx,
+		"recibo_llamamiento",
+		datosContexto.OperacionRef,
+		materialComandoLlamamientoBolsa(comando),
+		materialReciboLlamamientoBolsa(comando, recibo),
+		recibo.Procedencia,
+		instante,
+	)
+}
+
+func (v *VerificadorEvidenciaIntegracionBolsa) ReautenticarReciboOrden(
+	ctx context.Context,
+	comando ComandoPrepararOrdenBolsa,
+	recibo ReciboOrdenBolsa,
+	evidencia EvidenciaDurableIntegracionBolsa,
+	instante time.Time,
+) (ComprobanteEvidenciaIntegracionBolsa, error) {
+	if recibo.ValidarDurablePara(comando) != nil ||
+		evidencia.TipoMaterial != "recibo_orden" {
 		return ComprobanteEvidenciaIntegracionBolsa{}, ErrRespuestaBolsaNoConfiable
 	}
-	material := materialReciboLlamamientoBolsa(comando, recibo)
-	peticion := nuevaSolicitudVerificacionBolsa(material, recibo.Procedencia, datosComando.Contexto)
-	comprobante, err := v.verificar(ctx, peticion, instante)
-	if err != nil {
-		return ComprobanteEvidenciaIntegracionBolsa{}, err
-	}
-	if !comprobante.coincide(peticion) {
+	datosContexto, _ := comando.Contexto.datosDurables()
+	esperada := nuevaEvidenciaDurableBolsa(
+		"recibo_orden",
+		datosContexto.OperacionRef,
+		materialComandoOrdenBolsa(comando),
+		materialReciboOrdenBolsa(comando, recibo),
+		recibo.Procedencia,
+	)
+	if !evidenciasDurablesBolsaIguales(evidencia, esperada) {
 		return ComprobanteEvidenciaIntegracionBolsa{}, ErrEvidenciaBolsaNoAutenticada
 	}
-	return comprobante, nil
+	return v.reautenticar(
+		ctx,
+		evidencia,
+		materialComandoOrdenBolsa(comando),
+		materialReciboOrdenBolsa(comando, recibo),
+		instante,
+	)
+}
+
+func (v *VerificadorEvidenciaIntegracionBolsa) ReautenticarReciboLlamamiento(
+	ctx context.Context,
+	comando ComandoSolicitarLlamamientoBolsa,
+	recibo ReciboSolicitudLlamamientoBolsa,
+	evidencia EvidenciaDurableIntegracionBolsa,
+	instante time.Time,
+) (ComprobanteEvidenciaIntegracionBolsa, error) {
+	if recibo.ValidarDurablePara(comando) != nil ||
+		evidencia.TipoMaterial != "recibo_llamamiento" {
+		return ComprobanteEvidenciaIntegracionBolsa{}, ErrRespuestaBolsaNoConfiable
+	}
+	datosComando, _ := comando.datosCanonicos()
+	datosContexto, _ := datosComando.Contexto.datosDurables()
+	esperada := nuevaEvidenciaDurableBolsa(
+		"recibo_llamamiento",
+		datosContexto.OperacionRef,
+		materialComandoLlamamientoBolsa(comando),
+		materialReciboLlamamientoBolsa(comando, recibo),
+		recibo.Procedencia,
+	)
+	if !evidenciasDurablesBolsaIguales(evidencia, esperada) {
+		return ComprobanteEvidenciaIntegracionBolsa{}, ErrEvidenciaBolsaNoAutenticada
+	}
+	return v.reautenticar(
+		ctx,
+		evidencia,
+		materialComandoLlamamientoBolsa(comando),
+		materialReciboLlamamientoBolsa(comando, recibo),
+		instante,
+	)
 }
 
 func materialDisponibilidadBolsa(
@@ -113,6 +236,7 @@ func materialReciboOrdenBolsa(
 	c.booleano("recibo_orden_generada", recibo.OrdenGenerada)
 	c.booleano("recibo_orden_completa", recibo.OrdenCompleta)
 	c.referencia("recibo_orden", recibo.Orden)
+	c.referencia("recibo_accion_llamamiento", recibo.AccionLlamamiento)
 	c.entero("recibo_total_posiciones", uint64(recibo.TotalPosiciones))
 	c.campo("recibo_ref", recibo.ReciboRef)
 	c.campo("auditoria_ref", recibo.AuditoriaRef)
@@ -147,6 +271,7 @@ func materialReciboLlamamientoBolsa(
 	c.referencia("recibo_politica", recibo.Politica)
 	c.booleano("recibo_propuesta_generada", recibo.PropuestaGenerada)
 	c.referencia("recibo_propuesta", recibo.Propuesta)
+	c.referencia("recibo_accion_evento", recibo.AccionEvento)
 	c.campo("llamamiento_ref", recibo.LlamamientoRef)
 	c.campo("seleccion_ref_seudonimizada", recibo.SeleccionRef)
 	c.referencia("retencion_seleccion", recibo.RetencionSeleccion)
@@ -171,7 +296,7 @@ func canonicoRespuestaBolsa(
 	procedencia ProcedenciaIntegracionBolsa,
 ) *constructorCanonicoBolsa {
 	c := nuevoCanonicoBolsa(tipo)
-	c.contexto(contexto)
+	c.contextoCapacidad(contexto)
 	c.campo("respuesta_operacion_ref", operacionRef)
 	c.campo("respuesta_organizacion_ref", organizacionRef)
 	c.campo("respuesta_expediente_ref", expedienteRef)

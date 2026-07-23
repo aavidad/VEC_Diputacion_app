@@ -18,7 +18,9 @@ type SolicitudDisponibilidadBolsa struct {
 }
 
 func (s SolicitudDisponibilidadBolsa) ValidarEn(instante time.Time) error {
-	if s.Contexto.ValidarEn(instante) != nil || s.Necesidad.Validar() != nil ||
+	contexto, err := s.Contexto.DatosEn(instante)
+	if err != nil || s.Necesidad.Validar() != nil ||
+		contexto.Recurso != s.Necesidad ||
 		!domain.ReferenciaOpacaValida(s.CategoriaRef) || s.MaximoResultados == 0 {
 		return ErrPeticionIntegracionBolsaInvalida
 	}
@@ -90,8 +92,10 @@ type ComandoPrepararOrdenBolsa struct {
 }
 
 func (c ComandoPrepararOrdenBolsa) ValidarEn(instante time.Time) error {
-	if c.Contexto.ValidarEn(instante) != nil || c.Necesidad.Validar() != nil ||
+	contexto, err := c.Contexto.DatosEn(instante)
+	if err != nil || c.Necesidad.Validar() != nil ||
 		c.Bolsa.Validar() != nil || c.Politica.Validar() != nil ||
+		contexto.Recurso != c.Bolsa ||
 		c.MaximoPosiciones == 0 {
 		return ErrPeticionIntegracionBolsaInvalida
 	}
@@ -117,6 +121,7 @@ type ReciboOrdenBolsa struct {
 	OrdenGenerada     bool                                 `json:"orden_generada"`
 	OrdenCompleta     bool                                 `json:"orden_completa"`
 	Orden             ReferenciaVersionadaIntegracionBolsa `json:"orden"`
+	AccionLlamamiento ReferenciaVersionadaIntegracionBolsa `json:"accion_llamamiento"`
 	TotalPosiciones   uint32                               `json:"total_posiciones"`
 	ReciboRef         string                               `json:"recibo_ref"`
 	AuditoriaRef      string                               `json:"auditoria_ref"`
@@ -143,29 +148,32 @@ func (r ReciboOrdenBolsa) ValidarParaEn(
 func (r ReciboOrdenBolsa) ValidarDurablePara(
 	comando ComandoPrepararOrdenBolsa,
 ) error {
-	if comando.ValidarEn(comando.Contexto.SolicitadaEn) != nil ||
+	contexto, err := comando.Contexto.datosDurables()
+	if err != nil || comando.ValidarEn(contexto.SolicitadaEn) != nil ||
 		!respuestaComunBolsaValida(
 			r.OperacionRef, r.OrganizacionRef, r.ExpedienteRef, r.VersionExpediente,
 			r.CorrelacionRef, r.Necesidad, r.Resultado, r.Procedencia,
-			comando.Contexto, comando.Necesidad,
+			contexto, comando.Necesidad,
 		) || r.Bolsa != comando.Bolsa || r.Politica != comando.Politica ||
 		r.TotalPosiciones > comando.MaximoPosiciones ||
 		!domain.ReferenciaOpacaValida(r.ReciboRef) ||
 		!domain.ReferenciaOpacaValida(r.AuditoriaRef) ||
 		!domain.ReferenciaOpacaValida(r.EventoRef) ||
 		!instanteBolsaCanonico(r.ConfirmadaEn) ||
-		r.ConfirmadaEn.Before(comando.Contexto.SolicitadaEn) ||
+		r.ConfirmadaEn.Before(contexto.SolicitadaEn) ||
 		r.ConfirmadaEn.After(r.Procedencia.Evidencia.EmitidaEn) {
 		return ErrRespuestaBolsaNoConfiable
 	}
 	if !r.OrdenGenerada {
 		if r.OrdenCompleta || r.Orden != (ReferenciaVersionadaIntegracionBolsa{}) ||
+			r.AccionLlamamiento != (ReferenciaVersionadaIntegracionBolsa{}) ||
 			r.TotalPosiciones != 0 {
 			return ErrRespuestaBolsaNoConfiable
 		}
 		return nil
 	}
-	if !r.OrdenCompleta || r.Orden.Validar() != nil || r.TotalPosiciones == 0 {
+	if !r.OrdenCompleta || r.Orden.Validar() != nil ||
+		r.AccionLlamamiento.Validar() != nil || r.TotalPosiciones == 0 {
 		return ErrRespuestaBolsaNoConfiable
 	}
 	return nil
@@ -224,19 +232,32 @@ func NuevoComandoSolicitarLlamamientoBolsa(
 	preparacion PreparacionComandoSolicitarLlamamientoBolsa,
 	instante time.Time,
 ) (ComandoSolicitarLlamamientoBolsa, error) {
-	if preparacion.Contexto.ValidarEn(instante) != nil ||
+	contextoNuevo, errNuevo := preparacion.Contexto.DatosEn(instante)
+	contextoOrden, errOrden := preparacion.ComandoOrden.Contexto.datosDurables()
+	if errNuevo != nil || errOrden != nil ||
 		preparacion.ReciboOrden.ValidarDurablePara(preparacion.ComandoOrden) != nil ||
 		!preparacion.ReciboOrden.OrdenGenerada ||
 		preparacion.ReciboOrden.TotalPosiciones == 0 ||
 		preparacion.MaximaPosicionEvaluable == 0 ||
-		preparacion.MaximaPosicionEvaluable > preparacion.ReciboOrden.TotalPosiciones {
+		preparacion.MaximaPosicionEvaluable > preparacion.ReciboOrden.TotalPosiciones ||
+		contextoNuevo.OrganizacionRef != contextoOrden.OrganizacionRef ||
+		contextoNuevo.ExpedienteRef != contextoOrden.ExpedienteRef ||
+		contextoNuevo.VersionExpediente != contextoOrden.VersionExpediente ||
+		contextoNuevo.CorrelacionRef != contextoOrden.CorrelacionRef ||
+		contextoNuevo.Finalidad != contextoOrden.Finalidad ||
+		contextoNuevo.Accion != preparacion.ReciboOrden.AccionLlamamiento ||
+		contextoNuevo.Recurso != preparacion.ReciboOrden.Orden {
 		return ComandoSolicitarLlamamientoBolsa{}, ErrPeticionIntegracionBolsaInvalida
 	}
 	material := materialReciboOrdenBolsa(preparacion.ComandoOrden, preparacion.ReciboOrden)
-	peticion := nuevaSolicitudVerificacionBolsa(
-		material, preparacion.ReciboOrden.Procedencia, preparacion.ComandoOrden.Contexto,
+	evidencia := nuevaEvidenciaDurableBolsa(
+		"recibo_orden",
+		contextoOrden.OperacionRef,
+		materialComandoOrdenBolsa(preparacion.ComandoOrden),
+		material,
+		preparacion.ReciboOrden.Procedencia,
 	)
-	if !preparacion.ComprobanteOrden.coincide(peticion) {
+	if !preparacion.ComprobanteOrden.coincide(evidencia) {
 		return ComandoSolicitarLlamamientoBolsa{}, ErrEvidenciaBolsaNoAutenticada
 	}
 	return ComandoSolicitarLlamamientoBolsa{
@@ -264,13 +285,15 @@ func (c ComandoSolicitarLlamamientoBolsa) DatosEn(
 		MaximaPosicionEvaluable: c.datos.maximaPosicionEvaluable,
 		HuellaReciboOrden:       c.datos.huellaReciboOrden,
 	}
-	if datos.Contexto.ValidarEn(instante) != nil || datos.Necesidad.Validar() != nil ||
+	contexto, err := datos.Contexto.DatosEn(instante)
+	if err != nil || datos.Necesidad.Validar() != nil ||
 		datos.Bolsa.Validar() != nil || datos.Orden.Validar() != nil ||
 		datos.Politica.Validar() != nil || datos.TotalPosicionesOrden == 0 ||
 		datos.TotalPosicionesOrden > MaximoElementosIntegracionBolsa ||
 		datos.MaximaPosicionEvaluable == 0 ||
 		datos.MaximaPosicionEvaluable > datos.TotalPosicionesOrden ||
-		!huellaSHA256Valida(datos.HuellaReciboOrden) {
+		!huellaSHA256Valida(datos.HuellaReciboOrden) ||
+		contexto.Recurso != datos.Orden {
 		return DatosComandoSolicitarLlamamientoBolsa{}, ErrPeticionIntegracionBolsaInvalida
 	}
 	return datos, nil
@@ -283,7 +306,11 @@ func (c ComandoSolicitarLlamamientoBolsa) datosCanonicos() (
 	if c.datos == nil {
 		return DatosComandoSolicitarLlamamientoBolsa{}, ErrPeticionIntegracionBolsaInvalida
 	}
-	return c.DatosEn(c.datos.contexto.SolicitadaEn)
+	contexto, err := c.datos.contexto.datosDurables()
+	if err != nil {
+		return DatosComandoSolicitarLlamamientoBolsa{}, err
+	}
+	return c.DatosEn(contexto.SolicitadaEn)
 }
 
 // ReciboSolicitudLlamamientoBolsa no expone identidad ni contacto. SeleccionRef
@@ -302,6 +329,7 @@ type ReciboSolicitudLlamamientoBolsa struct {
 	Resultado          ReferenciaVersionadaIntegracionBolsa `json:"resultado"`
 	PropuestaGenerada  bool                                 `json:"propuesta_generada"`
 	Propuesta          ReferenciaVersionadaIntegracionBolsa `json:"propuesta"`
+	AccionEvento       ReferenciaVersionadaIntegracionBolsa `json:"accion_evento"`
 	LlamamientoRef     string                               `json:"llamamiento_ref"`
 	SeleccionRef       string                               `json:"seleccion_ref"`
 	RetencionSeleccion ReferenciaVersionadaIntegracionBolsa `json:"retencion_seleccion"`
@@ -328,23 +356,26 @@ func (r ReciboSolicitudLlamamientoBolsa) ValidarParaEn(
 func (r ReciboSolicitudLlamamientoBolsa) validarDurableParaDatos(
 	datosComando DatosComandoSolicitarLlamamientoBolsa,
 ) error {
-	if datosComando.Contexto.ValidarEn(datosComando.Contexto.SolicitadaEn) != nil ||
+	contexto, err := datosComando.Contexto.datosDurables()
+	_, errFresco := datosComando.Contexto.DatosEn(contexto.SolicitadaEn)
+	if err != nil || errFresco != nil ||
 		!respuestaComunBolsaValida(
 			r.OperacionRef, r.OrganizacionRef, r.ExpedienteRef, r.VersionExpediente,
 			r.CorrelacionRef, r.Necesidad, r.Resultado, r.Procedencia,
-			datosComando.Contexto, datosComando.Necesidad,
+			contexto, datosComando.Necesidad,
 		) || r.Bolsa != datosComando.Bolsa || r.Orden != datosComando.Orden ||
 		r.Politica != datosComando.Politica ||
 		!domain.ReferenciaOpacaValida(r.ReciboRef) ||
 		!domain.ReferenciaOpacaValida(r.AuditoriaRef) ||
 		!domain.ReferenciaOpacaValida(r.EventoRef) ||
 		!instanteBolsaCanonico(r.ConfirmadaEn) ||
-		r.ConfirmadaEn.Before(datosComando.Contexto.SolicitadaEn) ||
+		r.ConfirmadaEn.Before(contexto.SolicitadaEn) ||
 		r.ConfirmadaEn.After(r.Procedencia.Evidencia.EmitidaEn) {
 		return ErrRespuestaBolsaNoConfiable
 	}
 	if !r.PropuestaGenerada {
 		if r.Propuesta != (ReferenciaVersionadaIntegracionBolsa{}) ||
+			r.AccionEvento != (ReferenciaVersionadaIntegracionBolsa{}) ||
 			r.LlamamientoRef != "" || r.SeleccionRef != "" ||
 			r.RetencionSeleccion != (ReferenciaVersionadaIntegracionBolsa{}) ||
 			r.OrdenSeleccionado != 0 {
@@ -352,7 +383,7 @@ func (r ReciboSolicitudLlamamientoBolsa) validarDurableParaDatos(
 		}
 		return nil
 	}
-	if r.Propuesta.Validar() != nil ||
+	if r.Propuesta.Validar() != nil || r.AccionEvento.Validar() != nil ||
 		!domain.ReferenciaOpacaValida(r.LlamamientoRef) ||
 		!domain.ReferenciaOpacaValida(r.SeleccionRef) ||
 		r.RetencionSeleccion.Validar() != nil ||
@@ -396,11 +427,12 @@ func respuestaComunBolsaValidaEn(
 	necesidadEsperada ReferenciaVersionadaIntegracionBolsa,
 	instante time.Time,
 ) bool {
-	return contexto.ValidarEn(instante) == nil &&
+	datosContexto, err := contexto.DatosEn(instante)
+	return err == nil &&
 		procedencia.validarNominalEn(instante) &&
 		respuestaComunBolsaValida(
 			operacionRef, organizacionRef, expedienteRef, versionExpediente,
-			correlacionRef, necesidad, resultado, procedencia, contexto, necesidadEsperada,
+			correlacionRef, necesidad, resultado, procedencia, datosContexto, necesidadEsperada,
 		)
 }
 
@@ -413,7 +445,7 @@ func respuestaComunBolsaValida(
 	necesidad ReferenciaVersionadaIntegracionBolsa,
 	resultado ReferenciaVersionadaIntegracionBolsa,
 	procedencia ProcedenciaIntegracionBolsa,
-	contexto ContextoPeticionIntegracionBolsa,
+	contexto DatosContextoPeticionIntegracionBolsa,
 	necesidadEsperada ReferenciaVersionadaIntegracionBolsa,
 ) bool {
 	return operacionRef == contexto.OperacionRef &&
