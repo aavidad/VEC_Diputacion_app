@@ -11,6 +11,14 @@ Si está disponible, usa la habilidad `admin-data-web`. Esta pantalla pertenece
 a un portal administrativo denso y debe priorizar claridad operativa,
 accesibilidad, trazabilidad y prevención de errores.
 
+Son obligatorias todas las reglas del proyecto: código, pruebas, mensajes y
+documentación en castellano coherente; i18n sin textos funcionales dispersos;
+arquitectura hexagonal y adaptadores intercambiables; denegación por defecto;
+neutralidad web/escritorio/CLI/MCP; ausencia de secretos y datos personales;
+documentación simultánea; seguridad de Administración pública y todas las
+puertas de `AGENTS.md`. Los términos técnicos universales pueden conservarse,
+pero no se admite mezclar castellano e inglés en el dominio.
+
 No uses Orquesta. No edites el árbol principal. No integres ni empujes tu rama.
 
 ## Subagentes obligatorios
