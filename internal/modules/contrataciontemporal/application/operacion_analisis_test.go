@@ -48,7 +48,7 @@ func TestOperacionAnalisisRegistraDesdeArtefactoInterno(t *testing.T) {
 			domain.RCValidada ||
 		evidencia.ExpedienteSiguiente.Analisis.CostePrevisto == nil ||
 		evidencia.ExpedienteSiguiente.Analisis.FuenteCosteRef !=
-			"fuente:coste-sintetica-001" {
+			"fuente_coste_sintetica_012345" {
 		t.Fatalf("el análisis no fue derivado del artefacto: %#v",
 			evidencia.ExpedienteSiguiente.Analisis)
 	}

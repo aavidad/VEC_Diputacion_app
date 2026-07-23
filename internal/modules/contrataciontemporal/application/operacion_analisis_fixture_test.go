@@ -15,15 +15,15 @@ import (
 )
 
 type preparadorArtefactoAnalisisDoble struct {
-	err         error
-	llamadas    int
-	solicitud   ports.SolicitudPrepararArtefactoAnalisis
-	transformar func(*ports.DatosArtefactoAnalisis)
-	forzado     *ports.ArtefactoAnalisisPreparado
+	delegado  ports.PreparadorArtefactoAnalisisO3
+	err       error
+	llamadas  int
+	solicitud ports.SolicitudPrepararArtefactoAnalisis
+	forzado   *ports.ArtefactoAnalisisPreparado
 }
 
 func (d *preparadorArtefactoAnalisisDoble) PrepararArtefactoAnalisis(
-	_ context.Context,
+	ctx context.Context,
 	solicitud ports.SolicitudPrepararArtefactoAnalisis,
 ) (ports.ArtefactoAnalisisPreparado, error) {
 	d.llamadas++
@@ -34,11 +34,14 @@ func (d *preparadorArtefactoAnalisisDoble) PrepararArtefactoAnalisis(
 	if d.forzado != nil {
 		return *d.forzado, nil
 	}
-	datos := datosArtefactoAnalisisSintetico(solicitud)
-	if d.transformar != nil {
-		d.transformar(&datos)
+	if d.delegado == nil {
+		return ports.ArtefactoAnalisisPreparado{},
+			errors.New("preparador-real-sintetico-ausente")
 	}
-	return ports.NuevoArtefactoAnalisisPreparado(solicitud, datos)
+	return d.delegado.PrepararArtefactoAnalisis(
+		ctx,
+		solicitud,
+	)
 }
 
 type selladorOperacionAnalisisDobleSaneado struct {
@@ -276,9 +279,14 @@ func construirServicioOperacionAnalisisSaneado(
 ) (*ServicioOperacionAnalisis, *dependenciasOperacionAnalisisSaneado) {
 	t.Helper()
 	d := &dependenciasOperacionAnalisisSaneado{
-		contextos:  &resolutorContextoDoble{contexto: escenario.contexto},
-		artefactos: &preparadorArtefactoAnalisisDoble{},
-		sellador:   &selladorOperacionAnalisisDobleSaneado{},
+		contextos: &resolutorContextoDoble{contexto: escenario.contexto},
+		artefactos: &preparadorArtefactoAnalisisDoble{
+			delegado: nuevoPreparadorArtefactoAnalisisO3AplicacionPrueba(
+				t,
+				escenario.instante,
+			),
+		},
+		sellador: &selladorOperacionAnalisisDobleSaneado{},
 		preparaciones: &preparadorOperacionAnalisisDobleSaneado{
 			expediente: escenario.expediente,
 		},

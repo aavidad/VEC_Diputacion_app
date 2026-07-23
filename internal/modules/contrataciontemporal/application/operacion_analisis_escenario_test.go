@@ -30,31 +30,36 @@ func nuevoEscenarioOperacionAnalisisSaneado(
 	funcionales := datosFuncionalesAnalisisSinteticos()
 	expediente := expedienteInicialSintetico(t, instante, funcionales)
 	if operacion == ports.OperacionRectificarAnalisis {
-		solicitudArtefacto := ports.SolicitudPrepararArtefactoAnalisis{
-			ArtefactoRef:      "artefacto:analisis-previo-sintetico",
-			OrganizacionRef:   expediente.OrganizacionRef,
-			ExpedienteRef:     expediente.Referencia,
-			VersionExpediente: expediente.Version,
-			DatosFuncionales:  funcionales,
-			SolicitadaEn:      instante.Add(-20 * time.Minute),
-		}
-		datos := datosArtefactoAnalisisSintetico(solicitudArtefacto)
-		datos.PreparadoEn = solicitudArtefacto.SolicitadaEn
-		datos.ValidadaEn = solicitudArtefacto.SolicitadaEn
-		datos.CalculadoEn = solicitudArtefacto.SolicitadaEn
-		artefacto, err := ports.NuevoArtefactoAnalisisPreparado(
-			solicitudArtefacto,
-			datos,
+		fechaRC := time.Date(
+			2026, time.July, 22, 0, 0, 0, 0, time.UTC,
 		)
-		if err != nil {
-			t.Fatal(err)
+		importeRC := domain.Importe{Centimos: 5_000_000, Moneda: "EUR"}
+		coste := domain.Importe{Centimos: 4_000_000, Moneda: "EUR"}
+		analisis := domain.AnalisisRRHH{
+			ModalidadClave:    funcionales.ModalidadClave,
+			CategoriaRef:      funcionales.CategoriaRef,
+			GrupoSubgrupo:     funcionales.GrupoSubgrupo,
+			CausaClave:        funcionales.CausaClave,
+			Periodo:           funcionales.Periodo,
+			PorcentajeJornada: funcionales.PorcentajeJornada,
+			EntradaRCEsperada: funcionales.EntradaRC,
+			ValidacionRC: domain.ValidacionRC{
+				Resultado:           domain.RCValidada,
+				EntradaRef:          funcionales.EntradaRC.Referencia,
+				HuellaEntradaSHA256: funcionales.EntradaRC.HuellaSHA256,
+				FuenteRef:           "fuente_rc_sintetica_previa_001",
+				ReciboRef:           "recibo_rc_sintetico_previo_001",
+				ValidadaEn:          instante.Add(-20 * time.Minute),
+				FechaRC:             &fechaRC,
+				Numero:              "rc_sintetica_previa_001",
+				Importe:             &importeRC,
+				DocumentoRef:        "documento_rc_sintetico_previo_001",
+			},
+			CostePrevisto:  &coste,
+			FuenteCosteRef: "fuente_coste_sintetica_previa_001",
 		}
-		analisis, err := ports.DerivarAnalisisDesdeArtefacto(
-			solicitudArtefacto,
-			artefacto,
-		)
-		if err != nil {
-			t.Fatal(err)
+		if analisis.Validar() != nil {
+			t.Fatal("análisis previo sintético inválido")
 		}
 		expediente, err = expediente.RegistrarAnalisis(
 			expediente.Version,
@@ -179,33 +184,4 @@ func expedienteInicialSintetico(
 		t.Fatal(err)
 	}
 	return expediente
-}
-
-func datosArtefactoAnalisisSintetico(
-	solicitud ports.SolicitudPrepararArtefactoAnalisis,
-) ports.DatosArtefactoAnalisis {
-	fechaRC := time.Date(2026, time.July, 22, 0, 0, 0, 0, time.UTC)
-	importeRC := domain.Importe{Centimos: 5_000_000, Moneda: "EUR"}
-	coste := domain.Importe{Centimos: 4_000_000, Moneda: "EUR"}
-	return ports.DatosArtefactoAnalisis{
-		ArtefactoRef:          solicitud.ArtefactoRef,
-		ArtefactoHuellaSHA256: strings.Repeat("8", 64),
-		OrganizacionRef:       solicitud.OrganizacionRef,
-		ExpedienteRef:         solicitud.ExpedienteRef,
-		VersionExpediente:     solicitud.VersionExpediente,
-		DatosFuncionales:      solicitud.DatosFuncionales,
-		ResultadoRC:           domain.RCValidada,
-		FuenteRCRef:           "fuente:rc-sintetica-001",
-		ReciboRCRef:           "recibo:rc-sintetico-001",
-		ValidadaEn:            solicitud.SolicitadaEn,
-		FechaRC:               &fechaRC,
-		NumeroRC:              "rc:sintetica-001",
-		ImporteRC:             &importeRC,
-		DocumentoRCRef:        "documento:rc-sintetico-001",
-		CostePrevisto:         &coste,
-		FuenteCosteRef:        "fuente:coste-sintetica-001",
-		ReciboCosteRef:        "recibo:coste-sintetico-001",
-		CalculadoEn:           solicitud.SolicitadaEn,
-		PreparadoEn:           solicitud.SolicitadaEn,
-	}
 }
