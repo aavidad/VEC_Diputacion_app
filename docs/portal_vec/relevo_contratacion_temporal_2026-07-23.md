@@ -173,8 +173,11 @@ ajenas.
   opacos, copias y validación criptográfica local neutral. La corrección final
   `df537b4` sella además actor, perfil, UUID, operación, organización,
   expediente, versión, artefacto, datos funcionales y motivo frente al replay
-  temprano. La revisión independiente emitió GO; el candidato se incorpora en
-  esta fusión y solo se cerrará tras superar las puertas del árbol conjunto.
+  temprano. La revisión independiente emitió GO. El candidato quedó integrado
+  en `e9d461c` y volvió a superar focales ×20, carrera ×2, pruebas globales,
+  `go vet`, tamaños y secretos sobre el árbol conjunto. O3-02 está cerrada;
+  O3-04 es el siguiente efecto durable. Permanece como limpieza baja retirar
+  dos ayudantes privados sin llamadas, sin efecto funcional ni exposición.
 - `1faa8e7` implementa O3-03 con puertos neutrales para validación
   presupuestaria y cálculo de coste, ligadura de petición, copias defensivas,
   cancelación y fallo cerrado. La indisponibilidad nunca se convierte en «RC
