@@ -62,18 +62,27 @@ func TestServicioConsultaCoberturaUsaRelojPosteriorACadaPresentacion(
 			2*time.Second + 3*incremento,
 		),
 	}
+	var presentaciones atomic.Int32
 	avanzar := func(
-		_ context.Context,
-		_ ports.DesafioAutoridadFuenteAnalisis,
+		identidad ports.IdentidadAutoridadFuenteAnalisis,
+	) func(
+		context.Context,
+		ports.DesafioAutoridadFuenteAnalisis,
 	) (ports.PresentacionAutoridadFuenteAnalisis, error) {
-		entorno.reloj.mu.Lock()
-		entorno.reloj.ahora = entorno.reloj.ahora.Add(incremento)
-		entorno.reloj.mu.Unlock()
-		return ports.PresentacionAutoridadFuenteAnalisis{}, nil
+		return func(
+			_ context.Context,
+			_ ports.DesafioAutoridadFuenteAnalisis,
+		) (ports.PresentacionAutoridadFuenteAnalisis, error) {
+			presentaciones.Add(1)
+			entorno.reloj.mu.Lock()
+			entorno.reloj.ahora = entorno.reloj.ahora.Add(incremento)
+			entorno.reloj.mu.Unlock()
+			return presentacionEstructuralCoberturaPrueba(identidad)
+		}
 	}
-	entorno.fuente.presentar = avanzar
-	entorno.verificador.presentar = avanzar
-	entorno.publicador.presentar = avanzar
+	entorno.fuente.presentar = avanzar(entorno.fuente.identidad)
+	entorno.verificador.presentar = avanzar(entorno.verificador.identidad)
+	entorno.publicador.presentar = avanzar(entorno.publicador.identidad)
 	var verificaciones atomic.Int32
 	entorno.autenticador.antes = func(
 		rol ports.RolAutoridadFuenteAnalisis,
@@ -96,8 +105,12 @@ func TestServicioConsultaCoberturaUsaRelojPosteriorACadaPresentacion(
 	); err != nil {
 		t.Fatal(err)
 	}
-	if verificaciones.Load() != 3 {
-		t.Fatalf("presentaciones verificadas: %d", verificaciones.Load())
+	if presentaciones.Load() != 3 || verificaciones.Load() != 4 {
+		t.Fatalf(
+			"presentaciones=%d verificaciones=%d",
+			presentaciones.Load(),
+			verificaciones.Load(),
+		)
 	}
 }
 
@@ -111,7 +124,9 @@ func TestServicioConsultaCoberturaRechazaAutoridadCaducadaDurantePresentacion(
 		_ ports.DesafioAutoridadFuenteAnalisis,
 	) (ports.PresentacionAutoridadFuenteAnalisis, error) {
 		entorno.reloj.fijar(validaHasta)
-		return ports.PresentacionAutoridadFuenteAnalisis{}, nil
+		return presentacionEstructuralCoberturaPrueba(
+			entorno.fuente.identidad,
+		)
 	}
 	entorno.autenticador.antes = func(
 		rol ports.RolAutoridadFuenteAnalisis,

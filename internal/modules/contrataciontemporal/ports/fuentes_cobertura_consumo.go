@@ -18,20 +18,21 @@ const dominioResultadoDurableCobertura = "VEC-CT-EFECTO-COBERTURA-V1"
 // DatosOrdenConsumoCobertura liga el efecto durable a la respuesta completa,
 // a su verificación independiente y al catálogo gobernado usado para decidir.
 type DatosOrdenConsumoCobertura struct {
-	PeticionRef             string
-	OrganizacionRef         string
-	ExpedienteRef           string
-	VersionExpediente       uint64
-	HuellaPeticionSHA256    string
-	HuellaResultadoSHA256   string
-	AutoridadRef            string
-	Generacion              uint32
-	ReciboRespuestaRef      string
-	HuellaRespuestaSHA256   string
-	Atestacion              AtestacionRespuestaCobertura
-	ConfirmacionRespuesta   ConfirmacionRespuestaCobertura
-	ConfirmacionCatalogo    ConfirmacionPublicacionCobertura
-	ClaveVerificadorEd25519 []byte
+	PeticionRef           string
+	OrganizacionRef       string
+	ExpedienteRef         string
+	VersionExpediente     uint64
+	HuellaPeticionSHA256  string
+	HuellaResultadoSHA256 string
+	AutoridadRef          string
+	Generacion            uint32
+	ReciboRespuestaRef    string
+	HuellaRespuestaSHA256 string
+	Atestacion            AtestacionRespuestaCobertura
+	ConfirmacionRespuesta ConfirmacionRespuestaCobertura
+	ConfirmacionCatalogo  ConfirmacionPublicacionCobertura
+	IdentidadVerificador  IdentidadAutoridadFuenteAnalisis
+	EvidenciaVerificador  EvidenciaPublicaAutoridadFuenteAnalisis
 }
 
 type OrdenConsumoCobertura struct {
@@ -45,7 +46,8 @@ func NuevaOrdenConsumoCobertura(
 	resultado ResultadoConsultaCobertura,
 	confirmacion ConfirmacionRespuestaCobertura,
 	confirmacionCatalogo ConfirmacionPublicacionCobertura,
-	claveVerificadorEd25519 ed25519.PublicKey,
+	identidadVerificador IdentidadAutoridadFuenteAnalisis,
+	evidenciaVerificador EvidenciaPublicaAutoridadFuenteAnalisis,
 ) (OrdenConsumoCobertura, error) {
 	if resultado.ValidarPara(solicitud) != nil {
 		return OrdenConsumoCobertura{},
@@ -72,10 +74,8 @@ func NuevaOrdenConsumoCobertura(
 		Atestacion:            resultado.atestacion,
 		ConfirmacionRespuesta: confirmacion,
 		ConfirmacionCatalogo:  confirmacionCatalogo,
-		ClaveVerificadorEd25519: append(
-			[]byte(nil),
-			claveVerificadorEd25519...,
-		),
+		IdentidadVerificador:  identidadVerificador,
+		EvidenciaVerificador:  evidenciaVerificador,
 	}
 	if errHuellaRespuesta != nil || errHuellaPeticion != nil ||
 		errHuellaResultado != nil || errConfirmacion != nil ||
@@ -147,7 +147,10 @@ func validarOrdenConsumoCobertura(
 		datos.ReciboRespuestaRef !=
 			resultado.atestacion.Metadatos.ReciboRef ||
 		!huellaSHA256FuenteAnalisisValida(datos.HuellaRespuestaSHA256) ||
-		len(datos.ClaveVerificadorEd25519) != ed25519.PublicKeySize ||
+		datos.IdentidadVerificador.Rol() != RolVerificadorCobertura ||
+		datos.IdentidadVerificador.AutoridadRef() == "" ||
+		len(datos.IdentidadVerificador.ClavePruebaEd25519()) !=
+			ed25519.PublicKeySize ||
 		datos.Atestacion.Validar() != nil {
 		return ErrResultadoFuenteCoberturaNoConfiable
 	}
@@ -158,10 +161,18 @@ func validarOrdenConsumoCobertura(
 		datos.Atestacion,
 	)
 	if errDatosResultado != nil || err != nil ||
+		datosConfirmacionVerificadorNoCoincide(
+			datos.ConfirmacionRespuesta,
+			datos.IdentidadVerificador,
+		) ||
+		evidenciaVerificadorNoPrecedeConfirmacion(
+			datos.EvidenciaVerificador,
+			datos.ConfirmacionRespuesta,
+		) ||
 		datos.ConfirmacionRespuesta.ValidarPara(
 			solicitudVerificacion,
 			comprobadaEn,
-			ed25519.PublicKey(datos.ClaveVerificadorEd25519),
+			datos.IdentidadVerificador.ClavePruebaEd25519(),
 		) != nil ||
 		datos.ConfirmacionCatalogo.ValidarPara(
 			solicitud,
@@ -170,6 +181,27 @@ func validarOrdenConsumoCobertura(
 		return ErrResultadoFuenteCoberturaNoConfiable
 	}
 	return nil
+}
+
+func datosConfirmacionVerificadorNoCoincide(
+	confirmacion ConfirmacionRespuestaCobertura,
+	identidad IdentidadAutoridadFuenteAnalisis,
+) bool {
+	datos, err := confirmacion.Datos()
+	return err != nil ||
+		datos.VerificadorRef != identidad.AutoridadRef() ||
+		identidad.Rol() != RolVerificadorCobertura
+}
+
+func evidenciaVerificadorNoPrecedeConfirmacion(
+	evidencia EvidenciaPublicaAutoridadFuenteAnalisis,
+	confirmacion ConfirmacionRespuestaCobertura,
+) bool {
+	_, _, rol, comprobadaEn, errEvidencia := evidencia.Datos()
+	datosConfirmacion, errConfirmacion := confirmacion.Datos()
+	return errEvidencia != nil || errConfirmacion != nil ||
+		rol != RolVerificadorCobertura ||
+		comprobadaEn.After(datosConfirmacion.VerificadaEn)
 }
 
 func (o OrdenConsumoCobertura) Datos() (
@@ -181,10 +213,28 @@ func (o OrdenConsumoCobertura) Datos() (
 			ErrResultadoFuenteCoberturaNoConfiable
 	}
 	datos := *o.datos
-	datos.ClaveVerificadorEd25519 = append(
-		[]byte(nil),
-		o.datos.ClaveVerificadorEd25519...,
+	identidad, errIdentidad := NuevaIdentidadAutoridadFuenteAnalisis(
+		o.datos.IdentidadVerificador.AutoridadRef(),
+		o.datos.IdentidadVerificador.BackendRef(),
+		o.datos.IdentidadVerificador.ClavePruebaEd25519(),
+		o.datos.IdentidadVerificador.Rol(),
 	)
+	presentacion, desafio, rol, comprobadaEn, errEvidencia :=
+		o.datos.EvidenciaVerificador.Datos()
+	evidencia, errNuevaEvidencia :=
+		NuevaEvidenciaPublicaAutoridadFuenteAnalisis(
+			desafio,
+			presentacion,
+			rol,
+			comprobadaEn,
+		)
+	if errIdentidad != nil || errEvidencia != nil ||
+		errNuevaEvidencia != nil {
+		return DatosOrdenConsumoCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	datos.IdentidadVerificador = identidad
+	datos.EvidenciaVerificador = evidencia
 	return datos, nil
 }
 
@@ -201,19 +251,21 @@ func (o OrdenConsumoCobertura) LogValue() slog.Value {
 }
 
 type ReciboConsumoCobertura struct {
-	ConsumoRef            string
-	PeticionRef           string
-	OrganizacionRef       string
-	HuellaPeticionSHA256  string
-	HuellaResultadoSHA256 string
-	AutoridadRef          string
-	Generacion            uint32
-	ReciboRespuestaRef    string
-	HuellaRespuestaSHA256 string
-	ConsumidaEn           time.Time
-	SolicitudOriginal     SolicitudConsultarCobertura
-	ResultadoOriginal     ResultadoConsultaCobertura
-	ConfirmacionOriginal  ConfirmacionRespuestaCobertura
+	ConsumoRef                   string
+	PeticionRef                  string
+	OrganizacionRef              string
+	HuellaPeticionSHA256         string
+	HuellaResultadoSHA256        string
+	AutoridadRef                 string
+	Generacion                   uint32
+	ReciboRespuestaRef           string
+	HuellaRespuestaSHA256        string
+	ConsumidaEn                  time.Time
+	SolicitudOriginal            SolicitudConsultarCobertura
+	ResultadoOriginal            ResultadoConsultaCobertura
+	ConfirmacionOriginal         ConfirmacionRespuestaCobertura
+	IdentidadVerificadorOriginal IdentidadAutoridadFuenteAnalisis
+	EvidenciaVerificadorOriginal EvidenciaPublicaAutoridadFuenteAnalisis
 }
 
 func NuevoReciboConsumoCobertura(
@@ -223,19 +275,21 @@ func NuevoReciboConsumoCobertura(
 ) (ReciboConsumoCobertura, error) {
 	datos, err := orden.Datos()
 	recibo := ReciboConsumoCobertura{
-		ConsumoRef:            consumoRef,
-		PeticionRef:           datos.PeticionRef,
-		OrganizacionRef:       datos.OrganizacionRef,
-		HuellaPeticionSHA256:  datos.HuellaPeticionSHA256,
-		HuellaResultadoSHA256: datos.HuellaResultadoSHA256,
-		AutoridadRef:          datos.AutoridadRef,
-		Generacion:            datos.Generacion,
-		ReciboRespuestaRef:    datos.ReciboRespuestaRef,
-		HuellaRespuestaSHA256: datos.HuellaRespuestaSHA256,
-		ConsumidaEn:           consumidaEn,
-		SolicitudOriginal:     orden.solicitud,
-		ResultadoOriginal:     orden.resultado,
-		ConfirmacionOriginal:  datos.ConfirmacionRespuesta,
+		ConsumoRef:                   consumoRef,
+		PeticionRef:                  datos.PeticionRef,
+		OrganizacionRef:              datos.OrganizacionRef,
+		HuellaPeticionSHA256:         datos.HuellaPeticionSHA256,
+		HuellaResultadoSHA256:        datos.HuellaResultadoSHA256,
+		AutoridadRef:                 datos.AutoridadRef,
+		Generacion:                   datos.Generacion,
+		ReciboRespuestaRef:           datos.ReciboRespuestaRef,
+		HuellaRespuestaSHA256:        datos.HuellaRespuestaSHA256,
+		ConsumidaEn:                  consumidaEn,
+		SolicitudOriginal:            orden.solicitud,
+		ResultadoOriginal:            orden.resultado,
+		ConfirmacionOriginal:         datos.ConfirmacionRespuesta,
+		IdentidadVerificadorOriginal: datos.IdentidadVerificador,
+		EvidenciaVerificadorOriginal: datos.EvidenciaVerificador,
 	}
 	if err != nil || recibo.ValidarPara(orden) != nil {
 		return ReciboConsumoCobertura{},
@@ -256,6 +310,8 @@ func (r ReciboConsumoCobertura) ValidarPara(
 		r.ResultadoOriginal.Atestacion()
 	solicitudVerificacionOriginal, errSolicitudOriginal :=
 		r.ResultadoOriginal.SolicitudVerificacion()
+	_, _, rolEvidenciaOriginal, comprobadaEnEvidenciaOriginal,
+		errEvidenciaOriginal := r.EvidenciaVerificadorOriginal.Datos()
 	huellaPeticionOriginal, errHuellaPeticionOriginal :=
 		huellaPeticionCobertura(r.SolicitudOriginal)
 	huellaResultadoOriginal, errHuellaResultadoOriginal :=
@@ -268,6 +324,7 @@ func (r ReciboConsumoCobertura) ValidarPara(
 	if err != nil ||
 		errActual != nil || errOriginal != nil ||
 		errResultadoOriginal != nil || errAtestacionOriginal != nil ||
+		errEvidenciaOriginal != nil ||
 		errSolicitudOriginal != nil || errHuellaPeticionOriginal != nil ||
 		errHuellaResultadoOriginal != nil ||
 		errHuellaRespuestaOriginal != nil ||
@@ -287,6 +344,14 @@ func (r ReciboConsumoCobertura) ValidarPara(
 		!r.ConsumidaEn.Before(atestacionOriginal.Metadatos.ValidaHasta) ||
 		confirmacionOriginal.VerificadorRef !=
 			confirmacionActual.VerificadorRef ||
+		confirmacionOriginal.VerificadorRef !=
+			r.IdentidadVerificadorOriginal.AutoridadRef() ||
+		r.IdentidadVerificadorOriginal.Rol() !=
+			RolVerificadorCobertura ||
+		rolEvidenciaOriginal != RolVerificadorCobertura ||
+		comprobadaEnEvidenciaOriginal.After(
+			confirmacionOriginal.VerificadaEn,
+		) ||
 		confirmacionOriginal.HuellaMaterialSHA256 !=
 			r.HuellaRespuestaSHA256 ||
 		confirmacionOriginal.HuellaPeticionSHA256 !=
@@ -296,8 +361,38 @@ func (r ReciboConsumoCobertura) ValidarPara(
 		r.ConfirmacionOriginal.ValidarPara(
 			solicitudVerificacionOriginal,
 			r.ConsumidaEn,
-			ed25519.PublicKey(datos.ClaveVerificadorEd25519),
+			r.IdentidadVerificadorOriginal.ClavePruebaEd25519(),
 		) != nil {
+		return ErrResultadoFuenteCoberturaNoConfiable
+	}
+	return nil
+}
+
+func (r ReciboConsumoCobertura) EvidenciaPublicaVerificador() (
+	EvidenciaPublicaAutoridadFuenteAnalisis,
+	error,
+) {
+	presentacion, desafio, rol, comprobadaEn, err :=
+		r.EvidenciaVerificadorOriginal.Datos()
+	if err != nil {
+		return EvidenciaPublicaAutoridadFuenteAnalisis{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	return NuevaEvidenciaPublicaAutoridadFuenteAnalisis(
+		desafio,
+		presentacion,
+		rol,
+		comprobadaEn,
+	)
+}
+
+func (r ReciboConsumoCobertura) ValidarIdentidadVerificadorOriginal(
+	identidad IdentidadAutoridadFuenteAnalisis,
+) error {
+	if !IdentidadesAutoridadFuenteAnalisisIguales(
+		r.IdentidadVerificadorOriginal,
+		identidad,
+	) {
 		return ErrResultadoFuenteCoberturaNoConfiable
 	}
 	return nil

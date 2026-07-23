@@ -174,6 +174,41 @@ type PresentacionAutoridadFuenteAnalisis struct {
 	prueba     []byte
 }
 
+func copiarDesafioAutoridadFuenteAnalisis(
+	desafio DesafioAutoridadFuenteAnalisis,
+) (DesafioAutoridadFuenteAnalisis, error) {
+	contenido, err := desafio.Bytes()
+	if err != nil {
+		return DesafioAutoridadFuenteAnalisis{},
+			errAutoridadFuenteAnalisisNoConfiable
+	}
+	return DesafioAutoridadFuenteAnalisis{
+		contenido: contenido,
+	}, nil
+}
+
+func copiarPresentacionAutoridadFuenteAnalisis(
+	presentacion PresentacionAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	if presentacion.credencial.validarEstructura() != nil ||
+		len(presentacion.prueba) != ed25519.SignatureSize {
+		return PresentacionAutoridadFuenteAnalisis{},
+			errAutoridadFuenteAnalisisNoConfiable
+	}
+	credencial, err := NuevaCredencialAutoridadFuenteAnalisis(
+		*presentacion.credencial.datos,
+		presentacion.credencial.firma,
+	)
+	if err != nil {
+		return PresentacionAutoridadFuenteAnalisis{},
+			errAutoridadFuenteAnalisisNoConfiable
+	}
+	return NuevaPresentacionAutoridadFuenteAnalisis(
+		credencial,
+		presentacion.prueba,
+	)
+}
+
 func NuevaPresentacionAutoridadFuenteAnalisis(
 	credencial CredencialAutoridadFuenteAnalisis,
 	pruebaPosesionEd25519 []byte,

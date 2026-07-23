@@ -108,7 +108,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 			)
 	}
 
-	identidadFuente, err := s.autenticar(
+	autoridadFuente, err := s.autenticar(
 		operacion,
 		s.fuente,
 		materialPeticion,
@@ -119,7 +119,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 	if err != nil {
 		return domain.ComprobacionCobertura{}, err
 	}
-	identidadVerificador, err := s.autenticar(
+	autoridadVerificador, err := s.autenticar(
 		operacion,
 		s.verificador,
 		materialPeticion,
@@ -130,7 +130,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 	if err != nil {
 		return domain.ComprobacionCobertura{}, err
 	}
-	identidadPublicador, err := s.autenticar(
+	autoridadPublicador, err := s.autenticar(
 		operacion,
 		s.publicador,
 		materialPeticion,
@@ -142,10 +142,10 @@ func (s *ServicioConsultaCobertura) Consultar(
 		return domain.ComprobacionCobertura{}, err
 	}
 	if !ports.AutoridadesFuenteAnalisisSeparadas(
-		identidadFuente,
-		identidadVerificador,
-		identidadPublicador,
-	) || identidadFuente.BackendRef() !=
+		autoridadFuente.identidad,
+		autoridadVerificador.identidad,
+		autoridadPublicador.identidad,
+	) || autoridadFuente.identidad.BackendRef() !=
 		solicitud.Comprobacion.Procedencia.DefinicionFuenteRef {
 		return domain.ComprobacionCobertura{},
 			ports.ErrResultadoFuenteCoberturaNoConfiable
@@ -168,7 +168,8 @@ func (s *ServicioConsultaCobertura) Consultar(
 		)
 	}
 	if errReloj != nil || errDatosCatalogo != nil ||
-		datosCatalogo.PublicadorRef != identidadPublicador.AutoridadRef() ||
+		datosCatalogo.PublicadorRef !=
+			autoridadPublicador.identidad.AutoridadRef() ||
 		confirmacionCatalogo.ValidarPara(solicitud, comprobadaEn) != nil {
 		return domain.ComprobacionCobertura{},
 			ports.ErrResultadoFuenteCoberturaNoConfiable
@@ -194,7 +195,8 @@ func (s *ServicioConsultaCobertura) Consultar(
 	atestacion, errAtestacion := resultado.Atestacion()
 	if errReloj != nil || errDatosResultado != nil || errAtestacion != nil ||
 		resultado.ValidarPara(solicitud) != nil ||
-		atestacion.Metadatos.AutoridadRef != identidadFuente.AutoridadRef() ||
+		atestacion.Metadatos.AutoridadRef !=
+			autoridadFuente.identidad.AutoridadRef() ||
 		atestacion.Metadatos.EmitidaEn.Before(solicitud.SolicitadaEn) ||
 		datosResultado.Comprobacion.EvaluadaEn.After(
 			atestacion.Metadatos.EmitidaEn,
@@ -213,20 +215,22 @@ func (s *ServicioConsultaCobertura) Consultar(
 	}
 	confirmacion, err := s.verificarRespuesta(
 		operacion,
-		identidadVerificador,
+		autoridadVerificador.identidad,
 		solicitudVerificacion,
 		&relojOperacion,
 	)
 	if err != nil {
 		return domain.ComprobacionCobertura{}, err
 	}
-	claveVerificador := identidadVerificador.ClavePruebaEd25519()
+	claveVerificador :=
+		autoridadVerificador.identidad.ClavePruebaEd25519()
 	orden, err := ports.NuevaOrdenConsumoCobertura(
 		solicitud,
 		resultado,
 		confirmacion,
 		confirmacionCatalogo,
-		claveVerificador,
+		autoridadVerificador.identidad,
+		autoridadVerificador.evidencia,
 	)
 	if err != nil {
 		return domain.ComprobacionCobertura{},
@@ -257,7 +261,7 @@ func (s *ServicioConsultaCobertura) Consultar(
 		return domain.ComprobacionCobertura{},
 			ports.ErrResultadoFuenteCoberturaNoConfiable
 	}
-	reciboValido := recibo.ValidarPara(orden) == nil &&
+	reciboValido := s.validarReciboConsumoCobertura(recibo, orden) == nil &&
 		!recibo.ConsumidaEn.After(finalizadaEn)
 	errorCompatibleConCommit := errConsumo == nil ||
 		errors.Is(errConsumo, context.Canceled) ||
@@ -300,6 +304,11 @@ func (s *ServicioConsultaCobertura) Consultar(
 	return datosResultado.Comprobacion, nil
 }
 
+type autoridadCoberturaAutenticada struct {
+	identidad ports.IdentidadAutoridadFuenteAnalisis
+	evidencia ports.EvidenciaPublicaAutoridadFuenteAnalisis
+}
+
 func (s *ServicioConsultaCobertura) autenticar(
 	ctx context.Context,
 	presentador ports.PresentadorAutoridadFuenteAnalisis,
@@ -307,7 +316,7 @@ func (s *ServicioConsultaCobertura) autenticar(
 	rol ports.RolAutoridadFuenteAnalisis,
 	errDisponibilidad error,
 	reloj *relojMonotonoCobertura,
-) (ports.IdentidadAutoridadFuenteAnalisis, error) {
+) (autoridadCoberturaAutenticada, error) {
 	desafio, err := ports.NuevoDesafioAutoridadFuenteAnalisis(
 		append([]byte(nil), materialPeticion...),
 		s.autenticador.OrganizacionAutoridadFuenteAnalisis(),
@@ -315,20 +324,20 @@ func (s *ServicioConsultaCobertura) autenticar(
 		rol,
 	)
 	if err != nil {
-		return ports.IdentidadAutoridadFuenteAnalisis{},
+		return autoridadCoberturaAutenticada{},
 			ports.ErrResultadoFuenteCoberturaNoConfiable
 	}
 	presentacion, errPresentacion :=
 		presentador.PresentarAutoridadFuenteAnalisis(ctx, desafio)
 	if errContexto := ctx.Err(); errContexto != nil {
-		return ports.IdentidadAutoridadFuenteAnalisis{},
+		return autoridadCoberturaAutenticada{},
 			errorDisponibilidadCobertura(
 				errDisponibilidad,
 				errContexto,
 			)
 	}
 	if errPresentacion != nil {
-		return ports.IdentidadAutoridadFuenteAnalisis{},
+		return autoridadCoberturaAutenticada{},
 			errorDisponibilidadCobertura(
 				errDisponibilidad,
 				errPresentacion,
@@ -336,21 +345,51 @@ func (s *ServicioConsultaCobertura) autenticar(
 	}
 	comprobadaEn, errReloj := reloj.ahora()
 	if errReloj != nil {
-		return ports.IdentidadAutoridadFuenteAnalisis{},
+		return autoridadCoberturaAutenticada{},
+			ports.ErrResultadoFuenteCoberturaNoConfiable
+	}
+	evidencia, err := ports.NuevaEvidenciaPublicaAutoridadFuenteAnalisis(
+		desafio,
+		presentacion,
+		rol,
+		comprobadaEn,
+	)
+	if err != nil {
+		return autoridadCoberturaAutenticada{},
 			ports.ErrResultadoFuenteCoberturaNoConfiable
 	}
 	identidad, err := s.autenticador.
-		VerificarPresentacionAutoridadFuenteAnalisis(
-			presentacion,
-			desafio,
-			rol,
-			comprobadaEn,
+		VerificarEvidenciaPublicaAutoridadFuenteAnalisis(
+			evidencia,
 		)
 	if err != nil {
-		return ports.IdentidadAutoridadFuenteAnalisis{},
+		return autoridadCoberturaAutenticada{},
 			ports.ErrResultadoFuenteCoberturaNoConfiable
 	}
-	return identidad, nil
+	return autoridadCoberturaAutenticada{
+		identidad: identidad,
+		evidencia: evidencia,
+	}, nil
+}
+
+func (s *ServicioConsultaCobertura) validarReciboConsumoCobertura(
+	recibo ports.ReciboConsumoCobertura,
+	orden ports.OrdenConsumoCobertura,
+) error {
+	if recibo.ValidarPara(orden) != nil {
+		return ports.ErrResultadoFuenteCoberturaNoConfiable
+	}
+	evidencia, err := recibo.EvidenciaPublicaVerificador()
+	if err != nil {
+		return ports.ErrResultadoFuenteCoberturaNoConfiable
+	}
+	identidad, err := s.autenticador.
+		VerificarEvidenciaPublicaAutoridadFuenteAnalisis(evidencia)
+	if err != nil ||
+		recibo.ValidarIdentidadVerificadorOriginal(identidad) != nil {
+		return ports.ErrResultadoFuenteCoberturaNoConfiable
+	}
+	return nil
 }
 
 func (s *ServicioConsultaCobertura) verificarRespuesta(

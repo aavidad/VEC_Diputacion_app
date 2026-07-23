@@ -1,8 +1,6 @@
 package seguridad
 
 import (
-	"time"
-
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -40,13 +38,15 @@ func (a *AutenticadorFuentesAnalisisConConfianza) AudienciaAutoridadFuenteAnalis
 	return a.confianza.Audiencia()
 }
 
-func (a *AutenticadorFuentesAnalisisConConfianza) VerificarPresentacionAutoridadFuenteAnalisis(
-	presentacion ports.PresentacionAutoridadFuenteAnalisis,
-	desafio ports.DesafioAutoridadFuenteAnalisis,
-	rol ports.RolAutoridadFuenteAnalisis,
-	comprobadaEn time.Time,
+func (a *AutenticadorFuentesAnalisisConConfianza) VerificarEvidenciaPublicaAutoridadFuenteAnalisis(
+	evidencia ports.EvidenciaPublicaAutoridadFuenteAnalisis,
 ) (ports.IdentidadAutoridadFuenteAnalisis, error) {
 	if a == nil {
+		return ports.IdentidadAutoridadFuenteAnalisis{},
+			ports.ErrResultadoFuenteAnalisisNoConfiable
+	}
+	presentacion, desafio, rol, comprobadaEn, err := evidencia.Datos()
+	if err != nil {
 		return ports.IdentidadAutoridadFuenteAnalisis{},
 			ports.ErrResultadoFuenteAnalisisNoConfiable
 	}

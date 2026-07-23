@@ -106,12 +106,18 @@ func TestAutenticadorFuentesAnalisisConConfianzaAutentica(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	evidencia, err := ports.NuevaEvidenciaPublicaAutoridadFuenteAnalisis(
+		desafio,
+		presentacion,
+		ports.RolFuenteCobertura,
+		ahora,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	identidad, err := autenticador.
-		VerificarPresentacionAutoridadFuenteAnalisis(
-			presentacion,
-			desafio,
-			ports.RolFuenteCobertura,
-			ahora,
+		VerificarEvidenciaPublicaAutoridadFuenteAnalisis(
+			evidencia,
 		)
 
 	if err != nil {
@@ -133,11 +139,8 @@ func TestAutenticadorFuentesAnalisisConConfianzaFallaCerrado(
 		t.Fatalf("confianza vacía aceptada: %v", err)
 	}
 	var autenticador *AutenticadorFuentesAnalisisConConfianza
-	if _, err := autenticador.VerificarPresentacionAutoridadFuenteAnalisis(
-		ports.PresentacionAutoridadFuenteAnalisis{},
-		ports.DesafioAutoridadFuenteAnalisis{},
-		ports.RolFuenteCobertura,
-		time.Now().UTC(),
+	if _, err := autenticador.VerificarEvidenciaPublicaAutoridadFuenteAnalisis(
+		ports.EvidenciaPublicaAutoridadFuenteAnalisis{},
 	); !errors.Is(err, ports.ErrResultadoFuenteAnalisisNoConfiable) {
 		t.Fatalf("adaptador nulo aceptado: %v", err)
 	}
@@ -206,19 +209,31 @@ func TestAutenticadorFuentesAnalisisRevalidaTrasPresentacionLenta(
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := autenticador.VerificarPresentacionAutoridadFuenteAnalisis(
-		presentacion,
+	evidenciaT1, err := ports.NuevaEvidenciaPublicaAutoridadFuenteAnalisis(
 		desafio,
+		presentacion,
 		ports.RolFuenteCobertura,
 		inicio,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := autenticador.VerificarEvidenciaPublicaAutoridadFuenteAnalisis(
+		evidenciaT1,
 	); err != nil {
 		t.Fatalf("la credencial no era válida en t1: %v", err)
 	}
-	if _, err := autenticador.VerificarPresentacionAutoridadFuenteAnalisis(
-		presentacion,
+	evidenciaT2, err := ports.NuevaEvidenciaPublicaAutoridadFuenteAnalisis(
 		desafio,
+		presentacion,
 		ports.RolFuenteCobertura,
 		inicio.Add(2*time.Second),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := autenticador.VerificarEvidenciaPublicaAutoridadFuenteAnalisis(
+		evidenciaT2,
 	); !errors.Is(err, ports.ErrResultadoFuenteAnalisisNoConfiable) {
 		t.Fatalf("caducidad durante presentación no rechazada: %v", err)
 	}

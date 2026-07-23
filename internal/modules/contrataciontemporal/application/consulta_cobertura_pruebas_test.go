@@ -28,6 +28,9 @@ type autenticadorCoberturaPrueba struct {
 	audiencia    string
 	identidades  map[ports.RolAutoridadFuenteAnalisis]ports.IdentidadAutoridadFuenteAnalisis
 	antes        func(ports.RolAutoridadFuenteAnalisis, time.Time) error
+	resolver     func(
+		ports.EvidenciaPublicaAutoridadFuenteAnalisis,
+	) (ports.IdentidadAutoridadFuenteAnalisis, error)
 }
 
 func (a *autenticadorCoberturaPrueba) OrganizacionAutoridadFuenteAnalisis() string {
@@ -38,13 +41,15 @@ func (a *autenticadorCoberturaPrueba) AudienciaAutoridadFuenteAnalisis() string 
 	return a.audiencia
 }
 
-func (a *autenticadorCoberturaPrueba) VerificarPresentacionAutoridadFuenteAnalisis(
-	_ ports.PresentacionAutoridadFuenteAnalisis,
-	_ ports.DesafioAutoridadFuenteAnalisis,
-	rol ports.RolAutoridadFuenteAnalisis,
-	comprobadaEn time.Time,
+func (a *autenticadorCoberturaPrueba) VerificarEvidenciaPublicaAutoridadFuenteAnalisis(
+	evidencia ports.EvidenciaPublicaAutoridadFuenteAnalisis,
 ) (ports.IdentidadAutoridadFuenteAnalisis, error) {
 	if a == nil {
+		return ports.IdentidadAutoridadFuenteAnalisis{},
+			ports.ErrResultadoFuenteAnalisisNoConfiable
+	}
+	_, _, rol, comprobadaEn, err := evidencia.Datos()
+	if err != nil {
 		return ports.IdentidadAutoridadFuenteAnalisis{},
 			ports.ErrResultadoFuenteAnalisisNoConfiable
 	}
@@ -52,6 +57,9 @@ func (a *autenticadorCoberturaPrueba) VerificarPresentacionAutoridadFuenteAnalis
 		if err := a.antes(rol, comprobadaEn); err != nil {
 			return ports.IdentidadAutoridadFuenteAnalisis{}, err
 		}
+	}
+	if a.resolver != nil {
+		return a.resolver(evidencia)
 	}
 	identidad, ok := a.identidades[rol]
 	if !ok || identidad.Rol() != rol {
@@ -83,7 +91,7 @@ func (f *fuenteCoberturaAplicacionPrueba) PresentarAutoridadFuenteAnalisis(
 	if f.presentar != nil {
 		return f.presentar(ctx, desafio)
 	}
-	return ports.PresentacionAutoridadFuenteAnalisis{}, nil
+	return presentacionEstructuralCoberturaPrueba(f.identidad)
 }
 func (f *fuenteCoberturaAplicacionPrueba) ConsultarCobertura(
 	ctx context.Context,
@@ -114,7 +122,7 @@ func (v *verificadorCoberturaAplicacionPrueba) PresentarAutoridadFuenteAnalisis(
 	if v.presentar != nil {
 		return v.presentar(ctx, desafio)
 	}
-	return ports.PresentacionAutoridadFuenteAnalisis{}, nil
+	return presentacionEstructuralCoberturaPrueba(v.identidad)
 }
 func (v *verificadorCoberturaAplicacionPrueba) VerificarRespuestaCobertura(
 	ctx context.Context,
@@ -145,13 +153,45 @@ func (p *publicadorCoberturaAplicacionPrueba) PresentarAutoridadFuenteAnalisis(
 	if p.presentar != nil {
 		return p.presentar(ctx, desafio)
 	}
-	return ports.PresentacionAutoridadFuenteAnalisis{}, nil
+	return presentacionEstructuralCoberturaPrueba(p.identidad)
 }
 func (p *publicadorCoberturaAplicacionPrueba) ConsultarPublicacionCobertura(
 	ctx context.Context,
 	solicitud ports.SolicitudConsultarCobertura,
 ) (ports.ConfirmacionPublicacionCobertura, error) {
 	return p.publicar(ctx, solicitud)
+}
+
+func presentacionEstructuralCoberturaPrueba(
+	identidad ports.IdentidadAutoridadFuenteAnalisis,
+) (ports.PresentacionAutoridadFuenteAnalisis, error) {
+	credencial, err := ports.NuevaCredencialAutoridadFuenteAnalisis(
+		ports.DatosCredencialAutoridadFuenteAnalisis{
+			RaizClaveID:        "raiz_estructural_cobertura_prueba_01",
+			AutoridadRef:       identidad.AutoridadRef(),
+			BackendRef:         identidad.BackendRef(),
+			OrganizacionRef:    organizacionCoberturaPrueba,
+			Audiencia:          "servicio_contratacion_temporal",
+			Rol:                identidad.Rol(),
+			Serie:              1,
+			Generacion:         1,
+			ClavePruebaEd25519: identidad.ClavePruebaEd25519(),
+			EmitidaEn: time.Date(
+				2026, 1, 1, 0, 0, 0, 0, time.UTC,
+			),
+			ValidaHasta: time.Date(
+				2027, 1, 1, 0, 0, 0, 0, time.UTC,
+			),
+		},
+		make([]byte, ed25519.SignatureSize),
+	)
+	if err != nil {
+		return ports.PresentacionAutoridadFuenteAnalisis{}, err
+	}
+	return ports.NuevaPresentacionAutoridadFuenteAnalisis(
+		credencial,
+		make([]byte, ed25519.SignatureSize),
+	)
 }
 
 type relojCoberturaAplicacionPrueba struct {
