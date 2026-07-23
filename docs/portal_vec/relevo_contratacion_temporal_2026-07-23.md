@@ -433,3 +433,27 @@ del diff y Gitleaks. La evidencia completa está en
 
 O4-02 queda cerrado. Persistencia productiva, composición real, API, web y E2E
 siguen expresamente fuera de este corte y corresponden a O4-03, O4-04 y O4-05.
+
+## Estado O2-06 al cierre del 24 de julio
+
+El candidato `157a589ddd5113a0d119f42c4e8fd7730f39952e`, sobre base inmediata
+`1d2cf7ed0dd96c7f291ca063bd6a9703992d3226`, está publicado en
+`origin/agent/ct-o2-06-implementacion` pero recibió `NO-GO` independiente.
+
+No debe integrarse. Quedan dos bloqueantes:
+
+- una nueva invocación genera referencias distintas y no acredita replay desde
+  un segundo servicio o proceso;
+- un error de `Commit` seguro antes del envío puede entrar en reconciliación y
+  confirmar pese a la cancelación.
+
+La corrección debe introducir un resolver durable de candidatura técnica sin
+restaurar `preparar_alta_v2`, clasificar `SafeToRetry` y los estados de
+resolución incierta, y probar la ruta pública completa sobre PostgreSQL 18.
+La evidencia exacta está en
+[la revisión O2-06](revisiones/o2_06_revision_independiente_nogo_2026-07-24.md).
+
+La web RRHH tiene un checkpoint aislado `7dcabd5` con 271 pruebas JavaScript y
+los siete paquetes Go del módulo verdes. No está integrada: continúa pendiente
+la paridad visual 1..17, el capturador Docker y la revisión independiente de
+las capturas.

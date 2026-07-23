@@ -15,7 +15,7 @@ temporal. El detalle verificable de cada tarea está en el
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 16 de 46 tareas cerradas (35 %); O4-02 ya está integrado |
 | Último commit verificado | `0be7467` — consultas O4-02 integradas tras GO independiente y puertas conjuntas |
-| Trabajo local en revisión | O2-06 en implementación; web de presentación RRHH en desarrollo; primer corte O5-01 pendiente de completar |
+| Trabajo local en revisión | O2-06 `157a589` en NO-GO y corrección pendiente; web RRHH `7dcabd5` publicada pero pendiente de paridad/capturas; primer corte O5-01 pendiente de completar |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -194,8 +194,8 @@ Estado actual:
 
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
-Tareas verificadas del procedimiento: 15/46 = 33 %
-Tareas locales en revisión: O4-02, O2-06 y O5-01
+Tareas verificadas del procedimiento: 16/46 = 35 %
+Tareas locales en revisión: O2-06, web RRHH y O5-01
 ```
 
 Una tarea local no cuenta como cerrada hasta que el commit esté publicado y el
