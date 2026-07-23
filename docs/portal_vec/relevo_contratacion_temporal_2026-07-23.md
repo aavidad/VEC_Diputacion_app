@@ -126,6 +126,11 @@ ajenas.
   perfil y organización. La aplicación liga UUID, contexto efectivo y
   contenido mediante HMAC. No usa cookies ni almacenamiento web y sus puertas
   focales, de carrera y globales están verdes; falta revisión independiente.
+  La integración virtual con O2-09A `1323b4b` produjo el árbol
+  `750bd6d479ddcf9e5564cc25d8603b0b5aa62e06` sin conflictos; en ese árbol
+  pasaron veinte repeticiones del contrato HTTP, carrera, las veinte pruebas
+  de la vista y todos los paquetes de contratación temporal. El worktree
+  desechable se eliminó después de la prueba.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
   cronología de solo adición y bloqueo de retroacciones implícitas. Un primer
   corte de aplicación posterior recibió NO-GO: aceptaba autoridad RC/coste
