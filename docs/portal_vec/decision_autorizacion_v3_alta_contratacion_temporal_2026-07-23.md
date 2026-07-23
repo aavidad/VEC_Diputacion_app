@@ -2,11 +2,10 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: `NO-GO` tras revisión independiente. La frontera de aplicación O2-04
-está implementada en la rama de trabajo, pero no puede cerrarse mientras el
-adaptador PostgreSQL siga en SQL V1/solo generación activa y no converja con
-el contrato V2 aprobado de O2-03. El efecto atómico O2-05 también sigue
-pendiente.
+Estado: `NO-GO` para el alta productiva. La frontera de aplicación O2-04 ya
+converge con la colección HMAC opaca y el contrato PostgreSQL V2 de O2-03. No
+se declara `GO` automático: el efecto atómico O2-05, su revisión independiente
+y las puertas externas siguen pendientes.
 
 ## Corte implementado en O2-04
 
@@ -20,11 +19,12 @@ o la autorización provisionales del módulo. Usa directamente:
   catálogo publicado;
 - `AutorizadorSolicitudLigadaV3`, que devuelve decisión y confirmación durable
   V3;
-- `DerivadorIdentidadesHMACAlta`, que obtiene de una única lectura del llavero
-  pares inseparables de ámbito y huella para la generación activa y las
-  retenidas. Solo el ámbito activo es el recurso V3; la preparación recibe la
-  colección validada y puede devolver el par activo o un par retenido cuando
-  recupera una operación anterior.
+- `DerivadorHuellaAlta` y `SelladorAmbitoIdempotencia`, que entregan
+  `ColeccionSellosHMAC` opacas del llavero para la huella y el ámbito. Ambas
+  colecciones deben tener exactamente el mismo historial de generaciones.
+  Solo el par activo forma el recurso V3; la preparación PostgreSQL V2 recibe
+  las dos colecciones y puede reconciliar el par activo o un par retenido de
+  la misma generación al recuperar una operación anterior.
 
 La secuencia de aplicación revalida vínculo, decisión y confirmación antes de
 preparar y de nuevo antes de devolver un recibo o solicitar el efecto. Un
@@ -112,18 +112,24 @@ publicada indicará activación, fin de emisión, fin de verificación y retirad
 Rotar de v1 a v2 deberá conservar el mismo expediente y recibo. La sintaxis
 versionada sin esta convivencia no se considera rotación resuelta.
 
-O2-04 deja esa rotación acotada pero no la declara cerrada: el puerto ya
-devuelve una capacidad nominal opaca con la generación activa y las retenidas.
-No expone structs de pares como capacidad. Admite como máximo cuatro
-generaciones; cada retenida debe ser anterior y el orden debe ser estrictamente
-descendente. Valida que cada ámbito y huella pertenecen a la misma generación.
-El recurso V3 usa exclusivamente el ámbito y la huella activos. La preparación
-puede devolver un par activo o retenido, pero debe pertenecer íntegramente a la
-colección: no se admite ámbito de una generación y huella de otra. El adaptador
-PostgreSQL V1 transitorio solo conoce la generación activa; tras el `GO` de
-O2-03 debe sustituirse por el contrato V2 que entrega la colección a SQL y
-reconcilia por todos sus pares. Esa convergencia durable es una condición
-pendiente, no una compatibilidad simulada.
+O2-04 converge con la única capacidad nominal opaca de O2-03,
+`ColeccionSellosHMAC`; no conserva tipos paralelos ni expone structs de pares
+como capacidad. Cada colección admite una generación activa y hasta tres
+retenidas —cuatro en total—. Toda retenida debe ser anterior y el orden debe
+ser estrictamente descendente. Las colecciones de ámbito y huella deben
+presentar la misma matriz. El recurso V3 usa exclusivamente el par activo. La
+preparación puede reconciliar un par activo o retenido, pero ambos sellos deben
+pertenecer a la misma generación: nunca se combina el ámbito de una generación
+con la huella de otra.
+
+El adaptador usa exclusivamente
+`vec_contratacion_temporal.preparar_alta_v2(jsonb)`. La migración aditiva
+`000002_rotacion_hmac` y sus pruebas conservan la historia V1 para demostrar
+la rotación real, revocan la ejecución V1 al runtime y reconcilian por todos
+los pares V2. La serie aprobada de origen
+`019c900`, `c877cae`, `d64aa44`, `9d98bb3`, `7803d8a` se incorporó completa;
+la historia V1 permanece como antecedente migratorio, no como ruta del
+adaptador actual.
 
 ## Secuencia objetivo
 
@@ -222,7 +228,8 @@ O2-04/O2-05 no se cierran hasta demostrar:
 - denegación por actor, perfil, organización, finalidad, acción, recurso,
   motivo, flujo, contexto, versión o correlación distintos;
 - consumo único e idempotencia bajo sesiones concurrentes;
-- rotación v1→v2 con convivencia, sin segunda reserva ni conflicto falso;
+- rotación v1→v2 con convivencia, sin segunda reserva ni conflicto falso
+  —cerrada en O2-03 y conservada como regresión obligatoria—;
 - expiración y revocación mientras se espera un bloqueo;
 - ausencia de reserva/expediente/auditoría/evento parcial ante cualquier fallo;
 - replay confirmado con revalidación vigente;
