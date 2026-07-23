@@ -83,6 +83,7 @@ func TestVerificadorTCBIndependienteRechazaSalidaRemacNoAutorizada(t *testing.T)
 			consumidorInvocado = true
 			return ReciboConsumoRespuestaFuenteAnalisis{}, nil
 		}),
+		confianzaAutoridadesPrueba(t),
 		relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(time.Second)),
 		solicitud,
 	)
@@ -101,10 +102,11 @@ func TestFuenteYVerificadorTCBDebenSerInstanciasSeparadas(t *testing.T) {
 		dependencia,
 		verificadorPublicacionNoInvocablePrueba(t),
 		consumidorRespuestaPrueba(inicio),
+		confianzaAutoridadesPrueba(t),
 		relojFijoFuenteAnalisis(inicio),
 		solicitudValidarRCPrueba(t, inicio),
 	)
-	if !errors.Is(err, ErrPeticionFuenteAnalisisInvalida) ||
+	if !errors.Is(err, ErrResultadoFuenteAnalisisNoConfiable) ||
 		dependencia.invocada {
 		t.Fatalf("fuente y TCB no quedaron separados: %v", err)
 	}
@@ -149,6 +151,7 @@ func TestReplayExactoSoloSeAceptaDentroDeLaVentana(t *testing.T) {
 			}),
 			verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
 			consumidor,
+			confianzaAutoridadesPrueba(t),
 			relojFijoFuenteAnalisis(reloj),
 			solicitud,
 		)
@@ -193,6 +196,7 @@ func TestMismoReciboConOtraRespuestaFallaCerrado(t *testing.T) {
 			}),
 			verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
 			consumidor,
+			confianzaAutoridadesPrueba(t),
 			relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(time.Second)),
 			solicitud,
 		)
@@ -312,6 +316,18 @@ type consumidorDurablePrueba struct {
 
 type fuenteYVerificadorMismaInstanciaPrueba struct {
 	invocada bool
+}
+
+func (f *fuenteYVerificadorMismaInstanciaPrueba) PresentarAutoridadFuenteAnalisis(
+	_ context.Context,
+	desafio DesafioAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	return presentacionAutoridadPrueba(
+		RolFuentePresupuestaria,
+		"fuente_presupuesto_0123456789",
+		"backend_presupuesto_0123456789",
+		desafio,
+	)
 }
 
 func (f *fuenteYVerificadorMismaInstanciaPrueba) ValidarRC(

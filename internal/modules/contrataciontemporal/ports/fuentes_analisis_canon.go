@@ -14,11 +14,12 @@ import (
 )
 
 const (
-	esquemaPeticionValidacionRC        = "VEC-CT-FUENTE-ANALISIS-RC-V1"
-	esquemaPeticionCalculoCoste        = "VEC-CT-FUENTE-ANALISIS-COSTE-V1"
-	dominioSelloPeticionAnalisis       = "hmac-sha256:fuente-analisis-v1:"
-	maximoAniosPeriodoFuente           = 100
-	maximoCentimosFuente         int64 = 922_337_203_685_477
+	esquemaPeticionValidacionRC            = "VEC-CT-FUENTE-ANALISIS-RC-V1"
+	esquemaPeticionCalculoCoste            = "VEC-CT-FUENTE-ANALISIS-COSTE-V1"
+	dominioSelloPeticionAnalisis           = "hmac-sha256:fuente-analisis-v1:"
+	maximoAniosPeriodoFuente               = 100
+	maximoCentimosFuente             int64 = 922_337_203_685_477
+	maximoEnteroSeguroFuenteAnalisis       = uint64(1<<53 - 1)
 )
 
 var patronPeticionFuenteAnalisis = regexp.MustCompile(
@@ -68,7 +69,9 @@ func (d DatosSolicitudValidarRC) validar() error {
 		!selloPeticionFuenteAnalisisValido(d.HuellaPeticionHMAC) ||
 		!domain.ReferenciaOpacaValida(d.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(d.ExpedienteRef) ||
-		d.VersionExpediente == 0 || d.Entrada.Validar() != nil ||
+		d.VersionExpediente == 0 ||
+		d.VersionExpediente > maximoEnteroSeguroFuenteAnalisis ||
+		d.Entrada.Validar() != nil ||
 		d.Declaracion.Validar() != nil ||
 		!importeFuenteAnalisisValidoDeclaracion(d.Declaracion) ||
 		!instanteFuenteAnalisisCanonico(d.SolicitadaEn) {
@@ -152,6 +155,7 @@ func (d DatosSolicitudCalcularCoste) validar() error {
 		!domain.ReferenciaOpacaValida(d.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(d.ExpedienteRef) ||
 		d.VersionExpediente == 0 ||
+		d.VersionExpediente > maximoEnteroSeguroFuenteAnalisis ||
 		!domain.ReferenciaOpacaValida(d.CategoriaRef) ||
 		!domain.GrupoSubgrupoValido(d.GrupoSubgrupo) ||
 		!d.ModalidadClave.Valida() || !d.CausaClave.Valida() ||

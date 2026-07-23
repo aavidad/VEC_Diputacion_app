@@ -53,6 +53,7 @@ func NuevaSolicitudValidarRC(
 		!domain.ReferenciaOpacaValida(preparacion.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(preparacion.ExpedienteRef) ||
 		preparacion.VersionExpediente == 0 ||
+		preparacion.VersionExpediente > maximoEnteroSeguroFuenteAnalisis ||
 		preparacion.Entrada.Validar() != nil ||
 		preparacion.Declaracion.Validar() != nil ||
 		!importeFuenteAnalisisValidoDeclaracion(preparacion.Declaracion) {
@@ -144,6 +145,7 @@ func NuevaSolicitudCalcularCoste(
 		!domain.ReferenciaOpacaValida(preparacion.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(preparacion.ExpedienteRef) ||
 		preparacion.VersionExpediente == 0 ||
+		preparacion.VersionExpediente > maximoEnteroSeguroFuenteAnalisis ||
 		!domain.ReferenciaOpacaValida(preparacion.CategoriaRef) ||
 		!domain.GrupoSubgrupoValido(preparacion.GrupoSubgrupo) ||
 		!preparacion.ModalidadClave.Valida() ||

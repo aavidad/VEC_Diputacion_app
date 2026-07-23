@@ -19,12 +19,23 @@ func TestConfirmacionPublicacionLigaCatalogoEntradaI18NYParametros(t *testing.T)
 	}
 	confirmacion, err := NuevaConfirmacionPublicacionMotivoFuenteAnalisis(
 		base,
+		"publicador_catalogo_motivos_012345",
 		"publicacion_catalogo_motivos_rc_012345",
 		"recibo_verificacion_catalogo_012345",
 		inicio,
 	)
 	if err != nil {
 		t.Fatal(err)
+	}
+	confirmacionOtroPublicador := confirmacion
+	datosConfirmacion, err := confirmacion.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	datosConfirmacion.PublicadorRef = "publicador_catalogo_ajeno_012345"
+	confirmacionOtroPublicador.datos = &datosConfirmacion
+	if confirmacionOtroPublicador.ValidarPara(base, inicio) == nil {
+		t.Fatal("la confirmación se reutilizó con otra autoridad publicadora")
 	}
 	vinculo, _ := motivo.Datos()
 	casos := []struct {

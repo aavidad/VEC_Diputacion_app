@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -13,6 +14,88 @@ import (
 )
 
 const claveRespuestaFuenteAnalisisPrueba = "clave-tcb-respuesta-fuente-analisis"
+
+const (
+	organizacionAutoridadPrueba = "organizacion_diputacion_granada"
+	audienciaAutoridadPrueba    = "audiencia_fuentes_analisis_interna"
+	raizAutoridadPruebaID       = "raiz_institucional_fuentes_012345"
+)
+
+func claveEd25519Prueba(etiqueta string) ed25519.PrivateKey {
+	semilla := sha256.Sum256([]byte("VEC-CT-PRUEBA:" + etiqueta))
+	return ed25519.NewKeyFromSeed(semilla[:])
+}
+
+func datosCredencialAutoridadPrueba(
+	rol RolAutoridadFuenteAnalisis,
+	autoridadRef string,
+	backendRef string,
+) DatosCredencialAutoridadFuenteAnalisis {
+	clave := claveEd25519Prueba(string(rol) + ":" + autoridadRef)
+	return DatosCredencialAutoridadFuenteAnalisis{
+		RaizClaveID: raizAutoridadPruebaID, AutoridadRef: autoridadRef,
+		BackendRef: backendRef, OrganizacionRef: organizacionAutoridadPrueba,
+		Audiencia: audienciaAutoridadPrueba, Rol: rol,
+		Serie: 1, Generacion: 1,
+		ClavePruebaEd25519: clave.Public().(ed25519.PublicKey),
+		EmitidaEn:          time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		ValidaHasta:        time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+	}
+}
+
+func presentacionAutoridadPrueba(
+	rol RolAutoridadFuenteAnalisis,
+	autoridadRef string,
+	backendRef string,
+	desafio DesafioAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	datos := datosCredencialAutoridadPrueba(rol, autoridadRef, backendRef)
+	documento, err := canonCredencialAutoridadFuenteAnalisis(datos)
+	if err != nil {
+		return PresentacionAutoridadFuenteAnalisis{}, err
+	}
+	firmaRaiz := ed25519.Sign(
+		claveEd25519Prueba("raiz-institucional"),
+		documento,
+	)
+	credencial, err := NuevaCredencialAutoridadFuenteAnalisis(datos, firmaRaiz)
+	if err != nil {
+		return PresentacionAutoridadFuenteAnalisis{}, err
+	}
+	material, err := desafio.Bytes()
+	if err != nil {
+		return PresentacionAutoridadFuenteAnalisis{}, err
+	}
+	prueba := ed25519.Sign(
+		claveEd25519Prueba(string(rol)+":"+autoridadRef),
+		material,
+	)
+	return NuevaPresentacionAutoridadFuenteAnalisis(credencial, prueba)
+}
+
+func confianzaAutoridadesPrueba(t *testing.T) ConfianzaAutoridadesFuenteAnalisis {
+	t.Helper()
+	raizPrivada := claveEd25519Prueba("raiz-institucional")
+	confianza, err := NuevaConfianzaAutoridadesFuenteAnalisis(
+		organizacionAutoridadPrueba,
+		audienciaAutoridadPrueba,
+		[]RaizConfianzaAutoridadFuenteAnalisis{{
+			ClaveID:             raizAutoridadPruebaID,
+			ClavePublicaEd25519: raizPrivada.Public().(ed25519.PublicKey),
+			Estado:              RaizAutoridadActiva,
+			ValidaDesde:         time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+			ValidaHasta:         time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
+			UltimaEmisionPermitida: time.Date(
+				2030, 1, 1, 0, 0, 0, 0, time.UTC,
+			),
+		}},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return confianza
+}
 
 func preparacionValidarRCPrueba() PreparacionSolicitudValidarRC {
 	fechaRC := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
@@ -248,6 +331,7 @@ func verificadorPublicacionPrueba(
 	) (ConfirmacionPublicacionMotivoFuenteAnalisis, error) {
 		return NuevaConfirmacionPublicacionMotivoFuenteAnalisis(
 			solicitud,
+			"publicador_catalogo_motivos_012345",
 			"publicacion_catalogo_motivos_rc_012345",
 			"recibo_verificacion_catalogo_012345",
 			verificadaEn,

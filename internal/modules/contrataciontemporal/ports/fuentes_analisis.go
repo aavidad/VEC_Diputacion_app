@@ -1,6 +1,7 @@
 package ports
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"errors"
@@ -43,10 +44,12 @@ var (
 )
 
 type FuentePresupuestaria interface {
+	PresentadorAutoridadFuenteAnalisis
 	ValidarRC(context.Context, SolicitudValidarRC) (ResultadoValidacionRC, error)
 }
 
 type CalculadorCostePersonal interface {
+	PresentadorAutoridadFuenteAnalisis
 	CalcularCoste(
 		context.Context,
 		SolicitudCalcularCoste,
@@ -59,12 +62,12 @@ func ValidarRCConFuente(
 	verificador VerificadorRespuestaFuenteAnalisis,
 	publicaciones VerificadorPublicacionMotivoFuenteAnalisis,
 	consumidor ConsumidorRespuestaFuenteAnalisis,
+	confianza ConfianzaAutoridadesFuenteAnalisis,
 	reloj RelojFuenteAnalisis,
 	solicitud SolicitudValidarRC,
 ) (domain.ValidacionRC, error) {
 	if ctx == nil || dependenciaNulaFuenteAnalisis(fuente) ||
 		dependenciaNulaFuenteAnalisis(verificador) ||
-		dependenciasFuenteAnalisisCoinciden(fuente, verificador) ||
 		dependenciaNulaFuenteAnalisis(publicaciones) ||
 		dependenciaNulaFuenteAnalisis(consumidor) ||
 		dependenciaNulaFuenteAnalisis(reloj) || solicitud.Validar() != nil {
@@ -77,6 +80,41 @@ func ValidarRCConFuente(
 			ErrFuentePresupuestariaNoDisponible,
 			err,
 		)
+	}
+	datosSolicitud, errDatosSolicitud := solicitud.Datos()
+	materialPeticion := materialDesafioSolicitudFuenteAnalisis(
+		solicitud.datosCanonicos(),
+		datosSolicitud.HuellaPeticionHMAC,
+	)
+	if errDatosSolicitud != nil ||
+		datosSolicitud.OrganizacionRef != confianza.organizacionRef ||
+		len(materialPeticion) == 0 {
+		return domain.ValidacionRC{}, ErrPeticionFuenteAnalisisInvalida
+	}
+	identidadFuente, err := presentarYVerificarAutoridadFuenteAnalisis(
+		operacion, fuente, confianza, materialPeticion,
+		RolFuentePresupuestaria, reloj.Ahora(),
+	)
+	if err != nil {
+		return domain.ValidacionRC{}, err
+	}
+	identidadVerificador, err := presentarYVerificarAutoridadFuenteAnalisis(
+		operacion, verificador, confianza, materialPeticion,
+		RolVerificadorRespuesta, reloj.Ahora(),
+	)
+	if err != nil {
+		return domain.ValidacionRC{}, err
+	}
+	identidadPublicador, err := presentarYVerificarAutoridadFuenteAnalisis(
+		operacion, publicaciones, confianza, materialPeticion,
+		RolPublicadorCatalogo, reloj.Ahora(),
+	)
+	if err != nil || !autoridadesFuenteAnalisisSeparadas(
+		identidadFuente,
+		identidadVerificador,
+		identidadPublicador,
+	) {
+		return domain.ValidacionRC{}, ErrResultadoFuenteAnalisisNoConfiable
 	}
 	resultado, errFuente := fuente.ValidarRC(operacion, solicitud)
 	if err := operacion.Err(); err != nil {
@@ -101,9 +139,16 @@ func ValidarRCConFuente(
 	if resultado.ValidarPara(solicitud, recibidaEn) != nil {
 		return domain.ValidacionRC{}, ErrResultadoFuenteAnalisisNoConfiable
 	}
+	datosResultado, errDatosResultado := resultado.Datos()
+	if errDatosResultado != nil ||
+		datosResultado.Atestacion.Metadatos.AutoridadRef !=
+			identidadFuente.autoridadRef {
+		return domain.ValidacionRC{}, ErrResultadoFuenteAnalisisNoConfiable
+	}
 	confirmacion, err := verificarRespuestaFuenteAnalisis(
 		operacion,
 		verificador,
+		identidadVerificador,
 		resultado.solicitudVerificacion(),
 		reloj,
 	)
@@ -113,6 +158,7 @@ func ValidarRCConFuente(
 	confirmacionMotivo, err := verificarMotivoResultadoRC(
 		operacion,
 		publicaciones,
+		identidadPublicador,
 		resultado,
 		reloj,
 	)
@@ -173,12 +219,12 @@ func CalcularCosteConFuente(
 	calculador CalculadorCostePersonal,
 	verificador VerificadorRespuestaFuenteAnalisis,
 	consumidor ConsumidorRespuestaFuenteAnalisis,
+	confianza ConfianzaAutoridadesFuenteAnalisis,
 	reloj RelojFuenteAnalisis,
 	solicitud SolicitudCalcularCoste,
 ) (ResultadoCalculoCoste, error) {
 	if ctx == nil || dependenciaNulaFuenteAnalisis(calculador) ||
 		dependenciaNulaFuenteAnalisis(verificador) ||
-		dependenciasFuenteAnalisisCoinciden(calculador, verificador) ||
 		dependenciaNulaFuenteAnalisis(consumidor) ||
 		dependenciaNulaFuenteAnalisis(reloj) || solicitud.Validar() != nil {
 		return ResultadoCalculoCoste{}, ErrPeticionFuenteAnalisisInvalida
@@ -190,6 +236,33 @@ func CalcularCosteConFuente(
 			ErrCalculadorCosteNoDisponible,
 			err,
 		)
+	}
+	datosSolicitud, errDatosSolicitud := solicitud.Datos()
+	materialPeticion := materialDesafioSolicitudFuenteAnalisis(
+		solicitud.datosCanonicos(),
+		datosSolicitud.HuellaPeticionHMAC,
+	)
+	if errDatosSolicitud != nil ||
+		datosSolicitud.OrganizacionRef != confianza.organizacionRef ||
+		len(materialPeticion) == 0 {
+		return ResultadoCalculoCoste{}, ErrPeticionFuenteAnalisisInvalida
+	}
+	identidadFuente, err := presentarYVerificarAutoridadFuenteAnalisis(
+		operacion, calculador, confianza, materialPeticion,
+		RolCalculadorCoste, reloj.Ahora(),
+	)
+	if err != nil {
+		return ResultadoCalculoCoste{}, err
+	}
+	identidadVerificador, err := presentarYVerificarAutoridadFuenteAnalisis(
+		operacion, verificador, confianza, materialPeticion,
+		RolVerificadorRespuesta, reloj.Ahora(),
+	)
+	if err != nil || !autoridadesFuenteAnalisisSeparadas(
+		identidadFuente,
+		identidadVerificador,
+	) {
+		return ResultadoCalculoCoste{}, ErrResultadoFuenteAnalisisNoConfiable
 	}
 	resultado, errFuente := calculador.CalcularCoste(operacion, solicitud)
 	if err := operacion.Err(); err != nil {
@@ -214,9 +287,16 @@ func CalcularCosteConFuente(
 	if resultado.ValidarPara(solicitud, recibidaEn) != nil {
 		return ResultadoCalculoCoste{}, ErrResultadoFuenteAnalisisNoConfiable
 	}
+	datosResultado, errDatosResultado := resultado.Datos()
+	if errDatosResultado != nil ||
+		datosResultado.Atestacion.Metadatos.AutoridadRef !=
+			identidadFuente.autoridadRef {
+		return ResultadoCalculoCoste{}, ErrResultadoFuenteAnalisisNoConfiable
+	}
 	confirmacion, err := verificarRespuestaFuenteAnalisis(
 		operacion,
 		verificador,
+		identidadVerificador,
 		resultado.solicitudVerificacion(),
 		reloj,
 	)
@@ -266,6 +346,7 @@ func CalcularCosteConFuente(
 func verificarRespuestaFuenteAnalisis(
 	ctx context.Context,
 	verificador VerificadorRespuestaFuenteAnalisis,
+	identidadVerificador identidadAutoridadFuenteAnalisis,
 	solicitud SolicitudVerificarRespuestaFuenteAnalisis,
 	reloj RelojFuenteAnalisis,
 ) (ConfirmacionRespuestaFuenteAnalisis, error) {
@@ -292,7 +373,10 @@ func verificarRespuestaFuenteAnalisis(
 			err,
 		)
 	}
-	if confirmacion.ValidarPara(solicitud, verificadaEn) != nil {
+	datosConfirmacion, errDatos := confirmacion.Datos()
+	if errDatos != nil ||
+		datosConfirmacion.VerificadorRef != identidadVerificador.autoridadRef ||
+		confirmacion.ValidarPara(solicitud, verificadaEn) != nil {
 		return ConfirmacionRespuestaFuenteAnalisis{},
 			ErrResultadoFuenteAnalisisNoConfiable
 	}
@@ -325,16 +409,17 @@ func dependenciaNulaFuenteAnalisis(dependencia any) bool {
 	}
 }
 
-func dependenciasFuenteAnalisisCoinciden(primera, segunda any) bool {
-	if primera == nil || segunda == nil {
-		return false
+func materialDesafioSolicitudFuenteAnalisis(
+	canonica []byte,
+	sello string,
+) []byte {
+	if len(canonica) == 0 || !selloPeticionFuenteAnalisisValido(sello) {
+		return nil
 	}
-	valorPrimero := reflect.ValueOf(primera)
-	valorSegundo := reflect.ValueOf(segunda)
-	return valorPrimero.Kind() == reflect.Pointer &&
-		valorSegundo.Kind() == reflect.Pointer &&
-		!valorPrimero.IsNil() && !valorSegundo.IsNil() &&
-		valorPrimero.Pointer() == valorSegundo.Pointer()
+	buffer := bytes.NewBuffer(make([]byte, 0, len(canonica)+len(sello)+4))
+	_, _ = buffer.Write(canonica)
+	escribirTextoAutoridad(buffer, sello)
+	return buffer.Bytes()
 }
 
 func sellosPeticionFuenteAnalisisIguales(primero, segundo string) bool {

@@ -103,6 +103,7 @@ func validarOrdenConsumoRespuesta(
 		!domain.ReferenciaOpacaValida(datos.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(datos.ExpedienteRef) ||
 		datos.VersionExpediente == 0 ||
+		datos.VersionExpediente > maximoEnteroSeguroFuenteAnalisis ||
 		!huellaSHA256FuenteAnalisisValida(datos.HuellaRespuestaSHA256) ||
 		datos.Atestacion.Validar() != nil || err != nil ||
 		confirmacion.HuellaMaterialSHA256 != datos.HuellaRespuestaSHA256 ||

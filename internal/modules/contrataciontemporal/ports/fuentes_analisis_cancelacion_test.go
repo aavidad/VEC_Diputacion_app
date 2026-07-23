@@ -41,6 +41,7 @@ func TestContextoSeCompruebaTrasFuenteYVerificadores(t *testing.T) {
 			}),
 			verificadorPublicacionNoInvocablePrueba(t),
 			consumidorRespuestaPrueba(metadatos.EmitidaEn.Add(time.Second)),
+			confianzaAutoridadesPrueba(t),
 			relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(time.Second)),
 			solicitud,
 		)
@@ -75,6 +76,7 @@ func TestContextoSeCompruebaTrasFuenteYVerificadores(t *testing.T) {
 				consumidorLlamado = true
 				return ReciboConsumoRespuestaFuenteAnalisis{}, nil
 			}),
+			confianzaAutoridadesPrueba(t),
 			relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(time.Second)),
 			solicitud,
 		)
@@ -116,6 +118,7 @@ func TestCancelacionTrasConsumoDurableConfirmadoNoCreaExitoAmbiguo(t *testing.T)
 		}),
 		verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
 		consumidor,
+		confianzaAutoridadesPrueba(t),
 		relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(time.Second)),
 		solicitud,
 	); err != nil {
@@ -149,6 +152,7 @@ func TestFuenteRecibeTimeoutMaximoPropio(t *testing.T) {
 		calculador,
 		verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
 		consumidorRespuestaPrueba(metadatos.EmitidaEn.Add(time.Second)),
+		confianzaAutoridadesPrueba(t),
 		relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(time.Second)),
 		solicitud,
 	); err != nil {
@@ -185,6 +189,7 @@ func TestDependenciasNulasTipadasFallanCerrado(t *testing.T) {
 		verificadorRespuestaHMACPrueba(inicio),
 		verificadorPublicacionNoInvocablePrueba(t),
 		consumidorRespuestaPrueba(inicio),
+		confianzaAutoridadesPrueba(t),
 		relojFijoFuenteAnalisis(inicio),
 		solicitudValidarRCPrueba(t, inicio),
 	); !errors.Is(err, ErrPeticionFuenteAnalisisInvalida) {
@@ -193,6 +198,13 @@ func TestDependenciasNulasTipadasFallanCerrado(t *testing.T) {
 }
 
 type fuentePresupuestariaNulaPrueba struct{}
+
+func (*fuentePresupuestariaNulaPrueba) PresentarAutoridadFuenteAnalisis(
+	context.Context,
+	DesafioAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	return PresentacionAutoridadFuenteAnalisis{}, nil
+}
 
 func (*fuentePresupuestariaNulaPrueba) ValidarRC(
 	context.Context,

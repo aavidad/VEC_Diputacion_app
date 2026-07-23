@@ -63,6 +63,7 @@ func NuevoMotivoFuenteAnalisis(
 func (m MotivoFuenteAnalisis) Validar() error {
 	if m.datos == nil || !domain.ReferenciaOpacaValida(m.datos.CatalogoRef) ||
 		m.datos.CatalogoVersion == 0 ||
+		m.datos.CatalogoVersion > maximoEnteroSeguroFuenteAnalisis ||
 		!huellaSHA256FuenteAnalisisValida(m.datos.CatalogoHuella) ||
 		!m.datos.EntradaClave.Valida() ||
 		!m.datos.ClaveMensajeI18N.Valida() ||
@@ -146,11 +147,13 @@ func (s SolicitudVerificarPublicacionMotivoFuenteAnalisis) Validar() error {
 	return nil
 }
 
-func (s SolicitudVerificarPublicacionMotivoFuenteAnalisis) huella() (
+func (s SolicitudVerificarPublicacionMotivoFuenteAnalisis) huellaParaPublicador(
+	publicadorRef string,
+) (
 	string,
 	error,
 ) {
-	if s.Validar() != nil {
+	if s.Validar() != nil || !domain.ReferenciaOpacaValida(publicadorRef) {
 		return "", errMotivoFuenteAnalisisInvalido
 	}
 	datos, _ := s.Motivo.Datos()
@@ -169,6 +172,7 @@ func (s SolicitudVerificarPublicacionMotivoFuenteAnalisis) huella() (
 	canon.texto(s.HuellaRespuestaSHA256)
 	canon.texto(s.AutoridadRespuestaRef)
 	canon.entero64(uint64(s.GeneracionRespuesta))
+	canon.texto(publicadorRef)
 	contenido, err := canon.resultado()
 	if err != nil {
 		return "", errMotivoFuenteAnalisisInvalido
@@ -199,6 +203,7 @@ func (c ConfirmacionPublicacionMotivoFuenteAnalisis) LogValue() slog.Value {
 }
 
 type DatosConfirmacionPublicacionMotivoFuenteAnalisis struct {
+	PublicadorRef         string
 	PublicacionRef        string
 	ReciboVerificacionRef string
 	HuellaSolicitudSHA256 string
@@ -207,12 +212,14 @@ type DatosConfirmacionPublicacionMotivoFuenteAnalisis struct {
 
 func NuevaConfirmacionPublicacionMotivoFuenteAnalisis(
 	solicitud SolicitudVerificarPublicacionMotivoFuenteAnalisis,
+	publicadorRef string,
 	publicacionRef string,
 	reciboVerificacionRef string,
 	verificadaEn time.Time,
 ) (ConfirmacionPublicacionMotivoFuenteAnalisis, error) {
-	huella, err := solicitud.huella()
+	huella, err := solicitud.huellaParaPublicador(publicadorRef)
 	datos := DatosConfirmacionPublicacionMotivoFuenteAnalisis{
+		PublicadorRef:         publicadorRef,
 		PublicacionRef:        publicacionRef,
 		ReciboVerificacionRef: reciboVerificacionRef,
 		HuellaSolicitudSHA256: huella,
@@ -234,8 +241,9 @@ func validarConfirmacionPublicacionMotivo(
 	solicitud SolicitudVerificarPublicacionMotivoFuenteAnalisis,
 	comprobadaEn time.Time,
 ) error {
-	huella, err := solicitud.huella()
+	huella, err := solicitud.huellaParaPublicador(datos.PublicadorRef)
 	if err != nil ||
+		!domain.ReferenciaOpacaValida(datos.PublicadorRef) ||
 		!domain.ReferenciaOpacaValida(datos.PublicacionRef) ||
 		!domain.ReferenciaOpacaValida(datos.ReciboVerificacionRef) ||
 		!bytes.Equal(
@@ -272,6 +280,7 @@ func (c ConfirmacionPublicacionMotivoFuenteAnalisis) Datos() (
 }
 
 type VerificadorPublicacionMotivoFuenteAnalisis interface {
+	PresentadorAutoridadFuenteAnalisis
 	VerificarPublicacionMotivoFuenteAnalisis(
 		context.Context,
 		SolicitudVerificarPublicacionMotivoFuenteAnalisis,
@@ -281,6 +290,7 @@ type VerificadorPublicacionMotivoFuenteAnalisis interface {
 func verificarMotivoResultadoRC(
 	ctx context.Context,
 	verificador VerificadorPublicacionMotivoFuenteAnalisis,
+	identidadPublicador identidadAutoridadFuenteAnalisis,
 	resultado ResultadoValidacionRC,
 	reloj RelojFuenteAnalisis,
 ) (*ConfirmacionPublicacionMotivoFuenteAnalisis, error) {
@@ -310,6 +320,7 @@ func verificarMotivoResultadoRC(
 	}
 	datosConfirmacion, errDatos := confirmacion.Datos()
 	if errVerificacion != nil || errDatos != nil ||
+		datosConfirmacion.PublicadorRef != identidadPublicador.autoridadRef ||
 		confirmacion.ValidarPara(solicitud, datosConfirmacion.VerificadaEn) != nil {
 		return nil, errorDisponibilidadFuente(
 			ErrVerificacionFuenteAnalisisNoDisponible,

@@ -51,6 +51,18 @@ func (f fuentePresupuestariaDoble) ValidarRC(
 	return f(ctx, solicitud)
 }
 
+func (f fuentePresupuestariaDoble) PresentarAutoridadFuenteAnalisis(
+	_ context.Context,
+	desafio DesafioAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	return presentacionAutoridadPrueba(
+		RolFuentePresupuestaria,
+		"fuente_presupuesto_0123456789",
+		"backend_presupuesto_0123456789",
+		desafio,
+	)
+}
+
 type calculadorCosteDoble func(
 	context.Context,
 	SolicitudCalcularCoste,
@@ -61,6 +73,18 @@ func (c calculadorCosteDoble) CalcularCoste(
 	solicitud SolicitudCalcularCoste,
 ) (ResultadoCalculoCoste, error) {
 	return c(ctx, solicitud)
+}
+
+func (c calculadorCosteDoble) PresentarAutoridadFuenteAnalisis(
+	_ context.Context,
+	desafio DesafioAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	return presentacionAutoridadPrueba(
+		RolCalculadorCoste,
+		"tabla_retributiva_2026_v3",
+		"backend_calculo_coste_0123456789",
+		desafio,
+	)
 }
 
 type verificadorRespuestaDoble func(
@@ -75,6 +99,18 @@ func (v verificadorRespuestaDoble) VerificarRespuestaFuenteAnalisis(
 	return v(ctx, solicitud)
 }
 
+func (v verificadorRespuestaDoble) PresentarAutoridadFuenteAnalisis(
+	_ context.Context,
+	desafio DesafioAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	return presentacionAutoridadPrueba(
+		RolVerificadorRespuesta,
+		"verificador_tcb_presupuestario_012345",
+		"backend_verificador_tcb_0123456789",
+		desafio,
+	)
+}
+
 type verificadorPublicacionMotivoDoble func(
 	context.Context,
 	SolicitudVerificarPublicacionMotivoFuenteAnalisis,
@@ -85,6 +121,18 @@ func (v verificadorPublicacionMotivoDoble) VerificarPublicacionMotivoFuenteAnali
 	solicitud SolicitudVerificarPublicacionMotivoFuenteAnalisis,
 ) (ConfirmacionPublicacionMotivoFuenteAnalisis, error) {
 	return v(ctx, solicitud)
+}
+
+func (v verificadorPublicacionMotivoDoble) PresentarAutoridadFuenteAnalisis(
+	_ context.Context,
+	desafio DesafioAutoridadFuenteAnalisis,
+) (PresentacionAutoridadFuenteAnalisis, error) {
+	return presentacionAutoridadPrueba(
+		RolPublicadorCatalogo,
+		"publicador_catalogo_motivos_012345",
+		"backend_publicador_catalogo_012345",
+		desafio,
+	)
 }
 
 type consumidorRespuestaDoble func(
@@ -127,6 +175,7 @@ func TestValidarRCConFuenteExigeAtestacionVerificadaYConsumo(t *testing.T) {
 		verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
 		verificadorPublicacionNoInvocablePrueba(t),
 		consumidorRespuestaPrueba(metadatos.EmitidaEn.Add(time.Second)),
+		confianzaAutoridadesPrueba(t),
 		relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(1500*time.Millisecond)),
 		solicitud,
 	)
@@ -181,6 +230,7 @@ func TestValidarRCConFuenteConservaMotivoPublicadoCompletoEnConsumo(t *testing.T
 		verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
 		verificadorPublicacionPrueba(metadatos.EmitidaEn.Add(250*time.Millisecond)),
 		consumidor,
+		confianzaAutoridadesPrueba(t),
 		relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(1500*time.Millisecond)),
 		solicitud,
 	)
@@ -211,6 +261,7 @@ func TestCalcularCosteConFuenteVerificaYConsumeRespuesta(t *testing.T) {
 		}),
 		verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
 		consumidorRespuestaPrueba(metadatos.EmitidaEn.Add(time.Second)),
+		confianzaAutoridadesPrueba(t),
 		relojFijoFuenteAnalisis(metadatos.EmitidaEn.Add(1500*time.Millisecond)),
 		solicitud,
 	)
@@ -235,6 +286,7 @@ func TestErroresDeProveedorNoExponenLaCausa(t *testing.T) {
 		verificadorRespuestaHMACPrueba(inicio),
 		verificadorPublicacionNoInvocablePrueba(t),
 		consumidorRespuestaPrueba(inicio),
+		confianzaAutoridadesPrueba(t),
 		relojFijoFuenteAnalisis(inicio),
 		solicitud,
 	)

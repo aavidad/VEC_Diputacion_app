@@ -268,6 +268,7 @@ func (c ConfirmacionRespuestaFuenteAnalisis) Datos() (
 }
 
 type VerificadorRespuestaFuenteAnalisis interface {
+	PresentadorAutoridadFuenteAnalisis
 	VerificarRespuestaFuenteAnalisis(
 		context.Context,
 		SolicitudVerificarRespuestaFuenteAnalisis,
