@@ -8,6 +8,14 @@ editar, lee `AGENTS.md`, `ORQUESTACION_AGENTES.md`,
 `docs/portal_vec/tablero_tareas_contratacion_temporal_2026-07-23.md` y
 `docs/portal_vec/diseno_transaccion_atomica_alta_o2_05_2026-07-23.md`.
 
+Son obligatorias todas las reglas del proyecto: código, pruebas, mensajes y
+documentación en castellano coherente; i18n mediante claves estables;
+arquitectura hexagonal y adaptadores intercambiables; denegación por defecto;
+neutralidad web/escritorio/CLI/MCP; ausencia de secretos y datos personales;
+documentación simultánea; seguridad de Administración pública y todas las
+puertas de `AGENTS.md`. Los términos técnicos universales pueden conservarse,
+pero no se admite mezclar castellano e inglés en el dominio.
+
 No uses Orquesta. No edites el árbol principal. No integres ni empujes tu rama.
 
 ## Subagentes obligatorios
@@ -206,4 +214,3 @@ dictámenes de los dos subagentes, riesgos y declaración expresa:
 
 **candidato O2-08A; no registrado, no compuesto, no integrado y no productivo
 hasta O2-07/O2-06**.
-

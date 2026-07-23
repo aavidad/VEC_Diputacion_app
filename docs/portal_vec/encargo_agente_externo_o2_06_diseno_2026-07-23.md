@@ -13,6 +13,14 @@ Esta es una tarea de diseño técnico verificable, no una implementación
 anticipada. O2-05 está congelando todavía la firma SQL. No programes contra
 una interfaz cambiante ni edites el worktree de O2-05.
 
+Son obligatorias todas las reglas del proyecto: diseño y documentación en
+castellano coherente; claves i18n para errores públicos; arquitectura hexagonal
+y conectores intercambiables; denegación por defecto; neutralidad
+web/escritorio/CLI/MCP; ausencia de secretos y datos personales; seguridad de
+Administración pública y todas las puertas de `AGENTS.md`. Los términos
+técnicos universales pueden conservarse, pero no se admite mezclar castellano
+e inglés en el dominio.
+
 ## Subagentes obligatorios
 
 El agente principal crea dos revisores de solo lectura:
@@ -125,4 +133,3 @@ Entrega SHA, dictámenes de los dos revisores, decisiones cerradas, bloqueos
 reales y la declaración:
 
 **O2-06A es diseño; no implementa, integra ni habilita producción.**
-

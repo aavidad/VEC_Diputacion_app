@@ -11,6 +11,14 @@ temporal, `internal/modules/contrataciontemporal/domain/expediente.go` y
 Implementa un modelo de dominio definitivo, no una demo. No integres ni
 empujes tu rama.
 
+Son obligatorias todas las reglas del proyecto: código, pruebas, errores y
+documentación en castellano coherente; i18n por claves administrables;
+arquitectura hexagonal y adaptadores intercambiables; denegación por defecto;
+neutralidad web/escritorio/CLI/MCP; ausencia de secretos y datos personales;
+documentación simultánea; seguridad de Administración pública y todas las
+puertas de `AGENTS.md`. Los términos técnicos universales pueden conservarse,
+pero no se admite mezclar castellano e inglés en el dominio.
+
 ## Subagentes obligatorios
 
 El agente principal es el único editor y crea dos revisores de solo lectura:
@@ -150,4 +158,3 @@ Commits pequeños en castellano; árbol limpio; no push. Entrega SHA, pruebas,
 dictámenes de revisores, decisiones, límites y:
 
 **O8-01 modela dominio; no persiste, expone API ni habilita producción.**
-
