@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"strconv"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 var (
@@ -27,6 +30,12 @@ var patronClaveIdempotencia = regexp.MustCompile(
 func claveIdempotenciaValida(valor string) bool {
 	return patronClaveIdempotencia.MatchString(valor) &&
 		valor != "00000000-0000-4000-8000-000000000000"
+}
+
+// ClaveIdempotenciaValida expone la misma gramática a los orquestadores que
+// deben fallar antes de invocar selladores o persistencia.
+func ClaveIdempotenciaValida(valor string) bool {
+	return claveIdempotenciaValida(valor)
 }
 
 type ReferenciasAlta struct {
@@ -144,19 +153,21 @@ type OrdenConfirmarAlta struct {
 }
 
 type datosOrdenConfirmarAlta struct {
-	expediente     domain.Expediente
-	identidad      IdentidadOperacion
-	autorizacion   AutorizacionEfecto
-	preparacion    PreparacionAlta
-	correlacionRef string
+	expediente              domain.Expediente
+	solicitudAutorizacionV3 dominiovec.SolicitudAutorizacionLigadaV3
+	decisionAutorizacionV3  dominiovec.DecisionAutorizacionLigadaV3
+	confirmacionRegistroV3  puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
+	preparacion             PreparacionAlta
+	correlacionRef          string
 }
 
 type DatosOrdenConfirmarAlta struct {
-	Expediente     domain.Expediente
-	Identidad      IdentidadOperacion
-	Autorizacion   AutorizacionEfecto
-	Preparacion    PreparacionAlta
-	CorrelacionRef string
+	Expediente              domain.Expediente
+	SolicitudAutorizacionV3 dominiovec.SolicitudAutorizacionLigadaV3
+	DecisionAutorizacionV3  dominiovec.DecisionAutorizacionLigadaV3
+	ConfirmacionRegistroV3  puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
+	Preparacion             PreparacionAlta
+	CorrelacionRef          string
 }
 
 func NuevaOrdenConfirmarAlta(datos DatosOrdenConfirmarAlta) (OrdenConfirmarAlta, error) {
@@ -164,33 +175,62 @@ func NuevaOrdenConfirmarAlta(datos DatosOrdenConfirmarAlta) (OrdenConfirmarAlta,
 		!domain.ReferenciaOpacaValida(datos.CorrelacionRef) {
 		return OrdenConfirmarAlta{}, ErrOrdenAltaInvalida
 	}
-	identidad, err := datos.Identidad.Datos()
-	autorizacion, errAutorizacion := datos.Autorizacion.Datos()
-	if err != nil || errAutorizacion != nil ||
+	solicitudV3, err := datos.SolicitudAutorizacionV3.Datos()
+	vinculo, errVinculo := solicitudV3.VinculoAutenticacionActor.Datos()
+	concedida, _, errDecision := datos.DecisionAutorizacionV3.Resultado()
+	emitidaEn, validaHasta, errVentana := datos.DecisionAutorizacionV3.VentanaValidez()
+	confirmacionV3, errConfirmacion := datos.ConfirmacionRegistroV3.Datos()
+	huellaDecision, errHuella := dominiovec.HuellaSHA256DecisionAutorizacionV3(
+		datos.DecisionAutorizacionV3,
+	)
+	if err != nil || errVinculo != nil || errDecision != nil ||
+		errVentana != nil || errConfirmacion != nil || errHuella != nil ||
+		!concedida ||
+		datos.DecisionAutorizacionV3.ValidarPara(datos.SolicitudAutorizacionV3) != nil ||
 		datos.Preparacion.Estado != PreparacionReservada ||
 		!domain.ReferenciaOpacaValida(datos.Preparacion.ReservaRef) ||
 		datos.Preparacion.Referencias.Validar() != nil ||
 		!SelloHMACSHA256Valido(datos.Preparacion.AmbitoIdempotenciaHMAC) ||
 		!SelloHMACSHA256Valido(datos.Preparacion.HuellaPeticionHMAC) ||
 		datos.Preparacion.OrganizacionRef != datos.Expediente.OrganizacionRef ||
-		datos.Preparacion.ActorRef != identidad.ActorRef ||
-		datos.Preparacion.PerfilRef != identidad.PerfilRef ||
+		datos.Preparacion.ActorRef != vinculo.PrincipalID ||
+		datos.Preparacion.PerfilRef != vinculo.PerfilActivoRef ||
 		datos.Preparacion.ReciboConfirmado != nil ||
-		autorizacion.RecursoRef != datos.Expediente.Referencia ||
 		datos.Preparacion.Referencias.ExpedienteRef != datos.Expediente.Referencia ||
 		datos.Preparacion.Referencias.NumeroVisible != datos.Expediente.NumeroVisible ||
 		datos.Preparacion.Referencias.ReciboRef != datos.Expediente.Actuaciones[0].ReciboRef ||
-		autorizacion.ActorRef != identidad.ActorRef ||
-		autorizacion.PerfilRef != identidad.PerfilRef ||
-		!datos.Identidad.VigenteEn(datos.Expediente.CreadoEn) ||
-		datos.Expediente.CreadoEn.Before(autorizacion.EmitidaEn) ||
-		!datos.Expediente.CreadoEn.Before(autorizacion.ValidaHasta) {
+		solicitudV3.Accion != AccionCrearSolicitud ||
+		solicitudV3.Finalidad != FinalidadCrearSolicitud ||
+		solicitudV3.Recurso.ModuloID != ModuloContratacion ||
+		solicitudV3.Recurso.Tipo != TipoRecursoExpediente ||
+		len(solicitudV3.Recurso.Ambitos) != 3 ||
+		len(solicitudV3.Recurso.Atributos) != 3 ||
+		!sellosHMACIguales(
+			solicitudV3.Recurso.Referencia,
+			datos.Preparacion.AmbitoIdempotenciaHMAC,
+		) ||
+		solicitudV3.Recurso.Ambitos["organizacion_ref"] != datos.Expediente.OrganizacionRef ||
+		solicitudV3.Recurso.Ambitos["centro_ref"] != datos.Expediente.Solicitud.CentroRef ||
+		solicitudV3.Recurso.Ambitos["categoria_ref"] != datos.Expediente.Solicitud.CategoriaRef ||
+		solicitudV3.Recurso.Atributos["flujo_ref"] != datos.Expediente.Flujo.DefinicionRef ||
+		solicitudV3.Recurso.Atributos["flujo_version"] !=
+			formatearVersionFlujo(datos.Expediente.Flujo.Version) ||
+		solicitudV3.Recurso.Atributos["flujo_huella_sha256"] !=
+			datos.Expediente.Flujo.HuellaSHA256 ||
+		confirmacionV3.DecisionRef == "" ||
+		confirmacionV3.DecisionHuellaSHA256 != huellaDecision ||
+		!confirmacionV3.EmitidaEn.Equal(emitidaEn) ||
+		!confirmacionV3.ValidaHasta.Equal(validaHasta) ||
+		!datos.ConfirmacionRegistroV3.DentroDeVentanaEn(datos.Expediente.CreadoEn) {
 		return OrdenConfirmarAlta{}, ErrOrdenAltaInvalida
 	}
 	return OrdenConfirmarAlta{datos: &datosOrdenConfirmarAlta{
-		expediente: datos.Expediente.Clonar(), identidad: datos.Identidad,
-		autorizacion: datos.Autorizacion, preparacion: datos.Preparacion,
-		correlacionRef: datos.CorrelacionRef,
+		expediente:              datos.Expediente.Clonar(),
+		solicitudAutorizacionV3: datos.SolicitudAutorizacionV3,
+		decisionAutorizacionV3:  datos.DecisionAutorizacionV3,
+		confirmacionRegistroV3:  datos.ConfirmacionRegistroV3,
+		preparacion:             datos.Preparacion,
+		correlacionRef:          datos.CorrelacionRef,
 	}}, nil
 }
 
@@ -199,14 +239,21 @@ func (o OrdenConfirmarAlta) Datos() (DatosOrdenConfirmarAlta, error) {
 		return DatosOrdenConfirmarAlta{}, ErrOrdenAltaInvalida
 	}
 	datos := DatosOrdenConfirmarAlta{
-		Expediente: o.datos.expediente.Clonar(), Identidad: o.datos.identidad,
-		Autorizacion: o.datos.autorizacion, Preparacion: o.datos.preparacion,
-		CorrelacionRef: o.datos.correlacionRef,
+		Expediente:              o.datos.expediente.Clonar(),
+		SolicitudAutorizacionV3: o.datos.solicitudAutorizacionV3,
+		DecisionAutorizacionV3:  o.datos.decisionAutorizacionV3,
+		ConfirmacionRegistroV3:  o.datos.confirmacionRegistroV3,
+		Preparacion:             o.datos.preparacion,
+		CorrelacionRef:          o.datos.correlacionRef,
 	}
 	if _, err := NuevaOrdenConfirmarAlta(datos); err != nil {
 		return DatosOrdenConfirmarAlta{}, err
 	}
 	return datos, nil
+}
+
+func formatearVersionFlujo(version uint64) string {
+	return strconv.FormatUint(version, 10)
 }
 
 type ReciboAlta struct {
