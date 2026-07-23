@@ -89,6 +89,7 @@ type EvidenciaDurableIntegracionBolsa struct {
 	SelloHMAC             string    `json:"sello_hmac"`
 	EmitidaEn             time.Time `json:"emitida_en"`
 	ValidaHasta           time.Time `json:"valida_hasta"`
+	RetenerHasta          time.Time `json:"retener_hasta"`
 }
 
 func (e EvidenciaDurableIntegracionBolsa) Validar() error {
@@ -107,8 +108,10 @@ func (e EvidenciaDurableIntegracionBolsa) Validar() error {
 		!huellaSHA256Valida(e.HuellaRespuestaSHA256) ||
 		!instanteBolsaCanonico(e.EmitidaEn) ||
 		!instanteBolsaCanonico(e.ValidaHasta) ||
+		!instanteBolsaCanonico(e.RetenerHasta) ||
 		!e.ValidaHasta.After(e.EmitidaEn) ||
-		e.ValidaHasta.Sub(e.EmitidaEn) > VigenciaMaximaPeticionIntegracionBolsa {
+		e.ValidaHasta.Sub(e.EmitidaEn) > VigenciaMaximaPeticionIntegracionBolsa ||
+		!e.RetenerHasta.After(e.ValidaHasta) {
 		return ErrEvidenciaBolsaNoAutenticada
 	}
 	return nil
@@ -163,7 +166,8 @@ func evidenciasDurablesBolsaIguales(
 			[]byte(segunda.SelloHMAC),
 		) &&
 		primera.EmitidaEn.Equal(segunda.EmitidaEn) &&
-		primera.ValidaHasta.Equal(segunda.ValidaHasta)
+		primera.ValidaHasta.Equal(segunda.ValidaHasta) &&
+		primera.RetenerHasta.Equal(segunda.RetenerHasta)
 }
 
 func (c ComprobanteEvidenciaIntegracionBolsa) instanteVerificacion() time.Time {
@@ -246,6 +250,7 @@ func (v *VerificadorEvidenciaIntegracionBolsa) reautenticar(
 	if ctx == nil || v == nil || dependenciaIntegracionBolsaNula(v.verificador) ||
 		evidencia.Validar() != nil || !instanteBolsaCanonico(instante) ||
 		instante.Before(evidencia.EmitidaEn) ||
+		!instante.Before(evidencia.RetenerHasta) ||
 		evidencia.AutoridadRef != v.autoridadEsperada ||
 		!v.anillo.contiene(evidencia.ClaveVerificacionRef) ||
 		!huellasBolsaIguales(
@@ -302,6 +307,7 @@ func nuevaEvidenciaDurableBolsa(
 		SelloHMAC:             procedencia.Evidencia.SelloHMAC,
 		EmitidaEn:             procedencia.Evidencia.EmitidaEn,
 		ValidaHasta:           procedencia.Evidencia.ValidaHasta,
+		RetenerHasta:          procedencia.Evidencia.RetenerHasta,
 	}
 }
 
@@ -320,6 +326,7 @@ func materialAutenticacionRespuestaBolsa(
 	c.campo("huella_respuesta_sha256", huellaBytesBolsa(materialRespuesta))
 	c.instante("emitida_en", evidencia.EmitidaEn)
 	c.instante("valida_hasta", evidencia.ValidaHasta)
+	c.instante("retener_hasta", evidencia.RetenerHasta)
 	return c.bytes()
 }
 

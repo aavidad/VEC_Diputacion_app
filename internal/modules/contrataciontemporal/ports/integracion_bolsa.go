@@ -62,15 +62,19 @@ type EvidenciaNominalIntegracionBolsa struct {
 	SelloHMAC            string    `json:"sello_hmac"`
 	EmitidaEn            time.Time `json:"emitida_en"`
 	ValidaHasta          time.Time `json:"valida_hasta"`
+	RetenerHasta         time.Time `json:"retener_hasta"`
 }
 
 func (e EvidenciaNominalIntegracionBolsa) validarSintaxis(dominio string) bool {
 	referencia, _, valida := descomponerSelloHMACBolsa(e.SelloHMAC, dominio)
 	return domain.ReferenciaOpacaValida(e.EvidenciaRef) &&
 		referencia == e.ClaveVerificacionRef && valida &&
-		instanteBolsaCanonico(e.EmitidaEn) && instanteBolsaCanonico(e.ValidaHasta) &&
+		instanteBolsaCanonico(e.EmitidaEn) &&
+		instanteBolsaCanonico(e.ValidaHasta) &&
+		instanteBolsaCanonico(e.RetenerHasta) &&
 		e.ValidaHasta.After(e.EmitidaEn) &&
-		e.ValidaHasta.Sub(e.EmitidaEn) <= VigenciaMaximaPeticionIntegracionBolsa
+		e.ValidaHasta.Sub(e.EmitidaEn) <= VigenciaMaximaPeticionIntegracionBolsa &&
+		e.RetenerHasta.After(e.ValidaHasta)
 }
 
 // ProcedenciaIntegracionBolsa no acredita por sí sola a Bolsa. La autoridad

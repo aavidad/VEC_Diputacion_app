@@ -132,7 +132,7 @@ func (v *VerificadorEvidenciaIntegracionBolsa) VerificarReciboLlamamiento(
 	)
 }
 
-func (v *VerificadorEvidenciaIntegracionBolsa) ReautenticarReciboOrden(
+func (v *VerificadorEvidenciaIntegracionBolsa) reautenticarReciboOrden(
 	ctx context.Context,
 	comando ComandoPrepararOrdenBolsa,
 	recibo ReciboOrdenBolsa,
@@ -163,7 +163,7 @@ func (v *VerificadorEvidenciaIntegracionBolsa) ReautenticarReciboOrden(
 	)
 }
 
-func (v *VerificadorEvidenciaIntegracionBolsa) ReautenticarReciboLlamamiento(
+func (v *VerificadorEvidenciaIntegracionBolsa) reautenticarReciboLlamamiento(
 	ctx context.Context,
 	comando ComandoSolicitarLlamamientoBolsa,
 	recibo ReciboSolicitudLlamamientoBolsa,

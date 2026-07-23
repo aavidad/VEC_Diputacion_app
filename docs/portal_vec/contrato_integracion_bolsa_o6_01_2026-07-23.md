@@ -45,7 +45,8 @@ evidencia durable.
 
 El registro serializable no concede autoridad por sí mismo. Es material no
 confiable hasta que `AutenticadorContextoPeticionIntegracionBolsa` lo
-reautentica.
+reautentica. La autenticación histórica del registro no vuelve a abrir sus
+quince minutos de uso: `DatosEn` continúa rechazando un instante caducado.
 
 ## Ligadura orden, llamamiento y evento
 
@@ -69,7 +70,11 @@ comando, recibo y comprobante autenticados. El cotejo exige igualdad exacta de:
 - finalidad, acción y recurso gobernados;
 - referencia y huella SHA-256 de la petición;
 - referencia y huella SHA-256 del recibo;
-- propuesta vinculada.
+- necesidad, Bolsa, orden, política y propuesta;
+- referencia de llamamiento y selección seudonimizada;
+- política de retención;
+- solicitud, caducidad, confirmación del recibo, emisión, caducidad probatoria
+  y límite de retención.
 
 Por tanto, un evento no puede declarar referencias y huellas autoconsistentes
 pero ajenas a los artefactos locales.
@@ -89,8 +94,8 @@ activa únicamente mientras v1 permanezca explícitamente retenida.
 
 La firma cubre un sobre canónico que contiene tipo, autoridad, referencia de
 clave, referencia de evidencia, referencia y huella de petición, referencia y
-huella de respuesta, y tiempos. Los datos funcionales completos están
-incluidos por sus materiales canónicos.
+huella de respuesta, tiempos de transporte y límite de retención. Los datos
+funcionales completos están incluidos por sus materiales canónicos.
 
 La implementación del adaptador real debe custodiar las claves fuera del
 proceso, mediante HSM/KMS o servicio institucional equivalente. Este contrato
@@ -99,22 +104,48 @@ no incorpora secretos ni una implementación criptográfica de producción.
 ## Persistencia y reautenticación
 
 `EvidenciaDurableIntegracionBolsa` es serializable y minimizada. Se conserva
-junto al comando/recibo/evento y contiene solo las referencias, huellas,
-generación, sello y tiempos necesarios para una verificación posterior.
+dentro de un artefacto probatorio cerrado y contiene solo las referencias,
+huellas, generación, sello y tiempos necesarios para una verificación
+posterior.
+
+Los artefactos durables son:
+
+- `ArtefactoProbatorioOrdenBolsa`;
+- `ArtefactoProbatorioLlamamientoBolsa`;
+- `ArtefactoProbatorioEventoBolsa`.
+
+Cada uno declara esquema, versión y tipo; incorpora el HMAC de la evidencia y
+una huella SHA-256 de todo su sobre. La decodificación rechaza campos
+desconocidos, contenido adicional, esquema o versión distintos, corrupción y
+material que no coincida con el HMAC. Estos artefactos son datos probatorios,
+no implementan ningún puerto de efecto.
 
 Tras un reinicio:
 
-1. se reconstruyen los bytes canónicos desde los artefactos conservados;
-2. se exige coincidencia exacta con la evidencia persistida;
-3. se comprueba la autoridad y el anillo configurados localmente;
-4. se verifica de nuevo el HMAC;
-5. se crea un comprobante opaco nuevo.
+1. se decodifican los artefactos cerrados y se comprueba su huella;
+2. se reautentica históricamente el registro de contexto, sin exigir que siga
+   fresca la ventana de uso;
+3. se reconstruyen internamente los bytes canónicos;
+4. se exige coincidencia exacta con la evidencia persistida;
+5. se comprueba la autoridad y el anillo configurados localmente;
+6. se verifica de nuevo el HMAC y la retención;
+7. se crea una capacidad histórica opaca y no serializable.
 
-La caducidad del transporte y la autenticidad durable son controles distintos.
-Una respuesta caducada no puede usarse como respuesta fresca, aunque su
-evidencia histórica todavía pueda reautenticarse.
+La caducidad del transporte, la autenticidad durable y la retención son
+controles distintos. Una respuesta caducada no puede usarse como respuesta
+fresca, aunque su evidencia histórica todavía pueda reautenticarse. Al llegar
+al límite firmado `RetenerHasta` también termina la reautenticación histórica.
 
-El comprobante opaco no se persiste ni se acepta por transporte.
+El comprobante y las capacidades históricas opacas no se persisten ni se
+aceptan por transporte. Una orden histórica solo puede alimentar una petición
+nueva con un contexto fresco; un llamamiento histórico solo puede derivar el
+enlace probatorio; y un evento histórico solo puede producir el comando
+idempotente de registro. No permiten repetir el efecto original.
+
+Los constructores que emiten un llamamiento o registran un evento exigen que
+el comprobante haya sido verificado en el mismo instante confiable de la
+operación. Con ello no se puede guardar un comprobante viejo y reutilizarlo
+después de caducar la política.
 
 ## Idempotencia y concurrencia
 
@@ -147,8 +178,11 @@ La batería focal cubre:
 - autoridad Bolsa fija y verificador sin capacidad de firma;
 - rotación v2 con v1 retenida y rechazo al retirar v1;
 - persistencia JSON y reautenticación tras reinicio y caducidad;
+- reinicio real simulado destruyendo todas las capacidades opacas, creando
+  verificadores nuevos y llegando a registro a las veinticuatro horas;
 - matriz adversarial de organización, expediente, versión, correlación,
-  finalidad, acción y recurso;
+  finalidad, acción, recurso, necesidad, Bolsa, orden, política, llamamiento,
+  selección, retención y cronología;
 - referencias y huellas exactas de petición y recibo en eventos;
 - alteración del material, replay, colisión, secuencia y acuse CAS;
 - neutralidad respecto a web, escritorio, CLI y MCP.
@@ -166,7 +200,8 @@ git diff --check
 ## Fuera de alcance de O6-01
 
 - adaptador real contra el módulo Bolsa;
-- persistencia PostgreSQL e inbox/outbox transaccionales;
+- persistencia PostgreSQL e inbox/outbox transaccionales; los artefactos de
+  este contrato son el formato que deberá conservar ese adaptador;
 - composición con HSM/KMS y rotación operativa;
 - API, CLI, MCP, web o escritorio;
 - selección funcional, exclusiones, desempate y evidencia de reglas;

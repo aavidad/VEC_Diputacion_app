@@ -1,7 +1,6 @@
 package ports
 
 import (
-	"bytes"
 	"context"
 	"time"
 
@@ -15,12 +14,26 @@ type EnlaceEventoLlamamientoBolsa struct {
 	datos *datosEnlaceEventoLlamamientoBolsa
 }
 
+func (EnlaceEventoLlamamientoBolsa) MarshalJSON() ([]byte, error) {
+	return nil, ErrSerializacionCapacidadBolsa
+}
+
+func (*EnlaceEventoLlamamientoBolsa) UnmarshalJSON([]byte) error {
+	return ErrSerializacionCapacidadBolsa
+}
+
 type datosEnlaceEventoLlamamientoBolsa struct {
 	organizacionRef, expedienteRef, correlacionRef string
 	versionExpediente                              uint64
 	finalidad, accion, recurso                     ReferenciaVersionadaIntegracionBolsa
+	necesidad, bolsa, orden, politica              ReferenciaVersionadaIntegracionBolsa
+	llamamientoRef, seleccionRef                   string
+	retencionSeleccion                             ReferenciaVersionadaIntegracionBolsa
 	peticionRef, huellaPeticion                    string
 	reciboRef, huellaRecibo                        string
+	peticionSolicitadaEn, peticionValidaHasta      time.Time
+	reciboConfirmadaEn, reciboEvidenciaEmitidaEn   time.Time
+	reciboEvidenciaValidaHasta, reciboRetenerHasta time.Time
 }
 
 type PreparacionEnlaceEventoLlamamientoBolsa struct {
@@ -59,17 +72,30 @@ func NuevoEnlaceEventoLlamamientoBolsa(
 	}
 	return EnlaceEventoLlamamientoBolsa{
 		datos: &datosEnlaceEventoLlamamientoBolsa{
-			organizacionRef:   contexto.OrganizacionRef,
-			expedienteRef:     contexto.ExpedienteRef,
-			correlacionRef:    contexto.CorrelacionRef,
-			versionExpediente: contexto.VersionExpediente,
-			finalidad:         contexto.Finalidad,
-			accion:            preparacion.Recibo.AccionEvento,
-			recurso:           preparacion.Recibo.Propuesta,
-			peticionRef:       contexto.OperacionRef,
-			huellaPeticion:    huellaBytesBolsa(materialPeticion),
-			reciboRef:         preparacion.Recibo.ReciboRef,
-			huellaRecibo:      huellaBytesBolsa(materialRecibo),
+			organizacionRef:            contexto.OrganizacionRef,
+			expedienteRef:              contexto.ExpedienteRef,
+			correlacionRef:             contexto.CorrelacionRef,
+			versionExpediente:          contexto.VersionExpediente,
+			finalidad:                  contexto.Finalidad,
+			accion:                     preparacion.Recibo.AccionEvento,
+			recurso:                    preparacion.Recibo.Propuesta,
+			necesidad:                  preparacion.Recibo.Necesidad,
+			bolsa:                      preparacion.Recibo.Bolsa,
+			orden:                      preparacion.Recibo.Orden,
+			politica:                   preparacion.Recibo.Politica,
+			llamamientoRef:             preparacion.Recibo.LlamamientoRef,
+			seleccionRef:               preparacion.Recibo.SeleccionRef,
+			retencionSeleccion:         preparacion.Recibo.RetencionSeleccion,
+			peticionRef:                contexto.OperacionRef,
+			huellaPeticion:             huellaBytesBolsa(materialPeticion),
+			reciboRef:                  preparacion.Recibo.ReciboRef,
+			huellaRecibo:               huellaBytesBolsa(materialRecibo),
+			peticionSolicitadaEn:       contexto.SolicitadaEn,
+			peticionValidaHasta:        contexto.ValidaHasta,
+			reciboConfirmadaEn:         preparacion.Recibo.ConfirmadaEn,
+			reciboEvidenciaEmitidaEn:   preparacion.Recibo.Procedencia.Evidencia.EmitidaEn,
+			reciboEvidenciaValidaHasta: preparacion.Recibo.Procedencia.Evidencia.ValidaHasta,
+			reciboRetenerHasta:         preparacion.Recibo.Procedencia.Evidencia.RetenerHasta,
 		},
 	}, nil
 }
@@ -83,43 +109,67 @@ func (e EnlaceEventoLlamamientoBolsa) valido() bool {
 		enteroSeguroBolsa(d.versionExpediente) &&
 		d.finalidad.Validar() == nil && d.accion.Validar() == nil &&
 		d.recurso.Validar() == nil &&
+		d.necesidad.Validar() == nil && d.bolsa.Validar() == nil &&
+		d.orden.Validar() == nil && d.politica.Validar() == nil &&
+		domain.ReferenciaOpacaValida(d.llamamientoRef) &&
+		domain.ReferenciaOpacaValida(d.seleccionRef) &&
+		d.retencionSeleccion.Validar() == nil &&
 		domain.ReferenciaOpacaValida(d.peticionRef) &&
 		huellaSHA256Valida(d.huellaPeticion) &&
 		domain.ReferenciaOpacaValida(d.reciboRef) &&
-		huellaSHA256Valida(d.huellaRecibo)
+		huellaSHA256Valida(d.huellaRecibo) &&
+		instanteBolsaCanonico(d.peticionSolicitadaEn) &&
+		instanteBolsaCanonico(d.peticionValidaHasta) &&
+		instanteBolsaCanonico(d.reciboConfirmadaEn) &&
+		instanteBolsaCanonico(d.reciboEvidenciaEmitidaEn) &&
+		instanteBolsaCanonico(d.reciboEvidenciaValidaHasta) &&
+		instanteBolsaCanonico(d.reciboRetenerHasta) &&
+		d.peticionValidaHasta.After(d.peticionSolicitadaEn) &&
+		!d.reciboConfirmadaEn.Before(d.peticionSolicitadaEn) &&
+		!d.reciboEvidenciaEmitidaEn.Before(d.reciboConfirmadaEn) &&
+		d.reciboEvidenciaEmitidaEn.Before(d.peticionValidaHasta) &&
+		d.reciboEvidenciaValidaHasta.After(d.reciboEvidenciaEmitidaEn) &&
+		!d.reciboEvidenciaValidaHasta.After(d.peticionValidaHasta) &&
+		d.reciboRetenerHasta.After(d.reciboEvidenciaValidaHasta)
 }
 
 // EventoLlamamientoBolsa transporta una transición durable. SeleccionRef es
 // dato personal seudonimizado, excluido de logs y sujeto a RetencionSeleccion.
 type EventoLlamamientoBolsa struct {
-	EventoRef                 string                               `json:"evento_ref"`
-	OrganizacionRef           string                               `json:"organizacion_ref"`
-	ExpedienteRef             string                               `json:"expediente_ref"`
-	VersionExpedienteEsperada uint64                               `json:"version_expediente_esperada"`
-	CorrelacionRef            string                               `json:"correlacion_ref"`
-	Finalidad                 ReferenciaVersionadaIntegracionBolsa `json:"finalidad"`
-	Accion                    ReferenciaVersionadaIntegracionBolsa `json:"accion"`
-	Recurso                   ReferenciaVersionadaIntegracionBolsa `json:"recurso"`
-	PeticionRef               string                               `json:"peticion_ref"`
-	HuellaPeticionSHA256      string                               `json:"huella_peticion_sha256"`
-	ReciboRef                 string                               `json:"recibo_ref"`
-	HuellaReciboSHA256        string                               `json:"huella_recibo_sha256"`
-	Necesidad                 ReferenciaVersionadaIntegracionBolsa `json:"necesidad"`
-	Bolsa                     ReferenciaVersionadaIntegracionBolsa `json:"bolsa"`
-	Orden                     ReferenciaVersionadaIntegracionBolsa `json:"orden"`
-	Politica                  ReferenciaVersionadaIntegracionBolsa `json:"politica"`
-	Propuesta                 ReferenciaVersionadaIntegracionBolsa `json:"propuesta"`
-	LlamamientoRef            string                               `json:"llamamiento_ref"`
-	SeleccionRef              string                               `json:"seleccion_ref"`
-	RetencionSeleccion        ReferenciaVersionadaIntegracionBolsa `json:"retencion_seleccion"`
-	Tipo                      ReferenciaVersionadaIntegracionBolsa `json:"tipo"`
-	Estado                    ReferenciaVersionadaIntegracionBolsa `json:"estado"`
-	SecuenciaAnterior         uint64                               `json:"secuencia_anterior"`
-	Secuencia                 uint64                               `json:"secuencia"`
-	HuellaCargaSHA256         string                               `json:"huella_carga_sha256"`
-	OcurridoEn                time.Time                            `json:"ocurrido_en"`
-	PublicadoEn               time.Time                            `json:"publicado_en"`
-	Procedencia               ProcedenciaIntegracionBolsa          `json:"procedencia"`
+	EventoRef                  string                               `json:"evento_ref"`
+	OrganizacionRef            string                               `json:"organizacion_ref"`
+	ExpedienteRef              string                               `json:"expediente_ref"`
+	VersionExpedienteEsperada  uint64                               `json:"version_expediente_esperada"`
+	CorrelacionRef             string                               `json:"correlacion_ref"`
+	Finalidad                  ReferenciaVersionadaIntegracionBolsa `json:"finalidad"`
+	Accion                     ReferenciaVersionadaIntegracionBolsa `json:"accion"`
+	Recurso                    ReferenciaVersionadaIntegracionBolsa `json:"recurso"`
+	PeticionRef                string                               `json:"peticion_ref"`
+	HuellaPeticionSHA256       string                               `json:"huella_peticion_sha256"`
+	ReciboRef                  string                               `json:"recibo_ref"`
+	HuellaReciboSHA256         string                               `json:"huella_recibo_sha256"`
+	PeticionSolicitadaEn       time.Time                            `json:"peticion_solicitada_en"`
+	PeticionValidaHasta        time.Time                            `json:"peticion_valida_hasta"`
+	ReciboConfirmadaEn         time.Time                            `json:"recibo_confirmada_en"`
+	ReciboEvidenciaEmitidaEn   time.Time                            `json:"recibo_evidencia_emitida_en"`
+	ReciboEvidenciaValidaHasta time.Time                            `json:"recibo_evidencia_valida_hasta"`
+	ReciboRetenerHasta         time.Time                            `json:"recibo_retener_hasta"`
+	Necesidad                  ReferenciaVersionadaIntegracionBolsa `json:"necesidad"`
+	Bolsa                      ReferenciaVersionadaIntegracionBolsa `json:"bolsa"`
+	Orden                      ReferenciaVersionadaIntegracionBolsa `json:"orden"`
+	Politica                   ReferenciaVersionadaIntegracionBolsa `json:"politica"`
+	Propuesta                  ReferenciaVersionadaIntegracionBolsa `json:"propuesta"`
+	LlamamientoRef             string                               `json:"llamamiento_ref"`
+	SeleccionRef               string                               `json:"seleccion_ref"`
+	RetencionSeleccion         ReferenciaVersionadaIntegracionBolsa `json:"retencion_seleccion"`
+	Tipo                       ReferenciaVersionadaIntegracionBolsa `json:"tipo"`
+	Estado                     ReferenciaVersionadaIntegracionBolsa `json:"estado"`
+	SecuenciaAnterior          uint64                               `json:"secuencia_anterior"`
+	Secuencia                  uint64                               `json:"secuencia"`
+	HuellaCargaSHA256          string                               `json:"huella_carga_sha256"`
+	OcurridoEn                 time.Time                            `json:"ocurrido_en"`
+	PublicadoEn                time.Time                            `json:"publicado_en"`
+	Procedencia                ProcedenciaIntegracionBolsa          `json:"procedencia"`
 }
 
 func (e EventoLlamamientoBolsa) ValidarEn(instante time.Time) error {
@@ -134,7 +184,32 @@ func (e EventoLlamamientoBolsa) ValidarParaEn(
 	enlace EnlaceEventoLlamamientoBolsa,
 	instante time.Time,
 ) error {
-	if e.ValidarEn(instante) != nil || !enlace.valido() {
+	if e.ValidarEn(instante) != nil || e.validarVinculo(enlace) != nil {
+		return ErrEventoBolsaInvalido
+	}
+	return nil
+}
+
+// ValidarDurableParaEn coteja un evento histórico sin reabrir la ventana de
+// transporte. Solo es válido mientras la retención firmada siga vigente.
+func (e EventoLlamamientoBolsa) ValidarDurableParaEn(
+	enlace EnlaceEventoLlamamientoBolsa,
+	instante time.Time,
+) error {
+	if e.validarEstructuraDurable() != nil ||
+		!instanteBolsaCanonico(instante) ||
+		instante.Before(e.Procedencia.Evidencia.EmitidaEn) ||
+		!instante.Before(e.Procedencia.Evidencia.RetenerHasta) ||
+		e.validarVinculo(enlace) != nil {
+		return ErrEventoBolsaInvalido
+	}
+	return nil
+}
+
+func (e EventoLlamamientoBolsa) validarVinculo(
+	enlace EnlaceEventoLlamamientoBolsa,
+) error {
+	if !enlace.valido() {
 		return ErrEventoBolsaInvalido
 	}
 	d := enlace.datos
@@ -148,7 +223,18 @@ func (e EventoLlamamientoBolsa) ValidarParaEn(
 		!huellasBolsaIguales(e.HuellaPeticionSHA256, d.huellaPeticion) ||
 		e.ReciboRef != d.reciboRef ||
 		!huellasBolsaIguales(e.HuellaReciboSHA256, d.huellaRecibo) ||
-		e.Propuesta != d.recurso {
+		e.PeticionSolicitadaEn != d.peticionSolicitadaEn ||
+		e.PeticionValidaHasta != d.peticionValidaHasta ||
+		e.ReciboConfirmadaEn != d.reciboConfirmadaEn ||
+		e.ReciboEvidenciaEmitidaEn != d.reciboEvidenciaEmitidaEn ||
+		e.ReciboEvidenciaValidaHasta != d.reciboEvidenciaValidaHasta ||
+		e.ReciboRetenerHasta != d.reciboRetenerHasta ||
+		e.Necesidad != d.necesidad || e.Bolsa != d.bolsa ||
+		e.Orden != d.orden || e.Politica != d.politica ||
+		e.Propuesta != d.recurso ||
+		e.LlamamientoRef != d.llamamientoRef ||
+		e.SeleccionRef != d.seleccionRef ||
+		e.RetencionSeleccion != d.retencionSeleccion {
 		return ErrEventoBolsaInvalido
 	}
 	return nil
@@ -167,6 +253,19 @@ func (e EventoLlamamientoBolsa) validarEstructuraDurable() error {
 		!huellaSHA256Valida(e.HuellaPeticionSHA256) ||
 		!domain.ReferenciaOpacaValida(e.ReciboRef) ||
 		!huellaSHA256Valida(e.HuellaReciboSHA256) ||
+		!instanteBolsaCanonico(e.PeticionSolicitadaEn) ||
+		!instanteBolsaCanonico(e.PeticionValidaHasta) ||
+		!instanteBolsaCanonico(e.ReciboConfirmadaEn) ||
+		!instanteBolsaCanonico(e.ReciboEvidenciaEmitidaEn) ||
+		!instanteBolsaCanonico(e.ReciboEvidenciaValidaHasta) ||
+		!instanteBolsaCanonico(e.ReciboRetenerHasta) ||
+		!e.PeticionValidaHasta.After(e.PeticionSolicitadaEn) ||
+		e.ReciboConfirmadaEn.Before(e.PeticionSolicitadaEn) ||
+		e.ReciboConfirmadaEn.After(e.PeticionValidaHasta) ||
+		e.ReciboEvidenciaEmitidaEn.Before(e.ReciboConfirmadaEn) ||
+		!e.ReciboEvidenciaValidaHasta.After(e.ReciboEvidenciaEmitidaEn) ||
+		e.ReciboEvidenciaValidaHasta.After(e.PeticionValidaHasta) ||
+		!e.ReciboRetenerHasta.After(e.ReciboEvidenciaValidaHasta) ||
 		e.Necesidad.Validar() != nil || e.Bolsa.Validar() != nil ||
 		e.Orden.Validar() != nil || e.Politica.Validar() != nil ||
 		e.Propuesta.Validar() != nil || e.Recurso != e.Propuesta ||
@@ -180,9 +279,11 @@ func (e EventoLlamamientoBolsa) validarEstructuraDurable() error {
 		!huellaSHA256Valida(e.HuellaCargaSHA256) ||
 		!instanteBolsaCanonico(e.OcurridoEn) ||
 		!instanteBolsaCanonico(e.PublicadoEn) ||
+		e.OcurridoEn.Before(e.ReciboConfirmadaEn) ||
 		e.PublicadoEn.Before(e.OcurridoEn) ||
 		!e.Procedencia.validarNominal() ||
 		e.Procedencia.Evidencia.EmitidaEn.Before(e.PublicadoEn) ||
+		e.Procedencia.Evidencia.RetenerHasta != e.ReciboRetenerHasta ||
 		huellaBytesBolsa(materialEventoBolsa(e)) != e.HuellaCargaSHA256 {
 		return ErrEventoBolsaInvalido
 	}
@@ -215,31 +316,18 @@ func (v *VerificadorEvidenciaIntegracionBolsa) VerificarEvento(
 	)
 }
 
-// ReautenticarEvento comprueba un evento conservado tras un reinicio. La
+// reautenticarEvento comprueba un evento conservado tras un reinicio. La
 // ventana de transporte puede haber expirado, pero la evidencia, el enlace y
 // los bytes canónicos deben seguir coincidiendo exactamente.
-func (v *VerificadorEvidenciaIntegracionBolsa) ReautenticarEvento(
+func (v *VerificadorEvidenciaIntegracionBolsa) reautenticarEvento(
 	ctx context.Context,
 	evento EventoLlamamientoBolsa,
 	enlace EnlaceEventoLlamamientoBolsa,
 	evidencia EvidenciaDurableIntegracionBolsa,
 	instante time.Time,
 ) (ComprobanteEvidenciaIntegracionBolsa, error) {
-	if evento.validarEstructuraDurable() != nil || !enlace.valido() ||
+	if evento.ValidarDurableParaEn(enlace, instante) != nil ||
 		evidencia.TipoMaterial != "evento_llamamiento" {
-		return ComprobanteEvidenciaIntegracionBolsa{}, ErrEventoBolsaInvalido
-	}
-	d := enlace.datos
-	if evento.OrganizacionRef != d.organizacionRef ||
-		evento.ExpedienteRef != d.expedienteRef ||
-		evento.VersionExpedienteEsperada != d.versionExpediente ||
-		evento.CorrelacionRef != d.correlacionRef ||
-		evento.Finalidad != d.finalidad || evento.Accion != d.accion ||
-		evento.Recurso != d.recurso ||
-		evento.PeticionRef != d.peticionRef ||
-		!huellasBolsaIguales(evento.HuellaPeticionSHA256, d.huellaPeticion) ||
-		evento.ReciboRef != d.reciboRef ||
-		!huellasBolsaIguales(evento.HuellaReciboSHA256, d.huellaRecibo) {
 		return ComprobanteEvidenciaIntegracionBolsa{}, ErrEventoBolsaInvalido
 	}
 	esperada := nuevaEvidenciaDurableBolsa(
@@ -265,6 +353,7 @@ type ComandoRegistrarEventoBolsa struct {
 	evento      *EventoLlamamientoBolsa
 	enlace      EnlaceEventoLlamamientoBolsa
 	comprobante ComprobanteEvidenciaIntegracionBolsa
+	validadoEn  time.Time
 }
 
 func (ComandoRegistrarEventoBolsa) MarshalJSON() ([]byte, error) {
@@ -279,6 +368,7 @@ func NuevoComandoRegistrarEventoBolsa(
 	evento EventoLlamamientoBolsa,
 	enlace EnlaceEventoLlamamientoBolsa,
 	comprobante ComprobanteEvidenciaIntegracionBolsa,
+	instante time.Time,
 ) (ComandoRegistrarEventoBolsa, error) {
 	evidencia := nuevaEvidenciaDurableBolsa(
 		"evento_llamamiento",
@@ -287,13 +377,16 @@ func NuevoComandoRegistrarEventoBolsa(
 		materialEventoBolsa(evento),
 		evento.Procedencia,
 	)
-	if evento.ValidarParaEn(enlace, comprobante.instanteVerificacion()) != nil ||
+	if !instanteBolsaCanonico(instante) ||
+		!comprobante.instanteVerificacion().Equal(instante) ||
+		evento.ValidarDurableParaEn(enlace, instante) != nil ||
 		!comprobante.coincide(evidencia) {
 		return ComandoRegistrarEventoBolsa{}, ErrEvidenciaBolsaNoAutenticada
 	}
 	clon := evento
 	return ComandoRegistrarEventoBolsa{
 		evento: &clon, enlace: enlace, comprobante: comprobante,
+		validadoEn: instante,
 	}, nil
 }
 
@@ -311,101 +404,13 @@ func (c ComandoRegistrarEventoBolsa) Datos() (
 		evento,
 		c.enlace,
 		c.comprobante,
+		c.validadoEn,
 	)
 	if err != nil || reconstruido.evento == nil {
 		return EventoLlamamientoBolsa{}, ComprobanteEvidenciaIntegracionBolsa{},
 			ErrEventoBolsaInvalido
 	}
 	return evento, c.comprobante, nil
-}
-
-type AcuseEventoLlamamientoBolsa struct {
-	AutoridadRef         string    `json:"autoridad_ref"`
-	EventoRef            string    `json:"evento_ref"`
-	OrganizacionRef      string    `json:"organizacion_ref"`
-	ExpedienteRef        string    `json:"expediente_ref"`
-	CorrelacionRef       string    `json:"correlacion_ref"`
-	PeticionRef          string    `json:"peticion_ref"`
-	HuellaPeticionSHA256 string    `json:"huella_peticion_sha256"`
-	ReciboRef            string    `json:"recibo_ref"`
-	HuellaReciboSHA256   string    `json:"huella_recibo_sha256"`
-	HuellaEventoSHA256   string    `json:"huella_evento_sha256"`
-	SecuenciaAnterior    uint64    `json:"secuencia_anterior"`
-	Secuencia            uint64    `json:"secuencia"`
-	VersionAnterior      uint64    `json:"version_anterior"`
-	VersionResultante    uint64    `json:"version_resultante"`
-	ActuacionRef         string    `json:"actuacion_ref"`
-	AuditoriaRef         string    `json:"auditoria_ref"`
-	InboxRef             string    `json:"inbox_ref"`
-	RegistradoEn         time.Time `json:"registrado_en"`
-}
-
-func (a AcuseEventoLlamamientoBolsa) ValidarPara(evento EventoLlamamientoBolsa) error {
-	if evento.validarEstructuraDurable() != nil ||
-		a.AutoridadRef != evento.Procedencia.AutoridadRef ||
-		a.EventoRef != evento.EventoRef ||
-		a.OrganizacionRef != evento.OrganizacionRef ||
-		a.ExpedienteRef != evento.ExpedienteRef ||
-		a.CorrelacionRef != evento.CorrelacionRef ||
-		a.PeticionRef != evento.PeticionRef ||
-		!huellasBolsaIguales(a.HuellaPeticionSHA256, evento.HuellaPeticionSHA256) ||
-		a.ReciboRef != evento.ReciboRef ||
-		!huellasBolsaIguales(a.HuellaReciboSHA256, evento.HuellaReciboSHA256) ||
-		a.HuellaEventoSHA256 != evento.HuellaCargaSHA256 ||
-		a.SecuenciaAnterior != evento.SecuenciaAnterior ||
-		a.Secuencia != evento.Secuencia ||
-		a.VersionAnterior != evento.VersionExpedienteEsperada ||
-		evento.VersionExpedienteEsperada >= MaximoEnteroSeguroIntegracionBolsa ||
-		a.VersionResultante != evento.VersionExpedienteEsperada+1 ||
-		!domain.ReferenciaOpacaValida(a.ActuacionRef) ||
-		!domain.ReferenciaOpacaValida(a.AuditoriaRef) ||
-		!domain.ReferenciaOpacaValida(a.InboxRef) ||
-		!instanteBolsaCanonico(a.RegistradoEn) ||
-		a.RegistradoEn.Before(evento.PublicadoEn) {
-		return ErrAcuseEventoBolsaNoConfiable
-	}
-	return nil
-}
-
-func ValidarReplayAcuseEventoBolsa(
-	primero AcuseEventoLlamamientoBolsa,
-	repetido AcuseEventoLlamamientoBolsa,
-	evento EventoLlamamientoBolsa,
-) error {
-	if primero.ValidarPara(evento) != nil || repetido.ValidarPara(evento) != nil ||
-		primero != repetido {
-		return ErrAcuseEventoBolsaNoConfiable
-	}
-	return nil
-}
-
-func ValidarIdentidadEventoBolsa(
-	primero EventoLlamamientoBolsa,
-	repetido EventoLlamamientoBolsa,
-) error {
-	mismaIdentidad := primero.Procedencia.AutoridadRef == repetido.Procedencia.AutoridadRef &&
-		primero.EventoRef == repetido.EventoRef
-	if !mismaIdentidad ||
-		!domain.ReferenciaOpacaValida(primero.Procedencia.AutoridadRef) ||
-		!domain.ReferenciaOpacaValida(primero.EventoRef) {
-		return ErrEventoBolsaInvalido
-	}
-	if primero.HuellaCargaSHA256 != repetido.HuellaCargaSHA256 ||
-		!bytes.Equal(materialEventoBolsa(primero), materialEventoBolsa(repetido)) {
-		return ErrColisionEventoBolsa
-	}
-	if primero.validarEstructuraDurable() != nil ||
-		repetido.validarEstructuraDurable() != nil {
-		return ErrEventoBolsaInvalido
-	}
-	return nil
-}
-
-type BandejaEventosLlamamientoBolsa interface {
-	RegistrarEventoLlamamiento(
-		context.Context,
-		ComandoRegistrarEventoBolsa,
-	) (AcuseEventoLlamamientoBolsa, error)
 }
 
 func materialEnlaceEventoBolsa(enlace EnlaceEventoLlamamientoBolsa) []byte {
@@ -426,6 +431,19 @@ func materialEnlaceEventoBolsa(enlace EnlaceEventoLlamamientoBolsa) []byte {
 	c.campo("huella_peticion_sha256", d.huellaPeticion)
 	c.campo("recibo_ref", d.reciboRef)
 	c.campo("huella_recibo_sha256", d.huellaRecibo)
+	c.referencia("necesidad", d.necesidad)
+	c.referencia("bolsa", d.bolsa)
+	c.referencia("orden", d.orden)
+	c.referencia("politica", d.politica)
+	c.campo("llamamiento_ref", d.llamamientoRef)
+	c.campo("seleccion_ref_seudonimizada", d.seleccionRef)
+	c.referencia("retencion_seleccion", d.retencionSeleccion)
+	c.instante("peticion_solicitada_en", d.peticionSolicitadaEn)
+	c.instante("peticion_valida_hasta", d.peticionValidaHasta)
+	c.instante("recibo_confirmada_en", d.reciboConfirmadaEn)
+	c.instante("recibo_evidencia_emitida_en", d.reciboEvidenciaEmitidaEn)
+	c.instante("recibo_evidencia_valida_hasta", d.reciboEvidenciaValidaHasta)
+	c.instante("recibo_retener_hasta", d.reciboRetenerHasta)
 	return c.bytes()
 }
 
@@ -443,6 +461,12 @@ func materialEventoBolsa(evento EventoLlamamientoBolsa) []byte {
 	c.campo("huella_peticion_sha256", evento.HuellaPeticionSHA256)
 	c.campo("recibo_ref", evento.ReciboRef)
 	c.campo("huella_recibo_sha256", evento.HuellaReciboSHA256)
+	c.instante("peticion_solicitada_en", evento.PeticionSolicitadaEn)
+	c.instante("peticion_valida_hasta", evento.PeticionValidaHasta)
+	c.instante("recibo_confirmada_en", evento.ReciboConfirmadaEn)
+	c.instante("recibo_evidencia_emitida_en", evento.ReciboEvidenciaEmitidaEn)
+	c.instante("recibo_evidencia_valida_hasta", evento.ReciboEvidenciaValidaHasta)
+	c.instante("recibo_retener_hasta", evento.ReciboRetenerHasta)
 	c.referencia("necesidad", evento.Necesidad)
 	c.referencia("bolsa", evento.Bolsa)
 	c.referencia("orden", evento.Orden)

@@ -249,6 +249,10 @@ func NuevoComandoSolicitarLlamamientoBolsa(
 		contextoNuevo.Recurso != preparacion.ReciboOrden.Orden {
 		return ComandoSolicitarLlamamientoBolsa{}, ErrPeticionIntegracionBolsaInvalida
 	}
+	if !preparacion.ComprobanteOrden.instanteVerificacion().Equal(instante) ||
+		!instante.Before(preparacion.ReciboOrden.Procedencia.Evidencia.RetenerHasta) {
+		return ComandoSolicitarLlamamientoBolsa{}, ErrEvidenciaBolsaNoAutenticada
+	}
 	material := materialReciboOrdenBolsa(preparacion.ComandoOrden, preparacion.ReciboOrden)
 	evidencia := nuevaEvidenciaDurableBolsa(
 		"recibo_orden",

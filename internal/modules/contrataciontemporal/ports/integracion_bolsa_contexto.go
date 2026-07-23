@@ -227,9 +227,35 @@ func (a *AutenticadorContextoPeticionIntegracionBolsa) Reautenticar(
 	registro RegistroContextoPeticionIntegracionBolsa,
 	instante time.Time,
 ) (ContextoPeticionIntegracionBolsa, error) {
+	return a.reautenticar(ctx, registro, instante, true)
+}
+
+// reautenticarDurable verifica la procedencia histórica del contexto sin
+// reabrir su ventana de uso. La capacidad devuelta sigue rechazando DatosEn
+// para un instante caducado y no se expone fuera de este puerto.
+func (a *AutenticadorContextoPeticionIntegracionBolsa) reautenticarDurable(
+	ctx context.Context,
+	registro RegistroContextoPeticionIntegracionBolsa,
+	instante time.Time,
+) (ContextoPeticionIntegracionBolsa, error) {
+	return a.reautenticar(ctx, registro, instante, false)
+}
+
+func (a *AutenticadorContextoPeticionIntegracionBolsa) reautenticar(
+	ctx context.Context,
+	registro RegistroContextoPeticionIntegracionBolsa,
+	instante time.Time,
+	exigirFrescura bool,
+) (ContextoPeticionIntegracionBolsa, error) {
+	datosValidos := registro.Datos.validarEstructura() == nil &&
+		instanteBolsaCanonico(instante) &&
+		!instante.Before(registro.Datos.SolicitadaEn)
+	if exigirFrescura {
+		datosValidos = registro.Datos.validarEn(instante) == nil
+	}
 	if ctx == nil || a == nil || dependenciaIntegracionBolsaNula(a.verificador) ||
 		registro.validarSintaxis() != nil ||
-		registro.Datos.validarEn(instante) != nil ||
+		!datosValidos ||
 		registro.Datos.AutoridadSolicitante != a.autoridadEsperada ||
 		!a.anillo.contiene(registro.ClaveVerificacionRef) {
 		return ContextoPeticionIntegracionBolsa{}, ErrPeticionIntegracionBolsaInvalida

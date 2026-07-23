@@ -199,8 +199,9 @@ func procedenciaBolsaPrueba(instante time.Time) ProcedenciaIntegracionBolsa {
 				claveRespuestaBolsaV1Prueba,
 				"7",
 			),
-			EmitidaEn:   instante.Add(2 * time.Minute),
-			ValidaHasta: instante.Add(8 * time.Minute),
+			EmitidaEn:    instante.Add(2 * time.Minute),
+			ValidaHasta:  instante.Add(8 * time.Minute),
+			RetenerHasta: instante.Add(30 * 24 * time.Hour),
 		},
 	}
 }
