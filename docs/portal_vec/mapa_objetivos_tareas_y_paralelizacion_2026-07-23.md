@@ -13,9 +13,9 @@ temporal. El detalle verificable de cada tarea está en el
 | Objetivo activo | O2 — primera vertical real de alta |
 | Camino crítico | O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
 | Primera vertical | 4 de 10 tareas cerradas (40 %); O2-05 es el siguiente cierre |
-| Procedimiento completo | 10 de 46 tareas cerradas (22 %); O6-01 continúa en rework |
-| Último commit verificado | `fe00ed9` — parser y contrato nominal VEC-AD-3 con GO independiente |
-| Trabajo local en revisión | Confianza y consumo VEC-AD-3 de O2-05, dominio O3-02, fuentes O3-03, consultas O4-02 y rework O6-01 |
+| Procedimiento completo | 11 de 46 tareas cerradas (24 %); O6-01 ya está integrado |
+| Último commit verificado | `20935bd` — contrato autenticado y durable de integración con Bolsa O6-01 |
+| Trabajo local en revisión | Confianza y consumo VEC-AD-3 de O2-05, dominio O3-02, rework de fuentes O3-03 y consultas O4-02 |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -32,7 +32,7 @@ flowchart LR
     O3["🚧 O3<br/>Análisis RRHH y RC"]
     O4["🚧 O4<br/>Vía de cobertura"]
     O5["— O5<br/>Asignación, informe y fiscalización"]
-    O6["— O6<br/>Llamamiento y formalización"]
+    O6["🚧 O6<br/>Llamamiento y formalización"]
     O7["— O7<br/>Incorporación, Personal y GINPIX"]
     O8["— O8<br/>Seguimiento, cierre y conservación"]
 
@@ -194,8 +194,8 @@ Estado actual:
 
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
-Tareas verificadas del procedimiento: 10/46 = 22 %
-Tareas locales en revisión: O2-05, O3-02, O3-03, O4-02 y O6-01
+Tareas verificadas del procedimiento: 11/46 = 24 %
+Tareas locales en revisión: O2-05, O3-02, O3-03 y O4-02
 ```
 
 Una tarea local no cuenta como cerrada hasta que el commit esté publicado y el

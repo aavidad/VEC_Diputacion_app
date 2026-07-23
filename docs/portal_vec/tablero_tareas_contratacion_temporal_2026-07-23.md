@@ -85,7 +85,7 @@ Estados:
 
 | Tarea | Entregable aislado | Verificación de cierre | Estado |
 | --- | --- | --- | --- |
-| O6-01 | Contrato de integración con el módulo Bolsa. | Referencias/eventos; ninguna lectura directa de sus tablas. | ⬜ |
+| O6-01 | Contrato de integración con el módulo Bolsa. | Referencias/eventos; ninguna lectura directa de sus tablas. | ✅ `2b67c7a`–`20935bd`; doble GO independiente, pruebas focales y globales, carrera y `go vet`. |
 | O6-02 | Selección y propuesta de llamamiento. | Orden, disponibilidad, exclusiones, desempate y evidencia de regla. | — |
 | O6-03 | Comunicación, aceptación, renuncia y siguiente candidato. | Plazos, canales, entrega, reintento e idempotencia. | — |
 | O6-04 | Propuesta de nombramiento/contrato y documentación. | Plantillas gobernadas, anexos, firma múltiple y descarga interesada. | — |

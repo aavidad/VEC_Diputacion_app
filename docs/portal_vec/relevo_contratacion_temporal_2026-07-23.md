@@ -84,6 +84,7 @@ ajenas.
 | Resto de casos de uso | Pendiente |
 | Preparación idempotente PostgreSQL | Cerrada y revisada: rotación v1→v2, replay, concurrencia, ACL y límites reales |
 | Autorización VEC durable de la preparación | Cerrada y revisada: V3, par HMAC activo exacto, revalidación y clientes neutrales |
+| Contrato autenticado con Bolsa | Cerrado y revisado: referencias opacas, seudónimos, eventos, pruebas durables e inbox idempotente |
 | Confirmación atómica PostgreSQL | Pendiente |
 | API interna | Pendiente |
 | Web conectada | Pendiente |
@@ -118,6 +119,12 @@ ajenas.
   proveedor para impedir que una consulta minimizada transporte identidad o
   detalles personales; el diagnóstico completo permanece tras el recibo opaco
   en el sistema fuente.
+- `2b67c7a`–`20935bd` integran O6-01 tras dos revisiones independientes.
+  Contratación temporal y Bolsa solo intercambian contratos versionados,
+  referencias opacas, seudónimos HMAC, evidencias autenticadas y eventos
+  durables. Los decodificadores rechazan esquemas desconocidos, cargas no
+  canónicas y estados parciales; el consumidor vuelve a comprobar vigencia
+  dentro de la transacción. No existe lectura directa de tablas de Bolsa.
 
 Estos contratos no dependen de HTTP, cookies ni almacenamiento de navegador.
 Los consumirán por igual web, escritorio, CLI y MCP a través de los casos de
