@@ -154,12 +154,27 @@ ajenas.
   O3-02 se reconstruye desde `209ae72` sin reutilizar sus commits. La barrera y
   el procedimiento están en
   `docs/seguridad/barrera_secretos_git_2026-07-23.md`.
-- La reconstrucción O3-02 alcanzó `a1c0739`, pero recibió NO-GO por mantener
-  coordinación multipuerto en `ports` y no cotejar toda la identidad semántica
-  del replay temprano. La corrección `df537b4` traslada la coordinación a
-  aplicación y sella actor, perfil, UUID, operación, organización, expediente,
-  versión, artefacto, datos funcionales y motivo. Sus puertas de productor
-  están verdes; espera revisión independiente y no está integrada.
+- El corte reconstruido O3-02 recibió tres revisiones `NO-GO`. La tercera
+  detectó preconsumo durable de RC+coste antes del commit final, validación de
+  vigencia posterior al commit y un orquestador concreto en `ports`. El
+  rediseño candidato deja el artefacto sin consumir, mueve el orquestador a
+  `application` y transporta orden pendiente de fuentes, contexto y concesión
+  V3 a una única frontera O3-04. Esa transacción debe validar con reloj de base
+  de datos y consumir RC+coste+V3 junto con CAS, agregado, historia, auditoría,
+  recibo y outbox en un solo `COMMIT`, con rollback total. Aplicación sólo
+  valida defensivamente el recibo devuelto contra la orden, sin consultar un
+  reloj nuevo. Sigue pendiente de revisión independiente y del adaptador
+  PostgreSQL; no habilita producción.
+  Dos bloqueos posteriores obligaron a precisar el corte: aplicación valida
+  primero cualquier recibo retornado, de modo que uno válido prueba el commit
+  aunque coexista cancelación o error de transporte, mientras uno adulterado
+  nunca se expone. Además, toda coordinación de los desafíos frescos se movió
+  a `application`; `ports` limita su papel a materiales y confirmaciones
+  opacos, copias y validación criptográfica local neutral. La corrección final
+  `df537b4` sella además actor, perfil, UUID, operación, organización,
+  expediente, versión, artefacto, datos funcionales y motivo frente al replay
+  temprano. La revisión independiente emitió GO; el candidato se incorpora en
+  esta fusión y solo se cerrará tras superar las puertas del árbol conjunto.
 - `1faa8e7` implementa O3-03 con puertos neutrales para validación
   presupuestaria y cálculo de coste, ligadura de petición, copias defensivas,
   cancelación y fallo cerrado. La indisponibilidad nunca se convierte en «RC

@@ -26,13 +26,17 @@ type resolutorContextoDoble struct {
 	contexto ports.ContextoAutorizacionAltaV3
 	err      error
 	llamadas int
+	margen   time.Duration
 }
 
 func (d *resolutorContextoDoble) ResolverContextoAutorizacionAltaV3(
-	_ context.Context,
+	ctx context.Context,
 	_ ports.SolicitudResolverContextoAutorizacionAltaV3,
 ) (ports.ContextoAutorizacionAltaV3, error) {
 	d.llamadas++
+	if limite, existe := ctx.Deadline(); existe {
+		d.margen = time.Until(limite)
+	}
 	return d.contexto, d.err
 }
 

@@ -317,11 +317,28 @@ func NuevaConfianzaAutoridadesFuenteAnalisis(
 	return confianza, nil
 }
 
+func (c ConfianzaAutoridadesFuenteAnalisis) Validar() error {
+	if !domain.ReferenciaOpacaValida(c.organizacionRef) ||
+		!domain.ReferenciaOpacaValida(c.audiencia) ||
+		len(c.raices) == 0 ||
+		len(c.raices) > maximoRaicesAutoridadFuenteAnalisis ||
+		len(c.revocaciones) > maximoRevocacionesAutoridadFuenteAnalisis {
+		return errAutoridadFuenteAnalisisNoConfiable
+	}
+	return nil
+}
+
 type identidadAutoridadFuenteAnalisis struct {
-	autoridadRef string
-	backendRef   string
-	clavePrueba  ed25519.PublicKey
-	rol          RolAutoridadFuenteAnalisis
+	raizClaveID             string
+	autoridadRef            string
+	backendRef              string
+	rol                     RolAutoridadFuenteAnalisis
+	serie                   uint64
+	generacion              uint32
+	huellaClavePruebaSHA256 string
+	credencialEmitidaEn     time.Time
+	credencialValidaHasta   time.Time
+	clavePrueba             ed25519.PublicKey
 }
 
 func (c ConfianzaAutoridadesFuenteAnalisis) verificarPresentacion(
@@ -369,14 +386,21 @@ func (c ConfianzaAutoridadesFuenteAnalisis) verificarPresentacion(
 		return identidadAutoridadFuenteAnalisis{},
 			errAutoridadFuenteAnalisisNoConfiable
 	}
+	huellaClave := sha256.Sum256(datos.ClavePruebaEd25519)
 	return identidadAutoridadFuenteAnalisis{
-		autoridadRef: datos.AutoridadRef,
-		backendRef:   datos.BackendRef,
+		raizClaveID:             datos.RaizClaveID,
+		autoridadRef:            datos.AutoridadRef,
+		backendRef:              datos.BackendRef,
+		rol:                     datos.Rol,
+		serie:                   datos.Serie,
+		generacion:              datos.Generacion,
+		huellaClavePruebaSHA256: fmt.Sprintf("%x", huellaClave[:]),
+		credencialEmitidaEn:     datos.EmitidaEn,
+		credencialValidaHasta:   datos.ValidaHasta,
 		clavePrueba: append(
 			ed25519.PublicKey(nil),
 			datos.ClavePruebaEd25519...,
 		),
-		rol: datos.Rol,
 	}, nil
 }
 
@@ -408,65 +432,6 @@ func nuevoDesafioAutoridadFuenteAnalisis(
 	return DesafioAutoridadFuenteAnalisis{
 		contenido: append([]byte(nil), escritor.Bytes()...),
 	}, nil
-}
-
-func presentarYVerificarAutoridadFuenteAnalisis(
-	ctx context.Context,
-	presentador PresentadorAutoridadFuenteAnalisis,
-	confianza ConfianzaAutoridadesFuenteAnalisis,
-	materialPeticion []byte,
-	rol RolAutoridadFuenteAnalisis,
-	comprobadaEn time.Time,
-) (identidadAutoridadFuenteAnalisis, error) {
-	desafio, err := nuevoDesafioAutoridadFuenteAnalisis(
-		materialPeticion,
-		confianza.organizacionRef,
-		confianza.audiencia,
-		rol,
-	)
-	if err != nil {
-		return identidadAutoridadFuenteAnalisis{},
-			ErrResultadoFuenteAnalisisNoConfiable
-	}
-	presentacion, errPresentacion := presentador.
-		PresentarAutoridadFuenteAnalisis(ctx, desafio)
-	if errContexto := ctx.Err(); errContexto != nil {
-		return identidadAutoridadFuenteAnalisis{},
-			errorDisponibilidadFuente(
-				ErrVerificacionFuenteAnalisisNoDisponible,
-				errContexto,
-			)
-	}
-	identidad, errVerificacion := confianza.verificarPresentacion(
-		presentacion,
-		desafio,
-		rol,
-		comprobadaEn,
-	)
-	if errPresentacion != nil || errVerificacion != nil {
-		return identidadAutoridadFuenteAnalisis{},
-			ErrResultadoFuenteAnalisisNoConfiable
-	}
-	return identidad, nil
-}
-
-func autoridadesFuenteAnalisisSeparadas(
-	identidades ...identidadAutoridadFuenteAnalisis,
-) bool {
-	for indice, primera := range identidades {
-		if primera.autoridadRef == "" || primera.backendRef == "" ||
-			len(primera.clavePrueba) != ed25519.PublicKeySize {
-			return false
-		}
-		for _, segunda := range identidades[indice+1:] {
-			if primera.autoridadRef == segunda.autoridadRef ||
-				primera.backendRef == segunda.backendRef ||
-				bytes.Equal(primera.clavePrueba, segunda.clavePrueba) {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 func canonCredencialAutoridadFuenteAnalisis(

@@ -147,7 +147,7 @@ func (c consumidorRespuestaDoble) ConsumirRespuestaFuenteAnalisis(
 	return c(ctx, orden)
 }
 
-func TestValidarRCConFuenteExigeAtestacionVerificadaYConsumo(t *testing.T) {
+func TestAyudaLegacyValidarRCExigeAtestacionVerificadaYConsumo(t *testing.T) {
 	inicio := instanteFuenteAnalisisPrueba()
 	solicitud := solicitudValidarRCPrueba(t, inicio)
 	validacion := validacionRCPrueba(t, solicitud, inicio.Add(time.Second))
@@ -169,7 +169,7 @@ func TestValidarRCConFuenteExigeAtestacionVerificadaYConsumo(t *testing.T) {
 	) (ResultadoValidacionRC, error) {
 		return resultado, nil
 	})
-	obtenida, err := ValidarRCConFuente(
+	obtenida, err := validarRCConFuenteOrquestadaPrueba(
 		context.Background(),
 		fuente,
 		verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
@@ -186,7 +186,7 @@ func TestValidarRCConFuenteExigeAtestacionVerificadaYConsumo(t *testing.T) {
 	}
 }
 
-func TestValidarRCConFuenteConservaMotivoPublicadoCompletoEnConsumo(t *testing.T) {
+func TestAyudaLegacyValidarRCConservaMotivoPublicadoCompletoEnConsumo(t *testing.T) {
 	inicio := instanteFuenteAnalisisPrueba()
 	solicitud := solicitudValidarRCPrueba(t, inicio)
 	validacion := validacionRCNegativaPrueba(t, solicitud, inicio.Add(time.Second))
@@ -219,7 +219,7 @@ func TestValidarRCConFuenteConservaMotivoPublicadoCompletoEnConsumo(t *testing.T
 			metadatos.EmitidaEn.Add(time.Second),
 		)
 	})
-	obtenida, err := ValidarRCConFuente(
+	obtenida, err := validarRCConFuenteOrquestadaPrueba(
 		context.Background(),
 		fuentePresupuestariaDoble(func(
 			context.Context,
@@ -241,7 +241,7 @@ func TestValidarRCConFuenteConservaMotivoPublicadoCompletoEnConsumo(t *testing.T
 	}
 }
 
-func TestCalcularCosteConFuenteVerificaYConsumeRespuesta(t *testing.T) {
+func TestAyudaLegacyCalcularCosteVerificaYConsumeRespuesta(t *testing.T) {
 	inicio := instanteFuenteAnalisisPrueba()
 	solicitud := solicitudCalcularCostePrueba(t, inicio)
 	fuenteRef := "tabla_retributiva_2026_v3"
@@ -251,7 +251,7 @@ func TestCalcularCosteConFuenteVerificaYConsumeRespuesta(t *testing.T) {
 		inicio,
 	)
 	resultado := resultadoCosteFirmadoPrueba(t, solicitud, metadatos)
-	obtenido, err := CalcularCosteConFuente(
+	obtenido, err := calcularCosteConFuenteOrquestadoPrueba(
 		context.Background(),
 		calculadorCosteDoble(func(
 			context.Context,
@@ -275,7 +275,7 @@ func TestErroresDeProveedorNoExponenLaCausa(t *testing.T) {
 	inicio := instanteFuenteAnalisisPrueba()
 	solicitud := solicitudValidarRCPrueba(t, inicio)
 	privado := errors.New("DNI 12345678Z en backend presupuestario")
-	_, err := ValidarRCConFuente(
+	_, err := validarRCConFuenteOrquestadaPrueba(
 		context.Background(),
 		fuentePresupuestariaDoble(func(
 			context.Context,
@@ -300,7 +300,7 @@ func TestErroresDeProveedorNoExponenLaCausa(t *testing.T) {
 
 func solicitudValidarRCPrueba(t *testing.T, instante time.Time) SolicitudValidarRC {
 	t.Helper()
-	solicitud, err := NuevaSolicitudValidarRC(
+	solicitud, err := nuevaSolicitudValidarRCOrquestadaPrueba(
 		context.Background(),
 		generadorFijoFuenteAnalisis("pet_0123456789abcdefghijklmn"),
 		selladorHMACFuenteAnalisisPrueba(),
@@ -318,7 +318,7 @@ func solicitudCalcularCostePrueba(
 	instante time.Time,
 ) SolicitudCalcularCoste {
 	t.Helper()
-	solicitud, err := NuevaSolicitudCalcularCoste(
+	solicitud, err := nuevaSolicitudCalcularCosteOrquestadaPrueba(
 		context.Background(),
 		generadorFijoFuenteAnalisis("pet_abcdefghij0123456789klmn"),
 		selladorHMACFuenteAnalisisPrueba(),

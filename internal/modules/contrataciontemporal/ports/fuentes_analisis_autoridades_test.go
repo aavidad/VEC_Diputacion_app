@@ -132,7 +132,7 @@ func TestWrappersDistintosDelMismoBackendNoSeparanTCB(t *testing.T) {
 			"backend_compartido_analisis_012345",
 		),
 	}
-	_, err := CalcularCosteConFuente(
+	_, err := calcularCosteConFuenteOrquestadoPrueba(
 		context.Background(),
 		calculador,
 		verificador,
@@ -155,7 +155,7 @@ func TestFuenteNoPuedeAutopublicarSuCatalogo(t *testing.T) {
 			"backend_presupuesto_0123456789",
 		),
 	}
-	_, err := ValidarRCConFuente(
+	_, err := validarRCConFuenteOrquestadaPrueba(
 		context.Background(),
 		fuentePresupuestariaDoble(func(
 			context.Context,
@@ -219,7 +219,7 @@ func TestSeparacionRechazaAliasesIdentidadesYClavesRepetidas(t *testing.T) {
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
-			if autoridadesFuenteAnalisisSeparadas(base, caso.otra) {
+			if autoridadesFuenteAnalisisSeparadasPrueba(base, caso.otra) {
 				t.Fatal("se aceptó una separación de autoridad aparente")
 			}
 		})
@@ -287,7 +287,7 @@ func TestCredencialManipuladaOAutoemitidaFallaCerrado(t *testing.T) {
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
-			_, err := presentarYVerificarAutoridadFuenteAnalisis(
+			_, err := presentarYVerificarAutoridadFuenteAnalisisPrueba(
 				context.Background(),
 				caso.presentador,
 				confianza,
@@ -389,7 +389,7 @@ func TestRotacionYRevocacionDeAutoridades(t *testing.T) {
 	)
 	presentador.datos.RaizClaveID = "raiz_antigua_0123456789"
 	presentador.claveRaiz = raizAntigua
-	if _, err := presentarYVerificarAutoridadFuenteAnalisis(
+	if _, err := presentarYVerificarAutoridadFuenteAnalisisPrueba(
 		context.Background(),
 		presentador,
 		crearConfianza(RaizAutoridadRetenida, nil),
@@ -404,7 +404,7 @@ func TestRotacionYRevocacionDeAutoridades(t *testing.T) {
 		Serie:        presentador.datos.Serie,
 		RevocadaEn:   inicio,
 	}
-	if _, err := presentarYVerificarAutoridadFuenteAnalisis(
+	if _, err := presentarYVerificarAutoridadFuenteAnalisisPrueba(
 		context.Background(),
 		presentador,
 		crearConfianza(RaizAutoridadRetenida, []RevocacionAutoridadFuenteAnalisis{
@@ -416,7 +416,7 @@ func TestRotacionYRevocacionDeAutoridades(t *testing.T) {
 	); !errors.Is(err, ErrResultadoFuenteAnalisisNoConfiable) {
 		t.Fatalf("credencial revocada aceptada: %v", err)
 	}
-	if _, err := presentarYVerificarAutoridadFuenteAnalisis(
+	if _, err := presentarYVerificarAutoridadFuenteAnalisisPrueba(
 		context.Background(),
 		presentador,
 		crearConfianza(RaizAutoridadRevocada, nil),
@@ -432,7 +432,7 @@ func TestLimiteEnteroSeguroVersionExpedienteYCatalogo(t *testing.T) {
 	inicio := instanteFuenteAnalisisPrueba()
 	preparacion := preparacionCalcularCostePrueba()
 	preparacion.VersionExpediente = maximoEnteroSeguroFuenteAnalisis
-	if _, err := NuevaSolicitudCalcularCoste(
+	if _, err := nuevaSolicitudCalcularCosteOrquestadaPrueba(
 		context.Background(),
 		generadorFijoFuenteAnalisis("pet_0123456789abcdefghijklmn"),
 		selladorHMACFuenteAnalisisPrueba(),
@@ -442,7 +442,7 @@ func TestLimiteEnteroSeguroVersionExpedienteYCatalogo(t *testing.T) {
 		t.Fatalf("2^53-1 rechazado para expediente: %v", err)
 	}
 	preparacion.VersionExpediente++
-	if _, err := NuevaSolicitudCalcularCoste(
+	if _, err := nuevaSolicitudCalcularCosteOrquestadaPrueba(
 		context.Background(),
 		generadorFijoFuenteAnalisis("pet_0123456789abcdefghijklmn"),
 		selladorHMACFuenteAnalisisPrueba(),
