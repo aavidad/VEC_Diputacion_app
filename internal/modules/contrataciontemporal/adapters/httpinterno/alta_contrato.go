@@ -458,8 +458,8 @@ func fechaCivilUTC(valor string) (time.Time, error) {
 	return fecha, nil
 }
 
-type envelopeExitoAlta struct {
-	Data reciboAltaJSON `json:"data"`
+type envoltorioExitoAlta struct {
+	Datos reciboAltaJSON `json:"data"`
 }
 
 type reciboAltaJSON struct {
@@ -471,7 +471,7 @@ type reciboAltaJSON struct {
 }
 
 func responderExitoAlta(w http.ResponseWriter, recibo ports.ReciboAlta) {
-	responderJSONAlta(w, http.StatusCreated, envelopeExitoAlta{Data: reciboAltaJSON{
+	responderJSONAlta(w, http.StatusCreated, envoltorioExitoAlta{Datos: reciboAltaJSON{
 		ExpedienteRef: recibo.ExpedienteRef,
 		NumeroVisible: recibo.NumeroVisible,
 		Version:       recibo.Version,
