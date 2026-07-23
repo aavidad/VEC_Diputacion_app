@@ -258,18 +258,173 @@ func validarDecisionCanonicaAtestacionAutorizacionV3(
 	}
 	canonico, err := json.Marshal(decision)
 	if err != nil || !bytes.Equal(canonico, contenido) ||
-		decision.Esquema != EsquemaHuellaDecisionAutorizacionV3 ||
-		decision.BloqueVersion != VersionDecisionAutorizacionLigadaV3 ||
-		!decision.Concedida || decision.Codigo != "concedida" ||
-		!textoAutorizacionSinComodinSeguro(decision.DecisionRef, 512, false) ||
-		decision.PrincipalID != decision.VinculoAutenticacionActor.PrincipalID ||
-		decision.PerfilActivoRef !=
-			decision.VinculoAutenticacionActor.PerfilActivoRef ||
-		!huellaSHA256AutorizacionValida(decision.MotivoHuellaSHA256) {
+		validarSemanticaDecisionCanonicaAtestacionAutorizacionV3(decision) != nil {
 		return decision, "", errorParseoAtestacionAutorizacionV3()
 	}
 	suma := sha256.Sum256(contenido)
 	return decision, hex.EncodeToString(suma[:]), nil
+}
+
+func validarSemanticaDecisionCanonicaAtestacionAutorizacionV3(
+	d decisionAutorizacionCanonicaV3,
+) error {
+	vinculo, err := datosVinculoCanonicoAtestacionAutorizacionV3(
+		d.VinculoAutenticacionActor,
+	)
+	emitidaEn, errEmitida := parsearInstanteCanonicoAtestacionAutorizacionV3(
+		d.EmitidaEn,
+	)
+	validaHasta, errValida := parsearInstanteCanonicoAtestacionAutorizacionV3(
+		d.ValidaHasta,
+	)
+	evaluadas := evidenciasCanonicasAtestacionAutorizacionV3(
+		d.PoliticasEvaluadas,
+	)
+	aplicables := evidenciasCanonicasAtestacionAutorizacionV3(
+		d.PoliticasAplicables,
+	)
+	if err != nil || errEmitida != nil || errValida != nil ||
+		d.Esquema != EsquemaHuellaDecisionAutorizacionV3 ||
+		d.BloqueVersion != VersionDecisionAutorizacionLigadaV3 ||
+		!d.Concedida || d.Codigo != "concedida" ||
+		!textoAutorizacionSinComodinSeguro(d.DecisionRef, 512, false) ||
+		!textoAutorizacionSinComodinSeguro(d.PrincipalID, 512, false) ||
+		!textoAutorizacionSinComodinSeguro(d.PerfilActivoRef, 512, false) ||
+		!textoAutorizacionSinComodinSeguro(d.Accion, 256, false) ||
+		!textoAutorizacionSinComodinSeguro(d.RecursoRef, 512, false) ||
+		!textoAutorizacionSinComodinSeguro(d.ModuloID, 128, false) ||
+		!textoAutorizacionSinComodinSeguro(d.TipoRecurso, 128, false) ||
+		!huellaSHA256AutorizacionValida(d.ContextoRecursoHuellaSHA256) ||
+		!textoAutorizacionSinComodinSeguro(d.Finalidad, 512, false) ||
+		!ReferenciaCorrelacionAutorizacionV2Valida(d.CorrelacionRef) ||
+		d.EsquemaHuellaSolicitud != EsquemaHuellaSolicitudAutorizacionV3 ||
+		!huellaSHA256AutorizacionV3NoNula(d.SolicitudHuellaSHA256) ||
+		d.EsquemaHuellaMotivo != EsquemaHuellaMotivoAutorizacionV2 ||
+		!huellaSHA256AutorizacionV3NoNula(d.MotivoHuellaSHA256) ||
+		d.PrincipalID != vinculo.PrincipalID ||
+		d.PerfilActivoRef != vinculo.PerfilActivoRef ||
+		!textoAutorizacionSinComodinSeguro(d.AsignacionRef, 512, false) ||
+		!huellaSHA256AutorizacionValida(d.AsignacionHuellaSHA256) ||
+		!textoAutorizacionSinComodinSeguro(d.VersionRolRef, 512, false) ||
+		!huellaSHA256AutorizacionValida(d.VersionRolHuellaSHA256) ||
+		d.ControlVigenciaVersionRolRef != d.VersionRolRef ||
+		d.ControlVigenciaVersionRolRevision == 0 ||
+		!huellaSHA256AutorizacionValida(
+			d.ControlVigenciaVersionRolHuellaSHA256,
+		) ||
+		d.RevisionCatalogoPoliticas == 0 ||
+		!huellaSHA256AutorizacionValida(d.CatalogoPoliticasHuellaSHA256) ||
+		!evidenciasPoliticaAutorizacionV3Validas(evaluadas) ||
+		!evidenciasPoliticaAutorizacionV3Validas(aplicables) ||
+		!subconjuntoPoliticasAutorizacionV3Valido(evaluadas, aplicables) ||
+		!listaAutorizacionValida(d.CamposPermitidos, false, false) ||
+		!listaAutorizacionValida(d.Obligaciones, false, false) ||
+		!listaOrdenadaUnicaAutorizacionV3(d.CamposPermitidos) ||
+		!listaOrdenadaUnicaAutorizacionV3(d.Obligaciones) ||
+		!validaHasta.After(emitidaEn) ||
+		validaHasta.Sub(emitidaEn) > VigenciaMaximaDecisionAutorizacion ||
+		emitidaEn.Before(vinculo.SesionRevalidadaEn) ||
+		!emitidaEn.Before(vinculo.SesionValidaHasta) ||
+		validaHasta.After(vinculo.SesionValidaHasta) ||
+		!d.GarantiaMinima.Valida() ||
+		!CumpleGarantiaAutenticacion(
+			vinculo.GarantiaObservada,
+			d.GarantiaMinima,
+		) {
+		return errorParseoAtestacionAutorizacionV3()
+	}
+	referencias := make([]string, 0, len(evaluadas))
+	huellas := make(map[string]string, len(evaluadas))
+	for _, politica := range evaluadas {
+		referencias = append(referencias, politica.referencia)
+		huellas[politica.referencia] = politica.huellaSHA256
+	}
+	huellaCatalogo, err := HuellaEvidenciasCatalogoPoliticasAutorizacion(
+		referencias,
+		huellas,
+	)
+	if err != nil || huellaCatalogo != d.CatalogoPoliticasHuellaSHA256 {
+		return errorParseoAtestacionAutorizacionV3()
+	}
+	return nil
+}
+
+func datosVinculoCanonicoAtestacionAutorizacionV3(
+	v vinculoSolicitudAutorizacionCanonicoV3,
+) (DatosVinculoAutenticacionActorV2, error) {
+	autenticacionVerificadaEn, errAutenticacion :=
+		parsearInstanteCanonicoAtestacionAutorizacionV3(
+			v.AutenticacionVerificadaEn,
+		)
+	sesionEmitidaEn, errEmision := parsearInstanteCanonicoAtestacionAutorizacionV3(
+		v.SesionEmitidaEn,
+	)
+	sesionValidaHasta, errValidez :=
+		parsearInstanteCanonicoAtestacionAutorizacionV3(
+			v.SesionValidaHasta,
+		)
+	sesionRevalidadaEn, errRevalidacion :=
+		parsearInstanteCanonicoAtestacionAutorizacionV3(
+			v.SesionRevalidadaEn,
+		)
+	datos := DatosVinculoAutenticacionActorV2{
+		Esquema: v.Esquema, BloqueVersion: v.BloqueVersion,
+		AutenticacionRef:          v.AutenticacionRef,
+		AutenticacionHuellaSHA256: v.AutenticacionHuellaSHA256,
+		AsercionRef:               v.AsercionRef, SesionRef: v.SesionRef,
+		ControlSesionRef:          v.ControlSesionRef,
+		ControlSesionRevision:     v.ControlSesionRevision,
+		ControlSesionHuellaSHA256: v.ControlSesionHuellaSHA256,
+		CuentaRef:                 v.CuentaRef, CuentaOrdinariaRef: v.CuentaOrdinariaRef,
+		PrincipalID: v.PrincipalID, PerfilActivoRef: v.PerfilActivoRef,
+		CuentaPrivilegiada: v.CuentaPrivilegiada, Superficie: v.Superficie,
+		MetodoObservado:              v.MetodoObservado,
+		GarantiaObservada:            v.GarantiaObservada,
+		PoliticaGarantiaRef:          v.PoliticaGarantiaRef,
+		PoliticaGarantiaHuellaSHA256: v.PoliticaGarantiaHuellaSHA256,
+		AutenticacionVerificadaEn:    autenticacionVerificadaEn,
+		SesionEmitidaEn:              sesionEmitidaEn, SesionValidaHasta: sesionValidaHasta,
+		SesionRevalidadaEn:                sesionRevalidadaEn,
+		RegistroContextoRef:               v.RegistroContextoRef,
+		ContextoActorEsquema:              v.ContextoActorEsquema,
+		ContextoActorRef:                  v.ContextoActorRef,
+		ContextoActorVersion:              v.ContextoActorVersion,
+		ContextoActorCuentaVersion:        v.ContextoActorCuentaVersion,
+		ContextoActorHuellaSHA256:         v.ContextoActorHuellaSHA256,
+		ManifiestoProcedenciaHuellaSHA256: v.ManifiestoProcedenciaHuellaSHA256,
+		AutoridadEfectiva:                 v.AutoridadEfectiva,
+	}
+	if errAutenticacion != nil || errEmision != nil || errValidez != nil ||
+		errRevalidacion != nil || datos.Validar() != nil {
+		return DatosVinculoAutenticacionActorV2{},
+			errorParseoAtestacionAutorizacionV3()
+	}
+	return datos, nil
+}
+
+func parsearInstanteCanonicoAtestacionAutorizacionV3(
+	valor string,
+) (time.Time, error) {
+	instante, err := time.Parse(formatoInstanteDecisionAutorizacionV3, valor)
+	if err != nil || instante.UTC().Format(
+		formatoInstanteDecisionAutorizacionV3,
+	) != valor || !instanteAutorizacionCanonico(instante) {
+		return time.Time{}, errorParseoAtestacionAutorizacionV3()
+	}
+	return instante, nil
+}
+
+func evidenciasCanonicasAtestacionAutorizacionV3(
+	valores []politicaDecisionAutorizacionCanonicaV3,
+) []evidenciaPoliticaAutorizacionV3 {
+	resultado := make([]evidenciaPoliticaAutorizacionV3, 0, len(valores))
+	for _, valor := range valores {
+		resultado = append(resultado, evidenciaPoliticaAutorizacionV3{
+			referencia:   valor.Referencia,
+			huellaSHA256: valor.HuellaSHA256,
+		})
+	}
+	return resultado
 }
 
 func validarMotivoCanonicoAtestacionAutorizacionV3(

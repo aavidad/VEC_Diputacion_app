@@ -108,6 +108,86 @@ func TestParsearMensajeAtestacionAutorizacionV3RechazaTruncadoYJSONNoCanonico(
 	}
 }
 
+func TestParsearMensajeAtestacionAutorizacionV3RechazaMutacionesSemanticasRecomprometidas(
+	t *testing.T,
+) {
+	cabecera, decision, motivo, contexto := escenarioAtestacionAutorizacionV3Prueba(t)
+	mensaje, err := SerializarMensajeAtestacionAutorizacionV3(
+		cabecera,
+		decision,
+		motivo,
+		contexto,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutaciones := []struct {
+		nombre string
+		mutar  func(*decisionAutorizacionCanonicaV3)
+	}{
+		{"accion vacia", func(d *decisionAutorizacionCanonicaV3) { d.Accion = "" }},
+		{"recurso vacio", func(d *decisionAutorizacionCanonicaV3) { d.RecursoRef = "" }},
+		{"modulo vacio", func(d *decisionAutorizacionCanonicaV3) { d.ModuloID = "" }},
+		{"tipo vacio", func(d *decisionAutorizacionCanonicaV3) { d.TipoRecurso = "" }},
+		{"finalidad vacia", func(d *decisionAutorizacionCanonicaV3) { d.Finalidad = "" }},
+		{"correlacion vacia", func(d *decisionAutorizacionCanonicaV3) { d.CorrelacionRef = "" }},
+		{"esquema solicitud", func(d *decisionAutorizacionCanonicaV3) {
+			d.EsquemaHuellaSolicitud = "esquema-ajeno"
+		}},
+		{"huella solicitud nula", func(d *decisionAutorizacionCanonicaV3) {
+			d.SolicitudHuellaSHA256 = strings.Repeat("0", 64)
+		}},
+		{"esquema motivo", func(d *decisionAutorizacionCanonicaV3) {
+			d.EsquemaHuellaMotivo = "esquema-ajeno"
+		}},
+		{"principal cruzado", func(d *decisionAutorizacionCanonicaV3) {
+			d.PrincipalID = "per_otra234567890abcdefghijklmn"
+		}},
+		{"perfil cruzado", func(d *decisionAutorizacionCanonicaV3) {
+			d.PerfilActivoRef = "prf_otra234567890abcdefghijklmn"
+		}},
+		{"control rol cruzado", func(d *decisionAutorizacionCanonicaV3) {
+			d.ControlVigenciaVersionRolRef = "rol_otra234567890abcdefghijklmn"
+		}},
+		{"revision catalogo cero", func(d *decisionAutorizacionCanonicaV3) {
+			d.RevisionCatalogoPoliticas = 0
+		}},
+		{"huella catalogo cruzada", func(d *decisionAutorizacionCanonicaV3) {
+			d.CatalogoPoliticasHuellaSHA256 = strings.Repeat("a", 64)
+		}},
+		{"garantia invalida", func(d *decisionAutorizacionCanonicaV3) {
+			d.GarantiaMinima = AuthAssurance("no-admitida")
+		}},
+		{"ventana invertida", func(d *decisionAutorizacionCanonicaV3) {
+			d.ValidaHasta = d.EmitidaEn
+		}},
+		{"vinculo sin autenticacion", func(d *decisionAutorizacionCanonicaV3) {
+			d.VinculoAutenticacionActor.AutenticacionRef = ""
+		}},
+		{"vinculo contexto ajeno", func(d *decisionAutorizacionCanonicaV3) {
+			d.VinculoAutenticacionActor.PrincipalID =
+				"per_otra234567890abcdefghijklmn"
+		}},
+		{"vinculo sin procedencia", func(d *decisionAutorizacionCanonicaV3) {
+			d.VinculoAutenticacionActor.AutoridadEfectiva = ""
+		}},
+	}
+	for _, caso := range mutaciones {
+		t.Run(caso.nombre, func(t *testing.T) {
+			mutado := reescribirDecisionCanonicaAtestacionV3Prueba(
+				t,
+				mensaje,
+				caso.mutar,
+			)
+			if _, err := ParsearMensajeAtestacionAutorizacionV3NoAutoritativo(
+				mutado,
+			); !errors.Is(err, ErrParseoAtestacionAutorizacionV3Invalido) {
+				t.Fatalf("mutación semántica aceptada: %v", err)
+			}
+		})
+	}
+}
+
 func TestProyeccionAtestacionAutorizacionV3BloqueaCodecsYLogs(t *testing.T) {
 	cabecera, decision, motivo, contexto := escenarioAtestacionAutorizacionV3Prueba(t)
 	mensaje, _ := SerializarMensajeAtestacionAutorizacionV3(
@@ -152,6 +232,30 @@ func FuzzParsearMensajeAtestacionAutorizacionV3NoAutoritativoNoEntraEnPanico(
 	f.Fuzz(func(_ *testing.T, contenido []byte) {
 		_, _ = ParsearMensajeAtestacionAutorizacionV3NoAutoritativo(contenido)
 	})
+}
+
+func reescribirDecisionCanonicaAtestacionV3Prueba(
+	t *testing.T,
+	mensaje []byte,
+	mutar func(*decisionAutorizacionCanonicaV3),
+) []byte {
+	t.Helper()
+	return reescribirDecisionAtestacionV3Prueba(
+		t,
+		mensaje,
+		func(contenido []byte) []byte {
+			var decision decisionAutorizacionCanonicaV3
+			if err := json.Unmarshal(contenido, &decision); err != nil {
+				t.Fatal(err)
+			}
+			mutar(&decision)
+			mutado, err := json.Marshal(decision)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return mutado
+		},
+	)
 }
 
 func reescribirDecisionAtestacionV3Prueba(
