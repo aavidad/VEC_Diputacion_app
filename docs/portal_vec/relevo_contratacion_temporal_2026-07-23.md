@@ -173,8 +173,12 @@ ajenas.
   corrección y no se integra.
 - O8-01 tiene un candidato aislado de dominio en `2b2215a`, documentado en
   `d2d2b75`, con estados publicados, transiciones versionadas, control CAS,
-  rectificación append-only y evidencia de calendario. Está en revisión
-  independiente; todavía no se contabiliza ni se integra.
+  rectificación append-only y evidencia de calendario. La revisión
+  independiente reprodujo tres bloqueos: una reapertura deja el cese efectivo
+  incompatible con nuevas prórrogas; el detector admite ciclos silenciosos si
+  todos los documentos son opcionales; y el canon acepta más de diez mil
+  periodos desacoplados sin actuaciones. El productor está corrigiendo un
+  nuevo SHA; todavía no se contabiliza ni se integra.
 - `2b67c7a`–`20935bd` integran O6-01 tras dos revisiones independientes.
   Contratación temporal y Bolsa solo intercambian contratos versionados,
   referencias opacas, seudónimos HMAC, evidencias autenticadas y eventos
