@@ -80,6 +80,7 @@ func (d DatosSolicitudValidarRC) validar() error {
 type SolicitudValidarRC struct {
 	datos     *DatosSolicitudValidarRC
 	preimagen []byte
+	sello     string
 }
 
 func (s SolicitudValidarRC) Validar() error {
@@ -87,7 +88,11 @@ func (s SolicitudValidarRC) Validar() error {
 		return ErrPeticionFuenteAnalisisInvalida
 	}
 	canonica := s.datosCanonicos()
-	if len(canonica) == 0 || !bytes.Equal(canonica, s.preimagen) {
+	if len(canonica) == 0 || !bytes.Equal(canonica, s.preimagen) ||
+		!sellosPeticionFuenteAnalisisIguales(
+			s.datos.HuellaPeticionHMAC,
+			s.sello,
+		) {
 		return ErrPeticionFuenteAnalisisInvalida
 	}
 	return nil
@@ -161,6 +166,7 @@ func (d DatosSolicitudCalcularCoste) validar() error {
 type SolicitudCalcularCoste struct {
 	datos     *DatosSolicitudCalcularCoste
 	preimagen []byte
+	sello     string
 }
 
 func (s SolicitudCalcularCoste) Validar() error {
@@ -168,7 +174,11 @@ func (s SolicitudCalcularCoste) Validar() error {
 		return ErrPeticionFuenteAnalisisInvalida
 	}
 	canonica := s.datosCanonicos()
-	if len(canonica) == 0 || !bytes.Equal(canonica, s.preimagen) {
+	if len(canonica) == 0 || !bytes.Equal(canonica, s.preimagen) ||
+		!sellosPeticionFuenteAnalisisIguales(
+			s.datos.HuellaPeticionHMAC,
+			s.sello,
+		) {
 		return ErrPeticionFuenteAnalisisInvalida
 	}
 	return nil

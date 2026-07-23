@@ -340,6 +340,9 @@ func sellosPeticionFuenteAnalisisIguales(primero, segundo string) bool {
 }
 
 func errorDisponibilidadFuente(publico, causa error) error {
+	if causa == nil {
+		return publico
+	}
 	return errorFuenteAnalisis{publico: publico, causa: causa}
 }
 

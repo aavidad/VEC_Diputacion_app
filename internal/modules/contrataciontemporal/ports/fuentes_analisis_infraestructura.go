@@ -115,7 +115,7 @@ func NuevaSolicitudValidarRC(
 	}
 	datos.HuellaPeticionHMAC = sello
 	return SolicitudValidarRC{
-		datos: &datos, preimagen: append([]byte(nil), canonica...),
+		datos: &datos, preimagen: append([]byte(nil), canonica...), sello: sello,
 	}, nil
 }
 
@@ -212,6 +212,6 @@ func NuevaSolicitudCalcularCoste(
 	}
 	datos.HuellaPeticionHMAC = sello
 	return SolicitudCalcularCoste{
-		datos: &datos, preimagen: append([]byte(nil), canonica...),
+		datos: &datos, preimagen: append([]byte(nil), canonica...), sello: sello,
 	}, nil
 }
