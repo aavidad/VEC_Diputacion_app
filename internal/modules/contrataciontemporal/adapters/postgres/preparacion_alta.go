@@ -219,6 +219,11 @@ func (f filaPreparacionAlta) restaurar(
 	solicitud ports.SolicitudPrepararAlta,
 	operacionJSON []byte,
 ) (ports.PreparacionAlta, error) {
+	var operacion operacionPrepararAltaV1
+	if json.Unmarshal(operacionJSON, &operacion) != nil ||
+		!hmac.Equal([]byte(f.ambitoHMAC), []byte(operacion.AmbitoHMAC)) {
+		return ports.PreparacionAlta{}, ports.ErrPersistenciaNoDisponible
+	}
 	preparacion := ports.PreparacionAlta{
 		ReservaRef: f.reservaRef,
 		Referencias: ports.ReferenciasAlta{
@@ -243,7 +248,7 @@ func (f filaPreparacionAlta) restaurar(
 		}
 		preparacion.Estado = ports.PreparacionReservada
 		if f.resultado == "reservada" &&
-			!respuestaReservadaCoincideConCandidatos(preparacion, operacionJSON) {
+			!respuestaReservadaCoincideConCandidatos(preparacion, operacion) {
 			return ports.PreparacionAlta{}, ports.ErrPersistenciaNoDisponible
 		}
 	case string(ports.PreparacionConfirmada):
@@ -274,12 +279,8 @@ func (f filaPreparacionAlta) restaurar(
 
 func respuestaReservadaCoincideConCandidatos(
 	preparacion ports.PreparacionAlta,
-	operacionJSON []byte,
+	operacion operacionPrepararAltaV1,
 ) bool {
-	var operacion operacionPrepararAltaV1
-	if json.Unmarshal(operacionJSON, &operacion) != nil {
-		return false
-	}
 	return preparacion.ReservaRef == operacion.ReservaRefCandidata &&
 		preparacion.Referencias == operacion.ReferenciasCandidatas.puertos() &&
 		hmac.Equal(

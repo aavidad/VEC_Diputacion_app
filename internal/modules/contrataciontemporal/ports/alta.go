@@ -16,7 +16,18 @@ var (
 	ErrClaveIdempotenciaUsada   = errors.New("contratacion temporal: clave de idempotencia usada con otros datos")
 )
 
-var patronClaveIdempotencia = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{21,159}$`)
+// La clave debe generarla cada cliente con CSPRNG y conservarse solo durante
+// el reintento. El formato UUIDv4 canónico descarta etiquetas humanas, formas
+// no canónicas y el centinela nulo; la sintaxis no prueba por sí sola la
+// calidad del generador, que se exige en cada adaptador de entrada.
+var patronClaveIdempotencia = regexp.MustCompile(
+	`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`,
+)
+
+func claveIdempotenciaValida(valor string) bool {
+	return patronClaveIdempotencia.MatchString(valor) &&
+		valor != "00000000-0000-4000-8000-000000000000"
+}
 
 type ReferenciasAlta struct {
 	ExpedienteRef string
@@ -66,7 +77,7 @@ type SolicitudPrepararAlta struct {
 }
 
 func (s SolicitudPrepararAlta) Validar() error {
-	if !patronClaveIdempotencia.MatchString(s.ClaveIdempotencia) ||
+	if !claveIdempotenciaValida(s.ClaveIdempotencia) ||
 		!SelloHMACSHA256Valido(s.HuellaPeticionHMAC) ||
 		!domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
 		!domain.ReferenciaOpacaValida(s.ActorRef) ||

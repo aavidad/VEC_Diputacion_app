@@ -137,7 +137,7 @@ func nuevoEscenarioRegistro(t *testing.T) escenarioRegistro {
 			CorrelacionRef:        "correlacion:alta-001",
 			MotivoAutorizacionRef: "motivo:necesidad-temporal",
 			OrganizacionRef:       "organizacion:diputacion-granada",
-			ClaveIdempotencia:     "01J2F8X4K4R9T2Y7W3M6Q8P1AB",
+			ClaveIdempotencia:     "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
 			Solicitud: domain.SolicitudCentro{
 				CentroRef:     "centro:residencia-rodriguez-penalva",
 				ContactoRef:   "persona:responsable-centro-001",
