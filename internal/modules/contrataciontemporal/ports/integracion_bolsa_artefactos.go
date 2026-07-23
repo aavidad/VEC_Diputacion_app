@@ -142,16 +142,20 @@ func (a ArtefactoProbatorioOrdenBolsa) Validar() error {
 }
 
 func (a *ArtefactoProbatorioOrdenBolsa) UnmarshalJSON(contenido []byte) error {
+	if a == nil {
+		return ErrEvidenciaBolsaNoAutenticada
+	}
 	type alias ArtefactoProbatorioOrdenBolsa
 	var valor alias
 	if err := decodificarArtefactoCerradoBolsa(contenido, &valor); err != nil {
 		return ErrEvidenciaBolsaNoAutenticada
 	}
-	*a = ArtefactoProbatorioOrdenBolsa(valor)
-	if a.Validar() != nil ||
-		validarRecodificacionCanonicaArtefactoBolsa(contenido, *a) != nil {
+	candidato := ArtefactoProbatorioOrdenBolsa(valor)
+	if candidato.Validar() != nil ||
+		validarRecodificacionCanonicaArtefactoBolsa(contenido, candidato) != nil {
 		return ErrEvidenciaBolsaNoAutenticada
 	}
+	*a = candidato
 	return nil
 }
 
@@ -316,16 +320,20 @@ func (a ArtefactoProbatorioLlamamientoBolsa) Validar() error {
 }
 
 func (a *ArtefactoProbatorioLlamamientoBolsa) UnmarshalJSON(contenido []byte) error {
+	if a == nil {
+		return ErrEvidenciaBolsaNoAutenticada
+	}
 	type alias ArtefactoProbatorioLlamamientoBolsa
 	var valor alias
 	if err := decodificarArtefactoCerradoBolsa(contenido, &valor); err != nil {
 		return ErrEvidenciaBolsaNoAutenticada
 	}
-	*a = ArtefactoProbatorioLlamamientoBolsa(valor)
-	if a.Validar() != nil ||
-		validarRecodificacionCanonicaArtefactoBolsa(contenido, *a) != nil {
+	candidato := ArtefactoProbatorioLlamamientoBolsa(valor)
+	if candidato.Validar() != nil ||
+		validarRecodificacionCanonicaArtefactoBolsa(contenido, candidato) != nil {
 		return ErrEvidenciaBolsaNoAutenticada
 	}
+	*a = candidato
 	return nil
 }
 
@@ -465,16 +473,20 @@ func (a ArtefactoProbatorioEventoBolsa) Validar() error {
 }
 
 func (a *ArtefactoProbatorioEventoBolsa) UnmarshalJSON(contenido []byte) error {
+	if a == nil {
+		return ErrEvidenciaBolsaNoAutenticada
+	}
 	type alias ArtefactoProbatorioEventoBolsa
 	var valor alias
 	if err := decodificarArtefactoCerradoBolsa(contenido, &valor); err != nil {
 		return ErrEvidenciaBolsaNoAutenticada
 	}
-	*a = ArtefactoProbatorioEventoBolsa(valor)
-	if a.Validar() != nil ||
-		validarRecodificacionCanonicaArtefactoBolsa(contenido, *a) != nil {
+	candidato := ArtefactoProbatorioEventoBolsa(valor)
+	if candidato.Validar() != nil ||
+		validarRecodificacionCanonicaArtefactoBolsa(contenido, candidato) != nil {
 		return ErrEvidenciaBolsaNoAutenticada
 	}
+	*a = candidato
 	return nil
 }
 
