@@ -13,9 +13,9 @@ temporal. El detalle verificable de cada tarea está en el
 | Objetivo activo | O2 — primera vertical real de alta |
 | Camino crítico | O2-04 autorización VEC → O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
 | Primera vertical | 2 de 10 tareas cerradas (20 %); O2-03 tiene un corte v1 aprobado y rotación pendiente |
-| Procedimiento completo | 6 de 46 tareas cerradas (13 %); O3-01, O4-01 y O6-01 continúan bajo revisión/rework |
+| Procedimiento completo | 7 de 46 tareas cerradas (15 %); O4-01 y O6-01 continúan bajo revisión/rework |
 | Último commit verificado | `effa911` — reintentos ligados y vectores canónicos |
-| Trabajo local en revisión | Rotación O2-03, implementación O2-04 y revisiones O3-01/O4-01/O6-01 |
+| Trabajo local en revisión | Rotación O2-03, implementación O2-04 y revisiones O4-01/O6-01 |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -29,7 +29,7 @@ de todo VEP.
 flowchart LR
     O1["✅ O1<br/>Base del módulo"]
     O2["🚧 O2<br/>Alta de solicitud"]
-    O3["⬜ O3<br/>Análisis RRHH y RC"]
+    O3["🚧 O3<br/>Análisis RRHH y RC"]
     O4["⬜ O4<br/>Vía de cobertura"]
     O5["— O5<br/>Asignación, informe y fiscalización"]
     O6["— O6<br/>Llamamiento y formalización"]
