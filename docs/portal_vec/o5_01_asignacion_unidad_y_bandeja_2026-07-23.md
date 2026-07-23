@@ -2,7 +2,9 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: diseño de implementación. No está integrado ni habilita producción.
+Estado: primer corte de dominio en `f4d8c98`–`6abe2b9`, probado localmente y
+pendiente de caso de uso y revisión independiente. No está integrado ni
+habilita producción.
 
 ## Resultado funcional
 
@@ -70,6 +72,25 @@ rollback después de un recibo válido.
 
 O5-01 define el dominio, el caso de uso y los puertos neutrales. No fingirá
 persistencia, entrega de mensajes ni autorización productiva.
+
+## Corte de dominio implementado
+
+El agregado ya:
+
+- registra una primera asignación y liga su proyección a la actuación exacta;
+- reasigna con CAS, motivo no vacío, instante posterior y nuevo destino;
+- impide reutilizar la referencia de notificación;
+- impide cambiar fase o estado de forma implícita;
+- conserva sin cambios la instantánea anterior;
+- rechaza al rehidratar una asignación ligada a otro recibo o instante.
+
+La ligadura contiene secuencia, versión, acción, fase y recibo. La asignación
+conserva unidad, responsable, notificación, instante y motivo. El agregado
+cruza ambos contenidos antes de considerarse válido.
+
+Faltan todavía el caso de uso, catálogo de destinos, autoridad VEC V3,
+idempotencia, bandeja, intención de notificación, frontera transaccional y
+revisión independiente. Por ello O5-01 no se contabiliza como cerrada.
 
 ## Reasignación
 
