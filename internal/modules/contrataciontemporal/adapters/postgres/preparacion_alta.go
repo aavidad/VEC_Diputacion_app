@@ -7,10 +7,12 @@ import (
 	"context"
 	"crypto/hmac"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -19,8 +21,9 @@ import (
 )
 
 const (
-	funcionPrepararAltaV2 = "vec_contratacion_temporal.preparar_alta_v2"
-	esquemaPrepararAltaV2 = "vec.contratacion-temporal.preparar-alta.v2"
+	funcionPrepararAltaV2      = "vec_contratacion_temporal.preparar_alta_v2"
+	esquemaPrepararAltaV2      = "vec.contratacion-temporal.preparar-alta.v2"
+	maximoIntentosPrepararAlta = 3
 )
 
 var _ ports.PreparadorAltaIdempotente = (*PreparadorAltaPostgreSQL)(nil)
@@ -137,24 +140,25 @@ func nuevosSellosPrepararAltaV2(
 	return sellos, nil
 }
 
-func (s sellosPrepararAltaV2) contieneAmbito(valor string) bool {
-	if hmac.Equal([]byte(s.Activo.AmbitoHMAC), []byte(valor)) {
+func (s sellosPrepararAltaV2) contienePar(ambito, huella string) bool {
+	coincideAmbito := hmac.Equal([]byte(s.Activo.AmbitoHMAC), []byte(ambito))
+	coincideHuella := hmac.Equal(
+		[]byte(s.Activo.HuellaPeticionHMAC),
+		[]byte(huella),
+	)
+	if coincideAmbito && coincideHuella {
 		return true
 	}
 	for _, retenido := range s.Retenidos {
-		if hmac.Equal([]byte(retenido.AmbitoHMAC), []byte(valor)) {
-			return true
-		}
-	}
-	return false
-}
-
-func (s sellosPrepararAltaV2) contieneHuella(valor string) bool {
-	if hmac.Equal([]byte(s.Activo.HuellaPeticionHMAC), []byte(valor)) {
-		return true
-	}
-	for _, retenido := range s.Retenidos {
-		if hmac.Equal([]byte(retenido.HuellaPeticionHMAC), []byte(valor)) {
+		coincideAmbito = hmac.Equal(
+			[]byte(retenido.AmbitoHMAC),
+			[]byte(ambito),
+		)
+		coincideHuella = hmac.Equal(
+			[]byte(retenido.HuellaPeticionHMAC),
+			[]byte(huella),
+		)
+		if coincideAmbito && coincideHuella {
 			return true
 		}
 	}
@@ -235,6 +239,33 @@ func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 	}
 	defer borrarBytes(operacion)
 
+	for intento := 1; intento <= maximoIntentosPrepararAlta; intento++ {
+		preparacion, err := p.prepararEnTransaccion(
+			ctx,
+			solicitud,
+			operacion,
+		)
+		if err == nil {
+			// Un COMMIT confirmado es el punto de efecto. No consultamos de
+			// nuevo el contexto ni transformamos ese éxito durable en fallo.
+			return preparacion, nil
+		}
+		if ctx.Err() != nil {
+			return ports.PreparacionAlta{}, ctx.Err()
+		}
+		if !errorPostgreSQLReintentable(err) ||
+			intento == maximoIntentosPrepararAlta {
+			return ports.PreparacionAlta{}, normalizarErrorPreparacion(ctx, err)
+		}
+	}
+	return ports.PreparacionAlta{}, ports.ErrPersistenciaNoDisponible
+}
+
+func (p *PreparadorAltaPostgreSQL) prepararEnTransaccion(
+	ctx context.Context,
+	solicitud ports.SolicitudPrepararAlta,
+	operacion []byte,
+) (ports.PreparacionAlta, error) {
 	tx, err := p.iniciar(ctx)
 	if err != nil {
 		return ports.PreparacionAlta{}, err
@@ -258,7 +289,7 @@ func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 		&fila.confirmadaEn,
 	)
 	if err != nil {
-		return ports.PreparacionAlta{}, errorPostgreSQL(ctx, err)
+		return ports.PreparacionAlta{}, err
 	}
 	if fila.resultado == "idempotencia_reutilizada" {
 		return ports.PreparacionAlta{}, ports.ErrClaveIdempotenciaUsada
@@ -267,11 +298,12 @@ func (p *PreparadorAltaPostgreSQL) PrepararAlta(
 	if err != nil {
 		return ports.PreparacionAlta{}, err
 	}
-	if err := tx.Commit(ctx); err != nil {
-		return ports.PreparacionAlta{}, errorPostgreSQL(ctx, err)
+	if err := ctx.Err(); err != nil {
+		return ports.PreparacionAlta{}, err
 	}
-	// Tras un COMMIT confirmado no convertimos una cancelación tardía en un
-	// fallo ambiguo para el llamador.
+	if err := tx.Commit(ctx); err != nil {
+		return ports.PreparacionAlta{}, err
+	}
 	return preparacion, nil
 }
 
@@ -299,8 +331,10 @@ func (f filaPreparacionAlta) restaurar(
 ) (ports.PreparacionAlta, error) {
 	var operacion operacionPrepararAltaV2
 	if json.Unmarshal(operacionJSON, &operacion) != nil ||
-		!operacion.SellosHMAC.contieneAmbito(f.ambitoHMAC) ||
-		!operacion.SellosHMAC.contieneHuella(f.huellaPeticionHMAC) {
+		!operacion.SellosHMAC.contienePar(
+			f.ambitoHMAC,
+			f.huellaPeticionHMAC,
+		) {
 		return ports.PreparacionAlta{}, ports.ErrPersistenciaNoDisponible
 	}
 	preparacion := ports.PreparacionAlta{
@@ -377,7 +411,7 @@ func (p *PreparadorAltaPostgreSQL) iniciar(ctx context.Context) (pgx.Tx, error) 
 		IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite,
 	})
 	if err != nil {
-		return nil, errorPostgreSQL(ctx, err)
+		return nil, err
 	}
 	_, err = tx.Exec(ctx, `
 		SELECT set_config('search_path', 'pg_catalog', true),
@@ -388,7 +422,7 @@ func (p *PreparadorAltaPostgreSQL) iniciar(ctx context.Context) (pgx.Tx, error) 
 		       set_config('idle_in_transaction_session_timeout', '20s', true)`)
 	if err != nil {
 		revertirTransaccion(tx)
-		return nil, errorPostgreSQL(ctx, err)
+		return nil, err
 	}
 	return tx, nil
 }
@@ -402,11 +436,20 @@ func revertirTransaccion(tx pgx.Tx) {
 	_ = tx.Rollback(ctx)
 }
 
-func errorPostgreSQL(ctx context.Context, causa error) error {
+func errorPostgreSQLReintentable(err error) bool {
+	var postgres *pgconn.PgError
+	return errors.As(err, &postgres) &&
+		(postgres.Code == "40001" || postgres.Code == "40P01")
+}
+
+func normalizarErrorPreparacion(ctx context.Context, causa error) error {
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
 	}
-	_ = causa
+	if errors.Is(causa, ports.ErrClaveIdempotenciaUsada) ||
+		errors.Is(causa, ports.ErrPreparacionAltaInvalida) {
+		return causa
+	}
 	return ports.ErrPersistenciaNoDisponible
 }
 
