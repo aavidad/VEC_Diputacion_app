@@ -155,9 +155,10 @@ La rehidratación:
 5. compara la serialización canónica de la proyección reconstruida con la
    recibida.
 
-La reproducción mantiene un índice local de referencias duplicadas y no clona
-el historial completo en cada evento. Las colecciones se limitan antes de
-recorrerlas.
+La reproducción mantiene índices locales de actuaciones y tramos proyectados:
+resuelve duplicados, objetivos de rectificación y sustituciones de tramo sin
+volver a recorrer el prefijo histórico. No clona el historial completo en cada
+evento y limita las colecciones antes de recorrerlas.
 
 La huella SHA-256 detecta alteraciones y colisiones semánticas dentro del
 modelo, pero no acredita por sí sola origen, competencia, autorización ni
@@ -179,8 +180,10 @@ El canon usa un formato binario explícito:
 - ausencia de mapas, reflexión, etiquetas JSON u `omitempty`.
 
 Hay dominios separados para definición, raíz, petición, actuación y estado.
-Esquemas o dominios desconocidos se rechazan. Antes de recorrer o serializar
-se validan referencias, definición, estado, periodos, cese, instantes,
+Esquemas o dominios desconocidos se rechazan. El serializador público exige la
+definición publicada y ejecuta la rehidratación completa antes de emitir
+bytes; así coteja también la raíz y las proyecciones de periodos y cese con el
+historial. Antes de recorrer se validan referencias, estado, instantes,
 secuencia, cadena de huellas y cardinalidades.
 
 ## Calendario

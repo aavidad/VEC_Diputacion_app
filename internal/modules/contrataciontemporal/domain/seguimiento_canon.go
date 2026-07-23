@@ -46,16 +46,13 @@ func ValidarReintentoPublicacionDefinicionSeguimiento(
 	}
 	return nil
 }
-
 func (c CanonSeguimiento) EsDefinicionV1() bool { return c == CanonDefinicionSeguimientoV1() }
-
 func nuevoCanonSeguimiento(dominio string) CanonSeguimiento {
 	return CanonSeguimiento{
 		Dominio: dominio, VersionEsquema: versionCanonSeguimientoV1,
 		Algoritmo: algoritmoCanonSeguimientoV1,
 	}
 }
-
 func calcularHuellaDefinicionSeguimiento(
 	publicacion PublicacionDefinicionSeguimiento,
 ) (string, error) {
@@ -65,7 +62,6 @@ func calcularHuellaDefinicionSeguimiento(
 	}
 	return resumenSeguimiento(material), nil
 }
-
 func calcularHuellaRaizSeguimiento(
 	estado EstadoPersistidoSeguimiento,
 ) (string, error) {
@@ -91,7 +87,6 @@ func calcularHuellaRaizSeguimiento(
 	}
 	return resumenSeguimiento(material.Bytes()), nil
 }
-
 func calcularHuellaPeticionSeguimiento(
 	datos DatosTransicionSeguimiento,
 ) (string, error) {
@@ -101,7 +96,6 @@ func calcularHuellaPeticionSeguimiento(
 	}
 	return resumenSeguimiento(material), nil
 }
-
 func calcularHuellaActuacionSeguimiento(
 	actuacion ActuacionSeguimiento,
 ) (string, error) {
@@ -115,11 +109,15 @@ func calcularHuellaActuacionSeguimiento(
 // SerializarEstadoSeguimientoCanonico genera el formato binario cerrado V1.
 // No usa JSON, reflexión, orden de mapas ni etiquetas de struct.
 func SerializarEstadoSeguimientoCanonico(
+	definicion DefinicionSeguimiento,
 	estado EstadoPersistidoSeguimiento,
 ) ([]byte, error) {
-	return materialCanonicoEstadoSeguimiento(estado)
+	validado, err := RehidratarSeguimiento(definicion, estado)
+	if err != nil {
+		return nil, ErrSeguimientoInvalido
+	}
+	return materialCanonicoEstadoSeguimiento(validado.estado)
 }
-
 func materialCanonicoDefinicionSeguimiento(
 	p PublicacionDefinicionSeguimiento,
 ) ([]byte, error) {
@@ -155,7 +153,6 @@ func materialCanonicoDefinicionSeguimiento(
 	}
 	return material.Bytes(), nil
 }
-
 func materialCanonicoPeticionSeguimiento(
 	d DatosTransicionSeguimiento,
 ) ([]byte, error) {
@@ -170,7 +167,6 @@ func materialCanonicoPeticionSeguimiento(
 	}
 	return material.Bytes(), nil
 }
-
 func materialCanonicoActuacionSeguimiento(
 	a ActuacionSeguimiento,
 ) ([]byte, error) {
@@ -200,7 +196,6 @@ func materialCanonicoActuacionSeguimiento(
 	}
 	return material.Bytes(), nil
 }
-
 func materialCanonicoEstadoSeguimiento(
 	estado EstadoPersistidoSeguimiento,
 ) ([]byte, error) {
@@ -244,7 +239,6 @@ func materialCanonicoEstadoSeguimiento(
 	}
 	return material.Bytes(), nil
 }
-
 func validarEstadoCanonicoSeguimiento(
 	estado EstadoPersistidoSeguimiento,
 ) error {
@@ -349,7 +343,6 @@ func nuevoEscritorCanonSeguimiento(
 	e.cadena(algoritmoCanonSeguimientoV1)
 	return e
 }
-
 func (e *escritorCanonSeguimiento) transicionDefinida(
 	t TransicionDefinidaSeguimiento,
 ) {
@@ -373,7 +366,6 @@ func (e *escritorCanonSeguimiento) transicionDefinida(
 	e.cadena(string(t.EfectoPeriodo))
 	e.booleano(t.ExigeActorDistinto)
 }
-
 func (e *escritorCanonSeguimiento) datosTransicion(
 	d DatosTransicionSeguimiento,
 ) {
@@ -406,7 +398,6 @@ func (e *escritorCanonSeguimiento) datosTransicion(
 	e.cadena(d.CorrelacionRef)
 	e.cadenaOpcional(d.RectificaActuacionRef)
 }
-
 func (e *escritorCanonSeguimiento) referenciaDefinicion(
 	r ReferenciaDefinicionSeguimiento,
 ) {
@@ -414,7 +405,6 @@ func (e *escritorCanonSeguimiento) referenciaDefinicion(
 	e.entero64(r.Version)
 	e.huella(r.HuellaSHA256)
 }
-
 func (e *escritorCanonSeguimiento) vigencia(v VigenciaSeguimiento) {
 	e.instante(v.Desde)
 	e.booleano(!v.Hasta.IsZero())
@@ -422,45 +412,37 @@ func (e *escritorCanonSeguimiento) vigencia(v VigenciaSeguimiento) {
 		e.instante(v.Hasta)
 	}
 }
-
 func (e *escritorCanonSeguimiento) intervalo(p IntervaloSeguimiento) {
 	e.instante(p.Desde)
 	e.instante(p.Hasta)
 }
-
 func (e *escritorCanonSeguimiento) claves(claves []ClaveCatalogo) {
 	e.entero32(uint32(len(claves)))
 	for _, clave := range claves {
 		e.clave(clave)
 	}
 }
-
 func (e *escritorCanonSeguimiento) clave(clave ClaveCatalogo) {
 	e.cadena(string(clave))
 }
-
 func (e *escritorCanonSeguimiento) claveOpcional(clave ClaveCatalogo) {
 	e.booleano(clave != "")
 	if clave != "" {
 		e.clave(clave)
 	}
 }
-
 func (e *escritorCanonSeguimiento) cadenaOpcional(valor string) {
 	e.booleano(valor != "")
 	if valor != "" {
 		e.cadena(valor)
 	}
 }
-
 func (e *escritorCanonSeguimiento) huella(valor string) {
 	e.cadena(valor)
 }
-
 func (e *escritorCanonSeguimiento) instante(valor time.Time) {
 	e.entero64(uint64(valor.UnixMicro()))
 }
-
 func (e *escritorCanonSeguimiento) booleano(valor bool) {
 	if valor {
 		e.entero8(1)
@@ -468,11 +450,9 @@ func (e *escritorCanonSeguimiento) booleano(valor bool) {
 	}
 	e.entero8(0)
 }
-
 func (e *escritorCanonSeguimiento) cadena(valor string) {
 	e.bytes([]byte(valor))
 }
-
 func (e *escritorCanonSeguimiento) bytes(valor []byte) {
 	if e.err != nil || uint64(len(valor)) > uint64(^uint32(0)) {
 		e.err = ErrSeguimientoInvalido
@@ -483,60 +463,50 @@ func (e *escritorCanonSeguimiento) bytes(valor []byte) {
 		_, e.err = e.destino.Write(valor)
 	}
 }
-
 func (e *escritorCanonSeguimiento) entero8(valor byte) {
 	if e.err == nil {
 		e.err = e.destino.WriteByte(valor)
 	}
 }
-
 func (e *escritorCanonSeguimiento) entero16(valor uint16) {
 	var datos [2]byte
 	binary.BigEndian.PutUint16(datos[:], valor)
 	e.escribir(datos[:])
 }
-
 func (e *escritorCanonSeguimiento) entero32(valor uint32) {
 	var datos [4]byte
 	binary.BigEndian.PutUint32(datos[:], valor)
 	e.escribir(datos[:])
 }
-
 func (e *escritorCanonSeguimiento) entero64(valor uint64) {
 	var datos [8]byte
 	binary.BigEndian.PutUint64(datos[:], valor)
 	e.escribir(datos[:])
 }
-
 func (e *escritorCanonSeguimiento) escribir(valor []byte) {
 	if e.err == nil {
 		_, e.err = e.destino.Write(valor)
 	}
 }
-
 func resumenSeguimiento(material []byte) string {
 	suma := sha256.Sum256(material)
 	return hex.EncodeToString(suma[:])
 }
-
 func huellaSeguimientoValida(valor string) bool {
 	return patronHuella.MatchString(valor) &&
 		valor != strings.Repeat("0", sha256.Size*2)
 }
-
 func referenciaOpacaSeguimientoValida(valor string) bool {
 	return len(valor) == len("ref:")+sha256.Size*2 &&
 		strings.HasPrefix(valor, "ref:") &&
 		huellaSeguimientoValida(valor[len("ref:"):])
 }
-
 func huellaAnteriorSeguimiento(estado EstadoPersistidoSeguimiento) string {
 	if len(estado.Actuaciones) == 0 {
 		return estado.HuellaRaizSHA256
 	}
 	return estado.Actuaciones[len(estado.Actuaciones)-1].HuellaActuacionSHA256
 }
-
 func normalizarDefinicionSeguimiento(
 	b BorradorDefinicionSeguimiento,
 ) (BorradorDefinicionSeguimiento, error) {
@@ -592,7 +562,6 @@ func normalizarDefinicionSeguimiento(
 	}
 	return n, nil
 }
-
 func normalizarTransicionSeguimiento(
 	t *TransicionDefinidaSeguimiento,
 	estados map[ClaveCatalogo]bool,
@@ -642,7 +611,6 @@ func normalizarTransicionSeguimiento(
 	}
 	return nil
 }
-
 func efectoCompatibleConClaseSeguimiento(
 	t TransicionDefinidaSeguimiento,
 	origenFinal bool,
@@ -669,7 +637,6 @@ func efectoCompatibleConClaseSeguimiento(
 		return false
 	}
 }
-
 func normalizarRequisitoCalendario(c *RequisitoCalendarioSeguimiento) error {
 	sort.Slice(c.AmbitosPermitidos, func(i, j int) bool {
 		return c.AmbitosPermitidos[i] < c.AmbitosPermitidos[j]
@@ -690,7 +657,6 @@ func normalizarRequisitoCalendario(c *RequisitoCalendarioSeguimiento) error {
 	}
 	return nil
 }
-
 func tieneCicloSilencioso(transiciones []TransicionDefinidaSeguimiento) bool {
 	adyacencia := make(map[ClaveCatalogo][]ClaveCatalogo)
 	for _, t := range transiciones {
@@ -726,7 +692,6 @@ func tieneCicloSilencioso(transiciones []TransicionDefinidaSeguimiento) bool {
 	}
 	return false
 }
-
 func tieneDocumentoObligatorioSeguimiento(
 	documentos []RequisitoDocumentoSeguimiento,
 ) bool {
@@ -737,7 +702,6 @@ func tieneDocumentoObligatorioSeguimiento(
 	}
 	return false
 }
-
 func clonarTransicionesSeguimiento(
 	transiciones []TransicionDefinidaSeguimiento,
 ) []TransicionDefinidaSeguimiento {
@@ -747,7 +711,6 @@ func clonarTransicionesSeguimiento(
 	}
 	return clon
 }
-
 func clonarActuacionesSeguimiento(
 	actuaciones []ActuacionSeguimiento,
 ) []ActuacionSeguimiento {
@@ -757,7 +720,6 @@ func clonarActuacionesSeguimiento(
 	}
 	return clon
 }
-
 func clavesSeguimientoUnicasValidas(
 	claves []ClaveCatalogo,
 	maximo int,
@@ -777,7 +739,6 @@ func clavesSeguimientoUnicasValidas(
 	}
 	return true
 }
-
 func conjuntoClavesSeguimiento(claves []ClaveCatalogo) map[ClaveCatalogo]struct{} {
 	conjunto := make(map[ClaveCatalogo]struct{}, len(claves))
 	for _, clave := range claves {
@@ -785,14 +746,17 @@ func conjuntoClavesSeguimiento(claves []ClaveCatalogo) map[ClaveCatalogo]struct{
 	}
 	return conjunto
 }
-
 func contieneClaveSeguimiento(claves []ClaveCatalogo, buscada ClaveCatalogo) bool {
 	indice := sort.Search(len(claves), func(i int) bool {
 		return claves[i] >= buscada
 	})
 	return indice < len(claves) && claves[indice] == buscada
 }
-
 func instanteSeguimientoValido(instante time.Time) bool {
 	return instanteCanonico(instante) && instante.Year() >= 1 && instante.Year() <= 9999
+}
+
+type indiceReplaySeguimiento struct {
+	actuaciones map[string]ActuacionSeguimiento
+	periodos    map[string]int
 }

@@ -60,12 +60,10 @@ type EstadoDefinidoSeguimiento struct {
 	Clave ClaveCatalogo `json:"clave"`
 	Final bool          `json:"final"`
 }
-
 type RequisitoDocumentoSeguimiento struct {
 	TipoClave   ClaveCatalogo `json:"tipo_clave"`
 	Obligatorio bool          `json:"obligatorio"`
 }
-
 type RequisitoCalendarioSeguimiento struct {
 	AmbitosPermitidos    []ClaveCatalogo `json:"ambitos_permitidos"`
 	ResultadosPermitidos []ClaveCatalogo `json:"resultados_permitidos"`
@@ -135,7 +133,6 @@ type BorradorDefinicionSeguimiento struct {
 	Motivos                  []ClaveCatalogo                 `json:"motivos"`
 	Transiciones             []TransicionDefinidaSeguimiento `json:"transiciones"`
 }
-
 type PublicacionDefinicionSeguimiento struct {
 	Referencia               string                          `json:"referencia"`
 	Version                  uint64                          `json:"version"`
@@ -149,7 +146,6 @@ type PublicacionDefinicionSeguimiento struct {
 	Motivos                  []ClaveCatalogo                 `json:"motivos"`
 	Transiciones             []TransicionDefinidaSeguimiento `json:"transiciones"`
 }
-
 type DefinicionSeguimiento struct {
 	publicacion PublicacionDefinicionSeguimiento
 }
@@ -175,7 +171,6 @@ func PublicarDefinicionSeguimiento(
 	}
 	return DefinicionSeguimiento{publicacion: publicacion}, nil
 }
-
 func RestaurarDefinicionSeguimiento(
 	publicacion PublicacionDefinicionSeguimiento,
 ) (DefinicionSeguimiento, error) {
@@ -196,7 +191,6 @@ func RestaurarDefinicionSeguimiento(
 	}
 	return restaurada, nil
 }
-
 func (d DefinicionSeguimiento) Validar() (err error) {
 	_, err = RestaurarDefinicionSeguimiento(d.Publicacion())
 	return
@@ -210,7 +204,6 @@ func (d DefinicionSeguimiento) Referencia() ReferenciaDefinicionSeguimiento {
 func (d DefinicionSeguimiento) VigenteEn(instante time.Time) bool {
 	return d.Validar() == nil && d.publicacion.Vigencia.contiene(instante)
 }
-
 func (d DefinicionSeguimiento) Publicacion() PublicacionDefinicionSeguimiento {
 	p := d.publicacion
 	p.Estados = append([]EstadoDefinidoSeguimiento(nil), p.Estados...)
@@ -218,7 +211,6 @@ func (d DefinicionSeguimiento) Publicacion() PublicacionDefinicionSeguimiento {
 	p.Transiciones = clonarTransicionesSeguimiento(p.Transiciones)
 	return p
 }
-
 func (d DefinicionSeguimiento) transicion(
 	clave ClaveCatalogo,
 ) (TransicionDefinidaSeguimiento, bool) {
@@ -248,7 +240,6 @@ type DocumentoSeguimiento struct {
 	TipoClave  ClaveCatalogo `json:"tipo_clave"`
 	Referencia string        `json:"referencia"`
 }
-
 type EvidenciaCalendarioSeguimiento struct {
 	Referencia             string        `json:"referencia"`
 	Version                uint64        `json:"version"`
@@ -267,8 +258,7 @@ func (e EvidenciaCalendarioSeguimiento) validar() error {
 	return nil
 }
 
-// DatosTransicionSeguimiento no admite texto libre ni datos de identidad. Los
-// actores, unidades, documentos y relaciones se conservan por referencia.
+// DatosTransicionSeguimiento conserva actores y documentos por referencia.
 type DatosTransicionSeguimiento struct {
 	ActuacionRef          string                          `json:"actuacion_ref"`
 	TransicionClave       ClaveCatalogo                   `json:"transicion_clave"`
@@ -302,12 +292,10 @@ type PeriodoResultanteSeguimiento struct {
 	Intervalo    IntervaloSeguimiento `json:"intervalo"`
 	ActuacionRef string               `json:"actuacion_ref"`
 }
-
 type CeseEfectivoSeguimiento struct {
 	EfectivoEn   time.Time `json:"efectivo_en"`
 	ActuacionRef string    `json:"actuacion_ref"`
 }
-
 type ActuacionSeguimiento struct {
 	Secuencia             uint64                          `json:"secuencia"`
 	VersionSeguimiento    uint64                          `json:"version_seguimiento"`
@@ -340,7 +328,6 @@ func (a ActuacionSeguimiento) clonar() ActuacionSeguimiento {
 	a.Calendario = datos.Calendario
 	return a
 }
-
 func (a ActuacionSeguimiento) datos() DatosTransicionSeguimiento {
 	return DatosTransicionSeguimiento{
 		ActuacionRef: a.ActuacionRef, TransicionClave: a.TransicionClave,
@@ -360,7 +347,6 @@ type AltaSeguimiento struct {
 	PeriodoPrevisto IntervaloSeguimiento
 	CreadoEn        time.Time
 }
-
 type EstadoPersistidoSeguimiento struct {
 	Referencia          string                          `json:"referencia"`
 	OrganizacionRef     string                          `json:"organizacion_ref"`
@@ -391,11 +377,8 @@ func (e EstadoPersistidoSeguimiento) clonar() EstadoPersistidoSeguimiento {
 	return e
 }
 
-// Seguimiento es inmutable por valor: aplicar una transición devuelve otro
-// agregado. Sus colecciones privadas nunca se comparten con quien llama.
-type Seguimiento struct {
-	estado EstadoPersistidoSeguimiento
-}
+// Seguimiento es inmutable por valor y entrega copias defensivas.
+type Seguimiento struct{ estado EstadoPersistidoSeguimiento }
 
 func NuevoSeguimiento(
 	definicion DefinicionSeguimiento,
@@ -427,17 +410,14 @@ func NuevoSeguimiento(
 	}
 	return Seguimiento{estado: estado}, nil
 }
-
 func (s Seguimiento) Version() uint64             { return s.estado.Version }
 func (s Seguimiento) EstadoActual() ClaveCatalogo { return s.estado.EstadoActual }
-
 func (s Seguimiento) PeriodosResultantes() []PeriodoResultanteSeguimiento {
 	return append([]PeriodoResultanteSeguimiento(nil), s.estado.PeriodosResultantes...)
 }
 func (s Seguimiento) Actuaciones() []ActuacionSeguimiento {
 	return clonarActuacionesSeguimiento(s.estado.Actuaciones)
 }
-
 func (s Seguimiento) CeseEfectivo() *CeseEfectivoSeguimiento {
 	if s.estado.CeseEfectivo == nil {
 		return nil
@@ -445,14 +425,11 @@ func (s Seguimiento) CeseEfectivo() *CeseEfectivoSeguimiento {
 	cese := *s.estado.CeseEfectivo
 	return &cese
 }
-
 func (s Seguimiento) Estado() EstadoPersistidoSeguimiento { return s.estado.clonar() }
-
 func (s Seguimiento) Validar(definicion DefinicionSeguimiento) (err error) {
 	_, err = RehidratarSeguimiento(definicion, s.Estado())
 	return
 }
-
 func (s Seguimiento) Aplicar(
 	definicion DefinicionSeguimiento,
 	versionEsperada uint64,
@@ -462,14 +439,16 @@ func (s Seguimiento) Aplicar(
 	if err != nil {
 		return Seguimiento{}, err
 	}
-	return validado.aplicarSinRehidratar(definicion, versionEsperada, datos, true)
+	return validado.aplicarSinRehidratar(
+		definicion, versionEsperada, datos, true, nil,
+	)
 }
-
 func (s Seguimiento) aplicarSinRehidratar(
 	definicion DefinicionSeguimiento,
 	versionEsperada uint64,
 	datos DatosTransicionSeguimiento,
 	comprobarRepeticion bool,
+	indice *indiceReplaySeguimiento,
 ) (Seguimiento, error) {
 	normalizados, err := normalizarDatosTransicionSeguimiento(datos)
 	if err != nil {
@@ -505,11 +484,14 @@ func (s Seguimiento) aplicarSinRehidratar(
 			transicion,
 			normalizados,
 			s.estado.Actuaciones,
+			indice,
 		) != nil {
 		return Seguimiento{}, ErrTransicionInvalida
 	}
 	siguiente := s.estado
-	if aplicarEfectoPeriodoSeguimiento(&siguiente, transicion, normalizados) != nil {
+	if aplicarEfectoPeriodoSeguimiento(
+		&siguiente, transicion, normalizados, indice,
+	) != nil {
 		return Seguimiento{}, ErrTransicionInvalida
 	}
 	anterior := siguiente.HuellaRaizSHA256
@@ -539,7 +521,6 @@ func (s Seguimiento) aplicarSinRehidratar(
 	siguiente.Actuaciones = append(siguiente.Actuaciones, actuacion.clonar())
 	return Seguimiento{estado: siguiente}, nil
 }
-
 func normalizarDatosTransicionSeguimiento(
 	d DatosTransicionSeguimiento,
 ) (DatosTransicionSeguimiento, error) {
@@ -579,11 +560,11 @@ func normalizarDatosTransicionSeguimiento(
 	}
 	return n, nil
 }
-
 func validarRequisitosTransicion(
 	t TransicionDefinidaSeguimiento,
 	d DatosTransicionSeguimiento,
 	historial []ActuacionSeguimiento,
+	indice *indiceReplaySeguimiento,
 ) error {
 	if t.MotivoObligatorio && d.MotivoClave == "" ||
 		d.MotivoClave != "" && !contieneClaveSeguimiento(t.MotivosPermitidos, d.MotivoClave) ||
@@ -620,14 +601,19 @@ func validarRequisitosTransicion(
 		return ErrTransicionInvalida
 	}
 	if t.Clase == TransicionRectificacion {
-		var rectificada *ActuacionSeguimiento
-		for indice := range historial {
-			if historial[indice].ActuacionRef == d.RectificaActuacionRef {
-				rectificada = &historial[indice]
-				break
+		var rectificada ActuacionSeguimiento
+		var existe bool
+		if indice != nil {
+			rectificada, existe = indice.actuaciones[d.RectificaActuacionRef]
+		} else {
+			for posicion := range historial {
+				if historial[posicion].ActuacionRef == d.RectificaActuacionRef {
+					rectificada, existe = historial[posicion], true
+					break
+				}
 			}
 		}
-		if d.RectificaActuacionRef == "" || rectificada == nil ||
+		if d.RectificaActuacionRef == "" || !existe ||
 			(t.ExigeActorDistinto && rectificada.ActorRef == d.ActorRef) {
 			return ErrTransicionInvalida
 		}
@@ -636,11 +622,11 @@ func validarRequisitosTransicion(
 	}
 	return nil
 }
-
 func aplicarEfectoPeriodoSeguimiento(
 	estado *EstadoPersistidoSeguimiento,
 	transicion TransicionDefinidaSeguimiento,
 	datos DatosTransicionSeguimiento,
+	indice *indiceReplaySeguimiento,
 ) error {
 	switch transicion.EfectoPeriodo {
 	case EfectoPeriodoNinguno:
@@ -653,6 +639,9 @@ func aplicarEfectoPeriodoSeguimiento(
 		}
 		estado.PeriodosResultantes = append(estado.PeriodosResultantes,
 			PeriodoResultanteSeguimiento{Intervalo: *datos.Periodo, ActuacionRef: datos.ActuacionRef})
+		if indice != nil {
+			indice.periodos[datos.ActuacionRef] = 0
+		}
 	case EfectoPeriodoAmpliar:
 		if len(estado.PeriodosResultantes) == 0 || estado.CeseEfectivo != nil ||
 			datos.Periodo == nil {
@@ -665,6 +654,9 @@ func aplicarEfectoPeriodoSeguimiento(
 		}
 		estado.PeriodosResultantes = append(estado.PeriodosResultantes,
 			PeriodoResultanteSeguimiento{Intervalo: *datos.Periodo, ActuacionRef: datos.ActuacionRef})
+		if indice != nil {
+			indice.periodos[datos.ActuacionRef] = len(estado.PeriodosResultantes) - 1
+		}
 	case EfectoPeriodoCerrar:
 		if len(estado.PeriodosResultantes) == 0 || estado.CeseEfectivo != nil ||
 			datos.EfectivoEn.Before(
@@ -676,7 +668,7 @@ func aplicarEfectoPeriodoSeguimiento(
 		estado.CeseEfectivo = &CeseEfectivoSeguimiento{
 			EfectivoEn: datos.EfectivoEn, ActuacionRef: datos.ActuacionRef}
 	case EfectoPeriodoRectificarTramo:
-		return rectificarTramoSeguimiento(estado, datos)
+		return rectificarTramoSeguimiento(estado, datos, indice)
 	case EfectoPeriodoRectificarCese:
 		if estado.CeseEfectivo == nil ||
 			estado.CeseEfectivo.ActuacionRef != datos.RectificaActuacionRef ||
@@ -698,20 +690,28 @@ func aplicarEfectoPeriodoSeguimiento(
 	}
 	return nil
 }
-
 func rectificarTramoSeguimiento(
 	estado *EstadoPersistidoSeguimiento,
 	datos DatosTransicionSeguimiento,
+	indiceReplay *indiceReplaySeguimiento,
 ) error {
 	if datos.Periodo == nil || !datos.EfectivoEn.Equal(datos.Periodo.Desde) {
 		return ErrTransicionInvalida
 	}
 	indice := -1
-	for candidato := range estado.PeriodosResultantes {
-		if estado.PeriodosResultantes[candidato].ActuacionRef ==
-			datos.RectificaActuacionRef {
-			indice = candidato
-			break
+	if indiceReplay != nil {
+		var existe bool
+		indice, existe = indiceReplay.periodos[datos.RectificaActuacionRef]
+		if !existe {
+			indice = -1
+		}
+	} else {
+		for candidato := range estado.PeriodosResultantes {
+			if estado.PeriodosResultantes[candidato].ActuacionRef ==
+				datos.RectificaActuacionRef {
+				indice = candidato
+				break
+			}
 		}
 	}
 	if indice < 0 ||
@@ -730,9 +730,12 @@ func rectificarTramoSeguimiento(
 	estado.PeriodosResultantes[indice] = PeriodoResultanteSeguimiento{
 		Intervalo: *datos.Periodo, ActuacionRef: datos.ActuacionRef,
 	}
+	if indiceReplay != nil {
+		delete(indiceReplay.periodos, datos.RectificaActuacionRef)
+		indiceReplay.periodos[datos.ActuacionRef] = indice
+	}
 	return nil
 }
-
 func RehidratarSeguimiento(
 	definicion DefinicionSeguimiento,
 	estado EstadoPersistidoSeguimiento,
@@ -750,12 +753,14 @@ func RehidratarSeguimiento(
 	if err != nil || actual.estado.HuellaRaizSHA256 != estado.HuellaRaizSHA256 {
 		return Seguimiento{}, ErrSeguimientoInvalido
 	}
-	referencias := make(map[string]struct{}, len(estado.Actuaciones))
+	indiceReplay := indiceReplaySeguimiento{
+		actuaciones: make(map[string]ActuacionSeguimiento, len(estado.Actuaciones)),
+		periodos:    make(map[string]int, len(estado.PeriodosResultantes)),
+	}
 	for indice, guardada := range estado.Actuaciones {
-		if _, repetida := referencias[guardada.ActuacionRef]; repetida {
+		if _, repetida := indiceReplay.actuaciones[guardada.ActuacionRef]; repetida {
 			return Seguimiento{}, ErrSeguimientoInvalido
 		}
-		referencias[guardada.ActuacionRef] = struct{}{}
 		if guardada.Secuencia != uint64(indice+1) ||
 			guardada.VersionSeguimiento != uint64(indice+1) ||
 			guardada.HuellaAnteriorSHA256 != huellaAnteriorSeguimiento(actual.estado) ||
@@ -774,7 +779,7 @@ func RehidratarSeguimiento(
 			return Seguimiento{}, ErrSeguimientoInvalido
 		}
 		actual, err = actual.aplicarSinRehidratar(
-			definicion, actual.Version(), normalizados, false)
+			definicion, actual.Version(), normalizados, false, &indiceReplay)
 		if err != nil {
 			return Seguimiento{}, ErrSeguimientoInvalido
 		}
@@ -782,6 +787,7 @@ func RehidratarSeguimiento(
 		if generada.HuellaActuacionSHA256 != guardada.HuellaActuacionSHA256 {
 			return Seguimiento{}, ErrSeguimientoInvalido
 		}
+		indiceReplay.actuaciones[guardada.ActuacionRef] = generada
 	}
 	materialActual, errActual := materialCanonicoEstadoSeguimiento(actual.estado)
 	materialGuardado, errGuardado := materialCanonicoEstadoSeguimiento(estado)

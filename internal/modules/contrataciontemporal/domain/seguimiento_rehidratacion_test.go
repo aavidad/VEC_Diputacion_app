@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRehidratacionSeguimientoReproduceEstadoVersionPeriodosYHuellas(
@@ -27,11 +28,11 @@ func TestRehidratacionSeguimientoReproduceEstadoVersionPeriodosYHuellas(
 	if err != nil {
 		t.Fatalf("rehidratar estado completo: %v", err)
 	}
-	canonOriginal, err := SerializarEstadoSeguimientoCanonico(original.Estado())
+	canonOriginal, err := SerializarEstadoSeguimientoCanonico(definicion, original.Estado())
 	if err != nil {
 		t.Fatalf("canon original: %v", err)
 	}
-	canonRehidratado, err := SerializarEstadoSeguimientoCanonico(rehidratado.Estado())
+	canonRehidratado, err := SerializarEstadoSeguimientoCanonico(definicion, rehidratado.Estado())
 	if err != nil {
 		t.Fatalf("canon rehidratado: %v", err)
 	}
@@ -162,15 +163,13 @@ func TestCanonSeguimientoEsDeterministaYCerrado(t *testing.T) {
 		t.Fatal("el orden de entrada alteró la huella canónica de definición")
 	}
 
-	seguimiento := seguimientoCompletoParaRehidratar(
-		t,
-		definicionSeguimientoValida(t, false),
-	)
-	primero, err := SerializarEstadoSeguimientoCanonico(seguimiento.Estado())
+	definicion := definicionSeguimientoValida(t, false)
+	seguimiento := seguimientoCompletoParaRehidratar(t, definicion)
+	primero, err := SerializarEstadoSeguimientoCanonico(definicion, seguimiento.Estado())
 	if err != nil {
 		t.Fatalf("primer canon: %v", err)
 	}
-	segundo, err := SerializarEstadoSeguimientoCanonico(seguimiento.Estado())
+	segundo, err := SerializarEstadoSeguimientoCanonico(definicion, seguimiento.Estado())
 	if err != nil {
 		t.Fatalf("segundo canon: %v", err)
 	}
@@ -267,29 +266,111 @@ func TestSeguimientoRechazaColeccionesYReferenciasExcesivas(t *testing.T) {
 func TestSerializadorCanonicoRechazaEstadoInvalidoAntesDeRecorrerColecciones(
 	t *testing.T,
 ) {
+	definicion := definicionSeguimientoValida(t, false)
 	invalido := EstadoPersistidoSeguimiento{
 		Version: 0, EstadoActual: "vigente",
 		ActualizadoEn:    instanteSeguimientoBase,
 		HuellaRaizSHA256: strings.Repeat("a", 64),
 	}
-	if _, err := SerializarEstadoSeguimientoCanonico(invalido); !errors.Is(
+	if _, err := SerializarEstadoSeguimientoCanonico(definicion, invalido); !errors.Is(
 		err,
 		ErrSeguimientoInvalido,
 	) {
 		t.Fatalf("se serializó un estado estructuralmente vacío: %v", err)
 	}
 
-	definicion := definicionSeguimientoValida(t, false)
 	estado := seguimientoIncorporado(t, definicion).Estado()
 	estado.PeriodosResultantes = make(
 		[]PeriodoResultanteSeguimiento,
 		maximoActuacionesSeguimiento+1,
 	)
-	if _, err := SerializarEstadoSeguimientoCanonico(estado); !errors.Is(
+	if _, err := SerializarEstadoSeguimientoCanonico(definicion, estado); !errors.Is(
 		err,
 		ErrSeguimientoInvalido,
 	) {
 		t.Fatalf("se recorrió una colección excesiva de periodos: %v", err)
+	}
+}
+
+func TestSerializadorCanonicoRechazaRaizYProyeccionesAdulteradas(t *testing.T) {
+	definicion := definicionSeguimientoValida(t, false)
+	original := seguimientoCompletoParaRehidratar(t, definicion).Estado()
+	casos := []struct {
+		nombre    string
+		adulterar func(*EstadoPersistidoSeguimiento)
+	}{
+		{"raíz", func(e *EstadoPersistidoSeguimiento) {
+			e.OrganizacionRef = referenciaSeguimientoPrueba("otra_organizacion")
+		}},
+		{"periodo resultante", func(e *EstadoPersistidoSeguimiento) {
+			e.PeriodosResultantes[1].Intervalo.Hasta =
+				e.PeriodosResultantes[1].Intervalo.Hasta.Add(time.Hour)
+		}},
+		{"cese efectivo", func(e *EstadoPersistidoSeguimiento) {
+			e.CeseEfectivo.EfectivoEn = e.CeseEfectivo.EfectivoEn.Add(time.Hour)
+		}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			adulterado := original.clonar()
+			caso.adulterar(&adulterado)
+			if _, err := SerializarEstadoSeguimientoCanonico(
+				definicion, adulterado,
+			); !errors.Is(err, ErrSeguimientoInvalido) {
+				t.Fatalf("se serializó estado adulterado: %v", err)
+			}
+		})
+	}
+}
+
+func TestRehidratacionIndexaCadenaLargaDeRectificaciones(t *testing.T) {
+	definicion := definicionSeguimientoValida(t, false)
+	actual := seguimientoIncorporado(t, definicion)
+	estado := actual.Estado()
+	indice := indiceReplaySeguimiento{
+		actuaciones: map[string]ActuacionSeguimiento{
+			estado.Actuaciones[0].ActuacionRef: estado.Actuaciones[0],
+		},
+		periodos: map[string]int{
+			estado.PeriodosResultantes[0].ActuacionRef: 0,
+		},
+	}
+	const rectificaciones = 2_000
+	for numero := 0; numero < rectificaciones; numero++ {
+		datos := datosSeguimiento(
+			"acto_rectificacion_carga_"+cadenaDecimalSeguimiento(numero),
+			"rectificar_periodo",
+			numero+2,
+		)
+		datos.MotivoClave = "rectificacion_material"
+		if numero%2 == 0 {
+			datos.ActorRef = referenciaSeguimientoPrueba("actor_publico_opaco_02")
+		}
+		datos.RectificaActuacionRef =
+			actual.PeriodosResultantes()[0].ActuacionRef
+		datos.Periodo = punteroIntervalo(
+			actual.PeriodosResultantes()[0].Intervalo,
+		)
+		datos.EfectivoEn = datos.Periodo.Desde
+		datos.Documentos = []DocumentoSeguimiento{{
+			TipoClave: "resolucion_rectificacion",
+			Referencia: referenciaSeguimientoPrueba(
+				"documento_rectificacion_carga_" +
+					cadenaDecimalSeguimiento(numero),
+			),
+		}}
+		var err error
+		actual, err = actual.aplicarSinRehidratar(
+			definicion, actual.Version(), datos, false, &indice,
+		)
+		if err != nil {
+			t.Fatalf("construir rectificación %d: %v", numero, err)
+		}
+		generada := actual.estado.Actuaciones[len(actual.estado.Actuaciones)-1]
+		indice.actuaciones[generada.ActuacionRef] = generada
+	}
+	if _, err := RehidratarSeguimiento(definicion, actual.Estado()); err != nil {
+		t.Fatalf("rehidratar cadena indexada: %v", err)
 	}
 }
 
