@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 func TestArtefactoAnalisisDerivaAutoridadSinAceptarlaDelDTO(t *testing.T) {
@@ -162,6 +163,93 @@ func TestArtefactoAnalisisBloqueaTodosLosCodecs(t *testing.T) {
 	comprobar("yaml_decode", reconstruido.UnmarshalYAML(func(any) error {
 		return nil
 	}))
+}
+
+func TestArtefactoAnalisisLigaMotivoRCGobernadoYLimitesNumericos(
+	t *testing.T,
+) {
+	solicitud, datos := artefactoAnalisisPrueba()
+	datos.ResultadoRC = domain.RCRechazada
+	datos.FechaRC = nil
+	datos.NumeroRC = ""
+	datos.ImporteRC = nil
+	datos.DocumentoRCRef = ""
+	datos.CostePrevisto = nil
+	datos.FuenteCosteRef = ""
+	datos.ReciboCosteRef = ""
+	datos.CalculadoEn = time.Time{}
+	clave := domain.ClaveCatalogo(
+		"contratacion_temporal.rc.rechazo_sintetico",
+	)
+	datos.MotivoRC = MotivoRCGobernado{
+		ReferenciaCatalogo: dominiovec.ReferenciaEntradaCatalogo{
+			CatalogoID:           "motivos_rc_sinteticos",
+			CatalogoVersion:      1,
+			CatalogoHuellaSHA256: strings.Repeat("a", 64),
+			EntradaClave:         string(clave),
+		},
+		ClaveMensajeI18N: clave,
+	}
+	if _, err := NuevoArtefactoAnalisisPreparado(
+		solicitud,
+		datos,
+	); err != nil {
+		t.Fatalf("motivo gobernado válido rechazado: %v", err)
+	}
+	alterado := datos
+	alterado.MotivoRC.ReferenciaCatalogo.EntradaClave =
+		"contratacion_temporal.rc.otro_sintetico"
+	if _, err := NuevoArtefactoAnalisisPreparado(
+		solicitud,
+		alterado,
+	); !errors.Is(err, ErrArtefactoAnalisisNoConfiable) {
+		t.Fatalf("catálogo desligado de i18n aceptado: %v", err)
+	}
+	alterado = datos
+	alterado.MotivoRC.ReferenciaCatalogo.CatalogoVersion =
+		int(MaximoEnteroSeguroOperacionAnalisis + 1)
+	if _, err := NuevoArtefactoAnalisisPreparado(
+		solicitud,
+		alterado,
+	); !errors.Is(err, ErrArtefactoAnalisisNoConfiable) {
+		t.Fatalf("versión de catálogo fuera de JSON seguro aceptada: %v", err)
+	}
+}
+
+func TestPreimagenSemanticaLigaReferenciaYHuellaDelArtefacto(t *testing.T) {
+	solicitud, datos := artefactoAnalisisPrueba()
+	artefacto, err := NuevoArtefactoAnalisisPreparado(solicitud, datos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := DatosPreimagenesOperacionAnalisis{
+		ClaveIdempotencia:  "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+		Operacion:          OperacionRegistrarAnalisis,
+		ActorRef:           "actor:sintetico-preimagen-001",
+		PerfilRef:          "perfil:sintetico-preimagen-001",
+		SolicitudArtefacto: solicitud,
+		Artefacto:          artefacto,
+	}
+	preimagenBase, err := NuevasPreimagenesOperacionAnalisis(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bytesBase, _ := preimagenBase.BytesSemantica()
+
+	datos.ArtefactoHuellaSHA256 = strings.Repeat("b", 64)
+	otro, err := NuevoArtefactoAnalisisPreparado(solicitud, datos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base.Artefacto = otro
+	preimagenOtra, err := NuevasPreimagenesOperacionAnalisis(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bytesOtra, _ := preimagenOtra.BytesSemantica()
+	if bytes.Equal(bytesBase, bytesOtra) {
+		t.Fatal("la huella del artefacto no alteró la preimagen semántica")
+	}
 }
 
 func artefactoAnalisisPrueba() (
