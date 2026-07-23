@@ -112,6 +112,17 @@ ajenas.
   O3-02 se reconstruye desde `209ae72` sin reutilizar sus commits. La barrera y
   el procedimiento están en
   `docs/seguridad/barrera_secretos_git_2026-07-23.md`.
+- El corte reconstruido O3-02 recibió tres revisiones `NO-GO`. La tercera
+  detectó preconsumo durable de RC+coste antes del commit final, validación de
+  vigencia posterior al commit y un orquestador concreto en `ports`. El
+  rediseño candidato deja el artefacto sin consumir, mueve el orquestador a
+  `application` y transporta orden pendiente de fuentes, contexto y concesión
+  V3 a una única frontera O3-04. Esa transacción debe validar con reloj de base
+  de datos y consumir RC+coste+V3 junto con CAS, agregado, historia, auditoría,
+  recibo y outbox en un solo `COMMIT`, con rollback total. Aplicación sólo
+  valida defensivamente el recibo devuelto contra la orden, sin consultar un
+  reloj nuevo. Sigue pendiente de revisión independiente y del adaptador
+  PostgreSQL; no habilita producción.
 - `1faa8e7` implementa O3-03 con puertos neutrales para validación
   presupuestaria y cálculo de coste, ligadura de petición, copias defensivas,
   cancelación y fallo cerrado. La indisponibilidad nunca se convierte en «RC
