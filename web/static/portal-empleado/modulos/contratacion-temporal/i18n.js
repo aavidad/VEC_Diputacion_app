@@ -57,6 +57,8 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   rc_fecha: "Fecha de RC",
   rc_importe: "Importe exacto",
   rc_importe_ayuda: "Euros con dos decimales. Se enviará como céntimos enteros y moneda EUR.",
+  rc_importe_placeholder: "0,00",
+  moneda_eur: "EUR",
   rc_documento_ref: "Documento de RC incorporado",
   documentos_leyenda: "Documentación incorporada",
   documentos_ayuda:
