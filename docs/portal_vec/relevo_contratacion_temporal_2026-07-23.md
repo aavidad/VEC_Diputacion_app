@@ -83,6 +83,7 @@ ajenas.
 | Caso de uso: registrar solicitud | Implementado y probado |
 | Resto de casos de uso | Pendiente |
 | Preparación idempotente PostgreSQL | Cerrada y revisada: rotación v1→v2, replay, concurrencia, ACL y límites reales |
+| Autorización VEC durable de la preparación | Cerrada y revisada: V3, par HMAC activo exacto, revalidación y clientes neutrales |
 | Confirmación atómica PostgreSQL | Pendiente |
 | API interna | Pendiente |
 | Web conectada | Pendiente |
@@ -91,10 +92,12 @@ ajenas.
 ## Cortes locales pendientes de revisión independiente
 
 - `825e251`, `ec87e27` y `ff6011f` crean el corte VEC-AD-3 para decisiones V3
-  ligadas a contexto de actor V2: preimagen binaria con vector congelado,
-  contratos nominales no serializables y servicio neutral al cliente. Falta
-  revisión independiente y todavía no existen verificador de confianza,
-  capacidad breve ni consumidor SQL; no habilita producción.
+  ligadas a contexto de actor V2. La primera revisión fue NO-GO porque faltaba
+  ligar los compromisos privados a la preimagen. `99d3396` y `6249dba`
+  incorporan parser estricto, ligadura y validación semántica; la nueva
+  revisión exige todavía cotejar nominalmente la cuenta, método, garantía y
+  vigencias contra el contexto firmado. Tampoco existen aún verificador de
+  confianza, capacidad breve ni consumidor SQL; no habilita producción.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
   cronología de solo adición y bloqueo de retroacciones implícitas. Falta el
   caso de uso autorizado y su transacción durable; no se considera cerrado.
@@ -136,9 +139,9 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Converger O2-04 sobre la colección HMAC opaca y el adaptador V2 ya cerrados,
-   ligando también la huella exacta de petición en la decisión V3.
-2. Revisar independientemente VEC-AD-3 y completar verificador de confianza,
+1. Corregir y revisar independientemente el cruce nominal completo del parser
+   VEC-AD-3 contra el contexto firmado.
+2. Completar el verificador de confianza,
    capacidad breve y frontera consumidora.
 3. Asegurar en una sola transacción la reserva, autorización consumida,
    expediente, primera actuación, auditoría y outbox.

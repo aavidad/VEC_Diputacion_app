@@ -11,11 +11,11 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O2 — primera vertical real de alta |
-| Camino crítico | O2-04 autorización VEC → O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
-| Primera vertical | 3 de 10 tareas cerradas (30 %); O2-04 corrige la convergencia de autorización |
-| Procedimiento completo | 9 de 46 tareas cerradas (20 %); O6-01 continúa en rework |
-| Último commit verificado | `6e007c8` — O2-03 con rotación y límites PostgreSQL reales |
-| Trabajo local en revisión | Autorización O2-04, VEC-AD-3 de O2-05, dominio O3-02, fuentes O3-03, consultas O4-02 y rework O6-01 |
+| Camino crítico | O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
+| Primera vertical | 4 de 10 tareas cerradas (40 %); O2-05 es el siguiente cierre |
+| Procedimiento completo | 10 de 46 tareas cerradas (22 %); O6-01 continúa en rework |
+| Último commit verificado | `edbd0db` — O2-04 autorizado e integrado |
+| Trabajo local en revisión | Parser y confianza VEC-AD-3 de O2-05, dominio O3-02, fuentes O3-03, consultas O4-02 y rework O6-01 |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -58,7 +58,7 @@ flowchart TD
     O201["✅ O2-01<br/>Caso de uso"]
     O202["✅ O2-02<br/>Adaptador Go de preparación"]
     O203["✅ O2-03<br/>PostgreSQL y rotación"]
-    O204["🚧 O2-04<br/>Autorización VEC durable"]
+    O204["✅ O2-04<br/>Autorización VEC durable"]
     O205["🚧 O2-05<br/>Confirmación SQL atómica"]
     O206["— O2-06<br/>Adaptador y reconciliación"]
     O207["— O2-07<br/>Composición real"]
@@ -78,9 +78,12 @@ flowchart TD
     O209 --> O210
 ```
 
-O2-02 y O2-03 ya superaron revisión independiente. O2-03 demostró en tres
-ejecuciones PostgreSQL reales la convivencia HMAC v1→v2, el replay exacto, la
-concurrencia, las ACL y los límites de sentencia e inactividad.
+O2-02, O2-03 y O2-04 ya superaron revisión independiente. O2-03 demostró en
+tres ejecuciones PostgreSQL reales la convivencia HMAC v1→v2, el replay
+exacto, la concurrencia, las ACL y los límites de sentencia e inactividad.
+O2-04 demostró que esa preparación solo puede ejecutarse tras una concesión
+V3 durable, ligada al par HMAC activo exacto y sin autoridad reconstruida
+desde el cliente.
 
 ## Olas de trabajo paralelo
 
@@ -191,8 +194,8 @@ Estado actual:
 
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
-Tareas verificadas del procedimiento: 9/46 = 20 %
-Tareas locales en revisión: O2-04, O2-05, O3-02, O3-03, O4-02 y O6-01
+Tareas verificadas del procedimiento: 10/46 = 22 %
+Tareas locales en revisión: O2-05, O3-02, O3-03, O4-02 y O6-01
 ```
 
 Una tarea local no cuenta como cerrada hasta que el commit esté publicado y el
