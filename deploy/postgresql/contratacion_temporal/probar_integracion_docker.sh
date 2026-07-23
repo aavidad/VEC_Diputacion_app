@@ -185,6 +185,9 @@ ejecutar_como \
 ejecutar_como \
     vec_ct_migrador_prueba \
     pruebas_sql/verificar_privilegios_rotacion.sql >/dev/null
+ejecutar_como \
+    vec_ct_runtime_prueba \
+    pruebas_sql/rechazar_limites_ambientales_rotacion.sql >/dev/null
 esperar_fallo \
     'runtime conserva acceso a la función v1 revocada' \
     docker exec "${CONTENEDOR}" \
@@ -224,7 +227,33 @@ esperar_fallo_con_patron \
     ejecutar_como \
     vec_ct_runtime_prueba \
     pruebas_sql/bloqueo_directo_rotacion.sql
+esperar_fallo_con_patron \
+    'sentencia directa limitada antes de entrar en preparar_alta_v2' \
+    'canceling statement due to statement timeout' \
+    ejecutar_como \
+    vec_ct_runtime_prueba \
+    pruebas_sql/timeout_sentencia_directo_rotacion.sql
 wait "${pid_bloqueo}"
+
+paso 'inactividad transaccional limitada después del retorno'
+esperar_fallo_con_patron \
+    'conexión runtime inactiva terminada por el servidor' \
+    'terminating connection due to idle-in-transaction timeout' \
+    ejecutar_como \
+    vec_ct_runtime_prueba \
+    pruebas_sql/timeout_inactividad_directo_rotacion.sql
+sesiones_runtime="$(
+    docker exec "${CONTENEDOR}" \
+        psql -X --tuples-only --no-align \
+        --username postgres --dbname postgres \
+        --command \
+        "SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE usename = 'vec_ct_runtime_prueba'"
+)"
+if [[ "${sesiones_runtime}" != '0' ]]; then
+    printf 'Quedaron sesiones runtime tras el timeout: %s\n' \
+        "${sesiones_runtime}" >&2
+    exit 1
+fi
 
 paso 'concurrencia real: ocho sesiones con generaciones v2 y v1'
 ejecutar_pgbench_verificado \
