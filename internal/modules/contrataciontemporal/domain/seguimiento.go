@@ -736,13 +736,12 @@ func rectificarTramoSeguimiento(
 	}
 	return nil
 }
-func RehidratarSeguimiento(
-	definicion DefinicionSeguimiento,
-	estado EstadoPersistidoSeguimiento,
-) (Seguimiento, error) {
+func RehidratarSeguimiento(definicion DefinicionSeguimiento, estado EstadoPersistidoSeguimiento) (Seguimiento, error) {
 	if definicion.Validar() != nil ||
 		!definicion.Referencia().Coincide(estado.Definicion) ||
-		len(estado.Actuaciones) > maximoActuacionesSeguimiento {
+		len(estado.Actuaciones) > maximoActuacionesSeguimiento ||
+		len(estado.PeriodosResultantes) > maximoActuacionesSeguimiento ||
+		len(estado.PeriodosResultantes) > len(estado.Actuaciones) {
 		return Seguimiento{}, ErrSeguimientoInvalido
 	}
 	actual, err := NuevoSeguimiento(definicion, AltaSeguimiento{
