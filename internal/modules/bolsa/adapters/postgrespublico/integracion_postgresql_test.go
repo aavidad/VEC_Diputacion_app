@@ -25,7 +25,7 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 	if dsn == "" || dsnAdmin == "" || dsnPublicador == "" || ancla == "" {
 		t.Skip("integracion PostgreSQL no solicitada")
 	}
-	ctx, cancelar := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancelar := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancelar()
 	fuente, err := Abrir(
 		ctx, dsn, "categorias-profesionales", 2, strings.Repeat("b", 64),
@@ -115,6 +115,9 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 		t, ctx, fuente, admin, dsnPublicador, dsn, instante,
 	)
 	defer fuenteB.Cerrar()
+	assertTimeoutPublicadorLiberaCandadoYPermiteRecuperar(
+		t, ctx, admin, dsnPublicador,
+	)
 
 	// Cualquier DML ajeno a la publicación atómica invalida el testigo. Todas
 	// las rutas fallan cerradas antes de devolver siquiera una faceta parcial.
@@ -138,6 +141,115 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 		if err := operar(); !errors.Is(err, ErrDatosPostgreSQLPublicosNoConfiables) {
 			t.Fatalf("%s no fallo cerrada tras DML ajeno: %v", nombre, err)
 		}
+	}
+}
+
+func assertTimeoutPublicadorLiberaCandadoYPermiteRecuperar(
+	t *testing.T,
+	ctx context.Context,
+	admin *pgxpool.Pool,
+	dsnPublicador string,
+) {
+	t.Helper()
+	var payload string
+	if err := admin.QueryRow(ctx, `
+		SELECT jsonb_set(
+			payload, '{fuente,revision}', '"revision-timeout"'::jsonb
+		)::text
+		  FROM public.proyeccion_publica_prueba`).Scan(&payload); err != nil {
+		t.Fatalf("preparar fixture de timeout: %v", err)
+	}
+	publicador, err := pgx.Connect(ctx, dsnPublicador)
+	if err != nil {
+		t.Fatalf("abrir LOGIN publicador para timeout: %v", err)
+	}
+	defer publicador.Close(context.Background())
+	pid := publicador.PgConn().PID()
+	transaccion, err := publicador.Begin(ctx)
+	if err != nil {
+		t.Fatalf("iniciar publicacion que quedara idle: %v", err)
+	}
+	if _, err := transaccion.Exec(ctx, `
+		SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
+			$1::jsonb, repeat('e', 64)
+		)`, payload); err != nil {
+		t.Fatalf("publicar antes del idle timeout: %v", err)
+	}
+
+	// Supera deliberadamente los 5 s fijados en el LOGIN. PostgreSQL 18 debe
+	// terminar la sesion, abortar la transaccion y soltar el advisory xact lock.
+	time.Sleep(7 * time.Second)
+	limite := time.Now().Add(3 * time.Second)
+	for {
+		var sesiones, bloqueos int
+		if err := admin.QueryRow(ctx, `
+			SELECT count(*) FILTER (WHERE sesion.pid IS NOT NULL),
+			       count(*) FILTER (
+			           WHERE bloqueo.locktype = 'advisory'
+			             AND bloqueo.mode = 'ExclusiveLock'
+			             AND bloqueo.granted
+			       )
+			  FROM (VALUES ($1::integer)) AS objetivo(pid)
+			  LEFT JOIN pg_catalog.pg_stat_activity AS sesion
+			    ON sesion.pid = objetivo.pid
+			  LEFT JOIN pg_catalog.pg_locks AS bloqueo
+			    ON bloqueo.pid = objetivo.pid`,
+			int32(pid),
+		).Scan(&sesiones, &bloqueos); err != nil {
+			t.Fatalf("comprobar liberacion del publicador: %v", err)
+		}
+		if sesiones == 0 && bloqueos == 0 {
+			break
+		}
+		if time.Now().After(limite) {
+			t.Fatalf("timeout no libero sesion/candado: sesiones=%d bloqueos=%d", sesiones, bloqueos)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if _, err := transaccion.Exec(ctx, "SELECT 1"); err == nil {
+		t.Fatal("la sesion publicadora sobrevivio al idle timeout")
+	}
+	var revision string
+	if err := admin.QueryRow(ctx, `
+		SELECT revision FROM vec_bolsa_publica_datos.fuente
+	`).Scan(&revision); err != nil || revision != "revision-atomica-b" {
+		t.Fatalf("la publicacion abortada altero la fuente: revision=%q error=%v", revision, err)
+	}
+
+	migracion, err := admin.Begin(ctx)
+	if err != nil {
+		t.Fatalf("abrir migracion de recuperacion: %v", err)
+	}
+	var candadosDisponibles bool
+	err = migracion.QueryRow(ctx, `
+		SELECT pg_catalog.pg_try_advisory_xact_lock(
+		           pg_catalog.hashtextextended('vec_bolsa_publica:migracion:v1', 0)
+		       )
+		       AND pg_catalog.pg_try_advisory_xact_lock(
+		           pg_catalog.hashtextextended('vec_bolsa_publica:publicacion:v2', 0)
+		       )`).Scan(&candadosDisponibles)
+	_ = migracion.Rollback(context.Background())
+	if err != nil || !candadosDisponibles {
+		t.Fatalf("migracion no se recupero tras timeout: disponible=%v error=%v", candadosDisponibles, err)
+	}
+
+	var payloadRecuperacion string
+	if err := admin.QueryRow(ctx, `
+		SELECT jsonb_set(
+			payload, '{fuente,revision}', '"revision-recuperada"'::jsonb
+		)::text
+		  FROM public.proyeccion_publica_prueba`).Scan(&payloadRecuperacion); err != nil {
+		t.Fatalf("preparar publicacion de recuperacion: %v", err)
+	}
+	if err := PublicarProyeccion(
+		ctx, dsnPublicador, []byte(payloadRecuperacion), strings.Repeat("f", 64),
+	); err != nil {
+		t.Fatalf("publicacion autocommit no se recupero: %v", err)
+	}
+	if err := admin.QueryRow(ctx, `
+		SELECT revision FROM vec_bolsa_publica_datos.fuente
+	`).Scan(&revision); err != nil || revision != "revision-recuperada" {
+		t.Fatalf("publicacion recuperada no quedo confirmada: revision=%q error=%v", revision, err)
 	}
 }
 

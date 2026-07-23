@@ -186,13 +186,15 @@ CREATE ROLE vec_bolsa_publica_integracion_login LOGIN NOSUPERUSER NOCREATEDB
 	    NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS PASSWORD :'clave_lector';
 GRANT vec_bolsa_publica_consulta TO vec_bolsa_publica_integracion_login
 	    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
-CREATE ROLE vec_bolsa_publica_publicador_integracion_login LOGIN NOSUPERUSER NOCREATEDB
-	    NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS PASSWORD :'clave_publicador';
-GRANT vec_bolsa_publica_publicador TO vec_bolsa_publica_publicador_integracion_login
-	    WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+ALTER ROLE vec_bolsa_publica_publicador_login PASSWORD :'clave_publicador';
 ALTER DATABASE vec_bolsa_publica_prueba SET log_parameter_max_length_on_error = 4096;
-ALTER ROLE vec_bolsa_publica_publicador_integracion_login
-    SET log_parameter_max_length_on_error = 0;
+SET application_name = 'vec-bolsa-publicador';
+SET search_path = 'pg_catalog,pg_temp';
+SET statement_timeout = '60s';
+SET lock_timeout = '5s';
+SET idle_in_transaction_session_timeout = '5s';
+SET transaction_timeout = '2min';
+SET log_parameter_max_length_on_error = 0;
 
 CREATE TABLE public.proyeccion_publica_prueba(payload jsonb NOT NULL);
 REVOKE ALL ON public.proyeccion_publica_prueba FROM PUBLIC;
@@ -252,7 +254,7 @@ SELECT pg_catalog.set_config(
 );
 \o
 
-SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
+SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_login;
 SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
     current_setting('vec.prueba_proyeccion_publica')::jsonb,
 '33929a8b6abbab2c1b57aac36a3070f475610f59fdd064a0b0a3e7f760cf8807'
@@ -262,7 +264,7 @@ RESET SESSION AUTHORIZATION;
 -- El historial es monotono incluso después de A→B o de invalidar A a cero.
 -- Cada escenario se revierte para que los tests Go sigan arrancando sobre A.
 BEGIN;
-SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
+SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_login;
 SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
     jsonb_set(
         current_setting('vec.prueba_proyeccion_publica')::jsonb,
@@ -298,7 +300,7 @@ SET ROLE vec_bolsa_publica_propietario;
 UPDATE vec_bolsa_publica_datos.categoria_publica
    SET etiqueta = 'Etiqueta alterada que no puede publicarse';
 RESET ROLE;
-SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
+SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_login;
 DO $rechazar_despues_de_cero$
 BEGIN
     PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
@@ -324,7 +326,7 @@ ROLLBACK;
 
 -- Todas las allowlists anidadas rechazan una clave personal desconocida. Las
 -- excepciones se capturan y sus mensajes no incluyen el valor rechazado.
-SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
+SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_login;
 DO $rechazar_campos_desconocidos$
 DECLARE
     base jsonb;
@@ -458,7 +460,7 @@ SELECT string_agg(
   JOIN pg_catalog.pg_roles AS grupo ON grupo.oid = membresia.roleid
   JOIN pg_catalog.pg_roles AS miembro ON miembro.oid = membresia.member
  WHERE grupo.rolname LIKE 'vec_bolsa_publica_%'")
-membresias_esperadas='vec_bolsa_publica_consulta>vec_bolsa_publica_integracion_login:false:true:false,vec_bolsa_publica_propietario>vec_bolsa_publica_migrador:false:false:true,vec_bolsa_publica_publicacion_propietario>vec_bolsa_publica_migrador:false:false:true,vec_bolsa_publica_publicador>vec_bolsa_publica_publicador_integracion_login:false:true:false'
+membresias_esperadas='vec_bolsa_publica_consulta>vec_bolsa_publica_integracion_login:false:true:false,vec_bolsa_publica_propietario>vec_bolsa_publica_migrador:false:false:true,vec_bolsa_publica_publicacion_propietario>vec_bolsa_publica_migrador:false:false:true,vec_bolsa_publica_publicador>vec_bolsa_publica_publicador_login:false:true:false'
 if [[ "$membresias" != "$membresias_esperadas" ]]; then
     echo "membresias tecnicas inesperadas: $membresias" >&2
     exit 1
@@ -499,30 +501,61 @@ SELECT
         'vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2(jsonb,text[])', 'EXECUTE'
     )::text
  || ':' ||
+    has_function_privilege(
+        'vec_bolsa_publica_publicador_login',
+        'vec_bolsa_publica_publicacion.publicar_proyeccion_v2(jsonb,text)', 'EXECUTE'
+    )::text
+ || ':' ||
     has_table_privilege(
-        'vec_bolsa_publica_publicador_integracion_login',
+        'vec_bolsa_publica_publicador_login',
         'public.proyeccion_publica_prueba', 'SELECT'
     )::text")
-if [[ "$acl_funcion" != "12:4:0:0:true:false:true:false:false" ]]; then
+if [[ "$acl_funcion" != "12:4:0:0:true:false:false:false:true:false" ]]; then
     echo "ACL de publicacion inesperada: $acl_funcion" >&2
     exit 1
 fi
 
+# Incluso un EXECUTE concedido por error a otro LOGIN queda cerrado por la
+# identidad exacta que exige la funcion. Se usa un JSON vacio sin datos.
+docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" --command \
+    "GRANT USAGE ON SCHEMA vec_bolsa_publica_publicacion
+         TO vec_bolsa_publica_integracion_login;
+     GRANT EXECUTE ON FUNCTION
+         vec_bolsa_publica_publicacion.publicar_proyeccion_v2(jsonb,text)
+         TO vec_bolsa_publica_integracion_login" >/dev/null
 if docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
-    --username vec_bolsa_publica_publicador_integracion_login --dbname "$base" \
+    --username vec_bolsa_publica_integracion_login --dbname "$base" \
+    --command \
+    "SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
+         '{}'::jsonb, repeat('9', 64)
+     )" >/dev/null 2>&1; then
+    echo "un LOGIN ajeno con EXECUTE atraveso la identidad publicadora" >&2
+    exit 1
+fi
+docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" --command \
+    "REVOKE EXECUTE ON FUNCTION
+         vec_bolsa_publica_publicacion.publicar_proyeccion_v2(jsonb,text)
+         FROM vec_bolsa_publica_integracion_login;
+     REVOKE USAGE ON SCHEMA vec_bolsa_publica_publicacion
+         FROM vec_bolsa_publica_integracion_login" >/dev/null
+
+if docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
+    --username vec_bolsa_publica_publicador_login --dbname "$base" \
     --command 'SET ROLE vec_bolsa_publica_publicador' >/dev/null 2>&1; then
     echo "el LOGIN publicador pudo ejecutar SET ROLE" >&2
     exit 1
 fi
 if docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
-    --username vec_bolsa_publica_publicador_integracion_login --dbname "$base" \
+    --username vec_bolsa_publica_publicador_login --dbname "$base" \
     --command "INSERT INTO vec_bolsa_publica_datos.manifiesto_consumido VALUES (repeat('d',64))" \
     >/dev/null 2>&1; then
     echo "el LOGIN publicador obtuvo DML directo" >&2
     exit 1
 fi
 if docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
-    --username vec_bolsa_publica_publicador_integracion_login --dbname "$base" \
+    --username vec_bolsa_publica_publicador_login --dbname "$base" \
     --command "SELECT vec_bolsa_publica_publicacion.objeto_jsonb_exacto_v2('{}', ARRAY[]::text[])" \
     >/dev/null 2>&1; then
     echo "el LOGIN publicador pudo ejecutar la funcion auxiliar" >&2
@@ -549,7 +582,7 @@ if [[ ! "$puerto" =~ ^[0-9]+$ ]]; then
 fi
 dsn_lector="postgres://vec_bolsa_publica_integracion_login:${clave_lector}@localhost:${puerto}/${base}?sslmode=verify-full&sslrootcert=${directorio_tls}/ca.crt"
 dsn_admin="postgres://postgres:${clave_admin}@localhost:${puerto}/${base}?sslmode=verify-full&sslrootcert=${directorio_tls}/ca.crt"
-dsn_publicador="postgres://vec_bolsa_publica_publicador_integracion_login:${clave_publicador}@localhost:${puerto}/${base}?sslmode=verify-full&sslrootcert=${directorio_tls}/ca.crt"
+dsn_publicador="postgres://vec_bolsa_publica_publicador_login:${clave_publicador}@localhost:${puerto}/${base}?sslmode=verify-full&sslrootcert=${directorio_tls}/ca.crt"
 
 GOCACHE="$cache_go" \
 VEC_PRUEBA_BOLSA_PUBLICA_DSN="$dsn_lector" \
@@ -577,7 +610,13 @@ fi
 docker exec --interactive "$contenedor" psql -X --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base" \
     >"$directorio_tls/publicador_concurrente.log" 2>&1 <<'SQL' &
-SET application_name = 'vec-publicador-concurrente';
+SET application_name = 'vec-bolsa-publicador';
+SET search_path = 'pg_catalog,pg_temp';
+SET statement_timeout = '60s';
+SET lock_timeout = '5s';
+SET idle_in_transaction_session_timeout = '5s';
+SET transaction_timeout = '2min';
+SET log_parameter_max_length_on_error = 0;
 BEGIN;
 \o /dev/null
 SELECT pg_catalog.set_config(
@@ -586,7 +625,7 @@ SELECT pg_catalog.set_config(
     false
 );
 \o
-SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_integracion_login;
+SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_login;
 SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
     jsonb_set(
         current_setting('vec.prueba_proyeccion_publica')::jsonb,
@@ -608,7 +647,7 @@ SELECT count(*)
   JOIN pg_catalog.pg_stat_activity AS sesion ON sesion.pid = bloqueo.pid
  WHERE bloqueo.locktype = 'advisory' AND bloqueo.mode = 'ExclusiveLock'
    AND bloqueo.granted
-   AND sesion.application_name = 'vec-publicador-concurrente'")
+   AND sesion.application_name = 'vec-bolsa-publicador'")
     [[ "$bloqueo_publicador" == "1" ]] && break
     sleep 0.1
 done
@@ -628,7 +667,7 @@ lectura_a=$(docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
        CROSS JOIN vec_bolsa_publica_lectura.convocatorias_publicadas_v2 AS convocatoria
       GROUP BY fuente.revision;
      COMMIT" | sed -n '3p')
-if [[ "$lectura_a" != "revision-atomica-b:2" ]]; then
+if [[ "$lectura_a" != "revision-recuperada:2" ]]; then
     echo "un lector MVCC no termino sobre la ultima instantanea confirmada: $lectura_a" >&2
     wait "$pid_publicador" || true
     exit 1
@@ -703,9 +742,7 @@ fi
 docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
 	    --username postgres --dbname "$base" --command \
 	    'REVOKE vec_bolsa_publica_consulta FROM vec_bolsa_publica_integracion_login;
-	     REVOKE vec_bolsa_publica_publicador FROM vec_bolsa_publica_publicador_integracion_login;
-	     DROP ROLE vec_bolsa_publica_integracion_login;
-	     DROP ROLE vec_bolsa_publica_publicador_integracion_login'
+	     DROP ROLE vec_bolsa_publica_integracion_login'
 docker exec --interactive "$contenedor" psql -X --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base" \
     <"$raiz/deploy/postgresql/bolsa_publica/roles_down.sql"
