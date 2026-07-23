@@ -87,6 +87,21 @@ ajenas.
 | Web conectada | Pendiente |
 | E2E administrativo | Pendiente |
 
+## Cortes locales pendientes de revisión independiente
+
+- `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
+  cronología de solo adición y bloqueo de retroacciones implícitas. Falta el
+  caso de uso autorizado y su transacción durable; no se considera cerrado.
+- `1faa8e7` implementa O3-03 con puertos neutrales para validación
+  presupuestaria y cálculo de coste, ligadura de petición, copias defensivas,
+  cancelación y fallo cerrado. La indisponibilidad nunca se convierte en «RC
+  no requerida» ni en coste válido. Falta revisión independiente antes de
+  cerrar la tarea.
+
+Estos contratos no dependen de HTTP, cookies ni almacenamiento de navegador.
+Los consumirán por igual web, escritorio, CLI y MCP a través de los casos de
+uso comunes.
+
 ## Permisos iniciales
 
 - `contratacion_temporal.cuadro.consultar`
