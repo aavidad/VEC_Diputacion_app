@@ -3709,3 +3709,901 @@ adulteración campo a campo, opacidad y PostgreSQL 18. Los commits relevantes
 son `04784fa`, `d31c812`, `7d2351e`, `22379ca` y `61f3a6e`. Este corte no declara
 T20E, UAT ni producción: faltan el servicio de registro V3, su confirmación
 durable, composición con Bolsa y las pruebas de reinicio/concurrencia globales.
+
+## DEC-103 — Consumo nominal V3 de autorización en borradores de convocatorias
+
+Fecha: 22 de julio de 2026. Estado: diseño corregido tras tres revisiones y
+pendiente de nueva revisión independiente; permanece en **NO-GO**, no está
+implementado, no habilita HTTP ni producción y no cierra T20.
+
+### Contexto y frontera existente
+
+El recorrido actual de alta y actualización nace en
+`internal/modules/bolsa/application/gobiernoconvocatorias/fachada_borradores.go`.
+`ContextoOperacionBorrador`, `OrdenCrearBorrador` y
+`OrdenActualizarBorrador` reciben `ContextoActor` y
+`VinculoAutenticacionActorV1`. `ServicioBorradores` materializa intención,
+recurso e identidad idempotente, y `AutorizadorIntencionBorrador` devuelve una
+`ConcesionBorradorDurable` formada por
+`EvidenciaUsoDecisionAutorizacion` V1 y `ProyeccionAtestacionPDP`.
+
+Esa forma V1 atraviesa `ProyeccionDecisionDiario`,
+`SolicitudReservaDecisionBorrador`, el AAD del KMS y
+`ProyeccionReciboBorrador`. El adaptador
+`internal/modules/bolsa/adapters/postgres/confirmacion_borradores_serializacion.go`
+extrae expresamente `s.Concesion.Evidencia.Datos()` y persiste el canon V1. El
+recibo vuelve a comprometer esa proyección en
+`recibo_canonico_borradores.go`. Por tanto, colocar una comprobación V3 delante
+del recorrido y continuar después por V1 sería una doble autorización y una
+degradación, no una composición V3.
+
+La superficie existente también queda identificada sin modificarla:
+`HandlerBorradores` expone `RutaBorradores`,
+`/api/vec/bolsa/convocatorias/borradores`, con `POST` para alta, y su detalle
+`/{id}/versiones/{secuencia}` con `PUT` para actualización. Sus cuerpos exigen
+`vec.bolsa.borrador.crear.v1` y `vec.bolsa.borrador.actualizar.v1`. Esta
+decisión no los recompone, no añade selección V3 por cabecera o cuerpo y no
+cambia las rutas de lectura. Una composición HTTP posterior tendrá que decidir
+explícitamente la superficie compatible y probar que no enruta una entrada V1
+al recorrido V3 ni una entrada V3 al recorrido V1.
+
+La autorización ligada V3 ya dispone de solicitud, evaluación, decisión,
+registro y confirmación nominales en
+`internal/vec/domain/autorizacion_solicitud_ligada_v3.go`,
+`internal/vec/domain/autorizacion_decision_ligada_v3.go`,
+`internal/vec/ports/autorizacion_solicitud_ligada_v3.go` e
+`internal/vec/application/autorizacion_servicio_solicitud_v3.go`. La
+evaluación sigue sin ser ejecutable: solo una
+`ConfirmacionRegistroConcesionAutorizacionLigadaV3` fabricada después del CAS y
+el `COMMIT` puede avanzar hacia un efecto.
+
+### Decisión: vía paralela y nominal
+
+Se añadirá una vía V3 completa y paralela. No se añadirá un discriminante
+opcional a los tipos V1, un `any`, una interfaz que admita indistintamente
+evidencias históricas y nuevas ni una conversión entre versiones. Los símbolos
+V1 citados, sus representaciones, recibos, fixtures, tablas y funciones quedan
+congelados byte a byte. Sus pruebas doradas se convierten en puerta permanente
+de toda entrega V3.
+
+La vía nueva usará nombres nominales, inicialmente dentro de
+`gobiernoconvocatorias`, como mínimo:
+
+- `ContextoOperacionBorradorLigadoV3`;
+- `OrdenCrearBorradorLigadoV3` y `OrdenActualizarBorradorLigadoV3`;
+- `ConcesionBorradorConfirmadaLigadaV3`;
+- `ResultadoOperacionBorradorRechazadaLigadaV3`, incompatible con la concesión;
+- `ProyeccionDecisionDiarioLigadaV3` y
+  `SolicitudReservaDecisionBorradorLigadaV3`;
+- `AADCanonicaCifradoBorradorLigadoV3`;
+- `ProyeccionReciboBorradorLigadoV3`.
+
+No se exportará un constructor capaz de fabricar la concesión confirmada desde
+una decisión evaluada, bytes, DTO o referencias sueltas. Tampoco habrá parser,
+codec general ni método de downgrade.
+
+### Contexto de operación V3
+
+`ContextoOperacionBorradorLigadoV3` conservará, mediante copias defensivas:
+
+- el `ResultadoContextoActorRegistradoV2` completo;
+- el `VinculoAutenticacionActorV2` creado para ese resultado;
+- una `ReferenciaCorrelacionAutorizacionV2` nominal.
+
+Su construcción será exclusivamente interna a la frontera autenticada del
+servidor. Validará que vínculo, resultado registrado, autoridad efectiva,
+cuenta, persona, perfil, versiones y ventanas coinciden exactamente. No
+aceptará actor, `rca_`, perfil, versiones, correlación ni solicitud de
+autorización procedentes del cuerpo, query o cabeceras declarativas del
+cliente. La futura fachada HTTP solo entregará contenido editable; la
+composición resolverá este contexto antes de invocar Bolsa.
+
+La `SolicitudAutorizacionLigadaV3` se construirá dentro del servicio después
+de materializar la versión candidata y obtener mediante
+`RecursoAutorizableMutacionConvocatoria` el recurso exacto. Acción, módulo,
+tipo, ámbitos, atributos, finalidad, motivo y correlación se derivarán de la
+intención y del contexto gobernados. Recibir una solicitud V3 ya construida
+desde HTTP queda prohibido.
+
+### Concesión confirmada opaca
+
+El servicio llamará a `AutorizadorSolicitudLigadaV3` con la solicitud exacta y
+el resultado registrado V2. Solo si devuelve conjuntamente una
+`DecisionAutorizacionLigadaV3` concedida y una
+`ConfirmacionRegistroConcesionAutorizacionLigadaV3` válida se podrá construir
+`ConcesionBorradorConfirmadaLigadaV3`.
+
+El constructor privado cotejará de nuevo solicitud, decisión, huella,
+`DecisionRef`, ventana y registro. Una denegación, un error técnico, una
+cancelación, una decisión evaluada sin confirmación, una confirmación ajena o
+una confirmación fuera de ventana devolverán el valor cero y no podrán crear
+una orden de diario o de KMS. El tipo será opaco, no serializable y no será por
+sí mismo un bearer token: solo autoriza a pedir el consumo autoritativo ligado
+a una operación exacta.
+
+La extracción deliberada para persistencia devolverá únicamente copias de la
+decisión canónica V3 y la proyección mínima de confirmación necesaria para que
+el adaptador invoque la función exterior cerrada. No expondrá el contenido del
+borrador, motivo libre, clave de idempotencia ni material secreto.
+
+Una decisión inicialmente denegada nunca construirá esa concesión. La vía V3
+añadirá una confirmación nominal distinta del registro de denegación, sin
+capacidad de efecto, y entregará decisión, operación y consumo preasignado a la
+misma función exterior de Bolsa. Esta adquirirá el advisory L/F, obtendrá un
+testigo negativo y confirmará consumo, rechazo canónico y auditoría en una sola
+transacción, sin diario de reserva, KMS, outbox ni mutación. El registro de
+denegaciones histórico que no devuelve confirmación seguirá siendo solo
+telemetría/auditoría V1 y no se promocionará ni se convertirá a V3.
+
+### Consumo inmutable y estado separado
+
+Antes de iniciar el protocolo se preasignará una referencia de consumo y se
+prepararán sus campos gobernados. La primera función PostgreSQL fijará su
+`creado_en` autoritativo, construirá y persistirá la identidad canónica
+inmutable bajo el esquema `vec.autorizacion.consumo-borrador.v3`. La misma
+preimagen se usará tanto si la
+operación termina concedida como si termina rechazada; una denegación no podrá
+inventar a posteriori otra identidad. Contendrá, en orden cerrado:
+
+1. `esquema`, `consumo_ref` y `creado_en` autoritativo;
+2. esquema, referencia y SHA-256 de la decisión y de su prueba de registro;
+3. acción, módulo, tipo de recurso, recurso, huella de contexto y finalidad;
+4. identidad L/F HMAC, `epoch`, revisión y cercado objetivo;
+5. referencia de correlación técnica y referencia de despliegue, sin actor,
+   perfil, `rca_`, motivo libre ni contenido.
+
+La referencia se reservará antes de codificar y no pertenecerá a su propia
+huella. PostgreSQL devolverá la preimagen y huella confirmadas; Go las
+reconstruirá y cotejará antes de continuar. Ambos usarán los mismos bytes y
+almacenarán preimagen y SHA-256. Una colisión de referencia con cualquier byte
+distinto
+abortará; ninguna actualización podrá modificar esa fila.
+
+El ciclo de vida no será un campo mutable de esa preimagen. Una tabla nominal
+separada conservará eventos append-only
+`vec.autorizacion.estado-consumo-borrador.v3`, cada uno con referencia propia,
+secuencia, estado anterior, estado nuevo, instante, causa catalogada y huellas
+del consumo y de la prueba o rechazo que lo autoriza. Solo admitirá
+`preparado -> reservado -> aplicado`, `preparado -> rechazado` o
+`reservado -> no_aplicado`; una proyección reconstruible ofrecerá el estado
+actual. AAD, pruebas y recibos referenciarán siempre la identidad y huella
+inmutables del consumo y, cuando proceda, el evento exacto de estado; nunca
+recalcularán la identidad a partir del estado actual.
+
+### Proyección V3 del diario
+
+`ProyeccionDecisionDiarioLigadaV3` será un tipo nuevo; no reutilizará
+`ProyeccionDecisionDiario`. Comprometerá como mínimo:
+
+- esquema exacto de decisión V3, `DecisionRef` y huella SHA-256;
+- acción, recurso, módulo, tipo, huella de contexto de recurso y finalidad;
+- revisiones y huellas RBAC/ABAC selladas por la decisión;
+- `registrada_en`, `emitida_en` y `valida_hasta` canónicos;
+- referencia y huella de la identidad inmutable del consumo V3 y referencia y
+  huella de su evento `reservado`, para la identidad primaria, revisión y
+  cercado exactos del diario.
+
+La proyección durable no incluirá principal, perfil de usuario, `rca_`, motivo
+en claro, clave cliente ni bytes completos de contexto. Esos datos permanecen
+en sus autoridades y se releen por la decisión registrada. Una proyección
+copiada o alterada no acreditará consumo ni permitirá reanudar otra operación.
+
+### Consumo y reacreditación atómicos
+
+La confirmación Go no sustituye la autoridad PostgreSQL. Antes de crear una
+reserva, PostgreSQL deberá consumir o reconciliar la concesión V3 por
+`DecisionRef` y huella dentro de la misma transacción `SERIALIZABLE` que crea
+o reclama la reserva del borrador.
+
+La frontera exterior de Bolsa será una función `SECURITY DEFINER` propia del
+esquema de Bolsa. Esa función invocará, varias veces pero siempre dentro de la
+misma transacción, una única función exterior cerrada de `vec_autorizacion`.
+La función de autorización tendrá fases nominales y cerradas —preparar y
+confirmar reserva; preparar y confirmar aplicación—, y será la única que
+invoque la acreditación exterior de `vec_contexto_actor_v1`. No existirán
+cuatro funciones públicas ni una función auxiliar invocable por el runtime.
+
+Bolsa expondrá además exactamente una función exterior de solo acreditación,
+`vec_bolsa_convocatorias.acreditar_testigo_precondicion_borrador_ligado_v3(...)`. No
+será invocable por ningún runtime: solo la función de autorización, bajo su
+propietario `NOLOGIN`, tendrá `EXECUTE`. Confirmar-reserva y
+confirmar-aplicación la invocarán por sí mismas; no recibirán del llamador un
+booleano, timestamp, huella o DTO que afirme que el lock/CAS ocurrió.
+
+La primera fase de cada transacción creará un marcador de fase ligado a
+`pg_current_xact_id()`, decisión, consumo, identidad de operación y parámetros
+exactos, además de adquirir locks transaccionales. La segunda exigirá ese
+marcador en la misma transacción, repetirá todas las comprobaciones y lo
+convertirá, sin borrarlo, en la prueba durable correspondiente. Un constraint
+trigger diferido de autorización rechazará el `COMMIT` si queda una fase
+`preparada`; solo admitirá el terminal de éxito `confirmada` con su prueba o el
+terminal funcional `rechazada` definido más abajo.
+
+Antes de la primera llamada, la función exterior insertará además un guardia
+de protocolo en su propio esquema de Bolsa, ligado al mismo XID, consumo y
+operación. Tras preparar autorización, una rutina privada de Bolsa adquirirá
+siempre el mismo advisory de identidad L/F y el lock real de la
+revisión/cercado objetivo —o acreditará su ausencia bajo ese advisory—. Bajo
+esos locks emitirá uno de dos tipos nominales incompatibles:
+
+- `vec.bolsa.testigo-precondicion-positiva-borrador.v1`, solo si la fila,
+  revisión, cercado y estado observados satisfacen exactamente el CAS;
+- `vec.bolsa.testigo-precondicion-negativa-borrador.v1`, si la autorización ya
+  fue denegada o la precondición no se cumple; incluirá clase y código
+  catalogados y la huella técnica mínima del estado observado, nunca datos de
+  negocio.
+
+El `SELECT ... FOR UPDATE` o advisory, la observación y la transición del
+guardia a `precondicion_positiva` o `precondicion_negativa`, con referencia,
+preimagen y huella de testigo, ocurrirán en una única sentencia/CTE cerrada.
+No se modificará aún el estado de negocio. La rutina no tendrá grant de
+ejecución y nadie salvo el propietario `NOLOGIN` de la función exterior tendrá
+DML sobre guardias.
+
+La función exterior de acreditación solo releerá ese guardia para el
+`pg_current_xact_id()` y la operación exacta. No tomará un nuevo lock, no
+mutará Bolsa y no devolverá fila si el guardia no contiene uno de esos dos
+testigos canónicos. Así, confirmar autorización o persistir un rechazo antes
+del lock real, con otro XID o con un testigo inventado es imposible desde las
+superficies concedidas. La función de autorización almacenará la referencia,
+preimagen y huella obtenidas. Un testigo positivo permitirá sellar la prueba
+de éxito; uno negativo solo permitirá sellar el resultado de rechazo nominal.
+
+El CAS de negocio se ejecutará exclusivamente después de obtener la prueba de
+autorización positiva y mientras se conservan los mismos locks. Deberá afectar
+exactamente una fila y concordar con el testigo positivo; cero o más de una
+fila será un defecto de protocolo que aborta, no un rechazo reconstruido. Así,
+la aplicación nunca precede a la autorización y un CAS negativo sí puede hacer
+`COMMIT` como desenlace probado sin fingir que llegó a aplicarse.
+
+El constraint trigger diferido de Bolsa exigirá que el guardia termine
+enlazado a la reserva o, en la transacción final, al efecto y recibo locales
+exactos y a la referencia de prueba devuelta por autorización; alternativamente
+deberá quedar ligado al rechazo canónico y al evento negativo exactos, con
+ausencia demostrada de los objetos de éxito. Así, un retorno después de
+confirmar autorización o rechazo pero antes de completar Bolsa tampoco puede
+hacer `COMMIT`. Los marcadores y guardias serán filas nominales distintas para
+reserva y aplicación y solo admitirán las transiciones publicadas.
+
+Una segunda fase directa, repetida, reordenada, con otro XID o con un solo
+campo distinto fallará cerrada. El runtime de Bolsa no tendrá `EXECUTE` sobre
+la función de autorización; solo el propietario `NOLOGIN` de la función
+exterior de Bolsa podrá invocarla.
+
+Las llamadas anidadas compartirán sesión, transacción, instantánea y resultado
+de `COMMIT`. La función de autorización no tendrá privilegios sobre tablas de
+Bolsa: solo podrá usar la acreditación exterior anterior. La función de Bolsa
+no accederá directamente a tablas de autorización o contexto. No se
+consultarán tablas ajenas desde Go ni se transportará un veredicto entre
+transacciones.
+
+Dentro de autorización, preparar y confirmar conservarán exactamente el orden
+de locks ya implantado por
+`deploy/postgresql/autorizacion/migraciones/000006_funcion_registro_decisiones_contexto_actor_v3.up.sql`:
+contexto primero; advisory y decisión/consumo ordenados; checkpoint de motivo;
+asignación; rol y su control; catálogo y manifiesto completo de políticas en
+orden `COLLATE "C"`; y sesión. Todo ese conjunto se adquiere antes del primer
+lock de Bolsa. Confirmar hará la segunda acreditación de contexto y releerá el
+mismo conjunto ya bloqueado en ese orden, incluidas las filas exactas de
+contexto retenidas por la primera acreditación; si cambió un puntero, rechazará
+sin adquirir filas nuevas y solo después consultará el testigo exterior de
+Bolsa. Así, registro V3 y consumo comparten orden; no existe un camino que
+retenga un lock de Bolsa y solicite por primera vez un lock de contexto o
+autorización.
+
+El orden global de bloqueos seguirá la autoridad de contexto ya fijada para
+V3:
+
+1. la función exterior de Bolsa crea su guardia local y llama a la fase
+   preparar-reserva; esta hace la primera acreditación de contexto y adquiere
+   los locks de autorización en el orden anterior;
+2. al volver a Bolsa, la rutina privada adquiere el lock/advisory real de la
+   identidad primaria, revisión y cercado del diario y emite el testigo
+   positivo o negativo sin cambiar negocio;
+3. Bolsa llama a confirmar-reserva; autorización exige el marcador/XID,
+   repite la acreditación y revalidación completas e invoca por sí misma la
+   acreditación exterior del testigo. El positivo sella la prueba de reserva;
+   el negativo sella exclusivamente un rechazo canónico;
+4. solo en el camino positivo Bolsa aplica el CAS, inserta reserva y evento de
+   consumo ligados a la prueba y completa el guardia; el camino negativo
+   inserta resultado, auditoría y evento terminal de rechazo sin reserva ni
+   efecto;
+5. consumo, prueba y reserva, o consumo, rechazo y terminal negativo, hacen
+   `COMMIT` juntos o ninguno existe.
+
+Toda salida durable —éxito, denegación, expiración, CAS negativo,
+`no_aplicado` y reconciliación— adquirirá el mismo advisory L/F antes de su
+`COMMIT`. No existirá un retorno temprano de autorización que confirme un
+terminal sin ese lock. La consulta inicial del diario podrá ser una lectura
+optimista sin lock; si no devuelve un recibo terminal verificable, el camino
+de escritura adquirirá primero contexto/autorización y después L/F, releerá el
+diario bajo lock y decidirá. Cualquier reconciliación que necesite ambas
+autoridades seguirá el mismo orden; ningún camino retendrá L/F y pedirá por
+primera vez un lock de contexto o autorización.
+
+El consumo se ligará de forma única a decisión y huella, identidad primaria
+HMAC, acción, recurso, revisión y cercado. Un replay exacto devolverá la misma
+reserva/consumo; la misma decisión para otra identidad, acción, recurso o epoch
+será una colisión cerrada. Si la reserva falla, el consumo se revierte. Si el
+`COMMIT` se confirma, ambos existen; si su respuesta se pierde, ninguno se
+presume.
+
+La transacción final creará primero su guardia local y usará
+preparar-aplicación antes de sus locks de Bolsa. La rutina privada bloqueará la
+reserva, diario y agregado exactos y emitirá el testigo positivo o negativo de
+la precondición del CAS de versión sin efectuar aún la mutación.
+Confirmar-aplicación, después de esos locks y de la comprobación KMS V3,
+repetirá la acreditación y revalidación completas, acreditará el testigo por la
+función exterior y sellará la prueba positiva o el rechazo nominal
+inmediatamente antes del efecto o terminal. Ambas fases
+cotejarán decisión, huella, acción, recurso, L/F, revisión y cercado, aplicarán
+la ventana half-open con tiempo autoritativo y revalidarán no solo el contexto,
+sino también asignación, versión y control de rol, catálogo completo de
+políticas, motivo y sesión contra los punteros y huellas actuales. Expiración o
+avance RBAC/ABAC entre reserva, KMS y efecto impedirá la aplicación aunque el
+contexto siga activo.
+
+En un solo `COMMIT`, el camino positivo sellará la prueba de aplicación,
+aplicará entonces el CAS de la versión, insertará el evento `aplicado`,
+auditoría, outbox y recibo V3 y completará el guardia. El negativo insertará el
+evento `no_aplicado`, el resultado de rechazo y su auditoría, sin tocar el
+agregado ni producir outbox o recibo de éxito. Los dos constraints diferidos
+impedirán confirmar cualquiera de los dos terminales con el lado de
+autorización o el de Bolsa incompleto.
+
+Una denegación funcional, revocación o expiración descubierta en cualquiera de
+las dos fases no se expresará lanzando una excepción después de dejar un
+marcador `preparada`. La función de autorización devolverá un resultado nominal
+cerrado `vec.autorizacion.rechazo-consumo-borrador.v3`; su marcador pasará una
+sola vez a `rechazada` y no emitirá ninguna de las tres pruebas de éxito. Su
+preimagen inmutable contendrá, en orden: esquema y `rechazo_ref`; fase nominal
+—registro, reserva o aplicación—; decisión referencia/huella; consumo
+referencia/huella; acción, recurso, L/F, epoch, revisión y cercado; referencia
+y huella del testigo negativo; código catalogado; e instante autoritativo. No
+contendrá actor, persona, perfil, `rca_`, motivo libre, estado del borrador ni
+otro dato personal. La referencia se preasignará y la SHA-256 quedará fuera de
+su propia preimagen.
+
+La función exterior de Bolsa cerrará su guardia como `rechazado`, ligado a ese
+resultado exacto, y su constraint exigirá el advisory L/F y ausencia de
+reserva nueva, efecto, outbox y recibo de éxito. En reserva el consumo quedará
+con evento `rechazado`; en aplicación el consumo ya reservado recibirá el
+evento `no_aplicado`. Resultado, evento append-only y auditoría de rechazo
+harán `COMMIT` juntos y su replay exacto devolverá los mismos bytes y
+referencias. Una función no podrá prometer ese terminal y después descubrir
+que el CAS negativo era falso: el testigo negativo se habrá emitido bajo el
+lock real antes de construir el rechazo.
+
+Un defecto de protocolo —fase omitida, testigo ausente o inconsistente,
+parámetro/XID distinto— sí abortará toda la transacción mediante excepción o
+constraint y no prometerá auditoría durable de ese intento. Lo mismo rige para
+`40001`, `40P01`, cancelación de sentencia y cualquier error que PostgreSQL
+confirme como rollback: no se fabricará `rechazada` ni `no_aplicado` desde una
+transacción abortada. Un fallo de `COMMIT` ambiguo se resolverá únicamente por
+reconciliación de guardia, consumo y resultado terminal.
+
+### Tres pruebas canónicas de acreditación
+
+El recibo distinguirá tres hitos autoritativos, no tres copias del
+`timestamptz` que hoy devuelve
+`vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(...)`:
+
+1. prueba del registro confirmado de la decisión V3, concedida o denegada;
+2. prueba de reacreditación y consumo durante la reserva;
+3. prueba de reacreditación inmediatamente anterior a la aplicación.
+
+La primera será emitida por `vec_autorizacion` exclusivamente a partir de la
+fila canónica de decisión y sus tiempos autoritativos, y hará
+`COMMIT` atómico con ella. La confirmación Go solo se construirá después de ese
+`COMMIT`; no formará parte de la preimagen ni fabricará la referencia de prueba.
+Una prueba cuyo resultado sea denegado solo podrá alimentar consumo y rechazo
+negativos; el constructor de concesión y las pruebas positivas la rechazarán.
+Las otras dos serán emitidas y persistidas por `vec_autorizacion`, que es la
+autoridad que observa las respuestas de contexto y revalida la autorización;
+no se atribuirán a la función de contexto referencias que esta no emite. La
+prueba de reserva comprometerá las observaciones anterior y posterior a locks
+de su transacción, y la prueba de aplicación hará lo mismo con las
+observaciones de la transacción final.
+
+Cada prueba tendrá tipo, tabla y preimagen nominal propios, sin una estructura
+común con campos opcionales. El DAG normativo será acíclico: `decisión ->
+prueba de registro`; `(decisión, prueba de registro, operación) -> consumo`;
+`(decisión, prueba de registro, consumo, observaciones, testigo de reserva) ->
+prueba de reserva`; `(decisión, prueba de registro, consumo, prueba de reserva)
+-> AAD`; `(AAD, consumo, prueba de reserva, sobre cifrado y atestación KMS) ->
+comprobación KMS preefecto`; `(pruebas de registro y reserva, consumo, AAD,
+comprobación KMS, observaciones y testigo positivo de aplicación) -> prueba de
+aplicación`; `(AAD, consumo, comprobación KMS, tres pruebas, efecto, auditoría
+y outbox) -> recibo`.
+
+La operación exacta, las dos observaciones de vigencia y el testigo de lock son
+entradas adicionales en reserva y aplicación, nunca descendientes que vuelvan
+a sus antecesores. Ninguna prueba contiene su propia huella ni referencia o
+huella de un descendiente. En particular, la prueba de registro no contiene
+consumo, L/F, revisión, cercado, AAD ni dato futuro de Bolsa. Se creará junto a
+la decisión registrada; una decisión histórica sin esta prueba será no
+consumible por V3 y no se completará desde Go ni con datos inventados.
+
+La vía V3 no reutilizará `AcreditacionKMSConfirmacionBorrador` V1: esa forma
+compromete el cuerpo de un recibo provisional y volvería cíclico el DAG nuevo.
+Usará dos contratos nominales. La atestación de cifrado V3 comprometerá perfil,
+clave/version, AAD, envoltura, sobre y tiempos, pero ninguna prueba de
+aplicación, efecto o recibo. Inmediatamente antes del efecto, el conector KMS
+emitirá `vec.bolsa.comprobacion-kms-preefecto-borrador.v3`, cuya preimagen
+contendrá esquema y referencia; atestación referencia/huella; consumo
+referencia/huella; AAD esquema/huella; envoltura y sobre SHA-256; perfil y
+clave/version; instante y ventana comprobados; y verificador. Su referencia se
+preasignará y su huella quedará fuera de la preimagen.
+
+La comprobación KMS V3 será entrada de la prueba de aplicación y del recibo,
+nunca descendiente de ellos. No contendrá `recibo_ref`, huella de cuerpo de
+recibo, prueba de aplicación, auditoría, outbox ni efecto. La verificación
+poscommit reconstruirá de forma independiente atestación y comprobación y
+después verificará el recibo; no pedirá al KMS que firme una preimagen que ya
+contenga el resultado que esa firma debe autorizar.
+
+La preimagen `vec.autorizacion.prueba-registro-decision-borrador.v3` contendrá,
+en este orden exacto:
+
+1. `esquema`, `prueba_registro_ref` y `autoridad_registro`;
+2. `decision_esquema`, fijado a
+   `vec.autorizacion.decision.v3.solicitud-ligada.actor-v2`, `decision_ref` y
+   `decision_huella_sha256`;
+3. `resultado`, codificado exactamente como `concedida` o `denegada`,
+   `emitida_en`, `valida_hasta` y `registrada_en`.
+
+No tiene campos de operación. Su referencia opaca se reservará antes de
+codificar y su SHA-256 se calculará después. Reserva y aplicación exigirán
+resultado `concedida`; el resultado `denegada` solo será válido para el canon
+de consumo, el testigo negativo y el rechazo terminal.
+
+Las dos revalidaciones usarán un subcanon interno, no una cuarta prueba
+intercambiable,
+`vec.autorizacion.observacion-vigencia-borrador.v1`. Su preimagen contendrá en
+orden: esquema y fase nominal —solo `reserva_pre`, `reserva_post`,
+`aplicacion_pre` o `aplicacion_post`—; decisión referencia/huella; autoridad,
+referencia de registro, esquema y huella del resultado de contexto y huella de
+manifiesto; instante devuelto por contexto; `motivo_checkpoint_ultima_secuencia`,
+`motivo_catalogo_id`, `motivo_catalogo_version`,
+`motivo_catalogo_huella_sha256` y `motivo_entrada_clave`; asignación
+referencia/huella; rol referencia/huella y control de rol
+referencia/revisión/huella; catálogo revisión/huella y huellas de los
+manifiestos completos de políticas evaluadas y aplicables ordenados
+`COLLATE "C"`; control de sesión referencia/revisión/huella, vigencia y tiempo
+autoritativo observado. Autorización conservará esos bytes, ligados por prueba
+y fase; la prueba llevará su esquema y SHA-256 como `observacion_pre` y
+`observacion_post`.
+
+La preimagen
+`vec.autorizacion.prueba-reacreditacion-reserva-borrador.v1` contendrá, en este
+orden exacto:
+
+1. `esquema` y `prueba_reserva_ref`;
+2. `prueba_registro_esquema`, `prueba_registro_ref` y
+   `prueba_registro_huella_sha256`;
+3. `decision_esquema`, `decision_ref` y `decision_huella_sha256`;
+4. `consumo_esquema`, `consumo_ref` y `consumo_huella_sha256`, preasignados
+   antes de esta prueba;
+5. `accion`, `modulo`, `tipo_recurso`, `recurso_ref`,
+   `contexto_recurso_huella_sha256` y `finalidad`;
+6. `identidad_l_hmac`, `fingerprint_f_hmac`, `epoch`, `revision` y `fence`;
+7. `emitida_en` y `valida_hasta` de la decisión;
+8. `observacion_pre_esquema` y `observacion_pre_huella_sha256` de reserva;
+9. `testigo_precondicion_esquema`, `testigo_precondicion_ref` y
+   `testigo_precondicion_huella_sha256` positivos de reserva;
+10. `observacion_post_esquema`, `observacion_post_huella_sha256` y
+    `reacreditada_reserva_en`.
+
+La preimagen
+`vec.autorizacion.prueba-reacreditacion-aplicacion-borrador.v1` contendrá, en
+este orden exacto:
+
+1. `esquema` y `prueba_aplicacion_ref`;
+2. `prueba_registro_esquema`, `prueba_registro_ref` y
+   `prueba_registro_huella_sha256`;
+3. `prueba_reserva_esquema`, `prueba_reserva_ref` y
+   `prueba_reserva_huella_sha256`;
+4. `decision_esquema`, `decision_ref` y `decision_huella_sha256`;
+5. `consumo_esquema`, `consumo_ref`, `consumo_huella_sha256` y referencia y
+   huella del evento append-only que acredita el estado `reservado`;
+6. `accion`, `modulo`, `tipo_recurso`, `recurso_ref`,
+   `contexto_recurso_huella_sha256`, `finalidad`, `identidad_l_hmac`,
+   `fingerprint_f_hmac`, `epoch`, `revision` y `fence`;
+7. `aad_esquema` y `aad_huella_sha256` ya sellados;
+8. `observacion_pre_esquema` y `observacion_pre_huella_sha256` de aplicación;
+9. `testigo_precondicion_esquema`, `testigo_precondicion_ref` y
+   `testigo_precondicion_huella_sha256` positivos de aplicación;
+10. `observacion_post_esquema` y `observacion_post_huella_sha256`;
+11. `comprobacion_kms_preefecto_esquema`, referencia y huella, y
+    `reacreditada_aplicacion_en`.
+
+No contiene efecto, auditoría, outbox ni recibo: estos dependen de la prueba de
+aplicación y se insertan después en la misma transacción. Los testigos positivos
+y negativos tendrán esquemas distintos para reserva y aplicación. Sus
+preimágenes ordenarán `esquema`, referencia, `guardia_ref`, fase, `xid8`,
+acción, recurso, consumo referencia/huella, identidad L/F HMAC, epoch,
+revisión, cercado, clase y objetivo de lock, resultado de precondición, código
+catalogado, huella mínima del estado observado e instante acreditado. El
+positivo exige resultado `cumplida` y código `ok`; el negativo prohíbe ambos.
+Ninguno incluirá su propia huella.
+
+Todas las referencias de prueba y testigo se preasignarán antes de codificar;
+su huella propia se calculará después y se almacenará fuera de la preimagen.
+
+El canon será una secuencia en el orden cerrado publicado para cada esquema.
+Cada campo se codificará como bytes UTF-8 precedidos por su longitud `uint64`
+big-endian; no habrá JSON, delimitadores, campos omitidos, `NULL` ni valores
+opcionales. Enteros serán decimales ASCII sin signo ni ceros iniciales,
+booleanos serán `true` o `false`, huellas SHA-256 serán hex minúsculo y tiempos
+tendrán exactamente
+`YYYY-MM-DDTHH:MM:SS.ffffffZ`. Los campos de texto libre no pertenecen a estas
+preimágenes. SQL y Go reconstruirán exactamente esos bytes y calcularán
+SHA-256 mediante los mismos vectores positivos y negativos.
+
+Las tablas de autorización conservarán las preimágenes completas. Bolsa, AAD
+y recibo solo conservarán referencia, esquema y huella de cada prueba. El AAD,
+creado antes de la aplicación, incluirá las pruebas de registro y reserva; el
+recibo V3 incluirá esas dos y la prueba de aplicación. Así, la observación
+inmediatamente anterior al efecto queda inequívocamente comprometida sin
+duplicar `rca_`, principal o perfil en Bolsa.
+
+### Topología y privilegios
+
+`vec_contexto_actor_v1`, `vec_autorizacion` y
+`vec_bolsa_convocatorias` deberán residir en el mismo clúster PostgreSQL y,
+específicamente, en la misma base de datos. Compartir servidor pero usar bases
+distintas, FDW, doble escritura, outbox o consenso en aplicación no satisface
+la atomicidad. Una réplica síncrona o nodo tras proxy solo será admisible como
+parte del mismo clúster lógico y nunca para repartir una misma operación entre
+transacciones.
+
+La coincidencia no se inferirá de DSN, host, puerto, IP, certificado, nombre de
+servicio ni destino observado por el cliente: proxies, balanceadores, HA y
+DNS pueden hacerlos iguales o distintos sin probar identidad de base. El
+despliegue provisionará una autoridad mínima separada,
+`vec_infraestructura.identidad_despliegue_base_v1`, con propietario `NOLOGIN`
+y una única fila `control_id = true`. La fila contendrá una referencia
+aleatoria e inmutable de despliegue, el `system_identifier` lógico del clúster,
+OID y nombre de base y el instante de alta.
+
+La función cerrada
+`vec_infraestructura.obtener_identidad_despliegue_base_v1()` devolverá una
+tupla canónica y su huella; obtendrá `system_identifier` mediante
+`pg_catalog.pg_control_system()` bajo el privilegio cerrado de su propietario
+y cotejará OID y nombre con la sesión actual. No aceptará estos valores como
+argumentos.
+
+Un clon físico contiene necesariamente la misma fila y no puede distinguirse
+del original usando solo datos clonados. Por ello el control de despliegue
+generará además una referencia esperada aleatoria por entorno, custodiada fuera
+de la base y excluida de sus backups. No procederá de DSN ni de una petición.
+Los tres pools recibirán esa misma referencia por configuración sellada,
+consultarán la función exacta con sus credenciales y exigirán que coincida con
+la fila y que la tupla/huella completa coincida entre pools. La función exterior
+de Bolsa recibirá esa referencia y la huella observada como parámetros
+gobernados del adaptador, volverá a obtener la identidad en servidor y las
+ligará al marcador transaccional antes del primer consumo; no aceptará valores
+procedentes de HTTP.
+
+Restaurar o clonar para otro entorno exigirá provisionar una referencia nueva
+tanto en el ancla externa como en la fila, antes de habilitar runtimes, aunque
+conserve `system_identifier` y OID. Reutilizar el ancla de otro entorno queda
+prohibido porque haría indistinguible una copia física completa. Ausencia,
+cardinalidad distinta de uno, valor cero, cambio, rotación unilateral o
+divergencia mantendrán la vía V3 sin construir y fallarán cerrados.
+
+Los esquemas conservarán propietarios `NOLOGIN` y runtimes separados, sin
+membresías ni `SET ROLE`. Además del propietario de infraestructura habrá tres
+autoridades `NOLOGIN` diferentes y sin membresía mutua:
+
+1. `vec_bolsa_mutador_borradores_v3_owner`, propietario exclusivo de la
+   función exterior de mutación y con DML mínimo sobre guardias, diario,
+   auditoría y outbox de Bolsa; puede ejecutar la única función exterior de
+   consumo, pero no la acreditación de testigos;
+2. `vec_bolsa_testigo_borradores_v3_owner`, propietario exclusivo de la
+   función de acreditación de testigos; solo puede leer las columnas exactas
+   de guardias necesarias, no mutarlas, ejecutar la mutación ni acceder a
+   autorización o contexto;
+3. `vec_autorizacion_consumo_borradores_v3_owner`, propietario de marcadores,
+   consumos, eventos, pruebas y rechazos de autorización; puede ejecutar la
+   acreditación de contexto y la función exacta del testigo, pero no la
+   mutación de Bolsa ni sus helpers.
+
+Los tres runtimes solo recibirán sobre `vec_infraestructura` el `USAGE`
+imprescindible y `EXECUTE` sobre la firma exacta de consulta de identidad. El
+runtime de Bolsa solo recibirá además `EXECUTE` sobre la función exterior de
+Bolsa. PostgreSQL puede requerir `USAGE` para resolver un nombre calificado de
+otro schema: se concederá ese `USAGE` técnico mínimo, nunca como sustituto de
+permisos sobre objetos. El mutador recibirá `USAGE` sobre `vec_autorizacion` y
+`EXECUTE` únicamente sobre la función exterior exacta de consumo. La autoridad
+de autorización recibirá el `USAGE` mínimo sobre `vec_contexto_actor_v1` y
+`EXECUTE` solo sobre su acreditación exterior; sobre Bolsa recibirá únicamente
+`USAGE` y `EXECUTE` de
+`acreditar_testigo_precondicion_borrador_ligado_v3(...)`.
+
+No habrá `SELECT`, `INSERT`, `UPDATE`, `DELETE` o `TRUNCATE` cruzados fuera de
+las vistas/columnas expresamente citadas, ejecución de helpers cruzados,
+`EXECUTE` por `PUBLIC` ni privilegio sobre ninguna otra función. Los catálogos
+efectivos, `PUBLIC`, membresías, propiedad y privilegios heredados se auditarán
+como parte del contrato. Que dos funciones tengan el mismo propietario será
+una condición de **NO-GO**, aunque sus grants aparenten estar cerrados.
+
+Toda función `SECURITY DEFINER` de este recorrido fijará en `proconfig`
+`search_path = pg_catalog` y `TimeZone = UTC`, calificará cada objeto no
+`pg_catalog`, tendrá firma cerrada sin argumentos por defecto, variádicos ni
+overloads y no usará SQL dinámico. Cada función nueva revocará el `EXECUTE`
+implícito de `PUBLIC` en la misma migración que la crea y solo después concederá
+la firma exacta.
+
+La ausencia de `CREATE` para runtimes y `PUBLIC` sobre la base y los esquemas
+preexistentes será una precondición de bootstrap comprobada en catálogos, no
+una mutación lateral de esta feature. Si la ACL heredada es más amplia, la vía
+V3 no se construirá. Corregirla exigirá una migración de infraestructura
+separada que capture la ACL anterior, obtenga aprobación explícita y disponga
+de restauración exacta; el `down` de V3 no fingirá reponer privilegios que no
+creó. En schemas nuevos, la migración fijará propietario y ACL cerrada desde su
+creación y podrá retirarlos solo mientras estén vacíos.
+
+La migración y las pruebas verificarán `prosecdef`, propietario, lenguaje,
+volatilidad, `proconfig`, firma mediante `regprocedure`, ACL efectiva y huella
+de la definición instalada; una función homónima o alterada no será aceptada.
+
+### AAD y recibo canónicos nuevos
+
+El AAD actual `bolsa.convocatoria.borrador.aad.v1` y el recibo actual
+`bolsa.convocatoria.borrador.recibo.v2` permanecen intactos. La vía ligada V3
+usará esquemas nuevos: `bolsa.convocatoria.borrador.aad.v2` y
+`bolsa.convocatoria.borrador.recibo.v3`. La diferencia de números es
+intencional: cada familia conserva su propia secuencia histórica.
+
+El AAD V2 conservará los compromisos actuales de versión, material,
+idempotencia, lease, fence, política/perfil, sellado, correlación y
+procedencia, y añadirá el esquema de autorización V3, `DecisionRef`, huella de
+decisión, referencia/huella inmutables de consumo, evento de reserva y tiempos
+de registro y validez. No
+incluirá principal, perfil de usuario, `rca_`, motivo en claro ni contenido.
+También comprometerá por esquema, referencia y huella las pruebas canónicas de
+registro y de reserva; la prueba de aplicación aún no existe al cifrar.
+
+El recibo V3 comprometerá la misma prueba mínima y las tres pruebas canónicas
+de registro, reserva y aplicación por esquema, referencia y huella, además de
+la comprobación KMS preefecto V3, identidad inmutable y evento aplicado del
+consumo, revisión, cercado, auditoría, outbox y procedencia. No copiará el
+resultado de contexto ni la decisión completa:
+verificadores autorizados los releerán en sus esquemas por referencias y
+huellas. Lectores de recibos despacharán por esquema hacia parsers nominales
+separados; nunca convertirán un recibo V3 en V2 ni viceversa.
+
+### Idempotencia, replay y `COMMIT` ambiguo
+
+Se conserva la regla actual: consultar el diario por L/F sucede antes de crear
+una nueva decisión. Un recibo confirmado se devuelve desde el diario sin
+reejecutar PDP ni KMS. Una reserva vigente solo puede continuar con el consumo
+V3 exacto que quedó ligado a ella.
+
+Tras un fallo de `COMMIT` en reserva o confirmación que no acredite un aborto
+definitivo, la respuesta será `ErrOperacionBorradorIndeterminada`; no se
+invocará KMS ni se reintentará el efecto a ciegas. `40001`, `40P01` y un
+rollback confirmado por PostgreSQL prueban que ese intento no hizo `COMMIT` y
+se tratarán como aborto definitivo, sin inventar un resultado aplicado. Un
+timeout, cancelación o fallo de transporte que compita con `COMMIT` seguirá
+siendo ambiguo aunque el contexto local esté cancelado.
+
+Ante ambigüedad, la reconciliación esperará el mismo lock de operación y
+determinará por la identidad primaria si consumo y reserva, o efecto y recibo,
+quedaron confirmados. Solo una prueba durable de `no_aplicado` y lease vencido
+permitirá reclamar un epoch superior. Esa reclamación exigirá una nueva
+concesión V3 y conservará para auditoría el consumo anterior; una concesión
+consumida nunca se reciclará para otro epoch.
+
+Una decisión registrada cuyo `COMMIT` fue incierto pero que nunca alcanzó el
+diario puede quedar como evidencia huérfana de evaluación confirmada. No crea
+un efecto ni se compensa borrándola. Una petición posterior podrá producir una
+nueva decisión; L/F y el diario siguen siendo la autoridad contra efectos
+duplicados.
+
+### Orden de efectos y compensación
+
+El orden obligatorio será:
+
+1. validar y clonar contexto V2;
+2. preparar intención, material y recurso exactos;
+3. evaluar y registrar la decisión V3 hasta obtener confirmación durable;
+4. preparar la identidad inmutable de consumo y la fase de autorización de
+   reserva —adquiriendo primero contexto y autorización—; solo después
+   adquirir L/F, emitir el testigo positivo o negativo y confirmar
+   prueba/reserva o rechazo en un `COMMIT` PostgreSQL único;
+5. solo tras reserva confirmada o reconciliada, sellar motivo y resolver
+   política/perfil;
+6. invocar el KMS fuera de la transacción de reserva y con plazo local;
+7. abrir la transacción final, preparar autorización, bloquear Bolsa, emitir
+   testigo positivo o negativo, obtener la comprobación KMS V3 independiente,
+   confirmar prueba o rechazo y solo en el camino positivo aplicar CAS,
+   auditoría, outbox, evento de consumo y recibo V3;
+8. confirmar `COMMIT`, releer/verificar el recibo y responder.
+
+No habrá compensación que borre decisiones, consumos, auditoría o recibos. Un
+fallo anterior a reserva no produce efecto de Bolsa. Un fallo posterior deja
+una reserva reconciliable; al demostrar `no_aplicado` se cierra su epoch y se
+registra el desenlace. Material KMS no persistido se borra de memoria. Un
+`COMMIT` confirmado nunca se convierte en cancelado por una cancelación tardía.
+
+### Migración y rollback
+
+Las migraciones serán aditivas. Crearán tablas, índices, funciones y grants V3
+separados y no alterarán objetos V1, bytes existentes ni fixtures históricos.
+La instalación verificará presencia, firma, propietario y ACL de las funciones
+exteriores requeridas de contexto, autorización, testigo de Bolsa e identidad
+de despliegue y abortará si la topología no es la decidida. Antes de ejecutar
+DDL comprobará también que las ACL globales y
+preexistentes ya cumplen la precondición sin `CREATE` para runtimes/`PUBLIC`;
+la migración funcional no las corregirá ni dejará a su `down` una restauración
+imposible.
+
+La entrega se desplegará primero como baseline V3-aware: migraciones, lectores,
+verificadores y reconciliación presentes, pero escritores y rutas V3
+físicamente desactivados. Solo después de que todos los nodos acrediten ese
+baseline podrá activarse el primer escritor.
+
+Antes de existir filas V3, un `down` podrá revocar grants y retirar únicamente
+los objetos nuevos y vacíos, restaurando solo ACL que esa misma migración haya
+creado. Desde el primer consumo, prueba o recibo V3 no se
+permitirá rollback a un binario pre-V3 ni ejecutar `down`: ese binario no puede
+leer ni reconciliar lo que desconoce. El único destino de rollback admisible
+será el artefacto baseline V3-aware previamente desplegado, que detendrá nuevas
+operaciones pero conservará lectura, verificación y reconciliación. Ningún
+`down` borrará evidencia ni intentará reconstruir V1 desde V3.
+
+La activación seguirá desconectada de HTTP y producción hasta que migración,
+adaptadores, servicio, reconciliación y E2E estén revisados conjuntamente. No
+habrá fallback automático a V1 cuando falte un objeto V3, falle una ACL o no
+coincidan clúster/base.
+
+### Privacidad y auditoría
+
+Diario, AAD, recibo, auditoría de Bolsa y logs conservarán solo referencias
+técnicas, HMAC y huellas necesarias. Principal, perfil, `rca_`, manifiesto de
+procedencia, motivo y contenido permanecerán en sus autoridades o en el sobre
+cifrado. No se incluirán DSN, SQL, material KMS ni PII en `Error`, `fmt`,
+`slog`, métricas o trazas.
+
+La autoridad de autorización conservará el enlace completo entre decisión,
+resultado de contexto y consumo. Bolsa conservará la prueba mínima de que ese
+enlace fue reacreditado y consumido para la operación exacta. La auditoría
+registrará resultado, tiempos autoritativos, revisión, cercado, referencias y
+huellas, incluidas denegación, conflicto, expiración, `no_aplicado` y
+reconciliación, sin registrar entradas editables, solo cuando su terminal haya
+hecho `COMMIT`. Un `40001`, `40P01`, constraint de protocolo o rollback
+confirmado no dejará una falsa auditoría durable; podrá producir únicamente
+telemetría técnica saneada, diferenciada de evidencia de negocio.
+
+### Pruebas bloqueantes
+
+Antes de componer cualquier ruta deberán pasar, como mínimo:
+
+- vectores dorados V1 de intención, diario, AAD y recibo byte a byte sin
+  cambios;
+- separación nominal y rechazo de codecs, reflexión, typed nil y valores cero
+  de todos los contratos V3;
+- ligadura exacta entre resultado V2, vínculo V2, motivo, solicitud, decisión,
+  confirmación, intención, recurso y operación;
+- vectores comunes del consumo inmutable y de cada evento de estado separado;
+  ninguna transición puede modificar preimagen/huella del consumo, saltar
+  secuencia, crear dos cabezas o reutilizar identidad con otro byte;
+- prueba de que evaluación concedida sin confirmación no invoca diario,
+  sellador, política, KMS ni confirmador;
+- protocolo bifásico nominal: `confirmar` sin `preparar`, segundo paso repetido,
+  pasos reordenados, XID distinto, cambio de cualquier parámetro y llamada
+  directa por el runtime deben fallar; confirmar antes del lock, fabricar o
+  copiar un testigo positivo o negativo, invocar directamente su acreditación
+  o alterar el guardia sin el `FOR UPDATE`/advisory real tampoco deben producir
+  prueba ni rechazo durable; retornos de
+  la función exterior después de crear el guardia, después de `preparar` y
+  después de `confirmar` pero antes de reserva o efecto deben impedir el
+  `COMMIT` mediante los constraints diferidos locales;
+- denegación, confirmación ajena, huella alterada y ventana half-open, incluida
+  expiración mientras se esperan locks o entre reserva y aplicación;
+- revocación de contexto y avance concurrente de asignación, rol, catálogo de
+  política, motivo, sesión, punteros RBAC/ABAC, revisión, epoch o fence: si se
+  inicia entre fases debe quedar serializado después o causar rechazo/`40001`,
+  nunca saltarse los locks; si se hace visible entre reserva y aplicación, la
+  validación final completa debe rechazar antes del efecto;
+- terminales de rechazo: una denegación funcional de fase 1 o 2 debe hacer
+  `COMMIT` idempotente como `rechazada` y, si ya existía reserva,
+  `no_aplicado`, con auditoría y sin prueba de éxito, reserva nueva, efecto,
+  outbox o recibo; un defecto de protocolo, `40001`, `40P01` o rollback
+  confirmado no debe dejar esos terminales ni afirmar auditoría durable;
+- vectores del rechazo canónico para cada fase/código, ausencia exacta de PII y
+  prueba de que denegación, CAS negativo, `no_aplicado` y reconciliación
+  adquieren el mismo advisory L/F antes de confirmar; una carrera nunca puede
+  producir dos terminales distintos;
+- cancelación antes y durante PDP, antes de reserva, durante `COMMIT`, después
+  de reserva y durante KMS, incluido que una cancelación tardía no borra un
+  resultado durable;
+- orden observable `confirmación V3 -> preparar reserva -> lock Bolsa ->
+  testigo -> acreditar testigo/confirmar reserva -> CAS/reserva -> COMMIT ->
+  KMS -> preparar aplicación -> locks Bolsa -> testigo -> acreditar
+  testigo/confirmar aplicación -> efecto -> COMMIT -> verificación`;
+- replay exacto, colisión de `DecisionRef` o huella, reutilización para otra
+  L/F, recurso o epoch, y reclamación con fence creciente;
+- separación nominal KMS V1/V3: la comprobación V3 no contiene recibo, prueba
+  de aplicación, efecto, auditoría ni outbox; vectores del DAG deben detectar
+  cualquier arista inversa o ciclo y demostrar que la aplicación y el recibo
+  dependen de ella, nunca al revés;
+- vectores comunes Go/PostgreSQL para los tres cánones de prueba —registro de
+  decisión, reacreditación de reserva y reacreditación de aplicación—, con
+  preimágenes y referencias no intercambiables; deben congelar el DAG, ausencia
+  de autorreferencia y de descendientes, ausencia de L/F/consumo en registro,
+  observaciones antes/después de locks, testigos reales y que la tercera se
+  sella inmediatamente antes del efecto en la misma transacción;
+- `uint64` máximo sin paso por `int64`, UTC/microsegundos y ventanas
+  half-open;
+- carreras coordinadas por locks reales, expiración mientras se espera,
+  interbloqueos, `40001`, `40P01`, lock timeout y `COMMIT` ambiguo;
+- carreras entre
+  `vec_autorizacion.registrar_decision_contexto_actor_v3(...)`,
+  preparar/confirmar reserva y preparar/confirmar aplicación que verifiquen el
+  orden único `contexto -> advisory/decisión -> motivo -> asignación -> rol ->
+  catálogo/políticas -> sesión -> Bolsa`, sin ciclos ni locks nuevos en fase 2;
+- distinción entre rollback confirmado (`40001`, `40P01` u otra respuesta
+  autoritativa de aborto) e indeterminación por transporte, cancelación o
+  timeout concurrentes con `COMMIT`, sin reintento ciego;
+- caída/reinicio entre cada frontera y reconciliación positiva y negativa sin
+  pausas temporales como oráculo;
+- endurecimiento de cada `SECURITY DEFINER`: propietario NOLOGIN, firma
+  `regprocedure` única, `search_path=pg_catalog`, `TimeZone=UTC`, nombres no-pg
+  totalmente cualificados, ausencia de SQL dinámico, defaults, variádicas y
+  sobrecargas, `PUBLIC EXECUTE` revocado en objetos nuevos, ACL efectiva mínima
+  y huella de definición/proconfig esperada; matriz negativa que demuestre los
+  tres propietarios NOLOGIN separados —mutador, testigo y autorización— y
+  prohíba membresía, propiedad compartida o ejecución cruzada adicional;
+- bootstrap fail-closed cuando runtimes o `PUBLIC` conservan `CREATE` global o
+  preexistente; la migración funcional no debe mutar esa ACL, y una remediación
+  de infraestructura independiente debe restaurar exactamente su estado
+  capturado;
+- ACL efectivas, `PUBLIC`, membresías, funciones auxiliares y topología de
+  clúster/base; mismo host/puerto tras proxy con identidad distinta, tres DSN
+  distintos hacia la misma identidad lógica, réplica/HA, coincidencia de
+  `deployment_ref`, `system_identifier`, OID y nombre de base, clon sin rotar
+  la fila o el ancla externa, rotación unilateral, reutilización prohibida del
+  ancla, identidad ausente o múltiple y cambio entre sonda y consumo; cualquier
+  divergencia debe fallar antes de un efecto;
+- vectores comunes Go/PostgreSQL/KMS para AAD V2, atestación y comprobación KMS
+  V3 y recibo V3, presencia exacta de las pruebas que corresponden a cada uno,
+  adulteración campo a campo, ausencia de ciclos y borrado de buffers;
+- `up`, `down` vacío, rechazo de `down` destructivo con evidencia, rechazo de
+  un binario pre-V3 desde la primera fila, prueba de que `down` solo revierte
+  objetos/grants propios y rollback exclusivo al baseline V3-aware con lectura,
+  verificación y reconciliación conservadas;
+- suite normal, repetición, carrera, `go vet`, PostgreSQL soportado y E2E con
+  reinicio y concurrencia.
+
+### Secuencia propuesta de commits pequeños
+
+1. DEC-103 y revisión independiente, sin código.
+2. Contexto, órdenes y concesión opaca V3 en aplicación, con dobles y pruebas
+   de no capacidad; sin diario ni composición.
+3. Cánones nominales de consumo inmutable, eventos de estado, rechazo y las
+   tres pruebas, con vectores compartidos Go/PostgreSQL y todos los V1
+   inmutables; sin persistencia.
+4. Proyección de diario V3, AAD V2, atestación/comprobación KMS V3 y recibo V3,
+   con codecs, DAG y vectores propios; sin acceso a base de datos.
+5. Migración de identidad autoritativa de despliegue/base, ACL de objetos
+   nuevos y preflight fail-closed de ACL preexistentes sin repararlas, con
+   pruebas SQL; sin consumo ni bootstrap de aplicación.
+6. Migración PostgreSQL de testigos positivos/negativos y protocolo bifásico
+   de consumo/reacreditación, rechazo y reserva/aplicación V3, constraints
+   diferidos, tres propietarios y grants cruzados mínimos; sin bootstrap.
+7. Adaptador Go de diario/reserva V3 y reconciliación, con saneamiento,
+   cancelación y `COMMIT` ambiguo.
+8. Confirmación V3 PostgreSQL/KMS sin ciclo, recibo y verificador poscommit,
+   todavía sin HTTP.
+9. Servicio paralelo de alta/actualización ligado V3 y pruebas completas de
+   orden de efectos; V1 permanece compilado y probado por separado.
+10. Composición exclusiva del perfil de desarrollo y pruebas T20E. HTTP,
+   despliegue, UAT y producción requerirán decisiones y revisiones posteriores.
+
+Esta secuencia no declara producción, no acredita proveedores corporativos y
+no cierra T20. Cada commit deberá poder revisarse y, antes del primer dato V3,
+revertirse aisladamente sin mezclar TLS, CI, interfaz web o cambios históricos
+V1. Después de ese umbral regirá exclusivamente el rollback V3-aware anterior.
