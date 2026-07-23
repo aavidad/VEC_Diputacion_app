@@ -140,6 +140,44 @@ func TestServicioConsultaCoberturaRechazaEvidenciaHistoricaRevocada(
 	}
 }
 
+func TestServicioConsultaCoberturaReplayNoEnmascaraAutoridadActualInvalida(
+	t *testing.T,
+) {
+	entorno := nuevoEntornoCoberturaAplicacionPrueba(t)
+	if _, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	); err != nil {
+		t.Fatal(err)
+	}
+	entorno.reloj.fijar(entorno.inicio.Add(3 * time.Second))
+	entorno.autenticador.antes = func(
+		rol ports.RolAutoridadFuenteAnalisis,
+		comprobadaEn time.Time,
+	) error {
+		if rol == ports.RolVerificadorCobertura &&
+			comprobadaEn.Equal(entorno.inicio.Add(3*time.Second)) {
+			return ports.ErrResultadoFuenteAnalisisNoConfiable
+		}
+		return nil
+	}
+
+	_, err := entorno.servicio.Consultar(
+		context.Background(),
+		entorno.solicitud,
+	)
+
+	if !errors.Is(err, ports.ErrResultadoFuenteCoberturaNoConfiable) {
+		t.Fatalf("el recibo histórico enmascaró la autoridad actual: %v", err)
+	}
+	entorno.consumidor.mu.Lock()
+	defer entorno.consumidor.mu.Unlock()
+	if len(entorno.consumidor.ordenes) != 1 ||
+		len(entorno.consumidor.registros) != 1 {
+		t.Fatal("la autoridad actual inválida alcanzó el consumo")
+	}
+}
+
 func TestServicioConsultaCoberturaRechazaClaveHistoricaAdulterada(
 	t *testing.T,
 ) {
