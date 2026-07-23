@@ -2,8 +2,55 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: decisión de arquitectura; implementación O2-04/O2-05 pendiente de
-revisión independiente.
+Estado: `NO-GO` para el alta productiva. La frontera de aplicación O2-04 ya
+converge con la colección HMAC opaca y el contrato PostgreSQL V2 de O2-03. No
+se declara `GO` automático: el efecto atómico O2-05, su revisión independiente
+y las puertas externas siguen pendientes.
+
+## Corte implementado en O2-04
+
+La aplicación de contratación temporal ya no acepta ni construye la identidad
+o la autorización provisionales del módulo. Usa directamente:
+
+- `ResolutorContextoAutorizacionAltaV3`, que entrega el
+  `VinculoAutenticacionActorV2` y el
+  `ResultadoContextoActorRegistradoV2` comunes;
+- `ResolutorMotivoAutorizacionAltaV3`, que resuelve la referencia exacta del
+  catálogo publicado;
+- `AutorizadorSolicitudLigadaV3`, que devuelve decisión y confirmación durable
+  V3;
+- `DerivadorHuellaAlta` y `SelladorAmbitoIdempotencia`, que entregan
+  `ColeccionSellosHMAC` opacas del llavero para la huella y el ámbito. Ambas
+  colecciones deben tener exactamente el mismo historial de generaciones.
+  Solo el par activo forma el recurso V3; la preparación PostgreSQL V2 recibe
+  las dos colecciones y puede reconciliar el par activo o un par retenido de
+  la misma generación al recuperar una operación anterior.
+
+La secuencia de aplicación revalida vínculo, decisión y confirmación antes de
+preparar y de nuevo antes de devolver un recibo o solicitar el efecto. Un
+reintento ya confirmado no evita el PDP. Los contratos no reciben HTTP,
+cookies ni estado de navegador y son los mismos para web, escritorio, CLI y
+MCP.
+
+Cada invocación acuña en servidor una única correlación V3. Ni la solicitud de
+aplicación ni la entrada nominal de la orden admiten una correlación aportada
+por el cliente. La persistencia recibe como evidencia la correlación extraída
+de la solicitud V3, que decisión y confirmación deben conservar exactamente.
+Además, el actor de la primera actuación del expediente debe ser el
+`PrincipalID` del vínculo autorizado.
+
+La solicitud V3 compromete tanto el ámbito HMAC activo como la huella HMAC
+activa exacta de la petición. Esta última usa el nombre cerrado
+`huella_peticion_hmac_activa` en los atributos del recurso. La orden coteja
+ambos valores contra la capacidad nominal del llavero y rechaza claves
+adicionales en ámbitos o atributos.
+
+Este corte no afirma atomicidad: hasta cerrar O2-05 puede existir una reserva
+interna autorizada que no llegue a efecto si la concesión vence o falla una
+dependencia posterior. La reserva no se expone como endpoint y no equivale a
+un expediente, una auditoría ni un evento. O2-05 debe trasladar preparación,
+consumo de concesión y confirmación del efecto al único `COMMIT` descrito en
+esta decisión.
 
 ## Problema
 
@@ -65,6 +112,25 @@ publicada indicará activación, fin de emisión, fin de verificación y retirad
 Rotar de v1 a v2 deberá conservar el mismo expediente y recibo. La sintaxis
 versionada sin esta convivencia no se considera rotación resuelta.
 
+O2-04 converge con la única capacidad nominal opaca de O2-03,
+`ColeccionSellosHMAC`; no conserva tipos paralelos ni expone structs de pares
+como capacidad. Cada colección admite una generación activa y hasta tres
+retenidas —cuatro en total—. Toda retenida debe ser anterior y el orden debe
+ser estrictamente descendente. Las colecciones de ámbito y huella deben
+presentar la misma matriz. El recurso V3 usa exclusivamente el par activo. La
+preparación puede reconciliar un par activo o retenido, pero ambos sellos deben
+pertenecer a la misma generación: nunca se combina el ámbito de una generación
+con la huella de otra.
+
+El adaptador usa exclusivamente
+`vec_contratacion_temporal.preparar_alta_v2(jsonb)`. La migración aditiva
+`000002_rotacion_hmac` y sus pruebas conservan la historia V1 para demostrar
+la rotación real, revocan la ejecución V1 al runtime y reconcilian por todos
+los pares V2. La serie aprobada de origen
+`019c900`, `c877cae`, `d64aa44`, `9d98bb3`, `7803d8a` se incorporó completa;
+la historia V1 permanece como antecedente migratorio, no como ruta del
+adaptador actual.
+
 ## Secuencia objetivo
 
 ```text
@@ -109,6 +175,11 @@ Un resultado de `COMMIT` indeterminado se reconcilia por el conjunto de alias
 HMAC admitidos y las huellas de petición de generaciones retenidas. No se
 repite a ciegas.
 
+La cancelación se comprueba después de resolver el motivo, después de acuñar
+la correlación y justo antes de `ConfirmarAlta`. Una cancelación anterior al
+efecto impide alcanzar la siguiente dependencia. Una cancelación observada
+después de un `COMMIT` confirmado no transforma el éxito durable en error.
+
 ## Base de datos y privilegios
 
 Autorización V3 y contratación temporal deben residir en la misma base
@@ -148,12 +219,17 @@ permiso se implementa en JavaScript, DOM, sesión HTTP o cliente de escritorio.
 
 O2-04/O2-05 no se cierran hasta demostrar:
 
-- imposibilidad de fabricar o serializar solicitud, vínculo, decisión y
-  confirmación nominales;
+- imposibilidad de fabricar o reconstruir las capacidades nominales comunes;
+- `VinculoAutenticacionActorV2` permite deliberadamente solo su
+  `MarshalJSON` canónico y minimizado para evidencia durable; ese JSON no es
+  una capacidad ejecutable, su `Unmarshal` está prohibido y también lo están
+  serializaciones alternativas de texto, binario, gob, CBOR, YAML o XML;
+- solicitud, decisión y confirmación V3 no se serializan desde el exterior;
 - denegación por actor, perfil, organización, finalidad, acción, recurso,
   motivo, flujo, contexto, versión o correlación distintos;
 - consumo único e idempotencia bajo sesiones concurrentes;
-- rotación v1→v2 con convivencia, sin segunda reserva ni conflicto falso;
+- rotación v1→v2 con convivencia, sin segunda reserva ni conflicto falso
+  —cerrada en O2-03 y conservada como regresión obligatoria—;
 - expiración y revocación mientras se espera un bloqueo;
 - ausencia de reserva/expediente/auditoría/evento parcial ante cualquier fallo;
 - replay confirmado con revalidación vigente;

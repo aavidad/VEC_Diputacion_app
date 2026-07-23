@@ -11,29 +11,32 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 const (
-	AccionCrearSolicitud    = "contratacion_temporal.solicitud.crear"
-	FinalidadCrearSolicitud = "tramitar_necesidad_personal_temporal"
-	TipoRecursoExpediente   = "expediente_contratacion_temporal"
+	AccionCrearSolicitud             = "contratacion_temporal.solicitud.crear"
+	FinalidadCrearSolicitud          = "tramitar_necesidad_personal_temporal"
+	ModuloContratacion               = "contratacion_temporal"
+	TipoRecursoExpediente            = "expediente_contratacion_temporal"
+	AtributoHuellaPeticionHMACActiva = "huella_peticion_hmac_activa"
 )
 
 var (
-	ErrIdentidadOperacionInvalida = errors.New("contratacion temporal: identidad de operacion invalida")
-	ErrAutorizacionEfectoInvalida = errors.New("contratacion temporal: autorizacion de efecto invalida")
-	ErrAutorizacionDenegada       = errors.New("contratacion temporal: autorizacion denegada")
+	ErrContextoAutorizacionV3Invalido = errors.New(
+		"contratacion temporal: contexto de autorizacion V3 invalido",
+	)
+	ErrAutorizacionDenegada = errors.New(
+		"contratacion temporal: autorizacion denegada",
+	)
+	ErrMotivoAutorizacionNoDisponible = errors.New(
+		"contratacion temporal: motivo de autorizacion no disponible",
+	)
 )
 
-var patronHuellaSHA256 = regexp.MustCompile(`^[a-f0-9]{64}$`)
 var patronSelloHMACSHA256 = regexp.MustCompile(
 	`^hmac-sha256:[a-z][a-z0-9._/-]{1,95}:[a-f0-9]{64}$`,
 )
-
-func huellaSHA256Valida(valor string) bool {
-	return patronHuellaSHA256.MatchString(valor) &&
-		valor != strings.Repeat("0", 64)
-}
 
 // SelloHMACSHA256Valido comprueba el sobre versionado común. La referencia
 // intermedia identifica el dominio y la generación de clave; nunca es la
@@ -52,202 +55,106 @@ func sellosHMACIguales(primero, segundo string) bool {
 		hmac.Equal([]byte(primero), []byte(segundo))
 }
 
-type SuperficieOperacion string
-type GarantiaOperacion string
-
-const (
-	SuperficieGestionInterna SuperficieOperacion = "gestion_interna"
-	SuperficieAdministracion SuperficieOperacion = "administracion_privilegiada"
-	GarantiaAlta             GarantiaOperacion   = "alta"
-)
-
-func (s SuperficieOperacion) valida() bool {
-	return s == SuperficieGestionInterna || s == SuperficieAdministracion
+// SolicitudResolverContextoAutorizacionAltaV3 solo transporta referencias
+// opacas de una autenticación ya iniciada. No admite nombres, roles, permisos,
+// cuenta, método, garantía ni atributos declarados por un cliente.
+type SolicitudResolverContextoAutorizacionAltaV3 struct {
+	AutenticacionRef string
+	SesionRef        string
+	PerfilRef        string
 }
 
-// IdentidadOperacion es el resultado opaco de un resolutor confiable. No debe
-// construirse con nombres, roles o cabeceras enviados por el navegador.
-type IdentidadOperacion struct {
-	datos *datosIdentidadOperacion
-}
-
-type datosIdentidadOperacion struct {
-	actorRef, cuentaRef, perfilRef, contextoRegistroRef string
-	superficie                                          SuperficieOperacion
-	garantia                                            GarantiaOperacion
-	resueltaEn, validaHasta                             time.Time
-}
-
-type DatosIdentidadOperacion struct {
-	ActorRef            string
-	CuentaRef           string
-	PerfilRef           string
-	ContextoRegistroRef string
-	Superficie          SuperficieOperacion
-	Garantia            GarantiaOperacion
-	ResueltaEn          time.Time
-	ValidaHasta         time.Time
-}
-
-func NuevaIdentidadOperacion(datos DatosIdentidadOperacion) (IdentidadOperacion, error) {
-	if !domain.ReferenciaOpacaValida(datos.ActorRef) ||
-		!domain.ReferenciaOpacaValida(datos.CuentaRef) ||
-		!domain.ReferenciaOpacaValida(datos.PerfilRef) ||
-		!domain.ReferenciaOpacaValida(datos.ContextoRegistroRef) ||
-		!datos.Superficie.valida() || datos.Garantia != GarantiaAlta ||
-		!domain.InstanteUTCCanonico(datos.ResueltaEn) ||
-		!domain.InstanteUTCCanonico(datos.ValidaHasta) ||
-		!datos.ValidaHasta.After(datos.ResueltaEn) {
-		return IdentidadOperacion{}, ErrIdentidadOperacionInvalida
-	}
-	return IdentidadOperacion{datos: &datosIdentidadOperacion{
-		actorRef: datos.ActorRef, cuentaRef: datos.CuentaRef,
-		perfilRef: datos.PerfilRef, contextoRegistroRef: datos.ContextoRegistroRef,
-		superficie: datos.Superficie, garantia: datos.Garantia,
-		resueltaEn:  datos.ResueltaEn,
-		validaHasta: datos.ValidaHasta,
-	}}, nil
-}
-
-func (i IdentidadOperacion) Datos() (DatosIdentidadOperacion, error) {
-	if i.datos == nil {
-		return DatosIdentidadOperacion{}, ErrIdentidadOperacionInvalida
-	}
-	datos := DatosIdentidadOperacion{
-		ActorRef: i.datos.actorRef, CuentaRef: i.datos.cuentaRef,
-		PerfilRef: i.datos.perfilRef, ContextoRegistroRef: i.datos.contextoRegistroRef,
-		Superficie: i.datos.superficie, Garantia: i.datos.garantia,
-		ResueltaEn:  i.datos.resueltaEn,
-		ValidaHasta: i.datos.validaHasta,
-	}
-	if _, err := NuevaIdentidadOperacion(datos); err != nil {
-		return DatosIdentidadOperacion{}, err
-	}
-	return datos, nil
-}
-
-func (i IdentidadOperacion) VigenteEn(instante time.Time) bool {
-	datos, err := i.Datos()
-	return err == nil && domain.InstanteUTCCanonico(instante) &&
-		!instante.Before(datos.ResueltaEn) && instante.Before(datos.ValidaHasta)
-}
-
-type SolicitudResolverIdentidad struct {
-	SesionRef      string
-	PerfilRef      string
-	CorrelacionRef string
-}
-
-func (s SolicitudResolverIdentidad) Validar() error {
-	if !domain.ReferenciaOpacaValida(s.SesionRef) ||
-		!domain.ReferenciaOpacaValida(s.PerfilRef) ||
-		!domain.ReferenciaOpacaValida(s.CorrelacionRef) {
-		return ErrIdentidadOperacionInvalida
+func (s SolicitudResolverContextoAutorizacionAltaV3) Validar() error {
+	if (dominiovec.SolicitudRevalidacionAutenticacionActorV1{
+		AutenticacionRef: s.AutenticacionRef,
+		SesionRef:        s.SesionRef,
+	}).Validar() != nil ||
+		!referenciaVECConPrefijoValida(s.PerfilRef, "prf_") {
+		return ErrContextoAutorizacionV3Invalido
 	}
 	return nil
 }
 
-type ResolutorIdentidadOperacion interface {
-	ResolverIdentidadOperacion(context.Context, SolicitudResolverIdentidad) (IdentidadOperacion, error)
+// ContextoAutorizacionAltaV3 transporta exclusivamente capacidades comunes
+// de VEC. El envoltorio no concede acceso: el vínculo solo puede nacer de las
+// autoridades de autenticación y contexto, y el PDP V3 vuelve a evaluarlo.
+type ContextoAutorizacionAltaV3 struct {
+	Vinculo   dominiovec.VinculoAutenticacionActorV2
+	Resultado dominiovec.ResultadoContextoActorRegistradoV2
 }
 
-type RecursoAltaExpediente struct {
-	ExpedienteRef   string
+func (c ContextoAutorizacionAltaV3) ValidarPara(
+	solicitud SolicitudResolverContextoAutorizacionAltaV3,
+	instante time.Time,
+) error {
+	if solicitud.Validar() != nil || !domain.InstanteUTCCanonico(instante) ||
+		c.Resultado.Validar() != nil ||
+		c.Vinculo.ValidarPara(c.Resultado) != nil ||
+		!c.Vinculo.VigenteEn(instante, c.Resultado) {
+		return ErrContextoAutorizacionV3Invalido
+	}
+	datos, err := c.Vinculo.Datos()
+	if err != nil || datos.AutenticacionRef != solicitud.AutenticacionRef ||
+		datos.SesionRef != solicitud.SesionRef ||
+		datos.PerfilActivoRef != solicitud.PerfilRef {
+		return ErrContextoAutorizacionV3Invalido
+	}
+	return nil
+}
+
+// ResolutorContextoAutorizacionAltaV3 es un adaptador fino sobre
+// CrearVinculoAutenticacionActorV2. Web, escritorio, CLI y MCP entregan las
+// mismas referencias y no pueden inyectar la identidad resultante.
+type ResolutorContextoAutorizacionAltaV3 interface {
+	ResolverContextoAutorizacionAltaV3(
+		context.Context,
+		SolicitudResolverContextoAutorizacionAltaV3,
+	) (ContextoAutorizacionAltaV3, error)
+}
+
+// SolicitudResolverMotivoAutorizacionAltaV3 permite que una entrada
+// administrable resuelva la versión publicada exacta del catálogo. El texto
+// funcional recibido nunca se usa directamente como clave de autorización.
+type SolicitudResolverMotivoAutorizacionAltaV3 struct {
 	OrganizacionRef string
-	CentroRef       string
-	CategoriaRef    string
-	FlujoRef        string
-	FlujoVersion    uint64
+	Flujo           domain.ReferenciaFlujo
+	MotivoClave     domain.ClaveCatalogo
+	Instante        time.Time
 }
 
-func (r RecursoAltaExpediente) Validar() error {
-	if !domain.ReferenciaOpacaValida(r.ExpedienteRef) ||
-		!domain.ReferenciaOpacaValida(r.OrganizacionRef) ||
-		!domain.ReferenciaOpacaValida(r.CentroRef) ||
-		!domain.ReferenciaOpacaValida(r.CategoriaRef) ||
-		!domain.ReferenciaOpacaValida(r.FlujoRef) || r.FlujoVersion == 0 {
-		return ErrAutorizacionEfectoInvalida
+func (s SolicitudResolverMotivoAutorizacionAltaV3) Validar() error {
+	if !domain.ReferenciaOpacaValida(s.OrganizacionRef) ||
+		s.Flujo.Validar() != nil || !s.MotivoClave.Valida() ||
+		!domain.InstanteUTCCanonico(s.Instante) {
+		return ErrMotivoAutorizacionNoDisponible
 	}
 	return nil
 }
 
-type SolicitudAutorizarAlta struct {
-	Identidad      IdentidadOperacion
-	Recurso        RecursoAltaExpediente
-	MotivoRef      string
-	CorrelacionRef string
-	SolicitadaEn   time.Time
+type ResolutorMotivoAutorizacionAltaV3 interface {
+	ResolverMotivoAutorizacionAltaV3(
+		context.Context,
+		SolicitudResolverMotivoAutorizacionAltaV3,
+	) (dominiovec.ReferenciaEntradaCatalogo, error)
 }
 
-func (s SolicitudAutorizarAlta) Validar() error {
-	if _, err := s.Identidad.Datos(); err != nil || s.Recurso.Validar() != nil ||
-		!domain.ReferenciaOpacaValida(s.MotivoRef) ||
-		!domain.ReferenciaOpacaValida(s.CorrelacionRef) ||
-		!domain.InstanteUTCCanonico(s.SolicitadaEn) ||
-		!s.Identidad.VigenteEn(s.SolicitadaEn) {
-		return ErrAutorizacionEfectoInvalida
+func referenciaVECConPrefijoValida(valor, prefijo string) bool {
+	const (
+		longitudMinimaTokenVEC = 22
+		longitudMaximaTokenVEC = 128
+	)
+	if !strings.HasPrefix(valor, prefijo) ||
+		len(valor) < len(prefijo)+longitudMinimaTokenVEC ||
+		len(valor) > len(prefijo)+longitudMaximaTokenVEC {
+		return false
 	}
-	return nil
-}
-
-// AutorizacionEfecto solo solicita a la transacción que coteje y consuma una
-// decisión ya confirmada. No concede por sí misma ni evita suplantar el puerto.
-type AutorizacionEfecto struct {
-	datos *datosAutorizacionEfecto
-}
-
-type datosAutorizacionEfecto struct {
-	decisionRef, huellaSHA256, accion, recursoRef, actorRef, perfilRef string
-	emitidaEn, validaHasta                                             time.Time
-}
-
-type DatosAutorizacionEfecto struct {
-	DecisionRef  string
-	HuellaSHA256 string
-	Accion       string
-	RecursoRef   string
-	ActorRef     string
-	PerfilRef    string
-	EmitidaEn    time.Time
-	ValidaHasta  time.Time
-}
-
-func NuevaAutorizacionEfecto(datos DatosAutorizacionEfecto) (AutorizacionEfecto, error) {
-	if !domain.ReferenciaOpacaValida(datos.DecisionRef) ||
-		!huellaSHA256Valida(datos.HuellaSHA256) ||
-		datos.Accion != AccionCrearSolicitud ||
-		!domain.ReferenciaOpacaValida(datos.RecursoRef) ||
-		!domain.ReferenciaOpacaValida(datos.ActorRef) ||
-		!domain.ReferenciaOpacaValida(datos.PerfilRef) ||
-		!domain.InstanteUTCCanonico(datos.EmitidaEn) ||
-		!domain.InstanteUTCCanonico(datos.ValidaHasta) ||
-		!datos.ValidaHasta.After(datos.EmitidaEn) {
-		return AutorizacionEfecto{}, ErrAutorizacionEfectoInvalida
+	for _, caracter := range valor[len(prefijo):] {
+		if (caracter < 'a' || caracter > 'z') &&
+			(caracter < 'A' || caracter > 'Z') &&
+			(caracter < '0' || caracter > '9') &&
+			caracter != '_' && caracter != '-' {
+			return false
+		}
 	}
-	return AutorizacionEfecto{datos: &datosAutorizacionEfecto{
-		decisionRef: datos.DecisionRef, huellaSHA256: datos.HuellaSHA256,
-		accion: datos.Accion, recursoRef: datos.RecursoRef,
-		actorRef: datos.ActorRef, perfilRef: datos.PerfilRef,
-		emitidaEn: datos.EmitidaEn, validaHasta: datos.ValidaHasta,
-	}}, nil
-}
-
-func (a AutorizacionEfecto) Datos() (DatosAutorizacionEfecto, error) {
-	if a.datos == nil {
-		return DatosAutorizacionEfecto{}, ErrAutorizacionEfectoInvalida
-	}
-	datos := DatosAutorizacionEfecto{
-		DecisionRef: a.datos.decisionRef, HuellaSHA256: a.datos.huellaSHA256,
-		Accion: a.datos.accion, RecursoRef: a.datos.recursoRef,
-		ActorRef: a.datos.actorRef, PerfilRef: a.datos.perfilRef,
-		EmitidaEn: a.datos.emitidaEn, ValidaHasta: a.datos.validaHasta,
-	}
-	if _, err := NuevaAutorizacionEfecto(datos); err != nil {
-		return DatosAutorizacionEfecto{}, err
-	}
-	return datos, nil
-}
-
-type AutorizadorAltaExpediente interface {
-	AutorizarAltaExpediente(context.Context, SolicitudAutorizarAlta) (AutorizacionEfecto, error)
+	return true
 }

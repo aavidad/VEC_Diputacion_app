@@ -145,3 +145,54 @@ func coleccionSelloPrueba(t *testing.T, activo string) ColeccionSellosHMAC {
 	}
 	return coleccion
 }
+
+func TestColeccionesHMACAltaExigenGeneracionesAlineadasYParInseparable(t *testing.T) {
+	ambitoV2 := selloPrueba(
+		"vec.contratacion-temporal.ambito-idempotencia/v2",
+		"b",
+	)
+	ambitoV1 := selloPrueba(dominioAmbitoPrueba, "a")
+	huellaV2 := selloPrueba(
+		"vec.contratacion-temporal.huella-peticion/v2",
+		"b",
+	)
+	huellaV1 := selloPrueba(dominioHuellaPrueba, "a")
+	ambitos, err := NuevaColeccionSellosHMAC(ambitoV2, []string{ambitoV1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellas, err := NuevaColeccionSellosHMAC(huellaV2, []string{huellaV1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	activoAmbito, activaHuella, err := ParActivoColeccionesHMACAlta(
+		ambitos,
+		huellas,
+	)
+	if err != nil || activoAmbito != ambitoV2 || activaHuella != huellaV2 {
+		t.Fatalf("par activo incorrecto: %q %q %v", activoAmbito, activaHuella, err)
+	}
+	if !ColeccionesHMACAltaContienenPar(
+		ambitos,
+		huellas,
+		ambitoV1,
+		huellaV1,
+	) || ColeccionesHMACAltaContienenPar(
+		ambitos,
+		huellas,
+		ambitoV1,
+		huellaV2,
+	) {
+		t.Fatal("se separó el par HMAC generacional")
+	}
+	huellasSoloActiva, err := NuevaColeccionSellosHMAC(huellaV2, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ParActivoColeccionesHMACAlta(
+		ambitos,
+		huellasSoloActiva,
+	); err == nil {
+		t.Fatal("colecciones con historias generacionales distintas aceptadas")
+	}
+}
