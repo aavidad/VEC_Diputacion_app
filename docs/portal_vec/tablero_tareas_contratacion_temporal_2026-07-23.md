@@ -44,11 +44,11 @@ Estados:
 | O2-02 | Adaptador Go de preparación PostgreSQL y conectores de sellado/generación. No instala SQL. | Unitarias de respuesta, ACL contractual, clave no serializada, carrera, `go vet`. | ✅ | `5288498`, corrección revisada `effa911` |
 | O2-03 | Roles, migración y prueba SQL real de preparación idempotente; convivencia de generaciones HMAC antes del cierre. No confirma expedientes. | PostgreSQL efímero: alta, reintento, conflicto, ACL, `down` protegido y rotación v1→v2 sin segunda reserva ni falso conflicto. | ✅ | `55fdf19`–`6e007c8`; GO independiente y PostgreSQL real 3/3 |
 | O2-04 | Sustituir la autorización local provisional por la capacidad durable común de VEC. | Revisión arquitectónica; no existe constructor fabricable ni segunda autoridad; pruebas de replay y vigencia. | ✅ | `edbd0db`; GO independiente, PostgreSQL real y dos pruebas concurrentes 16/16 sin fallos |
-| O2-05 | Función SQL de confirmación atómica. | Consumo único de autorización + reserva + expediente + actuación + auditoría + outbox en un `COMMIT`. | 🚧 | Diseño `1f16164`; VEC-AD-3 nominal/parser con GO en `fe00ed9`; confianza y capacidad breve con GO en `4022152`–`9114f76`, integradas en `8461aee`; consumidor SQL pendiente |
-| O2-06 | Adaptador Go de confirmación y reconciliación de resultado indeterminado. | Éxito, replay, concurrencia, timeout antes/después de `COMMIT`, reinicio y recibo adulterado. | — | — |
+| O2-05 | Función SQL de confirmación atómica. | Consumo único de autorización + reserva + expediente + actuación + auditoría + outbox en un `COMMIT`. | 🚧 | Candidato `cfc935a` en corrección tras doble NO-GO coincidente: canon temporal intermitente, `REFERENCES` innecesario y matriz de fallos/cancelación/reinicio incompleta. No integrado. |
+| O2-06 | Adaptador Go de confirmación y reconciliación de resultado indeterminado. | Éxito, replay, concurrencia, timeout antes/después de `COMMIT`, reinicio y recibo adulterado. | 🚧 | Diseño candidato `2c800fa`–`4cc4422`; GO condicionado. Implementación bloqueada hasta SHA final y GO de O2-05. |
 | O2-07 | Composición interna real de dependencias. | Arranque falla cerrado sin identidad, PDP, HMAC, generador o PostgreSQL. | — | — |
-| O2-08 | API interna y neutral al cliente del alta. | Lista positiva, límites, sin `Cookie`/`Set-Cookie`, almacenamiento web ni cabeceras libres de autoridad; credencial breve ligada al cliente; mismo contrato para web, escritorio, CLI y MCP; contrato OpenAPI. | — | — |
-| O2-09 | Formulario definitivo conectado. | Accesibilidad de teclado/lector, errores, doble envío, recibo y misma interfaz sin adaptador DEMO. | — | — |
+| O2-08 | API interna y neutral al cliente del alta. | Lista positiva, límites, sin `Cookie`/`Set-Cookie`, almacenamiento web ni cabeceras libres de autoridad; credencial breve ligada al cliente; mismo contrato para web, escritorio, CLI y MCP; contrato OpenAPI. | 🚧 | O2-08A aislado programado y en corrección/revisión; no registra ruta ni compone O2-07. Debe cerrar la idempotencia común con O2-09. |
+| O2-09 | Formulario definitivo conectado. | Accesibilidad de teclado/lector, errores, doble envío, recibo y misma interfaz sin adaptador DEMO. | 🚧 | O2-09A aislado programado y en corrección/revisión; vista y contrato neutral sin API falsa. No conectado ni E2E. |
 | O2-10 | E2E y aceptación de la vertical. | Navegador → API → autorización → PostgreSQL → recibo; reinicio y concurrencia; acta RRHH. | — | — |
 
 ## O3 — Análisis RRHH y retención de crédito
@@ -56,7 +56,7 @@ Estados:
 | Tarea | Entregable aislado | Verificación de cierre | Estado |
 | --- | --- | --- | --- |
 | O3-01 | Completar invariantes de análisis, jornada, coste y validación de RC. | Matriz de campos del documento RRHH y pruebas de importes/periodos. | ✅ `f33e100`–`9b5fabb`, `994a526` |
-| O3-02 | Caso de uso de registrar/rectificar análisis con CAS. | Versiones concurrentes, rectificación motivada y segregación de funciones. | 🚧 Primer corte en cuarentena tras NO-GO: contenía una credencial real local, autoridad RC/coste aportable y un efecto nominal demasiado amplio. Se reconstruye desde la rama segura sin reutilizar sus commits. |
+| O3-02 | Caso de uso de registrar/rectificar análisis con CAS. | Versiones concurrentes, rectificación motivada y segregación de funciones. | 🚧 Reconstrucción corregida en `a1c0739`: recibo tras `COMMIT` y coordinación fuera de `ports`; pendiente doble revisión independiente, no integrada. |
 | O3-03 | Puertos de fuente presupuestaria y cálculo de coste. | Dobles contractuales; indisponibilidad nunca equivale a validación. | ✅ `1faa8e7`, rework `fca5d41`–`af124fb`, corrección TCB `4e6d14a`–`6d1be36`, integrada en `4c33336`; GO independiente sin hallazgos y puertas globales superadas. |
 | O3-04 | Persistencia, auditoría y outbox del análisis. | PostgreSQL real, historia inmutable y recibo verificable. | — |
 | O3-05 | API y formulario de análisis RRHH. | Permisos por operación, accesibilidad, adjuntos por referencia y E2E. | — |
@@ -66,7 +66,7 @@ Estados:
 | Tarea | Entregable aislado | Verificación de cierre | Estado |
 | --- | --- | --- | --- |
 | O4-01 | Catálogo versionado de vías y comprobaciones exigibles. | Publicación inmutable; nueva opción sin recompilar. | ✅ `dff8156`–`baebb55` |
-| O4-02 | Consultas minimizadas a Bolsa, SAE y convocatorias. | No accede a tablas ajenas; timeouts y procedencia registrada. | 🚧 `a34d462`, `fd766a2`; revisión independiente NO-GO: faltan autenticidad de respuesta, vigencia/consumo anti-replay, publicación gobernada del catálogo, timeout ≤5 s y límites interoperables. |
+| O4-02 | Consultas minimizadas a Bolsa, SAE y convocatorias. | No accede a tablas ajenas; timeouts y procedencia registrada. | 🚧 Candidato corregido `a0c7ecf`: reloj monótono y autenticador en adaptador; pendiente nueva revisión independiente, no integrado. |
 | O4-03 | Caso de uso de propuesta y decisión motivada. | Resultados contradictorios, ausencia de datos, rectificación y CAS. | — |
 | O4-04 | Persistencia, autorización, auditoría y outbox. | PostgreSQL real, consumo único y recibo. | — |
 | O4-05 | API, pantalla comparativa y E2E. | La vía elegida muestra fuentes y justificación sin exponer PII indebida. | — |
@@ -106,7 +106,7 @@ Estados:
 
 | Tarea | Entregable aislado | Verificación de cierre | Estado |
 | --- | --- | --- | --- |
-| O8-01 | Estados de seguimiento, prórroga, incidencia y cese. | Transiciones versionadas, motivos y calendario hábil. | ⬜ |
+| O8-01 | Estados de seguimiento, prórroga, incidencia y cese. | Transiciones versionadas, motivos y calendario hábil. | 🚧 Agente externo activo en worktree aislado; sin commit candidato todavía. |
 | O8-02 | Caso de uso de cierre administrativo. | Tareas pendientes impiden cierre; reapertura excepcional auditada. | — |
 | O8-03 | Política de conservación y bloqueo. | Tabla aprobada por tipo documental/procedimiento y base jurídica. | — |
 | O8-04 | Expurgo gobernado y prueba de eliminación. | Doble autorización, retención legal, recibo y ausencia de borrado silencioso. | — |

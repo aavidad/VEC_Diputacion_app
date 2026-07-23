@@ -86,9 +86,10 @@ ajenas.
 | Autorización VEC durable de la preparación | Cerrada y revisada: V3, par HMAC activo exacto, revalidación y clientes neutrales |
 | Confianza y capacidad breve VEC-AD-3 | Integradas y revisadas: Ed25519/COSE estricto, audiencia, capacidad HMAC ≤5 s, rotación y revocación |
 | Contrato autenticado con Bolsa | Cerrado y revisado: referencias opacas, seudónimos, eventos, pruebas durables e inbox idempotente |
-| Confirmación atómica PostgreSQL | Pendiente |
-| API interna | Pendiente |
-| Web conectada | Pendiente |
+| Confirmación atómica PostgreSQL | Candidato en corrección tras doble NO-GO; no integrado |
+| Diseño de adaptador y reconciliación | Candidato con GO condicionado al SHA final de O2-05 |
+| API interna | O2-08A aislada programada; en corrección/revisión, sin ruta registrada |
+| Web conectada | O2-09A aislada programada; sin conexión real ni E2E |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -104,6 +105,22 @@ ajenas.
   configuración y versión de raíz. La revisión independiente terminó sin
   hallazgos y el corte quedó integrado en `8461aee`. Falta el consumidor SQL
   atómico; no cierra O2-05 ni habilita producción.
+- `cfc935a` contiene el candidato de confirmación atómica O2-05 con replay que
+  valida el agregado completo y no repara efectos. Dos revisores independientes
+  emitieron NO-GO coincidente: el vector SQL/Go fallaba según los ceros finales
+  de los microsegundos; sobraba un privilegio `REFERENCES` entre autoridades;
+  y faltaba automatizar la matriz de cancelación, respuesta perdida, reinicio
+  y fallo en cada escritura. El productor lo corrige; no se integra ni aumenta
+  el porcentaje.
+- `2c800fa`–`4cc4422` describen O2-06A, incluido resultado indeterminado,
+  reconciliación, reintentos y ACL. Sus revisiones son GO condicionado: la
+  firma Go↔SQL se actualizará y congelará únicamente después del GO de O2-05.
+- O2-08A y O2-09A existen como candidatos aislados y definitivos en sus
+  respectivas capas. La API no registra ruta y la vista no usa un adaptador
+  falso. Dirección detectó que todavía discrepan sobre el origen y transporte
+  de la clave idempotente; la propuesta neutral está en
+  `decision_idempotencia_canales_alta_o2_08b_2026-07-23.md`. No se conectarán
+  hasta revisión y O2-07.
 - `2cd3da1` inicia O3-02 con rectificación motivada, control optimista,
   cronología de solo adición y bloqueo de retroacciones implícitas. Un primer
   corte de aplicación posterior recibió NO-GO: aceptaba autoridad RC/coste
@@ -112,6 +129,11 @@ ajenas.
   O3-02 se reconstruye desde `209ae72` sin reutilizar sus commits. La barrera y
   el procedimiento están en
   `docs/seguridad/barrera_secretos_git_2026-07-23.md`.
+- La reconstrucción O3-02 alcanza `a1c0739`: un recibo durable y concordante
+  prevalece frente a cancelación o fallo de transporte posterior al `COMMIT`,
+  mientras un recibo vacío o adulterado falla cerrado; la coordinación de
+  fuentes y desafíos reside en aplicación y no en `ports`. Las puertas del
+  productor están verdes, pero falta doble GO independiente.
 - `1faa8e7` implementa O3-03 con puertos neutrales para validación
   presupuestaria y cálculo de coste, ligadura de petición, copias defensivas,
   cancelación y fallo cerrado. La indisponibilidad nunca se convierte en «RC
@@ -139,6 +161,10 @@ ajenas.
   estén publicados y vigentes. Deben corregirse además el timeout a cinco
   segundos, el periodo máximo, la versión interoperable, la prioridad de
   cancelación y la ocultación total de errores privados. O4-02 no está cerrado.
+- El candidato O4-02 posterior `a0c7ecf` incorpora consumo/replay durable,
+  identidad semántica de petición, suelo temporal monótono y mueve el
+  autenticador concreto a infraestructura. Está en revisión independiente y
+  no se integra hasta obtener GO.
 - `2b67c7a`–`20935bd` integran O6-01 tras dos revisiones independientes.
   Contratación temporal y Bolsa solo intercambian contratos versionados,
   referencias opacas, seudónimos HMAC, evidencias autenticadas y eventos
@@ -166,13 +192,14 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Implementar la frontera consumidora SQL atómica de VEC-AD-3.
-2. Asegurar en una sola transacción la reserva, autorización consumida,
-   expediente, primera actuación, auditoría y outbox.
-3. Probar repetición, conflicto semántico, concurrencia y resultado
-   indeterminado de `COMMIT`.
-4. Exponer después la API interna; no crear antes una segunda autoridad de
-   identidad en el manejador.
+1. Corregir O2-05: emisor Go real, canon temporal determinista, cero
+   `REFERENCES` cruzado y matriz PostgreSQL completa.
+2. Obtener dos GO independientes, integrar O2-05 y repetir las puertas en el
+   árbol conjunto.
+3. Alinear e implementar O2-06, después componer O2-07.
+4. Revisar e integrar O2-08A/O2-09A con idempotencia neutral común.
+5. Cerrar O2-10 con navegador → API → autorización → PostgreSQL → recibo,
+   reinicio, concurrencia y aceptación RRHH.
 
 ## Dominio implementado
 
