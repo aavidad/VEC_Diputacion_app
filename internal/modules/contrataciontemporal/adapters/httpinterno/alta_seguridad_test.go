@@ -57,11 +57,13 @@ func TestManejadorAltaNoAceptaContextoFabricadoOConSolicitudInyectada(t *testing
 		{"sesión inválida", func(c *application.SolicitudRegistrarExpediente) { c.SesionRef = "cliente" }},
 		{"perfil inválido", func(c *application.SolicitudRegistrarExpediente) { c.PerfilRef = "cliente" }},
 		{"organización inválida", func(c *application.SolicitudRegistrarExpediente) { c.OrganizacionRef = "" }},
-		{"clave inválida", func(c *application.SolicitudRegistrarExpediente) { c.ClaveIdempotencia = "reintentar" }},
+		{"clave inyectada por autoridad", func(c *application.SolicitudRegistrarExpediente) {
+			c.ClaveIdempotencia = claveIdempotenciaPrueba
+		}},
 		{"solicitud de autoridad no vacía", func(c *application.SolicitudRegistrarExpediente) {
-			var entrada solicitudCentroJSON
+			var entrada solicitudAltaJSON
 			_ = json.Unmarshal(cuerpoValidoPrueba(), &entrada)
-			c.Solicitud, _ = entrada.dominio()
+			c.Solicitud, _ = entrada.Solicitud.dominio()
 		}},
 	}
 	for _, caso := range casos {
@@ -112,7 +114,6 @@ func TestManejadorAltaRechazaInyeccionPorCabecerasQueryYCuerpo(t *testing.T) {
 		`"perfil_ref":"perfil:cliente"`,
 		`"organizacion_ref":"organizacion:cliente"`,
 		`"rol":"administrador"`,
-		`"clave_idempotencia":"4d36e96e-e325-4f9b-bebc-291d91d6f732"`,
 	} {
 		t.Run("cuerpo "+campo, func(t *testing.T) {
 			manejador, autoridad, ejecutor := nuevoEscenarioPrueba(t)
@@ -128,6 +129,22 @@ func TestManejadorAltaRechazaInyeccionPorCabecerasQueryYCuerpo(t *testing.T) {
 			if llamadas, _ := ejecutor.instantanea(); llamadas != 0 {
 				t.Fatal("el cuerpo alcanzó el ejecutor")
 			}
+		})
+	}
+	for _, clave := range []string{
+		"",
+		"reintentar",
+		"00000000-0000-4000-8000-000000000000",
+		"4D36E96E-E325-4F9B-BEBC-291D91D6F732",
+	} {
+		t.Run("clave de intención inválida "+clave, func(t *testing.T) {
+			cuerpo := bytes.Replace(
+				cuerpoValidoPrueba(),
+				[]byte(claveIdempotenciaPrueba),
+				[]byte(clave),
+				1,
+			)
+			exigirRechazoLocalPrueba(t, cuerpo, http.StatusUnprocessableEntity)
 		})
 	}
 }
@@ -320,11 +337,11 @@ func TestManejadorAltaDobleEnvioPropagaClaveSinExponerla(t *testing.T) {
 		if respuesta.Code != http.StatusCreated {
 			t.Fatalf("intento %d = %d %s", intento, respuesta.Code, respuesta.Body.String())
 		}
-		if strings.Contains(respuesta.Body.String(), contextoCanalValidoPrueba().ClaveIdempotencia) {
+		if strings.Contains(respuesta.Body.String(), claveIdempotenciaPrueba) {
 			t.Fatal("expuso clave de idempotencia")
 		}
 		for _, valores := range respuesta.Header() {
-			if strings.Contains(strings.Join(valores, ","), contextoCanalValidoPrueba().ClaveIdempotencia) {
+			if strings.Contains(strings.Join(valores, ","), claveIdempotenciaPrueba) {
 				t.Fatal("expuso clave de idempotencia en cabecera")
 			}
 		}

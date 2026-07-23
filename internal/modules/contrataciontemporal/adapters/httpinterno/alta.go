@@ -16,9 +16,9 @@ import (
 const RutaAltaSolicitudes = "/api/interno/v1/contratacion-temporal/solicitudes"
 
 // AutoridadContextoCanal resuelve desde el contexto confiable que O2-07 ligará
-// al canal interno las referencias de autenticación, sesión, perfil,
-// organización e idempotencia. Debe devolver Solicitud vacía: el manejador
-// incorpora después los únicos datos funcionales admitidos.
+// al canal interno las referencias de autenticación, sesión, perfil y
+// organización. Debe devolver ClaveIdempotencia y Solicitud vacías: el
+// manejador incorpora después los únicos datos no autoritativos admitidos.
 //
 // La petición HTTP, su cuerpo y sus cabeceras nunca se entregan a esta
 // frontera, por lo que no puede convertir texto del cliente en autoridad.
@@ -85,7 +85,7 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	solicitud, err := solicitudCentroDesdePeticion(w, r)
+	claveIdempotencia, solicitud, err := solicitudAltaDesdePeticion(w, r)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorAlta(w, clasificarErrorAlta(errContexto))
 		return
@@ -103,7 +103,11 @@ func (h *manejadorAlta) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderErrorAlta(w, clasificarErrorAlta(err))
 		return
 	}
-	comando, correcto := comandoDesdeContextoCanal(contextoCanal, solicitud)
+	comando, correcto := comandoDesdeContextoCanal(
+		contextoCanal,
+		claveIdempotencia,
+		solicitud,
+	)
 	if !correcto {
 		responderErrorAlta(w, errorInterno)
 		return
@@ -139,6 +143,7 @@ func rutaAltaExacta(r *http.Request) bool {
 
 func comandoDesdeContextoCanal(
 	contexto application.SolicitudRegistrarExpediente,
+	claveIdempotencia string,
 	solicitud domain.SolicitudCentro,
 ) (application.SolicitudRegistrarExpediente, bool) {
 	resolver := ports.SolicitudResolverContextoAutorizacionAltaV3{
@@ -149,7 +154,8 @@ func comandoDesdeContextoCanal(
 	clon, err := solicitud.Clonar()
 	if err != nil || resolver.Validar() != nil ||
 		!domain.ReferenciaOpacaValida(contexto.OrganizacionRef) ||
-		!ports.ClaveIdempotenciaValida(contexto.ClaveIdempotencia) ||
+		contexto.ClaveIdempotencia != "" ||
+		!ports.ClaveIdempotenciaValida(claveIdempotencia) ||
 		!reflect.DeepEqual(contexto.Solicitud, domain.SolicitudCentro{}) {
 		return application.SolicitudRegistrarExpediente{}, false
 	}
@@ -158,7 +164,7 @@ func comandoDesdeContextoCanal(
 		SesionRef:         contexto.SesionRef,
 		PerfilRef:         contexto.PerfilRef,
 		OrganizacionRef:   contexto.OrganizacionRef,
-		ClaveIdempotencia: contexto.ClaveIdempotencia,
+		ClaveIdempotencia: claveIdempotencia,
 		Solicitud:         clon,
 	}, true
 }

@@ -1,4 +1,4 @@
-# O2-08A — contrato y adaptador HTTP interno del alta
+# O2-08B — contrato y adaptador HTTP interno del alta
 
 Fecha: 23 de julio de 2026.
 
@@ -16,10 +16,11 @@ POST /api/interno/v1/contratacion-temporal/solicitudes
 → ports.ReciboAlta
 ```
 
-La entrada JSON contiene solo los campos de `domain.SolicitudCentro`. La
-salida proyecta únicamente referencia y número de expediente, versión,
-referencia de recibo e instante de confirmación. Las referencias de auditoría
-y evento que valida el caso de uso no salen por HTTP.
+La entrada JSON es un sobre cerrado con una UUIDv4 de intención no
+autoritativa y los campos de `domain.SolicitudCentro`. La salida proyecta
+únicamente referencia y número de expediente, versión, referencia de recibo e
+instante de confirmación. Las referencias de auditoría y evento que valida el
+caso de uso no salen por HTTP.
 
 El contrato normativo y neutral al cliente está en
 `docs/api/contratacion_temporal_alta_interna_v1.yaml`.
@@ -33,14 +34,14 @@ superficie interna:
 - referencia de autenticación;
 - referencia de sesión;
 - referencia de perfil activo;
-- referencia de organización;
-- clave UUIDv4 opaca de idempotencia ligada al cliente y petición.
+- referencia de organización.
 
 La autoridad devuelve esos campos en
-`application.SolicitudRegistrarExpediente` con `Solicitud` vacía. El manejador
-valida la forma de las referencias, exige que la parte funcional esté vacía y
-añade una copia defensiva del JSON ya validado. No existe constructor público
-de contexto autenticado ni se entrega `*http.Request` a la autoridad.
+`application.SolicitudRegistrarExpediente` con `ClaveIdempotencia` y
+`Solicitud` vacías. El manejador valida la forma de las referencias, exige que
+la parte no autoritativa esté vacía y añade la clave y una copia defensiva del
+JSON ya validado. No existe constructor público de contexto autenticado ni se
+entrega `*http.Request` a la autoridad.
 
 O2-07 deberá componer la superficie corporativa de garantía alta y las
 dependencias reales. Este corte no registra el manejador en ningún servidor,
@@ -49,7 +50,10 @@ PDP del caso de uso.
 
 ## Contrato de entrada
 
-El DTO HTTP es propio del adaptador. Rechaza antes de llamar a la autoridad:
+El DTO HTTP es propio del adaptador y tiene exactamente
+`clave_idempotencia` y `solicitud`. La clave debe ser una UUIDv4 canónica
+distinta del centinela nulo; identifica el mismo intento, no autentica ni
+autoriza. El adaptador rechaza antes de llamar a la autoridad:
 
 - campos desconocidos, duplicados o con caja alternativa;
 - `null`, segundo documento JSON, UTF-8 inválido y tipos incorrectos;
@@ -66,9 +70,10 @@ El DTO HTTP es propio del adaptador. Rechaza antes de llamar a la autoridad:
 La declaración de retención de crédito es cerrada: `existe=false` no admite
 los demás campos; `existe=true` exige número, fecha, importe y documento.
 
-No se acepta clave de idempotencia, identidad, sesión, perfil, actor,
-organización, rol, permiso, decisión, capacidad ni evidencia de seguridad en
-el JSON.
+No se acepta identidad, sesión, perfil, actor, organización, rol, permiso,
+decisión, capacidad ni evidencia de seguridad en el JSON. La clave de
+idempotencia se acepta únicamente como dato aleatorio de intención y después
+se liga en servidor mediante HMAC al contexto efectivo y al contenido.
 
 ## HTTP y errores públicos
 
@@ -107,10 +112,10 @@ cliente autorizado resuelve esa clave mediante la autoridad i18n común. Los
 nombres propios de HTTP, JSON, OpenAPI, Go y los tipos ya publicados por
 aplicación, dominio y puertos se conservan como términos técnicos.
 
-Web, escritorio, CLI y MCP consumen el mismo caso de uso y el mismo JSON. El
-manejador no conoce sesión de navegador, certificado, Kerberos ni mecanismo
-de credencial concreto. Esas superficies solo pueden preparar el contexto
-confiable que O2-07 entregará a la autoridad inyectada.
+Web, escritorio, CLI y MCP consumen el mismo caso de uso y el mismo sobre JSON.
+El manejador no conoce sesión de navegador, certificado, Kerberos ni
+mecanismo de credencial concreto. Esas superficies solo pueden preparar el
+contexto confiable que O2-07 entregará a la autoridad inyectada.
 
 ## Trazabilidad normativa y organizativa
 
@@ -130,9 +135,10 @@ declare siete aspectos. Para este corte aislado son:
    refleja el cuerpo.
 3. **Finalidad y autoridad.** La única finalidad es solicitar el alta inicial
    de un expediente de contratación temporal. El contexto de autenticación,
-   perfil, organización e idempotencia procede de la autoridad confiable del
-   servidor; el caso de uso y la transacción conservan la autoridad sobre la
-   autorización y el efecto.
+   perfil y organización procede de la autoridad confiable del servidor. La
+   UUID de intención procede del cliente, pero no concede autoridad: el caso
+   de uso la liga mediante HMAC al contexto y al contenido antes de persistir
+   cualquier índice.
 4. **Control preventivo.** DTO cerrado, lista positiva, límites previos,
    rechazo de autoridad aportada por el cliente, cancelación propagada,
    recibo completo validado y respuesta minimizada. La indisponibilidad y el
@@ -166,7 +172,7 @@ resultado indeterminado mediante un contrato neutral propio, sin importar este
 adaptador HTTP. La composición O2-07 traducirá ese error neutral envolviéndolo
 con `ErrResultadoAltaIndeterminado`; entonces HTTP responderá
 `503 operacion_pendiente`, sin `Retry-After`. No hay reconciliación ni
-reintento automático en O2-08A.
+reintento automático en O2-08B.
 
 ## Validación del OpenAPI
 
@@ -188,5 +194,5 @@ OpenAPI 3.1 aprobada por el proyecto.
 - La recuperación de un resultado indeterminado pertenece a O2-06.
 - La composición real pertenece a O2-07.
 
-**Candidato O2-08A; no registrado, no compuesto, no integrado y no productivo
+**Candidato O2-08B; no registrado, no compuesto, no integrado y no productivo
 hasta O2-07/O2-06.**
