@@ -24,6 +24,10 @@ func VersionOperacionAnalisisConIncrementoValida(version uint64) bool {
 	return version > 0 && version < MaximoEnteroSeguroOperacionAnalisis
 }
 
+func VersionOperacionAnalisisValida(version uint64) bool {
+	return version > 0 && version <= MaximoEnteroSeguroOperacionAnalisis
+}
+
 func enteroCanonicoOperacionAnalisisValido(valor int64) bool {
 	if valor >= 0 {
 		return uint64(valor) <= MaximoEnteroSeguroOperacionAnalisis
