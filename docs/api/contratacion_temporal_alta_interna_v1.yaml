@@ -6,8 +6,10 @@ info:
   description: |
     Contrato neutral al cliente para registrar la solicitud funcional de un
     centro. La plataforma interna aporta fuera de HTTP el contexto autenticado,
-    la sesión, el perfil, la organización y la clave opaca de idempotencia.
-    Ninguna cabecera, cookie, parámetro ni campo JSON concede autoridad.
+    la sesión, el perfil y la organización. El cliente aporta en el sobre JSON
+    una UUIDv4 aleatoria que solo identifica la intención de reintento; el
+    servidor la liga mediante HMAC al contexto y al contenido. Ninguna
+    cabecera, cookie, parámetro ni campo JSON concede autoridad.
 paths:
   /api/interno/v1/contratacion-temporal/solicitudes:
     post:
@@ -27,7 +29,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SolicitudCentroAltaV1'
+              $ref: '#/components/schemas/SolicitudAltaV1'
       responses:
         '201':
           description: Alta confirmada o repetición exacta ya confirmada.
@@ -153,7 +155,7 @@ components:
           schema:
             $ref: '#/components/schemas/EnvelopeErrorPeticionCanceladaV1'
     ClaveIdempotenciaReutilizada:
-      description: La clave opaca del contexto ya se ligó a otros datos.
+      description: La clave opaca de intención ya se ligó a otros datos.
       headers:
         Cache-Control:
           $ref: '#/components/headers/CacheControlNoStore'
@@ -225,6 +227,16 @@ components:
           schema:
             $ref: '#/components/schemas/EnvelopeErrorPlazoAgotadoV1'
   schemas:
+    ClaveIdempotenciaV1:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      not:
+        const: 00000000-0000-4000-8000-000000000000
+      description: |
+        Identificador aleatorio no autoritativo de una intención. Se conserva
+        solo en memoria durante el envío y sus reintentos y nunca se registra
+        ni se persiste en claro.
     ReferenciaOpacaV1:
       type: string
       minLength: 3
@@ -363,6 +375,17 @@ components:
             $ref: '#/components/schemas/ReferenciaOpacaV1'
         observaciones:
           $ref: '#/components/schemas/TextoObservacionesV1'
+    SolicitudAltaV1:
+      type: object
+      additionalProperties: false
+      required:
+        - clave_idempotencia
+        - solicitud
+      properties:
+        clave_idempotencia:
+          $ref: '#/components/schemas/ClaveIdempotenciaV1'
+        solicitud:
+          $ref: '#/components/schemas/SolicitudCentroAltaV1'
     NumeroVisibleExpedienteV1:
       type: string
       minLength: 6

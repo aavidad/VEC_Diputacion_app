@@ -25,6 +25,8 @@ import (
 
 var instantePrueba = time.Date(2026, 7, 23, 12, 30, 0, 123000000, time.UTC)
 
+const claveIdempotenciaPrueba = "4d36e96e-e325-4f9b-bebc-291d91d6f732"
+
 type autoridadPrueba struct {
 	mu       sync.Mutex
 	contexto application.SolicitudRegistrarExpediente
@@ -86,11 +88,10 @@ func (r relojPrueba) Ahora() time.Time { return r.instante }
 
 func contextoCanalValidoPrueba() application.SolicitudRegistrarExpediente {
 	return application.SolicitudRegistrarExpediente{
-		AutenticacionRef:  "aut_0123456789abcdefghijkl",
-		SesionRef:         "ses_0123456789abcdefghijkl",
-		PerfilRef:         "prf_0123456789abcdefghijkl",
-		OrganizacionRef:   "organizacion:rrhh:001",
-		ClaveIdempotencia: "4d36e96e-e325-4f9b-bebc-291d91d6f732",
+		AutenticacionRef: "aut_0123456789abcdefghijkl",
+		SesionRef:        "ses_0123456789abcdefghijkl",
+		PerfilRef:        "prf_0123456789abcdefghijkl",
+		OrganizacionRef:  "organizacion:rrhh:001",
 	}
 }
 
@@ -108,16 +109,19 @@ func reciboValidoPrueba() ports.ReciboAlta {
 
 func cuerpoValidoPrueba() []byte {
 	return []byte(`{
-		"centro_ref":"centro:solicitante:001",
-		"contacto_ref":"contacto:opaco:001",
-		"categoria_ref":"categoria:tecnica:001",
-		"grupo_subgrupo":"A1",
-		"motivo_clave":"necesidad_temporal",
-		"detalle":"Cobertura temporal de una necesidad catalogada.",
-		"periodo":{"inicio":"2026-08-01T00:00:00Z","fin":"2026-12-31T00:00:00Z"},
-		"rc":{"existe":false},
-		"documentos_adjuntos":["documento:opaco:001"],
-		"observaciones":"Tramitación ordinaria."
+		"clave_idempotencia":"4d36e96e-e325-4f9b-bebc-291d91d6f732",
+		"solicitud":{
+			"centro_ref":"centro:solicitante:001",
+			"contacto_ref":"contacto:opaco:001",
+			"categoria_ref":"categoria:tecnica:001",
+			"grupo_subgrupo":"A1",
+			"motivo_clave":"necesidad_temporal",
+			"detalle":"Cobertura temporal de una necesidad catalogada.",
+			"periodo":{"inicio":"2026-08-01T00:00:00Z","fin":"2026-12-31T00:00:00Z"},
+			"rc":{"existe":false},
+			"documentos_adjuntos":["documento:opaco:001"],
+			"observaciones":"Tramitación ordinaria."
+		}
 	}`)
 }
 
@@ -220,7 +224,7 @@ func TestManejadorAltaConfirmaYMinimizaRecibo(t *testing.T) {
 	}
 	prohibidos := []string{
 		"auditoria", "evento", "correlacion", "identidad", "actor", "perfil",
-		"organizacion", "idempotencia", contextoCanalValidoPrueba().ClaveIdempotencia,
+		"organizacion", "idempotencia", claveIdempotenciaPrueba,
 	}
 	for _, prohibido := range prohibidos {
 		if strings.Contains(strings.ToLower(respuesta.Body.String()), strings.ToLower(prohibido)) {
@@ -232,7 +236,7 @@ func TestManejadorAltaConfirmaYMinimizaRecibo(t *testing.T) {
 	}
 	llamadas, comandos := ejecutor.instantanea()
 	if llamadas != 1 || len(comandos) != 1 ||
-		comandos[0].ClaveIdempotencia != contextoCanalValidoPrueba().ClaveIdempotencia ||
+		comandos[0].ClaveIdempotencia != claveIdempotenciaPrueba ||
 		comandos[0].OrganizacionRef != contextoCanalValidoPrueba().OrganizacionRef ||
 		comandos[0].Solicitud.Validar() != nil {
 		t.Fatalf("comando no ligado: llamadas=%d comandos=%+v", llamadas, comandos)
@@ -344,11 +348,29 @@ func TestContratoOpenAPISeCorrespondeConDTO(t *testing.T) {
 		),
 		"post",
 	)
+	esquemaEntrada := mapaPrueba(
+		t,
+		mapaPrueba(
+			t,
+			mapaPrueba(t, operacion, "requestBody"),
+			"content",
+		),
+		"application/json",
+	)
+	if referencia, correcta := mapaPrueba(t, esquemaEntrada, "schema")["$ref"].(string); !correcta || referencia != "#/components/schemas/SolicitudAltaV1" {
+		t.Fatalf("requestBody no usa el sobre cerrado: %v", referencia)
+	}
 	if numeroPrueba(t, operacion, "x-maximo-cuerpo-bytes") != MaximoCuerpoAltaBytes ||
 		numeroPrueba(t, operacion, "x-maximo-profundidad-json") != profundidadMaximaJSONAlta ||
 		numeroPrueba(t, operacion, "x-maximo-tokens-json") != tokensMaximosJSONAlta {
 		t.Fatal("límites técnicos Go/OpenAPI desalineados")
 	}
+	sobre := mapaPrueba(t, esquemas, "SolicitudAltaV1")
+	if sobre["additionalProperties"] != false {
+		t.Fatal("SolicitudAltaV1 no está cerrada")
+	}
+	propiedadesSobre := mapaPrueba(t, sobre, "properties")
+	compararClavesDTOPrueba(t, reflect.TypeOf(solicitudAltaJSON{}), propiedadesSobre)
 	solicitud := mapaPrueba(t, esquemas, "SolicitudCentroAltaV1")
 	if solicitud["additionalProperties"] != false {
 		t.Fatal("SolicitudCentroAltaV1 no está cerrada")
@@ -361,7 +383,7 @@ func TestContratoOpenAPISeCorrespondeConDTO(t *testing.T) {
 		t.Fatal("límites Go/OpenAPI desalineados")
 	}
 	for _, nombre := range []string{
-		"SolicitudCentroAltaV1", "PeriodoPrevistoAltaV1", "ImporteRCEURV1",
+		"SolicitudAltaV1", "SolicitudCentroAltaV1", "PeriodoPrevistoAltaV1", "ImporteRCEURV1",
 		"DeclaracionRCSinCreditoV1", "DeclaracionRCConCreditoV1",
 		"ReciboAltaMinimoV1", "EnvelopeAltaConfirmadaV1", "ErrorAltaV1", "EnvelopeErrorAltaV1",
 	} {

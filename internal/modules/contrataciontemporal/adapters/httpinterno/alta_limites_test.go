@@ -13,11 +13,15 @@ import (
 
 func mapaSolicitudValidaPrueba(t *testing.T) map[string]any {
 	t.Helper()
-	var resultado map[string]any
-	if err := json.Unmarshal(cuerpoValidoPrueba(), &resultado); err != nil {
+	var sobre map[string]any
+	if err := json.Unmarshal(cuerpoValidoPrueba(), &sobre); err != nil {
 		t.Fatal(err)
 	}
-	return resultado
+	solicitud, correcta := sobre["solicitud"].(map[string]any)
+	if !correcta {
+		t.Fatalf("solicitud de prueba no es objeto: %T", sobre["solicitud"])
+	}
+	return solicitud
 }
 
 func codificarMapaPrueba(t *testing.T, valor any) []byte {
@@ -27,6 +31,14 @@ func codificarMapaPrueba(t *testing.T, valor any) []byte {
 		t.Fatal(err)
 	}
 	return contenido
+}
+
+func codificarSolicitudPrueba(t *testing.T, solicitud map[string]any) []byte {
+	t.Helper()
+	return codificarMapaPrueba(t, map[string]any{
+		"clave_idempotencia": claveIdempotenciaPrueba,
+		"solicitud":          solicitud,
+	})
 }
 
 func exigirRechazoLocalPrueba(t *testing.T, cuerpo []byte, estados ...int) {
@@ -69,7 +81,8 @@ func TestManejadorAltaRechazaJSONAmbiguoOMalformado(t *testing.T) {
 		{"segundo documento", append(append([]byte(nil), cuerpoValidoPrueba()...), []byte(` {}`)...), http.StatusBadRequest},
 		{"campo extra", []byte(`{"campo":"extra"}`), http.StatusBadRequest},
 		{"caja alternativa", bytes.Replace(cuerpoValidoPrueba(), []byte(`"centro_ref"`), []byte(`"Centro_Ref"`), 1), http.StatusBadRequest},
-		{"duplicado raíz", bytes.Replace(cuerpoValidoPrueba(), []byte(`"centro_ref":"centro:solicitante:001"`), []byte(`"centro_ref":"centro:uno","centro_ref":"centro:dos"`), 1), http.StatusBadRequest},
+		{"clave duplicada en raíz", bytes.Replace(cuerpoValidoPrueba(), []byte(`"clave_idempotencia":"`+claveIdempotenciaPrueba+`"`), []byte(`"clave_idempotencia":"`+claveIdempotenciaPrueba+`","clave_idempotencia":"`+claveIdempotenciaPrueba+`"`), 1), http.StatusBadRequest},
+		{"duplicado en solicitud", bytes.Replace(cuerpoValidoPrueba(), []byte(`"centro_ref":"centro:solicitante:001"`), []byte(`"centro_ref":"centro:uno","centro_ref":"centro:dos"`), 1), http.StatusBadRequest},
 		{"duplicado anidado", bytes.Replace(cuerpoValidoPrueba(), []byte(`"inicio":"2026-08-01T00:00:00Z"`), []byte(`"inicio":"2026-08-01T00:00:00Z","inicio":"2026-08-02T00:00:00Z"`), 1), http.StatusBadRequest},
 		{"observaciones nulas", bytes.Replace(cuerpoValidoPrueba(), []byte(`"observaciones":"Tramitación ordinaria."`), []byte(`"observaciones":null`), 1), http.StatusBadRequest},
 		{"adjuntos nulos", bytes.Replace(cuerpoValidoPrueba(), []byte(`["documento:opaco:001"]`), []byte(`null`), 1), http.StatusBadRequest},
@@ -112,7 +125,7 @@ func TestManejadorAltaFechasYPeriodoEnLimites(t *testing.T) {
 			"inicio": "2026-08-01T00:00:00Z",
 			"fin":    "2126-08-01T00:00:00Z",
 		}
-		exigirExitoLocalPrueba(t, codificarMapaPrueba(t, solicitud))
+		exigirExitoLocalPrueba(t, codificarSolicitudPrueba(t, solicitud))
 	})
 	casos := []struct {
 		nombre string
@@ -130,7 +143,7 @@ func TestManejadorAltaFechasYPeriodoEnLimites(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			solicitud := mapaSolicitudValidaPrueba(t)
 			solicitud["periodo"] = map[string]any{"inicio": caso.inicio, "fin": caso.fin}
-			exigirRechazoLocalPrueba(t, codificarMapaPrueba(t, solicitud), http.StatusUnprocessableEntity)
+			exigirRechazoLocalPrueba(t, codificarSolicitudPrueba(t, solicitud), http.StatusUnprocessableEntity)
 		})
 	}
 }
@@ -148,7 +161,7 @@ func TestManejadorAltaRCImporteYMonedaEnLimites(t *testing.T) {
 	t.Run("máximo", func(t *testing.T) {
 		solicitud := mapaSolicitudValidaPrueba(t)
 		solicitud["rc"] = rcValida(MaximoCentimosJSON)
-		exigirExitoLocalPrueba(t, codificarMapaPrueba(t, solicitud))
+		exigirExitoLocalPrueba(t, codificarSolicitudPrueba(t, solicitud))
 	})
 	for _, caso := range []struct {
 		nombre   string
@@ -169,7 +182,7 @@ func TestManejadorAltaRCImporteYMonedaEnLimites(t *testing.T) {
 			solicitud["rc"] = rc
 			exigirRechazoLocalPrueba(
 				t,
-				codificarMapaPrueba(t, solicitud),
+				codificarSolicitudPrueba(t, solicitud),
 				http.StatusBadRequest,
 				http.StatusUnprocessableEntity,
 			)
@@ -197,12 +210,12 @@ func TestManejadorAltaRCImporteYMonedaEnLimites(t *testing.T) {
 	t.Run("rc falsa con evidencia", func(t *testing.T) {
 		solicitud := mapaSolicitudValidaPrueba(t)
 		solicitud["rc"] = map[string]any{"existe": false, "numero": "rc:numero:001"}
-		exigirRechazoLocalPrueba(t, codificarMapaPrueba(t, solicitud), http.StatusUnprocessableEntity)
+		exigirRechazoLocalPrueba(t, codificarSolicitudPrueba(t, solicitud), http.StatusUnprocessableEntity)
 	})
 	t.Run("rc verdadera incompleta", func(t *testing.T) {
 		solicitud := mapaSolicitudValidaPrueba(t)
 		solicitud["rc"] = map[string]any{"existe": true}
-		exigirRechazoLocalPrueba(t, codificarMapaPrueba(t, solicitud), http.StatusUnprocessableEntity)
+		exigirRechazoLocalPrueba(t, codificarSolicitudPrueba(t, solicitud), http.StatusUnprocessableEntity)
 	})
 }
 
@@ -216,7 +229,7 @@ func TestManejadorAltaDetalleObservacionesYAdjuntosEnLimites(t *testing.T) {
 			adjuntos[indice] = fmt.Sprintf("documento:opaco:%03d", indice)
 		}
 		solicitud["documentos_adjuntos"] = adjuntos
-		exigirExitoLocalPrueba(t, codificarMapaPrueba(t, solicitud))
+		exigirExitoLocalPrueba(t, codificarSolicitudPrueba(t, solicitud))
 	})
 	casos := []struct {
 		nombre    string
@@ -242,7 +255,7 @@ func TestManejadorAltaDetalleObservacionesYAdjuntosEnLimites(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			solicitud := mapaSolicitudValidaPrueba(t)
 			caso.modificar(solicitud)
-			exigirRechazoLocalPrueba(t, codificarMapaPrueba(t, solicitud), http.StatusUnprocessableEntity)
+			exigirRechazoLocalPrueba(t, codificarSolicitudPrueba(t, solicitud), http.StatusUnprocessableEntity)
 		})
 	}
 }
@@ -253,7 +266,7 @@ func TestManejadorAltaReferenciasCatalogoYGrupoEnLimites(t *testing.T) {
 		solicitud["centro_ref"] = "a" + strings.Repeat("b", MaximoCaracteresReferencia-1)
 		solicitud["motivo_clave"] = "a" + strings.Repeat("b", 79)
 		solicitud["grupo_subgrupo"] = "A" + strings.Repeat("1", 19)
-		exigirExitoLocalPrueba(t, codificarMapaPrueba(t, solicitud))
+		exigirExitoLocalPrueba(t, codificarSolicitudPrueba(t, solicitud))
 	})
 	for _, caso := range []struct {
 		nombre    string
@@ -269,7 +282,7 @@ func TestManejadorAltaReferenciasCatalogoYGrupoEnLimites(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			solicitud := mapaSolicitudValidaPrueba(t)
 			caso.modificar(solicitud)
-			exigirRechazoLocalPrueba(t, codificarMapaPrueba(t, solicitud), http.StatusUnprocessableEntity)
+			exigirRechazoLocalPrueba(t, codificarSolicitudPrueba(t, solicitud), http.StatusUnprocessableEntity)
 		})
 	}
 }

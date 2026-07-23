@@ -50,6 +50,14 @@ type solicitudCentroJSON struct {
 	Observaciones      cadenaOpcionalJSON   `json:"observaciones"`
 }
 
+// solicitudAltaJSON es un sobre de datos no autoritativos. La clave solo
+// identifica una intención de reintento; identidad, perfil y organización
+// continúan procediendo exclusivamente del contexto confiable del servidor.
+type solicitudAltaJSON struct {
+	ClaveIdempotencia string               `json:"clave_idempotencia"`
+	Solicitud         *solicitudCentroJSON `json:"solicitud"`
+}
+
 type periodoPrevistoJSON struct {
 	Inicio string `json:"inicio"`
 	Fin    string `json:"fin"`
@@ -273,41 +281,49 @@ func valorUnicoNoVacio(valores []string) (string, bool) {
 	return valores[0], true
 }
 
-func solicitudCentroDesdePeticion(
+func solicitudAltaDesdePeticion(
 	w http.ResponseWriter,
 	r *http.Request,
-) (domain.SolicitudCentro, error) {
+) (string, domain.SolicitudCentro, error) {
 	lector := http.MaxBytesReader(w, r.Body, MaximoCuerpoAltaBytes+1)
 	contenido, err := io.ReadAll(lector)
 	if err != nil {
 		var demasiadoGrande *http.MaxBytesError
 		if errors.As(err, &demasiadoGrande) {
-			return domain.SolicitudCentro{}, errCuerpoAltaDemasiadoGrande
+			return "", domain.SolicitudCentro{}, errCuerpoAltaDemasiadoGrande
 		}
-		return domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return "", domain.SolicitudCentro{}, errEntradaAltaInvalida
 	}
 	if len(contenido) == 0 {
-		return domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return "", domain.SolicitudCentro{}, errEntradaAltaInvalida
 	}
 	if len(contenido) > MaximoCuerpoAltaBytes {
-		return domain.SolicitudCentro{}, errCuerpoAltaDemasiadoGrande
+		return "", domain.SolicitudCentro{}, errCuerpoAltaDemasiadoGrande
 	}
 	if !utf8.Valid(contenido) {
-		return domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return "", domain.SolicitudCentro{}, errEntradaAltaInvalida
 	}
 	if err := validarJSONAltaSinDuplicados(contenido); err != nil {
-		return domain.SolicitudCentro{}, err
+		return "", domain.SolicitudCentro{}, err
 	}
-	var entrada solicitudCentroJSON
+	var entrada solicitudAltaJSON
 	decodificador := json.NewDecoder(bytes.NewReader(contenido))
 	decodificador.DisallowUnknownFields()
 	if err := decodificador.Decode(&entrada); err != nil {
-		return domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return "", domain.SolicitudCentro{}, errEntradaAltaInvalida
 	}
 	if err := decodificador.Decode(&struct{}{}); err != io.EOF {
-		return domain.SolicitudCentro{}, errEntradaAltaInvalida
+		return "", domain.SolicitudCentro{}, errEntradaAltaInvalida
 	}
-	return entrada.dominio()
+	if !ports.ClaveIdempotenciaValida(entrada.ClaveIdempotencia) ||
+		entrada.Solicitud == nil {
+		return "", domain.SolicitudCentro{}, errContenidoAltaNoValido
+	}
+	solicitud, err := entrada.Solicitud.dominio()
+	if err != nil {
+		return "", domain.SolicitudCentro{}, err
+	}
+	return entrada.ClaveIdempotencia, solicitud, nil
 }
 
 func validarJSONAltaSinDuplicados(contenido []byte) error {
