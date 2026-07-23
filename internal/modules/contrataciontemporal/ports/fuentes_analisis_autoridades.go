@@ -434,65 +434,6 @@ func nuevoDesafioAutoridadFuenteAnalisis(
 	}, nil
 }
 
-func presentarYVerificarAutoridadFuenteAnalisis(
-	ctx context.Context,
-	presentador PresentadorAutoridadFuenteAnalisis,
-	confianza ConfianzaAutoridadesFuenteAnalisis,
-	materialPeticion []byte,
-	rol RolAutoridadFuenteAnalisis,
-	comprobadaEn time.Time,
-) (identidadAutoridadFuenteAnalisis, error) {
-	desafio, err := nuevoDesafioAutoridadFuenteAnalisis(
-		materialPeticion,
-		confianza.organizacionRef,
-		confianza.audiencia,
-		rol,
-	)
-	if err != nil {
-		return identidadAutoridadFuenteAnalisis{},
-			ErrResultadoFuenteAnalisisNoConfiable
-	}
-	presentacion, errPresentacion := presentador.
-		PresentarAutoridadFuenteAnalisis(ctx, desafio)
-	if errContexto := ctx.Err(); errContexto != nil {
-		return identidadAutoridadFuenteAnalisis{},
-			errorDisponibilidadFuente(
-				ErrVerificacionFuenteAnalisisNoDisponible,
-				errContexto,
-			)
-	}
-	identidad, errVerificacion := confianza.verificarPresentacion(
-		presentacion,
-		desafio,
-		rol,
-		comprobadaEn,
-	)
-	if errPresentacion != nil || errVerificacion != nil {
-		return identidadAutoridadFuenteAnalisis{},
-			ErrResultadoFuenteAnalisisNoConfiable
-	}
-	return identidad, nil
-}
-
-func autoridadesFuenteAnalisisSeparadas(
-	identidades ...identidadAutoridadFuenteAnalisis,
-) bool {
-	for indice, primera := range identidades {
-		if primera.autoridadRef == "" || primera.backendRef == "" ||
-			len(primera.clavePrueba) != ed25519.PublicKeySize {
-			return false
-		}
-		for _, segunda := range identidades[indice+1:] {
-			if primera.autoridadRef == segunda.autoridadRef ||
-				primera.backendRef == segunda.backendRef ||
-				bytes.Equal(primera.clavePrueba, segunda.clavePrueba) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 func canonCredencialAutoridadFuenteAnalisis(
 	datos DatosCredencialAutoridadFuenteAnalisis,
 ) ([]byte, error) {

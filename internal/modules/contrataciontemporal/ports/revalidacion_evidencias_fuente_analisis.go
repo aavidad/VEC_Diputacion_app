@@ -53,17 +53,11 @@ func NuevaPreparacionRevalidacionEvidenciasFuenteAnalisisO3(
 			ErrResultadoFuenteAnalisisNoConfiable
 	}
 	preparacion := PreparacionRevalidacionEvidenciasFuenteAnalisisO3{
-		comprobadaEn: comprobadaEn,
-		materialRC:   append([]byte(nil), materialRC...),
-		fuenteRCEsperada: vinculoAutoridadFuenteAnalisisO3(
-			rc.datos.identidadFuente,
-		),
-		verificadorEsperado: vinculoAutoridadFuenteAnalisisO3(
-			rc.datos.identidadVerificador,
-		),
-		publicadorEsperado: vinculoAutoridadFuenteAnalisisO3(
-			rc.datos.identidadPublicador,
-		),
+		comprobadaEn:        comprobadaEn,
+		materialRC:          append([]byte(nil), materialRC...),
+		fuenteRCEsperada:    rc.datos.identidadFuente,
+		verificadorEsperado: rc.datos.identidadVerificador,
+		publicadorEsperado:  rc.datos.identidadPublicador,
 	}
 	if coste.datos != nil {
 		datosCoste, errCoste := coste.datos.solicitud.Datos()
@@ -78,13 +72,9 @@ func NuevaPreparacionRevalidacionEvidenciasFuenteAnalisisO3(
 		preparacion.materialCoste =
 			append([]byte(nil), materialCoste...)
 		preparacion.fuenteCosteEsperada =
-			vinculoAutoridadFuenteAnalisisO3(
-				coste.datos.identidadFuente,
-			)
+			coste.datos.identidadFuente
 		preparacion.verificadorCoste =
-			vinculoAutoridadFuenteAnalisisO3(
-				coste.datos.identidadVerificador,
-			)
+			coste.datos.identidadVerificador
 	}
 	if preparacion.validar() != nil {
 		return PreparacionRevalidacionEvidenciasFuenteAnalisisO3{},
@@ -283,6 +273,12 @@ func vinculosAutoridadFuenteAnalisisO3Separados(
 	return true
 }
 
+func VinculosAutoridadFuenteAnalisisO3Separados(
+	vinculos ...VinculoAutoridadFuenteAnalisisO3,
+) bool {
+	return vinculosAutoridadFuenteAnalisisO3Separados(vinculos...)
+}
+
 // ConfirmacionComprobacionAutoridadFuenteAnalisis sólo puede nacer después de
 // verificar localmente la credencial y la prueba del desafío. Liga identidad,
 // material, rol e instante sin exponer claves ni permitir construcción nominal
@@ -302,14 +298,27 @@ func (c ConfirmacionComprobacionAutoridadFuenteAnalisis) validarPara(
 	huella := sha256.Sum256(material)
 	if len(material) == 0 || len(material) > 64*1024 ||
 		c.rol != rol || !rol.valida() ||
-		!c.comprobadaEn.Equal(comprobadaEn) ||
 		!instanteFuenteAnalisisCanonico(c.comprobadaEn) ||
+		!instanteFuenteAnalisisCanonico(comprobadaEn) ||
+		comprobadaEn.Before(c.comprobadaEn) ||
 		c.huellaMaterial != huella ||
-		!vinculoAutoridadAnalisisValido(c.vinculo, rol) {
+		!vinculoAutoridadAnalisisValido(c.vinculo, rol) ||
+		!vinculoAutoridadFuenteAnalisisO3VigenteEn(
+			c.vinculo,
+			comprobadaEn,
+		) {
 		return VinculoAutoridadFuenteAnalisisO3{},
 			ErrResultadoFuenteAnalisisNoConfiable
 	}
 	return c.vinculo, nil
+}
+
+func (c ConfirmacionComprobacionAutoridadFuenteAnalisis) VinculoPara(
+	material []byte,
+	rol RolAutoridadFuenteAnalisis,
+	comprobadaEn time.Time,
+) (VinculoAutoridadFuenteAnalisisO3, error) {
+	return c.validarPara(material, rol, comprobadaEn)
 }
 
 // ComprobacionAutoridadFuenteAnalisis contiene un desafío y su verificación
@@ -386,7 +395,17 @@ func (c ComprobacionAutoridadFuenteAnalisis) ValidarPresentacion(
 			ErrResultadoFuenteAnalisisNoConfiable
 	}
 	return ConfirmacionComprobacionAutoridadFuenteAnalisis{
-		vinculo:        vinculoAutoridadFuenteAnalisisO3(identidad),
+		vinculo: VinculoAutoridadFuenteAnalisisO3{
+			RaizClaveID:           identidad.raizClaveID,
+			AutoridadRef:          identidad.autoridadRef,
+			BackendRef:            identidad.backendRef,
+			Rol:                   identidad.rol,
+			Serie:                 identidad.serie,
+			Generacion:            identidad.generacion,
+			HuellaClaveSHA256:     identidad.huellaClavePruebaSHA256,
+			CredencialEmitidaEn:   identidad.credencialEmitidaEn,
+			CredencialValidaHasta: identidad.credencialValidaHasta,
+		},
 		huellaMaterial: c.huellaMaterial,
 		rol:            c.rol,
 		comprobadaEn:   c.comprobadaEn,

@@ -23,7 +23,7 @@ func TestContextoSeCompruebaTrasFuenteYVerificadores(t *testing.T) {
 	t.Run("fuente", func(t *testing.T) {
 		ctx, cancelar := context.WithCancel(context.Background())
 		verificadorLlamado := false
-		_, err := ValidarRCConFuente(
+		_, err := validarRCConFuenteOrquestadaPrueba(
 			ctx,
 			fuentePresupuestariaDoble(func(
 				context.Context,
@@ -53,7 +53,7 @@ func TestContextoSeCompruebaTrasFuenteYVerificadores(t *testing.T) {
 	t.Run("verificador de respuesta", func(t *testing.T) {
 		ctx, cancelar := context.WithCancel(context.Background())
 		consumidorLlamado := false
-		_, err := ValidarRCConFuente(
+		_, err := validarRCConFuenteOrquestadaPrueba(
 			ctx,
 			fuentePresupuestariaDoble(func(
 				context.Context,
@@ -108,7 +108,7 @@ func TestCancelacionTrasConsumoDurableConfirmadoNoCreaExitoAmbiguo(t *testing.T)
 		cancelar()
 		return recibo, err
 	})
-	if _, err := CalcularCosteConFuente(
+	if _, err := calcularCosteConFuenteOrquestadoPrueba(
 		ctx,
 		calculadorCosteDoble(func(
 			context.Context,
@@ -147,7 +147,7 @@ func TestFuenteRecibeTimeoutMaximoPropio(t *testing.T) {
 		}
 		return resultado, nil
 	})
-	if _, err := CalcularCosteConFuente(
+	if _, err := calcularCosteConFuenteOrquestadoPrueba(
 		context.Background(),
 		calculador,
 		verificadorRespuestaHMACPrueba(metadatos.EmitidaEn.Add(500*time.Millisecond)),
@@ -183,7 +183,7 @@ func TestSolicitudesDetectanAdulteracionInterna(t *testing.T) {
 func TestDependenciasNulasTipadasFallanCerrado(t *testing.T) {
 	inicio := instanteFuenteAnalisisPrueba()
 	var fuente *fuentePresupuestariaNulaPrueba
-	if _, err := ValidarRCConFuente(
+	if _, err := validarRCConFuenteOrquestadaPrueba(
 		context.Background(),
 		fuente,
 		verificadorRespuestaHMACPrueba(inicio),

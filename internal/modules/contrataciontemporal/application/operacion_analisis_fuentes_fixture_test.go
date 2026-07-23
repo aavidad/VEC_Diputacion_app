@@ -68,7 +68,7 @@ func (p preparadorSolicitudesFuentesAplicacionPrueba) PrepararSolicitudesFuentes
 	solicitud ports.SolicitudPrepararArtefactoAnalisis,
 ) (ports.SolicitudesFuentesAnalisisO3, error) {
 	fecha := time.Date(2026, time.July, 1, 0, 0, 0, 0, time.UTC)
-	solicitudRC, err := ports.NuevaSolicitudValidarRC(
+	solicitudRC, err := NuevaSolicitudValidarRC(
 		ctx,
 		generadorFuentesAplicacionPrueba{},
 		selladorFuentesAplicacionPrueba{},
@@ -92,7 +92,7 @@ func (p preparadorSolicitudesFuentesAplicacionPrueba) PrepararSolicitudesFuentes
 	if err != nil {
 		return ports.SolicitudesFuentesAnalisisO3{}, err
 	}
-	solicitudCoste, err := ports.NuevaSolicitudCalcularCoste(
+	solicitudCoste, err := NuevaSolicitudCalcularCoste(
 		ctx,
 		generadorFuentesAplicacionPrueba{},
 		selladorFuentesAplicacionPrueba{},

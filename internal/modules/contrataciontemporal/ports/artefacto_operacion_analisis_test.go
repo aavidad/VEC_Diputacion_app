@@ -70,7 +70,7 @@ func (c *capacidadPrepararArtefactoAnalisisO3Prueba) PrepararArtefactoAnalisis(
 		return ArtefactoAnalisisPreparado{},
 			ErrArtefactoAnalisisNoConfiable
 	}
-	rc, err := VerificarValidacionRCConFuenteO3(
+	rc, err := verificarValidacionRCConFuenteO3Prueba(
 		operacion,
 		c.fuenteRC,
 		c.verificador,
@@ -84,7 +84,7 @@ func (c *capacidadPrepararArtefactoAnalisisO3Prueba) PrepararArtefactoAnalisis(
 	}
 	var coste EvidenciaCalculoCosteVerificadaO3
 	if solicitudes.CalculoCoste != nil {
-		coste, err = VerificarCalculoCosteConFuenteO3(
+		coste, err = verificarCalculoCosteConFuenteO3Prueba(
 			operacion,
 			c.calculador,
 			c.verificador,

@@ -1,8 +1,6 @@
 package ports
 
 import (
-	"context"
-	"errors"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -33,9 +31,9 @@ type datosEvidenciaValidacionRCVerificadaO3 struct {
 	confirmacion         ConfirmacionRespuestaFuenteAnalisis
 	confirmacionMotivo   *ConfirmacionPublicacionMotivoFuenteAnalisis
 	orden                OrdenConsumoRespuestaFuenteAnalisis
-	identidadFuente      identidadAutoridadFuenteAnalisis
-	identidadVerificador identidadAutoridadFuenteAnalisis
-	identidadPublicador  identidadAutoridadFuenteAnalisis
+	identidadFuente      VinculoAutoridadFuenteAnalisisO3
+	identidadVerificador VinculoAutoridadFuenteAnalisisO3
+	identidadPublicador  VinculoAutoridadFuenteAnalisisO3
 }
 
 type EvidenciaCalculoCosteVerificadaO3 struct {
@@ -47,8 +45,8 @@ type datosEvidenciaCalculoCosteVerificadaO3 struct {
 	resultado            ResultadoCalculoCoste
 	confirmacion         ConfirmacionRespuestaFuenteAnalisis
 	orden                OrdenConsumoRespuestaFuenteAnalisis
-	identidadFuente      identidadAutoridadFuenteAnalisis
-	identidadVerificador identidadAutoridadFuenteAnalisis
+	identidadFuente      VinculoAutoridadFuenteAnalisisO3
+	identidadVerificador VinculoAutoridadFuenteAnalisisO3
 }
 
 func (e EvidenciaValidacionRCVerificadaO3) ValidarEn(
@@ -83,31 +81,31 @@ func (e EvidenciaValidacionRCVerificadaO3) validarEn(
 			datosOrdenConsumo(e.datos.orden),
 			e.datos.resultado.solicitudVerificacion(),
 		) != nil ||
-		!identidadAutoridadFuenteAnalisisValida(
+		!vinculoAutoridadAnalisisValido(
 			e.datos.identidadFuente,
 			RolFuentePresupuestaria,
 		) ||
-		!identidadAutoridadFuenteAnalisisValida(
+		!vinculoAutoridadAnalisisValido(
 			e.datos.identidadVerificador,
 			RolVerificadorRespuesta,
 		) ||
-		!identidadAutoridadFuenteAnalisisValida(
+		!vinculoAutoridadAnalisisValido(
 			e.datos.identidadPublicador,
 			RolPublicadorCatalogo,
 		) ||
-		!identidadAutoridadFuenteAnalisisVigenteEn(
+		!vinculoAutoridadFuenteAnalisisO3VigenteEn(
 			e.datos.identidadFuente,
 			comprobadaEn,
 		) ||
-		!identidadAutoridadFuenteAnalisisVigenteEn(
+		!vinculoAutoridadFuenteAnalisisO3VigenteEn(
 			e.datos.identidadVerificador,
 			comprobadaEn,
 		) ||
-		!identidadAutoridadFuenteAnalisisVigenteEn(
+		!vinculoAutoridadFuenteAnalisisO3VigenteEn(
 			e.datos.identidadPublicador,
 			comprobadaEn,
 		) ||
-		!autoridadesFuenteAnalisisSeparadas(
+		!vinculosAutoridadFuenteAnalisisO3Separados(
 			e.datos.identidadFuente,
 			e.datos.identidadVerificador,
 			e.datos.identidadPublicador,
@@ -119,9 +117,9 @@ func (e EvidenciaValidacionRCVerificadaO3) validarEn(
 	orden, errOrden := e.datos.orden.Datos()
 	if errResultado != nil || errConfirmacion != nil || errOrden != nil ||
 		resultado.Atestacion.Metadatos.AutoridadRef !=
-			e.datos.identidadFuente.autoridadRef ||
+			e.datos.identidadFuente.AutoridadRef ||
 		confirmacion.VerificadorRef !=
-			e.datos.identidadVerificador.autoridadRef ||
+			e.datos.identidadVerificador.AutoridadRef ||
 		orden.HuellaRespuestaSHA256 !=
 			resultado.HuellaRespuestaSHA256 {
 		return ErrResultadoFuenteAnalisisNoConfiable
@@ -140,7 +138,7 @@ func (e EvidenciaValidacionRCVerificadaO3) validarEn(
 	datosMotivo, errMotivo := e.datos.confirmacionMotivo.Datos()
 	if errMotivo != nil ||
 		datosMotivo.PublicadorRef !=
-			e.datos.identidadPublicador.autoridadRef {
+			e.datos.identidadPublicador.AutoridadRef {
 		return ErrResultadoFuenteAnalisisNoConfiable
 	}
 	solicitudMotivo := SolicitudVerificarPublicacionMotivoFuenteAnalisis{
@@ -175,23 +173,23 @@ func (e EvidenciaCalculoCosteVerificadaO3) validarEn(
 			datosOrdenConsumo(e.datos.orden),
 			e.datos.resultado.solicitudVerificacion(),
 		) != nil ||
-		!identidadAutoridadFuenteAnalisisValida(
+		!vinculoAutoridadAnalisisValido(
 			e.datos.identidadFuente,
 			RolCalculadorCoste,
 		) ||
-		!identidadAutoridadFuenteAnalisisValida(
+		!vinculoAutoridadAnalisisValido(
 			e.datos.identidadVerificador,
 			RolVerificadorRespuesta,
 		) ||
-		!identidadAutoridadFuenteAnalisisVigenteEn(
+		!vinculoAutoridadFuenteAnalisisO3VigenteEn(
 			e.datos.identidadFuente,
 			comprobadaEn,
 		) ||
-		!identidadAutoridadFuenteAnalisisVigenteEn(
+		!vinculoAutoridadFuenteAnalisisO3VigenteEn(
 			e.datos.identidadVerificador,
 			comprobadaEn,
 		) ||
-		!autoridadesFuenteAnalisisSeparadas(
+		!vinculosAutoridadFuenteAnalisisO3Separados(
 			e.datos.identidadFuente,
 			e.datos.identidadVerificador,
 		) {
@@ -202,9 +200,9 @@ func (e EvidenciaCalculoCosteVerificadaO3) validarEn(
 	orden, errOrden := e.datos.orden.Datos()
 	if errResultado != nil || errConfirmacion != nil || errOrden != nil ||
 		resultado.Atestacion.Metadatos.AutoridadRef !=
-			e.datos.identidadFuente.autoridadRef ||
+			e.datos.identidadFuente.AutoridadRef ||
 		confirmacion.VerificadorRef !=
-			e.datos.identidadVerificador.autoridadRef ||
+			e.datos.identidadVerificador.AutoridadRef ||
 		orden.HuellaRespuestaSHA256 !=
 			resultado.HuellaRespuestaSHA256 {
 		return ErrResultadoFuenteAnalisisNoConfiable
@@ -212,104 +210,13 @@ func (e EvidenciaCalculoCosteVerificadaO3) validarEn(
 	return nil
 }
 
-func consumirEvidenciaFuenteAnalisisO3(
-	ctx context.Context,
-	consumidor ConsumidorRespuestaFuenteAnalisis,
-	orden OrdenConsumoRespuestaFuenteAnalisis,
-) (ReciboConsumoRespuestaFuenteAnalisis, error) {
-	if ctx == nil || dependenciaNulaFuenteAnalisis(consumidor) {
-		return ReciboConsumoRespuestaFuenteAnalisis{},
-			ErrPeticionFuenteAnalisisInvalida
-	}
-	if err := ctx.Err(); err != nil {
-		return ReciboConsumoRespuestaFuenteAnalisis{},
-			errorDisponibilidadFuente(
-				ErrConsumoFuenteAnalisisNoDisponible,
-				err,
-			)
-	}
-	operacion, cancelar := context.WithTimeout(
-		ctx,
-		TiempoMaximoFuenteAnalisis,
-	)
-	defer cancelar()
-	recibo, err := consumidor.ConsumirRespuestaFuenteAnalisis(
-		operacion,
-		orden,
-	)
-	if err != nil {
-		if errContexto := operacion.Err(); errContexto != nil {
-			return ReciboConsumoRespuestaFuenteAnalisis{},
-				errorDisponibilidadFuente(
-					ErrConsumoFuenteAnalisisNoDisponible,
-					errContexto,
-				)
-		}
-		if errors.Is(err, ErrRespuestaFuenteAnalisisYaConsumida) {
-			return ReciboConsumoRespuestaFuenteAnalisis{},
-				ErrRespuestaFuenteAnalisisYaConsumida
-		}
-		return ReciboConsumoRespuestaFuenteAnalisis{},
-			errorDisponibilidadFuente(
-				ErrConsumoFuenteAnalisisNoDisponible,
-				err,
-			)
-	}
-	if recibo.ValidarPara(orden) != nil {
-		return ReciboConsumoRespuestaFuenteAnalisis{},
-			ErrResultadoFuenteAnalisisNoConfiable
-	}
-	return recibo, nil
-}
-
-func identidadAutoridadFuenteAnalisisValida(
-	identidad identidadAutoridadFuenteAnalisis,
-	rol RolAutoridadFuenteAnalisis,
-) bool {
-	return identidad.rol == rol &&
-		domain.ReferenciaOpacaValida(identidad.raizClaveID) &&
-		domain.ReferenciaOpacaValida(identidad.autoridadRef) &&
-		domain.ReferenciaOpacaValida(identidad.backendRef) &&
-		identidad.serie > 0 &&
-		identidad.serie <= maximoEnteroSeguroFuenteAnalisis &&
-		identidad.generacion > 0 &&
-		huellaSHA256FuenteAnalisisValida(
-			identidad.huellaClavePruebaSHA256,
-		) &&
-		instanteFuenteAnalisisCanonico(
-			identidad.credencialEmitidaEn,
-		) &&
-		instanteFuenteAnalisisCanonico(
-			identidad.credencialValidaHasta,
-		) &&
-		identidad.credencialValidaHasta.After(
-			identidad.credencialEmitidaEn,
-		)
-}
-
-func identidadAutoridadFuenteAnalisisVigenteEn(
-	identidad identidadAutoridadFuenteAnalisis,
+func vinculoAutoridadFuenteAnalisisO3VigenteEn(
+	identidad VinculoAutoridadFuenteAnalisisO3,
 	comprobadaEn time.Time,
 ) bool {
 	return instanteFuenteAnalisisCanonico(comprobadaEn) &&
-		!comprobadaEn.Before(identidad.credencialEmitidaEn) &&
-		comprobadaEn.Before(identidad.credencialValidaHasta)
-}
-
-func vinculoAutoridadFuenteAnalisisO3(
-	identidad identidadAutoridadFuenteAnalisis,
-) VinculoAutoridadFuenteAnalisisO3 {
-	return VinculoAutoridadFuenteAnalisisO3{
-		RaizClaveID:           identidad.raizClaveID,
-		AutoridadRef:          identidad.autoridadRef,
-		BackendRef:            identidad.backendRef,
-		Rol:                   identidad.rol,
-		Serie:                 identidad.serie,
-		Generacion:            identidad.generacion,
-		HuellaClaveSHA256:     identidad.huellaClavePruebaSHA256,
-		CredencialEmitidaEn:   identidad.credencialEmitidaEn,
-		CredencialValidaHasta: identidad.credencialValidaHasta,
-	}
+		!comprobadaEn.Before(identidad.CredencialEmitidaEn) &&
+		comprobadaEn.Before(identidad.CredencialValidaHasta)
 }
 
 func datosOrdenConsumo(

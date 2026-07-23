@@ -12,7 +12,7 @@ func TestImporteMaximoSeAplicaAntesYDespuesDeLaFuente(t *testing.T) {
 	inicio := instanteFuenteAnalisisPrueba()
 	preparacion := preparacionValidarRCPrueba()
 	preparacion.Declaracion.Importe.Centimos = maximoCentimosFuente
-	solicitudRC, err := NuevaSolicitudValidarRC(
+	solicitudRC, err := nuevaSolicitudValidarRCOrquestadaPrueba(
 		context.Background(),
 		generadorFijoFuenteAnalisis("pet_0123456789abcdefghijklmn"),
 		selladorHMACFuenteAnalisisPrueba(),
@@ -38,7 +38,7 @@ func TestImporteMaximoSeAplicaAntesYDespuesDeLaFuente(t *testing.T) {
 		t.Fatalf("máximo de salida RC rechazado: %v", err)
 	}
 	preparacion.Declaracion.Importe.Centimos++
-	if _, err := NuevaSolicitudValidarRC(
+	if _, err := nuevaSolicitudValidarRCOrquestadaPrueba(
 		context.Background(),
 		generadorFijoFuenteAnalisis("pet_0123456789abcdefghijklmn"),
 		selladorHMACFuenteAnalisisPrueba(),

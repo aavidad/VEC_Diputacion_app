@@ -1,146 +1,159 @@
 package ports
 
 import (
-	"context"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
 
-// VerificarValidacionRCConFuenteO3 obtiene una respuesta de la fuente y
-// conserva, en una capacidad opaca, el resultado, las confirmaciones y la
-// orden de consumo ya contrastados con las autoridades criptográficas O3-03.
-// Todavía no consume la respuesta.
-func VerificarValidacionRCConFuenteO3(
-	ctx context.Context,
-	fuente FuentePresupuestaria,
-	verificador VerificadorRespuestaFuenteAnalisis,
-	publicaciones VerificadorPublicacionMotivoFuenteAnalisis,
-	confianza ConfianzaAutoridadesFuenteAnalisis,
-	reloj RelojFuenteAnalisis,
+// MaterialAutoridadesValidacionRCO3 prepara una copia del material local que
+// application presenta a las autoridades. No invoca fuentes ni adaptadores.
+func MaterialAutoridadesValidacionRCO3(
 	solicitud SolicitudValidarRC,
-) (EvidenciaValidacionRCVerificadaO3, error) {
-	if ctx == nil || dependenciaNulaFuenteAnalisis(fuente) ||
-		dependenciaNulaFuenteAnalisis(verificador) ||
-		dependenciaNulaFuenteAnalisis(publicaciones) ||
-		dependenciaNulaFuenteAnalisis(reloj) ||
-		solicitud.Validar() != nil {
-		return EvidenciaValidacionRCVerificadaO3{},
-			ErrPeticionFuenteAnalisisInvalida
-	}
-	operacion, cancelar := context.WithTimeout(
-		ctx,
-		TiempoMaximoFuenteAnalisis,
-	)
-	defer cancelar()
-	if err := operacion.Err(); err != nil {
-		return EvidenciaValidacionRCVerificadaO3{},
-			errorDisponibilidadFuente(
-				ErrFuentePresupuestariaNoDisponible,
-				err,
-			)
-	}
-	datosSolicitud, errDatosSolicitud := solicitud.Datos()
-	materialPeticion := materialDesafioSolicitudFuenteAnalisis(
+	confianza ConfianzaAutoridadesFuenteAnalisis,
+) ([]byte, error) {
+	datos, err := solicitud.Datos()
+	material := materialDesafioSolicitudFuenteAnalisis(
 		solicitud.datosCanonicos(),
-		datosSolicitud.HuellaPeticionHMAC,
+		datos.HuellaPeticionHMAC,
 	)
-	if errDatosSolicitud != nil ||
-		datosSolicitud.OrganizacionRef != confianza.organizacionRef ||
-		len(materialPeticion) == 0 {
-		return EvidenciaValidacionRCVerificadaO3{},
-			ErrPeticionFuenteAnalisisInvalida
+	if err != nil || solicitud.Validar() != nil ||
+		confianza.Validar() != nil ||
+		datos.OrganizacionRef != confianza.organizacionRef ||
+		len(material) == 0 {
+		return nil, ErrPeticionFuenteAnalisisInvalida
 	}
-	identidadFuente, err := presentarYVerificarAutoridadFuenteAnalisis(
-		operacion,
-		fuente,
+	return append([]byte(nil), material...), nil
+}
+
+// SolicitudVerificacion devuelve una copia de la petición local ligada al
+// resultado atestado. No contacta al verificador.
+func (r ResultadoValidacionRC) SolicitudVerificacion() (
+	SolicitudVerificarRespuestaFuenteAnalisis,
+	error,
+) {
+	if _, err := r.Datos(); err != nil {
+		return SolicitudVerificarRespuestaFuenteAnalisis{},
+			ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return r.solicitudVerificacion(), nil
+}
+
+// SolicitudPublicacionMotivo devuelve la comprobación local necesaria para un
+// rechazo RC. Una validación satisfactoria no requiere publicación.
+func (r ResultadoValidacionRC) SolicitudPublicacionMotivo() (
+	SolicitudVerificarPublicacionMotivoFuenteAnalisis,
+	bool,
+	error,
+) {
+	datos, err := r.Datos()
+	if err != nil {
+		return SolicitudVerificarPublicacionMotivoFuenteAnalisis{},
+			false,
+			ErrResultadoFuenteAnalisisNoConfiable
+	}
+	if datos.Validacion.Resultado == domain.RCValidada {
+		if datos.Motivo.datos != nil {
+			return SolicitudVerificarPublicacionMotivoFuenteAnalisis{},
+				false,
+				ErrResultadoFuenteAnalisisNoConfiable
+		}
+		return SolicitudVerificarPublicacionMotivoFuenteAnalisis{},
+			false,
+			nil
+	}
+	solicitud := SolicitudVerificarPublicacionMotivoFuenteAnalisis{
+		Motivo:                datos.Motivo,
+		HuellaRespuestaSHA256: datos.HuellaRespuestaSHA256,
+		AutoridadRespuestaRef: datos.Atestacion.Metadatos.AutoridadRef,
+		GeneracionRespuesta:   datos.Atestacion.Metadatos.Generacion,
+	}
+	if solicitud.Validar() != nil {
+		return SolicitudVerificarPublicacionMotivoFuenteAnalisis{},
+			false,
+			ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return solicitud, true, nil
+}
+
+// NuevaEvidenciaValidacionRCVerificadaO3 ensambla y contrasta localmente las
+// respuestas que application ya obtuvo. Las confirmaciones de autoridad son
+// opacas y no permiten reconstruir claves ni credenciales.
+func NuevaEvidenciaValidacionRCVerificadaO3(
+	solicitud SolicitudValidarRC,
+	resultado ResultadoValidacionRC,
+	confirmacion ConfirmacionRespuestaFuenteAnalisis,
+	confirmacionMotivo *ConfirmacionPublicacionMotivoFuenteAnalisis,
+	fuente ConfirmacionComprobacionAutoridadFuenteAnalisis,
+	verificador ConfirmacionComprobacionAutoridadFuenteAnalisis,
+	publicador ConfirmacionComprobacionAutoridadFuenteAnalisis,
+	confianza ConfianzaAutoridadesFuenteAnalisis,
+	comprobadaEn time.Time,
+) (EvidenciaValidacionRCVerificadaO3, error) {
+	material, err := MaterialAutoridadesValidacionRCO3(
+		solicitud,
 		confianza,
-		materialPeticion,
+	)
+	if err != nil || resultado.ValidarPara(solicitud, comprobadaEn) != nil {
+		return EvidenciaValidacionRCVerificadaO3{},
+			ErrResultadoFuenteAnalisisNoConfiable
+	}
+	vinculoFuente, errFuente := fuente.validarPara(
+		material,
 		RolFuentePresupuestaria,
-		reloj.Ahora(),
+		comprobadaEn,
 	)
-	if err != nil {
-		return EvidenciaValidacionRCVerificadaO3{}, err
-	}
-	identidadVerificador, err := presentarYVerificarAutoridadFuenteAnalisis(
-		operacion,
-		verificador,
-		confianza,
-		materialPeticion,
+	vinculoVerificador, errVerificador := verificador.validarPara(
+		material,
 		RolVerificadorRespuesta,
-		reloj.Ahora(),
+		comprobadaEn,
 	)
-	if err != nil {
-		return EvidenciaValidacionRCVerificadaO3{}, err
-	}
-	identidadPublicador, err := presentarYVerificarAutoridadFuenteAnalisis(
-		operacion,
-		publicaciones,
-		confianza,
-		materialPeticion,
+	vinculoPublicador, errPublicador := publicador.validarPara(
+		material,
 		RolPublicadorCatalogo,
-		reloj.Ahora(),
+		comprobadaEn,
 	)
-	if err != nil || !autoridadesFuenteAnalisisSeparadas(
-		identidadFuente,
-		identidadVerificador,
-		identidadPublicador,
-	) {
-		return EvidenciaValidacionRCVerificadaO3{},
-			ErrResultadoFuenteAnalisisNoConfiable
-	}
-	resultado, errFuente := fuente.ValidarRC(operacion, solicitud)
-	if errContexto := operacion.Err(); errContexto != nil {
-		return EvidenciaValidacionRCVerificadaO3{},
-			errorDisponibilidadFuente(
-				ErrFuentePresupuestariaNoDisponible,
-				errContexto,
-			)
-	}
-	if errFuente != nil {
-		return EvidenciaValidacionRCVerificadaO3{},
-			errorDisponibilidadFuente(
-				ErrFuentePresupuestariaNoDisponible,
-				errFuente,
-			)
-	}
-	recibidaEn := reloj.Ahora()
-	if errContexto := operacion.Err(); errContexto != nil {
-		return EvidenciaValidacionRCVerificadaO3{},
-			errorDisponibilidadFuente(
-				ErrFuentePresupuestariaNoDisponible,
-				errContexto,
-			)
-	}
-	if resultado.ValidarPara(solicitud, recibidaEn) != nil {
-		return EvidenciaValidacionRCVerificadaO3{},
-			ErrResultadoFuenteAnalisisNoConfiable
-	}
-	datosResultado, errDatosResultado := resultado.Datos()
-	if errDatosResultado != nil ||
+	solicitudVerificacion, errSolicitud := resultado.SolicitudVerificacion()
+	datosResultado, errResultado := resultado.Datos()
+	datosConfirmacion, errConfirmacion := confirmacion.Datos()
+	if errFuente != nil || errVerificador != nil ||
+		errPublicador != nil || errSolicitud != nil ||
+		errResultado != nil || errConfirmacion != nil ||
+		!vinculosAutoridadFuenteAnalisisO3Separados(
+			vinculoFuente,
+			vinculoVerificador,
+			vinculoPublicador,
+		) ||
 		datosResultado.Atestacion.Metadatos.AutoridadRef !=
-			identidadFuente.autoridadRef {
+			vinculoFuente.AutoridadRef ||
+		datosConfirmacion.VerificadorRef !=
+			vinculoVerificador.AutoridadRef ||
+		confirmacion.ValidarPara(
+			solicitudVerificacion,
+			comprobadaEn,
+		) != nil {
 		return EvidenciaValidacionRCVerificadaO3{},
 			ErrResultadoFuenteAnalisisNoConfiable
 	}
-	confirmacion, err := verificarRespuestaFuenteAnalisis(
-		operacion,
-		verificador,
-		identidadVerificador,
-		resultado.solicitudVerificacion(),
-		reloj,
-	)
-	if err != nil {
-		return EvidenciaValidacionRCVerificadaO3{}, err
+	solicitudMotivo, requiereMotivo, errMotivo :=
+		resultado.SolicitudPublicacionMotivo()
+	if errMotivo != nil ||
+		(requiereMotivo && confirmacionMotivo == nil) ||
+		(!requiereMotivo && confirmacionMotivo != nil) {
+		return EvidenciaValidacionRCVerificadaO3{},
+			ErrResultadoFuenteAnalisisNoConfiable
 	}
-	confirmacionMotivo, err := verificarMotivoResultadoRC(
-		operacion,
-		publicaciones,
-		identidadPublicador,
-		resultado,
-		reloj,
-	)
-	if err != nil {
-		return EvidenciaValidacionRCVerificadaO3{}, err
+	if requiereMotivo {
+		datosMotivo, errDatosMotivo := confirmacionMotivo.Datos()
+		if errDatosMotivo != nil ||
+			datosMotivo.PublicadorRef != vinculoPublicador.AutoridadRef ||
+			confirmacionMotivo.ValidarPara(
+				solicitudMotivo,
+				comprobadaEn,
+			) != nil {
+			return EvidenciaValidacionRCVerificadaO3{},
+				ErrResultadoFuenteAnalisisNoConfiable
+		}
 	}
 	orden, err := nuevaOrdenConsumoResultadoRC(
 		solicitud,
@@ -159,18 +172,10 @@ func VerificarValidacionRCConFuenteO3(
 			confirmacion:         confirmacion,
 			confirmacionMotivo:   confirmacionMotivo,
 			orden:                orden,
-			identidadFuente:      identidadFuente,
-			identidadVerificador: identidadVerificador,
-			identidadPublicador:  identidadPublicador,
+			identidadFuente:      vinculoFuente,
+			identidadVerificador: vinculoVerificador,
+			identidadPublicador:  vinculoPublicador,
 		},
-	}
-	comprobadaEn := reloj.Ahora()
-	if errContexto := operacion.Err(); errContexto != nil {
-		return EvidenciaValidacionRCVerificadaO3{},
-			errorDisponibilidadFuente(
-				ErrVerificacionFuenteAnalisisNoDisponible,
-				errContexto,
-			)
 	}
 	if evidencia.validarEn(comprobadaEn) != nil {
 		return EvidenciaValidacionRCVerificadaO3{},
@@ -179,14 +184,31 @@ func VerificarValidacionRCConFuenteO3(
 	return evidencia, nil
 }
 
-func materializarValidacionRCEvidenciaO3(
-	evidencia EvidenciaValidacionRCVerificadaO3,
-) (domain.ValidacionRC, error) {
-	if evidencia.datos == nil {
+func (e EvidenciaValidacionRCVerificadaO3) OrdenConsumo() (
+	OrdenConsumoRespuestaFuenteAnalisis,
+	error,
+) {
+	if e.datos == nil || e.validarEn(e.datos.confirmacionTiempo()) != nil {
+		return OrdenConsumoRespuestaFuenteAnalisis{},
+			ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return e.datos.orden, nil
+}
+
+func (d datosEvidenciaValidacionRCVerificadaO3) confirmacionTiempo() time.Time {
+	datos, _ := d.confirmacion.Datos()
+	return datos.VerificadaEn
+}
+
+func (e EvidenciaValidacionRCVerificadaO3) Materializar() (
+	domain.ValidacionRC,
+	error,
+) {
+	if e.datos == nil {
 		return domain.ValidacionRC{},
 			ErrResultadoFuenteAnalisisNoConfiable
 	}
-	datos, err := evidencia.datos.resultado.Datos()
+	datos, err := e.datos.resultado.Datos()
 	if err != nil {
 		return domain.ValidacionRC{},
 			ErrResultadoFuenteAnalisisNoConfiable

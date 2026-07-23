@@ -300,7 +300,7 @@ func TestFuentesAplicanLimitesExactosDeDominio(t *testing.T) {
 		Inicio: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		Fin:    time.Date(2126, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
-	if _, err := NuevaSolicitudCalcularCoste(
+	if _, err := nuevaSolicitudCalcularCosteOrquestadaPrueba(
 		context.Background(),
 		generadorFijoFuenteAnalisis("pet_abcdefghij0123456789klmn"),
 		selladorHMACFuenteAnalisisPrueba(),
@@ -310,7 +310,7 @@ func TestFuentesAplicanLimitesExactosDeDominio(t *testing.T) {
 		t.Fatalf("100 años rechazados: %v", err)
 	}
 	preparacion.Periodo.Fin = preparacion.Periodo.Fin.AddDate(0, 0, 1)
-	if _, err := NuevaSolicitudCalcularCoste(
+	if _, err := nuevaSolicitudCalcularCosteOrquestadaPrueba(
 		context.Background(),
 		generadorFijoFuenteAnalisis("pet_abcdefghij0123456789klmn"),
 		selladorHMACFuenteAnalisisPrueba(),

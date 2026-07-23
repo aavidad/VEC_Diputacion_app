@@ -59,7 +59,7 @@ func TestVerificadorTCBIndependienteRechazaSalidaRemacNoAutorizada(t *testing.T)
 	huella, _ := (PreimagenRespuestaFuenteAnalisis{contenido: canon}).huellaSHA256()
 	resultado.datos.HuellaRespuestaSHA256 = huella
 	verificadorInvocado, consumidorInvocado := false, false
-	_, err = CalcularCosteConFuente(
+	_, err = calcularCosteConFuenteOrquestadoPrueba(
 		context.Background(),
 		calculadorCosteDoble(func(
 			context.Context,
@@ -96,7 +96,7 @@ func TestVerificadorTCBIndependienteRechazaSalidaRemacNoAutorizada(t *testing.T)
 func TestFuenteYVerificadorTCBDebenSerInstanciasSeparadas(t *testing.T) {
 	inicio := instanteFuenteAnalisisPrueba()
 	dependencia := &fuenteYVerificadorMismaInstanciaPrueba{}
-	_, err := ValidarRCConFuente(
+	_, err := validarRCConFuenteOrquestadaPrueba(
 		context.Background(),
 		dependencia,
 		dependencia,
@@ -141,7 +141,7 @@ func TestReplayExactoSoloSeAceptaDentroDeLaVentana(t *testing.T) {
 	resultado := resultadoCosteFirmadoPrueba(t, solicitud, metadatos)
 	consumidor := nuevoConsumidorDurablePrueba()
 	invocar := func(reloj time.Time) error {
-		_, err := CalcularCosteConFuente(
+		_, err := calcularCosteConFuenteOrquestadoPrueba(
 			context.Background(),
 			calculadorCosteDoble(func(
 				context.Context,
@@ -186,7 +186,7 @@ func TestMismoReciboConOtraRespuestaFallaCerrado(t *testing.T) {
 	primero := resultadoCosteFirmadoPrueba(t, solicitud, metadatos)
 	consumidor := nuevoConsumidorDurablePrueba()
 	invocar := func(resultado ResultadoCalculoCoste) error {
-		_, err := CalcularCosteConFuente(
+		_, err := calcularCosteConFuenteOrquestadoPrueba(
 			context.Background(),
 			calculadorCosteDoble(func(
 				context.Context,

@@ -1,117 +1,83 @@
 package ports
 
-import "context"
+import "time"
 
-// VerificarCalculoCosteConFuenteO3 conserva el resultado, la confirmación TCB
-// y la orden de consumo O3-03 únicamente después de verificar las autoridades
-// criptográficas separadas. Todavía no consume la respuesta.
-func VerificarCalculoCosteConFuenteO3(
-	ctx context.Context,
-	calculador CalculadorCostePersonal,
-	verificador VerificadorRespuestaFuenteAnalisis,
-	confianza ConfianzaAutoridadesFuenteAnalisis,
-	reloj RelojFuenteAnalisis,
+func MaterialAutoridadesCalculoCosteO3(
 	solicitud SolicitudCalcularCoste,
-) (EvidenciaCalculoCosteVerificadaO3, error) {
-	if ctx == nil || dependenciaNulaFuenteAnalisis(calculador) ||
-		dependenciaNulaFuenteAnalisis(verificador) ||
-		dependenciaNulaFuenteAnalisis(reloj) ||
-		solicitud.Validar() != nil {
-		return EvidenciaCalculoCosteVerificadaO3{},
-			ErrPeticionFuenteAnalisisInvalida
-	}
-	operacion, cancelar := context.WithTimeout(
-		ctx,
-		TiempoMaximoFuenteAnalisis,
-	)
-	defer cancelar()
-	if err := operacion.Err(); err != nil {
-		return EvidenciaCalculoCosteVerificadaO3{},
-			errorDisponibilidadFuente(
-				ErrCalculadorCosteNoDisponible,
-				err,
-			)
-	}
-	datosSolicitud, errDatosSolicitud := solicitud.Datos()
-	materialPeticion := materialDesafioSolicitudFuenteAnalisis(
+	confianza ConfianzaAutoridadesFuenteAnalisis,
+) ([]byte, error) {
+	datos, err := solicitud.Datos()
+	material := materialDesafioSolicitudFuenteAnalisis(
 		solicitud.datosCanonicos(),
-		datosSolicitud.HuellaPeticionHMAC,
+		datos.HuellaPeticionHMAC,
 	)
-	if errDatosSolicitud != nil ||
-		datosSolicitud.OrganizacionRef != confianza.organizacionRef ||
-		len(materialPeticion) == 0 {
-		return EvidenciaCalculoCosteVerificadaO3{},
-			ErrPeticionFuenteAnalisisInvalida
+	if err != nil || solicitud.Validar() != nil ||
+		confianza.Validar() != nil ||
+		datos.OrganizacionRef != confianza.organizacionRef ||
+		len(material) == 0 {
+		return nil, ErrPeticionFuenteAnalisisInvalida
 	}
-	identidadFuente, err := presentarYVerificarAutoridadFuenteAnalisis(
-		operacion,
-		calculador,
+	return append([]byte(nil), material...), nil
+}
+
+func (r ResultadoCalculoCoste) SolicitudVerificacion() (
+	SolicitudVerificarRespuestaFuenteAnalisis,
+	error,
+) {
+	if _, err := r.Datos(); err != nil {
+		return SolicitudVerificarRespuestaFuenteAnalisis{},
+			ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return r.solicitudVerificacion(), nil
+}
+
+func NuevaEvidenciaCalculoCosteVerificadaO3(
+	solicitud SolicitudCalcularCoste,
+	resultado ResultadoCalculoCoste,
+	confirmacion ConfirmacionRespuestaFuenteAnalisis,
+	fuente ConfirmacionComprobacionAutoridadFuenteAnalisis,
+	verificador ConfirmacionComprobacionAutoridadFuenteAnalisis,
+	confianza ConfianzaAutoridadesFuenteAnalisis,
+	comprobadaEn time.Time,
+) (EvidenciaCalculoCosteVerificadaO3, error) {
+	material, err := MaterialAutoridadesCalculoCosteO3(
+		solicitud,
 		confianza,
-		materialPeticion,
+	)
+	if err != nil || resultado.ValidarPara(solicitud, comprobadaEn) != nil {
+		return EvidenciaCalculoCosteVerificadaO3{},
+			ErrResultadoFuenteAnalisisNoConfiable
+	}
+	vinculoFuente, errFuente := fuente.validarPara(
+		material,
 		RolCalculadorCoste,
-		reloj.Ahora(),
+		comprobadaEn,
 	)
-	if err != nil {
-		return EvidenciaCalculoCosteVerificadaO3{}, err
-	}
-	identidadVerificador, err := presentarYVerificarAutoridadFuenteAnalisis(
-		operacion,
-		verificador,
-		confianza,
-		materialPeticion,
+	vinculoVerificador, errVerificador := verificador.validarPara(
+		material,
 		RolVerificadorRespuesta,
-		reloj.Ahora(),
+		comprobadaEn,
 	)
-	if err != nil || !autoridadesFuenteAnalisisSeparadas(
-		identidadFuente,
-		identidadVerificador,
-	) {
-		return EvidenciaCalculoCosteVerificadaO3{},
-			ErrResultadoFuenteAnalisisNoConfiable
-	}
-	resultado, errFuente := calculador.CalcularCoste(operacion, solicitud)
-	if errContexto := operacion.Err(); errContexto != nil {
-		return EvidenciaCalculoCosteVerificadaO3{},
-			errorDisponibilidadFuente(
-				ErrCalculadorCosteNoDisponible,
-				errContexto,
-			)
-	}
-	if errFuente != nil {
-		return EvidenciaCalculoCosteVerificadaO3{},
-			errorDisponibilidadFuente(
-				ErrCalculadorCosteNoDisponible,
-				errFuente,
-			)
-	}
-	recibidaEn := reloj.Ahora()
-	if errContexto := operacion.Err(); errContexto != nil {
-		return EvidenciaCalculoCosteVerificadaO3{},
-			errorDisponibilidadFuente(
-				ErrCalculadorCosteNoDisponible,
-				errContexto,
-			)
-	}
-	if resultado.ValidarPara(solicitud, recibidaEn) != nil {
-		return EvidenciaCalculoCosteVerificadaO3{},
-			ErrResultadoFuenteAnalisisNoConfiable
-	}
-	datosResultado, errDatosResultado := resultado.Datos()
-	if errDatosResultado != nil ||
+	solicitudVerificacion, errSolicitud := resultado.SolicitudVerificacion()
+	datosResultado, errResultado := resultado.Datos()
+	datosConfirmacion, errConfirmacion := confirmacion.Datos()
+	if errFuente != nil || errVerificador != nil ||
+		errSolicitud != nil || errResultado != nil ||
+		errConfirmacion != nil ||
+		!vinculosAutoridadFuenteAnalisisO3Separados(
+			vinculoFuente,
+			vinculoVerificador,
+		) ||
 		datosResultado.Atestacion.Metadatos.AutoridadRef !=
-			identidadFuente.autoridadRef {
+			vinculoFuente.AutoridadRef ||
+		datosConfirmacion.VerificadorRef !=
+			vinculoVerificador.AutoridadRef ||
+		confirmacion.ValidarPara(
+			solicitudVerificacion,
+			comprobadaEn,
+		) != nil {
 		return EvidenciaCalculoCosteVerificadaO3{},
 			ErrResultadoFuenteAnalisisNoConfiable
-	}
-	confirmacion, err := verificarRespuestaFuenteAnalisis(
-		operacion,
-		verificador,
-		identidadVerificador,
-		resultado.solicitudVerificacion(),
-		reloj,
-	)
-	if err != nil {
-		return EvidenciaCalculoCosteVerificadaO3{}, err
 	}
 	orden, err := nuevaOrdenConsumoResultadoCoste(
 		solicitud,
@@ -128,21 +94,39 @@ func VerificarCalculoCosteConFuenteO3(
 			resultado:            resultado,
 			confirmacion:         confirmacion,
 			orden:                orden,
-			identidadFuente:      identidadFuente,
-			identidadVerificador: identidadVerificador,
+			identidadFuente:      vinculoFuente,
+			identidadVerificador: vinculoVerificador,
 		},
-	}
-	comprobadaEn := reloj.Ahora()
-	if errContexto := operacion.Err(); errContexto != nil {
-		return EvidenciaCalculoCosteVerificadaO3{},
-			errorDisponibilidadFuente(
-				ErrVerificacionFuenteAnalisisNoDisponible,
-				errContexto,
-			)
 	}
 	if evidencia.validarEn(comprobadaEn) != nil {
 		return EvidenciaCalculoCosteVerificadaO3{},
 			ErrResultadoFuenteAnalisisNoConfiable
 	}
 	return evidencia, nil
+}
+
+func (e EvidenciaCalculoCosteVerificadaO3) OrdenConsumo() (
+	OrdenConsumoRespuestaFuenteAnalisis,
+	error,
+) {
+	if e.datos == nil {
+		return OrdenConsumoRespuestaFuenteAnalisis{},
+			ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return e.datos.orden, nil
+}
+
+func (e EvidenciaCalculoCosteVerificadaO3) Resultado() (
+	ResultadoCalculoCoste,
+	error,
+) {
+	if e.datos == nil {
+		return ResultadoCalculoCoste{},
+			ErrResultadoFuenteAnalisisNoConfiable
+	}
+	if _, err := e.datos.resultado.Datos(); err != nil {
+		return ResultadoCalculoCoste{},
+			ErrResultadoFuenteAnalisisNoConfiable
+	}
+	return e.datos.resultado.clonar(), nil
 }

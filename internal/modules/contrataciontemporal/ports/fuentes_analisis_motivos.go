@@ -295,59 +295,6 @@ type VerificadorPublicacionMotivoFuenteAnalisis interface {
 	) (ConfirmacionPublicacionMotivoFuenteAnalisis, error)
 }
 
-func verificarMotivoResultadoRC(
-	ctx context.Context,
-	verificador VerificadorPublicacionMotivoFuenteAnalisis,
-	identidadPublicador identidadAutoridadFuenteAnalisis,
-	resultado ResultadoValidacionRC,
-	reloj RelojFuenteAnalisis,
-) (*ConfirmacionPublicacionMotivoFuenteAnalisis, error) {
-	datos, err := resultado.Datos()
-	if err != nil {
-		return nil, ErrResultadoFuenteAnalisisNoConfiable
-	}
-	if datos.Validacion.Resultado == domain.RCValidada {
-		if datos.Motivo.datos != nil {
-			return nil, ErrResultadoFuenteAnalisisNoConfiable
-		}
-		return nil, nil
-	}
-	solicitud := SolicitudVerificarPublicacionMotivoFuenteAnalisis{
-		Motivo:                datos.Motivo,
-		HuellaRespuestaSHA256: datos.HuellaRespuestaSHA256,
-		AutoridadRespuestaRef: datos.Atestacion.Metadatos.AutoridadRef,
-		GeneracionRespuesta:   datos.Atestacion.Metadatos.Generacion,
-	}
-	confirmacion, errVerificacion := verificador.
-		VerificarPublicacionMotivoFuenteAnalisis(ctx, solicitud)
-	if errContexto := ctx.Err(); errContexto != nil {
-		return nil, errorDisponibilidadFuente(
-			ErrVerificacionFuenteAnalisisNoDisponible,
-			errContexto,
-		)
-	}
-	datosConfirmacion, errDatos := confirmacion.Datos()
-	if errVerificacion != nil || errDatos != nil ||
-		datosConfirmacion.PublicadorRef != identidadPublicador.autoridadRef ||
-		confirmacion.ValidarPara(solicitud, datosConfirmacion.VerificadaEn) != nil {
-		return nil, errorDisponibilidadFuente(
-			ErrVerificacionFuenteAnalisisNoDisponible,
-			errVerificacion,
-		)
-	}
-	comprobadaEn := reloj.Ahora()
-	if errContexto := ctx.Err(); errContexto != nil {
-		return nil, errorDisponibilidadFuente(
-			ErrVerificacionFuenteAnalisisNoDisponible,
-			errContexto,
-		)
-	}
-	if confirmacion.ValidarPara(solicitud, comprobadaEn) != nil {
-		return nil, ErrResultadoFuenteAnalisisNoConfiable
-	}
-	return &confirmacion, nil
-}
-
 func materializarMotivoValidacionRC(
 	validacion domain.ValidacionRC,
 	motivo MotivoFuenteAnalisis,

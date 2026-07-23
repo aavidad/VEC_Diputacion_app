@@ -171,9 +171,7 @@ func datosArtefactoAnalisisDesdePruebasO3(
 		return DatosArtefactoAnalisis{},
 			ErrArtefactoAnalisisNoConfiable
 	}
-	validacion, err := materializarValidacionRCEvidenciaO3(
-		pruebas.evidenciaRC,
-	)
+	validacion, err := pruebas.evidenciaRC.Materializar()
 	datosSolicitudRC, errSolicitudRC :=
 		pruebas.evidenciaRC.datos.solicitud.Datos()
 	datosResultadoRC, errResultadoRC :=
@@ -209,16 +207,10 @@ func datosArtefactoAnalisisDesdePruebasO3(
 		GeneracionRespuestaRC:  datosResultadoRC.Atestacion.Metadatos.Generacion,
 		ConfirmadaRCEn:         datosConfirmacionRC.VerificadaEn,
 		RespuestaRCValidaHasta: datosConfirmacionRC.ValidaHasta,
-		AutoridadFuenteRC: vinculoAutoridadFuenteAnalisisO3(
-			pruebas.evidenciaRC.datos.identidadFuente,
-		),
-		AutoridadVerificadorRC: vinculoAutoridadFuenteAnalisisO3(
-			pruebas.evidenciaRC.datos.identidadVerificador,
-		),
-		AutoridadPublicadorRC: vinculoAutoridadFuenteAnalisisO3(
-			pruebas.evidenciaRC.datos.identidadPublicador,
-		),
-		PreparadoEn: preparadoEn,
+		AutoridadFuenteRC:      pruebas.evidenciaRC.datos.identidadFuente,
+		AutoridadVerificadorRC: pruebas.evidenciaRC.datos.identidadVerificador,
+		AutoridadPublicadorRC:  pruebas.evidenciaRC.datos.identidadPublicador,
+		PreparadoEn:            preparadoEn,
 	}
 	if pruebas.evidenciaRC.datos.confirmacionMotivo != nil {
 		confirmacion, errMotivo :=
@@ -274,12 +266,8 @@ func incorporarCosteArtefactoAnalisisO3(
 		resultado.Atestacion.Metadatos.Generacion
 	destino.ConfirmadaCosteEn = confirmacion.VerificadaEn
 	destino.RespuestaCosteValidaHasta = confirmacion.ValidaHasta
-	destino.AutoridadFuenteCoste = vinculoAutoridadFuenteAnalisisO3(
-		evidencia.datos.identidadFuente,
-	)
-	destino.AutoridadVerificadorCoste = vinculoAutoridadFuenteAnalisisO3(
-		evidencia.datos.identidadVerificador,
-	)
+	destino.AutoridadFuenteCoste = evidencia.datos.identidadFuente
+	destino.AutoridadVerificadorCoste = evidencia.datos.identidadVerificador
 }
 
 func motivoRCGobernadoDesdeResultadoO3(
