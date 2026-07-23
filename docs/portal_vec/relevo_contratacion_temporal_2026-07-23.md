@@ -104,6 +104,11 @@ ajenas.
   minimizada y errores públicos sin detalles del proveedor. No contiene listas
   compiladas de Bolsa/SAE ni autoriza lecturas de sus tablas. Faltan los
   adaptadores concretos y la revisión independiente.
+- `fd766a2` completa la ligadura de la respuesta O4-02 con organización,
+  procedencia, categoría y periodo. La frontera rechaza texto libre del
+  proveedor para impedir que una consulta minimizada transporte identidad o
+  detalles personales; el diagnóstico completo permanece tras el recibo opaco
+  en el sistema fuente.
 
 Estos contratos no dependen de HTTP, cookies ni almacenamiento de navegador.
 Los consumirán por igual web, escritorio, CLI y MCP a través de los casos de
