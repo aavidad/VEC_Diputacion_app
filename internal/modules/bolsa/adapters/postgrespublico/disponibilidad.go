@@ -18,10 +18,15 @@ const (
 	duracionIntegridadDisponibilidad   = 30 * time.Second
 )
 
+type transicionDisponibilidad struct {
+	disponible bool
+	observar   func(bool)
+}
+
 // ComprobarDisponibilidad verifica que la cache de manifiesto ya fue cargada
-// y que la ancla publicada sigue siendo la esperada. Solo la primera solicitud
-// inicia una sonda: las seguidoras fallan inmediatamente mientras siga en
-// curso, para no agotar ni el pool ni las goroutines del servidor.
+// y que la ancla publicada sigue siendo la esperada. Las solicitudes
+// concurrentes comparten una unica sonda con timeout propio: cancelar una
+// solicitud deja de esperarla, pero no altera el resultado global.
 func (f *Fuente) ComprobarDisponibilidad(ctx context.Context) error {
 	if ctx == nil || f == nil || !f.configuracionValida() || f.cacheManifiesto.Load() == nil {
 		return ErrPostgreSQLPublicoNoDisponible
@@ -29,64 +34,58 @@ func (f *Fuente) ComprobarDisponibilidad(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return errors.Join(ErrPostgreSQLPublicoNoDisponible, err)
 	}
-	if !f.integridadReciente() {
-		f.registrarEstadoDisponibilidad(false)
-		return ErrPostgreSQLPublicoNoDisponible
-	}
-	f.disponibilidadMu.Lock()
-	if time.Now().Before(f.disponibilidadHasta) {
-		err := f.disponibilidadErr
-		cancelada := f.disponibilidadCancelada
-		f.disponibilidadMu.Unlock()
-		if !cancelada {
-			f.registrarEstadoDisponibilidad(err == nil)
-		}
-		return err
-	}
-	if f.disponibilidadEnCurso {
-		f.disponibilidadMu.Unlock()
-		return ErrPostgreSQLPublicoNoDisponible
-	}
-	f.disponibilidadEnCurso = true
-	f.disponibilidadMu.Unlock()
 
-	err := f.sondearDisponibilidad(ctx)
-	// La cancelacion del cliente no describe una transicion de la dependencia,
-	// pero se cachea brevemente para impedir churn de Begin/CancelQuery.
-	if causa := ctx.Err(); causa != nil {
-		errorCancelacion := errors.Join(ErrPostgreSQLPublicoNoDisponible, causa)
+	for {
+		f.integridadMu.RLock()
+		if !f.integridadRecienteBloqueada() {
+			f.disponibilidadMu.Lock()
+			drenar := f.encolarEstadoDisponibilidadBloqueada(false)
+			f.disponibilidadMu.Unlock()
+			f.integridadMu.RUnlock()
+			if drenar {
+				f.drenarTransicionesDisponibilidad()
+			}
+			return ErrPostgreSQLPublicoNoDisponible
+		}
+		generacion := f.integridadGeneracion
+
 		f.disponibilidadMu.Lock()
-		f.disponibilidadErr = errorCancelacion
-		f.disponibilidadCancelada = true
-		f.disponibilidadHasta = time.Now().Add(duracionCacheDisponibilidadFallida)
-		f.disponibilidadEnCurso = false
+		if f.disponibilidadCerrada {
+			f.disponibilidadMu.Unlock()
+			f.integridadMu.RUnlock()
+			return ErrPostgreSQLPublicoNoDisponible
+		}
+		if time.Now().Before(f.disponibilidadHasta) {
+			err := f.disponibilidadErr
+			f.disponibilidadMu.Unlock()
+			f.integridadMu.RUnlock()
+			return err
+		}
+		terminada := f.disponibilidadSondaTerminada
+		if terminada == nil {
+			ctxSonda, cancelar := context.WithTimeout(context.Background(), duracionSondaDisponibilidadPublica)
+			terminada = make(chan struct{})
+			f.disponibilidadSondaTerminada = terminada
+			f.disponibilidadSondaCancelar = cancelar
+			go func() {
+				defer cancelar()
+				f.completarSondaDisponibilidad(ctxSonda, generacion, terminada)
+			}()
+		}
 		f.disponibilidadMu.Unlock()
-		return errorCancelacion
+		f.integridadMu.RUnlock()
+
+		select {
+		case <-ctx.Done():
+			return errors.Join(ErrPostgreSQLPublicoNoDisponible, ctx.Err())
+		case <-terminada:
+			// Relee integridad y cache bajo el mismo orden de bloqueos. Una
+			// invalidacion posterior a la sonda debe prevalecer en la respuesta.
+		}
 	}
-	// La worker puede invalidar la proyeccion mientras la sonda ligera esta en
-	// vuelo. Nunca conviertas ese resultado obsoleto en un nuevo verde.
-	if err == nil && !f.integridadReciente() {
-		err = ErrDatosPostgreSQLPublicosNoConfiables
-	}
-	vida := duracionCacheDisponibilidadSana
-	if err != nil {
-		vida = duracionCacheDisponibilidadFallida
-		err = errors.Join(ErrPostgreSQLPublicoNoDisponible, err)
-	}
-	f.disponibilidadMu.Lock()
-	f.disponibilidadErr = err
-	f.disponibilidadCancelada = false
-	f.disponibilidadHasta = time.Now().Add(vida)
-	f.disponibilidadEnCurso = false
-	disponible := err == nil
-	f.disponibilidadMu.Unlock()
-	f.registrarEstadoDisponibilidad(disponible)
-	return err
 }
 
-func (f *Fuente) sondearDisponibilidad(ctxPadre context.Context) error {
-	ctx, cancelar := context.WithTimeout(ctxPadre, duracionSondaDisponibilidadPublica)
-	defer cancelar()
+func (f *Fuente) sondearDisponibilidad(ctx context.Context) error {
 	if f.sondaDisponibilidadPrueba != nil {
 		return f.sondaDisponibilidadPrueba(ctx)
 	}
@@ -104,9 +103,49 @@ func (f *Fuente) sondearDisponibilidad(ctxPadre context.Context) error {
 	return nil
 }
 
+func (f *Fuente) completarSondaDisponibilidad(
+	ctx context.Context,
+	generacion uint64,
+	terminada chan struct{},
+) {
+	err := f.sondearDisponibilidad(ctx)
+	vida := duracionCacheDisponibilidadSana
+	if err != nil {
+		vida = duracionCacheDisponibilidadFallida
+		err = errors.Join(ErrPostgreSQLPublicoNoDisponible, err)
+	}
+
+	f.integridadMu.RLock()
+	if err == nil && (generacion != f.integridadGeneracion || !f.integridadRecienteBloqueada()) {
+		err = errors.Join(ErrPostgreSQLPublicoNoDisponible, ErrDatosPostgreSQLPublicosNoConfiables)
+		vida = duracionCacheDisponibilidadFallida
+	}
+	f.disponibilidadMu.Lock()
+	drenar := false
+	if f.disponibilidadSondaTerminada == terminada {
+		if !f.disponibilidadCerrada {
+			f.disponibilidadErr = err
+			f.disponibilidadHasta = time.Now().Add(vida)
+			drenar = f.encolarEstadoDisponibilidadBloqueada(err == nil)
+		}
+		f.disponibilidadSondaTerminada = nil
+		f.disponibilidadSondaCancelar = nil
+		close(terminada)
+	}
+	f.disponibilidadMu.Unlock()
+	f.integridadMu.RUnlock()
+	if drenar {
+		f.drenarTransicionesDisponibilidad()
+	}
+}
+
 func (f *Fuente) integridadReciente() bool {
 	f.integridadMu.RLock()
 	defer f.integridadMu.RUnlock()
+	return f.integridadRecienteBloqueada()
+}
+
+func (f *Fuente) integridadRecienteBloqueada() bool {
 	return f.integridadErr == nil && time.Now().Before(f.integridadHasta)
 }
 
@@ -207,32 +246,77 @@ func (f *Fuente) comprobarIntegridadProyeccion(ctx context.Context) error {
 
 func (f *Fuente) actualizarIntegridad(err error) {
 	f.integridadMu.Lock()
+	f.integridadGeneracion++
 	f.integridadErr = err
 	if err == nil {
 		f.integridadHasta = time.Now().Add(vigenciaIntegridadDisponibilidad)
 	} else {
 		f.integridadHasta = time.Time{}
 	}
-	f.integridadMu.Unlock()
+	drenar := false
 	if err != nil {
-		f.registrarEstadoDisponibilidad(false)
+		f.disponibilidadMu.Lock()
+		drenar = f.encolarEstadoDisponibilidadBloqueada(false)
+		f.disponibilidadMu.Unlock()
+	}
+	f.integridadMu.Unlock()
+	if drenar {
+		f.drenarTransicionesDisponibilidad()
 	}
 }
 
 func (f *Fuente) registrarEstadoDisponibilidad(disponible bool) {
 	f.disponibilidadMu.Lock()
+	drenar := f.encolarEstadoDisponibilidadBloqueada(disponible)
+	f.disponibilidadMu.Unlock()
+	if drenar {
+		f.drenarTransicionesDisponibilidad()
+	}
+}
+
+func (f *Fuente) encolarEstadoDisponibilidadBloqueada(disponible bool) bool {
 	transicion := !f.disponibilidadEstadoConocido || f.disponibilidadDisponible != disponible
 	f.disponibilidadEstadoConocido = true
 	f.disponibilidadDisponible = disponible
-	observador := f.observadorDisponibilidad
-	f.disponibilidadMu.Unlock()
 	if !transicion {
-		return
+		return false
 	}
+	observador := f.observadorDisponibilidad
 	if observador == nil {
 		observador = observarTransicionDisponibilidad
 	}
-	observador(disponible)
+	f.disponibilidadPendientes = append(f.disponibilidadPendientes, transicionDisponibilidad{
+		disponible: disponible,
+		observar:   observador,
+	})
+	if f.disponibilidadNotificando {
+		return false
+	}
+	f.disponibilidadNotificando = true
+	return true
+}
+
+func (f *Fuente) drenarTransicionesDisponibilidad() {
+	for {
+		f.disponibilidadMu.Lock()
+		if len(f.disponibilidadPendientes) == 0 {
+			f.disponibilidadNotificando = false
+			f.disponibilidadMu.Unlock()
+			return
+		}
+		transicion := f.disponibilidadPendientes[0]
+		f.disponibilidadPendientes[0] = transicionDisponibilidad{}
+		f.disponibilidadPendientes = f.disponibilidadPendientes[1:]
+		f.disponibilidadMu.Unlock()
+		notificarTransicionDisponibilidad(transicion)
+	}
+}
+
+func notificarTransicionDisponibilidad(transicion transicionDisponibilidad) {
+	defer func() {
+		_ = recover()
+	}()
+	transicion.observar(transicion.disponible)
 }
 
 func observarTransicionDisponibilidad(disponible bool) {
