@@ -411,7 +411,8 @@ func fechaCivilUTC(valor string) (time.Time, error) {
 		return time.Time{}, errContenidoAltaNoValido
 	}
 	fecha, err := time.Parse(formato, valor)
-	if err != nil || fecha.Format(formato) != valor || !domain.InstanteUTCCanonico(fecha) ||
+	if err != nil || fecha.Year() < 1 || fecha.Format(formato) != valor ||
+		!domain.InstanteUTCCanonico(fecha) ||
 		fecha.Hour() != 0 || fecha.Minute() != 0 || fecha.Second() != 0 {
 		return time.Time{}, errContenidoAltaNoValido
 	}

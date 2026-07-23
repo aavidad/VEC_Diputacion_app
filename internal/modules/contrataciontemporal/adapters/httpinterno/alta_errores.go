@@ -95,9 +95,6 @@ var (
 	errorInterno = nuevoErrorPublico(
 		http.StatusInternalServerError, "error_interno", "api.contratacion_temporal.alta.error.error_interno",
 	)
-	errorContextoNoConfiable = nuevoErrorPublico(
-		http.StatusInternalServerError, "contexto_no_confiable", "api.contratacion_temporal.alta.error.contexto_no_confiable",
-	)
 )
 
 func nuevoErrorPublico(estado int, codigo, clave string) errorPublicoAlta {
