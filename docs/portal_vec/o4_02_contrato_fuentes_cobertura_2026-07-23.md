@@ -2,7 +2,7 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: cuatro rondas de revisión emitieron `NO-GO` con pruebas de concepto
+Estado: cinco rondas de revisión emitieron `NO-GO` con pruebas de concepto
 reproducibles. Las correcciones están implementadas en rama aislada; una nueva
 revisión independiente y la integración siguen pendientes. Este documento no
 concede un `GO` de integración, piloto o producción.
@@ -118,6 +118,42 @@ desafío, solicita la presentación y verifica la confianza fijada por
 composición. El caso de uso continúa siendo neutral respecto de web,
 escritorio, CLI y MCP. Esta cuarta corrección permanece en `NO-GO` hasta una
 nueva revisión independiente.
+
+La quinta revisión detectó cuatro límites relacionados:
+
+1. la aplicación obtenía el instante antes de una presentación y el adaptador
+   lo reutilizaba después de aquella operación lenta;
+2. el recibo histórico se verificaba con la clave de la operación actual, por
+   lo que una rotación legítima K1→K2 rompía el replay;
+3. el contrato de autenticación ocultaba la secuencia completa
+   desafío→presentación→verificación;
+4. varias pruebas dependían de timeouts de 5 ms y del planificador del equipo.
+
+La aplicación crea ahora cada desafío, obtiene la presentación y solo entonces
+lee el reloj autoritativo y solicita la verificación local. Esto se repite para
+fuente, verificador y publicador: ninguna presentación reutiliza un instante
+previo. El fin de credencial y raíz continúa siendo exclusivo y la
+verificación conserva el horizonte máximo completo.
+
+El recibo conserva la evidencia pública K1 original: datos de la credencial
+institucional, firma de raíz, desafío, prueba de posesión, rol, instante,
+identidad y clave pública. No contiene claves privadas, HMAC, tokens ni
+secretos. La firma K1 se liga a la huella de petición y respuesta, atestación,
+confirmación, instante y efecto durable. En el replay:
+
+- la autoridad actual K2 se autentica primero con el reloj actual;
+- la evidencia K1 se restaura y verifica por separado contra la confianza
+  institucional;
+- el recibo original se comprueba con K1, nunca con K2;
+- una autoridad actual revocada, caducada o no confiable falla antes del
+  consumidor y no puede usar el recibo histórico como autorización nueva;
+- una revocación que afectaba a K1 durante su ventana histórica invalida el
+  recibo, mientras una rotación posterior no reescribe el efecto ya probado.
+
+Las pruebas de timeout usan un contexto controlado y activan
+`DeadlineExceeded` en el punto exacto de cada dependencia. No esperan
+milisegundos reales ni debilitan el límite productivo de cinco segundos. La
+quinta corrección sigue en `NO-GO` hasta revisión independiente.
 
 ## Alcance
 
