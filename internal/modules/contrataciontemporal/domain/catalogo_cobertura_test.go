@@ -23,7 +23,8 @@ func TestCatalogoCoberturaPublicaOpcionesGobernadasSinListaCompilada(t *testing.
 		t.Fatalf("publicar catálogo: %v", err)
 	}
 	if catalogo.Version() != 7 || catalogo.Referencia() != "catalogo_cobertura_general" ||
-		!huellaCatalogoValida(catalogo.HuellaSHA256()) {
+		!huellaCatalogoValida(catalogo.HuellaSHA256()) ||
+		catalogo.Canon() != CanonHuellaCatalogoCoberturaV1() {
 		t.Fatalf("metadatos de publicación inesperados: %#v", catalogo.Publicacion())
 	}
 	via, encontrada := catalogo.Via("convenio_institucional_futuro")
@@ -80,7 +81,7 @@ func TestCatalogoCoberturaEsInmutableFrenteAEntradasYSalidas(t *testing.T) {
 	}
 }
 
-func TestCatalogoCoberturaRestauraSoloLaPublicacionIntegra(t *testing.T) {
+func TestCatalogoCoberturaRestauraSoloSiElResumenEsCoherente(t *testing.T) {
 	catalogo, err := PublicarCatalogoViasCobertura(borradorCatalogoCoberturaValido())
 	if err != nil {
 		t.Fatalf("publicar catálogo: %v", err)
@@ -99,6 +100,11 @@ func TestCatalogoCoberturaRestauraSoloLaPublicacionIntegra(t *testing.T) {
 	publicacion.HuellaSHA256 = strings.Repeat("0", 64)
 	if _, err := RestaurarCatalogoViasCobertura(publicacion); !errors.Is(err, ErrDatoInvalido) {
 		t.Fatalf("se aceptó una huella nula: %v", err)
+	}
+	publicacion = catalogo.Publicacion()
+	publicacion.Canon.VersionEsquema++
+	if _, err := RestaurarCatalogoViasCobertura(publicacion); !errors.Is(err, ErrDatoInvalido) {
+		t.Fatalf("se aceptó un canon desconocido: %v", err)
 	}
 }
 
@@ -122,6 +128,82 @@ func TestCatalogoCoberturaHuellaVersionYContenido(t *testing.T) {
 	if primero.HuellaSHA256() == segundaVersion.HuellaSHA256() ||
 		primero.HuellaSHA256() == otroContenido.HuellaSHA256() {
 		t.Fatal("la huella no está ligada a versión y contenido")
+	}
+}
+
+func TestCatalogoCoberturaCanonV1MantieneVectorGolden(t *testing.T) {
+	catalogo, err := PublicarCatalogoViasCobertura(borradorCatalogoCoberturaValido())
+	if err != nil {
+		t.Fatalf("publicar catálogo: %v", err)
+	}
+	const huellaEsperada = "5d0ec6a06e0e1f3dae7012fde168e998fa78aa1b8d68660ae757cfa340abd7c5"
+	if catalogo.HuellaSHA256() != huellaEsperada {
+		t.Fatalf(
+			"vector golden del canon V1 cambió: obtenido %s",
+			catalogo.HuellaSHA256(),
+		)
+	}
+}
+
+func TestCatalogoCoberturaCanonDistingueVigenciaIndefinida(t *testing.T) {
+	finito := borradorCatalogoCoberturaValido()
+	catalogoFinito, err := PublicarCatalogoViasCobertura(finito)
+	if err != nil {
+		t.Fatalf("publicar catálogo finito: %v", err)
+	}
+	indefinido := borradorCatalogoCoberturaValido()
+	indefinido.Vigencia.Hasta = time.Time{}
+	catalogoIndefinido, err := PublicarCatalogoViasCobertura(indefinido)
+	if err != nil {
+		t.Fatalf("publicar catálogo indefinido: %v", err)
+	}
+	if catalogoFinito.HuellaSHA256() == catalogoIndefinido.HuellaSHA256() ||
+		!catalogoIndefinido.VigenteEn(
+			finito.Vigencia.Hasta.Add(365*24*time.Hour),
+		) {
+		t.Fatal("el canon no distingue explícitamente la ausencia de Hasta")
+	}
+}
+
+func TestCatalogoCoberturaIdentidadExactaResuelveColisionDurable(t *testing.T) {
+	base := borradorCatalogoCoberturaValido()
+	registrado, err := PublicarCatalogoViasCobertura(base)
+	if err != nil {
+		t.Fatalf("publicar catálogo: %v", err)
+	}
+	repetido, err := PublicarCatalogoViasCobertura(base)
+	if err != nil {
+		t.Fatalf("repetir catálogo: %v", err)
+	}
+	if err := ValidarReintentoPublicacionCatalogoCobertura(
+		registrado.Identidad(),
+		repetido.Identidad(),
+	); err != nil {
+		t.Fatalf("se rechazó reintento exacto: %v", err)
+	}
+
+	base.Vias[0].Comprobaciones[0].Obligatoria = false
+	otroContenido, err := PublicarCatalogoViasCobertura(base)
+	if err != nil {
+		t.Fatalf("publicar otro contenido: %v", err)
+	}
+	if err := ValidarReintentoPublicacionCatalogoCobertura(
+		registrado.Identidad(),
+		otroContenido.Identidad(),
+	); !errors.Is(err, ErrPublicacionCatalogoEnConflicto) {
+		t.Fatalf("no se detectó contenido diferente con misma clave: %v", err)
+	}
+
+	base.Version++
+	otraVersion, err := PublicarCatalogoViasCobertura(base)
+	if err != nil {
+		t.Fatalf("publicar otra versión: %v", err)
+	}
+	if err := ValidarReintentoPublicacionCatalogoCobertura(
+		registrado.Identidad(),
+		otraVersion.Identidad(),
+	); !errors.Is(err, ErrDatoInvalido) {
+		t.Fatalf("se trató otra clave durable como reintento: %v", err)
 	}
 }
 
@@ -180,12 +262,6 @@ func TestCatalogoCoberturaRechazaDuplicadosYProcedenciaAmbigua(t *testing.T) {
 				b.Vias[1].Comprobaciones[1].Orden = b.Vias[1].Comprobaciones[0].Orden
 			},
 		},
-		{
-			"misma comprobación con procedencia contradictoria",
-			func(b *BorradorCatalogoViasCobertura) {
-				b.Vias[0].Comprobaciones[0].Clave = "existe_bolsa_vigente"
-			},
-		},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -195,6 +271,24 @@ func TestCatalogoCoberturaRechazaDuplicadosYProcedenciaAmbigua(t *testing.T) {
 				t.Fatalf("se aceptó catálogo inválido: %v", err)
 			}
 		})
+	}
+}
+
+func TestCatalogoCoberturaRechazaProcedenciaContradictoriaEntreVias(t *testing.T) {
+	borrador := borradorCatalogoCoberturaValido()
+	borrador.Vias[0].Comprobaciones[0] = ComprobacionExigibleCobertura{
+		Clave: "comprobacion_compartida", Orden: 1, Obligatoria: true,
+		Procedencia: procedencia("sae", "fuente_sae_publicada"),
+	}
+	borrador.Vias[1].Comprobaciones[0] = ComprobacionExigibleCobertura{
+		Clave: "comprobacion_compartida", Orden: 20, Obligatoria: false,
+		Procedencia: procedencia("bolsa", "fuente_bolsa_publicada"),
+	}
+	if borrador.Vias[0].Validar() != nil || borrador.Vias[1].Validar() != nil {
+		t.Fatal("el caso no alcanza la comprobación de coherencia entre vías")
+	}
+	if _, err := PublicarCatalogoViasCobertura(borrador); !errors.Is(err, ErrDatoInvalido) {
+		t.Fatalf("se aceptó procedencia contradictoria entre vías: %v", err)
 	}
 }
 

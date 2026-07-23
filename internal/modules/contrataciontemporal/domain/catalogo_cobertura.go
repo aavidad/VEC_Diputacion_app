@@ -1,11 +1,8 @@
 package domain
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
+	"errors"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -15,11 +12,17 @@ const (
 	maximoComprobacionesCatalogo        = 512
 )
 
+// ErrPublicacionCatalogoEnConflicto indica que una clave referencia+versión ya
+// existe con un resumen de contenido diferente.
+var ErrPublicacionCatalogoEnConflicto = errors.New(
+	"contratacion temporal: publicacion de catalogo en conflicto",
+)
+
 // VigenciaCatalogoCobertura representa un intervalo [Desde, Hasta). Un valor
 // Hasta vacío mantiene la publicación vigente sin fecha final conocida.
 type VigenciaCatalogoCobertura struct {
 	Desde time.Time `json:"desde"`
-	Hasta time.Time `json:"hasta,omitempty"`
+	Hasta time.Time `json:"hasta"`
 }
 
 func (v VigenciaCatalogoCobertura) Validar() error {
@@ -109,9 +112,62 @@ func (d DefinicionViaCobertura) clonar() DefinicionViaCobertura {
 	return d
 }
 
+// IdentidadCatalogoViasCobertura identifica exactamente una publicación. La
+// referencia y versión forman la clave durable; la huella debe coincidir para
+// que una repetición sea el mismo contenido.
+type IdentidadCatalogoViasCobertura struct {
+	Referencia   string `json:"referencia"`
+	Version      uint64 `json:"version"`
+	HuellaSHA256 string `json:"huella_sha256"`
+}
+
+func (i IdentidadCatalogoViasCobertura) Validar() error {
+	if !referenciaValida(i.Referencia) || i.Version == 0 ||
+		!huellaCatalogoValida(i.HuellaSHA256) {
+		return ErrDatoInvalido
+	}
+	return nil
+}
+
+func (i IdentidadCatalogoViasCobertura) MismaClaveVersion(
+	otra IdentidadCatalogoViasCobertura,
+) bool {
+	return i.Validar() == nil && otra.Validar() == nil &&
+		i.Referencia == otra.Referencia && i.Version == otra.Version
+}
+
+func (i IdentidadCatalogoViasCobertura) CoincideExactamente(
+	otra IdentidadCatalogoViasCobertura,
+) bool {
+	return i.MismaClaveVersion(otra) && i.HuellaSHA256 == otra.HuellaSHA256
+}
+
+// ValidarReintentoPublicacionCatalogoCobertura resuelve una colisión que la
+// persistencia durable ya ha detectado sobre UNIQUE(referencia, version).
+// Acepta exclusivamente la repetición exacta y rechaza otro contenido.
+//
+// Esta función no reserva la clave ni finge unicidad global. El adaptador
+// durable deberá aplicar historia de solo adición, impedir UPDATE/DELETE y
+// atestar la publicación mediante la capacidad VEC y sus ACL. El resumen
+// SHA-256 por sí solo no prueba origen, autenticidad ni autorización.
+func ValidarReintentoPublicacionCatalogoCobertura(
+	registrada IdentidadCatalogoViasCobertura,
+	propuesta IdentidadCatalogoViasCobertura,
+) error {
+	if registrada.Validar() != nil || propuesta.Validar() != nil ||
+		!registrada.MismaClaveVersion(propuesta) {
+		return ErrDatoInvalido
+	}
+	if !registrada.CoincideExactamente(propuesta) {
+		return ErrPublicacionCatalogoEnConflicto
+	}
+	return nil
+}
+
 // BorradorCatalogoViasCobertura contiene los datos funcionales que una capa
-// autorizada puede someter a publicación. El dominio valida y sella el
-// contenido, pero no sustituye la autorización, auditoría ni persistencia.
+// autorizada puede someter a publicación. El dominio valida y calcula un
+// resumen del contenido, pero no sustituye autorización, atestación VEC,
+// auditoría, ACL ni persistencia durable de solo adición.
 type BorradorCatalogoViasCobertura struct {
 	Referencia     string                    `json:"referencia"`
 	Version        uint64                    `json:"version"`
@@ -124,22 +180,24 @@ type BorradorCatalogoViasCobertura struct {
 // PublicacionCatalogoViasCobertura es el estado transportable de una
 // publicación. Restaurarlo vuelve a calcular la huella antes de aceptarlo.
 type PublicacionCatalogoViasCobertura struct {
-	Referencia     string                    `json:"referencia"`
-	Version        uint64                    `json:"version"`
-	HuellaSHA256   string                    `json:"huella_sha256"`
-	PublicadoEn    time.Time                 `json:"publicado_en"`
-	Vigencia       VigenciaCatalogoCobertura `json:"vigencia"`
-	ProcedenciaRef string                    `json:"procedencia_ref"`
-	Vias           []DefinicionViaCobertura  `json:"vias"`
+	Referencia     string                       `json:"referencia"`
+	Version        uint64                       `json:"version"`
+	HuellaSHA256   string                       `json:"huella_sha256"`
+	Canon          CanonHuellaCatalogoCobertura `json:"canon"`
+	PublicadoEn    time.Time                    `json:"publicado_en"`
+	Vigencia       VigenciaCatalogoCobertura    `json:"vigencia"`
+	ProcedenciaRef string                       `json:"procedencia_ref"`
+	Vias           []DefinicionViaCobertura     `json:"vias"`
 }
 
-// CatalogoViasCobertura conserva una publicación inmutable. Todos los
-// accesores que exponen colecciones entregan copias defensivas.
+// CatalogoViasCobertura conserva una publicación inmutable dentro del proceso.
+// Los métodos de acceso a colecciones entregan copias defensivas. La
+// inmutabilidad durable corresponde al adaptador de persistencia append-only.
 type CatalogoViasCobertura struct {
 	publicacion PublicacionCatalogoViasCobertura
 }
 
-// PublicarCatalogoViasCobertura valida, ordena y sella una nueva publicación.
+// PublicarCatalogoViasCobertura valida, ordena y resume una nueva publicación.
 // Añadir una vía o comprobación requiere datos nuevos, no recompilar el núcleo.
 func PublicarCatalogoViasCobertura(
 	borrador BorradorCatalogoViasCobertura,
@@ -150,6 +208,7 @@ func PublicarCatalogoViasCobertura(
 	}
 	publicacion := PublicacionCatalogoViasCobertura{
 		Referencia: normalizado.Referencia, Version: normalizado.Version,
+		Canon:       CanonHuellaCatalogoCoberturaV1(),
 		PublicadoEn: normalizado.PublicadoEn, Vigencia: normalizado.Vigencia,
 		ProcedenciaRef: normalizado.ProcedenciaRef, Vias: normalizado.Vias,
 	}
@@ -164,7 +223,8 @@ func PublicarCatalogoViasCobertura(
 func RestaurarCatalogoViasCobertura(
 	publicacion PublicacionCatalogoViasCobertura,
 ) (CatalogoViasCobertura, error) {
-	if !huellaCatalogoValida(publicacion.HuellaSHA256) {
+	if !publicacion.Canon.Valido() ||
+		!huellaCatalogoValida(publicacion.HuellaSHA256) {
 		return CatalogoViasCobertura{}, ErrDatoInvalido
 	}
 	borrador := BorradorCatalogoViasCobertura{
@@ -173,7 +233,11 @@ func RestaurarCatalogoViasCobertura(
 		ProcedenciaRef: publicacion.ProcedenciaRef, Vias: publicacion.Vias,
 	}
 	restaurado, err := PublicarCatalogoViasCobertura(borrador)
-	if err != nil || restaurado.publicacion.HuellaSHA256 != publicacion.HuellaSHA256 {
+	if err != nil ||
+		!restaurado.Identidad().CoincideExactamente(IdentidadCatalogoViasCobertura{
+			Referencia: publicacion.Referencia, Version: publicacion.Version,
+			HuellaSHA256: publicacion.HuellaSHA256,
+		}) {
 		return CatalogoViasCobertura{}, ErrDatoInvalido
 	}
 	return restaurado, nil
@@ -194,6 +258,17 @@ func (c CatalogoViasCobertura) Version() uint64 {
 
 func (c CatalogoViasCobertura) HuellaSHA256() string {
 	return c.publicacion.HuellaSHA256
+}
+
+func (c CatalogoViasCobertura) Identidad() IdentidadCatalogoViasCobertura {
+	return IdentidadCatalogoViasCobertura{
+		Referencia: c.publicacion.Referencia, Version: c.publicacion.Version,
+		HuellaSHA256: c.publicacion.HuellaSHA256,
+	}
+}
+
+func (c CatalogoViasCobertura) Canon() CanonHuellaCatalogoCobertura {
+	return c.publicacion.Canon
 }
 
 func (c CatalogoViasCobertura) PublicadoEn() time.Time {
@@ -294,21 +369,4 @@ func clonarViasCobertura(
 		clon[indice] = via.clonar()
 	}
 	return clon
-}
-
-func calcularHuellaCatalogo(
-	publicacion PublicacionCatalogoViasCobertura,
-) (string, error) {
-	publicacion.HuellaSHA256 = ""
-	material, err := json.Marshal(publicacion)
-	if err != nil {
-		return "", ErrDatoInvalido
-	}
-	suma := sha256.Sum256(material)
-	return hex.EncodeToString(suma[:]), nil
-}
-
-func huellaCatalogoValida(valor string) bool {
-	return patronHuella.MatchString(valor) &&
-		valor != strings.Repeat("0", sha256.Size*2)
 }
