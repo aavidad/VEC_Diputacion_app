@@ -280,6 +280,9 @@ archivo vec_ct_o205_migrador \
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.up.sql \
     >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000006_expediente_integral_versionado.up.sql \
+    >/dev/null
 afirmar_sin_referencias_o2_05
 
 paso 'frontera intercambiable sin FK a tablas de otra autoridad'
@@ -347,6 +350,7 @@ segunda="$(invocar alta_valida)"
 [[ "${primera}" == *'expediente:ct:o205:alta_valida'* ]]
 [[ "${segunda}" == *'expediente:ct:o205:alta_valida'* ]]
 afirmar_agregado_completo_o2_05 alta_valida
+[[ "$(valor "SELECT ((v.agregado_json->>'referencia')='expediente:ct:o205:alta_valida' AND (v.agregado_json->>'version')::numeric=1 AND jsonb_array_length(v.agregado_json->'actuaciones')=1 AND v.agregado_json->'analisis' IS NULL AND a.version=1 AND a.operacion_ref=v.operacion_ref AND encode(sha256(v.prueba_canonica),'hex')=v.prueba_huella_sha256)::text FROM vec_contratacion_temporal.expediente_version_integral v JOIN vec_contratacion_temporal.expediente_integral_actual a USING (expediente_ref) WHERE v.expediente_ref='expediente:ct:o205:alta_valida'")" == 'true' ]]
 recibo_iso="$(recibo_con_estilo_fecha alta_valida 'ISO, YMD')"
 recibo_aleman="$(recibo_con_estilo_fecha alta_valida 'German, DMY')"
 [[ "${recibo_iso}" == "${recibo_aleman}" ]]
@@ -639,6 +643,12 @@ esperar_fallo 'sesión revocada después de decisión durable' \
 paso 'ACL: único mando runtime y denegación por defecto'
 esperar_fallo 'lectura directa CT' sql vec_ct_o205_runtime \
     'TABLE vec_contratacion_temporal.expediente_alta'
+esperar_fallo 'lectura directa de historia integral' \
+    sql vec_ct_o205_runtime \
+    'TABLE vec_contratacion_temporal.expediente_version_integral'
+esperar_fallo 'lectura directa del puntero integral' \
+    sql vec_ct_o205_runtime \
+    'TABLE vec_contratacion_temporal.expediente_integral_actual'
 esperar_fallo 'lectura directa atestación' sql vec_ct_o205_runtime \
     'TABLE vec_autorizacion_atestada_v3.consumo_decision_v3'
 esperar_fallo 'preparación histórica abierta' sql vec_ct_o205_runtime \
@@ -649,6 +659,9 @@ esperar_fallo 'consumidor genérico abierto' sql vec_ct_o205_runtime \
 [[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')")" == 'f' ]]
 
 paso 'rollback ordinario protegido'
+esperar_fallo 'down historia integral con datos' \
+    archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000006_expediente_integral_versionado.down.sql
 esperar_fallo 'down CT con historia' archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.down.sql
 esperar_fallo 'down integridad CT con historia' \
@@ -667,6 +680,12 @@ esperar_fallo 'down revalidación viva con consumidor instalado' \
 paso 'retirada de la superficie de prueba y destrucción explícita ensayada'
 sql postgres \
     'REVOKE USAGE ON SCHEMA public FROM vec_ct_o205_runtime; DROP FUNCTION public.aplicar_bundle_go_o2_05(text,jsonb); DROP FUNCTION public.exportar_entrada_go_o2_05(text); DROP FUNCTION public.durabilizar_decision_o2_05(text); DROP FUNCTION public.mutar_tipo_capacidad_o2_05(text,text); DROP FUNCTION public.mutar_efecto_o2_05(text,text,jsonb); DROP FUNCTION public.invocar_vector_o2_05(text); DROP FUNCTION public.preparar_vector_o2_05(text,text,numeric); DROP TABLE public.vectores_o2_05' \
+    >/dev/null
+docker exec \
+    --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
+    "${contenedor}" psql -X --set ON_ERROR_STOP=1 \
+    --username vec_ct_o205_migrador --dbname postgres \
+    --file /repo/deploy/postgresql/contratacion_temporal/migraciones/000006_expediente_integral_versionado.down.sql \
     >/dev/null
 docker exec \
     --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
@@ -725,7 +744,13 @@ archivo vec_ct_o205_migrador \
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.up.sql \
     >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000006_expediente_integral_versionado.up.sql \
+    >/dev/null
 afirmar_sin_referencias_o2_05
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000006_expediente_integral_versionado.down.sql \
+    >/dev/null
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.down.sql \
     >/dev/null
