@@ -91,7 +91,7 @@ func (d *resolutorPoliticaAsignacionDoble) ResolverPoliticaAsignacion(
 	solicitud ports.SolicitudResolverPoliticaAsignacion,
 ) (ports.PoliticaAsignacion, error) {
 	d.llamadas++
-	return ports.PoliticaAsignacion{
+	politica := ports.PoliticaAsignacion{
 		Operacion:                    solicitud.Operacion,
 		OrganizacionRef:              solicitud.OrganizacionRef,
 		ExpedienteRef:                solicitud.ExpedienteRef,
@@ -111,7 +111,25 @@ func (d *resolutorPoliticaAsignacionDoble) ResolverPoliticaAsignacion(
 		MotivoAutorizacion: d.motivo,
 		EvaluadaEn:         solicitud.Instante,
 		ValidaHasta:        solicitud.Instante.Add(5 * time.Minute),
-	}, nil
+	}
+	if solicitud.Operacion == ports.OperacionRegistrarReasignacion {
+		politica.Accion = domain.ClaveCatalogo(
+			ports.AccionRegistrarReasignacion,
+		)
+		politica.MotivoReasignacion = ports.MotivoReasignacionGobernado{
+			ReferenciaCatalogo: dominiovec.ReferenciaEntradaCatalogo{
+				CatalogoID:           "motivos_reasignacion",
+				CatalogoVersion:      3,
+				CatalogoHuellaSHA256: strings.Repeat("7", 64),
+				EntradaClave: string(
+					solicitud.MotivoReasignacionClave,
+				),
+			},
+			ClaveMensajeI18N: "contratacion_temporal.asignacion.motivo." +
+				solicitud.MotivoReasignacionClave,
+		}
+	}
+	return politica, nil
 }
 
 type transaccionAsignacionDoble struct {
@@ -131,13 +149,14 @@ func (d *transaccionAsignacionDoble) ConfirmarAsignacion(
 }
 
 type escenarioAsignacion struct {
-	instante    time.Time
-	solicitud   SolicitudAsignarUnidad
-	contexto    ports.ContextoAutorizacionAltaV3
-	preparacion ports.PreparacionAsignacion
-	destino     ports.DestinoAsignacionResuelto
-	motivo      dominiovec.ReferenciaEntradaCatalogo
-	recibo      ports.ReciboAsignacion
+	instante     time.Time
+	solicitud    SolicitudAsignarUnidad
+	reasignacion SolicitudReasignarUnidad
+	contexto     ports.ContextoAutorizacionAltaV3
+	preparacion  ports.PreparacionAsignacion
+	destino      ports.DestinoAsignacionResuelto
+	motivo       dominiovec.ReferenciaEntradaCatalogo
+	recibo       ports.ReciboAsignacion
 }
 
 func TestServicioAsignacionConfirmaVerticalSegura(t *testing.T) {
@@ -190,6 +209,24 @@ func TestServicioAsignacionDevuelveReplaySinDuplicarEfectos(t *testing.T) {
 		dependencias.destinos.llamadas != 0 ||
 		dependencias.transaccion.llamadas != 0 {
 		t.Fatalf("replay no fue exacto: %#v, %v", recibo, err)
+	}
+}
+
+func TestServicioAsignacionReasignaConMotivoGobernado(t *testing.T) {
+	escenario := nuevoEscenarioReasignacion(t)
+	servicio, dependencias := construirServicioAsignacion(t, escenario)
+
+	recibo, err := servicio.Reasignar(
+		context.Background(),
+		escenario.reasignacion,
+	)
+	if err != nil {
+		t.Fatalf("reasignar: %v", err)
+	}
+	if recibo != dependencias.transaccion.recibo ||
+		dependencias.politicas.llamadas != 1 ||
+		dependencias.transaccion.llamadas != 1 {
+		t.Fatalf("reasignación o efectos inesperados: %#v", recibo)
 	}
 }
 
@@ -374,6 +411,57 @@ func nuevoEscenarioAsignacion(t *testing.T) escenarioAsignacion {
 			ConfirmadaEn:           base.instante,
 		},
 	}
+}
+
+func nuevoEscenarioReasignacion(t *testing.T) escenarioAsignacion {
+	t.Helper()
+	escenario := nuevoEscenarioAsignacion(t)
+	anterior := domain.AsignacionUnidad{
+		UnidadRef:       "unidad:anterior-sintetica-001",
+		ResponsableRef:  "persona:anterior-sintetica-001",
+		NotificacionRef: "notificacion:anterior-sintetica-001",
+		AsignadaEn:      escenario.instante.Add(-5 * time.Minute),
+	}
+	expediente, err := escenario.preparacion.Expediente.RegistrarAsignacion(
+		escenario.preparacion.Expediente.Version,
+		anterior,
+		domain.DatosActuacion{
+			AccionClave:   "unidad.asignada",
+			ActorRef:      "persona:tecnica-anterior-001",
+			UnidadRef:     "unidad:rrhh-sintetica-001",
+			ReciboRef:     "recibo:asignacion-anterior-001",
+			RealizadaEn:   anterior.AsignadaEn,
+			FaseDestino:   escenario.preparacion.Expediente.FaseActual,
+			EstadoDestino: escenario.preparacion.Expediente.EstadoActual,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	escenario.reasignacion = SolicitudReasignarUnidad{
+		AutenticacionRef:        escenario.solicitud.AutenticacionRef,
+		SesionRef:               escenario.solicitud.SesionRef,
+		PerfilRef:               escenario.solicitud.PerfilRef,
+		OrganizacionRef:         escenario.solicitud.OrganizacionRef,
+		ExpedienteRef:           escenario.solicitud.ExpedienteRef,
+		VersionEsperada:         expediente.Version,
+		ClaveIdempotencia:       "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+		UnidadRef:               escenario.solicitud.UnidadRef,
+		ResponsableRef:          escenario.solicitud.ResponsableRef,
+		MotivoReasignacionClave: "necesidad_servicio",
+		Observaciones: "Reasignación motivada por necesidad " +
+			"del servicio.",
+	}
+	escenario.preparacion.Expediente = expediente
+	escenario.preparacion.Operacion =
+		ports.OperacionRegistrarReasignacion
+	escenario.preparacion.UnidadRef = escenario.reasignacion.UnidadRef
+	escenario.preparacion.ResponsableRef =
+		escenario.reasignacion.ResponsableRef
+	escenario.recibo.Operacion = ports.OperacionRegistrarReasignacion
+	escenario.recibo.VersionAnterior = expediente.Version
+	escenario.recibo.VersionResultante = expediente.Version + 1
+	return escenario
 }
 
 func coleccionAsignacionPrueba(
