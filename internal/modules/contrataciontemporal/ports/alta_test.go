@@ -1,8 +1,12 @@
 package ports
 
 import (
+	"errors"
 	"strings"
 	"testing"
+	"time"
+
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
 
 const (
@@ -194,5 +198,180 @@ func TestColeccionesHMACAltaExigenGeneracionesAlineadasYParInseparable(t *testin
 		huellasSoloActiva,
 	); err == nil {
 		t.Fatal("colecciones con historias generacionales distintas aceptadas")
+	}
+}
+
+func TestMaterialHuellaAsignacionDistingueAltaYReasignacion(t *testing.T) {
+	base := materialHuellaAsignacionPrueba()
+	if err := base.Validar(); err != nil {
+		t.Fatalf("material de alta válido rechazado: %v", err)
+	}
+
+	reasignacion := base
+	reasignacion.Operacion = OperacionRegistrarReasignacion
+	reasignacion.MotivoReasignacionClave = "necesidad_servicio"
+	reasignacion.Observaciones = "Cambio motivado de unidad responsable."
+	if err := reasignacion.Validar(); err != nil {
+		t.Fatalf("material de reasignación válido rechazado: %v", err)
+	}
+
+	casos := map[string]func(*MaterialHuellaAsignacion){
+		"alta con observaciones": func(m *MaterialHuellaAsignacion) {
+			m.Observaciones = "No procede en el alta."
+		},
+		"reasignación sin motivo": func(m *MaterialHuellaAsignacion) {
+			m.Operacion = OperacionRegistrarReasignacion
+			m.Observaciones = "Falta el motivo catalogado."
+		},
+		"texto no canónico": func(m *MaterialHuellaAsignacion) {
+			m.Operacion = OperacionRegistrarReasignacion
+			m.MotivoReasignacionClave = "necesidad_servicio"
+			m.Observaciones = " texto con espacio"
+		},
+		"versión no incrementable": func(m *MaterialHuellaAsignacion) {
+			m.VersionExpediente = MaximoEnteroSeguroOperacionAnalisis
+		},
+	}
+	for nombre, mutar := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			material := base
+			mutar(&material)
+			if err := material.Validar(); !errors.Is(
+				err,
+				ErrPreparacionAsignacionInvalida,
+			) {
+				t.Fatalf("se esperaba rechazo cerrado, recibido %v", err)
+			}
+		})
+	}
+}
+
+func TestSolicitudPrepararAsignacionExigeSellosYCoordenadas(t *testing.T) {
+	solicitud := solicitudPrepararAsignacionPrueba(t)
+	if err := solicitud.Validar(); err != nil {
+		t.Fatalf("solicitud válida rechazada: %v", err)
+	}
+
+	otraHuella := coleccionSelloPrueba(
+		t,
+		selloPrueba("vec.otro-dominio/v1", "c"),
+	)
+	solicitud.HuellasPeticionHMAC = otraHuella
+	if err := solicitud.Validar(); !errors.Is(
+		err,
+		ErrPreparacionAsignacionInvalida,
+	) {
+		t.Fatalf("se esperaba dominio HMAC rechazado, recibido %v", err)
+	}
+}
+
+func TestReciboAsignacionQuedaLigadoALaPreparacion(t *testing.T) {
+	solicitud := solicitudPrepararAsignacionPrueba(t)
+	ambito, huella, err := ParActivoColeccionesHMAC(
+		solicitud.AmbitosHMAC,
+		DominioAmbitoIdempotenciaAsignacion,
+		solicitud.HuellasPeticionHMAC,
+		DominioHuellaPeticionAsignacion,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparacion := PreparacionAsignacion{
+		Expediente: domain.Expediente{
+			Referencia:      solicitud.ExpedienteRef,
+			OrganizacionRef: solicitud.OrganizacionRef,
+			Version:         solicitud.VersionExpediente,
+		},
+		Referencias: ReferenciasEfectoAsignacion{
+			ReservaRef:      "reserva:asignacion:0123456789abcdef",
+			ReciboRef:       "recibo:asignacion:0123456789abcdef",
+			NotificacionRef: "notificacion:asignacion:0123456789abcdef",
+			BandejaRef:      "bandeja:asignacion:0123456789abcdef",
+			AuditoriaRef:    "auditoria:asignacion:0123456789abcdef",
+			EventoRef:       "evento:asignacion:0123456789abcdef",
+		},
+		AmbitoIdempotenciaHMAC: ambito,
+		HuellaPeticionHMAC:     huella,
+		Operacion:              solicitud.Operacion,
+		OrganizacionRef:        solicitud.OrganizacionRef,
+		ActorRef:               solicitud.ActorRef,
+		PerfilRef:              solicitud.PerfilRef,
+		UnidadRef:              solicitud.UnidadRef,
+		ResponsableRef:         solicitud.ResponsableRef,
+		Estado:                 PreparacionAsignacionReservada,
+	}
+	recibo := reciboAsignacionPrueba(preparacion)
+	if err := recibo.ValidarParaPreparacion(preparacion); err != nil {
+		t.Fatalf("recibo válido rechazado: %v", err)
+	}
+
+	recibo.BandejaRef = "bandeja:otra:0123456789abcdef"
+	if err := recibo.ValidarParaPreparacion(preparacion); !errors.Is(
+		err,
+		ErrResultadoAsignacionNoConfiable,
+	) {
+		t.Fatalf("se esperaba recibo adulterado rechazado, recibido %v", err)
+	}
+}
+
+func materialHuellaAsignacionPrueba() MaterialHuellaAsignacion {
+	return MaterialHuellaAsignacion{
+		Operacion:         OperacionRegistrarAsignacion,
+		OrganizacionRef:   "organizacion:dipgra:0123456789abcdef",
+		ExpedienteRef:     "expediente:contratacion:0123456789abcdef",
+		VersionExpediente: 3,
+		ActorRef:          "persona:tecnica:0123456789abcdef",
+		PerfilRef:         "perfil:tecnico:0123456789abcdef",
+		UnidadRef:         "unidad:seleccion:0123456789abcdef",
+		ResponsableRef:    "persona:responsable:0123456789abcdef",
+	}
+}
+
+func solicitudPrepararAsignacionPrueba(
+	t *testing.T,
+) SolicitudPrepararAsignacion {
+	t.Helper()
+	material := materialHuellaAsignacionPrueba()
+	return SolicitudPrepararAsignacion{
+		ClaveIdempotencia: "018f3b2a-7c4d-4e5f-8a9b-0c1d2e3f4a5b",
+		AmbitosHMAC: coleccionSelloPrueba(
+			t,
+			selloPrueba(DominioAmbitoIdempotenciaAsignacion+"/v1", "a"),
+		),
+		HuellasPeticionHMAC: coleccionSelloPrueba(
+			t,
+			selloPrueba(DominioHuellaPeticionAsignacion+"/v1", "b"),
+		),
+		Operacion:         material.Operacion,
+		OrganizacionRef:   material.OrganizacionRef,
+		ExpedienteRef:     material.ExpedienteRef,
+		VersionExpediente: material.VersionExpediente,
+		ActorRef:          material.ActorRef,
+		PerfilRef:         material.PerfilRef,
+		UnidadRef:         material.UnidadRef,
+		ResponsableRef:    material.ResponsableRef,
+	}
+}
+
+func reciboAsignacionPrueba(
+	preparacion PreparacionAsignacion,
+) ReciboAsignacion {
+	return ReciboAsignacion{
+		Operacion:              preparacion.Operacion,
+		OrganizacionRef:        preparacion.OrganizacionRef,
+		ExpedienteRef:          preparacion.Expediente.Referencia,
+		VersionAnterior:        preparacion.Expediente.Version,
+		VersionResultante:      preparacion.Expediente.Version + 1,
+		UnidadRef:              preparacion.UnidadRef,
+		ResponsableRef:         preparacion.ResponsableRef,
+		ReciboRef:              preparacion.Referencias.ReciboRef,
+		NotificacionRef:        preparacion.Referencias.NotificacionRef,
+		BandejaRef:             preparacion.Referencias.BandejaRef,
+		AuditoriaRef:           preparacion.Referencias.AuditoriaRef,
+		EventoRef:              preparacion.Referencias.EventoRef,
+		ConcesionV3DecisionRef: "decision:asignacion:0123456789abcdef",
+		AmbitoIdempotenciaHMAC: preparacion.AmbitoIdempotenciaHMAC,
+		HuellaPeticionHMAC:     preparacion.HuellaPeticionHMAC,
+		ConfirmadaEn:           time.Date(2026, 7, 24, 10, 0, 0, 0, time.UTC),
 	}
 }

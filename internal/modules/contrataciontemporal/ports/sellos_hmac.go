@@ -144,6 +144,104 @@ func (c ColeccionSellosHMAC) Generaciones() ([]uint32, error) {
 	return generaciones, nil
 }
 
+// ParActivoColeccionesHMAC devuelve el par de la generación activa solo si
+// las dos colecciones pertenecen a los dominios esperados y conservan una
+// historia de rotación alineada.
+func ParActivoColeccionesHMAC(
+	primera ColeccionSellosHMAC,
+	dominioPrimera string,
+	segunda ColeccionSellosHMAC,
+	dominioSegunda string,
+) (string, string, error) {
+	datosPrimera, datosSegunda, validas := datosColeccionesHMACAlineadas(
+		primera,
+		dominioPrimera,
+		segunda,
+		dominioSegunda,
+	)
+	if !validas {
+		return "", "", ErrColeccionSellosHMACInvalida
+	}
+	return datosPrimera.Activo.Valor, datosSegunda.Activo.Valor, nil
+}
+
+// ColeccionesHMACContienenPar evita combinar sellos válidos procedentes de
+// generaciones criptográficas distintas.
+func ColeccionesHMACContienenPar(
+	primera ColeccionSellosHMAC,
+	dominioPrimera string,
+	segunda ColeccionSellosHMAC,
+	dominioSegunda string,
+	selloPrimero string,
+	selloSegundo string,
+) bool {
+	datosPrimera, datosSegunda, validas := datosColeccionesHMACAlineadas(
+		primera,
+		dominioPrimera,
+		segunda,
+		dominioSegunda,
+	)
+	if !validas {
+		return false
+	}
+	coincide := func(
+		candidatoPrimero SelloGeneracionalHMAC,
+		candidatoSegundo SelloGeneracionalHMAC,
+	) bool {
+		return candidatoPrimero.Generacion == candidatoSegundo.Generacion &&
+			hmac.Equal(
+				[]byte(candidatoPrimero.Valor),
+				[]byte(selloPrimero),
+			) &&
+			hmac.Equal(
+				[]byte(candidatoSegundo.Valor),
+				[]byte(selloSegundo),
+			)
+	}
+	if coincide(datosPrimera.Activo, datosSegunda.Activo) {
+		return true
+	}
+	for indice := range datosPrimera.Retenidos {
+		if coincide(
+			datosPrimera.Retenidos[indice],
+			datosSegunda.Retenidos[indice],
+		) {
+			return true
+		}
+	}
+	return false
+}
+
+func datosColeccionesHMACAlineadas(
+	primera ColeccionSellosHMAC,
+	dominioPrimera string,
+	segunda ColeccionSellosHMAC,
+	dominioSegunda string,
+) (
+	DatosColeccionSellosHMAC,
+	DatosColeccionSellosHMAC,
+	bool,
+) {
+	if primera.ValidarDominio(dominioPrimera) != nil ||
+		segunda.ValidarDominio(dominioSegunda) != nil {
+		return DatosColeccionSellosHMAC{}, DatosColeccionSellosHMAC{}, false
+	}
+	datosPrimera, errPrimera := primera.Datos()
+	datosSegunda, errSegunda := segunda.Datos()
+	if errPrimera != nil || errSegunda != nil ||
+		datosPrimera.Activo.Generacion != datosSegunda.Activo.Generacion ||
+		len(datosPrimera.Retenidos) != len(datosSegunda.Retenidos) {
+		return DatosColeccionSellosHMAC{}, DatosColeccionSellosHMAC{}, false
+	}
+	for indice := range datosPrimera.Retenidos {
+		if datosPrimera.Retenidos[indice].Generacion !=
+			datosSegunda.Retenidos[indice].Generacion {
+			return DatosColeccionSellosHMAC{}, DatosColeccionSellosHMAC{}, false
+		}
+	}
+	return datosPrimera, datosSegunda, true
+}
+
 func descomponerSelloHMAC(sello string) (string, uint32, bool) {
 	if !SelloHMACSHA256Valido(sello) {
 		return "", 0, false
