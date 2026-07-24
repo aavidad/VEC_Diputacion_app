@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	funcionConfirmarAltaAtestadaV1 = "vec_contratacion_temporal.confirmar_alta_atestada_v1"
+	funcionConfirmarAltaAtestadaV2 = "vec_contratacion_temporal.confirmar_alta_atestada_v2"
 	maximoIntentosConfirmacionAlta = 3
 	plazoReconciliacionAlta        = 5 * time.Second
 )
@@ -221,7 +221,7 @@ func consultarReciboConfirmacion(
 		SELECT expediente_ref, numero_visible, version::text,
 		       recibo_ref, auditoria_ref, evento_ref, confirmada_en,
 		       recibo_huella_sha256
-		  FROM vec_contratacion_temporal.confirmar_alta_atestada_v1(
+		  FROM vec_contratacion_temporal.confirmar_alta_atestada_v2(
 		       $1, $2, $3, $4, $5::numeric, $6::numeric,
 		       $7, $8, $9, $10, $11, $12
 		  )`,

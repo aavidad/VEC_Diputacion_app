@@ -172,7 +172,7 @@ func TestConfirmacionAltaUsaContrato12x8YSesionCerrada(t *testing.T) {
 	}
 	if tx.confirmaciones != 1 || tx.reversiones != 0 ||
 		len(tx.argumentos) != 12 ||
-		!strings.Contains(tx.consulta, funcionConfirmarAltaAtestadaV1) ||
+		!strings.Contains(tx.consulta, funcionConfirmarAltaAtestadaV2) ||
 		!strings.Contains(tx.configuracion, "'pg_catalog'") ||
 		!strings.Contains(tx.configuracion, "'row_security', 'on'") ||
 		!reflect.DeepEqual(tx.argumentos, argumentosConfirmacion(parametros)) {

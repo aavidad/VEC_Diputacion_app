@@ -139,9 +139,90 @@ func TestConfirmacionAltaPostgreSQL18Real(t *testing.T) {
 	}
 	defer runtime.Close()
 
+	t.Run("candidatura sobrevive a pool y proceso lógico nuevos", func(t *testing.T) {
+		solicitud := solicitudCandidaturaPostgreSQLPrueba(t)
+		primero, err := NuevoResolutorCandidaturaAltaPostgreSQL(runtime)
+		if err != nil {
+			t.Fatal(err)
+		}
+		esperada, err := primero.ResolverCandidaturaAlta(ctx, solicitud)
+		if err != nil || esperada != solicitud.Propuesta {
+			t.Fatalf("primera candidatura: %#v / %v", esperada, err)
+		}
+
+		poolNuevo, err := pgxpool.New(ctx, dsnRuntime)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer poolNuevo.Close()
+		segundo, err := NuevoResolutorCandidaturaAltaPostgreSQL(poolNuevo)
+		if err != nil {
+			t.Fatal(err)
+		}
+		repetida := solicitud
+		repetida.Propuesta.ReservaRef = "reserva:alta-candidata-otra"
+		repetida.Propuesta.Referencias = ports.ReferenciasAlta{
+			ExpedienteRef: "expediente:ct-2026-otro",
+			NumeroVisible: "2026/CT-OTRO",
+			ReciboRef:     "recibo:alta-otro",
+		}
+		obtenida, err := segundo.ResolverCandidaturaAlta(ctx, repetida)
+		if err != nil || obtenida != esperada {
+			t.Fatalf("candidatura tras reinicio: %#v / %#v / %v",
+				esperada, obtenida, err)
+		}
+	})
+
+	t.Run("mismo ámbito y distinta huella se rechaza", func(t *testing.T) {
+		casos := []struct {
+			nombre   string
+			retenida string
+		}{
+			{
+				nombre: "todas las generaciones",
+				retenida: selloHMACPrueba(
+					clavePeticionAltaPrueba, "f",
+				),
+			},
+			{
+				nombre: "solo la generación activa",
+				retenida: selloHMACPrueba(
+					clavePeticionAltaPrueba, "b",
+				),
+			},
+		}
+		for _, caso := range casos {
+			t.Run(caso.nombre, func(t *testing.T) {
+				solicitud := solicitudCandidaturaPostgreSQLPrueba(t)
+				huellaActiva := selloHMACPrueba(
+					clavePeticionAltaPruebaV2, "e",
+				)
+				huellas, err := ports.NuevaColeccionSellosHMAC(
+					huellaActiva,
+					[]string{caso.retenida},
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+				solicitud.HuellasPeticionHMAC = huellas
+				solicitud.Propuesta.HuellaPeticionHMAC = huellaActiva
+				resolutor, err := NuevoResolutorCandidaturaAltaPostgreSQL(
+					runtime,
+				)
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, err = resolutor.ResolverCandidaturaAlta(ctx, solicitud)
+				if !errors.Is(err, ports.ErrClaveIdempotenciaUsada) {
+					t.Fatalf("reutilización de ámbito no rechazada: %v", err)
+				}
+			})
+		}
+	})
+
 	t.Run("canon Go coincide byte a byte con SQL", func(t *testing.T) {
 		vector := prepararVectorConfirmacionPostgreSQL18(
-			t, admin, "o206_canon",
+			t, admin, runtime, "o206_canon",
 		)
 		var documento efectoAltaV2
 		if err := json.Unmarshal(vector.parametros.alta, &documento); err != nil {
@@ -180,7 +261,7 @@ func TestConfirmacionAltaPostgreSQL18Real(t *testing.T) {
 
 	t.Run("alta y replay exacto", func(t *testing.T) {
 		vector := prepararVectorConfirmacionPostgreSQL18(
-			t, admin, "o206_exito",
+			t, admin, runtime, "o206_exito",
 		)
 		adaptador := &TransaccionAltasPostgreSQL{pool: runtime}
 		primero, err := adaptador.confirmarParametros(
@@ -201,7 +282,7 @@ func TestConfirmacionAltaPostgreSQL18Real(t *testing.T) {
 
 	t.Run("concurrencia devuelve un recibo", func(t *testing.T) {
 		vector := prepararVectorConfirmacionPostgreSQL18(
-			t, admin, "o206_carrera",
+			t, admin, runtime, "o206_carrera",
 		)
 		adaptador := &TransaccionAltasPostgreSQL{pool: runtime}
 		const total = 4
@@ -238,7 +319,7 @@ func TestConfirmacionAltaPostgreSQL18Real(t *testing.T) {
 
 	t.Run("cancelacion antes de commit revierte todo", func(t *testing.T) {
 		vector := prepararVectorConfirmacionPostgreSQL18(
-			t, admin, "o206_precommit",
+			t, admin, runtime, "o206_precommit",
 		)
 		ctxCancelado, cancelar := context.WithCancel(ctx)
 		iniciador := &iniciadorDecoradoPostgreSQL18{
@@ -263,7 +344,7 @@ func TestConfirmacionAltaPostgreSQL18Real(t *testing.T) {
 
 	t.Run("respuesta perdida tras commit se reconcilia", func(t *testing.T) {
 		vector := prepararVectorConfirmacionPostgreSQL18(
-			t, admin, "o206_perdida",
+			t, admin, runtime, "o206_perdida",
 		)
 		iniciador := &iniciadorDecoradoPostgreSQL18{
 			pool: runtime,
@@ -290,7 +371,7 @@ func TestConfirmacionAltaPostgreSQL18Real(t *testing.T) {
 
 	t.Run("segundo fallo conserva indeterminado", func(t *testing.T) {
 		vector := prepararVectorConfirmacionPostgreSQL18(
-			t, admin, "o206_segundo",
+			t, admin, runtime, "o206_segundo",
 		)
 		iniciador := &iniciadorDecoradoPostgreSQL18{
 			pool: runtime, errorEn: 2, errorBase: io.EOF,
@@ -318,7 +399,7 @@ func TestConfirmacionAltaPostgreSQL18Real(t *testing.T) {
 
 	t.Run("recibo adulterado nunca confirma", func(t *testing.T) {
 		vector := prepararVectorConfirmacionPostgreSQL18(
-			t, admin, "o206_adulterado",
+			t, admin, runtime, "o206_adulterado",
 		)
 		iniciador := &iniciadorDecoradoPostgreSQL18{
 			pool: runtime,
@@ -340,7 +421,7 @@ func TestConfirmacionAltaPostgreSQL18Real(t *testing.T) {
 
 	t.Run("replay con pool y proceso logico nuevos", func(t *testing.T) {
 		vector := prepararVectorConfirmacionPostgreSQL18(
-			t, admin, "o206_reinicio",
+			t, admin, runtime, "o206_reinicio",
 		)
 		primero, err := pgxpool.New(ctx, dsnRuntime)
 		if err != nil {
@@ -371,6 +452,7 @@ func TestConfirmacionAltaPostgreSQL18Real(t *testing.T) {
 func prepararVectorConfirmacionPostgreSQL18(
 	t *testing.T,
 	admin *pgxpool.Pool,
+	runtime *pgxpool.Pool,
 	caso string,
 ) vectorConfirmacionAltaPostgreSQL18 {
 	t.Helper()
@@ -410,7 +492,77 @@ func prepararVectorConfirmacionPostgreSQL18(
 	vector.expediente = reconstruirExpedientePostgreSQL18(
 		t, vector.parametros.alta,
 	)
+	estabilizarCandidaturaVectorPostgreSQL18(t, runtime, vector)
 	return vector
+}
+
+func estabilizarCandidaturaVectorPostgreSQL18(
+	t *testing.T,
+	runtime *pgxpool.Pool,
+	vector vectorConfirmacionAltaPostgreSQL18,
+) {
+	t.Helper()
+	var documento efectoAltaV2
+	var sellos sellosAltaV1
+	if err := json.Unmarshal(vector.parametros.alta, &documento); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(vector.parametros.sellos, &sellos); err != nil {
+		t.Fatal(err)
+	}
+	ambitosRetenidos := make([]string, 0, len(sellos.Retenidos))
+	huellasRetenidas := make([]string, 0, len(sellos.Retenidos))
+	for _, retenido := range sellos.Retenidos {
+		ambitosRetenidos = append(ambitosRetenidos, retenido.AmbitoHMAC)
+		huellasRetenidas = append(huellasRetenidas, retenido.HuellaHMAC)
+	}
+	ambitos, err := ports.NuevaColeccionSellosHMAC(
+		sellos.Activo.AmbitoHMAC,
+		ambitosRetenidos,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	huellas, err := ports.NuevaColeccionSellosHMAC(
+		sellos.Activo.HuellaHMAC,
+		huellasRetenidas,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	propuesta := ports.CandidaturaAlta{
+		ReservaRef: documento.ReservaRef,
+		Referencias: ports.ReferenciasAlta{
+			ExpedienteRef: documento.ExpedienteRef,
+			NumeroVisible: documento.NumeroVisible,
+			ReciboRef:     documento.ReciboRef,
+		},
+		AmbitoIdempotenciaHMAC: sellos.Activo.AmbitoHMAC,
+		HuellaPeticionHMAC:     sellos.Activo.HuellaHMAC,
+		OrganizacionRef:        documento.OrganizacionRef,
+		ActorRef:               documento.ActorRef,
+		PerfilRef:              documento.PerfilRef,
+	}
+	solicitud := ports.SolicitudResolverCandidaturaAlta{
+		AmbitosIdempotenciaHMAC: ambitos,
+		HuellasPeticionHMAC:     huellas,
+		OrganizacionRef:         documento.OrganizacionRef,
+		ActorRef:                documento.ActorRef,
+		PerfilRef:               documento.PerfilRef,
+		Propuesta:               propuesta,
+	}
+	resolutor, err := NuevoResolutorCandidaturaAltaPostgreSQL(runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	obtenida, err := resolutor.ResolverCandidaturaAlta(
+		context.Background(),
+		solicitud,
+	)
+	if err != nil || obtenida != propuesta {
+		t.Fatalf("candidatura del vector no estabilizada: %#v / %v",
+			obtenida, err)
+	}
 }
 
 func reconstruirExpedientePostgreSQL18(

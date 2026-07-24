@@ -173,6 +173,9 @@ archivo vec_ct_o206_migrador \
 archivo vec_ct_o206_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.up.sql \
     >/dev/null
+archivo vec_ct_o206_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000006_candidatura_tecnica_o2_06.up.sql \
+    >/dev/null
 
 paso 'gobierno sintético y vectores O2-05 aislados'
 sql postgres \
@@ -189,12 +192,16 @@ sql postgres \
     >/dev/null
 
 paso 'ACL contractual del pool exclusivo'
-[[ "$(valor "SELECT has_function_privilege('vec_ct_o206_runtime','vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')")" == 't' ]]
-[[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')")" == 'f' ]]
+[[ "$(valor "SELECT has_function_privilege('vec_ct_o206_runtime','vec_contratacion_temporal.confirmar_alta_atestada_v2(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')")" == 't' ]]
+[[ "$(valor "SELECT has_function_privilege('vec_ct_o206_runtime','vec_contratacion_temporal.resolver_candidatura_alta_tecnica_v1(text[],text[],text,text,text,text,text,text,text,text)','EXECUTE')")" == 't' ]]
+[[ "$(valor "SELECT has_function_privilege('vec_ct_o206_runtime','vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')")" == 'f' ]]
+[[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.confirmar_alta_atestada_v2(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')")" == 'f' ]]
 [[ "$(valor "SELECT has_function_privilege('vec_ct_o206_runtime','vec_contratacion_temporal.preparar_alta_v2(jsonb)','EXECUTE')")" == 'f' ]]
 [[ "$(valor "SELECT has_function_privilege('vec_ct_o206_runtime','vec_contratacion_temporal.reconciliar_agregado_alta_v1(bytea,text,text,text,text,text,text)','EXECUTE')")" == 'f' ]]
 esperar_fallo 'lectura directa de expedientes' sql vec_ct_o206_runtime \
     'TABLE vec_contratacion_temporal.expediente_alta'
+esperar_fallo 'lectura directa de candidaturas técnicas' sql vec_ct_o206_runtime \
+    'TABLE vec_contratacion_temporal.candidatura_alta_tecnica'
 esperar_fallo 'preparación histórica revocada' sql vec_ct_o206_runtime \
     "SELECT * FROM vec_contratacion_temporal.preparar_alta_v2('{}'::jsonb)"
 esperar_fallo 'reconciliador interno revocado' sql vec_ct_o206_runtime \
@@ -212,5 +219,12 @@ docker exec \
     "${contenedor}" /tmp/o206-postgresql.test \
     -test.run '^TestConfirmacionAltaPostgreSQL18Real$' \
     -test.count=1 -test.v
+
+paso 'retirada protegida ante candidaturas técnicas no confirmadas'
+esperar_fallo 'down sin consentimiento destructivo explícito' \
+    archivo vec_ct_o206_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000006_candidatura_tecnica_o2_06.down.sql
+[[ "$(valor "SELECT to_regprocedure('vec_contratacion_temporal.resolver_candidatura_alta_tecnica_v1(text[],text[],text,text,text,text,text,text,text,text)') IS NOT NULL")" == 't' ]]
+[[ "$(valor "SELECT has_function_privilege('vec_ct_o206_runtime','vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')")" == 'f' ]]
 
 paso 'PostgreSQL 18 real, ACL y reconciliación O2-06: OK'
