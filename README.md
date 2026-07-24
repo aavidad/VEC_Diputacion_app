@@ -112,6 +112,12 @@ Probado:
   estado, manifiestos, RLS, ACL y mínimo privilegio. Es una puerta de CI; no
   sustituye el futuro repositorio cifrado, WAL/PITR, copia externa ni anclaje
   anti-restauración.
+- T12-B añade el adaptador PostgreSQL de la saga de firma de baremaciones:
+  versiones inmutables, estado AEAD separado, idempotencia, arrendamiento con
+  cercado, auditoría encadenada y outbox. Su corredor Go/PostgreSQL 18 prueba
+  dos reinicios, exclusión y rehidratación exacta. Sigue en NO-GO hasta añadir
+  HSM/KMS, atestación dentro de la transacción, diario de efectos, T13,
+  anclaje externo, copias/PITR y composición productiva.
 - Perfil de autorizacion V2 nominal: la solicitud efectiva ya no admite
   principal declarado ni motivo libre, liga la referencia exacta de un
   catalogo publicado y separa evidencias y registros V1/V2. El adaptador de
@@ -163,10 +169,10 @@ Probado:
   bajo dictamen NO-GO hasta cerrar las brechas contractuales listadas en
   [la migracion V2](docs/portal_vec/migracion_baremacion_idempotencia_v2.md).
 - Saga durable de firma de baremaciones: contratos, expediente probatorio,
-  fachada reanudable y adaptador en memoria con arrendamiento, cercado y
-  AES-256-GCM, probados adversariamente (reintentos ambiguos, reanudacion
-  entre replicas, claves cruzadas). Los conectores productivos siguen
-  pendientes segun
+  fachada reanudable, adaptador en memoria y candidata PostgreSQL con
+  arrendamiento, cercado, historial, auditoría/outbox y AES-256-GCM, probados
+  adversariamente y con reinicios reales. Los conectores productivos siguen
+  pendientes según
   [el flujo durable](docs/portal_vec/flujo_firma_baremacion_durable.md).
 - Valores exactos compartidos para los futuros motores de baremacion
   (`Puntos`, racionales, fraccion de jornada, fecha e intervalo civil), sin

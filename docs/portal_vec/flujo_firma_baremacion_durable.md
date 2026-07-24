@@ -68,13 +68,28 @@ Se han implementado los contratos del núcleo, la fachada de aplicación y adapt
 - protección AES-256-GCM con clave inyectada;
 - referencias criptográficamente aleatorias.
 
-El adaptador en memoria sirve para pruebas adversarias y desarrollo. No es almacenamiento productivo ni sobrevive al reinicio del proceso. Las pruebas cubren reintentos ambiguos en cada efecto, reanudación con otra instancia, concurrencia entre réplicas, clave de idempotencia cruzada, reutilización con otros datos, clave AEAD equivocada, estado alterado, ausencia de sesión y recuperación exacta de un flujo completado.
+El adaptador en memoria sirve para pruebas adversarias y desarrollo. No es
+almacenamiento productivo ni sobrevive al reinicio del proceso. Las pruebas
+cubren reintentos ambiguos en cada efecto, reanudación con otra instancia,
+concurrencia entre réplicas, clave de idempotencia cruzada, reutilización con
+otros datos, clave AEAD equivocada, estado alterado, ausencia de sesión y
+recuperación exacta de un flujo completado.
+
+T12-B incorpora además una candidata PostgreSQL. Separa JSON y cifrado,
+conserva versiones append-only, valida la transición en Go y SQL, usa CAS,
+arrendamiento con HMAC y cercado, y confirma auditoría y outbox en la misma
+transacción. El corredor PostgreSQL 18 prueba dos reinicios y mínimo
+privilegio. No está compuesto en producción y conserva los bloqueos descritos
+en [la memoria T12-B](t12_b_saga_firma_postgresql_2026-07-24.md).
 
 ## Trabajo productivo pendiente
 
 Antes de publicar esta fachada deben completarse estos conectores y controles:
 
-1. Repositorio PostgreSQL/Oracle con transacciones, índice único sobre el HMAC de idempotencia y actualización condicional de versión, propietario y cercado. Las migraciones deben conservar el historial de puntos de control y prohibir transiciones regresivas.
+1. Cerrar la candidata PostgreSQL con atestación verificable dentro de la
+   transacción, HSM/KMS, anclaje externo y composición productiva. Oracle
+   seguirá siendo otro adaptador del mismo puerto, no una modificación del
+   núcleo.
 2. Protector conectado a KMS o HSM. Debe cifrar con la clave activa y descifrar con un anillo de claves históricas, registrar la versión criptográfica y permitir rotación sin detener flujos abiertos.
 3. Ejecutor que adapte el motor actual de baremación y firma. Debe mantener un diario durable de efectos/recibos o demostrar idempotencia nativa para Autofirma, almacenamiento, retención y repositorio de baremaciones.
 4. Resolutor interno de la proyección de lanzamiento, protegido por sesión revalidada, autorización de uso único, vencimiento corto y controles anti-repetición. La referencia de lanzamiento nunca debe ser resoluble desde la superficie pública anónima.

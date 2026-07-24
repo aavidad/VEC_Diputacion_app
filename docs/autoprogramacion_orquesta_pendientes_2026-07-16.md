@@ -468,10 +468,13 @@ y errores observables.
 - `origen`: prioridad de negocio "Bolsa primero" y revision de direccion del
   17/07: la semantica durable (saga de firma, auditoria encadenada,
   expediente probatorio) esta probada solo en memoria.
-- `estado`: en curso. T12-A queda implementado como candidata el 24/07/2026:
+- `estado`: en curso. T12-A y T12-B quedan implementadas como candidatas el
+  24/07/2026:
   la vertical PostgreSQL V3 de baremacion supera perdida total, copia logica
   sin credenciales, restauracion aislada, reinicio y cotejo exacto de estado,
-  roles, ACL, RLS y evidencias. No se declara cerrado T12.
+  roles, ACL, RLS y evidencias. La saga de firma dispone ya de adaptador
+  PostgreSQL, historial inmutable, arrendamiento cercado, auditoria/outbox y
+  prueba Go -> PostgreSQL con dos reinicios. No se declara cerrado T12.
 - `area_hexagonal`: adaptadores de persistencia y composicion.
 - `accion`: llevar a PostgreSQL productivo, por este orden, la auditoria
   encadenada, el registro de decisiones de autorizacion ya migrado y los
@@ -482,12 +485,18 @@ y errores observables.
   `deploy/postgresql/bolsa_baremacion/probar_copia_restauracion_v3.sh`,
   inventarios SQL y puerta propia de CI. La copia usa exclusivamente datos
   sinteticos y un volumen Docker efimero.
+- `evidencia T12-B`: adaptador
+  `internal/modules/bolsa/adapters/postgres/flujo_firma_postgresql*.go`,
+  corredor `deploy/postgresql/bolsa_firma/probar_integracion.sh`, memoria
+  técnica `docs/portal_vec/t12_b_saga_firma_postgresql_2026-07-24.md` y puerta
+  propia de CI.
 - `pendiente para cerrar`: registro durable global de accesos y efectos,
-  checkpoints de firma, anclaje monotónico externo, repositorio de copias
-  cifrado y separado, WAL/PITR con pgBackRest o WAL-G aprobado por Sistemas,
-  restauracion del almacen de objetos, RPO/RTO y simulacro completo. Los
-  adaptadores en memoria de `internal/modules/bolsa` y `internal/vec` no se
-  consideran resueltos por T12-A.
+  atestación de los checkpoints verificable dentro de la transacción, diario
+  idempotente de efectos, HSM/KMS, despachador outbox, anclaje monotónico
+  externo, repositorio de copias cifrado y separado, WAL/PITR con pgBackRest o
+  WAL-G aprobado por Sistemas, restauracion del almacen de objetos, RPO/RTO y
+  simulacro completo. Los demás adaptadores en memoria de
+  `internal/modules/bolsa` y `internal/vec` no se consideran resueltos.
 
 ### T20 — Adaptador Go PostgreSQL de borradores y diario de convocatorias
 
