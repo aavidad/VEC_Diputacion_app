@@ -1,13 +1,14 @@
 # Diseño acoplado del adaptador y la reconciliación O2-06
 
-Fecha: 23 de julio de 2026.
+Fecha: 24 de julio de 2026.
 
 Base de acoplamiento:
-`b53c6b5b399e0be9b380b6ed45b023c04d7e7f6f`.
+`10ed26d5f01ae2644c83ae001238647a30b0b8b4`.
 
-Estado: contrato de implementación alineado con O2-05 integrado. Este
-documento no modifica la función SQL, sus migraciones ni sus privilegios y no
-habilita producción.
+Estado: corrección candidata de O2-06 alineada con O2-05. Incluye el puerto y
+adaptador de candidatura técnica, la migración PostgreSQL `000006`, la función
+de confirmación V2 y pruebas reales. No habilita producción y continúa
+pendiente de revisión independiente.
 
 ## Puerta de acoplamiento superada
 
@@ -34,10 +35,10 @@ No se adapta O2-05 al diseño antiguo. Se adapta O2-06 a la firma real.
 
 ## Firma congelada de doce entradas
 
-El adaptador invoca exclusivamente:
+El adaptador de confirmación invoca exclusivamente la fachada:
 
 ```sql
-vec_contratacion_temporal.confirmar_alta_atestada_v1(
+vec_contratacion_temporal.confirmar_alta_atestada_v2(
     p_capacidad_canonica bytea,
     p_decision_canonica bytea,
     p_motivo_canonico bytea,
@@ -52,6 +53,11 @@ vec_contratacion_temporal.confirmar_alta_atestada_v1(
     p_sellos_hmac_canonicos bytea
 )
 ```
+
+La V2 acredita primero que el efecto corresponde a una candidatura técnica
+durable y, dentro de la misma transacción, delega la creación autoritativa en
+`confirmar_alta_atestada_v1`. El rol de ejecución no puede invocar V1
+directamente, leer las tablas ni recuperar `preparar_alta_v2`.
 
 Mapeo exacto:
 
@@ -114,8 +120,9 @@ idle_in_transaction_session_timeout = 20s
 ```
 
 El pool es exclusivo de O2-06. La cuenta solo necesita `CONNECT`, `USAGE` y
-`EXECUTE` sobre la firma anterior. No recibe DML, lectura de tablas,
-preparación histórica, consumidor VEC genérico, `SET ROLE` ni ejecución de
+`EXECUTE` sobre `resolver_candidatura_alta_tecnica_v1` y
+`confirmar_alta_atestada_v2`. No recibe DML, lectura de tablas, preparación
+histórica, consumidor VEC genérico, `SET ROLE`, V1 directa ni ejecución de
 `reconciliar_agregado_alta_v1`.
 
 ## Reintentos determinados
@@ -205,7 +212,7 @@ caso de uso.
 | `ErrAutorizacionDenegada` | La autoridad o el material fueron rechazados |
 | `ErrPersistenciaNoDisponible` | Fallo determinado o dependencia no disponible |
 | `ErrResultadoAltaIndeterminado` | Se intentó `COMMIT` y la reconciliación no pudo acreditar el resultado |
-| `ErrResultadoRegistroNoConfiable` | La fila o el recibo no superaron validación |
+| `ErrResultadoAltaNoConfiable` | La fila o el recibo no superaron validación |
 
 No se incluyen en errores, logs o recibos: SQLSTATE salvo clase interna
 permitida, texto pgx/PostgreSQL, DSN, capacidad, HMAC, claves, payload, COSE,
@@ -221,8 +228,9 @@ recibo son seudónimos protegidos, no datos anónimos.
 - indeterminado: respuesta perdida/timeout después de `COMMIT`, segunda
   transacción exacta, segundo fallo ambiguo y divergencia de recibos;
 - PostgreSQL 18 efímero: éxito, replay, concurrencia, caída antes de
-  `COMMIT`, respuesta perdida, conexión/proceso nuevos, ACL y recibo
-  adulterado;
+  `COMMIT`, `08007`, respuesta perdida, segunda ambigüedad, candidatura y
+  confirmación tras conexión/proceso nuevos, conflicto de huella total o
+  parcial entre generaciones, ACL, `down` protegido y recibo adulterado;
 - focales, carrera, `go vet`, globales, calidad, tamaños, `diff --check` y
   barrido de secretos.
 
@@ -233,7 +241,8 @@ visible como tal.
 
 ## Límites
 
-O2-06 no compone la ruta real, no registra HTTP, no toca web y no habilita
-producción. O2-07 deberá inyectar el pool y proveedor VEC reales y fallar
-cerrado si falta cualquiera. HSM/KMS, custodia, ancla anti-restauración y las
-puertas CT-CUM continúan fuera de este commit.
+La corrección candidata O2-06 no compone la ruta real, no registra HTTP, no
+toca web y no habilita producción. O2-07 deberá inyectar el pool, el resolver
+de candidatura y el proveedor VEC reales y fallar cerrado si falta cualquiera.
+HSM/KMS, custodia, ancla anti-restauración y las puertas CT-CUM continúan fuera
+de este corte.

@@ -15,7 +15,7 @@ temporal. El detalle verificable de cada tarea está en el
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 16 de 46 tareas cerradas (35 %); O4-02 ya está integrado |
 | Último commit verificado | `6fb6cc6` — matriz web RRHH 1..17 verde en 51/51 capturas locales; no cierra la integración O2-09 |
-| Trabajo local en revisión | O2-06 `157a589` continúa en NO-GO; primer corte O5-01 pendiente. La superficie RRHH ya superó la revisión visual local, pero sigue separada del E2E real. |
+| Trabajo local en revisión | O2-06 tiene corrección candidata con PostgreSQL 18 verde y espera revisión independiente; primer corte O5-01 pendiente. La superficie RRHH ya superó la revisión visual local, pero sigue separada del E2E real. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -195,7 +195,7 @@ Estado actual:
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
 Tareas verificadas del procedimiento: 16/46 = 35 %
-Tareas locales en revisión: O2-06 y O5-01
+Tareas locales en revisión: corrección candidata O2-06 y O5-01
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

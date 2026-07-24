@@ -453,6 +453,15 @@ resolución incierta, y probar la ruta pública completa sobre PostgreSQL 18.
 La evidencia exacta está en
 [la revisión O2-06](revisiones/o2_06_revision_independiente_nogo_2026-07-24.md).
 
+En la rama de corrección se han atendido ambos bloqueantes mediante un
+resolver durable separado, la fachada PostgreSQL V2 y la clasificación
+determinada de `SafeToRetry`. PostgreSQL 18 ya supera recuperación con pool
+nuevo, huella divergente total o parcial, concurrencia, cancelación
+pre-`COMMIT`, `08007`/respuesta perdida, segunda ambigüedad, ACL y `down`
+protegido. Es una corrección candidata: no se integra ni se eleva el 16/46
+hasta una nueva revisión independiente y las puertas globales. Evidencia:
+[corrección candidata O2-06](revisiones/o2_06_correccion_candidata_2026-07-24.md).
+
 El NO-GO visual del checkpoint `cdf9314` quedó corregido por
 `72ca274`–`6fb6cc6`. La superficie conserva dieciocho tareas operativas, pero
 la evidencia contractual recorre exactamente las diecisiete pantallas
