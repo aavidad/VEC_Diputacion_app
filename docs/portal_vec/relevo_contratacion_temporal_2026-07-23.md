@@ -487,3 +487,10 @@ directorio corporativos reales, composición, API/web/E2E y revisión
 independiente. La reserva, bandeja, auditoría, recibo y outbox están definidos
 como un solo límite de `COMMIT`, pero todavía no son durables. Evidencia:
 [revisión y corrección O5-01](revisiones/o5_01_revision_y_correccion_2026-07-24.md).
+
+El adaptador Go de preparación `ff6c847` ya aplica JSON de lista positiva,
+reintento serializable y restauración estricta. No se debe crear aún la
+función SQL: la base solo contiene durablemente el alta de versión 1. O3-04 y
+O4-04 deben materializar las versiones de análisis y cobertura antes de que O5
+pueda bloquear y leer una instantánea autoritativa. Una tabla propia de O5
+sería una segunda fuente de verdad y queda expresamente prohibida.

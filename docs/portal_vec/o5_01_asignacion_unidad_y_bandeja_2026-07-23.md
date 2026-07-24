@@ -155,6 +155,14 @@ reproduzca estas puertas.
 - `bb18f3e`: orquestación de aplicación;
 - `8d1b4ce`: alta, rechazo de destino adulterado, replay y reasignación
   motivada.
+- `ff6c847`: adaptador Go de preparación PostgreSQL, serialización de lista
+  positiva, reintento serializable y restauración estricta del agregado.
 
 La evidencia local incluye todos los paquetes de contratación temporal,
 `go vet` y carrera sobre dominio, puertos y aplicación.
+
+El adaptador `ff6c847` no se compone todavía. PostgreSQL solo conserva de forma
+durable el alta de versión 1; O3-04 y O4-04 deben persistir primero el análisis
+y la decisión de cobertura. Crear ahora una instantánea propia de O5
+duplicaría la fuente de verdad y permitiría asignar sobre una versión
+incompleta. El orden obligatorio es O3-04 → O4-03/O4-04 → SQL de O5-01.

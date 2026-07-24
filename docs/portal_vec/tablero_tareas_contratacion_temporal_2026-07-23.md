@@ -75,7 +75,7 @@ Estados:
 
 | Tarea | Entregable aislado | Verificación de cierre | Estado |
 | --- | --- | --- | --- |
-| O5-01 | Asignación de unidad, responsable y bandeja. | Ámbito organizativo, reasignación motivada y notificación. | 🚧 Candidato `0be5600`–`8d1b4ce`: dominio corregido, destino/política autoritativos, PDP V3, HMAC rotatorio, replay, orden atómica y reasignación probados. Faltan adaptador PostgreSQL, fuente corporativa real, composición y revisión independiente. |
+| O5-01 | Asignación de unidad, responsable y bandeja. | Ámbito organizativo, reasignación motivada y notificación. | 🚧 Candidato `0be5600`–`ff6c847`: dominio, caso de uso, PDP V3 y adaptador Go de preparación probados. SQL bloqueado correctamente hasta que O3-04 y O4-04 aporten la versión durable completa; después faltan fuente corporativa, composición y revisión independiente. |
 | O5-02 | Plantilla/datos del informe jurídico. | Generación por conector, versión, anexos y referencias normativas. | — |
 | O5-03 | Revisión y firma del informe. | Firma múltiple, rechazo, subsanación, CSV/QR y validación. | — |
 | O5-04 | Solicitud y resultado de fiscalización. | Intervención segregada, reparo, subsanación y recibo. | — |

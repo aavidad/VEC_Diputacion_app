@@ -11,11 +11,11 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O5 — asignación de unidad, responsable y bandeja |
-| Camino crítico | O5-01 aplicación → PostgreSQL → composición → API/web → E2E; O2 conserva su cierre independiente |
+| Camino crítico | O3-04 PostgreSQL → O4-03 decisión → O4-04 PostgreSQL → O5-01 PostgreSQL → composición → API/web → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 16 de 46 tareas cerradas (35 %); O4-02 ya está integrado |
-| Último commit verificado | `8d1b4ce` — asignación y reasignación gobernadas, con replay y rechazo de destino adulterado |
-| Trabajo local en revisión | O5-01 ya dispone de dominio, caso de uso, PDP V3 y contrato atómico; falta materializarlo en PostgreSQL y conectarlo. O2-06 conserva su corrección candidata pendiente de revisión. |
+| Último commit verificado | `ff6c847` — adaptador Go PostgreSQL de preparación O5, todavía no componible |
+| Trabajo local en revisión | O5-01 dispone de dominio, caso de uso, PDP V3, contrato atómico y adaptador Go. Su SQL espera las versiones durables de O3-04 y O4-04 para no duplicar la fuente de verdad. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
