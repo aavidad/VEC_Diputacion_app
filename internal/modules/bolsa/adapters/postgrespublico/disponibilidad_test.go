@@ -112,10 +112,12 @@ func TestCancelacionSolicitanteNoCancelaNiEnvenenaSondaCompartida(t *testing.T) 
 	var llamadas atomic.Int32
 	var estadosMu sync.Mutex
 	var estados []bool
+	observada := make(chan bool, 1)
 	f.observadorDisponibilidad = func(disponible bool) {
 		estadosMu.Lock()
 		estados = append(estados, disponible)
 		estadosMu.Unlock()
+		observada <- disponible
 	}
 	f.sondaDisponibilidadPrueba = func(ctx context.Context) error {
 		llamadas.Add(1)
@@ -155,6 +157,14 @@ func TestCancelacionSolicitanteNoCancelaNiEnvenenaSondaCompartida(t *testing.T) 
 	close(liberar)
 	if err := <-seguidora; err != nil || llamadas.Load() != 1 {
 		t.Fatalf("resultado compartido tras cancelar: err=%v llamadas=%d", err, llamadas.Load())
+	}
+	select {
+	case disponible := <-observada:
+		if !disponible {
+			t.Fatal("la sonda compartida publicó indisponibilidad")
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("la sonda compartida no publicó su transición")
 	}
 	estadosMu.Lock()
 	defer estadosMu.Unlock()
