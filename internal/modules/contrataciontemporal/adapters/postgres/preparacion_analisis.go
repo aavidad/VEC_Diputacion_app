@@ -168,10 +168,36 @@ func (p *PreparadorOperacionAnalisisPostgreSQL) ConsultarOperacionAnalisisConfir
 		return ports.ReciboOperacionAnalisis{}, false, err
 	}
 	defer borrarBytes(ambitos)
+	for intento := 1; intento <= maximoIntentosAnalisis; intento++ {
+		recibo, existe, err := p.consultarEnTransaccion(
+			ctx,
+			solicitud,
+			ambitos,
+		)
+		if err == nil {
+			return recibo, existe, nil
+		}
+		if ctx.Err() != nil {
+			return ports.ReciboOperacionAnalisis{}, false, ctx.Err()
+		}
+		if !errorPostgreSQLReintentable(err) ||
+			intento == maximoIntentosAnalisis {
+			return ports.ReciboOperacionAnalisis{}, false,
+				normalizarErrorPreparacionAnalisis(ctx, err)
+		}
+	}
+	return ports.ReciboOperacionAnalisis{}, false,
+		ports.ErrPersistenciaOperacionAnalisisNoDisponible
+}
+
+func (p *PreparadorOperacionAnalisisPostgreSQL) consultarEnTransaccion(
+	ctx context.Context,
+	solicitud ports.SolicitudConsultarOperacionAnalisisConfirmada,
+	ambitos []byte,
+) (ports.ReciboOperacionAnalisis, bool, error) {
 	tx, err := p.iniciar(ctx, pgx.ReadOnly)
 	if err != nil {
-		return ports.ReciboOperacionAnalisis{}, false,
-			normalizarErrorPreparacionAnalisis(ctx, err)
+		return ports.ReciboOperacionAnalisis{}, false, err
 	}
 	defer revertirTransaccion(tx)
 	var contenido string
@@ -182,22 +208,19 @@ func (p *PreparadorOperacionAnalisisPostgreSQL) ConsultarOperacionAnalisisConfir
 	).Scan(&contenido)
 	if errors.Is(err, pgx.ErrNoRows) {
 		if err := tx.Commit(ctx); err != nil {
-			return ports.ReciboOperacionAnalisis{}, false,
-				normalizarErrorPreparacionAnalisis(ctx, err)
+			return ports.ReciboOperacionAnalisis{}, false, err
 		}
 		return ports.ReciboOperacionAnalisis{}, false, nil
 	}
 	if err != nil {
-		return ports.ReciboOperacionAnalisis{}, false,
-			normalizarErrorPreparacionAnalisis(ctx, err)
+		return ports.ReciboOperacionAnalisis{}, false, err
 	}
 	recibo, err := reciboConsultaAnalisisSeguro(solicitud, contenido)
 	if err != nil {
 		return ports.ReciboOperacionAnalisis{}, false, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return ports.ReciboOperacionAnalisis{}, false,
-			normalizarErrorPreparacionAnalisis(ctx, err)
+		return ports.ReciboOperacionAnalisis{}, false, err
 	}
 	return recibo, true, nil
 }

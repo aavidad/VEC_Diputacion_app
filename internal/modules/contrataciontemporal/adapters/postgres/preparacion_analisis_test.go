@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -165,6 +166,37 @@ func TestPreparadorOperacionAnalisisPostgreSQLConsultaAusente(
 	)
 	if err != nil || existe || tx.confirmaciones != 1 {
 		t.Fatalf("ausencia inesperada: %t, %v", existe, err)
+	}
+}
+
+func TestPreparadorOperacionAnalisisPostgreSQLReintentaConsultaSerializable(
+	t *testing.T,
+) {
+	expediente := expedienteInicialAnalisisPostgreSQLPrueba(t)
+	solicitud := solicitudAnalisisPostgreSQLPrueba(t, expediente)
+	primera := &transaccionPreparacionPrueba{
+		fila: filaPreparacionPrueba{
+			err: &pgconn.PgError{Code: "40001"},
+		},
+	}
+	segunda := &transaccionPreparacionPrueba{
+		fila: filaPreparacionPrueba{err: pgx.ErrNoRows},
+	}
+	iniciador := &iniciadorPreparacionPrueba{
+		transacciones: []pgx.Tx{primera, segunda},
+	}
+	preparador, err := nuevoPreparadorOperacionAnalisisPostgreSQL(iniciador)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, existe, err := preparador.ConsultarOperacionAnalisisConfirmada(
+		context.Background(),
+		solicitud.IdentidadConsulta,
+	)
+	if err != nil || existe || iniciador.inicios != 2 ||
+		segunda.confirmaciones != 1 {
+		t.Fatalf("reintento inesperado: %t, %v, %#v", existe, err, iniciador)
 	}
 }
 
