@@ -293,6 +293,9 @@ archivo postgres \
 
 paso 'instalación con identidades de migración separadas'
 archivo postgres deploy/postgresql/contratacion_temporal/roles_up.sql >/dev/null
+archivo postgres \
+    deploy/postgresql/contratacion_temporal/migraciones_autorizacion/000001_revalidacion_analisis_v3.up.sql \
+    >/dev/null
 sql postgres \
     'CREATE ROLE vec_ct_o205_migrador LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS; GRANT CONNECT ON DATABASE postgres TO vec_ct_o205_migrador; GRANT vec_contratacion_temporal_migrador TO vec_ct_o205_migrador WITH ADMIN FALSE, INHERIT FALSE, SET TRUE' \
     >/dev/null
@@ -712,6 +715,9 @@ esperar_fallo 'consumidor genérico abierto' sql vec_ct_o205_runtime \
 [[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')")" == 'f' ]]
 [[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_contratacion_temporal.preparar_operacion_analisis_v1(jsonb)','EXECUTE')")" == 't' ]]
 [[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.preparar_operacion_analisis_v1(jsonb)','EXECUTE')")" == 'f' ]]
+[[ "$(valor "SELECT has_function_privilege('vec_contratacion_temporal_propietario','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 't' ]]
+[[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 'f' ]]
+[[ "$(valor "SELECT has_function_privilege('public','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 'f' ]]
 
 paso 'rollback ordinario protegido'
 esperar_fallo 'down preparaciones de análisis con datos' \
@@ -769,6 +775,9 @@ docker exec \
     --username vec_ct_o205_migrador --dbname postgres \
     --file /repo/deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.down.sql \
     >/dev/null
+archivo postgres \
+    deploy/postgresql/contratacion_temporal/migraciones_autorizacion/000001_revalidacion_analisis_v3.down.sql \
+    >/dev/null
 docker exec \
     --env PGOPTIONS='-c vec.confirmar_destruccion_autorizacion_atestada_v3=DESTRUIR_AUTORIZACION_ATESTADA_V3_IRREVERSIBLE' \
     "${contenedor}" psql -X --set ON_ERROR_STOP=1 \
@@ -798,6 +807,9 @@ archivo vec_ad3_o205_migrador \
     >/dev/null
 archivo vec_ad3_o205_migrador \
     deploy/postgresql/autorizacion_atestada_v3/migraciones/000002_consumidor_capacidad_v3.up.sql \
+    >/dev/null
+archivo postgres \
+    deploy/postgresql/contratacion_temporal/migraciones_autorizacion/000001_revalidacion_analisis_v3.up.sql \
     >/dev/null
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.up.sql \
@@ -829,6 +841,9 @@ archivo vec_ct_o205_migrador \
     >/dev/null
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.down.sql \
+    >/dev/null
+archivo postgres \
+    deploy/postgresql/contratacion_temporal/migraciones_autorizacion/000001_revalidacion_analisis_v3.down.sql \
     >/dev/null
 docker exec \
     --env PGOPTIONS='-c vec.confirmar_destruccion_autorizacion_atestada_v3=DESTRUIR_AUTORIZACION_ATESTADA_V3_IRREVERSIBLE' \

@@ -118,12 +118,14 @@ auditoría, recibo y outbox en un solo `COMMIT`.
    `000002_rotacion_hmac.up.sql` con dicha cuenta.
 4. Instalar el consumidor
    `deploy/postgresql/autorizacion_atestada_v3` y su gobierno.
-5. Ejecutar `000003_expediente_confirmacion_atestada.up.sql`,
+5. Instalar como propietario de autorización la frontera estrecha
+   `migraciones_autorizacion/000001_revalidacion_analisis_v3.up.sql`.
+6. Ejecutar `000003_expediente_confirmacion_atestada.up.sql`,
    `000004_integridad_agregado_alta.up.sql` y
    `000005_funcion_confirmar_alta_atestada.up.sql`, por ese orden.
-6. Ejecutar `000006_expediente_integral_versionado.up.sql` y
+7. Ejecutar `000006_expediente_integral_versionado.up.sql` y
    `000007_preparacion_operaciones_analisis.up.sql`, por ese orden.
-7. Aprovisionar la cuenta de la aplicación como miembro únicamente de
+8. Aprovisionar la cuenta de la aplicación como miembro únicamente de
    `vec_contratacion_temporal_ejecutor`.
 
 Ejemplo sin credenciales incrustadas:
@@ -133,6 +135,8 @@ psql -X --set ON_ERROR_STOP=1 \
   --file deploy/postgresql/contratacion_temporal/migraciones/000001_preparacion_altas.up.sql
 psql -X --set ON_ERROR_STOP=1 \
   --file deploy/postgresql/contratacion_temporal/migraciones/000002_rotacion_hmac.up.sql
+psql -X --set ON_ERROR_STOP=1 \
+  --file deploy/postgresql/contratacion_temporal/migraciones_autorizacion/000001_revalidacion_analisis_v3.up.sql
 psql -X --set ON_ERROR_STOP=1 \
   --file deploy/postgresql/contratacion_temporal/migraciones/000003_expediente_confirmacion_atestada.up.sql
 psql -X --set ON_ERROR_STOP=1 \
