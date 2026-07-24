@@ -169,6 +169,16 @@ func TestComposicionDesarrolloOperaConTLSMutuoEIdentidadAlta(t *testing.T) {
 		!bytes.Contains(contenido, []byte(`"auth_assurance":"alto"`)) {
 		t.Fatalf("sesion mTLS = %d %s", respuesta.StatusCode, contenido)
 	}
+	respuestaPublica, err := cliente.Get(prueba.URL + "/api/publico/bolsa/convocatorias")
+	if err != nil {
+		t.Fatalf("consulta publica en servidor de desarrollo: %v", err)
+	}
+	contenidoPublico, err := io.ReadAll(respuestaPublica.Body)
+	respuestaPublica.Body.Close()
+	if err != nil || respuestaPublica.StatusCode != http.StatusOK ||
+		!bytes.Contains(contenidoPublico, []byte(`"esquema":"vec.bolsa.publico.convocatorias.v1"`)) {
+		t.Fatalf("consulta publica en desarrollo = %d %s, %v", respuestaPublica.StatusCode, contenidoPublico, err)
+	}
 	peticionSuplantada, err := http.NewRequest(http.MethodGet, prueba.URL+"/api/vec/session", nil)
 	if err != nil {
 		t.Fatal(err)

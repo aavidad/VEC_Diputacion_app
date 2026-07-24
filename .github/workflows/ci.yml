@@ -17,10 +17,61 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Descargar el repositorio
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Instalar la toolchain Go declarada en go.mod
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
       - name: Puerta de calidad
         run: scripts/verificar_calidad.sh
+
+  puerta-artefactos-productivos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Construir las superficies productivas separadas
+        run: |
+          docker build --target runtime-publico -t vec-ci-publico:revision .
+          docker build --target runtime-interno -t vec-ci-interno:revision .
+      - name: Verificar inventarios y fallo cerrado
+        run: |
+          scripts/verificar_contenido_artefactos_productivos.sh \
+            vec-ci-publico:revision vec-ci-interno:revision
+          scripts/probar_fallo_cerrado_artefactos_productivos.sh \
+            vec-ci-publico:revision vec-ci-interno:revision
+
+  puerta-postgresql-contexto-actor-v3:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Probar el registro ContextoActor/PDP V3 en PostgreSQL 18
+        env:
+          VEC_POSTGRES_TEST_IMAGE: postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296
+        run: bash deploy/postgresql/autorizacion/probar_integracion_contexto_actor_v3.sh
+
+  puerta-postgresql-bolsa-publica:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Instalar la toolchain Go declarada en go.mod
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+      - name: Probar la proyeccion publica de Bolsa en PostgreSQL 18 con TLS
+        env:
+          VEC_POSTGRES_TEST_IMAGE: postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296
+        run: bash deploy/postgresql/bolsa_publica/probar_integracion.sh

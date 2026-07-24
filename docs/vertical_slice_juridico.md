@@ -112,7 +112,7 @@ Desempates:
 Con servidor en `127.0.0.1:8080`:
 
 ```bash
-curl -fsS http://127.0.0.1:8080/healthz
+curl -fsS http://127.0.0.1:8080/livez
 curl -fsS -X POST http://127.0.0.1:8080/api/demo \
   -H "Authorization: Bearer $VEC_FAKE_TOKEN"
 ```

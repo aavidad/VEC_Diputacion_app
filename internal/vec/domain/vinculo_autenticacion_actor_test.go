@@ -237,6 +237,20 @@ func vinculoAutenticacionActorV1Prueba(t *testing.T, instante time.Time) Vinculo
 	return vinculo
 }
 
+func TestVinculoAutenticacionActorV1RechazaContextoCanonicoV2(t *testing.T) {
+	instante := time.Date(2026, 7, 15, 10, 0, 0, 0, time.UTC)
+	actor := contextoActorVinculoPrueba(t, instante)
+	actor.Instantanea.CuentaVersion = 1
+	autenticacion := autenticacionRevalidadaVinculoPrueba(instante)
+	vinculo, err := CrearVinculoAutenticacionActorV1(
+		context.Background(), revalidadorVinculoAutenticacionActorPrueba{resultado: autenticacion},
+		solicitudRevalidacionVinculoPrueba(autenticacion), actor, instante,
+	)
+	if !errors.Is(err, ErrVinculoAutenticacionActorInvalido) || vinculo.Validar() == nil {
+		t.Fatalf("VinculoAutenticacionActorV1 acepto downgrade de contexto V2: %#v, %v", vinculo, err)
+	}
+}
+
 func vinculoAutenticacionActorV1PruebaSinT(instante time.Time) (VinculoAutenticacionActorV1, error) {
 	actor, err := contextoActorVinculoPruebaSinT(instante)
 	if err != nil {

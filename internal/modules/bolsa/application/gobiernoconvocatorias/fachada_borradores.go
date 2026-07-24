@@ -105,13 +105,6 @@ type MutadorBorradores interface {
 	Actualizar(context.Context, OrdenActualizarBorrador) (ProyeccionReciboBorrador, error)
 }
 
-type SelectorListaBorradores struct {
-	Limite    int
-	Cursor    string
-	Texto     string
-	Categoria string
-}
-
 type LimitesEdicionBorrador struct {
 	MaximoCategorias           int
 	MaximoPlazos               int
@@ -343,7 +336,7 @@ func (f *FachadaBorradoresInternos) Listar(
 	ctx context.Context, contexto ContextoOperacionBorrador, selector SelectorListaBorradores,
 ) (ListaBorradores, error) {
 	contexto, err := f.validar(ctx, contexto)
-	if err != nil || selector.Limite < 1 || selector.Limite > 50 {
+	if err != nil || selector.Validar() != nil {
 		return ListaBorradores{}, errors.Join(ErrSolicitudBorradorInvalida, err)
 	}
 	return f.lector.Listar(ctx, contexto, selector)

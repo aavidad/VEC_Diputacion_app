@@ -10,15 +10,18 @@ trap limpiar EXIT INT TERM
 crear_arbol_valido() {
   rm -rf "$temporal/web"
   mkdir -p \
+    "$temporal/web/static/assets" \
     "$temporal/web/static/area-personal" \
     "$temporal/web/static/bolsa" \
     "$temporal/web/static/portal-empleado" \
     "$temporal/web/static/verificar"
   printf '%s\n' 'body { color: #111; }' >"$temporal/web/static/styles.css"
   printf '%s\n' '<svg xmlns="http://www.w3.org/2000/svg"/>' >"$temporal/web/static/favicon.svg"
+  printf '%s\n' '<svg xmlns="http://www.w3.org/2000/svg"/>' >"$temporal/web/static/assets/logo-diputacion-granada.svg"
   printf '%s\n' 'export const iniciar = true;' >"$temporal/web/static/bolsa/bolsa.js"
   printf '%s\n' \
     produccion.manifest \
+    static/assets/logo-diputacion-granada.svg \
     static/bolsa/bolsa.js \
     static/favicon.svg \
     static/styles.css >"$temporal/manifiesto"
@@ -35,6 +38,12 @@ debe_fallar() {
 crear_arbol_valido
 scripts/verificar_web_produccion.sh "$temporal/web" "$temporal/manifiesto" >/dev/null
 
+printf '%s\n' '<svg xmlns="http://www.w3.org/2000/svg"/>' >"$temporal/web/static/assets/logo-no-autorizado.svg"
+printf '%s\n' 'static/assets/logo-no-autorizado.svg' >>"$temporal/manifiesto"
+cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"
+debe_fallar "un activo compartido no autorizado"
+
+crear_arbol_valido
 printf '%s\n' 'window.localStorage.setItem("sesion", "valor");' >"$temporal/web/static/bolsa/estado.js"
 debe_fallar "localStorage"
 

@@ -31,9 +31,7 @@ import {
 
 test("cliente GET omite cookies, no usa caché y valida envelope y ETag", async () => {
   const llamadas = [];
-  let consultasToken = 0;
   const cliente = crearClienteBorradores({
-    obtenerBearer: () => { consultasToken += 1; return "token-en-memoria"; },
     fetchImpl: async (ruta, opcionesFetch) => {
       llamadas.push({ ruta, opcionesFetch });
       if (ruta === RUTAS_API_BORRADORES.opciones) return respuestaJSON(opciones());
@@ -44,13 +42,12 @@ test("cliente GET omite cookies, no usa caché y valida envelope y ETag", async 
   assert.equal((await cliente.obtenerOpciones()).esquema, ESQUEMAS_BORRADORES.opciones);
   assert.equal((await cliente.listar()).elementos.length, 1);
   assert.equal((await cliente.obtenerDetalle("convocatoria:externa:2026#1", limites())).etag, detalle().etag);
-  assert.equal(consultasToken, 3, "la credencial se obtiene de nuevo para cada petición");
   for (const llamada of llamadas) {
     assert.equal(llamada.opcionesFetch.credentials, "omit");
     assert.equal(llamada.opcionesFetch.cache, "no-store");
     assert.equal(llamada.opcionesFetch.redirect, "error");
     assert.equal(llamada.opcionesFetch.referrerPolicy, "no-referrer");
-    assert.equal(llamada.opcionesFetch.headers.get("authorization"), "Bearer token-en-memoria");
+    assert.equal(llamada.opcionesFetch.headers.has("authorization"), false);
   }
   assert.match(llamadas[1].ruta, /\?limite=40$/);
   assert.match(llamadas[2].ruta, /convocatoria%3Aexterna%3A2026\/versiones\/1$/);
@@ -69,14 +66,14 @@ test("el canal interno autenticado funciona sin proveedor Bearer ni Authorizatio
   assert.equal(opcionesFetch.credentials, "omit");
 });
 
-test("un proveedor Bearer de tipo inválido falla cerrado antes de cualquier petición", () => {
+test("la configuración cerrada rechaza cualquier proveedor de credenciales", () => {
   let peticiones = 0;
   assert.throws(
     () => crearClienteBorradores({
       obtenerBearer: { token: "no-es-un-proveedor" },
       fetchImpl: async () => { peticiones += 1; },
     }),
-    /obtenerBearer debe ser una función o null/,
+    /configuración del cliente de borradores no válida/,
   );
   assert.equal(peticiones, 0);
 });
@@ -192,7 +189,7 @@ test("PUT distingue 409 idempotencia y 412 CAS sin alterar cambios locales", asy
   })).accion, "actualizar");
 });
 
-test("cliente falla cerrado ante JSON, ETag, bearer o selector no canónicos", async () => {
+test("cliente falla cerrado ante JSON, ETag o selector no canónicos", async () => {
   const sinETag = crearClienteBorradores({ fetchImpl: async () => respuestaJSON(detalle()) });
   await assert.rejects(sinETag.obtenerDetalle("convocatoria:externa:2026#1", limites()), /ETag obligatorio/);
   const etagDistinto = crearClienteBorradores({
@@ -203,16 +200,6 @@ test("cliente falla cerrado ante JSON, ETag, bearer o selector no canónicos", a
     fetchImpl: async () => new Response("texto", { status: 200, headers: { "content-type": "text/plain" } }),
   });
   await assert.rejects(noJSON.obtenerOpciones(), /no respondió con JSON/);
-  const bearerInyectado = crearClienteBorradores({
-    obtenerBearer: () => "token\r\nX-Injected: yes",
-    fetchImpl: async () => { throw new Error("no debe ejecutarse"); },
-  });
-  await assert.rejects(bearerInyectado.obtenerOpciones(), /Credencial en memoria no válida/);
-  const bearerNoASCII = crearClienteBorradores({
-    obtenerBearer: () => "token-🔐",
-    fetchImpl: async () => { throw new Error("no debe ejecutarse"); },
-  });
-  await assert.rejects(bearerNoASCII.obtenerOpciones(), /Credencial en memoria no válida/);
   const cliente = crearClienteBorradores({ fetchImpl: async () => respuestaJSON(lista()) });
   await assert.rejects(cliente.listar({ limite: 51 }), /Selector de listado no válido/);
 
@@ -510,28 +497,10 @@ test("toda salida remota rechazada cancela cuerpo o lector sin sustituir la caus
   assert.ok(lecturaRota.traza.cancelacionesCuerpo >= 1);
 });
 
-test("AbortSignal gobierna credencial, fetch y lectura streaming", async () => {
+test("AbortSignal gobierna fetch y lectura streaming", async () => {
   const comprobarAborto = (causa) => (error) => error instanceof ErrorAPIBorradores
     && error.codigo === "operacion_abortada"
     && error.cause === causa;
-
-  const causaCredencial = new Error("aborto durante credencial");
-  const controladorCredencial = new AbortController();
-  let signalCredencial;
-  let fetchTrasCredencial = false;
-  const clienteCredencial = crearClienteBorradores({
-    obtenerBearer: (signal) => {
-      signalCredencial = signal;
-      return new Promise(() => {});
-    },
-    fetchImpl: async () => { fetchTrasCredencial = true; throw new Error("inalcanzable"); },
-  });
-  const esperaCredencial = clienteCredencial.obtenerOpciones({ signal: controladorCredencial.signal });
-  await Promise.resolve();
-  controladorCredencial.abort(causaCredencial);
-  await assert.rejects(esperaCredencial, comprobarAborto(causaCredencial));
-  assert.equal(signalCredencial, controladorCredencial.signal);
-  assert.equal(fetchTrasCredencial, false);
 
   const causaFetch = new Error("aborto durante fetch");
   const controladorFetch = new AbortController();
@@ -571,16 +540,15 @@ test("AbortSignal gobierna credencial, fetch y lectura streaming", async () => {
   const preAbortado = new AbortController();
   const causaPrevia = new Error("aborto previo");
   preAbortado.abort(causaPrevia);
-  let credencialInvocada = false;
+  let fetchInvocado = false;
   const clientePreAbortado = crearClienteBorradores({
-    obtenerBearer: () => { credencialInvocada = true; return "token"; },
-    fetchImpl: async () => { throw new Error("inalcanzable"); },
+    fetchImpl: async () => { fetchInvocado = true; throw new Error("inalcanzable"); },
   });
   await assert.rejects(
     clientePreAbortado.obtenerOpciones({ signal: preAbortado.signal }),
     comprobarAborto(causaPrevia),
   );
-  assert.equal(credencialInvocada, false);
+  assert.equal(fetchInvocado, false);
 });
 
 test("error envelope es cerrado, acotado y nunca muestra texto del servidor", async () => {

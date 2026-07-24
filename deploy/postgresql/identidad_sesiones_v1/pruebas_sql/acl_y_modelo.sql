@@ -36,6 +36,10 @@ BEGIN
            'public',
            'vec_identidad_sesiones_v1.registrar_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)',
            'EXECUTE'
+       ) OR has_function_privilege(
+           'public',
+           'vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)',
+           'EXECUTE'
        ) THEN
         RAISE EXCEPTION 'PUBLIC conserva capacidad de identidad';
     END IF;
@@ -49,6 +53,47 @@ BEGIN
            'EXECUTE'
        ) THEN
         RAISE EXCEPTION 'capacidades registrar/revalidar mezcladas';
+    END IF;
+    IF NOT has_function_privilege(
+           'vec_identidad_sesiones_v1_revalidador',
+           'vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)',
+           'EXECUTE'
+       ) OR has_function_privilege(
+           'vec_identidad_sesiones_v1_registrador',
+           'vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)',
+           'EXECUTE'
+       ) OR has_function_privilege(
+           'vec_identidad_sesiones_v1_provisionador',
+           'vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)',
+           'EXECUTE'
+       ) OR has_function_privilege(
+           'vec_identidad_sesiones_v1_revocador',
+           'vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)',
+           'EXECUTE'
+       ) THEN
+        RAISE EXCEPTION 'ACL de revalidacion rica no es exclusiva';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_proc AS funcion
+          JOIN pg_catalog.pg_namespace AS espacio
+            ON espacio.oid = funcion.pronamespace
+          JOIN pg_catalog.pg_roles AS propietario
+            ON propietario.oid = funcion.proowner
+         WHERE espacio.nspname = 'vec_identidad_sesiones_v1'
+           AND funcion.proname = 'revalidar_autenticacion_actor_v1'
+           AND pg_catalog.pg_get_function_identity_arguments(funcion.oid) =
+               'p_autenticacion_ref text, p_sesion_ref text'
+           AND funcion.prosecdef
+           AND funcion.provolatile = 'v'
+           AND propietario.rolname =
+               'vec_identidad_sesiones_v1_propietario'
+           AND funcion.proconfig @> ARRAY[
+               'search_path=pg_catalog, pg_temp'
+           ]::text[]
+    ) THEN
+        RAISE EXCEPTION 'revalidacion rica no esta endurecida';
     END IF;
 
     IF NOT EXISTS (

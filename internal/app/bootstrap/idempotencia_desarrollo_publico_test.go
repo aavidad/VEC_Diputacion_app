@@ -122,6 +122,20 @@ func (a autoridadPosteriorNoInvocable) IdentidadAutoridadBorrador() gobiernoconv
 	return identidad
 }
 
+func (autoridadPosteriorNoInvocable) VinculoVerificadorReciboBorrador() gobiernoconvocatorias.VinculoVerificadorReciboBorrador {
+	identidadPersistencia := autoridadPosteriorNoInvocable{
+		nombre: "verificador-derivacion-publica",
+	}.IdentidadAutoridadBorrador()
+	identidadCriptografica, _ := gobiernoconvocatorias.NuevaIdentidadAutoridadBorrador(
+		"cripto-derivacion-publica", "instancia-cripto-derivacion-publica",
+		"credencial-cripto-derivacion-publica", "rol-cripto-derivacion-publica",
+	)
+	vinculo, _ := gobiernoconvocatorias.NuevoVinculoVerificadorReciboBorrador(
+		identidadPersistencia, identidadCriptografica,
+	)
+	return vinculo
+}
+
 func (autoridadPosteriorNoInvocable) SeleccionarPoliticaCifradoBorrador(
 	context.Context,
 	gobiernoconvocatorias.SolicitudSeleccionPoliticaCifradoBorrador,
@@ -338,11 +352,13 @@ func escenarioDerivacionPublicaPrueba(
 		t.Fatal(err)
 	}
 	contenido, configuracion := datosDerivacionPublicaPrueba(t)
+	referenciaPlantilla := dominiobolsa.ReferenciaConfiguracionConvocatoria{
+		ID: "plantilla:bolsa:derivacion-publica", Version: 2,
+		HuellaContenidoSHA256: strings.Repeat("8", 64),
+	}
+	configuracion.Plantilla = referenciaPlantilla
 	plantilla := gobiernoconvocatorias.PlantillaBorradorResuelta{
-		Referencia: dominiobolsa.ReferenciaConfiguracionConvocatoria{
-			ID: "plantilla:bolsa:derivacion-publica", Version: 2,
-			HuellaContenidoSHA256: strings.Repeat("8", 64),
-		},
+		Referencia:    referenciaPlantilla,
 		Configuracion: configuracion,
 	}
 	catalogo := catalogoDerivacionPublicaPrueba{plantilla: plantilla}
@@ -465,6 +481,7 @@ func datosDerivacionPublicaPrueba(
 		ReglasBaremacion: referencia("baremo:bolsa", '3'),
 		FlujoProceso:     referencia("convocatoria-bolsa", '4'),
 		FlujoSolicitud:   referencia("solicitud-bolsa", '5'),
+		Plantilla:        referencia("plantilla:bolsa:derivacion-publica", '8'),
 		Documentos: []dominiobolsa.ReferenciaDocumentoOficialConvocatoria{{
 			Rol: "bases", PublicacionRef: "documento:bases",
 			DocumentoRef: "documento:logico:bases:derivacion", VersionDocumento: 1,

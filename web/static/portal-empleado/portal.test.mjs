@@ -11,8 +11,9 @@ import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 
 const directorio = new URL("./", import.meta.url);
-const [html, javascript, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, vistaLlamamientos, panelInterno, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
+const [html, manifiestoProduccion, javascript, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, vistaLlamamientos, panelInterno, resumenPresentacion, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
   readFile(new URL("index.html", directorio), "utf8"),
+  readFile(new URL("../../produccion.manifest", directorio), "utf8"),
   readFile(new URL("portal.js", directorio), "utf8"),
   readFile(new URL("portal-eventos.js", directorio), "utf8"),
   readFile(new URL("portal-contrato.js", directorio), "utf8"),
@@ -21,6 +22,7 @@ const [html, javascript, eventos, contrato, contratoLlamamientos, apiLlamamiento
   readFile(new URL("portal-llamamientos-flujo.js", directorio), "utf8"),
   readFile(new URL("portal-llamamientos-vista.js", directorio), "utf8"),
   readFile(new URL("portal-panel-interno.js", directorio), "utf8"),
+  readFile(new URL("portal-resumen-presentacion.js", directorio), "utf8"),
   readFile(new URL("datos-presentacion.js", directorio), "utf8"),
   readFile(new URL("ayuda-contenido.js", directorio), "utf8"),
   readFile(new URL("portal.css", directorio), "utf8"),
@@ -28,7 +30,7 @@ const [html, javascript, eventos, contrato, contratoLlamamientos, apiLlamamiento
   readFile(new URL("portal-flujos.css", directorio), "utf8"),
   readFile(new URL("portal-capacidades.css", directorio), "utf8"),
 ]);
-const codigo = `${javascript}\n${eventos}\n${contrato}\n${contratoLlamamientos}\n${apiLlamamientos}\n${flujoLlamamientos}\n${vistaLlamamientos}\n${panelInterno}`;
+const codigo = `${javascript}\n${eventos}\n${contrato}\n${contratoLlamamientos}\n${apiLlamamientos}\n${flujoLlamamientos}\n${vistaLlamamientos}\n${panelInterno}\n${resumenPresentacion}`;
 const estilos = `${estilosBase}\n${estilosComponentes}\n${estilosFlujos}\n${estilosCapacidades}`;
 
 function panelInternoReal() {
@@ -88,11 +90,16 @@ test("la ruta normal usa API protegida sin cookies y no cae a datos sintéticos"
   assert.equal(`${javascript}\n${apiLlamamientos}`.match(/credentials: "omit"/g)?.length, 2, "todas las llamadas internas deben omitir cookies");
   assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /credentials: "(?:same-origin|include)"/);
   assert.doesNotMatch(javascript, /document\.cookie|localStorage.*(?:token|sesion|auth)/i);
+  assert.doesNotMatch(javascript, /PROVEEDOR_BEARER_BORRADORES|globalThis\[[^\]]*BEARER/i);
+  assert.doesNotMatch(javascript, /Bearer|Authorization|resolverProveedorBearer|obtenerBearer/i);
   assert.match(javascript, /extraerDatosEnvelopeCanonico\(envelope\)/);
   assert.match(contrato, /la API interna no puede responder con datos de demostración/);
   assert.match(javascript, /if \(respuesta\.status === 401\)/);
   assert.match(javascript, /if \(respuesta\.status === 403\)/);
   assert.match(javascript, /let DATOS_PANEL = DATOS_VACIOS/);
+  assert.match(javascript, /superficieBorradores\.comprobarDisponibilidad\(\)/);
+  assert.match(javascript, /superficieBorradores\.obtenerAcceso\(\)/);
+  assert.doesNotMatch(javascript, /resolverAcceso\(clave, estado\.fuenteLista\)/);
   assert.doesNotMatch(codigo, /María Pérez|García López|Auxiliar Administrativo|BOL-2026|CON-2026|DOC-[A-Z]{2}|20\/07\/2026/);
 });
 
@@ -179,7 +186,15 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260720-pulido-escritorio-v2/);
+  assert.match(html, /portal\.js\?v=20260721-acceso-real-v2/);
+  assert.match(javascript, /portal-eventos\.js\?v=20260721-acceso-real-v2/);
+  assert.match(javascript, /import\("\.\/portal-resumen-presentacion\.js\?v=20260721-acceso-real-v2"\)/);
+  assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);
+  assert.doesNotMatch(manifiestoProduccion, /portal-resumen-presentacion\.js/);
+  assert.match(manifiestoProduccion, /portal-i18n\.js/);
+  assert.match(javascript, /if \(acceso\.disponible !== true \|\| vistaPermitida\(acceso\.vista\)\) return acceso/);
+  assert.match(eventos, /case "reintentar-borradores"/);
+  assert.match(eventos, /comprobarDisponibilidadBorradores\(\{ forzar: true \}\)/);
   assert.match(panelInterno, /export function crearPresentadorPanelInterno/);
 });
 
@@ -254,7 +269,7 @@ test("el selector de perfil es cerrado y la navegación aplica mínimo privilegi
   assert.match(javascript, /history\.replaceState\(null, "", hashSeguro\)/);
   assert.match(javascript, /control\.disabled = true/);
   assert.match(javascript, /querySelectorAll\("\[data-vista\], \[data-requiere-vista\]"\)/);
-  assert.equal((javascript.match(/data-requiere-vista="llamamientos"/g) || []).length, 2);
+  assert.equal((`${javascript}\n${resumenPresentacion}`.match(/data-requiere-vista="llamamientos"/g) || []).length, 2);
   assert.match(eventos, /navegar\(vista, \{ enfocar: false \}\)/);
 });
 
@@ -310,10 +325,10 @@ test("la ayuda configurable incluye audio local, FAQ y transcripción accesible"
 
 test("la cabecera usa el logo institucional local, dimensionado y sin hotlink", async () => {
   assert.match(html, /data-identidad-institucional="diputacion-granada"/);
-  assert.match(html, /src="\/portal-empleado\/assets\/logo-diputacion-granada\.svg" width="250" height="84" alt="Diputación de Granada"/);
+  assert.match(html, /src="\/assets\/logo-diputacion-granada\.svg" width="250" height="84" alt="Diputación de Granada"/);
   assert.match(estilosBase, /\.logo-institucional[\s\S]{0,260}width: min\(100%, 218px\)[\s\S]{0,160}height: auto/);
   assert.doesNotMatch(html, /<img[^>]+src="https?:/i);
-  const rutaLogo = new URL("assets/logo-diputacion-granada.svg", directorio);
+  const rutaLogo = new URL("../assets/logo-diputacion-granada.svg", directorio);
   assert.ok((await stat(rutaLogo)).size > 10_000);
   assert.doesNotMatch(await readFile(rutaLogo, "utf8"), /<script\b|<foreignObject\b|\sonload=/i);
 });

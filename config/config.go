@@ -9,42 +9,43 @@ import (
 )
 
 const (
-	EnvAddress                   = "VEC_HTTP_ADDR"
-	LegacyEnvAddress             = "BOLSA_HTTP_ADDR"
-	EnvStorageMode               = "VEC_BOLSA_STORAGE_MODE"
-	LegacyEnvStorageMode         = "BOLSA_STORAGE_MODE"
-	EnvDataDir                   = "VEC_BOLSA_DATA_DIR"
-	LegacyEnvDataDir             = "BOLSA_DATA_DIR"
-	EnvDataPath                  = "VEC_BOLSA_DATA_PATH"
-	LegacyEnvDataPath            = "BOLSA_DATA_PATH"
-	EnvAuthMode                  = "VEC_AUTH_MODE"
-	LegacyEnvAuthMode            = "BOLSA_AUTH_MODE"
-	EnvFakeCredentialsPath       = "VEC_FAKE_CREDENTIALS_FILE"
-	EnvTrustedHeaderSubject      = "VEC_TRUSTED_HEADER_SUBJECT"
-	LegacyTrustedHeaderSubject   = "BOLSA_TRUSTED_HEADER_SUBJECT"
-	EnvTrustedHeaderRoles        = "VEC_TRUSTED_HEADER_ROLES"
-	LegacyTrustedHeaderRoles     = "BOLSA_TRUSTED_HEADER_ROLES"
-	EnvTrustedHeaderMechanism    = "VEC_TRUSTED_HEADER_MECHANISM"
-	LegacyTrustedHeaderMechanism = "BOLSA_TRUSTED_HEADER_MECHANISM"
-	EnvTrustedProxyCIDRs         = "VEC_TRUSTED_PROXY_CIDRS"
-	LegacyEnvTrustedProxyCIDRs   = "BOLSA_TRUSTED_PROXY_CIDRS"
-	EnvHTTPAllowedCIDRs          = "VEC_HTTP_ALLOWED_CIDRS"
-	EnvTLSCertFile               = "VEC_TLS_CERT_FILE"
-	EnvTLSKeyFile                = "VEC_TLS_KEY_FILE"
-	EnvPersonalCatalogPath       = "VEC_PERSONAL_CATALOG_PATH"
-	EnvBolsaPublicSourcePath     = "VEC_BOLSA_PUBLIC_SOURCE_PATH"
-	EnvBolsaCategoriesSourcePath = "VEC_BOLSA_CATEGORIES_SOURCE_PATH"
-	EnvBolsaCategoriesCatalogID  = "VEC_BOLSA_CATEGORIES_CATALOG_ID"
-	EnvBolsaCategoriesVersion    = "VEC_BOLSA_CATEGORIES_CATALOG_VERSION"
-	EnvBolsaCategoriesSHA256     = "VEC_BOLSA_CATEGORIES_CATALOG_SHA256"
-	EnvOSRMBaseURL               = "VEC_OSRM_BASE_URL"
-	EnvOSRMScopeName             = "VEC_OSRM_SCOPE_NAME"
-	EnvOSRMScopeBounds           = "VEC_OSRM_SCOPE_BOUNDS"
-	EnvOSRMAllowedCIDRs          = "VEC_OSRM_ALLOWED_CIDRS"
-	EnvOSRMGraphVersion          = "VEC_OSRM_GRAPH_VERSION"
-	EnvRRHHPresentationEnabled   = "VEC_RRHH_PRESENTATION_ENABLED"
-	EnvRRHHPresentationGuardOne  = "VEC_RRHH_PRESENTATION_GUARD_ONE"
-	EnvRRHHPresentationGuardTwo  = "VEC_RRHH_PRESENTATION_GUARD_TWO"
+	EnvAddress                               = "VEC_HTTP_ADDR"
+	LegacyEnvAddress                         = "BOLSA_HTTP_ADDR"
+	EnvStorageMode                           = "VEC_BOLSA_STORAGE_MODE"
+	LegacyEnvStorageMode                     = "BOLSA_STORAGE_MODE"
+	EnvDataDir                               = "VEC_BOLSA_DATA_DIR"
+	LegacyEnvDataDir                         = "BOLSA_DATA_DIR"
+	EnvDataPath                              = "VEC_BOLSA_DATA_PATH"
+	LegacyEnvDataPath                        = "BOLSA_DATA_PATH"
+	EnvAuthMode                              = "VEC_AUTH_MODE"
+	LegacyEnvAuthMode                        = "BOLSA_AUTH_MODE"
+	EnvFakeCredentialsPath                   = "VEC_FAKE_CREDENTIALS_FILE"
+	EnvTrustedHeaderSubject                  = "VEC_TRUSTED_HEADER_SUBJECT"
+	LegacyTrustedHeaderSubject               = "BOLSA_TRUSTED_HEADER_SUBJECT"
+	EnvTrustedHeaderRoles                    = "VEC_TRUSTED_HEADER_ROLES"
+	LegacyTrustedHeaderRoles                 = "BOLSA_TRUSTED_HEADER_ROLES"
+	EnvTrustedHeaderMechanism                = "VEC_TRUSTED_HEADER_MECHANISM"
+	LegacyTrustedHeaderMechanism             = "BOLSA_TRUSTED_HEADER_MECHANISM"
+	EnvTrustedProxyCIDRs                     = "VEC_TRUSTED_PROXY_CIDRS"
+	LegacyEnvTrustedProxyCIDRs               = "BOLSA_TRUSTED_PROXY_CIDRS"
+	EnvHTTPAllowedCIDRs                      = "VEC_HTTP_ALLOWED_CIDRS"
+	EnvTLSCertFile                           = "VEC_TLS_CERT_FILE"
+	EnvTLSKeyFile                            = "VEC_TLS_KEY_FILE"
+	EnvPersonalCatalogPath                   = "VEC_PERSONAL_CATALOG_PATH"
+	EnvBolsaPublicSourcePath                 = "VEC_BOLSA_PUBLIC_SOURCE_PATH"
+	EnvBolsaCategoriesSourcePath             = "VEC_BOLSA_CATEGORIES_SOURCE_PATH"
+	EnvBolsaCategoriesCatalogID              = "VEC_BOLSA_CATEGORIES_CATALOG_ID"
+	EnvBolsaCategoriesVersion                = "VEC_BOLSA_CATEGORIES_CATALOG_VERSION"
+	EnvBolsaCategoriesSHA256                 = "VEC_BOLSA_CATEGORIES_CATALOG_SHA256"
+	EnvBolsaCategoriesPublicProjectionSHA256 = "VEC_BOLSA_CATEGORIES_PUBLIC_PROJECTION_SHA256"
+	EnvOSRMBaseURL                           = "VEC_OSRM_BASE_URL"
+	EnvOSRMScopeName                         = "VEC_OSRM_SCOPE_NAME"
+	EnvOSRMScopeBounds                       = "VEC_OSRM_SCOPE_BOUNDS"
+	EnvOSRMAllowedCIDRs                      = "VEC_OSRM_ALLOWED_CIDRS"
+	EnvOSRMGraphVersion                      = "VEC_OSRM_GRAPH_VERSION"
+	EnvRRHHPresentationEnabled               = "VEC_RRHH_PRESENTATION_ENABLED"
+	EnvRRHHPresentationGuardOne              = "VEC_RRHH_PRESENTATION_GUARD_ONE"
+	EnvRRHHPresentationGuardTwo              = "VEC_RRHH_PRESENTATION_GUARD_TWO"
 
 	StorageModeMemory       = "memory"
 	StorageModeFile         = "file"
@@ -78,85 +79,99 @@ const (
 )
 
 type Config struct {
-	Address                   string
-	APIBasePath               string
-	ReadHeaderTimeout         time.Duration
-	ReadTimeout               time.Duration
-	WriteTimeout              time.Duration
-	IdleTimeout               time.Duration
-	MaxHeaderBytes            int
-	MaxRequestBodyBytes       int64
-	StorageMode               string
-	DataDir                   string
-	DataPath                  string
-	AuthMode                  string
-	ExecutionProfile          string
-	DevelopmentGuard          string
-	DevelopmentMaterialDir    string
-	FakeCredentialsPath       string
-	TrustedHeaderSubject      string
-	TrustedHeaderRoles        string
-	TrustedHeaderMechanism    string
-	TrustedProxyCIDRs         []string
-	HTTPAllowedCIDRs          []string
-	TLSCertFile               string
-	TLSKeyFile                string
-	PersonalCatalogPath       string
-	PersonalCatalogInMemory   bool
-	BolsaPublicSourcePath     string
-	BolsaCategoriesSourcePath string
-	BolsaCategoriesCatalogID  string
-	BolsaCategoriesVersion    int
-	BolsaCategoriesSHA256     string
-	OSRMBaseURL               string
-	OSRMScopeName             string
-	OSRMScopeBounds           string
-	OSRMAllowedCIDRs          []string
-	OSRMGraphVersion          string
-	RRHHPresentationEnabled   bool
-	RRHHPresentationGuardOne  string
-	RRHHPresentationGuardTwo  string
+	Address                               string
+	APIBasePath                           string
+	ReadHeaderTimeout                     time.Duration
+	ReadTimeout                           time.Duration
+	WriteTimeout                          time.Duration
+	IdleTimeout                           time.Duration
+	MaxHeaderBytes                        int
+	MaxRequestBodyBytes                   int64
+	StorageMode                           string
+	DataDir                               string
+	DataPath                              string
+	AuthMode                              string
+	ExecutionProfile                      string
+	DevelopmentGuard                      string
+	DevelopmentMaterialDir                string
+	FakeCredentialsPath                   string
+	TrustedHeaderSubject                  string
+	TrustedHeaderRoles                    string
+	TrustedHeaderMechanism                string
+	TrustedProxyCIDRs                     []string
+	HTTPAllowedCIDRs                      []string
+	TLSCertFile                           string
+	TLSKeyFile                            string
+	PersonalCatalogPath                   string
+	PersonalCatalogInMemory               bool
+	BolsaPublicSourcePath                 string
+	BolsaCategoriesSourcePath             string
+	BolsaCategoriesCatalogID              string
+	BolsaCategoriesVersion                int
+	BolsaCategoriesSHA256                 string
+	BolsaCategoriesPublicProjectionSHA256 string
+	BolsaPublicaPostgreSQL                ConfiguracionPostgreSQLPublica
+	BolsaPublicaManifiestoSHA256          string
+	OSRMBaseURL                           string
+	OSRMScopeName                         string
+	OSRMScopeBounds                       string
+	OSRMAllowedCIDRs                      []string
+	OSRMGraphVersion                      string
+	RRHHPresentationEnabled               bool
+	RRHHPresentationGuardOne              string
+	RRHHPresentationGuardTwo              string
+	BolsaBorradoresPostgreSQL             ConfiguracionPostgreSQLBorradores
 }
 
 func Load() Config {
 	return Config{
-		Address:                   envFirst(EnvAddress, LegacyEnvAddress),
-		APIBasePath:               DefaultAPIBasePath,
-		ReadHeaderTimeout:         DefaultReadHeaderLimit,
-		ReadTimeout:               DefaultReadTimeout,
-		WriteTimeout:              DefaultWriteTimeout,
-		IdleTimeout:               DefaultIdleTimeout,
-		MaxHeaderBytes:            DefaultMaxHeaderBytes,
-		MaxRequestBodyBytes:       DefaultMaxRequestBodyBytes,
-		StorageMode:               envFirst(EnvStorageMode, LegacyEnvStorageMode),
-		DataDir:                   envFirst(EnvDataDir, LegacyEnvDataDir),
-		DataPath:                  envFirst(EnvDataPath, LegacyEnvDataPath),
-		AuthMode:                  envFirst(EnvAuthMode, LegacyEnvAuthMode),
-		ExecutionProfile:          envFirst(EnvExecutionProfile),
-		DevelopmentGuard:          envFirst(EnvDevelopmentGuard),
-		DevelopmentMaterialDir:    envFirst(EnvDevelopmentMaterialDir),
-		FakeCredentialsPath:       envFirst(EnvFakeCredentialsPath),
-		TrustedHeaderSubject:      envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),
-		TrustedHeaderRoles:        envFirst(EnvTrustedHeaderRoles, LegacyTrustedHeaderRoles),
-		TrustedHeaderMechanism:    envFirst(EnvTrustedHeaderMechanism, LegacyTrustedHeaderMechanism),
-		TrustedProxyCIDRs:         splitCSV(envFirst(EnvTrustedProxyCIDRs, LegacyEnvTrustedProxyCIDRs)),
-		HTTPAllowedCIDRs:          splitCSV(envFirst(EnvHTTPAllowedCIDRs)),
-		TLSCertFile:               envFirst(EnvTLSCertFile),
-		TLSKeyFile:                envFirst(EnvTLSKeyFile),
-		PersonalCatalogPath:       envFirst(EnvPersonalCatalogPath),
-		BolsaPublicSourcePath:     envFirst(EnvBolsaPublicSourcePath),
-		BolsaCategoriesSourcePath: envFirst(EnvBolsaCategoriesSourcePath),
-		BolsaCategoriesCatalogID:  envFirst(EnvBolsaCategoriesCatalogID),
-		BolsaCategoriesVersion:    envPositiveInt(EnvBolsaCategoriesVersion),
-		BolsaCategoriesSHA256:     envFirst(EnvBolsaCategoriesSHA256),
-		OSRMBaseURL:               envFirst(EnvOSRMBaseURL),
-		OSRMScopeName:             envFirst(EnvOSRMScopeName),
-		OSRMScopeBounds:           envFirst(EnvOSRMScopeBounds),
-		OSRMAllowedCIDRs:          splitCSV(envFirst(EnvOSRMAllowedCIDRs)),
-		OSRMGraphVersion:          envFirst(EnvOSRMGraphVersion),
-		RRHHPresentationEnabled:   envBool(EnvRRHHPresentationEnabled),
-		RRHHPresentationGuardOne:  envFirst(EnvRRHHPresentationGuardOne),
-		RRHHPresentationGuardTwo:  envFirst(EnvRRHHPresentationGuardTwo),
+		Address:                               envFirst(EnvAddress, LegacyEnvAddress),
+		APIBasePath:                           DefaultAPIBasePath,
+		ReadHeaderTimeout:                     DefaultReadHeaderLimit,
+		ReadTimeout:                           DefaultReadTimeout,
+		WriteTimeout:                          DefaultWriteTimeout,
+		IdleTimeout:                           DefaultIdleTimeout,
+		MaxHeaderBytes:                        DefaultMaxHeaderBytes,
+		MaxRequestBodyBytes:                   DefaultMaxRequestBodyBytes,
+		StorageMode:                           envFirst(EnvStorageMode, LegacyEnvStorageMode),
+		DataDir:                               envFirst(EnvDataDir, LegacyEnvDataDir),
+		DataPath:                              envFirst(EnvDataPath, LegacyEnvDataPath),
+		AuthMode:                              envFirst(EnvAuthMode, LegacyEnvAuthMode),
+		ExecutionProfile:                      envFirst(EnvExecutionProfile),
+		DevelopmentGuard:                      envFirst(EnvDevelopmentGuard),
+		DevelopmentMaterialDir:                envFirst(EnvDevelopmentMaterialDir),
+		FakeCredentialsPath:                   envFirst(EnvFakeCredentialsPath),
+		TrustedHeaderSubject:                  envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),
+		TrustedHeaderRoles:                    envFirst(EnvTrustedHeaderRoles, LegacyTrustedHeaderRoles),
+		TrustedHeaderMechanism:                envFirst(EnvTrustedHeaderMechanism, LegacyTrustedHeaderMechanism),
+		TrustedProxyCIDRs:                     splitCSV(envFirst(EnvTrustedProxyCIDRs, LegacyEnvTrustedProxyCIDRs)),
+		HTTPAllowedCIDRs:                      splitCSV(envFirst(EnvHTTPAllowedCIDRs)),
+		TLSCertFile:                           envFirst(EnvTLSCertFile),
+		TLSKeyFile:                            envFirst(EnvTLSKeyFile),
+		PersonalCatalogPath:                   envFirst(EnvPersonalCatalogPath),
+		BolsaPublicSourcePath:                 envFirst(EnvBolsaPublicSourcePath),
+		BolsaCategoriesSourcePath:             envFirst(EnvBolsaCategoriesSourcePath),
+		BolsaCategoriesCatalogID:              envFirst(EnvBolsaCategoriesCatalogID),
+		BolsaCategoriesVersion:                envPositiveInt(EnvBolsaCategoriesVersion),
+		BolsaCategoriesSHA256:                 envFirst(EnvBolsaCategoriesSHA256),
+		BolsaCategoriesPublicProjectionSHA256: envFirst(EnvBolsaCategoriesPublicProjectionSHA256),
+		BolsaPublicaPostgreSQL: ConfiguracionPostgreSQLPublica{
+			dsn: envFirst(EnvBolsaPublicaDatabaseURL),
+		},
+		BolsaPublicaManifiestoSHA256: envFirst(EnvBolsaPublicaManifiestoSHA256),
+		OSRMBaseURL:                  envFirst(EnvOSRMBaseURL),
+		OSRMScopeName:                envFirst(EnvOSRMScopeName),
+		OSRMScopeBounds:              envFirst(EnvOSRMScopeBounds),
+		OSRMAllowedCIDRs:             splitCSV(envFirst(EnvOSRMAllowedCIDRs)),
+		OSRMGraphVersion:             envFirst(EnvOSRMGraphVersion),
+		RRHHPresentationEnabled:      envBool(EnvRRHHPresentationEnabled),
+		RRHHPresentationGuardOne:     envFirst(EnvRRHHPresentationGuardOne),
+		RRHHPresentationGuardTwo:     envFirst(EnvRRHHPresentationGuardTwo),
+		BolsaBorradoresPostgreSQL: ConfiguracionPostgreSQLBorradores{
+			dsnEjecutorConsulta:  envFirst(EnvBolsaBorradoresEjecutorConsultaDatabaseURL),
+			dsnProyectorGobierno: envFirst(EnvBolsaBorradoresProyectorGobiernoDatabaseURL),
+			dsnVerificadorRecibo: envFirst(EnvBolsaBorradoresVerificadorReciboDatabaseURL),
+		},
 	}.Normalize()
 }
 
@@ -238,6 +253,9 @@ func (c Config) Normalize() Config {
 	c.OSRMAllowedCIDRs = normalizeOptionalCIDRs(c.OSRMAllowedCIDRs)
 	c.RRHHPresentationGuardOne = strings.TrimSpace(c.RRHHPresentationGuardOne)
 	c.RRHHPresentationGuardTwo = strings.TrimSpace(c.RRHHPresentationGuardTwo)
+	c.BolsaBorradoresPostgreSQL = c.BolsaBorradoresPostgreSQL.normalizar()
+	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()
+	c.BolsaPublicaManifiestoSHA256 = strings.TrimSpace(c.BolsaPublicaManifiestoSHA256)
 	return c
 }
 

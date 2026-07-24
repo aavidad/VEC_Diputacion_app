@@ -13,7 +13,7 @@ import {
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js";
+} from "./portal-catalogo-modulos.js?v=20260721-acceso-real-v2";
 import {
   CAPACIDAD_CONSULTAR_FICHAJES,
   CAPACIDAD_CONSULTAR_HORARIO,
@@ -30,6 +30,7 @@ import {
 } from "./modulos/dietas/contrato.js";
 import { montarModuloDietas } from "./modulos/dietas/vista.js";
 import { crearVisorRutaDietas } from "./modulos/dietas/mapa-ruta.js";
+import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
 
 const CAPACIDADES_AUTOSERVICIO_CRONOS = Object.freeze([
   CAPACIDAD_CONSULTAR_FICHAJES,
@@ -64,9 +65,10 @@ export function crearCoordinadorModulosPortal({
   anunciar = () => {},
   confirmarOperacion = () => false,
   entorno = globalThis,
+  traducir = traducirPortal,
 } = {}) {
   if (typeof escaparHTML !== "function" || typeof anunciar !== "function"
-    || typeof confirmarOperacion !== "function") {
+    || typeof confirmarOperacion !== "function" || typeof traducir !== "function") {
     throw new TypeError("dependencias del coordinador de módulos no válidas");
   }
 
@@ -157,7 +159,14 @@ export function crearCoordinadorModulosPortal({
   function resolverAcceso(clave, bolsaDisponible = true) {
     if (clave === "bolsa") {
       const autorizada = !presentacionActiva || composicion?.contextos.bolsa !== undefined;
-      return Object.freeze({ disponible: bolsaDisponible && autorizada, vista: "resumen" });
+      const acceso = bolsaDisponible !== null && typeof bolsaDisponible === "object"
+        ? bolsaDisponible
+        : { disponible: bolsaDisponible === true, vista: "resumen" };
+      return Object.freeze({
+        ...acceso,
+        disponible: acceso.disponible === true && autorizada,
+        vista: acceso.disponible === true && autorizada ? acceso.vista : "",
+      });
     }
     if (clave === "cronos" && vistaDisponible("cronos")) {
       return Object.freeze({ disponible: true, vista: "cronos" });
@@ -177,10 +186,17 @@ export function crearCoordinadorModulosPortal({
       catalogo: catalogoVisible,
       resolverAcceso: (clave) => {
         const acceso = resolverAcceso(clave, bolsaDisponible);
-        return acceso.disponible && vistaPermitida(acceso.vista)
-          ? acceso : Object.freeze({ disponible: false, vista: "" });
+        if (acceso.disponible !== true) return acceso;
+        return vistaPermitida(acceso.vista) ? acceso : Object.freeze({
+          ...acceso,
+          disponible: false,
+          vista: "",
+          estado: "denegado",
+          etiqueta: traducir("permiso_perfil_denegado"),
+        });
       },
       escaparHTML,
+      traducir,
     });
   }
 

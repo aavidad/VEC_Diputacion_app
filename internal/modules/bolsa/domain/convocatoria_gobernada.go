@@ -67,6 +67,7 @@ type ConfiguracionFijadaConvocatoria struct {
 	ReglasBaremacion ReferenciaConfiguracionConvocatoria      `json:"reglas_baremacion"`
 	FlujoProceso     ReferenciaConfiguracionConvocatoria      `json:"flujo_proceso"`
 	FlujoSolicitud   ReferenciaConfiguracionConvocatoria      `json:"flujo_solicitud"`
+	Plantilla        ReferenciaConfiguracionConvocatoria      `json:"plantilla"`
 	Documentos       []ReferenciaDocumentoOficialConvocatoria `json:"documentos"`
 }
 
@@ -90,7 +91,7 @@ func (c ConfiguracionFijadaConvocatoria) ClonarCanonicaPara(
 func (c ConfiguracionFijadaConvocatoria) ValidarPara(contenido ContenidoPublicableConvocatoria) error {
 	if contenido.Validar() != nil || c.Catalogos.Validar() != nil || c.Calendario.Validar() != nil ||
 		c.ReglasBaremacion.Validar() != nil || c.FlujoProceso.Validar() != nil ||
-		c.FlujoSolicitud.Validar() != nil ||
+		c.FlujoSolicitud.Validar() != nil || c.Plantilla.Validar() != nil ||
 		!patronIdentificadorFlujo.MatchString(c.FlujoProceso.ID) ||
 		!patronIdentificadorFlujo.MatchString(c.FlujoSolicitud.ID) || len(c.Documentos) == 0 ||
 		len(c.Documentos) != len(contenido.Documentos) {

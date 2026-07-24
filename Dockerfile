@@ -4,7 +4,8 @@ FROM golang:1.26.5-bookworm@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93
 
 WORKDIR /src
 
-RUN useradd --create-home --uid 10001 app \
+RUN groupadd --gid 10001 app \
+  && useradd --create-home --uid 10001 --gid 10001 app \
   && chown -R app:app /src /go
 
 USER app
@@ -24,6 +25,16 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   -ldflags="-s -w" \
   -o /src/bin/vec-server \
   ./cmd/vec-server \
+  && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+  -trimpath \
+  -ldflags="-s -w" \
+  -o /src/bin/vec-publico \
+  ./cmd/vec-publico \
+  && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+  -trimpath \
+  -ldflags="-s -w" \
+  -o /src/bin/vec-interno \
+  ./cmd/vec-interno \
   && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   -trimpath \
   -ldflags="-s -w" \
@@ -59,11 +70,46 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   && test ! -e /src/web-produccion/static/catalogo-categorias.js \
   && test ! -e /src/web-produccion/static/catalogo-categorias.css
 
+# Cada superficie recibe únicamente los recursos enumerados por su manifiesto.
+# El manifiesto se renombra dentro del artefacto porque el servidor lo usa como
+# lista positiva HTTP, pero el inventario fuente permanece separado y revisable.
+RUN for superficie in publico interno; do \
+      destino="/src/web-${superficie}"; \
+      manifiesto="/src/web/${superficie}.manifest"; \
+      install -d "${destino}"; \
+      install -m 0644 "${manifiesto}" "${destino}/produccion.manifest"; \
+      while IFS= read -r ruta; do \
+        test -n "${ruta}"; \
+        test "${ruta#/}" = "${ruta}"; \
+        test "${ruta#*..}" = "${ruta}"; \
+        test -f "/src/web/${ruta}"; \
+        install -D -m 0644 "/src/web/${ruta}" "${destino}/${ruta}"; \
+      done <"${manifiesto}"; \
+    done \
+  && test ! -e /src/web-publico/static/portal-empleado \
+  && test ! -e /src/web-publico/static/area-personal \
+  && test ! -e /src/web-publico/static/presentacion \
+  && test ! -e /src/web-interno/static/bolsa \
+  && test ! -e /src/web-interno/static/verificar \
+  && test ! -e /src/web-interno/static/area-personal \
+  && ! find /src/web-publico /src/web-interno -type f \
+       \( -iname '*.test.js' -o -iname '*.test.mjs' -o -iname '*demo*' -o -iname '*presentacion*' \) \
+       -print -quit | grep -q . \
+  && install -d /src/locales-interno \
+  && while IFS= read -r ruta; do \
+       test -n "${ruta}"; \
+       test "${ruta#/}" = "${ruta}"; \
+       test "${ruta#*..}" = "${ruta}"; \
+       test -f "/src/locales/${ruta}"; \
+       install -D -m 0644 "/src/locales/${ruta}" "/src/locales-interno/${ruta}"; \
+     done </src/web/interno.locales.manifest
+
 # Artefacto deliberadamente distinto. Incluye exclusivamente datos sinteticos,
 # no declara volumen durable y su composicion no crea conectores externos.
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime-presentacion
 
-RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+RUN groupadd --system --gid 10001 app \
+  && useradd --system --uid 10001 --gid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
   && install -d --owner=app --group=app /app
 
 COPY --from=build /src/bin/vec-presentacion /usr/local/bin/vec-presentacion
@@ -94,7 +140,8 @@ ENTRYPOINT ["/usr/local/bin/vec-presentacion"]
 # servidor que entrega la web siga sin clientes de red ni identidad implicita.
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime-cartografia-presentacion
 
-RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+RUN groupadd --system --gid 10001 app \
+  && useradd --system --uid 10001 --gid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
   && install -d --owner=app --group=app /app
 
 COPY --from=build /src/bin/vec-cartografia-presentacion /usr/local/bin/vec-cartografia-presentacion
@@ -116,9 +163,52 @@ EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/vec-cartografia-presentacion"]
 
+# Superficie pública productiva: un único binario, recursos anónimos y
+# certificados raíz. No contiene Portal del Empleado, fuentes DEMO, secretos,
+# clientes internos, KMS ni configuración administrativa.
+FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime-publico
+
+RUN groupadd --system --gid 10001 app \
+  && useradd --system --uid 10001 --gid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+  && install -d --owner=app --group=app /app
+
+COPY --from=build /src/bin/vec-publico /usr/local/bin/vec-publico
+COPY --from=build /src/web-publico /app/web
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+USER app
+WORKDIR /app
+ENV VEC_HTTP_ADDR=:8080
+ENV VEC_EXECUTION_PROFILE=produccion
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/vec-publico"]
+
+# Superficie corporativa productiva: binario y recursos distintos de los del
+# portal anonimo. No incorpora certificados, claves, DSN ni selectores de
+# desarrollo; Sistemas debe inyectar todos los proveedores y secretos en
+# tiempo de ejecucion. Mientras falte uno, vec-interno falla antes de escuchar.
+FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime-interno
+
+RUN groupadd --system --gid 10001 app \
+  && useradd --system --uid 10001 --gid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+  && install -d --owner=app --group=app /app
+
+COPY --from=build /src/bin/vec-interno /usr/local/bin/vec-interno
+COPY --from=build /src/web-interno /app/web
+COPY --from=build /src/locales-interno /app/locales
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+USER app
+WORKDIR /app
+EXPOSE 8443
+
+ENTRYPOINT ["/usr/local/bin/vec-interno"]
+
 FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime
 
-RUN useradd --system --uid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
+RUN groupadd --system --gid 10001 app \
+  && useradd --system --uid 10001 --gid 10001 --home-dir /nonexistent --shell /usr/sbin/nologin app \
   && install -d --owner=app --group=app /app /data/bolsa
 
 COPY --from=build /src/bin/vec-server /usr/local/bin/vec-server

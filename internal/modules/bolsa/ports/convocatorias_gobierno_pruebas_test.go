@@ -57,6 +57,7 @@ func versionGobernadaPuertosPrueba(t *testing.T) dominiobolsa.VersionConvocatori
 		ReglasBaremacion: referencia("baremo:auxiliar", 5, '3'),
 		FlujoProceso:     referencia("convocatoria-bolsa", 4, '4'),
 		FlujoSolicitud:   referencia("solicitud-bolsa", 7, '5'),
+		Plantilla:        referencia("plantilla:bolsa:pruebas", 1, '8'),
 		Documentos: []dominiobolsa.ReferenciaDocumentoOficialConvocatoria{{
 			Rol: "bases", PublicacionRef: "documento:bases", DocumentoRef: "documento:logico:bases:001",
 			VersionDocumento: 2, RepresentacionRef: "representacion:pdf:bases:002",

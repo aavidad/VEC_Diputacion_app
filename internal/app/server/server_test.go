@@ -13,19 +13,22 @@ import (
 	"vec-diputacion-granada/config"
 )
 
-func TestServerHealthzIsJSON(t *testing.T) {
+func TestServidorIntegradoSeparaVidaYReadinessFailClosed(t *testing.T) {
 	handler := NewHandler(http.NotFoundHandler())
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, "/healthz", nil))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("/healthz status = %d, want 200", rec.Code)
-	}
-	var body map[string]any
-	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
-		t.Fatalf("/healthz json: %v", err)
-	}
-	if body["status"] != "ok" {
-		t.Fatalf("/healthz body = %#v, want status ok", body)
+	for _, prueba := range []struct {
+		ruta   string
+		estado int
+		status string
+	}{{"/livez", http.StatusOK, "ok"}, {"/readyz", http.StatusServiceUnavailable, "unavailable"}, {"/healthz", http.StatusServiceUnavailable, "unavailable"}} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, prueba.ruta, nil))
+		if rec.Code != prueba.estado {
+			t.Fatalf("%s status = %d, want %d", prueba.ruta, rec.Code, prueba.estado)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(rec.Body).Decode(&body); err != nil || body["status"] != prueba.status {
+			t.Fatalf("%s body = %#v, error=%v", prueba.ruta, body, err)
+		}
 	}
 }
 
@@ -132,6 +135,7 @@ func TestServerSirvePortalBolsaPermanenteSinEstilosInline(t *testing.T) {
 	for _, prueba := range []struct{ ruta, tipo, contenido string }{
 		{ruta: "/bolsa/", tipo: "text/html", contenido: "menu-lateral-publico"},
 		{ruta: "/bolsa/bolsa.css?v=1", tipo: "text/css", contenido: ".grupos-directorio"},
+		{ruta: "/bolsa/contrato-v2.js?v=1", tipo: "text/javascript", contenido: "VECBolsaContratoV2"},
 		{ruta: "/bolsa/bolsa.js?v=1", tipo: "text/javascript", contenido: "/api/publico/bolsa/categorias"},
 		{ruta: "/bolsa/favicon.svg", tipo: "image/svg+xml", contenido: "<svg"},
 	} {
@@ -512,16 +516,20 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 		ruta   string
 		estado int
 	}{
-		{metodo: http.MethodGet, ruta: "/healthz", estado: http.StatusOK},
-		{metodo: http.MethodHead, ruta: "/healthz", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/livez", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/readyz", estado: http.StatusServiceUnavailable},
+		{metodo: http.MethodGet, ruta: "/healthz", estado: http.StatusServiceUnavailable},
+		{metodo: http.MethodHead, ruta: "/healthz", estado: http.StatusServiceUnavailable},
 		{metodo: http.MethodGet, ruta: "/bolsa", estado: http.StatusMovedPermanently},
 		{metodo: http.MethodGet, ruta: "/bolsa/", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/bolsa/contrato-v2.js?v=1", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/bolsa/bolsa.js?v=1", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/verificar", estado: http.StatusMovedPermanently},
 		{metodo: http.MethodGet, ruta: "/verificar/", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/verificar/verificar.js?v=1", estado: http.StatusOK},
 		{metodo: http.MethodHead, ruta: "/styles.css", estado: http.StatusOK},
-		{metodo: http.MethodGet, ruta: "/portal-empleado/assets/logo-diputacion-granada.svg", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/favicon.svg", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/assets/logo-diputacion-granada.svg", estado: http.StatusOK},
 		{metodo: http.MethodPost, ruta: "/api/publico/consulta", estado: http.StatusAccepted},
 	} {
 		rec := httptest.NewRecorder()
@@ -532,9 +540,9 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 	}
 
 	for _, ruta := range []string{
-		"/", "/app.js", "/favicon.svg", "/locales/es.json",
+		"/", "/app.js", "/locales/es.json",
 		"/portal-empleado", "/portal-empleado/", "/portal-empleado/portal.js",
-		"/portal-empleado/assets/", "/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3",
+		"/assets/", "/portal-empleado/assets/", "/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3",
 		"/api", "/api/vec", "/api/vec/session", "/api/publicox", "/bolsax",
 	} {
 		rec := httptest.NewRecorder()
@@ -564,10 +572,15 @@ func TestSuperficieInternaExponeSoloSuListaPositiva(t *testing.T) {
 		ruta   string
 		estado int
 	}{
-		{metodo: http.MethodGet, ruta: "/healthz", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/livez", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/readyz", estado: http.StatusServiceUnavailable},
+		{metodo: http.MethodGet, ruta: "/healthz", estado: http.StatusServiceUnavailable},
 		{metodo: http.MethodGet, ruta: "/portal-empleado", estado: http.StatusMovedPermanently},
 		{metodo: http.MethodGet, ruta: "/portal-empleado/", estado: http.StatusOK},
 		{metodo: http.MethodHead, ruta: "/portal-empleado/portal.css?v=1", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/assets/logo-diputacion-granada.svg", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/styles.css", estado: http.StatusOK},
+		{metodo: http.MethodGet, ruta: "/favicon.svg", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/locales/es.json", estado: http.StatusOK},
 		{metodo: http.MethodPost, ruta: "/api/vec/bolsa/panel", estado: http.StatusAccepted},
 	} {
@@ -579,7 +592,7 @@ func TestSuperficieInternaExponeSoloSuListaPositiva(t *testing.T) {
 	}
 
 	for _, ruta := range []string{
-		"/", "/app.js", "/styles.css", "/favicon.svg",
+		"/", "/app.js",
 		"/bolsa", "/bolsa/", "/bolsa/bolsa.js", "/api", "/api/publico", "/api/publico/bolsa",
 		"/api/vecino",
 	} {
@@ -603,12 +616,12 @@ func TestSuperficiesRechazanMetodosDeEscrituraEnRecursosEstaticos(t *testing.T) 
 		{
 			nombre:  "publica",
 			handler: NewHandlerPublicoWithConfig(config.Config{}, http.NotFoundHandler()),
-			rutas:   []string{"/healthz", "/bolsa", "/bolsa/bolsa.js", "/verificar", "/verificar/verificar.js", "/styles.css", "/portal-empleado/assets/logo-diputacion-granada.svg"},
+			rutas:   []string{"/healthz", "/bolsa", "/bolsa/bolsa.js", "/verificar", "/verificar/verificar.js", "/styles.css", "/favicon.svg", "/assets/logo-diputacion-granada.svg"},
 		},
 		{
 			nombre:  "interna",
 			handler: NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler()),
-			rutas:   []string{"/healthz", "/portal-empleado", "/portal-empleado/portal.js"},
+			rutas:   []string{"/healthz", "/portal-empleado", "/portal-empleado/portal.js", "/styles.css", "/favicon.svg", "/assets/logo-diputacion-granada.svg"},
 		},
 	}
 	for _, prueba := range pruebas {

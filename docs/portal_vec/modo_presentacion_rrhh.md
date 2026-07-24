@@ -63,7 +63,8 @@ Las superficies usan listas positivas y solo los métodos enumerados:
   ruta de Dietas mediante el mediador aislado;
 - `GET|HEAD /tiles/osm/{z}/{x}/{y}.png`: teselas OSM locales del mismo origen,
   limitadas a los niveles admitidos;
-- `/healthz`, `/styles.css` y `/favicon.svg`.
+- `/livez`, `/readyz`, `/healthz`, `/styles.css` y `/favicon.svg`; solo
+  `/livez` es liveness y las rutas de readiness fallan cerradas sin checker.
 
 No se sirven `/api/vec/`, `/api/demo`, `/candidates`, el árbol de datos, la
 documentación del repositorio ni rutas estáticas generales. Las rutas no

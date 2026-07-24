@@ -217,6 +217,7 @@ func versionConsultaConvocatoriaPostgreSQLPrueba(
 		Catalogos: referencia("catalogos:bolsa", "1"), Calendario: referencia("calendario:auxiliar", "2"),
 		ReglasBaremacion: referencia("baremo:auxiliar", "3"),
 		FlujoProceso:     referencia("convocatoria-bolsa", "4"), FlujoSolicitud: referencia("solicitud-bolsa", "5"),
+		Plantilla: referencia("plantilla:bolsa:consulta", "8"),
 		Documentos: []dominiobolsa.ReferenciaDocumentoOficialConvocatoria{{
 			Rol: "bases", PublicacionRef: "documento:bases", DocumentoRef: "documento:logico:bases:001",
 			VersionDocumento: 1, RepresentacionRef: "representacion:pdf:bases:001",

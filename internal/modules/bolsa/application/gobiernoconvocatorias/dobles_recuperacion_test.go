@@ -353,6 +353,22 @@ func (*confirmadorPrueba) IdentidadAutoridadBorrador() IdentidadAutoridadBorrado
 	return identidad
 }
 
+func vinculoVerificadorReciboPrueba() VinculoVerificadorReciboBorrador {
+	identidadPersistencia := (&verificadorReciboPrueba{}).IdentidadAutoridadBorrador()
+	identidadCriptografica, _ := NuevaIdentidadAutoridadBorrador(
+		"kms-prueba", "verificador-criptografico-prueba",
+		"credencial-verificacion-criptografica-prueba", "rol-verificacion-criptografica-prueba",
+	)
+	vinculo, _ := NuevoVinculoVerificadorReciboBorrador(
+		identidadPersistencia, identidadCriptografica,
+	)
+	return vinculo
+}
+
+func (*confirmadorPrueba) VinculoVerificadorReciboBorrador() VinculoVerificadorReciboBorrador {
+	return vinculoVerificadorReciboPrueba()
+}
+
 type verificadorReciboPrueba struct {
 	mu       sync.Mutex
 	llamadas int
@@ -365,6 +381,10 @@ func (*verificadorReciboPrueba) IdentidadAutoridadBorrador() IdentidadAutoridadB
 		"credencial-lectura-prueba", "rol-verificador-prueba",
 	)
 	return identidad
+}
+
+func (*verificadorReciboPrueba) VinculoVerificadorReciboBorrador() VinculoVerificadorReciboBorrador {
+	return vinculoVerificadorReciboPrueba()
 }
 
 func (v *verificadorReciboPrueba) VerificarReciboBorrador(
@@ -556,11 +576,13 @@ func nuevoEscenario(t *testing.T, modo modoConfirmacion, generaciones ...uint32)
 		t.Fatal(err)
 	}
 	contenido, configuracion, ambito := datosPublicablesPrueba(t)
+	referenciaPlantilla := dominiobolsa.ReferenciaConfiguracionConvocatoria{
+		ID: "plantilla:bolsa:general", Version: 2, HuellaContenidoSHA256: huellaHexPrueba('8'),
+	}
+	configuracion.Plantilla = referenciaPlantilla
 	catalogo := &catalogoPrueba{
 		plantilla: PlantillaBorradorResuelta{
-			Referencia: dominiobolsa.ReferenciaConfiguracionConvocatoria{
-				ID: "plantilla:bolsa:general", Version: 2, HuellaContenidoSHA256: huellaHexPrueba('8'),
-			},
+			Referencia:    referenciaPlantilla,
 			Configuracion: configuracion,
 		},
 		ambito: ambito,

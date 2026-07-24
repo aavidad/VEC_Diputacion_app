@@ -164,7 +164,7 @@ func contextoActorSolicitudAutorizacionAusenteV2(c ContextoActor) bool {
 		len(p.Roles) == 0 && len(p.Permissions) == 0 && p.AuthMethod == "" &&
 		p.AuthAssurance == "" && len(p.Attributes) == 0 &&
 		c.PerfilActivoRef == "" && c.PersonaRef == "" && c.ResueltoEn.IsZero() &&
-		i.VinculoRef == "" && i.VinculoVersion == 0 && i.CuentaRef == "" &&
+		i.VinculoRef == "" && i.VinculoVersion == 0 && i.CuentaRef == "" && i.CuentaVersion == 0 &&
 		i.PersonaRef == "" && i.PersonaVersion == 0 && i.PerfilActivoRef == "" &&
 		i.PerfilVersion == 0 && i.Estado == "" && i.VigenteDesde.IsZero() &&
 		i.VigenteHasta.IsZero() && len(i.Vinculos) == 0

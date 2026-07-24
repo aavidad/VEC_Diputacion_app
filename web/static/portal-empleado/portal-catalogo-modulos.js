@@ -6,6 +6,8 @@
  * adaptadores registrados, de modo que manifiesto y composición son decisiones
  * independientes y de mínimo privilegio.
  */
+import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
+
 const RUTA_MANIFIESTOS = "/api/vec/modules";
 const RUTA_TRADUCCIONES = "/locales/es.json";
 const CAMPOS_MANIFIESTO = new Set([
@@ -100,18 +102,27 @@ export async function cargarCatalogoModulosInterno(fetchImpl = globalThis.fetch)
   return crearCatalogoModulosDesdeManifiestos(envoltura.modules, traducciones);
 }
 
-export function renderizarNavegacionModulos({ catalogo, resolverAcceso, escaparHTML }) {
-  if (!Array.isArray(catalogo) || typeof resolverAcceso !== "function" || typeof escaparHTML !== "function") {
+export function renderizarNavegacionModulos({
+  catalogo, resolverAcceso, escaparHTML, traducir = traducirPortal,
+}) {
+  if (!Array.isArray(catalogo) || typeof resolverAcceso !== "function"
+    || typeof escaparHTML !== "function" || typeof traducir !== "function") {
     throw new TypeError("navegación de módulos no válida");
   }
   return catalogo.map((modulo) => {
     const acceso = resolverAcceso(modulo.clave);
     const habilitado = acceso?.disponible === true && typeof acceso?.vista === "string";
+    const estado = habilitado ? traducir("estado_modulo_activo") : ({
+      cargando: traducir("estado_modulo_comprobando"),
+      denegado: traducir("estado_modulo_sin_permiso"),
+      error: traducir("estado_modulo_no_disponible"),
+    }[acceso?.estado] || traducir("estado_modulo_no_habilitado"));
+    const comprobando = acceso?.estado === "cargando";
     return `<button type="button" class="enlace-lateral${habilitado ? " modulo-habilitado" : ""}"
-      data-modulo-portal="${escaparHTML(modulo.clave)}"${habilitado ? ` data-vista="${escaparHTML(acceso.vista)}"` : " disabled"}>
+      data-modulo-portal="${escaparHTML(modulo.clave)}"${habilitado ? ` data-vista="${escaparHTML(acceso.vista)}"` : " disabled"}${comprobando ? ' aria-busy="true"' : ""}>
       <span class="indicador-menu" aria-hidden="true">${escaparHTML(modulo.sigla.slice(0, 1))}</span>
       <span>${escaparHTML(modulo.titulo)}</span>
-      <span class="etiqueta-menu${habilitado ? "" : " etiqueta-bloqueada"}">${habilitado ? "Activo" : "No habilitado"}</span>
+      <span class="etiqueta-menu${habilitado ? "" : " etiqueta-bloqueada"}">${escaparHTML(estado)}</span>
     </button>`;
   }).join("");
 }

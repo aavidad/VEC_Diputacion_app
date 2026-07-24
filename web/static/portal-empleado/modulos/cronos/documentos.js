@@ -111,7 +111,7 @@ export function prepararDescriptorReciboCronos({
     subtitulo: "Portal del Empleado · Diputación de Granada",
     identidad_visual: Object.freeze({
       entidad: "Diputación de Granada",
-      logo_src: "/portal-empleado/assets/logo-diputacion-granada.svg",
+      logo_src: "/assets/logo-diputacion-granada.svg",
       texto_alternativo: "Diputación de Granada",
     }),
     demostracion: datos.demostracion,

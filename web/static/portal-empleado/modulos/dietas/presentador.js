@@ -252,7 +252,7 @@ export function crearPresentadorDietas({
       subtitulo: traducir("documento_subtitulo"),
       identidad_visual: Object.freeze({
         entidad: traducir("documento_entidad"),
-        logo_src: "/portal-empleado/assets/logo-diputacion-granada.svg",
+        logo_src: "/assets/logo-diputacion-granada.svg",
         texto_alternativo: traducir("documento_entidad"),
       }),
       demostracion: datos.origen.demostracion === true,

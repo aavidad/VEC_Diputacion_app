@@ -52,6 +52,9 @@ func configuracionAPIPrueba(cfg config.Config) config.Config {
 	// Las raices exportadas fallan cerradas en produccion. Las pruebas de los
 	// adaptadores transitorios declaran expresamente un perfil no productivo.
 	cfg.ExecutionProfile = config.ExecutionProfileRRHHPresentation
+	cfg.RRHHPresentationEnabled = true
+	cfg.RRHHPresentationGuardOne = config.RRHHPresentationGuardOneAcknowledgement
+	cfg.RRHHPresentationGuardTwo = config.RRHHPresentationGuardTwoAcknowledgement
 	return cfg
 }
 
@@ -348,8 +351,8 @@ func TestComposicionIntegradaRechazaCabecerasConfiablesHeredadas(t *testing.T) {
 	}
 
 	servidorPublico, err := NewHTTPServerPublicoWithConfig(cfg)
-	if !errors.Is(err, ErrComposicionProductivaNoDisponible) || servidorPublico != nil {
-		t.Fatalf("NewHTTPServerPublicoWithConfig() = (%v, %v); produccion aun no esta disponible", servidorPublico, err)
+	if !errors.Is(err, ErrAutenticacionPublicaNoAdmitida) || servidorPublico != nil {
+		t.Fatalf("NewHTTPServerPublicoWithConfig() = (%v, %v); la superficie anonima debe rechazar autenticacion", servidorPublico, err)
 	}
 }
 

@@ -15,11 +15,12 @@ static/area-personal/vistas/seguimiento-tramites.js
 static/bolsa/bolsa.css
 static/bolsa/bolsa.js
 static/bolsa/bolsa_adaptable.css
+static/bolsa/contrato-v2.js
 static/bolsa/favicon.svg
 static/bolsa/index.html
 static/favicon.svg
 static/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3
-static/portal-empleado/assets/logo-diputacion-granada.svg
+static/assets/logo-diputacion-granada.svg
 static/portal-empleado/ayuda-contenido.js
 static/portal-empleado/identidad/contexto-actor.js
 static/portal-empleado/index.html
@@ -37,8 +38,11 @@ static/portal-empleado/modulos/dietas/mapa-ruta.js
 static/portal-empleado/modulos/dietas/presentador-rutas.js
 static/portal-empleado/modulos/dietas/presentador.js
 static/portal-empleado/modulos/dietas/vista.js
+static/portal-empleado/portal-borradores-acceso.js
 static/portal-empleado/portal-borradores-api.js
 static/portal-empleado/portal-borradores-contrato.js
+static/portal-empleado/portal-borradores-estado.js
+static/portal-empleado/portal-borradores-operaciones.js
 static/portal-empleado/portal-borradores-ui.js
 static/portal-empleado/portal-borradores-vista.js
 static/portal-empleado/portal-capacidades.css
@@ -47,6 +51,7 @@ static/portal-empleado/portal-componentes.css
 static/portal-empleado/portal-contrato.js
 static/portal-empleado/portal-eventos.js
 static/portal-empleado/portal-flujos.css
+static/portal-empleado/portal-i18n.js
 static/portal-empleado/portal-inicio.js
 static/portal-empleado/portal-llamamientos-api.js
 static/portal-empleado/portal-llamamientos-contrato.js

@@ -15,8 +15,8 @@ import (
 const (
 	vigenciaMaximaComprobacionDependencias  = 15 * time.Minute
 	maximoBytesVersionConvocatoriaGobernada = 8 * 1024 * 1024
-	esquemaContenidoVersionConvocatoria     = "bolsa.version-convocatoria.contenido.v3"
-	esquemaEstadoVersionConvocatoria        = "bolsa.version-convocatoria.estado.v2"
+	esquemaContenidoVersionConvocatoria     = "bolsa.version-convocatoria.contenido.v4"
+	esquemaEstadoVersionConvocatoria        = "bolsa.version-convocatoria.estado.v3"
 )
 
 type EstadoGobiernoConvocatoria string

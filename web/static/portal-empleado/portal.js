@@ -1,20 +1,21 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260720-pulido-escritorio-v2";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260721-acceso-real-v2";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260717-panel-interno-v1";
 import { extraerDatosEnvelopeCanonico, validarPanelBolsa } from "./portal-contrato.js?v=20260717-panel-interno-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
 import { crearAsistenteLlamamientos } from "./portal-llamamientos-vista.js?v=20260719-asistente-llamamientos-v2";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js?v=20260717-ayuda";
-import { PROVEEDOR_BEARER_BORRADORES, crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260718-borradores-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260721-acceso-real-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260720-pulido-escritorio-v2";
 import { crearVistaReglas } from "./portal-vistas-reglas.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-formularios-v2";
-import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260719-cartografia-osrm-v2";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260719-catalogo-v1";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260721-acceso-real-v2";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
 import { instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260719-menu-bolsa-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
 /**
  * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.
  *
@@ -64,6 +65,7 @@ let DATOS_PANEL = DATOS_VACIOS;
 let obtenerPropuestaPresentacion = null;
 let adaptadorPresentacion = null;
 let superficieBorradoresPresentacion = null;
+let renderizarResumenPresentacion = null;
 const clientePropuestasLlamamiento = crearClientePropuestasLlamamiento();
 
 const TITULOS = Object.freeze({
@@ -164,8 +166,11 @@ function perfilPresentacionSolicitado() {
 }
 
 function resolverAccesoPerfil(clave) {
-  const acceso = coordinadorModulos.resolverAcceso(clave, estado.fuenteLista);
-  return acceso.disponible && vistaPermitida(acceso.vista) ? acceso : { disponible: false, vista: "" };
+  const disponibilidad = estado.modoPresentacion ? estado.fuenteLista : superficieBorradores.obtenerAcceso();
+  const acceso = coordinadorModulos.resolverAcceso(clave, disponibilidad);
+  if (acceso.disponible !== true || vistaPermitida(acceso.vista)) return acceso;
+  return { ...acceso, disponible: false, vista: "", estado: "denegado",
+    etiqueta: traducirPortal("permiso_perfil_denegado") };
 }
 
 function configurarInicioInstitucional() {
@@ -284,11 +289,12 @@ async function cargarFuenteDatos() {
   const aviso = document.querySelector(".aviso-presentacion");
   if (estado.modoPresentacion) {
     try {
-      const [adaptador, moduloEfectos, moduloBorradores, moduloSelector] = await Promise.all([
+      const [adaptador, moduloEfectos, moduloBorradores, moduloSelector, moduloResumen] = await Promise.all([
         import("./datos-presentacion.js?v=20260718-demo-total-v1"),
         import("./portal-presentacion-adaptador.js?v=20260718-demo-total-v1"),
         import("./portal-borradores-demo-cliente.js?v=20260720-pulido-escritorio-v2"),
         import("../presentacion/selector-perfiles.js?v=20260720-selector-perfiles-v1"),
+        import("./portal-resumen-presentacion.js?v=20260721-acceso-real-v2"),
       ]);
       const perfil = perfilPresentacionSolicitado();
       if (perfil === null) throw new Error("perfil de presentación no permitido");
@@ -302,9 +308,12 @@ async function cargarFuenteDatos() {
         escaparHTML,
         anunciar,
         alCambiar: () => { if (estado.vista === "elaboracion") renderizar(); },
-        resolverProveedorBearer: () => null,
         confirmar: (mensaje) => window.confirm(mensaje),
         crearClienteImpl: () => moduloBorradores.crearClienteBorradoresPresentacion(),
+      });
+      renderizarResumenPresentacion = moduloResumen.crearVistaResumenPresentacion({
+        escaparHTML, encabezadoVista, etiquetaFuentePanel, numero,
+        obtenerDatosPanel: () => DATOS_PANEL, porcentajeSeguro,
       });
       DATOS_PANEL = adaptadorPresentacion.obtenerDatos();
       obtenerPropuestaPresentacion = adaptador.obtenerPropuestaPresentacion;
@@ -325,8 +334,10 @@ async function cargarFuenteDatos() {
 
   adaptadorPresentacion = null;
   superficieBorradoresPresentacion = null;
+  renderizarResumenPresentacion = null;
   aviso.hidden = true;
   const cargaCatalogo = coordinadorModulos.cargarInterno().catch(() => null);
+  const cargaDisponibilidad = superficieBorradores.comprobarDisponibilidad();
   try {
     const respuesta = await fetch(API_PANEL_BOLSA, {
       method: "GET",
@@ -348,7 +359,7 @@ async function cargarFuenteDatos() {
     estado.fuenteLista = false;
     actualizarSesionVisible();
   }
-  await cargaCatalogo;
+  await Promise.all([cargaCatalogo, cargaDisponibilidad]);
   actualizarNavegacionModulos();
 }
 
@@ -406,7 +417,8 @@ function actualizarNavegacionModulos() {
   const contenedor = porId("navegacion-modulos-dinamica");
   if (!contenedor) return;
   const moduloActivo = moduloDeVistaPortal(estado.vista);
-  contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(estado.fuenteLista, moduloActivo, vistaPermitida);
+  const disponibilidad = estado.modoPresentacion ? estado.fuenteLista : superficieBorradores.obtenerAcceso();
+  contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
   const fase = porId("texto-estado-modulos-portal");
   if (fase) {
     const disponibles = ["bolsa", "cronos", "dietas"]
@@ -513,7 +525,7 @@ function renderizar() {
 
   const renderizadores = {
     portal: renderizarPortal,
-    resumen: renderizarResumen,
+    resumen: () => renderizarResumenPresentacion?.() || renderizarFuenteNoDisponible(),
     convocatorias: () => vistasConvocatorias.renderizarConvocatorias(datosVista, estado),
     solicitudes: () => vistasConvocatorias.renderizarSolicitudes(datosVista, estado),
     meritos: () => vistasBaremacion.renderizarMeritos(datosVista, estado),
@@ -575,93 +587,6 @@ const vistaReglas = crearVistaReglas(utilidadesVista);
 const vistasOperaciones = crearVistasOperaciones(utilidadesVista);
 const vistasGobierno = crearVistasGobierno(utilidadesVista);
 const asistenteLlamamientos = crearAsistenteLlamamientos({ ...utilidadesVista, operacionPermitida });
-
-function tarjetaKPI(sigla, valor, etiqueta, destino) {
-  return `
-    <article class="tarjeta-kpi">
-      <span class="icono-kpi" aria-hidden="true">${escaparHTML(sigla)}</span>
-      <div>
-        <strong class="valor-kpi">${escaparHTML(valor)}</strong>
-        <span class="etiqueta-kpi">${escaparHTML(etiqueta)}</span>
-        <button type="button" class="enlace-kpi" data-vista="${escaparHTML(destino)}">Ver detalle →</button>
-      </div>
-    </article>`;
-}
-
-function renderizarResumen() {
-  const indicadores = DATOS_PANEL.indicadores;
-  const distribucion = DATOS_PANEL.distribucion_global;
-  const totalDistribucion = Object.values(distribucion).reduce((total, valor) => total + (Number(valor) || 0), 0);
-  const porcentajes = [distribucion.disponibles, distribucion.en_llamamiento, distribucion.contratados]
-    .map((valor) => totalDistribucion > 0 ? porcentajeSeguro((Number(valor) || 0) * 100 / totalDistribucion) : 0);
-  const contratosMes = Array.isArray(DATOS_PANEL.series.contratos_mes) ? DATOS_PANEL.series.contratos_mes : [];
-  const bolsasTabla = DATOS_PANEL.bolsas.slice(0, 5).map((bolsa) => `
-    <tr>
-      <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-id="${escaparHTML(bolsa.id)}">${escaparHTML(bolsa.nombre)}</button></td>
-      <td>${escaparHTML(bolsa.categoria)}</td>
-      <td>${numero(bolsa.integrantes)}</td>
-      <td>${numero(bolsa.llamamiento)}</td>
-      <td><span class="barra-cobertura" role="meter" aria-label="Cobertura ${porcentajeSeguro(bolsa.cobertura)}%" aria-valuenow="${porcentajeSeguro(bolsa.cobertura)}" aria-valuemin="0" aria-valuemax="100"><span data-ancho="${porcentajeSeguro(bolsa.cobertura)}"></span></span>${porcentajeSeguro(bolsa.cobertura)}%</td>
-      <td><button type="button" class="boton-terciario" data-accion="ver-bolsa" data-id="${escaparHTML(bolsa.id)}">Abrir</button></td>
-    </tr>`).join("");
-  return `
-    ${encabezadoVista("Gestión interna de Bolsas", "Cuadro de mando", "Situación operativa, próximos llamamientos, cobertura y actividad trazada.", '<button type="button" class="boton-secundario" data-accion="imprimir">Imprimir resumen</button><button type="button" class="boton-primario" data-accion="nuevo-llamamiento" data-requiere-vista="llamamientos">Nuevo llamamiento</button>')}
-    <div class="rejilla-kpi" aria-label="Indicadores de Bolsa">
-      ${tarjetaKPI("BOL", numero(indicadores.bolsas_activas), "Bolsas activas", "elaboracion")}
-      ${tarjetaKPI("DIS", numero(indicadores.candidatos_disponibles), "Candidatos disponibles", "elaboracion")}
-      ${tarjetaKPI("LLA", numero(indicadores.llamamientos_pendientes), "Llamamientos pendientes", "llamamientos")}
-      ${tarjetaKPI("CON", numero(indicadores.contratos_activos), "Contratos activos", "contratos")}
-      ${tarjetaKPI("COB", `${numero(indicadores.cobertura_media, 1)} %`, "Cobertura media", "estadisticas")}
-    </div>
-    <div class="rejilla-cuadro-mando">
-      <div class="columna-cuadro">
-        <section class="panel">
-          <div class="cabecera-panel"><h3>Bolsas destacadas</h3><button type="button" class="boton-terciario" data-vista="elaboracion">Ver todas</button></div>
-          <div class="tabla-contenedor">
-            <table class="tabla-datos">
-              <caption>Bolsas destacadas con disponibilidad y cobertura</caption>
-              <thead><tr><th scope="col">Bolsa</th><th scope="col">Categoría</th><th scope="col">Integrantes</th><th scope="col">En llamamiento</th><th scope="col">Cobertura</th><th scope="col">Acción</th></tr></thead>
-              <tbody>${bolsasTabla}</tbody>
-            </table>
-          </div>
-        </section>
-        <section class="panel">
-          <div class="cabecera-panel"><h3>Indicadores clave</h3><button type="button" class="boton-terciario" data-vista="estadisticas">Abrir informe</button></div>
-          <div class="graficos-resumen">
-            <article class="grafico-mini"><h4>Candidatos por estado</h4><div class="grafico-anillo" data-anillo-a="${porcentajes[0]}" data-anillo-b="${porcentajes[1]}" data-anillo-c="${porcentajes[2]}" role="img" aria-label="${numero(distribucion.disponibles)} disponibles, ${numero(distribucion.en_llamamiento)} en llamamiento, ${numero(distribucion.contratados)} contratados y ${numero(distribucion.no_disponibles)} no disponibles"></div><p class="texto-grafico">${numero(distribucion.disponibles)} disponibles · total ${numero(totalDistribucion)}</p></article>
-            <article class="grafico-mini"><h4>Cobertura por bolsa</h4><div class="barras-mini" role="img" aria-label="Cobertura por bolsa">${DATOS_PANEL.bolsas.slice(0, 5).map((bolsa) => `<span data-altura="${porcentajeSeguro(bolsa.cobertura)}"></span>`).join("")}</div><p class="texto-grafico">Media de las bolsas destacadas</p></article>
-            <article class="grafico-mini"><h4>Contratos por mes</h4><div class="linea-mini" role="img" aria-label="Evolución mensual de contratos">${contratosMes.map((valor) => `<span data-altura="${porcentajeSeguro(valor)}"></span>`).join("")}</div><p class="texto-grafico">${escaparHTML(DATOS_PANEL.series.periodo_contratos)}</p></article>
-          </div>
-        </section>
-      </div>
-      <div class="columna-cuadro">
-        <section class="panel">
-          <div class="cabecera-panel"><h3>Llamamientos próximos (7 días)</h3><button type="button" class="boton-terciario" data-vista="llamamientos">Ver todos</button></div>
-          <ol class="lista-proximos">
-            ${DATOS_PANEL.proximos.map((item) => `<li class="elemento-proximo"><span class="fecha-proximo"><span><strong>${escaparHTML(item.dia)}</strong>${escaparHTML(item.mes)}</span></span><span class="detalle-lista"><strong>${escaparHTML(item.bolsa)}</strong><span>Llamamiento n.º ${escaparHTML(item.numero)} · ${escaparHTML(item.fecha)}</span></span><span class="insignia">${escaparHTML(item.estado)}</span></li>`).join("")}
-          </ol>
-        </section>
-        <section class="panel">
-          <div class="cabecera-panel"><h3>Actividad reciente</h3><button type="button" class="boton-terciario" data-vista="auditoria">Ver trazabilidad</button></div>
-          <ol class="lista-actividad">
-            ${DATOS_PANEL.actividad.map((item) => `<li class="elemento-actividad"><span class="marca-actividad" aria-hidden="true"></span><span class="detalle-lista"><strong>${escaparHTML(item.accion)}: ${escaparHTML(item.objeto)}</strong><span>Por ${escaparHTML(item.actor)} · ${escaparHTML(item.fecha)}</span></span></li>`).join("")}
-          </ol>
-        </section>
-      </div>
-    </div>
-    <section class="panel">
-      <div class="cabecera-panel"><h3>Accesos rápidos</h3><span class="estado-chip info">${escaparHTML(etiquetaFuentePanel())}</span></div>
-      <div class="accesos-rapidos">
-        <button type="button" class="acceso-rapido" data-accion="nuevo-llamamiento" data-requiere-vista="llamamientos">Nuevo llamamiento</button>
-        <button type="button" class="acceso-rapido" data-vista="elaboracion">Elaborar una bolsa</button>
-        <button type="button" class="acceso-rapido" data-vista="contratos">Registrar contrato</button>
-        <button type="button" class="acceso-rapido" data-vista="contratos">Registrar cese</button>
-        <button type="button" class="acceso-rapido" data-vista="documentos">Generar documento</button>
-        <button type="button" class="acceso-rapido" data-vista="comunicaciones">Preparar comunicación</button>
-      </div>
-    </section>`;
-}
-
 function claseEstado(estadoTexto) {
   const texto = String(estadoTexto).toLowerCase();
   if (/publicad|activa|disponible|firmad|válid|complet/.test(texto)) return "exito";
@@ -699,11 +624,6 @@ function aplicarBarrasDinamicas(contenedor) {
   });
 }
 
-function resolverProveedorBearerBorradores() {
-  const proveedor = globalThis[PROVEEDOR_BEARER_BORRADORES];
-  return proveedor === undefined ? null : proveedor;
-}
-
 function superficieBorradoresActiva() {
   return estado.modoPresentacion ? superficieBorradoresPresentacion : superficieBorradores;
 }
@@ -711,8 +631,10 @@ function superficieBorradoresActiva() {
 const superficieBorradores = crearSuperficieBorradoresPortal({
   escaparHTML,
   anunciar,
-  alCambiar: () => { if (estado.vista === "elaboracion") renderizar(); },
-  resolverProveedorBearer: resolverProveedorBearerBorradores,
+  alCambiar: () => {
+    if (estado.vista === "portal" || estado.vista === "elaboracion") renderizar();
+    else actualizarNavegacionModulos();
+  },
   confirmar: (mensaje) => window.confirm(mensaje),
 });
 
@@ -768,10 +690,11 @@ const presentadorPanelInterno = crearPresentadorPanelInterno({
 
 const controlador = crearControladorPortal({
   anunciar, asistenteLlamamientos, cargarFuenteDatos, confirmarOperacionPresentacion: (mensaje) => window.confirm(mensaje),
-  cerrarMenuMovil, describirOperacionPresentacion, escaparHTML, estado,
+  cerrarMenuMovil, comprobarDisponibilidadBorradores: superficieBorradores.comprobarDisponibilidad,
+  describirOperacionPresentacion, escaparHTML, estado,
   etiquetaFuentePanel, ejecutarOperacionPresentacion, navegar, notaOperacionNoCompuesta, numero,
   obtenerDatosPanel: () => DATOS_PANEL, operacionPermitida, porcentajeSeguro, porId, renderizar,
-  renderizarContenidoAyuda, solicitarPropuestaLlamamiento, vistaDesdeHash,
+  renderizarContenidoAyuda, solicitarPropuestaLlamamiento, traducir: traducirPortal, vistaDesdeHash,
 });
 
 async function inicializar() {

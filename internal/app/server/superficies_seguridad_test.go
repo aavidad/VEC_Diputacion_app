@@ -208,7 +208,7 @@ func TestSuperficiesAislanTrailersTardiosDelTransporteHTTP(t *testing.T) {
 			defer servidor.Close()
 
 			trailers := []string{"Cookie", "X-VEC-Subject"}
-			if superficie.nombre == "publica" {
+			if superficie.nombre == "publica" || superficie.nombre == "interna" {
 				trailers = append(trailers, "Authorization")
 			}
 			for _, trailer := range trailers {
@@ -331,12 +331,10 @@ func TestBarreraDeTrailersReponeCuerpoChunkedDentroDelLimite(t *testing.T) {
 	}
 }
 
-func TestSuperficieInternaRechazaIdentidadHeredadaPeroAdmiteAuthorization(t *testing.T) {
+func TestSuperficieInternaRechazaIdentidadHeredadaYAuthorization(t *testing.T) {
 	llamadas := 0
-	autorizacionRecibida := ""
-	handler := NewHandlerInternoWithConfig(config.Config{}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := NewHandlerInternoWithConfig(config.Config{}, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		llamadas++
-		autorizacionRecibida = r.Header.Get("Authorization")
 		w.WriteHeader(http.StatusNoContent)
 	}))
 
@@ -356,19 +354,40 @@ func TestSuperficieInternaRechazaIdentidadHeredadaPeroAdmiteAuthorization(t *tes
 			}
 		})
 	}
-	if llamadas != 0 {
-		t.Fatalf("la API recibio %d peticiones con identidad declarada", llamadas)
-	}
 
-	peticion := peticionServidorPrueba(http.MethodGet, "/api/vec/consulta", nil)
-	peticion.Header.Set("Authorization", "Bearer asercion-protegida-futura")
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, peticion)
-	if rec.Code != http.StatusNoContent || llamadas != 1 {
-		t.Fatalf("Authorization = %d, llamadas=%d; debe alcanzar la futura frontera", rec.Code, llamadas)
+	pruebasAutorizacion := []struct {
+		nombre   string
+		preparar func(*http.Request)
+	}{
+		{nombre: "cabecera vacia", preparar: func(r *http.Request) {
+			r.Header["Authorization"] = []string{""}
+		}},
+		{nombre: "cabecera Bearer", preparar: func(r *http.Request) {
+			r.Header["Authorization"] = []string{"Bearer asercion-no-admitida"}
+		}},
+		{nombre: "capitalizacion no canonica", preparar: func(r *http.Request) {
+			r.Header["aUtHoRiZaTiOn"] = []string{"Basic tampoco-admitida"}
+		}},
+		{nombre: "valores multiples", preparar: func(r *http.Request) {
+			r.Header["Authorization"] = []string{"", "Bearer segunda-credencial"}
+		}},
+		{nombre: "trailer declarado", preparar: func(r *http.Request) {
+			r.Trailer = http.Header{"aUtHoRiZaTiOn": []string{"Bearer trailer-no-admitido"}}
+		}},
 	}
-	if autorizacionRecibida != "Bearer asercion-protegida-futura" {
-		t.Fatalf("Authorization fue alterada: %q", autorizacionRecibida)
+	for _, prueba := range pruebasAutorizacion {
+		t.Run(prueba.nombre, func(t *testing.T) {
+			peticion := peticionServidorPrueba(http.MethodGet, "/api/vec/consulta", nil)
+			prueba.preparar(peticion)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, peticion)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("Authorization obtuvo %d; se esperaba 400", rec.Code)
+			}
+		})
+	}
+	if llamadas != 0 {
+		t.Fatalf("la API recibio %d peticiones con identidad o Authorization declaradas", llamadas)
 	}
 }
 
@@ -377,9 +396,10 @@ func TestSuperficiesSuprimenTodoCuerpoEnHEAD(t *testing.T) {
 		nombre string
 		nuevo  func(config.Config, http.Handler) http.Handler
 		ruta   string
+		salud  int
 	}{
-		{nombre: "publica", nuevo: NewHandlerPublicoWithConfig, ruta: "/api/publico/consulta"},
-		{nombre: "interna", nuevo: NewHandlerInternoWithConfig, ruta: "/api/vec/consulta"},
+		{nombre: "publica", nuevo: NewHandlerPublicoWithConfig, ruta: "/api/publico/consulta", salud: http.StatusServiceUnavailable},
+		{nombre: "interna", nuevo: NewHandlerInternoWithConfig, ruta: "/api/vec/consulta", salud: http.StatusServiceUnavailable},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -388,11 +408,14 @@ func TestSuperficiesSuprimenTodoCuerpoEnHEAD(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte(`{"dato":"no debe salir"}`))
 			}))
-			for _, ruta := range []string{"/healthz", caso.ruta} {
+			for _, prueba := range []struct {
+				ruta   string
+				estado int
+			}{{"/healthz", caso.salud}, {caso.ruta, http.StatusOK}} {
 				rec := httptest.NewRecorder()
-				handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodHead, ruta, nil))
-				if rec.Code != http.StatusOK || rec.Body.Len() != 0 {
-					t.Errorf("HEAD %s = %d, cuerpo=%q", ruta, rec.Code, rec.Body.String())
+				handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodHead, prueba.ruta, nil))
+				if rec.Code != prueba.estado || rec.Body.Len() != 0 {
+					t.Errorf("HEAD %s = %d, cuerpo=%q", prueba.ruta, rec.Code, rec.Body.String())
 				}
 			}
 		})

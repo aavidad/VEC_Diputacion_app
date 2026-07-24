@@ -28,7 +28,7 @@ if ! cmp -s "$inventario_esperado" "$inventario_real"; then
   exit 1
 fi
 
-if grep -Ev '^(produccion[.]manifest|static/(area-personal|bolsa|portal-empleado|verificar)/[^/].*|static/(styles[.]css|favicon[.]svg))$' "$inventario_esperado" | grep -q .; then
+if grep -Ev '^(produccion[.]manifest|static/(area-personal|bolsa|portal-empleado|verificar)/[^/].*|static/assets/logo-diputacion-granada[.]svg|static/(styles[.]css|favicon[.]svg))$' "$inventario_esperado" | grep -q .; then
   echo "ERROR: el manifiesto contiene una ruta fuera de las superficies permitidas" >&2
   exit 1
 fi

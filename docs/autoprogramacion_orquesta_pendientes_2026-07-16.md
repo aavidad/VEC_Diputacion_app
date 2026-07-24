@@ -537,8 +537,39 @@ y errores observables.
   vinculacion actor/recurso/accion al PDP. La rehidratacion del agregado cifrado
   (`c29d0cc`) y la autenticacion web interna sin cookies ni Bearer obligatorio
   bajo mTLS (`194019d`) estan cerradas como subpartes. **T20 no esta cerrado**:
-  siguen pendientes la confirmacion y lectura PostgreSQL, el resto de
-  adaptadores gobernados, la composicion HTTP y T20E.
+  siguen pendientes el contexto de actor productivo, la composicion de
+  identidad/PDP, el resto de adaptadores gobernados, la composicion HTTP y
+  T20E.
+- `avance verificable 21/07/2026 — lectura T20B`: el lector PostgreSQL de
+  borradores queda implementado contra el paquete KMS completo de `000004` y
+  autorización V2 solicitud-ligada real. El acceso se audita en una transacción
+  `SERIALIZABLE` confirmada antes de invocar el KMS; la llamada externa tiene
+  plazo local, no retiene transacción y sus errores se sanejan. La prueba SQL
+  registra un motivo publicado y decisiones V2 y rechaza expresamente V1,
+  huella o contexto alterados. Las pruebas Go fijan el orden `COMMIT -> KMS`,
+  la limpieza de buffers y el cotejo de metadatos. Esto cierra el subtramo de
+  lectura, no la composición ni el E2E global de T20.
+- `avance verificable 21/07/2026 — confirmacion T20D`: la preparación
+  PostgreSQL, la revalidación KMS, la aplicación del cambio y el recibo
+  verificable quedan cerrados de forma aislada. Un vínculo nominal impide
+  cruzar base de datos, cifrado o verificadores de dos composiciones. El
+  instante de preparación procede de PostgreSQL después de los bloqueos y la
+  confirmación conserva la transacción `SERIALIZABLE` hasta aplicar el acto.
+  Go y PostgreSQL consumen el mismo fixture criptográfico de prueba versionado;
+  un manifiesto común liga los 16 valores durables y evita que dos corpus
+  autoconsistentes vuelvan a divergir silenciosamente. Esto no sustituye la
+  composición E2E ni habilita producción.
+- `avance verificable 22/07/2026 — identidad/PDP V3`: ContextoActor V2,
+  resultado registrado, vínculo autenticación-actor V2 y solicitud ligada V3
+  quedan implantados sin modificar ni reinterpretar V1/V2. La función
+  PostgreSQL de acreditación relee el `rca_`, todas sus versiones, autoridad,
+  punteros y ventanas; su adaptador Go opera exclusivamente sobre la
+  transacción recibida y preserva `uint64` como `numeric`. La evaluación y la
+  decisión V3 sellan la instantánea RBAC/ABAC completa, pero `VigenteEn` falla
+  siempre cerrado: el documento evaluado no es una capacidad ejecutable. Los
+  commits `c7008cf`, `04784fa`, `d31c812`, `7d2351e`, `22379ca` y `61f3a6e`
+  acreditan estas piezas. Siguen en curso el servicio/registro confirmado V3,
+  la composición HTTP y T20E; por ello T20 permanece abierto.
 
 ### T21 — Perfil `desarrollo` con credenciales propias para desbloquear todo
 

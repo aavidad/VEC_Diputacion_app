@@ -53,10 +53,12 @@ o documentos. Se aplican con estas condiciones:
    sea un factor independiente. La matriz ENS y el analisis de riesgos decidiran
    si hace falta otro factor o un reto de presencia/usuario separado.
 6. Para validar, rechazar o rectificar un merito se exige reautenticacion
-   reciente y firma de la decision. En cada peticion, incluidas las lecturas
-   ordinarias, el cliente presenta una credencial o asercion breve, con
-   audiencia, vigencia y enlace al canal; no existe una sesion ambiental del
-   navegador.
+   reciente y firma de la decision. Cada peticion queda ligada a una identidad
+   revalidada, pero el portal web no transporta esa identidad en
+   `Authorization`: la recibe exclusivamente del canal mTLS/Kerberos acreditado
+   por la frontera del servidor. Un futuro cliente nativo que necesite una
+   asercion explicita usara un listener separado y una politica inmutable; no
+   existe una sesion ambiental mediante cookies.
 
 Cuando Go termine mTLS directamente, solo se acepta el certificado de cliente
 que figure en la cadena verificada del `handshake`, coincida byte a byte con el
@@ -90,21 +92,20 @@ recurso.
 
 - DNS, certificado TLS, virtual host y cliente del proveedor de identidad
   distintos para portal publico e interno.
-- Ninguna superficie usa cookies de sesion. La credencial o asercion se envia
-  de forma explicita en cada peticion y no se guarda en `localStorage` ni
-  `sessionStorage`; la aplicacion de escritorio solo podra custodiarla en
-  memoria o en el almacen seguro del sistema operativo conforme a la politica
-  aprobada.
-- Claves de firma de credenciales, audiencias, emisores, politicas de origen y
-  CORS y limites de tasa separados. Los clientes web autorizados presentan
-  `Authorization` de forma explicita y usan `credentials: "omit"`; bajo ese
-  contrato no hay una credencial ambiental que el navegador pueda adjuntar a
-  una peticion entre sitios. CORS y la validacion de origen se mantienen como
-  defensa en profundidad, y XSS sigue tratandose como amenaza porque podria
-  ejecutar operaciones o sustraer una credencial en memoria. Si en el futuro
-  se habilita un navegador que negocie Kerberos/SPNEGO o presente mTLS de forma
-  automatica, ambos pueden actuar como credenciales ambientales y sera
-  obligatorio reevaluar CSRF y origen antes de abrir esa superficie.
+- Ninguna superficie usa cookies de sesion. El portal web interno rechaza
+  cualquier `Authorization` y no obtiene credenciales desde JavaScript,
+  `localStorage` ni `sessionStorage`: la identidad procede del canal
+  autenticado que termina la frontera. Si la aplicacion de escritorio necesita
+  una asercion por peticion, se habilitara en un listener nativo separado y solo
+  podra custodiarse en memoria o en el almacen seguro del sistema operativo
+  conforme a la politica aprobada.
+- Claves de firma de credenciales, audiencias, emisores, politicas de origen,
+  CORS y limites de tasa separados. El portal usa `credentials: "omit"` y no
+  instala un proveedor Bearer. Kerberos/SPNEGO o mTLS negociados por el entorno
+  pueden actuar como credenciales ambientales; por ello la composicion que los
+  habilite debe validar origen y contexto de navegacion y reevaluar CSRF antes
+  de abrir operaciones mutables. CORS sigue siendo solo defensa en profundidad
+  y XSS se trata como amenaza aunque JavaScript no pueda leer una credencial.
 - API interna con audiencia propia y sin rutas en el gateway publico.
 - Listeners o despliegues separados cuando la frontera de red lo requiera,
   aunque ambos compilen desde los mismos puertos/casos de uso.

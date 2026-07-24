@@ -112,7 +112,7 @@ func TestRehidratarContextoActorV1CortaVinculosExcesivosAntesDeAsignar(t *testin
 	alterado := []byte(reemplazarVinculosContextoActorV1(
 		t, contextoActorCanonicoGoldenV1, arrayExcesivo,
 	))
-	if validarJSONContextoActorV1SinDuplicados(alterado) == nil {
+	if validarJSONContextoActorCanonicoSinDuplicados(alterado) == nil {
 		t.Fatal("la prelectura acepto mas vinculos que el dominio")
 	}
 	if _, err := RehidratarContextoActorVinculadoV1(alterado); !errors.Is(err, ErrRepresentacionContextoActorV1Invalida) {

@@ -5,6 +5,8 @@
  * negocio. Las acciones sin comando de servidor compuesto permanecen
  * informativas y nunca producen efectos administrativos en el navegador.
  */
+import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
+
 const NOMBRES_CAMPOS_OPERACION = new Set([
   "denominacion", "categoria", "expediente", "tipo_proceso", "apertura", "cierre",
   "subsanacion_desde", "subsanacion_hasta", "version_bases", "medio_publicacion", "plantilla",
@@ -103,12 +105,24 @@ export function enfocarYMostrarResultado(elemento, {
   return true;
 }
 
+export function restaurarFocoTrasReintentoBorradores(raiz = globalThis.document) {
+  const tarjeta = raiz?.querySelector?.('[data-modulo-catalogo="bolsa"]');
+  if (!tarjeta || typeof tarjeta.focus !== "function") return false;
+  const control = tarjeta.querySelector?.(
+    '[data-accion="reintentar-borradores"], [data-vista="elaboracion"]',
+  );
+  (control && typeof control.focus === "function" ? control : tarjeta)
+    .focus({ preventScroll: true });
+  return true;
+}
+
 export function crearControladorPortal(dependencias) {
   const {
     anunciar,
     asistenteLlamamientos,
     cargarFuenteDatos,
     cerrarMenuMovil,
+    comprobarDisponibilidadBorradores,
     confirmarOperacionPresentacion,
     describirOperacionPresentacion,
     escaparHTML,
@@ -127,6 +141,9 @@ export function crearControladorPortal(dependencias) {
     solicitarPropuestaLlamamiento,
     vistaDesdeHash,
   } = dependencias;
+  const traducir = typeof dependencias.traducir === "function"
+    ? dependencias.traducir
+    : traducirPortal;
 
   function abrirDialogo(titulo, contenido) {
     const dialogo = porId("dialogo-detalle");
@@ -154,6 +171,15 @@ export function crearControladorPortal(dependencias) {
           renderizar();
         });
         break;
+      case "reintentar-borradores": {
+        const disponible = await comprobarDisponibilidadBorradores({ forzar: true });
+        anunciar(disponible
+          ? traducir("anuncio_acceso_borradores_comprobado")
+          : traducir("anuncio_acceso_borradores_no_disponible"));
+        renderizar();
+        queueMicrotask(() => restaurarFocoTrasReintentoBorradores());
+        break;
+      }
       case "nuevo-llamamiento":
         asistenteLlamamientos.reiniciar(estado, datosPanel.necesidades_llamamiento[0]?.id || "");
         estado.errorPropuesta = "";

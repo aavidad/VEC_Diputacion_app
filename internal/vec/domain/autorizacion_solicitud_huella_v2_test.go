@@ -16,6 +16,18 @@ const (
 	referenciaCorrelacionAutorizacionV2Prueba = "correlacion_0123456789abcdef0123456789abcdef"
 )
 
+func TestContextoActorSolicitudAutorizacionAusenteV2ObservaCuentaVersion(t *testing.T) {
+	if !contextoActorSolicitudAutorizacionAusenteV2(ContextoActor{}) {
+		t.Fatal("el valor cero dejo de ser ausente")
+	}
+	conVersionCuenta := ContextoActor{
+		Instantanea: InstantaneaContextoActor{CuentaVersion: 1},
+	}
+	if contextoActorSolicitudAutorizacionAusenteV2(conVersionCuenta) {
+		t.Fatal("cuenta_version presente fue descartada por el detector de ausencia")
+	}
+}
+
 func TestHuellaSolicitudAutorizacionV2LigaMotivoCatalogadoYCapacidadesExactas(t *testing.T) {
 	solicitud := solicitudHuellaAutorizacionV2Prueba(t)
 	huella, err := HuellaSHA256SolicitudAutorizacionV2(solicitud)

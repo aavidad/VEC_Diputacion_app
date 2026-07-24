@@ -2144,8 +2144,9 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
 ## DEC-061 — Autoridad central y proyecciones de categorias profesionales para Bolsa y Personal
 
 - Estado: implantada el 16 de julio de 2026 para las consultas de Bolsa y
-  Personal y su demostracion local. No declara oficial el contenido, no
-  sustituye la aprobacion de RRHH ni concede GO productivo al catalogo.
+  Personal y ampliada el 22 de julio de 2026 con proyeccion publica
+  multiversion. No declara oficial el contenido, no sustituye la aprobacion de
+  RRHH ni concede por si sola GO productivo al catalogo.
 - Hallazgo: coexistian 58 categorias hardcodeadas en un workspace heredado, un
   snapshot mutable de Personal y solo dos entradas distintas dentro del JSON
   publico. Las dos ultimas usaban guiones bajos, mientras el maestro historico
@@ -2156,8 +2157,9 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   inmutable y la comparte con Bolsa y Personal mediante puertos y adaptadores;
   ninguno puede resolver implicitamente «la ultima version» ni volver a
   embeber el catalogo. Las convocatorias conservan las claves y una referencia
-  inmutable al ID, version y huella, incluida en su propia huella publica. Ruta,
-  ID, version y huella esperada son configurables; el bootstrap coteja las
+  inmutable al ID, version, huella gobernada y huella de la proyeccion publica,
+  incluida en sus huellas canonicas de detalle y resumen. Ruta, ID, version y
+  ambas huellas esperadas son configurables; el bootstrap coteja las
   referencias antes de montar las rutas y una seleccion incompatible impide el
   arranque.
 - Proyecciones: la faceta de convocatorias contiene solo categorias con
@@ -2168,6 +2170,14 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   pero se proyectan desde la misma referencia ID/version/huella. Ninguna de
   estas respuestas expone `source_path`, rutas locales, alias internos,
   actores, motivos ni aprobaciones.
+- Historico publico: el manifiesto V2 separa la referencia `actual` de una
+  coleccion acotada de snapshots completos. Directorio y facetas usan solo las
+  entradas vigentes del snapshot actual; listado y detalle resuelven cada
+  convocatoria contra su referencia exacta, incluso si la categoria ya ha
+  caducado. El conjunto vigente actual puede estar vacio sin borrar el material
+  historico. Un conector que no ofrezca el puerto de snapshots falla cerrado;
+  la composicion productiva PostgreSQL entrega convocatoria, actual y snapshots
+  bajo una misma lectura `REPEATABLE READ`.
 - Datos iniciales: el paquete demo recupera 58 categorias del corpus historico
   OPES, 5 de Administracion general y 53 de Administracion especial. Su fuente
   candidata queda identificada por SHA-256 y el paquete se marca, en datos y
@@ -3052,8 +3062,8 @@ riesgo juridico, datos reales, coste o despliegue se consensuan antes.
   versión confirmada y exige que esta sea el nuevo estado exacto de la
   intención. El material libre de la petición no aporta el alcance.
 - Integridad: el ámbito forma parte de las preimágenes canónicas
-  `bolsa.version-convocatoria.contenido.v3` y
-  `bolsa.version-convocatoria.estado.v2`; alterarlo cambia ambas huellas.
+  `bolsa.version-convocatoria.contenido.v4` y
+  `bolsa.version-convocatoria.estado.v3`; alterarlo cambia ambas huellas.
 - Compatibilidad: un estado histórico V1 no se interpreta como V2 ni recibe un
   ámbito inventado. Antes de persistir datos reales deberá existir un lector
   histórico separado o una migración explícita aprobada, y una fuente
@@ -3466,3 +3476,246 @@ productiva aprobada.
 **Retirada.** Detener y eliminar el único servicio del perfil
 `presentacion-remota` y su regla de red devuelve exactamente la topología de
 cinco contenedores y loopback, sin cambiar portal, módulos ni adaptadores.
+
+## DEC-097 — Lectura durable de borradores con autorización V2 y KMS fuera de transacción
+
+Fecha: 21 de julio de 2026. Estado: subtramo T20B implantado y probado; no
+declara cerrada la vertical T20 ni habilita producción.
+
+**Decisión.** La bandeja y el detalle de borradores aceptan exclusivamente una
+decisión `vec.autorizacion.decision.reforzada.v2.solicitud-ligada` registrada,
+ligada a la solicitud efectiva, al motivo opaco de catálogo publicado, al
+actor, recurso, finalidad, correlación y campos exactos. No existe conversión,
+compatibilidad automática ni alternativa V1. La migración histórica
+`migraciones_autorizacion/000002_revalidacion_borradores_v2` conserva su
+contrato V1 pese al nombre; la frontera V2 real es la migración aditiva
+`000003_revalidacion_lectura_borradores_solicitud_ligada_v2`.
+
+**Transacción y auditoría.** La lectura PostgreSQL usa aislamiento
+`SERIALIZABLE`, modo lectura-escritura y funciones `SECURITY DEFINER` cerradas,
+porque consultar datos sensibles también registra el acceso. PostgreSQL
+revalida identidad, sesión, contexto de actor, RBAC, catálogo de políticas,
+motivo y atestación antes de devolver el paquete cifrado. La transacción se
+confirma y libera antes de llamar al KMS; por ello un KMS lento o caído no
+retiene el snapshot ni elimina la prueba durable del acceso. La llamada externa
+tiene plazo local y respeta una cancelación superior. El orden de bloqueo es
+único y común con el registro V2: motivo, decisión, asignación, rol, catálogo de
+políticas, sesión y ContextoActor. La primera pasada adquiere todos los locks y
+solo después se obtiene `clock_timestamp()`; una segunda pasada sin espera
+aplica el mismo instante a las ventanas half-open de decisión, prueba, motivo,
+sesión y contexto. El wrapper no aporta ni puede anticipar ese reloj.
+
+**Integridad del resultado.** El adaptador restaura AAD, perfil, envoltura de
+clave, sobre AEAD, atestación KMS y procedencia desde la fila cerrada; borra los
+buffers al abandonar cada recorrido. Tras descifrar coteja referencia,
+revisión, huella de estado, ETag, código público, identificador, organización,
+unidad y expediente contra el agregado canónico. Cualquier diferencia produce
+un error saneado y ningún dato parcial.
+
+**Procedencia de plantilla.** `ConfiguracionFijadaConvocatoria` compromete
+desde V4 la plantilla exacta resuelta. Alta y actualización rechazan una
+plantilla distinta antes de autorización, y el detalle rehidrata esa referencia
+sin inferir «la última» versión disponible. Como el campo también modifica el
+estado completo, su esquema avanza de V2 a V3; V2 queda rechazado y solo podrá
+entrar mediante un lector histórico y una migración gobernada explícitos.
+
+**Selectores.** El selector de bandeja se valida de nuevo en fachada, servicio
+y adaptador antes del PDP o del pool. Límite, texto NFC sin controles, categoría
+canónica y cursor opaco `cursor-borrador-<sha256>` tienen cotas exactas; texto,
+categoría o cursor libres, gigantes o no canónicos no alcanzan PostgreSQL. El
+wrapper SQL repite el contrato completo: tipo exacto de cada campo, NFC, 180
+runas y 720 bytes, `TrimSpace`, categorías Unicode `Cc`/`Cf`, U+FFFD, categoría
+ASCII canónica y cursor opaco. La prueba lo invoca con la cuenta LOGIN mínima,
+no con el propietario. El contrato no delega su resultado a la versión Unicode
+accidental del proceso: `x/text` v0.40 usa Unicode 15 con Go 1.26 y Unicode 17
+desde Go 1.27, mientras PostgreSQL 18 informa Unicode 16. Se fija por ello un
+perfil NFC común V1 y ambas fronteras rechazan exactamente las 82 runas cuyas
+propiedades NFC difieren entre esas tablas. La fuente reproducible son
+`UnicodeData.txt`/`DerivedNormalizationProps.txt` 16.0 y
+`unicode/norm/data15.0.0_test.go`/`data17.0.0_test.go` de `x/text` v0.40.
+
+El delta NFC posterior a Unicode 16 no se reduce al contraejemplo inicial: son 34
+runas con CCC nuevo —U+1ACF..U+1ADD, U+1AE0..U+1AEB,
+U+10EFA..U+10EFB, U+1E6E3, U+1E6E6, U+1E6EE..U+1E6EF y
+U+1E6F5. U+A7F1 cambia solo bajo NFKC y, como no pertenece al contrato NFC,
+permanece permitido. Para que el binario actual Unicode 15 tampoco diverja de
+PostgreSQL, el mismo perfil
+excluye además U+0897, U+105C9/U+105D2/U+105DA/U+105E4,
+U+10D69..U+10D6D, los puntos con propiedades NFC nuevas de
+U+11382..U+113D0, U+1611E..U+1612F y U+16D63..U+16D6A que enumera el
+validador, y U+1E5EE..U+1E5EF: 48 runas, que junto a las 34 anteriores forman
+las 82 exclusiones. U+1CCD6..U+1CCF9 también cambia solo bajo NFKC y se prueba
+positivamente. No se prohíben bloques aproximados: los vecinos estables de
+cada frontera permanecen admitidos.
+
+Los guards son deliberadamente más estrictos que el repertorio anticipado:
+Go exige `norm.Version == 15.0.0` y SQL exige `unicode_version() == 16.0` tanto
+al instalar como al validar. La lista de 82 ya evita el conocido desfase con
+Unicode 17, pero una actualización debe fallar y someterse a revisión explícita
+antes de versionar el perfil; no se acepta silenciosamente por casualidad.
+
+**Evidencia.** El runner PostgreSQL prueba la decisión V2 registrada con motivo
+publicado y rechaza V1, huella o contexto alterados. La huella V2 del fixture se
+calcula sobre una solicitud efectiva canónica completa y se coteja con el
+registro; no es una constante. Un positivo persiste un paquete acreditado en
+las tablas de 000004 y 000005 recupera exactamente AAD, perfil, DEK envuelta,
+nonce, ciphertext, huellas, atestación y procedencia. Una carrera coordinada
+por el estado de bloqueo real —sin espera fija— mantiene el lock de sesión
+hasta que la decisión alcanza su límite superior y demuestra la denegación.
+La frescura de la prueba usa también una ventana half-open
+`[verificada_en, verificada_en + 30 s)` y un vector determinista acredita que
+29,999999 s se acepta y exactamente 30 s se rechaza. Los vectores Unicode
+recorren cada runa excluida y las combinaciones CCC/canónicas adversarias a
+través del wrapper con el LOGIN mínimo de PostgreSQL 18/Unicode 16. El mismo
+LOGIN prueba todos los vecinos y los 37 positivos que solo cambian bajo NFKC
+mediante un puente de prueba efímero, propietario del módulo y eliminado antes
+del `down`; no se añade ninguna función de producción para exponer el predicado.
+También se prueba de forma nominal el rechazo de `estado.v2`. Las pruebas Go
+cubren cancelación antes del pool, `COMMIT` antes del KMS, plazo local,
+transacción no retenida, DTO JSON cerrado, tiempos UTC con microsegundos,
+metadatos cruzados y borrado de buffers. Siguen pendientes la composición
+productiva y el E2E T20E.
+
+## DEC-098 — Confirmación durable de borradores y vector criptográfico común
+
+Fecha: 21 de julio de 2026. Estado: subtramo T20D implantado, probado y
+revisado; no declara cerrada la vertical T20 ni habilita producción.
+
+**Decisión.** Preparación PostgreSQL, revalidación KMS, aplicación del cambio y
+persistencia del recibo forman una operación gobernada. Un vínculo nominal
+opaco compromete las identidades exactas de base de datos, cifrado y
+verificadores; dos composiciones parcialmente cruzadas se rechazan antes de
+confirmar. La transacción es `SERIALIZABLE`, el instante de preparación se
+obtiene después de los bloqueos y la comprobación criptográfica externa se
+acota sin presentar como confirmado un `COMMIT` incierto.
+
+**Evidencia compartida.** Go y PostgreSQL dejan de mantener dos juegos de
+vectores autoconsistentes. Ambos consumen el mismo fixture sintético versionado,
+compuesto por manifiesto, AAD canónica, preimagen de atestación, preimagen de
+revalidación y acreditación PostgreSQL. El manifiesto compromete 16 valores:
+huellas de versión, material, política, evidencia, AAD, envoltura, sobre,
+preimágenes, firmas, cuerpo del recibo y acreditación. El runner copia esos
+archivos únicamente al contenedor efímero; ninguna migración ni código
+productivo los lee.
+
+**Alcance.** Este cierre demuestra confirmación y recibo como adaptadores
+aislados. Siguen pendientes la resolución productiva del actor, la composición
+con identidad/PDP y el E2E web completo.
+
+## DEC-099 — Continuidad del producto real tras la aceptación de la propuesta
+
+Fecha: 21 de julio de 2026. Estado: adoptada por dirección.
+
+**Decisión.** Dirección comunica que la propuesta ha sido aceptada y ordena
+continuar el desarrollo de la aplicación real. La presentación se conserva
+solo como referencia visual y entorno sintético físicamente excluible. Los
+puertos, casos de uso y componentes válidos permanecen; sus adaptadores de
+demostración se sustituyen por conectores durables sin reescribir la web.
+
+**Límites.** Esta decisión autoriza la continuidad del desarrollo, no equivale
+a UAT formal de RRHH, autorización de producción ni permiso para cargar datos
+personales reales. Sistemas, DPD, T12, T13 y los proveedores corporativos
+continúan siendo puertas verificables. El detalle operativo queda en
+`docs/portal_vec/continuidad_producto_real_2026-07-21.md`.
+
+## DEC-100 — El portal web interno rechaza Authorization por defecto
+
+Fecha: 21 de julio de 2026. Estado: adoptada y probada para la frontera web
+interna; no habilita todavía el listener productivo.
+
+**Decisión.** El Portal del Empleado obtiene la identidad exclusivamente de la
+frontera mTLS/Kerberos acreditada por el servidor. Rechaza por presencia toda
+cabecera `Authorization`, incluida una cabecera vacía, repetida, con otra
+capitalización o materializada como trailer. No usa cookies de sesión y el
+cliente Fetch mantiene `credentials: "omit"`. La composición normal fija el
+proveedor Bearer a `null` y no consulta una variable global de JavaScript.
+
+Esta decisión sustituye para la superficie web la reserva de `Authorization`
+descrita en DEC-084. El cliente HTTP genérico conserva un puerto opcional para
+un posible cliente nativo, pero permanece desconectado. Habilitarlo exigirá un
+listener distinto, configuración explícita e inmutable, validación y consumo
+de la aserción en la frontera, y ausencia física de las rutas del portal web;
+no se tolerará una cabecera sin un modo acreditado.
+
+**Evidencia.** Las pruebas demuestran denegación antes de invocar la API para
+valores vacíos, Bearer, otros esquemas, nombres no canónicos, valores múltiples
+y trailers declarados o tardíos. Las pruebas del portal verifican que no existe
+el proveedor global, no se usan cookies ni almacenamiento de credenciales y la
+vía normal delega la identidad al canal interno. La revisión independiente no
+encontró hallazgos críticos, altos ni medios; queda como mejora de cobertura un
+transporte HTTP/2 real con trailers.
+
+## DEC-101 — ContextoActor durable V2 y autoridad única para el futuro PDP V3
+
+Fecha: 21 de julio de 2026. Estado: ContextoActor V2 implantado y probado como
+subtramo aislado; vínculo V2, PDP V3, composición T20E y producción continúan
+en NO-GO.
+
+**Hallazgo corregido.** El primer diseño incluía la versión de la cuenta en el
+manifiesto de procedencia, pero no en los bytes del ContextoActor. Una
+confirmación podía por ello presentar otra versión positiva de cuenta sin una
+contraparte en la capacidad. El canon histórico V1 queda congelado byte por
+byte y rechaza cualquier `CuentaVersion` positiva. El nuevo canon
+`vec.contexto-actor.vinculado.v2` exige `cuenta_version > 0`, la incluye en su
+preimagen y la liga al mismo valor del manifiesto.
+
+**Frontera productiva.** Los contratos nuevos son nominalmente V2. La entrada
+productiva `ResolverRegistrado` conserva el recibo durable completo: `rca_`,
+actor, bytes V2, huella, manifiesto, huella de procedencia, autoridad e instante
+autoritativo. La entrada heredada solo devuelve ContextoActor V1 y falla
+cerrada si se intenta usar con la composición V2. El
+`VinculoAutenticacionActorV1` tampoco acepta el canon nuevo; no existe una
+degradación que omita la versión de cuenta.
+
+**Transacción y privilegios.** Resolución y registro usan `SERIALIZABLE`; una
+reconciliación tras resultado de `COMMIT` incierto usa `READ COMMITTED`, espera
+el mismo advisory lock de la operación y solo consulta después de que la
+escritura anterior haya terminado. La prueba observa la espera real en
+`pg_locks`, sin pausas temporales como oráculo. El LOGIN runtime se acredita
+contra sus privilegios efectivos en toda la base —incluidos `PUBLIC` y
+membresías— y no solo contra concesiones directas del esquema. El propietario
+recibe `CREATE` sobre la base únicamente dentro de la migración y lo pierde
+antes del commit; el bootstrap exige que la base llegue preendurecida y no
+altera ACL globales que un `down` no podría reconstruir.
+
+**Autoridad única.** No se publicará ni copiará el contexto hacia las tablas
+históricas de `vec_autorizacion`: su cardinalidad no puede representar varias
+resoluciones legítimas de un mismo `vca_/versión`. El siguiente corte creará un
+vínculo autenticación-actor V2, una solicitud/decisión PDP V3 y una acreditación
+transaccional del `rca_` contra `vec_contexto_actor_v1`. Ambos esquemas deben
+residir en la misma base PostgreSQL con propietarios separados. Una réplica,
+doble escritura o buzón eventual nunca será fuente de autorización.
+
+**Evidencia.** Se han probado PostgreSQL 18, canon V1/V2, cuenta y versiones
+`uint64`, autoridad maestra y rechazo no autoritativo, adulteraciones,
+cardinalidades, ventanas half-open, revocaciones, ACL, privilegios externos,
+idempotencia, reconciliación concurrente, `down`, carrera Go y la suite completa
+`go test ./...`. El diseño y las puertas del siguiente corte se detallan en
+`docs/portal_vec/vinculo_contexto_actor_v2_pdp_v3.md`.
+
+## DEC-102 — La evaluación PDP V3 no es una concesión ejecutable
+
+Fecha: 22 de julio de 2026. Estado: dominio implantado y revisado; registro y
+composición productivos todavía en curso.
+
+**Decisión.** `EvidenciaEvaluacionAutorizacionV3` y
+`DecisionAutorizacionLigadaV3` son documentos nominales opacos que comprometen
+la solicitud V3, el vínculo de actor V2 y la instantánea RBAC/ABAC completa.
+Una decisión evaluada en memoria no acredita el CAS ni el `COMMIT`: su consulta
+de vigencia falla siempre cerrado y ningún caso de uso puede consumirla como
+permiso. La única capacidad ejecutable futura será una confirmación nominal
+distinta, fabricada exclusivamente tras registrar la concesión y acreditar dos
+veces el `ResultadoContextoActorRegistradoV2` en la misma transacción.
+
+**Semántica V3.** Las políticas se ordenan por referencia y se evalúa el
+catálogo completo; cualquier política de denegación prevalece sobre una
+restricción incumplida. Se elimina así la dependencia del orden físico que
+conserva el evaluador histórico. No se reescriben decisiones V1/V2 ni se ofrece
+conversión entre esquemas.
+
+**Evidencia.** El vínculo, la solicitud, la decisión, su canon y la función y
+adaptador de acreditación están cubiertos por pruebas normales, de carrera,
+adulteración campo a campo, opacidad y PostgreSQL 18. Los commits relevantes
+son `04784fa`, `d31c812`, `7d2351e`, `22379ca` y `61f3a6e`. Este corte no declara
+T20E, UAT ni producción: faltan el servicio de registro V3, su confirmación
+durable, composición con Bolsa y las pruebas de reinicio/concurrencia globales.

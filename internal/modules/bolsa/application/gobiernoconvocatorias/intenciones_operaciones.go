@@ -188,6 +188,7 @@ func (i IntencionBorradorCanonica) coincideEjecucion(
 	case puertosbolsa.AccionCrearBorradorConvocatoria:
 		return plantilla != nil && i.datos.Plantilla != nil &&
 			plantilla.Referencia == *i.datos.Plantilla &&
+			version.Configuracion.Plantilla == plantilla.Referencia &&
 			reflect.DeepEqual(plantilla.Configuracion, version.Configuracion) &&
 			version.CodigoVersionPublica == i.datos.CodigoVersionPublica &&
 			version.ExpedienteRef == i.datos.ExpedienteRef &&

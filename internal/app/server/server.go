@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -15,32 +16,65 @@ import (
 	"vec-diputacion-granada/config"
 )
 
+// ComprobadorDisponibilidad verifica si las dependencias necesarias para
+// atender trafico estan disponibles. No debe incluir detalles operativos en el
+// error: las rutas de disponibilidad responden siempre de forma generica.
+type ComprobadorDisponibilidad interface {
+	ComprobarDisponibilidad(context.Context) error
+}
+
 type healthResponse struct {
 	Status string `json:"status"`
 }
 
 func NewHTTPServer(cfg config.Config, api http.Handler) (*http.Server, error) {
-	return newHTTPServer(cfg, api, NewHandlerWithConfig)
+	return NewHTTPServerConComprobadorDisponibilidad(cfg, api, nil)
+}
+
+func NewHTTPServerConComprobadorDisponibilidad(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad) (*http.Server, error) {
+	return newHTTPServer(cfg, api, func(cfg config.Config, api http.Handler) http.Handler {
+		return NewHandlerWithConfigConComprobadorDisponibilidad(cfg, api, comprobador)
+	})
 }
 
 // NewHTTPServerPublico construye el listener exclusivo para contenido anonimo
 // y API publica. Su tabla de rutas no incluye ninguna superficie de empleado o
 // administracion.
 func NewHTTPServerPublico(cfg config.Config, api http.Handler) (*http.Server, error) {
-	return newHTTPServer(cfg, api, NewHandlerPublicoWithConfig)
+	return NewHTTPServerPublicoConComprobadorDisponibilidad(cfg, api, nil)
+}
+
+// NewHTTPServerPublicoConComprobadorDisponibilidad incorpora una comprobacion
+// real solo a /readyz y a su alias historico /healthz.
+func NewHTTPServerPublicoConComprobadorDisponibilidad(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad) (*http.Server, error) {
+	return newHTTPServerNormalizado(
+		cfg.NormalizePublicTransport(), api, func(cfg config.Config, api http.Handler) http.Handler {
+			return NewHandlerPublicoWithConfigConComprobadorDisponibilidad(cfg, api, comprobador)
+		},
+	)
 }
 
 // NewHTTPServerInterno construye el listener exclusivo para el Portal del
 // Empleado y la API VEC. Este listener no expone contenido publico ni la SPA
 // historica que mezclaba ambas superficies.
 func NewHTTPServerInterno(cfg config.Config, api http.Handler) (*http.Server, error) {
-	return newHTTPServer(cfg, api, NewHandlerInternoWithConfig)
+	return NewHTTPServerInternoConComprobadorDisponibilidad(cfg, api, nil)
+}
+
+func NewHTTPServerInternoConComprobadorDisponibilidad(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad) (*http.Server, error) {
+	return newHTTPServer(cfg, api, func(cfg config.Config, api http.Handler) http.Handler {
+		return NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg, api, comprobador)
+	})
 }
 
 // NewHTTPServerPresentacion construye el unico listener que puede servir los
 // adaptadores sinteticos. La raiz de composicion valida las guardas y este
 // limite vuelve a exigirlas, una direccion IP local literal y redes locales.
 func NewHTTPServerPresentacion(cfg config.Config, apiPublica http.Handler) (*http.Server, error) {
+	return NewHTTPServerPresentacionConComprobadorDisponibilidad(cfg, apiPublica, nil)
+}
+
+func NewHTTPServerPresentacionConComprobadorDisponibilidad(cfg config.Config, apiPublica http.Handler, comprobador ComprobadorDisponibilidad) (*http.Server, error) {
 	cfg = cfg.Normalize()
 	if !cfg.RRHHPresentationEnabledByDoubleGuard() {
 		return nil, errors.New("server: activacion de presentacion RRHH incompleta")
@@ -52,16 +86,21 @@ func NewHTTPServerPresentacion(cfg config.Config, apiPublica http.Handler) (*htt
 	if err != nil || !redesExclusivamenteLocalesPresentacion(redes) {
 		return nil, errors.New("server: la presentacion RRHH exige redes locales enumeradas")
 	}
-	return newHTTPServer(cfg, apiPublica, NewHandlerPresentacionWithConfig)
+	return newHTTPServer(cfg, apiPublica, func(cfg config.Config, api http.Handler) http.Handler {
+		return NewHandlerPresentacionWithConfigConComprobadorDisponibilidad(cfg, api, comprobador)
+	})
 }
 
 type constructorHandlerConConfig func(config.Config, http.Handler) http.Handler
 
 func newHTTPServer(cfg config.Config, api http.Handler, constructor constructorHandlerConConfig) (*http.Server, error) {
+	return newHTTPServerNormalizado(cfg.Normalize(), api, constructor)
+}
+
+func newHTTPServerNormalizado(cfg config.Config, api http.Handler, constructor constructorHandlerConConfig) (*http.Server, error) {
 	if api == nil {
 		return nil, errors.New("server: api handler is required")
 	}
-	cfg = cfg.Normalize()
 	redesPermitidas, err := prepararRedesPermitidas(cfg.HTTPAllowedCIDRs)
 	if err != nil {
 		return nil, err
@@ -88,7 +127,11 @@ func newHTTPServer(cfg config.Config, api http.Handler, constructor constructorH
 // una nueva carpeta estatica o ruta interna se publique por accidente. Al ser
 // anonima tampoco acepta cookies ni permite que una API emita Set-Cookie.
 func NewHandlerPublicoWithConfig(cfg config.Config, api http.Handler) http.Handler {
-	cfg = cfg.Normalize()
+	return NewHandlerPublicoWithConfigConComprobadorDisponibilidad(cfg, api, nil)
+}
+
+func NewHandlerPublicoWithConfigConComprobadorDisponibilidad(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
+	cfg = cfg.NormalizePublicTransport()
 	if api == nil {
 		api = http.NotFoundHandler()
 	}
@@ -96,28 +139,31 @@ func NewHandlerPublicoWithConfig(cfg config.Config, api http.Handler) http.Handl
 	estaticos := staticHandler(false)
 
 	mux := http.NewServeMux()
-	mux.Handle("/healthz", soloLecturaHTTP(http.HandlerFunc(handleHealthz)))
+	registrarRutasDisponibilidad(mux, comprobador)
 	mux.Handle("/bolsa", soloLecturaHTTP(redireccionDirectorio("bolsa/")))
 	mux.Handle("/bolsa/", soloLecturaHTTP(estaticos))
 	mux.Handle("/verificar", soloLecturaHTTP(redireccionDirectorio("verificar/")))
 	mux.Handle("/verificar/", soloLecturaHTTP(estaticos))
-	mux.Handle("/styles.css", soloLecturaHTTP(estaticos))
-	mux.Handle("/portal-empleado/assets/logo-diputacion-granada.svg", soloLecturaHTTP(estaticos))
+	registrarActivosCompartidos(mux, estaticos)
 	mux.Handle("/api/publico", api)
 	mux.Handle("/api/publico/", api)
 
 	handler := rechazarRutasNoCanonicas(mux)
 	handler = rechazarSelectorPresentacionFueraDePresentacion(handler)
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
-	handler = prohibirAutorizacionSuperficieAnonima(handler)
+	handler = prohibirAutorizacion(handler)
 	return protegerSuperficie(cfg, handler)
 }
 
 // NewHandlerInternoWithConfig expone unicamente el Portal del Empleado y la
-// API VEC. No acepta estado de sesion del navegador ni credenciales de proxy;
-// la identidad interna debe llegar por el canal autenticado que componga el
-// listener, nunca mediante cookies.
+// API VEC. No acepta estado de sesion del navegador, Authorization ni
+// credenciales de proxy; la identidad interna debe llegar por el canal
+// autenticado que componga el listener, nunca mediante cabeceras ambientales.
 func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handler {
+	return NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg, api, nil)
+}
+
+func NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
 	cfg = cfg.Normalize()
 	if api == nil {
 		api = http.NotFoundHandler()
@@ -126,9 +172,10 @@ func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handl
 	estaticos := staticHandler(false)
 
 	mux := http.NewServeMux()
-	mux.Handle("/healthz", soloLecturaHTTP(http.HandlerFunc(handleHealthz)))
+	registrarRutasDisponibilidad(mux, comprobador)
 	mux.Handle("/portal-empleado", soloLecturaHTTP(redireccionDirectorio("portal-empleado/")))
 	mux.Handle("/portal-empleado/", soloLecturaHTTP(estaticos))
+	registrarActivosCompartidos(mux, estaticos)
 	mux.Handle("/locales/", soloLecturaHTTP(localeHandler()))
 	mux.Handle("/api/vec", api)
 	mux.Handle("/api/vec/", api)
@@ -136,6 +183,7 @@ func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handl
 	handler := rechazarRutasNoCanonicas(mux)
 	handler = rechazarSelectorPresentacionFueraDePresentacion(handler)
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
+	handler = prohibirAutorizacion(handler)
 	return protegerSuperficie(cfg, handler)
 }
 
@@ -143,6 +191,10 @@ func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handl
 // historica, ficheros de datos, documentacion ni una API interna. La consulta
 // publica de Bolsa es la unica API admitida y permanece en solo lectura.
 func NewHandlerPresentacionWithConfig(cfg config.Config, apiPublica http.Handler) http.Handler {
+	return NewHandlerPresentacionWithConfigConComprobadorDisponibilidad(cfg, apiPublica, nil)
+}
+
+func NewHandlerPresentacionWithConfigConComprobadorDisponibilidad(cfg config.Config, apiPublica http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
 	cfg = cfg.Normalize()
 	redes, err := prepararRedesPermitidas(cfg.HTTPAllowedCIDRs)
 	if !cfg.RRHHPresentationEnabledByDoubleGuard() ||
@@ -164,20 +216,19 @@ func NewHandlerPresentacionWithConfig(cfg config.Config, apiPublica http.Handler
 		}
 		http.Redirect(w, r, "presentacion/", http.StatusMovedPermanently)
 	})))
-	mux.Handle("/healthz", soloLecturaHTTP(http.HandlerFunc(handleHealthz)))
+	registrarRutasDisponibilidad(mux, comprobador)
 	registrarDirectorioPresentacion(mux, estaticos, "presentacion")
 	registrarDirectorioPresentacion(mux, estaticos, "area-personal")
 	registrarDirectorioPresentacion(mux, estaticos, "portal-empleado")
 	registrarDirectorioPresentacion(mux, estaticos, "bolsa")
 	registrarDirectorioPresentacion(mux, estaticos, "verificar")
-	mux.Handle("/styles.css", soloLecturaHTTP(estaticos))
-	mux.Handle("/favicon.svg", soloLecturaHTTP(estaticos))
+	registrarActivosCompartidos(mux, estaticos)
 	mux.Handle("/api/publico", soloLecturaHTTP(apiPublica))
 	mux.Handle("/api/publico/", soloLecturaHTTP(apiPublica))
 
 	handler := rechazarRutasNoCanonicas(mux)
 	handler = prohibirCookiesYAutorizacionProxyConLimite(handler, cfg.MaxRequestBodyBytes)
-	handler = prohibirAutorizacionSuperficieAnonima(handler)
+	handler = prohibirAutorizacion(handler)
 	handler = marcarModoPresentacionAislada(handler)
 	return protegerSuperficie(cfg, handler)
 }
@@ -387,7 +438,7 @@ func materializarCuerpoYTrailers(r *http.Request, limite int64) error {
 	return nil
 }
 
-func prohibirAutorizacionSuperficieAnonima(next http.Handler) http.Handler {
+func prohibirAutorizacion(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if contieneCabecera(r.Header, "Authorization") ||
 			contieneCabecera(r.Trailer, "Authorization") {
@@ -547,6 +598,22 @@ func handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, healthResponse{Status: "ok"})
 }
 
+func registrarRutasDisponibilidad(mux *http.ServeMux, comprobador ComprobadorDisponibilidad) {
+	if mux == nil {
+		return
+	}
+	mux.Handle("/livez", soloLecturaHTTP(http.HandlerFunc(handleHealthz)))
+	listo := soloLecturaHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if comprobador == nil || comprobador.ComprobarDisponibilidad(r.Context()) != nil {
+			writeJSON(w, http.StatusServiceUnavailable, healthResponse{Status: "unavailable"})
+			return
+		}
+		handleHealthz(w, r)
+	}))
+	mux.Handle("/readyz", listo)
+	mux.Handle("/healthz", listo)
+}
+
 func staticHandler(presentacionRRHHHabilitada bool) http.Handler {
 	rutasProduccion := map[string]struct{}(nil)
 	if !presentacionRRHHHabilitada {
@@ -693,107 +760,4 @@ func parseAllowedNetwork(raw string) (*net.IPNet, error) {
 		bits = 32
 	}
 	return &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)}, nil
-}
-
-func remoteIP(remoteAddr string) net.IP {
-	host, _, err := net.SplitHostPort(strings.TrimSpace(remoteAddr))
-	if err != nil {
-		host = remoteAddr
-	}
-	return net.ParseIP(strings.Trim(host, "[]"))
-}
-
-func ipAllowed(ip net.IP, allowed []*net.IPNet) bool {
-	for _, network := range allowed {
-		if network.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
-
-func redesExclusivamenteLocales(redes []*net.IPNet) bool {
-	if len(redes) == 0 {
-		return false
-	}
-	for _, red := range redes {
-		if red == nil {
-			return false
-		}
-		unos, bits := red.Mask.Size()
-		ip := red.IP
-		if ipv4 := ip.To4(); ipv4 != nil {
-			if bits != net.IPv4len*8 || unos < 8 || ipv4[0] != 127 {
-				return false
-			}
-			continue
-		}
-		if bits != net.IPv6len*8 || unos != net.IPv6len*8 || !ip.Equal(net.IPv6loopback) {
-			return false
-		}
-	}
-	return true
-}
-
-func direccionEscuchaLoopback(direccion string) bool {
-	host, _, err := net.SplitHostPort(strings.TrimSpace(direccion))
-	if err != nil || strings.TrimSpace(host) == "" {
-		return false
-	}
-	ip := net.ParseIP(strings.Trim(strings.TrimSpace(host), "[]"))
-	return ip != nil && ip.IsLoopback()
-}
-
-func direccionEscuchaLocalPresentacion(direccion string) bool {
-	host, _, err := net.SplitHostPort(strings.TrimSpace(direccion))
-	if err != nil || strings.TrimSpace(host) == "" {
-		return false
-	}
-	ip := net.ParseIP(strings.Trim(strings.TrimSpace(host), "[]"))
-	return ip != nil && !ip.IsUnspecified() &&
-		(ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast())
-}
-
-func redesExclusivamenteLocalesPresentacion(redes []*net.IPNet) bool {
-	if len(redes) == 0 {
-		return false
-	}
-	permitidas := []*net.IPNet{
-		debeParsearCIDR("127.0.0.0/8"),
-		debeParsearCIDR("10.0.0.0/8"),
-		debeParsearCIDR("172.16.0.0/12"),
-		debeParsearCIDR("192.168.0.0/16"),
-		debeParsearCIDR("169.254.0.0/16"),
-		debeParsearCIDR("::1/128"),
-		debeParsearCIDR("fc00::/7"),
-		debeParsearCIDR("fe80::/10"),
-	}
-	for _, red := range redes {
-		if red == nil || !redContenidaEnAlguna(red, permitidas) {
-			return false
-		}
-	}
-	return true
-}
-
-func redContenidaEnAlguna(red *net.IPNet, permitidas []*net.IPNet) bool {
-	unos, bits := red.Mask.Size()
-	if unos < 0 {
-		return false
-	}
-	for _, permitida := range permitidas {
-		unosPermitidos, bitsPermitidos := permitida.Mask.Size()
-		if bits == bitsPermitidos && unos >= unosPermitidos && permitida.Contains(red.IP) {
-			return true
-		}
-	}
-	return false
-}
-
-func debeParsearCIDR(valor string) *net.IPNet {
-	_, red, err := net.ParseCIDR(valor)
-	if err != nil {
-		panic(err)
-	}
-	return red
 }

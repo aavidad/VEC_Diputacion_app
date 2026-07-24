@@ -103,6 +103,7 @@ func versionDescifradoDesarrolloPrueba(t *testing.T) dominiobolsa.VersionConvoca
 		ReglasBaremacion: referencia("baremo:bolsa", 1, "3"),
 		FlujoProceso:     referencia("convocatoria-bolsa", 1, "4"),
 		FlujoSolicitud:   referencia("solicitud-bolsa", 1, "5"),
+		Plantilla:        referencia("plantilla:bolsa:desarrollo", 1, "8"),
 		Documentos: []dominiobolsa.ReferenciaDocumentoOficialConvocatoria{{
 			Rol: "bases", PublicacionRef: "doc:bases", DocumentoRef: "documento:logico:bases:001",
 			VersionDocumento: 1, RepresentacionRef: "representacion:html:bases:001",

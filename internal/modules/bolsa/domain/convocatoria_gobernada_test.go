@@ -92,6 +92,7 @@ func configuracionConvocatoriaGobernadaPrueba(t *testing.T) ConfiguracionFijadaC
 			ID: definicion.ID, Version: definicion.Version, HuellaContenidoSHA256: huellaFlujo,
 		},
 		FlujoSolicitud: referencia("solicitud-bolsa", 7, '5'),
+		Plantilla:      referencia("plantilla:bolsa:general", 2, '8'),
 		Documentos: []ReferenciaDocumentoOficialConvocatoria{{
 			Rol: "bases", PublicacionRef: "doc:bases", DocumentoRef: "documento:logico:bases:001",
 			VersionDocumento: 2, RepresentacionRef: "representacion:pdf:bases:002",
@@ -348,6 +349,27 @@ func TestConfiguracionExigeDocumentoPublicoFirmadoYCustodiadoUnoAUno(t *testing.
 				t.Fatalf("acepto identificador imposible para DefinicionFlujo: %v", err)
 			}
 		})
+	}
+}
+
+func TestConfiguracionExigeProcedenciaExactaDePlantilla(t *testing.T) {
+	contenido := contenidoConvocatoriaGobernadaPrueba()
+	configuracion := configuracionConvocatoriaGobernadaPrueba(t)
+	configuracion.Plantilla = ReferenciaConfiguracionConvocatoria{}
+	if err := configuracion.ValidarPara(contenido); !errors.Is(err, ErrVersionConvocatoriaGobernadaInvalida) {
+		t.Fatalf("acepto configuracion sin procedencia de plantilla: %v", err)
+	}
+	configuracion = configuracionConvocatoriaGobernadaPrueba(t)
+	configuracion.Plantilla.HuellaContenidoSHA256 = cadenaRepetidaConvocatoria('0')
+	version := versionConvocatoriaGobernadaPrueba(t)
+	version.Configuracion = configuracion
+	if _, err := version.ClonarCanonico(); err != nil {
+		t.Fatalf("la referencia alterada pero bien formada debe quedar comprometida por la huella: %v", err)
+	}
+	original, _ := versionConvocatoriaGobernadaPrueba(t).HuellaContenidoSHA256()
+	alterada, _ := version.HuellaContenidoSHA256()
+	if original == alterada {
+		t.Fatal("la alteracion de plantilla no cambio la huella del agregado")
 	}
 }
 
@@ -668,8 +690,8 @@ func TestVectoresGoldenDeRepresentacionesCanonicas(t *testing.T) {
 	}
 	huellaEstado := sha256.Sum256(estado)
 	huellaContenido := sha256.Sum256(contenido)
-	const esperadaEstado = "e7ad3e59b37d64675b7ec28af0c8ab50c61e2454cc97dd614d86c779e6edace8"
-	const esperadaContenido = "b3878bec83de987521e4836656df93693b2758e142d4e261790ff60482c54e5f"
+	const esperadaEstado = "6d72b3b83a84570f1adb9985b9b02a3803eaf18dc58aeb1001574494c030f52a"
+	const esperadaContenido = "a81876b094405cc0d9d81cc9a3f008cf11d7147ca214e8adf98b30c6248e56ea"
 	if obtenida := hex.EncodeToString(huellaEstado[:]); obtenida != esperadaEstado {
 		t.Errorf("vector golden de estado cambiado: %s", obtenida)
 	}

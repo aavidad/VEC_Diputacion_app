@@ -29,7 +29,8 @@ Los agentes paralelos, incluidos los que se arranquen manualmente, deben leer
 
 Probado:
 
-- Proceso público independiente `cmd/vec-publico`, con salud en `/healthz`,
+- Proceso público independiente `cmd/vec-publico`, con vida en `/livez` y
+  disponibilidad en `/readyz` (`/healthz` conserva el alias de readiness),
   portal anónimo en `/bolsa/` y consulta minimizada de convocatorias en
   `/api/publico/bolsa/convocatorias`, junto con el directorio gobernado de
   categorias en `/api/publico/bolsa/categorias`. Su raíz de composición no
@@ -462,7 +463,7 @@ VEC_HTTP_ADDR=127.0.0.1:8080 \
   go run ./cmd/vec-publico
 ```
 
-Este proceso solo acepta `/healthz`, `/bolsa/`, los recursos públicos
+Este proceso solo acepta `/livez`, `/readyz`, `/healthz`, `/bolsa/`, los recursos públicos
 enumerados y `/api/publico/`; `/`, `/api/vec`, `/api/demo` y el Portal del
 Empleado responden `404`. La fuente predeterminada combina metadatos públicos
 reales contrastados —títulos, categorías, fechas y CVE del BOP— con un
@@ -618,7 +619,7 @@ Con el arranque Go o Compose anterior, estas comprobaciones son reproducibles
 sin secretos ni credenciales locales:
 
 ```bash
-curl -fsS http://127.0.0.1:8080/healthz
+curl -fsS http://127.0.0.1:8080/livez
 curl -fsS \
   'http://127.0.0.1:8080/api/publico/bolsa/convocatorias?plazo=abierto'
 curl -fsS http://127.0.0.1:8080/api/publico/bolsa/categorias

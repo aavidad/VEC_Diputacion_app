@@ -5,6 +5,7 @@ raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
 contenedor="vec-bolsa-convocatorias-pg-${USER:-usuario}-$$"
 base=vec_bolsa_convocatorias_prueba
+fixture_vectores_kms="internal/modules/bolsa/application/gobiernoconvocatorias/testdata/vectores_kms_confirmacion_borrador_v1"
 salida_carrera_1=
 salida_carrera_2=
 
@@ -62,6 +63,10 @@ docker run --detach --rm --name "$contenedor" \
     "$imagen" >/dev/null
 esperar_postgresql
 
+docker exec "$contenedor" mkdir -p /tmp/vec-vectores-kms-borrador-v1
+docker cp "$raiz/$fixture_vectores_kms/." \
+    "$contenedor:/tmp/vec-vectores-kms-borrador-v1/"
+
 psql_archivo() {
     docker exec --interactive "$contenedor" psql -X --quiet \
         --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
@@ -80,15 +85,21 @@ rechazar_runtime() {
 }
 
 psql_archivo deploy/postgresql/autorizacion/roles_up.sql
+psql_archivo deploy/postgresql/autorizacion/roles_v2_up.sql
 psql_archivo deploy/postgresql/autorizacion/migraciones/000001_autorizacion.up.sql
 psql_archivo deploy/postgresql/ejecucion_documental_v4/migraciones_autorizacion/000002_vinculo_autenticacion_actor_actual.up.sql
+psql_archivo deploy/postgresql/autorizacion/migraciones/000003_proyeccion_motivos_autorizacion_v2.up.sql
+psql_archivo deploy/postgresql/autorizacion/migraciones/000004_registro_decisiones_solicitud_ligada_v2.up.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/roles_up.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000001_revalidacion_convocatorias.up.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000002_revalidacion_borradores_v2.up.sql
+psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000003_revalidacion_lectura_borradores_solicitud_ligada_v2.up.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones/000001_almacen_convocatorias.up.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones/000002_consulta_exacta_cerrada.up.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones/000003_borradores_durables_cerrados.up.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones/000004_confirmacion_kms_procedencia.up.sql
+psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones/000005_lectura_borrador_cifrado_completo.up.sql
+psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones/000006_preparacion_kms_instante_real.up.sql
 
 docker exec --interactive \
     --env CLAVE_EJECUTOR="$clave_ejecutor" \
@@ -121,9 +132,11 @@ SQL
 
 psql_archivo deploy/postgresql/bolsa_convocatorias/pruebas_sql/acl_cierre.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/pruebas_sql/vectores_confirmacion_kms.sql
+psql_archivo deploy/postgresql/bolsa_convocatorias/pruebas_sql/preparacion_kms_instante_real.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/pruebas_sql/verificador_recibo_acl.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/pruebas_sql/acl_cierre.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/pruebas_sql/borradores_durables.sql
+psql_archivo deploy/postgresql/bolsa_convocatorias/pruebas_sql/lectura_borrador_cifrado_completo.sql
 
 # Dos snapshots SERIALIZABLE compiten con ventanas solapadas [g3,g2] y
 # [g2,g1]. El advisory lock solo crea una barrera de prueba; no forma parte
@@ -264,6 +277,16 @@ SQL
 # privilegio. Prueba recorridos validos hasta el cuerpo y denegaciones
 # nominales antes de continuar con la persistencia y recuperacion.
 psql_archivo deploy/postgresql/bolsa_convocatorias/pruebas_sql/wrappers_runtime.sql
+
+# Regresion concurrente de la ventana temporal: dblink solo coordina dos
+# conexiones del contenedor efimero y no forma parte del esquema productivo.
+docker exec "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" \
+    --command 'CREATE EXTENSION dblink' >/dev/null
+docker exec --interactive --env CLAVE_EJECUTOR="$clave_ejecutor" \
+    "$contenedor" psql -X --quiet --set ON_ERROR_STOP=1 \
+    --username postgres --dbname "$base" \
+    < "$raiz/deploy/postgresql/bolsa_convocatorias/pruebas_sql/lectura_borrador_concurrencia_temporal.sql"
 
 # La reserva ganadora y su puntero deben sobrevivir a una parada/arranque del
 # PostgreSQL real antes de que otra instancia prosiga el protocolo.
@@ -570,19 +593,42 @@ REVOKE vec_bolsa_convocatorias_registrador_atestacion
     FROM vec_convocatorias_registrador_prueba;
 REVOKE vec_bolsa_convocatorias_verificador_recibo
     FROM vec_convocatorias_verificador_prueba;
+DROP FUNCTION public.probar_lectura_borrador_concurrente_runtime();
+DROP FUNCTION IF EXISTS public.probar_ejecutor_borrador_runtime();
+DROP FUNCTION IF EXISTS public.probar_proyector_borrador_runtime();
+DROP FUNCTION IF EXISTS public.texto_selector_borrador_runtime_valido(text);
+DROP FUNCTION public.convertir_decision_borrador_runtime_v2(text);
+DROP FUNCTION public.solicitud_borrador_runtime_v2_canonica(
+    jsonb,bytea,jsonb
+);
+DROP FUNCTION public.crear_decision_borrador_runtime_prueba(
+    text,text,text,text,text,jsonb,bytea,interval
+);
+DROP TABLE public.fixture_decision_borrador_runtime;
+DROP TABLE public.fixture_reserva_borrador_concurrente;
+REVOKE USAGE ON SCHEMA public
+    FROM vec_autorizacion_propietario,
+         vec_convocatorias_ejecutor_prueba,
+         vec_convocatorias_proyector_prueba;
 DROP ROLE vec_convocatorias_ejecutor_prueba;
 DROP ROLE vec_convocatorias_proyector_prueba;
 DROP ROLE vec_convocatorias_registrador_prueba;
 DROP ROLE vec_convocatorias_verificador_prueba;
 REVOKE USAGE ON SCHEMA public
     FROM vec_bolsa_convocatorias_propietario;
-DROP TABLE public.fixture_reserva_borrador_concurrente;
+DROP EXTENSION dblink;
 SQL
 
-# 000004 no contiene historia porque este tramo prueba contrato, vectores y
-# ACL; el recorrido A/B durable pertenece a T20E y se ejecuta desde Go para
-# poder esperar/cancelar con context.Context sin pg_sleep dentro de SQL.
-psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones/000004_confirmacion_kms_procedencia.down.sql
+# El positivo de lectura deja una fila KMS acreditada e inmutable. Esta base
+# es efimera: se exige de forma explicita la via destructiva del down.
+psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones/000006_preparacion_kms_instante_real.down.sql
+psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones/000005_lectura_borrador_cifrado_completo.down.sql
+docker exec --interactive \
+    --env PGOPTIONS="-c vec.confirmar_destruccion_borradores_convocatorias=DESTRUIR_HISTORIA_BORRADORES_CONVOCATORIAS_IRREVERSIBLE" \
+    "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+    --file - \
+    < "$raiz/deploy/postgresql/bolsa_convocatorias/migraciones/000004_confirmacion_kms_procedencia.down.sql"
 psql_archivo deploy/postgresql/bolsa_convocatorias/pruebas_sql/down_confirmacion_kms_limpio.sql
 
 # La carrera dejo historia real: un down sin confirmacion debe negarse. Se
@@ -608,6 +654,7 @@ docker exec --interactive \
     --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
     --file - \
     < "$raiz/deploy/postgresql/bolsa_convocatorias/migraciones/000001_almacen_convocatorias.down.sql"
+psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000003_revalidacion_lectura_borradores_solicitud_ligada_v2.down.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000002_revalidacion_borradores_v2.down.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/pruebas_sql/down_autorizacion_borradores_limpio.sql
 psql_archivo deploy/postgresql/bolsa_convocatorias/migraciones_autorizacion/000001_revalidacion_convocatorias.down.sql
