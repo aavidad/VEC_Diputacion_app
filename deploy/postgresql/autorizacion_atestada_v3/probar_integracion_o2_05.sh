@@ -153,12 +153,26 @@ SELECT resultado || ':' || estado || ':' ||
       'organizacion_ref', 'organizacion:dipgra',
       'expediente_ref', 'expediente:ct:o205:alta_valida',
       'version_expediente', 1,
-      'actor_ref', 'persona:tecnica-rrhh-sintetica-001',
-      'perfil_ref', 'perfil:tecnica-rrhh-sintetica-001',
+      'actor_ref', 'per_sintetica_bbbbbbbbbbbbbbbbbbbbbbbb',
+      'perfil_ref', 'prf_sintetico_cccccccccccccccccccccccc',
       'artefacto_ref', 'artefacto:analisis-sintetico-001',
       'artefacto_huella_sha256', repeat('${huella_artefacto}',64)
     )
   );
+COMMIT;
+SQL
+}
+
+confirmar_analisis_o3() {
+    docker exec --interactive "${contenedor}" \
+        psql -XAtq --set ON_ERROR_STOP=1 --set VERBOSITY=verbose \
+        --username vec_ct_o205_runtime --dbname postgres <<'SQL'
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL TimeZone='UTC';
+SET LOCAL statement_timeout='15s';
+SET LOCAL idle_in_transaction_session_timeout='20s';
+SELECT recibo_json::text
+  FROM public.invocar_vector_confirmacion_analisis_o3();
 COMMIT;
 SQL
 }
@@ -334,6 +348,16 @@ archivo vec_ct_o205_migrador \
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.up.sql \
     >/dev/null
+for migracion in \
+    000009_contrato_confirmacion_analisis \
+    000010_validadores_confirmacion_analisis \
+    000011_transicion_confirmacion_analisis \
+    000012_confirmacion_operacion_analisis
+do
+    archivo vec_ct_o205_migrador \
+        "deploy/postgresql/contratacion_temporal/migraciones/${migracion}.up.sql" \
+        >/dev/null
+done
 afirmar_sin_referencias_o2_05
 
 paso 'frontera intercambiable sin FK a tablas de otra autoridad'
@@ -390,8 +414,11 @@ archivo postgres \
 archivo postgres \
     deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ayudantes_o2_05.sql \
     >/dev/null
+archivo postgres \
+    deploy/postgresql/contratacion_temporal/pruebas_sql/confirmacion_analisis_o3.sql \
+    >/dev/null
 sql postgres \
-    'CREATE ROLE vec_ct_o205_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS; GRANT vec_contratacion_temporal_ejecutor TO vec_ct_o205_runtime WITH ADMIN FALSE, INHERIT TRUE, SET FALSE; GRANT USAGE ON SCHEMA public TO vec_ct_o205_runtime; GRANT EXECUTE ON FUNCTION public.invocar_vector_o2_05(text) TO vec_ct_o205_runtime' \
+    'CREATE ROLE vec_ct_o205_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS; GRANT vec_contratacion_temporal_ejecutor TO vec_ct_o205_runtime WITH ADMIN FALSE, INHERIT TRUE, SET FALSE; GRANT USAGE ON SCHEMA public TO vec_ct_o205_runtime; GRANT EXECUTE ON FUNCTION public.invocar_vector_o2_05(text), public.invocar_vector_confirmacion_analisis_o3() TO vec_ct_o205_runtime' \
     >/dev/null
 
 paso 'alta completa, efecto único y replay exacto'
@@ -407,6 +434,15 @@ afirmar_agregado_completo_o2_05 alta_valida
 [[ "$(preparar_analisis_o3 6)" == \
     'idempotencia_reutilizada:reservada:false:false' ]]
 [[ "$(valor "SELECT ((SELECT count(*) FROM vec_contratacion_temporal.reserva_operacion_analisis)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.alias_operacion_analisis)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.reserva_operacion_analisis_version)=1)::text")" == 'true' ]]
+paso 'confirmación O3 atómica, durable y con replay exacto'
+sql postgres \
+    "BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE; SET LOCAL statement_timeout='15s'; SET LOCAL idle_in_transaction_session_timeout='20s'; SELECT public.preparar_vector_confirmacion_analisis_o3(); COMMIT" \
+    >/dev/null
+analisis_primero="$(confirmar_analisis_o3)"
+analisis_replay="$(confirmar_analisis_o3)"
+[[ "${analisis_primero}" == "${analisis_replay}" ]]
+[[ "${analisis_primero}" == *'"version_resultante": 2'* ]]
+[[ "$(valor "SELECT ((SELECT count(*) FROM vec_contratacion_temporal.expediente_version_integral WHERE expediente_ref='expediente:ct:o205:alta_valida')=2 AND (SELECT version FROM vec_contratacion_temporal.expediente_integral_actual WHERE expediente_ref='expediente:ct:o205:alta_valida')=2 AND (SELECT count(*) FROM vec_contratacion_temporal.actuacion_expediente_integral)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.consumo_fuentes_analisis)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.consumo_decision_analisis)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.auditoria_expediente_integral)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.outbox_expediente_integral)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.confirmacion_operacion_analisis)=1)::text")" == 'true' ]]
 recibo_iso="$(recibo_con_estilo_fecha alta_valida 'ISO, YMD')"
 recibo_aleman="$(recibo_con_estilo_fecha alta_valida 'German, DMY')"
 [[ "${recibo_iso}" == "${recibo_aleman}" ]]
@@ -727,17 +763,37 @@ esperar_fallo 'consumidor genérico abierto' sql vec_ct_o205_runtime \
 [[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')")" == 'f' ]]
 [[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_contratacion_temporal.preparar_operacion_analisis_v1(jsonb)','EXECUTE')")" == 't' ]]
 [[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.preparar_operacion_analisis_v1(jsonb)','EXECUTE')")" == 'f' ]]
+[[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_contratacion_temporal.confirmar_operacion_analisis_v1(jsonb)','EXECUTE')")" == 't' ]]
+[[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.confirmar_operacion_analisis_v1(jsonb)','EXECUTE')")" == 'f' ]]
 [[ "$(valor "SELECT has_function_privilege('vec_contratacion_temporal_propietario','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 't' ]]
 [[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 'f' ]]
 [[ "$(valor "SELECT has_function_privilege('public','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 'f' ]]
 
 paso 'rollback ordinario protegido'
-archivo vec_ct_o205_migrador \
-    deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.down.sql \
-    >/dev/null
-archivo vec_ct_o205_migrador \
-    deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.up.sql \
-    >/dev/null
+for migracion in \
+    000012_confirmacion_operacion_analisis \
+    000011_transicion_confirmacion_analisis \
+    000010_validadores_confirmacion_analisis
+do
+    archivo vec_ct_o205_migrador \
+        "deploy/postgresql/contratacion_temporal/migraciones/${migracion}.down.sql" \
+        >/dev/null
+done
+esperar_fallo 'down contrato de fuentes con historia O3' \
+    archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000009_contrato_confirmacion_analisis.down.sql
+esperar_fallo 'down efectos integrales con historia O3' \
+    archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.down.sql
+for migracion in \
+    000010_validadores_confirmacion_analisis \
+    000011_transicion_confirmacion_analisis \
+    000012_confirmacion_operacion_analisis
+do
+    archivo vec_ct_o205_migrador \
+        "deploy/postgresql/contratacion_temporal/migraciones/${migracion}.up.sql" \
+        >/dev/null
+done
 esperar_fallo 'down preparaciones de análisis con datos' \
     archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000007_preparacion_operaciones_analisis.down.sql
@@ -761,11 +817,28 @@ esperar_fallo 'down revalidación viva con consumidor instalado' \
 
 paso 'retirada de la superficie de prueba y destrucción explícita ensayada'
 sql postgres \
-    'REVOKE USAGE ON SCHEMA public FROM vec_ct_o205_runtime; DROP FUNCTION public.aplicar_bundle_go_o2_05(text,jsonb); DROP FUNCTION public.exportar_entrada_go_o2_05(text); DROP FUNCTION public.durabilizar_decision_o2_05(text); DROP FUNCTION public.mutar_tipo_capacidad_o2_05(text,text); DROP FUNCTION public.mutar_efecto_o2_05(text,text,jsonb); DROP FUNCTION public.invocar_vector_o2_05(text); DROP FUNCTION public.preparar_vector_o2_05(text,text,numeric); DROP TABLE public.vectores_o2_05' \
+    'REVOKE USAGE ON SCHEMA public FROM vec_ct_o205_runtime; DROP FUNCTION public.invocar_vector_confirmacion_analisis_o3(); DROP FUNCTION public.preparar_vector_confirmacion_analisis_o3(); DROP TABLE public.vector_confirmacion_analisis_o3; DROP FUNCTION public.aplicar_bundle_go_o2_05(text,jsonb); DROP FUNCTION public.exportar_entrada_go_o2_05(text); DROP FUNCTION public.durabilizar_decision_o2_05(text); DROP FUNCTION public.mutar_tipo_capacidad_o2_05(text,text); DROP FUNCTION public.mutar_efecto_o2_05(text,text,jsonb); DROP FUNCTION public.invocar_vector_o2_05(text); DROP FUNCTION public.preparar_vector_o2_05(text,text,numeric); DROP TABLE public.vectores_o2_05' \
     >/dev/null
-archivo vec_ct_o205_migrador \
-    deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.down.sql \
-    >/dev/null
+for migracion in \
+    000012_confirmacion_operacion_analisis \
+    000011_transicion_confirmacion_analisis \
+    000010_validadores_confirmacion_analisis
+do
+    archivo vec_ct_o205_migrador \
+        "deploy/postgresql/contratacion_temporal/migraciones/${migracion}.down.sql" \
+        >/dev/null
+done
+for migracion in \
+    000009_contrato_confirmacion_analisis \
+    000008_efectos_expediente_integral
+do
+    docker exec \
+        --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
+        "${contenedor}" psql -X --set ON_ERROR_STOP=1 \
+        --username vec_ct_o205_migrador --dbname postgres \
+        --file "/repo/deploy/postgresql/contratacion_temporal/migraciones/${migracion}.down.sql" \
+        >/dev/null
+done
 docker exec \
     --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
     "${contenedor}" psql -X --set ON_ERROR_STOP=1 \
@@ -850,7 +923,27 @@ archivo vec_ct_o205_migrador \
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.up.sql \
     >/dev/null
+for migracion in \
+    000009_contrato_confirmacion_analisis \
+    000010_validadores_confirmacion_analisis \
+    000011_transicion_confirmacion_analisis \
+    000012_confirmacion_operacion_analisis
+do
+    archivo vec_ct_o205_migrador \
+        "deploy/postgresql/contratacion_temporal/migraciones/${migracion}.up.sql" \
+        >/dev/null
+done
 afirmar_sin_referencias_o2_05
+for migracion in \
+    000012_confirmacion_operacion_analisis \
+    000011_transicion_confirmacion_analisis \
+    000010_validadores_confirmacion_analisis \
+    000009_contrato_confirmacion_analisis
+do
+    archivo vec_ct_o205_migrador \
+        "deploy/postgresql/contratacion_temporal/migraciones/${migracion}.down.sql" \
+        >/dev/null
+done
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.down.sql \
     >/dev/null

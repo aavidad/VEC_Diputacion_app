@@ -26,18 +26,41 @@ BEGIN
     v_rol := jsonb_build_object(
         'rol_id', 'registro_ct_o205', 'version', 1,
         'nombre', 'Registro CT O2-05', 'estado', 'publicada',
-        'concesiones', jsonb_build_array(jsonb_build_object(
-            'accion', 'contratacion_temporal.solicitud.crear',
-            'modulo_id', 'contratacion_temporal',
-            'tipo_recurso', 'expediente_contratacion_temporal',
-            'finalidades',
-                jsonb_build_array(
+        'concesiones', jsonb_build_array(
+            jsonb_build_object(
+                'accion', 'contratacion_temporal.solicitud.crear',
+                'modulo_id', 'contratacion_temporal',
+                'tipo_recurso', 'expediente_contratacion_temporal',
+                'finalidades', jsonb_build_array(
                     'tramitar_necesidad_personal_temporal'
                 ),
-            'garantia_minima', 'alto',
-            'campos_permitidos', jsonb_build_array('estado'),
-            'obligaciones', jsonb_build_array('auditar')
-        )),
+                'garantia_minima', 'alto',
+                'campos_permitidos', jsonb_build_array('estado'),
+                'obligaciones', jsonb_build_array('auditar')
+            ),
+            jsonb_build_object(
+                'accion', 'contratacion_temporal.analisis.registrar',
+                'modulo_id', 'contratacion_temporal',
+                'tipo_recurso', 'analisis_contratacion_temporal',
+                'finalidades', jsonb_build_array(
+                    'tramitar_analisis_contratacion_temporal'
+                ),
+                'garantia_minima', 'alto',
+                'campos_permitidos', jsonb_build_array('estado'),
+                'obligaciones', jsonb_build_array('auditar')
+            ),
+            jsonb_build_object(
+                'accion', 'contratacion_temporal.analisis.rectificar',
+                'modulo_id', 'contratacion_temporal',
+                'tipo_recurso', 'analisis_contratacion_temporal',
+                'finalidades', jsonb_build_array(
+                    'tramitar_analisis_contratacion_temporal'
+                ),
+                'garantia_minima', 'alto',
+                'campos_permitidos', jsonb_build_array('estado'),
+                'obligaciones', jsonb_build_array('auditar')
+            )
+        ),
         'publicada_por', 'usr_seguridad_sintetico_o205',
         'publicada_en', v_desde_z
     );
