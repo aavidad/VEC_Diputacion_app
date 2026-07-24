@@ -73,6 +73,8 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   abrir: "Abrir expediente",
   flujo_expediente: "Progreso del expediente",
   expediente_etiqueta: "Expediente",
+  metadatos_tecnicos: "Metadatos técnicos del expediente",
+  referencia_interna: "Referencia interna",
   flujo_definicion: "Definición de flujo",
   flujo_version: "Versión del flujo",
   flujo_huella: "Huella de la definición",

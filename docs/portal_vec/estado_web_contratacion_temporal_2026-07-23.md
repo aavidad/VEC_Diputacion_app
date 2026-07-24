@@ -46,18 +46,26 @@ controles de tareas históricas o no autorizadas se presentan en solo lectura.
 
 ## Evidencia automática
 
-- JavaScript del portal: `272/272` pruebas superadas.
-- Contratación temporal Go: siete paquetes superados.
-- Validación de manifiestos: superada.
-- Navegación Docker a `1440 × 1000`: 18 capturas, una del cuadro y una por cada
-  tarea; cero errores de consola y cero desbordamientos horizontales
-  (`scrollWidth = clientWidth = 1440`).
-- Artefactos locales: `var/revision-web-ct-expedientes/`; no se versionan.
+- JavaScript focal de contratación: `33/33` pruebas superadas.
+- JavaScript completo del portal: `272/272` pruebas superadas.
+- Contrato del capturador RRHH: `5/5` pruebas superadas.
+- Contratación temporal Go: siete paquetes superados, también con detector de
+  carreras.
+- Suite Go completa y `go vet ./...`: superados.
+- Navegación Docker: `51/51` capturas correctas, correspondientes a las 17
+  pantallas exactas en `1536 × 1024`, `1440 × 1000` y `1280 × 900`.
+- Las capturas son del área visible, no de página completa; no presentan
+  desbordamiento horizontal, foco accidental en el enlace de salto, cookies,
+  almacenamiento web ni errores de consola.
+- Artefactos locales:
+  `var/revision-web-contratacion-rrhh/`; no se versionan.
 - Los ficheros del módulo permanecen por debajo de 800 líneas.
 
 La revisión aplicó `admin-data-web`: densidad administrativa legible, columnas
 operativas visibles, acciones cerca del contexto, estados expresos, navegación
-persistente, mínimo privilegio y trazabilidad accesible.
+persistente, mínimo privilegio y trazabilidad accesible. Las referencias y la
+huella técnica permanecen disponibles en un bloque plegado, sin desplazar los
+datos administrativos prioritarios.
 
 ## Sustitución del modo de presentación
 

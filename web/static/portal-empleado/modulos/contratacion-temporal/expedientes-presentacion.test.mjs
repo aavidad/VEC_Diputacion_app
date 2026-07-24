@@ -391,6 +391,9 @@ test("HTML escapa contenido, bloquea históricos y expone semántica accesible",
   assert.match(html, /<select[^>]+disabled/);
   const htmlComponente = renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
   assert.match(htmlComponente, /<nav class="ct-exp-tareas" aria-label=/);
+  assert.match(htmlComponente, /<details class="ct-exp-detalle-tecnico">/);
+  assert.doesNotMatch(htmlComponente, /<details class="ct-exp-detalle-tecnico" open/);
+  assert.match(htmlComponente, /Metadatos técnicos del expediente/);
 });
 
 test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {

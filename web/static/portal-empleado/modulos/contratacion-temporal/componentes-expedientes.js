@@ -179,12 +179,15 @@ function renderizarCabecera(expediente, t) {
     <div>
       <p class="sobrelinea">${escaparHTML(t("expediente_etiqueta"))}</p>
       <h3>${escaparHTML(expediente.numero_visible)}</h3>
-      <code>${escaparHTML(expediente.expediente_ref)}</code>
-      <dl class="ct-exp-flujo">
-        <div><dt>${escaparHTML(t("flujo_definicion"))}</dt><dd>${escaparHTML(expediente.flujo_ref)}</dd></div>
-        <div><dt>${escaparHTML(t("flujo_version"))}</dt><dd>${expediente.flujo_version}</dd></div>
-        <div><dt>${escaparHTML(t("flujo_huella"))}</dt><dd><code>${escaparHTML(expediente.flujo_huella)}</code></dd></div>
-      </dl>
+      <details class="ct-exp-detalle-tecnico">
+        <summary>${escaparHTML(t("metadatos_tecnicos"))}</summary>
+        <dl class="ct-exp-flujo">
+          <div><dt>${escaparHTML(t("referencia_interna"))}</dt><dd><code>${escaparHTML(expediente.expediente_ref)}</code></dd></div>
+          <div><dt>${escaparHTML(t("flujo_definicion"))}</dt><dd>${escaparHTML(expediente.flujo_ref)}</dd></div>
+          <div><dt>${escaparHTML(t("flujo_version"))}</dt><dd>${expediente.flujo_version}</dd></div>
+          <div><dt>${escaparHTML(t("flujo_huella"))}</dt><dd><code>${escaparHTML(expediente.flujo_huella)}</code></dd></div>
+        </dl>
+      </details>
     </div>
     <dl>${expediente.cabecera.map((campo) => `<div>
       <dt>${escaparHTML(campo.etiqueta)}</dt>

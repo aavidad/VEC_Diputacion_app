@@ -327,6 +327,22 @@
   overflow-wrap: anywhere;
 }
 
+.ct-exp-detalle-tecnico {
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
+.ct-exp-detalle-tecnico summary {
+  color: var(--portal-azul-700);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.ct-exp-detalle-tecnico:not([open]) {
+  width: max-content;
+  max-width: 100%;
+}
+
 .ct-exp-flujo {
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) !important;
@@ -347,6 +363,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
+  align-content: start;
   margin: 0;
 }
 
