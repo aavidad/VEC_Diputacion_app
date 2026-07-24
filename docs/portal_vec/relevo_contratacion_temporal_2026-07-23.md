@@ -1,4 +1,4 @@
-# Relevo del frente de contratación temporal — 23/07/2026
+# Relevo del frente de contratación temporal — actualizado el 24/07/2026
 
 Documento de entrada obligatorio para cualquier agente que continúe este
 frente. Debe actualizarse en cada commit que cambie alcance, arquitectura,
@@ -89,7 +89,7 @@ ajenas.
 | Confirmación atómica PostgreSQL | Cerrada en `77743a7`: GO 2/2 y puertas PostgreSQL/globales conjuntas verdes |
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
-| Web conectada | O2-09B integrada en `764fd52` tras GO independiente; falta registrar la ruta real y el E2E |
+| Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -453,10 +453,17 @@ resolución incierta, y probar la ruta pública completa sobre PostgreSQL 18.
 La evidencia exacta está en
 [la revisión O2-06](revisiones/o2_06_revision_independiente_nogo_2026-07-24.md).
 
-La web RRHH tiene un checkpoint aislado `cdf9314` con 272 pruebas JavaScript y
-los siete paquetes Go del módulo verdes. No está integrada y recibió `NO-GO`
-visual: sus dieciocho imágenes son capturas de página completa del cuadro más
-diecisiete tareas, no las diecisiete pantallas numeradas del documento, y los
-elementos fijos aparecen desplazados. Debe repetirse la matriz exacta a
-`1536 × 1024`, 1440 y 1280 antes de presentarla. Véase
-[la revisión visual](revisiones/web_contratacion_rrhh_revision_visual_nogo_2026-07-24.md).
+El NO-GO visual del checkpoint `cdf9314` quedó corregido por
+`72ca274`–`6fb6cc6`. La superficie conserva dieciocho tareas operativas, pero
+la evidencia contractual recorre exactamente las diecisiete pantallas
+numeradas del documento: 51/51 capturas del área visible a `1536 × 1024`,
+`1440 × 1000` y `1280 × 900`, sin desbordamiento, cookies, almacenamiento web
+ni errores de consola. También superó 272/272 pruebas JavaScript, los siete
+paquetes Go de contratación con carrera y la suite Go completa. La cabecera
+prioriza los datos administrativos y mantiene referencia, versión y huella en
+un bloque técnico plegado.
+
+Este verde es exclusivamente local y visual. O2-09 continúa abierta hasta
+registrar la ruta mediante O2-07 y superar O2-10 contra la API, autorización y
+PostgreSQL reales. Evidencia:
+[revisión local 1..17](revisiones/web_contratacion_rrhh_revision_local_2026-07-24.md).

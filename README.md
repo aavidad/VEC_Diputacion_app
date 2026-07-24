@@ -11,7 +11,7 @@ Dietas y Bolsa son modulos independientes con `ModuleID`, permisos y menus
 propios; VEC solo los agrega y permite relacionarlos por empleado, expediente,
 justificante o auditoria.
 
-Fecha de corte de este estado: **23 de julio de 2026**. El repositorio es una
+Fecha de corte de este estado: **24 de julio de 2026**. El repositorio es una
 base de desarrollo y demostracion verificable; no acredita por si solo
 conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
 
@@ -40,14 +40,17 @@ llamamientos.
 - [Decisión de autorización V3 para el alta de contratación temporal](docs/portal_vec/decision_autorizacion_v3_alta_contratacion_temporal_2026-07-23.md)
 - [Matriz normativa europea, española y andaluza](docs/portal_vec/matriz_normativa_contratacion_temporal_2026-07-23.md)
 - [Relevo técnico del frente activo](docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md)
+- [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 
-Estado del primer corte: especificación, manifiesto, dominio, puertos de alta y
-primer caso de uso implementados sobre la convergencia C3/C4 `eeac3a2`. El
-nuevo registro de solicitud exige identidad interna de garantía alta, flujo
+Estado del primer corte: especificación, manifiesto, dominio, caso de uso,
+confirmación SQL atómica y contratos de API y web implementados. El nuevo
+registro de solicitud exige identidad interna de garantía alta, flujo
 gobernado, HMAC, idempotencia, autorización de efecto y una confirmación
-transaccional de expediente, auditoría y outbox. El adaptador PostgreSQL, la
-API y la web siguen pendientes; ninguna pantalla o contrato aislado se
-contabiliza como flujo administrativo terminado.
+transaccional de expediente, auditoría y outbox. Permanecen abiertos el
+adaptador Go de reconciliación O2-06, la composición real O2-07 y el E2E O2-10.
+La presentación reproduce las diecisiete pantallas remitidas por RRHH y está
+verde en tres tamaños de escritorio, pero no se contabiliza como flujo
+administrativo productivo.
 
 ## Estado honesto
 

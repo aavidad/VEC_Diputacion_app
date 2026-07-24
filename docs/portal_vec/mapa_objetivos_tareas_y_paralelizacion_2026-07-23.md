@@ -1,6 +1,6 @@
 # Mapa de objetivos, tareas y paralelización
 
-Última actualización: 23 de julio de 2026.
+Última actualización: 24 de julio de 2026.
 
 Vista de dirección para revisar el avance del procedimiento de contratación
 temporal. El detalle verificable de cada tarea está en el
@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 16 de 46 tareas cerradas (35 %); O4-02 ya está integrado |
-| Último commit verificado | `0be7467` — consultas O4-02 integradas tras GO independiente y puertas conjuntas |
-| Trabajo local en revisión | O2-06 `157a589` en NO-GO; web RRHH `cdf9314` en NO-GO visual pendiente de capturas exactas 1..17; primer corte O5-01 pendiente |
+| Último commit verificado | `6fb6cc6` — matriz web RRHH 1..17 verde en 51/51 capturas locales; no cierra la integración O2-09 |
+| Trabajo local en revisión | O2-06 `157a589` continúa en NO-GO; primer corte O5-01 pendiente. La superficie RRHH ya superó la revisión visual local, pero sigue separada del E2E real. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -195,7 +195,8 @@ Estado actual:
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
 Tareas verificadas del procedimiento: 16/46 = 35 %
-Tareas locales en revisión: O2-06, web RRHH y O5-01
+Tareas locales en revisión: O2-06 y O5-01
+Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 
 Una tarea local no cuenta como cerrada hasta que el commit esté publicado y el

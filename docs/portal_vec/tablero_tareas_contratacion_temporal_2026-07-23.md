@@ -1,6 +1,6 @@
 # Tablero de tareas verificables de contratación temporal
 
-Última actualización: 23 de julio de 2026.
+Última actualización: 24 de julio de 2026.
 
 Este tablero descompone los objetivos `O1` a `O8` en unidades que pueden
 revisarse, probarse y confirmarse en Git sin mezclar responsabilidades.
@@ -48,7 +48,7 @@ Estados:
 | O2-06 | Adaptador Go de confirmación y reconciliación de resultado indeterminado. | Éxito, replay, concurrencia, timeout antes/después de `COMMIT`, reinicio y recibo adulterado. | 🚧 | Candidato `157a589` publicado pero en `NO-GO`: replay tras reinicio genera otra candidatura y una cancelación segura antes de enviar `COMMIT` puede reconciliar indebidamente. Se exige resolver candidatura durable y probar la frontera pública completa en PostgreSQL 18. |
 | O2-07 | Composición interna real de dependencias. | Arranque falla cerrado sin identidad, PDP, HMAC, generador o PostgreSQL. | — | — |
 | O2-08 | API interna y neutral al cliente del alta. | Lista positiva, límites, sin `Cookie`/`Set-Cookie`, almacenamiento web ni cabeceras libres de autoridad; credencial breve ligada al cliente; mismo contrato para web, escritorio, CLI y MCP; contrato OpenAPI. | 🚧 | Adaptador O2-08B revisado con GO e integrado en `42dc3ac`–`94e09e8` (candidato original `3e2885c`): sobre común `{clave_idempotencia, solicitud}`, autoridad de servidor separada y cero hallazgos. Falta registrar la ruta mediante O2-07; por ello todavía no se cierra la tarea ni la puerta funcional. |
-| O2-09 | Formulario definitivo conectado. | Accesibilidad de teclado/lector, errores, doble envío, recibo y misma interfaz sin adaptador DEMO. | 🚧 | O2-09B `228df6f` obtuvo GO independiente y se integró en `764fd52`: límites exactos, i18n, 260/260 pruebas del portal y cero cookies/almacenamiento/autoridad de cliente. Falta registrar la ruta mediante O2-07 y demostrar el E2E; por ello la tarea no se contabiliza aún como cerrada. |
+| O2-09 | Formulario definitivo conectado. | Accesibilidad de teclado/lector, errores, doble envío, recibo y misma interfaz sin adaptador DEMO. | 🚧 | O2-09B `228df6f` obtuvo GO independiente y se integró en `764fd52`: límites exactos, i18n y cero cookies/almacenamiento/autoridad de cliente. `6fb6cc6` reproduce además las 17 pantallas de RRHH y supera 51/51 capturas locales y 272/272 pruebas del portal. Falta registrar la ruta mediante O2-07 y demostrar el E2E; por ello la tarea no se contabiliza aún como cerrada. |
 | O2-10 | E2E y aceptación de la vertical. | Navegador → API → autorización → PostgreSQL → recibo; reinicio y concurrencia; acta RRHH. | — | — |
 
 ## O3 — Análisis RRHH y retención de crédito
