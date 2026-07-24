@@ -1,6 +1,6 @@
 # Estado de la web de contratación temporal para RRHH
 
-Fecha de corte: 23 de julio de 2026.
+Fecha de corte: 24 de julio de 2026.
 
 ## Resultado
 
@@ -10,31 +10,36 @@ neutral no contiene datos sintéticos ni decide autorizaciones; el fixture y el
 adaptador volátil solo se cargan con `?presentacion=rrhh`.
 
 Este corte cubre el cuadro operativo, el alta O2-09B, cinco expedientes
-coherentes, ocho fases, diecisiete tareas, documentos y auditoría. Las acciones
+coherentes, ocho fases, dieciocho tareas, documentos y auditoría. Las acciones
 usan capacidades exactas, vuelven a validarse en el adaptador y quedan
 visiblemente deshabilitadas cuando el perfil no las posee.
 
-## Paridad funcional de las 17 tareas
+La aplicación conserva dos tareas adicionales —incorporación y seguimiento—
+que no aparecen como pantallas independientes en la referencia, pero forman
+parte del objetivo funcional aprobado. Tener más capacidad no altera el
+recorrido mínimo solicitado.
 
-| N.º | Tarea | Evidencia principal de pantalla |
+## Matriz exacta de las 17 pantallas de RRHH
+
+| N.º | Pantalla de la referencia | Vista o tarea de la aplicación |
 |---:|---|---|
-| 1 | Solicitud del centro | Petición, RC y documentos |
-| 2 | Análisis de RRHH | Modalidad, categoría, duración y RC |
-| 3 | Vía de cobertura | Bolsa, SAE, convocatoria y decisión motivada |
-| 4 | Asignación | Unidad, responsable y bandeja de trabajo |
-| 5 | Informe jurídico | Fuentes, borrador, editor y generación |
-| 6 | Envío a Intervención | Vista previa, firma y recibo de traslado |
-| 7 | Fiscalización | Modalidad, resultado, observaciones y adjuntos |
-| 8 | Subsanación | Reparos, correcciones, responsables y evidencias |
-| 9 | Inicio de llamamiento | Configuración e historial de intentos |
-| 10 | Selección | Orden de bolsa y candidatura concreta elegible |
-| 11 | Resultado | Respuesta, acta e historial minimizado |
-| 12 | Traslado | Índice documental y tarjeta minimizada |
-| 13 | Informe definitivo | Candidatura, observaciones, historial y versión |
-| 14 | Formalización | Subpasos, documentos, vista previa y firmas |
-| 15 | Incorporación | Proyección autorizada y confirmación |
-| 16 | GINPIX | Modelo canónico, resumen final e historial |
-| 17 | Seguimiento y cese | Situación, prórroga, cese, conservación y cierre |
+| 1 | Inicio y cuadro de mando | Vista `cuadro` |
+| 2 | Nueva petición de personal | Vista `alta` O2-09B |
+| 3 | Análisis de RRHH | `tarea-analisis` |
+| 4 | Gestión de bolsa y comprobaciones automáticas | `tarea-cobertura` |
+| 5 | Unidad del Departamento y bandeja de trabajo | `tarea-asignacion` |
+| 6 | Informe jurídico automático | `tarea-informe-juridico` |
+| 7 | Firma de Jefatura y envío a Intervención | `tarea-envio-intervencion` |
+| 8 | Fiscalización por Intervención | `tarea-fiscalizacion` |
+| 9 | Subsanación de reparos | `tarea-subsanacion` |
+| 10 | Llamamiento de la candidatura | `tarea-iniciar-llamamiento` |
+| 11 | Selección de candidatura de la bolsa | `tarea-seleccion-candidato` |
+| 12 | Resultado del llamamiento | `tarea-resultado-llamamiento` |
+| 13 | Traslado de la candidatura | `tarea-traslado-intervencion` |
+| 14 | Documentación para formalización | `tarea-informe-definitivo` |
+| 15 | Generación de datos para GINPIX | `tarea-ginpix` |
+| 16 | Resumen final y envío a GINPIX | `tarea-envio-ginpix` |
+| 17 | Generación documental para formalización | `tarea-formalizacion` |
 
 El cuadro añade «Mis tareas», distribución por fase y accesos rápidos. Los
 controles de tareas históricas o no autorizadas se presentan en solo lectura.
@@ -71,4 +76,3 @@ Antes de revisar conjuntamente Dietas debe repetirse el perfil Docker con sus
 artefactos OSRM/MBTiles. En esta revisión de contratación se usó un contenedor
 auxiliar sin teselas porque esos artefactos no estaban disponibles en el
 worktree; ello no afectó a estas dieciocho pantallas.
-

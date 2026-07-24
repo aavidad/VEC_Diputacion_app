@@ -520,8 +520,8 @@ const TAREAS = enriquecerTareasPresentacion([
   }),
   tarea({
     referencia: "tarea-ginpix", orden: 16, fase: "fase-incorporacion",
-    etiqueta: "Integración con GINPIX",
-    descripcion: "Modelo canónico común para API o fichero estructurado.",
+    etiqueta: "Preparación de datos para GINPIX",
+    descripcion: "Modelo canónico común para API o fichero estructurado, todavía sin transmisión.",
     estadoClave: "pendiente", estado: "Preparado", responsable: "Operación GINPIX",
     entrada: "Pendiente", tiempo: "Sin iniciar",
     paneles: [
@@ -550,15 +550,56 @@ const TAREAS = enriquecerTareasPresentacion([
         capacidad: CAP.exportarGinpix,
         confirmacion: "Se generará un artefacto DEMO sin transmisión externa.",
       }),
+    ],
+  }),
+  tarea({
+    referencia: "tarea-envio-ginpix", orden: 17, fase: "fase-incorporacion",
+    etiqueta: "Resumen final y envío a GINPIX",
+    descripcion: "Revisión final del expediente, documentos y proyección antes de transmitir.",
+    estadoClave: "pendiente", estado: "Listo para envío", responsable: "Operación GINPIX",
+    entrada: "Pendiente", tiempo: "Sin iniciar",
+    paneles: [
+      panel("panel-envio-ginpix-resumen", "datos", "Resumen del expediente", "Proyección mínima previa al envío.", {
+        campos: [
+          campo("expediente", "Expediente", "2026/CT-05487"),
+          campo("categoria", "Categoría", "Trabajador/a social"),
+          campo("modalidad", "Modalidad", "Sustitución"),
+          campo("candidatura", "Candidatura", "CAND-DEMO-001"),
+          campo("fecha_inicio", "Fecha prevista de inicio", "15/08/2026"),
+          campo("estado", "Estado", "Listo para envío", { tono: "exito" }),
+        ],
+      }),
+      panel("panel-envio-ginpix-documentos", "tabla", "Documentación generada", "Índice y estado de las piezas necesarias.", {
+        columnas: [
+          columna("documento", "Documento"),
+          columna("estado", "Estado"),
+          columna("firma", "Firma"),
+        ],
+        filas: [
+          fila("fila-envio-ginpix-001", ["Informe definitivo", "Generado", "Firmado"]),
+          fila("fila-envio-ginpix-002", ["Resolución de nombramiento", "Generada", "Firmada"]),
+          fila("fila-envio-ginpix-003", ["Toma de posesión", "Generada", "Pendiente"]),
+          fila("fila-envio-ginpix-004", ["Ficha estructurada GINPIX", "Generada", "No requiere firma"]),
+        ],
+      }),
+      panel("panel-envio-ginpix-estado", "comprobaciones", "Envío a GINPIX", "La presentación no contacta con el sistema corporativo.", {
+        campos: [
+          campo("validacion", "Validación del modelo", "Correcta", { tono: "exito" }),
+          campo("artefacto", "Artefacto preparado", "Ficha estructurada DEMO", { tono: "exito" }),
+          campo("transmision", "Transmisión", "No realizada en presentación", { tono: "aviso" }),
+          campo("acuse", "Acuse externo", "Pendiente"),
+        ],
+      }),
+    ],
+    acciones: [
       accion("enviar_ginpix", "Enviar a GINPIX", {
-        variante: "secundaria",
         capacidad: CAP.enviarGinpix,
         confirmacion: "En presentación no se contactará con GINPIX; se emitirá solo un recibo sintético.",
       }),
     ],
   }),
   tarea({
-    referencia: "tarea-seguimiento", orden: 17, fase: "fase-seguimiento",
+    referencia: "tarea-seguimiento", orden: 18, fase: "fase-seguimiento",
     etiqueta: "Seguimiento y cese",
     descripcion: "Prórrogas, incidencias, cese, conservación y cierre administrativo.",
     estadoClave: "pendiente", estado: "Pendiente de incorporación", responsable: "Servicio de Personal",

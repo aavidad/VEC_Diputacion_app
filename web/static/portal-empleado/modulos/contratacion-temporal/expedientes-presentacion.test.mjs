@@ -81,7 +81,7 @@ test("los cuatro contratos rechazan extras, duplicados, cruces y valores no can�
   const documentos = crearDocumentosContratacionTemporalPresentacion();
   const auditoria = crearAuditoriaContratacionTemporalPresentacion();
   assert.equal(validarCuadroContratacionTemporal(cuadro).expedientes.length, 5);
-  assert.equal(validarExpedienteContratacionTemporal(expediente).tareas.length, 17);
+  assert.equal(validarExpedienteContratacionTemporal(expediente).tareas.length, 18);
   assert.equal(validarDocumentosContratacionTemporal(documentos).documentos.length, 7);
   assert.equal(validarAuditoriaContratacionTemporal(auditoria).actuaciones.length, 8);
   assert.throws(() => validarCuadroContratacionTemporal({ ...cuadro, secreto: "x" }), /cerrado/);
@@ -393,7 +393,7 @@ test("HTML escapa contenido, bloquea históricos y expone semántica accesible",
   assert.match(htmlComponente, /<nav class="ct-exp-tareas" aria-label=/);
 });
 
-test("las diecisiete tareas cubren uno a uno los hitos funcionales de RRHH", () => {
+test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {
   const expediente = validarExpedienteContratacionTemporal(
     crearExpedienteContratacionTemporalPresentacion(),
   );
@@ -414,6 +414,7 @@ test("las diecisiete tareas cubren uno a uno los hitos funcionales de RRHH", () 
     ["tarea-formalizacion", "Subpasos de formalización"],
     ["tarea-incorporacion", "Proyección autorizada para incorporación"],
     ["tarea-ginpix", "Historial GINPIX"],
+    ["tarea-envio-ginpix", "Envío a GINPIX"],
     ["tarea-seguimiento", "Histórico de relación, prórroga y cese"],
   ];
   assert.equal(expediente.tareas.length, matriz.length);
