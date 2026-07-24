@@ -3,6 +3,7 @@
 package contrataciontemporal
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"reflect"
@@ -109,10 +110,31 @@ func (e *ErrorDependenciasAltaFaltantes) Falta(
 // NuevaAPIAlta construye una lista positiva con una única ruta. PostgreSQL
 // estabiliza la candidatura y confirma el agregado con la misma identidad de
 // ejecución, pero ambos adaptadores siguen separados por puertos.
-func NuevaAPIAlta(dependencias DependenciasAlta) (http.Handler, error) {
+func NuevaAPIAlta(
+	ctx context.Context,
+	dependencias DependenciasAlta,
+) (http.Handler, error) {
+	if ctx == nil {
+		return nil, ErrComposicionAltaNoDisponible
+	}
 	if faltantes := dependencias.faltantes(); len(faltantes) != 0 {
 		return nil, &ErrorDependenciasAltaFaltantes{faltantes: faltantes}
 	}
+	if err := adaptadorpostgres.AcreditarPoolAltasPostgreSQL(
+		ctx,
+		dependencias.PoolAltas,
+	); err != nil {
+		return nil, ErrComposicionAltaNoDisponible
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return nuevaAPIAltaAcreditada(dependencias)
+}
+
+func nuevaAPIAltaAcreditada(
+	dependencias DependenciasAlta,
+) (http.Handler, error) {
 	candidaturas, err :=
 		adaptadorpostgres.NuevoResolutorCandidaturaAltaPostgreSQL(
 			dependencias.PoolAltas,

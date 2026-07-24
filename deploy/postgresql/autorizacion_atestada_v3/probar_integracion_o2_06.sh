@@ -220,6 +220,21 @@ docker exec \
     -test.run '^TestConfirmacionAltaPostgreSQL18Real$' \
     -test.count=1 -test.v
 
+if [[ "${VEC_EJECUTAR_O207:-}" == '1' ]]; then
+    paso 'composición O2-07 y acreditación del pool contra PostgreSQL 18'
+    CGO_ENABLED=0 go test -tags=o207postgresql -c \
+        ./internal/app/composicion/contrataciontemporal \
+        -o "${directorio_temporal}/o207-postgresql.test"
+    docker cp "${directorio_temporal}/o207-postgresql.test" \
+        "${contenedor}:/tmp/o207-postgresql.test"
+    docker exec \
+        --env 'VEC_O207_DSN_ADMIN=user=postgres database=postgres host=/var/run/postgresql sslmode=disable' \
+        --env 'VEC_O207_DSN_RUNTIME=user=vec_ct_o206_runtime database=postgres host=/var/run/postgresql sslmode=disable' \
+        "${contenedor}" /tmp/o207-postgresql.test \
+        -test.run '^TestComposicionAltaPostgreSQL18Real$' \
+        -test.count=1 -test.v
+fi
+
 paso 'retirada protegida ante candidaturas técnicas no confirmadas'
 esperar_fallo 'down sin consentimiento destructivo explícito' \
     archivo vec_ct_o206_migrador \

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -147,7 +148,7 @@ func dependenciasCompletasPrueba(t *testing.T) DependenciasAlta {
 }
 
 func TestNuevaAPIAltaEnumeraTodasLasDependenciasAusentes(t *testing.T) {
-	api, err := NuevaAPIAlta(DependenciasAlta{})
+	api, err := NuevaAPIAlta(context.Background(), DependenciasAlta{})
 	if api != nil || !errors.Is(err, ErrComposicionAltaNoDisponible) {
 		t.Fatalf("composición vacía = (%T, %v)", api, err)
 	}
@@ -189,7 +190,7 @@ func TestNuevaAPIAltaRechazaCadaDependenciaAusente(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			dependencias := dependenciasCompletasPrueba(t)
 			caso.desactivar(&dependencias)
-			api, err := NuevaAPIAlta(dependencias)
+			api, err := NuevaAPIAlta(context.Background(), dependencias)
 			var faltantes *ErrorDependenciasAltaFaltantes
 			if api != nil || !errors.As(err, &faltantes) ||
 				!reflect.DeepEqual(
@@ -206,7 +207,7 @@ func TestNuevaAPIAltaRechazaInterfazConPunteroNulo(t *testing.T) {
 	dependencias := dependenciasCompletasPrueba(t)
 	var autoridadNula *dependenciasInertes
 	dependencias.AutoridadCanal = autoridadNula
-	api, err := NuevaAPIAlta(dependencias)
+	api, err := NuevaAPIAlta(context.Background(), dependencias)
 	var faltantes *ErrorDependenciasAltaFaltantes
 	if api != nil || !errors.As(err, &faltantes) ||
 		!reflect.DeepEqual(
@@ -217,8 +218,21 @@ func TestNuevaAPIAltaRechazaInterfazConPunteroNulo(t *testing.T) {
 	}
 }
 
+func TestNuevaAPIAltaAcreditaPostgreSQLRealYFallaCerrado(t *testing.T) {
+	dependencias := dependenciasCompletasPrueba(t)
+	api, err := NuevaAPIAlta(context.Background(), dependencias)
+	if api != nil || !errors.Is(err, ErrComposicionAltaNoDisponible) ||
+		strings.Contains(err.Error(), "127.0.0.1") {
+		t.Fatalf("PostgreSQL inalcanzable aceptado = (%T, %v)", api, err)
+	}
+	if api, err := NuevaAPIAlta(nil, dependencias); api != nil ||
+		!errors.Is(err, ErrComposicionAltaNoDisponible) {
+		t.Fatalf("contexto nulo aceptado = (%T, %v)", api, err)
+	}
+}
+
 func TestNuevaAPIAltaRegistraSoloLaRutaExacta(t *testing.T) {
-	api, err := NuevaAPIAlta(dependenciasCompletasPrueba(t))
+	api, err := nuevaAPIAltaAcreditada(dependenciasCompletasPrueba(t))
 	if err != nil {
 		t.Fatal(err)
 	}
