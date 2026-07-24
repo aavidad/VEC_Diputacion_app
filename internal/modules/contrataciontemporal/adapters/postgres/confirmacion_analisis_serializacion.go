@@ -59,11 +59,21 @@ type fuenteConfirmarAnalisisV1 struct {
 	AutoridadRef          string                            `json:"autoridad_ref"`
 	Generacion            uint32                            `json:"generacion"`
 	ReciboRespuestaRef    string                            `json:"recibo_respuesta_ref"`
+	SelloRespuestaHMAC    string                            `json:"sello_respuesta_hmac"`
 	VerificadorRef        string                            `json:"verificador_ref"`
 	MaterialHuellaSHA256  string                            `json:"material_huella_sha256"`
 	EmitidaEn             time.Time                         `json:"emitida_en"`
 	ValidaHasta           time.Time                         `json:"valida_hasta"`
 	VerificadaEn          time.Time                         `json:"verificada_en"`
+	Publicacion           *publicacionFuenteAnalisisV1      `json:"publicacion"`
+}
+
+type publicacionFuenteAnalisisV1 struct {
+	PublicadorRef         string    `json:"publicador_ref"`
+	PublicacionRef        string    `json:"publicacion_ref"`
+	ReciboVerificacionRef string    `json:"recibo_verificacion_ref"`
+	HuellaSolicitudSHA256 string    `json:"huella_solicitud_sha256"`
+	VerificadaEn          time.Time `json:"verificada_en"`
 }
 
 type autorizacionAnalisisV1 struct {
@@ -87,6 +97,9 @@ type politicaConfirmarAnalisisV1 struct {
 	HuellaSHA256       string `json:"huella_sha256"`
 	Accion             string `json:"accion"`
 	Finalidad          string `json:"finalidad"`
+	FasePrevia         string `json:"fase_previa"`
+	EstadoPrevio       string `json:"estado_previo"`
+	UnidadRef          string `json:"unidad_ref"`
 	ExigeActorDistinto bool   `json:"exige_actor_distinto"`
 }
 
@@ -142,6 +155,9 @@ func nuevaOperacionConfirmarAnalisis(
 			HuellaSHA256:       evidencia.Politica.HuellaSHA256,
 			Accion:             string(evidencia.Politica.Accion),
 			Finalidad:          string(evidencia.Politica.Finalidad),
+			FasePrevia:         string(evidencia.Politica.FasePrevia),
+			EstadoPrevio:       string(evidencia.Politica.EstadoPrevio),
+			UnidadRef:          evidencia.Politica.UnidadRef,
 			ExigeActorDistinto: evidencia.Politica.ExigeActorDistinto,
 		},
 	}, nil
@@ -184,18 +200,34 @@ func nuevaFuenteConfirmarAnalisis(
 		return fuenteConfirmarAnalisisV1{},
 			ports.ErrOrdenOperacionAnalisisInvalida
 	}
-	return fuenteConfirmarAnalisisV1{
+	fuente := fuenteConfirmarAnalisisV1{
 		Tipo: datos.Tipo, PeticionRef: datos.PeticionRef,
 		RespuestaHuellaSHA256: datos.HuellaRespuestaSHA256,
 		AutoridadRef:          datos.Atestacion.Metadatos.AutoridadRef,
 		Generacion:            datos.Atestacion.Metadatos.Generacion,
 		ReciboRespuestaRef:    datos.Atestacion.Metadatos.ReciboRef,
+		SelloRespuestaHMAC:    confirmacion.SelloRespuestaHMAC,
 		VerificadorRef:        confirmacion.VerificadorRef,
 		MaterialHuellaSHA256:  confirmacion.HuellaMaterialSHA256,
 		EmitidaEn:             confirmacion.EmitidaEn,
 		ValidaHasta:           confirmacion.ValidaHasta,
 		VerificadaEn:          confirmacion.VerificadaEn,
-	}, nil
+	}
+	if datos.ConfirmacionPublicacion != nil {
+		publicacion, errPublicacion := datos.ConfirmacionPublicacion.Datos()
+		if errPublicacion != nil {
+			return fuenteConfirmarAnalisisV1{},
+				ports.ErrOrdenOperacionAnalisisInvalida
+		}
+		fuente.Publicacion = &publicacionFuenteAnalisisV1{
+			PublicadorRef:         publicacion.PublicadorRef,
+			PublicacionRef:        publicacion.PublicacionRef,
+			ReciboVerificacionRef: publicacion.ReciboVerificacionRef,
+			HuellaSolicitudSHA256: publicacion.HuellaSolicitudSHA256,
+			VerificadaEn:          publicacion.VerificadaEn,
+		}
+	}
+	return fuente, nil
 }
 
 func nuevaAutorizacionConfirmarAnalisis(
