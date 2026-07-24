@@ -249,6 +249,112 @@ func TestRepresentacionCanonicaFlujoFirmaLigaNonceAEAD(t *testing.T) {
 	}
 }
 
+func TestReglaComunFlujoFirmaReconciliaYProtegeHistoria(t *testing.T) {
+	inicial := expedienteInicialFlujoFirmaPuertosPrueba(t, "flujo-firma-regla-001", 0x31)
+	reintento := expedienteInicialFlujoFirmaPuertosPrueba(t, "flujo-firma-regla-002", 0x32)
+	reintento.IndiceIdempotenciaHMAC = inicial.IndiceIdempotenciaHMAC
+	reintento.HuellaSolicitudHMAC = inicial.HuellaSolicitudHMAC
+	reintento.VinculoActorHMAC = inicial.VinculoActorHMAC
+	reintento.PerfilActorClave = inicial.PerfilActorClave
+	reintento.ProcesoRef = inicial.ProcesoRef
+	reintento.SolicitudRef = inicial.SolicitudRef
+	reintento.BaremacionMeritoRef = inicial.BaremacionMeritoRef
+	reintento.DecisionRef = inicial.DecisionRef
+	if !MismaSolicitudInicialFlujoFirmaBaremacion(inicial, reintento) {
+		t.Fatal("el reintento semántico dependió de referencia, nonce o instante aleatorios")
+	}
+	reintento.DecisionRef = "decision-firma-ajena"
+	if MismaSolicitudInicialFlujoFirmaBaremacion(inicial, reintento) {
+		t.Fatal("la reconciliación aceptó una decisión distinta")
+	}
+
+	declarada, err := inicial.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	declarada.Version = 2
+	declarada.ActualizadoEn = inicial.ActualizadoEn.Add(time.Second)
+	declarada.PuntosControl = append(declarada.PuntosControl, PuntoControlFirmaBaremacion{
+		Paso:                  PasoPrepararFirmaBaremacion,
+		Estado:                EstadoPuntoControlFirmaDeclarado,
+		EfectoRef:             "efecto-preparar-firma-001",
+		ClaveIdempotenciaHMAC: hmacFlujoFirmaPuertosPrueba("5"),
+		DeclaradoEn:           declarada.ActualizadoEn,
+	})
+	declarada.SelloEstadoHMAC = hmacFlujoFirmaPuertosPrueba("6")
+	if err := declarada.Validar(); err != nil {
+		t.Fatalf("fixture de transición inválido: %v", err)
+	}
+	if err := ValidarTransicionFlujoFirmaBaremacion(inicial, declarada); err != nil {
+		t.Fatalf("la regla común rechazó una declaración válida: %v", err)
+	}
+
+	for nombre, alterar := range map[string]func(*ExpedienteFlujoFirmaBaremacion){
+		"actor": func(e *ExpedienteFlujoFirmaBaremacion) {
+			e.VinculoActorHMAC = hmacFlujoFirmaPuertosPrueba("7")
+		},
+		"creación": func(e *ExpedienteFlujoFirmaBaremacion) {
+			e.CreadoEn = e.CreadoEn.Add(time.Nanosecond)
+		},
+		"salto de versión": func(e *ExpedienteFlujoFirmaBaremacion) {
+			e.Version = 3
+		},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			alterada, err := declarada.Clonar()
+			if err != nil {
+				t.Fatal(err)
+			}
+			alterar(&alterada)
+			alterada.SelloEstadoHMAC = hmacFlujoFirmaPuertosPrueba("8")
+			if err := ValidarTransicionFlujoFirmaBaremacion(inicial, alterada); !errors.Is(
+				err,
+				ErrEstadoFlujoFirmaAlterado,
+			) {
+				t.Fatalf("mutación histórica aceptada: %v", err)
+			}
+		})
+	}
+}
+
+func expedienteInicialFlujoFirmaPuertosPrueba(
+	t *testing.T,
+	flujoRef string,
+	byteCifrado byte,
+) ExpedienteFlujoFirmaBaremacion {
+	t.Helper()
+	estado, err := NuevoEstadoProtegidoFlujoFirmaBaremacion(
+		AlgoritmoProteccionEstadoAES256GCM,
+		"clave-estado-flujo-firma-regla-v1",
+		bytes.Repeat([]byte{byteCifrado}, 12),
+		bytes.Repeat([]byte{byteCifrado + 1}, 32),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instante := time.Date(2026, time.July, 24, 20, 0, 0, 0, time.UTC)
+	expediente := ExpedienteFlujoFirmaBaremacion{
+		FlujoRef: flujoRef, Version: 1,
+		IndiceIdempotenciaHMAC: hmacFlujoFirmaPuertosPrueba("1"),
+		HuellaSolicitudHMAC:    hmacFlujoFirmaPuertosPrueba("2"),
+		VinculoActorHMAC:       hmacFlujoFirmaPuertosPrueba("3"),
+		PerfilActorClave:       "tecnico_rrhh",
+		ProcesoRef:             "proceso-firma-regla-001",
+		SolicitudRef:           "solicitud-firma-regla-001",
+		BaremacionMeritoRef:    "baremacion-firma-regla-001",
+		DecisionRef:            "decision-firma-regla-001",
+		Estado:                 EstadoExpedienteFirmaPreparando,
+		EstadoProtegido:        estado,
+		CreadoEn:               instante,
+		ActualizadoEn:          instante,
+		SelloEstadoHMAC:        hmacFlujoFirmaPuertosPrueba("4"),
+	}
+	if err := expediente.Validar(); err != nil {
+		t.Fatalf("expediente inicial inválido: %v", err)
+	}
+	return expediente
+}
+
 func hmacFlujoFirmaPuertosPrueba(caracter string) string {
 	return "hmac-sha256:flujo_firma_prueba_v1:" + strings.Repeat(caracter, 64)
 }

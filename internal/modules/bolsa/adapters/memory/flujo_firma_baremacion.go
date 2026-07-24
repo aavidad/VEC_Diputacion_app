@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -10,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"reflect"
 	"sync"
 	"time"
 
@@ -138,7 +136,10 @@ func (r *RepositorioFlujosFirmaBaremacion) CrearORecuperarFlujoFirmaBaremacion(
 	}
 	if referencia, existe := r.referenciaPorIndice[solicitud.Expediente.IndiceIdempotenciaHMAC]; existe {
 		existente := r.porReferencia[referencia]
-		if !mismaSolicitudInicialFlujoFirma(existente, solicitud.Expediente) {
+		if !puertosbolsa.MismaSolicitudInicialFlujoFirmaBaremacion(
+			existente,
+			solicitud.Expediente,
+		) {
 			return puertosbolsa.ResultadoCrearORecuperarFlujoFirmaBaremacion{}, puertosbolsa.ErrClaveFlujoFirmaBaremacionReutilizada
 		}
 		clon, err := existente.Clonar()
@@ -292,7 +293,10 @@ func (r *RepositorioFlujosFirmaBaremacion) GuardarFlujoFirmaBaremacion(
 		!vigente.expiraEn.Equal(solicitud.Arrendamiento.ExpiraEn) || errorToken != nil || !tokenCoincide {
 		return puertosbolsa.ExpedienteFlujoFirmaBaremacion{}, puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
 	}
-	if !transicionFlujoFirmaValida(actual, solicitud.Siguiente) || solicitud.Siguiente.ActualizadoEn.After(ahora) {
+	if puertosbolsa.ValidarTransicionFlujoFirmaBaremacion(
+		actual,
+		solicitud.Siguiente,
+	) != nil || solicitud.Siguiente.ActualizadoEn.After(ahora) {
 		return puertosbolsa.ExpedienteFlujoFirmaBaremacion{}, puertosbolsa.ErrEstadoFlujoFirmaAlterado
 	}
 	clon, err := solicitud.Siguiente.Clonar()
@@ -364,87 +368,6 @@ func (r *RepositorioFlujosFirmaBaremacion) verificarExpediente(
 		return puertosbolsa.ErrEstadoFlujoFirmaAlterado
 	}
 	return nil
-}
-
-func mismaSolicitudInicialFlujoFirma(
-	a, b puertosbolsa.ExpedienteFlujoFirmaBaremacion,
-) bool {
-	return a.IndiceIdempotenciaHMAC == b.IndiceIdempotenciaHMAC &&
-		a.HuellaSolicitudHMAC == b.HuellaSolicitudHMAC && a.VinculoActorHMAC == b.VinculoActorHMAC &&
-		a.PerfilActorClave == b.PerfilActorClave && a.ProcesoRef == b.ProcesoRef &&
-		a.SolicitudRef == b.SolicitudRef && a.BaremacionMeritoRef == b.BaremacionMeritoRef &&
-		a.DecisionRef == b.DecisionRef
-}
-
-func transicionFlujoFirmaValida(
-	anterior, siguiente puertosbolsa.ExpedienteFlujoFirmaBaremacion,
-) bool {
-	if anterior.Validar() != nil || siguiente.Validar() != nil ||
-		anterior.FlujoRef != siguiente.FlujoRef || siguiente.Version != anterior.Version+1 ||
-		anterior.IndiceIdempotenciaHMAC != siguiente.IndiceIdempotenciaHMAC ||
-		anterior.HuellaSolicitudHMAC != siguiente.HuellaSolicitudHMAC ||
-		anterior.VinculoActorHMAC != siguiente.VinculoActorHMAC ||
-		anterior.PerfilActorClave != siguiente.PerfilActorClave ||
-		anterior.ProcesoRef != siguiente.ProcesoRef || anterior.SolicitudRef != siguiente.SolicitudRef ||
-		anterior.BaremacionMeritoRef != siguiente.BaremacionMeritoRef || anterior.DecisionRef != siguiente.DecisionRef ||
-		!anterior.CreadoEn.Equal(siguiente.CreadoEn) || siguiente.ActualizadoEn.Before(anterior.ActualizadoEn) {
-		return false
-	}
-	if len(siguiente.PuntosControl) == len(anterior.PuntosControl)+1 {
-		if !puntosControlFirmaIguales(anterior.PuntosControl, siguiente.PuntosControl[:len(anterior.PuntosControl)]) ||
-			siguiente.PuntosControl[len(siguiente.PuntosControl)-1].Estado != puertosbolsa.EstadoPuntoControlFirmaDeclarado ||
-			!estadosProtegidosIguales(anterior.EstadoProtegido, siguiente.EstadoProtegido) ||
-			!reflect.DeepEqual(anterior.ProyeccionLanzamiento, siguiente.ProyeccionLanzamiento) ||
-			!reflect.DeepEqual(anterior.Resultado, siguiente.Resultado) {
-			return false
-		}
-		return true
-	}
-	if len(siguiente.PuntosControl) != len(anterior.PuntosControl) || len(anterior.PuntosControl) == 0 ||
-		!puntosControlFirmaIguales(anterior.PuntosControl[:len(anterior.PuntosControl)-1], siguiente.PuntosControl[:len(siguiente.PuntosControl)-1]) {
-		return false
-	}
-	a := anterior.PuntosControl[len(anterior.PuntosControl)-1]
-	b := siguiente.PuntosControl[len(siguiente.PuntosControl)-1]
-	if a.Estado != puertosbolsa.EstadoPuntoControlFirmaDeclarado ||
-		b.Estado != puertosbolsa.EstadoPuntoControlFirmaCompletado || a.Paso != b.Paso ||
-		a.EfectoRef != b.EfectoRef || a.ClaveIdempotenciaHMAC != b.ClaveIdempotenciaHMAC ||
-		!a.DeclaradoEn.Equal(b.DeclaradoEn) {
-		return false
-	}
-	switch b.Paso {
-	case puertosbolsa.PasoPrepararFirmaBaremacion:
-		return anterior.ProyeccionLanzamiento == nil && siguiente.ProyeccionLanzamiento != nil &&
-			anterior.Resultado == nil && siguiente.Resultado == nil
-	case puertosbolsa.PasoConfirmarFirmaBaremacion:
-		return reflect.DeepEqual(anterior.ProyeccionLanzamiento, siguiente.ProyeccionLanzamiento) &&
-			anterior.Resultado == nil && siguiente.Resultado != nil
-	default:
-		return reflect.DeepEqual(anterior.ProyeccionLanzamiento, siguiente.ProyeccionLanzamiento) &&
-			reflect.DeepEqual(anterior.Resultado, siguiente.Resultado)
-	}
-}
-
-func puntosControlFirmaIguales(a, b []puertosbolsa.PuntoControlFirmaBaremacion) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for indice := range a {
-		if !reflect.DeepEqual(a[indice], b[indice]) {
-			return false
-		}
-	}
-	return true
-}
-
-func estadosProtegidosIguales(
-	a, b puertosbolsa.EstadoProtegidoFlujoFirmaBaremacion,
-) bool {
-	da, errA := a.DatosPersistencia()
-	db, errB := b.DatosPersistencia()
-	return errA == nil && errB == nil && da.Esquema == db.Esquema && da.Algoritmo == db.Algoritmo &&
-		da.ClaveRef == db.ClaveRef && da.HuellaSHA256 == db.HuellaSHA256 &&
-		bytes.Equal(da.Nonce, db.Nonce) && bytes.Equal(da.Cifrado, db.Cifrado)
 }
 
 // ProtectorEstadoFlujoFirmaBaremacion usa AES-256-GCM con AAD de esquema y

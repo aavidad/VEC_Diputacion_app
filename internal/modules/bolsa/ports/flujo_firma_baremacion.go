@@ -1,12 +1,14 @@
 package ports
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"strconv"
 	"time"
 )
@@ -549,6 +551,142 @@ type RepositorioFlujosFirmaBaremacion interface {
 	AdquirirArrendamientoFlujoFirmaBaremacion(context.Context, SolicitudAdquirirArrendamientoFlujoFirmaBaremacion) (ResultadoAdquirirArrendamientoFlujoFirmaBaremacion, error)
 	GuardarFlujoFirmaBaremacion(context.Context, SolicitudGuardarFlujoFirmaBaremacion) (ExpedienteFlujoFirmaBaremacion, error)
 	LiberarArrendamientoFlujoFirmaBaremacion(context.Context, SolicitudLiberarArrendamientoFlujoFirmaBaremacion) error
+}
+
+// MismaSolicitudInicialFlujoFirmaBaremacion permite reconciliar una respuesta
+// perdida sin exigir que el segundo intento repita la referencia aleatoria, el
+// nonce AEAD o el instante del primer intento. Sí liga todos los identificadores
+// funcionales y las derivaciones HMAC que definen la intención.
+func MismaSolicitudInicialFlujoFirmaBaremacion(
+	primera, segunda ExpedienteFlujoFirmaBaremacion,
+) bool {
+	return primera.Validar() == nil && segunda.Validar() == nil &&
+		primera.Version == 1 && segunda.Version == 1 &&
+		len(primera.PuntosControl) == 0 && len(segunda.PuntosControl) == 0 &&
+		primera.Estado == EstadoExpedienteFirmaPreparando &&
+		segunda.Estado == EstadoExpedienteFirmaPreparando &&
+		primera.IndiceIdempotenciaHMAC == segunda.IndiceIdempotenciaHMAC &&
+		primera.HuellaSolicitudHMAC == segunda.HuellaSolicitudHMAC &&
+		primera.VinculoActorHMAC == segunda.VinculoActorHMAC &&
+		primera.PerfilActorClave == segunda.PerfilActorClave &&
+		primera.ProcesoRef == segunda.ProcesoRef &&
+		primera.SolicitudRef == segunda.SolicitudRef &&
+		primera.BaremacionMeritoRef == segunda.BaremacionMeritoRef &&
+		primera.DecisionRef == segunda.DecisionRef
+}
+
+// ValidarTransicionFlujoFirmaBaremacion es la única matriz de evolución del
+// expediente durable. Una versión declara el siguiente efecto o completa el
+// último efecto declarado; nunca puede reescribir historia, identidad,
+// idempotencia ni resultados ya confirmados.
+func ValidarTransicionFlujoFirmaBaremacion(
+	anterior, siguiente ExpedienteFlujoFirmaBaremacion,
+) error {
+	if anterior.Validar() != nil || siguiente.Validar() != nil ||
+		anterior.FlujoRef != siguiente.FlujoRef ||
+		siguiente.Version != anterior.Version+1 ||
+		anterior.IndiceIdempotenciaHMAC != siguiente.IndiceIdempotenciaHMAC ||
+		anterior.HuellaSolicitudHMAC != siguiente.HuellaSolicitudHMAC ||
+		anterior.VinculoActorHMAC != siguiente.VinculoActorHMAC ||
+		anterior.PerfilActorClave != siguiente.PerfilActorClave ||
+		anterior.ProcesoRef != siguiente.ProcesoRef ||
+		anterior.SolicitudRef != siguiente.SolicitudRef ||
+		anterior.BaremacionMeritoRef != siguiente.BaremacionMeritoRef ||
+		anterior.DecisionRef != siguiente.DecisionRef ||
+		!anterior.CreadoEn.Equal(siguiente.CreadoEn) ||
+		siguiente.ActualizadoEn.Before(anterior.ActualizadoEn) {
+		return ErrEstadoFlujoFirmaAlterado
+	}
+	if len(siguiente.PuntosControl) == len(anterior.PuntosControl)+1 {
+		if !puntosControlFlujoFirmaIguales(
+			anterior.PuntosControl,
+			siguiente.PuntosControl[:len(anterior.PuntosControl)],
+		) ||
+			siguiente.PuntosControl[len(siguiente.PuntosControl)-1].Estado !=
+				EstadoPuntoControlFirmaDeclarado ||
+			!estadosProtegidosFlujoFirmaIguales(
+				anterior.EstadoProtegido,
+				siguiente.EstadoProtegido,
+			) ||
+			!reflect.DeepEqual(
+				anterior.ProyeccionLanzamiento,
+				siguiente.ProyeccionLanzamiento,
+			) ||
+			!reflect.DeepEqual(anterior.Resultado, siguiente.Resultado) {
+			return ErrEstadoFlujoFirmaAlterado
+		}
+		return nil
+	}
+	if len(siguiente.PuntosControl) != len(anterior.PuntosControl) ||
+		len(anterior.PuntosControl) == 0 ||
+		!puntosControlFlujoFirmaIguales(
+			anterior.PuntosControl[:len(anterior.PuntosControl)-1],
+			siguiente.PuntosControl[:len(siguiente.PuntosControl)-1],
+		) {
+		return ErrEstadoFlujoFirmaAlterado
+	}
+	puntoAnterior := anterior.PuntosControl[len(anterior.PuntosControl)-1]
+	puntoSiguiente := siguiente.PuntosControl[len(siguiente.PuntosControl)-1]
+	if puntoAnterior.Estado != EstadoPuntoControlFirmaDeclarado ||
+		puntoSiguiente.Estado != EstadoPuntoControlFirmaCompletado ||
+		puntoAnterior.Paso != puntoSiguiente.Paso ||
+		puntoAnterior.EfectoRef != puntoSiguiente.EfectoRef ||
+		puntoAnterior.ClaveIdempotenciaHMAC !=
+			puntoSiguiente.ClaveIdempotenciaHMAC ||
+		!puntoAnterior.DeclaradoEn.Equal(puntoSiguiente.DeclaradoEn) {
+		return ErrEstadoFlujoFirmaAlterado
+	}
+	switch puntoSiguiente.Paso {
+	case PasoPrepararFirmaBaremacion:
+		if anterior.ProyeccionLanzamiento == nil &&
+			siguiente.ProyeccionLanzamiento != nil &&
+			anterior.Resultado == nil && siguiente.Resultado == nil {
+			return nil
+		}
+	case PasoConfirmarFirmaBaremacion:
+		if reflect.DeepEqual(
+			anterior.ProyeccionLanzamiento,
+			siguiente.ProyeccionLanzamiento,
+		) && anterior.Resultado == nil && siguiente.Resultado != nil {
+			return nil
+		}
+	default:
+		if reflect.DeepEqual(
+			anterior.ProyeccionLanzamiento,
+			siguiente.ProyeccionLanzamiento,
+		) && reflect.DeepEqual(anterior.Resultado, siguiente.Resultado) {
+			return nil
+		}
+	}
+	return ErrEstadoFlujoFirmaAlterado
+}
+
+func puntosControlFlujoFirmaIguales(
+	primero, segundo []PuntoControlFirmaBaremacion,
+) bool {
+	if len(primero) != len(segundo) {
+		return false
+	}
+	for indice := range primero {
+		if !reflect.DeepEqual(primero[indice], segundo[indice]) {
+			return false
+		}
+	}
+	return true
+}
+
+func estadosProtegidosFlujoFirmaIguales(
+	primero, segundo EstadoProtegidoFlujoFirmaBaremacion,
+) bool {
+	datosPrimero, errPrimero := primero.DatosPersistencia()
+	datosSegundo, errSegundo := segundo.DatosPersistencia()
+	return errPrimero == nil && errSegundo == nil &&
+		datosPrimero.Esquema == datosSegundo.Esquema &&
+		datosPrimero.Algoritmo == datosSegundo.Algoritmo &&
+		datosPrimero.ClaveRef == datosSegundo.ClaveRef &&
+		datosPrimero.HuellaSHA256 == datosSegundo.HuellaSHA256 &&
+		bytes.Equal(datosPrimero.Nonce, datosSegundo.Nonce) &&
+		bytes.Equal(datosPrimero.Cifrado, datosSegundo.Cifrado)
 }
 
 // SolicitudEjecutarPasoFirmaBaremacion porta un estado de trabajo en claro
