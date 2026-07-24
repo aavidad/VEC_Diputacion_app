@@ -105,6 +105,13 @@ type DerivadorHuellaAsignacion interface {
 	) (ColeccionSellosHMAC, error)
 }
 
+type SelladorAmbitoAsignacion interface {
+	SellarAmbitoAsignacion(
+		context.Context,
+		SolicitudSellarAmbitoIdempotencia,
+	) (ColeccionSellosHMAC, error)
+}
+
 type SolicitudPrepararAsignacion struct {
 	ClaveIdempotencia   string
 	AmbitosHMAC         ColeccionSellosHMAC
@@ -287,6 +294,21 @@ func (r ReciboAsignacion) ValidarParaPreparacion(
 			preparacion.HuellaPeticionHMAC,
 		) ||
 		!domain.InstanteUTCCanonico(r.ConfirmadaEn) {
+		return ErrResultadoAsignacionNoConfiable
+	}
+	return nil
+}
+
+func (r ReciboAsignacion) ValidarParaOrden(
+	orden OrdenConfirmarAsignacion,
+) error {
+	evidencia, err := orden.Datos()
+	confirmacion, errConfirmacion := evidencia.ConfirmacionV3.Datos()
+	if err != nil || errConfirmacion != nil ||
+		r.ValidarParaPreparacion(evidencia.Preparacion) != nil ||
+		r.ConcesionV3DecisionRef != confirmacion.DecisionRef ||
+		r.ConfirmadaEn.Before(evidencia.InstanteEfecto) ||
+		orden.ValidarDentroDeTransaccion(r.ConfirmadaEn) != nil {
 		return ErrResultadoAsignacionNoConfiable
 	}
 	return nil
