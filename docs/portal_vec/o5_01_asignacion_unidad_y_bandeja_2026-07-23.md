@@ -2,9 +2,10 @@
 
 Fecha: 23 de julio de 2026.
 
-Estado: primer corte de dominio en `f4d8c98`–`6abe2b9`, probado localmente y
-pendiente de caso de uso y revisión independiente. No está integrado ni
-habilita producción.
+Estado: corrección candidata de dominio en `0be5600`, probada localmente y
+pendiente de caso de uso y revisión independiente. El corte original recibió
+`NO-GO` porque no ligaba el contenido de la asignación a su actuación. No está
+integrado ni habilita producción.
 
 ## Resultado funcional
 
@@ -78,6 +79,8 @@ persistencia, entrega de mensajes ni autorización productiva.
 El agregado ya:
 
 - registra una primera asignación y liga su proyección a la actuación exacta;
+- liga unidad, responsable, notificación y motivo catalogado al vínculo de la
+  actuación;
 - reasigna con CAS, motivo no vacío, instante posterior y nuevo destino;
 - impide reutilizar la referencia de notificación;
 - impide cambiar fase o estado de forma implícita;
@@ -85,8 +88,11 @@ El agregado ya:
 - rechaza al rehidratar una asignación ligada a otro recibo o instante.
 
 La ligadura contiene secuencia, versión, acción, fase y recibo. La asignación
-conserva unidad, responsable, notificación, instante y motivo. El agregado
-cruza ambos contenidos antes de considerarse válido.
+conserva unidad, responsable, notificación, instante, motivo catalogado y
+explicación. El agregado cruza ambos contenidos antes de considerarse válido.
+
+La revisión adversarial y el alcance de la corrección están en
+[la revisión O5-01](revisiones/o5_01_revision_y_correccion_2026-07-24.md).
 
 Faltan todavía el caso de uso, catálogo de destinos, autoridad VEC V3,
 idempotencia, bandeja, intención de notificación, frontera transaccional y

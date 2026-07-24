@@ -467,3 +467,18 @@ Este verde es exclusivamente local y visual. O2-09 continúa abierta hasta
 registrar la ruta mediante O2-07 y superar O2-10 contra la API, autorización y
 PostgreSQL reales. Evidencia:
 [revisión local 1..17](revisiones/web_contratacion_rrhh_revision_local_2026-07-24.md).
+
+## Estado O5-01 al cierre del 24 de julio
+
+La revisión del corte original `f4d8c98`–`c36de78` reprodujo un falso válido:
+unidad, responsable o notificación podían sustituirse durante la rehidratación
+sin invalidar el expediente. El original queda en `NO-GO`.
+
+La corrección candidata `0be5600` liga esos campos y el motivo catalogado a la
+actuación exacta. Distingue el alta inicial de la reasignación y exige para
+esta última motivo y explicación. Supera dominio ×100, carrera ×10 y todos los
+paquetes de contratación, pero requiere revisión independiente.
+
+O5-01 sigue abierto: aún faltan resolución autoritativa de destino, caso de uso
+con PDP V3, bandeja, outbox e idempotencia durables. Evidencia:
+[revisión y corrección O5-01](revisiones/o5_01_revision_y_correccion_2026-07-24.md).
