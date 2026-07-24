@@ -2,6 +2,8 @@ package ports
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"reflect"
 	"testing"
@@ -26,9 +28,14 @@ func TestPuenteArtefactoAnalisisIntegraEvidenciaYOrdenNoConsumida(
 		t.Fatal(err)
 	}
 	orden, err := pruebas.OrdenConsumoConjunto.Datos()
+	pruebaCanonica, errPrueba :=
+		pruebas.OrdenConsumoConjunto.PruebaCanonica()
+	huellaPrueba := sha256.Sum256(pruebaCanonica)
 	if err != nil ||
+		errPrueba != nil ||
 		orden.ArtefactoRef != datos.ArtefactoRef ||
 		orden.HuellaSHA256 == "" ||
+		hex.EncodeToString(huellaPrueba[:]) != orden.HuellaSHA256 ||
 		datos.ArtefactoHuellaSHA256 == "" ||
 		analisis.ValidacionRC.FuenteRef != datos.FuenteRCRef ||
 		analisis.CostePrevisto == datos.CostePrevisto ||

@@ -169,6 +169,20 @@ func huellaOrdenConsumoConjuntoFuentesAnalisisO3(
 	if datos.HuellaSHA256 != "" {
 		return "", ErrArtefactoAnalisisNoConfiable
 	}
+	contenido, err := representacionCanonicaConsumoConjuntoFuentesO3(datos)
+	if err != nil {
+		return "", ErrArtefactoAnalisisNoConfiable
+	}
+	huella := sha256.Sum256(contenido)
+	return hex.EncodeToString(huella[:]), nil
+}
+
+func representacionCanonicaConsumoConjuntoFuentesO3(
+	datos DatosOrdenConsumoConjuntoFuentesAnalisisO3,
+) ([]byte, error) {
+	if datos.HuellaSHA256 != "" {
+		return nil, ErrArtefactoAnalisisNoConfiable
+	}
 	canon := nuevoCanonOperacionAnalisis()
 	canon.texto(esquemaConsumoConjuntoFuentesAnalisisO3)
 	canon.texto(datos.ArtefactoRef)
@@ -182,10 +196,33 @@ func huellaOrdenConsumoConjuntoFuentesAnalisisO3(
 	}
 	contenido, err := canon.resultado()
 	if err != nil {
-		return "", ErrArtefactoAnalisisNoConfiable
+		return nil, ErrArtefactoAnalisisNoConfiable
+	}
+	return contenido, nil
+}
+
+// PruebaCanonica devuelve una copia de los bytes que originan la huella del
+// conjunto. Permite que el adaptador durable conserve y vuelva a comprobar la
+// evidencia sin reconstruir el contrato TLV ni exponer una autoridad nueva.
+func (o OrdenConsumoConjuntoFuentesAnalisisO3) PruebaCanonica() (
+	[]byte,
+	error,
+) {
+	datos, err := o.Datos()
+	if err != nil {
+		return nil, ErrArtefactoAnalisisNoConfiable
+	}
+	huellaEsperada := datos.HuellaSHA256
+	datos.HuellaSHA256 = ""
+	contenido, err := representacionCanonicaConsumoConjuntoFuentesO3(datos)
+	if err != nil {
+		return nil, ErrArtefactoAnalisisNoConfiable
 	}
 	huella := sha256.Sum256(contenido)
-	return hex.EncodeToString(huella[:]), nil
+	if hex.EncodeToString(huella[:]) != huellaEsperada {
+		return nil, ErrArtefactoAnalisisNoConfiable
+	}
+	return append([]byte(nil), contenido...), nil
 }
 
 func escribirOrdenRespuestaFuenteAnalisisO3(
