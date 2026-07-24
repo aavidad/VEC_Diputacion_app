@@ -1,6 +1,6 @@
 # Estado y plan de ataque del proyecto
 
-**Última actualización:** 23 de julio de 2026
+**Última actualización:** 24 de julio de 2026
 
 **Frente principal:** primera vertical real del procedimiento de contratación
 temporal solicitado por RRHH, complementaria a Bolsa.
@@ -26,13 +26,12 @@ El orden, las dependencias y los carriles simultáneos están en el
 ### Cambio de frente del 23/07/2026
 
 El documento recibido de RRHH exige un expediente coordinador nuevo. Se ha
-creado `contrataciontemporal` sin borrar Bolsa. El primer hito lleva **2 de 7
-puertas publicadas (29 %)**: dominio y caso de uso. La preparación idempotente
-PostgreSQL ya está validada localmente, pero no contará como tercera puerta
-hasta publicar sus commits. Después faltan confirmación con autorización VEC
-durable, API, pantalla y E2E/aceptación. La tabla histórica de Bolsa que sigue
-a continuación se conserva como referencia honesta de sus capacidades y no se
-da por completada.
+creado `contrataciontemporal` sin borrar Bolsa. El primer hito lleva **3 de 7
+puertas cerradas (43 %)**. Confirmación, API y web tienen piezas reales
+implementadas; O2-06 y O2-07 son candidatos verificados sobre PostgreSQL 18,
+pero no se contabilizan como cerrados hasta superar revisión independiente y
+el E2E. La tabla histórica de Bolsa que sigue a continuación se conserva como
+referencia honesta de sus capacidades y no se da por completada.
 
 Los agentes adicionales deben seguir
 [ORQUESTACION_AGENTES.md](ORQUESTACION_AGENTES.md); allí se indican tareas

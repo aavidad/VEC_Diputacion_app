@@ -1,6 +1,6 @@
 # Objetivos y hoja de ruta del frente RRHH
 
-Última actualización: 23 de julio de 2026.
+Última actualización: 24 de julio de 2026.
 
 Este documento es la referencia de dirección del procedimiento recibido de
 RRHH. Evita dirigir el trabajo por códigos internos y permite saber qué se ha
@@ -81,8 +81,8 @@ pantalla interna
 | Dominio y validaciones | ✅ | Pruebas unitarias y de carrera. |
 | Caso de uso y puertos | ✅ | Reintento, denegación, adulteración y cancelación. |
 | Reserva idempotente PostgreSQL | ✅ | Rotación HMAC v1→v2, replay, concurrencia, ACL, reintentos y límites reales; PostgreSQL efímero 3/3. |
-| Autorización VEC durable + confirmación | 🚧 | O2-04 y la función SQL O2-05 están cerradas; falta el adaptador/reconciliación O2-06 para completar esta puerta vertical. |
-| API interna | 🚧 | Adaptador O2-08B revisado con GO e integrado; sin autoridad reconstruida desde HTTP ni cookies. Falta registrar la ruta mediante O2-07. |
+| Autorización VEC durable + confirmación | 🚧 | O2-04 y O2-05 están cerradas. La corrección candidata O2-06 añade adaptador y reconciliación durable con PostgreSQL 18 verde; falta revisión independiente. |
+| API interna | 🚧 | Adaptador O2-08B revisado con GO e integrado. O2-07 ya registra la ruta exacta en una composición candidata que acredita el pool real; faltan revisión independiente y raíz interna con conectores corporativos. |
 | Pantalla definitiva | ⬜ | Misma web final; adaptador real registrado por composición. |
 | E2E y aceptación | ⬜ | Reintento, concurrencia, reinicio, fallo y prueba de RRHH. |
 

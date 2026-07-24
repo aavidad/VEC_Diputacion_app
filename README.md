@@ -41,13 +41,17 @@ llamamientos.
 - [Matriz normativa europea, española y andaluza](docs/portal_vec/matriz_normativa_contratacion_temporal_2026-07-23.md)
 - [Relevo técnico del frente activo](docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
+- [Composición candidata y acreditación PostgreSQL O2-07](docs/portal_vec/diseno_composicion_o2_07_2026-07-24.md)
 
 Estado del primer corte: especificación, manifiesto, dominio, caso de uso,
 confirmación SQL atómica y contratos de API y web implementados. El nuevo
 registro de solicitud exige identidad interna de garantía alta, flujo
 gobernado, HMAC, idempotencia, autorización de efecto y una confirmación
-transaccional de expediente, auditoría y outbox. Permanecen abiertos el
-adaptador Go de reconciliación O2-06, la composición real O2-07 y el E2E O2-10.
+transaccional de expediente, auditoría y outbox. O2-06 y O2-07 disponen de
+candidatos consecutivos verificados sobre PostgreSQL 18: reconciliación
+durable, composición del manejador real y acreditación de una cuenta sin
+acceso directo a tablas. Permanecen abiertos hasta su revisión independiente,
+la raíz interna con conectores corporativos y el E2E O2-10.
 La presentación reproduce las diecisiete pantallas remitidas por RRHH y está
 verde en tres tamaños de escritorio, pero no se contabiliza como flujo
 administrativo productivo.

@@ -15,7 +15,7 @@ temporal. El detalle verificable de cada tarea está en el
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 16 de 46 tareas cerradas (35 %); O4-02 ya está integrado |
 | Último commit verificado | `6fb6cc6` — matriz web RRHH 1..17 verde en 51/51 capturas locales; no cierra la integración O2-09 |
-| Trabajo local en revisión | O2-06 tiene corrección candidata con PostgreSQL 18 verde y espera revisión independiente; primer corte O5-01 pendiente. La superficie RRHH ya superó la revisión visual local, pero sigue separada del E2E real. |
+| Trabajo local en revisión | O2-06 tiene corrección candidata con PostgreSQL 18 verde. O2-07 compone el manejador real y acredita el pool exclusivo también sobre PostgreSQL 18, pero ambas esperan revisión independiente. La superficie RRHH sigue separada del E2E real. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -61,9 +61,9 @@ flowchart TD
     O204["✅ O2-04<br/>Autorización VEC durable"]
     O205["✅ O2-05<br/>Confirmación SQL atómica"]
     O206["🚧 O2-06<br/>Adaptador y reconciliación"]
-    O207["— O2-07<br/>Composición real"]
-    O208["— O2-08<br/>API interna"]
-    O209["— O2-09<br/>Web definitiva"]
+    O207["🚧 O2-07<br/>Composición candidata"]
+    O208["🚧 O2-08<br/>API candidata"]
+    O209["🚧 O2-09<br/>Web candidata"]
     O210["— O2-10<br/>E2E y aceptación"]
 
     O201 --> O202
@@ -84,6 +84,11 @@ exacto, la concurrencia, las ACL y los límites de sentencia e inactividad.
 O2-04 demostró que esa preparación solo puede ejecutarse tras una concesión
 V3 durable, ligada al par HMAC activo exacto y sin autoridad reconstruida
 desde el cliente.
+
+O2-06 y O2-07 disponen de candidatos consecutivos: la candidatura técnica
+persiste entre procesos, el resultado incierto se reconcilia y la composición
+solo acepta un pool PostgreSQL nominal sin privilegios directos sobre tablas.
+No cuentan como tareas cerradas hasta una revisión independiente.
 
 ## Olas de trabajo paralelo
 
@@ -195,8 +200,8 @@ Estado actual:
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
 Tareas verificadas del procedimiento: 16/46 = 35 %
-Tareas locales en revisión: corrección candidata O2-06 y O5-01
-Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
+Tareas locales en revisión: corrección candidata O2-06 y composición O2-07
+Web RRHH: revisión visual local superada; O2-09 sigue abierta por revisión, raíz interna y O2-10
 ```
 
 Una tarea local no cuenta como cerrada hasta que el commit esté publicado y el

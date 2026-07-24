@@ -87,9 +87,9 @@ ajenas.
 | Confianza y capacidad breve VEC-AD-3 | Integradas y revisadas: Ed25519/COSE estricto, audiencia, capacidad HMAC ≤5 s, rotación y revocación |
 | Contrato autenticado con Bolsa | Cerrado y revisado: referencias opacas, seudónimos, eventos, pruebas durables e inbox idempotente |
 | Confirmación atómica PostgreSQL | Cerrada en `77743a7`: GO 2/2 y puertas PostgreSQL/globales conjuntas verdes |
-| Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
-| API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
-| Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
+| Adaptador y reconciliación | Corrección candidata O2-06 verificada sobre PostgreSQL 18; pendiente de revisión independiente |
+| API interna | Adaptador O2-08B con GO y ruta exacta registrada en la composición candidata O2-07; faltan revisión y raíz corporativa |
+| Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan conexión a la raíz real y E2E |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -137,8 +137,9 @@ ajenas.
   `750bd6d479ddcf9e5564cc25d8603b0b5aa62e06` sin conflictos; en ese árbol
   pasaron veinte repeticiones del contrato HTTP, carrera, las veinte pruebas
   de la vista y todos los paquetes de contratación temporal. El worktree
-  desechable se eliminó después de la prueba. La ruta sigue sin registrar:
-  O2-08 permanece funcionalmente abierta hasta la composición O2-07.
+  desechable se eliminó después de la prueba. O2-07 registra ahora la ruta en
+  una composición candidata; O2-08 permanece funcionalmente abierta hasta
+  superar revisión, raíz corporativa y E2E.
 - O2-09A `1323b4b` superó las puertas visuales, pero recibió NO-GO por admitir
   periodos de más de cien años e importes superiores a `922337203685477`
   céntimos. O2-09B `228df6f` corrigió ambos bordes con aritmética decimal
@@ -255,8 +256,9 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Alinear e implementar O2-06 contra la firma real de O2-05.
-2. Componer O2-07 y registrar el adaptador O2-08B.
+1. Revisar independientemente la corrección O2-06.
+2. Revisar la composición candidata O2-07 y conectarla a la raíz interna con
+   proveedores corporativos homologados.
 3. Conectar la interfaz O2-09B sin cookies ni autoridad de cliente.
 4. Cerrar O2-10 con navegador → API → autorización → PostgreSQL → recibo,
    reinicio, concurrencia y aceptación RRHH.
@@ -475,6 +477,28 @@ prioriza los datos administrativos y mantiene referencia, versión y huella en
 un bloque técnico plegado.
 
 Este verde es exclusivamente local y visual. O2-09 continúa abierta hasta
-registrar la ruta mediante O2-07 y superar O2-10 contra la API, autorización y
-PostgreSQL reales. Evidencia:
+conectarse a la composición revisada y superar O2-10 contra la API,
+autorización y PostgreSQL reales. Evidencia:
 [revisión local 1..17](revisiones/web_contratacion_rrhh_revision_local_2026-07-24.md).
+
+## Estado O2-07 al cierre del 24 de julio
+
+Los commits `b9a729d` y `b7b9d48` componen el manejador real de alta en
+`internal/app/composicion/contrataciontemporal` y registran únicamente
+`POST /api/interno/v1/contratacion-temporal/solicitudes`. La composición exige
+doce dependencias ya construidas y no recibe DSN, claves, cookies ni cabeceras
+de identidad.
+
+Antes de crear la API acredita la identidad efectiva del pool PostgreSQL. Solo
+acepta el rol de ejecución limitado a las funciones O2-06/O2-05; rechaza una
+cuenta administradora, los roles migrador/propietario, funciones históricas y
+privilegios directos sobre las tablas sensibles. Las unitarias pasan 100
+repeticiones, las pruebas con carrera 10 repeticiones y el recorrido PostgreSQL
+18 completo pasa 3/3.
+
+Es una candidata, no un cierre. Depende del `GO` independiente de O2-06 y
+necesita su propia revisión antes de integrarse. Tampoco se ha conectado
+`cmd/vec-interno`: hacerlo sin los conectores corporativos homologados de
+identidad, PDP, HMAC/KMS, flujo y secretos obligaría a introducir autoridad
+ficticia en una raíz productiva. El diseño y el ejecutor reproducible están en
+[la composición O2-07](diseno_composicion_o2_07_2026-07-24.md).
