@@ -155,10 +155,11 @@ func NewHandlerPublicoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 	return protegerSuperficie(cfg, handler)
 }
 
-// NewHandlerInternoWithConfig expone unicamente el Portal del Empleado y la
-// API VEC. No acepta estado de sesion del navegador, Authorization ni
-// credenciales de proxy; la identidad interna debe llegar por el canal
-// autenticado que componga el listener, nunca mediante cabeceras ambientales.
+// NewHandlerInternoWithConfig expone unicamente el Portal del Empleado y las
+// API internas enumeradas. No acepta estado de sesion del navegador,
+// Authorization ni credenciales de proxy; la identidad debe llegar por el
+// canal autenticado que componga el listener, nunca mediante cabeceras
+// ambientales.
 func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handler {
 	return NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg, api, nil)
 }
@@ -179,6 +180,8 @@ func NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 	mux.Handle("/locales/", soloLecturaHTTP(localeHandler()))
 	mux.Handle("/api/vec", api)
 	mux.Handle("/api/vec/", api)
+	mux.Handle("/api/interno", api)
+	mux.Handle("/api/interno/", api)
 
 	handler := rechazarRutasNoCanonicas(mux)
 	handler = rechazarSelectorPresentacionFueraDePresentacion(handler)

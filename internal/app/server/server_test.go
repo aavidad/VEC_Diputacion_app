@@ -543,7 +543,9 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 		"/", "/app.js", "/locales/es.json",
 		"/portal-empleado", "/portal-empleado/", "/portal-empleado/portal.js",
 		"/assets/", "/portal-empleado/assets/", "/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3",
-		"/api", "/api/vec", "/api/vec/session", "/api/publicox", "/bolsax",
+		"/api", "/api/vec", "/api/vec/session", "/api/interno",
+		"/api/interno/v1/contratacion-temporal/solicitudes",
+		"/api/publicox", "/bolsax",
 	} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
@@ -560,7 +562,8 @@ func TestSuperficieInternaExponeSoloSuListaPositiva(t *testing.T) {
 	llamadasAPI := 0
 	api := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		llamadasAPI++
-		if !strings.HasPrefix(r.URL.Path, "/api/vec") {
+		if !strings.HasPrefix(r.URL.Path, "/api/vec") &&
+			!strings.HasPrefix(r.URL.Path, "/api/interno") {
 			t.Fatalf("la API interna recibio una ruta ajena: %q", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusAccepted)
@@ -583,6 +586,7 @@ func TestSuperficieInternaExponeSoloSuListaPositiva(t *testing.T) {
 		{metodo: http.MethodGet, ruta: "/favicon.svg", estado: http.StatusOK},
 		{metodo: http.MethodGet, ruta: "/locales/es.json", estado: http.StatusOK},
 		{metodo: http.MethodPost, ruta: "/api/vec/bolsa/panel", estado: http.StatusAccepted},
+		{metodo: http.MethodPost, ruta: "/api/interno/v1/contratacion-temporal/solicitudes", estado: http.StatusAccepted},
 	} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, peticionServidorPrueba(prueba.metodo, prueba.ruta, nil))
@@ -594,7 +598,7 @@ func TestSuperficieInternaExponeSoloSuListaPositiva(t *testing.T) {
 	for _, ruta := range []string{
 		"/", "/app.js",
 		"/bolsa", "/bolsa/", "/bolsa/bolsa.js", "/api", "/api/publico", "/api/publico/bolsa",
-		"/api/vecino",
+		"/api/vecino", "/api/internox",
 	} {
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
@@ -602,8 +606,8 @@ func TestSuperficieInternaExponeSoloSuListaPositiva(t *testing.T) {
 			t.Errorf("la superficie interna expuso %s con estado %d", ruta, rec.Code)
 		}
 	}
-	if llamadasAPI != 1 {
-		t.Fatalf("llamadas a API interna = %d; se esperaba solo la ruta permitida", llamadasAPI)
+	if llamadasAPI != 2 {
+		t.Fatalf("llamadas a API interna = %d; se esperaban dos rutas permitidas", llamadasAPI)
 	}
 }
 
