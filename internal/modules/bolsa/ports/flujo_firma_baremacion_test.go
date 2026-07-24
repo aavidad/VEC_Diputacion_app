@@ -267,6 +267,7 @@ func TestReglaComunFlujoFirmaReconciliaYProtegeHistoria(t *testing.T) {
 	if MismaSolicitudInicialFlujoFirmaBaremacion(inicial, reintento) {
 		t.Fatal("la reconciliación aceptó una decisión distinta")
 	}
+	reintento.DecisionRef = inicial.DecisionRef
 
 	declarada, err := inicial.Clonar()
 	if err != nil {
@@ -287,6 +288,9 @@ func TestReglaComunFlujoFirmaReconciliaYProtegeHistoria(t *testing.T) {
 	}
 	if err := ValidarTransicionFlujoFirmaBaremacion(inicial, declarada); err != nil {
 		t.Fatalf("la regla común rechazó una declaración válida: %v", err)
+	}
+	if !MismaSolicitudInicialFlujoFirmaBaremacion(declarada, reintento) {
+		t.Fatal("la reconciliación dependió de que el flujo siguiera en versión inicial")
 	}
 
 	for nombre, alterar := range map[string]func(*ExpedienteFlujoFirmaBaremacion){

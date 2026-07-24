@@ -561,9 +561,7 @@ func MismaSolicitudInicialFlujoFirmaBaremacion(
 	primera, segunda ExpedienteFlujoFirmaBaremacion,
 ) bool {
 	return primera.Validar() == nil && segunda.Validar() == nil &&
-		primera.Version == 1 && segunda.Version == 1 &&
-		len(primera.PuntosControl) == 0 && len(segunda.PuntosControl) == 0 &&
-		primera.Estado == EstadoExpedienteFirmaPreparando &&
+		segunda.Version == 1 && len(segunda.PuntosControl) == 0 &&
 		segunda.Estado == EstadoExpedienteFirmaPreparando &&
 		primera.IndiceIdempotenciaHMAC == segunda.IndiceIdempotenciaHMAC &&
 		primera.HuellaSolicitudHMAC == segunda.HuellaSolicitudHMAC &&
