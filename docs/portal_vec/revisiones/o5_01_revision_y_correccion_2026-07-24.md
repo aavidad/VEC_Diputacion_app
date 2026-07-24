@@ -69,3 +69,15 @@ contenido.
 4. replay exacto, conflicto semántico y resultado indeterminado;
 5. revisión independiente de la corrección;
 6. API, web y E2E pertenecen a O5-05 y no se simulan aquí.
+
+## Continuación posterior a esta revisión
+
+Los commits `93198b1`–`8d1b4ce` cubren los puntos 1 y 2 y definen los
+contratos de los puntos 3 y 4: destino y política autoritativos, PDP V3,
+idempotencia HMAC, replay, bandeja/outbox en un límite atómico y caso de uso de
+asignación/reasignación. Esta nota no cambia retrospectivamente el `NO-GO` del
+corte original ni constituye revisión independiente de la continuación.
+
+Siguen pendientes la implementación PostgreSQL del límite transaccional, la
+fuente corporativa real, composición, API/web/E2E y una nueva revisión
+independiente.

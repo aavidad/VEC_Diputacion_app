@@ -10,12 +10,12 @@ temporal. El detalle verificable de cada tarea está en el
 
 | Indicador | Estado actual |
 | --- | --- |
-| Objetivo activo | O2 — primera vertical real de alta |
-| Camino crítico | O2-05 confirmación SQL → O2-06 adaptador → O2-07 composición → O2-08 API → O2-09 web → O2-10 E2E |
+| Objetivo activo | O5 — asignación de unidad, responsable y bandeja |
+| Camino crítico | O5-01 aplicación → PostgreSQL → composición → API/web → E2E; O2 conserva su cierre independiente |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 16 de 46 tareas cerradas (35 %); O4-02 ya está integrado |
-| Último commit verificado | `6fb6cc6` — matriz web RRHH 1..17 verde en 51/51 capturas locales; no cierra la integración O2-09 |
-| Trabajo local en revisión | O2-06 tiene una corrección candidata pendiente de revisión. O5-01 dispone de una corrección de dominio tras detectar una ligadura incompleta; aún carece de caso de uso y bandeja durable. La superficie RRHH sigue separada del E2E real. |
+| Último commit verificado | `8d1b4ce` — asignación y reasignación gobernadas, con replay y rechazo de destino adulterado |
+| Trabajo local en revisión | O5-01 ya dispone de dominio, caso de uso, PDP V3 y contrato atómico; falta materializarlo en PostgreSQL y conectarlo. O2-06 conserva su corrección candidata pendiente de revisión. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -31,7 +31,7 @@ flowchart LR
     O2["🚧 O2<br/>Alta de solicitud"]
     O3["🚧 O3<br/>Análisis RRHH y RC"]
     O4["🚧 O4<br/>Vía de cobertura"]
-    O5["— O5<br/>Asignación, informe y fiscalización"]
+    O5["🚧 O5<br/>Asignación, informe y fiscalización"]
     O6["🚧 O6<br/>Llamamiento y formalización"]
     O7["— O7<br/>Incorporación, Personal y GINPIX"]
     O8["🚧 O8<br/>Seguimiento, cierre y conservación"]

@@ -41,6 +41,7 @@ llamamientos.
 - [Matriz normativa europea, española y andaluza](docs/portal_vec/matriz_normativa_contratacion_temporal_2026-07-23.md)
 - [Relevo técnico del frente activo](docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
+- [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
 
 Estado del primer corte: especificación, manifiesto, dominio, caso de uso,
 confirmación SQL atómica y contratos de API y web implementados. El nuevo
@@ -51,6 +52,11 @@ adaptador Go de reconciliación O2-06, la composición real O2-07 y el E2E O2-10
 La presentación reproduce las diecisiete pantallas remitidas por RRHH y está
 verde en tres tamaños de escritorio, pero no se contabiliza como flujo
 administrativo productivo.
+
+O5-01 dispone ya de dominio corregido, destino y política autoritativos,
+idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es
+un candidato técnico: todavía faltan el adaptador PostgreSQL que materialice
+el `COMMIT` único, la composición y el E2E antes de considerarlo productivo.
 
 ## Estado honesto
 

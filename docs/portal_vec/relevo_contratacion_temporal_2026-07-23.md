@@ -475,10 +475,15 @@ unidad, responsable o notificación podían sustituirse durante la rehidratació
 sin invalidar el expediente. El original queda en `NO-GO`.
 
 La corrección candidata `0be5600` liga esos campos y el motivo catalogado a la
-actuación exacta. Distingue el alta inicial de la reasignación y exige para
-esta última motivo y explicación. Supera dominio ×100, carrera ×10 y todos los
-paquetes de contratación, pero requiere revisión independiente.
+actuación exacta. Los commits `93198b1`–`8d1b4ce` añaden resolución
+autoritativa de destino, política publicada, HMAC rotatorio, preparación
+idempotente, PDP V3, orden transaccional, recibo y caso de uso de asignación y
+reasignación. Las pruebas cubren éxito, destino adulterado, replay sin
+duplicados y reasignación motivada, además de todos los paquetes de
+contratación, `go vet` y carrera focal.
 
-O5-01 sigue abierto: aún faltan resolución autoritativa de destino, caso de uso
-con PDP V3, bandeja, outbox e idempotencia durables. Evidencia:
+O5-01 sigue abierto: faltan adaptador PostgreSQL de la transacción, catálogo y
+directorio corporativos reales, composición, API/web/E2E y revisión
+independiente. La reserva, bandeja, auditoría, recibo y outbox están definidos
+como un solo límite de `COMMIT`, pero todavía no son durables. Evidencia:
 [revisión y corrección O5-01](revisiones/o5_01_revision_y_correccion_2026-07-24.md).
