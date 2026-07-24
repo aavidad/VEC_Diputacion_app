@@ -494,3 +494,35 @@ función SQL: la base solo contiene durablemente el alta de versión 1. O3-04 y
 O4-04 deben materializar las versiones de análisis y cobertura antes de que O5
 pueda bloquear y leer una instantánea autoritativa. Una tabla propia de O5
 sería una segunda fuente de verdad y queda expresamente prohibida.
+
+## Estado O3-04 al cierre del 24 de julio
+
+Los commits `a3e0cf5`–`e835280` eliminan el primer bloqueo de O5 sin crear una
+fuente de verdad paralela:
+
+- `expediente_version_integral` conserva todas las versiones del agregado por
+  solo adición y materializa la versión 1 histórica desde el alta O2;
+- `expediente_integral_actual` mantiene únicamente el puntero de concurrencia;
+- las reservas de análisis usan HMAC generacional, referencias deterministas,
+  replay exacto y conflicto semántico;
+- el adaptador PostgreSQL de preparación restaura JSON estricto, no persiste la
+  clave idempotente original y solo reintenta `40001` o `40P01`;
+- el runner PostgreSQL 18 instala, prueba y revierte las migraciones `000006`
+  y `000007`, incluidas RLS, ACL, inmutabilidad y reversión protegida.
+
+O3-04 permanece abierta. Falta una única transacción de confirmación que,
+usando el reloj de PostgreSQL, revalide y consuma la decisión VEC V3, consuma
+una sola vez el conjunto de fuentes de RC y coste, haga CAS sobre la versión
+vigente y publique versión 2, actuación, auditoría, recibo y outbox. El recibo
+debe validarse en Go antes del `COMMIT`; ningún resultado previo al `COMMIT`
+puede presentarse como durable.
+
+El orden vigente del camino crítico es:
+
+```text
+O3-04 confirmación atómica y revisión
+  → O4-03 decisión de cobertura
+  → O4-04 persistencia de cobertura
+  → O5-01 persistencia de asignación
+  → composición, API, web y E2E
+```

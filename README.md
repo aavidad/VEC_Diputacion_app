@@ -40,6 +40,7 @@ llamamientos.
 - [Decisión de autorización V3 para el alta de contratación temporal](docs/portal_vec/decision_autorizacion_v3_alta_contratacion_temporal_2026-07-23.md)
 - [Matriz normativa europea, española y andaluza](docs/portal_vec/matriz_normativa_contratacion_temporal_2026-07-23.md)
 - [Relevo técnico del frente activo](docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md)
+- [Persistencia atómica del análisis de RRHH O3-04](docs/portal_vec/o3_04_persistencia_analisis_rrhh_2026-07-24.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
 

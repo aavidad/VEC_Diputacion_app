@@ -10,18 +10,23 @@ temporal. El detalle verificable de cada tarea está en el
 
 | Indicador | Estado actual |
 | --- | --- |
-| Objetivo activo | O5 — asignación de unidad, responsable y bandeja |
+| Objetivo activo | O3-04 — persistencia atómica del análisis de RRHH |
 | Camino crítico | O3-04 PostgreSQL → O4-03 decisión → O4-04 PostgreSQL → O5-01 PostgreSQL → composición → API/web → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 16 de 46 tareas cerradas (35 %); O4-02 ya está integrado |
-| Último commit verificado | `ff6c847` — adaptador Go PostgreSQL de preparación O5, todavía no componible |
-| Trabajo local en revisión | O5-01 dispone de dominio, caso de uso, PDP V3, contrato atómico y adaptador Go. Su SQL espera las versiones durables de O3-04 y O4-04 para no duplicar la fuente de verdad. |
+| Último commit verificado | `e835280` — reservas idempotentes de análisis instaladas y probadas en PostgreSQL 18 |
+| Trabajo local en revisión | O3-04 ya dispone de historia integral versionada, preparación durable y adaptador Go. Falta la única confirmación atómica que consume fuentes y autorización, publica la versión 2, auditoría, recibo y outbox. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
 La primera cifra mide las diez tareas de O2. La segunda mide las 46 tareas del
 procedimiento temporal completo; ninguna representa por sí sola el porcentaje
 de todo VEP.
+
+La preparación de O3-04 no aumenta todavía el número de tareas cerradas:
+`a3e0cf5`–`e835280` son incrementos verificables de una misma tarea y no se
+contabilizan como funcionalidad productiva hasta cerrar su transacción final,
+la prueba PostgreSQL real y la revisión independiente.
 
 ## Mapa de objetivos
 

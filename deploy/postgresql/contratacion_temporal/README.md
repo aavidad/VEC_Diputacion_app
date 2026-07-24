@@ -1,7 +1,8 @@
 # PostgreSQL de contratación temporal
 
-Estado: confirmación atómica O2-05 candidata y probada por el productor;
-pendiente de revisión independiente y de las puertas externas de producción.
+Estado: O2-05 probado; O3-04 dispone de historia integral y preparación
+durables, pero su confirmación atómica continúa en desarrollo. No es una
+composición autorizada para producción.
 
 ## Alcance del corte
 
@@ -92,6 +93,22 @@ serializa por reflexión el agregado. El resultado contiene solo referencias,
 número visible, versión, instante y huellas. Ninguna clave idempotente,
 secreto HMAC ni dato personal se devuelve.
 
+Las migraciones aditivas `000006_expediente_integral_versionado` y
+`000007_preparacion_operaciones_analisis` preparan O3-04:
+
+- materializan el alta O2 como versión 1 de una historia integral única y de
+  solo adición;
+- separan esa historia del puntero actual empleado por CAS;
+- reservan las operaciones de análisis con HMAC generacional sin guardar la
+  clave idempotente original;
+- permiten replay exacto y consulta de un recibo ya confirmado;
+- mantienen RLS, ACL de mínimo privilegio, filas inmutables y reversión
+  destructiva protegida.
+
+Estas migraciones no confirman aún un análisis. La confirmación final debe
+consumir fuentes y autorización, publicar la versión 2 y registrar actuación,
+auditoría, recibo y outbox en un solo `COMMIT`.
+
 ## Instalación
 
 1. Ejecutar `roles_up.sql` como DBA.
@@ -104,7 +121,9 @@ secreto HMAC ni dato personal se devuelve.
 5. Ejecutar `000003_expediente_confirmacion_atestada.up.sql`,
    `000004_integridad_agregado_alta.up.sql` y
    `000005_funcion_confirmar_alta_atestada.up.sql`, por ese orden.
-6. Aprovisionar la cuenta de la aplicación como miembro únicamente de
+6. Ejecutar `000006_expediente_integral_versionado.up.sql` y
+   `000007_preparacion_operaciones_analisis.up.sql`, por ese orden.
+7. Aprovisionar la cuenta de la aplicación como miembro únicamente de
    `vec_contratacion_temporal_ejecutor`.
 
 Ejemplo sin credenciales incrustadas:
@@ -120,6 +139,10 @@ psql -X --set ON_ERROR_STOP=1 \
   --file deploy/postgresql/contratacion_temporal/migraciones/000004_integridad_agregado_alta.up.sql
 psql -X --set ON_ERROR_STOP=1 \
   --file deploy/postgresql/contratacion_temporal/migraciones/000005_funcion_confirmar_alta_atestada.up.sql
+psql -X --set ON_ERROR_STOP=1 \
+  --file deploy/postgresql/contratacion_temporal/migraciones/000006_expediente_integral_versionado.up.sql
+psql -X --set ON_ERROR_STOP=1 \
+  --file deploy/postgresql/contratacion_temporal/migraciones/000007_preparacion_operaciones_analisis.up.sql
 ```
 
 El repositorio no contiene DSN, usuarios LOGIN, contraseñas ni secretos HMAC.
@@ -158,6 +181,11 @@ aislada reserva, expediente, versión, actuación, auditoría, outbox, marcador,
 refs, huellas y cadenas; cada replay debe fallar sin escribir y el runner
 restaura exactamente los casos antes de continuar. La guía detallada está en
 `deploy/postgresql/autorizacion_atestada_v3/README.md`.
+
+Ese mismo runner comprueba además la instalación aditiva de `000006` y
+`000007`, el materializado de la versión integral inicial, la preparación
+reservada/reutilizada/conflictiva de análisis, la imposibilidad de leer o
+escribir directamente sus tablas y su retirada protegida.
 
 ## Reversión protegida
 
