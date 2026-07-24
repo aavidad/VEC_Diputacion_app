@@ -127,6 +127,12 @@ func (f filaPreparacionPrueba) Scan(destinos ...any) error {
 				return errors.New("entero inválido")
 			}
 			*puntero = numero
+		case *int64:
+			numero, valido := valor.(int64)
+			if !valido {
+				return errors.New("entero nativo inválido")
+			}
+			*puntero = numero
 		case *pgtype.Text:
 			texto, valido := valor.(pgtype.Text)
 			if !valido {
