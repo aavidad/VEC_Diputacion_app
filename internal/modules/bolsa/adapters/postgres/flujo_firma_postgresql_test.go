@@ -119,11 +119,25 @@ func (f filaFlujoFirmaPostgreSQLPrueba) Scan(destinos ...any) error {
 			}
 			*destino = append([]byte(nil), contenido...)
 		case *pgtype.Timestamptz:
+			if valor == nil {
+				*destino = pgtype.Timestamptz{}
+				continue
+			}
 			instante, valido := valor.(time.Time)
 			if !valido {
 				return errors.New("instante inesperado")
 			}
 			*destino = pgtype.Timestamptz{Time: instante, Valid: true}
+		case *pgtype.Text:
+			if valor == nil {
+				*destino = pgtype.Text{}
+				continue
+			}
+			texto, valido := valor.(string)
+			if !valido {
+				return errors.New("texto nulo inesperado")
+			}
+			*destino = pgtype.Text{String: texto, Valid: true}
 		default:
 			return errors.New("destino inesperado")
 		}

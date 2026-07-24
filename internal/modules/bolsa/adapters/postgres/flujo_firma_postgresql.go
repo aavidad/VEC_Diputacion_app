@@ -272,7 +272,8 @@ func (r *RepositorioFlujosFirmaBaremacionPostgreSQL) AdquirirArrendamientoFlujoF
 		return puertosbolsa.ResultadoAdquirirArrendamientoFlujoFirmaBaremacion{}, err
 	}
 	defer revertir(tx)
-	var resultado, secuencia string
+	var resultado string
+	var secuencia pgtype.Text
 	var documento, cifrado []byte
 	var expira pgtype.Timestamptz
 	err = tx.QueryRow(ctx, `
@@ -314,7 +315,11 @@ func (r *RepositorioFlujosFirmaBaremacionPostgreSQL) AdquirirArrendamientoFlujoF
 				err,
 			)
 	}
-	numeroSecuencia, err := enteroCanonicoFlujoFirmaPostgreSQL(secuencia)
+	if !secuencia.Valid {
+		return puertosbolsa.ResultadoAdquirirArrendamientoFlujoFirmaBaremacion{},
+			puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
+	}
+	numeroSecuencia, err := enteroCanonicoFlujoFirmaPostgreSQL(secuencia.String)
 	if err != nil {
 		return puertosbolsa.ResultadoAdquirirArrendamientoFlujoFirmaBaremacion{},
 			puertosbolsa.ErrArrendamientoFlujoFirmaInvalido
