@@ -385,6 +385,7 @@ type dependenciasRegistro struct {
 	motivos       *resolutorMotivoDoble
 	correlaciones *generadorReferenciasDoble
 	referencias   *generadorAltaDoble
+	candidaturas  *resolutorCandidaturaDoble
 	proyector     *proyectorEfectoAltaDoble
 	autorizador   *autorizadorV3Doble
 	reloj         *relojMutable
@@ -429,6 +430,9 @@ func construirServicioRegistro(
 			referencias: escenario.candidatura.Referencias,
 			reservaRef:  escenario.candidatura.ReservaRef,
 		},
+		candidaturas: &resolutorCandidaturaDoble{
+			candidatura: escenario.candidatura,
+		},
 		autorizador: &autorizadorV3Doble{
 			t: t, instante: escenario.instante, motivo: escenario.motivo,
 		},
@@ -450,6 +454,7 @@ func construirServicioRegistro(
 		d.motivos,
 		d.correlaciones,
 		d.referencias,
+		d.candidaturas,
 		d.proyector,
 		d.autorizador,
 		d.reloj,
@@ -739,14 +744,16 @@ func TestRegistroSolicitudRechazaNulosYReferenciasFabricables(t *testing.T) {
 	}
 	if _, err := NuevoServicioRegistroSolicitud(
 		nil, d.flujos, d.huellas, d.ambitos, d.motivos, d.correlaciones,
-		d.referencias, d.proyector, d.autorizador, d.reloj, d.transaccion,
+		d.referencias, d.candidaturas, d.proyector, d.autorizador, d.reloj,
+		d.transaccion,
 	); !errors.Is(err, ErrServicioRegistroInvalido) {
 		t.Fatalf("dependencia nula aceptada: %v", err)
 	}
 	var nuloTipado *resolutorContextoDoble
 	if _, err := NuevoServicioRegistroSolicitud(
 		nuloTipado, d.flujos, d.huellas, d.ambitos, d.motivos, d.correlaciones,
-		d.referencias, d.proyector, d.autorizador, d.reloj, d.transaccion,
+		d.referencias, d.candidaturas, d.proyector, d.autorizador, d.reloj,
+		d.transaccion,
 	); !errors.Is(err, ErrServicioRegistroInvalido) {
 		t.Fatalf("dependencia nula tipada aceptada: %v", err)
 	}

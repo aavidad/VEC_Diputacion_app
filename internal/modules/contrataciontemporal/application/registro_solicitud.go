@@ -46,6 +46,7 @@ type ServicioRegistroSolicitud struct {
 	motivos               ports.ResolutorMotivoAutorizacionAltaV3
 	correlaciones         puertosvec.GeneradorReferenciasAutorizacionV2
 	referenciasAlta       ports.GeneradorReferenciasAlta
+	candidaturas          ports.ResolutorCandidaturaAlta
 	proyectorEfecto       ports.ProyectorEfectoAlta
 	autorizador           puertosvec.AutorizadorSolicitudLigadaV3
 	reloj                 ports.Reloj
@@ -60,6 +61,7 @@ func NuevoServicioRegistroSolicitud(
 	motivos ports.ResolutorMotivoAutorizacionAltaV3,
 	correlaciones puertosvec.GeneradorReferenciasAutorizacionV2,
 	referenciasAlta ports.GeneradorReferenciasAlta,
+	candidaturas ports.ResolutorCandidaturaAlta,
 	proyectorEfecto ports.ProyectorEfectoAlta,
 	autorizador puertosvec.AutorizadorSolicitudLigadaV3,
 	reloj ports.Reloj,
@@ -68,8 +70,9 @@ func NuevoServicioRegistroSolicitud(
 	if dependenciaNula(contextosAutorizacion) || dependenciaNula(flujos) ||
 		dependenciaNula(huellas) || dependenciaNula(ambitos) ||
 		dependenciaNula(motivos) || dependenciaNula(correlaciones) ||
-		dependenciaNula(referenciasAlta) || dependenciaNula(proyectorEfecto) ||
-		dependenciaNula(autorizador) || dependenciaNula(reloj) ||
+		dependenciaNula(referenciasAlta) || dependenciaNula(candidaturas) ||
+		dependenciaNula(proyectorEfecto) || dependenciaNula(autorizador) ||
+		dependenciaNula(reloj) ||
 		dependenciaNula(transaccion) {
 		return nil, ErrServicioRegistroInvalido
 	}
@@ -81,6 +84,7 @@ func NuevoServicioRegistroSolicitud(
 		motivos:               motivos,
 		correlaciones:         correlaciones,
 		referenciasAlta:       referenciasAlta,
+		candidaturas:          candidaturas,
 		proyectorEfecto:       proyectorEfecto,
 		autorizador:           autorizador,
 		reloj:                 reloj,
@@ -98,6 +102,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		dependenciaNula(s.motivos) ||
 		dependenciaNula(s.correlaciones) ||
 		dependenciaNula(s.referenciasAlta) ||
+		dependenciaNula(s.candidaturas) ||
 		dependenciaNula(s.proyectorEfecto) ||
 		dependenciaNula(s.autorizador) || dependenciaNula(s.reloj) ||
 		dependenciaNula(s.transaccion) {
@@ -246,7 +251,7 @@ func (s *ServicioRegistroSolicitud) Registrar(
 	if err := ctx.Err(); err != nil {
 		return ports.ReciboAlta{}, err
 	}
-	candidatura := ports.CandidaturaAlta{
+	propuesta := ports.CandidaturaAlta{
 		ReservaRef:             reservaRef,
 		Referencias:            referencias,
 		AmbitoIdempotenciaHMAC: ambitoHMAC,
@@ -255,8 +260,32 @@ func (s *ServicioRegistroSolicitud) Registrar(
 		ActorRef:               vinculo.PrincipalID,
 		PerfilRef:              vinculo.PerfilActivoRef,
 	}
-	if candidatura.Validar() != nil {
+	solicitudCandidatura := ports.SolicitudResolverCandidaturaAlta{
+		AmbitosIdempotenciaHMAC: ambitosHMAC,
+		HuellasPeticionHMAC:     huellasHMAC,
+		OrganizacionRef:         solicitud.OrganizacionRef,
+		ActorRef:                vinculo.PrincipalID,
+		PerfilRef:               vinculo.PerfilActivoRef,
+		Propuesta:               propuesta,
+	}
+	if solicitudCandidatura.Validar() != nil {
 		return ports.ReciboAlta{}, ports.ErrPreparacionAltaInvalida
+	}
+	candidatura, err := s.candidaturas.ResolverCandidaturaAlta(
+		ctx,
+		solicitudCandidatura,
+	)
+	if errContexto := ctx.Err(); errContexto != nil {
+		return ports.ReciboAlta{}, errContexto
+	}
+	if errors.Is(err, ports.ErrClaveIdempotenciaUsada) {
+		return ports.ReciboAlta{}, ports.ErrClaveIdempotenciaUsada
+	}
+	if err != nil {
+		return ports.ReciboAlta{}, ports.ErrPersistenciaNoDisponible
+	}
+	if solicitudCandidatura.ValidarResultado(candidatura) != nil {
+		return ports.ReciboAlta{}, ports.ErrResultadoAltaNoConfiable
 	}
 	instanteEfecto := instanteCanonico(s.reloj.Ahora())
 	expediente, err := domain.NuevoExpediente(domain.AltaExpediente{

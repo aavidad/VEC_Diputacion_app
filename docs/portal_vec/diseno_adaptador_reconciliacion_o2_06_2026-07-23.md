@@ -176,6 +176,23 @@ para la corrección. Una nueva invocación semántica obtiene del flujo de
 aplicación el mismo candidato/recibo o el replay durable; dentro de una
 reconciliación iniciada el lote de doce parámetros permanece inmutable.
 
+Antes de proyectar y autorizar el efecto, aplicación entrega al puerto
+`ResolutorCandidaturaAlta` las colecciones HMAC alineadas y una propuesta de
+referencias acuñada por servidor. El puerto devuelve siempre la candidatura
+técnica asociada al mismo ámbito y huella:
+
+- el primer intento estabiliza la propuesta sin crear expediente ni conceder
+  autoridad;
+- un segundo servicio o proceso recupera exactamente reserva, expediente,
+  número visible y recibo;
+- la misma clave semántica con otra huella se rechaza;
+- tras rotación puede recuperarse un par retenido, pero nunca cruzar
+  generaciones de ámbito y huella.
+
+La interfaz es neutral a PostgreSQL y no restaura
+`preparar_alta_v2`. La creación administrativa continúa limitada a
+`TransaccionAltas`, después de la decisión positiva V3.
+
 No se acepta reconstruir autoridad desde cookies, cabeceras libres, JSON del
 cliente o almacenamiento web. Web, escritorio, CLI y MCP consumen el mismo
 caso de uso.
