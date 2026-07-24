@@ -5,6 +5,9 @@ Fecha: 24 de julio de 2026.
 Estado: `LISTA PARA REVISIÓN INDEPENDIENTE`. Este documento no sustituye por
 sí solo el `NO-GO` previo ni autoriza integración o producción.
 
+Commits principales: corrección de código `1ca248b` y documentación candidata
+`fa65da4`.
+
 ## Alcance
 
 La corrección parte de `10ed26d` e incorpora los commits de implementación
@@ -68,13 +71,15 @@ Superado:
 - ACL de mínimo privilegio y lecturas/preparación/reconciliación rechazadas;
 - `down` protegido con candidatura huérfana;
 - migración ascendente por debajo del límite duro de 800 líneas;
-- `git diff --check`.
+- pruebas globales, carrera global (`internal/vec/ports`: 488,252 s),
+  `go vet ./...`, aislamiento de grafos/manifiestos, TLS no privilegiado,
+  análisis de vulnerabilidades, tamaños y `git diff --check`;
+- Gitleaks sobre los ocho commits `10ed26d..fa65da4`: cero filtraciones.
 
 Antes de integrar aún se exige:
 
 1. revisión independiente del rango candidato;
-2. pruebas globales, carrera global, `go vet ./...`, calidad y secretos;
-3. registrar hash, evidencia y veredicto independiente en tablero y relevo.
+2. registrar hash, evidencia y veredicto independiente en tablero y relevo.
 
 ## Trabajo posterior
 

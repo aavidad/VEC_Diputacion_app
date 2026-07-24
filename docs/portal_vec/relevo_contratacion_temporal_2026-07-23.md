@@ -458,8 +458,10 @@ resolver durable separado, la fachada PostgreSQL V2 y la clasificación
 determinada de `SafeToRetry`. PostgreSQL 18 ya supera recuperación con pool
 nuevo, huella divergente total o parcial, concurrencia, cancelación
 pre-`COMMIT`, `08007`/respuesta perdida, segunda ambigüedad, ACL y `down`
-protegido. Es una corrección candidata: no se integra ni se eleva el 16/46
-hasta una nueva revisión independiente y las puertas globales. Evidencia:
+protegido. El corte `1ca248b`–`fa65da4` supera además PostgreSQL 18 3/3,
+calidad global con carrera y Gitleaks sin hallazgos. Es una corrección
+candidata: no se integra ni se eleva el 16/46 hasta una nueva revisión
+independiente. Evidencia:
 [corrección candidata O2-06](revisiones/o2_06_correccion_candidata_2026-07-24.md).
 
 El NO-GO visual del checkpoint `cdf9314` quedó corregido por
