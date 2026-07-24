@@ -331,6 +331,9 @@ archivo vec_ct_o205_migrador \
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000007_preparacion_operaciones_analisis.up.sql \
     >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.up.sql \
+    >/dev/null
 afirmar_sin_referencias_o2_05
 
 paso 'frontera intercambiable sin FK a tablas de otra autoridad'
@@ -705,6 +708,15 @@ esperar_fallo 'lectura directa del puntero integral' \
 esperar_fallo 'lectura directa de reservas de análisis' \
     sql vec_ct_o205_runtime \
     'TABLE vec_contratacion_temporal.reserva_operacion_analisis'
+esperar_fallo 'lectura directa de actuaciones integrales' \
+    sql vec_ct_o205_runtime \
+    'TABLE vec_contratacion_temporal.actuacion_expediente_integral'
+esperar_fallo 'lectura directa de consumos de fuentes' \
+    sql vec_ct_o205_runtime \
+    'TABLE vec_contratacion_temporal.consumo_fuentes_analisis'
+esperar_fallo 'lectura directa de auditoría integral' \
+    sql vec_ct_o205_runtime \
+    'TABLE vec_contratacion_temporal.auditoria_expediente_integral'
 esperar_fallo 'lectura directa atestación' sql vec_ct_o205_runtime \
     'TABLE vec_autorizacion_atestada_v3.consumo_decision_v3'
 esperar_fallo 'preparación histórica abierta' sql vec_ct_o205_runtime \
@@ -720,6 +732,12 @@ esperar_fallo 'consumidor genérico abierto' sql vec_ct_o205_runtime \
 [[ "$(valor "SELECT has_function_privilege('public','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 'f' ]]
 
 paso 'rollback ordinario protegido'
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.down.sql \
+    >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.up.sql \
+    >/dev/null
 esperar_fallo 'down preparaciones de análisis con datos' \
     archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000007_preparacion_operaciones_analisis.down.sql
@@ -744,6 +762,9 @@ esperar_fallo 'down revalidación viva con consumidor instalado' \
 paso 'retirada de la superficie de prueba y destrucción explícita ensayada'
 sql postgres \
     'REVOKE USAGE ON SCHEMA public FROM vec_ct_o205_runtime; DROP FUNCTION public.aplicar_bundle_go_o2_05(text,jsonb); DROP FUNCTION public.exportar_entrada_go_o2_05(text); DROP FUNCTION public.durabilizar_decision_o2_05(text); DROP FUNCTION public.mutar_tipo_capacidad_o2_05(text,text); DROP FUNCTION public.mutar_efecto_o2_05(text,text,jsonb); DROP FUNCTION public.invocar_vector_o2_05(text); DROP FUNCTION public.preparar_vector_o2_05(text,text,numeric); DROP TABLE public.vectores_o2_05' \
+    >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.down.sql \
     >/dev/null
 docker exec \
     --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
@@ -826,7 +847,13 @@ archivo vec_ct_o205_migrador \
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000007_preparacion_operaciones_analisis.up.sql \
     >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.up.sql \
+    >/dev/null
 afirmar_sin_referencias_o2_05
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.down.sql \
+    >/dev/null
 archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000007_preparacion_operaciones_analisis.down.sql \
     >/dev/null

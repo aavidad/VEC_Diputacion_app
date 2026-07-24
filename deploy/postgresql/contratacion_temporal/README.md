@@ -94,7 +94,8 @@ número visible, versión, instante y huellas. Ninguna clave idempotente,
 secreto HMAC ni dato personal se devuelve.
 
 Las migraciones aditivas `000006_expediente_integral_versionado` y
-`000007_preparacion_operaciones_analisis` preparan O3-04:
+`000007_preparacion_operaciones_analisis` y
+`000008_efectos_expediente_integral` preparan O3-04:
 
 - materializan el alta O2 como versión 1 de una historia integral única y de
   solo adición;
@@ -102,6 +103,8 @@ Las migraciones aditivas `000006_expediente_integral_versionado` y
 - reservan las operaciones de análisis con HMAC generacional sin guardar la
   clave idempotente original;
 - permiten replay exacto y consulta de un recibo ya confirmado;
+- reservan las tablas inmutables de actuaciones, consumo de fuentes,
+  consumo de decisión, auditoría encadenada y outbox para la transacción final;
 - mantienen RLS, ACL de mínimo privilegio, filas inmutables y reversión
   destructiva protegida.
 
@@ -123,8 +126,9 @@ auditoría, recibo y outbox en un solo `COMMIT`.
 6. Ejecutar `000003_expediente_confirmacion_atestada.up.sql`,
    `000004_integridad_agregado_alta.up.sql` y
    `000005_funcion_confirmar_alta_atestada.up.sql`, por ese orden.
-7. Ejecutar `000006_expediente_integral_versionado.up.sql` y
-   `000007_preparacion_operaciones_analisis.up.sql`, por ese orden.
+7. Ejecutar `000006_expediente_integral_versionado.up.sql`,
+   `000007_preparacion_operaciones_analisis.up.sql` y
+   `000008_efectos_expediente_integral.up.sql`, por ese orden.
 8. Aprovisionar la cuenta de la aplicación como miembro únicamente de
    `vec_contratacion_temporal_ejecutor`.
 
@@ -147,6 +151,8 @@ psql -X --set ON_ERROR_STOP=1 \
   --file deploy/postgresql/contratacion_temporal/migraciones/000006_expediente_integral_versionado.up.sql
 psql -X --set ON_ERROR_STOP=1 \
   --file deploy/postgresql/contratacion_temporal/migraciones/000007_preparacion_operaciones_analisis.up.sql
+psql -X --set ON_ERROR_STOP=1 \
+  --file deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.up.sql
 ```
 
 El repositorio no contiene DSN, usuarios LOGIN, contraseñas ni secretos HMAC.
