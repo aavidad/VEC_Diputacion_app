@@ -468,15 +468,26 @@ y errores observables.
 - `origen`: prioridad de negocio "Bolsa primero" y revision de direccion del
   17/07: la semantica durable (saga de firma, auditoria encadenada,
   expediente probatorio) esta probada solo en memoria.
-- `estado`: nuevo.
+- `estado`: en curso. T12-A queda implementado como candidata el 24/07/2026:
+  la vertical PostgreSQL V3 de baremacion supera perdida total, copia logica
+  sin credenciales, restauracion aislada, reinicio y cotejo exacto de estado,
+  roles, ACL, RLS y evidencias. No se declara cerrado T12.
 - `area_hexagonal`: adaptadores de persistencia y composicion.
 - `accion`: llevar a PostgreSQL productivo, por este orden, la auditoria
   encadenada, el registro de decisiones de autorizacion ya migrado y los
   puntos de control de la saga de firma; incluir copias de seguridad
   ensayadas y prueba de recuperacion tras reinicio completo. Sin esto un
   incidente no pierde seguridad pero si trazabilidad.
-- `evidencia`: adaptadores en memoria en `internal/modules/bolsa` y
-  `internal/vec`; el flujo durable documenta sus conectores pendientes.
+- `evidencia T12-A`: corredor
+  `deploy/postgresql/bolsa_baremacion/probar_copia_restauracion_v3.sh`,
+  inventarios SQL y puerta propia de CI. La copia usa exclusivamente datos
+  sinteticos y un volumen Docker efimero.
+- `pendiente para cerrar`: registro durable global de accesos y efectos,
+  checkpoints de firma, anclaje monotónico externo, repositorio de copias
+  cifrado y separado, WAL/PITR con pgBackRest o WAL-G aprobado por Sistemas,
+  restauracion del almacen de objetos, RPO/RTO y simulacro completo. Los
+  adaptadores en memoria de `internal/modules/bolsa` y `internal/vec` no se
+  consideran resueltos por T12-A.
 
 ### T20 — Adaptador Go PostgreSQL de borradores y diario de convocatorias
 

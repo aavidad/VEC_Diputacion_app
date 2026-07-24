@@ -106,6 +106,12 @@ Probado:
   resultados de experiencia tiene esquema PostgreSQL con RLS, roles de
   privilegio minimo, migraciones y pruebas de integracion mecanica; aun no
   se monta en produccion.
+- T12-A añade una prueba real de pérdida total y restauración lógica de esa
+  vertical de baremación: copia base y roles sin credenciales, elimina la
+  instancia origen, restaura en PostgreSQL 18.4 aislado, reinicia y coteja
+  estado, manifiestos, RLS, ACL y mínimo privilegio. Es una puerta de CI; no
+  sustituye el futuro repositorio cifrado, WAL/PITR, copia externa ni anclaje
+  anti-restauración.
 - Perfil de autorizacion V2 nominal: la solicitud efectiva ya no admite
   principal declarado ni motivo libre, liga la referencia exacta de un
   catalogo publicado y separa evidencias y registros V1/V2. El adaptador de

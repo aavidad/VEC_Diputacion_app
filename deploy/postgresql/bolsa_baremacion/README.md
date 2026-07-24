@@ -351,6 +351,29 @@ El tramo V3 también puede ejecutarse de forma aislada:
 ./deploy/postgresql/bolsa_baremacion/probar_integracion_v3.sh
 ```
 
+La pérdida completa de la instancia y la restauración lógica se prueban aparte:
+
+```bash
+./deploy/postgresql/bolsa_baremacion/probar_copia_restauracion_v3.sh
+```
+
+Este corredor crea historia sintética V3, genera una copia de la base y otra
+de los roles globales sin contraseñas, destruye el contenedor origen y restaura
+ambos artefactos en un PostgreSQL nuevo. Tras reiniciarlo exige:
+
+- igualdad SHA-256 del contenido funcional canónico antes y después;
+- inventario exacto de roles `NOLOGIN`, atributos y membresías;
+- ausencia de credenciales y ajustes de rol en la copia;
+- ACL de base, esquemas, funciones, tablas y tipos de mínimo privilegio;
+- RLS forzado, manifiestos completos y recuperación exacta de evidencias.
+
+Los artefactos viven en un volumen Docker efímero con permisos `0600` y se
+eliminan al terminar. Esta prueba acredita restaurabilidad lógica del corte
+de baremación, no cifra una copia productiva, no implanta archivado continuo
+de WAL/PITR y no constituye un anclaje externo anti-restauración. Esos controles
+siguen siendo condiciones de operación y se delimitan en
+[`t12_a_copia_restauracion_bolsa_2026-07-24.md`](../../../docs/portal_vec/t12_a_copia_restauracion_bolsa_2026-07-24.md).
+
 La imagen puede sustituirse de forma explícita con
 `VEC_POSTGRES_TEST_IMAGE`, manteniendo PostgreSQL 18.4 o una revisión aprobada.
 

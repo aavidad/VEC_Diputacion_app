@@ -1,6 +1,6 @@
 # Estado y plan de ataque del proyecto
 
-**Última actualización:** 20 de julio de 2026
+**Última actualización:** 24 de julio de 2026
 
 **Frente principal:** primera funcionalidad real de Bolsa
 
@@ -92,8 +92,11 @@ La operación cartográfica se documenta en
 | 4. Orquestación ampliada | Ensayo de Orquesta antigua cerrado en `NO-GO` | No se amplía; la entrega rechazada quedó fuera del árbol principal | Corregir Convoca con agentes directos y repetir las puertas independientes. |
 | 5. Dirección e integración | Tablero, pruebas globales y commits acotados | Sí | Integrar solo entregas revisadas y mantener una única verdad. |
 
-**Siguiente carril que se abrirá al quedar uno libre:** durabilidad probatoria y
-registro de accesos, necesarios antes de introducir datos personales reales.
+**Carril de continuidad abierto:** T12-A ya prueba la pérdida y restauración
+lógica completa de la vertical PostgreSQL V3 de baremación. Continúan abiertos
+el registro global de accesos, firma durable, copias cifradas, WAL/PITR y
+recuperación del almacén de objetos, necesarios antes de introducir datos
+personales reales.
 
 ## Significado de las columnas
 
@@ -144,7 +147,7 @@ para evitar la sigla.
 | API interna completa | 🟡 Parcial | ❌ | ❌ | ❌ | ❌ | ❌ |
 | CLI, MCP y acceso gobernado para IA | 🟡 Contratos | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Protección de datos, conservación y expurgo | ✅ Diseño/núcleo | ❌ integral | 🟡 Pruebas parciales | ❌ | ❌ | ❌ |
-| Copias, recuperación, observabilidad y operación | 🟡 Parcial | ❌ integral | 🟡 Pruebas parciales | ❌ | ❌ | ❌ |
+| Copias, recuperación, observabilidad y operación | 🟡 T12-A en baremación V3 | ❌ integral | 🟡 Restauración PostgreSQL real de una vertical | ❌ | ❌ | ❌ |
 | Accesibilidad, tema y preferencias visuales | ✅ | 🟡 Vistas actuales | 🟡 Web | ✅ Parcial | ❌ formal | ❌ |
 
 La tabla distingue trabajo reutilizable de funcionalidad utilizable. Por eso
@@ -178,6 +181,7 @@ Cada cierre debe actualizar, en este orden:
 
 | Fecha | Cambio |
 | --- | --- |
+| 24/07/2026 | T12-A: copia lógica sin credenciales, destrucción del origen, restauración en PostgreSQL 18.4 aislado, reinicio y cotejo de datos, roles, ACL, RLS y evidencias de baremación V3. Añadida puerta CI; PITR, cifrado productivo, anclaje externo y recuperación integral siguen abiertos. |
 | 20/07/2026 | Presentación RRHH pulida y revisada: 183/183 escenarios, 183 capturas y cero hallazgos. Corregidos directorio público, foco del recibo de llamamiento, tablas operativas, huellas sintéticas, separación Reglas/Baremación y composición de Reglas a 1024 px. Certificados PDF DEMO reales con QR opaco verificable y selector de cuatro perfiles probado. |
 | 19/07/2026 | Puerta cartográfica y visual cerrada: 174/174 escenarios correctos, 174 capturas y cero hallazgos sobre 36 vistas, 22 flujos y tres resoluciones; incluye ruta OSRM real y carga efectiva de teselas OSM internas. |
 | 19/07/2026 | Composición Docker de presentación ampliada a portal, mediador cartográfico, OSRM y teselas OSM internas: un único acceso por `127.0.0.1:8081` y datos cartográficos versionados. |
