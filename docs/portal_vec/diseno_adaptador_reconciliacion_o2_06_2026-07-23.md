@@ -142,6 +142,8 @@ Después de invocar `Commit`:
 | `nil` | Confirmación durable |
 | `40001` o `40P01` | Rollback determinado; puede continuar la política ordinaria |
 | `pgx.ErrTxCommitRollback` | Rollback determinado; no se reconcilia |
+| `pgconn.SafeToRetry(err) == true` | Fallo garantizado antes de enviar datos; no se reintenta ni reconcilia |
+| `08007` | Resolución de transacción desconocida; se reconcilia |
 | Otro error de transporte/timeout/EOF | Resultado indeterminado; se reconcilia |
 
 La reconciliación no abre una superficie read-only. Usa un contexto interno
@@ -160,6 +162,11 @@ txid, WAL/LSN o reloj del cliente. Si su `COMMIT` vuelve a ser ambiguo, si la
 base no responde, si el recibo diverge o si no se acredita una fila exacta,
 la salida es `ErrResultadoAltaIndeterminado`. Nunca se afirma éxito ni
 rollback.
+
+Un error marcado por pgx como seguro para reintentar no entra en esta ruta:
+esa marca acredita que ningún dato llegó al servidor. Reejecutarlo con un
+contexto nuevo después de una cancelación podría crear un efecto que el
+solicitante ya no espera.
 
 ## Reinicio
 

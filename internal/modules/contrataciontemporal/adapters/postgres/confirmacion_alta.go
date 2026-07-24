@@ -152,11 +152,21 @@ func (t *TransaccionAltasPostgreSQL) ejecutarIntento(
 		return ports.ReciboAlta{}, intentoDeterminado,
 			ports.ErrPersistenciaNoDisponible
 	}
+	// pgconn solo marca SafeToRetry cuando garantiza que no llegó a enviar
+	// ningún dato al servidor. No existe entonces un COMMIT que reconciliar:
+	// repetir con un contexto nuevo podría crear un efecto después de que el
+	// solicitante hubiera cancelado.
+	if pgconn.SafeToRetry(err) {
+		return ports.ReciboAlta{}, intentoDeterminado, err
+	}
 	if errorPostgreSQLReintentable(err) {
 		return ports.ReciboAlta{}, intentoReintentable, err
 	}
 	var postgres *pgconn.PgError
 	if errors.As(err, &postgres) {
+		if postgres.Code == "08007" {
+			return recibo, intentoIndeterminado, err
+		}
 		return ports.ReciboAlta{}, intentoDeterminado, err
 	}
 	return recibo, intentoIndeterminado, err

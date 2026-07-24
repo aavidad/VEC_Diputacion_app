@@ -64,6 +64,11 @@ type transaccionConfirmacionPrueba struct {
 	reversiones    int
 }
 
+type errorReintentoSeguroPrueba struct{}
+
+func (errorReintentoSeguroPrueba) Error() string     { return "fallo previo al envío" }
+func (errorReintentoSeguroPrueba) SafeToRetry() bool { return true }
+
 func (t *transaccionConfirmacionPrueba) Exec(
 	_ context.Context,
 	sql string,
@@ -484,6 +489,46 @@ func TestConfirmacionAltaNoReconciliaRespuestaPostgreSQLDeterminadaEnCommit(
 		pool.inicios != 1 || strings.Contains(err.Error(), "secreto") {
 		t.Fatalf("error PostgreSQL de COMMIT se reconcilió: %v, %d",
 			err, pool.inicios)
+	}
+}
+
+func TestConfirmacionAltaNoReconciliaCommitNoEnviado(t *testing.T) {
+	expediente := expedienteConfirmacionPrueba(t)
+	recibo := reciboConfirmacionPrueba(t, expediente)
+	tx := nuevaTransaccionConfirmacionPrueba(recibo)
+	tx.errConfirmar = fmt.Errorf(
+		"transporte: %w",
+		errorReintentoSeguroPrueba{},
+	)
+	pool := &iniciadorConfirmacionPrueba{transacciones: []pgx.Tx{tx}}
+	adaptador := &TransaccionAltasPostgreSQL{pool: pool}
+
+	_, err := adaptador.confirmarParametros(
+		context.Background(), expediente, parametrosConfirmacionPrueba(),
+	)
+	if !errors.Is(err, ports.ErrPersistenciaNoDisponible) ||
+		pool.inicios != 1 {
+		t.Fatalf("COMMIT no enviado se reconcilió: %v, %d", err, pool.inicios)
+	}
+}
+
+func TestConfirmacionAltaReconciliaResolucionPostgreSQLDesconocida(t *testing.T) {
+	expediente := expedienteConfirmacionPrueba(t)
+	recibo := reciboConfirmacionPrueba(t, expediente)
+	txCommit := nuevaTransaccionConfirmacionPrueba(recibo)
+	txCommit.errConfirmar = &pgconn.PgError{Code: "08007"}
+	txReconciliacion := nuevaTransaccionConfirmacionPrueba(recibo)
+	pool := &iniciadorConfirmacionPrueba{
+		transacciones: []pgx.Tx{txCommit, txReconciliacion},
+	}
+	adaptador := &TransaccionAltasPostgreSQL{pool: pool}
+
+	obtenido, err := adaptador.confirmarParametros(
+		context.Background(), expediente, parametrosConfirmacionPrueba(),
+	)
+	if err != nil || obtenido != recibo || pool.inicios != 2 {
+		t.Fatalf("08007 no reconciliado: %#v, %v, %d",
+			obtenido, err, pool.inicios)
 	}
 }
 
