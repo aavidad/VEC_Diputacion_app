@@ -15,6 +15,7 @@ func TestExpedienteReasignaUnidadSinReescribirHistoria(t *testing.T) {
 		ResponsableRef:  "persona:responsable-sintetica-002",
 		NotificacionRef: "notificacion:asignacion-sintetica-002",
 		AsignadaEn:      instante,
+		MotivoClave:     "necesidades_servicio",
 		Observaciones:   "Reasignación motivada por el catálogo vigente.",
 	}
 	actuacion := actuacion(
@@ -78,6 +79,50 @@ func TestExpedienteRehidratadoRechazaAsignacionLigadaAOtraActuacion(t *testing.T
 	}
 }
 
+func TestExpedienteRehidratadoRechazaContenidoDeAsignacionAdulterado(
+	t *testing.T,
+) {
+	expediente := expedienteConAsignacion(t)
+	casos := []struct {
+		nombre    string
+		adulterar func(*AsignacionUnidad)
+	}{
+		{
+			nombre: "unidad",
+			adulterar: func(asignacion *AsignacionUnidad) {
+				asignacion.UnidadRef = "unidad:adulterada"
+			},
+		},
+		{
+			nombre: "responsable",
+			adulterar: func(asignacion *AsignacionUnidad) {
+				asignacion.ResponsableRef = "persona:adulterada"
+			},
+		},
+		{
+			nombre: "notificación",
+			adulterar: func(asignacion *AsignacionUnidad) {
+				asignacion.NotificacionRef = "notificacion:adulterada"
+			},
+		},
+		{
+			nombre: "motivo",
+			adulterar: func(asignacion *AsignacionUnidad) {
+				asignacion.MotivoClave = "motivo_adulterado"
+			},
+		},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			adulterado := expediente.Clonar()
+			caso.adulterar(adulterado.Asignacion)
+			if !errors.Is(adulterado.Validar(), ErrExpedienteInvalido) {
+				t.Fatal("se aceptó contenido no ligado a la actuación")
+			}
+		})
+	}
+}
+
 func TestExpedienteReasignacionExigeCambioMotivoEInstanteNuevo(t *testing.T) {
 	base := expedienteConAsignacion(t)
 	casos := []struct {
@@ -92,16 +137,28 @@ func TestExpedienteReasignacionExigeCambioMotivoEInstanteNuevo(t *testing.T) {
 				ResponsableRef:  base.Asignacion.ResponsableRef,
 				NotificacionRef: "notificacion:asignacion-sintetica-003",
 				AsignadaEn:      base.ActualizadoEn.Add(time.Minute),
+				MotivoClave:     "necesidades_servicio",
 				Observaciones:   "Motivo suficiente.",
 			},
 		},
 		{
-			nombre: "sin motivo",
+			nombre: "sin motivo catalogado",
 			asignacion: AsignacionUnidad{
 				UnidadRef:       "unidad:contratacion-temporal-003",
 				ResponsableRef:  "persona:responsable-sintetica-003",
 				NotificacionRef: "notificacion:asignacion-sintetica-003",
 				AsignadaEn:      base.ActualizadoEn.Add(time.Minute),
+				Observaciones:   "Explicación suficiente.",
+			},
+		},
+		{
+			nombre: "sin explicación",
+			asignacion: AsignacionUnidad{
+				UnidadRef:       "unidad:contratacion-temporal-003",
+				ResponsableRef:  "persona:responsable-sintetica-003",
+				NotificacionRef: "notificacion:asignacion-sintetica-003",
+				AsignadaEn:      base.ActualizadoEn.Add(time.Minute),
+				MotivoClave:     "necesidades_servicio",
 			},
 		},
 		{
@@ -111,6 +168,7 @@ func TestExpedienteReasignacionExigeCambioMotivoEInstanteNuevo(t *testing.T) {
 				ResponsableRef:  "persona:responsable-sintetica-003",
 				NotificacionRef: "notificacion:asignacion-sintetica-003",
 				AsignadaEn:      base.Asignacion.AsignadaEn,
+				MotivoClave:     "necesidades_servicio",
 				Observaciones:   "Motivo suficiente.",
 			},
 		},
@@ -121,6 +179,7 @@ func TestExpedienteReasignacionExigeCambioMotivoEInstanteNuevo(t *testing.T) {
 				ResponsableRef:  "persona:responsable-sintetica-003",
 				NotificacionRef: base.Asignacion.NotificacionRef,
 				AsignadaEn:      base.ActualizadoEn.Add(time.Minute),
+				MotivoClave:     "necesidades_servicio",
 				Observaciones:   "Motivo suficiente.",
 			},
 		},
@@ -154,6 +213,7 @@ func TestExpedienteReasignacionRechazaConflictoYCambioImplicitoDeFase(t *testing
 		ResponsableRef:  "persona:responsable-sintetica-004",
 		NotificacionRef: "notificacion:asignacion-sintetica-004",
 		AsignadaEn:      instante,
+		MotivoClave:     "necesidades_servicio",
 		Observaciones:   "Reasignación motivada.",
 	}
 	actuacionValida := actuacion(

@@ -71,6 +71,7 @@ type AsignacionUnidad struct {
 	ResponsableRef    string                      `json:"responsable_ref"`
 	NotificacionRef   string                      `json:"notificacion_ref"`
 	AsignadaEn        time.Time                   `json:"asignada_en"`
+	MotivoClave       ClaveCatalogo               `json:"motivo_clave,omitempty"`
 	Observaciones     string                      `json:"observaciones,omitempty"`
 	ActuacionRegistro *VinculoActuacionAsignacion `json:"actuacion_registro"`
 }
@@ -84,7 +85,16 @@ func (a AsignacionUnidad) Validar() error {
 }
 
 func (a AsignacionUnidad) validarEntrada() error {
-	if a.validarDatos() != nil || a.ActuacionRegistro != nil {
+	if a.validarDatos() != nil || a.MotivoClave != "" ||
+		a.ActuacionRegistro != nil {
+		return ErrDatoInvalido
+	}
+	return nil
+}
+
+func (a AsignacionUnidad) validarReasignacion() error {
+	if a.validarDatos() != nil || !a.MotivoClave.Valida() ||
+		a.ActuacionRegistro != nil {
 		return ErrDatoInvalido
 	}
 	return nil
@@ -93,6 +103,7 @@ func (a AsignacionUnidad) validarEntrada() error {
 func (a AsignacionUnidad) validarDatos() error {
 	if !referenciaValida(a.UnidadRef) || !referenciaValida(a.ResponsableRef) ||
 		!referenciaValida(a.NotificacionRef) || !instanteCanonico(a.AsignadaEn) ||
+		(a.MotivoClave != "" && !a.MotivoClave.Valida()) ||
 		!textoValido(a.Observaciones, 1000, true) {
 		return ErrDatoInvalido
 	}
@@ -102,40 +113,60 @@ func (a AsignacionUnidad) validarDatos() error {
 // VinculoActuacionAsignacion impide que una proyección de asignación válida
 // se adjunte a una actuación distinta durante la rehidratación.
 type VinculoActuacionAsignacion struct {
-	Secuencia         uint64        `json:"secuencia"`
-	VersionExpediente uint64        `json:"version_expediente"`
-	AccionClave       ClaveCatalogo `json:"accion_clave"`
-	FaseDestino       ClaveFase     `json:"fase_destino"`
-	ReciboRef         string        `json:"recibo_ref"`
+	Secuencia              uint64        `json:"secuencia"`
+	VersionExpediente      uint64        `json:"version_expediente"`
+	AccionClave            ClaveCatalogo `json:"accion_clave"`
+	FaseDestino            ClaveFase     `json:"fase_destino"`
+	ReciboRef              string        `json:"recibo_ref"`
+	UnidadAsignadaRef      string        `json:"unidad_asignada_ref"`
+	ResponsableAsignadoRef string        `json:"responsable_asignado_ref"`
+	NotificacionRef        string        `json:"notificacion_ref"`
+	MotivoClave            ClaveCatalogo `json:"motivo_clave,omitempty"`
 }
 
 func (v VinculoActuacionAsignacion) validar() error {
 	if v.Secuencia < 2 || v.VersionExpediente < 2 ||
 		v.Secuencia != v.VersionExpediente ||
 		!v.AccionClave.Valida() || !v.FaseDestino.Valida() ||
-		!referenciaValida(v.ReciboRef) {
+		!referenciaValida(v.ReciboRef) ||
+		!referenciaValida(v.UnidadAsignadaRef) ||
+		!referenciaValida(v.ResponsableAsignadoRef) ||
+		!referenciaValida(v.NotificacionRef) ||
+		(v.MotivoClave != "" && !v.MotivoClave.Valida()) {
 		return ErrDatoInvalido
 	}
 	return nil
 }
 
-func (v VinculoActuacionAsignacion) correspondeA(actuacion Actuacion) bool {
+func (v VinculoActuacionAsignacion) correspondeA(
+	actuacion Actuacion,
+	asignacion AsignacionUnidad,
+) bool {
 	return v.validar() == nil &&
 		v.Secuencia == actuacion.Secuencia &&
 		v.VersionExpediente == actuacion.VersionExpediente &&
 		v.AccionClave == actuacion.AccionClave &&
 		v.FaseDestino == actuacion.FaseDestino &&
-		v.ReciboRef == actuacion.ReciboRef
+		v.ReciboRef == actuacion.ReciboRef &&
+		v.UnidadAsignadaRef == asignacion.UnidadRef &&
+		v.ResponsableAsignadoRef == asignacion.ResponsableRef &&
+		v.NotificacionRef == asignacion.NotificacionRef &&
+		v.MotivoClave == asignacion.MotivoClave
 }
 
 func nuevoVinculoActuacionAsignacion(
 	versionExpediente uint64,
 	secuencia uint64,
 	actuacion DatosActuacion,
+	asignacion AsignacionUnidad,
 ) VinculoActuacionAsignacion {
 	return VinculoActuacionAsignacion{
 		Secuencia: secuencia, VersionExpediente: versionExpediente,
 		AccionClave: actuacion.AccionClave, FaseDestino: actuacion.FaseDestino,
-		ReciboRef: actuacion.ReciboRef,
+		ReciboRef:              actuacion.ReciboRef,
+		UnidadAsignadaRef:      asignacion.UnidadRef,
+		ResponsableAsignadoRef: asignacion.ResponsableRef,
+		NotificacionRef:        asignacion.NotificacionRef,
+		MotivoClave:            asignacion.MotivoClave,
 	}
 }

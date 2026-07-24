@@ -64,7 +64,7 @@ func asignacionLigadaAActuacion(
 		return false
 	}
 	actuacion := actuaciones[asignacion.ActuacionRegistro.Secuencia-1]
-	return asignacion.ActuacionRegistro.correspondeA(actuacion) &&
+	return asignacion.ActuacionRegistro.correspondeA(actuacion, *asignacion) &&
 		asignacion.AsignadaEn.Equal(actuacion.RealizadaEn) &&
 		asignacion.Observaciones == actuacion.Observaciones
 }
