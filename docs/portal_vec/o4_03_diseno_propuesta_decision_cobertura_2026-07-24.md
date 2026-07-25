@@ -159,6 +159,11 @@ mismo recibo; la misma clave con otra semántica es conflicto.
 - Contexto, catálogo, política, preparación global, evidencias y concesión VEC
   se revalidan justo antes de fabricar la orden; O4-04 repetirá la revalidación
   y consumirá las capacidades dentro del `COMMIT`.
+- El motivo conservado por el dominio compromete catálogo, versión, huella,
+  entrada y clave i18n, pero no acredita autoridad externa por sí solo. O4-03C
+  debe reconsultar la publicación exacta y comprobar que la entrada está
+  vigente y declara esa clave i18n; O4-04 debe repetirlo antes de cualquier
+  efecto durable. Una referencia rellenada por el llamador nunca basta.
 - Web, escritorio, CLI y MCP invocarán el mismo caso de uso, sin cookies como
   autoridad.
 

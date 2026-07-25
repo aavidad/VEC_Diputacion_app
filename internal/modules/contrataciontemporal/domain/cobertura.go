@@ -37,14 +37,24 @@ func (c ComprobacionCobertura) Validar() error {
 }
 
 type DecisionViaCobertura struct {
-	ViaClave         ClaveCatalogo           `json:"via_clave"`
-	ProcedimientoRef string                  `json:"procedimiento_ref"`
-	BolsaRef         string                  `json:"bolsa_ref,omitempty"`
-	Comprobaciones   []ComprobacionCobertura `json:"comprobaciones"`
-	Motivacion       string                  `json:"motivacion"`
+	ViaClave          ClaveCatalogo                          `json:"via_clave"`
+	ProcedimientoRef  string                                 `json:"procedimiento_ref,omitempty"`
+	BolsaRef          string                                 `json:"bolsa_ref,omitempty"`
+	Comprobaciones    []ComprobacionCobertura                `json:"comprobaciones,omitempty"`
+	Motivacion        string                                 `json:"motivacion,omitempty"`
+	DecisionGobernada *PublicacionDecisionCoberturaGobernada `json:"decision_gobernada,omitempty"`
 }
 
 func (d DecisionViaCobertura) Validar() error {
+	if d.DecisionGobernada != nil {
+		if d.ViaClave != d.DecisionGobernada.ViaElegida ||
+			d.ProcedimientoRef != "" || d.BolsaRef != "" ||
+			len(d.Comprobaciones) != 0 || d.Motivacion != "" {
+			return ErrDatoInvalido
+		}
+		_, err := RestaurarDecisionCoberturaGobernada(*d.DecisionGobernada)
+		return err
+	}
 	if !d.ViaClave.Valida() || !referenciaValida(d.ProcedimientoRef) ||
 		(d.BolsaRef != "" && !referenciaValida(d.BolsaRef)) ||
 		len(d.Comprobaciones) == 0 || len(d.Comprobaciones) > 32 ||
@@ -66,6 +76,10 @@ func (d DecisionViaCobertura) Validar() error {
 
 func (d DecisionViaCobertura) clonar() DecisionViaCobertura {
 	d.Comprobaciones = append([]ComprobacionCobertura(nil), d.Comprobaciones...)
+	if d.DecisionGobernada != nil {
+		publicacion := *d.DecisionGobernada
+		d.DecisionGobernada = &publicacion
+	}
 	return d
 }
 

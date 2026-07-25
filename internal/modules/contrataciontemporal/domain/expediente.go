@@ -52,10 +52,13 @@ type Expediente struct {
 	Solicitud       SolicitudCentro       `json:"solicitud"`
 	Analisis        *AnalisisRRHH         `json:"analisis,omitempty"`
 	ViaCobertura    *DecisionViaCobertura `json:"via_cobertura,omitempty"`
-	Asignacion      *AsignacionUnidad     `json:"asignacion,omitempty"`
-	CreadoEn        time.Time             `json:"creado_en"`
-	ActualizadoEn   time.Time             `json:"actualizado_en"`
-	Actuaciones     []Actuacion           `json:"actuaciones"`
+	// DecisionesCobertura conserva la cadena gobernada de solo adición. La
+	// última publicación coincide con la proyección ViaCobertura.
+	DecisionesCobertura []PublicacionDecisionCoberturaGobernada `json:"decisiones_cobertura,omitempty"`
+	Asignacion          *AsignacionUnidad                       `json:"asignacion,omitempty"`
+	CreadoEn            time.Time                               `json:"creado_en"`
+	ActualizadoEn       time.Time                               `json:"actualizado_en"`
+	Actuaciones         []Actuacion                             `json:"actuaciones"`
 }
 
 type AltaExpediente struct {
@@ -154,6 +157,8 @@ func (e Expediente) RectificarAnalisis(
 	return siguiente.confirmarTransicion(actuacion)
 }
 
+// RegistrarViaCobertura restaura el contrato histórico O1. No acepta las
+// acciones reservadas de O4-03: toda decisión nueva usa el método gobernado.
 func (e Expediente) RegistrarViaCobertura(
 	versionEsperada uint64,
 	decision DecisionViaCobertura,
@@ -161,7 +166,9 @@ func (e Expediente) RegistrarViaCobertura(
 ) (Expediente, error) {
 	if e.Validar() != nil || decision.Validar() != nil || actuacion.validar() != nil ||
 		e.Analisis == nil || !e.Analisis.HabilitaAvance() ||
-		e.ViaCobertura != nil || e.Asignacion != nil {
+		e.ViaCobertura != nil || e.Asignacion != nil ||
+		actuacion.AccionClave == AccionDecidirCoberturaGobernada ||
+		actuacion.AccionClave == AccionRectificarCoberturaGobernada {
 		return Expediente{}, ErrTransicionInvalida
 	}
 	siguiente, err := e.prepararTransicion(versionEsperada, actuacion)
@@ -170,6 +177,104 @@ func (e Expediente) RegistrarViaCobertura(
 	}
 	clon := decision.clonar()
 	siguiente.ViaCobertura = &clon
+	return siguiente.confirmarTransicion(actuacion)
+}
+
+// RegistrarDecisionCoberturaGobernada materializa una decisión humana ligada
+// a propuesta, evidencias, análisis, catálogo, política y actuación exactos.
+// No persiste ni concede autoridad; esas garantías corresponden a O4-04.
+func (e Expediente) RegistrarDecisionCoberturaGobernada(
+	versionEsperada uint64,
+	datos DatosAdoptarDecisionCobertura,
+	propuesta PropuestaDecisionCobertura,
+	actuacion DatosActuacion,
+) (Expediente, error) {
+	if e.Validar() != nil || actuacion.validar() != nil ||
+		e.Analisis == nil || !e.Analisis.HabilitaAvance() ||
+		e.ViaCobertura != nil || len(e.DecisionesCobertura) != 0 ||
+		e.Asignacion != nil {
+		return Expediente{}, ErrTransicionInvalida
+	}
+	siguiente, err := e.prepararTransicion(versionEsperada, actuacion)
+	if err != nil {
+		return Expediente{}, err
+	}
+	decision, err := crearDecisionCoberturaGobernada(
+		datosCrearDecisionCobertura{
+			Tipo: DecisionCoberturaInicial, Expediente: e,
+			PerfilRef: datos.PerfilRef, ViaElegida: datos.ViaElegida,
+			Motivo: datos.Motivo, Propuesta: propuesta, Actuacion: actuacion,
+		},
+	)
+	if err != nil {
+		return Expediente{}, err
+	}
+	publicacion := decision.Publicacion()
+	siguiente.ViaCobertura = &DecisionViaCobertura{
+		ViaClave:          publicacion.ViaElegida,
+		DecisionGobernada: &publicacion,
+	}
+	siguiente.DecisionesCobertura = append(
+		siguiente.DecisionesCobertura,
+		publicacion,
+	)
+	return siguiente.confirmarTransicion(actuacion)
+}
+
+// RectificarDecisionCoberturaGobernada añade una decisión y sustituye solo la
+// proyección actual. La predecesora debe ser la última decisión y su actuación
+// debe seguir siendo la última del expediente.
+func (e Expediente) RectificarDecisionCoberturaGobernada(
+	versionEsperada uint64,
+	datos DatosRectificarDecisionCobertura,
+	propuesta PropuestaDecisionCobertura,
+	actuacion DatosActuacion,
+) (Expediente, error) {
+	if e.Validar() != nil || actuacion.validar() != nil ||
+		e.Analisis == nil || e.ViaCobertura == nil ||
+		e.ViaCobertura.DecisionGobernada == nil ||
+		e.Asignacion != nil || len(e.DecisionesCobertura) == 0 ||
+		len(e.DecisionesCobertura) >= maximoDecisionesCoberturaGobernadas ||
+		actuacion.FaseDestino != e.FaseActual ||
+		actuacion.EstadoDestino != e.EstadoActual {
+		return Expediente{}, ErrTransicionInvalida
+	}
+	anterior := e.DecisionesCobertura[len(e.DecisionesCobertura)-1]
+	if datos.PredecesoraRef != anterior.Referencia ||
+		datos.PredecesoraHuellaSHA256 != anterior.HuellaSHA256 ||
+		actuacion.ActorRef == anterior.ActorRef ||
+		!actuacion.RealizadaEn.After(anterior.DecididaEn) ||
+		anterior.Actuacion.Secuencia != uint64(len(e.Actuaciones)) ||
+		anterior.Actuacion.VersionExpediente != e.Version {
+		return Expediente{}, ErrTransicionInvalida
+	}
+	siguiente, err := e.prepararTransicion(versionEsperada, actuacion)
+	if err != nil {
+		return Expediente{}, err
+	}
+	decision, err := crearDecisionCoberturaGobernada(
+		datosCrearDecisionCobertura{
+			Tipo: DecisionCoberturaRectificacion, Expediente: e,
+			PerfilRef: datos.PerfilRef, ViaElegida: datos.ViaElegida,
+			Motivo: datos.Motivo, Predecesora: &anterior,
+			Propuesta: propuesta, Actuacion: actuacion,
+		},
+	)
+	if err != nil {
+		return Expediente{}, err
+	}
+	publicacion := decision.Publicacion()
+	if publicacion.ViaElegida == anterior.ViaElegida {
+		return Expediente{}, ErrTransicionInvalida
+	}
+	siguiente.ViaCobertura = &DecisionViaCobertura{
+		ViaClave:          publicacion.ViaElegida,
+		DecisionGobernada: &publicacion,
+	}
+	siguiente.DecisionesCobertura = append(
+		siguiente.DecisionesCobertura,
+		publicacion,
+	)
 	return siguiente.confirmarTransicion(actuacion)
 }
 

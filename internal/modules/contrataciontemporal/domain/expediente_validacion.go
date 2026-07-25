@@ -18,6 +18,9 @@ func (e Expediente) Validar() error {
 		e.ViaCobertura.Validar() != nil) {
 		return ErrExpedienteInvalido
 	}
+	if !historiaDecisionesCoberturaValida(e) {
+		return ErrExpedienteInvalido
+	}
 	if e.Asignacion != nil && (e.ViaCobertura == nil || e.Asignacion.Validar() != nil) {
 		return ErrExpedienteInvalido
 	}
@@ -52,6 +55,52 @@ func (e Expediente) Validar() error {
 		return ErrExpedienteInvalido
 	}
 	return nil
+}
+
+func historiaDecisionesCoberturaValida(e Expediente) bool {
+	if e.ViaCobertura == nil {
+		return len(e.DecisionesCobertura) == 0
+	}
+	if e.ViaCobertura.DecisionGobernada == nil {
+		return len(e.DecisionesCobertura) == 0
+	}
+	if len(e.DecisionesCobertura) == 0 ||
+		len(e.DecisionesCobertura) > maximoDecisionesCoberturaGobernadas {
+		return false
+	}
+	for indice, publicacion := range e.DecisionesCobertura {
+		if _, err := RestaurarDecisionCoberturaGobernada(publicacion); err != nil ||
+			publicacion.OrganizacionRef != e.OrganizacionRef ||
+			publicacion.ExpedienteRef != e.Referencia ||
+			publicacion.Actuacion.Secuencia > uint64(len(e.Actuaciones)) {
+			return false
+		}
+		actuacion := e.Actuaciones[publicacion.Actuacion.Secuencia-1]
+		if !publicacion.Actuacion.correspondeA(actuacion) ||
+			publicacion.ActorRef != actuacion.ActorRef ||
+			!publicacion.DecididaEn.Equal(actuacion.RealizadaEn) {
+			return false
+		}
+		if indice == 0 {
+			if publicacion.Tipo != DecisionCoberturaInicial {
+				return false
+			}
+			continue
+		}
+		anterior := e.DecisionesCobertura[indice-1]
+		if publicacion.Tipo != DecisionCoberturaRectificacion ||
+			publicacion.PredecesoraRef != anterior.Referencia ||
+			publicacion.PredecesoraHuellaSHA256 != anterior.HuellaSHA256 ||
+			publicacion.VersionExpedienteOrigen != anterior.VersionExpediente ||
+			publicacion.ViaElegida == anterior.ViaElegida ||
+			publicacion.ActorRef == anterior.ActorRef ||
+			!publicacion.DecididaEn.After(anterior.DecididaEn) {
+			return false
+		}
+	}
+	ultima := e.DecisionesCobertura[len(e.DecisionesCobertura)-1]
+	return *e.ViaCobertura.DecisionGobernada == ultima &&
+		e.ViaCobertura.ViaClave == ultima.ViaElegida
 }
 
 func asignacionLigadaAActuacion(
@@ -101,6 +150,10 @@ func (e Expediente) Clonar() Expediente {
 		clon := e.ViaCobertura.clonar()
 		e.ViaCobertura = &clon
 	}
+	e.DecisionesCobertura = append(
+		[]PublicacionDecisionCoberturaGobernada(nil),
+		e.DecisionesCobertura...,
+	)
 	if e.Asignacion != nil {
 		clon := *e.Asignacion
 		if e.Asignacion.ActuacionRegistro != nil {
