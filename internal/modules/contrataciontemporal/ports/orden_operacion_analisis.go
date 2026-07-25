@@ -30,8 +30,14 @@ const (
 	AtributoArtefactoAnalisisRef    = "artefacto_analisis_ref"
 	AtributoArtefactoAnalisisHuella = "artefacto_analisis_huella_sha256"
 	AtributoAnalisisDerivadoHuella  = "analisis_derivado_huella_sha256"
+	AtributoConjuntoFuentesHuella   = "conjunto_fuentes_huella_sha256"
+	AtributoUnidadPoliticaRef       = "unidad_politica_ref"
+	AtributoMotivoRectificacion     = "motivo_rectificacion_clave"
 	AtributoHuellaSemanticaAnalisis = "huella_semantica_hmac"
 	AtributoSegregacionAnalisis     = "exige_actor_distinto"
+	// ValorMotivoRectificacionNoAplica conserva la presencia exacta del
+	// atributo sin debilitar VEC con valores vacíos.
+	ValorMotivoRectificacionNoAplica = "no_aplica"
 )
 
 type DatosOrdenConfirmarOperacionAnalisis struct {
@@ -281,7 +287,9 @@ func validarAutorizacionOrdenOperacionAnalisisEn(
 			solicitudV3.Recurso,
 			preparacion,
 			artefacto,
+			datos.OrdenConsumoFuentes,
 			datos.Politica,
+			datos.SolicitudPolitica.MotivoRectificacionClave,
 		) ||
 		confirmacion.DecisionHuellaSHA256 != huellaDecision ||
 		!datos.ConfirmacionV3.DentroDeVentanaEn(comprobadaEn) {
@@ -294,38 +302,43 @@ func recursoAutorizacionOperacionAnalisisValido(
 	recurso dominiovec.RecursoAutorizable,
 	preparacion DatosPreparacionOperacionAnalisis,
 	artefacto DatosArtefactoAnalisis,
+	ordenFuentes OrdenConsumoConjuntoFuentesAnalisisO3,
 	politica PoliticaOperacionAnalisis,
+	motivoRectificacion domain.ClaveCatalogo,
 ) bool {
 	huellaAnalisis, err := huellaAnalisisDerivadoDesdeDatosO3(artefacto)
+	fuentes, errFuentes := ordenFuentes.Datos()
+	motivoEsperado := string(motivoRectificacion)
+	if motivoEsperado == "" {
+		motivoEsperado = ValorMotivoRectificacionNoAplica
+	}
+	ambitosEsperados := map[string]string{
+		"organizacion_ref": preparacion.OrganizacionRef,
+		"expediente_ref":   preparacion.ExpedienteRef,
+		"fase_previa":      string(politica.FasePrevia),
+		"estado_previo":    string(politica.EstadoPrevio),
+	}
+	atributosEsperados := map[string]string{
+		AtributoOperacionAnalisis:       string(preparacion.Operacion),
+		AtributoVersionAnalisis:         strconv.FormatUint(preparacion.VersionExpediente, 10),
+		AtributoPoliticaAnalisisRef:     politica.DefinicionRef,
+		AtributoPoliticaAnalisisVersion: strconv.FormatUint(politica.Version, 10),
+		AtributoPoliticaAnalisisHuella:  politica.HuellaSHA256,
+		AtributoArtefactoAnalisisRef:    artefacto.ArtefactoRef,
+		AtributoArtefactoAnalisisHuella: artefacto.ArtefactoHuellaSHA256,
+		AtributoAnalisisDerivadoHuella:  huellaAnalisis,
+		AtributoConjuntoFuentesHuella:   fuentes.HuellaSHA256,
+		AtributoUnidadPoliticaRef:       politica.UnidadRef,
+		AtributoMotivoRectificacion:     motivoEsperado,
+		AtributoHuellaSemanticaAnalisis: preparacion.HuellaSemanticaHMAC,
+		AtributoSegregacionAnalisis:     strconv.FormatBool(politica.ExigeActorDistinto),
+	}
 	return recurso.Referencia == preparacion.ExpedienteRef &&
-		err == nil &&
+		err == nil && errFuentes == nil &&
 		recurso.ModuloID == ModuloContratacion &&
 		recurso.Tipo == TipoRecursoAnalisis &&
-		len(recurso.Ambitos) == 4 && len(recurso.Atributos) == 10 &&
-		recurso.Ambitos["organizacion_ref"] == preparacion.OrganizacionRef &&
-		recurso.Ambitos["expediente_ref"] == preparacion.ExpedienteRef &&
-		recurso.Ambitos["fase_previa"] == string(politica.FasePrevia) &&
-		recurso.Ambitos["estado_previo"] == string(politica.EstadoPrevio) &&
-		recurso.Atributos[AtributoOperacionAnalisis] ==
-			string(preparacion.Operacion) &&
-		recurso.Atributos[AtributoVersionAnalisis] ==
-			strconv.FormatUint(preparacion.VersionExpediente, 10) &&
-		recurso.Atributos[AtributoPoliticaAnalisisRef] ==
-			politica.DefinicionRef &&
-		recurso.Atributos[AtributoPoliticaAnalisisVersion] ==
-			strconv.FormatUint(politica.Version, 10) &&
-		recurso.Atributos[AtributoPoliticaAnalisisHuella] ==
-			politica.HuellaSHA256 &&
-		recurso.Atributos[AtributoArtefactoAnalisisRef] ==
-			artefacto.ArtefactoRef &&
-		recurso.Atributos[AtributoArtefactoAnalisisHuella] ==
-			artefacto.ArtefactoHuellaSHA256 &&
-		recurso.Atributos[AtributoAnalisisDerivadoHuella] ==
-			huellaAnalisis &&
-		recurso.Atributos[AtributoHuellaSemanticaAnalisis] ==
-			preparacion.HuellaSemanticaHMAC &&
-		recurso.Atributos[AtributoSegregacionAnalisis] ==
-			strconv.FormatBool(politica.ExigeActorDistinto)
+		reflect.DeepEqual(recurso.Ambitos, ambitosEsperados) &&
+		reflect.DeepEqual(recurso.Atributos, atributosEsperados)
 }
 
 func actorAnalisisAnteriorParaOperacion(

@@ -177,6 +177,65 @@ COMMIT;
 SQL
 }
 
+restaurar_vector_analisis_o3() {
+    sql postgres \
+        "UPDATE public.vector_confirmacion_analisis_o3 destino
+            SET operacion=origen.operacion
+           FROM public.vector_confirmacion_analisis_o3 origen
+          WHERE destino.caso='registrar' AND origen.caso='original'" \
+        >/dev/null
+}
+
+afirmar_analisis_o3_sin_efectos() {
+    [[ "$(valor "SELECT (
+        (SELECT version
+           FROM vec_contratacion_temporal.expediente_integral_actual
+          WHERE expediente_ref='expediente:ct:o205:alta_valida')=1
+        AND (SELECT count(*)
+               FROM vec_contratacion_temporal.expediente_version_integral
+              WHERE expediente_ref='expediente:ct:o205:alta_valida')=1
+        AND (SELECT count(*)
+               FROM vec_contratacion_temporal.actuacion_expediente_integral)=0
+        AND (SELECT count(*)
+               FROM vec_contratacion_temporal.consumo_fuentes_analisis)=0
+        AND (SELECT count(*)
+               FROM vec_contratacion_temporal.consumo_decision_analisis)=0
+        AND (SELECT count(*)
+               FROM vec_contratacion_temporal.auditoria_expediente_integral)=0
+        AND (SELECT count(*)
+               FROM vec_contratacion_temporal.outbox_expediente_integral)=0
+        AND (SELECT count(*)
+               FROM vec_autorizacion.decision_concedida_contexto_actor_v3
+              WHERE decision_ref='decision:ct:o3:analisis-001')=1
+        AND (SELECT count(*)
+               FROM vec_contratacion_temporal
+                    .alias_consulta_operacion_analisis)=0
+        AND (SELECT count(*)
+               FROM vec_contratacion_temporal.confirmacion_operacion_analisis)=0
+        AND (SELECT count(*)
+               FROM vec_contratacion_temporal
+                    .vinculo_replay_operacion_analisis_v2)=0
+        AND (SELECT count(*)
+               FROM vec_contratacion_temporal
+                    .reserva_operacion_analisis_version
+              WHERE estado='reservada')=1
+        AND (SELECT count(*)
+               FROM vec_contratacion_temporal
+                    .reserva_operacion_analisis_version)=1
+        AND (SELECT count(*)
+               FROM vec_contratacion_temporal
+                    .reserva_operacion_analisis_actual
+              WHERE revision=1)=1
+        AND (SELECT secuencia_auditoria=0
+                    AND secuencia_outbox=0
+                    AND cabeza_auditoria_sha256=repeat('0',64)
+                    AND cabeza_outbox_sha256=repeat('0',64)
+               FROM vec_contratacion_temporal
+                    .control_cadenas_expediente_integral
+              WHERE control_id)
+    )::text")" == 'true' ]]
+}
+
 recibo_con_estilo_fecha() {
     local caso="$1"
     local estilo="$2"
@@ -194,19 +253,34 @@ COMMIT;
 SQL
 }
 
+precompilar_emisor_capacidad_go() {
+    local binario="${directorio_temporal}/confianza-atestacion-o205.test"
+    local diagnostico="${directorio_temporal}/go-compilacion-o205.log"
+
+    if ! go test -c \
+        -o "${binario}" \
+        ./internal/vec/adapters/seguridad/confianzaatestacion \
+        >"${diagnostico}" 2>&1; then
+        printf 'falló compilación del emisor Go O2-05:\n' >&2
+        sed -n '1,240p' "${diagnostico}" >&2
+        return 1
+    fi
+    rm -f "${diagnostico}"
+}
+
 firmar_capacidad_con_go() {
     local caso="$1"
     local entrada="${directorio_temporal}/entrada-go-o205.json"
     local salida="${directorio_temporal}/bundle-go-o205.json"
+    local binario="${directorio_temporal}/confianza-atestacion-o205.test"
     valor "SELECT public.exportar_entrada_go_o2_05('${caso}')" \
         >"${entrada}"
     chmod 600 "${entrada}"
     local diagnostico="${directorio_temporal}/go-test-vector.log"
     if ! VEC_O205_VECTOR_ENTRADA="${entrada}" \
         VEC_O205_VECTOR_SALIDA="${salida}" \
-            go test \
-              ./internal/vec/adapters/seguridad/confianzaatestacion \
-              -run '^TestGenerarVectorO205ParaSQL$' -count=1 \
+            "${binario}" \
+              -test.run '^TestGenerarVectorO205ParaSQL$' -test.count=1 \
               >"${diagnostico}" 2>&1; then
         printf 'falló generación Go de capacidad O2-05:\n' >&2
         sed -n '1,240p' "${diagnostico}" >&2
@@ -257,6 +331,8 @@ probar_recorrido_go_analisis_o304() {
 source "${raiz}/deploy/postgresql/autorizacion_atestada_v3/pruebas_replay_o2_05.sh"
 source "${raiz}/deploy/postgresql/autorizacion_atestada_v3/pruebas_acl_o2_05.sh"
 source "${raiz}/deploy/postgresql/autorizacion_atestada_v3/pruebas_atomicidad_o2_05.sh"
+source "${raiz}/deploy/postgresql/contratacion_temporal/pruebas_atomicidad_o3_04.sh"
+source "${raiz}/deploy/postgresql/contratacion_temporal/pruebas_variantes_o3_04.sh"
 
 paso "arranque efímero sin red: ${imagen}"
 docker run --detach --name "${contenedor}" --network none \
@@ -293,7 +369,8 @@ for ruta in \
     deploy/postgresql/contexto_actor_v1/migraciones/000001_contexto_actor_v1.up.sql \
     deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.up.sql \
     deploy/postgresql/contexto_actor_v1/pruebas_sql/fixtures_sinteticos.sql \
-    deploy/postgresql/autorizacion/pruebas_sql/fixture_contexto_actor_v3.sql
+    deploy/postgresql/autorizacion/pruebas_sql/fixture_contexto_actor_v3.sql \
+    deploy/postgresql/contratacion_temporal/pruebas_sql/fixture_contexto_actor_b_o3.sql
 do
     archivo postgres "${ruta}" >/dev/null
 done
@@ -310,6 +387,14 @@ SELECT count(*)
     'rca_registro_v3_000000000000000000000000',
     'cta_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa',
     'prf_sintetico_cccccccccccccccccccccccc',
+    'certificado','alto',clock_timestamp()
+  );
+SELECT count(*)
+  FROM vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(
+    'oca_o3b_777777777777777777777777777777',
+    'rca_o3b_666666666666666666666666666666',
+    'cta_o3b_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'prf_o3b_cccccccccccccccccccccccccccc',
     'certificado','alto',clock_timestamp()
   );
 COMMIT;
@@ -384,7 +469,10 @@ for migracion in \
     000009_contrato_confirmacion_analisis \
     000010_validadores_confirmacion_analisis \
     000011_transicion_confirmacion_analisis \
-    000012_confirmacion_operacion_analisis
+    000012_confirmacion_operacion_analisis \
+    000013_barrera_reforzada_analisis \
+    000014_frontera_durable_analisis_v2 \
+    000015_invariantes_dominio_analisis_v3
 do
     archivo vec_ct_o205_migrador \
         "deploy/postgresql/contratacion_temporal/migraciones/${migracion}.up.sql" \
@@ -471,22 +559,138 @@ sql postgres \
     "BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE; SET LOCAL statement_timeout='15s'; SET LOCAL idle_in_transaction_session_timeout='20s'; SELECT public.preparar_vector_confirmacion_analisis_o3(); COMMIT" \
     >/dev/null
 sql postgres \
+    "INSERT INTO public.vector_confirmacion_analisis_o3(caso,operacion)
+     SELECT 'original',operacion
+       FROM public.vector_confirmacion_analisis_o3
+      WHERE caso='registrar'" \
+    >/dev/null
+paso 'invariantes de dominio O3 v3 ejercidas directamente'
+probar_invariantes_directas_analisis_o304
+sql postgres \
     "UPDATE public.vector_confirmacion_analisis_o3 SET operacion=jsonb_set(operacion,'{expediente_siguiente,analisis,categoria_ref}','\"categoria:adulterada\"') WHERE caso='registrar'" \
     >/dev/null
 esperar_fallo 'análisis distinto del autorizado' confirmar_analisis_o3
-[[ "$(valor "SELECT ((SELECT version FROM vec_contratacion_temporal.expediente_integral_actual WHERE expediente_ref='expediente:ct:o205:alta_valida')=1 AND (SELECT count(*) FROM vec_contratacion_temporal.confirmacion_operacion_analisis)=0)::text")" == 'true' ]]
+afirmar_analisis_o3_sin_efectos
+restaurar_vector_analisis_o3
+
 sql postgres \
-    "UPDATE public.vector_confirmacion_analisis_o3 SET operacion=jsonb_set(operacion,'{expediente_siguiente,analisis,categoria_ref}','\"categoria:auxiliar\"') WHERE caso='registrar'" \
+    "UPDATE public.vector_confirmacion_analisis_o3 SET operacion=jsonb_set(operacion,'{politica,unidad_ref}','null'::jsonb) WHERE caso='registrar'" \
     >/dev/null
+esperar_fallo 'unidad de política nula' confirmar_analisis_o3
+afirmar_analisis_o3_sin_efectos
+restaurar_vector_analisis_o3
+
+sql postgres \
+    "UPDATE public.vector_confirmacion_analisis_o3
+        SET operacion=jsonb_set(
+              jsonb_set(
+                jsonb_set(
+                  operacion,
+                  '{politica,unidad_ref}',
+                  '\"unidad:seleccion-alternativa\"'
+                ),
+                '{actuacion,unidad_ref}',
+                '\"unidad:seleccion-alternativa\"'
+              ),
+              '{expediente_siguiente,actuaciones,1,unidad_ref}',
+              '\"unidad:seleccion-alternativa\"'
+            )
+      WHERE caso='registrar'" \
+    >/dev/null
+esperar_fallo 'unidad coherente pero distinta de la autorizada' \
+    confirmar_analisis_o3
+afirmar_analisis_o3_sin_efectos
+restaurar_vector_analisis_o3
+
+sql postgres \
+    "UPDATE public.vector_confirmacion_analisis_o3 SET operacion=operacion||'{\"clave_no_permitida\":true}'::jsonb WHERE caso='registrar'" \
+    >/dev/null
+esperar_fallo 'clave raíz desconocida' confirmar_analisis_o3
+afirmar_analisis_o3_sin_efectos
+restaurar_vector_analisis_o3
+
+sql postgres \
+    "UPDATE public.vector_confirmacion_analisis_o3 SET operacion=jsonb_set(operacion,'{version_anterior}',to_jsonb(1.0::numeric)) WHERE caso='registrar'" \
+    >/dev/null
+esperar_fallo 'número decimal no canónico' confirmar_analisis_o3
+afirmar_analisis_o3_sin_efectos
+restaurar_vector_analisis_o3
+
+sql postgres \
+    "UPDATE public.vector_confirmacion_analisis_o3 SET operacion=jsonb_set(operacion,'{actuacion,realizada_en}',to_jsonb((operacion#>>'{actuacion,realizada_en}')::timestamptz::text)) WHERE caso='registrar'" \
+    >/dev/null
+esperar_fallo 'instante con representación no canónica' confirmar_analisis_o3
+afirmar_analisis_o3_sin_efectos
+restaurar_vector_analisis_o3
+
+sql postgres \
+    "WITH cambio AS (
+       SELECT jsonb_set(
+                operacion,
+                '{fuentes,rc,respuesta_huella_sha256}',
+                to_jsonb(repeat('9',64))
+              ) AS operacion
+         FROM public.vector_confirmacion_analisis_o3
+        WHERE caso='registrar'
+     ), prueba AS (
+       SELECT operacion,
+              vec_contratacion_temporal
+                .reconstruir_prueba_fuentes_analisis_v1(operacion) AS bytes
+         FROM cambio
+     )
+     UPDATE public.vector_confirmacion_analisis_o3 destino
+        SET operacion=jsonb_set(
+              jsonb_set(
+                prueba.operacion,
+                '{fuentes,prueba_canonica_hex}',
+                to_jsonb(encode(prueba.bytes,'hex'))
+              ),
+              '{fuentes,conjunto_huella_sha256}',
+              to_jsonb(encode(sha256(prueba.bytes),'hex'))
+            )
+       FROM prueba
+      WHERE destino.caso='registrar'" \
+    >/dev/null
+esperar_fallo 'sustitución coherente de evidencia fuente' \
+    confirmar_analisis_o3
+afirmar_analisis_o3_sin_efectos
+restaurar_vector_analisis_o3
+
+sql postgres \
+    "UPDATE public.vector_confirmacion_analisis_o3 SET operacion=jsonb_set(operacion,'{politica,motivo_rectificacion_clave}','\"contratacion_temporal.analisis.rectificacion.otro_motivo\"') WHERE caso='registrar'" \
+    >/dev/null
+esperar_fallo 'motivo de rectificación distinto del autorizado' \
+    confirmar_analisis_o3
+afirmar_analisis_o3_sin_efectos
+restaurar_vector_analisis_o3
+
+probar_atomicidad_y_carrera_analisis_o304
 analisis_primero="$(confirmar_analisis_o3)"
 analisis_replay="$(confirmar_analisis_o3)"
 [[ "${analisis_primero}" == "${analisis_replay}" ]]
 [[ "${analisis_primero}" == *'"version_resultante": 2'* ]]
 [[ "$(valor "SELECT ((SELECT count(*) FROM vec_contratacion_temporal.expediente_version_integral WHERE expediente_ref='expediente:ct:o205:alta_valida')=2 AND (SELECT version FROM vec_contratacion_temporal.expediente_integral_actual WHERE expediente_ref='expediente:ct:o205:alta_valida')=2 AND (SELECT count(*) FROM vec_contratacion_temporal.actuacion_expediente_integral)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.consumo_fuentes_analisis)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.consumo_decision_analisis)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.auditoria_expediente_integral)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.outbox_expediente_integral)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.confirmacion_operacion_analisis)=1)::text")" == 'true' ]]
+sql postgres \
+    "UPDATE public.vector_confirmacion_analisis_o3 SET operacion=jsonb_set(operacion,'{actor_ref}','\"per_sintetica_divergente\"') WHERE caso='registrar'" \
+    >/dev/null
+esperar_fallo 'replay con petición completa divergente' confirmar_analisis_o3
+[[ "$(valor "SELECT (
+    (SELECT version
+       FROM vec_contratacion_temporal.expediente_integral_actual
+      WHERE expediente_ref='expediente:ct:o205:alta_valida')=2
+    AND (SELECT count(*)
+           FROM vec_contratacion_temporal.confirmacion_operacion_analisis)=1
+    AND (SELECT count(*)
+           FROM vec_contratacion_temporal
+                .vinculo_replay_operacion_analisis_v2)=1
+)::text")" == 'true' ]]
+restaurar_vector_analisis_o3
 paso 'recorrido real Go → PostgreSQL de análisis y replay'
 preparar go_analisis
 invocar go_analisis >/dev/null
 probar_recorrido_go_analisis_o304 go_analisis
+paso 'O3-04: RC validada, coste y rectificación segregada'
+ejecutar_pruebas_variantes_o3_04
 recibo_iso="$(recibo_con_estilo_fecha alta_valida 'ISO, YMD')"
 recibo_aleman="$(recibo_con_estilo_fecha alta_valida 'German, DMY')"
 [[ "${recibo_iso}" == "${recibo_aleman}" ]]
@@ -717,6 +921,7 @@ esperar_fallo 'configuración de confianza revocada' \
     invocar configuracion_revocada
 
 paso 'capacidad completa emitida por Go y consumida por SQL'
+precompilar_emisor_capacidad_go
 preparar mac_go_real valido 2
 firmar_capacidad_con_go mac_go_real
 invocar mac_go_real >/dev/null
@@ -807,37 +1012,35 @@ esperar_fallo 'consumidor genérico abierto' sql vec_ct_o205_runtime \
 [[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.confirmar_alta_atestada_v1(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')")" == 'f' ]]
 [[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_contratacion_temporal.preparar_operacion_analisis_v1(jsonb)','EXECUTE')")" == 't' ]]
 [[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.preparar_operacion_analisis_v1(jsonb)','EXECUTE')")" == 'f' ]]
-[[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_contratacion_temporal.confirmar_operacion_analisis_v1(jsonb)','EXECUTE')")" == 't' ]]
+[[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_contratacion_temporal.confirmar_operacion_analisis_v1(jsonb)','EXECUTE')")" == 'f' ]]
 [[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.confirmar_operacion_analisis_v1(jsonb)','EXECUTE')")" == 'f' ]]
+[[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_contratacion_temporal.confirmar_operacion_analisis_v2(jsonb)','EXECUTE')")" == 'f' ]]
+[[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.confirmar_operacion_analisis_v2(jsonb)','EXECUTE')")" == 'f' ]]
+[[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_contratacion_temporal.confirmar_operacion_analisis_v3(jsonb)','EXECUTE')")" == 't' ]]
+[[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.confirmar_operacion_analisis_v3(jsonb)','EXECUTE')")" == 'f' ]]
 [[ "$(valor "SELECT has_function_privilege('vec_contratacion_temporal_propietario','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 't' ]]
 [[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 'f' ]]
 [[ "$(valor "SELECT has_function_privilege('public','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 'f' ]]
 
 paso 'rollback ordinario protegido'
-for migracion in \
-    000012_confirmacion_operacion_analisis \
-    000011_transicion_confirmacion_analisis \
-    000010_validadores_confirmacion_analisis
-do
+esperar_fallo 'down barrera de autorización v3 con historia O3' \
     archivo vec_ct_o205_migrador \
-        "deploy/postgresql/contratacion_temporal/migraciones/${migracion}.down.sql" \
-        >/dev/null
-done
+    deploy/postgresql/contratacion_temporal/migraciones/000015_invariantes_dominio_analisis_v3.down.sql
+esperar_fallo 'down frontera durable v2 con historia O3' \
+    archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000014_frontera_durable_analisis_v2.down.sql
+esperar_fallo 'down validadores reforzados con historia O3' \
+    archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000013_barrera_reforzada_analisis.down.sql
+esperar_fallo 'down confirmación con frontera durable instalada' \
+    archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000012_confirmacion_operacion_analisis.down.sql
 esperar_fallo 'down contrato de fuentes con historia O3' \
     archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000009_contrato_confirmacion_analisis.down.sql
 esperar_fallo 'down efectos integrales con historia O3' \
     archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.down.sql
-for migracion in \
-    000010_validadores_confirmacion_analisis \
-    000011_transicion_confirmacion_analisis \
-    000012_confirmacion_operacion_analisis
-do
-    archivo vec_ct_o205_migrador \
-        "deploy/postgresql/contratacion_temporal/migraciones/${migracion}.up.sql" \
-        >/dev/null
-done
 esperar_fallo 'down preparaciones de análisis con datos' \
     archivo vec_ct_o205_migrador \
     deploy/postgresql/contratacion_temporal/migraciones/000007_preparacion_operaciones_analisis.down.sql
@@ -861,8 +1064,20 @@ esperar_fallo 'down revalidación viva con consumidor instalado' \
 
 paso 'retirada de la superficie de prueba y destrucción explícita ensayada'
 sql postgres \
-    'REVOKE USAGE ON SCHEMA public FROM vec_ct_o205_runtime; DROP FUNCTION public.invocar_vector_confirmacion_analisis_o3(); DROP FUNCTION public.preparar_vector_confirmacion_analisis_o3(); DROP TABLE public.vector_confirmacion_analisis_o3; DROP FUNCTION public.aplicar_bundle_go_o2_05(text,jsonb); DROP FUNCTION public.exportar_entrada_go_o2_05(text); DROP FUNCTION public.durabilizar_decision_o2_05(text); DROP FUNCTION public.mutar_tipo_capacidad_o2_05(text,text); DROP FUNCTION public.mutar_efecto_o2_05(text,text,jsonb); DROP FUNCTION public.invocar_vector_o2_05(text); DROP FUNCTION public.preparar_vector_o2_05(text,text,numeric); DROP TABLE public.vectores_o2_05' \
+    'REVOKE USAGE ON SCHEMA public FROM vec_ct_o205_runtime; DROP FUNCTION public.invocar_vector_confirmacion_analisis_o3(); DROP FUNCTION public.preparar_vector_confirmacion_analisis_o3(text); DROP FUNCTION public.instante_go_analisis_o3(timestamptz); DROP TABLE public.vector_confirmacion_analisis_o3; DROP FUNCTION public.aplicar_bundle_go_o2_05(text,jsonb); DROP FUNCTION public.exportar_entrada_go_o2_05(text); DROP FUNCTION public.durabilizar_decision_o2_05(text); DROP FUNCTION public.mutar_tipo_capacidad_o2_05(text,text); DROP FUNCTION public.mutar_efecto_o2_05(text,text,jsonb); DROP FUNCTION public.invocar_vector_o2_05(text); DROP FUNCTION public.preparar_vector_o2_05(text,text,numeric); DROP TABLE public.vectores_o2_05' \
     >/dev/null
+for migracion in \
+    000015_invariantes_dominio_analisis_v3 \
+    000014_frontera_durable_analisis_v2 \
+    000013_barrera_reforzada_analisis
+do
+    docker exec \
+        --env PGOPTIONS='-c vec.confirmar_destruccion_contratacion_temporal=DESTRUIR_HISTORIA_CONTRATACION_TEMPORAL_IRREVERSIBLE' \
+        "${contenedor}" psql -X --set ON_ERROR_STOP=1 \
+        --username vec_ct_o205_migrador --dbname postgres \
+        --file "/repo/deploy/postgresql/contratacion_temporal/migraciones/${migracion}.down.sql" \
+        >/dev/null
+done
 for migracion in \
     000012_confirmacion_operacion_analisis \
     000011_transicion_confirmacion_analisis \
@@ -971,7 +1186,10 @@ for migracion in \
     000009_contrato_confirmacion_analisis \
     000010_validadores_confirmacion_analisis \
     000011_transicion_confirmacion_analisis \
-    000012_confirmacion_operacion_analisis
+    000012_confirmacion_operacion_analisis \
+    000013_barrera_reforzada_analisis \
+    000014_frontera_durable_analisis_v2 \
+    000015_invariantes_dominio_analisis_v3
 do
     archivo vec_ct_o205_migrador \
         "deploy/postgresql/contratacion_temporal/migraciones/${migracion}.up.sql" \
@@ -979,6 +1197,9 @@ do
 done
 afirmar_sin_referencias_o2_05
 for migracion in \
+    000015_invariantes_dominio_analisis_v3 \
+    000014_frontera_durable_analisis_v2 \
+    000013_barrera_reforzada_analisis \
     000012_confirmacion_operacion_analisis \
     000011_transicion_confirmacion_analisis \
     000010_validadores_confirmacion_analisis \

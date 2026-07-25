@@ -91,6 +91,8 @@ func (s *ServicioOperacionAnalisis) nuevaSolicitudAutorizacion(
 	preparacion ports.DatosPreparacionOperacionAnalisis,
 	politica ports.PoliticaOperacionAnalisis,
 	huellaAnalisisDerivado string,
+	huellaConjuntoFuentes string,
+	motivoRectificacion domain.ClaveCatalogo,
 ) (dominiovec.SolicitudAutorizacionLigadaV3, error) {
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
 		ctx,
@@ -98,6 +100,11 @@ func (s *ServicioOperacionAnalisis) nuevaSolicitudAutorizacion(
 	)
 	if err != nil {
 		return dominiovec.SolicitudAutorizacionLigadaV3{}, err
+	}
+	motivoRectificacionAtributo := string(motivoRectificacion)
+	if motivoRectificacionAtributo == "" {
+		motivoRectificacionAtributo =
+			ports.ValorMotivoRectificacionNoAplica
 	}
 	return dominiovec.NuevaSolicitudAutorizacionLigadaV3(
 		dominiovec.DatosSolicitudAutorizacionLigadaV3{
@@ -123,6 +130,9 @@ func (s *ServicioOperacionAnalisis) nuevaSolicitudAutorizacion(
 					ports.AtributoPoliticaAnalisisHuella:  politica.HuellaSHA256,
 					ports.AtributoArtefactoAnalisisRef:    preparacion.ArtefactoRef,
 					ports.AtributoArtefactoAnalisisHuella: preparacion.ArtefactoHuellaSHA256,
+					ports.AtributoConjuntoFuentesHuella:   huellaConjuntoFuentes,
+					ports.AtributoUnidadPoliticaRef:       politica.UnidadRef,
+					ports.AtributoMotivoRectificacion:     motivoRectificacionAtributo,
 					ports.AtributoHuellaSemanticaAnalisis: preparacion.HuellaSemanticaHMAC,
 					ports.AtributoSegregacionAnalisis:     strconv.FormatBool(politica.ExigeActorDistinto),
 				},

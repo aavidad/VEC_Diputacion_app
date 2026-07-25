@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	funcionConfirmarAnalisis        = "vec_contratacion_temporal.confirmar_operacion_analisis_v1"
+	funcionConfirmarAnalisis        = "vec_contratacion_temporal.confirmar_operacion_analisis_v3"
 	maximoIntentosConfirmarAnalisis = 3
 )
 

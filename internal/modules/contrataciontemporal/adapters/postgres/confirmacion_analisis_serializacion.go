@@ -28,7 +28,6 @@ type operacionConfirmarAnalisisV1 struct {
 	PerfilRef             string                      `json:"perfil_ref"`
 	ArtefactoRef          string                      `json:"artefacto_ref"`
 	ArtefactoHuellaSHA256 string                      `json:"artefacto_huella_sha256"`
-	AnalisisHuellaSHA256  string                      `json:"analisis_derivado_huella_sha256"`
 	AmbitoRaizHMAC        string                      `json:"ambito_raiz_hmac"`
 	HuellaSemanticaHMAC   string                      `json:"huella_semantica_hmac"`
 	AmbitoConsultaHMAC    string                      `json:"ambito_consulta_hmac"`
@@ -94,15 +93,16 @@ type autorizacionAnalisisV1 struct {
 }
 
 type politicaConfirmarAnalisisV1 struct {
-	DefinicionRef      string `json:"definicion_ref"`
-	Version            uint64 `json:"version"`
-	HuellaSHA256       string `json:"huella_sha256"`
-	Accion             string `json:"accion"`
-	Finalidad          string `json:"finalidad"`
-	FasePrevia         string `json:"fase_previa"`
-	EstadoPrevio       string `json:"estado_previo"`
-	UnidadRef          string `json:"unidad_ref"`
-	ExigeActorDistinto bool   `json:"exige_actor_distinto"`
+	DefinicionRef            string `json:"definicion_ref"`
+	Version                  uint64 `json:"version"`
+	HuellaSHA256             string `json:"huella_sha256"`
+	Accion                   string `json:"accion"`
+	Finalidad                string `json:"finalidad"`
+	FasePrevia               string `json:"fase_previa"`
+	EstadoPrevio             string `json:"estado_previo"`
+	UnidadRef                string `json:"unidad_ref"`
+	MotivoRectificacionClave string `json:"motivo_rectificacion_clave"`
+	ExigeActorDistinto       bool   `json:"exige_actor_distinto"`
 }
 
 func nuevaOperacionConfirmarAnalisis(
@@ -125,10 +125,6 @@ func nuevaOperacionConfirmarAnalisis(
 	aliases, errAliases := nuevosAliasesConsultaAnalisis(
 		evidencia.SolicitudPreparacion,
 	)
-	huellaAnalisis, errHuellaAnalisis := ports.HuellaAnalisisDerivadoO3(
-		evidencia.SolicitudArtefacto,
-		evidencia.Artefacto,
-	)
 	switch {
 	case err != nil:
 		return operacionConfirmarAnalisisV1{}, fmt.Errorf(
@@ -150,11 +146,6 @@ func nuevaOperacionConfirmarAnalisis(
 			"%w: alias de consulta no proyectable",
 			ports.ErrOrdenOperacionAnalisisInvalida,
 		)
-	case errHuellaAnalisis != nil:
-		return operacionConfirmarAnalisisV1{}, fmt.Errorf(
-			"%w: análisis derivado no proyectable",
-			ports.ErrOrdenOperacionAnalisisInvalida,
-		)
 	case len(evidencia.ExpedienteSiguiente.Actuaciones) == 0:
 		return operacionConfirmarAnalisisV1{}, fmt.Errorf(
 			"%w: actuación ausente",
@@ -163,6 +154,11 @@ func nuevaOperacionConfirmarAnalisis(
 	}
 	indiceActuacion := len(evidencia.ExpedienteSiguiente.Actuaciones) - 1
 	actuacion := evidencia.ExpedienteSiguiente.Actuaciones[indiceActuacion]
+	motivoRectificacion :=
+		string(evidencia.SolicitudPolitica.MotivoRectificacionClave)
+	if motivoRectificacion == "" {
+		motivoRectificacion = ports.ValorMotivoRectificacionNoAplica
+	}
 	return operacionConfirmarAnalisisV1{
 		Esquema:    esquemaConfirmarAnalisis,
 		ReservaRef: preparacion.ReservaRef, ReciboRef: preparacion.ReciboRef,
@@ -173,7 +169,6 @@ func nuevaOperacionConfirmarAnalisis(
 		ActorRef:        preparacion.ActorRef, PerfilRef: preparacion.PerfilRef,
 		ArtefactoRef:          preparacion.ArtefactoRef,
 		ArtefactoHuellaSHA256: preparacion.ArtefactoHuellaSHA256,
-		AnalisisHuellaSHA256:  huellaAnalisis,
 		AmbitoRaizHMAC:        preparacion.AmbitoIdempotenciaHMAC,
 		HuellaSemanticaHMAC:   preparacion.HuellaSemanticaHMAC,
 		AmbitoConsultaHMAC:    preparacion.AmbitoConsultaHMAC,
@@ -184,15 +179,16 @@ func nuevaOperacionConfirmarAnalisis(
 		Actuacion:             actuacion, Fuentes: fuentes,
 		Autorizacion: autorizacion,
 		Politica: politicaConfirmarAnalisisV1{
-			DefinicionRef:      evidencia.Politica.DefinicionRef,
-			Version:            evidencia.Politica.Version,
-			HuellaSHA256:       evidencia.Politica.HuellaSHA256,
-			Accion:             string(evidencia.Politica.Accion),
-			Finalidad:          string(evidencia.Politica.Finalidad),
-			FasePrevia:         string(evidencia.Politica.FasePrevia),
-			EstadoPrevio:       string(evidencia.Politica.EstadoPrevio),
-			UnidadRef:          evidencia.Politica.UnidadRef,
-			ExigeActorDistinto: evidencia.Politica.ExigeActorDistinto,
+			DefinicionRef:            evidencia.Politica.DefinicionRef,
+			Version:                  evidencia.Politica.Version,
+			HuellaSHA256:             evidencia.Politica.HuellaSHA256,
+			Accion:                   string(evidencia.Politica.Accion),
+			Finalidad:                string(evidencia.Politica.Finalidad),
+			FasePrevia:               string(evidencia.Politica.FasePrevia),
+			EstadoPrevio:             string(evidencia.Politica.EstadoPrevio),
+			UnidadRef:                evidencia.Politica.UnidadRef,
+			MotivoRectificacionClave: motivoRectificacion,
+			ExigeActorDistinto:       evidencia.Politica.ExigeActorDistinto,
 		},
 	}, nil
 }

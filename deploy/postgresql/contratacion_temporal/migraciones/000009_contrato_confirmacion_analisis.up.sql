@@ -79,10 +79,7 @@ BEGIN
         ) || ',"organizacion_ref":' ||
         vec_contratacion_temporal.texto_json_go_v1(
             p_operacion ->> 'organizacion_ref'
-        ) || '},"atributos":{"analisis_derivado_huella_sha256":' ||
-        vec_contratacion_temporal.texto_json_go_v1(
-            p_operacion ->> 'analisis_derivado_huella_sha256'
-        ) || ',"artefacto_analisis_huella_sha256":' ||
+        ) || '},"atributos":{"artefacto_analisis_huella_sha256":' ||
         vec_contratacion_temporal.texto_json_go_v1(
             p_operacion ->> 'artefacto_huella_sha256'
         ) || ',"artefacto_analisis_ref":' ||

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -11,6 +12,29 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
+
+func TestDTOConfirmacionAnalisisDerivaHuellaYMotivoSinDuplicarlos(t *testing.T) {
+	t.Parallel()
+	contenido, err := json.Marshal(operacionConfirmarAnalisisV1{
+		Politica: politicaConfirmarAnalisisV1{
+			MotivoRectificacionClave: ports.ValorMotivoRectificacionNoAplica,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto map[string]any
+	if err := json.Unmarshal(contenido, &dto); err != nil {
+		t.Fatal(err)
+	}
+	politica, esObjeto := dto["politica"].(map[string]any)
+	_, duplicaHuella := dto[ports.AtributoAnalisisDerivadoHuella]
+	if duplicaHuella || !esObjeto ||
+		politica["motivo_rectificacion_clave"] !=
+			ports.ValorMotivoRectificacionNoAplica {
+		t.Fatalf("contrato PostgreSQL ambiguo: %#v", dto)
+	}
+}
 
 func TestNormalizarInstantePostgreSQLProduceUTCCanonico(t *testing.T) {
 	t.Parallel()
@@ -23,6 +47,17 @@ func TestNormalizarInstantePostgreSQLProduceUTCCanonico(t *testing.T) {
 		resultado.Location() != time.UTC ||
 		resultado.Nanosecond() != 123456000 {
 		t.Fatalf("instante PostgreSQL no canónico: %#v", resultado)
+	}
+}
+
+func TestTransaccionAnalisisPostgreSQLUsaFronteraDominioV3(t *testing.T) {
+	t.Parallel()
+	const esperada = "vec_contratacion_temporal.confirmar_operacion_analisis_v3"
+	if funcionConfirmarAnalisis != esperada {
+		t.Fatalf(
+			"frontera PostgreSQL sin invariantes V3: %q",
+			funcionConfirmarAnalisis,
+		)
 	}
 }
 

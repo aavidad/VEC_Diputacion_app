@@ -364,6 +364,19 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorDenegacion, nil)
 	}
+	pruebasArtefacto, err := artefacto.PruebasParaO3(
+		solicitudArtefacto,
+	)
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{},
+			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
+	}
+	ordenConsumoFuentes := pruebasArtefacto.OrdenConsumoConjunto
+	datosOrdenConsumo, err := ordenConsumoFuentes.Datos()
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{},
+			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
+	}
 	huellaAnalisisDerivado, err := ports.HuellaAnalisisDerivadoO3(
 		solicitudArtefacto,
 		artefacto,
@@ -379,6 +392,8 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		datosPreparacion,
 		politica,
 		huellaAnalisisDerivado,
+		datosOrdenConsumo.HuellaSHA256,
+		solicitud.motivoRectificacion,
 	)
 	if err != nil {
 		return ports.ReciboOperacionAnalisis{},
@@ -434,14 +449,6 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
 	}
-	pruebasArtefacto, err := artefacto.PruebasParaO3(
-		solicitudArtefacto,
-	)
-	if err != nil {
-		return ports.ReciboOperacionAnalisis{},
-			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
-	}
-
 	siguiente, err := aplicarOperacionAnalisis(
 		solicitud,
 		anterior,
@@ -465,7 +472,7 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 			ContextoAutorizacion: contextoAutorizacion,
 			SolicitudArtefacto:   solicitudArtefacto,
 			Artefacto:            artefacto,
-			OrdenConsumoFuentes:  pruebasArtefacto.OrdenConsumoConjunto,
+			OrdenConsumoFuentes:  ordenConsumoFuentes,
 			SolicitudPreparacion: solicitudPreparacion,
 			Preparacion:          preparacion,
 			SolicitudPolitica:    solicitudPolitica,

@@ -28,7 +28,6 @@ func TestOperacionAnalisisRegistraDesdeArtefactoInterno(t *testing.T) {
 		"-registro-sintetico",
 	)
 	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
-
 	recibo, err := servicio.Registrar(context.Background(), escenario.registrar)
 	if err != nil {
 		t.Fatalf("registrar análisis: %v", err)
@@ -90,7 +89,7 @@ func TestOperacionAnalisisRegistraDesdeArtefactoInterno(t *testing.T) {
 		datosV3.Recurso.Atributos[ports.AtributoAnalisisDerivadoHuella] !=
 			huellaAnalisis ||
 		len(datosV3.Recurso.Ambitos) != 4 ||
-		len(datosV3.Recurso.Atributos) != 10 {
+		len(datosV3.Recurso.Atributos) != 13 {
 		t.Fatalf("recurso VEC V3 incompleto: %#v", datosV3.Recurso)
 	}
 }
@@ -104,7 +103,6 @@ func TestOperacionAnalisisRectificaConSegregacionYMotivoGobernado(
 		"-rectificacion-sintetica",
 	)
 	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
-
 	recibo, err := servicio.Rectificar(
 		context.Background(),
 		escenario.rectificar,
@@ -171,7 +169,6 @@ func TestOperacionAnalisisReintentoConfirmadoNoRepiteEfectos(t *testing.T) {
 	consumosFuentes := d.transaccion.consumosFuentes
 	consumosV3 := d.transaccion.consumosV3
 	preparaciones := d.preparaciones.llamadas
-
 	segundo, err := servicio.Registrar(context.Background(), escenario.registrar)
 	if err != nil {
 		t.Fatal(err)
@@ -253,7 +250,6 @@ func TestOperacionAnalisisPropagaConflictoCASDurable(t *testing.T) {
 	)
 	servicio, d := construirServicioOperacionAnalisisSaneado(t, escenario)
 	d.transaccion.err = domain.ErrVersionEnConflicto
-
 	_, err := servicio.Registrar(context.Background(), escenario.registrar)
 	if !errors.Is(err, ErrOperacionAnalisisEnConflicto) ||
 		!errors.Is(err, domain.ErrVersionEnConflicto) ||

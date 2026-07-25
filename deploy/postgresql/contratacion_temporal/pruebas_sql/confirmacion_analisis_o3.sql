@@ -1,12 +1,37 @@
 \set ON_ERROR_STOP 1
 
+CREATE FUNCTION public.instante_go_analisis_o3(p_instante timestamptz)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog
+AS $funcion$
+    SELECT pg_catalog.rtrim(
+               pg_catalog.rtrim(
+                   pg_catalog.to_char(
+                       p_instante AT TIME ZONE 'UTC',
+                       'YYYY-MM-DD"T"HH24:MI:SS.US'
+                   ),
+                   '0'
+               ),
+               '.'
+           ) || 'Z'
+$funcion$;
+
+REVOKE ALL ON FUNCTION
+    public.instante_go_analisis_o3(timestamptz)
+FROM PUBLIC;
+
 CREATE TABLE public.vector_confirmacion_analisis_o3 (
     caso text PRIMARY KEY,
     operacion jsonb NOT NULL
 );
 REVOKE ALL ON TABLE public.vector_confirmacion_analisis_o3 FROM PUBLIC;
 
-CREATE FUNCTION public.preparar_vector_confirmacion_analisis_o3()
+CREATE FUNCTION public.preparar_vector_confirmacion_analisis_o3(
+    p_decision_ref text DEFAULT 'decision:ct:o3:analisis-001'
+)
 RETURNS void
 LANGUAGE plpgsql
 VOLATILE
@@ -39,9 +64,12 @@ DECLARE
     v_valida_hasta_z text;
     v_efecto_z text;
     v_contexto_huella text;
-    v_analisis_huella text;
     v_prueba_fuentes bytea;
+    v_indice integer;
 BEGIN
+    IF p_decision_ref !~ '^decision:ct:o3:analisis-[0-9]{3}$' THEN
+        RAISE EXCEPTION 'referencia de decisión sintética inválida';
+    END IF;
     SELECT * INTO STRICT r
       FROM vec_contratacion_temporal.reserva_operacion_analisis
      WHERE expediente_ref = 'expediente:ct:o205:alta_valida';
@@ -50,15 +78,45 @@ BEGIN
       JOIN vec_contratacion_temporal.expediente_version_integral version
         USING (expediente_ref, version)
      WHERE actual.expediente_ref = r.expediente_ref;
+    v_anterior :=
+        vec_contratacion_temporal.normalizar_agregado_dominio_analisis_v2(
+            v_anterior
+        );
+    FOREACH v_indice IN ARRAY ARRAY[0, 1] LOOP
+        v_anterior := pg_catalog.jsonb_set(
+            v_anterior,
+            CASE v_indice
+                WHEN 0 THEN ARRAY['creado_en']
+                ELSE ARRAY['actualizado_en']
+            END,
+            pg_catalog.to_jsonb(public.instante_go_analisis_o3(
+                CASE v_indice
+                    WHEN 0 THEN (v_anterior ->> 'creado_en')::timestamptz
+                    ELSE (v_anterior ->> 'actualizado_en')::timestamptz
+                END
+            ))
+        );
+    END LOOP;
+    FOR v_indice IN 0..
+        pg_catalog.jsonb_array_length(v_anterior -> 'actuaciones') - 1
+    LOOP
+        v_anterior := pg_catalog.jsonb_set(
+            v_anterior,
+            ARRAY['actuaciones', v_indice::text, 'realizada_en'],
+            pg_catalog.to_jsonb(public.instante_go_analisis_o3(
+                (v_anterior #>> ARRAY[
+                    'actuaciones', v_indice::text, 'realizada_en'
+                ])::timestamptz
+            ))
+        );
+    END LOOP;
     v_emitida := v_ahora - interval '1 second';
     v_verificada := v_ahora - interval '500 milliseconds';
     v_valida_hasta := v_ahora + interval '4 seconds';
-    v_emitida_z := vec_contratacion_temporal.instante_utc_v1(v_emitida);
-    v_verificada_z :=
-        vec_contratacion_temporal.instante_utc_v1(v_verificada);
-    v_valida_hasta_z :=
-        vec_contratacion_temporal.instante_utc_v1(v_valida_hasta);
-    v_efecto_z := vec_contratacion_temporal.instante_utc_v1(v_ahora);
+    v_emitida_z := public.instante_go_analisis_o3(v_emitida);
+    v_verificada_z := public.instante_go_analisis_o3(v_verificada);
+    v_valida_hasta_z := public.instante_go_analisis_o3(v_valida_hasta);
+    v_efecto_z := public.instante_go_analisis_o3(v_ahora);
     v_actuacion := pg_catalog.jsonb_build_object(
         'secuencia', 2,
         'version_expediente', 2,
@@ -113,11 +171,6 @@ BEGIN
             (v_anterior -> 'actuaciones') ||
             pg_catalog.jsonb_build_array(v_actuacion)
     );
-    v_analisis_huella :=
-        vec_contratacion_temporal.huella_analisis_derivado_v1(v_analisis);
-    IF v_analisis_huella IS NULL THEN
-        RAISE EXCEPTION 'no se pudo derivar la huella del análisis O3';
-    END IF;
     v_fuente_rc := pg_catalog.jsonb_build_object(
         'tipo', 'validacion_rc',
         'peticion_ref', 'peticion:fuente:rc:o3',
@@ -150,6 +203,7 @@ BEGIN
         'fase_previa', v_anterior ->> 'fase_actual',
         'estado_previo', v_anterior ->> 'estado_actual',
         'unidad_ref', 'unidad:seleccion',
+        'motivo_rectificacion_clave', 'no_aplica',
         'exige_actor_distinto', false
     );
     v_operacion := pg_catalog.jsonb_build_object(
@@ -165,7 +219,6 @@ BEGIN
         'perfil_ref', r.perfil_ref,
         'artefacto_ref', r.artefacto_ref,
         'artefacto_huella_sha256', r.artefacto_huella_sha256,
-        'analisis_derivado_huella_sha256', v_analisis_huella,
         'ambito_raiz_hmac', r.ambito_raiz_hmac,
         'huella_semantica_hmac', r.huella_semantica_raiz_hmac,
         'ambito_consulta_hmac', r.ambito_raiz_hmac,
@@ -209,7 +262,7 @@ BEGIN
       FROM public.vectores_o2_05
      WHERE caso = 'alta_valida';
     v_decision := pg_catalog.jsonb_set(
-        v_decision, '{decision_ref}', '"decision:ct:o3:analisis-001"'
+        v_decision, '{decision_ref}', pg_catalog.to_jsonb(p_decision_ref)
     );
     v_decision := pg_catalog.jsonb_set(
         v_decision, '{accion}',
@@ -242,7 +295,9 @@ BEGIN
     );
     v_decision := pg_catalog.jsonb_set(
         v_decision, '{emitida_en}',
-        pg_catalog.to_jsonb(v_efecto_z)
+        pg_catalog.to_jsonb(
+            vec_contratacion_temporal.instante_utc_v1(v_ahora)
+        )
     );
     v_decision := pg_catalog.jsonb_set(
         v_decision, '{valida_hasta}',
@@ -303,13 +358,13 @@ AS $funcion$
     SELECT resultado.recibo_json
       FROM public.vector_confirmacion_analisis_o3 vector,
            LATERAL
-           vec_contratacion_temporal.confirmar_operacion_analisis_v1(
+           vec_contratacion_temporal.confirmar_operacion_analisis_v3(
                vector.operacion
            ) AS resultado
      WHERE vector.caso = 'registrar'
 $funcion$;
 
 REVOKE ALL ON FUNCTION
-    public.preparar_vector_confirmacion_analisis_o3(),
+    public.preparar_vector_confirmacion_analisis_o3(text),
     public.invocar_vector_confirmacion_analisis_o3()
 FROM PUBLIC;
