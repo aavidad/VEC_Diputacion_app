@@ -78,16 +78,31 @@ La propuesta canónica contiene, como mínimo:
 - organización, expediente y versión analizada;
 - referencia y huella del análisis durable de origen;
 - identidades exactas de catálogo y política;
-- conjunto ordenado de evidencias O4-02, sin PII;
+- huella global ordenada de los conjuntos de evidencias O4-02 de todas las
+  vías, ligada al análisis durable y sin PII;
 - evaluación de cada vía;
 - vía recomendada cuando el estado es `viable`;
 - referencia y huella reproducible de la propuesta;
 - instante de generación y vigencia.
 
-Una comprobación compartida por varias vías se consulta una vez. Claves
-duplicadas con semántica distinta producen conflicto. Cambiar un byte de
-catálogo, política, resultado o evidencia cambia la huella o invalida la
-propuesta.
+O4-02 liga cada petición, respuesta y orden a una vía concreta. Por tanto, una
+comprobación compartida se consulta una vez por cada identidad O4-02 ligada a
+vía; no se reutiliza una orden entre vías. Dentro de una misma vía, el replay
+exacto se normaliza y una renovación con el mismo resultado funcional conserva
+un único representante determinista. Claves con resultados funcionales
+distintos producen conflicto.
+
+La preparación global exige exactamente un conjunto por cada vía publicada,
+rechaza vías omitidas, añadidas o duplicadas y liga:
+
+- organización, expediente y versión;
+- análisis durable y su huella;
+- catálogo, política, finalidad, categoría y periodo;
+- cada par ordenado `vía + huella del conjunto`;
+- los resultados minimizados exactos utilizados por la propuesta.
+
+Cambiar un byte de catálogo, política, análisis, resultado o evidencia cambia
+la huella o invalida la preparación y la propuesta.
 
 ## Decisión humana
 
@@ -107,6 +122,17 @@ La decisión ordinaria exige:
   `contratacion_temporal.cobertura.decidir`;
 - CAS sobre la versión esperada;
 - una orden opaca que O4-04 pueda confirmar sin reinterpretar la política.
+
+Con los contratos VEC V3 existentes, O4-03C construye la solicitud ligada y
+ejecuta `ExigirSolicitudLigadaV3` antes de fabricar la orden opaca. Esa
+operación registra durablemente una concesión, igual que en el patrón O3. La
+orden conserva solicitud, decisión y confirmación completas. O4-04 no abre una
+transacción VEC anidada: consume esa concesión una sola vez dentro de la misma
+transacción serializable que consume las evidencias y aplica el CAS y el
+efecto de cobertura.
+
+La idempotencia de O4-03C es contractual. La garantía durable frente a
+reinicios, carreras, respuesta perdida y colisiones solo se cierra en O4-04.
 
 ## Rectificación
 
@@ -130,8 +156,9 @@ mismo recibo; la misma clave con otra semántica es conflicto.
 - Texto de proveedor y causas privadas no se guardan ni se devuelven.
 - Los errores públicos distinguen solicitud inválida, denegación, conflicto,
   resultado no confiable e indisponibilidad sin filtrar detalles internos.
-- Contexto, catálogo, política, evidencias y concesión VEC se revalidan justo
-  antes del efecto; O4-04 repetirá la revalidación dentro del `COMMIT`.
+- Contexto, catálogo, política, preparación global, evidencias y concesión VEC
+  se revalidan justo antes de fabricar la orden; O4-04 repetirá la revalidación
+  y consumirá las capacidades dentro del `COMMIT`.
 - Web, escritorio, CLI y MCP invocarán el mismo caso de uso, sin cookies como
   autoridad.
 

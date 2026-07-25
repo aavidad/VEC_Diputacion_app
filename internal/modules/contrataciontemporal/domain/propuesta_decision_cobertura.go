@@ -127,43 +127,47 @@ func (c CanonHuellaPropuestaDecisionCobertura) valido() bool {
 }
 
 type DatosCrearPropuestaDecisionCobertura struct {
-	OrganizacionRef      string
-	ExpedienteRef        string
-	VersionExpediente    uint64
-	AnalisisRef          string
-	AnalisisHuellaSHA256 string
-	Catalogo             CatalogoViasCobertura
-	Politica             PoliticaDecisionCobertura
-	FinalidadClave       ClaveCatalogo
-	FinalidadRef         string
-	CategoriaRef         string
-	Periodo              PeriodoPrevisto
-	GeneradaEn           time.Time
-	ValidaHasta          time.Time
-	Resultados           []ComprobacionCobertura
+	OrganizacionRef                   string
+	ExpedienteRef                     string
+	VersionExpediente                 uint64
+	AnalisisRef                       string
+	AnalisisHuellaSHA256              string
+	PreparacionEvidenciasRef          string
+	PreparacionEvidenciasHuellaSHA256 string
+	Catalogo                          CatalogoViasCobertura
+	Politica                          PoliticaDecisionCobertura
+	FinalidadClave                    ClaveCatalogo
+	FinalidadRef                      string
+	CategoriaRef                      string
+	Periodo                           PeriodoPrevisto
+	GeneradaEn                        time.Time
+	ValidaHasta                       time.Time
+	Resultados                        []ComprobacionCobertura
 }
 
 type PublicacionPropuestaDecisionCobertura struct {
-	Referencia           string                                `json:"referencia"`
-	HuellaSHA256         string                                `json:"huella_sha256"`
-	Canon                CanonHuellaPropuestaDecisionCobertura `json:"canon"`
-	OrganizacionRef      string                                `json:"organizacion_ref"`
-	ExpedienteRef        string                                `json:"expediente_ref"`
-	VersionExpediente    uint64                                `json:"version_expediente"`
-	AnalisisRef          string                                `json:"analisis_ref"`
-	AnalisisHuellaSHA256 string                                `json:"analisis_huella_sha256"`
-	Catalogo             IdentidadCatalogoViasCobertura        `json:"catalogo"`
-	Politica             IdentidadPoliticaDecisionCobertura    `json:"politica"`
-	FinalidadClave       ClaveCatalogo                         `json:"finalidad_clave"`
-	FinalidadRef         string                                `json:"finalidad_ref"`
-	CategoriaRef         string                                `json:"categoria_ref"`
-	Periodo              PeriodoPrevisto                       `json:"periodo"`
-	GeneradaEn           time.Time                             `json:"generada_en"`
-	ValidaHasta          time.Time                             `json:"valida_hasta"`
-	Estado               EstadoPropuestaDecisionCobertura      `json:"estado"`
-	ViaPropuesta         ClaveCatalogo                         `json:"via_propuesta,omitempty"`
-	Resultados           []ResultadoAgrupadoPropuestaCobertura `json:"resultados"`
-	Evaluaciones         []EvaluacionViaPropuestaCobertura     `json:"evaluaciones"`
+	Referencia                        string                                `json:"referencia"`
+	HuellaSHA256                      string                                `json:"huella_sha256"`
+	Canon                             CanonHuellaPropuestaDecisionCobertura `json:"canon"`
+	OrganizacionRef                   string                                `json:"organizacion_ref"`
+	ExpedienteRef                     string                                `json:"expediente_ref"`
+	VersionExpediente                 uint64                                `json:"version_expediente"`
+	AnalisisRef                       string                                `json:"analisis_ref"`
+	AnalisisHuellaSHA256              string                                `json:"analisis_huella_sha256"`
+	PreparacionEvidenciasRef          string                                `json:"preparacion_evidencias_ref"`
+	PreparacionEvidenciasHuellaSHA256 string                                `json:"preparacion_evidencias_huella_sha256"`
+	Catalogo                          IdentidadCatalogoViasCobertura        `json:"catalogo"`
+	Politica                          IdentidadPoliticaDecisionCobertura    `json:"politica"`
+	FinalidadClave                    ClaveCatalogo                         `json:"finalidad_clave"`
+	FinalidadRef                      string                                `json:"finalidad_ref"`
+	CategoriaRef                      string                                `json:"categoria_ref"`
+	Periodo                           PeriodoPrevisto                       `json:"periodo"`
+	GeneradaEn                        time.Time                             `json:"generada_en"`
+	ValidaHasta                       time.Time                             `json:"valida_hasta"`
+	Estado                            EstadoPropuestaDecisionCobertura      `json:"estado"`
+	ViaPropuesta                      ClaveCatalogo                         `json:"via_propuesta,omitempty"`
+	Resultados                        []ResultadoAgrupadoPropuestaCobertura `json:"resultados"`
+	Evaluaciones                      []EvaluacionViaPropuestaCobertura     `json:"evaluaciones"`
 }
 
 // PropuestaDecisionCobertura es una recomendación explicable sin efecto
@@ -183,6 +187,8 @@ func CrearPropuestaDecisionCobertura(
 		datos.VersionExpediente > maximoEnteroSeguroCatalogoCobertura ||
 		!referenciaValida(datos.AnalisisRef) ||
 		!huellaValida(datos.AnalisisHuellaSHA256) ||
+		!referenciaValida(datos.PreparacionEvidenciasRef) ||
+		!huellaValida(datos.PreparacionEvidenciasHuellaSHA256) ||
 		!datos.FinalidadClave.Valida() ||
 		!referenciaValida(datos.FinalidadRef) ||
 		!referenciaValida(datos.CategoriaRef) ||
@@ -223,24 +229,26 @@ func CrearPropuestaDecisionCobertura(
 		resultados,
 	)
 	publicacion := PublicacionPropuestaDecisionCobertura{
-		Canon:                CanonHuellaPropuestaDecisionCoberturaV1(),
-		OrganizacionRef:      datos.OrganizacionRef,
-		ExpedienteRef:        datos.ExpedienteRef,
-		VersionExpediente:    datos.VersionExpediente,
-		AnalisisRef:          datos.AnalisisRef,
-		AnalisisHuellaSHA256: datos.AnalisisHuellaSHA256,
-		Catalogo:             datos.Catalogo.Identidad(),
-		Politica:             datos.Politica.Identidad(),
-		FinalidadClave:       datos.FinalidadClave,
-		FinalidadRef:         datos.FinalidadRef,
-		CategoriaRef:         datos.CategoriaRef,
-		Periodo:              datos.Periodo,
-		GeneradaEn:           datos.GeneradaEn,
-		ValidaHasta:          datos.ValidaHasta,
-		Estado:               estado,
-		ViaPropuesta:         via,
-		Resultados:           resultados,
-		Evaluaciones:         evaluaciones,
+		Canon:                             CanonHuellaPropuestaDecisionCoberturaV1(),
+		OrganizacionRef:                   datos.OrganizacionRef,
+		ExpedienteRef:                     datos.ExpedienteRef,
+		VersionExpediente:                 datos.VersionExpediente,
+		AnalisisRef:                       datos.AnalisisRef,
+		AnalisisHuellaSHA256:              datos.AnalisisHuellaSHA256,
+		PreparacionEvidenciasRef:          datos.PreparacionEvidenciasRef,
+		PreparacionEvidenciasHuellaSHA256: datos.PreparacionEvidenciasHuellaSHA256,
+		Catalogo:                          datos.Catalogo.Identidad(),
+		Politica:                          datos.Politica.Identidad(),
+		FinalidadClave:                    datos.FinalidadClave,
+		FinalidadRef:                      datos.FinalidadRef,
+		CategoriaRef:                      datos.CategoriaRef,
+		Periodo:                           datos.Periodo,
+		GeneradaEn:                        datos.GeneradaEn,
+		ValidaHasta:                       datos.ValidaHasta,
+		Estado:                            estado,
+		ViaPropuesta:                      via,
+		Resultados:                        resultados,
+		Evaluaciones:                      evaluaciones,
 	}
 	publicacion.HuellaSHA256, err =
 		calcularHuellaPropuestaDecisionCobertura(publicacion)
@@ -295,20 +303,22 @@ func RestaurarPropuestaDecisionCobertura(
 	resultados := desagruparResultadosPropuestaCobertura(publicacion.Resultados)
 	restaurada, err := CrearPropuestaDecisionCobertura(
 		DatosCrearPropuestaDecisionCobertura{
-			OrganizacionRef:      publicacion.OrganizacionRef,
-			ExpedienteRef:        publicacion.ExpedienteRef,
-			VersionExpediente:    publicacion.VersionExpediente,
-			AnalisisRef:          publicacion.AnalisisRef,
-			AnalisisHuellaSHA256: publicacion.AnalisisHuellaSHA256,
-			Catalogo:             catalogo,
-			Politica:             politica,
-			FinalidadClave:       publicacion.FinalidadClave,
-			FinalidadRef:         publicacion.FinalidadRef,
-			CategoriaRef:         publicacion.CategoriaRef,
-			Periodo:              publicacion.Periodo,
-			GeneradaEn:           publicacion.GeneradaEn,
-			ValidaHasta:          publicacion.ValidaHasta,
-			Resultados:           resultados,
+			OrganizacionRef:                   publicacion.OrganizacionRef,
+			ExpedienteRef:                     publicacion.ExpedienteRef,
+			VersionExpediente:                 publicacion.VersionExpediente,
+			AnalisisRef:                       publicacion.AnalisisRef,
+			AnalisisHuellaSHA256:              publicacion.AnalisisHuellaSHA256,
+			PreparacionEvidenciasRef:          publicacion.PreparacionEvidenciasRef,
+			PreparacionEvidenciasHuellaSHA256: publicacion.PreparacionEvidenciasHuellaSHA256,
+			Catalogo:                          catalogo,
+			Politica:                          politica,
+			FinalidadClave:                    publicacion.FinalidadClave,
+			FinalidadRef:                      publicacion.FinalidadRef,
+			CategoriaRef:                      publicacion.CategoriaRef,
+			Periodo:                           publicacion.Periodo,
+			GeneradaEn:                        publicacion.GeneradaEn,
+			ValidaHasta:                       publicacion.ValidaHasta,
+			Resultados:                        resultados,
 		},
 	)
 	if err != nil ||
@@ -362,15 +372,17 @@ func (p PropuestaDecisionCobertura) Publicacion() PublicacionPropuestaDecisionCo
 // VinculoDecisionPropuestaCobertura aporta a O4-03B las coordenadas exactas y
 // la evidencia minimizada que deberá sellar una decisión posterior.
 type VinculoDecisionPropuestaCobertura struct {
-	PropuestaRef         string                                `json:"propuesta_ref"`
-	PropuestaHuella      string                                `json:"propuesta_huella_sha256"`
-	AnalisisRef          string                                `json:"analisis_ref"`
-	AnalisisHuellaSHA256 string                                `json:"analisis_huella_sha256"`
-	Catalogo             IdentidadCatalogoViasCobertura        `json:"catalogo"`
-	Politica             IdentidadPoliticaDecisionCobertura    `json:"politica"`
-	ViaClave             ClaveCatalogo                         `json:"via_clave"`
-	ValidaHasta          time.Time                             `json:"valida_hasta"`
-	Resultados           []ResultadoAgrupadoPropuestaCobertura `json:"resultados"`
+	PropuestaRef                      string                                `json:"propuesta_ref"`
+	PropuestaHuella                   string                                `json:"propuesta_huella_sha256"`
+	AnalisisRef                       string                                `json:"analisis_ref"`
+	AnalisisHuellaSHA256              string                                `json:"analisis_huella_sha256"`
+	PreparacionEvidenciasRef          string                                `json:"preparacion_evidencias_ref"`
+	PreparacionEvidenciasHuellaSHA256 string                                `json:"preparacion_evidencias_huella_sha256"`
+	Catalogo                          IdentidadCatalogoViasCobertura        `json:"catalogo"`
+	Politica                          IdentidadPoliticaDecisionCobertura    `json:"politica"`
+	ViaClave                          ClaveCatalogo                         `json:"via_clave"`
+	ValidaHasta                       time.Time                             `json:"valida_hasta"`
+	Resultados                        []ResultadoAgrupadoPropuestaCobertura `json:"resultados"`
 }
 
 func (p PropuestaDecisionCobertura) VinculoParaDecision(
@@ -396,14 +408,16 @@ func (p PropuestaDecisionCobertura) VinculoParaDecision(
 		if evaluacion.ViaClave == via &&
 			evaluacion.Estado == EvaluacionViaCoberturaViable {
 			return VinculoDecisionPropuestaCobertura{
-				PropuestaRef:         p.publicacion.Referencia,
-				PropuestaHuella:      p.publicacion.HuellaSHA256,
-				AnalisisRef:          p.publicacion.AnalisisRef,
-				AnalisisHuellaSHA256: p.publicacion.AnalisisHuellaSHA256,
-				Catalogo:             p.publicacion.Catalogo,
-				Politica:             p.publicacion.Politica,
-				ViaClave:             via,
-				ValidaHasta:          p.publicacion.ValidaHasta,
+				PropuestaRef:                      p.publicacion.Referencia,
+				PropuestaHuella:                   p.publicacion.HuellaSHA256,
+				AnalisisRef:                       p.publicacion.AnalisisRef,
+				AnalisisHuellaSHA256:              p.publicacion.AnalisisHuellaSHA256,
+				PreparacionEvidenciasRef:          p.publicacion.PreparacionEvidenciasRef,
+				PreparacionEvidenciasHuellaSHA256: p.publicacion.PreparacionEvidenciasHuellaSHA256,
+				Catalogo:                          p.publicacion.Catalogo,
+				Politica:                          p.publicacion.Politica,
+				ViaClave:                          via,
+				ValidaHasta:                       p.publicacion.ValidaHasta,
 				Resultados: clonarResultadosAgrupadosPropuesta(
 					p.publicacion.Resultados,
 				),

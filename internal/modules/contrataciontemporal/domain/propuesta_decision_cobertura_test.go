@@ -418,16 +418,18 @@ func datosPropuestaDecisionCoberturaPrueba(
 		t.Fatal(err)
 	}
 	return DatosCrearPropuestaDecisionCobertura{
-		OrganizacionRef:      "organizacion_diputacion_granada",
-		ExpedienteRef:        "expediente_temporal_configurable_01",
-		VersionExpediente:    3,
-		AnalisisRef:          "analisis_rrhh_configurable_01",
-		AnalisisHuellaSHA256: strings.Repeat("a", 64),
-		Catalogo:             catalogo,
-		Politica:             politica,
-		FinalidadClave:       "gestionar_cobertura_temporal",
-		FinalidadRef:         "finalidad:contratacion-temporal:cobertura",
-		CategoriaRef:         "categoria_configurable_01",
+		OrganizacionRef:                   "organizacion_diputacion_granada",
+		ExpedienteRef:                     "expediente_temporal_configurable_01",
+		VersionExpediente:                 3,
+		AnalisisRef:                       "analisis_rrhh_configurable_01",
+		AnalisisHuellaSHA256:              strings.Repeat("a", 64),
+		PreparacionEvidenciasRef:          "preparacion_evidencias_configurable_01",
+		PreparacionEvidenciasHuellaSHA256: strings.Repeat("c", 64),
+		Catalogo:                          catalogo,
+		Politica:                          politica,
+		FinalidadClave:                    "gestionar_cobertura_temporal",
+		FinalidadRef:                      "finalidad:contratacion-temporal:cobertura",
+		CategoriaRef:                      "categoria_configurable_01",
 		Periodo: PeriodoPrevisto{
 			Inicio: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
 			Fin:    time.Date(2027, 3, 31, 0, 0, 0, 0, time.UTC),

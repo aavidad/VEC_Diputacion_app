@@ -26,6 +26,8 @@ func materialCanonicoPropuestaDecisionCoberturaV1(
 		publicacion.VersionExpediente == 0 ||
 		!referenciaValida(publicacion.AnalisisRef) ||
 		!huellaValida(publicacion.AnalisisHuellaSHA256) ||
+		!referenciaValida(publicacion.PreparacionEvidenciasRef) ||
+		!huellaValida(publicacion.PreparacionEvidenciasHuellaSHA256) ||
 		publicacion.Catalogo.Validar() != nil ||
 		publicacion.Politica.Validar() != nil ||
 		!publicacion.FinalidadClave.Valida() ||
@@ -51,6 +53,8 @@ func materialCanonicoPropuestaDecisionCoberturaV1(
 	escritor.entero64(publicacion.VersionExpediente)
 	escritor.cadena(publicacion.AnalisisRef)
 	escritor.cadena(publicacion.AnalisisHuellaSHA256)
+	escritor.cadena(publicacion.PreparacionEvidenciasRef)
+	escritor.cadena(publicacion.PreparacionEvidenciasHuellaSHA256)
 	escribirIdentidadCatalogoPropuesta(&escritor, publicacion.Catalogo)
 	escritor.cadena(publicacion.Politica.Referencia)
 	escritor.entero64(publicacion.Politica.Version)
