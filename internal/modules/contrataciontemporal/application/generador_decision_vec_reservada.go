@@ -2,9 +2,14 @@ package application
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"log/slog"
 	"strings"
 	"sync"
 )
+
+const redaccionGeneradorDecisionVECReservada = "[GENERADOR-DECISION-VEC-RESERVADA-REDACTADO]"
 
 var errReferenciaDecisionVECReservadaNoDisponible = errors.New(
 	"contratacion temporal: referencia reservada de decision VEC no disponible",
@@ -41,6 +46,22 @@ func (g *generadorDecisionVECReservada) NuevaReferenciaDecisionAutorizacion() (
 	}
 	g.consumida = true
 	return g.referencia, nil
+}
+
+func (*generadorDecisionVECReservada) String() string {
+	return redaccionGeneradorDecisionVECReservada
+}
+
+func (g *generadorDecisionVECReservada) GoString() string {
+	return g.String()
+}
+
+func (g *generadorDecisionVECReservada) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, g.String())
+}
+
+func (g *generadorDecisionVECReservada) LogValue() slog.Value {
+	return slog.StringValue(g.String())
 }
 
 func referenciaDecisionVECReservadaValida(referencia string) bool {

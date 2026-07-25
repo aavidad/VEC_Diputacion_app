@@ -1,7 +1,11 @@
 package application
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -78,5 +82,32 @@ func TestGeneradorDecisionVECReservadaSoloTieneUnGanadorConcurrente(
 			entregas.Load(),
 			errores.Load(),
 		)
+	}
+}
+
+func TestGeneradorDecisionVECReservadaRedactaFormatosYLogs(t *testing.T) {
+	const referencia = "decision_vec_reservada_confidencial_01"
+	generador, err := nuevoGeneradorDecisionVECReservada(referencia)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, representacion := range []string{
+		fmt.Sprintf("%v", generador),
+		fmt.Sprintf("%+v", generador),
+		fmt.Sprintf("%#v", generador),
+		fmt.Sprintf("%s", generador),
+		fmt.Sprintf("%q", generador),
+	} {
+		if strings.Contains(representacion, referencia) ||
+			!strings.Contains(representacion, "REDACTADO") {
+			t.Fatalf("formato no redactado: %q", representacion)
+		}
+	}
+	var salida bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&salida, nil))
+	logger.Info("prueba", slog.Any("generador", generador))
+	if strings.Contains(salida.String(), referencia) ||
+		!strings.Contains(salida.String(), "REDACTADO") {
+		t.Fatalf("log no redactado: %s", salida.String())
 	}
 }
