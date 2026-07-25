@@ -184,6 +184,16 @@ func (s SolicitudReservarOperacionDecisionCobertura) AmbitosIdempotencia() (
 	return s.consulta.AmbitosIdempotencia()
 }
 
+// ConsultaConfirmada devuelve la solicitud opaca ligada a esta reserva para
+// reconstruir un replay terminal que aparezca durante la carrera de reserva.
+// No expone el token propietario ni añade una vista de datos nueva.
+func (s SolicitudReservarOperacionDecisionCobertura) ConsultaConfirmada() (
+	SolicitudConsultarOperacionDecisionCoberturaConfirmada,
+	error,
+) {
+	return s.consultaConfirmada()
+}
+
 // CoincideParPersistido permite al adaptador distinguir replay, colisión y
 // rotación sin recibir la colección de huellas semánticas. La comparación
 // subyacente es constante y exige la misma generación en ambos sellos.

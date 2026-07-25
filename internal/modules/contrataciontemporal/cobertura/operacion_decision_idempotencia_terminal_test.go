@@ -176,6 +176,44 @@ func TestReplayConfirmadoNoDependeDelTokenPropietarioOriginal(t *testing.T) {
 	}
 }
 
+func TestReservaRecuperaConsultaOpacaParaCarreraTerminal(t *testing.T) {
+	consulta, solicitud := solicitudReservaOperacionDecisionCoberturaPrueba(
+		t,
+		identidadOperacionDecisionCoberturaPrueba(),
+	)
+	recuperada, err := solicitud.ConsultaConfirmada()
+	if err != nil || recuperada.Validar() != nil {
+		t.Fatalf("consulta opaca ligada rechazada: %v", err)
+	}
+	datosTerminal := datosReservaTerminalOperacionDecisionCoberturaPrueba(
+		t,
+		solicitud,
+	)
+	if _, err = RehidratarReservaTerminalOperacionDecisionCobertura(
+		recuperada,
+		datosTerminal,
+	); err != nil {
+		t.Fatalf("la carrera terminal no pudo rehidratar el replay: %v", err)
+	}
+	ambitosOriginales, errOriginal := consulta.AmbitosIdempotencia()
+	ambitosRecuperados, errRecuperado := recuperada.AmbitosIdempotencia()
+	datosOriginales, errDatosOriginales := ambitosOriginales.Datos()
+	datosRecuperados, errDatosRecuperados := ambitosRecuperados.Datos()
+	if errOriginal != nil || errRecuperado != nil ||
+		errDatosOriginales != nil || errDatosRecuperados != nil ||
+		!reflect.DeepEqual(datosOriginales, datosRecuperados) {
+		t.Fatal("la consulta recuperada no conserva los ámbitos exactos")
+	}
+
+	var invalida SolicitudReservarOperacionDecisionCobertura
+	if _, err = invalida.ConsultaConfirmada(); !errors.Is(
+		err,
+		ErrOperacionDecisionCoberturaIdempotenteInvalida,
+	) {
+		t.Fatalf("reserva inválida expuso una consulta: %v", err)
+	}
+}
+
 func TestConstructorConfirmadoExigeReservaTerminalNominal(t *testing.T) {
 	tipo := reflect.TypeOf(
 		NuevaPreparacionOperacionDecisionCoberturaConfirmada,
