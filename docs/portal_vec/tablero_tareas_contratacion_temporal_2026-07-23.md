@@ -58,7 +58,7 @@ Estados:
 | O3-01 | Completar invariantes de análisis, jornada, coste y validación de RC. | Matriz de campos del documento RRHH y pruebas de importes/periodos. | ✅ `f33e100`–`9b5fabb`, `994a526` |
 | O3-02 | Caso de uso de registrar/rectificar análisis con CAS. | Versiones concurrentes, rectificación motivada y segregación de funciones. | ✅ `df537b4`, integrada en `e9d461c`; GO independiente, focales ×20, carrera ×2, pruebas globales, `go vet`, tamaños y secretos verdes sobre el árbol conjunto. |
 | O3-03 | Puertos de fuente presupuestaria y cálculo de coste. | Dobles contractuales; indisponibilidad nunca equivale a validación. | ✅ `1faa8e7`, rework `fca5d41`–`af124fb`, corrección TCB `4e6d14a`–`6d1be36`, integrada en `4c33336`; GO independiente sin hallazgos y puertas globales superadas. |
-| O3-04 | Persistencia, auditoría y outbox del análisis. | PostgreSQL real, historia inmutable y recibo verificable. | 🚧 `a3e0cf5`–`e835280`: historia integral de solo adición, reservas idempotentes y adaptador Go probados. Falta confirmar en un único `COMMIT` el consumo de fuentes y autorización, versión 2, actuación, auditoría, recibo y outbox, más revisión independiente. |
+| O3-04 | Persistencia, auditoría y outbox del análisis. | PostgreSQL real, historia inmutable y recibo verificable. | 🚧 `a3e0cf5`–`74f0702`: la confirmación SQL atómica ya publica versión 2, actuación, consumos, auditoría, outbox y recibo, con replay exacto y PostgreSQL 18 verde. Faltan el recorrido positivo Go → PostgreSQL, fallos ambiguos/reinicio y revisión independiente. |
 | O3-05 | API y formulario de análisis RRHH. | Permisos por operación, accesibilidad, adjuntos por referencia y E2E. | — |
 
 ## O4 — Decisión de vía de cobertura

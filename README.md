@@ -54,6 +54,12 @@ La presentación reproduce las diecisiete pantallas remitidas por RRHH y está
 verde en tres tamaños de escritorio, pero no se contabiliza como flujo
 administrativo productivo.
 
+El análisis de RRHH O3-04 dispone ya de confirmación PostgreSQL atómica:
+consume la decisión VEC y las fuentes atestadas, aplica CAS y publica versión,
+actuación, auditoría, outbox y recibo con replay exacto. Continúa como candidato
+hasta completar el recorrido positivo del adaptador Go contra PostgreSQL, los
+escenarios de resultado ambiguo/reinicio y la revisión independiente.
+
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es
 un candidato técnico: todavía faltan el adaptador PostgreSQL que materialice

@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | O3-04 PostgreSQL → O4-03 decisión → O4-04 PostgreSQL → O5-01 PostgreSQL → composición → API/web → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 16 de 46 tareas cerradas (35 %); O4-02 ya está integrado |
-| Último commit verificado | `e835280` — reservas idempotentes de análisis instaladas y probadas en PostgreSQL 18 |
-| Trabajo local en revisión | O3-04 ya dispone de historia integral versionada, preparación durable y adaptador Go. Falta la única confirmación atómica que consume fuentes y autorización, publica la versión 2, auditoría, recibo y outbox. |
+| Último commit verificado | `74f0702` — confirmación atómica del análisis probada en PostgreSQL 18 |
+| Trabajo local en revisión | O3-04 ya confirma el análisis y sus pruebas en un solo `COMMIT`, con replay exacto. Faltan la prueba positiva Go → PostgreSQL, escenarios ambiguos/reinicio y revisión independiente. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -23,10 +23,11 @@ La primera cifra mide las diez tareas de O2. La segunda mide las 46 tareas del
 procedimiento temporal completo; ninguna representa por sí sola el porcentaje
 de todo VEP.
 
-La preparación de O3-04 no aumenta todavía el número de tareas cerradas:
-`a3e0cf5`–`e835280` son incrementos verificables de una misma tarea y no se
+La implementación de O3-04 no aumenta todavía el número de tareas cerradas:
+`a3e0cf5`–`74f0702` son incrementos verificables de una misma tarea y no se
 contabilizan como funcionalidad productiva hasta cerrar su transacción final,
-la prueba PostgreSQL real y la revisión independiente.
+el recorrido positivo desde Go, los fallos ambiguos y la revisión
+independiente.
 
 ## Mapa de objetivos
 
@@ -200,7 +201,7 @@ Estado actual:
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
 Tareas verificadas del procedimiento: 16/46 = 35 %
-Tareas locales en revisión: correcciones candidatas O2-06 y O5-01
+Tareas locales en revisión: cierre Go/revisión de O3-04 y candidatas O2-06/O5-01
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

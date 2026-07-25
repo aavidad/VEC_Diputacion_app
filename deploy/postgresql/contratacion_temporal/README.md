@@ -1,8 +1,10 @@
 # PostgreSQL de contratación temporal
 
-Estado: O2-05 probado; O3-04 dispone de historia integral y preparación
-durables, pero su confirmación atómica continúa en desarrollo. No es una
-composición autorizada para producción.
+Estado: O2-05 probado; la confirmación PostgreSQL de O3-04 está implementada y
+probada en PostgreSQL 18. Falta cerrar la prueba positiva del adaptador Go
+contra esa función, la revisión independiente y la composición antes de
+considerar terminada la tarea. No es una composición autorizada para
+producción.
 
 ## Alcance del corte
 
@@ -93,9 +95,13 @@ serializa por reflexión el agregado. El resultado contiene solo referencias,
 número visible, versión, instante y huellas. Ninguna clave idempotente,
 secreto HMAC ni dato personal se devuelve.
 
-Las migraciones aditivas `000006_expediente_integral_versionado` y
-`000007_preparacion_operaciones_analisis` y
-`000008_efectos_expediente_integral` preparan O3-04:
+Las migraciones aditivas `000006_expediente_integral_versionado`,
+`000007_preparacion_operaciones_analisis`,
+`000008_efectos_expediente_integral`,
+`000009_contrato_confirmacion_analisis`,
+`000010_validadores_confirmacion_analisis`,
+`000011_transicion_confirmacion_analisis` y
+`000012_confirmacion_operacion_analisis` implementan la persistencia O3-04:
 
 - materializan el alta O2 como versión 1 de una historia integral única y de
   solo adición;
@@ -105,12 +111,20 @@ Las migraciones aditivas `000006_expediente_integral_versionado` y
 - permiten replay exacto y consulta de un recibo ya confirmado;
 - reservan las tablas inmutables de actuaciones, consumo de fuentes,
   consumo de decisión, auditoría encadenada y outbox para la transacción final;
+- verifican los bytes canónicos de la decisión VEC V3 y de cada respuesta de
+  fuente, incluido el sello HMAC y la publicación gobernada del motivo;
+- revalidan con el reloj de PostgreSQL la decisión, el contexto del recurso y
+  la vigencia de las fuentes;
+- aplican CAS al puntero vigente y publican versión 2, actuación, consumos,
+  auditoría, outbox y recibo en un solo `COMMIT`;
+- devuelven en un replay exacto el recibo durable original sin reparar ni
+  completar piezas;
 - mantienen RLS, ACL de mínimo privilegio, filas inmutables y reversión
   destructiva protegida.
 
-Estas migraciones no confirman aún un análisis. La confirmación final debe
-consumir fuentes y autorización, publicar la versión 2 y registrar actuación,
-auditoría, recibo y outbox en un solo `COMMIT`.
+El LOGIN de aplicación solo recibe `EXECUTE` sobre
+`confirmar_operacion_analisis_v1(jsonb)`. No puede leer ni escribir las tablas
+subyacentes ni invocar directamente las funciones auxiliares.
 
 ## Instalación
 
@@ -129,7 +143,11 @@ auditoría, recibo y outbox en un solo `COMMIT`.
 7. Ejecutar `000006_expediente_integral_versionado.up.sql`,
    `000007_preparacion_operaciones_analisis.up.sql` y
    `000008_efectos_expediente_integral.up.sql`, por ese orden.
-8. Aprovisionar la cuenta de la aplicación como miembro únicamente de
+8. Ejecutar `000009_contrato_confirmacion_analisis.up.sql`,
+   `000010_validadores_confirmacion_analisis.up.sql`,
+   `000011_transicion_confirmacion_analisis.up.sql` y
+   `000012_confirmacion_operacion_analisis.up.sql`, por ese orden.
+9. Aprovisionar la cuenta de la aplicación como miembro únicamente de
    `vec_contratacion_temporal_ejecutor`.
 
 Ejemplo sin credenciales incrustadas:
@@ -153,6 +171,14 @@ psql -X --set ON_ERROR_STOP=1 \
   --file deploy/postgresql/contratacion_temporal/migraciones/000007_preparacion_operaciones_analisis.up.sql
 psql -X --set ON_ERROR_STOP=1 \
   --file deploy/postgresql/contratacion_temporal/migraciones/000008_efectos_expediente_integral.up.sql
+psql -X --set ON_ERROR_STOP=1 \
+  --file deploy/postgresql/contratacion_temporal/migraciones/000009_contrato_confirmacion_analisis.up.sql
+psql -X --set ON_ERROR_STOP=1 \
+  --file deploy/postgresql/contratacion_temporal/migraciones/000010_validadores_confirmacion_analisis.up.sql
+psql -X --set ON_ERROR_STOP=1 \
+  --file deploy/postgresql/contratacion_temporal/migraciones/000011_transicion_confirmacion_analisis.up.sql
+psql -X --set ON_ERROR_STOP=1 \
+  --file deploy/postgresql/contratacion_temporal/migraciones/000012_confirmacion_operacion_analisis.up.sql
 ```
 
 El repositorio no contiene DSN, usuarios LOGIN, contraseñas ni secretos HMAC.
@@ -192,10 +218,13 @@ refs, huellas y cadenas; cada replay debe fallar sin escribir y el runner
 restaura exactamente los casos antes de continuar. La guía detallada está en
 `deploy/postgresql/autorizacion_atestada_v3/README.md`.
 
-Ese mismo runner comprueba además la instalación aditiva de `000006` y
-`000007`, el materializado de la versión integral inicial, la preparación
-reservada/reutilizada/conflictiva de análisis, la imposibilidad de leer o
-escribir directamente sus tablas y su retirada protegida.
+Ese mismo runner comprueba además la instalación aditiva de `000006` a
+`000012`, el materializado de la versión integral inicial, la preparación
+reservada/reutilizada/conflictiva de análisis y la confirmación O3 completa.
+La prueba positiva verifica versión 2, actuación, consumo de fuentes y
+decisión, auditoría, outbox, recibo y replay exacto. También comprueba la
+imposibilidad de leer o escribir directamente las tablas, el privilegio
+runtime exclusivo de la función final y la retirada protegida.
 
 ## Reversión protegida
 

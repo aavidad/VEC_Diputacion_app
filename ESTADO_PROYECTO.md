@@ -1,6 +1,6 @@
 # Estado y plan de ataque del proyecto
 
-**Última actualización:** 23 de julio de 2026
+**Última actualización:** 24 de julio de 2026
 
 **Frente principal:** primera vertical real del procedimiento de contratación
 temporal solicitado por RRHH, complementaria a Bolsa.
@@ -11,6 +11,12 @@ módulo no elimina ni sustituye sus capacidades.
 **Objetivo actual:** recorrer de forma real el alta de una solicitud de
 contratación temporal desde el portal interno hasta PostgreSQL, con identidad,
 autorización, idempotencia, auditoría, outbox y recibo.
+
+**Corte técnico más reciente:** la confirmación de análisis de RRHH O3-04 ya
+supera PostgreSQL 18: consume decisión y fuentes, aplica CAS y publica versión
+2, actuación, auditoría, outbox y recibo en un único `COMMIT`, con replay
+exacto. Falta su prueba positiva desde Go, la recuperación de resultados
+ambiguos/reinicio y revisión independiente; no se declara todavía integrada.
 
 Este es el tablero de seguimiento para dirección. Se actualiza antes del commit
 que cierre una capacidad o siempre que cambie el frente principal. Los códigos

@@ -94,8 +94,10 @@ toda la aplicación.
 RRHH valida categoría, causa, periodo, jornada, RC y coste usando fuentes
 autoritativas. Cada rectificación conserva autor, motivo, versión y recibo.
 
-Estado: dominio inicial disponible; aplicación, persistencia e interfaz
-pendientes.
+Estado: dominio, aplicación, fuentes atestadas y confirmación PostgreSQL
+atómica disponibles y probados por capas. Falta cerrar el recorrido positivo
+Go → PostgreSQL, los resultados ambiguos/reinicio, la revisión independiente y
+la interfaz.
 
 ### O4. Decisión de vía de cobertura
 

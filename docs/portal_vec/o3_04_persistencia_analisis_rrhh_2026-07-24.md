@@ -27,8 +27,12 @@ confirmar la transacción nunca se presenta como durable.
 | Historia integral versionada | `a3e0cf5` | Versión 1 materializada desde O2, puntero actual, RLS, ACL, inmutabilidad y reversión protegida. |
 | Adaptador de preparación | `b03d427` | Transacción serializable, JSON estricto, reintento limitado, consulta de confirmación y pruebas Go. |
 | Reservas durables | `e835280` | HMAC generacional, referencias deterministas, replay, conflicto y prueba PostgreSQL 18. |
+| Contrato canónico de confirmación | `995656b` | La serialización Go conserva política, sello de fuente, publicación gobernada y pruebas canónicas; PostgreSQL reconstruye y coteja las huellas exactas. |
+| Confirmación SQL atómica | `74f0702` | CAS, versión 2, actuación, consumo de decisión y fuentes, auditoría, outbox y recibo en un único `COMMIT`; replay exacto y PostgreSQL 18 verdes. |
 
-Este corte no confirma análisis y no habilita producción.
+La frontera PostgreSQL ya confirma análisis. Este corte no habilita producción:
+faltan el ensayo positivo Go → PostgreSQL con la orden real, una revisión
+independiente y la composición del caso de uso.
 
 ## Fronteras de autoridad
 
@@ -44,19 +48,34 @@ Este corte no confirma análisis y no habilita producción.
 - Web, escritorio, CLI y MCP usarán el mismo caso de uso y no aportarán
   autoridad mediante cookies, cabeceras libres o almacenamiento del navegador.
 
+## Evidencia superada
+
+El runner
+`deploy/postgresql/autorizacion_atestada_v3/probar_integracion_o2_05.sh`
+instala las doce migraciones de Contratación y ejecuta la confirmación O3 con
+PostgreSQL 18 real en un contenedor efímero sin red ni puertos. Comprueba:
+
+- decisión VEC V3 viva y ligada al contexto exacto;
+- pruebas canónicas de RC y coste, con sello y publicación del motivo;
+- transición registrar/rectificar, política, fase y segregación;
+- versión integral 2 y puntero CAS;
+- actuación, consumos, auditoría encadenada, outbox encadenado y recibo;
+- replay exacto sin duplicados;
+- ACL, RLS, inmutabilidad y reversión protegida;
+- reinstalación y retirada completa sin historia.
+
+Las pruebas focales Go, con carrera, y `go vet` del dominio, aplicación,
+puertos y adaptador PostgreSQL también están verdes.
+
 ## Siguiente incremento verificable
 
-La migración de confirmación y su adaptador Go deben:
+Para cerrar formalmente O3-04 se debe:
 
-- revalidar con el reloj de base de datos la orden, la autorización y las
-  fuentes;
-- rechazar autorización revocada, fuente caducada, versión obsoleta,
-  reutilización de decisión o de conjunto de fuentes y contenido adulterado;
-- devolver en replay exactamente el recibo durable original;
-- validar el recibo en Go antes de ejecutar `COMMIT`;
-- reintentar únicamente fallos de serialización o interbloqueo;
-- probar concurrencia, fallos inyectados, reinicio, ACL, RLS, reversión
-  protegida y ausencia de referencias cruzadas entre esquemas.
+- ejecutar desde Go una orden funcional real contra PostgreSQL 18 y acreditar
+  que el JSON emitido coincide con el contrato SQL;
+- probar desde ese recorrido replay, cancelación antes de `COMMIT`, respuesta
+  perdida y reinicio;
+- revisar de forma independiente la frontera completa y corregir cualquier
+  hallazgo antes de registrar el cierre en el tablero.
 
-O3-04 solo cambiará a cerrada tras superar PostgreSQL real, pruebas Go,
-revisión independiente y registro del commit en el tablero.
+No se contabiliza O3-04 como cerrada hasta superar esas tres condiciones.
