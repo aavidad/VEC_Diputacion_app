@@ -1,9 +1,11 @@
 package cobertura
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"strings"
 	"sync"
@@ -35,6 +37,8 @@ func TestPreparacionOperacionDecisionCoberturaPropietariaLigaTodoYCopia(t *testi
 		propiedad.EventoRef != datos.EventoRef ||
 		propiedad.CorrelacionVECRef != datos.CorrelacionVECRef ||
 		propiedad.DecisionVECRef != datos.DecisionVECRef ||
+		propiedad.AnalisisRef != datos.AnalisisRef ||
+		propiedad.AnalisisHuellaSHA256 != datos.AnalisisHuellaSHA256 ||
 		propiedad.RevisionCercado != 1 ||
 		!propiedad.PropiedadHasta.Equal(datos.PropiedadHasta) {
 		t.Fatalf("reserva propietaria incompleta: %#v / %v", propiedad, err)
@@ -51,6 +55,23 @@ func TestPreparacionOperacionDecisionCoberturaPropietariaLigaTodoYCopia(t *testi
 		err, ErrSerializacionOperacionDecisionCoberturaProhibida,
 	) {
 		t.Fatalf("preparación serializable: %v", err)
+	}
+	if _, err := json.Marshal(datos); !errors.Is(
+		err,
+		ErrSerializacionOperacionDecisionCoberturaProhibida,
+	) {
+		t.Fatalf("datos de reserva serializables: %v", err)
+	}
+	var bitacora bytes.Buffer
+	slog.New(slog.NewTextHandler(&bitacora, nil)).Info(
+		"reserva",
+		"valor",
+		datos,
+	)
+	texto := fmt.Sprintf("%v %#v %s", datos, datos, bitacora.String())
+	if strings.Contains(texto, datos.AnalisisRef) ||
+		strings.Contains(texto, datos.AnalisisHuellaSHA256) {
+		t.Fatal("la reserva filtró la identidad de análisis")
 	}
 }
 
@@ -363,6 +384,12 @@ func TestReservaOperacionDecisionCoberturaCercaReapropiacionYAcotaLease(t *testi
 		},
 		"submicrosegundo": func(d *DatosReservaPropietariaOperacionDecisionCobertura) {
 			d.PropiedadHasta = d.PropiedadHasta.Add(time.Nanosecond)
+		},
+		"referencia análisis ajena": func(d *DatosReservaPropietariaOperacionDecisionCobertura) {
+			d.AnalisisRef = "recibo_confirmacion_analisis_o3_ajeno"
+		},
+		"huella análisis ajena": func(d *DatosReservaPropietariaOperacionDecisionCobertura) {
+			d.AnalisisHuellaSHA256 = strings.Repeat("7", 64)
 		},
 	}
 	for nombre, mutar := range casos {

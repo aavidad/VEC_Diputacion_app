@@ -87,6 +87,11 @@ func TestReservaNoExigeResultadosQueSoloNacenTrasEvaluar(t *testing.T) {
 	if _, existe := tipo.FieldByName("DecisionVECRef"); !existe {
 		t.Fatal("la reserva perdió la referencia VEC preasignable")
 	}
+	for _, campo := range []string{"AnalisisRef", "AnalisisHuellaSHA256"} {
+		if _, existe := tipo.FieldByName(campo); !existe {
+			t.Fatalf("la reserva propietaria no congeló %s", campo)
+		}
+	}
 }
 
 func TestReplayConfirmadoNoDependeDelTokenPropietarioOriginal(t *testing.T) {
@@ -147,6 +152,25 @@ func TestReplayConfirmadoNoDependeDelTokenPropietarioOriginal(t *testing.T) {
 					"fila terminal mínima expuso %s",
 					tipo.Field(indice).Name,
 				)
+			}
+		}
+	}
+	for _, campo := range []string{"AnalisisRef", "AnalisisHuellaSHA256"} {
+		if _, existe := tipo.FieldByName(campo); existe {
+			t.Fatalf(
+				"la terminal expuso %s sin vínculo HMAC terminal versionado",
+				campo,
+			)
+		}
+	}
+
+	for _, superficie := range []reflect.Type{
+		reflect.TypeOf(DatosSolicitudReservarOperacionDecisionCobertura{}),
+		reflect.TypeOf(DatosIdentidadOperacionDecisionCobertura{}),
+	} {
+		for _, campo := range []string{"AnalisisRef", "AnalisisHuellaSHA256"} {
+			if _, existe := superficie.FieldByName(campo); existe {
+				t.Fatalf("una entrada cliente expuso autoridad %s", campo)
 			}
 		}
 	}

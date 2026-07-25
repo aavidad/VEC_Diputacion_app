@@ -206,7 +206,7 @@ func identidadOperacionDecisionCoberturaPrueba() DatosIdentidadOperacionDecision
 		tipo:              domain.DecisionCoberturaInicial,
 		organizacionRef:   "organizacion_diputacion_granada",
 		expedienteRef:     "expediente_temporal_2026_5487",
-		versionExpediente: 1,
+		versionExpediente: 2,
 		actorRef:          "actor_rrhh_opaco_01",
 		perfilRef:         "perfil_rrhh_decisor_01",
 		accion:            domain.AccionDecidirCoberturaGobernada,
@@ -361,7 +361,25 @@ func datosPropiedadOperacionDecisionCoberturaPrueba(
 	if err != nil {
 		t.Fatal(err)
 	}
-	expediente := expedienteOperacionDecisionCoberturaPrueba(t)
+	expediente := expedienteConAnalisisDurableO3Prueba(
+		t,
+		domain.RCNoRequerida,
+	)
+	solicitudAnalisis, err := NuevaSolicitudInstantaneaAnalisisDurableO3(
+		datosSolicitud.OrganizacionRef,
+		datosSolicitud.ExpedienteRef,
+		datosSolicitud.VersionExpediente,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	analisisRef, analisisHuella, err := identidadAnalisisDurableO3(
+		expediente,
+		solicitudAnalisis,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return DatosReservaPropietariaOperacionDecisionCobertura{
 		ReservaRef:              "reserva_decision_cobertura_01",
 		ReciboRef:               "recibo_decision_cobertura_01",
@@ -370,6 +388,8 @@ func datosPropiedadOperacionDecisionCoberturaPrueba(
 		EventoRef:               "evento_decision_cobertura_01",
 		CorrelacionVECRef:       "correlacion_vec_decision_cobertura_01",
 		DecisionVECRef:          "decision_vec_autorizacion_01",
+		AnalisisRef:             analisisRef,
+		AnalisisHuellaSHA256:    analisisHuella,
 		TokenPropietarioSHA256:  datosSolicitud.TokenPropietarioSHA256,
 		AmbitoIdempotenciaHMAC:  datosSolicitud.AmbitoIdempotenciaHMAC,
 		HuellaSemanticaHMAC:     datosSolicitud.HuellaSemanticaHMAC,

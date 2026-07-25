@@ -35,6 +35,8 @@ type DatosReservaPropietariaOperacionDecisionCobertura struct {
 	EventoRef               string
 	CorrelacionVECRef       string
 	DecisionVECRef          string
+	AnalisisRef             string
+	AnalisisHuellaSHA256    string
 	TokenPropietarioSHA256  string
 	AmbitoIdempotenciaHMAC  string
 	HuellaSemanticaHMAC     string
@@ -49,7 +51,17 @@ func (d DatosReservaPropietariaOperacionDecisionCobertura) validarPara(
 	solicitud SolicitudReservarOperacionDecisionCobertura,
 ) error {
 	datosSolicitud, err := solicitud.Datos()
-	if err != nil ||
+	solicitudAnalisis, errAnalisis := NuevaSolicitudInstantaneaAnalisisDurableO3(
+		datosSolicitud.OrganizacionRef,
+		datosSolicitud.ExpedienteRef,
+		datosSolicitud.VersionExpediente,
+	)
+	analisisRef, analisisHuella, errIdentidadAnalisis :=
+		identidadAnalisisDurableO3(
+			expedienteReservaOperacionDecisionCobertura(d),
+			solicitudAnalisis,
+		)
+	if err != nil || errAnalisis != nil || errIdentidadAnalisis != nil ||
 		!domain.ReferenciaOpacaValida(d.ReservaRef) ||
 		!domain.ReferenciaOpacaValida(d.ReciboRef) ||
 		!domain.ReferenciaOpacaValida(d.ActuacionRef) ||
@@ -57,6 +69,14 @@ func (d DatosReservaPropietariaOperacionDecisionCobertura) validarPara(
 		!domain.ReferenciaOpacaValida(d.EventoRef) ||
 		!domain.ReferenciaOpacaValida(d.CorrelacionVECRef) ||
 		!domain.ReferenciaOpacaValida(d.DecisionVECRef) ||
+		!referenciasOperacionDecisionCoberturaIguales(
+			d.AnalisisRef,
+			analisisRef,
+		) ||
+		!referenciasOperacionDecisionCoberturaIguales(
+			d.AnalisisHuellaSHA256,
+			analisisHuella,
+		) ||
 		!solicitud.tokenCoincide(d.TokenPropietarioSHA256) ||
 		!solicitud.consulta.contienePar(
 			d.AmbitoIdempotenciaHMAC,
@@ -81,6 +101,15 @@ func (d DatosReservaPropietariaOperacionDecisionCobertura) validarPara(
 		return ErrOperacionDecisionCoberturaIdempotenteInvalida
 	}
 	return nil
+}
+
+func expedienteReservaOperacionDecisionCobertura(
+	datos DatosReservaPropietariaOperacionDecisionCobertura,
+) domain.Expediente {
+	if datos.AgregadoAnterior == nil {
+		return domain.Expediente{}
+	}
+	return *datos.AgregadoAnterior
 }
 
 func clonarReservaPropietariaOperacionDecisionCobertura(

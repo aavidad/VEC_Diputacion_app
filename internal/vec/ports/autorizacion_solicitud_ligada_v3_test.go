@@ -612,3 +612,170 @@ func TestRegistroAutorizacionLigadaV3CierraCodecsYFormateo(t *testing.T) {
 		t.Fatal("valor cero se convirtio en capacidad")
 	}
 }
+
+func TestResumenCandidataRegistroDecisionAutorizacionLigadaV3CubreAmbasRamas(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioOrdenAutorizacionV3Prueba(t)
+	denegada := decisionDenegadaOrdenAutorizacionV3Prueba(t, escenario)
+	casos := []struct {
+		nombre   string
+		decision domain.DecisionAutorizacionLigadaV3
+	}{
+		{nombre: "concedida", decision: escenario.decision},
+		{nombre: "denegada", decision: denegada},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			candidata, err := NuevaCandidataRegistroDecisionAutorizacionLigadaV3(
+				escenario.solicitud,
+				caso.decision,
+				escenario.motivo,
+				escenario.resultado,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resumen, err := candidata.Resumen()
+			if err != nil || resumen.ValidarPara(candidata) != nil {
+				t.Fatalf("resumen nominal válido rechazado: %v", err)
+			}
+			datos, err := resumen.Datos()
+			concedida, codigo, errResultado := caso.decision.Resultado()
+			emitidaEn, validaHasta, errVentana := caso.decision.VentanaValidez()
+			huella, errHuella := domain.HuellaSHA256DecisionAutorizacionV3(
+				caso.decision,
+			)
+			if err != nil || errResultado != nil || errVentana != nil ||
+				errHuella != nil ||
+				datos.DecisionRef == "" ||
+				datos.DecisionHuellaSHA256 != huella ||
+				datos.CodigoProbatorio != codigo ||
+				datos.Concedida != concedida ||
+				!datos.EmitidaEn.Equal(emitidaEn) ||
+				!datos.ValidaHasta.Equal(validaHasta) {
+				t.Fatalf("resumen incompleto: %#v / %v", datos, err)
+			}
+			datos.DecisionRef = "decision_adulterada_en_copia"
+			segunda, err := resumen.Datos()
+			if err != nil || segunda.DecisionRef == datos.DecisionRef {
+				t.Fatal("el resumen compartió su copia defensiva")
+			}
+		})
+	}
+}
+
+func TestResumenCandidataRegistroDecisionAutorizacionLigadaV3RechazaAdulteracion(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioOrdenAutorizacionV3Prueba(t)
+	candidata, err := NuevaCandidataRegistroDecisionAutorizacionLigadaV3(
+		escenario.solicitud,
+		escenario.decision,
+		escenario.motivo,
+		escenario.resultado,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := candidata.Resumen()
+	if err != nil {
+		t.Fatal(err)
+	}
+	casos := map[string]func(*DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3){
+		"referencia": func(d *DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3) {
+			d.DecisionRef = "decision_ajena_0123456789abcdef"
+		},
+		"huella": func(d *DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3) {
+			d.DecisionHuellaSHA256 = strings.Repeat("7", 64)
+		},
+		"codigo": func(d *DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3) {
+			d.CodigoProbatorio = "accion_no_concedida"
+		},
+		"rama": func(d *DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3) {
+			d.Concedida = false
+			d.CodigoProbatorio = "accion_no_concedida"
+		},
+		"emision": func(d *DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3) {
+			d.EmitidaEn = d.EmitidaEn.Add(time.Microsecond)
+		},
+		"vigencia": func(d *DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3) {
+			d.ValidaHasta = d.ValidaHasta.Add(-time.Microsecond)
+		},
+	}
+	for nombre, mutar := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			datos := *base.datos
+			mutar(&datos)
+			adulterado := ResumenCandidataRegistroDecisionAutorizacionLigadaV3{
+				datos: &datos,
+			}
+			if adulterado.ValidarPara(candidata) == nil {
+				t.Fatal("resumen adulterado aceptado")
+			}
+		})
+	}
+
+	denegada := decisionDenegadaOrdenAutorizacionV3Prueba(t, escenario)
+	otraCandidata, err := NuevaCandidataRegistroDecisionAutorizacionLigadaV3(
+		escenario.solicitud,
+		denegada,
+		escenario.motivo,
+		escenario.resultado,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if base.ValidarPara(otraCandidata) == nil {
+		t.Fatal("resumen concedido aceptado para una candidata denegada")
+	}
+}
+
+func TestResumenCandidataRegistroDecisionAutorizacionLigadaV3EsOpaco(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioOrdenAutorizacionV3Prueba(t)
+	candidata, err := NuevaCandidataRegistroDecisionAutorizacionLigadaV3(
+		escenario.solicitud,
+		escenario.decision,
+		escenario.motivo,
+		escenario.resultado,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumen, err := candidata.Resumen()
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos, err := resumen.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for nombre, valor := range map[string]any{
+		"resumen": resumen,
+		"datos":   datos,
+	} {
+		if _, err := json.Marshal(valor); !errors.Is(
+			err,
+			ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+		) {
+			t.Fatalf("%s serializable: %v", nombre, err)
+		}
+		texto := fmt.Sprintf("%v %#v", valor, valor)
+		if strings.Contains(texto, datos.DecisionRef) ||
+			strings.Contains(texto, datos.DecisionHuellaSHA256) {
+			t.Fatalf("%s filtró material VEC: %q", nombre, texto)
+		}
+		var bitacora bytes.Buffer
+		slog.New(slog.NewTextHandler(&bitacora, nil)).Info(
+			"resumen",
+			"valor",
+			valor,
+		)
+		if strings.Contains(bitacora.String(), datos.DecisionRef) ||
+			strings.Contains(bitacora.String(), datos.DecisionHuellaSHA256) {
+			t.Fatalf("%s filtró material VEC en log", nombre)
+		}
+	}
+}
