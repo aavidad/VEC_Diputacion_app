@@ -56,7 +56,7 @@ evidencias, política ni actuación. Tampoco existe rectificación segregada.
 | Lector PostgreSQL del análisis O3 | Cerrada | `89d8112`; lectura autoritativa, acotada y verificada contra el canon O3 |
 | Gobierno server-side de la operación | Cerrada | `c9dbb43`; catálogo, política, reloj, unidad, transición y motivo VEC no proceden del canal |
 | Identidad VEC y análisis congelados en reserva | Cerrada | `17d4ea9`; recomposición ligada a referencia y huella exactas |
-| Orden opaca final O4-04 | Pendiente | Depende del resumen nominal VEC y del gobierno server-side |
+| Orden opaca final O4-04 | Cerrada | `5be6c14`; unión nominal: solo la concesión transporta efectos C1/C2 |
 | Orquestador C3 | Pendiente | Compone las piezas anteriores sin autoridad del cliente |
 | Transacción PostgreSQL única O4-04 | Pendiente | Depende de reserva, candidata y proyección |
 
