@@ -441,6 +441,21 @@ type AutorizadorSolicitudLigadaV3 interface {
 	)
 }
 
+// PreparadorSolicitudLigadaV3 evalua con el contexto V3 completo. Una
+// evaluacion positiva solo devuelve una orden candidata opaca: no prueba
+// persistencia, no confirma una concesion y no es una capacidad ejecutable.
+type PreparadorSolicitudLigadaV3 interface {
+	PrepararSolicitudLigadaV3(
+		context.Context,
+		domain.SolicitudAutorizacionLigadaV3,
+		domain.ResultadoContextoActorRegistradoV2,
+	) (
+		domain.DecisionAutorizacionLigadaV3,
+		OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
+		error,
+	)
+}
+
 func instanteRegistroAutorizacionLigadaV3Canonico(instante time.Time) bool {
 	return !instante.IsZero() && instante.Location() == time.UTC &&
 		instante.Year() >= 1 && instante.Year() <= 9999 && instante.Nanosecond()%1_000 == 0
