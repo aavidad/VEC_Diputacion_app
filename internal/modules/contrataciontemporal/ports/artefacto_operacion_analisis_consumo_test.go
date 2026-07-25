@@ -8,7 +8,52 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
+
+func TestHuellaAnalisisRehidratadoReutilizaExactamenteCanonO3(t *testing.T) {
+	solicitud, capacidad := capacidadArtefactoAnalisisPrueba(t)
+	artefacto := prepararArtefactoAnalisisPrueba(t, capacidad, solicitud)
+	esperada, err := HuellaAnalisisDerivadoO3(solicitud, artefacto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	analisis, err := DerivarAnalisisDesdeArtefacto(solicitud, artefacto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	analisis.ActuacionRegistro = &domain.VinculoActuacionAnalisis{
+		Secuencia:         2,
+		VersionExpediente: 2,
+		AccionClave:       domain.ClaveCatalogo(AccionRegistrarAnalisis),
+		FaseDestino:       "analisis_rrhh",
+		ReciboRef:         "recibo_confirmacion_analisis_o3_01",
+	}
+	obtenida, err := HuellaAnalisisRRHHRehidratadoO3(analisis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if obtenida != esperada {
+		t.Fatalf("el canon rehidratado divergió de O3: %s != %s", obtenida, esperada)
+	}
+}
+
+func TestHuellaAnalisisRehidratadoRechazaContenidoInvalido(t *testing.T) {
+	solicitud, capacidad := capacidadArtefactoAnalisisPrueba(t)
+	artefacto := prepararArtefactoAnalisisPrueba(t, capacidad, solicitud)
+	analisis, err := DerivarAnalisisDesdeArtefacto(solicitud, artefacto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	analisis.CategoriaRef = ""
+	if huella, err := HuellaAnalisisRRHHRehidratadoO3(analisis); !errors.Is(
+		err,
+		ErrArtefactoAnalisisNoConfiable,
+	) || huella != "" {
+		t.Fatalf("análisis inválido aceptado: huella=%q err=%v", huella, err)
+	}
+}
 
 func TestPuenteArtefactoAnalisisIntegraEvidenciaYOrdenNoConsumida(
 	t *testing.T,

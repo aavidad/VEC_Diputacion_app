@@ -177,6 +177,19 @@ func HuellaAnalisisDerivadoO3(
 	return huellaAnalisisDerivadoO3(analisis)
 }
 
+// HuellaAnalisisRRHHRehidratadoO3 reproduce exactamente el canon funcional
+// O3 sobre un análisis ya restaurado desde la fuente durable. La actuación no
+// entra en esta huella: su recibo y su ligadura con el agregado se validan por
+// separado para conservar la equivalencia con el canon publicado por O3.
+func HuellaAnalisisRRHHRehidratadoO3(
+	analisis domain.AnalisisRRHH,
+) (string, error) {
+	if analisis.Validar() != nil {
+		return "", ErrArtefactoAnalisisNoConfiable
+	}
+	return huellaAnalisisDerivadoO3(analisis)
+}
+
 func huellaAnalisisDerivadoDesdeDatosO3(
 	datos DatosArtefactoAnalisis,
 ) (string, error) {
