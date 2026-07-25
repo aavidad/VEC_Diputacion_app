@@ -53,9 +53,9 @@ evidencias, política ni actuación. Tampoco existe rectificación segregada.
 | Referencia y correlación VEC reservadas | Cerrada | `2778cb4`, `8294fad` |
 | Identidad durable del análisis O3 | Cerrada | `f36c41f` |
 | Proyección PostgreSQL del motivo | Cerrada | `d45c980` |
-| Lector PostgreSQL del análisis O3 | En implementación | Reutiliza la persistencia y el canon O3 existentes |
-| Gobierno server-side de la operación | En implementación | Catálogo, política, unidad, transición y motivo VEC nunca proceden del canal |
-| Identidad VEC y análisis congelados en reserva | En implementación | Necesaria para recomposición y confirmación exactas |
+| Lector PostgreSQL del análisis O3 | Cerrada | `89d8112`; lectura autoritativa, acotada y verificada contra el canon O3 |
+| Gobierno server-side de la operación | Cerrada | `c9dbb43`; catálogo, política, reloj, unidad, transición y motivo VEC no proceden del canal |
+| Identidad VEC y análisis congelados en reserva | Cerrada | `17d4ea9`; recomposición ligada a referencia y huella exactas |
 | Orden opaca final O4-04 | Pendiente | Depende del resumen nominal VEC y del gobierno server-side |
 | Orquestador C3 | Pendiente | Compone las piezas anteriores sin autoridad del cliente |
 | Transacción PostgreSQL única O4-04 | Pendiente | Depende de reserva, candidata y proyección |
