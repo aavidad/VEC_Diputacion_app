@@ -30,6 +30,15 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'retirada 000019 O4-04B fuera de orden';
     END IF;
+    IF pg_catalog.to_regclass(
+           'vec_contratacion_temporal.control_migracion_cobertura_o4'
+       ) IS NOT NULL
+       OR pg_catalog.to_regprocedure(
+           'vec_contratacion_temporal.o404c_referencia_derivada_v1(text,text)'
+       ) IS NOT NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'retirada 000019 O4-04B fuera de orden';
+    END IF;
 END
 $prevalidacion$;
 

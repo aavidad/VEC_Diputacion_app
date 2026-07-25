@@ -95,30 +95,59 @@ func verificarCanonesGobiernoCoberturaO404B(
 		actuacionJSON,
 		&actuacion,
 	)
-	var catalogoValido, politicaValida, actuacionValida bool
+	var huellaCatalogo, huellaPolitica, huellaActuacion string
 	if err := administrador.QueryRow(ctx, `
 		SELECT
-		  vec_contratacion_temporal
-		    .gobi_o404b_material_catalogo($1::jsonb) IS NOT NULL,
-		  vec_contratacion_temporal
-		    .gobi_o404b_material_politica($2::jsonb) IS NOT NULL,
-		  vec_contratacion_temporal
-		    .gobi_o404b_material_actuacion($3::jsonb) IS NOT NULL`,
+		  pg_catalog.encode(pg_catalog.sha256(
+		    vec_contratacion_temporal
+		      .gobi_o404b_material_catalogo($1::jsonb)
+		  ), 'hex'),
+		  pg_catalog.encode(pg_catalog.sha256(
+		    vec_contratacion_temporal
+		      .gobi_o404b_material_politica($2::jsonb)
+		  ), 'hex'),
+		  pg_catalog.encode(pg_catalog.sha256(
+		    vec_contratacion_temporal
+		      .gobi_o404b_material_actuacion($3::jsonb)
+		  ), 'hex')`,
 		catalogoJSON,
 		politicaJSON,
 		actuacionJSON,
 	).Scan(
-		&catalogoValido,
-		&politicaValida,
-		&actuacionValida,
-	); err != nil || !catalogoValido || !politicaValida ||
-		!actuacionValida {
+		&huellaCatalogo,
+		&huellaPolitica,
+		&huellaActuacion,
+	); err != nil ||
+		huellaCatalogo != catalogo["huella_sha256"] ||
+		huellaPolitica != politica["huella_sha256"] ||
+		huellaActuacion != actuacion["huella_sha256"] {
 		t.Fatalf(
-			"canon legítimo SQL/Go divergente: %t/%t/%t / %v",
-			catalogoValido,
-			politicaValida,
-			actuacionValida,
+			"huellas SQL/Go divergentes: %s/%s/%s / %v",
+			huellaCatalogo,
+			huellaPolitica,
+			huellaActuacion,
 			err,
+		)
+	}
+	for _, caso := range []struct {
+		funcion string
+		valor   map[string]any
+	}{
+		{"gobi_o404b_material_catalogo", catalogo},
+		{"gobi_o404b_material_politica", politica},
+		{"gobi_o404b_material_actuacion", actuacion},
+	} {
+		conCampoAjeno := clonarJSONGobiernoCoberturaO404BPrueba(
+			t,
+			caso.valor,
+		)
+		conCampoAjeno["campo_fuera_del_canon"] = true
+		exigirMaterialNuloGobiernoCoberturaO404B(
+			t,
+			ctx,
+			administrador,
+			caso.funcion,
+			conCampoAjeno,
 		)
 	}
 	catalogoDecimal := clonarJSONGobiernoCoberturaO404BPrueba(t, catalogo)
@@ -290,6 +319,29 @@ func verificarDownProtegidoGobiernoCoberturaO404B(
 	)
 }
 
+func instalarBarreraCPosteriorGobiernoCoberturaO404B(
+	t *testing.T,
+	ctx context.Context,
+	administrador *pgxpool.Pool,
+) {
+	t.Helper()
+	raiz := os.Getenv(variableRaizGobiernoCoberturaO404B)
+	if raiz == "" {
+		t.Fatal("raíz del repositorio O4-04B no configurada")
+	}
+	contenido, err := os.ReadFile(filepath.Join(
+		raiz,
+		"deploy/postgresql/contratacion_temporal/migraciones",
+		"000020_reserva_terminal_cobertura_o4_04c.up.sql",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := administrador.Exec(ctx, string(contenido)); err != nil {
+		t.Fatalf("instalar barrera posterior C/000020: %v", err)
+	}
+}
+
 func ejecutarDownRechazadoGobiernoCoberturaO404B(
 	t *testing.T,
 	ctx context.Context,
@@ -315,18 +367,38 @@ func ejecutarDownRechazadoGobiernoCoberturaO404B(
 		t.Fatal(err)
 	}
 	defer conexion.Release()
+	destruccionHabilitada := mensaje == "fuera de orden"
+	if destruccionHabilitada {
+		if _, err := conexion.Exec(ctx, `
+			SELECT pg_catalog.set_config(
+			  'vec.confirmar_destruccion_gobierno_cobertura_o4_04b',
+			  'DESTRUIR_HISTORIA_GOBIERNO_COBERTURA_O4_04B_IRREVERSIBLE',
+			  false
+			)`); err != nil {
+			t.Fatal(err)
+		}
+	}
 	_, err = conexion.Exec(ctx, string(contenido))
 	_, errorRollback := conexion.Exec(ctx, "ROLLBACK")
+	var errorReset error
+	if destruccionHabilitada {
+		_, errorReset = conexion.Exec(
+			ctx,
+			"RESET vec.confirmar_destruccion_gobierno_cobertura_o4_04b",
+		)
+	}
 	var errorPostgreSQL *pgconn.PgError
 	if !errors.As(err, &errorPostgreSQL) ||
 		errorPostgreSQL.Code != "55000" ||
 		!strings.Contains(errorPostgreSQL.Message, mensaje) ||
-		errorRollback != nil {
+		errorRollback != nil ||
+		errorReset != nil {
 		t.Fatalf(
-			"down %s no falló cerrado: err=%v rollback=%v",
+			"down %s no falló cerrado: err=%v rollback=%v reset=%v",
 			archivo,
 			err,
 			errorRollback,
+			errorReset,
 		)
 	}
 	var intacto bool
@@ -339,5 +411,116 @@ func ejecutarDownRechazadoGobiernoCoberturaO404B(
 		    'vec_contratacion_temporal.gobi_o404b_actual'
 		  ) IS NOT NULL`).Scan(&intacto); err != nil || !intacto {
 		t.Fatalf("down %s dejó estado parcial: %t / %v", archivo, intacto, err)
+	}
+}
+
+func verificarBloqueoCheckpointGobiernoCoberturaO404B(
+	t *testing.T,
+	ctx context.Context,
+	administrador *pgxpool.Pool,
+	publicador *pgxpool.Pool,
+	carga []byte,
+) {
+	t.Helper()
+	bloqueador, err := administrador.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer revertirTransaccion(bloqueador)
+	if _, err := bloqueador.Exec(ctx, `
+		SET LOCAL ROLE vec_contratacion_temporal_propietario;
+		SELECT control
+		  FROM vec_contratacion_temporal.gobi_o404b_checkpoint
+		 WHERE control
+		 FOR UPDATE`); err != nil {
+		t.Fatal(err)
+	}
+	_, _, _, err = ejecutarPublicacionGobiernoCoberturaO404BReal(
+		ctx,
+		publicador,
+		carga,
+	)
+	var errorPostgreSQL *pgconn.PgError
+	if !errors.As(err, &errorPostgreSQL) ||
+		errorPostgreSQL.Code != "55P03" {
+		t.Fatalf(
+			"publicación no quedó cercada por FOR UPDATE: %v",
+			err,
+		)
+	}
+	if err := bloqueador.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var secuencia int64
+	if err := administrador.QueryRow(ctx, `
+		SELECT ultima_secuencia
+		  FROM vec_contratacion_temporal.gobi_o404b_checkpoint
+		 WHERE control`).Scan(&secuencia); err != nil || secuencia != 0 {
+		t.Fatalf(
+			"bloqueo de checkpoint dejó efectos: secuencia=%d err=%v",
+			secuencia,
+			err,
+		)
+	}
+}
+
+func verificarSuperficieFuncionesGobiernoCoberturaO404B(
+	t *testing.T,
+	ctx context.Context,
+	administrador *pgxpool.Pool,
+) {
+	t.Helper()
+	var publicRevocado, searchPathSeguro, rolesMinimos bool
+	err := administrador.QueryRow(ctx, `
+		SELECT count(*) = 16
+		       AND pg_catalog.bool_and(
+		         NOT pg_catalog.has_function_privilege(
+		           'public', p.oid, 'EXECUTE'
+		         )
+		       ),
+		       pg_catalog.bool_and(
+		         COALESCE(p.proconfig, ARRAY[]::text[])
+		           @> ARRAY['search_path=pg_catalog']::text[]
+		       ),
+		       pg_catalog.bool_and(
+		         pg_catalog.has_function_privilege(
+		           'vec_contratacion_temporal_gobernador',
+		           p.oid,
+		           'EXECUTE'
+		         ) = (
+		           p.proname IN (
+		             'gobi_o404b_publicar',
+		             'gobi_o404b_retirar'
+		           )
+		         )
+		         AND pg_catalog.has_function_privilege(
+		           'vec_contratacion_temporal_ejecutor',
+		           p.oid,
+		           'EXECUTE'
+		         ) = (p.proname = 'gobi_o404b_resolver')
+		         AND NOT pg_catalog.has_function_privilege(
+		           'vec_contratacion_temporal_migrador',
+		           p.oid,
+		           'EXECUTE'
+		         )
+		       )
+		  FROM pg_catalog.pg_proc p
+		  JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+		 WHERE n.nspname = 'vec_contratacion_temporal'
+		   AND p.proname LIKE 'gobi_o404b_%'
+		   AND p.proname <> 'gobi_o404b_revalidar_prueba_efimera'`).Scan(
+		&publicRevocado,
+		&searchPathSeguro,
+		&rolesMinimos,
+	)
+	if err != nil || !publicRevocado || !searchPathSeguro || !rolesMinimos {
+		t.Fatalf(
+			"superficie de funciones O4-04B abierta: "+
+				"public=%t search_path=%t roles=%t err=%v",
+			publicRevocado,
+			searchPathSeguro,
+			rolesMinimos,
+			err,
+		)
 	}
 }

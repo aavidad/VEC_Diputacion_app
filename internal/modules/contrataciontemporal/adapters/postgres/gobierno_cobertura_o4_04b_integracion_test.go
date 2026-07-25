@@ -22,6 +22,9 @@ func TestGobiernoCoberturaO404BPostgreSQL18Real(t *testing.T) {
 	if dsnPublicador == "" || dsnEjecutor == "" || dsnAdministrador == "" {
 		t.Skip("PostgreSQL 18 efímero O4-04B no solicitado")
 	}
+	if os.Getenv("VEC_O404B_PG18_AISLADO") != "1" {
+		t.Fatal("la suite O4-04B exige un PostgreSQL 18 efímero aislado")
+	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancelar()
 	publicador, err := pgxpool.New(ctx, dsnPublicador)
@@ -79,7 +82,20 @@ func TestGobiernoCoberturaO404BPostgreSQL18Real(t *testing.T) {
 		t,
 		ctx,
 		administrador,
+		"000017_gobierno_cobertura_o4_04b.down.sql",
+	)
+	verificarDownFueraDeOrdenGobiernoCoberturaO404B(
+		t,
+		ctx,
+		administrador,
 		"000018_politicas_gobierno_cobertura_o4_04b.down.sql",
+	)
+	verificarBloqueoCheckpointGobiernoCoberturaO404B(
+		t,
+		ctx,
+		administrador,
+		publicador,
+		carga,
 	)
 	var adulterada map[string]any
 	if err := json.Unmarshal(carga, &adulterada); err != nil {
@@ -255,6 +271,17 @@ func TestGobiernoCoberturaO404BPostgreSQL18Real(t *testing.T) {
 		false,
 	)
 	verificarDownProtegidoGobiernoCoberturaO404B(
+		t,
+		ctx,
+		administrador,
+		"000019_resolucion_gobierno_cobertura_o4_04b.down.sql",
+	)
+	instalarBarreraCPosteriorGobiernoCoberturaO404B(
+		t,
+		ctx,
+		administrador,
+	)
+	verificarDownFueraDeOrdenGobiernoCoberturaO404B(
 		t,
 		ctx,
 		administrador,
@@ -510,4 +537,9 @@ func verificarAislamientoGobiernoCoberturaO404B(
 		!rolGobernadorValido {
 		t.Fatalf("ACL/RLS O4-04B incompletas: %v", err)
 	}
+	verificarSuperficieFuncionesGobiernoCoberturaO404B(
+		t,
+		ctx,
+		administrador,
+	)
 }

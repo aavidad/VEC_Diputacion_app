@@ -21,6 +21,15 @@ BEGIN
        OR pg_catalog.to_regprocedure(
            'vec_contratacion_temporal.gobi_o404b_resolver(text,text,numeric,text,timestamptz)'
        ) IS NOT NULL
+       OR pg_catalog.to_regprocedure(
+           'vec_contratacion_temporal.gobi_o404b_revalidar_actual(text,text,text,numeric,text,text,numeric,text,text,numeric,text)'
+       ) IS NOT NULL
+       OR pg_catalog.to_regprocedure(
+           'vec_contratacion_temporal.gobi_o404b_politica_ligada(jsonb,jsonb)'
+       ) IS NOT NULL
+       OR pg_catalog.to_regclass(
+           'vec_contratacion_temporal.control_migracion_cobertura_o4'
+       ) IS NOT NULL
        OR pg_catalog.to_regclass(
            'vec_contratacion_temporal.gobi_o404b_politica'
        ) IS NULL
