@@ -9,7 +9,70 @@ import (
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
+
+func TestVectorGoldenHuellaPoliticaActuacionCoberturaV1(t *testing.T) {
+	// Este vector solo fija la representación canónica. No construye una
+	// capacidad ni sustituye al resolutor/BD autoritativos.
+	publicacion := PublicacionPoliticaActuacionCobertura{
+		Referencia:      "politica_actuacion_vector_golden_01",
+		Version:         17,
+		Canon:           CanonHuellaPoliticaActuacionCoberturaV1(),
+		OrganizacionRef: "organizacion_vector_golden_01",
+		Accion:          domain.AccionRectificarCoberturaGobernada,
+		Catalogo: domain.IdentidadCatalogoViasCobertura{
+			Referencia:   "catalogo_cobertura_vector_golden_01",
+			Version:      23,
+			HuellaSHA256: strings.Repeat("c", 64),
+		},
+		Politica: domain.IdentidadPoliticaDecisionCobertura{
+			Referencia:   "politica_decision_vector_golden_01",
+			Version:      11,
+			HuellaSHA256: strings.Repeat("d", 64),
+		},
+		FinalidadContratacionClave: "gestionar_vector_cobertura",
+		FinalidadContratacionRef:   "finalidad_ct_vector_golden_01",
+		FinalidadAutorizacionVEC:   "autorizar_vector_cobertura",
+		UnidadEjecutoraRef:         "unidad_vector_golden_01",
+		FaseDestino:                "fase_vector_golden",
+		EstadoDestino:              domain.EstadoEnCurso,
+		MotivoAutorizacionDecidir: dominiovec.ReferenciaEntradaCatalogo{
+			CatalogoID:           "motivos_vector_golden",
+			CatalogoVersion:      31,
+			CatalogoHuellaSHA256: strings.Repeat("e", 64),
+			EntradaClave:         "motivo_0123456789abcdef0123456789abcdef",
+		},
+		MotivoAutorizacionRectificar: dominiovec.ReferenciaEntradaCatalogo{
+			CatalogoID:           "motivos_vector_golden",
+			CatalogoVersion:      31,
+			CatalogoHuellaSHA256: strings.Repeat("e", 64),
+			EntradaClave:         "motivo_fedcba9876543210fedcba9876543210",
+		},
+		EquivalenciaMotivosRef: "",
+		PublicadaEn: time.Date(
+			2026, 7, 25, 7, 1, 2, 345000000, time.UTC,
+		),
+		Vigencia: domain.VigenciaCatalogoCobertura{
+			Desde: time.Date(
+				2026, 7, 25, 8, 2, 3, 456000000, time.UTC,
+			),
+			Hasta: time.Date(
+				2026, 7, 25, 9, 3, 4, 567000000, time.UTC,
+			),
+		},
+	}
+	const esperada = "3ffdec894892481a12b3909033e8fc05d49ff25aa3460d25490d1f1d2203b13e"
+	obtenida, err := CalcularHuellaSHA256PoliticaActuacionCobertura(
+		publicacion,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if obtenida != esperada {
+		t.Fatalf("vector golden V1 alterado: obtenida=%s", obtenida)
+	}
+}
 
 func TestPoliticaActuacionCoberturaCanonComprometeCadaCampo(t *testing.T) {
 	solicitud := solicitudGobiernoOperacionCoberturaPrueba(t, false, 2)
