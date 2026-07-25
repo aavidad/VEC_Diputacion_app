@@ -8,11 +8,14 @@ const (
 	ComprobacionAfirmativa ResultadoComprobacion = "afirmativa"
 	ComprobacionNegativa   ResultadoComprobacion = "negativa"
 	ComprobacionNoAplica   ResultadoComprobacion = "no_aplica"
+	// ComprobacionNoConsta acredita que la fuente respondió sin disponer del
+	// dato. No equivale a omisión, resultado negativo ni indisponibilidad.
+	ComprobacionNoConsta ResultadoComprobacion = "no_consta"
 )
 
 func (r ResultadoComprobacion) valido() bool {
 	return r == ComprobacionAfirmativa || r == ComprobacionNegativa ||
-		r == ComprobacionNoAplica
+		r == ComprobacionNoAplica || r == ComprobacionNoConsta
 }
 
 type ComprobacionCobertura struct {
