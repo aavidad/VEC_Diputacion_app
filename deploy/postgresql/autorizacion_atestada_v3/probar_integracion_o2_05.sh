@@ -333,6 +333,7 @@ source "${raiz}/deploy/postgresql/autorizacion_atestada_v3/pruebas_acl_o2_05.sh"
 source "${raiz}/deploy/postgresql/autorizacion_atestada_v3/pruebas_atomicidad_o2_05.sh"
 source "${raiz}/deploy/postgresql/contratacion_temporal/pruebas_atomicidad_o3_04.sh"
 source "${raiz}/deploy/postgresql/contratacion_temporal/pruebas_variantes_o3_04.sh"
+source "${raiz}/deploy/postgresql/contratacion_temporal/pruebas_lectura_analisis_durable_o4.sh"
 
 paso "arranque efímero sin red: ${imagen}"
 docker run --detach --name "${contenedor}" --network none \
@@ -472,7 +473,8 @@ for migracion in \
     000012_confirmacion_operacion_analisis \
     000013_barrera_reforzada_analisis \
     000014_frontera_durable_analisis_v2 \
-    000015_invariantes_dominio_analisis_v3
+    000015_invariantes_dominio_analisis_v3 \
+    000016_lectura_analisis_durable_o3
 do
     archivo vec_ct_o205_migrador \
         "deploy/postgresql/contratacion_temporal/migraciones/${migracion}.up.sql" \
@@ -669,6 +671,12 @@ analisis_primero="$(confirmar_analisis_o3)"
 analisis_replay="$(confirmar_analisis_o3)"
 [[ "${analisis_primero}" == "${analisis_replay}" ]]
 [[ "${analisis_primero}" == *'"version_resultante": 2'* ]]
+if [[ "${VEC_PRUEBA_SOLO_LECTURA_O4:-0}" == '1' ]]; then
+    paso 'gate focal: lectura O4 del análisis O3 confirmado'
+    probar_lectura_analisis_durable_o4
+    paso 'OK focal: fila real, huella, ausencia y versión incorrecta'
+    exit 0
+fi
 [[ "$(valor "SELECT ((SELECT count(*) FROM vec_contratacion_temporal.expediente_version_integral WHERE expediente_ref='expediente:ct:o205:alta_valida')=2 AND (SELECT version FROM vec_contratacion_temporal.expediente_integral_actual WHERE expediente_ref='expediente:ct:o205:alta_valida')=2 AND (SELECT count(*) FROM vec_contratacion_temporal.actuacion_expediente_integral)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.consumo_fuentes_analisis)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.consumo_decision_analisis)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.auditoria_expediente_integral)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.outbox_expediente_integral)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.confirmacion_operacion_analisis)=1)::text")" == 'true' ]]
 sql postgres \
     "UPDATE public.vector_confirmacion_analisis_o3 SET operacion=jsonb_set(operacion,'{actor_ref}','\"per_sintetica_divergente\"') WHERE caso='registrar'" \
@@ -981,6 +989,9 @@ esperar_fallo 'sesión revocada después de decisión durable' \
     invocar sesion_revocada
 [[ "$(valor "SELECT (SELECT count(*) FROM vec_autorizacion.decision_concedida_contexto_actor_v3 WHERE decision_ref='decision:ct:o205:sesion_revocada')::text||':'||(SELECT count(*) FROM vec_autorizacion_atestada_v3.consumo_decision_v3 WHERE decision_ref='decision:ct:o205:sesion_revocada')||':'||(SELECT count(*) FROM vec_contratacion_temporal.expediente_alta WHERE expediente_ref='expediente:ct:o205:sesion_revocada')")" == '1:0:0' ]]
 
+paso 'lectura O4 del análisis O3 confirmado y minimizada'
+probar_lectura_analisis_durable_o4
+
 paso 'ACL: único mando runtime y denegación por defecto'
 esperar_fallo 'lectura directa CT' sql vec_ct_o205_runtime \
     'TABLE vec_contratacion_temporal.expediente_alta'
@@ -1018,6 +1029,7 @@ esperar_fallo 'consumidor genérico abierto' sql vec_ct_o205_runtime \
 [[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.confirmar_operacion_analisis_v2(jsonb)','EXECUTE')")" == 'f' ]]
 [[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_contratacion_temporal.confirmar_operacion_analisis_v3(jsonb)','EXECUTE')")" == 't' ]]
 [[ "$(valor "SELECT has_function_privilege('public','vec_contratacion_temporal.confirmar_operacion_analisis_v3(jsonb)','EXECUTE')")" == 'f' ]]
+probar_acl_lectura_analisis_durable_o4
 [[ "$(valor "SELECT has_function_privilege('vec_contratacion_temporal_propietario','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 't' ]]
 [[ "$(valor "SELECT has_function_privilege('vec_ct_o205_runtime','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 'f' ]]
 [[ "$(valor "SELECT has_function_privilege('public','vec_autorizacion.revalidar_decision_analisis_contratacion_temporal_v1(bytea,bytea,numeric,numeric,jsonb)','EXECUTE')")" == 'f' ]]
@@ -1065,6 +1077,9 @@ esperar_fallo 'down revalidación viva con consumidor instalado' \
 paso 'retirada de la superficie de prueba y destrucción explícita ensayada'
 sql postgres \
     'REVOKE USAGE ON SCHEMA public FROM vec_ct_o205_runtime; DROP FUNCTION public.invocar_vector_confirmacion_analisis_o3(); DROP FUNCTION public.preparar_vector_confirmacion_analisis_o3(text); DROP FUNCTION public.instante_go_analisis_o3(timestamptz); DROP TABLE public.vector_confirmacion_analisis_o3; DROP FUNCTION public.aplicar_bundle_go_o2_05(text,jsonb); DROP FUNCTION public.exportar_entrada_go_o2_05(text); DROP FUNCTION public.durabilizar_decision_o2_05(text); DROP FUNCTION public.mutar_tipo_capacidad_o2_05(text,text); DROP FUNCTION public.mutar_efecto_o2_05(text,text,jsonb); DROP FUNCTION public.invocar_vector_o2_05(text); DROP FUNCTION public.preparar_vector_o2_05(text,text,numeric); DROP TABLE public.vectores_o2_05' \
+    >/dev/null
+archivo vec_ct_o205_migrador \
+    deploy/postgresql/contratacion_temporal/migraciones/000016_lectura_analisis_durable_o3.down.sql \
     >/dev/null
 for migracion in \
     000015_invariantes_dominio_analisis_v3 \
@@ -1189,7 +1204,8 @@ for migracion in \
     000012_confirmacion_operacion_analisis \
     000013_barrera_reforzada_analisis \
     000014_frontera_durable_analisis_v2 \
-    000015_invariantes_dominio_analisis_v3
+    000015_invariantes_dominio_analisis_v3 \
+    000016_lectura_analisis_durable_o3
 do
     archivo vec_ct_o205_migrador \
         "deploy/postgresql/contratacion_temporal/migraciones/${migracion}.up.sql" \
@@ -1197,6 +1213,7 @@ do
 done
 afirmar_sin_referencias_o2_05
 for migracion in \
+    000016_lectura_analisis_durable_o3 \
     000015_invariantes_dominio_analisis_v3 \
     000014_frontera_durable_analisis_v2 \
     000013_barrera_reforzada_analisis \
