@@ -1142,7 +1142,16 @@ func TestFabricasDeEvidenciaSoloSeInvocanEnAdaptadoresDePasarela(t *testing.T) {
 		if errorRecorrido != nil {
 			return errorRecorrido
 		}
-		if entrada.IsDir() || filepath.Ext(ruta) != ".go" || strings.HasSuffix(ruta, "_test.go") {
+		if entrada.IsDir() {
+			switch entrada.Name() {
+			case ".git", ".worktrees", "vendor", "node_modules", "var":
+				if ruta != raiz {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+		if filepath.Ext(ruta) != ".go" || strings.HasSuffix(ruta, "_test.go") {
 			return nil
 		}
 		relativa, errorRelativa := filepath.Rel(raiz, ruta)
