@@ -39,6 +39,38 @@ func (c *consultaMotivoCoberturaPrueba) ObtenerCatalogo(
 	return c.catalogo.ClonarCanonico()
 }
 
+func (c *consultaMotivoCoberturaPrueba) ObtenerCatalogoAcotado(
+	ctx context.Context,
+	id string,
+	version int,
+	limites puertosvec.LimitesConsultaCatalogosAcotada,
+) (puertosvec.ResultadoConsultaCatalogoAcotado, error) {
+	if c.err != nil {
+		return puertosvec.ResultadoConsultaCatalogoAcotado{}, c.err
+	}
+	if err := ctx.Err(); err != nil {
+		return puertosvec.ResultadoConsultaCatalogoAcotado{}, err
+	}
+	if id != c.catalogo.ID || version != c.catalogo.Version ||
+		limites.Validar() != nil {
+		return puertosvec.ResultadoConsultaCatalogoAcotado{},
+			puertosvec.ErrCatalogoNoEncontrado
+	}
+	medida, medible := puertosvec.MedirCatalogoConfigurable(c.catalogo)
+	_, cabe := (puertosvec.ConsumoConsultaCatalogosAcotada{}).Agregar(
+		medida,
+		limites,
+	)
+	if !medible || !cabe {
+		return puertosvec.ResultadoConsultaCatalogoAcotado{Truncado: true}, nil
+	}
+	clon, err := c.catalogo.ClonarCanonico()
+	if err != nil {
+		return puertosvec.ResultadoConsultaCatalogoAcotado{}, err
+	}
+	return puertosvec.ResultadoConsultaCatalogoAcotado{Catalogo: clon}, nil
+}
+
 func (c *consultaMotivoCoberturaPrueba) ListarVersionesCatalogo(
 	context.Context,
 	string,
@@ -48,6 +80,38 @@ func (c *consultaMotivoCoberturaPrueba) ListarVersionesCatalogo(
 		return nil, err
 	}
 	return []dominiovec.CatalogoConfigurable{clon}, nil
+}
+
+func (c *consultaMotivoCoberturaPrueba) ListarVersionesCatalogoAcotado(
+	ctx context.Context,
+	id string,
+	limites puertosvec.LimitesConsultaCatalogosAcotada,
+) (puertosvec.ResultadoConsultaCatalogosAcotada, error) {
+	if c.err != nil {
+		return puertosvec.ResultadoConsultaCatalogosAcotada{}, c.err
+	}
+	if err := ctx.Err(); err != nil {
+		return puertosvec.ResultadoConsultaCatalogosAcotada{}, err
+	}
+	if id != c.catalogo.ID || limites.Validar() != nil {
+		return puertosvec.ResultadoConsultaCatalogosAcotada{},
+			puertosvec.ErrCatalogoNoEncontrado
+	}
+	medida, medible := puertosvec.MedirCatalogoConfigurable(c.catalogo)
+	_, cabe := (puertosvec.ConsumoConsultaCatalogosAcotada{}).Agregar(
+		medida,
+		limites,
+	)
+	if !medible || !cabe {
+		return puertosvec.ResultadoConsultaCatalogosAcotada{Truncado: true}, nil
+	}
+	clon, err := c.catalogo.ClonarCanonico()
+	if err != nil {
+		return puertosvec.ResultadoConsultaCatalogosAcotada{}, err
+	}
+	return puertosvec.ResultadoConsultaCatalogosAcotada{
+		Catalogos: []dominiovec.CatalogoConfigurable{clon},
+	}, nil
 }
 
 func TestResolutorMotivoCoberturaExigePublicacionExactaEI18n(
@@ -222,6 +286,7 @@ func TestResolutorMotivoCoberturaFallaCerradoSinFiltrarProveedor(
 	resolutor, err := NuevoResolutorMotivoDecisionCobertura(
 		consulta,
 		catalogo.ID,
+		catalogo.ModuloID,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -245,6 +310,7 @@ func resolutorMotivoCoberturaPrueba(
 	resolutor, err := NuevoResolutorMotivoDecisionCobertura(
 		&consultaMotivoCoberturaPrueba{catalogo: catalogo},
 		catalogo.ID,
+		catalogo.ModuloID,
 	)
 	if err != nil {
 		t.Fatal(err)

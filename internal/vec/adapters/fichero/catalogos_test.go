@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 const rutaCatalogoProfesionalDemo = "../../../../data/catalogos/categorias-profesionales/v1.demo.json"
@@ -109,5 +110,117 @@ func TestConsultaCatalogosRespetaContextoCancelado(t *testing.T) {
 	cancelar()
 	if _, err := consulta.ObtenerCatalogo(ctx, "categorias-profesionales", 1); !errors.Is(err, context.Canceled) {
 		t.Fatalf("error=%v", err)
+	}
+}
+
+func TestConsultaCatalogosAcotadaSeñalaPresupuestoSinMutar(t *testing.T) {
+	consulta, err := NuevaConsultaCatalogos(rutaCatalogoProfesionalDemo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	limites := limitesConsultaCatalogosFicheroPrueba()
+	resultado, err := consulta.ListarVersionesCatalogoAcotado(
+		context.Background(),
+		"categorias-profesionales",
+		limites,
+	)
+	if err != nil || resultado.Truncado || len(resultado.Catalogos) != 1 {
+		t.Fatalf("consulta acotada: %#v, %v", resultado, err)
+	}
+	exacto, err := consulta.ObtenerCatalogoAcotado(
+		context.Background(),
+		"categorias-profesionales",
+		1,
+		limites,
+	)
+	if err != nil || exacto.Truncado ||
+		exacto.Catalogo.ID != "categorias-profesionales" {
+		t.Fatalf("lectura exacta acotada: %#v, %v", exacto, err)
+	}
+	resultado.Catalogos[0].Entradas[0].Etiqueta = "mutada"
+	segunda, err := consulta.ListarVersionesCatalogoAcotado(
+		context.Background(),
+		"categorias-profesionales",
+		limites,
+	)
+	if err != nil ||
+		segunda.Catalogos[0].Entradas[0].Etiqueta == "mutada" {
+		t.Fatalf("consulta compartió estado: %#v, %v", segunda, err)
+	}
+
+	limites.Entradas = 1
+	truncada, err := consulta.ListarVersionesCatalogoAcotado(
+		context.Background(),
+		"categorias-profesionales",
+		limites,
+	)
+	if err != nil || !truncada.Truncado ||
+		len(truncada.Catalogos) != 0 {
+		t.Fatalf("presupuesto no señalado: %#v, %v", truncada, err)
+	}
+	exactaTruncada, err := consulta.ObtenerCatalogoAcotado(
+		context.Background(),
+		"categorias-profesionales",
+		1,
+		limites,
+	)
+	if err != nil || !exactaTruncada.Truncado ||
+		exactaTruncada.Catalogo.ID != "" {
+		t.Fatalf("lectura exacta no truncada: %#v, %v", exactaTruncada, err)
+	}
+
+	hostil := &ConsultaCatalogos{catalogo: consulta.catalogo}
+	hostil.catalogo.Descripcion = strings.Repeat(
+		"x",
+		ports.MaximoBytesConsultaCatalogosAcotada+1,
+	)
+	exactaHostil, err := hostil.ObtenerCatalogoAcotado(
+		context.Background(),
+		"categorias-profesionales",
+		1,
+		limitesConsultaCatalogosFicheroPrueba(),
+	)
+	if err != nil || !exactaHostil.Truncado {
+		t.Fatalf("el catálogo hostil se clonó antes del límite: %#v, %v", exactaHostil, err)
+	}
+}
+
+func TestConsultaCatalogosAcotadaRespetaCancelacionYContrato(t *testing.T) {
+	consulta, err := NuevaConsultaCatalogos(rutaCatalogoProfesionalDemo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	if _, err := consulta.ListarVersionesCatalogoAcotado(
+		ctx,
+		"categorias-profesionales",
+		limitesConsultaCatalogosFicheroPrueba(),
+	); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelación no respetada: %v", err)
+	}
+	if _, err := consulta.ObtenerCatalogoAcotado(
+		ctx,
+		"categorias-profesionales",
+		1,
+		limitesConsultaCatalogosFicheroPrueba(),
+	); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelación exacta no respetada: %v", err)
+	}
+	if _, err := consulta.ListarVersionesCatalogoAcotado(
+		context.Background(),
+		"categorias-profesionales",
+		ports.LimitesConsultaCatalogosAcotada{},
+	); !errors.Is(err, ports.ErrLimitesConsultaCatalogosInvalidos) {
+		t.Fatalf("límites inválidos aceptados: %v", err)
+	}
+}
+
+func limitesConsultaCatalogosFicheroPrueba() ports.LimitesConsultaCatalogosAcotada {
+	return ports.LimitesConsultaCatalogosAcotada{
+		Versiones:        ports.MaximoVersionesConsultaCatalogosAcotada,
+		Entradas:         ports.MaximoEntradasConsultaCatalogosAcotada,
+		Atributos:        ports.MaximoAtributosConsultaCatalogosAcotada,
+		BytesAproximados: ports.MaximoBytesConsultaCatalogosAcotada,
 	}
 }

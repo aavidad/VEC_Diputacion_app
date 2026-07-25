@@ -3,6 +3,8 @@ package cobertura
 import (
 	"context"
 	"errors"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -10,6 +12,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 func TestResolutorMotivoCoberturaRechazaNulosTipadosYContexto(
@@ -20,6 +23,7 @@ func TestResolutorMotivoCoberturaRechazaNulosTipadosYContexto(
 	if resolutor, err := NuevoResolutorMotivoDecisionCobertura(
 		consultaNula,
 		catalogo.ID,
+		catalogo.ModuloID,
 	); resolutor != nil ||
 		!errors.Is(err, ErrConfiguracionResolutorMotivoDecisionCobertura) {
 		t.Fatalf("consulta nula tipada: %#v, %v", resolutor, err)
@@ -141,6 +145,7 @@ func TestResolutorMotivoCoberturaNoDelegaCatalogoElegidoPorCliente(
 	resolutor, err := NuevoResolutorMotivoDecisionCobertura(
 		consulta,
 		catalogo.ID,
+		catalogo.ModuloID,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -166,6 +171,7 @@ func TestResolutorMotivoCoberturaAcotaCatalogoAntesDeClonar(t *testing.T) {
 	resolutor, err := NuevoResolutorMotivoDecisionCobertura(
 		consulta,
 		catalogo.ID,
+		catalogo.ModuloID,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -185,12 +191,146 @@ func TestResolutorMotivoCoberturaAcotaCatalogoAntesDeClonar(t *testing.T) {
 	}
 }
 
+func TestResolverClaveMotivoCoberturaRechazaProveedorHostilSinFallback(
+	t *testing.T,
+) {
+	v1 := historialPublicadoMotivoCobertura(t, 1)[0]
+	casos := map[string]*consultaHistorialMotivoCobertura{
+		"truncamiento declarado": {
+			versiones: []dominiovec.CatalogoConfigurable{v1},
+			truncado:  true,
+		},
+		"demasiadas versiones sin declarar": {
+			versiones: make(
+				[]dominiovec.CatalogoConfigurable,
+				limitesConsultaMotivosDecisionCobertura().Versiones+1,
+			),
+		},
+	}
+	for nombre, consulta := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			resolutor := nuevoResolutorClaveMotivoCobertura(t, consulta)
+			if _, err := resolutor.ResolverClave(
+				context.Background(),
+				claveMotivoCoberturaPrueba,
+				instanteMotivoCoberturaPrueba,
+			); !errors.Is(err, ErrMotivoDecisionCoberturaNoConfiable) {
+				t.Fatalf("respuesta hostil aceptada: %v", err)
+			}
+			if consulta.llamadasSinCota.Load() != 0 ||
+				consulta.llamadasObtener.Load() != 0 ||
+				consulta.lecturasSinCota.Load() != 0 {
+				t.Fatalf(
+					"fallback: lista=%d exacta=%d; exactas acotadas=%d",
+					consulta.llamadasSinCota.Load(),
+					consulta.lecturasSinCota.Load(),
+					consulta.llamadasObtener.Load(),
+				)
+			}
+		})
+	}
+}
+
+func TestResolverClaveMotivoCoberturaRevalidaPresupuestoHostil(
+	t *testing.T,
+) {
+	v1 := historialPublicadoMotivoCobertura(t, 1)[0]
+	demasiadasEntradas := v1
+	demasiadasEntradas.Entradas = make(
+		[]dominiovec.EntradaCatalogoConfigurable,
+		limitesConsultaMotivosDecisionCobertura().Entradas+1,
+	)
+	demasiadosAtributos := v1
+	demasiadosAtributos.Entradas = append(
+		[]dominiovec.EntradaCatalogoConfigurable(nil),
+		v1.Entradas...,
+	)
+	demasiadosAtributos.Entradas[0].Atributos = make(
+		map[string]string,
+		limitesConsultaMotivosDecisionCobertura().Atributos+1,
+	)
+	for indice := 0; indice <= limitesConsultaMotivosDecisionCobertura().Atributos; indice++ {
+		demasiadosAtributos.Entradas[0].Atributos["atributo_"+strconv.Itoa(indice)] = "valor"
+	}
+	demasiadosBytes := v1
+	demasiadosBytes.Descripcion = strings.Repeat(
+		"x",
+		limitesConsultaMotivosDecisionCobertura().BytesAproximados+1,
+	)
+	casos := map[string]dominiovec.CatalogoConfigurable{
+		"entradas":  demasiadasEntradas,
+		"atributos": demasiadosAtributos,
+		"bytes":     demasiadosBytes,
+	}
+	for nombre, catalogo := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			consulta := &consultaHistorialMotivoCobertura{
+				versiones: []dominiovec.CatalogoConfigurable{catalogo},
+			}
+			resolutor := nuevoResolutorClaveMotivoCobertura(t, consulta)
+			if _, err := resolutor.ResolverClave(
+				context.Background(),
+				claveMotivoCoberturaPrueba,
+				instanteMotivoCoberturaPrueba,
+			); !errors.Is(err, ErrMotivoDecisionCoberturaNoConfiable) {
+				t.Fatalf("presupuesto hostil aceptado: %v", err)
+			}
+			if consulta.llamadasObtener.Load() != 0 {
+				t.Fatal("el catálogo hostil llegó a la lectura exacta")
+			}
+		})
+	}
+}
+
+func TestResolverClaveMotivoCoberturaRechazaLecturaExactaHostil(
+	t *testing.T,
+) {
+	v1 := historialPublicadoMotivoCobertura(t, 1)[0]
+	sobredimensionada := v1
+	sobredimensionada.Descripcion = strings.Repeat(
+		"x",
+		limitesConsultaMotivosDecisionCobertura().BytesAproximados+1,
+	)
+	for nombre, consulta := range map[string]*consultaHistorialMotivoCobertura{
+		"truncamiento declarado": {
+			versiones:      []dominiovec.CatalogoConfigurable{v1},
+			exactaTruncada: true,
+		},
+		"presupuesto ocultado": {
+			versiones: []dominiovec.CatalogoConfigurable{v1},
+			exactas: map[int]dominiovec.CatalogoConfigurable{
+				1: sobredimensionada,
+			},
+		},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			resolutor := nuevoResolutorClaveMotivoCobertura(t, consulta)
+			if _, err := resolutor.ResolverClave(
+				context.Background(),
+				claveMotivoCoberturaPrueba,
+				instanteMotivoCoberturaPrueba,
+			); !errors.Is(err, ErrMotivoDecisionCoberturaNoConfiable) {
+				t.Fatalf("lectura exacta hostil aceptada: %v", err)
+			}
+			if consulta.llamadasObtener.Load() != 1 ||
+				consulta.lecturasSinCota.Load() != 0 {
+				t.Fatalf(
+					"lecturas exactas: acotada=%d ilimitada=%d",
+					consulta.llamadasObtener.Load(),
+					consulta.lecturasSinCota.Load(),
+				)
+			}
+		})
+	}
+}
+
 func TestResolutorMotivoCoberturaCopiaAntesDeConservar(t *testing.T) {
 	catalogo := catalogoMotivoCoberturaPublicado(t, nil)
 	consulta := &consultaMotivoCoberturaPrueba{catalogo: catalogo}
 	resolutor, err := NuevoResolutorMotivoDecisionCobertura(
 		consulta,
 		catalogo.ID,
+		catalogo.ModuloID,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -228,6 +368,7 @@ func TestResolutorMotivoCoberturaToleraCambioConcurrenteSinFalsoExito(
 	resolutor, err := NuevoResolutorMotivoDecisionCobertura(
 		consulta,
 		valido.ID,
+		valido.ModuloID,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -306,11 +447,30 @@ func (c *consultaCrudaMotivoCobertura) ObtenerCatalogo(
 	return c.catalogo, nil
 }
 
+func (c *consultaCrudaMotivoCobertura) ObtenerCatalogoAcotado(
+	context.Context,
+	string,
+	int,
+	puertosvec.LimitesConsultaCatalogosAcotada,
+) (puertosvec.ResultadoConsultaCatalogoAcotado, error) {
+	return puertosvec.ResultadoConsultaCatalogoAcotado{
+		Catalogo: c.catalogo,
+	}, nil
+}
+
 func (c *consultaCrudaMotivoCobertura) ListarVersionesCatalogo(
 	context.Context,
 	string,
 ) ([]dominiovec.CatalogoConfigurable, error) {
 	return nil, nil
+}
+
+func (c *consultaCrudaMotivoCobertura) ListarVersionesCatalogoAcotado(
+	context.Context,
+	string,
+	puertosvec.LimitesConsultaCatalogosAcotada,
+) (puertosvec.ResultadoConsultaCatalogosAcotada, error) {
+	return puertosvec.ResultadoConsultaCatalogosAcotada{}, nil
 }
 
 type consultaConcurrenteMotivoCobertura struct {
@@ -343,9 +503,29 @@ func (c *consultaConcurrenteMotivoCobertura) ObtenerCatalogo(
 	return clon, err
 }
 
+func (c *consultaConcurrenteMotivoCobertura) ObtenerCatalogoAcotado(
+	ctx context.Context,
+	id string,
+	version int,
+	_ puertosvec.LimitesConsultaCatalogosAcotada,
+) (puertosvec.ResultadoConsultaCatalogoAcotado, error) {
+	catalogo, err := c.ObtenerCatalogo(ctx, id, version)
+	return puertosvec.ResultadoConsultaCatalogoAcotado{
+		Catalogo: catalogo,
+	}, err
+}
+
 func (c *consultaConcurrenteMotivoCobertura) ListarVersionesCatalogo(
 	context.Context,
 	string,
 ) ([]dominiovec.CatalogoConfigurable, error) {
 	return nil, nil
+}
+
+func (c *consultaConcurrenteMotivoCobertura) ListarVersionesCatalogoAcotado(
+	context.Context,
+	string,
+	puertosvec.LimitesConsultaCatalogosAcotada,
+) (puertosvec.ResultadoConsultaCatalogosAcotada, error) {
+	return puertosvec.ResultadoConsultaCatalogosAcotada{}, nil
 }

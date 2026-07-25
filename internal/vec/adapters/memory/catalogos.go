@@ -355,6 +355,49 @@ func (s *Store) ObtenerCatalogo(ctx context.Context, id string, version int) (do
 	return catalogo.ClonarCanonico()
 }
 
+func (s *Store) ObtenerCatalogoAcotado(
+	ctx context.Context,
+	id string,
+	version int,
+	limites ports.LimitesConsultaCatalogosAcotada,
+) (ports.ResultadoConsultaCatalogoAcotado, error) {
+	if ctx == nil || s == nil ||
+		id != strings.TrimSpace(id) || id == "" || version < 1 {
+		return ports.ResultadoConsultaCatalogoAcotado{},
+			ports.ErrCatalogoNoEncontrado
+	}
+	if limites.Validar() != nil {
+		return ports.ResultadoConsultaCatalogoAcotado{},
+			ports.ErrLimitesConsultaCatalogosInvalidos
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ResultadoConsultaCatalogoAcotado{}, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	catalogo, existe := s.catalogos[claveCatalogo(id, version)]
+	if !existe {
+		return ports.ResultadoConsultaCatalogoAcotado{},
+			ports.ErrCatalogoNoEncontrado
+	}
+	medida, medible := ports.MedirCatalogoConfigurable(catalogo)
+	_, cabe := (ports.ConsumoConsultaCatalogosAcotada{}).Agregar(
+		medida,
+		limites,
+	)
+	if !medible || !cabe {
+		return ports.ResultadoConsultaCatalogoAcotado{Truncado: true}, nil
+	}
+	clon, err := catalogo.ClonarCanonico()
+	if err != nil {
+		return ports.ResultadoConsultaCatalogoAcotado{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ResultadoConsultaCatalogoAcotado{}, err
+	}
+	return ports.ResultadoConsultaCatalogoAcotado{Catalogo: clon}, nil
+}
+
 func (s *Store) ListarVersionesCatalogo(ctx context.Context, id string) ([]domain.CatalogoConfigurable, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -380,6 +423,103 @@ func (s *Store) ListarVersionesCatalogo(ctx context.Context, id string) ([]domai
 	}
 	sort.Slice(resultado, func(i, j int) bool { return resultado[i].Version < resultado[j].Version })
 	return resultado, nil
+}
+
+func (s *Store) ListarVersionesCatalogoAcotado(
+	ctx context.Context,
+	id string,
+	limites ports.LimitesConsultaCatalogosAcotada,
+) (ports.ResultadoConsultaCatalogosAcotada, error) {
+	if ctx == nil || s == nil ||
+		id != strings.TrimSpace(id) || id == "" {
+		return ports.ResultadoConsultaCatalogosAcotada{},
+			ports.ErrCatalogoNoEncontrado
+	}
+	if limites.Validar() != nil {
+		return ports.ResultadoConsultaCatalogosAcotada{},
+			ports.ErrLimitesConsultaCatalogosInvalidos
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ResultadoConsultaCatalogosAcotada{}, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	candidatos := make(
+		[]domain.CatalogoConfigurable,
+		0,
+		limites.Versiones+1,
+	)
+	for _, catalogo := range s.catalogos {
+		if err := ctx.Err(); err != nil {
+			return ports.ResultadoConsultaCatalogosAcotada{}, err
+		}
+		if catalogo.ID == id {
+			candidatos = insertarCatalogoAcotadoOrdenado(
+				candidatos,
+				catalogo,
+				limites.Versiones+1,
+			)
+		}
+	}
+	if len(candidatos) == 0 {
+		return ports.ResultadoConsultaCatalogosAcotada{},
+			ports.ErrCatalogoNoEncontrado
+	}
+	truncado := len(candidatos) > limites.Versiones
+	if truncado {
+		candidatos = candidatos[:limites.Versiones]
+	}
+	resultado := make(
+		[]domain.CatalogoConfigurable,
+		0,
+		len(candidatos),
+	)
+	var consumo ports.ConsumoConsultaCatalogosAcotada
+	for _, catalogo := range candidatos {
+		if err := ctx.Err(); err != nil {
+			return ports.ResultadoConsultaCatalogosAcotada{}, err
+		}
+		medida, medible := ports.MedirCatalogoConfigurable(catalogo)
+		siguiente, cabe := consumo.Agregar(medida, limites)
+		if !medible || !cabe {
+			truncado = true
+			break
+		}
+		clon, err := catalogo.ClonarCanonico()
+		if err != nil {
+			return ports.ResultadoConsultaCatalogosAcotada{}, err
+		}
+		resultado = append(resultado, clon)
+		consumo = siguiente
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ResultadoConsultaCatalogosAcotada{}, err
+	}
+	return ports.ResultadoConsultaCatalogosAcotada{
+		Catalogos: resultado,
+		Truncado:  truncado,
+	}, nil
+}
+
+func insertarCatalogoAcotadoOrdenado(
+	catalogos []domain.CatalogoConfigurable,
+	catalogo domain.CatalogoConfigurable,
+	maximo int,
+) []domain.CatalogoConfigurable {
+	indice := sort.Search(len(catalogos), func(indice int) bool {
+		return catalogos[indice].Version >= catalogo.Version
+	})
+	if len(catalogos) >= maximo && indice >= maximo {
+		return catalogos
+	}
+	if len(catalogos) < maximo {
+		catalogos = append(catalogos, domain.CatalogoConfigurable{})
+	} else {
+		catalogos = catalogos[:maximo]
+	}
+	copy(catalogos[indice+1:], catalogos[indice:len(catalogos)-1])
+	catalogos[indice] = catalogo
+	return catalogos
 }
 
 func (s *Store) confirmarEvidenciaCatalogoBloqueado(traza domain.AuditEntry, evento domain.Event) {
@@ -435,4 +575,5 @@ func claveCatalogo(id string, version int) string {
 }
 
 var _ ports.ConsultaCatalogosConfigurables = (*Store)(nil)
+var _ ports.ConsultaCatalogosConfigurablesAcotada = (*Store)(nil)
 var _ ports.RepositorioGobiernoCatalogos = (*Store)(nil)

@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -89,26 +90,134 @@ func (r ResolucionMotivoDecisionCobertura) MarshalJSON() ([]byte, error) {
 // composición. La referencia sellada selecciona una versión y entrada, pero
 // nunca sustituye la lectura de la publicación VEC.
 type ResolutorMotivoDecisionCobertura struct {
-	consulta   puertosvec.ConsultaCatalogosConfigurables
+	consulta   puertosvec.ConsultaCatalogosConfigurablesAcotada
 	catalogoID string
+	moduloID   string
 }
 
 func NuevoResolutorMotivoDecisionCobertura(
-	consulta puertosvec.ConsultaCatalogosConfigurables,
+	consulta puertosvec.ConsultaCatalogosConfigurablesAcotada,
 	catalogoID string,
+	moduloID string,
 ) (*ResolutorMotivoDecisionCobertura, error) {
-	centinela := dominiovec.ReferenciaEntradaCatalogo{
-		CatalogoID: catalogoID, CatalogoVersion: 1,
-		CatalogoHuellaSHA256: strings.Repeat("a", 64),
-		EntradaClave:         "motivo_cobertura_valido",
+	centinela := dominiovec.CatalogoConfigurable{
+		ID:             catalogoID,
+		Version:        1,
+		Revision:       1,
+		ModuloID:       moduloID,
+		Nombre:         "Configuración de motivos",
+		FuenteRef:      "configuracion_motivos_cobertura",
+		MotivoCreacion: "Validación de composición.",
+		Estado:         dominiovec.EstadoCatalogoBorrador,
+		CreadoPor:      "composicion_aplicacion",
+		CreadoEn:       time.Unix(0, 0).UTC(),
 	}
 	if dependenciaResolucionMotivoNula(consulta) ||
 		centinela.Validar() != nil {
 		return nil, ErrConfiguracionResolutorMotivoDecisionCobertura
 	}
 	return &ResolutorMotivoDecisionCobertura{
-		consulta: consulta, catalogoID: catalogoID,
+		consulta: consulta, catalogoID: catalogoID, moduloID: moduloID,
 	}, nil
+}
+
+// ResolverClave selecciona el motivo funcional a partir de la clave elegida
+// por el cliente. Catálogo, módulo, versión, huella y clave i18n proceden
+// exclusivamente de la publicación gobernada resuelta en el servidor.
+func (r *ResolutorMotivoDecisionCobertura) ResolverClave(
+	ctx context.Context,
+	clave domain.ClaveCatalogo,
+	instante time.Time,
+) (ResolucionMotivoDecisionCobertura, error) {
+	if !r.configuracionValida() ||
+		dependenciaResolucionMotivoNula(ctx) || !clave.Valida() ||
+		!instanteResolucionMotivoCoberturaValido(instante) {
+		return ResolucionMotivoDecisionCobertura{},
+			ErrMotivoDecisionCoberturaNoConfiable
+	}
+	if err := ctx.Err(); err != nil {
+		return ResolucionMotivoDecisionCobertura{},
+			errorResolucionMotivoCobertura(ctx)
+	}
+	limites := limitesConsultaMotivosDecisionCobertura()
+	resultado, err := r.consulta.ListarVersionesCatalogoAcotado(
+		ctx,
+		r.catalogoID,
+		limites,
+	)
+	if err != nil || ctx.Err() != nil ||
+		resultado.Truncado ||
+		len(resultado.Catalogos) == 0 ||
+		len(resultado.Catalogos) > limites.Versiones {
+		return ResolucionMotivoDecisionCobertura{},
+			errorResolucionMotivoCobertura(ctx)
+	}
+	versionesVivas := resultado.Catalogos
+	versiones := make([]dominiovec.CatalogoConfigurable, len(versionesVivas))
+	var consumo puertosvec.ConsumoConsultaCatalogosAcotada
+	for indice := range versionesVivas {
+		medida, medible := puertosvec.MedirCatalogoConfigurable(
+			versionesVivas[indice],
+		)
+		siguiente, cabe := consumo.Agregar(medida, limites)
+		if ctx.Err() != nil || !medible || !cabe {
+			return ResolucionMotivoDecisionCobertura{},
+				errorResolucionMotivoCobertura(ctx)
+		}
+		versiones[indice], err = versionesVivas[indice].ClonarCanonico()
+		if err != nil ||
+			versiones[indice].ID != r.catalogoID ||
+			versiones[indice].ModuloID != r.moduloID {
+			return ResolucionMotivoDecisionCobertura{},
+				ErrMotivoDecisionCoberturaNoConfiable
+		}
+		consumo = siguiente
+	}
+	sort.Slice(versiones, func(primera, segunda int) bool {
+		return versiones[primera].Version < versiones[segunda].Version
+	})
+	if !historialMotivosDecisionCoberturaValido(versiones) {
+		return ResolucionMotivoDecisionCobertura{},
+			ErrMotivoDecisionCoberturaNoConfiable
+	}
+	catalogo, encontrado := seleccionarCatalogoMotivoDecisionCobertura(
+		versiones,
+		instante,
+	)
+	if !encontrado ||
+		(catalogo.Estado == dominiovec.EstadoCatalogoRetirado &&
+			!catalogo.RetiradoEn.After(instante)) {
+		return ResolucionMotivoDecisionCobertura{},
+			ErrMotivoDecisionCoberturaNoConfiable
+	}
+	entrada, encontrada := entradaMotivoDecisionCoberturaVigente(
+		catalogo,
+		string(clave),
+		instante,
+	)
+	if !encontrada {
+		return ResolucionMotivoDecisionCobertura{},
+			ErrMotivoDecisionCoberturaNoConfiable
+	}
+	claveI18n, existe := entrada.Atributos[atributoClaveI18nMotivoDecisionCobertura]
+	motivo := domain.MotivoGobernadoDecisionCobertura{
+		ReferenciaCatalogo: dominiovec.ReferenciaEntradaCatalogo{
+			CatalogoID:      catalogo.ID,
+			CatalogoVersion: catalogo.Version,
+			EntradaClave:    entrada.Clave,
+		},
+		ClaveI18n: domain.ClaveCatalogo(claveI18n),
+	}
+	motivo.ReferenciaCatalogo.CatalogoHuellaSHA256, err =
+		catalogo.HuellaSHA256()
+	if !existe || err != nil || !motivo.ClaveI18n.Valida() ||
+		!motivoDecisionCoberturaNominalValido(motivo) {
+		return ResolucionMotivoDecisionCobertura{},
+			ErrMotivoDecisionCoberturaNoConfiable
+	}
+	// La segunda lectura exacta evita aceptar una referencia derivada de un
+	// listado que haya cambiado antes de utilizarla.
+	return r.Resolver(ctx, motivo, instante)
 }
 
 func (r *ResolutorMotivoDecisionCobertura) Resolver(
@@ -116,8 +225,8 @@ func (r *ResolutorMotivoDecisionCobertura) Resolver(
 	motivo domain.MotivoGobernadoDecisionCobertura,
 	instante time.Time,
 ) (ResolucionMotivoDecisionCobertura, error) {
-	if r == nil || dependenciaResolucionMotivoNula(r.consulta) ||
-		dependenciaResolucionMotivoNula(ctx) || r.catalogoID == "" ||
+	if !r.configuracionValida() ||
+		dependenciaResolucionMotivoNula(ctx) ||
 		motivo.ReferenciaCatalogo.CatalogoID != r.catalogoID ||
 		!motivoDecisionCoberturaNominalValido(motivo) ||
 		!instanteResolucionMotivoCoberturaValido(instante) {
@@ -128,13 +237,15 @@ func (r *ResolutorMotivoDecisionCobertura) Resolver(
 		return ResolucionMotivoDecisionCobertura{},
 			errorResolucionMotivoCobertura(ctx)
 	}
-	catalogoVivo, err := r.consulta.ObtenerCatalogo(
+	resultado, err := r.consulta.ObtenerCatalogoAcotado(
 		ctx,
 		motivo.ReferenciaCatalogo.CatalogoID,
 		motivo.ReferenciaCatalogo.CatalogoVersion,
+		limitesConsultaMotivosDecisionCobertura(),
 	)
-	if err != nil || ctx.Err() != nil ||
-		catalogoVivo.Validar() != nil {
+	catalogoVivo := resultado.Catalogo
+	if err != nil || ctx.Err() != nil || resultado.Truncado ||
+		!catalogoMotivoDecisionCoberturaAcotado(catalogoVivo) {
 		return ResolucionMotivoDecisionCobertura{},
 			errorResolucionMotivoCobertura(ctx)
 	}
@@ -144,8 +255,8 @@ func (r *ResolutorMotivoDecisionCobertura) Resolver(
 	if err != nil || ctx.Err() != nil ||
 		catalogo.ID != motivo.ReferenciaCatalogo.CatalogoID ||
 		catalogo.Version != motivo.ReferenciaCatalogo.CatalogoVersion ||
-		catalogo.Estado != dominiovec.EstadoCatalogoPublicado ||
-		catalogo.PublicadoEn.After(instante) {
+		catalogo.ModuloID != r.moduloID ||
+		!catalogoMotivoDecisionCoberturaPublicadoEn(catalogo, instante) {
 		return ResolucionMotivoDecisionCobertura{},
 			errorResolucionMotivoCobertura(ctx)
 	}
@@ -157,22 +268,126 @@ func (r *ResolutorMotivoDecisionCobertura) Resolver(
 		return ResolucionMotivoDecisionCobertura{},
 			ErrMotivoDecisionCoberturaNoConfiable
 	}
-	entrada, err := catalogo.ObtenerEntradaVigente(
+	entrada, encontrada := entradaMotivoDecisionCoberturaVigente(
+		catalogo,
 		motivo.ReferenciaCatalogo.EntradaClave,
 		instante,
 	)
-	if err != nil || ctx.Err() != nil {
+	if !encontrada || ctx.Err() != nil {
 		return ResolucionMotivoDecisionCobertura{},
 			errorResolucionMotivoCobertura(ctx)
 	}
 	claveI18n, existe := entrada.Atributos[atributoClaveI18nMotivoDecisionCobertura]
-	if !existe || claveI18n != string(motivo.ClaveI18n) {
+	if !existe || claveI18n != string(motivo.ClaveI18n) ||
+		ctx.Err() != nil {
 		return ResolucionMotivoDecisionCobertura{},
-			ErrMotivoDecisionCoberturaNoConfiable
+			errorResolucionMotivoCobertura(ctx)
 	}
 	return ResolucionMotivoDecisionCobertura{
 		motivo: motivo, resueltaEn: instante,
 	}, nil
+}
+
+func (r *ResolutorMotivoDecisionCobertura) configuracionValida() bool {
+	return r != nil && !dependenciaResolucionMotivoNula(r.consulta) &&
+		r.catalogoID != "" && r.moduloID != ""
+}
+
+func catalogoMotivoDecisionCoberturaAcotado(
+	catalogo dominiovec.CatalogoConfigurable,
+) bool {
+	medida, medible := puertosvec.MedirCatalogoConfigurable(catalogo)
+	_, cabe := (puertosvec.ConsumoConsultaCatalogosAcotada{}).Agregar(
+		medida,
+		limitesConsultaMotivosDecisionCobertura(),
+	)
+	return medible && cabe
+}
+
+func limitesConsultaMotivosDecisionCobertura() (
+	limites puertosvec.LimitesConsultaCatalogosAcotada,
+) {
+	// El catálogo de motivos es pequeño. Estos topes reducen la superficie de
+	// agotamiento y admiten hasta 64 revisiones o miles de opciones dentro del
+	// presupuesto agregado.
+	return puertosvec.LimitesConsultaCatalogosAcotada{
+		Versiones:        64,
+		Entradas:         4_096,
+		Atributos:        8_192,
+		BytesAproximados: 4 << 20,
+	}
+}
+
+func historialMotivosDecisionCoberturaValido(
+	versiones []dominiovec.CatalogoConfigurable,
+) bool {
+	for indice := range versiones {
+		actual := versiones[indice]
+		if actual.Version != indice+1 {
+			return false
+		}
+		if indice == 0 {
+			continue
+		}
+		anterior := versiones[indice-1]
+		if actual.VersionAnteriorRef != anterior.Referencia() ||
+			actual.CreadoEn.Before(anterior.CreadoEn) ||
+			anterior.Estado == dominiovec.EstadoCatalogoBorrador ||
+			actual.CreadoEn.Before(anterior.PublicadoEn) ||
+			(actual.Estado != dominiovec.EstadoCatalogoBorrador &&
+				actual.PublicadoEn.Before(anterior.PublicadoEn)) {
+			return false
+		}
+	}
+	return true
+}
+
+func seleccionarCatalogoMotivoDecisionCobertura(
+	versiones []dominiovec.CatalogoConfigurable,
+	instante time.Time,
+) (dominiovec.CatalogoConfigurable, bool) {
+	for indice := len(versiones) - 1; indice >= 0; indice-- {
+		catalogo := versiones[indice]
+		if catalogo.Estado != dominiovec.EstadoCatalogoBorrador &&
+			!catalogo.PublicadoEn.After(instante) {
+			return catalogo, true
+		}
+	}
+	return dominiovec.CatalogoConfigurable{}, false
+}
+
+func catalogoMotivoDecisionCoberturaPublicadoEn(
+	catalogo dominiovec.CatalogoConfigurable,
+	instante time.Time,
+) bool {
+	if catalogo.PublicadoEn.After(instante) {
+		return false
+	}
+	switch catalogo.Estado {
+	case dominiovec.EstadoCatalogoPublicado:
+		return true
+	case dominiovec.EstadoCatalogoRetirado:
+		return catalogo.RetiradoEn.After(instante)
+	default:
+		return false
+	}
+}
+
+func entradaMotivoDecisionCoberturaVigente(
+	catalogo dominiovec.CatalogoConfigurable,
+	clave string,
+	instante time.Time,
+) (dominiovec.EntradaCatalogoConfigurable, bool) {
+	if !catalogoMotivoDecisionCoberturaPublicadoEn(catalogo, instante) ||
+		clave != strings.TrimSpace(clave) {
+		return dominiovec.EntradaCatalogoConfigurable{}, false
+	}
+	for _, entrada := range catalogo.Entradas {
+		if entrada.Clave == clave && entrada.VigenteEn(instante) {
+			return entrada, true
+		}
+	}
+	return dominiovec.EntradaCatalogoConfigurable{}, false
 }
 
 func motivoDecisionCoberturaNominalValido(
