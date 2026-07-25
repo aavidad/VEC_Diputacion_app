@@ -30,7 +30,8 @@ BEGIN
      WHERE rolname::text = ANY (ARRAY[
          'vec_contratacion_temporal_propietario',
          'vec_contratacion_temporal_migrador',
-         'vec_contratacion_temporal_ejecutor'
+         'vec_contratacion_temporal_ejecutor',
+         'vec_contratacion_temporal_gobernador'
      ]);
     IF cardinality(v_encontrados) > 0 THEN
         RAISE EXCEPTION USING
@@ -55,6 +56,9 @@ CREATE ROLE vec_contratacion_temporal_migrador
 CREATE ROLE vec_contratacion_temporal_ejecutor
     NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT
     NOREPLICATION NOBYPASSRLS;
+CREATE ROLE vec_contratacion_temporal_gobernador
+    NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT
+    NOREPLICATION NOBYPASSRLS;
 
 GRANT vec_contratacion_temporal_propietario
     TO vec_contratacion_temporal_migrador
@@ -72,6 +76,10 @@ BEGIN
     );
     EXECUTE format(
         'GRANT CONNECT ON DATABASE %I TO vec_contratacion_temporal_ejecutor',
+        current_database()
+    );
+    EXECUTE format(
+        'GRANT CONNECT ON DATABASE %I TO vec_contratacion_temporal_gobernador',
         current_database()
     );
 END

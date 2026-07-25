@@ -38,11 +38,16 @@ BEGIN
         'REVOKE CONNECT ON DATABASE %I FROM vec_contratacion_temporal_ejecutor',
         current_database()
     );
+    EXECUTE format(
+        'REVOKE CONNECT ON DATABASE %I FROM vec_contratacion_temporal_gobernador',
+        current_database()
+    );
 END
 $privilegios$;
 
 REVOKE vec_contratacion_temporal_propietario
     FROM vec_contratacion_temporal_migrador;
+DROP ROLE vec_contratacion_temporal_gobernador;
 DROP ROLE vec_contratacion_temporal_ejecutor;
 DROP ROLE vec_contratacion_temporal_migrador;
 DROP ROLE vec_contratacion_temporal_propietario;
