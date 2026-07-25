@@ -74,6 +74,33 @@ func (s *ServicioPreparacionSolicitudLigadaV3) PrepararSolicitudLigadaV3(
 	)
 }
 
+// PrepararRegistroCompuestoSolicitudLigadaV3 evalua con una DecisionRef
+// suministrada por un generador exclusivo de la operacion. No registra ninguno
+// de los dos resultados.
+func (s *ServicioPreparacionSolicitudLigadaV3) PrepararRegistroCompuestoSolicitudLigadaV3(
+	ctx context.Context,
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	resultadoContexto domain.ResultadoContextoActorRegistradoV2,
+	generadorOperacion ports.GeneradorReferenciaDecisionAutorizacion,
+) (
+	domain.DecisionAutorizacionLigadaV3,
+	ports.CandidataRegistroDecisionAutorizacionLigadaV3,
+	error,
+) {
+	if s == nil {
+		return preparacionRegistroCompuestoSolicitudLigadaV3Invalida()
+	}
+	return prepararRegistroCompuestoSolicitudLigadaV3(
+		ctx, solicitud, resultadoContexto,
+		dependenciasPreparacionSolicitudLigadaV3{
+			fuente: s.fuente, registroDenegaciones: s.registroDenegaciones,
+			validadorMotivos: s.validadorMotivos, reloj: s.reloj,
+			generador: s.generador, vigenciaDecision: s.vigenciaDecision,
+		},
+		generadorOperacion,
+	)
+}
+
 // PrepararSolicitudLigadaV3 permite reutilizar el mismo evaluador del servicio
 // completo sin ejecutar el registro durable de la concesion.
 func (s *ServicioAutorizacionSolicitudLigadaV3) PrepararSolicitudLigadaV3(
@@ -98,6 +125,30 @@ func (s *ServicioAutorizacionSolicitudLigadaV3) PrepararSolicitudLigadaV3(
 	)
 }
 
+func (s *ServicioAutorizacionSolicitudLigadaV3) PrepararRegistroCompuestoSolicitudLigadaV3(
+	ctx context.Context,
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	resultadoContexto domain.ResultadoContextoActorRegistradoV2,
+	generadorOperacion ports.GeneradorReferenciaDecisionAutorizacion,
+) (
+	domain.DecisionAutorizacionLigadaV3,
+	ports.CandidataRegistroDecisionAutorizacionLigadaV3,
+	error,
+) {
+	if s == nil {
+		return preparacionRegistroCompuestoSolicitudLigadaV3Invalida()
+	}
+	return prepararRegistroCompuestoSolicitudLigadaV3(
+		ctx, solicitud, resultadoContexto,
+		dependenciasPreparacionSolicitudLigadaV3{
+			fuente: s.fuente, registroDenegaciones: s.registroDenegaciones,
+			validadorMotivos: s.validadorMotivos, reloj: s.reloj,
+			generador: s.generador, vigenciaDecision: s.vigenciaDecision,
+		},
+		generadorOperacion,
+	)
+}
+
 type dependenciasPreparacionSolicitudLigadaV3 struct {
 	fuente               ports.FuenteAutorizacion
 	registroDenegaciones ports.RegistroDenegacionesAutorizacionLigadaV3
@@ -118,7 +169,44 @@ func prepararSolicitudLigadaV3(
 	error,
 ) {
 	vacia := ports.OrdenRegistroConcesionCandidataAutorizacionLigadaV3{}
-	if ctx == nil || !dependencias.validas() {
+	if dependenciaAutorizacionNula(dependencias.registroDenegaciones) {
+		return domain.DecisionAutorizacionLigadaV3{}, vacia,
+			nuevoErrorServicioAutorizacionLigadaV3(
+				domain.ErrAutorizacionDenegada, domain.ErrConfiguracionAccesoInvalida,
+			)
+	}
+	decision, candidata, err := prepararRegistroCompuestoSolicitudLigadaV3(
+		ctx, solicitud, resultadoContexto, dependencias, dependencias.generador,
+	)
+	if err != nil {
+		return decision, vacia, err
+	}
+	concedida, concesion, denegacion, err := candidata.Resultado()
+	if err != nil {
+		return decision, vacia,
+			nuevoErrorServicioAutorizacionLigadaV3(domain.ErrAutorizacionDenegada, err)
+	}
+	if concedida {
+		return decision, concesion, nil
+	}
+	return registrarDenegacionSolicitudLigadaV3(
+		ctx, decision, denegacion, dependencias.registroDenegaciones,
+	)
+}
+
+func prepararRegistroCompuestoSolicitudLigadaV3(
+	ctx context.Context,
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	resultadoContexto domain.ResultadoContextoActorRegistradoV2,
+	dependencias dependenciasPreparacionSolicitudLigadaV3,
+	generadorOperacion ports.GeneradorReferenciaDecisionAutorizacion,
+) (
+	domain.DecisionAutorizacionLigadaV3,
+	ports.CandidataRegistroDecisionAutorizacionLigadaV3,
+	error,
+) {
+	vacia := ports.CandidataRegistroDecisionAutorizacionLigadaV3{}
+	if ctx == nil || !dependencias.validasParaEvaluar(generadorOperacion) {
 		return domain.DecisionAutorizacionLigadaV3{}, vacia,
 			nuevoErrorServicioAutorizacionLigadaV3(
 				domain.ErrAutorizacionDenegada, domain.ErrConfiguracionAccesoInvalida,
@@ -198,7 +286,7 @@ func prepararSolicitudLigadaV3(
 				domain.ErrAutorizacionDenegada, domain.ErrConfiguracionAccesoInvalida, err,
 			)
 	}
-	referenciaDecision, err := dependencias.generador.NuevaReferenciaDecisionAutorizacion()
+	referenciaDecision, err := generadorOperacion.NuevaReferenciaDecisionAutorizacion()
 	if err != nil || referenciaDecision == "" ||
 		referenciaDecision != strings.TrimSpace(referenciaDecision) {
 		return domain.DecisionAutorizacionLigadaV3{}, vacia,
@@ -224,18 +312,7 @@ func prepararSolicitudLigadaV3(
 		return domain.DecisionAutorizacionLigadaV3{}, vacia,
 			nuevoErrorServicioAutorizacionLigadaV3(domain.ErrAutorizacionDenegada, err)
 	}
-	concedida, _, err := decision.Resultado()
-	if err != nil {
-		return domain.DecisionAutorizacionLigadaV3{}, vacia,
-			nuevoErrorServicioAutorizacionLigadaV3(domain.ErrAutorizacionDenegada, err)
-	}
-	if !concedida {
-		return registrarDenegacionSolicitudLigadaV3(
-			ctx, solicitud, decision, datosSolicitud.ReferenciaMotivo, resultado,
-			dependencias.registroDenegaciones,
-		)
-	}
-	orden, err := ports.NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(
+	candidata, err := ports.NuevaCandidataRegistroDecisionAutorizacionLigadaV3(
 		solicitud, decision, datosSolicitud.ReferenciaMotivo, resultado,
 	)
 	if err != nil {
@@ -246,15 +323,16 @@ func prepararSolicitudLigadaV3(
 		return decision, vacia,
 			nuevoErrorServicioAutorizacionLigadaV3(domain.ErrAutorizacionDenegada, err)
 	}
-	return decision, orden, nil
+	return decision, candidata, nil
 }
 
-func (d dependenciasPreparacionSolicitudLigadaV3) validas() bool {
+func (d dependenciasPreparacionSolicitudLigadaV3) validasParaEvaluar(
+	generadorOperacion ports.GeneradorReferenciaDecisionAutorizacion,
+) bool {
 	return !dependenciaAutorizacionNula(d.fuente) &&
-		!dependenciaAutorizacionNula(d.registroDenegaciones) &&
 		!dependenciaAutorizacionNula(d.validadorMotivos) &&
 		!dependenciaAutorizacionNula(d.reloj) &&
-		!dependenciaAutorizacionNula(d.generador) &&
+		!dependenciaAutorizacionNula(generadorOperacion) &&
 		d.vigenciaDecision > 0 &&
 		d.vigenciaDecision <= domain.VigenciaMaximaDecisionAutorizacion &&
 		d.vigenciaDecision%time.Microsecond == 0
@@ -262,10 +340,8 @@ func (d dependenciasPreparacionSolicitudLigadaV3) validas() bool {
 
 func registrarDenegacionSolicitudLigadaV3(
 	ctx context.Context,
-	solicitud domain.SolicitudAutorizacionLigadaV3,
 	decision domain.DecisionAutorizacionLigadaV3,
-	referenciaMotivo domain.ReferenciaEntradaCatalogo,
-	resultado domain.ResultadoContextoActorRegistradoV2,
+	orden ports.OrdenRegistroDenegacionAutorizacionLigadaV3,
 	registro ports.RegistroDenegacionesAutorizacionLigadaV3,
 ) (
 	domain.DecisionAutorizacionLigadaV3,
@@ -273,10 +349,7 @@ func registrarDenegacionSolicitudLigadaV3(
 	error,
 ) {
 	vacia := ports.OrdenRegistroConcesionCandidataAutorizacionLigadaV3{}
-	orden, err := ports.NuevaOrdenRegistroDenegacionAutorizacionLigadaV3(
-		solicitud, decision, referenciaMotivo, resultado,
-	)
-	if err != nil {
+	if _, err := orden.Datos(); err != nil {
 		return decision, vacia,
 			nuevoErrorServicioAutorizacionLigadaV3(domain.ErrAutorizacionDenegada, err)
 	}
@@ -306,5 +379,19 @@ func preparacionSolicitudLigadaV3Invalida() (
 		)
 }
 
+func preparacionRegistroCompuestoSolicitudLigadaV3Invalida() (
+	domain.DecisionAutorizacionLigadaV3,
+	ports.CandidataRegistroDecisionAutorizacionLigadaV3,
+	error,
+) {
+	return domain.DecisionAutorizacionLigadaV3{},
+		ports.CandidataRegistroDecisionAutorizacionLigadaV3{},
+		nuevoErrorServicioAutorizacionLigadaV3(
+			domain.ErrAutorizacionDenegada, domain.ErrConfiguracionAccesoInvalida,
+		)
+}
+
 var _ ports.PreparadorSolicitudLigadaV3 = (*ServicioPreparacionSolicitudLigadaV3)(nil)
 var _ ports.PreparadorSolicitudLigadaV3 = (*ServicioAutorizacionSolicitudLigadaV3)(nil)
+var _ ports.PreparadorRegistroCompuestoSolicitudLigadaV3 = (*ServicioPreparacionSolicitudLigadaV3)(nil)
+var _ ports.PreparadorRegistroCompuestoSolicitudLigadaV3 = (*ServicioAutorizacionSolicitudLigadaV3)(nil)

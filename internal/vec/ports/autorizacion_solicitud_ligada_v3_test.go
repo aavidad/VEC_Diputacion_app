@@ -253,6 +253,30 @@ func nuevoEscenarioOrdenAutorizacionV3Prueba(t *testing.T) escenarioOrdenAutoriz
 	}
 }
 
+func decisionDenegadaOrdenAutorizacionV3Prueba(
+	t *testing.T,
+	e escenarioOrdenAutorizacionV3Prueba,
+) domain.DecisionAutorizacionLigadaV3 {
+	t.Helper()
+	instantanea := e.instantnea
+	instantanea.VersionRol.Concesiones = append(
+		[]domain.ConcesionRol(nil), e.instantnea.VersionRol.Concesiones...,
+	)
+	instantanea.VersionRol.Concesiones[0].Accion = "bolsa.expediente.modificar"
+	evidencia, err := domain.NuevaEvidenciaEvaluacionAutorizacionV3(
+		e.solicitud, instantanea, "dec_denegada56789abcdef0123456789abcdef",
+		e.ahora, e.ahora.Add(90*time.Second),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err := domain.NuevaDecisionAutorizacionLigadaV3(e.solicitud, evidencia)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return decision
+}
+
 func TestOrdenesRegistroAutorizacionLigadaV3SonNominalesLigadasYDefensivas(t *testing.T) {
 	e := nuevoEscenarioOrdenAutorizacionV3Prueba(t)
 	orden, err := NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(
@@ -281,6 +305,153 @@ func TestOrdenesRegistroAutorizacionLigadaV3SonNominalesLigadasYDefensivas(t *te
 	); !errors.Is(err, ErrOrdenRegistroAutorizacionLigadaV3Invalida) {
 		t.Fatalf("motivo adulterado aceptado: %v", err)
 	}
+}
+
+func TestCandidataRegistroDecisionAutorizacionLigadaV3EsUnionExactaYDefensiva(
+	t *testing.T,
+) {
+	e := nuevoEscenarioOrdenAutorizacionV3Prueba(t)
+	concesion, err := NuevaCandidataRegistroDecisionAutorizacionLigadaV3(
+		e.solicitud, e.decision, e.motivo, e.resultado,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	esConcesion, ordenConcesion, ordenDenegacion, err := concesion.Resultado()
+	if err != nil || !esConcesion ||
+		!ordenConcesionAutorizacionLigadaV3Valida(ordenConcesion) ||
+		ordenDenegacionAutorizacionLigadaV3Valida(ordenDenegacion) {
+		t.Fatalf("variante de concesion incoherente: concedida=%t error=%v", esConcesion, err)
+	}
+	datos, err := ordenConcesion.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	datos.ResultadoContexto.RepresentacionCanonica[0] ^= 1
+	segunda, err := ordenConcesion.Datos()
+	if err != nil || segunda.ResultadoContexto.Validar() != nil {
+		t.Fatalf("candidata retuvo una mutacion externa: %v", err)
+	}
+
+	decisionDenegada := decisionDenegadaOrdenAutorizacionV3Prueba(t, e)
+	denegacion, err := NuevaCandidataRegistroDecisionAutorizacionLigadaV3(
+		e.solicitud, decisionDenegada, e.motivo, e.resultado,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	esConcesion, ordenConcesion, ordenDenegacion, err = denegacion.Resultado()
+	if err != nil || esConcesion ||
+		ordenConcesionAutorizacionLigadaV3Valida(ordenConcesion) ||
+		!ordenDenegacionAutorizacionLigadaV3Valida(ordenDenegacion) {
+		t.Fatalf("variante de denegacion incoherente: concedida=%t error=%v", esConcesion, err)
+	}
+
+	ataques := []CandidataRegistroDecisionAutorizacionLigadaV3{
+		{},
+		{concedida: true, concesion: concesion.concesion, denegacion: denegacion.denegacion},
+		{concesion: concesion.concesion},
+		{concedida: true, denegacion: denegacion.denegacion},
+	}
+	for indice, ataque := range ataques {
+		if _, _, _, err := ataque.Resultado(); !errors.Is(
+			err, ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida,
+		) {
+			t.Fatalf("union adulterada %d aceptada: %v", indice, err)
+		}
+	}
+}
+
+func TestCandidataRegistroDecisionAutorizacionLigadaV3CierraCodecsYFormateo(
+	t *testing.T,
+) {
+	e := nuevoEscenarioOrdenAutorizacionV3Prueba(t)
+	candidata, err := NuevaCandidataRegistroDecisionAutorizacionLigadaV3(
+		e.solicitud, e.decision, e.motivo, e.resultado,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := json.Marshal(candidata); !errors.Is(
+		err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+	) {
+		t.Fatalf("JSON permitido: %v", err)
+	}
+	if _, err := candidata.MarshalText(); !errors.Is(
+		err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+	) {
+		t.Fatalf("texto permitido: %v", err)
+	}
+	if _, err := candidata.MarshalBinary(); !errors.Is(
+		err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+	) {
+		t.Fatalf("binario permitido: %v", err)
+	}
+	if _, err := candidata.GobEncode(); !errors.Is(
+		err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+	) {
+		t.Fatalf("gob permitido: %v", err)
+	}
+	if _, err := candidata.MarshalCBOR(); !errors.Is(
+		err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+	) {
+		t.Fatalf("CBOR permitido: %v", err)
+	}
+	if _, err := candidata.MarshalYAML(); !errors.Is(
+		err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+	) {
+		t.Fatalf("YAML permitido: %v", err)
+	}
+	if err := candidata.MarshalXML(
+		xml.NewEncoder(&bytes.Buffer{}), xml.StartElement{},
+	); !errors.Is(err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida) {
+		t.Fatalf("XML permitido: %v", err)
+	}
+	if err := json.Unmarshal([]byte(`{}`), &candidata); !errors.Is(
+		err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+	) {
+		t.Fatalf("JSON de entrada permitido: %v", err)
+	}
+	if err := candidata.UnmarshalText(nil); !errors.Is(
+		err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+	) {
+		t.Fatalf("texto de entrada permitido: %v", err)
+	}
+	if err := candidata.UnmarshalBinary(nil); !errors.Is(
+		err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+	) {
+		t.Fatalf("binario de entrada permitido: %v", err)
+	}
+	if err := candidata.GobDecode(nil); !errors.Is(
+		err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+	) {
+		t.Fatalf("gob de entrada permitido: %v", err)
+	}
+	if err := candidata.UnmarshalCBOR(nil); !errors.Is(
+		err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+	) {
+		t.Fatalf("CBOR de entrada permitido: %v", err)
+	}
+	if err := candidata.UnmarshalYAML(func(any) error { return nil }); !errors.Is(
+		err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida,
+	) {
+		t.Fatalf("YAML de entrada permitido: %v", err)
+	}
+	if err := candidata.UnmarshalXML(
+		xml.NewDecoder(bytes.NewReader(nil)), xml.StartElement{},
+	); !errors.Is(err, ErrSerializacionRegistroAutorizacionLigadaV3Prohibida) {
+		t.Fatalf("XML de entrada permitido: %v", err)
+	}
+	if _, _, _, err := candidata.Resultado(); err != nil {
+		t.Fatalf("un intento de deserializacion altero la candidata: %v", err)
+	}
+	if texto := fmt.Sprintf("%v %#v", candidata, candidata); texto !=
+		"[REGISTRO-AUTORIZACION-LIGADA-V3-OPACO] [REGISTRO-AUTORIZACION-LIGADA-V3-OPACO]" {
+		t.Fatalf("formateo no opaco: %q", texto)
+	}
+	slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)).Info(
+		"candidata", "valor", candidata,
+	)
 }
 
 func TestConfirmacionRegistroConcesionAutorizacionLigadaV3LigaOrdenYVentanaSinPII(t *testing.T) {

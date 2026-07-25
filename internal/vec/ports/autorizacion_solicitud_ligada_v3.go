@@ -19,6 +19,9 @@ var (
 	ErrOrdenRegistroAutorizacionLigadaV3Invalida = errors.New(
 		"vec: orden de registro de autorizacion ligada V3 invalida",
 	)
+	ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida = errors.New(
+		"vec: candidata de registro de decision de autorizacion ligada V3 invalida",
+	)
 	ErrConfirmacionRegistroConcesionAutorizacionLigadaV3Invalida = errors.New(
 		"vec: confirmacion de registro de concesion de autorizacion ligada V3 invalida",
 	)
@@ -67,6 +70,17 @@ type OrdenRegistroDenegacionAutorizacionLigadaV3 struct {
 	datos *datosOrdenRegistroAutorizacionLigadaV3
 }
 
+// CandidataRegistroDecisionAutorizacionLigadaV3 es una union nominal opaca.
+// Contiene exactamente una orden de concesion o de denegacion y permite que un
+// adaptador compuesto registre cualquiera de los dos resultados dentro de su
+// propia transaccion autoritativa. No registra, confirma ni concede por si sola.
+type CandidataRegistroDecisionAutorizacionLigadaV3 struct {
+	bloqueoSerializacionRegistroAutorizacionLigadaV3
+	concedida  bool
+	concesion  OrdenRegistroConcesionCandidataAutorizacionLigadaV3
+	denegacion OrdenRegistroDenegacionAutorizacionLigadaV3
+}
+
 func NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(
 	solicitud domain.SolicitudAutorizacionLigadaV3,
 	decision domain.DecisionAutorizacionLigadaV3,
@@ -95,6 +109,91 @@ func NuevaOrdenRegistroDenegacionAutorizacionLigadaV3(
 		return OrdenRegistroDenegacionAutorizacionLigadaV3{}, err
 	}
 	return OrdenRegistroDenegacionAutorizacionLigadaV3{datos: datos}, nil
+}
+
+// NuevaCandidataRegistroDecisionAutorizacionLigadaV3 fabrica la unica variante
+// compatible con el resultado sellado de la decision.
+func NuevaCandidataRegistroDecisionAutorizacionLigadaV3(
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	decision domain.DecisionAutorizacionLigadaV3,
+	referenciaMotivo domain.ReferenciaEntradaCatalogo,
+	resultadoContexto domain.ResultadoContextoActorRegistradoV2,
+) (CandidataRegistroDecisionAutorizacionLigadaV3, error) {
+	concedida, _, err := decision.Resultado()
+	if err != nil {
+		return CandidataRegistroDecisionAutorizacionLigadaV3{},
+			ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+	}
+	if concedida {
+		orden, errOrden := NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(
+			solicitud, decision, referenciaMotivo, resultadoContexto,
+		)
+		if errOrden != nil {
+			return CandidataRegistroDecisionAutorizacionLigadaV3{},
+				errors.Join(
+					ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida,
+					errOrden,
+				)
+		}
+		return CandidataRegistroDecisionAutorizacionLigadaV3{
+			concedida: true,
+			concesion: orden,
+		}, nil
+	}
+	orden, err := NuevaOrdenRegistroDenegacionAutorizacionLigadaV3(
+		solicitud, decision, referenciaMotivo, resultadoContexto,
+	)
+	if err != nil {
+		return CandidataRegistroDecisionAutorizacionLigadaV3{},
+			errors.Join(
+				ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida,
+				err,
+			)
+	}
+	return CandidataRegistroDecisionAutorizacionLigadaV3{
+		denegacion: orden,
+	}, nil
+}
+
+// Resultado entrega copias nominales de las ordenes. Exactamente una de ellas
+// es valida, según concedida; la variante opuesta permanece en valor cero.
+func (c CandidataRegistroDecisionAutorizacionLigadaV3) Resultado() (
+	concedida bool,
+	concesion OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
+	denegacion OrdenRegistroDenegacionAutorizacionLigadaV3,
+	err error,
+) {
+	if c.concedida {
+		if _, errConcesion := c.concesion.Datos(); errConcesion != nil ||
+			ordenDenegacionAutorizacionLigadaV3Valida(c.denegacion) {
+			return false, OrdenRegistroConcesionCandidataAutorizacionLigadaV3{},
+				OrdenRegistroDenegacionAutorizacionLigadaV3{},
+				ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+		}
+		return true, c.concesion, OrdenRegistroDenegacionAutorizacionLigadaV3{}, nil
+	}
+	if _, errDenegacion := c.denegacion.Datos(); errDenegacion != nil ||
+		ordenConcesionAutorizacionLigadaV3Valida(c.concesion) {
+		return false, OrdenRegistroConcesionCandidataAutorizacionLigadaV3{},
+			OrdenRegistroDenegacionAutorizacionLigadaV3{},
+			ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+	}
+	return false, OrdenRegistroConcesionCandidataAutorizacionLigadaV3{},
+		c.denegacion, nil
+}
+
+func ordenConcesionAutorizacionLigadaV3Valida(
+	orden OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
+) bool {
+	_, err := orden.Datos()
+	return err == nil
+}
+
+func ordenDenegacionAutorizacionLigadaV3Valida(
+	orden OrdenRegistroDenegacionAutorizacionLigadaV3,
+) bool {
+	_, err := orden.Datos()
+	return err == nil
 }
 
 func (o OrdenRegistroConcesionCandidataAutorizacionLigadaV3) Datos() (
@@ -452,6 +551,22 @@ type PreparadorSolicitudLigadaV3 interface {
 	) (
 		domain.DecisionAutorizacionLigadaV3,
 		OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
+		error,
+	)
+}
+
+// PreparadorRegistroCompuestoSolicitudLigadaV3 evalua sin ejecutar ninguna
+// escritura. El generador pertenece exclusivamente a la operacion y debe
+// devolver la DecisionRef previamente fijada por la reserva autoritativa.
+type PreparadorRegistroCompuestoSolicitudLigadaV3 interface {
+	PrepararRegistroCompuestoSolicitudLigadaV3(
+		context.Context,
+		domain.SolicitudAutorizacionLigadaV3,
+		domain.ResultadoContextoActorRegistradoV2,
+		GeneradorReferenciaDecisionAutorizacion,
+	) (
+		domain.DecisionAutorizacionLigadaV3,
+		CandidataRegistroDecisionAutorizacionLigadaV3,
 		error,
 	)
 }
