@@ -35,24 +35,21 @@ func TestDecidirCoberturaLigaDenegacionVECSinEfectoC1C2(
 	exigirCeroConsumoPreparacionGlobal(t, escenario.base.global)
 }
 
-func TestDecidirCoberturaReciboValidoDominaErrorTardioDeTransporte(
+func TestDecidirCoberturaErrorTrasCallbackExigeReconciliacion(
 	t *testing.T,
 ) {
 	escenario := nuevoEscenarioConfirmacionCobertura(t, false)
 	escenario.transaccion.errorRetorno = errors.New(
 		"respuesta HTTP perdida después del COMMIT",
 	)
-	recibo, err := escenario.servicio.Decidir(
+	_, err := escenario.servicio.Decidir(
 		context.Background(),
 		escenario.solicitud,
 	)
-	if err != nil {
-		t.Fatalf("el recibo válido perdió frente al error tardío: %v", err)
-	}
-	if _, denegada := recibo.ResultadoDenegadoVEC(); !denegada ||
+	if !errors.Is(err, ErrConfirmacionDecisionCoberturaNoDisponible) ||
 		escenario.transaccion.total() != 1 ||
-		escenario.reconciliador.total() != 0 {
-		t.Fatalf("el recibo terminal no fue dominante: %+v", recibo)
+		escenario.reconciliador.total() != 1 {
+		t.Fatalf("el error tardío no condujo al primario: %v", err)
 	}
 }
 
@@ -416,7 +413,7 @@ func TestServicioConfirmacionCoberturaRechazaNilTipadoYCancelacion(
 		escenario.idempotencia, escenario.base.analisis,
 		escenario.base.reloj, escenario.base.gobierno,
 		escenario.base.global.preparador, escenario.vec,
-		escenario.transaccion, escenario.reconciliador,
+		escenario.frontera, escenario.reconciliador,
 	); !errors.Is(err, ErrServicioConfirmacionDecisionCoberturaInvalido) {
 		t.Fatalf("se aceptó nil tipado: %v", err)
 	}

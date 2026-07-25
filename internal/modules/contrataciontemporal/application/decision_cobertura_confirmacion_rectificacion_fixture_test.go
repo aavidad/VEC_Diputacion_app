@@ -100,6 +100,13 @@ func nuevoEscenarioRectificacionConfirmacionCobertura(
 		vec:          escenario.vec,
 		reloj:        base.global.entorno.reloj,
 	}
+	escenario.frontera, err =
+		cobertura.NuevaTransaccionOperacionDecisionCoberturaTCB(
+			escenario.transaccion,
+		)
+	if err != nil {
+		t.Fatal(err)
+	}
 	escenario.reconciliador = &reconciliadorConfirmacionPrueba{
 		reloj:        base.global.entorno.reloj,
 		idempotencia: escenario.idempotencia,
@@ -115,7 +122,7 @@ func nuevoEscenarioRectificacionConfirmacionCobertura(
 		base.gobierno,
 		base.global.preparador,
 		escenario.vec,
-		escenario.transaccion,
+		escenario.frontera,
 		escenario.reconciliador,
 	)
 	if err != nil {

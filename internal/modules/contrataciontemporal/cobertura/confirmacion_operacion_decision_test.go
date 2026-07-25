@@ -209,18 +209,20 @@ func TestIntentoConfirmacionOrdenDecisionPriorizaReciboTrasCancelacion(
 ) {
 	e := nuevoEscenarioConfirmacionOrdenC3(t)
 	ctx, cancelar := context.WithCancel(context.Background())
-	tx := &transaccionConfirmacionOrdenC3{
-		resultado: e.resultadoConcedido,
-		err:       context.Canceled,
-		despues:   cancelar,
-	}
+	tx, ejecutor := nuevaTransaccionTCBConfirmacionOrdenC3(
+		t,
+		e.reciboConcedido,
+		func(e *ejecutorSesionTCBOperacionDecisionPrueba) {
+			e.despuesCallback = cancelar
+		},
+	)
 	intento, err := cobertura.IntentarConfirmacionOperacionDecisionCobertura(
 		ctx,
 		tx,
 		e.ordenConcedida,
 	)
 	confirmacion, confirmada := intento.ConfirmacionPara(e.ordenConcedida)
-	if err != nil || !confirmada || tx.llamadas.Load() != 1 {
+	if err != nil || !confirmada || ejecutor.llamadas.Load() != 1 {
 		t.Fatalf("recibo válido quedó ambiguo: %v", err)
 	}
 	if _, err = confirmacion.ReciboPara(e.ordenConcedida); err != nil {
@@ -235,7 +237,13 @@ func TestIntentoConfirmacionOrdenDecisionAmbiguoNuncaReintenta(
 	t *testing.T,
 ) {
 	e := nuevoEscenarioConfirmacionOrdenC3(t)
-	tx := &transaccionConfirmacionOrdenC3{err: errTransporteConfirmacionOrdenC3}
+	tx, ejecutor := nuevaTransaccionTCBConfirmacionOrdenC3(
+		t,
+		e.reciboDenegado,
+		func(e *ejecutorSesionTCBOperacionDecisionPrueba) {
+			e.errorDespues = errTransporteConfirmacionOrdenC3
+		},
+	)
 	intento, err := cobertura.IntentarConfirmacionOperacionDecisionCobertura(
 		context.Background(),
 		tx,
@@ -244,7 +252,7 @@ func TestIntentoConfirmacionOrdenDecisionAmbiguoNuncaReintenta(
 	if !errors.Is(
 		err,
 		cobertura.ErrResultadoConfirmacionOperacionDecisionCoberturaAmbiguo,
-	) || tx.llamadas.Load() != 1 {
+	) || ejecutor.llamadas.Load() != 1 {
 		t.Fatalf("resultado ambiguo mal clasificado: %v", err)
 	}
 	if _, confirmada := intento.ConfirmacionPara(e.ordenDenegada); confirmada {
@@ -259,7 +267,7 @@ func TestIntentoConfirmacionOrdenDecisionAmbiguoNuncaReintenta(
 		coordenadas.ReservaRef != e.reciboDenegado.ReservaRef {
 		t.Fatalf("coordenadas primarias inesperadas: %#v, %v", coordenadas, err)
 	}
-	if tx.llamadas.Load() != 1 {
+	if ejecutor.llamadas.Load() != 1 {
 		t.Fatal("se produjo un retry ciego")
 	}
 }
@@ -270,15 +278,19 @@ func TestIntentoConfirmacionOrdenDecisionRespetaCancelacionPreviaYTypedNil(
 	e := nuevoEscenarioConfirmacionOrdenC3(t)
 	ctx, cancelar := context.WithCancel(context.Background())
 	cancelar()
-	tx := &transaccionConfirmacionOrdenC3{}
+	tx, ejecutor := nuevaTransaccionTCBConfirmacionOrdenC3(
+		t,
+		e.reciboConcedido,
+		nil,
+	)
 	if _, err := cobertura.IntentarConfirmacionOperacionDecisionCobertura(
 		ctx,
 		tx,
 		e.ordenConcedida,
-	); !errors.Is(err, context.Canceled) || tx.llamadas.Load() != 0 {
+	); !errors.Is(err, context.Canceled) || ejecutor.llamadas.Load() != 0 {
 		t.Fatalf("cancelación previa invocó la transacción: %v", err)
 	}
-	var nula *transaccionConfirmacionOrdenC3
+	var nula cobertura.TransaccionOperacionDecisionCobertura
 	if _, err := cobertura.IntentarConfirmacionOperacionDecisionCobertura(
 		context.Background(),
 		nula,
@@ -394,7 +406,13 @@ func TestReconciliacionOrdenDecisionConsultaPrimarioSinAutorizarRetry(
 
 func TestContratosConfirmacionOrdenDecisionSonOpacos(t *testing.T) {
 	e := nuevoEscenarioConfirmacionOrdenC3(t)
-	tx := &transaccionConfirmacionOrdenC3{err: errTransporteConfirmacionOrdenC3}
+	tx, _ := nuevaTransaccionTCBConfirmacionOrdenC3(
+		t,
+		e.reciboDenegado,
+		func(e *ejecutorSesionTCBOperacionDecisionPrueba) {
+			e.errorDespues = errTransporteConfirmacionOrdenC3
+		},
+	)
 	intento, _ := cobertura.IntentarConfirmacionOperacionDecisionCobertura(
 		context.Background(),
 		tx,
@@ -510,7 +528,11 @@ func TestConfirmacionOrdenDecisionEsConcurrenteYNoComparteEstado(
 	t *testing.T,
 ) {
 	e := nuevoEscenarioConfirmacionOrdenC3(t)
-	tx := &transaccionConfirmacionOrdenC3{resultado: e.resultadoConcedido}
+	tx, ejecutor := nuevaTransaccionTCBConfirmacionOrdenC3(
+		t,
+		e.reciboConcedido,
+		nil,
+	)
 	const trabajadores = 32
 	var grupo sync.WaitGroup
 	errores := make(chan error, trabajadores)
@@ -549,8 +571,8 @@ func TestConfirmacionOrdenDecisionEsConcurrenteYNoComparteEstado(
 			t.Fatal(err)
 		}
 	}
-	if tx.llamadas.Load() != trabajadores {
-		t.Fatalf("invocaciones inesperadas: %d", tx.llamadas.Load())
+	if ejecutor.llamadas.Load() != trabajadores {
+		t.Fatalf("invocaciones inesperadas: %d", ejecutor.llamadas.Load())
 	}
 	recibo, err := e.resultadoConcedido.ReciboPara(e.ordenConcedida)
 	if err != nil || recibo.DecisionVECRef == "mutacion_local" {

@@ -111,24 +111,3 @@ func (p *preparadorObservadorConfirmacionPrueba) referencias() (
 	defer p.mu.Unlock()
 	return p.correlacion, p.decisionRef
 }
-
-type transaccionSalidaInvalidaConfirmacionPrueba struct {
-	mu       sync.Mutex
-	llamadas int
-}
-
-func (t *transaccionSalidaInvalidaConfirmacionPrueba) ConfirmarOperacionDecisionCobertura(
-	context.Context,
-	cobertura.OrdenOperacionDecisionCobertura,
-) (cobertura.ResultadoConfirmacionOperacionDecisionCobertura, error) {
-	t.mu.Lock()
-	t.llamadas++
-	t.mu.Unlock()
-	return cobertura.ResultadoConfirmacionOperacionDecisionCobertura{}, nil
-}
-
-func (t *transaccionSalidaInvalidaConfirmacionPrueba) total() int {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.llamadas
-}

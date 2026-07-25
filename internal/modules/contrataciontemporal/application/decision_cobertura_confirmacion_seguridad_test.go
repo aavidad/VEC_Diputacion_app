@@ -56,12 +56,11 @@ func TestDecidirCoberturaRechazaCandidataVECAdulteradaAntesDeTx(
 	}
 }
 
-func TestDecidirCoberturaSalidaTxInvalidaSoloReconciliaUnaVez(
+func TestDecidirCoberturaSalidaTCBInvalidaNoAlcanzaCommitNiPrimario(
 	t *testing.T,
 ) {
 	escenario := nuevoEscenarioConfirmacionCobertura(t, false)
-	transaccion := &transaccionSalidaInvalidaConfirmacionPrueba{}
-	escenario.servicio.transaccion = transaccion
+	escenario.transaccion.salidaInvalida = true
 	_, err := escenario.servicio.Decidir(
 		context.Background(),
 		escenario.solicitud,
@@ -69,9 +68,31 @@ func TestDecidirCoberturaSalidaTxInvalidaSoloReconciliaUnaVez(
 	if !errors.Is(
 		err,
 		ErrConfirmacionDecisionCoberturaNoDisponible,
-	) || transaccion.total() != 1 ||
-		escenario.reconciliador.total() != 1 {
-		t.Fatalf("la salida Tx inválida autorizó éxito o retry: %v", err)
+	) || escenario.transaccion.total() != 1 ||
+		escenario.reconciliador.total() != 0 {
+		t.Fatalf("la salida TCB inválida alcanzó COMMIT o primario: %v", err)
+	}
+}
+
+func TestDecidirCoberturaFalloAntesCommitNoReconciliaNiReintenta(
+	t *testing.T,
+) {
+	escenario := nuevoEscenarioConfirmacionCobertura(t, false)
+	escenario.transaccion.falloAntesCommit = true
+	_, err := escenario.servicio.Decidir(
+		context.Background(),
+		escenario.solicitud,
+	)
+	if !errors.Is(
+		err,
+		ErrConfirmacionDecisionCoberturaNoDisponible,
+	) ||
+		escenario.transaccion.total() != 1 ||
+		escenario.reconciliador.total() != 0 {
+		t.Fatalf(
+			"el fallo anterior al COMMIT se reconcilió o reintentó: %v",
+			err,
+		)
 	}
 }
 

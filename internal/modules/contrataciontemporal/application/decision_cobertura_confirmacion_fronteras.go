@@ -214,6 +214,10 @@ func (s *ServicioConfirmacionDecisionCobertura) confirmarOrden(
 		return cobertura.ReciboOperacionDecisionCobertura{},
 			ErrConfirmacionDecisionCoberturaNoConfiable
 	}
+	if intento.FalloAntesCommitPara(orden) {
+		return cobertura.ReciboOperacionDecisionCobertura{},
+			ErrConfirmacionDecisionCoberturaNoDisponible
+	}
 	solicitud, requiereReconciliar := intento.ReconciliacionPara(orden)
 	if !requiereReconciliar ||
 		!errors.Is(

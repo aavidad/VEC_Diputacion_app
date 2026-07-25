@@ -229,22 +229,27 @@ func clonarReciboConfirmacionOrdenC3(
 	return clon
 }
 
-type transaccionConfirmacionOrdenC3 struct {
-	resultado cobertura.ResultadoConfirmacionOperacionDecisionCobertura
-	err       error
-	despues   func()
-	llamadas  atomic.Int32
-}
-
-func (t *transaccionConfirmacionOrdenC3) ConfirmarOperacionDecisionCobertura(
-	context.Context,
-	cobertura.OrdenOperacionDecisionCobertura,
-) (cobertura.ResultadoConfirmacionOperacionDecisionCobertura, error) {
-	t.llamadas.Add(1)
-	if t.despues != nil {
-		t.despues()
+func nuevaTransaccionTCBConfirmacionOrdenC3(
+	t *testing.T,
+	recibo cobertura.ReciboOperacionDecisionCobertura,
+	configurar func(*ejecutorSesionTCBOperacionDecisionPrueba),
+) (
+	cobertura.TransaccionOperacionDecisionCobertura,
+	*ejecutorSesionTCBOperacionDecisionPrueba,
+) {
+	t.Helper()
+	ejecutor := &ejecutorSesionTCBOperacionDecisionPrueba{
+		recibo: datosReciboSesionTCBPrueba(recibo),
 	}
-	return t.resultado, t.err
+	if configurar != nil {
+		configurar(ejecutor)
+	}
+	transaccion, err :=
+		cobertura.NuevaTransaccionOperacionDecisionCoberturaTCB(ejecutor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return transaccion, ejecutor
 }
 
 type reconciliadorConfirmacionOrdenC3 struct {

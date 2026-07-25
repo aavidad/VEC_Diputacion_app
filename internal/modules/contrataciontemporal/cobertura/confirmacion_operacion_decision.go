@@ -18,30 +18,48 @@ var (
 	ErrResultadoConfirmacionOperacionDecisionCoberturaAmbiguo = errors.New(
 		"contratacion temporal: resultado de confirmacion de decision de cobertura ambiguo; requiere reconciliacion primaria",
 	)
+	ErrResultadoConfirmacionOperacionDecisionCoberturaNoDisponible = errors.New(
+		"contratacion temporal: resultado de confirmacion de decision de cobertura no disponible",
+	)
+	errFalloAntesCommitOperacionDecisionCobertura = errors.New(
+		"fallo interno anterior al commit de decision de cobertura",
+	)
 )
 
 const esquemaHuellaConfirmacionOperacionDecisionCobertura = "" +
 	"VEC-CT-CONFIRMACION-OPERACION-DECISION-COBERTURA-C3-V1"
 
-// TransaccionOperacionDecisionCobertura es la única frontera nominal del
-// futuro adaptador O4-04. Una implementación productiva deberá ejecutar, en
-// una sola transacción SERIALIZABLE, bloqueos, revalidaciones, consumos, CAS,
-// agregado, historia, auditoría, recibo y outbox.
-//
-// ESTADO: PREPARACIÓN NOMINAL BLOQUEADA; no es cierre productivo de O4-04.
-// Go no ofrece paquetes «friend». Un adaptador
-// SQL ubicado en otro paquete puede recibir la orden opaca, pero no desplegar
-// sus autoridades privadas sin un getter público que también quedaría
-// disponible para HTTP, CLI y MCP. Este corte no abre ese getter ni simula una
-// persistencia. Antes del adaptador real deberá fijarse una frontera ejecutora
-// push con una sesión TCB y primitivas transaccionales completas. Hasta
-// entonces, este contrato es deliberadamente nominal, no autoriza un adaptador
-// falso y no puede contabilizarse como O4-04 cerrado.
+// TransaccionOperacionDecisionCobertura es la frontera sellada que el servicio
+// recibe de la raíz de composición. Solo cobertura puede implementarla; el
+// adaptador productivo aporta exclusivamente EjecutorSesionTCB y nunca recibe
+// la orden opaca.
 type TransaccionOperacionDecisionCobertura interface {
-	ConfirmarOperacionDecisionCobertura(
+	confirmarOperacionDecisionCobertura(
 		context.Context,
 		OrdenOperacionDecisionCobertura,
 	) (ResultadoConfirmacionOperacionDecisionCobertura, error)
+}
+
+// ConfirmarOperacionDecisionCobertura invoca la frontera sellada sin exponer
+// su operación privada.
+func ConfirmarOperacionDecisionCobertura(
+	ctx context.Context,
+	transaccion TransaccionOperacionDecisionCobertura,
+	orden OrdenOperacionDecisionCobertura,
+) (ResultadoConfirmacionOperacionDecisionCobertura, error) {
+	if dependenciaGobiernoOperacionCoberturaNula(ctx) ||
+		dependenciaGobiernoOperacionCoberturaNula(transaccion) ||
+		orden.validar() != nil {
+		return ResultadoConfirmacionOperacionDecisionCobertura{},
+			ErrContratoConfirmacionOperacionDecisionCoberturaInvalido
+	}
+	resultado, err :=
+		transaccion.confirmarOperacionDecisionCobertura(ctx, orden)
+	if err == errFalloAntesCommitOperacionDecisionCobertura {
+		return ResultadoConfirmacionOperacionDecisionCobertura{},
+			ErrResultadoConfirmacionOperacionDecisionCoberturaNoDisponible
+	}
+	return resultado, err
 }
 
 // ReconciliadorResultadoAmbiguoOperacionDecisionCobertura consulta el primario
@@ -219,8 +237,13 @@ func (s SolicitudReconciliacionOperacionDecisionCobertura) validarPara(
 // ambigua carece deliberadamente de una señal «reintentar».
 type ResultadoIntentoConfirmacionOperacionDecisionCobertura struct {
 	bloqueoSerializacionOperacionDecisionCobertura
-	confirmacion   *ResultadoConfirmacionOperacionDecisionCobertura
-	reconciliacion *SolicitudReconciliacionOperacionDecisionCobertura
+	confirmacion     *ResultadoConfirmacionOperacionDecisionCobertura
+	reconciliacion   *SolicitudReconciliacionOperacionDecisionCobertura
+	falloAntesCommit *pruebaFalloAntesCommitOperacionDecisionCobertura
+}
+
+type pruebaFalloAntesCommitOperacionDecisionCobertura struct {
+	huellaOrdenSHA256 string
 }
 
 // ConfirmacionPara devuelve el resultado únicamente en la rama confirmada.
@@ -246,10 +269,31 @@ func (r ResultadoIntentoConfirmacionOperacionDecisionCobertura) ReconciliacionPa
 	return *r.reconciliacion, true
 }
 
+// FalloAntesCommitPara acredita la rama no ambigua únicamente para la orden
+// que la originó. No existe constructor público ni error sentinel que un
+// adaptador o canal pueda forjar para omitir la reconciliación.
+func (r ResultadoIntentoConfirmacionOperacionDecisionCobertura) FalloAntesCommitPara(
+	orden OrdenOperacionDecisionCobertura,
+) bool {
+	huella, err := huellaConfirmacionOperacionDecisionCobertura(orden)
+	return err == nil &&
+		r.confirmacion == nil &&
+		r.reconciliacion == nil &&
+		r.falloAntesCommit != nil &&
+		huellaSHA256OperacionDecisionCoberturaValida(
+			r.falloAntesCommit.huellaOrdenSHA256,
+		) &&
+		referenciasOperacionDecisionCoberturaIguales(
+			huella,
+			r.falloAntesCommit.huellaOrdenSHA256,
+		)
+}
+
 // IntentarConfirmacionOperacionDecisionCobertura invoca exactamente una vez
 // la transacción. Un recibo válido prevalece sobre un error o una cancelación
-// observada después del COMMIT. Sin recibo válido, el resultado es siempre
-// ambiguo y obliga a reconciliar: esta función nunca hace retry.
+// observada después del COMMIT. Un fallo acreditado antes de COMMIT termina
+// sin reconciliar; cualquier otro intento no confirmado es ambiguo y obliga a
+// consultar el primario. Esta función nunca hace retry.
 func IntentarConfirmacionOperacionDecisionCobertura(
 	ctx context.Context,
 	transaccion TransaccionOperacionDecisionCobertura,
@@ -267,7 +311,7 @@ func IntentarConfirmacionOperacionDecisionCobertura(
 	if err := ctx.Err(); err != nil {
 		return ResultadoIntentoConfirmacionOperacionDecisionCobertura{}, err
 	}
-	confirmacion, _ := transaccion.ConfirmarOperacionDecisionCobertura(
+	confirmacion, errConfirmacion := transaccion.confirmarOperacionDecisionCobertura(
 		ctx,
 		orden,
 	)
@@ -276,6 +320,20 @@ func IntentarConfirmacionOperacionDecisionCobertura(
 		return ResultadoIntentoConfirmacionOperacionDecisionCobertura{
 			confirmacion: &copia,
 		}, nil
+	}
+	if errConfirmacion == errFalloAntesCommitOperacionDecisionCobertura {
+		huellaOrden, errHuella :=
+			huellaConfirmacionOperacionDecisionCobertura(orden)
+		if errHuella != nil {
+			return ResultadoIntentoConfirmacionOperacionDecisionCobertura{},
+				ErrContratoConfirmacionOperacionDecisionCoberturaInvalido
+		}
+		return ResultadoIntentoConfirmacionOperacionDecisionCobertura{
+				falloAntesCommit: &pruebaFalloAntesCommitOperacionDecisionCobertura{
+					huellaOrdenSHA256: huellaOrden,
+				},
+			},
+			ErrResultadoConfirmacionOperacionDecisionCoberturaNoDisponible
 	}
 	solicitud, err := NuevaSolicitudReconciliacionOperacionDecisionCobertura(
 		orden,

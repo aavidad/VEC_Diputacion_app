@@ -277,52 +277,17 @@ func (p *preparadorVECConfirmacionPrueba) PrepararRegistroCompuestoSolicitudLiga
 }
 
 type transaccionConfirmacionPrueba struct {
-	mu           sync.Mutex
-	idempotencia *idempotenciaConfirmacionPrueba
-	vec          *preparadorVECConfirmacionPrueba
-	reloj        *relojCoberturaAplicacionPrueba
-	aplicada     *cobertura.ResultadoAplicadoOperacionDecisionCobertura
-	ambigua      bool
-	errorRetorno error
-	cancelar     context.CancelFunc
-	llamadas     int
-}
-
-func (t *transaccionConfirmacionPrueba) ConfirmarOperacionDecisionCobertura(
-	_ context.Context,
-	orden cobertura.OrdenOperacionDecisionCobertura,
-) (cobertura.ResultadoConfirmacionOperacionDecisionCobertura, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.llamadas++
-	if t.ambigua {
-		if t.cancelar != nil {
-			t.cancelar()
-		}
-		return cobertura.ResultadoConfirmacionOperacionDecisionCobertura{},
-			errors.New("respuesta perdida")
-	}
-	recibo, err := reciboConfirmacionCoberturaPrueba(
-		t.idempotencia,
-		t.vec,
-		t.reloj.Ahora(),
-		t.aplicada,
-	)
-	if err != nil {
-		return cobertura.ResultadoConfirmacionOperacionDecisionCobertura{}, err
-	}
-	resultado, err :=
-		cobertura.NuevaResultadoConfirmacionOperacionDecisionCobertura(
-			orden,
-			recibo,
-		)
-	if t.cancelar != nil {
-		t.cancelar()
-	}
-	if err == nil && t.errorRetorno != nil {
-		return resultado, t.errorRetorno
-	}
-	return resultado, err
+	mu               sync.Mutex
+	idempotencia     *idempotenciaConfirmacionPrueba
+	vec              *preparadorVECConfirmacionPrueba
+	reloj            *relojCoberturaAplicacionPrueba
+	aplicada         *cobertura.ResultadoAplicadoOperacionDecisionCobertura
+	ambigua          bool
+	falloAntesCommit bool
+	salidaInvalida   bool
+	errorRetorno     error
+	cancelar         context.CancelFunc
+	llamadas         int
 }
 
 type reconciliadorConfirmacionPrueba struct {
@@ -445,6 +410,7 @@ type escenarioConfirmacionCobertura struct {
 	idempotencia  *idempotenciaConfirmacionPrueba
 	vec           *preparadorVECConfirmacionPrueba
 	transaccion   *transaccionConfirmacionPrueba
+	frontera      cobertura.TransaccionOperacionDecisionCobertura
 	reconciliador *reconciliadorConfirmacionPrueba
 	servicio      *ServicioConfirmacionDecisionCobertura
 	solicitud     SolicitudDecidirCobertura
@@ -524,6 +490,13 @@ func nuevoEscenarioConfirmacionCoberturaConVias(
 		vec:          escenario.vec,
 		reloj:        base.global.entorno.reloj,
 	}
+	escenario.frontera, err =
+		cobertura.NuevaTransaccionOperacionDecisionCoberturaTCB(
+			escenario.transaccion,
+		)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if conceder {
 		aplicada, err := resultadoAplicadoEsperadoConfirmacionCobertura(
 			t,
@@ -553,7 +526,7 @@ func nuevoEscenarioConfirmacionCoberturaConVias(
 		base.gobierno,
 		base.global.preparador,
 		escenario.vec,
-		escenario.transaccion,
+		escenario.frontera,
 		escenario.reconciliador,
 	)
 	if err != nil {
