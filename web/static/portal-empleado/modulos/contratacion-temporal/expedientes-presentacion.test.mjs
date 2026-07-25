@@ -75,6 +75,25 @@ function comandoDe(expediente, tarea, accion) {
   });
 }
 
+test("el espacio operativo separa tareas y distribución en paneles legibles", async () => {
+  const [estilos, tema] = await Promise.all([
+    readFile(new URL("./expedientes-operativo.css", import.meta.url), "utf8"),
+    readFile(new URL("../../portal.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(
+    estilos,
+    /\.ct-exp-mis-tareas,\s*\n\.ct-exp-distribucion\s*\{[\s\S]*border:[^;]+;[\s\S]*background:/u,
+  );
+  assert.match(estilos, /\.ct-exp-operativo\s*\{[\s\S]*grid-template-columns:/u);
+  for (const token of [
+    "--portal-espacio-1", "--portal-espacio-2", "--portal-espacio-3",
+    "--portal-espacio-4", "--portal-radio-md", "--portal-radio-lg",
+    "--portal-sombra-sm", "--portal-tinta-suave",
+  ]) {
+    assert.match(tema, new RegExp(`${token}:`), `${token} debe proceder del tema común`);
+  }
+});
+
 test("los cuatro contratos rechazan extras, duplicados, cruces y valores no canónicos", () => {
   const cuadro = crearCuadroContratacionTemporalPresentacion();
   const expediente = crearExpedienteContratacionTemporalPresentacion();

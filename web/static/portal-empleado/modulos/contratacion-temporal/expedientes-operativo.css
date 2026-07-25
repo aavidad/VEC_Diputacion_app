@@ -4,7 +4,7 @@
   gap: var(--portal-espacio-3);
   padding: var(--portal-espacio-4);
   border: 1px solid var(--portal-borde);
-  border-inline-start: 0.3rem solid var(--modulo-borde);
+  border-inline-start: 0.3rem solid var(--modulo-borde, var(--portal-azul-700));
   border-radius: var(--portal-radio-lg);
   background: var(--portal-superficie);
   box-shadow: var(--portal-sombra-sm);
@@ -35,6 +35,15 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.ct-exp-mis-tareas,
+.ct-exp-distribucion {
+  min-width: 0;
+  padding: var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-fondo);
 }
 
 .ct-exp-mis-tareas li {
@@ -85,7 +94,7 @@
   gap: var(--portal-espacio-2);
   padding: var(--portal-espacio-3);
   border-radius: var(--portal-radio-md);
-  background: var(--modulo-suave);
+  background: var(--modulo-suave, var(--portal-azul-100));
 }
 
 @media (max-width: 1050px) {

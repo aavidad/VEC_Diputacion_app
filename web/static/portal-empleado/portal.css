@@ -23,7 +23,15 @@
   --portal-naranja: #b34705;
   --portal-naranja-suave: #fff0e7;
   --portal-sombra: 0 8px 28px rgba(27, 51, 82, 0.08);
+  --portal-sombra-sm: 0 3px 12px rgba(27, 51, 82, 0.07);
   --portal-radio: 8px;
+  --portal-radio-md: 6px;
+  --portal-radio-lg: 10px;
+  --portal-espacio-1: 4px;
+  --portal-espacio-2: 8px;
+  --portal-espacio-3: 12px;
+  --portal-espacio-4: 16px;
+  --portal-tinta-suave: var(--portal-muted);
   --portal-lateral: 286px;
 }
 

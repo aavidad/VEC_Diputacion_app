@@ -18,7 +18,7 @@ import {
   rutaDeVistaPortal,
   VISTAS_MODULOS_CONECTADOS,
   VISTAS_MODULOS_PERSONALES,
-} from "./portal-modulos-coordinador.js?v=20260723-contratacion-rrhh-v1";
+} from "./portal-modulos-coordinador.js?v=20260725-aislamiento-modular-v2";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
 import { instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260719-menu-bolsa-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
