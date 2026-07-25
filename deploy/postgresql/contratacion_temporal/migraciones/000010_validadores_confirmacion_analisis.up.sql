@@ -234,6 +234,7 @@ BEGIN
            o, ARRAY[
              'actor_ref', 'actuacion', 'aliases_consulta',
              'ambito_consulta_hmac', 'ambito_raiz_hmac',
+             'analisis_derivado_huella_sha256',
              'artefacto_huella_sha256', 'artefacto_ref', 'autorizacion',
              'esquema', 'expediente_anterior', 'expediente_ref',
              'expediente_siguiente', 'fuentes', 'huella_consulta_hmac',
@@ -267,6 +268,8 @@ BEGIN
        OR coalesce(o ->> 'artefacto_ref', '')
             !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
        OR coalesce(o ->> 'artefacto_huella_sha256', '')
+            !~ '^[0-9a-f]{64}$'
+       OR coalesce(o ->> 'analisis_derivado_huella_sha256', '')
             !~ '^[0-9a-f]{64}$'
        OR coalesce(o ->> 'ambito_raiz_hmac', '') !~
           ('^hmac-sha256:vec[.]contratacion-temporal[.]analisis[.]'

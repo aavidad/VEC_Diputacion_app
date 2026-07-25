@@ -11,6 +11,265 @@ SELECT pg_catalog.pg_advisory_xact_lock(
     )
 );
 
+-- La alta O2 conserva en su evidencia de entrada claves opcionales vacías
+-- que encoding/json omite al rehidratar el agregado de dominio en Go. La
+-- comparación CAS normaliza exclusivamente esas representaciones equivalentes;
+-- nunca elimina valores informativos ni acepta una mutación funcional.
+CREATE FUNCTION
+vec_contratacion_temporal.normalizar_agregado_dominio_analisis_v1(
+    p_agregado jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog
+AS $funcion$
+DECLARE
+    resultado jsonb := p_agregado;
+    actuacion jsonb;
+    indice integer;
+    cantidad integer;
+BEGIN
+    IF resultado #>> '{solicitud,observaciones}' = '' THEN
+        resultado := resultado #- '{solicitud,observaciones}';
+    END IF;
+    IF resultado #>> '{solicitud,rc,numero}' = '' THEN
+        resultado := resultado #- '{solicitud,rc,numero}';
+    END IF;
+    IF resultado #>> '{solicitud,rc,documento_ref}' = '' THEN
+        resultado := resultado #- '{solicitud,rc,documento_ref}';
+    END IF;
+    IF resultado #> '{solicitud,documentos_adjuntos}' = '[]'::jsonb THEN
+        resultado := pg_catalog.jsonb_set(
+            resultado,
+            '{solicitud,documentos_adjuntos}',
+            'null'::jsonb,
+            false
+        );
+    END IF;
+    IF pg_catalog.jsonb_typeof(resultado -> 'actuaciones') = 'array' THEN
+        cantidad := pg_catalog.jsonb_array_length(
+            resultado -> 'actuaciones'
+        );
+        IF cantidad > 0 THEN
+            FOR indice IN 0..cantidad - 1 LOOP
+                actuacion := resultado #> ARRAY[
+                    'actuaciones', indice::text
+                ];
+                IF actuacion ->> 'observaciones' = '' THEN
+                    actuacion := actuacion - 'observaciones';
+                END IF;
+                IF actuacion -> 'documentos_ref' = '[]'::jsonb THEN
+                    actuacion := actuacion - 'documentos_ref';
+                END IF;
+                resultado := pg_catalog.jsonb_set(
+                    resultado,
+                    ARRAY['actuaciones', indice::text],
+                    actuacion,
+                    false
+                );
+            END LOOP;
+        END IF;
+    END IF;
+    RETURN resultado;
+END
+$funcion$;
+
+-- Calcula desde el JSON que va a persistirse la misma dirección de contenido
+-- funcional que el núcleo Go incorporó a la decisión V3.
+CREATE FUNCTION
+vec_contratacion_temporal.huella_analisis_derivado_v1(
+    p_analisis jsonb
+)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog
+AS $funcion$
+DECLARE
+    a jsonb := p_analisis;
+    v jsonb := p_analisis -> 'validacion_rc';
+    v_prueba bytea;
+    v_tiene_coste boolean;
+    v_rc_validada boolean;
+BEGIN
+    IF pg_catalog.jsonb_typeof(a) <> 'object'
+       OR pg_catalog.jsonb_typeof(a -> 'periodo') <> 'object'
+       OR pg_catalog.jsonb_typeof(a -> 'entrada_rc_esperada') <> 'object'
+       OR pg_catalog.jsonb_typeof(a -> 'actuacion_registro') <> 'object'
+       OR pg_catalog.jsonb_typeof(v) <> 'object' THEN
+        RETURN NULL;
+    END IF;
+    v_tiene_coste := pg_catalog.jsonb_exists(a, 'coste_previsto');
+    v_rc_validada := v ->> 'resultado' = 'validada';
+    IF NOT vec_contratacion_temporal.claves_json_exactas_v1(
+           a,
+           CASE WHEN v_tiene_coste THEN ARRAY[
+             'actuacion_registro', 'categoria_ref', 'causa_clave',
+             'coste_previsto', 'entrada_rc_esperada',
+             'fuente_coste_ref', 'grupo_subgrupo', 'modalidad_clave',
+             'periodo', 'porcentaje_jornada', 'validacion_rc'
+           ]::text[] ELSE ARRAY[
+             'actuacion_registro', 'categoria_ref', 'causa_clave',
+             'entrada_rc_esperada', 'grupo_subgrupo', 'modalidad_clave',
+             'periodo', 'porcentaje_jornada', 'validacion_rc'
+           ]::text[] END
+       )
+       OR NOT vec_contratacion_temporal.claves_json_exactas_v1(
+           a -> 'periodo', ARRAY['fin', 'inicio']::text[]
+       )
+       OR NOT vec_contratacion_temporal.claves_json_exactas_v1(
+           a -> 'entrada_rc_esperada',
+           ARRAY['huella_sha256', 'referencia']::text[]
+       )
+       OR NOT vec_contratacion_temporal.claves_json_exactas_v1(
+           a -> 'actuacion_registro', ARRAY[
+             'accion_clave', 'fase_destino', 'recibo_ref', 'secuencia',
+             'version_expediente'
+           ]::text[]
+       )
+       OR NOT vec_contratacion_temporal.claves_json_exactas_v1(
+           v,
+           CASE WHEN v_rc_validada THEN ARRAY[
+             'documento_ref', 'entrada_ref', 'fecha_rc', 'fuente_ref',
+             'huella_entrada_sha256', 'importe', 'numero', 'recibo_ref',
+             'resultado', 'validada_en'
+           ]::text[] ELSE ARRAY[
+             'entrada_ref', 'fuente_ref', 'huella_entrada_sha256',
+             'motivo', 'recibo_ref', 'resultado', 'validada_en'
+           ]::text[] END
+       )
+       OR (
+           v_rc_validada AND (
+               pg_catalog.jsonb_typeof(v -> 'importe') <> 'object'
+               OR NOT vec_contratacion_temporal.claves_json_exactas_v1(
+                   v -> 'importe', ARRAY['centimos', 'moneda']::text[]
+               )
+           )
+       )
+       OR (
+           v_tiene_coste AND (
+               pg_catalog.jsonb_typeof(a -> 'coste_previsto') <> 'object'
+               OR NOT vec_contratacion_temporal.claves_json_exactas_v1(
+                   a -> 'coste_previsto',
+                   ARRAY['centimos', 'moneda']::text[]
+               )
+           )
+       )
+       OR pg_catalog.jsonb_typeof(a -> 'porcentaje_jornada') <> 'number'
+       OR (a ->> 'porcentaje_jornada')::numeric
+            NOT BETWEEN 1 AND 10000
+       OR v ->> 'resultado'
+            NOT IN ('validada', 'no_requerida', 'rechazada') THEN
+        RETURN NULL;
+    END IF;
+
+    v_prueba :=
+        vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+            'VEC-CT-ANALISIS-DERIVADO-O3-V1'
+        )
+        || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+            a ->> 'modalidad_clave'
+        )
+        || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+            a ->> 'categoria_ref'
+        )
+        || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+            a ->> 'grupo_subgrupo'
+        )
+        || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+            a ->> 'causa_clave'
+        )
+        || vec_contratacion_temporal.microsegundos_unix_analisis_v1(
+            a #>> '{periodo,inicio}'
+        )
+        || vec_contratacion_temporal.microsegundos_unix_analisis_v1(
+            a #>> '{periodo,fin}'
+        )
+        || pg_catalog.int8send(
+            (a ->> 'porcentaje_jornada')::bigint
+        )
+        || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+            a #>> '{entrada_rc_esperada,referencia}'
+        )
+        || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+            a #>> '{entrada_rc_esperada,huella_sha256}'
+        )
+        || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+            v ->> 'resultado'
+        )
+        || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+            v ->> 'entrada_ref'
+        )
+        || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+            v ->> 'huella_entrada_sha256'
+        )
+        || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+            v ->> 'fuente_ref'
+        )
+        || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+            v ->> 'recibo_ref'
+        )
+        || vec_contratacion_temporal.microsegundos_unix_analisis_v1(
+            v ->> 'validada_en'
+        )
+        || CASE WHEN v_rc_validada
+                THEN pg_catalog.decode('01', 'hex')
+                ELSE pg_catalog.decode('00', 'hex') END;
+    IF v_rc_validada THEN
+        v_prueba := v_prueba
+          || vec_contratacion_temporal.microsegundos_unix_analisis_v1(
+              v ->> 'fecha_rc'
+          );
+    END IF;
+    v_prueba := v_prueba
+      || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+          coalesce(v ->> 'numero', '')
+      )
+      || CASE WHEN v_rc_validada
+              THEN pg_catalog.decode('01', 'hex')
+              ELSE pg_catalog.decode('00', 'hex') END;
+    IF v_rc_validada THEN
+        v_prueba := v_prueba
+          || pg_catalog.int8send(
+              (v #>> '{importe,centimos}')::bigint
+          )
+          || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+              v #>> '{importe,moneda}'
+          );
+    END IF;
+    v_prueba := v_prueba
+      || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+          coalesce(v ->> 'documento_ref', '')
+      )
+      || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+          coalesce(v ->> 'motivo', '')
+      )
+      || CASE WHEN v_tiene_coste
+              THEN pg_catalog.decode('01', 'hex')
+              ELSE pg_catalog.decode('00', 'hex') END;
+    IF v_tiene_coste THEN
+        v_prueba := v_prueba
+          || pg_catalog.int8send(
+              (a #>> '{coste_previsto,centimos}')::bigint
+          )
+          || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+              a #>> '{coste_previsto,moneda}'
+          )
+          || vec_contratacion_temporal.encuadrar_binario_analisis_v1(
+              a ->> 'fuente_coste_ref'
+          );
+    END IF;
+    RETURN pg_catalog.encode(pg_catalog.sha256(v_prueba), 'hex');
+EXCEPTION
+    WHEN data_exception OR datetime_field_overflow
+      OR invalid_text_representation OR numeric_value_out_of_range THEN
+        RETURN NULL;
+END
+$funcion$;
+
 CREATE FUNCTION
 vec_contratacion_temporal.transicion_confirmacion_analisis_valida_v1(
     o jsonb,
@@ -31,10 +290,18 @@ DECLARE
     v_actor_anterior text;
     v_claves_actuacion text[];
 BEGIN
-    IF anterior IS DISTINCT FROM p_agregado_actual
+    IF vec_contratacion_temporal.normalizar_agregado_dominio_analisis_v1(
+           anterior
+       ) IS DISTINCT FROM
+       vec_contratacion_temporal.normalizar_agregado_dominio_analisis_v1(
+           p_agregado_actual
+       )
        OR pg_catalog.jsonb_typeof(anterior -> 'actuaciones') <> 'array'
        OR pg_catalog.jsonb_typeof(siguiente -> 'actuaciones') <> 'array'
        OR pg_catalog.jsonb_typeof(siguiente -> 'analisis') <> 'object'
+       OR vec_contratacion_temporal.huella_analisis_derivado_v1(
+              siguiente -> 'analisis'
+          ) IS DISTINCT FROM o ->> 'analisis_derivado_huella_sha256'
        OR siguiente -> 'via_cobertura' IS NOT NULL
        OR siguiente -> 'asignacion' IS NOT NULL THEN
         RETURN false;
@@ -165,6 +432,15 @@ EXCEPTION
         RETURN false;
 END
 $funcion$;
+
+REVOKE ALL ON FUNCTION
+vec_contratacion_temporal.normalizar_agregado_dominio_analisis_v1(
+    jsonb
+) FROM PUBLIC, vec_contratacion_temporal_ejecutor;
+
+REVOKE ALL ON FUNCTION
+vec_contratacion_temporal.huella_analisis_derivado_v1(jsonb)
+FROM PUBLIC, vec_contratacion_temporal_ejecutor;
 
 REVOKE ALL ON FUNCTION
 vec_contratacion_temporal.transicion_confirmacion_analisis_valida_v1(

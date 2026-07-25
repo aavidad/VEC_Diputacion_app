@@ -231,6 +231,12 @@ func DerivarAnalisisDesdeArtefacto(
 	if err != nil {
 		return domain.AnalisisRRHH{}, ErrArtefactoAnalisisNoConfiable
 	}
+	return derivarAnalisisDesdeDatosArtefacto(datos)
+}
+
+func derivarAnalisisDesdeDatosArtefacto(
+	datos DatosArtefactoAnalisis,
+) (domain.AnalisisRRHH, error) {
 	validacion, err := derivarValidacionRC(datos)
 	if err != nil {
 		return domain.AnalisisRRHH{}, ErrArtefactoAnalisisNoConfiable

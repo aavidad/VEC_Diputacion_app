@@ -29,6 +29,7 @@ const (
 	AtributoPoliticaAnalisisHuella  = "politica_huella_sha256"
 	AtributoArtefactoAnalisisRef    = "artefacto_analisis_ref"
 	AtributoArtefactoAnalisisHuella = "artefacto_analisis_huella_sha256"
+	AtributoAnalisisDerivadoHuella  = "analisis_derivado_huella_sha256"
 	AtributoHuellaSemanticaAnalisis = "huella_semantica_hmac"
 	AtributoSegregacionAnalisis     = "exige_actor_distinto"
 )
@@ -295,10 +296,12 @@ func recursoAutorizacionOperacionAnalisisValido(
 	artefacto DatosArtefactoAnalisis,
 	politica PoliticaOperacionAnalisis,
 ) bool {
+	huellaAnalisis, err := huellaAnalisisDerivadoDesdeDatosO3(artefacto)
 	return recurso.Referencia == preparacion.ExpedienteRef &&
+		err == nil &&
 		recurso.ModuloID == ModuloContratacion &&
 		recurso.Tipo == TipoRecursoAnalisis &&
-		len(recurso.Ambitos) == 4 && len(recurso.Atributos) == 9 &&
+		len(recurso.Ambitos) == 4 && len(recurso.Atributos) == 10 &&
 		recurso.Ambitos["organizacion_ref"] == preparacion.OrganizacionRef &&
 		recurso.Ambitos["expediente_ref"] == preparacion.ExpedienteRef &&
 		recurso.Ambitos["fase_previa"] == string(politica.FasePrevia) &&
@@ -317,6 +320,8 @@ func recursoAutorizacionOperacionAnalisisValido(
 			artefacto.ArtefactoRef &&
 		recurso.Atributos[AtributoArtefactoAnalisisHuella] ==
 			artefacto.ArtefactoHuellaSHA256 &&
+		recurso.Atributos[AtributoAnalisisDerivadoHuella] ==
+			huellaAnalisis &&
 		recurso.Atributos[AtributoHuellaSemanticaAnalisis] ==
 			preparacion.HuellaSemanticaHMAC &&
 		recurso.Atributos[AtributoSegregacionAnalisis] ==

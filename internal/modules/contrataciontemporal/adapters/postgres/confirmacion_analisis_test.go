@@ -4,11 +4,27 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
+
+func TestNormalizarInstantePostgreSQLProduceUTCCanonico(t *testing.T) {
+	t.Parallel()
+	zonaLocalUTC := time.FixedZone("zona-local-utc-prueba", 0)
+	entrada := time.Date(
+		2026, time.July, 25, 0, 30, 7, 123456789, zonaLocalUTC,
+	)
+	resultado := normalizarInstantePostgreSQL(entrada)
+	if !domain.InstanteUTCCanonico(resultado) ||
+		resultado.Location() != time.UTC ||
+		resultado.Nanosecond() != 123456000 {
+		t.Fatalf("instante PostgreSQL no canónico: %#v", resultado)
+	}
+}
 
 func TestTransaccionAnalisisPostgreSQLFallaCerradaSinPool(t *testing.T) {
 	t.Parallel()

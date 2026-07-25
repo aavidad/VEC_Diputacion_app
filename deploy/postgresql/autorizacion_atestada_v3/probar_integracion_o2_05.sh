@@ -222,6 +222,38 @@ firmar_capacidad_con_go() {
     rm -f "${entrada}" "${salida}"
 }
 
+probar_recorrido_go_analisis_o304() {
+    local caso="$1"
+    local entrada="${directorio_temporal}/entrada-go-o304.json"
+    local binario="${directorio_temporal}/contratacion-o304.test"
+    local diagnostico="${directorio_temporal}/go-test-o304.log"
+    valor "SELECT public.exportar_entrada_go_o2_05('${caso}')" \
+        >"${entrada}"
+    chmod 600 "${entrada}"
+    if ! CGO_ENABLED=0 go test -c \
+        -o "${binario}" \
+        ./internal/modules/contrataciontemporal/application \
+        >"${diagnostico}" 2>&1; then
+        printf 'falló la compilación de la integración Go O3-04:\n' >&2
+        sed -n '1,240p' "${diagnostico}" >&2
+        return 1
+    fi
+    docker cp "${entrada}" "${contenedor}:/tmp/entrada-go-o304.json"
+    docker cp "${binario}" "${contenedor}:/tmp/contratacion-o304.test"
+    if ! docker exec \
+        --env VEC_O304_VECTOR_ENTRADA=/tmp/entrada-go-o304.json \
+        --env 'VEC_O304_DSN_RUNTIME=postgres://vec_ct_o205_runtime@/postgres?host=/var/run/postgresql&sslmode=disable' \
+        --env 'VEC_O304_DSN_ADMIN=postgres://postgres@/postgres?host=/var/run/postgresql&sslmode=disable' \
+        "${contenedor}" /tmp/contratacion-o304.test \
+        -test.run '^TestOperacionAnalisisPostgreSQLRecorreOrdenGoReal$' \
+        -test.count=1 -test.v >"${diagnostico}" 2>&1; then
+        printf 'falló el recorrido Go → PostgreSQL O3-04:\n' >&2
+        sed -n '1,320p' "${diagnostico}" >&2
+        return 1
+    fi
+    rm -f "${entrada}" "${binario}" "${diagnostico}"
+}
+
 source "${raiz}/deploy/postgresql/autorizacion_atestada_v3/pruebas_replay_o2_05.sh"
 source "${raiz}/deploy/postgresql/autorizacion_atestada_v3/pruebas_acl_o2_05.sh"
 source "${raiz}/deploy/postgresql/autorizacion_atestada_v3/pruebas_atomicidad_o2_05.sh"
@@ -438,11 +470,23 @@ paso 'confirmación O3 atómica, durable y con replay exacto'
 sql postgres \
     "BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE; SET LOCAL statement_timeout='15s'; SET LOCAL idle_in_transaction_session_timeout='20s'; SELECT public.preparar_vector_confirmacion_analisis_o3(); COMMIT" \
     >/dev/null
+sql postgres \
+    "UPDATE public.vector_confirmacion_analisis_o3 SET operacion=jsonb_set(operacion,'{expediente_siguiente,analisis,categoria_ref}','\"categoria:adulterada\"') WHERE caso='registrar'" \
+    >/dev/null
+esperar_fallo 'análisis distinto del autorizado' confirmar_analisis_o3
+[[ "$(valor "SELECT ((SELECT version FROM vec_contratacion_temporal.expediente_integral_actual WHERE expediente_ref='expediente:ct:o205:alta_valida')=1 AND (SELECT count(*) FROM vec_contratacion_temporal.confirmacion_operacion_analisis)=0)::text")" == 'true' ]]
+sql postgres \
+    "UPDATE public.vector_confirmacion_analisis_o3 SET operacion=jsonb_set(operacion,'{expediente_siguiente,analisis,categoria_ref}','\"categoria:auxiliar\"') WHERE caso='registrar'" \
+    >/dev/null
 analisis_primero="$(confirmar_analisis_o3)"
 analisis_replay="$(confirmar_analisis_o3)"
 [[ "${analisis_primero}" == "${analisis_replay}" ]]
 [[ "${analisis_primero}" == *'"version_resultante": 2'* ]]
 [[ "$(valor "SELECT ((SELECT count(*) FROM vec_contratacion_temporal.expediente_version_integral WHERE expediente_ref='expediente:ct:o205:alta_valida')=2 AND (SELECT version FROM vec_contratacion_temporal.expediente_integral_actual WHERE expediente_ref='expediente:ct:o205:alta_valida')=2 AND (SELECT count(*) FROM vec_contratacion_temporal.actuacion_expediente_integral)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.consumo_fuentes_analisis)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.consumo_decision_analisis)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.auditoria_expediente_integral)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.outbox_expediente_integral)=1 AND (SELECT count(*) FROM vec_contratacion_temporal.confirmacion_operacion_analisis)=1)::text")" == 'true' ]]
+paso 'recorrido real Go → PostgreSQL de análisis y replay'
+preparar go_analisis
+invocar go_analisis >/dev/null
+probar_recorrido_go_analisis_o304 go_analisis
 recibo_iso="$(recibo_con_estilo_fecha alta_valida 'ISO, YMD')"
 recibo_aleman="$(recibo_con_estilo_fecha alta_valida 'German, DMY')"
 [[ "${recibo_iso}" == "${recibo_aleman}" ]]

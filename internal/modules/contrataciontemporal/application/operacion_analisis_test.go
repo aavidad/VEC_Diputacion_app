@@ -76,12 +76,21 @@ func TestOperacionAnalisisRegistraDesdeArtefactoInterno(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	huellaAnalisis, err := ports.HuellaAnalisisDerivadoO3(
+		evidencia.SolicitudArtefacto,
+		evidencia.Artefacto,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if datosV3.Recurso.Atributos[ports.AtributoArtefactoAnalisisRef] !=
 		recibo.ArtefactoRef ||
 		datosV3.Recurso.Atributos[ports.AtributoArtefactoAnalisisHuella] !=
 			recibo.ArtefactoHuellaSHA256 ||
+		datosV3.Recurso.Atributos[ports.AtributoAnalisisDerivadoHuella] !=
+			huellaAnalisis ||
 		len(datosV3.Recurso.Ambitos) != 4 ||
-		len(datosV3.Recurso.Atributos) != 9 {
+		len(datosV3.Recurso.Atributos) != 10 {
 		t.Fatalf("recurso VEC V3 incompleto: %#v", datosV3.Recurso)
 	}
 }

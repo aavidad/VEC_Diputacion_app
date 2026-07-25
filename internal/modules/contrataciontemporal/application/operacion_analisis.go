@@ -364,12 +364,21 @@ func (s *ServicioOperacionAnalisis) ejecutar(
 		return ports.ReciboOperacionAnalisis{},
 			nuevoErrorOperacionAnalisis(tipoErrorDenegacion, nil)
 	}
+	huellaAnalisisDerivado, err := ports.HuellaAnalisisDerivadoO3(
+		solicitudArtefacto,
+		artefacto,
+	)
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{},
+			nuevoErrorOperacionAnalisis(tipoErrorResultado, nil)
+	}
 
 	solicitudV3, err := s.nuevaSolicitudAutorizacion(
 		ctxOperacion,
 		contextoAutorizacion,
 		datosPreparacion,
 		politica,
+		huellaAnalisisDerivado,
 	)
 	if err != nil {
 		return ports.ReciboOperacionAnalisis{},

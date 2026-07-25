@@ -166,16 +166,16 @@ BEGIN
             'motivo_clave', 'acumulacion_tareas',
             'detalle', 'Necesidad temporal de prueba O2-05',
             'periodo', jsonb_build_object(
-                'inicio', '2026-08-01',
-                'fin', '2026-08-31'
+                'inicio', '2026-08-01T00:00:00Z',
+                'fin', '2026-08-31T00:00:00Z'
             ),
             'rc', jsonb_build_object(
                 'existe', false,
                 'numero', '',
-                'fecha', '',
+                'fecha', '0001-01-01T00:00:00Z',
                 'importe', jsonb_build_object(
                     'centimos', 0,
-                    'moneda', 'EUR'
+                    'moneda', ''
                 ),
                 'documento_ref', ''
             ),

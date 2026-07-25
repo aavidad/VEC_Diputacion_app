@@ -90,6 +90,7 @@ func (s *ServicioOperacionAnalisis) nuevaSolicitudAutorizacion(
 	contexto ports.ContextoAutorizacionAltaV3,
 	preparacion ports.DatosPreparacionOperacionAnalisis,
 	politica ports.PoliticaOperacionAnalisis,
+	huellaAnalisisDerivado string,
 ) (dominiovec.SolicitudAutorizacionLigadaV3, error) {
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
 		ctx,
@@ -114,6 +115,7 @@ func (s *ServicioOperacionAnalisis) nuevaSolicitudAutorizacion(
 					"estado_previo":    string(politica.EstadoPrevio),
 				},
 				Atributos: map[string]string{
+					ports.AtributoAnalisisDerivadoHuella:  huellaAnalisisDerivado,
 					ports.AtributoOperacionAnalisis:       string(preparacion.Operacion),
 					ports.AtributoVersionAnalisis:         strconv.FormatUint(preparacion.VersionExpediente, 10),
 					ports.AtributoPoliticaAnalisisRef:     politica.DefinicionRef,

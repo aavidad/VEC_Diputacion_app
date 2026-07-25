@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -27,6 +28,7 @@ type operacionConfirmarAnalisisV1 struct {
 	PerfilRef             string                      `json:"perfil_ref"`
 	ArtefactoRef          string                      `json:"artefacto_ref"`
 	ArtefactoHuellaSHA256 string                      `json:"artefacto_huella_sha256"`
+	AnalisisHuellaSHA256  string                      `json:"analisis_derivado_huella_sha256"`
 	AmbitoRaizHMAC        string                      `json:"ambito_raiz_hmac"`
 	HuellaSemanticaHMAC   string                      `json:"huella_semantica_hmac"`
 	AmbitoConsultaHMAC    string                      `json:"ambito_consulta_hmac"`
@@ -123,10 +125,41 @@ func nuevaOperacionConfirmarAnalisis(
 	aliases, errAliases := nuevosAliasesConsultaAnalisis(
 		evidencia.SolicitudPreparacion,
 	)
-	if err != nil || errFuentes != nil || errAutorizacion != nil ||
-		errAliases != nil || len(evidencia.ExpedienteSiguiente.Actuaciones) == 0 {
-		return operacionConfirmarAnalisisV1{},
-			ports.ErrOrdenOperacionAnalisisInvalida
+	huellaAnalisis, errHuellaAnalisis := ports.HuellaAnalisisDerivadoO3(
+		evidencia.SolicitudArtefacto,
+		evidencia.Artefacto,
+	)
+	switch {
+	case err != nil:
+		return operacionConfirmarAnalisisV1{}, fmt.Errorf(
+			"%w: preparación no proyectable",
+			ports.ErrOrdenOperacionAnalisisInvalida,
+		)
+	case errFuentes != nil:
+		return operacionConfirmarAnalisisV1{}, fmt.Errorf(
+			"%w: fuentes no proyectables",
+			ports.ErrOrdenOperacionAnalisisInvalida,
+		)
+	case errAutorizacion != nil:
+		return operacionConfirmarAnalisisV1{}, fmt.Errorf(
+			"%w: autorización no proyectable",
+			ports.ErrOrdenOperacionAnalisisInvalida,
+		)
+	case errAliases != nil:
+		return operacionConfirmarAnalisisV1{}, fmt.Errorf(
+			"%w: alias de consulta no proyectable",
+			ports.ErrOrdenOperacionAnalisisInvalida,
+		)
+	case errHuellaAnalisis != nil:
+		return operacionConfirmarAnalisisV1{}, fmt.Errorf(
+			"%w: análisis derivado no proyectable",
+			ports.ErrOrdenOperacionAnalisisInvalida,
+		)
+	case len(evidencia.ExpedienteSiguiente.Actuaciones) == 0:
+		return operacionConfirmarAnalisisV1{}, fmt.Errorf(
+			"%w: actuación ausente",
+			ports.ErrOrdenOperacionAnalisisInvalida,
+		)
 	}
 	indiceActuacion := len(evidencia.ExpedienteSiguiente.Actuaciones) - 1
 	actuacion := evidencia.ExpedienteSiguiente.Actuaciones[indiceActuacion]
@@ -140,6 +173,7 @@ func nuevaOperacionConfirmarAnalisis(
 		ActorRef:        preparacion.ActorRef, PerfilRef: preparacion.PerfilRef,
 		ArtefactoRef:          preparacion.ArtefactoRef,
 		ArtefactoHuellaSHA256: preparacion.ArtefactoHuellaSHA256,
+		AnalisisHuellaSHA256:  huellaAnalisis,
 		AmbitoRaizHMAC:        preparacion.AmbitoIdempotenciaHMAC,
 		HuellaSemanticaHMAC:   preparacion.HuellaSemanticaHMAC,
 		AmbitoConsultaHMAC:    preparacion.AmbitoConsultaHMAC,
@@ -299,7 +333,14 @@ func codificarOperacionConfirmarAnalisis(
 		return nil, err
 	}
 	contenido, err := json.Marshal(operacion)
-	if err != nil || len(contenido) == 0 || len(contenido) > 2*1024*1024 {
+	if err != nil {
+		return nil, fmt.Errorf(
+			"%w: proyección JSON rechazada: %v",
+			ports.ErrOrdenOperacionAnalisisInvalida,
+			err,
+		)
+	}
+	if len(contenido) == 0 || len(contenido) > 2*1024*1024 {
 		return nil, ports.ErrOrdenOperacionAnalisisInvalida
 	}
 	return contenido, nil

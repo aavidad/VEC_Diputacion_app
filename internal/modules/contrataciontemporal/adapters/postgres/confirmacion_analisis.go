@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -85,8 +86,13 @@ func (t *TransaccionOperacionesAnalisisPostgreSQL) confirmarEnTransaccion(
 	if err != nil {
 		return ports.ReciboOperacionAnalisis{}, err
 	}
+	ahora = normalizarInstantePostgreSQL(ahora)
 	if err := orden.ValidarConfirmacionDentroDeTransaccion(ahora); err != nil {
-		return ports.ReciboOperacionAnalisis{}, err
+		return ports.ReciboOperacionAnalisis{}, fmt.Errorf(
+			"%w: vigencia precommit PostgreSQL en %s",
+			err,
+			ahora.UTC().Format("2006-01-02T15:04:05.000000Z"),
+		)
 	}
 	var reciboJSON string
 	err = tx.QueryRow(ctx, `
@@ -107,6 +113,10 @@ func (t *TransaccionOperacionesAnalisisPostgreSQL) confirmarEnTransaccion(
 		return ports.ReciboOperacionAnalisis{}, err
 	}
 	return recibo, nil
+}
+
+func normalizarInstantePostgreSQL(instante time.Time) time.Time {
+	return instante.UTC().Truncate(time.Microsecond)
 }
 
 func (t *TransaccionOperacionesAnalisisPostgreSQL) iniciar(

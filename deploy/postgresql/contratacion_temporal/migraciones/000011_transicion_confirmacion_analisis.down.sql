@@ -14,4 +14,12 @@ DROP FUNCTION
         jsonb, jsonb
     );
 
+DROP FUNCTION
+    vec_contratacion_temporal.huella_analisis_derivado_v1(jsonb);
+
+DROP FUNCTION
+    vec_contratacion_temporal.normalizar_agregado_dominio_analisis_v1(
+        jsonb
+    );
+
 COMMIT;

@@ -39,6 +39,7 @@ DECLARE
     v_valida_hasta_z text;
     v_efecto_z text;
     v_contexto_huella text;
+    v_analisis_huella text;
     v_prueba_fuentes bytea;
 BEGIN
     SELECT * INTO STRICT r
@@ -112,6 +113,11 @@ BEGIN
             (v_anterior -> 'actuaciones') ||
             pg_catalog.jsonb_build_array(v_actuacion)
     );
+    v_analisis_huella :=
+        vec_contratacion_temporal.huella_analisis_derivado_v1(v_analisis);
+    IF v_analisis_huella IS NULL THEN
+        RAISE EXCEPTION 'no se pudo derivar la huella del análisis O3';
+    END IF;
     v_fuente_rc := pg_catalog.jsonb_build_object(
         'tipo', 'validacion_rc',
         'peticion_ref', 'peticion:fuente:rc:o3',
@@ -159,6 +165,7 @@ BEGIN
         'perfil_ref', r.perfil_ref,
         'artefacto_ref', r.artefacto_ref,
         'artefacto_huella_sha256', r.artefacto_huella_sha256,
+        'analisis_derivado_huella_sha256', v_analisis_huella,
         'ambito_raiz_hmac', r.ambito_raiz_hmac,
         'huella_semantica_hmac', r.huella_semantica_raiz_hmac,
         'ambito_consulta_hmac', r.ambito_raiz_hmac,

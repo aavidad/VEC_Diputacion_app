@@ -332,6 +332,18 @@ func nuevoPreparadorArtefactoAnalisisO3AplicacionPrueba(
 	t *testing.T,
 	instante time.Time,
 ) ports.PreparadorArtefactoAnalisisO3 {
+	return nuevoPreparadorArtefactoAnalisisO3AplicacionPruebaParaOrganizacion(
+		t,
+		instante,
+		organizacionFuentesAplicacionPrueba,
+	)
+}
+
+func nuevoPreparadorArtefactoAnalisisO3AplicacionPruebaParaOrganizacion(
+	t *testing.T,
+	instante time.Time,
+	organizacionRef string,
+) ports.PreparadorArtefactoAnalisisO3 {
 	t.Helper()
 	publicaRaiz, privadaRaiz, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -353,7 +365,7 @@ func nuevoPreparadorArtefactoAnalisisO3AplicacionPrueba(
 				RaizClaveID:        raizFuentesAplicacionPrueba,
 				AutoridadRef:       autoridadRef,
 				BackendRef:         backendRef,
-				OrganizacionRef:    organizacionFuentesAplicacionPrueba,
+				OrganizacionRef:    organizacionRef,
 				Audiencia:          audienciaFuentesAplicacionPrueba,
 				Rol:                rol,
 				Serie:              1,
@@ -402,7 +414,7 @@ func nuevoPreparadorArtefactoAnalisisO3AplicacionPrueba(
 	calculador.claveHMAC = claveHMAC[:]
 	verificador.claveHMAC = claveHMAC[:]
 	confianza, err := ports.NuevaConfianzaAutoridadesFuenteAnalisis(
-		organizacionFuentesAplicacionPrueba,
+		organizacionRef,
 		audienciaFuentesAplicacionPrueba,
 		[]ports.RaizConfianzaAutoridadFuenteAnalisis{{
 			ClaveID:             raizFuentesAplicacionPrueba,

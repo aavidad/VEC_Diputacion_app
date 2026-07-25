@@ -2,7 +2,9 @@ package ports
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -12,6 +14,7 @@ const (
 	esquemaAmbitoOperacionAnalisis    = "VEC-CT-ANALISIS-AMBITO-IDEMPOTENCIA-V2"
 	esquemaSemanticaOperacionAnalisis = "VEC-CT-ANALISIS-SEMANTICA-ARTEFACTO-O3-V2"
 	esquemaConsultaOperacionAnalisis  = "VEC-CT-ANALISIS-CONSULTA-CONFIRMADA-O3-V1"
+	esquemaAnalisisDerivadoO3         = "VEC-CT-ANALISIS-DERIVADO-O3-V1"
 	maximoBytesCanonOperacionAnalisis = 64 * 1024
 )
 
@@ -158,6 +161,83 @@ func NuevasPreimagenesOperacionAnalisis(
 		ambito:    bytesAmbito,
 		semantica: bytesSemantica,
 	}, nil
+}
+
+// HuellaAnalisisDerivadoO3 vincula la decisión de autorización con el
+// contenido funcional exacto que debe persistirse. El vínculo con la
+// actuación se valida aparte porque solo nace al aplicar la operación.
+func HuellaAnalisisDerivadoO3(
+	solicitud SolicitudPrepararArtefactoAnalisis,
+	artefacto ArtefactoAnalisisPreparado,
+) (string, error) {
+	analisis, err := DerivarAnalisisDesdeArtefacto(solicitud, artefacto)
+	if err != nil {
+		return "", ErrArtefactoAnalisisNoConfiable
+	}
+	return huellaAnalisisDerivadoO3(analisis)
+}
+
+func huellaAnalisisDerivadoDesdeDatosO3(
+	datos DatosArtefactoAnalisis,
+) (string, error) {
+	analisis, err := derivarAnalisisDesdeDatosArtefacto(datos)
+	if err != nil {
+		return "", ErrArtefactoAnalisisNoConfiable
+	}
+	return huellaAnalisisDerivadoO3(analisis)
+}
+
+func huellaAnalisisDerivadoO3(
+	analisis domain.AnalisisRRHH,
+) (string, error) {
+	canon := nuevoCanonOperacionAnalisis()
+	canon.texto(esquemaAnalisisDerivadoO3)
+	canon.texto(string(analisis.ModalidadClave))
+	canon.texto(analisis.CategoriaRef)
+	canon.texto(analisis.GrupoSubgrupo)
+	canon.texto(string(analisis.CausaClave))
+	canon.instante(analisis.Periodo.Inicio)
+	canon.instante(analisis.Periodo.Fin)
+	canon.enteroSinSigno(uint64(analisis.PorcentajeJornada))
+	canon.texto(analisis.EntradaRCEsperada.Referencia)
+	canon.texto(analisis.EntradaRCEsperada.HuellaSHA256)
+	escribirValidacionRCCanonica(canon, analisis.ValidacionRC)
+	canon.booleano(analisis.CostePrevisto != nil)
+	if analisis.CostePrevisto != nil {
+		canon.enteroConSigno(analisis.CostePrevisto.Centimos)
+		canon.texto(analisis.CostePrevisto.Moneda)
+		canon.texto(analisis.FuenteCosteRef)
+	}
+	contenido, err := canon.resultado()
+	if err != nil {
+		return "", ErrArtefactoAnalisisNoConfiable
+	}
+	huella := sha256.Sum256(contenido)
+	return hex.EncodeToString(huella[:]), nil
+}
+
+func escribirValidacionRCCanonica(
+	canon *canonOperacionAnalisis,
+	validacion domain.ValidacionRC,
+) {
+	canon.texto(string(validacion.Resultado))
+	canon.texto(validacion.EntradaRef)
+	canon.texto(validacion.HuellaEntradaSHA256)
+	canon.texto(validacion.FuenteRef)
+	canon.texto(validacion.ReciboRef)
+	canon.instante(validacion.ValidadaEn)
+	canon.booleano(validacion.FechaRC != nil)
+	if validacion.FechaRC != nil {
+		canon.instante(*validacion.FechaRC)
+	}
+	canon.texto(validacion.Numero)
+	canon.booleano(validacion.Importe != nil)
+	if validacion.Importe != nil {
+		canon.enteroConSigno(validacion.Importe.Centimos)
+		canon.texto(validacion.Importe.Moneda)
+	}
+	canon.texto(validacion.DocumentoRef)
+	canon.texto(validacion.Motivo)
 }
 
 func escribirAmbitoOperacionAnalisis(
