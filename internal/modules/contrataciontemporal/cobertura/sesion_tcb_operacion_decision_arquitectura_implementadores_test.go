@@ -2,7 +2,6 @@ package cobertura
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 	"go/types"
 	"sort"
@@ -339,56 +338,29 @@ func hallarIncorporacionesFronteraNominal(
 		return nil, err
 	}
 	hallazgos := make([]hallazgoFronteraNominal, 0)
-	registrar := func(posicion token.Pos, origen string, tipo types.Type) {
-		if !tipoIncorporaFronteraNominal(
-			tipo,
+	for _, entrada := range inventariarFronteraNominal(paquete) {
+		incorpora := tipoIncorporaFronteraNominal(
+			entrada.tipo,
 			frontera,
 			make(map[types.Type]bool),
-		) {
-			return
+		)
+		if !incorpora && entrada.referenciaDirectaEsBypass {
+			incorpora = tipoContieneReferenciaFronteraNominal(
+				entrada.tipo,
+				frontera,
+				make(map[types.Type]bool),
+			)
+		}
+		if !incorpora {
+			continue
 		}
 		hallazgos = append(hallazgos, hallazgoFronteraNominal{
-			posicion: posicion,
-			origen:   origen,
-			tipo: types.TypeString(tipo, func(*types.Package) string {
+			posicion: entrada.posicion,
+			origen:   entrada.origen,
+			tipo: types.TypeString(entrada.tipo, func(*types.Package) string {
 				return ""
 			}),
 		})
-	}
-	for identificador, objeto := range paquete.info.Defs {
-		if objeto != nil {
-			registrar(
-				identificador.Pos(),
-				"declaración "+identificador.Name,
-				objeto.Type(),
-			)
-		}
-	}
-	definicionesPropias := make(map[token.Pos]struct{})
-	if paquete.metadatos.ImportPath == rutaPaqueteCoberturaSesionTCB {
-		for _, fichero := range paquete.ficheros {
-			ast.Inspect(fichero, func(nodo ast.Node) bool {
-				tipo, correcto := nodo.(*ast.TypeSpec)
-				if !correcto {
-					return true
-				}
-				if tipo.Name.Name == "TransaccionOperacionDecisionCobertura" ||
-					tipo.Name.Name == implementacionNominalSesionTCB {
-					definicionesPropias[tipo.Type.Pos()] = struct{}{}
-				}
-				return true
-			})
-		}
-	}
-	for expresion, valor := range paquete.info.Types {
-		if _, propia := definicionesPropias[expresion.Pos()]; propia {
-			continue
-		}
-		registrar(
-			expresion.Pos(),
-			"expresión de tipo o valor",
-			valor.Type,
-		)
 	}
 	sort.Slice(hallazgos, func(i, j int) bool {
 		if hallazgos[i].posicion != hallazgos[j].posicion {

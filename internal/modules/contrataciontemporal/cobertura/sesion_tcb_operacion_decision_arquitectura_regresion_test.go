@@ -6,6 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"strings"
 	"testing"
 )
 
@@ -70,47 +71,151 @@ func TestArquitecturaInventarioNominalDetectaCadaBypass(
 	const cabecera = `package bypass
 import cobertura "vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
 `
-	casos := map[string]string{
-		"alias con nombre sin TCB": cabecera + `
+	casos := []struct {
+		nombre         string
+		fuente         string
+		origenEsperado string
+	}{
+		{
+			nombre: "TypeName alias con nombre sin TCB",
+			fuente: cabecera + `
 type AccesoOperacion = cobertura.TransaccionOperacionDecisionCobertura
 `,
-		"interfaz definida embebida": cabecera + `
+			origenEsperado: "alias o reexportación nominal AccesoOperacion",
+		},
+		{
+			nombre: "alias compuesto reexporta sin implementar",
+			fuente: cabecera + `
+type Transporte = []cobertura.TransaccionOperacionDecisionCobertura
+`,
+			origenEsperado: "alias o reexportación nominal Transporte",
+		},
+		{
+			nombre: "TypeName de interfaz definida embebida",
+			fuente: cabecera + `
 type AccesoOperacion interface {
 	cobertura.TransaccionOperacionDecisionCobertura
 }
 `,
-		"alias de interfaz embebida": cabecera + `
+			origenEsperado: "TypeName nominal AccesoOperacion",
+		},
+		{
+			nombre: "interfaz embebida explícita",
+			fuente: cabecera + `
+type AccesoOperacion interface {
+	cobertura.TransaccionOperacionDecisionCobertura
+}
+`,
+			origenEsperado: "interfaz embebida",
+		},
+		{
+			nombre: "alias de interfaz embebida",
+			fuente: cabecera + `
 type AccesoOperacion = interface {
 	cobertura.TransaccionOperacionDecisionCobertura
 }
 `,
-		"interfaz anónima en valor": cabecera + `
+			origenEsperado: "alias o reexportación nominal AccesoOperacion",
+		},
+		{
+			nombre: "interfaz anónima en variable",
+			fuente: cabecera + `
 var acceso interface {
 	cobertura.TransaccionOperacionDecisionCobertura
 }
 `,
-		"struct nombrado con embedding": cabecera + `
+			origenEsperado: "variable acceso",
+		},
+		{
+			nombre: "función con tipos anónimos",
+			fuente: cabecera + `
+func transportar(
+	acceso interface {
+		cobertura.TransaccionOperacionDecisionCobertura
+	},
+) interface {
+	cobertura.TransaccionOperacionDecisionCobertura
+} {
+	return acceso
+}
+`,
+			origenEsperado: "función transportar",
+		},
+		{
+			nombre: "campo con tipo anónimo",
+			fuente: cabecera + `
+type Servicio struct {
+	acceso interface {
+		cobertura.TransaccionOperacionDecisionCobertura
+	}
+}
+`,
+			origenEsperado: "campo acceso",
+		},
+		{
+			nombre: "struct nombrado con embedding",
+			fuente: cabecera + `
 type AccesoOperacion struct {
 	cobertura.TransaccionOperacionDecisionCobertura
 }
 `,
-		"valor de struct anónimo": cabecera + `
+			origenEsperado: "campo embebido de struct",
+		},
+		{
+			nombre: "variable de struct anónimo",
+			fuente: cabecera + `
 var acceso struct {
 	cobertura.TransaccionOperacionDecisionCobertura
 }
 `,
-		"literal local de struct anónimo": cabecera + `
+			origenEsperado: "variable acceso",
+		},
+		{
+			nombre: "literal local de struct anónimo",
+			fuente: cabecera + `
 func ocultar() {
 	_ = struct {
 		cobertura.TransaccionOperacionDecisionCobertura
 	}{}
 }
 `,
+			origenEsperado: "tipo struct anónimo",
+		},
+		{
+			nombre: "alias local sin TCB",
+			fuente: cabecera + `
+func ocultar() {
+	type Pasarela = cobertura.TransaccionOperacionDecisionCobertura
+	var _ Pasarela
+}
+`,
+			origenEsperado: "alias o reexportación nominal Pasarela",
+		},
+		{
+			nombre: "variable de función anónima",
+			fuente: cabecera + `
+var ejecutar func(interface {
+	cobertura.TransaccionOperacionDecisionCobertura
+})
+`,
+			origenEsperado: "variable ejecutar",
+		},
+		{
+			nombre: "parámetro de tipo con restricción anónima",
+			fuente: cabecera + `
+type Caja[T interface {
+	cobertura.TransaccionOperacionDecisionCobertura
+}] struct {
+	valor T
+}
+`,
+			origenEsperado: "tipo interface anónimo",
+		},
 	}
-	for nombre, fuente := range casos {
-		t.Run(nombre, func(t *testing.T) {
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
 			paquete, _, err := analizarBypassFronteraNominalPrueba(
-				fuente,
+				caso.fuente,
 				analisis.cobertura,
 			)
 			if err != nil {
@@ -126,12 +231,82 @@ func ocultar() {
 			if len(hallazgos) == 0 {
 				t.Fatal("el bypass no fue detectado")
 			}
+			if !hallazgosContienenOrigen(
+				hallazgos,
+				caso.origenEsperado,
+			) {
+				t.Fatalf(
+					"no se detectó por %q; hallazgos: %v",
+					caso.origenEsperado,
+					hallazgos,
+				)
+			}
 			for _, hallazgo := range hallazgos {
 				if hallazgo.tipo == "invalid type" {
 					t.Fatal("el bypass solo produjo ruido de go/types")
 				}
 			}
 		})
+	}
+}
+
+func hallazgosContienenOrigen(
+	hallazgos []hallazgoFronteraNominal,
+	esperado string,
+) bool {
+	for _, hallazgo := range hallazgos {
+		if strings.Contains(hallazgo.origen, esperado) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestArquitecturaFronteraNominalNoEsForjableFueraDelPaquete(
+	t *testing.T,
+) {
+	analisis := obtenerAnalisisArquitecturaSesionTCB(t)
+	metodoSellado := analisis.interfazNominal.ExplicitMethod(0)
+	firmaSellada, correcta := metodoSellado.Type().(*types.Signature)
+	if !correcta {
+		t.Fatal("el método sellado dejó de tener firma")
+	}
+
+	paqueteAjeno := types.NewPackage(
+		"vec-diputacion-granada/pruebas/forja-frontera",
+		"forja",
+	)
+	nombre := types.NewTypeName(
+		token.NoPos,
+		paqueteAjeno,
+		"TransaccionFalsa",
+		nil,
+	)
+	falso := types.NewNamed(nombre, types.NewStruct(nil, nil), nil)
+	receptor := types.NewVar(
+		token.NoPos,
+		paqueteAjeno,
+		"",
+		types.NewPointer(falso),
+	)
+	firmaFalsa := types.NewSignatureType(
+		receptor,
+		nil,
+		nil,
+		firmaSellada.Params(),
+		firmaSellada.Results(),
+		firmaSellada.Variadic(),
+	)
+	falso.AddMethod(types.NewFunc(
+		token.NoPos,
+		paqueteAjeno,
+		metodoSellado.Name(),
+		firmaFalsa,
+	))
+
+	if types.Implements(falso, analisis.interfazNominal) ||
+		types.Implements(types.NewPointer(falso), analisis.interfazNominal) {
+		t.Fatal("un paquete ajeno forjó la operación privada de la frontera")
 	}
 }
 
@@ -172,6 +347,83 @@ func nuevoServicio(
 			hallazgo.tipo,
 			conjunto.Position(hallazgo.posicion),
 		)
+	}
+}
+
+func TestArquitecturaInventarioGoTypesEnumeraTodasLasCategorias(
+	t *testing.T,
+) {
+	analisis := obtenerAnalisisArquitecturaSesionTCB(t)
+	const fuente = `package bypass
+import cobertura "vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
+
+type Escalar = int
+type Nominal int
+type Base interface {
+	base()
+}
+type Extendida interface {
+	Base
+}
+type Registro struct {
+	Nominal
+	transaccion cobertura.TransaccionOperacionDecisionCobertura
+	anonima interface {
+		permitida()
+	}
+}
+
+const marca Nominal = 1
+var permitida cobertura.TransaccionOperacionDecisionCobertura
+var lista []int
+var indice map[string]int
+var cola chan int
+var ejecutar func(cobertura.TransaccionOperacionDecisionCobertura)
+
+func usar(
+	transaccion cobertura.TransaccionOperacionDecisionCobertura,
+) cobertura.TransaccionOperacionDecisionCobertura {
+	return transaccion
+}
+`
+	paquete, _, err := analizarBypassFronteraNominalPrueba(
+		fuente,
+		analisis.cobertura,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entradas := inventariarFronteraNominal(paquete)
+	esperadas := []string{
+		"alias o reexportación nominal Escalar",
+		"TypeName nominal Nominal",
+		"interfaz embebida",
+		"campo embebido Nominal",
+		"campo transaccion",
+		"constante marca",
+		"variable permitida",
+		"función usar",
+		"tipo struct anónimo",
+		"tipo interface anónimo",
+		"tipo función anónimo",
+		"tipo array o slice anónimo",
+		"tipo map anónimo",
+		"tipo canal anónimo",
+	}
+	for _, esperada := range esperadas {
+		encontrada := false
+		for _, entrada := range entradas {
+			if strings.Contains(entrada.origen, esperada) {
+				encontrada = true
+				break
+			}
+		}
+		if !encontrada {
+			t.Errorf(
+				"categoría go/types %q ausente del inventario",
+				esperada,
+			)
+		}
 	}
 }
 
@@ -229,25 +481,91 @@ type transaccionOperacionDecisionCoberturaTCB struct{}
 
 func (*transaccionOperacionDecisionCoberturaTCB) confirmar() {}
 `
-	casos := map[string]string{
-		"alias": `
+	casos := []struct {
+		nombre         string
+		bypass         string
+		origenEsperado string
+	}{
+		{
+			nombre: "alias",
+			bypass: `
 type AccesoOperacion = TransaccionOperacionDecisionCobertura
 `,
-		"interfaz embebida": `
+			origenEsperado: "alias o reexportación nominal AccesoOperacion",
+		},
+		{
+			nombre: "alias compuesto sin TCB",
+			bypass: `
+type Transporte = []TransaccionOperacionDecisionCobertura
+`,
+			origenEsperado: "alias o reexportación nominal Transporte",
+		},
+		{
+			nombre: "interfaz embebida",
+			bypass: `
 type AccesoOperacion interface {
 	TransaccionOperacionDecisionCobertura
 }
 `,
-		"struct anónimo": `
+			origenEsperado: "interfaz embebida",
+		},
+		{
+			nombre: "variable con interfaz anónima",
+			bypass: `
+var acceso interface {
+	TransaccionOperacionDecisionCobertura
+}
+`,
+			origenEsperado: "variable acceso",
+		},
+		{
+			nombre: "función con interfaz anónima",
+			bypass: `
+func transportar(
+	acceso interface {
+		TransaccionOperacionDecisionCobertura
+	},
+) {
+	_ = acceso
+}
+`,
+			origenEsperado: "función transportar",
+		},
+		{
+			nombre: "campo con interfaz anónima",
+			bypass: `
+type Servicio struct {
+	acceso interface {
+		TransaccionOperacionDecisionCobertura
+	}
+}
+`,
+			origenEsperado: "campo acceso",
+		},
+		{
+			nombre: "struct anónimo",
+			bypass: `
 var acceso struct {
 	TransaccionOperacionDecisionCobertura
 }
 `,
+			origenEsperado: "tipo struct anónimo",
+		},
+		{
+			nombre: "alias local",
+			bypass: `
+func ocultar() {
+	type Pasarela = TransaccionOperacionDecisionCobertura
+	var _ Pasarela
+}
+`,
+			origenEsperado: "alias o reexportación nominal Pasarela",
+		},
 	}
-	for nombre, bypass := range casos {
-		t.Run(nombre, func(t *testing.T) {
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
 			paquete, err := analizarBypassEnPropietarioPrueba(
-				base + bypass,
+				base + caso.bypass,
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -261,6 +579,16 @@ var acceso struct {
 			}
 			if len(hallazgos) == 0 {
 				t.Fatal("el bypass interno no fue detectado")
+			}
+			if !hallazgosContienenOrigen(
+				hallazgos,
+				caso.origenEsperado,
+			) {
+				t.Fatalf(
+					"no se detectó por %q; hallazgos: %v",
+					caso.origenEsperado,
+					hallazgos,
+				)
 			}
 		})
 	}
