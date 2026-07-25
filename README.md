@@ -41,6 +41,7 @@ llamamientos.
 - [Matriz normativa europea, española y andaluza](docs/portal_vec/matriz_normativa_contratacion_temporal_2026-07-23.md)
 - [Relevo técnico del frente activo](docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md)
 - [Persistencia atómica del análisis de RRHH O3-04](docs/portal_vec/o3_04_persistencia_analisis_rrhh_2026-07-24.md)
+- [Revisión independiente final O3-04](docs/portal_vec/revisiones/o3_04_revision_independiente_final_2026-07-24.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
 
@@ -54,11 +55,12 @@ La presentación reproduce las diecisiete pantallas remitidas por RRHH y está
 verde en tres tamaños de escritorio, pero no se contabiliza como flujo
 administrativo productivo.
 
-El análisis de RRHH O3-04 dispone ya de confirmación PostgreSQL atómica:
+El análisis de RRHH O3-04 queda cerrado en `2834783` con `GO` independiente:
 consume la decisión VEC y las fuentes atestadas, aplica CAS y publica versión,
-actuación, auditoría, outbox y recibo con replay exacto. Continúa como candidato
-hasta completar el recorrido positivo del adaptador Go contra PostgreSQL, los
-escenarios de resultado ambiguo/reinicio y la revisión independiente.
+actuación, auditoría, outbox y recibo con replay exacto. El recorrido real
+Go → PostgreSQL, resultado ambiguo, reinicio, cancelación, trece rollbacks,
+concurrencia, RC/coste y rectificación segregada están probados. El siguiente
+objetivo del camino crítico es O4-03.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es

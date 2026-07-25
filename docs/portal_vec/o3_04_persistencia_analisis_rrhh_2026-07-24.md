@@ -29,10 +29,12 @@ confirmar la transacción nunca se presenta como durable.
 | Reservas durables | `e835280` | HMAC generacional, referencias deterministas, replay, conflicto y prueba PostgreSQL 18. |
 | Contrato canónico de confirmación | `995656b` | La serialización Go conserva política, sello de fuente, publicación gobernada y pruebas canónicas; PostgreSQL reconstruye y coteja las huellas exactas. |
 | Confirmación SQL atómica | `74f0702` | CAS, versión 2, actuación, consumo de decisión y fuentes, auditoría, outbox y recibo en un único `COMMIT`; replay exacto y PostgreSQL 18 verdes. |
+| Cierre endurecido V3 | `2834783` | Restaura las migraciones históricas, añade actualizaciones compatibles, liga todos los campos autorizados, prueba registro con RC/coste, rectificación, trece rollbacks, cancelación y cuatro sesiones concurrentes. |
 
-La frontera PostgreSQL ya confirma análisis. Este corte no habilita producción:
-faltan el ensayo positivo Go → PostgreSQL con la orden real, una revisión
-independiente y la composición del caso de uso.
+La frontera PostgreSQL confirma análisis y O3-04 está cerrada con
+[GO independiente](revisiones/o3_04_revision_independiente_final_2026-07-24.md).
+Este corte no habilita producción: O3-05, composición, identidad real y
+aceptaciones formales conservan sus propias puertas.
 
 ## Fronteras de autoridad
 
@@ -52,30 +54,29 @@ independiente y la composición del caso de uso.
 
 El runner
 `deploy/postgresql/autorizacion_atestada_v3/probar_integracion_o2_05.sh`
-instala las doce migraciones de Contratación y ejecuta la confirmación O3 con
+instala las quince migraciones de Contratación y ejecuta la confirmación O3 con
 PostgreSQL 18 real en un contenedor efímero sin red ni puertos. Comprueba:
 
 - decisión VEC V3 viva y ligada al contexto exacto;
-- pruebas canónicas de RC y coste, con sello y publicación del motivo;
-- transición registrar/rectificar, política, fase y segregación;
-- versión integral 2 y puntero CAS;
+- pruebas canónicas de RC y coste, con sello, publicación y vínculo exacto;
+- transición registrar/rectificar, política, unidad, motivo y segregación;
+- historia integral 1–2–3 y puntero CAS;
 - actuación, consumos, auditoría encadenada, outbox encadenado y recibo;
-- replay exacto sin duplicados;
+- replay exacto sin duplicados y rechazo del replay divergente;
+- rollback exacto en los trece puntos de escritura durable;
+- cancelación antes de `COMMIT` y carrera real de cuatro sesiones;
 - ACL, RLS, inmutabilidad y reversión protegida;
 - reinstalación y retirada completa sin historia.
 
 Las pruebas focales Go, con carrera, y `go vet` del dominio, aplicación,
 puertos y adaptador PostgreSQL también están verdes.
 
-## Siguiente incremento verificable
+## Cierre y siguiente incremento
 
-Para cerrar formalmente O3-04 se debe:
+O3-04 supera el recorrido Go → PostgreSQL, replay, cancelación, resultado
+ambiguo, reinicio, concurrencia y revisión independiente. Se contabiliza como
+la tarea 17 de 46.
 
-- ejecutar desde Go una orden funcional real contra PostgreSQL 18 y acreditar
-  que el JSON emitido coincide con el contrato SQL;
-- probar desde ese recorrido replay, cancelación antes de `COMMIT`, respuesta
-  perdida y reinicio;
-- revisar de forma independiente la frontera completa y corregir cualquier
-  hallazgo antes de registrar el cierre en el tablero.
-
-No se contabiliza O3-04 como cerrada hasta superar esas tres condiciones.
+El siguiente incremento del camino crítico es O4-03: propuesta y decisión
+motivada de la vía de cobertura, incluida la rectificación y los resultados
+contradictorios o ausentes.

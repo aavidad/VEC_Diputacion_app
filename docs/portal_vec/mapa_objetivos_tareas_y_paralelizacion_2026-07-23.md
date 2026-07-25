@@ -10,12 +10,12 @@ temporal. El detalle verificable de cada tarea está en el
 
 | Indicador | Estado actual |
 | --- | --- |
-| Objetivo activo | O3-04 — persistencia atómica del análisis de RRHH |
-| Camino crítico | O3-04 PostgreSQL → O4-03 decisión → O4-04 PostgreSQL → O5-01 PostgreSQL → composición → API/web → E2E |
+| Objetivo activo | O4-03 — propuesta y decisión motivada de cobertura |
+| Camino crítico | O4-03 decisión → O4-04 PostgreSQL → O5-01 PostgreSQL → composición → API/web → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
-| Procedimiento completo | 16 de 46 tareas cerradas (35 %); O4-02 ya está integrado |
-| Último commit verificado | `74f0702` — confirmación atómica del análisis probada en PostgreSQL 18 |
-| Trabajo local en revisión | O3-04 ya confirma el análisis y sus pruebas en un solo `COMMIT`, con replay exacto. Faltan la prueba positiva Go → PostgreSQL, escenarios ambiguos/reinicio y revisión independiente. |
+| Procedimiento completo | 17 de 46 tareas cerradas (37 %); O3-04 ya tiene `GO` independiente |
+| Último commit verificado | `2834783` — frontera durable V3 del análisis, probada de Go a PostgreSQL 18 |
+| Trabajo local en revisión | Ninguno de O3-04. El siguiente corte acotado es el caso de uso O4-03. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -23,11 +23,10 @@ La primera cifra mide las diez tareas de O2. La segunda mide las 46 tareas del
 procedimiento temporal completo; ninguna representa por sí sola el porcentaje
 de todo VEP.
 
-La implementación de O3-04 no aumenta todavía el número de tareas cerradas:
-`a3e0cf5`–`74f0702` son incrementos verificables de una misma tarea y no se
-contabilizan como funcionalidad productiva hasta cerrar su transacción final,
-el recorrido positivo desde Go, los fallos ambiguos y la revisión
-independiente.
+O3-04 se contabiliza tras el corrector `2834783` y su
+[GO independiente](revisiones/o3_04_revision_independiente_final_2026-07-24.md).
+Sus incrementos anteriores permanecen trazados, incluido el `NO-GO` del
+candidato `88d3250`; no se ha reescrito la historia para obtener el cierre.
 
 ## Mapa de objetivos
 
@@ -200,8 +199,8 @@ Estado actual:
 
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
-Tareas verificadas del procedimiento: 16/46 = 35 %
-Tareas locales en revisión: cierre Go/revisión de O3-04 y candidatas O2-06/O5-01
+Tareas verificadas del procedimiento: 17/46 = 37 %
+Tareas locales en revisión: candidatas O2-06/O5-01; O4-03 pasa al frente activo
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

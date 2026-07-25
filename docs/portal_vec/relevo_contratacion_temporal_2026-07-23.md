@@ -163,9 +163,9 @@ ajenas.
   de datos y consume RC+coste+V3 junto con CAS, agregado, historia, auditoría,
   recibo y outbox en un solo `COMMIT`, con rollback total. Aplicación sólo
   valida defensivamente el recibo devuelto contra la orden, sin consultar un
-  reloj nuevo. El adaptador y la función PostgreSQL están implementados; sigue
-  pendiente el recorrido positivo Go → PostgreSQL, los fallos ambiguos y la
-  revisión independiente. No habilita producción.
+  reloj nuevo. El cierre `2834783` supera el recorrido Go → PostgreSQL, fallos
+  ambiguos, reinicio, concurrencia y revisión independiente. No habilita
+  producción por sí solo.
   Dos bloqueos posteriores obligaron a precisar el corte: aplicación valida
   primero cualquier recibo retornado, de modo que uno válido prueba el commit
   aunque coexista cancelación o error de transporte, mientras uno adulterado
@@ -176,10 +176,9 @@ ajenas.
   expediente, versión, artefacto, datos funcionales y motivo frente al replay
   temprano. La revisión independiente emitió GO. El candidato quedó integrado
   en `e9d461c` y volvió a superar focales ×20, carrera ×2, pruebas globales,
-  `go vet`, tamaños y secretos sobre el árbol conjunto. O3-02 está cerrada y
-  O3-04 dispone ya del efecto durable candidato. Permanece como limpieza baja
-  retirar dos ayudantes privados sin llamadas, sin efecto funcional ni
-  exposición.
+  `go vet`, tamaños y secretos sobre el árbol conjunto. O3-02 y O3-04 están
+  cerradas. Permanece como limpieza baja retirar dos ayudantes privados sin
+  llamadas, sin efecto funcional ni exposición.
 - `1faa8e7` implementa O3-03 con puertos neutrales para validación
   presupuestaria y cálculo de coste, ligadura de petición, copias defensivas,
   cancelación y fallo cerrado. La indisponibilidad nunca se convierte en «RC
@@ -492,14 +491,14 @@ como un solo límite de `COMMIT`, pero todavía no son durables. Evidencia:
 
 El adaptador Go de preparación `ff6c847` ya aplica JSON de lista positiva,
 reintento serializable y restauración estricta. O3-04 materializa ya la versión
-de análisis como candidato probado en PostgreSQL; O4-04 debe materializar la
+de análisis con `GO` independiente; O4-04 debe materializar la
 versión de cobertura antes de que O5 pueda bloquear y leer una instantánea
 autoritativa. Una tabla propia de O5 sería una segunda fuente de verdad y queda
 expresamente prohibida.
 
 ## Estado O3-04 al cierre del 24 de julio
 
-Los commits `a3e0cf5`–`74f0702` eliminan el primer bloqueo de O5 sin crear una
+Los commits `a3e0cf5`–`2834783` eliminan el primer bloqueo de O5 sin crear una
 fuente de verdad paralela:
 
 - `expediente_version_integral` conserva todas las versiones del agregado por
@@ -511,24 +510,23 @@ fuente de verdad paralela:
   clave idempotente original y solo reintenta `40001` o `40P01`;
 - el contrato canónico conserva la política exacta, la prueba del conjunto y
   el sello/publicación gobernada de cada fuente;
-- `confirmar_operacion_analisis_v1` revalida decisión y fuentes con el reloj
-  de base, aplica CAS y persiste versión 2, actuación, consumos, auditoría,
+- `confirmar_operacion_analisis_v3` revalida decisión y fuentes con el reloj
+  de base, aplica CAS y persiste versión, actuación, consumos, auditoría,
   outbox y recibo en un único `COMMIT`;
 - el runner PostgreSQL 18 instala, prueba y revierte las migraciones `000006`
-  a `000012`, incluidas confirmación positiva, replay exacto, RLS, ACL,
-  inmutabilidad y reversión protegida.
+  a `000015`, incluidas RC/coste, rectificación segregada, trece rollbacks,
+  cancelación, carrera de cuatro sesiones, replay, RLS, ACL, inmutabilidad y
+  reversión protegida.
 
-O3-04 permanece abierta solo como candidato de integración. Falta ejecutar una
-orden funcional completa desde el adaptador Go contra PostgreSQL 18 y cubrir
-cancelación antes del `COMMIT`, respuesta perdida y reinicio. Después debe
-superar revisión independiente. El recibo ya se valida en Go antes del
-`COMMIT`; ningún resultado previo al `COMMIT` se presenta como durable.
+O3-04 está cerrada con
+[GO independiente](revisiones/o3_04_revision_independiente_final_2026-07-24.md).
+El recibo se valida en Go antes del `COMMIT`; ningún resultado previo al
+`COMMIT` se presenta como durable.
 
 El orden vigente del camino crítico es:
 
 ```text
-O3-04 integración Go/PostgreSQL y revisión
-  → O4-03 decisión de cobertura
+O4-03 decisión de cobertura
   → O4-04 persistencia de cobertura
   → O5-01 persistencia de asignación
   → composición, API, web y E2E

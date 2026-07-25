@@ -8,15 +8,15 @@ temporal solicitado por RRHH, complementaria a Bolsa.
 **Frente conservado:** completar Bolsa conforme a esta misma tabla; el nuevo
 módulo no elimina ni sustituye sus capacidades.
 
-**Objetivo actual:** recorrer de forma real el alta de una solicitud de
-contratación temporal desde el portal interno hasta PostgreSQL, con identidad,
-autorización, idempotencia, auditoría, outbox y recibo.
+**Objetivo actual:** O4-03, propuesta y decisión motivada de la vía de
+cobertura, con resultados contradictorios o ausentes, rectificación y CAS.
 
-**Corte técnico más reciente:** la confirmación de análisis de RRHH O3-04 ya
-supera PostgreSQL 18: consume decisión y fuentes, aplica CAS y publica versión
-2, actuación, auditoría, outbox y recibo en un único `COMMIT`, con replay
-exacto. Falta su prueba positiva desde Go, la recuperación de resultados
-ambiguos/reinicio y revisión independiente; no se declara todavía integrada.
+**Corte técnico más reciente:** O3-04 queda cerrado en `2834783` con `GO`
+independiente. La confirmación del análisis de RRHH recorre Go → PostgreSQL 18,
+consume decisión y fuentes, aplica CAS y publica versión, actuación, auditoría,
+outbox y recibo en un único `COMMIT`. Replay exacto, trece rollbacks,
+cancelación, reinicio, cuatro sesiones concurrentes, RC/coste y rectificación
+segregada están probados. El procedimiento suma **17 de 46 tareas (37 %)**.
 
 Este es el tablero de seguimiento para dirección. Se actualiza antes del commit
 que cierre una capacidad o siempre que cambie el frente principal. Los códigos
