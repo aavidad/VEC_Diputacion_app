@@ -523,11 +523,27 @@ O3-04 está cerrada con
 El recibo se valida en Go antes del `COMMIT`; ningún resultado previo al
 `COMMIT` se presenta como durable.
 
+## Estado O4-03 al cierre del 25 de julio
+
+O4-03 queda técnicamente cerrada en `f5f5f5a`, con `GO` independiente. El
+orquestador nominal presenta la propuesta con autorización específica y
+decide o rectifica con replay, reserva, motivo gobernado, candidata VEC,
+confirmación única y reconciliación del resultado ambiguo. La rectificación
+conserva la referencia exacta a su antecedente y mantiene segregadas sus
+reglas.
+
+El cierre eleva el procedimiento a **18 de 46 tareas verificadas (39 %)**. No
+autoriza producción: no existe aún en esta ruta la persistencia PostgreSQL
+atómica, el consumo durable de C1/C2, la revocación viva dentro de la
+transacción, auditoría/outbox durables ni recibo recuperable tras reinicio.
+Todo ello corresponde a O4-04. El diseño de su sesión TCB está publicado en
+`3c49e1e`; no debe confundirse el contrato nominal ya probado con el efecto
+durable pendiente.
+
 El orden vigente del camino crítico es:
 
 ```text
-O4-03 decisión de cobertura
-  → O4-04 persistencia de cobertura
+O4-04 persistencia de cobertura
   → O5-01 persistencia de asignación
   → composición, API, web y E2E
 ```

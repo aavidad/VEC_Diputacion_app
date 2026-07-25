@@ -104,9 +104,11 @@ pendiente.
 Comprobar Bolsa, agotamiento, candidaturas, SAE y nueva convocatoria; justificar
 la vía elegida y conservar las fuentes utilizadas.
 
-Estado: catálogo O4-01 y consultas atestadas O4-02 cerrados. O4-03 está activo
-mediante microcortes de política/propuesta, evidencia completa y decisión
-humana autorizada; persistencia, interfaz y E2E corresponden a O4-04 y O4-05.
+Estado: catálogo O4-01, consultas atestadas O4-02 y orquestador nominal O4-03
+cerrados. `f5f5f5a` cubre propuesta, decisión y rectificación con `GO`
+independiente, pero no acredita persistencia productiva. O4-04 es el camino
+crítico activo para materializar `COMMIT`, consumo C1/C2, revocación viva,
+auditoría/outbox y recibo durables; interfaz y E2E corresponden a O4-05.
 
 ### O5. Asignación, informes y fiscalización
 

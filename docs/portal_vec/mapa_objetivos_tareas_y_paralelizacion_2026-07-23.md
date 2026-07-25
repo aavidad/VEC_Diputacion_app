@@ -1,6 +1,6 @@
 # Mapa de objetivos, tareas y paralelización
 
-Última actualización: 24 de julio de 2026.
+Última actualización: 25 de julio de 2026.
 
 Vista de dirección para revisar el avance del procedimiento de contratación
 temporal. El detalle verificable de cada tarea está en el
@@ -10,12 +10,12 @@ temporal. El detalle verificable de cada tarea está en el
 
 | Indicador | Estado actual |
 | --- | --- |
-| Objetivo activo | O4-03 — propuesta y decisión motivada de cobertura |
-| Camino crítico | O4-03 decisión → O4-04 PostgreSQL → O5-01 PostgreSQL → composición → API/web → E2E |
+| Objetivo activo | O4-04 — persistencia transaccional de la decisión de cobertura |
+| Camino crítico | O4-04 PostgreSQL → O5-01 PostgreSQL → composición → API/web → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
-| Procedimiento completo | 17 de 46 tareas cerradas (37 %); O3-04 ya tiene `GO` independiente |
-| Último commit verificado | `2834783` — frontera durable V3 del análisis, probada de Go a PostgreSQL 18 |
-| Trabajo local en revisión | Ninguno de O3-04. El siguiente corte acotado es el caso de uso O4-03. |
+| Procedimiento completo | 18 de 46 tareas cerradas (39 %); O4-03 ya tiene `GO` independiente |
+| Último commit verificado | `f5f5f5a` — orquestador nominal O4-03 de propuesta, decisión y rectificación |
+| Trabajo local en revisión | Primer corte acotado de la sesión TCB O4-04; todavía no cuenta como cierre ni persistencia productiva. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -27,6 +27,10 @@ O3-04 se contabiliza tras el corrector `2834783` y su
 [GO independiente](revisiones/o3_04_revision_independiente_final_2026-07-24.md).
 Sus incrementos anteriores permanecen trazados, incluido el `NO-GO` del
 candidato `88d3250`; no se ha reescrito la historia para obtener el cierre.
+
+O4-03 se contabiliza tras `f5f5f5a` y su `GO` independiente. Este cierre
+acredita el orquestador nominal, no persistencia, `COMMIT`, consumo durable de
+C1/C2 ni revocación viva; esas garantías corresponden a O4-04.
 
 ## Mapa de objetivos
 
@@ -199,8 +203,8 @@ Estado actual:
 
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
-Tareas verificadas del procedimiento: 17/46 = 37 %
-Tareas locales en revisión: candidatas O2-06/O5-01; O4-03 pasa al frente activo
+Tareas verificadas del procedimiento: 18/46 = 39 %
+Tareas locales en revisión: candidatas O2-06/O5-01 y primer corte TCB O4-04
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

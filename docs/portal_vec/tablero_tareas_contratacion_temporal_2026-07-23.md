@@ -1,6 +1,6 @@
 # Tablero de tareas verificables de contratación temporal
 
-Última actualización: 24 de julio de 2026.
+Última actualización: 25 de julio de 2026.
 
 Este tablero descompone los objetivos `O1` a `O8` en unidades que pueden
 revisarse, probarse y confirmarse en Git sin mezclar responsabilidades.
@@ -67,8 +67,8 @@ Estados:
 | --- | --- | --- | --- |
 | O4-01 | Catálogo versionado de vías y comprobaciones exigibles. | Publicación inmutable; nueva opción sin recompilar. | ✅ `dff8156`–`baebb55` |
 | O4-02 | Consultas minimizadas a Bolsa, SAE y convocatorias. | No accede a tablas ajenas; timeouts y procedencia registrada. | ✅ `913cb7a`, integrada en `0be7467`; GO independiente sin hallazgos, regresión temporal exacta ×100, focales ×50, carrera ×5, puertas globales, tamaños y secretos verdes. |
-| O4-03 | Caso de uso de propuesta y decisión motivada. | Resultados contradictorios, ausencia de datos, rectificación y CAS. | — |
-| O4-04 | Persistencia, autorización, auditoría y outbox. | PostgreSQL real, consumo único y recibo. | — |
+| O4-03 | Caso de uso de propuesta y decisión motivada. | Resultados contradictorios, ausencia de datos, rectificación y CAS. | ✅ `f5f5f5a`: orquestador nominal de proponer, decidir y rectificar; autorización específica, replay, reserva, motivo gobernado, confirmación única y reconciliación probados; `GO` independiente. No acredita persistencia productiva. |
+| O4-04 | Persistencia, autorización, auditoría y outbox. | PostgreSQL real, consumo único y recibo. | 🚧 Diseño de sesión TCB publicado en `3c49e1e`; faltan PostgreSQL real, `COMMIT` único, consumo C1/C2, revocación viva, auditoría/outbox y recibo durable. Es el camino crítico activo. |
 | O4-05 | API, pantalla comparativa y E2E. | La vía elegida muestra fuentes y justificación sin exponer PII indebida. | — |
 
 ## O5 — Asignación, informe jurídico y fiscalización

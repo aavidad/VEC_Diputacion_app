@@ -2,7 +2,8 @@
 
 Fecha: 24 de julio de 2026.
 
-Estado: implementación en curso. O4-03 continúa abierta.
+Estado: cierre técnico en `f5f5f5a`, con `GO` independiente. O4-04 continúa
+abierta y es el camino crítico activo.
 
 ## Objetivo
 
@@ -56,8 +57,8 @@ evidencias, política ni actuación. Tampoco existe rectificación segregada.
 | Lector PostgreSQL del análisis O3 | Cerrada | `89d8112`; lectura autoritativa, acotada y verificada contra el canon O3 |
 | Gobierno server-side de la operación | Cerrada | `c9dbb43`; catálogo, política, reloj, unidad, transición y motivo VEC no proceden del canal |
 | Identidad VEC y análisis congelados en reserva | Cerrada | `17d4ea9`; recomposición ligada a referencia y huella exactas |
-| Orden opaca final O4-04 | Cerrada | `5be6c14`; unión nominal: solo la concesión transporta efectos C1/C2 |
-| Orquestador C3 | En implementación | Presentación pura autorizada cerrada en `3837f2b`; decidir y rectificar siguen pendientes |
+| Orden opaca final para O4-04 | Cerrada | `5be6c14`; unión nominal: solo la concesión transporta efectos C1/C2 |
+| Orquestador nominal C3.3C | Cerrada | Presentación pura autorizada en `3837f2b`; decisión y rectificación en `f5f5f5a`, con `GO` independiente |
 | Transacción PostgreSQL única O4-04 | Pendiente | Confirmación y reconciliación nominales preparadas en `9238d53`; faltan sesión TCB `SERIALIZABLE`, revalidación y SQL |
 
 «Cerrada» en esta tabla significa código probado, revisado y publicado en la
@@ -274,3 +275,16 @@ globales, límites, secretos y revisión independiente.
 
 El cierre técnico no autoriza producción. Permanecen O4-04, O4-05 y las
 conformidades formales de RRHH, Jurídico, DPD, ENS, ENI y EIPD.
+
+La puerta técnica se cerró en `f5f5f5a` tras pruebas focales repetidas, carrera,
+pruebas globales, `go vet`, límites de tamaño, búsqueda de secretos y revisión
+independiente con `GO`. El orquestador nominal cubre propuesta, decisión,
+rectificación, autorización específica, replay, reserva, motivo gobernado,
+confirmación única y reconciliación del resultado ambiguo.
+
+Este cierre no acredita persistencia ni operación productiva. En particular,
+`f5f5f5a` no aporta el `COMMIT` PostgreSQL único, el consumo durable de C1/C2,
+la revocación viva dentro de la sesión transaccional, auditoría/outbox
+durables ni un recibo recuperable tras reinicio. Esas garantías pertenecen a
+O4-04, que queda como camino crítico activo; la API, la pantalla y el E2E
+pertenecen a O4-05.

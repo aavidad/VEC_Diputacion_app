@@ -60,8 +60,11 @@ El análisis de RRHH O3-04 queda cerrado en `2834783` con `GO` independiente:
 consume la decisión VEC y las fuentes atestadas, aplica CAS y publica versión,
 actuación, auditoría, outbox y recibo con replay exacto. El recorrido real
 Go → PostgreSQL, resultado ambiguo, reinicio, cancelación, trece rollbacks,
-concurrencia, RC/coste y rectificación segregada están probados. El siguiente
-objetivo del camino crítico es O4-03.
+concurrencia, RC/coste y rectificación segregada están probados. O4-03 queda
+cerrada técnicamente en `f5f5f5a`, también con `GO` independiente, para el
+orquestador nominal de propuesta, decisión y rectificación. El camino crítico
+activo es O4-04: falta materializar en PostgreSQL el `COMMIT` único, consumo
+C1/C2, revocación viva, auditoría/outbox y recibo durables antes de producción.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es
