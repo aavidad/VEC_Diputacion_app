@@ -57,7 +57,7 @@ evidencias, política ni actuación. Tampoco existe rectificación segregada.
 | Gobierno server-side de la operación | Cerrada | `c9dbb43`; catálogo, política, reloj, unidad, transición y motivo VEC no proceden del canal |
 | Identidad VEC y análisis congelados en reserva | Cerrada | `17d4ea9`; recomposición ligada a referencia y huella exactas |
 | Orden opaca final O4-04 | Cerrada | `5be6c14`; unión nominal: solo la concesión transporta efectos C1/C2 |
-| Orquestador C3 | Pendiente | Compone las piezas anteriores sin autoridad del cliente |
+| Orquestador C3 | En implementación | Presentación pura autorizada cerrada en `3837f2b`; decidir y rectificar siguen pendientes |
 | Transacción PostgreSQL única O4-04 | Pendiente | Depende de reserva, candidata y proyección |
 
 «Cerrada» en esta tabla significa código probado, revisado y publicado en la
