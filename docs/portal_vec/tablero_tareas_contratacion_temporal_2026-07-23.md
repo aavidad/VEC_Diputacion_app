@@ -1,6 +1,6 @@
 # Tablero de tareas verificables de contratación temporal
 
-Última actualización: 25 de julio de 2026.
+Última actualización: 26 de julio de 2026.
 
 Este tablero descompone los objetivos `O1` a `O8` en unidades que pueden
 revisarse, probarse y confirmarse en Git sin mezclar responsabilidades.
@@ -68,8 +68,18 @@ Estados:
 | O4-01 | Catálogo versionado de vías y comprobaciones exigibles. | Publicación inmutable; nueva opción sin recompilar. | ✅ `dff8156`–`baebb55` |
 | O4-02 | Consultas minimizadas a Bolsa, SAE y convocatorias. | No accede a tablas ajenas; timeouts y procedencia registrada. | ✅ `913cb7a`, integrada en `0be7467`; GO independiente sin hallazgos, regresión temporal exacta ×100, focales ×50, carrera ×5, puertas globales, tamaños y secretos verdes. |
 | O4-03 | Caso de uso de propuesta y decisión motivada. | Resultados contradictorios, ausencia de datos, rectificación y CAS. | ✅ `f5f5f5a`: orquestador nominal de proponer, decidir y rectificar; autorización específica, replay, reserva, motivo gobernado, confirmación única y reconciliación probados; `GO` independiente. No acredita persistencia productiva. |
-| O4-04 | Persistencia, autorización, auditoría y outbox. | PostgreSQL real, consumo único y recibo. | 🚧 Diseño de sesión TCB publicado en `3c49e1e`; faltan PostgreSQL real, `COMMIT` único, consumo C1/C2, revocación viva, auditoría/outbox y recibo durable. Es el camino crítico activo. |
+| O4-04 | Persistencia, autorización, auditoría y outbox. | PostgreSQL real, consumo único y recibo. | 🚧 A/B/C cerrados con revisión independiente; D implementa el consumo C1 durable y E completará la única función exterior y el `COMMIT` probatorio. La tarea no se contabiliza hasta cerrar D/E y su E2E. |
 | O4-05 | API, pantalla comparativa y E2E. | La vía elegida muestra fuentes y justificación sin exponer PII indebida. | — |
+
+Desglose verificable del camino crítico `O4-04`:
+
+| Corte | Entregable | Estado y evidencia |
+| --- | --- | --- |
+| O4-04A | Sesión TCB sellada e inventario exhaustivo de implementadores y atajos nominales. | ✅ `b819961`; `GO` independiente, focales, carrera y `go vet` verdes. |
+| O4-04B | Gobierno durable de catálogo, políticas y resolución de cobertura. | ✅ `54a755e`; `GO` independiente, PostgreSQL 18.4, ciclo ascendente/reversión, ACL, RLS y concurrencia verdes. |
+| O4-04C | Reserva terminal y preparación durable sobre el primario. | ✅ `a540522`; `GO` independiente. |
+| O4-04D | Lote durable de consumos C1 y wrapper interno VEC. | 🚧 En implementación sobre `000023` y `migraciones_autorizacion/000004`; no expone todavía una función de ejecución. |
+| O4-04E | Confirmación exterior única, auditoría/outbox/recibo y reconciliación primaria. | ⛔ Espera el canon y el límite de carga congelados por D. |
 
 ## O5 — Asignación, informe jurídico y fiscalización
 

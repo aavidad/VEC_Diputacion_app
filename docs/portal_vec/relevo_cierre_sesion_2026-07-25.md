@@ -1,43 +1,51 @@
 # Relevo de cierre de sesión — 25 de julio de 2026
 
+Actualizado el 26 de julio de 2026 tras recuperar y revisar los cortes
+interrumpidos. Este fichero conserva el nombre original para no romper sus
+enlaces.
+
 ## Referencias conservadas
 
 - Rama aprobada: `real/ct-o4-03`, commit `0775853`.
 - Rama de resguardo no aprobada: `resguardo/ct-o4-04-20260725`.
+- Rama de corrección publicada:
+  `correccion/ct-o4-04-20260726`, commit `d4eb639`.
+- O4-04A con revisión independiente `GO`: `b819961`.
+- O4-04B con revisión independiente `GO`: `54a755e`.
 - O4-04C con revisión independiente `GO`: `a540522`.
 - Aislamiento Docker y documentación: `577f157`.
 - Aislamiento web y corrección visual: `0775853`.
 
-La rama aprobada está publicada en GitHub. Los tres commits fueron revisados,
-probados y analizados con Gitleaks antes del envío.
+La rama de corrección está publicada en GitHub. Los commits nuevos fueron
+revisados, probados y analizados con Gitleaks antes del envío.
 
-## Trabajo interrumpido y no integrable todavía
+## Trabajo interrumpido recuperado
 
-La rama de resguardo conserva dos commits marcados expresamente como `WIP`:
+La rama de resguardo conserva los dos commits `WIP` originales como evidencia
+de recuperación, pero ya no son por sí solos la referencia de integración:
 
 - `f480ad5`: corrección O4-04A interrumpida durante la tercera vuelta. La
-  segunda revisión mantuvo `NO-GO` porque la prueba `go/types` no enumeraba de
-  forma exhaustiva aliases, interfaces embebidas y valores con tipos anónimos.
-  El agente empezó la regresión exhaustiva, pero la sesión se cerró antes de
-  congelar un hash y obtener una nueva revisión.
+  carencia de `go/types` se cerró en `b819961`, que enumera aliases,
+  reexportaciones, interfaces embebidas, declaraciones y tipos anónimos dentro
+  y fuera del paquete. Obtuvo `GO` independiente.
 - `f274f76`: corrección O4-04B interrumpida antes de congelar el candidato y
-  ejecutar su revisión final. Debía cerrar canones Go/SQL, revocar todo
-  `EXECUTE PUBLIC`, proteger los `down` fuera de orden y unificar la advisory
-  lock con `vec_contratacion_temporal:o4_04:migraciones`.
+  ejecutar su revisión final. `54a755e` cerró los cánones Go/SQL, las dieciséis
+  funciones exactas sin `EXECUTE PUBLIC`, los `down` fuera de orden y la
+  advisory lock común. Obtuvo `GO` independiente sobre PostgreSQL 18.4.
 
-Estos commits existen para impedir pérdida de trabajo. **No deben fusionarse
-en `real/ct-o4-03` ni contarse como capacidad cerrada** hasta terminar las
-correcciones, repetir PostgreSQL 18 y obtener un `GO` independiente por corte.
+Los commits WIP continúan sin contarse como evidencia aislada. Las correcciones
+posteriores sí son candidatos aprobados, aunque `O4-04` completo todavía no
+puede cerrarse hasta terminar D/E.
 
 ## Estado del camino crítico
 
 | Corte | Estado al cerrar |
 | --- | --- |
-| O4-04A | WIP resguardado; sin GO |
-| O4-04B | WIP resguardado; sin GO |
+| O4-04A | Cerrado, commit `b819961`, GO independiente |
+| O4-04B | Cerrado, commit `54a755e`, GO independiente y PostgreSQL 18.4 |
 | O4-04C | Cerrado, commit `a540522`, GO independiente |
-| O4-04D | Análisis listo; no iniciar hasta que A/B tengan GO |
-| O4-04E | Bloqueado por A–D |
+| O4-04D | En implementación; A/B/C ya no lo bloquean |
+| O4-04E | Bloqueado exclusivamente por el canon durable de D |
 
 O4-04D usará `000023`, exigirá la versión de barrera `3` creada por C y no
 debe modificar `000017`–`000022`. El wrapper VEC deberá concederse únicamente
@@ -60,13 +68,15 @@ artefacto productivo.
 
 ## Reanudación recomendada
 
-1. Partir de `resguardo/ct-o4-04-20260725`.
-2. Terminar A sin tocar B y congelar su write-set.
-3. Revisar A con un agente distinto; integrar solo con `GO`.
-4. Terminar B, repetir PostgreSQL 18 y revisión independiente.
-5. Reconstruir una rama limpia desde `real/ct-o4-03` e incorporar únicamente
-   los commits aprobados de A/B.
-6. Implementar O4-04D y, después, O4-04E.
+1. Continuar desde `correccion/ct-o4-04-20260726`.
+2. Terminar O4-04D sin modificar `000017`–`000022`, congelar su canon y obtener
+   revisión independiente.
+3. Implementar O4-04E con una sola función exterior, recibo durable y
+   reconciliación primaria sin reintento automático.
+4. Ejecutar PostgreSQL 18, reinicio, concurrencia, fallos inyectados, ACL,
+   carrera y puertas globales.
+5. Solo entonces integrar el corte completo en la rama aprobada y actualizar
+   el cómputo de tareas.
 
 El procedimiento de Contratación temporal continúa oficialmente en 18/46
 tareas verificadas (39 %). No se incrementa por trabajo WIP.
