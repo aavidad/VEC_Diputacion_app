@@ -95,16 +95,18 @@ RRHH valida categoría, causa, periodo, jornada, RC y coste usando fuentes
 autoritativas. Cada rectificación conserva autor, motivo, versión y recibo.
 
 Estado: dominio, aplicación, fuentes atestadas y confirmación PostgreSQL
-atómica disponibles y probados por capas. Falta cerrar el recorrido positivo
-Go → PostgreSQL, los resultados ambiguos/reinicio, la revisión independiente y
-la interfaz.
+atómica cerrados hasta O3-04, incluido recorrido Go → PostgreSQL, resultados
+ambiguos, reinicio y revisión independiente. La interfaz O3-05 continúa
+pendiente.
 
 ### O4. Decisión de vía de cobertura
 
 Comprobar Bolsa, agotamiento, candidaturas, SAE y nueva convocatoria; justificar
 la vía elegida y conservar las fuentes utilizadas.
 
-Estado: dominio inicial disponible; integraciones pendientes.
+Estado: catálogo O4-01 y consultas atestadas O4-02 cerrados. O4-03 está activo
+mediante microcortes de política/propuesta, evidencia completa y decisión
+humana autorizada; persistencia, interfaz y E2E corresponden a O4-04 y O4-05.
 
 ### O5. Asignación, informes y fiscalización
 

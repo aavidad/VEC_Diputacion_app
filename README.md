@@ -42,6 +42,7 @@ llamamientos.
 - [Relevo técnico del frente activo](docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md)
 - [Persistencia atómica del análisis de RRHH O3-04](docs/portal_vec/o3_04_persistencia_analisis_rrhh_2026-07-24.md)
 - [Revisión independiente final O3-04](docs/portal_vec/revisiones/o3_04_revision_independiente_final_2026-07-24.md)
+- [Diseño de propuesta y decisión de cobertura O4-03](docs/portal_vec/o4_03_diseno_propuesta_decision_cobertura_2026-07-24.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
 
