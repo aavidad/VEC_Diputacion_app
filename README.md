@@ -45,6 +45,7 @@ llamamientos.
 - [Diseño de propuesta y decisión de cobertura O4-03](docs/portal_vec/o4_03_diseno_propuesta_decision_cobertura_2026-07-24.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
+- [Relevo del cierre de sesión del 25 de julio](docs/portal_vec/relevo_cierre_sesion_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
 
 Estado del primer corte: especificación, manifiesto, dominio, caso de uso,
