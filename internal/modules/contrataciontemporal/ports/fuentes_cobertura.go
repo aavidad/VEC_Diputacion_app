@@ -3,10 +3,15 @@ package ports
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"log/slog"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
+
+const redaccionResumenOrdenConsumoCobertura = "[RESUMEN-ORDEN-CONSUMO-COBERTURA-REDACTADO]"
 
 var (
 	ErrPeticionFuenteCoberturaInvalida = errors.New(
@@ -19,6 +24,24 @@ var (
 		"contratacion temporal: respuesta de cobertura ya consumida con otros datos",
 	)
 )
+
+func (ResumenOrdenConsumoCobertura) String() string {
+	return redaccionResumenOrdenConsumoCobertura
+}
+
+func (r ResumenOrdenConsumoCobertura) GoString() string { return r.String() }
+func (r ResumenOrdenConsumoCobertura) Format(s fmt.State, _ rune) {
+	_, _ = io.WriteString(s, r.String())
+}
+func (r ResumenOrdenConsumoCobertura) LogValue() slog.Value {
+	return slog.StringValue(r.String())
+}
+func (r ResumenOrdenConsumoCobertura) MarshalText() ([]byte, error) {
+	return []byte(r.String()), nil
+}
+func (r ResumenOrdenConsumoCobertura) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + r.String() + `"`), nil
+}
 
 // SolicitudConsultarCobertura contiene la información mínima para comprobar
 // una vía. No transporta nombres, DNI, candidatos, posiciones ni credenciales.

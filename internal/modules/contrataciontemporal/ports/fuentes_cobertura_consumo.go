@@ -35,6 +35,27 @@ type DatosOrdenConsumoCobertura struct {
 	EvidenciaVerificador  EvidenciaPublicaAutoridadFuenteAnalisis
 }
 
+// ResumenOrdenConsumoCobertura expone únicamente las coordenadas y huellas
+// necesarias para ligar una decisión posterior a la evidencia comprobada.
+// No contiene atestaciones, claves, credenciales ni texto libre del proveedor.
+type ResumenOrdenConsumoCobertura struct {
+	PeticionRef, OrganizacionRef, ExpedienteRef               string
+	VersionExpediente                                         uint64
+	Catalogo                                                  domain.IdentidadCatalogoViasCobertura
+	ViaClave                                                  domain.ClaveCatalogo
+	Comprobacion                                              domain.ComprobacionCobertura
+	OrdenComprobacion                                         uint16
+	ComprobacionObligatoria                                   bool
+	ProcedenciaClave                                          domain.ClaveCatalogo
+	DefinicionFuenteRef, CategoriaRef                         string
+	Periodo                                                   domain.PeriodoPrevisto
+	SolicitadaEn, EmitidaEn, ValidaHasta                      time.Time
+	HuellaPeticionSHA256, HuellaResultadoSHA256               string
+	HuellaRespuestaSHA256, AutoridadRef                       string
+	Generacion                                                uint32
+	ReciboRespuestaRef, VerificadorRef, PublicadorCatalogoRef string
+}
+
 type OrdenConsumoCobertura struct {
 	datos     *DatosOrdenConsumoCobertura
 	solicitud SolicitudConsultarCobertura
@@ -236,6 +257,59 @@ func (o OrdenConsumoCobertura) Datos() (
 	datos.IdentidadVerificador = identidad
 	datos.EvidenciaVerificador = evidencia
 	return datos, nil
+}
+
+// ResumenPendienteEn revalida la orden en el instante indicado sin consumirla
+// ni producir un recibo durable. La capa transaccional final deberá volver a
+// validarla y consumirla de forma atómica con el efecto jurídico.
+func (o OrdenConsumoCobertura) ResumenPendienteEn(
+	comprobadaEn time.Time,
+) (ResumenOrdenConsumoCobertura, error) {
+	datos, errDatos := o.Datos()
+	datosResultado, errResultado := o.resultado.Datos()
+	datosConfirmacion, errConfirmacion := datos.ConfirmacionRespuesta.Datos()
+	datosCatalogo, errCatalogo := datos.ConfirmacionCatalogo.Datos()
+	if errDatos != nil || errResultado != nil ||
+		errConfirmacion != nil || errCatalogo != nil ||
+		validarOrdenConsumoCobertura(
+			datos,
+			o.solicitud,
+			o.resultado,
+			comprobadaEn,
+		) != nil {
+		return ResumenOrdenConsumoCobertura{},
+			ErrResultadoFuenteCoberturaNoConfiable
+	}
+	comprobacion := datosResultado.Comprobacion
+	comprobacion.Detalle = ""
+	resumen := ResumenOrdenConsumoCobertura{
+		PeticionRef:             datos.PeticionRef,
+		OrganizacionRef:         datos.OrganizacionRef,
+		ExpedienteRef:           datos.ExpedienteRef,
+		VersionExpediente:       datos.VersionExpediente,
+		Catalogo:                o.solicitud.Catalogo,
+		ViaClave:                o.solicitud.ViaClave,
+		Comprobacion:            comprobacion,
+		OrdenComprobacion:       o.solicitud.Comprobacion.Orden,
+		ComprobacionObligatoria: o.solicitud.Comprobacion.Obligatoria,
+		ProcedenciaClave:        o.solicitud.Comprobacion.Procedencia.Clave,
+		DefinicionFuenteRef: o.solicitud.Comprobacion.
+			Procedencia.DefinicionFuenteRef,
+		CategoriaRef:          o.solicitud.CategoriaRef,
+		Periodo:               o.solicitud.Periodo,
+		SolicitadaEn:          o.solicitud.SolicitadaEn,
+		EmitidaEn:             datos.Atestacion.Metadatos.EmitidaEn,
+		ValidaHasta:           datos.Atestacion.Metadatos.ValidaHasta,
+		HuellaPeticionSHA256:  datos.HuellaPeticionSHA256,
+		HuellaResultadoSHA256: datos.HuellaResultadoSHA256,
+		HuellaRespuestaSHA256: datos.HuellaRespuestaSHA256,
+		AutoridadRef:          datos.AutoridadRef,
+		Generacion:            datos.Generacion,
+		ReciboRespuestaRef:    datos.ReciboRespuestaRef,
+		VerificadorRef:        datosConfirmacion.VerificadorRef,
+		PublicadorCatalogoRef: datosCatalogo.PublicadorRef,
+	}
+	return resumen, nil
 }
 
 func (OrdenConsumoCobertura) String() string {
