@@ -552,6 +552,12 @@ rechazo de un LOGIN sin permiso O4-05. La composición modular no equivale a la
 composición raíz: todavía hay que inyectar dependencias reales y superar el
 E2E HTTP completo.
 
+`69b6a14` incorpora la cápsula privada de aplicación: propiedad atómica y
+exclusiva del servidor y sus recursos, apagado limitado por contexto y cierre
+inverso, idempotente y saneado. La revisión independiente ejecutó pruebas
+normales, detector de carreras, `go vet` y cincuenta repeticiones de estrés.
+Este corte prepara la raíz, pero no inyecta aún pools ni proveedores reales.
+
 El procedimiento conserva **19 de 46 tareas verificadas (41 %)**. Esto no
 autoriza aún la ruta web productiva: faltan la raíz productiva, las
 proyecciones protegidas y el E2E de O4-05. Los dobles de presentación

@@ -49,6 +49,7 @@ llamamientos.
 - [Registro seguro de rutas y composición O4-05](docs/portal_vec/o4_05_registro_rutas_y_composicion_2026-07-26.md)
 - [Cliente web HTTP seguro O4-05](docs/portal_vec/o4_05_cliente_web_http_seguro_2026-07-26.md)
 - [Recuperación protegida del resultado de cobertura O4-05](docs/portal_vec/o4_05_consulta_resultado_cobertura_2026-07-26.md)
+- [Contrato de proyecciones reales del cuadro y detalle RRHH](docs/portal_vec/proyecciones_rrhh_cuadro_detalle_contratacion_2026-07-26.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
@@ -74,6 +75,9 @@ cerrada en `faa5a5f` y `5954c29`: PostgreSQL 18.4 acredita el `COMMIT` único,
 consumo C1, revalidación VEC, auditoría/outbox, recibo, concurrencia y
 reinicio. El camino crítico activo es O4-05: composición, API neutral, portal
 y E2E productivo sin cookies ni autoridad aportada por el navegador. Su
+capsula de ciclo de vida ya posee de forma exclusiva servidor y recursos,
+apaga con contexto acotado y cierra en orden inverso; la composición de
+dependencias reales continúa cerrada hasta acreditar cada conector. Su
 primer corte ya normaliza alta y cobertura bajo `/api/vec`, distingue el
 contexto corporativo y publica una confirmación incierta como
 `operacion_pendiente`. El segundo corte registra de forma atómica los dos
