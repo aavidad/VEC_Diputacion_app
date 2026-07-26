@@ -42,8 +42,10 @@ contrato visual existente.
 - Rechazo de `Cookie`, `Set-Cookie`, credenciales en URL y autoridad declarada
   por el cliente.
 - La raíz de composición acepta y normaliza `Forwarded`/`X-Forwarded-*` solo
-  desde el proxy corporativo autenticado; elimina esas cabeceras antes de
-  entregar la petición al adaptador HTTP. El adaptador las rechaza siempre.
+  desde el proxy corporativo autenticado. Antes de entregar la petición al
+  adaptador elimina esas cabeceras, `Via`, `Connection`, `Keep-Alive`,
+  `Upgrade` y cada cabecera nominada dinámicamente por `Connection`. El
+  adaptador las rechaza siempre.
 - Un resultado ambiguo se reconcilia contra el primario; nunca autoriza un
   reintento ciego.
 - Las claves funcionales se localizan mediante i18n o catálogo gobernado. La

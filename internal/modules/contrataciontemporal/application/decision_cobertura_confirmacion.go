@@ -251,7 +251,7 @@ func (s *ServicioConfirmacionDecisionCobertura) ejecutar(
 	}
 	operacion, cancelar := context.WithTimeout(ctx, TiempoMaximoConfirmacionDecisionCobertura)
 	defer cancelar()
-	return s.ejecutarValidada(operacion, solicitud)
+	return s.ejecutarValidada(operacion, solicitud, nil)
 }
 
 func (s *ServicioConfirmacionDecisionCobertura) ejecutarParaAdaptador(
@@ -274,9 +274,10 @@ func (s *ServicioConfirmacionDecisionCobertura) ejecutarParaAdaptador(
 		TiempoMaximoConfirmacionDecisionCobertura,
 	)
 	defer cancelar()
-	recibo, err := s.ejecutarValidada(operacion, solicitud)
+	var consulta cobertura.SolicitudConsultarOperacionDecisionCoberturaConfirmada
+	recibo, err := s.ejecutarValidada(operacion, solicitud, &consulta)
 	if err != nil {
 		return ResultadoDecisionCoberturaParaAdaptador{}, err
 	}
-	return nuevoResultadoDecisionCoberturaParaAdaptador(recibo)
+	return nuevoResultadoDecisionCoberturaParaAdaptadorDesdeConsulta(consulta, recibo)
 }

@@ -11,6 +11,7 @@ import (
 func (s *ServicioConfirmacionDecisionCobertura) ejecutarValidada(
 	ctx context.Context,
 	solicitud datosSolicitudConfirmacionDecisionCobertura,
+	consultaParaAdaptador *cobertura.SolicitudConsultarOperacionDecisionCoberturaConfirmada,
 ) (cobertura.ReciboOperacionDecisionCobertura, error) {
 	solicitudContexto := ports.SolicitudResolverContextoAutorizacionAltaV3{
 		AutenticacionRef: solicitud.autenticacionRef,
@@ -84,6 +85,9 @@ func (s *ServicioConfirmacionDecisionCobertura) ejecutarValidada(
 	if err != nil {
 		return cobertura.ReciboOperacionDecisionCobertura{},
 			ErrConfirmacionDecisionCoberturaNoConfiable
+	}
+	if consultaParaAdaptador != nil {
+		*consultaParaAdaptador = consulta
 	}
 	replay, encontrado, err :=
 		s.idempotencia.ConsultarOperacionDecisionCoberturaConfirmada(
