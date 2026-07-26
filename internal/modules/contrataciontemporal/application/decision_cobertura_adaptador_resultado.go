@@ -52,6 +52,16 @@ func nuevoResultadoDecisionCoberturaParaAdaptador(
 	return ResultadoDecisionCoberturaParaAdaptador{datos: datos, recibo: recibo, sello: recibo.ReciboRef}, nil
 }
 
+func nuevoResultadoDecisionCoberturaParaAdaptadorDesdeConsulta(
+	consulta cobertura.SolicitudConsultarOperacionDecisionCoberturaConfirmada,
+	recibo cobertura.ReciboOperacionDecisionCobertura,
+) (ResultadoDecisionCoberturaParaAdaptador, error) {
+	if recibo.ValidarPara(consulta) != nil {
+		return ResultadoDecisionCoberturaParaAdaptador{}, ErrConfirmacionDecisionCoberturaNoConfiable
+	}
+	return nuevoResultadoDecisionCoberturaParaAdaptador(recibo)
+}
+
 func (r ResultadoDecisionCoberturaParaAdaptador) DatosParaAdaptador() (DatosReciboDecisionCoberturaParaAdaptador, bool) {
 	if r.sello == "" || r.datos.Estado == "" {
 		return DatosReciboDecisionCoberturaParaAdaptador{}, false

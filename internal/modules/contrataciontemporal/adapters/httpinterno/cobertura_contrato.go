@@ -74,14 +74,34 @@ func cabeceraCoberturaProhibida(cabeceras http.Header) bool {
 	// La composición debe normalizar X-Forwarded-* exclusivamente detrás de un
 	// proxy confiable y retirarlo antes de esta frontera. El manejador nunca lo
 	// interpreta como autoridad.
+	for _, valor := range cabeceras.Values("Connection") {
+		for _, token := range strings.Split(valor, ",") {
+			nombre := strings.TrimSpace(token)
+			if !nombreCabeceraCoberturaValido(nombre) || cabeceras.Values(nombre) != nil {
+				return true
+			}
+		}
+	}
 	for nombre := range cabeceras {
 		minusculas := strings.ToLower(nombre)
 		switch {
-		case minusculas == "authorization", minusculas == "cookie", minusculas == "set-cookie", minusculas == "proxy-authorization", minusculas == "proxy-connection", minusculas == "forwarded", minusculas == "remote-user", minusculas == "x-remote-user", minusculas == "x-forwarded-user", minusculas == "idempotency-key", minusculas == "content-encoding", minusculas == "trailer", minusculas == "te", minusculas == "expect", minusculas == "x-http-method-override", cabeceraAutoridadLibreAlta(minusculas), strings.Contains(minusculas, "role"), strings.HasPrefix(minusculas, "x-auth-"), strings.HasPrefix(minusculas, "x-vec-"), strings.HasPrefix(minusculas, "x-forwarded-"), strings.HasPrefix(minusculas, "x-envoy-"):
+		case minusculas == "authorization", minusculas == "cookie", minusculas == "set-cookie", minusculas == "proxy-authorization", minusculas == "proxy-connection", minusculas == "forwarded", minusculas == "remote-user", minusculas == "x-remote-user", minusculas == "x-forwarded-user", minusculas == "idempotency-key", minusculas == "content-encoding", minusculas == "trailer", minusculas == "te", minusculas == "expect", minusculas == "x-http-method-override", minusculas == "via", minusculas == "connection", minusculas == "keep-alive", minusculas == "upgrade", cabeceraAutoridadLibreAlta(minusculas), strings.Contains(minusculas, "role"), strings.HasPrefix(minusculas, "x-auth-"), strings.HasPrefix(minusculas, "x-vec-"), strings.HasPrefix(minusculas, "x-forwarded-"), strings.HasPrefix(minusculas, "x-envoy-"):
 			return true
 		}
 	}
 	return false
+}
+
+func nombreCabeceraCoberturaValido(nombre string) bool {
+	if nombre == "" {
+		return false
+	}
+	for _, caracter := range nombre {
+		if caracter > 127 || !(caracter >= 'a' && caracter <= 'z' || caracter >= 'A' && caracter <= 'Z' || caracter >= '0' && caracter <= '9' || strings.ContainsRune("!#$%&'*+-.^_`|~", caracter)) {
+			return false
+		}
+	}
+	return true
 }
 
 // propuestaCoberturaDesdePeticion usa POST aunque no produzca efectos: así la

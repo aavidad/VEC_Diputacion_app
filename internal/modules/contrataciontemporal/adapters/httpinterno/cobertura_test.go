@@ -126,7 +126,7 @@ func TestManejadorCoberturaRechazaCookiesYAutoridadDeclarada(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, cabecera := range []string{"Cookie", "Authorization", "X-Actor", "Perfil", "X-Forwarded-For"} {
+	for _, cabecera := range []string{"Cookie", "Authorization", "X-Actor", "Perfil", "X-Forwarded-For", "Via", "Connection", "Keep-Alive", "Upgrade"} {
 		t.Run(cabecera, func(t *testing.T) {
 			peticion := nuevaPeticionCoberturaPrueba(RutaPropuestaCobertura, `{"expediente_ref":"expediente:ct:0001","version_esperada":1}`)
 			peticion.Header.Set(cabecera, "fabricada")
@@ -137,6 +137,16 @@ func TestManejadorCoberturaRechazaCookiesYAutoridadDeclarada(t *testing.T) {
 			}
 		})
 	}
+	t.Run("token dinámico Connection", func(t *testing.T) {
+		peticion := nuevaPeticionCoberturaPrueba(RutaPropuestaCobertura, `{"expediente_ref":"expediente:ct:0001","version_esperada":1}`)
+		peticion.Header.Set("Connection", "X-Hop-Forjado")
+		peticion.Header.Set("X-Hop-Forjado", "autoridad")
+		respuesta := httptest.NewRecorder()
+		manejador.ServeHTTP(respuesta, peticion)
+		if respuesta.Code != http.StatusBadRequest {
+			t.Fatalf("estado=%d cuerpo=%s", respuesta.Code, respuesta.Body.String())
+		}
+	})
 }
 
 func TestManejadorCoberturaDistingueLimiteDeclaradoYStreaming(t *testing.T) {

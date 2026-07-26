@@ -41,8 +41,13 @@ func (r ResultadoPropuestaCoberturaParaAdaptador) DatosParaAdaptador() (DatosPro
 }
 
 func datosPropuestaCoberturaAdaptadorValidos(p DatosPropuestaCoberturaParaAdaptador) bool {
-	if p.IdentidadSemantica.Validar() != nil || !p.ViaRecomendada.Valida() ||
+	if p.IdentidadSemantica.Validar() != nil ||
 		!estadoPropuestaAdaptadorValido(p.Estado) || len(p.Evaluaciones) == 0 || len(p.Evaluaciones) > 64 {
+		return false
+	}
+	// Es la misma coherencia que aplica el canon del dominio: solo una
+	// propuesta viable puede recomendar vía, y toda viable debe hacerlo.
+	if (p.Estado == domain.PropuestaCoberturaViable) != p.ViaRecomendada.Valida() {
 		return false
 	}
 	vias := make(map[domain.ClaveCatalogo]struct{}, len(p.Evaluaciones))
@@ -65,6 +70,11 @@ func datosPropuestaCoberturaAdaptadorValidos(p DatosPropuestaCoberturaParaAdapta
 					return false
 				}
 			}
+		}
+	}
+	if p.ViaRecomendada.Valida() {
+		if _, publicada := vias[p.ViaRecomendada]; !publicada {
+			return false
 		}
 	}
 	return true
