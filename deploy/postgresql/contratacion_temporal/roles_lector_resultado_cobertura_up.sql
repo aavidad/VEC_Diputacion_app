@@ -64,6 +64,24 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE='55000',
       MESSAGE='rol lector O4-05 existente no es mínimo';
   END IF;
+  EXECUTE pg_catalog.format(
+    'GRANT CONNECT ON DATABASE %I TO '
+    ||'vec_contratacion_temporal_lector_resultado_cobertura',
+    pg_catalog.current_database()
+  );
+  IF NOT pg_catalog.has_database_privilege(
+       'vec_contratacion_temporal_lector_resultado_cobertura',
+       pg_catalog.current_database(),'CONNECT'
+     ) OR pg_catalog.has_database_privilege(
+       'vec_contratacion_temporal_lector_resultado_cobertura',
+       pg_catalog.current_database(),'CREATE'
+     ) OR pg_catalog.has_database_privilege(
+       'vec_contratacion_temporal_lector_resultado_cobertura',
+       pg_catalog.current_database(),'TEMP'
+     ) THEN
+    RAISE EXCEPTION USING ERRCODE='55000',
+      MESSAGE='ACL de base del lector O4-05 no es mínima';
+  END IF;
 END
 $delta$;
 COMMIT;

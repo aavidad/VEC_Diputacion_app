@@ -40,6 +40,24 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE='55000',
       MESSAGE='rol lector O4-05 conserva membresías o atributos';
   END IF;
+  IF NOT pg_catalog.has_database_privilege(
+       'vec_contratacion_temporal_lector_resultado_cobertura',
+       pg_catalog.current_database(),'CONNECT'
+     ) OR pg_catalog.has_database_privilege(
+       'vec_contratacion_temporal_lector_resultado_cobertura',
+       pg_catalog.current_database(),'CREATE'
+     ) OR pg_catalog.has_database_privilege(
+       'vec_contratacion_temporal_lector_resultado_cobertura',
+       pg_catalog.current_database(),'TEMP'
+     ) THEN
+    RAISE EXCEPTION USING ERRCODE='55000',
+      MESSAGE='ACL de base del lector O4-05 no es mínima';
+  END IF;
+  EXECUTE pg_catalog.format(
+    'REVOKE CONNECT ON DATABASE %I FROM '
+    ||'vec_contratacion_temporal_lector_resultado_cobertura',
+    pg_catalog.current_database()
+  );
   EXECUTE
     'DROP ROLE vec_contratacion_temporal_lector_resultado_cobertura';
 END

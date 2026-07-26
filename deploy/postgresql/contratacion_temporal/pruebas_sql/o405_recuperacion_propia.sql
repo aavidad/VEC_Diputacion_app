@@ -22,6 +22,15 @@ BEGIN
   ) OR pg_catalog.has_schema_privilege(
     'vec_contratacion_temporal_lector_resultado_cobertura',
     'vec_contratacion_temporal','CREATE'
+  ) OR NOT pg_catalog.has_database_privilege(
+    'vec_contratacion_temporal_lector_resultado_cobertura',
+    pg_catalog.current_database(),'CONNECT'
+  ) OR pg_catalog.has_database_privilege(
+    'vec_contratacion_temporal_lector_resultado_cobertura',
+    pg_catalog.current_database(),'CREATE'
+  ) OR pg_catalog.has_database_privilege(
+    'vec_contratacion_temporal_lector_resultado_cobertura',
+    pg_catalog.current_database(),'TEMP'
   ) OR EXISTS(
     SELECT 1 FROM pg_catalog.pg_class c
     JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace

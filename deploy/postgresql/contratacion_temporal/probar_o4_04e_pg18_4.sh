@@ -6,7 +6,16 @@ imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c
 contenedor="vec-ct-o404e-pg18-${PPID}-${RANDOM}"
 volumen="${contenedor}-datos"
 clave="$(openssl rand -hex 24)"
+archivo_clave=
+binario_go=
 limpiar() {
+  if [[ -n $binario_go ]]; then
+    rm -f -- "$binario_go"
+  fi
+  if [[ -n $archivo_clave ]]; then
+    rm -f -- "$archivo_clave"
+  fi
+  docker exec "$contenedor" rm -rf /run/vec-o405 >/dev/null 2>&1 || true
   if [[ ${VEC_MANTENER_CONTENEDOR_FALLIDO:-0} == 1 ]]; then
     printf 'contenedor conservado: %s\n' "$contenedor" >&2
     return
@@ -15,6 +24,10 @@ limpiar() {
   docker volume rm --force "$volumen" >/dev/null 2>&1 || true
 }
 trap limpiar EXIT INT TERM
+archivo_clave="$(mktemp "${TMPDIR:-/tmp}/vec-o404e-clave.XXXXXX")"
+chmod 0600 "$archivo_clave"
+printf '%s' "$clave" >"$archivo_clave"
+unset clave
 paso() {
   printf '[O4-04E:PG18.4] %s\n' "$1"
 }
@@ -54,8 +67,10 @@ esperar_sqlstate() {
 paso "arranque desde cero con $imagen"
 docker volume create "$volumen" >/dev/null
 docker run --detach --rm --name "$contenedor" --network none \
-  --env POSTGRES_PASSWORD="$clave" \
+  --env POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password \
   --env POSTGRES_INITDB_ARGS='--auth-local=trust' \
+  --mount \
+  "type=bind,source=$archivo_clave,target=/run/secrets/postgres_password,readonly" \
   --mount "type=volume,source=$volumen,target=/var/lib/postgresql" \
   "$imagen" >/dev/null
 for _ in {1..60}; do
@@ -485,6 +500,71 @@ GRANT vec_contratacion_temporal_lector_resultado_cobertura
  TO vec_o405_lector WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
 SQL
 archivo contratacion_temporal/pruebas_sql/o405_recuperacion_propia.sql
+
+paso 'adaptador Go O4-05 real: LOGIN, TCB y transacción protegida'
+docker exec "$contenedor" install -d -m 0700 /run/vec-o405
+psql_admin --quiet <<'SQL' |
+COPY (
+  WITH terminal AS (
+    SELECT b.ambito_raiz_hmac,b.organizacion_ref,b.expediente_ref
+      FROM vec_contratacion_temporal
+        .reserva_operacion_decision_cobertura b
+      JOIN vec_contratacion_temporal
+        .confirmacion_operacion_decision_cobertura c
+        USING(ambito_raiz_hmac)
+     WHERE c.rama='denegada'
+     ORDER BY b.ambito_raiz_hmac
+     LIMIT 1
+  )
+  SELECT pg_catalog.jsonb_build_object(
+           'organizacion_ref',t.organizacion_ref,
+           'expediente_ref',t.expediente_ref,
+           'ambitos_idempotencia_hmac',(
+             SELECT pg_catalog.jsonb_agg(
+                      a.alias_ambito_hmac ORDER BY a.generacion DESC)
+               FROM (
+                 SELECT x.alias_ambito_hmac,x.generacion
+                   FROM vec_contratacion_temporal
+                     .alias_operacion_decision_cobertura x
+                  WHERE x.ambito_raiz_hmac=t.ambito_raiz_hmac
+                  ORDER BY x.generacion DESC
+                  LIMIT 4
+               ) a
+           )
+         )::text
+    FROM terminal t
+) TO STDOUT;
+SQL
+  docker exec --interactive "$contenedor" sh -ceu \
+    'umask 077
+     cat > /run/vec-o405/fixture.json
+     test -s /run/vec-o405/fixture.json
+     chmod 0600 /run/vec-o405/fixture.json'
+binario_go="$(mktemp "${TMPDIR:-/tmp}/vec-o405-go.XXXXXX")"
+(
+  cd "$raiz"
+  CGO_ENABLED=0 go test -c -o "$binario_go" \
+    ./internal/modules/contrataciontemporal/cobertura
+)
+docker cp "$binario_go" "$contenedor:/run/vec-o405/prueba"
+docker exec "$contenedor" chmod 0500 /run/vec-o405/prueba
+docker exec \
+  --env VEC_O405_INTEGRACION_POSTGRES=1 \
+  --env PGHOST=/var/run/postgresql \
+  --env PGDATABASE=postgres \
+  --env PGUSER=vec_o405_lector \
+  --env PGSSLMODE=disable \
+  "$contenedor" /run/vec-o405/prueba \
+  -test.run '^TestIntegracionPostgreSQLO405LectorNominativo$' -test.v
+docker exec \
+  --env VEC_O405_INTEGRACION_POSTGRES=1 \
+  --env PGHOST=/var/run/postgresql \
+  --env PGDATABASE=postgres \
+  --env PGUSER=vec_o404e_tcb \
+  --env PGSSLMODE=disable \
+  "$contenedor" /run/vec-o405/prueba \
+  -test.run '^TestIntegracionPostgreSQLO405LoginSinGrantO405FallaCerrado$' \
+  -test.v
 esperar_sqlstate 'confirmador no puede recuperar por la función O4-05' 42501 \
   docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
     --set VERBOSITY=verbose -U vec_o404e_tcb -d postgres -c \
