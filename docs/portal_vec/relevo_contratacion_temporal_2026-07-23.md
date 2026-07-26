@@ -13,8 +13,8 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último commit funcional verificado: `4714088`.
-- Último commit de documentación y revisión: `b090ba5`.
+- Último commit funcional verificado: `d3d6a04`.
+- Último commit de documentación y revisión: `569b261`.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
 
@@ -89,7 +89,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305` y composición visual gobernada `4714088` con GO independiente. La interfaz permanece igual. Faltan adaptadores reales, dependencias de raíz y E2E. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088` y pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04` con GO técnico independiente. La interfaz permanece igual. Faltan proyecciones PostgreSQL de cuadro/detalle con registro de acceso, identidad, raíz, matriz TLS viva y E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -256,13 +256,14 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Implementar los adaptadores reales de la composición visual gobernada de
-   `4714088`; cuadro y detalle protegidos están en `d6d1305`.
-2. Crear la consulta protegida de recuperación de recibo para
-   `operacion_pendiente`.
+1. Implementar `SesionConsultaRRHH` sobre PostgreSQL para cuadro y detalle,
+   con ámbito/RLS, cursor autenticado y registro durable de acceso dentro de
+   la misma transacción.
+2. Implementar el adaptador independiente de publicaciones visuales
+   gobernadas de `4714088`.
 3. Componer la raíz interna con frontera corporativa y dependencias reales,
    sin caída a presentación.
-4. Ejecutar el E2E PostgreSQL 18 y la aceptación de RRHH.
+4. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
 5. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
    reinicio y cancelación segura.
 

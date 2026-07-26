@@ -205,10 +205,15 @@ write-sets disjuntos. C3, C4, C5 y C6 se integran en ese orden.
 - identidad corporativa y acuerdo de integración con Sistemas;
 - PDP y asignaciones reales aprobadas;
 - PostgreSQL de proyecciones y registro de accesos;
-- catálogos y composición visual protegidos;
+- adaptador físico independiente para publicaciones visuales gobernadas;
 - matriz TLS real con CA, SAN/hostname, errores de confianza y downgrade;
 - EIPD, categorización ENS y aprobaciones organizativas de la matriz normativa;
 - E2E y aceptación formal de RRHH.
+
+La recuperación propia O4-05 y su pool acreditado obtuvieron `GO` técnico en
+`d307b42` y `d3d6a04`, incluida una única sentencia de acreditación e
+invocación y ataques reales sobre función, ACL y membresías. Esos cortes no
+sustituyen las proyecciones de cuadro/detalle ni acreditan TLS productivo.
 
 Este mapa no declara producción. Evita que una pantalla o una respuesta
 aislada se presenten como recorrido terminado.

@@ -8,8 +8,10 @@ La cápsula de ciclo de vida obtuvo `GO` y se publicó en `69b6a14`. La primera
 versión de la acreditación del pool PostgreSQL y la primera versión de las
 proyecciones de cuadro y detalle recibieron `NO-GO` independiente. Las
 proyecciones corregidas superaron la reauditoría y se publicaron en
-`d6d1305`; la acreditación PostgreSQL permanece local y en corrección. Ningún
-corte incrementa por sí solo el porcentaje funcional.
+`d6d1305`. La acreditación PostgreSQL corregida obtuvo `GO` técnico y se
+publicó en `d307b42` y `d3d6a04`; continúa en `NO-GO` productivo hasta
+acreditar la matriz TLS viva. Ningún corte incrementa por sí solo el porcentaje
+funcional.
 
 El contrato corregido está en
 [proyecciones RRHH](../proyecciones_rrhh_cuadro_detalle_contratacion_2026-07-26.md).
@@ -55,6 +57,40 @@ Condiciones de nueva revisión:
 4. rechazar callbacks capaces de alterar conexión, TLS, identidad o sesión;
 5. probar el runner actual y añadir una matriz TLS PostgreSQL con CA y
    certificado de ensayo antes de autorizar producción.
+
+## Pool lector O4-05 corregido: GO técnico
+
+Los cortes `d307b42` y `d3d6a04` cierran los bloqueos técnicos de la lectura y
+acreditan:
+
+- un pool privado, sellado y con propietario explícito, sin registros
+  globales, finalizadores ni recursos retenidos;
+- rechazo de callbacks capaces de modificar destino, resolución, TLS,
+  identidad, protocolo o vigilancia de contexto;
+- una conexión física única desde la acreditación hasta `COMMIT` o
+  `ROLLBACK`, liberada exactamente una vez;
+- una única sentencia y fotografía PostgreSQL para comprobar TLS vivo,
+  primario, usuarios, roles, membresías, autoridad, ACL e identidad completa
+  de la función antes de invocarla;
+- huellas SHA-256 del cuerpo y de la definición canónica de la función,
+  recalculadas desde la migración `000035`;
+- rechazo de una sustitución hostil mediante `CREATE OR REPLACE FUNCTION` que
+  conserva OID y metadatos, seguido de restauración exacta;
+- fallo cerrado y recuperación tras revocar y restaurar permisos y
+  membresías.
+
+La revisión independiente emitió `GO` para el corte técnico y el runner por
+socket Unix. Pasaron PostgreSQL 18.4 real, pruebas del módulo, detector de
+carreras con etiqueta de integración, `go vet`, formato y comprobación del
+diff. No quedó ningún contenedor O4-05 residual.
+
+Este `GO` no autoriza producción. Falta conservar evidencia viva de:
+
+1. CA y SAN/hostname válidos con `verify-full`;
+2. hostname incorrecto;
+3. CA desconocida;
+4. intento de degradación de TLS o cifrado;
+5. rutas alternativas seguras e inseguras.
 
 ## Proyecciones RRHH: NO-GO inicial
 
