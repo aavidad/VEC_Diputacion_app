@@ -69,6 +69,7 @@ type ServidorInterno struct {
 	token                *tokenServidorInterno
 	propietario          *ServidorInterno
 	ejecucion            *ejecucionServidorInterno
+	propiedadAplicacion  *atomic.Bool
 }
 
 type ejecucionServidorInterno struct {
@@ -348,6 +349,7 @@ func construirServidorInternoConMaterial(
 		manejador:            manejador,
 		configuracionTLS:     configuracionTLS,
 		token:                token,
+		propiedadAplicacion:  &atomic.Bool{},
 		ejecucion: &ejecucionServidorInterno{
 			listo:     make(chan struct{}),
 			terminado: make(chan struct{}),
@@ -363,6 +365,7 @@ func construirServidorInternoConMaterial(
 func validarServidorInterno(servidor *ServidorInterno) error {
 	if servidor == nil || servidor.propietario != servidor || servidor.ejecucion == nil ||
 		servidor.manejador == nil || servidor.token == nil || servidor.configuracionTLS == nil ||
+		servidor.propiedadAplicacion == nil ||
 		servidor.ejecucion.listo == nil || servidor.ejecucion.terminado == nil {
 		return ErrServidorInternoInvalido
 	}
