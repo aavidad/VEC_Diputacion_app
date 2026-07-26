@@ -134,9 +134,17 @@ Se leen como máximo `limite+1` filas para determinar `hay_mas`, con límite
 absoluto de cien resultados.
 
 Si se necesita cursor, será opaco y estará ligado a organización, ámbito,
-filtros, límite, corte temporal y última fila. Solo se almacenará su huella,
+filtros, límite, corte global y última fila. Solo se almacenará su huella,
 nunca el token en claro. La consulta siguiente deberá usar una autorización
 nueva ligada a ese cursor.
+
+`expediente_version_integral.registrada_en` no sirve por sí sola como corte
+global: su precisión admite empates entre expedientes y dos transacciones
+pueden confirmar en un orden distinto al de sus relojes. C2-C deberá incorporar
+un ordinal global único cuya asignación quede serializada mediante una fila de
+control bloqueada hasta `COMMIT`, o demostrar un mecanismo equivalente. No se
+activará paginación estable con un `timestamp` o una secuencia asignada sin esa
+garantía de orden de confirmación.
 
 ## Detalle
 
