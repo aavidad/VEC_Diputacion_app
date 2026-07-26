@@ -21,8 +21,9 @@ corporativa, HTTP, composición raíz, TLS productivo ni aceptación E2E.
    defensivos.
 5. La autorización dura como máximo cinco segundos y se vuelve a comprobar
    antes de terminar la transacción.
-6. Un replay interno puede reconociliar un resultado ambiguo, pero nunca
-   autoriza una segunda entrega de datos.
+6. Un replay interno nunca autoriza una segunda entrega de datos. Si el
+   `COMMIT` queda ambiguo, se descarta la respuesta y se reinicia desde la
+   primera página con una autorización nueva.
 7. Denegado, ausente y ajeno no forman un oráculo de existencia.
 
 ## Vocabulario cerrado
@@ -104,8 +105,9 @@ Habrá una función exterior de cuadro y otra de detalle. Cada una realizará:
 9. devolver proyección minimizada y recibo.
 
 Cualquier error revierte consumo, lectura, cursor y auditoría. Un `COMMIT`
-ambiguo no se reintenta a ciegas: se reconcilia sin volver a entregar datos o
-se solicita una autorización nueva.
+ambiguo no se reintenta ni intenta recuperar el token: se descarta la respuesta
+provisional y se solicita una autorización nueva para reiniciar desde la
+primera página.
 
 ## Registro durable de acceso
 
@@ -220,6 +222,8 @@ en [la revisión de `000038`](revisiones/o4_05_revision_cursores_rrhh_postgresql
 
 ### Pendiente tras C2-D1 — funciones exteriores de Contratación
 
+- contrato Go de identidad de sesión y huella estable de filtros cerrado en
+  `9655d62`;
 - cuadro y detalle en transacción única;
 - canon compartido con Go;
 - lectura por ámbito, versión y filtros;

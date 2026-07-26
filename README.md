@@ -51,6 +51,7 @@ llamamientos.
 - [Recuperación protegida del resultado de cobertura O4-05](docs/portal_vec/o4_05_consulta_resultado_cobertura_2026-07-26.md)
 - [Migración de la capacidad de consulta RRHH a VEC-AD-3](docs/portal_vec/o4_05_migracion_capacidad_consulta_rrhh_v3_2026-07-26.md)
 - [Diseño del consumidor PostgreSQL de consultas RRHH V3](docs/portal_vec/o4_05_diseno_consumidor_postgresql_consultas_rrhh_v3_2026-07-26.md)
+- [Plan de ejecución C2-D2 de consultas RRHH](docs/portal_vec/o4_05_c2_d2_plan_ejecucion_2026-07-26.md)
 - [Contrato de proyecciones reales del cuadro y detalle RRHH](docs/portal_vec/proyecciones_rrhh_cuadro_detalle_contratacion_2026-07-26.md)
 - [Revisión de raíz, pool y proyecciones O4-05](docs/portal_vec/revisiones/o4_05_revision_raiz_pool_y_proyecciones_2026-07-26.md)
 - [Revisión del consumo y registro de accesos RRHH O4-05](docs/portal_vec/revisiones/o4_05_revision_consumo_y_registro_accesos_rrhh_2026-07-26.md)
