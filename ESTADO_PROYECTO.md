@@ -5,10 +5,11 @@
 **Frente principal:** completar las verticales reales de Bolsa y la adaptación
 de Contratación temporal solicitada por RRHH.
 
-**Frentes paralelos actuales:** importador gobernado de Convoca, registro
-durable de accesos T13 y cierre del consumo C1 de la decisión de cobertura de
-Contratación temporal. Solo se usan datos sintéticos hasta cerrar las puertas
-de autorización, trazabilidad y protección de datos.
+**Frentes paralelos actuales:** composición productiva del importador Convoca,
+extensión del registro durable T13 a los wrappers de cada vertical y cierre
+O4-04E del acto de cobertura de Contratación temporal. Solo se usan datos
+sintéticos hasta cerrar las puertas de autorización, trazabilidad y protección
+de datos.
 
 **Objetivo actual:** crear y editar desde la web un borrador de convocatoria,
 guardarlo cifrado en PostgreSQL, recuperarlo después de reiniciar y obtener un
@@ -33,8 +34,8 @@ productivo.
 
 | Ámbito | Avance oficial | Trabajo activo todavía no computado |
 | --- | ---: | --- |
-| Bolsa productiva de extremo a extremo | **1 de 14 capacidades (7 %)** | Importador Convoca B1 y registro de accesos T13 B2. |
-| Contratación temporal | **18 de 46 tareas (39 %)** | O4-04D; después O4-04E completa el acto durable de cobertura. |
+| Bolsa productiva de extremo a extremo | **1 de 14 capacidades (7 %)** | B1 Convoca y B2/T13 tienen GO técnico aislado; falta composición API/web y conectores productivos. |
+| Contratación temporal | **18 de 46 tareas (39 %)** | O4-04D cerrado; O4-04E completa el acto durable de cobertura. |
 | Presentación web | **Aproximadamente 90 % presentable** | No equivale a integración, aceptación de RRHH ni producción. |
 
 La única capacidad de Bolsa contada de extremo a extremo es la consulta
@@ -108,13 +109,13 @@ La operación cartográfica se documenta en
 | Carril | Trabajo actual | Puede avanzar sin bloquear al resto | Siguiente entrega |
 | --- | --- | --- | --- |
 | 1. Camino crítico | Adaptador Go→PostgreSQL y verificación poscommit | Sí; consume los contratos y funciones SQL ya revisados | Recorrido A/B real, reinicio y recibo verificado desde Go. |
-| 2. Datos heredados | Importador de Convoca | Sí, exclusivamente con hojas sintéticas | Endurecer el parser XLS, las invariantes y la huella antes de PostgreSQL. |
-| 3. Calidad y seguridad | Supervisión independiente de cada entrega | Sí; el revisor no modifica el código revisado | GO o defectos reproducibles antes de cada commit. |
+| 2. Datos heredados | Composición productiva del importador de Convoca | Sí, exclusivamente con hojas sintéticas | Envolver recuperación con VEC/T13, custodia externa y protector KMS/HSM. |
+| 3. Calidad y seguridad | Extender B2/T13 a cada wrapper | Sí; el revisor no modifica el código revisado | Registrar accesos permitidos y denegados de cada vertical. |
 | 4. Orquestación ampliada | Ensayo de Orquesta antigua cerrado en `NO-GO` | No se amplía; la entrega rechazada quedó fuera del árbol principal | Corregir Convoca con agentes directos y repetir las puertas independientes. |
 | 5. Dirección e integración | Tablero, pruebas globales y commits acotados | Sí | Integrar solo entregas revisadas y mantener una única verdad. |
 
-**Siguiente carril que se abrirá al quedar uno libre:** durabilidad probatoria y
-registro de accesos, necesarios antes de introducir datos personales reales.
+**Siguiente carril que se abrirá al quedar uno libre:** composición API/web del
+primer recorrido productivo, manteniendo cerrada la entrada de datos reales.
 
 ## Significado de las columnas
 
@@ -158,9 +159,9 @@ para evitar la sigla.
 | Bot de ayuda pública | 🟡 Diseño | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Identidad y separación público/interno | ✅ | 🟡 Desarrollo | ✅ Desarrollo | 🧪 Presentación | ❌ | ❌ |
 | Roles, permisos y autorización por operación | ✅ | ❌ en Bolsa | 🟡 Piezas aisladas | 🧪 Presentación | ❌ | ❌ |
-| Auditoría, recibos y registro de accesos | ✅ | ❌ completo | 🟡 Piezas aisladas | 🧪 Cronología | ❌ | ❌ |
+| Auditoría, recibos y registro de accesos | ✅ | 🟡 T13 aislado | 🟡 PostgreSQL 18 aislado | 🧪 Cronología | ❌ | ❌ |
 | Catálogos, configuración y plazos administrables | 🟡 Parcial | 🧪 Consulta | 🧪 Consulta | 🧪 Parcial | ❌ | ❌ |
-| Importación de datos de Convoca | 🟡 Base sintética; auditoría `NO-GO` | ❌ | ❌ | 🧪 Presentación | ❌ | ❌ |
+| Importación de datos de Convoca | ✅ | 🟡 PostgreSQL aislado | ✅ PostgreSQL 18 aislado | 🧪 Presentación | ❌ | ❌ |
 | API pública | ✅ | 🧪 DEMO | 🧪 DEMO | ✅ DEMO | ❌ | ❌ |
 | API interna completa | 🟡 Parcial | ❌ | ❌ | ❌ | ❌ | ❌ |
 | CLI, MCP y acceso gobernado para IA | 🟡 Contratos | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -177,8 +178,8 @@ contradicción.
 | Orden | Entregable comprensible | Estado | Cuándo se considera terminado |
 | --- | --- | --- | --- |
 | 1 | Crear y editar convocatorias reales | 🚧 **Ahora** | RRHH puede crear, listar, abrir y modificar un borrador desde la web; persiste tras reinicio y deja autorización, cifrado, auditoría y recibo. |
-| 2 | Poder usar datos reales en un piloto seguro | ⬜ Después | Toda prueba y acceso queda durable; se registra quién accede, para qué y cuándo. |
-| 3 | Importar la información existente de Convoca | 🚧 **Corrección de seguridad**, sin datos reales | Parser aislado y estricto, importación repetible, validada, con incidencias, procedencia y sin duplicados. |
+| 2 | Poder usar datos reales en un piloto seguro | 🚧 T13 aislado, sin datos reales | Toda prueba y acceso queda durable; se registra quién accede, para qué y cuándo. |
+| 3 | Importar la información existente de Convoca | 🚧 **Composición productiva**, sin datos reales | Parser y PostgreSQL 18 están cerrados; faltan VEC/T13, custodia externa, KMS/HSM y API/web. |
 | 4 | Gestionar bases, reglas, puntuaciones y publicación | ⬜ Pendiente | RRHH configura las bases sin programar; se calculan puntuaciones y se publican actos aprobados y firmados. |
 | 5 | Completar el expediente del aspirante | ⬜ Pendiente | Perfil, documentos, solicitud, autobaremación, registro, subsanación y alegaciones funcionan juntos. |
 | 6 | Completar revisión técnica, listas y llamamientos | ⬜ Pendiente | RRHH revisa, firma, rectifica, genera listas y realiza llamamientos trazables. |
@@ -199,6 +200,7 @@ Cada cierre debe actualizar, en este orden:
 
 | Fecha | Cambio |
 | --- | --- |
+| 26/07/2026 | B1 Convoca y B2/T13 obtienen GO técnico independiente, se integran en la rama principal y pasan la regresión Go conjunta. Convoca queda probado en PostgreSQL 18/TLS con cifrado opaco, RLS, conservación y reversión; T13 registra consultas permitidas con finalidad y filtro exacto. No aumentan el porcentaje productivo hasta su composición API/web y conectores reales. O4-04D queda cerrado y O4-04E pasa a ser el siguiente corte de Contratación. |
 | 26/07/2026 | Se fija la medida oficial: Bolsa 1/14 capacidades productivas E2E y Contratación temporal 18/46 tareas. Continúan sin computar B1 Convoca, B2/T13 y O4-04D hasta PostgreSQL 18, revisión cruzada, commit e integración. |
 | 20/07/2026 | Presentación RRHH pulida y revisada: 183/183 escenarios, 183 capturas y cero hallazgos. Corregidos directorio público, foco del recibo de llamamiento, tablas operativas, huellas sintéticas, separación Reglas/Baremación y composición de Reglas a 1024 px. Certificados PDF DEMO reales con QR opaco verificable y selector de cuatro perfiles probado. |
 | 19/07/2026 | Puerta cartográfica y visual cerrada: 174/174 escenarios correctos, 174 capturas y cero hallazgos sobre 36 vistas, 22 flujos y tres resoluciones; incluye ruta OSRM real y carga efectiva de teselas OSM internas. |
