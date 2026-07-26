@@ -1,7 +1,8 @@
 # Plan de ejecución O4-04E: confirmación durable de cobertura
 
 **Fecha:** 26 de julio de 2026  
-**Estado:** en ejecución  
+**Estado:** cerrado en `faa5a5f` y `5954c29`; véase el
+[informe de cierre](o4_04e_informe_cierre_confirmacion_durable_2026-07-26.md).
 **Rama de integración:** `integracion/ct-o4-04e-20260726`
 
 ## Propósito
@@ -26,8 +27,8 @@ convergencia pasa:
 - `go vet ./...`;
 - comprobación de diferencias sin errores de formato.
 
-La fusión no aumenta por sí sola el porcentaje funcional: mantiene
-Contratación temporal en 18 de 46 tareas hasta que E sea productiva y revisada.
+El cierre validado eleva Contratación temporal a 19 de 46 tareas. La API,
+pantalla y aceptación E2E continúan separadas en O4-05.
 
 ## Hallazgos previos obligatorios
 
@@ -54,9 +55,9 @@ El puntero de reserva será la última escritura funcional.
 | E-GO-1 | Contratos Go: pruebas C1, lectura push opaca y ambigüedad | Cerrado y revisado |
 | E-SQL-1 | Enlace probatorio VEC, cánones y tablas durables | Cerrado, revisado y subido |
 | E-GO-2 | Ejecutor PostgreSQL y reconciliador primario | Cerrado, revisado y subido |
-| E-SQL-2 | Función exterior atómica, ramas concedida/denegada y lector fuerte | En curso; pendiente de E-SQL-1 para probar |
-| E-PG18 | Integración, replay, concurrencia, fallos y ACL/RLS | Pendiente |
-| E-REV | Revisión independiente y cierre documental | Pendiente |
+| E-SQL-2 | Función exterior atómica, ramas concedida/denegada y lector fuerte | Cerrado en `faa5a5f` |
+| E-PG18 | Integración, replay, concurrencia, fallos y ACL/RLS | Cerrado en `5954c29`; matriz PostgreSQL 18.4 verde |
+| E-REV | Revisión independiente y cierre documental | Cerrado; doble `GO` sin bloqueadores |
 
 Los cortes modifican superficies distintas. No se aceptará un corte porque
 compile de forma aislada: todos se revisarán sobre esta misma rama integrada.
@@ -96,7 +97,7 @@ compile de forma aislada: todos se revisarán sobre esta misma rama integrada.
 
 ## Paso siguiente
 
-Al cerrar O4-04E comenzará O4-05:
+O4-04E está cerrado. El siguiente frente es O4-05:
 
 `navegador RRHH → API interna → caso de uso → función O4-04E → recibo`.
 

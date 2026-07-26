@@ -128,6 +128,33 @@ subyacentes ni invocar directamente las funciones auxiliares.
 
 ## Instalación
 
+Para una instalación nueva, `roles_up.sql` crea todos los grupos técnicos.
+Para actualizar una base que ya tiene `000001`–`000027`, no se vuelve a
+ejecutar ese bootstrap: el DBA aplica
+`roles_confirmador_cobertura_up.sql`, instala como propietario de Autorización
+`migraciones_autorizacion/000006_wrapper_contexto_exacto_cobertura_o4_04e.up.sql`,
+ejecuta las migraciones `000028`–`000034` y, por último, concede únicamente el
+grupo confirmador al LOGIN nominativo del TCB. La reversión usa el orden
+inverso: revocar membresías del LOGIN, ejecutar los `down` `000034`–`000028`,
+instalar el `down` de Autorización `000006` y aplicar
+`roles_confirmador_cobertura_down.sql`.
+
+La membresía nominativa se concede sin administración ni `SET` transitivo:
+`GRANT vec_contratacion_temporal_confirmador_cobertura TO <login> WITH ADMIN
+FALSE, INHERIT TRUE, SET FALSE`. El delta admite reintentos con barrera 7–14,
+pero antes de la barrera final 14 exige que el grupo no tenga miembros.
+La credencial TCB es dedicada: esa debe ser su única arista directa en
+`pg_auth_members`. No puede acumular grupos de ContextoActor, Autorización,
+ejecución, gobierno, migración ni propiedad; esos usos requieren pools y
+credenciales separados. La fachada de confirmación y el lector primario
+comprueban en cada llamada tanto la arista exacta como sus tres opciones.
+
+Las migraciones `000028`, `000030` y `000033` superan el objetivo orientativo
+de 500 líneas, pero permanecen por debajo del límite duro de 800. Se conservan
+como unidades porque cada una instala y valida en una sola transacción atómica
+un conjunto inseparable de funciones, ACL, dependencias y avance de barrera;
+dividirlas introduciría estados intermedios instalables.
+
 1. Ejecutar `roles_up.sql` como DBA.
 2. Aprovisionar una cuenta nominativa de migración miembro únicamente de
    `vec_contratacion_temporal_migrador`.

@@ -1,7 +1,8 @@
 # O4-05: integración web de la decisión de cobertura
 
 **Fecha:** 26 de julio de 2026
-**Estado:** preparado; bloqueado hasta el cierre verificable de O4-04E
+**Estado:** habilitado tras el cierre verificable de O4-04E; quedan las
+dependencias corporativas y los cinco cortes de integración descritos aquí
 
 ## Resultado buscado
 
@@ -19,7 +20,7 @@ estado de negocio y no usará cookies ni almacenamiento del navegador.
 | Pieza | Estado | Decisión |
 | --- | --- | --- |
 | Propuesta, decisión y rectificación O4-03 | Real | Reutilizar los servicios de aplicación. |
-| Adaptador PostgreSQL O4-04E | Real en Go | Usar sólo después del cierre SQL y su revisión independiente. |
+| Adaptador PostgreSQL O4-04E | Real en Go y cerrado | Componer sobre `faa5a5f` y `5954c29`; no duplicar su lógica. |
 | Pantalla RRHH de expedientes y cobertura | Reutilizable | Mantener contrato, presentador, vista, componentes, CSS e i18n. |
 | Datos y adaptador de presentación | DEMO aislada | Conservar únicamente bajo el modo explícito de presentación; nunca incluir en manifiestos productivos. |
 | API interna de cobertura | No existe | Crear un adaptador de entrada neutral y cerrado. |
@@ -110,8 +111,9 @@ Probar sobre PostgreSQL 18 efímero:
 
 ## Bloqueos explícitos
 
-1. O4-04E debe quedar publicado, probado en PostgreSQL 18.4 y con `GO`
-   independiente.
+1. O4-04E está probado sobre PostgreSQL 18.4 y dispone de doble `GO`
+   independiente; debe permanecer publicado como base inmutable de este
+   trabajo.
 2. Sistemas debe proporcionar la frontera que convierta mTLS y Kerberos en un
    contexto interno confiable. No se sustituirá por cookies, `Authorization`
    del navegador ni cabeceras `X-*` aceptadas libremente.
@@ -122,7 +124,7 @@ Probar sobre PostgreSQL 18 efímero:
 
 ## Estimación
 
-Después del cierre de O4-04E y de resolver identidad y recuperación:
+Tras el cierre de O4-04E y una vez resueltas identidad y recuperación:
 
 - pantalla comparativa conectada: 2–3 días efectivos;
 - O4-05 completo, incluido E2E durable y revisión: 7–11 días efectivos.

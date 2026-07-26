@@ -4,6 +4,10 @@ Actualizado el 26 de julio de 2026 tras recuperar y revisar los cortes
 interrumpidos. Este fichero conserva el nombre original para no romper sus
 enlaces.
 
+> Documento histórico superado por el
+> [cierre O4-04E](o4_04e_informe_cierre_confirmacion_durable_2026-07-26.md).
+> La métrica vigente es 19/46 (41 %), no la cifra WIP conservada más abajo.
+
 ## Referencias conservadas
 
 - Rama aprobada: `real/ct-o4-03`, commit `0775853`.

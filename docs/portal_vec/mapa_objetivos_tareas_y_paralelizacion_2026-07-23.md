@@ -1,6 +1,6 @@
 # Mapa de objetivos, tareas y paralelización
 
-Última actualización: 25 de julio de 2026.
+Última actualización: 26 de julio de 2026.
 
 Vista de dirección para revisar el avance del procedimiento de contratación
 temporal. El detalle verificable de cada tarea está en el
@@ -10,12 +10,12 @@ temporal. El detalle verificable de cada tarea está en el
 
 | Indicador | Estado actual |
 | --- | --- |
-| Objetivo activo | O4-04 — persistencia transaccional de la decisión de cobertura |
-| Camino crítico | O4-04 PostgreSQL → O5-01 PostgreSQL → composición → API/web → E2E |
+| Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
+| Camino crítico | O4-05 composición → API/web → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
-| Procedimiento completo | 18 de 46 tareas cerradas (39 %); O4-03 ya tiene `GO` independiente |
-| Último commit verificado | `f5f5f5a` — orquestador nominal O4-03 de propuesta, decisión y rectificación |
-| Trabajo local en revisión | Primer corte acotado de la sesión TCB O4-04; todavía no cuenta como cierre ni persistencia productiva. |
+| Procedimiento completo | 19 de 46 tareas cerradas (41 %); O4-04 tiene doble `GO` independiente |
+| Último commit verificado | `5954c29` — matriz PostgreSQL 18.4 completa de O4-04E |
+| Trabajo local en revisión | Documentación de cierre y preparación de la composición productiva O4-05. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -31,6 +31,12 @@ candidato `88d3250`; no se ha reescrito la historia para obtener el cierre.
 O4-03 se contabiliza tras `f5f5f5a` y su `GO` independiente. Este cierre
 acredita el orquestador nominal, no persistencia, `COMMIT`, consumo durable de
 C1/C2 ni revocación viva; esas garantías corresponden a O4-04.
+
+O4-04 se contabiliza tras `faa5a5f` y `5954c29`, la matriz completa sobre
+PostgreSQL 18.4 y dos revisiones independientes finales. El cierre acredita
+persistencia, autorización, auditoría, outbox, recibo y reconciliación; no
+acredita todavía la composición HTTP ni el E2E visual, que pertenecen a
+O4-05.
 
 ## Mapa de objetivos
 
@@ -203,8 +209,8 @@ Estado actual:
 
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
-Tareas verificadas del procedimiento: 18/46 = 39 %
-Tareas locales en revisión: candidatas O2-06/O5-01 y primer corte TCB O4-04
+Tareas verificadas del procedimiento: 19/46 = 41 %
+Tareas locales en revisión: candidatas O2-06/O5-01 y composición O4-05
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

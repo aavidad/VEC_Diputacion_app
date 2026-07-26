@@ -532,18 +532,21 @@ confirmación única y reconciliación del resultado ambiguo. La rectificación
 conserva la referencia exacta a su antecedente y mantiene segregadas sus
 reglas.
 
-El cierre eleva el procedimiento a **18 de 46 tareas verificadas (39 %)**. No
-autoriza producción: no existe aún en esta ruta la persistencia PostgreSQL
-atómica, el consumo durable de C1/C2, la revocación viva dentro de la
-transacción, auditoría/outbox durables ni recibo recuperable tras reinicio.
-Todo ello corresponde a O4-04. El diseño de su sesión TCB está publicado en
-`3c49e1e`; no debe confundirse el contrato nominal ya probado con el efecto
-durable pendiente.
+O4-04E queda cerrado el 26 de julio en `faa5a5f` y `5954c29`. Ya existen la
+persistencia PostgreSQL atómica, el consumo durable de C1, la revalidación VEC
+dentro de la transacción, auditoría/outbox, recibo y reconciliación primaria
+tras reinicio. La matriz PostgreSQL 18.4 completa, las pruebas Go con detector
+de carreras y dos revisiones independientes terminaron en `GO`.
+
+El procedimiento queda en **19 de 46 tareas verificadas (41 %)**. Esto no
+autoriza aún la ruta web productiva: faltan la composición, la API neutral, el
+cliente del portal y el E2E de O4-05. Los dobles de presentación continúan
+aislados y no se convertirán en autoridad productiva.
 
 El orden vigente del camino crítico es:
 
 ```text
-O4-04 persistencia de cobertura
-  → O5-01 persistencia de asignación
-  → composición, API, web y E2E
+O4-05 composición, API, web y E2E de cobertura
+  ↔ O5-01 persistencia de asignación
+  → siguientes fases del procedimiento
 ```
