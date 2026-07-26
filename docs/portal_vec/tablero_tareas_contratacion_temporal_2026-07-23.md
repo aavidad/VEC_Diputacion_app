@@ -69,7 +69,7 @@ Estados:
 | O4-02 | Consultas minimizadas a Bolsa, SAE y convocatorias. | No accede a tablas ajenas; timeouts y procedencia registrada. | ✅ `913cb7a`, integrada en `0be7467`; GO independiente sin hallazgos, regresión temporal exacta ×100, focales ×50, carrera ×5, puertas globales, tamaños y secretos verdes. |
 | O4-03 | Caso de uso de propuesta y decisión motivada. | Resultados contradictorios, ausencia de datos, rectificación y CAS. | ✅ `f5f5f5a`: orquestador nominal de proponer, decidir y rectificar; autorización específica, replay, reserva, motivo gobernado, confirmación única y reconciliación probados; `GO` independiente. No acredita persistencia productiva. |
 | O4-04 | Persistencia, autorización, auditoría y outbox. | PostgreSQL real, consumo único y recibo. | ✅ `faa5a5f`, `5954c29`: A/B/C/D/E cerrados; PostgreSQL 18.4, migraciones, roles, ACL/RLS, ambas ramas, C1, carreras, fallos, reinicio y reversión verdes; doble `GO` independiente. |
-| O4-05 | API, pantalla comparativa y E2E. | La vía elegida muestra fuentes y justificación sin exponer PII indebida. | — |
+| O4-05 | API, pantalla comparativa y E2E. | La vía elegida muestra fuentes y justificación sin exponer PII indebida. | 🚧 `1a764cf` con `GO`: adaptador HTTP cerrado bajo `/api/vec`, contexto 401/403/503 y resultado pendiente sin reintento; faltan composición, cliente, recuperación y E2E. |
 
 Desglose verificable del camino crítico `O4-04`:
 

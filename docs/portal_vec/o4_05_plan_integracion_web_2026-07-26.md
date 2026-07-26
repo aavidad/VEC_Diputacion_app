@@ -1,8 +1,9 @@
 # O4-05: integración web de la decisión de cobertura
 
 **Fecha:** 26 de julio de 2026
-**Estado:** habilitado tras el cierre verificable de O4-04E; quedan las
-dependencias corporativas y los cinco cortes de integración descritos aquí
+**Estado:** en ejecución tras el cierre verificable de O4-04E. El contrato
+HTTP del primer corte está implementado y probado; todavía no está compuesto
+en el binario interno. Quedan las dependencias corporativas y los cortes 2–5.
 
 ## Resultado buscado
 
@@ -23,7 +24,7 @@ estado de negocio y no usará cookies ni almacenamiento del navegador.
 | Adaptador PostgreSQL O4-04E | Real en Go y cerrado | Componer sobre `faa5a5f` y `5954c29`; no duplicar su lógica. |
 | Pantalla RRHH de expedientes y cobertura | Reutilizable | Mantener contrato, presentador, vista, componentes, CSS e i18n. |
 | Datos y adaptador de presentación | DEMO aislada | Conservar únicamente bajo el modo explícito de presentación; nunca incluir en manifiestos productivos. |
-| API interna de cobertura | No existe | Crear un adaptador de entrada neutral y cerrado. |
+| API interna de cobertura | Adaptador real, no compuesto | Reutilizar el contrato cerrado y registrarlo únicamente desde la raíz productiva. |
 | Composición interna de Contratación temporal | No existe | Crear una raíz productiva separada del bootstrap DEMO. |
 | Capturas actuales | DEMO | Crear un E2E y un capturador productivos distintos. |
 
@@ -58,13 +59,28 @@ contrato visual existente.
 
 ### 1. Contrato neutral y adaptador HTTP
 
-Crear los manejadores internos de consulta de propuesta y
+**Cerrado en `1a764cf` con `GO` independiente.**
+
+Los manejadores internos de consulta de propuesta y
 decisión/rectificación:
 
 - DTO cerrados, límites y errores localizables;
 - proyección minimizada de vía recomendada, evaluaciones, identidad semántica
   y recibo;
 - pruebas de forma, autoridad, cancelación y cabeceras prohibidas.
+
+Rutas canónicas, sin versión en la URL:
+
+- `POST /api/vec/contratacion-temporal/solicitudes`;
+- `POST /api/vec/contratacion-temporal/cobertura/propuesta`;
+- `POST /api/vec/contratacion-temporal/cobertura/decisiones`;
+- `POST /api/vec/contratacion-temporal/cobertura/rectificaciones`.
+
+El alias histórico `/api/interno/v1/...` se rechaza. Los errores de contexto
+corporativo se proyectan como `401`, `403` o `503`. Cuando el `COMMIT` pudo
+ocurrir pero la lectura primaria aún no concluye, la aplicación conserva
+compatibilidad con `NoDisponible` y añade `Pendiente`; HTTP devuelve
+`503 operacion_pendiente` sin `Retry-After`, para impedir el reintento ciego.
 
 ### 2. Composición interna productiva
 

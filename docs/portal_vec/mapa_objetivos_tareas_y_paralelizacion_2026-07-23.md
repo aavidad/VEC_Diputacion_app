@@ -11,11 +11,11 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | O4-05 composición → API/web → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
+| Camino crítico | O4-05 contrato HTTP → composición → API/web → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 19 de 46 tareas cerradas (41 %); O4-04 tiene doble `GO` independiente |
-| Último commit verificado | `5954c29` — matriz PostgreSQL 18.4 completa de O4-04E |
-| Trabajo local en revisión | Documentación de cierre y preparación de la composición productiva O4-05. |
+| Último commit verificado | `1a764cf` — contrato HTTP O4-05 bajo `/api/vec`, con `GO` independiente |
+| Trabajo local en revisión | Segundo corte O4-05: composición productiva, registro de rutas y frontera corporativa; permanece cerrada hasta disponer de todas las dependencias. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

@@ -45,6 +45,7 @@ llamamientos.
 - [Diseño de propuesta y decisión de cobertura O4-03](docs/portal_vec/o4_03_diseno_propuesta_decision_cobertura_2026-07-24.md)
 - [Cierre de confirmación durable de cobertura O4-04E](docs/portal_vec/o4_04e_informe_cierre_confirmacion_durable_2026-07-26.md)
 - [Plan de integración web O4-05](docs/portal_vec/o4_05_plan_integracion_web_2026-07-26.md)
+- [Cierre del contrato HTTP O4-05](docs/portal_vec/o4_05_cierre_contrato_http_2026-07-26.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
@@ -69,7 +70,10 @@ orquestador nominal de propuesta, decisión y rectificación. O4-04 queda
 cerrada en `faa5a5f` y `5954c29`: PostgreSQL 18.4 acredita el `COMMIT` único,
 consumo C1, revalidación VEC, auditoría/outbox, recibo, concurrencia y
 reinicio. El camino crítico activo es O4-05: composición, API neutral, portal
-y E2E productivo sin cookies ni autoridad aportada por el navegador.
+y E2E productivo sin cookies ni autoridad aportada por el navegador. Su
+primer corte ya normaliza alta y cobertura bajo `/api/vec`, distingue el
+contexto corporativo y publica una confirmación incierta como
+`operacion_pendiente`; el adaptador aún no está compuesto en el binario.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es
