@@ -116,8 +116,8 @@ fuera de este corte.
 | Corte | Producto | Estado | Dependencias | Paralelizable |
 |---|---|---|---|---|
 | C2-D2-A | Contrato Go completo | GO en `9655d62` | C2-D1 | Sí |
-| C2-D2-B | Revalidador final VEC-AD-3 | En ejecución | consumidores comunes | Sí |
-| C2-D2-C | Registrador v2, identidad e índice de corte | Pendiente | C2-D1 | Sí, tras congelar el contrato |
+| C2-D2-B | Revalidador final VEC-AD-3 | GO en `183e563` | consumidores comunes | Sí |
+| C2-D2-C | Identidad GO; registrador v2 e índice pendientes | Parcial en `0dc2edc` | C2-D1 | Sí, tras congelar el contrato |
 | C2-D2-D | Fachada nominal de detalle | Pendiente | A, B y C | Con E |
 | C2-D2-E | Fachada nominal de cuadro y cursores | Pendiente | A, B y C | Con D |
 | C2-D2-F | Adaptador PostgreSQL Go | Pendiente | D y E | No |
