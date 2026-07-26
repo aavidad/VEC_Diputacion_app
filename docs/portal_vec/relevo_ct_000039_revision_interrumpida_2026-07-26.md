@@ -75,3 +75,22 @@ Hashes antes del commit de relevo:
 
 La métrica oficial permanece en Contratación temporal `19/46` (41 %), O4-05
 `3/5`, Bolsa `1/14` (7 %) y producción `NO-GO`.
+
+## Segundo cierre interrumpido
+
+Dirección ordenó detener el desarrollo y preservar el estado el 26 de julio
+de 2026. Queda un avance parcial, expresamente **no integrable**:
+
+- la migración ascendente sustituye el `login_tecnico` nominativo por
+  `cuenta_ref` y `cuenta_ordinaria_ref` opacas procedentes de Identidad;
+- el fichero conserva 800 líneas y su SHA-256 es
+  `13c1db8e477df871ec7614fcb994fab75ce41da5a3ec46888c468d2ba60377de`;
+- la prueba ejecutable todavía consulta y modifica la columna retirada
+  `login_tecnico`, por lo que debe adaptarse antes de volver a ejecutar la
+  matriz PostgreSQL;
+- el `down` exhaustivo y las inyecciones de deriva continúan pendientes.
+
+No se ejecutó ni se declaró verde ninguna prueba funcional sobre esta foto. Al
+reanudar, deben corregirse primero el runner y la reversión segura, probar la
+ausencia literal del LOGIN en tablas, cánones y recibos y reproducir toda la
+matriz PostgreSQL 18.4 antes de solicitar revisión independiente.

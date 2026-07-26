@@ -86,7 +86,6 @@ BEGIN
     END IF;
 END
 $prevalidacion$;
-
 CREATE TABLE
 vec_contratacion_temporal.control_registrador_acceso_rrhh_v2 (
     control boolean PRIMARY KEY DEFAULT true CHECK (control),
@@ -127,7 +126,6 @@ vec_contratacion_temporal.control_registrador_acceso_rrhh_v2 (
         ) = prueba_huella_sha256
     )
 );
-
 INSERT INTO
 vec_contratacion_temporal.control_registrador_acceso_rrhh_v2 (
     control, version_esquema, secuencia_base, cabeza_base_sha256,
@@ -159,11 +157,11 @@ SELECT true, 1, base.ultima_secuencia, base.cabeza_sha256,
             ) AS canon
  ) prueba
  WHERE base.control;
-
 CREATE TABLE
 vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2 (
     acceso_ref text PRIMARY KEY,
-    login_tecnico text NOT NULL,
+    cuenta_ref text NOT NULL,
+    cuenta_ordinaria_ref text NOT NULL,
     autenticacion_ref text NOT NULL,
     autenticacion_huella_sha256 text NOT NULL,
     sesion_ref text NOT NULL,
@@ -190,7 +188,8 @@ vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2 (
         sesion_huella_sha256, registrada_en
     ) ON UPDATE RESTRICT ON DELETE RESTRICT,
     CHECK (
-        login_tecnico ~ '^[A-Za-z_][A-Za-z0-9_-]{0,62}$'
+        cuenta_ref ~ '^cta_[A-Za-z0-9_-]{22,128}$'
+        AND cuenta_ordinaria_ref = cuenta_ref
         AND autenticacion_ref ~
             '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
         AND sesion_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
@@ -234,7 +233,10 @@ vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2 (
                 || pg_catalog.chr(10), 'UTF8'
             )
             || vec_contratacion_temporal.encuadrar_texto_v1(acceso_ref)
-            || vec_contratacion_temporal.encuadrar_texto_v1(login_tecnico)
+            || vec_contratacion_temporal.encuadrar_texto_v1(cuenta_ref)
+            || vec_contratacion_temporal.encuadrar_texto_v1(
+                cuenta_ordinaria_ref
+            )
             || vec_contratacion_temporal.encuadrar_texto_v1(
                 autenticacion_ref
             )
@@ -276,11 +278,6 @@ vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2 (
         ) = prueba_huella_sha256
     )
 );
-
-COMMENT ON COLUMN
-    vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2.login_tecnico
-IS 'LOGIN técnico potencialmente personal, conservado con finalidad probatoria y atribución forense; acceso restringido por RLS forzada y retención sujeta a la política gobernada del expediente.';
-
 CREATE INDEX
     publicacion_rrhh_organizacion_expediente_corte_desc_idx
 ON vec_contratacion_temporal.publicacion_version_rrhh (
@@ -288,7 +285,6 @@ ON vec_contratacion_temporal.publicacion_version_rrhh (
     (expediente_ref COLLATE "C"),
     corte_global DESC
 );
-
 CREATE FUNCTION
 vec_contratacion_temporal.registrar_acceso_rrhh_interno_v2(
     p_peticion jsonb
@@ -373,7 +369,6 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'registro de acceso RRHH v2 inválido';
     END IF;
-
     FOREACH clave IN ARRAY ARRAY[
         'decision_ref', 'sesion_id', 'actor_ref', 'perfil_id',
         'organizacion_ref', 'ambito_ref', 'recurso_ref',
@@ -451,7 +446,6 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'registro de acceso RRHH v2 inválido';
     END IF;
-
     IF r ->> 'modulo_id' <> 'contratacion_temporal'
        OR (
            r ->> 'tipo_consulta' = 'cuadro'
@@ -507,7 +501,6 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'registro de acceso RRHH v2 inválido';
     END IF;
-
     IF i ->> 'sesion_ref' IS DISTINCT FROM r ->> 'sesion_id'
        OR i ->> 'actor_ref' IS DISTINCT FROM r ->> 'actor_ref'
        OR i ->> 'perfil_ref' IS DISTINCT FROM r ->> 'perfil_id'
@@ -542,7 +535,11 @@ BEGIN
        OR identidad.control_sesion_revision IS DISTINCT FROM
           i ->> 'control_sesion_revision'
        OR identidad.control_sesion_huella_sha256 IS DISTINCT FROM
-          i ->> 'control_sesion_huella_sha256' THEN
+          i ->> 'control_sesion_huella_sha256'
+       OR identidad.cuenta_ref !~ '^cta_[A-Za-z0-9_-]{22,128}$'
+       OR identidad.cuenta_ordinaria_ref IS DISTINCT FROM
+          identidad.cuenta_ref
+       OR identidad.cuenta_privilegiada IS DISTINCT FROM false THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'identidad de acceso RRHH v2 no coincide';
     END IF;
@@ -630,7 +627,8 @@ BEGIN
         || pg_catalog.chr(10), 'UTF8'
     );
     FOREACH clave IN ARRAY ARRAY[
-        acceso_ref, identidad.login_tecnico,
+        acceso_ref, identidad.cuenta_ref,
+        identidad.cuenta_ordinaria_ref,
         identidad.autenticacion_ref,
         identidad.autenticacion_huella_sha256,
         identidad.sesion_ref, identidad.control_sesion_ref,
@@ -650,14 +648,16 @@ BEGIN
     );
     INSERT INTO
     vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2 (
-        acceso_ref, login_tecnico, autenticacion_ref,
+        acceso_ref, cuenta_ref, cuenta_ordinaria_ref,
+        autenticacion_ref,
         autenticacion_huella_sha256, sesion_ref, control_sesion_ref,
         control_sesion_revision, control_sesion_huella_sha256,
         actor_ref, perfil_ref, perfil_version, organizacion_ref,
         clase_ambito, ambito_ref, sesion_huella_sha256,
         acceso_registrado_en, prueba_canonica, prueba_huella_sha256
     ) VALUES (
-        acceso_ref, identidad.login_tecnico,
+        acceso_ref, identidad.cuenta_ref,
+        identidad.cuenta_ordinaria_ref,
         identidad.autenticacion_ref,
         identidad.autenticacion_huella_sha256,
         identidad.sesion_ref, identidad.control_sesion_ref,
