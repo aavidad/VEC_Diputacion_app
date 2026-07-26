@@ -494,6 +494,42 @@ paso 'recuperación propia O4-05: rol, ACL, alias y recibo fuerte'
 archivo contratacion_temporal/roles_lector_resultado_cobertura_up.sql
 archivo contratacion_temporal/migraciones/000035_recuperacion_propia_cobertura_o4_05.up.sql
 psql_admin <<'SQL' >/dev/null
+DO $huellas$
+DECLARE
+  v_oid oid:=pg_catalog.to_regprocedure(
+    'vec_contratacion_temporal.recuperar_resultado_propio_decision_cobertura_o405_v1(jsonb)');
+  v_prosrc text;
+  v_definicion text;
+BEGIN
+  SELECT pg_catalog.encode(
+           pg_catalog.sha256(
+             pg_catalog.convert_to(p.prosrc,'UTF8')),
+           'hex'),
+         pg_catalog.encode(
+           pg_catalog.sha256(
+             pg_catalog.convert_to(
+               pg_catalog.rtrim(
+                 pg_catalog.regexp_replace(
+                   pg_catalog.replace(
+                     pg_catalog.pg_get_functiondef(p.oid),
+                     E'\r\n',E'\n'),
+                   E'[ \t]+\n',E'\n','g'),
+                 E' \t\n\r')||E'\n',
+               'UTF8')),
+           'hex')
+    INTO v_prosrc,v_definicion
+    FROM pg_catalog.pg_proc AS p
+   WHERE p.oid=v_oid;
+  IF v_oid IS NULL
+     OR v_prosrc<>
+       '8e44dc20eef5d66b4acc3c6b89801ea85618b6f451151f2d50dd4be2ed06c0d3'
+     OR v_definicion<>
+       '81dcbffeb598368bd11ee9100351c649b37308c6a7a0a0876835b86d82e7d555'
+  THEN
+    RAISE EXCEPTION 'huella canónica O4-05 divergente de 000035';
+  END IF;
+END
+$huellas$;
 CREATE ROLE vec_o405_lector LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
   INHERIT NOREPLICATION NOBYPASSRLS;
 GRANT vec_contratacion_temporal_lector_resultado_cobertura
@@ -543,7 +579,8 @@ SQL
 binario_go="$(mktemp "${TMPDIR:-/tmp}/vec-o405-go.XXXXXX")"
 (
   cd "$raiz"
-  CGO_ENABLED=0 go test -c -o "$binario_go" \
+  CGO_ENABLED=0 go test -c -tags=integracion_postgresql_o405 \
+    -o "$binario_go" \
     ./internal/modules/contrataciontemporal/cobertura
 )
 docker cp "$binario_go" "$contenedor:/run/vec-o405/prueba"
@@ -556,6 +593,16 @@ docker exec \
   --env PGSSLMODE=disable \
   "$contenedor" /run/vec-o405/prueba \
   -test.run '^TestIntegracionPostgreSQLO405LectorNominativo$' -test.v
+docker exec \
+  --env VEC_O405_INTEGRACION_POSTGRES=1 \
+  --env PGHOST=/var/run/postgresql \
+  --env PGDATABASE=postgres \
+  --env PGUSER=vec_o405_lector \
+  --env PGSSLMODE=disable \
+  "$contenedor" /run/vec-o405/prueba \
+  -test.run \
+  '^TestIntegracionPostgreSQLO405ReemplazoMismoOIDNoPublicaYRestaura$' \
+  -test.v
 docker exec \
   --env VEC_O405_INTEGRACION_POSTGRES=1 \
   --env PGHOST=/var/run/postgresql \

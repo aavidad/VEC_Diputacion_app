@@ -3,12 +3,9 @@ package postgres
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"sync"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
 )
@@ -17,19 +14,6 @@ const (
 	esquemaConsultaRecuperacionResultadoCoberturaO405 = "" +
 		"vec.contratacion-temporal.consulta-recuperacion-propia-" +
 		"decision-cobertura.o4-05.v1"
-	consultaSQLRecuperacionResultadoCoberturaO405 = `
-		WITH resultado AS MATERIALIZED (
-			SELECT resultado_json::text AS contenido
-			  FROM vec_contratacion_temporal.recuperar_resultado_propio_decision_cobertura_o405_v1(
-			      $1::jsonb
-			    )
-		)
-		SELECT CASE
-		         WHEN octet_length(contenido) <= $2::bigint
-		         THEN contenido
-		       END,
-		       octet_length(contenido)::bigint
-		  FROM resultado`
 	maximoBytesConsultaRecuperacionResultadoCoberturaO405 = 8 * 1024
 )
 
@@ -41,14 +25,6 @@ var _ cobertura.EjecutorLecturaResultadoHistoricoOperacionDecisionCoberturaTCB =
 // ambas condiciones y falla cerrado.
 type EjecutorLecturaResultadoHistoricoOperacionDecisionCoberturaPostgreSQL struct {
 	pool iniciadorTransacciones
-}
-
-func NuevoEjecutorLecturaResultadoHistoricoOperacionDecisionCoberturaPostgreSQL(
-	pool *pgxpool.Pool,
-) (*EjecutorLecturaResultadoHistoricoOperacionDecisionCoberturaPostgreSQL, error) {
-	return nuevoEjecutorLecturaResultadoHistoricoOperacionDecisionCoberturaPostgreSQL(
-		pool,
-	)
 }
 
 func nuevoEjecutorLecturaResultadoHistoricoOperacionDecisionCoberturaPostgreSQL(
@@ -89,6 +65,17 @@ func (e *EjecutorLecturaResultadoHistoricoOperacionDecisionCoberturaPostgreSQL) 
 		return normalizarErrorRecuperacionResultadoCoberturaO405(ctx, err)
 	}
 	defer revertirTransaccion(tx)
+	oidFuncion := uint32(0)
+	portadorOID, ok := tx.(interface {
+		oidFuncionRecuperacionCoberturaO405() uint32
+		tlsEsperadoRecuperacionCoberturaO405() bool
+	})
+	tlsEsperado := false
+	if ok {
+		oidFuncion = portadorOID.oidFuncionRecuperacionCoberturaO405()
+		tlsEsperado =
+			portadorOID.tlsEsperadoRecuperacionCoberturaO405()
+	}
 	if err := configurarSesionDecisionCoberturaO404E(ctx, tx); err != nil {
 		return normalizarErrorRecuperacionResultadoCoberturaO405(ctx, err)
 	}
@@ -97,6 +84,7 @@ func (e *EjecutorLecturaResultadoHistoricoOperacionDecisionCoberturaPostgreSQL) 
 	guardia := nuevaGuardiaCicloDecisionCoberturaO404E()
 	sesion := &sesionRecuperacionResultadoCoberturaO405{
 		tx: tx, ctx: ctxCiclo, guardia: guardia,
+		oidFuncion: oidFuncion, tlsEsperado: tlsEsperado,
 	}
 	cerrada := false
 	defer func() {
@@ -127,12 +115,14 @@ func (e *EjecutorLecturaResultadoHistoricoOperacionDecisionCoberturaPostgreSQL) 
 }
 
 type sesionRecuperacionResultadoCoberturaO405 struct {
-	mu      sync.Mutex
-	tx      pgx.Tx
-	ctx     context.Context
-	guardia *guardiaCicloDecisionCoberturaO404E
-	usada   bool
-	cerrada bool
+	mu          sync.Mutex
+	tx          pgx.Tx
+	ctx         context.Context
+	guardia     *guardiaCicloDecisionCoberturaO404E
+	oidFuncion  uint32
+	tlsEsperado bool
+	usada       bool
+	cerrada     bool
 }
 
 var _ cobertura.SesionLecturaResultadoHistoricoOperacionDecisionCoberturaTCB = (*sesionRecuperacionResultadoCoberturaO405)(nil)
@@ -189,7 +179,8 @@ func (s *sesionRecuperacionResultadoCoberturaO405) consultarResultadoHistoricoO4
 ) {
 	contenido, err := json.Marshal(carga)
 	if err != nil || len(contenido) == 0 ||
-		len(contenido) > maximoBytesConsultaRecuperacionResultadoCoberturaO405 {
+		len(contenido) > maximoBytesConsultaRecuperacionResultadoCoberturaO405 ||
+		s.oidFuncion == 0 {
 		borrarBytes(contenido)
 		return resultadoVacioRecuperacionResultadoCoberturaO405(),
 			cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoConfiable
@@ -204,6 +195,19 @@ func (s *sesionRecuperacionResultadoCoberturaO405) consultarResultadoHistoricoO4
 	filas, err := s.tx.Query(
 		ctxOperacion,
 		consultaSQLRecuperacionResultadoCoberturaO405,
+		firmaFuncionRecuperacionResultadoCoberturaO405,
+		rolLectorResultadoCoberturaO405,
+		esquemaFuncionRecuperacionResultadoCoberturaO405,
+		nombreFuncionRecuperacionResultadoCoberturaO405,
+		propietarioFuncionRecuperacionResultadoCoberturaO405,
+		configuracionFuncionRecuperacionResultadoCoberturaO405(),
+		argumentosFuncionRecuperacionResultadoCoberturaO405,
+		retornoFuncionRecuperacionResultadoCoberturaO405,
+		lenguajeFuncionRecuperacionResultadoCoberturaO405,
+		huellaProsrcFuncionRecuperacionResultadoCoberturaO405,
+		huellaDefinicionFuncionRecuperacionResultadoCoberturaO405,
+		s.oidFuncion,
+		s.tlsEsperado,
 		contenido,
 		int64(maximoBytesResultadoRecuperacionResultadoCoberturaO405),
 	)
@@ -224,7 +228,12 @@ func (s *sesionRecuperacionResultadoCoberturaO405) consultarResultadoHistoricoO4
 	}
 	var respuesta []byte
 	var longitud int64
-	if err := filas.Scan(&respuesta, &longitud); err != nil {
+	var manifiestoAcreditado bool
+	if err := filas.Scan(
+		&respuesta,
+		&longitud,
+		&manifiestoAcreditado,
+	); err != nil {
 		borrarBytes(respuesta)
 		return resultadoVacioRecuperacionResultadoCoberturaO405(),
 			normalizarErrorFilasRecuperacionResultadoCoberturaO405(
@@ -243,7 +252,7 @@ func (s *sesionRecuperacionResultadoCoberturaO405) consultarResultadoHistoricoO4
 				err,
 			)
 	}
-	if longitud <= 0 ||
+	if !manifiestoAcreditado || longitud <= 0 ||
 		longitud > maximoBytesResultadoRecuperacionResultadoCoberturaO405 ||
 		longitud != int64(len(respuesta)) {
 		return resultadoNoConfiableRecuperacionResultadoCoberturaO405()
@@ -297,97 +306,6 @@ func construirConsultaRecuperacionResultadoCoberturaO405(
 		ExpedienteRef:   datos.ExpedienteRef,
 		AmbitosHMAC:     ambitos,
 	}, nil
-}
-
-func normalizarErrorRecuperacionResultadoCoberturaO405(
-	ctx context.Context,
-	causa error,
-) error {
-	if ctx != nil {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-	}
-	if errors.Is(causa, context.Canceled) {
-		return context.Canceled
-	}
-	if errors.Is(causa, context.DeadlineExceeded) {
-		return context.DeadlineExceeded
-	}
-	var postgres *pgconn.PgError
-	if errors.As(causa, &postgres) {
-		switch postgres.Code {
-		case "23505":
-			return cobertura.ErrHistoriaResultadoOperacionDecisionCoberturaDivergente
-		case "42501", "55000":
-			return cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoConfiable
-		}
-	}
-	return cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoDisponible
-}
-
-func normalizarErrorFilasRecuperacionResultadoCoberturaO405(
-	ctx context.Context,
-	causa error,
-) error {
-	if ctx != nil {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-	}
-	if causa == nil {
-		return cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoConfiable
-	}
-	var postgres *pgconn.PgError
-	if errors.As(causa, &postgres) {
-		switch postgres.Code {
-		case "23505":
-			return cobertura.ErrHistoriaResultadoOperacionDecisionCoberturaDivergente
-		case "42501", "55000":
-			return cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoConfiable
-		}
-	}
-	if errors.Is(causa, context.Canceled) {
-		return context.Canceled
-	}
-	if errors.Is(causa, context.DeadlineExceeded) {
-		return context.DeadlineExceeded
-	}
-	return cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoConfiable
-}
-
-func normalizarErrorCallbackRecuperacionResultadoCoberturaO405(
-	ctx context.Context,
-	causa error,
-) error {
-	if ctx != nil {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-	}
-	switch {
-	case errors.Is(causa, context.Canceled):
-		return context.Canceled
-	case errors.Is(causa, context.DeadlineExceeded):
-		return context.DeadlineExceeded
-	case errors.Is(
-		causa,
-		cobertura.ErrHistoriaResultadoOperacionDecisionCoberturaDivergente,
-	):
-		return cobertura.ErrHistoriaResultadoOperacionDecisionCoberturaDivergente
-	case errors.Is(
-		causa,
-		cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoConfiable,
-	):
-		return cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoConfiable
-	case errors.Is(
-		causa,
-		cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoDisponible,
-	):
-		return cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoDisponible
-	default:
-		return cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoDisponible
-	}
 }
 
 func resultadoVacioRecuperacionResultadoCoberturaO405() cobertura.DatosResultadoLecturaResultadoHistoricoOperacionDecisionCoberturaTCB {

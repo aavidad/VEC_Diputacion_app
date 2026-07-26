@@ -13,18 +13,15 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
 )
 
-const funcionRecuperacionResultadoCoberturaO405Prueba = "" +
-	"vec_contratacion_temporal." +
-	"recuperar_resultado_propio_decision_cobertura_o405_v1"
-
 type filasRecuperacionResultadoCoberturaO405Prueba struct {
-	contenidos [][]byte
-	longitudes []int64
-	err        error
-	indice     int
-	cerrada    bool
-	cierres    int
-	retenida   []byte
+	contenidos          [][]byte
+	longitudes          []int64
+	err                 error
+	indice              int
+	cerrada             bool
+	cierres             int
+	retenida            []byte
+	manifiestoRechazado bool
 }
 
 func (f *filasRecuperacionResultadoCoberturaO405Prueba) Close() {
@@ -65,16 +62,18 @@ func (f *filasRecuperacionResultadoCoberturaO405Prueba) Scan(
 	if f.indice < 0 || f.indice >= len(f.contenidos) {
 		return errors.New("fila no posicionada")
 	}
-	if len(destinos) != 2 {
+	if len(destinos) != 3 {
 		return errors.New("columnas inesperadas")
 	}
 	destinoContenido, okContenido := destinos[0].(*[]byte)
 	destinoLongitud, okLongitud := destinos[1].(*int64)
-	if !okContenido || !okLongitud {
+	destinoManifiesto, okManifiesto := destinos[2].(*bool)
+	if !okContenido || !okLongitud || !okManifiesto {
 		return errors.New("destinos inesperados")
 	}
 	*destinoContenido = append([]byte(nil), f.contenidos[f.indice]...)
 	*destinoLongitud = f.longitudes[f.indice]
+	*destinoManifiesto = !f.manifiestoRechazado
 	f.retenida = *destinoContenido
 	return nil
 }
@@ -101,6 +100,18 @@ type transaccionRecuperacionResultadoCoberturaO405Prueba struct {
 	argumentoVivo          []byte
 	argumentoCopia         []byte
 	limite                 int64
+	oidFuncion             uint32
+}
+
+func (t *transaccionRecuperacionResultadoCoberturaO405Prueba) oidFuncionRecuperacionCoberturaO405() uint32 {
+	if t == nil || t.oidFuncion == 0 {
+		return 405
+	}
+	return t.oidFuncion
+}
+
+func (*transaccionRecuperacionResultadoCoberturaO405Prueba) tlsEsperadoRecuperacionCoberturaO405() bool {
+	return false
 }
 
 func (t *transaccionRecuperacionResultadoCoberturaO405Prueba) Query(
@@ -112,14 +123,14 @@ func (t *transaccionRecuperacionResultadoCoberturaO405Prueba) Query(
 	t.consulta = consulta
 	t.configuradaAntesDeLeer = t.configurada
 	t.argumentos = len(argumentos)
-	if len(argumentos) >= 1 {
-		if contenido, ok := argumentos[0].([]byte); ok {
+	if len(argumentos) >= 14 {
+		if contenido, ok := argumentos[13].([]byte); ok {
 			t.argumentoVivo = contenido
 			t.argumentoCopia = append([]byte(nil), contenido...)
 		}
 	}
-	if len(argumentos) == 2 {
-		t.limite, _ = argumentos[1].(int64)
+	if len(argumentos) == 15 {
+		t.limite, _ = argumentos[14].(int64)
 	}
 	return t.filas, t.errConsulta
 }
@@ -207,7 +218,7 @@ func TestEjecutorRecuperacionResultadoCoberturaO405UsaUnaLecturaPrimariaExacta(
 		)
 	}
 	if !tx.configuradaAntesDeLeer || tx.consultas != 1 ||
-		tx.argumentos != 2 ||
+		tx.argumentos != 15 ||
 		tx.limite != maximoBytesResultadoRecuperacionResultadoCoberturaO405 ||
 		tx.confirmaciones != 1 ||
 		tx.reversiones != 1 {
@@ -224,10 +235,24 @@ func TestEjecutorRecuperacionResultadoCoberturaO405UsaUnaLecturaPrimariaExacta(
 	}
 	if strings.Count(
 		tx.consulta,
-		funcionRecuperacionResultadoCoberturaO405Prueba,
+		nombreFuncionRecuperacionResultadoCoberturaO405,
 	) != 1 ||
-		strings.Count(tx.consulta, "$1") != 1 ||
-		strings.Count(tx.consulta, "$2") != 1 ||
+		!strings.Contains(tx.consulta, "to_regprocedure($1::text)") ||
+		!strings.Contains(tx.consulta, "oid_funcion=$12::oid") ||
+		!strings.Contains(tx.consulta, "tls_activo=$13::boolean") ||
+		!strings.Contains(tx.consulta, "$14::jsonb") ||
+		!strings.Contains(tx.consulta, "$15::bigint") ||
+		!strings.Contains(tx.consulta, "pg_catalog.pg_stat_ssl") ||
+		!strings.Contains(tx.consulta, "pg_catalog.pg_is_in_recovery") ||
+		!strings.Contains(tx.consulta, "session_user::text,current_user::text") ||
+		!strings.Contains(tx.consulta, "pg_catalog.pg_auth_members") ||
+		!strings.Contains(tx.consulta, "pg_catalog.aclexplode") ||
+		!strings.Contains(tx.consulta, "pg_catalog.pg_get_functiondef") ||
+		!strings.Contains(tx.consulta, "pg_catalog.sha256") ||
+		!strings.Contains(
+			tx.consulta,
+			"CASE WHEN manifiesto.acreditado THEN (",
+		) ||
 		!strings.Contains(tx.consulta, "octet_length") ||
 		!strings.Contains(tx.consulta, "CASE") {
 		t.Fatalf("SQL no es la llamada única esperada: %q", tx.consulta)
@@ -257,6 +282,63 @@ func TestEjecutorRecuperacionResultadoCoberturaO405UsaUnaLecturaPrimariaExacta(
 	}
 	if filas.cierres == 0 {
 		t.Fatal("las filas no se cerraron")
+	}
+}
+
+func TestConsultaAtomicaO405NoPublicaAnteDerivaViva(
+	t *testing.T,
+) {
+	casos := []struct {
+		nombre    string
+		fragmento string
+	}{
+		{"TLS vivo", "pg_catalog.pg_stat_ssl"},
+		{"primario", "pg_catalog.pg_is_in_recovery"},
+		{"session user", "session_user::text,current_user::text"},
+		{"membresía", "pg_catalog.pg_auth_members"},
+		{"ACL y autoridad", "pg_catalog.aclexplode"},
+		{"OID y firma", "oid_funcion=$12::oid"},
+		{"prosrc", "procedimiento.prosrc"},
+		{"definición canónica", "pg_catalog.pg_get_functiondef"},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			respuesta :=
+				respuestaNoObservableRecuperacionResultadoCoberturaO405Prueba()
+			filas := &filasRecuperacionResultadoCoberturaO405Prueba{
+				contenidos:          [][]byte{respuesta},
+				longitudes:          []int64{int64(len(respuesta))},
+				indice:              -1,
+				manifiestoRechazado: true,
+			}
+			tx := &transaccionRecuperacionResultadoCoberturaO405Prueba{
+				transaccionPreparacionPrueba: &transaccionPreparacionPrueba{},
+				filas:                        filas,
+				oidFuncion:                   405,
+			}
+			sesion := &sesionRecuperacionResultadoCoberturaO405{
+				tx: tx, ctx: context.Background(), oidFuncion: 405,
+			}
+			resultado, err := sesion.consultarResultadoHistoricoO405(
+				context.Background(),
+				cargaRecuperacionResultadoCoberturaO405Prueba(),
+			)
+			if !errors.Is(
+				err,
+				cobertura.ErrLecturaResultadoHistoricoOperacionDecisionCoberturaNoConfiable,
+			) || resultado.Encontrado || !resultado.ObservadaEn.IsZero() ||
+				tx.consultas != 1 {
+				t.Fatalf(
+					"deriva publicó respuesta: resultado=%+v consultas=%d err=%v",
+					resultado,
+					tx.consultas,
+					err,
+				)
+			}
+			if !strings.Contains(tx.consulta, caso.fragmento) {
+				t.Fatalf("gate sin acreditación %q", caso.fragmento)
+			}
+		})
 	}
 }
 
@@ -506,8 +588,9 @@ func TestConsultaRecuperacionResultadoCoberturaO405ExigeUnaFilaExacta(
 				filas:                        filas,
 			}
 			sesion := &sesionRecuperacionResultadoCoberturaO405{
-				tx:  tx,
-				ctx: context.Background(),
+				tx:         tx,
+				ctx:        context.Background(),
+				oidFuncion: 405,
 			}
 			resultado, err := sesion.consultarResultadoHistoricoO405(
 				context.Background(),

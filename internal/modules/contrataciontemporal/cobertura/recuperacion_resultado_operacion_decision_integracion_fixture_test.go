@@ -1,3 +1,5 @@
+//go:build integracion_postgresql_o405
+
 package cobertura
 
 import "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
