@@ -2,6 +2,8 @@ import { validarComandoAlta, validarReciboAlta } from "./contrato.js";
 import {
   validarPropuestaCobertura,
   validarReciboCobertura,
+  validarResultadoConsultaCobertura,
+  validarSolicitudConsultaResultadoCobertura,
   validarSolicitudDecisionCobertura,
   validarSolicitudPropuestaCobertura,
   validarSolicitudRectificacionCobertura,
@@ -15,6 +17,8 @@ export const RUTAS_HTTP_CONTRATACION_TEMPORAL = Object.freeze({
     "/api/vec/contratacion-temporal/cobertura/decisiones",
   rectificacionCobertura:
     "/api/vec/contratacion-temporal/cobertura/rectificaciones",
+  resultadoCobertura:
+    "/api/vec/contratacion-temporal/cobertura/resultados",
 });
 
 const MAXIMO_SOLICITUD_ALTA_BYTES = 256 * 1024;
@@ -44,6 +48,19 @@ const CODIGOS_POR_ESTADO = new Map([
   [502, new Set(["resultado_no_confiable"])],
   [503, new Set(["servicio_no_disponible", "operacion_pendiente"])],
   [504, new Set(["plazo_agotado"])],
+]);
+const CODIGOS_RESULTADO_COBERTURA_POR_ESTADO = new Map([
+  [400, new Set(["peticion_no_valida", "peticion_no_permitida"])],
+  [401, new Set(["autenticacion_requerida"])],
+  [403, new Set(["acceso_denegado"])],
+  [404, new Set(["recurso_no_encontrado"])],
+  [405, new Set(["metodo_no_permitido"])],
+  [406, new Set(["representacion_no_aceptable"])],
+  [409, new Set(["conflicto"])],
+  [413, new Set(["peticion_demasiado_grande"])],
+  [415, new Set(["tipo_contenido_no_admitido"])],
+  [422, new Set(["contenido_no_valido"])],
+  [503, new Set(["servicio_no_disponible"])],
 ]);
 
 export class ErrorClienteHTTPContratacionTemporal extends Error {
@@ -362,6 +379,10 @@ function claveI18nValida(ruta, codigo, clave) {
 }
 
 function codigoValidoParaRuta(ruta, estado, codigo) {
+  if (ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.resultadoCobertura) {
+    return CODIGOS_RESULTADO_COBERTURA_POR_ESTADO
+      .get(estado)?.has(codigo) === true;
+  }
   if (!CODIGOS_POR_ESTADO.get(estado)?.has(codigo)) return false;
   if (codigo === "operacion_pendiente"
     && ruta === RUTAS_HTTP_CONTRATACION_TEMPORAL.propuestaCobertura) {
@@ -447,6 +468,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
       "capacidades del cliente HTTP de contratación temporal no disponibles",
     );
   }
+  const consultasResultadoEnCurso = new Map();
 
   async function ejecutar({
     ruta,
@@ -497,7 +519,10 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
         || respuesta.redirected === true) {
         throw errorCliente("respuesta_incompatible");
       }
-      if (respuesta.status !== estadoEsperado) {
+      const estadoValido = Array.isArray(estadoEsperado)
+        ? estadoEsperado.includes(respuesta.status)
+        : respuesta.status === estadoEsperado;
+      if (!estadoValido) {
         if (respuesta.status >= 400) {
           throw await construirErrorRespuesta(respuesta, signal, ruta);
         }
@@ -507,12 +532,15 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
       }
       let validada;
       try {
-        validada = validarRespuesta(extraerDatos(await leerJSONAcotado(
-          respuesta,
-          signal,
-          maximoRespuesta,
-          MAXIMO_FRAGMENTOS,
-        )));
+        validada = validarRespuesta(
+          extraerDatos(await leerJSONAcotado(
+            respuesta,
+            signal,
+            maximoRespuesta,
+            MAXIMO_FRAGMENTOS,
+          )),
+          respuesta.status,
+        );
       } catch (error) {
         if (error instanceof ErrorClienteHTTPContratacionTemporal) throw error;
         throw errorCliente("respuesta_incompatible", {
@@ -606,11 +634,56 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     });
   }
 
+  function consultarResultadoCobertura(solicitud, opciones) {
+    let signal;
+    let entrada;
+    try {
+      ({ signal } = validarOpciones(opciones));
+      entrada = validarSolicitudConsultaResultadoCobertura(solicitud);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    const claveVuelo = JSON.stringify([
+      entrada.expediente_ref,
+      entrada.clave_idempotencia,
+    ]);
+    const existente = consultasResultadoEnCurso.get(claveVuelo);
+    if (existente) return existente;
+
+    const operacion = ejecutar({
+      ruta: RUTAS_HTTP_CONTRATACION_TEMPORAL.resultadoCobertura,
+      entrada,
+      signal,
+      estadoEsperado: [200, 202],
+      maximoSolicitud: MAXIMO_SOLICITUD_COBERTURA_BYTES,
+      maximoRespuesta: MAXIMO_RESPUESTA_COBERTURA_BYTES,
+      validarRespuesta: (respuesta, estadoHTTP) => {
+        const resultado = validarResultadoConsultaCobertura(respuesta);
+        if ((estadoHTTP === 200) !== (resultado.estado === "confirmado")) {
+          throw new TypeError(
+            "el estado HTTP no corresponde al resultado de cobertura",
+          );
+        }
+        return resultado;
+      },
+      efecto: false,
+    });
+    let compartida;
+    compartida = operacion.finally(() => {
+      if (consultasResultadoEnCurso.get(claveVuelo) === compartida) {
+        consultasResultadoEnCurso.delete(claveVuelo);
+      }
+    });
+    consultasResultadoEnCurso.set(claveVuelo, compartida);
+    return compartida;
+  }
+
   return Object.freeze({
     modo: "http",
     registrarSolicitud,
     proponerCobertura,
     decidirCobertura,
     rectificarCobertura,
+    consultarResultadoCobertura,
   });
 }

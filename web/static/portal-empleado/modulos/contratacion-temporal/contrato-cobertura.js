@@ -30,6 +30,8 @@ const ESTADOS_EVALUACION = new Set([
   "conflictiva",
   "no_viable",
 ]);
+const ESQUEMA_RESULTADO_CONSULTA_COBERTURA =
+  "vec.contratacion-temporal.resultado-consulta-cobertura.v1";
 
 function esRegistro(valor) {
   if (valor === null || typeof valor !== "object" || Array.isArray(valor)) {
@@ -236,6 +238,21 @@ export function validarSolicitudPropuestaCobertura(solicitud) {
   return clonarYCongelar(solicitud);
 }
 
+export function validarSolicitudConsultaResultadoCobertura(solicitud) {
+  exigirCamposExactos(
+    solicitud,
+    ["expediente_ref", "clave_idempotencia"],
+    "consulta de resultado de cobertura",
+  );
+  if (!referenciaValida(solicitud.expediente_ref)
+    || typeof solicitud.clave_idempotencia !== "string"
+    || !PATRON_UUID_V4.test(solicitud.clave_idempotencia)
+    || solicitud.clave_idempotencia === UUID_V4_NULO) {
+    throw new TypeError("consulta de resultado de cobertura no válida");
+  }
+  return clonarYCongelar(solicitud);
+}
+
 function validarDecisionComun(decision, rectificacion) {
   const campos = [
     "expediente_ref",
@@ -359,6 +376,38 @@ export function validarReciboCobertura(recibo) {
     throw new TypeError("recibo de cobertura no válido");
   }
   return clonarYCongelar(recibo);
+}
+
+export function validarResultadoConsultaCobertura(resultado) {
+  if (!esRegistro(resultado)) {
+    throw new TypeError("resultado de consulta de cobertura no válido");
+  }
+  const confirmado = resultado.estado === "confirmado";
+  exigirCamposExactos(
+    resultado,
+    confirmado
+      ? ["esquema", "estado", "recibo"]
+      : ["esquema", "estado"],
+    "resultado de consulta de cobertura",
+  );
+  if (resultado.esquema !== ESQUEMA_RESULTADO_CONSULTA_COBERTURA
+    || !confirmado && resultado.estado !== "no_observable") {
+    throw new TypeError("resultado de consulta de cobertura no válido");
+  }
+  return confirmado
+    ? clonarYCongelar({
+      esquema: resultado.esquema,
+      estado: resultado.estado,
+      recibo: validarReciboCobertura(resultado.recibo),
+    })
+    : clonarYCongelar({
+      esquema: resultado.esquema,
+      estado: resultado.estado,
+    });
+}
+
+export function liberaBloqueoResultadoCobertura(resultado) {
+  return validarResultadoConsultaCobertura(resultado).estado === "confirmado";
 }
 
 export const LIMITES_COBERTURA_CONTRATACION = Object.freeze({
