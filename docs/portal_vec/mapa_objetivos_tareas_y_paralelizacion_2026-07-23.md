@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | O4-05 composición raíz con dependencias reales → proyecciones protegidas → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 19 de 46 tareas cerradas (41 %); O4-04 tiene doble `GO` independiente |
-| Último commit verificado | `5965223` — quinta ruta modular de recuperación O4-05, con `GO` independiente |
-| Trabajo local en revisión | Adaptador PostgreSQL, HTTP, cliente web y registro modular de recuperación están publicados y revisados aisladamente; raíz productiva, proyecciones protegidas y E2E permanecen abiertos. |
+| Último commit verificado | `6b33474` — integración real Go→PostgreSQL 18.4 de recuperación O4-05, con `GO` independiente |
+| Trabajo local en revisión | Adaptador PostgreSQL, HTTP, cliente web, registro modular y recorrido adaptador→PostgreSQL están publicados y revisados; raíz productiva, proyecciones protegidas y E2E HTTP permanecen abiertos. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

@@ -89,6 +89,9 @@ recuperación, el cliente web y la quinta ruta modular en `e36310a`,
 aislada. Aún no están compuestos en la raíz productiva: faltan las dependencias
 reales, las proyecciones protegidas y el E2E contra PostgreSQL, por lo que este
 avance no autoriza producción ni incrementa la métrica oficial.
+El corte `6b33474` ya prueba el adaptador y el lector TCB con un LOGIN
+nominativo real sobre PostgreSQL 18.4 —incluidas las ramas confirmada, no
+observable y sin permiso—, pero aún no recorre HTTP ni la composición raíz.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es

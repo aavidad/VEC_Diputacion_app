@@ -546,9 +546,11 @@ El 26 de julio se cerraron también las piezas aisladas de recuperación O4-05:
 nucleo y contrato PostgreSQL `87a1c37`–`93674c7`, adaptador Go `e36310a`,
 cliente web `7d4e1ec`, API HTTP `42920ae` y quinta ruta modular `5965223`.
 Todas cuentan con pruebas focales, carrera o pruebas web según corresponda y
-revisión independiente verde. La composición modular no equivale a la
+revisión independiente verde. `6b33474` añade el recorrido real del adaptador
+Go y el lector TCB contra PostgreSQL 18.4 con LOGIN nominativo, incluido el
+rechazo de un LOGIN sin permiso O4-05. La composición modular no equivale a la
 composición raíz: todavía hay que inyectar dependencias reales y superar el
-E2E contra PostgreSQL.
+E2E HTTP completo.
 
 El procedimiento conserva **19 de 46 tareas verificadas (41 %)**. Esto no
 autoriza aún la ruta web productiva: faltan la raíz productiva, las

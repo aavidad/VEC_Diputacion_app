@@ -161,12 +161,20 @@ su interoperabilidad.
   `42920ae`.
 - Registro modular de la quinta ruta con fallo atómico y manejador de solo
   lectura separado: `5965223`.
+- Integración Go → PostgreSQL 18.4 con LOGIN nominativo, constructor público,
+  lector TCB, ramas `confirmado`/`no_observable` y rechazo sin `EXECUTE`:
+  `6b33474`.
 - Pruebas focales Go, `go vet`, formato y detector de carreras: verdes.
 - Callback concurrente, doble, omitido, retenido y tardío: falla cerrado.
 - Codecs estándar y reales de CBOR/YAML: bloqueo verificado para valor,
   puntero y reconstrucción; el DTO de salida continúa serializable.
 - PostgreSQL 18.4 desde cero, upgrade, down protegido, alias HMAC,
   aislamiento `SERIALIZABLE READ ONLY`, límites temporales y ACL: verde.
+- El runner detectó y corrigió la concesión ausente de `CONNECT`; el rol
+  NOLOGIN conserva `CREATE` y `TEMP` denegados y la reversión retira el acceso.
+- La clave efímera del contenedor se entrega mediante fichero `0600`, nunca en
+  argumentos ni registros, y el fixture HMAC se elimina incluso al conservar
+  un contenedor fallido.
 
 Los commits anteriores cierran y revisan las piezas aisladas de recuperación.
 No acreditan todavía un recorrido productivo: la siguiente entrega debe
