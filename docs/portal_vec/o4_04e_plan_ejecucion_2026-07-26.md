@@ -51,10 +51,10 @@ El puntero de reserva será la última escritura funcional.
 
 | Corte | Alcance | Estado |
 | --- | --- | --- |
-| E-GO-1 | Contratos Go: pruebas C1, lectura push opaca y ambigüedad | En curso |
-| E-SQL-1 | Enlace probatorio VEC, cánones y tablas durables | En curso |
-| E-GO-2 | Ejecutor PostgreSQL y reconciliador primario | Pendiente de E-GO-1 |
-| E-SQL-2 | Función exterior atómica, ramas concedida/denegada y lector fuerte | Pendiente de E-SQL-1 |
+| E-GO-1 | Contratos Go: pruebas C1, lectura push opaca y ambigüedad | Cerrado y revisado |
+| E-SQL-1 | Enlace probatorio VEC, cánones y tablas durables | Cerrado, revisado y subido |
+| E-GO-2 | Ejecutor PostgreSQL y reconciliador primario | Cerrado, revisado y subido |
+| E-SQL-2 | Función exterior atómica, ramas concedida/denegada y lector fuerte | En curso; pendiente de E-SQL-1 para probar |
 | E-PG18 | Integración, replay, concurrencia, fallos y ACL/RLS | Pendiente |
 | E-REV | Revisión independiente y cierre documental | Pendiente |
 
