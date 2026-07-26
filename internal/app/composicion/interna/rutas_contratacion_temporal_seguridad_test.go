@@ -25,6 +25,15 @@ func (autoridadDespachoContratacionPrueba) AutorizarRutaExacta(
 	return nil
 }
 
+type autoridadDespachoContratacionDenegadaPrueba struct{}
+
+func (autoridadDespachoContratacionDenegadaPrueba) AutorizarRutaExacta(
+	context.Context,
+	string,
+) error {
+	return httpapi.ErrAccesoRutaExactaDenegado
+}
+
 type autoridadAltaErrorComposicionPrueba struct {
 	err error
 }
@@ -50,6 +59,7 @@ type negocioContratacionNoInvocablePrueba struct {
 	propuestas      atomic.Int64
 	decisiones      atomic.Int64
 	rectificaciones atomic.Int64
+	consultas       atomic.Int64
 }
 
 func (n *negocioContratacionNoInvocablePrueba) Registrar(
@@ -84,9 +94,17 @@ func (n *negocioContratacionNoInvocablePrueba) RectificarParaAdaptador(
 	return contratacionapp.ResultadoDecisionCoberturaParaAdaptador{}, nil
 }
 
+func (n *negocioContratacionNoInvocablePrueba) ConsultarParaAdaptador(
+	context.Context,
+	contratacionapp.SolicitudConsultaResultadoCobertura,
+) (contratacionapp.DatosConsultaResultadoCoberturaParaAdaptador, error) {
+	n.consultas.Add(1)
+	return contratacionapp.DatosConsultaResultadoCoberturaParaAdaptador{}, nil
+}
+
 func (n *negocioContratacionNoInvocablePrueba) total() int64 {
 	return n.altas.Load() + n.propuestas.Load() +
-		n.decisiones.Load() + n.rectificaciones.Load()
+		n.decisiones.Load() + n.rectificaciones.Load() + n.consultas.Load()
 }
 
 func TestRutasContratacionTemporalDenieganSinInvocarNegocio(t *testing.T) {
@@ -137,6 +155,7 @@ func TestRutasContratacionTemporalDenieganSinInvocarNegocio(t *testing.T) {
 				t,
 				caso.err,
 				negocio,
+				autoridadDespachoContratacionPrueba{},
 			)
 			for _, ruta := range rutas {
 				respuesta := httptest.NewRecorder()
@@ -164,10 +183,44 @@ func TestRutasContratacionTemporalDenieganSinInvocarNegocio(t *testing.T) {
 	}
 }
 
+func TestRutaResultadoCoberturaExigeAutoridadExteriorAntesDelConsultor(
+	t *testing.T,
+) {
+	t.Parallel()
+	negocio := &negocioContratacionNoInvocablePrueba{}
+	handler := nuevoHandlerContratacionErrorPrueba(
+		t,
+		httpinterno.ErrContextoCanalNoDisponible,
+		negocio,
+		autoridadDespachoContratacionDenegadaPrueba{},
+	)
+	respuesta := httptest.NewRecorder()
+	handler.ServeHTTP(
+		respuesta,
+		nuevaPeticionContratacionErrorPrueba(
+			httpinterno.RutaResultadoCobertura,
+		),
+	)
+	if respuesta.Code != http.StatusForbidden ||
+		!strings.Contains(
+			respuesta.Body.String(),
+			`"codigo":"acceso_denegado"`,
+		) ||
+		negocio.total() != 0 {
+		t.Fatalf(
+			"autoridad exterior omitida: estado=%d cuerpo=%s negocio=%d",
+			respuesta.Code,
+			respuesta.Body.String(),
+			negocio.total(),
+		)
+	}
+}
+
 func nuevoHandlerContratacionErrorPrueba(
 	t *testing.T,
 	errAutoridad error,
 	negocio *negocioContratacionNoInvocablePrueba,
+	autoridad httpapi.AutoridadRutasExactas,
 ) *httpapi.Handler {
 	t.Helper()
 	rutas, err := nuevasRutasContratacionTemporal(
@@ -180,8 +233,9 @@ func nuevoHandlerContratacionErrorPrueba(
 			autoridadCobertura: autoridadCoberturaErrorComposicionPrueba{
 				err: errAutoridad,
 			},
-			presentador: negocio,
-			decisor:     negocio,
+			presentador:        negocio,
+			decisor:            negocio,
+			consultorResultado: negocio,
 		},
 	)
 	if err != nil {
@@ -196,7 +250,7 @@ func nuevoHandlerContratacionErrorPrueba(
 		servicio,
 		httpapi.HandlerOptions{
 			RutasExactas:          rutas,
-			AutoridadRutasExactas: autoridadDespachoContratacionPrueba{},
+			AutoridadRutasExactas: autoridad,
 		},
 	)
 	if err != nil {
@@ -225,6 +279,11 @@ func nuevaPeticionContratacionErrorPrueba(ruta string) *http.Request {
 				"documentos_adjuntos":["documento:opaco:001"],
 				"observaciones":"Tramitación ordinaria."
 			}
+		}`
+	} else if ruta == httpinterno.RutaResultadoCobertura {
+		cuerpo = `{
+			"expediente_ref":"expediente:ct:0001",
+			"clave_idempotencia":"4d36e96e-e325-4f9b-bebc-291d91d6f732"
 		}`
 	}
 	peticion := httptest.NewRequest(

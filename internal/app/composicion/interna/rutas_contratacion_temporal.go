@@ -22,6 +22,7 @@ type dependenciasRutasContratacionTemporal struct {
 	autoridadCobertura httpinterno.AutoridadContextoCanalCobertura
 	presentador        httpinterno.PresentadorPropuestaCobertura
 	decisor            httpinterno.EjecutorDecisionCobertura
+	consultorResultado httpinterno.ConsultorResultadoCobertura
 }
 
 // nuevasRutasContratacionTemporal construye el conjunto de forma atomica. No
@@ -45,6 +46,12 @@ func nuevasRutasContratacionTemporal(
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}
+	resultado, err := httpinterno.NuevoManejadorResultadoCobertura(
+		dependencias.consultorResultado,
+	)
+	if err != nil {
+		return nil, ErrRutasContratacionTemporalInvalidas
+	}
 	return []httpapi.RutaExacta{
 		{
 			Ruta:      httpinterno.RutaAltaSolicitudes,
@@ -61,6 +68,10 @@ func nuevasRutasContratacionTemporal(
 		{
 			Ruta:      httpinterno.RutaRectificacionCobertura,
 			Manejador: cobertura,
+		},
+		{
+			Ruta:      httpinterno.RutaResultadoCobertura,
+			Manejador: resultado,
 		},
 	}, nil
 }
