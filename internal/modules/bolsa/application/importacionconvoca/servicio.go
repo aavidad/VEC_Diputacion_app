@@ -28,6 +28,7 @@ var (
 	ErrRelojRequerido         = errors.New("bolsa: reloj de importacion Convoca requerido")
 	ErrSolicitudInvalida      = errors.New("bolsa: solicitud de importacion Convoca invalida")
 	ErrResultadoInseguro      = errors.New("bolsa: resultado de importacion Convoca inseguro")
+	ErrImportacionEnConflicto = errors.New("bolsa: importacion Convoca en conflicto")
 )
 
 var actorOpaco = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{2,127}$`)
@@ -39,15 +40,16 @@ type DecodificadorExportacion interface {
 // RepositorioImportaciones confirma el staging y el acta de forma atomica.
 // El booleano indica que ya existia el mismo SHA-256 y no se duplico el lote.
 type RepositorioImportaciones interface {
-	GuardarSiAusente(context.Context, dominio.LoteValidado) (dominio.LoteValidado, bool, error)
+	GuardarSiAusente(context.Context, dominio.LoteValidado) (dominio.ActaImportacion, bool, error)
 }
 
 type Reloj func() time.Time
 
 type SolicitudImportacion struct {
-	NombreFichero string
-	ActorRef      string
-	Contenido     []byte
+	NombreFichero        string
+	FicheroCustodiadoRef string
+	ActorRef             string
+	Contenido            []byte
 }
 
 type ResultadoImportacion struct {
@@ -104,38 +106,38 @@ func (s *Servicio) Importar(
 	}
 	lote := dominio.LoteValidado{
 		Acta: dominio.ActaImportacion{
-			ActaRef:             "acta:importacion-convoca:" + huella,
-			ImportacionRef:      "importacion:convoca:" + huella,
-			HuellaFicheroSHA256: huella,
-			NombreFichero:       solicitud.NombreFichero,
-			ActorRef:            solicitud.ActorRef,
-			RegistradaEn:        registradaEn,
-			Esquema:             hoja.Esquema,
-			FilasLeidas:         staging.FilasLeidas,
-			FilasAceptadas:      len(staging.Aceptadas),
-			FilasRechazadas:     staging.Rechazadas,
-			Incidencias:         append([]dominio.Incidencia(nil), staging.Incidencias...),
-			Procedencia:         dominio.NuevaProcedenciaNoAutoritativa(),
+			ActaRef:              "acta:importacion-convoca:" + huella,
+			ImportacionRef:       "importacion:convoca:" + huella,
+			HuellaFicheroSHA256:  huella,
+			FicheroCustodiadoRef: solicitud.FicheroCustodiadoRef,
+			NombreFichero:        solicitud.NombreFichero,
+			ActorRef:             solicitud.ActorRef,
+			RegistradaEn:         registradaEn,
+			Esquema:              hoja.Esquema,
+			FilasLeidas:          staging.FilasLeidas,
+			FilasAceptadas:       len(staging.Aceptadas),
+			FilasRechazadas:      staging.Rechazadas,
+			Incidencias:          append([]dominio.Incidencia(nil), staging.Incidencias...),
+			Procedencia:          dominio.NuevaProcedenciaNoAutoritativa(),
 		},
 		Aceptadas: append([]dominio.FilaAceptada(nil), staging.Aceptadas...),
 	}
 	if lote.Validar() != nil {
 		return ResultadoImportacion{}, ErrResultadoInseguro
 	}
-	guardado, reutilizada, err := s.repositorio.GuardarSiAusente(ctx, lote)
+	actaGuardada, reutilizada, err := s.repositorio.GuardarSiAusente(ctx, lote)
 	if err != nil {
 		return ResultadoImportacion{}, err
 	}
-	if guardado.Validar() != nil ||
-		guardado.Acta.HuellaFicheroSHA256 != huella ||
-		guardado.Acta.ImportacionRef != lote.Acta.ImportacionRef {
+	if actaGuardada.Validar() != nil || !actaGuardada.CoincideExactamente(lote.Acta) {
 		return ResultadoImportacion{}, ErrResultadoInseguro
 	}
-	return ResultadoImportacion{Acta: guardado.Acta, Reutilizada: reutilizada}, nil
+	return ResultadoImportacion{Acta: actaGuardada, Reutilizada: reutilizada}, nil
 }
 
 func solicitudValida(s SolicitudImportacion) bool {
 	if len(s.Contenido) == 0 || len(s.Contenido) > MaximoBytesExportacion ||
+		!referenciaOpacaDurable.MatchString(s.FicheroCustodiadoRef) ||
 		strings.TrimSpace(s.NombreFichero) != s.NombreFichero ||
 		strings.TrimSpace(s.ActorRef) != s.ActorRef ||
 		!actorOpaco.MatchString(s.ActorRef) || !utf8.ValidString(s.NombreFichero) ||

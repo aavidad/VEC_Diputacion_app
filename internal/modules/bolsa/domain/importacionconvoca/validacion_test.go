@@ -106,7 +106,8 @@ func TestLoteFijaProcedenciaNoAutoritativaYClonaEnProfundidad(t *testing.T) {
 			ActaRef:             "acta:importacion-convoca:" + huella,
 			ImportacionRef:      "importacion:convoca:" + huella,
 			HuellaFicheroSHA256: huella, NombreFichero: "sintetico.xls",
-			ActorRef: "actor:rrhh:prueba", RegistradaEn: time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC),
+			FicheroCustodiadoRef: "almacen:objeto:convoca:" + huella,
+			ActorRef:             "actor:rrhh:prueba", RegistradaEn: time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC),
 			Esquema: EsquemaResumenPersona, FilasLeidas: 1, FilasAceptadas: 1,
 			Procedencia: NuevaProcedenciaNoAutoritativa(),
 		},
@@ -128,6 +129,45 @@ func TestLoteFijaProcedenciaNoAutoritativaYClonaEnProfundidad(t *testing.T) {
 	alterado.Acta.Procedencia.HabilitaActosConEfectos = true
 	if err := alterado.Validar(); !errors.Is(err, ErrLoteImportacionInvalido) {
 		t.Fatalf("procedencia autoritativa aceptada: %v", err)
+	}
+	for nombre, mutar := range map[string]func(*LoteValidado){
+		"fila duplicada": func(valor *LoteValidado) {
+			valor.Aceptadas = append(valor.Aceptadas, valor.Aceptadas[0])
+			valor.Acta.FilasLeidas = 2
+			valor.Acta.FilasAceptadas = 2
+		},
+		"fila desordenada": func(valor *LoteValidado) {
+			segunda := valor.Aceptadas[0]
+			segunda.Numero = 3
+			valor.Aceptadas = append([]FilaAceptada{segunda}, valor.Aceptadas[0])
+			valor.Acta.FilasLeidas = 2
+			valor.Acta.FilasAceptadas = 2
+		},
+		"documento sin enmascarar": func(valor *LoteValidado) {
+			valor.Aceptadas[0].Identidad.Documento = "12345678Z"
+		},
+		"decimal no canonico": func(valor *LoteValidado) {
+			valor.Aceptadas[0].Resumen.Experiencia = "01.0"
+		},
+		"total incoherente": func(valor *LoteValidado) {
+			valor.Aceptadas[0].Resumen.Total = "3"
+		},
+		"actor con barra": func(valor *LoteValidado) {
+			valor.Acta.ActorRef = "actor/rrhh/prueba"
+		},
+		"nombre con control": func(valor *LoteValidado) {
+			valor.Acta.NombreFichero = "sintetico\n.xls"
+		},
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			invalido := ClonarLote(lote)
+			mutar(&invalido)
+			if err := invalido.Validar(); !errors.Is(
+				err, ErrLoteImportacionInvalido,
+			) {
+				t.Fatalf("lote malformado aceptado: %v", err)
+			}
+		})
 	}
 }
 

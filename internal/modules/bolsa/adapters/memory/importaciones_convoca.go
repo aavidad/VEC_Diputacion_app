@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 
+	aplicacion "vec-diputacion-granada/internal/modules/bolsa/application/importacionconvoca"
 	dominio "vec-diputacion-granada/internal/modules/bolsa/domain/importacionconvoca"
 )
 
@@ -25,25 +26,28 @@ func NuevoRepositorioImportacionesConvoca() *RepositorioImportacionesConvoca {
 func (r *RepositorioImportacionesConvoca) GuardarSiAusente(
 	ctx context.Context,
 	lote dominio.LoteValidado,
-) (dominio.LoteValidado, bool, error) {
+) (dominio.ActaImportacion, bool, error) {
 	if err := ctx.Err(); err != nil {
-		return dominio.LoteValidado{}, false, err
+		return dominio.ActaImportacion{}, false, err
 	}
 	if lote.Validar() != nil {
-		return dominio.LoteValidado{}, false, ErrLoteConvocaInvalido
+		return dominio.ActaImportacion{}, false, ErrLoteConvocaInvalido
 	}
 	huella := lote.Acta.HuellaFicheroSHA256
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if err := ctx.Err(); err != nil {
-		return dominio.LoteValidado{}, false, err
+		return dominio.ActaImportacion{}, false, err
 	}
 	if existente, ok := r.lotes[huella]; ok {
-		return dominio.ClonarLote(existente), true, nil
+		if !existente.Acta.CoincideExactamente(lote.Acta) {
+			return dominio.ActaImportacion{}, false, aplicacion.ErrImportacionEnConflicto
+		}
+		return dominio.ClonarLote(existente).Acta, true, nil
 	}
 	guardado := dominio.ClonarLote(lote)
 	r.lotes[huella] = guardado
-	return dominio.ClonarLote(guardado), false, nil
+	return dominio.ClonarLote(guardado).Acta, false, nil
 }
 
 func (r *RepositorioImportacionesConvoca) ObtenerPorHuella(

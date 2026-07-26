@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 const (
@@ -29,6 +31,9 @@ var (
 )
 
 var huellaSHA256 = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var codigoIncidencia = regexp.MustCompile(`^[a-z][a-z0-9_]{0,127}$`)
+var referenciaCustodia = regexp.MustCompile(`^[a-z][a-z0-9_.:/-]{2,511}$`)
+var actorOpaco = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{2,127}$`)
 
 // EsquemaExportacion identifica una cabecera exacta, no una heuristica por
 // numero de columnas.
@@ -214,18 +219,19 @@ func (p Procedencia) Validar() error {
 }
 
 type ActaImportacion struct {
-	ActaRef             string
-	ImportacionRef      string
-	HuellaFicheroSHA256 string
-	NombreFichero       string
-	ActorRef            string
-	RegistradaEn        time.Time
-	Esquema             EsquemaExportacion
-	FilasLeidas         int
-	FilasAceptadas      int
-	FilasRechazadas     int
-	Incidencias         []Incidencia
-	Procedencia         Procedencia
+	ActaRef              string
+	ImportacionRef       string
+	HuellaFicheroSHA256  string
+	FicheroCustodiadoRef string
+	NombreFichero        string
+	ActorRef             string
+	RegistradaEn         time.Time
+	Esquema              EsquemaExportacion
+	FilasLeidas          int
+	FilasAceptadas       int
+	FilasRechazadas      int
+	Incidencias          []Incidencia
+	Procedencia          Procedencia
 }
 
 type LoteValidado struct {
@@ -233,24 +239,40 @@ type LoteValidado struct {
 	Aceptadas []FilaAceptada
 }
 
-func (l LoteValidado) Validar() error {
-	a := l.Acta
+// Validar comprueba el acta minimizada sin exigir que el staging siga
+// disponible. Esta separación permite conservar la prueba de una importación
+// después del expurgo gobernado de sus filas personales.
+func (a ActaImportacion) Validar() error {
 	if !huellaSHA256.MatchString(a.HuellaFicheroSHA256) ||
 		a.ActaRef != "acta:importacion-convoca:"+a.HuellaFicheroSHA256 ||
 		a.ImportacionRef != "importacion:convoca:"+a.HuellaFicheroSHA256 ||
+		!referenciaCustodia.MatchString(a.FicheroCustodiadoRef) ||
 		a.Esquema.Validar() != nil || a.Procedencia.Validar() != nil ||
-		len(l.Aceptadas) != a.FilasAceptadas || a.FilasLeidas < 0 ||
-		a.FilasAceptadas < 0 || a.FilasRechazadas < 0 ||
+		a.FilasLeidas < 0 || a.FilasAceptadas < 0 || a.FilasRechazadas < 0 ||
+		a.FilasLeidas > 100_001 ||
 		a.FilasAceptadas+a.FilasRechazadas != a.FilasLeidas ||
 		strings.TrimSpace(a.NombreFichero) != a.NombreFichero ||
 		strings.TrimSpace(a.ActorRef) != a.ActorRef ||
-		a.NombreFichero == "" || a.ActorRef == "" || a.RegistradaEn.IsZero() ||
+		len(a.NombreFichero) < 5 || len(a.NombreFichero) > 255 ||
+		!utf8.ValidString(a.NombreFichero) ||
+		strings.ContainsAny(a.NombreFichero, `/\`) ||
+		!strings.HasSuffix(strings.ToLower(a.NombreFichero), ".xls") ||
+		!actorOpaco.MatchString(a.ActorRef) || a.RegistradaEn.IsZero() ||
 		a.RegistradaEn.Location() != time.UTC || a.RegistradaEn.Nanosecond()%1000 != 0 {
+		return ErrLoteImportacionInvalido
+	}
+	for _, caracter := range a.NombreFichero {
+		if unicode.IsControl(caracter) {
+			return ErrLoteImportacionInvalido
+		}
+	}
+	if len(a.Incidencias) > a.FilasRechazadas*a.Esquema.NumeroColumnas() {
 		return ErrLoteImportacionInvalido
 	}
 	filasConIncidencia := make(map[int]struct{}, a.FilasRechazadas)
 	for _, incidencia := range a.Incidencias {
-		if incidencia.Fila < 2 || incidencia.Campo == "" || incidencia.Codigo == "" {
+		if incidencia.Fila < 2 || !textoIncidenciaValido(incidencia.Campo, 120) ||
+			!codigoIncidencia.MatchString(incidencia.Codigo) {
 			return ErrLoteImportacionInvalido
 		}
 		filasConIncidencia[incidencia.Fila] = struct{}{}
@@ -258,12 +280,59 @@ func (l LoteValidado) Validar() error {
 	if len(filasConIncidencia) != a.FilasRechazadas {
 		return ErrLoteImportacionInvalido
 	}
+	return nil
+}
+
+func textoIncidenciaValido(valor string, maximo int) bool {
+	if !utf8.ValidString(valor) || len(valor) < 1 || len(valor) > maximo ||
+		strings.TrimSpace(valor) != valor {
+		return false
+	}
+	for _, r := range valor {
+		if unicode.IsControl(r) {
+			return false
+		}
+	}
+	return true
+}
+
+// CoincideExactamente impide que la idempotencia por contenido reutilice un
+// acta perteneciente a otro actor, nombre de fichero o resultado de validación.
+func (a ActaImportacion) CoincideExactamente(otra ActaImportacion) bool {
+	if a.ActaRef != otra.ActaRef ||
+		a.ImportacionRef != otra.ImportacionRef ||
+		a.HuellaFicheroSHA256 != otra.HuellaFicheroSHA256 ||
+		a.FicheroCustodiadoRef != otra.FicheroCustodiadoRef ||
+		a.NombreFichero != otra.NombreFichero ||
+		a.ActorRef != otra.ActorRef ||
+		a.Esquema != otra.Esquema ||
+		a.FilasLeidas != otra.FilasLeidas ||
+		a.FilasAceptadas != otra.FilasAceptadas ||
+		a.FilasRechazadas != otra.FilasRechazadas ||
+		a.Procedencia != otra.Procedencia ||
+		len(a.Incidencias) != len(otra.Incidencias) {
+		return false
+	}
+	for i := range a.Incidencias {
+		if a.Incidencias[i] != otra.Incidencias[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (l LoteValidado) Validar() error {
+	a := l.Acta
+	if a.Validar() != nil || len(l.Aceptadas) != a.FilasAceptadas {
+		return ErrLoteImportacionInvalido
+	}
+	numeroAnterior := 1
 	for _, fila := range l.Aceptadas {
-		if fila.Numero < 2 || fila.Esquema != a.Esquema ||
-			(fila.Esquema == EsquemaResumenPersona) == (fila.Resumen == nil) ||
-			(fila.Esquema == EsquemaDetalleMerito) == (fila.Detalle == nil) {
+		if fila.Numero <= numeroAnterior || fila.Esquema != a.Esquema ||
+			!filaAceptadaValida(fila) {
 			return ErrLoteImportacionInvalido
 		}
+		numeroAnterior = fila.Numero
 	}
 	return nil
 }

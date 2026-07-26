@@ -256,6 +256,64 @@ func textoPeligroso(valor string) bool {
 		((valor[1] >= '0' && valor[1] <= '9') || valor[1] == '=')
 }
 
+func filaAceptadaValida(fila FilaAceptada) bool {
+	if fila.Numero < 2 ||
+		!documentoEnmascaradoValido(fila.Identidad.Documento) ||
+		!textoAceptadoValido(fila.Identidad.PrimerApellido, true, 120) ||
+		!textoAceptadoValido(fila.Identidad.SegundoApellido, false, 120) ||
+		!textoAceptadoValido(fila.Identidad.Nombre, true, 120) ||
+		!textoAceptadoValido(fila.Turno, true, 120) {
+		return false
+	}
+	switch fila.Esquema {
+	case EsquemaResumenPersona:
+		return fila.Resumen != nil && fila.Detalle == nil &&
+			decimalAceptadoValido(fila.Resumen.Experiencia, true) &&
+			decimalAceptadoValido(fila.Resumen.Formacion, true) &&
+			decimalAceptadoValido(fila.Resumen.Total, true) &&
+			sumaDecimalCoincide(
+				fila.Resumen.Experiencia,
+				fila.Resumen.Formacion,
+				fila.Resumen.Total,
+			)
+	case EsquemaDetalleMerito:
+		return fila.Resumen == nil && fila.Detalle != nil &&
+			detalleAceptadoValido(fila.Detalle)
+	default:
+		return false
+	}
+}
+
+func detalleAceptadoValido(detalle *DetalleMerito) bool {
+	return textoAceptadoValido(detalle.Grupo, true, 120) &&
+		textoAceptadoValido(detalle.DescripcionGrupo, true, 500) &&
+		detalle.OrdenGrupo > 0 &&
+		textoAceptadoValido(detalle.DescripcionMerito, true, 1_000) &&
+		decimalAceptadoValido(detalle.PuntosAutobaremacionHistoricos, false) &&
+		decimalAceptadoValido(detalle.PuntosTribunal, false) &&
+		textoAceptadoValido(detalle.Motivo, false, 1_000)
+}
+
+func textoAceptadoValido(valor string, requerido bool, maximo int) bool {
+	if valor == "" {
+		return !requerido
+	}
+	return utf8.ValidString(valor) &&
+		norm.NFC.IsNormalString(valor) &&
+		strings.TrimSpace(valor) == valor &&
+		utf8.RuneCountInString(valor) <= maximo &&
+		!textoPeligroso(valor)
+}
+
+func decimalAceptadoValido(valor string, requerido bool) bool {
+	if valor == "" {
+		return !requerido
+	}
+	return decimalConvoca.MatchString(valor) &&
+		!strings.Contains(valor, ",") &&
+		normalizarDecimal(valor) == valor
+}
+
 func normalizarDecimal(valor string) string {
 	valor = strings.ReplaceAll(valor, ",", ".")
 	partes := strings.SplitN(valor, ".", 2)
