@@ -1,6 +1,6 @@
 # Estado de la web de contratación temporal para RRHH
 
-Fecha de corte: 24 de julio de 2026.
+Fecha de corte: 26 de julio de 2026.
 
 ## Resultado
 
@@ -46,8 +46,8 @@ controles de tareas históricas o no autorizadas se presentan en solo lectura.
 
 ## Evidencia automática
 
-- JavaScript focal de contratación: `33/33` pruebas superadas.
-- JavaScript completo del portal: `272/272` pruebas superadas.
+- JavaScript focal del corte O4-05: `51/51` pruebas superadas.
+- JavaScript completo de la web: `378/378` pruebas superadas.
 - Contrato del capturador RRHH: `5/5` pruebas superadas.
 - Contratación temporal Go: siete paquetes superados, también con detector de
   carreras.
@@ -73,6 +73,12 @@ La vista, presentador, contratos e i18n son reutilizables. La aplicación real
 debe sustituir el adaptador de presentación por puertos de cuadro, expediente,
 índice documental, auditoría de solo adición y comandos con versión,
 idempotencia y recibo de servidor.
+
+El cliente HTTP productivo para alta, propuesta, decisión y rectificación ya
+existe y figura en los manifiestos. No se conecta todavía a la fuente general:
+faltan proyecciones productivas para las demás lecturas y la recuperación
+protegida de recibo. Ante un resultado indeterminado, los presentadores
+bloquean todo reenvío y mantienen el aviso durante la navegación.
 
 Los datos y efectos sintéticos están aislados en `datos-presentacion.js`,
 `datos-presentacion-ampliacion.js` y `adaptador-presentacion.js`. Ninguno

@@ -6,14 +6,14 @@
 de Contratación temporal solicitada por RRHH.
 
 **Frentes paralelos actuales:** composición productiva del importador Convoca,
-extensión del registro durable T13 a los wrappers de cada vertical y cierre
-O4-04E del acto de cobertura de Contratación temporal. Solo se usan datos
-sintéticos hasta cerrar las puertas de autorización, trazabilidad y protección
-de datos.
+extensión del registro durable T13 a los wrappers de cada vertical e
+integración O4-05 de Contratación temporal. Solo se usan datos sintéticos hasta
+cerrar las puertas de autorización, trazabilidad y protección de datos.
 
-**Objetivo actual:** crear y editar desde la web un borrador de convocatoria,
-guardarlo cifrado en PostgreSQL, recuperarlo después de reiniciar y obtener un
-recibo auditable.
+**Objetivo actual:** cerrar los primeros recorridos productivos de Bolsa y
+Contratación temporal. En Bolsa: crear, guardar y recuperar un borrador de
+convocatoria con recibo auditable. En Contratación: conectar las proyecciones y
+la recuperación protegidas al cliente HTTP ya verificado.
 
 Este es el tablero de seguimiento para dirección. Se actualiza antes del commit
 que cierre una capacidad o siempre que cambie el frente principal. Los códigos
@@ -52,7 +52,7 @@ productivo.
 | Ámbito | Avance oficial | Trabajo activo todavía no computado |
 | --- | ---: | --- |
 | Bolsa productiva de extremo a extremo | **1 de 14 capacidades (7 %)** | B1 Convoca y B2/T13 tienen GO técnico aislado; falta composición API/web y conectores productivos. |
-| Contratación temporal | **18 de 46 tareas (39 %)** | O4-04D cerrado; O4-04E completa el acto durable de cobertura. |
+| Contratación temporal | **19 de 46 tareas (41 %)** | O4-04E cerrado. O4-05 lleva 3/5 hitos internos: contrato HTTP, registro modular y cliente web seguro; todavía no computa como tarea productiva. |
 | Presentación web | **Aproximadamente 90 % presentable** | No equivale a integración, aceptación de RRHH ni producción. |
 
 La única capacidad de Bolsa contada de extremo a extremo es la consulta
@@ -217,6 +217,7 @@ Cada cierre debe actualizar, en este orden:
 
 | Fecha | Cambio |
 | --- | --- |
+| 26/07/2026 | O4-05 cierra su tercer hito interno en `023b890`: cliente HTTP productivo para alta y cobertura, manifiestos cerrados, DTO alineados con Go y bloqueo de reenvío ante resultado indeterminado. `cdea9cf` divide la prueba que superaba el tope y amplía la puerta de tamaño a `.mjs`. Supera 378/378 pruebas web, suite Go, `go vet`, carrera focal, manifiestos, Gitleaks y revisión independiente. La métrica permanece en Contratación 19/46 y Bolsa 1/14 hasta composición, recuperación y E2E. |
 | 26/07/2026 | B1 Convoca y B2/T13 obtienen GO técnico independiente, se integran en la rama principal y pasan la regresión Go conjunta. Convoca queda probado en PostgreSQL 18/TLS con cifrado opaco, RLS, conservación y reversión; T13 registra consultas permitidas con finalidad y filtro exacto. No aumentan el porcentaje productivo hasta su composición API/web y conectores reales. O4-04D queda cerrado y O4-04E pasa a ser el siguiente corte de Contratación. |
 | 26/07/2026 | Se fija la medida oficial: Bolsa 1/14 capacidades productivas E2E y Contratación temporal 18/46 tareas. Continúan sin computar B1 Convoca, B2/T13 y O4-04D hasta PostgreSQL 18, revisión cruzada, commit e integración. |
 | 20/07/2026 | Presentación RRHH pulida y revisada: 183/183 escenarios, 183 capturas y cero hallazgos. Corregidos directorio público, foco del recibo de llamamiento, tablas operativas, huellas sintéticas, separación Reglas/Baremación y composición de Reglas a 1024 px. Certificados PDF DEMO reales con QR opaco verificable y selector de cuatro perfiles probado. |

@@ -46,11 +46,12 @@ como indisponibilidad ordinaria, no queda pendiente y no reconcilia.
 
 ## Lo que no acredita
 
-Este `GO` no publica por sí solo una ruta productiva. Permanecen pendientes la
-raíz de composición, la frontera mTLS/Kerberos, los pools PostgreSQL de mínimo
-privilegio, el cliente web, la recuperación protegida de recibos y el E2E
-productivo. Hasta cerrar esos cortes, `cmd/vec-interno` debe seguir fallando
-cerrado.
+Este `GO` no publica por sí solo una ruta productiva. En este corte permanecían
+pendientes la raíz de composición, la frontera mTLS/Kerberos, los pools
+PostgreSQL de mínimo privilegio, el cliente web, la recuperación protegida de
+recibos y el E2E productivo. El cliente web se cerró posteriormente en
+`023b890`; las demás brechas siguen abiertas. Hasta cerrarlas,
+`cmd/vec-interno` debe seguir fallando cerrado.
 
 El siguiente corte mecánico ya registra los manejadores de forma atómica detrás
 de una autoridad obligatoria. Su alcance y límites constan en

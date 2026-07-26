@@ -1,9 +1,10 @@
 # O4-05: integración web de la decisión de cobertura
 
 **Fecha:** 26 de julio de 2026
-**Estado:** en ejecución tras el cierre verificable de O4-04E. El contrato
-HTTP del primer corte está implementado y probado; todavía no está compuesto
-en el binario interno. Quedan las dependencias corporativas y los cortes 2–5.
+**Estado:** en ejecución tras el cierre verificable de O4-04E. Contrato HTTP,
+registro modular y cliente web seguro están implementados y probados; todavía
+no están compuestos en el binario interno. Quedan las dependencias
+corporativas, las proyecciones protegidas, la recuperación y el E2E.
 
 ## Resultado buscado
 
@@ -82,7 +83,9 @@ ocurrir pero la lectura primaria aún no concluye, la aplicación conserva
 compatibilidad con `NoDisponible` y añade `Pendiente`; HTTP devuelve
 `503 operacion_pendiente` sin `Retry-After`, para impedir el reintento ciego.
 
-### 2. Composición interna productiva
+### 2. Registro modular y composición interna productiva
+
+**Registro mecánico cerrado en `7a866b3` y documentado en `0b899b5`.**
 
 Construir una raíz de composición de Contratación temporal que:
 
@@ -94,7 +97,14 @@ Construir una raíz de composición de Contratación temporal que:
   de reenvío a los manejadores;
 - no reutilice la composición DEMO de Bolsa o del portal.
 
+La carcasa ya registra de forma atómica los dos manejadores y cuatro rutas
+detrás de una autoridad obligatoria. Sigue pendiente la raíz productiva con
+sus dependencias corporativas y C5; el registro aislado no se anuncia en el
+descubrimiento genérico.
+
 ### 3. Cliente web y proyección RRHH
+
+**Cliente HTTP aislado cerrado en `023b890` con `GO` independiente.**
 
 Añadir una fuente HTTP productiva y conectarla al coordinador de módulos:
 
@@ -102,6 +112,11 @@ Añadir una fuente HTTP productiva y conectarla al coordinador de módulos:
 - mantener el adaptador sintético sólo para el modo explícito de presentación;
 - incorporar el cliente productivo a los manifiestos;
 - añadir las claves i18n de estados y errores sin fijar etiquetas de catálogo.
+
+El cliente, los DTO y el bloqueo de resultados indeterminados ya están en los
+manifiestos productivos. La conexión al coordinador permanece cerrada porque
+faltan cuadro, detalle, documentos, auditoría, catálogos y capacidades
+productivos. No se implementa una fuente ficticia para cubrir esos huecos.
 
 ### 4. Recibo y recuperación
 

@@ -11,7 +11,7 @@ Dietas y Bolsa son modulos independientes con `ModuleID`, permisos y menus
 propios; VEC solo los agrega y permite relacionarlos por empleado, expediente,
 justificante o auditoria.
 
-Fecha de corte de este estado: **24 de julio de 2026**. El repositorio es una
+Fecha de corte de este estado: **26 de julio de 2026**. El repositorio es una
 base de desarrollo y demostracion verificable; no acredita por si solo
 conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
 
@@ -47,6 +47,7 @@ llamamientos.
 - [Plan de integración web O4-05](docs/portal_vec/o4_05_plan_integracion_web_2026-07-26.md)
 - [Cierre del contrato HTTP O4-05](docs/portal_vec/o4_05_cierre_contrato_http_2026-07-26.md)
 - [Registro seguro de rutas y composición O4-05](docs/portal_vec/o4_05_registro_rutas_y_composicion_2026-07-26.md)
+- [Cliente web HTTP seguro O4-05](docs/portal_vec/o4_05_cliente_web_http_seguro_2026-07-26.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
@@ -76,8 +77,11 @@ primer corte ya normaliza alta y cobertura bajo `/api/vec`, distingue el
 contexto corporativo y publica una confirmación incierta como
 `operacion_pendiente`. El segundo corte registra de forma atómica los dos
 manejadores reales y cuatro rutas detrás de una autoridad obligatoria, sin
-publicarlas en el descubrimiento genérico. El adaptador aún no está compuesto
-en el binario: faltan C5, dependencias productivas, cliente y E2E.
+publicarlas en el descubrimiento genérico. El tercer corte incorpora el cliente
+web HTTP productivo a los manifiestos, valida los contratos de las cuatro
+operaciones y bloquea cualquier reenvío ante un resultado indeterminado. El
+adaptador aún no está compuesto en el binario: faltan C5, las proyecciones
+protegidas, la recuperación de recibo, las dependencias productivas y el E2E.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es

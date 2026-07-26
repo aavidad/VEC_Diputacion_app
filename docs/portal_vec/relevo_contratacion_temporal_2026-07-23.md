@@ -1,4 +1,4 @@
-# Relevo del frente de contratación temporal — actualizado el 24/07/2026
+# Relevo del frente de contratación temporal — actualizado el 26/07/2026
 
 Documento de entrada obligatorio para cualquier agente que continúe este
 frente. Debe actualizarse en cada commit que cambie alcance, arquitectura,
@@ -12,12 +12,11 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 
 ## Rama y base
 
-- Rama: `feature/contratacion-temporal`.
-- Base técnica: `real/c3-convergencia`, commit `eeac3a2`.
-- Motivo: contiene C3 público auditado y la cápsula interna C4.
-- No desarrollar este frente sobre `vec-orquesta-20260619`: en el momento de
-  abrirlo tenía cuatro commits documentales propios, pero estaba 73 commits por
-  detrás de C3.
+- Rama de integración actual: `integracion/ct-o4-04e-20260726`.
+- Último commit funcional verificado: `023b890`.
+- Último commit de calidad del corte: `cdea9cf`.
+- Seguimiento remoto:
+  `origin/integracion/ct-o4-04e-20260726`.
 
 Las ramas `real/t17a-postgres-importador` y
 `real/t20-borradores-postgresql` siguen siendo trabajos separados e
@@ -90,6 +89,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
+| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; 378 pruebas web, suite Go y revisiones independientes verdes. Falta conexión productiva. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -256,11 +256,15 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Alinear e implementar O2-06 contra la firma real de O2-05.
-2. Componer O2-07 y registrar el adaptador O2-08B.
-3. Conectar la interfaz O2-09B sin cookies ni autoridad de cliente.
-4. Cerrar O2-10 con navegador → API → autorización → PostgreSQL → recibo,
-   reinicio, concurrencia y aceptación RRHH.
+1. Crear las proyecciones protegidas mínimas de cuadro, expediente, catálogos
+   y capacidades que necesita el coordinador web.
+2. Crear la consulta protegida de recuperación de recibo para
+   `operacion_pendiente`.
+3. Componer la raíz interna con frontera corporativa y dependencias reales,
+   sin caída a presentación.
+4. Ejecutar el E2E PostgreSQL 18 y la aceptación de RRHH.
+5. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
+   reinicio y cancelación segura.
 
 ## Dominio implementado
 

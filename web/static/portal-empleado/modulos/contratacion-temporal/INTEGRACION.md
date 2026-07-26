@@ -1,11 +1,13 @@
-# Integración pendiente del alta de contratación temporal
+# Integración productiva de contratación temporal
 
-Estado: candidato O2-09B, no conectado y no integrado.
+Estado: contrato visual y cliente HTTP productivo verificados, todavía no
+conectados al coordinador ni integrados de extremo a extremo.
 
-Este directorio contiene únicamente la interfaz y su contrato neutral. No
-incluye cliente HTTP, ruta, adaptador de presentación, datos sintéticos de
-producción ni composición con autoridad. O2-08 deberá aportar la frontera real
-y O2-10 deberá demostrar el recorrido completo.
+Este directorio contiene la interfaz, sus contratos neutrales y el cliente
+HTTP cerrado para alta, propuesta, decisión y rectificación de cobertura. Los
+adaptadores y datos sintéticos siguen separados y no entran en los manifiestos
+productivos. La raíz corporativa debe inyectar autoridad y dependencias reales;
+el E2E debe demostrar el recorrido completo.
 
 ## Puerto que debe inyectar O2-08
 
@@ -31,22 +33,23 @@ El ejecutor tiene esta forma neutral:
 
 ```js
 async function ejecutor(comando, { signal }) {
-  // O2-08 traduce el comando al mismo caso de uso común.
-  // No se fija aquí transporte, URL, cabecera ni credencial.
+  // La composición inyecta un puerto neutral; HTTP es un adaptador.
   return reciboPublico;
 }
 ```
 
-En éxito resuelve únicamente el recibo público cerrado. En rechazo no existe
-en O2-09B un esquema de errores remotos por campo: el presentador descarta la
-causa privada y publica un error general redactado. Los errores por campo
-actuales proceden exclusivamente de la validación local. O2-08 no debe confiar
-en que la vista interprete cuerpos, estados o mensajes privados.
+En éxito resuelve únicamente el recibo público cerrado. El cliente HTTP
+descarta las causas privadas y publica códigos cerrados y localizables. No
+existe un esquema remoto para devolver texto libre ni detalles por campo. Los
+errores por campo actuales proceden exclusivamente de la validación local. El
+servidor no debe confiar en que la vista interprete cuerpos, estados o mensajes
+privados.
 
-`signal` permite cancelar la espera. Una cancelación no demuestra que el
-servidor haya descartado el efecto. El presentador conserva el mismo comando y
-la misma clave de idempotencia para un reintento cuya solicitud normalizada sea
-idéntica; una solicitud canónica distinta recibe una clave nueva.
+`signal` permite cancelar la espera. Una cancelación o pérdida de transporte
+después de enviar no demuestra que el servidor haya descartado el efecto. El
+cliente real marca el resultado como indeterminado; el presentador conserva la
+intención en memoria, retira los controles de reenvío y espera una recuperación
+protegida.
 
 La frontera de O2-08 deberá usar una credencial breve ligada al cliente y
 obtenida mediante composición confiable, fuera de este comando. No podrá usar
@@ -185,8 +188,9 @@ confirmación durable.
 
 ## Brechas bloqueantes
 
-1. **Ejecutor real ausente.** O2-08 aún no aporta transporte ni adaptación al
-   caso `ServicioRegistroSolicitud.Registrar`. No se fija una URL provisional.
+1. **Inyección productiva ausente.** El transporte real existe en
+   `cliente-http.js`, pero el coordinador todavía no lo inyecta porque faltan
+   las proyecciones y dependencias corporativas. No existe caída a DEMO.
 2. **Contexto confiable ausente.** Autenticación, sesión, perfil,
    organización y actor deben proceder de composición/servidor. La vista no
    ofrece campos ni cabeceras para declararlos.
@@ -204,12 +208,10 @@ confirmación durable.
 6. **Sistema documental.** Falta la fuente real de referencias incorporadas y
    la comprobación autoritativa de que cada referencia pertenece al ámbito
    permitido. Esta tarea no implementa carga documental.
-7. **Publicación del módulo.** El bootstrap productivo todavía no registra
-   `contrataciontemporal.Manifest()` y `locales/es.json` no contiene las claves
-   del manifiesto; `web/interno.manifest` y `web/produccion.manifest` no publican
-   estos siete activos. También faltan el enlace CSS en `index.html`, el registro
-   y montaje explícitos en `portal-modulos-coordinador.js` y sus pruebas de
-   coordinación.
+7. **Composición del módulo.** Los activos del contrato y del cliente ya están
+   en `web/interno.manifest` y `web/produccion.manifest`. El bootstrap
+   productivo todavía no compone las dependencias reales ni entrega las
+   capacidades y catálogos protegidos al coordinador.
 8. **Router del shell.** `portal.js` mantiene títulos, hash y contador en una
    lista cerrada y queda fuera del write-set de O2-09B. Cambiar solo el
    coordinador dejaría una navegación falsa. También queda pendiente avanzar
@@ -217,9 +219,10 @@ confirmación durable.
 9. **Borrador administrativo.** El documento normalizado distingue guardar
    borrador de registrar, pero el caso de uso revisado solo ofrece alta. Esta
    pantalla no simula persistencia de borrador.
-10. **E2E y aceptación.** Falta probar navegador → O2-08 → aplicación →
-    PostgreSQL → recibo, incluidos reinicio, concurrencia, cancelación
-    indeterminada, accesibilidad asistida y acta de RRHH.
+10. **E2E y aceptación.** Las 378 pruebas web y las pruebas Go acreditan el
+    corte aislado. Falta probar navegador → API → aplicación → PostgreSQL →
+    recibo, incluidos reinicio, concurrencia, recuperación del resultado
+    indeterminado, accesibilidad asistida y acta de RRHH.
 
 ## Lectura del documento de RRHH
 
@@ -235,11 +238,12 @@ servidor, nunca entradas del formulario.
 
 ## Declaración de alcance
 
-Este candidato no contiene adaptador DEMO, datos sintéticos de ejecución,
-subida documental, autoridad de navegador, HTTP, cookies, almacenamiento web,
-telemetría ni llamadas externas.
+El recorrido productivo no contiene adaptador DEMO, datos sintéticos de
+ejecución, subida documental, autoridad de navegador, cookies, almacenamiento
+web, telemetría ni llamadas externas. Sí contiene un adaptador HTTP de mismo
+origen, cerrado y sin credenciales ambientales.
 
-**Candidato O2-09B, no conectado y no integrado.**
+**Cliente productivo verificado; composición y E2E pendientes.**
 
 ## Actualización de composición web de 23/07/2026
 
@@ -252,5 +256,7 @@ La matriz de diecisiete tareas, las pruebas y el mapa de sustitución se recogen
 en `docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md`.
 `datos-presentacion.js`, `datos-presentacion-ampliacion.js` y
 `adaptador-presentacion.js` siguen excluidos de los manifiestos interno y
-productivo. Continúan pendientes los adaptadores productivos, identidad
-corporativa real y E2E durable con PostgreSQL.
+productivo. El cliente productivo O4-05 se incorporó después en `023b890`, sin
+sustituir esta separación. Continúan pendientes identidad corporativa real,
+proyecciones protegidas, recuperación de recibo, composición y E2E durable con
+PostgreSQL.

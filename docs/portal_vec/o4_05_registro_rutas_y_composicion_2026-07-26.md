@@ -35,10 +35,11 @@ La denegación se produce antes del manejador y del caso de uso:
 | organización o capacidad denegada | `403 acceso_denegado` |
 | autoridad no disponible o error desconocido | `503 servicio_no_disponible` |
 
-Las respuestas se redactan, eliminan cookies, CORS, redirecciones,
-`Retry-After` y compresión, y aplican cabeceras de no almacenamiento. Las URL
-con `RawPath`, `Opaque`, fragmento, `ForceQuery`, autoridad embebida o escape
-no canónico se rechazan antes de consultar la autoridad.
+Las respuestas se redactan, incluyen una referencia de correlación opaca,
+eliminan cookies, CORS, redirecciones, `Retry-After` y compresión, y aplican
+cabeceras de no almacenamiento. Las URL con `RawPath`, `Opaque`, fragmento,
+`ForceQuery`, autoridad embebida o escape no canónico se rechazan antes de
+consultar la autoridad.
 
 Por mínimo conocimiento, `GET /api/vec` no anuncia las rutas internas
 registradas. Las capacidades funcionales deberán descubrirse mediante una
@@ -63,7 +64,9 @@ la carcasa.
 
 Este corte no incrementa todavía las 19 de 46 tareas productivas verificadas.
 No acredita C5, identidad corporativa, Kerberos, pools PostgreSQL productivos,
-KMS/HSM, cliente web ni E2E. `cmd/vec-interno` debe seguir fallando cerrado.
+KMS/HSM ni E2E. El cliente web se cerró después en `023b890`, sin convertir
+este registro mecánico en composición productiva. `cmd/vec-interno` debe seguir
+fallando cerrado.
 
 La cadena obligatoria pendiente es:
 
