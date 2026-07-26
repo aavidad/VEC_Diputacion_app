@@ -78,16 +78,20 @@ func (c ClaseAmbitoConsultaRRHH) valida() bool {
 // Sus campos son privados, no se serializa y su representación está redactada.
 type ContextoConsultaRRHH struct {
 	bloqueoSerializacionConsultaRRHH
-	autenticacionRef    string
-	autenticacionHuella string
-	sesionRef           string
-	actorRef            string
-	perfilRef           string
-	registroContextoRef string
-	contextoActorHuella string
-	organizacionRef     string
-	resueltoEn          time.Time
-	validoHasta         time.Time
+	autenticacionRef          string
+	autenticacionHuella       string
+	sesionRef                 string
+	controlSesionRef          string
+	controlSesionRevision     uint64
+	controlSesionHuellaSHA256 string
+	actorRef                  string
+	perfilRef                 string
+	perfilVersion             uint64
+	registroContextoRef       string
+	contextoActorHuella       string
+	organizacionRef           string
+	resueltoEn                time.Time
+	validoHasta               time.Time
 }
 
 func NuevoContextoConsultaRRHH(
@@ -112,16 +116,20 @@ func NuevoContextoConsultaRRHH(
 	validoHasta := limiteVigenciaContextoConsultaRRHH(datosVinculo, resultado)
 	resueltoEn := inicioVigenciaContextoConsultaRRHH(datosVinculo, resultado)
 	c := ContextoConsultaRRHH{
-		autenticacionRef:    datosVinculo.AutenticacionRef,
-		autenticacionHuella: datosVinculo.AutenticacionHuellaSHA256,
-		sesionRef:           datosVinculo.SesionRef,
-		actorRef:            datosVinculo.PrincipalID,
-		perfilRef:           datosVinculo.PerfilActivoRef,
-		registroContextoRef: resultado.RegistroContextoRef,
-		contextoActorHuella: resultado.HuellaSHA256,
-		organizacionRef:     organizacionRef,
-		resueltoEn:          resueltoEn,
-		validoHasta:         validoHasta,
+		autenticacionRef:          datosVinculo.AutenticacionRef,
+		autenticacionHuella:       datosVinculo.AutenticacionHuellaSHA256,
+		sesionRef:                 datosVinculo.SesionRef,
+		controlSesionRef:          datosVinculo.ControlSesionRef,
+		controlSesionRevision:     datosVinculo.ControlSesionRevision,
+		controlSesionHuellaSHA256: datosVinculo.ControlSesionHuellaSHA256,
+		actorRef:                  datosVinculo.PrincipalID,
+		perfilRef:                 datosVinculo.PerfilActivoRef,
+		perfilVersion:             resultado.Contexto.Instantanea.PerfilVersion,
+		registroContextoRef:       resultado.RegistroContextoRef,
+		contextoActorHuella:       resultado.HuellaSHA256,
+		organizacionRef:           organizacionRef,
+		resueltoEn:                resueltoEn,
+		validoHasta:               validoHasta,
 	}
 	if c.validarEn(instante) != nil {
 		return ContextoConsultaRRHH{}, ErrContextoConsultaRRHHInvalido
@@ -172,8 +180,13 @@ func (c ContextoConsultaRRHH) validarEn(instante time.Time) error {
 	if !domain.ReferenciaOpacaValida(c.autenticacionRef) ||
 		!patronHuellaRRHH.MatchString(c.autenticacionHuella) ||
 		!domain.ReferenciaOpacaValida(c.sesionRef) ||
+		!domain.ReferenciaOpacaValida(c.controlSesionRef) ||
+		c.controlSesionRevision == 0 ||
+		!huellaSHA256RRHHValida(c.controlSesionHuellaSHA256) ||
 		!domain.ReferenciaOpacaValida(c.actorRef) ||
 		!domain.ReferenciaOpacaValida(c.perfilRef) ||
+		c.perfilVersion == 0 ||
+		c.perfilVersion > versionMaximaJSONSegura ||
 		!domain.ReferenciaOpacaValida(c.registroContextoRef) ||
 		!patronHuellaRRHH.MatchString(c.contextoActorHuella) ||
 		!domain.ReferenciaOpacaValida(c.organizacionRef) ||
@@ -187,13 +200,26 @@ func (c ContextoConsultaRRHH) validarEn(instante time.Time) error {
 	return nil
 }
 
+func huellaSHA256RRHHValida(valor string) bool {
+	return patronHuellaRRHH.MatchString(valor) &&
+		valor != strings.Repeat("0", 64)
+}
+
 func (c ContextoConsultaRRHH) AutenticacionRef() string { return c.autenticacionRef }
 func (c ContextoConsultaRRHH) SesionRef() string        { return c.sesionRef }
-func (c ContextoConsultaRRHH) ActorRef() string         { return c.actorRef }
-func (c ContextoConsultaRRHH) PerfilRef() string        { return c.perfilRef }
-func (c ContextoConsultaRRHH) OrganizacionRef() string  { return c.organizacionRef }
-func (c ContextoConsultaRRHH) ResueltoEn() time.Time    { return c.resueltoEn }
-func (c ContextoConsultaRRHH) ValidoHasta() time.Time   { return c.validoHasta }
+func (c ContextoConsultaRRHH) ControlSesionRef() string { return c.controlSesionRef }
+func (c ContextoConsultaRRHH) ControlSesionRevision() uint64 {
+	return c.controlSesionRevision
+}
+func (c ContextoConsultaRRHH) ControlSesionHuellaSHA256() string {
+	return c.controlSesionHuellaSHA256
+}
+func (c ContextoConsultaRRHH) ActorRef() string        { return c.actorRef }
+func (c ContextoConsultaRRHH) PerfilRef() string       { return c.perfilRef }
+func (c ContextoConsultaRRHH) PerfilVersion() uint64   { return c.perfilVersion }
+func (c ContextoConsultaRRHH) OrganizacionRef() string { return c.organizacionRef }
+func (c ContextoConsultaRRHH) ResueltoEn() time.Time   { return c.resueltoEn }
+func (c ContextoConsultaRRHH) ValidoHasta() time.Time  { return c.validoHasta }
 
 type SolicitudCuadroRRHH struct {
 	texto       string
@@ -254,6 +280,9 @@ func (s SolicitudCuadroRRHH) Limite() uint16                      { return s.lim
 func (s SolicitudCuadroRRHH) Cursor() string                      { return s.cursor }
 func (s SolicitudCuadroRRHH) HuellaCanonicaSHA256() (string, error) {
 	return huellaSolicitudCuadroRRHH(s)
+}
+func (s SolicitudCuadroRRHH) FiltrosHuellaSHA256() (string, error) {
+	return huellaFiltrosCuadroRRHH(s)
 }
 func (SolicitudCuadroRRHH) String() string   { return "[solicitud-cuadro-rrhh-redactada]" }
 func (SolicitudCuadroRRHH) GoString() string { return "[solicitud-cuadro-rrhh-redactada]" }

@@ -119,8 +119,14 @@ func (m *MaterialAutorizacionConsultaRRHH) cotejar(
 	if contexto.autenticacionRef != datosVinculo.AutenticacionRef ||
 		contexto.autenticacionHuella != datosVinculo.AutenticacionHuellaSHA256 ||
 		contexto.sesionRef != datosVinculo.SesionRef ||
+		contexto.controlSesionRef != datosVinculo.ControlSesionRef ||
+		contexto.controlSesionRevision != datosVinculo.ControlSesionRevision ||
+		contexto.controlSesionHuellaSHA256 !=
+			datosVinculo.ControlSesionHuellaSHA256 ||
 		contexto.actorRef != datosVinculo.PrincipalID ||
 		contexto.perfilRef != datosVinculo.PerfilActivoRef ||
+		contexto.perfilVersion !=
+			m.resultado.Contexto.Instantanea.PerfilVersion ||
 		contexto.registroContextoRef != m.resultado.RegistroContextoRef ||
 		contexto.contextoActorHuella != m.resultado.HuellaSHA256 ||
 		contexto.validarEn(resumen.EmitidaEn()) != nil ||

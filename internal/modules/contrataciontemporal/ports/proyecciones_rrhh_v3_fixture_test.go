@@ -90,6 +90,19 @@ func autoridadContextoPuertosRRHH(
 	marcaActor, marcaPerfil string,
 ) ports.ContextoAutorizacionAltaV3 {
 	t.Helper()
+	return autoridadContextoPuertosRRHHPersonalizada(
+		t, ahora, marcaActor, marcaPerfil, nil, nil,
+	)
+}
+
+func autoridadContextoPuertosRRHHPersonalizada(
+	t *testing.T,
+	ahora time.Time,
+	marcaActor, marcaPerfil string,
+	mutarInstantanea func(*dominiovec.InstantaneaContextoActor),
+	mutarAutenticacion func(*dominiovec.AutenticacionRevalidadaV1),
+) ports.ContextoAutorizacionAltaV3 {
+	t.Helper()
 	cuenta := dominiovec.CuentaAutenticadaContextoActor{
 		CuentaRef: "cta_0123456789abcdefghijkl",
 		Metodo:    dominiovec.AuthMethodCertificate,
@@ -107,6 +120,9 @@ func autoridadContextoPuertosRRHH(
 		Estado:          dominiovec.EstadoVinculoContextoActorActivo,
 		VigenteDesde:    ahora.Add(-time.Hour),
 		VigenteHasta:    ahora.Add(time.Hour),
+	}
+	if mutarInstantanea != nil {
+		mutarInstantanea(&instantanea)
 	}
 	actor, err := dominiovec.NuevoContextoActor(
 		cuenta, instantanea, ahora.Add(-2*time.Minute),
@@ -193,6 +209,9 @@ func autoridadContextoPuertosRRHH(
 		SesionEmitidaEn:              ahora.Add(-9 * time.Minute),
 		SesionValidaHasta:            ahora.Add(20 * time.Minute),
 		SesionRevalidadaEn:           ahora.Add(-3 * time.Minute),
+	}
+	if mutarAutenticacion != nil {
+		mutarAutenticacion(&autenticacion)
 	}
 	vinculo, err := dominiovec.CrearVinculoAutenticacionActorV2(
 		context.Background(),

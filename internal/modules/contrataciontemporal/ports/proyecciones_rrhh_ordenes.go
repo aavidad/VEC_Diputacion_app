@@ -12,6 +12,7 @@ type OrdenConsultaCuadroRRHH struct {
 	capacidad      CapacidadConsultaRRHH
 	solicitud      SolicitudCuadroRRHH
 	consultaHuella string
+	filtrosHuella  string
 	instante       time.Time
 }
 
@@ -22,7 +23,8 @@ func NuevaOrdenConsultaCuadroRRHH(
 	instante time.Time,
 ) (OrdenConsultaCuadroRRHH, error) {
 	huella, err := huellaSolicitudCuadroRRHH(solicitud)
-	if err != nil || capacidad.validaPara(
+	filtrosHuella, errFiltros := huellaFiltrosCuadroRRHH(solicitud)
+	if err != nil || errFiltros != nil || capacidad.validaPara(
 		contexto, DominioHuellaConsultaCuadroRRHH, huella,
 		AccionConsultarCuadroRRHH, FinalidadConsultarCuadroRRHH, "", instante,
 	) != nil {
@@ -30,7 +32,8 @@ func NuevaOrdenConsultaCuadroRRHH(
 	}
 	return OrdenConsultaCuadroRRHH{
 		contexto: contexto, capacidad: capacidad,
-		solicitud: solicitud, consultaHuella: huella, instante: instante,
+		solicitud: solicitud, consultaHuella: huella,
+		filtrosHuella: filtrosHuella, instante: instante,
 	}, nil
 }
 
@@ -46,13 +49,19 @@ func (o OrdenConsultaCuadroRRHH) Solicitud() SolicitudCuadroRRHH {
 func (o OrdenConsultaCuadroRRHH) ConsultaHuellaSHA256() string {
 	return o.consultaHuella
 }
+func (o OrdenConsultaCuadroRRHH) FiltrosHuellaSHA256() string {
+	return o.filtrosHuella
+}
 func (o OrdenConsultaCuadroRRHH) Instante() time.Time { return o.instante }
 func (o OrdenConsultaCuadroRRHH) ExportacionParaSQL() (
 	puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3,
 	error,
 ) {
 	huella, err := huellaSolicitudCuadroRRHH(o.solicitud)
-	if err != nil || huella != o.consultaHuella ||
+	filtrosHuella, errFiltros := huellaFiltrosCuadroRRHH(o.solicitud)
+	if err != nil || errFiltros != nil ||
+		huella != o.consultaHuella ||
+		filtrosHuella != o.filtrosHuella ||
 		o.capacidad.validaPara(
 			o.contexto, DominioHuellaConsultaCuadroRRHH, huella,
 			AccionConsultarCuadroRRHH, FinalidadConsultarCuadroRRHH,
