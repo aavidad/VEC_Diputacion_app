@@ -46,8 +46,9 @@ controles de tareas históricas o no autorizadas se presentan en solo lectura.
 
 ## Evidencia automática
 
-- JavaScript focal del corte O4-05: `51/51` pruebas superadas.
-- JavaScript completo de la web: `378/378` pruebas superadas.
+- JavaScript focal del corte O4-05: `56/56` pruebas superadas tras incorporar
+  la consulta protegida del resultado de cobertura.
+- JavaScript completo de la web: `383/383` pruebas superadas.
 - Contrato del capturador RRHH: `5/5` pruebas superadas.
 - Contratación temporal Go: siete paquetes superados, también con detector de
   carreras.
@@ -74,11 +75,12 @@ debe sustituir el adaptador de presentación por puertos de cuadro, expediente,
 índice documental, auditoría de solo adición y comandos con versión,
 idempotencia y recibo de servidor.
 
-El cliente HTTP productivo para alta, propuesta, decisión y rectificación ya
-existe y figura en los manifiestos. No se conecta todavía a la fuente general:
-faltan proyecciones productivas para las demás lecturas y la recuperación
-protegida de recibo. Ante un resultado indeterminado, los presentadores
-bloquean todo reenvío y mantienen el aviso durante la navegación.
+El cliente HTTP productivo para alta, propuesta, decisión, rectificación y
+recuperación propia ya existe y figura en los manifiestos. No se conecta
+todavía a la fuente general: faltan proyecciones productivas para las demás
+lecturas y la composición raíz con dependencias reales. Ante un resultado
+indeterminado, los presentadores bloquean todo reenvío y mantienen el aviso
+durante la navegación; solo un recibo confirmado y validado lo libera.
 
 Los datos y efectos sintéticos están aislados en `datos-presentacion.js`,
 `datos-presentacion-ampliacion.js` y `adaptador-presentacion.js`. Ninguno

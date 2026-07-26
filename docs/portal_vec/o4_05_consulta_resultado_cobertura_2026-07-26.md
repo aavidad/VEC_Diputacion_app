@@ -2,9 +2,10 @@
 
 **Fecha:** 26 de julio de 2026
 
-**Estado:** núcleo nominal y contrato PostgreSQL verificados con `GO`
-independiente. Permanecen pendientes el adaptador Go, la composición, HTTP,
-web y el E2E; esta pieza aislada no autoriza producción
+**Estado:** núcleo, contrato PostgreSQL, adaptador Go, HTTP, cliente web y
+registro modular verificados con `GO` independiente. Permanecen pendientes la
+composición raíz con dependencias reales y el E2E contra PostgreSQL; las piezas
+aisladas no autorizan producción
 
 ## Problema
 
@@ -152,6 +153,14 @@ su interoperabilidad.
   `70e2d98`.
 - Migración `000035`, rol nominativo mínimo, ACL y pruebas PostgreSQL:
   `93674c7`.
+- Adaptador Go PostgreSQL `SERIALIZABLE READ ONLY`, cardinalidad exacta y
+  clasificación cerrada de errores: `e36310a`.
+- Cliente web sin cookies, almacenamiento, reintento ni sondeo automático:
+  `7d4e1ec`.
+- Adaptador HTTP de consulta, cancelación prevalente y contrato cerrado:
+  `42920ae`.
+- Registro modular de la quinta ruta con fallo atómico y manejador de solo
+  lectura separado: `5965223`.
 - Pruebas focales Go, `go vet`, formato y detector de carreras: verdes.
 - Callback concurrente, doble, omitido, retenido y tardío: falla cerrado.
 - Codecs estándar y reales de CBOR/YAML: bloqueo verificado para valor,
@@ -159,10 +168,12 @@ su interoperabilidad.
 - PostgreSQL 18.4 desde cero, upgrade, down protegido, alias HMAC,
   aislamiento `SERIALIZABLE READ ONLY`, límites temporales y ACL: verde.
 
-Los commits anteriores cierran el contrato de recuperación, no el adaptador
-productivo. La siguiente entrega debe ejecutar la función mediante una
-transacción de solo lectura, decodificar su unión cerrada y componer el caso
-de uso sin exponer una capacidad de efecto.
+Los commits anteriores cierran y revisan las piezas aisladas de recuperación.
+No acreditan todavía un recorrido productivo: la siguiente entrega debe
+inyectar en la raíz el rol lector, el ejecutor PostgreSQL, el lector del
+núcleo, el servicio de aplicación, el contexto corporativo, el PDP, el
+sellador y el reloj, y probar el recorrido completo sin exponer una capacidad
+de efecto.
 
 ## Pruebas adversarias exigidas
 

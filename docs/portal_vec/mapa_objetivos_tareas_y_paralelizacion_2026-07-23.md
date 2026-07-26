@@ -11,11 +11,11 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | O4-05 contrato HTTP → composición → API/web → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
+| Camino crítico | O4-05 composición raíz con dependencias reales → proyecciones protegidas → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 19 de 46 tareas cerradas (41 %); O4-04 tiene doble `GO` independiente |
-| Último commit verificado | `93674c7` — contrato de recuperación propia O4-05 en núcleo y PostgreSQL, con `GO` independiente |
-| Trabajo local en revisión | Documentación del cuarto corte O4-05. Contrato, registro modular, cliente y contrato de recuperación están cerrados; C5, proyecciones, adaptador de recuperación, composición productiva y E2E permanecen abiertos. |
+| Último commit verificado | `5965223` — quinta ruta modular de recuperación O4-05, con `GO` independiente |
+| Trabajo local en revisión | Adaptador PostgreSQL, HTTP, cliente web y registro modular de recuperación están publicados y revisados aisladamente; raíz productiva, proyecciones protegidas y E2E permanecen abiertos. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -210,9 +210,10 @@ Estado actual:
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
 Tareas verificadas del procedimiento: 19/46 = 41 %
-Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 lleva 3/5 hitos
-  internos y un contrato de recuperación aislado, pero C5, proyecciones,
-  adaptador, composición y E2E siguen abiertos
+Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 conserva 3/5 hitos
+  oficiales: adaptador, HTTP, cliente y registro modular de recuperación están
+  verdes de forma aislada, pero raíz productiva, proyecciones y E2E siguen
+  abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

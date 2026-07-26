@@ -542,15 +542,23 @@ dentro de la transacción, auditoría/outbox, recibo y reconciliación primaria
 tras reinicio. La matriz PostgreSQL 18.4 completa, las pruebas Go con detector
 de carreras y dos revisiones independientes terminaron en `GO`.
 
-El procedimiento queda en **19 de 46 tareas verificadas (41 %)**. Esto no
-autoriza aún la ruta web productiva: faltan la composición, la API neutral, el
-cliente del portal y el E2E de O4-05. Los dobles de presentación continúan
-aislados y no se convertirán en autoridad productiva.
+El 26 de julio se cerraron también las piezas aisladas de recuperación O4-05:
+nucleo y contrato PostgreSQL `87a1c37`–`93674c7`, adaptador Go `e36310a`,
+cliente web `7d4e1ec`, API HTTP `42920ae` y quinta ruta modular `5965223`.
+Todas cuentan con pruebas focales, carrera o pruebas web según corresponda y
+revisión independiente verde. La composición modular no equivale a la
+composición raíz: todavía hay que inyectar dependencias reales y superar el
+E2E contra PostgreSQL.
+
+El procedimiento conserva **19 de 46 tareas verificadas (41 %)**. Esto no
+autoriza aún la ruta web productiva: faltan la raíz productiva, las
+proyecciones protegidas y el E2E de O4-05. Los dobles de presentación
+continúan aislados y no se convertirán en autoridad productiva.
 
 El orden vigente del camino crítico es:
 
 ```text
-O4-05 composición, API, web y E2E de cobertura
+O4-05 raíz productiva, proyecciones protegidas y E2E de cobertura
   ↔ O5-01 persistencia de asignación
   → siguientes fases del procedimiento
 ```

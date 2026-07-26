@@ -83,9 +83,12 @@ web HTTP productivo a los manifiestos, valida los contratos de las cuatro
 operaciones y bloquea cualquier reenvío ante un resultado indeterminado. El
 cuarto corte sella la recuperación propia del recibo en núcleo y PostgreSQL,
 con rol mínimo, codecs sensibles bloqueados y revisión independiente verde.
-El adaptador aún no está compuesto en el binario: faltan C5, las proyecciones
-protegidas, el adaptador de recuperación, las dependencias productivas y el
-E2E.
+El quinto corte añade el adaptador PostgreSQL de solo lectura, la API de
+recuperación, el cliente web y la quinta ruta modular en `e36310a`,
+`7d4e1ec`, `42920ae` y `5965223`. Todos están revisados y probados de forma
+aislada. Aún no están compuestos en la raíz productiva: faltan las dependencias
+reales, las proyecciones protegidas y el E2E contra PostgreSQL, por lo que este
+avance no autoriza producción ni incrementa la métrica oficial.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es

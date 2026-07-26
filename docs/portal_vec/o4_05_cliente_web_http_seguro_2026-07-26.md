@@ -18,6 +18,12 @@ operaciones reales ya publicadas por los adaptadores de Contratación temporal:
 - decisión de cobertura;
 - rectificación de una decisión anterior.
 
+El corte `7d4e1ec` añade también la consulta protegida de resultado. Usa una
+ruta separada, acepta solo la referencia de expediente y la UUID de
+idempotencia, y distingue estrictamente `200 confirmado` de
+`202 no_observable`. Solo un recibo confirmado y validado permite liberar el
+bloqueo; cualquier otro resultado lo conserva.
+
 El cliente consume los mismos DTO que los manejadores Go y se incorpora a las
 listas positivas `web/interno.manifest` y `web/produccion.manifest`. No se ha
 creado otra web ni se han duplicado las diecisiete pantallas de RRHH.
@@ -89,14 +95,15 @@ Los dos presentadores aplican la misma regla:
 - mantienen el bloqueo durante lecturas y navegación ordinarias;
 - no confunden la cancelación de una lectura con un efecto incierto.
 
-El bloqueo solo podrá retirarlo la futura consulta protegida de recibo. No se
-usa `localStorage`, `sessionStorage`, `IndexedDB` ni cookie para sobrevivir a
-una recarga.
+El bloqueo solo puede retirarlo la consulta protegida de recibo incorporada en
+`7d4e1ec`. La consulta es de vuelo único por expediente y clave, no reenvía el
+efecto y tampoco hace reintento o sondeo. No se usa `localStorage`,
+`sessionStorage`, `IndexedDB` ni cookie para sobrevivir a una recarga.
 
 ## Evidencia
 
-- 51/51 pruebas focales de Contratación web;
-- 378/378 pruebas de toda la web;
+- 56/56 pruebas focales de Contratación web tras añadir recuperación;
+- 383/383 pruebas de toda la web;
 - suite Go completa;
 - `go vet ./...`;
 - detector de carreras en el dispatcher y los adaptadores HTTP afectados;
@@ -115,12 +122,13 @@ siguen pendientes:
 
 1. composición real con frontera mTLS/Kerberos y dependencias productivas;
 2. proyecciones protegidas de cuadro, expediente, catálogos y capacidades;
-3. consulta mínima de recuperación de recibo;
-4. conexión del coordinador sin caída a DEMO;
-5. E2E con PostgreSQL 18, pérdida de respuesta y aceptación de RRHH.
+3. conexión del coordinador sin caída a DEMO;
+4. E2E con PostgreSQL 18, pérdida de respuesta y aceptación de RRHH.
 
-El corte O4-05 permanece en tres de cinco hitos técnicos internos. El núcleo y
-el contrato PostgreSQL de recuperación protegida quedaron verificados después
-en `87a1c37`–`93674c7`; todavía faltan su adaptador Go y composición. La
-siguiente entrega debe continuar por ese adaptador y las proyecciones
-protegidas, no por habilitar pantallas con datos incompletos.
+El corte O4-05 permanece oficialmente en tres de cinco hitos técnicos internos
+hasta superar la composición raíz y el E2E. El núcleo y el contrato PostgreSQL
+quedaron verificados en `87a1c37`–`93674c7`; el adaptador Go, este cliente, el
+HTTP y el registro modular se cerraron de forma aislada en `e36310a`,
+`7d4e1ec`, `42920ae` y `5965223`. La siguiente entrega debe continuar por las
+dependencias productivas y las proyecciones protegidas, no por habilitar
+pantallas con datos incompletos.
