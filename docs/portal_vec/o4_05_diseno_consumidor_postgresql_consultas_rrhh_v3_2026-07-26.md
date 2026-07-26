@@ -175,6 +175,8 @@ Los límites se aplican antes de reservar memoria o realizar trabajo costoso.
 
 ### C2-A — consumidores comunes VEC
 
+Estado: GO técnico independiente en `a0d39c1`.
+
 - evolución de la restricción de audiencias;
 - consumidor nominal de cuadro;
 - consumidor nominal de detalle;
@@ -183,9 +185,12 @@ Los límites se aplican antes de reservar memoria o realizar trabajo costoso.
 
 ### C2-B — rol y persistencia de acceso
 
+Estado: GO técnico independiente en `2820759`.
+
 - rol consultor RRHH;
 - cadena de auditoría y registros minimizados;
-- cursores, si se confirman necesarios;
+- ausencia deliberada de cursor hasta disponer de corte global alineado con
+  `COMMIT`;
 - RLS, inmutabilidad y reversión.
 
 ### C2-C — funciones exteriores de Contratación

@@ -204,7 +204,7 @@ write-sets disjuntos. C3, C4, C5 y C6 se integran en ese orden.
 
 - identidad corporativa y acuerdo de integración con Sistemas;
 - PDP y asignaciones reales aprobadas;
-- PostgreSQL de proyecciones y registro de accesos;
+- corte global de lectura, funciones exteriores y adaptador Go de consultas;
 - adaptador físico independiente para publicaciones visuales gobernadas;
 - matriz TLS real con CA, SAN/hostname, errores de confianza y downgrade;
 - EIPD, categorización ENS y aprobaciones organizativas de la matriz normativa;
@@ -227,6 +227,17 @@ añade después una única instantánea opaca con las diez entradas exigidas por
 PostgreSQL y el resumen derivado del mismo nominal. El consumidor de alta no
 se generaliza: cuadro y detalle necesitarán fachadas nominales separadas y
 listas positivas propias.
+
+`a0d39c1` cierra técnicamente esas dos fachadas nominales comunes, incluida la
+huella real de auditoría, el replay de conciliación y las carreras de
+revocación. `2820759` añade el rol nominativo y el registro durable, minimizado
+y encadenado de accesos, con barrera global 16. Ambos cortes tienen revisión
+independiente y PostgreSQL 18.4 verde.
+
+Sigue pendiente C2-C: incorporar un corte global monotónico alineado con
+`COMMIT` y ejecutar consumo, lectura y registro en una sola transacción. Un
+timestamp no sustituye esa garantía. Después deben cerrarse el adaptador Go,
+la matriz TLS y el E2E completo.
 
 Este mapa no declara producción. Evita que una pantalla o una respuesta
 aislada se presenten como recorrido terminado.
