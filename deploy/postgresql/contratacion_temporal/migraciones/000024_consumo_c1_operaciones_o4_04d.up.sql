@@ -122,7 +122,7 @@ BEGIN
 
     PERFORM 1
       FROM vec_contratacion_temporal.control_migracion_cobertura_o4
-     WHERE control AND version_esquema = 4
+     WHERE control AND version_esquema >= 4
      FOR SHARE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING
