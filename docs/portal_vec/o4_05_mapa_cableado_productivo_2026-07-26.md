@@ -204,7 +204,7 @@ write-sets disjuntos. C3, C4, C5 y C6 se integran en ese orden.
 
 - identidad corporativa y acuerdo de integración con Sistemas;
 - PDP y asignaciones reales aprobadas;
-- corte global de lectura, funciones exteriores y adaptador Go de consultas;
+- cursor, funciones exteriores y adaptador Go de consultas;
 - adaptador físico independiente para publicaciones visuales gobernadas;
 - matriz TLS real con CA, SAN/hostname, errores de confianza y downgrade;
 - EIPD, categorización ENS y aprobaciones organizativas de la matriz normativa;
@@ -234,10 +234,15 @@ revocación. `2820759` añade el rol nominativo y el registro durable, minimizad
 y encadenado de accesos, con barrera global 16. Ambos cortes tienen revisión
 independiente y PostgreSQL 18.4 verde.
 
-Sigue pendiente C2-C: incorporar un corte global monotónico alineado con
-`COMMIT` y ejecutar consumo, lectura y registro en una sola transacción. Un
-timestamp no sustituye esa garantía. Después deben cerrarse el adaptador Go,
-la matriz TLS y el E2E completo.
+La migración `000037` cierra C2-C con
+[GO técnico independiente](revisiones/o4_05_revision_publicacion_global_rrhh_2026-07-26.md):
+backfill base reproducible, singleton retenido hasta `COMMIT`, ordinal global
+único, proyección 1:1 indexable y safe-down `17→16`. No crea cursor ni fachada
+y no convierte el orden del backfill en orden histórico.
+
+Siguen pendientes el cursor autenticado y las funciones exteriores que
+ejecuten consumo, lectura y registro en una sola transacción. Después deben
+cerrarse el adaptador Go, la matriz TLS y el E2E completo.
 
 Este mapa no declara producción. Evita que una pantalla o una respuesta
 aislada se presenten como recorrido terminado.

@@ -213,9 +213,9 @@ Tareas verificadas del procedimiento: 19/46 = 41 %
 Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 conserva 3/5 hitos
   oficiales: adaptador, HTTP, cliente, registro modular, proyecciones
   protegidas de cuadro/detalle, contrato y consumidores nominales VEC-AD-3,
-  registro durable de accesos y composición visual gobernada están verdes de
-  forma aislada, pero corte global de lectura, funciones exteriores, raíz
-  productiva, adaptadores reales y E2E siguen abiertos
+  registro durable de accesos, publicación global estable y composición
+  visual gobernada están verdes de forma aislada, pero cursor, funciones
+  exteriores, raíz productiva, adaptadores reales y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

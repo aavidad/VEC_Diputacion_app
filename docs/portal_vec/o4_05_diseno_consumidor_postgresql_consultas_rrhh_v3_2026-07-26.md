@@ -140,11 +140,11 @@ nueva ligada a ese cursor.
 
 `expediente_version_integral.registrada_en` no sirve por sí sola como corte
 global: su precisión admite empates entre expedientes y dos transacciones
-pueden confirmar en un orden distinto al de sus relojes. C2-C deberá incorporar
-un ordinal global único cuya asignación quede serializada mediante una fila de
-control bloqueada hasta `COMMIT`, o demostrar un mecanismo equivalente. No se
-activará paginación estable con un `timestamp` o una secuencia asignada sin esa
-garantía de orden de confirmación.
+pueden confirmar en un orden distinto al de sus relojes. C2-C cerró esa
+precondición con `000037`: el backfill define una base reproducible y cada
+versión posterior bloquea un singleton hasta `COMMIT` antes de recibir un
+ordinal global único. Esto no activa aún la paginación; faltan cursor
+autenticado, fachada y transacción exterior de consulta.
 
 ## Detalle
 
@@ -193,11 +193,25 @@ Estado: GO técnico independiente en `2820759`.
   `COMMIT`;
 - RLS, inmutabilidad y reversión.
 
-### C2-C — funciones exteriores de Contratación
+### C2-C — publicación global estable
+
+Estado: GO técnico independiente en `3cb17ca`, documentado en
+[la revisión de `000037`](revisiones/o4_05_revision_publicacion_global_rrhh_2026-07-26.md).
+
+- singleton transaccional y proyección 1:1 de solo adición;
+- backfill bajo bloqueo, ordenado por referencia `COLLATE "C"` y versión;
+- `corte_base` explícito que no afirma orden histórico;
+- ordinal posterior único y limitado a `2^53-1`, retenido hasta `COMMIT`;
+- extracción indexable y cotejada del resumen RRHH;
+- RLS, ACL, inmutabilidad y reversión `17→16` protegida;
+- PostgreSQL 18.4 real, rollback, concurrencia y safe-down.
+
+### Pendiente tras C2-C — funciones exteriores de Contratación
 
 - cuadro y detalle en transacción única;
 - canon compartido con Go;
 - lectura por ámbito, versión y filtros;
+- cursor opaco ligado al corte global;
 - recibo durable y límites.
 
 ### C2-D — adaptador Go
