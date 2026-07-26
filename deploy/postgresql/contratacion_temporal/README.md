@@ -1,10 +1,10 @@
 # PostgreSQL de contratación temporal
 
 Estado: persistencia O2-05, confirmación O3-04, registro durable de accesos
-RRHH O4-05/C2-B y publicación global O4-05/C2-C probados en PostgreSQL 18.4.
-C2-B y C2-C disponen de revisión independiente, pero aún faltan cursor,
-funciones exteriores, adaptador Go y composición completa. No es una
-autorización de producción.
+RRHH O4-05/C2-B, publicación global C2-C e infraestructura de cursor C2-D1
+probados en PostgreSQL 18.4. Los tres últimos cortes disponen de revisión
+independiente, pero aún faltan funciones exteriores, adaptador Go y
+composición completa. No es una autorización de producción.
 
 ## Alcance del corte
 
@@ -260,6 +260,18 @@ Para añadir después la publicación global C2-C sobre la barrera 16:
 3. comprobar el singleton, la proyección 1:1 y la barrera global 17 antes de
    habilitar cualquier consumidor futuro.
 
+Para añadir después la infraestructura de cursores C2-D1:
+
+1. ejecutar `roles_cursor_rrhh_up.sql` como DBA;
+2. ejecutar `000038_cursores_cuadro_rrhh.up.sql` con capacidad de asumir el
+   propietario NOLOGIN;
+3. comprobar las barreras global 18 y de consultas 2, RLS forzada y ausencia
+   de ACL directas para el runtime.
+
+La retirada se realiza en orden inverso: primero `000038...down.sql` y después
+`roles_cursor_rrhh_down.sql` como DBA. Solo se admite sin historia ni
+dependencias posteriores.
+
 Ejemplo sin credenciales incrustadas:
 
 ```bash
@@ -306,6 +318,7 @@ efímero, sin puertos publicados, sin red y con el directorio de datos en
 ./deploy/postgresql/autorizacion_atestada_v3/probar_integracion_o2_05.sh
 ./deploy/postgresql/contratacion_temporal/probar_o4_05_registro_accesos_pg18_4.sh
 ./deploy/postgresql/contratacion_temporal/probar_o4_05_publicacion_global_rrhh_pg18_4.sh
+./deploy/postgresql/contratacion_temporal/probar_o4_05_cursores_rrhh_pg18_4.sh
 ```
 
 El ensayo valida instalación con cuenta de migración, separación de roles,
@@ -353,6 +366,13 @@ fantasma y con reutilización del ordinal, dos escritores bloqueados hasta el
 primer `COMMIT`, ocho escritores sin huecos, safe-down con accesos C2-B
 anteriores y rechazo de publicaciones posteriores, dependencias y
 divergencias. El contenedor no publica red ni puertos y se elimina al salir.
+
+El quinto runner añade `000038` y su delta DBA. Verifica la identidad exacta
+de `pgcrypto`, privilegio mínimo, carreras de instalación y retirada,
+encadenamiento de páginas 2 y 3, consumo único, revocación, RLS e
+inmutabilidad. Ataca además restricciones y disparadores homónimos,
+disparadores RI, reglas, columnas, índices, políticas, ACL y propietarios. La
+reversión solo pasa con catálogo exacto e historia vacía.
 
 ## Reversión protegida
 

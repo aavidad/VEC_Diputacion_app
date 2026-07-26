@@ -256,12 +256,11 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Sustituir la capacidad nominal de consulta RRHH por una envoltura ligada a
-   solicitud, decisión, confirmación durable y exportación VEC-AD-3, incluida
-   la huella canónica de la consulta exacta.
-2. Implementar `SesionConsultaRRHH` sobre PostgreSQL para cuadro y detalle,
-   con consumo AD-3, ámbito/RLS, cursor autenticado y registro durable de
-   acceso dentro de la misma transacción.
+1. Implementar las funciones exteriores nominales que, en un solo `COMMIT`,
+   consuman VEC-AD-3, registren acceso, lean cuadro o detalle y emitan o
+   consuman el cursor durable de `2f014c4`.
+2. Conectar `SesionConsultaRRHH` y el adaptador Go a esas funciones, con
+   revocación viva, avance monotónico y normalización de errores sin oráculo.
 3. Implementar el adaptador independiente de publicaciones visuales
    gobernadas de `4714088`.
 4. Componer la raíz interna con frontera corporativa y dependencias reales,
@@ -563,12 +562,14 @@ normales, detector de carreras, `go vet` y cincuenta repeticiones de estrés.
 Este corte prepara la raíz, pero no inyecta aún pools ni proveedores reales.
 
 El contrato Go de cuadro y detalle RRHH ya ha sido migrado a VEC-AD-3 con
-`GO` técnico independiente. Cada consulta tiene acción, audiencia, recurso y
-huella funcional propios; las diez piezas probatorias solo se exportan desde
-la orden nominal revalidada. Queda pendiente el consumidor PostgreSQL que
-verifique y consuma esas piezas, lea la proyección y registre el acceso en una
-misma transacción. La función de confirmación de alta no se reutiliza ni se
-generaliza.
+`GO` técnico independiente. Los consumidores nominales, el registro durable
+de accesos y la publicación global estable quedaron integrados en `a0d39c1`,
+`2820759` y `3cb17ca`. `2f014c4` añade la infraestructura durable de cursor:
+huellas sin token o filtros en claro, identidad y ámbito, TTL, página 2 ligada
+al origen, páginas posteriores ligadas al consumo padre, revocación y
+safe-down semántico. Quedan pendientes las funciones exteriores que ejecuten
+consumo, lectura y auditoría en una sola transacción; la función de
+confirmación de alta no se reutiliza ni se generaliza.
 
 El procedimiento conserva **19 de 46 tareas verificadas (41 %)**. Esto no
 autoriza aún la ruta web productiva: faltan la raíz productiva, las

@@ -143,8 +143,9 @@ global: su precisión admite empates entre expedientes y dos transacciones
 pueden confirmar en un orden distinto al de sus relojes. C2-C cerró esa
 precondición con `000037`: el backfill define una base reproducible y cada
 versión posterior bloquea un singleton hasta `COMMIT` antes de recibir un
-ordinal global único. Esto no activa aún la paginación; faltan cursor
-autenticado, fachada y transacción exterior de consulta.
+ordinal global único. C2-D1 añade después la persistencia y ligaduras del
+cursor, pero no activa aún la paginación exterior: faltan fachada y transacción
+de consulta.
 
 ## Detalle
 
@@ -206,12 +207,23 @@ Estado: GO técnico independiente en `3cb17ca`, documentado en
 - RLS, ACL, inmutabilidad y reversión `17→16` protegida;
 - PostgreSQL 18.4 real, rollback, concurrencia y safe-down.
 
-### Pendiente tras C2-C — funciones exteriores de Contratación
+### C2-D1 — infraestructura de cursor
+
+Estado: GO técnico con dos revisiones independientes en `2f014c4`, documentado
+en [la revisión de `000038`](revisiones/o4_05_revision_cursores_rrhh_postgresql_2026-07-26.md).
+
+- token y filtros solo como huellas;
+- familia ligada a identidad, ámbito, corte global y TTL;
+- página 2 ligada al acceso origen y páginas posteriores al consumo padre;
+- consumo único, revocación, RLS e inmutabilidad;
+- safe-down semántico del catálogo y privilegio CSPRNG mínimo.
+
+### Pendiente tras C2-D1 — funciones exteriores de Contratación
 
 - cuadro y detalle en transacción única;
 - canon compartido con Go;
 - lectura por ámbito, versión y filtros;
-- cursor opaco ligado al corte global;
+- emisión y consumo del cursor opaco ligado al corte global;
 - recibo durable y límites.
 
 ### C2-D — adaptador Go

@@ -204,7 +204,7 @@ write-sets disjuntos. C3, C4, C5 y C6 se integran en ese orden.
 
 - identidad corporativa y acuerdo de integración con Sistemas;
 - PDP y asignaciones reales aprobadas;
-- cursor, funciones exteriores y adaptador Go de consultas;
+- funciones exteriores de emisión/consumo y adaptador Go de consultas;
 - adaptador físico independiente para publicaciones visuales gobernadas;
 - matriz TLS real con CA, SAN/hostname, errores de confianza y downgrade;
 - EIPD, categorización ENS y aprobaciones organizativas de la matriz normativa;
@@ -240,9 +240,15 @@ backfill base reproducible, singleton retenido hasta `COMMIT`, ordinal global
 único, proyección 1:1 indexable y safe-down `17→16`. No crea cursor ni fachada
 y no convierte el orden del backfill en orden histórico.
 
-Siguen pendientes el cursor autenticado y las funciones exteriores que
-ejecuten consumo, lectura y registro en una sola transacción. Después deben
-cerrarse el adaptador Go, la matriz TLS y el E2E completo.
+`2f014c4` cierra C2-D1 con
+[GO técnico doble](revisiones/o4_05_revision_cursores_rrhh_postgresql_2026-07-26.md):
+persistencia minimizada del cursor, privilegio CSPRNG exacto, ligadura de
+página 2 al origen y de cada hijo al consumo padre, revocación y safe-down
+semántico del catálogo.
+
+Siguen pendientes las funciones exteriores que ejecuten emisión, consumo,
+lectura y registro en una sola transacción. Después deben cerrarse el
+adaptador Go, la matriz TLS y el E2E completo.
 
 Este mapa no declara producción. Evita que una pantalla o una respuesta
 aislada se presenten como recorrido terminado.

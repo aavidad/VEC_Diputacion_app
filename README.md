@@ -54,6 +54,7 @@ llamamientos.
 - [Contrato de proyecciones reales del cuadro y detalle RRHH](docs/portal_vec/proyecciones_rrhh_cuadro_detalle_contratacion_2026-07-26.md)
 - [Revisión de raíz, pool y proyecciones O4-05](docs/portal_vec/revisiones/o4_05_revision_raiz_pool_y_proyecciones_2026-07-26.md)
 - [Revisión del consumo y registro de accesos RRHH O4-05](docs/portal_vec/revisiones/o4_05_revision_consumo_y_registro_accesos_rrhh_2026-07-26.md)
+- [Revisión de la infraestructura de cursores RRHH O4-05](docs/portal_vec/revisiones/o4_05_revision_cursores_rrhh_postgresql_2026-07-26.md)
 - [Mapa de cableado productivo O4-05](docs/portal_vec/o4_05_mapa_cableado_productivo_2026-07-26.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
