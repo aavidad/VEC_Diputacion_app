@@ -44,13 +44,13 @@ puede cerrarse hasta terminar D/E.
 | O4-04A | Cerrado, commit `b819961`, GO independiente |
 | O4-04B | Cerrado, commit `54a755e`, GO independiente y PostgreSQL 18.4 |
 | O4-04C | Cerrado, commit `a540522`, GO independiente |
-| O4-04D | En implementación; A/B/C ya no lo bloquean |
-| O4-04E | Bloqueado exclusivamente por el canon durable de D |
+| O4-04D | Cerrado, commits `dacf0e1`–`a2bb302`, GO independiente y PostgreSQL 18.4 |
+| O4-04E | Listo: el canon durable de D ya está congelado |
 
-O4-04D usará `000023`, exigirá la versión de barrera `3` creada por C y no
-debe modificar `000017`–`000022`. El wrapper VEC deberá concederse únicamente
-al propietario `NOLOGIN`; solo la futura función exterior de E será ejecutable
-por el rol de ejecución.
+O4-04D usa `000023`–`000024`, exige la versión de barrera `3` creada por C y
+no modifica `000017`–`000022`. El wrapper VEC se concede únicamente al
+propietario `NOLOGIN`; solo la futura función exterior de E será ejecutable por
+el rol de ejecución.
 
 ## Presentación web
 
@@ -69,13 +69,11 @@ artefacto productivo.
 ## Reanudación recomendada
 
 1. Continuar desde `correccion/ct-o4-04-20260726`.
-2. Terminar O4-04D sin modificar `000017`–`000022`, congelar su canon y obtener
-   revisión independiente.
-3. Implementar O4-04E con una sola función exterior, recibo durable y
+2. Implementar O4-04E con una sola función exterior, recibo durable y
    reconciliación primaria sin reintento automático.
-4. Ejecutar PostgreSQL 18, reinicio, concurrencia, fallos inyectados, ACL,
+3. Ejecutar PostgreSQL 18, reinicio, concurrencia, fallos inyectados, ACL,
    carrera y puertas globales.
-5. Solo entonces integrar el corte completo en la rama aprobada y actualizar
+4. Solo entonces integrar el corte completo en la rama aprobada y actualizar
    el cómputo de tareas.
 
 El procedimiento de Contratación temporal continúa oficialmente en 18/46
