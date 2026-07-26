@@ -31,6 +31,7 @@ BEGIN
          'vec_contratacion_temporal_propietario',
          'vec_contratacion_temporal_migrador',
          'vec_contratacion_temporal_ejecutor',
+         'vec_contratacion_temporal_confirmador_cobertura',
          'vec_contratacion_temporal_gobernador'
      ]);
     IF cardinality(v_encontrados) > 0 THEN
@@ -56,6 +57,9 @@ CREATE ROLE vec_contratacion_temporal_migrador
 CREATE ROLE vec_contratacion_temporal_ejecutor
     NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT
     NOREPLICATION NOBYPASSRLS;
+CREATE ROLE vec_contratacion_temporal_confirmador_cobertura
+    NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT
+    NOREPLICATION NOBYPASSRLS;
 CREATE ROLE vec_contratacion_temporal_gobernador
     NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT
     NOREPLICATION NOBYPASSRLS;
@@ -76,6 +80,11 @@ BEGIN
     );
     EXECUTE format(
         'GRANT CONNECT ON DATABASE %I TO vec_contratacion_temporal_ejecutor',
+        current_database()
+    );
+    EXECUTE format(
+        'GRANT CONNECT ON DATABASE %I TO '
+        || 'vec_contratacion_temporal_confirmador_cobertura',
         current_database()
     );
     EXECUTE format(

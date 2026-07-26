@@ -38,6 +38,16 @@ BEGIN
         'REVOKE CONNECT ON DATABASE %I FROM vec_contratacion_temporal_ejecutor',
         current_database()
     );
+    IF EXISTS(
+        SELECT 1 FROM pg_catalog.pg_roles
+         WHERE rolname='vec_contratacion_temporal_confirmador_cobertura'
+    ) THEN
+        EXECUTE format(
+            'REVOKE CONNECT ON DATABASE %I FROM '
+            || 'vec_contratacion_temporal_confirmador_cobertura',
+            current_database()
+        );
+    END IF;
     EXECUTE format(
         'REVOKE CONNECT ON DATABASE %I FROM vec_contratacion_temporal_gobernador',
         current_database()
@@ -48,6 +58,7 @@ $privilegios$;
 REVOKE vec_contratacion_temporal_propietario
     FROM vec_contratacion_temporal_migrador;
 DROP ROLE vec_contratacion_temporal_gobernador;
+DROP ROLE IF EXISTS vec_contratacion_temporal_confirmador_cobertura;
 DROP ROLE vec_contratacion_temporal_ejecutor;
 DROP ROLE vec_contratacion_temporal_migrador;
 DROP ROLE vec_contratacion_temporal_propietario;
