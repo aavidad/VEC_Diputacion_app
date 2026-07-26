@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -170,8 +172,9 @@ func responderAutorizacionRutaExacta(
 	}
 	contenido, _ := json.Marshal(map[string]any{
 		"error": map[string]string{
-			"codigo":     codigo,
-			"clave_i18n": "api.vec.ruta_exacta.error." + codigo,
+			"codigo":          codigo,
+			"clave_i18n":      "api.vec.ruta_exacta.error." + codigo,
+			"correlacion_ref": nuevaCorrelacionRutaExacta(),
 		},
 	})
 	for _, cabecera := range []string{
@@ -196,6 +199,14 @@ func responderAutorizacionRutaExacta(
 	)
 	respuesta.WriteHeader(estado)
 	_, _ = respuesta.Write(contenido)
+}
+
+func nuevaCorrelacionRutaExacta() string {
+	aleatorio := make([]byte, 16)
+	if _, err := rand.Read(aleatorio); err != nil {
+		return "corr_no_disponible"
+	}
+	return "corr_" + hex.EncodeToString(aleatorio)
 }
 
 func vecRoutes() []string {

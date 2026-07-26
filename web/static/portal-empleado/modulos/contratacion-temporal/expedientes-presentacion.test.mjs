@@ -361,6 +361,88 @@ test("mutex y cancelación impiden doble efecto y dejan resultado indeterminado 
   assert.equal(presentador.obtenerEstado().mensaje_clave, "estado_cancelado");
 });
 
+test("cancelar una lectura no fabrica un efecto indeterminado", async () => {
+  const expediente = validarExpedienteContratacionTemporal(
+    crearExpedienteContratacionTemporalPresentacion(),
+  );
+  const fuente = {
+    listar: async ({ signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(
+        new DOMException("cancelada", "AbortError"),
+      ), { once: true });
+    }),
+    obtener: async () => expediente,
+    ejecutar: async () => {
+      throw new Error("no debe ejecutarse");
+    },
+  };
+  const presentador = presentadorDe(fuente, [CAP.consultarCuadro]);
+  const carga = presentador.cargar();
+  presentador.cancelar();
+  await carga;
+  assert.equal(presentador.obtenerEstado().actualizacion_pendiente, false);
+  assert.equal(presentador.obtenerEstado().resultado_indeterminado, false);
+  assert.equal(
+    presentador.obtenerEstado().mensaje_clave,
+    "estado_lectura_cancelada",
+  );
+});
+
+test("un efecto indeterminado bloquea cualquier repetición hasta recuperar estado", async () => {
+  const expediente = validarExpedienteContratacionTemporal(
+    crearExpedienteContratacionTemporalPresentacion(),
+  );
+  const cuadro = validarCuadroContratacionTemporal(
+    crearCuadroContratacionTemporalPresentacion(),
+  );
+  let ejecuciones = 0;
+  const fuente = {
+    listar: async () => cuadro,
+    obtener: async () => expediente,
+    ejecutar: async () => {
+      ejecuciones += 1;
+      const error = new Error("detalle privado");
+      error.resultadoIndeterminado = true;
+      error.reintentoPermitido = false;
+      throw error;
+    },
+  };
+  const presentador = presentadorDe(fuente, [
+    CAP.consultarCuadro, CAP.consultarExpediente, CAP.prepararFormalizacion,
+  ]);
+  await presentador.cargar();
+  await presentador.seleccionarExpediente(expediente.expediente_ref);
+  presentador.seleccionarTarea("tarea-formalizacion");
+  await presentador.ejecutarActuacion({
+    accionRef: "generar_documentos_formalizacion",
+  });
+  assert.equal(presentador.obtenerEstado().actualizacion_pendiente, true);
+  assert.equal(
+    presentador.obtenerEstado().mensaje_clave,
+    "estado_resultado_indeterminado",
+  );
+  await presentador.ejecutarActuacion({
+    accionRef: "generar_documentos_formalizacion",
+  });
+  assert.equal(ejecuciones, 1);
+  assert.equal(
+    presentador.obtenerEstado().mensaje_clave,
+    "estado_resultado_indeterminado",
+  );
+  await presentador.seleccionarExpediente(expediente.expediente_ref);
+  assert.equal(presentador.obtenerEstado().resultado_indeterminado, true);
+  assert.equal(presentador.obtenerEstado().actualizacion_pendiente, true);
+  assert.equal(
+    presentador.obtenerEstado().mensaje_clave,
+    "estado_resultado_indeterminado",
+  );
+  presentador.cambiarVista("cuadro");
+  assert.equal(
+    presentador.obtenerEstado().mensaje_clave,
+    "estado_resultado_indeterminado",
+  );
+});
+
 test("el alta crea un expediente nuevo mínimo sin heredar candidato ni documentos", async () => {
   const fuente = adaptador();
   const catalogos = fuente.obtenerCatalogosAlta();

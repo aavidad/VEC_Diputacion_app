@@ -30,10 +30,14 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
     "Actuación confirmada. La actualización de la vista está pendiente; no repita el efecto.",
   estado_actualizacion_pendiente:
     "Actualización pendiente. Recargue el expediente antes de realizar otra actuación.",
+  estado_resultado_indeterminado:
+    "El resultado de la actuación no puede determinarse todavía. No la repita; consulte su recibo mediante la recuperación protegida o contacte con soporte.",
   estado_error_actuacion:
     "No se pudo confirmar la actuación. El expediente se conserva sin cambios visibles.",
   estado_cancelado:
     "Se canceló la espera. El resultado puede ser indeterminado; recargue antes de repetir.",
+  estado_lectura_cancelada:
+    "Se canceló la carga de datos. No se inició ninguna actuación administrativa.",
   cargando_titulo: "Comprobando acceso y datos",
   cargando_detalle: "Espere mientras se obtiene la proyección autorizada.",
   error_titulo: "La superficie no está disponible",

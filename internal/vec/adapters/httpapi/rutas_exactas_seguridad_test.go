@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -132,6 +133,14 @@ func TestRutasExactasDenieganAntesDelManejador(t *testing.T) {
 				`"codigo":"`+caso.codigo+`"`,
 			) || strings.Contains(respuesta.Body.String(), "detalle privado") {
 				t.Fatalf("error no redactado: %s", respuesta.Body.String())
+			}
+			if !regexp.MustCompile(
+				`"correlacion_ref":"corr_(?:[0-9a-f]{32}|no_disponible)"`,
+			).MatchString(respuesta.Body.String()) {
+				t.Fatalf(
+					"error sin correlacion opaca: %s",
+					respuesta.Body.String(),
+				)
 			}
 			if llamadas, _, _ := manejador.estado(); llamadas != 0 {
 				t.Fatalf("se invoco el negocio %d veces", llamadas)

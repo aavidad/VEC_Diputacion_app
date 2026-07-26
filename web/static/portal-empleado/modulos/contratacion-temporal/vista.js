@@ -406,6 +406,7 @@ function revision(estado, t, locale) {
       + `${escaparHTML(etiquetaReferencia(estado.catalogos.documentos, referencia))} `
       + `<code>${escaparHTML(referencia)}</code></li>`).join("")}</ul>`;
   const ocupado = estado.ocupado;
+  const pendiente = estado.fase === "pendiente";
   return `${resumenErrores(estado, t)}
   <section class="ct-revision" aria-labelledby="ct-revision-titulo"
     ${ocupado ? 'aria-busy="true"' : ""}>
@@ -435,7 +436,10 @@ function revision(estado, t, locale) {
       ${documentos}
     </section>
     <div class="ct-acciones">
-      ${ocupado
+      ${pendiente
+    ? `<p class="ct-aviso" data-ct-operacion-pendiente role="status">
+          ${escaparHTML(t("estado_operacion_pendiente_ayuda"))}</p>`
+    : ocupado
     ? `<button class="boton-secundario" type="button" data-ct-accion="cancelar">
           ${escaparHTML(t("cancelar_envio"))}</button>`
     : `<button class="boton-secundario" type="button" data-ct-accion="volver">
@@ -579,7 +583,11 @@ export function montarAltaContratacionTemporal({
       repintar("[data-ct-accion='cancelar']");
       await tarea;
       const estado = presentador.obtenerEstado();
-      repintar(estado.fase === "recibo" ? "[data-ct-recibo]" : "[data-ct-accion='confirmar']");
+      repintar(estado.fase === "recibo"
+        ? "[data-ct-recibo]"
+        : (estado.fase === "pendiente"
+          ? "[data-ct-operacion-pendiente]"
+          : "[data-ct-accion='confirmar']"));
     }
   }
 

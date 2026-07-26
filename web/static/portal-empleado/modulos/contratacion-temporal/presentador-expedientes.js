@@ -76,6 +76,7 @@ function estadoInicial(disponible) {
     filtros: filtrosIniciales(),
     ocupado: false,
     actualizacion_pendiente: false,
+    resultado_indeterminado: false,
     recibo: null,
     mensaje_clave: disponible ? "estado_inicial" : "estado_denegado",
     tipo_mensaje: disponible ? "informacion" : "error",
@@ -86,6 +87,16 @@ function errorPublico(codigo) {
   const error = new Error("La operación no está disponible");
   error.codigo = codigo;
   return error;
+}
+
+function esResultadoIndeterminado(error) {
+  try {
+    return error instanceof Error
+      && error.resultadoIndeterminado === true
+      && error.reintentoPermitido === false;
+  } catch {
+    return false;
+  }
 }
 
 function filtrosValidos(entrada) {
@@ -187,8 +198,12 @@ export function crearPresentadorExpedientesContratacionTemporal({
         auditoria: seleccionVisible ? estado.auditoria : null,
         expediente_ref: seleccionVisible ? estado.expediente_ref : "",
         tarea_ref: seleccionVisible ? estado.tarea_ref : "",
-        mensaje_clave: cuadro.expedientes.length === 0 ? "estado_vacio" : "estado_listo",
-        tipo_mensaje: "informacion",
+        mensaje_clave: estado.resultado_indeterminado
+          ? "estado_resultado_indeterminado"
+          : (cuadro.expedientes.length === 0 ? "estado_vacio" : "estado_listo"),
+        tipo_mensaje: estado.resultado_indeterminado
+          ? "aviso"
+          : "informacion",
       });
     } catch (error) {
       if (desmontado || operacion !== secuencia || error?.name === "AbortError") return estado;
@@ -283,9 +298,13 @@ export function crearPresentadorExpedientesContratacionTemporal({
         auditoria,
         expediente_ref: expediente.expediente_ref,
         tarea_ref: actual?.tarea_ref ?? "",
-        actualizacion_pendiente: false,
-        mensaje_clave: "estado_expediente_listo",
-        tipo_mensaje: "informacion",
+        actualizacion_pendiente: estado.resultado_indeterminado,
+        mensaje_clave: estado.resultado_indeterminado
+          ? "estado_resultado_indeterminado"
+          : "estado_expediente_listo",
+        tipo_mensaje: estado.resultado_indeterminado
+          ? "aviso"
+          : "informacion",
       });
     } catch (error) {
       if (desmontado || operacion !== secuencia || error?.name === "AbortError") return estado;
@@ -312,8 +331,12 @@ export function crearPresentadorExpedientesContratacionTemporal({
       vista,
       carga: estado.cuadro?.expedientes.length === 0 ? "vacio" : "listo",
       recibo: null,
-      mensaje_clave: "estado_listo",
-      tipo_mensaje: "informacion",
+      mensaje_clave: estado.resultado_indeterminado
+        ? "estado_resultado_indeterminado"
+        : "estado_listo",
+      tipo_mensaje: estado.resultado_indeterminado
+        ? "aviso"
+        : "informacion",
     });
     return estado;
   }
@@ -332,7 +355,9 @@ export function crearPresentadorExpedientesContratacionTemporal({
     if (estado.ocupado) return estado;
     if (estado.actualizacion_pendiente) {
       reemplazar({
-        mensaje_clave: "estado_actualizacion_pendiente",
+        mensaje_clave: estado.resultado_indeterminado
+          ? "estado_resultado_indeterminado"
+          : "estado_actualizacion_pendiente",
         tipo_mensaje: "aviso",
       });
       return estado;
@@ -367,6 +392,7 @@ export function crearPresentadorExpedientesContratacionTemporal({
       ocupado: true,
       recibo: null,
       actualizacion_pendiente: false,
+      resultado_indeterminado: false,
       mensaje_clave: "estado_registrando_actuacion",
       tipo_mensaje: "informacion",
     });
@@ -404,6 +430,7 @@ export function crearPresentadorExpedientesContratacionTemporal({
         reemplazar({
           expediente: actualizado,
           actualizacion_pendiente: false,
+          resultado_indeterminado: false,
           mensaje_clave: "estado_actuacion_registrada",
           tipo_mensaje: "exito",
         });
@@ -411,11 +438,24 @@ export function crearPresentadorExpedientesContratacionTemporal({
         if (error?.name === "AbortError") throw error;
       }
     } catch (error) {
-      if (desmontado || operacion !== secuencia || error?.name === "AbortError") return estado;
+      if (desmontado || operacion !== secuencia) return estado;
+      if (esResultadoIndeterminado(error)) {
+        reemplazar({
+          ocupado: false,
+          recibo: null,
+          actualizacion_pendiente: true,
+          resultado_indeterminado: true,
+          mensaje_clave: "estado_resultado_indeterminado",
+          tipo_mensaje: "aviso",
+        });
+        return estado;
+      }
+      if (error?.name === "AbortError") return estado;
       reemplazar({
         ocupado: false,
         recibo: null,
         actualizacion_pendiente: false,
+        resultado_indeterminado: false,
         mensaje_clave: "estado_error_actuacion",
         tipo_mensaje: "error",
       });
@@ -427,12 +467,22 @@ export function crearPresentadorExpedientesContratacionTemporal({
 
   function cancelar() {
     if (!estado.ocupado && estado.carga !== "cargando") return estado;
+    const efectoEnCurso = estado.ocupado;
     cancelarEnCurso();
     reemplazar({
       ocupado: false,
       carga: estado.cuadro ? "listo" : "inicial",
-      actualizacion_pendiente: true,
-      mensaje_clave: "estado_cancelado",
+      actualizacion_pendiente: efectoEnCurso
+        ? true
+        : estado.actualizacion_pendiente,
+      resultado_indeterminado: efectoEnCurso
+        ? true
+        : estado.resultado_indeterminado,
+      mensaje_clave: efectoEnCurso
+        ? "estado_cancelado"
+        : (estado.resultado_indeterminado
+          ? "estado_resultado_indeterminado"
+          : "estado_lectura_cancelada"),
       tipo_mensaje: "aviso",
     });
     return estado;

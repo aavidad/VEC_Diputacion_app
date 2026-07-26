@@ -62,7 +62,35 @@ export class ErrorValidacionAlta extends Error {
 }
 
 function esRegistro(valor) {
-  return valor !== null && typeof valor === "object" && !Array.isArray(valor);
+  if (valor === null || typeof valor !== "object" || Array.isArray(valor)) {
+    return false;
+  }
+  try {
+    if (Object.getPrototypeOf(valor) !== Object.prototype
+      || Object.getOwnPropertySymbols(valor).length !== 0) {
+      return false;
+    }
+    return Object.values(Object.getOwnPropertyDescriptors(valor)).every(
+      (descriptor) => Object.hasOwn(descriptor, "value")
+        && descriptor.enumerable === true,
+    );
+  } catch {
+    return false;
+  }
+}
+
+function esListaPlana(valor, maximo) {
+  if (!Array.isArray(valor) || Object.getPrototypeOf(valor) !== Array.prototype
+    || valor.length > maximo || Object.getOwnPropertySymbols(valor).length !== 0
+    || Reflect.ownKeys(valor).length !== valor.length + 1) {
+    return false;
+  }
+  for (let indice = 0; indice < valor.length; indice += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(valor, String(indice));
+    if (!descriptor || !Object.hasOwn(descriptor, "value")
+      || descriptor.enumerable !== true) return false;
+  }
+  return true;
 }
 
 function congelar(valor) {
@@ -129,7 +157,8 @@ function etiquetaValida(valor) {
 }
 
 function fechaCivilValida(valor) {
-  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+  if (typeof valor !== "string" || valor.startsWith("0000-")
+    || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
   const fecha = new Date(`${valor}T00:00:00Z`);
   return Number.isFinite(fecha.valueOf()) && fecha.toISOString().slice(0, 10) === valor;
 }
@@ -191,7 +220,10 @@ function exigirUnicos(opciones, campo, nombre) {
 }
 
 function validarLista(lista, nombre, validarOpcion) {
-  if (!Array.isArray(lista) || lista.length > LIMITES_ALTA_CONTRATACION.opcionesCatalogo) {
+  if (!esListaPlana(
+    lista,
+    LIMITES_ALTA_CONTRATACION.opcionesCatalogo,
+  )) {
     throw new TypeError(`${nombre} no válido`);
   }
   return lista.map((opcion, indice) => validarOpcion(opcion, `${nombre}[${indice}]`));
@@ -317,8 +349,7 @@ function centimosDesdeEntrada(valor) {
 }
 
 function referenciasAdjuntasValidas(valor) {
-  return Array.isArray(valor)
-    && valor.length <= LIMITES_ALTA_CONTRATACION.adjuntos
+  return esListaPlana(valor, LIMITES_ALTA_CONTRATACION.adjuntos)
     && valor.every(referenciaValida)
     && new Set(valor).size === valor.length;
 }

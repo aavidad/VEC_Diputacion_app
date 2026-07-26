@@ -16,11 +16,22 @@ const FASE_REVISION = "revision";
 const FASE_ENVIO = "envio";
 const FASE_CANCELANDO = "cancelando";
 const FASE_RECIBO = "recibo";
+const FASE_PENDIENTE = "pendiente";
 
 function errorPublico(codigo) {
   const error = new Error("La operación de alta no está disponible");
   error.codigo = codigo;
   return error;
+}
+
+function esResultadoIndeterminado(error) {
+  try {
+    return error instanceof Error
+      && error.resultadoIndeterminado === true
+      && error.reintentoPermitido === false;
+  } catch {
+    return false;
+  }
 }
 
 function generarClaveSegura() {
@@ -260,15 +271,21 @@ export function crearPresentadorAltaContratacionTemporal({
         comandoActual = null;
         return recibo;
       } catch (_errorPrivado) {
+        const resultadoIndeterminado =
+          esResultadoIndeterminado(_errorPrivado);
         const canceladaSinRespuesta = cancelacionSolicitada && !respuestaRecibida;
         sustituirEstado({
-          fase: FASE_REVISION,
+          fase: resultadoIndeterminado ? FASE_PENDIENTE : FASE_REVISION,
           ocupado: false,
           recibo: null,
-          mensaje_clave: canceladaSinRespuesta
+          mensaje_clave: resultadoIndeterminado
+            ? "estado_operacion_pendiente"
+            : canceladaSinRespuesta
             ? "estado_cancelado"
             : (respuestaRecibida ? "estado_recibo_invalido" : "estado_error"),
-          tipo_mensaje: canceladaSinRespuesta ? "aviso" : "error",
+          tipo_mensaje: resultadoIndeterminado || canceladaSinRespuesta
+            ? "aviso"
+            : "error",
         });
         return null;
       } finally {

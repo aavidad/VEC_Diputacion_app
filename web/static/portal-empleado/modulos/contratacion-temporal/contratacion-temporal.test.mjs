@@ -231,6 +231,38 @@ test("el DTO rechaza campos extra, tipos, tamaños, fechas e importes inválidos
     ),
     ErrorValidacionAlta,
   );
+  assert.throws(() => crearComandoAlta(
+    borradorValido({ inicio: "0000-08-01" }),
+    catalogos,
+    CLAVE_PRUEBA,
+  ));
+
+  const comando = crearComandoAlta(
+    borradorValido(),
+    catalogos,
+    CLAVE_PRUEBA,
+  );
+  const conSimbolo = { ...comando };
+  conSimbolo[Symbol("campo_oculto")] = "prohibido";
+  assert.throws(() => validarComandoAlta(conSimbolo));
+  let accesos = 0;
+  const conAccesor = { ...comando };
+  Object.defineProperty(conAccesor, "solicitud", {
+    enumerable: true,
+    get() {
+      accesos += 1;
+      return comando.solicitud;
+    },
+  });
+  assert.throws(() => validarComandoAlta(conAccesor));
+  assert.equal(accesos, 0);
+  assert.throws(() => validarComandoAlta({
+    ...comando,
+    solicitud: {
+      ...comando.solicitud,
+      documentos_adjuntos: Array(1),
+    },
+  }));
 });
 
 test("el periodo y la RC respetan los límites exactos de la frontera interna", async () => {
@@ -467,6 +499,50 @@ test("los errores se redactan, permiten reintento y nunca filtran el mensaje pri
   );
   await presentador.enviar();
   assert.equal(comandos[0].clave_idempotencia, comandos[1].clave_idempotencia);
+});
+
+test("un resultado indeterminado bloquea el reenvío hasta recuperación protegida", async () => {
+  let invocaciones = 0;
+  const presentador = crearPresentador({
+    ejecutor: async () => {
+      invocaciones += 1;
+      const error = new Error("detalle privado");
+      error.resultadoIndeterminado = true;
+      error.reintentoPermitido = false;
+      throw error;
+    },
+  });
+  presentador.prepararRevision(borradorValido());
+  assert.equal(await presentador.enviar(), null);
+  const estado = presentador.obtenerEstado();
+  assert.equal(estado.fase, "pendiente");
+  assert.equal(estado.mensaje_clave, "estado_operacion_pendiente");
+  const html = renderizarAltaContratacionTemporal(estado);
+  assert.match(html, /data-ct-operacion-pendiente/u);
+  assert.doesNotMatch(html, /data-ct-accion="confirmar"/u);
+  assert.doesNotMatch(html, /data-ct-accion="volver"/u);
+  await assert.rejects(presentador.enviar());
+  assert.equal(invocaciones, 1);
+});
+
+test("un error hostil no rompe el estado ni expone su contenido", async () => {
+  const privado = new Proxy(new Error("secreto interno"), {
+    get() {
+      throw new Error("getter privado");
+    },
+  });
+  const presentador = crearPresentador({
+    ejecutor: async () => {
+      throw privado;
+    },
+  });
+  presentador.prepararRevision(borradorValido());
+  assert.equal(await presentador.enviar(), null);
+  assert.equal(presentador.obtenerEstado().fase, "revision");
+  assert.doesNotMatch(
+    renderizarAltaContratacionTemporal(presentador.obtenerEstado()),
+    /secreto|getter privado/u,
+  );
 });
 
 test("editar conserva la clave solo si la solicitud canónica es idéntica", async () => {

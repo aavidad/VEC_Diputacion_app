@@ -23,6 +23,10 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
     "No se pudo confirmar el registro. Los datos se conservan para un reintento seguro.",
   estado_recibo_invalido:
     "La respuesta no pudo verificarse. No se muestra ningún resultado; conserve los datos y contacte con soporte.",
+  estado_operacion_pendiente:
+    "El resultado no puede determinarse todavía. No repita la operación.",
+  estado_operacion_pendiente_ayuda:
+    "La solicitud queda bloqueada hasta consultar su recibo mediante la recuperación protegida o recibir asistencia de soporte.",
   errores_titulo: "Revise los campos indicados",
   errores_descripcion: "La solicitud no está lista para pasar a revisión.",
   campo_obligatorio: "Campo obligatorio",
