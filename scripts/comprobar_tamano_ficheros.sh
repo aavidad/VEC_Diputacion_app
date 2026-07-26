@@ -36,8 +36,8 @@ while IFS= read -r fichero; do
       fallos=1
     fi
   fi
-done < <(git ls-files -co --exclude-standard -- cmd config internal scripts web \
-  | grep -E '\.(go|js|py|sh|css)$')
+done < <(git ls-files -co --exclude-standard -- cmd config deploy internal scripts web \
+  | grep -E '\.(go|js|py|sh|css|sql)$')
 
 if (( fallos )); then
   cat >&2 <<'MENSAJE'
