@@ -1,10 +1,10 @@
 # PostgreSQL de contratación temporal
 
-Estado: O2-05 probado; la confirmación PostgreSQL de O3-04 está implementada y
-probada en PostgreSQL 18. Falta cerrar la prueba positiva del adaptador Go
-contra esa función, la revisión independiente y la composición antes de
-considerar terminada la tarea. No es una composición autorizada para
-producción.
+Estado: persistencia O2-05, confirmación O3-04 y registro durable de accesos
+RRHH O4-05/C2-B probados en PostgreSQL 18.4. C2-B dispone de revisión
+independiente, pero aún faltan el corte global de lectura, las funciones
+exteriores, el adaptador Go y la composición completa. No es una autorización
+de producción.
 
 ## Alcance del corte
 
@@ -126,6 +126,42 @@ El LOGIN de aplicación solo recibe `EXECUTE` sobre
 `confirmar_operacion_analisis_v1(jsonb)`. No puede leer ni escribir las tablas
 subyacentes ni invocar directamente las funciones auxiliares.
 
+## Consultas internas RRHH O4-05/C2-B
+
+El delta `roles_consultor_rrhh_up.sql` crea un grupo técnico `NOLOGIN` de
+mínimo privilegio. Las cuentas `LOGIN` son nominativas, se aprovisionan fuera
+del repositorio y solo pueden tener una arista directa hacia ese grupo, con
+`ADMIN FALSE`, `INHERIT TRUE` y `SET FALSE`. Se rechazan grupos adicionales,
+roles privilegiados, herencia saliente desde el LOGIN y cadenas transitivas
+que permitan usarlo como puente.
+
+La migración `000036_registro_accesos_rrhh_o4_05` exige la barrera 15 de
+`000035`, instala C2-B y eleva de forma atómica la barrera global a 16. Añade:
+
+- un control de versión propio;
+- una cabeza única y bloqueada para serializar la cadena;
+- un registro de accesos de solo adición con RLS forzada;
+- la función interna `registrar_acceso_rrhh_interno_v1(jsonb)`, sin
+  `EXECUTE` para el consultor ni para `PUBLIC`;
+- recibos con referencia, secuencia, huella anterior, huella propia e instante.
+
+El registro conserva referencias opacas, perfiles, finalidad, dominio de
+consulta y huellas autoritativas de decisión, capacidad, consumo, auditoría y
+resultado. No almacena documentos, material probatorio duplicado, claves,
+secretos ni datos de respuesta. Cuadro y detalle tienen listas positivas
+distintas. Un no resultado de detalle no puede declarar versión.
+
+La reversión `000036.down` solo admite la barrera 16, falla si existe historia
+y restaura la barrera 15 tras retirar todos los objetos. Mientras C2-B está
+instalado, `000035.down` queda bloqueado incluso si el registro está vacío.
+Después se retira el grupo mediante `roles_consultor_rrhh_down.sql`, una vez
+revocadas todas sus cuentas nominativas.
+
+C2-B no crea cursor ni función de lectura. La historia actual no dispone de un
+corte global monotónico alineado con `COMMIT`; un timestamp o una secuencia
+asignada antes de confirmar permitirían omisiones. Esa garantía pertenece a
+C2-C y debe implantarse mediante una migración aditiva.
+
 ## Instalación
 
 Para una instalación nueva, `roles_up.sql` crea todos los grupos técnicos.
@@ -177,6 +213,13 @@ dividirlas introduciría estados intermedios instalables.
 9. Aprovisionar la cuenta de la aplicación como miembro únicamente de
    `vec_contratacion_temporal_ejecutor`.
 
+Para añadir exclusivamente O4-05/C2-B sobre una base en barrera 15:
+
+1. ejecutar `roles_consultor_rrhh_up.sql` como DBA;
+2. ejecutar `000036_registro_accesos_rrhh_o4_05.up.sql` como propietario;
+3. aprovisionar después el LOGIN nominativo del consultor con la membresía
+   exacta descrita arriba.
+
 Ejemplo sin credenciales incrustadas:
 
 ```bash
@@ -221,6 +264,7 @@ efímero, sin puertos publicados, sin red y con el directorio de datos en
 ```bash
 ./deploy/postgresql/contratacion_temporal/probar_integracion_docker.sh
 ./deploy/postgresql/autorizacion_atestada_v3/probar_integracion_o2_05.sh
+./deploy/postgresql/contratacion_temporal/probar_o4_05_registro_accesos_pg18_4.sh
 ```
 
 El ensayo valida instalación con cuenta de migración, separación de roles,
@@ -252,6 +296,12 @@ La prueba positiva verifica versión 2, actuación, consumo de fuentes y
 decisión, auditoría, outbox, recibo y replay exacto. También comprueba la
 imposibilidad de leer o escribir directamente las tablas, el privilegio
 runtime exclusivo de la función final y la retirada protegida.
+
+El tercer runner fija PostgreSQL 18.4 por resumen, usa un contenedor efímero
+sin puertos publicados y verifica el ciclo `15→16→15`, los órdenes de
+instalación y retirada, ACL/RLS, topologías y puentes hostiles, tipos y límites
+JSON, cadena inmutable, ocho escritores concurrentes y bloqueo de `000035.down`
+con C2-B vacío o con historia.
 
 ## Reversión protegida
 
