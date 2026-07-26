@@ -18,7 +18,6 @@ SELECT control
   FROM vec_contratacion_temporal.control_cadena_accesos_rrhh
  WHERE control
  FOR UPDATE;
-
 DO $prevalidacion$
 BEGIN
     IF NOT EXISTS (
@@ -280,7 +279,7 @@ vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2 (
 
 COMMENT ON COLUMN
     vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2.login_tecnico
-IS 'LOGIN técnico crudo: no identifica a la persona; se conserva para atribución forense exacta. Una huella sería enumerable contra pg_roles y perdería operatividad. La tabla usa RLS forzada y no se publica al runtime.';
+IS 'LOGIN técnico potencialmente personal, conservado con finalidad probatoria y atribución forense; acceso restringido por RLS forzada y retención sujeta a la política gobernada del expediente.';
 
 CREATE INDEX
     publicacion_rrhh_organizacion_expediente_corte_desc_idx
@@ -547,19 +546,21 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'identidad de acceso RRHH v2 no coincide';
     END IF;
-    PERFORM 1
-      FROM vec_contratacion_temporal.control_migracion_consultas_rrhh
-     WHERE control AND version_esquema = 3
-     FOR SHARE;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION USING ERRCODE = '55000',
-            MESSAGE = 'barrera de consultas RRHH v2 no disponible';
-    END IF;
-    SELECT ultima_secuencia + 1, cabeza_sha256
+    SELECT cadena.ultima_secuencia + 1, cadena.cabeza_sha256
       INTO STRICT secuencia, anterior
-      FROM vec_contratacion_temporal.control_cadena_accesos_rrhh
-     WHERE control
-     FOR UPDATE;
+      FROM vec_contratacion_temporal.control_cadena_accesos_rrhh cadena
+      JOIN vec_contratacion_temporal.control_registrador_acceso_rrhh_v2 base
+        ON base.control = cadena.control
+     WHERE base.control AND base.version_esquema = 1
+       AND base.prueba_huella_sha256 = pg_catalog.encode(
+           pg_catalog.sha256(base.prueba_canonica), 'hex'
+       )
+       AND cadena.ultima_secuencia >= base.secuencia_base
+       AND (
+           cadena.ultima_secuencia > base.secuencia_base
+           OR cadena.cabeza_sha256 = base.cabeza_base_sha256
+       )
+     FOR UPDATE OF cadena FOR SHARE OF base;
     IF secuencia > 9007199254740991::numeric THEN
         RAISE EXCEPTION USING ERRCODE = '54000',
             MESSAGE = 'capacidad del registro de accesos RRHH agotada';

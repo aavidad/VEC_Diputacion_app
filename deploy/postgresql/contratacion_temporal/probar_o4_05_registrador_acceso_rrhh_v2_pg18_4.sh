@@ -392,6 +392,30 @@ invocar() {
         )"
 }
 
+paso 'registrador v2 sobrevive a barreras globales futuras'
+psql_admin --set=autenticacion="$autenticacion" --set=sesion="$sesion" \
+    --set=control="$control" --set=revision="$revision" \
+    --set=control_huella="$control_huella" <<'SQL' >/dev/null
+BEGIN;
+UPDATE vec_contratacion_temporal.control_migracion_cobertura_o4
+   SET version_esquema = 20 WHERE control AND version_esquema = 19;
+UPDATE vec_contratacion_temporal.control_migracion_consultas_rrhh
+   SET version_esquema = 4 WHERE control AND version_esquema = 3;
+SET SESSION AUTHORIZATION vec_c2d2_registro_runtime;
+SELECT vec_contratacion_temporal.c2d2_registrar_prueba(
+    105, 'cuadro', :'autenticacion', :'sesion', :'control',
+    :revision, :'control_huella'
+);
+RESET SESSION AUTHORIZATION;
+ROLLBACK;
+SQL
+[[ "$(valor "SELECT cobertura.version_esquema || '|' || consultas.version_esquema
+  FROM vec_contratacion_temporal.control_migracion_cobertura_o4 cobertura
+ CROSS JOIN vec_contratacion_temporal.control_migracion_consultas_rrhh consultas
+ WHERE cobertura.control AND consultas.control")" == '19|3' ]]
+[[ "$(valor "SELECT count(*) FROM vec_contratacion_temporal.registro_acceso_rrhh
+ WHERE decision_ref = 'decision:rrhh:105'")" == '0' ]]
+
 esperar_fallo 'runtime invoca directamente el registrador interno' \
     psql_runtime --command \
     "SELECT vec_contratacion_temporal.registrar_acceso_rrhh_interno_v2(
