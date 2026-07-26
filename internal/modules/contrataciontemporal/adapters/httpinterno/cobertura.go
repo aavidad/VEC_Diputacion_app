@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	RutaPropuestaCobertura     = "/api/interno/v1/contratacion-temporal/cobertura/propuesta"
-	RutaDecisionCobertura      = "/api/interno/v1/contratacion-temporal/cobertura/decisiones"
-	RutaRectificacionCobertura = "/api/interno/v1/contratacion-temporal/cobertura/rectificaciones"
+	RutaPropuestaCobertura     = "/api/vec/contratacion-temporal/cobertura/propuesta"
+	RutaDecisionCobertura      = "/api/vec/contratacion-temporal/cobertura/decisiones"
+	RutaRectificacionCobertura = "/api/vec/contratacion-temporal/cobertura/rectificaciones"
 )
 
 var ErrManejadorCoberturaInvalido = errors.New(

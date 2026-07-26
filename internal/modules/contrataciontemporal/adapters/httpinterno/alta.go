@@ -13,7 +13,7 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-const RutaAltaSolicitudes = "/api/interno/v1/contratacion-temporal/solicitudes"
+const RutaAltaSolicitudes = "/api/vec/contratacion-temporal/solicitudes"
 
 // AutoridadContextoCanal resuelve desde el contexto confiable que O2-07 ligará
 // al canal interno las referencias de autenticación, sesión, perfil y

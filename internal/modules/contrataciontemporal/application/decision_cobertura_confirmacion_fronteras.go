@@ -252,11 +252,17 @@ func (s *ServicioConfirmacionDecisionCobertura) confirmarOrden(
 	}
 	if errContexto := ctxReconciliacion.Err(); errContexto != nil {
 		return cobertura.ReciboOperacionDecisionCobertura{},
-			ErrConfirmacionDecisionCoberturaNoDisponible
+			errors.Join(
+				ErrConfirmacionDecisionCoberturaPendiente,
+				ErrConfirmacionDecisionCoberturaNoDisponible,
+			)
 	}
 	_ = err
 	return cobertura.ReciboOperacionDecisionCobertura{},
-		ErrConfirmacionDecisionCoberturaNoDisponible
+		errors.Join(
+			ErrConfirmacionDecisionCoberturaPendiente,
+			ErrConfirmacionDecisionCoberturaNoDisponible,
+		)
 }
 
 func (s *ServicioConfirmacionDecisionCobertura) ahoraConfirmacion(

@@ -78,6 +78,9 @@ func TestDecidirCoberturaSQLStatePrimarioNoReintentaNiPublicaExito(
 			if !errors.Is(
 				err,
 				ErrConfirmacionDecisionCoberturaNoDisponible,
+			) || !errors.Is(
+				err,
+				ErrConfirmacionDecisionCoberturaPendiente,
 			) {
 				t.Fatalf("SQLSTATE %s publicó un resultado: %v", codigo, err)
 			}

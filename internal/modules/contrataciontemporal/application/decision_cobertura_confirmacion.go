@@ -41,6 +41,12 @@ var (
 	ErrConfirmacionDecisionCoberturaNoDisponible = errors.New(
 		"contratacion temporal: confirmacion de decision de cobertura no disponible",
 	)
+	// ErrConfirmacionDecisionCoberturaPendiente indica que la escritura pudo
+	// alcanzar COMMIT, pero la reconciliación primaria todavía no permite
+	// confirmar ni descartar el resultado. Ningún adaptador debe repetirla.
+	ErrConfirmacionDecisionCoberturaPendiente = errors.New(
+		"contratacion temporal: confirmacion de decision de cobertura pendiente",
+	)
 )
 
 // SolicitudDecidirCobertura contiene solo intención y coordenadas de canal.

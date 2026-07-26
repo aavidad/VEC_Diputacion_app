@@ -49,6 +49,7 @@ func TestDecidirCoberturaErrorTrasCallbackExigeReconciliacion(
 		escenario.solicitud,
 	)
 	if !errors.Is(err, ErrConfirmacionDecisionCoberturaNoDisponible) ||
+		!errors.Is(err, ErrConfirmacionDecisionCoberturaPendiente) ||
 		escenario.transaccion.total() != 1 ||
 		escenario.reconciliador.total() != 1 {
 		t.Fatalf("el error tardío no condujo al primario: %v", err)
@@ -64,7 +65,8 @@ func TestDecidirCoberturaConcesionAmbiguaReconciliaUnaVezSinRetry(
 		context.Background(),
 		escenario.solicitud,
 	)
-	if !errors.Is(err, ErrConfirmacionDecisionCoberturaNoDisponible) {
+	if !errors.Is(err, ErrConfirmacionDecisionCoberturaNoDisponible) ||
+		!errors.Is(err, ErrConfirmacionDecisionCoberturaPendiente) {
 		t.Fatalf("la ambigüedad se convirtió en éxito o rollback: %v", err)
 	}
 	if escenario.vec.total() != 1 ||
@@ -91,6 +93,9 @@ func TestDecidirCoberturaSQLStateTransaccionalConsultaPrimarioSinRetry(
 			if !errors.Is(
 				err,
 				ErrConfirmacionDecisionCoberturaNoDisponible,
+			) || !errors.Is(
+				err,
+				ErrConfirmacionDecisionCoberturaPendiente,
 			) {
 				t.Fatalf(
 					"SQLSTATE %s no quedó no concluyente: %v",

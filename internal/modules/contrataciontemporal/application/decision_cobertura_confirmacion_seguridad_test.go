@@ -86,6 +86,9 @@ func TestDecidirCoberturaFalloAntesCommitNoReconciliaNiReintenta(
 	if !errors.Is(
 		err,
 		ErrConfirmacionDecisionCoberturaNoDisponible,
+	) || errors.Is(
+		err,
+		ErrConfirmacionDecisionCoberturaPendiente,
 	) ||
 		escenario.transaccion.total() != 1 ||
 		escenario.reconciliador.total() != 0 {

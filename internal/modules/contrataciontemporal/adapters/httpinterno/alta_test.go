@@ -262,6 +262,9 @@ func TestManejadorAltaCierraRutaMetodoYNegociacion(t *testing.T) {
 		autoridad0 bool
 	}{
 		{"ruta distinta", func(r *http.Request) { r.URL.Path += "/" }, 404, "recurso_no_encontrado", true},
+		{"ruta interna histórica", func(r *http.Request) {
+			r.URL.Path = "/api/interno/v1/contratacion-temporal/solicitudes"
+		}, 404, "recurso_no_encontrado", true},
 		{"ruta escapada", func(r *http.Request) { r.URL.RawPath = RutaAltaSolicitudes + "%2f" }, 404, "recurso_no_encontrado", true},
 		{"query", func(r *http.Request) { r.URL.RawQuery = "actor=inyectado" }, 400, "peticion_no_permitida", true},
 		{"force query", func(r *http.Request) { r.URL.ForceQuery = true }, 400, "peticion_no_permitida", true},

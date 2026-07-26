@@ -29,10 +29,12 @@ var (
 	errorRepresentacionCoberturaNoAceptable = nuevoErrorCobertura(http.StatusNotAcceptable, "representacion_no_aceptable")
 	errorCuerpoCoberturaDemasiadoGrande     = nuevoErrorCobertura(http.StatusRequestEntityTooLarge, "peticion_demasiado_grande")
 	errorContenidoCoberturaInvalido         = nuevoErrorCobertura(http.StatusUnprocessableEntity, "contenido_no_valido")
+	errorAutenticacionCoberturaRequerida    = nuevoErrorCobertura(http.StatusUnauthorized, "autenticacion_requerida")
 	errorAccesoCoberturaDenegado            = nuevoErrorCobertura(http.StatusForbidden, "acceso_denegado")
 	errorConflictoCobertura                 = nuevoErrorCobertura(http.StatusConflict, "conflicto")
 	errorResultadoCoberturaNoConfiable      = nuevoErrorCobertura(http.StatusBadGateway, "resultado_no_confiable")
 	errorServicioCoberturaNoDisponible      = nuevoErrorCobertura(http.StatusServiceUnavailable, "servicio_no_disponible")
+	errorOperacionCoberturaPendiente        = nuevoErrorCobertura(http.StatusServiceUnavailable, "operacion_pendiente")
 	errorCancelacionCobertura               = nuevoErrorCobertura(http.StatusRequestTimeout, "peticion_cancelada")
 	errorPlazoCobertura                     = nuevoErrorCobertura(http.StatusGatewayTimeout, "plazo_agotado")
 	errorInternoCobertura                   = nuevoErrorCobertura(http.StatusInternalServerError, "error_interno")
@@ -52,10 +54,20 @@ func errorEntradaCobertura(err error) errorPublicoCobertura {
 }
 func clasificarErrorCobertura(err error) errorPublicoCobertura {
 	switch {
+	case errors.Is(err, application.ErrConfirmacionDecisionCoberturaPendiente):
+		// La posibilidad de COMMIT prevalece sobre cancelación, timeout o
+		// indisponibilidad unidos al error: el cliente debe consultar estado.
+		return errorOperacionCoberturaPendiente
 	case errors.Is(err, context.Canceled):
 		return errorCancelacionCobertura
 	case errors.Is(err, context.DeadlineExceeded):
 		return errorPlazoCobertura
+	case errors.Is(err, ErrContextoCanalAusente), errors.Is(err, ErrContextoCanalCaducado):
+		return errorAutenticacionCoberturaRequerida
+	case errors.Is(err, ErrContextoCanalOrganizacionDenegada):
+		return errorAccesoCoberturaDenegado
+	case errors.Is(err, ErrContextoCanalNoDisponible):
+		return errorServicioCoberturaNoDisponible
 	case errors.Is(err, ports.ErrAutorizacionDenegada), errors.Is(err, application.ErrPresentacionPropuestaCoberturaDenegada), errors.Is(err, application.ErrConfirmacionDecisionCoberturaDenegada):
 		return errorAccesoCoberturaDenegado
 	case errors.Is(err, application.ErrPresentacionPropuestaCoberturaEnConflicto), errors.Is(err, application.ErrConfirmacionDecisionCoberturaEnConflicto), errors.Is(err, application.ErrConfirmacionDecisionCoberturaOcupada):

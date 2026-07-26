@@ -11,7 +11,7 @@ info:
     servidor la liga mediante HMAC al contexto y al contenido. Ninguna
     cabecera, cookie, parámetro ni campo JSON concede autoridad.
 paths:
-  /api/interno/v1/contratacion-temporal/solicitudes:
+  /api/vec/contratacion-temporal/solicitudes:
     post:
       operationId: registrarSolicitudContratacionTemporalInternaV1
       summary: Registrar una solicitud interna de contratación temporal

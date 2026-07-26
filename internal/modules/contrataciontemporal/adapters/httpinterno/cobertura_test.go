@@ -26,16 +26,20 @@ func (a autoridadCoberturaPrueba) ResolverContextoCanalCobertura(
 }
 
 type servicioCoberturaPrueba struct {
-	propuesta  application.PresentacionPropuestaCobertura
-	err        error
-	decidir    application.SolicitudDecidirCobertura
-	rectificar application.SolicitudRectificarCobertura
+	propuesta          application.PresentacionPropuestaCobertura
+	err                error
+	decidir            application.SolicitudDecidirCobertura
+	rectificar         application.SolicitudRectificarCobertura
+	proponerLlamadas   int
+	decidirLlamadas    int
+	rectificarLlamadas int
 }
 
 func (s *servicioCoberturaPrueba) ProponerParaAdaptador(
 	context.Context,
 	application.SolicitudProponerCobertura,
 ) (application.ResultadoPropuestaCoberturaParaAdaptador, error) {
+	s.proponerLlamadas++
 	return application.ResultadoPropuestaCoberturaParaAdaptador{}, s.err
 }
 
@@ -43,6 +47,7 @@ func (s *servicioCoberturaPrueba) DecidirParaAdaptador(
 	_ context.Context,
 	solicitud application.SolicitudDecidirCobertura,
 ) (application.ResultadoDecisionCoberturaParaAdaptador, error) {
+	s.decidirLlamadas++
 	s.decidir = solicitud
 	return application.ResultadoDecisionCoberturaParaAdaptador{}, s.err
 }
@@ -51,6 +56,7 @@ func (s *servicioCoberturaPrueba) RectificarParaAdaptador(
 	_ context.Context,
 	solicitud application.SolicitudRectificarCobertura,
 ) (application.ResultadoDecisionCoberturaParaAdaptador, error) {
+	s.rectificarLlamadas++
 	s.rectificar = solicitud
 	return application.ResultadoDecisionCoberturaParaAdaptador{}, s.err
 }
@@ -242,6 +248,7 @@ func TestManejadorCoberturaCierraRutasJSONYDependencias(t *testing.T) {
 		estado               int
 	}{
 		{"query", RutaPropuestaCobertura + "?expediente_ref=x", `{}`, nil, http.StatusNotFound},
+		{"ruta interna histórica", "/api/interno/v1/contratacion-temporal/cobertura/propuesta", `{}`, nil, http.StatusNotFound},
 		{"get", RutaPropuestaCobertura, `{}`, func(r *http.Request) { r.Method = http.MethodGet }, http.StatusMethodNotAllowed},
 		{"duplicado", RutaPropuestaCobertura, `{"expediente_ref":"expediente:ct:0001","expediente_ref":"expediente:ct:0002","version_esperada":1}`, nil, http.StatusBadRequest},
 		{"extra", RutaPropuestaCobertura, `{"expediente_ref":"expediente:ct:0001","version_esperada":1,"perfil":"forjado"}`, nil, http.StatusBadRequest},
@@ -257,7 +264,16 @@ func TestManejadorCoberturaCierraRutasJSONYDependencias(t *testing.T) {
 			if w.Code != caso.estado {
 				t.Fatalf("estado=%d cuerpo=%s", w.Code, w.Body.String())
 			}
+			if caso.estado == http.StatusMethodNotAllowed &&
+				w.Header().Get("Allow") != http.MethodPost {
+				t.Fatalf("Allow=%q", w.Header().Get("Allow"))
+			}
 		})
+	}
+	if servicio.proponerLlamadas != 0 ||
+		servicio.decidirLlamadas != 0 ||
+		servicio.rectificarLlamadas != 0 {
+		t.Fatal("una petición descartada alcanzó un caso de uso")
 	}
 }
 
