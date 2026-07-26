@@ -102,6 +102,32 @@ La revisión independiente reprodujo pruebas focales, detector de carreras,
 acredita el contrato en memoria de `ports/application`; no acredita todavía
 PDP, identidad, PostgreSQL, HTTP ni E2E productivos.
 
+## Composición visual gobernada: GO técnico
+
+El corte `4714088` mantiene la interfaz existente fuera del dominio y publica
+solo una composición neutral formada por claves i18n, flujos, fases, tareas,
+paneles, campos, catálogos versionados y capacidades visuales informativas.
+No incorpora roles, PII, etiquetas ni opciones funcionales fijas.
+
+Tras un primer `NO-GO` se cerraron:
+
+- límites por tarea y globales antes de reservar memoria;
+- huellas canónicas de flujo y catálogos;
+- huella global y recibo privado;
+- atestación obligatoria por una autoridad de publicaciones independiente de
+  la fuente de composición;
+- orden único de paneles;
+- colecciones JSON normalizadas a `[]`.
+
+La prueba adversaria sustituye operaciones y opciones, recalcula huellas y
+recibo bajo la misma versión y demuestra que la autoridad gobernada lo
+rechaza. Otra entrada usa un millón de referencias y se rechaza antes de
+reservar. Focales, detector de carreras, `go vet`, formato y cien repeticiones
+obtuvieron `GO` independiente.
+
+Este corte no acredita aún la independencia física del adaptador de
+publicaciones ni raíz, HTTP, web conectada o E2E.
+
 ## Métrica
 
 El procedimiento permanece en `19/46` tareas verificadas, un 41 %. O4-05
