@@ -9,10 +9,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 )
 
@@ -29,33 +27,32 @@ func (a autoridadCoberturaPrueba) ResolverContextoCanalCobertura(
 
 type servicioCoberturaPrueba struct {
 	propuesta  application.PresentacionPropuestaCobertura
-	recibo     cobertura.ReciboOperacionDecisionCobertura
 	err        error
 	decidir    application.SolicitudDecidirCobertura
 	rectificar application.SolicitudRectificarCobertura
 }
 
-func (s *servicioCoberturaPrueba) Proponer(
+func (s *servicioCoberturaPrueba) ProponerParaAdaptador(
 	context.Context,
 	application.SolicitudProponerCobertura,
-) (application.PresentacionPropuestaCobertura, error) {
-	return s.propuesta, s.err
+) (application.ResultadoPropuestaCoberturaParaAdaptador, error) {
+	return application.ResultadoPropuestaCoberturaParaAdaptador{}, s.err
 }
 
-func (s *servicioCoberturaPrueba) Decidir(
+func (s *servicioCoberturaPrueba) DecidirParaAdaptador(
 	_ context.Context,
 	solicitud application.SolicitudDecidirCobertura,
-) (cobertura.ReciboOperacionDecisionCobertura, error) {
+) (application.ResultadoDecisionCoberturaParaAdaptador, error) {
 	s.decidir = solicitud
-	return s.recibo, s.err
+	return application.ResultadoDecisionCoberturaParaAdaptador{}, s.err
 }
 
-func (s *servicioCoberturaPrueba) Rectificar(
+func (s *servicioCoberturaPrueba) RectificarParaAdaptador(
 	_ context.Context,
 	solicitud application.SolicitudRectificarCobertura,
-) (cobertura.ReciboOperacionDecisionCobertura, error) {
+) (application.ResultadoDecisionCoberturaParaAdaptador, error) {
 	s.rectificar = solicitud
-	return s.recibo, s.err
+	return application.ResultadoDecisionCoberturaParaAdaptador{}, s.err
 }
 
 func cuerpoDecisionCoberturaPrueba(rectificacion bool) string {
@@ -92,7 +89,7 @@ func nuevaPeticionCoberturaPrueba(ruta string, cuerpo string) *http.Request {
 	return peticion
 }
 
-func TestManejadorCoberturaProyectaPropuestaSinAutoridadDelCliente(t *testing.T) {
+func TestManejadorCoberturaRechazaPropuestaNoSelladaPorAplicacion(t *testing.T) {
 	servicio := &servicioCoberturaPrueba{propuesta: application.PresentacionPropuestaCobertura{
 		Estado:         domain.PropuestaCoberturaViable,
 		ViaRecomendada: "bolsa_vigente",
@@ -110,25 +107,13 @@ func TestManejadorCoberturaProyectaPropuestaSinAutoridadDelCliente(t *testing.T)
 	respuesta := httptest.NewRecorder()
 	manejador.ServeHTTP(respuesta, nuevaPeticionCoberturaPrueba(RutaPropuestaCobertura,
 		`{"expediente_ref":"expediente:ct:0001","version_esperada":1}`))
-	if respuesta.Code != http.StatusOK {
+	if respuesta.Code != http.StatusBadGateway {
 		t.Fatalf("estado=%d cuerpo=%s", respuesta.Code, respuesta.Body.String())
 	}
-	for _, prohibido := range []string{"aut_", "ses_", "prf_", "organizacion", "cookie", "auditoria"} {
+	for _, prohibido := range []string{"aut_", "ses_", "prf_", "organizacion", "cookie", "auditoria", "bolsa_vigente"} {
 		if strings.Contains(strings.ToLower(respuesta.Body.String()), strings.ToLower(prohibido)) {
 			t.Fatalf("salida contiene %q", prohibido)
 		}
-	}
-	var envoltorio struct {
-		Data struct {
-			ViaRecomendada string          `json:"via_recomendada"`
-			Identidad      json.RawMessage `json:"identidad_semantica"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(respuesta.Body.Bytes(), &envoltorio); err != nil {
-		t.Fatal(err)
-	}
-	if envoltorio.Data.ViaRecomendada != "bolsa_vigente" || len(envoltorio.Data.Identidad) == 0 {
-		t.Fatalf("proyección incompleta: %s", respuesta.Body.String())
 	}
 	if respuesta.Header().Get("Set-Cookie") != "" {
 		t.Fatal("emitió Set-Cookie")
@@ -141,7 +126,7 @@ func TestManejadorCoberturaRechazaCookiesYAutoridadDeclarada(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, cabecera := range []string{"Cookie", "Authorization", "X-Actor", "Perfil"} {
+	for _, cabecera := range []string{"Cookie", "Authorization", "X-Actor", "Perfil", "X-Forwarded-For"} {
 		t.Run(cabecera, func(t *testing.T) {
 			peticion := nuevaPeticionCoberturaPrueba(RutaPropuestaCobertura, `{"expediente_ref":"expediente:ct:0001","version_esperada":1}`)
 			peticion.Header.Set(cabecera, "fabricada")
@@ -154,37 +139,72 @@ func TestManejadorCoberturaRechazaCookiesYAutoridadDeclarada(t *testing.T) {
 	}
 }
 
+func TestManejadorCoberturaDistingueLimiteDeclaradoYStreaming(t *testing.T) {
+	servicio := &servicioCoberturaPrueba{}
+	manejador, err := NuevoManejadorCobertura(autoridadCoberturaPrueba{contexto: contextoCoberturaValidoPrueba()}, servicio, servicio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	declarada := nuevaPeticionCoberturaPrueba(RutaPropuestaCobertura, `{}`)
+	declarada.ContentLength = MaximoCuerpoCoberturaBytes + 1
+	for nombre, peticion := range map[string]*http.Request{
+		"declarada": declarada,
+		"streaming": nuevaPeticionCoberturaPrueba(RutaPropuestaCobertura, strings.Repeat("x", MaximoCuerpoCoberturaBytes+1)),
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			if nombre == "streaming" {
+				peticion.ContentLength = -1
+			}
+			w := httptest.NewRecorder()
+			manejador.ServeHTTP(w, peticion)
+			if w.Code != http.StatusRequestEntityTooLarge {
+				t.Fatalf("estado=%d cuerpo=%s", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestResponderJSONCoberturaAdmiteProyeccionMaximaGobernada(t *testing.T) {
+	salida := propuestaCoberturaSalidaJSON{}
+	for via := 0; via < maximasViasCoberturaHTTP; via++ {
+		evaluacion := evaluacionCoberturaJSON{ViaClave: "via", Estado: "viable", Prioridad: uint16(via + 1)}
+		for clave := 0; clave < maximasClavesPorViaHTTP; clave++ {
+			evaluacion.Conflictos = append(evaluacion.Conflictos, strings.Repeat("c", 80))
+		}
+		salida.Evaluaciones = append(salida.Evaluaciones, evaluacion)
+	}
+	w := httptest.NewRecorder()
+	responderJSONCobertura(w, http.StatusOK, envoltorioPropuestaCobertura{Data: salida})
+	if w.Code != http.StatusOK || w.Body.Len() > MaximoRespuestaCoberturaBytes {
+		t.Fatalf("estado=%d tamaño=%d", w.Code, w.Body.Len())
+	}
+}
+
 func TestManejadorCoberturaConstruyeDecisionDesdeContextoConfiable(t *testing.T) {
-	servicio := &servicioCoberturaPrueba{recibo: cobertura.ReciboOperacionDecisionCobertura{
-		ReciboRef: "recibo:cobertura:001", ConfirmadaEn: time.Date(2026, 7, 26, 10, 0, 0, 0, time.UTC),
-		Aplicada: &cobertura.ResultadoAplicadoOperacionDecisionCobertura{DecisionCoberturaRef: "decision-cobertura:sha256:" + strings.Repeat("b", 64), DecisionCoberturaHuella: strings.Repeat("b", 64), VersionResultante: 2, EventoRef: "evento:cobertura:001", ActuacionRef: "actuacion:cobertura:001"},
-	}}
+	servicio := &servicioCoberturaPrueba{}
 	manejador, err := NuevoManejadorCobertura(autoridadCoberturaPrueba{contexto: contextoCoberturaValidoPrueba()}, servicio, servicio)
 	if err != nil {
 		t.Fatal(err)
 	}
 	respuesta := httptest.NewRecorder()
 	manejador.ServeHTTP(respuesta, nuevaPeticionCoberturaPrueba(RutaDecisionCobertura, cuerpoDecisionCoberturaPrueba(false)))
-	if respuesta.Code != http.StatusCreated {
+	if respuesta.Code != http.StatusBadGateway {
 		t.Fatalf("estado=%d cuerpo=%s", respuesta.Code, respuesta.Body.String())
 	}
 	if servicio.decidir.AutenticacionRef != contextoCoberturaValidoPrueba().AutenticacionRef || servicio.decidir.OrganizacionRef != contextoCoberturaValidoPrueba().OrganizacionRef {
 		t.Fatalf("contexto no ligado: %+v", servicio.decidir)
 	}
-	if strings.Contains(respuesta.Body.String(), "EventoRef") || strings.Contains(respuesta.Body.String(), "evento:cobertura") {
-		t.Fatalf("recibo no minimizado: %s", respuesta.Body.String())
-	}
 }
 
 func TestManejadorCoberturaRectificaSoloConPredecesoraCompleta(t *testing.T) {
-	servicio := &servicioCoberturaPrueba{recibo: cobertura.ReciboOperacionDecisionCobertura{ReciboRef: "recibo:cobertura:001", ConfirmadaEn: time.Date(2026, 7, 26, 10, 0, 0, 0, time.UTC), DenegadaVEC: &cobertura.ResultadoDenegadoVECOperacionDecisionCobertura{}}}
+	servicio := &servicioCoberturaPrueba{}
 	manejador, err := NuevoManejadorCobertura(autoridadCoberturaPrueba{contexto: contextoCoberturaValidoPrueba()}, servicio, servicio)
 	if err != nil {
 		t.Fatal(err)
 	}
 	respuesta := httptest.NewRecorder()
 	manejador.ServeHTTP(respuesta, nuevaPeticionCoberturaPrueba(RutaRectificacionCobertura, cuerpoDecisionCoberturaPrueba(true)))
-	if respuesta.Code != http.StatusCreated || servicio.rectificar.PredecesoraRef == "" || servicio.rectificar.MotivoClave != "rectificacion" {
+	if respuesta.Code != http.StatusBadGateway || servicio.rectificar.PredecesoraRef == "" || servicio.rectificar.MotivoClave != "rectificacion" {
 		t.Fatalf("rectificación=%+v estado=%d", servicio.rectificar, respuesta.Code)
 	}
 	respuesta = httptest.NewRecorder()

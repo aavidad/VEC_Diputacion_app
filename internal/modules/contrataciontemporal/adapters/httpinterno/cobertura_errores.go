@@ -27,6 +27,7 @@ var (
 	errorMetodoCoberturaNoPermitido         = nuevoErrorCobertura(http.StatusMethodNotAllowed, "metodo_no_permitido")
 	errorTipoCoberturaNoAdmitido            = nuevoErrorCobertura(http.StatusUnsupportedMediaType, "tipo_contenido_no_admitido")
 	errorRepresentacionCoberturaNoAceptable = nuevoErrorCobertura(http.StatusNotAcceptable, "representacion_no_aceptable")
+	errorCuerpoCoberturaDemasiadoGrande     = nuevoErrorCobertura(http.StatusRequestEntityTooLarge, "peticion_demasiado_grande")
 	errorContenidoCoberturaInvalido         = nuevoErrorCobertura(http.StatusUnprocessableEntity, "contenido_no_valido")
 	errorAccesoCoberturaDenegado            = nuevoErrorCobertura(http.StatusForbidden, "acceso_denegado")
 	errorConflictoCobertura                 = nuevoErrorCobertura(http.StatusConflict, "conflicto")
@@ -42,7 +43,7 @@ func nuevoErrorCobertura(estado int, codigo string) errorPublicoCobertura {
 }
 func errorEntradaCobertura(err error) errorPublicoCobertura {
 	if errors.Is(err, errCuerpoCoberturaDemasiadoGrande) {
-		return nuevoErrorCobertura(http.StatusRequestEntityTooLarge, "peticion_demasiado_grande")
+		return errorCuerpoCoberturaDemasiadoGrande
 	}
 	if errors.Is(err, errContenidoCoberturaNoValido) {
 		return errorContenidoCoberturaInvalido
@@ -82,7 +83,7 @@ func responderErrorCobertura(w http.ResponseWriter, problema errorPublicoCobertu
 }
 func responderJSONCobertura(w http.ResponseWriter, estado int, valor any) {
 	contenido, err := json.Marshal(valor)
-	if err != nil || len(contenido) > 16*1024 {
+	if err != nil || len(contenido) > MaximoRespuestaCoberturaBytes {
 		estado = http.StatusInternalServerError
 		contenido, _ = json.Marshal(envoltorioErrorCobertura{Error: detalleErrorCobertura{Codigo: errorInternoCobertura.codigo, ClaveI18n: errorInternoCobertura.claveI18n, CorrelacionRef: nuevaCorrelacionCobertura()}})
 	}

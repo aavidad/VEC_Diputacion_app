@@ -170,6 +170,21 @@ func (s *ServicioConfirmacionDecisionCobertura) Decidir(
 	})
 }
 
+// DecidirParaAdaptador entrega una proyección cerrada, creada solo tras
+// comprobar el recibo contra la consulta terminal de esta misma operación.
+func (s *ServicioConfirmacionDecisionCobertura) DecidirParaAdaptador(
+	ctx context.Context,
+	solicitud SolicitudDecidirCobertura,
+) (ResultadoDecisionCoberturaParaAdaptador, error) {
+	return s.ejecutarParaAdaptador(ctx, datosSolicitudConfirmacionDecisionCobertura{
+		tipo: domain.DecisionCoberturaInicial, autenticacionRef: solicitud.AutenticacionRef,
+		sesionRef: solicitud.SesionRef, perfilRef: solicitud.PerfilRef, organizacionRef: solicitud.OrganizacionRef,
+		expedienteRef: solicitud.ExpedienteRef, versionEsperada: solicitud.VersionEsperada,
+		claveIdempotencia: solicitud.ClaveIdempotencia, identidadSemantica: solicitud.IdentidadSemantica,
+		viaElegida: solicitud.ViaElegida, motivoClave: solicitud.MotivoClave,
+	})
+}
+
 func (s *ServicioConfirmacionDecisionCobertura) Rectificar(
 	ctx context.Context,
 	solicitud SolicitudRectificarCobertura,
@@ -186,6 +201,20 @@ func (s *ServicioConfirmacionDecisionCobertura) Rectificar(
 		viaElegida:         solicitud.ViaElegida, motivoClave: solicitud.MotivoClave,
 		predecesoraRef:    solicitud.PredecesoraRef,
 		predecesoraHuella: solicitud.PredecesoraHuella,
+	})
+}
+
+func (s *ServicioConfirmacionDecisionCobertura) RectificarParaAdaptador(
+	ctx context.Context,
+	solicitud SolicitudRectificarCobertura,
+) (ResultadoDecisionCoberturaParaAdaptador, error) {
+	return s.ejecutarParaAdaptador(ctx, datosSolicitudConfirmacionDecisionCobertura{
+		tipo: domain.DecisionCoberturaRectificacion, autenticacionRef: solicitud.AutenticacionRef,
+		sesionRef: solicitud.SesionRef, perfilRef: solicitud.PerfilRef, organizacionRef: solicitud.OrganizacionRef,
+		expedienteRef: solicitud.ExpedienteRef, versionEsperada: solicitud.VersionEsperada,
+		claveIdempotencia: solicitud.ClaveIdempotencia, identidadSemantica: solicitud.IdentidadSemantica,
+		viaElegida: solicitud.ViaElegida, motivoClave: solicitud.MotivoClave,
+		predecesoraRef: solicitud.PredecesoraRef, predecesoraHuella: solicitud.PredecesoraHuella,
 	})
 }
 
@@ -220,10 +249,34 @@ func (s *ServicioConfirmacionDecisionCobertura) ejecutar(
 		return cobertura.ReciboOperacionDecisionCobertura{},
 			ErrSolicitudConfirmacionDecisionCoberturaInvalida
 	}
+	operacion, cancelar := context.WithTimeout(ctx, TiempoMaximoConfirmacionDecisionCobertura)
+	defer cancelar()
+	return s.ejecutarValidada(operacion, solicitud)
+}
+
+func (s *ServicioConfirmacionDecisionCobertura) ejecutarParaAdaptador(
+	ctx context.Context,
+	solicitud datosSolicitudConfirmacionDecisionCobertura,
+) (ResultadoDecisionCoberturaParaAdaptador, error) {
+	if s == nil || ctx == nil || !s.dependenciasValidas() {
+		return ResultadoDecisionCoberturaParaAdaptador{},
+			ErrServicioConfirmacionDecisionCoberturaInvalido
+	}
+	if err := ctx.Err(); err != nil {
+		return ResultadoDecisionCoberturaParaAdaptador{}, err
+	}
+	if solicitud.validar() != nil {
+		return ResultadoDecisionCoberturaParaAdaptador{},
+			ErrSolicitudConfirmacionDecisionCoberturaInvalida
+	}
 	operacion, cancelar := context.WithTimeout(
 		ctx,
 		TiempoMaximoConfirmacionDecisionCobertura,
 	)
 	defer cancelar()
-	return s.ejecutarValidada(operacion, solicitud)
+	recibo, err := s.ejecutarValidada(operacion, solicitud)
+	if err != nil {
+		return ResultadoDecisionCoberturaParaAdaptador{}, err
+	}
+	return nuevoResultadoDecisionCoberturaParaAdaptador(recibo)
 }
