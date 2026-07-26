@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -203,6 +205,36 @@ func (c CapacidadBreveAtestacionAutorizacionV3) ExportacionCanonicaParaConsumido
 		return nil, ErrCapacidadAtestacionV3Invalida
 	}
 	return append([]byte(nil), c.contenido...), nil
+}
+
+func (c CapacidadBreveAtestacionAutorizacionV3) ResumenParaConsumidor() (
+	ports.ResumenCapacidadAtestacionAutorizacionV3,
+	error,
+) {
+	documento, err := interpretarExportacionCapacidadV3(c.contenido)
+	if err != nil {
+		return ports.ResumenCapacidadAtestacionAutorizacionV3{},
+			ErrCapacidadAtestacionV3Invalida
+	}
+	emitidaEn, errEmitida := parsearInstanteCapacidadV3(documento.EmitidaEn)
+	expiraEn, errExpira := parsearInstanteCapacidadV3(documento.ExpiraEn)
+	if errEmitida != nil || errExpira != nil {
+		return ports.ResumenCapacidadAtestacionAutorizacionV3{},
+			ErrCapacidadAtestacionV3Invalida
+	}
+	return ports.NuevoResumenCapacidadAtestacionAutorizacionV3(
+		documento.DecisionRef,
+		documento.HuellaDecisionSHA256,
+		documento.HuellaMotivoSHA256,
+		documento.ContextoRef,
+		documento.HuellaContextoSHA256,
+		documento.Operacion,
+		documento.EfectoRef,
+		documento.HuellaEfectoSHA256,
+		documento.AudienciaConsumo,
+		emitidaEn,
+		expiraEn,
+	)
 }
 
 func interpretarExportacionCapacidadV3(

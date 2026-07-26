@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	puertoscontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const audienciaConsumoCapacidadV3Prueba = "vec_contratacion_temporal.confirmar_alta_atestada_v1"
@@ -80,6 +82,10 @@ func TestCapacidadAtestacionV3CruzaProcesoConMACYVigenciaCincoSegundos(
 	if err != nil {
 		t.Fatal(err)
 	}
+	resumen, err := capacidad.ResumenParaConsumidor()
+	if err != nil {
+		t.Fatal(err)
+	}
 	datosSolicitud, _ := escenario.solicitud.Datos()
 	atributosO204 := []string{
 		"flujo_ref",
@@ -116,6 +122,65 @@ func TestCapacidadAtestacionV3CruzaProcesoConMACYVigenciaCincoSegundos(
 		t.Fatalf("ligaduras incompletas: %+v", documento)
 	}
 	expiraEn, _ := parsearInstanteCapacidadV3(documento.ExpiraEn)
+	if resumen.DecisionRef() != documento.DecisionRef ||
+		resumen.DecisionHuellaSHA256() != documento.HuellaDecisionSHA256 ||
+		resumen.MotivoHuellaSHA256() != documento.HuellaMotivoSHA256 ||
+		resumen.ContextoRef() != documento.ContextoRef ||
+		resumen.ContextoHuellaSHA256() != documento.HuellaContextoSHA256 ||
+		resumen.Operacion() != documento.Operacion ||
+		resumen.EfectoRef() != documento.EfectoRef ||
+		resumen.EfectoHuellaSHA256() != documento.HuellaEfectoSHA256 ||
+		resumen.AudienciaConsumo() != documento.AudienciaConsumo ||
+		!resumen.EmitidaEn().Equal(emitidaEn) ||
+		!resumen.ExpiraEn().Equal(expiraEn) {
+		t.Fatal("el resumen no procede del mismo documento canónico")
+	}
+	if _, err := json.Marshal(resumen); err == nil ||
+		strings.Contains(fmt.Sprintf("%#v", resumen), documento.DecisionRef) {
+		t.Fatal("el resumen tipado expone material mediante codec o formato")
+	}
+	erroresCodec := []error{}
+	_, errTexto := resumen.MarshalText()
+	erroresCodec = append(erroresCodec, errTexto)
+	_, errBinario := resumen.MarshalBinary()
+	erroresCodec = append(erroresCodec, errBinario)
+	_, errGob := resumen.GobEncode()
+	erroresCodec = append(erroresCodec, errGob)
+	_, errCBOR := resumen.MarshalCBOR()
+	erroresCodec = append(erroresCodec, errCBOR)
+	_, errYAML := resumen.MarshalYAML()
+	erroresCodec = append(erroresCodec, errYAML)
+	_, errXML := xml.Marshal(resumen)
+	erroresCodec = append(erroresCodec, errXML)
+	for indice, errCodec := range erroresCodec {
+		if errCodec == nil {
+			t.Fatalf("codec %d aceptó el resumen tipado", indice)
+		}
+	}
+	for _, formato := range []string{"%v", "%+v", "%#v", "%s", "%q", "%x", "%X"} {
+		if salida := fmt.Sprintf(formato, resumen); strings.Contains(
+			salida,
+			documento.DecisionRef,
+		) {
+			t.Fatalf("formato %s filtró la decisión", formato)
+		}
+	}
+	var registro bytes.Buffer
+	slog.New(slog.NewJSONHandler(&registro, nil)).Info(
+		"prueba",
+		"resumen",
+		resumen,
+	)
+	if strings.Contains(registro.String(), documento.DecisionRef) {
+		t.Fatal("slog filtró la decisión del resumen")
+	}
+	var cero puertosvec.ResumenCapacidadAtestacionAutorizacionV3
+	if cero.ValidarEstructura() == nil {
+		t.Fatal("el resumen cero fue aceptado")
+	}
+	if _, err := json.Marshal(cero); err == nil {
+		t.Fatal("el resumen cero admitió serialización")
+	}
 	if expiraEn.Sub(emitidaEn) !=
 		VigenciaMaximaCapacidadAtestacionAutorizacionV3 {
 		t.Fatalf("vigencia = %s", expiraEn.Sub(emitidaEn))
