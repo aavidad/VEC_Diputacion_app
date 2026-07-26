@@ -220,5 +220,11 @@ reinterpretar su JSON privado. Sigue pendiente migrar `CapacidadConsultaRRHH`
 y consumir la exportación original dentro de la misma transacción que lee y
 audita; el resumen no es una autoridad.
 
+El [conjunto probatorio completo VEC-AD-3](o4_05_conjunto_probatorio_vec_ad3_2026-07-26.md)
+añade después una única instantánea opaca con las diez entradas exigidas por
+PostgreSQL y el resumen derivado del mismo nominal. El consumidor de alta no
+se generaliza: cuadro y detalle necesitarán fachadas nominales separadas y
+listas positivas propias.
+
 Este mapa no declara producción. Evita que una pantalla o una respuesta
 aislada se presenten como recorrido terminado.
