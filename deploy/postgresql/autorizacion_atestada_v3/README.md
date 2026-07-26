@@ -1,7 +1,8 @@
 # Consumidor PostgreSQL de autorización atestada VEC-AD-3
 
-Estado: candidato O2-05 probado en PostgreSQL 18; pendiente de revisión
-independiente y de las puertas externas de producción.
+Estado: base O2-05 y consumidores nominales de consultas RRHH probados en
+PostgreSQL 18.4 y revisados de forma independiente. Permanecen cerradas las
+puertas externas de producción.
 
 ## Responsabilidad
 
@@ -19,6 +20,11 @@ Las migraciones son aditivas y no cambian VEC-AD-2:
    reconstrucción canónica compatible con `encoding/json`, la comprobación de
    MAC y la función cerrada
    `registrar_y_consumir_decision_v3_atestada`.
+3. `000003_consumidor_consulta_cuadro_rrhh_v3` añade una fachada nominal para
+   el cuadro interno de Contratación temporal y amplía la audiencia gobernada
+   únicamente con ese uso.
+4. `000004_consumidor_consulta_detalle_rrhh_v3` añade la fachada nominal del
+   detalle de expediente y completa la segunda ampliación de audiencia.
 
 La capacidad es un objeto plano de 37 campos. Antes de convertirla a `jsonb`
 se rechazan campos ausentes, repetidos o desconocidos. Después se reconstruye
@@ -31,6 +37,10 @@ no sustituye RBAC, ContextoActor ni el catálogo de motivos. Su resultado
 interno incluye `consumo_nuevo`: `true` solo tras insertar consumo y auditoría;
 `false` solo cuando recupera exactamente esos bytes. La función exterior usa
 esta señal para impedir que una capacidad ya consumida complete piezas tarde.
+Las fachadas de consulta devuelven además la huella real del eslabón de
+auditoría. Un replay sirve solo para conciliación: la futura función exterior
+de Contratación temporal deberá rechazar `consumo_nuevo=false` antes de leer o
+entregar datos.
 
 ## Privilegios
 
@@ -59,6 +69,8 @@ autorización nominal V3 y contratación temporal hasta `000002`.
 roles_up.sql                              DBA
 000001_gobierno_y_registro_v3.up.sql      migrador VEC-AD-3
 000002_consumidor_capacidad_v3.up.sql     migrador VEC-AD-3
+000003_consumidor_consulta_cuadro_rrhh_v3 migrador VEC-AD-3
+000004_consumidor_consulta_detalle_rrhh_v3 migrador VEC-AD-3
 000003_expediente_confirmacion_atestada   migrador contratación
 000004_integridad_agregado_alta           migrador contratación
 000005_funcion_confirmar_alta_atestada    migrador contratación
@@ -78,6 +90,7 @@ reconcilia; nunca se transforma en cancelación.
 ```bash
 go test ./internal/vec/adapters/seguridad/confianzaatestacion
 ./deploy/postgresql/autorizacion_atestada_v3/probar_integracion_o2_05.sh
+./deploy/postgresql/autorizacion_atestada_v3/probar_consultas_rrhh_v3_pg18_4.sh
 ```
 
 El segundo mandato usa PostgreSQL 18 por resumen criptográfico, sin red, sin
@@ -99,6 +112,20 @@ puertos publicados y con datos en `tmpfs`. Comprueba:
 
 Todos los datos, claves y roles LOGIN del ensayo son sintéticos y viven solo
 en el contenedor efímero.
+
+El tercer mandato fija PostgreSQL 18.4 por resumen, no publica puertos y
+comprueba de forma específica:
+
+- cuatro fotografías exactas de la restricción de audiencias y reversión
+  protegida frente a adulteración;
+- regresión funcional del alta existente;
+- aislamiento A/B de cuadro y detalle, ACL nominativa y rol mínimo;
+- rollback atómico, recibo de ocho campos y replay sin crecimiento;
+- ligadura independiente de las diez piezas del conjunto probatorio;
+- DER-SPKI Ed25519 canónico y rechazo de X25519, RSA, nulos y DER no canónico;
+- colisión múltiple determinista, caducidad durante RBAC y ambos órdenes
+  serializables entre consumo y revocación;
+- bloqueo absoluto del `down` ante claves, punteros o historia.
 
 ## Reversión
 
@@ -123,7 +150,7 @@ Estas migraciones no autorizan producción. Siguen siendo obligatorios:
 - ancla monotónica externa contra restauraciones atrasadas;
 - copias, restauración, retención y destrucción ensayadas;
 - TLS/mTLS y credenciales nominativas aprovisionadas por Sistemas;
-- revisión independiente y aprobación de Sistemas, Seguridad, DPD y RRHH.
+- aprobación de Sistemas, Seguridad, DPD y RRHH.
 
 No se han usado cookies ni autoridad procedente del cliente web. Web,
 escritorio, CLI y MCP deben llegar por los mismos puertos de aplicación.
