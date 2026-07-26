@@ -1,0 +1,119 @@
+.ct-exp-operativo {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(14rem, 1fr) minmax(13rem, 0.85fr);
+  gap: var(--portal-espacio-3);
+  padding: var(--portal-espacio-4);
+  border: 1px solid var(--portal-borde);
+  border-inline-start: 0.3rem solid var(--modulo-borde, var(--portal-azul-700));
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.ct-exp-operativo > header {
+  grid-column: 1 / -1;
+}
+
+.ct-exp-operativo h3,
+.ct-exp-operativo h4,
+.ct-exp-operativo p {
+  margin-block: 0;
+}
+
+.ct-exp-operativo h3 {
+  margin-block-end: var(--portal-espacio-1);
+}
+
+.ct-exp-operativo h4 {
+  margin-block-end: var(--portal-espacio-2);
+  font-size: 0.9rem;
+}
+
+.ct-exp-mis-tareas ul {
+  display: grid;
+  gap: var(--portal-espacio-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-exp-mis-tareas,
+.ct-exp-distribucion {
+  min-width: 0;
+  padding: var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-fondo);
+}
+
+.ct-exp-mis-tareas li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--portal-espacio-2);
+  padding-block: var(--portal-espacio-2);
+  border-block-end: 1px solid var(--portal-borde);
+}
+
+.ct-exp-mis-tareas span,
+.ct-exp-mis-tareas small {
+  display: block;
+}
+
+.ct-exp-mis-tareas small {
+  margin-block-start: var(--portal-espacio-1);
+  color: var(--portal-tinta-suave);
+  font-size: 0.8rem;
+}
+
+.ct-exp-distribucion dl {
+  display: grid;
+  gap: var(--portal-espacio-1);
+  margin: 0;
+}
+
+.ct-exp-distribucion dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--portal-espacio-2);
+  padding-block: var(--portal-espacio-1);
+}
+
+.ct-exp-distribucion dt {
+  color: var(--portal-tinta-suave);
+}
+
+.ct-exp-distribucion dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+.ct-exp-accesos {
+  display: grid;
+  align-content: start;
+  gap: var(--portal-espacio-2);
+  padding: var(--portal-espacio-3);
+  border-radius: var(--portal-radio-md);
+  background: var(--modulo-suave, var(--portal-azul-100));
+}
+
+@media (max-width: 1050px) {
+  .ct-exp-operativo {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ct-exp-mis-tareas {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .ct-exp-operativo {
+    grid-template-columns: 1fr;
+  }
+
+  .ct-exp-mis-tareas,
+  .ct-exp-operativo > header {
+    grid-column: auto;
+  }
+}

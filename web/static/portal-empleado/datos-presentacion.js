@@ -21,6 +21,7 @@ const DATOS = {
       "portal", "resumen", "elaboracion", "convocatorias", "solicitudes", "meritos",
       "baremacion", "alegaciones", "importacion", "llamamientos", "contratos", "reglas",
       "consulta", "estadisticas", "documentos", "comunicaciones", "auditoria", "configuracion",
+      "contratacion-temporal",
     ],
     operaciones_permitidas: [
       "crear-convocatoria", "guardar-bases", "guardar-reglas-baremo",
@@ -257,7 +258,7 @@ const PERFIL_TECNICO = Object.freeze({
   iniciales: "TR",
   nombre: "Técnico DEMO 01",
   perfil: "Técnico revisor de RRHH · ámbito DEMO restringido",
-  vistas_permitidas: ["portal", "resumen", "solicitudes", "meritos", "baremacion", "alegaciones", "documentos", "auditoria"],
+  vistas_permitidas: ["portal", "resumen", "solicitudes", "meritos", "baremacion", "alegaciones", "documentos", "auditoria", "contratacion-temporal"],
   operaciones_permitidas: [
     "admitir-solicitud", "excluir-solicitud", "registrar-subsanacion",
     "aceptar-merito", "rechazar-merito", "revocar-merito", "rehabilitar-merito",

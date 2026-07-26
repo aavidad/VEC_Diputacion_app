@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -18,6 +19,9 @@ import (
 var (
 	ErrOrdenRegistroAutorizacionLigadaV3Invalida = errors.New(
 		"vec: orden de registro de autorizacion ligada V3 invalida",
+	)
+	ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida = errors.New(
+		"vec: candidata de registro de decision de autorizacion ligada V3 invalida",
 	)
 	ErrConfirmacionRegistroConcesionAutorizacionLigadaV3Invalida = errors.New(
 		"vec: confirmacion de registro de concesion de autorizacion ligada V3 invalida",
@@ -67,6 +71,38 @@ type OrdenRegistroDenegacionAutorizacionLigadaV3 struct {
 	datos *datosOrdenRegistroAutorizacionLigadaV3
 }
 
+// CandidataRegistroDecisionAutorizacionLigadaV3 es una union nominal opaca.
+// Contiene exactamente una orden de concesion o de denegacion y permite que un
+// adaptador compuesto registre cualquiera de los dos resultados dentro de su
+// propia transaccion autoritativa. No registra, confirma ni concede por si sola.
+type CandidataRegistroDecisionAutorizacionLigadaV3 struct {
+	bloqueoSerializacionRegistroAutorizacionLigadaV3
+	concedida  bool
+	concesion  OrdenRegistroConcesionCandidataAutorizacionLigadaV3
+	denegacion OrdenRegistroDenegacionAutorizacionLigadaV3
+}
+
+// DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3 es la vista
+// minimizada de una candidata ya verificada. No contiene identidad, recurso,
+// motivo, políticas ni contexto de actor. Sigue siendo opaca a codecs y logs.
+type DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3 struct {
+	bloqueoSerializacionRegistroAutorizacionLigadaV3
+	DecisionRef          string
+	DecisionHuellaSHA256 string
+	CodigoProbatorio     string
+	Concedida            bool
+	EmitidaEn            time.Time
+	ValidaHasta          time.Time
+}
+
+// ResumenCandidataRegistroDecisionAutorizacionLigadaV3 es un valor nominal
+// que solo puede nacer de la unión candidata exacta. No registra ni confirma
+// la decisión y no es una capacidad ejecutable.
+type ResumenCandidataRegistroDecisionAutorizacionLigadaV3 struct {
+	bloqueoSerializacionRegistroAutorizacionLigadaV3
+	datos *DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3
+}
+
 func NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(
 	solicitud domain.SolicitudAutorizacionLigadaV3,
 	decision domain.DecisionAutorizacionLigadaV3,
@@ -95,6 +131,197 @@ func NuevaOrdenRegistroDenegacionAutorizacionLigadaV3(
 		return OrdenRegistroDenegacionAutorizacionLigadaV3{}, err
 	}
 	return OrdenRegistroDenegacionAutorizacionLigadaV3{datos: datos}, nil
+}
+
+// NuevaCandidataRegistroDecisionAutorizacionLigadaV3 fabrica la unica variante
+// compatible con el resultado sellado de la decision.
+func NuevaCandidataRegistroDecisionAutorizacionLigadaV3(
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	decision domain.DecisionAutorizacionLigadaV3,
+	referenciaMotivo domain.ReferenciaEntradaCatalogo,
+	resultadoContexto domain.ResultadoContextoActorRegistradoV2,
+) (CandidataRegistroDecisionAutorizacionLigadaV3, error) {
+	concedida, _, err := decision.Resultado()
+	if err != nil {
+		return CandidataRegistroDecisionAutorizacionLigadaV3{},
+			ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+	}
+	if concedida {
+		orden, errOrden := NuevaOrdenRegistroConcesionCandidataAutorizacionLigadaV3(
+			solicitud, decision, referenciaMotivo, resultadoContexto,
+		)
+		if errOrden != nil {
+			return CandidataRegistroDecisionAutorizacionLigadaV3{},
+				errors.Join(
+					ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida,
+					errOrden,
+				)
+		}
+		return CandidataRegistroDecisionAutorizacionLigadaV3{
+			concedida: true,
+			concesion: orden,
+		}, nil
+	}
+	orden, err := NuevaOrdenRegistroDenegacionAutorizacionLigadaV3(
+		solicitud, decision, referenciaMotivo, resultadoContexto,
+	)
+	if err != nil {
+		return CandidataRegistroDecisionAutorizacionLigadaV3{},
+			errors.Join(
+				ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida,
+				err,
+			)
+	}
+	return CandidataRegistroDecisionAutorizacionLigadaV3{
+		denegacion: orden,
+	}, nil
+}
+
+// Resultado entrega copias nominales de las ordenes. Exactamente una de ellas
+// es valida, según concedida; la variante opuesta permanece en valor cero.
+func (c CandidataRegistroDecisionAutorizacionLigadaV3) Resultado() (
+	concedida bool,
+	concesion OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
+	denegacion OrdenRegistroDenegacionAutorizacionLigadaV3,
+	err error,
+) {
+	if c.concedida {
+		if _, errConcesion := c.concesion.Datos(); errConcesion != nil ||
+			ordenDenegacionAutorizacionLigadaV3Valida(c.denegacion) {
+			return false, OrdenRegistroConcesionCandidataAutorizacionLigadaV3{},
+				OrdenRegistroDenegacionAutorizacionLigadaV3{},
+				ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+		}
+		return true, c.concesion, OrdenRegistroDenegacionAutorizacionLigadaV3{}, nil
+	}
+	if _, errDenegacion := c.denegacion.Datos(); errDenegacion != nil ||
+		ordenConcesionAutorizacionLigadaV3Valida(c.concesion) {
+		return false, OrdenRegistroConcesionCandidataAutorizacionLigadaV3{},
+			OrdenRegistroDenegacionAutorizacionLigadaV3{},
+			ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+	}
+	return false, OrdenRegistroConcesionCandidataAutorizacionLigadaV3{},
+		c.denegacion, nil
+}
+
+// Resumen verifica de nuevo la rama y deriva referencia, huella, código y
+// ventana desde la decisión sellada. Nunca acepta esos valores por separado.
+func (c CandidataRegistroDecisionAutorizacionLigadaV3) Resumen() (
+	ResumenCandidataRegistroDecisionAutorizacionLigadaV3,
+	error,
+) {
+	concedida, concesion, denegacion, err := c.Resultado()
+	if err != nil {
+		return ResumenCandidataRegistroDecisionAutorizacionLigadaV3{},
+			ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+	}
+	var datosOrden DatosOrdenRegistroAutorizacionLigadaV3
+	if concedida {
+		datosOrden, err = concesion.Datos()
+	} else {
+		datosOrden, err = denegacion.Datos()
+	}
+	if err != nil {
+		return ResumenCandidataRegistroDecisionAutorizacionLigadaV3{},
+			ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+	}
+	resumen, err := resumenDecisionAutorizacionLigadaV3(datosOrden.Decision)
+	huella, errHuella := domain.HuellaSHA256DecisionAutorizacionV3(
+		datosOrden.Decision,
+	)
+	if err != nil || errHuella != nil || resumen.Concedida != concedida {
+		return ResumenCandidataRegistroDecisionAutorizacionLigadaV3{},
+			ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+	}
+	datos := &DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3{
+		DecisionRef: resumen.DecisionRef, DecisionHuellaSHA256: huella,
+		CodigoProbatorio: resumen.Codigo, Concedida: resumen.Concedida,
+		EmitidaEn: resumen.EmitidaEn, ValidaHasta: resumen.ValidaHasta,
+	}
+	resultado := ResumenCandidataRegistroDecisionAutorizacionLigadaV3{
+		datos: datos,
+	}
+	if resultado.validar() != nil {
+		return ResumenCandidataRegistroDecisionAutorizacionLigadaV3{},
+			ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+	}
+	return resultado, nil
+}
+
+// Datos entrega una copia del resumen, que conserva el bloqueo de codecs y
+// formateo. El resumen no transporta el documento VEC ni datos personales.
+func (r ResumenCandidataRegistroDecisionAutorizacionLigadaV3) Datos() (
+	DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3,
+	error,
+) {
+	if r.validar() != nil {
+		return DatosResumenCandidataRegistroDecisionAutorizacionLigadaV3{},
+			ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+	}
+	return *r.datos, nil
+}
+
+// ValidarPara vuelve a derivar el resumen desde la candidata. Las referencias
+// y huellas se cotejan en tiempo constante para no crear una segunda fuente
+// de autoridad a partir de campos minimizados.
+func (r ResumenCandidataRegistroDecisionAutorizacionLigadaV3) ValidarPara(
+	candidata CandidataRegistroDecisionAutorizacionLigadaV3,
+) error {
+	if r.validar() != nil {
+		return ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+	}
+	esperado, err := candidata.Resumen()
+	if err != nil || esperado.validar() != nil ||
+		!textoRegistroAutorizacionLigadaV3Igual(
+			r.datos.DecisionRef,
+			esperado.datos.DecisionRef,
+		) ||
+		!textoRegistroAutorizacionLigadaV3Igual(
+			r.datos.DecisionHuellaSHA256,
+			esperado.datos.DecisionHuellaSHA256,
+		) ||
+		!textoRegistroAutorizacionLigadaV3Igual(
+			r.datos.CodigoProbatorio,
+			esperado.datos.CodigoProbatorio,
+		) ||
+		r.datos.Concedida != esperado.datos.Concedida ||
+		!r.datos.EmitidaEn.Equal(esperado.datos.EmitidaEn) ||
+		!r.datos.ValidaHasta.Equal(esperado.datos.ValidaHasta) {
+		return ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+	}
+	return nil
+}
+
+func (r ResumenCandidataRegistroDecisionAutorizacionLigadaV3) validar() error {
+	if r.datos == nil ||
+		!referenciaDecisionAutorizacionLigadaV3Valida(r.datos.DecisionRef) ||
+		!huellaSHA256RegistroAutorizacionLigadaV3Valida(
+			r.datos.DecisionHuellaSHA256,
+		) ||
+		!domain.CodigoResultadoEvaluacionAutorizacionV3Valido(
+			r.datos.CodigoProbatorio,
+			r.datos.Concedida,
+		) ||
+		!instanteRegistroAutorizacionLigadaV3Canonico(r.datos.EmitidaEn) ||
+		!instanteRegistroAutorizacionLigadaV3Canonico(r.datos.ValidaHasta) ||
+		!r.datos.ValidaHasta.After(r.datos.EmitidaEn) {
+		return ErrCandidataRegistroDecisionAutorizacionLigadaV3Invalida
+	}
+	return nil
+}
+
+func ordenConcesionAutorizacionLigadaV3Valida(
+	orden OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
+) bool {
+	_, err := orden.Datos()
+	return err == nil
+}
+
+func ordenDenegacionAutorizacionLigadaV3Valida(
+	orden OrdenRegistroDenegacionAutorizacionLigadaV3,
+) bool {
+	_, err := orden.Datos()
+	return err == nil
 }
 
 func (o OrdenRegistroConcesionCandidataAutorizacionLigadaV3) Datos() (
@@ -300,12 +527,15 @@ func (c ConfirmacionRegistroConcesionAutorizacionLigadaV3) DentroDeVentanaEn(
 type resumenDecisionAutorizacionLigadaV3Canonico struct {
 	DecisionRef string `json:"decision_ref"`
 	Concedida   bool   `json:"concedida"`
+	Codigo      string `json:"codigo"`
 	EmitidaEn   string `json:"emitida_en"`
 	ValidaHasta string `json:"valida_hasta"`
 }
 
 type resumenDecisionAutorizacionLigadaV3Datos struct {
 	DecisionRef string
+	Concedida   bool
+	Codigo      string
 	EmitidaEn   time.Time
 	ValidaHasta time.Time
 }
@@ -318,7 +548,11 @@ func resumenDecisionAutorizacionLigadaV3(
 		return resumenDecisionAutorizacionLigadaV3Datos{}, err
 	}
 	var dto resumenDecisionAutorizacionLigadaV3Canonico
-	if err := json.Unmarshal(canon, &dto); err != nil || !dto.Concedida {
+	if err := json.Unmarshal(canon, &dto); err != nil ||
+		!domain.CodigoResultadoEvaluacionAutorizacionV3Valido(
+			dto.Codigo,
+			dto.Concedida,
+		) {
 		return resumenDecisionAutorizacionLigadaV3Datos{},
 			ErrConfirmacionRegistroConcesionAutorizacionLigadaV3Invalida
 	}
@@ -330,7 +564,8 @@ func resumenDecisionAutorizacionLigadaV3(
 			ErrConfirmacionRegistroConcesionAutorizacionLigadaV3Invalida
 	}
 	return resumenDecisionAutorizacionLigadaV3Datos{
-		DecisionRef: dto.DecisionRef, EmitidaEn: emitidaEn, ValidaHasta: validaHasta,
+		DecisionRef: dto.DecisionRef, Concedida: dto.Concedida,
+		Codigo: dto.Codigo, EmitidaEn: emitidaEn, ValidaHasta: validaHasta,
 	}, nil
 }
 
@@ -441,6 +676,37 @@ type AutorizadorSolicitudLigadaV3 interface {
 	)
 }
 
+// PreparadorSolicitudLigadaV3 evalua con el contexto V3 completo. Una
+// evaluacion positiva solo devuelve una orden candidata opaca: no prueba
+// persistencia, no confirma una concesion y no es una capacidad ejecutable.
+type PreparadorSolicitudLigadaV3 interface {
+	PrepararSolicitudLigadaV3(
+		context.Context,
+		domain.SolicitudAutorizacionLigadaV3,
+		domain.ResultadoContextoActorRegistradoV2,
+	) (
+		domain.DecisionAutorizacionLigadaV3,
+		OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
+		error,
+	)
+}
+
+// PreparadorRegistroCompuestoSolicitudLigadaV3 evalua sin ejecutar ninguna
+// escritura. El generador pertenece exclusivamente a la operacion y debe
+// devolver la DecisionRef previamente fijada por la reserva autoritativa.
+type PreparadorRegistroCompuestoSolicitudLigadaV3 interface {
+	PrepararRegistroCompuestoSolicitudLigadaV3(
+		context.Context,
+		domain.SolicitudAutorizacionLigadaV3,
+		domain.ResultadoContextoActorRegistradoV2,
+		GeneradorReferenciaDecisionAutorizacion,
+	) (
+		domain.DecisionAutorizacionLigadaV3,
+		CandidataRegistroDecisionAutorizacionLigadaV3,
+		error,
+	)
+}
+
 func instanteRegistroAutorizacionLigadaV3Canonico(instante time.Time) bool {
 	return !instante.IsZero() && instante.Location() == time.UTC &&
 		instante.Year() >= 1 && instante.Year() <= 9999 && instante.Nanosecond()%1_000 == 0
@@ -468,6 +734,11 @@ func huellaSHA256RegistroAutorizacionLigadaV3Valida(valor string) bool {
 		}
 	}
 	return true
+}
+
+func textoRegistroAutorizacionLigadaV3Igual(primero string, segundo string) bool {
+	return len(primero) == len(segundo) &&
+		subtle.ConstantTimeCompare([]byte(primero), []byte(segundo)) == 1
 }
 
 type bloqueoSerializacionRegistroAutorizacionLigadaV3 struct{}

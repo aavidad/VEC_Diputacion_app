@@ -628,6 +628,14 @@ los dos que mas contaminan el resto si llegan tarde. El registro, ENS, RGPD,
 accesibilidad y ENI pueden entrar como gates definidos ahora y cumplidos de forma
 incremental, pero **definidos ya** para que ningun modulo nazca incumpliendolos.
 
+## Aislamiento y propagacion de fallos
+
+La regla transversal queda desarrollada en
+[`aislamiento_modular_y_dependencias_2026-07-25.md`](aislamiento_modular_y_dependencias_2026-07-25.md):
+un fallo solo se propaga a capacidades que declaren depender de la capacidad
+fallida. El shell, los despliegues y las raices de composicion no pueden
+convertir una dependencia opcional en condicion de arranque global.
+
 ## Fuentes revisadas en esta revision
 
 - Portal del Empleo Publico de la Junta de Andalucia y su zona personal /

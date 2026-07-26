@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+remoto="${1:-}"
+if [[ ! "$remoto" =~ ^[A-Za-z0-9._-]+$ ]]; then
+	printf '%s\n' 'Envio bloqueado: nombre de remoto no valido.' >&2
+	exit 2
+fi
+
+raiz="$(git rev-parse --show-toplevel)"
+cero='^0+$'
+hubo_rango=false
+
+while read -r referencia_local oid_local referencia_remota oid_remoto; do
+	: "${referencia_local:=}"
+	: "${referencia_remota:=}"
+	if [[ "$oid_local" =~ $cero ]]; then
+		continue
+	fi
+
+	hubo_rango=true
+	if [[ "$oid_remoto" =~ $cero ]]; then
+		opciones="${oid_local} --not --remotes=${remoto}"
+	else
+		opciones="${oid_remoto}..${oid_local}"
+	fi
+
+	"$raiz/scripts/verificar_secretos_git.sh" "$opciones"
+done
+
+if [[ "$hubo_rango" == false ]]; then
+	printf '%s\n' 'No hay objetos nuevos que auditar.'
+fi

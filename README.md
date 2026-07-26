@@ -11,7 +11,7 @@ Dietas y Bolsa son modulos independientes con `ModuleID`, permisos y menus
 propios; VEC solo los agrega y permite relacionarlos por empleado, expediente,
 justificante o auditoria.
 
-Fecha de corte de este estado: **20 de julio de 2026**. El repositorio es una
+Fecha de corte de este estado: **24 de julio de 2026**. El repositorio es una
 base de desarrollo y demostracion verificable; no acredita por si solo
 conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
 
@@ -24,6 +24,53 @@ los códigos internos `Txx` quedan relegados a la documentación técnica.
 
 Los agentes paralelos, incluidos los que se arranquen manualmente, deben leer
 [ORQUESTACION_AGENTES.md](ORQUESTACION_AGENTES.md) antes de tomar una tarea.
+
+### Frente activo: contratación temporal solicitada por RRHH
+
+RRHH ha definido un procedimiento integral que parte de la petición de un
+centro y termina con la incorporación, el envío a GINPIX y el seguimiento. No
+reemplaza el módulo Bolsa: se implementa como el módulo coordinador
+`contrataciontemporal`, que usa Bolsa para la vía de cobertura y los
+llamamientos.
+
+- [Especificación del expediente de contratación temporal](docs/portal_vec/expediente_contratacion_temporal_rrhh.md)
+- [Objetivos y hoja de ruta del frente RRHH](docs/portal_vec/objetivos_y_hoja_ruta_rrhh_2026-07-23.md)
+- [Tareas verificables y commits del frente RRHH](docs/portal_vec/tablero_tareas_contratacion_temporal_2026-07-23.md)
+- [Mapa visual de objetivos, dependencias y paralelización](docs/portal_vec/mapa_objetivos_tareas_y_paralelizacion_2026-07-23.md)
+- [Decisión de autorización V3 para el alta de contratación temporal](docs/portal_vec/decision_autorizacion_v3_alta_contratacion_temporal_2026-07-23.md)
+- [Matriz normativa europea, española y andaluza](docs/portal_vec/matriz_normativa_contratacion_temporal_2026-07-23.md)
+- [Relevo técnico del frente activo](docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md)
+- [Persistencia atómica del análisis de RRHH O3-04](docs/portal_vec/o3_04_persistencia_analisis_rrhh_2026-07-24.md)
+- [Revisión independiente final O3-04](docs/portal_vec/revisiones/o3_04_revision_independiente_final_2026-07-24.md)
+- [Diseño de propuesta y decisión de cobertura O4-03](docs/portal_vec/o4_03_diseno_propuesta_decision_cobertura_2026-07-24.md)
+- [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
+- [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
+- [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
+
+Estado del primer corte: especificación, manifiesto, dominio, caso de uso,
+confirmación SQL atómica y contratos de API y web implementados. El nuevo
+registro de solicitud exige identidad interna de garantía alta, flujo
+gobernado, HMAC, idempotencia, autorización de efecto y una confirmación
+transaccional de expediente, auditoría y outbox. Permanecen abiertos el
+adaptador Go de reconciliación O2-06, la composición real O2-07 y el E2E O2-10.
+La presentación reproduce las diecisiete pantallas remitidas por RRHH y está
+verde en tres tamaños de escritorio, pero no se contabiliza como flujo
+administrativo productivo.
+
+El análisis de RRHH O3-04 queda cerrado en `2834783` con `GO` independiente:
+consume la decisión VEC y las fuentes atestadas, aplica CAS y publica versión,
+actuación, auditoría, outbox y recibo con replay exacto. El recorrido real
+Go → PostgreSQL, resultado ambiguo, reinicio, cancelación, trece rollbacks,
+concurrencia, RC/coste y rectificación segregada están probados. O4-03 queda
+cerrada técnicamente en `f5f5f5a`, también con `GO` independiente, para el
+orquestador nominal de propuesta, decisión y rectificación. El camino crítico
+activo es O4-04: falta materializar en PostgreSQL el `COMMIT` único, consumo
+C1/C2, revocación viva, auditoría/outbox y recibo durables antes de producción.
+
+O5-01 dispone ya de dominio corregido, destino y política autoritativos,
+idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es
+un candidato técnico: todavía faltan el adaptador PostgreSQL que materialice
+el `COMMIT` único, la composición y el E2E antes de considerarlo productivo.
 
 ## Estado honesto
 

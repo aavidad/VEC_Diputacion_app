@@ -1,0 +1,19 @@
+# Falsos positivos historicos cerrados uno a uno. Son vectores sinteticos de
+# pruebas o valores de demostracion sin correspondencia con credenciales
+# aprovisionadas. No se permiten comodines por directorio, regla o extension.
+352715584cff258143817e56b5e2f2f00722f0fc:internal/vec/application/cotejo_consulta_test.go:generic-api-key:17
+352715584cff258143817e56b5e2f2f00722f0fc:internal/vec/application/cotejo_emision_test.go:generic-api-key:17
+352715584cff258143817e56b5e2f2f00722f0fc:internal/vec/application/cotejo_transiciones_test.go:generic-api-key:17
+422f1918d08ea929ef74b76f644c2622e5d8ae6c:internal/vec/application/pagos_test.go:generic-api-key:414
+422f1918d08ea929ef74b76f644c2622e5d8ae6c:internal/vec/application/pagos_test.go:generic-api-key:908
+87a2689f25c7344f78fc779c50a9265041ef3662:deploy/postgresql/bolsa_convocatorias/pruebas_sql/borradores_durables.sql:generic-api-key:300
+93a07d9d58e6838ea197dcdd8705be53c86b79ac:docs/vertical_slice_juridico.md:curl-auth-header:116
+a11b2d0eb321eb31bd47f9d52c52e075653033f5:internal/vec/ports/cargas_documentales_test.go:generic-api-key:75
+a11b2d0eb321eb31bd47f9d52c52e075653033f5:internal/vec/ports/pagos_test.go:generic-api-key:71
+b678ecc1cc5d866435abdb11ac9c445399157764:internal/vec/adapters/seguridad/cotejo_test.go:generic-api-key:22
+b6d1d3acba610ea5e4c6002ac8718f35f23fb639:internal/vec/adapters/memory/cotejo_test.go:generic-api-key:18
+c1eeb30f63bd67e6ec316fc1f852405e7f093869:internal/vec/ports/ejecuciones_documentales_v3_test.go:vault-service-token:819
+c1eeb30f63bd67e6ec316fc1f852405e7f093869:internal/vec/ports/ejecuciones_documentales_v3_test.go:vault-service-token:821
+c1eeb30f63bd67e6ec316fc1f852405e7f093869:internal/vec/ports/ejecuciones_documentales_v3_test.go:vault-service-token:824
+c2b4d90d433c8c5de1262081d88661ed2e025db9:web/static/app.js:generic-api-key:10800
+f9460b55b050169eeb8449e71e5d186d01ef6b28:internal/app/bootstrap/bootstrap_test.go:generic-api-key:23

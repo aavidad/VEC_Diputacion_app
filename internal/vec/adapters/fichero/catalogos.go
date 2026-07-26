@@ -25,8 +25,9 @@ const (
 )
 
 var (
-	_ ports.ConsultaCatalogosConfigurables   = (*ConsultaCatalogos)(nil)
-	_ ports.ConsultaMetadatosFuenteCatalogos = (*ConsultaCatalogos)(nil)
+	_ ports.ConsultaCatalogosConfigurables        = (*ConsultaCatalogos)(nil)
+	_ ports.ConsultaCatalogosConfigurablesAcotada = (*ConsultaCatalogos)(nil)
+	_ ports.ConsultaMetadatosFuenteCatalogos      = (*ConsultaCatalogos)(nil)
 
 	patronRevisionPaquete = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,79}$`)
 	patronSHA256Paquete   = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -130,6 +131,46 @@ func (c *ConsultaCatalogos) ObtenerCatalogo(ctx context.Context, id string, vers
 	return c.catalogo.ClonarCanonico()
 }
 
+func (c *ConsultaCatalogos) ObtenerCatalogoAcotado(
+	ctx context.Context,
+	id string,
+	version int,
+	limites ports.LimitesConsultaCatalogosAcotada,
+) (ports.ResultadoConsultaCatalogoAcotado, error) {
+	if ctx == nil || c == nil ||
+		id != strings.TrimSpace(id) || id == "" || version < 1 {
+		return ports.ResultadoConsultaCatalogoAcotado{},
+			ports.ErrCatalogoNoEncontrado
+	}
+	if limites.Validar() != nil {
+		return ports.ResultadoConsultaCatalogoAcotado{},
+			ports.ErrLimitesConsultaCatalogosInvalidos
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ResultadoConsultaCatalogoAcotado{}, err
+	}
+	if c.catalogo.ID != id || c.catalogo.Version != version {
+		return ports.ResultadoConsultaCatalogoAcotado{},
+			ports.ErrCatalogoNoEncontrado
+	}
+	medida, medible := ports.MedirCatalogoConfigurable(c.catalogo)
+	_, cabe := (ports.ConsumoConsultaCatalogosAcotada{}).Agregar(
+		medida,
+		limites,
+	)
+	if !medible || !cabe {
+		return ports.ResultadoConsultaCatalogoAcotado{Truncado: true}, nil
+	}
+	clon, err := c.catalogo.ClonarCanonico()
+	if err != nil {
+		return ports.ResultadoConsultaCatalogoAcotado{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ResultadoConsultaCatalogoAcotado{}, err
+	}
+	return ports.ResultadoConsultaCatalogoAcotado{Catalogo: clon}, nil
+}
+
 func (c *ConsultaCatalogos) ListarVersionesCatalogo(ctx context.Context, id string) ([]domain.CatalogoConfigurable, error) {
 	if ctx == nil || c == nil || id != strings.TrimSpace(id) || id == "" {
 		return nil, ports.ErrCatalogoNoEncontrado
@@ -145,6 +186,47 @@ func (c *ConsultaCatalogos) ListarVersionesCatalogo(ctx context.Context, id stri
 		return nil, err
 	}
 	return []domain.CatalogoConfigurable{clon}, nil
+}
+
+func (c *ConsultaCatalogos) ListarVersionesCatalogoAcotado(
+	ctx context.Context,
+	id string,
+	limites ports.LimitesConsultaCatalogosAcotada,
+) (ports.ResultadoConsultaCatalogosAcotada, error) {
+	if ctx == nil || c == nil ||
+		id != strings.TrimSpace(id) || id == "" {
+		return ports.ResultadoConsultaCatalogosAcotada{},
+			ports.ErrCatalogoNoEncontrado
+	}
+	if limites.Validar() != nil {
+		return ports.ResultadoConsultaCatalogosAcotada{},
+			ports.ErrLimitesConsultaCatalogosInvalidos
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ResultadoConsultaCatalogosAcotada{}, err
+	}
+	if c.catalogo.ID != id {
+		return ports.ResultadoConsultaCatalogosAcotada{},
+			ports.ErrCatalogoNoEncontrado
+	}
+	medida, medible := ports.MedirCatalogoConfigurable(c.catalogo)
+	_, cabe := (ports.ConsumoConsultaCatalogosAcotada{}).Agregar(
+		medida,
+		limites,
+	)
+	if !medible || !cabe {
+		return ports.ResultadoConsultaCatalogosAcotada{Truncado: true}, nil
+	}
+	clon, err := c.catalogo.ClonarCanonico()
+	if err != nil {
+		return ports.ResultadoConsultaCatalogosAcotada{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return ports.ResultadoConsultaCatalogosAcotada{}, err
+	}
+	return ports.ResultadoConsultaCatalogosAcotada{
+		Catalogos: []domain.CatalogoConfigurable{clon},
+	}, nil
 }
 
 func (c *ConsultaCatalogos) ObtenerMetadatosFuenteCatalogos(ctx context.Context) (ports.MetadatosFuenteCatalogos, error) {

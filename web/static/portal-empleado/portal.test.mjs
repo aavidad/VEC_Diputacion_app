@@ -186,7 +186,7 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260721-acceso-real-v2/);
+  assert.match(html, /portal\.js\?v=20260725-aislamiento-modular-v2/);
   assert.match(javascript, /portal-eventos\.js\?v=20260721-acceso-real-v2/);
   assert.match(javascript, /import\("\.\/portal-resumen-presentacion\.js\?v=20260721-acceso-real-v2"\)/);
   assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);

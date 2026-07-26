@@ -1,0 +1,687 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: API interna de alta de contratación temporal
+  version: 1.0.0
+  description: |
+    Contrato neutral al cliente para registrar la solicitud funcional de un
+    centro. La plataforma interna aporta fuera de HTTP el contexto autenticado,
+    la sesión, el perfil y la organización. El cliente aporta en el sobre JSON
+    una UUIDv4 aleatoria que solo identifica la intención de reintento; el
+    servidor la liga mediante HMAC al contexto y al contenido. Ninguna
+    cabecera, cookie, parámetro ni campo JSON concede autoridad.
+paths:
+  /api/interno/v1/contratacion-temporal/solicitudes:
+    post:
+      operationId: registrarSolicitudContratacionTemporalInternaV1
+      summary: Registrar una solicitud interna de contratación temporal
+      description: |
+        Crea o recupera idempotentemente el alta ligada por la plataforma. Un
+        `503` con código `operacion_pendiente` representa un resultado que
+        deberá reconciliar O2-06; no autoriza un reintento ciego.
+      security:
+        - ContextoInternoPlataforma: []
+      x-maximo-cuerpo-bytes: 262144
+      x-maximo-profundidad-json: 8
+      x-maximo-tokens-json: 1024
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudAltaV1'
+      responses:
+        '201':
+          description: Alta confirmada o repetición exacta ya confirmada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeAltaConfirmadaV1'
+        '400':
+          $ref: '#/components/responses/PeticionIncorrecta'
+        '401':
+          $ref: '#/components/responses/AutenticacionRequerida'
+        '403':
+          $ref: '#/components/responses/AccesoDenegado'
+        '404':
+          $ref: '#/components/responses/RecursoNoEncontrado'
+        '405':
+          description: Solo se admite POST.
+          headers:
+            Allow:
+              description: Método admitido por la colección.
+              required: true
+              schema:
+                const: POST
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeErrorMetodoNoPermitidoV1'
+        '406':
+          $ref: '#/components/responses/RepresentacionNoAceptable'
+        '408':
+          $ref: '#/components/responses/PeticionCancelada'
+        '409':
+          $ref: '#/components/responses/ClaveIdempotenciaReutilizada'
+        '413':
+          $ref: '#/components/responses/PeticionDemasiadoGrande'
+        '415':
+          $ref: '#/components/responses/TipoContenidoNoAdmitido'
+        '422':
+          $ref: '#/components/responses/ContenidoNoValido'
+        '500':
+          $ref: '#/components/responses/ErrorInterno'
+        '502':
+          $ref: '#/components/responses/ResultadoNoConfiable'
+        '503':
+          $ref: '#/components/responses/ServicioNoDisponible'
+        '504':
+          $ref: '#/components/responses/PlazoAgotado'
+components:
+  securitySchemes:
+    ContextoInternoPlataforma:
+      type: mutualTLS
+      description: |
+        Puerta de transporte entre la plataforma y esta superficie interna.
+        No es el origen directo de los campos del comando ni limita la
+        autenticación corporativa a un mecanismo: la composición puede usar
+        certificado, Kerberos u otros conectores y aporta el contexto fiable
+        mediante `context.Context`. Web, escritorio, CLI y MCP consumen el
+        mismo caso de uso sin declarar identidad en HTTP.
+  headers:
+    CacheControlNoStore:
+      description: Prohíbe almacenamiento compartido y transformaciones.
+      required: true
+      schema:
+        const: no-store, no-transform
+  responses:
+    PeticionIncorrecta:
+      description: JSON o metadatos no admitidos.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorPeticionIncorrectaV1'
+    AutenticacionRequerida:
+      description: Falta un contexto interno autenticado y vigente.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorAutenticacionRequeridaV1'
+    AccesoDenegado:
+      description: El contexto no está autorizado para la organización o efecto.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorAccesoDenegadoV1'
+    RecursoNoEncontrado:
+      description: La ruta no corresponde al recurso exacto.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorRecursoNoEncontradoV1'
+    RepresentacionNoAceptable:
+      description: Accept no admite JSON.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorRepresentacionNoAceptableV1'
+    PeticionCancelada:
+      description: El contexto se canceló antes de confirmar un recibo válido.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorPeticionCanceladaV1'
+    ClaveIdempotenciaReutilizada:
+      description: La clave opaca de intención ya se ligó a otros datos.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorClaveIdempotenciaReutilizadaV1'
+    PeticionDemasiadoGrande:
+      description: El cuerpo supera 262144 bytes o los límites de complejidad.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorPeticionDemasiadoGrandeV1'
+    TipoContenidoNoAdmitido:
+      description: Content-Type no es application/json en UTF-8.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorTipoContenidoNoAdmitidoV1'
+    ContenidoNoValido:
+      description: El JSON es correcto pero incumple el contrato funcional.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorContenidoNoValidoV1'
+    ErrorInterno:
+      description: Error interno minimizado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorInternoV1'
+    ResultadoNoConfiable:
+      description: El caso de uso no entregó un recibo completo y fiable.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorResultadoNoConfiableV1'
+    ServicioNoDisponible:
+      description: Dependencia cerrada o resultado pendiente de reconciliación.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorServicioNoDisponibleV1'
+    PlazoAgotado:
+      description: El plazo confiable finalizó antes de recibir un recibo válido.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EnvelopeErrorPlazoAgotadoV1'
+  schemas:
+    ClaveIdempotenciaV1:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      not:
+        const: 00000000-0000-4000-8000-000000000000
+      description: |
+        Identificador aleatorio no autoritativo de una intención. Se conserva
+        solo en memoria durante el envío y sus reintentos y nunca se registra
+        ni se persiste en claro.
+    ReferenciaOpacaV1:
+      type: string
+      minLength: 3
+      maxLength: 160
+      pattern: '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
+    ClaveCatalogoV1:
+      type: string
+      minLength: 2
+      maxLength: 80
+      pattern: '^[a-z][a-z0-9._-]{1,79}$'
+    GrupoSubgrupoV1:
+      type: string
+      minLength: 1
+      maxLength: 20
+      pattern: '^[A-Z][A-Z0-9/+.-]{0,19}$'
+    FechaCivilUTCV1:
+      type: string
+      format: date-time
+      pattern: '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T00:00:00Z$'
+      description: Fecha civil existente, representada a medianoche UTC con Z.
+    TextoDetalleV1:
+      type: string
+      minLength: 1
+      maxLength: 4000
+      x-normalizacion-unicode: NFC
+      x-sin-espacios-exteriores: true
+      description: |
+        Texto NFC sin espacios exteriores ni controles, salvo tabulación y
+        salto de línea.
+    TextoObservacionesV1:
+      type: string
+      maxLength: 4000
+      x-normalizacion-unicode: NFC
+      x-sin-espacios-exteriores: true
+      description: |
+        Texto NFC, opcional y no nulo, sin espacios exteriores ni controles,
+        salvo tabulación y salto de línea.
+    PeriodoPrevistoAltaV1:
+      type: object
+      additionalProperties: false
+      required:
+        - inicio
+        - fin
+      properties:
+        inicio:
+          $ref: '#/components/schemas/FechaCivilUTCV1'
+        fin:
+          $ref: '#/components/schemas/FechaCivilUTCV1'
+      x-orden: fin no anterior a inicio
+      x-duracion-maxima-anios: 100
+    ImporteRCEURV1:
+      type: object
+      additionalProperties: false
+      required:
+        - centimos
+        - moneda
+      properties:
+        centimos:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 922337203685477
+        moneda:
+          type: string
+          const: EUR
+    DeclaracionRCSinCreditoV1:
+      type: object
+      additionalProperties: false
+      required:
+        - existe
+      properties:
+        existe:
+          type: boolean
+          const: false
+    DeclaracionRCConCreditoV1:
+      type: object
+      additionalProperties: false
+      required:
+        - existe
+        - numero
+        - fecha
+        - importe
+        - documento_ref
+      properties:
+        existe:
+          type: boolean
+          const: true
+        numero:
+          $ref: '#/components/schemas/ReferenciaOpacaV1'
+        fecha:
+          $ref: '#/components/schemas/FechaCivilUTCV1'
+        importe:
+          $ref: '#/components/schemas/ImporteRCEURV1'
+        documento_ref:
+          $ref: '#/components/schemas/ReferenciaOpacaV1'
+    DeclaracionRCAltaV1:
+      oneOf:
+        - $ref: '#/components/schemas/DeclaracionRCSinCreditoV1'
+        - $ref: '#/components/schemas/DeclaracionRCConCreditoV1'
+    SolicitudCentroAltaV1:
+      type: object
+      additionalProperties: false
+      required:
+        - centro_ref
+        - contacto_ref
+        - categoria_ref
+        - grupo_subgrupo
+        - motivo_clave
+        - detalle
+        - periodo
+        - rc
+        - documentos_adjuntos
+      properties:
+        centro_ref:
+          $ref: '#/components/schemas/ReferenciaOpacaV1'
+        contacto_ref:
+          $ref: '#/components/schemas/ReferenciaOpacaV1'
+        categoria_ref:
+          $ref: '#/components/schemas/ReferenciaOpacaV1'
+        grupo_subgrupo:
+          $ref: '#/components/schemas/GrupoSubgrupoV1'
+        motivo_clave:
+          $ref: '#/components/schemas/ClaveCatalogoV1'
+        detalle:
+          $ref: '#/components/schemas/TextoDetalleV1'
+        periodo:
+          $ref: '#/components/schemas/PeriodoPrevistoAltaV1'
+        rc:
+          $ref: '#/components/schemas/DeclaracionRCAltaV1'
+        documentos_adjuntos:
+          type: array
+          minItems: 0
+          maxItems: 64
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/ReferenciaOpacaV1'
+        observaciones:
+          $ref: '#/components/schemas/TextoObservacionesV1'
+    SolicitudAltaV1:
+      type: object
+      additionalProperties: false
+      required:
+        - clave_idempotencia
+        - solicitud
+      properties:
+        clave_idempotencia:
+          $ref: '#/components/schemas/ClaveIdempotenciaV1'
+        solicitud:
+          $ref: '#/components/schemas/SolicitudCentroAltaV1'
+    NumeroVisibleExpedienteV1:
+      type: string
+      minLength: 6
+      maxLength: 45
+      pattern: '^[0-9]{4}/[A-Za-z0-9._-]{1,40}$'
+    InstanteConfirmacionUTCV1:
+      type: string
+      format: date-time
+      pattern: '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\.[0-9]{1,6})?Z$'
+      description: Instante UTC canónico con precisión máxima de microsegundos.
+    ReciboAltaMinimoV1:
+      type: object
+      additionalProperties: false
+      required:
+        - expediente_ref
+        - numero_visible
+        - version
+        - recibo_ref
+        - confirmada_en
+      properties:
+        expediente_ref:
+          $ref: '#/components/schemas/ReferenciaOpacaV1'
+        numero_visible:
+          $ref: '#/components/schemas/NumeroVisibleExpedienteV1'
+        version:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        recibo_ref:
+          $ref: '#/components/schemas/ReferenciaOpacaV1'
+        confirmada_en:
+          $ref: '#/components/schemas/InstanteConfirmacionUTCV1'
+    EnvelopeAltaConfirmadaV1:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/ReciboAltaMinimoV1'
+    ErrorAltaV1:
+      type: object
+      additionalProperties: false
+      required:
+        - codigo
+        - clave_i18n
+        - correlacion_ref
+      properties:
+        codigo:
+          type: string
+          enum:
+            - peticion_no_valida
+            - peticion_no_permitida
+            - autenticacion_requerida
+            - acceso_denegado
+            - recurso_no_encontrado
+            - metodo_no_permitido
+            - representacion_no_aceptable
+            - peticion_cancelada
+            - clave_idempotencia_reutilizada
+            - peticion_demasiado_grande
+            - tipo_contenido_no_admitido
+            - contenido_no_valido
+            - resultado_no_confiable
+            - servicio_no_disponible
+            - operacion_pendiente
+            - plazo_agotado
+            - error_interno
+        clave_i18n:
+          type: string
+          pattern: '^api\.contratacion_temporal\.alta\.error\.[a-z0-9_]+$'
+        correlacion_ref:
+          type: string
+          pattern: '^corr_([a-f0-9]{32}|no_disponible)$'
+      oneOf:
+        - properties:
+            codigo: {const: peticion_no_valida}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.peticion_no_valida}
+        - properties:
+            codigo: {const: peticion_no_permitida}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.peticion_no_permitida}
+        - properties:
+            codigo: {const: autenticacion_requerida}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.autenticacion_requerida}
+        - properties:
+            codigo: {const: acceso_denegado}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.acceso_denegado}
+        - properties:
+            codigo: {const: recurso_no_encontrado}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.recurso_no_encontrado}
+        - properties:
+            codigo: {const: metodo_no_permitido}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.metodo_no_permitido}
+        - properties:
+            codigo: {const: representacion_no_aceptable}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.representacion_no_aceptable}
+        - properties:
+            codigo: {const: peticion_cancelada}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.peticion_cancelada}
+        - properties:
+            codigo: {const: clave_idempotencia_reutilizada}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.clave_idempotencia_reutilizada}
+        - properties:
+            codigo: {const: peticion_demasiado_grande}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.peticion_demasiado_grande}
+        - properties:
+            codigo: {const: tipo_contenido_no_admitido}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.tipo_contenido_no_admitido}
+        - properties:
+            codigo: {const: contenido_no_valido}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.contenido_no_valido}
+        - properties:
+            codigo: {const: resultado_no_confiable}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.resultado_no_confiable}
+        - properties:
+            codigo: {const: servicio_no_disponible}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.servicio_no_disponible}
+        - properties:
+            codigo: {const: operacion_pendiente}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.operacion_pendiente}
+        - properties:
+            codigo: {const: plazo_agotado}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.plazo_agotado}
+        - properties:
+            codigo: {const: error_interno}
+            clave_i18n: {const: api.contratacion_temporal.alta.error.error_interno}
+    EnvelopeErrorAltaV1:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorAltaV1'
+    EnvelopeErrorPeticionIncorrectaV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  enum: [peticion_no_valida, peticion_no_permitida]
+    EnvelopeErrorAutenticacionRequeridaV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: autenticacion_requerida
+    EnvelopeErrorAccesoDenegadoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: acceso_denegado
+    EnvelopeErrorRecursoNoEncontradoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: recurso_no_encontrado
+    EnvelopeErrorMetodoNoPermitidoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: metodo_no_permitido
+    EnvelopeErrorRepresentacionNoAceptableV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: representacion_no_aceptable
+    EnvelopeErrorPeticionCanceladaV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: peticion_cancelada
+    EnvelopeErrorClaveIdempotenciaReutilizadaV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: clave_idempotencia_reutilizada
+    EnvelopeErrorPeticionDemasiadoGrandeV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: peticion_demasiado_grande
+    EnvelopeErrorTipoContenidoNoAdmitidoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: tipo_contenido_no_admitido
+    EnvelopeErrorContenidoNoValidoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: contenido_no_valido
+    EnvelopeErrorInternoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: error_interno
+    EnvelopeErrorResultadoNoConfiableV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: resultado_no_confiable
+    EnvelopeErrorServicioNoDisponibleV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  enum: [servicio_no_disponible, operacion_pendiente]
+    EnvelopeErrorPlazoAgotadoV1:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          allOf:
+            - $ref: '#/components/schemas/ErrorAltaV1'
+            - properties:
+                codigo:
+                  const: plazo_agotado

@@ -8,6 +8,7 @@ coverage.out
 tmp/
 runtime/
 var/
+.evidencias-locales/
 
 # Herramientas, copias y fuentes de referencia que pueden contener datos
 # personales o tener un historial Git independiente. Se conservan en el puesto

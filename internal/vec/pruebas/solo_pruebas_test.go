@@ -46,7 +46,8 @@ func TestFabricasDePruebaNoSeImportanDesdeCodigoProductivo(t *testing.T) {
 		if entrada.IsDir() {
 			nombre := entrada.Name()
 			if nombre == ".git" || nombre == ".worktrees" ||
-				nombre == "vendor" || nombre == "node_modules" {
+				nombre == "vendor" || nombre == "node_modules" ||
+				nombre == "var" {
 				return filepath.SkipDir
 			}
 			return nil

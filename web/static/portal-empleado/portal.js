@@ -12,7 +12,13 @@ import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260720-
 import { crearVistaReglas } from "./portal-vistas-reglas.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-formularios-v2";
-import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260721-acceso-real-v2";
+import {
+  crearCoordinadorModulosPortal,
+  moduloDeVistaPortal,
+  rutaDeVistaPortal,
+  VISTAS_MODULOS_CONECTADOS,
+  VISTAS_MODULOS_PERSONALES,
+} from "./portal-modulos-coordinador.js?v=20260725-aislamiento-modular-v2";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
 import { instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260719-menu-bolsa-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
@@ -89,6 +95,10 @@ const TITULOS = Object.freeze({
   configuracion: ["Portal del Empleado → Bolsas de trabajo", "Configuración y roles"],
   cronos: ["Portal del Empleado → Cronos", "Cronos · jornada, fichajes y permisos"],
   dietas: ["Portal del Empleado → Dietas", "Dietas y comisiones de servicio"],
+  "contratacion-temporal": [
+    "Portal del Empleado → Contratación temporal",
+    "Gestión de expedientes de contratación temporal",
+  ],
 });
 
 const estado = {
@@ -421,7 +431,7 @@ function actualizarNavegacionModulos() {
   contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
   const fase = porId("texto-estado-modulos-portal");
   if (fase) {
-    const disponibles = ["bolsa", "cronos", "dietas"]
+    const disponibles = ["bolsa", "contratacion_temporal", "cronos", "dietas"]
       .filter((clave) => resolverAccesoPerfil(clave).disponible).length;
     fase.textContent = disponibles > 0
       ? `${disponibles} módulos habilitados en fase inicial`
@@ -481,7 +491,7 @@ function renderizar() {
     else boton.removeAttribute("aria-current");
   });
   sincronizarMenuBolsa(porId("navegacion-bolsa"), estado.vista);
-  if (VISTAS_MODULOS_PERSONALES.has(estado.vista)) {
+  if (VISTAS_MODULOS_CONECTADOS.has(estado.vista)) {
     if (!coordinadorModulos.vistaDisponible(estado.vista)) {
       coordinadorModulos.desmontarVistaActual();
       contenedor.innerHTML = renderizarFuenteNoDisponible();

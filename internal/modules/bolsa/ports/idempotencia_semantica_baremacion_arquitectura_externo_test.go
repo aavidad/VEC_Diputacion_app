@@ -446,7 +446,8 @@ func omitirDirectorioAnalisisIdempotencia(raiz, ruta, nombre string) bool {
 	if ruta == raiz {
 		return false
 	}
-	if nombre == ".git" || nombre == "vendor" || nombre == "node_modules" {
+	if nombre == ".git" || nombre == ".worktrees" || nombre == "vendor" ||
+		nombre == "node_modules" || nombre == "var" {
 		return true
 	}
 	if _, err := os.Stat(filepath.Join(ruta, "go.mod")); err == nil {

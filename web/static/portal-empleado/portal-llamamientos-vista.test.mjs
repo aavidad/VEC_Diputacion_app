@@ -202,7 +202,7 @@ test("los estilos están aislados, cacheados y cubren 1040, 780 y móvil", async
     readFile(new URL("portal-vistas-utilidades.js", import.meta.url), "utf8"),
   ]);
   assert.match(html, /portal-llamamientos\.css\?v=20260719-asistente-llamamientos-v2/);
-  assert.match(html, /portal\.js\?v=20260721-acceso-real-v2/);
+  assert.match(html, /portal\.js\?v=20260725-aislamiento-modular-v2/);
   assert.match(estilos, /@media \(max-width: 1040px\)/);
   assert.match(estilos, /@media \(max-width: 780px\)/);
   assert.match(estilos, /@media \(max-width: 520px\)/);

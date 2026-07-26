@@ -116,6 +116,7 @@ export function renderizarNavegacionModulos({
       cargando: traducir("estado_modulo_comprobando"),
       denegado: traducir("estado_modulo_sin_permiso"),
       error: traducir("estado_modulo_no_disponible"),
+      no_disponible: traducir("estado_modulo_no_disponible"),
     }[acceso?.estado] || traducir("estado_modulo_no_habilitado"));
     const comprobando = acceso?.estado === "cargando";
     return `<button type="button" class="enlace-lateral${habilitado ? " modulo-habilitado" : ""}"

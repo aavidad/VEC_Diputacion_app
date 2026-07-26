@@ -1,0 +1,78 @@
+title = "Politica de deteccion de secretos de VEP"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Sentinelas sinteticos inequívocos"
+condition = "OR"
+regexTarget = "secret"
+regexes = [
+  '''(?i)^PRUEBA_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
+  '''(?i)^SINTETICO_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
+]
+
+[[rules]]
+id = "vep-contrasena-asignada"
+description = "Contrasena escrita en claro"
+regex = '''(?i)(?:password|passwd|pwd|contrase[nñ]a)[ \t]*[:=][ \t]*["']([A-Za-z0-9._@+!#$%&*?/:-]{8,128})["']'''
+secretGroup = 1
+keywords = [
+  "password",
+  "passwd",
+  "pwd",
+  "contraseña",
+  "contrasena",
+]
+
+[[rules.allowlists]]
+condition = "OR"
+regexTarget = "secret"
+regexes = [
+  '''(?i)^PRUEBA_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
+  '''(?i)^SINTETICO_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
+]
+
+[[rules.allowlists]]
+condition = "OR"
+regexTarget = "match"
+regexes = [
+  '''(?i)^(?:password|passwd|pwd|contrase[nñ]a)[ \t]+:'[A-Za-z_][A-Za-z0-9_]*'$''',
+]
+
+[[rules]]
+id = "vep-clave-castellana-asignada"
+description = "Clave castellana escrita en claro"
+regex = '''(?:clave(?:_[a-z0-9]+)*)[ \t]*=[ \t]*["']([A-Za-z0-9._@+!#$%&*?/:-]{8,128})["']'''
+secretGroup = 1
+keywords = [
+  "clave",
+]
+
+[[rules.allowlists]]
+condition = "OR"
+regexTarget = "secret"
+regexes = [
+  '''^PRUEBA_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
+  '''^SINTETICO_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
+]
+
+[[rules]]
+id = "vep-par-credenciales-directo"
+description = "Usuario y contrasena escritos como un par de autenticacion"
+regex = '''(?i)(?:ldap|basic|credencial(?:es)?)[ \t]*[:=][ \t]*["']?([A-Za-z0-9._@-]{2,64}[/:][A-Za-z0-9._@+!#$%&*?-]{8,128})'''
+secretGroup = 1
+keywords = [
+  "ldap",
+  "basic",
+  "credencial",
+  "credenciales",
+]
+
+[[rules.allowlists]]
+condition = "OR"
+regexTarget = "secret"
+regexes = [
+  '''(?i)^PRUEBA_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
+  '''(?i)^SINTETICO_NO_SECRETO_[A-Z0-9_.:+/-]+$''',
+]

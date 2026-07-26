@@ -42,10 +42,6 @@ services:
     depends_on:
       vec-presentacion:
         condition: service_started
-      vec-cartografia-presentacion:
-        condition: service_started
-      tiles-osm-presentacion:
-        condition: service_healthy
     ports:
       - "127.0.0.1:${VEC_PRESENTACION_PUBLISHED_PORT:-8081}:8080"
     volumes:
@@ -72,9 +68,7 @@ services:
       test:
         - CMD-SHELL
         - >-
-          wget -q --spider http://vec-api:8080/livez &&
-          wget -q --spider http://vec-cartografia-presentacion:8080/healthz &&
-          wget -q --spider http://tiles-osm-presentacion:8080/styles/osm-granada/256/8/125/99.png
+          wget -q --spider http://vec-api:8080/livez
       interval: 5s
       timeout: 2s
       retries: 5
@@ -183,7 +177,7 @@ services:
     mem_limit: 192m
     cpus: 0.5
     profiles:
-      - presentacion
+      - presentacion-cartografia
 
   osrm-presentacion:
     image: osrm/osrm-backend:v5.26.0@sha256:af5d4a83fb90086a43b1ae2ca22872e6768766ad5fcbb07a29ff90ec644ee409
@@ -220,7 +214,7 @@ services:
       start_period: 20s
     restart: unless-stopped
     profiles:
-      - presentacion
+      - presentacion-cartografia
 
   tiles-osm-presentacion:
     image: maptiler/tileserver-gl:v5.6.0@sha256:3a9ccdb24820b6814c8119bcc8a4376c39867cb0ffe69d62919ef898b90c2427
@@ -268,7 +262,7 @@ services:
       start_period: 30s
     restart: unless-stopped
     profiles:
-      - presentacion
+      - presentacion-cartografia
 
   # Herramienta efímera: prueba la pila completa desde la misma red de borde
   # sin exigir Python, curl, jq ni navegadores instalados en el anfitrión.

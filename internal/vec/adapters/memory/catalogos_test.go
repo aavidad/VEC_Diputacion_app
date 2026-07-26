@@ -235,3 +235,166 @@ func TestRepositorioCatalogosConsumeDecisionConElEfectoExactoEIdempotente(t *tes
 		t.Fatalf("un valor cero autorizo el efecto: %v", err)
 	}
 }
+
+func TestConsultaCatalogosAcotadaTruncaAntesDeClonarVersionSiguiente(
+	t *testing.T,
+) {
+	store := NewStore()
+	base := catalogoMemoriaPrueba()
+	for version := 1; version <= ports.MaximoVersionesConsultaCatalogosAcotada+1; version++ {
+		catalogo := base
+		catalogo.Version = version
+		if version > 1 {
+			catalogo.VersionAnteriorRef = fmt.Sprintf(
+				"%s:%d",
+				base.ID,
+				version-1,
+			)
+		}
+		if version == ports.MaximoVersionesConsultaCatalogosAcotada+1 {
+			// Si el adaptador intentase clonar la versión 65, fallaría.
+			catalogo.Nombre = ""
+		}
+		store.catalogos[claveCatalogo(catalogo.ID, version)] = catalogo
+	}
+	limites := limitesConsultaCatalogosMemoriaPrueba()
+	resultado, err := store.ListarVersionesCatalogoAcotado(
+		context.Background(),
+		base.ID,
+		limites,
+	)
+	if err != nil {
+		t.Fatalf("consulta acotada: %v", err)
+	}
+	if !resultado.Truncado ||
+		len(resultado.Catalogos) != limites.Versiones {
+		t.Fatalf(
+			"truncamiento inesperado: catalogos=%d truncado=%t",
+			len(resultado.Catalogos),
+			resultado.Truncado,
+		)
+	}
+	for indice, catalogo := range resultado.Catalogos {
+		if catalogo.Version != indice+1 {
+			t.Fatalf("orden no determinista en %d: %d", indice, catalogo.Version)
+		}
+	}
+
+	resultado.Catalogos[0].Entradas[0].Etiqueta = "mutada"
+	segunda, err := store.ListarVersionesCatalogoAcotado(
+		context.Background(),
+		base.ID,
+		limites,
+	)
+	if err != nil ||
+		segunda.Catalogos[0].Entradas[0].Etiqueta == "mutada" {
+		t.Fatalf("resultado compartió el estado del store: %#v, %v", segunda, err)
+	}
+}
+
+func TestConsultaCatalogosAcotadaNoClonaCatalogoQueExcedePresupuesto(
+	t *testing.T,
+) {
+	store := NewStore()
+	catalogo := catalogoMemoriaPrueba()
+	// El valor es además inválido para ClonarCanonico: el éxito truncado prueba
+	// que el presupuesto se comprobó antes de clonar.
+	catalogo.Descripcion = strings.Repeat(
+		"x",
+		ports.MaximoBytesConsultaCatalogosAcotada+1,
+	)
+	store.catalogos[claveCatalogo(catalogo.ID, catalogo.Version)] = catalogo
+	resultado, err := store.ListarVersionesCatalogoAcotado(
+		context.Background(),
+		catalogo.ID,
+		limitesConsultaCatalogosMemoriaPrueba(),
+	)
+	if err != nil {
+		t.Fatalf("el catálogo fuera de presupuesto se clonó: %v", err)
+	}
+	if !resultado.Truncado || len(resultado.Catalogos) != 0 {
+		t.Fatalf("presupuesto no señalado: %#v", resultado)
+	}
+	exacto, err := store.ObtenerCatalogoAcotado(
+		context.Background(),
+		catalogo.ID,
+		catalogo.Version,
+		limitesConsultaCatalogosMemoriaPrueba(),
+	)
+	if err != nil {
+		t.Fatalf("la lectura exacta clonó el catálogo: %v", err)
+	}
+	if !exacto.Truncado || exacto.Catalogo.ID != "" ||
+		len(exacto.Catalogo.Entradas) != 0 {
+		t.Fatalf("lectura exacta sin truncamiento: %#v", exacto)
+	}
+}
+
+func TestConsultaCatalogosAcotadaAplicaPresupuestoAgregadoAntesDeClonar(
+	t *testing.T,
+) {
+	store := NewStore()
+	v1 := catalogoMemoriaPrueba()
+	v2 := v1
+	v2.Version = 2
+	v2.VersionAnteriorRef = v1.Referencia()
+	// La segunda versión es inválida: si se clonase antes de comprobar la suma
+	// de entradas, la consulta devolvería error en vez de truncamiento seguro.
+	v2.Nombre = ""
+	store.catalogos[claveCatalogo(v1.ID, v1.Version)] = v1
+	store.catalogos[claveCatalogo(v2.ID, v2.Version)] = v2
+	limites := limitesConsultaCatalogosMemoriaPrueba()
+	limites.Versiones = 2
+	limites.Entradas = 1
+	resultado, err := store.ListarVersionesCatalogoAcotado(
+		context.Background(),
+		v1.ID,
+		limites,
+	)
+	if err != nil {
+		t.Fatalf("la segunda versión se clonó antes de sumar: %v", err)
+	}
+	if !resultado.Truncado || len(resultado.Catalogos) != 1 ||
+		resultado.Catalogos[0].Version != 1 {
+		t.Fatalf("presupuesto agregado no aplicado: %#v", resultado)
+	}
+}
+
+func TestConsultaCatalogosAcotadaRespetaCancelacionYLimites(t *testing.T) {
+	store := NewStore()
+	catalogo := catalogoMemoriaPrueba()
+	store.catalogos[claveCatalogo(catalogo.ID, catalogo.Version)] = catalogo
+	ctx, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	if _, err := store.ListarVersionesCatalogoAcotado(
+		ctx,
+		catalogo.ID,
+		limitesConsultaCatalogosMemoriaPrueba(),
+	); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelación no respetada: %v", err)
+	}
+	if _, err := store.ObtenerCatalogoAcotado(
+		ctx,
+		catalogo.ID,
+		catalogo.Version,
+		limitesConsultaCatalogosMemoriaPrueba(),
+	); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelación exacta no respetada: %v", err)
+	}
+	if _, err := store.ListarVersionesCatalogoAcotado(
+		context.Background(),
+		catalogo.ID,
+		ports.LimitesConsultaCatalogosAcotada{},
+	); !errors.Is(err, ports.ErrLimitesConsultaCatalogosInvalidos) {
+		t.Fatalf("límites inválidos aceptados: %v", err)
+	}
+}
+
+func limitesConsultaCatalogosMemoriaPrueba() ports.LimitesConsultaCatalogosAcotada {
+	return ports.LimitesConsultaCatalogosAcotada{
+		Versiones:        ports.MaximoVersionesConsultaCatalogosAcotada,
+		Entradas:         ports.MaximoEntradasConsultaCatalogosAcotada,
+		Atributos:        ports.MaximoAtributosConsultaCatalogosAcotada,
+		BytesAproximados: ports.MaximoBytesConsultaCatalogosAcotada,
+	}
+}

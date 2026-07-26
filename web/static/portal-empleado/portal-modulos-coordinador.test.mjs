@@ -6,6 +6,7 @@ import { crearAdaptadorPresentacion } from "./portal-presentacion-adaptador.js";
 import {
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
+  resolverCargasModularesPresentacion,
   rutaDeVistaPortal,
 } from "./portal-modulos-coordinador.js";
 
@@ -83,15 +84,17 @@ test("el administrador solo compone Bolsa con su ContextoActor", async () => {
   assert.equal(coordinador.obtenerContextoBolsa(), contextoBolsa);
   assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, true);
   assert.equal(coordinador.resolverAcceso("cronos", true).disponible, false);
+  assert.equal(coordinador.resolverAcceso("cronos", true).estado, "denegado");
   assert.equal(coordinador.resolverAcceso("dietas", true).disponible, false);
+  assert.equal(coordinador.resolverAcceso("dietas", true).estado, "denegado");
 });
 
 test("el portal muestra el catálogo completo y dentro de cada módulo solo el acceso activo", async () => {
   const coordinador = crearCoordinador();
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("tecnico").sesion);
   const portal = coordinador.renderizarNavegacion(true, "portal");
-  assert.equal((portal.match(/data-modulo-portal=/g) || []).length, 12);
-  assert.equal((portal.match(/modulo-habilitado/g) || []).length, 1);
+  assert.equal((portal.match(/data-modulo-portal=/g) || []).length, 13);
+  assert.equal((portal.match(/modulo-habilitado/g) || []).length, 2);
 
   const bolsa = coordinador.renderizarNavegacion(true, "bolsa");
   assert.equal((bolsa.match(/data-modulo-portal=/g) || []).length, 1);
@@ -213,15 +216,101 @@ test("Dietas calcula con el mediador OSRM real de presentación y nunca con simu
   coordinador.desmontarVistaActual();
 });
 
-test("la presentación falla cerrada si no recibe un cliente HTTP same-origin", async () => {
+test("Dietas falla cerrada sin cliente HTTP y Cronos permanece disponible", async () => {
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
     entorno: { location: { origin: "http://127.0.0.2:8081" } },
   });
-  await assert.rejects(
-    coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion),
-    /cliente HTTP same-origin/u,
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
+  assert.equal(coordinador.vistaDisponible("cronos"), true);
+  assert.equal(coordinador.vistaDisponible("dietas"), false);
+  assert.equal(coordinador.resolverAcceso("dietas").estado, "no_disponible");
+  assert.match(coordinador.renderizarNavegacion(true, "dietas"), />No disponible<\/span>/);
+});
+
+test("un cargador modular rechazado no contamina módulos independientes", async () => {
+  const cargas = await resolverCargasModularesPresentacion({
+    contratacion_temporal: async () => Object.freeze({ modulo: "contratacion" }),
+    cronos: async () => Object.freeze({ modulo: "cronos" }),
+    dietas: async () => { throw new Error("cartografía no disponible"); },
+  });
+  assert.equal(cargas.contratacion_temporal.disponible, true);
+  assert.equal(cargas.cronos.disponible, true);
+  assert.equal(cargas.dietas.disponible, false);
+  assert.equal(cargas.dietas.estado, "no_disponible");
+  assert.equal(cargas.contratacion_temporal.recursos.modulo, "contratacion");
+  assert.equal(cargas.cronos.recursos.modulo, "cronos");
+});
+
+test("un cargador pendiente queda acotado y no paraliza los resultados independientes", async () => {
+  const inicio = Date.now();
+  const cargas = await resolverCargasModularesPresentacion({
+    contratacion_temporal: async () => Object.freeze({ modulo: "contratacion" }),
+    cronos: async () => Object.freeze({ modulo: "cronos" }),
+    dietas: async () => new Promise(() => {}),
+  }, { limiteMs: 20 });
+  assert.ok(Date.now() - inicio < 1_000, "la carga pendiente debe quedar acotada");
+  assert.equal(cargas.contratacion_temporal.disponible, true);
+  assert.equal(cargas.cronos.disponible, true);
+  assert.deepEqual(cargas.dietas, {
+    disponible: false,
+    estado: "no_disponible",
+  });
+});
+
+test("un módulo ajeno al ámbito del actor ni siquiera ejecuta su cargador", async () => {
+  let cargasDietas = 0;
+  const cargas = await resolverCargasModularesPresentacion({
+    contratacion_temporal: async () => Object.freeze({ modulo: "contratacion" }),
+    dietas: async () => {
+      cargasDietas += 1;
+      return new Promise(() => {});
+    },
+  }, { claves: ["contratacion_temporal"], limiteMs: 20 });
+  assert.equal(cargasDietas, 0);
+  assert.equal(cargas.contratacion_temporal.disponible, true);
+  assert.equal(cargas.cronos.estado, "denegado");
+  assert.equal(cargas.dietas.estado, "denegado");
+});
+
+test("una recarga inválida borra la composición anterior antes de fallar", async () => {
+  const coordinador = crearCoordinador();
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("administrador").sesion);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, true);
+  await assert.rejects(coordinador.cargarPresentacion(null));
+  assert.equal(coordinador.obtenerContextoBolsa(), null);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").estado, "denegado");
+});
+
+test("una carga válida obsoleta no puede republicar permisos tras otra inválida", async () => {
+  let invocacionesBase = 0;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargadoresPresentacion: {
+      base: async () => {
+        invocacionesBase += 1;
+        if (invocacionesBase === 1) {
+          await new Promise((resolver) => setTimeout(resolver, 50));
+        }
+        const [identidad, catalogo] = await Promise.all([
+          import("./identidad/presentacion.js"),
+          import("./portal-catalogo-presentacion.js"),
+        ]);
+        return Object.freeze({ identidad, catalogo });
+      },
+    },
+  });
+  const cargaAnterior = coordinador.cargarPresentacion(
+    obtenerDatosPresentacion("administrador").sesion,
   );
+  await new Promise((resolver) => setTimeout(resolver, 5));
+  await assert.rejects(coordinador.cargarPresentacion(null));
+  await assert.rejects(cargaAnterior, /carga de presentación sustituida/u);
+  assert.equal(coordinador.obtenerContextoBolsa(), null);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
 });
 
 test("el coordinador no autentica ni conserva estado en el navegador", async () => {
@@ -230,14 +319,19 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
     readFile(new URL("portal-modulos.css", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(fuente, /document\.cookie|localStorage|sessionStorage/);
-  assert.match(fuente, /CAPACIDADES_AUTOSERVICIO_CRONOS/);
-  assert.match(fuente, /CAPACIDADES_AUTOSERVICIO_DIETAS/);
+  assert.match(fuente, /Promise\.allSettled/);
+  assert.match(fuente, /LIMITE_CARGA_MODULAR_MS/);
+  assert.match(fuente, /composicion = null/);
+  assert.match(fuente, /secuenciaCarga/);
+  assert.match(fuente, /function capacidadesCronos/);
+  assert.match(fuente, /function capacidadesDietas/);
+  assert.doesNotMatch(fuente, /^import .*\/modulos\//mu);
   assert.match(fuente, /import\("\.\/modulos\/cronos\/datos-presentacion\.js/);
   assert.match(fuente, /import\("\.\/modulos\/dietas\/adaptador-presentacion\.js/);
   assert.match(fuente, /calculador-rutas-presentacion-osrm\.js/);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/calculador-rutas-presentacion\.js"\)/);
   assert.doesNotMatch(fuente, /versionGrafo|granada-buffer-osrm-v/u);
-  assert.match(fuente, /crearVisorRutaDietas\(\{ entorno, permitirTeselas: true \}\)/);
+  assert.match(fuente, /recursos\.mapa\.crearVisorRutaDietas\(\{ entorno, permitirTeselas: true \}\)/);
   assert.match(estilos, /data-modulo-catalogo="bolsa"/);
   assert.match(estilos, /data-modulo-catalogo="cronos"/);
   assert.match(estilos, /data-modulo-catalogo="dietas"/);
@@ -246,15 +340,23 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
   assert.doesNotMatch(estilos, /\.tarjeta-modulo-bloqueada/);
 });
 
-test("el cache busting cartográfico avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260721-acceso-real-v2";
-  const versionPortal = "20260721-acceso-real-v2";
+test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
+  const versionCoordinador = "20260725-aislamiento-modular-v2";
+  const versionPortal = "20260725-aislamiento-modular-v2";
+  const versionTema = "20260725-aislamiento-modular-v1";
   const versionPulido = "20260720-pulido-escritorio-v2";
   const [portal, html] = await Promise.all([
     readFile(new URL("portal.js", import.meta.url), "utf8"),
     readFile(new URL("index.html", import.meta.url), "utf8"),
   ]);
+  const coordinador = await readFile(
+    new URL("portal-modulos-coordinador.js", import.meta.url),
+    "utf8",
+  );
   assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCoordinador}`));
+  assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCoordinador}`));
   assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
+  assert.match(html, new RegExp(`portal\\.css\\?v=${versionTema}`));
+  assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTema}`));
   assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionPulido}`));
 });

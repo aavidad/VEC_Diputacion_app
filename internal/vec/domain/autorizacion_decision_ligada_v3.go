@@ -730,6 +730,16 @@ func codigoResultadoEvaluacionAutorizacionV3Valido(codigo string, concedida bool
 	}
 }
 
+// CodigoResultadoEvaluacionAutorizacionV3Valido es la única clasificación
+// nominal autoritativa de resultados V3. Los módulos consumidores deben
+// reutilizarla y no mantener listas divergentes de códigos.
+func CodigoResultadoEvaluacionAutorizacionV3Valido(
+	codigo string,
+	concedida bool,
+) bool {
+	return codigoResultadoEvaluacionAutorizacionV3Valido(codigo, concedida)
+}
+
 func errorEvidenciaEvaluacionAutorizacionV3(causa error) error {
 	return errors.Join(ErrEvidenciaEvaluacionAutorizacionV3Invalida, causa)
 }
