@@ -74,12 +74,20 @@ esperar_fallo 'delta de rol en base sin CT' \
   docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
     -U postgres -d o404e_sin_ct -f \
     /repo/contratacion_temporal/roles_confirmador_cobertura_up.sql
+esperar_fallo 'delta de lector O4-05 en base sin CT' \
+  docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
+    -U postgres -d o404e_sin_ct -f \
+    /repo/contratacion_temporal/roles_lector_resultado_cobertura_up.sql
 psql_admin <<'SQL' >/dev/null
 DO $$
 BEGIN
   IF EXISTS(SELECT 1 FROM pg_roles
              WHERE rolname='vec_contratacion_temporal_confirmador_cobertura')
   THEN RAISE EXCEPTION 'delta fuera de orden dejó rol residual'; END IF;
+  IF EXISTS(SELECT 1 FROM pg_roles
+             WHERE rolname=
+               'vec_contratacion_temporal_lector_resultado_cobertura')
+  THEN RAISE EXCEPTION 'delta lector fuera de orden dejó rol residual'; END IF;
 END
 $$;
 DROP DATABASE o404e_sin_ct;
@@ -148,6 +156,10 @@ mapfile -t migraciones < <(
     -maxdepth 1 -type f -name '*.up.sql' -printf '%f\n' | sort
 )
 for nombre in "${migraciones[@]}"; do
+  # O4-05 tiene rol y pruebas propios; se aplica después de cerrar O4-04E.
+  if [[ $nombre > 000034_lector_fuerte_acl_cobertura_o4_04e.up.sql ]]; then
+    continue
+  fi
   if [[ $nombre == 000003_* ]]; then
     paso 'dependencia real de Autorización Atestada V3'
     psql_admin <<'SQL' >/dev/null
@@ -216,6 +228,26 @@ SELECT :'resultado_json'::jsonb->>'encontrado'='false' AS ausente
 COMMIT;
 RESET SESSION AUTHORIZATION;
 SQL
+
+paso 'ciclo O4-05 reversible sin historia terminal'
+archivo contratacion_temporal/roles_lector_resultado_cobertura_up.sql
+archivo contratacion_temporal/migraciones/000035_recuperacion_propia_cobertura_o4_05.up.sql
+archivo contratacion_temporal/migraciones/000035_recuperacion_propia_cobertura_o4_05.down.sql
+psql_admin <<'SQL' >/dev/null
+CREATE ROLE vec_o405_lector_ciclo LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+  INHERIT NOREPLICATION NOBYPASSRLS;
+GRANT vec_contratacion_temporal_lector_resultado_cobertura
+ TO vec_o405_lector_ciclo WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
+SQL
+esperar_sqlstate 'rol lector no baja con LOGIN miembro vigente' 55000 \
+  psql_admin --set VERBOSITY=verbose \
+  --file /repo/contratacion_temporal/roles_lector_resultado_cobertura_down.sql
+psql_admin <<'SQL' >/dev/null
+REVOKE vec_contratacion_temporal_lector_resultado_cobertura
+ FROM vec_o405_lector_ciclo;
+DROP ROLE vec_o405_lector_ciclo;
+SQL
+archivo contratacion_temporal/roles_lector_resultado_cobertura_down.sql
 
 paso 'historia O4-D previa no bloquea down del wrapper 000006'
 psql_admin <<'SQL' >/dev/null
@@ -442,6 +474,27 @@ REVOKE ALL ON FUNCTION vec_o404e_fallos.despues_escritura() FROM PUBLIC;
 SQL
 
 source "$raiz/deploy/postgresql/contratacion_temporal/pruebas_o4_04e_failpoints_carreras.sh"
-esperar_sqlstate 'down 000034 con historia O4-04E' 55000 \
+
+paso 'recuperación propia O4-05: rol, ACL, alias y recibo fuerte'
+archivo contratacion_temporal/roles_lector_resultado_cobertura_up.sql
+archivo contratacion_temporal/migraciones/000035_recuperacion_propia_cobertura_o4_05.up.sql
+psql_admin <<'SQL' >/dev/null
+CREATE ROLE vec_o405_lector LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+  INHERIT NOREPLICATION NOBYPASSRLS;
+GRANT vec_contratacion_temporal_lector_resultado_cobertura
+ TO vec_o405_lector WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
+SQL
+archivo contratacion_temporal/pruebas_sql/o405_recuperacion_propia.sql
+esperar_sqlstate 'confirmador no puede recuperar por la función O4-05' 42501 \
+  docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
+    --set VERBOSITY=verbose -U vec_o404e_tcb -d postgres -c \
+    "BEGIN ISOLATION LEVEL SERIALIZABLE READ ONLY; SET LOCAL statement_timeout='15s'; SET LOCAL idle_in_transaction_session_timeout='20s'; SELECT * FROM vec_contratacion_temporal.recuperar_resultado_propio_decision_cobertura_o405_v1('{}')"
+esperar_sqlstate 'rol lector no baja antes que la migración O4-05' 55000 \
+  psql_admin --set VERBOSITY=verbose \
+  --file /repo/contratacion_temporal/roles_lector_resultado_cobertura_down.sql
+esperar_sqlstate 'down 000035 con historia terminal O4-04E' 55000 \
+  psql_admin --set VERBOSITY=verbose \
+  --file /repo/contratacion_temporal/migraciones/000035_recuperacion_propia_cobertura_o4_05.down.sql
+esperar_sqlstate 'down 000034 bajo la capa O4-05' 55000 \
   psql_admin --set VERBOSITY=verbose \
   --file /repo/contratacion_temporal/migraciones/000034_lector_fuerte_acl_cobertura_o4_04e.down.sql
