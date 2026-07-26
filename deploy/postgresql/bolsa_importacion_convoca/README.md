@@ -39,8 +39,9 @@ Las cuentas `LOGIN` se aprovisionan fuera de Git. Cada una recibe un único rol:
 | `vec_bolsa_importacion_convoca_migrador` | Instalar o revertir mediante el propietario `NOLOGIN`. |
 
 Los roles runtime no reciben privilegios sobre tablas ni secuencias. Solo
-ejecutan funciones `SECURITY DEFINER` con `search_path` cerrado, RLS forzada,
-transacciones serializables y límites locales de sesión.
+ejecutan funciones `SECURITY DEFINER` con `search_path` cerrado y RLS forzada.
+El adaptador Go abre las operaciones mutables con transacciones serializables
+y aplica los límites locales de sesión.
 
 ## Modelo durable
 
@@ -78,8 +79,7 @@ efímeras generadas desde `/dev/urandom` y fixtures sintéticos. Prueba:
 
 - reinicio y recuperación;
 - idempotencia, carrera concurrente y conflicto por actor para el mismo SHA-256;
-- validación cerrada de tipos JSON, valores `NULL`, actores, nombres y
-  versiones compatibles con `bigint`;
+- validación cerrada de tipos JSON, valores `NULL`, actores y nombres;
 - recuperación paginada y cancelable;
 - integridad campo a campo de número, esquema, tres referencias de clave, nonce,
   cifrado, derivación y atestación;
@@ -100,3 +100,7 @@ vec.confirmar_destruccion_bolsa_importacion_convoca
 
 Los errores del adaptador son códigos internos saneados. No añaden texto
 visible; una futura superficie deberá traducirlos mediante claves i18n.
+
+Las pruebas unitarias del contrato Go, ejecutadas por `go test
+./internal/modules/bolsa/...`, rechazan además versiones que PostgreSQL no
+puede representar como `bigint`.
