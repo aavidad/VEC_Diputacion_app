@@ -142,6 +142,11 @@ func cargaDenegadaMinimaDecisionCoberturaO404EPrueba(
 		Rama:    cobertura.RamaSesionTCBOperacionDecisionCoberturaDenegada,
 		DecisionVEC: decisionVECDecisionCoberturaO404E{
 			DecisionCanonica: []byte{1}, MotivoCanonico: []byte{2},
+			RecursoRef: recurso.Referencia, RecursoModulo: recurso.ModuloID,
+			RecursoTipo:                 recurso.Tipo,
+			Ambitos:                     clonarMapaDecisionCoberturaO404E(recurso.Ambitos),
+			Atributos:                   clonarMapaDecisionCoberturaO404E(recurso.Atributos),
+			ContextoRecursoHuellaSHA256: huella,
 		},
 		ConsumosC1: []consumoC1DecisionCoberturaO404E{},
 		Denegacion: &denegacionDecisionCoberturaO404E{
@@ -151,5 +156,117 @@ func cargaDenegadaMinimaDecisionCoberturaO404EPrueba(
 			Atributos:           clonarMapaDecisionCoberturaO404E(recurso.Atributos),
 			RecursoHuellaSHA256: huella,
 		},
+	}
+}
+
+func TestDecisionVECDecisionCoberturaO404ERecursoInmutableYFormaCerrada(
+	t *testing.T,
+) {
+	t.Parallel()
+	recurso := recursoDenegacionDecisionCoberturaO404EPrueba()
+	huella, err := recurso.HuellaContextoAutorizacionSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	decisionCanonica := []byte{0xaa}
+	motivoCanonico := []byte{0xbb}
+	dto := decisionVECDecisionCoberturaO404E{
+		DecisionCanonica:            decisionCanonica,
+		MotivoCanonico:              motivoCanonico,
+		ContextoRecursoHuellaSHA256: huella,
+	}
+	copiarRecursoDecisionVECDecisionCoberturaO404E(&dto, recurso)
+
+	recurso.Ambitos["organizacion_ref"] = "otra-organizacion"
+	recurso.Atributos["clasificacion"] = "secreto"
+	if dto.Ambitos["organizacion_ref"] != "diputacion-granada" ||
+		dto.Atributos["clasificacion"] != "interno" ||
+		!validarRecursoDecisionVECDecisionCoberturaO404E(dto) {
+		t.Fatal("la decisión VEC no conservó una copia defensiva válida")
+	}
+
+	var salida bytes.Buffer
+	if err := escribirDecisionVECDecisionCoberturaO404E(
+		&salida,
+		dto,
+	); err != nil {
+		t.Fatal(err)
+	}
+	var objeto map[string]json.RawMessage
+	if err := json.Unmarshal(salida.Bytes(), &objeto); err != nil {
+		t.Fatal(err)
+	}
+	claves := []string{
+		"decision_canonica_hex", "motivo_canonico_hex",
+		"persona_version", "perfil_version", "decision_ref",
+		"decision_huella_sha256", "codigo_probatorio", "concedida",
+		"emitida_en", "valida_hasta", "principal_id", "perfil_activo_ref",
+		"accion", "recurso_ref", "recurso_modulo", "recurso_tipo",
+		"ambitos", "atributos", "contexto_recurso_huella_sha256",
+		"finalidad", "correlacion_ref",
+	}
+	if len(objeto) != len(claves) {
+		t.Fatalf("forma decision_vec abierta o incompleta: %s", salida.Bytes())
+	}
+	for _, clave := range claves {
+		if _, existe := objeto[clave]; !existe {
+			t.Fatalf("falta la clave cerrada %q: %s", clave, salida.Bytes())
+		}
+	}
+
+	dto.Atributos["clasificacion"] = "alterado"
+	if validarRecursoDecisionVECDecisionCoberturaO404E(dto) {
+		t.Fatal("una mutación de atributos conservó la huella VEC")
+	}
+	dto.Atributos["clasificacion"] = "interno"
+	ambitosDTO := dto.Ambitos
+	atributosDTO := dto.Atributos
+	limpiarDecisionVECDecisionCoberturaO404E(&dto)
+	if len(ambitosDTO) != 0 || len(atributosDTO) != 0 ||
+		!bytes.Equal(decisionCanonica, []byte{0}) ||
+		!bytes.Equal(motivoCanonico, []byte{0}) ||
+		dto.Ambitos != nil || dto.Atributos != nil {
+		t.Fatal("la limpieza no borró la identidad técnica VEC")
+	}
+}
+
+func TestDecisionVECYDenegacionDecisionCoberturaO404EExigenMismoRecurso(
+	t *testing.T,
+) {
+	t.Parallel()
+	carga := cargaDenegadaMinimaDecisionCoberturaO404EPrueba(t)
+	contenido, err := codificarCargaConfirmarDecisionCoberturaO404E(carga)
+	if err != nil {
+		t.Fatalf("recurso repetido nominal rechazado: %v", err)
+	}
+	borrarBytes(contenido)
+
+	otro := recursoDenegacionDecisionCoberturaO404EPrueba()
+	otro.Ambitos["organizacion_ref"] = "otra-organizacion"
+	otraHuella, err := otro.HuellaContextoAutorizacionSHA256()
+	if err != nil {
+		t.Fatal(err)
+	}
+	carga.Denegacion.RecursoRef = otro.Referencia
+	carga.Denegacion.RecursoModulo = otro.ModuloID
+	carga.Denegacion.RecursoTipo = otro.Tipo
+	carga.Denegacion.Ambitos = clonarMapaDecisionCoberturaO404E(otro.Ambitos)
+	carga.Denegacion.Atributos = clonarMapaDecisionCoberturaO404E(
+		otro.Atributos,
+	)
+	carga.Denegacion.RecursoHuellaSHA256 = otraHuella
+	if !validarRecursoDenegacionDecisionCoberturaO404E(*carga.Denegacion) {
+		t.Fatal("el segundo recurso válido fue rechazado aisladamente")
+	}
+	if recursosDecisionVECYDenegacionDecisionCoberturaO404EIguales(
+		carga.DecisionVEC,
+		*carga.Denegacion,
+	) {
+		t.Fatal("dos recursos válidos distintos se consideraron iguales")
+	}
+	if _, err := codificarCargaConfirmarDecisionCoberturaO404E(
+		carga,
+	); err == nil {
+		t.Fatal("la frontera aceptó identidades de recurso divergentes")
 	}
 }

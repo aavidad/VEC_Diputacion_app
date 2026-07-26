@@ -86,23 +86,27 @@ type gobiernoDecisionCoberturaO404E struct {
 }
 
 type decisionVECDecisionCoberturaO404E struct {
-	DecisionCanonica            []byte    `json:"-"`
-	MotivoCanonico              []byte    `json:"-"`
-	PersonaVersion              uint64    `json:"persona_version"`
-	PerfilVersion               uint64    `json:"perfil_version"`
-	DecisionRef                 string    `json:"decision_ref"`
-	DecisionHuellaSHA256        string    `json:"decision_huella_sha256"`
-	CodigoProbatorio            string    `json:"codigo_probatorio"`
-	Concedida                   bool      `json:"concedida"`
-	EmitidaEn                   time.Time `json:"emitida_en"`
-	ValidaHasta                 time.Time `json:"valida_hasta"`
-	PrincipalID                 string    `json:"principal_id"`
-	PerfilActivoRef             string    `json:"perfil_activo_ref"`
-	Accion                      string    `json:"accion"`
-	RecursoRef                  string    `json:"recurso_ref"`
-	ContextoRecursoHuellaSHA256 string    `json:"contexto_recurso_huella_sha256"`
-	Finalidad                   string    `json:"finalidad"`
-	CorrelacionRef              string    `json:"correlacion_ref"`
+	DecisionCanonica            []byte            `json:"-"`
+	MotivoCanonico              []byte            `json:"-"`
+	PersonaVersion              uint64            `json:"persona_version"`
+	PerfilVersion               uint64            `json:"perfil_version"`
+	DecisionRef                 string            `json:"decision_ref"`
+	DecisionHuellaSHA256        string            `json:"decision_huella_sha256"`
+	CodigoProbatorio            string            `json:"codigo_probatorio"`
+	Concedida                   bool              `json:"concedida"`
+	EmitidaEn                   time.Time         `json:"emitida_en"`
+	ValidaHasta                 time.Time         `json:"valida_hasta"`
+	PrincipalID                 string            `json:"principal_id"`
+	PerfilActivoRef             string            `json:"perfil_activo_ref"`
+	Accion                      string            `json:"accion"`
+	RecursoRef                  string            `json:"recurso_ref"`
+	RecursoModulo               string            `json:"recurso_modulo"`
+	RecursoTipo                 string            `json:"recurso_tipo"`
+	Ambitos                     map[string]string `json:"ambitos"`
+	Atributos                   map[string]string `json:"atributos"`
+	ContextoRecursoHuellaSHA256 string            `json:"contexto_recurso_huella_sha256"`
+	Finalidad                   string            `json:"finalidad"`
+	CorrelacionRef              string            `json:"correlacion_ref"`
 }
 
 type consumoC1DecisionCoberturaO404E struct {

@@ -108,7 +108,7 @@ func nuevaDecisionVECDecisionCoberturaO404E(
 		return decisionVECDecisionCoberturaO404E{},
 			errSesionDecisionCoberturaO404EInvalida
 	}
-	return decisionVECDecisionCoberturaO404E{
+	resultado := decisionVECDecisionCoberturaO404E{
 		DecisionCanonica:     decisionCanonica,
 		MotivoCanonico:       motivoCanonico,
 		PersonaVersion:       instantanea.PersonaVersion,
@@ -117,13 +117,18 @@ func nuevaDecisionVECDecisionCoberturaO404E(
 		DecisionHuellaSHA256: d.Resumen.DecisionHuellaSHA256,
 		CodigoProbatorio:     d.Resumen.CodigoProbatorio,
 		Concedida:            d.Resumen.Concedida, EmitidaEn: d.Resumen.EmitidaEn,
-		ValidaHasta:     d.Resumen.ValidaHasta,
-		PrincipalID:     instantanea.PersonaRef,
-		PerfilActivoRef: instantanea.PerfilActivoRef,
-		Accion:          solicitud.Accion, RecursoRef: solicitud.Recurso.Referencia,
+		ValidaHasta:                 d.Resumen.ValidaHasta,
+		PrincipalID:                 instantanea.PersonaRef,
+		PerfilActivoRef:             instantanea.PerfilActivoRef,
+		Accion:                      solicitud.Accion,
 		ContextoRecursoHuellaSHA256: huellaRecurso,
 		Finalidad:                   solicitud.Finalidad, CorrelacionRef: correlacion,
-	}, nil
+	}
+	copiarRecursoDecisionVECDecisionCoberturaO404E(
+		&resultado,
+		solicitud.Recurso,
+	)
+	return resultado, nil
 }
 
 func nuevoConsumoC1DecisionCoberturaO404E(
@@ -281,6 +286,20 @@ func clonarMapaDecisionCoberturaO404E(
 	return copia
 }
 
+func copiarRecursoDecisionVECDecisionCoberturaO404E(
+	destino *decisionVECDecisionCoberturaO404E,
+	recurso dominiovec.RecursoAutorizable,
+) {
+	if destino == nil {
+		return
+	}
+	destino.RecursoRef = recurso.Referencia
+	destino.RecursoModulo = recurso.ModuloID
+	destino.RecursoTipo = recurso.Tipo
+	destino.Ambitos = clonarMapaDecisionCoberturaO404E(recurso.Ambitos)
+	destino.Atributos = clonarMapaDecisionCoberturaO404E(recurso.Atributos)
+}
+
 func validarRecursoDenegacionDecisionCoberturaO404E(
 	d denegacionDecisionCoberturaO404E,
 ) bool {
@@ -303,10 +322,68 @@ func validarRecursoDenegacionDecisionCoberturaO404E(
 		igualesDecisionCoberturaO404E(huella, d.RecursoHuellaSHA256)
 }
 
+func validarRecursoDecisionVECDecisionCoberturaO404E(
+	d decisionVECDecisionCoberturaO404E,
+) bool {
+	recurso := dominiovec.RecursoAutorizable{
+		Referencia: d.RecursoRef,
+		ModuloID:   d.RecursoModulo,
+		Tipo:       d.RecursoTipo,
+		Ambitos:    clonarMapaDecisionCoberturaO404E(d.Ambitos),
+		Atributos:  clonarMapaDecisionCoberturaO404E(d.Atributos),
+	}
+	if err := recurso.Validar(); err != nil {
+		return false
+	}
+	huella, err := recurso.HuellaContextoAutorizacionSHA256()
+	return err == nil &&
+		huellaSHA256DecisionCoberturaO404EValida(
+			d.ContextoRecursoHuellaSHA256,
+		) &&
+		igualesDecisionCoberturaO404E(
+			huella,
+			d.ContextoRecursoHuellaSHA256,
+		)
+}
+
+func recursosDecisionVECYDenegacionDecisionCoberturaO404EIguales(
+	v decisionVECDecisionCoberturaO404E,
+	d denegacionDecisionCoberturaO404E,
+) bool {
+	return igualesDecisionCoberturaO404E(v.RecursoRef, d.RecursoRef) &&
+		igualesDecisionCoberturaO404E(v.RecursoModulo, d.RecursoModulo) &&
+		igualesDecisionCoberturaO404E(v.RecursoTipo, d.RecursoTipo) &&
+		igualesMapasDecisionCoberturaO404E(v.Ambitos, d.Ambitos) &&
+		igualesMapasDecisionCoberturaO404E(v.Atributos, d.Atributos) &&
+		igualesDecisionCoberturaO404E(
+			v.ContextoRecursoHuellaSHA256,
+			d.RecursoHuellaSHA256,
+		)
+}
+
+func igualesMapasDecisionCoberturaO404E(
+	a map[string]string,
+	b map[string]string,
+) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for clave, valor := range a {
+		if otro, existe := b[clave]; !existe ||
+			!igualesDecisionCoberturaO404E(valor, otro) {
+			return false
+		}
+	}
+	return true
+}
+
 func codificarCargaConfirmarDecisionCoberturaO404E(
 	carga cargaConfirmarDecisionCoberturaO404E,
 ) ([]byte, error) {
 	if carga.Esquema != esquemaCargaDecisionCoberturaO404E ||
+		!validarRecursoDecisionVECDecisionCoberturaO404E(
+			carga.DecisionVEC,
+		) ||
 		(carga.Gobierno == nil) !=
 			(carga.Rama ==
 				cobertura.RamaSesionTCBOperacionDecisionCoberturaDenegada) ||
@@ -318,6 +395,11 @@ func codificarCargaConfirmarDecisionCoberturaO404E(
 				cobertura.RamaSesionTCBOperacionDecisionCoberturaConcedida) ||
 		(carga.Denegacion != nil &&
 			!validarRecursoDenegacionDecisionCoberturaO404E(
+				*carga.Denegacion,
+			)) ||
+		(carga.Denegacion != nil &&
+			!recursosDecisionVECYDenegacionDecisionCoberturaO404EIguales(
+				carga.DecisionVEC,
 				*carga.Denegacion,
 			)) {
 		return nil, errSesionDecisionCoberturaO404EInvalida
@@ -389,6 +471,10 @@ func limpiarCargaConfirmarDecisionCoberturaO404E(
 	}
 	borrarBytes(c.DecisionVEC.DecisionCanonica)
 	borrarBytes(c.DecisionVEC.MotivoCanonico)
+	clear(c.DecisionVEC.Ambitos)
+	clear(c.DecisionVEC.Atributos)
+	c.DecisionVEC.Ambitos = nil
+	c.DecisionVEC.Atributos = nil
 	for i := range c.ConsumosC1 {
 		limpiarPruebasC1DecisionCoberturaO404E(
 			&c.ConsumosC1[i].Pruebas,
@@ -429,5 +515,9 @@ func limpiarDecisionVECDecisionCoberturaO404E(
 	}
 	borrarBytes(d.DecisionCanonica)
 	borrarBytes(d.MotivoCanonico)
+	clear(d.Ambitos)
+	clear(d.Atributos)
+	d.Ambitos = nil
+	d.Atributos = nil
 	*d = decisionVECDecisionCoberturaO404E{}
 }

@@ -207,8 +207,14 @@ func TestSesionDecisionCoberturaO404EConfirmaUnaSolaVez(
 		Esquema: esquemaCargaDecisionCoberturaO404E,
 		Rama:    cobertura.RamaSesionTCBOperacionDecisionCoberturaDenegada,
 		DecisionVEC: decisionVECDecisionCoberturaO404E{
-			DecisionCanonica: []byte{1},
-			MotivoCanonico:   []byte{2},
+			DecisionCanonica:            []byte{1},
+			MotivoCanonico:              []byte{2},
+			RecursoRef:                  recurso.Referencia,
+			RecursoModulo:               recurso.ModuloID,
+			RecursoTipo:                 recurso.Tipo,
+			Ambitos:                     clonarMapaDecisionCoberturaO404E(recurso.Ambitos),
+			Atributos:                   clonarMapaDecisionCoberturaO404E(recurso.Atributos),
+			ContextoRecursoHuellaSHA256: huellaRecurso,
 		},
 		Denegacion: &denegacionDecisionCoberturaO404E{
 			RecursoRef:          recurso.Referencia,
