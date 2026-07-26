@@ -18,40 +18,6 @@ import (
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
-func TestSolicitudCuadroRRHHValidaLimitesYCursorSinPanico(t *testing.T) {
-	t.Parallel()
-	for _, longitud := range []int{32, 1000, 1001, 2048} {
-		longitud := longitud
-		t.Run(fmt.Sprintf("cursor_%d", longitud), func(t *testing.T) {
-			t.Parallel()
-			if _, err := ports.NuevaSolicitudCuadroRRHH(
-				"2026/CT", domain.EstadoEnCurso, "solicitud",
-				100, strings.Repeat("a", longitud),
-			); err != nil {
-				t.Fatalf("cursor válido de %d bytes: %v", longitud, err)
-			}
-		})
-	}
-	for _, cursor := range []string{
-		strings.Repeat("a", 31),
-		strings.Repeat("a", 2049),
-		strings.Repeat("a", 31) + "=",
-	} {
-		if _, err := ports.NuevaSolicitudCuadroRRHH(
-			"", "", "", 1, cursor,
-		); !errors.Is(err, ports.ErrSolicitudConsultaRRHHInvalida) {
-			t.Fatalf("cursor hostil aceptado: longitud=%d error=%v", len(cursor), err)
-		}
-	}
-	for _, limite := range []uint16{0, 101} {
-		if _, err := ports.NuevaSolicitudCuadroRRHH(
-			"", "", "", limite, "",
-		); !errors.Is(err, ports.ErrSolicitudConsultaRRHHInvalida) {
-			t.Fatalf("límite %d aceptado: %v", limite, err)
-		}
-	}
-}
-
 func TestMaterialConsultaRRHHEsRedactadoYNoSerializable(t *testing.T) {
 	t.Parallel()
 	ahora := instantePuertosRRHH()

@@ -1,7 +1,11 @@
 package ports
 
 import (
+	"encoding/base64"
 	"errors"
+	"fmt"
+	"io"
+	"log/slog"
 	"regexp"
 	"strings"
 	"time"
@@ -51,9 +55,9 @@ var (
 )
 
 var (
-	patronTextoCuadroRRHH = regexp.MustCompile(`^[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ/._ -]{0,80}$`)
-	patronCursorRRHH      = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
-	patronHuellaRRHH      = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	base64URLCursorRRHHEstricto = base64.RawURLEncoding.Strict()
+	patronTextoCuadroRRHH       = regexp.MustCompile(`^[0-9A-Za-zÁÉÍÓÚÜÑáéíóúüñ/._ -]{0,80}$`)
+	patronHuellaRRHH            = regexp.MustCompile(`^[0-9a-f]{64}$`)
 )
 
 type ClaseAmbitoConsultaRRHH string
@@ -233,8 +237,14 @@ func (s SolicitudCuadroRRHH) validar() error {
 }
 
 func cursorRRHHValido(cursor string) bool {
-	return len(cursor) >= 32 && len(cursor) <= 2048 &&
-		patronCursorRRHH.MatchString(cursor)
+	if len(cursor) != 43 {
+		return false
+	}
+	material, err := base64URLCursorRRHHEstricto.DecodeString(cursor)
+	defer clear(material)
+	return err == nil &&
+		len(material) == 32 &&
+		base64.RawURLEncoding.EncodeToString(material) == cursor
 }
 
 func (s SolicitudCuadroRRHH) Texto() string                       { return s.texto }
@@ -247,8 +257,21 @@ func (s SolicitudCuadroRRHH) HuellaCanonicaSHA256() (string, error) {
 }
 func (SolicitudCuadroRRHH) String() string   { return "[solicitud-cuadro-rrhh-redactada]" }
 func (SolicitudCuadroRRHH) GoString() string { return "[solicitud-cuadro-rrhh-redactada]" }
+func (s SolicitudCuadroRRHH) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, s.String())
+}
+func (s SolicitudCuadroRRHH) LogValue() slog.Value {
+	return slog.StringValue(s.String())
+}
 func (SolicitudCuadroRRHH) MarshalJSON() ([]byte, error) {
 	return nil, ErrMaterialConsultaRRHHSensible
+}
+
+func (p PaginaCuadroRRHH) Format(estado fmt.State, _ rune) {
+	_, _ = io.WriteString(estado, p.String())
+}
+func (p PaginaCuadroRRHH) LogValue() slog.Value {
+	return slog.StringValue(p.String())
 }
 
 type SolicitudDetalleRRHH struct {
