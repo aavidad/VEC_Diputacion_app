@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
+
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -71,6 +73,44 @@ func TestDecidirCoberturaConcesionAmbiguaReconciliaUnaVezSinRetry(
 		t.Fatal("se repitió Tx/VEC o no se consultó el primario una vez")
 	}
 	exigirCeroConsumoPreparacionGlobal(t, escenario.base.global)
+}
+
+func TestDecidirCoberturaSQLStateTransaccionalConsultaPrimarioSinRetry(
+	t *testing.T,
+) {
+	for _, codigo := range []string{"40001", "40P01"} {
+		t.Run(codigo, func(t *testing.T) {
+			escenario := nuevoEscenarioConfirmacionCobertura(t, false)
+			escenario.transaccion.errorRetorno = &pgconn.PgError{
+				Code: codigo,
+			}
+			_, err := escenario.servicio.Decidir(
+				context.Background(),
+				escenario.solicitud,
+			)
+			if !errors.Is(
+				err,
+				ErrConfirmacionDecisionCoberturaNoDisponible,
+			) {
+				t.Fatalf(
+					"SQLSTATE %s no quedó no concluyente: %v",
+					codigo,
+					err,
+				)
+			}
+			if escenario.transaccion.total() != 1 ||
+				escenario.reconciliador.total() != 1 ||
+				escenario.vec.total() != 1 {
+				t.Fatalf(
+					"SQLSTATE %s reintentó o no consultó una vez: tx=%d primario=%d VEC=%d",
+					codigo,
+					escenario.transaccion.total(),
+					escenario.reconciliador.total(),
+					escenario.vec.total(),
+				)
+			}
+		})
+	}
 }
 
 func TestDecidirCoberturaConcesionLigaReciboAplicadoExactoSinPersistencia(

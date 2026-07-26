@@ -24,7 +24,10 @@ func (t *transaccionConfirmacionPrueba) EjecutarSesionTCB(
 	if t.cancelar != nil {
 		t.cancelar()
 	}
-	if t.ambigua || t.errorRetorno != nil {
+	if t.errorRetorno != nil {
+		return t.errorRetorno
+	}
+	if t.ambigua {
 		return errors.New("respuesta perdida después del callback")
 	}
 	return nil
