@@ -37,11 +37,20 @@ type sesionControladaOperacionDecisionCobertura struct {
 // cancelación; rechaza operaciones nuevas y descarta la salida de cualquiera
 // que terminase después.
 type guardiaCicloSesionTCBOperacionDecisionCobertura struct {
-	retornada atomic.Bool
+	retornada             atomic.Bool
+	confirmacionIntentada atomic.Bool
 }
 
 func (g *guardiaCicloSesionTCBOperacionDecisionCobertura) marcarRetornoEjecutor() {
 	g.retornada.Store(true)
+}
+
+func (g *guardiaCicloSesionTCBOperacionDecisionCobertura) marcarConfirmacionIntentada() {
+	g.confirmacionIntentada.Store(true)
+}
+
+func (g *guardiaCicloSesionTCBOperacionDecisionCobertura) intentoConfirmar() bool {
+	return g != nil && g.confirmacionIntentada.Load()
 }
 
 func (g *guardiaCicloSesionTCBOperacionDecisionCobertura) delegar(
@@ -355,6 +364,10 @@ func (s *sesionControladaOperacionDecisionCobertura) aplicarConfirmacion(
 		DatosReciboSesionTCBOperacionDecisionCobertura,
 		error,
 	) {
+		// Desde este punto el adaptador puede haber alcanzado PostgreSQL. Un
+		// error o recibo inválido ya no prueba ausencia de COMMIT y obliga a
+		// reconciliar contra el primario sin reintentar la orden.
+		s.guardia.marcarConfirmacionIntentada()
 		return s.destino.Confirmar(ctx)
 	})
 	if err != nil {

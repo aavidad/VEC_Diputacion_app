@@ -56,7 +56,7 @@ func TestDecidirCoberturaRechazaCandidataVECAdulteradaAntesDeTx(
 	}
 }
 
-func TestDecidirCoberturaSalidaTCBInvalidaNoAlcanzaCommitNiPrimario(
+func TestDecidirCoberturaSalidaTCBInvalidaReconciliaSinReintentar(
 	t *testing.T,
 ) {
 	escenario := nuevoEscenarioConfirmacionCobertura(t, false)
@@ -69,8 +69,8 @@ func TestDecidirCoberturaSalidaTCBInvalidaNoAlcanzaCommitNiPrimario(
 		err,
 		ErrConfirmacionDecisionCoberturaNoDisponible,
 	) || escenario.transaccion.total() != 1 ||
-		escenario.reconciliador.total() != 0 {
-		t.Fatalf("la salida TCB inválida alcanzó COMMIT o primario: %v", err)
+		escenario.reconciliador.total() != 1 {
+		t.Fatalf("la salida TCB inválida no se reconcilió una sola vez: %v", err)
 	}
 }
 

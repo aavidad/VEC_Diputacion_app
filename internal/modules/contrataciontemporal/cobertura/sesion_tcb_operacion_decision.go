@@ -246,10 +246,11 @@ func (d DecisionVECSesionTCBOperacionDecisionCobertura) Datos() (
 
 type DatosConsumoC1SesionTCBOperacionDecisionCobertura struct {
 	bloqueoSerializacionOperacionDecisionCobertura
-	Posicion uint64
-	Total    uint64
-	Orden    puertosct.DatosOrdenConsumoCobertura
-	Resumen  puertosct.ResumenOrdenConsumoCobertura
+	Posicion         uint64
+	Total            uint64
+	Orden            puertosct.DatosOrdenConsumoCobertura
+	Resumen          puertosct.ResumenOrdenConsumoCobertura
+	PruebasCanonicas puertosct.PruebasCanonicasOrdenConsumoCobertura
 }
 
 type datosConsumoC1SesionTCBOperacionDecisionCobertura struct {
@@ -272,13 +273,16 @@ func (c ConsumoC1SesionTCBOperacionDecisionCobertura) Datos() (
 		return DatosConsumoC1SesionTCBOperacionDecisionCobertura{},
 			ErrSesionTCBOperacionDecisionCoberturaInvalida
 	}
-	orden, _ := c.datos.orden.Datos()
-	resumen, _ := c.datos.orden.ResumenPendienteEn(c.datos.instante)
+	orden, errOrden := c.datos.orden.Datos()
+	resumen, errResumen := c.datos.orden.ResumenPendienteEn(c.datos.instante)
+	pruebas, errPruebas := c.datos.orden.PruebasCanonicas()
+	if errOrden != nil || errResumen != nil || errPruebas != nil {
+		return DatosConsumoC1SesionTCBOperacionDecisionCobertura{},
+			ErrSesionTCBOperacionDecisionCoberturaInvalida
+	}
 	return DatosConsumoC1SesionTCBOperacionDecisionCobertura{
-		Posicion: c.datos.posicion,
-		Total:    c.datos.total,
-		Orden:    orden,
-		Resumen:  resumen,
+		Posicion: c.datos.posicion, Total: c.datos.total,
+		Orden: orden, Resumen: resumen, PruebasCanonicas: pruebas,
 	}, nil
 }
 
@@ -665,6 +669,8 @@ func (t *transaccionOperacionDecisionCoberturaTCB) confirmarOperacionDecisionCob
 	recibo, invocacionPublicable, ejecucionPotencialmenteEfectiva,
 		callbackPendiente :=
 		control.cerrar()
+	ejecucionPotencialmenteEfectiva =
+		ejecucionPotencialmenteEfectiva || guardia.intentoConfirmar()
 	if callbackPendiente {
 		return ResultadoConfirmacionOperacionDecisionCobertura{},
 			ErrEjecucionSesionTCBOperacionDecisionCoberturaNoDisponible
