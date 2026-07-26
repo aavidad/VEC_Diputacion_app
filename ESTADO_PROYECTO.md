@@ -1,11 +1,14 @@
 # Estado y plan de ataque del proyecto
 
-**Última actualización:** 20 de julio de 2026
+**Última actualización:** 26 de julio de 2026
 
-**Frente principal:** primera funcionalidad real de Bolsa
+**Frente principal:** completar las verticales reales de Bolsa y la adaptación
+de Contratación temporal solicitada por RRHH.
 
-**Frente paralelo:** importador gobernado de exportaciones Convoca, usando
-exclusivamente ficheros sintéticos hasta que sea seguro tratar datos reales.
+**Frentes paralelos actuales:** importador gobernado de Convoca, registro
+durable de accesos T13 y cierre del consumo C1 de la decisión de cobertura de
+Contratación temporal. Solo se usan datos sintéticos hasta cerrar las puertas
+de autorización, trazabilidad y protección de datos.
 
 **Objetivo actual:** crear y editar desde la web un borrador de convocatoria,
 guardarlo cifrado en PostgreSQL, recuperarlo después de reiniciar y obtener un
@@ -20,6 +23,24 @@ Los agentes adicionales deben seguir
 [ORQUESTACION_AGENTES.md](ORQUESTACION_AGENTES.md); allí se indican tareas
 ocupadas, trabajos libres, dependencias, límites de archivos y formato de
 entrega.
+
+### Corte operativo verificable del 26 de julio
+
+Los porcentajes oficiales no incorporan código local, contratos aislados ni
+pruebas parciales. Un corte solo aumenta el avance cuando supera PostgreSQL 18,
+revisión independiente, pruebas aplicables, commit y conexión al recorrido
+productivo.
+
+| Ámbito | Avance oficial | Trabajo activo todavía no computado |
+| --- | ---: | --- |
+| Bolsa productiva de extremo a extremo | **1 de 14 capacidades (7 %)** | Importador Convoca B1 y registro de accesos T13 B2. |
+| Contratación temporal | **18 de 46 tareas (39 %)** | O4-04D; después O4-04E completa el acto durable de cobertura. |
+| Presentación web | **Aproximadamente 90 % presentable** | No equivale a integración, aceptación de RRHH ni producción. |
+
+La única capacidad de Bolsa contada de extremo a extremo es la consulta
+pública: contrato, PostgreSQL 18, composición productiva y prueba técnica. La
+raíz interna continúa cerrada por diseño hasta recibir todas sus dependencias
+reales; no se sustituirán con indicadores booleanos ni adaptadores DEMO.
 
 ## Dónde estamos ahora
 
@@ -116,7 +137,7 @@ para evitar la sigla.
 
 | Capacidad | Contrato probado | Integrado | E2E técnico | Probable ahora | Aceptado RRHH | Producción |
 | --- | --- | --- | --- | --- | --- | --- |
-| Consulta pública de convocatorias | ✅ | 🧪 DEMO | 🧪 DEMO | ✅ DEMO | ❌ | ❌ |
+| Consulta pública de convocatorias | ✅ | ✅ PostgreSQL | ✅ Técnico | ✅ DEMO y prueba técnica | ❌ | ❌ No desplegada |
 | Panel interno agregado de Bolsa | ✅ | ❌ | ❌ | 🧪 Presentación | ❌ | ❌ |
 | Creación y edición de convocatorias | ✅ | 🚧 En curso | ❌ | 🧪 Presentación | ❌ | ❌ |
 | Publicación, sustitución y retirada | 🟡 Parcial | ❌ | ❌ | 🧪 Presentación | ❌ | ❌ |
@@ -178,6 +199,7 @@ Cada cierre debe actualizar, en este orden:
 
 | Fecha | Cambio |
 | --- | --- |
+| 26/07/2026 | Se fija la medida oficial: Bolsa 1/14 capacidades productivas E2E y Contratación temporal 18/46 tareas. Continúan sin computar B1 Convoca, B2/T13 y O4-04D hasta PostgreSQL 18, revisión cruzada, commit e integración. |
 | 20/07/2026 | Presentación RRHH pulida y revisada: 183/183 escenarios, 183 capturas y cero hallazgos. Corregidos directorio público, foco del recibo de llamamiento, tablas operativas, huellas sintéticas, separación Reglas/Baremación y composición de Reglas a 1024 px. Certificados PDF DEMO reales con QR opaco verificable y selector de cuatro perfiles probado. |
 | 19/07/2026 | Puerta cartográfica y visual cerrada: 174/174 escenarios correctos, 174 capturas y cero hallazgos sobre 36 vistas, 22 flujos y tres resoluciones; incluye ruta OSRM real y carga efectiva de teselas OSM internas. |
 | 19/07/2026 | Composición Docker de presentación ampliada a portal, mediador cartográfico, OSRM y teselas OSM internas: un único acceso por `127.0.0.1:8081` y datos cartográficos versionados. |
