@@ -6,8 +6,10 @@ Fecha: 26 de julio de 2026.
 
 La cápsula de ciclo de vida obtuvo `GO` y se publicó en `69b6a14`. La primera
 versión de la acreditación del pool PostgreSQL y la primera versión de las
-proyecciones de cuadro y detalle recibieron `NO-GO` independiente. No se
-integraron ni incrementaron el porcentaje funcional.
+proyecciones de cuadro y detalle recibieron `NO-GO` independiente. Las
+proyecciones corregidas superaron la reauditoría y se publicaron en
+`d6d1305`; la acreditación PostgreSQL permanece local y en corrección. Ningún
+corte incrementa por sí solo el porcentaje funcional.
 
 El contrato corregido está en
 [proyecciones RRHH](../proyecciones_rrhh_cuadro_detalle_contratacion_2026-07-26.md).
@@ -80,6 +82,25 @@ Condiciones de nueva revisión:
    documentos, textos libres y recibos internos;
 7. probar cruces de organización/ámbito, versión obsoleta, caducidad,
    serialización, orden y clonación defensiva.
+
+## Proyecciones RRHH corregidas: GO técnico
+
+El corte `d6d1305` incorpora:
+
+- contexto, capacidad y órdenes opacas, no serializables y ligados a actor,
+  sesión, perfil, organización, ámbito, acción, finalidad y vigencia;
+- cuadro con filtros, orden, paginación, ámbito y recibo durable revalidados;
+- detalle minimizado de solicitud, análisis, coste, cobertura, comprobaciones,
+  asignación e hitos, sin actores, contactos, DNI, documentos ni textos libres;
+- recibo interno excluido del JSON y no serializable;
+- máscara y vínculos privados de fases;
+- huella SHA-256 canónica privada de todo el contenido público del detalle,
+  comparada en tiempo constante para rechazar cualquier mutación posterior.
+
+La revisión independiente reprodujo pruebas focales, detector de carreras,
+`go vet`, comprobación del diff y cien repeticiones adversarias. El `GO`
+acredita el contrato en memoria de `ports/application`; no acredita todavía
+PDP, identidad, PostgreSQL, HTTP ni E2E productivos.
 
 ## Métrica
 

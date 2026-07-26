@@ -13,8 +13,8 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último commit funcional verificado: `023b890`.
-- Último commit de calidad del corte: `cdea9cf`.
+- Último commit funcional verificado: `d6d1305`.
+- Último commit de documentación y revisión: `b090ba5`.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
 
@@ -89,7 +89,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; 378 pruebas web, suite Go y revisiones independientes verdes. Falta conexión productiva. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14` y proyecciones protegidas de cuadro/detalle `d6d1305` con GO independiente. La interfaz permanece igual. Faltan dependencias reales de raíz, catálogos y E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -256,8 +256,8 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Crear las proyecciones protegidas mínimas de cuadro, expediente, catálogos
-   y capacidades que necesita el coordinador web.
+1. Completar las proyecciones gobernadas de catálogos que necesita el
+   coordinador web; cuadro, detalle y capacidades ya están en `d6d1305`.
 2. Crear la consulta protegida de recuperación de recibo para
    `operacion_pendiente`.
 3. Componer la raíz interna con frontera corporativa y dependencias reales,

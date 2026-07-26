@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | O4-05 composición raíz con dependencias reales → proyecciones protegidas → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 19 de 46 tareas cerradas (41 %); O4-04 tiene doble `GO` independiente |
-| Último commit verificado | `69b6a14` — cápsula de ciclo de vida productivo con propiedad exclusiva y `GO` independiente |
-| Trabajo local en revisión | La acreditación por conexión del lector PostgreSQL y las proyecciones mínimas de cuadro/detalle están en corrección tras sendos `NO-GO`; composición de dependencias y E2E HTTP permanecen abiertos. |
+| Último commit verificado | `d6d1305` — proyecciones protegidas y minimizadas de cuadro/detalle RRHH con `GO` independiente |
+| Trabajo local en revisión | La acreditación por conexión del lector PostgreSQL está en corrección tras un `NO-GO` técnico; composición de dependencias, catálogos y E2E HTTP permanecen abiertos. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -211,9 +211,9 @@ Estado actual:
 O2: 3/7 puertas funcionales publicadas = 43 %
 Tareas verificadas del procedimiento: 19/46 = 41 %
 Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 conserva 3/5 hitos
-  oficiales: adaptador, HTTP, cliente y registro modular de recuperación están
-  verdes de forma aislada, pero raíz productiva, proyecciones y E2E siguen
-  abiertos
+  oficiales: adaptador, HTTP, cliente, registro modular y proyecciones
+  protegidas de cuadro/detalle están verdes de forma aislada, pero raíz
+  productiva, catálogos y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 
