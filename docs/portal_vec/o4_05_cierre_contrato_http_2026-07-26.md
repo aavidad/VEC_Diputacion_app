@@ -51,3 +51,7 @@ raíz de composición, la frontera mTLS/Kerberos, los pools PostgreSQL de mínim
 privilegio, el cliente web, la recuperación protegida de recibos y el E2E
 productivo. Hasta cerrar esos cortes, `cmd/vec-interno` debe seguir fallando
 cerrado.
+
+El siguiente corte mecánico ya registra los manejadores de forma atómica detrás
+de una autoridad obligatoria. Su alcance y límites constan en
+[O4-05: registro seguro de rutas y composición](o4_05_registro_rutas_y_composicion_2026-07-26.md).

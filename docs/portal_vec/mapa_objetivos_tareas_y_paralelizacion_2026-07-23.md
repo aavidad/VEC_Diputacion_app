@@ -15,7 +15,7 @@ temporal. El detalle verificable de cada tarea está en el
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 19 de 46 tareas cerradas (41 %); O4-04 tiene doble `GO` independiente |
 | Último commit verificado | `1a764cf` — contrato HTTP O4-05 bajo `/api/vec`, con `GO` independiente |
-| Trabajo local en revisión | Segundo corte O4-05: composición productiva, registro de rutas y frontera corporativa; permanece cerrada hasta disponer de todas las dependencias. |
+| Trabajo local en revisión | Segundo corte O4-05 con `GO` mecánico: registro de rutas y composición atómica terminados; C5 y la composición productiva permanecen cerrados hasta disponer de todas las dependencias. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -210,7 +210,8 @@ Estado actual:
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
 Tareas verificadas del procedimiento: 19/46 = 41 %
-Tareas locales en revisión: candidatas O2-06/O5-01 y composición O4-05
+Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 tiene registro
+  mecánico, pero C5, cliente y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 
