@@ -89,7 +89,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04` y fundamento tipado VEC-AD-3 `2a9ddb1` con GO técnico independiente. La interfaz permanece igual. Faltan migrar la capacidad RRHH, proyecciones PostgreSQL de cuadro/detalle con registro de acceso, identidad, raíz, matriz TLS viva y E2E. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. La interfaz permanece igual. Faltan el consumidor PostgreSQL de cuadro/detalle con registro de acceso, identidad, raíz, matriz TLS viva y E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -561,6 +561,14 @@ exclusiva del servidor y sus recursos, apagado limitado por contexto y cierre
 inverso, idempotente y saneado. La revisión independiente ejecutó pruebas
 normales, detector de carreras, `go vet` y cincuenta repeticiones de estrés.
 Este corte prepara la raíz, pero no inyecta aún pools ni proveedores reales.
+
+El contrato Go de cuadro y detalle RRHH ya ha sido migrado a VEC-AD-3 con
+`GO` técnico independiente. Cada consulta tiene acción, audiencia, recurso y
+huella funcional propios; las diez piezas probatorias solo se exportan desde
+la orden nominal revalidada. Queda pendiente el consumidor PostgreSQL que
+verifique y consuma esas piezas, lea la proyección y registre el acceso en una
+misma transacción. La función de confirmación de alta no se reutiliza ni se
+generaliza.
 
 El procedimiento conserva **19 de 46 tareas verificadas (41 %)**. Esto no
 autoriza aún la ruta web productiva: faltan la raíz productiva, las

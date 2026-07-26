@@ -216,9 +216,11 @@ invocación y ataques reales sobre función, ACL y membresías. Esos cortes no
 sustituyen las proyecciones de cuadro/detalle ni acreditan TLS productivo.
 
 `2a9ddb1` cierra el fundamento tipado para cruzar una capacidad VEC-AD-3 sin
-reinterpretar su JSON privado. Sigue pendiente migrar `CapacidadConsultaRRHH`
-y consumir la exportación original dentro de la misma transacción que lee y
-audita; el resumen no es una autoridad.
+reinterpretar su JSON privado. La
+[migración del contrato de consulta RRHH](o4_05_migracion_capacidad_consulta_rrhh_v3_2026-07-26.md)
+liga después cuadro y detalle a órdenes, audiencias y recursos nominales
+separados. Sigue pendiente consumir la exportación original dentro de la misma
+transacción que lee y audita; el resumen Go no es una autoridad.
 
 El [conjunto probatorio completo VEC-AD-3](o4_05_conjunto_probatorio_vec_ad3_2026-07-26.md)
 añade después una única instantánea opaca con las diez entradas exigidas por

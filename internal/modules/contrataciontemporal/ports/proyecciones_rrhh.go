@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 const (
@@ -72,39 +73,105 @@ func (c ClaseAmbitoConsultaRRHH) valida() bool {
 // ContextoConsultaRRHH solo puede proceder de una autoridad ligada al canal.
 // Sus campos son privados, no se serializa y su representación está redactada.
 type ContextoConsultaRRHH struct {
-	autenticacionRef string
-	sesionRef        string
-	actorRef         string
-	perfilRef        string
-	organizacionRef  string
-	resueltoEn       time.Time
-	validoHasta      time.Time
+	bloqueoSerializacionConsultaRRHH
+	autenticacionRef    string
+	autenticacionHuella string
+	sesionRef           string
+	actorRef            string
+	perfilRef           string
+	registroContextoRef string
+	contextoActorHuella string
+	organizacionRef     string
+	resueltoEn          time.Time
+	validoHasta         time.Time
 }
 
 func NuevoContextoConsultaRRHH(
-	autenticacionRef, sesionRef, actorRef, perfilRef, organizacionRef string,
-	resueltoEn, validoHasta time.Time,
+	autoridad ContextoAutorizacionAltaV3,
+	organizacionRef string,
+	instante time.Time,
 ) (ContextoConsultaRRHH, error) {
-	c := ContextoConsultaRRHH{
-		autenticacionRef: autenticacionRef,
-		sesionRef:        sesionRef,
-		actorRef:         actorRef,
-		perfilRef:        perfilRef,
-		organizacionRef:  organizacionRef,
-		resueltoEn:       resueltoEn,
-		validoHasta:      validoHasta,
+	datosVinculo, err := autoridad.Vinculo.Datos()
+	solicitud := SolicitudResolverContextoAutorizacionAltaV3{
+		AutenticacionRef: datosVinculo.AutenticacionRef,
+		SesionRef:        datosVinculo.SesionRef,
+		PerfilRef:        datosVinculo.PerfilActivoRef,
 	}
-	if c.validarEn(resueltoEn) != nil {
+	if err != nil || autoridad.ValidarPara(solicitud, instante) != nil ||
+		!domain.ReferenciaOpacaValida(organizacionRef) {
+		return ContextoConsultaRRHH{}, ErrContextoConsultaRRHHInvalido
+	}
+	resultado, err := autoridad.Resultado.Clonar()
+	if err != nil {
+		return ContextoConsultaRRHH{}, ErrContextoConsultaRRHHInvalido
+	}
+	validoHasta := limiteVigenciaContextoConsultaRRHH(datosVinculo, resultado)
+	resueltoEn := inicioVigenciaContextoConsultaRRHH(datosVinculo, resultado)
+	c := ContextoConsultaRRHH{
+		autenticacionRef:    datosVinculo.AutenticacionRef,
+		autenticacionHuella: datosVinculo.AutenticacionHuellaSHA256,
+		sesionRef:           datosVinculo.SesionRef,
+		actorRef:            datosVinculo.PrincipalID,
+		perfilRef:           datosVinculo.PerfilActivoRef,
+		registroContextoRef: resultado.RegistroContextoRef,
+		contextoActorHuella: resultado.HuellaSHA256,
+		organizacionRef:     organizacionRef,
+		resueltoEn:          resueltoEn,
+		validoHasta:         validoHasta,
+	}
+	if c.validarEn(instante) != nil {
 		return ContextoConsultaRRHH{}, ErrContextoConsultaRRHHInvalido
 	}
 	return c, nil
 }
 
+func inicioVigenciaContextoConsultaRRHH(
+	vinculo dominiovec.DatosVinculoAutenticacionActorV2,
+	resultado dominiovec.ResultadoContextoActorRegistradoV2,
+) time.Time {
+	inicio := resultado.ResueltoEnAutoritativo
+	for _, candidato := range []time.Time{
+		vinculo.AutenticacionVerificadaEn,
+		vinculo.SesionEmitidaEn,
+		vinculo.SesionRevalidadaEn,
+		resultado.Contexto.Instantanea.VigenteDesde,
+	} {
+		if candidato.After(inicio) {
+			inicio = candidato
+		}
+	}
+	for _, referencia := range resultado.Contexto.Instantanea.Vinculos {
+		if referencia.VigenteDesde.After(inicio) {
+			inicio = referencia.VigenteDesde
+		}
+	}
+	return inicio
+}
+
+func limiteVigenciaContextoConsultaRRHH(
+	vinculo dominiovec.DatosVinculoAutenticacionActorV2,
+	resultado dominiovec.ResultadoContextoActorRegistradoV2,
+) time.Time {
+	limite := vinculo.SesionValidaHasta
+	if resultado.Contexto.Instantanea.VigenteHasta.Before(limite) {
+		limite = resultado.Contexto.Instantanea.VigenteHasta
+	}
+	for _, referencia := range resultado.Contexto.Instantanea.Vinculos {
+		if referencia.VigenteHasta.Before(limite) {
+			limite = referencia.VigenteHasta
+		}
+	}
+	return limite
+}
+
 func (c ContextoConsultaRRHH) validarEn(instante time.Time) error {
 	if !domain.ReferenciaOpacaValida(c.autenticacionRef) ||
+		!patronHuellaRRHH.MatchString(c.autenticacionHuella) ||
 		!domain.ReferenciaOpacaValida(c.sesionRef) ||
 		!domain.ReferenciaOpacaValida(c.actorRef) ||
 		!domain.ReferenciaOpacaValida(c.perfilRef) ||
+		!domain.ReferenciaOpacaValida(c.registroContextoRef) ||
+		!patronHuellaRRHH.MatchString(c.contextoActorHuella) ||
 		!domain.ReferenciaOpacaValida(c.organizacionRef) ||
 		!domain.InstanteUTCCanonico(c.resueltoEn) ||
 		!domain.InstanteUTCCanonico(c.validoHasta) ||
@@ -123,11 +190,6 @@ func (c ContextoConsultaRRHH) PerfilRef() string        { return c.perfilRef }
 func (c ContextoConsultaRRHH) OrganizacionRef() string  { return c.organizacionRef }
 func (c ContextoConsultaRRHH) ResueltoEn() time.Time    { return c.resueltoEn }
 func (c ContextoConsultaRRHH) ValidoHasta() time.Time   { return c.validoHasta }
-func (ContextoConsultaRRHH) String() string             { return "[contexto-consulta-rrhh-redactado]" }
-func (ContextoConsultaRRHH) GoString() string           { return "[contexto-consulta-rrhh-redactado]" }
-func (ContextoConsultaRRHH) MarshalJSON() ([]byte, error) {
-	return nil, ErrMaterialConsultaRRHHSensible
-}
 
 type SolicitudCuadroRRHH struct {
 	texto       string
@@ -180,8 +242,11 @@ func (s SolicitudCuadroRRHH) EstadoClave() domain.EstadoOperativo { return s.est
 func (s SolicitudCuadroRRHH) FaseClave() domain.ClaveFase         { return s.faseClave }
 func (s SolicitudCuadroRRHH) Limite() uint16                      { return s.limite }
 func (s SolicitudCuadroRRHH) Cursor() string                      { return s.cursor }
-func (SolicitudCuadroRRHH) String() string                        { return "[solicitud-cuadro-rrhh-redactada]" }
-func (SolicitudCuadroRRHH) GoString() string                      { return "[solicitud-cuadro-rrhh-redactada]" }
+func (s SolicitudCuadroRRHH) HuellaCanonicaSHA256() (string, error) {
+	return huellaSolicitudCuadroRRHH(s)
+}
+func (SolicitudCuadroRRHH) String() string   { return "[solicitud-cuadro-rrhh-redactada]" }
+func (SolicitudCuadroRRHH) GoString() string { return "[solicitud-cuadro-rrhh-redactada]" }
 func (SolicitudCuadroRRHH) MarshalJSON() ([]byte, error) {
 	return nil, ErrMaterialConsultaRRHHSensible
 }
@@ -217,8 +282,11 @@ func (s SolicitudDetalleRRHH) validar() error {
 
 func (s SolicitudDetalleRRHH) ExpedienteRef() string    { return s.expedienteRef }
 func (s SolicitudDetalleRRHH) VersionObservada() uint64 { return s.versionObservada }
-func (SolicitudDetalleRRHH) String() string             { return "[solicitud-detalle-rrhh-redactada]" }
-func (SolicitudDetalleRRHH) GoString() string           { return "[solicitud-detalle-rrhh-redactada]" }
+func (s SolicitudDetalleRRHH) HuellaCanonicaSHA256() (string, error) {
+	return huellaSolicitudDetalleRRHH(s)
+}
+func (SolicitudDetalleRRHH) String() string   { return "[solicitud-detalle-rrhh-redactada]" }
+func (SolicitudDetalleRRHH) GoString() string { return "[solicitud-detalle-rrhh-redactada]" }
 func (SolicitudDetalleRRHH) MarshalJSON() ([]byte, error) {
 	return nil, ErrMaterialConsultaRRHHSensible
 }

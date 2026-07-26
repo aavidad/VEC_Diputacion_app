@@ -49,6 +49,7 @@ llamamientos.
 - [Registro seguro de rutas y composición O4-05](docs/portal_vec/o4_05_registro_rutas_y_composicion_2026-07-26.md)
 - [Cliente web HTTP seguro O4-05](docs/portal_vec/o4_05_cliente_web_http_seguro_2026-07-26.md)
 - [Recuperación protegida del resultado de cobertura O4-05](docs/portal_vec/o4_05_consulta_resultado_cobertura_2026-07-26.md)
+- [Migración de la capacidad de consulta RRHH a VEC-AD-3](docs/portal_vec/o4_05_migracion_capacidad_consulta_rrhh_v3_2026-07-26.md)
 - [Contrato de proyecciones reales del cuadro y detalle RRHH](docs/portal_vec/proyecciones_rrhh_cuadro_detalle_contratacion_2026-07-26.md)
 - [Revisión de raíz, pool y proyecciones O4-05](docs/portal_vec/revisiones/o4_05_revision_raiz_pool_y_proyecciones_2026-07-26.md)
 - [Mapa de cableado productivo O4-05](docs/portal_vec/o4_05_mapa_cableado_productivo_2026-07-26.md)

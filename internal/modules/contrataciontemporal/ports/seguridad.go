@@ -19,6 +19,7 @@ const (
 	FinalidadCrearSolicitud          = "tramitar_necesidad_personal_temporal"
 	ModuloContratacion               = "contratacion_temporal"
 	TipoRecursoExpediente            = "expediente_contratacion_temporal"
+	TipoRecursoCuadroRRHH            = "cuadro_rrhh_contratacion_temporal"
 	AtributoHuellaPeticionHMACActiva = "huella_peticion_hmac_activa"
 )
 

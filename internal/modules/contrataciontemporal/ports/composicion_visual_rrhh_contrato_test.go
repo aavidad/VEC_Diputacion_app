@@ -83,30 +83,18 @@ func TestCapacidadComposicionVisualQuedaLigadaAVersionAmbitoYVigencia(
 	); !errors.Is(err, ports.ErrOrdenComposicionVisualRRHHInvalida) {
 		t.Fatalf("capacidad aceptada para otra versión: %v", err)
 	}
-	otroContexto, err := ports.NuevoContextoConsultaRRHH(
-		entorno.contexto.AutenticacionRef(), entorno.contexto.SesionRef(),
-		entorno.contexto.ActorRef(), "perfil:rrhh:otro",
-		entorno.contexto.OrganizacionRef(), entorno.ahora,
-		entorno.ahora.Add(10*time.Minute),
+	otroContexto := contextoPuertosRRHHConMarcas(
+		t, entorno.ahora, "a", "b", entorno.contexto.OrganizacionRef(),
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if _, err = ports.NuevaOrdenConsultaComposicionVisualRRHH(
 		otroContexto, entorno.capacidad, entorno.vocabulario,
 		entorno.solicitud, entorno.ahora,
 	); !errors.Is(err, ports.ErrOrdenComposicionVisualRRHHInvalida) {
 		t.Fatalf("capacidad aceptada para otro perfil: %v", err)
 	}
-	otraOrganizacion, err := ports.NuevoContextoConsultaRRHH(
-		entorno.contexto.AutenticacionRef(), entorno.contexto.SesionRef(),
-		entorno.contexto.ActorRef(), entorno.contexto.PerfilRef(),
-		"organizacion:otra", entorno.ahora,
-		entorno.ahora.Add(10*time.Minute),
+	otraOrganizacion := contextoPuertosRRHHConMarcas(
+		t, entorno.ahora, "a", "a", "organizacion:otra",
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if _, err = ports.NuevaOrdenConsultaComposicionVisualRRHH(
 		otraOrganizacion, entorno.capacidad, entorno.vocabulario,
 		entorno.solicitud, entorno.ahora,

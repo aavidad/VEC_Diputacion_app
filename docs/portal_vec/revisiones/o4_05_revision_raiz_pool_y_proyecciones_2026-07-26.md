@@ -185,6 +185,48 @@ Pruebas focales, matriz de codecs y registros, detector de carreras,
 fundamento aislado. No corrige todavía `CapacidadConsultaRRHH`, no cierra C2 y
 no incrementa la métrica funcional.
 
+## Migración de consultas RRHH a VEC-AD-3: GO técnico
+
+La revisión independiente concedió `GO` para integrar el contrato Go de
+consultas RRHH V3 y mantuvo expresamente el `NO-GO` productivo. La primera
+propuesta fue rechazada porque cuadro y detalle compartían audiencia y porque
+el material probatorio podía exportarse antes de ligarse a la consulta
+funcional exacta.
+
+El candidato corregido:
+
+- separa acción, audiencia y tipo de recurso de cuadro y detalle;
+- deriva el contexto únicamente de la autoridad V3 ligada al canal;
+- conserva y coteja las diez piezas VEC-AD-3 sin reinterpretar su JSON;
+- calcula el comienzo de vigencia como máximo y el final como mínimo de todas
+  las fuentes autoritativas;
+- liga capacidad y recibo a decisión, conjunto probatorio, consulta, ámbito,
+  sesión, finalidad, expediente y versión;
+- solo permite exportar hacia SQL desde una orden nominal que recalcula la
+  huella funcional;
+- bloquea serialización, formato y registro accidental de material sensible.
+
+La matriz independiente repitió:
+
+```text
+go test -count=1 ./internal/modules/contrataciontemporal/ports \
+  ./internal/modules/contrataciontemporal/application
+go test -race -count=1 ./internal/modules/contrataciontemporal/ports \
+  ./internal/modules/contrataciontemporal/application
+go vet ./internal/modules/contrataciontemporal/ports \
+  ./internal/modules/contrataciontemporal/application
+```
+
+También se probaron conjuntamente los puertos VEC y el adaptador concreto de
+confianza atestada. Formato y `git diff --check` quedaron verdes. Las pruebas
+hostiles rechazan cruces de audiencia, acción, recurso, referencia, huella y
+caducidad, además de comprobar que material y capacidad aislados no tienen una
+API pública de exportación SQL.
+
+El riesgo residual es deliberado y visible: aún no existe el consumidor C2 de
+PostgreSQL. Este deberá recibir la orden nominal, revalidar el tiempo en la
+base de datos y consumir, leer y auditar en una única transacción.
+
 ## Métrica
 
 El procedimiento permanece en `19/46` tareas verificadas, un 41 %. O4-05

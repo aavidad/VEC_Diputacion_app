@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -104,6 +103,13 @@ func TestConsultaDetalleRRHHComparaVersionObservada(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			entorno.detalle = solicitud
+			configurarAmbitoDetalleRRHH(
+				t,
+				entorno,
+				ports.AmbitoOrganizacionRRHH,
+				entorno.contexto.OrganizacionRef(),
+			)
 			_, err = servicioDetalleRRHHPrueba(t, entorno).Consultar(
 				context.Background(), solicitud,
 			)
@@ -284,15 +290,14 @@ func configurarAmbitoCuadroRRHH(
 	total uint16,
 ) {
 	t.Helper()
-	capacidad, err := ports.NuevaCapacidadConsultaRRHH(
-		"decision:rrhh:ambito", "correlacion:rrhh:ambito",
-		"motivo:rrhh:ambito", entorno.contexto, clase, ambitoRef,
-		ports.AccionConsultarCuadroRRHH, ports.FinalidadConsultarCuadroRRHH, "",
-		entorno.ahora, entorno.ahora.Add(time.Minute),
+	capacidad := capacidadConsultaCuadroRRHHV3Prueba(
+		t,
+		entorno.contexto,
+		entorno.cuadro,
+		entorno.ahora,
+		clase,
+		ambitoRef,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
 	entorno.autorizador.capacidadCuadro = capacidad
 	entorno.sesion.pagina.Lectura = reciboConsultaRRHHPrueba(
 		t, entorno.contexto, capacidad, entorno.ahora, "", 0, total,
@@ -306,17 +311,14 @@ func configurarAmbitoDetalleRRHH(
 	ambitoRef string,
 ) {
 	t.Helper()
-	capacidad, err := ports.NuevaCapacidadConsultaRRHH(
-		"decision:rrhh:ambito", "correlacion:rrhh:ambito",
-		"motivo:rrhh:ambito", entorno.contexto, clase, ambitoRef,
-		ports.AccionConsultarDetalleRRHH,
-		ports.FinalidadConsultarDetalleRRHH,
-		entorno.detalle.ExpedienteRef(),
-		entorno.ahora, entorno.ahora.Add(time.Minute),
+	capacidad := capacidadConsultaDetalleRRHHV3Prueba(
+		t,
+		entorno.contexto,
+		entorno.detalle,
+		entorno.ahora,
+		clase,
+		ambitoRef,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
 	entorno.autorizador.capacidadDetalle = capacidad
 	entorno.sesion.detalle.Lectura = reciboConsultaRRHHPrueba(
 		t, entorno.contexto, capacidad, entorno.ahora,

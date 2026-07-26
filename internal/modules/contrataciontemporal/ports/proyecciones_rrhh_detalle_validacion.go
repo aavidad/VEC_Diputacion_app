@@ -96,7 +96,8 @@ func (d DetalleExpedienteRRHH) ValidarPara(
 	solicitud := orden.solicitud
 	if solicitud.validar() != nil ||
 		orden.capacidad.validaPara(
-			orden.contexto, AccionConsultarDetalleRRHH,
+			orden.contexto, DominioHuellaConsultaDetalleRRHH,
+			orden.consultaHuella, AccionConsultarDetalleRRHH,
 			FinalidadConsultarDetalleRRHH,
 			solicitud.expedienteRef, orden.instante,
 		) != nil ||

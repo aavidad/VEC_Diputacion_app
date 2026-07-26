@@ -72,9 +72,14 @@ func (r ResumenExpedienteRRHH) cumpleAmbito(
 // ReciboLecturaRRHH es evidencia interna sellada. Sus identificadores de
 // auditoría, decisión, sesión y ámbito nunca se serializan ni se representan.
 type ReciboLecturaRRHH struct {
+	bloqueoSerializacionConsultaRRHH
 	lecturaRef      string
 	auditoriaRef    string
 	decisionRef     string
+	decisionHuella  string
+	capacidadHuella string
+	materialHuella  string
+	consultaHuella  string
 	correlacionRef  string
 	sesionRef       string
 	organizacionRef string
@@ -100,15 +105,18 @@ func NuevoReciboLecturaRRHH(
 	recibo := ReciboLecturaRRHH{
 		lecturaRef: lecturaRef, auditoriaRef: auditoriaRef,
 		decisionRef: capacidad.decisionRef, correlacionRef: capacidad.correlacionRef,
-		sesionRef: contexto.sesionRef, organizacionRef: contexto.organizacionRef,
+		decisionHuella: capacidad.decisionHuella, capacidadHuella: capacidad.capacidadHuella,
+		materialHuella: capacidad.materialHuella,
+		consultaHuella: capacidad.consultaHuella,
+		sesionRef:      contexto.sesionRef, organizacionRef: contexto.organizacionRef,
 		claseAmbito: capacidad.claseAmbito, ambitoRef: capacidad.ambitoRef,
 		accion: capacidad.accion, finalidad: capacidad.finalidad,
 		expedienteRef: expedienteRef, version: version,
 		totalPublicado: totalPublicado, registradaEn: registradaEn,
 	}
 	if capacidad.validaPara(
-		contexto, capacidad.accion, capacidad.finalidad,
-		expedienteRef, registradaEn,
+		contexto, capacidad.consultaDominio, capacidad.consultaHuella,
+		capacidad.accion, capacidad.finalidad, expedienteRef, registradaEn,
 	) != nil || recibo.validar() != nil {
 		return ReciboLecturaRRHH{}, ErrResultadoConsultaRRHHNoConfiable
 	}
@@ -127,6 +135,10 @@ func (r ReciboLecturaRRHH) validar() error {
 	if !domain.ReferenciaOpacaValida(r.lecturaRef) ||
 		!domain.ReferenciaOpacaValida(r.auditoriaRef) ||
 		!domain.ReferenciaOpacaValida(r.decisionRef) ||
+		!patronHuellaRRHH.MatchString(r.decisionHuella) ||
+		!patronHuellaRRHH.MatchString(r.capacidadHuella) ||
+		!patronHuellaRRHH.MatchString(r.materialHuella) ||
+		!patronHuellaRRHH.MatchString(r.consultaHuella) ||
 		!domain.ReferenciaOpacaValida(r.correlacionRef) ||
 		!domain.ReferenciaOpacaValida(r.sesionRef) ||
 		!domain.ReferenciaOpacaValida(r.organizacionRef) ||
@@ -148,9 +160,14 @@ func (r ReciboLecturaRRHH) coincideCon(
 ) bool {
 	return r.validar() == nil &&
 		capacidad.validaPara(
-			contexto, r.accion, r.finalidad, expedienteRef, r.registradaEn,
+			contexto, capacidad.consultaDominio, r.consultaHuella,
+			r.accion, r.finalidad, expedienteRef, r.registradaEn,
 		) == nil &&
 		r.decisionRef == capacidad.decisionRef &&
+		r.decisionHuella == capacidad.decisionHuella &&
+		r.capacidadHuella == capacidad.capacidadHuella &&
+		r.materialHuella == capacidad.materialHuella &&
+		r.consultaHuella == capacidad.consultaHuella &&
 		r.correlacionRef == capacidad.correlacionRef &&
 		r.sesionRef == contexto.sesionRef &&
 		r.organizacionRef == contexto.organizacionRef &&
@@ -164,15 +181,24 @@ func (r ReciboLecturaRRHH) coincideCon(
 
 func (r ReciboLecturaRRHH) ExpedienteRef() string { return r.expedienteRef }
 func (r ReciboLecturaRRHH) Version() uint64       { return r.version }
+func (r ReciboLecturaRRHH) DecisionHuellaSHA256() string {
+	return r.decisionHuella
+}
+func (r ReciboLecturaRRHH) CapacidadHuellaSHA256() string {
+	return r.capacidadHuella
+}
+func (r ReciboLecturaRRHH) MaterialHuellaSHA256() string {
+	return r.materialHuella
+}
+func (r ReciboLecturaRRHH) ConsultaHuellaSHA256() string {
+	return r.consultaHuella
+}
 func (r ReciboLecturaRRHH) TotalPublicado() uint16 {
 	return r.totalPublicado
 }
 func (r ReciboLecturaRRHH) RegistradaEn() time.Time { return r.registradaEn }
 func (ReciboLecturaRRHH) String() string            { return "[recibo-lectura-rrhh-redactado]" }
 func (ReciboLecturaRRHH) GoString() string          { return "[recibo-lectura-rrhh-redactado]" }
-func (ReciboLecturaRRHH) MarshalJSON() ([]byte, error) {
-	return nil, ErrMaterialConsultaRRHHSensible
-}
 
 type PaginaCuadroRRHH struct {
 	GeneradaEn      time.Time               `json:"generada_en"`
@@ -186,7 +212,8 @@ func (p PaginaCuadroRRHH) ValidarPara(orden OrdenConsultaCuadroRRHH) error {
 	solicitud := orden.solicitud
 	if solicitud.validar() != nil ||
 		orden.capacidad.validaPara(
-			orden.contexto, AccionConsultarCuadroRRHH,
+			orden.contexto, DominioHuellaConsultaCuadroRRHH,
+			orden.consultaHuella, AccionConsultarCuadroRRHH,
 			FinalidadConsultarCuadroRRHH, "", orden.instante,
 		) != nil ||
 		!domain.InstanteUTCCanonico(p.GeneradaEn) ||

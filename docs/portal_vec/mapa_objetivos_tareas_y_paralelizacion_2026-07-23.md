@@ -212,8 +212,9 @@ O2: 3/7 puertas funcionales publicadas = 43 %
 Tareas verificadas del procedimiento: 19/46 = 41 %
 Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 conserva 3/5 hitos
   oficiales: adaptador, HTTP, cliente, registro modular, proyecciones
-  protegidas de cuadro/detalle y composición visual gobernada están verdes de
-  forma aislada, pero raíz productiva, adaptadores reales y E2E siguen abiertos
+  protegidas de cuadro/detalle, contrato de consulta RRHH VEC-AD-3 y
+  composición visual gobernada están verdes de forma aislada, pero consumidor
+  PostgreSQL, raíz productiva, adaptadores reales y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

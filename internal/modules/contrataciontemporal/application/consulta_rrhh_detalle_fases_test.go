@@ -206,23 +206,36 @@ func TestDetalleRRHHAceptaReasignacionLigadaAlHitoVigente(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reasignar: %v", err)
 	}
-	recibo := reciboConsultaRRHHPrueba(
-		t, entorno.contexto, entorno.autorizador.capacidadDetalle,
-		instante, actualizado.Referencia, actualizado.Version, 1,
-	)
-	detalle, err := ports.NuevoDetalleExpedienteRRHH(actualizado, recibo)
-	if err != nil {
-		t.Fatalf("proyectar reasignación: %v", err)
-	}
 	solicitud, err := ports.NuevaSolicitudDetalleRRHH(
 		actualizado.Referencia, actualizado.Version,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
+	contexto := contextoConsultaRRHHV3Prueba(t, instante)
+	capacidad := capacidadConsultaDetalleRRHHV3Prueba(
+		t,
+		contexto,
+		solicitud,
+		instante,
+		ports.AmbitoOrganizacionRRHH,
+		contexto.OrganizacionRef(),
+	)
+	recibo := reciboConsultaRRHHPrueba(
+		t, contexto, capacidad,
+		instante, actualizado.Referencia, actualizado.Version, 1,
+	)
+	detalle, err := ports.NuevoDetalleExpedienteRRHH(actualizado, recibo)
+	if err != nil {
+		t.Fatalf("proyectar reasignación: %v", err)
+	}
 	entorno.expediente = actualizado
+	entorno.contexto = contexto
+	entorno.autoridad.contexto = contexto
 	entorno.sesion.detalle = detalle
 	entorno.detalle = solicitud
+	entorno.autorizador.capacidadDetalle = capacidad
+	entorno.reloj.instante = instante
 	if _, err = servicioDetalleRRHHPrueba(t, entorno).Consultar(
 		context.Background(), solicitud,
 	); err != nil {
@@ -300,23 +313,32 @@ func configurarDetalleCompletoRRHHPrueba(
 	if err != nil {
 		t.Fatalf("registrar asignación: %v", err)
 	}
-	recibo := reciboConsultaRRHHPrueba(
-		t, entorno.contexto, entorno.autorizador.capacidadDetalle,
-		entorno.ahora, expediente.Referencia, expediente.Version, 1,
-	)
-	detalle, err := ports.NuevoDetalleExpedienteRRHH(expediente, recibo)
-	if err != nil {
-		t.Fatalf("proyectar detalle completo: %v", err)
-	}
 	solicitud, err := ports.NuevaSolicitudDetalleRRHH(
 		expediente.Referencia, expediente.Version,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
+	capacidad := capacidadConsultaDetalleRRHHV3Prueba(
+		t,
+		entorno.contexto,
+		solicitud,
+		entorno.ahora,
+		ports.AmbitoOrganizacionRRHH,
+		entorno.contexto.OrganizacionRef(),
+	)
+	recibo := reciboConsultaRRHHPrueba(
+		t, entorno.contexto, capacidad,
+		entorno.ahora, expediente.Referencia, expediente.Version, 1,
+	)
+	detalle, err := ports.NuevoDetalleExpedienteRRHH(expediente, recibo)
+	if err != nil {
+		t.Fatalf("proyectar detalle completo: %v", err)
+	}
 	entorno.expediente = expediente
 	entorno.sesion.detalle = detalle
 	entorno.detalle = solicitud
+	entorno.autorizador.capacidadDetalle = capacidad
 }
 
 func actuacionDetalleRRHHPrueba(

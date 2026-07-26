@@ -223,15 +223,7 @@ type entornoConsultaRRHH struct {
 func nuevoEntornoConsultaRRHH(t *testing.T) *entornoConsultaRRHH {
 	t.Helper()
 	ahora := time.Date(2026, 7, 26, 9, 0, 0, 0, time.UTC)
-	contexto, err := ports.NuevoContextoConsultaRRHH(
-		"autenticacion:rrhh:001", "sesion:rrhh:001",
-		"actor:rrhh:001", "perfil:rrhh:001",
-		"organizacion:diputacion-granada",
-		ahora, ahora.Add(2*time.Minute),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	contexto := contextoConsultaRRHHV3Prueba(t, ahora)
 	cuadro, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 50, "")
 	if err != nil {
 		t.Fatal(err)
@@ -242,13 +234,21 @@ func nuevoEntornoConsultaRRHH(t *testing.T) *entornoConsultaRRHH {
 	if err != nil {
 		t.Fatal(err)
 	}
-	capacidadCuadro := capacidadConsultaRRHHPrueba(
-		t, contexto, ahora, ports.AccionConsultarCuadroRRHH,
-		ports.FinalidadConsultarCuadroRRHH, "",
+	capacidadCuadro := capacidadConsultaCuadroRRHHV3Prueba(
+		t,
+		contexto,
+		cuadro,
+		ahora,
+		ports.AmbitoOrganizacionRRHH,
+		contexto.OrganizacionRef(),
 	)
-	capacidadDetalle := capacidadConsultaRRHHPrueba(
-		t, contexto, ahora, ports.AccionConsultarDetalleRRHH,
-		ports.FinalidadConsultarDetalleRRHH, detalle.ExpedienteRef(),
+	capacidadDetalle := capacidadConsultaDetalleRRHHV3Prueba(
+		t,
+		contexto,
+		detalle,
+		ahora,
+		ports.AmbitoOrganizacionRRHH,
+		contexto.OrganizacionRef(),
 	)
 	expediente := expedienteConsultaRRHHPrueba(t, ahora)
 	resumen := ports.ResumenExpedienteRRHH{
@@ -292,25 +292,6 @@ func nuevoEntornoConsultaRRHH(t *testing.T) *entornoConsultaRRHH {
 		reloj:      &relojConsultaRRHHPrueba{instante: ahora},
 		expediente: expediente,
 	}
-}
-
-func capacidadConsultaRRHHPrueba(
-	t *testing.T,
-	contexto ports.ContextoConsultaRRHH,
-	ahora time.Time,
-	accion, finalidad, expedienteRef string,
-) ports.CapacidadConsultaRRHH {
-	t.Helper()
-	capacidad, err := ports.NuevaCapacidadConsultaRRHH(
-		"decision:rrhh:001", "correlacion:rrhh:001", "motivo:rrhh:001",
-		contexto, ports.AmbitoOrganizacionRRHH,
-		contexto.OrganizacionRef(), accion, finalidad, expedienteRef,
-		ahora, ahora.Add(time.Minute),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return capacidad
 }
 
 func reciboConsultaRRHHPrueba(

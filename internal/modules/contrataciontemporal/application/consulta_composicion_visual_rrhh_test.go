@@ -392,14 +392,7 @@ func nuevoEntornoAplicacionComposicionVisual(
 ) entornoAplicacionComposicionVisual {
 	t.Helper()
 	ahora := time.Date(2026, 7, 26, 11, 0, 0, 0, time.UTC)
-	contexto, err := ports.NuevoContextoConsultaRRHH(
-		"autenticacion:visual:app", "sesion:visual:app",
-		"actor:visual:app", "perfil:visual:app",
-		"organizacion:diputacion-granada", ahora, ahora.Add(10*time.Minute),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	contexto := contextoConsultaRRHHV3Prueba(t, ahora)
 	vocabulario, err := ports.NuevoVocabularioComposicionVisualRRHH(
 		"contratacion_temporal.composicion_visual.consultar",
 		"rrhh.contratacion_temporal.tramitacion",
