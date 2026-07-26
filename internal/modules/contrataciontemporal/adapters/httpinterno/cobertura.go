@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application"
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/cobertura"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
@@ -49,12 +48,12 @@ type AutoridadContextoCanalCobertura interface {
 }
 
 type PresentadorPropuestaCobertura interface {
-	Proponer(context.Context, application.SolicitudProponerCobertura) (application.PresentacionPropuestaCobertura, error)
+	ProponerParaAdaptador(context.Context, application.SolicitudProponerCobertura) (application.ResultadoPropuestaCoberturaParaAdaptador, error)
 }
 
 type EjecutorDecisionCobertura interface {
-	Decidir(context.Context, application.SolicitudDecidirCobertura) (cobertura.ReciboOperacionDecisionCobertura, error)
-	Rectificar(context.Context, application.SolicitudRectificarCobertura) (cobertura.ReciboOperacionDecisionCobertura, error)
+	DecidirParaAdaptador(context.Context, application.SolicitudDecidirCobertura) (application.ResultadoDecisionCoberturaParaAdaptador, error)
+	RectificarParaAdaptador(context.Context, application.SolicitudRectificarCobertura) (application.ResultadoDecisionCoberturaParaAdaptador, error)
 }
 
 type manejadorCobertura struct {
@@ -129,7 +128,7 @@ func (h *manejadorCobertura) servirPropuesta(w http.ResponseWriter, r *http.Requ
 		responderErrorCobertura(w, errorEntradaCobertura(err))
 		return
 	}
-	propuesta, err := h.presentador.Proponer(r.Context(), application.SolicitudProponerCobertura{
+	propuesta, err := h.presentador.ProponerParaAdaptador(r.Context(), application.SolicitudProponerCobertura{
 		AutenticacionRef: contexto.AutenticacionRef, SesionRef: contexto.SesionRef,
 		PerfilRef: contexto.PerfilRef, OrganizacionRef: contexto.OrganizacionRef,
 		ExpedienteRef: entrada.ExpedienteRef, VersionEsperada: entrada.VersionEsperada,
@@ -152,7 +151,7 @@ func (h *manejadorCobertura) servirDecision(w http.ResponseWriter, r *http.Reque
 		responderErrorCobertura(w, errorEntradaCobertura(err))
 		return
 	}
-	recibo, err := h.decisor.Decidir(r.Context(), entrada.solicitud(contexto))
+	recibo, err := h.decisor.DecidirParaAdaptador(r.Context(), entrada.solicitud(contexto))
 	if err != nil {
 		responderErrorCobertura(w, clasificarErrorCobertura(err))
 		return
@@ -171,7 +170,7 @@ func (h *manejadorCobertura) servirRectificacion(w http.ResponseWriter, r *http.
 		responderErrorCobertura(w, errorEntradaCobertura(err))
 		return
 	}
-	recibo, err := h.decisor.Rectificar(r.Context(), entrada.rectificacion(contexto))
+	recibo, err := h.decisor.RectificarParaAdaptador(r.Context(), entrada.rectificacion(contexto))
 	if err != nil {
 		responderErrorCobertura(w, clasificarErrorCobertura(err))
 		return

@@ -266,6 +266,20 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 	}, nil
 }
 
+// ProponerParaAdaptador toma una instantánea privada antes de que la salida
+// pueda cruzar a una frontera. La presentación pública continúa disponible
+// para consumidores de aplicación, pero no es una fuente confiable para HTTP.
+func (s *ServicioPresentacionPropuestaCobertura) ProponerParaAdaptador(
+	ctx context.Context,
+	solicitud SolicitudProponerCobertura,
+) (ResultadoPropuestaCoberturaParaAdaptador, error) {
+	presentacion, err := s.Proponer(ctx, solicitud)
+	if err != nil {
+		return ResultadoPropuestaCoberturaParaAdaptador{}, err
+	}
+	return nuevaResultadoPropuestaCoberturaParaAdaptador(presentacion)
+}
+
 func (s *ServicioPresentacionPropuestaCobertura) dependenciasValidas() bool {
 	return s != nil && !dependenciaNula(s.contextos) &&
 		!dependenciaNula(s.accesos) && !dependenciaNula(s.analisis) &&

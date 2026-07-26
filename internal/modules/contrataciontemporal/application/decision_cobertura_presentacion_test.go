@@ -63,6 +63,25 @@ func TestProponerCoberturaPresentaVistaDinamicaSinEfectos(
 	exigirVistaPresentacionMinimizada(t)
 }
 
+func TestResultadoPropuestaParaAdaptadorConservaInstantaneaAnteMutacionPosterior(t *testing.T) {
+	escenario := nuevoEscenarioPresentacionCobertura(t, viasPresentacionCoberturaPrueba(2))
+	presentacion, err := escenario.servicio.Proponer(context.Background(), escenario.solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultado, err := nuevaResultadoPropuestaCoberturaParaAdaptador(presentacion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentacion.Estado = domain.PropuestaCoberturaConflictiva
+	presentacion.ViaRecomendada = "via_falsificada"
+	presentacion.Evaluaciones[0].ViaClave = "via_falsificada"
+	datos, ok := resultado.DatosParaAdaptador()
+	if !ok || datos.Estado != domain.PropuestaCoberturaViable || datos.ViaRecomendada != "via_global_01" || datos.Evaluaciones[0].ViaClave != "via_global_01" {
+		t.Fatalf("la instantánea de adaptador fue mutable: %+v", datos)
+	}
+}
+
 func TestProponerCoberturaAutenticadoSinPermisoNoRevelaExistencia(
 	t *testing.T,
 ) {

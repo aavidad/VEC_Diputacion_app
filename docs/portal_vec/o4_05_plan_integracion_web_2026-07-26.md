@@ -41,6 +41,9 @@ contrato visual existente.
 - Lista positiva de rutas, campos, métodos, tamaños y tipos.
 - Rechazo de `Cookie`, `Set-Cookie`, credenciales en URL y autoridad declarada
   por el cliente.
+- La raíz de composición acepta y normaliza `Forwarded`/`X-Forwarded-*` solo
+  desde el proxy corporativo autenticado; elimina esas cabeceras antes de
+  entregar la petición al adaptador HTTP. El adaptador las rechaza siempre.
 - Un resultado ambiguo se reconcilia contra el primario; nunca autoriza un
   reintento ciego.
 - Las claves funcionales se localizan mediante i18n o catálogo gobernado. La
@@ -68,6 +71,8 @@ Construir una raíz de composición de Contratación temporal que:
 - registre únicamente las rutas internas permitidas;
 - falle cerrada sin identidad corporativa, PDP/VEC, reloj, PostgreSQL,
   catálogo, gobierno o lectura de análisis;
+- incorpore la política de proxy confiable anterior, sin trasladar cabeceras
+  de reenvío a los manejadores;
 - no reutilice la composición DEMO de Bolsa o del portal.
 
 ### 3. Cliente web y proyección RRHH

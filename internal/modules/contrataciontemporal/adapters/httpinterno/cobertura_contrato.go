@@ -16,7 +16,14 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-const MaximoCuerpoCoberturaBytes = 64 * 1024
+const (
+	MaximoCuerpoCoberturaBytes = 64 * 1024
+	// 64 vías × 32 claves por vía × 80 bytes, más JSON y metadatos. El margen
+	// evita que una proyección gobernada máxima se degrade a un 500.
+	MaximoRespuestaCoberturaBytes = 256 * 1024
+	maximasViasCoberturaHTTP      = 64
+	maximasClavesPorViaHTTP       = 32
+)
 
 var (
 	errEntradaCoberturaInvalida       = errors.New("contratacion temporal http: entrada de cobertura invalida")
@@ -40,7 +47,11 @@ type decisionCoberturaJSON struct {
 }
 
 func validarMetadatosCobertura(r *http.Request) *errorPublicoCobertura {
-	if r == nil || r.ContentLength > MaximoCuerpoCoberturaBytes || r.ContentLength == 0 || r.Body == nil || r.Body == http.NoBody || len(r.Trailer) != 0 || !transferenciaAltaPermitida(r.TransferEncoding) {
+	if r != nil && r.ContentLength > MaximoCuerpoCoberturaBytes {
+		problema := errorCuerpoCoberturaDemasiadoGrande
+		return &problema
+	}
+	if r == nil || r.ContentLength == 0 || r.Body == nil || r.Body == http.NoBody || len(r.Trailer) != 0 || !transferenciaAltaPermitida(r.TransferEncoding) {
 		problema := errorPeticionCoberturaNoValida
 		return &problema
 	}
@@ -60,6 +71,9 @@ func validarMetadatosCobertura(r *http.Request) *errorPublicoCobertura {
 }
 
 func cabeceraCoberturaProhibida(cabeceras http.Header) bool {
+	// La composición debe normalizar X-Forwarded-* exclusivamente detrás de un
+	// proxy confiable y retirarlo antes de esta frontera. El manejador nunca lo
+	// interpreta como autoridad.
 	for nombre := range cabeceras {
 		minusculas := strings.ToLower(nombre)
 		switch {
@@ -184,57 +198,29 @@ type dominioCanonCoberturaJSON struct {
 	Algoritmo      string `json:"algoritmo"`
 }
 
-func proyectarPropuestaCobertura(entrada application.PresentacionPropuestaCobertura) (propuestaCoberturaSalidaJSON, bool) {
-	if entrada.IdentidadSemantica.Validar() != nil || !estadoPropuestaCoberturaValido(entrada.Estado) || !entrada.ViaRecomendada.Valida() || len(entrada.Evaluaciones) == 0 || len(entrada.Evaluaciones) > 64 {
+func proyectarPropuestaCobertura(entrada application.ResultadoPropuestaCoberturaParaAdaptador) (propuestaCoberturaSalidaJSON, bool) {
+	datos, ok := entrada.DatosParaAdaptador()
+	if !ok {
 		return propuestaCoberturaSalidaJSON{}, false
 	}
-	salida := propuestaCoberturaSalidaJSON{Esquema: "vec.contratacion-temporal.propuesta-cobertura.v1", Estado: string(entrada.Estado), ViaRecomendada: string(entrada.ViaRecomendada), IdentidadSemantica: identidadSemanticaCoberturaJSON{Referencia: entrada.IdentidadSemantica.Referencia, HuellaSHA256: entrada.IdentidadSemantica.HuellaSHA256, Canon: dominioCanonCoberturaJSON{Dominio: entrada.IdentidadSemantica.Canon.Dominio, VersionEsquema: entrada.IdentidadSemantica.Canon.VersionEsquema, Algoritmo: entrada.IdentidadSemantica.Canon.Algoritmo}}}
-	for _, evaluacion := range entrada.Evaluaciones {
-		if !evaluacion.ViaClave.Valida() || evaluacion.Prioridad == 0 || !estadoEvaluacionCoberturaValido(evaluacion.Estado) {
-			return propuestaCoberturaSalidaJSON{}, false
-		}
-		resultadosOmitidos, ok := clavesCobertura(evaluacion.ResultadosOmitidos)
-		if !ok {
-			return propuestaCoberturaSalidaJSON{}, false
-		}
-		ausenciasBloqueantes, ok := clavesCobertura(evaluacion.AusenciasBloqueantes)
-		if !ok {
-			return propuestaCoberturaSalidaJSON{}, false
-		}
-		ausenciasAdmitidas, ok := clavesCobertura(evaluacion.AusenciasAdmitidas)
-		if !ok {
-			return propuestaCoberturaSalidaJSON{}, false
-		}
-		noHabilitantes, ok := clavesCobertura(evaluacion.NoHabilitantes)
-		if !ok {
-			return propuestaCoberturaSalidaJSON{}, false
-		}
-		conflictos, ok := clavesCobertura(evaluacion.Conflictos)
-		if !ok {
-			return propuestaCoberturaSalidaJSON{}, false
-		}
+	salida := propuestaCoberturaSalidaJSON{Esquema: "vec.contratacion-temporal.propuesta-cobertura.v1", Estado: string(datos.Estado), ViaRecomendada: string(datos.ViaRecomendada), IdentidadSemantica: identidadSemanticaCoberturaJSON{Referencia: datos.IdentidadSemantica.Referencia, HuellaSHA256: datos.IdentidadSemantica.HuellaSHA256, Canon: dominioCanonCoberturaJSON{Dominio: datos.IdentidadSemantica.Canon.Dominio, VersionEsquema: datos.IdentidadSemantica.Canon.VersionEsquema, Algoritmo: datos.IdentidadSemantica.Canon.Algoritmo}}}
+	for _, evaluacion := range datos.Evaluaciones {
+		resultadosOmitidos := clavesCobertura(evaluacion.ResultadosOmitidos)
+		ausenciasBloqueantes := clavesCobertura(evaluacion.AusenciasBloqueantes)
+		ausenciasAdmitidas := clavesCobertura(evaluacion.AusenciasAdmitidas)
+		noHabilitantes := clavesCobertura(evaluacion.NoHabilitantes)
+		conflictos := clavesCobertura(evaluacion.Conflictos)
 		salida.Evaluaciones = append(salida.Evaluaciones, evaluacionCoberturaJSON{ViaClave: string(evaluacion.ViaClave), Prioridad: evaluacion.Prioridad, Estado: string(evaluacion.Estado), ResultadosOmitidos: resultadosOmitidos, AusenciasBloqueantes: ausenciasBloqueantes, AusenciasAdmitidas: ausenciasAdmitidas, NoHabilitantes: noHabilitantes, Conflictos: conflictos})
 	}
 	return salida, true
 }
 
-func estadoPropuestaCoberturaValido(estado domain.EstadoPropuestaDecisionCobertura) bool {
-	return estado == domain.PropuestaCoberturaViable || estado == domain.PropuestaCoberturaIncompleta || estado == domain.PropuestaCoberturaConflictiva || estado == domain.PropuestaCoberturaSinVia
-}
-
-func estadoEvaluacionCoberturaValido(estado domain.EstadoEvaluacionViaCobertura) bool {
-	return estado == domain.EvaluacionViaCoberturaViable || estado == domain.EvaluacionViaCoberturaIncompleta || estado == domain.EvaluacionViaCoberturaConflictiva || estado == domain.EvaluacionViaCoberturaNoViable
-}
-
-func clavesCobertura(entrada []domain.ClaveCatalogo) ([]string, bool) {
+func clavesCobertura(entrada []domain.ClaveCatalogo) []string {
 	salida := make([]string, len(entrada))
 	for indice, clave := range entrada {
-		if !clave.Valida() {
-			return nil, false
-		}
 		salida[indice] = string(clave)
 	}
-	return salida, true
+	return salida
 }
 
 type envoltorioReciboCobertura struct {
@@ -249,21 +235,22 @@ type reciboCoberturaJSON struct {
 	ConfirmadaEn         string `json:"confirmada_en"`
 }
 
-func proyectarReciboCobertura(entrada cobertura.ReciboOperacionDecisionCobertura) (reciboCoberturaJSON, bool) {
-	if !domain.ReferenciaOpacaValida(entrada.ReciboRef) || !domain.InstanteUTCCanonico(entrada.ConfirmadaEn) || (entrada.Aplicada == nil) == (entrada.DenegadaVEC == nil) {
+func proyectarReciboCobertura(entrada application.ResultadoDecisionCoberturaParaAdaptador) (reciboCoberturaJSON, bool) {
+	datos, ok := entrada.DatosParaAdaptador()
+	if !ok || !domain.ReferenciaOpacaValida(datos.ReciboRef) || !domain.InstanteUTCCanonico(datos.ConfirmadaEn) {
 		return reciboCoberturaJSON{}, false
 	}
-	salida := reciboCoberturaJSON{Esquema: "vec.contratacion-temporal.recibo-cobertura.v1", ReciboRef: entrada.ReciboRef, ConfirmadaEn: entrada.ConfirmadaEn.UTC().Format(time.RFC3339Nano)}
-	if aplicada, ok := entrada.ResultadoAplicado(); ok {
-		if !domain.ReferenciaOpacaValida(aplicada.DecisionCoberturaRef) || aplicada.VersionResultante == 0 || aplicada.VersionResultante > cobertura.MaximoEnteroSeguroOperacionDecisionCobertura {
+	salida := reciboCoberturaJSON{Esquema: "vec.contratacion-temporal.recibo-cobertura.v1", ReciboRef: datos.ReciboRef, ConfirmadaEn: datos.ConfirmadaEn.UTC().Format(time.RFC3339Nano)}
+	if datos.Estado == "aplicada" {
+		if !domain.ReferenciaOpacaValida(datos.DecisionCoberturaRef) || datos.VersionResultante == 0 || datos.VersionResultante > cobertura.MaximoEnteroSeguroOperacionDecisionCobertura {
 			return reciboCoberturaJSON{}, false
 		}
 		salida.Estado = "aplicada"
-		salida.DecisionCoberturaRef = aplicada.DecisionCoberturaRef
-		salida.VersionResultante = aplicada.VersionResultante
+		salida.DecisionCoberturaRef = datos.DecisionCoberturaRef
+		salida.VersionResultante = datos.VersionResultante
 		return salida, true
 	}
-	if _, ok := entrada.ResultadoDenegadoVEC(); ok {
+	if datos.Estado == "denegada" && datos.DecisionCoberturaRef == "" && datos.VersionResultante == 0 {
 		salida.Estado = "denegada"
 		return salida, true
 	}
