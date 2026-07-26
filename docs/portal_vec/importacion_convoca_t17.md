@@ -2,12 +2,14 @@
 
 ## Estado del corte
 
-El primer corte vertical está implementado y preparado para revisión. Lee XLS
-binario real (BIFF8), detecta estrictamente los dos esquemas documentados,
-ejecuta staging y validación por fila, calcula la huella SHA-256, aplica
-idempotencia atómica por contenido y produce un acta minimizada. El adaptador
-PostgreSQL, la autorización del endpoint interno y la composición productiva
-quedan expresamente para el siguiente corte.
+Los cortes de lectura y persistencia durable están implementados y revisados.
+El flujo lee XLS binario real (BIFF8), detecta estrictamente los dos esquemas
+documentados, ejecuta staging y validación por fila, calcula la huella SHA-256,
+aplica idempotencia atómica por contenido y produce un acta minimizada. El
+adaptador PostgreSQL cifra las filas antes de persistirlas, gobierna
+conciliación y conservación, y mantiene historia encadenada. La autorización
+VEC/T13, la custodia externa del original y la composición de producto siguen
+siendo condiciones **NO-GO** para habilitarlo en producción.
 
 No se ha usado, copiado ni incorporado ningún fichero real de Convoca. Los
 tests emplean libros sintéticos cuya fuente CSV está versionada junto a ellos.
@@ -23,7 +25,8 @@ XLS BIFF8 acotado
   -> caso de uso importacionconvoca
   -> validación de dominio
   -> RepositorioImportaciones local al caso de uso
-  -> staging aceptado + acta atómica
+  -> protector de staging intercambiable
+  -> PostgreSQL: staging cifrado + acta + historia atómicas
 ```
 
 Las interfaces del lector y del repositorio viven junto al caso de uso. De este
@@ -58,9 +61,12 @@ interpreta heurísticamente como otro esquema.
 - `Orden grupo` entero positivo.
 - Cancelación por `context.Context` durante lectura y persistencia.
 - Recuperación cerrada ante pánico de un parser al recibir un libro hostil.
-- Copias defensivas en la frontera de persistencia.
+- Copias defensivas y borrado de buffers temporales en la frontera de
+  persistencia, también en rutas de error parcial.
 - CAS concurrente por SHA-256: una reimportación devuelve el acta original y
   no duplica filas.
+- Contratos Go y SQL alineados para actores, nombres, orden de filas, tipos
+  JSON y versiones representables por `bigint`.
 
 El acta conserva actor opaco, instante UTC, nombre base del fichero, huella,
 esquema, conteos y motivos por número de fila/campo/código. Nunca incluye el
@@ -90,16 +96,21 @@ formatos OOXML modernos, no el `.xls` binario exigido por T17. La dependencia
 queda aislada en el adaptador y puede sustituirse sin modificar dominio ni caso
 de uso.
 
-## Pruebas y siguiente corte
+## Persistencia y pruebas
 
 El corte prueba ambos esquemas, cabecera alterada, fórmula, formato hostil,
 límites, validación parcial, minimización del acta, huella exacta, cancelación,
-copias defensivas e idempotencia concurrente con un único ganador.
+copias defensivas e idempotencia concurrente con un único ganador. El runner
+PostgreSQL 18 con TLS verifica además RLS forzada, privilegios mínimos,
+100.001 filas, política de retención versionada, bloqueo, expurgo, reinicio,
+replay y reversión protegida.
 
-Pendiente para considerar T17 completo:
+Pendiente para considerar la capacidad productiva completa:
 
-1. adaptador PostgreSQL con transacción única para acta y filas de staging;
-2. cifrado de las columnas personales y derivación ciega de búsqueda;
-3. autorización interna, auditoría institucional y composición en bootstrap;
-4. reconciliación posterior con registro corporativo y modelos de solicitud;
-5. política de conservación y borrado del fichero original tras el acta.
+1. envolver recuperación y operaciones sensibles con autorización VEC/T13 y
+   auditoría institucional;
+2. aportar el protector productivo respaldado por KMS/HSM;
+3. integrar la custodia externa cifrada e inmutable del XLS original;
+4. componer el caso de uso en API y web interna, sin cookies ni dependencia
+   exclusiva del canal web;
+5. enlazar la conciliación con el registro corporativo y ejecutar su E2E.
