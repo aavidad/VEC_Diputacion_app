@@ -2,6 +2,7 @@
 843 deploy/postgresql/autorizacion/migraciones/000003_proyeccion_motivos_autorizacion_v2.up.sql
 1554 deploy/postgresql/autorizacion/probar_integracion.sh
 1513 deploy/postgresql/autorizacion_atestada_v2/migraciones/000001_registro_consumo_atestado_v2.up.sql
+1276 deploy/postgresql/autorizacion_atestada_v3/probar_integracion_o2_05.sh
 1315 deploy/postgresql/bolsa_baremacion/migraciones/000002_operaciones_baremacion.up.sql
 3372 deploy/postgresql/bolsa_baremacion/migraciones/000005_manifiesto_probatorio_v3.up.sql
 1412 deploy/postgresql/bolsa_baremacion/probar_integracion.sh
@@ -71,4 +72,5 @@
 875 internal/vec/ports/reconciliacion_documental_v4.go
 1179 scripts/smoke_nominas_peoplenet.js
 13211 web/static/app.js
+873 web/static/portal-empleado/modulos/dietas/dietas.test.mjs
 3114 web/static/styles.css
