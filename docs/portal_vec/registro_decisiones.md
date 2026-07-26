@@ -3719,3 +3719,31 @@ adulteración campo a campo, opacidad y PostgreSQL 18. Los commits relevantes
 son `04784fa`, `d31c812`, `7d2351e`, `22379ca` y `61f3a6e`. Este corte no declara
 T20E, UAT ni producción: faltan el servicio de registro V3, su confirmación
 durable, composición con Bolsa y las pruebas de reinicio/concurrencia globales.
+
+## DEC-103 — Integrar AutofirmaV3 desde una revisión estable y trazable
+
+Fecha: 26 de julio de 2026. Estado: decisión de integración aprobada; ejecución
+aplazada hasta cerrar Bolsa y Contratación.
+
+**Dependencia funcional.** VEP se integrará exclusivamente con AutofirmaV3.
+AutofirmaV2 es otro proyecto y no se modificará desde este repositorio, aunque
+V3 dependa de él. VEP no importará paquetes internos de V2 ni creará una
+segunda integración directa que eluda V3.
+
+**Selección de versión.** Al comenzar el trabajo se volverán a inspeccionar
+ambos repositorios. Se elegirá la última revisión estable de AutofirmaV3 que
+supere sus pruebas y se comprobará la revisión exacta de AutofirmaV2 que
+realmente incorpora o declara. No se reutilizará una copia local antigua ni
+una rama flotante solo porque hubiese sido válida durante el diseño.
+
+**Trazabilidad del suministro.** El manifiesto de despliegue, el SBOM y el
+manual de sistemas conservarán repositorio, commit o etiqueta, huella de los
+artefactos, versión de Go y relación V3→V2. Producción usará referencias
+inmutables y verificadas; la búsqueda de la revisión más reciente pertenece al
+proceso de actualización, nunca al arranque de la aplicación.
+
+**Frontera.** La integración se realizará mediante el conector de firma del
+núcleo. Antes del GO se probarán compatibilidad, formatos, firma múltiple,
+validación y conservación de evidencias, sello de tiempo, revocación,
+idempotencia, fallos ambiguos, licencia, procedencia y actualización segura.
+Un cambio de V2 que no esté publicado y validado a través de V3 no altera VEP.
