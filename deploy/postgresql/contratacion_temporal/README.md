@@ -1,10 +1,10 @@
 # PostgreSQL de contratación temporal
 
-Estado: persistencia O2-05, confirmación O3-04 y registro durable de accesos
-RRHH O4-05/C2-B probados en PostgreSQL 18.4. C2-B dispone de revisión
-independiente, pero aún faltan el corte global de lectura, las funciones
-exteriores, el adaptador Go y la composición completa. No es una autorización
-de producción.
+Estado: persistencia O2-05, confirmación O3-04, registro durable de accesos
+RRHH O4-05/C2-B y publicación global O4-05/C2-C probados en PostgreSQL 18.4.
+C2-B y C2-C disponen de revisión independiente, pero aún faltan cursor,
+funciones exteriores, adaptador Go y composición completa. No es una
+autorización de producción.
 
 ## Alcance del corte
 
@@ -157,10 +157,43 @@ instalado, `000035.down` queda bloqueado incluso si el registro está vacío.
 Después se retira el grupo mediante `roles_consultor_rrhh_down.sql`, una vez
 revocadas todas sus cuentas nominativas.
 
-C2-B no crea cursor ni función de lectura. La historia actual no dispone de un
-corte global monotónico alineado con `COMMIT`; un timestamp o una secuencia
-asignada antes de confirmar permitirían omisiones. Esa garantía pertenece a
-C2-C y debe implantarse mediante una migración aditiva.
+C2-B no crea cursor ni función de lectura. Sus accesos preexistentes tampoco
+dependen de la publicación global añadida después.
+
+## Publicación global RRHH O4-05/C2-C
+
+La migración aditiva `000037_publicacion_global_rrhh` exige la barrera global
+16 y `control_migracion_consultas_rrhh` v1, y eleva la barrera a 17 en el
+mismo `COMMIT`. No altera `expediente_version_integral`: crea una proyección
+1:1 de solo adición y un único `control_publicacion_rrhh`.
+
+El backfill toma un bloqueo que impide nuevas inserciones en la historia,
+valida y extrae los campos indexables del resumen RRHH, y asigna el
+`corte_base` por `expediente_ref COLLATE "C", version`. Ese orden solo hace
+reproducible la base; no se presenta como orden histórico de confirmación.
+
+Después del backfill, un disparador `AFTER INSERT` con autoridad del
+propietario:
+
+- bloquea el singleton hasta que termina la transacción exterior;
+- asigna `ultimo_corte + 1`, con máximo `2^53-1`;
+- proyecta la referencia y versión exactas, organización, número visible,
+  flujo, fase, estado, centro, categoría, modalidad, unidad, instantes y
+  huella del agregado;
+- revierte ordinal y proyección si la transacción exterior hace `ROLLBACK`.
+
+La fila bloqueada serializa a los escritores hasta `COMMIT`; por ello los
+ordinales posteriores a `corte_base` no dependen de una secuencia adelantada
+ni de empates de reloj. La tabla usa RLS forzada, política exclusiva del
+propietario, ACL denegadas e inmutabilidad ante `UPDATE`, `DELETE` y
+`TRUNCATE`.
+
+`000037.down` solo vuelve de 17 a 16 si no existen publicaciones posteriores
+al corte base, divergencias ni dependencias, cursores o fachadas futuras.
+Admite accesos C2-B anteriores porque no usan la proyección, y nunca emplea
+`CASCADE` ni una bandera de destrucción. El
+[informe de revisión](../../../docs/portal_vec/revisiones/o4_05_revision_publicacion_global_rrhh_2026-07-26.md)
+conserva la evidencia exacta.
 
 ## Instalación
 
@@ -220,6 +253,13 @@ Para añadir exclusivamente O4-05/C2-B sobre una base en barrera 15:
 3. aprovisionar después el LOGIN nominativo del consultor con la membresía
    exacta descrita arriba.
 
+Para añadir después la publicación global C2-C sobre la barrera 16:
+
+1. comprobar que `control_migracion_consultas_rrhh` permanece en v1;
+2. ejecutar `000037_publicacion_global_rrhh.up.sql` como propietario;
+3. comprobar el singleton, la proyección 1:1 y la barrera global 17 antes de
+   habilitar cualquier consumidor futuro.
+
 Ejemplo sin credenciales incrustadas:
 
 ```bash
@@ -265,6 +305,7 @@ efímero, sin puertos publicados, sin red y con el directorio de datos en
 ./deploy/postgresql/contratacion_temporal/probar_integracion_docker.sh
 ./deploy/postgresql/autorizacion_atestada_v3/probar_integracion_o2_05.sh
 ./deploy/postgresql/contratacion_temporal/probar_o4_05_registro_accesos_pg18_4.sh
+./deploy/postgresql/contratacion_temporal/probar_o4_05_publicacion_global_rrhh_pg18_4.sh
 ```
 
 El ensayo valida instalación con cuenta de migración, separación de roles,
@@ -302,6 +343,16 @@ sin puertos publicados y verifica el ciclo `15→16→15`, los órdenes de
 instalación y retirada, ACL/RLS, topologías y puentes hostiles, tipos y límites
 JSON, cadena inmutable, ocho escritores concurrentes y bloqueo de `000035.down`
 con C2-B vacío o con historia.
+
+El cuarto runner fija PostgreSQL 18.4 exacto por resumen y ejecuta las
+dependencias reales `000001`–`000036`. Verifica instalación vacía y backfill
+no vacío, barrera `16→17→16`, un único ganador entre migraciones concurrentes,
+orden `COLLATE "C"`, extracción y cotejo del canon, RLS/ACL, índices e
+inmutabilidad. Comprueba además primer ordinal `corte_base+1`, `ROLLBACK` sin
+fantasma y con reutilización del ordinal, dos escritores bloqueados hasta el
+primer `COMMIT`, ocho escritores sin huecos, safe-down con accesos C2-B
+anteriores y rechazo de publicaciones posteriores, dependencias y
+divergencias. El contenedor no publica red ni puertos y se elimina al salir.
 
 ## Reversión protegida
 
