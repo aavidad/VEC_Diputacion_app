@@ -149,6 +149,10 @@ func TestMaterialConsumoV3EntregaLasDiezEntradasCoherentes(
 		ports.TamanoRaizPublicaSPKIEd25519V3 {
 		t.Fatal("la raíz no usa DER-SPKI Ed25519 exacto")
 	}
+	huella, err := exportacion.HuellaConjuntoSHA256()
+	if err != nil || len(huella) != 64 {
+		t.Fatalf("huella del conjunto inválida: %q, %v", huella, err)
+	}
 }
 
 func TestMaterialConsumoV3MantieneSnapshotYCopiasDefensivas(

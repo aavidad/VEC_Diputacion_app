@@ -33,6 +33,8 @@ El contrato neutral vive en
 valor concreto con campos privados, huella interna, accesores deterministas y
 copias defensivas. Un valor concreto evita tanto los nulos tipados como un
 objeto hostil cuyos accesores cambien de resultado entre llamadas.
+La huella SHA-256 validada del conjunto se expone únicamente para ligar
+clonados, órdenes y recibos sin duplicar el canon en cada módulo consumidor.
 
 El constructor estructural común:
 

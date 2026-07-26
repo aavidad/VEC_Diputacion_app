@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"crypto/x509"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -210,6 +211,15 @@ func (e ExportacionMaterialConsumoAutorizacionAtestadaV3) EvidenciaVerificacion(
 }
 func (e ExportacionMaterialConsumoAutorizacionAtestadaV3) RaizPublicaSPKI() []byte {
 	return bytes.Clone(e.raizPublicaSPKI)
+}
+func (e ExportacionMaterialConsumoAutorizacionAtestadaV3) HuellaConjuntoSHA256() (
+	string,
+	error,
+) {
+	if e.ValidarEstructura() != nil {
+		return "", ErrExportacionMaterialConsumoAutorizacionAtestadaV3Invalida
+	}
+	return hex.EncodeToString(e.huellaConjunto[:]), nil
 }
 
 // ExportadorMaterialConsumoAutorizacionAtestadaV3 es el puerto neutral del
