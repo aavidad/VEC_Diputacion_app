@@ -50,6 +50,7 @@ llamamientos.
 - [Cliente web HTTP seguro O4-05](docs/portal_vec/o4_05_cliente_web_http_seguro_2026-07-26.md)
 - [Recuperación protegida del resultado de cobertura O4-05](docs/portal_vec/o4_05_consulta_resultado_cobertura_2026-07-26.md)
 - [Contrato de proyecciones reales del cuadro y detalle RRHH](docs/portal_vec/proyecciones_rrhh_cuadro_detalle_contratacion_2026-07-26.md)
+- [Revisión de raíz, pool y proyecciones O4-05](docs/portal_vec/revisiones/o4_05_revision_raiz_pool_y_proyecciones_2026-07-26.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
