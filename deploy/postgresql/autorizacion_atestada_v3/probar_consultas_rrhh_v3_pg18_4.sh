@@ -73,6 +73,30 @@ COMMIT;
 SQL
 }
 
+revalidar_usuario() {
+    local usuario="$1"
+    local caso="$2"
+    local fachada="$3"
+    local pieza="${4:-}"
+    docker exec --interactive "${contenedor}" \
+        psql -XAtq --set ON_ERROR_STOP=1 --username "${usuario}" \
+        --dbname postgres <<SQL
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL TimeZone='UTC';
+SET LOCAL statement_timeout='15s';
+SET LOCAL idle_in_transaction_session_timeout='20s';
+SELECT pg_catalog.concat_ws(
+           '|', decision_ref, consumo_huella_sha256,
+           revalidada_en::text
+       )
+  FROM vec_contratacion_temporal
+       .prueba_revalidar_consumo_consulta_rrhh_v3(
+    '${caso}','${fachada}','${pieza}'
+  );
+COMMIT;
+SQL
+}
+
 preparar() {
     sql postgres \
         "SELECT public.preparar_vector_consulta_rrhh_v3('$1','$2')" \
@@ -297,6 +321,21 @@ archivo vec_ad3_consulta_migrador \
     deploy/postgresql/autorizacion_atestada_v3/migraciones/000004_consumidor_consulta_detalle_rrhh_v3.up.sql \
     >/dev/null
 
+paso 'alta, bajada limpia y reinstalación del revalidador final'
+archivo vec_ad3_consulta_migrador \
+    deploy/postgresql/autorizacion_atestada_v3/migraciones/000005_revalidacion_final_consultas_rrhh_v3.up.sql \
+    >/dev/null
+archivo vec_ad3_consulta_migrador \
+    deploy/postgresql/autorizacion_atestada_v3/migraciones/000005_revalidacion_final_consultas_rrhh_v3.down.sql \
+    >/dev/null
+[[ "$(valor "SELECT count(*) = 0
+    FROM pg_proc f JOIN pg_namespace n ON n.oid=f.pronamespace
+    WHERE n.nspname='vec_autorizacion_atestada_v3'
+      AND f.proname LIKE 'revalidar_consumo_consulta_%rrhh_v3%'")" == 't' ]]
+archivo vec_ad3_consulta_migrador \
+    deploy/postgresql/autorizacion_atestada_v3/migraciones/000005_revalidacion_final_consultas_rrhh_v3.up.sql \
+    >/dev/null
+
 paso 'regresión funcional de alta tras ambas migraciones de consulta'
 archivo postgres \
     deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/ayudantes_o2_05.sql \
@@ -322,6 +361,9 @@ SQL
 paso 'fixtures mínimos, fachada CT aislada y ACL'
 archivo postgres \
     deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/consultas_rrhh_v3.sql \
+    >/dev/null
+archivo postgres \
+    deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/revalidacion_final_consultas_rrhh_v3.sql \
     >/dev/null
 [[ "$(valor "WITH funciones(nombre) AS (VALUES
     ('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_cuadro_rrhh_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
@@ -367,10 +409,33 @@ archivo postgres \
          WHERE rolname='vec_contratacion_temporal_consultor_rrhh'
            AND NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb
            AND NOT rolcreaterole AND rolinherit
-           AND NOT rolreplication AND NOT rolbypassrls)")" == 't' ]]
+          AND NOT rolreplication AND NOT rolbypassrls)")" == 't' ]]
 esperar_fallo 'consultor no entra directamente en VEC-AD-3' \
     sql vec_consulta_rrhh_runtime \
     "SELECT * FROM vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_cuadro_rrhh_v3_atestada(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)"
+[[ "$(valor "WITH exteriores(nombre) AS (VALUES
+    ('vec_autorizacion_atestada_v3.revalidar_consumo_consulta_cuadro_rrhh_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),
+    ('vec_autorizacion_atestada_v3.revalidar_consumo_consulta_detalle_rrhh_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')
+) SELECT
+    NOT has_function_privilege(
+        'vec_contratacion_temporal_propietario',
+        'vec_autorizacion_atestada_v3.revalidar_consumo_consulta_rrhh_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+        'EXECUTE')
+    AND NOT has_function_privilege(
+        'vec_consulta_rrhh_runtime',
+        'vec_autorizacion_atestada_v3.revalidar_consumo_consulta_cuadro_rrhh_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+        'EXECUTE')
+    AND NOT EXISTS (
+        SELECT 1 FROM exteriores e
+         WHERE NOT has_function_privilege(
+             'vec_contratacion_temporal_propietario',
+             e.nombre, 'EXECUTE'))")" == 't' ]]
+esperar_fallo 'runtime no revalida directamente en VEC-AD-3' \
+    sql vec_consulta_rrhh_runtime \
+    "SELECT * FROM vec_autorizacion_atestada_v3.revalidar_consumo_consulta_cuadro_rrhh_v3_atestada(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)"
+esperar_fallo 'down final rechaza la dependencia de la fachada CT' \
+    archivo vec_ad3_consulta_migrador \
+    deploy/postgresql/autorizacion_atestada_v3/migraciones/000005_revalidacion_final_consultas_rrhh_v3.down.sql
 
 paso 'atomicidad de rollback sin trazas parciales'
 preparar rollback_atomico cuadro
@@ -410,6 +475,59 @@ IFS='|' read -r _ _ _ _ auditoria_ref auditoria_huella _ _ \
     WHERE auditoria_ref='${auditoria_ref}'")" == "${auditoria_huella}" ]]
 preparar detalle_valido detalle
 [[ "$(invocar_usuario vec_consulta_rrhh_runtime detalle_valido detalle)" == 't' ]]
+
+paso 'revalidación final exige consumo durable y no vuelve a escribir'
+preparar reval_sin_consumo cuadro
+esperar_fallo 'revalidación sin consumo durable' \
+    revalidar_usuario vec_consulta_rrhh_runtime reval_sin_consumo cuadro
+preparar reval_cuadro cuadro
+recibo_consumo="$(
+    recibo_usuario vec_consulta_rrhh_runtime reval_cuadro cuadro
+)"
+IFS='|' read -r decision_consumo _ _ huella_consumo _ _ _ _ \
+    <<<"${recibo_consumo}"
+estado_antes="$(estado_vec)"
+recibo_revalidacion="$(
+    revalidar_usuario vec_consulta_rrhh_runtime reval_cuadro cuadro
+)"
+IFS='|' read -r decision_revalidada huella_revalidada tiempo_revalidado \
+    <<<"${recibo_revalidacion}"
+[[ "${decision_revalidada}" == "${decision_consumo}" ]]
+[[ "${huella_revalidada}" == "${huella_consumo}" ]]
+[[ -n "${tiempo_revalidado}" ]]
+[[ "$(estado_vec)" == "${estado_antes}" ]]
+preparar reval_detalle detalle
+invocar_usuario vec_consulta_rrhh_runtime reval_detalle detalle >/dev/null
+[[ "$(revalidar_usuario \
+    vec_consulta_rrhh_runtime reval_detalle detalle | awk -F'|' \
+    '{print NF}')" == '3' ]]
+esperar_fallo 'consumo cuadro no cruza a revalidador detalle' \
+    revalidar_usuario vec_consulta_rrhh_runtime reval_cuadro detalle
+esperar_fallo 'consumo detalle no cruza a revalidador cuadro' \
+    revalidar_usuario vec_consulta_rrhh_runtime reval_detalle cuadro
+
+paso 'revalidación liga de nuevo las diez piezas exactas'
+preparar reval_piezas cuadro
+invocar_usuario vec_consulta_rrhh_runtime reval_piezas cuadro >/dev/null
+estado_antes="$(estado_vec)"
+for pieza in \
+    capacidad decision motivo contexto persona_version perfil_version \
+    payload cose evidencia spki
+do
+    esperar_fallo "revalidación rechaza pieza: ${pieza}" \
+        revalidar_usuario \
+        vec_consulta_rrhh_runtime reval_piezas cuadro "${pieza}"
+done
+[[ "$(estado_vec)" == "${estado_antes}" ]]
+
+paso 'revalidación viva detecta deriva RBAC posterior al consumo'
+preparar reval_rbac cuadro
+invocar_usuario vec_consulta_rrhh_runtime reval_rbac cuadro >/dev/null
+sql postgres \
+    "SET ROLE vec_autorizacion_propietario; INSERT INTO vec_autorizacion.asignacion_perfil(asignacion_ref,asignacion_id,version,perfil_activo_ref,principal_id,version_rol_ref,huella_sha256,emitida_en,documento) SELECT 'asignacion:registro_v3:v4',asignacion_id,4,perfil_activo_ref,principal_id,version_rol_ref,repeat('a',64),emitida_en,jsonb_set(documento,'{version}','4'::jsonb,false) FROM vec_autorizacion.asignacion_perfil WHERE asignacion_ref='asignacion:registro_v3:v3'; UPDATE vec_autorizacion.asignacion_perfil_actual SET asignacion_ref='asignacion:registro_v3:v4',actualizada_en=clock_timestamp(),actualizada_por='usr_rrhh_sintetico_revalidacion',acto_ref='acto:asignacion:revalidacion-viva-v4' WHERE perfil_activo_ref='prf_sintetico_cccccccccccccccccccccccc'" \
+    >/dev/null
+esperar_fallo 'asignación actual ya no coincide' \
+    revalidar_usuario vec_consulta_rrhh_runtime reval_rbac cuadro
 
 paso 'cruces A/B y listas positivas de decisión/capacidad'
 preparar cruce_a detalle
@@ -521,6 +639,9 @@ sql postgres \
 wait "${pid_consumidor}"
 [[ "$(tr -d '[:space:]' <"${salida_consumidor}")" == 't' ]]
 rm -f "${salida_consumidor}"
+esperar_fallo 'revocación de clave invalida consumo ya durable' \
+    revalidar_usuario \
+    vec_consulta_rrhh_runtime revocacion_concurrente detalle
 
 paso 'linealización: revocación confirmada primero impide consumo'
 preparar revocacion_primero cuadro
