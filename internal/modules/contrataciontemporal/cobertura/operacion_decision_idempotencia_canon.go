@@ -165,14 +165,13 @@ func NuevasPreimagenesOperacionDecisionCobertura(
 		return PreimagenesOperacionDecisionCobertura{},
 			ErrOperacionDecisionCoberturaIdempotenteInvalida
 	}
-	ambito := nuevoCanonOperacionDecisionCobertura()
-	ambito.texto(esquemaAmbitoOperacionDecisionCobertura)
-	ambito.texto(datos.claveIdempotencia)
-	ambito.texto(datos.organizacionRef)
-	ambito.texto(datos.expedienteRef)
-	ambito.texto(datos.actorRef)
-	ambito.texto(datos.perfilRef)
-	bytesAmbito, err := ambito.resultado()
+	bytesAmbito, err := canonAmbitoOperacionDecisionCobertura(
+		datos.claveIdempotencia,
+		datos.organizacionRef,
+		datos.expedienteRef,
+		datos.actorRef,
+		datos.perfilRef,
+	)
 	if err != nil {
 		return PreimagenesOperacionDecisionCobertura{}, err
 	}
@@ -199,6 +198,23 @@ func NuevasPreimagenesOperacionDecisionCobertura(
 	return PreimagenesOperacionDecisionCobertura{
 		ambito: bytesAmbito, semantica: bytesSemantica,
 	}, nil
+}
+
+func canonAmbitoOperacionDecisionCobertura(
+	claveIdempotencia string,
+	organizacionRef string,
+	expedienteRef string,
+	actorRef string,
+	perfilRef string,
+) ([]byte, error) {
+	ambito := nuevoCanonOperacionDecisionCobertura()
+	ambito.texto(esquemaAmbitoOperacionDecisionCobertura)
+	ambito.texto(claveIdempotencia)
+	ambito.texto(organizacionRef)
+	ambito.texto(expedienteRef)
+	ambito.texto(actorRef)
+	ambito.texto(perfilRef)
+	return ambito.resultado()
 }
 
 func (p PreimagenesOperacionDecisionCobertura) BytesAmbito() ([]byte, error) {
