@@ -119,6 +119,8 @@ siguen pendientes:
 4. conexión del coordinador sin caída a DEMO;
 5. E2E con PostgreSQL 18, pérdida de respuesta y aceptación de RRHH.
 
-El corte O4-05 queda en tres de cinco hitos técnicos internos. La siguiente
-entrega debe empezar por las proyecciones y la recuperación protegidas; no por
-habilitar pantallas con datos incompletos.
+El corte O4-05 permanece en tres de cinco hitos técnicos internos. El núcleo y
+el contrato PostgreSQL de recuperación protegida quedaron verificados después
+en `87a1c37`–`93674c7`; todavía faltan su adaptador Go y composición. La
+siguiente entrega debe continuar por ese adaptador y las proyecciones
+protegidas, no por habilitar pantallas con datos incompletos.

@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | O4-05 contrato HTTP → composición → API/web → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 19 de 46 tareas cerradas (41 %); O4-04 tiene doble `GO` independiente |
-| Último commit verificado | `023b890` — cliente web HTTP seguro O4-05, con `GO` independiente |
-| Trabajo local en revisión | Documentación del tercer corte O4-05. Contrato, registro modular y cliente están cerrados; C5, proyecciones, recuperación, composición productiva y E2E permanecen abiertos. |
+| Último commit verificado | `93674c7` — contrato de recuperación propia O4-05 en núcleo y PostgreSQL, con `GO` independiente |
+| Trabajo local en revisión | Documentación del cuarto corte O4-05. Contrato, registro modular, cliente y contrato de recuperación están cerrados; C5, proyecciones, adaptador de recuperación, composición productiva y E2E permanecen abiertos. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -211,7 +211,8 @@ Estado actual:
 O2: 3/7 puertas funcionales publicadas = 43 %
 Tareas verificadas del procedimiento: 19/46 = 41 %
 Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 lleva 3/5 hitos
-  internos, pero C5, proyecciones, recuperación, composición y E2E siguen abiertos
+  internos y un contrato de recuperación aislado, pero C5, proyecciones,
+  adaptador, composición y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 
