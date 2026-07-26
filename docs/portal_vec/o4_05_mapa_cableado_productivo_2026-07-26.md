@@ -215,5 +215,10 @@ La recuperación propia O4-05 y su pool acreditado obtuvieron `GO` técnico en
 invocación y ataques reales sobre función, ACL y membresías. Esos cortes no
 sustituyen las proyecciones de cuadro/detalle ni acreditan TLS productivo.
 
+`2a9ddb1` cierra el fundamento tipado para cruzar una capacidad VEC-AD-3 sin
+reinterpretar su JSON privado. Sigue pendiente migrar `CapacidadConsultaRRHH`
+y consumir la exportación original dentro de la misma transacción que lee y
+audita; el resumen no es una autoridad.
+
 Este mapa no declara producción. Evita que una pantalla o una respuesta
 aislada se presenten como recorrido terminado.

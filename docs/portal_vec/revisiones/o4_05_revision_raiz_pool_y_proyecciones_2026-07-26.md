@@ -164,6 +164,27 @@ obtuvieron `GO` independiente.
 Este corte no acredita aún la independencia física del adaptador de
 publicaciones ni raíz, HTTP, web conectada o E2E.
 
+## Fundamento VEC-AD-3 para consultas: GO técnico
+
+El corte `2a9ddb1` añade a la autoridad común un resumen tipado, minimizado y
+no autoritativo de la capacidad VEC-AD-3. La implementación concreta lo deriva
+del mismo documento canónico que ya valida de forma estricta; los módulos no
+reinterpretan el JSON criptográfico privado.
+
+El resumen:
+
+- liga decisión, motivo, contexto, operación, efecto, audiencia y ventana;
+- no contiene nonce, MAC, claves ni estado de gobierno;
+- bloquea JSON, texto, binario, gob, CBOR, YAML, XML, formatos y registros;
+- no sustituye la exportación AD-3 ni concede acceso por sí mismo;
+- conserva como única autoridad la verificación y el consumo de los bytes
+  originales dentro de la transacción PostgreSQL.
+
+Pruebas focales, matriz de codecs y registros, detector de carreras,
+`go vet`, formato y revisión independiente obtuvieron `GO` para este
+fundamento aislado. No corrige todavía `CapacidadConsultaRRHH`, no cierra C2 y
+no incrementa la métrica funcional.
+
 ## Métrica
 
 El procedimiento permanece en `19/46` tareas verificadas, un 41 %. O4-05
