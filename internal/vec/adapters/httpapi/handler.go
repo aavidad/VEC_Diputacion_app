@@ -24,6 +24,8 @@ type Handler struct {
 	categoriasProfesionales ConsultaCategoriasProfesionales
 	roadRoute               http.Handler
 	identityPolicy          identityPolicy
+	rutasExactas            map[string]http.Handler
+	autoridadRutasExactas   AutoridadRutasExactas
 }
 
 type HandlerOptions struct {
@@ -38,6 +40,8 @@ type HandlerOptions struct {
 	IdentitySubjectHeader   string
 	IdentityRolesHeader     string
 	IdentityMechanismHeader string
+	RutasExactas            []RutaExacta
+	AutoridadRutasExactas   AutoridadRutasExactas
 }
 
 // DemoIdentityResolver es el unico origen admitido para el modo fake. La
@@ -59,6 +63,13 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 	if options.InternalOperations != nil && !options.InternalOperations.Matches(service) {
 		return nil, application.ErrInternalOperationsMismatch
 	}
+	rutasExactas, err := prepararRutasExactas(
+		options.RutasExactas,
+		options.AutoridadRutasExactas,
+	)
+	if err != nil {
+		return nil, err
+	}
 	identityPolicy, err := newIdentityPolicy(options)
 	if err != nil {
 		return nil, err
@@ -70,10 +81,37 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 		categoriasProfesionales: options.CategoriasProfesionales,
 		roadRoute:               options.ManejadorRutaDietas,
 		identityPolicy:          identityPolicy,
+		rutasExactas:            rutasExactas,
+		autoridadRutasExactas:   options.AutoridadRutasExactas,
 	}, nil
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h == nil || r == nil || r.URL == nil {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	if manejador, registrada := h.rutasExactas[r.URL.Path]; registrada {
+		if !peticionRutaExactaCanonica(r) {
+			responderAutorizacionRutaExacta(
+				w,
+				errRutaExactaNoEncontrada,
+			)
+			return
+		}
+		err := h.autoridadRutasExactas.AutorizarRutaExacta(
+			r.Context(),
+			r.URL.Path,
+		)
+		if err != nil {
+			responderAutorizacionRutaExacta(w, err)
+			return
+		}
+		manejador.ServeHTTP(w, r)
+		return
+	}
 	path := vecPath(r.URL.Path)
 	principal, err := principalFromRequest(r, h.identityPolicy)
 	if err != nil || principal.Validate() != nil {
@@ -343,35 +381,6 @@ func actionForPath(path string) (moduleAction, bool) {
 	}
 	action, ok := actions[key]
 	return action, ok
-}
-
-func vecRoutes() []string {
-	return []string{
-		"/api/vec/session",
-		"/api/vec/modules",
-		"/api/vec/workspace",
-		"/api/vec/menu",
-		"/api/vec/audit",
-		"/api/vec/cronos/timecards",
-		"/api/vec/cronos/leave-requests",
-		"/api/vec/personal/rpt/positions",
-		"/api/vec/personal/rpt/positions/{code}",
-		"/api/vec/personal/rpt/imports",
-		"/api/vec/personal/rpt/stats",
-		"/api/vec/personal/categories",
-		"/api/vec/personal/categories/{slug}",
-		"/api/vec/personal/catalogs",
-		"/api/vec/dietas/road-route",
-		"/api/vec/modules/cronos/action",
-		"/api/vec/modules/horarios/action",
-		"/api/vec/modules/permisos/action",
-		"/api/vec/modules/dietas/action",
-		"/api/vec/modules/rutas/action",
-		"/api/vec/modules/bolsa/action",
-		"/api/vec/modules/administracion/action",
-		"/api/vec/modules/personal/action",
-		"/api/vec/modules/nominas/action",
-	}
 }
 
 func (h *Handler) requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {
