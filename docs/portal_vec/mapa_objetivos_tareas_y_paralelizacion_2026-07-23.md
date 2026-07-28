@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | O4-05 composición raíz con dependencias reales → proyecciones protegidas → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 20 de 46 tareas cerradas (43 %); O4-04 tiene doble `GO` independiente |
-| Último commit verificado | CT `000041` parcial — cánones Go de cuadro y detalle con igualdad byte a byte frente a PostgreSQL 18.4 |
-| Trabajo local en revisión | CT `000040` está cerrado. CT `000041` tiene los cánones Go verdes; Recibo V2 y vocabulario de estados siguen en revisión. Después siguen motor interno, fachadas, adaptador, raíz y E2E. |
+| Último commit verificado | CT `000041` parcial — cánones Go y Recibo de lectura RRHH V2 con `GO` independiente |
+| Trabajo local en revisión | CT `000040` está cerrado. CT `000041` tiene cánones y Recibo V2 verdes; el vocabulario de estados y el contrato PostgreSQL siguen abiertos. Después siguen motor interno, fachadas, adaptador, raíz y E2E. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -215,8 +215,9 @@ Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 conserva 3/5 hitos
   protegidas de cuadro/detalle, contrato y consumidores nominales VEC-AD-3,
   registro durable de accesos, publicación global estable, infraestructura de
   cursor, composición visual gobernada, registrador v2 CT 000039 y contrato
-  tipado CT 000040 y cánones Go de CT 000041 están verdes, pero Recibo V2,
-  contrato PostgreSQL de resultados, ejecución interna, fachadas, raíz
+  tipado CT 000040, cánones Go y Recibo V2 de CT 000041 están verdes, pero el
+  vocabulario de estados, el contrato PostgreSQL de resultados, la ejecución
+  interna, las fachadas, la raíz
   productiva, adaptadores reales y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
