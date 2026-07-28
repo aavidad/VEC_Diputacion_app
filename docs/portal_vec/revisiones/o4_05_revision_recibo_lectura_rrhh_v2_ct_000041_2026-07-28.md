@@ -74,3 +74,11 @@ Por tanto se mantienen:
 - O4-05: `3/5`;
 - Bolsa: `1/14`, 7 %;
 - producción: `NO-GO`.
+
+## Cierre posterior del vocabulario
+
+El vocabulario PostgreSQL de seis estados se corrigió después de este
+dictamen y obtuvo `GO` independiente. La evidencia vigente está en
+[la revisión de CT-000041A](o4_05_revision_vocabulario_estados_ct_000041a_2026-07-28.md).
+CT `000041` permanece abierta únicamente por el contrato PostgreSQL de
+contenido, resultado y recibo y su cruce completo con Go.

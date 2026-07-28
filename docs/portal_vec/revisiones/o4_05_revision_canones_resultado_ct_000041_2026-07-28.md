@@ -81,3 +81,10 @@ integrado ni publicado. Está en corrección. Por tanto se mantienen:
 - O4-05: `3/5`;
 - Bolsa: `1/14`, 7 %;
 - producción: `NO-GO`.
+
+## Cierre posterior del vocabulario
+
+La fotografía anterior corresponde a la revisión de los cánones. El
+vocabulario se corrigió posteriormente y obtuvo `GO` independiente. La
+evidencia vigente está en
+[la revisión de CT-000041A](o4_05_revision_vocabulario_estados_ct_000041a_2026-07-28.md).

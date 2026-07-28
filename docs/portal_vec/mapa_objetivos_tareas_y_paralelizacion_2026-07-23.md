@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | O4-05 composición raíz con dependencias reales → proyecciones protegidas → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 20 de 46 tareas cerradas (43 %); O4-04 tiene doble `GO` independiente |
-| Último commit verificado | CT `000041` parcial — cánones Go y Recibo de lectura RRHH V2 con `GO` independiente |
-| Trabajo local en revisión | CT `000040` está cerrado. CT `000041` tiene cánones y Recibo V2 verdes; el vocabulario de estados y el contrato PostgreSQL siguen abiertos. Después siguen motor interno, fachadas, adaptador, raíz y E2E. |
+| Último commit verificado | CT `000041A` — vocabulario PostgreSQL de seis estados con `GO` independiente |
+| Trabajo local en revisión | CT `000041` tiene cánones Go, Recibo V2 y vocabulario de estados verdes. El contrato PostgreSQL se ha especificado como `000042`–`000043`; después siguen motor `000044`, fachadas `000045`, adaptador, raíz y E2E. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -215,9 +215,9 @@ Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 conserva 3/5 hitos
   protegidas de cuadro/detalle, contrato y consumidores nominales VEC-AD-3,
   registro durable de accesos, publicación global estable, infraestructura de
   cursor, composición visual gobernada, registrador v2 CT 000039 y contrato
-  tipado CT 000040, cánones Go y Recibo V2 de CT 000041 están verdes, pero el
-  vocabulario de estados, el contrato PostgreSQL de resultados, la ejecución
-  interna, las fachadas, la raíz
+  tipado CT 000040, cánones Go, Recibo V2 y vocabulario de seis estados de CT
+  000041 están verdes, pero el contrato PostgreSQL 000042–000043, el motor
+  interno 000044, las fachadas 000045, la raíz
   productiva, adaptadores reales y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
