@@ -14,11 +14,32 @@ trap limpiar EXIT INT TERM
 
 docker run --detach --rm --name "$contenedor" --publish 127.0.0.1::5432 \
   --env POSTGRES_DB="$base" --env POSTGRES_PASSWORD="$clave" "$imagen" >/dev/null
-for _ in $(seq 1 60); do
-  docker exec "$contenedor" pg_isready -U postgres -d "$base" >/dev/null 2>&1 && break
+
+# La imagen oficial abre primero un PostgreSQL temporal para inicializar la
+# base, lo apaga y después ejecuta el servidor definitivo. pg_isready puede
+# observar esa ventana temporal y provocar un FATAL "system is shutting down".
+# La marca del entrypoint fijado por digest acredita que esa fase terminó.
+postgresql_definitivo_disponible=false
+for _ in $(seq 1 120); do
+  if ! docker inspect --format '{{.State.Running}}' "$contenedor" \
+    2>/dev/null | grep -Fxq true; then
+    break
+  fi
+  if docker logs "$contenedor" 2>&1 |
+      LC_ALL=C grep -Fq 'PostgreSQL init process complete; ready for start up.' &&
+    docker exec "$contenedor" psql -XAt --set ON_ERROR_STOP=1 \
+      -U postgres -d "$base" -c 'SELECT 1' 2>/dev/null |
+      grep -Fxq 1; then
+    postgresql_definitivo_disponible=true
+    break
+  fi
   sleep 1
 done
-docker exec "$contenedor" pg_isready -U postgres -d "$base" >/dev/null
+if [[ $postgresql_definitivo_disponible != true ]]; then
+  docker logs "$contenedor" >&2 || true
+  echo "PostgreSQL definitivo no quedó disponible" >&2
+  exit 1
+fi
 version_mayor=$(docker exec "$contenedor" psql -XAt --set ON_ERROR_STOP=1 \
   -U postgres -d "$base" -c \
   "SELECT current_setting('server_version_num')::integer / 10000")
