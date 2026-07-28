@@ -68,6 +68,25 @@ Cada fichero de migración, prueba, runner o código deberá permanecer por
 debajo de 800 líneas. No se admite eludir la regla mediante líneas
 artificialmente largas o SQL comprimido.
 
+La amplitud nominal de `000042` exige una partición física, no otra migración.
+El fichero principal es el único que coincide con el patrón numerado y
+mantiene `BEGIN`, las dos barreras, el avance final y `COMMIT`. Incluye, en un
+orden literal congelado, componentes bajo `000042_componentes/` mediante
+`\ir`. Los componentes no contienen transacciones, barreras ni inclusiones
+dinámicas. Por tanto, todos los tipos, auxiliares, cánones, ACL y controles se
+instalan o revierten como una sola unidad.
+
+El ejecutor operativo de este conector PostgreSQL es `psql` 18.4 con `-X`,
+`ON_ERROR_STOP=1` y `--file`; no se presenta el fichero principal como SQL
+portable para un controlador que ignore metacomandos. Un futuro migrador
+embebido deberá concatenar los mismos componentes, sin reinterpretarlos, y
+enviarlos dentro de la misma transacción.
+
+Las pruebas ejecutan el principal desde un directorio de trabajo distinto,
+retiran o alteran temporalmente cada componente y demuestran que cualquier
+fallo conserva barreras `21/5` y no deja objetos parciales. El empaquetado y el
+manual enumeran todos los componentes; omitir uno invalida el artefacto.
+
 ## Autoridad y frontera de confianza
 
 `000042` contiene exclusivamente cálculo puro. Sus funciones son
