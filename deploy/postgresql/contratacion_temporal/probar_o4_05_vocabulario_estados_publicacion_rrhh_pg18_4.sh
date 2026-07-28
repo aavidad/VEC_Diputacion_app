@@ -61,6 +61,11 @@ if [[ $estado_limpio != '21|5|true|true|true|CHECK '* ]]; then
     exit 1
 fi
 
+# shellcheck disable=SC1091
+source \
+    "$directorio/pruebas_o405_vocabulario_estados_adversarial.sh"
+probar_derivas_vocabulario_instalado "$estado_limpio"
+
 paso 'la reentrada se rechaza sin efectos parciales'
 esperar_fallo 'segunda instalación CT-000041A' 55000 \
     'estado incompatible para ampliar estados RRHH' \
@@ -81,7 +86,7 @@ CHECK (estado_clave IN (
 )) NOT VALID;
 SQL
 esperar_fallo 'down con restricción sin validar' 55000 \
-    'deriva del catálogo de estados RRHH' \
+    'estructura derivada impide revertir estados RRHH' \
     archivo \
     contratacion_temporal/migraciones/000041_vocabulario_estados_publicacion_rrhh.down.sql
 psql_admin <<'SQL' >/dev/null
@@ -99,7 +104,7 @@ ON vec_contratacion_temporal
    .control_vocabulario_estados_publicacion_rrhh_v1(version_esquema);
 SQL
 esperar_fallo 'down con índice derivado' 55000 \
-    'catálogo derivado impide revertir estados RRHH' \
+    'estructura derivada impide revertir estados RRHH' \
     archivo \
     contratacion_temporal/migraciones/000041_vocabulario_estados_publicacion_rrhh.down.sql
 psql_admin <<'SQL' >/dev/null
@@ -111,8 +116,8 @@ GRANT SELECT ON
         .control_vocabulario_estados_publicacion_rrhh_v1
 TO vec_contratacion_temporal_consultor_rrhh;
 SQL
-esperar_fallo 'down con ACL derivada' 42501 \
-    'ACL derivada impide revertir estados RRHH' \
+esperar_fallo 'down con ACL derivada' 55000 \
+    'estructura derivada impide revertir estados RRHH' \
     archivo \
     contratacion_temporal/migraciones/000041_vocabulario_estados_publicacion_rrhh.down.sql
 psql_admin <<'SQL' >/dev/null
@@ -193,6 +198,7 @@ if [[ $estado_retirado != '20|4|true|true|CHECK '* ]]; then
     printf 'down CT-000041A incompleto: %s\n' "$estado_retirado" >&2
     exit 1
 fi
+probar_deriva_funcion_antes_up
 archivo \
     contratacion_temporal/migraciones/000041_vocabulario_estados_publicacion_rrhh.up.sql
 archivo \
