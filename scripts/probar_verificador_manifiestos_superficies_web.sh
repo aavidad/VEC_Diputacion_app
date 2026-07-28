@@ -4,6 +4,8 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+python3 -m unittest scripts.tests.test_verificar_dependencias_recursos_web
+
 temporal="$(mktemp -d)"
 trap 'rm -rf "${temporal}"' EXIT
 

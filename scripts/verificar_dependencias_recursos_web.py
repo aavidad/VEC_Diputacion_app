@@ -44,19 +44,29 @@ ATRIBUTOS_RECURSO = {
     "script": {"src"},
     "source": {"src", "srcset"},
     "track": {"src"},
+    "use": {"href", "xlink:href"},
     "video": {"poster", "src"},
 }
-PATRON_IMPORTACION_JS = re.compile(
-    r"""(?:\bimport\s*\(|\bnew\s+(?:SharedWorker|Worker)\s*\()"""
-    r"""\s*["']([^"']+)["']""",
-    re.MULTILINE,
-)
-PATRON_CADENA_RECURSO = re.compile(
-    r"""["']([^"'?#]+\.(?:css|gif|html|ico|jpe?g|js|json|map|mp3|ogg|pdf|png|"""
-    r"""svg|ttf|webm|webp|woff2?)(?:\?[^"']*)?)["']""",
-    re.IGNORECASE,
+PATRON_LITERAL = r"""(?P<cita>["'`])(?P<ruta>[^"'`]+)(?P=cita)"""
+PATRONES_CARGA_JS = (
+    re.compile(
+        r"""\b(?:import|export)\s+"""
+        r"""(?:(?:[^;"'`]*?)\s+from\s+)?""" + PATRON_LITERAL,
+        re.MULTILINE,
+    ),
+    re.compile(r"""\bimport\s*\(\s*""" + PATRON_LITERAL, re.MULTILINE),
+    re.compile(
+        r"""\bnew\s+(?:SharedWorker|Worker|URL)\s*\(\s*""" + PATRON_LITERAL,
+        re.MULTILINE,
+    ),
+    re.compile(r"""\bfetch\s*\(\s*""" + PATRON_LITERAL, re.MULTILINE),
+    re.compile(r"""\.(?:href|src)\s*=\s*""" + PATRON_LITERAL, re.MULTILINE),
 )
 PATRON_URL_CSS = re.compile(r"""url\(\s*["']?([^"')]+)["']?\s*\)""", re.IGNORECASE)
+PATRON_IMPORTACION_CSS = re.compile(
+    r"""@import\s+(?:url\(\s*)?["']([^"']+)["']\s*\)?""",
+    re.IGNORECASE,
+)
 
 
 class AnalizadorHTML(HTMLParser):
@@ -130,23 +140,24 @@ def es_importacion_exclusiva_presentacion(ruta: str) -> bool:
 
 def referencias_de_archivo(ruta: Path, origen: str) -> list[tuple[str, bool]]:
     texto = ruta.read_text(encoding="utf-8")
-    if ruta.suffix.lower() == ".html":
+    if ruta.suffix.lower() in {".html", ".svg"}:
         analizador = AnalizadorHTML()
         analizador.feed(texto)
         return [(referencia, True) for referencia in analizador.referencias]
     if ruta.suffix.lower() == ".css":
-        return [(coincidencia, True) for coincidencia in PATRON_URL_CSS.findall(texto)]
+        referencias = set(PATRON_URL_CSS.findall(texto))
+        referencias.update(PATRON_IMPORTACION_CSS.findall(texto))
+        return [(referencia, True) for referencia in sorted(referencias)]
     if ruta.suffix.lower() != ".js":
         return []
 
-    importaciones = set(PATRON_IMPORTACION_JS.findall(texto))
-    resultado = [(referencia, True) for referencia in importaciones]
-    resultado.extend(
-        (referencia, False)
-        for referencia in PATRON_CADENA_RECURSO.findall(texto)
-        if referencia not in importaciones
-    )
-    return resultado
+    referencias = {
+        coincidencia.group("ruta")
+        for patron in PATRONES_CARGA_JS
+        for coincidencia in patron.finditer(texto)
+        if "${" not in coincidencia.group("ruta")
+    }
+    return [(referencia, True) for referencia in sorted(referencias)]
 
 
 def comprobar(
@@ -162,25 +173,24 @@ def comprobar(
     por_revisar = sorted(ruta for ruta in inventario if ruta.startswith("static/"))
     for origen in por_revisar:
         archivo = raiz / "web" / origen
-        if archivo.suffix.lower() not in {".html", ".css", ".js"}:
+        if archivo.suffix.lower() not in {".html", ".css", ".js", ".svg"}:
             continue
         for referencia, obligatoria in referencias_de_archivo(archivo, origen):
             normalizada = normalizar_referencia(referencia, origen)
             if normalizada is None:
                 continue
-            if archivo.suffix.lower() == ".js" and es_importacion_exclusiva_presentacion(normalizada):
+            if (
+                archivo.suffix.lower() == ".js"
+                and es_importacion_exclusiva_presentacion(normalizada)
+            ):
                 continue
             archivo_referenciado = (
                 raiz / normalizada
                 if normalizada.startswith("locales/")
                 else raiz / "web" / normalizada
             )
-            if not obligatoria and not archivo_referenciado.is_file():
-                continue
             if not archivo_referenciado.is_file():
-                errores.append(
-                    f"{origen}: dependencia local ausente: {normalizada}"
-                )
+                errores.append(f"{origen}: dependencia local ausente: {normalizada}")
             elif normalizada not in inventario:
                 errores.append(
                     f"{origen}: dependencia local no inventariada: {normalizada}"
