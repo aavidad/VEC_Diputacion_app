@@ -9,10 +9,12 @@ import (
 const (
 	VersionHuellaConsultaRRHH      uint16 = 1
 	VersionHuellaFiltrosCuadroRRHH uint16 = 1
+	VersionHuellaAlcanceRRHH       uint16 = 1
 
 	DominioHuellaConsultaCuadroRRHH  = "vec.contratacion_temporal.consulta_rrhh.cuadro.v1"
 	DominioHuellaConsultaDetalleRRHH = "vec.contratacion_temporal.consulta_rrhh.detalle.v1"
 	DominioHuellaFiltrosCuadroRRHH   = "vec.contratacion_temporal.filtros_rrhh.cuadro.v1"
+	DominioHuellaAlcanceRRHH         = "vec.contratacion_temporal.alcance_rrhh.v1"
 
 	AudienciaConsumoConsultaCuadroRRHHV3  = "vec_contratacion_temporal.consultar_cuadro_rrhh_atestado.v1"
 	AudienciaConsumoConsultaDetalleRRHHV3 = "vec_contratacion_temporal.consultar_detalle_rrhh_atestado.v1"
@@ -41,6 +43,14 @@ type canonConsultaDetalleRRHH struct {
 	VersionObservada uint64 `json:"version_observada"`
 }
 
+type canonAlcanceRRHH struct {
+	Dominio         string `json:"dominio"`
+	Version         uint16 `json:"version"`
+	OrganizacionRef string `json:"organizacion_ref"`
+	ClaseAmbito     string `json:"clase_ambito"`
+	AmbitoRef       string `json:"ambito_ref"`
+}
+
 // canonFiltrosCuadroRRHH identifica una familia de páginas. El cursor queda
 // deliberadamente fuera: cada página conserva su huella de consulta exacta,
 // mientras esta representación permanece estable durante toda la navegación.
@@ -54,45 +64,113 @@ type canonFiltrosCuadroRRHH struct {
 }
 
 func huellaSolicitudCuadroRRHH(solicitud SolicitudCuadroRRHH) (string, error) {
-	if solicitud.validar() != nil {
-		return "", ErrSolicitudConsultaRRHHInvalida
+	exportacion, err := canonSolicitudCuadroRRHH(solicitud)
+	if err != nil {
+		return "", err
 	}
-	return huellaCanonConsultaRRHH(canonConsultaCuadroRRHH{
-		Dominio: DominioHuellaConsultaCuadroRRHH, Version: VersionHuellaConsultaRRHH,
-		Texto: solicitud.texto, EstadoClave: string(solicitud.estadoClave),
-		FaseClave: string(solicitud.faseClave), Limite: solicitud.limite,
-		Cursor: solicitud.cursor,
-	})
+	return exportacion.huellaSHA256, nil
+}
+
+func canonSolicitudCuadroRRHH(
+	solicitud SolicitudCuadroRRHH,
+) (exportacionCanonicaRRHH, error) {
+	if solicitud.validar() != nil {
+		return exportacionCanonicaRRHH{}, ErrSolicitudConsultaRRHHInvalida
+	}
+	return nuevaExportacionCanonicaRRHH(
+		DominioHuellaConsultaCuadroRRHH,
+		VersionHuellaConsultaRRHH,
+		canonConsultaCuadroRRHH{
+			Dominio: DominioHuellaConsultaCuadroRRHH, Version: VersionHuellaConsultaRRHH,
+			Texto: solicitud.texto, EstadoClave: string(solicitud.estadoClave),
+			FaseClave: string(solicitud.faseClave), Limite: solicitud.limite,
+			Cursor: solicitud.cursor,
+		},
+	)
 }
 
 func huellaFiltrosCuadroRRHH(solicitud SolicitudCuadroRRHH) (string, error) {
-	if solicitud.validar() != nil {
-		return "", ErrSolicitudConsultaRRHHInvalida
+	exportacion, err := canonFiltrosSolicitudCuadroRRHH(solicitud)
+	if err != nil {
+		return "", err
 	}
-	return huellaCanonConsultaRRHH(canonFiltrosCuadroRRHH{
-		Dominio: DominioHuellaFiltrosCuadroRRHH,
-		Version: VersionHuellaFiltrosCuadroRRHH,
-		Texto:   solicitud.texto, EstadoClave: string(solicitud.estadoClave),
-		FaseClave: string(solicitud.faseClave), Limite: solicitud.limite,
-	})
+	return exportacion.huellaSHA256, nil
+}
+
+func canonFiltrosSolicitudCuadroRRHH(
+	solicitud SolicitudCuadroRRHH,
+) (exportacionCanonicaRRHH, error) {
+	if solicitud.validar() != nil {
+		return exportacionCanonicaRRHH{}, ErrSolicitudConsultaRRHHInvalida
+	}
+	return nuevaExportacionCanonicaRRHH(
+		DominioHuellaFiltrosCuadroRRHH,
+		VersionHuellaFiltrosCuadroRRHH,
+		canonFiltrosCuadroRRHH{
+			Dominio: DominioHuellaFiltrosCuadroRRHH,
+			Version: VersionHuellaFiltrosCuadroRRHH,
+			Texto:   solicitud.texto, EstadoClave: string(solicitud.estadoClave),
+			FaseClave: string(solicitud.faseClave), Limite: solicitud.limite,
+		},
+	)
 }
 
 func huellaSolicitudDetalleRRHH(solicitud SolicitudDetalleRRHH) (string, error) {
-	if solicitud.validar() != nil {
-		return "", ErrSolicitudConsultaRRHHInvalida
+	exportacion, err := canonSolicitudDetalleRRHH(solicitud)
+	if err != nil {
+		return "", err
 	}
-	return huellaCanonConsultaRRHH(canonConsultaDetalleRRHH{
-		Dominio: DominioHuellaConsultaDetalleRRHH, Version: VersionHuellaConsultaRRHH,
-		ExpedienteRef:    solicitud.expedienteRef,
-		VersionObservada: solicitud.versionObservada,
-	})
+	return exportacion.huellaSHA256, nil
 }
 
-func huellaCanonConsultaRRHH(valor any) (string, error) {
+func canonSolicitudDetalleRRHH(
+	solicitud SolicitudDetalleRRHH,
+) (exportacionCanonicaRRHH, error) {
+	if solicitud.validar() != nil {
+		return exportacionCanonicaRRHH{}, ErrSolicitudConsultaRRHHInvalida
+	}
+	return nuevaExportacionCanonicaRRHH(
+		DominioHuellaConsultaDetalleRRHH,
+		VersionHuellaConsultaRRHH,
+		canonConsultaDetalleRRHH{
+			Dominio: DominioHuellaConsultaDetalleRRHH, Version: VersionHuellaConsultaRRHH,
+			ExpedienteRef:    solicitud.expedienteRef,
+			VersionObservada: solicitud.versionObservada,
+		},
+	)
+}
+
+func canonAlcanceCapacidadRRHH(
+	capacidad CapacidadConsultaRRHH,
+) (exportacionCanonicaRRHH, error) {
+	if capacidad.validarEstructura() != nil {
+		return exportacionCanonicaRRHH{}, ErrCapacidadConsultaRRHHInvalida
+	}
+	return nuevaExportacionCanonicaRRHH(
+		DominioHuellaAlcanceRRHH,
+		VersionHuellaAlcanceRRHH,
+		canonAlcanceRRHH{
+			Dominio:         DominioHuellaAlcanceRRHH,
+			Version:         VersionHuellaAlcanceRRHH,
+			OrganizacionRef: capacidad.organizacionRef,
+			ClaseAmbito:     string(capacidad.claseAmbito),
+			AmbitoRef:       capacidad.ambitoRef,
+		},
+	)
+}
+
+func nuevaExportacionCanonicaRRHH(
+	dominio string,
+	version uint16,
+	valor any,
+) (exportacionCanonicaRRHH, error) {
 	canon, err := json.Marshal(valor)
 	if err != nil {
-		return "", ErrSolicitudConsultaRRHHInvalida
+		return exportacionCanonicaRRHH{}, ErrSolicitudConsultaRRHHInvalida
 	}
 	suma := sha256.Sum256(canon)
-	return hex.EncodeToString(suma[:]), nil
+	return exportacionCanonicaRRHH{
+		dominio: dominio, version: version,
+		bytesCanonicos: canon, huellaSHA256: hex.EncodeToString(suma[:]),
+	}, nil
 }

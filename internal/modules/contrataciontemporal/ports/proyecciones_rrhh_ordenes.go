@@ -53,24 +53,76 @@ func (o OrdenConsultaCuadroRRHH) FiltrosHuellaSHA256() string {
 	return o.filtrosHuella
 }
 func (o OrdenConsultaCuadroRRHH) Instante() time.Time { return o.instante }
+
+func (o OrdenConsultaCuadroRRHH) canonesParaExportacionSQL() (
+	exportacionCanonicaRRHH,
+	exportacionCanonicaRRHH,
+	error,
+) {
+	consulta, err := canonSolicitudCuadroRRHH(o.solicitud)
+	familia, errFamilia := canonFiltrosSolicitudCuadroRRHH(o.solicitud)
+	if err != nil || errFamilia != nil ||
+		consulta.huellaSHA256 != o.consultaHuella ||
+		familia.huellaSHA256 != o.filtrosHuella ||
+		o.capacidad.validaPara(
+			o.contexto, DominioHuellaConsultaCuadroRRHH,
+			consulta.huellaSHA256,
+			AccionConsultarCuadroRRHH, FinalidadConsultarCuadroRRHH,
+			"", o.instante,
+		) != nil {
+		return exportacionCanonicaRRHH{}, exportacionCanonicaRRHH{},
+			ErrOrdenConsultaRRHHInvalida
+	}
+	return consulta, familia, nil
+}
+
 func (o OrdenConsultaCuadroRRHH) ExportacionParaSQL() (
 	puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3,
 	error,
 ) {
-	huella, err := huellaSolicitudCuadroRRHH(o.solicitud)
-	filtrosHuella, errFiltros := huellaFiltrosCuadroRRHH(o.solicitud)
-	if err != nil || errFiltros != nil ||
-		huella != o.consultaHuella ||
-		filtrosHuella != o.filtrosHuella ||
-		o.capacidad.validaPara(
-			o.contexto, DominioHuellaConsultaCuadroRRHH, huella,
-			AccionConsultarCuadroRRHH, FinalidadConsultarCuadroRRHH,
-			"", o.instante,
-		) != nil {
+	if _, _, err := o.canonesParaExportacionSQL(); err != nil {
 		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{},
 			ErrOrdenConsultaRRHHInvalida
 	}
 	return o.capacidad.material.exportacionParaSQL()
+}
+
+func (o OrdenConsultaCuadroRRHH) ExportarConsultaCanonicaParaSQL() (
+	ExportacionCanonicaConsultaCuadroRRHH,
+	error,
+) {
+	consulta, _, err := o.canonesParaExportacionSQL()
+	if err != nil {
+		return ExportacionCanonicaConsultaCuadroRRHH{},
+			ErrOrdenConsultaRRHHInvalida
+	}
+	return ExportacionCanonicaConsultaCuadroRRHH{consulta}, nil
+}
+
+func (o OrdenConsultaCuadroRRHH) ExportarFamiliaCanonicaParaSQL() (
+	ExportacionCanonicaFamiliaCuadroRRHH,
+	error,
+) {
+	_, familia, err := o.canonesParaExportacionSQL()
+	if err != nil {
+		return ExportacionCanonicaFamiliaCuadroRRHH{},
+			ErrOrdenConsultaRRHHInvalida
+	}
+	return ExportacionCanonicaFamiliaCuadroRRHH{familia}, nil
+}
+
+func (o OrdenConsultaCuadroRRHH) ExportarAlcanceCanonicoParaSQL() (
+	ExportacionCanonicaAlcanceRRHH,
+	error,
+) {
+	if _, _, err := o.canonesParaExportacionSQL(); err != nil {
+		return ExportacionCanonicaAlcanceRRHH{}, ErrOrdenConsultaRRHHInvalida
+	}
+	canon, err := canonAlcanceCapacidadRRHH(o.capacidad)
+	if err != nil {
+		return ExportacionCanonicaAlcanceRRHH{}, ErrOrdenConsultaRRHHInvalida
+	}
+	return ExportacionCanonicaAlcanceRRHH{canon}, nil
 }
 
 type OrdenConsultaDetalleRRHH struct {
@@ -115,19 +167,57 @@ func (o OrdenConsultaDetalleRRHH) ConsultaHuellaSHA256() string {
 	return o.consultaHuella
 }
 func (o OrdenConsultaDetalleRRHH) Instante() time.Time { return o.instante }
+
+func (o OrdenConsultaDetalleRRHH) canonParaExportacionSQL() (
+	exportacionCanonicaRRHH,
+	error,
+) {
+	consulta, err := canonSolicitudDetalleRRHH(o.solicitud)
+	if err != nil || consulta.huellaSHA256 != o.consultaHuella ||
+		o.capacidad.validaPara(
+			o.contexto, DominioHuellaConsultaDetalleRRHH,
+			consulta.huellaSHA256,
+			AccionConsultarDetalleRRHH, FinalidadConsultarDetalleRRHH,
+			o.solicitud.expedienteRef, o.instante,
+		) != nil {
+		return exportacionCanonicaRRHH{}, ErrOrdenConsultaRRHHInvalida
+	}
+	return consulta, nil
+}
+
 func (o OrdenConsultaDetalleRRHH) ExportacionParaSQL() (
 	puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3,
 	error,
 ) {
-	huella, err := huellaSolicitudDetalleRRHH(o.solicitud)
-	if err != nil || huella != o.consultaHuella ||
-		o.capacidad.validaPara(
-			o.contexto, DominioHuellaConsultaDetalleRRHH, huella,
-			AccionConsultarDetalleRRHH, FinalidadConsultarDetalleRRHH,
-			o.solicitud.expedienteRef, o.instante,
-		) != nil {
+	if _, err := o.canonParaExportacionSQL(); err != nil {
 		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{},
 			ErrOrdenConsultaRRHHInvalida
 	}
 	return o.capacidad.material.exportacionParaSQL()
+}
+
+func (o OrdenConsultaDetalleRRHH) ExportarConsultaCanonicaParaSQL() (
+	ExportacionCanonicaConsultaDetalleRRHH,
+	error,
+) {
+	consulta, err := o.canonParaExportacionSQL()
+	if err != nil {
+		return ExportacionCanonicaConsultaDetalleRRHH{},
+			ErrOrdenConsultaRRHHInvalida
+	}
+	return ExportacionCanonicaConsultaDetalleRRHH{consulta}, nil
+}
+
+func (o OrdenConsultaDetalleRRHH) ExportarAlcanceCanonicoParaSQL() (
+	ExportacionCanonicaAlcanceRRHH,
+	error,
+) {
+	if _, err := o.canonParaExportacionSQL(); err != nil {
+		return ExportacionCanonicaAlcanceRRHH{}, ErrOrdenConsultaRRHHInvalida
+	}
+	canon, err := canonAlcanceCapacidadRRHH(o.capacidad)
+	if err != nil {
+		return ExportacionCanonicaAlcanceRRHH{}, ErrOrdenConsultaRRHHInvalida
+	}
+	return ExportacionCanonicaAlcanceRRHH{canon}, nil
 }
