@@ -5,7 +5,8 @@
 - rama: `integracion/ct-000039-20260726`;
 - base estable: `f744102`;
 - candidato inicial recuperado: `e2bd078`;
-- estado: WIP, no integrable y `NO-GO`.
+- cierre técnico: `e558f41`;
+- estado actual: `GO` técnico doble; pendiente de promoción a la rama estable.
 
 ## Corrección incorporada en esta sesión
 
@@ -94,3 +95,26 @@ No se ejecutó ni se declaró verde ninguna prueba funcional sobre esta foto. Al
 reanudar, deben corregirse primero el runner y la reversión segura, probar la
 ausencia literal del LOGIN en tablas, cánones y recibos y reproducir toda la
 matriz PostgreSQL 18.4 antes de solicitar revisión independiente.
+
+## Cierre final del 28 de julio
+
+El commit `e558f41` completa el trabajo interrumpido sin modificar el hash de
+la migración ascendente minimizada:
+
+- `login_tecnico` deja de persistirse y se sustituye por referencias opacas de
+  Identidad;
+- la reversión compara el catálogo semántico completo y usa exclusivamente
+  operaciones `RESTRICT`;
+- las pruebas ejercitan cruces de identidad y carreras reales de registro y
+  revocación;
+- una ranura lógica anterior al tráfico adverso acredita el tránsito de cuatro
+  centinelas y la ausencia posterior de texto claro o hexadecimal en WAL,
+  logs, recibos y trazas;
+- todos los rechazos comprueban SQLSTATE y mensaje exactos.
+
+La ejecución de dirección y las dos revisiones independientes terminaron en
+verde sobre los hashes congelados. La evidencia completa está en
+[la revisión final de CT 000039](revisiones/o4_05_revision_registrador_v2_ct_000039_2026-07-28.md).
+
+Este cierre habilita CT `000040` y `000041`; no cambia la métrica oficial ni
+autoriza producción.

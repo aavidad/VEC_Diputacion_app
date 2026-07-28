@@ -571,6 +571,14 @@ safe-down semántico. Quedan pendientes las funciones exteriores que ejecuten
 consumo, lectura y auditoría en una sola transacción; la función de
 confirmación de alta no se reutiliza ni se generaliza.
 
+El 28 de julio, `e558f41` cerró CT `000039` con dos revisiones independientes:
+registrador v2 minimizado, referencia opaca de Identidad, snapshot *as-of*,
+carreras reales con revocación, privacidad probada en WAL/logs/trazas y
+reversión semántica `RESTRICT`. La
+[evidencia reproducible](revisiones/o4_05_revision_registrador_v2_ct_000039_2026-07-28.md)
+mantiene abiertos el motor tipado `000040`, las fachadas `000041`, el adaptador
+Go, la raíz productiva, TLS viva y el E2E HTTP/web.
+
 El procedimiento conserva **19 de 46 tareas verificadas (41 %)**. Esto no
 autoriza aún la ruta web productiva: faltan la raíz productiva, las
 proyecciones protegidas y el E2E de O4-05. Los dobles de presentación
