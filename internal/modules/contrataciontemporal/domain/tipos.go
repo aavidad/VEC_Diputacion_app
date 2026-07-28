@@ -118,7 +118,8 @@ func grupoValido(valor string) bool {
 
 func instanteCanonico(valor time.Time) bool {
 	return !valor.IsZero() && valor.Location() == time.UTC &&
-		valor.Equal(valor.Truncate(time.Microsecond))
+		valor.Equal(valor.Truncate(time.Microsecond)) &&
+		valor.Year() >= 1 && valor.Year() <= 9999
 }
 
 func fechaCivilCanonica(valor time.Time) bool {
