@@ -187,10 +187,12 @@ La evolución SQL prevista queda separada para permitir revisión y reversión:
 | Autorización atestada `000005` | Revalidación final de consumo de cuadro/detalle |
 | CT `000039` | Registrador de acceso v2 e índice as-of |
 | CT `000040` | Contrato interno: tipos, cánones y controles, sin lectura |
-| CT `000041` | Ejecución interna: lectura *as-of* y confirmación de cursores |
-| CT `000042` | Fachadas exteriores, orquestación atómica y privilegio mínimo |
+| CT `000041` | Contrato probatorio: contenido, estados y recibo V2, sin lectura |
+| CT `000042` | Ejecución interna: lectura *as-of* y confirmación de cursores |
+| CT `000043` | Fachadas exteriores, orquestación atómica y privilegio mínimo |
 
-Las barreras CT avanzarán de `18/2` a `19/3`, `20/4`, `21/5` y `22/6`. Cada
+Las barreras CT avanzarán de `18/2` a `19/3`, `20/4`, `21/5`, `22/6` y
+`23/7`. Cada
 reversión exigirá su estado exacto, cero dependencias posteriores y ausencia
 de historia que quedaría huérfana. No se usará `CASCADE`.
 

@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | O4-05 composición raíz con dependencias reales → proyecciones protegidas → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 19 de 46 tareas cerradas (41 %); O4-04 tiene doble `GO` independiente |
-| Último commit verificado | `e558f41` — registrador RRHH v2 CT `000039` con doble `GO` independiente |
-| Trabajo local en revisión | CT `000039` está cerrado; están en curso el contrato `000040` y los cánones Go. Después siguen ejecución `000041`, fachadas `000042`, adaptador, raíz y E2E. |
+| Último commit verificado | CT `000040` — contrato tipado, alcance, vínculo sesión-control y reversión segura con `GO` independiente |
+| Trabajo local en revisión | CT `000040` está cerrado. Está en curso el contrato probatorio `000041`; después siguen motor interno `000042`, fachadas `000043`, adaptador, raíz y E2E. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -209,14 +209,15 @@ Estado actual:
 
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
-Tareas verificadas del procedimiento: 19/46 = 41 %
+Tareas verificadas del procedimiento: 20/46 = 43 %
 Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 conserva 3/5 hitos
   oficiales: adaptador, HTTP, cliente, registro modular, proyecciones
   protegidas de cuadro/detalle, contrato y consumidores nominales VEC-AD-3,
   registro durable de accesos, publicación global estable, infraestructura de
-  cursor, composición visual gobernada y registrador v2 CT 000039 están verdes
-  de forma aislada, pero contrato 000040, ejecución 000041, fachadas 000042,
-  raíz productiva, adaptadores reales y E2E siguen abiertos
+  cursor, composición visual gobernada, registrador v2 CT 000039 y contrato
+  tipado CT 000040 están verdes, pero contrato probatorio 000041, ejecución
+  000042, fachadas 000043, raíz productiva, adaptadores reales y E2E siguen
+  abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 
