@@ -18,8 +18,8 @@ import (
 const (
 	huellaContenidoCuadroVacio  = "568056c5d1a9b0651d2bc85f7dcc6e6dc3a71b12ffe8f831cb7ea5ffd51aa0c4"
 	huellaResultadoCuadroVacio  = "cb8ad45d7c31faa5100a249a840e66671b0de2319d23fc1c8878e56da7076ee0"
-	huellaContenidoCuadroCursor = "72b809de2eac111e2e431965b033569be4a1ba1f86cc8f478e8da01f3fd5c826"
-	huellaResultadoCuadroCursor = "f57223da53bbcb81c133be1601447f5b854ab0a344fb6a3865dad0f96d2ae537"
+	huellaContenidoCuadroCursor = "acf18cd8e268f93f451f6ef6566e617c9128ba84c068b5b3124132f5f1ef5f07"
+	huellaResultadoCuadroCursor = "e77c8c791e996bd33783716a65cf6ad36868ea03f916c368263ea1031d2a50be"
 )
 
 func TestCanonContenidoYResultadoCuadroVacioConservanVectoresDorados(
@@ -90,7 +90,8 @@ func TestCanonContenidoCuadroCursorUsaSoloHuellaBinariaYOrdenCompleto(
 	if len(canon) != 434 || bytes.Contains(canon, []byte(cursor)) {
 		t.Fatalf("canon con tamaño inesperado o cursor claro: %d", len(canon))
 	}
-	huellaCursor := sha256.Sum256([]byte(cursor))
+	materialCursor := bytes.Repeat([]byte{0xff}, sha256.Size)
+	huellaCursor := sha256.Sum256(materialCursor)
 	encuadreBinario := append([]byte("32:"), huellaCursor[:]...)
 	encuadreBinario = append(encuadreBinario, '\n')
 	if !bytes.Contains(canon, encuadreBinario) {
@@ -101,9 +102,12 @@ func TestCanonContenidoCuadroCursorUsaSoloHuellaBinariaYOrdenCompleto(
 	if err != nil {
 		t.Fatal(err)
 	}
+	huellaRepresentacion := sha256.Sum256([]byte(cursor))
 	if resultado.HuellaSHA256() != huellaResultadoCuadroCursor ||
 		resultado.Total() != 1 ||
 		resultado.CursorHuellaSHA256() != hex.EncodeToString(huellaCursor[:]) ||
+		resultado.CursorHuellaSHA256() ==
+			hex.EncodeToString(huellaRepresentacion[:]) ||
 		bytes.Contains(resultado.BytesCanonicos(), []byte(cursor)) {
 		t.Fatalf("resultado divergente o con cursor claro: %#v", resultado)
 	}
