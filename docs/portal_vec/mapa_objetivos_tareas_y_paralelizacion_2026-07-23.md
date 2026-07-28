@@ -1,6 +1,6 @@
 # Mapa de objetivos, tareas y paralelización
 
-Última actualización: 26 de julio de 2026.
+Última actualización: 28 de julio de 2026.
 
 Vista de dirección para revisar el avance del procedimiento de contratación
 temporal. El detalle verificable de cada tarea está en el
@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | O4-05 composición raíz con dependencias reales → proyecciones protegidas → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
 | Procedimiento completo | 19 de 46 tareas cerradas (41 %); O4-04 tiene doble `GO` independiente |
-| Último commit verificado | `4714088` — composición visual y catálogos RRHH gobernados con `GO` independiente |
-| Trabajo local en revisión | La acreditación por conexión del lector PostgreSQL está en corrección tras un `NO-GO` técnico por sustitución de función y ventana TOCTOU; composición de dependencias y E2E HTTP permanecen abiertos. |
+| Último commit verificado | `e558f41` — registrador RRHH v2 CT `000039` con doble `GO` independiente |
+| Trabajo local en revisión | CT `000039` está cerrado técnicamente; siguen abiertos el motor tipado `000040`, las fachadas `000041`, el adaptador Go, la composición raíz y el E2E HTTP/web. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -214,9 +214,9 @@ Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 conserva 3/5 hitos
   oficiales: adaptador, HTTP, cliente, registro modular, proyecciones
   protegidas de cuadro/detalle, contrato y consumidores nominales VEC-AD-3,
   registro durable de accesos, publicación global estable, infraestructura de
-  cursor y composición visual gobernada están verdes de forma aislada, pero
-  funciones exteriores, raíz productiva, adaptadores reales y E2E siguen
-  abiertos
+  cursor, composición visual gobernada y registrador v2 CT 000039 están verdes
+  de forma aislada, pero motor 000040, fachadas 000041, raíz productiva,
+  adaptadores reales y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 
