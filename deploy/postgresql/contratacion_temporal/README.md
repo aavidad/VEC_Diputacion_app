@@ -374,6 +374,52 @@ inmutabilidad. Ataca además restricciones y disparadores homónimos,
 disparadores RI, reglas, columnas, índices, políticas, ACL y propietarios. La
 reversión solo pasa con catálogo exacto e historia vacía.
 
+### CT-000042: cánones privados de resultado y Recibo V2
+
+`000042_canones_resultado_recibo_rrhh.up.sql` es el único punto de entrada de
+instalación. Requiere `psql` y servidor PostgreSQL `18.4`, base UTF-8 y esta
+invocación:
+
+```bash
+psql -X -v ON_ERROR_STOP=1 \
+  -f deploy/postgresql/contratacion_temporal/migraciones/000042_canones_resultado_recibo_rrhh.up.sql
+```
+
+El principal incluye literalmente, dentro de una sola transacción y en este
+orden, el paquete indivisible:
+
+1. `000042_componentes/010_tipos_nominales.sql`;
+2. `000042_componentes/015_codec_utf8_inmutable.sql`;
+3. `000042_componentes/016_instante_canonico.sql`;
+4. `000042_componentes/020_auxiliares_y_canones_base.sql`;
+5. `000042_componentes/030_canon_detalle.sql`;
+6. `000042_componentes/090_acl_catalogo_y_barrera.sql`.
+
+No se debe ejecutar, copiar ni empaquetar un componente por separado. Un
+migrador que no interprete `\ir`, `\if` y variables de `psql` debe concatenar
+el mismo paquete y preservar exactamente su transacción; no puede tratar el
+principal como SQL portable. La reversión se ejecuta con las mismas opciones
+sobre `000042_canones_resultado_recibo_rrhh.down.sql`.
+
+Este corte solo instala cálculo puro privado: diez funciones
+`IMMUTABLE`, `STRICT`, `PARALLEL SAFE`, `SECURITY INVOKER`, nueve tipos
+nominales y sus arrays automáticos. No crea tablas, RLS, fachadas ni permisos
+runtime. La huella semántica literal protege funciones, tipos, compuestos,
+atributos, ACL, propietarios, comentarios, etiquetas y dependencias antes de
+la retirada.
+
+La puerta reproducible es:
+
+```bash
+./deploy/postgresql/contratacion_temporal/probar_o4_05_canones_resultado_recibo_rrhh_pg18_4.sh
+```
+
+El runner parte de CT-000041, ejecuta desde otro directorio, omite uno por uno
+los seis componentes, altera uno, prueba `UP/DOWN/UP`, ACL, dependencia
+futura, arrays hostiles, GUC de fecha y zona, límites UTF-8 y vectores
+independientes Go/PostgreSQL de cuadro, detalle, material de 21 bloques y los
+38 campos del Recibo V2. El contenedor es efímero y no publica puertos.
+
 ## Reversión protegida
 
 La reversión normal solo funciona sin historia. Destruir historia exige un
