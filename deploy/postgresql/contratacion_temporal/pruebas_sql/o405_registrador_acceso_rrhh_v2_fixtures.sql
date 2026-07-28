@@ -84,8 +84,7 @@ SELECT vec_contratacion_temporal.registrar_acceso_rrhh_interno_v2(
             'resultado_generico', 'entregado',
             'resultado_huella_sha256',
                 lpad(to_hex(p_indice + 70), 64, '7'),
-            'sesion_huella_sha256',
-                lpad(to_hex(p_indice + 20), 64, '2'),
+            'sesion_huella_sha256', p_control_huella,
             'sesion_id', p_sesion, 'tipo_consulta', p_tipo,
             'total', 1, 'version_expediente',
                 CASE p_tipo WHEN 'detalle' THEN 3 ELSE NULL END

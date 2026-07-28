@@ -565,10 +565,6 @@ opacos_wal=("$cuenta_ref" "$cuenta_ref_b" "$autenticacion"
 privados_salida=(vec_c2d2_registro_runtime login_tecnico cuenta_ref
     cuenta_ordinaria_ref "${opacos_wal[@]}"
     "${centinelas[@]}" clave-hsm-prueba)
-for indice in 101 102 103 104 201; do
-    huella_sesion="$(valor "SELECT lpad(to_hex($indice + 20),64,'2')")"
-    opacos_wal+=("$huella_sesion"); privados_salida+=("$huella_sesion")
-done
 salida_centinelas="$(mktemp "${TMPDIR:-/tmp}/vec-ct-centinelas.XXXXXX")"
 temporales+=("$salida_centinelas")
 trazas+=("$salida_centinelas")

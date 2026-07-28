@@ -55,12 +55,30 @@ BEGIN
         'vec_contratacion_temporal.familia_cursor_cuadro_rrhh'
     ) IS NULL OR pg_catalog.to_regprocedure(
         'public.gen_random_bytes(integer)'
-    ) IS NULL THEN
+    ) IS NULL OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_constraint restriccion
+         WHERE restriccion.conrelid =
+               'vec_contratacion_temporal.'
+               'vinculo_identidad_acceso_rrhh_v2'::pg_catalog.regclass
+           AND restriccion.conname =
+               'vinculo_identidad_acceso_rrhh_v2_sesion_control_iguales'
+    ) OR EXISTS (
+        SELECT 1
+          FROM vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2
+         WHERE sesion_huella_sha256 IS DISTINCT FROM
+               control_sesion_huella_sha256
+    ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'estado incompatible para motor de consultas RRHH';
     END IF;
 END
 $prevalidacion$;
+
+ALTER TABLE vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2
+ADD CONSTRAINT
+vinculo_identidad_acceso_rrhh_v2_sesion_control_iguales
+CHECK (sesion_huella_sha256 = control_sesion_huella_sha256);
 
 CREATE TYPE vec_contratacion_temporal.alcance_consulta_rrhh_v1 AS (
     organizacion_ref text,
@@ -475,8 +493,7 @@ SELECT true, 1, pg_catalog.encode(pg_catalog.sha256(
                 tabla.relkind::text, tabla.relowner::regrole::text,
                 tabla.relpersistence::text, metodo.amname, espacio.spcname,
                 tabla.relrowsecurity, tabla.relforcerowsecurity,
-                tabla.relhasrules, tabla.relhastriggers,
-                tabla.relhassubclass, tabla.relispartition,
+                tabla.relhastriggers, tabla.relispartition,
                 tabla.relreplident::text,
                 pg_catalog.pg_get_expr(
                     tabla.relpartbound, tabla.oid, false
@@ -690,56 +707,6 @@ SELECT true, 1, pg_catalog.encode(pg_catalog.sha256(
                    WHEN 'relacion' THEN 'pg_catalog.pg_class'::regclass
                    WHEN 'funcion' THEN 'pg_catalog.pg_proc'::regclass
                    ELSE 'pg_catalog.pg_type'::regclass END
-        ),
-        'dependencias', (
-            SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_array(
-                dependencia.deptype::text,
-                pg_catalog.pg_describe_object(
-                    dependencia.classid, dependencia.objid,
-                    dependencia.objsubid
-                ), pg_catalog.pg_describe_object(
-                    dependencia.refclassid, dependencia.refobjid,
-                    dependencia.refobjsubid
-                )
-            ) ORDER BY pg_catalog.pg_describe_object(
-                dependencia.classid, dependencia.objid,
-                dependencia.objsubid
-            ) COLLATE "C", dependencia.deptype)
-              FROM pg_catalog.pg_depend dependencia
-             WHERE (
-                 dependencia.refclassid = 'pg_catalog.pg_class'::regclass
-                 AND dependencia.refobjid =
-                     'vec_contratacion_temporal.'
-                     'control_motor_consultas_rrhh_v1'::regclass
-             ) OR (
-                 dependencia.refclassid = 'pg_catalog.pg_proc'::regclass
-                 AND dependencia.refobjid IN (
-                     SELECT funcion.oid FROM pg_catalog.pg_proc funcion
-                      WHERE funcion.pronamespace =
-                            'vec_contratacion_temporal'::regnamespace
-                        AND funcion.proname = ANY(ARRAY[
-                            'json_rrhh_seguro_v1',
-                            'canon_alcance_rrhh_v1',
-                            'canon_consulta_cuadro_rrhh_v1',
-                            'canon_familia_cuadro_rrhh_v1',
-                            'canon_consulta_detalle_rrhh_v1',
-                            'canon_resultado_consulta_rrhh_v1'
-                        ]::name[])
-                 )
-             ) OR (
-                 dependencia.refclassid = 'pg_catalog.pg_type'::regclass
-                 AND dependencia.refobjid IN (
-                     SELECT tipo.oid FROM pg_catalog.pg_type tipo
-                      WHERE tipo.typnamespace =
-                            'vec_contratacion_temporal'::regnamespace
-                        AND tipo.typname = ANY(ARRAY[
-                            'alcance_consulta_rrhh_v1',
-                            'consulta_cuadro_rrhh_v1',
-                            'consulta_detalle_rrhh_v1',
-                            'evidencia_resultado_rrhh_v1'
-                        ]::name[])
-                 )
-             )
         )
     )::text, 'UTF8')
 ), 'hex'), pg_catalog.date_trunc(

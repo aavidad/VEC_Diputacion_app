@@ -28,6 +28,70 @@ BEGIN
         RAISE EXCEPTION 'barreras o control CT-000040 incorrectos';
     END IF;
 
+    IF (
+        SELECT pg_catalog.count(*)
+          FROM pg_catalog.pg_constraint restriccion
+         WHERE restriccion.conrelid =
+               'vec_contratacion_temporal.'
+               'vinculo_identidad_acceso_rrhh_v2'::regclass
+           AND restriccion.conname =
+               'vinculo_identidad_acceso_rrhh_v2_sesion_control_iguales'
+           AND restriccion.contype = 'c'
+           AND restriccion.convalidated
+           AND restriccion.conenforced
+           AND pg_catalog.pg_get_constraintdef(
+                   restriccion.oid, false
+               ) = 'CHECK ((sesion_huella_sha256 = '
+                   'control_sesion_huella_sha256))'
+    ) <> 1 OR EXISTS (
+        SELECT 1
+          FROM vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2
+         WHERE sesion_huella_sha256 IS DISTINCT FROM
+               control_sesion_huella_sha256
+    ) THEN
+        RAISE EXCEPTION 'vínculo entre sesión y control incoherente';
+    END IF;
+
+    IF (
+        SELECT pg_catalog.count(*)
+          FROM pg_catalog.pg_constraint restriccion
+         WHERE restriccion.contype = 'f'
+           AND restriccion.convalidated
+           AND restriccion.conenforced
+           AND restriccion.confupdtype = 'r'
+           AND restriccion.confdeltype = 'r'
+           AND (
+               (
+                   restriccion.conrelid = 'vec_contratacion_temporal.'
+                       'familia_cursor_cuadro_rrhh'::regclass
+                   AND restriccion.confrelid IN (
+                       'vec_contratacion_temporal.'
+                       'alcance_acceso_rrhh'::regclass,
+                       'vec_contratacion_temporal.'
+                       'publicacion_version_rrhh'::regclass
+                   )
+               ) OR (
+                   restriccion.conrelid = 'vec_contratacion_temporal.'
+                       'alcance_acceso_rrhh'::regclass
+                   AND restriccion.confrelid = 'vec_contratacion_temporal.'
+                       'familia_cursor_cuadro_rrhh'::regclass
+               ) OR (
+                   restriccion.conrelid = 'vec_contratacion_temporal.'
+                       'cursor_cuadro_rrhh'::regclass
+                   AND restriccion.confrelid IN (
+                       'vec_contratacion_temporal.'
+                       'familia_cursor_cuadro_rrhh'::regclass,
+                       'vec_contratacion_temporal.'
+                       'cursor_cuadro_rrhh'::regclass,
+                       'vec_contratacion_temporal.'
+                       'alcance_acceso_rrhh'::regclass
+                   )
+               )
+           )
+    ) <> 7 THEN
+        RAISE EXCEPTION 'FK de familia/cursor incompletas';
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1
           FROM pg_catalog.pg_class tabla
