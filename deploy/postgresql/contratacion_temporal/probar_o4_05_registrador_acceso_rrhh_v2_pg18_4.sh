@@ -6,6 +6,7 @@ imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c
 contenedor="vec-ct-registro-v2-${PPID}-${RANDOM}"
 clave_archivo="$(mktemp "${TMPDIR:-/tmp}/vec-ct-registro-v2.XXXXXX")"
 temporales=("$clave_archivo")
+trazas=()
 
 limpiar() {
     local temporal
@@ -15,20 +16,19 @@ limpiar() {
     docker rm --force --volumes "$contenedor" >/dev/null 2>&1 || true
 }
 trap limpiar EXIT INT TERM
-
 paso() {
     printf '[O4-05:C2-D2-C:000039:PG18.4] %s\n' "$1"
 }
-
 psql_admin() {
     docker exec --interactive "$contenedor" psql -X \
-        --set ON_ERROR_STOP=1 --username postgres --dbname postgres "$@"
+        --set ON_ERROR_STOP=1 --set VERBOSITY=verbose \
+        --username postgres --dbname postgres "$@"
 }
 
 psql_runtime() {
     docker exec "$contenedor" psql -X --no-align --tuples-only \
-        --set ON_ERROR_STOP=1 --username vec_c2d2_registro_runtime \
-        --dbname postgres "$@"
+        --set ON_ERROR_STOP=1 --set VERBOSITY=verbose \
+        --username vec_c2d2_registro_runtime --dbname postgres "$@"
 }
 
 archivo() {
@@ -40,16 +40,103 @@ valor() {
         --username postgres --dbname postgres --command "$1"
 }
 
+estado_instalacion_000039() {
+    valor "SELECT pg_catalog.concat_ws('|',
+        cobertura.version_esquema::text,
+        consultas.version_esquema::text,
+        (pg_catalog.to_regclass(
+            'vec_contratacion_temporal.control_registrador_acceso_rrhh_v2'
+        ) IS NOT NULL)::text,
+        (pg_catalog.to_regclass(
+            'vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2'
+        ) IS NOT NULL)::text,
+        (pg_catalog.to_regclass(
+            'vec_contratacion_temporal.'
+            'publicacion_rrhh_organizacion_expediente_corte_desc_idx'
+        ) IS NOT NULL)::text,
+        (pg_catalog.to_regprocedure(
+            'vec_contratacion_temporal.'
+            'registrar_acceso_rrhh_interno_v2(jsonb)'
+        ) IS NOT NULL)::text,
+        cadena.ultima_secuencia::text,
+        cadena.cabeza_sha256,
+        (SELECT pg_catalog.count(*)::text
+           FROM vec_contratacion_temporal.registro_acceso_rrhh),
+        (SELECT pg_catalog.count(*)::text
+           FROM vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2)
+    )
+    FROM vec_contratacion_temporal.control_migracion_cobertura_o4 cobertura
+    CROSS JOIN
+        vec_contratacion_temporal.control_migracion_consultas_rrhh consultas
+    CROSS JOIN
+        vec_contratacion_temporal.control_cadena_accesos_rrhh cadena
+    WHERE cobertura.control AND consultas.control AND cadena.control"
+}
+
+comprobar_estado_000039() {
+    local esperado=$1
+    local contexto=$2
+    local obtenido
+    obtenido="$(estado_instalacion_000039)"
+    if [[ $obtenido != "$esperado" ]]; then
+        printf 'estado 000039 alterado tras %s\nesperado=%s\nobtenido=%s\n' \
+            "$contexto" "$esperado" "$obtenido" >&2
+        return 1
+    fi
+}
+
 esperar_fallo() {
     local descripcion=$1
+    local sqlstate=$2
+    local mensaje=$3
     local salida
-    shift
+    shift 3
     salida="$(mktemp "${TMPDIR:-/tmp}/vec-ct-registro-fallo.XXXXXX")"
     temporales+=("$salida")
+    trazas+=("$salida")
     if "$@" >"$salida" 2>&1; then
         printf 'se esperaba rechazo: %s\n' "$descripcion" >&2
         return 1
     fi
+    comprobar_fallo_archivo "$descripcion" "$sqlstate" "$mensaje" "$salida"
+}
+
+comprobar_fallo_archivo() {
+    local descripcion=$1
+    local sqlstate=$2
+    local mensaje=$3
+    local salida=$4
+    if ! rg -Fq "ERROR:  ${sqlstate}:" "$salida" ||
+        ! rg -Fq "$mensaje" "$salida"; then
+        printf 'rechazo inesperado para %s\n' "$descripcion" >&2
+        sed -n '1,16p' "$salida" >&2
+        return 1
+    fi
+}
+
+contiene_privado() {
+    local valor_privado=$1 hexadecimal
+    shift
+    hexadecimal="$(printf '%s' "$valor_privado" |
+        od -An -tx1 | tr -d ' \n')"
+    rg -Fq -- "$valor_privado" "$@" || rg -Fq -- "$hexadecimal" "$@"
+}
+
+esperar_actividad() {
+    local marca=$1
+    local espera=$2
+    for _ in {1..120}; do
+        if [[ "$(valor "SELECT count(*) FROM pg_catalog.pg_stat_activity
+          WHERE pid <> pg_catalog.pg_backend_pid()
+            AND application_name = '${marca}'
+            AND (wait_event = '${espera}'
+                 OR wait_event_type = '${espera}')")" == '1' ]]; then
+            return
+        fi
+        sleep 0.05
+    done
+    printf 'no se observó %s en %s\n' "$espera" "$marca" >&2
+    return 1
 }
 
 if [[ ! $imagen =~ ^[^[:space:]@]+@sha256:[0-9a-f]{64}$ ]]; then
@@ -69,7 +156,8 @@ docker run --detach --name "$contenedor" --network none --read-only \
     --tmpfs /var/lib/postgresql:rw,noexec,nosuid,size=1024m \
     --tmpfs /tmp:rw,noexec,nosuid,size=64m \
     --tmpfs /run/postgresql:rw,noexec,nosuid,size=16m \
-    "$imagen" >/dev/null
+    "$imagen" -c wal_level=logical -c max_replication_slots=2 \
+    -c max_wal_senders=2 >/dev/null
 for _ in {1..60}; do
     if docker exec "$contenedor" pg_isready -q -U postgres -d postgres; then
         break
@@ -196,6 +284,16 @@ estado_base="$(valor "SELECT ultima_secuencia || '|' || cabeza_sha256
  WHERE control")"
 conteo_base="$(valor \
     'SELECT count(*) FROM vec_contratacion_temporal.registro_acceso_rrhh')"
+huella_historia_base="$(valor "SELECT pg_catalog.encode(
+    pg_catalog.sha256(pg_catalog.convert_to(
+        COALESCE(pg_catalog.jsonb_agg(
+            pg_catalog.to_jsonb(registro)
+            ORDER BY registro.secuencia
+        )::text, '[]'),
+        'UTF8'
+    )),
+    'hex'
+) FROM vec_contratacion_temporal.registro_acceso_rrhh registro")"
 
 paso 'up, estructura, deriva, dependencia y down con baseline'
 archivo \
@@ -203,11 +301,14 @@ archivo \
 psql_admin --set antes=0 --file \
     /repo/contratacion_temporal/pruebas_sql/o405_registrador_acceso_rrhh_v2.sql \
     >/dev/null
+estado_limpio_000039="$(estado_instalacion_000039)"
 psql_admin --command \
     'GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.registrar_acceso_rrhh_interno_v2(jsonb) TO vec_contratacion_temporal_consultor_rrhh' \
     >/dev/null
-esperar_fallo 'down con ACL derivada' archivo \
+esperar_fallo 'down con ACL derivada' 55000 \
+    'down del registrador RRHH v2 rechazado por deriva' archivo \
     contratacion_temporal/migraciones/000039_registrador_acceso_rrhh_v2_y_snapshot_asof.down.sql
+comprobar_estado_000039 "$estado_limpio_000039" 'ACL de función derivada'
 psql_admin --command \
     'REVOKE EXECUTE ON FUNCTION vec_contratacion_temporal.registrar_acceso_rrhh_interno_v2(jsonb) FROM vec_contratacion_temporal_consultor_rrhh' \
     >/dev/null
@@ -223,11 +324,123 @@ END;
 ALTER FUNCTION vec_contratacion_temporal.c2d2_dependencia_000039()
     OWNER TO vec_contratacion_temporal_propietario;
 SQL
-esperar_fallo 'down con función futura dependiente' archivo \
+esperar_fallo 'down con función futura dependiente' 55000 \
+    'dependencias impiden retirar registrador RRHH v2' archivo \
     contratacion_temporal/migraciones/000039_registrador_acceso_rrhh_v2_y_snapshot_asof.down.sql
+comprobar_estado_000039 "$estado_limpio_000039" 'dependencia futura'
 psql_admin --command \
     'DROP FUNCTION vec_contratacion_temporal.c2d2_dependencia_000039()' \
     >/dev/null
+
+paso 'down rechaza deriva de estructura, política, trigger y ACL'
+psql_admin --command \
+    'ALTER TABLE vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2 ADD CONSTRAINT vinculo_identidad_deriva_c2d2 CHECK (true) NOT VALID' \
+    >/dev/null
+esperar_fallo 'down con restricción añadida' 55000 \
+    'down del registrador RRHH v2 rechazado por deriva' archivo \
+    contratacion_temporal/migraciones/000039_registrador_acceso_rrhh_v2_y_snapshot_asof.down.sql
+comprobar_estado_000039 "$estado_limpio_000039" 'deriva de restricción'
+[[ "$(valor "SELECT pg_catalog.count(*) FROM pg_catalog.pg_constraint
+ WHERE conrelid = 'vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2'::regclass
+   AND conname = 'vinculo_identidad_deriva_c2d2' AND NOT convalidated")" == '1' ]]
+psql_admin --command \
+    'ALTER TABLE vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2 DROP CONSTRAINT vinculo_identidad_deriva_c2d2' \
+    >/dev/null
+
+psql_admin <<'SQL' >/dev/null
+DROP POLICY propietario_total
+    ON vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2;
+CREATE POLICY propietario_total
+    ON vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2
+    AS RESTRICTIVE FOR SELECT
+    TO vec_contratacion_temporal_propietario USING (false);
+SQL
+esperar_fallo 'down con política sustituida' 55000 \
+    'down del registrador RRHH v2 rechazado por deriva' archivo \
+    contratacion_temporal/migraciones/000039_registrador_acceso_rrhh_v2_y_snapshot_asof.down.sql
+comprobar_estado_000039 "$estado_limpio_000039" 'deriva de política'
+psql_admin <<'SQL' >/dev/null
+DROP POLICY propietario_total
+    ON vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2;
+CREATE POLICY propietario_total
+    ON vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2
+    AS PERMISSIVE FOR ALL TO vec_contratacion_temporal_propietario
+    USING (true) WITH CHECK (true);
+SQL
+
+psql_admin <<'SQL' >/dev/null
+CREATE FUNCTION vec_contratacion_temporal.c2d2_trigger_derivado_000039()
+RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog
+AS $funcion$ BEGIN RETURN OLD; END $funcion$;
+ALTER FUNCTION vec_contratacion_temporal.c2d2_trigger_derivado_000039()
+    OWNER TO vec_contratacion_temporal_propietario;
+DROP TRIGGER vinculo_identidad_acceso_rrhh_v2_inmutable
+    ON vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2;
+CREATE TRIGGER vinculo_identidad_acceso_rrhh_v2_inmutable
+    BEFORE DELETE
+    ON vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2
+    FOR EACH ROW EXECUTE FUNCTION
+        vec_contratacion_temporal.c2d2_trigger_derivado_000039();
+SQL
+esperar_fallo 'down con trigger sustituido' 55000 \
+    'down del registrador RRHH v2 rechazado por deriva' archivo \
+    contratacion_temporal/migraciones/000039_registrador_acceso_rrhh_v2_y_snapshot_asof.down.sql
+comprobar_estado_000039 "$estado_limpio_000039" 'deriva de trigger'
+psql_admin <<'SQL' >/dev/null
+DROP TRIGGER vinculo_identidad_acceso_rrhh_v2_inmutable
+    ON vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2;
+DROP FUNCTION vec_contratacion_temporal.c2d2_trigger_derivado_000039();
+CREATE TRIGGER vinculo_identidad_acceso_rrhh_v2_inmutable
+    BEFORE UPDATE OR DELETE
+    ON vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2
+    FOR EACH ROW EXECUTE FUNCTION
+        vec_contratacion_temporal.rechazar_mutacion_historia_v1();
+SQL
+
+psql_admin <<'SQL' >/dev/null
+CREATE ROLE vec_c2d2_deriva_acl NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+    NOINHERIT NOREPLICATION NOBYPASSRLS;
+GRANT SELECT
+    ON vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2
+    TO vec_c2d2_deriva_acl WITH GRANT OPTION;
+SQL
+esperar_fallo 'down con ACL arbitraria en tabla' 55000 \
+    'down del registrador RRHH v2 rechazado por deriva' archivo \
+    contratacion_temporal/migraciones/000039_registrador_acceso_rrhh_v2_y_snapshot_asof.down.sql
+comprobar_estado_000039 "$estado_limpio_000039" 'deriva de ACL de tabla'
+psql_admin <<'SQL' >/dev/null
+REVOKE ALL
+    ON vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2
+    FROM vec_c2d2_deriva_acl;
+DROP ROLE vec_c2d2_deriva_acl;
+SQL
+
+paso 'down rechaza las barreras futuras 000040 y 000041'
+for barreras in '20 4' '21 5'; do
+    read -r cobertura_futura consultas_futuras <<<"$barreras"
+    psql_admin --set=cobertura="$cobertura_futura" \
+        --set=consultas="$consultas_futuras" <<'SQL' >/dev/null
+UPDATE vec_contratacion_temporal.control_migracion_cobertura_o4
+   SET version_esquema = :cobertura WHERE control;
+UPDATE vec_contratacion_temporal.control_migracion_consultas_rrhh
+   SET version_esquema = :consultas WHERE control;
+SQL
+    estado_futuro="$(estado_instalacion_000039)"
+    esperar_fallo \
+        "down con barrera futura $cobertura_futura/$consultas_futuras" \
+        55000 'down del registrador RRHH v2 rechazado por deriva' archivo \
+        contratacion_temporal/migraciones/000039_registrador_acceso_rrhh_v2_y_snapshot_asof.down.sql
+    comprobar_estado_000039 "$estado_futuro" \
+        "barrera futura $cobertura_futura/$consultas_futuras"
+    psql_admin <<'SQL' >/dev/null
+UPDATE vec_contratacion_temporal.control_migracion_cobertura_o4
+   SET version_esquema = 19 WHERE control;
+UPDATE vec_contratacion_temporal.control_migracion_consultas_rrhh
+   SET version_esquema = 3 WHERE control;
+SQL
+done
+comprobar_estado_000039 "$estado_limpio_000039" 'restauración de barreras'
+
 archivo \
     contratacion_temporal/migraciones/000039_registrador_acceso_rrhh_v2_y_snapshot_asof.down.sql
 [[ "$(valor "SELECT ultima_secuencia || '|' || cabeza_sha256
@@ -236,151 +449,63 @@ archivo \
 [[ "$(valor \
     'SELECT count(*) FROM vec_contratacion_temporal.registro_acceso_rrhh')" \
     == "$conteo_base" ]]
+[[ "$(valor "SELECT pg_catalog.encode(
+    pg_catalog.sha256(pg_catalog.convert_to(
+        COALESCE(pg_catalog.jsonb_agg(
+            pg_catalog.to_jsonb(registro)
+            ORDER BY registro.secuencia
+        )::text, '[]'),
+        'UTF8'
+    )),
+    'hex'
+) FROM vec_contratacion_temporal.registro_acceso_rrhh registro")" \
+    == "$huella_historia_base" ]]
+[[ "$(valor "SELECT pg_catalog.concat_ws('|',
+    (pg_catalog.to_regclass(
+        'vec_contratacion_temporal.control_registrador_acceso_rrhh_v2'
+    ) IS NULL)::text,
+    (pg_catalog.to_regclass(
+        'vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2'
+    ) IS NULL)::text,
+    (pg_catalog.to_regprocedure(
+        'vec_contratacion_temporal.registrar_acceso_rrhh_interno_v2(jsonb)'
+    ) IS NULL)::text
+)")" == 'true|true|true' ]]
 archivo \
     contratacion_temporal/migraciones/000039_registrador_acceso_rrhh_v2_y_snapshot_asof.up.sql
 
-paso 'sesión corporativa real y fachada CT de prueba'
-psql_admin <<'SQL' >/dev/null
-SELECT *
-FROM vec_identidad_sesiones_v1.provisionar_cuenta_v1(
-    'opr_aaaaaaaaaaaaaaaaaaaaaaaa',
-    'vec.identidad.hmac-sha256.v1',
-    'idh_aaaaaaaaaaaaaaaaaaaaaaaa',
-    'clave-hsm-prueba', 1,
-    decode(repeat('11', 32), 'hex'),
-    decode(repeat('22', 32), 'hex'),
-    false, NULL
-);
-SQL
-refs="$(
-    psql_admin --no-align --tuples-only --field-separator='|' <<'SQL'
-SELECT autenticacion_ref, sesion_ref, control_sesion_ref,
-       control_sesion_revision_texto, control_sesion_huella_sha256
-FROM vec_identidad_sesiones_v1.registrar_sesion_v1(
-    'opr_bbbbbbbbbbbbbbbbbbbbbbbb',
-    'vec.identidad.hmac-sha256.v1',
-    'idh_aaaaaaaaaaaaaaaaaaaaaaaa',
-    'clave-hsm-prueba', 1,
-    decode(repeat('33', 32), 'hex'),
-    decode(repeat('44', 32), 'hex'),
-    decode(repeat('22', 32), 'hex'),
-    decode(repeat('11', 32), 'hex'),
-    NULL, false, 'interna_corporativa', 'kerberos_ad', 'alto',
-    repeat('a', 64),
-    date_trunc('microseconds', clock_timestamp() - interval '2 seconds'),
-    date_trunc('microseconds', clock_timestamp() - interval '1 second'),
-    date_trunc('microseconds', clock_timestamp() + interval '4 minutes'),
-    'pga_aaaaaaaaaaaaaaaaaaaaaaaa', repeat('b', 64)
-);
-SQL
-)"
-IFS='|' read -r autenticacion sesion control revision control_huella \
-    <<<"$refs"
-if [[ -z $autenticacion || -z $sesion || -z $control_huella ]]; then
-    printf 'fixture de identidad incompleto\n' >&2
+paso 'dos identidades corporativas reales y fachada CT de prueba'
+mapfile -t identidades < <(
+    psql_admin --no-align --tuples-only --quiet --field-separator='|' \
+        --file \
+        /repo/contratacion_temporal/pruebas_sql/o405_registrador_acceso_rrhh_v2_fixtures.sql
+)
+[[ ${#identidades[@]} == 2 ]]
+IFS='|' read -r _ autenticacion sesion control revision control_huella \
+    cuenta_ref cuenta_ordinaria_ref <<<"${identidades[0]}"
+IFS='|' read -r _ autenticacion_b sesion_b control_b revision_b \
+    control_huella_b cuenta_ref_b cuenta_ordinaria_ref_b \
+    <<<"${identidades[1]}"
+if [[ -z $autenticacion || -z $autenticacion_b ||
+    $cuenta_ref != "$cuenta_ordinaria_ref" ||
+    $cuenta_ref_b != "$cuenta_ordinaria_ref_b" ||
+    $cuenta_ref == "$cuenta_ref_b" ]]; then
+    printf 'fixtures de identidades independientes incompletos\n' >&2
     exit 1
 fi
-
 psql_admin <<'SQL' >/dev/null
+ALTER DATABASE postgres SET log_parameter_max_length_on_error = 4096;
 CREATE ROLE vec_c2d2_registro_runtime
     LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT
     NOREPLICATION NOBYPASSRLS;
+ALTER ROLE vec_c2d2_registro_runtime
+    SET log_parameter_max_length_on_error = 0;
 GRANT vec_contratacion_temporal_consultor_rrhh
     TO vec_c2d2_registro_runtime
     WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
-CREATE FUNCTION vec_contratacion_temporal.c2d2_registrar_prueba(
-    p_indice integer, p_tipo text, p_autenticacion text,
-    p_sesion text, p_control text, p_revision numeric,
-    p_control_huella text
-)
-RETURNS jsonb
-LANGUAGE sql VOLATILE SECURITY DEFINER
-SET search_path = pg_catalog
-BEGIN ATOMIC
-SELECT vec_contratacion_temporal.registrar_acceso_rrhh_interno_v2(
-    jsonb_build_object(
-        'registro', jsonb_build_object(
-            'accion', CASE p_tipo WHEN 'cuadro' THEN
-                'contratacion_temporal.cuadro.consultar'
-                ELSE 'contratacion_temporal.expediente.consultar' END,
-            'actor_ref', 'actor:rrhh:' || p_indice::text,
-            'ambito_ref', 'organizacion:rrhh:principal',
-            'audiencia', CASE p_tipo WHEN 'cuadro' THEN
-                'vec_contratacion_temporal.consultar_cuadro_rrhh_atestado.v1'
-                ELSE
-                'vec_contratacion_temporal.consultar_detalle_rrhh_atestado.v1'
-                END,
-            'auditoria_vec_huella_sha256',
-                lpad(to_hex(p_indice + 80), 64, '8'),
-            'auditoria_vec_ref', 'auditoria:vec:rrhh:' || p_indice::text,
-            'capacidad_huella_sha256',
-                lpad(to_hex(p_indice + 50), 64, '5'),
-            'consulta_huella_sha256',
-                lpad(to_hex(p_indice + 40), 64, '4'),
-            'consumo_vec_huella_sha256',
-                lpad(to_hex(p_indice + 60), 64, '6'),
-            'correlacion_ref', 'correlacion:rrhh:' || p_indice::text,
-            'decision_huella_sha256',
-                lpad(to_hex(p_indice + 10), 64, '1'),
-            'decision_ref', 'decision:rrhh:' || p_indice::text,
-            'dominio_huella_consulta', CASE p_tipo WHEN 'cuadro' THEN
-                'vec.contratacion_temporal.consulta_rrhh.cuadro.v1'
-                ELSE
-                'vec.contratacion_temporal.consulta_rrhh.detalle.v1' END,
-            'expediente_ref', CASE p_tipo WHEN 'detalle'
-                THEN 'expediente:rrhh:' || p_indice::text ELSE NULL END,
-            'finalidad', CASE p_tipo WHEN 'cuadro' THEN
-                'gestion_operativa_contratacion_temporal'
-                ELSE 'tramitacion_expediente_contratacion_temporal' END,
-            'modulo_id', 'contratacion_temporal',
-            'organizacion_ref', 'organizacion:rrhh:principal',
-            'perfil_id', 'perfil:rrhh:principal', 'perfil_version', 1,
-            'recurso_ref', CASE p_tipo WHEN 'detalle'
-                THEN 'expediente:rrhh:' || p_indice::text
-                ELSE 'organizacion:rrhh:principal' END,
-            'recurso_tipo', CASE p_tipo WHEN 'cuadro' THEN
-                'cuadro_rrhh_contratacion_temporal'
-                ELSE 'expediente_contratacion_temporal' END,
-            'resultado_generico', 'entregado',
-            'resultado_huella_sha256',
-                lpad(to_hex(p_indice + 70), 64, '7'),
-            'sesion_huella_sha256',
-                lpad(to_hex(p_indice + 20), 64, '2'),
-            'sesion_id', p_sesion, 'tipo_consulta', p_tipo,
-            'total', 1, 'version_expediente',
-                CASE p_tipo WHEN 'detalle' THEN 3 ELSE NULL END
-        ),
-        'alcance', jsonb_build_object(
-            'clase_ambito', 'organizacion', 'familia_ref', NULL
-        ),
-        'identidad', jsonb_build_object(
-            'actor_ref', 'actor:rrhh:' || p_indice::text,
-            'autenticacion_huella_sha256', repeat('a', 64),
-            'autenticacion_ref', p_autenticacion,
-            'control_sesion_huella_sha256', p_control_huella,
-            'control_sesion_ref', p_control,
-            'control_sesion_revision', p_revision,
-            'organizacion_ref', 'organizacion:rrhh:principal',
-            'perfil_ref', 'perfil:rrhh:principal', 'perfil_version', 1,
-            'sesion_ref', p_sesion
-        )
-    )
-);
-END;
-ALTER FUNCTION vec_contratacion_temporal.c2d2_registrar_prueba(
-    integer, text, text, text, text, numeric, text
-) OWNER TO vec_contratacion_temporal_propietario;
-REVOKE ALL ON FUNCTION
-    vec_contratacion_temporal.c2d2_registrar_prueba(
-        integer, text, text, text, text, numeric, text
-    ) FROM PUBLIC;
-GRANT USAGE ON SCHEMA vec_contratacion_temporal
-    TO vec_contratacion_temporal_consultor_rrhh;
-GRANT EXECUTE ON FUNCTION
-    vec_contratacion_temporal.c2d2_registrar_prueba(
-        integer, text, text, text, text, numeric, text
-    ) TO vec_contratacion_temporal_consultor_rrhh;
 SQL
+[[ "$(psql_runtime --command \
+    'SHOW log_parameter_max_length_on_error')" == '0' ]]
 
 invocar() {
     local indice=$1
@@ -392,7 +517,93 @@ invocar() {
         )"
 }
 
-paso 'registrador v2 sobrevive a barreras globales futuras'
+invocar_parametrizado() {
+    local indice=$1 tipo=$2 auth=$3 ses=$4 ctl=$5 rev=$6 huella=$7
+    local dormir=${8:-0} marca=${9:-c2d2_parametrizada}
+    docker exec --interactive \
+        --env VEC_INDICE="$indice" --env VEC_TIPO="$tipo" \
+        --env VEC_AUTH="$auth" --env VEC_SESION="$ses" \
+        --env VEC_CONTROL="$ctl" --env VEC_REVISION="$rev" \
+        --env VEC_HUELLA="$huella" --env VEC_DORMIR="$dormir" \
+        --env VEC_MARCA="$marca" \
+        "$contenedor" psql -XAt --set ON_ERROR_STOP=1 \
+        --set VERBOSITY=verbose --username vec_c2d2_registro_runtime \
+        --dbname postgres <<'SQL'
+\getenv indice VEC_INDICE
+\getenv tipo VEC_TIPO
+\getenv auth VEC_AUTH
+\getenv sesion VEC_SESION
+\getenv control VEC_CONTROL
+\getenv revision VEC_REVISION
+\getenv huella VEC_HUELLA
+\getenv dormir VEC_DORMIR
+\getenv marca VEC_MARCA
+SET application_name = :'marca';
+BEGIN;
+SELECT vec_contratacion_temporal.c2d2_registrar_prueba(
+    $1::integer,$2::text,$3::text,$4::text,$5::text,$6::numeric,$7::text)
+\parse llamada
+\bind_named llamada :indice :tipo :auth :sesion :control :revision :huella
+\g
+SELECT pg_sleep(:'dormir');
+COMMIT;
+SQL
+}
+
+valor "SELECT slot_name FROM pg_catalog.pg_create_logical_replication_slot(
+    'c2d2_privacidad', 'test_decoding')" >/dev/null
+
+centinela_filtro='FILTRO-PRIVADO-C2D2'
+centinela_material='MATERIAL-VEC-PRIVADO-C2D2'
+centinela_token='TOKEN-PRIVADO-C2D2'
+centinela_pii='DNI-SINTETICO-C2D2-00000000T'
+centinelas=("$centinela_filtro" "$centinela_material" \
+    "$centinela_token" "$centinela_pii")
+opacos_wal=("$cuenta_ref" "$cuenta_ref_b" "$autenticacion"
+    "$autenticacion_b" "$sesion" "$sesion_b" "$control" "$control_b"
+    "$control_huella" "$control_huella_b" "$(printf 'a%.0s' {1..64})")
+privados_salida=(vec_c2d2_registro_runtime login_tecnico cuenta_ref
+    cuenta_ordinaria_ref "${opacos_wal[@]}"
+    "${centinelas[@]}" clave-hsm-prueba)
+for indice in 101 102 103 104 201; do
+    huella_sesion="$(valor "SELECT lpad(to_hex($indice + 20),64,'2')")"
+    opacos_wal+=("$huella_sesion"); privados_salida+=("$huella_sesion")
+done
+salida_centinelas="$(mktemp "${TMPDIR:-/tmp}/vec-ct-centinelas.XXXXXX")"
+temporales+=("$salida_centinelas")
+trazas+=("$salida_centinelas")
+docker exec --interactive --env VEC_FILTRO="$centinela_filtro" \
+    --env VEC_MATERIAL="$centinela_material" \
+    --env VEC_TOKEN="$centinela_token" --env VEC_PII="$centinela_pii" \
+    --env VEC_AUTH="$autenticacion" --env VEC_SESION="$sesion" \
+    --env VEC_CONTROL="$control" --env VEC_REVISION="$revision" \
+    --env VEC_HUELLA="$control_huella" "$contenedor" \
+    psql -XAt --set ON_ERROR_STOP=1 --username vec_c2d2_registro_runtime \
+    --dbname postgres >"$salida_centinelas" <<'SQL'
+\getenv filtro VEC_FILTRO
+\getenv material VEC_MATERIAL
+\getenv token VEC_TOKEN
+\getenv pii VEC_PII
+\getenv auth VEC_AUTH
+\getenv sesion VEC_SESION
+\getenv control VEC_CONTROL
+\getenv revision VEC_REVISION
+\getenv huella VEC_HUELLA
+SELECT vec_contratacion_temporal.c2d2_centinela_prueba(
+ $1::integer,$2::text,$3::text,$4::text,$5::text,$6::numeric,$7::text)
+\parse centinela
+\bind_named centinela 301 :filtro :auth :sesion :control :revision :huella
+\g
+\bind_named centinela 302 :material :auth :sesion :control :revision :huella
+\g
+\bind_named centinela 303 :token :auth :sesion :control :revision :huella
+\g
+\bind_named centinela 304 :pii :auth :sesion :control :revision :huella
+\g
+SQL
+
+paso 'registrador v2 sobrevive a 000040 y 000041 sin dejar efectos'
+estado_antes_barreras="$(estado_instalacion_000039)"
 psql_admin --set=autenticacion="$autenticacion" --set=sesion="$sesion" \
     --set=control="$control" --set=revision="$revision" \
     --set=control_huella="$control_huella" <<'SQL' >/dev/null
@@ -407,28 +618,54 @@ SELECT vec_contratacion_temporal.c2d2_registrar_prueba(
     :revision, :'control_huella'
 );
 RESET SESSION AUTHORIZATION;
+UPDATE vec_contratacion_temporal.control_migracion_cobertura_o4
+   SET version_esquema = 21 WHERE control AND version_esquema = 20;
+UPDATE vec_contratacion_temporal.control_migracion_consultas_rrhh
+   SET version_esquema = 5 WHERE control AND version_esquema = 4;
+SET SESSION AUTHORIZATION vec_c2d2_registro_runtime;
+SELECT vec_contratacion_temporal.c2d2_registrar_prueba(
+    106, 'detalle', :'autenticacion', :'sesion', :'control',
+    :revision, :'control_huella'
+);
+RESET SESSION AUTHORIZATION;
 ROLLBACK;
 SQL
-[[ "$(valor "SELECT cobertura.version_esquema || '|' || consultas.version_esquema
-  FROM vec_contratacion_temporal.control_migracion_cobertura_o4 cobertura
- CROSS JOIN vec_contratacion_temporal.control_migracion_consultas_rrhh consultas
- WHERE cobertura.control AND consultas.control")" == '19|3' ]]
+comprobar_estado_000039 "$estado_antes_barreras" \
+    'rollback de consultas con barreras 000040/000041'
 [[ "$(valor "SELECT count(*) FROM vec_contratacion_temporal.registro_acceso_rrhh
- WHERE decision_ref = 'decision:rrhh:105'")" == '0' ]]
+ WHERE decision_ref IN ('decision:rrhh:105', 'decision:rrhh:106')")" == '0' ]]
 
-esperar_fallo 'runtime invoca directamente el registrador interno' \
+esperar_fallo 'runtime invoca directamente el registrador interno' 42501 \
+    'permission denied for function registrar_acceso_rrhh_interno_v2' \
     psql_runtime --command \
     "SELECT vec_contratacion_temporal.registrar_acceso_rrhh_interno_v2(
         '{}'::jsonb
     )"
+
+paso 'identidades cruzadas no dejan historia parcial'
+estado_antes_cruce="$(estado_instalacion_000039)"
+esperar_fallo 'autenticación A con sesión B' 42501 \
+    'identidad de acceso RRHH v2 no disponible' invocar_parametrizado \
+    107 cuadro "$autenticacion" "$sesion_b" "$control_b" \
+    "$revision_b" "$control_huella_b"
+esperar_fallo 'autenticación B con sesión A' 42501 \
+    'identidad de acceso RRHH v2 no disponible' invocar_parametrizado \
+    108 cuadro "$autenticacion_b" "$sesion" "$control" \
+    "$revision" "$control_huella"
+comprobar_estado_000039 "$estado_antes_cruce" 'identidades cruzadas'
+
 recibo="$(invocar 101 cuadro)"
 [[ $recibo == *'recibo-acceso-rrhh.o4-05.v2'* ]]
+for privado in "${privados_salida[@]}"; do
+    [[ $recibo != *"$privado"* ]]
+done
 invocar 102 detalle >/dev/null
 
 paso 'dos escrituras concurrentes conservan una sola cadena'
 salida_a="$(mktemp "${TMPDIR:-/tmp}/vec-ct-registro-a.XXXXXX")"
 salida_b="$(mktemp "${TMPDIR:-/tmp}/vec-ct-registro-b.XXXXXX")"
 temporales+=("$salida_a" "$salida_b")
+trazas+=("$salida_a" "$salida_b")
 invocar 103 cuadro >"$salida_a" 2>&1 &
 pid_a=$!
 invocar 104 cuadro >"$salida_b" 2>&1 &
@@ -443,76 +680,121 @@ if ((estado_a != 0 || estado_b != 0)); then
     exit 1
 fi
 
-psql_admin <<SQL >/dev/null
-SET ROLE vec_contratacion_temporal_propietario;
-DO \$\$
-DECLARE
-    base record;
-BEGIN
-    SELECT * INTO STRICT base
-      FROM vec_contratacion_temporal.control_registrador_acceso_rrhh_v2
-     WHERE control;
-    IF (
-        SELECT count(*)
-          FROM vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2
-    ) <> 4 OR (
-        SELECT count(*)
-          FROM vec_contratacion_temporal.alcance_acceso_rrhh
-         WHERE acceso_ref IN (
-             SELECT acceso_ref
-               FROM vec_contratacion_temporal
-                    .vinculo_identidad_acceso_rrhh_v2
-         )
-    ) <> 3 OR EXISTS (
-        SELECT 1
-          FROM vec_contratacion_temporal
-               .vinculo_identidad_acceso_rrhh_v2
-         WHERE login_tecnico <> 'vec_c2d2_registro_runtime'
-            OR prueba_huella_sha256 <> encode(
-                sha256(prueba_canonica), 'hex'
-            )
-    ) OR EXISTS (
-        SELECT 1
-          FROM (
-              SELECT acceso.*,
-                     lag(
-                         huella_sha256, 1, base.cabeza_base_sha256
-                     ) OVER (ORDER BY secuencia) anterior_esperado
-                FROM vec_contratacion_temporal.registro_acceso_rrhh acceso
-               WHERE acceso.secuencia > base.secuencia_base
-          ) cadena
-         WHERE cadena.anterior_sha256 <> cadena.anterior_esperado
-    ) THEN
-        RAISE EXCEPTION 'cadena/vínculo v2 incorrectos';
-    END IF;
-    BEGIN
-        UPDATE vec_contratacion_temporal
-               .vinculo_identidad_acceso_rrhh_v2
-           SET login_tecnico = login_tecnico;
-        RAISE EXCEPTION 'vínculo mutable';
-    EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
-    END;
-    BEGIN
-        TRUNCATE vec_contratacion_temporal
-                 .vinculo_identidad_acceso_rrhh_v2;
-        RAISE EXCEPTION 'vínculo truncable';
-    EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
-    END;
-END
-\$\$;
-RESET ROLE;
+psql_admin --set=cuenta_ref="$cuenta_ref" \
+    --set=cuenta_ordinaria_ref="$cuenta_ordinaria_ref" <<'SQL' >/dev/null
+SELECT vec_contratacion_temporal.c2d2_verificar_prueba(
+    :'cuenta_ref', :'cuenta_ordinaria_ref'
+);
 SQL
-esperar_fallo 'runtime lee vínculo técnico' \
+esperar_fallo 'runtime lee vínculo técnico' 42501 \
+    'permission denied for table vinculo_identidad_acceso_rrhh_v2' \
     psql_runtime --command \
     'SELECT count(*) FROM vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2'
 
+paso 'carreras reales de registro y revocación tienen orden único'
+salida_registro="$(mktemp "${TMPDIR:-/tmp}/vec-ct-carrera-reg.XXXXXX")"
+salida_revoca="$(mktemp "${TMPDIR:-/tmp}/vec-ct-carrera-rev.XXXXXX")"
+temporales+=("$salida_registro" "$salida_revoca")
+trazas+=("$salida_registro" "$salida_revoca")
+invocar_parametrizado 201 cuadro "$autenticacion_b" "$sesion_b" \
+    "$control_b" "$revision_b" "$control_huella_b" 1.2 \
+    c2d2_registro_primero \
+    >"$salida_registro" 2>&1 &
+pid_registro=$!
+esperar_actividad c2d2_registro_primero PgSleep
+psql_admin --no-align --tuples-only --command \
+    "SET application_name='c2d2_revocacion_despues'; SELECT
+     vec_identidad_sesiones_v1.revocar_sesion_v1(
+      '$sesion_b','$control_b','$revision_b',
+      'opr_eeeeeeeeeeeeeeeeeeeeeeee')" >"$salida_revoca" 2>&1 &
+pid_revoca=$!
+esperar_actividad c2d2_revocacion_despues Lock
+wait "$pid_registro"
+wait "$pid_revoca"
+rg -Fq 'recibo-acceso-rrhh.o4-05.v2' "$salida_registro"
+if rg -q "vec_c2d2_registro_runtime|login_tecnico|cuenta(_ordinaria)?_ref|$cuenta_ref|$cuenta_ref_b" "$salida_registro"; then
+    printf 'recibo de carrera expone identidad técnica\n' >&2; exit 1
+fi
+[[ "$(valor "SELECT count(*) FROM
+ vec_contratacion_temporal.registro_acceso_rrhh acceso
+ JOIN vec_contratacion_temporal.vinculo_identidad_acceso_rrhh_v2 vinculo
+ USING (acceso_ref) WHERE acceso.decision_ref='decision:rrhh:201'
+ AND vinculo.cuenta_ref='$cuenta_ref_b'")" == '1' ]]
+
+estado_antes_revoca="$(estado_instalacion_000039)"
+psql_admin --no-align --tuples-only --command \
+    "SET application_name='c2d2_revocacion_primero'; BEGIN; SELECT
+     vec_identidad_sesiones_v1.revocar_sesion_v1(
+      '$sesion','$control','$revision',
+      'opr_ffffffffffffffffffffffff'); SELECT pg_sleep(0.4); COMMIT" \
+    >"$salida_revoca" 2>&1 &
+pid_revoca=$!
+esperar_actividad c2d2_revocacion_primero PgSleep
+invocar_parametrizado 202 cuadro "$autenticacion" "$sesion" "$control" \
+    "$revision" "$control_huella" 0 c2d2_registro_despues \
+    >"$salida_registro" 2>&1 &
+pid_registro=$!
+esperar_actividad c2d2_registro_despues Lock
+wait "$pid_revoca"
+estado_registro=0
+wait "$pid_registro" || estado_registro=$?
+((estado_registro != 0))
+comprobar_fallo_archivo 'registro posterior a revocación' 42501 \
+    'identidad de acceso RRHH v2 no disponible' "$salida_registro"
+comprobar_estado_000039 "$estado_antes_revoca" \
+    'revocación anterior al registro'
+
+paso 'WAL lógico, logs, recibos y trazas permanecen minimizados'
+salida_wal="$(mktemp "${TMPDIR:-/tmp}/vec-ct-wal.XXXXXX")"
+salida_log="$(mktemp "${TMPDIR:-/tmp}/vec-ct-log.XXXXXX")"
+temporales+=("$salida_wal" "$salida_log")
+psql_admin --no-align --tuples-only --command \
+    "SELECT data FROM pg_catalog.pg_logical_slot_get_changes(
+     'c2d2_privacidad', NULL, NULL)" >"$salida_wal"
+docker logs "$contenedor" >"$salida_log" 2>&1
+rg -Fq 'vinculo_identidad_acceso_rrhh_v2' "$salida_wal"
+for opaco in "${opacos_wal[@]}"; do
+    rg -Fq "$opaco" "$salida_wal"
+    if rg -F "$opaco" "$salida_wal" | rg -qv \
+        'table (vec_contratacion_temporal\.(registro_acceso_rrhh|alcance_acceso_rrhh|vinculo_identidad_acceso_rrhh_v2)|vec_autorizacion\.control_sesion_(v1|actual_v1)):'; then
+        printf 'referencia opaca fuera del WAL técnico permitido\n' >&2; exit 1
+    fi
+done
+for marcador in {301..304}; do
+    rg -Fq "marcador:privacidad:$marcador" "$salida_wal"
+done
+for privado in "${centinelas[@]}" vec_c2d2_registro_runtime \
+    clave-hsm-prueba; do
+    if contiene_privado "$privado" "$salida_wal"; then
+        printf 'material privado inesperado en WAL lógico\n' >&2
+        exit 1
+    fi
+done
+for privado in "${privados_salida[@]}"; do
+    if contiene_privado "$privado" "$salida_log" "${trazas[@]}"; then
+        printf 'material privado inesperado en logs o trazas\n' >&2
+        exit 1
+    fi
+done
+valor "SELECT pg_catalog.pg_drop_replication_slot(
+    'c2d2_privacidad')" >/dev/null
+
 paso 'historia v2 bloquea la reversión'
 psql_admin <<'SQL' >/dev/null
+DROP FUNCTION vec_contratacion_temporal.c2d2_centinela_prueba(
+    integer, text, text, text, text, numeric, text
+);
+DROP FUNCTION vec_contratacion_temporal.c2d2_verificar_prueba(text, text);
 DROP FUNCTION vec_contratacion_temporal.c2d2_registrar_prueba(
     integer, text, text, text, text, numeric, text
 );
+DROP TABLE vec_contratacion_temporal.c2d2_marcador_privacidad_prueba;
 SQL
-esperar_fallo 'down con accesos v2' archivo \
+estado_con_historia_v2="$(estado_instalacion_000039)"
+esperar_fallo 'down con accesos v2' 55000 \
+    'historia v2 impide retirar el registrador RRHH' archivo \
     contratacion_temporal/migraciones/000039_registrador_acceso_rrhh_v2_y_snapshot_asof.down.sql
+comprobar_estado_000039 "$estado_con_historia_v2" \
+    'retirada rechazada con historia v2'
 
 paso 'registrador v2 y snapshot as-of superados'

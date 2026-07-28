@@ -84,6 +84,13 @@ DO $estructura$
 DECLARE
     tabla text;
     plan json;
+    funcion oid := pg_catalog.to_regprocedure(
+        'vec_contratacion_temporal.'
+        || 'registrar_acceso_rrhh_interno_v2(jsonb)'
+    );
+    rechazo oid := pg_catalog.to_regprocedure(
+        'vec_contratacion_temporal.rechazar_mutacion_historia_v1()'
+    );
 BEGIN
     IF NOT EXISTS (
         SELECT 1
@@ -126,18 +133,134 @@ BEGIN
             RAISE EXCEPTION 'RLS/ACL incorrecta en %', tabla;
         END IF;
     END LOOP;
-    IF pg_catalog.has_function_privilege(
+    IF funcion IS NULL OR rechazo IS NULL
+    OR pg_catalog.has_function_privilege(
         'vec_contratacion_temporal_consultor_rrhh',
-        'vec_contratacion_temporal.'
-        || 'registrar_acceso_rrhh_interno_v2(jsonb)',
-        'EXECUTE'
+        funcion, 'EXECUTE'
     ) OR pg_catalog.has_function_privilege(
-        'public',
-        'vec_contratacion_temporal.'
-        || 'registrar_acceso_rrhh_interno_v2(jsonb)',
-        'EXECUTE'
+        'public', funcion, 'EXECUTE'
+    ) OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_proc p
+          JOIN pg_catalog.pg_roles rol ON rol.oid = p.proowner
+         WHERE p.oid = funcion
+           AND (
+               rol.rolname <> 'vec_contratacion_temporal_propietario'
+               OR NOT p.prosecdef OR p.provolatile <> 'v'
+               OR p.proparallel <> 'u'
+               OR p.proconfig @> ARRAY[
+                   'search_path=pg_catalog', 'row_security=on',
+                   'TimeZone=UTC', 'lock_timeout=1s',
+                   'statement_timeout=4s'
+               ]::text[] IS NOT TRUE
+           )
+    ) OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_proc p
+          CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) acl
+         WHERE p.oid = funcion
+           AND acl.grantee <>
+               'vec_contratacion_temporal_propietario'::regrole
     ) THEN
         RAISE EXCEPTION 'registrador v2 expuesto fuera del propietario';
+    END IF;
+
+    IF (
+        SELECT pg_catalog.count(*)
+          FROM pg_catalog.pg_policies
+         WHERE schemaname = 'vec_contratacion_temporal'
+           AND tablename IN (
+               'control_registrador_acceso_rrhh_v2',
+               'vinculo_identidad_acceso_rrhh_v2'
+           )
+           AND policyname = 'propietario_total'
+           AND permissive = 'PERMISSIVE'
+           AND cmd = 'ALL'
+           AND roles =
+               ARRAY['vec_contratacion_temporal_propietario']::name[]
+           AND qual = 'true' AND with_check = 'true'
+    ) <> 2 OR (
+        SELECT pg_catalog.count(*)
+          FROM pg_catalog.pg_policies
+         WHERE schemaname = 'vec_contratacion_temporal'
+           AND tablename IN (
+               'control_registrador_acceso_rrhh_v2',
+               'vinculo_identidad_acceso_rrhh_v2'
+           )
+    ) <> 2 THEN
+        RAISE EXCEPTION 'políticas RLS v2 no son exactas';
+    END IF;
+
+    IF (
+        SELECT pg_catalog.count(*)
+          FROM pg_catalog.pg_trigger t
+         WHERE t.tgrelid IN (
+             'vec_contratacion_temporal.'
+             'control_registrador_acceso_rrhh_v2'::regclass,
+             'vec_contratacion_temporal.'
+             'vinculo_identidad_acceso_rrhh_v2'::regclass
+         )
+           AND NOT t.tgisinternal AND t.tgenabled = 'O'
+           AND t.tgfoid = rechazo
+           AND (
+               (
+                   t.tgname IN (
+                       'control_registrador_acceso_rrhh_v2_inmutable',
+                       'vinculo_identidad_acceso_rrhh_v2_inmutable'
+                   )
+                   AND t.tgtype = 27
+               ) OR (
+                   t.tgname IN (
+                       'control_registrador_acceso_rrhh_v2_no_truncar',
+                       'vinculo_identidad_acceso_rrhh_v2_no_truncar'
+                   )
+                   AND t.tgtype = 34
+               )
+           )
+    ) <> 4 OR (
+        SELECT pg_catalog.count(*)
+          FROM pg_catalog.pg_trigger t
+         WHERE t.tgrelid IN (
+             'vec_contratacion_temporal.'
+             'control_registrador_acceso_rrhh_v2'::regclass,
+             'vec_contratacion_temporal.'
+             'vinculo_identidad_acceso_rrhh_v2'::regclass
+         ) AND NOT t.tgisinternal
+    ) <> 4 THEN
+        RAISE EXCEPTION 'triggers de inmutabilidad v2 no son exactos';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_class c
+          CROSS JOIN LATERAL pg_catalog.aclexplode(c.relacl) acl
+         WHERE c.oid IN (
+             'vec_contratacion_temporal.'
+             'control_registrador_acceso_rrhh_v2'::regclass,
+             'vec_contratacion_temporal.'
+             'vinculo_identidad_acceso_rrhh_v2'::regclass
+         )
+           AND acl.grantee <>
+               'vec_contratacion_temporal_propietario'::regrole
+    ) OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_attribute atributo
+         WHERE atributo.attrelid =
+               'vec_contratacion_temporal.'
+               'vinculo_identidad_acceso_rrhh_v2'::regclass
+           AND atributo.attnum > 0 AND NOT atributo.attisdropped
+           AND atributo.attname = 'login_tecnico'
+    ) OR (
+        SELECT pg_catalog.count(*)
+          FROM pg_catalog.pg_attribute atributo
+         WHERE atributo.attrelid =
+               'vec_contratacion_temporal.'
+               'vinculo_identidad_acceso_rrhh_v2'::regclass
+           AND atributo.attnum > 0 AND NOT atributo.attisdropped
+           AND atributo.attname IN ('cuenta_ref', 'cuenta_ordinaria_ref')
+    ) <> 2 OR pg_catalog.pg_get_functiondef(funcion)
+        LIKE '%login_tecnico%' THEN
+        RAISE EXCEPTION 'ACL o minimización de identidad v2 incorrecta';
     END IF;
 
     SET LOCAL enable_seqscan = off;
