@@ -68,17 +68,21 @@ artificialmente largas o SQL comprimido.
 
 ## Autoridad y frontera de confianza
 
-Todas las funciones nuevas son internas:
+`000042` contiene exclusivamente cálculo puro. Sus funciones son
+`SECURITY INVOKER`, `IMMUTABLE`, `STRICT` y `PARALLEL SAFE`, siempre que todas
+sus dependencias acrediten esos mismos atributos. Usan
+`search_path = pg_catalog`, propietario exacto
+`vec_contratacion_temporal_propietario` y cero permisos para `PUBLIC`,
+migrador o roles de ejecución. No crean tablas, RLS ni manifiestos durables.
+Los auxiliares históricos no son `PARALLEL SAFE`: se usa `pg_catalog`
+directamente o auxiliares privados nuevos; no se falsea ni modifica su
+contrato.
 
-- `SECURITY DEFINER`;
-- `search_path = pg_catalog`;
-- `row_security = on`;
-- `timezone = UTC`;
-- `VOLATILE` cuando lean estado, produzcan prueba o persistan;
-- límites explícitos de bloqueo y sentencia;
-- propietario exacto `vec_contratacion_temporal_propietario`;
-- `REVOKE ALL` para `PUBLIC`, migrador y todos los roles de ejecución;
-- sin `GRANT EXECUTE` para `vec_contratacion_temporal_consultor_rrhh`.
+El aislamiento `SERIALIZABLE`, la escritura habilitada, la recuperación, la
+sesión, la procedencia de filas y la revalidación VEC pertenecen al motor
+`000044`. Incluirlos en una función canónica la haría dependiente de sesión y
+contradiría su inmutabilidad. `000043`, que sí persiste prueba, tendrá RLS
+forzada y primitivas internas `SECURITY DEFINER`.
 
 La entrada exterior nunca puede aportar como autoridad:
 
@@ -93,12 +97,11 @@ La entrada exterior nunca puede aportar como autoridad:
 El futuro motor `000044` recibirá la consulta tipada y las diez piezas
 originales VEC-AD-3. PostgreSQL volverá a validar, consumir y derivar el resto.
 
-Toda operación de lectura deberá comprobar:
+El futuro motor `000044` deberá comprobar:
 
 - `pg_is_in_recovery() = false`;
 - transacción `SERIALIZABLE`;
 - transacción de lectura y escritura;
-- zona horaria efectiva UTC;
 - tamaños, tipos y escalas exactos;
 - sesión y rol admitidos por el consumidor VEC existente.
 
@@ -116,14 +119,14 @@ Las firmas recomendadas son:
 ```sql
 canon_contenido_cuadro_rrhh_v1(
     timestamptz,
-    vec_contratacion_temporal.publicacion_version_rrhh[],
+    vec_contratacion_temporal.resumen_publicacion_rrhh_v1[],
     boolean,
     bytea
 ) RETURNS bytea
 
 canon_contenido_detalle_rrhh_v1(
     timestamptz,
-    vec_contratacion_temporal.publicacion_version_rrhh,
+    vec_contratacion_temporal.resumen_publicacion_rrhh_v1,
     jsonb
 ) RETURNS bytea
 
@@ -140,7 +143,30 @@ canon_recibo_lectura_rrhh_v2(
 Las firmas definitivas deberán congelarse en pruebas de catálogo. No se
 permiten sobrecargas abiertas ni variantes que acepten JSON libre.
 
-### Encuadre compartido
+`resumen_publicacion_rrhh_v1` es un tipo privado de quince atributos que
+reproduce exactamente el resumen canónico. Evita acoplar el contrato al tipo
+de fila mutable de `publicacion_version_rrhh`. Deben congelarse sus atributos,
+orden, tipos, modificadores, propietario, permisos y tipo array automático.
+
+```text
+expediente_ref text
+organizacion_ref text
+numero_visible text
+version numeric(20,0)
+flujo_ref text
+flujo_version numeric(20,0)
+flujo_huella_sha256 text
+fase_clave text
+estado_clave text
+centro_ref text
+categoria_ref text
+modalidad_clave text
+unidad_ref text
+creado_en timestamptz(6)
+actualizado_en timestamptz(6)
+```
+
+### Encuadre de contenido, resultado y recibo
 
 Cada campo usa:
 
@@ -164,6 +190,11 @@ Los instantes usan exactamente:
 
 Los booleanos son `0` o `1`. Los enteros usan decimal canónico. Los valores
 ausentes se encuadran como cadena vacía cuando así lo exige Go.
+
+Este límite de 256 KiB no se aplica a `HuellaConjuntoSHA256`, que usa otro
+encuadre y límites por pieza de hasta 1 MiB. El vector multibyte
+`VECTOR-UTF8\n8:Área_Ñ\n` acredita el cómputo por octetos del encuadrador; no
+es una fila RRHH válida, cuyos campos de negocio tienen gramáticas ASCII.
 
 ### Contenido del cuadro
 
@@ -220,17 +251,10 @@ Cabecera:
 VEC-CT-CONTENIDO-DETALLE-RRHH-V1\n
 ```
 
-La función recibe la fila publicada exacta y el `agregado_json` de
-`expediente_version_integral` para esa misma pareja expediente/versión.
-Antes de extraer datos vuelve a comprobar:
-
-- SHA-256 del JSON canónico almacenado;
-- referencia y versión;
-- organización y número visible;
-- flujo, versión y huella de flujo;
-- fase y estado;
-- que la fila publicada referencia esa versión integral;
-- tamaño, profundidad y nodos dentro de los límites de `000040`.
+La función pura recibe el resumen privado y un JSON ya materializado. Valida
+su coherencia interna, tamaño, profundidad y nodos, pero no afirma que proceda
+de una tabla. `000044` demostrará la procedencia, la versión exacta y que la
+misma colección alimenta respuesta y canon.
 
 Orden canónico:
 
@@ -246,7 +270,7 @@ Orden canónico:
    - secuencia de la actuación vinculada;
    - modalidad, categoría, causa, periodo, porcentaje y resultado RC;
    - presencia de coste;
-   - si existe, céntimos con signo y moneda;
+   - si existe, céntimos positivos y moneda `EUR`;
    - fuente del coste;
 5. cobertura:
    - presencia;
@@ -271,6 +295,13 @@ No se incluyen actores, personas, documentos, notas, observaciones ni texto
 libre. Las secuencias de los bloques deben apuntar a la actuación exacta y
 estar entre 2 y la versión del expediente. La cardinalidad de actuaciones
 debe coincidir con la versión.
+
+La máscara solo admite `0`, `1`, `3` o `7`. Cobertura exige análisis y
+asignación exige cobertura; sus secuencias crecen estrictamente. En un bloque
+ausente se sellan presencia `0` y secuencia `0`. El coste ausente omite
+céntimos y moneda, pero conserva la fuente vacía. Cada hito cumple
+`secuencia = versión_expediente = índice + 1`; el último coincide exactamente
+con fase, estado e instante actualizado del resumen.
 
 Un detalle exitoso siempre produce `total = 1` y no tiene cursor.
 
@@ -329,6 +360,14 @@ Orden exacto:
 La huella final es SHA-256 del conjunto encuadrado. No debe aceptarse como
 parámetro una huella calculada por Go.
 
+La firma recibe las diez piezas originales y extrae de la capacidad canónica
+los once textos. `emitida_en` y `expira_en` conservan literalmente
+RFC3339Nano: este formato recorta ceros y es distinto del instante fijo de
+seis microsegundos de contenido y recibo. Los límites son los de Go por pieza:
+capacidad 32 KiB, decisión 512 KiB, motivo 64 KiB, contexto y evidencia
+256 KiB, payload y COSE 1 MiB y SPKI 44 bytes. No existe límite global de
+256 KiB para esta preimagen.
+
 ### Canon del Recibo RRHH V2
 
 Cabecera:
@@ -340,44 +379,52 @@ VEC-CT-RECIBO-LECTURA-RRHH-V2\n
 El tipo compuesto privado
 `evidencia_recibo_lectura_rrhh_v2` debe contener, en este orden:
 
-1. esquema exacto del registrador;
-2. `acceso_ref`;
-3. secuencia;
-4. huella anterior;
-5. huella de cadena del acceso;
-6. huella del vínculo de identidad;
-7. huella de alcance, vacía en detalle;
-8. instante registrado;
-9. referencia de auditoría VEC;
-10. huella de auditoría VEC;
-11. huella de consumo VEC;
-12. referencia de decisión;
-13. huella de decisión;
-14. huella de capacidad;
-15. huella del conjunto material;
-16. huella de consulta;
-17. correlación;
-18. referencia de autenticación;
-19. huella de autenticación;
-20. sesión;
-21. control de sesión;
-22. revisión del control de sesión;
-23. huella del control de sesión;
-24. actor;
-25. perfil;
-26. versión de perfil;
-27. organización;
-28. clase de ámbito;
-29. referencia de ámbito;
-30. acción;
-31. finalidad;
-32. expediente, vacío en cuadro;
-33. versión, cero en cuadro;
-34. total;
-35. huella del contenido;
-36. huella del resultado;
-37. huella del cursor;
-38. instante de generación.
+```text
+esquema text
+acceso_ref text
+secuencia numeric(20,0)
+anterior_sha256 text
+huella_sha256 text
+vinculo_identidad_huella_sha256 text
+alcance_huella_sha256 text
+registrada_en timestamptz(6)
+auditoria_vec_ref text
+auditoria_vec_huella_sha256 text
+consumo_vec_huella_sha256 text
+decision_ref text
+decision_huella_sha256 text
+capacidad_huella_sha256 text
+material_huella_sha256 text
+consulta_huella_sha256 text
+correlacion_ref text
+autenticacion_ref text
+autenticacion_huella_sha256 text
+sesion_ref text
+control_sesion_ref text
+control_sesion_revision numeric(20,0)
+control_sesion_huella_sha256 text
+actor_ref text
+perfil_ref text
+perfil_version numeric(20,0)
+organizacion_ref text
+clase_ambito text
+ambito_ref text
+accion text
+finalidad text
+expediente_ref text
+version_expediente numeric(20,0)
+total smallint
+contenido_huella_sha256 text
+resultado_huella_sha256 text
+cursor_huella_sha256 text
+generada_en timestamptz(6)
+```
+
+Los nombres coinciden con `000039` y quedan congelados junto con orden,
+modificadores, tipo array, propietario y permisos. La secuencia, revisiones y
+versiones se limitan a `2^53-1`. Génesis usa 64 ceros como huella anterior,
+nunca nulo o vacío. La ausencia de alcance o cursor se adapta a texto vacío
+antes del canon.
 
 El discriminador del registrador es exactamente:
 
@@ -399,7 +446,8 @@ Crear `prueba_resultado_recibo_rrhh_v2`, append-only, con:
 - total;
 - expediente y versión;
 - canon y huella de contenido;
-- huella de cursor nullable;
+- huella de cursor nullable en persistencia, adaptada a texto vacío al
+  canonizar;
 - canon y huella de resultado;
 - huella del conjunto material;
 - instante de revalidación final;
@@ -592,11 +640,12 @@ Añadir vectores para:
 - cuadro de una fila sin cursor;
 - cuadro de una fila con cursor;
 - detalle con análisis, cobertura y asignación;
-- coste negativo;
-- Unicode multibyte;
-- límite exacto y exceso de 256 KiB;
+- coste válido `125000/EUR`;
+- coste cero, negativo o moneda ajena como rechazo;
+- Unicode multibyte solo en el encuadrador;
+- límite exacto y exceso de 256 KiB del encuadrador;
 - conjunto material VEC completo;
-- Recibo V2 de génesis, secuencia uno y anterior nulo;
+- Recibo V2 de génesis, secuencia uno y anterior de 64 ceros;
 - Recibo V2 encadenado, secuencia dos;
 - cuadro con alcance;
 - detalle sin alcance.
@@ -604,14 +653,24 @@ Añadir vectores para:
 Cada uno debe construirse independientemente en Go y SQL. La prueba de Recibo
 debe mutar individualmente los 38 campos y obtener rechazo.
 
+Antes de aprobar SQL deben quedar congelados en Go el material de 21 bloques,
+su huella, dos cánones completos de Recibo V2 y sus sellos. Un esperado
+calculado con el mismo auxiliar que se prueba no constituye referencia
+independiente.
+
 ## Matriz adversarial mínima
+
+La matriz abarca el recorrido `000042`–`000045`. En `000042` solo aplican
+pureza, tipos, permisos de funciones, catálogo, límites y cánones. RLS,
+aislamiento, recuperación, DML, consumo, cursores y procedencia se prueban en
+los cortes que leen o persisten estado; no se simulan en funciones puras.
 
 ### Autoridad y privilegios
 
 - `PUBLIC` sin uso ni ejecución;
 - roles runtime sin DML ni `EXECUTE`;
 - propietario y políticas exactos;
-- RLS forzada incluso con `row_security` alterada;
+- RLS forzada en `000043` incluso con `row_security` alterada;
 - rechazo de inserción, actualización, borrado y truncado directos;
 - envenenamiento de `search_path`;
 - propietario o firma de función alterados.
@@ -658,7 +717,7 @@ debe mutar individualmente los 38 campos y obtener rechazo.
 
 ### Cánones y tiempos
 
-- Unicode contado como caracteres y no bytes;
+- Unicode contado como caracteres y no bytes en el encuadrador;
 - longitud con ceros iniciales;
 - entero con signo indebido;
 - instante sin seis microsegundos o sin UTC;
@@ -703,6 +762,12 @@ debe mutar individualmente los 38 campos y obtener rechazo.
    trazabilidad. Con evidencia, debe fallar.
 8. **Colisión de numeración.** No iniciar `000042` hasta confirmar la
    integración de `000041` y sus barreras `21/5`.
+9. **Privacidad de logs.** SQL usa errores constantes, pero la ausencia de
+   parámetros en logs exige perfil de Sistemas sin registro de valores,
+   protocolo extendido y búsqueda de centinelas en cliente y servidor.
+10. **Recursos.** PostgreSQL no ofrece una cuota fiable por función. Los
+    límites estructurales se complementan con timeout de conexión y cgroup del
+    runner; `work_mem` no se presenta como garantía de memoria.
 
 ## Puertas de aceptación
 
