@@ -2,7 +2,9 @@
 
 Fecha: 28 de julio de 2026
 
-Base examinada: `8039d8a`
+Base examinada inicialmente: `8039d8a`
+
+Última corrección de contrato: `b116f87`
 
 Ámbito: diseño implementable de las migraciones PostgreSQL `000042` y
 `000043`, previo al motor interno `000044`
@@ -126,8 +128,7 @@ canon_contenido_cuadro_rrhh_v1(
 
 canon_contenido_detalle_rrhh_v1(
     timestamptz,
-    vec_contratacion_temporal.resumen_publicacion_rrhh_v1,
-    jsonb
+    vec_contratacion_temporal.entrada_detalle_expediente_rrhh_v1
 ) RETURNS bytea
 
 huella_material_consumo_rrhh_v3(
@@ -141,7 +142,9 @@ canon_recibo_lectura_rrhh_v2(
 ```
 
 Las firmas definitivas deberán congelarse en pruebas de catálogo. No se
-permiten sobrecargas abiertas ni variantes que acepten JSON libre.
+permiten sobrecargas abiertas ni variantes que acepten JSON libre. El detalle
+no recibe `jsonb`, un tipo de fila mutable ni valores escalares sueltos: recibe
+una única entrada nominal privada.
 
 `resumen_publicacion_rrhh_v1` es un tipo privado de quince atributos que
 reproduce exactamente el resumen canónico. Evita acoplar el contrato al tipo
@@ -165,6 +168,85 @@ unidad_ref text
 creado_en timestamptz(6)
 actualizado_en timestamptz(6)
 ```
+
+El detalle añade los siguientes tipos privados. Sus nombres, atributos, orden,
+tipos, modificadores, propietario, permisos y tipos array automáticos se
+congelan igual que el resumen:
+
+```text
+solicitud_operativa_rrhh_v1
+  grupo_subgrupo text
+  motivo_clave text
+  periodo_inicio timestamptz(6)
+  periodo_fin timestamptz(6)
+
+analisis_operativo_rrhh_v1
+  modalidad_clave text
+  categoria_ref text
+  causa_clave text
+  periodo_inicio timestamptz(6)
+  periodo_fin timestamptz(6)
+  porcentaje_jornada smallint
+  resultado_rc text
+  coste_presente boolean
+  coste_centimos bigint
+  coste_moneda text
+  fuente_coste_ref text
+
+comprobacion_operativa_rrhh_v1
+  clave text
+  resultado text
+
+cobertura_operativa_rrhh_v1
+  via_clave text
+  decision_gobernada boolean
+  procedimiento_ref text
+  bolsa_ref text
+  comprobaciones comprobacion_operativa_rrhh_v1[]
+
+asignacion_operativa_rrhh_v1
+  unidad_ref text
+  asignada_en timestamptz(6)
+  motivo_clave text
+
+hito_expediente_rrhh_v1
+  secuencia numeric(20,0)
+  version_expediente numeric(20,0)
+  accion_clave text
+  realizada_en timestamptz(6)
+  fase_origen text
+  fase_destino text
+  estado_origen text
+  estado_destino text
+
+entrada_detalle_expediente_rrhh_v1
+  resumen resumen_publicacion_rrhh_v1
+  solicitud solicitud_operativa_rrhh_v1
+  analisis_presente boolean
+  analisis analisis_operativo_rrhh_v1
+  referencia_analisis numeric(20,0)
+  cobertura_presente boolean
+  cobertura cobertura_operativa_rrhh_v1
+  referencia_cobertura numeric(20,0)
+  asignacion_presente boolean
+  asignacion asignacion_operativa_rrhh_v1
+  referencia_asignacion numeric(20,0)
+  hitos hito_expediente_rrhh_v1[]
+```
+
+La ausencia de análisis, cobertura o asignación exige indicador `false`,
+compuesto SQL nulo y referencia cero. La presencia exige indicador `true`,
+compuesto completo y referencia entre dos y la versión del expediente. El
+coste no usa un compuesto anulable: ausente se representa con
+`coste_presente = false`, cero, moneda y fuente vacías; presente exige céntimos
+positivos, `EUR` y fuente válida.
+
+Los arrays no vacíos son unidimensionales, empiezan en uno y no contienen
+elementos nulos. PostgreSQL representa el array vacío canónico con
+cardinalidad y número de dimensiones cero; no se le exige un límite inferior.
+Los hitos siempre forman un array no vacío. No se revocan permisos ni se
+eliminan directamente los tipos array automáticos: heredan el uso efectivo del
+tipo elemento y desaparecen internamente con `DROP TYPE elemento RESTRICT`.
 
 ### Encuadre de contenido, resultado y recibo
 
@@ -190,6 +272,14 @@ Los instantes usan exactamente:
 
 Los booleanos son `0` o `1`. Los enteros usan decimal canónico. Los valores
 ausentes se encuadran como cadena vacía cuando así lo exige Go.
+
+El formateador temporal debe ser realmente inmutable. No puede delegar en
+`timestamptz::text`, `to_char`, `DateStyle`, `TimeZone`, `lc_time` ni otro
+auxiliar histórico declarado con garantías superiores a sus dependencias.
+Convierte explícitamente a UTC, compone año, mes, día, hora, minuto, segundo y
+seis microsegundos y rechaza infinitos, años fuera de `1..9999` y cualquier
+valor no representable. Las pruebas cambian las GUC de fecha, zona y locale y
+deben obtener exactamente los mismos bytes.
 
 Este límite de 256 KiB no se aplica a `HuellaConjuntoSHA256`, que usa otro
 encuadre y límites por pieza de hasta 1 MiB. El vector multibyte
@@ -251,10 +341,10 @@ Cabecera:
 VEC-CT-CONTENIDO-DETALLE-RRHH-V1\n
 ```
 
-La función pura recibe el resumen privado y un JSON ya materializado. Valida
-su coherencia interna, tamaño, profundidad y nodos, pero no afirma que proceda
-de una tabla. `000044` demostrará la procedencia, la versión exacta y que la
-misma colección alimenta respuesta y canon.
+La función pura recibe `entrada_detalle_expediente_rrhh_v1`. Valida todos sus
+compuestos y arrays nominales, pero no afirma que procedan de una tabla.
+`000044` demostrará la procedencia, la versión exacta y que la misma colección
+alimenta respuesta y canon.
 
 Orden canónico:
 
@@ -303,6 +393,18 @@ céntimos y moneda, pero conserva la fuente vacía. Cada hito cumple
 `secuencia = versión_expediente = índice + 1`; el último coincide exactamente
 con fase, estado e instante actualizado del resumen.
 
+Solicitud y análisis usan fechas civiles a las `00:00:00.000000Z`. El
+porcentaje está entre uno y diez mil. El resultado RC solo admite `validada`,
+`no_requerida` o `rechazada`. Las comprobaciones no gobernadas son entre una y
+treinta y dos, con claves únicas; una cobertura gobernada exige referencias y
+comprobaciones vacías.
+
+El primer hito tiene fase de origen vacía y estado de origen `pendiente`. Cada
+hito posterior enlaza fase, estado y orden temporal con el anterior. Las
+referencias de los bloques apuntan al hito exacto; modalidad, categoría,
+unidad e instante de asignación coinciden con el resumen. El último hito
+coincide con fase, estado e instante actualizado del resumen.
+
 Un detalle exitoso siempre produce `total = 1` y no tiene cursor.
 
 ### Resultado común
@@ -313,7 +415,7 @@ Cabecera:
 VEC-CT-RESULTADO-CONSULTA-RRHH-V1\n
 ```
 
-La función existente de `000040` se reutiliza sin duplicarla. Recibe:
+El contenido lógico del resultado recibe:
 
 1. `tipo_consulta`;
 2. `generada_en`;
@@ -322,6 +424,13 @@ La función existente de `000040` se reutiliza sin duplicarla. Recibe:
 5. `cursor_huella_sha256` o vacío.
 
 La huella de resultado es SHA-256 del canon anterior.
+
+La función histórica de `000040` no puede reutilizarse como dependencia
+`IMMUTABLE` y `PARALLEL SAFE`: llama auxiliares que no acreditan esas
+propiedades, incluido un formateador basado en `to_char`. `000042` crea una
+versión privada nueva o integra el resultado en un auxiliar nuevo cuyo cierre
+completo de dependencias sea realmente inmutable, estricto y seguro en
+paralelo. No se modifica ni se falsea el contrato histórico.
 
 ### Huella del conjunto material VEC-AD-3
 
@@ -367,6 +476,17 @@ seis microsegundos de contenido y recibo. Los límites son los de Go por pieza:
 capacidad 32 KiB, decisión 512 KiB, motivo 64 KiB, contexto y evidencia
 256 KiB, payload y COSE 1 MiB y SPKI 44 bytes. No existe límite global de
 256 KiB para esta preimagen.
+
+La capacidad mide entre 512 bytes y 32 KiB; las demás piezas son no vacías.
+Las versiones de persona y perfil son enteros entre uno y `2^53-1`; se
+rechazan fracciones, cero, exceso, `NaN` e infinitos antes de convertir a ocho
+bytes. Los once textos cumplen las gramáticas y límites Go. Los instantes
+RFC3339Nano solo admiten UTC, de cero a seis decimales sin cero final,
+`expira_en > emitida_en` y una ventana máxima de cinco segundos.
+
+La raíz pública no se valida solo por longitud: debe ser un `SubjectPublicKeyInfo`
+DER canónico de Ed25519 conforme a RFC 8410, con 44 bytes y prefijo estructural
+exactos. Las pruebas mutan tanto el prefijo como la clave.
 
 ### Canon del Recibo RRHH V2
 
@@ -433,6 +553,17 @@ vec.contratacion-temporal.recibo-acceso-rrhh.o4-05.v2
 ```
 
 El sello es SHA-256 de este canon. No forma parte de su propia preimagen.
+
+La función rechaza atributos nulos salvo las ausencias expresamente adaptadas
+a texto vacío. Las huellas son hexadecimales minúsculas y no nulas; la huella
+anterior solo puede ser cero en génesis. `acceso_ref` se deriva de la huella de
+consumo. Secuencia, anterior, referencias, clases de ámbito, acciones y
+finalidades cumplen las mismas gramáticas y relaciones que Go.
+
+Un recibo de cuadro exige alcance, expediente y versión vacíos, total entre
+cero y cien y cursor solo cuando existe resultado paginado. Un recibo de
+detalle exige alcance y cursor vacíos, expediente válido, versión positiva y
+total uno. En ambos casos `generada_en <= registrada_en`.
 
 ## Migración 000043: prueba durable y cierre interno
 
@@ -605,7 +736,8 @@ Cada reversión debe:
 5. comprobar restricciones, índices, triggers, RLS y políticas;
 6. comprobar reglas, herencia, publicaciones, estadísticas extendidas y
    etiquetas de seguridad;
-7. verificar la huella de las definiciones y del catálogo semántico;
+7. verificar una huella constante e independiente de las definiciones y del
+   catálogo semántico;
 8. rechazar dependencias futuras;
 9. usar exclusivamente `DROP ... RESTRICT`;
 10. retroceder barreras solo tras retirar correctamente los objetos.
@@ -614,6 +746,14 @@ El `down` de `000043` debe fallar si existe una sola prueba o recibo. Nunca
 borra trazabilidad para facilitar una reversión.
 
 Las reentradas de `up` y `down` deben fallar sin mutar el estado.
+
+La huella esperada del `safe-down` se congela como literal obtenido en
+PostgreSQL 18.4 durante la construcción. Nunca se recalcula como «esperado» a
+partir de los objetos vivos. Incluye nombres y sobrecargas, cuerpos, firma
+completa, lenguaje, retorno, argumentos, modos y valores por defecto,
+`SECURITY`, `leakproof`, `STRICT`, volatilidad, paralelismo, `search_path`,
+propietario, ACL con otorgante y opción de concesión, tipos base y arrays,
+atributos, modificadores, colaciones, comentarios, etiquetas y dependencias.
 
 ## Vectores Go y PostgreSQL
 
@@ -780,6 +920,13 @@ Antes de entregar cada migración:
 - comparación Go/PostgreSQL byte a byte;
 - matriz adversarial completa;
 - comprobación de catálogo, propietarios, ACL y RLS;
+- GUC hostiles de fecha, zona, locale y `search_path`;
+- compuestos parciales, arrays multidimensionales, límites inferiores ajenos y
+  elementos nulos;
+- valores `numeric` fraccionarios, `NaN`, infinitos, cero y bordes máximos;
+- mutación individual de los 21 bloques materiales y los 38 campos del recibo;
+- manifiesto constante del `safe-down` y ataques con homónimos, sobrecargas,
+  cuerpo, propietario, ACL, configuración y dependencia futura;
 - `git diff --check`;
 - validador Markdown;
 - Gitleaks del commit;
