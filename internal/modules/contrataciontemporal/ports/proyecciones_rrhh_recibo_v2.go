@@ -18,6 +18,10 @@ const (
 	DominioCanonReciboLecturaRRHHV2        = "vec.contratacion_temporal.recibo_lectura_rrhh.v2"
 
 	cabeceraCanonReciboLecturaRRHHV2 = "VEC-CT-RECIBO-LECTURA-RRHH-V2\n"
+
+	// EsquemaResultadoRegistradorAccesoRRHHV2 es el discriminador literal
+	// devuelto por registrar_acceso_rrhh_interno_v2.
+	EsquemaResultadoRegistradorAccesoRRHHV2 = "vec.contratacion-temporal.recibo-acceso-rrhh.o4-05.v2"
 )
 
 // ResultadoRegistradorAccesoRRHHV2 representa, sin ampliar su autoridad, los
@@ -28,6 +32,7 @@ const (
 // no los devuelve el registrador y pertenecen a EvidenciaConsumoResultadoRRHHV2.
 type ResultadoRegistradorAccesoRRHHV2 struct {
 	bloqueoSerializacionConsultaRRHH
+	esquema                      string
 	accesoRef                    string
 	secuencia                    uint64
 	anteriorSHA256               string
@@ -40,6 +45,7 @@ type ResultadoRegistradorAccesoRRHHV2 struct {
 // NuevoResultadoRegistradorAccesoRRHHV2 adapta literalmente la salida SQL. No
 // reconstruye campos ni acepta el objeto JSON abierto devuelto por PostgreSQL.
 func NuevoResultadoRegistradorAccesoRRHHV2(
+	esquema string,
 	accesoRef string,
 	secuencia uint64,
 	anteriorSHA256 string,
@@ -49,6 +55,7 @@ func NuevoResultadoRegistradorAccesoRRHHV2(
 	registradaEn time.Time,
 ) (ResultadoRegistradorAccesoRRHHV2, error) {
 	resultado := ResultadoRegistradorAccesoRRHHV2{
+		esquema:                      esquema,
 		accesoRef:                    accesoRef,
 		secuencia:                    secuencia,
 		anteriorSHA256:               anteriorSHA256,
@@ -70,7 +77,8 @@ func (r ResultadoRegistradorAccesoRRHHV2) validar() error {
 	anteriorValido := huellaCadenaAnteriorRRHHV2Valida(
 		r.anteriorSHA256, r.secuencia,
 	)
-	if !patronAccesoRRHHV2.MatchString(r.accesoRef) ||
+	if r.esquema != EsquemaResultadoRegistradorAccesoRRHHV2 ||
+		!patronAccesoRRHHV2.MatchString(r.accesoRef) ||
 		r.secuencia < 1 || r.secuencia > versionMaximaJSONSegura ||
 		!anteriorValido ||
 		!huellaSHA256CanonicaRRHH(r.huellaSHA256) ||
@@ -104,8 +112,10 @@ func (ResultadoRegistradorAccesoRRHHV2) GoString() string {
 }
 
 // EvidenciaConsumoResultadoRRHHV2 reúne sólo la evidencia que procede del
-// consumo VEC y del motor SQL de resultados. No duplica ni suplanta la salida
-// del registrador de accesos.
+// consumo VEC y de los motores SQL 000042/000043. Es un tipo nominal interno,
+// no un JSON abierto. Los contratos disponibles no publican todavía un
+// discriminador literal para esta unión; no se inventa uno en Go.
+// No duplica ni suplanta la salida del registrador de accesos.
 type EvidenciaConsumoResultadoRRHHV2 struct {
 	bloqueoSerializacionConsultaRRHH
 	auditoriaRef          string
@@ -334,7 +344,7 @@ func (r ReciboLecturaRRHH) accesoDerivadoDelConsumoV2() bool {
 
 // canonReciboLecturaRRHHV2 no incluye el sello para evitar autorreferencia.
 // Orden estable, todos los campos encuadrados:
-//   - siete valores exactos de registrar_acceso_rrhh_v2;
+//   - discriminador y siete valores exactos de registrar_acceso_rrhh_v2;
 //   - auditoría y consumo VEC;
 //   - identidad derivada de Contexto y autorización derivada de Capacidad;
 //   - consulta, sesión, ámbito, acción y finalidad derivadas;
@@ -345,6 +355,7 @@ func (r ReciboLecturaRRHH) canonReciboLecturaRRHHV2() ([]byte, error) {
 	c := nuevoConstructorCanonResultadoRRHH(
 		cabeceraCanonReciboLecturaRRHHV2,
 	)
+	c.texto(r.registroV2.esquema)
 	c.texto(r.registroV2.accesoRef)
 	c.enteroSinSigno(r.registroV2.secuencia)
 	c.texto(r.registroV2.anteriorSHA256)

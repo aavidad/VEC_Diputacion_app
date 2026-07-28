@@ -13,7 +13,8 @@ import (
 func (p PaginaCuadroRRHH) ValidarParaEjecucionInterna(
 	orden OrdenConsultaCuadroRRHH,
 ) error {
-	if p.ValidarPara(orden) != nil || p.Lectura.versionRecibo != 2 {
+	if p.ValidarPara(orden) != nil || p.Lectura.versionRecibo != 2 ||
+		p.Lectura.evidenciaV2.generadaEn.Before(orden.instante) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	sinRecibo := p
@@ -76,7 +77,8 @@ func huellasIgualesOpcionalesReciboRRHHV2(izquierda, derecha string) bool {
 func (d DetalleExpedienteRRHH) ValidarParaEjecucionInterna(
 	orden OrdenConsultaDetalleRRHH,
 ) error {
-	if d.ValidarPara(orden) != nil || d.Lectura.versionRecibo != 2 {
+	if d.ValidarPara(orden) != nil || d.Lectura.versionRecibo != 2 ||
+		d.Lectura.evidenciaV2.generadaEn.Before(orden.instante) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	entrada, err := d.entradaCanonicaMinimizada()

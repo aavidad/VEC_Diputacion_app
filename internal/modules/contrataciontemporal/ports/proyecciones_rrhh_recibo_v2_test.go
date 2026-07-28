@@ -51,16 +51,28 @@ func TestResultadoRegistradorAccesoRRHHV2RespetaGenesisYContratoSQL(
 		strings.Repeat("d", 64),
 		strings.Repeat("e", 64),
 	}
-	construir := func(
+	construirConEsquema := func(
+		esquema string,
 		referencia string,
 		secuencia uint64,
 		anterior string,
 	) error {
 		_, err := ports.NuevoResultadoRegistradorAccesoRRHHV2(
+			esquema,
 			referencia, secuencia, anterior,
 			resto[0], resto[1], resto[2], ahora,
 		)
 		return err
+	}
+	construir := func(
+		referencia string,
+		secuencia uint64,
+		anterior string,
+	) error {
+		return construirConEsquema(
+			ports.EsquemaResultadoRegistradorAccesoRRHHV2,
+			referencia, secuencia, anterior,
+		)
 	}
 	if err := construir(acceso, 1, cero); err != nil {
 		t.Fatalf("primer acceso SQL válido rechazado: %v", err)
@@ -75,6 +87,21 @@ func TestResultadoRegistradorAccesoRRHHV2RespetaGenesisYContratoSQL(
 		"acceso_corto":         construir("acceso:rrhh:a", 1, cero),
 		"acceso_mayusculas":    construir("acceso:rrhh:"+strings.Repeat("A", 32), 1, cero),
 		"acceso_sufijo_no_hex": construir("acceso:rrhh:"+strings.Repeat("z", 32), 1, cero),
+		"esquema_vacio": construirConEsquema(
+			"", acceso, 1, cero,
+		),
+		"esquema_v1": construirConEsquema(
+			"vec.contratacion-temporal.recibo-acceso-rrhh.o4-05.v1",
+			acceso, 1, cero,
+		),
+		"esquema_mayusculas": construirConEsquema(
+			strings.ToUpper(ports.EsquemaResultadoRegistradorAccesoRRHHV2),
+			acceso, 1, cero,
+		),
+		"esquema_otro": construirConEsquema(
+			"vec.contratacion-temporal.recibo-acceso-rrhh.o4-06.v2",
+			acceso, 1, cero,
+		),
 	}
 	for nombre, err := range casosInvalidos {
 		if !errors.Is(err, ports.ErrResultadoConsultaRRHHNoConfiable) {
@@ -360,6 +387,94 @@ func TestReciboLecturaRRHHV2ValidaDetalleYCruzaSuCanon(
 	}
 }
 
+func TestDetalleV2RechazaResultadoAnteriorALaOrdenYAceptaElBorde(
+	t *testing.T,
+) {
+	t.Parallel()
+	t0 := instantePuertosRRHH()
+	datosDetalle := datosDetalleMinimizadoPrueba(0)
+	entrada := construirEntradaDetalleMinimizadaPrueba(t, datosDetalle)
+	autoridad, contexto := autoridadYContextoPuertosRRHH(t, t0)
+	solicitud, err := ports.NuevaSolicitudDetalleRRHH(
+		datosDetalle.resumen.ExpedienteRef,
+		datosDetalle.resumen.Version,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capacidad := capacidadDetallePuertosRRHH(
+		t, autoridad, contexto, solicitud, t0,
+	)
+	instanteOrden := t0.Add(time.Second)
+	orden, err := ports.NuevaOrdenConsultaDetalleRRHH(
+		contexto, capacidad, solicitud, instanteOrden,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	construirDetalle := func(generadaEn time.Time) ports.DetalleExpedienteRRHH {
+		t.Helper()
+		contenido, err := entrada.ExportarContenidoCanonicoParaSQL(generadaEn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resultado, err := contenido.ExportarResultadoCanonicoParaSQL()
+		if err != nil {
+			t.Fatal(err)
+		}
+		consumo := strings.Repeat("e", 64)
+		sumaAcceso := sha256.Sum256([]byte("acceso:rrhh:" + consumo))
+		datos := datosReciboCuadroV2Prueba{
+			contexto: contexto, capacidad: capacidad,
+			accesoRef: "acceso:rrhh:" +
+				hex.EncodeToString(sumaAcceso[:])[:32],
+			secuencia: 1, anterior: strings.Repeat("0", 64),
+			huella:  strings.Repeat("2", 64),
+			vinculo: strings.Repeat("3", 64), alcance: "",
+			registradaEn:    t0.Add(2 * time.Second),
+			auditoriaRef:    "auditoria:vec:detalle:temporal:0001",
+			auditoriaHuella: strings.Repeat("a", 64),
+			consumoHuella:   consumo,
+			contenidoHuella: resultado.ContenidoHuellaSHA256(),
+			resultadoHuella: resultado.HuellaSHA256(),
+			generadaEn:      generadaEn,
+			expedienteRef:   datosDetalle.resumen.ExpedienteRef,
+			version:         datosDetalle.resumen.Version,
+			total:           1,
+		}
+		registro, evidencia := nominalesReciboCuadroV2Prueba(t, datos)
+		recibo, err := ports.NuevoReciboLecturaRRHHV2(
+			contexto, capacidad, registro, evidencia,
+			selloCanonReciboV2Prueba(datos),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		detalle, err := ports.NuevoDetalleExpedienteRRHHMinimizado(
+			entrada, recibo,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return detalle
+	}
+
+	anterior := construirDetalle(t0)
+	if err := anterior.ValidarPara(orden); err != nil {
+		t.Fatalf("precondición histórica no reproducida: %v", err)
+	}
+	if err := anterior.ValidarParaEjecucionInterna(orden); !errors.Is(
+		err, ports.ErrResultadoConsultaRRHHNoConfiable,
+	) {
+		t.Fatalf("detalle generado antes de la orden aceptado: %v", err)
+	}
+	enElBorde := construirDetalle(instanteOrden)
+	if err := enElBorde.ValidarParaEjecucionInterna(orden); err != nil {
+		t.Fatalf("detalle generado exactamente en la orden rechazado: %v", err)
+	}
+}
+
 func TestEvidenciasReciboRRHHV2SonOpacas(t *testing.T) {
 	t.Parallel()
 	datos := prepararReciboCuadroV2Prueba(t)
@@ -478,6 +593,7 @@ func nominalesReciboCuadroV2Prueba(
 ) (ports.ResultadoRegistradorAccesoRRHHV2, ports.EvidenciaConsumoResultadoRRHHV2) {
 	t.Helper()
 	registro, err := ports.NuevoResultadoRegistradorAccesoRRHHV2(
+		ports.EsquemaResultadoRegistradorAccesoRRHHV2,
 		d.accesoRef, d.secuencia, d.anterior, d.huella,
 		d.vinculo, d.alcance, d.registradaEn,
 	)
@@ -519,6 +635,7 @@ func construirReciboCuadroV2SinFallar(
 	sello string,
 ) *ports.ReciboLecturaRRHH {
 	registro, err := ports.NuevoResultadoRegistradorAccesoRRHHV2(
+		ports.EsquemaResultadoRegistradorAccesoRRHHV2,
 		d.accesoRef, d.secuencia, d.anterior, d.huella,
 		d.vinculo, d.alcance, d.registradaEn,
 	)
@@ -557,6 +674,7 @@ func selloCanonReciboV2Prueba(
 	instante := func(valor time.Time) {
 		texto(valor.Format("2006-01-02T15:04:05.000000Z"))
 	}
+	texto(ports.EsquemaResultadoRegistradorAccesoRRHHV2)
 	texto(d.accesoRef)
 	entero(d.secuencia)
 	texto(d.anterior)
