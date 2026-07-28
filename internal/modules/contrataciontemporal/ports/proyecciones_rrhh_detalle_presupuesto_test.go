@@ -99,6 +99,33 @@ func TestPresupuestoEntradaDetalleRRHHRechazaAntesDeClonar(t *testing.T) {
 	}
 }
 
+func TestPresupuestoDetalleRRHHRechazaComprobacionesEnTiempoConstante(
+	t *testing.T,
+) {
+	comprobaciones := make([]ComprobacionOperativaRRHH, 250_000)
+	cobertura := &CoberturaOperativaRRHH{
+		Comprobaciones: comprobaciones,
+	}
+	ejecutar := func() {
+		_, err := NuevaEntradaDetalleExpedienteRRHHMinimizada(
+			ResumenExpedienteRRHH{}, SolicitudOperativaRRHH{},
+			nil, ReferenciaHitoAnalisisRRHH{},
+			cobertura, ReferenciaHitoCoberturaRRHH{},
+			nil, ReferenciaHitoAsignacionRRHH{}, nil,
+		)
+		if err != ErrResultadoConsultaRRHHNoConfiable {
+			panic("cardinalidad de comprobaciones no rechazada")
+		}
+	}
+	ejecutar()
+	if asignaciones := testing.AllocsPerRun(1_000, ejecutar); asignaciones != 0 {
+		t.Fatalf(
+			"el rechazo O(1) reservó o clonó memoria: %.2f asignaciones",
+			asignaciones,
+		)
+	}
+}
+
 func TestPresupuestoEntradaDetalleRRHHNoDesbordaConMaximos(t *testing.T) {
 	t.Parallel()
 	maximo := strings.Repeat("a", 1<<20)
