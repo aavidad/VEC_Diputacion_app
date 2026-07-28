@@ -79,6 +79,10 @@ for requerida in \
 	grep -Fxq "${requerida}" "${interno}" || fallar "Falta recurso interno obligatorio: ${requerida}"
 done
 
+python3 scripts/verificar_dependencias_recursos_web.py web/publico.manifest
+python3 scripts/verificar_dependencias_recursos_web.py \
+	web/interno.manifest --locales web/interno.locales.manifest
+
 compartidos="$(mktemp)"
 esperados="$(mktemp)"
 temporales+=("${compartidos}" "${esperados}")

@@ -40,6 +40,20 @@ grep -Fq 'superficie interna incorpora recursos' "${temporal}/salida" || {
 }
 restaurar
 
+grep -Fxv 'static/bolsa/contrato-v2.js' web/publico.manifest \
+	>"${temporal}/publico-sin-dependencia.manifest"
+cp "${temporal}/publico-sin-dependencia.manifest" web/publico.manifest
+if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
+	printf 'El verificador acepto una dependencia local no inventariada.\n' >&2
+	exit 1
+fi
+grep -Fq 'dependencia local no inventariada: static/bolsa/contrato-v2.js' \
+	"${temporal}/salida" || {
+	cat "${temporal}/salida" >&2
+	exit 1
+}
+restaurar
+
 printf '%s\n' '../config/secreto.json' >>web/interno.locales.manifest
 if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
 	printf 'El verificador acepto una ruta no canonica de traduccion interna.\n' >&2
