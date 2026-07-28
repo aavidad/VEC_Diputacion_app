@@ -121,6 +121,8 @@ BEGIN
 
     FOREACH nombre IN ARRAY ARRAY[
         'json_rrhh_seguro_v1(jsonb)',
+        'canon_alcance_rrhh_v1(' ||
+        'vec_contratacion_temporal.alcance_consulta_rrhh_v1)',
         'canon_consulta_cuadro_rrhh_v1(' ||
         'vec_contratacion_temporal.consulta_cuadro_rrhh_v1)',
         'canon_familia_cuadro_rrhh_v1(' ||
@@ -171,6 +173,25 @@ $estructura$;
 
 DO $canones$
 DECLARE
+    alcance_organizacion
+        vec_contratacion_temporal.alcance_consulta_rrhh_v1 :=
+        ROW(
+            'organizacion:diputacion-granada',
+            'organizacion',
+            'organizacion:diputacion-granada'
+        );
+    alcance_centro vec_contratacion_temporal.alcance_consulta_rrhh_v1 :=
+        ROW(
+            'organizacion:diputacion-granada',
+            'centro',
+            'centro:rrhh:001'
+        );
+    alcance_unidad vec_contratacion_temporal.alcance_consulta_rrhh_v1 :=
+        ROW(
+            'organizacion:diputacion-granada',
+            'unidad_gestion',
+            'unidad:seleccion:001'
+        );
     pagina_uno vec_contratacion_temporal.consulta_cuadro_rrhh_v1 :=
         ROW('ÁREA_Ñ 2026/CT', 'en_curso', 'solicitud', 37, '');
     pagina_dos vec_contratacion_temporal.consulta_cuadro_rrhh_v1 :=
@@ -192,6 +213,24 @@ DECLARE
     nombre text;
 BEGIN
     IF pg_catalog.encode(pg_catalog.sha256(
+        vec_contratacion_temporal.canon_alcance_rrhh_v1(
+            alcance_organizacion
+        )
+    ), 'hex') <>
+       'cc4772d9abe85886f10f5ee98e304ae190929de3602e69c8281bcd8e3ea7fd4b'
+    OR pg_catalog.encode(pg_catalog.sha256(
+        vec_contratacion_temporal.canon_alcance_rrhh_v1(
+            alcance_centro
+        )
+    ), 'hex') <>
+       'f864ac24878bf8cd93701254a8a64f27dfaf4702e1b44f6ee0ddf30177abe7d9'
+    OR pg_catalog.encode(pg_catalog.sha256(
+        vec_contratacion_temporal.canon_alcance_rrhh_v1(
+            alcance_unidad
+        )
+    ), 'hex') <>
+       '0e9140f36357f299b8f2606ff07e1e74e12cdb3cfe97839da8ad372ba733b6d0'
+    OR pg_catalog.encode(pg_catalog.sha256(
         vec_contratacion_temporal.canon_consulta_cuadro_rrhh_v1(
             pagina_uno
         )
@@ -261,6 +300,29 @@ $canones$;
 
 DO $rechazos$
 BEGIN
+    BEGIN
+        PERFORM vec_contratacion_temporal.canon_alcance_rrhh_v1(
+            ROW(
+                'organizacion:diputacion-granada',
+                'organizacion',
+                'organizacion:ajena'
+            )::vec_contratacion_temporal.alcance_consulta_rrhh_v1
+        );
+        RAISE EXCEPTION 'se aceptó alcance organizativo cruzado';
+    EXCEPTION WHEN SQLSTATE '22023' THEN
+        IF SQLERRM <> 'alcance RRHH inválido' THEN RAISE; END IF;
+    END;
+    BEGIN
+        PERFORM vec_contratacion_temporal.canon_alcance_rrhh_v1(
+            ROW(
+                'organizacion:diputacion-granada',
+                'ambito_inventado',
+                'centro:rrhh:001'
+            )::vec_contratacion_temporal.alcance_consulta_rrhh_v1
+        );
+        RAISE EXCEPTION 'se aceptó clase de ámbito no gobernada';
+    EXCEPTION WHEN SQLSTATE '22023' THEN NULL;
+    END;
     BEGIN
         PERFORM vec_contratacion_temporal.canon_consulta_cuadro_rrhh_v1(
             ROW(

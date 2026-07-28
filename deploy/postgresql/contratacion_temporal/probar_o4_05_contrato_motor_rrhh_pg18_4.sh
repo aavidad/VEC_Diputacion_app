@@ -96,8 +96,8 @@ LANGUAGE sql IMMUTABLE STRICT
 SET search_path = pg_catalog
 RETURN 1;
 SQL
-esperar_fallo 'down 000040 con dependencia futura' 2BP01 \
-    'cannot drop type vec_contratacion_temporal.consulta_detalle_rrhh_v1' \
+esperar_fallo 'down 000040 con dependencia futura' 55000 \
+    'catálogo derivado impide revertir contrato RRHH' \
     archivo \
     contratacion_temporal/migraciones/000040_contrato_tipado_consultas_rrhh.down.sql
 comprobar_estado_000040 "$estado_limpio" 'dependencia futura'
