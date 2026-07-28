@@ -73,24 +73,36 @@ func (r ResumenExpedienteRRHH) cumpleAmbito(
 // auditoría, decisión, sesión y ámbito nunca se serializan ni se representan.
 type ReciboLecturaRRHH struct {
 	bloqueoSerializacionConsultaRRHH
-	lecturaRef      string
-	auditoriaRef    string
-	decisionRef     string
-	decisionHuella  string
-	capacidadHuella string
-	materialHuella  string
-	consultaHuella  string
-	correlacionRef  string
-	sesionRef       string
-	organizacionRef string
-	claseAmbito     ClaseAmbitoConsultaRRHH
-	ambitoRef       string
-	accion          string
-	finalidad       string
-	expedienteRef   string
-	version         uint64
-	totalPublicado  uint16
-	registradaEn    time.Time
+	versionRecibo           uint8
+	lecturaRef              string
+	auditoriaRef            string
+	decisionRef             string
+	decisionHuella          string
+	capacidadHuella         string
+	materialHuella          string
+	consultaHuella          string
+	correlacionRef          string
+	sesionRef               string
+	organizacionRef         string
+	claseAmbito             ClaseAmbitoConsultaRRHH
+	ambitoRef               string
+	accion                  string
+	finalidad               string
+	expedienteRef           string
+	version                 uint64
+	totalPublicado          uint16
+	registradaEn            time.Time
+	autenticacionRefV2      string
+	autenticacionHuellaV2   string
+	controlSesionRefV2      string
+	controlSesionRevisionV2 uint64
+	controlSesionHuellaV2   string
+	actorRefV2              string
+	perfilRefV2             string
+	perfilVersionV2         uint64
+	registroV2              ResultadoRegistradorAccesoRRHHV2
+	evidenciaV2             EvidenciaConsumoResultadoRRHHV2
+	selloCanonV2            [32]byte
 }
 
 func NuevoReciboLecturaRRHH(
@@ -103,7 +115,8 @@ func NuevoReciboLecturaRRHH(
 	registradaEn time.Time,
 ) (ReciboLecturaRRHH, error) {
 	recibo := ReciboLecturaRRHH{
-		lecturaRef: lecturaRef, auditoriaRef: auditoriaRef,
+		versionRecibo: 1,
+		lecturaRef:    lecturaRef, auditoriaRef: auditoriaRef,
 		decisionRef: capacidad.decisionRef, correlacionRef: capacidad.correlacionRef,
 		decisionHuella: capacidad.decisionHuella, capacidadHuella: capacidad.capacidadHuella,
 		materialHuella: capacidad.materialHuella,
@@ -124,6 +137,16 @@ func NuevoReciboLecturaRRHH(
 }
 
 func (r ReciboLecturaRRHH) validar() error {
+	if r.versionRecibo == 2 {
+		return r.validarV2()
+	}
+	if r.versionRecibo != 1 {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	return r.validarCamposComunes()
+}
+
+func (r ReciboLecturaRRHH) validarCamposComunes() error {
 	esCuadro := r.accion == AccionConsultarCuadroRRHH &&
 		r.finalidad == FinalidadConsultarCuadroRRHH &&
 		r.expedienteRef == "" && r.version == 0
@@ -176,7 +199,8 @@ func (r ReciboLecturaRRHH) coincideCon(
 		r.accion == capacidad.accion &&
 		r.finalidad == capacidad.finalidad &&
 		r.expedienteRef == expedienteRef &&
-		r.version == version
+		r.version == version &&
+		(r.versionRecibo != 2 || r.coincideConContextoV2(contexto))
 }
 
 func (r ReciboLecturaRRHH) ExpedienteRef() string { return r.expedienteRef }
