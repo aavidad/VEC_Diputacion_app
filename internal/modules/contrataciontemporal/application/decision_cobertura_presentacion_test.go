@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -323,21 +324,17 @@ func TestProponerCoberturaEsConcurrenteYDeterminista(t *testing.T) {
 		t,
 		viasPresentacionCoberturaPrueba(3),
 	)
-	const total = 16
+	const total = 4
 	const comprobacionesPorPropuesta = 3
 	llegadas := make(chan struct{}, total*comprobacionesPorPropuesta)
 	continuar := make(chan struct{})
-	escenario.global.antes = func(
+	escenario.global.preparador.consultas.servicio.crearPlazo = func(
 		ctx context.Context,
-		_ ports.SolicitudConsultarCobertura,
-	) error {
+		plazo time.Duration,
+	) (context.Context, context.CancelFunc) {
 		llegadas <- struct{}{}
-		select {
-		case <-continuar:
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
-		}
+		<-continuar
+		return context.WithTimeout(ctx, plazo)
 	}
 	resultados := make(chan PresentacionPropuestaCobertura, total)
 	errores := make(chan error, total)

@@ -117,6 +117,8 @@ func TestPreparadorGlobalCoberturaAcotaParalelismo(t *testing.T) {
 	)
 	var activas atomic.Int32
 	var maximas atomic.Int32
+	continuar := make(chan struct{})
+	var liberar sync.Once
 	escenario.antes = func(
 		ctx context.Context,
 		_ ports.SolicitudConsultarCobertura,
@@ -129,10 +131,13 @@ func TestPreparadorGlobalCoberturaAcotaParalelismo(t *testing.T) {
 				break
 			}
 		}
+		if actual == 3 {
+			liberar.Do(func() { close(continuar) })
+		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(25 * time.Millisecond):
+		case <-continuar:
 			return nil
 		}
 	}
