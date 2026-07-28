@@ -216,6 +216,9 @@ func (m *medidorPresupuestoDetalleRRHH) cobertura(
 	m.cadena(c.BolsaRef)
 	m.literal(`,"comprobaciones":[`)
 	for indice, comprobacion := range c.Comprobaciones {
+		if m.excedido {
+			break
+		}
 		if indice > 0 {
 			m.literal(`,`)
 		}
@@ -275,6 +278,9 @@ func presupuestoEntradaDetalleRRHHMinimizada(
 	referenciaAsignacion ReferenciaHitoAsignacionRRHH,
 	hitos []HitoExpedienteRRHH,
 ) (uint64, bool) {
+	if cobertura != nil && len(cobertura.Comprobaciones) > 32 {
+		return limiteBytesEntradaDetalleRRHHMinimizada + 1, false
+	}
 	m := nuevoMedidorPresupuestoDetalleRRHH()
 	if len(hitos) > limiteMaximoHitosPorPresupuestoRRHH {
 		m.exceder()
