@@ -208,6 +208,7 @@ func TestPreparadorGlobalCoberturaCancelaTodoAlPrimerFallo(t *testing.T) {
 		}
 		select {
 		case <-ctx.Done():
+			canceladas.Add(1)
 			return ctx.Err()
 		case <-listas:
 		}

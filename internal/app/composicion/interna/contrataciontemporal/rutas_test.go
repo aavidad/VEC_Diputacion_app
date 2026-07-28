@@ -1,4 +1,4 @@
-package interna
+package contrataciontemporal
 
 import (
 	"context"
@@ -92,8 +92,8 @@ func (c *consultorResultadoCoberturaComposicionPrueba) ConsultarParaAdaptador(
 
 func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 	t.Parallel()
-	rutas, err := nuevasRutasContratacionTemporal(
-		dependenciasRutasContratacionTemporalPrueba(),
+	rutas, err := NuevasRutas(
+		dependenciasRutasPrueba(),
 	)
 	if err != nil {
 		t.Fatalf("construir rutas: %v", err)
@@ -136,9 +136,9 @@ func TestRutasContratacionTemporalSeConstruyenJuntas(t *testing.T) {
 
 func TestRutaResultadoCoberturaCompuestaUsaSoloElConsultor(t *testing.T) {
 	t.Parallel()
-	dependencias := dependenciasRutasContratacionTemporalPrueba()
-	consultor := dependencias.consultorResultado.(*consultorResultadoCoberturaComposicionPrueba)
-	rutas, err := nuevasRutasContratacionTemporal(dependencias)
+	dependencias := dependenciasRutasPrueba()
+	consultor := dependencias.ConsultorResultado.(*consultorResultadoCoberturaComposicionPrueba)
+	rutas, err := NuevasRutas(dependencias)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,37 +169,37 @@ func TestRutasContratacionTemporalFallanSinConjuntoCompleto(t *testing.T) {
 	t.Parallel()
 	casos := []struct {
 		nombre   string
-		eliminar func(*dependenciasRutasContratacionTemporal)
+		eliminar func(*DependenciasRutas)
 	}{
-		{"autoridad de alta", func(d *dependenciasRutasContratacionTemporal) {
-			d.autoridadAlta = nil
+		{"autoridad de alta", func(d *DependenciasRutas) {
+			d.AutoridadAlta = nil
 		}},
-		{"ejecutor de alta", func(d *dependenciasRutasContratacionTemporal) {
-			d.ejecutorAlta = nil
+		{"ejecutor de alta", func(d *DependenciasRutas) {
+			d.EjecutorAlta = nil
 		}},
-		{"reloj", func(d *dependenciasRutasContratacionTemporal) {
-			d.reloj = nil
+		{"reloj", func(d *DependenciasRutas) {
+			d.Reloj = nil
 		}},
-		{"autoridad de cobertura", func(d *dependenciasRutasContratacionTemporal) {
-			d.autoridadCobertura = nil
+		{"autoridad de cobertura", func(d *DependenciasRutas) {
+			d.AutoridadCobertura = nil
 		}},
-		{"presentador", func(d *dependenciasRutasContratacionTemporal) {
-			d.presentador = nil
+		{"presentador", func(d *DependenciasRutas) {
+			d.Presentador = nil
 		}},
-		{"decisor", func(d *dependenciasRutasContratacionTemporal) {
-			d.decisor = nil
+		{"decisor", func(d *DependenciasRutas) {
+			d.Decisor = nil
 		}},
-		{"consultor de resultado", func(d *dependenciasRutasContratacionTemporal) {
-			d.consultorResultado = nil
+		{"consultor de resultado", func(d *DependenciasRutas) {
+			d.ConsultorResultado = nil
 		}},
 	}
 	for _, caso := range casos {
 		caso := caso
 		t.Run(caso.nombre, func(t *testing.T) {
 			t.Parallel()
-			dependencias := dependenciasRutasContratacionTemporalPrueba()
+			dependencias := dependenciasRutasPrueba()
 			caso.eliminar(&dependencias)
-			rutas, err := nuevasRutasContratacionTemporal(dependencias)
+			rutas, err := NuevasRutas(dependencias)
 			if rutas != nil ||
 				!errors.Is(err, ErrRutasContratacionTemporalInvalidas) {
 				t.Fatalf("resultado = (%#v, %v)", rutas, err)
@@ -212,44 +212,44 @@ func TestRutasContratacionTemporalRechazanNuloTipado(t *testing.T) {
 	t.Parallel()
 	casos := []struct {
 		nombre     string
-		introducir func(*dependenciasRutasContratacionTemporal)
+		introducir func(*DependenciasRutas)
 	}{
-		{"autoridad de alta", func(d *dependenciasRutasContratacionTemporal) {
+		{"autoridad de alta", func(d *DependenciasRutas) {
 			var nulo *autoridadAltaComposicionPrueba
-			d.autoridadAlta = nulo
+			d.AutoridadAlta = nulo
 		}},
-		{"ejecutor de alta", func(d *dependenciasRutasContratacionTemporal) {
+		{"ejecutor de alta", func(d *DependenciasRutas) {
 			var nulo *ejecutorAltaComposicionPrueba
-			d.ejecutorAlta = nulo
+			d.EjecutorAlta = nulo
 		}},
-		{"reloj", func(d *dependenciasRutasContratacionTemporal) {
+		{"reloj", func(d *DependenciasRutas) {
 			var nulo *relojComposicionPrueba
-			d.reloj = nulo
+			d.Reloj = nulo
 		}},
-		{"autoridad de cobertura", func(d *dependenciasRutasContratacionTemporal) {
+		{"autoridad de cobertura", func(d *DependenciasRutas) {
 			var nulo *autoridadCoberturaComposicionPrueba
-			d.autoridadCobertura = nulo
+			d.AutoridadCobertura = nulo
 		}},
-		{"presentador", func(d *dependenciasRutasContratacionTemporal) {
+		{"presentador", func(d *DependenciasRutas) {
 			var nulo *presentadorCoberturaComposicionPrueba
-			d.presentador = nulo
+			d.Presentador = nulo
 		}},
-		{"decisor", func(d *dependenciasRutasContratacionTemporal) {
+		{"decisor", func(d *DependenciasRutas) {
 			var nulo *decisorCoberturaComposicionPrueba
-			d.decisor = nulo
+			d.Decisor = nulo
 		}},
-		{"consultor de resultado", func(d *dependenciasRutasContratacionTemporal) {
+		{"consultor de resultado", func(d *DependenciasRutas) {
 			var nulo *consultorResultadoCoberturaComposicionPrueba
-			d.consultorResultado = nulo
+			d.ConsultorResultado = nulo
 		}},
 	}
 	for _, caso := range casos {
 		caso := caso
 		t.Run(caso.nombre, func(t *testing.T) {
 			t.Parallel()
-			dependencias := dependenciasRutasContratacionTemporalPrueba()
+			dependencias := dependenciasRutasPrueba()
 			caso.introducir(&dependencias)
-			rutas, err := nuevasRutasContratacionTemporal(dependencias)
+			rutas, err := NuevasRutas(dependencias)
 			if rutas != nil ||
 				!errors.Is(err, ErrRutasContratacionTemporalInvalidas) {
 				t.Fatalf("resultado = (%#v, %v)", rutas, err)
@@ -258,14 +258,14 @@ func TestRutasContratacionTemporalRechazanNuloTipado(t *testing.T) {
 	}
 }
 
-func dependenciasRutasContratacionTemporalPrueba() dependenciasRutasContratacionTemporal {
-	return dependenciasRutasContratacionTemporal{
-		autoridadAlta:      autoridadAltaComposicionPrueba{},
-		ejecutorAlta:       ejecutorAltaComposicionPrueba{},
-		reloj:              relojComposicionPrueba{},
-		autoridadCobertura: autoridadCoberturaComposicionPrueba{},
-		presentador:        presentadorCoberturaComposicionPrueba{},
-		decisor:            decisorCoberturaComposicionPrueba{},
-		consultorResultado: &consultorResultadoCoberturaComposicionPrueba{},
+func dependenciasRutasPrueba() DependenciasRutas {
+	return DependenciasRutas{
+		AutoridadAlta:      autoridadAltaComposicionPrueba{},
+		EjecutorAlta:       ejecutorAltaComposicionPrueba{},
+		Reloj:              relojComposicionPrueba{},
+		AutoridadCobertura: autoridadCoberturaComposicionPrueba{},
+		Presentador:        presentadorCoberturaComposicionPrueba{},
+		Decisor:            decisorCoberturaComposicionPrueba{},
+		ConsultorResultado: &consultorResultadoCoberturaComposicionPrueba{},
 	}
 }

@@ -1,4 +1,4 @@
-package interna
+package contrataciontemporal
 
 import (
 	"context"
@@ -223,19 +223,19 @@ func nuevoHandlerContratacionErrorPrueba(
 	autoridad httpapi.AutoridadRutasExactas,
 ) *httpapi.Handler {
 	t.Helper()
-	rutas, err := nuevasRutasContratacionTemporal(
-		dependenciasRutasContratacionTemporal{
-			autoridadAlta: autoridadAltaErrorComposicionPrueba{
+	rutas, err := NuevasRutas(
+		DependenciasRutas{
+			AutoridadAlta: autoridadAltaErrorComposicionPrueba{
 				err: errAutoridad,
 			},
-			ejecutorAlta: negocio,
-			reloj:        relojComposicionPrueba{},
-			autoridadCobertura: autoridadCoberturaErrorComposicionPrueba{
+			EjecutorAlta: negocio,
+			Reloj:        relojComposicionPrueba{},
+			AutoridadCobertura: autoridadCoberturaErrorComposicionPrueba{
 				err: errAutoridad,
 			},
-			presentador:        negocio,
-			decisor:            negocio,
-			consultorResultado: negocio,
+			Presentador:        negocio,
+			Decisor:            negocio,
+			ConsultorResultado: negocio,
 		},
 	)
 	if err != nil {

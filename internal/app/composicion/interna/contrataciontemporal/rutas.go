@@ -1,4 +1,4 @@
-package interna
+package contrataciontemporal
 
 import (
 	"errors"
@@ -12,42 +12,42 @@ var ErrRutasContratacionTemporalInvalidas = errors.New(
 	"composicion interna: rutas de contratacion temporal invalidas",
 )
 
-// dependenciasRutasContratacionTemporal solo acepta casos de uso y autoridades
-// ya constituidos. La identidad corporativa, PostgreSQL y los proveedores
-// criptograficos pertenecen a fronteras anteriores de la raiz de composicion.
-type dependenciasRutasContratacionTemporal struct {
-	autoridadAlta      httpinterno.AutoridadContextoCanal
-	ejecutorAlta       httpinterno.EjecutorAlta
-	reloj              ports.Reloj
-	autoridadCobertura httpinterno.AutoridadContextoCanalCobertura
-	presentador        httpinterno.PresentadorPropuestaCobertura
-	decisor            httpinterno.EjecutorDecisionCobertura
-	consultorResultado httpinterno.ConsultorResultadoCobertura
+// DependenciasRutas solo acepta casos de uso y autoridades ya constituidos.
+// La identidad corporativa, PostgreSQL y los proveedores criptograficos
+// pertenecen a fronteras anteriores de la raiz de composicion.
+type DependenciasRutas struct {
+	AutoridadAlta      httpinterno.AutoridadContextoCanal
+	EjecutorAlta       httpinterno.EjecutorAlta
+	Reloj              ports.Reloj
+	AutoridadCobertura httpinterno.AutoridadContextoCanalCobertura
+	Presentador        httpinterno.PresentadorPropuestaCobertura
+	Decisor            httpinterno.EjecutorDecisionCobertura
+	ConsultorResultado httpinterno.ConsultorResultadoCobertura
 }
 
-// nuevasRutasContratacionTemporal construye el conjunto de forma atomica. No
-// devuelve una API parcial si falta una dependencia o falla un adaptador.
-func nuevasRutasContratacionTemporal(
-	dependencias dependenciasRutasContratacionTemporal,
+// NuevasRutas construye el conjunto de forma atomica. No devuelve una API
+// parcial si falta una dependencia o falla un adaptador.
+func NuevasRutas(
+	dependencias DependenciasRutas,
 ) ([]httpapi.RutaExacta, error) {
 	alta, err := httpinterno.NuevoManejadorAlta(
-		dependencias.autoridadAlta,
-		dependencias.ejecutorAlta,
-		dependencias.reloj,
+		dependencias.AutoridadAlta,
+		dependencias.EjecutorAlta,
+		dependencias.Reloj,
 	)
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}
 	cobertura, err := httpinterno.NuevoManejadorCobertura(
-		dependencias.autoridadCobertura,
-		dependencias.presentador,
-		dependencias.decisor,
+		dependencias.AutoridadCobertura,
+		dependencias.Presentador,
+		dependencias.Decisor,
 	)
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
 	}
 	resultado, err := httpinterno.NuevoManejadorResultadoCobertura(
-		dependencias.consultorResultado,
+		dependencias.ConsultorResultado,
 	)
 	if err != nil {
 		return nil, ErrRutasContratacionTemporalInvalidas
