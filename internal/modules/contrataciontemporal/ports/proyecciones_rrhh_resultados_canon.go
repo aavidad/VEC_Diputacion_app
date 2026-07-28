@@ -3,6 +3,7 @@ package ports
 import (
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"strconv"
 	"strings"
@@ -88,8 +89,9 @@ func (p PaginaCuadroRRHH) ExportarContenidoCanonicoParaSQL() (
 
 	var cursorHuella [sha256.Size]byte
 	if p.HayMas {
-		cursorHuella = sha256.Sum256([]byte(p.CursorSiguiente))
-		if huellaBinariaNulaRRHH(cursorHuella) {
+		var err error
+		cursorHuella, err = huellaMaterialCursorRRHH(p.CursorSiguiente)
+		if err != nil {
 			return ExportacionCanonicaContenidoCuadroRRHH{},
 				ErrResultadoConsultaRRHHNoConfiable
 		}
@@ -296,6 +298,24 @@ func huellaSHA256CanonicaRRHH(valor string) bool {
 func huellaBinariaNulaRRHH(valor [sha256.Size]byte) bool {
 	var cero [sha256.Size]byte
 	return subtle.ConstantTimeCompare(valor[:], cero[:]) == 1
+}
+
+// huellaMaterialCursorRRHH liga los 32 bytes aleatorios del cursor, no su
+// representación Base64URL. El búfer decodificado se borra antes de volver.
+func huellaMaterialCursorRRHH(
+	cursor string,
+) ([sha256.Size]byte, error) {
+	material, err := base64URLCursorRRHHEstricto.DecodeString(cursor)
+	defer clear(material)
+	if err != nil || len(material) != sha256.Size ||
+		base64.RawURLEncoding.EncodeToString(material) != cursor {
+		return [sha256.Size]byte{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	huella := sha256.Sum256(material)
+	if huellaBinariaNulaRRHH(huella) {
+		return [sha256.Size]byte{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	return huella, nil
 }
 
 type constructorCanonResultadoRRHH struct {
