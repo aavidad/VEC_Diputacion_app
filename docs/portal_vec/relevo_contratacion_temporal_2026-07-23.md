@@ -576,8 +576,9 @@ registrador v2 minimizado, referencia opaca de Identidad, snapshot *as-of*,
 carreras reales con revocación, privacidad probada en WAL/logs/trazas y
 reversión semántica `RESTRICT`. La
 [evidencia reproducible](revisiones/o4_05_revision_registrador_v2_ct_000039_2026-07-28.md)
-mantiene abiertos el motor tipado `000040`, las fachadas `000041`, el adaptador
-Go, la raíz productiva, TLS viva y el E2E HTTP/web.
+mantiene abiertos el contrato tipado `000040`, la ejecución interna `000041`,
+las fachadas `000042`, el adaptador Go, la raíz productiva, TLS viva y el E2E
+HTTP/web.
 
 El procedimiento conserva **19 de 46 tareas verificadas (41 %)**. Esto no
 autoriza aún la ruta web productiva: faltan la raíz productiva, las

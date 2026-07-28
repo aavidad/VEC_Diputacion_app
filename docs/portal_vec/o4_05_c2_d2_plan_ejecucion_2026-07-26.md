@@ -186,12 +186,28 @@ La evolución SQL prevista queda separada para permitir revisión y reversión:
 | Identidad `000001` específica de CT | Revalidación nominal de sesión corporativa |
 | Autorización atestada `000005` | Revalidación final de consumo de cuadro/detalle |
 | CT `000039` | Registrador de acceso v2 e índice as-of |
-| CT `000040` | Motor interno tipado, cánones, lectura y cursores |
-| CT `000041` | Fachadas exteriores y privilegio mínimo |
+| CT `000040` | Contrato interno: tipos, cánones y controles, sin lectura |
+| CT `000041` | Ejecución interna: lectura *as-of* y confirmación de cursores |
+| CT `000042` | Fachadas exteriores, orquestación atómica y privilegio mínimo |
 
-Las barreras CT avanzarán de `18/2` a `19/3`, `20/4` y `21/5`. Cada reversión
-exigirá su estado exacto, cero dependencias posteriores y ausencia de historia
-que quedaría huérfana. No se usará `CASCADE`.
+Las barreras CT avanzarán de `18/2` a `19/3`, `20/4`, `21/5` y `22/6`. Cada
+reversión exigirá su estado exacto, cero dependencias posteriores y ausencia
+de historia que quedaría huérfana. No se usará `CASCADE`.
+
+Esta partición sustituye la previsión inicial de dos migraciones. La revisión
+previa detectó que mezclar contrato, lectura, cursores y fachada obligaba a
+comprimir una migración por encima del límite de revisión y favorecía leer
+antes de consumir la autorización. La secuencia obligatoria será:
+
+```text
+canon y preflight puros
+  → consumo VEC-AD-3 nuevo
+  → revalidación de identidad
+  → lectura protegida
+  → registro de acceso
+  → confirmación de cursor
+  → revalidación final de identidad y VEC
+```
 
 ## C2-D2-D — detalle
 

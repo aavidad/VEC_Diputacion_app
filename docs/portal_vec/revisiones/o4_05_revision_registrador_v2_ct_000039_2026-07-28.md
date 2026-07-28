@@ -87,10 +87,11 @@ quedaron contenedores, ranuras lógicas ni temporales.
 Los dos revisores independientes emitieron `GO` sobre estos hashes. El corte
 resuelve CT `000039`, pero no cierra la vertical O4-05. Permanecen abiertos:
 
-1. motor tipado de lectura CT `000040`;
-2. fachadas exteriores CT `000041`;
-3. adaptador Go y composición raíz;
-4. matriz TLS viva y E2E HTTP/web.
+1. contrato tipado CT `000040`;
+2. ejecución interna CT `000041`;
+3. fachadas exteriores CT `000042`;
+4. adaptador Go y composición raíz;
+5. matriz TLS viva y E2E HTTP/web.
 
 Por ello se mantienen Contratación temporal `19/46` (41 %), O4-05 `3/5`,
 Bolsa `1/14` (7 %) y producción `NO-GO`.

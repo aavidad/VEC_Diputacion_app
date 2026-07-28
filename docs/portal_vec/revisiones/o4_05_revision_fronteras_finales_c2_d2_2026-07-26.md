@@ -145,9 +145,9 @@ referencias opacas de Identidad —sin persistir el LOGIN nominativo—, índice
 organización–expediente–corte, reversión protegida, PostgreSQL 18.4 y doble
 `GO` independiente.
 
-El corte inmediato vigente es el motor tipado `000040`; después se
-implementarán las dos fachadas exteriores `000041`, el adaptador Go y la
-composición/E2E.
+El corte inmediato vigente es el contrato tipado `000040`; después se
+implementarán la ejecución interna `000041`, las fachadas exteriores `000042`,
+el adaptador Go y la composición/E2E.
 
 ## Métrica
 

@@ -116,5 +116,5 @@ La ejecución de dirección y las dos revisiones independientes terminaron en
 verde sobre los hashes congelados. La evidencia completa está en
 [la revisión final de CT 000039](revisiones/o4_05_revision_registrador_v2_ct_000039_2026-07-28.md).
 
-Este cierre habilita CT `000040` y `000041`; no cambia la métrica oficial ni
-autoriza producción.
+Este cierre habilita CT `000040`, `000041` y `000042`; no cambia la métrica
+oficial ni autoriza producción.
