@@ -149,6 +149,18 @@ BEGIN
         );
     END LOOP;
 
+    -- Vacío es el valor canónico que pide «todos los estados» en consultas.
+    PERFORM vec_contratacion_temporal.canon_consulta_cuadro_rrhh_v1(
+        ROW(
+            '', '', '', 100, ''
+        )::vec_contratacion_temporal.consulta_cuadro_rrhh_v1
+    );
+    PERFORM vec_contratacion_temporal.canon_familia_cuadro_rrhh_v1(
+        ROW(
+            '', '', '', 100, ''
+        )::vec_contratacion_temporal.consulta_cuadro_rrhh_v1
+    );
+
     IF EXISTS (
         SELECT 1
           FROM fixture_estados_publicacion_rrhh
@@ -165,7 +177,15 @@ DO $rechazos$
 DECLARE
     v_estado text;
 BEGIN
-    FOREACH v_estado IN ARRAY ARRAY['', 'inventado']::text[] LOOP
+    FOREACH v_estado IN ARRAY ARRAY[
+        '',
+        'inventado',
+        'PENDIENTE',
+        ' pendiente',
+        'incidencia ',
+        'espera_externá',
+        'cancelado_extra'
+    ]::text[] LOOP
         BEGIN
             UPDATE fixture_estados_publicacion_rrhh
                SET estado_clave = v_estado
@@ -173,6 +193,62 @@ BEGIN
             RAISE EXCEPTION 'estado inválido aceptado: %', v_estado;
         EXCEPTION WHEN check_violation THEN NULL;
         END;
+
+        BEGIN
+            INSERT INTO fixture_estados_publicacion_rrhh (
+                expediente_ref, version, corte_global, organizacion_ref,
+                numero_visible, flujo_ref, flujo_version,
+                flujo_huella_sha256, fase_clave, estado_clave,
+                centro_ref, categoria_ref, modalidad_clave, unidad_ref,
+                creado_en, actualizado_en, agregado_huella_sha256,
+                registrada_en
+            )
+            SELECT expediente_ref || ':rechazo_insert',
+                   version,
+                   9100000000000000::numeric + pg_catalog.length(v_estado),
+                   organizacion_ref, numero_visible, flujo_ref,
+                   flujo_version, flujo_huella_sha256, fase_clave,
+                   v_estado, centro_ref, categoria_ref, modalidad_clave,
+                   unidad_ref, creado_en, actualizado_en,
+                   agregado_huella_sha256, registrada_en
+              FROM fixture_estados_publicacion_rrhh
+             ORDER BY corte_global
+             LIMIT 1;
+            RAISE EXCEPTION 'estado inválido aceptado por INSERT: %',
+                v_estado;
+        EXCEPTION WHEN check_violation THEN NULL;
+        END;
+
+        -- La cadena vacía es el filtro canónico «sin estado» en CT-000040;
+        -- no es, en cambio, un estado publicable válido.
+        IF v_estado <> '' THEN
+            BEGIN
+                PERFORM
+                    vec_contratacion_temporal.canon_consulta_cuadro_rrhh_v1(
+                        ROW(
+                            '', v_estado, '', 100, ''
+                        )::vec_contratacion_temporal
+                            .consulta_cuadro_rrhh_v1
+                    );
+                RAISE EXCEPTION 'canon aceptó estado no canónico: %',
+                    v_estado;
+            EXCEPTION WHEN invalid_parameter_value THEN NULL;
+            END;
+
+            BEGIN
+                PERFORM
+                    vec_contratacion_temporal.canon_familia_cuadro_rrhh_v1(
+                        ROW(
+                            '', v_estado, '', 100, ''
+                        )::vec_contratacion_temporal
+                            .consulta_cuadro_rrhh_v1
+                    );
+                RAISE EXCEPTION
+                    'canon de familia aceptó estado no canónico: %',
+                    v_estado;
+            EXCEPTION WHEN invalid_parameter_value THEN NULL;
+            END;
+        END IF;
     END LOOP;
 
     BEGIN
