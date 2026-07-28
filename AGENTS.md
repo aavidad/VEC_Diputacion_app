@@ -23,10 +23,14 @@ Antes de editar:
 
 1. instrucciones de mayor prioridad del entorno;
 2. `AGENTS.md`;
-3. `docs/portal_vec/mapa_objetivos_tareas_y_paralelizacion_2026-07-23.md`;
-4. `docs/portal_vec/tablero_tareas_contratacion_temporal_2026-07-23.md`;
-5. `docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md`;
-6. la especificación y matriz normativa enlazadas desde esos documentos.
+3. `docs/portal_vec/relevo_sesion_2026-07-28_ct42_ct43.md`;
+4. `docs/portal_vec/mapa_objetivos_tareas_y_paralelizacion_2026-07-23.md`;
+5. `docs/portal_vec/tablero_tareas_contratacion_temporal_2026-07-23.md`;
+6. `docs/portal_vec/relevo_contratacion_temporal_2026-07-23.md`;
+7. la especificación y matriz normativa enlazadas desde esos documentos.
+
+El relevo fechado identifica la rama integradora y los worktrees vigentes. El
+directorio raíz conserva una rama histórica y no es el lugar de desarrollo.
 
 Un agente recibe un identificador de tarea. No toma otra por iniciativa propia.
 
