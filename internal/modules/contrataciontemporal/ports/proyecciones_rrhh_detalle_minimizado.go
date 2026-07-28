@@ -1,10 +1,5 @@
 package ports
 
-// El límite queda holgadamente por encima de lo que cabe en la respuesta
-// protegida de 256 KiB y evita copiar una cronología descontrolada antes de
-// validarla. No limita el historial durable, solo esta proyección de lectura.
-const limiteMaximoHitosDetalleRRHHMinimizado = 4_096
-
 // ReferenciaHitoAnalisisRRHH identifica, de forma nominal, la actuación
 // durable que materializó la proyección vigente del análisis. Su valor no es
 // serializable ni intercambiable con los vínculos de otros bloques.
@@ -91,7 +86,8 @@ type EntradaDetalleExpedienteRRHHMinimizada struct {
 // NuevaEntradaDetalleExpedienteRRHHMinimizada crea una instantánea defensiva
 // de la proyección reducida. Las referencias nulas solo son válidas cuando el
 // bloque correspondiente también es nulo; la validación completa se repite al
-// construir el detalle junto con su recibo de lectura.
+// construir el detalle junto con su recibo de lectura. Antes de copiar,
+// comprueba que la cota JSON cerrada de toda la entrada no supera 256 KiB.
 func NuevaEntradaDetalleExpedienteRRHHMinimizada(
 	resumen ResumenExpedienteRRHH,
 	solicitud SolicitudOperativaRRHH,
@@ -103,7 +99,11 @@ func NuevaEntradaDetalleExpedienteRRHHMinimizada(
 	referenciaAsignacion ReferenciaHitoAsignacionRRHH,
 	hitos []HitoExpedienteRRHH,
 ) (EntradaDetalleExpedienteRRHHMinimizada, error) {
-	if validarComponentesEntradaDetalleRRHHMinimizada(
+	if _, cabe := presupuestoEntradaDetalleRRHHMinimizada(
+		resumen, solicitud, analisis, referenciaAnalisis,
+		cobertura, referenciaCobertura,
+		asignacion, referenciaAsignacion, hitos,
+	); !cabe || validarComponentesEntradaDetalleRRHHMinimizada(
 		resumen, solicitud, analisis, referenciaAnalisis,
 		cobertura, referenciaCobertura,
 		asignacion, referenciaAsignacion, hitos,
@@ -121,7 +121,13 @@ func NuevaEntradaDetalleExpedienteRRHHMinimizada(
 		referenciaAsignacion: referenciaAsignacion,
 		hitos:                clonarHitosRRHH(hitos),
 	}
-	if entrada.validarReferencias() != nil {
+	if validarComponentesEntradaDetalleRRHHMinimizada(
+		entrada.resumen, entrada.solicitud,
+		entrada.analisis, entrada.referenciaAnalisis,
+		entrada.cobertura, entrada.referenciaCobertura,
+		entrada.asignacion, entrada.referenciaAsignacion,
+		entrada.hitos,
+	) != nil {
 		return EntradaDetalleExpedienteRRHHMinimizada{},
 			ErrResultadoConsultaRRHHNoConfiable
 	}
@@ -141,7 +147,6 @@ func validarComponentesEntradaDetalleRRHHMinimizada(
 ) error {
 	if resumen.Validar() != nil || solicitud.validar() != nil ||
 		len(hitos) == 0 ||
-		len(hitos) > limiteMaximoHitosDetalleRRHHMinimizado ||
 		uint64(len(hitos)) != resumen.Version ||
 		!referenciaHitoDetalleRRHHCoherente(
 			analisis != nil, referenciaAnalisis.secuencia,
@@ -172,6 +177,13 @@ func validarComponentesEntradaDetalleRRHHMinimizada(
 }
 
 func (e EntradaDetalleExpedienteRRHHMinimizada) validarReferencias() error {
+	if _, cabe := presupuestoEntradaDetalleRRHHMinimizada(
+		e.resumen, e.solicitud, e.analisis, e.referenciaAnalisis,
+		e.cobertura, e.referenciaCobertura,
+		e.asignacion, e.referenciaAsignacion, e.hitos,
+	); !cabe {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
 	return validarComponentesEntradaDetalleRRHHMinimizada(
 		e.resumen, e.solicitud, e.analisis, e.referenciaAnalisis,
 		e.cobertura, e.referenciaCobertura,

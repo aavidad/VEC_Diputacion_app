@@ -40,6 +40,9 @@ func TestDetalleRRHHMinimizadoAdmiteSoloCombinacionesProgresivas(t *testing.T) {
 			if err != nil {
 				t.Fatalf("serializar proyección minimizada: %v", err)
 			}
+			if len(contenido) > 256*1024 {
+				t.Fatalf("salida fuera del límite protegido: %d", len(contenido))
+			}
 			for _, prohibido := range []string{
 				"lectura:rrhh:minimizada", "auditoria:rrhh:minimizada",
 				"decision:rrhh:minimizada", "sesion:rrhh:minimizada",
