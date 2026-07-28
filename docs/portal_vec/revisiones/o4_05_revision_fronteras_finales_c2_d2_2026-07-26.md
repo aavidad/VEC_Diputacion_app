@@ -140,16 +140,14 @@ Hashes finales:
 
 ## Trabajo siguiente
 
-El corte inmediato es CT `000039`:
+Actualización del 28 de julio: CT `000039` quedó integrado en `c286af1` con
+referencias opacas de Identidad —sin persistir el LOGIN nominativo—, índice
+organización–expediente–corte, reversión protegida, PostgreSQL 18.4 y doble
+`GO` independiente.
 
-1. registrador de acceso v2 con control estable propio;
-2. vínculo 1:1 del acceso con el LOGIN técnico;
-3. índice organización–expediente–corte para el snapshot as-of;
-4. migración y retirada protegidas;
-5. PostgreSQL 18.4 y revisión independiente.
-
-Después se implementarán el motor tipado (`000040`) y las dos fachadas
-exteriores (`000041`).
+El corte inmediato vigente es el motor tipado `000040`; después se
+implementarán las dos fachadas exteriores `000041`, el adaptador Go y la
+composición/E2E.
 
 ## Métrica
 

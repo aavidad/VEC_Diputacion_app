@@ -117,7 +117,7 @@ fuera de este corte.
 |---|---|---|---|---|
 | C2-D2-A | Contrato Go completo | GO en `9655d62` | C2-D1 | Sí |
 | C2-D2-B | Revalidador final VEC-AD-3 | GO en `183e563` | consumidores comunes | Sí |
-| C2-D2-C | Identidad GO; registrador v2 e índice pendientes | Parcial en `0dc2edc` | C2-D1 | Sí, tras congelar el contrato |
+| C2-D2-C | Identidad, registrador v2 e índice *as-of* | GO en `0dc2edc` y `c286af1` | C2-D1 | Cerrado |
 | C2-D2-D | Fachada nominal de detalle | Pendiente | A, B y C | Con E |
 | C2-D2-E | Fachada nominal de cuadro y cursores | Pendiente | A, B y C | Con D |
 | C2-D2-F | Adaptador PostgreSQL Go | Pendiente | D y E | No |
@@ -160,6 +160,9 @@ El propietario de Contratación temporal recibirá `EXECUTE` únicamente sobre e
 overload exacto. El runtime no obtendrá ese permiso.
 
 ## C2-D2-C — acceso v2 e identidad
+
+Estado: `GO` técnico. Identidad quedó cerrada en `0dc2edc` y CT `000039`
+se integró en `c286af1` tras PostgreSQL 18.4 y dos revisiones independientes.
 
 Entregables:
 
