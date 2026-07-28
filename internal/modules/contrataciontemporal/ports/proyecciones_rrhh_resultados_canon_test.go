@@ -16,10 +16,11 @@ import (
 )
 
 const (
-	huellaContenidoCuadroVacio  = "568056c5d1a9b0651d2bc85f7dcc6e6dc3a71b12ffe8f831cb7ea5ffd51aa0c4"
-	huellaResultadoCuadroVacio  = "cb8ad45d7c31faa5100a249a840e66671b0de2319d23fc1c8878e56da7076ee0"
-	huellaContenidoCuadroCursor = "acf18cd8e268f93f451f6ef6566e617c9128ba84c068b5b3124132f5f1ef5f07"
-	huellaResultadoCuadroCursor = "e77c8c791e996bd33783716a65cf6ad36868ea03f916c368263ea1031d2a50be"
+	huellaContenidoCuadroVacio     = "568056c5d1a9b0651d2bc85f7dcc6e6dc3a71b12ffe8f831cb7ea5ffd51aa0c4"
+	huellaResultadoCuadroVacio     = "cb8ad45d7c31faa5100a249a840e66671b0de2319d23fc1c8878e56da7076ee0"
+	huellaContenidoCuadroSinCursor = "7a235e6bbaa9bc265b09814ad08ffc4f35056954c939a6b465518b60acd74795"
+	huellaContenidoCuadroCursor    = "acf18cd8e268f93f451f6ef6566e617c9128ba84c068b5b3124132f5f1ef5f07"
+	huellaResultadoCuadroCursor    = "e77c8c791e996bd33783716a65cf6ad36868ea03f916c368263ea1031d2a50be"
 )
 
 func TestCanonContenidoYResultadoCuadroVacioConservanVectoresDorados(
@@ -77,6 +78,19 @@ func TestCanonContenidoCuadroCursorUsaSoloHuellaBinariaYOrdenCompleto(
 	t *testing.T,
 ) {
 	t.Parallel()
+	sinCursor, err := paginaContenidoCuadroRRHHPrueba(
+		"",
+	).ExportarContenidoCanonicoParaSQL()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sinCursor.HuellaSHA256() != huellaContenidoCuadroSinCursor ||
+		len(sinCursor.BytesCanonicos()) != 401 {
+		t.Fatalf(
+			"vector sin cursor divergente: %s/%d",
+			sinCursor.HuellaSHA256(), len(sinCursor.BytesCanonicos()),
+		)
+	}
 	cursor := cursorResultadoRRHHPrueba()
 	pagina := paginaContenidoCuadroRRHHPrueba(cursor)
 	contenido, err := pagina.ExportarContenidoCanonicoParaSQL()
