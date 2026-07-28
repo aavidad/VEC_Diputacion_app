@@ -19,7 +19,8 @@ const (
 	DominioCanonContenidoCuadroRRHH   = "vec.contratacion_temporal.resultado_rrhh.contenido_cuadro.v1"
 	DominioCanonResultadoConsultaRRHH = "vec.contratacion_temporal.resultado_rrhh.v1"
 
-	tipoResultadoCuadroRRHH = "cuadro"
+	tipoResultadoCuadroRRHH  = "cuadro"
+	tipoResultadoDetalleRRHH = "detalle"
 
 	cabeceraCanonContenidoCuadroRRHH   = "VEC-CT-CONTENIDO-CUADRO-RRHH-V1\n"
 	cabeceraCanonResultadoConsultaRRHH = "VEC-CT-RESULTADO-CONSULTA-RRHH-V1\n"
@@ -136,14 +137,30 @@ func (e ExportacionCanonicaContenidoCuadroRRHH) ExportarResultadoCanonicoParaSQL
 	if e.tieneCursor {
 		cursorHuella = hex.EncodeToString(e.cursorHuella[:])
 	}
+	return nuevaExportacionCanonicaResultadoConsultaRRHH(
+		tipoResultadoCuadroRRHH,
+		e.generadaEn,
+		e.total,
+		e.HuellaSHA256(),
+		cursorHuella,
+	)
+}
+
+func nuevaExportacionCanonicaResultadoConsultaRRHH(
+	tipoConsulta string,
+	generadaEn time.Time,
+	total uint16,
+	contenidoHuellaSHA256 string,
+	cursorHuellaSHA256 string,
+) (ExportacionCanonicaResultadoConsultaRRHH, error) {
 	constructor := nuevoConstructorCanonResultadoRRHH(
 		cabeceraCanonResultadoConsultaRRHH,
 	)
-	constructor.texto(tipoResultadoCuadroRRHH)
-	constructor.instante(e.generadaEn)
-	constructor.enteroSinSigno(uint64(e.total))
-	constructor.texto(e.HuellaSHA256())
-	constructor.texto(cursorHuella)
+	constructor.texto(tipoConsulta)
+	constructor.instante(generadaEn)
+	constructor.enteroSinSigno(uint64(total))
+	constructor.texto(contenidoHuellaSHA256)
+	constructor.texto(cursorHuellaSHA256)
 	canon, err := constructor.finalizar()
 	if err != nil {
 		return ExportacionCanonicaResultadoConsultaRRHH{},
@@ -157,14 +174,19 @@ func (e ExportacionCanonicaContenidoCuadroRRHH) ExportarResultadoCanonicoParaSQL
 	if err != nil {
 		return ExportacionCanonicaResultadoConsultaRRHH{}, err
 	}
-	return ExportacionCanonicaResultadoConsultaRRHH{
+	resultado := ExportacionCanonicaResultadoConsultaRRHH{
 		exportacionCanonicaRRHH: exportacion,
-		tipoConsulta:            tipoResultadoCuadroRRHH,
-		generadaEn:              e.generadaEn,
-		total:                   e.total,
-		contenidoHuellaSHA256:   e.HuellaSHA256(),
-		cursorHuellaSHA256:      cursorHuella,
-	}, nil
+		tipoConsulta:            tipoConsulta,
+		generadaEn:              generadaEn,
+		total:                   total,
+		contenidoHuellaSHA256:   contenidoHuellaSHA256,
+		cursorHuellaSHA256:      cursorHuellaSHA256,
+	}
+	if !resultado.valida() {
+		return ExportacionCanonicaResultadoConsultaRRHH{},
+			ErrResultadoConsultaRRHHNoConfiable
+	}
+	return resultado, nil
 }
 
 func (e ExportacionCanonicaContenidoCuadroRRHH) valida() bool {
@@ -184,9 +206,12 @@ func (e ExportacionCanonicaContenidoCuadroRRHH) valida() bool {
 func (e ExportacionCanonicaResultadoConsultaRRHH) valida() bool {
 	esCuadro := e.tipoConsulta == tipoResultadoCuadroRRHH &&
 		e.total <= LimiteMaximoCuadroRRHH
+	esDetalle := e.tipoConsulta == tipoResultadoDetalleRRHH &&
+		e.total == 1 && e.cursorHuellaSHA256 == ""
 	cursorValido := e.cursorHuellaSHA256 == "" ||
-		e.total > 0 && huellaSHA256CanonicaRRHH(e.cursorHuellaSHA256)
-	return esCuadro &&
+		esCuadro && e.total > 0 &&
+			huellaSHA256CanonicaRRHH(e.cursorHuellaSHA256)
+	return (esCuadro || esDetalle) &&
 		exportacionCanonicaResultadoRRHHValida(
 			e.exportacionCanonicaRRHH,
 			DominioCanonResultadoConsultaRRHH,

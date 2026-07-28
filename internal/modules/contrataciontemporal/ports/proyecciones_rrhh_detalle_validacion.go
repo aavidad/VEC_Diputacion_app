@@ -3,6 +3,21 @@ package ports
 import "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 
 func (d DetalleExpedienteRRHH) validarEstructura() error {
+	if d.validarContenidoEstructura() != nil ||
+		d.Lectura.validar() != nil ||
+		d.Lectura.expedienteRef != d.Resumen.ExpedienteRef ||
+		d.Lectura.version != d.Resumen.Version ||
+		d.Lectura.totalPublicado != 1 ||
+		d.Lectura.registradaEn.Before(d.Resumen.ActualizadoEn) {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	return nil
+}
+
+// validarContenidoEstructura comprueba la proyección antes de que exista el
+// recibo durable. No autoriza ni publica el detalle: solo permite calcular su
+// huella dentro de la misma transacción que registrará después la lectura.
+func (d DetalleExpedienteRRHH) validarContenidoEstructura() error {
 	if !d.huellaCoincide() ||
 		d.bloques != 0 &&
 			d.bloques != bloqueAnalisisRRHH &&
@@ -10,11 +25,6 @@ func (d DetalleExpedienteRRHH) validarEstructura() error {
 			d.bloques != bloqueAnalisisRRHH|bloqueCoberturaRRHH|bloqueAsignacionRRHH ||
 		d.Resumen.Validar() != nil ||
 		d.Solicitud.validar() != nil ||
-		d.Lectura.validar() != nil ||
-		d.Lectura.expedienteRef != d.Resumen.ExpedienteRef ||
-		d.Lectura.version != d.Resumen.Version ||
-		d.Lectura.totalPublicado != 1 ||
-		d.Lectura.registradaEn.Before(d.Resumen.ActualizadoEn) ||
 		len(d.Hitos) < 1 ||
 		uint64(len(d.Hitos)) != d.Resumen.Version {
 		return ErrResultadoConsultaRRHHNoConfiable
