@@ -2,6 +2,7 @@ package ports_test
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
@@ -34,6 +35,9 @@ func concesionConsultaRRHHPrueba(
 			Clave: clave, Valores: []string{valor},
 		})
 	}
+	sort.Slice(ambitos, func(i, j int) bool {
+		return ambitos[i].Clave < ambitos[j].Clave
+	})
 	version := dominiovec.VersionRol{
 		RolID: "tecnico_rrhh", Version: 1, Nombre: "Técnico de RRHH",
 		Estado: dominiovec.EstadoVersionRolPublicada,
