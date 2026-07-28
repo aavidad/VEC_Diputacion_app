@@ -209,6 +209,20 @@ func NuevoDetalleExpedienteRRHHMinimizado(
 	entrada EntradaDetalleExpedienteRRHHMinimizada,
 	lectura ReciboLecturaRRHH,
 ) (DetalleExpedienteRRHH, error) {
+	detalle, err := reconstruirDetalleExpedienteRRHHMinimizado(entrada)
+	if err != nil {
+		return DetalleExpedienteRRHH{}, err
+	}
+	detalle.Lectura = lectura
+	if detalle.validarEstructura() != nil {
+		return DetalleExpedienteRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	return detalle, nil
+}
+
+func reconstruirDetalleExpedienteRRHHMinimizado(
+	entrada EntradaDetalleExpedienteRRHHMinimizada,
+) (DetalleExpedienteRRHH, error) {
 	if entrada.validarReferencias() != nil {
 		return DetalleExpedienteRRHH{}, ErrResultadoConsultaRRHHNoConfiable
 	}
@@ -217,7 +231,7 @@ func NuevoDetalleExpedienteRRHHMinimizado(
 		Analisis:   clonarAnalisisOperativoMinimizadoRRHH(entrada.analisis),
 		Cobertura:  clonarCoberturaOperativaMinimizadaRRHH(entrada.cobertura),
 		Asignacion: clonarAsignacionOperativaMinimizadaRRHH(entrada.asignacion),
-		Hitos:      clonarHitosRRHH(entrada.hitos), Lectura: lectura,
+		Hitos:      clonarHitosRRHH(entrada.hitos),
 	}
 	if detalle.Analisis != nil {
 		detalle.Analisis.vinculo = vinculoDesdeHitoMinimizadoRRHH(
@@ -238,7 +252,7 @@ func NuevoDetalleExpedienteRRHHMinimizado(
 		detalle.bloques |= bloqueAsignacionRRHH
 	}
 	detalle.huella = calcularHuellaDetalleRRHH(detalle)
-	if detalle.validarEstructura() != nil {
+	if detalle.validarContenidoEstructura() != nil {
 		return DetalleExpedienteRRHH{}, ErrResultadoConsultaRRHHNoConfiable
 	}
 	return detalle, nil
