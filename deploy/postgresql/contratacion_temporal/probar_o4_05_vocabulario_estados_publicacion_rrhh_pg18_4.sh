@@ -198,7 +198,7 @@ if [[ $estado_retirado != '20|4|true|true|CHECK '* ]]; then
     printf 'down CT-000041A incompleto: %s\n' "$estado_retirado" >&2
     exit 1
 fi
-probar_deriva_funcion_antes_up
+probar_derivas_antes_up "$estado_retirado"
 archivo \
     contratacion_temporal/migraciones/000041_vocabulario_estados_publicacion_rrhh.up.sql
 archivo \
