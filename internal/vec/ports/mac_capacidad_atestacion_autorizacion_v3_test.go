@@ -228,6 +228,46 @@ func TestContratoMACCapacidadV3RechazaCerosLimitesYPerfilesInvalidos(
 	}
 }
 
+func TestSolicitudMACCapacidadV3RechazaSobredimensionSinAsignar(
+	t *testing.T,
+) {
+	perfil := perfilMACCapacidadV3Prueba(t)
+	instante := time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)
+	preimagen := bytes.Repeat(
+		[]byte{1},
+		TamanoMaximoPreimagenMACCapacidadAtestacionV3+1,
+	)
+	var solicitud SolicitudCalculoMACCapacidadAtestacionAutorizacionV3
+	var err error
+	asignacionesValidacion := testing.AllocsPerRun(100, func() {
+		if perfil.ValidarEn(instante) != nil {
+			panic("perfil de prueba inválido")
+		}
+	})
+	asignaciones := testing.AllocsPerRun(100, func() {
+		solicitud, err =
+			NuevaSolicitudCalculoMACCapacidadAtestacionAutorizacionV3(
+				perfil,
+				preimagen,
+				instante,
+			)
+	})
+	if !errors.Is(
+		err,
+		ErrCalculoMACCapacidadAtestacionAutorizacionV3NoDisponible,
+	) || solicitud.Validar() == nil {
+		t.Fatalf("preimagen sobredimensionada aceptada: %v", err)
+	}
+	if asignaciones != asignacionesValidacion {
+		t.Fatalf(
+			"el rechazo sobredimensionado añadió reservas: "+
+				"validación=%.0f rechazo=%.0f",
+			asignacionesValidacion,
+			asignaciones,
+		)
+	}
+}
+
 func TestContratoMACCapacidadV3EsOpacoYNoConcedeAutoridad(t *testing.T) {
 	perfil := perfilMACCapacidadV3Prueba(t)
 	solicitud := solicitudMACCapacidadV3Prueba(t)

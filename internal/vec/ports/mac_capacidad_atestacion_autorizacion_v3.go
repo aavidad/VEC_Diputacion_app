@@ -115,6 +115,13 @@ func NuevaSolicitudCalculoMACCapacidadAtestacionAutorizacionV3(
 	preimagen []byte,
 	solicitadaEn time.Time,
 ) (SolicitudCalculoMACCapacidadAtestacionAutorizacionV3, error) {
+	if perfil.ValidarEn(solicitadaEn) != nil ||
+		len(preimagen) == 0 ||
+		len(preimagen) > TamanoMaximoPreimagenMACCapacidadAtestacionV3 ||
+		bytesMACCapacidadAtestacionV3Cero(preimagen) {
+		return SolicitudCalculoMACCapacidadAtestacionAutorizacionV3{},
+			ErrCalculoMACCapacidadAtestacionAutorizacionV3NoDisponible
+	}
 	solicitud := SolicitudCalculoMACCapacidadAtestacionAutorizacionV3{
 		perfil: perfil, preimagen: bytes.Clone(preimagen),
 		huella: sha256.Sum256(preimagen), solicitadaEn: solicitadaEn,
@@ -127,15 +134,25 @@ func NuevaSolicitudCalculoMACCapacidadAtestacionAutorizacionV3(
 }
 
 func (s SolicitudCalculoMACCapacidadAtestacionAutorizacionV3) Validar() error {
-	huella := sha256.Sum256(s.preimagen)
 	if s.perfil.ValidarEn(s.solicitadaEn) != nil ||
 		len(s.preimagen) == 0 ||
 		len(s.preimagen) > TamanoMaximoPreimagenMACCapacidadAtestacionV3 ||
-		bytes.Equal(s.preimagen, make([]byte, len(s.preimagen))) ||
-		subtle.ConstantTimeCompare(huella[:], s.huella[:]) != 1 {
+		bytesMACCapacidadAtestacionV3Cero(s.preimagen) {
+		return ErrCalculoMACCapacidadAtestacionAutorizacionV3NoDisponible
+	}
+	huella := sha256.Sum256(s.preimagen)
+	if subtle.ConstantTimeCompare(huella[:], s.huella[:]) != 1 {
 		return ErrCalculoMACCapacidadAtestacionAutorizacionV3NoDisponible
 	}
 	return nil
+}
+
+func bytesMACCapacidadAtestacionV3Cero(material []byte) bool {
+	var acumulado byte
+	for _, valor := range material {
+		acumulado |= valor
+	}
+	return acumulado == 0
 }
 
 // MaterialParaCalculador entrega copias defensivas al adaptador confiable. No
@@ -173,7 +190,7 @@ func NuevoResultadoCalculoMACCapacidadAtestacionAutorizacionV3(
 	var resultado ResultadoCalculoMACCapacidadAtestacionAutorizacionV3
 	if solicitud.Validar() != nil ||
 		len(mac) != TamanoMACCapacidadAtestacionAutorizacionV3 ||
-		bytes.Equal(mac, make([]byte, len(mac))) {
+		bytesMACCapacidadAtestacionV3Cero(mac) {
 		return resultado,
 			ErrCalculoMACCapacidadAtestacionAutorizacionV3NoDisponible
 	}
@@ -189,7 +206,7 @@ func (r ResultadoCalculoMACCapacidadAtestacionAutorizacionV3) ValidarPara(
 	if solicitud.Validar() != nil || r.perfil.Validar() != nil ||
 		r.perfil != solicitud.perfil ||
 		subtle.ConstantTimeCompare(r.huella[:], solicitud.huella[:]) != 1 ||
-		bytes.Equal(r.mac[:], make([]byte, len(r.mac))) {
+		bytesMACCapacidadAtestacionV3Cero(r.mac[:]) {
 		return ErrCalculoMACCapacidadAtestacionAutorizacionV3NoDisponible
 	}
 	return nil
