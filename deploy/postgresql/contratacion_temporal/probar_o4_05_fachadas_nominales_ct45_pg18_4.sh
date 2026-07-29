@@ -691,7 +691,7 @@ esperar_fallo 'replay de capacidad CT45' 42501 \
 [[ "$(efectos_decision ct45_replay)" == '1|1|1|1' ]]
 psql_admin --command 'CREATE TRIGGER forzar_sqlstate_ct45 BEFORE INSERT ON vec_contratacion_temporal.prueba_resultado_recibo_rrhh_v2 FOR EACH ROW EXECUTE FUNCTION public.forzar_sqlstate_prueba_ct43()' >/dev/null
 for estado in 40001 40P01 55P03 57014; do
-    caso="ct45_estado_$estado"
+    caso="ct45_estado_${estado,,}"
     esperar_fallo "propagación SQLSTATE $estado CT45" "$estado" \
         'estado transitorio sintético CT43' \
         invocar_detalle_escalar "$caso" true true "$estado"
