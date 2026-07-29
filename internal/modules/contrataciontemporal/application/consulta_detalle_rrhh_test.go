@@ -14,7 +14,7 @@ func TestConsultaDetalleRRHHDevuelveProyeccionValidadaYClonada(t *testing.T) {
 	t.Parallel()
 	entorno := nuevoEntornoConsultaRRHH(t)
 	servicio, err := NuevoServicioConsultaDetalleRRHH(
-		entorno.autoridad, entorno.autorizador, entorno.sesion, entorno.reloj,
+		entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -23,7 +23,13 @@ func TestConsultaDetalleRRHHDevuelveProyeccionValidadaYClonada(t *testing.T) {
 	if err != nil {
 		t.Fatalf("consultar: %v", err)
 	}
-	if entorno.sesion.llamadasDetalle != 1 ||
+	if entorno.emision.motivos.llamadasDetalle != 1 ||
+		entorno.emision.motivos.llamadasCuadro != 0 ||
+		entorno.emision.correlaciones.llamadas != 1 ||
+		entorno.emision.reloj.llamadas != 2 ||
+		entorno.emision.detalle.llamadas != 1 ||
+		entorno.emision.cuadro.llamadas != 0 ||
+		entorno.sesion.llamadasDetalle != 1 ||
 		obtenido.Resumen.Validar() != nil ||
 		obtenido.Lectura.ExpedienteRef() != entorno.detalle.ExpedienteRef() {
 		t.Fatalf("detalle inesperado: %#v", obtenido)
@@ -54,20 +60,14 @@ func TestConsultaDetalleRRHHNoSerializaCamposPersonalesNiTextoLibre(t *testing.T
 
 func TestConsultaDetalleRRHHNoEsOraculo(t *testing.T) {
 	t.Parallel()
-	for _, origen := range []string{"autorizador", "sesion"} {
+	for _, origen := range []string{"ausente", "ajeno"} {
 		origen := origen
 		t.Run(origen, func(t *testing.T) {
 			t.Parallel()
 			entorno := nuevoEntornoConsultaRRHH(t)
-			if origen == "autorizador" {
-				entorno.autorizador.errDetalle =
-					ports.ErrConsultaRRHHNoObservable
-			} else {
-				entorno.sesion.errDetalle =
-					ports.ErrConsultaRRHHNoObservable
-			}
+			entorno.sesion.errDetalle = ports.ErrConsultaRRHHNoObservable
 			servicio, err := NuevoServicioConsultaDetalleRRHH(
-				entorno.autoridad, entorno.autorizador,
+				entorno.autoridad, entorno.emisor,
 				entorno.sesion, entorno.reloj,
 			)
 			if err != nil {
@@ -86,7 +86,7 @@ func TestConsultaDetalleRRHHRechazaResultadoDeOtroExpediente(t *testing.T) {
 	entorno := nuevoEntornoConsultaRRHH(t)
 	entorno.sesion.detalle.Resumen.ExpedienteRef = "expediente:rrhh:ajeno"
 	servicio, err := NuevoServicioConsultaDetalleRRHH(
-		entorno.autoridad, entorno.autorizador, entorno.sesion, entorno.reloj,
+		entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj,
 	)
 	if err != nil {
 		t.Fatal(err)

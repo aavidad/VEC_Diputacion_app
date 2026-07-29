@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"log/slog"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,13 +27,145 @@ const (
 )
 
 type generadorCorrelacionConsultaRRHHPrueba struct {
-	valor string
+	mu       sync.Mutex
+	valor    string
+	err      error
+	cancelar context.CancelFunc
+	llamadas int
 }
 
-func (g generadorCorrelacionConsultaRRHHPrueba) NuevaReferenciaCorrelacionAutorizacionV2(
+func (g *generadorCorrelacionConsultaRRHHPrueba) NuevaReferenciaCorrelacionAutorizacionV2(
 	context.Context,
 ) (string, error) {
-	return g.valor, nil
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.llamadas++
+	if g.cancelar != nil {
+		g.cancelar()
+	}
+	return g.valor, g.err
+}
+
+type resolutorMotivoConsultaRRHHPrueba struct {
+	mu              sync.Mutex
+	motivoCuadro    dominiovec.ReferenciaEntradaCatalogo
+	motivoDetalle   dominiovec.ReferenciaEntradaCatalogo
+	errCuadro       error
+	errDetalle      error
+	cancelarCuadro  context.CancelFunc
+	cancelarDetalle context.CancelFunc
+	llamadasCuadro  int
+	llamadasDetalle int
+}
+
+func (r *resolutorMotivoConsultaRRHHPrueba) ResolverMotivoCuadroRRHH(
+	context.Context,
+	time.Time,
+) (dominiovec.ReferenciaEntradaCatalogo, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.llamadasCuadro++
+	if r.cancelarCuadro != nil {
+		r.cancelarCuadro()
+	}
+	return r.motivoCuadro, r.errCuadro
+}
+
+func (r *resolutorMotivoConsultaRRHHPrueba) ResolverMotivoDetalleRRHH(
+	context.Context,
+	time.Time,
+) (dominiovec.ReferenciaEntradaCatalogo, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.llamadasDetalle++
+	if r.cancelarDetalle != nil {
+		r.cancelarDetalle()
+	}
+	return r.motivoDetalle, r.errDetalle
+}
+
+type relojEmisorConsultaRRHHPrueba struct {
+	mu        sync.Mutex
+	instantes []time.Time
+	llamadas  int
+}
+
+func (r *relojEmisorConsultaRRHHPrueba) Ahora() time.Time {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.llamadas++
+	if len(r.instantes) == 0 {
+		return time.Time{}
+	}
+	instante := r.instantes[0]
+	if len(r.instantes) > 1 {
+		r.instantes = r.instantes[1:]
+	}
+	return instante
+}
+
+type emisorAtestadoConsultaRRHHPrueba struct {
+	mu              sync.Mutex
+	t               *testing.T
+	audiencia       string
+	instante        time.Time
+	err             error
+	cancelar        context.CancelFunc
+	resultadoAjeno  *dominiovec.ResultadoContextoActorRegistradoV2
+	llamadas        int
+	ultimaSolicitud dominiovec.SolicitudAutorizacionLigadaV3
+	ultimoResultado dominiovec.ResultadoContextoActorRegistradoV2
+}
+
+func (e *emisorAtestadoConsultaRRHHPrueba) EmitirMaterialAutorizacionAtestadaV3(
+	_ context.Context,
+	solicitud dominiovec.SolicitudAutorizacionLigadaV3,
+	resultado dominiovec.ResultadoContextoActorRegistradoV2,
+) (
+	dominiovec.DecisionAutorizacionLigadaV3,
+	puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3,
+	error,
+) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.llamadas++
+	e.ultimaSolicitud = solicitud
+	e.ultimoResultado = resultado
+	resultadoExportado := resultado
+	if e.resultadoAjeno != nil {
+		resultadoExportado = *e.resultadoAjeno
+	}
+	datos, err := solicitud.Datos()
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	decision, confirmacion, err := concesionAutorizacionV3Prueba(
+		e.t, solicitud, resultado, datos.ReferenciaMotivo, e.instante,
+		"decision:rrhh:v3:prueba", true,
+	)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	exportacion := exportacionMaterialConsumoConsultaRRHHPrueba(
+		e.t, solicitud, decision, datos.ReferenciaMotivo, resultadoExportado,
+		datos.Recurso, datos.Accion, e.instante,
+	)
+	if e.cancelar != nil {
+		e.cancelar()
+	}
+	return decision, confirmacion,
+		&exportadorMaterialConsumoConsultaRRHHPrueba{exportacion: exportacion},
+		e.err
+}
+
+type entornoEmisorConsultaRRHHPrueba struct {
+	emisor        *ports.EmisorMaterialConsultaRRHH
+	motivos       *resolutorMotivoConsultaRRHHPrueba
+	correlaciones *generadorCorrelacionConsultaRRHHPrueba
+	reloj         *relojEmisorConsultaRRHHPrueba
+	cuadro        *emisorAtestadoConsultaRRHHPrueba
+	detalle       *emisorAtestadoConsultaRRHHPrueba
 }
 
 type exportadorMaterialConsumoConsultaRRHHPrueba struct {
@@ -69,6 +202,46 @@ func contextoConsultaRRHHV3Prueba(
 		t.Fatalf("crear contexto de consulta RRHH V3: %v", err)
 	}
 	return contexto
+}
+
+func nuevoEmisorConsultaRRHHV3Prueba(
+	t *testing.T,
+	ahora time.Time,
+) *entornoEmisorConsultaRRHHPrueba {
+	t.Helper()
+	motivo := dominiovec.ReferenciaEntradaCatalogo{
+		CatalogoID:           "motivos_autorizacion",
+		CatalogoVersion:      1,
+		CatalogoHuellaSHA256: strings.Repeat("a", 64),
+		EntradaClave:         "motivo_0123456789abcdef0123456789abcdef",
+	}
+	motivos := &resolutorMotivoConsultaRRHHPrueba{
+		motivoCuadro: motivo, motivoDetalle: motivo,
+	}
+	correlaciones := &generadorCorrelacionConsultaRRHHPrueba{
+		valor: "correlacion_0123456789abcdef0123456789abcdef",
+	}
+	reloj := &relojEmisorConsultaRRHHPrueba{
+		instantes: []time.Time{ahora, ahora},
+	}
+	cuadro := &emisorAtestadoConsultaRRHHPrueba{
+		t: t, audiencia: ports.AudienciaConsumoConsultaCuadroRRHHV3,
+		instante: ahora,
+	}
+	detalle := &emisorAtestadoConsultaRRHHPrueba{
+		t: t, audiencia: ports.AudienciaConsumoConsultaDetalleRRHHV3,
+		instante: ahora,
+	}
+	emisor, err := ports.NuevoEmisorMaterialConsultaRRHH(
+		motivos, correlaciones, reloj, cuadro, detalle,
+	)
+	if err != nil {
+		t.Fatalf("crear emisor real A4.3 para aplicación: %v", err)
+	}
+	return &entornoEmisorConsultaRRHHPrueba{
+		emisor: emisor, motivos: motivos, correlaciones: correlaciones,
+		reloj: reloj, cuadro: cuadro, detalle: detalle,
+	}
 }
 
 func capacidadConsultaCuadroRRHHV3Prueba(
@@ -193,7 +366,7 @@ func materialConsultaRRHHV3Prueba(
 	}
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
 		context.Background(),
-		generadorCorrelacionConsultaRRHHPrueba{
+		&generadorCorrelacionConsultaRRHHPrueba{
 			valor: "correlacion_0123456789abcdef0123456789abcdef",
 		},
 	)

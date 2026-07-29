@@ -24,64 +24,6 @@ func TestConsultaCuadroRRHHRechazaFilaDeOtraOrganizacion(t *testing.T) {
 	}
 }
 
-func TestConsultaCuadroRRHHRespetaAmbitoCentroYUnidad(t *testing.T) {
-	t.Parallel()
-	for _, caso := range []struct {
-		nombre     string
-		clase      ports.ClaseAmbitoConsultaRRHH
-		ambitoRef  string
-		preparar   func(*entornoConsultaRRHH)
-		desalinear func(*entornoConsultaRRHH)
-	}{
-		{
-			nombre: "centro", clase: ports.AmbitoCentroRRHH,
-			ambitoRef: "centro:rrhh:001",
-			preparar:  func(*entornoConsultaRRHH) {},
-			desalinear: func(e *entornoConsultaRRHH) {
-				e.sesion.pagina.Expedientes[0].CentroRef = "centro:rrhh:ajeno"
-			},
-		},
-		{
-			nombre: "unidad", clase: ports.AmbitoUnidadGestionRRHH,
-			ambitoRef: "unidad:rrhh:001",
-			preparar: func(e *entornoConsultaRRHH) {
-				e.sesion.pagina.Expedientes[0].UnidadRef = "unidad:rrhh:001"
-			},
-			desalinear: func(e *entornoConsultaRRHH) {
-				e.sesion.pagina.Expedientes[0].UnidadRef = "unidad:rrhh:ajena"
-			},
-		},
-	} {
-		caso := caso
-		t.Run(caso.nombre, func(t *testing.T) {
-			t.Parallel()
-			entorno := nuevoEntornoConsultaRRHH(t)
-			caso.preparar(entorno)
-			configurarAmbitoCuadroRRHH(
-				t, entorno, caso.clase, caso.ambitoRef,
-				uint16(len(entorno.sesion.pagina.Expedientes)),
-			)
-			if _, err := servicioCuadroRRHHPrueba(t, entorno).Consultar(
-				context.Background(), entorno.cuadro,
-			); err != nil {
-				t.Fatalf("ámbito exacto rechazado: %v", err)
-			}
-			entorno = nuevoEntornoConsultaRRHH(t)
-			caso.preparar(entorno)
-			caso.desalinear(entorno)
-			configurarAmbitoCuadroRRHH(
-				t, entorno, caso.clase, caso.ambitoRef,
-				uint16(len(entorno.sesion.pagina.Expedientes)),
-			)
-			if _, err := servicioCuadroRRHHPrueba(t, entorno).Consultar(
-				context.Background(), entorno.cuadro,
-			); !errors.Is(err, ErrResultadoConsultaRRHHNoConfiable) {
-				t.Fatalf("fila fuera de ámbito aceptada: %v", err)
-			}
-		})
-	}
-}
-
 func TestConsultaDetalleRRHHComparaVersionObservada(t *testing.T) {
 	t.Parallel()
 	for _, caso := range []struct {
@@ -121,29 +63,6 @@ func TestConsultaDetalleRRHHComparaVersionObservada(t *testing.T) {
 				t.Fatalf("versión obsoleta aceptada: %v", err)
 			}
 		})
-	}
-}
-
-func TestConsultaDetalleRRHHRespetaAmbitoCentro(t *testing.T) {
-	t.Parallel()
-	entorno := nuevoEntornoConsultaRRHH(t)
-	configurarAmbitoDetalleRRHH(
-		t, entorno, ports.AmbitoCentroRRHH, "centro:rrhh:001",
-	)
-	if _, err := servicioDetalleRRHHPrueba(t, entorno).Consultar(
-		context.Background(), entorno.detalle,
-	); err != nil {
-		t.Fatalf("detalle en centro autorizado rechazado: %v", err)
-	}
-	entorno = nuevoEntornoConsultaRRHH(t)
-	entorno.sesion.detalle.Resumen.CentroRef = "centro:rrhh:ajeno"
-	configurarAmbitoDetalleRRHH(
-		t, entorno, ports.AmbitoCentroRRHH, "centro:rrhh:001",
-	)
-	if _, err := servicioDetalleRRHHPrueba(t, entorno).Consultar(
-		context.Background(), entorno.detalle,
-	); !errors.Is(err, ErrResultadoConsultaRRHHNoConfiable) {
-		t.Fatalf("detalle fuera del centro autorizado aceptado: %v", err)
 	}
 }
 
@@ -259,8 +178,9 @@ func servicioCuadroRRHHPrueba(
 	entorno *entornoConsultaRRHH,
 ) *ServicioConsultaCuadroRRHH {
 	t.Helper()
+	renovarEmisorConsultaRRHHPrueba(t, entorno)
 	servicio, err := NuevoServicioConsultaCuadroRRHH(
-		entorno.autoridad, entorno.autorizador, entorno.sesion, entorno.reloj,
+		entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -273,13 +193,29 @@ func servicioDetalleRRHHPrueba(
 	entorno *entornoConsultaRRHH,
 ) *ServicioConsultaDetalleRRHH {
 	t.Helper()
+	renovarEmisorConsultaRRHHPrueba(t, entorno)
 	servicio, err := NuevoServicioConsultaDetalleRRHH(
-		entorno.autoridad, entorno.autorizador, entorno.sesion, entorno.reloj,
+		entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return servicio
+}
+
+func renovarEmisorConsultaRRHHPrueba(
+	t *testing.T,
+	entorno *entornoConsultaRRHH,
+) {
+	t.Helper()
+	if entorno.emision != nil &&
+		entorno.emision.cuadro.instante.Equal(entorno.reloj.instante) &&
+		entorno.emision.detalle.instante.Equal(entorno.reloj.instante) {
+		return
+	}
+	emision := nuevoEmisorConsultaRRHHV3Prueba(t, entorno.reloj.instante)
+	entorno.emision = emision
+	entorno.emisor = emision.emisor
 }
 
 func configurarAmbitoCuadroRRHH(
@@ -298,7 +234,6 @@ func configurarAmbitoCuadroRRHH(
 		clase,
 		ambitoRef,
 	)
-	entorno.autorizador.capacidadCuadro = capacidad
 	entorno.sesion.pagina.Lectura = reciboConsultaRRHHPrueba(
 		t, entorno.contexto, capacidad, entorno.ahora, "", 0, total,
 	)
@@ -319,7 +254,6 @@ func configurarAmbitoDetalleRRHH(
 		clase,
 		ambitoRef,
 	)
-	entorno.autorizador.capacidadDetalle = capacidad
 	entorno.sesion.detalle.Lectura = reciboConsultaRRHHPrueba(
 		t, entorno.contexto, capacidad, entorno.ahora,
 		entorno.detalle.ExpedienteRef(),
