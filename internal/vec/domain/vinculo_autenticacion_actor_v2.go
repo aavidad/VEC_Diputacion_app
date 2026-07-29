@@ -247,9 +247,8 @@ func (v VinculoAutenticacionActorV2) Format(s fmt.State, _ rune) {
 }
 func (v VinculoAutenticacionActorV2) LogValue() slog.Value { return slog.StringValue(v.String()) }
 
-// CrearVinculoAutenticacionActorV2 invoca dentro de la misma operacion las dos
-// autoridades. No admite un ContextoActor ni un recibo suministrados por el
-// llamador como sustitutos de la resolucion registrada.
+// CrearVinculoAutenticacionActorV2 conserva el contrato anterior y delega en
+// la fabrica nominal que devuelve tambien el resultado registrado exacto.
 func CrearVinculoAutenticacionActorV2(
 	ctx context.Context,
 	revalidador RevalidadorAutenticacionActorV1,
@@ -258,17 +257,43 @@ func CrearVinculoAutenticacionActorV2(
 	solicitudContexto SolicitudContextoActor,
 	reloj RelojVinculoAutenticacionActorV2,
 ) (VinculoAutenticacionActorV2, error) {
+	vinculo, _, err := CrearVinculoAutenticacionActorV2ConResultado(
+		ctx, revalidador, solicitudAutenticacion, resolutor,
+		solicitudContexto, reloj,
+	)
+	return vinculo, err
+}
+
+// CrearVinculoAutenticacionActorV2ConResultado invoca exactamente una vez las
+// autoridades de autenticacion y contexto. Devuelve el vinculo junto al mismo
+// resultado registrado que lo origino, clonado defensivamente. No admite un
+// ContextoActor ni un recibo suministrados por el llamador como sustitutos de
+// esa resolucion.
+func CrearVinculoAutenticacionActorV2ConResultado(
+	ctx context.Context,
+	revalidador RevalidadorAutenticacionActorV1,
+	solicitudAutenticacion SolicitudRevalidacionAutenticacionActorV1,
+	resolutor ResolutorContextoActorRegistradoV2,
+	solicitudContexto SolicitudContextoActor,
+	reloj RelojVinculoAutenticacionActorV2,
+) (
+	VinculoAutenticacionActorV2,
+	ResultadoContextoActorRegistradoV2,
+	error,
+) {
 	if ctx == nil || ctx.Err() != nil || dependenciaVinculoAutenticacionActorV2Nula(revalidador) ||
 		dependenciaVinculoAutenticacionActorV2Nula(resolutor) ||
 		dependenciaVinculoAutenticacionActorV2Nula(reloj) || solicitudAutenticacion.Validar() != nil ||
 		solicitudContexto.Validar() != nil {
-		return VinculoAutenticacionActorV2{}, ErrVinculoAutenticacionActorV2Invalido
+		return VinculoAutenticacionActorV2{}, ResultadoContextoActorRegistradoV2{},
+			ErrVinculoAutenticacionActorV2Invalido
 	}
 	autenticacion, err := revalidador.RevalidarAutenticacionActorV1(ctx, solicitudAutenticacion)
 	if err != nil || ctx.Err() != nil || autenticacion.Validar() != nil ||
 		autenticacion.AutenticacionRef != solicitudAutenticacion.AutenticacionRef ||
 		autenticacion.SesionRef != solicitudAutenticacion.SesionRef {
-		return VinculoAutenticacionActorV2{}, errors.Join(ErrVinculoAutenticacionActorV2Invalido, err, ctx.Err())
+		return VinculoAutenticacionActorV2{}, ResultadoContextoActorRegistradoV2{},
+			errors.Join(ErrVinculoAutenticacionActorV2Invalido, err, ctx.Err())
 	}
 	resultado, err := resolutor.ResolverContextoActorRegistradoV2(ctx, solicitudContexto)
 	if err != nil || ctx.Err() != nil || resultado.Validar() != nil ||
@@ -276,15 +301,33 @@ func CrearVinculoAutenticacionActorV2(
 		resultado.Contexto.PerfilActivoRef != solicitudContexto.PerfilActivoRef ||
 		resultado.Contexto.Principal.AuthMethod != solicitudContexto.Cuenta.Metodo ||
 		resultado.Contexto.Principal.AuthAssurance != solicitudContexto.Cuenta.Garantia {
-		return VinculoAutenticacionActorV2{}, errors.Join(ErrVinculoAutenticacionActorV2Invalido, err, ctx.Err())
+		return VinculoAutenticacionActorV2{}, ResultadoContextoActorRegistradoV2{},
+			errors.Join(ErrVinculoAutenticacionActorV2Invalido, err, ctx.Err())
+	}
+	resultadoClonado, err := resultado.Clonar()
+	if err != nil {
+		return VinculoAutenticacionActorV2{}, ResultadoContextoActorRegistradoV2{},
+			ErrVinculoAutenticacionActorV2Invalido
 	}
 	ahora := reloj.Ahora().UTC().Truncate(time.Microsecond)
-	if !instanteAutorizacionCanonico(ahora) || ahora.Before(autenticacion.SesionRevalidadaEn) ||
-		!ahora.Before(autenticacion.SesionValidaHasta) || ahora.Before(resultado.ResueltoEnAutoritativo) ||
-		!contextoActorV2VigenteEn(resultado.Contexto, ahora) {
-		return VinculoAutenticacionActorV2{}, ErrVinculoAutenticacionActorV2Invalido
+	if ctx.Err() != nil || !instanteAutorizacionCanonico(ahora) ||
+		ahora.Before(autenticacion.SesionRevalidadaEn) ||
+		!ahora.Before(autenticacion.SesionValidaHasta) ||
+		ahora.Before(resultadoClonado.ResueltoEnAutoritativo) ||
+		!contextoActorV2VigenteEn(resultadoClonado.Contexto, ahora) {
+		return VinculoAutenticacionActorV2{}, ResultadoContextoActorRegistradoV2{},
+			errors.Join(ErrVinculoAutenticacionActorV2Invalido, ctx.Err())
 	}
-	return nuevoVinculoAutenticacionActorV2(autenticacion, resultado)
+	vinculo, err := nuevoVinculoAutenticacionActorV2(
+		autenticacion,
+		resultadoClonado,
+	)
+	if err != nil || ctx.Err() != nil ||
+		vinculo.ValidarPara(resultadoClonado) != nil {
+		return VinculoAutenticacionActorV2{}, ResultadoContextoActorRegistradoV2{},
+			errors.Join(ErrVinculoAutenticacionActorV2Invalido, err, ctx.Err())
+	}
+	return vinculo, resultadoClonado, nil
 }
 
 func nuevoVinculoAutenticacionActorV2(
