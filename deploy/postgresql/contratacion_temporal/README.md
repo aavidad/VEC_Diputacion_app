@@ -420,6 +420,61 @@ futura, arrays hostiles, GUC de fecha y zona, límites UTF-8 y vectores
 independientes Go/PostgreSQL de cuadro, detalle, material de 21 bloques y los
 38 campos del Recibo V2. El contenedor es efímero y no publica puertos.
 
+### CT-000043: prueba durable y Recibo RRHH V2
+
+`000043_prueba_resultado_recibo_rrhh.up.sql` instala en una única transacción
+la persistencia probatoria y la primitiva privada de cierre. Requiere
+PostgreSQL 18.4, las barreras CT `22/6` y la prueba causal VEC-AD-3 `000006`.
+Avanza las barreras a `23/7`; no expone fachada ni concede ejecución al rol
+consultor.
+
+El principal debe ejecutarse mediante `psql`, porque incluye con `\ir` este
+paquete indivisible y comprueba que no falte ni se altere ningún componente:
+
+1. `000043_componentes/010_tipos_cierre.sql`;
+2. `000043_componentes/020_relaciones_y_prueba.sql`;
+3. `000043_componentes/030_primitiva_cierre.sql`;
+4. `000043_componentes/085_guardia_columnas_padre.sql`;
+5. `000043_componentes/090_acl_catalogo_y_barrera.sql`;
+6. `000043_componentes/095_avance_barreras.sql`.
+
+La tabla `prueba_resultado_recibo_rrhh_v2` es de solo anexado, tiene RLS
+habilitada y forzada y rechaza `UPDATE`, `DELETE` y `TRUNCATE`. Las claves
+foráneas compuestas ligan el resultado, la identidad, el alcance y las diez
+piezas VEC al mismo acceso. El cierre recalcula el contenido tipado, el
+resultado, el conjunto material y los 38 campos del Recibo RRHH V2; no acepta
+esas huellas como autoridad aportada por el llamador.
+
+La reversión se ejecuta con:
+
+```bash
+psql -X -v ON_ERROR_STOP=1 \
+  -f deploy/postgresql/contratacion_temporal/migraciones/000043_prueba_resultado_recibo_rrhh.down.sql
+```
+
+El `down` exige catálogo exacto, usa únicamente retiradas `RESTRICT` y falla
+si existe una sola prueba durable. También rechaza ACL o metadatos de columna
+alterados, índices, restricciones, estadísticas, publicaciones, herencia y
+dependencias futuras sobre las columnas añadidas al registro de accesos. La
+huella semántica literal obtenida en PostgreSQL 18.4 es:
+
+```text
+e8a4cbadc41fb73d4381dff9b8aa20a19093ce53a97058af39312957906473a3
+```
+
+La puerta reproducible es:
+
+```bash
+./deploy/postgresql/contratacion_temporal/probar_o4_05_prueba_resultado_recibo_rrhh_pg18_4.sh
+```
+
+El runner fija PostgreSQL 18.4 por resumen y cubre CT-000039 a CT-000043,
+AUT-000006, omisión y alteración de componentes, `UP → DOWN → UP`, cuadro,
+detalle, replay, rollback, `40001`, `40P01`, `55P03`, `57014`, concurrencia,
+revocación viva, FKs cruzadas, inmutabilidad y evidencia que bloquea la
+reversión. Dos ejecuciones consecutivas y dos revisiones independientes
+terminaron con `GO`.
+
 ## Reversión protegida
 
 La reversión normal solo funciona sin historia. Destruir historia exige un

@@ -1,59 +1,48 @@
-# Relevo de sesión: autorización V3 y CT-000043
+# Relevo de sesión: cierre de CT-000043
 
 Fecha de corte: 29 de julio de 2026, zona horaria Europe/Madrid.
 
-## Estado confirmado y publicado
+## Directorio y rama vigentes
 
 La única rama integradora es:
 
 ```text
 rama: integracion/ct-o4-04e-20260726
-worktree: /home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/ct-stable-docs
-HEAD local/remoto: 67b0fb0acf0c49ae5c8b5f57e8feac387d9c274f
+worktree: .worktrees/ct-stable-docs
 ```
 
-El árbol está limpio y coincide con GitHub. Las tres últimas ejecuciones de la
-rama terminaron correctamente:
+No programar en el directorio raíz histórico. No añadir, modificar ni eliminar
+el Word de RRHH sin seguimiento. No borrar `/tmp/.git` ni tocar producción o
+worktrees ajenos.
 
-| Ejecución | Commit | Resultado |
-| --- | --- | --- |
-| `30400689200` | `67b0fb0` | verde |
-| `30399280237` | `e8d2afc` | verde |
-| `30396784705` | `ca8a517` | verde |
+## Estado confirmado
 
-No se tocó producción ni se hizo despliegue.
+Se cerraron dos dependencias consecutivas del camino crítico:
 
-## Dependencia VEC-AD-3: prueba autoritativa de consumo
+| Capacidad | Commit productor | Commit integrado | Revisión |
+| --- | --- | --- | --- |
+| Prueba causal VEC-AD-3 `000006` | `a6a57c0` | `b879f63` | doble `GO` |
+| Prueba durable CT `000043` | `4d38e9c` | `a1a09b9` | doble `GO` |
 
-La necesidad apareció durante CT-000043. Contratación temporal debe persistir
-la prueba completa de la autorización consumida, pero no puede leer tablas de
-otro módulo ni aceptar referencias de auditoría aportadas por el llamador. La
-solución se implementó de forma aditiva en el módulo propietario de la
-autoridad:
+El commit VEC-AD-3 quedó publicado con la ejecución GitHub
+`30440628360` completamente verde. El commit funcional CT-000043 se publicó y
+disparó la ejecución `30447949053`; comprobar su conclusión y la ejecución
+posterior del commit documental antes de considerar cerrado el relevo remoto.
 
-```text
-rama: agent/aut-v3-prueba-consumo-20260729
-worktree:
-  /home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/
-  aut-v3-prueba-consumo-20260729
-base: 67b0fb0
-estado: cinco archivos locales, sin commit ni push
-```
+No se desplegó en producción y no se usaron datos personales reales.
 
-Archivos:
+## VEC-AD-3 `000006`
 
-```text
-deploy/postgresql/autorizacion_atestada_v3/
-  README.md
-  migraciones/000006_prueba_consumo_consultas_rrhh_v3.up.sql
-  migraciones/000006_prueba_consumo_consultas_rrhh_v3.down.sql
-  probar_prueba_consumo_consultas_rrhh_v3_pg18_4.sh
-  pruebas_sql/prueba_consumo_consultas_rrhh_v3.sql
-```
+La autoridad VEC serializa la producción de la prueba con las tres clases de
+revocación mediante el checkpoint de gobierno:
 
-El productor emitió `GO`: dos funciones nominales llaman primero a la
-revalidación de `000005`, releen con `FOR SHARE` atestación, consumo y auditoría
-propias, ligan otra vez las diez piezas de entrada y devuelven exactamente:
+- si la prueba obtiene primero el lock, la revocación espera al `COMMIT`;
+- si la revocación confirma primero, la prueba con snapshot obsoleto falla con
+  `40001`;
+- el rollback de la revocación no deja un falso rechazo;
+- `55P03` o `40P01` no se aceptan como sustitutos del orden causal.
+
+Las dos funciones nominales devuelven exactamente ocho valores autoritativos:
 
 ```text
 decision_ref
@@ -66,160 +55,132 @@ consumida_en
 revalidada_en
 ```
 
-El productor ejecutó dos veces el runner PostgreSQL 18.4 y la regresión
-histórica. También informó verdes las puertas Go, Bash, ShellCheck, Markdown,
-tamaños, diferencias y Gitleaks. El verde del caso de revocación concurrente
-era, sin embargo, un falso positivo por timeout.
+El runner PostgreSQL 18.4, la regresión histórica, Go, carrera, ShellCheck,
+Gitleaks, tamaños y dos revisiones independientes quedaron verdes.
 
-Dirección reprodujo antes del corte:
+## CT-000043
 
-- `git diff --check`;
-- `bash -n`;
-- ShellCheck, excluyendo únicamente `SC2154` por variables inyectadas en el
-  runner;
-- Gitleaks sobre el directorio completo: cero hallazgos;
-- límite de 800 líneas: máximo de 520.
+CT-000043 instala:
 
-La revisión independiente emitió `NO-GO P1` y lo reprodujo en PostgreSQL 18.4:
+- tipos privados de entrada y salida;
+- contenido tipado de cuadro y detalle;
+- tabla de prueba y Recibo RRHH V2 de solo anexado;
+- relaciones compuestas con acceso, identidad, alcance y prueba VEC;
+- primitiva privada de cierre;
+- guardias de retirada para las columnas añadidas al registro de acceso;
+- RLS forzada, ACL mínima y catálogo semántico;
+- avance atómico de barreras `22/6 → 23/7`.
 
-- el runner oficial retiene el lock durante 1,2 segundos mientras la función
-  usa `lock_timeout=1s`; el rechazo observado demuestra el timeout, no una
-  revocación concurrente correctamente serializada;
-- al repetir exactamente el caso reduciendo solo la espera a 0,55 segundos, la
-  revocación confirmó y la función devolvió éxito con las ocho piezas;
-- `000005` y `000006` trabajan con el snapshot de la transacción
-  `SERIALIZABLE`: `000005` lee revocaciones antes, se bloquea en la
-  revalidación viva y su segunda consulta no ve la revocación confirmada
-  después; los `FOR SHARE` posteriores de `000006` no cierran esa carrera.
+El cierre recalcula dentro de PostgreSQL el contenido, resultado, conjunto
+material y los 38 campos del Recibo V2. Compara los ocho valores autoritativos
+de VEC-AD-3 y mantiene ligadas las diez piezas originales al mismo consumo.
+No expone fachada ni concede `EXECUTE` al consultor RRHH.
 
-No confirmar ni integrar la dependencia en este estado. Debe serializarse la
-revocación con la revalidación y la producción de la prueba dentro de la
-autoridad VEC-AD-3; después hay que corregir la regresión para acreditar la
-revocación sin depender de un timeout y repetir revisión independiente.
+La huella semántica acreditada es:
 
-El marcador externo preexistente `/tmp/.git` hace fallar la suite global con el
-`TMPDIR` predeterminado; no borrarlo. La suite se ejecuta con:
+```text
+e8a4cbadc41fb73d4381dff9b8aa20a19093ce53a97058af39312957906473a3
+```
+
+La revisión detallada y el inventario están en:
+
+```text
+docs/portal_vec/revisiones/
+o4_05_revision_ct_000043_prueba_durable_recibo_rrhh_2026-07-29.md
+```
+
+### Evidencia
+
+El runner:
 
 ```bash
-TMPDIR=/home/alberto/.cache go test ./...
+./deploy/postgresql/contratacion_temporal/\
+probar_o4_05_prueba_resultado_recibo_rrhh_pg18_4.sh
 ```
 
-## CT-000043: evidencia durable del resultado y Recibo RRHH
+terminó verde en dos ciclos consecutivos del productor y en las dos
+reproducciones independientes. Incluye:
 
-El borrador sigue aislado en:
+- CT-000039 a CT-000043 y AUT-000006;
+- omisión y alteración de los seis componentes;
+- `UP`, reentrada, `DOWN`, reentrada y segundo `UP`;
+- cuadro, detalle, replay y rollback;
+- `40001`, `40P01`, `55P03` y `57014`;
+- concurrencia con un único ganador;
+- claves foráneas cruzadas e inmutabilidad;
+- revocación viva;
+- retirada segura frente a ACL, metadatos, índices, restricciones,
+  estadísticas, publicaciones, herencia y dependencias;
+- evidencia durable que impide retirar trazabilidad.
 
-```text
-rama: agent/ct43-prueba-durable-20260728
-worktree:
-  /home/alberto/Trabajo/VEC_Diputacion_app/.worktrees/
-  ct43-prueba-durable-20260728
-base: e8d2afc
-estado: seis archivos locales, sin commit ni push
+Las puertas Go normales y con carrera, `go vet`, compilación, grafos,
+manifiestos, TLS, `govulncheck`, Bash, ShellCheck, tamaño y Gitleaks quedaron
+verdes. Para Go se usa:
+
+```bash
+TMPDIR="$HOME/.cache" go test ./...
 ```
 
-Archivos:
-
-```text
-deploy/postgresql/contratacion_temporal/migraciones/
-  000043_prueba_resultado_recibo_rrhh.up.sql
-  000043_prueba_resultado_recibo_rrhh.down.sql
-  000043_componentes/010_tipos_cierre.sql
-  000043_componentes/020_relaciones_y_prueba.sql
-  000043_componentes/030_primitiva_cierre.sql
-  000043_componentes/090_acl_catalogo_y_barrera.sql
-```
-
-`git diff --check` está limpio y ningún archivo supera 800 líneas. El mayor es
-`090_acl_catalogo_y_barrera.sql`, con 753.
-
-Las correcciones ya incorporadas al borrador son:
-
-- centinelas generados no nulos para ligar cuadro y detalle al registro de
-  acceso sin dejar huecos por `MATCH SIMPLE`;
-- claves foráneas separadas para resultado, cadena y prueba VEC;
-- contenido tipado persistido de cuadro, detalle y cursor;
-- recálculo de contenido, resultado y Recibo RRHH;
-- comparación de las ocho piezas autoritativas devueltas por `000006`;
-- referencias de auditoría opacas, sin derivarlas localmente;
-- conservación de los SQLSTATE reintentables antes de normalizar errores;
-- ligadura de `total` y de la identidad tipada de detalle;
-- RLS forzada, política y catálogo alineados con el propietario;
-- huella portable de roles de política mediante nombres `regrole`;
-- comentarios de constraints, triggers, policy, rules y estadísticas incluidos
-  en el manifiesto;
-- normalización de método de acceso, tablespace y collation;
-- `down` no destructivo con advisory lock, locks exclusivos, puerta de
-  evidencia, `DROP RESTRICT` y retirada de barreras al final;
-- búsqueda de constraints del `down` acotada a las tablas de CT;
-- prevalidación antes de locks y verificación de tipos fila y array implícitos.
-
-La tarea permanece `NO-GO` porque el worktree aún no contiene la dependencia
-`000006`, no existe runner final de CT-000043, no se ha acreditado la huella
-literal en una ejecución completa de PostgreSQL 18.4 y falta revisión
-independiente. Los archivos son trabajo recuperable, no una capacidad
-terminada.
-
-El productor llegó a compilar el UP completo en PostgreSQL 18.4 usando una
-copia externa de `000006`. La ejecución alcanzó el control de catálogo y
-devolvió la huella con prefijo `2356e2c` y 63 restricciones; después hizo
-rollback por el literal anterior. Actualizó ambos literales, pero, por la orden
-de cierre, no reejecutó el UP, no ejecutó el DOWN y no añadió el runner. Esos
-valores todavía no están acreditados y deben tratarse como borrador.
-
-## Continuación exacta
-
-1. Leer por completo `AGENTS.md`, este relevo y
-   `coordinacion_ct_000041b_postgresql_recibo_rrhh_000042_000043_2026-07-28.md`.
-2. Corregir el `NO-GO P1` de
-   `agent/aut-v3-prueba-consumo-20260729`: serializar revocación,
-   revalidación y prueba, y sustituir el falso positivo por timeout por una
-   regresión que deje confirmar la revocación antes del resultado.
-3. Reproducir el runner PostgreSQL 18.4 y las puertas estáticas y obtener un
-   nuevo `GO` independiente. Solo entonces confirmar los cinco archivos en su
-   rama con autor `aavidad <avidad@dipgra.es>`.
-4. Integrar el commit aprobado mediante `cherry-pick` primero en
-   `integracion/ct-o4-04e-20260726` y después en el worktree CT-000043. No usar
-   `rebase` ni copiar archivos a mano.
-5. Completar CT-000043: runner PostgreSQL 18.4 por resumen, huella literal,
-   ataques de catálogo y comentarios, ACL/RLS, DML hostil, cruces de claves,
-   replay, revocación, concurrencia, rollback, reentrada, safe-down con
-   evidencia y `up → down → up`.
-6. Ejecutar PostgreSQL real, Go focal/global y carrera aplicable, `go vet`,
-   Bash, ShellCheck, formato, tamaños, `git diff --check` y Gitleaks.
-7. Obtener dos dictámenes independientes: seguridad/arquitectura y pruebas.
-   Corregir cualquier `NO-GO` antes de confirmar.
-8. Tras ambos `GO`, confirmar CT-000043 en su rama, integrarlo mediante
-   `cherry-pick`, actualizar tablero, mapa y relevo, enviar un único corte
-   consolidado y comprobar GitHub hasta su conclusión.
-9. Volver al camino crítico:
-
-```text
-CT-000044 motor interno
-→ CT-000045 fachadas autorizadas
-→ adaptador Go/PostgreSQL
-→ composición raíz, identidad/PDP y TLS
-→ navegador/API/aplicación/PostgreSQL/Recibo RRHH E2E
-```
+El marcador externo `/tmp/.git` es preexistente y no debe borrarse.
 
 ## Métricas oficiales
 
-No deben incrementarse por estos borradores técnicos:
-
 | Ámbito | Estado |
 | --- | --- |
-| Contratación temporal | `20/46`, 43 % |
+| Contratación temporal | `21/46`, 46 % |
 | O4-05 | `3/5` hitos |
 | Bolsa productiva | `1/14`, 7 % |
 | Producción | `NO-GO` |
 
-## Límites y directorios que no deben tocarse
+O4-05 no incrementa todavía su contador porque CT-000043 es una primitiva
+privada. Falta la vertical productiva completa.
 
-- El directorio raíz está en la rama histórica `vec-orquesta-20260619`; no se
-  programa allí.
-- El Word de RRHH permanece sin seguimiento en el directorio raíz. No
-  añadirlo, modificarlo ni eliminarlo.
-- No limpiar worktrees o ramas ajenas sin inventario y autorización.
-- No borrar `/tmp/.git`.
-- No usar ni publicar credenciales, datos personales reales, certificados,
-  tokens, claves, DSN ni rutas privadas.
-- No desplegar en producción como parte de este relevo.
+## Continuación exacta
+
+El siguiente corte es CT-000044, motor privado y atómico de consultas RRHH:
+
+1. crear tipos privados de salida de cuadro y detalle;
+2. consumir una capacidad VEC nueva y revalidar identidad;
+3. materializar una sola colección para respuesta y canon;
+4. implementar detalle actual o por versión;
+5. implementar cuadro *as-of*, filtros posteriores y orden estable;
+6. bloquear, consumir y emitir cursores sin persistir el token;
+7. llamar a CT-000043 dentro de la misma transacción;
+8. conservar `40001`, `40P01`, `55P03` y `57014`;
+9. avanzar barreras `23/7 → 24/8`;
+10. crear runner PostgreSQL 18.4 y obtener doble `GO`.
+
+Conjunto de archivos previsto:
+
+```text
+deploy/postgresql/contratacion_temporal/
+  migraciones/000044_motor_consultas_rrhh.up.sql
+  migraciones/000044_motor_consultas_rrhh.down.sql
+  migraciones/000044_componentes/
+  pruebas_sql/o405_motor_consultas_rrhh.sql
+  probar_o4_05_motor_consultas_rrhh_pg18_4.sh
+```
+
+No modificar CT-000043 durante CT-000044. Después siguen:
+
+```text
+CT-000045 fachadas autorizadas
+→ adaptador Go/PostgreSQL
+→ composición raíz, identidad/PDP y TLS
+→ E2E navegador/API/aplicación/PostgreSQL/Recibo RRHH
+→ E2E equivalente desde transporte no web
+```
+
+## Reglas que permanecen
+
+- castellano coherente e i18n; sólo vocabulario técnico normalizado;
+- arquitectura hexagonal y puertos intercambiables;
+- denegación por defecto;
+- cero cookies y cero almacenamiento web como autoridad;
+- web, escritorio, CLI y MCP comparten casos de uso;
+- trazabilidad completa y datos minimizados;
+- PostgreSQL real, concurrencia y retirada segura;
+- productor distinto de revisor e integrador;
+- commits pequeños, documentación simultánea y Gitleaks antes de publicar;
+- producción permanece bloqueada hasta cerrar código, E2E, TLS y
+  conformidades formales.

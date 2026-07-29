@@ -1,6 +1,6 @@
 # Mapa de objetivos, tareas y paralelización
 
-Última actualización: 28 de julio de 2026.
+Última actualización: 29 de julio de 2026.
 
 Vista de dirección para revisar el avance del procedimiento de contratación
 temporal. El detalle verificable de cada tarea está en el
@@ -13,9 +13,9 @@ temporal. El detalle verificable de cada tarea está en el
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
 | Camino crítico | O4-05 composición raíz con dependencias reales → proyecciones protegidas → E2E; O5-01 PostgreSQL puede avanzar en paralelo |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
-| Procedimiento completo | 20 de 46 tareas cerradas (43 %); O4-04 tiene doble `GO` independiente |
-| Último commit verificado | CT `000041A` — vocabulario PostgreSQL de seis estados con `GO` independiente |
-| Trabajo local en revisión | CT `000041` tiene cánones Go, Recibo V2 y vocabulario de estados verdes. El contrato PostgreSQL se ha especificado como `000042`–`000043`; después siguen motor `000044`, fachadas `000045`, adaptador, raíz y E2E. |
+| Procedimiento completo | 21 de 46 tareas cerradas (46 %); CT `000043` tiene doble `GO` independiente |
+| Último commit verificado | `a1a09b9` — CT `000043`, prueba durable y Recibo RRHH V2 |
+| Trabajo local en revisión | CT `000042` y `000043` están cerradas. El siguiente corte es el motor privado `000044`; después siguen fachadas `000045`, adaptador, raíz y E2E. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -209,15 +209,15 @@ Estado actual:
 
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
-Tareas verificadas del procedimiento: 20/46 = 43 %
+Tareas verificadas del procedimiento: 21/46 = 46 %
 Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 conserva 3/5 hitos
   oficiales: adaptador, HTTP, cliente, registro modular, proyecciones
   protegidas de cuadro/detalle, contrato y consumidores nominales VEC-AD-3,
   registro durable de accesos, publicación global estable, infraestructura de
   cursor, composición visual gobernada, registrador v2 CT 000039 y contrato
-  tipado CT 000040, cánones Go, Recibo V2 y vocabulario de seis estados de CT
-  000041 están verdes, pero el contrato PostgreSQL 000042–000043, el motor
-  interno 000044, las fachadas 000045, la raíz
+  tipado CT 000040, cánones Go, Recibo V2, vocabulario de seis estados de CT
+  000041, cánones SQL 000042 y prueba durable 000043 están verdes, pero el
+  motor interno 000044, las fachadas 000045, la raíz
   productiva, adaptadores reales y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
