@@ -47,7 +47,7 @@ CT-000047A: HTTP protegido de cuadro/detalle
 → conformidades RRHH, DPD y Sistemas
 ```
 
-## CT-000047A en ejecución
+## CT-000047A integrado
 
 Write-set exclusivo:
 
@@ -65,8 +65,18 @@ Alcance:
 - reutilización de los casos de uso y constructores existentes;
 - pruebas de contrato, límites, cancelación y no oráculo.
 
-No toca dominio, aplicación, puertos, SQL, PostgreSQL, raíz, web, estilos ni
-adaptadores de presentación.
+El conjunto `c430785`–`b00d2ec` obtuvo `GO` independiente con P0=0 y P1=0.
+La revisión inicial obligó a corregir ruta opaca, prioridad de cancelación y
+validación pública del resultado antes de integrar.
+
+Quedan dos P2 separados: comprobación de cancelación tras decodificar y tabla
+negativa exhaustiva de componentes de `URL`. Se conservan en
+[la evidencia de revisión](revisiones/o4_05_revision_http_consultas_ct_000047a_2026-07-29.md).
+
+El corte no toca SQL, PostgreSQL, raíz, web, estilos ni adaptadores de
+presentación. Añade validadores neutrales en `ports` para impedir que HTTP
+publique una proyección no coherente con la solicitud; las garantías privadas
+de capacidad, ámbito y recibo permanecen en sus validadores internos.
 
 ## CT-000047B
 
