@@ -46,12 +46,6 @@ func TestConsultaDetalleRRHHComparaVersionObservada(t *testing.T) {
 				t.Fatal(err)
 			}
 			entorno.detalle = solicitud
-			configurarAmbitoDetalleRRHH(
-				t,
-				entorno,
-				ports.AmbitoOrganizacionRRHH,
-				entorno.contexto.OrganizacionRef(),
-			)
 			_, err = servicioDetalleRRHHPrueba(t, entorno).Consultar(
 				context.Background(), solicitud,
 			)
@@ -84,10 +78,6 @@ func TestConsultaCuadroRRHHValidaFiltrosYOrdenEstable(t *testing.T) {
 		segundo := entorno.sesion.pagina.Expedientes[0]
 		entorno.sesion.pagina.Expedientes =
 			[]ports.ResumenExpedienteRRHH{primero, segundo}
-		configurarAmbitoCuadroRRHH(
-			t, entorno, ports.AmbitoOrganizacionRRHH,
-			entorno.contexto.OrganizacionRef(), 2,
-		)
 		return entorno
 	}
 	entornoValido := preparar(t)
@@ -216,47 +206,4 @@ func renovarEmisorConsultaRRHHPrueba(
 	emision := nuevoEmisorConsultaRRHHV3Prueba(t, entorno.reloj.instante)
 	entorno.emision = emision
 	entorno.emisor = emision.emisor
-}
-
-func configurarAmbitoCuadroRRHH(
-	t *testing.T,
-	entorno *entornoConsultaRRHH,
-	clase ports.ClaseAmbitoConsultaRRHH,
-	ambitoRef string,
-	total uint16,
-) {
-	t.Helper()
-	capacidad := capacidadConsultaCuadroRRHHV3Prueba(
-		t,
-		entorno.contexto,
-		entorno.cuadro,
-		entorno.ahora,
-		clase,
-		ambitoRef,
-	)
-	entorno.sesion.pagina.Lectura = reciboConsultaRRHHPrueba(
-		t, entorno.contexto, capacidad, entorno.ahora, "", 0, total,
-	)
-}
-
-func configurarAmbitoDetalleRRHH(
-	t *testing.T,
-	entorno *entornoConsultaRRHH,
-	clase ports.ClaseAmbitoConsultaRRHH,
-	ambitoRef string,
-) {
-	t.Helper()
-	capacidad := capacidadConsultaDetalleRRHHV3Prueba(
-		t,
-		entorno.contexto,
-		entorno.detalle,
-		entorno.ahora,
-		clase,
-		ambitoRef,
-	)
-	entorno.sesion.detalle.Lectura = reciboConsultaRRHHPrueba(
-		t, entorno.contexto, capacidad, entorno.ahora,
-		entorno.detalle.ExpedienteRef(),
-		entorno.sesion.detalle.Resumen.Version, 1,
-	)
 }

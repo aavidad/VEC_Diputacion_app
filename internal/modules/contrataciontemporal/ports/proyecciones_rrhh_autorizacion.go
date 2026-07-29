@@ -231,21 +231,6 @@ type AutoridadContextoConsultaRRHH interface {
 	ResolverContextoConsultaRRHH(context.Context) (ContextoConsultaRRHH, error)
 }
 
-type AutorizadorConsultaRRHH interface {
-	AutorizarCuadroRRHH(
-		context.Context,
-		ContextoConsultaRRHH,
-		SolicitudCuadroRRHH,
-		time.Time,
-	) (CapacidadConsultaRRHH, error)
-	AutorizarDetalleRRHH(
-		context.Context,
-		ContextoConsultaRRHH,
-		SolicitudDetalleRRHH,
-		time.Time,
-	) (CapacidadConsultaRRHH, error)
-}
-
 // SesionConsultaRRHH mantiene consumo AD-3, lectura y registro durable de
 // acceso en la misma transacción. El resumen Go nunca autoriza la consulta.
 type SesionConsultaRRHH interface {

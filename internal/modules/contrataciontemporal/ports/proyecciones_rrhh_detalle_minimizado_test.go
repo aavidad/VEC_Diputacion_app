@@ -497,13 +497,13 @@ func reciboDetalleMinimizadoPrueba(
 	registradaEn time.Time,
 ) ports.ReciboLecturaRRHH {
 	t.Helper()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, registradaEn)
+	_, contexto := autoridadYContextoPuertosRRHH(t, registradaEn)
 	solicitud, err := ports.NuevaSolicitudDetalleRRHH(expedienteRef, version)
 	if err != nil {
 		t.Fatal(err)
 	}
 	capacidad := capacidadDetallePuertosRRHH(
-		t, autoridad, contexto, solicitud, registradaEn,
+		t, contexto, solicitud, registradaEn,
 	)
 	recibo, err := ports.NuevoReciboLecturaRRHH(
 		"lectura:rrhh:minimizada", "auditoria:rrhh:minimizada",

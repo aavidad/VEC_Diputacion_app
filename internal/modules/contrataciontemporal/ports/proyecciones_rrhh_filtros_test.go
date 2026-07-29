@@ -109,9 +109,9 @@ func TestHuellasCuadroRRHHSeparanFamiliaEstableDeConsultaExacta(
 	}
 
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 	capacidad1 := capacidadCuadroPuertosRRHH(
-		t, autoridad, contexto, pagina1, ahora,
+		t, contexto, pagina1, ahora,
 	)
 	orden1, err := ports.NuevaOrdenConsultaCuadroRRHH(
 		contexto, capacidad1, pagina1, ahora,
@@ -120,7 +120,7 @@ func TestHuellasCuadroRRHHSeparanFamiliaEstableDeConsultaExacta(
 		t.Fatal(err)
 	}
 	capacidad2 := capacidadCuadroPuertosRRHH(
-		t, autoridad, contexto, pagina2, ahora,
+		t, contexto, pagina2, ahora,
 	)
 	orden2, err := ports.NuevaOrdenConsultaCuadroRRHH(
 		contexto, capacidad2, pagina2, ahora,
@@ -217,10 +217,20 @@ func TestMaterialConsultaRRHHRechazaOtroControlDeSesion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := materialConsultaRRHHPrueba(
-		t, otraAutoridad, contexto, solicitud, ports.SolicitudDetalleRRHH{},
-		ports.AccionConsultarCuadroRRHH, ports.FinalidadConsultarCuadroRRHH,
-		ports.AudienciaConsumoConsultaCuadroRRHHV3, ahora,
+	contextoAjeno, err := ports.NuevoContextoConsultaRRHH(
+		otraAutoridad, contexto.OrganizacionRef(), ahora,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	material, err := materialCuadroPuertosRRHH(
+		t, contextoAjeno, solicitud, ahora,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = ports.NuevaCapacidadConsultaCuadroRRHH(
+		contexto, material, solicitud, ahora,
 	); !errors.Is(err, ports.ErrCapacidadConsultaRRHHInvalida) {
 		t.Fatalf("se aceptó material ligado a otro control de sesión: %v", err)
 	}

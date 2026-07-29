@@ -90,12 +90,12 @@ func TestSolicitudCuadroRRHHValidaLimitesYCursorSinPanico(t *testing.T) {
 	}
 
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 	primera, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 1, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	capacidad := capacidadCuadroPuertosRRHH(t, autoridad, contexto, primera, ahora)
+	capacidad := capacidadCuadroPuertosRRHH(t, contexto, primera, ahora)
 	orden, err := ports.NuevaOrdenConsultaCuadroRRHH(
 		contexto, capacidad, primera, ahora,
 	)

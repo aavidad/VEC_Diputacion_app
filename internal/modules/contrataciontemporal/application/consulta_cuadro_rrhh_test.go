@@ -29,13 +29,6 @@ func (a *autoridadConsultaRRHHPrueba) ResolverContextoConsultaRRHH(
 	return a.contexto, a.err
 }
 
-// capacidadesConsultaRRHHPrueba conserva la preparación de recibos de pruebas
-// históricas; los servicios ya no consumen este doble.
-type capacidadesConsultaRRHHPrueba struct {
-	capacidadCuadro  ports.CapacidadConsultaRRHH
-	capacidadDetalle ports.CapacidadConsultaRRHH
-}
-
 type sesionConsultaRRHHPrueba struct {
 	t               *testing.T
 	pagina          ports.PaginaCuadroRRHH
@@ -281,17 +274,16 @@ func TestConsultasRRHHRechazanMaterialDeOtroContexto(t *testing.T) {
 }
 
 type entornoConsultaRRHH struct {
-	ahora       time.Time
-	contexto    ports.ContextoConsultaRRHH
-	cuadro      ports.SolicitudCuadroRRHH
-	detalle     ports.SolicitudDetalleRRHH
-	autoridad   *autoridadConsultaRRHHPrueba
-	autorizador *capacidadesConsultaRRHHPrueba
-	emisor      *ports.EmisorMaterialConsultaRRHH
-	emision     *entornoEmisorConsultaRRHHPrueba
-	sesion      *sesionConsultaRRHHPrueba
-	reloj       *relojConsultaRRHHPrueba
-	expediente  domain.Expediente
+	ahora      time.Time
+	contexto   ports.ContextoConsultaRRHH
+	cuadro     ports.SolicitudCuadroRRHH
+	detalle    ports.SolicitudDetalleRRHH
+	autoridad  *autoridadConsultaRRHHPrueba
+	emisor     *ports.EmisorMaterialConsultaRRHH
+	emision    *entornoEmisorConsultaRRHHPrueba
+	sesion     *sesionConsultaRRHHPrueba
+	reloj      *relojConsultaRRHHPrueba
+	expediente domain.Expediente
 }
 
 func nuevoEntornoConsultaRRHH(t *testing.T) *entornoConsultaRRHH {
@@ -309,20 +301,10 @@ func nuevoEntornoConsultaRRHH(t *testing.T) *entornoConsultaRRHH {
 		t.Fatal(err)
 	}
 	capacidadCuadro := capacidadConsultaCuadroRRHHV3Prueba(
-		t,
-		contexto,
-		cuadro,
-		ahora,
-		ports.AmbitoOrganizacionRRHH,
-		contexto.OrganizacionRef(),
+		t, contexto, cuadro, ahora,
 	)
 	capacidadDetalle := capacidadConsultaDetalleRRHHV3Prueba(
-		t,
-		contexto,
-		detalle,
-		ahora,
-		ports.AmbitoOrganizacionRRHH,
-		contexto.OrganizacionRef(),
+		t, contexto, detalle, ahora,
 	)
 	expediente := expedienteConsultaRRHHPrueba(t, ahora)
 	emision := nuevoEmisorConsultaRRHHV3Prueba(t, ahora)
@@ -354,10 +336,7 @@ func nuevoEntornoConsultaRRHH(t *testing.T) *entornoConsultaRRHH {
 	return &entornoConsultaRRHH{
 		ahora: ahora, contexto: contexto, cuadro: cuadro, detalle: detalle,
 		autoridad: &autoridadConsultaRRHHPrueba{contexto: contexto},
-		autorizador: &capacidadesConsultaRRHHPrueba{
-			capacidadCuadro: capacidadCuadro, capacidadDetalle: capacidadDetalle,
-		},
-		emisor: emision.emisor, emision: emision,
+		emisor:    emision.emisor, emision: emision,
 		sesion: &sesionConsultaRRHHPrueba{
 			t: t,
 			pagina: ports.PaginaCuadroRRHH{

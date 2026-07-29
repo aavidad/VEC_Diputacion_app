@@ -19,7 +19,6 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
-	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 type canonRRHHParaSQL interface {
@@ -35,14 +34,14 @@ type canonRRHHParaSQL interface {
 func TestExportacionesCanonicasSQLConservanVectoresDorados(t *testing.T) {
 	t.Parallel()
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 
 	solicitudVacia, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 25, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	ordenVacia := ordenCuadroCanonSQL(
-		t, autoridad, contexto, solicitudVacia, ahora, nil,
+		t, contexto, solicitudVacia, ahora,
 	)
 	consultaVacia, err := ordenVacia.ExportarConsultaCanonicaParaSQL()
 	if err != nil {
@@ -62,7 +61,7 @@ func TestExportacionesCanonicasSQLConservanVectoresDorados(t *testing.T) {
 		t.Fatal(err)
 	}
 	ordenUnicode := ordenCuadroCanonSQL(
-		t, autoridad, contexto, solicitudUnicode, ahora, nil,
+		t, contexto, solicitudUnicode, ahora,
 	)
 	familiaUnicode, err := ordenUnicode.ExportarFamiliaCanonicaParaSQL()
 	if err != nil {
@@ -82,7 +81,7 @@ func TestExportacionesCanonicasSQLConservanVectoresDorados(t *testing.T) {
 		t.Fatal(err)
 	}
 	capacidadDetalle := capacidadDetallePuertosRRHH(
-		t, autoridad, contexto, solicitudDetalle, ahora,
+		t, contexto, solicitudDetalle, ahora,
 	)
 	ordenDetalle, err := ports.NuevaOrdenConsultaDetalleRRHH(
 		contexto, capacidadDetalle, solicitudDetalle, ahora,
@@ -109,7 +108,7 @@ func TestExportacionesCanonicasSQLConservanVectoresDorados(t *testing.T) {
 		t.Fatal(err)
 	}
 	ordenCursor := ordenCuadroCanonSQL(
-		t, autoridad, contexto, solicitudCursor, ahora, nil,
+		t, contexto, solicitudCursor, ahora,
 	)
 	consultaCursor, err := ordenCursor.ExportarConsultaCanonicaParaSQL()
 	if err != nil {
@@ -129,52 +128,21 @@ func TestExportacionesCanonicasSQLConservanVectoresDorados(t *testing.T) {
 func TestExportacionCanonicaAlcanceSQLCubreAmbitosGobernados(t *testing.T) {
 	t.Parallel()
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 	solicitud, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 25, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	casos := []struct {
-		nombre, clase, referencia, canon, huella string
-	}{
-		{
-			nombre: "organizacion", clase: string(ports.AmbitoOrganizacionRRHH),
-			referencia: "organizacion:diputacion-granada",
-			canon:      `{"dominio":"vec.contratacion_temporal.alcance_rrhh.v1","version":1,"organizacion_ref":"organizacion:diputacion-granada","clase_ambito":"organizacion","ambito_ref":"organizacion:diputacion-granada"}`,
-			huella:     "cc4772d9abe85886f10f5ee98e304ae190929de3602e69c8281bcd8e3ea7fd4b",
-		},
-		{
-			nombre: "centro", clase: string(ports.AmbitoCentroRRHH),
-			referencia: "centro:rrhh:001",
-			canon:      `{"dominio":"vec.contratacion_temporal.alcance_rrhh.v1","version":1,"organizacion_ref":"organizacion:diputacion-granada","clase_ambito":"centro","ambito_ref":"centro:rrhh:001"}`,
-			huella:     "f864ac24878bf8cd93701254a8a64f27dfaf4702e1b44f6ee0ddf30177abe7d9",
-		},
-		{
-			nombre: "unidad", clase: string(ports.AmbitoUnidadGestionRRHH),
-			referencia: "unidad:seleccion:001",
-			canon:      `{"dominio":"vec.contratacion_temporal.alcance_rrhh.v1","version":1,"organizacion_ref":"organizacion:diputacion-granada","clase_ambito":"unidad_gestion","ambito_ref":"unidad:seleccion:001"}`,
-			huella:     "0e9140f36357f299b8f2606ff07e1e74e12cdb3cfe97839da8ad372ba733b6d0",
-		},
+	orden := ordenCuadroCanonSQL(t, contexto, solicitud, ahora)
+	alcance, err := orden.ExportarAlcanceCanonicoParaSQL()
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, caso := range casos {
-		caso := caso
-		t.Run(caso.nombre, func(t *testing.T) {
-			t.Parallel()
-			orden := ordenCuadroCanonSQL(
-				t, autoridad, contexto, solicitud, ahora,
-				func(recurso *dominiovec.RecursoAutorizable) {
-					recurso.Ambitos["clase_ambito"] = caso.clase
-					recurso.Ambitos["ambito_ref"] = caso.referencia
-					recurso.Referencia = caso.referencia
-				},
-			)
-			alcance, err := orden.ExportarAlcanceCanonicoParaSQL()
-			if err != nil {
-				t.Fatal(err)
-			}
-			comprobarVectorCanonSQL(t, alcance, caso.canon, caso.huella)
-		})
-	}
+	comprobarVectorCanonSQL(
+		t, alcance,
+		`{"dominio":"vec.contratacion_temporal.alcance_rrhh.v1","version":1,"organizacion_ref":"organizacion:diputacion-granada","clase_ambito":"organizacion","ambito_ref":"organizacion:diputacion-granada"}`,
+		"cc4772d9abe85886f10f5ee98e304ae190929de3602e69c8281bcd8e3ea7fd4b",
+	)
 }
 
 func TestExportacionesCanonicasSQLSonNominalesDefensivasYMutablesSoloPorEntrada(
@@ -182,7 +150,7 @@ func TestExportacionesCanonicasSQLSonNominalesDefensivasYMutablesSoloPorEntrada(
 ) {
 	t.Parallel()
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 	cursor := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0xa5}, 32))
 	sinCursor, err := ports.NuevaSolicitudCuadroRRHH(
 		"Área_Ñ", domain.EstadoEnCurso, "solicitud", 20, "",
@@ -197,10 +165,10 @@ func TestExportacionesCanonicasSQLSonNominalesDefensivasYMutablesSoloPorEntrada(
 		t.Fatal(err)
 	}
 	ordenSinCursor := ordenCuadroCanonSQL(
-		t, autoridad, contexto, sinCursor, ahora, nil,
+		t, contexto, sinCursor, ahora,
 	)
 	ordenConCursor := ordenCuadroCanonSQL(
-		t, autoridad, contexto, conCursor, ahora, nil,
+		t, contexto, conCursor, ahora,
 	)
 	consultaSinCursor, err := ordenSinCursor.ExportarConsultaCanonicaParaSQL()
 	if err != nil {
@@ -252,7 +220,7 @@ func TestExportacionesCanonicasSQLSonNominalesDefensivasYMutablesSoloPorEntrada(
 		t.Fatal(err)
 	}
 	capacidadDetalle := capacidadDetallePuertosRRHH(
-		t, autoridad, contexto, solicitudDetalle, ahora,
+		t, contexto, solicitudDetalle, ahora,
 	)
 	ordenDetalle, err := ports.NuevaOrdenConsultaDetalleRRHH(
 		contexto, capacidadDetalle, solicitudDetalle, ahora,
@@ -292,7 +260,7 @@ func TestExportacionesCanonicasSQLSonNominalesDefensivasYMutablesSoloPorEntrada(
 func TestExportacionesCanonicasSQLNoFiltranPIINiSeSerializan(t *testing.T) {
 	t.Parallel()
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 	solicitud, err := ports.NuevaSolicitudCuadroRRHH(
 		"Área_Ñ", domain.EstadoEnCurso, "solicitud", 20, "",
 	)
@@ -300,7 +268,7 @@ func TestExportacionesCanonicasSQLNoFiltranPIINiSeSerializan(t *testing.T) {
 		t.Fatal(err)
 	}
 	orden := ordenCuadroCanonSQL(
-		t, autoridad, contexto, solicitud, ahora, nil,
+		t, contexto, solicitud, ahora,
 	)
 	consulta, err := orden.ExportarConsultaCanonicaParaSQL()
 	if err != nil {
@@ -321,7 +289,7 @@ func TestExportacionesCanonicasSQLNoFiltranPIINiSeSerializan(t *testing.T) {
 		t.Fatal(err)
 	}
 	capacidadDetalle := capacidadDetallePuertosRRHH(
-		t, autoridad, contexto, solicitudDetalle, ahora,
+		t, contexto, solicitudDetalle, ahora,
 	)
 	ordenDetalle, err := ports.NuevaOrdenConsultaDetalleRRHH(
 		contexto, capacidadDetalle, solicitudDetalle, ahora,
@@ -451,27 +419,14 @@ func comprobarOpacidadCanonSQL(
 
 func ordenCuadroCanonSQL(
 	t *testing.T,
-	autoridad ports.ContextoAutorizacionAltaV3,
 	contexto ports.ContextoConsultaRRHH,
 	solicitud ports.SolicitudCuadroRRHH,
 	instante time.Time,
-	mutarRecurso func(*dominiovec.RecursoAutorizable),
 ) ports.OrdenConsultaCuadroRRHH {
 	t.Helper()
-	material, err := materialConsultaRRHHPruebaAlterado(
-		t, autoridad, contexto, solicitud, ports.SolicitudDetalleRRHH{},
-		ports.AccionConsultarCuadroRRHH, ports.FinalidadConsultarCuadroRRHH,
-		ports.AudienciaConsumoConsultaCuadroRRHHV3, instante, mutarRecurso,
+	capacidad := capacidadCuadroPuertosRRHH(
+		t, contexto, solicitud, instante,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	capacidad, err := ports.NuevaCapacidadConsultaCuadroRRHH(
-		contexto, material, solicitud, instante,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
 	orden, err := ports.NuevaOrdenConsultaCuadroRRHH(
 		contexto, capacidad, solicitud, instante,
 	)

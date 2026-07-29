@@ -32,7 +32,7 @@ type MaterialAutorizacionConsultaRRHH struct {
 	expiraEn        time.Time
 }
 
-func NuevoMaterialAutorizacionConsultaRRHH(
+func nuevoMaterialAutorizacionConsultaRRHH(
 	contexto ContextoConsultaRRHH,
 	solicitud dominiovec.SolicitudAutorizacionLigadaV3,
 	decision dominiovec.DecisionAutorizacionLigadaV3,

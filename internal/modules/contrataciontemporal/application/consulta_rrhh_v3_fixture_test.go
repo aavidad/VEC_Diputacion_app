@@ -16,15 +16,7 @@ import (
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
-const (
-	organizacionConsultaRRHHPrueba = "organizacion:diputacion-granada"
-
-	ambitoOrganizacionConsultaRRHHPrueba = "organizacion_ref"
-	ambitoClaseConsultaRRHHPrueba        = "clase_ambito"
-	ambitoReferenciaConsultaRRHHPrueba   = "ambito_ref"
-	atributoDominioConsultaRRHHPrueba    = "consulta_dominio"
-	atributoHuellaConsultaRRHHPrueba     = "consulta_huella_sha256"
-)
+const organizacionConsultaRRHHPrueba = "organizacion:diputacion-granada"
 
 type generadorCorrelacionConsultaRRHHPrueba struct {
 	mu       sync.Mutex
@@ -107,7 +99,6 @@ func (r *relojEmisorConsultaRRHHPrueba) Ahora() time.Time {
 type emisorAtestadoConsultaRRHHPrueba struct {
 	mu              sync.Mutex
 	t               *testing.T
-	audiencia       string
 	instante        time.Time
 	err             error
 	cancelar        context.CancelFunc
@@ -225,12 +216,10 @@ func nuevoEmisorConsultaRRHHV3Prueba(
 		instantes: []time.Time{ahora, ahora},
 	}
 	cuadro := &emisorAtestadoConsultaRRHHPrueba{
-		t: t, audiencia: ports.AudienciaConsumoConsultaCuadroRRHHV3,
-		instante: ahora,
+		t: t, instante: ahora,
 	}
 	detalle := &emisorAtestadoConsultaRRHHPrueba{
-		t: t, audiencia: ports.AudienciaConsumoConsultaDetalleRRHHV3,
-		instante: ahora,
+		t: t, instante: ahora,
 	}
 	emisor, err := ports.NuevoEmisorMaterialConsultaRRHH(
 		motivos, correlaciones, reloj, cuadro, detalle,
@@ -249,36 +238,17 @@ func capacidadConsultaCuadroRRHHV3Prueba(
 	contexto ports.ContextoConsultaRRHH,
 	solicitud ports.SolicitudCuadroRRHH,
 	ahora time.Time,
-	clase ports.ClaseAmbitoConsultaRRHH,
-	ambitoRef string,
 ) ports.CapacidadConsultaRRHH {
 	t.Helper()
-	huella, err := solicitud.HuellaCanonicaSHA256()
+	emision := nuevoEmisorConsultaRRHHV3Prueba(t, ahora)
+	material, err := emision.emisor.EmitirMaterialCuadroRRHH(
+		context.Background(), contexto, solicitud,
+	)
 	if err != nil {
-		t.Fatalf("calcular huella de cuadro RRHH: %v", err)
+		t.Fatalf("emitir material de cuadro RRHH mediante A4.3: %v", err)
 	}
-	recurso := recursoConsultaRRHHV3Prueba(
-		contexto,
-		clase,
-		ambitoRef,
-		ambitoRef,
-		ports.TipoRecursoCuadroRRHH,
-		ports.DominioHuellaConsultaCuadroRRHH,
-		huella,
-	)
-	material := materialConsultaRRHHV3Prueba(
-		t,
-		contexto,
-		recurso,
-		ports.AccionConsultarCuadroRRHH,
-		ports.FinalidadConsultarCuadroRRHH,
-		ahora,
-	)
 	capacidad, err := ports.NuevaCapacidadConsultaCuadroRRHH(
-		contexto,
-		material,
-		solicitud,
-		ahora,
+		contexto, material, solicitud, ahora,
 	)
 	if err != nil {
 		t.Fatalf("crear capacidad de cuadro RRHH V3: %v", err)
@@ -291,136 +261,22 @@ func capacidadConsultaDetalleRRHHV3Prueba(
 	contexto ports.ContextoConsultaRRHH,
 	solicitud ports.SolicitudDetalleRRHH,
 	ahora time.Time,
-	clase ports.ClaseAmbitoConsultaRRHH,
-	ambitoRef string,
 ) ports.CapacidadConsultaRRHH {
 	t.Helper()
-	huella, err := solicitud.HuellaCanonicaSHA256()
+	emision := nuevoEmisorConsultaRRHHV3Prueba(t, ahora)
+	material, err := emision.emisor.EmitirMaterialDetalleRRHH(
+		context.Background(), contexto, solicitud,
+	)
 	if err != nil {
-		t.Fatalf("calcular huella de detalle RRHH: %v", err)
+		t.Fatalf("emitir material de detalle RRHH mediante A4.3: %v", err)
 	}
-	recurso := recursoConsultaRRHHV3Prueba(
-		contexto,
-		clase,
-		ambitoRef,
-		solicitud.ExpedienteRef(),
-		ports.TipoRecursoExpediente,
-		ports.DominioHuellaConsultaDetalleRRHH,
-		huella,
-	)
-	material := materialConsultaRRHHV3Prueba(
-		t,
-		contexto,
-		recurso,
-		ports.AccionConsultarDetalleRRHH,
-		ports.FinalidadConsultarDetalleRRHH,
-		ahora,
-	)
 	capacidad, err := ports.NuevaCapacidadConsultaDetalleRRHH(
-		contexto,
-		material,
-		solicitud,
-		ahora,
+		contexto, material, solicitud, ahora,
 	)
 	if err != nil {
 		t.Fatalf("crear capacidad de detalle RRHH V3: %v", err)
 	}
 	return capacidad
-}
-
-func recursoConsultaRRHHV3Prueba(
-	contexto ports.ContextoConsultaRRHH,
-	clase ports.ClaseAmbitoConsultaRRHH,
-	ambitoRef, referencia, tipo, dominio, huella string,
-) dominiovec.RecursoAutorizable {
-	return dominiovec.RecursoAutorizable{
-		Referencia: referencia,
-		ModuloID:   ports.ModuloContratacion,
-		Tipo:       tipo,
-		Ambitos: map[string]string{
-			ambitoOrganizacionConsultaRRHHPrueba: contexto.OrganizacionRef(),
-			ambitoClaseConsultaRRHHPrueba:        string(clase),
-			ambitoReferenciaConsultaRRHHPrueba:   ambitoRef,
-		},
-		Atributos: map[string]string{
-			atributoDominioConsultaRRHHPrueba: dominio,
-			atributoHuellaConsultaRRHHPrueba:  huella,
-		},
-	}
-}
-
-func materialConsultaRRHHV3Prueba(
-	t *testing.T,
-	contexto ports.ContextoConsultaRRHH,
-	recurso dominiovec.RecursoAutorizable,
-	accion, finalidad string,
-	ahora time.Time,
-) ports.MaterialAutorizacionConsultaRRHH {
-	t.Helper()
-	autoridad := contextoAutorizacionAltaV3Prueba(t, ahora)
-	motivo := dominiovec.ReferenciaEntradaCatalogo{
-		CatalogoID:           "motivos_autorizacion",
-		CatalogoVersion:      1,
-		CatalogoHuellaSHA256: strings.Repeat("a", 64),
-		EntradaClave:         "motivo_0123456789abcdef0123456789abcdef",
-	}
-	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
-		context.Background(),
-		&generadorCorrelacionConsultaRRHHPrueba{
-			valor: "correlacion_0123456789abcdef0123456789abcdef",
-		},
-	)
-	if err != nil {
-		t.Fatalf("generar correlación de consulta RRHH: %v", err)
-	}
-	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(
-		dominiovec.DatosSolicitudAutorizacionLigadaV3{
-			VinculoAutenticacionActor: autoridad.Vinculo,
-			ReferenciaMotivo:          motivo,
-			Accion:                    accion,
-			Recurso:                   recurso,
-			Finalidad:                 finalidad,
-			Correlacion:               correlacion,
-		},
-	)
-	if err != nil {
-		t.Fatalf("crear solicitud de autorización de consulta RRHH: %v", err)
-	}
-	decision, confirmacion, err := concesionAutorizacionV3Prueba(
-		t,
-		solicitud,
-		autoridad.Resultado,
-		motivo,
-		ahora,
-		"decision:rrhh:v3:prueba",
-		true,
-	)
-	if err != nil {
-		t.Fatalf("crear concesión de consulta RRHH: %v", err)
-	}
-	exportacion := exportacionMaterialConsumoConsultaRRHHPrueba(
-		t,
-		solicitud,
-		decision,
-		motivo,
-		autoridad.Resultado,
-		recurso,
-		accion,
-		ahora,
-	)
-	material, err := ports.NuevoMaterialAutorizacionConsultaRRHH(
-		contexto,
-		solicitud,
-		decision,
-		confirmacion,
-		autoridad.Resultado,
-		exportadorMaterialConsumoConsultaRRHHPrueba{exportacion: exportacion},
-		ahora,
-	)
-	if err != nil {
-		t.Fatalf("crear material probatorio de consulta RRHH: %v", err)
-	}
-	return material
 }
 
 func exportacionMaterialConsumoConsultaRRHHPrueba(

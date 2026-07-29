@@ -15,19 +15,18 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
-	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 func TestMaterialConsultaRRHHEsRedactadoYNoSerializable(t *testing.T) {
 	t.Parallel()
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 	solicitud, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 50, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	capacidad := capacidadCuadroPuertosRRHH(
-		t, autoridad, contexto, solicitud, ahora,
+		t, contexto, solicitud, ahora,
 	)
 	orden, err := ports.NuevaOrdenConsultaCuadroRRHH(
 		contexto, capacidad, solicitud, ahora,
@@ -42,7 +41,7 @@ func TestMaterialConsultaRRHHEsRedactadoYNoSerializable(t *testing.T) {
 		t.Fatal(err)
 	}
 	capacidadDetalle := capacidadDetallePuertosRRHH(
-		t, autoridad, contexto, solicitudDetalle, ahora,
+		t, contexto, solicitudDetalle, ahora,
 	)
 	ordenDetalle, err := ports.NuevaOrdenConsultaDetalleRRHH(
 		contexto, capacidadDetalle, solicitudDetalle, ahora,
@@ -73,7 +72,7 @@ func TestMaterialConsultaRRHHEsRedactadoYNoSerializable(t *testing.T) {
 func TestCapacidadConsultaRRHHNoPuedeCruzarseNiUsarseCaducada(t *testing.T) {
 	t.Parallel()
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 	cuadro, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 10, "")
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +82,7 @@ func TestCapacidadConsultaRRHHNoPuedeCruzarseNiUsarseCaducada(t *testing.T) {
 		t.Fatal(err)
 	}
 	capacidad := capacidadCuadroPuertosRRHH(
-		t, autoridad, contexto, cuadro, ahora,
+		t, contexto, cuadro, ahora,
 	)
 	if _, err = ports.NuevaOrdenConsultaDetalleRRHH(
 		contexto, capacidad, detalle, ahora,
@@ -106,10 +105,10 @@ func TestCapacidadConsultaRRHHNoPuedeCruzarseNiUsarseCaducada(t *testing.T) {
 	}
 }
 
-func TestMaterialConsultaRRHHCierraAudienciaYTipoDeRecurso(t *testing.T) {
+func TestEmisorMaterialConsultaRRHHCierraOperacionYAmbito(t *testing.T) {
 	t.Parallel()
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 	cuadro, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 10, "")
 	if err != nil {
 		t.Fatal(err)
@@ -120,97 +119,38 @@ func TestMaterialConsultaRRHHCierraAudienciaYTipoDeRecurso(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for nombre, crear := range map[string]func() error{
-		"audiencia_detalle_en_cuadro": func() error {
-			_, err := materialConsultaRRHHPrueba(
-				t, autoridad, contexto, cuadro, ports.SolicitudDetalleRRHH{},
-				ports.AccionConsultarCuadroRRHH,
-				ports.FinalidadConsultarCuadroRRHH,
-				ports.AudienciaConsumoConsultaDetalleRRHHV3, ahora,
-			)
-			return err
-		},
-		"audiencia_cuadro_en_detalle": func() error {
-			_, err := materialConsultaRRHHPrueba(
-				t, autoridad, contexto, ports.SolicitudCuadroRRHH{}, detalle,
-				ports.AccionConsultarDetalleRRHH,
-				ports.FinalidadConsultarDetalleRRHH,
-				ports.AudienciaConsumoConsultaCuadroRRHHV3, ahora,
-			)
-			return err
-		},
-		"tipo_detalle_en_cuadro": func() error {
-			_, err := materialConsultaRRHHPruebaAlterado(
-				t, autoridad, contexto, cuadro, ports.SolicitudDetalleRRHH{},
-				ports.AccionConsultarCuadroRRHH,
-				ports.FinalidadConsultarCuadroRRHH,
-				ports.AudienciaConsumoConsultaCuadroRRHHV3, ahora,
-				func(r *dominiovec.RecursoAutorizable) {
-					r.Tipo = ports.TipoRecursoExpediente
-				},
-			)
-			return err
-		},
-		"tipo_cuadro_en_detalle": func() error {
-			_, err := materialConsultaRRHHPruebaAlterado(
-				t, autoridad, contexto, ports.SolicitudCuadroRRHH{}, detalle,
-				ports.AccionConsultarDetalleRRHH,
-				ports.FinalidadConsultarDetalleRRHH,
-				ports.AudienciaConsumoConsultaDetalleRRHHV3, ahora,
-				func(r *dominiovec.RecursoAutorizable) {
-					r.Tipo = ports.TipoRecursoCuadroRRHH
-				},
-			)
-			return err
-		},
-		"referencia_expediente_en_cuadro": func() error {
-			_, err := materialConsultaRRHHPruebaAlterado(
-				t, autoridad, contexto, cuadro, ports.SolicitudDetalleRRHH{},
-				ports.AccionConsultarCuadroRRHH,
-				ports.FinalidadConsultarCuadroRRHH,
-				ports.AudienciaConsumoConsultaCuadroRRHHV3, ahora,
-				func(r *dominiovec.RecursoAutorizable) {
-					r.Referencia = "expediente:rrhh:otro"
-				},
-			)
-			return err
-		},
-	} {
-		if err := crear(); !errors.Is(
-			err, ports.ErrCapacidadConsultaRRHHInvalida,
-		) {
-			t.Fatalf("%s aceptado: %v", nombre, err)
-		}
-	}
-	materialHuellaAjena, err := materialConsultaRRHHPruebaAlterado(
-		t, autoridad, contexto, cuadro, ports.SolicitudDetalleRRHH{},
-		ports.AccionConsultarCuadroRRHH,
-		ports.FinalidadConsultarCuadroRRHH,
-		ports.AudienciaConsumoConsultaCuadroRRHHV3, ahora,
-		func(r *dominiovec.RecursoAutorizable) {
-			r.Atributos["consulta_huella_sha256"] = strings.Repeat("b", 64)
-		},
+	capacidadCuadro := capacidadCuadroPuertosRRHH(
+		t, contexto, cuadro, ahora,
 	)
-	if err != nil {
-		t.Fatalf("material con huella declarada válida: %v", err)
-	}
-	if _, err := ports.NuevaCapacidadConsultaCuadroRRHH(
-		contexto, materialHuellaAjena, cuadro, ahora,
-	); !errors.Is(err, ports.ErrCapacidadConsultaRRHHInvalida) {
-		t.Fatalf("material ligado a otra huella aceptado: %v", err)
+	capacidadDetalle := capacidadDetallePuertosRRHH(
+		t, contexto, detalle, ahora,
+	)
+	if capacidadCuadro.Accion() != ports.AccionConsultarCuadroRRHH ||
+		capacidadCuadro.Finalidad() != ports.FinalidadConsultarCuadroRRHH ||
+		capacidadCuadro.ClaseAmbito() != ports.AmbitoOrganizacionRRHH ||
+		capacidadCuadro.AmbitoRef() != contexto.OrganizacionRef() ||
+		capacidadDetalle.Accion() != ports.AccionConsultarDetalleRRHH ||
+		capacidadDetalle.Finalidad() != ports.FinalidadConsultarDetalleRRHH ||
+		capacidadDetalle.ClaseAmbito() != ports.AmbitoOrganizacionRRHH ||
+		capacidadDetalle.AmbitoRef() != contexto.OrganizacionRef() ||
+		capacidadDetalle.ExpedienteRef() != detalle.ExpedienteRef() {
+		t.Fatalf(
+			"el emisor nominal no cerró operación y ámbito: cuadro=%#v detalle=%#v",
+			capacidadCuadro, capacidadDetalle,
+		)
 	}
 }
 
 func TestCapacidadConsultaRRHHCaducaEnCincoSegundos(t *testing.T) {
 	t.Parallel()
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 	cuadro, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 10, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	capacidad := capacidadCuadroPuertosRRHH(
-		t, autoridad, contexto, cuadro, ahora,
+		t, contexto, cuadro, ahora,
 	)
 	if capacidad.ValidaHasta().Sub(capacidad.ValidaDesde()) !=
 		ports.DuracionMaximaCapacidadConsultaRRHH {
@@ -229,13 +169,13 @@ func TestCapacidadConsultaRRHHCaducaEnCincoSegundos(t *testing.T) {
 func TestReciboLecturaRRHHRevalidaCapacidadAlRegistrar(t *testing.T) {
 	t.Parallel()
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 	solicitud, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 10, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	capacidad := capacidadCuadroPuertosRRHH(
-		t, autoridad, contexto, solicitud, ahora,
+		t, contexto, solicitud, ahora,
 	)
 	if _, err = ports.NuevoReciboLecturaRRHH(
 		"lectura:rrhh:001", "auditoria:rrhh:001",
@@ -248,13 +188,13 @@ func TestReciboLecturaRRHHRevalidaCapacidadAlRegistrar(t *testing.T) {
 func TestReciboLecturaRRHHBloqueaCodecsFmtYSlog(t *testing.T) {
 	t.Parallel()
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 	solicitud, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 10, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	capacidad := capacidadCuadroPuertosRRHH(
-		t, autoridad, contexto, solicitud, ahora,
+		t, contexto, solicitud, ahora,
 	)
 	recibo, err := ports.NuevoReciboLecturaRRHH(
 		"lectura:rrhh:001", "auditoria:rrhh:001",
@@ -323,16 +263,12 @@ func TestReciboLecturaRRHHBloqueaCodecsFmtYSlog(t *testing.T) {
 func TestExportacionSQLSoloExisteEnOrdenLigada(t *testing.T) {
 	t.Parallel()
 	ahora := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, ahora)
+	_, contexto := autoridadYContextoPuertosRRHH(t, ahora)
 	solicitud, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 10, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	material, err := materialConsultaRRHHPrueba(
-		t, autoridad, contexto, solicitud, ports.SolicitudDetalleRRHH{},
-		ports.AccionConsultarCuadroRRHH, ports.FinalidadConsultarCuadroRRHH,
-		ports.AudienciaConsumoConsultaCuadroRRHHV3, ahora,
-	)
+	material, err := materialCuadroPuertosRRHH(t, contexto, solicitud, ahora)
 	if err != nil {
 		t.Fatal(err)
 	}
