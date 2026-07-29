@@ -150,6 +150,14 @@ generan correlaciones, emiten material ni publican API. A4.3 queda
 desbloqueado para componer esas autoridades nominales sin exponer el resultado
 registrado.
 
+A4.3 quedó integrado en `fa304c4` con
+[GO independiente](revisiones/o4_05_revision_guardian_nominal_ct_000047a43_2026-07-30.md)
+y P0=P1=P2=0. El guardián público tiene métodos nominales separados, resuelve
+M0 y correlación una vez, reutiliza A4.2, selecciona el emisor A2.2 exacto y
+valida un segundo reloj no retrógrado antes de construir el material. Un error
+posterior a evidencia durable devuelve material cero. A5 debe ahora migrar los
+dos casos de uso y retirar la vía copiable anterior antes de componer la raíz.
+
 El contrato M0 de motivos quedó integrado en `c1bb5ec` con
 [GO independiente](revisiones/o4_05_revision_contrato_motivos_ct_000047m0_2026-07-29.md).
 Cuadro y detalle tienen métodos nominales separados, sin selectores libres.

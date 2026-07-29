@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último commit verificado | `eb6fbfd` — puerto MAC no exportable corregido y cerrado con P0=P1=P2=0 |
-| Trabajo local en revisión | CT `000047A4.3`, guardián nominal pendiente de revisión independiente. |
+| Último commit verificado | `fa304c4` — guardián nominal A4.3 cerrado con P0=P1=P2=0 |
+| Trabajo local en revisión | A5: migración de casos de uso y retirada de los dos puertos copiables anteriores. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
