@@ -78,6 +78,7 @@ func (c ClaseAmbitoConsultaRRHH) valida() bool {
 // Sus campos son privados, no se serializa y su representación está redactada.
 type ContextoConsultaRRHH struct {
 	bloqueoSerializacionConsultaRRHH
+	autoridad                 *ContextoAutorizacionAltaV3
 	autenticacionRef          string
 	autenticacionHuella       string
 	sesionRef                 string
@@ -113,9 +114,18 @@ func NuevoContextoConsultaRRHH(
 	if err != nil {
 		return ContextoConsultaRRHH{}, ErrContextoConsultaRRHHInvalido
 	}
+	autoridadRetenida := &ContextoAutorizacionAltaV3{
+		Vinculo:   autoridad.Vinculo,
+		Resultado: resultado,
+	}
+	if autoridadRetenida.ValidarPara(solicitud, instante) != nil ||
+		!autoridadRetenida.Vinculo.CoincideExactamenteCon(autoridad.Vinculo) {
+		return ContextoConsultaRRHH{}, ErrContextoConsultaRRHHInvalido
+	}
 	validoHasta := limiteVigenciaContextoConsultaRRHH(datosVinculo, resultado)
 	resueltoEn := inicioVigenciaContextoConsultaRRHH(datosVinculo, resultado)
 	c := ContextoConsultaRRHH{
+		autoridad:                 autoridadRetenida,
 		autenticacionRef:          datosVinculo.AutenticacionRef,
 		autenticacionHuella:       datosVinculo.AutenticacionHuellaSHA256,
 		sesionRef:                 datosVinculo.SesionRef,
@@ -177,7 +187,8 @@ func limiteVigenciaContextoConsultaRRHH(
 }
 
 func (c ContextoConsultaRRHH) validarEn(instante time.Time) error {
-	if !domain.ReferenciaOpacaValida(c.autenticacionRef) ||
+	if c.autoridad == nil ||
+		!domain.ReferenciaOpacaValida(c.autenticacionRef) ||
 		!patronHuellaRRHH.MatchString(c.autenticacionHuella) ||
 		!domain.ReferenciaOpacaValida(c.sesionRef) ||
 		!domain.ReferenciaOpacaValida(c.controlSesionRef) ||
@@ -195,6 +206,40 @@ func (c ContextoConsultaRRHH) validarEn(instante time.Time) error {
 		!domain.InstanteUTCCanonico(instante) ||
 		!c.validoHasta.After(c.resueltoEn) ||
 		instante.Before(c.resueltoEn) || !instante.Before(c.validoHasta) {
+		return ErrContextoConsultaRRHHInvalido
+	}
+	solicitud := SolicitudResolverContextoAutorizacionAltaV3{
+		AutenticacionRef: c.autenticacionRef,
+		SesionRef:        c.sesionRef,
+		PerfilRef:        c.perfilRef,
+	}
+	if c.autoridad.ValidarPara(solicitud, instante) != nil {
+		return ErrContextoConsultaRRHHInvalido
+	}
+	datos, err := c.autoridad.Vinculo.Datos()
+	if err != nil ||
+		datos.AutenticacionRef != c.autenticacionRef ||
+		datos.AutenticacionHuellaSHA256 != c.autenticacionHuella ||
+		datos.SesionRef != c.sesionRef ||
+		datos.ControlSesionRef != c.controlSesionRef ||
+		datos.ControlSesionRevision != c.controlSesionRevision ||
+		datos.ControlSesionHuellaSHA256 != c.controlSesionHuellaSHA256 ||
+		datos.PrincipalID != c.actorRef ||
+		datos.PerfilActivoRef != c.perfilRef ||
+		c.autoridad.Resultado.Contexto.Instantanea.PerfilVersion !=
+			c.perfilVersion ||
+		datos.RegistroContextoRef != c.registroContextoRef ||
+		c.autoridad.Resultado.RegistroContextoRef != c.registroContextoRef ||
+		datos.ContextoActorHuellaSHA256 != c.contextoActorHuella ||
+		c.autoridad.Resultado.HuellaSHA256 != c.contextoActorHuella ||
+		!inicioVigenciaContextoConsultaRRHH(
+			datos,
+			c.autoridad.Resultado,
+		).Equal(c.resueltoEn) ||
+		!limiteVigenciaContextoConsultaRRHH(
+			datos,
+			c.autoridad.Resultado,
+		).Equal(c.validoHasta) {
 		return ErrContextoConsultaRRHHInvalido
 	}
 	return nil
