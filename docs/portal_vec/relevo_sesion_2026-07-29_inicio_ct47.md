@@ -75,6 +75,22 @@ autoridades VEC existentes y no fabrica material de confianza. Los proveedores
 corporativos ausentes se inyectarán por puertos; no se sustituirán por memoria,
 cabeceras, cookies, datos DEMO o configuración de desarrollo.
 
+El primer prerrequisito mínimo está integrado:
+
+- `700d72a` devuelve vínculo y resultado registrado desde una única
+  resolución;
+- `f49afd0` conserva el contrato y los errores del constructor compatible;
+- `f186ce9` cierra las copias defensivas de todos los contenedores mutables.
+
+El conjunto obtuvo `GO` independiente con P0=0, P1=0 y P2=0. La
+[evidencia](revisiones/o4_05_revision_vinculo_resultado_ct_000047b_a_2026-07-29.md)
+no acredita todavía autoridad de canal, PDP, raíz ni E2E.
+
+Dos inventarios están descomponiendo el resto en unidades mínimas compilables.
+No se abrirá una tarea genérica de «autoridad/PDP»: retención nominal, recursos
+cerrados, decisión, material atestado, cronología, rutas y ciclo de vida se
+confirmarán y revisarán por separado.
+
 ## Métricas
 
 | Ámbito | Estado |
