@@ -3,6 +3,16 @@
 # Batería focal cargada por el ejecutor CT44B. Se mantiene separada para que
 # cada ejecutor respete el límite DEC-051 sin reducir las aserciones hostiles.
 
+contiene_secreto() {
+    local secreto=$1
+    shift
+    [[ -n $secreto ]] || return 2
+    VEC_SECRETO_BUSCADO="$secreto" awk '
+        index($0, ENVIRON["VEC_SECRETO_BUSCADO"]) { encontrado=1; exit }
+        END { exit encontrado ? 0 : 1 }
+    ' "$@"
+}
+
 invocar_detalle_controlado_ct44b() {
     local caso=$1
     local expediente=$2

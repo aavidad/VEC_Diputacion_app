@@ -5,7 +5,7 @@ directorio="$(
     cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1
     pwd -P
 )"
-patron_cursor_argumento='--env VEC_''CURSOR[^ ]*='
+patron_cursor_argumento='--env(=|[[:space:]])VEC_''CURSOR[^[:space:]]*='
 estado_cursores_argumentos=0
 rg -q -- "$patron_cursor_argumento" "${BASH_SOURCE[0]}" ||
     estado_cursores_argumentos=$?
@@ -287,7 +287,6 @@ ALTER DATABASE postgres SET log_statement = 'none';
 ALTER DATABASE postgres SET log_parameter_max_length = 0;
 ALTER DATABASE postgres SET log_parameter_max_length_on_error = 0;
 SQL
-
 paso 'instalación privada de componentes CT44 y corpus comprometido'
 psql_admin <<'SQL' >/dev/null
 BEGIN;
@@ -303,7 +302,6 @@ COMMIT;
 \ir /repo/contratacion_temporal/pruebas_sql/o405_motor_atomico_consultas_ct44b_datos_sinteticos.sql
 \ir /repo/contratacion_temporal/pruebas_sql/o405_motor_atomico_consultas_ct44b_adversarial.sql
 SQL
-
 paso 'catálogo privado, límites y revalidación nominal encapsulada'
 psql_admin <<'SQL' >/dev/null
 DO $prueba$
@@ -502,6 +500,10 @@ tokens_claros+=("$token_1")
 # Matriz directa 055 y cruce de detalle, separada para mantener DEC-051.
 # shellcheck disable=SC1091
 source "$directorio/probar_o4_05_motor_atomico_consultas_ct44b_hostil_pg18_4.sh"
+if ! declare -F contiene_secreto >/dev/null; then
+    printf 'la búsqueda segura de secretos CT44B no está disponible\n' >&2
+    exit 1
+fi
 probar_matriz_hostil_ct44b "$token_1"
 preparar_vector ct44b_pagina_2 cuadro
 ajustar_cursor ct44b_pagina_2 "$token_1"
@@ -530,7 +532,6 @@ esperar_fallo 'replay de cursor con VEC fresca CT44B' 42501 \
     invocar_cuadro ct44b_replay_cursor "$token_2"
 [[ "$(efectos_decision ct44b_replay_cursor)" == '0|0|0|0' ]]
 [[ "$(contar_consumos_cursor "$token_2")" == 1 ]]
-
 paso 'detalle de versión actual y versión exacta sin cursores'
 psql_admin <<'SQL' >/dev/null
 BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
@@ -571,7 +572,6 @@ acceso_exacto="$(invocar_detalle ct44b_detalle_exacta 1)"
      WHERE alcance.acceso_ref IN (
          '$acceso_actual', '$acceso_exacto'
      )")" == 0 ]]
-
 paso 'repetición de capacidad falla cerrada sin duplicar efectos'
 esperar_fallo 'replay VEC CT44B' 42501 \
     'consulta de cuadro RRHH rechazada' \
@@ -766,8 +766,8 @@ else
     [[ "$(efectos_decision ct44b_concurrencia_a)" == '0|0|0|0' ]]
     [[ "$(efectos_decision ct44b_concurrencia_b)" == '1|1|1|1' ]]
 fi
-if grep -F -- "$token_concurrente" \
-    "$salida_concurrente_a" "$salida_concurrente_b" >/dev/null; then
+if contiene_secreto "$token_concurrente" \
+    "$salida_concurrente_a" "$salida_concurrente_b"; then
     printf 'el cursor concurrente apareció en una salida temporal\n' >&2
     exit 1
 fi
@@ -776,7 +776,7 @@ paso 'el token claro no aparece en tablas ni registros del servidor'
 for token_claro in "${tokens_claros[@]}"; do
     [[ "$(contar_apariciones_tokens "$token_claro" "$token_claro")" == 0 ]]
     if docker logs "$contenedor" 2>&1 |
-        grep -F -- "$token_claro" >/dev/null; then
+        contiene_secreto "$token_claro"; then
         printf 'un token claro apareció en el registro del servidor\n' >&2
         exit 1
     fi

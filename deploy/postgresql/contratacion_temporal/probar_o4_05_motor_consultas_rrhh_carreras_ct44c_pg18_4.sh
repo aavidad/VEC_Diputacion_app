@@ -5,7 +5,7 @@ directorio="$(
     cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1
     pwd -P
 )"
-patron_cursor_argumento='--env VEC_''CURSOR[^ ]*='
+patron_cursor_argumento='--env(=|[[:space:]])VEC_''CURSOR[^[:space:]]*='
 estado_cursores_argumentos=0
 rg -q -- "$patron_cursor_argumento" "${BASH_SOURCE[0]}" ||
     estado_cursores_argumentos=$?
@@ -403,7 +403,7 @@ paso 'tokens claros ausentes de persistencia y registros PostgreSQL'
 for token_ct44c in "${tokens_ct44c[@]}"; do
     [[ "$(contar_apariciones_tokens "$token_ct44c" "$token_ct44c")" == 0 ]]
     if docker logs "$contenedor" 2>&1 |
-        rg -Fq -- "$token_ct44c"; then
+        contiene_secreto "$token_ct44c"; then
         printf 'un token CT44C apareció en el registro PostgreSQL\n' >&2
         exit 1
     fi
