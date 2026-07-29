@@ -107,6 +107,7 @@ func paginaRRHHPrueba() ports.PaginaCuadroRRHH {
 
 func detalleRRHHPrueba() ports.DetalleExpedienteRRHH {
 	resumen := resumenRRHHPrueba()
+	resumen.ModalidadClave = ""
 	return ports.DetalleExpedienteRRHH{
 		Resumen: resumen,
 		Solicitud: ports.SolicitudOperativaRRHH{

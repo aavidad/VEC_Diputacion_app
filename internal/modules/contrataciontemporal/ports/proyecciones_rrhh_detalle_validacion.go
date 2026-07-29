@@ -4,7 +4,14 @@ import "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 
 func (d DetalleExpedienteRRHH) validarEstructura() error {
 	if d.validarContenidoEstructura() != nil ||
-		d.Lectura.validar() != nil ||
+		d.validarEvidenciaEstructura() != nil {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	return nil
+}
+
+func (d DetalleExpedienteRRHH) validarEvidenciaEstructura() error {
+	if d.Lectura.validar() != nil ||
 		d.Lectura.expedienteRef != d.Resumen.ExpedienteRef ||
 		d.Lectura.version != d.Resumen.Version ||
 		d.Lectura.totalPublicado != 1 ||
@@ -18,15 +25,19 @@ func (d DetalleExpedienteRRHH) validarEstructura() error {
 // recibo durable. No autoriza ni publica el detalle: solo permite calcular su
 // huella dentro de la misma transacción que registrará después la lectura.
 func (d DetalleExpedienteRRHH) validarContenidoEstructura() error {
+	if d.validarContenidoPublicable() != nil ||
+		d.validarIntegridadContenidoEstructura() != nil {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	return nil
+}
+
+func (d DetalleExpedienteRRHH) validarIntegridadContenidoEstructura() error {
 	if !d.huellaCoincide() ||
 		d.bloques != 0 &&
 			d.bloques != bloqueAnalisisRRHH &&
 			d.bloques != bloqueAnalisisRRHH|bloqueCoberturaRRHH &&
-			d.bloques != bloqueAnalisisRRHH|bloqueCoberturaRRHH|bloqueAsignacionRRHH ||
-		d.Resumen.Validar() != nil ||
-		d.Solicitud.validar() != nil ||
-		len(d.Hitos) < 1 ||
-		uint64(len(d.Hitos)) != d.Resumen.Version {
+			d.bloques != bloqueAnalisisRRHH|bloqueCoberturaRRHH|bloqueAsignacionRRHH {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	debeTenerAnalisis := d.bloques&bloqueAnalisisRRHH != 0
@@ -37,37 +48,71 @@ func (d DetalleExpedienteRRHH) validarContenidoEstructura() error {
 		(d.Asignacion != nil) != debeTenerAsignacion {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
-	if !debeTenerAnalisis {
+	if d.Analisis != nil && !d.Analisis.vinculo.coincide(d.Hitos) {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	if d.Cobertura != nil {
+		if !d.Cobertura.vinculo.coincide(d.Hitos) ||
+			d.Cobertura.vinculo.secuencia <= d.Analisis.vinculo.secuencia {
+			return ErrResultadoConsultaRRHHNoConfiable
+		}
+	}
+	if d.Asignacion != nil &&
+		(!d.Asignacion.vinculo.coincide(d.Hitos) ||
+			!d.Asignacion.AsignadaEn.Equal(d.Asignacion.vinculo.realizadaEn) ||
+			d.Asignacion.vinculo.secuencia <= d.Cobertura.vinculo.secuencia) {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	return nil
+}
+
+func (d DetalleExpedienteRRHH) validarContenidoPublicable() error {
+	if d.Resumen.Validar() != nil ||
+		d.Solicitud.validar() != nil ||
+		len(d.Hitos) < 1 ||
+		uint64(len(d.Hitos)) != d.Resumen.Version {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	if d.Analisis == nil {
 		if d.Resumen.ModalidadClave != "" {
 			return ErrResultadoConsultaRRHHNoConfiable
 		}
 	} else if d.Analisis.validar() != nil ||
-		!d.Analisis.vinculo.coincide(d.Hitos) ||
 		d.Resumen.ModalidadClave != d.Analisis.ModalidadClave ||
 		d.Resumen.CategoriaRef != d.Analisis.CategoriaRef {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
-	if d.Cobertura != nil {
-		if d.Analisis == nil || d.Cobertura.validar() != nil ||
-			!d.Cobertura.vinculo.coincide(d.Hitos) ||
-			d.Cobertura.vinculo.secuencia <= d.Analisis.vinculo.secuencia {
-			return ErrResultadoConsultaRRHHNoConfiable
-		}
+	if d.Cobertura != nil &&
+		(d.Analisis == nil || d.Cobertura.validar() != nil) {
+		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	if d.Asignacion == nil {
 		if d.Resumen.UnidadRef != "" {
 			return ErrResultadoConsultaRRHHNoConfiable
 		}
 	} else if d.Cobertura == nil || d.Asignacion.validar() != nil ||
-		!d.Asignacion.vinculo.coincide(d.Hitos) ||
-		!d.Asignacion.AsignadaEn.Equal(d.Asignacion.vinculo.realizadaEn) ||
-		d.Asignacion.vinculo.secuencia <= d.Cobertura.vinculo.secuencia ||
 		d.Resumen.UnidadRef != d.Asignacion.UnidadRef ||
 		d.Asignacion.AsignadaEn.Before(d.Resumen.CreadoEn) ||
 		d.Asignacion.AsignadaEn.After(d.Resumen.ActualizadoEn) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	return d.validarHitos()
+}
+
+// ValidarContenidoPublicablePara comprueba el detalle neutral contra la
+// intención de lectura. No valida ni expone autoridad, ámbito, vínculos
+// probatorios privados o recibos.
+func (d DetalleExpedienteRRHH) ValidarContenidoPublicablePara(
+	solicitud SolicitudDetalleRRHH,
+) error {
+	if solicitud.validar() != nil ||
+		d.validarContenidoPublicable() != nil ||
+		d.Resumen.ExpedienteRef != solicitud.expedienteRef ||
+		(solicitud.versionObservada != 0 &&
+			solicitud.versionObservada != d.Resumen.Version) {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	return nil
 }
 
 func (d DetalleExpedienteRRHH) validarHitos() error {
@@ -104,23 +149,21 @@ func (d DetalleExpedienteRRHH) ValidarPara(
 	orden OrdenConsultaDetalleRRHH,
 ) error {
 	solicitud := orden.solicitud
-	if solicitud.validar() != nil ||
+	if d.ValidarContenidoPublicablePara(solicitud) != nil ||
 		orden.capacidad.validaPara(
 			orden.contexto, DominioHuellaConsultaDetalleRRHH,
 			orden.consultaHuella, AccionConsultarDetalleRRHH,
 			FinalidadConsultarDetalleRRHH,
 			solicitud.expedienteRef, orden.instante,
 		) != nil ||
-		d.validarEstructura() != nil ||
-		d.Resumen.ExpedienteRef != solicitud.expedienteRef ||
+		d.validarIntegridadContenidoEstructura() != nil ||
+		d.validarEvidenciaEstructura() != nil ||
 		!d.Resumen.cumpleAmbito(orden.capacidad) ||
 		!d.Lectura.coincideCon(
 			orden.contexto, orden.capacidad,
 			solicitud.expedienteRef, d.Resumen.Version,
 		) ||
-		d.Lectura.registradaEn.Before(orden.instante) ||
-		(solicitud.versionObservada != 0 &&
-			solicitud.versionObservada != d.Resumen.Version) {
+		d.Lectura.registradaEn.Before(orden.instante) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	return nil
