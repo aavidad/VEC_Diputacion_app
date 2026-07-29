@@ -3,8 +3,8 @@ package application
 import (
 	"context"
 	"errors"
-	"time"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -62,10 +62,6 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 		solicitud.Limite() > ports.LimiteMaximoCuadroRRHH {
 		return ports.PaginaCuadroRRHH{}, ErrSolicitudConsultaRRHHInvalida
 	}
-	instante := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
-	if err := errorContextoConsultaRRHH(ctx); err != nil {
-		return ports.PaginaCuadroRRHH{}, err
-	}
 	contexto, err := s.autoridad.ResolverContextoConsultaRRHH(ctx)
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
 		return ports.PaginaCuadroRRHH{}, errContexto
@@ -73,8 +69,15 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 	if err != nil {
 		return ports.PaginaCuadroRRHH{}, normalizarFalloConsultaRRHH(err)
 	}
+	instanteAutorizacion := s.reloj.Ahora()
+	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
+		return ports.PaginaCuadroRRHH{}, errContexto
+	}
+	if !domain.InstanteUTCCanonico(instanteAutorizacion) {
+		return ports.PaginaCuadroRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+	}
 	capacidad, err := s.autorizador.AutorizarCuadroRRHH(
-		ctx, contexto, solicitud, instante,
+		ctx, contexto, solicitud, instanteAutorizacion,
 	)
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
 		return ports.PaginaCuadroRRHH{}, errContexto
@@ -82,11 +85,22 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 	if err != nil {
 		return ports.PaginaCuadroRRHH{}, normalizarFalloConsultaRRHH(err)
 	}
+	instanteOrden := s.reloj.Ahora()
+	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
+		return ports.PaginaCuadroRRHH{}, errContexto
+	}
+	if !domain.InstanteUTCCanonico(instanteOrden) ||
+		instanteOrden.Before(instanteAutorizacion) {
+		return ports.PaginaCuadroRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+	}
 	orden, err := ports.NuevaOrdenConsultaCuadroRRHH(
-		contexto, capacidad, solicitud, instante,
+		contexto, capacidad, solicitud, instanteOrden,
 	)
 	if err != nil {
 		return ports.PaginaCuadroRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
+		return ports.PaginaCuadroRRHH{}, errContexto
 	}
 	pagina, err := s.sesion.ConsultarCuadroYRegistrar(ctx, orden)
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
