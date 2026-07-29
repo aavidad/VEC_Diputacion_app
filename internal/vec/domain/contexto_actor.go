@@ -185,7 +185,13 @@ func (i InstantaneaContextoActor) ClonarCanonica() (InstantaneaContextoActor, er
 		return InstantaneaContextoActor{}, err
 	}
 	copia := i
-	copia.Vinculos = append([]VinculoReferenciaContextoActor(nil), i.Vinculos...)
+	if i.Vinculos != nil {
+		copia.Vinculos = make(
+			[]VinculoReferenciaContextoActor,
+			len(i.Vinculos),
+		)
+		copy(copia.Vinculos, i.Vinculos)
+	}
 	sort.Slice(copia.Vinculos, func(a, b int) bool {
 		primero, segundo := copia.Vinculos[a], copia.Vinculos[b]
 		if primero.Tipo != segundo.Tipo {
@@ -273,11 +279,34 @@ func (c ContextoActor) Clonar() (ContextoActor, error) {
 		return ContextoActor{}, err
 	}
 	copia := c
+	if c.Principal.Roles != nil {
+		copia.Principal.Roles = make([]string, len(c.Principal.Roles))
+		copy(copia.Principal.Roles, c.Principal.Roles)
+	}
+	if c.Principal.Permissions != nil {
+		copia.Principal.Permissions = make(
+			[]string,
+			len(c.Principal.Permissions),
+		)
+		copy(copia.Principal.Permissions, c.Principal.Permissions)
+	}
+	if c.Principal.Attributes != nil {
+		copia.Principal.Attributes = make(
+			map[string]string,
+			len(c.Principal.Attributes),
+		)
+		for clave, valor := range c.Principal.Attributes {
+			copia.Principal.Attributes[clave] = valor
+		}
+	}
 	instantanea, err := c.Instantanea.ClonarCanonica()
 	if err != nil {
 		return ContextoActor{}, ErrContextoActorInvalido
 	}
 	copia.Instantanea = instantanea
+	if copia.Validar() != nil {
+		return ContextoActor{}, ErrContextoActorInvalido
+	}
 	return copia, nil
 }
 

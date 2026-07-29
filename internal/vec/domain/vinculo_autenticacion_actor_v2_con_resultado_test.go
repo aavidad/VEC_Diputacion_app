@@ -25,7 +25,10 @@ func TestCrearVinculoAutenticacionActorV2ConResultadoConservaParExacto(
 	t *testing.T,
 ) {
 	ahora := instanteVinculoAutenticacionActorV2Prueba()
-	fuente := resultadoContextoActorRegistradoV2Prueba(t, ahora)
+	fuente := resultadoContextoActorRegistradoV2ConContenedoresVaciosPrueba(
+		t,
+		ahora,
+	)
 	autenticacion := autenticacionRevalidadaVinculoPrueba(ahora)
 	revalidador := &revalidadorAutenticacionV2Prueba{
 		resultado: autenticacion,
@@ -60,6 +63,10 @@ func TestCrearVinculoAutenticacionActorV2ConResultadoConservaParExacto(
 
 	if len(resultado.RepresentacionCanonica) == 0 ||
 		len(resultado.ManifiestoProcedenciaCanonico) == 0 ||
+		resultado.Contexto.Principal.Roles == nil ||
+		resultado.Contexto.Principal.Permissions == nil ||
+		resultado.Contexto.Principal.Attributes == nil ||
+		resultado.Contexto.Instantanea.Vinculos == nil ||
 		&resultado.RepresentacionCanonica[0] ==
 			&resolutor.resultado.RepresentacionCanonica[0] ||
 		&resultado.ManifiestoProcedenciaCanonico[0] ==
@@ -91,6 +98,38 @@ func TestCrearVinculoAutenticacionActorV2ConResultadoConservaParExacto(
 	if resolutor.resultado.Validar() != nil {
 		t.Fatal("una mutación del resultado devuelto alcanzó la autoridad")
 	}
+	acreditarContextosActorSinMemoriaCompartida(
+		t,
+		&resolutor.resultado.Contexto,
+		&resultado.Contexto,
+	)
+}
+
+func TestResultadoContextoActorRegistradoV2ClonaContenedoresMutables(
+	t *testing.T,
+) {
+	origen := resultadoContextoActorRegistradoV2ConContenedoresVaciosPrueba(
+		t,
+		instanteVinculoAutenticacionActorV2Prueba(),
+	)
+	clon, err := origen.Clonar()
+	if err != nil {
+		t.Fatalf("clonar resultado registrado V2: %v", err)
+	}
+	if !reflect.DeepEqual(clon, origen) {
+		t.Fatal("el clon no conserva el resultado registrado exacto")
+	}
+	if clon.Contexto.Principal.Roles == nil ||
+		clon.Contexto.Principal.Permissions == nil ||
+		clon.Contexto.Principal.Attributes == nil ||
+		clon.Contexto.Instantanea.Vinculos == nil {
+		t.Fatal("el clon perdió contenedores vacíos no nulos")
+	}
+	acreditarContextosActorSinMemoriaCompartida(
+		t,
+		&origen.Contexto,
+		&clon.Contexto,
+	)
 }
 
 func TestCrearVinculoAutenticacionActorV2ConResultadoFallaCerrado(
@@ -351,7 +390,10 @@ func TestCrearVinculoAutenticacionActorV2WrapperConservaContrato(
 	t *testing.T,
 ) {
 	ahora := instanteVinculoAutenticacionActorV2Prueba()
-	fuente := resultadoContextoActorRegistradoV2Prueba(t, ahora)
+	fuente := resultadoContextoActorRegistradoV2ConContenedoresVaciosPrueba(
+		t,
+		ahora,
+	)
 	autenticacion := autenticacionRevalidadaVinculoPrueba(ahora)
 	revalidador := &revalidadorAutenticacionV2Prueba{
 		resultado: autenticacion,
@@ -388,5 +430,68 @@ func TestCrearVinculoAutenticacionActorV2WrapperConservaContrato(
 	if err != ErrVinculoAutenticacionActorV2Invalido ||
 		vinculo.Validar() == nil {
 		t.Fatalf("el wrapper alteró el error de ventana inválida: %v", err)
+	}
+}
+
+func resultadoContextoActorRegistradoV2ConContenedoresVaciosPrueba(
+	t *testing.T,
+	ahora time.Time,
+) ResultadoContextoActorRegistradoV2 {
+	t.Helper()
+	resultado := resultadoContextoActorRegistradoV2Prueba(t, ahora)
+	resultado.Contexto.Principal.Roles = make([]string, 0, 1)
+	resultado.Contexto.Principal.Permissions = make([]string, 0, 1)
+	resultado.Contexto.Principal.Attributes = make(map[string]string, 1)
+	resultado.Contexto.Instantanea.Vinculos = make(
+		[]VinculoReferenciaContextoActor,
+		0,
+		1,
+	)
+	if resultado.Validar() != nil {
+		t.Fatal("el resultado con contenedores vacíos no nulos no es válido")
+	}
+	return resultado
+}
+
+func acreditarContextosActorSinMemoriaCompartida(
+	t *testing.T,
+	origen *ContextoActor,
+	clon *ContextoActor,
+) {
+	t.Helper()
+	origen.Principal.Roles = append(origen.Principal.Roles, "rol_origen")
+	clon.Principal.Roles = append(clon.Principal.Roles, "rol_clon")
+	origen.Principal.Permissions = append(
+		origen.Principal.Permissions,
+		"permiso.origen",
+	)
+	clon.Principal.Permissions = append(
+		clon.Principal.Permissions,
+		"permiso.clon",
+	)
+	origen.Principal.Attributes["origen"] = "atributo_origen"
+	clon.Principal.Attributes["clon"] = "atributo_clon"
+	origen.Instantanea.Vinculos = append(
+		origen.Instantanea.Vinculos,
+		VinculoReferenciaContextoActor{VinculoRef: "vinculo_origen"},
+	)
+	clon.Instantanea.Vinculos = append(
+		clon.Instantanea.Vinculos,
+		VinculoReferenciaContextoActor{VinculoRef: "vinculo_clon"},
+	)
+
+	if origen.Principal.Roles[0] != "rol_origen" ||
+		clon.Principal.Roles[0] != "rol_clon" ||
+		origen.Principal.Permissions[0] != "permiso.origen" ||
+		clon.Principal.Permissions[0] != "permiso.clon" ||
+		origen.Instantanea.Vinculos[0].VinculoRef != "vinculo_origen" ||
+		clon.Instantanea.Vinculos[0].VinculoRef != "vinculo_clon" {
+		t.Fatal("origen y clon comparten memoria de slices mutables")
+	}
+	if _, existe := clon.Principal.Attributes["origen"]; existe {
+		t.Fatal("una mutación del mapa origen alcanzó el clon")
+	}
+	if _, existe := origen.Principal.Attributes["clon"]; existe {
+		t.Fatal("una mutación del mapa clon alcanzó el origen")
 	}
 }
