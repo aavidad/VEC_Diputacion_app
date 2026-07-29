@@ -14,6 +14,7 @@ const prefijoAADAtestacionAutorizacionV3 = "vec.confianza-atestacion-autorizacio
 
 type raizVerificacionAtestacionV3 struct {
 	verificador           *verificacioncose.VerificadorClave
+	raizNominal           RaizPublicaAtestacionAutorizacionV3
 	version               uint64
 	huellaClaveSPKISHA256 string
 	audienciaDespliegue   string
@@ -70,6 +71,7 @@ func NuevoServicioConfianzaAtestacionAutorizacionV3(
 		}
 		servicio.raices[clon.claveID] = raizVerificacionAtestacionV3{
 			verificador:           verificador,
+			raizNominal:           clon,
 			version:               clon.version,
 			huellaClaveSPKISHA256: clon.huellaClaveSPKISHA256,
 			audienciaDespliegue:   clon.audienciaDespliegue,
@@ -78,6 +80,62 @@ func NuevoServicioConfianzaAtestacionAutorizacionV3(
 		}
 	}
 	return servicio, nil
+}
+
+// raizPublicaParaPruebaV3 recupera exclusivamente la raíz que produjo una
+// prueba nominal de este mismo servicio. La copia devuelta permite construir
+// el material de consumo sin exponer un catálogo general de confianza.
+func (s *ServicioConfianzaAtestacionAutorizacionV3) raizPublicaParaPruebaV3(
+	prueba PruebaConfianzaAtestacionAutorizacionV3,
+) (RaizPublicaAtestacionAutorizacionV3, error) {
+	vacia := RaizPublicaAtestacionAutorizacionV3{}
+	if s == nil || len(s.raices) == 0 || prueba.Validar() != nil {
+		return vacia, ErrVerificacionConfianzaAtestacionV3Fallida
+	}
+	datos, err := prueba.Datos()
+	if err != nil {
+		return vacia, ErrVerificacionConfianzaAtestacionV3Fallida
+	}
+	raiz, existe := s.raices[datos.ClaveID]
+	if !existe || raiz.verificador == nil ||
+		raiz.raizNominal.validar() != nil ||
+		raiz.raizNominal.claveID != datos.ClaveID ||
+		raiz.version != datos.RaizVersion ||
+		raiz.raizNominal.version != raiz.version ||
+		!huellasConfianzaIguales(
+			raiz.huellaClaveSPKISHA256,
+			datos.HuellaClaveSPKISHA256,
+		) ||
+		!huellasConfianzaIguales(
+			raiz.raizNominal.huellaClaveSPKISHA256,
+			raiz.huellaClaveSPKISHA256,
+		) ||
+		raiz.audienciaDespliegue != datos.AudienciaDespliegue ||
+		raiz.raizNominal.audienciaDespliegue != raiz.audienciaDespliegue ||
+		raiz.estado != EstadoClaveAtestacionAutorizacionV3Activa ||
+		raiz.estado != datos.EstadoClave ||
+		raiz.raizNominal.estado != raiz.estado ||
+		!raiz.revocadaEn.IsZero() ||
+		!raiz.raizNominal.revocadaEn.IsZero() ||
+		!raiz.validaDesde.Equal(datos.RaizValidaDesde) ||
+		!raiz.validaHasta.Equal(datos.RaizValidaHasta) ||
+		!raiz.raizNominal.validaDesde.Equal(raiz.validaDesde) ||
+		!raiz.raizNominal.validaHasta.Equal(raiz.validaHasta) ||
+		s.revisionConfiguracion != datos.RevisionConfiguracion ||
+		s.secuenciaConfiguracion != datos.SecuenciaConfiguracion ||
+		!huellasConfianzaIguales(
+			s.huellaConfiguracionSHA256,
+			datos.HuellaConfiguracionSHA256,
+		) ||
+		!s.configuracionPublicadaEn.Equal(datos.ConfiguracionPublicadaEn) ||
+		!s.configuracionExpiraEn.Equal(datos.ConfiguracionExpiraEn) {
+		return vacia, ErrVerificacionConfianzaAtestacionV3Fallida
+	}
+	clon, err := clonarRaizPublicaAtestacionV3(raiz.raizNominal)
+	if err != nil {
+		return vacia, ErrVerificacionConfianzaAtestacionV3Fallida
+	}
+	return clon, nil
 }
 
 // Verificar comprueba VEC-AD-3 exacto y devuelve una prueba nominal. No acuña
