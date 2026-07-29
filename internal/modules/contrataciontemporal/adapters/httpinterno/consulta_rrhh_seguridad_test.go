@@ -3,11 +3,56 @@ package httpinterno
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 )
+
+func TestManejadoresConsultaRRHHRechazanURLOpacaEnAmbasRutas(t *testing.T) {
+	casos := []struct {
+		nombre    string
+		ruta      string
+		cuerpo    string
+		manejador func() (http.Handler, *int)
+	}{
+		{
+			"cuadro", RutaConsultaCuadroRRHH, cuerpoCuadroRRHHPrueba(),
+			func() (http.Handler, *int) {
+				consultor := &consultorCuadroRRHHPrueba{}
+				manejador, _ := NuevoManejadorConsultaCuadroRRHH(consultor)
+				return manejador, &consultor.llamadas
+			},
+		},
+		{
+			"detalle", RutaConsultaDetalleRRHH, cuerpoDetalleRRHHPrueba(),
+			func() (http.Handler, *int) {
+				consultor := &consultorDetalleRRHHPrueba{}
+				manejador, _ := NuevoManejadorConsultaDetalleRRHH(consultor)
+				return manejador, &consultor.llamadas
+			},
+		},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			manejador, llamadas := caso.manejador()
+			peticion := nuevaPeticionConsultaRRHHPrueba(
+				caso.ruta,
+				caso.cuerpo,
+			)
+			peticion.URL.Opaque = caso.ruta
+			respuesta := httptest.NewRecorder()
+			manejador.ServeHTTP(respuesta, peticion)
+			if respuesta.Code != http.StatusNotFound || *llamadas != 0 {
+				t.Fatalf(
+					"estado=%d llamadas=%d cuerpo=%s",
+					respuesta.Code, *llamadas, respuesta.Body,
+				)
+			}
+		})
+	}
+}
 
 func TestManejadorConsultaRRHHCierraRutaMetodoYTiposExactos(t *testing.T) {
 	casos := []struct {
@@ -351,6 +396,64 @@ func TestManejadorConsultaRRHHPreservaCancelacionDuranteNegocio(t *testing.T) {
 	manejador.ServeHTTP(respuesta, peticion)
 	if respuesta.Code != http.StatusRequestTimeout || consultor.llamadas != 1 {
 		t.Fatalf("estado=%d llamadas=%d", respuesta.Code, consultor.llamadas)
+	}
+}
+
+func TestManejadoresConsultaRRHHAnteponenCancelacionAErrorPrivado(
+	t *testing.T,
+) {
+	const causaPrivada = "CAUSA_PRIVADA_CANCELADA_987"
+	casos := []struct {
+		nombre    string
+		ruta      string
+		cuerpo    string
+		manejador func(context.CancelFunc) http.Handler
+	}{
+		{
+			"cuadro", RutaConsultaCuadroRRHH, cuerpoCuadroRRHHPrueba(),
+			func(cancelar context.CancelFunc) http.Handler {
+				consultor := &consultorCuadroRRHHPrueba{
+					err: errors.New(causaPrivada),
+					alConsultar: func(context.Context) {
+						cancelar()
+					},
+				}
+				manejador, _ := NuevoManejadorConsultaCuadroRRHH(consultor)
+				return manejador
+			},
+		},
+		{
+			"detalle", RutaConsultaDetalleRRHH, cuerpoDetalleRRHHPrueba(),
+			func(cancelar context.CancelFunc) http.Handler {
+				consultor := &consultorDetalleRRHHPrueba{
+					err: errors.New(causaPrivada),
+					alConsultar: func(context.Context) {
+						cancelar()
+					},
+				}
+				manejador, _ := NuevoManejadorConsultaDetalleRRHH(consultor)
+				return manejador
+			},
+		},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			ctx, cancelar := context.WithCancel(context.Background())
+			defer cancelar()
+			peticion := nuevaPeticionConsultaRRHHPrueba(
+				caso.ruta,
+				caso.cuerpo,
+			).WithContext(ctx)
+			respuesta := httptest.NewRecorder()
+			caso.manejador(cancelar).ServeHTTP(respuesta, peticion)
+			if respuesta.Code != http.StatusRequestTimeout ||
+				strings.Contains(respuesta.Body.String(), causaPrivada) {
+				t.Fatalf(
+					"estado=%d cuerpo=%s",
+					respuesta.Code, respuesta.Body,
+				)
+			}
+		})
 	}
 }
 

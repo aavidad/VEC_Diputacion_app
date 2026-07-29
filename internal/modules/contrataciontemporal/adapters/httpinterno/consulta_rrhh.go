@@ -95,11 +95,11 @@ func (h *manejadorConsultaCuadroRRHH) ServeHTTP(
 		return
 	}
 	pagina, err := h.consultor.Consultar(r.Context(), solicitud)
-	if err != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
+	if errContexto := r.Context().Err(); errContexto != nil {
+		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
 		return
 	}
-	if err := r.Context().Err(); err != nil {
+	if err != nil {
 		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
 		return
 	}
@@ -145,11 +145,11 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		return
 	}
 	detalle, err := h.consultor.Consultar(r.Context(), solicitud)
-	if err != nil {
-		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
+	if errContexto := r.Context().Err(); errContexto != nil {
+		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
 		return
 	}
-	if err := r.Context().Err(); err != nil {
+	if err != nil {
 		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
 		return
 	}
@@ -167,8 +167,8 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 func rutaConsultaRRHHExacta(r *http.Request, esperada string) bool {
 	if r == nil || r.URL == nil || r.URL.RawQuery != "" || r.URL.ForceQuery ||
 		r.URL.RawPath != "" || r.URL.Scheme != "" || r.URL.Host != "" ||
-		r.URL.User != nil || r.URL.Fragment != "" || r.URL.RawFragment != "" ||
-		r.URL.Path != esperada {
+		r.URL.User != nil || r.URL.Opaque != "" || r.URL.Fragment != "" ||
+		r.URL.RawFragment != "" || r.URL.Path != esperada {
 		return false
 	}
 	return r.URL.EscapedPath() == esperada && !strings.Contains(r.URL.Path, "%")
