@@ -173,7 +173,7 @@ BEGIN
          WHERE funcion.pronamespace =
                'vec_contratacion_temporal'::regnamespace
            AND funcion.proname = v_nombre;
-        v_limite := pg_catalog.least(
+        v_limite := least(
             pg_catalog.strpos(
                 v_definicion,
                 'PERFORM vec_contratacion_temporal.canon_alcance_rrhh_v1'
