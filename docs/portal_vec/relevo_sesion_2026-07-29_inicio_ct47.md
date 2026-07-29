@@ -101,6 +101,17 @@ No se abrirá una tarea genérica de «autoridad/PDP»: retención nominal, recu
 cerrados, decisión, material atestado, cronología, rutas y ciclo de vida se
 confirmarán y revisarán por separado.
 
+La retención nominal quedó integrada en `be59d58` con
+[GO independiente](revisiones/o4_05_revision_retencion_nominal_ct_000047b1_2026-07-29.md)
+y P0=P1=P2=0. `ContextoConsultaRRHH` conserva ahora el par exacto mediante un
+clon privado, sin getter ni serialización, y vuelve a comprobarlo en cada uso.
+
+La [decisión CT-000047B](decision_puentes_autoridad_consulta_rrhh_ct_000047b_2026-07-29.md)
+elige guardianes de Contratación temporal y una fachada VEC de alto nivel. Se
+descarta una tercera capacidad común sin segundo consumidor real. El siguiente
+corte activo es D0, envoltorio opaco del recurso; después D1 y D2 construirán
+por separado los recursos cerrados de cuadro y detalle.
+
 La cronología de detalle quedó corregida en `e3e12d5`: contexto, autorización
 y orden ya no comparten un instante capturado antes de las fronteras lentas.
 La minitarea obtuvo `GO` independiente sin hallazgos. Véase la
