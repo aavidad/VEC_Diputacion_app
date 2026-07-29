@@ -107,8 +107,8 @@ la vía elegida y conservar las fuentes utilizadas.
 Estado: O4-01 a O4-04 están cerrados. O4-05 conserva tres de cinco hitos:
 contratos HTTP/web, proyecciones protegidas, autorización, registro durable,
 cursores, prueba durable, motor privado CT-000044 y fachadas nominales
-CT-000045 están integrados y revisados. El camino crítico activo es el
-adaptador PostgreSQL Go; después siguen composición raíz, TLS/mTLS viva, la
+CT-000045, junto con el adaptador CT-000046, están integrados y revisados. El
+camino crítico activo es la composición raíz; después siguen TLS/mTLS viva, la
 misma web definitiva y el E2E completo.
 
 ### O5. Asignación, informes y fiscalización
@@ -169,19 +169,16 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Implementar el adaptador PostgreSQL mínimo de `SesionConsultaRRHH`:
+Componer la raíz interna real de consultas RRHH:
 
-- reutilizar sin cambios el puerto, las órdenes, los cánones y los recibos;
-- invocar las dos fachadas CT-000045 con doce entradas exactas;
-- construir los doce argumentos SQL lógicos desde dieciocho valores escalares
-  de cuadro o quince de detalle, y decodificar las veintiuna columnas de
-  cuadro o las veinte de detalle;
-- usar un LOGIN y un pool nominales exclusivos;
-- ejecutar `SERIALIZABLE READ WRITE`;
-- cancelar por contexto y cerrar los recursos en orden inverso;
-- traducir los errores sin revelar existencia o detalles internos;
-- probar contrato, cancelación, transacción, tipos, límites y fallos reales.
+- construir el pool nominal y transferir su propiedad al ciclo de vida;
+- construir `SesionConsultaRRHHPostgreSQL`;
+- inyectarla en los casos de uso existentes de cuadro y detalle;
+- conectar exclusivamente frontera corporativa y PDP reales;
+- registrar los manejadores cerrados sin rutas paralelas;
+- cerrar recursos en orden inverso y fallar cerrado ante configuración
+  incompleta.
 
-El write-set se limita al adaptador PostgreSQL del módulo. No se modifican
-dominio, aplicación, puertos, HTTP, composición ni web en este corte. Un
-revisor distinto debe emitir `GO` antes de integrarlo.
+El corte no cambia dominio, SQL, canon ni presentación visual. No admite caída
+a dobles DEMO, cookies ni autoridad aportada por el navegador. Un revisor
+distinto debe emitir `GO` antes de integrarlo.

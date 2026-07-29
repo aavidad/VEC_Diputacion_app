@@ -13,9 +13,9 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último commit funcional verificado: `02b02ed`.
-- Último cierre: CT-000045, fachadas nominales de consultas RRHH, `GO`
-  independiente y matriz integral PostgreSQL 18.4.
+- Último commit funcional verificado: `6c57644`.
+- Último cierre: CT-000046, adaptador PostgreSQL de consultas RRHH, `GO`
+  independiente con P0=0, P1=0 y P2=0.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
 
@@ -90,7 +90,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000045 cierran registro, contrato, recibo, prueba durable, motor privado y fachadas nominales. Faltan el adaptador Go, la raíz, TLS viva y el E2E. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000046 cierran registro, contrato, recibo, prueba durable, motor privado, fachadas nominales y adaptador Go. Faltan la raíz, TLS viva y el E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -257,15 +257,12 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Conectar `SesionConsultaRRHH` y el adaptador Go a las fachadas CT-000045,
-   con doce entradas exactas, salidas escalares minimizadas,
-   revocación viva, avance monotónico y normalización de errores sin oráculo.
+1. Componer la raíz interna con el pool nominal, el adaptador CT-000046,
+   frontera corporativa y PDP reales, sin caída a presentación.
 2. Implementar el adaptador independiente de publicaciones visuales
    gobernadas de `4714088`.
-3. Componer la raíz interna con frontera corporativa y dependencias reales,
-   sin caída a presentación.
-4. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
-5. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
+3. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
+4. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
    reinicio y cancelación segura.
 
 ## Dominio implementado
@@ -567,30 +564,28 @@ de accesos y la publicación global estable quedaron integrados en `a0d39c1`,
 huellas sin token o filtros en claro, identidad y ámbito, TTL, página 2 ligada
 al origen, páginas posteriores ligadas al consumo padre, revocación y
 safe-down semántico. CT-000045 cierra las funciones exteriores que ejecutan
-consumo, lectura y auditoría en una sola transacción. Queda pendiente el
-adaptador Go que consuma esas fachadas; la función de confirmación de alta no
-se reutiliza ni se generaliza.
+consumo, lectura y auditoría en una sola transacción. CT-000046 cierra el
+adaptador Go que consume esas fachadas con un pool nominal exclusivo; la
+función de confirmación de alta no se reutiliza ni se generaliza.
 
 El 28 de julio, `e558f41` cerró CT `000039` con dos revisiones independientes:
 registrador v2 minimizado, referencia opaca de Identidad, snapshot *as-of*,
 carreras reales con revocación, privacidad probada en WAL/logs/trazas y
 reversión semántica `RESTRICT`. La
 [evidencia reproducible](revisiones/o4_05_revision_registrador_v2_ct_000039_2026-07-28.md)
-documenta el estado histórico de ese corte. CT-000040 a CT-000045 están ahora
-cerrados; permanecen abiertos el adaptador Go, la raíz productiva, TLS viva y
-el E2E HTTP/web.
+documenta el estado histórico de ese corte. CT-000040 a CT-000046 están ahora
+cerrados; permanecen abiertos la raíz productiva, TLS viva y el E2E HTTP/web.
 
-El procedimiento alcanza **23 de 46 tareas verificadas (50 %)** tras el cierre
-de CT-000045. Esto no autoriza aún la ruta web productiva: faltan el adaptador
-PostgreSQL Go, la raíz productiva, TLS/mTLS viva y el E2E de O4-05. Los dobles
-de presentación continúan aislados y no se
+El procedimiento alcanza **24 de 46 tareas verificadas (52 %)** tras el cierre
+de CT-000046. Esto no autoriza aún la ruta web productiva: faltan la raíz
+productiva, TLS/mTLS viva y el E2E de O4-05. Los dobles de presentación
+continúan aislados y no se
 convertirán en autoridad productiva.
 
 El orden vigente del camino crítico es:
 
 ```text
-adaptador PostgreSQL Go
-→ composición raíz y propiedad de recursos
+composición raíz y propiedad de recursos
 → matriz TLS/mTLS viva
 → misma web definitiva sin adaptadores DEMO
 → E2E HTTP completo
@@ -599,4 +594,4 @@ adaptador PostgreSQL Go
 
 No se abre O5, O6 ni otro módulo hasta cerrar O4-05. El detalle reproducible
 del corte vigente está en
-`relevo_sesion_2026-07-29_cierre_ct45.md`.
+`relevo_sesion_2026-07-29_cierre_ct46.md`.
