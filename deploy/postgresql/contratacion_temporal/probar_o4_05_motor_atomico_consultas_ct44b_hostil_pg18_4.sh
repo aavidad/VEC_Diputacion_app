@@ -5,13 +5,25 @@
 
 contiene_secreto() {
     local secreto=$1
+    local estado=0
     shift
-    [[ -n $secreto ]] || return 2
+    [[ -n $secreto ]] || return 0
     VEC_SECRETO_BUSCADO="$secreto" awk '
         index($0, ENVIRON["VEC_SECRETO_BUSCADO"]) { encontrado=1; exit }
         END { exit encontrado ? 0 : 1 }
-    ' "$@"
+    ' "$@" || estado=$?
+    (( estado == 1 )) && return 1
+    return 0
 }
+
+if ! contiene_secreto '' </dev/null ||
+   ! contiene_secreto prueba-ct44b <<< 'prueba-ct44b' ||
+   contiene_secreto prueba-ct44b <<< 'contenido limpio' ||
+   ! contiene_secreto prueba-ct44b /ruta/ct44b-inexistente 2>/dev/null
+then
+    printf 'la búsqueda de secretos CT44B no falla de forma cerrada\n' >&2
+    return 1
+fi
 
 invocar_detalle_controlado_ct44b() {
     local caso=$1
