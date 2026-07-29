@@ -5,6 +5,14 @@ directorio="$(
     cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1
     pwd -P
 )"
+patron_cursor_argumento='--env VEC_''CURSOR[^ ]*='
+estado_cursores_argumentos=0
+rg -q -- "$patron_cursor_argumento" "${BASH_SOURCE[0]}" ||
+    estado_cursores_argumentos=$?
+if (( estado_cursores_argumentos != 1 )); then
+    printf 'el guion no protege los cursores de los argumentos de Docker\n' >&2
+    exit 1
+fi
 # CT44B deja vivo el PostgreSQL 18.4 efímero y el motor completo ya probado.
 # shellcheck disable=SC1091
 source "$directorio/probar_o4_05_motor_atomico_consultas_ct44b_pg18_4.sh"
@@ -56,9 +64,9 @@ motor_transaccion() {
     local token=$2
     local senal=$3
     local retencion=$4
-    docker exec --interactive \
+    VEC_CURSOR="$token" docker exec --interactive \
         --env VEC_CASO="$caso" \
-        --env VEC_CURSOR="$token" \
+        --env VEC_CURSOR \
         --env VEC_SENAL="$senal" \
         --env VEC_RETENCION="$retencion" \
         "$contenedor" psql -XqAt \
@@ -95,8 +103,8 @@ revocar_transaccion() {
     local senal=$3
     local retencion=$4
     local confirmar=$5
-    docker exec --interactive \
-        --env VEC_CURSOR="$token" \
+    VEC_CURSOR="$token" docker exec --interactive \
+        --env VEC_CURSOR \
         --env VEC_ETIQUETA="$etiqueta" \
         --env VEC_SENAL="$senal" \
         --env VEC_RETENCION="$retencion" \
@@ -137,8 +145,8 @@ retener_control_causal() {
     local token=$1
     local senal=$2
     local retencion=$3
-    docker exec --interactive \
-        --env VEC_CURSOR="$token" \
+    VEC_CURSOR="$token" docker exec --interactive \
+        --env VEC_CURSOR \
         --env VEC_SENAL="$senal" \
         --env VEC_RETENCION="$retencion" \
         "$contenedor" psql -XqAt \
@@ -180,8 +188,8 @@ SQL
 
 estado_familia_cursor() {
     local token=$1
-    docker exec --interactive \
-        --env VEC_CURSOR="$token" \
+    VEC_CURSOR="$token" docker exec --interactive \
+        --env VEC_CURSOR \
         "$contenedor" psql -XqAt \
         --set ON_ERROR_STOP=1 \
         --username postgres --dbname postgres <<'SQL'
@@ -231,7 +239,7 @@ comprobar_serializacion_motor() {
     fi
 }
 
-paso 'instalación del fixture mínimo de revocación'
+paso 'instalación de la ayuda mínima de prueba para revocación'
 archivo \
     contratacion_temporal/pruebas_sql/o405_motor_consultas_rrhh_carreras_ct44c.sql
 psql_admin <<'SQL' >/dev/null
@@ -401,10 +409,13 @@ for token_ct44c in "${tokens_ct44c[@]}"; do
     fi
 done
 
-paso 'retirada del fixture y cierre verde'
+paso 'retirada de la ayuda de prueba y cierre verde'
 psql_admin <<'SQL' >/dev/null
+BEGIN;
+SET LOCAL ROLE vec_contratacion_temporal_propietario;
 DROP FUNCTION
 vec_contratacion_temporal.prueba_revocar_cursor_cuadro_ct44c(text, text);
+COMMIT;
 SQL
 unset token_ct44c tokens_ct44c
 unset token_revocacion_primero token_motor_primero
