@@ -15,7 +15,7 @@ temporal. El detalle verificable de cada tarea está en el
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
 | Último commit verificado | `fa304c4` — guardián nominal A4.3 cerrado con P0=P1=P2=0 |
-| Trabajo local en revisión | A5: migración de casos de uso y retirada de los dos puertos copiables anteriores. |
+| Trabajo local en revisión | A5.1 migra los dos servicios; M1.1 implementa en paralelo el fundamento privado de motivos nominales (`000008`). |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

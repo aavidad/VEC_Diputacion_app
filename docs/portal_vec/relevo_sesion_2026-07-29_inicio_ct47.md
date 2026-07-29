@@ -161,8 +161,12 @@ dos casos de uso y retirar la vía copiable anterior antes de componer la raíz.
 El contrato M0 de motivos quedó integrado en `c1bb5ec` con
 [GO independiente](revisiones/o4_05_revision_contrato_motivos_ct_000047m0_2026-07-29.md).
 Cuadro y detalle tienen métodos nominales separados, sin selectores libres.
-M1/M2 siguen pendientes de la publicación gobernada y del adaptador
-PostgreSQL; no se sustituirán por referencias fijadas en el código.
+La
+[decisión M1/M2](decision_motivos_nominales_consulta_rrhh_ct_000047_2026-07-30.md)
+reserva `000008`–`000010` para fundamento, publicación y resolución, seguidas
+de un adaptador PostgreSQL con pool exclusivo. No se usarán `MAX(version)`,
+configuración libre ni referencias fijadas en código. La activación real sigue
+sujeta al catálogo aprobado y a los materiales de Sistemas.
 
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
