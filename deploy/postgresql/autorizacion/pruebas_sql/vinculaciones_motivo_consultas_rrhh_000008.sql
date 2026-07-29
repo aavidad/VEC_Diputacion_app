@@ -44,6 +44,26 @@ BEGIN
         END IF;
     END LOOP;
 
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_constraint AS c
+         WHERE c.conrelid =
+               'vec_autorizacion.motivo_v2_catalogo_publicado'::regclass
+           AND c.conname =
+               'motivo_v2_catalogo_referencia_completa_unica'
+           AND c.contype = 'u'
+           AND c.convalidated
+           AND NOT c.condeferrable
+           AND NOT c.condeferred
+           AND c.connoinherit
+           AND pg_catalog.pg_get_constraintdef(c.oid, true) =
+               'UNIQUE (catalogo_id, catalogo_version, catalogo_huella_publicada_sha256)'
+           AND pg_catalog.obj_description(c.oid, 'pg_constraint') =
+               'vec_autorizacion:vinculacion-motivo-consulta-rrhh:referencia-completa:v1:000008'
+    ) THEN
+        RAISE EXCEPTION 'UNIQUE 000008 sin estructura o procedencia exactas';
+    END IF;
+
     SELECT pg_catalog.count(*) INTO acl_ajena
       FROM pg_catalog.pg_class AS c
       CROSS JOIN LATERAL pg_catalog.aclexplode(

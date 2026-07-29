@@ -60,6 +60,33 @@ psql_valor() {
     -U postgres -d "$base" -c "$1"
 }
 
+exigir_fallo_reentrada() {
+  local caso=$1
+  if psql_archivo \
+    deploy/postgresql/autorizacion/migraciones/000008_vinculaciones_motivo_consultas_rrhh.up.sql \
+    >/dev/null 2>&1; then
+    echo "000008 adoptó o reparó el estado hostil: $caso" >&2
+    exit 1
+  fi
+}
+
+exigir_fallo_down() {
+  local caso=$1
+  if psql_archivo \
+    deploy/postgresql/autorizacion/migraciones/000008_vinculaciones_motivo_consultas_rrhh.down.sql \
+    >/dev/null 2>&1; then
+    echo "000008 down retiró un objeto ajeno o alterado: $caso" >&2
+    exit 1
+  fi
+}
+
+restablecer_000008() {
+  psql_archivo \
+    deploy/postgresql/autorizacion/migraciones/000008_vinculaciones_motivo_consultas_rrhh.down.sql
+  psql_archivo \
+    deploy/postgresql/autorizacion/migraciones/000008_vinculaciones_motivo_consultas_rrhh.up.sql
+}
+
 docker exec --interactive "$contenedor" psql -X \
   --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
 DO $bloque$ BEGIN
@@ -100,6 +127,93 @@ psql_archivo \
   "SELECT count(*) FROM vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1") == 2 ]]
 [[ $(psql_valor \
   "SELECT count(*) FROM vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1") == 0 ]]
+
+# Un disparador homónimo con otro evento no se adopta ni se repara.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+DROP TRIGGER vinculacion_motivo_rrhh_inmutable ON
+  vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1;
+CREATE TRIGGER vinculacion_motivo_rrhh_inmutable
+  BEFORE INSERT ON vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  FOR EACH ROW EXECUTE FUNCTION
+    vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1();
+SQL
+exigir_fallo_reentrada 'disparador BEFORE INSERT homónimo'
+[[ $(psql_valor \
+  "SELECT (tgtype = 7 AND tgenabled = 'O')::text FROM pg_catalog.pg_trigger WHERE tgrelid = 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass AND tgname = 'vinculacion_motivo_rrhh_inmutable' AND NOT tgisinternal") == true ]]
+restablecer_000008
+
+# Una política homónima SELECT TO PUBLIC permanece hostil tras el rollback.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+DROP POLICY acceso_propietario_exacto ON
+  vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1;
+CREATE POLICY acceso_propietario_exacto ON
+  vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  FOR SELECT TO PUBLIC USING (true);
+SQL
+exigir_fallo_reentrada 'política SELECT TO PUBLIC homónima'
+[[ $(psql_valor \
+  "SELECT (polcmd = 'r' AND polroles = ARRAY[0::oid] AND pg_catalog.pg_get_expr(polqual, polrelid) = 'true' AND polwithcheck IS NULL)::text FROM pg_catalog.pg_policy WHERE polrelid = 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass AND polname = 'acceso_propietario_exacto'") == true ]]
+restablecer_000008
+
+# La ausencia de una FK requerida aborta sin reconstruirla implícitamente.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+ALTER TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  DROP CONSTRAINT vinculacion_motivo_rrhh_entrada_fk;
+SQL
+exigir_fallo_reentrada 'clave foránea eliminada'
+[[ $(psql_valor \
+  "SELECT (count(*) = 0)::text FROM pg_catalog.pg_constraint WHERE conrelid = 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass AND conname = 'vinculacion_motivo_rrhh_entrada_fk'") == true ]]
+restablecer_000008
+
+# Una UNIQUE previa con la misma definición, pero sin marca 000008, es ajena.
+psql_archivo \
+  deploy/postgresql/autorizacion/migraciones/000008_vinculaciones_motivo_consultas_rrhh.down.sql
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+ALTER TABLE vec_autorizacion.motivo_v2_catalogo_publicado
+  ADD CONSTRAINT motivo_v2_catalogo_referencia_completa_unica
+  UNIQUE (
+    catalogo_id, catalogo_version, catalogo_huella_publicada_sha256
+  );
+SQL
+exigir_fallo_reentrada 'UNIQUE exacta sin procedencia 000008'
+[[ $(psql_valor \
+  "SELECT (pg_catalog.obj_description(oid, 'pg_constraint') IS NULL)::text FROM pg_catalog.pg_constraint WHERE conrelid = 'vec_autorizacion.motivo_v2_catalogo_publicado'::regclass AND conname = 'motivo_v2_catalogo_referencia_completa_unica'") == true ]]
+[[ $(psql_valor \
+  "SELECT (pg_catalog.to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1') IS NULL AND pg_catalog.to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1') IS NULL)::text") == true ]]
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+ALTER TABLE vec_autorizacion.motivo_v2_catalogo_publicado
+  DROP CONSTRAINT motivo_v2_catalogo_referencia_completa_unica;
+SQL
+psql_archivo \
+  deploy/postgresql/autorizacion/migraciones/000008_vinculaciones_motivo_consultas_rrhh.up.sql
+
+# El down tampoco retira la UNIQUE si pierde su marca de procedencia.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+COMMENT ON CONSTRAINT motivo_v2_catalogo_referencia_completa_unica
+  ON vec_autorizacion.motivo_v2_catalogo_publicado IS NULL;
+SQL
+exigir_fallo_down 'UNIQUE sin procedencia 000008'
+[[ $(psql_valor \
+  "SELECT (pg_catalog.to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1') IS NOT NULL AND pg_catalog.obj_description(oid, 'pg_constraint') IS NULL)::text FROM pg_catalog.pg_constraint WHERE conrelid = 'vec_autorizacion.motivo_v2_catalogo_publicado'::regclass AND conname = 'motivo_v2_catalogo_referencia_completa_unica'") == true ]]
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+COMMENT ON CONSTRAINT motivo_v2_catalogo_referencia_completa_unica
+  ON vec_autorizacion.motivo_v2_catalogo_publicado IS
+  'vec_autorizacion:vinculacion-motivo-consulta-rrhh:referencia-completa:v1:000008';
+SQL
 
 # Sin evidencia, la retirada es completa y permite instalar de nuevo.
 psql_archivo \
