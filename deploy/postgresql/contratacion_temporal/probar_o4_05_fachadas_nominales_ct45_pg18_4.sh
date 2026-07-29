@@ -87,7 +87,6 @@ esperar_fallo_inclusion() {
         return 1
     fi
 }
-
 huella_catalogo_ct45() {
     local base=${1:-postgres}
     docker exec "$contenedor" psql -XAtq --set ON_ERROR_STOP=1 \
@@ -120,7 +119,6 @@ huella_catalogo_ct45() {
            ), 'hex')
       FROM catalogo"
 }
-
 oides_catalogo_ct45() {
     local base=$1
     docker exec "$contenedor" psql -XAtq --set ON_ERROR_STOP=1 \
@@ -737,6 +735,15 @@ else
 fi
 [[ "$(efectos_decision ct45_carrera)" == '1|1|1|1' ]]
 
+paso 'cinco salidas NULL del motor se rechazan y revierten'
+archivo contratacion_temporal/pruebas_sql/o405_ct45_salidas_nulas.sql
+for especificacion in 'cuadro|cursor_huella' 'cuadro|expediente' 'cuadro|version' 'detalle|cursor_huella' 'detalle|alcance_huella'; do
+    IFS='|' read -r perfil variante <<<"$especificacion"; caso="ct45_nulo_${perfil}_${variante}"
+    psql_admin --command "SELECT public.preparar_vector_cierre_ct43('$caso','$perfil')" >/dev/null
+    esperar_fallo "salida NULL $perfil/$variante" 42501 'consulta RRHH rechazada' psql_runtime --command "BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE READ WRITE; SELECT public.invocar_salida_nula_ct45('$caso','$perfil','${perfil}_${variante}')"
+    [[ "$(efectos_decision "$caso")" == '0|0|0|0' ]]
+done
+archivo contratacion_temporal/pruebas_sql/o405_ct45_salidas_nulas_retirar.sql
 paso 'la barrera CT45 protege el safe-down de CT44'
 esperar_fallo 'safe-down CT44 con CT45 instalada' 55000 \
     'estado incompatible para revertir motor RRHH' \
