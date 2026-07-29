@@ -15,7 +15,7 @@ temporal. El detalle verificable de cada tarea está en el
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
 | Último commit verificado | `841f90a` — preparación nominal A4.2 cerrada con P0=P1=P2=0 |
-| Trabajo local en revisión | CT `000047A4.3` y `MAC-P1`: guardián nominal y puerto MAC no exportable. |
+| Trabajo local en revisión | CT `000047A4.3`; `MAC-P1` queda en NO-GO por límite tardío y espera una corrección acotada. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

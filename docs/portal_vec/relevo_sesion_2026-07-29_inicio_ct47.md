@@ -160,6 +160,13 @@ El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
 V3 y el conjunto de confianza proporcionados por Sistemas.
 
+El primer candidato del puerto MAC, `dd97e3a`, obtuvo
+[NO-GO independiente](revisiones/o4_05_revision_puerto_mac_ct_000047macp1_nogo_2026-07-30.md)
+con P0=0, P1=1 y P2=0. Clonaba y recorría una preimagen antes de aplicar su
+límite de 32 KiB. Permanece sin integrar; la corrección debe aplicar el límite
+antes de cualquier reserva o SHA-256 y demostrarlo con una regresión de
+asignaciones.
+
 La revisión detectó además que el SQL actual necesita el secreto HMAC dentro
 de PostgreSQL. La
 [decisión MAC/PostgreSQL](decision_mac_capacidad_y_postgresql_ct_000047_2026-07-29.md)
