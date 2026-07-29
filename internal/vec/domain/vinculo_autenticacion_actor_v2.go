@@ -310,22 +310,33 @@ func CrearVinculoAutenticacionActorV2ConResultado(
 			ErrVinculoAutenticacionActorV2Invalido
 	}
 	ahora := reloj.Ahora().UTC().Truncate(time.Microsecond)
-	if ctx.Err() != nil || !instanteAutorizacionCanonico(ahora) ||
+	if errContexto := ctx.Err(); errContexto != nil {
+		return VinculoAutenticacionActorV2{}, ResultadoContextoActorRegistradoV2{},
+			errors.Join(ErrVinculoAutenticacionActorV2Invalido, errContexto)
+	}
+	if !instanteAutorizacionCanonico(ahora) ||
 		ahora.Before(autenticacion.SesionRevalidadaEn) ||
 		!ahora.Before(autenticacion.SesionValidaHasta) ||
 		ahora.Before(resultadoClonado.ResueltoEnAutoritativo) ||
 		!contextoActorV2VigenteEn(resultadoClonado.Contexto, ahora) {
 		return VinculoAutenticacionActorV2{}, ResultadoContextoActorRegistradoV2{},
-			errors.Join(ErrVinculoAutenticacionActorV2Invalido, ctx.Err())
+			ErrVinculoAutenticacionActorV2Invalido
 	}
 	vinculo, err := nuevoVinculoAutenticacionActorV2(
 		autenticacion,
 		resultadoClonado,
 	)
-	if err != nil || ctx.Err() != nil ||
-		vinculo.ValidarPara(resultadoClonado) != nil {
+	if err != nil {
 		return VinculoAutenticacionActorV2{}, ResultadoContextoActorRegistradoV2{},
-			errors.Join(ErrVinculoAutenticacionActorV2Invalido, err, ctx.Err())
+			err
+	}
+	if errContexto := ctx.Err(); errContexto != nil {
+		return VinculoAutenticacionActorV2{}, ResultadoContextoActorRegistradoV2{},
+			errors.Join(ErrVinculoAutenticacionActorV2Invalido, errContexto)
+	}
+	if vinculo.ValidarPara(resultadoClonado) != nil {
+		return VinculoAutenticacionActorV2{}, ResultadoContextoActorRegistradoV2{},
+			ErrVinculoAutenticacionActorV2Invalido
 	}
 	return vinculo, resultadoClonado, nil
 }
