@@ -72,26 +72,13 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 		clear(salida.contenidoCanonico)
 		salida.cursorSiguiente = ""
 	}()
-	argumentosSQL := []any{
+	argumentosSQL := argumentosSQLCuadroConsultaRRHH(
 		contexto.OrganizacionRef(),
 		string(capacidad.ClaseAmbito()),
 		capacidad.AmbitoRef(),
-		solicitud.Texto(),
-		string(solicitud.EstadoClave()),
-		string(solicitud.FaseClave()),
-		int16(solicitud.Limite()),
-		solicitud.Cursor(),
-		argumentos.capacidadCanonica,
-		argumentos.decisionCanonica,
-		argumentos.motivoCanonico,
-		argumentos.contextoActorCanonico,
-		argumentos.personaVersion,
-		argumentos.perfilVersion,
-		argumentos.payloadVECAD3,
-		argumentos.sobreCOSESign1,
-		argumentos.evidenciaVerificacion,
-		argumentos.raizPublicaSPKI,
-	}
+		solicitud,
+		argumentos,
+	)
 	return ejecutarConsultaRRHHEnTransaccion(
 		ctx,
 		s.pool,
@@ -150,23 +137,13 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 		orden.Contexto(), orden.Capacidad(), orden.Solicitud()
 	var salida salidaDetalleConsultaRRHH
 	defer clear(salida.contenidoCanonico)
-	argumentosSQL := []any{
+	argumentosSQL := argumentosSQLDetalleConsultaRRHH(
 		contexto.OrganizacionRef(),
 		string(capacidad.ClaseAmbito()),
 		capacidad.AmbitoRef(),
-		solicitud.ExpedienteRef(),
-		int64(solicitud.VersionObservada()),
-		argumentos.capacidadCanonica,
-		argumentos.decisionCanonica,
-		argumentos.motivoCanonico,
-		argumentos.contextoActorCanonico,
-		argumentos.personaVersion,
-		argumentos.perfilVersion,
-		argumentos.payloadVECAD3,
-		argumentos.sobreCOSESign1,
-		argumentos.evidenciaVerificacion,
-		argumentos.raizPublicaSPKI,
-	}
+		solicitud,
+		argumentos,
+	)
 	return ejecutarConsultaRRHHEnTransaccion(
 		ctx,
 		s.pool,
@@ -261,6 +238,61 @@ type argumentosMaterialConsultaRRHH struct {
 	sobreCOSESign1        []byte
 	evidenciaVerificacion []byte
 	raizPublicaSPKI       []byte
+}
+
+func argumentosSQLCuadroConsultaRRHH(
+	organizacionRef string,
+	claseAmbito string,
+	ambitoRef string,
+	solicitud ports.SolicitudCuadroRRHH,
+	material argumentosMaterialConsultaRRHH,
+) []any {
+	return []any{
+		organizacionRef,
+		claseAmbito,
+		ambitoRef,
+		solicitud.Texto(),
+		string(solicitud.EstadoClave()),
+		string(solicitud.FaseClave()),
+		int16(solicitud.Limite()),
+		solicitud.Cursor(),
+		material.capacidadCanonica,
+		material.decisionCanonica,
+		material.motivoCanonico,
+		material.contextoActorCanonico,
+		material.personaVersion,
+		material.perfilVersion,
+		material.payloadVECAD3,
+		material.sobreCOSESign1,
+		material.evidenciaVerificacion,
+		material.raizPublicaSPKI,
+	}
+}
+
+func argumentosSQLDetalleConsultaRRHH(
+	organizacionRef string,
+	claseAmbito string,
+	ambitoRef string,
+	solicitud ports.SolicitudDetalleRRHH,
+	material argumentosMaterialConsultaRRHH,
+) []any {
+	return []any{
+		organizacionRef,
+		claseAmbito,
+		ambitoRef,
+		solicitud.ExpedienteRef(),
+		int64(solicitud.VersionObservada()),
+		material.capacidadCanonica,
+		material.decisionCanonica,
+		material.motivoCanonico,
+		material.contextoActorCanonico,
+		material.personaVersion,
+		material.perfilVersion,
+		material.payloadVECAD3,
+		material.sobreCOSESign1,
+		material.evidenciaVerificacion,
+		material.raizPublicaSPKI,
+	}
 }
 
 func nuevosArgumentosMaterialConsultaRRHH(
