@@ -2,8 +2,8 @@ package application
 
 import (
 	"context"
-	"time"
 
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
@@ -42,10 +42,6 @@ func (s *ServicioConsultaDetalleRRHH) Consultar(
 		dependenciaNula(s.reloj) || solicitud.ExpedienteRef() == "" {
 		return ports.DetalleExpedienteRRHH{}, ErrSolicitudConsultaRRHHInvalida
 	}
-	instante := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
-	if err := errorContextoConsultaRRHH(ctx); err != nil {
-		return ports.DetalleExpedienteRRHH{}, err
-	}
 	contexto, err := s.autoridad.ResolverContextoConsultaRRHH(ctx)
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
 		return ports.DetalleExpedienteRRHH{}, errContexto
@@ -53,8 +49,16 @@ func (s *ServicioConsultaDetalleRRHH) Consultar(
 	if err != nil {
 		return ports.DetalleExpedienteRRHH{}, normalizarFalloConsultaRRHH(err)
 	}
+	instanteAutorizacion := s.reloj.Ahora()
+	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
+		return ports.DetalleExpedienteRRHH{}, errContexto
+	}
+	if !domain.InstanteUTCCanonico(instanteAutorizacion) {
+		return ports.DetalleExpedienteRRHH{},
+			ErrResultadoConsultaRRHHNoConfiable
+	}
 	capacidad, err := s.autorizador.AutorizarDetalleRRHH(
-		ctx, contexto, solicitud, instante,
+		ctx, contexto, solicitud, instanteAutorizacion,
 	)
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
 		return ports.DetalleExpedienteRRHH{}, errContexto
@@ -62,8 +66,19 @@ func (s *ServicioConsultaDetalleRRHH) Consultar(
 	if err != nil {
 		return ports.DetalleExpedienteRRHH{}, normalizarFalloConsultaRRHH(err)
 	}
+	instanteOrden := s.reloj.Ahora()
+	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
+		return ports.DetalleExpedienteRRHH{}, errContexto
+	}
+	if !domain.InstanteUTCCanonico(instanteOrden) ||
+		instanteOrden.Before(instanteAutorizacion) ||
+		instanteOrden.Before(capacidad.ValidaDesde()) ||
+		!instanteOrden.Before(capacidad.ValidaHasta()) {
+		return ports.DetalleExpedienteRRHH{},
+			ErrResultadoConsultaRRHHNoConfiable
+	}
 	orden, err := ports.NuevaOrdenConsultaDetalleRRHH(
-		contexto, capacidad, solicitud, instante,
+		contexto, capacidad, solicitud, instanteOrden,
 	)
 	if err != nil {
 		return ports.DetalleExpedienteRRHH{},
