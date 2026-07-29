@@ -27,24 +27,24 @@ var (
 )
 
 type ServicioConsultaCuadroRRHH struct {
-	autoridad   ports.AutoridadContextoConsultaRRHH
-	autorizador ports.AutorizadorConsultaRRHH
-	sesion      ports.SesionConsultaRRHH
-	reloj       ports.Reloj
+	autoridad ports.AutoridadContextoConsultaRRHH
+	emisor    *ports.EmisorMaterialConsultaRRHH
+	sesion    ports.SesionConsultaRRHH
+	reloj     ports.Reloj
 }
 
 func NuevoServicioConsultaCuadroRRHH(
 	autoridad ports.AutoridadContextoConsultaRRHH,
-	autorizador ports.AutorizadorConsultaRRHH,
+	emisor *ports.EmisorMaterialConsultaRRHH,
 	sesion ports.SesionConsultaRRHH,
 	reloj ports.Reloj,
 ) (*ServicioConsultaCuadroRRHH, error) {
-	if dependenciaNula(autoridad) || dependenciaNula(autorizador) ||
+	if dependenciaNula(autoridad) || dependenciaNula(emisor) ||
 		dependenciaNula(sesion) || dependenciaNula(reloj) {
 		return nil, ErrServicioConsultaRRHHInvalido
 	}
 	return &ServicioConsultaCuadroRRHH{
-		autoridad: autoridad, autorizador: autorizador,
+		autoridad: autoridad, emisor: emisor,
 		sesion: sesion, reloj: reloj,
 	}, nil
 }
@@ -57,7 +57,7 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 		return ports.PaginaCuadroRRHH{}, err
 	}
 	if s == nil || dependenciaNula(s.autoridad) ||
-		dependenciaNula(s.autorizador) || dependenciaNula(s.sesion) ||
+		dependenciaNula(s.emisor) || dependenciaNula(s.sesion) ||
 		dependenciaNula(s.reloj) || solicitud.Limite() < 1 ||
 		solicitud.Limite() > ports.LimiteMaximoCuadroRRHH {
 		return ports.PaginaCuadroRRHH{}, ErrSolicitudConsultaRRHHInvalida
@@ -69,15 +69,8 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 	if err != nil {
 		return ports.PaginaCuadroRRHH{}, normalizarFalloConsultaRRHH(err)
 	}
-	instanteAutorizacion := s.reloj.Ahora()
-	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
-		return ports.PaginaCuadroRRHH{}, errContexto
-	}
-	if !domain.InstanteUTCCanonico(instanteAutorizacion) {
-		return ports.PaginaCuadroRRHH{}, ErrResultadoConsultaRRHHNoConfiable
-	}
-	capacidad, err := s.autorizador.AutorizarCuadroRRHH(
-		ctx, contexto, solicitud, instanteAutorizacion,
+	material, err := s.emisor.EmitirMaterialCuadroRRHH(
+		ctx, contexto, solicitud,
 	)
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
 		return ports.PaginaCuadroRRHH{}, errContexto
@@ -85,12 +78,30 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 	if err != nil {
 		return ports.PaginaCuadroRRHH{}, normalizarFalloConsultaRRHH(err)
 	}
+	instanteCapacidad := s.reloj.Ahora()
+	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
+		return ports.PaginaCuadroRRHH{}, errContexto
+	}
+	if !domain.InstanteUTCCanonico(instanteCapacidad) {
+		return ports.PaginaCuadroRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+	}
+	capacidad, err := ports.NuevaCapacidadConsultaCuadroRRHH(
+		contexto, material, solicitud, instanteCapacidad,
+	)
+	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
+		return ports.PaginaCuadroRRHH{}, errContexto
+	}
+	if err != nil {
+		return ports.PaginaCuadroRRHH{}, ErrResultadoConsultaRRHHNoConfiable
+	}
 	instanteOrden := s.reloj.Ahora()
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
 		return ports.PaginaCuadroRRHH{}, errContexto
 	}
 	if !domain.InstanteUTCCanonico(instanteOrden) ||
-		instanteOrden.Before(instanteAutorizacion) {
+		instanteOrden.Before(instanteCapacidad) ||
+		instanteOrden.Before(capacidad.ValidaDesde()) ||
+		!instanteOrden.Before(capacidad.ValidaHasta()) {
 		return ports.PaginaCuadroRRHH{}, ErrResultadoConsultaRRHHNoConfiable
 	}
 	orden, err := ports.NuevaOrdenConsultaCuadroRRHH(

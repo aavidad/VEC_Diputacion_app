@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,36 +29,15 @@ func (a *autoridadConsultaRRHHPrueba) ResolverContextoConsultaRRHH(
 	return a.contexto, a.err
 }
 
-type autorizadorConsultaRRHHPrueba struct {
+// capacidadesConsultaRRHHPrueba conserva la preparación de recibos de pruebas
+// históricas; los servicios ya no consumen este doble.
+type capacidadesConsultaRRHHPrueba struct {
 	capacidadCuadro  ports.CapacidadConsultaRRHH
 	capacidadDetalle ports.CapacidadConsultaRRHH
-	errCuadro        error
-	errDetalle       error
-	llamadasCuadro   int
-	llamadasDetalle  int
-}
-
-func (a *autorizadorConsultaRRHHPrueba) AutorizarCuadroRRHH(
-	context.Context,
-	ports.ContextoConsultaRRHH,
-	ports.SolicitudCuadroRRHH,
-	time.Time,
-) (ports.CapacidadConsultaRRHH, error) {
-	a.llamadasCuadro++
-	return a.capacidadCuadro, a.errCuadro
-}
-
-func (a *autorizadorConsultaRRHHPrueba) AutorizarDetalleRRHH(
-	context.Context,
-	ports.ContextoConsultaRRHH,
-	ports.SolicitudDetalleRRHH,
-	time.Time,
-) (ports.CapacidadConsultaRRHH, error) {
-	a.llamadasDetalle++
-	return a.capacidadDetalle, a.errDetalle
 }
 
 type sesionConsultaRRHHPrueba struct {
+	t               *testing.T
 	pagina          ports.PaginaCuadroRRHH
 	detalle         ports.DetalleExpedienteRRHH
 	errCuadro       error
@@ -69,36 +49,73 @@ type sesionConsultaRRHHPrueba struct {
 }
 
 func (s *sesionConsultaRRHHPrueba) ConsultarCuadroYRegistrar(
-	context.Context,
-	ports.OrdenConsultaCuadroRRHH,
+	_ context.Context,
+	orden ports.OrdenConsultaCuadroRRHH,
 ) (ports.PaginaCuadroRRHH, error) {
 	s.llamadasCuadro++
 	if s.cancelarCuadro != nil {
 		s.cancelarCuadro()
 	}
-	return s.pagina, s.errCuadro
+	if s.errCuadro != nil {
+		return ports.PaginaCuadroRRHH{}, s.errCuadro
+	}
+	pagina := clonarPaginaCuadroRRHH(s.pagina)
+	pagina.Lectura = reciboConsultaRRHHPrueba(
+		s.t, orden.Contexto(), orden.Capacidad(), orden.Instante(),
+		"", 0, uint16(len(pagina.Expedientes)),
+	)
+	return pagina, nil
 }
 
 func (s *sesionConsultaRRHHPrueba) ConsultarDetalleYRegistrar(
-	context.Context,
-	ports.OrdenConsultaDetalleRRHH,
+	_ context.Context,
+	orden ports.OrdenConsultaDetalleRRHH,
 ) (ports.DetalleExpedienteRRHH, error) {
 	s.llamadasDetalle++
 	if s.cancelarDetalle != nil {
 		s.cancelarDetalle()
 	}
-	return s.detalle, s.errDetalle
+	if s.errDetalle != nil {
+		return ports.DetalleExpedienteRRHH{}, s.errDetalle
+	}
+	detalle := s.detalle.Clonar()
+	detalle.Lectura = reciboConsultaRRHHPrueba(
+		s.t, orden.Contexto(), orden.Capacidad(), orden.Instante(),
+		orden.Solicitud().ExpedienteRef(), detalle.Resumen.Version, 1,
+	)
+	return detalle, nil
 }
 
-type relojConsultaRRHHPrueba struct{ instante time.Time }
+type relojConsultaRRHHPrueba struct {
+	mu        sync.Mutex
+	instante  time.Time
+	instantes []time.Time
+	llamadas  int
+	despuesDe func(int)
+}
 
-func (r *relojConsultaRRHHPrueba) Ahora() time.Time { return r.instante }
+func (r *relojConsultaRRHHPrueba) Ahora() time.Time {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.llamadas++
+	instante := r.instante
+	if len(r.instantes) > 0 {
+		instante = r.instantes[0]
+		if len(r.instantes) > 1 {
+			r.instantes = r.instantes[1:]
+		}
+	}
+	if r.despuesDe != nil {
+		r.despuesDe(r.llamadas)
+	}
+	return instante
+}
 
 func TestConsultaCuadroRRHHCierraLecturaRegistrada(t *testing.T) {
 	t.Parallel()
 	entorno := nuevoEntornoConsultaRRHH(t)
 	servicio, err := NuevoServicioConsultaCuadroRRHH(
-		entorno.autoridad, entorno.autorizador, entorno.sesion, entorno.reloj,
+		entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +125,12 @@ func TestConsultaCuadroRRHHCierraLecturaRegistrada(t *testing.T) {
 		t.Fatalf("consultar: %v", err)
 	}
 	if entorno.autoridad.llamadas != 1 ||
-		entorno.autorizador.llamadasCuadro != 1 ||
+		entorno.emision.motivos.llamadasCuadro != 1 ||
+		entorno.emision.motivos.llamadasDetalle != 0 ||
+		entorno.emision.correlaciones.llamadas != 1 ||
+		entorno.emision.reloj.llamadas != 2 ||
+		entorno.emision.cuadro.llamadas != 1 ||
+		entorno.emision.detalle.llamadas != 0 ||
 		entorno.sesion.llamadasCuadro != 1 ||
 		len(obtenida.Expedientes) != 1 ||
 		obtenida.Lectura.TotalPublicado() != 1 {
@@ -120,25 +142,16 @@ func TestConsultaCuadroRRHHCierraLecturaRegistrada(t *testing.T) {
 	}
 }
 
-func TestConsultaCuadroRRHHNoDistingueDenegadoAusenteYAjeno(t *testing.T) {
+func TestConsultaCuadroRRHHNoDistingueAusenteYAjeno(t *testing.T) {
 	t.Parallel()
-	for _, caso := range []struct {
-		nombre        string
-		falloAutoriza error
-		falloSesion   error
-	}{
-		{"denegado", ports.ErrConsultaRRHHNoObservable, nil},
-		{"ausente", nil, ports.ErrConsultaRRHHNoObservable},
-		{"ajeno", nil, ports.ErrConsultaRRHHNoObservable},
-	} {
-		caso := caso
-		t.Run(caso.nombre, func(t *testing.T) {
+	for _, nombre := range []string{"ausente", "ajeno"} {
+		nombre := nombre
+		t.Run(nombre, func(t *testing.T) {
 			t.Parallel()
 			entorno := nuevoEntornoConsultaRRHH(t)
-			entorno.autorizador.errCuadro = caso.falloAutoriza
-			entorno.sesion.errCuadro = caso.falloSesion
+			entorno.sesion.errCuadro = ports.ErrConsultaRRHHNoObservable
 			servicio, err := NuevoServicioConsultaCuadroRRHH(
-				entorno.autoridad, entorno.autorizador,
+				entorno.autoridad, entorno.emisor,
 				entorno.sesion, entorno.reloj,
 			)
 			if err != nil {
@@ -158,7 +171,7 @@ func TestConsultaCuadroRRHHCancelacionPrevalece(t *testing.T) {
 	ctx, cancelar := context.WithCancel(context.Background())
 	entorno.sesion.cancelarCuadro = cancelar
 	servicio, err := NuevoServicioConsultaCuadroRRHH(
-		entorno.autoridad, entorno.autorizador, entorno.sesion, entorno.reloj,
+		entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -175,7 +188,7 @@ func TestConsultaCuadroRRHHCanceladaNoInvocaPuertos(t *testing.T) {
 	ctx, cancelar := context.WithCancel(context.Background())
 	cancelar()
 	servicio, err := NuevoServicioConsultaCuadroRRHH(
-		entorno.autoridad, entorno.autorizador, entorno.sesion, entorno.reloj,
+		entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -186,7 +199,7 @@ func TestConsultaCuadroRRHHCanceladaNoInvocaPuertos(t *testing.T) {
 		t.Fatalf("cancelación no prevalece: %v", err)
 	}
 	if entorno.autoridad.llamadas != 0 ||
-		entorno.autorizador.llamadasCuadro != 0 ||
+		entorno.emision.cuadro.llamadas != 0 ||
 		entorno.sesion.llamadasCuadro != 0 {
 		t.Fatal("una consulta ya cancelada invocó puertos")
 	}
@@ -197,14 +210,73 @@ func TestConstructoresConsultaRRHHRechazanTypedNil(t *testing.T) {
 	entorno := nuevoEntornoConsultaRRHH(t)
 	var autoridad *autoridadConsultaRRHHPrueba
 	if _, err := NuevoServicioConsultaCuadroRRHH(
-		autoridad, entorno.autorizador, entorno.sesion, entorno.reloj,
+		autoridad, entorno.emisor, entorno.sesion, entorno.reloj,
 	); !errors.Is(err, ErrServicioConsultaRRHHInvalido) {
 		t.Fatalf("typed nil aceptado en cuadro: %v", err)
 	}
 	if _, err := NuevoServicioConsultaDetalleRRHH(
-		autoridad, entorno.autorizador, entorno.sesion, entorno.reloj,
+		autoridad, entorno.emisor, entorno.sesion, entorno.reloj,
 	); !errors.Is(err, ErrServicioConsultaRRHHInvalido) {
 		t.Fatalf("typed nil aceptado en detalle: %v", err)
+	}
+	var emisor *ports.EmisorMaterialConsultaRRHH
+	if _, err := NuevoServicioConsultaCuadroRRHH(
+		entorno.autoridad, emisor, entorno.sesion, entorno.reloj,
+	); !errors.Is(err, ErrServicioConsultaRRHHInvalido) {
+		t.Fatalf("emisor typed nil aceptado en cuadro: %v", err)
+	}
+	if _, err := NuevoServicioConsultaDetalleRRHH(
+		entorno.autoridad, emisor, entorno.sesion, entorno.reloj,
+	); !errors.Is(err, ErrServicioConsultaRRHHInvalido) {
+		t.Fatalf("emisor typed nil aceptado en detalle: %v", err)
+	}
+}
+
+func TestConsultasRRHHRechazanMaterialDeOtroContexto(t *testing.T) {
+	t.Parallel()
+	for _, operacion := range []string{"cuadro", "detalle"} {
+		operacion := operacion
+		t.Run(operacion, func(t *testing.T) {
+			t.Parallel()
+			entorno := nuevoEntornoConsultaRRHH(t)
+			ajeno := contextoAutorizacionAltaV3PruebaConMarcas(
+				t, entorno.ahora, "b", "b",
+			).Resultado
+			var err error
+			switch operacion {
+			case "cuadro":
+				entorno.emision.cuadro.resultadoAjeno = &ajeno
+				servicio, fallo := NuevoServicioConsultaCuadroRRHH(
+					entorno.autoridad, entorno.emisor,
+					entorno.sesion, entorno.reloj,
+				)
+				if fallo != nil {
+					t.Fatal(fallo)
+				}
+				_, err = servicio.Consultar(context.Background(), entorno.cuadro)
+			case "detalle":
+				entorno.emision.detalle.resultadoAjeno = &ajeno
+				servicio, fallo := NuevoServicioConsultaDetalleRRHH(
+					entorno.autoridad, entorno.emisor,
+					entorno.sesion, entorno.reloj,
+				)
+				if fallo != nil {
+					t.Fatal(fallo)
+				}
+				_, err = servicio.Consultar(context.Background(), entorno.detalle)
+			}
+			if !errors.Is(err, ErrConsultaRRHHNoDisponible) ||
+				entorno.sesion.llamadasCuadro != 0 ||
+				entorno.sesion.llamadasDetalle != 0 ||
+				entorno.reloj.llamadas != 0 {
+				t.Fatalf(
+					"material cruzado aceptado: error=%v cuadro=%d "+
+						"detalle=%d reloj=%d",
+					err, entorno.sesion.llamadasCuadro,
+					entorno.sesion.llamadasDetalle, entorno.reloj.llamadas,
+				)
+			}
+		})
 	}
 }
 
@@ -214,7 +286,9 @@ type entornoConsultaRRHH struct {
 	cuadro      ports.SolicitudCuadroRRHH
 	detalle     ports.SolicitudDetalleRRHH
 	autoridad   *autoridadConsultaRRHHPrueba
-	autorizador *autorizadorConsultaRRHHPrueba
+	autorizador *capacidadesConsultaRRHHPrueba
+	emisor      *ports.EmisorMaterialConsultaRRHH
+	emision     *entornoEmisorConsultaRRHHPrueba
 	sesion      *sesionConsultaRRHHPrueba
 	reloj       *relojConsultaRRHHPrueba
 	expediente  domain.Expediente
@@ -251,6 +325,7 @@ func nuevoEntornoConsultaRRHH(t *testing.T) *entornoConsultaRRHH {
 		contexto.OrganizacionRef(),
 	)
 	expediente := expedienteConsultaRRHHPrueba(t, ahora)
+	emision := nuevoEmisorConsultaRRHHV3Prueba(t, ahora)
 	resumen := ports.ResumenExpedienteRRHH{
 		ExpedienteRef:   expediente.Referencia,
 		OrganizacionRef: expediente.OrganizacionRef,
@@ -279,10 +354,12 @@ func nuevoEntornoConsultaRRHH(t *testing.T) *entornoConsultaRRHH {
 	return &entornoConsultaRRHH{
 		ahora: ahora, contexto: contexto, cuadro: cuadro, detalle: detalle,
 		autoridad: &autoridadConsultaRRHHPrueba{contexto: contexto},
-		autorizador: &autorizadorConsultaRRHHPrueba{
+		autorizador: &capacidadesConsultaRRHHPrueba{
 			capacidadCuadro: capacidadCuadro, capacidadDetalle: capacidadDetalle,
 		},
+		emisor: emision.emisor, emision: emision,
 		sesion: &sesionConsultaRRHHPrueba{
+			t: t,
 			pagina: ports.PaginaCuadroRRHH{
 				GeneradaEn: ahora, Expedientes: []ports.ResumenExpedienteRRHH{resumen},
 				Lectura: reciboCuadro,

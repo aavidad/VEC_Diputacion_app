@@ -9,59 +9,14 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
-type relojSecuencialDetalleRRHHPrueba struct {
-	instantes []time.Time
-	lecturas  int
-	despuesDe func(int)
-}
-
-func (r *relojSecuencialDetalleRRHHPrueba) Ahora() time.Time {
-	indice := r.lecturas
-	r.lecturas++
-	if r.despuesDe != nil {
-		defer r.despuesDe(r.lecturas)
-	}
-	if indice >= len(r.instantes) {
-		return time.Time{}
-	}
-	return r.instantes[indice]
-}
-
-type autorizadorCronologiaDetalleRRHHPrueba struct {
-	capacidad ports.CapacidadConsultaRRHH
-	instantes []time.Time
-	cancelar  context.CancelFunc
-}
-
-func (a *autorizadorCronologiaDetalleRRHHPrueba) AutorizarCuadroRRHH(
-	context.Context,
-	ports.ContextoConsultaRRHH,
-	ports.SolicitudCuadroRRHH,
-	time.Time,
-) (ports.CapacidadConsultaRRHH, error) {
-	return ports.CapacidadConsultaRRHH{}, ports.ErrConsultaRRHHNoDisponible
-}
-
-func (a *autorizadorCronologiaDetalleRRHHPrueba) AutorizarDetalleRRHH(
-	_ context.Context,
-	_ ports.ContextoConsultaRRHH,
-	_ ports.SolicitudDetalleRRHH,
-	instante time.Time,
-) (ports.CapacidadConsultaRRHH, error) {
-	a.instantes = append(a.instantes, instante)
-	if a.cancelar != nil {
-		a.cancelar()
-	}
-	return a.capacidad, nil
-}
-
 type sesionCronologiaDetalleRRHHPrueba struct {
+	t        *testing.T
 	detalle  ports.DetalleExpedienteRRHH
 	ordenes  []ports.OrdenConsultaDetalleRRHH
 	llamadas int
 }
 
-func (s *sesionCronologiaDetalleRRHHPrueba) ConsultarCuadroYRegistrar(
+func (*sesionCronologiaDetalleRRHHPrueba) ConsultarCuadroYRegistrar(
 	context.Context,
 	ports.OrdenConsultaCuadroRRHH,
 ) (ports.PaginaCuadroRRHH, error) {
@@ -72,190 +27,156 @@ func (s *sesionCronologiaDetalleRRHHPrueba) ConsultarDetalleYRegistrar(
 	_ context.Context,
 	orden ports.OrdenConsultaDetalleRRHH,
 ) (ports.DetalleExpedienteRRHH, error) {
+	s.t.Helper()
 	s.llamadas++
 	s.ordenes = append(s.ordenes, orden)
-	return s.detalle, nil
+	detalle := s.detalle.Clonar()
+	detalle.Lectura = reciboConsultaRRHHPrueba(
+		s.t, orden.Contexto(), orden.Capacidad(), orden.Instante(),
+		orden.Solicitud().ExpedienteRef(), detalle.Resumen.Version, 1,
+	)
+	return detalle, nil
 }
 
-func TestConsultaDetalleRRHHUsaInstantePosteriorALaAutorizacion(
-	t *testing.T,
-) {
+func TestConsultaDetalleRRHHLeeRelojSoloTrasEmitirMaterial(t *testing.T) {
 	t.Parallel()
 	entorno := nuevoEntornoConsultaRRHH(t)
-	emitidaEn := entorno.autorizador.capacidadDetalle.ValidaDesde()
-	instanteAutorizacion := emitidaEn.Add(-time.Microsecond)
-	instanteOrden := emitidaEn
-	autorizador := &autorizadorCronologiaDetalleRRHHPrueba{
-		capacidad: entorno.autorizador.capacidadDetalle,
+	reloj := &relojConsultaRRHHPrueba{
+		instantes: []time.Time{entorno.ahora, entorno.ahora.Add(time.Second)},
+	}
+	lecturasAlEmitir := -1
+	entorno.emision.detalle.cancelar = func() {
+		lecturasAlEmitir = reloj.llamadas
 	}
 	sesion := &sesionCronologiaDetalleRRHHPrueba{
-		detalle: entorno.sesion.detalle,
-	}
-	type observacion struct {
-		autoridad   int
-		autorizador int
-	}
-	observaciones := make([]observacion, 0, 2)
-	reloj := &relojSecuencialDetalleRRHHPrueba{
-		instantes: []time.Time{instanteAutorizacion, instanteOrden},
-		despuesDe: func(int) {
-			observaciones = append(observaciones, observacion{
-				autoridad:   entorno.autoridad.llamadas,
-				autorizador: len(autorizador.instantes),
-			})
-		},
+		t: t, detalle: entorno.sesion.detalle,
 	}
 	servicio, err := NuevoServicioConsultaDetalleRRHH(
-		entorno.autoridad,
-		autorizador,
-		sesion,
-		reloj,
+		entorno.autoridad, entorno.emisor, sesion, reloj,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if _, err = servicio.Consultar(
-		context.Background(),
-		entorno.detalle,
+		context.Background(), entorno.detalle,
 	); err != nil {
 		t.Fatalf("consultar detalle con cronología válida: %v", err)
 	}
-	if !emitidaEn.After(instanteAutorizacion) ||
-		len(autorizador.instantes) != 1 ||
-		!autorizador.instantes[0].Equal(instanteAutorizacion) ||
-		reloj.lecturas != 2 || sesion.llamadas != 1 ||
-		len(sesion.ordenes) != 1 ||
-		!sesion.ordenes[0].Instante().Equal(instanteOrden) {
+	if lecturasAlEmitir != 0 || reloj.llamadas != 2 ||
+		entorno.emision.detalle.llamadas != 1 ||
+		entorno.emision.cuadro.llamadas != 0 ||
+		sesion.llamadas != 1 || len(sesion.ordenes) != 1 ||
+		sesion.ordenes[0].Instante() != entorno.ahora.Add(time.Second) {
 		t.Fatalf(
-			"cronología distinta: autorización=%v orden=%v lecturas=%d sesión=%d",
-			autorizador.instantes,
-			sesion.ordenes,
-			reloj.lecturas,
-			sesion.llamadas,
+			"fronteras desordenadas: antes_emisión=%d reloj=%d "+
+				"detalle=%d cuadro=%d sesión=%d",
+			lecturasAlEmitir, reloj.llamadas,
+			entorno.emision.detalle.llamadas,
+			entorno.emision.cuadro.llamadas, sesion.llamadas,
 		)
-	}
-	if len(observaciones) != 2 ||
-		observaciones[0] != (observacion{autoridad: 1}) ||
-		observaciones[1] != (observacion{
-			autoridad: 1, autorizador: 1,
-		}) {
-		t.Fatalf("orden de fronteras distinto: %#v", observaciones)
 	}
 }
 
-func TestConsultaDetalleRRHHRechazaCronologiaInseguraSinSesion(
+func TestConsultaDetalleRRHHRechazaRelojesPosterioresInseguros(
 	t *testing.T,
 ) {
 	t.Parallel()
 	zona := time.FixedZone("no-utc", 60*60)
 	for _, caso := range []struct {
-		nombre         string
-		instantes      func(ports.CapacidadConsultaRRHH) []time.Time
-		autorizaciones int
-		lecturas       int
+		nombre    string
+		instantes func(time.Time) []time.Time
+		lecturas  int
 	}{
 		{
-			nombre: "retroceso",
-			instantes: func(c ports.CapacidadConsultaRRHH) []time.Time {
-				return []time.Time{
-					c.ValidaDesde(),
-					c.ValidaDesde().Add(-time.Microsecond),
-				}
-			},
-			autorizaciones: 1,
-			lecturas:       2,
-		},
-		{
-			nombre: "capacidad vencida",
-			instantes: func(c ports.CapacidadConsultaRRHH) []time.Time {
-				return []time.Time{c.ValidaDesde(), c.ValidaHasta()}
-			},
-			autorizaciones: 1,
-			lecturas:       2,
-		},
-		{
-			nombre: "primer instante cero",
-			instantes: func(ports.CapacidadConsultaRRHH) []time.Time {
+			nombre: "capacidad_cero",
+			instantes: func(time.Time) []time.Time {
 				return []time.Time{{}}
 			},
 			lecturas: 1,
 		},
 		{
-			nombre: "primer instante no UTC",
-			instantes: func(c ports.CapacidadConsultaRRHH) []time.Time {
-				return []time.Time{c.ValidaDesde().In(zona)}
+			nombre: "capacidad_no_utc",
+			instantes: func(base time.Time) []time.Time {
+				return []time.Time{base.In(zona)}
 			},
 			lecturas: 1,
 		},
 		{
-			nombre: "segundo instante cero",
-			instantes: func(c ports.CapacidadConsultaRRHH) []time.Time {
-				return []time.Time{c.ValidaDesde(), {}}
+			nombre: "capacidad_retrocede",
+			instantes: func(base time.Time) []time.Time {
+				return []time.Time{base.Add(-time.Microsecond)}
 			},
-			autorizaciones: 1,
-			lecturas:       2,
+			lecturas: 1,
 		},
 		{
-			nombre: "segundo instante no canónico",
-			instantes: func(c ports.CapacidadConsultaRRHH) []time.Time {
+			nombre: "capacidad_tras_expiracion",
+			instantes: func(base time.Time) []time.Time {
 				return []time.Time{
-					c.ValidaDesde(),
-					c.ValidaDesde().Add(time.Nanosecond),
+					base.Add(ports.DuracionMaximaCapacidadConsultaRRHH),
 				}
 			},
-			autorizaciones: 1,
-			lecturas:       2,
+			lecturas: 1,
+		},
+		{
+			nombre: "orden_retrocede",
+			instantes: func(base time.Time) []time.Time {
+				return []time.Time{base, base.Add(-time.Microsecond)}
+			},
+			lecturas: 2,
+		},
+		{
+			nombre: "orden_no_canonica",
+			instantes: func(base time.Time) []time.Time {
+				return []time.Time{base, base.Add(time.Nanosecond)}
+			},
+			lecturas: 2,
+		},
+		{
+			nombre: "capacidad_vencida",
+			instantes: func(base time.Time) []time.Time {
+				return []time.Time{
+					base, base.Add(ports.DuracionMaximaCapacidadConsultaRRHH),
+				}
+			},
+			lecturas: 2,
 		},
 	} {
 		caso := caso
 		t.Run(caso.nombre, func(t *testing.T) {
 			t.Parallel()
 			entorno := nuevoEntornoConsultaRRHH(t)
-			autorizador := &autorizadorCronologiaDetalleRRHHPrueba{
-				capacidad: entorno.autorizador.capacidadDetalle,
+			reloj := &relojConsultaRRHHPrueba{
+				instantes: caso.instantes(entorno.ahora),
 			}
 			sesion := &sesionCronologiaDetalleRRHHPrueba{
-				detalle: entorno.sesion.detalle,
-			}
-			reloj := &relojSecuencialDetalleRRHHPrueba{
-				instantes: caso.instantes(autorizador.capacidad),
+				t: t, detalle: entorno.sesion.detalle,
 			}
 			servicio, err := NuevoServicioConsultaDetalleRRHH(
-				entorno.autoridad,
-				autorizador,
-				sesion,
-				reloj,
+				entorno.autoridad, entorno.emisor, sesion, reloj,
 			)
 			if err != nil {
 				t.Fatal(err)
 			}
-
 			_, err = servicio.Consultar(context.Background(), entorno.detalle)
 			if !errors.Is(err, ErrResultadoConsultaRRHHNoConfiable) {
-				t.Fatalf("cronología insegura no cerrada: %v", err)
+				t.Fatalf("cronología insegura aceptada: %v", err)
 			}
-			if len(autorizador.instantes) != caso.autorizaciones ||
-				reloj.lecturas != caso.lecturas || sesion.llamadas != 0 {
+			if reloj.llamadas != caso.lecturas || sesion.llamadas != 0 {
 				t.Fatalf(
-					"se alcanzó una frontera posterior: autorización=%d reloj=%d sesión=%d",
-					len(autorizador.instantes),
-					reloj.lecturas,
-					sesion.llamadas,
+					"actividad posterior: reloj=%d sesión=%d",
+					reloj.llamadas, sesion.llamadas,
 				)
 			}
 		})
 	}
 }
 
-func TestConsultaDetalleRRHHCancelacionCronologicaNoInvocaSesion(
+func TestConsultaDetalleRRHHCanceladaTrasCadaFronteraNoAbreSesion(
 	t *testing.T,
 ) {
 	t.Parallel()
 	for _, frontera := range []string{
-		"resolución",
-		"autorización",
-		"segundo reloj",
+		"autoridad", "motivo", "correlación", "emisión", "capacidad", "orden",
 	} {
 		frontera := frontera
 		t.Run(frontera, func(t *testing.T) {
@@ -263,47 +184,70 @@ func TestConsultaDetalleRRHHCancelacionCronologicaNoInvocaSesion(
 			entorno := nuevoEntornoConsultaRRHH(t)
 			ctx, cancelar := context.WithCancel(context.Background())
 			defer cancelar()
-			autorizador := &autorizadorCronologiaDetalleRRHHPrueba{
-				capacidad: entorno.autorizador.capacidadDetalle,
-			}
-			sesion := &sesionCronologiaDetalleRRHHPrueba{
-				detalle: entorno.sesion.detalle,
-			}
-			reloj := &relojSecuencialDetalleRRHHPrueba{
-				instantes: []time.Time{
-					autorizador.capacidad.ValidaDesde(),
-					autorizador.capacidad.ValidaDesde(),
-				},
+			reloj := &relojConsultaRRHHPrueba{
+				instantes: []time.Time{entorno.ahora, entorno.ahora},
 			}
 			switch frontera {
-			case "resolución":
+			case "autoridad":
 				entorno.autoridad.cancelar = cancelar
-			case "autorización":
-				autorizador.cancelar = cancelar
-			case "segundo reloj":
+			case "motivo":
+				entorno.emision.motivos.cancelarDetalle = cancelar
+			case "correlación":
+				entorno.emision.correlaciones.cancelar = cancelar
+			case "emisión":
+				entorno.emision.detalle.cancelar = cancelar
+			case "capacidad":
+				reloj.despuesDe = func(lectura int) {
+					if lectura == 1 {
+						cancelar()
+					}
+				}
+			case "orden":
 				reloj.despuesDe = func(lectura int) {
 					if lectura == 2 {
 						cancelar()
 					}
 				}
 			}
+			sesion := &sesionCronologiaDetalleRRHHPrueba{
+				t: t, detalle: entorno.sesion.detalle,
+			}
 			servicio, err := NuevoServicioConsultaDetalleRRHH(
-				entorno.autoridad,
-				autorizador,
-				sesion,
-				reloj,
+				entorno.autoridad, entorno.emisor, sesion, reloj,
 			)
 			if err != nil {
 				t.Fatal(err)
 			}
-
 			_, err = servicio.Consultar(ctx, entorno.detalle)
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf("cancelación no prevalece: %v", err)
 			}
 			if sesion.llamadas != 0 {
-				t.Fatal("la cancelación permitió invocar la sesión")
+				t.Fatal("la cancelación permitió abrir sesión")
 			}
 		})
+	}
+}
+
+func TestConsultaDetalleRRHHRechazaMaterialFallidoSinFiltrarCausa(
+	t *testing.T,
+) {
+	t.Parallel()
+	entorno := nuevoEntornoConsultaRRHH(t)
+	privado := errors.New("SECRETO-PRIVADO-EMISION-DETALLE")
+	entorno.emision.detalle.err = privado
+	servicio, err := NuevoServicioConsultaDetalleRRHH(
+		entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = servicio.Consultar(context.Background(), entorno.detalle)
+	if !errors.Is(err, ErrConsultaRRHHNoDisponible) ||
+		errors.Is(err, privado) ||
+		entorno.sesion.llamadasDetalle != 0 ||
+		entorno.reloj.llamadas != 0 {
+		t.Fatalf("fallo durable no cerrado: error=%v sesión=%d reloj=%d",
+			err, entorno.sesion.llamadasDetalle, entorno.reloj.llamadas)
 	}
 }

@@ -8,24 +8,24 @@ import (
 )
 
 type ServicioConsultaDetalleRRHH struct {
-	autoridad   ports.AutoridadContextoConsultaRRHH
-	autorizador ports.AutorizadorConsultaRRHH
-	sesion      ports.SesionConsultaRRHH
-	reloj       ports.Reloj
+	autoridad ports.AutoridadContextoConsultaRRHH
+	emisor    *ports.EmisorMaterialConsultaRRHH
+	sesion    ports.SesionConsultaRRHH
+	reloj     ports.Reloj
 }
 
 func NuevoServicioConsultaDetalleRRHH(
 	autoridad ports.AutoridadContextoConsultaRRHH,
-	autorizador ports.AutorizadorConsultaRRHH,
+	emisor *ports.EmisorMaterialConsultaRRHH,
 	sesion ports.SesionConsultaRRHH,
 	reloj ports.Reloj,
 ) (*ServicioConsultaDetalleRRHH, error) {
-	if dependenciaNula(autoridad) || dependenciaNula(autorizador) ||
+	if dependenciaNula(autoridad) || dependenciaNula(emisor) ||
 		dependenciaNula(sesion) || dependenciaNula(reloj) {
 		return nil, ErrServicioConsultaRRHHInvalido
 	}
 	return &ServicioConsultaDetalleRRHH{
-		autoridad: autoridad, autorizador: autorizador,
+		autoridad: autoridad, emisor: emisor,
 		sesion: sesion, reloj: reloj,
 	}, nil
 }
@@ -38,7 +38,7 @@ func (s *ServicioConsultaDetalleRRHH) Consultar(
 		return ports.DetalleExpedienteRRHH{}, err
 	}
 	if s == nil || dependenciaNula(s.autoridad) ||
-		dependenciaNula(s.autorizador) || dependenciaNula(s.sesion) ||
+		dependenciaNula(s.emisor) || dependenciaNula(s.sesion) ||
 		dependenciaNula(s.reloj) || solicitud.ExpedienteRef() == "" {
 		return ports.DetalleExpedienteRRHH{}, ErrSolicitudConsultaRRHHInvalida
 	}
@@ -49,29 +49,40 @@ func (s *ServicioConsultaDetalleRRHH) Consultar(
 	if err != nil {
 		return ports.DetalleExpedienteRRHH{}, normalizarFalloConsultaRRHH(err)
 	}
-	instanteAutorizacion := s.reloj.Ahora()
-	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
-		return ports.DetalleExpedienteRRHH{}, errContexto
-	}
-	if !domain.InstanteUTCCanonico(instanteAutorizacion) {
-		return ports.DetalleExpedienteRRHH{},
-			ErrResultadoConsultaRRHHNoConfiable
-	}
-	capacidad, err := s.autorizador.AutorizarDetalleRRHH(
-		ctx, contexto, solicitud, instanteAutorizacion,
+	material, err := s.emisor.EmitirMaterialDetalleRRHH(
+		ctx, contexto, solicitud,
 	)
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
 		return ports.DetalleExpedienteRRHH{}, errContexto
 	}
 	if err != nil {
-		return ports.DetalleExpedienteRRHH{}, normalizarFalloConsultaRRHH(err)
+		return ports.DetalleExpedienteRRHH{},
+			normalizarFalloConsultaRRHH(err)
+	}
+	instanteCapacidad := s.reloj.Ahora()
+	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
+		return ports.DetalleExpedienteRRHH{}, errContexto
+	}
+	if !domain.InstanteUTCCanonico(instanteCapacidad) {
+		return ports.DetalleExpedienteRRHH{},
+			ErrResultadoConsultaRRHHNoConfiable
+	}
+	capacidad, err := ports.NuevaCapacidadConsultaDetalleRRHH(
+		contexto, material, solicitud, instanteCapacidad,
+	)
+	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
+		return ports.DetalleExpedienteRRHH{}, errContexto
+	}
+	if err != nil {
+		return ports.DetalleExpedienteRRHH{},
+			ErrResultadoConsultaRRHHNoConfiable
 	}
 	instanteOrden := s.reloj.Ahora()
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
 		return ports.DetalleExpedienteRRHH{}, errContexto
 	}
 	if !domain.InstanteUTCCanonico(instanteOrden) ||
-		instanteOrden.Before(instanteAutorizacion) ||
+		instanteOrden.Before(instanteCapacidad) ||
 		instanteOrden.Before(capacidad.ValidaDesde()) ||
 		!instanteOrden.Before(capacidad.ValidaHasta()) {
 		return ports.DetalleExpedienteRRHH{},
@@ -83,6 +94,9 @@ func (s *ServicioConsultaDetalleRRHH) Consultar(
 	if err != nil {
 		return ports.DetalleExpedienteRRHH{},
 			ErrResultadoConsultaRRHHNoConfiable
+	}
+	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
+		return ports.DetalleExpedienteRRHH{}, errContexto
 	}
 	detalle, err := s.sesion.ConsultarDetalleYRegistrar(ctx, orden)
 	if errContexto := errorContextoConsultaRRHH(ctx); errContexto != nil {
