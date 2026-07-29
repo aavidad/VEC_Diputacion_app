@@ -519,12 +519,12 @@ invocar() {
 
 invocar_parametrizado() {
     local indice=$1 tipo=$2 auth=$3 ses=$4 ctl=$5 rev=$6 huella=$7
-    local dormir=${8:-0} marca=${9:-c2d2_parametrizada}
+    local retener=${8:-false} marca=${9:-c2d2_parametrizada}
     docker exec --interactive \
         --env VEC_INDICE="$indice" --env VEC_TIPO="$tipo" \
         --env VEC_AUTH="$auth" --env VEC_SESION="$ses" \
         --env VEC_CONTROL="$ctl" --env VEC_REVISION="$rev" \
-        --env VEC_HUELLA="$huella" --env VEC_DORMIR="$dormir" \
+        --env VEC_HUELLA="$huella" --env VEC_RETENER="$retener" \
         --env VEC_MARCA="$marca" \
         "$contenedor" psql -XAt --set ON_ERROR_STOP=1 \
         --set VERBOSITY=verbose --username vec_c2d2_registro_runtime \
@@ -536,7 +536,7 @@ invocar_parametrizado() {
 \getenv control VEC_CONTROL
 \getenv revision VEC_REVISION
 \getenv huella VEC_HUELLA
-\getenv dormir VEC_DORMIR
+\getenv retener VEC_RETENER
 \getenv marca VEC_MARCA
 SET application_name = :'marca';
 BEGIN;
@@ -545,7 +545,8 @@ SELECT vec_contratacion_temporal.c2d2_registrar_prueba(
 \parse llamada
 \bind_named llamada :indice :tipo :auth :sesion :control :revision :huella
 \g
-SELECT pg_sleep(:'dormir');
+SELECT pg_catalog.pg_advisory_xact_lock(42045,38)
+ WHERE :'retener'::boolean;
 COMMIT;
 SQL
 }
@@ -693,12 +694,11 @@ salida_revoca="$(mktemp "${TMPDIR:-/tmp}/vec-ct-carrera-rev.XXXXXX")"
 salida_puerta="$(mktemp "${TMPDIR:-/tmp}/vec-ct-carrera-puerta.XXXXXX")"
 temporales+=("$salida_registro" "$salida_revoca" "$salida_puerta")
 trazas+=("$salida_registro" "$salida_revoca" "$salida_puerta")
-invocar_parametrizado 201 cuadro "$autenticacion_b" "$sesion_b" \
-    "$control_b" "$revision_b" "$control_huella_b" 1.2 \
-    c2d2_registro_primero \
-    >"$salida_registro" 2>&1 &
+psql_admin --no-align --tuples-only --command "SET application_name='c2d2_puerta_registro'; SELECT pg_catalog.pg_advisory_lock(42045,38); SELECT pg_sleep(30)" >"$salida_puerta" 2>&1 &
+pid_puerta=$!; esperar_actividad c2d2_puerta_registro PgSleep
+invocar_parametrizado 201 cuadro "$autenticacion_b" "$sesion_b" "$control_b" "$revision_b" "$control_huella_b" true c2d2_registro_primero >"$salida_registro" 2>&1 &
 pid_registro=$!
-esperar_actividad c2d2_registro_primero PgSleep
+esperar_actividad c2d2_registro_primero Lock
 psql_admin --no-align --tuples-only --command \
     "SET application_name='c2d2_revocacion_despues'; SELECT
      vec_identidad_sesiones_v1.revocar_sesion_v1(
@@ -706,9 +706,12 @@ psql_admin --no-align --tuples-only --command \
       'opr_eeeeeeeeeeeeeeeeeeeeeeee')" >"$salida_revoca" 2>&1 &
 pid_revoca=$!
 esperar_actividad c2d2_revocacion_despues Lock
+[[ "$(valor "SELECT pg_catalog.pg_terminate_backend(pid) FROM pg_catalog.pg_stat_activity WHERE application_name='c2d2_puerta_registro'")" == 't' ]]
+estado_puerta=0; wait "$pid_puerta" || estado_puerta=$?; ((estado_puerta != 0))
 wait "$pid_registro"
 wait "$pid_revoca"
 rg -Fq 'recibo-acceso-rrhh.o4-05.v2' "$salida_registro"
+[[ "$(valor "SELECT actual.revision::text||'|'||control.estado FROM vec_autorizacion.control_sesion_actual_v1 actual JOIN vec_autorizacion.control_sesion_v1 control USING (sesion_ref,control_sesion_ref,revision) WHERE actual.sesion_ref='$sesion_b' AND actual.control_sesion_ref='$control_b'")" == "$((revision_b + 1))|revocada" ]]
 if rg -q "vec_c2d2_registro_runtime|login_tecnico|cuenta(_ordinaria)?_ref|$cuenta_ref|$cuenta_ref_b" "$salida_registro"; then
     printf 'recibo de carrera expone identidad técnica\n' >&2; exit 1
 fi
@@ -719,14 +722,13 @@ fi
  AND vinculo.cuenta_ref='$cuenta_ref_b'")" == '1' ]]
 
 estado_antes_revoca="$(estado_instalacion_000039)"
-# La puerta mantiene la revocación abierta hasta observar el registro bloqueado;
-# el sueño es solo un fusible y el camino normal termina el backend de puerta.
+# La puerta retiene la revocación hasta observar el registro bloqueado.
 psql_admin --no-align --tuples-only --command "SET application_name='c2d2_puerta_revocacion'; SELECT pg_catalog.pg_advisory_lock(42045,39); SELECT pg_sleep(30)" >"$salida_puerta" 2>&1 &
 pid_puerta=$!; esperar_actividad c2d2_puerta_revocacion PgSleep
 psql_admin --no-align --tuples-only --command "SET application_name='c2d2_revocacion_primero'; BEGIN; SELECT vec_identidad_sesiones_v1.revocar_sesion_v1('$sesion','$control','$revision','opr_ffffffffffffffffffffffff'); SELECT pg_catalog.pg_advisory_xact_lock(42045,39); COMMIT" >"$salida_revoca" 2>&1 &
 pid_revoca=$!
 esperar_actividad c2d2_revocacion_primero Lock
-invocar_parametrizado 202 cuadro "$autenticacion" "$sesion" "$control" "$revision" "$control_huella" 0 c2d2_registro_despues >"$salida_registro" 2>&1 &
+invocar_parametrizado 202 cuadro "$autenticacion" "$sesion" "$control" "$revision" "$control_huella" false c2d2_registro_despues >"$salida_registro" 2>&1 &
 pid_registro=$!
 esperar_actividad c2d2_registro_despues Lock
 [[ "$(valor "SELECT pg_catalog.pg_terminate_backend(pid) FROM pg_catalog.pg_stat_activity WHERE application_name='c2d2_puerta_revocacion'")" == 't' ]]
