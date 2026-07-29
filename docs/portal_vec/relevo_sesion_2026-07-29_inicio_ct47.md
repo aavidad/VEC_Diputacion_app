@@ -158,6 +158,13 @@ valida un segundo reloj no retrógrado antes de construir el material. Un error
 posterior a evidencia durable devuelve material cero. A5 debe ahora migrar los
 dos casos de uso y retirar la vía copiable anterior antes de componer la raíz.
 
+A5.1 quedó integrado en `bea0b4b` con
+[GO independiente](revisiones/o4_05_revision_servicios_emisor_ct_000047a51_2026-07-30.md),
+P0=P1=0 y un P2 no bloqueante. Cuadro y detalle usan ya el emisor A4.3 exacto
+y dos relojes posteriores para capacidad y orden. A5.2 debe retirar el
+andamiaje de prueba legado, migrar los fixtures restantes y cerrar la fábrica
+cruda antes de eliminar `AutorizadorConsultaRRHH`.
+
 El contrato M0 de motivos quedó integrado en `c1bb5ec` con
 [GO independiente](revisiones/o4_05_revision_contrato_motivos_ct_000047m0_2026-07-29.md).
 Cuadro y detalle tienen métodos nominales separados, sin selectores libres.
@@ -167,6 +174,13 @@ reserva `000008`–`000010` para fundamento, publicación y resolución, seguida
 de un adaptador PostgreSQL con pool exclusivo. No se usarán `MAX(version)`,
 configuración libre ni referencias fijadas en código. La activación real sigue
 sujeta al catálogo aprobado y a los materiales de Sistemas.
+
+El primer candidato M1.1, `99c1e1b`, obtuvo
+[NO-GO independiente](revisiones/o4_05_revision_fundamento_motivos_ct_000047m11_nogo_2026-07-30.md)
+con P0=0, P1=1 y P2=0. Una reentrada aceptaba triggers y políticas RLS
+homónimos degradados y una FK ausente; el `down` tampoco distinguía la
+procedencia de una restricción en una tabla anterior. M1.1a corrige la
+adopción exacta y añade esos estados envenenados a PostgreSQL 18.4.
 
 El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
