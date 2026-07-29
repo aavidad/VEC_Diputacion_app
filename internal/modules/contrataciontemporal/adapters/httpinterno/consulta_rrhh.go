@@ -103,7 +103,7 @@ func (h *manejadorConsultaCuadroRRHH) ServeHTTP(
 		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(err))
 		return
 	}
-	if !paginaConsultaRRHHPublicable(pagina) {
+	if pagina.ValidarContenidoPublicablePara(solicitud) != nil {
 		responderErrorConsultaRRHH(w, errorResultadoConsultaRRHHNoConfiable)
 		return
 	}

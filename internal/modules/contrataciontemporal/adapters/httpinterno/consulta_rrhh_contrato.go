@@ -228,29 +228,6 @@ func proyectarPaginaCuadroRRHH(
 	return salida
 }
 
-// paginaConsultaRRHHPublicable no suplanta la validación probatoria del caso
-// de uso. Impide que una implementación defectuosa de la interfaz publique
-// campos cero, referencias repetidas o una cardinalidad fuera de contrato.
-func paginaConsultaRRHHPublicable(entrada ports.PaginaCuadroRRHH) bool {
-	if !domain.InstanteUTCCanonico(entrada.GeneradaEn) ||
-		len(entrada.Expedientes) > ports.LimiteMaximoCuadroRRHH ||
-		entrada.HayMas != (entrada.CursorSiguiente != "") {
-		return false
-	}
-	vistas := make(map[string]struct{}, len(entrada.Expedientes))
-	for _, resumen := range entrada.Expedientes {
-		if resumen.Validar() != nil ||
-			resumen.ActualizadoEn.After(entrada.GeneradaEn) {
-			return false
-		}
-		if _, repetida := vistas[resumen.ExpedienteRef]; repetida {
-			return false
-		}
-		vistas[resumen.ExpedienteRef] = struct{}{}
-	}
-	return true
-}
-
 func proyectarResumenRRHH(entrada ports.ResumenExpedienteRRHH) resumenRRHHJSON {
 	return resumenRRHHJSON{
 		ExpedienteRef: entrada.ExpedienteRef, NumeroVisible: entrada.NumeroVisible,
