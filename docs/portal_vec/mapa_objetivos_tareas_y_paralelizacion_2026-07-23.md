@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último commit verificado | `bea0b4b` — servicios de cuadro/detalle migrados a A4.3 con P0=P1=0 |
-| Trabajo local en revisión | A5.2 retira vías de prueba legadas; M1.1a corrige el NO-GO de adopción estructural de `000008`. |
+| Último commit verificado | `12aaaf6` — A5 cerrado sin autorizador legado ni fábrica cruda, P0=P1=P2=0 |
+| Trabajo local en revisión | M1.1b corrige la huella de persistencia, herencia y definición completa de triggers en `000008`. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

@@ -165,6 +165,14 @@ y dos relojes posteriores para capacidad y orden. A5.2 debe retirar el
 andamiaje de prueba legado, migrar los fixtures restantes y cerrar la fábrica
 cruda antes de eliminar `AutorizadorConsultaRRHH`.
 
+A5.2 quedó integrado en `12aaaf6` con
+[GO independiente](revisiones/o4_05_revision_retirada_vias_crudas_ct_000047a52_2026-07-30.md)
+y P0=P1=P2=0. Ya no se exportan el autorizador legado ni la fábrica cruda de
+material; A4.3 conserva la única construcción privada. Los dos fixtures usan
+el recorrido real, quedan por debajo de 500 líneas y mantienen los vectores
+PostgreSQL byte a byte. A5 queda cerrado; el siguiente eslabón funcional es
+M1/M2 y después la composición raíz.
+
 El contrato M0 de motivos quedó integrado en `c1bb5ec` con
 [GO independiente](revisiones/o4_05_revision_contrato_motivos_ct_000047m0_2026-07-29.md).
 Cuadro y detalle tienen métodos nominales separados, sin selectores libres.
