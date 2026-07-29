@@ -106,6 +106,10 @@ y orden ya no comparten un instante capturado antes de las fronteras lentas.
 La minitarea obtuvo `GO` independiente sin hallazgos. Véase la
 [revisión CT-000047C2](revisiones/o4_05_revision_cronologia_detalle_ct_000047c2_2026-07-29.md).
 
+La misma garantía quedó cerrada para el cuadro en `ce77db3`, también con `GO`
+independiente y P0=P1=P2=0. Véase la
+[revisión CT-000047C1](revisiones/o4_05_revision_cronologia_cuadro_ct_000047c1_2026-07-29.md).
+
 ## Métricas
 
 | Ámbito | Estado |
