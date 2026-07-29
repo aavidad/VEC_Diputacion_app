@@ -94,6 +94,10 @@ func (h *manejadorConsultaCuadroRRHH) ServeHTTP(
 		responderErrorConsultaRRHH(w, errorEntradaConsultaRRHH(err))
 		return
 	}
+	if errContexto := r.Context().Err(); errContexto != nil {
+		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
+		return
+	}
 	pagina, err := h.consultor.Consultar(r.Context(), solicitud)
 	if errContexto := r.Context().Err(); errContexto != nil {
 		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
@@ -142,6 +146,10 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 	solicitud, err := solicitudDetalleRRHHDesdePeticion(w, r)
 	if err != nil {
 		responderErrorConsultaRRHH(w, errorEntradaConsultaRRHH(err))
+		return
+	}
+	if errContexto := r.Context().Err(); errContexto != nil {
+		responderErrorConsultaRRHH(w, clasificarErrorConsultaRRHH(errContexto))
 		return
 	}
 	detalle, err := h.consultor.Consultar(r.Context(), solicitud)
