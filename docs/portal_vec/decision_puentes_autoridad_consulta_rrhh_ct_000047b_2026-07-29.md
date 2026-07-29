@@ -60,6 +60,10 @@ Cada nodo se implementa y revisa por separado. D1 y D2 tienen write-sets
 disjuntos. A2 no importa Contratación temporal y el puerto se implementará
 estructuralmente.
 
+A4 se divide en A4.1, par privado de emisores nominales; A4.2, preparación
+cerrada de solicitud y resultado; y A4.3, guardián público de emisión. A4.1
+quedó cerrado en `05d6767`; A4.2 permanece en curso.
+
 ## Recursos cerrados
 
 Cuadro y detalle derivarán en servidor:

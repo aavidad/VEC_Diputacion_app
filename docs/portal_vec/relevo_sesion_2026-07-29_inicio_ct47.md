@@ -136,6 +136,11 @@ y P0=P1=P2=0. La fachada encadena concesión durable, atestación, confianza,
 capacidad, raíz y material sin aceptar selectores libres. A4 puede empezar a
 componer los dos emisores nominales y guardianes de cuadro y detalle.
 
+A4.1 quedó integrado en `05d6767` con
+[GO independiente](revisiones/o4_05_revision_par_emisores_ct_000047a41_2026-07-29.md).
+El par privado rechaza nulos, implementaciones sin identidad física y la misma
+instancia en ambas posiciones. A4.2 continúa con la preparación nominal pura.
+
 El contrato M0 de motivos quedó integrado en `c1bb5ec` con
 [GO independiente](revisiones/o4_05_revision_contrato_motivos_ct_000047m0_2026-07-29.md).
 Cuadro y detalle tienen métodos nominales separados, sin selectores libres.
