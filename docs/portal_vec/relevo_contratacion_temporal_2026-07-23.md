@@ -1,4 +1,4 @@
-# Relevo del frente de contratación temporal — actualizado el 26/07/2026
+# Relevo del frente de contratación temporal — actualizado el 29/07/2026
 
 Documento de entrada obligatorio para cualquier agente que continúe este
 frente. Debe actualizarse en cada commit que cambie alcance, arquitectura,
@@ -13,8 +13,9 @@ contratación temporal desde la petición del centro hasta GINPIX, conservando
 ## Rama y base
 
 - Rama de integración actual: `integracion/ct-o4-04e-20260726`.
-- Último commit funcional verificado: `2a9ddb1`.
-- Último commit de documentación y revisión: `569b261`.
+- Último commit funcional verificado: `b442b02`.
+- Último cierre: CT-000044, motor privado de consultas RRHH, doble `GO`
+  independiente en PostgreSQL 18.4.
 - Seguimiento remoto:
   `origin/integracion/ct-o4-04e-20260726`.
 
@@ -27,7 +28,7 @@ incompletos. No deben mezclarse sin auditoría y reconciliación explícitas.
 Original local recibido:
 
 ```text
-/home/alberto/Trabajo/VEC_Diputacion_app/
+<raíz-del-repositorio>/
 Pantalla de procedimiento de gestión de contratación y gestión de bolsas.docx
 ```
 
@@ -89,7 +90,7 @@ ajenas.
 | Diseño de adaptador y reconciliación | GO condicionado; debe acoplarse a la firma real de O2-05 antes de implementar |
 | API interna | Adaptador O2-08B revisado con GO e integrado; falta registrarlo mediante O2-07 |
 | Web conectada | O2-09B integrada en `764fd52`; presentación RRHH 1..17 verificada en `6fb6cc6`; faltan composición real y E2E |
-| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. La interfaz permanece igual. Faltan el consumidor PostgreSQL de cuadro/detalle con registro de acceso, identidad, raíz, matriz TLS viva y E2E. |
+| O4-05 web de cobertura | Contrato HTTP, registro modular y cliente seguro cerrados en `1a764cf`, `7a866b3` y `023b890`; cápsula de ciclo de vida `69b6a14`, proyecciones protegidas `d6d1305`, composición visual gobernada `4714088`, pool/recuperación atómica PostgreSQL `d307b42`–`d3d6a04`, fundamento tipado VEC-AD-3 `2a9ddb1` y contrato de consulta RRHH V3 con GO técnico independiente. CT-000039 a CT-000044 cierran registro, contrato, recibo, prueba durable y motor privado. Faltan las fachadas CT-000045, el adaptador Go, la raíz, TLS viva y el E2E. |
 | E2E administrativo | Pendiente |
 
 ## Cortes locales y revisiones pendientes
@@ -580,15 +581,24 @@ mantiene abiertos el contrato tipado `000040`, la ejecución interna `000041`,
 las fachadas `000042`, el adaptador Go, la raíz productiva, TLS viva y el E2E
 HTTP/web.
 
-El procedimiento conserva **19 de 46 tareas verificadas (41 %)**. Esto no
-autoriza aún la ruta web productiva: faltan la raíz productiva, las
-proyecciones protegidas y el E2E de O4-05. Los dobles de presentación
-continúan aislados y no se convertirán en autoridad productiva.
+El procedimiento alcanza **22 de 46 tareas verificadas (48 %)** tras el cierre
+de CT-000044. Esto no autoriza aún la ruta web productiva: faltan las fachadas
+CT-000045, el adaptador PostgreSQL Go, la raíz productiva, TLS/mTLS viva y el
+E2E de O4-05. Los dobles de presentación continúan aislados y no se
+convertirán en autoridad productiva.
 
 El orden vigente del camino crítico es:
 
 ```text
-O4-05 raíz productiva, proyecciones protegidas y E2E de cobertura
-  ↔ O5-01 persistencia de asignación
-  → siguientes fases del procedimiento
+CT-000045 fachadas nominales
+→ adaptador PostgreSQL Go
+→ composición raíz y propiedad de recursos
+→ matriz TLS/mTLS viva
+→ misma web definitiva sin adaptadores DEMO
+→ E2E HTTP completo
+→ conformidades RRHH, DPD y Sistemas
 ```
+
+No se abre O5, O6 ni otro módulo hasta cerrar O4-05. El detalle reproducible
+del corte vigente está en
+`relevo_sesion_2026-07-29_cierre_ct44.md`.

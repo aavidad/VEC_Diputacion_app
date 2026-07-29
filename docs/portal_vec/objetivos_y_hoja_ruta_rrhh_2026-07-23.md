@@ -1,6 +1,6 @@
 # Objetivos y hoja de ruta del frente RRHH
 
-Última actualización: 23 de julio de 2026.
+Última actualización: 29 de julio de 2026.
 
 Este documento es la referencia de dirección del procedimiento recibido de
 RRHH. Evita dirigir el trabajo por códigos internos y permite saber qué se ha
@@ -104,11 +104,12 @@ pendiente.
 Comprobar Bolsa, agotamiento, candidaturas, SAE y nueva convocatoria; justificar
 la vía elegida y conservar las fuentes utilizadas.
 
-Estado: catálogo O4-01, consultas atestadas O4-02 y orquestador nominal O4-03
-cerrados. `f5f5f5a` cubre propuesta, decisión y rectificación con `GO`
-independiente, pero no acredita persistencia productiva. O4-04 es el camino
-crítico activo para materializar `COMMIT`, consumo C1/C2, revocación viva,
-auditoría/outbox y recibo durables; interfaz y E2E corresponden a O4-05.
+Estado: O4-01 a O4-04 están cerrados. O4-05 conserva tres de cinco hitos:
+contratos HTTP/web, proyecciones protegidas, autorización, registro durable,
+cursores, prueba durable y motor privado CT-000044 están integrados y
+revisados. El camino crítico activo es CT-000045 para exponer dos fachadas
+nominales mínimas; después siguen adaptador PostgreSQL Go, composición raíz,
+TLS/mTLS viva, la misma web definitiva y el E2E completo.
 
 ### O5. Asignación, informes y fiscalización
 
@@ -141,12 +142,11 @@ Estado: especificado; pendiente.
 
 ## Orden de ataque
 
-1. Terminar O2 sin abrir atajos de demostración en la ruta real.
-2. Validar O2 con RRHH y Sistemas.
-3. Replicar el mismo patrón durable en O3 y O4.
-4. Cerrar O5 y O6 reutilizando documentos, firma y Bolsa.
-5. Cerrar O7 y O8 con los conectores institucionales autorizados.
-6. Ejecutar aceptación funcional, seguridad, accesibilidad, recuperación y
+1. Cerrar O4-05 sin abrir atajos de demostración en la ruta real.
+2. Retomar O2-06 y completar la primera vertical de alta con el mismo patrón.
+3. Cerrar O3-05 y continuar O5 y O6 reutilizando documentos, firma y Bolsa.
+4. Cerrar O7 y O8 con los conectores institucionales autorizados.
+5. Ejecutar aceptación funcional, seguridad, accesibilidad, recuperación y
    operación antes de declarar producción.
 
 ## Definición común de terminado
@@ -169,15 +169,16 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Integrar la autorización durable de VEC en la orden de alta y añadir la función
-PostgreSQL que, dentro de la misma transacción:
+Implementar CT-000045 sobre la barrera exacta `24/8`:
 
-- coteje y consuma la concesión exacta;
-- confirme la reserva;
-- inserte expediente y actuación inicial;
-- escriba auditoría;
-- publique el evento outbox;
-- devuelva un recibo verificable.
+- dos fachadas nominales mínimas, una de cuadro y otra de detalle;
+- acción, finalidad, audiencia, módulo y tipo de recurso constantes;
+- alcance y canon funcional estrictamente tipados, más una capacidad VEC
+  nueva;
+- ejecución `SERIALIZABLE READ WRITE`;
+- rol runtime con `EXECUTE` solo sobre las fachadas;
+- errores sin oráculo para ausente, ajeno, denegado o versión incorrecta;
+- retirada `RESTRICT`, barreras exactas y preservación de historia.
 
-Hasta que esa puerta cierre, la cuenta runtime solo puede preparar referencias;
-no puede confirmar expedientes.
+Un productor cierra primero las firmas, roles, barreras, errores y matriz de
+pruebas. Un revisor distinto debe emitir `GO` antes de programar el paquete.
