@@ -321,4 +321,22 @@ comprobar_estado_ct44 '24|8|true|11|16' 'DOWN con estado causal'
 paso 'carreras integrales de revocación sobre motor completo'
 "$directorio/probar_o4_05_motor_consultas_rrhh_carreras_ct44c_pg18_4.sh"
 
+paso 'retirada de privilegios auxiliares de prueba'
+psql_admin <<'SQL' >/dev/null
+REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA vec_contratacion_temporal
+    FROM vec_contratacion_temporal_consultor_rrhh;
+REVOKE USAGE ON SCHEMA vec_contratacion_temporal
+    FROM vec_contratacion_temporal_consultor_rrhh;
+SQL
+[[ "$(valor "SELECT pg_catalog.count(*)::text || '|' ||
+    pg_catalog.has_schema_privilege(
+        'vec_contratacion_temporal_consultor_rrhh',
+        'vec_contratacion_temporal', 'USAGE'
+    )::text
+  FROM pg_catalog.pg_proc
+ WHERE pronamespace = 'vec_contratacion_temporal'::regnamespace
+   AND pg_catalog.has_function_privilege(
+       'vec_contratacion_temporal_consultor_rrhh', oid, 'EXECUTE'
+   )")" == '0|false' ]]
+
 paso 'paquete integral del motor CT-000044 superado'
