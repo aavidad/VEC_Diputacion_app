@@ -445,8 +445,6 @@ for componente in "${componentes[@]}"; do
         'division by zero' ejecutar_paquete_temporal
     comprobar_estado_ct45 "$estado_base" "mutación de $componente"
 done
-
-paso 'UP, reentradas, DOWN y tres huellas semánticas iguales'
 paso 'tres bases frescas divergen en OID y conservan el mismo manifiesto'
 huellas_frescas=()
 oides_frescos=()
@@ -455,10 +453,13 @@ docker exec "$contenedor" psql -X -v ON_ERROR_STOP=1 \
     'CREATE DATABASE ct45_base_fresca TEMPLATE postgres' >/dev/null
 for ciclo in 1 2 3; do
     base_fresca="ct45_fresca_$ciclo"
-    docker exec "$contenedor" psql -X -v ON_ERROR_STOP=1 \
-        --username postgres --dbname template1 --command \
-        "CREATE DATABASE $base_fresca TEMPLATE ct45_base_fresca" \
-        >/dev/null
+    docker exec --interactive --env VEC_BASE_FRESCA="$base_fresca" \
+        "$contenedor" psql -Xv ON_ERROR_STOP=1 -U postgres -d template1 <<'SQL' >/dev/null
+\getenv base_fresca VEC_BASE_FRESCA
+CREATE DATABASE :"base_fresca" TEMPLATE ct45_base_fresca;
+REVOKE ALL PRIVILEGES ON DATABASE :"base_fresca" FROM PUBLIC, vec_contratacion_temporal_consultor_rrhh;
+GRANT CONNECT ON DATABASE :"base_fresca" TO vec_contratacion_temporal_consultor_rrhh;
+SQL
     docker exec "$contenedor" psql -X -v ON_ERROR_STOP=1 \
         --username postgres --dbname "$base_fresca" \
         --file \
@@ -479,7 +480,6 @@ done
 docker exec "$contenedor" psql -X -v ON_ERROR_STOP=1 \
     --username postgres --dbname template1 --command \
     'DROP DATABASE ct45_base_fresca' >/dev/null
-
 paso 'UP, reentradas, DOWN y tres huellas semánticas iguales'
 huellas=()
 for ciclo in 1 2 3; do
