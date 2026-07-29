@@ -151,6 +151,13 @@ El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
 el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
 V3 y el conjunto de confianza proporcionados por Sistemas.
 
+La revisión detectó además que el SQL actual necesita el secreto HMAC dentro
+de PostgreSQL. La
+[decisión MAC/PostgreSQL](decision_mac_capacidad_y_postgresql_ct_000047_2026-07-29.md)
+mantiene `NO-GO` productivo hasta que Sistemas y DBA elijan HSM accesible desde
+PostgreSQL o una nueva capacidad asimétrica. Verificar solo en Go queda
+descartado porque rompería el consumo autoritativo dentro de la transacción.
+
 La cronología de detalle quedó corregida en `e3e12d5`: contexto, autorización
 y orden ya no comparten un instante capturado antes de las fronteras lentas.
 La minitarea obtuvo `GO` independiente sin hallazgos. Véase la
