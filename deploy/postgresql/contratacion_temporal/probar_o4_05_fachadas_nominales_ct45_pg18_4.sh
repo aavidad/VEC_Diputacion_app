@@ -676,6 +676,7 @@ do
     esperar_fallo "constante de decisión: $campo" 42501 \
         'consulta RRHH rechazada' \
         invocar_cuadro_escalar "$caso" true false
+    [[ "$(efectos_decision "$caso")" == '0|0|0|0' ]]
 done
 for especificacion in \
     'audiencia_consumo|audiencia.ajena' 'operacion|operacion.ajena'
@@ -690,6 +691,7 @@ do
     esperar_fallo "constante de capacidad: $campo" 42501 \
         'consulta RRHH rechazada' \
         invocar_cuadro_escalar "$caso" true false
+    [[ "$(efectos_decision "$caso")" == '0|0|0|0' ]]
 done
 
 paso 'replay, SQLSTATE transitorios y carrera dejan un único efecto'
@@ -722,10 +724,17 @@ if (( (estado_a == 0) + (estado_b == 0) != 1 )); then
         "$estado_a" "$estado_b" >&2
     exit 1
 fi
-salida_perdedor=$salida_a
-(( estado_a == 0 )) && salida_perdedor=$salida_b
-rg -Fq '42501' "$salida_perdedor"
-rg -Fq 'consulta RRHH rechazada' "$salida_perdedor"
+if (( estado_a == 0 )); then salida_perdedor=$salida_b
+else salida_perdedor=$salida_a
+fi
+if rg -Fq '40001' "$salida_perdedor"; then
+    esperar_fallo 'reintento tras serialización CT45' 42501 \
+        'consulta RRHH rechazada' \
+        invocar_cuadro_escalar ct45_carrera true false
+else
+    rg -Fq '42501' "$salida_perdedor"
+    rg -Fq 'consulta RRHH rechazada' "$salida_perdedor"
+fi
 [[ "$(efectos_decision ct45_carrera)" == '1|1|1|1' ]]
 
 paso 'la barrera CT45 protege el safe-down de CT44'
