@@ -45,7 +45,7 @@ contrato común sin semántica de Contratación temporal.
 B1 retención nominal privada [cerrada]
 ├── D0 envoltorio opaco de recurso [cerrada]
 │   ├── D1 fábrica cerrada de cuadro [cerrada]
-│   └── D2 fábrica cerrada de detalle [en curso]
+│   └── D2 fábrica cerrada de detalle [cerrada]
 └── A2.1 raíz pública nominal [cerrada]
     └── A2.2 fachada emisora VEC de alto nivel [en curso]
 
@@ -81,6 +81,11 @@ El motivo publicado y el alcance efectivo organización/centro/unidad no
 proceden del HTTP y aún necesitan una resolución gobernada. No se fijarán en
 código por conveniencia ni se permitirán como entrada libre al emisor. Esta
 decisión debe cerrarse antes del autorizador final A6.
+
+M0 cierra el contrato neutral con dos métodos nominales, cuadro y detalle.
+M1 deberá publicar dos vínculos gobernados y M2 resolverlos mediante
+PostgreSQL. La separación se mantendrá salvo aprobación expresa de RRHH, DPD y
+Jurídico para un único motivo.
 
 La frontera de identidad corporativa también sigue condicionada a que Sistemas
 proporcione el verificador de la aserción protegida y los materiales reales

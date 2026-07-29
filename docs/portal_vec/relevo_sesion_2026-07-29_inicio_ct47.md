@@ -119,7 +119,9 @@ D1 quedó integrado en `c908ce6` con
 [GO independiente](revisiones/o4_05_revision_recurso_cuadro_ct_000047d1_2026-07-29.md)
 y P0=P1=P2=0. Organización, referencia, módulo, tipo, ámbitos, dominio y
 huella se derivan exclusivamente del contexto y la solicitud tipada. D2
-continúa en un write-set separado para el detalle.
+quedó integrado después en `c174644` con
+[GO independiente](revisiones/o4_05_revision_recurso_detalle_ct_000047d2_2026-07-29.md)
+y las mismas garantías cerradas para el expediente y su versión observada.
 
 A2 se dividió para no crear un commit monolítico. A2.1 quedó integrado en
 `d69a744` con
@@ -127,6 +129,12 @@ A2 se dividió para no crear un commit monolítico. A2.1 quedó integrado en
 y P0=P1=P2=0. El servicio de confianza conserva y recupera internamente la
 raíz pública nominal ligada a una prueba exacta; A2.2 puede ahora construir la
 fachada de emisión sin exponer el catálogo o una clave.
+
+El contrato M0 de motivos quedó integrado en `c1bb5ec` con
+[GO independiente](revisiones/o4_05_revision_contrato_motivos_ct_000047m0_2026-07-29.md).
+Cuadro y detalle tienen métodos nominales separados, sin selectores libres.
+M1/M2 siguen pendientes de la publicación gobernada y del adaptador
+PostgreSQL; no se sustituirán por referencias fijadas en el código.
 
 La cronología de detalle quedó corregida en `e3e12d5`: contexto, autorización
 y orden ya no comparten un instante capturado antes de las fronteras lentas.
