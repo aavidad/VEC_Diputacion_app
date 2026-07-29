@@ -159,6 +159,9 @@ DECLARE
         'octet_length\s*\(\s*COALESCE\(p_alcance\.ambito_ref'
     ];
     v_patrones_consulta text[];
+    v_constantes text[];
+    v_terminales text[];
+    v_motor integer;
 BEGIN
     FOREACH v_nombre IN ARRAY ARRAY[
         'consultar_cuadro_rrhh_atestado_v1',
@@ -195,6 +198,48 @@ BEGIN
                 'octet_length\s*\(\s*COALESCE\(p_consulta\.expediente_ref'
             ]
         END;
+        IF v_nombre = 'consultar_cuadro_rrhh_atestado_v1' THEN
+            v_constantes := ARRAY[
+                'contratacion_temporal\.cuadro\.consultar',
+                'vec_contratacion_temporal\.consultar_cuadro_rrhh_atestado\.v1',
+                'v_decision\s*->>\s*''modulo_id''\s+IS DISTINCT FROM\s*''contratacion_temporal''',
+                'cuadro_rrhh_contratacion_temporal',
+                'gestion_operativa_contratacion_temporal',
+                'vec\.contratacion_temporal\.consulta_rrhh\.cuadro\.v1',
+                'v_capacidad\s*->>\s*''efecto_ref''\s+IS DISTINCT FROM\s*p_alcance\.ambito_ref',
+                'v_decision\s*->>\s*''recurso_ref''\s+IS DISTINCT FROM\s*p_alcance\.ambito_ref'
+            ];
+            v_terminales := ARRAY[
+                'v_resultado\.cursor_siguiente\s+IS DISTINCT FROM\s*''''',
+                'v_cierre\.cursor_huella_sha256\s+IS DISTINCT FROM\s*''''',
+                'v_cierre\.expediente_ref\s+IS DISTINCT FROM\s*''''',
+                'v_cierre\.version_expediente\s+IS DISTINCT FROM\s*0'
+            ];
+        ELSE
+            v_constantes := ARRAY[
+                'contratacion_temporal\.expediente\.consultar',
+                'vec_contratacion_temporal\.consultar_detalle_rrhh_atestado\.v1',
+                'v_decision\s*->>\s*''modulo_id''\s+IS DISTINCT FROM\s*''contratacion_temporal''',
+                'expediente_contratacion_temporal',
+                'tramitacion_expediente_contratacion_temporal',
+                'vec\.contratacion_temporal\.consulta_rrhh\.detalle\.v1',
+                'v_capacidad\s*->>\s*''efecto_ref''\s+IS DISTINCT FROM\s*p_consulta\.expediente_ref',
+                'v_decision\s*->>\s*''recurso_ref''\s+IS DISTINCT FROM\s*p_consulta\.expediente_ref'
+            ];
+            v_terminales := ARRAY[
+                'v_cierre\.cursor_huella_sha256\s+IS DISTINCT FROM\s*''''',
+                'v_cierre\.alcance_huella_sha256\s+IS DISTINCT FROM\s*'''''
+            ];
+        END IF;
+        v_motor := pg_catalog.regexp_instr(
+            v_definicion,
+            CASE v_nombre
+                WHEN 'consultar_cuadro_rrhh_atestado_v1'
+                THEN '\mmotor_consultar_cuadro_rrhh_v1\s*\('
+                ELSE '\mmotor_consultar_detalle_rrhh_v1\s*\('
+            END,
+            1, 1, 0, 'n'
+        );
         FOREACH v_patron IN ARRAY (
             v_patrones_alcance || v_patrones_consulta ||
             v_patrones_material
@@ -208,7 +253,25 @@ BEGIN
                     v_nombre, v_patron;
             END IF;
         END LOOP;
-        IF pg_catalog.regexp_count(
+        FOREACH v_patron IN ARRAY v_constantes LOOP
+            v_posicion := pg_catalog.regexp_instr(
+                v_definicion, v_patron, 1, 1, 0, 'n'
+            );
+            IF v_posicion = 0 OR v_posicion >= v_motor THEN
+                RAISE EXCEPTION 'constante CT45 ausente o tardía: %/%',
+                    v_nombre, v_patron;
+            END IF;
+        END LOOP;
+        FOREACH v_patron IN ARRAY v_terminales LOOP
+            v_posicion := pg_catalog.regexp_instr(
+                v_definicion, v_patron, 1, 1, 0, 'n'
+            );
+            IF v_posicion <= v_motor THEN
+                RAISE EXCEPTION 'guarda NULL CT45 ausente: %/%',
+                    v_nombre, v_patron;
+            END IF;
+        END LOOP;
+        IF v_motor = 0 OR pg_catalog.regexp_count(
                v_definicion,
                CASE v_nombre
                    WHEN 'consultar_cuadro_rrhh_atestado_v1'
