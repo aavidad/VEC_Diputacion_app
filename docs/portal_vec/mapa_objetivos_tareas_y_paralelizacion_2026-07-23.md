@@ -14,8 +14,8 @@ temporal. El detalle verificable de cada tarea está en el
 | Camino crítico | autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último commit verificado | `be59d58` — retención nominal CT `000047B1` con P0=P1=P2=0 |
-| Trabajo local en revisión | CT `000047B-D0`: envoltorio opaco del recurso; D1/D2 y fachada VEC continúan como minitareas separadas. |
+| Último commit verificado | `6a18b43` — recurso opaco CT `000047D0` con P0=P1=P2=0 |
+| Trabajo local en revisión | CT `000047D1` y `A2.1`: fábrica cerrada de cuadro y raíz nominal VEC en write-sets disjuntos. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 

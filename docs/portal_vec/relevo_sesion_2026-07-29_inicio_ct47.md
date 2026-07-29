@@ -109,8 +109,11 @@ clon privado, sin getter ni serialización, y vuelve a comprobarlo en cada uso.
 La [decisión CT-000047B](decision_puentes_autoridad_consulta_rrhh_ct_000047b_2026-07-29.md)
 elige guardianes de Contratación temporal y una fachada VEC de alto nivel. Se
 descarta una tercera capacidad común sin segundo consumidor real. El siguiente
-corte activo es D0, envoltorio opaco del recurso; después D1 y D2 construirán
-por separado los recursos cerrados de cuadro y detalle.
+corte D0 quedó integrado en `6a18b43` con
+[GO independiente](revisiones/o4_05_revision_recurso_opaco_ct_000047d0_2026-07-29.md)
+y P0=P1=P2=0. D1 y D2 quedan desbloqueados para construir por separado los
+recursos cerrados de cuadro y detalle, sin getters ni mapas aportados por el
+cliente.
 
 La cronología de detalle quedó corregida en `e3e12d5`: contexto, autorización
 y orden ya no comparten un instante capturado antes de las fronteras lentas.
