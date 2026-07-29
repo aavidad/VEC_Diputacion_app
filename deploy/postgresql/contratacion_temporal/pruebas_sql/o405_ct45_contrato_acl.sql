@@ -200,11 +200,12 @@ BEGIN
         END;
         IF v_nombre = 'consultar_cuadro_rrhh_atestado_v1' THEN
             v_constantes := ARRAY[
-                'contratacion_temporal\.cuadro\.consultar',
-                'vec_contratacion_temporal\.consultar_cuadro_rrhh_atestado\.v1',
+                'v_capacidad\s*->>\s*''operacion''\s+IS DISTINCT FROM\s*''contratacion_temporal\.cuadro\.consultar''',
+                'v_capacidad\s*->>\s*''audiencia_consumo''\s+IS DISTINCT FROM\s*''vec_contratacion_temporal\.consultar_cuadro_rrhh_atestado\.v1''',
+                'v_decision\s*->>\s*''accion''\s+IS DISTINCT FROM\s*''contratacion_temporal\.cuadro\.consultar''',
                 'v_decision\s*->>\s*''modulo_id''\s+IS DISTINCT FROM\s*''contratacion_temporal''',
-                'cuadro_rrhh_contratacion_temporal',
-                'gestion_operativa_contratacion_temporal',
+                'v_decision\s*->>\s*''tipo_recurso''\s+IS DISTINCT FROM\s*''cuadro_rrhh_contratacion_temporal''',
+                'v_decision\s*->>\s*''finalidad''\s+IS DISTINCT FROM\s*''gestion_operativa_contratacion_temporal''',
                 'vec\.contratacion_temporal\.consulta_rrhh\.cuadro\.v1',
                 'v_capacidad\s*->>\s*''efecto_ref''\s+IS DISTINCT FROM\s*p_alcance\.ambito_ref',
                 'v_decision\s*->>\s*''recurso_ref''\s+IS DISTINCT FROM\s*p_alcance\.ambito_ref'
@@ -217,11 +218,12 @@ BEGIN
             ];
         ELSE
             v_constantes := ARRAY[
-                'contratacion_temporal\.expediente\.consultar',
-                'vec_contratacion_temporal\.consultar_detalle_rrhh_atestado\.v1',
+                'v_capacidad\s*->>\s*''operacion''\s+IS DISTINCT FROM\s*''contratacion_temporal\.expediente\.consultar''',
+                'v_capacidad\s*->>\s*''audiencia_consumo''\s+IS DISTINCT FROM\s*''vec_contratacion_temporal\.consultar_detalle_rrhh_atestado\.v1''',
+                'v_decision\s*->>\s*''accion''\s+IS DISTINCT FROM\s*''contratacion_temporal\.expediente\.consultar''',
                 'v_decision\s*->>\s*''modulo_id''\s+IS DISTINCT FROM\s*''contratacion_temporal''',
-                'expediente_contratacion_temporal',
-                'tramitacion_expediente_contratacion_temporal',
+                'v_decision\s*->>\s*''tipo_recurso''\s+IS DISTINCT FROM\s*''expediente_contratacion_temporal''',
+                'v_decision\s*->>\s*''finalidad''\s+IS DISTINCT FROM\s*''tramitacion_expediente_contratacion_temporal''',
                 'vec\.contratacion_temporal\.consulta_rrhh\.detalle\.v1',
                 'v_capacidad\s*->>\s*''efecto_ref''\s+IS DISTINCT FROM\s*p_consulta\.expediente_ref',
                 'v_decision\s*->>\s*''recurso_ref''\s+IS DISTINCT FROM\s*p_consulta\.expediente_ref'
