@@ -475,6 +475,34 @@ revocación viva, FKs cruzadas, inmutabilidad y evidencia que bloquea la
 reversión. Dos ejecuciones consecutivas y dos revisiones independientes
 terminaron con `GO`.
 
+### CT-000043A: versión actual del detalle RRHH
+
+`000043a_detalle_version_actual.up.sql` corrige de forma aditiva el cotejo de
+la versión observada del detalle. La consulta con `version_observada=0`
+conserva literalmente su canon y huella VEC, mientras el acceso, la prueba
+durable y el Recibo RRHH V2 registran la versión positiva materializada. Una
+versión distinta de cero debe coincidir exactamente con la versión actual al
+corte.
+
+El corrector no avanza las barreras `23/7`, no crea tablas, funciones
+exteriores, permisos ni otra autoridad. Sella antes y después el cuerpo,
+firma, propietario, atributos, configuración, ACL, comentario y dependencias
+de la primitiva privada CT-000043. Su reversión restaura byte a byte el cuerpo
+anterior y CT-000043 no puede retirarse mientras el corrector esté aplicado.
+
+La puerta reproducible es:
+
+```bash
+./deploy/postgresql/contratacion_temporal/\
+probar_o4_05_corrector_detalle_version_actual_pg18_4.sh
+```
+
+El ejecutor cubre `0 → actual`, `N = N`, `N ≠ actual`, mutación y cruce VEC,
+`UP/DOWN/UP`, bloqueo de la reversión padre, deriva de catálogo, rollback,
+replay, concurrencia, revocación viva y propagación exacta de `40001`,
+`40P01`, `55P03` y `57014`. Terminó verde en dos ciclos del productor, dos
+reproducciones independientes y una repetición sobre la rama integradora.
+
 ## Reversión protegida
 
 La reversión normal solo funciona sin historia. Destruir historia exige un
