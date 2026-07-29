@@ -47,6 +47,36 @@ Un agente recibe un identificador de tarea. No toma otra por iniciativa propia.
 - No fusionar, rebasar ni limpiar ramas ajenas.
 - Commits pequeños con el identificador funcional, pruebas y documentación.
 
+## Granularidad obligatoria
+
+Todo VEP se desarrolla mediante minitareas, también fuera de contratación
+temporal:
+
+- una minitarea tiene una sola responsabilidad observable y un único criterio
+  de cierre;
+- un agente recibe una sola minitarea y no amplía su alcance por iniciativa
+  propia;
+- código y pruebas forman un commit local autónomo; la evidencia de revisión y
+  el estado transversal se confirman inmediatamente después por integración;
+- como señal de alarma, una tarea que modifica más de tres ficheros de
+  producción, añade más de unas doscientas líneas productivas o necesita dos
+  motivos distintos en el mensaje se divide o justifica antes de programarse;
+- cada commit debe compilar y superar sus pruebas focales; no se admiten cortes
+  intermedios que dejen una API pública incompleta, una migración sin consumidor
+  coherente o una ruta registrada sin autoridad;
+- una capacidad grande se expresa como un grafo de minitareas con dependencias,
+  no como un identificador que acumula contratos, adaptadores, composición,
+  interfaz y E2E;
+- las piezas independientes se asignan a subagentes con write-sets disjuntos;
+  otro agente revisa el resultado antes de que dirección lo integre;
+- si dos minitareas necesitan el mismo fichero, se ejecutan en secuencia o se
+  separa primero una abstracción propietaria; nunca se resuelve permitiendo
+  edición concurrente del mismo archivo.
+
+Dividir no significa producir commits rotos o cambios cosméticos sin valor. La
+unidad mínima es una capacidad compilable, protegida y verificable de extremo a
+extremo dentro de su alcance.
+
 ## Arquitectura no negociable
 
 - Hexagonal estricta.
