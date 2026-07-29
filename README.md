@@ -63,6 +63,7 @@ llamamientos.
 - [Relevo del cierre CT-000045](docs/portal_vec/relevo_sesion_2026-07-29_cierre_ct45.md)
 - [Revisión del adaptador PostgreSQL CT-000046](docs/portal_vec/revisiones/o4_05_revision_adaptador_consultas_rrhh_ct_000046_2026-07-29.md)
 - [Relevo del cierre CT-000046](docs/portal_vec/relevo_sesion_2026-07-29_cierre_ct46.md)
+- [Relevo del inicio CT-000047 y orden corregido](docs/portal_vec/relevo_sesion_2026-07-29_inicio_ct47.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
@@ -112,8 +113,9 @@ observable y sin permiso—, pero aún no recorre HTTP ni la composición raíz.
 CT-000039 a CT-000046 cierran además el registro minimizado, contrato tipado,
 recibo, vocabulario de estados, prueba durable, motor privado, dos fachadas
 nominales y su adaptador PostgreSQL Go. CT-000046 queda en `6c57644` con
-revisión independiente. El siguiente corte es la composición raíz interna;
-TLS/mTLS, web conectada y E2E siguen abiertos y producción conserva `NO-GO`.
+revisión independiente. Dos inventarios posteriores detectaron que antes de
+la raíz faltan HTTP cuadro/detalle y autoridad/PDP productivos; después siguen
+TLS/mTLS, web conectada y E2E. Producción conserva `NO-GO`.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es

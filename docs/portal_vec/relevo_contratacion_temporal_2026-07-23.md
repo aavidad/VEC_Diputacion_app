@@ -257,12 +257,14 @@ desde el manifiesto ni conceden acceso sin una decisión positiva del PDP.
 
 ## Siguiente corte exacto
 
-1. Componer la raíz interna con el pool nominal, el adaptador CT-000046,
-   frontera corporativa y PDP reales, sin caída a presentación.
-2. Implementar el adaptador independiente de publicaciones visuales
+1. Implementar los manejadores HTTP protegidos de cuadro y detalle.
+2. Implementar los puentes productivos de autoridad corporativa y PDP.
+3. Componer la raíz interna con el pool nominal y el adaptador CT-000046, sin
+   caída a presentación.
+4. Implementar el adaptador independiente de publicaciones visuales
    gobernadas de `4714088`.
-3. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
-4. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
+5. Ejecutar la matriz TLS viva, el E2E PostgreSQL 18 y la aceptación de RRHH.
+6. Mantener O2-06 como carril separado hasta corregir sus dos bloqueos de
    reinicio y cancelación segura.
 
 ## Dominio implementado
@@ -577,15 +579,17 @@ documenta el estado histórico de ese corte. CT-000040 a CT-000046 están ahora
 cerrados; permanecen abiertos la raíz productiva, TLS viva y el E2E HTTP/web.
 
 El procedimiento alcanza **24 de 46 tareas verificadas (52 %)** tras el cierre
-de CT-000046. Esto no autoriza aún la ruta web productiva: faltan la raíz
-productiva, TLS/mTLS viva y el E2E de O4-05. Los dobles de presentación
-continúan aislados y no se
+de CT-000046. Esto no autoriza aún la ruta web productiva: faltan HTTP
+cuadro/detalle, autoridad/PDP, raíz, TLS/mTLS viva y el E2E de O4-05. Los
+dobles de presentación continúan aislados y no se
 convertirán en autoridad productiva.
 
 El orden vigente del camino crítico es:
 
 ```text
-composición raíz y propiedad de recursos
+HTTP protegido de cuadro/detalle
+→ autoridad y PDP productivos
+→ composición raíz y propiedad de recursos
 → matriz TLS/mTLS viva
 → misma web definitiva sin adaptadores DEMO
 → E2E HTTP completo
@@ -594,4 +598,4 @@ composición raíz y propiedad de recursos
 
 No se abre O5, O6 ni otro módulo hasta cerrar O4-05. El detalle reproducible
 del corte vigente está en
-`relevo_sesion_2026-07-29_cierre_ct46.md`.
+`relevo_sesion_2026-07-29_inicio_ct47.md`.

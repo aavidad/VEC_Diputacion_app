@@ -107,9 +107,10 @@ la vía elegida y conservar las fuentes utilizadas.
 Estado: O4-01 a O4-04 están cerrados. O4-05 conserva tres de cinco hitos:
 contratos HTTP/web, proyecciones protegidas, autorización, registro durable,
 cursores, prueba durable, motor privado CT-000044 y fachadas nominales
-CT-000045, junto con el adaptador CT-000046, están integrados y revisados. El
-camino crítico activo es la composición raíz; después siguen TLS/mTLS viva, la
-misma web definitiva y el E2E completo.
+CT-000045, junto con el adaptador CT-000046, están integrados y revisados. Dos
+inventarios posteriores confirmaron que antes de la raíz faltan los manejadores
+HTTP de cuadro/detalle y los puentes productivos de autoridad/PDP. Después
+siguen composición raíz, TLS/mTLS viva, la misma web definitiva y el E2E.
 
 ### O5. Asignación, informes y fiscalización
 
@@ -169,16 +170,17 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Componer la raíz interna real de consultas RRHH:
+Implementar los dos manejadores HTTP protegidos de consultas RRHH:
 
-- construir el pool nominal y transferir su propiedad al ciclo de vida;
-- construir `SesionConsultaRRHHPostgreSQL`;
-- inyectarla en los casos de uso existentes de cuadro y detalle;
-- conectar exclusivamente frontera corporativa y PDP reales;
-- registrar los manejadores cerrados sin rutas paralelas;
-- cerrar recursos en orden inverso y fallar cerrado ante configuración
-  incompleta.
+- rutas `POST` exactas de cuadro y detalle;
+- JSON cerrado con intención mínima, sin actor, perfil, organización ni
+  capacidad aportados por el cliente;
+- límites, tipos y cabeceras en lista positiva;
+- rechazo de cookies, credenciales y cabeceras de identidad libres;
+- `no-store`, cero `Set-Cookie` y errores opacos localizables;
+- pruebas de contrato, límites, cancelación y no oráculo.
 
-El corte no cambia dominio, SQL, canon ni presentación visual. No admite caída
-a dobles DEMO, cookies ni autoridad aportada por el navegador. Un revisor
-distinto debe emitir `GO` antes de integrarlo.
+El corte se limita al adaptador HTTP y no cambia dominio, aplicación, puertos,
+SQL, raíz ni web. Después se implementan los puentes productivos de autoridad
+y PDP y solo entonces se compone la raíz. Un revisor distinto debe emitir
+`GO` antes de integrar.
