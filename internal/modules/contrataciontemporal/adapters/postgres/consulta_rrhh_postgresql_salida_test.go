@@ -134,11 +134,63 @@ func TestContratoSQLConsultaRRHHTieneLigadurasYSalidasExactas(t *testing.T) {
 	)
 	var cuadro salidaCuadroConsultaRRHH
 	var detalle salidaDetalleConsultaRRHH
-	if total := len(destinosCuadroConsultaRRHH(&cuadro)); total != 21 {
-		t.Fatalf("salidas cuadro = %d; se esperaban 21", total)
+	comprobarIdentidadDestinosConsultaRRHH(
+		t,
+		destinosCuadroConsultaRRHH(&cuadro),
+		append(
+			[]any{&cuadro.contenidoCanonico, &cuadro.cursorSiguiente},
+			destinosCierreEsperadosConsultaRRHH(&cuadro.cierre)...,
+		),
+	)
+	comprobarIdentidadDestinosConsultaRRHH(
+		t,
+		destinosDetalleConsultaRRHH(&detalle),
+		append(
+			[]any{&detalle.contenidoCanonico},
+			destinosCierreEsperadosConsultaRRHH(&detalle.cierre)...,
+		),
+	)
+}
+
+func destinosCierreEsperadosConsultaRRHH(
+	s *salidaCierreConsultaRRHH,
+) []any {
+	return []any{
+		&s.esquema,
+		&s.accesoRef,
+		&s.secuencia,
+		&s.anteriorSHA256,
+		&s.huellaSHA256,
+		&s.vinculoIdentidadHuellaSHA256,
+		&s.alcanceHuellaSHA256,
+		&s.registradaEn,
+		&s.auditoriaRef,
+		&s.auditoriaHuellaSHA256,
+		&s.consumoHuellaSHA256,
+		&s.contenidoHuellaSHA256,
+		&s.resultadoHuellaSHA256,
+		&s.cursorHuellaSHA256,
+		&s.generadaEn,
+		&s.expedienteRef,
+		&s.versionExpediente,
+		&s.total,
+		&s.reciboSelloSHA256,
 	}
-	if total := len(destinosDetalleConsultaRRHH(&detalle)); total != 20 {
-		t.Fatalf("salidas detalle = %d; se esperaban 20", total)
+}
+
+func comprobarIdentidadDestinosConsultaRRHH(
+	t *testing.T,
+	actuales []any,
+	esperados []any,
+) {
+	t.Helper()
+	if len(actuales) != len(esperados) {
+		t.Fatalf("destinos = %d; se esperaban %d", len(actuales), len(esperados))
+	}
+	for indice := range esperados {
+		if actuales[indice] != esperados[indice] {
+			t.Fatalf("destino %d no apunta al campo contractual", indice+1)
+		}
 	}
 }
 
