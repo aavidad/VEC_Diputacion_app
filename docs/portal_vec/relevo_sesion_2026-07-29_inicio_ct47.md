@@ -130,11 +130,21 @@ y P0=P1=P2=0. El servicio de confianza conserva y recupera internamente la
 raíz pública nominal ligada a una prueba exacta; A2.2 puede ahora construir la
 fachada de emisión sin exponer el catálogo o una clave.
 
+A2.2 quedó integrado en `a677b14` con
+[GO independiente](revisiones/o4_05_revision_fachada_emision_vec_ct_000047a22_2026-07-29.md)
+y P0=P1=P2=0. La fachada encadena concesión durable, atestación, confianza,
+capacidad, raíz y material sin aceptar selectores libres. A4 puede empezar a
+componer los dos emisores nominales y guardianes de cuadro y detalle.
+
 El contrato M0 de motivos quedó integrado en `c1bb5ec` con
 [GO independiente](revisiones/o4_05_revision_contrato_motivos_ct_000047m0_2026-07-29.md).
 Cuadro y detalle tienen métodos nominales separados, sin selectores libres.
 M1/M2 siguen pendientes de la publicación gobernada y del adaptador
 PostgreSQL; no se sustituirán por referencias fijadas en el código.
+
+El emisor HMAC actual permanece limitado a pruebas. Antes de producción falta
+el puerto de MAC no exportable y el adaptador KMS/HSM, además del firmante COSE
+V3 y el conjunto de confianza proporcionados por Sistemas.
 
 La cronología de detalle quedó corregida en `e3e12d5`: contexto, autorización
 y orden ya no comparten un instante capturado antes de las fronteras lentas.

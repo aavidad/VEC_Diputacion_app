@@ -47,7 +47,7 @@ B1 retención nominal privada [cerrada]
 │   ├── D1 fábrica cerrada de cuadro [cerrada]
 │   └── D2 fábrica cerrada de detalle [cerrada]
 └── A2.1 raíz pública nominal [cerrada]
-    └── A2.2 fachada emisora VEC de alto nivel [en curso]
+    └── A2.2 fachada emisora VEC de alto nivel [cerrada]
 
 D1 + D2 + A2
 → A4 guardián y puerto emisor
@@ -90,3 +90,8 @@ Jurídico para un único motivo.
 La frontera de identidad corporativa también sigue condicionada a que Sistemas
 proporcione el verificador de la aserción protegida y los materiales reales
 ligados al canal mTLS. No se sustituirá por cabeceras, cookies ni datos DEMO.
+
+La composición mantendrá dos fachadas distintas, una por audiencia nominal de
+cuadro y otra de detalle. El emisor HMAC con clave local solo se empleará en
+pruebas. La activación productiva exige MAC mediante clave no exportable,
+adaptador KMS/HSM, firmante COSE V3 y confianza publicada por Sistemas.
