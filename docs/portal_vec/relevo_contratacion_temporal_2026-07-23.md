@@ -579,16 +579,16 @@ documenta el estado histórico de ese corte. CT-000040 a CT-000046 están ahora
 cerrados; permanecen abiertos la raíz productiva, TLS viva y el E2E HTTP/web.
 
 El procedimiento alcanza **24 de 46 tareas verificadas (52 %)** tras el cierre
-de CT-000046. Esto no autoriza aún la ruta web productiva: faltan HTTP
-cuadro/detalle, autoridad/PDP, raíz, TLS/mTLS viva y el E2E de O4-05. Los
-dobles de presentación continúan aislados y no se
+de CT-000046. CT-000047A cierra después los manejadores HTTP protegidos de
+cuadro/detalle con P0=P1=P2=0. Esto no autoriza aún la ruta web productiva:
+faltan autoridad/PDP, raíz, TLS/mTLS viva y el E2E de O4-05. Los dobles de
+presentación continúan aislados y no se
 convertirán en autoridad productiva.
 
 El orden vigente del camino crítico es:
 
 ```text
-HTTP protegido de cuadro/detalle
-→ autoridad y PDP productivos
+autoridad y PDP productivos
 → composición raíz y propiedad de recursos
 → matriz TLS/mTLS viva
 → misma web definitiva sin adaptadores DEMO

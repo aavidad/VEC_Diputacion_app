@@ -9,10 +9,10 @@ Fecha: 29 de julio de 2026.
 | Elemento | Valor |
 | --- | --- |
 | Base del candidato | `d621522` |
-| Commits integrados | `c430785`–`b00d2ec` |
+| Commits integrados | `c430785`–`b00d2ec`, `cd82caa`, `fc039c2` |
 | P0 | 0 |
 | P1 | 0 |
-| P2 | 2 no bloqueantes |
+| P2 | 0 |
 
 Los dos primeros commits no eran integrables aisladamente. Una primera
 revisión detectó tres P1: ruta opaca incompleta, prioridad incorrecta de
@@ -70,16 +70,20 @@ desde un worktree situado dentro de `.worktrees`, su detector de pertenencia
 considera esa ruta parte del repositorio. CT-000047A no modifica ese paquete.
 El resto de paquetes y las puertas focales quedaron verdes.
 
-## P2 separados
+## Cierre de los P2
 
-Los dos endurecimientos restantes se tratarán como minitareas independientes:
+Los dos endurecimientos se ejecutaron como minitareas independientes con
+productor y revisor distintos:
 
-1. volver a comprobar cancelación después de decodificar y antes de invocar el
-   caso de uso;
-2. completar la tabla negativa directa de todos los componentes de `URL`.
+1. `cd82caa` vuelve a comprobar cancelación después de decodificar y antes de
+   invocar el caso de uso. Cubre cancelación y vencimiento para ambos
+   manejadores, con cero llamadas al consultor;
+2. `fc039c2` completa la tabla negativa directa de todos los componentes de
+   `URL` para ambas rutas y conserva un control positivo por ruta.
 
-No hay un bypass conocido. La aplicación vuelve a denegar un contexto
-cancelado y estas operaciones son lecturas, por lo que ambos hallazgos son P2.
+Las revisiones independientes reprodujeron las pruebas focales veinte veces,
+el detector de carreras, el paquete HTTP completo, `go vet`, formato,
+revisión del diff y Gitleaks. Ambas emitieron `GO` con P0=P1=P2=0.
 
 ## Límites
 

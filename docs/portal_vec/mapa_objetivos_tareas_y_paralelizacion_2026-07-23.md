@@ -11,11 +11,11 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | HTTP cuadro/detalle → autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
+| Camino crítico | autoridad/PDP → composición raíz → TLS/mTLS → web definitiva → E2E |
 | Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
 | Procedimiento completo | 24 de 46 tareas cerradas (52 %); CT `000046` cierra el adaptador PostgreSQL Go con `GO` |
-| Último commit verificado | `6c57644` — valores, destinos y orden transaccional CT `000046` acreditados |
-| Trabajo local en revisión | CT `000047A`: manejadores HTTP protegidos de cuadro y detalle; dos inventarios detectaron que son prerrequisito de la raíz. |
+| Último commit verificado | `fc039c2` — CT `000047A` cerrado con P0=P1=P2=0 |
+| Trabajo local en revisión | CT `000047B`: retención nominal y puentes productivos de autoridad/PDP en minitareas independientes. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -218,8 +218,8 @@ Trabajo histórico aparcado: candidatos O2-06/O5-01; O4-05 conserva 3/5 hitos
   tipado CT 000040, cánones Go, Recibo V2, vocabulario de seis estados de CT
   000041, cánones SQL 000042, prueba durable 000043, corrector 000043A, motor
   privado 000044, fachadas nominales 000045 y adaptador Go 000046 están
-  verdes, pero HTTP cuadro/detalle, autoridad/PDP, raíz, TLS y E2E siguen
-  abiertos
+  verdes; HTTP cuadro/detalle también está cerrado y revisado, pero
+  autoridad/PDP, raíz, TLS y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

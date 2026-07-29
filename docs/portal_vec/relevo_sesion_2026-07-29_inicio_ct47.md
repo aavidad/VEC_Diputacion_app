@@ -67,11 +67,11 @@ Alcance:
 
 El conjunto `c430785`–`b00d2ec` obtuvo `GO` independiente con P0=0 y P1=0.
 La revisión inicial obligó a corregir ruta opaca, prioridad de cancelación y
-validación pública del resultado antes de integrar.
-
-Quedan dos P2 separados: comprobación de cancelación tras decodificar y tabla
-negativa exhaustiva de componentes de `URL`. Se conservan en
-[la evidencia de revisión](revisiones/o4_05_revision_http_consultas_ct_000047a_2026-07-29.md).
+validación pública del resultado antes de integrar. Los P2 restantes quedaron
+cerrados después en dos minitareas revisadas de forma independiente:
+`cd82caa` comprueba cancelación tras decodificar y `fc039c2` completa la
+matriz negativa de componentes de `URL`. CT-000047A queda con P0=P1=P2=0.
+Véase [la evidencia de revisión](revisiones/o4_05_revision_http_consultas_ct_000047a_2026-07-29.md).
 
 El corte no toca SQL, PostgreSQL, raíz, web, estilos ni adaptadores de
 presentación. Añade validadores neutrales en `ports` para impedir que HTTP
