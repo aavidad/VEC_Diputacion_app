@@ -1,11 +1,6 @@
 package httpinterno
 
-import (
-	"time"
-
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
-	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
-)
+import "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 
 type envoltorioDetalleRRHH struct {
 	Data detalleRRHHJSON `json:"data"`
@@ -111,59 +106,6 @@ func proyectarDetalleRRHH(entrada ports.DetalleExpedienteRRHH) detalleRRHHJSON {
 		}
 	}
 	return salida
-}
-
-// detalleConsultaRRHHPublicable comprueba la superficie que va a cruzar HTTP.
-// La autoridad y el recibo V2 siguen validados por aplicación/persistencia y
-// nunca se trasladan a esta proyección.
-func detalleConsultaRRHHPublicable(
-	entrada ports.DetalleExpedienteRRHH,
-	solicitud ports.SolicitudDetalleRRHH,
-) bool {
-	if entrada.Resumen.Validar() != nil ||
-		entrada.Resumen.ExpedienteRef != solicitud.ExpedienteRef() ||
-		(solicitud.VersionObservada() != 0 &&
-			entrada.Resumen.Version != solicitud.VersionObservada()) ||
-		!domain.GrupoSubgrupoValido(entrada.Solicitud.GrupoSubgrupo) ||
-		!entrada.Solicitud.MotivoClave.Valida() ||
-		!intervaloConsultaRRHHCanonico(
-			entrada.Solicitud.PeriodoInicio,
-			entrada.Solicitud.PeriodoFin,
-		) ||
-		len(entrada.Hitos) == 0 ||
-		uint64(len(entrada.Hitos)) != entrada.Resumen.Version {
-		return false
-	}
-	if entrada.Analisis != nil &&
-		!intervaloConsultaRRHHCanonico(
-			entrada.Analisis.PeriodoInicio,
-			entrada.Analisis.PeriodoFin,
-		) {
-		return false
-	}
-	if entrada.Asignacion != nil &&
-		!domain.InstanteUTCCanonico(entrada.Asignacion.AsignadaEn) {
-		return false
-	}
-	for indice, hito := range entrada.Hitos {
-		if hito.Secuencia != uint64(indice+1) ||
-			hito.VersionExpediente != hito.Secuencia ||
-			!hito.AccionClave.Valida() ||
-			!domain.InstanteUTCCanonico(hito.RealizadaEn) ||
-			!hito.FaseDestino.Valida() ||
-			(hito.FaseOrigen != "" && !hito.FaseOrigen.Valida()) ||
-			!hito.EstadoOrigen.Valido() ||
-			!hito.EstadoDestino.Valido() {
-			return false
-		}
-	}
-	return true
-}
-
-func intervaloConsultaRRHHCanonico(inicio, fin time.Time) bool {
-	return domain.InstanteUTCCanonico(inicio) &&
-		domain.InstanteUTCCanonico(fin) &&
-		!fin.Before(inicio)
 }
 
 func proyectarAnalisisRRHH(entrada ports.AnalisisOperativoRRHH) *analisisRRHHJSON {
