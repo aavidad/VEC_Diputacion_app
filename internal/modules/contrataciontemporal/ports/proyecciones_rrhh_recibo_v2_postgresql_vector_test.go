@@ -104,6 +104,8 @@ func TestVectoresPostgreSQLCanonReciboLecturaRRHHV2(t *testing.T) {
 		},
 	} {
 		t.Run(vector.nombre, func(t *testing.T) {
+			// El fixture entra por A4.3, conservando motivo, correlación y
+			// material atestado del vector publicado; ningún campo canónico cambia.
 			recibo := vector.preparar(t, vector.selloSHA256)
 			canon, err :=
 				ports.ExportarCanonReciboLecturaRRHHV2ParaVectorPostgreSQL(
@@ -135,7 +137,7 @@ func reciboDetalleGenesisVectorPostgreSQL(
 	datosDetalle := datosDetalleMinimizadoPrueba(3)
 	entrada := construirEntradaDetalleMinimizadaPrueba(t, datosDetalle)
 	instante := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, instante)
+	_, contexto := autoridadYContextoPuertosRRHH(t, instante)
 	solicitud, err := ports.NuevaSolicitudDetalleRRHH(
 		datosDetalle.resumen.ExpedienteRef,
 		datosDetalle.resumen.Version,
@@ -144,7 +146,7 @@ func reciboDetalleGenesisVectorPostgreSQL(
 		t.Fatal(err)
 	}
 	capacidad := capacidadDetallePuertosRRHH(
-		t, autoridad, contexto, solicitud, instante,
+		t, contexto, solicitud, instante,
 	)
 	generada := instante.Add(time.Second)
 	contenido, err := entrada.ExportarContenidoCanonicoParaSQL(generada)

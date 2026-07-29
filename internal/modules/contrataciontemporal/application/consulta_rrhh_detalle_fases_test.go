@@ -214,12 +214,7 @@ func TestDetalleRRHHAceptaReasignacionLigadaAlHitoVigente(t *testing.T) {
 	}
 	contexto := contextoConsultaRRHHV3Prueba(t, instante)
 	capacidad := capacidadConsultaDetalleRRHHV3Prueba(
-		t,
-		contexto,
-		solicitud,
-		instante,
-		ports.AmbitoOrganizacionRRHH,
-		contexto.OrganizacionRef(),
+		t, contexto, solicitud, instante,
 	)
 	recibo := reciboConsultaRRHHPrueba(
 		t, contexto, capacidad,
@@ -234,7 +229,6 @@ func TestDetalleRRHHAceptaReasignacionLigadaAlHitoVigente(t *testing.T) {
 	entorno.autoridad.contexto = contexto
 	entorno.sesion.detalle = detalle
 	entorno.detalle = solicitud
-	entorno.autorizador.capacidadDetalle = capacidad
 	entorno.reloj.instante = instante
 	if _, err = servicioDetalleRRHHPrueba(t, entorno).Consultar(
 		context.Background(), solicitud,
@@ -320,12 +314,7 @@ func configurarDetalleCompletoRRHHPrueba(
 		t.Fatal(err)
 	}
 	capacidad := capacidadConsultaDetalleRRHHV3Prueba(
-		t,
-		entorno.contexto,
-		solicitud,
-		entorno.ahora,
-		ports.AmbitoOrganizacionRRHH,
-		entorno.contexto.OrganizacionRef(),
+		t, entorno.contexto, solicitud, entorno.ahora,
 	)
 	recibo := reciboConsultaRRHHPrueba(
 		t, entorno.contexto, capacidad,
@@ -338,7 +327,6 @@ func configurarDetalleCompletoRRHHPrueba(
 	entorno.expediente = expediente
 	entorno.sesion.detalle = detalle
 	entorno.detalle = solicitud
-	entorno.autorizador.capacidadDetalle = capacidad
 }
 
 func actuacionDetalleRRHHPrueba(

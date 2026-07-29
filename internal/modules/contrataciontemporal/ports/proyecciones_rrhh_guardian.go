@@ -160,7 +160,7 @@ func (e *EmisorMaterialConsultaRRHH) emitir(
 		return MaterialAutorizacionConsultaRRHH{},
 			errorEmisionMaterialConsultaRRHH(errEmision)
 	}
-	material, err := NuevoMaterialAutorizacionConsultaRRHH(
+	material, err := nuevoMaterialAutorizacionConsultaRRHH(
 		preparacion.contexto, preparacion.solicitudVEC,
 		decision, confirmacion, preparacion.resultado,
 		exportador, instanteFinal,

@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/x509"
-	"errors"
 	"log/slog"
 	"strings"
 	"testing"
@@ -42,20 +41,6 @@ type relojContextoRRHHPrueba struct{ instante time.Time }
 
 func (d relojContextoRRHHPrueba) Ahora() time.Time { return d.instante }
 
-type generadorCorrelacionRRHHPrueba struct{ referencia string }
-
-func (d generadorCorrelacionRRHHPrueba) NuevaReferenciaCorrelacionAutorizacionV2(
-	context.Context,
-) (string, error) {
-	return d.referencia, nil
-}
-
-func (generadorCorrelacionRRHHPrueba) NuevaClaveMotivoAutorizacionV2(
-	context.Context,
-) (string, error) {
-	return "", errors.New("operación no utilizada por la prueba")
-}
-
 type registroConcesionRRHHPrueba struct{ instante time.Time }
 
 func (d registroConcesionRRHHPrueba) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(
@@ -82,6 +67,96 @@ func (d exportadorMaterialRRHHPrueba) ExportarMaterialParaConsumidor() (
 	error,
 ) {
 	return d.exportacion, nil
+}
+
+type emisorMaterialPuertosRRHHPrueba struct {
+	t         *testing.T
+	audiencia string
+	instante  time.Time
+}
+
+func (e *emisorMaterialPuertosRRHHPrueba) EmitirMaterialAutorizacionAtestadaV3(
+	_ context.Context,
+	solicitud dominiovec.SolicitudAutorizacionLigadaV3,
+	resultado dominiovec.ResultadoContextoActorRegistradoV2,
+) (
+	dominiovec.DecisionAutorizacionLigadaV3,
+	puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3,
+	error,
+) {
+	e.t.Helper()
+	datos, err := solicitud.Datos()
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	decision, confirmacion := concesionConsultaRRHHPrueba(
+		e.t, solicitud, resultado, datos.ReferenciaMotivo,
+		e.instante.Add(-2*time.Millisecond),
+	)
+	decisionHuella, err :=
+		dominiovec.HuellaSHA256DecisionAutorizacionV3(decision)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	motivoHuella, err := dominiovec.HuellaSHA256MotivoAutorizacionV2(
+		datos.ReferenciaMotivo,
+	)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	recursoHuella, err := datos.Recurso.HuellaContextoAutorizacionSHA256()
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	datosConfirmacion, err := confirmacion.Datos()
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	emitidaEn := e.instante.Add(-time.Millisecond)
+	resumen, err := puertosvec.NuevoResumenCapacidadAtestacionAutorizacionV3(
+		datosConfirmacion.DecisionRef, decisionHuella, motivoHuella,
+		resultado.RegistroContextoRef, resultado.HuellaSHA256,
+		datos.Accion, datos.Recurso.Referencia, recursoHuella,
+		e.audiencia, emitidaEn, emitidaEn.Add(5*time.Second),
+	)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	decisionCanonica, err :=
+		dominiovec.RepresentacionCanonicaDecisionAutorizacionV3(decision)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	motivoCanonico, err :=
+		dominiovec.RepresentacionCanonicaMotivoAutorizacionV2(
+			datos.ReferenciaMotivo,
+		)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	semilla := [ed25519.SeedSize]byte{1}
+	privada := ed25519.NewKeyFromSeed(semilla[:])
+	raizSPKI, err := x509.MarshalPKIXPublicKey(privada.Public())
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	exportacion, err :=
+		puertosvec.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(
+			bytes.Repeat([]byte{0xa5}, puertosvec.TamanoMinimoCapacidadCanonicaV3),
+			resumen, decisionCanonica, motivoCanonico,
+			resultado.RepresentacionCanonica,
+			resultado.Contexto.Instantanea.PersonaVersion,
+			resultado.Contexto.Instantanea.PerfilVersion,
+			[]byte("payload-vec-ad-3-prueba"),
+			[]byte("sobre-cose-sign1-prueba"),
+			[]byte("evidencia-verificacion-prueba"), raizSPKI,
+		)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	return decision, confirmacion,
+		exportadorMaterialRRHHPrueba{exportacion: exportacion}, nil
 }
 
 func autoridadContextoPuertosRRHH(
@@ -279,16 +354,13 @@ func autoridadYContextoPuertosRRHH(
 
 func capacidadCuadroPuertosRRHH(
 	t *testing.T,
-	autoridad ports.ContextoAutorizacionAltaV3,
 	contexto ports.ContextoConsultaRRHH,
 	solicitud ports.SolicitudCuadroRRHH,
 	instante time.Time,
 ) ports.CapacidadConsultaRRHH {
 	t.Helper()
-	material, err := materialConsultaRRHHPrueba(
-		t, autoridad, contexto, solicitud, ports.SolicitudDetalleRRHH{},
-		ports.AccionConsultarCuadroRRHH, ports.FinalidadConsultarCuadroRRHH,
-		ports.AudienciaConsumoConsultaCuadroRRHHV3, instante,
+	material, err := materialCuadroPuertosRRHH(
+		t, contexto, solicitud, instante,
 	)
 	if err != nil {
 		t.Fatalf("material de cuadro RRHH V3: %v", err)
@@ -304,16 +376,13 @@ func capacidadCuadroPuertosRRHH(
 
 func capacidadDetallePuertosRRHH(
 	t *testing.T,
-	autoridad ports.ContextoAutorizacionAltaV3,
 	contexto ports.ContextoConsultaRRHH,
 	solicitud ports.SolicitudDetalleRRHH,
 	instante time.Time,
 ) ports.CapacidadConsultaRRHH {
 	t.Helper()
-	material, err := materialConsultaRRHHPrueba(
-		t, autoridad, contexto, ports.SolicitudCuadroRRHH{}, solicitud,
-		ports.AccionConsultarDetalleRRHH, ports.FinalidadConsultarDetalleRRHH,
-		ports.AudienciaConsumoConsultaDetalleRRHHV3, instante,
+	material, err := materialDetallePuertosRRHH(
+		t, contexto, solicitud, instante,
 	)
 	if err != nil {
 		t.Fatalf("material de detalle RRHH V3: %v", err)
@@ -327,158 +396,65 @@ func capacidadDetallePuertosRRHH(
 	return capacidad
 }
 
-func materialConsultaRRHHPrueba(
+func materialCuadroPuertosRRHH(
 	t *testing.T,
-	autoridad ports.ContextoAutorizacionAltaV3,
 	contexto ports.ContextoConsultaRRHH,
 	cuadro ports.SolicitudCuadroRRHH,
-	detalle ports.SolicitudDetalleRRHH,
-	accion, finalidad, audiencia string,
 	instante time.Time,
 ) (ports.MaterialAutorizacionConsultaRRHH, error) {
 	t.Helper()
-	return materialConsultaRRHHPruebaAlterado(
-		t, autoridad, contexto, cuadro, detalle, accion, finalidad,
-		audiencia, instante, nil,
+	guardian := nuevoEmisorMaterialPuertosRRHHPrueba(t, instante)
+	return guardian.EmitirMaterialCuadroRRHH(
+		context.Background(), contexto, cuadro,
 	)
 }
 
-func materialConsultaRRHHPruebaAlterado(
+func materialDetallePuertosRRHH(
 	t *testing.T,
-	autoridad ports.ContextoAutorizacionAltaV3,
 	contexto ports.ContextoConsultaRRHH,
-	cuadro ports.SolicitudCuadroRRHH,
 	detalle ports.SolicitudDetalleRRHH,
-	accion, finalidad, audiencia string,
 	instante time.Time,
-	mutarRecurso func(*dominiovec.RecursoAutorizable),
 ) (ports.MaterialAutorizacionConsultaRRHH, error) {
 	t.Helper()
-	dominio, huella, recursoRef := "", "", contexto.OrganizacionRef()
-	var err error
-	switch accion {
-	case ports.AccionConsultarCuadroRRHH:
-		dominio = ports.DominioHuellaConsultaCuadroRRHH
-		huella, err = cuadro.HuellaCanonicaSHA256()
-	case ports.AccionConsultarDetalleRRHH:
-		dominio = ports.DominioHuellaConsultaDetalleRRHH
-		huella, err = detalle.HuellaCanonicaSHA256()
-		recursoRef = detalle.ExpedienteRef()
-	default:
-		return ports.MaterialAutorizacionConsultaRRHH{},
-			errors.New("acción de prueba no soportada")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	recurso := dominiovec.RecursoAutorizable{
-		Referencia: recursoRef,
-		ModuloID:   ports.ModuloContratacion,
-		Tipo:       ports.TipoRecursoCuadroRRHH,
-		Ambitos: map[string]string{
-			"organizacion_ref": contexto.OrganizacionRef(),
-			"clase_ambito":     string(ports.AmbitoOrganizacionRRHH),
-			"ambito_ref":       contexto.OrganizacionRef(),
-		},
-		Atributos: map[string]string{
-			"consulta_dominio":       dominio,
-			"consulta_huella_sha256": huella,
-		},
-	}
-	if accion == ports.AccionConsultarDetalleRRHH {
-		recurso.Tipo = ports.TipoRecursoExpediente
-	}
-	if mutarRecurso != nil {
-		mutarRecurso(&recurso)
-	}
+	guardian := nuevoEmisorMaterialPuertosRRHHPrueba(t, instante)
+	return guardian.EmitirMaterialDetalleRRHH(
+		context.Background(), contexto, detalle,
+	)
+}
+
+func nuevoEmisorMaterialPuertosRRHHPrueba(
+	t *testing.T,
+	instante time.Time,
+) *ports.EmisorMaterialConsultaRRHH {
+	t.Helper()
 	motivo := dominiovec.ReferenciaEntradaCatalogo{
 		CatalogoID:           "motivos_autorizacion",
 		CatalogoVersion:      2,
 		CatalogoHuellaSHA256: strings.Repeat("d", 64),
 		EntradaClave:         "motivo_11111111111111111111111111111111",
 	}
-	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(
-		context.Background(),
-		generadorCorrelacionRRHHPrueba{
-			referencia: "correlacion_11111111111111111111111111111111",
-		},
+	motivos := &resolutorMotivoGuardianConsultaRRHHPrueba{
+		motivoCuadro: motivo, motivoDetalle: motivo,
+	}
+	correlaciones := &generadorCorrelacionGuardianConsultaRRHHPrueba{
+		referencia: "correlacion_11111111111111111111111111111111",
+	}
+	reloj := &relojGuardianConsultaRRHHPrueba{
+		instantes: []time.Time{instante, instante},
+	}
+	cuadro := &emisorMaterialPuertosRRHHPrueba{
+		t: t, audiencia: ports.AudienciaConsumoConsultaCuadroRRHHV3,
+		instante: instante,
+	}
+	detalle := &emisorMaterialPuertosRRHHPrueba{
+		t: t, audiencia: ports.AudienciaConsumoConsultaDetalleRRHHV3,
+		instante: instante,
+	}
+	emisor, err := ports.NuevoEmisorMaterialConsultaRRHH(
+		motivos, correlaciones, reloj, cuadro, detalle,
 	)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("crear emisor A4.3 del fixture de puertos: %v", err)
 	}
-	solicitud, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(
-		dominiovec.DatosSolicitudAutorizacionLigadaV3{
-			VinculoAutenticacionActor: autoridad.Vinculo,
-			ReferenciaMotivo:          motivo, Accion: accion, Recurso: recurso,
-			Finalidad: finalidad, Correlacion: correlacion,
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	decisionEn := instante.Add(-2 * time.Millisecond)
-	decision, confirmacion := concesionConsultaRRHHPrueba(
-		t, solicitud, autoridad.Resultado, motivo, decisionEn,
-	)
-	decisionHuella, err :=
-		dominiovec.HuellaSHA256DecisionAutorizacionV3(decision)
-	if err != nil {
-		t.Fatal(err)
-	}
-	motivoHuella, err := dominiovec.HuellaSHA256MotivoAutorizacionV2(motivo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	recursoHuella, err := recurso.HuellaContextoAutorizacionSHA256()
-	if err != nil {
-		t.Fatal(err)
-	}
-	datosConfirmacion, err := confirmacion.Datos()
-	if err != nil {
-		t.Fatal(err)
-	}
-	emitidaEn := instante.Add(-time.Millisecond)
-	resumen, err := puertosvec.NuevoResumenCapacidadAtestacionAutorizacionV3(
-		datosConfirmacion.DecisionRef, decisionHuella, motivoHuella,
-		autoridad.Resultado.RegistroContextoRef,
-		autoridad.Resultado.HuellaSHA256, accion, recurso.Referencia,
-		recursoHuella, audiencia, emitidaEn, emitidaEn.Add(5*time.Second),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	decisionCanonica, err :=
-		dominiovec.RepresentacionCanonicaDecisionAutorizacionV3(decision)
-	if err != nil {
-		t.Fatal(err)
-	}
-	motivoCanonico, err :=
-		dominiovec.RepresentacionCanonicaMotivoAutorizacionV2(motivo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	semilla := [ed25519.SeedSize]byte{1}
-	privada := ed25519.NewKeyFromSeed(semilla[:])
-	raizSPKI, err := x509.MarshalPKIXPublicKey(privada.Public())
-	if err != nil {
-		t.Fatal(err)
-	}
-	exportacion, err :=
-		puertosvec.NuevaExportacionMaterialConsumoAutorizacionAtestadaV3(
-			bytes.Repeat([]byte{0xa5}, puertosvec.TamanoMinimoCapacidadCanonicaV3),
-			resumen, decisionCanonica, motivoCanonico,
-			autoridad.Resultado.RepresentacionCanonica,
-			autoridad.Resultado.Contexto.Instantanea.PersonaVersion,
-			autoridad.Resultado.Contexto.Instantanea.PerfilVersion,
-			[]byte("payload-vec-ad-3-prueba"),
-			[]byte("sobre-cose-sign1-prueba"),
-			[]byte("evidencia-verificacion-prueba"), raizSPKI,
-		)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return ports.NuevoMaterialAutorizacionConsultaRRHH(
-		contexto, solicitud, decision, confirmacion, autoridad.Resultado,
-		exportadorMaterialRRHHPrueba{exportacion: exportacion}, instante,
-	)
+	return emisor
 }

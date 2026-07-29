@@ -207,7 +207,7 @@ func TestReciboLecturaRRHHV2LigaCadenaConsumoIdentidadYResultado(
 		t.Fatal(err)
 	}
 	capacidadDistinta := capacidadCuadroPuertosRRHH(
-		t, autoridadDistinta, contextoDistinto, solicitud,
+		t, contextoDistinto, solicitud,
 		instantePuertosRRHH(),
 	)
 	registro, evidencia := nominalesReciboCuadroV2Prueba(t, base)
@@ -246,7 +246,7 @@ func TestReciboLecturaRRHHV2ValidaDetalleYCruzaSuCanon(
 	datosDetalle := datosDetalleMinimizadoPrueba(3)
 	entrada := construirEntradaDetalleMinimizadaPrueba(t, datosDetalle)
 	instante := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, instante)
+	_, contexto := autoridadYContextoPuertosRRHH(t, instante)
 	solicitud, err := ports.NuevaSolicitudDetalleRRHH(
 		datosDetalle.resumen.ExpedienteRef,
 		datosDetalle.resumen.Version,
@@ -255,7 +255,7 @@ func TestReciboLecturaRRHHV2ValidaDetalleYCruzaSuCanon(
 		t.Fatal(err)
 	}
 	capacidad := capacidadDetallePuertosRRHH(
-		t, autoridad, contexto, solicitud, instante,
+		t, contexto, solicitud, instante,
 	)
 	orden, err := ports.NuevaOrdenConsultaDetalleRRHH(
 		contexto, capacidad, solicitud, instante,
@@ -394,7 +394,7 @@ func TestDetalleV2RechazaResultadoAnteriorALaOrdenYAceptaElBorde(
 	t0 := instantePuertosRRHH()
 	datosDetalle := datosDetalleMinimizadoPrueba(0)
 	entrada := construirEntradaDetalleMinimizadaPrueba(t, datosDetalle)
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, t0)
+	_, contexto := autoridadYContextoPuertosRRHH(t, t0)
 	solicitud, err := ports.NuevaSolicitudDetalleRRHH(
 		datosDetalle.resumen.ExpedienteRef,
 		datosDetalle.resumen.Version,
@@ -403,7 +403,7 @@ func TestDetalleV2RechazaResultadoAnteriorALaOrdenYAceptaElBorde(
 		t.Fatal(err)
 	}
 	capacidad := capacidadDetallePuertosRRHH(
-		t, autoridad, contexto, solicitud, t0,
+		t, contexto, solicitud, t0,
 	)
 	instanteOrden := t0.Add(time.Second)
 	orden, err := ports.NuevaOrdenConsultaDetalleRRHH(
@@ -545,13 +545,13 @@ func prepararReciboCuadroV2Prueba(
 ) datosReciboCuadroV2Prueba {
 	t.Helper()
 	instante := instantePuertosRRHH()
-	autoridad, contexto := autoridadYContextoPuertosRRHH(t, instante)
+	_, contexto := autoridadYContextoPuertosRRHH(t, instante)
 	solicitud, err := ports.NuevaSolicitudCuadroRRHH("", "", "", 20, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	capacidad := capacidadCuadroPuertosRRHH(
-		t, autoridad, contexto, solicitud, instante,
+		t, contexto, solicitud, instante,
 	)
 	orden, err := ports.NuevaOrdenConsultaCuadroRRHH(
 		contexto, capacidad, solicitud, instante,
