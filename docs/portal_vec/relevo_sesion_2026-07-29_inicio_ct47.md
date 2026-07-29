@@ -115,6 +115,19 @@ y P0=P1=P2=0. D1 y D2 quedan desbloqueados para construir por separado los
 recursos cerrados de cuadro y detalle, sin getters ni mapas aportados por el
 cliente.
 
+D1 quedó integrado en `c908ce6` con
+[GO independiente](revisiones/o4_05_revision_recurso_cuadro_ct_000047d1_2026-07-29.md)
+y P0=P1=P2=0. Organización, referencia, módulo, tipo, ámbitos, dominio y
+huella se derivan exclusivamente del contexto y la solicitud tipada. D2
+continúa en un write-set separado para el detalle.
+
+A2 se dividió para no crear un commit monolítico. A2.1 quedó integrado en
+`d69a744` con
+[GO independiente](revisiones/o4_05_revision_raiz_nominal_ct_000047a21_2026-07-29.md)
+y P0=P1=P2=0. El servicio de confianza conserva y recupera internamente la
+raíz pública nominal ligada a una prueba exacta; A2.2 puede ahora construir la
+fachada de emisión sin exponer el catálogo o una clave.
+
 La cronología de detalle quedó corregida en `e3e12d5`: contexto, autorización
 y orden ya no comparten un instante capturado antes de las fronteras lentas.
 La minitarea obtuvo `GO` independiente sin hallazgos. Véase la

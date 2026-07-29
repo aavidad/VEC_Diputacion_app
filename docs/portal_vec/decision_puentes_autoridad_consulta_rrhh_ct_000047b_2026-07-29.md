@@ -43,10 +43,11 @@ contrato común sin semántica de Contratación temporal.
 
 ```text
 B1 retención nominal privada [cerrada]
-├── D0 envoltorio opaco de recurso
-│   ├── D1 fábrica cerrada de cuadro
-│   └── D2 fábrica cerrada de detalle
-└── A2 fachada emisora VEC de alto nivel
+├── D0 envoltorio opaco de recurso [cerrada]
+│   ├── D1 fábrica cerrada de cuadro [cerrada]
+│   └── D2 fábrica cerrada de detalle [en curso]
+└── A2.1 raíz pública nominal [cerrada]
+    └── A2.2 fachada emisora VEC de alto nivel [en curso]
 
 D1 + D2 + A2
 → A4 guardián y puerto emisor
@@ -55,8 +56,8 @@ D1 + D2 + A2
 → composición, rutas, TLS y E2E
 ```
 
-Cada nodo se implementa y revisa por separado. D1 y D2 tendrán write-sets
-disjuntos. A2 no importará Contratación temporal y el puerto se implementará
+Cada nodo se implementa y revisa por separado. D1 y D2 tienen write-sets
+disjuntos. A2 no importa Contratación temporal y el puerto se implementará
 estructuralmente.
 
 ## Recursos cerrados
