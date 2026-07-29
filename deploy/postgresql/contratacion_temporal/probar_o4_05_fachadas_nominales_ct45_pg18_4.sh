@@ -232,7 +232,7 @@ probar_limites_frontera() {
                 psql_runtime --command "
                     BEGIN TRANSACTION
                         ISOLATION LEVEL SERIALIZABLE READ WRITE;
-                    SELECT public.invocar_limite_fachada_ct45(
+                    SELECT vec_contratacion_temporal.invocar_limite_fachada_ct45(
                         '$perfil', '$variante'
                     )"
         done
@@ -245,7 +245,7 @@ probar_limites_frontera() {
             psql_runtime --command "
                 BEGIN TRANSACTION
                     ISOLATION LEVEL SERIALIZABLE READ WRITE;
-                SELECT public.invocar_limite_fachada_ct45(
+                SELECT vec_contratacion_temporal.invocar_limite_fachada_ct45(
                     'cuadro', '$variante'
                 )"
     done
@@ -254,7 +254,7 @@ probar_limites_frontera() {
         psql_runtime --command "
             BEGIN TRANSACTION
                 ISOLATION LEVEL SERIALIZABLE READ WRITE;
-            SELECT public.invocar_limite_fachada_ct45(
+            SELECT vec_contratacion_temporal.invocar_limite_fachada_ct45(
                 'detalle', 'detalle_expediente_superior'
             )"
 }
@@ -511,9 +511,9 @@ estado_antes_limites="$(efectos_totales)"
 probar_limites_frontera
 [[ "$(efectos_totales)" == "$estado_antes_limites" ]]
 psql_admin <<'SQL' >/dev/null
-REVOKE EXECUTE ON FUNCTION public.invocar_limite_fachada_ct45(text, text)
+REVOKE EXECUTE ON FUNCTION vec_contratacion_temporal.invocar_limite_fachada_ct45(text, text)
 FROM vec_c2d2_registro_runtime;
-DROP FUNCTION public.invocar_limite_fachada_ct45(text, text);
+DROP FUNCTION vec_contratacion_temporal.invocar_limite_fachada_ct45(text, text);
 GRANT TEMPORARY ON DATABASE postgres TO vec_c2d2_registro_runtime;
 SQL
 esperar_fallo 'runtime intenta almacenar un tipo CT40' 42501 \
@@ -740,7 +740,7 @@ archivo contratacion_temporal/pruebas_sql/o405_ct45_salidas_nulas.sql
 for especificacion in 'cuadro|cursor_huella' 'cuadro|expediente' 'cuadro|version' 'detalle|cursor_huella' 'detalle|alcance_huella'; do
     IFS='|' read -r perfil variante <<<"$especificacion"; caso="ct45_nulo_${perfil}_${variante}"
     psql_admin --command "SELECT public.preparar_vector_cierre_ct43('$caso','$perfil')" >/dev/null
-    esperar_fallo "salida NULL $perfil/$variante" 42501 'consulta RRHH rechazada' psql_runtime --command "BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE READ WRITE; SELECT public.invocar_salida_nula_ct45('$caso','$perfil','${perfil}_${variante}')"
+    esperar_fallo "salida NULL $perfil/$variante" 42501 'consulta RRHH rechazada' psql_runtime --command "BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE READ WRITE; SELECT vec_contratacion_temporal.invocar_salida_nula_ct45('$caso','$perfil','${perfil}_${variante}')"
     [[ "$(efectos_decision "$caso")" == '0|0|0|0' ]]
 done
 archivo contratacion_temporal/pruebas_sql/o405_ct45_salidas_nulas_retirar.sql

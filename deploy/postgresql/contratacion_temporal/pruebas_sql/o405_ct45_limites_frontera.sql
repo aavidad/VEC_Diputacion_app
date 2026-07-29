@@ -3,7 +3,7 @@
 -- Fixture efímero: construye únicamente escalares integrados y ataca la
 -- prevalidación exterior. Los octetos 0xff no UTF-8 prueban la normalización
 -- uniforme; el orden pre-canon se acredita aparte contra el cuerpo catalogado.
-CREATE FUNCTION public.invocar_limite_fachada_ct45(
+CREATE FUNCTION vec_contratacion_temporal.invocar_limite_fachada_ct45(
     p_perfil text,
     p_variante text
 )
@@ -166,7 +166,9 @@ BEGIN
 END
 $funcion$;
 
-REVOKE ALL ON FUNCTION public.invocar_limite_fachada_ct45(text, text)
+REVOKE ALL ON FUNCTION
+vec_contratacion_temporal.invocar_limite_fachada_ct45(text, text)
 FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.invocar_limite_fachada_ct45(text, text)
+GRANT EXECUTE ON FUNCTION
+vec_contratacion_temporal.invocar_limite_fachada_ct45(text, text)
 TO vec_c2d2_registro_runtime;
