@@ -19,6 +19,46 @@ LOCK TABLE
     vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
     IN ACCESS EXCLUSIVE MODE;
 
+DO $procedencia_objetos$
+BEGIN
+    IF EXISTS (
+        WITH esperado(objeto, marca) AS (
+            VALUES
+              ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass::oid, 'vec_autorizacion:vinculacion-motivo-consulta-rrhh:v1:000008'),
+              ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass::oid, 'vec_autorizacion:vinculacion-motivo-consulta-rrhh:checkpoint-v1:000008')
+        ), actual AS (
+            SELECT c.oid, pg_catalog.obj_description(c.oid, 'pg_class')
+              FROM pg_catalog.pg_class AS c
+             WHERE c.oid IN (SELECT objeto FROM esperado)
+               AND c.relkind = 'r'
+               AND c.relowner = 'vec_autorizacion_propietario'::regrole
+        )
+        SELECT * FROM esperado EXCEPT ALL SELECT * FROM actual
+    ) OR EXISTS (
+        WITH esperado(objeto, marca) AS (
+            VALUES
+              ('vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1()'::regprocedure::oid, 'vec_autorizacion:vinculacion-motivo-consulta-rrhh:v1:000008'),
+              ('vec_autorizacion.validar_avance_vinculacion_motivo_rrhh_v1()'::regprocedure::oid, 'vec_autorizacion:vinculacion-motivo-consulta-rrhh:v1:000008')
+        ), actual AS (
+            SELECT p.oid, pg_catalog.obj_description(p.oid, 'pg_proc')
+              FROM pg_catalog.pg_proc AS p
+             WHERE p.oid IN (SELECT objeto FROM esperado)
+               AND p.proowner = 'vec_autorizacion_propietario'::regrole
+               AND p.prokind = 'f'
+               AND p.prorettype = 'trigger'::regtype
+               AND p.pronargs = 0
+               AND NOT p.prosecdef
+               AND p.proconfig IS NOT DISTINCT FROM
+                   ARRAY['search_path=pg_catalog']
+        )
+        SELECT * FROM esperado EXCEPT ALL SELECT * FROM actual
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = '000008 no retira tablas o funciones ajenas o alteradas';
+    END IF;
+END
+$procedencia_objetos$;
+
 DO $conservacion$
 BEGIN
     IF EXISTS (

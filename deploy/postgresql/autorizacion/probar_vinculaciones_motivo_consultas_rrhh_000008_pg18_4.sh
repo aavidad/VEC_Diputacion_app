@@ -80,6 +80,11 @@ exigir_fallo_down() {
   fi
 }
 
+exigir_objetos_000008_presentes() {
+  [[ $(psql_valor \
+    "SELECT (pg_catalog.to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1') IS NOT NULL AND pg_catalog.to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1') IS NOT NULL AND pg_catalog.to_regprocedure('vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1()') IS NOT NULL AND pg_catalog.to_regprocedure('vec_autorizacion.validar_avance_vinculacion_motivo_rrhh_v1()') IS NOT NULL AND EXISTS (SELECT 1 FROM pg_catalog.pg_constraint AS c WHERE c.conrelid = 'vec_autorizacion.motivo_v2_catalogo_publicado'::regclass AND c.conname = 'motivo_v2_catalogo_referencia_completa_unica' AND pg_catalog.obj_description(c.oid, 'pg_constraint') = 'vec_autorizacion:vinculacion-motivo-consulta-rrhh:referencia-completa:v1:000008'))::text") == true ]]
+}
+
 restablecer_000008() {
   psql_archivo \
     deploy/postgresql/autorizacion/migraciones/000008_vinculaciones_motivo_consultas_rrhh.down.sql
@@ -396,6 +401,46 @@ SQL
 psql_archivo \
   deploy/postgresql/autorizacion/migraciones/000008_vinculaciones_motivo_consultas_rrhh.up.sql
 
+# El down no retira la tabla de historia si pierde su marca.
+psql_valor \
+  "COMMENT ON TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1 IS NULL" >/dev/null
+exigir_fallo_down 'tabla de historia sin procedencia 000008'
+exigir_objetos_000008_presentes
+[[ $(psql_valor \
+  "SELECT (pg_catalog.obj_description('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass, 'pg_class') IS NULL)::text") == true ]]
+psql_valor \
+  "COMMENT ON TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1 IS 'vec_autorizacion:vinculacion-motivo-consulta-rrhh:v1:000008'" >/dev/null
+
+# El checkpoint se valida de forma independiente.
+psql_valor \
+  "COMMENT ON TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1 IS NULL" >/dev/null
+exigir_fallo_down 'tabla checkpoint sin procedencia 000008'
+exigir_objetos_000008_presentes
+[[ $(psql_valor \
+  "SELECT (pg_catalog.obj_description('vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass, 'pg_class') IS NULL)::text") == true ]]
+psql_valor \
+  "COMMENT ON TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1 IS 'vec_autorizacion:vinculacion-motivo-consulta-rrhh:checkpoint-v1:000008'" >/dev/null
+
+# La función de inmutabilidad sin marca tampoco se elimina.
+psql_valor \
+  "COMMENT ON FUNCTION vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1() IS NULL" >/dev/null
+exigir_fallo_down 'función de inmutabilidad sin procedencia 000008'
+exigir_objetos_000008_presentes
+[[ $(psql_valor \
+  "SELECT (pg_catalog.obj_description('vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1()'::regprocedure, 'pg_proc') IS NULL)::text") == true ]]
+psql_valor \
+  "COMMENT ON FUNCTION vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1() IS 'vec_autorizacion:vinculacion-motivo-consulta-rrhh:v1:000008'" >/dev/null
+
+# La función de avance mantiene la misma barrera separada.
+psql_valor \
+  "COMMENT ON FUNCTION vec_autorizacion.validar_avance_vinculacion_motivo_rrhh_v1() IS NULL" >/dev/null
+exigir_fallo_down 'función de avance sin procedencia 000008'
+exigir_objetos_000008_presentes
+[[ $(psql_valor \
+  "SELECT (pg_catalog.obj_description('vec_autorizacion.validar_avance_vinculacion_motivo_rrhh_v1()'::regprocedure, 'pg_proc') IS NULL)::text") == true ]]
+psql_valor \
+  "COMMENT ON FUNCTION vec_autorizacion.validar_avance_vinculacion_motivo_rrhh_v1() IS 'vec_autorizacion:vinculacion-motivo-consulta-rrhh:v1:000008'" >/dev/null
+
 # El down tampoco retira la UNIQUE si pierde su marca de procedencia.
 docker exec --interactive "$contenedor" psql -X \
   --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
@@ -405,7 +450,7 @@ COMMENT ON CONSTRAINT motivo_v2_catalogo_referencia_completa_unica
 SQL
 exigir_fallo_down 'UNIQUE sin procedencia 000008'
 [[ $(psql_valor \
-  "SELECT (pg_catalog.to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1') IS NOT NULL AND pg_catalog.obj_description(oid, 'pg_constraint') IS NULL)::text FROM pg_catalog.pg_constraint WHERE conrelid = 'vec_autorizacion.motivo_v2_catalogo_publicado'::regclass AND conname = 'motivo_v2_catalogo_referencia_completa_unica'") == true ]]
+  "SELECT (pg_catalog.to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1') IS NOT NULL AND pg_catalog.to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1') IS NOT NULL AND pg_catalog.to_regprocedure('vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1()') IS NOT NULL AND pg_catalog.to_regprocedure('vec_autorizacion.validar_avance_vinculacion_motivo_rrhh_v1()') IS NOT NULL AND pg_catalog.obj_description(oid, 'pg_constraint') IS NULL)::text FROM pg_catalog.pg_constraint WHERE conrelid = 'vec_autorizacion.motivo_v2_catalogo_publicado'::regclass AND conname = 'motivo_v2_catalogo_referencia_completa_unica'") == true ]]
 docker exec --interactive "$contenedor" psql -X \
   --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
 SET ROLE vec_autorizacion_propietario;
