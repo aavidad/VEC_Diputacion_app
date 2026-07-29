@@ -137,7 +137,7 @@ COMMIT;
 
 -- La ayuda usa SESSION_USER runtime real; SECURITY DEFINER solo le permite
 -- leer el vector sintético sin conceder al login acceso a tablas o tipos.
-CREATE FUNCTION public.invocar_salida_nula_ct45(
+CREATE FUNCTION vec_contratacion_temporal.invocar_salida_nula_ct45(
     p_caso text,
     p_perfil text,
     p_variante text
@@ -195,8 +195,9 @@ BEGIN
 END
 $funcion$;
 
-REVOKE ALL ON FUNCTION public.invocar_salida_nula_ct45(text, text, text)
+REVOKE ALL ON FUNCTION
+vec_contratacion_temporal.invocar_salida_nula_ct45(text, text, text)
 FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
-    public.invocar_salida_nula_ct45(text, text, text)
+    vec_contratacion_temporal.invocar_salida_nula_ct45(text, text, text)
 TO vec_c2d2_registro_runtime;

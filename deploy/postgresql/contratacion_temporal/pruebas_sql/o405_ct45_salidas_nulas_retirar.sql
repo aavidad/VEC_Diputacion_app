@@ -1,6 +1,7 @@
 \set ON_ERROR_STOP on
 
-DROP FUNCTION public.invocar_salida_nula_ct45(text, text, text);
+DROP FUNCTION
+vec_contratacion_temporal.invocar_salida_nula_ct45(text, text, text);
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 DROP FUNCTION
