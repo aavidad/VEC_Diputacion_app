@@ -139,7 +139,16 @@ componer los dos emisores nominales y guardianes de cuadro y detalle.
 A4.1 quedó integrado en `05d6767` con
 [GO independiente](revisiones/o4_05_revision_par_emisores_ct_000047a41_2026-07-29.md).
 El par privado rechaza nulos, implementaciones sin identidad física y la misma
-instancia en ambas posiciones. A4.2 continúa con la preparación nominal pura.
+instancia en ambas posiciones.
+
+A4.2 quedó integrado en `841f90a` con
+[GO independiente](revisiones/o4_05_revision_preparacion_nominal_ct_000047a42_2026-07-30.md)
+y P0=P1=P2=0. Las preparaciones privadas de cuadro y detalle derivan D1/D2,
+retienen un solo clon del resultado exacto y ligan acción, finalidad, recurso,
+motivo, correlación y vínculo a la solicitud VEC. No resuelven motivos,
+generan correlaciones, emiten material ni publican API. A4.3 queda
+desbloqueado para componer esas autoridades nominales sin exponer el resultado
+registrado.
 
 El contrato M0 de motivos quedó integrado en `c1bb5ec` con
 [GO independiente](revisiones/o4_05_revision_contrato_motivos_ct_000047m0_2026-07-29.md).
