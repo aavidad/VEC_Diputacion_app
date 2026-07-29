@@ -318,11 +318,7 @@ SELECT (
            $17::bytea,$18::bytea
        ) resultado
 \parse consultar_cuadro
-\bind_named consultar_cuadro \
-    'organizacion:diputacion-granada' 'organizacion' \
-    'organizacion:diputacion-granada' '' '' '' '10' '' \
-    :capacidad :decision :motivo :contexto :persona :perfil \
-    :payload :sobre :evidencia :raiz
+\bind_named consultar_cuadro 'organizacion:diputacion-granada' 'organizacion' 'organizacion:diputacion-granada' '' '' '' '10' '' :capacidad :decision :motivo :contexto :persona :perfil :payload :sobre :evidencia :raiz
 \g
 \if :cierre
 COMMIT;
@@ -392,12 +388,7 @@ SELECT (
            $14::bytea,$15::bytea
        ) resultado
 \parse consultar_detalle
-\bind_named consultar_detalle \
-    'organizacion:diputacion-granada' 'organizacion' \
-    'organizacion:diputacion-granada' \
-    'expediente:rrhh:minimizado' '1' \
-    :capacidad :decision :motivo :contexto :persona :perfil \
-    :payload :sobre :evidencia :raiz
+\bind_named consultar_detalle 'organizacion:diputacion-granada' 'organizacion' 'organizacion:diputacion-granada' 'expediente:rrhh:minimizado' '1' :capacidad :decision :motivo :contexto :persona :perfil :payload :sobre :evidencia :raiz
 \g
 \if :cierre
 COMMIT;
