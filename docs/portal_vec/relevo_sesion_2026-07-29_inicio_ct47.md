@@ -101,6 +101,11 @@ No se abrirá una tarea genérica de «autoridad/PDP»: retención nominal, recu
 cerrados, decisión, material atestado, cronología, rutas y ciclo de vida se
 confirmarán y revisarán por separado.
 
+La cronología de detalle quedó corregida en `e3e12d5`: contexto, autorización
+y orden ya no comparten un instante capturado antes de las fronteras lentas.
+La minitarea obtuvo `GO` independiente sin hallazgos. Véase la
+[revisión CT-000047C2](revisiones/o4_05_revision_cronologia_detalle_ct_000047c2_2026-07-29.md).
+
 ## Métricas
 
 | Ámbito | Estado |
