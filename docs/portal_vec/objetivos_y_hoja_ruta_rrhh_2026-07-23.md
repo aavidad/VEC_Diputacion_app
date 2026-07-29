@@ -173,7 +173,9 @@ Implementar el adaptador PostgreSQL mínimo de `SesionConsultaRRHH`:
 
 - reutilizar sin cambios el puerto, las órdenes, los cánones y los recibos;
 - invocar las dos fachadas CT-000045 con doce entradas exactas;
-- decodificar dieciocho salidas escalares de cuadro y quince de detalle;
+- construir los doce argumentos SQL lógicos desde dieciocho valores escalares
+  de cuadro o quince de detalle, y decodificar las veintiuna columnas de
+  cuadro o las veinte de detalle;
 - usar un LOGIN y un pool nominales exclusivos;
 - ejecutar `SERIALIZABLE READ WRITE`;
 - cancelar por contexto y cerrar los recursos en orden inverso;

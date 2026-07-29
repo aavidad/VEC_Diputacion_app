@@ -68,8 +68,9 @@ Decisiones cerradas:
 
 1. reutilizar `SesionConsultaRRHH`;
 2. reutilizar las órdenes, el alcance, los recibos y los cánones existentes;
-3. enlazar exactamente doce entradas, dieciocho salidas escalares de cuadro y
-   quince de detalle;
+3. construir los doce argumentos SQL lógicos a partir de dieciocho valores
+   escalares de cuadro o quince de detalle, y escanear completas las veintiuna
+   columnas devueltas por cuadro o las veinte de detalle;
 4. usar un LOGIN nominal y un pool exclusivos para consulta RRHH;
 5. abrir `SERIALIZABLE READ WRITE`;
 6. no reutilizar el rol histórico de recuperación ni una transacción
@@ -112,4 +113,3 @@ pruebas focales de la preparación histórica cuando corresponda.
 - El runner histórico conserva un P2 no bloqueante por transportar centinelas
   sintéticos con variables de entorno de `docker exec`.
 - No hay autorización para datos reales, despliegue ni producción.
-
