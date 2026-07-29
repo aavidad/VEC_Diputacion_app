@@ -302,8 +302,8 @@ BEGIN
     IF v_cierre.generada_en IS DISTINCT FROM
            v_resultado.generada_en
        OR v_cierre.total IS DISTINCT FROM 1::smallint
-       OR v_cierre.cursor_huella_sha256 <> ''
-       OR v_cierre.alcance_huella_sha256 <> ''
+       OR v_cierre.cursor_huella_sha256 IS DISTINCT FROM ''
+       OR v_cierre.alcance_huella_sha256 IS DISTINCT FROM ''
        OR v_cierre.expediente_ref IS DISTINCT FROM
           v_resumen.expediente_ref
        OR v_cierre.version_expediente IS DISTINCT FROM

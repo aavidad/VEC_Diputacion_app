@@ -299,8 +299,10 @@ BEGIN
             MESSAGE = 'consulta RRHH rechazada';
     END IF;
     IF v_resultado.hay_mas THEN
-        IF v_resultado.cursor_siguiente !~ '^[A-Za-z0-9_-]{43}$'
-           OR v_cierre.cursor_huella_sha256 !~ '^[0-9a-f]{64}$'
+        IF (v_resultado.cursor_siguiente ~ '^[A-Za-z0-9_-]{43}$')
+              IS DISTINCT FROM true
+           OR (v_cierre.cursor_huella_sha256 ~ '^[0-9a-f]{64}$')
+              IS DISTINCT FROM true
            OR pg_catalog.encode(pg_catalog.sha256(
                pg_catalog.convert_to(
                    v_resultado.cursor_siguiente, 'UTF8'
@@ -314,8 +316,8 @@ BEGIN
             v_cierre.cursor_huella_sha256, 'hex'
         );
     ELSE
-        IF v_resultado.cursor_siguiente <> ''
-           OR v_cierre.cursor_huella_sha256 <> '' THEN
+        IF v_resultado.cursor_siguiente IS DISTINCT FROM ''
+           OR v_cierre.cursor_huella_sha256 IS DISTINCT FROM '' THEN
             RAISE EXCEPTION USING ERRCODE = '42501',
                 MESSAGE = 'consulta RRHH rechazada';
         END IF;
@@ -330,8 +332,8 @@ BEGIN
            v_resultado.generada_en
        OR v_cierre.total IS DISTINCT FROM
           pg_catalog.cardinality(v_resultado.resumenes)::smallint
-       OR v_cierre.expediente_ref <> ''
-       OR v_cierre.version_expediente <> 0
+       OR v_cierre.expediente_ref IS DISTINCT FROM ''
+       OR v_cierre.version_expediente IS DISTINCT FROM 0
        OR v_cierre.contenido_huella_sha256 IS DISTINCT FROM
           pg_catalog.encode(pg_catalog.sha256(v_contenido), 'hex') THEN
         RAISE EXCEPTION USING ERRCODE = '42501',

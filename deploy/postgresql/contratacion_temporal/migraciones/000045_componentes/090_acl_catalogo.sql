@@ -404,7 +404,7 @@ BEGIN
     RAISE NOTICE 'huella semántica CT45=%', v_huella;
     IF v_funciones <> 2
        OR v_huella <>
-          '1b76b74137106c1eaf019179dc556e510984b450eb5e92d0689cabd5445a5b46'
+          '400de6a2b39a2b65dbd2d32137268e3ceaff784342cd0fb2c058eaec670f6b8a'
        THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'catálogo de fachadas nominales RRHH incompatible',
