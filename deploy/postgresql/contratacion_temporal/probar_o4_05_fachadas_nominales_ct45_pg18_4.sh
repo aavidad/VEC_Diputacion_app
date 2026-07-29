@@ -517,7 +517,7 @@ DROP FUNCTION vec_contratacion_temporal.invocar_limite_fachada_ct45(text, text);
 GRANT TEMPORARY ON DATABASE postgres TO vec_c2d2_registro_runtime;
 SQL
 esperar_fallo 'runtime intenta almacenar un tipo CT40' 42501 \
-    'permission denied for type alcance_consulta_rrhh_v1' \
+    'permission denied for type vec_contratacion_temporal.alcance_consulta_rrhh_v1' \
     psql_admin --set ON_ERROR_STOP=1 --command "
         SET SESSION AUTHORIZATION vec_c2d2_registro_runtime;
         CREATE TEMP TABLE no_autorizada_ct45 (
