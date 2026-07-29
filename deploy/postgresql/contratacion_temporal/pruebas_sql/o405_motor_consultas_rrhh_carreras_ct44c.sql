@@ -1,6 +1,9 @@
 \set ON_ERROR_STOP on
 
--- CT-000044C: única ayuda del fixture para producir una revocación canónica.
+BEGIN;
+SET LOCAL ROLE vec_contratacion_temporal_propietario;
+
+-- CT-000044C: única ayuda de prueba para producir una revocación canónica.
 -- El token claro solo vive durante la llamada y se reduce inmediatamente a
 -- su SHA-256. La función no concede permisos ni crea una autoridad paralela.
 
@@ -12,7 +15,7 @@ vec_contratacion_temporal.prueba_revocar_cursor_cuadro_ct44c(
 RETURNS text
 LANGUAGE plpgsql
 VOLATILE
-SECURITY DEFINER
+SECURITY INVOKER
 PARALLEL UNSAFE
 SET search_path = pg_catalog
 SET row_security = 'on'
@@ -34,6 +37,7 @@ DECLARE
     v_prueba bytea;
 BEGIN
     IF CURRENT_USER <> 'vec_contratacion_temporal_propietario'
+       OR SESSION_USER <> 'postgres'
        OR pg_catalog.pg_is_in_recovery()
        OR pg_catalog.current_setting('transaction_isolation')
           <> 'serializable'
@@ -125,10 +129,8 @@ EXCEPTION
 END
 $funcion$;
 
-ALTER FUNCTION
-vec_contratacion_temporal.prueba_revocar_cursor_cuadro_ct44c(text, text)
-OWNER TO vec_contratacion_temporal_propietario;
-
 REVOKE ALL ON FUNCTION
 vec_contratacion_temporal.prueba_revocar_cursor_cuadro_ct44c(text, text)
 FROM PUBLIC;
+
+COMMIT;

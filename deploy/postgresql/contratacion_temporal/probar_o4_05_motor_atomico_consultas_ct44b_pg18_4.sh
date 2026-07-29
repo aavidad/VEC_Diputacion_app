@@ -5,17 +5,23 @@ directorio="$(
     cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1
     pwd -P
 )"
+patron_cursor_argumento='--env VEC_''CURSOR[^ ]*='
+estado_cursores_argumentos=0
+rg -q -- "$patron_cursor_argumento" "${BASH_SOURCE[0]}" ||
+    estado_cursores_argumentos=$?
+if (( estado_cursores_argumentos != 1 )); then
+    printf 'el guion no protege los cursores de los argumentos de Docker\n' >&2
+    exit 1
+fi
 # Línea base real hasta CT-000042 sobre PostgreSQL 18.4 sin red. CT43 y CT43A
 # se instalan después sin ejecutar sus baterías completas, ya verdes aparte:
 # así la identidad sintética nace inmediatamente antes de las pruebas CT44B.
 # shellcheck disable=SC1091
 source "$directorio/probar_o4_05_canones_resultado_recibo_rrhh_pg18_4.sh"
 : "${contenedor:?el ejecutor CT42 debe exponer PostgreSQL}"
-
 paso() {
     printf '[O4-05:CT-000044B:PG18.4] %s\n' "$1"
 }
-
 preparar_vector() {
     local caso=$1
     local perfil=$2
@@ -23,15 +29,14 @@ preparar_vector() {
         "SELECT public.preparar_vector_cierre_ct43('$caso','$perfil')" \
         >/dev/null
 }
-
 invocar_cuadro() {
     local caso=$1
     local cursor=${2:-}
     local fallo=${3:-}
     local estado=${4:-}
-    docker exec --interactive \
+    VEC_CURSOR="$cursor" docker exec --interactive \
         --env VEC_CASO="$caso" \
-        --env VEC_CURSOR="$cursor" \
+        --env VEC_CURSOR \
         --env VEC_FALLO="$fallo" \
         --env VEC_ESTADO="$estado" \
         "$contenedor" psql -XqAt \
@@ -63,13 +68,12 @@ SELECT vec_contratacion_temporal
 COMMIT;
 SQL
 }
-
 ajustar_cursor() {
     local caso=$1
     local cursor=$2
-    docker exec --interactive \
+    VEC_CURSOR="$cursor" docker exec --interactive \
         --env VEC_CASO="$caso" \
-        --env VEC_CURSOR="$cursor" \
+        --env VEC_CURSOR \
         "$contenedor" psql -XqAt \
         --set ON_ERROR_STOP=1 --set VERBOSITY=verbose \
         --username postgres --dbname postgres <<'SQL'
@@ -81,7 +85,6 @@ SELECT public.ajustar_cursor_vector_ct44b($1, $2)
 \g /dev/null
 SQL
 }
-
 preparar_detalle() {
     local caso=$1
     local version=$2
@@ -91,15 +94,14 @@ preparar_detalle() {
             '$caso', $version, true
         )" >/dev/null
 }
-
 invocar_cuadro_controlado() {
     local caso=$1
     local cursor=$2
     local organizacion=$3
     local devolver_cursor=${4:-false}
-    docker exec --interactive \
+    VEC_CURSOR="$cursor" docker exec --interactive \
         --env VEC_CASO="$caso" \
-        --env VEC_CURSOR="$cursor" \
+        --env VEC_CURSOR \
         --env VEC_ORGANIZACION="$organizacion" \
         --env VEC_DEVOLVER_CURSOR="$devolver_cursor" \
         "$contenedor" psql -XqAt \
@@ -121,13 +123,12 @@ SELECT vec_contratacion_temporal
 COMMIT;
 SQL
 }
-
 invocar_forma_terminal() {
     local variante=$1
     local cursor=${2:-}
-    docker exec --interactive \
+    VEC_CURSOR="$cursor" docker exec --interactive \
         --env VEC_VARIANTE="$variante" \
-        --env VEC_CURSOR="$cursor" \
+        --env VEC_CURSOR \
         "$contenedor" psql -XqAt \
         --set ON_ERROR_STOP=1 --set VERBOSITY=verbose \
         --username vec_c2d2_registro_runtime --dbname postgres <<'SQL'
@@ -143,11 +144,10 @@ SELECT vec_contratacion_temporal
 COMMIT;
 SQL
 }
-
 contar_consumos_cursor() {
     local cursor=$1
-    docker exec --interactive \
-        --env VEC_CURSOR="$cursor" \
+    VEC_CURSOR="$cursor" docker exec --interactive \
+        --env VEC_CURSOR \
         "$contenedor" psql -XqAt \
         --set ON_ERROR_STOP=1 \
         --username postgres --dbname postgres <<'SQL'
@@ -166,9 +166,9 @@ SQL
 contar_apariciones_tokens() {
     local cursor_a=$1
     local cursor_b=$2
-    docker exec --interactive \
-        --env VEC_CURSOR_A="$cursor_a" \
-        --env VEC_CURSOR_B="$cursor_b" \
+    VEC_CURSOR_A="$cursor_a" VEC_CURSOR_B="$cursor_b" \
+        docker exec --interactive \
+        --env VEC_CURSOR_A --env VEC_CURSOR_B \
         "$contenedor" psql -XqAt \
         --set ON_ERROR_STOP=1 \
         --username postgres --dbname postgres <<'SQL'
