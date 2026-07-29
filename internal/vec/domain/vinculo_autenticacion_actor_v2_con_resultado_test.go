@@ -376,4 +376,17 @@ func TestCrearVinculoAutenticacionActorV2WrapperConservaContrato(
 			resolutor.invocaciones,
 		)
 	}
+
+	vinculo, err = CrearVinculoAutenticacionActorV2(
+		context.Background(),
+		&revalidadorAutenticacionV2Prueba{resultado: autenticacion},
+		solicitudRevalidacionVinculoPrueba(autenticacion),
+		&resolutorContextoRegistradoV2Prueba{resultado: fuente},
+		solicitudContextoVinculoV2Prueba(fuente),
+		&relojVinculoV2Prueba{},
+	)
+	if err != ErrVinculoAutenticacionActorV2Invalido ||
+		vinculo.Validar() == nil {
+		t.Fatalf("el wrapper alteró el error de ventana inválida: %v", err)
+	}
 }
