@@ -690,8 +690,9 @@ esperar_fallo 'runtime lee vínculo técnico' 42501 \
 paso 'carreras reales de registro y revocación tienen orden único'
 salida_registro="$(mktemp "${TMPDIR:-/tmp}/vec-ct-carrera-reg.XXXXXX")"
 salida_revoca="$(mktemp "${TMPDIR:-/tmp}/vec-ct-carrera-rev.XXXXXX")"
-temporales+=("$salida_registro" "$salida_revoca")
-trazas+=("$salida_registro" "$salida_revoca")
+salida_puerta="$(mktemp "${TMPDIR:-/tmp}/vec-ct-carrera-puerta.XXXXXX")"
+temporales+=("$salida_registro" "$salida_revoca" "$salida_puerta")
+trazas+=("$salida_registro" "$salida_revoca" "$salida_puerta")
 invocar_parametrizado 201 cuadro "$autenticacion_b" "$sesion_b" \
     "$control_b" "$revision_b" "$control_huella_b" 1.2 \
     c2d2_registro_primero \
@@ -718,19 +719,19 @@ fi
  AND vinculo.cuenta_ref='$cuenta_ref_b'")" == '1' ]]
 
 estado_antes_revoca="$(estado_instalacion_000039)"
-psql_admin --no-align --tuples-only --command \
-    "SET application_name='c2d2_revocacion_primero'; BEGIN; SELECT
-     vec_identidad_sesiones_v1.revocar_sesion_v1(
-      '$sesion','$control','$revision',
-      'opr_ffffffffffffffffffffffff'); SELECT pg_sleep(0.4); COMMIT" \
-    >"$salida_revoca" 2>&1 &
+# La puerta mantiene la revocación abierta hasta observar el registro bloqueado;
+# el sueño es solo un fusible y el camino normal termina el backend de puerta.
+psql_admin --no-align --tuples-only --command "SET application_name='c2d2_puerta_revocacion'; SELECT pg_catalog.pg_advisory_lock(42045,39); SELECT pg_sleep(30)" >"$salida_puerta" 2>&1 &
+pid_puerta=$!; esperar_actividad c2d2_puerta_revocacion PgSleep
+psql_admin --no-align --tuples-only --command "SET application_name='c2d2_revocacion_primero'; BEGIN; SELECT vec_identidad_sesiones_v1.revocar_sesion_v1('$sesion','$control','$revision','opr_ffffffffffffffffffffffff'); SELECT pg_catalog.pg_advisory_xact_lock(42045,39); COMMIT" >"$salida_revoca" 2>&1 &
 pid_revoca=$!
-esperar_actividad c2d2_revocacion_primero PgSleep
-invocar_parametrizado 202 cuadro "$autenticacion" "$sesion" "$control" \
-    "$revision" "$control_huella" 0 c2d2_registro_despues \
-    >"$salida_registro" 2>&1 &
+esperar_actividad c2d2_revocacion_primero Lock
+invocar_parametrizado 202 cuadro "$autenticacion" "$sesion" "$control" "$revision" "$control_huella" 0 c2d2_registro_despues >"$salida_registro" 2>&1 &
 pid_registro=$!
 esperar_actividad c2d2_registro_despues Lock
+[[ "$(valor "SELECT pg_catalog.pg_terminate_backend(pid) FROM pg_catalog.pg_stat_activity WHERE application_name='c2d2_puerta_revocacion'")" == 't' ]]
+estado_puerta=0; wait "$pid_puerta" || estado_puerta=$?
+((estado_puerta != 0))
 wait "$pid_revoca"
 estado_registro=0
 wait "$pid_registro" || estado_registro=$?
