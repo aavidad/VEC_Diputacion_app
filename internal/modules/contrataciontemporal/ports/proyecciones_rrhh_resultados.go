@@ -232,28 +232,22 @@ type PaginaCuadroRRHH struct {
 	Lectura         ReciboLecturaRRHH       `json:"-"`
 }
 
-func (p PaginaCuadroRRHH) ValidarPara(orden OrdenConsultaCuadroRRHH) error {
-	solicitud := orden.solicitud
+// ValidarContenidoPublicablePara comprueba exclusivamente la proyección
+// neutral solicitada. No valida ni expone autoridad, ámbito o recibo de
+// lectura; esas garantías pertenecen a ValidarPara.
+func (p PaginaCuadroRRHH) ValidarContenidoPublicablePara(
+	solicitud SolicitudCuadroRRHH,
+) error {
 	if solicitud.validar() != nil ||
-		orden.capacidad.validaPara(
-			orden.contexto, DominioHuellaConsultaCuadroRRHH,
-			orden.consultaHuella, AccionConsultarCuadroRRHH,
-			FinalidadConsultarCuadroRRHH, "", orden.instante,
-		) != nil ||
 		!domain.InstanteUTCCanonico(p.GeneradaEn) ||
-		p.GeneradaEn.Before(orden.instante) ||
 		len(p.Expedientes) > int(solicitud.limite) ||
 		(p.HayMas && !cursorRRHHValido(p.CursorSiguiente)) ||
-		(!p.HayMas && p.CursorSiguiente != "") ||
-		!p.Lectura.coincideCon(orden.contexto, orden.capacidad, "", 0) ||
-		p.Lectura.totalPublicado != uint16(len(p.Expedientes)) ||
-		p.Lectura.registradaEn.Before(orden.instante) ||
-		p.Lectura.registradaEn.Before(p.GeneradaEn) {
+		(!p.HayMas && p.CursorSiguiente != "") {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	vistas := make(map[string]struct{}, len(p.Expedientes))
-	for i, resumen := range p.Expedientes {
-		if resumen.Validar() != nil || !resumen.cumpleAmbito(orden.capacidad) ||
+	for indice, resumen := range p.Expedientes {
+		if resumen.Validar() != nil ||
 			resumen.ActualizadoEn.After(p.GeneradaEn) ||
 			(solicitud.texto != "" &&
 				!strings.HasPrefix(resumen.NumeroVisible, solicitud.texto)) ||
@@ -267,13 +261,36 @@ func (p PaginaCuadroRRHH) ValidarPara(orden OrdenConsultaCuadroRRHH) error {
 			return ErrResultadoConsultaRRHHNoConfiable
 		}
 		vistas[resumen.ExpedienteRef] = struct{}{}
-		if i == 0 {
+		if indice == 0 {
 			continue
 		}
-		anterior := p.Expedientes[i-1]
+		anterior := p.Expedientes[indice-1]
 		if anterior.ActualizadoEn.Before(resumen.ActualizadoEn) ||
 			(anterior.ActualizadoEn.Equal(resumen.ActualizadoEn) &&
 				anterior.ExpedienteRef <= resumen.ExpedienteRef) {
+			return ErrResultadoConsultaRRHHNoConfiable
+		}
+	}
+	return nil
+}
+
+func (p PaginaCuadroRRHH) ValidarPara(orden OrdenConsultaCuadroRRHH) error {
+	solicitud := orden.solicitud
+	if p.ValidarContenidoPublicablePara(solicitud) != nil ||
+		orden.capacidad.validaPara(
+			orden.contexto, DominioHuellaConsultaCuadroRRHH,
+			orden.consultaHuella, AccionConsultarCuadroRRHH,
+			FinalidadConsultarCuadroRRHH, "", orden.instante,
+		) != nil ||
+		p.GeneradaEn.Before(orden.instante) ||
+		!p.Lectura.coincideCon(orden.contexto, orden.capacidad, "", 0) ||
+		p.Lectura.totalPublicado != uint16(len(p.Expedientes)) ||
+		p.Lectura.registradaEn.Before(orden.instante) ||
+		p.Lectura.registradaEn.Before(p.GeneradaEn) {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	for _, resumen := range p.Expedientes {
+		if !resumen.cumpleAmbito(orden.capacidad) {
 			return ErrResultadoConsultaRRHHNoConfiable
 		}
 	}

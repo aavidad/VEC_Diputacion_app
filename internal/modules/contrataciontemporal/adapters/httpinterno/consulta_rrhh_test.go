@@ -57,7 +57,7 @@ func (c *consultorDetalleRRHHPrueba) Consultar(
 }
 
 func cuerpoCuadroRRHHPrueba() string {
-	return `{"filtros":{"texto":"CT/2026","estado_clave":"en_curso",` +
+	return `{"filtros":{"texto":"2026/CT","estado_clave":"en_curso",` +
 		`"fase_clave":"analisis"},"paginacion":{"limite":50,"cursor":""}}`
 }
 
@@ -159,7 +159,7 @@ func TestManejadorConsultaCuadroRRHHExponeContratoMinimo(t *testing.T) {
 		t.Fatalf("estado=%d cuerpo=%s", respuesta.Code, respuesta.Body.String())
 	}
 	if consultor.llamadas != 1 ||
-		consultor.solicitud.Texto() != "CT/2026" ||
+		consultor.solicitud.Texto() != "2026/CT" ||
 		consultor.solicitud.EstadoClave() != domain.EstadoEnCurso ||
 		consultor.solicitud.FaseClave() != "analisis" ||
 		consultor.solicitud.Limite() != 50 ||
