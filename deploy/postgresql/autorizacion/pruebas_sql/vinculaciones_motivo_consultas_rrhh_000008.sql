@@ -17,11 +17,23 @@ BEGIN
               FROM pg_catalog.pg_class
              WHERE oid = tabla
                AND relkind = 'r'
+               AND relpersistence = 'p'
+               AND relam = (
+                   SELECT a.oid
+                     FROM pg_catalog.pg_am AS a
+                    WHERE a.amname = 'heap' AND a.amtype = 't'
+               )
+               AND NOT relispartition
                AND relowner = 'vec_autorizacion_propietario'::regrole
                AND relrowsecurity
                AND relforcerowsecurity
+               AND NOT EXISTS (
+                   SELECT 1
+                     FROM pg_catalog.pg_inherits AS i
+                    WHERE i.inhrelid = tabla OR i.inhparent = tabla
+               )
         ) THEN
-            RAISE EXCEPTION 'tabla 000008 sin propietario o RLS exactos: %',
+            RAISE EXCEPTION 'tabla 000008 sin estructura, propietario o RLS exactos: %',
                 tabla;
         END IF;
         SELECT pg_catalog.count(*) INTO politicas
@@ -125,6 +137,31 @@ BEGIN
        );
     IF funciones_inseguras <> 0 THEN
         RAISE EXCEPTION 'funciones privadas 000008 con superficie insegura';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_trigger AS t
+         WHERE t.tgrelid IN (
+             'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
+             'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass
+           )
+           AND NOT t.tgisinternal
+           AND (
+               t.tgparentid IS DISTINCT FROM 0::oid
+               OR t.tgconstrrelid IS DISTINCT FROM 0::oid
+               OR t.tgconstrindid IS DISTINCT FROM 0::oid
+               OR t.tgconstraint IS DISTINCT FROM 0::oid
+               OR t.tgdeferrable IS DISTINCT FROM false
+               OR t.tginitdeferred IS DISTINCT FROM false
+               OR t.tgnargs IS DISTINCT FROM 0
+               OR t.tgattr::text IS DISTINCT FROM ''
+               OR pg_catalog.encode(t.tgargs, 'hex') IS DISTINCT FROM ''
+               OR t.tgqual IS NOT NULL OR t.tgoldtable IS NOT NULL
+               OR t.tgnewtable IS NOT NULL
+           )
+    ) THEN
+        RAISE EXCEPTION 'disparadores 000008 con metainformacion incompatible';
     END IF;
 END
 $catalogo$;

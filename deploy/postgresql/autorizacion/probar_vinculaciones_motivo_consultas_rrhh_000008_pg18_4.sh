@@ -127,6 +127,39 @@ psql_archivo \
   "SELECT count(*) FROM vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1") == 2 ]]
 [[ $(psql_valor \
   "SELECT count(*) FROM vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1") == 0 ]]
+[[ $(psql_valor \
+  "SELECT (count(*) = 12 AND bool_and(t.tgenabled = 'O' AND t.tgisinternal))::text FROM pg_catalog.pg_trigger AS t JOIN pg_catalog.pg_constraint AS c ON c.oid = t.tgconstraint WHERE c.conrelid IN ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass, 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass) AND c.contype = 'f'") == true ]]
+[[ $(psql_valor \
+  "SELECT (count(*) = 5 AND bool_and(i.indisvalid AND i.indisready AND i.indislive AND i.indimmediate))::text FROM pg_catalog.pg_index AS i WHERE i.indrelid IN ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass, 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass) AND (i.indisprimary OR i.indisunique OR i.indisexclusion)") == true ]]
+[[ $(psql_valor \
+  "SELECT (count(*) = 0)::text FROM pg_catalog.pg_rewrite WHERE ev_class IN ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass, 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass)") == true ]]
+[[ $(psql_valor \
+  "SELECT bool_and(a.attcollation = t.typcollation)::text FROM pg_catalog.pg_attribute AS a JOIN pg_catalog.pg_type AS t ON t.oid = a.atttypid WHERE a.attrelid IN ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass, 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass) AND a.attnum > 0") == true ]]
+
+# Ninguna de las dos tablas UNLOGGED se adopta ni vuelve a LOGGED.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+ALTER TABLE
+  vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
+  SET UNLOGGED;
+ALTER TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  SET UNLOGGED;
+SQL
+exigir_fallo_reentrada 'tablas UNLOGGED'
+[[ $(psql_valor \
+  "SELECT (count(*) = 2 AND bool_and(relpersistence = 'u'))::text FROM pg_catalog.pg_class WHERE oid IN ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass, 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass)") == true ]]
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+ALTER TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  SET LOGGED;
+ALTER TABLE
+  vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
+  SET LOGGED;
+SQL
+psql_archivo \
+  deploy/postgresql/autorizacion/migraciones/000008_vinculaciones_motivo_consultas_rrhh.up.sql
 
 # Un disparador homónimo con otro evento no se adopta ni se repara.
 docker exec --interactive "$contenedor" psql -X \
@@ -143,6 +176,172 @@ exigir_fallo_reentrada 'disparador BEFORE INSERT homónimo'
 [[ $(psql_valor \
   "SELECT (tgtype = 7 AND tgenabled = 'O')::text FROM pg_catalog.pg_trigger WHERE tgrelid = 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass AND tgname = 'vinculacion_motivo_rrhh_inmutable' AND NOT tgisinternal") == true ]]
 restablecer_000008
+
+# Un WHEN(false) conserva evento y función, pero anula el contrato completo.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+DROP TRIGGER vinculacion_motivo_rrhh_inmutable ON
+  vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1;
+CREATE TRIGGER vinculacion_motivo_rrhh_inmutable
+  BEFORE UPDATE OR DELETE ON
+    vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  FOR EACH ROW WHEN (false) EXECUTE FUNCTION
+    vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1();
+SQL
+exigir_fallo_reentrada 'disparador con WHEN(false)'
+[[ $(psql_valor \
+  "SELECT (tgtype = 27 AND tgenabled = 'O' AND tgqual IS NOT NULL)::text FROM pg_catalog.pg_trigger WHERE tgrelid = 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass AND tgname = 'vinculacion_motivo_rrhh_inmutable' AND NOT tgisinternal") == true ]]
+restablecer_000008
+
+# Una ACL de tabla para un BYPASSRLS ajeno no se revoca ni adopta.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+CREATE ROLE vec_motivos_rrhh_bypass NOLOGIN BYPASSRLS;
+SET ROLE vec_autorizacion_propietario;
+GRANT SELECT, DELETE ON
+  vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  TO vec_motivos_rrhh_bypass;
+SQL
+exigir_fallo_reentrada 'ACL de tabla para BYPASSRLS'
+[[ $(psql_valor \
+  "SELECT pg_catalog.has_table_privilege('vec_motivos_rrhh_bypass', 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1', 'DELETE')::text") == true ]]
+restablecer_000008
+
+# Una ACL de columna es independiente de relacl y también falla cerrada.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+GRANT SELECT (entrada_clave) ON
+  vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  TO vec_motivos_rrhh_bypass;
+SQL
+exigir_fallo_reentrada 'ACL de columna para BYPASSRLS'
+[[ $(psql_valor \
+  "SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute AS a CROSS JOIN LATERAL pg_catalog.aclexplode(a.attacl) AS acl WHERE a.attrelid = 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass AND a.attname = 'entrada_clave' AND acl.grantee = 'vec_motivos_rrhh_bypass'::regrole)::text") == true ]]
+restablecer_000008
+psql_valor "DROP ROLE vec_motivos_rrhh_bypass" >/dev/null
+
+# Una regla de reescritura hostil permanece instalada tras el rollback.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+CREATE RULE vinculacion_motivo_rrhh_borrado_hostil AS
+  ON DELETE TO vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  DO INSTEAD NOTHING;
+SQL
+exigir_fallo_reentrada 'regla ON DELETE DO INSTEAD'
+[[ $(psql_valor \
+  "SELECT (count(*) = 1 AND bool_and(is_instead))::text FROM pg_catalog.pg_rewrite WHERE ev_class = 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass AND rulename = 'vinculacion_motivo_rrhh_borrado_hostil'") == true ]]
+restablecer_000008
+
+# Una colación no determinista no se oculta recreando la FK textual exacta.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+CREATE COLLATION vec_autorizacion.colacion_motivo_rrhh_hostil (
+  provider = icu, locale = 'und-u-ks-level2', deterministic = false
+);
+ALTER TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
+  DROP CONSTRAINT vinculacion_motivo_rrhh_checkpoint_historia_fk;
+ALTER TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  ALTER COLUMN clase_consulta TYPE text
+  COLLATE vec_autorizacion.colacion_motivo_rrhh_hostil;
+ALTER TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
+  ALTER COLUMN clase_consulta TYPE text
+  COLLATE vec_autorizacion.colacion_motivo_rrhh_hostil;
+ALTER TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
+  ADD CONSTRAINT vinculacion_motivo_rrhh_checkpoint_historia_fk
+  FOREIGN KEY (
+    clase_consulta, ultima_publicacion_version,
+    ultima_publicacion_ref, ultima_publicacion_huella_sha256
+  ) REFERENCES vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1 (
+    clase_consulta, publicacion_version,
+    publicacion_ref, publicacion_huella_sha256
+  );
+SQL
+exigir_fallo_reentrada 'colación no determinista con FK textual exacta'
+[[ $(psql_valor \
+  "SELECT (count(*) = 2 AND bool_and(a.attcollation = 'vec_autorizacion.colacion_motivo_rrhh_hostil'::regcollation))::text FROM pg_catalog.pg_attribute AS a WHERE a.attrelid IN ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass, 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass) AND a.attname = 'clase_consulta'") == true ]]
+[[ $(psql_valor \
+  "SELECT ('CUADRO' COLLATE vec_autorizacion.colacion_motivo_rrhh_hostil IN ('cuadro', 'detalle'))::text") == true ]]
+restablecer_000008
+psql_valor \
+  "DROP COLLATION vec_autorizacion.colacion_motivo_rrhh_hostil" >/dev/null
+
+# Un índice UNIQUE adicional no forma parte del conjunto semántico nominal.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+CREATE UNIQUE INDEX vinculacion_motivo_rrhh_indice_hostil
+  ON vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1 (catalogo_id);
+SQL
+exigir_fallo_reentrada 'índice UNIQUE adicional'
+[[ $(psql_valor \
+  "SELECT (indisunique AND indisvalid AND indisready AND indislive)::text FROM pg_catalog.pg_index WHERE indexrelid = 'vec_autorizacion.vinculacion_motivo_rrhh_indice_hostil'::regclass") == true ]]
+restablecer_000008
+
+# Los RI deshabilitados en la hija no se reparan durante la reentrada.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+ALTER TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  DISABLE TRIGGER ALL;
+ALTER TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  ENABLE TRIGGER vinculacion_motivo_rrhh_inmutable;
+ALTER TABLE vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+  ENABLE TRIGGER vinculacion_motivo_rrhh_no_truncar;
+SQL
+exigir_fallo_reentrada 'disparadores RI deshabilitados en tabla hija'
+[[ $(psql_valor \
+  "SELECT (count(*) = 6 AND bool_and(t.tgenabled = 'D'))::text FROM pg_catalog.pg_trigger AS t JOIN pg_catalog.pg_constraint AS c ON c.oid = t.tgconstraint WHERE c.conrelid IN ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass, 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass) AND c.contype = 'f' AND t.tgrelid = 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass") == true ]]
+restablecer_000008
+
+# También se vigilan los RI instalados en el extremo referenciado externo.
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+DO $deshabilitar$
+DECLARE disparador record;
+BEGIN
+  FOR disparador IN
+    SELECT t.tgrelid, t.tgname
+      FROM pg_catalog.pg_trigger AS t
+      JOIN pg_catalog.pg_constraint AS c ON c.oid = t.tgconstraint
+     WHERE c.conname = 'vinculacion_motivo_rrhh_entrada_fk'
+       AND t.tgrelid = 'vec_autorizacion.motivo_v2_entrada'::regclass
+  LOOP
+    EXECUTE pg_catalog.format(
+      'ALTER TABLE %s DISABLE TRIGGER %I',
+      disparador.tgrelid::regclass, disparador.tgname
+    );
+  END LOOP;
+END
+$deshabilitar$;
+SQL
+exigir_fallo_reentrada 'disparadores RI deshabilitados en tabla referenciada'
+[[ $(psql_valor \
+  "SELECT (count(*) = 2 AND bool_and(t.tgenabled = 'D'))::text FROM pg_catalog.pg_trigger AS t JOIN pg_catalog.pg_constraint AS c ON c.oid = t.tgconstraint WHERE c.conname = 'vinculacion_motivo_rrhh_entrada_fk' AND t.tgrelid = 'vec_autorizacion.motivo_v2_entrada'::regclass") == true ]]
+docker exec --interactive "$contenedor" psql -X \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+DO $habilitar$
+DECLARE disparador record;
+BEGIN
+  FOR disparador IN
+    SELECT t.tgrelid, t.tgname
+      FROM pg_catalog.pg_trigger AS t
+      JOIN pg_catalog.pg_constraint AS c ON c.oid = t.tgconstraint
+     WHERE c.conname = 'vinculacion_motivo_rrhh_entrada_fk'
+       AND t.tgrelid = 'vec_autorizacion.motivo_v2_entrada'::regclass
+  LOOP
+    EXECUTE pg_catalog.format(
+      'ALTER TABLE %s ENABLE TRIGGER %I',
+      disparador.tgrelid::regclass, disparador.tgname
+    );
+  END LOOP;
+END
+$habilitar$;
+SQL
+psql_archivo \
+  deploy/postgresql/autorizacion/migraciones/000008_vinculaciones_motivo_consultas_rrhh.up.sql
 
 # Una política homónima SELECT TO PUBLIC permanece hostil tras el rollback.
 docker exec --interactive "$contenedor" psql -X \

@@ -1,16 +1,14 @@
 -- Fundamento privado de las vinculaciones nominales de motivo para las
 -- consultas RRHH. Esta migracion no publica ni resuelve vinculaciones.
 BEGIN;
-
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
-
+SET LOCAL default_table_access_method = heap;
 SELECT pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(
         'vec_autorizacion:migracion:vinculaciones-motivo-rrhh:000008', 0
     )
 );
-
 DO $prevalidacion$
 DECLARE
     historia regclass := pg_catalog.to_regclass(
@@ -64,6 +62,28 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = '000008 no adopta tablas preexistentes';
     END IF;
+    IF historia IS NOT NULL AND (
+        EXISTS (
+            SELECT 1 FROM pg_catalog.pg_class AS c
+             WHERE c.oid IN (historia, checkpoint)
+               AND (c.relkind IS DISTINCT FROM 'r'
+                   OR c.relpersistence IS DISTINCT FROM 'p'
+                   OR c.relam IS DISTINCT FROM (
+                       SELECT a.oid FROM pg_catalog.pg_am AS a
+                        WHERE a.amname = 'heap' AND a.amtype = 't'
+                   ) OR c.relispartition)
+        ) OR EXISTS (
+            SELECT 1 FROM pg_catalog.pg_inherits AS i
+             WHERE i.inhrelid IN (historia, checkpoint)
+                OR i.inhparent IN (historia, checkpoint)
+        ) OR EXISTS (
+            SELECT 1 FROM pg_catalog.pg_rewrite AS r
+             WHERE r.ev_class IN (historia, checkpoint)
+        )
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = '000008 exige tablas permanentes heap sin herencia, particion ni reglas';
+    END IF;
 
     FOREACH funcion IN ARRAY ARRAY[
         pg_catalog.to_regprocedure(
@@ -93,9 +113,7 @@ BEGIN
     );
 END
 $prevalidacion$;
-
 SET LOCAL ROLE vec_autorizacion_propietario;
-
 DO $referencia_completa$
 DECLARE
     existente record;
@@ -139,7 +157,6 @@ BEGIN
     END IF;
 END
 $referencia_completa$;
-
 CREATE TABLE IF NOT EXISTS
 vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1 (
     clase_consulta text NOT NULL,
@@ -307,9 +324,33 @@ BEGIN
         (SELECT * FROM esperado EXCEPT ALL SELECT * FROM actual)
         UNION ALL
         (SELECT * FROM actual EXCEPT ALL SELECT * FROM esperado)
+    ) OR EXISTS (
+        SELECT 1 FROM pg_catalog.pg_attribute AS a
+          JOIN pg_catalog.pg_type AS t ON t.oid = a.atttypid
+         WHERE a.attrelid IN (
+             'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
+             'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass
+         ) AND a.attnum > 0 AND a.attcollation IS DISTINCT FROM t.typcollation
+    ) OR EXISTS (
+        SELECT 1 FROM pg_catalog.pg_class AS c CROSS JOIN LATERAL
+          pg_catalog.aclexplode(coalesce(
+              c.relacl, pg_catalog.acldefault('r', c.relowner)
+          )) AS acl
+         WHERE c.oid IN (
+             'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
+             'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass
+         ) AND acl.grantee <> c.relowner
+    ) OR EXISTS (
+        SELECT 1 FROM pg_catalog.pg_attribute AS a
+          JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
+          CROSS JOIN LATERAL pg_catalog.aclexplode(a.attacl) AS acl
+         WHERE a.attrelid IN (
+             'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
+             'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass
+         ) AND a.attnum > 0 AND acl.grantee <> c.relowner
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
-            MESSAGE = '000008 no adopta columnas, tipos, nulos o defectos alterados';
+            MESSAGE = '000008 no adopta columnas, colaciones o ACL alteradas';
     END IF;
 
     IF EXISTS (
@@ -369,6 +410,32 @@ BEGIN
     END IF;
 
     IF EXISTS (
+        WITH esperado(tabla, indice, primaria, unica, exclusion, valida, lista, viva, inmediata) AS (
+            SELECT c.conrelid, c.conindid, c.contype = 'p',
+                   true, false, true, true, true, true
+              FROM pg_catalog.pg_constraint AS c
+             WHERE c.conrelid IN (
+                 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
+                 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass
+             ) AND c.contype IN ('p', 'u')
+        ), actual AS (
+            SELECT i.indrelid, i.indexrelid, i.indisprimary, i.indisunique,
+                   i.indisexclusion, i.indisvalid, i.indisready, i.indislive,
+                   i.indimmediate
+              FROM pg_catalog.pg_index AS i
+             WHERE i.indrelid IN (
+                 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
+                 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass
+             ) AND (i.indisprimary OR i.indisunique OR i.indisexclusion)
+        )
+        (SELECT * FROM esperado EXCEPT ALL SELECT * FROM actual)
+        UNION ALL (SELECT * FROM actual EXCEPT ALL SELECT * FROM esperado)
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = '000008 no adopta indices semanticos alterados';
+    END IF;
+
+    IF EXISTS (
         WITH esperado(tabla, columnas) AS (
             SELECT
                 a.attrelid, ARRAY[a.attnum]::smallint[]
@@ -415,14 +482,12 @@ BEGIN
     END IF;
 END
 $estructura_exacta$;
-
 COMMENT ON TABLE
     vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1 IS
     'vec_autorizacion:vinculacion-motivo-consulta-rrhh:v1:000008';
 COMMENT ON TABLE
     vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1 IS
     'vec_autorizacion:vinculacion-motivo-consulta-rrhh:checkpoint-v1:000008';
-
 DO $inicializar_checkpoint$
 DECLARE
     filas integer;
@@ -452,7 +517,6 @@ BEGIN
     END IF;
 END
 $inicializar_checkpoint$;
-
 CREATE OR REPLACE FUNCTION
 vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1()
 RETURNS trigger
@@ -505,71 +569,29 @@ COMMENT ON FUNCTION
 
 DO $protecciones$
 DECLARE
-    historia regclass :=
-        'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass;
-    checkpoint regclass :=
-        'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass;
     reentrada boolean := pg_catalog.current_setting(
         'vec_autorizacion.migracion_000008_reentrada'
     )::boolean;
 BEGIN
-    IF NOT reentrada AND NOT EXISTS (
-        SELECT 1 FROM pg_catalog.pg_trigger
-         WHERE tgrelid = historia
-           AND tgname = 'vinculacion_motivo_rrhh_inmutable'
-           AND NOT tgisinternal
-    ) THEN
+    IF NOT reentrada THEN
         CREATE TRIGGER vinculacion_motivo_rrhh_inmutable
-            BEFORE UPDATE OR DELETE ON
-                vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+            BEFORE UPDATE OR DELETE ON vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
             FOR EACH ROW EXECUTE FUNCTION
                 vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1();
-    END IF;
-    IF NOT reentrada AND NOT EXISTS (
-        SELECT 1 FROM pg_catalog.pg_trigger
-         WHERE tgrelid = historia
-           AND tgname = 'vinculacion_motivo_rrhh_no_truncar'
-           AND NOT tgisinternal
-    ) THEN
         CREATE TRIGGER vinculacion_motivo_rrhh_no_truncar
-            BEFORE TRUNCATE ON
-                vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
+            BEFORE TRUNCATE ON vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
             FOR EACH STATEMENT EXECUTE FUNCTION
                 vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1();
-    END IF;
-    IF NOT reentrada AND NOT EXISTS (
-        SELECT 1 FROM pg_catalog.pg_trigger
-         WHERE tgrelid = checkpoint
-           AND tgname = 'vinculacion_motivo_rrhh_checkpoint_avance'
-           AND NOT tgisinternal
-    ) THEN
         CREATE TRIGGER vinculacion_motivo_rrhh_checkpoint_avance
-            BEFORE UPDATE ON
-                vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
+            BEFORE UPDATE ON vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
             FOR EACH ROW EXECUTE FUNCTION
                 vec_autorizacion.validar_avance_vinculacion_motivo_rrhh_v1();
-    END IF;
-    IF NOT reentrada AND NOT EXISTS (
-        SELECT 1 FROM pg_catalog.pg_trigger
-         WHERE tgrelid = checkpoint
-           AND tgname = 'vinculacion_motivo_rrhh_checkpoint_inmutable'
-           AND NOT tgisinternal
-    ) THEN
         CREATE TRIGGER vinculacion_motivo_rrhh_checkpoint_inmutable
-            BEFORE INSERT OR DELETE ON
-                vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
+            BEFORE INSERT OR DELETE ON vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
             FOR EACH ROW EXECUTE FUNCTION
                 vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1();
-    END IF;
-    IF NOT reentrada AND NOT EXISTS (
-        SELECT 1 FROM pg_catalog.pg_trigger
-         WHERE tgrelid = checkpoint
-           AND tgname = 'vinculacion_motivo_rrhh_checkpoint_no_truncar'
-           AND NOT tgisinternal
-    ) THEN
         CREATE TRIGGER vinculacion_motivo_rrhh_checkpoint_no_truncar
-            BEFORE TRUNCATE ON
-                vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
+            BEFORE TRUNCATE ON vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
             FOR EACH STATEMENT EXECUTE FUNCTION
                 vec_autorizacion.bloquear_mutacion_vinculacion_motivo_rrhh_v1();
     END IF;
@@ -601,9 +623,58 @@ BEGIN
         (SELECT * FROM esperado EXCEPT ALL SELECT * FROM actual)
         UNION ALL
         (SELECT * FROM actual EXCEPT ALL SELECT * FROM esperado)
+    ) OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_trigger AS t
+         WHERE t.tgrelid IN (
+             'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
+             'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass
+         )
+           AND NOT t.tgisinternal
+           AND ROW(t.tgparentid, t.tgconstrrelid, t.tgconstrindid,
+                   t.tgconstraint, t.tgdeferrable, t.tginitdeferred,
+                   t.tgnargs, t.tgattr::text, pg_catalog.encode(t.tgargs, 'hex'),
+                   t.tgqual IS NULL, t.tgoldtable IS NULL, t.tgnewtable IS NULL)
+               IS DISTINCT FROM ROW(0::oid, 0::oid, 0::oid, 0::oid,
+                   false, false, 0, '', '', true, true, true)
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = '000008 no adopta disparadores alterados';
+    END IF;
+    IF EXISTS (
+        WITH claves AS (
+            SELECT c.oid, c.conrelid, c.confrelid, c.conindid
+              FROM pg_catalog.pg_constraint AS c
+             WHERE c.conrelid IN (
+                 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
+                 'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass
+             ) AND c.contype = 'f'
+        ), esperado AS (
+            SELECT c.oid, x.tabla, x.otra, c.conindid, x.tipo,
+                   'O', true, x.funcion, true
+              FROM claves AS c CROSS JOIN LATERAL (VALUES
+                (c.conrelid, c.confrelid, 5::smallint, 'RI_FKey_check_ins'),
+                (c.conrelid, c.confrelid, 17::smallint, 'RI_FKey_check_upd'),
+                (c.confrelid, c.conrelid, 9::smallint, 'RI_FKey_noaction_del'),
+                (c.confrelid, c.conrelid, 17::smallint, 'RI_FKey_noaction_upd')
+              ) AS x(tabla, otra, tipo, funcion)
+        ), actual AS (
+            SELECT t.tgconstraint, t.tgrelid, t.tgconstrrelid,
+                   t.tgconstrindid, t.tgtype, t.tgenabled::text,
+                   t.tgisinternal, p.proname::text,
+                   ROW(t.tgparentid, t.tgdeferrable, t.tginitdeferred,
+                       t.tgnargs, t.tgattr::text, pg_catalog.encode(t.tgargs, 'hex'),
+                       t.tgqual IS NULL, t.tgoldtable IS NULL, t.tgnewtable IS NULL)
+                   = ROW(0::oid, false, false, 0, '', '', true, true, true)
+              FROM pg_catalog.pg_trigger AS t
+              JOIN pg_catalog.pg_proc AS p ON p.oid = t.tgfoid
+             WHERE t.tgconstraint IN (SELECT oid FROM claves)
+        )
+        (SELECT * FROM esperado EXCEPT ALL SELECT * FROM actual)
+        UNION ALL (SELECT * FROM actual EXCEPT ALL SELECT * FROM esperado)
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = '000008 no adopta disparadores RI alterados';
     END IF;
 END
 $disparadores_exactos$;
