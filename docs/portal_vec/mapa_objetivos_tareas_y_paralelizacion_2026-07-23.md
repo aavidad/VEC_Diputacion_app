@@ -11,11 +11,11 @@ temporal. El detalle verificable de cada tarea está en el
 | Indicador | Estado actual |
 | --- | --- |
 | Objetivo activo | O4-05 — composición, API, web y E2E de la decisión de cobertura |
-| Camino crítico | CT `000045` fachadas → adaptador PostgreSQL Go → composición raíz → TLS/mTLS → web definitiva → E2E |
-| Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 es el siguiente cierre |
-| Procedimiento completo | 22 de 46 tareas cerradas (48 %); CT `000044` cierra el motor privado con doble `GO` |
-| Último commit verificado | `b442b02` — comprobador de fugas CT `000044` cerrado y sin cursores en `argv` |
-| Trabajo local en revisión | CT `000044` está integrado y verde, pendiente solo de publicación y CI. CT `000045` es el siguiente corte funcional. |
+| Camino crítico | Adaptador PostgreSQL Go → composición raíz → TLS/mTLS → web definitiva → E2E |
+| Primera vertical | 5 de 10 tareas cerradas (50 %); O2-06 será el siguiente cierre de esa vertical, aparcado hasta terminar O4-05 |
+| Procedimiento completo | 23 de 46 tareas cerradas (50 %); CT `000045` cierra las fachadas nominales con `GO` |
+| Último commit verificado | `02b02ed` — matriz integral CT `000045` verde sobre PostgreSQL 18.4 |
+| Trabajo local en revisión | CT `000045` está integrado y revisado; el adaptador PostgreSQL Go es el siguiente corte funcional. |
 | Bloqueo externo actual | Ninguno para programar; producción sigue sujeta a las conformidades formales |
 | Producción | No autorizada; no se usarán datos reales |
 
@@ -209,16 +209,16 @@ Estado actual:
 
 ```text
 O2: 3/7 puertas funcionales publicadas = 43 %
-Tareas verificadas del procedimiento: 22/46 = 48 %
-Tareas locales en revisión: candidatas O2-06/O5-01; O4-05 conserva 3/5 hitos
+Tareas verificadas del procedimiento: 23/46 = 50 %
+Trabajo histórico aparcado: candidatos O2-06/O5-01; O4-05 conserva 3/5 hitos
   oficiales: adaptador, HTTP, cliente, registro modular, proyecciones
   protegidas de cuadro/detalle, contrato y consumidores nominales VEC-AD-3,
   registro durable de accesos, publicación global estable, infraestructura de
   cursor, composición visual gobernada, registrador v2 CT 000039 y contrato
   tipado CT 000040, cánones Go, Recibo V2, vocabulario de seis estados de CT
-  000041, cánones SQL 000042, prueba durable 000043, corrector 000043A y motor
-  privado 000044 están verdes, pero las fachadas 000045, la raíz productiva,
-  adaptadores reales y E2E siguen abiertos
+  000041, cánones SQL 000042, prueba durable 000043, corrector 000043A, motor
+  privado 000044 y fachadas nominales 000045 están verdes, pero el adaptador
+  Go, la raíz productiva, TLS viva y E2E siguen abiertos
 Web RRHH: revisión visual local superada; O2-09 sigue abierta por O2-07/O2-10
 ```
 

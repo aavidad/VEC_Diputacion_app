@@ -11,7 +11,7 @@ Dietas y Bolsa son modulos independientes con `ModuleID`, permisos y menus
 propios; VEC solo los agrega y permite relacionarlos por empleado, expediente,
 justificante o auditoria.
 
-Fecha de corte de este estado: **26 de julio de 2026**. El repositorio es una
+Fecha de corte de este estado: **29 de julio de 2026**. El repositorio es una
 base de desarrollo y demostracion verificable; no acredita por si solo
 conformidad ENS, ENI o RGPD ni esta autorizado para tratar datos reales.
 
@@ -59,6 +59,8 @@ llamamientos.
 - [Revisión de las fronteras finales C2-D2](docs/portal_vec/revisiones/o4_05_revision_fronteras_finales_c2_d2_2026-07-26.md)
 - [Relevo del candidato CT 000039](docs/portal_vec/relevo_ct_000039_2026-07-26.md)
 - [Mapa de cableado productivo O4-05](docs/portal_vec/o4_05_mapa_cableado_productivo_2026-07-26.md)
+- [Revisión de las fachadas nominales CT-000045](docs/portal_vec/revisiones/o4_05_revision_fachadas_ct_000045_2026-07-29.md)
+- [Relevo del cierre CT-000045](docs/portal_vec/relevo_sesion_2026-07-29_cierre_ct45.md)
 - [Estado y matriz visual de las 17 pantallas de RRHH](docs/portal_vec/estado_web_contratacion_temporal_2026-07-23.md)
 - [Aislamiento modular y propagación de fallos](docs/portal_vec/aislamiento_modular_y_dependencias_2026-07-25.md)
 - [Asignación de unidad, responsable y bandeja O5-01](docs/portal_vec/o5_01_asignacion_unidad_y_bandeja_2026-07-23.md)
@@ -105,6 +107,12 @@ avance no autoriza producción ni incrementa la métrica oficial.
 El corte `6b33474` ya prueba el adaptador y el lector TCB con un LOGIN
 nominativo real sobre PostgreSQL 18.4 —incluidas las ramas confirmada, no
 observable y sin permiso—, pero aún no recorre HTTP ni la composición raíz.
+CT-000039 a CT-000045 cierran además el registro minimizado, contrato tipado,
+recibo, vocabulario de estados, prueba durable, motor privado y dos fachadas
+nominales. El candidato exacto `02b02ed` supera la matriz integral PostgreSQL
+18.4 y revisión independiente. El siguiente corte es únicamente el adaptador
+Go/PostgreSQL de `SesionConsultaRRHH`; composición raíz, TLS/mTLS, web conectada
+y E2E siguen abiertos y producción conserva `NO-GO`.
 
 O5-01 dispone ya de dominio corregido, destino y política autoritativos,
 idempotencia HMAC, PDP V3 y caso de uso probado de asignación/reasignación. Es

@@ -106,10 +106,10 @@ la vía elegida y conservar las fuentes utilizadas.
 
 Estado: O4-01 a O4-04 están cerrados. O4-05 conserva tres de cinco hitos:
 contratos HTTP/web, proyecciones protegidas, autorización, registro durable,
-cursores, prueba durable y motor privado CT-000044 están integrados y
-revisados. El camino crítico activo es CT-000045 para exponer dos fachadas
-nominales mínimas; después siguen adaptador PostgreSQL Go, composición raíz,
-TLS/mTLS viva, la misma web definitiva y el E2E completo.
+cursores, prueba durable, motor privado CT-000044 y fachadas nominales
+CT-000045 están integrados y revisados. El camino crítico activo es el
+adaptador PostgreSQL Go; después siguen composición raíz, TLS/mTLS viva, la
+misma web definitiva y el E2E completo.
 
 ### O5. Asignación, informes y fiscalización
 
@@ -169,16 +169,17 @@ Un contrato, una tabla, una pantalla o una prueba aislada no bastan.
 
 ## Próxima puerta exacta
 
-Implementar CT-000045 sobre la barrera exacta `24/8`:
+Implementar el adaptador PostgreSQL mínimo de `SesionConsultaRRHH`:
 
-- dos fachadas nominales mínimas, una de cuadro y otra de detalle;
-- acción, finalidad, audiencia, módulo y tipo de recurso constantes;
-- alcance y canon funcional estrictamente tipados, más una capacidad VEC
-  nueva;
-- ejecución `SERIALIZABLE READ WRITE`;
-- rol runtime con `EXECUTE` solo sobre las fachadas;
-- errores sin oráculo para ausente, ajeno, denegado o versión incorrecta;
-- retirada `RESTRICT`, barreras exactas y preservación de historia.
+- reutilizar sin cambios el puerto, las órdenes, los cánones y los recibos;
+- invocar las dos fachadas CT-000045 con doce entradas exactas;
+- decodificar dieciocho salidas escalares de cuadro y quince de detalle;
+- usar un LOGIN y un pool nominales exclusivos;
+- ejecutar `SERIALIZABLE READ WRITE`;
+- cancelar por contexto y cerrar los recursos en orden inverso;
+- traducir los errores sin revelar existencia o detalles internos;
+- probar contrato, cancelación, transacción, tipos, límites y fallos reales.
 
-Un productor cierra primero las firmas, roles, barreras, errores y matriz de
-pruebas. Un revisor distinto debe emitir `GO` antes de programar el paquete.
+El write-set se limita al adaptador PostgreSQL del módulo. No se modifican
+dominio, aplicación, puertos, HTTP, composición ni web en este corte. Un
+revisor distinto debe emitir `GO` antes de integrarlo.
