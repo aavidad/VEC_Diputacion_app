@@ -20,6 +20,9 @@ const (
 	MaximoCuerpoConsultaDetalleRRHHBytes = 4 * 1024
 	MaximoRespuestaConsultaRRHHBytes     = 256 * 1024
 
+	// Los esquemas identifican el contrato HTTP v1 neutral. Su OpenAPI y los
+	// catálogos i18n de cliente se publicarán en tareas posteriores; no habilitan
+	// serialización de autoridad o recibos internos.
 	esquemaConsultaCuadroRRHH  = "vec.contratacion-temporal.cuadro-rrhh.v1"
 	esquemaConsultaDetalleRRHH = "vec.contratacion-temporal.detalle-rrhh.v1"
 )
