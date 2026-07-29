@@ -163,9 +163,16 @@ V3 y el conjunto de confianza proporcionados por Sistemas.
 El primer candidato del puerto MAC, `dd97e3a`, obtuvo
 [NO-GO independiente](revisiones/o4_05_revision_puerto_mac_ct_000047macp1_nogo_2026-07-30.md)
 con P0=0, P1=1 y P2=0. Clonaba y recorría una preimagen antes de aplicar su
-límite de 32 KiB. Permanece sin integrar; la corrección debe aplicar el límite
-antes de cualquier reserva o SHA-256 y demostrarlo con una regresión de
-asignaciones.
+límite de 32 KiB. No se integró ni publicó por sí solo; solo podía incorporarse
+junto con una corrección revisada que aplicara el límite antes de cualquier
+reserva o SHA-256 y lo demostrara con una regresión de asignaciones.
+
+La corrección `cfa1bc6` cerró el hallazgo y obtuvo
+[GO independiente](revisiones/o4_05_revision_puerto_mac_ct_000047macp11_2026-07-30.md)
+con P0=P1=P2=0. Se integró en `3f63599` y `eb6fbfd`: el límite se aplica
+antes de clonar, recorrer o calcular SHA-256, y una regresión acredita cero
+asignaciones adicionales. Esto cierra el contrato del puerto, no el adaptador
+KMS/HSM ni la verificación transaccional de PostgreSQL.
 
 La revisión detectó además que el SQL actual necesita el secreto HMAC dentro
 de PostgreSQL. La
