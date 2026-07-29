@@ -76,9 +76,9 @@ BEGIN
        OR v_funcion.propietario <>
           'vec_contratacion_temporal_propietario'
        OR v_funcion.proargmodes IS DISTINCT FROM v_modos
-       OR v_funcion.proargtypes <> (
-          v_tipos[1:12]::oid[]
-       )::oidvector
+       OR pg_catalog.to_jsonb(v_funcion.proargtypes::oid[])
+          IS DISTINCT FROM
+          pg_catalog.to_jsonb(v_tipos[1:12]::oid[])
        OR v_funcion.proallargtypes::oid[] IS DISTINCT FROM v_tipos::oid[]
        OR v_funcion.proargnames IS DISTINCT FROM
           (v_entradas || v_salidas)
@@ -112,9 +112,9 @@ BEGIN
        OR v_funcion.propietario <>
           'vec_contratacion_temporal_propietario'
        OR v_funcion.proargmodes IS DISTINCT FROM v_modos
-       OR v_funcion.proargtypes <> (
-          v_tipos[1:12]::oid[]
-       )::oidvector
+       OR pg_catalog.to_jsonb(v_funcion.proargtypes::oid[])
+          IS DISTINCT FROM
+          pg_catalog.to_jsonb(v_tipos[1:12]::oid[])
        OR v_funcion.proallargtypes::oid[] IS DISTINCT FROM v_tipos::oid[]
        OR v_funcion.proargnames IS DISTINCT FROM
           (v_entradas || v_salidas)
