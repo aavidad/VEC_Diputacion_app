@@ -42,7 +42,8 @@ Cada función:
    `vec_autorizacion_motivos_rrhh_resolutor`;
 4. adquiere el advisory compartido M1.R y después los bloqueos
    `000008 → 000009 → 000010`;
-5. bloquea con `FOR SHARE` solo el checkpoint de su clase;
+5. bloquea con `FOR SHARE` primero el checkpoint global V2 y, entre los
+   checkpoints nominales, únicamente la fila de su clase;
 6. resuelve la publicación exacta apuntada por ese checkpoint;
 7. exige que no exista retirada local;
 8. cruza checkpoint, historia y evento de publicación;
@@ -59,6 +60,12 @@ La migración valida su semántica y la precisión soportada por PostgreSQL, per
 no afirma distinguir espacios, formato de zona ni decimales que el tipo haya
 normalizado. La canonicidad de transporte pertenece al adaptador Go y a su
 protocolo, antes de convertir el valor a `timestamptz`.
+
+El orden de filas `checkpoint V2 → checkpoint nominal` coincide con la
+publicación y retirada de `000009`. El primer bloqueo impide que una retirada
+V2 se adelante después de comprobar la vigencia actual; el segundo evita
+bloquear la otra clase de consulta. Ambos se conservan hasta que termine la
+transacción llamadora.
 
 ## Seguridad y ACL
 
@@ -113,7 +120,8 @@ El runner debe cubrir:
 - denegación a `PUBLIC`, fuente, registro, proyector y `LOGIN` no miembro;
 - ausencia de lectura y DML directo para el resolutor RRHH;
 - `search_path` hostil y objetos temporales homónimos;
-- carrera causal: la retirada espera a una resolución que retiene `FOR SHARE`;
+- carreras causales: las retiradas V2 y nominal esperan a una resolución que
+  retiene sus dos `FOR SHARE` ordenados;
 - dependencia SQL real que impide el `down` y conserva ambas fachadas.
 
 ## Puertas
