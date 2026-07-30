@@ -71,7 +71,7 @@ psql_archivo_como() {
     --set ON_ERROR_STOP=1 -U postgres -d "$base"
 }
 crear_tipo_base_publico() {
-  local nombre=$1
+  local nombre=$1 modo=${2:-simple}
   psql_sql <<SQL
 SET client_min_messages=warning;
 CREATE TYPE public.$nombre;
@@ -79,6 +79,27 @@ CREATE FUNCTION public.${nombre}_in(cstring) RETURNS public.$nombre
   AS 'textin' LANGUAGE internal IMMUTABLE STRICT;
 CREATE FUNCTION public.${nombre}_out(public.$nombre) RETURNS cstring
   AS 'textout' LANGUAGE internal IMMUTABLE STRICT;
+SQL
+  if [[ $modo == elemento ]]; then
+    psql_sql <<SQL
+SET client_min_messages=warning;
+CREATE FUNCTION public.${nombre}_subscript(internal) RETURNS internal
+  AS 'array_subscript_handler' LANGUAGE internal IMMUTABLE STRICT;
+CREATE TYPE public.$nombre (
+  INPUT=public.${nombre}_in,
+  OUTPUT=public.${nombre}_out,
+  INTERNALLENGTH=variable,
+  ELEMENT=int4,
+  SUBSCRIPT=public.${nombre}_subscript,
+  CATEGORY='U'
+);
+REVOKE ALL ON FUNCTION
+  public.${nombre}_in(cstring),public.${nombre}_out(public.$nombre),
+  public.${nombre}_subscript(internal)
+  FROM PUBLIC;
+SQL
+  else
+    psql_sql <<SQL
 CREATE TYPE public.$nombre (
   INPUT=public.${nombre}_in,
   OUTPUT=public.${nombre}_out,
@@ -89,15 +110,26 @@ REVOKE ALL ON FUNCTION
   public.${nombre}_in(cstring),public.${nombre}_out(public.$nombre)
   FROM PUBLIC;
 SQL
+  fi
 }
 acreditar_tipo_base_publico() {
-  local nombre=$1 principal=$2
-  [[ $(psql_valor "SELECT (t.typtype='b' AND t.typelem=0 AND t.typcategory<>'A' AND t.typacl IS NULL AND has_type_privilege('$principal',t.oid,'USAGE'))::text FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typname='$nombre'") == true ]]
+  local nombre=$1 principal=$2 modo=${3:-simple} elemento='t.typelem=0'
+  if [[ $modo == elemento ]]; then
+    elemento="t.typelem='int4'::regtype"
+  fi
+  [[ $(psql_valor "SELECT (t.typtype='b' AND $elemento AND t.typcategory='U' AND t.typacl IS NULL AND has_type_privilege('$principal',t.oid,'USAGE') AND NOT EXISTS(SELECT 1 FROM pg_type e WHERE e.oid=t.typelem AND e.typarray=t.oid))::text FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typname='$nombre'") == true ]]
 }
-revocar_y_limpiar_tipo_base() {
+acreditar_array_automatico() {
+  local nombre=$1
+  [[ $(psql_valor "SELECT (a.typtype='b' AND a.typelem=t.oid AND t.typarray=a.oid AND a.typcategory='A' AND a.typacl IS NULL AND EXISTS(SELECT 1 FROM pg_type e WHERE e.oid=a.typelem AND e.typarray=a.oid))::text FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace JOIN pg_type a ON a.oid=t.typarray WHERE n.nspname='public' AND t.typname='$nombre'") == true ]]
+}
+revocar_tipo_base() {
   local nombre=$1 principal=$2
   psql_valor "REVOKE ALL ON TYPE public.$nombre FROM PUBLIC" >/dev/null
   [[ $(psql_valor "SELECT (t.typacl IS NOT NULL AND NOT has_type_privilege('$principal',t.oid,'USAGE'))::text FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typname='$nombre'") == true ]]
+}
+limpiar_tipo_base() {
+  local nombre=$1
   psql_valor "SET client_min_messages=warning; DROP TYPE public.$nombre CASCADE" >/dev/null
 }
 exigir_fallo_up() {
@@ -361,7 +393,21 @@ acreditar_tipo_base_publico c21a_base_previa vec_c21a_operador
 exigir_fallo_up 'USAGE implícito de PUBLIC en tipo base real'
 exigir_ausencia
 acreditar_tipo_base_publico c21a_base_previa vec_c21a_operador
-revocar_y_limpiar_tipo_base c21a_base_previa vec_c21a_operador
+revocar_tipo_base c21a_base_previa vec_c21a_operador
+limpiar_tipo_base c21a_base_previa
+
+# Un tipo base real con ELEMENT tampoco es su array automático.
+crear_tipo_base_publico c21a_base_elemento_previa elemento
+acreditar_tipo_base_publico \
+  c21a_base_elemento_previa vec_c21a_operador elemento
+acreditar_array_automatico c21a_base_elemento_previa
+exigir_fallo_up 'USAGE implícito de PUBLIC en tipo base real con ELEMENT'
+exigir_ausencia
+acreditar_tipo_base_publico \
+  c21a_base_elemento_previa vec_c21a_operador elemento
+acreditar_array_automatico c21a_base_elemento_previa
+revocar_tipo_base c21a_base_elemento_previa vec_c21a_operador
+limpiar_tipo_base c21a_base_elemento_previa
 
 huella_contexto_inicial=$(huella_contexto)
 
@@ -469,7 +515,31 @@ exigir_fallo_down 'USAGE implícito de PUBLIC en tipo base real posterior'
 exigir_rol
 [[ $(psql_valor "SELECT (count(*)=1 AND bool_and(d.datname=current_database() AND a.grantor=d.datdba AND a.privilege_type='CONNECT' AND NOT a.is_grantable))::text FROM pg_database d CROSS JOIN LATERAL aclexplode(d.datacl) a WHERE a.grantee='$rol'::regrole OR a.grantor='$rol'::regrole") == true ]]
 acreditar_tipo_base_publico c21a_base_posterior "$rol"
-revocar_y_limpiar_tipo_base c21a_base_posterior "$rol"
+revocar_tipo_base c21a_base_posterior "$rol"
+limpiar_tipo_base c21a_base_posterior
+
+# El tipo base con ELEMENT bloquea; su array automático, por sí solo, no.
+crear_tipo_base_publico c21a_base_elemento_posterior elemento
+acreditar_tipo_base_publico \
+  c21a_base_elemento_posterior "$rol" elemento
+acreditar_array_automatico c21a_base_elemento_posterior
+exigir_fallo_down \
+  'USAGE implícito de PUBLIC en tipo base real posterior con ELEMENT'
+exigir_rol
+[[ $(psql_valor "SELECT (count(*)=1 AND bool_and(d.datname=current_database() AND a.grantor=d.datdba AND a.privilege_type='CONNECT' AND NOT a.is_grantable))::text FROM pg_database d CROSS JOIN LATERAL aclexplode(d.datacl) a WHERE a.grantee='$rol'::regrole OR a.grantor='$rol'::regrole") == true ]]
+acreditar_tipo_base_publico \
+  c21a_base_elemento_posterior "$rol" elemento
+acreditar_array_automatico c21a_base_elemento_posterior
+revocar_tipo_base c21a_base_elemento_posterior "$rol"
+acreditar_array_automatico c21a_base_elemento_posterior
+oid_tipo_elemento=$(psql_valor "SELECT '$rol'::regrole::oid")
+psql_archivo "$down" >/dev/null
+exigir_ausencia_oid "$oid_tipo_elemento"
+acreditar_array_automatico c21a_base_elemento_posterior
+psql_archivo "$up" >/dev/null
+exigir_rol
+exigir_aislamiento
+limpiar_tipo_base c21a_base_elemento_posterior
 
 # Un DOMAIN posterior al alta conserva typacl NULL, aunque PUBLIC recibe USAGE
 # por defecto. El down debe detectar esa autoridad efectiva y no tocar el rol.

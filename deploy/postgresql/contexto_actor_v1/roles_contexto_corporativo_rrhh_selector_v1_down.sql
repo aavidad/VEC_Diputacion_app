@@ -216,8 +216,12 @@ BEGIN
                tipo.typtype IN ('c', 'd', 'e', 'm', 'r')
                OR (
                    tipo.typtype = 'b'
-                   AND tipo.typelem = 0
-                   AND tipo.typcategory <> 'A'
+                   AND NOT EXISTS (
+                       SELECT 1
+                         FROM pg_catalog.pg_type AS elemento
+                        WHERE elemento.oid = tipo.typelem
+                          AND elemento.typarray = tipo.oid
+                   )
                )
            )
            AND acl.grantee = 0
