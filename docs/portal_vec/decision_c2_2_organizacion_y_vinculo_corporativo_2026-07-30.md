@@ -212,6 +212,34 @@ S0 se divide para no mezclar dos migraciones históricas.
 - usa drops explícitos con `RESTRICT` y rollback total;
 - acredita que A y B bloquean su retirada mientras existan.
 
+S0.2 conserva un único `down` SQL autónomo. Puede superar de forma justificada
+el objetivo de 500 líneas, pero nunca el tope duro de 800: partirlo mediante
+metacomandos `psql` impediría ejecutar sus bytes sin preprocesado desde
+`pgx.Conn.Exec`, y concatenar componentes exigiría un empaquetador inexistente.
+No se usarán `\ir`, `\if`, `\gset`, funciones temporales ni dependencias del
+directorio de trabajo.
+
+La confirmación se comunica mediante el GUC de sesión
+`vec.confirmar_retirada_acreditacion_contexto_actor_v2`, con el valor exacto
+`RETIRAR_ACREDITACION_CONTEXTO_ACTOR_V2`. El adaptador toma una conexión
+dedicada, fija el GUC, ejecuta el documento SQL literal y, ante cualquier
+error, cancela la transacción y restablece la sesión antes de devolverla. El
+propio documento vuelve a validar la confirmación dentro de su transacción.
+
+La implementación de S0.2 se separa en cuatro commits verificables:
+
+1. artefacto `down` portable y prueba de ejecución literal mediante `pgx`;
+2. runner PostgreSQL 18.4 de estructura, ACL y consumidores;
+3. runner PostgreSQL 18.4 de concurrencia, preservación y ciclos;
+4. composición de ambos runners desde `probar_integracion.sh`.
+
+El write-set queda limitado al `down`, `probar_integracion.sh`, los dos runners
+nuevos y una prueba Go de integración del adaptador ContextoActor. Los runners
+no se llaman entre sí; el script de integración es el único lanzador focal.
+El orden de bloqueo empieza por base compartida, continúa con acreditación
+exclusiva y termina con `ACCESS EXCLUSIVE` sobre control y los cinco punteros.
+Cada rechazo debe conservar una huella idéntica de catálogo y datos.
+
 VEP continúa en `NO-GO`, no tiene una instalación productiva autorizada ni
 datos reales. Por eso se permite corregir ahora los artefactos `down` de
 `000001` y `000002` antes de congelar la primera versión desplegable. No se
