@@ -138,20 +138,13 @@ COALESCE((SELECT proacl::text FROM pg_proc WHERE oid=
 'UTF8')),'hex')"
 }
 
+source deploy/postgresql/identidad_sesiones_v1/pruebas_c21b/readiness_pg18_4.sh
+
 paso "arranque aislado con $imagen"
 docker run --detach --name "$contenedor" \
   --env POSTGRES_DB="$base" --env POSTGRES_PASSWORD="$clave" \
   "$imagen" >/dev/null
-disponible=false
-for _ in $(seq 1 120); do
-  if docker exec "$contenedor" psql -XAtq -U postgres -d "$base" \
-      -c 'SELECT 1' >/dev/null 2>&1; then
-    disponible=true
-    break
-  fi
-  sleep 0.2
-done
-[[ $disponible == true ]]
+esperar_postgresql_definitivo "$contenedor" "$base" "$clave"
 [[ $(psql_valor "SELECT current_setting('server_version_num')") == 180004 ]]
 
 paso 'autoridades reales y cierre previo de PUBLIC'
@@ -726,16 +719,7 @@ exigir_uno "$autenticacion" "$sesion" 'up-down-up'
 paso 'reconexión, reinicio y estado durable'
 exigir_uno "$autenticacion" "$sesion" 'reconexión nueva'
 docker restart "$contenedor" >/dev/null
-reiniciado=false
-for _ in $(seq 1 120); do
-  if docker exec "$contenedor" psql -XAtq -U postgres -d "$base" \
-      -c 'SELECT 1' >/dev/null 2>&1; then
-    reiniciado=true
-    break
-  fi
-  sleep 0.2
-done
-[[ $reiniciado == true ]]
+esperar_postgresql_definitivo "$contenedor" "$base" "$clave"
 [[ $(psql_valor "SELECT current_setting('server_version_num')") == 180004 ]]
 exigir_uno "$autenticacion" "$sesion" 'reinicio'
 [[ $(huella_base) == "$huella_base_inicial" ]]
