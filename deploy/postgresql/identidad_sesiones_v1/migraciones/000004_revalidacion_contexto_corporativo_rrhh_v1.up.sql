@@ -1,6 +1,5 @@
 BEGIN;
 SET LOCAL search_path = pg_catalog;
-
 SELECT pg_catalog.pg_advisory_xact_lock_shared(
     pg_catalog.hashtextextended(
         'vec_contexto_actor_v1:rol-contexto-corporativo-rrhh-selector:v1',
@@ -13,7 +12,6 @@ SELECT pg_catalog.pg_advisory_xact_lock(
         0
     )
 );
-
 DO $prevalidacion$
 DECLARE
     base oid := pg_catalog.to_regprocedure(
@@ -50,6 +48,111 @@ BEGIN
           CROSS JOIN LATERAL pg_catalog.aclexplode(n.nspacl) AS a
          WHERE n.oid = 'vec_identidad_sesiones_v1'::regnamespace
            AND (a.grantee = consumidor OR a.grantor = consumidor)
+    ) OR NOT EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_roles AS r
+         WHERE r.oid = consumidor AND NOT r.rolcanlogin
+           AND NOT r.rolsuper AND NOT r.rolcreatedb
+           AND NOT r.rolcreaterole AND NOT r.rolinherit
+           AND NOT r.rolreplication AND NOT r.rolbypassrls
+           AND r.rolconnlimit = -1 AND r.rolvaliduntil IS NULL
+           AND r.rolconfig IS NULL
+    ) OR EXISTS (
+        SELECT 1 FROM pg_catalog.pg_db_role_setting
+         WHERE setrole = consumidor
+    ) OR EXISTS (
+        SELECT 1 FROM pg_catalog.pg_auth_members
+         WHERE member = consumidor OR grantor = consumidor
+    ) OR pg_catalog.pg_has_role(
+        consumidor, propietario, 'MEMBER'
+    ) OR pg_catalog.has_schema_privilege(
+        consumidor, 'vec_identidad_sesiones_v1', 'USAGE'
+    ) OR pg_catalog.has_schema_privilege(
+        consumidor, 'vec_identidad_sesiones_v1', 'CREATE'
+    ) OR EXISTS (
+        SELECT 1 FROM pg_catalog.pg_proc AS p
+         WHERE p.pronamespace =
+               'vec_identidad_sesiones_v1'::regnamespace
+           AND pg_catalog.has_function_privilege(
+               consumidor, p.oid, 'EXECUTE'
+           )
+    ) OR EXISTS (
+        SELECT 1 FROM pg_catalog.pg_class AS c
+         WHERE c.relnamespace =
+               'vec_identidad_sesiones_v1'::regnamespace
+           AND (
+               c.relkind = 'S' AND (
+                   pg_catalog.has_sequence_privilege(
+                       consumidor, c.oid, 'USAGE'
+                   ) OR pg_catalog.has_sequence_privilege(
+                       consumidor, c.oid, 'SELECT'
+                   ) OR pg_catalog.has_sequence_privilege(
+                       consumidor, c.oid, 'UPDATE'
+                   )
+               ) OR c.relkind IN ('r', 'p', 'v', 'm', 'f') AND (
+                   pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'SELECT'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'INSERT'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'UPDATE'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'DELETE'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'TRUNCATE'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'REFERENCES'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'TRIGGER'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'MAINTAIN'
+                   ) OR pg_catalog.has_any_column_privilege(
+                       consumidor, c.oid, 'SELECT'
+                   ) OR pg_catalog.has_any_column_privilege(
+                       consumidor, c.oid, 'INSERT'
+                   ) OR pg_catalog.has_any_column_privilege(
+                       consumidor, c.oid, 'UPDATE'
+                   ) OR pg_catalog.has_any_column_privilege(
+                       consumidor, c.oid, 'REFERENCES'
+                   )
+               )
+           )
+    ) OR EXISTS (
+        SELECT 1 FROM pg_catalog.pg_type AS t
+         WHERE t.typnamespace =
+               'vec_identidad_sesiones_v1'::regnamespace
+           AND NOT EXISTS (
+               SELECT 1 FROM pg_catalog.pg_type AS e
+                WHERE e.oid = t.typelem AND e.typarray = t.oid
+           )
+           AND pg_catalog.has_type_privilege(
+               consumidor, t.oid, 'USAGE'
+           )
+    ) OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_default_acl AS d
+          CROSS JOIN LATERAL
+               pg_catalog.aclexplode(d.defaclacl) AS a
+         WHERE d.defaclnamespace =
+               'vec_identidad_sesiones_v1'::regnamespace
+           AND (
+               d.defaclrole = consumidor OR a.grantor = consumidor
+               OR CASE WHEN a.grantee = 0 THEN true ELSE
+                    pg_catalog.pg_has_role(
+                        consumidor, a.grantee, 'MEMBER'
+                    )
+                  END
+           )
+    ) OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_policy AS p
+          JOIN pg_catalog.pg_class AS c ON c.oid = p.polrelid
+          CROSS JOIN LATERAL pg_catalog.unnest(p.polroles) AS r(oid)
+         WHERE c.relnamespace =
+               'vec_identidad_sesiones_v1'::regnamespace
+           AND CASE WHEN r.oid = 0 THEN true ELSE
+                 pg_catalog.pg_has_role(consumidor, r.oid, 'MEMBER')
+               END
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'alta de fachada corporativa RRHH rechazada';
@@ -130,9 +233,7 @@ BEGIN
     END IF;
 END
 $prevalidacion$;
-
 SET LOCAL ROLE vec_identidad_sesiones_v1_propietario;
-
 CREATE FUNCTION
     vec_identidad_sesiones_v1.revalidar_contexto_corporativo_rrhh_v1(
         p_autenticacion_ref text,
@@ -382,11 +483,61 @@ BEGIN ATOMIC
                   AND d.refobjid = base.oid AND d.refobjsubid = 0
                   AND d.deptype = 'n'
            )
+           AND EXISTS (
+               SELECT 1 FROM pg_catalog.pg_roles AS r
+                WHERE r.oid = i.consumidor_oid AND NOT r.rolcanlogin
+                  AND NOT r.rolsuper AND NOT r.rolcreatedb
+                  AND NOT r.rolcreaterole AND NOT r.rolinherit
+                  AND NOT r.rolreplication AND NOT r.rolbypassrls
+                  AND r.rolconnlimit = -1
+                  AND r.rolvaliduntil IS NULL AND r.rolconfig IS NULL
+           )
+           AND NOT EXISTS (
+               SELECT 1 FROM pg_catalog.pg_db_role_setting
+                WHERE setrole = i.consumidor_oid
+           )
+           AND NOT EXISTS (
+               SELECT 1 FROM pg_catalog.pg_auth_members
+                WHERE member = i.consumidor_oid
+                   OR grantor = i.consumidor_oid
+           )
            AND NOT pg_catalog.pg_has_role(
                i.consumidor_oid, i.identidad_oid, 'MEMBER'
            )
-           AND NOT pg_catalog.has_function_privilege(
-               i.consumidor_oid, base.oid, 'EXECUTE'
+           AND pg_catalog.has_schema_privilege(
+               i.consumidor_oid,
+               'vec_identidad_sesiones_v1', 'USAGE'
+           )
+           AND NOT pg_catalog.has_schema_privilege(
+               i.consumidor_oid,
+               'vec_identidad_sesiones_v1', 'CREATE'
+           )
+           AND (
+               SELECT pg_catalog.count(*) = 1
+                  AND pg_catalog.bool_and(
+                      a.grantor = i.identidad_oid
+                      AND a.grantee = i.consumidor_oid
+                      AND a.privilege_type = 'USAGE'
+                      AND NOT a.is_grantable
+                  )
+                 FROM pg_catalog.pg_namespace AS n
+                 CROSS JOIN LATERAL
+                      pg_catalog.aclexplode(n.nspacl) AS a
+                WHERE n.oid =
+                      'vec_identidad_sesiones_v1'::regnamespace
+                  AND (
+                      a.grantee = i.consumidor_oid
+                      OR a.grantor = i.consumidor_oid
+                  )
+           )
+           AND NOT EXISTS (
+               SELECT 1 FROM pg_catalog.pg_proc AS p
+                WHERE p.pronamespace =
+                      'vec_identidad_sesiones_v1'::regnamespace
+                  AND p.oid <> i.propia_oid
+                  AND pg_catalog.has_function_privilege(
+                      i.consumidor_oid, p.oid, 'EXECUTE'
+                  )
            )
            AND NOT EXISTS (
                SELECT 1
@@ -419,6 +570,65 @@ BEGIN ATOMIC
                       OR pg_catalog.has_table_privilege(
                           i.consumidor_oid, c.oid, 'MAINTAIN'
                       )
+                      OR pg_catalog.has_any_column_privilege(
+                          i.consumidor_oid, c.oid, 'SELECT'
+                      )
+                      OR pg_catalog.has_any_column_privilege(
+                          i.consumidor_oid, c.oid, 'INSERT'
+                      )
+                      OR pg_catalog.has_any_column_privilege(
+                          i.consumidor_oid, c.oid, 'UPDATE'
+                      )
+                      OR pg_catalog.has_any_column_privilege(
+                          i.consumidor_oid, c.oid, 'REFERENCES'
+                      )
+                  )
+           )
+           AND NOT EXISTS (
+               SELECT 1
+                 FROM pg_catalog.pg_class AS c
+                WHERE c.relnamespace =
+                      'vec_identidad_sesiones_v1'::regnamespace
+                  AND c.relkind = 'S'
+                  AND (
+                      pg_catalog.has_sequence_privilege(
+                          i.consumidor_oid, c.oid, 'USAGE'
+                      )
+                      OR pg_catalog.has_sequence_privilege(
+                          i.consumidor_oid, c.oid, 'SELECT'
+                      )
+                      OR pg_catalog.has_sequence_privilege(
+                          i.consumidor_oid, c.oid, 'UPDATE'
+                      )
+                  )
+           )
+           AND NOT EXISTS (
+               SELECT 1 FROM pg_catalog.pg_type AS t
+                WHERE t.typnamespace =
+                      'vec_identidad_sesiones_v1'::regnamespace
+                  AND NOT EXISTS (
+                      SELECT 1 FROM pg_catalog.pg_type AS e
+                       WHERE e.oid = t.typelem AND e.typarray = t.oid
+                  )
+                  AND pg_catalog.has_type_privilege(
+                      i.consumidor_oid, t.oid, 'USAGE'
+                  )
+           )
+           AND NOT EXISTS (
+               SELECT 1
+                 FROM pg_catalog.pg_default_acl AS d
+                 CROSS JOIN LATERAL
+                      pg_catalog.aclexplode(d.defaclacl) AS a
+                WHERE d.defaclnamespace =
+                      'vec_identidad_sesiones_v1'::regnamespace
+                  AND (
+                      d.defaclrole = i.consumidor_oid
+                      OR a.grantor = i.consumidor_oid
+                      OR CASE WHEN a.grantee = 0 THEN true ELSE
+                           pg_catalog.pg_has_role(
+                               i.consumidor_oid, a.grantee, 'MEMBER'
+                           )
+                         END
                   )
            )
            AND NOT EXISTS (
@@ -426,9 +636,15 @@ BEGIN ATOMIC
                  FROM pg_catalog.pg_policy AS politica
                  JOIN pg_catalog.pg_class AS c
                    ON c.oid = politica.polrelid
+                 CROSS JOIN LATERAL
+                      pg_catalog.unnest(politica.polroles) AS r(oid)
                 WHERE c.relnamespace =
                       'vec_identidad_sesiones_v1'::regnamespace
-                  AND i.consumidor_oid = ANY (politica.polroles)
+                  AND CASE WHEN r.oid = 0 THEN true ELSE
+                        pg_catalog.pg_has_role(
+                            i.consumidor_oid, r.oid, 'MEMBER'
+                        )
+                      END
            )
     ), resultado AS MATERIALIZED (
         SELECT r.*, pg_catalog.count(*) OVER () AS total
@@ -485,7 +701,6 @@ BEGIN ATOMIC
            r.autenticacion_valida_hasta
        );
 END;
-
 REVOKE ALL ON FUNCTION
     vec_identidad_sesiones_v1.
     revalidar_contexto_corporativo_rrhh_v1(text, text)
@@ -517,7 +732,7 @@ BEGIN
                 pg_catalog.pg_get_functiondef(propia), 'UTF8'
             )
         ), 'hex')
-    ) <> '73a6bb319a24bab619335ae550465c1d0ca43cf8b6c71ea6a03efa246ffb7e78'
+    ) <> 'e6b45360b65a0d5e58289a2ca4e63044a650fe0753d00b8beb0b8116fb56888f'
        OR NOT EXISTS (
            SELECT 1
              FROM pg_catalog.pg_proc AS p

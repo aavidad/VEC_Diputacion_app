@@ -50,7 +50,7 @@ BEGIN
                 pg_catalog.pg_get_functiondef(propia), 'UTF8'
             )
         ), 'hex')
-    ) <> '73a6bb319a24bab619335ae550465c1d0ca43cf8b6c71ea6a03efa246ffb7e78'
+    ) <> 'e6b45360b65a0d5e58289a2ca4e63044a650fe0753d00b8beb0b8116fb56888f'
        OR NOT EXISTS (
            SELECT 1
              FROM pg_catalog.pg_proc AS p
@@ -169,24 +169,90 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1
           FROM pg_catalog.pg_proc AS p
-          CROSS JOIN LATERAL pg_catalog.aclexplode(p.proacl) AS a
          WHERE p.pronamespace =
                'vec_identidad_sesiones_v1'::regnamespace
-           AND a.grantee = consumidor
+           AND pg_catalog.has_function_privilege(
+               consumidor, p.oid, 'EXECUTE'
+           )
         UNION ALL
         SELECT 1
           FROM pg_catalog.pg_class AS c
-          CROSS JOIN LATERAL pg_catalog.aclexplode(c.relacl) AS a
          WHERE c.relnamespace =
                'vec_identidad_sesiones_v1'::regnamespace
-           AND a.grantee = consumidor
+           AND (
+               c.relkind = 'S' AND (
+                   pg_catalog.has_sequence_privilege(
+                       consumidor, c.oid, 'USAGE'
+                   ) OR pg_catalog.has_sequence_privilege(
+                       consumidor, c.oid, 'SELECT'
+                   ) OR pg_catalog.has_sequence_privilege(
+                       consumidor, c.oid, 'UPDATE'
+                   )
+               ) OR c.relkind IN ('r', 'p', 'v', 'm', 'f') AND (
+                   pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'SELECT'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'INSERT'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'UPDATE'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'DELETE'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'TRUNCATE'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'REFERENCES'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'TRIGGER'
+                   ) OR pg_catalog.has_table_privilege(
+                       consumidor, c.oid, 'MAINTAIN'
+                   )
+               )
+           )
+        UNION ALL
+        SELECT 1
+          FROM pg_catalog.pg_attribute AS a
+          JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
+         WHERE c.relnamespace =
+               'vec_identidad_sesiones_v1'::regnamespace
+           AND a.attnum > 0 AND NOT a.attisdropped
+           AND (
+               pg_catalog.has_column_privilege(
+                   consumidor, c.oid, a.attnum, 'SELECT'
+               ) OR pg_catalog.has_column_privilege(
+                   consumidor, c.oid, a.attnum, 'INSERT'
+               ) OR pg_catalog.has_column_privilege(
+                   consumidor, c.oid, a.attnum, 'UPDATE'
+               ) OR pg_catalog.has_column_privilege(
+                   consumidor, c.oid, a.attnum, 'REFERENCES'
+               )
+           )
         UNION ALL
         SELECT 1
           FROM pg_catalog.pg_type AS t
-          CROSS JOIN LATERAL pg_catalog.aclexplode(t.typacl) AS a
          WHERE t.typnamespace =
                'vec_identidad_sesiones_v1'::regnamespace
-           AND a.grantee = consumidor
+           AND NOT EXISTS (
+               SELECT 1 FROM pg_catalog.pg_type AS e
+                WHERE e.oid = t.typelem AND e.typarray = t.oid
+           )
+           AND pg_catalog.has_type_privilege(
+               consumidor, t.oid, 'USAGE'
+           )
+        UNION ALL
+        SELECT 1
+          FROM pg_catalog.pg_default_acl AS d
+          CROSS JOIN LATERAL
+               pg_catalog.aclexplode(d.defaclacl) AS a
+         WHERE d.defaclnamespace =
+               'vec_identidad_sesiones_v1'::regnamespace
+           AND (
+               d.defaclrole = consumidor OR a.grantor = consumidor
+               OR CASE WHEN a.grantee = 0 THEN true ELSE
+                    pg_catalog.pg_has_role(
+                        consumidor, a.grantee, 'MEMBER'
+                    )
+                  END
+           )
     ) THEN
         REVOKE USAGE ON SCHEMA vec_identidad_sesiones_v1
             FROM vec_contexto_actor_v1_propietario;
