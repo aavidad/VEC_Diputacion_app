@@ -152,6 +152,34 @@ ALTER DEFAULT PRIVILEGES FOR ROLE vec_autorizacion_propietario
 DROP ROLE vec_motivos_rrhh_acl_hostil;
 SQL
 
+docker exec --interactive "$contenedor" psql -Xq \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+ALTER TABLE vec_autorizacion.motivo_v2_entrada
+  DROP CONSTRAINT motivo_v2_entrada_catalogo_fk;
+ALTER TABLE vec_autorizacion.motivo_v2_entrada
+  ADD CONSTRAINT motivo_v2_entrada_catalogo_fk
+  FOREIGN KEY (catalogo_id,catalogo_version)
+  REFERENCES vec_autorizacion.motivo_v2_catalogo_publicado(
+    catalogo_id,catalogo_version) ON DELETE CASCADE;
+SQL
+exigir_fallo_up 'FK V2 recompuesta con ON DELETE CASCADE'
+[[ $(psql_valor "SELECT (to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1') IS NULL)::text") == true ]]
+fk_entrada=$(psql_valor "SELECT pg_get_constraintdef(oid,true) FROM pg_constraint WHERE conrelid='vec_autorizacion.motivo_v2_entrada'::regclass AND conname='motivo_v2_entrada_catalogo_fk'")
+[[ $fk_entrada == *'ON DELETE CASCADE' ]]
+docker exec --interactive "$contenedor" psql -Xq \
+  --set ON_ERROR_STOP=1 -U postgres -d "$base" <<'SQL'
+SET ROLE vec_autorizacion_propietario;
+ALTER TABLE vec_autorizacion.motivo_v2_entrada
+  DROP CONSTRAINT motivo_v2_entrada_catalogo_fk;
+ALTER TABLE vec_autorizacion.motivo_v2_entrada
+  ADD CONSTRAINT motivo_v2_entrada_catalogo_fk
+  FOREIGN KEY (catalogo_id,catalogo_version)
+  REFERENCES vec_autorizacion.motivo_v2_catalogo_publicado(
+    catalogo_id,catalogo_version);
+SQL
+[[ $(psql_valor "SELECT pg_get_constraintdef(oid,true) FROM pg_constraint WHERE conrelid='vec_autorizacion.motivo_v2_entrada'::regclass AND conname='motivo_v2_entrada_catalogo_fk'") == 'FOREIGN KEY (catalogo_id, catalogo_version) REFERENCES vec_autorizacion.motivo_v2_catalogo_publicado(catalogo_id, catalogo_version)' ]]
+
 psql_archivo "$up" >/dev/null
 psql_archivo \
   deploy/postgresql/autorizacion/pruebas_sql/publicacion_retirada_vinculaciones_motivo_consultas_rrhh_000009.sql \

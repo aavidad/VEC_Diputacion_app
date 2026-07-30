@@ -232,7 +232,22 @@ BEGIN
                '(CURRENT_USER = ''vec_autorizacion_propietario''::name)'
        ) <> 1
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_policy
-            WHERE polrelid = v_tabla) <> 1 THEN
+            WHERE polrelid = v_tabla) <> 1
+       OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_policy
+            WHERE polrelid IN (
+              'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
+              'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass)
+              AND polname='acceso_propietario_exacto' AND polcmd='*'
+              AND polpermissive
+              AND polroles=ARRAY['vec_autorizacion_propietario'::regrole::oid]
+              AND pg_catalog.pg_get_expr(polqual,polrelid)=
+                '(CURRENT_USER = ''vec_autorizacion_propietario''::name)'
+              AND pg_catalog.pg_get_expr(polwithcheck,polrelid)=
+                '(CURRENT_USER = ''vec_autorizacion_propietario''::name)') <> 2
+       OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_policy
+            WHERE polrelid IN (
+              'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
+              'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass)) <> 2 THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = '000009 no retira una politica RLS alterada';
     END IF;
