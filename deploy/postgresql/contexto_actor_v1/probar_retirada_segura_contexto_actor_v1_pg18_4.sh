@@ -11,12 +11,12 @@ down=deploy/postgresql/contexto_actor_v1/migraciones/000001_contexto_actor_v1.do
 up=deploy/postgresql/contexto_actor_v1/migraciones/000001_contexto_actor_v1.up.sql
 down_000002=deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.down.sql
 up_000002=deploy/postgresql/contexto_actor_v1/migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.up.sql
+down_roles=deploy/postgresql/contexto_actor_v1/roles_down.sql
 
 limpiar() {
   docker rm -f "$contenedor" >/dev/null 2>&1 || true
 }
 trap limpiar EXIT INT TERM
-
 esperar_postgres() {
   local base=$1 consecutivas=0 respuesta
   for _ in $(seq 1 200); do
@@ -36,7 +36,6 @@ esperar_postgres() {
   echo "PostgreSQL 18.4 primario no quedó disponible para $base" >&2
   return 1
 }
-
 docker run --detach --rm --name "$contenedor" \
   --env POSTGRES_DB="$base_control" \
   --env POSTGRES_PASSWORD="$clave_admin" \
@@ -65,17 +64,34 @@ psql_archivo() {
     --set ON_ERROR_STOP=1 --username postgres --dbname "$base" "$@" \
     < "$raiz/$archivo"
 }
+retirar_roles() {
+  local base=$1 usuario=${2:-postgres}
+  docker exec --interactive "$contenedor" psql -X --quiet \
+    --set ON_ERROR_STOP=1 \
+    --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
+    --username "$usuario" --dbname "$base" < "$raiz/$down_roles"
+}
 
+rechazar_retirada_roles() {
+  local base=$1 descripcion=$2 estado
+  set +e
+  retirar_roles "$base" >/dev/null 2>&1
+  estado=$?
+  set -e
+  if [[ $estado -eq 0 ]]; then
+    echo "retirada de roles aceptada indebidamente: $descripcion" >&2
+    exit 1
+  fi
+}
 psql_admin() {
   local base=$1
   docker exec --interactive "$contenedor" psql -X --quiet \
     --set ON_ERROR_STOP=1 --username postgres --dbname "$base"
 }
-
 consulta() {
-  local base=$1 sql=$2
+  local base=$1 sql=$2 usuario=${3:-postgres}
   docker exec "$contenedor" psql -XAt --set ON_ERROR_STOP=1 \
-    --username postgres --dbname "$base" --command "$sql"
+    --username "$usuario" --dbname "$base" --command "$sql"
 }
 
 huella_esquema() {
@@ -594,14 +610,8 @@ psql_admin "$base_control" <<'SQL'
 ALTER ROLE ALL IN DATABASE ct95_control
   SET statement_timeout = '11s';
 SQL
-set +e
-psql_archivo "$base_control" \
-  deploy/postgresql/contexto_actor_v1/roles_down.sql \
-  --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
-  >/dev/null 2>&1
-estado_roles=$?
-set -e
-[[ $estado_roles -ne 0 ]]
+rechazar_retirada_roles "$base_control" \
+  'ajuste común específico de base'
 [[ $(consulta "$base_control" \
   "SELECT setconfig @> ARRAY['statement_timeout=11s']
      FROM pg_catalog.pg_db_role_setting
@@ -614,14 +624,8 @@ psql_admin "$base_control" <<'SQL'
 ALTER ROLE ALL IN DATABASE ct95_control RESET statement_timeout;
 ALTER ROLE vec_contexto_actor_v1_runtime CONNECTION LIMIT 13;
 SQL
-set +e
-psql_archivo "$base_control" \
-  deploy/postgresql/contexto_actor_v1/roles_down.sql \
-  --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
-  >/dev/null 2>&1
-estado_roles=$?
-set -e
-[[ $estado_roles -ne 0 ]]
+rechazar_retirada_roles "$base_control" \
+  'atributo hostil del rol runtime'
 [[ $(consulta "$base_control" \
   "SELECT rolconnlimit=13 FROM pg_catalog.pg_roles
     WHERE rolname='vec_contexto_actor_v1_runtime'") == t ]]
@@ -637,14 +641,8 @@ psql_admin "$base_roles_externa" <<'SQL'
 CREATE SCHEMA ct113_roles_propiedad
   AUTHORIZATION vec_contexto_actor_v1_runtime;
 SQL
-set +e
-psql_archivo "$base_control" \
-  deploy/postgresql/contexto_actor_v1/roles_down.sql \
-  --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
-  >/dev/null 2>&1
-estado_roles=$?
-set -e
-[[ $estado_roles -ne 0 ]]
+rechazar_retirada_roles "$base_control" \
+  'propiedad exterior nacida después del down base'
 [[ $(consulta "$base_roles_externa" \
   "SELECT pg_catalog.pg_get_userbyid(nspowner)
      FROM pg_catalog.pg_namespace
@@ -656,6 +654,10 @@ set -e
       current_database(),'CONNECT')") == t ]]
 docker exec "$contenedor" dropdb --force \
   --username postgres "$base_roles_externa"
+
+psql_admin "$base_control" <<'SQL'
+CREATE ROLE ct117_superusuario_retirada LOGIN SUPERUSER;
+SQL
 
 # Carrera final: roles_down adquiere primero pg_authid y queda detenido al
 # pedir pg_shseclabel. Un ALTER ROLE posterior debe esperar sus bloqueos y no
@@ -682,7 +684,7 @@ done
 docker exec --env PGAPPNAME=ct113_retirada_roles \
   --interactive "$contenedor" psql -Xq --set ON_ERROR_STOP=1 \
   --set confirmar_destruccion_contexto_actor_v1=DESTRUIR_CONTEXTO_ACTOR_V1 \
-  --username postgres --dbname "$base_control" \
+  --username ct117_superusuario_retirada --dbname "$base_control" \
   < "$raiz/deploy/postgresql/contexto_actor_v1/roles_down.sql" \
   >/dev/null 2>&1 &
 proceso_retirada_roles=$!
@@ -735,6 +737,7 @@ set -e
 psql_admin "$base_control" <<'SQL'
 DROP ROLE vec_contexto_actor_v1_runtime_derivado;
 DROP ROLE ct95_propietario_hostil;
+DROP ROLE ct117_superusuario_retirada;
 SQL
 
 if rg -n --ignore-case \
