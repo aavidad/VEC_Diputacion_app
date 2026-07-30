@@ -1,9 +1,7 @@
 -- Publicacion/retirada nominal; 000008 conserva publicaciones y 000009 sus eventos.
 BEGIN;
-SET LOCAL search_path=pg_catalog; SET LOCAL timezone='UTC';
-SET LOCAL default_table_access_method='heap'; SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='30s';
-SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion:migracion:vinculaciones-motivo-rrhh:000008',0));
-SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion:migracion:vinculaciones-motivo-rrhh:000009',0));
+SET LOCAL search_path=pg_catalog; SET LOCAL timezone='UTC'; SET LOCAL default_table_access_method='heap'; SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='30s';
+SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion:migracion:vinculaciones-motivo-rrhh:000008',0)),pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion:migracion:vinculaciones-motivo-rrhh:000009',0));
 SET LOCAL ROLE vec_autorizacion_propietario;
 LOCK TABLE vec_autorizacion.motivo_v2_evento_origen,
   vec_autorizacion.motivo_v2_catalogo_publicado, vec_autorizacion.motivo_v2_entrada,
@@ -56,18 +54,11 @@ BEGIN
            AND c.relrowsecurity AND c.relforcerowsecurity) <> 7
        OR EXISTS (
            SELECT 1 FROM pg_catalog.pg_inherits
-            WHERE inhrelid IN (
-              'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
-              'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass)
-               OR inhparent IN (
-              'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
-              'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass)
+            WHERE inhrelid=ANY(v_fundamentos) OR inhparent=ANY(v_fundamentos)
        )
        OR EXISTS (
            SELECT 1 FROM pg_catalog.pg_rewrite
-            WHERE ev_class IN (
-              'vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,
-              'vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass)
+            WHERE ev_class=ANY(v_fundamentos)
        )
        OR EXISTS (
            SELECT 1 FROM pg_catalog.pg_class AS c
@@ -100,62 +91,71 @@ BEGIN
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_trigger
             WHERE tgrelid=ANY(v_fundamentos[1:2])
               AND NOT tgisinternal) <> 5
-       OR (SELECT ROW(pg_catalog.count(*),pg_catalog.count(*) FILTER(WHERE c.contype='f'),
-                     pg_catalog.count(*) FILTER(WHERE c.contype='u'))
-             FROM pg_catalog.pg_constraint AS c WHERE c.conrelid=ANY(v_fundamentos)
-              AND c.conname=ANY(ARRAY[
-              'motivo_v2_evento_coordenadas_unicas','motivo_v2_catalogo_evento_fk','motivo_v2_entrada_catalogo_fk',
-              'motivo_v2_retirada_catalogo_fk','motivo_v2_retirada_evento_fk','motivo_v2_catalogo_referencia_completa_unica',
-              'vinculacion_motivo_rrhh_publicacion_completa_unica','vinculacion_motivo_rrhh_catalogo_completo_fk',
-              'vinculacion_motivo_rrhh_entrada_fk','vinculacion_motivo_rrhh_checkpoint_historia_fk']::name[])
-              AND c.convalidated AND NOT c.condeferrable AND NOT c.condeferred)
-            IS DISTINCT FROM ROW(10::bigint,7::bigint,3::bigint)
        OR EXISTS (
-           SELECT 1 FROM pg_catalog.pg_trigger AS t
-             JOIN pg_catalog.pg_constraint AS c ON c.oid=t.tgconstraint
-            WHERE c.conrelid=ANY(v_fundamentos) AND c.contype='f'
-              AND t.tgenabled<>'O')
+           WITH esperado(tabla,nombre,tipo,definicion,marca) AS (VALUES
+             ('vec_autorizacion.motivo_v2_evento_origen'::regclass,'motivo_v2_evento_coordenadas_unicas','u','UNIQUE (secuencia_origen, evento_origen_ref)',NULL::text),
+             ('vec_autorizacion.motivo_v2_catalogo_publicado'::regclass,'motivo_v2_catalogo_evento_fk','f','FOREIGN KEY (secuencia_origen, evento_origen_ref) REFERENCES vec_autorizacion.motivo_v2_evento_origen(secuencia_origen, evento_origen_ref)',NULL::text),
+             ('vec_autorizacion.motivo_v2_entrada'::regclass,'motivo_v2_entrada_catalogo_fk','f','FOREIGN KEY (catalogo_id, catalogo_version) REFERENCES vec_autorizacion.motivo_v2_catalogo_publicado(catalogo_id, catalogo_version)',NULL::text),
+             ('vec_autorizacion.motivo_v2_retirada'::regclass,'motivo_v2_retirada_catalogo_fk','f','FOREIGN KEY (catalogo_id, catalogo_version) REFERENCES vec_autorizacion.motivo_v2_catalogo_publicado(catalogo_id, catalogo_version)',NULL::text),
+             ('vec_autorizacion.motivo_v2_retirada'::regclass,'motivo_v2_retirada_evento_fk','f','FOREIGN KEY (secuencia_origen, evento_origen_ref) REFERENCES vec_autorizacion.motivo_v2_evento_origen(secuencia_origen, evento_origen_ref)',NULL::text),
+             ('vec_autorizacion.motivo_v2_catalogo_publicado'::regclass,'motivo_v2_catalogo_referencia_completa_unica','u','UNIQUE (catalogo_id, catalogo_version, catalogo_huella_publicada_sha256)','vec_autorizacion:vinculacion-motivo-consulta-rrhh:referencia-completa:v1:000008'),
+             ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,'vinculacion_motivo_rrhh_publicacion_completa_unica','u','UNIQUE (clase_consulta, publicacion_version, publicacion_ref, publicacion_huella_sha256)',NULL::text),
+             ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,'vinculacion_motivo_rrhh_catalogo_completo_fk','f','FOREIGN KEY (catalogo_id, catalogo_version, catalogo_huella_sha256) REFERENCES vec_autorizacion.motivo_v2_catalogo_publicado(catalogo_id, catalogo_version, catalogo_huella_publicada_sha256)',NULL::text),
+             ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1'::regclass,'vinculacion_motivo_rrhh_entrada_fk','f','FOREIGN KEY (catalogo_id, catalogo_version, entrada_clave) REFERENCES vec_autorizacion.motivo_v2_entrada(catalogo_id, catalogo_version, entrada_clave)',NULL::text),
+             ('vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass,'vinculacion_motivo_rrhh_checkpoint_historia_fk','f','FOREIGN KEY (clase_consulta, ultima_publicacion_version, ultima_publicacion_ref, ultima_publicacion_huella_sha256) REFERENCES vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1(clase_consulta, publicacion_version, publicacion_ref, publicacion_huella_sha256)',NULL::text)
+           ), actual AS (
+             SELECT c.conrelid,c.conname::text,c.contype::text,
+               pg_catalog.pg_get_constraintdef(c.oid,true),pg_catalog.obj_description(c.oid,'pg_constraint')
+             FROM pg_catalog.pg_constraint c JOIN esperado e ON (e.tabla,e.nombre)=(c.conrelid,c.conname)
+             WHERE c.convalidated AND NOT c.condeferrable AND NOT c.condeferred AND c.connoinherit
+           ), claves AS (
+             SELECT c.oid,c.conrelid,c.confrelid,c.conindid FROM pg_catalog.pg_constraint c
+             JOIN esperado e ON (e.tabla,e.nombre)=(c.conrelid,c.conname) WHERE e.tipo='f'
+           ), ri_esperado AS (
+             SELECT c.oid,x.tabla,x.otra,c.conindid,x.tipo,'O',true,x.funcion,true FROM claves c
+             CROSS JOIN LATERAL (VALUES (c.conrelid,c.confrelid,5::smallint,'RI_FKey_check_ins'),
+               (c.conrelid,c.confrelid,17::smallint,'RI_FKey_check_upd'),
+               (c.confrelid,c.conrelid,9::smallint,'RI_FKey_noaction_del'),
+               (c.confrelid,c.conrelid,17::smallint,'RI_FKey_noaction_upd')) x(tabla,otra,tipo,funcion)
+           ), ri_actual AS (
+             SELECT t.tgconstraint,t.tgrelid,t.tgconstrrelid,t.tgconstrindid,t.tgtype,
+               t.tgenabled::text,t.tgisinternal,p.proname::text,
+               ROW(t.tgparentid,t.tgdeferrable,t.tginitdeferred,t.tgnargs,t.tgattr::text,
+                   pg_catalog.encode(t.tgargs,'hex'),t.tgqual IS NULL,t.tgoldtable IS NULL,t.tgnewtable IS NULL)
+                 =ROW(0::oid,false,false,0,'','',true,true,true)
+             FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_proc p ON p.oid=t.tgfoid
+             WHERE t.tgconstraint=ANY(ARRAY(SELECT oid FROM claves))
+           ), diferencia AS ((SELECT * FROM esperado EXCEPT ALL SELECT * FROM actual)
+             UNION ALL (SELECT * FROM actual EXCEPT ALL SELECT * FROM esperado)),
+           diferencia_ri AS ((SELECT * FROM ri_esperado EXCEPT ALL SELECT * FROM ri_actual)
+             UNION ALL (SELECT * FROM ri_actual EXCEPT ALL SELECT * FROM ri_esperado))
+           SELECT 1 FROM diferencia UNION ALL SELECT 1 FROM diferencia_ri)
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_policy
             WHERE polrelid=ANY(v_fundamentos)
               AND polname='acceso_propietario_exacto' AND polcmd='*'
-              AND polpermissive
-              AND polroles=ARRAY[
-                  'vec_autorizacion_propietario'::regrole::oid]
-              AND pg_catalog.pg_get_expr(polqual,polrelid)=
-                  '(CURRENT_USER = ''vec_autorizacion_propietario''::name)'
-              AND pg_catalog.pg_get_expr(polwithcheck,polrelid)=
-                  '(CURRENT_USER = ''vec_autorizacion_propietario''::name)'
+              AND polpermissive AND polroles=ARRAY['vec_autorizacion_propietario'::regrole::oid]
+              AND pg_catalog.pg_get_expr(polqual,polrelid)='(CURRENT_USER = ''vec_autorizacion_propietario''::name)'
+              AND pg_catalog.pg_get_expr(polwithcheck,polrelid)='(CURRENT_USER = ''vec_autorizacion_propietario''::name)'
           ) <> 7
        OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_policy
             WHERE polrelid=ANY(v_fundamentos)) <> 7 THEN
         RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='fundamentos degradados';
     END IF;
-    SELECT pg_catalog.count(*) INTO v_presentes
-      FROM pg_catalog.pg_proc AS p
-      JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
-     WHERE n.nspname = 'vec_autorizacion'
-       AND p.proname = ANY (ARRAY[
+    SELECT pg_catalog.count(*) INTO v_presentes FROM pg_catalog.pg_proc AS p
+     WHERE p.pronamespace='vec_autorizacion'::regnamespace AND p.proname=ANY(ARRAY[
            'bloquear_mutacion_vinculacion_motivo_rrhh_evento_v1', 'validar_insercion_vinculacion_motivo_rrhh_evento_v1',
            'registrar_publicacion_vinculacion_motivo_consulta_rrhh_v1', 'registrar_retirada_vinculacion_motivo_consulta_rrhh_v1',
            'publicar_vinculacion_motivo_cuadro_rrhh_v1', 'publicar_vinculacion_motivo_detalle_rrhh_v1',
            'retirar_vinculacion_motivo_cuadro_rrhh_v1', 'retirar_vinculacion_motivo_detalle_rrhh_v1'
        ]::name[]);
-    IF pg_catalog.to_regclass(
-           'vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1'
-       ) IS NOT NULL
-       OR v_presentes <> 0 THEN
+    IF pg_catalog.to_regclass('vec_autorizacion.vinculacion_motivo_consulta_rrhh_evento_v1')
+       IS NOT NULL OR v_presentes<>0 THEN
         RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='000009 no adopta objetos';
     END IF;
-    IF (EXISTS (
-            SELECT 1
-              FROM vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1
-        )
-        OR (SELECT pg_catalog.count(*)
-              FROM vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
-             WHERE ultima_publicacion_version = 0
-               AND ultima_publicacion_ref IS NULL
-               AND ultima_publicacion_huella_sha256 IS NULL) <> 2
-    ) THEN
+    IF EXISTS (SELECT 1 FROM vec_autorizacion.vinculacion_motivo_consulta_rrhh_v1)
+       OR (SELECT pg_catalog.count(*) FROM vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1
+            WHERE ultima_publicacion_version=0 AND ultima_publicacion_ref IS NULL
+              AND ultima_publicacion_huella_sha256 IS NULL)<>2 THEN
         RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='evidencia previa sin prueba 000009';
     END IF;
 END $prevalidacion$;
