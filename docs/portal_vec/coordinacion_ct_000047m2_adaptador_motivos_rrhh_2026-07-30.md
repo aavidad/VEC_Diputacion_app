@@ -3,8 +3,9 @@
 Fecha: 30 de julio de 2026.
 
 Estado: activo. M1.3/`000010` quedó integrado en `281f52b`. M2.1 quedó
-integrada hasta `b385f5c`, con PostgreSQL 18.4 real y doble revisión
-independiente P0=P1=0. La minitarea vigente es M2.2.
+integrada hasta `c6c0028`, con PostgreSQL 18.4 real y doble revisión
+independiente P0=P1=0. M2.2 quedó integrada en `45f985c`, con revisión
+funcional y de seguridad final `P0=P1=P2=0`. La minitarea vigente es M2.3.
 
 ## Resultado
 
@@ -55,7 +56,8 @@ El pool:
 
 ### M2.2 — adaptador nominal
 
-Estado: **siguiente minitarea**.
+Estado: **cerrada**. Véase la
+[revisión final](revisiones/o4_05_revision_adaptador_motivos_ct_000047m22_2026-07-30.md).
 
 ```text
 internal/modules/contrataciontemporal/adapters/postgres/
@@ -89,6 +91,8 @@ No se usa `READ ONLY`: M1.3 necesita bloqueos `FOR SHARE`. La ausencia de DML
 se garantiza mediante ACL, no mediante una opción incompatible.
 
 ### M2.3 — PostgreSQL real
+
+Estado: **siguiente minitarea**.
 
 ```text
 internal/modules/contrataciontemporal/adapters/postgres/
