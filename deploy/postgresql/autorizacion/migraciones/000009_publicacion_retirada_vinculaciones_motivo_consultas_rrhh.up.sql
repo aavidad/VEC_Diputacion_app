@@ -1,7 +1,7 @@
 -- Publicacion/retirada nominal; 000008 conserva publicaciones y 000009 sus eventos.
 BEGIN;
 SET LOCAL search_path=pg_catalog; SET LOCAL timezone='UTC'; SET LOCAL default_table_access_method='heap'; SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='30s';
-SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion:migracion:vinculaciones-motivo-rrhh:000008',0)),pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion:migracion:vinculaciones-motivo-rrhh:000009',0));
+SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion:migracion:vinculaciones-motivo-rrhh:000008',0)); SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_autorizacion:migracion:vinculaciones-motivo-rrhh:000009',0));
 SET LOCAL ROLE vec_autorizacion_propietario;
 LOCK TABLE vec_autorizacion.motivo_v2_evento_origen,
   vec_autorizacion.motivo_v2_catalogo_publicado, vec_autorizacion.motivo_v2_entrada,
