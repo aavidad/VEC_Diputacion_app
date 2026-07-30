@@ -173,7 +173,7 @@ total. Nunca selecciona una alternativa.
 | ID | Responsabilidad única | Dependencia |
 | --- | --- | --- |
 | C2.1 | Rol nominal y fachada de Identidad para ContextoActor | C1 |
-| C2.2 | Historia y puntero del vínculo corporativo | C2.1 |
+| C2.2 | Retirada segura, organización y vínculo corporativo | C2.1b |
 | C2.3 | Publicación y revocación gobernadas | C2.2 |
 | C2.4 | Recibo 1:1 y función privada selección+registro | C2.2 |
 | C2.5 | Fachada pública ContextoActor y reconciliación | C2.4 |
@@ -184,11 +184,18 @@ total. Nunca selecciona una alternativa.
 | C2.10 | Integración exacta en efecto CT | C2.8 |
 | C2.11 | E2E PostgreSQL 18.4 y revisión independiente | C2.7–C2.10 |
 
+El inventario previo de C2.2 demostró que organización, historia, puntero,
+generación común y retirada segura no caben en una sola minitarea. La
+[decisión específica C2.2](decision_c2_2_organizacion_y_vinculo_corporativo_2026-07-30.md)
+la divide en D0, S0.1, S0.2, A y B, mantiene la organización como entidad
+versionada de primera clase y reserva `000003` y `000004` para sus dos
+migraciones. C2.3 comenzará en `000005`.
+
 Reservas iniciales:
 
 ```text
 identidad_sesiones_v1/migraciones/000004
-contexto_actor_v1/migraciones/000003..000005
+contexto_actor_v1/migraciones/000003..000008
 autorizacion/migraciones/000011
 contratacion_temporal/migraciones/000046
 ```
