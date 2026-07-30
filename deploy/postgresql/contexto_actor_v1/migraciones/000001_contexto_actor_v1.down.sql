@@ -112,7 +112,7 @@ DO $manifiesto$
 DECLARE
     observado text;
     esperado constant text :=
-        '0184a061a46a5bcb379450ea9d5ab9e69393bc487684f7df0ab47c86f0fe4bef';
+        'd414bd2d36f2c10e609ed63cb48eb5d3da56d6ff7c58659af06d6f065abe13b8';
 BEGIN
     WITH elementos AS (
         SELECT format(
@@ -158,7 +158,12 @@ BEGIN
                    CASE WHEN r.rolpassword IS NULL
                         THEN 'credencial_ausente'
                         ELSE 'credencial_presente' END,
-                   coalesce(r.rolconfig::text, ''),
+                   coalesce((
+                       SELECT s.setconfig::text
+                         FROM pg_catalog.pg_db_role_setting AS s
+                        WHERE s.setrole = r.oid
+                          AND s.setdatabase = 0
+                   ), ''),
                    coalesce(
                        pg_catalog.shobj_description(
                            r.oid, 'pg_catalog.pg_authid'
@@ -166,12 +171,69 @@ BEGIN
                        ''
                    )
                )
-          FROM pg_catalog.pg_roles AS r
+          FROM pg_catalog.pg_authid AS r
          WHERE r.rolname IN (
              'vec_contexto_actor_v1_propietario',
              'vec_contexto_actor_v1_migrador',
              'vec_contexto_actor_v1_runtime'
          )
+        UNION ALL
+        SELECT format(
+                   'ajuste_rol_base|%s|%s|%s',
+                   CASE WHEN s.setrole = 0 THEN '<todos>'
+                        ELSE pg_catalog.pg_get_userbyid(s.setrole) END,
+                   CASE WHEN s.setdatabase = 0 THEN '<todas>'
+                        WHEN b.datname = current_database() THEN '<base_actual>'
+                        ELSE coalesce(b.datname, '<base_ausente>') END,
+                   s.setconfig::text
+               )
+          FROM pg_catalog.pg_db_role_setting AS s
+          LEFT JOIN pg_catalog.pg_database AS b
+            ON b.oid = s.setdatabase
+         WHERE s.setrole = 0
+            OR s.setrole IN (
+               'vec_contexto_actor_v1_propietario'::regrole,
+               'vec_contexto_actor_v1_migrador'::regrole,
+               'vec_contexto_actor_v1_runtime'::regrole
+           )
+        UNION ALL
+        SELECT format(
+                   'dependencia_rol|%s|%s|%s|%s|%s',
+                   CASE WHEN d.dbid = 0 THEN '<compartido>'
+                        WHEN b.datname = current_database() THEN '<base_actual>'
+                        ELSE coalesce(b.datname, '<base_ausente>') END,
+                   d.classid::regclass::text, d.deptype,
+                   pg_catalog.pg_get_userbyid(d.refobjid),
+                   CASE
+                     WHEN d.dbid NOT IN (
+                         0, (SELECT oid FROM pg_catalog.pg_database
+                              WHERE datname = current_database())
+                     ) THEN '<objeto_en_otra_base>'
+                     WHEN d.classid = 'pg_catalog.pg_database'::regclass
+                      AND d.objid = (
+                          SELECT oid FROM pg_catalog.pg_database
+                           WHERE datname = current_database()
+                      ) THEN '<base_actual>'
+                     ELSE (
+                         SELECT format(
+                                    '%s|%s|%s', i.type,
+                                    i.object_names::text,
+                                    i.object_args::text
+                                )
+                           FROM pg_catalog.pg_identify_object_as_address(
+                               d.classid, d.objid, d.objsubid
+                           ) AS i
+                     )
+                   END
+               )
+          FROM pg_catalog.pg_shdepend AS d
+          LEFT JOIN pg_catalog.pg_database AS b ON b.oid = d.dbid
+         WHERE d.refclassid = 'pg_catalog.pg_authid'::regclass
+           AND d.refobjid IN (
+               'vec_contexto_actor_v1_propietario'::regrole,
+               'vec_contexto_actor_v1_migrador'::regrole,
+               'vec_contexto_actor_v1_runtime'::regrole
+           )
         UNION ALL
         SELECT format(
                    'membresia|%s|%s|%s|%s|%s',
@@ -455,6 +517,10 @@ BEGIN
                     WHERE c.relnamespace =
                           'vec_contexto_actor_v1'::regnamespace
                )
+        UNION ALL
+        SELECT format('publicacion_global|%s', p.pubname)
+          FROM pg_catalog.pg_publication AS p
+         WHERE p.puballtables
         UNION ALL
         SELECT format(
                    'publicacion_rel|%s|%s|%s|%s|%s',
