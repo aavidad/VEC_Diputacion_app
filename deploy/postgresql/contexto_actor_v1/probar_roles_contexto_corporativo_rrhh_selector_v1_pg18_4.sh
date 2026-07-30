@@ -70,6 +70,36 @@ psql_archivo_como() {
   } | docker exec --interactive "$contenedor" psql -Xq \
     --set ON_ERROR_STOP=1 -U postgres -d "$base"
 }
+crear_tipo_base_publico() {
+  local nombre=$1
+  psql_sql <<SQL
+SET client_min_messages=warning;
+CREATE TYPE public.$nombre;
+CREATE FUNCTION public.${nombre}_in(cstring) RETURNS public.$nombre
+  AS 'textin' LANGUAGE internal IMMUTABLE STRICT;
+CREATE FUNCTION public.${nombre}_out(public.$nombre) RETURNS cstring
+  AS 'textout' LANGUAGE internal IMMUTABLE STRICT;
+CREATE TYPE public.$nombre (
+  INPUT=public.${nombre}_in,
+  OUTPUT=public.${nombre}_out,
+  INTERNALLENGTH=variable,
+  CATEGORY='U'
+);
+REVOKE ALL ON FUNCTION
+  public.${nombre}_in(cstring),public.${nombre}_out(public.$nombre)
+  FROM PUBLIC;
+SQL
+}
+acreditar_tipo_base_publico() {
+  local nombre=$1 principal=$2
+  [[ $(psql_valor "SELECT (t.typtype='b' AND t.typelem=0 AND t.typcategory<>'A' AND t.typacl IS NULL AND has_type_privilege('$principal',t.oid,'USAGE'))::text FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typname='$nombre'") == true ]]
+}
+revocar_y_limpiar_tipo_base() {
+  local nombre=$1 principal=$2
+  psql_valor "REVOKE ALL ON TYPE public.$nombre FROM PUBLIC" >/dev/null
+  [[ $(psql_valor "SELECT (t.typacl IS NOT NULL AND NOT has_type_privilege('$principal',t.oid,'USAGE'))::text FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typname='$nombre'") == true ]]
+  psql_valor "SET client_min_messages=warning; DROP TYPE public.$nombre CASCADE" >/dev/null
+}
 exigir_fallo_up() {
   local caso=$1
   if psql_archivo "$up" >"$salidas/fallo_up" 2>&1; then
@@ -324,6 +354,15 @@ do
   psql_archivo "$archivo" >/dev/null
 done
 psql_valor "CREATE ROLE vec_c21a_operador NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS" >/dev/null
+
+# Un tipo base real anterior al alta tiene USAGE de PUBLIC con typacl NULL.
+crear_tipo_base_publico c21a_base_previa
+acreditar_tipo_base_publico c21a_base_previa vec_c21a_operador
+exigir_fallo_up 'USAGE implícito de PUBLIC en tipo base real'
+exigir_ausencia
+acreditar_tipo_base_publico c21a_base_previa vec_c21a_operador
+revocar_y_limpiar_tipo_base c21a_base_previa vec_c21a_operador
+
 huella_contexto_inicial=$(huella_contexto)
 
 # Ejecutor no superusuario, topologia base degradada y PUBLIC hostil.
@@ -422,6 +461,15 @@ psql_valor "ALTER ROLE $rol RESET application_name" >/dev/null
 psql_valor "ALTER ROLE $rol IN DATABASE $base SET application_name='hostil'" >/dev/null
 exigir_fallo_down 'ajuste por base'
 psql_valor "ALTER ROLE $rol IN DATABASE $base RESET application_name" >/dev/null
+
+# Un tipo base real posterior al alta debe impedir la retirada completa.
+crear_tipo_base_publico c21a_base_posterior
+acreditar_tipo_base_publico c21a_base_posterior "$rol"
+exigir_fallo_down 'USAGE implícito de PUBLIC en tipo base real posterior'
+exigir_rol
+[[ $(psql_valor "SELECT (count(*)=1 AND bool_and(d.datname=current_database() AND a.grantor=d.datdba AND a.privilege_type='CONNECT' AND NOT a.is_grantable))::text FROM pg_database d CROSS JOIN LATERAL aclexplode(d.datacl) a WHERE a.grantee='$rol'::regrole OR a.grantor='$rol'::regrole") == true ]]
+acreditar_tipo_base_publico c21a_base_posterior "$rol"
+revocar_y_limpiar_tipo_base c21a_base_posterior "$rol"
 
 # Un DOMAIN posterior al alta conserva typacl NULL, aunque PUBLIC recibe USAGE
 # por defecto. El down debe detectar esa autoridad efectiva y no tocar el rol.

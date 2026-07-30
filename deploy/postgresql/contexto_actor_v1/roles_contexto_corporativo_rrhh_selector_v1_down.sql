@@ -212,7 +212,14 @@ BEGIN
           ) AS acl
          WHERE espacio.nspname !~ '^pg_'
            AND espacio.nspname <> 'information_schema'
-           AND tipo.typtype IN ('c', 'd', 'e', 'm', 'r')
+           AND (
+               tipo.typtype IN ('c', 'd', 'e', 'm', 'r')
+               OR (
+                   tipo.typtype = 'b'
+                   AND tipo.typelem = 0
+                   AND tipo.typcategory <> 'A'
+               )
+           )
            AND acl.grantee = 0
     ) OR EXISTS (
         SELECT 1
